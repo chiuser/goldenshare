@@ -1,0 +1,405 @@
+"""LLD 22.10 read-only preflight; operator must obtain the stated read approval.
+
+Prepare/review only until that approval is recorded.  This script never opens a
+Dagster instance, launches a job, or writes Lake/DB business data.  Its only
+persistent output is the small JSON report below; the existing DuckDB resource
+retains its normal managed temporary directory/settings without new limits.
+"""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import sys
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
+from orchestrator.defs.qfq_nineturn import (
+    _bounded_candidate_codes,
+    _nineturn_file_identity,
+    build_gold_stk_mins_qfq_nineturn_select_sql,
+)
+from orchestrator.defs.resources import DuckDBResource
+
+REPO = Path("/Users/congming/github/goldenshare")
+BASE = REPO / "lake_console/reports/datasets_recovery_20261022_20261024"
+OUT = BASE / "nineturn_recovery_20261026"
+PREFLIGHT = OUT / "metadata-preflight.json"
+OLD_MANIFEST = BASE / "macd_recovery_20261025/stat-manifest.json"
+REPORT = OUT / "seed-candidates-audit.json"
+ROOT = Path("/Volumes/datasource/data_lake")
+DAY = "2026-10-22"
+PRIOR = "2026-10-21"
+FREQS = (30, 60, 90, 120)
+EXPECTED_CODE_COUNT = 26
+EXPECTED_HISTORY_FILES = 1104
+EXPECTED_HISTORY_BYTES = 45_833_640
+COMPARE_FIELDS = (
+    "trade_date",
+    "trade_time",
+    "up_count",
+    "down_count",
+    "nine_up_turn",
+    "nine_down_turn",
+)
+
+
+def now() -> str:
+    return datetime.now(ZoneInfo("Asia/Shanghai")).isoformat()
+
+
+def save(report: dict) -> None:
+    report["updated_at"] = now()
+    # Existing report directory only; no directory creation or formal write.
+    REPORT.write_text(json.dumps(report, ensure_ascii=False, indent=2, default=str) + "\n")
+
+
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise ValueError(message)
+
+
+def safe_code(value: str) -> bool:
+    return (
+        isinstance(value, str)
+        and bool(value)
+        and value == value.strip()
+        and not any(character in value for character in "/\\*?[]")
+    )
+
+
+def source_coordinates(path: Path, freq: int) -> tuple[str, int]:
+    source_root = ROOT / "gold/quote/stk_mins_qfq" / f"freq={freq}"
+    relative = path.relative_to(source_root)
+    require(len(relative.parts) == 3, "Unexpected QFQ source path shape.")
+    code_part, year_part, leaf = relative.parts
+    require(code_part.startswith("ts_code="), "QFQ code path is missing.")
+    require(year_part.startswith("year="), "QFQ year path is missing.")
+    code = code_part.removeprefix("ts_code=")
+    year_text = year_part.removeprefix("year=")
+    require(safe_code(code), "Unsafe QFQ code in path.")
+    require(len(year_text) == 4 and year_text.isdecimal(), "Invalid QFQ year path.")
+    require(leaf == "part-000.parquet", "Unexpected QFQ file name.")
+    return code, int(year_text)
+
+
+def snapshot(paths: tuple[Path, ...]) -> dict[str, list[int]]:
+    require(len(set(paths)) == len(paths), "Duplicate path in approved input set.")
+    return {str(path): list(_nineturn_file_identity(path)) for path in paths}
+
+
+def summary(entries: dict[str, list[int]]) -> dict:
+    digest = hashlib.sha256()
+    # Exactly the serialization used by metadata-preflight.py; this is a hash
+    # of path/stat metadata, not a Parquet content hash.
+    for path, identity in sorted(entries.items()):
+        digest.update(json.dumps([path, identity], separators=(",", ":")).encode())
+    return {
+        "files": len(entries),
+        "bytes": sum(identity[2] for identity in entries.values()),
+        "identity_sha256": digest.hexdigest(),
+    }
+
+
+def verify_group(paths: tuple[Path, ...], expected: dict) -> dict:
+    actual = summary(snapshot(paths))
+    require(expected.get("missing", 0) == 0, "Preflight input group had missing files.")
+    for key in ("files", "bytes", "identity_sha256"):
+        require(actual[key] == expected[key], f"Input metadata changed: {key}.")
+    return actual
+
+
+def current_normal_paths(freq: int, year: int) -> tuple[Path, ...]:
+    root = ROOT / "gold/quote/stk_mins_qfq" / f"freq={freq}"
+    return tuple(sorted(root.glob(f"ts_code=*/year={year}/part-000.parquet")))
+
+
+def compare_sql(paths: tuple[Path, ...], seed: Path, freq: int, codes: tuple[str, ...]) -> str:
+    # Reuse the original full-history formula.  The 21 October filter is outside
+    # that query, after its LAG/count calculation; never clip its price inputs.
+    full_history = build_gold_stk_mins_qfq_nineturn_select_sql(
+        source_paths=paths, freq=freq, stock_codes=codes
+    )
+    code_values = ", ".join(f"({duckdb_string(code)})" for code in codes)
+    code_filter = ", ".join(duckdb_string(code) for code in codes)
+    columns = ", ".join(COMPARE_FIELDS)
+    output_columns = ",\n      ".join(
+        f"{side}.{column} AS {side}_{column}"
+        for side in ("expected", "seed")
+        for column in COMPARE_FIELDS
+    )
+    return f"""
+    WITH expected AS (
+      SELECT ts_code, {columns}
+      FROM ({full_history})
+      WHERE trade_date = DATE {duckdb_string(PRIOR)}
+      QUALIFY row_number() OVER (PARTITION BY ts_code ORDER BY trade_time DESC) = 1
+    ), seed AS (
+      SELECT CAST(ts_code AS VARCHAR) AS ts_code,
+        CAST(trade_date AS DATE) AS trade_date,
+        CAST(trade_time AS TIMESTAMP) AS trade_time,
+        CAST(up_count AS INTEGER) AS up_count,
+        CAST(down_count AS INTEGER) AS down_count,
+        CAST(nine_up_turn AS VARCHAR) AS nine_up_turn,
+        CAST(nine_down_turn AS VARCHAR) AS nine_down_turn
+      FROM {read_parquet(seed, hive_partitioning=False)}
+      WHERE CAST(freq AS INTEGER) = {freq}
+        AND CAST(trade_date AS DATE) = DATE {duckdb_string(PRIOR)}
+        AND CAST(ts_code AS VARCHAR) IN ({code_filter})
+      QUALIFY row_number() OVER (
+        PARTITION BY ts_code ORDER BY CAST(trade_time AS TIMESTAMP) DESC
+      ) = 1
+    ), codes AS (
+      SELECT ts_code::VARCHAR AS ts_code
+      FROM (VALUES {code_values}) AS approved_codes(ts_code)
+    )
+    SELECT codes.ts_code,
+      {output_columns}
+    FROM codes
+    LEFT JOIN expected USING (ts_code)
+    LEFT JOIN seed USING (ts_code)
+    ORDER BY codes.ts_code
+    """
+
+
+def main() -> int:
+    report = {
+        "started_at": now(),
+        "date": DAY,
+        "prior_date": PRIOR,
+        "phase": "scope_validation",
+        "status": "running",
+        "passed": False,
+        "formal_writes": 0,
+        "dagster_instance_reads": 0,
+        "jobs_launched": 0,
+        "price_values_exported": 0,
+        "parquet_content_sha_computations": 0,
+        "seed_comparisons": {},
+        "candidate_groups": {},
+        "metadata_guards": [],
+        "history_scope_outside_approval": [],
+    }
+    try:
+        preflight_bytes = PREFLIGHT.read_bytes()
+        preflight = json.loads(preflight_bytes)
+        old_manifest = json.loads(OLD_MANIFEST.read_text())["groups"]
+        require(preflight["passed"] is True and preflight["date"] == DAY, "Invalid preflight.")
+        require(preflight["previous_registered_day"] == PRIOR, "Prior partition changed in scope.")
+        codes = tuple(preflight["codes"])
+        require(len(codes) == EXPECTED_CODE_COUNT, "Expected exactly the approved 26 codes.")
+        require(codes == tuple(sorted(set(codes))) and all(map(safe_code, codes)), "Invalid code list.")
+        require(codes == tuple(preflight["factor_status"]["repair_required_codes"]), "Factor scope differs.")
+        require(sum(x["files"] for x in preflight["seed26_source"].values()) == EXPECTED_HISTORY_FILES,
+                "Approved history file count differs.")
+        require(sum(x["bytes"] for x in preflight["seed26_source"].values()) == EXPECTED_HISTORY_BYTES,
+                "Approved history byte count differs.")
+
+        normal_paths: dict[int, tuple[Path, ...]] = {}
+        normal_by_year: dict[tuple[int, int], tuple[Path, ...]] = {}
+        history_paths: dict[int, tuple[Path, ...]] = {}
+        seeds: dict[int, Path] = {}
+        for freq in FREQS:
+            for year in (2025, 2026):
+                key = f"daily_source_{freq}_{year}"
+                expected_group = preflight["source_groups"][key]
+                require(expected_group["matches_existing_evidence"] is True, "Old manifest not verified.")
+                paths = tuple(sorted(Path(path) for path in old_manifest[key]))
+                require(summary(old_manifest[key]) == {
+                    field: expected_group[field] for field in ("files", "bytes", "identity_sha256")
+                }, "Archived two-year manifest does not match preflight hash.")
+                for path in paths:
+                    require(source_coordinates(path, freq)[1] == year, "Normal source year differs.")
+                normal_by_year[freq, year] = paths
+            normal_paths[freq] = tuple(sorted(
+                normal_by_year[freq, 2025] + normal_by_year[freq, 2026]
+            ))
+            paths = tuple(Path(path) for path in preflight["seed26_source"][str(freq)]["paths"])
+            for path in paths:
+                code, year = source_coordinates(path, freq)
+                require(code in codes and 2014 <= year <= 2026, "Unapproved seed history input.")
+            require(len(set(paths)) == len(paths), "Duplicate seed history path.")
+            history_paths[freq] = paths
+            seed = Path(preflight["seed_groups"][str(freq)]["path"])
+            require(seed == ROOT / "gold/indicator/stk_mins_qfq_nineturn" / f"freq={freq}"
+                    / f"trade_date={PRIOR}" / "part-000.parquet", "Unexpected seed path.")
+            seeds[freq] = seed
+
+        def guard(freq: int, *, normal: bool, history: bool) -> None:
+            verified = {"phase": report["phase"], "freq": freq,
+                        "seed_identity_matches_preflight": True, "normal_groups": {}}
+            seed_identity = list(_nineturn_file_identity(seeds[freq]))
+            require(seed_identity == preflight["seed_groups"][str(freq)]["identity"], "Seed metadata changed.")
+            if normal:
+                for year in (2025, 2026):
+                    paths = normal_by_year[freq, year]
+                    require(current_normal_paths(freq, year) == paths, "Normal source file set changed.")
+                    verified["normal_groups"][str(year)] = verify_group(
+                        paths, preflight["source_groups"][f"daily_source_{freq}_{year}"]
+                    )
+            if history:
+                # Detect newly appearing files inside the approved code/year range
+                # by metadata enumeration, before reading any price input.
+                source_root = ROOT / "gold/quote/stk_mins_qfq" / f"freq={freq}"
+                current = tuple(sorted(
+                    path
+                    for code in codes
+                    for path in (source_root / f"ts_code={code}").glob("year=*/part-000.parquet")
+                ))
+                require(set(current) == set(history_paths[freq]), "26-code history file set changed.")
+                verified["seed26_history"] = verify_group(
+                    history_paths[freq], preflight["seed26_source"][str(freq)]
+                )
+            verified["checked_at"] = now()
+            report["metadata_guards"].append(verified)
+
+        report["scope"] = {
+            "metadata_preflight": str(PREFLIGHT),
+            "metadata_preflight_sha256": hashlib.sha256(preflight_bytes).hexdigest(),
+            "codes": list(codes),
+            "seed_history_files": EXPECTED_HISTORY_FILES,
+            "seed_history_bytes": EXPECTED_HISTORY_BYTES,
+            "normal_files": sum(x["files"] for x in preflight["source_groups"].values()),
+            "normal_bytes": sum(x["bytes"] for x in preflight["source_groups"].values()),
+            "seed_files": len(seeds),
+            "seed_bytes": sum(preflight["seed_groups"][str(f)]["identity"][2] for f in FREQS),
+            "full_history_source_fields": ["ts_code", "freq", "trade_date", "trade_time", "close"],
+            "candidate_source_fields": ["ts_code", "freq", "trade_date"],
+            "seed_comparison_fields": ["ts_code", "freq", *COMPARE_FIELDS],
+            "normal_candidate_seed_fields": ["ts_code", "freq", "trade_time", "up_count", "down_count"],
+            "max_comparison_results": EXPECTED_CODE_COUNT * len(FREQS),
+            "history_price_reads_outside_26": 0,
+            "full_planner_calls": 0,
+            "fallback_history_queries": 0,
+            "duckdb_configuration": "existing DuckDBResource.connect(), unchanged managed settings",
+            "budget_note": "File-set entrance estimates are not measured physical device I/O.",
+        }
+        save(report)
+
+        # One resource connection; no custom memory/thread/temp limits, no timeout,
+        # performance sample, cancellation threshold, or automatic retry.
+        with DuckDBResource().connect() as connection:
+            for freq in FREQS:
+                report["phase"] = f"seed_comparison_{freq}"
+                save(report)
+                guard(freq, normal=False, history=True)
+                rows = connection.execute(
+                    compare_sql(history_paths[freq], seeds[freq], freq, codes)
+                ).fetchall()
+                guard(freq, normal=False, history=True)
+                require(len(rows) == EXPECTED_CODE_COUNT, "Unexpected seed comparison result count.")
+                comparisons = []
+                for row in rows:
+                    expected = dict(zip(COMPARE_FIELDS, row[1:7], strict=True))
+                    seed = dict(zip(COMPARE_FIELDS, row[7:13], strict=True))
+                    both_absent = expected["trade_time"] is None and seed["trade_time"] is None
+                    equal = expected == seed
+                    comparisons.append({
+                        "ts_code": row[0],
+                        "matches": equal,
+                        "both_absent_on_prior_date": both_absent,
+                        "expected": expected,
+                        "seed": seed,
+                    })
+                mismatches = [item for item in comparisons if not item["matches"]]
+                report["seed_comparisons"][str(freq)] = {
+                    "result_count": len(comparisons),
+                    "matches": len(comparisons) - len(mismatches),
+                    "both_absent_on_prior_date": sum(item["both_absent_on_prior_date"] for item in comparisons),
+                    "mismatch_count": len(mismatches),
+                    "results": comparisons,
+                }
+                save(report)
+                if mismatches:
+                    report["status"] = "stopped_seed_mismatch"
+                    report["phase"] = "stopped_before_candidate_queries"
+                    save(report)
+                    return 2
+
+            for freq in FREQS:
+                report["phase"] = f"candidate_identity_keys_{freq}"
+                save(report)
+                guard(freq, normal=True, history=False)
+                row_count, candidates = _bounded_candidate_codes(
+                    connection,
+                    source_paths=normal_paths[freq],
+                    partition_key=DAY,
+                    previous_partition_path=seeds[freq],
+                    freq=freq,
+                    after_query=lambda f=freq: guard(f, normal=True, history=False),
+                )
+                require(candidates == tuple(sorted(set(candidates)))
+                        and all(map(safe_code, candidates)), "Unsafe candidate code list.")
+                history_metadata = []
+                outside = []
+                approved_paths = set(history_paths[freq]) | set(normal_paths[freq])
+                source_root = ROOT / "gold/quote/stk_mins_qfq" / f"freq={freq}"
+                # Metadata only.  Do not invoke _fallback_codes_with_history or
+                # plan_gold_stk_mins_qfq_nineturn_source at this approval boundary.
+                for code in candidates:
+                    for path in sorted((source_root / f"ts_code={code}").glob("year=*/part-000.parquet")):
+                        actual_code, year = source_coordinates(path, freq)
+                        require(actual_code == code, "Candidate history code differs.")
+                        identity = list(_nineturn_file_identity(path))
+                        item = {"path": str(path), "ts_code": code, "year": year,
+                                "bytes": identity[2], "identity": identity}
+                        history_metadata.append(item)
+                        if path not in approved_paths:
+                            outside.append(item)
+                report["candidate_groups"][str(freq)] = {
+                    "source_row_count": row_count,
+                    "candidate_codes": list(candidates),
+                    "candidate_code_count": len(candidates),
+                    "history_files": len(history_metadata),
+                    "history_bytes": sum(item["bytes"] for item in history_metadata),
+                    "history_metadata": history_metadata,
+                    "unapproved_files": len(outside),
+                    "unapproved_older_files_outside_26": sum(
+                        item["ts_code"] not in codes and item["year"] <= 2024 for item in outside
+                    ),
+                }
+                report["history_scope_outside_approval"].extend(outside)
+                save(report)
+                if outside:
+                    report["status"] = "stopped_history_scope_requires_approval"
+                    report["phase"] = "stopped_before_any_unapproved_history_read"
+                    save(report)
+                    return 3
+
+        report["phase"] = "final_metadata_check"
+        save(report)
+        for freq in FREQS:
+            guard(freq, normal=True, history=True)
+        report["comparison_result_count"] = sum(
+            item["result_count"] for item in report["seed_comparisons"].values()
+        )
+        report["seed_mismatch_count"] = 0
+        report["status"] = "passed_seed_and_candidate_scope"
+        report["phase"] = "complete"
+        report["passed"] = True
+        save(report)
+        print(json.dumps({
+            "status": report["status"],
+            "comparison_results": report["comparison_result_count"],
+            "mismatches": 0,
+            "candidate_code_counts": {
+                freq: item["candidate_code_count"] for freq, item in report["candidate_groups"].items()
+            },
+            "report": str(REPORT),
+        }), flush=True)
+        return 0
+    except Exception as exc:
+        report["status"] = "failed_without_retry"
+        # Do not export DuckDB conversion messages, which may contain price data.
+        report["exception_type"] = type(exc).__name__
+        report["error"] = str(exc) if isinstance(exc, ValueError) else "Stat/query failed; stopped without retry."
+        save(report)
+        print(json.dumps({"status": report["status"], "phase": report["phase"],
+                          "exception_type": report["exception_type"], "report": str(REPORT)}), flush=True)
+        return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

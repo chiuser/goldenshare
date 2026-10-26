@@ -1,0 +1,1397 @@
+{
+  "started_at": "2026-10-26T08:19:31.643052+08:00",
+  "source_report": "seed-candidates-audit.json",
+  "phase": "completed_all_approved_key_queries",
+  "passed": true,
+  "formal_writes": 0,
+  "seed_recomputations": 0,
+  "repeated_30m_queries": 0,
+  "candidate_groups": {
+    "30": {
+      "source_row_count": 44560,
+      "candidate_codes": [
+        "002388.SZ",
+        "301718.SZ"
+      ],
+      "candidate_code_count": 2,
+      "history_files": 14,
+      "history_bytes": 780907,
+      "history_metadata": [
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2014/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2014,
+          "bytes": 73811,
+          "identity": [
+            16777244,
+            12945185,
+            73811,
+            1786617668145744689,
+            1786618184786714884
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2015/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2015,
+          "bytes": 59038,
+          "identity": [
+            16777244,
+            12954701,
+            59038,
+            1786617687001063038,
+            1786618185850784815
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2016/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2016,
+          "bytes": 69488,
+          "identity": [
+            16777244,
+            12962824,
+            69488,
+            1786617708176802510,
+            1786618186965585777
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2017/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2017,
+          "bytes": 66937,
+          "identity": [
+            16777244,
+            12971429,
+            66937,
+            1786617730809970520,
+            1786618188152544238
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2018/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2018,
+          "bytes": 62566,
+          "identity": [
+            16777244,
+            12981623,
+            62566,
+            1786617757391511543,
+            1786618189474068662
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2019/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2019,
+          "bytes": 64689,
+          "identity": [
+            16777244,
+            12991729,
+            64689,
+            1786617785620319545,
+            1786618190866620905
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2020/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2020,
+          "bytes": 60441,
+          "identity": [
+            16777244,
+            13002621,
+            60441,
+            1786617816653494055,
+            1786618192420278766
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2021/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2021,
+          "bytes": 56802,
+          "identity": [
+            16777244,
+            13015211,
+            56802,
+            1786617850864554258,
+            1786618194197603212
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2022/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2022,
+          "bytes": 56216,
+          "identity": [
+            16777244,
+            13029285,
+            56216,
+            1786617890792509827,
+            1786618196099368998
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2023/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2023,
+          "bytes": 52961,
+          "identity": [
+            16777244,
+            13044589,
+            52961,
+            1786617936494755006,
+            1786618198283091950
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2024/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2024,
+          "bytes": 54971,
+          "identity": [
+            16777244,
+            13060603,
+            54971,
+            1786617984758707883,
+            1786618200926743306
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2025/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2025,
+          "bytes": 54919,
+          "identity": [
+            16777244,
+            13076899,
+            54919,
+            1786618034233633719,
+            1786618203183604102
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2026/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2026,
+          "bytes": 45962,
+          "identity": [
+            16777244,
+            22717530,
+            45962,
+            1792934993859514043,
+            1792935036619853476
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=301718.SZ/year=2026/part-000.parquet",
+          "ts_code": "301718.SZ",
+          "year": 2026,
+          "bytes": 2106,
+          "identity": [
+            16777244,
+            22737561,
+            2106,
+            1792935009323605547,
+            1792935041209001764
+          ]
+        }
+      ],
+      "unapproved_files": 11,
+      "unapproved_older_files_outside_26": 11
+    },
+    "60": {
+      "source_row_count": 22280,
+      "candidate_codes": [
+        "002388.SZ",
+        "301718.SZ"
+      ],
+      "candidate_code_count": 2,
+      "history_files": 14,
+      "history_bytes": 463603,
+      "history_metadata": [
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2014/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2014,
+          "bytes": 43822,
+          "identity": [
+            16777244,
+            13110149,
+            43822,
+            1786618239688721375,
+            1786618509720050434
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2015/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2015,
+          "bytes": 37897,
+          "identity": [
+            16777244,
+            13119708,
+            37897,
+            1786618247746619565,
+            1786618510816314255
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2016/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2016,
+          "bytes": 43471,
+          "identity": [
+            16777244,
+            13127640,
+            43471,
+            1786618256604479278,
+            1786618511825801608
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2017/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2017,
+          "bytes": 39012,
+          "identity": [
+            16777244,
+            13136280,
+            39012,
+            1786618266797501498,
+            1786618512846097842
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2018/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2018,
+          "bytes": 37568,
+          "identity": [
+            16777244,
+            13146446,
+            37568,
+            1786618279113863813,
+            1786618513983968917
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2019/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2019,
+          "bytes": 38281,
+          "identity": [
+            16777244,
+            13156596,
+            38281,
+            1786618292829340451,
+            1786618515153507376
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2020/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2020,
+          "bytes": 36211,
+          "identity": [
+            16777244,
+            13167455,
+            36211,
+            1786618307040641303,
+            1786618516493462315
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2021/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2021,
+          "bytes": 32969,
+          "identity": [
+            16777244,
+            13179776,
+            32969,
+            1786618324977233239,
+            1786618517985310469
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2022/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2022,
+          "bytes": 31657,
+          "identity": [
+            16777244,
+            13194032,
+            31657,
+            1786618344969633285,
+            1786618519823998158
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2023/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2023,
+          "bytes": 31285,
+          "identity": [
+            16777244,
+            13209360,
+            31285,
+            1786618366407192879,
+            1786618521632064893
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2024/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2024,
+          "bytes": 31991,
+          "identity": [
+            16777244,
+            13225446,
+            31991,
+            1786618389129805496,
+            1786618523616960645
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2025/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2025,
+          "bytes": 31242,
+          "identity": [
+            16777244,
+            13241750,
+            31242,
+            1786618413153046494,
+            1786618525946741949
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2026/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2026,
+          "bytes": 26579,
+          "identity": [
+            16777244,
+            22851330,
+            26579,
+            1792935152159928593,
+            1792935195450913111
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=301718.SZ/year=2026/part-000.parquet",
+          "ts_code": "301718.SZ",
+          "year": 2026,
+          "bytes": 1618,
+          "identity": [
+            16777244,
+            22871361,
+            1618,
+            1792935167685748810,
+            1792935200065996702
+          ]
+        }
+      ],
+      "unapproved_files": 11
+    },
+    "90": {
+      "source_row_count": 16710,
+      "candidate_codes": [
+        "002388.SZ",
+        "301718.SZ",
+        "920296.BJ"
+      ],
+      "candidate_code_count": 3,
+      "history_files": 15,
+      "history_bytes": 369057,
+      "history_metadata": [
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2014/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2014,
+          "bytes": 34749,
+          "identity": [
+            16777244,
+            10042479,
+            34749,
+            1786088673043583565,
+            1786101280229895142
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2015/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2015,
+          "bytes": 28299,
+          "identity": [
+            16777244,
+            10048816,
+            28299,
+            1786088685855936516,
+            1786101281682600756
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2016/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2016,
+          "bytes": 33599,
+          "identity": [
+            16777244,
+            10054201,
+            33599,
+            1786088699940568030,
+            1786101283246310733
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2017/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2017,
+          "bytes": 31353,
+          "identity": [
+            16777244,
+            10060054,
+            31353,
+            1786088715185127241,
+            1786101284960826245
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2018/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2018,
+          "bytes": 30127,
+          "identity": [
+            16777244,
+            10066974,
+            30127,
+            1786088733200068364,
+            1786101286897712232
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2019/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2019,
+          "bytes": 30756,
+          "identity": [
+            16777244,
+            10073780,
+            30756,
+            1786088752205907901,
+            1786101288877070279
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2020/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2020,
+          "bytes": 29065,
+          "identity": [
+            16777244,
+            10081089,
+            29065,
+            1786088772647631688,
+            1786101291064949366
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2021/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2021,
+          "bytes": 26418,
+          "identity": [
+            16777244,
+            10089438,
+            26418,
+            1786089439162288692,
+            1786101293500815414
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2022/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2022,
+          "bytes": 25124,
+          "identity": [
+            16777244,
+            10099114,
+            25124,
+            1786089465160331418,
+            1786101296284906903
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2023/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2023,
+          "bytes": 24670,
+          "identity": [
+            16777244,
+            10109441,
+            24670,
+            1786089493606635395,
+            1786101299290886658
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2024/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2024,
+          "bytes": 25372,
+          "identity": [
+            16777244,
+            10120253,
+            25372,
+            1786089525058840147,
+            1786101302344672954
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2025/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2025,
+          "bytes": 24791,
+          "identity": [
+            16777244,
+            10131086,
+            24791,
+            1786089556862656770,
+            1786101305453340492
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2026/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2026,
+          "bytes": 21224,
+          "identity": [
+            16777244,
+            22918226,
+            21224,
+            1792935214238944212,
+            1792935254219928603
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=301718.SZ/year=2026/part-000.parquet",
+          "ts_code": "301718.SZ",
+          "year": 2026,
+          "bytes": 1570,
+          "identity": [
+            16777244,
+            22938256,
+            1570,
+            1792935229169677986,
+            1792935259137848097
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=920296.BJ/year=2026/part-000.parquet",
+          "ts_code": "920296.BJ",
+          "year": 2026,
+          "bytes": 1940,
+          "identity": [
+            16777244,
+            22963249,
+            1940,
+            1792935247357338441,
+            1792935264267911166
+          ]
+        }
+      ],
+      "unapproved_files": 11
+    },
+    "120": {
+      "source_row_count": 11140,
+      "candidate_codes": [
+        "002388.SZ",
+        "301718.SZ",
+        "920296.BJ"
+      ],
+      "candidate_code_count": 3,
+      "history_files": 15,
+      "history_bytes": 274448,
+      "history_metadata": [
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2014/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2014,
+          "bytes": 25240,
+          "identity": [
+            16777244,
+            10153872,
+            25240,
+            1786089607523597657,
+            1786101311888501145
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2015/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2015,
+          "bytes": 20259,
+          "identity": [
+            16777244,
+            10160210,
+            20259,
+            1786089618760706385,
+            1786101313307021236
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2016/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2016,
+          "bytes": 25122,
+          "identity": [
+            16777244,
+            10165594,
+            25122,
+            1786089631347558861,
+            1786101314791052529
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2017/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2017,
+          "bytes": 23995,
+          "identity": [
+            16777244,
+            10171443,
+            23995,
+            1786089645127452467,
+            1786101316414563851
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2018/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2018,
+          "bytes": 22705,
+          "identity": [
+            16777244,
+            10178360,
+            22705,
+            1786089661187536399,
+            1786101318300657324
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2019/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2019,
+          "bytes": 23063,
+          "identity": [
+            16777244,
+            10185160,
+            23063,
+            1786089678399854447,
+            1786101320224970296
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2020/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2020,
+          "bytes": 21644,
+          "identity": [
+            16777244,
+            10192464,
+            21644,
+            1786089696730544919,
+            1786101322273185563
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2021/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2021,
+          "bytes": 19839,
+          "identity": [
+            16777244,
+            10200811,
+            19839,
+            1786089716354386487,
+            1786101324559879706
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2022/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2022,
+          "bytes": 18486,
+          "identity": [
+            16777244,
+            10210484,
+            18486,
+            1786089744091464534,
+            1786101327203526040
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2023/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2023,
+          "bytes": 18165,
+          "identity": [
+            16777244,
+            10220811,
+            18165,
+            1786089766964868739,
+            1786101330101274986
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2024/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2024,
+          "bytes": 18673,
+          "identity": [
+            16777244,
+            10231619,
+            18673,
+            1786089789994012754,
+            1786101333079855953
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2025/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2025,
+          "bytes": 18350,
+          "identity": [
+            16777244,
+            10242452,
+            18350,
+            1786089813864694529,
+            1786101336105052375
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2026/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2026,
+          "bytes": 15756,
+          "identity": [
+            16777244,
+            22516833,
+            15756,
+            1792934673161278396,
+            1792934705954133380
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=301718.SZ/year=2026/part-000.parquet",
+          "ts_code": "301718.SZ",
+          "year": 2026,
+          "bytes": 1524,
+          "identity": [
+            16777244,
+            22536864,
+            1524,
+            1792934684583776267,
+            1792934709930480601
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=920296.BJ/year=2026/part-000.parquet",
+          "ts_code": "920296.BJ",
+          "year": 2026,
+          "bytes": 1627,
+          "identity": [
+            16777244,
+            22561854,
+            1627,
+            1792934699350560325,
+            1792934714859945336
+          ]
+        }
+      ],
+      "unapproved_files": 11
+    }
+  },
+  "history_scope_outside_approval": [
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2014/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2014,
+      "bytes": 73811,
+      "identity": [
+        16777244,
+        12945185,
+        73811,
+        1786617668145744689,
+        1786618184786714884
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2015/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2015,
+      "bytes": 59038,
+      "identity": [
+        16777244,
+        12954701,
+        59038,
+        1786617687001063038,
+        1786618185850784815
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2016/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2016,
+      "bytes": 69488,
+      "identity": [
+        16777244,
+        12962824,
+        69488,
+        1786617708176802510,
+        1786618186965585777
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2017/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2017,
+      "bytes": 66937,
+      "identity": [
+        16777244,
+        12971429,
+        66937,
+        1786617730809970520,
+        1786618188152544238
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2018/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2018,
+      "bytes": 62566,
+      "identity": [
+        16777244,
+        12981623,
+        62566,
+        1786617757391511543,
+        1786618189474068662
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2019/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2019,
+      "bytes": 64689,
+      "identity": [
+        16777244,
+        12991729,
+        64689,
+        1786617785620319545,
+        1786618190866620905
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2020/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2020,
+      "bytes": 60441,
+      "identity": [
+        16777244,
+        13002621,
+        60441,
+        1786617816653494055,
+        1786618192420278766
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2021/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2021,
+      "bytes": 56802,
+      "identity": [
+        16777244,
+        13015211,
+        56802,
+        1786617850864554258,
+        1786618194197603212
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2022/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2022,
+      "bytes": 56216,
+      "identity": [
+        16777244,
+        13029285,
+        56216,
+        1786617890792509827,
+        1786618196099368998
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2023/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2023,
+      "bytes": 52961,
+      "identity": [
+        16777244,
+        13044589,
+        52961,
+        1786617936494755006,
+        1786618198283091950
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2024/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2024,
+      "bytes": 54971,
+      "identity": [
+        16777244,
+        13060603,
+        54971,
+        1786617984758707883,
+        1786618200926743306
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2014/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2014,
+      "bytes": 43822,
+      "identity": [
+        16777244,
+        13110149,
+        43822,
+        1786618239688721375,
+        1786618509720050434
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2015/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2015,
+      "bytes": 37897,
+      "identity": [
+        16777244,
+        13119708,
+        37897,
+        1786618247746619565,
+        1786618510816314255
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2016/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2016,
+      "bytes": 43471,
+      "identity": [
+        16777244,
+        13127640,
+        43471,
+        1786618256604479278,
+        1786618511825801608
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2017/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2017,
+      "bytes": 39012,
+      "identity": [
+        16777244,
+        13136280,
+        39012,
+        1786618266797501498,
+        1786618512846097842
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2018/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2018,
+      "bytes": 37568,
+      "identity": [
+        16777244,
+        13146446,
+        37568,
+        1786618279113863813,
+        1786618513983968917
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2019/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2019,
+      "bytes": 38281,
+      "identity": [
+        16777244,
+        13156596,
+        38281,
+        1786618292829340451,
+        1786618515153507376
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2020/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2020,
+      "bytes": 36211,
+      "identity": [
+        16777244,
+        13167455,
+        36211,
+        1786618307040641303,
+        1786618516493462315
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2021/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2021,
+      "bytes": 32969,
+      "identity": [
+        16777244,
+        13179776,
+        32969,
+        1786618324977233239,
+        1786618517985310469
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2022/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2022,
+      "bytes": 31657,
+      "identity": [
+        16777244,
+        13194032,
+        31657,
+        1786618344969633285,
+        1786618519823998158
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2023/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2023,
+      "bytes": 31285,
+      "identity": [
+        16777244,
+        13209360,
+        31285,
+        1786618366407192879,
+        1786618521632064893
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=002388.SZ/year=2024/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2024,
+      "bytes": 31991,
+      "identity": [
+        16777244,
+        13225446,
+        31991,
+        1786618389129805496,
+        1786618523616960645
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2014/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2014,
+      "bytes": 34749,
+      "identity": [
+        16777244,
+        10042479,
+        34749,
+        1786088673043583565,
+        1786101280229895142
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2015/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2015,
+      "bytes": 28299,
+      "identity": [
+        16777244,
+        10048816,
+        28299,
+        1786088685855936516,
+        1786101281682600756
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2016/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2016,
+      "bytes": 33599,
+      "identity": [
+        16777244,
+        10054201,
+        33599,
+        1786088699940568030,
+        1786101283246310733
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2017/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2017,
+      "bytes": 31353,
+      "identity": [
+        16777244,
+        10060054,
+        31353,
+        1786088715185127241,
+        1786101284960826245
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2018/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2018,
+      "bytes": 30127,
+      "identity": [
+        16777244,
+        10066974,
+        30127,
+        1786088733200068364,
+        1786101286897712232
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2019/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2019,
+      "bytes": 30756,
+      "identity": [
+        16777244,
+        10073780,
+        30756,
+        1786088752205907901,
+        1786101288877070279
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2020/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2020,
+      "bytes": 29065,
+      "identity": [
+        16777244,
+        10081089,
+        29065,
+        1786088772647631688,
+        1786101291064949366
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2021/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2021,
+      "bytes": 26418,
+      "identity": [
+        16777244,
+        10089438,
+        26418,
+        1786089439162288692,
+        1786101293500815414
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2022/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2022,
+      "bytes": 25124,
+      "identity": [
+        16777244,
+        10099114,
+        25124,
+        1786089465160331418,
+        1786101296284906903
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2023/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2023,
+      "bytes": 24670,
+      "identity": [
+        16777244,
+        10109441,
+        24670,
+        1786089493606635395,
+        1786101299290886658
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=002388.SZ/year=2024/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2024,
+      "bytes": 25372,
+      "identity": [
+        16777244,
+        10120253,
+        25372,
+        1786089525058840147,
+        1786101302344672954
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2014/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2014,
+      "bytes": 25240,
+      "identity": [
+        16777244,
+        10153872,
+        25240,
+        1786089607523597657,
+        1786101311888501145
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2015/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2015,
+      "bytes": 20259,
+      "identity": [
+        16777244,
+        10160210,
+        20259,
+        1786089618760706385,
+        1786101313307021236
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2016/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2016,
+      "bytes": 25122,
+      "identity": [
+        16777244,
+        10165594,
+        25122,
+        1786089631347558861,
+        1786101314791052529
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2017/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2017,
+      "bytes": 23995,
+      "identity": [
+        16777244,
+        10171443,
+        23995,
+        1786089645127452467,
+        1786101316414563851
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2018/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2018,
+      "bytes": 22705,
+      "identity": [
+        16777244,
+        10178360,
+        22705,
+        1786089661187536399,
+        1786101318300657324
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2019/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2019,
+      "bytes": 23063,
+      "identity": [
+        16777244,
+        10185160,
+        23063,
+        1786089678399854447,
+        1786101320224970296
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2020/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2020,
+      "bytes": 21644,
+      "identity": [
+        16777244,
+        10192464,
+        21644,
+        1786089696730544919,
+        1786101322273185563
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2021/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2021,
+      "bytes": 19839,
+      "identity": [
+        16777244,
+        10200811,
+        19839,
+        1786089716354386487,
+        1786101324559879706
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2022/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2022,
+      "bytes": 18486,
+      "identity": [
+        16777244,
+        10210484,
+        18486,
+        1786089744091464534,
+        1786101327203526040
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2023/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2023,
+      "bytes": 18165,
+      "identity": [
+        16777244,
+        10220811,
+        18165,
+        1786089766964868739,
+        1786101330101274986
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=002388.SZ/year=2024/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2024,
+      "bytes": 18673,
+      "identity": [
+        16777244,
+        10231619,
+        18673,
+        1786089789994012754,
+        1786101333079855953
+      ]
+    }
+  ],
+  "status": "waiting_for_additional_history_approval",
+  "outside_files": 44,
+  "outside_bytes": 1638807
+}

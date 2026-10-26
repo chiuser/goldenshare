@@ -1,0 +1,28 @@
+"""Read-only control refresh for the authorized single-date recovery."""
+import json,os,sys,subprocess
+from datetime import datetime
+from pathlib import Path
+from types import SimpleNamespace
+from zoneinfo import ZoneInfo
+import dagster as dg,yaml
+from dagster_postgres import PostgresRunStorage,PostgresEventLogStorage,PostgresScheduleStorage
+from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import gold_stk_mins_qfq_factor_repair_status
+OUT=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/nineturn_recovery_20261026')
+name=sys.argv[1];assert name in {'controls-before-audit.json','controls-before-job.json','controls-final.json'}
+old=json.loads((OUT/'metadata-preflight.json').read_text());result={'as_of':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'formal_writes':0}
+os.environ['PGOPTIONS']='-c default_transaction_read_only=on -c statement_timeout=30000'
+v=yaml.safe_load((Path(os.environ['DAGSTER_HOME'])/'dagster.yaml').read_text())['storage']['postgres']['postgres_url'];u=os.environ[v['env']] if isinstance(v,dict) else v
+r=PostgresRunStorage(u,should_autocreate_tables=False);e=PostgresEventLogStorage(u,should_autocreate_tables=False);s=PostgresScheduleStorage(u,should_autocreate_tables=False)
+try:
+ st=gold_stk_mins_qfq_factor_repair_status(SimpleNamespace(event_log_storage=e,get_event_records=e.get_event_records),'2026-10-22').to_payload();result['factor_ready']=st['ready'];assert st['ready']
+ for k in ('producer_run_id','upstream_batch_id','repair_required_codes','repair_required_codes_hash'):assert st[k]==old['factor_status'][k],k
+ a=r.get_runs(dg.RunsFilter(statuses=[dg.DagsterRunStatus.NOT_STARTED,dg.DagsterRunStatus.QUEUED,dg.DagsterRunStatus.STARTING,dg.DagsterRunStatus.STARTED,dg.DagsterRunStatus.CANCELING]),limit=100)
+ result['active_runs']=[{'run_id':x.run_id,'job':x.job_name,'status':x.status.value} for x in a];assert not a
+ pool=e.get_concurrency_info('gold_stk_mins_qfq_writer');result['pool']={'limit':pool.limit,'active':pool.active_slot_count,'pending':pool.pending_step_count};assert not pool.active_slot_count and not pool.pending_step_count
+ names={'gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor','gold_stk_mins_qfq_nineturn_update_job_sensor'}
+ ss=[x for x in s.all_instigator_state() if x.name in names and x.repository_selector.location_name=='orchestrator'];result['sensors']=[{'name':x.name,'status':x.status.value} for x in ss];assert len(ss)==2 and all(x.status.value=='STOPPED' for x in ss)
+ keys=e.get_dynamic_partitions('cn_a_stock_mins_silver_trade_days');assert '2026-10-22' in keys and max(k for k in keys if k<'2026-10-22')=='2026-10-21'
+ result['target_runs']=[{'run_id':x.run_id,'status':x.status.value,'partition':x.tags.get('dagster/partition')} for x in r.get_runs(dg.RunsFilter(job_name='gold_stk_mins_qfq_nineturn_update_job',tags={'dagster/partition':'2026-10-22'}),limit=3)]
+finally:r.dispose();e.dispose();s.dispose()
+p=subprocess.run(['pgrep','-fl',r'(^|/| )dagster-daemon( |$)'],capture_output=True,text=True);result['daemon_probe']={'returncode':p.returncode,'stdout':p.stdout.strip(),'stderr':p.stderr.strip()}
+result['passed']=True;(OUT/name).write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n');print(json.dumps(result,ensure_ascii=False),flush=True)

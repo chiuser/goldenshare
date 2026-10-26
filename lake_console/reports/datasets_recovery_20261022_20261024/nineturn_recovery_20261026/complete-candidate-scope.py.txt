@@ -1,0 +1,42 @@
+"""Finish the three unqueried, already-approved key scopes; never read older history."""
+import importlib.util,json,sys
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+P=Path('/private/tmp/dg22_nineturn_seed_candidates_audit.py')
+spec=importlib.util.spec_from_file_location('approved_seed_audit_helpers',P);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+OUT=m.OUT;original=json.loads((OUT/'seed-candidates-audit.json').read_text());pre=json.loads(m.PREFLIGHT.read_text());old=json.loads(m.OLD_MANIFEST.read_text())['groups']
+assert original['status']=='stopped_history_scope_requires_approval' and set(original['candidate_groups'])=={'30'}
+assert len(original['seed_comparisons'])==4 and all(x['mismatch_count']==0 for x in original['seed_comparisons'].values())
+codes=tuple(pre['codes']);result={'started_at':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'source_report':'seed-candidates-audit.json','phase':'approved_remaining_key_scopes','passed':False,'formal_writes':0,'seed_recomputations':0,'repeated_30m_queries':0,'candidate_groups':dict(original['candidate_groups']),'history_scope_outside_approval':list(original['history_scope_outside_approval'])}
+REPORT=OUT/'candidate-scope-completion.json';assert not REPORT.exists()
+def save():REPORT.write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+def guard(freq,paths_by_year,seed):
+ assert list(m._nineturn_file_identity(seed))==pre['seed_groups'][str(freq)]['identity']
+ for year,paths in paths_by_year.items():
+  assert m.current_normal_paths(freq,year)==paths
+  m.verify_group(paths,pre['source_groups'][f'daily_source_{freq}_{year}'])
+save()
+try:
+ with m.DuckDBResource().connect() as connection:
+  for freq in (60,90,120):
+   result['phase']=f'candidate_keys_{freq}';save()
+   pp={year:tuple(sorted(Path(p) for p in old[f'daily_source_{freq}_{year}'])) for year in (2025,2026)}
+   paths=tuple(sorted(pp[2025]+pp[2026]));seed=Path(pre['seed_groups'][str(freq)]['path'])
+   guard(freq,pp,seed)
+   row_count,candidates=m._bounded_candidate_codes(connection,source_paths=paths,partition_key=m.DAY,previous_partition_path=seed,freq=freq,after_query=lambda f=freq,p=pp,s=seed:guard(f,p,s))
+   assert candidates==tuple(sorted(set(candidates))) and all(map(m.safe_code,candidates))
+   approved=set(paths)|{Path(p) for p in pre['seed26_source'][str(freq)]['paths']};history=[];outside=[]
+   root=m.ROOT/'gold/quote/stk_mins_qfq'/f'freq={freq}'
+   for code in candidates:
+    for path in sorted((root/f'ts_code={code}').glob('year=*/part-000.parquet')):
+     actual,year=m.source_coordinates(path,freq);assert actual==code
+     ident=list(m._nineturn_file_identity(path));item={'path':str(path),'ts_code':code,'year':year,'bytes':ident[2],'identity':ident};history.append(item)
+     if path not in approved:outside.append(item)
+   result['candidate_groups'][str(freq)]={'source_row_count':row_count,'candidate_codes':list(candidates),'candidate_code_count':len(candidates),'history_files':len(history),'history_bytes':sum(x['bytes'] for x in history),'history_metadata':history,'unapproved_files':len(outside)}
+   result['history_scope_outside_approval'].extend(outside);save()
+ result['phase']='completed_all_approved_key_queries';result['passed']=True;result['status']='waiting_for_additional_history_approval' if result['history_scope_outside_approval'] else 'ready_for_original_job'
+ result['outside_files']=len(result['history_scope_outside_approval']);result['outside_bytes']=sum(x['bytes'] for x in result['history_scope_outside_approval']);save()
+ print(json.dumps({'status':result['status'],'candidate_codes':{f:x['candidate_codes'] for f,x in result['candidate_groups'].items()},'outside_files':result['outside_files'],'outside_bytes':result['outside_bytes']},ensure_ascii=False),flush=True)
+except Exception as exc:
+ result['status']='failed_without_retry';result['exception_type']=type(exc).__name__;save();raise

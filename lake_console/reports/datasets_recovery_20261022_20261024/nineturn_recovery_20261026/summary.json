@@ -1,0 +1,94 @@
+{
+  "as_of": "2026-10-26T08:32:12.819320+08:00",
+  "date_recovered": "2026-10-22",
+  "code_commit": "9d7028af",
+  "run_id": "2d6cea3f-c4cf-4884-b2a1-1d36dd667159",
+  "job": "gold_stk_mins_qfq_nineturn_update_job",
+  "status": "SUCCESS",
+  "elapsed_seconds": 68.84353184700012,
+  "assets_recovered": 4,
+  "original_blocking_checks_passed": 4,
+  "checks_bound_to_correct_materializations": true,
+  "frequency_rows": {
+    "30": 44560,
+    "60": 22280,
+    "90": 16710,
+    "120": 11140
+  },
+  "frequency_bytes": {
+    "30": 83214,
+    "60": 52226,
+    "90": 51100,
+    "120": 47052
+  },
+  "output_rows": 94690,
+  "output_bytes": 233592,
+  "stock_count_each_frequency": 5570,
+  "job_attempts": 1,
+  "automatic_retries": 0,
+  "custom_interrupts": 0,
+  "new_resource_limits": false,
+  "formula_or_config_changes": false,
+  "sensors_changed": false,
+  "sensor_reenable_todo": "Only after 2026-10-23 datasets are completed",
+  "prior_21_and_neighbor_23_unchanged": true,
+  "normal_source_identity_groups_unchanged": 8,
+  "additional_seed_history_stat_unchanged_files": 1104,
+  "extra_002388_history_stat_unchanged_files": 44,
+  "publication_byte_counters": {
+    "120": {
+      "frozen_input_stat_bytes": 739362,
+      "candidate_sha256_read_bytes": 47052,
+      "formal_sha256_read_bytes": 0,
+      "promoted_file_count": 1
+    },
+    "30": {
+      "frozen_input_stat_bytes": 750111,
+      "candidate_sha256_read_bytes": 83214,
+      "formal_sha256_read_bytes": 0,
+      "promoted_file_count": 1
+    },
+    "60": {
+      "frozen_input_stat_bytes": 746921,
+      "candidate_sha256_read_bytes": 52226,
+      "formal_sha256_read_bytes": 0,
+      "promoted_file_count": 1
+    },
+    "90": {
+      "frozen_input_stat_bytes": 745846,
+      "candidate_sha256_read_bytes": 51100,
+      "formal_sha256_read_bytes": 0,
+      "promoted_file_count": 1
+    }
+  },
+  "normal_candidate_digest_passes": 1,
+  "extra_formal_parquet_or_sha_audits": 0,
+  "historical_global_audit_repeated": false,
+  "task_duckdb_direct_work_files": [],
+  "preserved_shared_subdirectories": [
+    "index_daily_p3"
+  ],
+  "initial_missing_list_total": 109,
+  "initial_missing_list_restored": 109,
+  "initial_missing_list_remaining": 0,
+  "budget_estimate_gib": {
+    "read": 16,
+    "write": 3,
+    "extra_space": 3
+  },
+  "cost_note": "Source-file entrance budget and recorded candidate/frozen bytes are not measured device I/O. Actual formal output is 233592 bytes.",
+  "evidence": [
+    "final-verified.json",
+    "final-source-stats.json",
+    "controls-final.json",
+    "seed-candidates-audit.json",
+    "candidate-scope-completion.json",
+    "job-launch.log"
+  ],
+  "cleanup": {
+    "removed_task_private_tmp_files": 9,
+    "formal_data_deleted": 0,
+    "formal_staging_deleted": 0,
+    "preserved": "all publication operation/input/receipt records, shared namespaces, and report evidence"
+  }
+}

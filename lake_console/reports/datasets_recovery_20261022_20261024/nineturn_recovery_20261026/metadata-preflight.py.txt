@@ -1,0 +1,77 @@
+"""Read existing control records and file metadata only; no Parquet content or writes."""
+import hashlib,json,os,shutil,subprocess
+from datetime import datetime
+from pathlib import Path
+from types import SimpleNamespace
+from zoneinfo import ZoneInfo
+import dagster as dg,yaml
+from dagster._core.event_api import PartitionKeyFilter
+from dagster_postgres import PostgresRunStorage,PostgresEventLogStorage,PostgresScheduleStorage
+from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import gold_stk_mins_qfq_factor_repair_status
+BASE=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024')
+OUT=BASE/'nineturn_recovery_20261026';OUT.mkdir(exist_ok=True)
+ROOT=Path('/Volumes/datasource/data_lake');STAGE=Path('/Volumes/datasource/data_lake_staging')
+DAY='2026-10-22';PRIOR='2026-10-21';FREQS=(30,60,90,120)
+result={'as_of':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'date':DAY,'phase':'metadata_only','parquet_content_reads':0,'formal_writes':0}
+def identity(path):
+ if not path.exists():return None
+ assert path.is_file() and not path.is_symlink(),str(path)
+ s=path.stat();return [s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns]
+def summarize(entries):
+ h=hashlib.sha256()
+ for p,s in sorted(entries.items()):h.update(json.dumps([p,s],separators=(',',':')).encode())
+ return {'files':len(entries),'bytes':sum(s[2] for s in entries.values() if s),'missing':sum(s is None for s in entries.values()),'identity_sha256':h.hexdigest()}
+old=json.loads((BASE/'macd_recovery_20261025/stat-manifest.json').read_text())['groups']
+old_summary=json.loads((BASE/'macd_recovery_20261025/preflight.json').read_text())
+codes=old_summary['scope_codes'];assert len(codes)==26
+result['codes']=codes;result['source_groups']={};result['seed_groups']={};result['neighbor_stat']={};result['seed26_source']={}
+for freq in FREQS:
+ root=ROOT/'gold/quote/stk_mins_qfq'/f'freq={freq}'
+ for year in (2025,2026):
+  key=f'daily_source_{freq}_{year}'
+  current={str(p):identity(p) for p in sorted(root.glob(f'ts_code=*/year={year}/part-000.parquet'))}
+  mismatch=[p for p in set(current)|set(old[key]) if current.get(p)!=old[key].get(p)]
+  result['source_groups'][key]={**summarize(current),'matches_existing_evidence':not mismatch,'mismatch_count':len(mismatch),'mismatch_sample':sorted(mismatch)[:5]}
+  assert not mismatch,key
+ seed=ROOT/'gold/indicator/stk_mins_qfq_nineturn'/f'freq={freq}'/f'trade_date={PRIOR}'/'part-000.parquet'
+ result['seed_groups'][str(freq)]={'path':str(seed),'identity':identity(seed)};assert result['seed_groups'][str(freq)]['identity']
+ for day in (PRIOR,DAY,'2026-10-23'):
+  path=seed.parent.parent/f'trade_date={day}'/'part-000.parquet';result['neighbor_stat'][str(path)]=identity(path)
+  if day==DAY:assert not path.exists(),str(path)
+ paths=tuple(root/f'ts_code={code}'/f'year={year}'/'part-000.parquet' for code in codes for year in range(2014,2027))
+ current={str(p):identity(p) for p in paths if p.exists()};result['seed26_source'][str(freq)]={**summarize(current),'paths':list(current)}
+ assert not any((root/f'ts_code={c}'/'year=2013/part-000.parquet').exists() for c in codes)
+result['root_mounted']=ROOT.parent.is_mount();result['same_device']=ROOT.stat().st_dev==STAGE.stat().st_dev
+result['free_bytes']=shutil.disk_usage(STAGE).free;assert result['root_mounted'] and result['same_device']
+os.environ['PGOPTIONS']='-c default_transaction_read_only=on -c statement_timeout=30000'
+v=yaml.safe_load((Path(os.environ['DAGSTER_HOME'])/'dagster.yaml').read_text())['storage']['postgres']['postgres_url'];u=os.environ[v['env']] if isinstance(v,dict) else v
+r=PostgresRunStorage(u,should_autocreate_tables=False);e=PostgresEventLogStorage(u,should_autocreate_tables=False);s=PostgresScheduleStorage(u,should_autocreate_tables=False)
+try:
+ status=gold_stk_mins_qfq_factor_repair_status(SimpleNamespace(event_log_storage=e,get_event_records=e.get_event_records),DAY).to_payload();result['factor_status']=status;assert status['ready']
+ active=r.get_runs(dg.RunsFilter(statuses=[dg.DagsterRunStatus.NOT_STARTED,dg.DagsterRunStatus.QUEUED,dg.DagsterRunStatus.STARTING,dg.DagsterRunStatus.STARTED,dg.DagsterRunStatus.CANCELING]),limit=100)
+ result['active_runs']=[{'run_id':a.run_id,'job':a.job_name,'status':a.status.value} for a in active];assert not active
+ pool=e.get_concurrency_info('gold_stk_mins_qfq_writer');result['pool']={'limit':pool.limit,'active':pool.active_slot_count,'pending':pool.pending_step_count};assert not pool.active_slot_count and not pool.pending_step_count
+ names={'gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor','gold_stk_mins_qfq_nineturn_update_job_sensor'}
+ states=[x for x in s.all_instigator_state() if x.name in names and x.repository_selector.location_name=='orchestrator']
+ result['sensors']=[{'name':x.name,'status':x.status.value} for x in states];assert len(states)==2 and all(x.status.value=='STOPPED' for x in states)
+ keys=e.get_dynamic_partitions('cn_a_stock_mins_silver_trade_days');previous=max(k for k in keys if k<DAY);result['previous_registered_day']=previous;assert previous==PRIOR and DAY in keys
+ result['prior_partition_controls']={}
+ for freq in FREQS:
+  name=f'gold_stk_mins_qfq_nineturn_{freq}m';asset=dg.AssetKey(name);check=dg.AssetCheckKey(asset,name+'_integrity_check')
+  mats=e.get_event_records(dg.EventRecordsFilter(event_type=dg.DagsterEventType.ASSET_MATERIALIZATION,asset_key=asset,asset_partitions=[PRIOR]),limit=1)
+  checks=e.get_asset_check_execution_history(check,limit=2,partition_filter=PartitionKeyFilter(key=PRIOR))
+  item={'materializations':[],'checks':[]}
+  for x in mats:
+   entry=x.event_log_entry;metadata=entry.dagster_event.event_specific_data.materialization.metadata
+   item['materializations'].append({'storage_id':x.storage_id,'run_id':entry.run_id,'timestamp':entry.timestamp,'metadata':{k:getattr(v,'value',None) for k,v in metadata.items() if k in {'source_fingerprint','source_row_count','output_row_count','stock_code_count','fallback_recomputed_code_count','source_file_count','row_count','target_path','path'}}})
+  for x in checks:
+   ev=x.event.dagster_event.event_specific_data if x.event else None;target=ev.target_materialization_data if ev is not None else None
+   item['checks'].append({'id':x.id,'run_id':x.run_id,'status':x.status.value,'partition':x.partition,'passed':None if ev is None else ev.passed,'target_storage_id':None if target is None else target.storage_id,'target_run_id':None if target is None else target.run_id})
+  result['prior_partition_controls'][name]=item
+  assert mats and checks and checks[0].event is not None and checks[0].event.dagster_event.event_specific_data.passed,name
+  assert item['checks'][0]['target_storage_id']==mats[0].storage_id,name
+ result['daemon_process']=subprocess.run(['pgrep','-fl',r'(^|/| )dagster-daemon( |$)'],capture_output=True,text=True).stdout.strip();assert not result['daemon_process']
+finally:r.dispose();e.dispose();s.dispose()
+result['passed']=True
+(OUT/'metadata-preflight.json').write_text(json.dumps(result,ensure_ascii=False,indent=2,default=str)+'\n')
+print(json.dumps({'phase':'metadata_only','passed':True,'source_files':sum(x['files'] for x in result['source_groups'].values()),'source_bytes':sum(x['bytes'] for x in result['source_groups'].values()),'seed26_files':sum(x['files'] for x in result['seed26_source'].values()),'seed26_bytes':sum(x['bytes'] for x in result['seed26_source'].values()),'previous_day':previous,'prior_checks':4,'free_bytes':result['free_bytes']},ensure_ascii=False),flush=True)

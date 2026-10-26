@@ -1,0 +1,36 @@
+{
+  "as_of": "2026-10-26T08:32:12.818284+08:00",
+  "passed": true,
+  "seed26_groups": {
+    "30": {
+      "files": 276,
+      "bytes": 19218013,
+      "identity_sha256": "825cb0ff5b1715f47da79cde7f4764bf0aebbf4716d385450cf361674eef280e"
+    },
+    "60": {
+      "files": 276,
+      "bytes": 11199257,
+      "identity_sha256": "bc605cf955f5e9d552b4263ee9f63844ad22f23198361c75d4f9f9542617f78d"
+    },
+    "90": {
+      "files": 276,
+      "bytes": 8898666,
+      "identity_sha256": "8a0f92e6a80b91216706e74acf250f9894e2737fa18f7c9ea043dc2146b7b94d"
+    },
+    "120": {
+      "files": 276,
+      "bytes": 6517704,
+      "identity_sha256": "f5328563a7b39730a256a2658e54f07c6b5fb3284cdcab8b4da7eaf29f37686a"
+    }
+  },
+  "seed26_files": 1104,
+  "extra_history_files": 44,
+  "extra_history_bytes": 1638807,
+  "formal_content_reads": 0,
+  "new_data_sha_reads": 0,
+  "task_duckdb_direct_work_files": [],
+  "preserved_shared_subdirectories": [
+    "index_daily_p3"
+  ],
+  "closeout_note": "An initial directory-emptiness assertion encountered the existing index_daily_p3 namespace. The corrected check verifies this task's direct work-file scope and preserves shared directories; no business job/check or Parquet content was reread."
+}

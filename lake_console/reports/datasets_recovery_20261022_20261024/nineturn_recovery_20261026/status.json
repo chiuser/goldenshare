@@ -1,0 +1,117 @@
+{
+  "as_of": "2026-10-26T08:09:41.926906+08:00",
+  "date_to_recover": "2026-10-22",
+  "code_commit": "9d7028af",
+  "phase": "completed_verified",
+  "formal_execution_started": true,
+  "parquet_content_reads": "approved seed and two-year key prechecks completed; no unapproved older history",
+  "formal_data_writes": 4,
+  "metadata_preflight_passed": true,
+  "prior_partition": "2026-10-21",
+  "prior_checks_passed_and_bound": 4,
+  "target_files_missing": 4,
+  "source_files": 44224,
+  "source_bytes": 1654696422,
+  "seed26_history_files": 1104,
+  "seed26_history_bytes": 45833640,
+  "daemon_probe": {
+    "returncode": 1,
+    "stdout": "",
+    "stderr": "",
+    "interpretation": "no matching process"
+  },
+  "job_definition": "definitions-preflight.json",
+  "read_approval_requested": true,
+  "read_approval_received": true,
+  "approved_business_intent": "commit and proceed with 2026-10-22 recovery",
+  "additional_gate": "root AGENTS explicit dataset-wide read approval",
+  "prepared_audit_script": "/private/tmp/dg22_nineturn_seed_candidates_audit.py",
+  "prepared_audit_script_sha256": "aa9603d8ecbddc3a1c9e01089345bc952d78a95759bec568edc8a91bcf757068",
+  "audit_script_executed": true,
+  "resource_limits_added": false,
+  "sensors_changed": false,
+  "code_push": false,
+  "untouched_staged_changes_preserved": true,
+  "paths_py_commit_sha256": "d594c896ecd3f8ae0b22954f205d0fcdf5d278c696e97f6a7bcec59de648afb0",
+  "definition_probe_note": "Initial local assertion treated check names as op names; inspected installed AssetCheckSpec.get_python_identifier and decorator binding, then corrected assertion. Both probes remained isolated, no job/data access.",
+  "approval_received_at": "2026-10-26T08:15:35.305689+08:00",
+  "read_approval_text": "批准",
+  "read_approval_scope": {
+    "date": "2026-10-22",
+    "freqs": [
+      30,
+      60,
+      90,
+      120
+    ],
+    "seed_check": "26 approved stocks, QFQ annual files 2014-2026, 1104 files/45833640 bytes; compare prior 2026-10-21 seed",
+    "normal": "all stocks 2025-2026 same four freqs; candidate-key precheck then original job once and original four checks",
+    "budget_estimate_gib": {
+      "read": 16,
+      "write": 3,
+      "extra_space": 3
+    },
+    "limits_added": false,
+    "stop_conditions": [
+      "seed mismatch",
+      "history before 2025 outside approved 26 codes",
+      "natural execution failure; no automatic retry"
+    ]
+  },
+  "seed_comparisons_passed": 104,
+  "seed_mismatch_count": 0,
+  "candidate_precheck_freqs_completed": [
+    30,
+    60,
+    90,
+    120
+  ],
+  "additional_history_approval_received": true,
+  "additional_history_scope": {
+    "code": "002388.SZ",
+    "freqs": [
+      30,
+      60,
+      90,
+      120
+    ],
+    "years": [
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024
+    ],
+    "files": 44,
+    "bytes": 1638807,
+    "read_entry_estimate_bytes": 3277614,
+    "within_original_budget_estimate": true,
+    "evidence": "candidate-scope-completion.json",
+    "approved": true
+  },
+  "additional_history_approval_text": "确认",
+  "additional_history_approval_received_at": "2026-10-26T08:23:26.083592+08:00",
+  "execution_code_sha256": {
+    "lake_console/orchestrator/src/orchestrator/defs/qfq_nineturn.py": "e7c940beb8d1ea8308c607140e6d0d522c2afbb89d7b308efb73c8637268c5a5",
+    "lake_console/orchestrator/src/orchestrator/defs/run_contracts/qfq_nineturn.py": "8b26891ab5b1e7c4ed6ad65b020bdc399a5aa0ae8b2f2d9300e3789871690852",
+    "lake_console/orchestrator/src/orchestrator/defs/assets/qfq_nineturn.py": "8e0045eba90a21b7427abe45f41b34be3cef77ca24a17fd9ed0a7a30b9df08e0",
+    "lake_console/orchestrator/src/orchestrator/defs/io/stk_mins_qfq_publication.py": "c7db5e54de124f1919d673e5d7ad3e1a8767f548321749f114f3e307996b58bb",
+    "lake_console/orchestrator/src/orchestrator/defs/jobs/stk_mins_qfq_nineturn_update.py": "334d9deadc244df682edd08da881de09dc43c1168c12133612c656291bbd4af8",
+    "lake_console/orchestrator/src/orchestrator/defs/checks/qfq_nineturn_checks.py": "6953a64a649c8aae0a4dfa6eac34e4f3006200b221cf34896b08738405ab38e2"
+  },
+  "launch_started_at": "2026-10-26T08:24:24.141866+08:00",
+  "launch_command": "DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/dg launch --module-name orchestrator.definitions --job gold_stk_mins_qfq_nineturn_update_job --partition 2026-10-22",
+  "run_id": "2d6cea3f-c4cf-4884-b2a1-1d36dd667159",
+  "run_status": "SUCCESS",
+  "formal_execution_completed": true,
+  "accepted_assets": 4,
+  "checks_passed": 4,
+  "remaining_count": 0,
+  "summary_evidence": "summary.json"
+}

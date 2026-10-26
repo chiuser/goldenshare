@@ -1,0 +1,12 @@
+import json
+import dagster as dg
+from orchestrator.definitions import defs
+job=defs().resolve_job_def('gold_stk_mins_qfq_nineturn_update_job')
+assets=sorted(key.to_user_string() for key in job.asset_layer.executable_asset_keys)
+expected=sorted(f'gold_stk_mins_qfq_nineturn_{freq}m' for freq in (30,60,90,120))
+nodes=sorted(node.name for node in job.graph.node_defs)
+assert assets==expected,assets
+expected_checks=[dg.AssetCheckSpec(name=a+'_integrity_check',asset=dg.AssetKey(a)).get_python_identifier() for a in expected]
+assert nodes==sorted(expected+expected_checks),nodes
+assert job.executor_def.name=='in_process',job.executor_def.name
+print(json.dumps({'job':job.name,'assets':assets,'nodes':nodes,'executor':job.executor_def.name,'formal_data_access':False,'job_executed':False},ensure_ascii=False))

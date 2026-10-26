@@ -1,0 +1,2800 @@
+{
+  "started_at": "2026-10-26T08:16:09.609151+08:00",
+  "date": "2026-10-22",
+  "prior_date": "2026-10-21",
+  "phase": "stopped_before_any_unapproved_history_read",
+  "status": "stopped_history_scope_requires_approval",
+  "passed": false,
+  "formal_writes": 0,
+  "dagster_instance_reads": 0,
+  "jobs_launched": 0,
+  "price_values_exported": 0,
+  "parquet_content_sha_computations": 0,
+  "seed_comparisons": {
+    "30": {
+      "result_count": 26,
+      "matches": 26,
+      "both_absent_on_prior_date": 0,
+      "mismatch_count": 0,
+      "results": [
+        {
+          "ts_code": "000498.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 2,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 2,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "000528.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 3,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 3,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002250.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002475.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002500.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002644.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002838.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002867.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 13,
+            "nine_up_turn": null,
+            "nine_down_turn": "-9"
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 13,
+            "nine_up_turn": null,
+            "nine_down_turn": "-9"
+          }
+        },
+        {
+          "ts_code": "002929.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "300881.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 5,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 5,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "301261.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "301555.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 7,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 7,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600026.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600218.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600415.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 8,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 8,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600477.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600570.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600685.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600814.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "601222.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 5,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 5,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "601225.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 4,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 4,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "601966.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "603323.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 4,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 4,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "603373.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "605089.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "688046.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 10,
+            "nine_up_turn": null,
+            "nine_down_turn": "-9"
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 10,
+            "nine_up_turn": null,
+            "nine_down_turn": "-9"
+          }
+        }
+      ]
+    },
+    "60": {
+      "result_count": 26,
+      "matches": 26,
+      "both_absent_on_prior_date": 0,
+      "mismatch_count": 0,
+      "results": [
+        {
+          "ts_code": "000498.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 4,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 4,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "000528.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002250.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 3,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 3,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002475.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 16,
+            "down_count": 0,
+            "nine_up_turn": "+9",
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 16,
+            "down_count": 0,
+            "nine_up_turn": "+9",
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002500.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002644.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002838.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002867.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 7,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 7,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002929.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 15,
+            "down_count": 0,
+            "nine_up_turn": "+9",
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 15,
+            "down_count": 0,
+            "nine_up_turn": "+9",
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "300881.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "301261.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "301555.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600026.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600218.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600415.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600477.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600570.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 4,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 4,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600685.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600814.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 8,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 8,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "601222.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "601225.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 9,
+            "nine_up_turn": null,
+            "nine_down_turn": "-9"
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 9,
+            "nine_up_turn": null,
+            "nine_down_turn": "-9"
+          }
+        },
+        {
+          "ts_code": "601966.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 8,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 8,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "603323.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "603373.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 3,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 3,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "605089.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 9,
+            "down_count": 0,
+            "nine_up_turn": "+9",
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 9,
+            "down_count": 0,
+            "nine_up_turn": "+9",
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "688046.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 3,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 3,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        }
+      ]
+    },
+    "90": {
+      "result_count": 26,
+      "matches": 26,
+      "both_absent_on_prior_date": 0,
+      "mismatch_count": 0,
+      "results": [
+        {
+          "ts_code": "000498.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 2,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 2,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "000528.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 3,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 3,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002250.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002475.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 11,
+            "down_count": 0,
+            "nine_up_turn": "+9",
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 11,
+            "down_count": 0,
+            "nine_up_turn": "+9",
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002500.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002644.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 11,
+            "nine_up_turn": null,
+            "nine_down_turn": "-9"
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 11,
+            "nine_up_turn": null,
+            "nine_down_turn": "-9"
+          }
+        },
+        {
+          "ts_code": "002838.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 1,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 1,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002867.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 5,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 5,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002929.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 11,
+            "down_count": 0,
+            "nine_up_turn": "+9",
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 11,
+            "down_count": 0,
+            "nine_up_turn": "+9",
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "300881.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "301261.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "301555.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 3,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 3,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600026.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 2,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 2,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600218.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 6,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 6,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600415.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 3,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 3,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600477.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 2,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 2,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600570.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 2,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 2,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600685.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 1,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 1,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600814.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 5,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 5,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "601222.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "601225.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "601966.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 6,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 6,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "603323.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "603373.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "605089.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 6,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 6,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "688046.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        }
+      ]
+    },
+    "120": {
+      "result_count": 26,
+      "matches": 26,
+      "both_absent_on_prior_date": 0,
+      "mismatch_count": 0,
+      "results": [
+        {
+          "ts_code": "000498.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "000528.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002250.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 3,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 3,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002475.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 6,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 6,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002500.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 10,
+            "nine_up_turn": null,
+            "nine_down_turn": "-9"
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 10,
+            "nine_up_turn": null,
+            "nine_down_turn": "-9"
+          }
+        },
+        {
+          "ts_code": "002644.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002838.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 5,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 5,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002867.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "002929.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 6,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 6,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "300881.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "301261.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 6,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 6,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "301555.SZ",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600026.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 10,
+            "nine_up_turn": null,
+            "nine_down_turn": "-9"
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 10,
+            "nine_up_turn": null,
+            "nine_down_turn": "-9"
+          }
+        },
+        {
+          "ts_code": "600218.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 6,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 6,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600415.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600477.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600570.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 1,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600685.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "600814.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 2,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 2,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "601222.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 2,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "601225.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "601966.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "603323.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 0,
+            "down_count": 4,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "603373.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 4,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 4,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "605089.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 4,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 4,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        },
+        {
+          "ts_code": "688046.SH",
+          "matches": true,
+          "both_absent_on_prior_date": false,
+          "expected": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 3,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          },
+          "seed": {
+            "trade_date": "2026-10-21",
+            "trade_time": "2026-10-21 15:00:00",
+            "up_count": 3,
+            "down_count": 0,
+            "nine_up_turn": null,
+            "nine_down_turn": null
+          }
+        }
+      ]
+    }
+  },
+  "candidate_groups": {
+    "30": {
+      "source_row_count": 44560,
+      "candidate_codes": [
+        "002388.SZ",
+        "301718.SZ"
+      ],
+      "candidate_code_count": 2,
+      "history_files": 14,
+      "history_bytes": 780907,
+      "history_metadata": [
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2014/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2014,
+          "bytes": 73811,
+          "identity": [
+            16777244,
+            12945185,
+            73811,
+            1786617668145744689,
+            1786618184786714884
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2015/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2015,
+          "bytes": 59038,
+          "identity": [
+            16777244,
+            12954701,
+            59038,
+            1786617687001063038,
+            1786618185850784815
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2016/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2016,
+          "bytes": 69488,
+          "identity": [
+            16777244,
+            12962824,
+            69488,
+            1786617708176802510,
+            1786618186965585777
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2017/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2017,
+          "bytes": 66937,
+          "identity": [
+            16777244,
+            12971429,
+            66937,
+            1786617730809970520,
+            1786618188152544238
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2018/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2018,
+          "bytes": 62566,
+          "identity": [
+            16777244,
+            12981623,
+            62566,
+            1786617757391511543,
+            1786618189474068662
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2019/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2019,
+          "bytes": 64689,
+          "identity": [
+            16777244,
+            12991729,
+            64689,
+            1786617785620319545,
+            1786618190866620905
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2020/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2020,
+          "bytes": 60441,
+          "identity": [
+            16777244,
+            13002621,
+            60441,
+            1786617816653494055,
+            1786618192420278766
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2021/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2021,
+          "bytes": 56802,
+          "identity": [
+            16777244,
+            13015211,
+            56802,
+            1786617850864554258,
+            1786618194197603212
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2022/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2022,
+          "bytes": 56216,
+          "identity": [
+            16777244,
+            13029285,
+            56216,
+            1786617890792509827,
+            1786618196099368998
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2023/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2023,
+          "bytes": 52961,
+          "identity": [
+            16777244,
+            13044589,
+            52961,
+            1786617936494755006,
+            1786618198283091950
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2024/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2024,
+          "bytes": 54971,
+          "identity": [
+            16777244,
+            13060603,
+            54971,
+            1786617984758707883,
+            1786618200926743306
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2025/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2025,
+          "bytes": 54919,
+          "identity": [
+            16777244,
+            13076899,
+            54919,
+            1786618034233633719,
+            1786618203183604102
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2026/part-000.parquet",
+          "ts_code": "002388.SZ",
+          "year": 2026,
+          "bytes": 45962,
+          "identity": [
+            16777244,
+            22717530,
+            45962,
+            1792934993859514043,
+            1792935036619853476
+          ]
+        },
+        {
+          "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=301718.SZ/year=2026/part-000.parquet",
+          "ts_code": "301718.SZ",
+          "year": 2026,
+          "bytes": 2106,
+          "identity": [
+            16777244,
+            22737561,
+            2106,
+            1792935009323605547,
+            1792935041209001764
+          ]
+        }
+      ],
+      "unapproved_files": 11,
+      "unapproved_older_files_outside_26": 11
+    }
+  },
+  "metadata_guards": [
+    {
+      "phase": "seed_comparison_30",
+      "freq": 30,
+      "seed_identity_matches_preflight": true,
+      "normal_groups": {},
+      "seed26_history": {
+        "files": 276,
+        "bytes": 19218013,
+        "identity_sha256": "825cb0ff5b1715f47da79cde7f4764bf0aebbf4716d385450cf361674eef280e"
+      },
+      "checked_at": "2026-10-26T08:16:10.458462+08:00"
+    },
+    {
+      "phase": "seed_comparison_30",
+      "freq": 30,
+      "seed_identity_matches_preflight": true,
+      "normal_groups": {},
+      "seed26_history": {
+        "files": 276,
+        "bytes": 19218013,
+        "identity_sha256": "825cb0ff5b1715f47da79cde7f4764bf0aebbf4716d385450cf361674eef280e"
+      },
+      "checked_at": "2026-10-26T08:16:10.610921+08:00"
+    },
+    {
+      "phase": "seed_comparison_60",
+      "freq": 60,
+      "seed_identity_matches_preflight": true,
+      "normal_groups": {},
+      "seed26_history": {
+        "files": 276,
+        "bytes": 11199257,
+        "identity_sha256": "bc605cf955f5e9d552b4263ee9f63844ad22f23198361c75d4f9f9542617f78d"
+      },
+      "checked_at": "2026-10-26T08:16:10.639976+08:00"
+    },
+    {
+      "phase": "seed_comparison_60",
+      "freq": 60,
+      "seed_identity_matches_preflight": true,
+      "normal_groups": {},
+      "seed26_history": {
+        "files": 276,
+        "bytes": 11199257,
+        "identity_sha256": "bc605cf955f5e9d552b4263ee9f63844ad22f23198361c75d4f9f9542617f78d"
+      },
+      "checked_at": "2026-10-26T08:16:10.744026+08:00"
+    },
+    {
+      "phase": "seed_comparison_90",
+      "freq": 90,
+      "seed_identity_matches_preflight": true,
+      "normal_groups": {},
+      "seed26_history": {
+        "files": 276,
+        "bytes": 8898666,
+        "identity_sha256": "8a0f92e6a80b91216706e74acf250f9894e2737fa18f7c9ea043dc2146b7b94d"
+      },
+      "checked_at": "2026-10-26T08:16:10.767260+08:00"
+    },
+    {
+      "phase": "seed_comparison_90",
+      "freq": 90,
+      "seed_identity_matches_preflight": true,
+      "normal_groups": {},
+      "seed26_history": {
+        "files": 276,
+        "bytes": 8898666,
+        "identity_sha256": "8a0f92e6a80b91216706e74acf250f9894e2737fa18f7c9ea043dc2146b7b94d"
+      },
+      "checked_at": "2026-10-26T08:16:10.854957+08:00"
+    },
+    {
+      "phase": "seed_comparison_120",
+      "freq": 120,
+      "seed_identity_matches_preflight": true,
+      "normal_groups": {},
+      "seed26_history": {
+        "files": 276,
+        "bytes": 6517704,
+        "identity_sha256": "f5328563a7b39730a256a2658e54f07c6b5fb3284cdcab8b4da7eaf29f37686a"
+      },
+      "checked_at": "2026-10-26T08:16:10.878527+08:00"
+    },
+    {
+      "phase": "seed_comparison_120",
+      "freq": 120,
+      "seed_identity_matches_preflight": true,
+      "normal_groups": {},
+      "seed26_history": {
+        "files": 276,
+        "bytes": 6517704,
+        "identity_sha256": "f5328563a7b39730a256a2658e54f07c6b5fb3284cdcab8b4da7eaf29f37686a"
+      },
+      "checked_at": "2026-10-26T08:16:10.955370+08:00"
+    },
+    {
+      "phase": "candidate_identity_keys_30",
+      "freq": 30,
+      "seed_identity_matches_preflight": true,
+      "normal_groups": {
+        "2025": {
+          "files": 5463,
+          "bytes": 381691225,
+          "identity_sha256": "cb0679e4c8d1acfd449cfca293dc03f21a372d6d3dbfca6c7654e8bb6453f65a"
+        },
+        "2026": {
+          "files": 5593,
+          "bytes": 319739488,
+          "identity_sha256": "5939a2b2d03a714b8edda25936f2ed7a4fafb949c84e09131ad4286d95d0eb0b"
+        }
+      },
+      "checked_at": "2026-10-26T08:16:11.891442+08:00"
+    },
+    {
+      "phase": "candidate_identity_keys_30",
+      "freq": 30,
+      "seed_identity_matches_preflight": true,
+      "normal_groups": {
+        "2025": {
+          "files": 5463,
+          "bytes": 381691225,
+          "identity_sha256": "cb0679e4c8d1acfd449cfca293dc03f21a372d6d3dbfca6c7654e8bb6453f65a"
+        },
+        "2026": {
+          "files": 5593,
+          "bytes": 319739488,
+          "identity_sha256": "5939a2b2d03a714b8edda25936f2ed7a4fafb949c84e09131ad4286d95d0eb0b"
+        }
+      },
+      "checked_at": "2026-10-26T08:16:14.035113+08:00"
+    },
+    {
+      "phase": "candidate_identity_keys_30",
+      "freq": 30,
+      "seed_identity_matches_preflight": true,
+      "normal_groups": {
+        "2025": {
+          "files": 5463,
+          "bytes": 381691225,
+          "identity_sha256": "cb0679e4c8d1acfd449cfca293dc03f21a372d6d3dbfca6c7654e8bb6453f65a"
+        },
+        "2026": {
+          "files": 5593,
+          "bytes": 319739488,
+          "identity_sha256": "5939a2b2d03a714b8edda25936f2ed7a4fafb949c84e09131ad4286d95d0eb0b"
+        }
+      },
+      "checked_at": "2026-10-26T08:16:15.372658+08:00"
+    }
+  ],
+  "history_scope_outside_approval": [
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2014/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2014,
+      "bytes": 73811,
+      "identity": [
+        16777244,
+        12945185,
+        73811,
+        1786617668145744689,
+        1786618184786714884
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2015/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2015,
+      "bytes": 59038,
+      "identity": [
+        16777244,
+        12954701,
+        59038,
+        1786617687001063038,
+        1786618185850784815
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2016/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2016,
+      "bytes": 69488,
+      "identity": [
+        16777244,
+        12962824,
+        69488,
+        1786617708176802510,
+        1786618186965585777
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2017/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2017,
+      "bytes": 66937,
+      "identity": [
+        16777244,
+        12971429,
+        66937,
+        1786617730809970520,
+        1786618188152544238
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2018/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2018,
+      "bytes": 62566,
+      "identity": [
+        16777244,
+        12981623,
+        62566,
+        1786617757391511543,
+        1786618189474068662
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2019/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2019,
+      "bytes": 64689,
+      "identity": [
+        16777244,
+        12991729,
+        64689,
+        1786617785620319545,
+        1786618190866620905
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2020/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2020,
+      "bytes": 60441,
+      "identity": [
+        16777244,
+        13002621,
+        60441,
+        1786617816653494055,
+        1786618192420278766
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2021/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2021,
+      "bytes": 56802,
+      "identity": [
+        16777244,
+        13015211,
+        56802,
+        1786617850864554258,
+        1786618194197603212
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2022/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2022,
+      "bytes": 56216,
+      "identity": [
+        16777244,
+        13029285,
+        56216,
+        1786617890792509827,
+        1786618196099368998
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2023/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2023,
+      "bytes": 52961,
+      "identity": [
+        16777244,
+        13044589,
+        52961,
+        1786617936494755006,
+        1786618198283091950
+      ]
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=002388.SZ/year=2024/part-000.parquet",
+      "ts_code": "002388.SZ",
+      "year": 2024,
+      "bytes": 54971,
+      "identity": [
+        16777244,
+        13060603,
+        54971,
+        1786617984758707883,
+        1786618200926743306
+      ]
+    }
+  ],
+  "scope": {
+    "metadata_preflight": "/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/nineturn_recovery_20261026/metadata-preflight.json",
+    "metadata_preflight_sha256": "0827ef003ae200d4dc025c5da9226665c8dba53d0b551a066d28e29e2bb4f59d",
+    "codes": [
+      "000498.SZ",
+      "000528.SZ",
+      "002250.SZ",
+      "002475.SZ",
+      "002500.SZ",
+      "002644.SZ",
+      "002838.SZ",
+      "002867.SZ",
+      "002929.SZ",
+      "300881.SZ",
+      "301261.SZ",
+      "301555.SZ",
+      "600026.SH",
+      "600218.SH",
+      "600415.SH",
+      "600477.SH",
+      "600570.SH",
+      "600685.SH",
+      "600814.SH",
+      "601222.SH",
+      "601225.SH",
+      "601966.SH",
+      "603323.SH",
+      "603373.SH",
+      "605089.SH",
+      "688046.SH"
+    ],
+    "seed_history_files": 1104,
+    "seed_history_bytes": 45833640,
+    "normal_files": 44224,
+    "normal_bytes": 1654696422,
+    "seed_files": 4,
+    "seed_bytes": 241384,
+    "full_history_source_fields": [
+      "ts_code",
+      "freq",
+      "trade_date",
+      "trade_time",
+      "close"
+    ],
+    "candidate_source_fields": [
+      "ts_code",
+      "freq",
+      "trade_date"
+    ],
+    "seed_comparison_fields": [
+      "ts_code",
+      "freq",
+      "trade_date",
+      "trade_time",
+      "up_count",
+      "down_count",
+      "nine_up_turn",
+      "nine_down_turn"
+    ],
+    "normal_candidate_seed_fields": [
+      "ts_code",
+      "freq",
+      "trade_time",
+      "up_count",
+      "down_count"
+    ],
+    "max_comparison_results": 104,
+    "history_price_reads_outside_26": 0,
+    "full_planner_calls": 0,
+    "fallback_history_queries": 0,
+    "duckdb_configuration": "existing DuckDBResource.connect(), unchanged managed settings",
+    "budget_note": "File-set entrance estimates are not measured physical device I/O."
+  },
+  "updated_at": "2026-10-26T08:16:15.388619+08:00"
+}

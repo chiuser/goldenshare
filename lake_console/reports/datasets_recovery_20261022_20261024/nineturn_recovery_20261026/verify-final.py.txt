@@ -1,0 +1,263 @@
+"""Final bounded verification for the original 2026-10-22 minute nine-turn job.
+
+Usage: project .venv/bin/python3 -B this_script.py RUN_ID
+Run only after that exact run finishes. This script does not initialize a Dagster
+instance or execute jobs/checks. Formal access is read-only event/control queries,
+four publication JSON records, and file stat. Hashes below cover path/stat text or
+operation names only, never Parquet content. The only write is a local report.
+"""
+
+import hashlib
+import json
+import os
+import stat
+import sys
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import dagster as dg
+import yaml
+from dagster_postgres import PostgresEventLogStorage, PostgresRunStorage
+
+BASE = Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261022_20261024/nineturn_recovery_20261026')
+ROOT = Path('/Volumes/datasource/data_lake')
+STAGE = Path('/Volumes/datasource/data_lake_staging')
+APPROVED_DAGSTER_HOME = Path('/Users/congming/.goldenshare/dagster_home')
+DAY = '2026-10-22'
+FREQS = (30, 60, 90, 120)
+ROWS = {30: 44560, 60: 22280, 90: 16710, 120: 11140}
+JOB = 'gold_stk_mins_qfq_nineturn_update_job'
+COLUMNS = ['ts_code', 'freq', 'trade_date', 'trade_time', 'up_count', 'down_count', 'nine_up_turn', 'nine_down_turn']
+RULES = ['file_contract', 'partition_alignment', 'key_integrity', 'value_domain', 'source_key_coverage']
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def text_hash(value):
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def identity(path):
+    try:
+        value = path.lstat()
+    except FileNotFoundError:
+        return None
+    require(stat.S_ISREG(value.st_mode), f'Not a regular file: {path}')
+    return [value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns]
+
+
+def valid_identity(value):
+    return isinstance(value, list) and len(value) == 5 and all(type(x) is int for x in value)
+
+
+def valid_digest(value):
+    return isinstance(value, str) and len(value) == 64 and all(x in '0123456789abcdef' for x in value)
+
+
+def source_summary(paths):
+    digest = hashlib.sha256()
+    count = total = 0
+    for path in sorted(paths):
+        value = identity(path)
+        require(value is not None, f'Source path disappeared: {path}')
+        # Exactly metadata-preflight.py's sorted [path, five-field stat] encoding.
+        digest.update(json.dumps([str(path), value], separators=(',', ':')).encode())
+        count += 1
+        total += value[2]
+    return {'files': count, 'bytes': total, 'missing': 0, 'identity_sha256': digest.hexdigest()}
+
+
+def metadata(values):
+    # MetadataValue is a tuple-like Dagster object: unwrap .value first.
+    return {key: value.value for key, value in values.items() if key != 'dagster/column_schema'}
+
+
+def target_path(freq, day=DAY):
+    return ROOT / 'gold/indicator/stk_mins_qfq_nineturn' / f'freq={freq}' / f'trade_date={day}' / 'part-000.parquet'
+
+
+def verify_events(run_id, preflight, output):
+    require(Path(os.environ.get('DAGSTER_HOME', '')) == APPROVED_DAGSTER_HOME, 'DAGSTER_HOME must match the approved formal instance.')
+    os.environ['PGOPTIONS'] = '-c default_transaction_read_only=on -c statement_timeout=30000'
+    value = yaml.safe_load((APPROVED_DAGSTER_HOME / 'dagster.yaml').read_text())['storage']['postgres']['postgres_url']
+    url = os.environ[value['env']] if isinstance(value, dict) else value
+    runs = PostgresRunStorage(url, should_autocreate_tables=False)
+    events = PostgresEventLogStorage(url, should_autocreate_tables=False)
+    try:
+        found = runs.get_run_records(dg.RunsFilter(run_ids=[run_id]), limit=1)
+        require(len(found) == 1, 'Exact run ID not found.')
+        record = found[0]
+        run = record.dagster_run
+        require(run.job_name == JOB and run.tags.get('dagster/partition') == DAY, 'Wrong original job or partition.')
+        require(record.create_timestamp.timestamp() >= datetime.fromisoformat(preflight['as_of']).timestamp(), 'Run predates this preflight.')
+        output.update(run_id=run.run_id, root_run_id=run.root_run_id or run.run_id,
+                      job=run.job_name, status=run.status.value,
+                      elapsed_seconds=record.end_time-record.start_time if record.end_time and record.start_time else None)
+        require(run.status == dg.DagsterRunStatus.SUCCESS, 'Run has not completed successfully.')
+        result = events.get_records_for_run(
+            run_id, of_type={dg.DagsterEventType.ASSET_MATERIALIZATION,
+                             dg.DagsterEventType.ASSET_CHECK_EVALUATION,
+                             dg.DagsterEventType.STEP_FAILURE,
+                             dg.DagsterEventType.PIPELINE_FAILURE}, limit=100,
+        )
+        require(not result.has_more, 'Unexpected event pagination; do not truncate evidence.')
+        mats, checks = [], []
+        for entry in result.records:
+            event = entry.event_log_entry.dagster_event
+            if event.event_type == dg.DagsterEventType.ASSET_MATERIALIZATION:
+                item = entry.asset_materialization
+                mats.append({'asset': item.asset_key.to_user_string(), 'storage_id': entry.storage_id,
+                             'partition': item.partition, 'metadata': metadata(item.metadata)})
+            elif event.event_type == dg.DagsterEventType.ASSET_CHECK_EVALUATION:
+                item = event.event_specific_data
+                target = item.target_materialization_data
+                checks.append({'asset': item.asset_key.to_user_string(), 'name': item.check_name,
+                               'storage_id': entry.storage_id, 'passed': item.passed,
+                               'blocking': item.blocking, 'partition': item.partition,
+                               'target_storage_id': target.storage_id if target else None,
+                               'target_run_id': target.run_id if target else None,
+                               'metadata': metadata(item.metadata)})
+            else:
+                raise ValueError('Run contains a failure event.')
+        expected = {f'gold_stk_mins_qfq_nineturn_{freq}m' for freq in FREQS}
+        require(len(mats) == 4 and {x['asset'] for x in mats} == expected, 'Expected exactly four original materializations.')
+        require(len(checks) == 4 and {x['asset'] for x in checks} == expected, 'Expected exactly four original checks.')
+        by_asset = {x['asset']: x for x in mats}
+        for freq in FREQS:
+            name = f'gold_stk_mins_qfq_nineturn_{freq}m'
+            materialization = by_asset[name]
+            require(materialization['partition'] == DAY, 'Materialization has wrong date.')
+            item = materialization['metadata']
+            count = ROWS[freq]
+            require(item['dagster/row_count'] == item['goldenshare/source_row_count'] == count, 'Materialization row counts differ from approved source evidence.')
+            require(item['dagster/uri'] == str(target_path(freq)), 'Materialization has wrong formal path.')
+            require(item['goldenshare/observed_columns'] == COLUMNS, 'Unexpected observed column order.')
+            require(item['goldenshare/formula_version'] == 1 and item['goldenshare/result_status'] == 'written', 'Unexpected formula version or result status.')
+            require(valid_digest(item['goldenshare/source_fingerprint']), 'Invalid business source fingerprint metadata.')
+            input_summary = item['goldenshare/input_summary']
+            filter_summary = item['goldenshare/filter_summary']
+            require(input_summary['partition_key'] == DAY and input_summary['freq'] == freq,
+                    'Input summary has wrong date or frequency.')
+            require(input_summary['source_row_count'] == filter_summary['output_row_count'] == count, 'Nested row counts differ.')
+            require(type(input_summary['source_file_count']) is int and input_summary['source_file_count'] > 0, 'Invalid source file count.')
+            stock_count = item['goldenshare/stock_code_count']
+            fallback_count = item['goldenshare/fallback_recomputed_code_count']
+            require(type(stock_count) is int and 0 < stock_count <= count, 'Invalid stock count.')
+            require(type(fallback_count) is int and 0 <= fallback_count <= min(500, stock_count), 'Invalid fallback count.')
+            require(filter_summary['stock_code_count'] == stock_count and filter_summary['fallback_recomputed_code_count'] == fallback_count, 'Nested stock/fallback counts differ.')
+            check = next(x for x in checks if x['asset'] == name)
+            require(check['passed'] and check['blocking'] and check['partition'] == DAY,
+                    'Original blocking check did not pass for target date.')
+            require(check['name'] == name + '_integrity_check', 'Unexpected check name.')
+            require(check['target_storage_id'] == materialization['storage_id'] and check['target_run_id'] == run_id,
+                    'Check is not bound to this run materialization.')
+            detail = check['metadata']
+            require(detail['goldenshare/file_path'] == str(target_path(freq)), 'Check has wrong formal path.')
+            require(detail['goldenshare/checked_row_count'] == count and detail['goldenshare/failed_row_count'] == 0, 'Check row counts are not clean.')
+            require(detail['goldenshare/failed_rule_names'] == [], 'Check contains failed rules.')
+            summary = detail['goldenshare/rule_summary']
+            require(summary['rules'] == RULES and summary['checked_row_count'] == summary['source_row_count'] == count, 'Check rule/source counts differ.')
+            require(all(summary[key] == 0 for key in ('source_duplicate_key_count', 'duplicate_key_count', 'null_key_count', 'invalid_value_count', 'missing_source_key_count', 'extra_output_key_count')), 'Check diagnostics contain failures.')
+        output.update(materializations=mats, checks=checks, materializations_verified=4, blocking_checks_passed=4)
+        return by_asset
+    finally:
+        runs.dispose()
+        events.dispose()
+
+
+def verify_publications(root_run_id, by_asset):
+    result = []
+    for freq in FREQS:
+        scope = {'version': 1, 'family': 'nineturn', 'freq': freq, 'trade_dates': (DAY,)}
+        directory = STAGE / 'stk_mins_qfq/nineturn' / f'root={text_hash(str(ROOT))}' / f'freq={freq}' / f'run_id={text_hash(root_run_id)}' / f'scope={text_hash(json.dumps(scope, sort_keys=True))}'
+        target = target_path(freq)
+        operation = json.loads((directory / 'operation.json').read_text())
+        require(operation['scope'] == json.loads(json.dumps(scope)), 'Publication scope mismatch.')
+        require(operation['targets'] == [str(target)], 'Publication must contain only the one target.')
+        require(set(operation['inputs']) == {'nineturn_inputs'} and valid_digest(operation['inputs']['nineturn_inputs']), 'Publication input description is missing.')
+        receipt_path = directory / 'files' / f'{text_hash(str(target))}.json'
+        require(sorted((directory / 'files').glob('*.json')) == [receipt_path], 'Unexpected publication receipt set.')
+        receipt = json.loads(receipt_path.read_text())
+        require(receipt['target'] == str(target) and receipt['status'] == 'promoted', 'Target is not recorded as promoted.')
+        require(receipt['before'] is None, 'This recovery unexpectedly overwrote an existing target.')
+        require(valid_digest(receipt['sha256']), 'Invalid recorded candidate digest.')
+        require(valid_identity(receipt['candidate_identity']) and valid_identity(receipt['promoted_identity']), 'Invalid recorded candidate/formal identity.')
+        observed = identity(target)
+        require(observed == receipt['promoted_identity'] and observed[:4] == receipt['candidate_identity'][:4], 'Formal file no longer matches its promotion record.')
+        require(receipt['row_count'] == by_asset[f'gold_stk_mins_qfq_nineturn_{freq}m']['metadata']['dagster/row_count'] == ROWS[freq], 'Receipt and materialization row counts differ.')
+        candidate = Path(receipt['candidate'])
+        require(candidate.is_relative_to(directory / 'candidates') and '..' not in candidate.parts, 'Candidate path escaped its publication.')
+        require(candidate.relative_to(directory / 'candidates').parts[1:] == target.relative_to(ROOT).parts,
+                'Candidate path does not match target suffix.')
+        require(identity(candidate) is None, 'Promoted candidate still exists.')
+        result.append({'freq': freq, 'directory': str(directory), 'target': str(target),
+                       'row_count': receipt['row_count'], 'bytes': observed[2],
+                       'status': receipt['status'], 'formal_identity': observed,
+                       'recorded_sha256': receipt['sha256'], 'new_data_sha_reads': 0})
+    return result
+
+
+def verify_source_stats(preflight):
+    result = {}
+    for freq in FREQS:
+        for year in (2025, 2026):
+            key = f'daily_source_{freq}_{year}'
+            source_root = ROOT / 'gold/quote/stk_mins_qfq' / f'freq={freq}'
+            actual = source_summary(source_root.glob(f'ts_code=*/year={year}/part-000.parquet'))
+            expected = preflight['source_groups'][key]
+            require(all(actual[field] == expected[field] for field in actual), f'Source metadata changed: {key}')
+            result[key] = actual
+    return result
+
+
+def verify_neighbors(preflight):
+    result = {}
+    expected_paths = {str(target_path(freq, day)) for freq in FREQS for day in ('2026-10-21', '2026-10-23')}
+    observed_paths = {path for path in preflight['neighbor_stat'] if 'trade_date=2026-10-22/' not in path}
+    require(observed_paths == expected_paths, 'Preflight neighbor scope is incomplete.')
+    for name in sorted(expected_paths):
+        actual = identity(Path(name))
+        require(actual == preflight['neighbor_stat'][name], f'Neighbor file changed: {name}')
+        result[name] = actual
+    return result
+
+
+def main():
+    require(len(sys.argv) == 2 and bool(sys.argv[1].strip()), 'Pass the exact completed run ID.')
+    run_id = sys.argv[1].strip()
+    preflight = json.loads((BASE / 'metadata-preflight.json').read_text())
+    require(preflight['passed'] and preflight['date'] == DAY and preflight['previous_registered_day'] == '2026-10-21', 'Wrong or incomplete metadata preflight.')
+    require(all(preflight['neighbor_stat'][str(target_path(freq))] is None for freq in FREQS), 'Preflight expected empty target slots.')
+    output = {'as_of': datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(), 'date': DAY,
+              'passed': False, 'formal_content_reads': 0, 'new_data_sha_reads': 0,
+              'formal_writes': 0, 'verification': 'original run events plus publication JSON and stat only',
+              'limits': ['Does not rerun formula or original checks.',
+                         'Does not reopen frozen input descriptions or any Parquet body.',
+                         'Checks eight normal-source path/stat groups and 21/23 neighbors; other history input identity is protected by the original writer.',
+                         'Does not claim 2026-10-23 completeness or re-enable sensors.']}
+    try:
+        mats = verify_events(run_id, preflight, output)
+        output['publications'] = verify_publications(output['root_run_id'], mats)
+        output['source_groups'] = verify_source_stats(preflight)
+        output['neighbor_stat'] = verify_neighbors(preflight)
+        output['output_rows'] = sum(x['row_count'] for x in output['publications'])
+        output['output_bytes'] = sum(x['bytes'] for x in output['publications'])
+        require(output['output_rows'] == 94690, 'Unexpected total rows.')
+        output['passed'] = True
+    except Exception as error:
+        output['failure_type'] = type(error).__name__
+        output['failure'] = str(error)[:1000] if isinstance(error, ValueError) else 'Verification failed; inspect the process error.'
+        raise
+    finally:
+        with (BASE / 'final-verified.json').open('x') as stream:
+            json.dump(output, stream, ensure_ascii=False, indent=2)
+            stream.write('\n')
+    print(json.dumps({key: output[key] for key in ('run_id', 'status', 'passed', 'materializations_verified', 'blocking_checks_passed', 'output_rows', 'output_bytes')}, ensure_ascii=False))
+
+
+if __name__ == '__main__':
+    main()

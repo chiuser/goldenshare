@@ -1,0 +1,5 @@
+Traceback (most recent call last):
+  File "/private/tmp/dg22_nineturn_defs_preflight.py", line 8, in <module>
+    assert nodes==sorted(expected+[a+'_integrity_check' for a in expected]),nodes
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: ['gold_stk_mins_qfq_nineturn_120m', 'gold_stk_mins_qfq_nineturn_120m_gold_stk_mins_qfq_nineturn_120m_integrity_check', 'gold_stk_mins_qfq_nineturn_30m', 'gold_stk_mins_qfq_nineturn_30m_gold_stk_mins_qfq_nineturn_30m_integrity_check', 'gold_stk_mins_qfq_nineturn_60m', 'gold_stk_mins_qfq_nineturn_60m_gold_stk_mins_qfq_nineturn_60m_integrity_check', 'gold_stk_mins_qfq_nineturn_90m', 'gold_stk_mins_qfq_nineturn_90m_gold_stk_mins_qfq_nineturn_90m_integrity_check']

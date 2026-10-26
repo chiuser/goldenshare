@@ -1,0 +1,28 @@
+{
+  "as_of": "2026-10-26T08:23:29.219657+08:00",
+  "formal_writes": 0,
+  "factor_ready": true,
+  "active_runs": [],
+  "pool": {
+    "limit": 1,
+    "active": 0,
+    "pending": 0
+  },
+  "sensors": [
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "status": "STOPPED"
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "status": "STOPPED"
+    }
+  ],
+  "target_runs": [],
+  "daemon_probe": {
+    "returncode": 1,
+    "stdout": "",
+    "stderr": ""
+  },
+  "passed": true
+}
