@@ -25,7 +25,7 @@
 | --- | --- |
 | `defs/schedules/anns_d.py::raw_anns_d_update_schedule` | 从九个日请求改为一个范围请求，显式配置和固定批次身份 |
 | `defs/jobs/anns_d.py::raw_anns_d_update_job` | 保持asset+原两项checks选择；不放业务循环、取源、SQL或写文件 |
-| `defs/assets/anns_d.py::raw_tushare_anns_d` | 范围上下文、逐日执行helper、各日metadata；末尾仅一个MaterializeResult |
+| `defs/assets/anns_d.py::raw_tushare_anns_d` | 范围上下文、逐日执行helper、各日metadata；末尾仅一个MaterializeResult；保留既有backfill policy |
 | `defs/anns_d_window.py` | 冻结范围、单次执行循环、按日结果和恢复；去掉前日成功门禁及总期限 |
 | `defs/anns_d_execution.py` | 复用 `update_announcement_day` 的完整capture/build/promote，保留提交与取消边界 |
 | `defs/anns_d_checkpoint.py` | 保留请求计数/间隔/未决请求恢复；移除总期限，保存单次执行信息 |
@@ -85,7 +85,7 @@
 
 保留内部tags中的 `anns_d/window_id`、`anns_d/start_date`、`anns_d/end_date`、`anns_d/automatic`。现有 `anns_d/started_at` 名称不另改，但其含义严格为计划时刻；不读它计算是否允许执行。增加内部 `anns_d/execution_version=2`，并将版本、计划日、范围用于整个执行身份。
 
-身份生成集中在 `anns_d_window.py`，例如：
+自动身份生成集中在 `anns_d_window.py`，固定为：
 
 ~~~python
 window_id = sha256(
@@ -130,17 +130,29 @@ RunRequest(
 
 当前单日手工materialize仍支持；手工历史闭区间继续使用 `announcement_dates` 的已结束日期约束，不因自动D+1放宽。单日上下文也统一通过 `context.partition_keys` 获取一元素列表；禁止自动批次退回逐日子job。
 
-无公告批次tags的手工运行生成新的内部版本2身份；携带批次tags的恢复必须完整一致，不接受缺版本的旧执行身份自动套用新设计。CLI的参数、plan/run含义、默认plan及不写DG事件边界保持；不发布新的任意SQL、表名或根路径入口。
+不新增或改变asset的backfill policy，保留手工UI原有默认逐分区回填；本次不开放另一个无自动意图tags的DG多日range入口。Dagster CLI的partition-range还有独立policy要求，本次不新增该入口。CLI原有历史闭区间plan/run继续调用同一业务helper，但只写文件、不产生DG事件，仍适用其原有范围/请求控制。
 
-同一执行恢复使用原window id、计划时间、范围及有效policy，不按恢复时钟重算。恢复须是Dagster支持的显式重新执行，不能用“重复schedule求值”代替，后者本来会被run_key去重。
+身份与恢复固定如下：
+
+| 入口 | 全新执行 | 已有执行/重新执行 |
+| --- | --- | --- |
+| 自动schedule | 按第3.1节计划日和固定范围生成一次身份与tags | 使用原tags；逐项匹配execution/budget；不接受缺版本旧tags自动套用新设计 |
+| 手工UI单日 | `root = context.run.root_run_id or context.run.run_id`，window_id取`sha256(f"anns_d:manual:2:{root}:{first}:{last}".encode()).hexdigest()[:32]`；首次才记录当前时刻 | 根据相同原生root字段及范围找到execution，先读取原计划时间/policy，再验证输入；不能依赖可能不存在的`dagster/root_run_id`标签，也不能因为新run_id而新建意图 |
+| CLI历史闭区间 | 未传window-id则保持生成新UUID；显式新window-id首次才记录当前时刻 | 收到已存在的`--window-id`时，先只读execution取得原计划时间/范围/policy，核对输入日期和间隔完全一致后构造恢复tags；不每次取now |
+
+无公告tags的手工asset内生成的tags不会自动回写到Dagster run，故稳定root及持久execution是恢复依据。两个独立手工新run即使同日同范围也必须有不同身份并重新观察来源，不能把一次新的请求误作已完成执行的重放。
+
+plan模式可以只读已存在的执行信息，但不能创建目录、锁、budget或checkpoint；新意图尚未冻结的计划时间在plan中仅为预览，run时首次持久化才生效。发现旧admission、无版本预算或旧delivery的未完成执行，不覆盖、不重置，按第8节另行明确补拉。
+
+同一执行恢复保持原window id、计划时间、范围及有效policy。采用Dagster显式重新执行：文件/物化阶段未完成时包含asset；仅checks失败时允许from-failure只执行相应检查节点，具体计数和绑定见第7节。重复schedule求值仍按run_key去重，不能代替恢复。
 
 ## 4. 单job编排与文件阶段
 
 ### 4.1 范围asset
 
-资产声明 `BackfillPolicy.single_run()`，使用 `context.partition_keys`。该声明不会自动把schedule九请求合成一请求，必须同时实施第3节。
+资产保留当前backfill policy，使用 `context.partition_keys`。本机已验证schedule直接提交None加范围tags即可执行单run九日，不需要声明`BackfillPolicy.single_run()`；只改policy也不会把九个schedule请求合成一个。这样保持既有手工UI回填行为，本轮仅实施第3节的自动范围请求。
 
-资产仅负责接线，业务循环放入 `anns_d_window.py` 的范围执行helper。复用现有 `update_announcement_day`、source和io，不复制下载/合并算法。建议接口：
+资产仅负责接线，业务循环放入 `anns_d_window.py` 的范围执行helper。复用现有 `update_announcement_day`、source和io，不复制下载/合并算法。执行接口固定为：
 
 ~~~python
 execute_announcement_window(
@@ -148,7 +160,7 @@ execute_announcement_window(
 ) -> dict[str, AnnouncementDayDelivery]
 ~~~
 
-返回只包含每日本次交付的计数、路径、identity和checkpoint引用，不包含公告明细。内部for循环保证先旧后新，取消原“前一天必须成功”的跨日门禁；不再依赖队列顺序来决定是否允许读取。
+`AnnouncementDayDelivery`在同模块定义为不可变小记录，字段为`day: str`、`checkpoint_path: Path`、`identity: Mapping[str, Any]`、`delivery: Mapping[str, Any]`；delivery仅含已有交付计数、页/文件路径、指纹及末页证明，不装入公告明细。返回字典按已验证日期完整覆盖本批；有失败则不返回不完整成功字典。内部for循环保证先旧后新，取消原“前一天必须成功”的跨日门禁；不再依赖队列顺序决定是否允许读取。
 
 ~~~text
 验证固定意图并取得本次执行锁
@@ -205,7 +217,9 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 
 `budget.json`保留 `window_id, identity, requests, day_requests, in_flight, next_request`，不生成或消费整批deadline。identity绑定同一固定范围、有效policy和执行版本，计数、间隔和未决请求只由当前执行持锁修改。
 
-初始化和崩溃恢复必须固定：取得本次执行锁→校验不存在同身份的旧执行现场→原子写零计数budget→原子写execution→才允许领取源请求。仅budget存在且identity一致、requests=0、无day_requests、in_flight=False时，可完成被中断的初始化；budget已有消耗却无execution，或execution存在却缺失/损坏budget，均停止，不从零重建配额。正常恢复先严格读回两个文件的身份再领取请求；测试覆盖这两个原子写之间退出以及首个请求后退出。
+取得本次执行锁后先区分新建与恢复：两文件均不存在且不存在旧执行现场时，才按“原子写零计数budget→原子写execution→允许领取请求”新建；两文件均已存在时，正常恢复严格核对两份身份、固定时间/范围/policy及计数，不以文件已存在为错误。仅budget存在且identity一致、requests=0、无day_requests、in_flight=False时，可完成被中断的初始化；budget已有消耗却无execution，或execution存在却缺失/损坏budget，均停止，不从零重建配额。测试覆盖两个原子写之间退出以及首个请求后退出。
+
+每个day的最新phase/reason是汇总来源，不用只能追加的failed列表：失败日恢复为promoted后移除其旧reason，重新派生attempted_days、files_completed、failed_days和未尝试日期。一次attempt的错误历史可保留，不能让旧failed标记使已成功的本批继续报失败；测试必须验证“首轮中间日失败、同意图恢复成功后整批成功”。
 
 两个check节点在同一run内可能并发，不能以max_concurrent_runs=1推断它们串行。检查节点不共同累加execution.json；各自发出带check_name、day、evaluated_count/total、phase和updated_at的结构化进度日志及原生检查事件，最终按本run的两个check结果汇总。无需新增共享检查计数文件，也避免read-modify-write丢更新。
 
@@ -215,7 +229,7 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 | --- | --- | --- |
 | 单日源失败 | `announcement_source_timeout`、`announcement_source_call_failed`、`announcement_source_process_exit`在该页三次尝试后仍失败 | 保存该日failed，继续其他日期 |
 | 单日响应/数据错误 | 缺列、类型/日期/分区不符、oversized/repeated page、capture不完整、当日请求上限 | 不提升该日候选；记录具体reason，继续其他日期 |
-| 共享执行/资源错误 | 意图不符、卷/权限/空间失效、总请求预算用尽、writer_busy、目标/候选指纹冲突、执行证据损坏 | 停止本批，保留成功日，列出未尝试日期 |
+| 共享执行/资源错误 | 意图不符、卷/权限/空间失效、需要新请求但总次数已用尽、writer_busy、目标/候选指纹冲突、执行证据损坏 | 停止本批，保留成功日，列出未尝试日期 |
 | 未预期异常 | 未归入已测试reason集合的异常 | 停止，不默认当成单日源问题 |
 | 主动取消/KeyboardInterrupt | control取消或进程信号 | 不再领取页/日，终止源子进程并保存可恢复状态 |
 
@@ -231,7 +245,9 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 - capture不完整：用新attempt重新拉该日全部页；旧attempt保留，不把不同观察时刻的offset拼接。
 - 已完成的其他日只做恢复必要的指纹/证据核对，不再次下载；剩余请求仍计入同一budget。
 - 目标文件已被其他批次更新：旧交付不能冒充当前文件，不强行提升旧候选；明确冲突，不擅自新建执行或重置计数。
-- 事件阶段失败：文件不回滚；显式恢复本次执行时按稳定物理证据再次形成本次物化并运行checks，不承诺完全不新增观测事件。
+- 物化尚未完整生成：显式重新执行包含asset，按稳定文件证据复用，重新形成完整九条物化和两项checks；保留此前部分观测，不承诺数据库零新增。
+- 九条物化已完整、仅check节点失败：允许只重跑实际失败节点，不新抓来源、不重做物化。物化目标、可复用的兄弟检查和0/9或0/18计数按第7节处理，不能强制该恢复run新产物化。
+- 单日100次或整批350次已耗尽：原执行不再领取相应请求，不能通过原window续跑、删budget或清failed记录获得新额度；仅另一个明确获准的新补拉意图可有新预算，旧现场原样保留，不自动换身份重跑。若已有完整capture/validated delivery，只做build/promote、事件或检查恢复而不发新请求，则仍可继续，不把次数已满作为拒绝这类恢复的理由。
 
 取消检查保留在每页前后、每日前后及文件计算观察线程。源子进程仍按cancel_grace释放。没有整批总期限，不等于取消单次源请求超时或人工取消能力。
 
@@ -302,14 +318,16 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 
 `evaluate_announcement_check`改成显式接收day和当前run身份的纯核验调用，不在其中从context猜单日日期；返回每日本次检查的passed、metadata和目标物化引用。check-only单日运行继续支持，不能要求每次检查一定重写asset。
 
+不能沿用现行helper对全部Exception统一返回`announcement_evidence_unavailable`的catch-all。缺文件/物化、schema/日期/交付规则不符等可解释的单日核验不通过，返回带具体reason的未通过结果；卷/权限/安全路径失效、写者/指纹冲突、取消以及未预期异常向框架抛出，停止当前节点，不吞成普通False。保留脱敏，不暴露SDK秘密；两个分支均有反例测试。
+
 ### 7.2 每个检查节点的输出
 
 每个检查节点：
 
 1. 取并校验 `context.partition_keys`，对每个day执行原schema或交付规则。
-2. 查该day的目标物化；选中asset共同执行时必须是当前run；只跑check时按既有规则取该day最新物化。
+2. 查该day的目标物化。是否在本run重做asset，必须同时看asset_selection/可执行asset及`step_keys_to_execute`；后者非空且不含asset真实step key时，不因job定义含asset就误判为本次写入。实际执行asset时要求当前run；仅重新执行check时按第7.5节核对原冻结执行的本日已有物化；独立手工检查则取该day最新物化。
 3. 原生发出 `AssetCheckEvaluation`，显式设置asset_key、check_name、partition=day、passed、severity=ERROR、blocking=True、metadata及 `target_materialization_data`。
-4. 单日核验返回未通过且节点可继续时，仍对其余day产生结果；最后发出该check节点所需的一次 `dg.Output(None)`，让框架完成节点输出并按blocking失败决定run终态。取消、公共故障或未处理异常不属于这一继续承诺，必须按第5节停止并报告未核验日期。
+4. 单日核验返回未通过且节点可继续时，仍对其余day产生结果；最后发出该check节点所需的一次 `dg.Output(None)`，让框架完成节点输出并按blocking失败决定run终态。取消、公共故障或未处理异常不属于这一继续承诺，停止当前检查节点后续日期并报告未核验范围；不能声称一个节点异常会自动取消已经并发运行的兄弟节点，整run取消仍由Dagster执行。
 
 `AssetCheckEvaluation`使用本机已验证的 `dagster._core.definitions.asset_checks.asset_check_evaluation` 类型，事件由正在执行的check step yield进入正常引擎；不调用instance.report_runless_asset_event，不直写event表。内部API的使用仅封装在本数据集checks模块，并由固定版本隔离事件测试保护，不能扩散成通用事件框架。
 
@@ -321,7 +339,7 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 
 交付check：目标checkpoint属于本日、本次交付；完整capture/末页证据；来源页与目标SHA未变；计数/集合对账及保存的readback一致；核验期间最新物化及文件保持稳定。不会重新请求Tushare或Prod。
 
-目标引用必须是 `AssetCheckEvaluationTargetMaterializationData(run_id=..., timestamp=..., storage_id=...)` 对应本日物化，不能用整批最后一天的引用。读取现有events要有asset+day过滤和limit；正常收尾只汇总本run 9/18条事件，不增加全历史readiness循环。
+目标引用必须是 `AssetCheckEvaluationTargetMaterializationData(run_id=..., timestamp=..., storage_id=...)` 对应本日物化，不能用整批最后一天的引用。读取现有events要有asset+day过滤和limit；正常全流程收尾汇总本run 9/18条事件，仅检查恢复按第7.5节计数，不增加全历史readiness循环。
 
 沿用现有有界查询时，文件check增加每日本次物化查询一次，交付check保留每日前后各一次：九日最多27次`limit=1`元数据查询，均核对asset/day及目标run；不是扫描事件历史。不得为了收尾再重复九日readiness深查。后续若复用同一批已查结果，仍须保留交付检查的物化稳定性验证，不能只为减少次数删规则。
 
@@ -329,7 +347,7 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 
 本轮只在隔离内存环境核验Dagster1.13.26接口，未导入正式项目defs或连接正式instance、DB、Lake：
 
-- 单次schedule evaluate_tick返回一个范围RunRequest，partition_key=None、范围19..27、显式config保留；解析结果无需backfill daemon。
+- 单次schedule evaluate_tick返回一个范围RunRequest，partition_key=None、范围19..27、显式config保留；解析结果无需backfill daemon。补充验证asset.backfill_policy=None时，同一路径仍生成正确9/18事件及持久分区记录，故本次保留既有policy即可。
 - 阅读调度提交源码确认没有强制单日partition_key；单日tag不能与range tags并存。
 - 固定九日的单run产生恰好9条物化及18项检查，各日metadata和target_run_id正确。
 - 证明无Output的检查节点会失败，普通AssetCheckResult在range下分区为空。
@@ -338,6 +356,29 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 - 已独立读取隔离instance的检查执行历史：两个check各九条持久记录，`record.partition`与evaluation.partition均为19..27且无None，run_id和target storage_id逐日正确。失败样本同样保留十八条记录，其中一个FAILED，其余SUCCEEDED。该证明只涉及临时实例，不是正式PostgreSQL或业务验收。
 
 这些只证明框架路径可行，不证明本次公告业务代码、真实daemon/RPC提交或正式补数已经通过。未来开发必须将此路径固化到项目测试，不能只引用会话中的临时验证结果。
+
+### 7.5 仅检查恢复及结果计数
+
+恢复根据实际执行步骤处理，不强制每个新run都重做全部九日：
+
+| 本次实际执行 | 新增物化/检查 | 目标与验收 |
+| --- | --- | --- |
+| 文件阶段失败或物化尚不完整，重新执行包含asset及两checks | 完整成功时9/18 | 文件证据复用，物化属于本恢复run；此前部分事件只保留历史，不混入本次计数 |
+| asset已成功，仅重新执行一个失败check节点 | 0/9 | 本节点九日结果绑定原冻结执行的父/祖先run对应日物化，不要求目标run_id等于当前check run |
+| asset已成功，重新执行两个checks节点 | 0/18 | 同上，无源请求、无文件重写、无新物化 |
+| 独立单日手工只检查 | 0/所选check数 | 维持既有检查入口，只检查本日最新物化；不能据此声称整个九日执行已完成 |
+
+先区分原执行入口，不能仅因存在parent/root_run_id就强制读取文件执行checkpoint：原根run有可验证版本2文件执行意图，或根据其asset_selection及实际steps确实执行过公告asset时，才进入冻结window恢复。无自动tags时，从原生root_run_id定位手工文件执行的execution；该文件应存在而缺失时明确失败，不能降为独立检查或用新的now重新冻结。必要时每个检查节点至多有界读取一次根run元数据，不扫描整组祖先运行。
+
+原根run本来就是独立手工check-only、从未选择执行asset且无文件执行意图时，其重新执行仍按本日最新物化检查，不要求按这个check run的root生成execution.json，也不承担九日窗口兄弟检查恢复；这条路径与普通独立单日检查一致，须有独立检查失败后再次重新执行的回归。
+
+文件执行的检查恢复前核对固定window、各日最新物化的完整identity及交付文件指纹；原物化若已被另一批更新，不取另一批新物化来冒充原window，而是明确引用冲突。
+
+若只执行一项check，还要验证未重跑的另一项原结果可复用：按check_key及`PartitionKeyFilter(key=day)`读最新一条执行记录，要求SUCCEEDED、正确day，且target storage_id/run_id对应本日选定物化。不能过滤SUCCESS后向更旧记录找绿灯；缺失、失败或目标不符时，在节点恢复前置核验中明确拒绝，提示显式选择需要的检查步骤，不自动扩大执行范围。
+
+复用交付检查还必须确认来源页及正式文件仍匹配原delivery SHA；若本次选中的交付检查会执行同一指纹核验，则复用其验证，不另外重复读取。仅重跑文件检查时，来源页及文件SHA的必要核对用于证明未重跑的交付检查仍有效，不重做其集合SQL、不抓来源。独立手工单日检查不承担九日窗口的兄弟检查恢复，不增加上述整窗前置条件。
+
+恢复收尾区分“本次所选步骤成功”与“整个冻结九日两项检查均有效”。正常9/18、只检查0/9或0/18按本次实际步骤对账；确认窗口整体通过时，还要核对应保留的另一项检查与同日物化目标及指纹一致。全部查询限本次九日，不查全历史；元数据读取保守上限为27次日物化/稳定性查询，加最多18次按check/day的最新一条引用或结果核对，加两个节点各最多一次根run读取，共47次。可复用已查结果，不因到达此上界再扫描历史；不能按run总状态猜测或直接改写旧事件。
 
 ## 8. 历史证据读取及切换
 
@@ -389,22 +430,24 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 | --- | --- |
 | `test_anns_d_window.py`、`test_anns_d_definitions.py` | 08:00 schedule只返回1请求，固定19..27；跨月/年、北京时间跨日；重复tick同key；tag冲突、D+2、错范围/版本拒绝 |
 | 同上 | 计划08点实际15:35、运行超过一小时、隔日恢复均可继续；新执行无deadline检查；日期不随时钟漂移 |
+| window/CLI及definitions测试 | 同一CLI window隔日续跑读取冻结时间，plan零写入；手工root_run_id恢复与独立新run区分；输入日期/间隔不符拒绝；不改变UI backfill policy、不新增无自动意图tags的DG多日range |
 | `test_anns_d_execution.py`及window测试 | 中间日失败后后续日期确实被调用；最终失败摘要准确；共享故障/未知异常立即停并标未尝试，不吞错 |
-| `test_anns_d_source.py` | 满页/短页/空页schema、offset、三次尝试、单次30秒与取消进程；请求间隔与100/350计数不重置 |
+| `test_anns_d_source.py` | 满页/短页/空页schema、offset、三次尝试、单次30秒与取消进程；100/350耗尽不得领取新请求、不自动换window；额度已满但完整capture/交付可无源恢复 |
 | `test_anns_d_io.py`、execution测试 | 完全重复及NULL/空白/不同版本；budget/execution初始化中间退出、已消耗预算缺证据拒绝；候选失败、提交后崩溃、目标变化、已提交复用、不完整capture重拉 |
 | definitions/checks隔离测试 | 单run9条物化、18项检查、各日metadata、partition及target绑定；同时读取隔离instance的`asset_check_executions`记录，两个check各九个非空且正确的partition；重复MR/空分区Result/无Output错误路径；单日规则返回未通过时其余结果仍完整，异常/取消不伪造已检查 |
-| 同上 | 第4日失败但第5..9日实际尝试；成功文件保留、范围asset无假物化；同意图恢复只拉失败日后形成9/18结果 |
-| checks-only隔离测试 | 单日检查不触源、不重写文件；历史成功证据仍可读；缺物化、错run/day/path/SHA/必要配置缺失不假绿 |
+| 同上 | 第4日失败但第5..9日实际尝试；成功文件保留、范围asset无假物化；同意图恢复只拉失败日并清除旧failed/reason，最终形成9/18结果 |
+| checks-only/reexecution隔离测试 | 单日检查不触源、不重写文件；from-failure的asset_selection仍含asset但steps只含失败check时，绑定同window的既有物化，0/9或0/18准确；未重跑兄弟结果/指纹不可复用则拒绝；独立check-only自身的重新执行不误要文件执行checkpoint，不假绿 |
+| 检查异常测试 | 可解释规则False继续其他日；资源故障、取消、未知异常不被catch-all改成普通False，停止该节点；不承诺自动取消并发兄弟节点 |
 | bootstrap相关测试 | 原生产者生成的旧冻结计划/交付及新证据均按同一读法验证，fingerprint原样；删除参数不能作为新运行输入 |
 | catalog/static gates | 资产/检查身份、schema、路径、end_offset保持；公告performance policy无总期限；无旧九请求、前日成功门禁、runless正式日更或共享resource行为变化 |
 
 测试实施按项目现有实际文件继续组织，新增测试只覆盖本次必要边界，不为低风险文档变化另造测试框架。开发前确认各测试路径与授权边界。
 
-推荐开发顺序：
+开发顺序固定为：
 
 1. 统一证据读取、移除总期限配置与全部消费者，先防止历史检查失效。
-2. 实现范围身份、单请求schedule及window逐日执行，覆盖失败、取消及续跑。
-3. asset与两个checks范围适配、catalog对账和run key文档同步。
+2. 实现稳定范围身份、单请求schedule及window逐日执行，覆盖单日失败继续、取消及手工/CLI续跑，移除前日成功门禁。
+3. asset与两个checks范围和仅检查恢复适配、catalog对账和run key文档同步，保留现有手工UI backfill policy。
 4. 全部定向单元/隔离集成通过，再做计划逐条对账；本阶段不触正式资源。
 5. 汇报变更与测试后，再按批准范围重载和正式运行；不用本轮文档批准替代执行批准。
 
@@ -432,20 +475,21 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 
 这是按每次SQL引用完整输入估计的逻辑读入量，不是OS实测I/O封顶；列裁剪/缓存可能减少，footer、JSON、绑定及spill另计。原因是merged为VIEW，count、audit、COPY和双向EXCEPT会再次引用输入，不能写“旧文件只读一次”。
 
-本次保留原检查语义，不新增一遍完整源抓取或全局审计。实现时显式记录各阶段输入文件/字节、SQL/请求数和输出字节；正常9/18结果完成后只做本run收尾。
+本次保留原检查语义，不新增一遍完整源抓取或全局审计。实现时显式记录各阶段输入文件/字节、SQL/请求数和输出字节；正常9/18结果完成后只做本run收尾，仅检查恢复按第7.5节实际步骤及引用收尾。
 
 ### 10.2 中断、恢复和空间
 
 | 恢复位置 | 必要工作及开销 |
 | --- | --- |
-| 已完成其他日 | 仅必要文件指纹/身份核对；不再请求，不因一个日失败重做九日审计 |
+| 已完成其他日 | 文件恢复阶段仅必要指纹/身份核对，不再请求或重建候选；如果本次重新执行asset形成九条物化，后续正式18项检查仍按本次目标执行一次，并计入下列已交付分支预算 |
 | capture不完整 | 新attempt重拉该日；已消耗请求不退还，旧页/JSON保留，所以预算同时含旧attempt与新attempt |
 | capture完整、未形成delivery | 复核来源页SHA后构建候选；仅该日新增候选写入C_i，无源下载 |
 | delivery已validated、未promote | promote及两检查，保守约F_i+2S_i+14C_i读取，rename不增加完整候选写入 |
 | 目标已是已交付SHA | 恢复分支及两检查，保守约2S_i+12C_i读取，不重写正式文件 |
-| 事件/检查失败 | 只恢复已有文件证据及重新需要的事件/检查，不新抓来源；事件可有恢复重放记录，不能承诺数据库零新增 |
+| 物化不完整 | 重新执行asset，复用各日交付，形成9/18；有物化重放记录，不新抓已提交来源，不能承诺数据库零新增 |
+| 仅检查节点失败 | 不新产物化；只重做所选节点每日本次check，文件check约4C_i、交付check约7C_i+S_i；复用未重跑兄弟检查时，指纹稳定性最多另需C_i+S_i，已由本次交付核验完成的部分不重复读 |
 
-上述只对相应日生效；不能把每个恢复公式再对已完成九天各执行一遍。真实恢复位置与文件状态决定采用哪一项，不能默认自动重跑一次整批。
+上述按每个日期的真实恢复位置选择一种，不把build、promote等互斥分支叠加。重新执行asset后按实际九日正式检查计一次；只检查恢复则按所选节点计，不再追加整批审计。不能因为其中一日失败而重拉九天或默认自动重跑整批。
 
 额外空间包括来源Parquet、三类JSON、待提升候选、checkpoint、失败attempt及DuckDB spill；正式数据增长为各日新C_i替换旧F_i后的差额。现有5GiB空闲保留是空间检查，不是总开销估算。正式执行前仅对目标日stat和已有执行记录估算这些量，不读取全历史；不能因文档有20GB spill配置就预先生成或扫描20GB文件。
 
@@ -479,3 +523,19 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 - [衔接补拉证据](../../reports/anns_d_dg_p4_bridge_20261005.json) / [启用及停机证据](../../reports/anns_d_dg_p4_enablement_20261005.json)
 
 保留既有自动窗口和历史接线锚点，只为外部文档可追溯；锚点下均以本次正文或历史报告索引为准，不恢复被取消的执行设计。
+
+## 13. 提交后完整一致性审计
+
+2026-10-26审阅基线为`afecb8330`，修订后按R01—R10、当前代码消费者及本机框架边界再次核对。已闭合的事项：
+
+| 审计项 | 固定结论及落点 |
+| --- | --- |
+| 两文档开发顺序 | 先统一历史证据读取并移除期限，再改范围执行，最后检查适配与catalog/run key对账；方案第9节与本文件第9节一致 |
+| 自动与手工入口 | 自动只提交1个范围run；保留asset原backfill policy，不扩大UI/CLI范围入口；第3/4节 |
+| 恢复身份 | 自动用固定tags，手工UI用原生root_run_id，CLI已有window先读冻结信息；plan零写入；第3.3节 |
+| 状态与预算 | 新建/正常恢复分开，初始化中间退出不重置请求；成功清除旧失败；额度已满仅禁止新请求；第5节 |
+| 检查规则与异常 | 规则未通过可以继续，公共异常/取消不被catch-all吞掉，停止当前节点；第7.1/7.2节 |
+| 物化目标与计数 | 根据实际steps判断asset是否执行；正常9/18，检查恢复0/9或0/18并绑定原目标及有效兄弟结果；第7.5节 |
+| 证据和读写成本 | 原identity/fingerprint保持；恢复成本按真实分支及所选检查计算，不重抓已提交来源，不另加全局审计；第8/10节 |
+
+本次审计范围内没有待讨论的执行设计选择或前后冲突。后续开发与正式验收是明确列出的工作，不属于待补的方案决策；本结论不把计划或框架样本提升为业务代码/正式数据已通过。
