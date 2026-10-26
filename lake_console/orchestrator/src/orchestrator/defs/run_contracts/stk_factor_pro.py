@@ -2,14 +2,16 @@
 
 from __future__ import annotations
 
+import hashlib
+import math
 import re
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, fields, is_dataclass
 from datetime import date, datetime, timedelta
 from enum import IntEnum
 from pathlib import Path, PurePosixPath
-from types import MappingProxyType
-from typing import Literal
+from types import MappingProxyType, UnionType
+from typing import Literal, Union, get_args, get_origin, get_type_hints
 
 import dagster as dg
 
@@ -670,6 +672,7 @@ class PublishedTarget:
                 self.file_sha256 is not None
                 or self.checkpoint_ref is not None
                 or self.file_rows != 0
+                or self.unrefreshed_count != 0
             ):
                 raise ValueError("无文件目标不得伪造文件或记录")
         elif self.file_sha256 is None or not isinstance(self.checkpoint_ref, RecordRef):
@@ -684,6 +687,13 @@ class PublishedTarget:
                 raise ValueError("历史范围摘要三项必须同时提供")
             _count(self.scope_rows)
             _digest(self.scope_content_sha256)
+            if self.scope_rows > self.file_rows:
+                raise ValueError("历史范围行数不能超过实际文件行数")
+            if (
+                self.scope_rows == 0
+                and self.scope_content_sha256 != hashlib.sha256(b"").hexdigest()
+            ):
+                raise ValueError("空历史范围必须使用空内容SHA-256")
             if (
                 type(self.scope_content_version) is not int
                 or self.scope_content_version != 1
@@ -693,18 +703,18 @@ class PublishedTarget:
 
 @dataclass(frozen=True, slots=True)
 class StkFactorProPublicationRecord:
-    """The reviewed per-file wire record. Batch two implements day only."""
+    """Closed per-file publication record for the day and historical paths."""
 
     record_version: int
     identity: RunIdentity
-    phase: Literal["day"]
+    phase: StkFactorProPhase
     trade_date: date
     layer: StkFactorProLayer
     contract: ContractIdentity
     scope_digest: str
-    history_input_digest: None
-    day_source_digest: str
-    source_manifest_digest: None
+    history_input_digest: str | None
+    day_source_digest: str | None
+    source_manifest_digest: str | None
     target_path: str
     candidate_relative_path: str
     prior_sha256: str | None
@@ -713,8 +723,8 @@ class StkFactorProPublicationRecord:
     expected_published_sha256: str
     mode: Literal["reuse", "replace"]
     stage: Literal["intent", "complete"]
-    unrefreshed_keys_ref: None
-    unrefreshed_count: None
+    unrefreshed_keys_ref: RecordRef | None
+    unrefreshed_count: int | None
     verified_at: datetime | None
     actual_sha256: str | None
     actual_rows: int | None
@@ -723,29 +733,35 @@ class StkFactorProPublicationRecord:
         if (
             type(self.record_version) is not int
             or self.record_version != 1
-            or self.phase != "day"
+            or self.phase not in ("day", "history")
         ):
-            raise ValueError("本批发布记录仅支持版本1的日阶段")
+            raise ValueError("发布记录仅支持版本1的day/history阶段")
         if not isinstance(self.identity, RunIdentity) or not isinstance(
             self.contract, ContractIdentity
         ):
             raise TypeError("发布记录身份类型错误")
         _day(self.trade_date)
-        if self.trade_date != self.identity.target_trade_date or self.layer not in (
-            "raw",
-            "silver",
+        if (
+            self.layer not in ("raw", "silver")
+            or (
+                self.phase == "day"
+                and self.trade_date != self.identity.target_trade_date
+            )
+            or (
+                self.phase == "history"
+                and self.trade_date >= self.identity.target_trade_date
+            )
         ):
             raise ValueError("日发布记录日期或层不符")
         for digest in (
             self.scope_digest,
-            self.day_source_digest,
             self.candidate_sha256,
             self.expected_published_sha256,
         ):
             _digest(digest)
         _optional_digest(self.prior_sha256)
         _count(self.candidate_rows)
-        if any(
+        if self.phase == "day" and any(
             value is not None
             for value in (
                 self.history_input_digest,
@@ -755,6 +771,20 @@ class StkFactorProPublicationRecord:
             )
         ):
             raise ValueError("日发布不得混入历史来源或差集引用")
+        if self.phase == "day":
+            _digest(self.day_source_digest)
+        else:
+            _digest(self.history_input_digest)
+            _digest(self.source_manifest_digest)
+            _count(self.unrefreshed_count)
+            if self.day_source_digest is not None:
+                raise ValueError("历史发布不得混入日源摘要")
+            if not isinstance(self.unrefreshed_keys_ref, RecordRef) or (
+                self.unrefreshed_keys_ref.creator_run_id != self.identity.creator_run_id
+                or self.unrefreshed_keys_ref.relative_path
+                != f"publication/history/{self.trade_date.isoformat()}/{self.layer}/unrefreshed-keys.parquet"
+            ):
+                raise ValueError("历史缺原键引用必须属于当前日期/层/run")
         if (
             type(self.target_path) is not str
             or not Path(self.target_path).is_absolute()
@@ -766,7 +796,12 @@ class StkFactorProPublicationRecord:
             self.candidate_relative_path,
             self.candidate_sha256,
         )
-        if self.candidate_relative_path != f"candidates/day/{self.layer}/data.parquet":
+        expected_candidate = (
+            f"candidates/day/{self.layer}/data.parquet"
+            if self.phase == "day"
+            else f"candidates/history/{self.trade_date.isoformat()}/{self.layer}/data.parquet"
+        )
+        if self.candidate_relative_path != expected_candidate:
             raise ValueError("日候选路径必须属于本层固定候选目录")
         suffix = (
             ("raw", "tushare", "stk_factor_pro")
@@ -806,3 +841,879 @@ class StkFactorProPublicationRecord:
                 or self.actual_rows != self.candidate_rows
             ):
                 raise ValueError("发布完成实际文件与预期不符")
+
+
+def _version(value: object) -> None:
+    if type(value) is not int or value != 1:
+        raise ValueError("历史记录版本必须是精确整数1")
+
+
+def _code(value: object) -> None:
+    if type(value) is not str or re.fullmatch(r"[0-9]{6}\.(SH|SZ|BJ)", value) is None:
+        raise ValueError("历史股票代码不合法")
+
+
+def _instant(value: object) -> None:
+    if type(value) is not datetime or value.utcoffset() != timedelta(hours=8):
+        raise ValueError("历史记录时刻必须是带+08:00时区的datetime")
+
+
+def _finite(value: object) -> None:
+    if type(value) is not float or not math.isfinite(value):
+        raise ValueError("历史因子值必须是有限DOUBLE")
+
+
+def _same_run_ref(value: object, identity: RunIdentity, path: str) -> None:
+    if not isinstance(value, RecordRef) or (
+        value.creator_run_id != identity.creator_run_id or value.relative_path != path
+    ):
+        raise ValueError("历史记录引用不属于当前run的固定路径")
+
+
+def _tuple(value: object, kind: type) -> None:
+    if type(value) is not tuple or any(not isinstance(item, kind) for item in value):
+        raise TypeError("历史集合必须为约定类型的不可变tuple")
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProHistoryStart:
+    ts_code: str
+    start_date: date | None
+    earliest_basis_kind: int | None
+    earliest_basis_date: date | None
+
+    def __post_init__(self) -> None:
+        _code(self.ts_code)
+        if self.start_date is None:
+            if (
+                self.earliest_basis_kind is not None
+                or self.earliest_basis_date is not None
+            ):
+                raise ValueError("未知起点不得携带伪造依据")
+        else:
+            _day(self.start_date)
+            _day(self.earliest_basis_date)
+            if type(
+                self.earliest_basis_kind
+            ) is not int or self.earliest_basis_kind not in (1, 2):
+                raise ValueError("起点依据种类只能是1或2")
+            if self.start_date != self.earliest_basis_date:
+                raise ValueError("历史起点必须等于可信最早日期")
+
+
+@dataclass(frozen=True, slots=True)
+class HistoryOriginRef:
+    T: date
+    run: str
+    relative_path: str
+    file_sha: str
+
+    def __post_init__(self) -> None:
+        _day(self.T)
+        RecordRef(self.run, self.relative_path, self.file_sha)
+
+
+@dataclass(frozen=True, slots=True)
+class HistoryRange:
+    ts_code: str
+    t_present: bool
+    p_present: bool
+    t_value: float | None
+    p_value: float | None
+    start_date: date | None
+    end_date: date | None
+    plan_reasons: tuple[int, ...]
+    origin_target_dates: tuple[date, ...]
+    origin_record_refs: tuple[HistoryOriginRef, ...]
+    earliest_basis_kind: int | None
+    earliest_basis_date: date | None
+
+    def __post_init__(self) -> None:
+        _code(self.ts_code)
+        for present, value in (
+            (self.t_present, self.t_value),
+            (self.p_present, self.p_value),
+        ):
+            if type(present) is not bool:
+                raise ValueError("因子存在标记必须是bool")
+            if present:
+                _finite(value)
+            elif value is not None:
+                raise ValueError("不存在的因子值必须为NULL")
+        if (self.start_date is None) != (self.end_date is None):
+            raise ValueError("历史起止必须同时已知或同时NULL")
+        if self.start_date is not None:
+            _day(self.start_date)
+            _day(self.end_date)
+            if self.start_date > self.end_date:
+                raise ValueError("历史起止倒置")
+        StkFactorProHistoryStart(
+            self.ts_code,
+            self.start_date,
+            self.earliest_basis_kind,
+            self.earliest_basis_date,
+        )
+        if (
+            type(self.plan_reasons) is not tuple
+            or not self.plan_reasons
+            or any(
+                type(value) not in (int, HistoryPlanReason)
+                or int(value) not in range(1, 7)
+                for value in self.plan_reasons
+            )
+            or tuple(sorted(set(self.plan_reasons))) != self.plan_reasons
+        ):
+            raise ValueError("历史原因必须为六项有限值的去重升序tuple")
+        _tuple(self.origin_target_dates, date)
+        for value in self.origin_target_dates:
+            _day(value)
+        if tuple(sorted(set(self.origin_target_dates))) != self.origin_target_dates:
+            raise ValueError("历史来源日期必须去重升序")
+        _tuple(self.origin_record_refs, HistoryOriginRef)
+        if len(set(self.origin_record_refs)) != len(self.origin_record_refs):
+            raise ValueError("历史来源引用不得重复")
+        if any(
+            ref.T not in self.origin_target_dates for ref in self.origin_record_refs
+        ):
+            raise ValueError("历史来源引用日期不在来源日期中")
+
+
+@dataclass(frozen=True, slots=True)
+class FactorFileRef:
+    trade_date: date
+    asset_key: str
+    file_sha256: str
+    rows: int
+
+    def __post_init__(self) -> None:
+        _day(self.trade_date)
+        if self.asset_key != "raw_tushare_adj_factor":
+            raise ValueError("历史权威因子只能来自raw_tushare_adj_factor")
+        _digest(self.file_sha256)
+        _count(self.rows)
+
+
+@dataclass(frozen=True, slots=True)
+class HistoryPlanRecord:
+    record_version: int
+    identity: RunIdentity
+    contract: ContractIdentity
+    revision: int
+    created_at: datetime
+    history_plan_digest: str
+    history_ranges_digest: str
+    ranges_ref: RecordRef
+    full_code_count: int
+    factor_t_ref: FactorFileRef
+    factor_p_ref: FactorFileRef
+    revision_of: RecordRef | None
+    origin_plan_ref: RecordRef | None
+    origin_history_plan_digest: str | None
+    origin_history_ranges_digest: str | None
+
+    def __post_init__(self) -> None:
+        _version(self.record_version)
+        if not isinstance(self.identity, RunIdentity) or not isinstance(
+            self.contract, ContractIdentity
+        ):
+            raise TypeError("历史计划身份类型错误")
+        if type(self.revision) is not int or self.revision < 1:
+            raise ValueError("历史计划revision必须为正整数")
+        _instant(self.created_at)
+        _digest(self.history_plan_digest)
+        _digest(self.history_ranges_digest)
+        _same_run_ref(self.ranges_ref, self.identity, "history-ranges.parquet")
+        _count(self.full_code_count)
+        if not isinstance(self.factor_t_ref, FactorFileRef) or not isinstance(
+            self.factor_p_ref, FactorFileRef
+        ):
+            raise TypeError("历史计划缺少权威T/P引用")
+        if (self.factor_t_ref.trade_date, self.factor_p_ref.trade_date) != (
+            self.identity.target_trade_date,
+            self.identity.previous_trade_date,
+        ):
+            raise ValueError("历史计划因子日期不是原T/P")
+        if self.revision_of is not None and not isinstance(self.revision_of, RecordRef):
+            raise TypeError("历史计划修订引用类型错误")
+        values = (
+            self.origin_plan_ref,
+            self.origin_history_plan_digest,
+            self.origin_history_ranges_digest,
+        )
+        if any(value is not None for value in values):
+            if not isinstance(self.origin_plan_ref, RecordRef):
+                raise ValueError("历史原授权引用缺失")
+            _digest(self.origin_history_plan_digest)
+            _digest(self.origin_history_ranges_digest)
+        elif self.identity.purpose == "manual_repair":
+            raise ValueError("手动repair必须保留完整原授权")
+
+
+@dataclass(frozen=True, slots=True)
+class HistoryEligibilityRecord:
+    record_version: int
+    identity: RunIdentity
+    history_plan_digest: str
+    history_ranges_digest: str
+    raw_coverage: StkFactorProRawCoverage
+    target_silver: StkFactorProTargetSilver | None
+    evaluated_at: datetime
+
+    def __post_init__(self) -> None:
+        _version(self.record_version)
+        if not isinstance(self.identity, RunIdentity) or not isinstance(
+            self.raw_coverage, StkFactorProRawCoverage
+        ):
+            raise TypeError("历史资格身份或覆盖类型错误")
+        _digest(self.history_plan_digest)
+        _digest(self.history_ranges_digest)
+        _instant(self.evaluated_at)
+        if self.raw_coverage.target_trade_date != self.identity.target_trade_date:
+            raise ValueError("历史覆盖不是原T")
+        if self.target_silver is not None:
+            if not isinstance(self.target_silver, StkFactorProTargetSilver):
+                raise TypeError("历史Silver资格类型错误")
+            if (
+                self.target_silver.target_trade_date != self.identity.target_trade_date
+                or (
+                    self.target_silver.current_raw_file_sha256
+                    != self.raw_coverage.raw_file_sha256
+                )
+            ):
+                raise ValueError("历史Silver不对应本次原T Raw")
+
+
+@dataclass(frozen=True, slots=True)
+class UnitProjection:
+    mode: int
+    object_code: str | None
+    point: date | None
+    start_date: date | None
+    end_date: date | None
+
+    def __post_init__(self) -> None:
+        if type(self.mode) is not int or self.mode not in (2, 5):
+            raise ValueError("技术因子unit只能是mode2或mode5")
+        if self.mode == 2:
+            _day(self.point)
+            if any(
+                v is not None
+                for v in (self.object_code, self.start_date, self.end_date)
+            ):
+                raise ValueError("日unit不得带股票区间")
+        else:
+            _code(self.object_code)
+            _day(self.start_date)
+            _day(self.end_date)
+            if self.point is not None or self.start_date > self.end_date:
+                raise ValueError("历史unit范围不合法")
+
+
+@dataclass(frozen=True, slots=True)
+class SourceFileRecord:
+    phase: Literal["history"]
+    unit_key: str
+    component_unit_id: str
+    ordinal: int
+    mode: int
+    object_code: str | None
+    point: date | None
+    start_date: date | None
+    end_date: date | None
+    source_row_count: int
+    saved_row_count: int
+    file_relative_path: str
+    file_sha256: str
+    file_rows: int
+    schema_content_digest: str
+    contract_content_digest: str
+    verified_at: datetime
+
+    def __post_init__(self) -> None:
+        unit = UnitProjection(
+            self.mode, self.object_code, self.point, self.start_date, self.end_date
+        )
+        if self.phase != "history" or self.mode != 5:
+            raise ValueError("历史manifest只允许history/mode5")
+        _digest(self.unit_key)
+        if self.unit_key != stk_factor_pro_unit_key(unit):
+            raise ValueError("历史manifest unit_key不对应其业务范围")
+        if type(self.component_unit_id) is not str or not self.component_unit_id:
+            raise ValueError("历史manifest缺少组件unit身份")
+        for value in (
+            self.ordinal,
+            self.source_row_count,
+            self.saved_row_count,
+            self.file_rows,
+        ):
+            _count(value)
+        if (
+            self.source_row_count != self.saved_row_count
+            or self.saved_row_count != self.file_rows
+        ):
+            raise ValueError("历史源、保存及文件行数不符")
+        if self.file_relative_path != f"source/history/units/{self.unit_key}.parquet":
+            raise ValueError("历史unit文件名必须由业务unit_key生成")
+        for value in (
+            self.file_sha256,
+            self.schema_content_digest,
+            self.contract_content_digest,
+        ):
+            _digest(value)
+        if self.schema_content_digest != stk_factor_pro_schema_digest("raw"):
+            raise ValueError("历史源schema摘要与完整Raw合同不符")
+        _instant(self.verified_at)
+
+
+@dataclass(frozen=True, slots=True)
+class SourceCompleteRecord:
+    record_version: int
+    identity: RunIdentity
+    phase: Literal["history"]
+    contract: ContractIdentity
+    history_plan_ref: RecordRef
+    history_plan_digest: str
+    history_plan_revision: int
+    origin_history_plan_digest: str | None
+    origin_history_ranges_digest: str | None
+    history_input_digest: str
+    scope_digest: str
+    expected_units: tuple[UnitProjection, ...]
+    files_manifest_ref: RecordRef
+    files_manifest_digest: str
+    completed_unit_count: int
+    verified_at: datetime
+
+    def __post_init__(self) -> None:
+        _version(self.record_version)
+        if (
+            not isinstance(self.identity, RunIdentity)
+            or not isinstance(self.contract, ContractIdentity)
+            or self.phase != "history"
+        ):
+            raise ValueError("历史完整源身份或阶段错误")
+        _same_run_ref(self.history_plan_ref, self.identity, "history-plan.json")
+        _same_run_ref(
+            self.files_manifest_ref,
+            self.identity,
+            "source/history/source-files.parquet",
+        )
+        for value in (
+            self.history_plan_digest,
+            self.history_input_digest,
+            self.scope_digest,
+            self.files_manifest_digest,
+        ):
+            _digest(value)
+        if (
+            type(self.history_plan_revision) is not int
+            or self.history_plan_revision < 1
+        ):
+            raise ValueError("历史源计划revision错误")
+        if (self.origin_history_plan_digest is None) != (
+            self.origin_history_ranges_digest is None
+        ):
+            raise ValueError("历史源原授权两摘要必须同时提供")
+        if self.origin_history_plan_digest is not None:
+            _digest(self.origin_history_plan_digest)
+            _digest(self.origin_history_ranges_digest)
+        elif self.identity.purpose == "manual_repair":
+            raise ValueError("历史repair源缺少原授权摘要")
+        _tuple(self.expected_units, UnitProjection)
+        if not self.expected_units or any(
+            unit.mode != 5 or unit.end_date != self.identity.target_trade_date
+            for unit in self.expected_units
+        ):
+            raise ValueError("历史源必须包含截止原T的完整历史unit")
+        keys = tuple(_unit_sort(unit) for unit in self.expected_units)
+        if keys != tuple(sorted(set(keys))) or len(
+            {u.object_code for u in self.expected_units}
+        ) != len(keys):
+            raise ValueError("历史expected_units必须按代码/起止去重升序")
+        _count(self.completed_unit_count)
+        if self.completed_unit_count != len(self.expected_units):
+            raise ValueError("历史完成unit数与规划不符")
+        if self.scope_digest != stk_factor_pro_scope_digest(
+            "history", self.identity.target_trade_date, self.expected_units
+        ):
+            raise ValueError("历史完整源scope摘要不符")
+        _instant(self.verified_at)
+
+
+@dataclass(frozen=True, slots=True)
+class VerifiedSource:
+    """Reference carrier; the current-run verifier must inspect actual files."""
+
+    identity: RunIdentity
+    contract: ContractIdentity
+    source_complete: SourceCompleteRecord
+    source_complete_ref: RecordRef
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.source_complete, SourceCompleteRecord) or (
+            self.identity != self.source_complete.identity
+            or self.contract != self.source_complete.contract
+        ):
+            raise ValueError("已核历史源身份不一致")
+        _same_run_ref(
+            self.source_complete_ref,
+            self.identity,
+            "source/history/source-complete.json",
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapCodesRef:
+    relative_path: str
+    file_sha256: str
+    row_count: int
+
+    def __post_init__(self) -> None:
+        RecordRef("operation", self.relative_path, self.file_sha256)
+        _count(self.row_count)
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProBootstrapContext:
+    operation_id: str
+    approval_digest: str
+    target_trade_date: date
+    authorized_date_result_digest: str
+    authorized_gap_input_digest: str
+    authorized_missing_count: int
+    authorized_missing_codes_ref: StkFactorProBootstrapCodesRef
+    authorization_run_id: str
+
+    def __post_init__(self) -> None:
+        validate_stk_factor_pro_identifier(self.operation_id)
+        validate_stk_factor_pro_identifier(self.authorization_run_id)
+        _day(self.target_trade_date)
+        for value in (
+            self.approval_digest,
+            self.authorized_date_result_digest,
+            self.authorized_gap_input_digest,
+        ):
+            _digest(value)
+        _count(self.authorized_missing_count)
+        if (
+            self.authorized_missing_count == 0
+            or not isinstance(
+                self.authorized_missing_codes_ref, StkFactorProBootstrapCodesRef
+            )
+            or self.authorized_missing_codes_ref.row_count
+            != self.authorized_missing_count
+        ):
+            raise ValueError("bootstrap原缺口授权必须为正数量及实际引用")
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProResultRef:
+    run_id: str
+    storage_id: int
+
+    def __post_init__(self) -> None:
+        validate_stk_factor_pro_identifier(self.run_id)
+        if type(self.storage_id) is not int or self.storage_id <= 0:
+            raise ValueError("阶段结果storage_id必须为正精确int")
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProRecordedResults:
+    target_trade_date: date
+    day_result_ref: StkFactorProResultRef | None
+    history_result_ref: StkFactorProResultRef | None
+    history_plan_ref: RecordRef | None
+    history_ranges_ref: RecordRef | None
+    raw_coverage: StkFactorProRawCoverage | None
+    bootstrap_context: StkFactorProBootstrapContext | None
+    pending_plan_refs: tuple[RecordRef, ...]
+    successful_publication_refs: tuple[RecordRef, ...]
+    unresolved_day_failure_run_id: str | None
+    unresolved_history_failure_run_id: str | None
+
+    def __post_init__(self) -> None:
+        _day(self.target_trade_date)
+        for value, kind in (
+            (self.day_result_ref, StkFactorProResultRef),
+            (self.history_result_ref, StkFactorProResultRef),
+            (self.history_plan_ref, RecordRef),
+            (self.history_ranges_ref, RecordRef),
+            (self.raw_coverage, StkFactorProRawCoverage),
+            (self.bootstrap_context, StkFactorProBootstrapContext),
+        ):
+            if value is not None and not isinstance(value, kind):
+                raise TypeError("已记录结果嵌套类型错误")
+        if (
+            self.raw_coverage is not None
+            and self.raw_coverage.target_trade_date != self.target_trade_date
+        ):
+            raise ValueError("已记录覆盖不是同T")
+        if (
+            self.bootstrap_context is not None
+            and self.bootstrap_context.target_trade_date != self.target_trade_date
+        ):
+            raise ValueError("已记录bootstrap上下文不是同T")
+        for refs in (self.pending_plan_refs, self.successful_publication_refs):
+            _tuple(refs, RecordRef)
+            if len(set(refs)) != len(refs):
+                raise ValueError("已记录意图引用不得重复")
+        for value in (
+            self.unresolved_day_failure_run_id,
+            self.unresolved_history_failure_run_id,
+        ):
+            if value is not None:
+                validate_stk_factor_pro_identifier(value)
+
+
+@dataclass(frozen=True, slots=True)
+class PublicationCompleteRecord:
+    record_version: int
+    identity: RunIdentity
+    phase: StkFactorProPhase
+    contract: ContractIdentity
+    history_plan_digest: str
+    history_ranges_digest: str
+    scope_digest: str
+    history_input_digest: str | None
+    source_complete_ref: RecordRef | None
+    day_source_digest: str | None
+    source_manifest_digest: str | None
+    targets: tuple[PublishedTarget, ...]
+    verified_at: datetime
+
+    def __post_init__(self) -> None:
+        _version(self.record_version)
+        if (
+            not isinstance(self.identity, RunIdentity)
+            or not isinstance(self.contract, ContractIdentity)
+            or self.phase not in ("day", "history")
+        ):
+            raise ValueError("完整发布记录身份或阶段错误")
+        for value in (
+            self.history_plan_digest,
+            self.history_ranges_digest,
+            self.scope_digest,
+        ):
+            _digest(value)
+        if self.phase == "day":
+            _digest(self.day_source_digest)
+            if any(
+                value is not None
+                for value in (
+                    self.history_input_digest,
+                    self.source_complete_ref,
+                    self.source_manifest_digest,
+                )
+            ):
+                raise ValueError("日完整发布不得混入历史来源")
+        else:
+            if self.day_source_digest is not None:
+                raise ValueError("历史完整发布不得混入日源")
+            _digest(self.history_input_digest)
+            _digest(self.source_manifest_digest)
+            _same_run_ref(
+                self.source_complete_ref,
+                self.identity,
+                "source/history/source-complete.json",
+            )
+        _tuple(self.targets, PublishedTarget)
+        keys = tuple((target.trade_date, target.layer) for target in self.targets)
+        if keys != tuple(sorted(set(keys))):
+            raise ValueError("完整发布日期/层必须去重升序")
+        for target in self.targets:
+            if target.unrefreshed_count:
+                raise ValueError("历史存在未刷新旧键，不能记录完整发布")
+            if self.phase == "day":
+                if (
+                    target.trade_date != self.identity.target_trade_date
+                    or target.scope_rows is not None
+                ):
+                    raise ValueError("日完整发布范围错误")
+            elif (
+                target.trade_date >= self.identity.target_trade_date
+                or target.scope_rows is None
+            ):
+                raise ValueError("历史完整发布范围或scope缺失")
+            if target.checkpoint_ref is not None:
+                _same_run_ref(
+                    target.checkpoint_ref,
+                    self.identity,
+                    f"publication/{self.phase}/{target.trade_date.isoformat()}/{target.layer}/complete.json",
+                )
+        for day in {target.trade_date for target in self.targets}:
+            if {
+                target.layer for target in self.targets if target.trade_date == day
+            } != {"raw", "silver"}:
+                raise ValueError("完整发布必须有每日期两层事实")
+        _instant(self.verified_at)
+
+
+def _unit_sort(unit: UnitProjection):
+    return (
+        unit.object_code or "",
+        unit.start_date or date.min,
+        unit.end_date or date.min,
+        unit.point or date.min,
+    )
+
+
+def _business_digest(kind: str, projection: object) -> str:
+    return content_digest(
+        {"record_kind": kind, "record_version": 1, "value": projection}
+    )
+
+
+def stk_factor_pro_unit_key(unit: UnitProjection) -> str:
+    if not isinstance(unit, UnitProjection):
+        raise TypeError("unit业务摘要必须接收UnitProjection")
+    return _business_digest("stk_factor_pro.unit", stk_factor_pro_record_to_dict(unit))
+
+
+def stk_factor_pro_scope_digest(
+    phase: StkFactorProPhase, target: date, units: tuple[UnitProjection, ...]
+) -> str:
+    _day(target)
+    _tuple(units, UnitProjection)
+    if phase not in ("day", "history"):
+        raise ValueError("scope阶段错误")
+    if len(set(units)) != len(units):
+        raise ValueError("scope不得包含重复unit")
+    if phase == "day" and units != (UnitProjection(2, None, target, None, None),):
+        raise ValueError("日scope必须唯一原T")
+    if phase == "history" and any(
+        unit.mode != 5 or unit.end_date != target for unit in units
+    ):
+        raise ValueError("历史scope必须截止原T")
+    return _business_digest(
+        "stk_factor_pro.scope",
+        {
+            "phase": phase,
+            "T": target.isoformat(),
+            "units": [
+                stk_factor_pro_record_to_dict(unit)
+                for unit in sorted(units, key=_unit_sort)
+            ],
+        },
+    )
+
+
+def _ranges(ranges: tuple[HistoryRange, ...]) -> tuple[HistoryRange, ...]:
+    _tuple(ranges, HistoryRange)
+    if len({row.ts_code for row in ranges}) != len(ranges):
+        raise ValueError("历史范围代码重复")
+    return tuple(sorted(ranges, key=lambda row: row.ts_code))
+
+
+def stk_factor_pro_history_ranges_digest(ranges: tuple[HistoryRange, ...]) -> str:
+    return _business_digest(
+        "stk_factor_pro.history_ranges",
+        [
+            {
+                "ts_code": row.ts_code,
+                "start_date": row.start_date.isoformat() if row.start_date else None,
+                "end_date": row.end_date.isoformat() if row.end_date else None,
+            }
+            for row in _ranges(ranges)
+        ],
+    )
+
+
+def _hex(value: float | None) -> str | None:
+    return None if value is None else (0.0 if value == 0 else value).hex()
+
+
+def stk_factor_pro_history_plan_digest(
+    identity: RunIdentity, contract: ContractIdentity, ranges: tuple[HistoryRange, ...]
+) -> str:
+    return _business_digest(
+        "stk_factor_pro.history_plan",
+        {
+            "T": identity.target_trade_date.isoformat(),
+            "P": identity.previous_trade_date.isoformat(),
+            "contract": stk_factor_pro_record_to_dict(contract),
+            "history_ranges_digest": stk_factor_pro_history_ranges_digest(ranges),
+            "entries": [
+                {
+                    "ts_code": row.ts_code,
+                    "t_present": row.t_present,
+                    "p_present": row.p_present,
+                    "t_value_hex": _hex(row.t_value),
+                    "p_value_hex": _hex(row.p_value),
+                    "plan_reasons": [int(reason) for reason in row.plan_reasons],
+                    "origin_target_dates": [
+                        day.isoformat() for day in row.origin_target_dates
+                    ],
+                    "earliest_basis": {
+                        "kind": row.earliest_basis_kind,
+                        "date": row.earliest_basis_date.isoformat()
+                        if row.earliest_basis_date
+                        else None,
+                    },
+                }
+                for row in _ranges(ranges)
+            ],
+        },
+    )
+
+
+def stk_factor_pro_history_input_digest(
+    identity: RunIdentity,
+    contract: ContractIdentity,
+    units: tuple[UnitProjection, ...],
+    ranges: tuple[HistoryRange, ...],
+) -> str:
+    by_code = {row.ts_code: row for row in _ranges(ranges)}
+    selected = []
+    for unit in sorted(units, key=_unit_sort):
+        row = by_code.get(unit.object_code)
+        if (
+            row is None
+            or not row.t_present
+            or not row.p_present
+            or (row.start_date, row.end_date) != (unit.start_date, unit.end_date)
+        ):
+            raise ValueError("历史请求与完整范围/关键因子不符")
+        selected.append(
+            {
+                "ts_code": row.ts_code,
+                "t_value_hex": _hex(row.t_value),
+                "p_value_hex": _hex(row.p_value),
+            }
+        )
+    return _business_digest(
+        "stk_factor_pro.history_input",
+        {
+            "T": identity.target_trade_date.isoformat(),
+            "P": identity.previous_trade_date.isoformat(),
+            "contract": stk_factor_pro_record_to_dict(contract),
+            "scope_digest": stk_factor_pro_scope_digest(
+                "history", identity.target_trade_date, units
+            ),
+            "factors": selected,
+        },
+    )
+
+
+def stk_factor_pro_files_manifest_digest(
+    scope_digest: str, files: tuple[SourceFileRecord, ...]
+) -> str:
+    _digest(scope_digest)
+    _tuple(files, SourceFileRecord)
+    if len({row.unit_key for row in files}) != len(files):
+        raise ValueError("历史manifest重复unit")
+    return _business_digest(
+        "stk_factor_pro.source_files",
+        {
+            "scope_digest": scope_digest,
+            "files": [
+                {
+                    "unit": stk_factor_pro_record_to_dict(
+                        UnitProjection(
+                            row.mode,
+                            row.object_code,
+                            row.point,
+                            row.start_date,
+                            row.end_date,
+                        )
+                    ),
+                    "source_row_count": row.source_row_count,
+                    "saved_row_count": row.saved_row_count,
+                    "file_sha256": row.file_sha256,
+                    "file_rows": row.file_rows,
+                    "schema_content_digest": row.schema_content_digest,
+                }
+                for row in sorted(files, key=lambda item: item.unit_key)
+            ],
+        },
+    )
+
+
+def stk_factor_pro_record_to_dict(record: object):
+    """Canonical JSON-ready closed records; I/O remains in the owning module."""
+    if record is None or type(record) in (str, bool, int, float):
+        if type(record) is float:
+            _finite(record)
+        return record
+    if isinstance(record, IntEnum):
+        return int(record)
+    if type(record) is date:
+        return record.isoformat()
+    if type(record) is datetime:
+        _instant(record)
+        return record.isoformat(timespec="microseconds")
+    if is_dataclass(record) and not isinstance(record, type):
+        return {
+            field.name: stk_factor_pro_record_to_dict(getattr(record, field.name))
+            for field in fields(record)
+        }
+    if type(record) is tuple:
+        return [stk_factor_pro_record_to_dict(item) for item in record]
+    raise TypeError("不支持的历史记录序列化类型")
+
+
+def _parse_record_value(annotation, value):
+    origin, args = get_origin(annotation), get_args(annotation)
+    if origin in (UnionType, Union):
+        for choice in args:
+            try:
+                return _parse_record_value(choice, value)
+            except (TypeError, ValueError):
+                continue
+        raise ValueError("历史记录联合字段类型不符")
+    if annotation is type(None):
+        if value is not None:
+            raise ValueError("历史记录应为NULL")
+        return None
+    if origin is Literal:
+        if not any(type(value) is type(item) and value == item for item in args):
+            raise ValueError("历史记录Literal字段不符")
+        return value
+    if origin is tuple:
+        if type(value) is not list:
+            raise ValueError("历史JSON集合必须是数组")
+        if len(args) == 2 and args[1] is Ellipsis:
+            return tuple(_parse_record_value(args[0], item) for item in value)
+        if len(value) != len(args):
+            raise ValueError("历史JSON定长数组长度不符")
+        return tuple(
+            _parse_record_value(kind, item)
+            for kind, item in zip(args, value, strict=True)
+        )
+    if annotation is date:
+        if (
+            type(value) is not str
+            or normalize_stk_factor_pro_trade_date(value) != value
+        ):
+            raise ValueError("历史JSON日期不是ISO格式")
+        return date.fromisoformat(value)
+    if annotation is datetime:
+        if type(value) is not str:
+            raise ValueError("历史JSON时刻不是文本")
+        parsed = datetime.fromisoformat(value)
+        _instant(parsed)
+        if parsed.isoformat(timespec="microseconds") != value:
+            raise ValueError("历史JSON时刻必须固定微秒和+08:00")
+        return parsed
+    if isinstance(annotation, type) and is_dataclass(annotation):
+        return parse_stk_factor_pro_record(annotation, value)
+    if annotation in (str, int, float, bool):
+        if type(value) is not annotation:
+            raise ValueError("历史记录精确字段类型不符")
+        return value
+    raise TypeError("不支持的历史记录字段类型")
+
+
+def parse_stk_factor_pro_record(record_type: type, value: dict):
+    """Strictly parse every field; absent nullable values still require a key."""
+    if not is_dataclass(record_type) or type(value) is not dict:
+        raise ValueError("历史记录必须是完整JSON对象")
+    definitions = fields(record_type)
+    if set(value) != {field.name for field in definitions}:
+        raise ValueError("历史记录缺字段或含未知字段")
+    hints = get_type_hints(record_type)
+    return record_type(
+        **{
+            field.name: _parse_record_value(hints[field.name], value[field.name])
+            for field in definitions
+        }
+    )

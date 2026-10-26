@@ -1,0 +1,506 @@
+{
+  "results": [
+    {
+      "suite": "test_asset_governance_contracts.py",
+      "batch": "G-regression:test_asset_governance_contracts.py:1",
+      "passed": true,
+      "completed": 8,
+      "expected": 8,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-i6zdo0pw/allowed/resource-result.json",
+      "case_names": [
+        "AssetGovernanceContractTests::test_confirmed_external_spec_has_no_writer_or_partition",
+        "AssetGovernanceContractTests::test_build_asset_tags_returns_dagster_legal_values",
+        "AssetGovernanceContractTests::test_build_asset_tags_rejects_old_chinese_values",
+        "AssetGovernanceContractTests::test_build_dataset_metadata_uses_registered_chinese_names",
+        "AssetGovernanceContractTests::test_current_assets_have_governance_tags_and_dataset_metadata",
+        "AssetGovernanceContractTests::test_catalog_api_returns_registered_entries",
+        "AssetGovernanceContractTests::test_partition_models_are_registered_and_policy_aligned",
+        "AssetGovernanceContractTests::test_raw_index_daily_catalog_and_asset_are_trade_date_partitioned"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_asset_governance_contracts.py": "542462419ab31c1de9631ee20069bd56f58245373b6cb01effe2748d7f06ef62"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 1366,
+      "exit_code": 0
+    },
+    {
+      "suite": "test_asset_governance_contracts.py",
+      "batch": "G-regression:test_asset_governance_contracts.py:2",
+      "passed": true,
+      "completed": 4,
+      "expected": 4,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-mppnzqgn/allowed/resource-result.json",
+      "case_names": [
+        "AssetGovernanceContractTests::test_stk_mins_assets_use_expected_partitions",
+        "AssetGovernanceContractTests::test_assets_register_definition_column_schema",
+        "AssetGovernanceContractTests::test_catalog_blocking_checks_match_active_check_specs",
+        "AssetGovernanceContractTests::test_column_constants_are_derived_from_schema"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_asset_governance_contracts.py": "542462419ab31c1de9631ee20069bd56f58245373b6cb01effe2748d7f06ef62"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 1671,
+      "exit_code": 0
+    },
+    {
+      "suite": "test_run_contract_static_gates.py",
+      "batch": "G-regression:test_run_contract_static_gates.py:1",
+      "passed": true,
+      "completed": 8,
+      "expected": 8,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-6_0l6bz8/allowed/resource-result.json",
+      "case_names": [
+        "RunContractStaticGateTests::test_confirmed_input_has_only_declared_physical_readers",
+        "RunContractStaticGateTests::test_confirmed_path_has_no_csv_or_git_fallback",
+        "RunContractStaticGateTests::test_confirmed_external_spec_uses_registered_metadata",
+        "RunContractStaticGateTests::test_confirmed_writer_and_cli_keep_date_and_connection_boundaries",
+        "RunContractStaticGateTests::test_major_index_nineturn_history_checks_are_recent_twenty_only",
+        "RunContractStaticGateTests::test_qfq_nineturn_p1_keeps_formula_and_writer_boundaries",
+        "RunContractStaticGateTests::test_dc_industry_hierarchy_is_manual_seed_snapshot_without_automatic_consumers",
+        "RunContractStaticGateTests::test_dc_board_m3_writers_keep_raw_only_bounded_boundary"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_run_contract_static_gates.py": "496eb741836cac8de00f47881088566f4676e3f38d9e1c28900cdef8b7e3c98d"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 2166,
+      "exit_code": 0
+    },
+    {
+      "suite": "test_run_contract_static_gates.py",
+      "batch": "G-regression:test_run_contract_static_gates.py:2",
+      "passed": true,
+      "completed": 8,
+      "expected": 8,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-k_9yehvq/allowed/resource-result.json",
+      "case_names": [
+        "RunContractStaticGateTests::test_dc_board_m4_keeps_partitioned_checks_and_hot_path_boundary",
+        "RunContractStaticGateTests::test_dc_board_m102_uses_prod_completion_and_tushare_source_authority",
+        "RunContractStaticGateTests::test_dc_board_m5_keeps_silver_partition_boundary_and_no_automation",
+        "RunContractStaticGateTests::test_dc_daily_technical_p7_repair_is_bounded_and_partition_attributable",
+        "RunContractStaticGateTests::test_gold_wealth_market_turnover_keeps_source_boundary",
+        "RunContractStaticGateTests::test_gold_wealth_market_turnover_wmt7_contract_is_fail_closed",
+        "RunContractStaticGateTests::test_dc_board_silver_sensor_is_bounded_and_event_history_free",
+        "RunContractStaticGateTests::test_gold_wealth_market_turnover_keeps_single_json_integrity_check"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_run_contract_static_gates.py": "496eb741836cac8de00f47881088566f4676e3f38d9e1c28900cdef8b7e3c98d"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 864,
+      "exit_code": 0
+    },
+    {
+      "suite": "test_run_contract_static_gates.py",
+      "batch": "G-regression:test_run_contract_static_gates.py:3",
+      "passed": true,
+      "completed": 8,
+      "expected": 8,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-9w6eft0h/allowed/resource-result.json",
+      "case_names": [
+        "RunContractStaticGateTests::test_gold_wealth_market_turnover_prod_sync_boundary",
+        "RunContractStaticGateTests::test_gold_wealth_market_turnover_prod_sync_reads_gold_only",
+        "RunContractStaticGateTests::test_gold_wealth_market_turnover_human_readable_governance_stays_compact",
+        "RunContractStaticGateTests::test_stock_mins_silver_job_does_not_pull_raw_or_source_config",
+        "RunContractStaticGateTests::test_stock_mins_raw_silver_human_readable_governance_stays_compact",
+        "RunContractStaticGateTests::test_stock_mins_qfq_human_readable_governance_stays_compact",
+        "RunContractStaticGateTests::test_stock_mins_macd_kdj_human_readable_governance_stays_compact",
+        "RunContractStaticGateTests::test_gold_stk_mins_qfq_macd_kdj_formal_code_avoids_recursive_cte_and_row_loops"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_run_contract_static_gates.py": "496eb741836cac8de00f47881088566f4676e3f38d9e1c28900cdef8b7e3c98d"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 804,
+      "exit_code": 0
+    },
+    {
+      "suite": "test_run_contract_static_gates.py",
+      "batch": "G-regression:test_run_contract_static_gates.py:4",
+      "passed": true,
+      "completed": 8,
+      "expected": 8,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-qqx9o5c7/allowed/resource-result.json",
+      "case_names": [
+        "RunContractStaticGateTests::test_gold_stk_mins_qfq_macd_kdj_entrypoints_keep_contract_boundaries",
+        "RunContractStaticGateTests::test_macd_kdj_repair_legacy_storage_id_field_is_absent_from_production_code",
+        "RunContractStaticGateTests::test_market_breadth_continuity_replaces_automation_condition",
+        "RunContractStaticGateTests::test_market_breadth_gold_human_readable_governance_stays_compact",
+        "RunContractStaticGateTests::test_clickhouse_market_breadth_human_readable_governance_stays_compact",
+        "RunContractStaticGateTests::test_gold_qfq_repair_event_reconciliation_chain_is_removed",
+        "RunContractStaticGateTests::test_stock_mins_qfq_daily_job_does_not_pull_raw_silver_or_source_config",
+        "RunContractStaticGateTests::test_stock_mins_qfq_factor_repair_job_only_calls_repair_op"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_run_contract_static_gates.py": "496eb741836cac8de00f47881088566f4676e3f38d9e1c28900cdef8b7e3c98d"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 863,
+      "exit_code": 0
+    },
+    {
+      "suite": "test_run_contract_static_gates.py",
+      "batch": "G-regression:test_run_contract_static_gates.py:5",
+      "passed": true,
+      "completed": 8,
+      "expected": 8,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-0q9c_5xk/allowed/resource-result.json",
+      "case_names": [
+        "RunContractStaticGateTests::test_stock_daily_freshness_guard_stays_on_silver_asset",
+        "RunContractStaticGateTests::test_stock_lifecycle_is_owned_by_stock_basic_silver_job",
+        "RunContractStaticGateTests::test_stock_lifecycle_consumers_use_silver_lifecycle_asset",
+        "RunContractStaticGateTests::test_stock_mins_silver_direct_dependencies_exclude_namechange_and_basic",
+        "RunContractStaticGateTests::test_stock_mins_silver_filters_post_close_at_the_shared_input_boundary",
+        "RunContractStaticGateTests::test_stk_mins_silver_recovery_is_offline_and_sensor_cannot_select_it",
+        "RunContractStaticGateTests::test_stock_mins_raw_sensor_uses_batch_lake_readiness",
+        "RunContractStaticGateTests::test_stock_mins_prod_completion_gate_stays_narrow_and_indexed"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_run_contract_static_gates.py": "496eb741836cac8de00f47881088566f4676e3f38d9e1c28900cdef8b7e3c98d"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 825,
+      "exit_code": 0
+    },
+    {
+      "suite": "test_run_contract_static_gates.py",
+      "batch": "G-regression:test_run_contract_static_gates.py:6",
+      "passed": true,
+      "completed": 8,
+      "expected": 8,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-afqphl49/allowed/resource-result.json",
+      "case_names": [
+        "RunContractStaticGateTests::test_stock_mins_raw_default_source_is_prod_db",
+        "RunContractStaticGateTests::test_stock_mins_silver_sensors_do_not_gate_on_namechange",
+        "RunContractStaticGateTests::test_stock_mins_silver_sensors_use_batch_lake_readiness",
+        "RunContractStaticGateTests::test_stock_mins_silver_name_timeline_check_uses_silver_lifecycle",
+        "RunContractStaticGateTests::test_lake_root_health_entrypoints_stay_infra_only",
+        "RunContractStaticGateTests::test_gold_qfq_summary_entities_are_not_registered",
+        "RunContractStaticGateTests::test_gold_qfq_formal_writes_stay_on_duckdb_helpers",
+        "RunContractStaticGateTests::test_gold_qfq_writer_pool_is_centralized_and_required"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_run_contract_static_gates.py": "496eb741836cac8de00f47881088566f4676e3f38d9e1c28900cdef8b7e3c98d"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 932,
+      "exit_code": 0
+    },
+    {
+      "suite": "test_run_contract_static_gates.py",
+      "batch": "G-regression:test_run_contract_static_gates.py:7",
+      "passed": true,
+      "completed": 8,
+      "expected": 8,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-a6u6dqgj/allowed/resource-result.json",
+      "case_names": [
+        "RunContractStaticGateTests::test_gold_qfq_uses_explicit_as_of_adj_factor",
+        "RunContractStaticGateTests::test_qfq_factor_repair_uses_expected_calendar_for_range",
+        "RunContractStaticGateTests::test_formal_defs_use_centralized_duckdb_connection",
+        "RunContractStaticGateTests::test_duckdb_connection_gate_distinguishes_modules_from_resources",
+        "RunContractStaticGateTests::test_lake_asset_catalog_registry_stays_read_only_and_boundary_safe",
+        "RunContractStaticGateTests::test_gold_qfq_factor_repair_does_not_loop_by_changed_code",
+        "RunContractStaticGateTests::test_sensor_files_use_run_contract_helpers",
+        "RunContractStaticGateTests::test_sensor_definitions_use_registered_definition_tags"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_run_contract_static_gates.py": "496eb741836cac8de00f47881088566f4676e3f38d9e1c28900cdef8b7e3c98d"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 3500,
+      "exit_code": 0
+    },
+    {
+      "suite": "test_run_contract_static_gates.py",
+      "batch": "G-regression:test_run_contract_static_gates.py:8",
+      "passed": true,
+      "completed": 8,
+      "expected": 8,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-09xnrz0t/allowed/resource-result.json",
+      "case_names": [
+        "RunContractStaticGateTests::test_gold_qfq_sensors_keep_quote_gold_asset_update_tags",
+        "RunContractStaticGateTests::test_gold_qfq_sensors_use_batch_readiness_without_history_scans",
+        "RunContractStaticGateTests::test_stock_mins_continuity_hot_paths_do_not_reintroduce_slow_readiness",
+        "RunContractStaticGateTests::test_silver_adj_factor_lifecycle_rebuild_stays_narrow_and_fresh",
+        "RunContractStaticGateTests::test_prod_clickhouse_market_breadth_checks_are_partition_attributable",
+        "RunContractStaticGateTests::test_sensor_cursor_decision_reason_uses_machine_codes",
+        "RunContractStaticGateTests::test_sensor_cursor_payloads_do_not_embed_readiness_reports",
+        "RunContractStaticGateTests::test_stock_daily_human_readable_governance_stays_compact"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_run_contract_static_gates.py": "496eb741836cac8de00f47881088566f4676e3f38d9e1c28900cdef8b7e3c98d"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 846,
+      "exit_code": 0
+    },
+    {
+      "suite": "test_run_contract_static_gates.py",
+      "batch": "G-regression:test_run_contract_static_gates.py:9",
+      "passed": true,
+      "completed": 8,
+      "expected": 8,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-mlvmczx1/allowed/resource-result.json",
+      "case_names": [
+        "RunContractStaticGateTests::test_suspend_d_human_readable_governance_stays_compact",
+        "RunContractStaticGateTests::test_adj_factor_human_readable_governance_stays_compact",
+        "RunContractStaticGateTests::test_basic_facts_human_readable_governance_stays_compact",
+        "RunContractStaticGateTests::test_sensor_hot_path_batch_readiness_helpers_stay_runtime_free",
+        "RunContractStaticGateTests::test_bounded_continuity_foundation_stays_pure_and_bounded",
+        "RunContractStaticGateTests::test_stock_current_trade_day_sensor_uses_bounded_catch_up",
+        "RunContractStaticGateTests::test_stock_daily_and_suspend_sensors_use_registered_gap_guard",
+        "RunContractStaticGateTests::test_index_daily_sensors_use_registered_gap_guard"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_run_contract_static_gates.py": "496eb741836cac8de00f47881088566f4676e3f38d9e1c28900cdef8b7e3c98d"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 858,
+      "exit_code": 0
+    },
+    {
+      "suite": "test_run_contract_static_gates.py",
+      "batch": "G-regression:test_run_contract_static_gates.py:10",
+      "passed": true,
+      "completed": 8,
+      "expected": 8,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-lu4lodof/allowed/resource-result.json",
+      "case_names": [
+        "RunContractStaticGateTests::test_raw_index_daily_by_date_p1_p2_contracts",
+        "RunContractStaticGateTests::test_raw_index_daily_runless_bootstrap_removed_from_active_defs",
+        "RunContractStaticGateTests::test_index_daily_by_date_p5_p6_active_path_contracts",
+        "RunContractStaticGateTests::test_index_daily_human_readable_governance_stays_compact",
+        "RunContractStaticGateTests::test_index_daily_p7_removes_by_code_active_source_and_catalog",
+        "RunContractStaticGateTests::test_market_major_indices_sensor_uses_bounded_lake_readiness",
+        "RunContractStaticGateTests::test_market_major_indices_human_readable_governance_stays_compact",
+        "RunContractStaticGateTests::test_asset_definitions_use_asset_tag_and_metadata_helpers"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_run_contract_static_gates.py": "496eb741836cac8de00f47881088566f4676e3f38d9e1c28900cdef8b7e3c98d"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 973,
+      "exit_code": 0
+    },
+    {
+      "suite": "test_run_contract_static_gates.py",
+      "batch": "G-regression:test_run_contract_static_gates.py:11",
+      "passed": true,
+      "completed": 8,
+      "expected": 8,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-k2fkb9vu/allowed/resource-result.json",
+      "case_names": [
+        "RunContractStaticGateTests::test_asset_check_results_use_check_metadata_builder",
+        "RunContractStaticGateTests::test_gold_stock_daily_qfq_ordinary_checks_stay_compact",
+        "RunContractStaticGateTests::test_gold_stock_daily_qfq_p8_reset_tool_is_scoped_and_guarded",
+        "RunContractStaticGateTests::test_gold_stock_daily_qfq_daily_sensor_uses_bounded_run_contracts",
+        "RunContractStaticGateTests::test_gold_stock_daily_qfq_factor_repair_sensor_uses_bounded_run_contracts",
+        "RunContractStaticGateTests::test_stock_daily_trend_channel_repair_uses_exact_upstream_batch_key",
+        "RunContractStaticGateTests::test_stock_daily_trend_channel_repair_cursor_is_managed_by_dagster",
+        "RunContractStaticGateTests::test_gold_stock_daily_qfq_history_bootstrap_does_not_write_dagster_events"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_run_contract_static_gates.py": "496eb741836cac8de00f47881088566f4676e3f38d9e1c28900cdef8b7e3c98d"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 923,
+      "exit_code": 0
+    },
+    {
+      "suite": "test_run_contract_static_gates.py",
+      "batch": "G-regression:test_run_contract_static_gates.py:12",
+      "passed": true,
+      "completed": 8,
+      "expected": 8,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-fxw6bpo8/allowed/resource-result.json",
+      "case_names": [
+        "RunContractStaticGateTests::test_gold_stock_daily_qfq_history_events_are_manual_bootstrap_only",
+        "RunContractStaticGateTests::test_metadata_dicts_do_not_write_legacy_keys",
+        "RunContractStaticGateTests::test_stk_mins_name_timeline_event_correction_dry_run_is_read_only",
+        "RunContractStaticGateTests::test_stk_mins_event_history_retention_dry_run_is_scoped_and_read_only",
+        "RunContractStaticGateTests::test_stk_mins_event_history_retention_sample_delete_is_tightly_scoped",
+        "RunContractStaticGateTests::test_index_mins_p4_keeps_writer_definition_and_check_boundaries",
+        "RunContractStaticGateTests::test_major_index_mins_p4_keeps_definition_and_check_boundaries",
+        "RunContractStaticGateTests::test_major_index_mins_p5_uses_dedicated_bounded_sensor_contracts"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_run_contract_static_gates.py": "496eb741836cac8de00f47881088566f4676e3f38d9e1c28900cdef8b7e3c98d"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 973,
+      "exit_code": 0
+    },
+    {
+      "suite": "test_run_contract_static_gates.py",
+      "batch": "G-regression:test_run_contract_static_gates.py:13",
+      "passed": true,
+      "completed": 8,
+      "expected": 8,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-z2mr_2g2/allowed/resource-result.json",
+      "case_names": [
+        "RunContractStaticGateTests::test_major_index_mins_technical_m6_is_single_partition_fail_closed",
+        "RunContractStaticGateTests::test_cn_a_minute_gold_p2_uses_bounded_lake_only_automation",
+        "RunContractStaticGateTests::test_idx_factor_pro_m4_uses_current_date_fail_closed_automation",
+        "RunContractStaticGateTests::test_major_index_mins_p6_bootstrap_separates_plan_stage_and_promote",
+        "RunContractStaticGateTests::test_major_index_mins_p7b_fallback_is_bounded_bootstrap_only",
+        "RunContractStaticGateTests::test_index_mins_p5_uses_dedicated_bounded_sensor_contracts",
+        "RunContractStaticGateTests::test_asset_check_incremental_governance_matrix_exists",
+        "RunContractStaticGateTests::test_asset_check_event_retention_dry_run_has_no_write_path"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_run_contract_static_gates.py": "496eb741836cac8de00f47881088566f4676e3f38d9e1c28900cdef8b7e3c98d"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 798,
+      "exit_code": 0
+    },
+    {
+      "suite": "test_run_contract_static_gates.py",
+      "batch": "G-regression:test_run_contract_static_gates.py:14",
+      "passed": true,
+      "completed": 8,
+      "expected": 8,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-ll99kpcx/allowed/resource-result.json",
+      "case_names": [
+        "RunContractStaticGateTests::test_asset_check_event_retention_sample_delete_is_tightly_scoped",
+        "RunContractStaticGateTests::test_stk_nineturn_daily_slice_keeps_definition_boundaries",
+        "RunContractStaticGateTests::test_derived_minute_bars_use_one_contract_and_legacy_writers_are_removed",
+        "RunContractStaticGateTests::test_historical_materialization_reconciliation_is_materialization_only",
+        "RunContractStaticGateTests::test_qfq_nineturn_checks_and_readiness_do_not_recalculate_formula",
+        "RunContractStaticGateTests::test_qfq_nineturn_jobs_and_sensors_keep_p3_boundaries",
+        "RunContractStaticGateTests::test_bse_minute_history_recovery_keeps_r0_r2_stage_boundaries",
+        "RunContractStaticGateTests::test_bse_qfq_r3_stays_scoped_and_outside_dagster_runtime"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_run_contract_static_gates.py": "496eb741836cac8de00f47881088566f4676e3f38d9e1c28900cdef8b7e3c98d"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 843,
+      "exit_code": 0
+    },
+    {
+      "suite": "test_run_contract_static_gates.py",
+      "batch": "G-regression:test_run_contract_static_gates.py:15",
+      "passed": true,
+      "completed": 1,
+      "expected": 1,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-y1u0dx9y/allowed/resource-result.json",
+      "case_names": [
+        "RunContractStaticGateTests::test_bse_recursive_recovery_uses_staged_bounded_forward_rebuild"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_run_contract_static_gates.py": "496eb741836cac8de00f47881088566f4676e3f38d9e1c28900cdef8b7e3c98d"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 776,
+      "exit_code": 0
+    },
+    {
+      "suite": "test_stk_factor_pro_definitions.py",
+      "batch": "G-regression:test_stk_factor_pro_definitions.py:1",
+      "passed": true,
+      "completed": 1,
+      "expected": 1,
+      "stop": null,
+      "report": "/private/tmp/stock-suspend-isolated-1q2vmx4l/allowed/resource-result.json",
+      "case_names": [
+        "StkFactorProDefinitionsTests::test_current_definitions_load_without_stock_factor_execution"
+      ],
+      "test_source_sha256": {
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_runner.py": "0059309e5d55a80335d61ed3a211e4e656f293754bb33c6dc6e524256c0ef06e",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/stock_suspend_confirmed_test_support.py": "9c71083ddf19ae625f177db2eb54eb2af8703b37712d92fa82579cc67f2f9776",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_suspend_confirmed_isolation.py": "39615a4484eaf53841fc7ef0eba8e43d530532e4d768c28bbd702692adc1fa80",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_factor_pro_definitions.py": "4b6c9974de03ba0c76393cfd89bf99c909eee8433f314aca741cfe38e139acea"
+      },
+      "denied_unchanged": true,
+      "elapsed_ms": 3079,
+      "exit_code": 0
+    }
+  ],
+  "suites": {
+    "test_asset_governance_contracts.py": {
+      "passed": true,
+      "cases": 12
+    },
+    "test_run_contract_static_gates.py": {
+      "passed": true,
+      "cases": 113
+    },
+    "test_stk_factor_pro_definitions.py": {
+      "passed": true,
+      "cases": 1
+    }
+  },
+  "total_cases": 126,
+  "formal_writer_executed": false
+}

@@ -1,0 +1,7 @@
+...                                                                      [100%]
+==================================== PASSES ====================================
+=========================== short test summary info ============================
+PASSED tests/test_stk_factor_pro_contracts.py::test_public_load_uses_formal_registry_and_full_field_http
+PASSED tests/test_stk_factor_pro_contracts.py::test_public_history_fans_out_in_component_and_orders_source_dates
+PASSED tests/test_stk_factor_pro_download.py::test_real_component_http_to_day_adapter_progress_and_retry
+3 passed in 1.80s

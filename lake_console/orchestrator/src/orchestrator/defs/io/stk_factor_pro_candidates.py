@@ -1,4 +1,4 @@
-"""Column conversion and day candidates on the caller's DuckDB connection."""
+"""Column conversion and per-date candidates on the caller's connection."""
 
 from __future__ import annotations
 
@@ -18,10 +18,14 @@ from orchestrator.defs.checks.stk_factor_pro import (
     require_factor_relation,
 )
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
-from orchestrator.defs.run_contracts.stk_factor_pro import STK_FACTOR_PRO_SOURCE_COLUMNS
+from orchestrator.defs.run_contracts.stk_factor_pro import (
+    STK_FACTOR_PRO_SOURCE_COLUMNS,
+    VerifiedDaySource,
+)
 from orchestrator.tushare_download import UnitResult
 
 DAY_SOURCE = "stk_factor_pro_day_source"
+HISTORY_DAY_SOURCE = "stk_factor_pro_history_day_source"
 DAY_PRIOR = "stk_factor_pro_day_prior"
 RAW_EXPECTED = "stk_factor_pro_raw_expected"
 SILVER_EXPECTED = "stk_factor_pro_silver_expected"
@@ -208,15 +212,43 @@ def release_stk_factor_pro_day_source(connection) -> None:
 def build_stk_factor_pro_raw_candidate(
     connection, *, source, prior_path: Path | None, candidate_path: Path, run_root: Path
 ):
+    if not isinstance(source, VerifiedDaySource) or source.raw_relation != DAY_SOURCE:
+        raise TypeError("日Raw候选必须接收当前VerifiedDaySource")
+    return build_stk_factor_pro_raw_candidate_from_relation(
+        connection,
+        source_relation=DAY_SOURCE,
+        target_trade_date=source.identity.target_trade_date,
+        prior_path=prior_path,
+        candidate_path=candidate_path,
+        run_root=run_root,
+    )
+
+
+def build_stk_factor_pro_raw_candidate_from_relation(
+    connection,
+    *,
+    source_relation: str,
+    target_trade_date: date,
+    prior_path: Path | None,
+    candidate_path: Path,
+    run_root: Path,
+):
+    """Build B-K+U from an already verified, internal single-date relation."""
+    if (
+        source_relation not in (DAY_SOURCE, HISTORY_DAY_SOURCE)
+        or type(target_trade_date) is not date
+    ):
+        raise ValueError("Raw候选只接受内部已核单日关系及DATE处理日期")
     require_stk_factor_pro_candidate_path(
         candidate_path=candidate_path, run_root=run_root
     )
-    target = source.identity.target_trade_date
+    target = target_trade_date
     if prior_path is None:
         connection.execute(
-            f"CREATE TEMP TABLE {DAY_PRIOR} AS SELECT * FROM {DAY_SOURCE} WHERE false"
+            f"CREATE TEMP TABLE {DAY_PRIOR} AS SELECT * FROM {source_relation} WHERE false"
         )
     else:
+        require_stk_factor_pro_safe_path(prior_path)
         connection.execute(
             f"CREATE TEMP TABLE {DAY_PRIOR} AS SELECT * FROM read_parquet(?, hive_partitioning=false)",
             [str(prior_path)],
@@ -225,16 +257,16 @@ def build_stk_factor_pro_raw_candidate(
         connection, DAY_PRIOR, target_trade_date=target, layer="raw"
     )
     require_factor_relation(
-        connection, DAY_SOURCE, target_trade_date=target, layer="raw"
+        connection, source_relation, target_trade_date=target, layer="raw"
     )
     connection.execute(
         f"CREATE TEMP TABLE {RAW_EXPECTED} AS SELECT {factor_columns('b')} FROM {DAY_PRIOR} b "
-        f"WHERE NOT EXISTS (SELECT 1 FROM {DAY_SOURCE} u WHERE u.ts_code=b.ts_code AND u.trade_date=b.trade_date) "
-        f"UNION ALL SELECT {factor_columns()} FROM {DAY_SOURCE}"
+        f"WHERE NOT EXISTS (SELECT 1 FROM {source_relation} u WHERE u.ts_code=b.ts_code AND u.trade_date=b.trade_date) "
+        f"UNION ALL SELECT {factor_columns()} FROM {source_relation}"
     )
     base, new, overlap, actual = connection.execute(
-        f"SELECT (SELECT count(*) FROM {DAY_PRIOR}), (SELECT count(*) FROM {DAY_SOURCE}), "
-        f"(SELECT count(*) FROM {DAY_PRIOR} JOIN {DAY_SOURCE} USING (ts_code,trade_date)), "
+        f"SELECT (SELECT count(*) FROM {DAY_PRIOR}), (SELECT count(*) FROM {source_relation}), "
+        f"(SELECT count(*) FROM {DAY_PRIOR} JOIN {source_relation} USING (ts_code,trade_date)), "
         f"(SELECT count(*) FROM {RAW_EXPECTED})"
     ).fetchone()
     if actual != base - overlap + new:

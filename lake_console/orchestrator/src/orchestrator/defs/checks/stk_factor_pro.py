@@ -42,18 +42,17 @@ def factor_content_sha(connection, relation: str) -> str:
     ).fetchone()[0]
 
 
-def require_factor_relation(
-    connection, relation: str, *, target_trade_date: date, layer: str
+def _require_factor_relation(
+    connection,
+    relation: str,
+    *,
+    types,
+    invalid_date_sql: str,
+    parameters: tuple,
+    object_code: str | None = None,
 ):
-    """Reject invalid structure before a key join can multiply/misclassify rows."""
+    """Use the same schema/key/value checks for fixed day or history predicates."""
     name = relation_identifier(relation)
-    types = (
-        STK_FACTOR_PRO_RAW_COLUMN_TYPES
-        if layer == "raw"
-        else STK_FACTOR_PRO_SILVER_COLUMN_TYPES
-    )
-    if layer not in ("raw", "silver") or type(target_trade_date) is not date:
-        raise ValueError("技术因子检查层或日期不合法")
     observed = tuple(
         (row[0], row[1]) for row in connection.execute(f"DESCRIBE {name}").fetchall()
     )
@@ -63,15 +62,16 @@ def require_factor_relation(
         f'("{field}" IS NOT NULL AND NOT isfinite("{field}"))'
         for field in STK_FACTOR_PRO_SOURCE_COLUMNS[2:]
     )
-    wanted = (
-        target_trade_date.strftime("%Y%m%d") if layer == "raw" else target_trade_date
+    object_predicate = (
+        " OR ts_code IS DISTINCT FROM ?" if object_code is not None else ""
     )
+    values = ((object_code,) if object_code is not None else ()) + parameters
     rows, bad_keys, bad_dates, bad_numbers = connection.execute(
         f"SELECT count(*), count(*) FILTER (WHERE ts_code IS NULL OR "
-        f"NOT regexp_full_match(ts_code, '[0-9]{{6}}\\.(SH|SZ|BJ)')), "
-        f"count(*) FILTER (WHERE trade_date IS NULL OR trade_date IS DISTINCT FROM ?), "
+        f"NOT regexp_full_match(ts_code, '[0-9]{{6}}\\.(SH|SZ|BJ)'){object_predicate}), "
+        f"count(*) FILTER (WHERE {invalid_date_sql}), "
         f"count(*) FILTER (WHERE {invalid_numbers}) FROM {name}",
-        [wanted],
+        values,
     ).fetchone()
     duplicate = connection.execute(
         f"SELECT count(*) FROM (SELECT ts_code, trade_date FROM {name} "
@@ -83,6 +83,60 @@ def require_factor_relation(
             f"日期{bad_dates}、非有限数值{bad_numbers}"
         )
     return int(rows), observed
+
+
+def require_factor_relation(
+    connection, relation: str, *, target_trade_date: date, layer: str
+):
+    """Require one exact day; historical requests use their separate entry point."""
+    if layer not in ("raw", "silver") or type(target_trade_date) is not date:
+        raise ValueError("技术因子检查层或日期不合法")
+    types = (
+        STK_FACTOR_PRO_RAW_COLUMN_TYPES
+        if layer == "raw"
+        else STK_FACTOR_PRO_SILVER_COLUMN_TYPES
+    )
+    wanted = (
+        target_trade_date.strftime("%Y%m%d") if layer == "raw" else target_trade_date
+    )
+    return _require_factor_relation(
+        connection,
+        relation,
+        types=types,
+        invalid_date_sql="trade_date IS NULL OR trade_date IS DISTINCT FROM ?",
+        parameters=(wanted,),
+    )
+
+
+def require_factor_history_relation(
+    connection,
+    relation: str,
+    *,
+    object_code: str,
+    start_date: date,
+    end_date: date,
+):
+    """Require complete Raw structure for one stock and its closed source range."""
+    if (
+        type(object_code) is not str
+        or re.fullmatch(r"[0-9]{6}\.(SH|SZ|BJ)", object_code) is None
+        or type(start_date) is not date
+        or type(end_date) is not date
+        or start_date > end_date
+    ):
+        raise ValueError("历史技术因子股票或闭区间日期不合法")
+    return _require_factor_relation(
+        connection,
+        relation,
+        types=STK_FACTOR_PRO_RAW_COLUMN_TYPES,
+        invalid_date_sql=(
+            "trade_date IS NULL OR NOT regexp_full_match(trade_date,'[0-9]{8}') "
+            "OR try_strptime(trade_date,'%Y%m%d') IS NULL "
+            "OR trade_date < ? OR trade_date > ?"
+        ),
+        parameters=(start_date.strftime("%Y%m%d"), end_date.strftime("%Y%m%d")),
+        object_code=object_code,
+    )
 
 
 def compare_factor_relations(

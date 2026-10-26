@@ -1,0 +1,143 @@
+........................................................................ [ 13%]
+.........FF............................................................. [ 27%]
+........................................................................ [ 40%]
+........................................................................ [ 54%]
+........................................................................ [ 68%]
+........................................................................ [ 81%]
+........................................................................ [ 95%]
+.........................                                                [100%]
+=================================== FAILURES ===================================
+__________ test_public_load_uses_formal_registry_and_full_field_http ___________
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x12740b950>
+document_fields = (('ts_code', 'str', 'Y', '股票代码'), ('trade_date', 'str', 'Y', '交易日期'), ('open', 'float', 'Y', '开盘价'), ('open_hfq', 'float', 'Y', '开盘价（后复权）'), ('open_qfq', 'float', 'Y', '开盘价（前复权）'), ('high', 'float', 'Y', '最高价'), ...)
+
+    def test_public_load_uses_formal_registry_and_full_field_http(
+        monkeypatch, document_fields
+    ):
+        fields = tuple(row[0] for row in document_fields)
+
+        def source(payload, _number):
+            assert payload == {
+                "api_name": "stk_factor_pro",
+                "token": "isolated-token",
+                "fields": ",".join(fields),
+                "params": {"trade_date": "20261021", "limit": 10000, "offset": 0},
+            }
+            return _reply(fields, "000001.SZ", ("20261021",))
+
+>       with localhost_source(source) as (url, requests):
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_stk_factor_pro_contracts.py:381:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+../../../../miniconda3/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/tushare_download/test_tushare_download_http_integration.py:96: in localhost_source
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../miniconda3/lib/python3.13/socketserver.py:457: in __init__
+    self.server_bind()
+../../../../miniconda3/lib/python3.13/http/server.py:136: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <http.server.HTTPServer object at 0x1274001a0>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+
+        May be overridden.
+
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Since Linux 6.12.9, SO_REUSEPORT is not allowed
+        # on other address families than AF_INET/AF_INET6.
+        if (
+            self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT")
+            and self.address_family in (socket.AF_INET, socket.AF_INET6)
+        ):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+../../../../miniconda3/lib/python3.13/socketserver.py:478: PermissionError
+______ test_public_history_fans_out_in_component_and_orders_source_dates _______
+
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x12740b360>
+document_fields = (('ts_code', 'str', 'Y', '股票代码'), ('trade_date', 'str', 'Y', '交易日期'), ('open', 'float', 'Y', '开盘价'), ('open_hfq', 'float', 'Y', '开盘价（后复权）'), ('open_qfq', 'float', 'Y', '开盘价（前复权）'), ('high', 'float', 'Y', '最高价'), ...)
+
+    def test_public_history_fans_out_in_component_and_orders_source_dates(
+        monkeypatch, document_fields
+    ):
+        fields = tuple(row[0] for row in document_fields)
+
+        def source(payload, number):
+            assert payload["api_name"] == "stk_factor_pro"
+            assert payload["fields"] == ",".join(fields)
+            assert payload["params"] == {
+                "ts_code": ("000001.SZ", "600000.SH")[number - 1],
+                "start_date": "20261012",
+                "end_date": "20261016",
+                "limit": 10000,
+                "offset": 0,
+            }
+            return _reply(fields, payload["params"]["ts_code"], ("20261016", "20261012"))
+
+>       with localhost_source(source) as (url, requests):
+             ^^^^^^^^^^^^^^^^^^^^^^^^
+
+tests/test_stk_factor_pro_contracts.py:426:
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+../../../../miniconda3/lib/python3.13/contextlib.py:141: in __enter__
+    return next(self.gen)
+           ^^^^^^^^^^^^^^
+tests/tushare_download/test_tushare_download_http_integration.py:96: in localhost_source
+    server = HTTPServer(("127.0.0.1", 0), Handler)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../miniconda3/lib/python3.13/socketserver.py:457: in __init__
+    self.server_bind()
+../../../../miniconda3/lib/python3.13/http/server.py:136: in server_bind
+    socketserver.TCPServer.server_bind(self)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
+
+self = <http.server.HTTPServer object at 0x126d77750>
+
+    def server_bind(self):
+        """Called by constructor to bind the socket.
+
+        May be overridden.
+
+        """
+        if self.allow_reuse_address and hasattr(socket, "SO_REUSEADDR"):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        # Since Linux 6.12.9, SO_REUSEPORT is not allowed
+        # on other address families than AF_INET/AF_INET6.
+        if (
+            self.allow_reuse_port and hasattr(socket, "SO_REUSEPORT")
+            and self.address_family in (socket.AF_INET, socket.AF_INET6)
+        ):
+            self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEPORT, 1)
+>       self.socket.bind(self.server_address)
+E       PermissionError: [Errno 1] Operation not permitted
+
+../../../../miniconda3/lib/python3.13/socketserver.py:478: PermissionError
+=============================== warnings summary ===============================
+lake_console/orchestrator/tests/test_stk_factor_pro_dagster_events.py: 14 warnings
+  /Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stk_factor_pro_dagster_events.py:89: PreviewWarning: Specifying a partitions_def on an AssetCheckSpec is currently in preview, and may have breaking changes in patch version releases. This feature is not considered ready for production use.
+    dg.AssetCheckSpec(
+
+lake_console/orchestrator/tests/test_stk_factor_pro_dagster_events.py::test_day_and_two_history_dates_have_persistent_correctly_bound_checks
+lake_console/orchestrator/tests/test_stk_factor_pro_dagster_events.py::test_day_and_two_history_dates_have_persistent_correctly_bound_checks
+lake_console/orchestrator/tests/test_stk_factor_pro_dagster_events.py::test_day_and_two_history_dates_have_persistent_correctly_bound_checks
+lake_console/orchestrator/tests/test_stk_factor_pro_dagster_events.py::test_day_and_two_history_dates_have_persistent_correctly_bound_checks
+  /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/storage/event_log/sql_event_log.py:3326: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    evaluation_event_timestamp=datetime.utcfromtimestamp(event.timestamp),
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_stk_factor_pro_contracts.py::test_public_load_uses_formal_registry_and_full_field_http
+FAILED tests/test_stk_factor_pro_contracts.py::test_public_history_fans_out_in_component_and_orders_source_dates
+2 failed, 527 passed, 1 deselected, 18 warnings in 168.95s (0:02:48)
