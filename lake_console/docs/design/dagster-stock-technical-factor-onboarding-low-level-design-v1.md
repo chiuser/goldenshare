@@ -80,7 +80,7 @@
 
 ### 2.3 业务函数的数据输入与输出
 
-以下定义本数据集内部函数接口；参数传dataclass/不可变记录，Parquet内容不放进sensor cursor。
+以下定义本数据集内部函数接口；参数传dataclass/不可变记录，Parquet内容不放进sensor cursor。第三批历史规划、下载和发布的完整签名、输入与批次边界以§16.2为准，不能把本表的(...)当成允许任意参数的实现。
 
 | 函数 | 主要输入 | 输出与必须保证的行为 |
 | --- | --- | --- |
@@ -427,6 +427,37 @@ require函数复用读取函数，空tuple正常返回，冲突或读取失败�
 
 只比较股票复权因子数据集值，不新增任意浮点阈值。需要更新历史的变化股从可信既有最早日期到T；无既有历史时解释新上市或异常。最早日期取初始化验收/可信范围或有界聚合，不在sensor逐tick扫描全湖。修订后的因子恢复旧值不取消原未完回刷；下载和发布仍应完成原范围，不能把“写了新清单”当成旧任务自动完成。
 
+
+#### 5.1.1 历史起点的统一规则（所有历史入口必读）
+
+**历史起点固定指：这只股票在本数据集中已有且可信的最早技术因子日期。它是既定规则，不是待管理员重新定义的参数。普通日更、人工日更、bootstrap后的补数及手动历史repair都采用本节。**原§10.7.2第5项已有的取得办法在这里集中说明，该处引用本节，避免只阅读历史规划时漏看。
+
+1. 优先复用已验证的初始化/原范围记录中该股最早日期；有多个有效依据时保留最早的可信边界，不因当前入口、当前批次或较窄日期窗口裁短。这里只读业务函数已经核实的记录，不新建起点配置、文件或PG表。
+2. 没有现成边界的股票，由本数据集业务函数使用同一主要DuckDB连接，对本次需核的代码集合、已批准且可信的现有Raw日期集合，显式投影ts_code/trade_date，执行一次按代码的MIN(trade_date)批量聚合。路径由既有Raw路径函数按日期复算；先验证日期表示和既有文件依据，得到Python DATE。不能对每股分别扫文件，不能在sensor每tick扫描全湖，也不能把一个未证明覆盖完整历史的窄日期窗口当作最早日期的依据。没有找到行时返回该股未知，结合生命周期区分真新股和异常，不默认为上市日或T。
+3. 取得的日期、依据种类和依据日期通过本节内部冻结记录传入规划函数，按§5.4写入原history-ranges。函数检查代码、精确date类型、start<=T以及kind/date对应；调用方负责根据已核事实生成，不能用新增run_config或任意passed=True绕过。数据集最早日期的含义不依赖PG或bootstrap是否已经开发。
+4. DG的PG读取只负责找到旧完整名单、未完/成功范围及其引用，属于第五批；bootstrap导入及其已核范围可以提供已有依据，属于第四批。第三批通过明确输入消费这些事实，不import bootstrap执行模块、不访问Prod，不为了取日期提前实现第四/第五批。内部函数参数不是管理员新增配置项。
+5. 必须回刷的旧股票仍不能确定起点时，保留原对象和NULL依据，按§5.1.2停止本轮历史，不能删掉该股后声明全范围完成。生命周期已证明没有原历史的新股另走原因6，不拿“没查到日期”冒充这个证明。
+
+例如：A已有技术因子最早为2015-01-05，本次就从该日请求至原T；即使上市更早或当前某个文件只包含2020年以后，也不能把起点改为上市日或2020年。这里是对既有规则的强调，无新增业务门槛。
+
+#### 5.1.2 完整名单到本次下载unit的逐项判定
+
+`full_code_count`始终等于history-ranges的唯一股票数；`expected_units`只描述本次确实需要新下载的完整范围，两者不能强制相等。先保存完整plan/ranges及其业务摘要，再按以下表确定是否能进入下载。处理结论由既有字段和成功引用推导，不新增可由业务随意填写的状态列或字符串枚举。
+
+| 对象/范围的实际情况 | 完整名单和依据 | 是否进入本次expected_units |
+| --- | --- | --- |
+| T/P没有变化、没有旧未完意图 | 已核比较说明确无新工作；可为空名单，不伪造源完成 | 不进入，不建立0-unit下载任务 |
+| 本次变化，或已知原未完；关键T/P及完整起止已知 | 保留完整原范围；当前T/P重新相等不抹掉旧意图 | 每个仍需刷代码一项mode5完整范围，不按20日切短 |
+| 该独立完整范围已有成功且输入仍匹配 | 保留原成功记录引用；严格核§5.4.3的producer SUCCESS、原T/代码/起止/T/P/合同及后续影响 | 仅该已证明成功的完整范围免刷；失败run的部分成果不进入此分支 |
+| 生命周期及已有记录已证明没有原历史 | 保留原因6及依据；不造上市前范围 | 不进入，不能把“起点查不到”当作原因6 |
+| 必须回刷但关键因子或起点尚未判明 | 原对象、NULL范围/值、原意图仍留在ranges及plan摘要 | 整个本轮待请求范围不可执行；历史请求/提升0，不能先过滤未知行再称完整 |
+
+未知分支由正常日更编排保留有效日发布、记录历史waiting及具体对象/原因，不生成历史source-complete或publication-complete；手动repair按既有前置规则停止并提示。若内部代码越过判断而调用下载函数，函数必须在网络前拒绝不完整输入，按§6.1输入合同错误处理，不能默默缩小范围。第三批落实这个零网络的输入保护，第五批负责把判断接到正式阶段观察及入口；不增加自动补数或断点能力。
+
+原完整待请求范围无未判明项后，排除有完整成功证明或原因6的对象，按code/start/end排序生成唯一expected_units；其scope_digest及后续manifest精确描述这份已判明的完整请求范围。plan摘要仍包含所有保留对象和未知行，不能只摘要实际下载子集。原成功范围、无历史解释和本次完成结果一同供后续整体判断，不能用本次unit数代表全名单完成。
+
+例如：完整名单A/B，B必须回刷但起点未知，本轮不能只下载A并记录“历史完整”。若B是有依据证明没有旧历史的真新股，则保留原因6后，A的完整范围可以形成实际下载清单。
+
 ### 5.2 原目标日Raw齐备后才允许历史处理
 
 完整变化名单在任何技术因子下载前依据`adj_factor`原T/P生成并保存；日Raw/Silver可少股票发布。只有**当前正式Raw T包含全部应有股票、且必要文件校验/check通过**，才允许该T开始任何历史下载或历史发布。缺股票或覆盖无法确认都不回刷。Raw齐备不是分页完成、总行数达到某值，也不是要求每个上市股票都必有T行。
@@ -626,10 +657,16 @@ HistoryPlanReason为集中有限IntEnum：1=本次T/P变化，2=原T失败/未�
 def read_stk_factor_pro_history_plan(root: Path, *, expected_target: date,
     expected_run_id: str) -> HistoryPlanRecord: ...
 def write_stk_factor_pro_history_plan(root: Path, record: HistoryPlanRecord,
-    ranges: tuple[HistoryRange, ...]) -> HistoryPlanRecord: ...
+    ranges: tuple[HistoryRange, ...], *,
+    connection: DuckDBPyConnection) -> HistoryPlanRecord: ...
+def read_stk_factor_pro_history_ranges(
+    connection: DuckDBPyConnection, *, root: Path, plan: HistoryPlanRecord,
+) -> tuple[HistoryRange, ...]: ...
 def verify_stk_factor_pro_current_source(root: Path, record: SourceCompleteRecord,
     *, current_run_id: str, expected_units: tuple[UnitProjection, ...]) -> VerifiedSource: ...
 ```
+
+`read_stk_factor_pro_history_ranges`在既定io/stk_factor_pro_history.py内与plan写入共用schema/摘要验证：root绑定plan.identity，ranges_ref绑定同run固定history-ranges.parquet，先核安全路径及文件SHA，再核完整schema、唯一代码、字段NULL/日期/原因规则、唯一代码数等于full_code_count、history_ranges_digest对应，返回冻结tuple。`build`返回plan后，调用方只通过该函数取得传给download的ranges，不能自行解析或删未知行；写/读Parquet都使用传入主要连接，不在helper新开连接。
 
 `SourceCompleteRecord`及`VerifiedSource`只用于phase=history，保存当前run历史文件引用/统计。verify必须要求record.phase==history且record.identity.creator_run_id==current_run_id，错阶段/错run即拒绝，不能通过原run有效而放行旧源。日阶段使用以下仅存内存的类型和接口，不执行JSON序列化、Parquet写入或RecordRef生成：
 
@@ -662,7 +699,8 @@ def verify_stk_factor_pro_day_source(
 | --- | --- |
 | history_ranges_digest / stk_factor_pro.history_ranges | 按代码/起止排序的`[{ts_code,start_date,end_date}]`；未知范围保留null行，不删原完整名单对象。 |
 | history_plan_digest / stk_factor_pro.history_plan | T/P、ContractIdentity、history_ranges_digest及按code排序entries；每项code、t_present/p_present、t_value_hex/p_value_hex、plan_reasons、去重升序origin_target_dates、earliest_basis(kind/date)。 |
-| scope_digest / stk_factor_pro.scope | phase、T及排序units；UnitProjection固定`mode:int,object_code:str|null,point:Date|null,start_date:Date|null,end_date:Date|null`。day只有mode2/point=T，history是每原范围code一项mode5/start/end，不能按下载到几只缩范围。 |
+| unit_key / stk_factor_pro.unit | 单个UnitProjection，固定字段mode/object_code/point/start_date/end_date；mode为整数，日期先转ISO文本，null显式保留。精确公式为content_digest({"record_kind":"stk_factor_pro.unit","record_version":1,"value":projection})，不含run、ordinal、文件路径或20日批号。 |
+| scope_digest / stk_factor_pro.scope | phase、T及排序units；UnitProjection固定`mode:int,object_code:str|null,point:Date|null,start_date:Date|null,end_date:Date|null`。day只有mode2/point=T，history按§5.1.2取已判明、尚需本次新下载的完整请求范围，每code一项mode5/start/end；已证明独立成功及原因6对象保留在完整plan中但不进入本次units，不能按实际返回几只再缩请求范围。 |
 | history_input_digest / stk_factor_pro.history_input | T/P、ContractIdentity、scope_digest及该完整请求范围内按code排序的权威t_value_hex/p_value_hex。不含范围外股票或整份因子文件sha。 |
 | day_source_digest / stk_factor_pro.day_source | 仅日阶段：ContractIdentity、scope_digest、当前单unit的UnitProjection、source_row_count=len(records)、完整U的row_count、schema_content_digest及§8.1算法计算的Raw表示content_sha256；不含文件路径、manifest、run或时间。由当前内存U计算，不生成日下载完整记录文件。 |
 | files_manifest_digest / stk_factor_pro.source_files | 仅历史阶段：scope_digest及按unit_key排序的unit业务投影、源/保存行数、file_sha256/file_rows/schema_content_digest。不含当前路径/run/时间。 |
@@ -682,11 +720,11 @@ FactorFileRef固定`trade_date:Date,asset_key:str=raw_tushare_adj_factor,file_sh
 
 **history-eligibility.json**：`record_version,identity:RunIdentity,history_plan_digest,history_ranges_digest,raw_coverage:StkFactorProRawCoverage,target_silver:StkFactorProTargetSilver|null,evaluated_at:Instant`。覆盖结构及完整缺失清单引用见§5.2.1；原T Silver有效性独立保存，未执行该步为null，不把Raw齐备改写成Silver有效。技术因子同名adj_factor差异另放原诊断摘要，不参与放行。
 
-**source/history/source-files.parquet**：`phase VARCHAR,unit_key VARCHAR,component_unit_id VARCHAR,ordinal BIGINT,mode INTEGER,object_code VARCHAR NULL,point DATE NULL,start_date DATE NULL,end_date DATE NULL,source_row_count BIGINT,saved_row_count BIGINT,file_relative_path VARCHAR,file_sha256 VARCHAR,file_rows BIGINT,schema_content_digest VARCHAR,contract_content_digest VARCHAR,verified_at TIMESTAMPTZ`，除明确NULL列外均NOT NULL。phase只能history，唯一键(phase,unit_key)，每完整历史unit一个261列文件（合法0行也保存明确schema文件）。mode5/code/start/end全有且end=T，point=null。ordinal仅当前任务内序号；component_unit_id保留组件原值。statistics.row_count==len(records)==saved_row_count==file_rows；逐项字段/范围/身份必须对应，不能只比unit数。日阶段无该文件及引用。
+**source/history/source-files.parquet**：`phase VARCHAR,unit_key VARCHAR,component_unit_id VARCHAR,ordinal BIGINT,mode INTEGER,object_code VARCHAR NULL,point DATE NULL,start_date DATE NULL,end_date DATE NULL,source_row_count BIGINT,saved_row_count BIGINT,file_relative_path VARCHAR,file_sha256 VARCHAR,file_rows BIGINT,schema_content_digest VARCHAR,contract_content_digest VARCHAR,verified_at TIMESTAMPTZ`，除明确NULL列外均NOT NULL。phase只能history，唯一键(phase,unit_key)，每完整历史unit一个261列文件（合法0行也保存明确schema文件）。mode5/code/start/end全有且end=T，point=null。ordinal仅当前任务内序号；component_unit_id保留组件原值。statistics.row_count==len(records)==saved_row_count==file_rows；逐项字段/范围/身份必须对应，不能只比unit数。日阶段无该文件及引用。每个unit源文件固定为当前run下`source/history/units/<unit_key>.parquet`，manifest的file_relative_path从当前run根表达为同一路径；合法0行也写完整schema文件。只由unit_key函数生成文件名，写前核safe_path和source/history归属、拒绝已有文件，不能套用仅允许candidates目录的检查或放宽候选目录规则。
 
 **source/history/source-complete.json**：`record_version,identity:RunIdentity,phase:Literal["history"],contract:ContractIdentity,history_plan_ref:RecordRef,history_plan_digest,history_plan_revision:int,origin_history_plan_digest:Digest|null,origin_history_ranges_digest:Digest|null,history_input_digest:Digest,scope_digest:Digest,expected_units:list[UnitProjection],files_manifest_ref:RecordRef,files_manifest_digest:Digest,completed_unit_count:Count,verified_at:Instant`。历史input必填；repair原授权非null。仅在§6全部历史会话正常退出、最终summary通过后，全部expected_units与manifest身份/计数/读回一一对应，且全部属于当前run才写成。空历史名单直接跳过，不伪造下载完成。任何新run都不得以此省去失败任务的重下载。不存在日阶段source-complete。
 
-**publication/<phase>/<d>/<layer>/intent.json及complete.json**：同一当前run固定结构`record_version,identity,phase,trade_date:Date,layer,contract,scope_digest,history_input_digest:Digest|null,day_source_digest:Digest|null,source_manifest_digest:Digest|null,target_path:str,candidate_relative_path:str,prior_sha256:Digest|null,candidate_sha256:Digest,candidate_rows:Count,expected_published_sha256:Digest,mode:Literal["reuse","replace"],stage:Literal["intent","complete"],unrefreshed_keys_ref:RecordRef|null,unrefreshed_count:Count|null,verified_at:Instant|null,actual_sha256:Digest|null,actual_rows:Count|null`。day必须day_source_digest非空、source_manifest_digest及history_input_digest为null；history反过来，day_source_digest为null、两项历史摘要必填。target按T/d/layer复算并核对；prior仅当前候选构建时的正式文件sha，缺文件为null。reuse指当前正式内容已与**本次新下载生成的候选**等价、无需replace，不指旧源复用；其expected=prior，replace的expected=candidate。intent末三项null、complete全有；历史缺原键引用/计数全有（0行差集也明确），日二者null。
+**publication/<phase>/<d>/<layer>/intent.json及complete.json**：同一当前run固定结构`record_version,identity,phase,trade_date:Date,layer,contract,scope_digest,history_input_digest:Digest|null,day_source_digest:Digest|null,source_manifest_digest:Digest|null,target_path:str,candidate_relative_path:str,prior_sha256:Digest|null,candidate_sha256:Digest,candidate_rows:Count,expected_published_sha256:Digest,mode:Literal["reuse","replace"],stage:Literal["intent","complete"],unrefreshed_keys_ref:RecordRef|null,unrefreshed_count:Count|null,verified_at:Instant|null,actual_sha256:Digest|null,actual_rows:Count|null`。day必须day_source_digest非空、source_manifest_digest及history_input_digest为null；history反过来，day_source_digest为null、两项历史摘要必填。day候选固定candidates/day/<layer>/data.parquet，history候选固定candidates/history/<d>/<layer>/data.parquet；历史缺原键附件固定publication/history/<d>/<layer>/unrefreshed-keys.parquet。路径都相对当前run，d必须小于原T；日分支仍只能T，不改变既有日候选路径。target按T/d/layer复算并核对；prior仅当前候选构建时的正式文件sha，缺文件为null。reuse指当前正式内容已与**本次新下载生成的候选**等价、无需replace，不指旧源复用；其expected=prior，replace的expected=candidate。intent末三项null、complete全有；历史缺原键引用/计数全有（0行差集也明确），日二者null。
 
 **publication/<phase>/publication-complete.json**：`record_version,identity,phase,contract,history_plan_digest,history_ranges_digest,scope_digest,history_input_digest:Digest|null,source_complete_ref:RecordRef|null,day_source_digest:Digest|null,source_manifest_digest:Digest|null,targets:list[PublishedTarget],verified_at:Instant`。day的source_complete_ref、source_manifest_digest、history_input_digest均为null，day_source_digest必填且来自本次内存U；history的上述三项必填、day_source_digest为null。不能为满足结构而生成日下载文件或虚构其引用。PublishedTarget固定`trade_date:Date,layer,skip_no_file:bool,file_sha256:Digest|null,file_rows:Count,checkpoint_ref:RecordRef|null,unrefreshed_count:Count,scope_rows:Count|null,scope_content_sha256:Digest|null,scope_content_version:int|null`；无旧无源日期明确skip=true、hash/ref=null/数量0，不假物化；有文件则skip=false、hash/ref齐全。历史scope三项全有，记录该完整成功范围在本日期/层的行数、业务内容摘要及版本1，空范围为0及空串SHA；day三项全null。全部预期日期/层去重升序无遗漏，历史所有unrefreshed_count=0才可完整。正式完成后还须同producer run最终成功才可成为后续正常轮次的历史免重刷依据。失败run即使此文件存在也不能复用其源/候选或部分checkpoint跳过重下载。
 
@@ -854,6 +892,8 @@ Raw正式路径`/Volumes/datasource/data_lake/raw/tushare/stk_factor_pro/trade_d
 
 ### 8.2 历史20交易日批次与整范围成功
 
+**本节的本次完整请求范围精确取自已验证source-complete.expected_units；完整plan/ranges作为授权上界保留所有对象。**发布前将expected_units与manifest逐项核对，并确认均属于原授权，不用完整名单中的已成功/原因6对象扩大本次U或缺原键差集。
+
 从完整请求范围和已核SSE日历生成d<T开市日期并集，去重升序，每20个交易日切批，尾批1～20日直接处理，不凑自然日。先核历史分区已批准登记，缺分区停止，repair不自动注册。无旧无源日期不造空文件/假物化，存在源则以空基础生成。
 
 全部历史源保存并核source-complete后、首次历史提升前，使用同一DuckDB连接一次聚合当前源的日期及不属于批准股票/日期范围的行数：每条历史源行的代码和日期须属于其原unit及当前批准范围；其中d<T的所有源日期必须包含在上述已核SSE开市日期并集，且每个日期的本数据集分区已登记。日历缺日期/状态未知、已确认休市却有源行、或源日期未进入发布计划时直接失败，说明股票/日期及计数，历史提升0次；不能过滤这些行后宣称范围完整。源中的T行只作既定诊断保留，不进入d<T清单；请求范围外日期包括T之后的行在源适配阶段已拒绝。用聚合日期集合核对计划，不逐行发起日历或分区查询。
@@ -863,6 +903,29 @@ Raw正式路径`/Volumes/datasource/data_lake/raw/tushare/stk_factor_pro/trade_d
 只有当前完整范围所有必要文件/check/读回及原键刷新核对通过，才写publication-complete；producer run最终成功后才成为后续同T轮次可跳过历史的依据。失败后已完成19日、第20日失败也不能跨run领取前19日为下载断点：重取原失败完整范围，再与当前文件合并，已提交不回滚。成功的其他独立完整范围不混入本次失败范围。
 
 bootstrap按§10独立合同恢复。
+
+#### 8.2.1 完整历史先下载，再按20个交易日分批处理
+
+本节把已确认的处理顺序落实为编码约束，属于第三批待实现能力，不表示已经开发。“一轮完整下载”覆盖本轮原完整历史范围，可以包含多个股票unit、会话和分页；不能理解为只发一个HTTP请求。所有unit仍按股票及其完整日期范围组织，每个完整unit保存、读回、释放后继续下个；全部会话成功退出且§6最终summary、manifest和当前run源核验通过后，才允许开始本节。20日只用于本地合并，不把网络请求切成20日范围。
+
+**调用位置与输入。**`publish_stk_factor_pro_history(...)`在调用方传入的同一个主要DuckDB连接上执行；输入使用本run已验证的完整历史源及manifest、原名单/范围、已核SSE日历和已登记分区。只从本run manifest取历史源文件清单，不扫描staging找文件，不读取失败run源；全部源范围/日期/分区检查按§8.2在首次提升前完成。普通候选仍受§15.9路径规则保护。当前实现的`DAY_SOURCE`及`source.identity.target_trade_date`只服务日T，第三批须形成按历史日期取U的路径，不能把一股多年数据直接传给现有日函数。
+
+**固定处理步骤。**
+
+1. 从已核请求范围生成升序、去重的`d<T`开市日期清单，按`STK_FACTOR_PRO_HISTORY_MERGE_BATCH_TRADE_DAYS=20`切批。每批保存当前日期tuple、批序号/总批数；尾批不足20日直接处理。日期清单与下载unit身份分开，批次不进入业务输入摘要。
+2. 进入一批前检查取消，使用manifest列出的当前run历史源文件清单执行**一次批量源读取查询**：显式投影261个Raw字段，`hive_partitioning=false`，只取本批日期集合内的源行；源日期用已验证的`YYYYMMDD`字符串对应本批DATE日期。通过`CREATE TEMP TABLE ... AS SELECT ...`实际物化为当前连接的`stk_factor_pro_history_batch_source`，不使用会在逐日查询时重新读取Parquet的VIEW。不得在Python累计全部历史行，也不另COPY一份每批下载文件。
+3. 对本批每个日期升序处理：从上述临时表按该日期筛出U，保留原股票代码和完整261字段；U只包含本轮需刷股票。读取当天当前正式Raw全市场B，按主键计算交集K，生成B−K+U并核对，保留其他股票和源未返旧键；历史缺原键另按§8.1保存差集。无旧且无源的日期沿既定skip规则，不造文件。
+4. 对当天Raw候选做完整校验、安全提升、正式读回和complete记录，再输出该层真实结果。从这份已读回的正式Raw生成当天Silver，校验、提升、读回和记录后输出Silver结果。当前日期Raw→Silver完成后再进入下一日期，不先发布20天Raw再补20天Silver。复用§8.1/§9的合并与校验语义，扩展现有day-only记录时保留日分支的严格条件，不另造发布平台。
+5. 每个日期结束即释放该日期旧B、U筛选关系、Raw/Silver expected及其他构造临时关系；本批源临时表保留给下一日期。批末在`finally`执行DROP，释放`stk_factor_pro_history_batch_source`及尚存的当日关系；下一批重新建立同名表。没有“所有批次完成后才统一释放”的路径，也不让跨日期VIEW持有即将被替换的正式文件。
+6. 所有批次及原键刷新核对通过后，才按§5.4.3形成完整范围的publication-complete；来源run最终成功才成为后续免重复历史的依据。批次数量、已完成日期数或最后一批结束本身不能代替完整范围检查。
+
+**读取、内存及写入成本。**设历史发布日期数为D、本轮历史源文件数为C，批数为`ceil(D/20)`。在既有完整源核验和发布前全范围校验之外，生成批源临时表的查询次数固定为批数，每批至多读取manifest中的C份当前源文件；日期内的U筛选只读该临时表，不再次打开全部历史源Parquet。这里“一次读取”指一次批量源查询，不宣称底层只发生一次磁盘IO。每批常驻新源数据仅为需刷股票在本批至多20个日期的行；旧全市场B及候选所需关系按当前日期持有，不累计20天全市场旧文件。临时表沿现有连接内存及受控spill设置，不新建连接/配置。每批最多40个日期/层目标，逐文件提交；等价内容可按原规则不replace。完整性所需SHA/读回仍执行，成本分别记录，不能为凑一次读取而跳过核验。
+
+**中断与释放。**批源读取、日期处理、文件读回或业务接收结果失败时，停止后续日期/批次；当前迭代器关闭或取消同样进入finally释放关系。已经发布的Raw/Silver及逐文件证据保留，不回滚；不删除本run历史源排障证据。获准新run仍重新下载原失败完整范围，不复用旧源、批临时表或候选，不从失败的第几个日期/批次接续。20日不是事务或下载恢复边界。
+
+**例子及验收。**A/B两股本轮需回刷45个交易日：先完成两股完整历史下载，再按20/20/5处理；每批先物化本批A/B新行，逐日更新全市场Raw及对应Silver，批末释放。隔离测试独立构造1/20/21/41/45交易日及节假日样本，验证批数1/1/2/3/3、尾批、日期顺序、T不被历史覆盖、无关股票不变、40文件上界；记录批源读取查询次数分别为1/1/2/3/3，禁止逐日回源文件扫描。分别在批读取、Raw完成后Silver失败、跨批和业务提前关闭注入异常，断言临时关系清空、已发布文件保留，以及新run确实重下完整范围。上述为编码/验收要求，本轮不编写或执行实现测试。
+
+DuckDB临时表的连接作用域、物化及可受控spill行为依据[CREATE TABLE官方文档](https://duckdb.org/docs/current/sql/statements/create_table.html)；多个明确Parquet文件作为同一查询输入见[多文件读取官方文档](https://duckdb.org/docs/current/data/multiple_files/overview.html)。
 
 ## 9. 两个综合checks与事件
 
@@ -1773,7 +1836,7 @@ def resolve_stk_factor_pro_bootstrap_context(
 2. T必须在原批准闭区间且有明确原导入完成事实；原源0日接受SourceComplete.actual_rows=approved_rows=0、原无文件的完整证明，不要求原本存在Raw/Silver。原导入半日/漏行/字段对账失败先按bootstrap原恢复处理，不能由补数伪造完成。
 3. 读取固定coverage/<T>/result.json，字节SHA必须等于配置expected_bootstrap_date_result_digest；核operation/approval/T、原source_complete_digest、原导入事实。按§10.5核当前正式文件的原导入或合法补数依据、当前本地日历/生命周期/身份/停牌及完整缺失清单。必须coverage_complete=False、missing_count为正精确int、代码差集依据已知且清单行数/键/日期/摘要匹配；不能只看数量，不能拿未知或文件损坏冒充缺股票。
 4. 结果已齐、依据过期/未知、摘要变化、错operation/日期或文件无有效依据均停止，给管理员具体文件/原因及“先刷新现有统计或处理依据，再按新摘要提交”的动作；不自动改配置、不就地换成另一份缺口授权。若日已齐但原补数历史/记录失败，提示重新执行原补数任务，而非伪造新的首次缺口。
-5. 核原T/P股票复权因子Raw就绪及当前维护/唯一写入；按§5.1比较并保存完整变化名单。可信历史最早边界优先复用已有初始化/范围事实；无现成边界时，只对本次需刷代码、已批准且可信的既有日期Raw主键作一次批量MIN(trade_date)聚合，不在sensor或每股逐文件扫描。初始化已有更早可信范围不得因本入口裁短；不能确认最早边界或关键T/P值时保留原因、停止对应历史，不造0变化。
+5. 核原T/P股票复权因子Raw就绪及当前维护/唯一写入；按§5.1比较并保存完整变化名单。历史起点严格采用§5.1.1的统一规则及§5.1.2的完整范围判断：优先复用已有可信边界，无现成依据时对本次代码和已批准可信Raw日期作一次批量最早日期聚合，不截短、不猜起点。该规则同样适用于普通日更和repair，不只用于本入口。
 6. 第一条技术因子网络请求前，把Context随既有“开始下载”AssetObservation保存并按§3.4读回；必须匹配当前run/T及以下完整字段。首次预检未通过时保存明确PRECHECK_NO_DOWNLOAD，不能写已经授权并开始。
 
 StkFactorProBootstrapContext的完整字段以§10.5.4为准：operation_id、approval_digest、target_trade_date、authorized_date_result_digest、authorized_gap_input_digest、authorized_missing_count、authorized_missing_codes_ref、authorization_run_id。首次后三个依据从已核缺口result取得，authorization_run_id为本次实际保存首次授权观察的run_id；不存全部下载行，不复制日源或另建授权文件。开始观察本身的storage_id在保存后从真实记录取得，不放入自身payload形成循环引用；后续阶段观察完整保留同一Context。
@@ -1851,7 +1914,7 @@ StkFactorProBootstrapContext的完整字段以§10.5.4为准：operation_id、ap
 | 历史完整和漏原键 | 全部当前run约定源完整才首批20日；源少旧键时保留旧行、有效行可发布、原键缺项诊断非0不假称整范围刷新，不新增第三check。 |
 | 历史未全刷的失败终态 | 旧100条、本次99条：先保存waiting/原完整范围/缺1条清单并yield持久，再抛Failure，run为FAILURE且retryable=true、phase=history、无源错误码。自动今天下一允许slot重下100条所属原完整范围，补Q不获第二次；手动repair失败后只能由管理员修正并再次手动执行，sensor不得提交repair。已发布99条及旧1条均保留，不能写publication-complete或以waiting返回SUCCESS。 |
 | 无输出与事件持久顺序 | 完整selection下PRECHECK_NO_DOWNLOAD只观察且SUCCESS、没有开始下载；首次合法空且无可用旧数据/应有非空时先保存完整缺失及日waiting、bootstrap关联先刷新统计，再以day/retryable=True的业务Failure结束，两分支均无假物化/绿check。已有有效部分日数据仍发布并可SUCCESS；旧Raw有效但新源0不误判实际0。历史先yield物化再读本批真实记录并yield关联检查，不能拿未处理的log_event缓冲作完成依据；测试存储及绑定验收按§14.3。 |
-| 20日与性能 | 1/20/21/41交易日、假日/末批/无行日；当前run逐日期Raw→Silver、不按20日事务；失败下次全范围重下而不按已完成19日续源。 |
+| 20日与性能 | §8.2.1的1/20/21/41/45交易日、假日/末批/无行日；每批一次源查询并物化、逐日只读批临时表，查询次数与批数对应；逐日期Raw→Silver、不按20日事务；正常/失败/取消/关闭均释放批和当日关系；失败下次全范围重下而不按已完成19日续源。 |
 | 错误/取消/事件 | 1201等永久错误不下轮盲重试；1203允许今天下一slot但仍新下载；阶段正确解除，不恢复Q机会。out={}、历史显式partition/check关联、标准通知不写业务数据、取消不领下一unit/文件。 |
 | bootstrap独立边界 | 5000流式、月R+1及SQL超时/跨日完整证明；沿其独立批准operation的完整日期恢复，不被本次Tushare失败规则误改。覆盖统计复用本地数据，完整源/Raw/Silver及统计分别记事实，不做Prod全历史覆盖预审。 |
 | bootstrap本地覆盖 | 取消Prod覆盖预审且保留源传输核对；A/B对A/C仍缺B；合法全天停牌空文件与缺文件不同；整日0源需完整空源事实，半日/一层未成不计成功；身份别名去重但不改Raw，未知不当0。 |
@@ -2144,3 +2207,130 @@ Silver构造及提升同时核对应正式Raw SHA未变；不能从变化后的R
 1行261字段读回仍正确，正常/等价更新0.5057/0.8806秒，52/70条SQL、候选各2份、正式替换2/0次，没有增加数据IO或源请求，不把该样本当全市场预算验收。修复前后完整输出与成本见[独立审计](../../reports/stock_factor_pro_batch2_20261026/independent-audit.md)及[path-fix-results.json](../../reports/stock_factor_pro_batch2_20261026/path-fix-results.json)。失败不写外部位置，Raw已完成而Silver失败仍保留Raw和complete；重试新run重新下载的原规则不变。
 
 修复后独立只读复核全部调用方与写前检查，并复核本批源生命周期、取消/清理、两层合并发布、失败新下载及纯覆盖，未发现新的确证问题。CodeGraph修改前explore、修改后sync/status完成。§15.8的路径缺陷及验收暂停关闭，第二批具备申请第三批条件；本轮未提交、未push，没有正式执行，不自动推进第三批。
+
+## 16. 第三批：历史回刷的编码约定与开工核验
+
+### 16.1 目标、范围与现有代码依据
+
+第三批只完成方案§13.1的复权变化名单、原完整范围、当前run完整历史源、20交易日合并及d<T的两层发布/完整范围依据。第一批契约及基础身份、第二批日转换/纯检查/取消/逐文件发布和路径修复已可复用；这些通过不等于第三批已经实现。当前接口调用和影响面已通过CodeGraph及实际源码核对。
+
+当前`stk_factor_pro_http_rows`与`build_stk_factor_pro_raw_batch`可复用完整261字段和标量转换；历史层另核任务规划的unit/code/start/end，不能仅凭result.unit自证。现Raw候选绑定DAY_SOURCE/DAY_PRIOR和目标T，第三批在本数据集内抽出“已核单日关系＋实际处理日期”的共用构造，日入口仍接VerifiedDaySource，历史入口接本批临时表中的日期U；关系名由内部固定生成，不接受配置SQL。Silver候选已有verified_raw_path/target_trade_date/run_root，可逐日期复用并清理expected关系。现发布记录/解析器只支持day，须按§5.4.3在同一实现扩phase/history和实际d，保留所有day字段互斥与路径反例，不复制另一套writer。
+
+不在本批实现bootstrap批准/导出/统计、正式PG结果读取、覆盖evaluator、job/repair装配、sensor/catalog/历史事件或正式执行；不修改公共下载器、Prod、已有数据集、配置来源，不新增状态平台、锁或线程。只为本批在原指定模块落实类型、函数与隔离测试。
+
+### 16.2 完整接口、内部记录与后批分工
+
+以下均为本数据集内部接口，不新增管理员输入。类型集中在`defs/run_contracts/stk_factor_pro.py`；已有RecordRef、RunIdentity、ContractIdentity、HistoryPlanReason、StkFactorProRawCoverage、StkFactorProTargetSilver、PublishedTarget直接复用。HistoryRange/HistoryPlanRecord/FactorFileRef/SourceCompleteRecord严格按§5.4闭合结构落实为冻结dataclass，不另维护一套字段表。新增的起点参数记录和历史资格记录只封装已有信息：
+
+```python
+@dataclass(frozen=True, slots=True)
+class StkFactorProHistoryStart:
+    ts_code: str
+    start_date: date | None
+    earliest_basis_kind: int | None  # 仅1/2，规则见§5.4.3
+    earliest_basis_date: date | None
+
+# HistoryEligibilityRecord精确对应§5.4.3 history-eligibility.json：
+# record_version, identity, history_plan_digest, history_ranges_digest,
+# raw_coverage, target_silver, evaluated_at。
+# VerifiedSource是当前run实际核验的结果，只包含以下引用/身份，不放下载行：
+@dataclass(frozen=True, slots=True)
+class VerifiedSource:
+    identity: RunIdentity
+    contract: ContractIdentity
+    source_complete: SourceCompleteRecord
+    source_complete_ref: RecordRef
+```
+
+StkFactorProHistoryStart来自§5.1.1真实记录读取/批量聚合，不新增存储；known start的三个日期/种类字段全有，start_date等于earliest_basis_date且不晚于T，未知时全None。重复代码、非法日期/kind或输入窄范围裁短原可信边界均拒绝。bootstrap读取/批准核验仍由第四/第五批完成，它提供已核内部记录；不通过跨模块import读取尚未实现的bootstrap执行器。
+
+```python
+def resolve_stk_factor_pro_history_starts(
+    connection, *, lake_root: Path, target_trade_date: date,
+    codes: tuple[str, ...], known_starts: tuple[StkFactorProHistoryStart, ...],
+    approved_raw_dates: tuple[date, ...], check_cancel: Callable[[], None],
+) -> tuple[StkFactorProHistoryStart, ...]: ...
+
+def build_stk_factor_pro_history_plan(
+    connection, *, identity: RunIdentity, contract: ContractIdentity,
+    lake_root: Path, staging_root: Path,
+    factor_t: FactorFileRef, factor_p: FactorFileRef,
+    prior_results: StkFactorProRecordedResults,
+    history_starts: tuple[StkFactorProHistoryStart, ...],
+    check_cancel: Callable[[], None],
+) -> HistoryPlanRecord: ...
+
+def download_stk_factor_pro_history(
+    connection, *, identity: RunIdentity, contract: ContractIdentity,
+    plan: HistoryPlanRecord, ranges: tuple[HistoryRange, ...],
+    prior_results: StkFactorProRecordedResults,
+    eligibility: HistoryEligibilityRecord,
+    lake_root: Path, staging_root: Path,
+    recheck_inputs: Callable[[], tuple[
+        FactorFileRef, FactorFileRef,
+        StkFactorProRawCoverage, StkFactorProTargetSilver,
+    ]],
+    downloader=None, control=None, check_cancel: Callable[[], None],
+    on_progress=None,
+) -> VerifiedSource: ...
+
+def publish_stk_factor_pro_history(
+    connection, *, source: VerifiedSource,
+    plan: HistoryPlanRecord, ranges: tuple[HistoryRange, ...],
+    lake_root: Path, staging_root: Path,
+    calendar: tuple[date, ...], registered_dates: tuple[date, ...],
+    recheck_inputs: Callable[[], tuple[
+        FactorFileRef, FactorFileRef,
+        StkFactorProRawCoverage, StkFactorProTargetSilver,
+    ]],
+    check_cancel: Callable[[], None],
+) -> Iterator[tuple[PublishedTarget, StkFactorProFileAudit | None]]: ...
+```
+
+`resolve...`只对known_starts不能解决的代码做一次§5.1.1批量聚合，approved_raw_dates是已有授权/可信文件范围的内部日期tuple，须已覆盖需确认的可信既有历史；不能由空值默认扩成全湖或由当前20日批次生成。没有来源/日期范围证明时返回对应未知，交§5.1.2处理，不猜值。普通日更与首次补数共用同一方法，repair原授权起点仍保留，不重新扩大授权。
+
+`build...`按固定路径核T/P文件的日期、schema、键、有限值和传入SHA（前后身份一致），重新比较并写读回本runplan/ranges。需要判定原因6或解释缺T/P时，只读既有silver_stock_lifecycle_path指向的正式生命周期文件，按现行schema/人民币股票和DATE上市退市区间核本次对象，读前后文件身份稳定；缺失或不明就保留未知，不调用PG或用当前上市快照替代。prior_results严格采用§6.2完整冻结类型。确认无旧事实时传全None/空tuple的合法结果，查询失败或坏引用不能伪装为空。规划阶段允许保留未知行；下载阶段的入口核完整原待请求范围，未知或无实际工作不得启动session。正常编排按§5.1.2等待/no_action；若误调用下载函数则作为输入合同错误拒绝，不能返回伪造VerifiedSource。
+
+`recheck_inputs`由第五批编排装配，第三批只消费其四个实际冻结结果；不能用常量True或调用方passed参数替代。它在历史下载前、首次历史提升前、完整发布记录形成前分别调用，校验原T/P、原T Raw complete/check及Silver ready/对应当前Raw。T/P文件字节变化时按§5.4.2重新核本请求范围的业务因子投影；范围外其他股票变化不推翻本范围，实际业务输入变化则停止，不重写原计划。该回调不放在可隔离异常的进度通知里，不查询每行/每历史日期；第三批不import instance读取器，隔离样本按真实合同提供结果。
+
+`download...`必须核plan/ranges/eligibility属于当前run和原T、摘要相互匹配、Raw/Silver资格为真；从整份完整ranges及已有独立成功引用按§5.1.2生成expected_units，逐项核实际unit/股票/闭区间。每unit完整落盘/读回/释放，全部session成功退出、manifest逐项核验后写source-complete并调用§5.4.1 verify得到VerifiedSource。manifest的unit_key/file_relative_path精确采用§5.4.2/5.4.3，不依赖下载序号猜范围。一次失败不构造可交付的VerifiedSource，不隐式重试业务保存。
+
+`publish...`重新核当前run源记录及引用、T/P/资格和calendar/registered_dates。本次股票/日期范围、unrefreshed差集与scope摘要只从source.source_complete.expected_units复算，并与manifest逐项核对；完整plan/ranges用于原授权和摘要上界，不把其中已独立成功或原因6对象计入本次缺失。然后按§8.2.1只处理d<T；每层完成实际读回及complete后yield。无旧无源日期返回skip_no_file=True的PublishedTarget及audit=None，checkpoint_ref/hash为None；无实际文件就不构造FileAudit或事件。实际文件项必须audit非None且通过，调用方依据skip_no_file分支，不能把无文件项当有文件物化。全部实际目标和skip事实按日期/层有序写publication/history/publication-complete.json，调用方按固定路径读回；任一旧键未刷新时按§8.1保留差集、缺少完整发布记录并失败。第五批负责在各yield点绑定真实DG事件、保存waiting/完成观察及run终态，不能list迭代器等全部结束后才交付Raw。
+
+| 输入事实 | 第三批职责 | 对应后批职责 |
+| --- | --- | --- |
+| 权威T/P文件、可信每股起点 | 按现有schema/日期/范围和引用验证，比较/规划；缺依据保持未知 | 第四批可产生初始化依据，第五批从既有正式入口取得并准备输入，不改变起点规则 |
+| 同T旧未完/完整成功事实 | 消费StkFactorProRecordedResults及精确引用，核原范围，不读失败源 | 第五批实现§6.2的有界PG读取与最终producer状态核验 |
+| 原T Raw/Silver资格、开始事实及运行互斥 | 按类型/日期/指纹和现有require规则保护下载/发布 | 第五批正式evaluator/开始观察/互斥及事件装配；本批不加PG查询 |
+| 日历与已登记日期 | 接受明确tuple，核源日期及d<T计划，不自动注册 | 第四/六批各自获准的注册流程，不因本批测试声明正式已注册 |
+
+### 16.3 编码顺序、失败及资源边界
+
+1. 在run_contracts落实上述历史类型、§5.4摘要和闭合读写验证；unit_key由同一函数供manifest写入及核验使用。
+2. 在既定io/stk_factor_pro_history.py实现起点取得、T/P比较、原未完/成功范围核对及plan/ranges读写。未知、真新股、已有成功分别按§5.1.2，不用WHERE start_date IS NOT NULL掩盖未知。
+3. 在既定io/stk_factor_pro_download.py实现当前run历史保存及VerifiedSource；源/manifest只位于本run/source/history，使用同一safe_path和该namespace归属规则，写目录/文件前检查，不能放宽candidates保护。
+4. 在既定candidates/publication/checks模块内复用字段和合并/原子发布算法，按显式日期适配历史，落实§8.2.1批关系。原day入口仍只接VerifiedDaySource，原日路径/类型/0行及失败重下回归保留。
+5. 实现范围publication-complete及原键差集汇总；文件完成事实只说明当前物理结果，producer最终成功由第五批使用DG事实确认。不提前伪造run成功。
+6. 用小型真实schema夹具覆盖本节和§11；对照所有硬约束给代码、正反例和性能证据，第三批通过后才独立确认第四批，不开展正式执行。
+
+沿§10现有连接和容量默认，不新增配置或请求预算。设需新下载C股、各H_i行、历史D个交易日，正常请求按§10的sum(floor(H_i/10000)+1)，失败新run同范围重下；本批同页重试沿组件，20日不改变请求数。当前run保存C个完整源unit及manifest，批源查询ceil(D/20)次、每批最多40个日期/层目标，当前日期B/U及两个候选之外不持有全部历史Python行；完整源、失败证据、批临时关系/受控spill、当前候选、读回和最终验收均计空间与耗时。源0行保留schema；半unit不交付。受控路径/空间/设备或输入无法确认时先停，不截字段/股票/日期，不静默删除旧源腾空间。
+
+任何下载、保存、候选、文件或业务接收异常都关闭session/迭代器并在finally清表；Raw已发布Silver失败仍保留Raw，后续新run重新下载原完整失败范围，不能从第几个unit/日期/批次接续。取消前后行为继续按§6，replace后尽力收尾当前文件，下一文件前停止；错误定位使用既有业务类别及组件错误码，不新增随意字符串枚举。正式DG/PG/Prod/Lake写入及全局读取仍分别批准，本节只授权范围的文档细化，不授权执行。
+
+### 16.4 启动条件和本批验收对账
+
+| 启动/验收项 | 明确落点及必须证明的行为 |
+| --- | --- |
+| 前两批基础与路径修复 | 第一批0daf0b5e、第二批5edb6409及修复0e8b5baa；复用已提交证据，未改变时不重复真实来源跑数 |
+| 历史起点没有新业务决策 | §5.1.1与§10.7.2同一规则；原可信更早边界不裁短、一次代码/日期有界MIN、未知不默认；所有入口适用 |
+| 跨批输入可独立编码 | §16.2；第三批不依赖尚未实现的PG/导出执行器，已核冻结输入按现行schema夹具验证；查询失败不能由空输入代替 |
+| 完整名单与下载范围 | §5.1.2；无变化、旧pending且因子回等、匹配独立成功、原因6、关键未知各有独立小样本；A/B有B未知时源请求/历史提升0，plan仍有B |
+| 摘要/文件/记录生产者消费者一致 | unit_key准确封装、固定unit源路径、manifest逐项范围及字节SHA；换run/路径不改业务摘要，改code/边界/值必变；day/history来源互斥反例保留 |
+| 当前源完整与关闭 | 每完整unit读回及释放；全部会话summary/关闭通过才形成当前runVerifiedSource，1304/错unit/错股票/超范围/旧run文件均零提升 |
+| 按20日处理并保持其他数据 | §8.2.1与§11；1/20/21/41/45边界及源读取查询数、T边界、无关股票全部业务值不变、临时关系释放、Raw后Silver失败保留 |
+| 缺原键及重入 | 先保存真实缺失，原键非0不得写完整记录；新run实际重下整个失败范围，旧源一旦作为输入读取测试立即失败 |
+| 性能与证据范围 | §11.1规定的一股至多20日有界样本、宽日期文件与成本记录；复用已有来源响应，不做全市场/17股全历史压测；全市场/10000真实满页和正式PG事件验收未执行不写成通过 |
+
+本节只补齐第三批编码约定和启动审计的依据，本轮没有编写第三批代码、运行正式任务或完成第三批验收。文档核对通过后具备申请按本节启动第三批开发的条件，是否开工及正式执行仍按管理员阶段指令，不因本节而自动推进。
+
+2026-10-26本轮启动条件审计：上述三个编码交接问题已补齐，起点的既有规则已在历史规划入口强调并由bootstrap入口统一引用。独立只读复核核对当前代码、全部新增接口及两文档，未发现新增确证冲突或需要管理员拍板的业务项；第三批设计已具备按本节编码的条件。文档完整性、差异空白检查及本节两个Python接口示例的语法核对通过；语法核对未执行实现，不能作为第三批功能验收。该结论只覆盖设计开工准备，不代表第三批已经开发、测试或正式运行。本轮只修改方案与LLD，未提交、未操作正式资源，继续等待管理员下一阶段指令。
