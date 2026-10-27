@@ -11,10 +11,18 @@ import uuid
 from contextlib import contextmanager
 from pathlib import Path
 
+from dagster._core.errors import DagsterExecutionInterruptedError
+
 from orchestrator.defs.anns_d_contract import (
     ANNOUNCEMENT_VERSION,
     AnnouncementCancelled,
     AnnouncementError,
+)
+
+ANNOUNCEMENT_CANCELLATION_ERRORS = (
+    AnnouncementCancelled,
+    KeyboardInterrupt,
+    DagsterExecutionInterruptedError,
 )
 
 
@@ -161,7 +169,10 @@ class AnnouncementWindowBudget:
             document = json.loads(self.path.read_text())
         except (json.JSONDecodeError, UnicodeDecodeError):
             raise AnnouncementError("announcement_window_budget_invalid") from None
-        if not isinstance(document, dict) or document.get("window_id") != self.window_id:
+        if (
+            not isinstance(document, dict)
+            or document.get("window_id") != self.window_id
+        ):
             raise AnnouncementError("announcement_window_identity")
         if self.identity is not None and document.get("identity") != self.identity:
             raise AnnouncementError("announcement_window_contract_changed")
@@ -186,10 +197,7 @@ class AnnouncementWindowBudget:
                 or isinstance(count, bool)
                 or not isinstance(count, int)
                 or not 0 <= count <= self.policy.max_day_requests
-                or (
-                    self.identity is not None
-                    and day not in self.identity["days"]
-                )
+                or (self.identity is not None and day not in self.identity["days"])
             ):
                 raise AnnouncementError("announcement_window_budget_invalid")
         if sum(day_requests.values()) != requests:

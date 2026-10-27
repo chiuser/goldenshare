@@ -24,12 +24,16 @@ from orchestrator.defs.anns_d_contract import (
     AnnouncementError,
     announcement_file_settings_from_evidence,
 )
-from orchestrator.defs.anns_d_execution import verify_announcement_delivery
+from orchestrator.defs.anns_d_execution import (
+    announcement_capture_pages,
+    verify_announcement_delivery,
+)
 from orchestrator.defs.anns_d_io import AnnouncementStore
 from orchestrator.defs.anns_d_partitions import anns_d_natural_days
 from orchestrator.defs.checks.anns_d_check_targets import (
     announcement_asset_is_executing,
     announcement_materialization,
+    announcement_materialization_fingerprint,
     prepare_announcement_check_targets,
 )
 from orchestrator.defs.paths import (
@@ -58,6 +62,7 @@ _CHECK_RULE_FAILURES = frozenset(
         "announcement_different_run_delivery",
         "announcement_checkpoint_identity",
         "announcement_checkpoint_invalid",
+        "announcement_materialization_fingerprint_missing",
     }
 )
 
@@ -70,7 +75,9 @@ def _record_identity(record):
     return identity
 
 
-def _delivery_evidence(record, root, staging, day, control, *, reuse=False):
+def _delivery_evidence(
+    record, root, staging, day, control, *, expected_fingerprint=None
+):
     identity = _record_identity(record)
     if identity.get("day") != day:
         raise AnnouncementError("announcement_delivery_wrong_day")
@@ -93,66 +100,44 @@ def _delivery_evidence(record, root, staging, day, control, *, reuse=False):
         checkpoint = AnnouncementCheckpoint(checkpoint_path, identity)
     except json.JSONDecodeError:
         raise AnnouncementError("announcement_checkpoint_invalid") from None
-    delivery = checkpoint.document.get("delivery", {})
-    if reuse:
-        _validate_reused_capture(delivery, settings.page_size)
-    for page in delivery.get("source_pages", []):
+    pages = announcement_capture_pages(checkpoint, page_size=settings.page_size)
+    fingerprint = announcement_materialization_fingerprint(record)
+    if checkpoint.document["delivery"]["fingerprint"] != fingerprint or (
+        expected_fingerprint is not None and fingerprint != expected_fingerprint
+    ):
+        raise AnnouncementError("announcement_delivery_materialization_fingerprint_conflict")
+    for page in pages:
         path = assert_safe_announcement_path(Path(page["path"]))
         if permitted not in path.parents:
             raise AnnouncementError("announcement_source_page_outside_staging")
     return store, checkpoint
 
 
-def _verify_reused_delivery_references(record, root, staging, day, control):
+def _verify_reused_delivery_references(
+    record, root, staging, day, control, *, expected_fingerprint=None
+):
     """Prove an unselected successful delivery check still describes these bytes."""
-    store, checkpoint = _delivery_evidence(
-        record, root, staging, day, control, reuse=True
-    )
-    delivery = checkpoint.document.get("delivery")
-    if not delivery or checkpoint.document.get("phase") != "promoted":
-        raise AnnouncementError("announcement_delivery_missing")
-    if announcement_file_fingerprint(store.target(day)) != delivery["fingerprint"]:
-        raise AnnouncementError("announcement_delivery_file_changed")
-    for page in delivery.get("source_pages", []):
-        control.check()
-        if announcement_file_fingerprint(page["path"]) != page["fingerprint"]:
-            raise AnnouncementError("announcement_delivery_source_changed")
-
-
-def _validate_reused_capture(delivery, page_size):
-    """Validate v2 daily source references before reusing an earlier green check."""
-    reason = "announcement_recovery_delivery_evidence"
-    pages = delivery.get("source_pages")
-    if (
-        delivery.get("capture_complete") is not True
-        or not isinstance(pages, list)
-        or not pages
-    ):
-        raise AnnouncementError(reason)
-    for key in ("page_count", "source_rows", "last_offset", "last_page_rows"):
-        if type(delivery.get(key)) is not int or delivery[key] < 0:
-            raise AnnouncementError(reason)
-    last_rows = delivery["last_page_rows"]
-    last_offset = (len(pages) - 1) * page_size
-    if (
-        delivery["page_count"] != len(pages)
-        or last_rows >= page_size
-        or delivery["last_offset"] != last_offset
-        or delivery["source_rows"] != last_offset + last_rows
-    ):
-        raise AnnouncementError(reason)
-    for index, page in enumerate(pages):
-        if (
-            not isinstance(page, Mapping)
-            or not isinstance(page.get("path"), str)
-            or not isinstance(page.get("fingerprint"), Mapping)
-            or not page["fingerprint"]
-            or type(page.get("offset")) is not int
-            or page["offset"] != index * page_size
-            or type(page.get("rows")) is not int
-            or page["rows"] != (last_rows if index == len(pages) - 1 else page_size)
-        ):
-            raise AnnouncementError(reason)
+    try:
+        store, checkpoint = _delivery_evidence(
+            record, root, staging, day, control, expected_fingerprint=expected_fingerprint
+        )
+        delivery = checkpoint.document["delivery"]
+        if checkpoint.document.get("phase") != "promoted":
+            raise AnnouncementError("announcement_delivery_missing")
+        before = announcement_file_fingerprint(store.target(day))
+        if before != delivery["fingerprint"]:
+            raise AnnouncementError("announcement_delivery_file_changed")
+        for page in delivery["source_pages"]:
+            control.check()
+            if announcement_file_fingerprint(page["path"]) != page["fingerprint"]:
+                raise AnnouncementError("announcement_delivery_source_changed")
+    except AnnouncementError as error:
+        if str(error) in _CHECK_RULE_FAILURES:
+            raise AnnouncementError(
+                "announcement_recovery_delivery_evidence"
+            ) from error
+        raise
+    return store, checkpoint, before
 
 
 def evaluate_announcement_check(
@@ -165,6 +150,8 @@ def evaluate_announcement_check(
     target_record=_TARGET_NOT_PROVIDED,
     materializing=None,
     control=None,
+    reuse_delivery=False,
+    expected_fingerprint=None,
 ):
     """Check one explicit day; source calls and recovery selection are excluded."""
     root = lake_root.root()
@@ -189,8 +176,16 @@ def evaluate_announcement_check(
             raise AnnouncementError("announcement_materialization_missing")
         if materializing and record.event_log_entry.run_id != context.run.run_id:
             raise AnnouncementError("announcement_different_run_delivery")
-        if reconciliation:
-            store, checkpoint = _delivery_evidence(record, root, staging, day, control)
+        if reuse_delivery:
+            store, checkpoint, before = _verify_reused_delivery_references(
+                record, root, staging, day, control,
+                expected_fingerprint=expected_fingerprint,
+            )
+        elif reconciliation:
+            store, checkpoint = _delivery_evidence(
+                record, root, staging, day, control,
+                expected_fingerprint=expected_fingerprint,
+            )
         else:
             settings = announcement_file_settings_from_evidence(
                 {"policy": asdict(AnnouncementPolicy())}
@@ -198,14 +193,25 @@ def evaluate_announcement_check(
             store = AnnouncementStore(
                 root, staging, context.run.run_id, settings, control
             )
-        before = announcement_file_fingerprint(path)
+        if not reuse_delivery:
+            before = announcement_file_fingerprint(path)
         if before is None:
             raise AnnouncementError("announcement_file_missing")
+        if materializing or expected_fingerprint is not None:
+            fingerprint = announcement_materialization_fingerprint(record)
+            if expected_fingerprint is not None and fingerprint != expected_fingerprint:
+                raise AnnouncementError("announcement_recovery_delivery_fingerprint_conflict")
+            if before != fingerprint:
+                raise AnnouncementError("announcement_delivery_file_changed")
         rows = store.audit_file(path, day)["written_rows"]
         if reconciliation:
             verify_announcement_delivery(store, day, checkpoint)
+        if reconciliation or reuse_delivery:
             latest = announcement_materialization(context.instance, day)
-            if record.storage_id != getattr(latest, "storage_id", None):
+            if (
+                record.storage_id != getattr(latest, "storage_id", None)
+                or record.event_log_entry.run_id != latest.event_log_entry.run_id
+            ):
                 raise AnnouncementError("announcement_delivery_changed_during_check")
         if before != announcement_file_fingerprint(path):
             raise AnnouncementError("announcement_file_changed_during_check")
@@ -249,11 +255,6 @@ def _announcement_check_events(context, lake_root, *, reconciliation):
     control = AnnouncementControl(cancelled=cancelled)
     control.check()
     targets = prepare_announcement_check_targets(context, days, staging)
-    if targets.reuse_delivery:
-        for day, record in targets.records.items():
-            _verify_reused_delivery_references(
-                record, lake_root.root(), staging, day, control
-            )
     name = ANNOUNCEMENT_CHECKS[1 if reconciliation else 0]
     for number, day in enumerate(days, 1):
         control.check()
@@ -267,6 +268,11 @@ def _announcement_check_events(context, lake_root, *, reconciliation):
             target_record=record,
             materializing=targets.materializing,
             control=control,
+            reuse_delivery=targets.reuse_delivery,
+            expected_fingerprint=(
+                None if targets.window_deliveries is None
+                else targets.window_deliveries[day]["fingerprint"]
+            ),
         )
         reference = (
             None

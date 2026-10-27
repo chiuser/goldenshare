@@ -5,10 +5,11 @@ from datetime import timedelta
 from pathlib import Path
 
 from orchestrator.defs.anns_d_checkpoint import (
+    ANNOUNCEMENT_CANCELLATION_ERRORS,
     announcement_atomic_json,
     announcement_file_fingerprint,
 )
-from orchestrator.defs.anns_d_contract import AnnouncementCancelled, AnnouncementError
+from orchestrator.defs.anns_d_contract import AnnouncementError
 from orchestrator.defs.prod_db.anns_d import announcement_month_bounds
 
 
@@ -50,7 +51,7 @@ def capture_announcement_month(month, source, upper_id, store, checkpoint, contr
             phase="captured", capture_complete=True, pages=evidence, source_rows=count
         )
         return tuple(Path(page["path"]) for page in evidence)
-    except (AnnouncementCancelled, KeyboardInterrupt):
+    except ANNOUNCEMENT_CANCELLATION_ERRORS:
         checkpoint.save(phase="cancelled", reason="announcement_cancelled")
         raise
     except AnnouncementError as error:

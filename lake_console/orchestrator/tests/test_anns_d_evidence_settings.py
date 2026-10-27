@@ -229,9 +229,16 @@ def test_legacy_daily_delivery_uses_real_file_contract_and_never_rewrites(
     delivery = archive.build_day(day, [page])
     delivery.update(
         capture_complete=True,
+        page_count=1,
+        last_offset=0,
         last_page_rows=1,
         source_pages=[
-            {"path": str(page), "fingerprint": announcement_file_fingerprint(page)}
+            {
+                "path": str(page),
+                "fingerprint": announcement_file_fingerprint(page),
+                "rows": 1,
+                "offset": 0,
+            }
         ],
     )
     checkpoint = AnnouncementCheckpoint(

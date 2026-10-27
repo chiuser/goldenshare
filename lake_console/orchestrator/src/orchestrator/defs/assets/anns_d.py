@@ -1,23 +1,36 @@
 """Natural-day announcement Raw asset; production logic lives in core helpers."""
 
 import json
+from collections.abc import Mapping
 from pathlib import Path
 
 import dagster as dg
+from dagster._core.storage.tags import (
+    ASSET_PARTITION_RANGE_END_TAG,
+    ASSET_PARTITION_RANGE_START_TAG,
+    PARTITION_NAME_TAG,
+)
 
-from orchestrator.defs.anns_d_checkpoint import AnnouncementControl
+from orchestrator.defs.anns_d_checkpoint import (
+    AnnouncementControl,
+    assert_safe_announcement_path,
+)
 from orchestrator.defs.anns_d_contract import (
+    ANNOUNCEMENT_ASSET,
     ANNOUNCEMENT_FIELDS,
     ANNOUNCEMENT_SOURCE_DOC,
     AnnouncementError,
+    announcement_date_range,
 )
 from orchestrator.defs.anns_d_io import AnnouncementStore
 from orchestrator.defs.anns_d_partitions import anns_d_natural_days
+from orchestrator.defs.anns_d_run_intent import announcement_root_file_intent
 from orchestrator.defs.anns_d_source import AnnouncementProcessCall
 from orchestrator.defs.anns_d_window import (
     ANNOUNCEMENT_WINDOW_TAG,
     announcement_day_run_id,
     announcement_manual_window_tags,
+    announcement_window_identity,
     execute_announcement_window,
 )
 from orchestrator.defs.paths import (
@@ -44,6 +57,100 @@ from orchestrator.defs.run_contracts.metadata import (
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
+
+
+def _root_partition_days(tags):
+    single = tags.get(PARTITION_NAME_TAG)
+    first, last = (
+        tags.get(ASSET_PARTITION_RANGE_START_TAG),
+        tags.get(ASSET_PARTITION_RANGE_END_TAG),
+    )
+    if single is not None:
+        if first is not None or last is not None:
+            raise AnnouncementError("announcement_root_partition_conflict")
+        return announcement_date_range(single, single)
+    if first is None or last is None:
+        raise AnnouncementError("announcement_root_partition_missing")
+    return announcement_date_range(first, last)
+
+
+def _root_policy(root):
+    config = root.run_config
+    for key in ("ops", ANNOUNCEMENT_ASSET, "config"):
+        if not isinstance(config, Mapping):
+            raise AnnouncementError("announcement_root_run_config")
+        config = config.get(key, {})
+    if not isinstance(config, Mapping):
+        raise AnnouncementError("announcement_root_run_config")
+    original = AnnouncementRawConfig(
+        interval_seconds=config.get(
+            "interval_seconds", AnnouncementRawConfig().interval_seconds
+        )
+    )
+    return AnnouncementPolicy(interval_seconds=original.interval_seconds)
+
+
+def _reject_legacy_root_window(root_id, days, staging):
+    # P2 used root.run_id as window_id; only its fixed paths are inspected.
+    daily_ids = tuple(announcement_day_run_id(root_id, day) for day in days)
+    paths = [
+        staging / "anns_d" / "windows" / root_id / name
+        for name in ("admission.json", "budget.json", "execution.json")
+    ]
+    paths.extend(
+        staging / "anns_d" / f"run_id={run_id}" / "delivery.json"
+        for run_id in daily_ids
+    )
+    if any(assert_safe_announcement_path(path).exists() for path in paths):
+        raise AnnouncementError("announcement_legacy_execution")
+
+
+def _announcement_asset_window_tags(context, days, policy, staging):
+    """Keep the original run's intent before any store or execution can write."""
+    run, root = context.run, context.run
+    root_id = run.root_run_id
+    if root_id and root_id != run.run_id:
+        root = context.instance.get_run_by_id(root_id)
+        if root is None:
+            raise AnnouncementError("announcement_root_run_missing")
+        if _root_partition_days(root.tags) != days:
+            raise AnnouncementError("announcement_root_partition_conflict")
+        if _root_policy(root) != policy:
+            raise AnnouncementError("announcement_window_contract_changed")
+        if (
+            ANNOUNCEMENT_WINDOW_TAG not in root.tags
+            and not announcement_root_file_intent(
+                root,
+                instance=context.instance,
+                asset_step_key=raw_tushare_anns_d.op.name,
+            )
+        ):
+            raise AnnouncementError("announcement_root_asset_not_selected")
+    root_tags = dict(root.tags)
+    if ANNOUNCEMENT_WINDOW_TAG in root_tags:
+        announcement_window_identity(days, root_tags, policy)
+        tags = root_tags
+    else:
+        if len(days) != 1:
+            raise AnnouncementError("announcement_manual_range_unsupported")
+        _reject_legacy_root_window(root.run_id, days, staging)
+        tags = announcement_manual_window_tags(
+            root.run_id, days[0], days[-1], staging=staging, policy=policy
+        )
+    identity_keys = (
+        "anns_d/window_id",
+        "anns_d/execution_version",
+        "anns_d/start_date",
+        "anns_d/end_date",
+        "anns_d/started_at",
+        "anns_d/automatic",
+    )
+    for supplied in (root_tags, run.tags):
+        if any(
+            supplied[key] != tags.get(key) for key in identity_keys if key in supplied
+        ):
+            raise AnnouncementError("announcement_window_intent")
+    return tags
 
 
 @dg.asset(
@@ -74,18 +181,9 @@ def raw_tushare_anns_d(
         raise AnnouncementError("announcement_formal_root_contract")
     policy = AnnouncementPolicy(interval_seconds=config.interval_seconds)
     days = tuple(context.partition_keys)
-    tags = dict(context.run.tags)
-    if ANNOUNCEMENT_WINDOW_TAG not in tags:
-        if len(days) != 1:
-            raise AnnouncementError("announcement_manual_range_unsupported")
-        intent_id = context.run.root_run_id or context.run.run_id
-        tags = announcement_manual_window_tags(
-            intent_id,
-            days[0],
-            days[-1],
-            staging=Path(DEFAULT_LAKE_STAGING_ROOT),
-            policy=policy,
-        )
+    tags = _announcement_asset_window_tags(
+        context, days, policy, Path(DEFAULT_LAKE_STAGING_ROOT)
+    )
     window_id = tags[ANNOUNCEMENT_WINDOW_TAG]
 
     def cancelled():
@@ -121,7 +219,9 @@ def raw_tushare_anns_d(
             tushare.token, store.directory, policy
         ),
     )
+    control.check()
     for day in days:
+        control.check()
         result = deliveries[day]
         delivery = result.delivery
         context.add_asset_metadata(
@@ -145,4 +245,5 @@ def raw_tushare_anns_d(
             ),
             partition_key=day,
         )
+    control.check()
     return dg.MaterializeResult()

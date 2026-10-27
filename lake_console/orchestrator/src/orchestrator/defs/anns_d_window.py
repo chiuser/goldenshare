@@ -14,20 +14,24 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from orchestrator.defs.anns_d_checkpoint import (
+    ANNOUNCEMENT_CANCELLATION_ERRORS,
     AnnouncementCheckpoint,
     AnnouncementWindowBudget,
     announcement_atomic_json,
+    announcement_file_fingerprint,
     announcement_file_lock,
     assert_safe_announcement_path,
 )
 from orchestrator.defs.anns_d_contract import (
     ANNOUNCEMENT_VERSION,
-    AnnouncementCancelled,
     AnnouncementError,
     announcement_date_range,
     announcement_dates,
 )
-from orchestrator.defs.anns_d_execution import update_announcement_day
+from orchestrator.defs.anns_d_execution import (
+    announcement_capture_pages,
+    update_announcement_day,
+)
 from orchestrator.defs.run_contracts.anns_d import (
     ANNOUNCEMENT_EXECUTION_VERSION,
     ANNOUNCEMENT_REFRESH_DAYS,
@@ -123,7 +127,9 @@ def announcement_window_dates(start, end, started_at, *, automatic=False):
     return announcement_dates(start, end, today=scheduled.date())
 
 
-def announcement_window_tags(window_id, start, end, started_at=None, *, automatic=False):
+def announcement_window_tags(
+    window_id, start, end, started_at=None, *, automatic=False
+):
     window_id = _window_id(window_id)
     timestamp = _planned_timestamp(time.time() if started_at is None else started_at)
     announcement_window_dates(start, end, timestamp, automatic=automatic)
@@ -231,7 +237,10 @@ def _identity_tags(identity, window_id, first, last, policy):
 
 def announcement_restore_window_tags(window_id, first, last, staging, policy):
     directory = _window_directory(staging, window_id)
-    execution_path, budget_path = directory / "execution.json", directory / "budget.json"
+    execution_path, budget_path = (
+        directory / "execution.json",
+        directory / "budget.json",
+    )
     if (directory / "admission.json").exists():
         raise AnnouncementError("announcement_legacy_execution")
     if execution_path.exists():
@@ -243,7 +252,7 @@ def announcement_restore_window_tags(window_id, first, last, staging, policy):
         budget = AnnouncementWindowBudget(
             budget_path, window_id, policy, identity=identity, require_existing=True
         )
-        budget._read()
+        _validate_execution_counts(document, budget._read())
         return tags
     if budget_path.exists():
         document = _read_document(budget_path)
@@ -296,6 +305,8 @@ def _new_execution(identity, control):
         "updated_at": time.time(),
         "current_day": None,
         "days": {day: {"phase": "planned"} for day in identity["days"]},
+        "requests": 0,
+        "day_requests": {},
         "attempted_days": [],
         "files_completed": [],
         "failed_days": [],
@@ -313,7 +324,8 @@ def _load_execution(path, identity):
         or set(records) != set(identity["days"])
         or any(
             not isinstance(record, dict)
-            or record.get("phase") not in ("planned", "running", "failed", "cancelled", "promoted")
+            or record.get("phase")
+            not in ("planned", "running", "failed", "cancelled", "promoted")
             or record.get("failure_phase") not in (None, "failed", "cancelled")
             for record in records.values()
         )
@@ -324,15 +336,64 @@ def _load_execution(path, identity):
 
 def _summarize_execution(state):
     days, records = state["identity"]["days"], state["days"]
-    state["attempted_days"] = [day for day in days if records[day]["phase"] != "planned"]
-    state["files_completed"] = [day for day in days if records[day]["phase"] == "promoted"]
+    state["attempted_days"] = [
+        day for day in days if records[day]["phase"] != "planned"
+    ]
+    state["files_completed"] = [
+        day for day in days if records[day]["phase"] == "promoted"
+    ]
     state["failed_days"] = [
-        day for day in days
+        day
+        for day in days
         if records[day]["phase"] == "failed"
         or records[day].get("failure_phase") == "failed"
     ]
-    state["unattempted_days"] = [day for day in days if records[day]["phase"] == "planned"]
+    state["unattempted_days"] = [
+        day for day in days if records[day]["phase"] == "planned"
+    ]
     state["updated_at"] = time.time()
+
+
+def _validate_execution_counts(state, budget_document):
+    missing = {"requests", "day_requests"} - state.keys()
+    if missing:
+        records = state.get("days")
+        if (
+            missing == {"requests", "day_requests"}
+            and state.get("phase") == "planned"
+            and isinstance(records, dict)
+            and set(records) == set(state["identity"]["days"])
+            and all(
+                isinstance(record, dict) and record.get("phase") == "planned"
+                for record in records.values()
+            )
+            and budget_document["requests"] == 0
+            and not budget_document["day_requests"]
+            and not budget_document["in_flight"]
+        ):
+            return 0, {}
+        raise AnnouncementError("announcement_window_checkpoint")
+    requests, day_requests = state["requests"], state["day_requests"]
+    identity = state["identity"]
+    if (
+        type(requests) is not int
+        or not 0 <= requests <= identity["policy"]["max_window_requests"]
+        or not isinstance(day_requests, dict)
+        or any(
+            day not in identity["days"]
+            or type(count) is not int
+            or not 0 <= count <= identity["policy"]["max_day_requests"]
+            for day, count in day_requests.items()
+        )
+        or sum(day_requests.values()) != requests
+    ):
+        raise AnnouncementError("announcement_window_checkpoint")
+    if budget_document["requests"] < requests or any(
+        budget_document["day_requests"].get(day, 0) < count
+        for day, count in day_requests.items()
+    ):
+        raise AnnouncementError("announcement_window_budget_regressed")
+    return requests, day_requests
 
 
 def _initialize_execution(directory, identity, budget, control, staging):
@@ -341,7 +402,8 @@ def _initialize_execution(directory, identity, budget, control, staging):
         raise AnnouncementError("announcement_legacy_execution")
     if state_path.exists():
         state = _load_execution(state_path, identity)
-        budget._read()
+        requests, day_requests = _validate_execution_counts(state, budget._read())
+        state.update(requests=requests, day_requests=day_requests)
         return state
     for day in identity["days"]:
         path = (
@@ -364,8 +426,9 @@ def _initialize_execution(directory, identity, budget, control, staging):
 
 
 def _save_execution(path, state, budget):
-    _summarize_execution(state)
     document = budget._read()
+    _validate_execution_counts(state, document)
+    _summarize_execution(state)
     state["requests"] = document["requests"]
     state["day_requests"] = document["day_requests"]
     announcement_atomic_json(path, state)
@@ -401,6 +464,80 @@ def _failure_summary(state, state_path):
     }
 
 
+def _persisted_promoted_record(checkpoint, store, day, policy):
+    if not checkpoint.path.exists():
+        return None
+    persisted = AnnouncementCheckpoint(checkpoint.path, checkpoint.identity)
+    if persisted.document.get("phase") != "promoted":
+        return None
+    announcement_capture_pages(persisted, page_size=policy.page_size)
+    delivery = persisted.document["delivery"]
+    if announcement_file_fingerprint(store.target(day)) != delivery["fingerprint"]:
+        raise AnnouncementError("announcement_delivery_file_changed")
+    return {
+        "phase": "promoted",
+        "checkpoint": str(checkpoint.path),
+        "fingerprint": delivery["fingerprint"],
+    }
+
+
+def _record_window_failure(
+    state,
+    state_path,
+    budget,
+    control,
+    day,
+    checkpoint,
+    committed,
+    error,
+    *,
+    day_started,
+    force_stop=False,
+):
+    cancelled = isinstance(error, ANNOUNCEMENT_CANCELLATION_ERRORS)
+    failure_phase = "cancelled" if cancelled else "failed"
+    reason = (
+        str(error) if isinstance(error, AnnouncementError) else type(error).__name__
+    )
+    if not day_started:
+        # A cancelled date was never claimed; keep its original facts.
+        state["current_day"] = None
+    elif committed is not None:
+        # A later observation failure must not erase a committed file's proof.
+        state["days"][day] = {
+            **committed,
+            "failure_phase": failure_phase,
+            "reason": reason,
+        }
+    else:
+        state["days"][day] = {
+            "phase": failure_phase,
+            "reason": reason,
+            **({"checkpoint": str(checkpoint.path)} if checkpoint else {}),
+        }
+    state["phase"] = failure_phase
+    if cancelled:
+        # The enclosing locked activity persists cancellation exactly once.
+        return True
+    _save_execution(state_path, state, budget)
+    stop = (
+        force_stop
+        or committed is not None
+        or cancelled
+        or not (
+            isinstance(error, AnnouncementError) and str(error) in _DAY_FAILURE_REASONS
+        )
+    )
+    if stop:
+        control.progress(
+            **_failure_summary(state, state_path),
+            phase=state["phase"],
+            files_completed=len(state["files_completed"]),
+            days_total=len(state["identity"]["days"]),
+        )
+    return stop
+
+
 def execute_announcement_window(
     days, *, tags, policy, control, store_factory, call_factory
 ):
@@ -408,7 +545,7 @@ def execute_announcement_window(
     identity = announcement_window_identity(days, tags, policy)
     # Invalid intent is rejected before a store may create any staging directory.
     first_store = store_factory(days[0])
-    staging, root = first_store.staging, first_store.root
+    staging = first_store.staging
     if asdict(first_store.policy) != asdict(policy):
         raise AnnouncementError("announcement_window_contract_changed")
     directory = _window_directory(staging, identity["window_id"])
@@ -420,147 +557,176 @@ def execute_announcement_window(
         identity=identity,
         require_existing=True,
     )
-    deliveries = {}
     with announcement_file_lock(directory / "execution.lock"):
         state = _initialize_execution(directory, identity, budget, control, staging)
-        state["active_run_id"] = control.view.get("active_run_id")
-        state["phase"] = "running"
-        _save_execution(state_path, state, budget)
-        control.progress(
-            window_id=identity["window_id"],
-            phase="files_running",
-            files_completed=len(state["files_completed"]),
-            days_total=len(days),
-            requests=state["requests"],
-        )
-        for index, day in enumerate(days):
-            checkpoint = None
-            try:
-                control.check()
-                previous = state["days"][day]
-                state["current_day"] = day
-                if previous["phase"] == "planned":
-                    state["days"][day] = {"phase": "running"}
-                _save_execution(state_path, state, budget)
-                store = first_store if index == 0 else store_factory(day)
-                if (
-                    store.staging != staging
-                    or store.root != root
-                    or asdict(store.policy) != asdict(policy)
-                    or store.directory != staging / "anns_d" / (
-                        f"run_id={announcement_day_run_id(identity['window_id'], day)}"
-                    )
-                ):
-                    raise AnnouncementError("announcement_window_contract_changed")
-                checkpoint = announcement_day_checkpoint(
-                    store, identity["window_id"], day
-                )
-                if previous.get("checkpoint") and (
-                    previous["checkpoint"] != str(checkpoint.path)
-                    or not checkpoint.path.exists()
-                ):
-                    raise AnnouncementError("announcement_delivery_missing")
-                if previous["phase"] == "promoted" and (
-                    not checkpoint.document.get("delivery")
-                    or checkpoint.document["delivery"].get("fingerprint")
-                    != previous.get("fingerprint")
-                ):
-                    raise AnnouncementError("announcement_delivery_missing")
-                delivery = update_announcement_day(
-                    day,
-                    _lazy_source(day, store, call_factory),
-                    store,
-                    checkpoint,
-                    control,
-                    budget,
-                    policy,
-                    window_dates=days,
-                )
-                deliveries[day] = AnnouncementDayDelivery(
-                    day,
-                    checkpoint.path,
-                    MappingProxyType(deepcopy(checkpoint.identity)),
-                    MappingProxyType(deepcopy(delivery)),
-                )
-                state["days"][day] = {
-                    "phase": "promoted",
-                    "checkpoint": str(checkpoint.path),
-                    "fingerprint": delivery["fingerprint"],
-                }
-                _save_execution(state_path, state, budget)
-                control.progress(
-                    window_id=identity["window_id"],
-                    phase="file_promoted",
-                    day=day,
-                    files_completed=len(state["files_completed"]),
-                    days_total=len(days),
-                    requests=state["requests"],
-                    requests_budget=policy.max_window_requests,
-                )
-            except BaseException as error:
-                cancelled = isinstance(error, (AnnouncementCancelled, KeyboardInterrupt))
-                failure_phase = "cancelled" if cancelled else "failed"
-                reason = str(error) if isinstance(error, AnnouncementError) else type(error).__name__
-                committed = None
-                if checkpoint is not None and checkpoint.path.exists():
-                    persisted = AnnouncementCheckpoint(
-                        checkpoint.path, checkpoint.identity
-                    ).document
-                    if persisted.get("phase") == "promoted" and persisted.get("delivery"):
-                        committed = {
-                            "phase": "promoted",
-                            "checkpoint": str(checkpoint.path),
-                            "fingerprint": persisted["delivery"]["fingerprint"],
-                        }
-                if committed is None and state["days"][day]["phase"] == "promoted":
-                    committed = state["days"][day]
-                promoted = committed is not None
-                if promoted:
-                    # A later observation failure must not erase a committed file's proof.
-                    state["days"][day] = {
-                        **committed,
-                        "failure_phase": failure_phase,
-                        "reason": reason,
-                    }
-                else:
-                    state["days"][day] = {
-                        "phase": failure_phase,
-                        "reason": reason,
-                        **({"checkpoint": str(checkpoint.path)} if checkpoint else {}),
-                    }
-                state["phase"] = "cancelled" if cancelled else "failed"
-                _save_execution(state_path, state, budget)
-                if promoted or cancelled or not (
-                    isinstance(error, AnnouncementError)
-                    and str(error) in _DAY_FAILURE_REASONS
-                ):
-                    control.progress(
-                        **_failure_summary(state, state_path),
-                        phase=state["phase"],
-                        files_completed=len(state["files_completed"]),
-                        days_total=len(days),
-                    )
-                    raise
-        state["current_day"] = None
-        state["phase"] = "failed" if state["failed_days"] else "files_completed"
-        _save_execution(state_path, state, budget)
-        if state["failed_days"]:
-            summary = _failure_summary(state, state_path)
+        try:
+            return _execute_announcement_window_locked(
+                state,
+                state_path,
+                budget,
+                control=control,
+                first_store=first_store,
+                policy=policy,
+                store_factory=store_factory,
+                call_factory=call_factory,
+            )
+        except ANNOUNCEMENT_CANCELLATION_ERRORS:
+            state["phase"] = "cancelled"
+            _save_execution(state_path, state, budget)
             control.progress(
-                **summary,
-                phase="failed",
+                **_failure_summary(state, state_path),
+                phase="cancelled",
                 files_completed=len(state["files_completed"]),
                 days_total=len(days),
             )
-            raise AnnouncementError(
-                "announcement_window_failed",
-                source_sample=summary,
+            raise
+
+
+def _execute_announcement_window_locked(
+    state,
+    state_path,
+    budget,
+    *,
+    control,
+    first_store,
+    policy,
+    store_factory,
+    call_factory,
+):
+    """Run the validated activity while its caller owns the execution lock."""
+    identity = state["identity"]
+    days = tuple(identity["days"])
+    staging, root = first_store.staging, first_store.root
+    deliveries = {}
+    state["active_run_id"] = control.view.get("active_run_id")
+    state["phase"] = "running"
+    _save_execution(state_path, state, budget)
+    control.progress(
+        window_id=identity["window_id"],
+        phase="files_running",
+        files_completed=len(state["files_completed"]),
+        days_total=len(days),
+        requests=state["requests"],
+    )
+    for index, day in enumerate(days):
+        checkpoint = None
+        previous = deepcopy(state["days"][day])
+        committed = previous if previous["phase"] == "promoted" else None
+        day_started = day_helper_entered = False
+        try:
+            control.check()
+            day_started = True
+            state["current_day"] = day
+            if previous["phase"] == "planned":
+                state["days"][day] = {"phase": "running"}
+            _save_execution(state_path, state, budget)
+            store = first_store if index == 0 else store_factory(day)
+            if (
+                store.staging != staging
+                or store.root != root
+                or asdict(store.policy) != asdict(policy)
+                or store.directory
+                != staging
+                / "anns_d"
+                / (f"run_id={announcement_day_run_id(identity['window_id'], day)}")
+            ):
+                raise AnnouncementError("announcement_window_contract_changed")
+            checkpoint = announcement_day_checkpoint(store, identity["window_id"], day)
+            if previous.get("checkpoint") and (
+                previous["checkpoint"] != str(checkpoint.path)
+                or not checkpoint.path.exists()
+            ):
+                raise AnnouncementError("announcement_delivery_missing")
+            if previous["phase"] == "promoted" and (
+                not checkpoint.document.get("delivery")
+                or checkpoint.document["delivery"].get("fingerprint")
+                != previous.get("fingerprint")
+            ):
+                raise AnnouncementError("announcement_delivery_missing")
+            day_helper_entered = True
+            delivery = update_announcement_day(
+                day,
+                _lazy_source(day, store, call_factory),
+                store,
+                checkpoint,
+                control,
+                budget,
+                policy,
+                window_dates=days,
             )
+            deliveries[day] = AnnouncementDayDelivery(
+                day,
+                checkpoint.path,
+                MappingProxyType(deepcopy(checkpoint.identity)),
+                MappingProxyType(deepcopy(delivery)),
+            )
+            state["days"][day] = {
+                "phase": "promoted",
+                "checkpoint": str(checkpoint.path),
+                "fingerprint": delivery["fingerprint"],
+            }
+            _save_execution(state_path, state, budget)
+            committed = deepcopy(state["days"][day])
+            control.progress(
+                window_id=identity["window_id"],
+                phase="file_promoted",
+                day=day,
+                files_completed=len(state["files_completed"]),
+                days_total=len(days),
+                requests=state["requests"],
+                requests_budget=policy.max_window_requests,
+            )
+            control.check()
+        except BaseException as error:
+            if committed is None and day_helper_entered and checkpoint is not None:
+                try:
+                    committed = _persisted_promoted_record(
+                        checkpoint, store, day, policy
+                    )
+                except (Exception, *ANNOUNCEMENT_CANCELLATION_ERRORS) as proof_error:
+                    _record_window_failure(
+                        state,
+                        state_path,
+                        budget,
+                        control,
+                        day,
+                        checkpoint,
+                        None,
+                        proof_error,
+                        day_started=day_started,
+                        force_stop=True,
+                    )
+                    raise
+            if _record_window_failure(
+                state,
+                state_path,
+                budget,
+                control,
+                day,
+                checkpoint,
+                committed,
+                error,
+                day_started=day_started,
+            ):
+                raise
+    state["current_day"] = None
+    state["phase"] = "failed" if state["failed_days"] else "files_completed"
+    _save_execution(state_path, state, budget)
+    if state["failed_days"]:
+        summary = _failure_summary(state, state_path)
         control.progress(
-            window_id=identity["window_id"],
-            phase="files_completed",
-            files_completed=len(days),
+            **summary,
+            phase="failed",
+            files_completed=len(state["files_completed"]),
             days_total=len(days),
-            requests=state["requests"],
         )
-        return deliveries
+        raise AnnouncementError("announcement_window_failed", source_sample=summary)
+    control.progress(
+        window_id=identity["window_id"],
+        phase="files_completed",
+        files_completed=len(days),
+        days_total=len(days),
+        requests=state["requests"],
+    )
+    control.check()
+    return deliveries

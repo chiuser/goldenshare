@@ -1,4 +1,5 @@
 import json
+from dataclasses import asdict
 
 import pytest
 
@@ -21,7 +22,8 @@ from tests.anns_d_test_support import source_row
 
 def context(store):
     return AnnouncementCheckpoint(
-        store.directory / "day.json", {"day": "2023-06-09"}
+        store.directory / "day.json",
+        {"window_id": "window", "day": "2023-06-09", "policy": asdict(store.policy)},
     ), AnnouncementWindowBudget(store.directory / "window.json", "window", store.policy)
 
 

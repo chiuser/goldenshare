@@ -1,5 +1,6 @@
 """Temporary producer evidence, explicit check rules, and real check reexecution."""
 
+import hashlib
 from dataclasses import asdict
 from datetime import datetime
 from types import SimpleNamespace
@@ -29,6 +30,7 @@ from orchestrator.defs.anns_d_contract import (
     AnnouncementError,
 )
 from orchestrator.defs.anns_d_partitions import anns_d_natural_days
+from orchestrator.defs.anns_d_window import announcement_day_run_id
 from orchestrator.defs.checks import anns_d_checks as checks_module
 from orchestrator.defs.resources import LakeRootResource
 from orchestrator.defs.run_contracts.anns_d import AnnouncementPolicy
@@ -54,9 +56,12 @@ def _producer_record(store, day="2023-06-09", run_id="original", historical=Fals
                 "path": str(page),
                 "fingerprint": announcement_file_fingerprint(page),
                 "rows": 1,
+                "offset": 0,
             }
         ],
         capture_complete=True,
+        page_count=1,
+        last_offset=0,
         last_page_rows=1,
     )
     identity = {"window_id": "test-window", "day": day, "policy": asdict(store.policy)}
@@ -68,10 +73,17 @@ def _producer_record(store, day="2023-06-09", run_id="original", historical=Fals
     checkpoint.save(phase="validated", delivery=delivery)
     store.promote_day(day, delivery, checkpoint)
     assert store.audit_file(store.target(day), day)["written_rows"] == 1
+    target = store.target(day)
+    assert delivery["fingerprint"] == {
+        "size": target.stat().st_size,
+        "sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
+    }
     mat = dg.AssetMaterialization(
         asset_key=ANNOUNCEMENT_ASSET,
         partition=day,
         metadata={
+            # Match the native P2/current producer, including its immutable SHA.
+            "goldenshare/fingerprint": delivery["fingerprint"],
             "goldenshare/announcement_identity": identity,
             "goldenshare/announcement_checkpoint": str(checkpoint.path),
         },
@@ -197,9 +209,24 @@ def _recovery_definitions(tmp_path, monkeypatch, state):
         "policy": policy,
         "contract_version": 1,
     }
+    # This test replaces file evaluation and exercises only native event/step
+    # recovery. Its explicit small metadata models the real producer's shape.
+    event_fingerprint = {"size": 0, "sha256": "0" * 64}
+    day_records = {
+        day: {
+            "phase": "promoted",
+            "fingerprint": event_fingerprint,
+            "checkpoint": str(
+                staging / "anns_d"
+                / f"run_id={announcement_day_run_id('native-recovery', day)}"
+                / "delivery.json"
+            ),
+        }
+        for day in DAYS
+    }
     announcement_atomic_json(
         staging / "anns_d/windows/native-recovery/execution.json",
-        {"identity": identity},
+        {"identity": identity, "days": day_records},
     )
 
     @dg.asset(name=ANNOUNCEMENT_ASSET, partitions_def=anns_d_natural_days)
@@ -208,6 +235,8 @@ def _recovery_definitions(tmp_path, monkeypatch, state):
         for day in context.partition_keys:
             context.add_asset_metadata(
                 {
+                    "goldenshare/fingerprint": event_fingerprint,
+                    "goldenshare/announcement_checkpoint": day_records[day]["checkpoint"],
                     "goldenshare/announcement_identity": {
                         "window_id": "native-recovery",
                         "day": day,
@@ -433,6 +462,7 @@ def _cancellation_wrapper(archive, monkeypatch, *, status, interruption=None):
             records={day: record if day == DAYS[0] else None for day in DAYS},
             reuse_delivery=False,
             materializing=False,
+            window_deliveries=None,
         )
 
     monkeypatch.setattr(checks_module, "prepare_announcement_check_targets", targets)

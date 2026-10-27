@@ -20,6 +20,7 @@ from orchestrator.defs.anns_d_contract import (
     AnnouncementError,
     announcement_date_range,
 )
+from orchestrator.defs.anns_d_run_intent import announcement_root_file_intent
 from orchestrator.defs.run_contracts.anns_d import ANNOUNCEMENT_EXECUTION_VERSION
 
 ASSET_KEY = dg.AssetKey(ANNOUNCEMENT_ASSET)
@@ -45,12 +46,15 @@ def _asset_step_key(context):
         return raw_tushare_anns_d.op.name
 
 
-def announcement_asset_is_executing(context, run=None):
-    run = context.run if run is None else run
-    selected = getattr(run, "asset_selection", None)
-    if selected is None:
-        job = getattr(context, "job_def", None)
-        selected = job.asset_layer.selected_asset_keys if job else ()
+def announcement_asset_is_executing(context):
+    """Use this run's executable definition and actual steps, never a root run."""
+    run = context.run
+    job = getattr(context, "job_def", None)
+    selected = (
+        job.asset_layer.selected_asset_keys
+        if job is not None
+        else getattr(run, "asset_selection", None) or ()
+    )
     if ASSET_KEY not in selected:
         return False
     steps = getattr(run, "step_keys_to_execute", None)
@@ -88,6 +92,32 @@ def _metadata_identity(record):
     return identity
 
 
+def _fingerprint_metadata(value):
+    return (
+        isinstance(value, Mapping)
+        and type(value.get("size")) is int
+        and value["size"] >= 0
+        and isinstance(value.get("sha256"), str)
+        and len(value["sha256"]) == 64
+        and all(character in "0123456789abcdefABCDEF" for character in value["sha256"])
+    )
+
+
+def announcement_materialization_fingerprint(record):
+    metadata = record.asset_materialization.metadata
+    # Native P2/current assets and existing runless producers use these two keys.
+    values = [
+        getattr(metadata[key], "value", None)
+        for key in ("goldenshare/fingerprint", "goldenshare/announcement_file")
+        if key in metadata
+    ]
+    if not values or not all(_fingerprint_metadata(value) for value in values):
+        raise AnnouncementError("announcement_materialization_fingerprint_missing")
+    if any(value != values[0] for value in values[1:]):
+        raise AnnouncementError("announcement_materialization_fingerprint_conflict")
+    return values[0]
+
+
 def _frozen_check_window(context, days, staging):
     run = context.run
     root_id = getattr(run, "root_run_id", None)
@@ -98,16 +128,27 @@ def _frozen_check_window(context, days, staging):
             raise AnnouncementError("announcement_check_root_missing")
     tags = getattr(run, "tags", {})
     root_tags = getattr(root, "tags", {})
-    has_intent = "anns_d/window_id" in root_tags or "anns_d/window_id" in tags
-    if not has_intent and not announcement_asset_is_executing(context, root):
+    identity_tags = (
+        "anns_d/window_id",
+        "anns_d/execution_version",
+        "anns_d/start_date",
+        "anns_d/end_date",
+        "anns_d/started_at",
+        "anns_d/automatic",
+    )
+    has_intent = "anns_d/window_id" in root_tags
+    if not has_intent and not announcement_root_file_intent(
+        root, instance=context.instance, asset_step_key=_asset_step_key(context)
+    ):
+        if any(key in tags for key in identity_tags):
+            raise AnnouncementError("announcement_check_execution_identity")
         return None
-    intent = tags if "anns_d/window_id" in tags else root_tags
-    if "anns_d/window_id" in intent:
-        if intent.get("anns_d/execution_version") != str(
+    if has_intent:
+        if root_tags.get("anns_d/execution_version") != str(
             ANNOUNCEMENT_EXECUTION_VERSION
         ):
             raise AnnouncementError("announcement_check_execution_version")
-        window_id = intent["anns_d/window_id"]
+        window_id = root_tags["anns_d/window_id"]
     else:
         from orchestrator.defs.anns_d_window import announcement_manual_window_id
 
@@ -125,7 +166,8 @@ def _frozen_check_window(context, days, staging):
     if not path.is_file():
         raise AnnouncementError("announcement_check_execution_missing")
     try:
-        identity = json.loads(path.read_text())["identity"]
+        execution = json.loads(path.read_text())
+        identity = execution["identity"]
     except (json.JSONDecodeError, KeyError, TypeError):
         raise AnnouncementError("announcement_check_execution_identity") from None
     if (
@@ -150,14 +192,50 @@ def _frozen_check_window(context, days, staging):
         != days
     ):
         raise AnnouncementError("announcement_check_execution_identity")
-    if has_intent and (
-        intent.get("anns_d/start_date") != days[0]
-        or intent.get("anns_d/end_date") != days[-1]
-        or intent.get("anns_d/started_at") != str(started)
-        or (intent.get("anns_d/automatic") == "true") != identity["automatic"]
+    expected_tags = {
+        "anns_d/window_id": window_id,
+        "anns_d/execution_version": str(ANNOUNCEMENT_EXECUTION_VERSION),
+        "anns_d/start_date": days[0],
+        "anns_d/end_date": days[-1],
+        "anns_d/started_at": str(started),
+        "anns_d/automatic": "true" if identity["automatic"] else "false",
+    }
+    if has_intent and any(
+        root_tags.get(key) != value
+        for key, value in expected_tags.items()
+        if key != "anns_d/automatic" or identity["automatic"]
     ):
         raise AnnouncementError("announcement_check_execution_identity")
-    return identity
+    if any(
+        supplied[key] != expected_tags[key]
+        for supplied in (root_tags, tags)
+        for key in identity_tags
+        if key in supplied
+    ):
+        raise AnnouncementError("announcement_check_execution_identity")
+    deliveries = execution.get("days")
+    if not isinstance(deliveries, Mapping) or set(deliveries) != set(days):
+        raise AnnouncementError("announcement_recovery_delivery_missing")
+    from orchestrator.defs.anns_d_window import announcement_day_run_id
+
+    for day, delivery in deliveries.items():
+        expected_path = (
+            staging
+            / "anns_d"
+            / f"run_id={announcement_day_run_id(window_id, day)}"
+            / "delivery.json"
+        )
+        if (
+            not isinstance(delivery, Mapping)
+            or delivery.get("phase") != "promoted"
+            or not _fingerprint_metadata(delivery.get("fingerprint"))
+        ):
+            raise AnnouncementError("announcement_recovery_delivery_missing")
+        if delivery.get("checkpoint") != str(expected_path):
+            raise AnnouncementError(
+                "announcement_recovery_delivery_checkpoint_conflict"
+            )
+    return identity, deliveries
 
 
 @dataclass(frozen=True)
@@ -166,6 +244,7 @@ class AnnouncementCheckTargets:
     materializing: bool
     window_identity: Mapping | None
     selected_checks: frozenset[str]
+    window_deliveries: Mapping | None
 
     @property
     def reuse_delivery(self):
@@ -180,7 +259,8 @@ def prepare_announcement_check_targets(context, days, staging):
     if not days or announcement_date_range(days[0], days[-1]) != days:
         raise AnnouncementError("announcement_check_partition_range")
     materializing = announcement_asset_is_executing(context)
-    identity = None if materializing else _frozen_check_window(context, days, staging)
+    frozen = None if materializing else _frozen_check_window(context, days, staging)
+    identity, deliveries = (None, None) if frozen is None else frozen
     records = {day: announcement_materialization(context.instance, day) for day in days}
     selected = _selected_check_names(context)
     if identity is not None:
@@ -195,6 +275,20 @@ def prepare_announcement_check_targets(context, days, staging):
             ):
                 raise AnnouncementError(
                     "announcement_recovery_materialization_conflict"
+                )
+            if (
+                announcement_materialization_fingerprint(record)
+                != deliveries[day]["fingerprint"]
+            ):
+                raise AnnouncementError(
+                    "announcement_recovery_delivery_fingerprint_conflict"
+                )
+            checkpoint = record.asset_materialization.metadata.get(
+                "goldenshare/announcement_checkpoint"
+            )
+            if getattr(checkpoint, "value", None) != deliveries[day]["checkpoint"]:
+                raise AnnouncementError(
+                    "announcement_recovery_delivery_checkpoint_conflict"
                 )
         for name in set(ANNOUNCEMENT_CHECKS) - selected:
             for day, target in records.items():
@@ -219,4 +313,6 @@ def prepare_announcement_check_targets(context, days, staging):
                     or reference.run_id != target.event_log_entry.run_id
                 ):
                     raise AnnouncementError("announcement_recovery_sibling_check")
-    return AnnouncementCheckTargets(records, materializing, identity, selected)
+    return AnnouncementCheckTargets(
+        records, materializing, identity, selected, deliveries
+    )

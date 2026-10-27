@@ -324,6 +324,7 @@ def test_reconciliation_cannot_borrow_or_accept_changed_evidence(archive, corrup
                 metadata={
                     "goldenshare/announcement_identity": identity,
                     "goldenshare/announcement_checkpoint": str(checkpoint_path),
+                    "goldenshare/fingerprint": dict(delivery["fingerprint"]),
                 },
             )
         )

@@ -1,5 +1,6 @@
 """Independent phases and real temporary files prove set equality and recovery."""
 
+import hashlib
 from pathlib import Path
 
 import pytest
@@ -224,10 +225,20 @@ def test_bootstrap_day_evidence_is_consumable_by_registered_daily_check(
     stage(archive, "promote", plan, audit=audit)
     store = announcement_history_store(plan, plan["months"][0], archive.control)
     checkpoint = announcement_history_day_checkpoint(plan, "2023-06-09", store)
+    target = store.target("2023-06-09")
+    fingerprint = {
+        "size": target.stat().st_size,
+        "sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
+    }
+    assert checkpoint.document["delivery"]["fingerprint"] == fingerprint
     record = SimpleNamespace(
         storage_id=1,
+        event_log_entry=SimpleNamespace(run_id="history-producer"),
+        timestamp=1.0,
         asset_materialization=SimpleNamespace(
             metadata={
+                # Existing history/runless producer uses announcement_file.
+                "goldenshare/announcement_file": dg.MetadataValue.json(fingerprint),
                 "goldenshare/announcement_identity": dg.MetadataValue.json(
                     checkpoint.identity
                 ),

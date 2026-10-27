@@ -32,6 +32,7 @@ from orchestrator.defs.anns_d_window import (
 )
 from orchestrator.defs.checks import anns_d_check_targets as targets
 from orchestrator.defs.checks import anns_d_checks as checks
+from orchestrator.defs.paths import raw_anns_d_path
 from orchestrator.defs.resources import LakeRootResource
 from orchestrator.defs.run_contracts.anns_d import AnnouncementPolicy
 
@@ -119,10 +120,17 @@ def delivery_case(tmp_path, request):
             "size": page_path.stat().st_size,
             "sha256": hashlib.sha256(page_path.read_bytes()).hexdigest(),
         }
+    target = raw_anns_d_path(root, DAY)
+    assert delivery["fingerprint"] == {
+        "size": target.stat().st_size,
+        "sha256": hashlib.sha256(target.read_bytes()).hexdigest(),
+    }
     materialization = dg.AssetMaterialization(
         asset_key=ASSET_KEY,
         partition=DAY,
         metadata={
+            # Actual native P2/current asset metadata includes the delivery SHA.
+            "goldenshare/fingerprint": dg.MetadataValue.json(delivery["fingerprint"]),
             "goldenshare/announcement_identity": dg.MetadataValue.json(
                 dict(result.identity)
             ),

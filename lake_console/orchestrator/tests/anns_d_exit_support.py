@@ -2,7 +2,7 @@
 
 import os
 import sys
-from dataclasses import replace
+from dataclasses import asdict, replace
 from pathlib import Path
 
 from orchestrator.defs.anns_d_checkpoint import (
@@ -31,7 +31,11 @@ def main():
 
     control = AnnouncementControl(emit=emit)
     store = AnnouncementStore(root, staging, "exit-run", policy, control)
-    cp = AnnouncementCheckpoint(store.directory / "day.json", {"day": "2023-06-09"})
+    # Match announcement_day_checkpoint's actual daily producer identity.
+    cp = AnnouncementCheckpoint(
+        store.directory / "day.json",
+        {"window_id": "window", "day": "2023-06-09", "policy": asdict(policy)},
+    )
     if mode == "rename":
         save = cp.save
 

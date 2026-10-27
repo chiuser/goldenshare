@@ -5,13 +5,13 @@ import time
 from pathlib import Path
 
 from orchestrator.defs.anns_d_checkpoint import (
+    ANNOUNCEMENT_CANCELLATION_ERRORS,
     AnnouncementCheckpoint,
     AnnouncementControl,
     announcement_file_fingerprint,
     announcement_file_lock,
 )
 from orchestrator.defs.anns_d_contract import (
-    AnnouncementCancelled,
     AnnouncementError,
     announcement_history_settings_from_plan,
 )
@@ -193,7 +193,7 @@ def run_announcement_history_stage(
                 checkpoint.save(phase="promoted")
             else:
                 raise AnnouncementError("announcement_history_stage")
-        except (AnnouncementCancelled, KeyboardInterrupt):
+        except ANNOUNCEMENT_CANCELLATION_ERRORS:
             checkpoint.save(phase="cancelled", reason="announcement_cancelled")
             raise
         except Exception as error:
