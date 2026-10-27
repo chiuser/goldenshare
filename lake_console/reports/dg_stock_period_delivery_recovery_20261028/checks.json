@@ -1,0 +1,11 @@
+{
+  "repository_docs_integrity": "passed: 3 groups",
+  "new_local_links_and_anchors": 15,
+  "link_errors": 0,
+  "changed_python_ruff": "passed",
+  "src_tests_fatal_ruff": "passed",
+  "codegraph_sync_status": "passed",
+  "diff_whitespace": "passed",
+  "staged_files": 0,
+  "formal_operations": 0
+}

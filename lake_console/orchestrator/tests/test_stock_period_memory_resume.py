@@ -211,7 +211,10 @@ def test_cli_resumes_copy_without_redownloading_completed_week(
     versions = {
         item["target"]: raw.file_version(item["target"]) for item in result["files"]
     }
-    assert cli.main(resume_args(kw)) == 0
+    # LLD12.5: completed file work requires explicit events confirmation;
+    # it must not be presented as completed delivery by the pure file action.
+    with pytest.raises(ValueError, match="period_delivery_events_required"):
+        cli.main(resume_args(kw))
     assert calls == ["week", "month"]
     assert versions == {p: raw.file_version(p) for p in versions}
 

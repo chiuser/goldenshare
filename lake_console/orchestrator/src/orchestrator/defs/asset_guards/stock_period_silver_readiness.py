@@ -8,19 +8,16 @@ import dagster as dg
 import sqlalchemy as sa
 from dagster._core.event_api import EventLogRecord
 from dagster._core.events.log import EventLogEntry
-from dagster._core.storage.asset_check_execution_record import (
-    COMPLETED_ASSET_CHECK_EXECUTION_RECORD_STATUSES,
-    AssetCheckExecutionRecord,
-)
-from dagster._core.storage.event_log.schema import (
-    AssetCheckExecutionsTable as Checks,
-)
 from dagster._core.storage.event_log.schema import (
     SqlEventLogStorageTable as Events,
 )
 from dagster._core.storage.event_log.sql_event_log import SqlEventLogStorage
 from dagster._serdes import deserialize_value
 
+from orchestrator.defs.asset_guards.stock_period_check_evidence import (
+    decode_completed_check_row,
+    latest_completed_checks_query,
+)
 from orchestrator.defs.run_contracts.stock_monthly import (
     StockMonthlySource,
     monthly_check_names,
@@ -67,24 +64,9 @@ def batch_event_evidence(instance, freq, periods, *, include_raw=True):
         )
         .group_by(Events.c.asset_key, Events.c.partition)
     )
-    latest_checks = (
-        sa.select(sa.func.max(Checks.c.id))
-        .where(
-            Checks.c.partition.in_(periods),
-            Checks.c.execution_status.in_(
-                [s.value for s in COMPLETED_ASSET_CHECK_EXECUTION_RECORD_STATUSES]
-            ),
-            sa.or_(
-                *(
-                    sa.and_(
-                        Checks.c.asset_key == encoded[name],
-                        Checks.c.check_name.in_(names),
-                    )
-                    for name, names in keys.items()
-                )
-            ),
-        )
-        .group_by(Checks.c.asset_key, Checks.c.check_name, Checks.c.partition)
+    latest_checks = latest_completed_checks_query(
+        asset_check_names={dg.AssetKey(name): names for name, names in keys.items()},
+        partition_keys=periods,
     )
     with storage.index_connection() as connection:
         mats = (
@@ -96,23 +78,7 @@ def batch_event_evidence(instance, freq, periods, *, include_raw=True):
             .mappings()
             .all()
         )
-        checks = (
-            connection.execute(
-                sa.select(
-                    Checks,
-                    Events.c.event.label("bound_event"),
-                    Events.c.id.label("bound_id"),
-                )
-                .select_from(
-                    Checks.outerjoin(
-                        Events, Checks.c.materialization_event_storage_id == Events.c.id
-                    )
-                )
-                .where(Checks.c.id.in_(latest_checks))
-            )
-            .mappings()
-            .all()
-        )
+        checks = connection.execute(sa.select(latest_checks)).mappings().all()
     result = {}
     for row in mats:
         record = EventLogRecord(
@@ -123,21 +89,38 @@ def batch_event_evidence(instance, freq, periods, *, include_raw=True):
             "materialization": record,
             "checks": {},
             "bound_materializations": {},
+            "check_event_storage_ids": {},
         }
     for row in checks:
         key = dg.AssetCheckKey(
             dg.AssetKey.from_db_string(row["asset_key"]), row["check_name"]
         )
-        record = AssetCheckExecutionRecord.from_db_row(row, key)
+        try:
+            record, event_id, bound = decode_completed_check_row(
+                row,
+                asset_key=key.asset_key,
+                check_name=key.name,
+                partition_key=row["partition"],
+            )
+        except ValueError as error:
+            raise ValueError(
+                "silver_target_checks_not_ready"
+                if key.asset_key == dg.AssetKey(asset_name(freq))
+                else "silver_upstream_checks_not_ready"
+            ) from error
         item = result.setdefault(
             (key.asset_key.to_user_string(), row["partition"]),
-            {"materialization": None, "checks": {}, "bound_materializations": {}},
+            {
+                "materialization": None,
+                "checks": {},
+                "bound_materializations": {},
+                "check_event_storage_ids": {},
+            },
         )
         item["checks"][key.name] = record
-        if row["bound_event"] is not None:
-            item["bound_materializations"][key.name] = EventLogRecord(
-                row["bound_id"], deserialize_value(row["bound_event"], EventLogEntry)
-            )
+        item["check_event_storage_ids"][key.name] = event_id
+        if bound is not None:
+            item["bound_materializations"][key.name] = bound
     return result
 
 
@@ -208,6 +191,8 @@ def require_recoverable_checks(item, freq, record):
     for name, check in item["checks"].items():
         evaluation = check.evaluation
         bound = item.get("bound_materializations", {}).get(name)
+        current = item["materialization"]
+        event_id = item.get("check_event_storage_ids", {}).get(name)
         if (
             check.status.value != "SUCCEEDED"
             or evaluation is None
@@ -219,5 +204,10 @@ def require_recoverable_checks(item, freq, record):
             or evaluation.target_materialization_data is None
             or not matches(bound)
             or evaluation.target_materialization_data.storage_id != bound.storage_id
+            or current is None
+            or (
+                bound.storage_id != current.storage_id
+                and (type(event_id) is not int or event_id >= current.storage_id)
+            )
         ):
             raise ValueError("silver_target_checks_not_ready")

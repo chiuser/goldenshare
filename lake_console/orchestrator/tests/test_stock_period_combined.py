@@ -213,6 +213,20 @@ def test_range_record_drift_falls_back_once_and_is_not_reblessed(
         return real(*args, **kwargs)
 
     monkeypatch.setattr(raw, "execute", tracked)
+    before = {
+        str(path): file_version(path)
+        for path in kw["root"].glob("raw/tushare/*/*/*.parquet")
+    }
+    if drift == "file":
+        # The old test only covered range-cache fallback and incorrectly allowed
+        # an unregistered file version to become a new publish preimage.
+        # LLD 12.6 now requires independent ownership before candidate COPY.
+        with pytest.raises(ValueError, match="period_target_unregistered_version"):
+            run_period(**kw, intent=combined_intent(), transport=combined_source)
+        assert before == {path: file_version(path) for path in before}
+        assert "partition_copy" not in stages
+        assert read_json(baseline) == facts
+        return
     run_period(**kw, intent=combined_intent(), transport=combined_source)
     assert stages.count("locate_old_keys") == 1
     assert values(kw["root"], "2026-10-02") == [(B, "20261002", Decimal(9))]
@@ -430,8 +444,8 @@ def test_real_daily_execution_plans_period_and_factor_history_before_one_publica
     ]
 
 
-def test_cli_resume_uses_frozen_identity_and_policy_without_new_source(
-    tmp_path, monkeypatch, capsys
+def test_cli_resume_completed_files_requires_events_without_new_source(
+    tmp_path, monkeypatch
 ):
     from orchestrator.defs.bootstrap import stock_period_history_cli as cli
 
@@ -447,19 +461,15 @@ def test_cli_resume_uses_frozen_identity_and_policy_without_new_source(
         **kw, intent=intent, transport=lambda _: wire([row(A, "20261016", value="2")])
     )
     before = {i["target"]: file_version(i["target"]) for i in result["files"]}
+    # LLD 12.5: the pure file action cannot claim DG delivery is complete.
+    # The real immutable identity/policy above remains the events input.
     monkeypatch.setattr(
         cli, "load_scope", lambda *a, **kw: pytest.fail("resume refreshed frozen scope")
     )
-    original = cli.run_period
-
-    def checked(**args):
-        assert args["intent"] == intent and args["policy"] == POLICY
-        return original(
-            **args, transport=lambda _: pytest.fail("CLI resumed source again")
-        )
-
-    monkeypatch.setattr(cli, "run_period", checked)
-    assert (
+    monkeypatch.setattr(
+        cli, "run_period", lambda **kw: pytest.fail("completed file stage rerun")
+    )
+    with pytest.raises(ValueError, match="period_delivery_events_required"):
         cli.main(
             [
                 "resume",
@@ -471,12 +481,6 @@ def test_cli_resume_uses_frozen_identity_and_policy_without_new_source(
                 result["run_id"],
             ]
         )
-        == 0
-    )
-    assert (
-        json.loads(capsys.readouterr().out.splitlines()[-1])["run_id"]
-        == result["run_id"]
-    )
     assert {p: file_version(p) for p in before} == before
 
 
@@ -539,6 +543,25 @@ def test_event_reader_checks_same_v2_identity_without_real_events(
         "report_file_events",
         lambda instance, item, **kw: reported.append(item),
     )
+
+    def unregistered_delivery(instance, run, **kwargs):
+        # This wiring unit test substitutes the event store, not the file
+        # producer. It must not claim that the fake observations/checks exist.
+        assert kwargs["allowed_frequencies"] == {"week"}
+        saved = read_json(run / "manifest.json")
+        complete = read_json(run / "complete.json")
+        return {
+            "run_id": run.name,
+            "identity_hash": saved["identity_hash"],
+            "file_receipt_hash": saved["file_receipt_hash"],
+            "files": complete["files"],
+            "events_complete": False,
+            "historical_only": False,
+            "allowed_frequencies": ["week"],
+            "reason": "missing_events",
+        }
+
+    monkeypatch.setattr(consumer, "confirm_period_delivery", unregistered_delivery)
     entry = consumer.report_stock_weekly_bootstrap_checks.compute_fn.decorated_fn
     context = SimpleNamespace(instance=object())
     config = StockWeeklyBootstrapEventChecksConfig(run_id=run_id)

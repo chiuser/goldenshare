@@ -1,6 +1,6 @@
 # DG 复权月线Raw更新、完整性审计与Silver生成 LLD v1
 
-**当前修订：2026-10-27。** 本次周/月恢复修复的月线要求见[第9节](#monthly-delivery-recovery)，共享实现细节唯一见[共享LLD第12节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-delivery-recovery-lld)，对应[总方案第10节](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#period-delivery-recovery-plan)。本轮只编制/审计文档，未改代码、测试、部署或正式状态。下述2026-10-18总结及有日期的阶段“当前/未启用/待周一”等描述均为历史；2026-10-17已完成接线，但本次恢复缺陷仍待修复。不得按旧bootstrap删除步骤重新建库。
+**当前状态：2026-10-28。** 月线与周线共同按已提交befd282e0方案完成本轮开发、隔离测试和实现对账，结果统一见[共享LLD第12.15节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-delivery-recovery-implementation)；月线差异仍在第9节。411个去重用例最终验证通过；没有另跑月线全量审计、正式恢复或补数。下述2026-10-18总结及各阶段“未启用/待周一”等描述保留为历史，不得按旧bootstrap删除步骤重新建库。
 
 更新：2026-10-18。**月线Raw重建、一次完整性审计及Silver首次生成/正式验收均已完成。** Raw431文件/868,690行、baseline=ready，截止2026-10-16；审计595,608个应有股票月全部覆盖，缺失与最新版本冲突0。Silver实际154文件/595,608行，字段/值同Raw，154物化/462项blocking检查通过。首次结果见共享LLD §10.10。**剩余1—3项开发/隔离验收已完成并提交6e6017712；月线正式接线与自然无输入tick已通过，见共享LLD §11.12—11.13。首个真实交付待周一原19:30窗口。** Prod后置。25股修复及R5登记已完成，专项工具已清退，结果见其原方案§9和LLD§23.7；下文有日期的暂停要求保留为当时执行边界。
 
@@ -158,7 +158,7 @@ Raw完成后，本文§6及共享LLD §9的一次完整性审计已通过；本�
 
 ### 9.1 对应关系与当前状态
 
-本节对应[总方案§10](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#period-delivery-recovery-plan)，全部算法、接口、失败/续跑及预算唯一遵守[共享LLD §12](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-delivery-recovery-lld)，不另写月线版本。管理员本轮只要求完善/审计文档；代码/测试/部署/正式收尾/补数均未执行。
+本节对应[总方案§10](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#period-delivery-recovery-plan)，全部算法、接口、失败/续跑及预算唯一遵守[共享LLD §12](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-delivery-recovery-lld)，不另写月线版本。2026-10-27仅完善/审计文档；2026-10-28获准并完成本轮开发、隔离测试及对账，统一见共享LLD§12.15；正式部署/收尾/补数均未执行。
 
 20日旧pending是周线1文件，但两Raw job共用daily.json及writer，因此月线job也会先遇到它并失败。21日月线run 54795ebd是正常日常任务，恢复了含两频的18股工作；不是专门补报job。该后继共395个月文件，整批事件于22日收尾；不能因此推断22日之后的当前月已经更新。完整时间线和ID见共享LLD §12.2。
 

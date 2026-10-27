@@ -1,0 +1,14 @@
+{
+  "pytest_temporary_root": "/private/tmp/dg-period-pg-pytest-20261028",
+  "removed_files": 0,
+  "removed_bytes": 0,
+  "removed": true,
+  "cluster_directories_absent": {
+    "/private/tmp/dg-period-pg.13qchhkz": true,
+    "/private/tmp/dg-period-pg.qozh839d": true,
+    "/private/tmp/dg-period-pg.x1s50isu": true,
+    "/private/tmp/dg-period-pg.u6ai1dnd": true
+  },
+  "final_result_status": "passed",
+  "final_result_sha256": "506aea16033b3b9dbc719df68d9e839869e59ebf401e3c5f5b17a6ecd21ee2ca"
+}

@@ -1,0 +1,52 @@
+{
+  "completed_at_utc": "2026-10-27T15:59:08.095050+00:00",
+  "scope": "isolated SQLite/Parquet checks and Silver direct consumers; no formal resources",
+  "red": {
+    "test": "test_batch_uses_late_result_despite_lower_planned_row_id",
+    "actual_target": 1,
+    "expected_target": 14,
+    "failed": 1,
+    "seconds": 1.81
+  },
+  "green": {
+    "passed": 58,
+    "seconds": 25.88,
+    "files": [
+      "tests/test_stock_period_check_evidence.py",
+      "tests/test_stock_period_silver_events.py",
+      "tests/test_stock_period_silver_sensors.py",
+      "tests/test_stock_period_silver_jobs.py"
+    ]
+  },
+  "checks": "default Ruff, fatal Ruff and scoped git diff --check passed",
+  "sha256": {
+    "src/orchestrator/defs/asset_guards/stock_period_check_evidence.py": "82959c2592dbff5267542e58192d17c792fab0a16e04a45d15cdaa7b10771a6d",
+    "src/orchestrator/defs/asset_guards/stock_period_silver_readiness.py": "df9f0c5d67cbb49ba608917d0baa327ba427706f067eba2cb7b70c6282d3481b",
+    "src/orchestrator/defs/bootstrap/stock_period_silver_cli.py": "b57ffbd9d2d6063755b82da20dd2494934603911f525e9d7d3b4c2b28971f51e",
+    "tests/test_stock_period_check_evidence.py": "759eb44393c5b2f99eef814a52f7c58a62b97d4ff581b9b09a6a682655c9e445",
+    "tests/test_stock_period_silver_events.py": "16a87a3ea7a8bfc5d7fd1cd6cb151c63e7597b27ce403a5ca700ddd77ec82133"
+  },
+  "cleanup": [
+    {
+      "path": "/private/tmp/dg-period-check-red-20261027",
+      "files": 13,
+      "bytes": 749596
+    },
+    {
+      "path": "/private/tmp/dg-period-check-green-20261027",
+      "files": 155,
+      "bytes": 8651060
+    },
+    {
+      "path": "/private/tmp/dg-period-silver-evidence-20261027",
+      "files": 1735,
+      "bytes": 10667647
+    },
+    {
+      "path": "/private/tmp/dg-period-silver-final-20261027",
+      "files": 2989,
+      "bytes": 16670418
+    }
+  ],
+  "temporary_data_removed": true
+}

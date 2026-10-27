@@ -672,6 +672,44 @@ def test_event_reporting_never_accepts_planned_or_misbound_checks(period_fixture
                 ctx, plan, DagsterEventType.ASSET_CHECK_EVALUATION_PLANNED
             ),
         )
+        # Original test accepted a new green after an actual failed/misbound
+        # result. LLD12.4 now requires refusal before any business event write.
+        if case in {"failed", "wrong_binding", "nonblocking"}:
+            before_mats = instance.fetch_materializations(
+                dg.AssetRecordsFilter(asset_key=asset, asset_partitions=[partition]),
+                limit=20,
+            ).records
+            before_checks = (
+                instance.event_log_storage.get_asset_check_execution_history(
+                    dg.AssetCheckKey(asset, name),
+                    limit=20,
+                    status=COMPLETED_ASSET_CHECK_EXECUTION_RECORD_STATUSES,
+                    partition_filter=PartitionKeyFilter(key=partition),
+                )
+            )
+            with pytest.raises(ValueError, match="checks_not_ready"):
+                cli.run_reporting(
+                    instance, lambda ctx: cli.report_file(instance, ctx, item, identity)
+                )
+            assert (
+                instance.fetch_materializations(
+                    dg.AssetRecordsFilter(
+                        asset_key=asset, asset_partitions=[partition]
+                    ),
+                    limit=20,
+                ).records
+                == before_mats
+            )
+            assert (
+                instance.event_log_storage.get_asset_check_execution_history(
+                    dg.AssetCheckKey(asset, name),
+                    limit=20,
+                    status=COMPLETED_ASSET_CHECK_EXECUTION_RECORD_STATUSES,
+                    partition_filter=PartitionKeyFilter(key=partition),
+                )
+                == before_checks
+            )
+            return
         cli.run_reporting(
             instance, lambda ctx: cli.report_file(instance, ctx, item, identity)
         )

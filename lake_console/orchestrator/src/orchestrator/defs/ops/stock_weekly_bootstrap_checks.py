@@ -11,6 +11,7 @@ from orchestrator.defs.run_contracts.configs import (
 )
 from orchestrator.defs.run_contracts.stock_period import verify_execution
 from orchestrator.defs.stock_period_update import (
+    confirm_period_delivery,
     report_completion_events,
     report_file_events,
 )
@@ -46,6 +47,13 @@ def report_stock_weekly_bootstrap_checks(
             report_completion_events(context.instance, notice)
             if notice["freq"] == "week"
             else None
+        ),
+        confirm_delivery=lambda run: confirm_period_delivery(
+            context.instance,
+            run,
+            root=Path(manifest["identity"]["root"]),
+            staging=Path(DEFAULT_LAKE_STAGING_ROOT),
+            allowed_frequencies={"week"},
         ),
     )
     return {"reported_files": count}

@@ -1,6 +1,6 @@
 # DG 周/月Raw更新、完整性审计与Silver生成共享 LLD v1
 
-**当前修订：2026-10-27。** 本次股票复权周/月恢复修复的可执行设计统一在[第12节](#period-delivery-recovery-lld)，对应[总方案第10节](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#period-delivery-recovery-plan)。当前状态为文档已编制、代码待开发、测试及正式操作未执行。下述2026-10-18总结和第5、10、11节的验收属于当时版本/范围；第5.8节的检查选择修正不足以解决本次故障，不继续作为最新选择规则。第12节替代旧章节中与本次检查选择、旧交付确认和待办先后顺序冲突的表述；字段、源请求、选行、路径、锁及其余有效约束继续适用。
+**当前状态：2026-10-28。** 本次方案/LLD已先提交befd282e0，随后按批准范围完成开发、隔离验证及实现对账，详见[第12.15节](#period-delivery-recovery-implementation)及[报告](../../reports/dg_stock_period_delivery_recovery_20261028/README.md)。411个去重用例最终验证通过，保留原失败轮次及复验；未部署、未修正式状态、未补数。第12节为本次实现依据，原5/10/11节历史验收不代表正式恢复完成；字段、源请求、选行、路径、锁及其余有效约束继续适用。
 
 更新：2026-10-18。**Raw第8步、一次完整性审计、Silver首次生成/登记均已完成。** Raw两频2,250文件/4,486,908行、baseline=ready，截止2026-10-16，见§5.15；审计无缺口或版本冲突，见§9.6。Silver实际810文件/3,105,684行，21列及原值同Raw，810物化/2,430项blocking检查均通过，首次实施结果见§10.10。**§11日常恢复和自动接线开发/隔离验收已完成并提交6e6017712；正式加载、两个Silver sensor初始化/启用及无输入自然tick已通过，见§11.12—11.13。首个真实日常交付待周一原19:30窗口。** Prod后置。25股修复及R5登记已完成，专项工具已清退，结果见其原方案§9和LLD§23.7；下文有日期的暂停要求保留为当时执行边界。
 
@@ -1263,11 +1263,11 @@ CodeGraph及源码清单复核后未分类消费者0；本轮默认Ruff、致命
 
 ### 12.1 状态、硬口径及开发顺序
 
-对应[总方案第10节](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#period-delivery-recovery-plan)；月线差异见[月线LLD第9节](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md#monthly-delivery-recovery)。本轮只编制及审计文档，以下新增函数/分支/测试均为待开发设计，不能据此执行正式操作。后续依次开发检查读取及拒绝规则→交付确认及状态收尾→原意图/当前日期执行顺序→全部入口迁移→隔离验收；正式收尾与补数另行批准。
+对应[总方案第10节](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#period-delivery-recovery-plan)；月线差异见[月线LLD第9节](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md#monthly-delivery-recovery)。2026-10-27仅编制及审计文档，2026-10-28获准按本节顺序完成检查读取及拒绝规则→交付确认及状态收尾→原意图/当前日期执行顺序→全部入口迁移→隔离验收。实际实现及用例对账见§12.15；正式收尾与补数未执行，仍须另行批准。
 
 | 硬口径 | 代码落点（相对orchestrator/src/orchestrator/） | 正反验收 |
 | --- | --- | --- |
-| 最新结果以实际检查事件为准，不能预筛成功/目标或扩大limit找绿 | defs/asset_guards/stock_period_check_evidence.py（本轮拟新增的本域SQL模块）；Raw report_file_events；Silver两入口 | §12.13 A1—A5 |
+| 最新结果以实际检查事件为准，不能预筛成功/目标或扩大limit找绿 | defs/asset_guards/stock_period_check_evidence.py（本轮新增的本域SQL模块）；Raw report_file_events；Silver两入口 | §12.13 A1—A5 |
 | 原检查失败/错绑不能被补报通过覆盖 | stock_period_update.py；bootstrap/stock_period_silver_cli.py；stock_period_silver_readiness.py | A3、A6—A8 |
 | 原交付已完成不要求旧文件永远是当前文件 | bootstrap/stock_period_history.py的清单验证/确认/历史返回；stock_period_update.py待办收尾 | B1—B5 |
 | 历史成功不能放行未知当前目标或生成旧anchor metadata | deliver_asset；当前目标准入；Silver现行旧通知处理 | B3—B6、C4 |
@@ -1312,7 +1312,7 @@ CodeGraph及源码清单复核后未分类消费者0；本轮默认Ruff、致命
 
 ### 12.3 统一读取最新实际检查
 
-拟新增defs/asset_guards/stock_period_check_evidence.py，仅负责本域SQL构造和解码，不读Parquet、不写状态、不import业务执行器。内部接口固定为：
+实现文件defs/asset_guards/stock_period_check_evidence.py，仅负责本域SQL构造和解码，不读Parquet、不写状态、不import业务执行器。内部接口固定为：
 
 ~~~python
 latest_completed_checks_query(
@@ -1360,7 +1360,7 @@ Raw report_file_events(write=False)只读判断；未完成时返回False并记�
 
 ### 12.5 只读核实原交付与合法后继
 
-在stock_period_update.py集中提供本域只读确认回调，bootstrap执行器通过显式参数接收，不自行建立Dagster instance。拟定接口：
+在stock_period_update.py集中提供本域只读确认回调，bootstrap执行器通过显式参数接收，不自行建立Dagster instance。实现接口：
 
 ~~~python
 confirm_period_delivery(instance, run, *, root, staging, cancel, allowed_frequencies=None)
@@ -1392,9 +1392,11 @@ allowed_frequencies默认两频；周线限定补报op必须显式限制为week�
 - 保留旧回执、phase与pending，明确指出缺失的原事实，不重新发旧版本物化/通过、不修改旧version/hash、不重写旧候选、不仅凭后继完成关闭旧批。
 - 这是证据不足的停止条件；需针对实际缺项另行确认重新交付安排，不能由本流程自动做历史重建。
 
+**2026-10-28实现复核细化：批量取证与同版清单复用。** 未闭合批次的confirm在已闭合CP快路之后，按allowed files列明的资产/分区集合先做一条最新物化集合SQL、一条共享latest_completed_checks_query集合SQL；每频通知仍各一次小查询。未变版本的每文件循环只消费内存映射，明确空映射也不得再次单文件查库；缺原Mat时仍用同一检查映射拒绝真实失败。仅确有版本变化的文件追加有限历史/截点取证，后继链首复用当前预取结果，不能对同版2057文件逐个新增查询。2文件与100文件单频同版确认都应为3次SQL，不随文件数线性增加；每次confirm独立取最新证据，不跨次缓存DG状态以免掩盖新失败。后继manifest/complete在单次confirm内按execution局部缓存，completed_receipt可接已读complete参数但原身份/hash/字段/路径校验不减弱；缓存命中仍核精确stat，各文件committed独立核验。run_period刚完成文件且events=None时只返回文件事实，待文件消费后的replay统一确认，不明知原生检查未发生仍重复深查。上述均落实原批量/复用要求，不增加业务读取或新状态；成本与晚失败拒绝一并测试。 同次target validator按频率复用已核candidates清单/hash及(period,target)索引，各committed CP独立核验，不能每文件重复读整份候选清单。ack入口、phase更新前及pending删除前各做整组控制版本校验；逐文件CP已存在时只核自身，真正补写前核原manifest/complete/daily、该CP及相关目标版本，避免每个CP重扫全部controls形成平方级stat。最后整组变化仍拒绝，已补的真实局部回执保留；2/100文件的stat/候选清单读取计数须证明线性。
+
 确认结果仅在当前锁内使用；每项控制写之前重新核相关JSON版本/摘要及必要目标stat，防止审计后发生并发变化。输出里historical_only=True的files是历史追溯清单，禁止参与当前asset anchor选取。当前Mat/check证据与历史证据分别返回/消费，不互相替代。
 
-**内部返回值与接线（待实现，不是新持久化合同）。** confirm_delivery回调接收本次run目录，返回下表；无完整原事实时返回未完成原因，证据矛盾则抛错。bootstrap模块不猜bool、不将None当成功。
+**内部返回值与接线（已实现，不是新持久化合同）。** confirm_delivery回调接收本次run目录，返回下表；无完整原事实时返回未完成原因，证据矛盾则抛错。bootstrap模块不猜bool、不将None当成功。
 
 | 字段 | 约束/用途 |
 | --- | --- |
@@ -1417,7 +1419,7 @@ ack只接已核整批true结果，写前重核身份/摘要和相关当前stat�
 
 ### 12.6 状态落盘、目标守卫与异常恢复
 
-所有正式Raw写入与本节收尾使用既有stock_period/writer.lock，不增加另一把锁或绕过flock。锁内依次：
+ack入口自身也须核run目录严格位于staging/stock_period/runs/run_id、identity.root匹配及原设备标识，不只依赖调用者已confirm。所有正式Raw写入与本节收尾使用既有stock_period/writer.lock，不增加另一把锁或绕过flock。锁内依次：
 
 1. 核完整原身份/清单/所有缺项证据；已有回执必须逐项相等，不能覆盖矛盾回执。
 2. 原单文件events/freq/period.json仅补原version和sha256，保持现有格式；已存在且相等直接复用。
@@ -1428,6 +1430,8 @@ ack只接已核整批true结果，写前重核身份/摘要和相关当前stat�
 沿atomic_json的临时小文件→fsync→os.replace写入，每一步后中断均保留已完成事实。恢复先验已有CP/phase，再补缺项；phase已改而pending未移除时只补第5步。daily有新进度不能被旧副本覆盖。确认失败不回滚已提交行情，不创建行情备份或快照。
 
 当前文件准入仍单独执行：即将生成/覆盖的每个目标须匹配baseline已登记版本或由当前合格物化定位的明确后继committed记录；目标前像继续进入候选receipt，发布时再次校验，原publish守卫不减弱。未知文件即使有一份旧历史成功也拒绝。
+
+**2026-10-27开工细化（同一已批准目标守卫，不增加业务口径）。** 当前assemble只捕获现存stat作为target_preimage，原范围索引漂移还会回退读取，不能独立证明目标归属。因此在io/stock_period_raw.py::assemble确定selected目标/冻结前像后、读取旧行情及COPY之前，增加内部validate_targets(targets)回调；run_period注入同一归属核验。targets只含已选freq/period/path/version，不读未选文件。新目标指baseline未登记且目标不存在；baseline已有登记但文件缺失必须拒绝，不能用单股历史把整分区重建成仅目标股。已有目标必须匹配原baseline.files的精确版本，或当前原执行已校验/committed的精确版本。后继版本须先通过本节原交付/范围记录恢复形成已核归属，不能在新任务里把未知stat认作前像。copy.json复用路径同样核冻结前像/当前原提交，不能靠缓存绕过。该接线不改选行、计算、COPY次数、policy、字段或发布算法，基于现有版本元数据，0新增行情读取。独立反例覆盖“篡改原目标但原历史已成功”在旧行情读取/COPY前拒绝，以及新目标、已登记目标、原意图逐文件提交后续跑仍可通过；开发前已将此具体落点补回本LLD。 旧test_stock_period_combined.py::test_range_record_drift_falls_back_once_and_is_not_reblessed的file分支曾允许未登记mtime变化后覆盖，与本轮未知目标拒绝要求冲突；须保留原错误样本并改为写前拒绝。仅范围索引hash失效、文件版本仍匹配的index分支继续允许原有一次范围回退，未选文件变化不能误拦本次目标，不以删掉旧测试消除失败。
 
 所有新写入口，特别是deliver_asset的history分支与CLI history/resume，必须先经过同一旧待办检查；不能仅日更受保护、手动历史仍能覆盖未确认文件。events只补确认/事件，不顺便规划新日期、因子或历史。handoff沿其原冻结父子身份，不重跑父bootstrap。
 
@@ -1451,7 +1455,7 @@ _execute_daily_locked重构为先恢复/确认旧待办，再做当前新规划�
 
 未完成旧意图不能把今天的last_refresh写成今天；文件消费与事件确认继续分开。原已消费因子水位不倒退，也不因补CP重做factor_changes或把旧listed覆盖当前集合。calendar-only工作仍按原无文件规则推进，不伪造物化/check。
 
-deliver_asset先排除historical_only结果，再从当前适用文件中选anchor。若需fallback，必须从当前stat及明确baseline/receipt/真实Mat绑定证明它属于当前交付，不能仅audit任意现存文件后直接登记。当前partition与旧待办partition不同，不能在本次分区上用旧receipt返回MaterializeResult。
+deliver_asset在读scope/源前先核period_for(已冻结today,freq)等于context.partition_key，错日/错分区组合拒绝，不借fallback在其他分区登记。deliver_asset先排除historical_only结果，再从当前适用文件中选anchor。若需fallback，必须从当前stat及明确baseline/receipt/真实Mat绑定证明它属于当前交付，不能仅audit任意现存文件后直接登记。当前partition与旧待办partition不同，不能在本次分区上用旧receipt返回MaterializeResult。
 
 ### 12.8 同日run key与原job续跑操作
 
@@ -1477,7 +1481,7 @@ automatic_intent_date已显式设置的自动任务必须原值恢复。现行�
 
 ### 12.9 文件、消费者与配置审计
 
-以下为后续开发白名单/审计分类，不代表本轮已改代码；未列明的新入口/配置需要先回写原设计，不自由扩展。
+以下为本轮获准开发白名单及消费者审计分类；实际改动见§12.15，纯核验薄入口/合同没有必要不改。未列明的新入口/配置仍须先回写原设计，不自由扩展。
 
 | 文件/入口 | 必须改动或核验的内容 |
 | --- | --- |
@@ -1492,10 +1496,10 @@ automatic_intent_date已显式设置的自动任务必须原值恢复。现行�
 | defs/assets/stock_weekly.py、stock_monthly.py；jobs/stock_weekly.py、stock_monthly.py | 正式名字/selection不改，核原生asset→checks真实先后及重执行；没有必要不修改这些薄入口 |
 | Raw两sensor、Silver两sensor | 不改定义/默认开关/19:30/key；有界回归原Raw阻断和Silver消费/收尾；不操作正式开关 |
 | run_contracts/configs.py、stock_period.py、stock_period_silver.py及原weekly/monthly合同 | 只核现有字段、身份、check名、notice、前像及日期语义；保持公共合同，不新增运营参数/字段或改版本 |
-| io/stock_period_raw.py、io/stock_period_silver.py、stock_period_checks.py | 复核候选校验、版本缓存、原子提升及原checks消费；除本次guard必要接线外不改业务计算/内存policy |
+| io/stock_period_raw.py、io/stock_period_silver.py、stock_period_checks.py | Raw assemble在selected/preimages与缓存复用处接validate_targets内部回调，核本次明确目标归属；复核候选校验、版本缓存、原子提升及原checks消费；不改业务计算/内存policy |
 | 原三个设计文档 | 原方案§10↔本节↔月线§9逐项同步；无新定义，无需改拓扑/全局catalog/治理HTML |
 
-直接测试消费者：test_stock_period_recovery/update/combined/integration/history/history_cli/handoff/handoff_memory；test_stock_period_silver_events/execution/jobs/sensors/daily_integration/contracts；两Raw sensor测试及月线definitions。保留共享夹具真实生产者合同，必要时扩展本次断言；source/storage/candidate_fragments/memory_resume只做本轮触及行为的回归，不默认重跑所有性能测试。原退役CLI仍退役，不恢复旧入口；CodeGraph未发现Prod/API/前端消费者，本轮不迁移它们。
+直接测试消费者：test_stock_period_recovery/update/combined/integration/history/history_cli/handoff/handoff_memory；本轮新增test_stock_period_daily_delivery.py落实日期/旧待办/anchor分类小场景，新增confirmation/history/check_evidence测试按本节相应矩阵覆盖；test_stock_period_silver_events/execution/jobs/sensors/daily_integration/contracts；两Raw sensor测试及月线definitions。保留共享夹具真实生产者合同，必要时扩展本次断言；source/storage/candidate_fragments/memory_resume只做本轮触及行为的回归，不默认重跑所有性能测试。原退役CLI仍退役，不恢复旧入口；CodeGraph未发现Prod/API/前端消费者，本轮不迁移它们。
 
 | 配置或持久事实 | 来源/默认/作用域/消费者/生效方式 |
 | --- | --- |
@@ -1512,7 +1516,7 @@ automatic_intent_date已显式设置的自动任务必须原值恢复。现行�
 
 | 阶段 | 正常读取/写入 | 一次中断续跑及最后验收 |
 | --- | --- | --- |
-| 本轮文档 | 当前代码/已有审计JSON；0行情内容，0正式写入 | 只复读修改文档及必要源码，不跑业务 |
+| 2026-10-27文档阶段 | 当前代码/已有审计JSON；0行情内容，0正式写入 | 只复读修改文档及必要源码，不跑业务 |
 | 隔离测试 | ≤3股、2频、≤8个小周期文件，独立字面21列；每个检查顺序/续跑小场景≤12个原/重执行run（不是整轮既有回归的总run上限）；临时资源预计读≤256MiB/写≤128MiB/空间≤512MiB | 故障注入包含一次中断/恢复和必要原生重执行；总计读≤512MiB/写≤256MiB/空间≤1GiB；非生产配额/限额，不用真实多年行情 |
 | 本次旧20收尾 | 旧manifest约216KB、complete724B；后继manifest217182B、complete1179303B、单文件commit588B；另daily/baseline和少量CP。JSON读≤8MiB、写≤2MiB；原/新Mat各1、原/新check共6、原通知1及目标前后stat | 含一次续跑和最后核验：JSON读≤16MiB、写≤4MiB；上述事件集合至多每轮一次；最后只读原小型控制记录，baseline用未变化stat复用原已核内容，不再次读取后继完整清单；相同文件stat确认，不读后继2057份文件 |
 | 新SQL | Raw当前单文件一组查询取三check；Silver保持2条集合SQL；确认仅查明确receipt涉及的资产/分区/事件窗口 | 存储失败重试须显式操作，不自动重扫；只拉最新正文，事件范围不得扩大成全库 |
@@ -1588,6 +1592,18 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
 
 SQLite先跑上述受影响测试；PG18.4仅放少量计划/完成/原生job记录验证同一SQL、排序、绑定及原生重执行入口合同，使用独占临时实例及虚拟代码位置，不启动正式daemon或正式code location。网络HTTP使用localhost独立合同响应，不访问Tushare/Prod。安装版GraphQL真实提交/重执行与sensor去重的隔离边界必须明确记录；只mock它们不得声称端到端续跑通过。
 
+**PG及原生重执行的最小隔离验证（开发补充，已完成隔离验证）。** 新测试仅放在tests/test_stock_period_postgres_reexecution.py，不修改正式job/sensor或增加运营入口。沿现有/opt/homebrew/opt/postgresql@18/bin的18.4创建/private/tmp/dg-period-pg.*独占data/socket，固定该独占socket上的55437，listen_addresses为空；清除测试进程和子进程的PG*、DAGSTER_HOME及TUSHARE_TOKEN。连接后先核真实data_directory、库名dg_period_verify及inet_server_addr为NULL，才允许初始化临时Dagster存储。正式连接配置和凭据不作为测试输入；不安装依赖。
+
+输入分两组：①用真实SDK计划和完成事件在临时PG制造A先预建/B后预建、B先完成/A后完成，复用本次共享SQL，独立断言按实际事件选择；②隔离repository中声明一个最小原生asset及三项blocking checks，使用现行StockPeriodRawConfig、原周线job名和分区2026-10-30、意图2026-10-27。asset只写临时计数和日期记录，check只读测试故障标记。该夹具验证SDK调度/配置/检查先后，不冒称实际Raw下载、文件生成或日常控制业务已端到端验收。
+
+后者通过InProcessWorkspaceLoadTarget加载唯一测试repository，使用安装版SyncInMemoryRunCoordinator和SyncInMemoryRunLauncher真实执行，不启动正式webserver/daemon或gRPC code location。此临时协调器直接提交临时run，避免依赖未启动的队列daemon；正式配置不变。真实sensor迭代提交统一run_key builder生成的同日key：首次原生检查失败；再次迭代同key不新增run；移除临时故障标记后，以真实GraphQL schema执行launchRunReexecution(ReexecutionParams，FROM_FAILURE、useParentRunTags=true)，由真实SDK创建并提交子run。必须独立断言asset计数仍为1、只重执行检查、父子/root关系、原配置日期/分区和run key保持、子run成功；再迭代sensor仍无额外run。GraphQL或launcher若无法真实贯通，标该项未完成，不用mock替代。
+
+执行从orchestrator以DG_PERIOD_PG_VERIFY=1 .venv/bin/python3 -B -m pytest -q tests/test_stock_period_postgres_reexecution.py启动；这个环境输入仅是测试文件的显式准入，默认缺失时跳过本组，不由生产代码读取或持久化，也不代表测试通过。只运行此组，不重复已通过的SQLite/Silver58项。临时PG额外空间≤1GiB、数据读写估计≤256MiB、验证预算5分钟；这些是隔离执行估算，不修改生产限额。结束先关闭workspace/instance连接，再pg_ctl只停止此独占datadir，确认退出后删除该独占目录及本轮测试数据；只保留小型结果/日志。启动或断言失败也按同样顺序清理，停止失败则保留datadir并明确报告，不能删除运行中服务的数据目录。正式资源操作为0。
+
+2026-10-28上述最终固定测试2项通过，耗时2.76秒：PG实际结果排序通过；原生父run检查失败后，同key不重建run，真实GraphQL FROM_FAILURE子run成功，asset累计执行1次、子run仅执行1项原失败检查，原配置、2026-10-27意图、2026-10-30分区、run key及parent/root关系保持。此前三次仅测试夹具未贯通（仓库资产图/资源定义不完整、默认协调器只入队），均已按真实SDK合同修正，未改生产代码；四次独占PG均已停止并删除。结果小记录为/private/tmp/dg-period-pg-reexecution-results-20261028.json。测试出现SDK的分区check预览提示及异步生成器关闭提示；未影响断言，不据此宣称正式webserver/daemon或业务Raw文件链完成验收。
+
+2026-10-28全组回归另发现test_stock_period_memory_resume.py::test_cli_resumes_copy_without_redownloading_completed_week最后一次调用仍期望files_complete后resume返回成功，与§12.5既定events动作边界相冲突。保留首次中断后resume、原身份/源复用、6GiB覆盖、精确价格和文件不变断言；只将末次已完成文件阶段的调用改为明确events_required拒绝。此为已批准CLI合同的旧测试预期纠正，不修改生产实现以迎合测试；原失败及定向复验分开记录。
+
 执行前检查测试是否受专项启动器保护；有受保护入口按原规则运行，不绕过。现有venv可用后，从orchestrator运行受影响pytest（-B）、修改文件默认Ruff和E9/F63/F7/F82基线；不uv sync、不安装。修复失败先定向补验；固定版本后一次直接回归，不反复全套测试或增加真实性能实验。记录实际覆盖/失败/耗时、SQL/源/文件操作计数及清理路径，不预写通过数量。
 
 ### 12.14 文档独立审计与阶段验收
@@ -1603,7 +1619,7 @@ SQLite先跑上述受影响测试；PG18.4仅放少量计划/完成/原生job记
 - 旧20恢复0行情读写但允许真实报告run；后续补数历史预算/授权另列；正常、一次续跑及最后验收开销齐备。
 - 原三份文档无仍被当成当前命令的删除/bootstrap/旧latest-ID要求，历史结果不伪装成本次开发/测试/正式通过。
 
-本轮文档自检结果记录在本节末；代码、隔离、正式旧待办收尾、实际补数及后续自然运行分别保持待执行。未来每个阶段验收按本节矩阵填写“要求→实现文件/函数→独立正反样本→实际证据→通过/未完成”，不得由文档完整或测试数量推出业务修复完成。
+2026-10-27文档自检结果记录在本节末；其后代码/隔离结果已在§12.15对账，正式旧待办收尾、实际补数及后续自然运行仍未执行。未来每个阶段验收按本节矩阵填写“要求→实现文件/函数→独立正反样本→实际证据→通过/未完成”，不得由文档完整或测试数量推出业务修复完成。
 
 
 **2026-10-27本轮文档独立审计记录。** 审计范围为总方案§10、本节、月线§9及直接冲突的历史描述。作者完成稿后重新逐项核对，另由未参与编写的独立审查和SQL/恢复专项复核交叉检查；均只读当前代码/已安装SDK及已有证据，不运行正式资源。CodeGraph使用status/search/impact，源码补核动态CLI、回调、三个选择器和测试消费者；未发现跨Prod/API/前端迁移。
@@ -1620,4 +1636,23 @@ SQLite先跑上述受影响测试；PG18.4仅放少量计划/完成/原生job记
 
 实际检查：仓库文档完整性脚本3组均PASS；新增章节4个本地链接/显式锚点检查0错误；24项A1—D4证据用例落点齐备；本次三文件git diff --check通过。完整性脚本只覆盖其原docs范围，本次lake_console相对链接另做上述定向核验；这不证明代码或数据正确。独立复核后再定向核本表修正，未留下已知的方案/LLD矛盾或阻塞开发的设计未决项。
 
-未执行：程序修改/测试、代码提交/部署、正式DG/DB/Lake读写、sensor开关、旧20状态收尾、27日及后续补数。补数前的实际源发布/依赖、变更对象/历史读写规模和精确操作批准仍是执行准入条件，不是可跳过的空白；取得这些事实后只填实际参数/预算，若超出本设计范围须先回写。下一步等待管理员review文档，本轮到此停止。
+以下为2026-10-27文档轮当时未执行项，保留为历史：程序修改/测试、代码提交/部署、正式DG/DB/Lake读写、sensor开关、旧20状态收尾、27日及后续补数。2026-10-28实际开发/隔离结果见下节，正式操作仍未执行。补数前的实际源发布/依赖、变更对象/历史读写规模和精确操作批准仍是执行准入条件，不是可跳过的空白；取得这些事实后只填实际参数/预算，若超出本设计范围须先回写。该文档轮到此停止；管理员后续批准的开发/测试按下节记录，不据此开展正式修复。
+
+
+<a id="period-delivery-recovery-implementation"></a>
+
+### 12.15 2026-10-28开发、测试与实现对账
+
+管理员本轮授权：先提交文档，然后严格按方案/LLD完成开发、测试和实现对账；**不执行正式状态修复和补数**。三文档设计基线已提交befd282e0，未推送。当前生产代码、测试、报告及本节结果回写尚未提交；未加载/重启正式code location、未操作正式job/sensor/cursor/DB/Lake。
+
+**实现完成。** 三处检查选择均改用实际结果事件排序和双left join，真实失败/晚错绑/非blocking在业务事件补报前拒绝；原清单与当前版本校验分离，原历史事实+明确后继可只补CP/phase/pending；未知当前文件仍拒绝。共享待办按原意图恢复，原生检查保留物化后的真实执行顺序，历史结果不能当当前anchor，日期/分区不符读源前停止。所有既有events/resume/handoff/周线限定补报/Silver消费者均已迁移或核验；原业务字段/选行/源请求/policy/命名和sensor key不变。原生失败用既有FROM_FAILURE，不引入新正式配置/入口。
+
+**性能复核已落地。** 未闭合当前同版确认2文件与100文件均为3条实际SQLite SQL（两频为4），不再逐文件新增查询；真实历史变版才追加有限取证。共享后继/候选JSON各只读一次，缓存版本变化拒绝。ack由平方级stat改为入口/阶段整体核验、逐项相关控制核验；2/100项CP存在/缺失均有线性界测试。首次纯文件完成0确认/重放/通知，恢复分支仍查真实交付。细化点先回写§12.5—12.6/白名单后实现，不改行情计算或新增数据扫描。
+
+**固定生产版本的验证结果：411个去重用例最终通过，0失败/0跳过。** 实际轮次为全组405项（404通过、1条旧CLI末次resume预期失败，102.227秒）；按§12.5纠正该旧预期后，memory模块25项通过（1.123秒）；另补Raw实际job拒绝三例3项通过（3.588秒）、两频缺项及两段合法后继3项通过（2.966秒）。生产代码在全组前已冻结且后续未变化，源文件mtime及hash已记录。没有重跑未变化的404项来堆叠通过数，没有删除原失败/用skip藏失败；旧失败和每个复验XML均保留，最新集合明确为逐用例合并，不冒称一次pytest全绿。
+
+隔离证据包括实际Raw小producer/临时Parquet、完整CLI/localhost HTTP worker/取消/交接/实际Raw job/check，以及Raw→通知→两Silver sensor/job/check；PG18.4实际共享SQL和真实GraphQL/sensor重执行另外验证。PG job为独立最小业务夹具，证明SDK保持原日期/分区/config/root/parent/key且asset只运行一次、子run仅恢复失败check；不将此夹具冒称正式319业务链已执行。容量100项明确为metadata/stat替身测试，实际SQL与失败拒绝真实执行，不等于100份行情审计。
+
+全部A1—D4要求的实现函数、独立正反用例、证据边界及逐项结果见[本轮实现及验收报告](../../reports/dg_stock_period_delivery_recovery_20261028/README.md)；[results.json](../../reports/dg_stock_period_delivery_recovery_20261028/results.json)保留轮次和固定生产代码指纹。Ruff本次所有Python文件默认规则、src/tests致命错误基线、CodeGraph sync/status、文档/新增链接及diff检查通过；独立代码审查的集合读取、共享清单、线性stat、ack根/设备、日期/分区项已关闭，未留下已知阻塞实现项。
+
+隔离PG均按原datadir停止后删除；本轮临时目录/旧函数稿/已应用补丁按精确路径清理，记录见报告cleanup.json。未安装依赖、未操作正式数据。正式§12.11收尾、§12.12补数及自然运行验收全部保持未执行；下一步先由管理员review本次开发结果。

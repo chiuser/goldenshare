@@ -493,6 +493,7 @@ def assemble(
     policy=DEFAULT_POLICY,
     cancel=lambda: False,
     progress=lambda _: None,
+    validate_targets=None,
 ):
     """Import all successful pages once. Each affected partition is assembled once."""
     if mode not in ("bootstrap", "upsert", "history"):
@@ -517,6 +518,21 @@ def assemble(
         copied = read_json(copy_receipt)
         if copied["identity"] != identity:
             raise ValueError("period_assembly_input_changed")
+        if validate_targets is not None:
+            validate_targets(
+                [
+                    {
+                        "freq": freq,
+                        "period": period,
+                        "target": str(target_path(root, freq, period)),
+                        "version": file_version(target_path(root, freq, period))
+                        if target_path(root, freq, period).exists()
+                        else None,
+                        "target_preimage": copied["target_preimages"][period],
+                    }
+                    for period in copied["periods"]
+                ]
+            )
         with connection(work, policy) as con:
             return _candidate_receipts(
                 con, copied["periods"], work, root, freq, cancel, progress, policy
@@ -721,6 +737,19 @@ def assemble(
         }
         if mode == "bootstrap" and any(v is not None for v in preimages.values()):
             raise ValueError("period_bootstrap_root_not_empty")
+        if validate_targets is not None:
+            validate_targets(
+                [
+                    {
+                        "freq": freq,
+                        "period": period,
+                        "target": str(target_path(root, freq, period)),
+                        "version": version,
+                        "target_preimage": version,
+                    }
+                    for period, version in sorted(preimages.items())
+                ]
+            )
         if oldpaths:
             execute(
                 con,

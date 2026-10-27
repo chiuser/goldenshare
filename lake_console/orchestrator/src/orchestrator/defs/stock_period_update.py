@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from contextlib import ExitStack
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -306,6 +306,8 @@ def _consume_daily_files(staging, work, result, days):
     state.setdefault("pending_work", {})[execution_id(intent["request_id"])] = work
     baseline_path = Path(staging) / "stock_period/baseline.json"
     baseline = read_json(baseline_path)
+    if state["factor_through"] > intent["asof"] and baseline["listed"] != work["listed"]:
+        raise ValueError("period_daily_scope_would_regress")
     baseline["listed"] = work["listed"]
     atomic_json(baseline_path, baseline)
     atomic_json(path, state)
@@ -325,10 +327,14 @@ def _execute_daily_locked(
     progress=lambda _: None,
     events=None,
     completion_events=None,
+    confirm_delivery=None,
 ):
-    """Resume frozen file/event work before planning a new date or reading factors."""
+    """Close frozen work before planning another intent or reading factors."""
     from orchestrator.defs.bootstrap.stock_period_history import (
+        completed_receipt,
+        ordered_pending_work,
         replay_events,
+        require_current_files,
         run_period,
     )
     from orchestrator.defs.run_contracts.stock_period import StockPeriodPolicy
@@ -338,12 +344,25 @@ def _execute_daily_locked(
         raise ValueError("period_daily_handoff_required")
     results = []
     days = None
+    requested_id = execution_id(
+        digest({"kind": "period_daily", "frequency": freq, "date": today.isoformat()})
+    )
+
+    def original_run_required(work):
+        intent = work["intent"]
+        raise ValueError(
+            "period_original_run_required:"
+            f"job=raw_stk_period_bar_adj_{work['frequency']}_update_job:"
+            f"asof={intent.get('asof')}:execution={execution_id(intent['request_id'])}"
+        )
 
     def perform(work):
         nonlocal days
         check_cancel(cancel)
         intent = work["intent"]
+        run_id = execution_id(intent["request_id"])
         work_policy = StockPeriodPolicy(**work["policy"])
+        run = Path(staging) / "stock_period/runs" / run_id
         calendar_only = not (
             any(intent.get("periods", {}).values())
             or intent.get("codes")
@@ -352,15 +371,55 @@ def _execute_daily_locked(
         )
         if calendar_only:
             days = days or calendar_days(
-                root,
-                Path(staging) / "stock_period/calendar",
-                work_policy,
+                root, Path(staging) / "stock_period/calendar", work_policy
             )
             _consume_daily_files(staging, work, {"unit_asofs": {}}, days)
             latest = daily_state(staging)
-            latest.get("pending_work", {}).pop(execution_id(intent["request_id"]), None)
+            latest.get("pending_work", {}).pop(run_id, None)
             atomic_json(Path(staging) / "stock_period/daily.json", latest)
-            return
+            return True
+
+        manifest = read_json(run / "manifest.json") if (run / "manifest.json").exists() else None
+        files_complete = manifest is not None and manifest.get("phase") in (
+            "files_complete", "events_complete"
+        )
+        if files_complete and not work["consumed"]:
+            if run_id != requested_id:
+                original_run_required(work)
+            complete = completed_receipt(run, manifest, cancel=cancel)
+            require_current_files(complete, cancel=cancel)
+            days = days or calendar_days(
+                root, Path(staging) / "stock_period/calendar", work_policy
+            )
+            _consume_daily_files(staging, work, complete, days)
+        if files_complete and confirm_delivery is not None:
+            confirmation = confirm_delivery(run)
+            if confirmation["events_complete"]:
+                if not work["consumed"] and confirmation["historical_only"]:
+                    raise ValueError("period_delivery_unconsumed_history")
+                if work["consumed"]:
+                    acknowledge_period_delivery(
+                        run, confirmation, root=root, staging=staging, cancel=cancel
+                    )
+                    complete = read_json(run / "complete.json")
+                    results.append(
+                        {
+                            **complete,
+                            "path": str(run),
+                            "events_complete": True,
+                            "historical_only": True,
+                            "current_files": [],
+                            "completions": {
+                                f: evidence["completion"]
+                                for f, evidence in confirmation["completion_evidence"].items()
+                            },
+                        }
+                    )
+                    return True
+        if run_id != requested_id:
+            # Only already-verified historical delivery may be acknowledged by
+            # another date/frequency. Recover missing native steps in its own run.
+            original_run_required(work)
         result = run_period(
             root=root,
             staging=staging,
@@ -372,8 +431,11 @@ def _execute_daily_locked(
             policy=work_policy,
             cancel=cancel,
             progress=progress,
+            confirm_delivery=confirm_delivery,
         )
         if not work["consumed"]:
+            if result.get("historical_only"):
+                raise ValueError("period_delivery_unconsumed_history")
             days = days or calendar_days(
                 root, Path(staging) / "stock_period/calendar", work_policy
             )
@@ -385,16 +447,27 @@ def _execute_daily_locked(
                 staging=staging,
                 events=events,
                 completion_events=completion_events,
+                confirm_delivery=confirm_delivery,
                 cancel=cancel,
             )
             if result["events_complete"]:
                 latest = daily_state(staging)
-                latest.get("pending_work", {}).pop(result["run_id"], None)
-                atomic_json(Path(staging) / "stock_period/daily.json", latest)
+                pending = latest.get("pending_work", {}).get(run_id)
+                if pending is not None and pending.get("consumed"):
+                    latest["pending_work"].pop(run_id)
+                    atomic_json(Path(staging) / "stock_period/daily.json", latest)
         results.append(result)
+        return run_id not in daily_state(staging).get("pending_work", {})
 
-    for work in list(state.get("pending_work", {}).values()):
-        perform(work)
+    for work in ordered_pending_work(staging, state=state):
+        if not perform(work):
+            # The native materialization/checks run after the asset returns.
+            # Do not prepare another date while that delivery is still pending.
+            return results
+        if execution_id(work["intent"]["request_id"]) == requested_id:
+            # The frozen request has just been recovered. Replanning it would
+            # redownload an already completed intent, especially after midnight.
+            return results
     days = days or calendar_days(root, Path(staging) / "stock_period/calendar", policy)
     if today.isoformat() not in days:
         if results:
@@ -428,6 +501,629 @@ def execute_daily(**kwargs):
     roots(kwargs["root"], kwargs["staging"])
     with writer(kwargs["staging"]):
         return _execute_daily_locked(**kwargs)
+
+
+def _period_delivery_error(reason, run, saved, item=None):
+    intent = saved["identity"]["intent"]
+    frequency = item["freq"] if item else ",".join(intent["frequencies"])
+    partition = item["period"] if item else "all"
+    raise ValueError(
+        f"{reason}: job=raw_stk_period_bar_adj_{frequency}_update_job "
+        f"date={intent.get('asof', 'history')} partition={partition} run_id={run.name}"
+    )
+
+
+def _period_delivery_stat(path):
+    from orchestrator.defs.io.stock_period_raw import file_version
+
+    path = safe_path(Path(path))
+    return file_version(path) if path.exists() else None
+
+
+def _period_delivery_json(path, controls):
+    path = safe_path(Path(path))
+    before = _period_delivery_stat(path)
+    value = read_json(path) if before is not None else None
+    if _period_delivery_stat(path) != before:
+        raise ValueError("period_delivery_control_changed")
+    controls[str(path)] = {
+        "kind": "json", "version": before,
+        "digest": digest(value) if before is not None else None,
+    }
+    return value
+
+
+def _period_delivery_assert_controls(controls, cancel):
+    for path, expected in controls.items():
+        check_cancel(cancel)
+        version = _period_delivery_stat(path)
+        if version != expected["version"]:
+            raise ValueError("period_delivery_control_changed")
+        # Initial content/hash belongs to this exact five-field file version.
+        # Reuse it; rereading every complete.json before each small CP would
+        # multiply metadata I/O without providing a new filesystem identity.
+
+
+def _period_delivery_event_rows(instance, asset, *, period=None, since=None, event_id=None, kind=None):
+    import sqlalchemy as sa
+    from dagster._core.event_api import EventLogRecord
+    from dagster._core.events.log import EventLogEntry
+    from dagster._core.storage.event_log.schema import SqlEventLogStorageTable as Events
+    from dagster._core.storage.event_log.sql_event_log import SqlEventLogStorage
+    from dagster._serdes import deserialize_value
+
+    storage = instance.event_log_storage
+    if not isinstance(storage, SqlEventLogStorage):
+        raise TypeError("period_event_storage_unsupported")
+    predicate = [Events.c.asset_key == asset.to_string(), Events.c.dagster_event_type == kind]
+    if period is not None:
+        predicate.append(Events.c.partition == period)
+    if event_id is not None:
+        predicate.append(Events.c.id == event_id)
+    if since is not None:
+        latest = sa.select(sa.func.max(Events.c.id)).where(*predicate).correlate(None).scalar_subquery()
+        predicate.append(sa.or_(Events.c.timestamp >= since, Events.c.id == latest))
+    statement = sa.select(Events.c.id, Events.c.event).where(*predicate).order_by(Events.c.id)
+    with storage.index_connection() as connection:
+        rows = connection.execute(statement).mappings().all()
+    return [EventLogRecord(row["id"], deserialize_value(row["event"], EventLogEntry)) for row in rows]
+
+
+def _period_delivery_current_evidence(instance, files):
+    """Two collection queries for exact current units, independent of unit count."""
+    import dagster as dg
+    import sqlalchemy as sa
+    from dagster._core.event_api import EventLogRecord
+    from dagster._core.events.log import EventLogEntry
+    from dagster._core.storage.event_log.schema import SqlEventLogStorageTable as Events
+    from dagster._core.storage.event_log.sql_event_log import SqlEventLogStorage
+    from dagster._serdes import deserialize_value
+
+    from orchestrator.defs.asset_guards.stock_period_check_evidence import (
+        decode_completed_check_row,
+        latest_completed_checks_query,
+    )
+    from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
+        raw_check_names,
+    )
+
+    if not files:
+        return {}
+    storage = instance.event_log_storage
+    if not isinstance(storage, SqlEventLogStorage):
+        raise TypeError("period_event_storage_unsupported")
+    by_asset = {}
+    result = {}
+    for item in files:
+        asset = dg.AssetKey(f"raw_tushare_stk_period_bar_adj_{item['freq']}")
+        by_asset.setdefault(asset, set()).add(item["period"])
+        result[(asset.to_user_string(), item["period"])] = {"materialization": None, "checks": {}}
+    predicates = [sa.and_(Events.c.asset_key == asset.to_string(), Events.c.partition.in_(sorted(periods)))
+                  for asset, periods in by_asset.items()]
+    latest_mats = (sa.select(sa.func.max(Events.c.id))
+                   .where(Events.c.dagster_event_type == "ASSET_MATERIALIZATION", sa.or_(*predicates))
+                   .group_by(Events.c.asset_key, Events.c.partition))
+    selected_checks = latest_completed_checks_query(
+        asset_check_names={asset: raw_check_names("week" if asset.to_user_string().endswith("_week") else "month")
+                           for asset in by_asset},
+        partition_keys=sorted({period for periods in by_asset.values() for period in periods}),
+    )
+    exact_check_pairs = [sa.and_(selected_checks.c.asset_key == asset.to_string(),
+                                selected_checks.c.partition.in_(sorted(periods)))
+                         for asset, periods in by_asset.items()]
+    with storage.index_connection() as connection:
+        materializations = connection.execute(
+            sa.select(Events.c.id, Events.c.event).where(Events.c.id.in_(latest_mats))
+        ).mappings().all()
+        checks = connection.execute(sa.select(selected_checks).where(sa.or_(*exact_check_pairs))).mappings().all()
+    for row in materializations:
+        record = EventLogRecord(row["id"], deserialize_value(row["event"], EventLogEntry))
+        materialization = record.asset_materialization
+        key = (materialization.asset_key.to_user_string(), materialization.partition)
+        if key not in result:
+            raise ValueError("period_delivery_materialization_invalid")
+        result[key]["materialization"] = record
+    for row in checks:
+        asset = dg.AssetKey.from_db_string(row["asset_key"])
+        key = (asset.to_user_string(), row["partition"])
+        if key not in result:
+            raise ValueError("period_check_evidence_scope_invalid")
+        result[key]["checks"][row["check_name"]] = decode_completed_check_row(
+            row, asset_key=asset, check_name=row["check_name"], partition_key=row["partition"],
+        )
+    return result
+
+
+def _period_delivery_metadata(record, key):
+    return getattr(record.asset_materialization.metadata.get(key), "value", None)
+
+
+def _period_delivery_mat_matches(record, item, notice):
+    import dagster as dg
+
+    mat = record.asset_materialization
+    return (
+        mat.asset_key == dg.AssetKey(f"raw_tushare_stk_period_bar_adj_{item['freq']}")
+        and mat.partition == item["period"]
+        and _period_delivery_metadata(record, "dagster/uri") == item["target"]
+        and _period_delivery_metadata(record, "dagster/row_count") == item["rows"]
+        and type(_period_delivery_metadata(record, "dagster/row_count")) is int
+        and _period_delivery_metadata(record, "goldenshare/period_file_version") == item["version"]
+        and _period_delivery_metadata(record, "goldenshare/period_completion") == notice
+    )
+
+
+def _period_delivery_checks(instance, record, item, *, cutoff=None, prefetched=None):
+    from orchestrator.defs.asset_guards.stock_period_check_evidence import (
+        read_latest_completed_checks,
+    )
+    from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
+        raw_check_names,
+    )
+
+    names = raw_check_names(item["freq"])
+    results = prefetched
+    if results is None:
+        results = read_latest_completed_checks(
+            instance, asset_key=record.asset_materialization.asset_key,
+            check_names=names, partition_key=item["period"], before_event_id=cutoff,
+        )
+    evidence = {}
+    for name in names:
+        if name not in results:
+            continue
+        check, evaluation_id, bound = results[name]
+        evaluation = check.evaluation
+        target = evaluation.target_materialization_data if evaluation else None
+        if (
+            evaluation is None or check.status.value != "SUCCEEDED"
+            or not evaluation.passed or not evaluation.blocking
+            or evaluation.asset_key != record.asset_materialization.asset_key
+            or evaluation.partition != item["period"] or evaluation.check_name != name
+            or target is None or bound is None or target.storage_id != bound.storage_id
+            or target.run_id != bound.event_log_entry.run_id
+            or target.timestamp != bound.event_log_entry.timestamp
+        ):
+            raise ValueError("period_delivery_checks_invalid")
+        if target.storage_id != record.storage_id:
+            preimage = item.get("target_preimage")
+            if (
+                preimage is not None and evaluation_id < record.storage_id
+                and bound.storage_id < record.storage_id
+                and bound.asset_materialization.asset_key == record.asset_materialization.asset_key
+                and bound.asset_materialization.partition == item["period"]
+                and _period_delivery_metadata(bound, "dagster/uri") == item["target"]
+                and _period_delivery_metadata(bound, "goldenshare/period_file_version") == preimage
+            ):
+                continue  # An earlier valid check is not this new version's completed check.
+            raise ValueError("period_delivery_checks_invalid")
+        if target.run_id != record.event_log_entry.run_id or target.timestamp != record.event_log_entry.timestamp:
+            raise ValueError("period_delivery_checks_invalid")
+        evidence[name] = {
+            "evaluation_event_storage_id": evaluation_id,
+            "materialization_id": target.storage_id,
+        }
+    return evidence, len(evidence) == 3
+
+
+def _period_delivery_notice(instance, asset, notice, cp, since):
+    from orchestrator.defs.run_contracts.stock_period import COMPLETION_METADATA_KEY
+
+    observation_id = cp.get("observation_id") if cp is not None else None
+    if cp is not None and (
+        cp.get("completion") != notice or type(observation_id) is not int or observation_id <= 0
+    ):
+        raise ValueError("period_delivery_checkpoint_changed")
+    rows = _period_delivery_event_rows(
+        instance, asset, kind="ASSET_OBSERVATION", event_id=observation_id,
+        since=since if observation_id is None else None,
+    )
+    matches = []
+    for record in rows:
+        observation = record.asset_observation
+        value = getattr(observation.metadata.get(COMPLETION_METADATA_KEY), "value", None)
+        if value == notice:
+            matches.append(record.storage_id)
+        elif cp is not None or isinstance(value, dict) and (
+            value.get("raw_execution_id") == notice["raw_execution_id"]
+            and value.get("file_receipt_hash") == notice["file_receipt_hash"]
+        ):
+            raise ValueError("period_delivery_checkpoint_changed")
+    if cp is not None and matches != [observation_id]:
+        raise ValueError("period_delivery_checkpoint_changed")
+    return {"completion": notice, "observation_id": min(matches)} if matches else None
+
+
+def _period_delivery_successors(instance, run, saved, item, records, current, controls, receipt_cache, *, root, staging, cancel, current_checks=None):
+    """Follow only explicit current materialization references backwards to this version."""
+    from orchestrator.defs.bootstrap.stock_period_history import (
+        check_devices,
+        completed_receipt,
+    )
+    from orchestrator.defs.run_contracts.stock_period import (
+        COMPLETION_METADATA_KEY,
+        completion_notice,
+        validate_completion_notice,
+        verify_execution,
+    )
+
+    chain, seen = [], set()
+    record = current
+    while _period_delivery_metadata(record, "goldenshare/period_file_version") != item["version"]:
+        check_cancel(cancel)
+        value = _period_delivery_metadata(record, COMPLETION_METADATA_KEY)
+        try:
+            reference = validate_completion_notice(value, item["freq"])
+        except (ValueError, TypeError, KeyError) as error:
+            raise ValueError("period_delivery_current_file_unknown") from error
+        execution = reference["raw_execution_id"]
+        if execution in seen or execution == run.name:
+            _period_delivery_error("period_delivery_current_file_unknown", run, saved, item)
+        seen.add(execution)
+        successor = safe_path(Path(staging) / "stock_period/runs" / execution)
+        cached = receipt_cache.get(execution)
+        if cached is None:
+            other_saved = _period_delivery_json(successor / "manifest.json", controls)
+            if other_saved is None:
+                _period_delivery_error("period_delivery_current_file_unknown", run, saved, item)
+            verify_execution(other_saved, execution)
+            check_devices(root, staging, other_saved["devices"])
+            if other_saved["identity"]["root"] != str(root) or other_saved["phase"] not in ("files_complete", "events_complete"):
+                _period_delivery_error("period_delivery_current_file_unknown", run, saved, item)
+            payload = _period_delivery_json(successor / "complete.json", controls)
+            if payload is None:
+                _period_delivery_error("period_delivery_current_file_unknown", run, saved, item)
+            complete = completed_receipt(successor, other_saved, cancel=cancel, complete=payload)
+            cached = {
+                "saved": other_saved,
+                "items": {(entry["freq"], entry["period"]): entry for entry in complete["files"]},
+                "counts": {frequency: sum(entry["freq"] == frequency for entry in complete["files"])
+                           for frequency in {entry["freq"] for entry in complete["files"]}},
+            }
+            receipt_cache[execution] = cached
+        else:
+            # Cached content is reusable only while its original file identities hold.
+            _period_delivery_assert_controls(
+                {str(path): controls[str(path)] for path in
+                 (successor / "manifest.json", successor / "complete.json")}, cancel,
+            )
+        other_saved = cached["saved"]
+        if reference["file_receipt_hash"] != other_saved["file_receipt_hash"]:
+            _period_delivery_error("period_delivery_current_file_unknown", run, saved, item)
+        successor_item = cached["items"].get((item["freq"], item["period"]))
+        if successor_item is None:
+            _period_delivery_error("period_delivery_current_file_unknown", run, saved, item)
+        expected_notice = completion_notice(reference, item["freq"], cached["counts"][item["freq"]])
+        if value != expected_notice or not _period_delivery_mat_matches(record, successor_item, expected_notice):
+            _period_delivery_error("period_delivery_current_file_unknown", run, saved, item)
+        committed = _period_delivery_json(
+            successor / "committed" / item["freq"] / (item["period"] + ".json"), controls,
+        )
+        if committed is None or any(committed.get(key) != successor_item.get(key)
+                                    for key in ("freq", "period", "target", "version", "sha256", "rows", "target_preimage")):
+            _period_delivery_error("period_delivery_current_file_unknown", run, saved, item)
+        if successor_item["target"] != item["target"]:
+            _period_delivery_error("period_delivery_current_file_unknown", run, saved, item)
+        earliest = min(entry.storage_id for entry in records
+                       if _period_delivery_mat_matches(entry, successor_item, expected_notice))
+        chain.append({
+            "raw_execution_id": execution, "file_receipt_hash": other_saved["file_receipt_hash"],
+            "materialization_id": record.storage_id, "first_materialization_id": earliest,
+            "item": successor_item, "record": record,
+        })
+        preimage = successor_item.get("target_preimage")
+        predecessors = [entry for entry in records
+                        if entry.storage_id < earliest
+                        and _period_delivery_metadata(entry, "goldenshare/period_file_version") == preimage]
+        if not predecessors:
+            _period_delivery_error("period_delivery_history_missing", run, saved, item)
+        record = max(predecessors, key=lambda entry: entry.storage_id)
+    # Each intervening version must have genuine passing checks before the next version.
+    for index, link in enumerate(chain):
+        cutoff = None if index == 0 else chain[index - 1]["first_materialization_id"]
+        checks, ready = _period_delivery_checks(
+            instance, link["record"], link["item"], cutoff=cutoff,
+            prefetched=current_checks if index == 0 else None,
+        )
+        if not ready:
+            _period_delivery_error("period_delivery_history_missing", run, saved, item)
+        link["checks"] = checks
+    return record, list(reversed(chain))
+
+
+def confirm_period_delivery(instance, run, *, root, staging, cancel=lambda: False, allowed_frequencies=None):
+    """Read original delivery facts; never publish an event or touch lake contents."""
+    import dagster as dg
+
+    from orchestrator.defs.bootstrap.stock_period_history import (
+        check_devices,
+        completed_receipt,
+        roots,
+    )
+    from orchestrator.defs.run_contracts.stock_period import (
+        completion_notice,
+        completion_reference,
+        verify_execution,
+    )
+
+    root, staging = roots(root, staging)
+    run = safe_path(Path(run))
+    if run != staging / "stock_period/runs" / run.name:
+        raise ValueError("period_event_run_path_invalid")
+    controls = {}
+    saved = _period_delivery_json(run / "manifest.json", controls)
+    verify_execution(saved, run.name)
+    check_devices(root, staging, saved["devices"])
+    if saved["identity"]["root"] != str(root) or saved["phase"] not in ("files_complete", "events_complete"):
+        _period_delivery_error("period_event_files_incomplete", run, saved)
+    payload = _period_delivery_json(run / "complete.json", controls)
+    if payload is None:
+        _period_delivery_error("period_complete_receipt_changed", run, saved)
+    complete = completed_receipt(run, saved, cancel=cancel, complete=payload)
+    receipt_cache = {}
+    allowed = {"week", "month"} if allowed_frequencies is None else set(allowed_frequencies)
+    if not allowed or not allowed <= {"week", "month"}:
+        raise ValueError("period_delivery_frequency_invalid")
+    frequencies = {item["freq"] for item in complete["files"]}
+    scope_complete = frequencies <= allowed
+    daily_path = staging / "stock_period/daily.json"
+    _period_delivery_json(daily_path, controls)
+    notices = {freq: completion_notice(
+        completion_reference(run.name, saved["file_receipt_hash"], freq), freq,
+        sum(item["freq"] == freq for item in complete["files"]),
+    ) for freq in frequencies & allowed}
+    cps, completion_cps = {}, {}
+    for item in complete["files"]:
+        if item["freq"] not in allowed:
+            continue
+        check_cancel(cancel)
+        key = (item["freq"], item["period"])
+        cp_path = run / "events" / item["freq"] / (item["period"] + ".json")
+        cps[key] = _period_delivery_json(cp_path, controls)
+        if cps[key] is not None and cps[key] != {field: item[field] for field in ("version", "sha256")}:
+            _period_delivery_error("period_delivery_checkpoint_changed", run, saved, item)
+    for freq in notices:
+        completion_cps[freq] = _period_delivery_json(run / "events/completion" / (freq + ".json"), controls)
+    result = {
+        "run_id": run.name, "identity_hash": saved["identity_hash"],
+        "file_receipt_hash": saved["file_receipt_hash"], "files": complete["files"],
+        "events_complete": False, "historical_only": False, "current_files": [],
+        "file_evidence": {}, "completion_evidence": {}, "control_versions": controls,
+        "reason": "ok", "allowed_frequencies": sorted(allowed),
+    }
+    closed = saved["phase"] == "events_complete"
+    if closed and (any(value is None for value in cps.values())
+                   or any(value is None for value in completion_cps.values())):
+        _period_delivery_error("period_delivery_checkpoint_changed", run, saved)
+    completed_at = datetime.fromisoformat(saved["files_completed_at"])
+    if completed_at.tzinfo is None:
+        _period_delivery_error("period_delivery_history_missing", run, saved)
+    since = completed_at.astimezone(timezone.utc).replace(tzinfo=None)
+    missing_events, missing_checks = False, False
+    for freq, notice in notices.items():
+        evidence = _period_delivery_notice(
+            instance, dg.AssetKey(f"raw_tushare_stk_period_bar_adj_{freq}"), notice,
+            completion_cps[freq], since,
+        )
+        if evidence is not None:
+            result["completion_evidence"][freq] = evidence
+        else:
+            missing_events = True
+    if closed:
+        result["historical_only"] = True
+        for item in complete["files"]:
+            if item["freq"] in allowed:
+                key = (item["freq"], item["period"])
+                result["file_evidence"][key] = {"cp_source": str(run / "events" / item["freq"] / (item["period"] + ".json"))}
+        if missing_events:
+            _period_delivery_error("period_delivery_checkpoint_changed", run, saved)
+        result["events_complete"] = scope_complete
+        result["reason"] = "ok" if result["events_complete"] else "current_events_incomplete"
+        _period_delivery_assert_controls(controls, cancel)
+        return result
+    current_evidence = _period_delivery_current_evidence(
+        instance, [item for item in complete["files"] if item["freq"] in allowed],
+    )
+    for item in complete["files"]:
+        if item["freq"] not in allowed:
+            continue
+        check_cancel(cancel)
+        key = (item["freq"], item["period"])
+        current_version = _period_delivery_stat(item["target"])
+        controls[item["target"]] = {"kind": "file", "version": current_version}
+        if current_version is None:
+            _period_delivery_error("period_delivery_current_file_unknown", run, saved, item)
+        asset = dg.AssetKey(f"raw_tushare_stk_period_bar_adj_{item['freq']}")
+        current = current_evidence[(asset.to_user_string(), item["period"])]
+        if current_version != item["version"]:
+            # Only genuinely replaced files need historical materializations.
+            records = _period_delivery_event_rows(instance, asset, period=item["period"],
+                                                  since=since, kind="ASSET_MATERIALIZATION")
+        else:
+            records = [current["materialization"]] if current["materialization"] is not None else []
+            if (
+                records
+                and _period_delivery_metadata(records[-1], "goldenshare/period_file_version")
+                == item["version"]
+                and not _period_delivery_mat_matches(records[-1], item, notices[item["freq"]])
+            ):
+                _period_delivery_error("period_delivery_materialization_invalid", run, saved, item)
+        originals = [entry for entry in records
+                     if _period_delivery_metadata(entry, "goldenshare/period_completion") == notices[item["freq"]]]
+        if any(not _period_delivery_mat_matches(entry, item, notices[item["freq"]]) for entry in originals):
+            _period_delivery_error("period_delivery_materialization_invalid", run, saved, item)
+        chain = []
+        if current_version != item["version"]:
+            result["historical_only"] = True
+            if not records or _period_delivery_metadata(records[-1], "goldenshare/period_file_version") != current_version:
+                _period_delivery_error("period_delivery_current_file_unknown", run, saved, item)
+            original, chain = _period_delivery_successors(
+                instance, run, saved, item, records, records[-1], controls, receipt_cache,
+                root=root, staging=staging, cancel=cancel, current_checks=current["checks"],
+            )
+            if not _period_delivery_mat_matches(original, item, notices[item["freq"]]):
+                _period_delivery_error("period_delivery_history_missing", run, saved, item)
+        else:
+            result["current_files"].append(item)
+            original = max(originals, key=lambda entry: entry.storage_id) if originals else None
+            if original is not None and original.storage_id != records[-1].storage_id:
+                _period_delivery_error("period_delivery_materialization_invalid", run, saved, item)
+        if original is None:
+            if records:
+                # No matching original materialization is a missing event, but
+                # existing failed/nonblocking/late wrong-bound results remain
+                # real errors. Do not hide them behind the missing-event branch.
+                _period_delivery_checks(instance, records[-1], item, prefetched=current["checks"])
+            else:
+                if current["checks"]:
+                    _period_delivery_error("period_delivery_checks_invalid", run, saved, item)
+            missing_events = True
+            result["file_evidence"][key] = {"missing": "materialization"}
+            continue
+        cutoff = chain[0]["first_materialization_id"] if chain else None
+        checks, ready = _period_delivery_checks(
+            instance, original, item, cutoff=cutoff,
+            prefetched=current["checks"] if cutoff is None else None,
+        )
+        if not ready:
+            if chain:
+                _period_delivery_error("period_delivery_history_missing", run, saved, item)
+            missing_checks = True
+        result["file_evidence"][key] = {
+            "materialization_id": original.storage_id, "checks": checks,
+            "before_event_id": cutoff,
+            "successors": [{key: value for key, value in link.items() if key not in ("item", "record")}
+                           for link in chain],
+        }
+    if result["historical_only"] and (missing_events or missing_checks):
+        _period_delivery_error("period_delivery_history_missing", run, saved)
+    result["events_complete"] = scope_complete and not missing_events and not missing_checks
+    result["reason"] = (
+        "current_events_incomplete" if not scope_complete else "missing_events" if missing_events
+        else "missing_checks" if missing_checks else "ok"
+    )
+    _period_delivery_assert_controls(controls, cancel)
+    return result
+
+
+def acknowledge_period_delivery(run, confirmation, *, root, staging, cancel=lambda: False):
+    """Persist original receipts and phase before removing only the matching consumed work."""
+    from orchestrator.defs.bootstrap.stock_period_history import (
+        check_devices,
+        completed_receipt,
+        roots,
+        writer,
+    )
+    from orchestrator.defs.run_contracts.stock_period import (
+        completion_notice,
+        completion_reference,
+        period_for,
+        verify_execution,
+    )
+
+    root, staging = roots(root, staging)
+    run = safe_path(Path(run))
+    if run != staging / "stock_period/runs" / run.name:
+        raise ValueError("period_event_run_path_invalid")
+    with writer(staging):
+        controls = {key: dict(value) for key, value in confirmation["control_versions"].items()}
+        _period_delivery_assert_controls(controls, cancel)
+        saved = read_json(run / "manifest.json")
+        verify_execution(saved, run.name)
+        if saved["identity"]["root"] != str(root):
+            raise ValueError("period_delivery_control_changed")
+        check_devices(root, staging, saved["devices"])
+        complete = completed_receipt(run, saved, cancel=cancel)
+        frequencies = {item["freq"] for item in complete["files"]}
+        if (
+            confirmation.get("events_complete") is not True
+            or confirmation.get("run_id") != run.name
+            or confirmation.get("identity_hash") != saved["identity_hash"]
+            or confirmation.get("file_receipt_hash") != saved["file_receipt_hash"]
+            or confirmation.get("files") != complete["files"]
+            or not frequencies <= set(confirmation.get("allowed_frequencies", ()))
+            or set(confirmation["file_evidence"]) != {(item["freq"], item["period"]) for item in complete["files"]}
+        ):
+            raise ValueError("period_delivery_confirmation_invalid")
+        daily_path = staging / "stock_period/daily.json"
+        daily = read_json(daily_path) if daily_path.exists() else None
+        pending = (daily or {}).get("pending_work", {}).get(run.name)
+        if pending is not None:
+            if pending.get("intent") != saved["identity"]["intent"]:
+                raise ValueError("period_delivery_control_changed")
+            if confirmation["historical_only"] and pending.get("consumed") is not True:
+                raise ValueError("period_delivery_consumption_missing")
+            if pending.get("consumed") is True and pending["intent"].get("asof"):
+                asof, freq = pending["intent"]["asof"], pending["frequency"]
+                refresh_required = period_for(datetime.fromisoformat(asof).date(), freq) in pending["intent"].get("periods", {}).get(freq, ())
+                if daily.get("factor_through", "") < asof or (
+                    refresh_required and daily.get("last_refresh", {}).get(freq, "") < asof
+                ):
+                    raise ValueError("period_delivery_consumption_missing")
+
+        common_paths = (
+            str(run / "manifest.json"),
+            str(run / "complete.json"),
+            str(daily_path),
+        )
+
+        def write_missing(path, payload, *, target=None, related_paths=()):
+            key = str(path)
+            _period_delivery_assert_controls({key: controls[key]}, cancel)
+            actual = read_json(path) if path.exists() else None
+            if actual is not None and actual != payload:
+                raise ValueError("period_delivery_checkpoint_changed")
+            if actual is None:
+                related = set(common_paths) | {key} | set(related_paths)
+                if target is not None:
+                    related.add(target)
+                _period_delivery_assert_controls(
+                    {name: controls[name] for name in related if name in controls},
+                    cancel,
+                )
+                atomic_json(path, payload)
+                _period_delivery_json(path, controls)
+
+        for item in complete["files"]:
+            related = []
+            evidence = confirmation["file_evidence"][(item["freq"], item["period"])]
+            for link in evidence.get("successors", []):
+                successor = staging / "stock_period/runs" / link["raw_execution_id"]
+                related.extend(
+                    str(path)
+                    for path in (
+                        successor / "manifest.json",
+                        successor / "complete.json",
+                        successor / "committed" / item["freq"] / (item["period"] + ".json"),
+                    )
+                )
+            write_missing(run / "events" / item["freq"] / (item["period"] + ".json"),
+                          {key: item[key] for key in ("version", "sha256")},
+                          target=item["target"], related_paths=related)
+        for freq in frequencies:
+            notice = completion_notice(
+                completion_reference(run.name, saved["file_receipt_hash"], freq), freq,
+                sum(item["freq"] == freq for item in complete["files"]),
+            )
+            evidence = confirmation["completion_evidence"].get(freq)
+            if evidence is None or evidence.get("completion") != notice or type(evidence.get("observation_id")) is not int or evidence["observation_id"] <= 0:
+                raise ValueError("period_delivery_confirmation_invalid")
+            write_missing(run / "events/completion" / (freq + ".json"), evidence)
+        _period_delivery_assert_controls(controls, cancel)
+        if saved["phase"] != "events_complete":
+            atomic_json(run / "manifest.json", {**saved, "phase": "events_complete"})
+            _period_delivery_json(run / "manifest.json", controls)
+        _period_delivery_assert_controls(controls, cancel)
+        latest = read_json(daily_path) if daily_path.exists() else None
+        latest_pending = (latest or {}).get("pending_work", {}).get(run.name)
+        removed = False
+        if latest_pending is not None and latest_pending.get("consumed") is True:
+            if latest_pending != pending:
+                raise ValueError("period_delivery_control_changed")
+            del latest["pending_work"][run.name]
+            atomic_json(daily_path, latest)
+            removed = True
+        return {"run_id": run.name, "events_complete": True, "pending_removed": removed}
 
 
 def report_file_events(instance, item, *, completion=None, write=True, context=None):
@@ -477,12 +1173,74 @@ def report_file_events(instance, item, *, completion=None, write=True, context=N
         extra_metadata[COMPLETION_METADATA_KEY] = dg.MetadataValue.json(completion)
     partition = item["period"]
     partset = "cn_a_stock_week_ends" if freq == "week" else "cn_a_stock_months"
-    if write:
-        instance.add_dynamic_partitions(partset, [partition])
     records = instance.fetch_materializations(
         dg.AssetRecordsFilter(asset_key=asset, asset_partitions=[partition]), limit=1
     ).records
     record = records[0] if records else None
+    from orchestrator.defs.asset_guards.stock_period_check_evidence import (
+        read_latest_completed_checks,
+    )
+
+    try:
+        checks = read_latest_completed_checks(
+            instance, asset_key=asset, check_names=names, partition_key=partition
+        )
+    except ValueError:
+        if not write:
+            return False
+        raise
+
+    def matches_file(materialization, versions, *, exact_rows=False):
+        if materialization is None:
+            return False
+        mat = materialization.asset_materialization
+        metadata = mat.metadata
+        return (
+            mat.asset_key == asset
+            and mat.partition == partition
+            and getattr(metadata.get("dagster/uri"), "value", None) == item["target"]
+            and getattr(
+                metadata.get("goldenshare/period_file_version"), "value", None
+            )
+            in versions
+            and (
+                not exact_rows
+                or getattr(metadata.get("dagster/row_count"), "value", None)
+                == item["rows"]
+            )
+        )
+
+    # Inspect every terminal result before adding partitions or emitting events.
+    # A real later failure/misbinding must never be replaced by a synthetic pass.
+    for check, event_id, bound in checks.values():
+        evaluation = check.evaluation
+        target = evaluation.target_materialization_data if evaluation else None
+        valid = (
+            check.status.value == "SUCCEEDED"
+            and evaluation is not None
+            and evaluation.passed
+            and evaluation.blocking
+            and target is not None
+            and bound is not None
+            and target.storage_id == bound.storage_id
+            and target.run_id == bound.event_log_entry.run_id
+            and target.timestamp == bound.event_log_entry.timestamp
+        )
+        if valid and record is not None and bound.storage_id == record.storage_id:
+            valid = matches_file(
+                bound, [item["version"], item.get("target_preimage")]
+            )
+        elif valid and record is not None and event_id < record.storage_id:
+            valid = matches_file(
+                bound, [item["version"], item.get("target_preimage")]
+            ) and matches_file(record, [item["version"]], exact_rows=True)
+        else:
+            valid = False
+        if not valid:
+            if not write:
+                return False
+            raise ValueError("period_event_checks_invalid")
+
     fingerprint = (
         getattr(
             record.asset_materialization.metadata.get(
@@ -494,9 +1252,29 @@ def report_file_events(instance, item, *, completion=None, write=True, context=N
         if record
         else None
     )
+    if (
+        completion is not None
+        and fingerprint == item["version"]
+        and getattr(
+            record.asset_materialization.metadata.get(COMPLETION_METADATA_KEY),
+            "value",
+            None,
+        )
+        != completion
+    ):
+        if not write:
+            return False
+        raise ValueError("period_event_completion_mismatch")
+    if record is not None and not matches_file(
+        record, [item["version"], item.get("target_preimage")]
+    ):
+        if not write:
+            return False
+        raise ValueError("period_event_materialization_invalid")
     if fingerprint != item["version"]:
         if not write:
             return False
+        instance.add_dynamic_partitions(partset, [partition])
         instance.report_runless_asset_event(
             dg.AssetMaterialization(
                 asset_key=asset,
@@ -513,19 +1291,14 @@ def report_file_events(instance, item, *, completion=None, write=True, context=N
             dg.AssetRecordsFilter(asset_key=asset, asset_partitions=[partition]),
             limit=1,
         ).records[0]
-    from dagster._core.event_api import PartitionKeyFilter
-    from dagster._core.storage.asset_check_execution_record import (
-        COMPLETED_ASSET_CHECK_EXECUTION_RECORD_STATUSES,
-    )
+    if not matches_file(record, [item["version"]], exact_rows=True):
+        if not write:
+            return False
+        raise ValueError("period_event_materialization_invalid")
 
     for name in names:
-        history = instance.event_log_storage.get_asset_check_execution_history(
-            dg.AssetCheckKey(asset, name),
-            limit=1,
-            status=COMPLETED_ASSET_CHECK_EXECUTION_RECORD_STATUSES,
-            partition_filter=PartitionKeyFilter(key=partition),
-        )
-        evaluation = history[0].evaluation if history else None
+        selected = checks.get(name)
+        evaluation = selected[0].evaluation if selected else None
         matched = (
             evaluation is not None
             and evaluation.partition == partition
@@ -589,6 +1362,91 @@ def report_completion_events(instance, completion):
     return record.storage_id
 
 
+def _daily_intent_date(context, config):
+    """An old manual run must not become a different date on re-execution."""
+    if config.automatic_intent_date:
+        return date.fromisoformat(config.automatic_intent_date)
+    today = datetime.now(ZoneInfo("Asia/Shanghai")).date()
+    run = context.run
+    parent = run.root_run_id or run.parent_run_id
+    if parent:
+        original = context.instance.get_run_record_by_id(parent)
+        if (
+            original is None
+            or original.create_timestamp.astimezone(ZoneInfo("Asia/Shanghai")).date()
+            != today
+        ):
+            raise ValueError(
+                "period_daily_intent_date_required:use_frozen_asof_in_automatic_intent_date"
+            )
+    return today
+
+
+def _current_period_anchor(instance, root, staging, freq, period):
+    """A historical result cannot authorize materializing an unknown current file."""
+    import dagster as dg
+
+    from orchestrator.defs.bootstrap.stock_period_history import completed_receipt
+    from orchestrator.defs.io.stock_period_raw import (
+        audit_file,
+        file_version,
+        target_path,
+    )
+    from orchestrator.defs.run_contracts.stock_period import (
+        COMPLETION_METADATA_KEY,
+        validate_completion_notice,
+    )
+
+    target = target_path(root, freq, period)
+    version = file_version(target)
+    records = instance.fetch_materializations(
+        dg.AssetRecordsFilter(
+            asset_key=dg.AssetKey(f"raw_tushare_stk_period_bar_adj_{freq}"),
+            asset_partitions=[period],
+        ),
+        limit=1,
+    ).records
+    if not records:
+        raise ValueError("period_anchor_current_delivery_unknown")
+    metadata = records[0].asset_materialization.metadata
+    if (
+        getattr(metadata.get("goldenshare/period_file_version"), "value", None)
+        != version
+        or getattr(metadata.get("dagster/uri"), "value", None) != str(target)
+    ):
+        raise ValueError("period_anchor_current_delivery_unknown")
+    baseline = read_json(Path(staging) / "stock_period/baseline.json")
+    owned = any(
+        item["target"] == str(target) and item["version"] == version
+        for item in baseline.get("files", [])
+    )
+    completion = getattr(metadata.get(COMPLETION_METADATA_KEY), "value", None)
+    if completion is not None:
+        reference = validate_completion_notice(completion, freq)
+        run = Path(staging) / "stock_period/runs" / reference["raw_execution_id"]
+        manifest = read_json(run / "manifest.json")
+        complete = completed_receipt(run, manifest)
+        if manifest["file_receipt_hash"] != reference["file_receipt_hash"]:
+            raise ValueError("period_anchor_current_delivery_unknown")
+        owned = any(
+            item["target"] == str(target)
+            and item["version"] == version
+            and (item["freq"], item["period"]) == (freq, period)
+            for item in complete["files"]
+        )
+    if not owned:
+        raise ValueError("period_anchor_current_delivery_unknown")
+    item = {
+        "freq": freq,
+        "period": period,
+        "target": str(target),
+        **audit_file(root, freq, period),
+    }
+    if not report_file_events(instance, item, completion=completion, write=False):
+        raise ValueError("period_anchor_current_checks_missing")
+    return item, completion
+
+
 def deliver_asset(context, config, lake_root, freq):
     import dagster as dg
 
@@ -599,6 +1457,9 @@ def deliver_asset(context, config, lake_root, freq):
 
     root = lake_root.root()
     staging = Path(DEFAULT_LAKE_STAGING_ROOT)
+    today = _daily_intent_date(context, config) if config.intent == "daily" else None
+    if today is not None and period_for(today, freq) != context.partition_key:
+        raise ValueError("period_daily_partition_mismatch")
     lake_root.ensure_available_for_run()
     listed, aliases = load_scope(root, staging / "stock_period" / "scope")
 
@@ -626,6 +1487,11 @@ def deliver_asset(context, config, lake_root, freq):
             context=context,
         )
 
+    def confirm_delivery(run):
+        return confirm_period_delivery(
+            context.instance, run, root=root, staging=staging, cancel=cancel
+        )
+
     progress = lambda p: context.log.info(str(p))
     if config.intent == "history":
         results = [
@@ -647,14 +1513,10 @@ def deliver_asset(context, config, lake_root, freq):
                 completion_events=lambda notice: report_completion_events(
                     context.instance, notice
                 ),
+                confirm_delivery=confirm_delivery,
             )
         ]
     else:
-        today = (
-            date.fromisoformat(config.automatic_intent_date)
-            if config.automatic_intent_date
-            else datetime.now(ZoneInfo("Asia/Shanghai")).date()
-        )
         results = execute_daily(
             root=root,
             staging=staging,
@@ -668,24 +1530,23 @@ def deliver_asset(context, config, lake_root, freq):
             completion_events=lambda notice: report_completion_events(
                 context.instance, notice
             ),
+            confirm_delivery=confirm_delivery,
         )
     items = [
         i
         for result in results
-        for i in result["files"]
+        if not result.get("historical_only")
+        for i in result.get("current_files", result["files"])
         if (i["freq"], i["period"]) == (freq, context.partition_key)
     ]
+    fallback_completion = None
     if not items:
         if config.intent == "history":
             raise ValueError("period_asset_anchor_not_written")
-        from orchestrator.defs.io.stock_period_raw import audit_file, target_path
-
-        items = [
-            {
-                "target": str(target_path(root, freq, context.partition_key)),
-                **audit_file(root, freq, context.partition_key),
-            }
-        ]
+        current, fallback_completion = _current_period_anchor(
+            context.instance, root, staging, freq, context.partition_key
+        )
+        items = [current]
     item = items[-1]
     completion = next(
         (
@@ -693,7 +1554,7 @@ def deliver_asset(context, config, lake_root, freq):
             for r in reversed(results)
             if item in r["files"]
         ),
-        None,
+        fallback_completion,
     )
     extra = {"goldenshare/period_file_version": dg.MetadataValue.json(item["version"])}
     if completion is not None:
@@ -849,6 +1710,7 @@ def handoff_bootstrap(
     run,
     events,
     completion_events=None,
+    confirm_delivery=None,
     transport=None,
     listed=None,
     aliases=None,
@@ -1030,6 +1892,7 @@ def handoff_bootstrap(
             runtime_rss_bytes=runtime_rss_bytes,
             cancel=cancel,
             progress=progress,
+            confirm_delivery=confirm_delivery,
         )
         result = replay_events(
             Path(result["path"]),
@@ -1037,6 +1900,7 @@ def handoff_bootstrap(
             staging=staging,
             events=events,
             completion_events=completion_events,
+            confirm_delivery=confirm_delivery,
             cancel=cancel,
         )
         if not result["events_complete"]:

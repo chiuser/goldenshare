@@ -109,6 +109,11 @@ def main(argv=None):
             "events_complete",
         ):
             raise ValueError("period_event_files_incomplete")
+        if args.action == "resume" and frozen["phase"] in (
+            "files_complete",
+            "events_complete",
+        ):
+            raise ValueError("period_delivery_events_required:use_existing_events_action")
         if frozen["phase"] == "deleting" and not args.confirm_delete_existing:
             parser.error("resume deletion requires --confirm-delete-existing")
     interrupted = False
@@ -137,12 +142,18 @@ def main(argv=None):
             import dagster as dg
 
             from orchestrator.defs.stock_period_update import (
+                confirm_period_delivery,
                 handoff_bootstrap,
                 report_completion_events,
                 report_file_events,
             )
 
             instance = dg.DagsterInstance.get()
+
+        def confirm_delivery(run):
+            return confirm_period_delivery(
+                instance, run, root=root, staging=staging, cancel=lambda: interrupted
+            )
         if args.action == "events":
 
             def operation(context):
@@ -156,6 +167,7 @@ def main(argv=None):
                     completion_events=lambda notice: report_completion_events(
                         instance, notice
                     ),
+                    confirm_delivery=confirm_delivery,
                     cancel=lambda: interrupted,
                 )
 
@@ -178,6 +190,7 @@ def main(argv=None):
                     staging / "stock_period/runs" / args.run_id,
                     root=root,
                     staging=staging,
+                    confirm_delivery=confirm_delivery,
                     cancel=lambda: interrupted,
                 )
             else:
@@ -198,6 +211,7 @@ def main(argv=None):
                     completion_events=lambda notice: report_completion_events(
                         instance, notice
                     ),
+                    confirm_delivery=confirm_delivery,
                     cancel=lambda: interrupted,
                     progress=lambda event: print(json.dumps(event), flush=True),
                 )

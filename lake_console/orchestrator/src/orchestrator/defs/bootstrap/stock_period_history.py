@@ -9,7 +9,7 @@ import shutil
 import signal
 import threading
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -239,21 +239,250 @@ def execution_time():
     return datetime.now(ZoneInfo("Asia/Shanghai")).isoformat()
 
 
-def completed_files(run, saved, *, cancel=lambda: False):
-    complete = read_json(run / "complete.json")
-    if complete.get("run_id") != execution_id(
-        saved["identity"]["intent"]["request_id"]
-    ) or saved.get("file_receipt_hash") != digest(complete):
+def completed_receipt(run, saved, *, cancel=lambda: False, complete=None):
+    """Validate the immutable delivery without requiring its files to stay current."""
+    run = safe_path(run)
+    verify_execution(saved, run.name)
+    # A caller may reuse a payload already read under its exact JSON stat guard.
+    # Identity, hash, field and path checks below remain identical.
+    if complete is None:
+        complete = read_json(run / "complete.json")
+    if (
+        not isinstance(complete, dict)
+        or complete.get("run_id") != run.name
+        or run.name != execution_id(saved["identity"]["intent"]["request_id"])
+        or saved.get("file_receipt_hash") != digest(complete)
+        or not isinstance(complete.get("files"), list)
+    ):
         raise ValueError("period_complete_receipt_changed")
+    from orchestrator.defs.io.stock_period_raw import target_path
+
+    seen = set()
+    for item in complete["files"]:
+        check_cancel(cancel)
+        if not isinstance(item, dict):
+            raise TypeError("period_complete_file_invalid")
+        freq, period = item.get("freq"), item.get("period")
+        version = item.get("version")
+        if (
+            freq not in saved["identity"]["intent"]["frequencies"]
+            or freq not in ("week", "month")
+            or not isinstance(period, str)
+            or not isinstance(item.get("target"), str)
+            or not isinstance(version, list)
+            or len(version) != 5
+            or any(type(value) is not int or value < 0 for value in version)
+            or type(item.get("rows")) is not int
+            or item["rows"] < 0
+            or not isinstance(item.get("sha256"), str)
+            or not re.fullmatch(r"[0-9a-f]{64}", item["sha256"])
+        ):
+            raise ValueError("period_complete_file_invalid")
+        period_date(period, freq)
+        if (
+            item["target"]
+            != str(target_path(Path(saved["identity"]["root"]), freq, period))
+            or (freq, period) in seen
+        ):
+            raise ValueError("period_complete_file_identity_changed")
+        seen.add((freq, period))
+    return complete
+
+
+def require_current_files(complete, *, cancel=lambda: False):
+    """A current-file operation must still enforce the original version guard."""
     for item in complete["files"]:
         check_cancel(cancel)
         if file_version(item["target"]) != item["version"]:
             raise ValueError("period_committed_file_changed")
+
+
+def completed_files(run, saved, *, cancel=lambda: False):
+    complete = completed_receipt(run, saved, cancel=cancel)
+    require_current_files(complete, cancel=cancel)
     return complete
 
 
+def ordered_pending_work(staging, state=None):
+    """Order shared intents by their frozen business date and actual start."""
+    control = Path(staging) / "stock_period"
+    if state is None:
+        path = control / "daily.json"
+        state = read_json(path) if path.exists() else {}
+    pending = state.get("pending_work", {})
+    if not isinstance(pending, dict):
+        raise TypeError("period_pending_work_invalid")
+    ordered = []
+    for run_id, work in pending.items():
+        if (
+            not isinstance(work, dict)
+            or not isinstance(work.get("intent"), dict)
+            or run_id != execution_id(work["intent"].get("request_id"))
+        ):
+            raise ValueError("period_pending_work_invalid")
+        manifest = control / "runs" / run_id / "manifest.json"
+        started = None
+        if manifest.exists():
+            saved = read_json(manifest)
+            verify_execution(saved, run_id)
+            try:
+                started = datetime.fromisoformat(saved["started_at"])
+            except (KeyError, TypeError, ValueError) as error:
+                raise ValueError("period_pending_start_invalid") from error
+            if started.tzinfo is None:
+                raise ValueError("period_pending_start_invalid")
+        asof = work["intent"].get("asof")
+        if asof is not None:
+            try:
+                normalized = date.fromisoformat(asof).isoformat()
+            except (TypeError, ValueError) as error:
+                raise ValueError("period_pending_date_invalid") from error
+            if normalized != asof:
+                raise ValueError("period_pending_date_invalid")
+        elif started is not None:
+            asof = started.astimezone(ZoneInfo("Asia/Shanghai")).date().isoformat()
+        else:
+            raise ValueError("period_pending_date_missing")
+        ordered.append(
+            (
+                (asof, started is None, started.timestamp() if started else 0, run_id),
+                work,
+            )
+        )
+    return [work for _, work in sorted(ordered, key=lambda entry: entry[0])]
+
+
+def require_pending_delivery_before_write(
+    staging, run_id, *, root, confirm_delivery=None, cancel=lambda: False
+):
+    """All writers must finish earlier delivery work before a new intent writes."""
+    for work in ordered_pending_work(staging):
+        check_cancel(cancel)
+        pending_id = execution_id(work["intent"]["request_id"])
+        if pending_id == run_id:
+            return
+        pending_run = Path(staging) / "stock_period/runs" / pending_id
+        manifest = pending_run / "manifest.json"
+        if (
+            confirm_delivery is None
+            or not manifest.exists()
+            or read_json(manifest).get("phase")
+            not in ("files_complete", "events_complete")
+        ):
+            raise ValueError(f"period_original_run_required:{pending_id}")
+        confirmation = confirm_delivery(pending_run)
+        if not isinstance(confirmation, dict) or confirmation.get("events_complete") is not True:
+            raise ValueError(f"period_original_run_required:{pending_id}")
+        from orchestrator.defs.stock_period_update import acknowledge_period_delivery
+
+        acknowledge_period_delivery(
+            pending_run,
+            confirmation,
+            root=root,
+            staging=staging,
+            cancel=cancel,
+        )
+        path = Path(staging) / "stock_period/daily.json"
+        if pending_id in read_json(path).get("pending_work", {}):
+            raise ValueError(f"period_original_run_required:{pending_id}")
+
+
+def validate_registered_targets(items, *, run, saved, baseline, cancel=lambda: False):
+    """Current stat is a preimage only after its owner is independently known."""
+    facts = read_json(baseline)
+    registered = {}
+    duplicates = set()
+    for item in facts.get("files", []):
+        target = item["target"]
+        if target in registered:
+            duplicates.add(target)
+        registered[target] = item
+    candidate_groups = {}
+
+    def candidates_for(freq):
+        path = run / (freq + ".candidates.json")
+        cached = candidate_groups.get(freq)
+        if cached is not None:
+            if file_version(path) != cached["version"]:
+                raise ValueError("period_target_commit_ownership_invalid")
+            return cached["items"]
+        before = file_version(path)
+        candidates = read_json(path)
+        if (
+            file_version(path) != before
+            or not isinstance(candidates, list)
+            or any(not isinstance(candidate, dict) for candidate in candidates)
+            or saved.get("candidate_hashes", {}).get(freq) != digest(candidates)
+        ):
+            raise ValueError("period_target_commit_ownership_invalid")
+        indexed = {}
+        for candidate in candidates:
+            if candidate.get("freq") != freq:
+                raise ValueError("period_target_commit_ownership_invalid")
+            key = (candidate.get("period"), candidate.get("target"))
+            indexed.setdefault(key, []).append(candidate)
+        candidate_groups[freq] = {"version": before, "items": indexed}
+        return indexed
+
+    for item in items:
+        check_cancel(cancel)
+        target, version = item["target"], item["version"]
+        if target in duplicates:
+            raise ValueError("period_target_registration_invalid")
+        prior = registered.get(target)
+        cp = run / "committed" / item["freq"] / (item["period"] + ".json")
+        committed = None
+        if cp.exists():
+            committed = read_json(cp)
+            matches = candidates_for(item["freq"]).get((item["period"], target), [])
+            if (
+                len(matches) != 1
+                or any(
+                    committed.get(key) != matches[0].get(key)
+                    for key in (
+                        "candidate",
+                        "freq",
+                        "period",
+                        "target",
+                        "target_preimage",
+                        "rows",
+                        "sha256",
+                    )
+                )
+                or committed.get("version") != version
+                or version[:4] != matches[0]["version"][:4]
+            ):
+                raise ValueError("period_target_commit_ownership_invalid")
+        if committed is not None:
+            if item["target_preimage"] not in (
+                committed["target_preimage"],
+                committed["version"],
+            ):
+                raise ValueError("period_target_preimage_changed")
+            continue
+        if version is None:
+            if prior is not None:
+                raise ValueError("period_registered_target_missing")
+        elif (
+            prior is None
+            or prior.get("freq") != item["freq"]
+            or prior.get("period") != item["period"]
+            or prior.get("version") != version
+        ):
+            raise ValueError("period_target_unregistered_version")
+        if item["target_preimage"] != version:
+            raise ValueError("period_target_preimage_changed")
+
+
 def replay_events(
-    run, *, root, staging, events=None, completion_events=None, cancel=lambda: False
+    run,
+    *,
+    root,
+    staging,
+    events=None,
+    completion_events=None,
+    confirm_delivery=None,
+    cancel=lambda: False,
 ):
     """Event-only reader: no source, SQL, candidate assembly or file replacement."""
     root, staging = roots(root, staging)
@@ -269,7 +498,7 @@ def replay_events(
         ):
             raise ValueError("period_event_files_incomplete")
         check_devices(root, staging, saved["devices"])
-        complete = completed_files(run, saved, cancel=cancel)
+        complete = completed_receipt(run, saved, cancel=cancel)
         from orchestrator.defs.run_contracts.stock_period import (
             completion_notice,
             completion_reference,
@@ -283,11 +512,84 @@ def replay_events(
             )
             for freq in sorted({i["freq"] for i in complete["files"]})
         }
+        confirmation = None
+        allowed = set(notices)
+
+        def confirm():
+            proof = confirm_delivery(run)
+            if (
+                not isinstance(proof, dict)
+                or proof.get("run_id") != complete["run_id"]
+                or proof.get("identity_hash") != saved["identity_hash"]
+                or proof.get("file_receipt_hash") != saved["file_receipt_hash"]
+                or proof.get("files") != complete["files"]
+                or type(proof.get("events_complete")) is not bool
+            ):
+                raise ValueError("period_delivery_confirmation_invalid")
+            if not proof["events_complete"] and proof.get("reason") not in (
+                "missing_events",
+                "missing_checks",
+                "current_events_incomplete",
+            ):
+                raise ValueError("period_delivery_confirmation_incomplete")
+            scope = proof.get("allowed_frequencies", sorted(notices))
+            if (
+                not isinstance(scope, (list, tuple, set))
+                or not set(scope).issubset({"week", "month"})
+            ):
+                raise ValueError("period_delivery_frequency_scope_invalid")
+            return proof, set(scope) & set(notices)
+
+        def confirmed_result(proof):
+            from orchestrator.defs.stock_period_update import (
+                acknowledge_period_delivery,
+            )
+
+            acknowledge_period_delivery(
+                run, proof, root=root, staging=staging, cancel=cancel
+            )
+            return {
+                **complete,
+                "path": str(run),
+                "events_complete": True,
+                "historical_only": proof.get("historical_only", False),
+                "current_files": proof.get("current_files", []),
+                "completions": notices,
+                "confirmation": proof,
+            }
+
+        if confirm_delivery is not None:
+            confirmation, allowed = confirm()
+            if confirmation["events_complete"]:
+                if allowed != set(notices):
+                    raise ValueError("period_delivery_frequency_scope_invalid")
+                return confirmed_result(confirmation)
+            if (
+                confirmation.get("historical_only") is True
+                and saved["phase"] == "events_complete"
+                and allowed != set(notices)
+            ):
+                return {
+                    **complete,
+                    "path": str(run),
+                    "events_complete": False,
+                    "historical_only": True,
+                    "current_files": [],
+                    "completions": {f: notices[f] for f in allowed},
+                    "confirmation": confirmation,
+                }
+        require_current_files(
+            {"files": [i for i in complete["files"] if i["freq"] in allowed]},
+            cancel=cancel,
+        )
         pending = False
         from orchestrator.defs.io.stock_period_raw import _AUDIT_LOCK, _AUDITS
 
         for item in complete["files"]:
             check_cancel(cancel)
+            if item["freq"] not in allowed:
+                pending = True
+                continue
             cp = run / "events" / item["freq"] / (item["period"] + ".json")
             expected = {k: item[k] for k in ("version", "sha256")}
             if cp.exists():
@@ -310,6 +612,9 @@ def replay_events(
             atomic_json(cp, expected)
         for freq, notice in notices.items():
             check_cancel(cancel)
+            if freq not in allowed:
+                pending = True
+                continue
             cp = run / "events/completion" / (freq + ".json")
             if cp.exists():
                 receipt = read_json(cp)
@@ -329,7 +634,16 @@ def replay_events(
                 atomic_json(
                     cp, {"completion": notice, "observation_id": observation_id}
                 )
+        if confirm_delivery is not None:
+            confirmation, allowed = confirm()
+            if confirmation["events_complete"]:
+                if allowed != set(notices):
+                    raise ValueError("period_delivery_frequency_scope_invalid")
+                return confirmed_result(confirmation)
+            pending = True
         phase = "files_complete" if pending else "events_complete"
+        if allowed != set(notices) and saved["phase"] == "events_complete":
+            phase = saved["phase"]
         if saved["phase"] != phase:
             saved["phase"] = phase
             atomic_json(run / "manifest.json", saved)
@@ -337,7 +651,10 @@ def replay_events(
             **complete,
             "path": str(run),
             "events_complete": not pending,
+            "historical_only": False,
+            "current_files": [i for i in complete["files"] if i["freq"] in allowed],
             "completions": notices,
+            **({"confirmation": confirmation} if confirmation is not None else {}),
         }
 
 
@@ -417,6 +734,7 @@ def run_period(
     progress=lambda _: None,
     events=None,
     completion_events=None,
+    confirm_delivery=None,
 ):
     """No formal operation is invoked by import. All tests supply explicit temporary roots."""
     if runtime_rss_bytes is not None and (
@@ -479,7 +797,6 @@ def run_period(
         process_memory_budget(policy, runtime_rss_bytes, progress=progress),
     ):
         run = safe_path(control / "runs" / run_id)
-        run.mkdir(parents=True, exist_ok=True)
         manifest = run / "manifest.json"
         if manifest.exists():
             prior = read_json(manifest)
@@ -489,6 +806,10 @@ def run_period(
             if prior["phase"] in ("files_complete", "events_complete"):
                 check_devices(root, staging, prior["devices"])
                 if not prior.get("ranges_recorded"):
+                    if confirm_delivery is not None:
+                        proof = confirm_delivery(run)
+                        if isinstance(proof, dict) and proof.get("historical_only"):
+                            raise ValueError("period_historical_range_record_required")
                     complete = completed_files(run, prior, cancel=cancel)
                     _record_ranges(
                         control / "baseline.json", run, intent, complete["files"]
@@ -507,8 +828,17 @@ def run_period(
                     staging=staging,
                     events=events,
                     completion_events=completion_events,
+                    confirm_delivery=confirm_delivery,
                     cancel=cancel,
                 )
+        require_pending_delivery_before_write(
+            staging,
+            run_id,
+            root=root,
+            confirm_delivery=confirm_delivery,
+            cancel=cancel,
+        )
+        run.mkdir(parents=True, exist_ok=True)
         budget = StorageBudget(run, policy, cancel=cancel, progress=progress)
         budget_token = _BUDGET.set(budget)
         try:
@@ -577,6 +907,24 @@ def run_period(
                         candidates
                     ):
                         raise ValueError("period_candidate_manifest_changed")
+                    validate_registered_targets(
+                        [
+                            {
+                                "freq": item["freq"],
+                                "period": item["period"],
+                                "target": item["target"],
+                                "version": file_version(item["target"])
+                                if Path(item["target"]).exists()
+                                else None,
+                                "target_preimage": item["target_preimage"],
+                            }
+                            for item in candidates
+                        ],
+                        run=run,
+                        saved=saved,
+                        baseline=baseline,
+                        cancel=cancel,
+                    )
                 else:
                     units = []
                     used = 0
@@ -678,6 +1026,13 @@ def run_period(
                         policy=policy,
                         cancel=cancel,
                         progress=progress,
+                        validate_targets=lambda items: validate_registered_targets(
+                            items,
+                            run=run,
+                            saved=saved,
+                            baseline=baseline,
+                            cancel=cancel,
+                        ),
                     )
                     candidate_bytes = sum(i["version"][2] for i in candidates)
                     saved.setdefault("unit_asofs", {})[freq] = {
@@ -714,12 +1069,40 @@ def run_period(
                         }
                     )
             _finish_files(run, saved, baseline, intent, changed)
+            if events is None and confirm_delivery is not None:
+                # A new file phase has no native results yet. The daily caller
+                # consumes these frozen facts before its one event replay.
+                from orchestrator.defs.run_contracts.stock_period import (
+                    completion_notice,
+                    completion_reference,
+                )
+
+                complete = completed_receipt(run, saved, cancel=cancel)
+                notices = {
+                    freq: completion_notice(
+                        completion_reference(
+                            run.name, saved["file_receipt_hash"], freq
+                        ),
+                        freq,
+                        sum(item["freq"] == freq for item in complete["files"]),
+                    )
+                    for freq in sorted({item["freq"] for item in complete["files"]})
+                }
+                return {
+                    **complete,
+                    "path": str(run),
+                    "events_complete": False,
+                    "historical_only": False,
+                    "current_files": complete["files"],
+                    "completions": notices,
+                }
             return replay_events(
                 run,
                 root=root,
                 staging=staging,
                 events=events,
                 completion_events=completion_events,
+                confirm_delivery=confirm_delivery,
                 cancel=cancel,
             )
         finally:

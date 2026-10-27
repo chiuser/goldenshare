@@ -1,0 +1,82 @@
+{
+  "documentation_commit": "befd282e0",
+  "unique_tests": 411,
+  "latest_passed": 411,
+  "latest_failed": 0,
+  "latest_skipped": 0,
+  "rounds": [
+    {
+      "file": "pytest.xml",
+      "tests": 405,
+      "failures": 1,
+      "errors": 0,
+      "skipped": 0,
+      "time": 102.227
+    },
+    {
+      "file": "memory-contract-recheck.xml",
+      "tests": 25,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time": 1.123
+    },
+    {
+      "file": "raw-report-recheck.xml",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time": 3.588
+    },
+    {
+      "file": "multi-delivery-recheck.xml",
+      "tests": 3,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "time": 2.966
+    }
+  ],
+  "code_unchanged_during_and_after_full_suite": true,
+  "superseded_failure": {
+    "test": "test_cli_resumes_copy_without_redownloading_completed_week",
+    "reason": "LLD12.5 requires events after files_complete; only final legacy expectation updated; memory/source/file invariants retained",
+    "production_code_changed": false
+  },
+  "formal_operations_executed": false,
+  "source_fingerprints": {
+    "src/orchestrator/defs/stock_period_update.py": {
+      "sha256": "bed7815378e4f841ff3492c7eb7b5e68872b24525194782201814dada7191743",
+      "mtime_before_full_suite": true
+    },
+    "src/orchestrator/defs/asset_guards/stock_period_check_evidence.py": {
+      "sha256": "127ac892bc8d5b43561e2987827142ee073249399eef2d27b45b35450fbc8d1f",
+      "mtime_before_full_suite": true
+    },
+    "src/orchestrator/defs/asset_guards/stock_period_silver_readiness.py": {
+      "sha256": "df9f0c5d67cbb49ba608917d0baa327ba427706f067eba2cb7b70c6282d3481b",
+      "mtime_before_full_suite": true
+    },
+    "src/orchestrator/defs/bootstrap/stock_period_history.py": {
+      "sha256": "3fb9131d1cede1ab1d8fbdae315dc74bec768a5c6f2c0ed3cb23c950d5876a57",
+      "mtime_before_full_suite": true
+    },
+    "src/orchestrator/defs/bootstrap/stock_period_history_cli.py": {
+      "sha256": "d0ee53dc7eab802cb72fb0619f8b5df6086f9349150059b1ef8274bc77706c89",
+      "mtime_before_full_suite": true
+    },
+    "src/orchestrator/defs/bootstrap/stock_period_silver_cli.py": {
+      "sha256": "b57ffbd9d2d6063755b82da20dd2494934603911f525e9d7d3b4c2b28971f51e",
+      "mtime_before_full_suite": true
+    },
+    "src/orchestrator/defs/io/stock_period_raw.py": {
+      "sha256": "b58c9fbec91d859746d2bec753476684e5127351f9c80f6d0a1d9561f01a0425",
+      "mtime_before_full_suite": true
+    },
+    "src/orchestrator/defs/ops/stock_weekly_bootstrap_checks.py": {
+      "sha256": "e17ef5cb66c53bfad97aff6706fcc7992980e8e41dc38e7255228ce2aab1206d",
+      "mtime_before_full_suite": true
+    }
+  }
+}

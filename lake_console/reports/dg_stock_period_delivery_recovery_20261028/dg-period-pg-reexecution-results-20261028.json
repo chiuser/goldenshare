@@ -1,0 +1,17 @@
+{
+  "proofs": {
+    "postgres_actual_evaluation_order": true,
+    "graphql_native_from_failure_and_sensor_dedup": {
+      "parent_run_id": "79db1a64-aed9-4de1-b967-b1ca91f559e4",
+      "child_run_id": "8ff34f0f-e0ae-4ecb-9167-680979221ee9",
+      "asset_executions": 1,
+      "child_check_executions": 1,
+      "intent_date": "2026-10-27",
+      "partition": "2026-10-30"
+    }
+  },
+  "temporary_root": "/private/tmp/dg-period-pg.w80yj3xc",
+  "temporary_cluster_removed": true,
+  "status": "passed",
+  "test_sha256": "506aea16033b3b9dbc719df68d9e839869e59ebf401e3c5f5b17a6ecd21ee2ca"
+}

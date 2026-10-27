@@ -31,24 +31,50 @@ def report_file(instance, context, item, identity):
         AssetCheckEvaluation,
         AssetCheckEvaluationTargetMaterializationData,
     )
-    from dagster._core.event_api import PartitionKeyFilter
     from dagster._core.events import DagsterEvent, DagsterEventType
-    from dagster._core.storage.asset_check_execution_record import (
-        COMPLETED_ASSET_CHECK_EXECUTION_RECORD_STATUSES,
+
+    from orchestrator.defs.asset_guards.stock_period_check_evidence import (
+        read_latest_completed_checks,
+    )
+    from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
+        require_recoverable_checks,
     )
 
     if not context.run_id or instance.get_run_by_id(context.run_id) is None:
         raise ValueError("silver_event_real_run_required")
     asset, partition = dg.AssetKey(asset_name(item["freq"])), item["period"]
-    instance.add_dynamic_partitions(
-        "cn_a_stock_week_ends" if item["freq"] == "week" else "cn_a_stock_months",
-        [partition],
-    )
     records = instance.fetch_materializations(
         dg.AssetRecordsFilter(asset_key=asset, asset_partitions=[partition]), limit=1
     ).records
     record = records[0] if records else None
     metadata = record.asset_materialization.metadata if record else {}
+    try:
+        selected = read_latest_completed_checks(
+            instance,
+            asset_key=asset,
+            check_names=check_names(item["freq"]),
+            partition_key=partition,
+        )
+    except ValueError as error:
+        raise ValueError("silver_target_checks_not_ready") from error
+    require_recoverable_checks(
+        {
+            "materialization": record,
+            "checks": {name: value[0] for name, value in selected.items()},
+            "check_event_storage_ids": {
+                name: value[1] for name, value in selected.items()
+            },
+            "bound_materializations": {
+                name: value[2] for name, value in selected.items()
+            },
+        },
+        item["freq"],
+        item,
+    )
+    instance.add_dynamic_partitions(
+        "cn_a_stock_week_ends" if item["freq"] == "week" else "cn_a_stock_months",
+        [partition],
+    )
     if (
         getattr(metadata.get("goldenshare/period_file_version"), "value", None)
         != item["version"]
@@ -67,13 +93,8 @@ def report_file(instance, context, item, identity):
             limit=1,
         ).records[0]
     for name in check_names(item["freq"]):
-        history = instance.event_log_storage.get_asset_check_execution_history(
-            dg.AssetCheckKey(asset, name),
-            limit=1,
-            status=COMPLETED_ASSET_CHECK_EXECUTION_RECORD_STATUSES,
-            partition_filter=PartitionKeyFilter(key=partition),
-        )
-        evaluation = history[0].evaluation if history else None
+        evidence = selected.get(name)
+        evaluation = evidence[0].evaluation if evidence else None
         if (
             evaluation is not None
             and evaluation.asset_key == asset

@@ -1,0 +1,107 @@
+{
+  "scope": "Only explicitly named temporary resources created by this development and its tests",
+  "removed": [
+    {
+      "path": "/private/tmp/dg-period-root-targeted-20261028",
+      "bytes_before_removal": 7643116
+    },
+    {
+      "path": "/private/tmp/dg-period-root-recovery-20261028",
+      "bytes_before_removal": 5214345
+    },
+    {
+      "path": "/private/tmp/dg-period-root-integration-20261028",
+      "bytes_before_removal": 1989922
+    },
+    {
+      "path": "/private/tmp/dg-period-daily-new-20261028",
+      "bytes_before_removal": 842434
+    },
+    {
+      "path": "/private/tmp/dg-period-confirm-final-targeted-20261028",
+      "bytes_before_removal": 1464711
+    },
+    {
+      "path": "/private/tmp/dg-period-fixed-regression-20261028",
+      "bytes_before_removal": 44777326
+    },
+    {
+      "path": "/private/tmp/dg-period-memory-contract-20261028",
+      "bytes_before_removal": 98494
+    },
+    {
+      "path": "/private/tmp/dg-period-history-child-tests",
+      "bytes_before_removal": 283314
+    },
+    {
+      "path": "/private/tmp/dg-period-history-existing-tests",
+      "bytes_before_removal": 6926839
+    },
+    {
+      "path": "/private/tmp/dg-period-ownership-child-tests",
+      "bytes_before_removal": 1532844
+    },
+    {
+      "path": "/private/tmp/dg-period-newfile-facts-child-tests",
+      "bytes_before_removal": 613153
+    },
+    {
+      "path": "/private/tmp/dg-period-target-cache-child-tests",
+      "bytes_before_removal": 705933
+    },
+    {
+      "path": "/private/tmp/dg-period-target-cache-final-tests",
+      "bytes_before_removal": 168806
+    },
+    {
+      "path": "/private/tmp/stock_period_delivery_functions.py",
+      "bytes_before_removal": 26619
+    },
+    {
+      "path": "/private/tmp/stock_period_delivery_receipt_cache.patch",
+      "bytes_before_removal": 6801
+    },
+    {
+      "path": "/private/tmp/stock_period_delivery_batch_evidence.patch",
+      "bytes_before_removal": 10364
+    },
+    {
+      "path": "/private/tmp/stock_period_delivery_confirmation_B_matrix.md",
+      "bytes_before_removal": 4875
+    },
+    {
+      "path": "/private/tmp/dg-period-pg-reexecution-results-20261028.json",
+      "bytes_before_removal": 586
+    },
+    {
+      "path": "/private/tmp/dg-period-pg-reexecution-cleanup-20261028.json",
+      "bytes_before_removal": 496
+    },
+    {
+      "path": "/private/tmp/dg-period-check-evidence-results-20261027.json",
+      "bytes_before_removal": 1879
+    },
+    {
+      "path": "/private/tmp/dg-period-pg-reexecution-attempt1-20261028.json",
+      "bytes_before_removal": 283
+    },
+    {
+      "path": "/private/tmp/dg-period-pg-reexecution-attempt2-20261028.json",
+      "bytes_before_removal": 283
+    },
+    {
+      "path": "/private/tmp/dg-period-pg-reexecution-attempt3-20261028.json",
+      "bytes_before_removal": 283
+    },
+    {
+      "path": "/private/tmp/dg-period-codegraph-sync-20261028.log",
+      "bytes_before_removal": 546
+    }
+  ],
+  "pytest_retained_bytes_before_cleanup": 72261237,
+  "all_named_test_directories_absent": true,
+  "isolated_pg": "Each PG fixture stops its unique datadir before removal; actual PG tests passed and small proof retained in report",
+  "formal_lake_staging_or_instance_cleaned": false,
+  "shared_environments_removed": false,
+  "remaining_evidence": "Only report artifacts and original prior 319 read-only evidence; unrelated temp files untouched"
+}
