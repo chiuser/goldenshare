@@ -1,0 +1,16 @@
+{
+  "status": "passed_pending_final_audit",
+  "automatic_retries": 0,
+  "node": "dual_http",
+  "started_at": 3489691.3710805,
+  "elapsed_seconds": 2.1600788328796625,
+  "program_seconds": 4.147743458393961,
+  "owned_root_removed": true,
+  "counters": {
+    "input_rows": 7000,
+    "locator_rows": 16000,
+    "sql_logical_rows": 168630,
+    "real_controls": 2,
+    "fake_controls": 11
+  }
+}

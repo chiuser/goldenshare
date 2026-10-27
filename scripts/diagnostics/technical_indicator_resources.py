@@ -26,6 +26,7 @@ from zoneinfo import ZoneInfo
 
 ROOT = Path(__file__).resolve().parents[2]
 REPORT = ROOT / "reports/technical_indicator_kernel_d4_20261027"
+REPAIR_REPORT = ROOT / "reports/technical_indicator_kernel_d4_repairs_20261027"
 REFERENCE = ROOT / "reports/technical_indicator_kernel_d3_20261025/independent_reference.json"
 RESUME_PLAN = REPORT / "resume_plan_20261027.json"
 NODES = ("single_http", "dual_http", "shutdown_and_normal", "read_cancel_and_normal",
@@ -101,7 +102,7 @@ def _time_for(position):
                    else timedelta(hours=13, minutes=1 + minute - 120))
 
 
-def _prepare_source(root, progress):
+def _prepare_source(root, progress, *, report_dir=REPORT):
     import duckdb
     import pyarrow as pa
     import pyarrow.parquet as pq
@@ -117,7 +118,7 @@ def _prepare_source(root, progress):
         # only its date is aligned to the explicitly approved 2026 partition.
         progress["input_rows"] += 4000
         progress["sql_logical_rows"] += 4000
-        _write(REPORT / "progress.json", progress)
+        _write(report_dir / "progress.json", progress)
         con.execute("""CREATE TEMP TABLE d4_bars AS
           WITH numbered AS (SELECT i::BIGINT AS seq,10000+3*(i%11)-5*(i%7) AS cents,
             DATE '2026-01-02'+CAST(floor((i-1)/240) AS INTEGER) AS day,
@@ -127,7 +128,7 @@ def _prepare_source(root, progress):
             ELSE INTERVAL 13 HOUR+INTERVAL 1 MINUTE+(minute_index-120)*INTERVAL 1 MINUTE
             END AS bar_time FROM numbered ORDER BY seq""")
         progress["sql_logical_rows"] += 4000
-        _write(REPORT / "progress.json", progress)
+        _write(report_dir / "progress.json", progress)
         copied = con.execute("""COPY (SELECT '600000.SH'::VARCHAR AS ts_code,
           day::DATE AS trade_date,bar_time::TIMESTAMP AS trade_time,
           cents/100.0 AS "open",(cents+100)/100.0 AS "high",(cents-100)/100.0 AS "low",
@@ -152,7 +153,7 @@ def _prepare_source(root, progress):
         con.close()
         progress["fixture"]["connection_closed"] = True
         progress["fixture"]["elapsed_seconds"] = monotonic() - started
-        _write(REPORT / "progress.json", progress)
+        _write(report_dir / "progress.json", progress)
     assert progress["fixture"]["elapsed_seconds"] <= 5
 
 
@@ -173,9 +174,9 @@ class _Gate:
 
 
 class _Node:
-    def __init__(self, name, root):
+    def __init__(self, name, root, *, report_dir=REPORT, record_suffix="_resume_01"):
         self.name, self.root = name, root
-        self.path = REPORT / ("node_" + name + "_resume_01.json")
+        self.path = report_dir / ("node_" + name + record_suffix + ".json")
         assert not self.path.exists(), "Do not rerun a previously attempted D4 node"
         self.started = monotonic()
         self.lock = threading.RLock()
@@ -183,6 +184,8 @@ class _Node:
         self.controls = []
         self.gates = []
         self.runtimes = []
+        self.health_loop = self.health_group = self.health_done = None
+        self.health_triggered = False
         self.record = {"name": name, "status": "running", "calls": self.calls,
                        "real_controls": 0, "price_rows": 0, "locator_rows": 0,
                        "sql_logical_rows": 0, "health": [], "actual_file_read_bytes": None,
@@ -203,7 +206,70 @@ class _Node:
             # cannot change that dictionary's size midway through encoding.
             snapshot = dict(self.record)
             snapshot["calls"] = [dict(call) for call in self.calls]
+            snapshot["health"] = [dict(item) for item in self.record["health"]]
             _write(self.path, snapshot)
+
+    def submit_health(self, control, statistics):
+        """Observe one completed real SQL step; do not replace or delay it."""
+        if self.name != "dual_http" or statistics.step_name != "macd_first":
+            return
+        with self.lock:
+            if self.health_triggered:
+                return
+            assert not statistics.failed and self.health_group is not None
+            assert all(gate.release.is_set() for gate in self.gates)
+            assert len(self.calls) == 2 and all("calculation_started_at" in call for call in self.calls)
+            self.health_triggered = True
+            self.record.update(health_trigger_step=statistics.step_name,
+                               health_trigger_call_index=self.controls.index(control),
+                               health_trigger_step_completed_at=monotonic())
+        for index in range(3):
+            # The delay includes waiting for the event loop, rather than only
+            # the short no-I/O health handler once it eventually starts.
+            with self.lock:
+                metric = {"index": index, "submitted_at": monotonic()}
+                self.record["health"].append(metric)
+            self.health_loop.call_soon_threadsafe(self.health_group.start_soon, self.health, metric)
+
+    async def health(self, metric):
+        messages = []
+
+        async def send(message):
+            messages.append(message)
+
+        async def receive():
+            raise AssertionError("The no-body health request does not read input")
+
+        async def app(scope, receive, send):
+            assert scope["type"] == "http" and scope["path"] == "/health"
+            await send({"type": "http.response.start", "status": 200, "headers": []})
+            await send({"type": "http.response.body", "body": b"ok", "more_body": False})
+
+        with self.lock:
+            metric["handled_at"] = monotonic()
+        try:
+            await app({"type": "http", "path": "/health"}, receive, send)
+            completed = monotonic()
+            with self.lock:
+                metric.update(completed_at=completed,
+                              elapsed_ms=(completed - metric["submitted_at"]) * 1000,
+                              status=200, response_messages=len(messages))
+            assert [m["type"] for m in messages] == ["http.response.start", "http.response.body"]
+            assert messages[0]["status"] == 200 and messages[1]["body"] == b"ok"
+            assert not messages[1]["more_body"] and metric["elapsed_ms"] <= 200
+        except BaseException as error:
+            with self.lock:
+                metric["error"] = _error(error)
+            raise
+        finally:
+            messages.clear()
+            with self.lock:
+                metric["finished"] = True
+                done = len(self.record["health"]) == 3 and all(
+                    item.get("finished") for item in self.record["health"])
+            if done:
+                self.health_done.set()
+            self.save()
 
     def call_for(self, control):
         return self.calls[self.controls.index(control)]
@@ -262,6 +328,14 @@ class _Node:
                     assert re.fullmatch(r"0(?:\.0*)?\s*(?:[kmgtpe]i?b|bytes?)?",
                                         str(settings[1]), re.IGNORECASE), settings
                     assert int(settings[2]) == 1
+                    original_execute = executor.execute
+
+                    def execute(step):
+                        statistics = original_execute(step)
+                        state.submit_health(control, statistics)
+                        return statistics
+
+                    executor.execute = execute
                 except BaseException as error:
                     # The caller has not yet received this open connection.
                     # A diagnostic metadata failure must not lose its owner.
@@ -274,9 +348,15 @@ class _Node:
 
             def calculate(self, request):
                 entry = state.call_for(self.control)
-                entry["worker_thread"] = threading.get_ident()
+                with state.lock:
+                    entry["worker_thread"] = threading.get_ident()
+                    entry["calculation_started_at"] = monotonic()
                 try:
-                    result = super().calculate(request)
+                    try:
+                        result = super().calculate(request)
+                    finally:
+                        with state.lock:
+                            entry["calculation_finished_at"] = monotonic()
                     _validate_result(result, state.references)
                     entry["calculation_result_verified"] = True
                     entry["status"] = "calculated"
@@ -514,32 +594,30 @@ class _Node:
                     runtime.source.open = gated_open
                     outcomes.extend(({}, {}))
                     async with anyio.create_task_group() as group:
+                        self.health_loop = asyncio.get_running_loop()
+                        self.health_group, self.health_done = group, anyio.Event()
                         group.start_soon(self.http, runtime, outcomes[0])
                         group.start_soon(self.http, runtime, outcomes[1])
                         for gate in gates:
                             with anyio.fail_after(5):
                                 await gate.entered.wait()
                         assert len(runtime.admission.active_leases) == 2
-                        for _ in range(3):
-                            started = monotonic()
-                            # An isolated same-loop ASGI health path performs no I/O.
-                            messages = []
-                            async def health_send(message):
-                                messages.append(message)
-                            async def health_receive():
-                                raise AssertionError("The no-body health request does not read input")
-                            async def health_app(scope, receive, send):
-                                assert scope["type"] == "http" and scope["path"] == "/health"
-                                await send({"type": "http.response.start", "status": 200, "headers": []})
-                                await send({"type": "http.response.body", "body": b"ok", "more_body": False})
-                            await health_app({"type": "http", "path": "/health"}, health_receive, health_send)
-                            elapsed = monotonic() - started
-                            assert elapsed <= .2 and len(messages) == 2
-                            self.record["health"].append({"elapsed_ms": elapsed * 1000, "status": 200})
+                        with self.lock:
+                            self.record["read_gates_released_at"] = monotonic()
                         for gate in gates:
                             gate.release.set()
+                        with anyio.fail_after(5):
+                            await self.health_done.wait()
                     assert all(item["status"] == "passed" for item in outcomes), outcomes
                     assert len({c["worker_thread"] for c in self.calls}) == 2
+                    assert self.health_triggered and len(self.record["health"]) == 3
+                    for metric in self.record["health"]:
+                        assert metric.get("finished") and not metric.get("error")
+                        assert self.record["read_gates_released_at"] <= self.record[
+                            "health_trigger_step_completed_at"] <= metric["submitted_at"]
+                        assert metric["submitted_at"] <= metric["handled_at"] <= metric["completed_at"]
+                        assert all(call["calculation_started_at"] <= metric["submitted_at"] <
+                                   call["calculation_finished_at"] for call in self.calls)
                 elif self.name in ("shutdown_and_normal", "read_cancel_and_normal"):
                     gate = _Gate(asyncio.get_running_loop()); self.gates.append(gate)
                     runtime = self.runtime(gate)
@@ -625,6 +703,7 @@ class _Node:
                 else:
                     raise AssertionError("Unknown D4 node")
         finally:
+            self.health_loop = self.health_group = self.health_done = None
             for gate in self.gates:
                 gate.release.set()
             with anyio.CancelScope(shield=True):
@@ -646,10 +725,10 @@ class _Node:
         self.budget()
 
 
-def _run_node(name, root):
+def _run_node(name, root, *, report_dir=REPORT, record_suffix="_resume_01"):
     import anyio
 
-    state = _Node(name, root)
+    state = _Node(name, root, report_dir=report_dir, record_suffix=record_suffix)
     state.record.update(pid=os.getpid(), node_working_directory=str(Path.cwd()),
                         starting_threads=[t.name for t in threading.enumerate()],
                         memory_validation="not_measured_estimate_only_by_administrator_decision",
@@ -676,11 +755,159 @@ def _run_node(name, root):
         state.save()
 
 
+def _verify_repair_files(plan):
+    assert plan["status"] == "approved_before_implementation"
+    assert plan["real_nodes"] == ["dual_http"] and plan["real_requests"] == 2
+    assert plan["healthy_requests"] == 3 and plan["health_trigger"]["real_step"] == "macd_first"
+    assert len(plan["old_reports_SHA256"]) == 37
+    for field in ("old_reports_SHA256", "protected_Foundation_SHA256", "implementation_SHA256"):
+        files = plan[field]
+        assert isinstance(files, dict) and files, field
+        for file, digest in files.items():
+            assert hashlib.sha256((ROOT / file).read_bytes()).hexdigest() == digest, file
+    # The old node's saved digest is itself protected by the 37-file check.
+    # The repair reuses that exact independent reference, never regenerates it.
+    reference_digest = _read(REPORT / "node_dual_http_resume_01.json")["independent_reference_sha256"]
+    assert hashlib.sha256(REFERENCE.read_bytes()).hexdigest() == reference_digest
+
+
+def _repair_dual_node(root):
+    plan, progress = _read(REPAIR_REPORT / "plan.json"), _read(REPAIR_REPORT / "progress.json")
+    _verify_repair_files(plan)
+    assert progress["unit_status"] == "passed" and progress["real_execution_started"]
+    assert progress["real_status"] == "running" and progress["fixture"]["status"] == "passed"
+    assert progress["fixture"]["connection_closed"]
+    assert root.resolve() == Path(progress["owned_root"]).resolve() and root.is_dir()
+    assert Path.cwd().resolve().parent == root.resolve()
+    _run_node("dual_http", root, report_dir=REPAIR_REPORT, record_suffix="_repair_01")
+
+
+def _repair_dual():
+    started = monotonic()
+    plan, progress = _read(REPAIR_REPORT / "plan.json"), _read(REPAIR_REPORT / "progress.json")
+    _verify_repair_files(plan)
+    assert progress["status"] in ("planned", "unit_passed") and progress["unit_status"] == "passed"
+    assert progress["real_status"] == "not_started" and not progress.get("real_execution_started")
+    assert not progress.get("real_nodes") and not progress.get("fixture")
+    assert all(progress[field] == 0 for field in
+               ("input_rows", "locator_rows", "sql_logical_rows", "real_controls"))
+    assert progress["fake_controls"] <= plan["budget"]["fake_controls"]
+    execution_path = REPAIR_REPORT / "real_execution_01.json"
+    node_path = REPAIR_REPORT / "node_dual_http_repair_01.json"
+    output_path = REPAIR_REPORT / "node_dual_http_repair_01_output.txt"
+    assert not any(path.exists() for path in (execution_path, node_path, output_path)), \
+        "Do not restart an attempted D4 repair"
+    prior_seconds = progress["program_seconds"]
+    assert prior_seconds < plan["budget"]["program_seconds"]
+    execution = {"status": "running", "automatic_retries": 0,
+                 "node": "dual_http", "started_at": started}
+    progress.update(status="real_running", real_status="running", real_execution_started=True,
+                    real_nodes=[], fixture_preparations=0,
+                    memory_validation_status="not_measured_estimate_only_by_administrator_decision")
+    _write(execution_path, execution)
+    _write(REPAIR_REPORT / "progress.json", progress)
+    temporary = owned = None
+    try:
+        temporary = TemporaryDirectory(prefix="ti_d4_repair_", dir="/private/tmp")
+        owned = Path(temporary.name)
+        progress.update(owned_root=str(owned), owned_root_removed=False)
+        progress["fixture_preparations"] += 1
+        _write(REPAIR_REPORT / "progress.json", progress)
+        _prepare_source(owned, progress, report_dir=REPAIR_REPORT)
+        node_started = monotonic()
+        work = owned / "work_dual_http"
+        work.mkdir()
+        command = [sys.executable, "-m", "scripts.diagnostics.technical_indicator_resources",
+                   "--repair-dual", "--node", "dual_http", "--owned-root", str(owned)]
+        process = subprocess.Popen(command, cwd=work, env=dict(os.environ, PYTHONPATH=str(ROOT)),
+                                   stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+        timeout, process_error = False, None
+        try:
+            output, _ = process.communicate(timeout=plan["per_program_seconds"])
+        except subprocess.TimeoutExpired:
+            timeout = True
+            # A missed target is a failure, but ownership continues until exit.
+            output, _ = process.communicate()
+        except BaseException as error:
+            # Preserve the failure, but still wait and charge the actual child
+            # before releasing the directory it may still be reading.
+            process_error = error
+            output, _ = process.communicate()
+        elapsed = monotonic() - node_started
+        output_path.write_text(output)
+        actual = _read(node_path) if node_path.exists() else {
+            "name": "dual_http", "status": "failed_before_node_record", "real_controls": 0,
+            "price_rows": 0, "locator_rows": 0, "sql_logical_rows": 0}
+        actual.update(program_elapsed_seconds=elapsed, returncode=process.returncode,
+                      program_timeout=timeout)
+        _write(node_path, actual)
+        progress["input_rows"] += actual["price_rows"]
+        for field in ("locator_rows", "sql_logical_rows", "real_controls"):
+            progress[field] += actual[field]
+        progress["real_nodes"].append({"name": "dual_http", "status": actual["status"],
+                                       "record": node_path.name})
+        progress["program_seconds"] = prior_seconds + monotonic() - started
+        _write(REPAIR_REPORT / "progress.json", progress)
+        if process_error is not None:
+            raise process_error
+        assert not timeout and process.returncode == 0 and actual["status"] == "passed", actual
+        assert elapsed <= plan["per_program_seconds"]
+        for field in ("input_rows", "locator_rows", "sql_logical_rows", "real_controls", "fake_controls"):
+            assert progress[field] <= plan["budget"][field], (field, progress[field])
+        assert progress["real_controls"] == 2 and progress["fixture_preparations"] == 1
+        _verify_repair_files(plan)
+        progress.update(status="real_passed_pending_final_audit", real_status="passed")
+        execution["status"] = "passed_pending_final_audit"
+    except BaseException as error:
+        progress.update(status="failed_stop_without_retry", real_status="failed_stop_without_retry",
+                        real_error=_error(error))
+        execution.update(status="failed_stop_without_retry", error=_error(error))
+        raise
+    finally:
+        cleanup_error = None
+        try:
+            if temporary is not None:
+                temporary.cleanup()
+        except BaseException as error:
+            cleanup_error = error
+            progress["owned_cleanup_error"] = _error(error)
+        progress["owned_root_removed"] = owned is None or not owned.exists()
+        elapsed = monotonic() - started
+        progress["real_program_seconds"] = elapsed
+        progress["program_seconds"] = prior_seconds + elapsed
+        over_total = progress["program_seconds"] > plan["budget"]["program_seconds"]
+        if cleanup_error is not None or not progress["owned_root_removed"] or over_total:
+            progress.update(status="failed_stop_without_retry", real_status="failed_stop_without_retry")
+            execution["status"] = "failed_stop_without_retry"
+            execution["cleanup_or_total_budget_error"] = {
+                "owned_root_removed": progress["owned_root_removed"], "over_total": over_total,
+                "cleanup_error": _error(cleanup_error) if cleanup_error is not None else None}
+        execution.update(elapsed_seconds=elapsed, program_seconds=progress["program_seconds"],
+                         owned_root_removed=progress["owned_root_removed"],
+                         counters={field: progress[field] for field in
+                                   ("input_rows", "locator_rows", "sql_logical_rows", "real_controls", "fake_controls")})
+        _write(REPAIR_REPORT / "progress.json", progress)
+        _write(execution_path, execution)
+        if cleanup_error is not None:
+            raise cleanup_error
+        assert progress["owned_root_removed"], "The owned D4 repair directory was not released"
+        assert not over_total, "D4 repair total program time exceeded after cleanup"
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--node", choices=NODES)
     parser.add_argument("--owned-root", type=Path)
+    parser.add_argument("--repair-dual", action="store_true")
     arguments = parser.parse_args()
+    if arguments.repair_dual:
+        if arguments.node is not None:
+            assert arguments.node == "dual_http" and arguments.owned_root is not None
+            _repair_dual_node(arguments.owned_root)
+        else:
+            assert arguments.owned_root is None
+            _repair_dual()
+        return
     if arguments.node is not None:
         assert arguments.owned_root is not None and arguments.owned_root.is_dir()
         _run_node(arguments.node, arguments.owned_root)

@@ -1,0 +1,37 @@
+{
+  "status": "passed",
+  "read_only": true,
+  "new_calculations": 0,
+  "new_tests": 0,
+  "reviewers": [
+    {
+      "reviewer": "independent App review",
+      "scope": "execution.py cancellation choice, worker/error/reference cleanup and unique release; JUnit and ordinary pytest boundary",
+      "findings": []
+    },
+    {
+      "reviewer": "independent diagnostic review",
+      "scope": "actual SQL trigger, calculate overlap, full health timing, unchanged original requests/reference, costs, cleanup and old hashes",
+      "findings": []
+    }
+  ],
+  "old_evidence_files_unchanged": 37,
+  "protected_files_unchanged": 12,
+  "implementation_files_verified": 4,
+  "codegraph": {
+    "tools": [
+      "codegraph_search",
+      "codegraph_callers",
+      "codegraph sync",
+      "codegraph status"
+    ],
+    "impact": "App execution entry; 13 existing light_case callers including architecture; diagnostic fixed node; no formal API or frontend caller change",
+    "index_up_to_date": true,
+    "indexed_files": 4529
+  },
+  "unverified_scope": [
+    "formal API/page/XXM/DG exit",
+    "RSS actual measurement",
+    "new full D4 run or new concurrency stress"
+  ]
+}

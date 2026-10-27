@@ -1,0 +1,14 @@
+{
+  "status": "passed",
+  "old_evidence_files_unchanged": 37,
+  "protected_files_unchanged": 12,
+  "old_test_functions_unchanged": 7,
+  "new_functions": [
+    "test_repeatable_regression_ignores_acceptance_history",
+    "test_external_cancel_preserves_main_error_after_worker_feedback",
+    "test_original_worker_failure_precedes_later_cancel"
+  ],
+  "ancestor_conftest": [],
+  "program_seconds": 0.07532195840030909,
+  "no_test_or_SQL_executed": true
+}

@@ -1,14 +1,13 @@
 """D4's seven admission classes; no source reads, SQL or real Control.
 
 The independent expected ordering comes from LLD12.2/12.4/12.4a. These
-helpers are also used by the two lifecycle modules, with one shared ledger.
+helpers are also used by the two lifecycle modules; each scope releases its
+FakeControl references without reading or writing acceptance history.
 """
 
 import asyncio
 from contextlib import contextmanager
 from dataclasses import replace
-import json
-from pathlib import Path
 from time import monotonic
 
 import anyio
@@ -24,9 +23,6 @@ from src.foundation.technical_indicators.errors import (
     CalculationCancelledError, CalculationDeadlineError, CapacityBusyError,
     RequestInvalidError, WaitExpiredError,
 )
-
-
-_REPORT = Path(__file__).resolve().parents[3] / "reports/technical_indicator_kernel_d4_20261027"
 
 
 def make_config(**overrides):
@@ -84,49 +80,14 @@ class FakeControl:
         pass
 
 
-def _save_progress(record):
-    path = _REPORT / "progress.json"
-    temporary = path.with_suffix(".json.tmp")
-    temporary.write_text(json.dumps(record, ensure_ascii=False, indent=2)+"\n")
-    temporary.replace(path)
-
-
 @contextmanager
 def light_case(name):
-    """Persist each original class once; preserve all other phase counters."""
-    plan = json.loads((_REPORT / "plan.json").read_text())
-    matches = [node for node in plan["light_test_nodes"] if node.endswith("::"+name)]
-    assert len(matches) == 1
-    node = matches[0]
-    progress = json.loads((_REPORT / "progress.json").read_text())
-    assert not progress.get("status", "").startswith("failed"), "A prior failure requires review"
-    assert node not in progress.get("completed_nodes", [])
-    assert all(item["node"] != node for item in progress.get("light_nodes", [])), "Do not rerun an attempted node"
-    event = dict(node=node, status="running")
-    progress.setdefault("light_nodes", []).append(event)
-    progress["status"] = "light_running"
-    _save_progress(progress)
-    before, started = len(FakeControl.instances), monotonic()
+    """Keep each ordinary regression independent of acceptance history."""
+    first = len(FakeControl.instances)
     try:
         yield
-        calls = len(FakeControl.instances)-before
-        assert calls <= 6, "One existing light class exceeded six small calls"
-        assert progress.get("light_calls",0)+calls <= 72
-        assert progress.get("light_program_seconds",0)+(monotonic()-started) <= 5
-        event["status"] = "passed"
-        progress.setdefault("completed_nodes", []).append(node)
-    except BaseException as error:
-        event.update(status="failed_stop_without_retry", error_type=type(error).__name__,
-                     error=str(error)[:1024])
-        progress["status"] = "failed_stop_without_retry"
-        raise
     finally:
-        event.update(calls=len(FakeControl.instances)-before, elapsed_seconds=monotonic()-started)
-        progress["light_calls"] = progress.get("light_calls",0)+event["calls"]
-        progress["light_program_seconds"] = progress.get("light_program_seconds",0)+event["elapsed_seconds"]
-        if set(plan["light_test_nodes"]) <= set(progress.get("completed_nodes", [])):
-            progress["status"] = "light_passed"
-        _save_progress(progress)
+        del FakeControl.instances[first:]
 
 
 def test_normal_grant_and_prewait_validation(monkeypatch):

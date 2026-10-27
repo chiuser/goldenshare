@@ -1,0 +1,182 @@
+{
+  "phase": "D4 three audit repairs",
+  "authorization": "管理员明确要求先补LLD，再仅补相关小例和原双并发节点，不重跑整组",
+  "status": "approved_before_implementation",
+  "baseline_HEAD": "189e186e8ea3b02fe4d17b82243def758c610fba",
+  "branch": "dev-interface",
+  "basis": [
+    "docs/architecture/technical-indicator-kernel-component-design-v1.html#d4-three-repairs-20261027",
+    "docs/architecture/technical-indicator-kernel-low-level-design-v1.html#d4-three-repairs-20261027"
+  ],
+  "code_scope": [
+    "src/app/runtime/technical_indicators/execution.py",
+    "tests/app/technical_indicators/test_admission.py",
+    "tests/app/technical_indicators/test_d4_repairs.py",
+    "scripts/diagnostics/technical_indicator_resources.py"
+  ],
+  "old_reports_SHA256": {
+    "reports/technical_indicator_kernel_d4_20261027/acceptance.json": "694cffd4cdd92534d6aa7910e0c0c03ac14602f2516eb2cdb65818c2eda10af6",
+    "reports/technical_indicator_kernel_d4_20261027/acceptance_before_closeout_20261027.json": "fd37d9e26b4a597bd864b8440a2772376fb61f72a58c310edb760b23ab2500a4",
+    "reports/technical_indicator_kernel_d4_20261027/acceptance_before_real_01.json": "13de034db33976c2b7f0d297fbaefe6ce91e19f558d20975e8bd8294df4761bf",
+    "reports/technical_indicator_kernel_d4_20261027/administrator_memory_decision_20261027.json": "273bcaceaad945596f7f68f2c35fabc22f3e9cada6aab999ae6be5ae0e035114",
+    "reports/technical_indicator_kernel_d4_20261027/audit.md": "e97f2c7051e030c71be573ed9d59aa1d0f8b2fb86a271301fddb718ccb43f40d",
+    "reports/technical_indicator_kernel_d4_20261027/audit_before_closeout_20261027.md": "30856187f00bbfd0b623986fdf9fa500d9bce13e394802ce109d491cb492e2b3",
+    "reports/technical_indicator_kernel_d4_20261027/execution_light_01.json": "36161a5a7fcbdd19f7d3aeac32a0b30c6abf7dc511c633ea99f2d397392bc9ca",
+    "reports/technical_indicator_kernel_d4_20261027/execution_real_01.json": "b0626c8c8463cbdf00fba250ac721d95da114f877d01aa9d3bf1fbf214fdbfca",
+    "reports/technical_indicator_kernel_d4_20261027/execution_real_resume_01.json": "dd0159077433268381aca0bcedbb8b59c78d0876e4effd7cb6452e3b71299172",
+    "reports/technical_indicator_kernel_d4_20261027/final_static_review.json": "bbf76baf0d83403110a0a01c19114d1a2d97d83bf4bf814fef7976db06f52859",
+    "reports/technical_indicator_kernel_d4_20261027/final_validation_20261027.json": "a1c8f67d0667670c01ad08a65f64c9a02ad2a51396029981cbc5a6a03d0383bd",
+    "reports/technical_indicator_kernel_d4_20261027/independent_review_20261027.json": "e097d946b8eef87e57ee43c96d7921f890ca48aff5db104b1f0a74314ac99245",
+    "reports/technical_indicator_kernel_d4_20261027/memory_decision_document_validation.json": "c572451f9951e888b022bbfedeb37cee7757fed5fd059ec81a3baa01cf228244",
+    "reports/technical_indicator_kernel_d4_20261027/node_disconnect_resume_01.json": "bea62aff8241aa85a9c1e744697bd071e858ee81e3aad669e1f09759955ce495",
+    "reports/technical_indicator_kernel_d4_20261027/node_disconnect_resume_01_output.txt": "a75ed675cc9c5ed6bb8431bfed04365d72e9c22281e713fd1a9d4196a13f7aed",
+    "reports/technical_indicator_kernel_d4_20261027/node_dual_http_resume_01.json": "7c7628b35163c8a79a63d85cc6b7756ef62e96e1a523efeca131cdcb2a97eab3",
+    "reports/technical_indicator_kernel_d4_20261027/node_dual_http_resume_01_output.txt": "a75ed675cc9c5ed6bb8431bfed04365d72e9c22281e713fd1a9d4196a13f7aed",
+    "reports/technical_indicator_kernel_d4_20261027/node_encoding_failure_resume_01.json": "10bae0c9535417a75c5cde465051eb7f40b50b7deceb5e9f79ddd9ae0538969b",
+    "reports/technical_indicator_kernel_d4_20261027/node_encoding_failure_resume_01_output.txt": "a75ed675cc9c5ed6bb8431bfed04365d72e9c22281e713fd1a9d4196a13f7aed",
+    "reports/technical_indicator_kernel_d4_20261027/node_read_cancel_and_normal_resume_01.json": "eb9ad0350c2d15dccf0f1598626f61741238ca45c0e6b5d9c10713ef176b9f05",
+    "reports/technical_indicator_kernel_d4_20261027/node_read_cancel_and_normal_resume_01_output.txt": "a75ed675cc9c5ed6bb8431bfed04365d72e9c22281e713fd1a9d4196a13f7aed",
+    "reports/technical_indicator_kernel_d4_20261027/node_shutdown_and_normal_resume_01.json": "c1dc90d97f701edcbd8439565e40d2aacee9600767073524b9e1776b4742a0ad",
+    "reports/technical_indicator_kernel_d4_20261027/node_shutdown_and_normal_resume_01_output.txt": "a75ed675cc9c5ed6bb8431bfed04365d72e9c22281e713fd1a9d4196a13f7aed",
+    "reports/technical_indicator_kernel_d4_20261027/node_single_http.json": "a3595d95aec27f4a5a332aac0cf52155dd6950371f68a9af34ae16ed8286ac3f",
+    "reports/technical_indicator_kernel_d4_20261027/node_single_http_output.txt": "ab40bef9aacb7586156760b0a20b067b38c7d7bfd740f04c85e51db5c87489a2",
+    "reports/technical_indicator_kernel_d4_20261027/node_single_http_resume_01.json": "f7be388124b1d834978fb0ea1ab2a354f46d6a3ff85a7890e3326bc68b6b710b",
+    "reports/technical_indicator_kernel_d4_20261027/node_single_http_resume_01_output.txt": "a75ed675cc9c5ed6bb8431bfed04365d72e9c22281e713fd1a9d4196a13f7aed",
+    "reports/technical_indicator_kernel_d4_20261027/node_slow_send_resume_01.json": "4260cfa7201a44004440721cb2703453fe9a0919e10657f003813241a40a2de8",
+    "reports/technical_indicator_kernel_d4_20261027/node_slow_send_resume_01_output.txt": "a75ed675cc9c5ed6bb8431bfed04365d72e9c22281e713fd1a9d4196a13f7aed",
+    "reports/technical_indicator_kernel_d4_20261027/plan.json": "7b1f34e3934a3aa6c26ebb7d4e20d01c5e10f76ae966687b48db883f449decfc",
+    "reports/technical_indicator_kernel_d4_20261027/progress.json": "cb63720788d03b0d75953fa4d01048e61f333282025bceb7f9d2c4a93a9473f2",
+    "reports/technical_indicator_kernel_d4_20261027/pytest_light_01_output.txt": "93094371740d9bb5e6662d3984ebbc1ffd4282ff18317a92c7d9e5379ef18b83",
+    "reports/technical_indicator_kernel_d4_20261027/real_01_output.txt": "084ec67cff4ad4429b103c88f9572d462b03e36f684ec6ed6689497760f4d976",
+    "reports/technical_indicator_kernel_d4_20261027/real_resume_01_output.txt": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "reports/technical_indicator_kernel_d4_20261027/resume_baseline_20261027.json": "a91dc381d4aca2797ced4e810e1ef6f4fbe67e422326ba8109c52abf37791da3",
+    "reports/technical_indicator_kernel_d4_20261027/resume_plan_20261027.json": "a17846e75541f7ec48bf5faed743e5cd57d9e7dc6a2995c402b21030984f8ed4",
+    "reports/technical_indicator_kernel_d4_20261027/resume_preexecution_static_review.json": "e0d450d6010060d6f3f4cd56f04fe3a385bcc4b5a68b43c29a6be08e209f22e5"
+  },
+  "protected_Foundation_SHA256": {
+    "src/foundation/technical_indicators/service.py": "df05d0fc806885c5a6ebf9fa8dc5a639aff040ca1223c1df78d27796e2d3ffcc",
+    "src/foundation/technical_indicators/contracts.py": "c76737b121ffb59c0f1284793856771c2d716e5e0efb0e8ba8d327991c65c188",
+    "src/foundation/technical_indicators/execution_control.py": "ebc68c68e09810273a261723d3086eb5230d70ac6d21a8e6541ccc300f40cc2b",
+    "src/foundation/technical_indicators/calculation/registry.py": "aba963003df3768f6b134aee388b63ec0d54480cc3d12edea14a9f3f76a25540",
+    "src/foundation/technical_indicators/calculation/calculation.py": "1354380dc3083313de8a53848fae4172916ec84f1ce895546667c12edbaad0f9",
+    "src/foundation/technical_indicators/calculation/indicators/__init__.py": "c4baaa463bd7163ff9e480127142cda7f1319d08b1dbf36040700ff24fda8cb1",
+    "src/foundation/technical_indicators/configuration/settings.py": "a1000d2465c2ba8b8e5155f299787dd6f32a171663287cb0f48b0f13384178c2",
+    "src/foundation/technical_indicators/output/encoding.py": "13390ef668b035326598478a8177a18ba722575327104132135d934e23069b8d",
+    "src/foundation/clients/local_lake/technical_indicator_price_source.py": "e45212b14a04820a0d5737349109d9ec9cbcde8acf1310a3db228a1a3b2c59b1",
+    "src/foundation/clients/local_lake/technical_indicator_price_locator.py": "cd0e4343934d204fee3c0694aa6f366748879e674efa26efecaa4c332ad7b08a",
+    "src/foundation/config/settings.py": "c2184c066157039fa360d56f43e4a9d8a8a66e23d6205a8b3ebe2de590ca4b4e",
+    "src/app/web/lifespan.py": "85cc7e98b0ff33ef7c1b21c1d3bea365394ba80bd67db4e1ceafe108ec5986f0"
+  },
+  "source_version_precondition": {
+    "src/foundation/clients/local_lake/technical_indicator_price_source.py": {
+      "working_SHA256": "e45212b14a04820a0d5737349109d9ec9cbcde8acf1310a3db228a1a3b2c59b1",
+      "HEAD_SHA256": "1c0dff063e6b899e596e7fa3f8af2c7416e093bed8bdf2fc30a5d8a2ab23c0a5",
+      "note": "pre-existing working tree repair, untouched by this D4 fix"
+    },
+    "src/foundation/clients/local_lake/technical_indicator_price_locator.py": {
+      "working_SHA256": "cd0e4343934d204fee3c0694aa6f366748879e674efa26efecaa4c332ad7b08a",
+      "HEAD_SHA256": "a6188044eef6e418b80dac4eb1909be1bd8413032c09488d557d55eb043f8fa5",
+      "note": "pre-existing working tree repair, untouched by this D4 fix"
+    }
+  },
+  "unit_test_nodes": [
+    "tests/app/technical_indicators/test_d4_repairs.py::test_repeatable_regression_ignores_acceptance_history",
+    "tests/app/technical_indicators/test_d4_repairs.py::test_external_cancel_preserves_main_error_after_worker_feedback",
+    "tests/app/technical_indicators/test_d4_repairs.py::test_original_worker_failure_precedes_later_cancel"
+  ],
+  "unit_fake_controls_by_node": [
+    8,
+    2,
+    1
+  ],
+  "unit_budget": {
+    "test_functions": 3,
+    "fake_controls": 11,
+    "input_rows": 0,
+    "sql_logical_rows": 0,
+    "real_controls": 0
+  },
+  "real_nodes": [
+    "dual_http"
+  ],
+  "real_requests": 2,
+  "healthy_requests": 3,
+  "budget": {
+    "input_rows": 7000,
+    "locator_rows": 16000,
+    "sql_logical_rows": 168630,
+    "real_controls": 2,
+    "fake_controls": 11,
+    "program_seconds": 60
+  },
+  "per_program_seconds": 30,
+  "fixture": {
+    "rows": 4000,
+    "calls": 1,
+    "source": "600000.SH / 1m / qfq / year=2026",
+    "schema_and_price_formula": "reuse existing _prepare_source exactly",
+    "sql_logical_rows": 8000
+  },
+  "requests": {
+    "count": 2,
+    "limit": 1000,
+    "warmup": 500,
+    "price_rows_each": 1500,
+    "locator_rows_each": 8000,
+    "sql_logical_rows_each": 80315,
+    "indicators": "original 10, no price addition"
+  },
+  "previous_cost": {
+    "input_rows": 23000,
+    "locator_rows": 80000,
+    "sql_logical_rows": 602241,
+    "real_controls": 10,
+    "fixture_preparations": 2,
+    "fixture_rows_total": 8000,
+    "fixture_SQL_logical_rows_total": 16000,
+    "program_seconds": 17.263186499687873
+  },
+  "joint_upper_bounds": {
+    "input_rows": 30000,
+    "locator_rows": 96000,
+    "sql_logical_rows": 770871,
+    "real_controls": 12
+  },
+  "health_trigger": {
+    "real_step": "macd_first",
+    "when": "first worker to finish this real step, once, after both read gates released",
+    "clock": "worker submitted_at before call_soon_threadsafe, completed_at after two sends",
+    "required_overlap": "both calculate started_at <= submitted_at < finished_at",
+    "no_artificial_pause_during_health": true
+  },
+  "execution_order": [
+    "complete original documents and preflight before coding",
+    "ordinary test scope and App cancellation selection",
+    "same diagnostic dual node, new fixed repair report owner",
+    "static pre-review and exact 3 pytest nodes once",
+    "one source creation and only dual_http once",
+    "read-only independent audit and document closeout"
+  ],
+  "failure_rules": [
+    "first unexpected failure stops subsequent work; no automatic repair/rerun",
+    "unit failure means no real node started",
+    "prepare/call/SQL charges recorded before executing; actual attempts persist",
+    "always clean only owned temporary resources, never old evidence",
+    "no automatic source rebuilding or replay; any later resume requires new authorization",
+    "final audit reads saved results only, no extra calculation"
+  ],
+  "no_changes": [
+    "no Foundation algorithm/SQL/source edits",
+    "no dependency installation, config or formal API/page/XXM/DG change",
+    "no old 13-function or 7-real-node rerun",
+    "no new reference data or parameter matrix",
+    "memory remains estimate only",
+    "no commit/push/deploy"
+  ],
+  "implementation_SHA256": {
+    "src/app/runtime/technical_indicators/execution.py": "b0103f62471639d51348dadea969d3145e3b1b7b8b3766df8d514ba9f89eb54b",
+    "tests/app/technical_indicators/test_admission.py": "8e9a5a58654d49d1037f518dec72a9892250f3860c9a93c00f602165bfcf00aa",
+    "tests/app/technical_indicators/test_d4_repairs.py": "a0f981af8b8661c075857f0f3a5904680bf37057fda1b58f6dc75fa2816f944e",
+    "scripts/diagnostics/technical_indicator_resources.py": "4145654c2cbb21f4ca23742f71ba143e003075f0efe36eddab439fecc25ea28b"
+  }
+}

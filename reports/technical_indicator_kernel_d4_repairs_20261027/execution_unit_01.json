@@ -1,0 +1,42 @@
+{
+  "status": "passed",
+  "command": [
+    "/Users/congming/github/goldenshare/.venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-x",
+    "-p",
+    "no:cacheprovider",
+    "-o",
+    "junit_family=xunit1",
+    "--junitxml=/Users/congming/github/goldenshare/reports/technical_indicator_kernel_d4_repairs_20261027/unit_01.xml",
+    "tests/app/technical_indicators/test_d4_repairs.py::test_repeatable_regression_ignores_acceptance_history",
+    "tests/app/technical_indicators/test_d4_repairs.py::test_external_cancel_preserves_main_error_after_worker_feedback",
+    "tests/app/technical_indicators/test_d4_repairs.py::test_original_worker_failure_precedes_later_cancel"
+  ],
+  "automatic_retries": 0,
+  "returncode": 0,
+  "timed_out": false,
+  "elapsed_seconds": 1.9123426671139896,
+  "metrics": {
+    "fake_controls": 11,
+    "real_controls": 0,
+    "input_rows": 0,
+    "sql_logical_rows": 0
+  },
+  "cases": [
+    {
+      "name": "test_repeatable_regression_ignores_acceptance_history",
+      "failed": false
+    },
+    {
+      "name": "test_external_cancel_preserves_main_error_after_worker_feedback",
+      "failed": false
+    },
+    {
+      "name": "test_original_worker_failure_precedes_later_cancel",
+      "failed": false
+    }
+  ]
+}

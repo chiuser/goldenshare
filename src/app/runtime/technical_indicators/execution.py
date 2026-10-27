@@ -12,7 +12,9 @@ from starlette.types import Receive, Send
 from src.foundation.technical_indicators.contracts import (
     CalculationRequest, CalculationResult, normalize_request_and_validate_all_instances,
 )
-from src.foundation.technical_indicators.errors import CalculationUnsupportedError
+from src.foundation.technical_indicators.errors import (
+    CalculationCancelledError, CalculationUnsupportedError,
+)
 from src.foundation.technical_indicators.execution_control import ExecutionControl
 from src.foundation.technical_indicators.output.encoding import encode_response_utf8
 from src.foundation.technical_indicators.service import TechnicalIndicatorService
@@ -52,6 +54,7 @@ async def _execute(
     runtime: TechnicalIndicatorRuntime, request: CalculationRequest, *, arrived_at: float,
     receive: Receive | None = None, send: Send | None = None,
 ) -> CalculationResult | None:
+    cancelled_type = anyio.get_cancelled_exc_class()
     control = ExecutionControl(arrived_at=arrived_at, config=runtime.config)
     control.check_active()
     normalized = _validate_request_before_wait(runtime, request)
@@ -63,7 +66,15 @@ async def _execute(
     def remember(error):
         nonlocal primary_error
         if primary_error is None:
-            primary_error = handoff["error"] or error
+            published = handoff["error"]
+            if isinstance(error, cancelled_type) and isinstance(
+                published, (CalculationCancelledError, cancelled_type)
+            ):
+                # A faster stop response must not replace the main task's
+                # original cancellation; already-published real faults remain.
+                primary_error = error
+            else:
+                primary_error = published if published is not None else error
 
     def worker():
         result = body = None

@@ -1,0 +1,22 @@
+{
+  "status": "passed_pending_final_audit",
+  "command": [
+    "/Users/congming/github/goldenshare/.venv/bin/python",
+    "-m",
+    "scripts.diagnostics.technical_indicator_resources",
+    "--repair-dual"
+  ],
+  "automatic_retries": 0,
+  "returncode": 0,
+  "timed_out": false,
+  "elapsed_seconds": 2.239585333969444,
+  "counters": {
+    "input_rows": 7000,
+    "locator_rows": 16000,
+    "sql_logical_rows": 168630,
+    "real_controls": 2,
+    "fake_controls": 11,
+    "program_seconds": 4.227249959483743
+  },
+  "owned_root_removed": true
+}

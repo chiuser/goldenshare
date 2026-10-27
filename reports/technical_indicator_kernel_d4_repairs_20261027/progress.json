@@ -1,0 +1,60 @@
+{
+  "status": "completed",
+  "input_rows": 7000,
+  "locator_rows": 16000,
+  "sql_logical_rows": 168630,
+  "real_controls": 2,
+  "fake_controls": 11,
+  "program_seconds": 4.319401793181896,
+  "completed_nodes": [
+    "tests/app/technical_indicators/test_d4_repairs.py::test_repeatable_regression_ignores_acceptance_history",
+    "tests/app/technical_indicators/test_d4_repairs.py::test_external_cancel_preserves_main_error_after_worker_feedback",
+    "tests/app/technical_indicators/test_d4_repairs.py::test_original_worker_failure_precedes_later_cancel",
+    "dual_http"
+  ],
+  "unit_status": "passed",
+  "real_status": "passed",
+  "automatic_retries": 0,
+  "unit_results": [
+    {
+      "name": "test_repeatable_regression_ignores_acceptance_history",
+      "failed": false
+    },
+    {
+      "name": "test_external_cancel_preserves_main_error_after_worker_feedback",
+      "failed": false
+    },
+    {
+      "name": "test_original_worker_failure_precedes_later_cancel",
+      "failed": false
+    }
+  ],
+  "unit_program_seconds": 1.9123426671139896,
+  "real_execution_started": true,
+  "real_nodes": [
+    {
+      "name": "dual_http",
+      "status": "passed",
+      "record": "node_dual_http_repair_01.json"
+    }
+  ],
+  "fixture_preparations": 1,
+  "memory_validation_status": "not_measured_estimate_only_by_administrator_decision",
+  "owned_root": "/private/tmp/ti_d4_repair_bu5fjto7",
+  "owned_root_removed": true,
+  "fixture": {
+    "status": "passed",
+    "root": "/private/tmp/ti_d4_repair_bu5fjto7",
+    "file": "/private/tmp/ti_d4_repair_bu5fjto7/gold/quote/stk_mins_qfq/freq=1/ts_code=600000.SH/year=2026/part-000.parquet",
+    "file_bytes": 29370,
+    "schema": "canonical minute contract",
+    "row_groups": 1,
+    "connection_closed": true,
+    "elapsed_seconds": 0.25595087511464953
+  },
+  "real_program_seconds": 2.1600788328796625,
+  "outer_real_program_seconds": 2.239585333969444,
+  "final_audit": "passed",
+  "old_evidence_files_unchanged": 37,
+  "final_static_seconds": 0.0921518336981535
+}

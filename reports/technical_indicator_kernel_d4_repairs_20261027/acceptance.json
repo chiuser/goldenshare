@@ -1,0 +1,113 @@
+{
+  "status": "passed",
+  "scope": "D4 three approved audit repairs only",
+  "implementation_sha256": {
+    "src/app/runtime/technical_indicators/execution.py": "b0103f62471639d51348dadea969d3145e3b1b7b8b3766df8d514ba9f89eb54b",
+    "tests/app/technical_indicators/test_admission.py": "8e9a5a58654d49d1037f518dec72a9892250f3860c9a93c00f602165bfcf00aa",
+    "tests/app/technical_indicators/test_d4_repairs.py": "a0f981af8b8661c075857f0f3a5904680bf37057fda1b58f6dc75fa2816f944e",
+    "scripts/diagnostics/technical_indicator_resources.py": "4145654c2cbb21f4ca23742f71ba143e003075f0efe36eddab439fecc25ea28b"
+  },
+  "basis": [
+    "docs/architecture/technical-indicator-kernel-component-design-v1.html#d4-three-repairs-20261027",
+    "docs/architecture/technical-indicator-kernel-low-level-design-v1.html#d4-three-repairs-20261027"
+  ],
+  "unit": {
+    "status": "passed",
+    "functions": 3,
+    "attempts": 1,
+    "fake_controls": 11,
+    "real_controls": 0,
+    "price_rows": 0,
+    "SQL_rows": 0,
+    "evidence": "unit_01.xml"
+  },
+  "dual_http": {
+    "status": "passed",
+    "nodes": 1,
+    "requests": 2,
+    "attempts": 1,
+    "indicators_per_request": 10,
+    "adjustment": "qfq",
+    "limit": 1000,
+    "warmup": 500,
+    "price_rows_each": 1500,
+    "health_requests": 3,
+    "health_elapsed_ms": [
+      0.13241684064269066,
+      0.5904999561607838,
+      0.9712916798889637
+    ],
+    "health_limit_ms": 200,
+    "calculation_overlap_verified": true,
+    "includes_event_loop_wait": true,
+    "evidence": "node_dual_http_repair_01.json"
+  },
+  "actual": {
+    "input_rows": 7000,
+    "locator_rows": 16000,
+    "sql_logical_rows": 168630,
+    "real_controls": 2,
+    "fake_controls": 11,
+    "program_seconds": 4.319401793181896,
+    "fixture_preparations": 1
+  },
+  "budget": {
+    "input_rows": 7000,
+    "locator_rows": 16000,
+    "sql_logical_rows": 168630,
+    "real_controls": 2,
+    "fake_controls": 11,
+    "program_seconds": 60
+  },
+  "joint_totals": {
+    "input_rows": 30000,
+    "locator_rows": 96000,
+    "sql_logical_rows": 770871,
+    "real_controls": 12
+  },
+  "cleanup": {
+    "owned_root_removed": true,
+    "all_connections_closed": true,
+    "all_monitors_finished": true,
+    "all_leases_released": true,
+    "all_reader_refs_cleared": true,
+    "no_live_tables_or_arrow": true,
+    "ending_threads": [
+      "MainThread"
+    ],
+    "temporary_compute_files": []
+  },
+  "old_evidence": {
+    "files": 37,
+    "file_set_and_sha256": "unchanged",
+    "directory": "reports/technical_indicator_kernel_d4_20261027"
+  },
+  "source_version_precondition": {
+    "src/foundation/clients/local_lake/technical_indicator_price_source.py": {
+      "working_SHA256": "e45212b14a04820a0d5737349109d9ec9cbcde8acf1310a3db228a1a3b2c59b1",
+      "HEAD_SHA256": "1c0dff063e6b899e596e7fa3f8af2c7416e093bed8bdf2fc30a5d8a2ab23c0a5",
+      "note": "pre-existing working tree repair, untouched by this D4 fix"
+    },
+    "src/foundation/clients/local_lake/technical_indicator_price_locator.py": {
+      "working_SHA256": "cd0e4343934d204fee3c0694aa6f366748879e674efa26efecaa4c332ad7b08a",
+      "HEAD_SHA256": "a6188044eef6e418b80dac4eb1909be1bd8413032c09488d557d55eb043f8fa5",
+      "note": "pre-existing working tree repair, untouched by this D4 fix"
+    }
+  },
+  "independent_review": "independent_review.json",
+  "memory": "estimate only by administrator decision",
+  "whole_suite_rerun": false,
+  "other_real_nodes_run": false,
+  "new_reference_generated": false,
+  "automatic_retries": 0,
+  "new_decisions_required": [],
+  "not_covered": [
+    "production API or network health SLA",
+    "page/XXM integration",
+    "DG retirement",
+    "RSS measurement",
+    "P95 or stress acceptance"
+  ],
+  "commit": null,
+  "deployment": false
+}
