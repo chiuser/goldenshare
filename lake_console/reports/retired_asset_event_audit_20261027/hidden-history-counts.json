@@ -1,0 +1,130 @@
+{
+  "observed_at_utc": "2026-10-27T05:56:04.188868+00:00",
+  "hidden_asset_keys": [
+    "silver_index_daily_active_pool",
+    "gold_market_major_indices",
+    "raw_tushare_index_daily"
+  ],
+  "directly_indexed_event_counts": [
+    {
+      "asset_key": [
+        "gold_market_major_indices"
+      ],
+      "event_type": "ASSET_MATERIALIZATION",
+      "count": 3,
+      "min_storage_id": 1171794,
+      "max_storage_id": 1172136,
+      "min_timestamp": "2026-05-23 14:42:23.220293",
+      "max_timestamp": "2026-05-23 22:28:41.239037"
+    },
+    {
+      "asset_key": [
+        "gold_market_major_indices"
+      ],
+      "event_type": "ASSET_MATERIALIZATION_PLANNED",
+      "count": 3,
+      "min_storage_id": 1171779,
+      "max_storage_id": 1172119,
+      "min_timestamp": "2026-05-23 14:42:21.135456",
+      "max_timestamp": "2026-05-23 22:28:39.898266"
+    },
+    {
+      "asset_key": [
+        "gold_market_major_indices"
+      ],
+      "event_type": "ASSET_WIPED",
+      "count": 1,
+      "min_storage_id": 2206517,
+      "max_storage_id": 2206517,
+      "min_timestamp": "2026-05-26 11:38:44.345462",
+      "max_timestamp": "2026-05-26 11:38:44.345462"
+    },
+    {
+      "asset_key": [
+        "gold_market_major_indices"
+      ],
+      "event_type": "FRESHNESS_STATE_CHANGE",
+      "count": 1,
+      "min_storage_id": 1171845,
+      "max_storage_id": 1171845,
+      "min_timestamp": "2026-05-23 14:56:07.834904",
+      "max_timestamp": "2026-05-23 14:56:07.834904"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_index_daily"
+      ],
+      "event_type": "ASSET_WIPED",
+      "count": 1,
+      "min_storage_id": 1503952,
+      "max_storage_id": 1503952,
+      "min_timestamp": "2026-05-25 13:21:07.192889",
+      "max_timestamp": "2026-05-25 13:21:07.192889"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_index_daily"
+      ],
+      "event_type": "FRESHNESS_STATE_CHANGE",
+      "count": 1,
+      "min_storage_id": 1173076,
+      "max_storage_id": 1173076,
+      "min_timestamp": "2026-05-24 03:11:10.267890",
+      "max_timestamp": "2026-05-24 03:11:10.267890"
+    },
+    {
+      "asset_key": [
+        "silver_index_daily_active_pool"
+      ],
+      "event_type": "ASSET_WIPED",
+      "count": 1,
+      "min_storage_id": 1503953,
+      "max_storage_id": 1503953,
+      "min_timestamp": "2026-05-25 13:21:14.157838",
+      "max_timestamp": "2026-05-25 13:21:14.157838"
+    },
+    {
+      "asset_key": [
+        "silver_index_daily_active_pool"
+      ],
+      "event_type": "FRESHNESS_STATE_CHANGE",
+      "count": 1,
+      "min_storage_id": 1171846,
+      "max_storage_id": 1171846,
+      "min_timestamp": "2026-05-23 14:56:07.848251",
+      "max_timestamp": "2026-05-23 14:56:07.848251"
+    }
+  ],
+  "check_execution_counts": [],
+  "other_checks_targeting_hidden_materializations": [],
+  "visible_candidate_check_events_linked_by_summary": [
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_month"
+      ],
+      "event_type": "ASSET_CHECK_EVALUATION",
+      "count": 609
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "event_type": "ASSET_CHECK_EVALUATION",
+      "count": 2580
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "event_type": "ASSET_CHECK_EVALUATION_PLANNED",
+      "count": 3
+    },
+    {
+      "asset_key": [
+        "raw_tushare_weekly"
+      ],
+      "event_type": "ASSET_CHECK_EVALUATION",
+      "count": 2409
+    }
+  ]
+}

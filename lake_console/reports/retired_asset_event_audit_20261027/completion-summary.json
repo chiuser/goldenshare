@@ -1,0 +1,42 @@
+{
+  "completed_at_utc": "2026-10-27T08:13:53.329475+00:00",
+  "status": "completed",
+  "physical_deletion": {
+    "asset_check_executions": 5601,
+    "asset_event_tags": 8,
+    "asset_keys": 6,
+    "event_logs": 7537
+  },
+  "transaction_seconds": 24.411,
+  "catalog_before": 183,
+  "catalog_after": 180,
+  "current_definition_count": 180,
+  "old_keys_visible": [],
+  "protected_counts": {
+    "asset_keys": 180,
+    "event_logs": 319,
+    "run_tags": 23,
+    "runs": 9,
+    "snapshots": 5
+  },
+  "retained_history_unchanged": true,
+  "instigator_switch_count": 131,
+  "instigator_switches_unchanged": true,
+  "formal_jobs_launched": 0,
+  "lake_files_written": 0,
+  "production_business_tables_modified": 0,
+  "temporary_postgres_cleaned": true,
+  "recovery_backup_path": "/Users/congming/.goldenshare/dagster_backups/retired_assets_20261027_7bbe2a48/rows.json.gz",
+  "backup_sha256": "1d297b37ab652e7f50c5be2bb5a8a310deeef222b086725e5fe02eb7e805b14e",
+  "isolation_tests_passed": 18,
+  "isolation_seconds": 19.56,
+  "source_paths": [
+    "src/orchestrator/maintenance/retired_asset_history.py",
+    "tests/test_retired_asset_history.py"
+  ],
+  "notes": [
+    "Only frozen-ID rows in the four approved DG tables were deleted.",
+    "Run records and general logs retained; asset materialization/check details intentionally removed.",
+    "No database shrink or sequence reset. No automatic restore or rerun."
+  ]
+}

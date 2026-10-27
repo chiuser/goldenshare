@@ -1,0 +1,119 @@
+{
+  "generated_at_utc": "2026-10-27T07:17:34.852101+00:00",
+  "association_audit_complete": true,
+  "safe_for_frozen_scope": true,
+  "execution_authorized": false,
+  "deletion_tool_implemented": false,
+  "physical_deletion_executed": false,
+  "manifest_sha256": "7bbe2a485f3ea2e7d719a8b44186d8c23983d1d689bc67071c85882a2b7896a0",
+  "table_counts": {
+    "event_logs": 7537,
+    "asset_check_executions": 5601,
+    "asset_event_tags": 8,
+    "asset_keys": 6
+  },
+  "per_asset": [
+    {
+      "asset_key": "raw_tushare_stk_period_bar_month",
+      "event_logs": 821,
+      "direct_indexed_events": 206,
+      "raw_check_events": 615,
+      "asset_check_executions": 609,
+      "asset_event_tags": 2,
+      "asset_keys": 1,
+      "safe_for_scoped_physical_retirement": true
+    },
+    {
+      "asset_key": "raw_tushare_stk_period_bar_week",
+      "event_logs": 3457,
+      "direct_indexed_events": 865,
+      "raw_check_events": 2592,
+      "asset_check_executions": 2583,
+      "asset_event_tags": 3,
+      "asset_keys": 1,
+      "safe_for_scoped_physical_retirement": true
+    },
+    {
+      "asset_key": "raw_tushare_weekly",
+      "event_logs": 3213,
+      "direct_indexed_events": 804,
+      "raw_check_events": 2409,
+      "asset_check_executions": 2409,
+      "asset_event_tags": 0,
+      "asset_keys": 1,
+      "safe_for_scoped_physical_retirement": true
+    },
+    {
+      "asset_key": "silver_index_daily_active_pool",
+      "event_logs": 2,
+      "direct_indexed_events": 2,
+      "raw_check_events": 0,
+      "asset_check_executions": 0,
+      "asset_event_tags": 0,
+      "asset_keys": 1,
+      "safe_for_scoped_physical_retirement": true
+    },
+    {
+      "asset_key": "gold_market_major_indices",
+      "event_logs": 42,
+      "direct_indexed_events": 8,
+      "raw_check_events": 34,
+      "asset_check_executions": 0,
+      "asset_event_tags": 3,
+      "asset_keys": 1,
+      "safe_for_scoped_physical_retirement": true
+    },
+    {
+      "asset_key": "raw_tushare_index_daily",
+      "event_logs": 2,
+      "direct_indexed_events": 2,
+      "raw_check_events": 0,
+      "asset_check_executions": 0,
+      "asset_event_tags": 0,
+      "asset_keys": 1,
+      "safe_for_scoped_physical_retirement": true
+    }
+  ],
+  "event_type_counts": {
+    "ASSET_MATERIALIZATION_PLANNED": 9,
+    "ASSET_CHECK_EVALUATION_PLANNED": 35,
+    "ASSET_MATERIALIZATION": 1869,
+    "ASSET_CHECK_EVALUATION": 5615,
+    "FRESHNESS_STATE_CHANGE": 6,
+    "ASSET_WIPED": 3
+  },
+  "event_body_bytes": 12577340,
+  "check_duplicate_body_bytes": 8324367,
+  "retained_run_records": 9,
+  "retained_run_tags": 23,
+  "retained_snapshot_records": 5,
+  "retained_general_run_events": 319,
+  "active_definitions": 180,
+  "live_catalog": 183,
+  "retained_asset_index_rows": 180,
+  "reverse_reference_counts": {
+    "other_check_indexes": 0,
+    "other_raw_check_results": 0,
+    "materialization_input_pointer_tags": 0,
+    "other_cached_materialization_ids": 0,
+    "foreign_event_tags": 0,
+    "other_checks_to_absent_cached_ids": 0
+  },
+  "no_changes": {
+    "events_deleted": 0,
+    "check_records_deleted": 0,
+    "asset_index_rows_deleted": 0,
+    "tag_rows_deleted": 0,
+    "run_records_deleted": 0,
+    "asset_wipes": 0,
+    "sensor_changes": 0,
+    "lake_files_changed": 0
+  },
+  "audit_scope_limitations": [
+    "No business dataset reads or writes.",
+    "No export of all event body data. Counts and scoped metadata projections only.",
+    "Other run records, generic logs, run input configuration, reports and external tools are not deletion targets.",
+    "Execution tooling, recovery arrangements, isolated deletion verification and final budgets still need approval before formal deletion."
+  ],
+  "audit_stage_note": "This file preserves pre-execution association findings; current completed execution is recorded in completion-summary.json."
+}

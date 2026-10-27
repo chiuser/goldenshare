@@ -1,0 +1,567 @@
+{
+  "started_at_utc": "2026-10-27T07:02:19.101729+00:00",
+  "asset_keys": [
+    "raw_tushare_stk_period_bar_month",
+    "raw_tushare_stk_period_bar_week",
+    "raw_tushare_weekly",
+    "silver_index_daily_active_pool",
+    "gold_market_major_indices",
+    "raw_tushare_index_daily"
+  ],
+  "queries": [
+    {
+      "name": "identity",
+      "elapsed_seconds": 0.002,
+      "returned_rows": 1,
+      "sql": "SELECT current_database() AS database,current_setting('transaction_read_only') AS read_only,now() AS snapshot_time",
+      "parameters": []
+    },
+    {
+      "name": "check_payload_samples",
+      "elapsed_seconds": 3.467,
+      "returned_rows": 3,
+      "sql": "SELECT c.asset_key,c.id AS check_id,c.execution_status,c.evaluation_event_storage_id,e.id,e.dagster_event_type,e.event::jsonb->'dagster_event' AS dagster_event FROM asset_check_executions c JOIN event_logs e ON e.id=c.evaluation_event_storage_id WHERE c.asset_key=ANY(%s) ORDER BY c.id LIMIT 3",
+      "parameters": [
+        [
+          "[\"raw_tushare_stk_period_bar_month\"]",
+          "[\"raw_tushare_stk_period_bar_week\"]",
+          "[\"raw_tushare_weekly\"]",
+          "[\"silver_index_daily_active_pool\"]",
+          "[\"gold_market_major_indices\"]",
+          "[\"raw_tushare_index_daily\"]"
+        ]
+      ]
+    },
+    {
+      "name": "materialization_payload_sample",
+      "elapsed_seconds": 0.091,
+      "returned_rows": 1,
+      "sql": "SELECT id,asset_key,event::jsonb->'dagster_event' AS dagster_event FROM event_logs WHERE asset_key=ANY(%s) AND dagster_event_type='ASSET_MATERIALIZATION' ORDER BY id DESC LIMIT 1",
+      "parameters": [
+        [
+          "[\"raw_tushare_stk_period_bar_month\"]",
+          "[\"raw_tushare_stk_period_bar_week\"]",
+          "[\"raw_tushare_weekly\"]",
+          "[\"silver_index_daily_active_pool\"]",
+          "[\"gold_market_major_indices\"]",
+          "[\"raw_tushare_index_daily\"]"
+        ]
+      ]
+    },
+    {
+      "name": "candidate_runs",
+      "elapsed_seconds": 0.004,
+      "returned_rows": 10,
+      "sql": "SELECT run_id,count(*) AS indexed_event_count FROM event_logs WHERE asset_key=ANY(%s) GROUP BY run_id ORDER BY run_id",
+      "parameters": [
+        [
+          "[\"raw_tushare_stk_period_bar_month\"]",
+          "[\"raw_tushare_stk_period_bar_week\"]",
+          "[\"raw_tushare_weekly\"]",
+          "[\"silver_index_daily_active_pool\"]",
+          "[\"gold_market_major_indices\"]",
+          "[\"raw_tushare_index_daily\"]"
+        ]
+      ]
+    },
+    {
+      "name": "candidate_check_counts",
+      "elapsed_seconds": 0.018,
+      "returned_rows": 12,
+      "sql": "SELECT asset_key,check_name,execution_status,count(*) AS count,sum(octet_length(evaluation_event)) AS evaluation_body_bytes FROM asset_check_executions WHERE asset_key=ANY(%s) GROUP BY asset_key,check_name,execution_status ORDER BY asset_key,check_name,execution_status",
+      "parameters": [
+        [
+          "[\"raw_tushare_stk_period_bar_month\"]",
+          "[\"raw_tushare_stk_period_bar_week\"]",
+          "[\"raw_tushare_weekly\"]",
+          "[\"silver_index_daily_active_pool\"]",
+          "[\"gold_market_major_indices\"]",
+          "[\"raw_tushare_index_daily\"]"
+        ]
+      ]
+    },
+    {
+      "name": "active_runs",
+      "elapsed_seconds": 0.004,
+      "returned_rows": 0,
+      "sql": "SELECT run_id,pipeline_name,status FROM runs WHERE status=ANY(%s) ORDER BY id DESC LIMIT 101",
+      "parameters": [
+        [
+          "QUEUED",
+          "NOT_STARTED",
+          "STARTING",
+          "STARTED",
+          "CANCELING"
+        ]
+      ]
+    },
+    {
+      "name": "check_name_match_counts",
+      "elapsed_seconds": 6.395,
+      "returned_rows": 2,
+      "sql": "SELECT dagster_event_type,count(*) AS count,sum(octet_length(event)) AS event_bytes,min(id) AS min_id,max(id) AS max_id FROM event_logs WHERE dagster_event_type=ANY(%s) AND EXISTS (SELECT 1 FROM unnest(%s::text[]) k WHERE strpos(event,k)>0) GROUP BY dagster_event_type ORDER BY dagster_event_type",
+      "parameters": [
+        [
+          "ASSET_CHECK_EVALUATION",
+          "ASSET_CHECK_EVALUATION_PLANNED"
+        ],
+        [
+          "raw_tushare_stk_period_bar_month",
+          "raw_tushare_stk_period_bar_week",
+          "raw_tushare_weekly",
+          "silver_index_daily_active_pool",
+          "gold_market_major_indices",
+          "raw_tushare_index_daily"
+        ]
+      ]
+    }
+  ],
+  "identity": [
+    {
+      "database": "goldenshare_dagster",
+      "read_only": "on",
+      "snapshot_time": "2026-10-27 07:02:19.102119+00:00"
+    }
+  ],
+  "check_payload_samples": [
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_week\"]",
+      "check_id": 1584023,
+      "execution_status": "SUCCEEDED",
+      "evaluation_event_storage_id": 7412274,
+      "id": 7412274,
+      "dagster_event_type": "ASSET_CHECK_EVALUATION",
+      "dagster_event": {
+        "pid": null,
+        "message": null,
+        "step_key": null,
+        "__class__": "DagsterEvent",
+        "step_handle": null,
+        "logging_tags": {},
+        "solid_handle": null,
+        "pipeline_name": "",
+        "step_kind_value": null,
+        "event_type_value": "ASSET_CHECK_EVALUATION",
+        "event_specific_data": {
+          "success": true,
+          "blocking": true,
+          "metadata": {
+            "goldenshare/week_end": {
+              "text": "2010-01-01",
+              "__class__": "TextMetadataEntryData"
+            },
+            "goldenshare/check_scope": {
+              "text": "schema",
+              "__class__": "TextMetadataEntryData"
+            },
+            "goldenshare/reason_code": {
+              "text": "ok",
+              "__class__": "TextMetadataEntryData"
+            },
+            "goldenshare/checked_row_count": {
+              "value": 1507,
+              "__class__": "IntMetadataEntryData"
+            },
+            "goldenshare/weekly_event_plan": {
+              "text": "39154bfe35d3395c65472513fb08805866fa7aa707d906d76f916429368a2012",
+              "__class__": "TextMetadataEntryData"
+            }
+          },
+          "severity": {
+            "__enum__": "AssetCheckSeverity.ERROR"
+          },
+          "__class__": "AssetCheckEvaluation",
+          "asset_key": {
+            "path": [
+              "raw_tushare_stk_period_bar_week"
+            ],
+            "__class__": "AssetKey"
+          },
+          "partition": "2010-01-01",
+          "check_name": "raw_tushare_stk_period_bar_week_file_contract_check",
+          "description": null,
+          "target_materialization_data": {
+            "run_id": "",
+            "__class__": "AssetCheckEvaluationTargetMaterializationData",
+            "timestamp": 1791072611.260509,
+            "storage_id": 7408046
+          }
+        }
+      }
+    },
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_week\"]",
+      "check_id": 1584024,
+      "execution_status": "SUCCEEDED",
+      "evaluation_event_storage_id": 7412275,
+      "id": 7412275,
+      "dagster_event_type": "ASSET_CHECK_EVALUATION",
+      "dagster_event": {
+        "pid": null,
+        "message": null,
+        "step_key": null,
+        "__class__": "DagsterEvent",
+        "step_handle": null,
+        "logging_tags": {},
+        "solid_handle": null,
+        "pipeline_name": "",
+        "step_kind_value": null,
+        "event_type_value": "ASSET_CHECK_EVALUATION",
+        "event_specific_data": {
+          "success": true,
+          "blocking": true,
+          "metadata": {
+            "goldenshare/week_end": {
+              "text": "2010-01-01",
+              "__class__": "TextMetadataEntryData"
+            },
+            "goldenshare/check_scope": {
+              "text": "partition_alignment",
+              "__class__": "TextMetadataEntryData"
+            },
+            "goldenshare/reason_code": {
+              "text": "ok",
+              "__class__": "TextMetadataEntryData"
+            },
+            "goldenshare/checked_row_count": {
+              "value": 1507,
+              "__class__": "IntMetadataEntryData"
+            },
+            "goldenshare/weekly_event_plan": {
+              "text": "39154bfe35d3395c65472513fb08805866fa7aa707d906d76f916429368a2012",
+              "__class__": "TextMetadataEntryData"
+            }
+          },
+          "severity": {
+            "__enum__": "AssetCheckSeverity.ERROR"
+          },
+          "__class__": "AssetCheckEvaluation",
+          "asset_key": {
+            "path": [
+              "raw_tushare_stk_period_bar_week"
+            ],
+            "__class__": "AssetKey"
+          },
+          "partition": "2010-01-01",
+          "check_name": "raw_tushare_stk_period_bar_week_key_partition_check",
+          "description": null,
+          "target_materialization_data": {
+            "run_id": "",
+            "__class__": "AssetCheckEvaluationTargetMaterializationData",
+            "timestamp": 1791072611.260509,
+            "storage_id": 7408046
+          }
+        }
+      }
+    },
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_week\"]",
+      "check_id": 1584025,
+      "execution_status": "SUCCEEDED",
+      "evaluation_event_storage_id": 7412276,
+      "id": 7412276,
+      "dagster_event_type": "ASSET_CHECK_EVALUATION",
+      "dagster_event": {
+        "pid": null,
+        "message": null,
+        "step_key": null,
+        "__class__": "DagsterEvent",
+        "step_handle": null,
+        "logging_tags": {},
+        "solid_handle": null,
+        "pipeline_name": "",
+        "step_kind_value": null,
+        "event_type_value": "ASSET_CHECK_EVALUATION",
+        "event_specific_data": {
+          "success": true,
+          "blocking": true,
+          "metadata": {
+            "goldenshare/week_end": {
+              "text": "2010-01-01",
+              "__class__": "TextMetadataEntryData"
+            },
+            "goldenshare/check_scope": {
+              "text": "reconciliation",
+              "__class__": "TextMetadataEntryData"
+            },
+            "goldenshare/reason_code": {
+              "text": "ok",
+              "__class__": "TextMetadataEntryData"
+            },
+            "goldenshare/checked_row_count": {
+              "value": 1507,
+              "__class__": "IntMetadataEntryData"
+            },
+            "goldenshare/weekly_event_plan": {
+              "text": "39154bfe35d3395c65472513fb08805866fa7aa707d906d76f916429368a2012",
+              "__class__": "TextMetadataEntryData"
+            }
+          },
+          "severity": {
+            "__enum__": "AssetCheckSeverity.ERROR"
+          },
+          "__class__": "AssetCheckEvaluation",
+          "asset_key": {
+            "path": [
+              "raw_tushare_stk_period_bar_week"
+            ],
+            "__class__": "AssetKey"
+          },
+          "partition": "2010-01-01",
+          "check_name": "raw_tushare_stk_period_bar_week_delivery_reconciliation_check",
+          "description": null,
+          "target_materialization_data": {
+            "run_id": "",
+            "__class__": "AssetCheckEvaluationTargetMaterializationData",
+            "timestamp": 1791072611.260509,
+            "storage_id": 7408046
+          }
+        }
+      }
+    }
+  ],
+  "materialization_payload_sample": [
+    {
+      "id": 7436795,
+      "asset_key": "[\"raw_tushare_stk_period_bar_week\"]",
+      "dagster_event": {
+        "pid": 74493,
+        "message": "Materialized value raw_tushare_stk_period_bar_week.",
+        "step_key": "raw_tushare_stk_period_bar_week",
+        "__class__": "DagsterEvent",
+        "step_handle": {
+          "key": "raw_tushare_stk_period_bar_week",
+          "__class__": "StepHandle",
+          "solid_handle": {
+            "name": "raw_tushare_stk_period_bar_week",
+            "parent": null,
+            "__class__": "SolidHandle"
+          }
+        },
+        "logging_tags": {
+          "run_id": "b3be2a4f-4f61-4cb2-a77e-49c32c5fc6e8",
+          "op_name": "raw_tushare_stk_period_bar_week",
+          "job_name": "raw_stk_period_bar_week_update_job",
+          "step_key": "raw_tushare_stk_period_bar_week",
+          "resource_name": "None",
+          "resource_fn_name": "None"
+        },
+        "solid_handle": {
+          "name": "raw_tushare_stk_period_bar_week",
+          "parent": null,
+          "__class__": "SolidHandle"
+        },
+        "pipeline_name": "raw_stk_period_bar_week_update_job",
+        "step_kind_value": "COMPUTE",
+        "event_type_value": "ASSET_MATERIALIZATION",
+        "event_specific_data": {
+          "__class__": "StepMaterializationData",
+          "asset_lineage": [],
+          "materialization": {
+            "tags": {
+              "dagster/code_version": "b3be2a4f-4f61-4cb2-a77e-49c32c5fc6e8",
+              "dagster/data_version": "69a1cef4d90290ce50c5c299b80ef3eed041d4c036278ef247d2415ca3322a14"
+            },
+            "__class__": "AssetMaterialization",
+            "asset_key": {
+              "path": [
+                "raw_tushare_stk_period_bar_week"
+              ],
+              "__class__": "AssetKey"
+            },
+            "partition": "2026-10-09",
+            "description": null,
+            "metadata_entries": [
+              {
+                "label": "dagster/uri",
+                "__class__": "EventMetadataEntry",
+                "entry_data": {
+                  "text": "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_week/week_end=2026-10-09/part-000.parquet",
+                  "__class__": "TextMetadataEntryData"
+                },
+                "description": null
+              },
+              {
+                "label": "dagster/row_count",
+                "__class__": "EventMetadataEntry",
+                "entry_data": {
+                  "value": 5559,
+                  "__class__": "IntMetadataEntryData"
+                },
+                "description": null
+              },
+              {
+                "label": "goldenshare/observed_columns",
+                "__class__": "EventMetadataEntry",
+                "entry_data": {
+                  "data": [
+                    "ts_code",
+                    "trade_date",
+                    "end_date",
+                    "freq",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "pre_close",
+                    "vol",
+                    "amount",
+                    "change",
+                    "pct_chg"
+                  ],
+                  "__class__": "JsonMetadataEntryData"
+                },
+                "description": null
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "candidate_runs": [
+    {
+      "run_id": "",
+      "indexed_event_count": 1870
+    },
+    {
+      "run_id": "054854f0-441a-4ce7-8487-616785ecb62b",
+      "indexed_event_count": 2
+    },
+    {
+      "run_id": "3c41d79a-1f36-4bd8-8bd4-47e64462ad99",
+      "indexed_event_count": 1
+    },
+    {
+      "run_id": "5ed9c006-6dc5-414d-90a2-279e7254b4d1",
+      "indexed_event_count": 2
+    },
+    {
+      "run_id": "6f778ed9-bba5-4304-b7d3-2aad6b36edaf",
+      "indexed_event_count": 2
+    },
+    {
+      "run_id": "9f1f413f-22d8-41b7-a819-1b849acfb8fc",
+      "indexed_event_count": 2
+    },
+    {
+      "run_id": "a33d91e8-288a-4092-8022-bb5b4d62044e",
+      "indexed_event_count": 2
+    },
+    {
+      "run_id": "b3be2a4f-4f61-4cb2-a77e-49c32c5fc6e8",
+      "indexed_event_count": 2
+    },
+    {
+      "run_id": "bf98de39-0616-4dd1-83e0-e350c07df7e7",
+      "indexed_event_count": 2
+    },
+    {
+      "run_id": "dd120254-9f0b-4ac5-9a7a-bb3547364566",
+      "indexed_event_count": 2
+    }
+  ],
+  "candidate_check_counts": [
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_month\"]",
+      "check_name": "raw_tushare_stk_period_bar_month_delivery_reconciliation_check",
+      "execution_status": "SUCCEEDED",
+      "count": 203,
+      "evaluation_body_bytes": 359519
+    },
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_month\"]",
+      "check_name": "raw_tushare_stk_period_bar_month_file_contract_check",
+      "execution_status": "SUCCEEDED",
+      "count": 203,
+      "evaluation_body_bytes": 355345
+    },
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_month\"]",
+      "check_name": "raw_tushare_stk_period_bar_month_key_partition_check",
+      "execution_status": "SUCCEEDED",
+      "count": 203,
+      "evaluation_body_bytes": 357988
+    },
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_week\"]",
+      "check_name": "raw_tushare_stk_period_bar_week_delivery_reconciliation_check",
+      "execution_status": "PLANNED",
+      "count": 1,
+      "evaluation_body_bytes": 1235
+    },
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_week\"]",
+      "check_name": "raw_tushare_stk_period_bar_week_delivery_reconciliation_check",
+      "execution_status": "SUCCEEDED",
+      "count": 860,
+      "evaluation_body_bytes": 1269026
+    },
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_week\"]",
+      "check_name": "raw_tushare_stk_period_bar_week_file_contract_check",
+      "execution_status": "PLANNED",
+      "count": 1,
+      "evaluation_body_bytes": 1195
+    },
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_week\"]",
+      "check_name": "raw_tushare_stk_period_bar_week_file_contract_check",
+      "execution_status": "SUCCEEDED",
+      "count": 860,
+      "evaluation_body_bytes": 1253279
+    },
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_week\"]",
+      "check_name": "raw_tushare_stk_period_bar_week_key_partition_check",
+      "execution_status": "PLANNED",
+      "count": 1,
+      "evaluation_body_bytes": 1195
+    },
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_week\"]",
+      "check_name": "raw_tushare_stk_period_bar_week_key_partition_check",
+      "execution_status": "SUCCEEDED",
+      "count": 860,
+      "evaluation_body_bytes": 1264450
+    },
+    {
+      "asset_key": "[\"raw_tushare_weekly\"]",
+      "check_name": "raw_tushare_weekly_delivery_reconciliation_check",
+      "execution_status": "SUCCEEDED",
+      "count": 803,
+      "evaluation_body_bytes": 1159877
+    },
+    {
+      "asset_key": "[\"raw_tushare_weekly\"]",
+      "check_name": "raw_tushare_weekly_file_contract_check",
+      "execution_status": "SUCCEEDED",
+      "count": 803,
+      "evaluation_body_bytes": 1145405
+    },
+    {
+      "asset_key": "[\"raw_tushare_weekly\"]",
+      "check_name": "raw_tushare_weekly_key_partition_check",
+      "execution_status": "SUCCEEDED",
+      "count": 803,
+      "evaluation_body_bytes": 1155853
+    }
+  ],
+  "active_runs": [],
+  "check_name_match_counts": [
+    {
+      "dagster_event_type": "ASSET_CHECK_EVALUATION",
+      "count": 70077,
+      "event_bytes": 212036472,
+      "min_id": 1171825,
+      "max_id": 7732156
+    },
+    {
+      "dagster_event_type": "ASSET_CHECK_EVALUATION_PLANNED",
+      "count": 66747,
+      "event_bytes": 76125922,
+      "min_id": 1171780,
+      "max_id": 7732055
+    }
+  ]
+}

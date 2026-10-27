@@ -1,0 +1,1 @@
+{"cases":[{"input":"postgresql://localhost:5432/goldenshare_dagster?host=remote.invalid","rejected_before_connection":true},{"input":"postgresql://localhost:5432/goldenshare_dagster#fragment","rejected_before_connection":true}],"isolation_evidence_binding_verified":true,"status":"passed","tool_sha256":"276687f06e2405c0cf6a6a2b77893541ea0232722f38f668bd1d4304b5eef72d"}

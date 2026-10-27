@@ -1,0 +1,173 @@
+{
+  "status": "completed",
+  "recorded_at_utc": "2026-10-27T08:33:51.056538+00:00",
+  "scope": "Only this six-asset retirement task; no runtime or DB access",
+  "files": [
+    {
+      "path": "/private/tmp/dg-retired-assets-review-20261027/hidden-history-counts.json",
+      "bytes": 3467,
+      "sha256": "a62f7284f4f2ed3cddfe84975db2dc5e7ec7871358aa5d12590f5bc4f2d45972",
+      "reason": "Byte-identical archived report evidence"
+    },
+    {
+      "path": "/private/tmp/dg-retired-assets-review-20261027/history-metadata-counts.json",
+      "bytes": 61419,
+      "sha256": "ce39e22bcbd8e66457f10047380c2d0271d442dabbbcbdb3dda2a31c14b57ca5",
+      "reason": "Byte-identical archived report evidence"
+    },
+    {
+      "path": "/private/tmp/dg-retired-assets-review-20261027/inventory-summary.json",
+      "bytes": 912,
+      "sha256": "a2a9408a558875999f7273a97ed80b400f13dfe25d9ceb8096211542824068ca",
+      "reason": "Byte-identical archived report evidence"
+    },
+    {
+      "path": "/private/tmp/dg-retired-assets-review-20261027/inventory.graphql",
+      "bytes": 265,
+      "sha256": "61ee6dec6a3f903e4e84edae1f25ed7af757f5be8258dd32e739840fb1d7c010",
+      "reason": "Byte-identical archived report evidence"
+    },
+    {
+      "path": "/private/tmp/dg-retired-assets-review-20261027/inventory.json",
+      "bytes": 180104,
+      "sha256": "74282e03d7f6188c0e41a8f78292e4dd0752745eb0b94694a31c214870ee9d4e",
+      "reason": "Byte-identical archived report evidence"
+    },
+    {
+      "path": "/private/tmp/dg-retired-assets-review-20261027/inventory.literal",
+      "bytes": 86408,
+      "sha256": "bd7b85b314ddff3340611267183b195b11e47ef8665c9d9b545687efcdc629d8",
+      "reason": "Semantic duplicate of archived inventory.json"
+    },
+    {
+      "path": "/private/tmp/dg-retired-assets-relations-20261027/final-live-inventory.json",
+      "bytes": 81508,
+      "sha256": "0fddae77f626baa4ead24f51fe0b7597c154ae125de56d81971bfe4ffbe057c5",
+      "reason": "Byte-identical archived report evidence"
+    },
+    {
+      "path": "/private/tmp/dg-retired-assets-relations-20261027/phase1-metadata.json",
+      "bytes": 47149,
+      "sha256": "8415fc33d405d6d9a9f0f6b48a34a677f97e9de3fcd25838e5bc35787cd3cea9",
+      "reason": "Byte-identical archived report evidence"
+    },
+    {
+      "path": "/private/tmp/dg-retired-assets-relations-20261027/phase2-ownership-counts.json",
+      "bytes": 18922,
+      "sha256": "c0ecf74ec83c8dfd8afcb2d7249ef2143b09148e0ea04f22feb4c3c3b43d95e4",
+      "reason": "Byte-identical archived report evidence"
+    },
+    {
+      "path": "/private/tmp/dg-retired-assets-relations-20261027/phase3-exact-relations.json",
+      "bytes": 2905264,
+      "sha256": "a9bbb656f305e9fe733269ff01b470ec328e999a629c0ca1d4e1b5281dd2e892",
+      "reason": "Byte-identical archived report evidence"
+    },
+    {
+      "path": "/private/tmp/dg-retired-assets-relations-20261027/phase4-reverse-references.json",
+      "bytes": 2220060,
+      "sha256": "2e33fcd677ca3a34aa3b691e40e3cc1b3440bb807a927d0d87402aceccc9d2f9",
+      "reason": "Byte-identical archived report evidence"
+    },
+    {
+      "path": "/private/tmp/dg-retired-assets-relations-20261027/phase5-cache-and-run-details.json",
+      "bytes": 162384,
+      "sha256": "0a55a8839f15b6670a8ab46a93de559726b771fdc0282c795c226349a219f2cc",
+      "reason": "Byte-identical archived report evidence"
+    },
+    {
+      "path": "/private/tmp/dg-retired-assets-relations-20261027/phase6-final-association-counts.json",
+      "bytes": 164500,
+      "sha256": "b859c3e7f13492090b3239613424cdb65e5f2d7496231d46403e8ab02f303413",
+      "reason": "Byte-identical archived report evidence"
+    },
+    {
+      "path": "/private/tmp/dg_retired_events_relations_20261027.py",
+      "bytes": 4370,
+      "sha256": "fc53ff4b78d6118c26ff992dafc4bf8339b6f84b7d20b9de82d650b409eb8008",
+      "reason": "Completed one-off readonly audit collector; evidence archived"
+    },
+    {
+      "path": "/private/tmp/dg_retired_relations_phase2_20261027.py",
+      "bytes": 3559,
+      "sha256": "b52f4f19c81a1a1adbe93da095455afc57f07d2037156acb1f5ad4fc6d14227c",
+      "reason": "Completed one-off readonly audit collector; evidence archived"
+    },
+    {
+      "path": "/private/tmp/dg_retired_relations_phase3_20261027.py",
+      "bytes": 5648,
+      "sha256": "b16785c0ca9b03eda02fdeb762b791d57e166c3df4468cb48cc8112c89b6fc52",
+      "reason": "Completed one-off readonly audit collector; evidence archived"
+    },
+    {
+      "path": "/private/tmp/dg_retired_relations_phase4_20261027.py",
+      "bytes": 6642,
+      "sha256": "1b4bdba56de8df3abf5ec34f9cdfc3c04388505e198ed09628fdf478c428cebf",
+      "reason": "Completed one-off readonly audit collector; evidence archived"
+    },
+    {
+      "path": "/private/tmp/dg_retired_relations_phase5_20261027.py",
+      "bytes": 2951,
+      "sha256": "0d7f78412409407cf33444a55a8cb701ae6a1da2cf2a3e6f0c9c44c739856a87",
+      "reason": "Completed one-off readonly audit collector; evidence archived"
+    },
+    {
+      "path": "/private/tmp/dg_retired_relations_phase6_20261027.py",
+      "bytes": 3963,
+      "sha256": "5f4067e21cf660ad71b2f6e5f46bb62342c30a432751691cdf990df27d539955",
+      "reason": "Completed one-off readonly audit collector; evidence archived"
+    }
+  ],
+  "removed_files": 19,
+  "removed_bytes": 5959495,
+  "directories_to_remove": [
+    "/private/tmp/dg-retired-assets-review-20261027",
+    "/private/tmp/dg-retired-assets-relations-20261027"
+  ],
+  "durable_backup": {
+    "path": "/Users/congming/.goldenshare/dagster_backups/retired_assets_20261027_7bbe2a48/rows.json.gz",
+    "sha256": "1d297b37ab652e7f50c5be2bb5a8a310deeef222b086725e5fe02eb7e805b14e",
+    "bytes": 556379,
+    "mode": "0600",
+    "preserved": true
+  },
+  "archived_report_preserved": true,
+  "source_and_test_match_successful_isolation": true,
+  "isolation_tests_reused": 18,
+  "commit_paths": [
+    "lake_console/orchestrator/src/orchestrator/maintenance/__init__.py",
+    "lake_console/orchestrator/src/orchestrator/maintenance/retired_asset_history.py",
+    "lake_console/orchestrator/tests/test_retired_asset_history.py",
+    "lake_console/reports/retired_asset_event_audit_20261027/README.md",
+    "lake_console/reports/retired_asset_event_audit_20261027/backup-receipt.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/cleanup-receipt.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/completion-summary.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/execution-preflight.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/execution-result.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/final-live-inventory.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/hidden-history-counts.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/history-metadata-counts.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/initial-candidate-audit.md",
+    "lake_console/reports/retired_asset_event_audit_20261027/inventory-summary.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/inventory.graphql",
+    "lake_console/reports/retired_asset_event_audit_20261027/inventory.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/isolation-validation.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/phase1-metadata.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/phase2-ownership-counts.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/phase3-exact-relations.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/phase4-reverse-references.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/phase5-cache-and-run-details.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/phase6-final-association-counts.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/physical-association-summary.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/physical-deletion-manifest.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/post-cleanup-runtime.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/post-delete-inventory.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/pre-apply-validator-checks.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/retirement-candidates.json",
+    "lake_console/reports/retired_asset_event_audit_20261027/validation.json"
+  ],
+  "unrelated_worktree_changes_preserved": true,
+  "completed_at_utc": "2026-10-27T08:33:51.063298+00:00",
+  "removed_directories": 2,
+  "remaining_target_files": []
+}

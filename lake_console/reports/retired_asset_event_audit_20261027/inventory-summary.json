@@ -1,0 +1,36 @@
+{
+  "observed_at_utc": "2026-10-27T05:49:54.599328+00:00",
+  "catalog_count": 180,
+  "live_catalog_asset_count": 183,
+  "loaded_graph_node_count": 180,
+  "loaded_executable_count": 179,
+  "undefined_count": 3,
+  "undefined_assets": [
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_month"
+      ],
+      "current_loaded_definition": false,
+      "in_repository_catalog": false,
+      "loaded_downstream_consumers": []
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "current_loaded_definition": false,
+      "in_repository_catalog": false,
+      "loaded_downstream_consumers": []
+    },
+    {
+      "asset_key": [
+        "raw_tushare_weekly"
+      ],
+      "current_loaded_definition": false,
+      "in_repository_catalog": false,
+      "loaded_downstream_consumers": []
+    }
+  ],
+  "pagination_complete": true,
+  "loaded_assets_not_in_registry": []
+}

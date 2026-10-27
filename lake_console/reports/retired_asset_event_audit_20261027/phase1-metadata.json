@@ -1,0 +1,1815 @@
+{
+  "started_at_utc": "2026-10-27T07:01:07.237900+00:00",
+  "asset_keys": [
+    "raw_tushare_stk_period_bar_month",
+    "raw_tushare_stk_period_bar_week",
+    "raw_tushare_weekly",
+    "silver_index_daily_active_pool",
+    "gold_market_major_indices",
+    "raw_tushare_index_daily"
+  ],
+  "queries": [
+    {
+      "name": "identity",
+      "elapsed_seconds": 0.002,
+      "returned_rows": 1,
+      "sql": "SELECT current_database() AS database, current_user AS username, current_setting('transaction_read_only') AS read_only, current_setting('transaction_isolation') AS isolation, now() AS snapshot_time",
+      "parameters": []
+    },
+    {
+      "name": "tables",
+      "elapsed_seconds": 0.042,
+      "returned_rows": 22,
+      "sql": "SELECT schemaname, relname, n_live_tup, pg_total_relation_size(relid) AS total_bytes FROM pg_stat_user_tables ORDER BY schemaname, relname",
+      "parameters": []
+    },
+    {
+      "name": "columns",
+      "elapsed_seconds": 0.039,
+      "returned_rows": 141,
+      "sql": "SELECT table_name,column_name,data_type FROM information_schema.columns WHERE table_schema='public' ORDER BY table_name,ordinal_position",
+      "parameters": []
+    },
+    {
+      "name": "constraints",
+      "elapsed_seconds": 0.001,
+      "returned_rows": 75,
+      "sql": "SELECT conname,contype,conrelid::regclass::text AS table_name,confrelid::regclass::text AS referenced_table,pg_get_constraintdef(oid) AS definition FROM pg_constraint WHERE connamespace='public'::regnamespace ORDER BY conrelid,conname",
+      "parameters": []
+    },
+    {
+      "name": "event_indexes",
+      "elapsed_seconds": 0.003,
+      "returned_rows": 14,
+      "sql": "SELECT tablename,indexname,indexdef FROM pg_indexes WHERE schemaname='public' AND tablename=ANY(%s) ORDER BY tablename,indexname",
+      "parameters": [
+        [
+          "event_logs",
+          "asset_event_tags",
+          "asset_keys",
+          "asset_check_executions"
+        ]
+      ]
+    },
+    {
+      "name": "candidate_direct_counts",
+      "elapsed_seconds": 0.076,
+      "returned_rows": 16,
+      "sql": "SELECT asset_key,dagster_event_type,count(*) AS count,min(id) AS min_id,max(id) AS max_id,sum(octet_length(event)) AS event_bytes FROM event_logs WHERE asset_key=ANY(%s) GROUP BY asset_key,dagster_event_type ORDER BY asset_key,dagster_event_type",
+      "parameters": [
+        [
+          "[\"raw_tushare_stk_period_bar_month\"]",
+          "[\"raw_tushare_stk_period_bar_week\"]",
+          "[\"raw_tushare_weekly\"]",
+          "[\"silver_index_daily_active_pool\"]",
+          "[\"gold_market_major_indices\"]",
+          "[\"raw_tushare_index_daily\"]"
+        ]
+      ]
+    },
+    {
+      "name": "event_type_counts",
+      "elapsed_seconds": 4.174,
+      "returned_rows": 26,
+      "sql": "SELECT dagster_event_type,count(*) AS count,min(id) AS min_id,max(id) AS max_id FROM event_logs GROUP BY dagster_event_type ORDER BY dagster_event_type",
+      "parameters": []
+    }
+  ],
+  "identity": [
+    {
+      "database": "goldenshare_dagster",
+      "username": "congming",
+      "read_only": "on",
+      "isolation": "repeatable read",
+      "snapshot_time": "2026-10-27 07:01:07.238151+00:00"
+    }
+  ],
+  "tables": [
+    {
+      "schemaname": "public",
+      "relname": "alembic_version",
+      "n_live_tup": 0,
+      "total_bytes": 24576
+    },
+    {
+      "schemaname": "public",
+      "relname": "asset_check_executions",
+      "n_live_tup": 525540,
+      "total_bytes": 3458285568
+    },
+    {
+      "schemaname": "public",
+      "relname": "asset_daemon_asset_evaluations",
+      "n_live_tup": 0,
+      "total_bytes": 3915776
+    },
+    {
+      "schemaname": "public",
+      "relname": "asset_event_tags",
+      "n_live_tup": 39098,
+      "total_bytes": 33333248
+    },
+    {
+      "schemaname": "public",
+      "relname": "asset_keys",
+      "n_live_tup": 186,
+      "total_bytes": 4833280
+    },
+    {
+      "schemaname": "public",
+      "relname": "backfill_tags",
+      "n_live_tup": 0,
+      "total_bytes": 49152
+    },
+    {
+      "schemaname": "public",
+      "relname": "bulk_actions",
+      "n_live_tup": 0,
+      "total_bytes": 933888
+    },
+    {
+      "schemaname": "public",
+      "relname": "concurrency_limits",
+      "n_live_tup": 1,
+      "total_bytes": 49152
+    },
+    {
+      "schemaname": "public",
+      "relname": "concurrency_slots",
+      "n_live_tup": 1,
+      "total_bytes": 32768
+    },
+    {
+      "schemaname": "public",
+      "relname": "daemon_heartbeats",
+      "n_live_tup": 7,
+      "total_bytes": 303104
+    },
+    {
+      "schemaname": "public",
+      "relname": "dynamic_partitions",
+      "n_live_tup": 64235,
+      "total_bytes": 13819904
+    },
+    {
+      "schemaname": "public",
+      "relname": "event_logs",
+      "n_live_tup": 5251238,
+      "total_bytes": 12206170112
+    },
+    {
+      "schemaname": "public",
+      "relname": "instance_info",
+      "n_live_tup": 0,
+      "total_bytes": 32768
+    },
+    {
+      "schemaname": "public",
+      "relname": "instigators",
+      "n_live_tup": 131,
+      "total_bytes": 606208
+    },
+    {
+      "schemaname": "public",
+      "relname": "job_ticks",
+      "n_live_tup": 189303,
+      "total_bytes": 786366464
+    },
+    {
+      "schemaname": "public",
+      "relname": "jobs",
+      "n_live_tup": 132,
+      "total_bytes": 598016
+    },
+    {
+      "schemaname": "public",
+      "relname": "kvs",
+      "n_live_tup": 0,
+      "total_bytes": 49152
+    },
+    {
+      "schemaname": "public",
+      "relname": "pending_steps",
+      "n_live_tup": 0,
+      "total_bytes": 24576
+    },
+    {
+      "schemaname": "public",
+      "relname": "run_tags",
+      "n_live_tup": 374404,
+      "total_bytes": 131661824
+    },
+    {
+      "schemaname": "public",
+      "relname": "runs",
+      "n_live_tup": 57536,
+      "total_bytes": 155672576
+    },
+    {
+      "schemaname": "public",
+      "relname": "secondary_indexes",
+      "n_live_tup": 0,
+      "total_bytes": 49152
+    },
+    {
+      "schemaname": "public",
+      "relname": "snapshots",
+      "n_live_tup": 1327,
+      "total_bytes": 7315456
+    }
+  ],
+  "columns": [
+    {
+      "table_name": "alembic_version",
+      "column_name": "version_num",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "asset_check_executions",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "asset_check_executions",
+      "column_name": "asset_key",
+      "data_type": "text"
+    },
+    {
+      "table_name": "asset_check_executions",
+      "column_name": "check_name",
+      "data_type": "text"
+    },
+    {
+      "table_name": "asset_check_executions",
+      "column_name": "partition",
+      "data_type": "text"
+    },
+    {
+      "table_name": "asset_check_executions",
+      "column_name": "run_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "asset_check_executions",
+      "column_name": "execution_status",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "asset_check_executions",
+      "column_name": "evaluation_event",
+      "data_type": "text"
+    },
+    {
+      "table_name": "asset_check_executions",
+      "column_name": "evaluation_event_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "asset_check_executions",
+      "column_name": "evaluation_event_storage_id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "asset_check_executions",
+      "column_name": "materialization_event_storage_id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "asset_check_executions",
+      "column_name": "create_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "asset_daemon_asset_evaluations",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "asset_daemon_asset_evaluations",
+      "column_name": "evaluation_id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "asset_daemon_asset_evaluations",
+      "column_name": "asset_key",
+      "data_type": "text"
+    },
+    {
+      "table_name": "asset_daemon_asset_evaluations",
+      "column_name": "asset_evaluation_body",
+      "data_type": "text"
+    },
+    {
+      "table_name": "asset_daemon_asset_evaluations",
+      "column_name": "num_requested",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "asset_daemon_asset_evaluations",
+      "column_name": "num_skipped",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "asset_daemon_asset_evaluations",
+      "column_name": "num_discarded",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "asset_daemon_asset_evaluations",
+      "column_name": "create_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "asset_event_tags",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "asset_event_tags",
+      "column_name": "event_id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "asset_event_tags",
+      "column_name": "asset_key",
+      "data_type": "text"
+    },
+    {
+      "table_name": "asset_event_tags",
+      "column_name": "key",
+      "data_type": "text"
+    },
+    {
+      "table_name": "asset_event_tags",
+      "column_name": "value",
+      "data_type": "text"
+    },
+    {
+      "table_name": "asset_event_tags",
+      "column_name": "event_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "asset_keys",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "asset_keys",
+      "column_name": "asset_key",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "asset_keys",
+      "column_name": "last_materialization",
+      "data_type": "text"
+    },
+    {
+      "table_name": "asset_keys",
+      "column_name": "last_run_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "asset_keys",
+      "column_name": "asset_details",
+      "data_type": "text"
+    },
+    {
+      "table_name": "asset_keys",
+      "column_name": "wipe_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "asset_keys",
+      "column_name": "last_materialization_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "asset_keys",
+      "column_name": "tags",
+      "data_type": "text"
+    },
+    {
+      "table_name": "asset_keys",
+      "column_name": "create_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "asset_keys",
+      "column_name": "cached_status_data",
+      "data_type": "text"
+    },
+    {
+      "table_name": "backfill_tags",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "backfill_tags",
+      "column_name": "backfill_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "backfill_tags",
+      "column_name": "key",
+      "data_type": "text"
+    },
+    {
+      "table_name": "backfill_tags",
+      "column_name": "value",
+      "data_type": "text"
+    },
+    {
+      "table_name": "bulk_actions",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "bulk_actions",
+      "column_name": "key",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "bulk_actions",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "bulk_actions",
+      "column_name": "timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "bulk_actions",
+      "column_name": "body",
+      "data_type": "text"
+    },
+    {
+      "table_name": "bulk_actions",
+      "column_name": "action_type",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "bulk_actions",
+      "column_name": "selector_id",
+      "data_type": "text"
+    },
+    {
+      "table_name": "bulk_actions",
+      "column_name": "job_name",
+      "data_type": "text"
+    },
+    {
+      "table_name": "concurrency_limits",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "concurrency_limits",
+      "column_name": "concurrency_key",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "concurrency_limits",
+      "column_name": "limit",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "concurrency_limits",
+      "column_name": "using_default_limit",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "concurrency_limits",
+      "column_name": "update_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "concurrency_limits",
+      "column_name": "create_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "concurrency_slots",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "concurrency_slots",
+      "column_name": "concurrency_key",
+      "data_type": "text"
+    },
+    {
+      "table_name": "concurrency_slots",
+      "column_name": "run_id",
+      "data_type": "text"
+    },
+    {
+      "table_name": "concurrency_slots",
+      "column_name": "step_key",
+      "data_type": "text"
+    },
+    {
+      "table_name": "concurrency_slots",
+      "column_name": "deleted",
+      "data_type": "boolean"
+    },
+    {
+      "table_name": "concurrency_slots",
+      "column_name": "create_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "daemon_heartbeats",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "daemon_heartbeats",
+      "column_name": "daemon_type",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "daemon_heartbeats",
+      "column_name": "daemon_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "daemon_heartbeats",
+      "column_name": "timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "daemon_heartbeats",
+      "column_name": "body",
+      "data_type": "text"
+    },
+    {
+      "table_name": "dynamic_partitions",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "dynamic_partitions",
+      "column_name": "partitions_def_name",
+      "data_type": "text"
+    },
+    {
+      "table_name": "dynamic_partitions",
+      "column_name": "partition",
+      "data_type": "text"
+    },
+    {
+      "table_name": "dynamic_partitions",
+      "column_name": "create_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "event_logs",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "event_logs",
+      "column_name": "run_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "event_logs",
+      "column_name": "event",
+      "data_type": "text"
+    },
+    {
+      "table_name": "event_logs",
+      "column_name": "dagster_event_type",
+      "data_type": "text"
+    },
+    {
+      "table_name": "event_logs",
+      "column_name": "timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "event_logs",
+      "column_name": "step_key",
+      "data_type": "text"
+    },
+    {
+      "table_name": "event_logs",
+      "column_name": "asset_key",
+      "data_type": "text"
+    },
+    {
+      "table_name": "event_logs",
+      "column_name": "partition",
+      "data_type": "text"
+    },
+    {
+      "table_name": "instance_info",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "instance_info",
+      "column_name": "run_storage_id",
+      "data_type": "text"
+    },
+    {
+      "table_name": "instigators",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "instigators",
+      "column_name": "selector_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "instigators",
+      "column_name": "repository_selector_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "instigators",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "instigators",
+      "column_name": "instigator_type",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "instigators",
+      "column_name": "instigator_body",
+      "data_type": "text"
+    },
+    {
+      "table_name": "instigators",
+      "column_name": "create_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "instigators",
+      "column_name": "update_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "job_ticks",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "job_ticks",
+      "column_name": "job_origin_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "job_ticks",
+      "column_name": "selector_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "job_ticks",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "job_ticks",
+      "column_name": "type",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "job_ticks",
+      "column_name": "timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "job_ticks",
+      "column_name": "tick_body",
+      "data_type": "text"
+    },
+    {
+      "table_name": "job_ticks",
+      "column_name": "create_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "job_ticks",
+      "column_name": "update_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "jobs",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "jobs",
+      "column_name": "job_origin_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "jobs",
+      "column_name": "selector_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "jobs",
+      "column_name": "repository_origin_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "jobs",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "jobs",
+      "column_name": "job_type",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "jobs",
+      "column_name": "job_body",
+      "data_type": "text"
+    },
+    {
+      "table_name": "jobs",
+      "column_name": "create_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "jobs",
+      "column_name": "update_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "kvs",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "kvs",
+      "column_name": "key",
+      "data_type": "text"
+    },
+    {
+      "table_name": "kvs",
+      "column_name": "value",
+      "data_type": "text"
+    },
+    {
+      "table_name": "pending_steps",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "pending_steps",
+      "column_name": "concurrency_key",
+      "data_type": "text"
+    },
+    {
+      "table_name": "pending_steps",
+      "column_name": "run_id",
+      "data_type": "text"
+    },
+    {
+      "table_name": "pending_steps",
+      "column_name": "step_key",
+      "data_type": "text"
+    },
+    {
+      "table_name": "pending_steps",
+      "column_name": "priority",
+      "data_type": "integer"
+    },
+    {
+      "table_name": "pending_steps",
+      "column_name": "assigned_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "pending_steps",
+      "column_name": "create_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "run_tags",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "run_tags",
+      "column_name": "run_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "run_tags",
+      "column_name": "key",
+      "data_type": "text"
+    },
+    {
+      "table_name": "run_tags",
+      "column_name": "value",
+      "data_type": "text"
+    },
+    {
+      "table_name": "runs",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "runs",
+      "column_name": "run_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "runs",
+      "column_name": "snapshot_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "runs",
+      "column_name": "pipeline_name",
+      "data_type": "text"
+    },
+    {
+      "table_name": "runs",
+      "column_name": "mode",
+      "data_type": "text"
+    },
+    {
+      "table_name": "runs",
+      "column_name": "status",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "runs",
+      "column_name": "run_body",
+      "data_type": "text"
+    },
+    {
+      "table_name": "runs",
+      "column_name": "partition",
+      "data_type": "text"
+    },
+    {
+      "table_name": "runs",
+      "column_name": "partition_set",
+      "data_type": "text"
+    },
+    {
+      "table_name": "runs",
+      "column_name": "create_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "runs",
+      "column_name": "update_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "runs",
+      "column_name": "start_time",
+      "data_type": "double precision"
+    },
+    {
+      "table_name": "runs",
+      "column_name": "end_time",
+      "data_type": "double precision"
+    },
+    {
+      "table_name": "runs",
+      "column_name": "backfill_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "secondary_indexes",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "secondary_indexes",
+      "column_name": "name",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "secondary_indexes",
+      "column_name": "create_timestamp",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "secondary_indexes",
+      "column_name": "migration_completed",
+      "data_type": "timestamp without time zone"
+    },
+    {
+      "table_name": "snapshots",
+      "column_name": "id",
+      "data_type": "bigint"
+    },
+    {
+      "table_name": "snapshots",
+      "column_name": "snapshot_id",
+      "data_type": "character varying"
+    },
+    {
+      "table_name": "snapshots",
+      "column_name": "snapshot_body",
+      "data_type": "bytea"
+    },
+    {
+      "table_name": "snapshots",
+      "column_name": "snapshot_type",
+      "data_type": "character varying"
+    }
+  ],
+  "constraints": [
+    {
+      "conname": "secondary_indexes_id_not_null",
+      "contype": "n",
+      "table_name": "secondary_indexes",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "secondary_indexes_name_key",
+      "contype": "u",
+      "table_name": "secondary_indexes",
+      "referenced_table": "-",
+      "definition": "UNIQUE (name)"
+    },
+    {
+      "conname": "secondary_indexes_pkey",
+      "contype": "p",
+      "table_name": "secondary_indexes",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "snapshots_id_not_null",
+      "contype": "n",
+      "table_name": "snapshots",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "snapshots_pkey",
+      "contype": "p",
+      "table_name": "snapshots",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "snapshots_snapshot_body_not_null",
+      "contype": "n",
+      "table_name": "snapshots",
+      "referenced_table": "-",
+      "definition": "NOT NULL snapshot_body"
+    },
+    {
+      "conname": "snapshots_snapshot_id_key",
+      "contype": "u",
+      "table_name": "snapshots",
+      "referenced_table": "-",
+      "definition": "UNIQUE (snapshot_id)"
+    },
+    {
+      "conname": "snapshots_snapshot_id_not_null",
+      "contype": "n",
+      "table_name": "snapshots",
+      "referenced_table": "-",
+      "definition": "NOT NULL snapshot_id"
+    },
+    {
+      "conname": "snapshots_snapshot_type_not_null",
+      "contype": "n",
+      "table_name": "snapshots",
+      "referenced_table": "-",
+      "definition": "NOT NULL snapshot_type"
+    },
+    {
+      "conname": "daemon_heartbeats_daemon_type_key",
+      "contype": "u",
+      "table_name": "daemon_heartbeats",
+      "referenced_table": "-",
+      "definition": "UNIQUE (daemon_type)"
+    },
+    {
+      "conname": "daemon_heartbeats_daemon_type_not_null",
+      "contype": "n",
+      "table_name": "daemon_heartbeats",
+      "referenced_table": "-",
+      "definition": "NOT NULL daemon_type"
+    },
+    {
+      "conname": "daemon_heartbeats_id_not_null",
+      "contype": "n",
+      "table_name": "daemon_heartbeats",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "daemon_heartbeats_pkey",
+      "contype": "p",
+      "table_name": "daemon_heartbeats",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "daemon_heartbeats_timestamp_not_null",
+      "contype": "n",
+      "table_name": "daemon_heartbeats",
+      "referenced_table": "-",
+      "definition": "NOT NULL \"timestamp\""
+    },
+    {
+      "conname": "bulk_actions_id_not_null",
+      "contype": "n",
+      "table_name": "bulk_actions",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "bulk_actions_key_key",
+      "contype": "u",
+      "table_name": "bulk_actions",
+      "referenced_table": "-",
+      "definition": "UNIQUE (key)"
+    },
+    {
+      "conname": "bulk_actions_key_not_null",
+      "contype": "n",
+      "table_name": "bulk_actions",
+      "referenced_table": "-",
+      "definition": "NOT NULL key"
+    },
+    {
+      "conname": "bulk_actions_pkey",
+      "contype": "p",
+      "table_name": "bulk_actions",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "bulk_actions_status_not_null",
+      "contype": "n",
+      "table_name": "bulk_actions",
+      "referenced_table": "-",
+      "definition": "NOT NULL status"
+    },
+    {
+      "conname": "bulk_actions_timestamp_not_null",
+      "contype": "n",
+      "table_name": "bulk_actions",
+      "referenced_table": "-",
+      "definition": "NOT NULL \"timestamp\""
+    },
+    {
+      "conname": "backfill_tags_id_not_null",
+      "contype": "n",
+      "table_name": "backfill_tags",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "backfill_tags_pkey",
+      "contype": "p",
+      "table_name": "backfill_tags",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "instance_info_id_not_null",
+      "contype": "n",
+      "table_name": "instance_info",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "instance_info_pkey",
+      "contype": "p",
+      "table_name": "instance_info",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "kvs_id_not_null",
+      "contype": "n",
+      "table_name": "kvs",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "kvs_key_not_null",
+      "contype": "n",
+      "table_name": "kvs",
+      "referenced_table": "-",
+      "definition": "NOT NULL key"
+    },
+    {
+      "conname": "kvs_pkey",
+      "contype": "p",
+      "table_name": "kvs",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "fk_runs_snapshot_id_snapshots_snapshot_id",
+      "contype": "f",
+      "table_name": "runs",
+      "referenced_table": "snapshots",
+      "definition": "FOREIGN KEY (snapshot_id) REFERENCES snapshots(snapshot_id)"
+    },
+    {
+      "conname": "runs_id_not_null",
+      "contype": "n",
+      "table_name": "runs",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "runs_pkey",
+      "contype": "p",
+      "table_name": "runs",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "runs_run_id_key",
+      "contype": "u",
+      "table_name": "runs",
+      "referenced_table": "-",
+      "definition": "UNIQUE (run_id)"
+    },
+    {
+      "conname": "run_tags_id_not_null",
+      "contype": "n",
+      "table_name": "run_tags",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "run_tags_pkey",
+      "contype": "p",
+      "table_name": "run_tags",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "run_tags_run_id_fkey",
+      "contype": "f",
+      "table_name": "run_tags",
+      "referenced_table": "runs",
+      "definition": "FOREIGN KEY (run_id) REFERENCES runs(run_id) ON DELETE CASCADE"
+    },
+    {
+      "conname": "alembic_version_pkc",
+      "contype": "p",
+      "table_name": "alembic_version",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (version_num)"
+    },
+    {
+      "conname": "alembic_version_version_num_not_null",
+      "contype": "n",
+      "table_name": "alembic_version",
+      "referenced_table": "-",
+      "definition": "NOT NULL version_num"
+    },
+    {
+      "conname": "event_logs_event_not_null",
+      "contype": "n",
+      "table_name": "event_logs",
+      "referenced_table": "-",
+      "definition": "NOT NULL event"
+    },
+    {
+      "conname": "event_logs_id_not_null",
+      "contype": "n",
+      "table_name": "event_logs",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "event_logs_pkey",
+      "contype": "p",
+      "table_name": "event_logs",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "asset_keys_asset_key_key",
+      "contype": "u",
+      "table_name": "asset_keys",
+      "referenced_table": "-",
+      "definition": "UNIQUE (asset_key)"
+    },
+    {
+      "conname": "asset_keys_id_not_null",
+      "contype": "n",
+      "table_name": "asset_keys",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "asset_keys_pkey",
+      "contype": "p",
+      "table_name": "asset_keys",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "asset_event_tags_asset_key_not_null",
+      "contype": "n",
+      "table_name": "asset_event_tags",
+      "referenced_table": "-",
+      "definition": "NOT NULL asset_key"
+    },
+    {
+      "conname": "asset_event_tags_id_not_null",
+      "contype": "n",
+      "table_name": "asset_event_tags",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "asset_event_tags_key_not_null",
+      "contype": "n",
+      "table_name": "asset_event_tags",
+      "referenced_table": "-",
+      "definition": "NOT NULL key"
+    },
+    {
+      "conname": "asset_event_tags_pkey",
+      "contype": "p",
+      "table_name": "asset_event_tags",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "dynamic_partitions_id_not_null",
+      "contype": "n",
+      "table_name": "dynamic_partitions",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "dynamic_partitions_partition_not_null",
+      "contype": "n",
+      "table_name": "dynamic_partitions",
+      "referenced_table": "-",
+      "definition": "NOT NULL partition"
+    },
+    {
+      "conname": "dynamic_partitions_partitions_def_name_not_null",
+      "contype": "n",
+      "table_name": "dynamic_partitions",
+      "referenced_table": "-",
+      "definition": "NOT NULL partitions_def_name"
+    },
+    {
+      "conname": "dynamic_partitions_pkey",
+      "contype": "p",
+      "table_name": "dynamic_partitions",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "concurrency_limits_concurrency_key_key",
+      "contype": "u",
+      "table_name": "concurrency_limits",
+      "referenced_table": "-",
+      "definition": "UNIQUE (concurrency_key)"
+    },
+    {
+      "conname": "concurrency_limits_concurrency_key_not_null",
+      "contype": "n",
+      "table_name": "concurrency_limits",
+      "referenced_table": "-",
+      "definition": "NOT NULL concurrency_key"
+    },
+    {
+      "conname": "concurrency_limits_id_not_null",
+      "contype": "n",
+      "table_name": "concurrency_limits",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "concurrency_limits_limit_not_null",
+      "contype": "n",
+      "table_name": "concurrency_limits",
+      "referenced_table": "-",
+      "definition": "NOT NULL \"limit\""
+    },
+    {
+      "conname": "concurrency_limits_pkey",
+      "contype": "p",
+      "table_name": "concurrency_limits",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "concurrency_limits_using_default_limit_not_null",
+      "contype": "n",
+      "table_name": "concurrency_limits",
+      "referenced_table": "-",
+      "definition": "NOT NULL using_default_limit"
+    },
+    {
+      "conname": "concurrency_slots_concurrency_key_not_null",
+      "contype": "n",
+      "table_name": "concurrency_slots",
+      "referenced_table": "-",
+      "definition": "NOT NULL concurrency_key"
+    },
+    {
+      "conname": "concurrency_slots_deleted_not_null",
+      "contype": "n",
+      "table_name": "concurrency_slots",
+      "referenced_table": "-",
+      "definition": "NOT NULL deleted"
+    },
+    {
+      "conname": "concurrency_slots_id_not_null",
+      "contype": "n",
+      "table_name": "concurrency_slots",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "concurrency_slots_pkey",
+      "contype": "p",
+      "table_name": "concurrency_slots",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "pending_steps_concurrency_key_not_null",
+      "contype": "n",
+      "table_name": "pending_steps",
+      "referenced_table": "-",
+      "definition": "NOT NULL concurrency_key"
+    },
+    {
+      "conname": "pending_steps_id_not_null",
+      "contype": "n",
+      "table_name": "pending_steps",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "pending_steps_pkey",
+      "contype": "p",
+      "table_name": "pending_steps",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "asset_check_executions_id_not_null",
+      "contype": "n",
+      "table_name": "asset_check_executions",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "asset_check_executions_pkey",
+      "contype": "p",
+      "table_name": "asset_check_executions",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "jobs_id_not_null",
+      "contype": "n",
+      "table_name": "jobs",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "jobs_job_origin_id_key",
+      "contype": "u",
+      "table_name": "jobs",
+      "referenced_table": "-",
+      "definition": "UNIQUE (job_origin_id)"
+    },
+    {
+      "conname": "jobs_pkey",
+      "contype": "p",
+      "table_name": "jobs",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "instigators_id_not_null",
+      "contype": "n",
+      "table_name": "instigators",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "instigators_pkey",
+      "contype": "p",
+      "table_name": "instigators",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "instigators_selector_id_key",
+      "contype": "u",
+      "table_name": "instigators",
+      "referenced_table": "-",
+      "definition": "UNIQUE (selector_id)"
+    },
+    {
+      "conname": "job_ticks_id_not_null",
+      "contype": "n",
+      "table_name": "job_ticks",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "job_ticks_pkey",
+      "contype": "p",
+      "table_name": "job_ticks",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    },
+    {
+      "conname": "asset_daemon_asset_evaluations_id_not_null",
+      "contype": "n",
+      "table_name": "asset_daemon_asset_evaluations",
+      "referenced_table": "-",
+      "definition": "NOT NULL id"
+    },
+    {
+      "conname": "asset_daemon_asset_evaluations_pkey",
+      "contype": "p",
+      "table_name": "asset_daemon_asset_evaluations",
+      "referenced_table": "-",
+      "definition": "PRIMARY KEY (id)"
+    }
+  ],
+  "event_indexes": [
+    {
+      "tablename": "asset_check_executions",
+      "indexname": "asset_check_executions_pkey",
+      "indexdef": "CREATE UNIQUE INDEX asset_check_executions_pkey ON public.asset_check_executions USING btree (id)"
+    },
+    {
+      "tablename": "asset_check_executions",
+      "indexname": "idx_asset_check_executions",
+      "indexdef": "CREATE INDEX idx_asset_check_executions ON public.asset_check_executions USING btree (asset_key, check_name, materialization_event_storage_id, partition)"
+    },
+    {
+      "tablename": "asset_check_executions",
+      "indexname": "idx_asset_check_executions_unique",
+      "indexdef": "CREATE UNIQUE INDEX idx_asset_check_executions_unique ON public.asset_check_executions USING btree (asset_key, check_name, run_id, partition)"
+    },
+    {
+      "tablename": "asset_event_tags",
+      "indexname": "asset_event_tags_pkey",
+      "indexdef": "CREATE UNIQUE INDEX asset_event_tags_pkey ON public.asset_event_tags USING btree (id)"
+    },
+    {
+      "tablename": "asset_event_tags",
+      "indexname": "idx_asset_event_tags",
+      "indexdef": "CREATE INDEX idx_asset_event_tags ON public.asset_event_tags USING btree (asset_key, key, value)"
+    },
+    {
+      "tablename": "asset_event_tags",
+      "indexname": "idx_asset_event_tags_event_id",
+      "indexdef": "CREATE INDEX idx_asset_event_tags_event_id ON public.asset_event_tags USING btree (event_id)"
+    },
+    {
+      "tablename": "asset_keys",
+      "indexname": "asset_keys_asset_key_key",
+      "indexdef": "CREATE UNIQUE INDEX asset_keys_asset_key_key ON public.asset_keys USING btree (asset_key)"
+    },
+    {
+      "tablename": "asset_keys",
+      "indexname": "asset_keys_pkey",
+      "indexdef": "CREATE UNIQUE INDEX asset_keys_pkey ON public.asset_keys USING btree (id)"
+    },
+    {
+      "tablename": "event_logs",
+      "indexname": "event_logs_pkey",
+      "indexdef": "CREATE UNIQUE INDEX event_logs_pkey ON public.event_logs USING btree (id)"
+    },
+    {
+      "tablename": "event_logs",
+      "indexname": "idx_event_type",
+      "indexdef": "CREATE INDEX idx_event_type ON public.event_logs USING btree (dagster_event_type, id)"
+    },
+    {
+      "tablename": "event_logs",
+      "indexname": "idx_events_by_asset",
+      "indexdef": "CREATE INDEX idx_events_by_asset ON public.event_logs USING btree (asset_key, dagster_event_type, id) WHERE (asset_key IS NOT NULL)"
+    },
+    {
+      "tablename": "event_logs",
+      "indexname": "idx_events_by_asset_partition",
+      "indexdef": "CREATE INDEX idx_events_by_asset_partition ON public.event_logs USING btree (asset_key, dagster_event_type, partition, id) WHERE ((asset_key IS NOT NULL) AND (partition IS NOT NULL))"
+    },
+    {
+      "tablename": "event_logs",
+      "indexname": "idx_events_by_run_id",
+      "indexdef": "CREATE INDEX idx_events_by_run_id ON public.event_logs USING btree (run_id, id)"
+    },
+    {
+      "tablename": "event_logs",
+      "indexname": "idx_step_key",
+      "indexdef": "CREATE INDEX idx_step_key ON public.event_logs USING btree (step_key)"
+    }
+  ],
+  "candidate_direct_counts": [
+    {
+      "asset_key": "[\"gold_market_major_indices\"]",
+      "dagster_event_type": "ASSET_MATERIALIZATION",
+      "count": 3,
+      "min_id": 1171794,
+      "max_id": 1172136,
+      "event_bytes": 9131
+    },
+    {
+      "asset_key": "[\"gold_market_major_indices\"]",
+      "dagster_event_type": "ASSET_MATERIALIZATION_PLANNED",
+      "count": 3,
+      "min_id": 1171779,
+      "max_id": 1172119,
+      "event_bytes": 2631
+    },
+    {
+      "asset_key": "[\"gold_market_major_indices\"]",
+      "dagster_event_type": "ASSET_WIPED",
+      "count": 1,
+      "min_id": 2206517,
+      "max_id": 2206517,
+      "event_bytes": 582
+    },
+    {
+      "asset_key": "[\"gold_market_major_indices\"]",
+      "dagster_event_type": "FRESHNESS_STATE_CHANGE",
+      "count": 1,
+      "min_id": 1171845,
+      "max_id": 1171845,
+      "event_bytes": 732
+    },
+    {
+      "asset_key": "[\"raw_tushare_index_daily\"]",
+      "dagster_event_type": "ASSET_WIPED",
+      "count": 1,
+      "min_id": 1503952,
+      "max_id": 1503952,
+      "event_bytes": 580
+    },
+    {
+      "asset_key": "[\"raw_tushare_index_daily\"]",
+      "dagster_event_type": "FRESHNESS_STATE_CHANGE",
+      "count": 1,
+      "min_id": 1173076,
+      "max_id": 1173076,
+      "event_bytes": 730
+    },
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_month\"]",
+      "dagster_event_type": "ASSET_MATERIALIZATION",
+      "count": 203,
+      "min_id": 7425193,
+      "max_id": 7427674,
+      "event_bytes": 483815
+    },
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_month\"]",
+      "dagster_event_type": "ASSET_MATERIALIZATION_PLANNED",
+      "count": 2,
+      "min_id": 7427631,
+      "max_id": 7427663,
+      "event_bytes": 1837
+    },
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_month\"]",
+      "dagster_event_type": "FRESHNESS_STATE_CHANGE",
+      "count": 1,
+      "min_id": 7424664,
+      "max_id": 7424664,
+      "event_bytes": 740
+    },
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_week\"]",
+      "dagster_event_type": "ASSET_MATERIALIZATION",
+      "count": 860,
+      "min_id": 7408046,
+      "max_id": 7436795,
+      "event_bytes": 1923209
+    },
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_week\"]",
+      "dagster_event_type": "ASSET_MATERIALIZATION_PLANNED",
+      "count": 4,
+      "min_id": 7427285,
+      "max_id": 7436778,
+      "event_bytes": 3657
+    },
+    {
+      "asset_key": "[\"raw_tushare_stk_period_bar_week\"]",
+      "dagster_event_type": "FRESHNESS_STATE_CHANGE",
+      "count": 1,
+      "min_id": 7424665,
+      "max_id": 7424665,
+      "event_bytes": 739
+    },
+    {
+      "asset_key": "[\"raw_tushare_weekly\"]",
+      "dagster_event_type": "ASSET_MATERIALIZATION",
+      "count": 803,
+      "min_id": 7408903,
+      "max_id": 7409705,
+      "event_bytes": 1745117
+    },
+    {
+      "asset_key": "[\"raw_tushare_weekly\"]",
+      "dagster_event_type": "FRESHNESS_STATE_CHANGE",
+      "count": 1,
+      "min_id": 7424666,
+      "max_id": 7424666,
+      "event_bytes": 724
+    },
+    {
+      "asset_key": "[\"silver_index_daily_active_pool\"]",
+      "dagster_event_type": "ASSET_WIPED",
+      "count": 1,
+      "min_id": 1503953,
+      "max_id": 1503953,
+      "event_bytes": 587
+    },
+    {
+      "asset_key": "[\"silver_index_daily_active_pool\"]",
+      "dagster_event_type": "FRESHNESS_STATE_CHANGE",
+      "count": 1,
+      "min_id": 1171846,
+      "max_id": 1171846,
+      "event_bytes": 738
+    }
+  ],
+  "event_type_counts": [
+    {
+      "dagster_event_type": "ASSET_CHECK_EVALUATION",
+      "count": 434656,
+      "min_id": 72401,
+      "max_id": 7735135
+    },
+    {
+      "dagster_event_type": "ASSET_CHECK_EVALUATION_PLANNED",
+      "count": 413683,
+      "min_id": 36,
+      "max_id": 7735113
+    },
+    {
+      "dagster_event_type": "ASSET_MATERIALIZATION",
+      "count": 576141,
+      "min_id": 72298,
+      "max_id": 7735126
+    },
+    {
+      "dagster_event_type": "ASSET_MATERIALIZATION_PLANNED",
+      "count": 83626,
+      "min_id": 17,
+      "max_id": 7735112
+    },
+    {
+      "dagster_event_type": "ASSET_OBSERVATION",
+      "count": 39,
+      "min_id": 7634150,
+      "max_id": 7706595
+    },
+    {
+      "dagster_event_type": "ASSET_WIPED",
+      "count": 3,
+      "min_id": 1503952,
+      "max_id": 2206517
+    },
+    {
+      "dagster_event_type": "ENGINE_EVENT",
+      "count": 186924,
+      "min_id": 2,
+      "max_id": 7735139
+    },
+    {
+      "dagster_event_type": "FRESHNESS_STATE_CHANGE",
+      "count": 186,
+      "min_id": 13,
+      "max_id": 7627172
+    },
+    {
+      "dagster_event_type": "HANDLED_OUTPUT",
+      "count": 31,
+      "min_id": 9,
+      "max_id": 7630443
+    },
+    {
+      "dagster_event_type": "LOGS_CAPTURED",
+      "count": 353119,
+      "min_id": 5,
+      "max_id": 7735132
+    },
+    {
+      "dagster_event_type": "PIPELINE_CANCELED",
+      "count": 6995,
+      "min_id": 524232,
+      "max_id": 7443821
+    },
+    {
+      "dagster_event_type": "PIPELINE_CANCELING",
+      "count": 6994,
+      "min_id": 524230,
+      "max_id": 7443819
+    },
+    {
+      "dagster_event_type": "PIPELINE_ENQUEUED",
+      "count": 49730,
+      "min_id": 7687,
+      "max_id": 7735114
+    },
+    {
+      "dagster_event_type": "PIPELINE_FAILURE",
+      "count": 1721,
+      "min_id": 2197192,
+      "max_id": 7735082
+    },
+    {
+      "dagster_event_type": "PIPELINE_START",
+      "count": 49705,
+      "min_id": 1,
+      "max_id": 7735117
+    },
+    {
+      "dagster_event_type": "PIPELINE_STARTING",
+      "count": 42835,
+      "min_id": 7757,
+      "max_id": 7735115
+    },
+    {
+      "dagster_event_type": "PIPELINE_SUCCESS",
+      "count": 48827,
+      "min_id": 12,
+      "max_id": 7735138
+    },
+    {
+      "dagster_event_type": "RESOURCE_INIT_STARTED",
+      "count": 353482,
+      "min_id": 3,
+      "max_id": 7735130
+    },
+    {
+      "dagster_event_type": "RESOURCE_INIT_SUCCESS",
+      "count": 353481,
+      "min_id": 4,
+      "max_id": 7735131
+    },
+    {
+      "dagster_event_type": "STEP_FAILURE",
+      "count": 907,
+      "min_id": 2197183,
+      "max_id": 7735079
+    },
+    {
+      "dagster_event_type": "STEP_OUTPUT",
+      "count": 395420,
+      "min_id": 8,
+      "max_id": 7735134
+    },
+    {
+      "dagster_event_type": "STEP_START",
+      "count": 391663,
+      "min_id": 6,
+      "max_id": 7735133
+    },
+    {
+      "dagster_event_type": "STEP_SUCCESS",
+      "count": 390752,
+      "min_id": 10,
+      "max_id": 7735136
+    },
+    {
+      "dagster_event_type": "STEP_WORKER_STARTED",
+      "count": 344180,
+      "min_id": 6227,
+      "max_id": 7735129
+    },
+    {
+      "dagster_event_type": "STEP_WORKER_STARTING",
+      "count": 344180,
+      "min_id": 6226,
+      "max_id": 7735128
+    },
+    {
+      "dagster_event_type": null,
+      "count": 40176,
+      "min_id": 7,
+      "max_id": 7735080
+    }
+  ]
+}

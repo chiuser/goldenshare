@@ -1,0 +1,1 @@
+query { assetsOrError(limit:500) { __typename ... on AssetConnection { nodes { key { path } definition { assetKey { path } isExecutable jobNames } } cursor } } assetNodes { assetKey { path } dependencyKeys { path } dependedByKeys { path } isExecutable jobNames } }

@@ -1,0 +1,2354 @@
+{
+  "observed_at_utc": "2026-10-27T05:53:12.039589+00:00",
+  "candidate_asset_keys": [
+    [
+      "raw_tushare_stk_period_bar_month"
+    ],
+    [
+      "raw_tushare_stk_period_bar_week"
+    ],
+    [
+      "raw_tushare_weekly"
+    ]
+  ],
+  "note": "Metadata/count queries only. A prior save failed on datetime encoding; this saved query uses explicit serialization and does not read event bodies.",
+  "all_asset_index_rows": [
+    {
+      "asset_key": [
+        "raw_tushare_stock_basic"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:16:51.673080",
+      "last_run_id": "a1e3f23b-cb31-44f6-8019-4d85f94d88bb"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_trade_calendar"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-05-24 05:07:02.441498",
+      "last_run_id": "ab0378dd-08c8-413f-a564-f1c137e585f2"
+    },
+    {
+      "asset_key": [
+        "silver_stock_basic"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:26:59.443744",
+      "last_run_id": "8aac8cf0-b55d-4ba0-815c-f5004240f325"
+    },
+    {
+      "asset_key": [
+        "silver_trade_calendar"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-05-24 05:07:05.022188",
+      "last_run_id": "ab0378dd-08c8-413f-a564-f1c137e585f2"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stock_daily"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:36:09.790644",
+      "last_run_id": "b66d6192-8d34-4aad-8f0a-84a446f12960"
+    },
+    {
+      "asset_key": [
+        "silver_stock_daily"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:37:04.924954",
+      "last_run_id": "4b02a88d-4b95-4a06-9873-665e555f96e0"
+    },
+    {
+      "asset_key": [
+        "gold_market_breadth_daily"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:47:11.304697",
+      "last_run_id": "3453380d-3363-479c-bdf8-8df8bb1ab554"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_suspend_d"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:16:04.011137",
+      "last_run_id": "d1cce30c-3ee0-4304-91c6-9b7a1764ccda"
+    },
+    {
+      "asset_key": [
+        "silver_stock_suspend_daily"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:17:03.846621",
+      "last_run_id": "041c2243-891b-462e-ab08-a6bbe050e5d9"
+    },
+    {
+      "asset_key": [
+        "silver_index_daily_active_pool"
+      ],
+      "wipe_timestamp": "2026-05-25 13:21:14.127827",
+      "last_materialization_timestamp": "2026-05-24 03:33:07.380682",
+      "last_run_id": null
+    },
+    {
+      "asset_key": [
+        "gold_market_major_indices"
+      ],
+      "wipe_timestamp": "2026-05-26 11:38:44.332329",
+      "last_materialization_timestamp": "2026-05-23 22:28:41.239037",
+      "last_run_id": null
+    },
+    {
+      "asset_key": [
+        "raw_tushare_index_basic"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-07-10 03:25:04.418211",
+      "last_run_id": "ad33ee2d-b84e-43de-8850-d65ee60c1724"
+    },
+    {
+      "asset_key": [
+        "silver_index_basic"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-07-10 03:25:07.837329",
+      "last_run_id": "ad33ee2d-b84e-43de-8850-d65ee60c1724"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_index_daily"
+      ],
+      "wipe_timestamp": "2026-05-25 13:21:04.048653",
+      "last_materialization_timestamp": "2026-05-24 16:29:25.317346",
+      "last_run_id": null
+    },
+    {
+      "asset_key": [
+        "silver_index_daily"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:58:42.509060",
+      "last_run_id": "a66e6160-651e-488f-99af-19bd80fcf196"
+    },
+    {
+      "asset_key": [
+        "gold_market_major_indices_daily"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:06:50.225953",
+      "last_run_id": "a729b19d-f35f-4044-a9bf-209f669db95d"
+    },
+    {
+      "asset_key": [
+        "gold_stock_return_distribution"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:47:21.488465",
+      "last_run_id": "d5bbcec8-4edf-422c-a974-16cdba17f4ab"
+    },
+    {
+      "asset_key": [
+        "ch_share_fact_market_breadth_daily"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:56:27.557685",
+      "last_run_id": "0fc5b4f8-561d-4892-b9b7-f323850d2fd6"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_adj_factor"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 02:14:41.600872",
+      "last_run_id": "cff80af5-18e4-4534-9f89-c13d63c14d23"
+    },
+    {
+      "asset_key": [
+        "silver_adj_factor"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:36:54.310280",
+      "last_run_id": "a78f3e33-efd1-42a8-b2b9-524238d81924"
+    },
+    {
+      "asset_key": [
+        "prod_ch_share_fact_market_breadth_daily"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:06:37.264634",
+      "last_run_id": "ae623519-4219-4093-9eb0-ada125c5fbbe"
+    },
+    {
+      "asset_key": [
+        "raw_stk_mins_1m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:07:30.098370",
+      "last_run_id": "92032801-e4e3-4de2-ab68-3d82aa4bc561"
+    },
+    {
+      "asset_key": [
+        "raw_stk_mins_5m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:07:49.472077",
+      "last_run_id": "92032801-e4e3-4de2-ab68-3d82aa4bc561"
+    },
+    {
+      "asset_key": [
+        "raw_stk_mins_15m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:06:27.323314",
+      "last_run_id": "92032801-e4e3-4de2-ab68-3d82aa4bc561"
+    },
+    {
+      "asset_key": [
+        "raw_stk_mins_30m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:07:33.803939",
+      "last_run_id": "92032801-e4e3-4de2-ab68-3d82aa4bc561"
+    },
+    {
+      "asset_key": [
+        "raw_stk_mins_60m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:07:51.321022",
+      "last_run_id": "92032801-e4e3-4de2-ab68-3d82aa4bc561"
+    },
+    {
+      "asset_key": [
+        "silver_stock_identity_map"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:48:49.475050",
+      "last_run_id": "de5ef660-7a26-4cbf-b8d2-5cb414620f51"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_namechange"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 02:14:28.552160",
+      "last_run_id": "f8bcb86f-b6cb-44d6-af1d-3f58a6f8e84b"
+    },
+    {
+      "asset_key": [
+        "silver_namechange"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:37:16.709582",
+      "last_run_id": "a2df8de7-69b2-49a9-9dcd-acfcd40fecd1"
+    },
+    {
+      "asset_key": [
+        "silver_stk_mins_1m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:17:38.909394",
+      "last_run_id": "29c8dfe4-13b0-4ae9-8b27-2931ba7f8b0d"
+    },
+    {
+      "asset_key": [
+        "silver_stk_mins_5m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:17:43.816889",
+      "last_run_id": "29c8dfe4-13b0-4ae9-8b27-2931ba7f8b0d"
+    },
+    {
+      "asset_key": [
+        "silver_stk_mins_15m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:17:36.658860",
+      "last_run_id": "29c8dfe4-13b0-4ae9-8b27-2931ba7f8b0d"
+    },
+    {
+      "asset_key": [
+        "silver_stk_mins_30m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:17:41.165949",
+      "last_run_id": "29c8dfe4-13b0-4ae9-8b27-2931ba7f8b0d"
+    },
+    {
+      "asset_key": [
+        "silver_stk_mins_60m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:17:46.045176",
+      "last_run_id": "29c8dfe4-13b0-4ae9-8b27-2931ba7f8b0d"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_15m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:40:35.439401",
+      "last_run_id": "2b767cdf-6f91-46a4-a9c0-5ec987d66b94"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_1m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:43:53.856982",
+      "last_run_id": "2b767cdf-6f91-46a4-a9c0-5ec987d66b94"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_30m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:44:48.624052",
+      "last_run_id": "2b767cdf-6f91-46a4-a9c0-5ec987d66b94"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_5m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:46:14.798950",
+      "last_run_id": "2b767cdf-6f91-46a4-a9c0-5ec987d66b94"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_60m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:47:11.626215",
+      "last_run_id": "2b767cdf-6f91-46a4-a9c0-5ec987d66b94"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_120m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:39:30.983128",
+      "last_run_id": "2b767cdf-6f91-46a4-a9c0-5ec987d66b94"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_90m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:48:04.830051",
+      "last_run_id": "2b767cdf-6f91-46a4-a9c0-5ec987d66b94"
+    },
+    {
+      "asset_key": [
+        "lake_root_health"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:00:05.933807",
+      "last_run_id": "b4cb8b5e-d433-40f9-b210-3cce9d873ca8"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_macd_kdj_120m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:24:57.895859",
+      "last_run_id": "dae77a12-5b05-4b99-ac25-9d432e4798b5"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_macd_kdj_15m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:26:10.901535",
+      "last_run_id": "dae77a12-5b05-4b99-ac25-9d432e4798b5"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_macd_kdj_1m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:30:44.362418",
+      "last_run_id": "dae77a12-5b05-4b99-ac25-9d432e4798b5"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_macd_kdj_30m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:31:54.952646",
+      "last_run_id": "dae77a12-5b05-4b99-ac25-9d432e4798b5"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_macd_kdj_5m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:33:14.315894",
+      "last_run_id": "dae77a12-5b05-4b99-ac25-9d432e4798b5"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_macd_kdj_60m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:34:19.108384",
+      "last_run_id": "dae77a12-5b05-4b99-ac25-9d432e4798b5"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_macd_kdj_90m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:35:13.407757",
+      "last_run_id": "dae77a12-5b05-4b99-ac25-9d432e4798b5"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_macd_kdj_state_120m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:24:57.939225",
+      "last_run_id": "dae77a12-5b05-4b99-ac25-9d432e4798b5"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_macd_kdj_state_15m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:26:10.949264",
+      "last_run_id": "dae77a12-5b05-4b99-ac25-9d432e4798b5"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_macd_kdj_state_1m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:30:44.440800",
+      "last_run_id": "dae77a12-5b05-4b99-ac25-9d432e4798b5"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_macd_kdj_state_30m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:31:55.011446",
+      "last_run_id": "dae77a12-5b05-4b99-ac25-9d432e4798b5"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_macd_kdj_state_5m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:33:14.410583",
+      "last_run_id": "dae77a12-5b05-4b99-ac25-9d432e4798b5"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_macd_kdj_state_60m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:34:19.170135",
+      "last_run_id": "dae77a12-5b05-4b99-ac25-9d432e4798b5"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_macd_kdj_state_90m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:35:13.466869",
+      "last_run_id": "dae77a12-5b05-4b99-ac25-9d432e4798b5"
+    },
+    {
+      "asset_key": [
+        "silver_stock_lifecycle"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:26:59.443020",
+      "last_run_id": "8aac8cf0-b55d-4ba0-815c-f5004240f325"
+    },
+    {
+      "asset_key": [
+        "raw_index_daily"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:48:59.350230",
+      "last_run_id": "9ddb4879-ce77-4ea7-95c3-f78147637443"
+    },
+    {
+      "asset_key": [
+        "gold_wealth_market_turnover"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:58:00.624892",
+      "last_run_id": "f6851540-e12a-45c4-9f49-de52a2cee993"
+    },
+    {
+      "asset_key": [
+        "prod_core_wealth_market_turnover"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:58:01.269523",
+      "last_run_id": "f6851540-e12a-45c4-9f49-de52a2cee993"
+    },
+    {
+      "asset_key": [
+        "gold_stock_daily_qfq"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:47:01.444386",
+      "last_run_id": "e06b5727-4cd8-4415-83d5-d0ccc010d1cc"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_nineturn"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:20:14.316030",
+      "last_run_id": "d002d614-f66e-403f-8a50-a991b2d6a5ec"
+    },
+    {
+      "asset_key": [
+        "silver_stock_nineturn_daily"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:30:35.089966",
+      "last_run_id": "7ccf97fe-6cf6-4440-9f44-72c2c10b302c"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_dc_index"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:30:00.459639",
+      "last_run_id": "c81daa04-4bf3-4588-8c5b-72a22735962c"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_dc_member"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:41:20.742498",
+      "last_run_id": "bb8e0dbf-b5b8-445e-aa93-4e7f386dd38a"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_dc_daily"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:41:33.059897",
+      "last_run_id": "73cbee4d-effb-403d-be44-2f0e58ddf44c"
+    },
+    {
+      "asset_key": [
+        "silver_dc_index"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:41:41.979380",
+      "last_run_id": "92491ee1-a35c-4714-8ccb-1618596ab462"
+    },
+    {
+      "asset_key": [
+        "silver_dc_member"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:47:47.756448",
+      "last_run_id": "a2b95997-aa6a-412e-bbd5-288d5923e464"
+    },
+    {
+      "asset_key": [
+        "silver_dc_daily"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:47:57.677793",
+      "last_run_id": "d51ccd64-59cb-4a79-9cac-ca9babff4a5b"
+    },
+    {
+      "asset_key": [
+        "gold_dc_daily_technical"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:58:10.852145",
+      "last_run_id": "ddfec6e8-acd3-4f1b-b762-057b50bbd99a"
+    },
+    {
+      "asset_key": [
+        "ch_dc_daily_technical"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 14:00:35.925228",
+      "last_run_id": "f9cdea8e-febd-41bd-bbf1-fb619dcff1b0"
+    },
+    {
+      "asset_key": [
+        "prod_ch_dc_daily_technical"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 14:07:42.201392",
+      "last_run_id": "7871b8bc-fbee-4eb6-90ac-0d8338b0c81c"
+    },
+    {
+      "asset_key": [
+        "raw_index_global"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 02:06:08.400864",
+      "last_run_id": "d0a3865f-dbd5-4884-9339-bd36f4674470"
+    },
+    {
+      "asset_key": [
+        "silver_index_global"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 02:06:54.541057",
+      "last_run_id": "63c27905-555e-405d-a102-f8cd807137b0"
+    },
+    {
+      "asset_key": [
+        "raw_index_mins_15m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:57:21.793665",
+      "last_run_id": "4acc557e-3d92-475d-85bd-fb50d3cd646a"
+    },
+    {
+      "asset_key": [
+        "raw_index_mins_1m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:57:54.007601",
+      "last_run_id": "4acc557e-3d92-475d-85bd-fb50d3cd646a"
+    },
+    {
+      "asset_key": [
+        "raw_index_mins_30m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:58:02.479761",
+      "last_run_id": "4acc557e-3d92-475d-85bd-fb50d3cd646a"
+    },
+    {
+      "asset_key": [
+        "raw_index_mins_5m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:58:28.535374",
+      "last_run_id": "4acc557e-3d92-475d-85bd-fb50d3cd646a"
+    },
+    {
+      "asset_key": [
+        "raw_index_mins_60m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:58:34.645511",
+      "last_run_id": "4acc557e-3d92-475d-85bd-fb50d3cd646a"
+    },
+    {
+      "asset_key": [
+        "silver_index_mins_120m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:07:15.422001",
+      "last_run_id": "c5c6138c-8802-4049-811b-a347293e1ce7"
+    },
+    {
+      "asset_key": [
+        "silver_index_mins_15m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:07:14.222700",
+      "last_run_id": "c5c6138c-8802-4049-811b-a347293e1ce7"
+    },
+    {
+      "asset_key": [
+        "silver_index_mins_1m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:07:14.433718",
+      "last_run_id": "c5c6138c-8802-4049-811b-a347293e1ce7"
+    },
+    {
+      "asset_key": [
+        "silver_index_mins_30m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:07:14.541896",
+      "last_run_id": "c5c6138c-8802-4049-811b-a347293e1ce7"
+    },
+    {
+      "asset_key": [
+        "silver_index_mins_5m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:07:14.669652",
+      "last_run_id": "c5c6138c-8802-4049-811b-a347293e1ce7"
+    },
+    {
+      "asset_key": [
+        "silver_index_mins_60m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:07:14.780114",
+      "last_run_id": "c5c6138c-8802-4049-811b-a347293e1ce7"
+    },
+    {
+      "asset_key": [
+        "silver_index_mins_90m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:07:15.284438",
+      "last_run_id": "c5c6138c-8802-4049-811b-a347293e1ce7"
+    },
+    {
+      "asset_key": [
+        "silver_dc_industry_hierarchy"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-08-02 11:07:15.068482",
+      "last_run_id": "46122f97-9f3a-4582-9568-b0649857b578"
+    },
+    {
+      "asset_key": [
+        "raw_major_index_mins_1m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:16:33.168924",
+      "last_run_id": "b7bae1ef-4c23-454a-9e96-98507832178d"
+    },
+    {
+      "asset_key": [
+        "raw_major_index_mins_5m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:16:38.312018",
+      "last_run_id": "b7bae1ef-4c23-454a-9e96-98507832178d"
+    },
+    {
+      "asset_key": [
+        "raw_major_index_mins_15m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:16:30.876888",
+      "last_run_id": "b7bae1ef-4c23-454a-9e96-98507832178d"
+    },
+    {
+      "asset_key": [
+        "raw_major_index_mins_30m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:16:36.223837",
+      "last_run_id": "b7bae1ef-4c23-454a-9e96-98507832178d"
+    },
+    {
+      "asset_key": [
+        "raw_major_index_mins_60m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:16:39.987226",
+      "last_run_id": "b7bae1ef-4c23-454a-9e96-98507832178d"
+    },
+    {
+      "asset_key": [
+        "silver_major_index_mins_1m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:26:12.152149",
+      "last_run_id": "3020f24e-5488-4051-9a16-cb1392082593"
+    },
+    {
+      "asset_key": [
+        "silver_major_index_mins_5m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:26:12.730507",
+      "last_run_id": "3020f24e-5488-4051-9a16-cb1392082593"
+    },
+    {
+      "asset_key": [
+        "silver_major_index_mins_15m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:26:11.390176",
+      "last_run_id": "3020f24e-5488-4051-9a16-cb1392082593"
+    },
+    {
+      "asset_key": [
+        "silver_major_index_mins_30m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:26:12.407286",
+      "last_run_id": "3020f24e-5488-4051-9a16-cb1392082593"
+    },
+    {
+      "asset_key": [
+        "silver_major_index_mins_60m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:26:12.948038",
+      "last_run_id": "3020f24e-5488-4051-9a16-cb1392082593"
+    },
+    {
+      "asset_key": [
+        "silver_major_index_mins_90m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:26:14.205266",
+      "last_run_id": "3020f24e-5488-4051-9a16-cb1392082593"
+    },
+    {
+      "asset_key": [
+        "silver_major_index_mins_120m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:26:14.461429",
+      "last_run_id": "3020f24e-5488-4051-9a16-cb1392082593"
+    },
+    {
+      "asset_key": [
+        "gold_stock_daily_qfq_nineturn"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:48:39.656436",
+      "last_run_id": "b3cb751b-41fd-4a56-8fd2-fbc5f8251113"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_nineturn_30m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:21:01.706961",
+      "last_run_id": "85b235af-c9fc-427a-a8f4-96cc9ae3c6ef"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_nineturn_60m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:21:18.031781",
+      "last_run_id": "85b235af-c9fc-427a-a8f4-96cc9ae3c6ef"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_nineturn_90m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:21:34.187099",
+      "last_run_id": "85b235af-c9fc-427a-a8f4-96cc9ae3c6ef"
+    },
+    {
+      "asset_key": [
+        "gold_stk_mins_qfq_nineturn_120m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:20:45.390967",
+      "last_run_id": "85b235af-c9fc-427a-a8f4-96cc9ae3c6ef"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_technical_120m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:38.239920",
+      "last_run_id": "806c9188-732d-4198-97ae-04cf0d2f61a5"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_technical_15m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:38.616444",
+      "last_run_id": "806c9188-732d-4198-97ae-04cf0d2f61a5"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_technical_1m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:38.947978",
+      "last_run_id": "806c9188-732d-4198-97ae-04cf0d2f61a5"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_technical_30m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:39.222480",
+      "last_run_id": "806c9188-732d-4198-97ae-04cf0d2f61a5"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_technical_5m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:39.511008",
+      "last_run_id": "806c9188-732d-4198-97ae-04cf0d2f61a5"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_technical_60m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:39.806930",
+      "last_run_id": "806c9188-732d-4198-97ae-04cf0d2f61a5"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_technical_90m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:40.053017",
+      "last_run_id": "806c9188-732d-4198-97ae-04cf0d2f61a5"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_technical_state_120m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:38.315687",
+      "last_run_id": "806c9188-732d-4198-97ae-04cf0d2f61a5"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_technical_state_15m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:38.665401",
+      "last_run_id": "806c9188-732d-4198-97ae-04cf0d2f61a5"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_technical_state_1m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:38.991218",
+      "last_run_id": "806c9188-732d-4198-97ae-04cf0d2f61a5"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_technical_state_30m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:39.284186",
+      "last_run_id": "806c9188-732d-4198-97ae-04cf0d2f61a5"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_technical_state_5m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:39.560486",
+      "last_run_id": "806c9188-732d-4198-97ae-04cf0d2f61a5"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_technical_state_60m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:39.872914",
+      "last_run_id": "806c9188-732d-4198-97ae-04cf0d2f61a5"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_technical_state_90m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:40.081913",
+      "last_run_id": "806c9188-732d-4198-97ae-04cf0d2f61a5"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_idx_factor_pro"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 08:56:44.659492",
+      "last_run_id": "57a5e6d6-9a5e-4647-aaea-500102229f0c"
+    },
+    {
+      "asset_key": [
+        "silver_index_factor_pro"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:06:12.703480",
+      "last_run_id": "4e26d2f5-8210-44df-9fcd-da22377905e3"
+    },
+    {
+      "asset_key": [
+        "prod_core_wealth_sector_hierarchy"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-08-13 02:52:51.079504",
+      "last_run_id": "e875b632-dfb4-4898-a577-944ffa51de95"
+    },
+    {
+      "asset_key": [
+        "prod_core_stock_daily_qfq_nineturn"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:49:10.797165",
+      "last_run_id": "6ca6397d-a79c-47d8-b1b2-75f43249f289"
+    },
+    {
+      "asset_key": [
+        "gold_index_mins_1m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:07:40.378449",
+      "last_run_id": "dd309605-65fe-4565-a704-f5f64ae3d6d2"
+    },
+    {
+      "asset_key": [
+        "gold_index_mins_5m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:07:40.679270",
+      "last_run_id": "dd309605-65fe-4565-a704-f5f64ae3d6d2"
+    },
+    {
+      "asset_key": [
+        "gold_index_mins_15m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:07:40.148868",
+      "last_run_id": "dd309605-65fe-4565-a704-f5f64ae3d6d2"
+    },
+    {
+      "asset_key": [
+        "gold_index_mins_30m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:07:40.506309",
+      "last_run_id": "dd309605-65fe-4565-a704-f5f64ae3d6d2"
+    },
+    {
+      "asset_key": [
+        "gold_index_mins_60m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:07:40.802102",
+      "last_run_id": "dd309605-65fe-4565-a704-f5f64ae3d6d2"
+    },
+    {
+      "asset_key": [
+        "gold_index_mins_90m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:07:40.928721",
+      "last_run_id": "dd309605-65fe-4565-a704-f5f64ae3d6d2"
+    },
+    {
+      "asset_key": [
+        "gold_index_mins_120m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:07:40.015168",
+      "last_run_id": "dd309605-65fe-4565-a704-f5f64ae3d6d2"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_1m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:08.047028",
+      "last_run_id": "8eda27e5-3132-4006-b9d3-e98da00469a0"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_5m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:08.562038",
+      "last_run_id": "8eda27e5-3132-4006-b9d3-e98da00469a0"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_15m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:07.804472",
+      "last_run_id": "8eda27e5-3132-4006-b9d3-e98da00469a0"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_30m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:08.302201",
+      "last_run_id": "8eda27e5-3132-4006-b9d3-e98da00469a0"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_60m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:08.837169",
+      "last_run_id": "8eda27e5-3132-4006-b9d3-e98da00469a0"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_90m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:09.013852",
+      "last_run_id": "8eda27e5-3132-4006-b9d3-e98da00469a0"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_120m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:27:07.582963",
+      "last_run_id": "8eda27e5-3132-4006-b9d3-e98da00469a0"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_daily_nineturn"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:16:06.204830",
+      "last_run_id": "bb8dc82e-6818-4ea7-953e-14c45212bc0e"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_nineturn_120m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:36:45.288632",
+      "last_run_id": "471daf4d-63d7-4bbf-9ddc-9eb1982e47a9"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_nineturn_15m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:36:45.331125",
+      "last_run_id": "471daf4d-63d7-4bbf-9ddc-9eb1982e47a9"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_nineturn_30m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:36:45.332501",
+      "last_run_id": "471daf4d-63d7-4bbf-9ddc-9eb1982e47a9"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_nineturn_5m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:36:45.339201",
+      "last_run_id": "471daf4d-63d7-4bbf-9ddc-9eb1982e47a9"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_nineturn_60m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:36:45.339282",
+      "last_run_id": "471daf4d-63d7-4bbf-9ddc-9eb1982e47a9"
+    },
+    {
+      "asset_key": [
+        "gold_major_index_mins_nineturn_90m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:36:45.267354",
+      "last_run_id": "471daf4d-63d7-4bbf-9ddc-9eb1982e47a9"
+    },
+    {
+      "asset_key": [
+        "prod_core_index_daily_nineturn"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 10:16:46.302779",
+      "last_run_id": "95ffa73b-4885-44f0-aac3-3026bd5d811f"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_etf_basic"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:10:12.576638",
+      "last_run_id": "28b05e42-8c8a-4b6e-81f8-4aba4873cd7a"
+    },
+    {
+      "asset_key": [
+        "silver_etf_basic"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:20:02.895210",
+      "last_run_id": "40daed4f-86ae-42be-9c85-b76d3b939811"
+    },
+    {
+      "asset_key": [
+        "raw_etf_mins_15m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:27:35.579897",
+      "last_run_id": "501930d2-d554-4385-95b4-f9a2e5f2dd7e"
+    },
+    {
+      "asset_key": [
+        "silver_etf_mins_15m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:30:25.005553",
+      "last_run_id": "13ff89af-3ce7-46d6-abd3-48485dda57be"
+    },
+    {
+      "asset_key": [
+        "raw_etf_mins_1m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:28:03.811973",
+      "last_run_id": "501930d2-d554-4385-95b4-f9a2e5f2dd7e"
+    },
+    {
+      "asset_key": [
+        "silver_etf_mins_1m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:30:25.433987",
+      "last_run_id": "13ff89af-3ce7-46d6-abd3-48485dda57be"
+    },
+    {
+      "asset_key": [
+        "raw_etf_mins_30m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:28:12.897245",
+      "last_run_id": "501930d2-d554-4385-95b4-f9a2e5f2dd7e"
+    },
+    {
+      "asset_key": [
+        "silver_etf_mins_30m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:30:25.669831",
+      "last_run_id": "13ff89af-3ce7-46d6-abd3-48485dda57be"
+    },
+    {
+      "asset_key": [
+        "raw_etf_mins_5m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:28:18.766139",
+      "last_run_id": "501930d2-d554-4385-95b4-f9a2e5f2dd7e"
+    },
+    {
+      "asset_key": [
+        "silver_etf_mins_5m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:30:25.985894",
+      "last_run_id": "13ff89af-3ce7-46d6-abd3-48485dda57be"
+    },
+    {
+      "asset_key": [
+        "raw_etf_mins_60m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:28:19.878686",
+      "last_run_id": "501930d2-d554-4385-95b4-f9a2e5f2dd7e"
+    },
+    {
+      "asset_key": [
+        "silver_etf_mins_60m"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:30:26.203344",
+      "last_run_id": "13ff89af-3ce7-46d6-abd3-48485dda57be"
+    },
+    {
+      "asset_key": [
+        "gold_stock_daily_trend_channel"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:57:00.454695",
+      "last_run_id": "ce7a7be5-be4f-429b-a41f-e8e0c6783e88"
+    },
+    {
+      "asset_key": [
+        "gold_stock_daily_trend_channel_state"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 09:57:00.405717",
+      "last_run_id": "ce7a7be5-be4f-429b-a41f-e8e0c6783e88"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_fund_adj"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:10:20.490882",
+      "last_run_id": "0dd7df4e-1587-4f93-baeb-50f429d65472"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_fund_daily"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:19:55.822707",
+      "last_run_id": "5bab66c7-1447-4492-b0c8-65223488d626"
+    },
+    {
+      "asset_key": [
+        "silver_etf_adj_factor"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:30:07.413607",
+      "last_run_id": "83cfe7f9-cb98-463e-9852-58493300e013"
+    },
+    {
+      "asset_key": [
+        "silver_etf_daily"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 13:30:12.626928",
+      "last_run_id": "e90b8f78-e071-437d-876c-4499c543806b"
+    },
+    {
+      "asset_key": [
+        "silver_stock_suspend_confirmed"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-09-08 00:25:42.333446",
+      "last_run_id": ""
+    },
+    {
+      "asset_key": [
+        "raw_tushare_daily_basic"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:08:00.876259",
+      "last_run_id": "ec2bb71f-6d90-4ca8-a9fc-1474c755716c"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_adj_week"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:30:48.842247",
+      "last_run_id": "c636d955-90d9-4d26-b173-01f6bd047f2b"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-09 11:30:31.622866",
+      "last_run_id": "b3be2a4f-4f61-4cb2-a77e-49c32c5fc6e8"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_weekly"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-04 00:11:38.000126",
+      "last_run_id": ""
+    },
+    {
+      "asset_key": [
+        "raw_tushare_anns_d"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 02:13:04.651197",
+      "last_run_id": "1326b639-a4be-4bc5-b8d5-04ea0eb02223"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_adj_month"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 11:30:28.457492",
+      "last_run_id": "13337ec5-957c-4b32-8379-25bb711f761c"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_month"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-06 00:19:11.328173",
+      "last_run_id": "054854f0-441a-4ce7-8487-616785ecb62b"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_moneyflow_mkt_dc"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 14:11:09.947802",
+      "last_run_id": "e1f10e4d-0457-4d6f-b4ba-7467e0f8d484"
+    },
+    {
+      "asset_key": [
+        "silver_moneyflow_mkt_dc"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 14:18:04.780789",
+      "last_run_id": "000c57b3-1f44-4e87-abc4-a988efc436c0"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_moneyflow_ind_ths"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 14:16:28.925908",
+      "last_run_id": "bf6062f7-4ee0-4ec4-81ac-32512521fcb2"
+    },
+    {
+      "asset_key": [
+        "silver_moneyflow_ind_ths"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 14:19:49.707248",
+      "last_run_id": "75466411-903a-400c-b4f5-195cc682cb77"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_moneyflow_cnt_ths"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 14:15:13.151874",
+      "last_run_id": "fe44ad71-a345-4146-9fe1-d90e077bd9c7"
+    },
+    {
+      "asset_key": [
+        "silver_moneyflow_cnt_ths"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 14:19:37.405382",
+      "last_run_id": "a4b73729-c329-479d-99f4-b1039980f479"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_moneyflow_ind_dc"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 14:13:56.717497",
+      "last_run_id": "0ec97020-4df4-43c4-bc40-4ba54a872699"
+    },
+    {
+      "asset_key": [
+        "silver_moneyflow_ind_dc"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 14:19:58.575524",
+      "last_run_id": "e1ba1e2e-bbac-4023-9f4c-b88b5787609a"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_moneyflow_dc"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 14:12:34.600571",
+      "last_run_id": "9c91883d-dc39-45c2-8883-a056256d0d7a"
+    },
+    {
+      "asset_key": [
+        "silver_moneyflow_dc"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 14:18:25.377687",
+      "last_run_id": "0286494b-752c-423e-a99e-2a9102005ee0"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_moneyflow_ths"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-27 04:52:52.238035",
+      "last_run_id": "dc3610ed-1645-4ee4-8747-7986646bb2d5"
+    },
+    {
+      "asset_key": [
+        "silver_moneyflow_ths"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-24 04:00:04.992319",
+      "last_run_id": "b9a3a75e-71cd-410c-9be3-d8a16bf12ea2"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_moneyflow"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 14:09:59.523541",
+      "last_run_id": "fa6588ff-b1e4-4628-ad89-1b221919f9a8"
+    },
+    {
+      "asset_key": [
+        "silver_moneyflow"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-26 14:18:56.325148",
+      "last_run_id": "4490311e-afc7-4ad1-8912-e464b842259c"
+    },
+    {
+      "asset_key": [
+        "silver_stock_monthly"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-22 11:32:20.727997",
+      "last_run_id": "48e91afb-b6c9-4565-ae09-38630f69749e"
+    },
+    {
+      "asset_key": [
+        "silver_stock_weekly"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-21 12:09:51.571637",
+      "last_run_id": "e48e6c6e-b97b-4031-b4bc-651e97538c17"
+    }
+  ],
+  "all_check_asset_keys": [
+    [
+      "ch_dc_daily_technical"
+    ],
+    [
+      "ch_share_fact_market_breadth_daily"
+    ],
+    [
+      "gold_dc_daily_technical"
+    ],
+    [
+      "gold_index_mins_120m"
+    ],
+    [
+      "gold_index_mins_15m"
+    ],
+    [
+      "gold_index_mins_1m"
+    ],
+    [
+      "gold_index_mins_30m"
+    ],
+    [
+      "gold_index_mins_5m"
+    ],
+    [
+      "gold_index_mins_60m"
+    ],
+    [
+      "gold_index_mins_90m"
+    ],
+    [
+      "gold_major_index_daily_nineturn"
+    ],
+    [
+      "gold_major_index_mins_120m"
+    ],
+    [
+      "gold_major_index_mins_15m"
+    ],
+    [
+      "gold_major_index_mins_1m"
+    ],
+    [
+      "gold_major_index_mins_30m"
+    ],
+    [
+      "gold_major_index_mins_5m"
+    ],
+    [
+      "gold_major_index_mins_60m"
+    ],
+    [
+      "gold_major_index_mins_90m"
+    ],
+    [
+      "gold_major_index_mins_nineturn_120m"
+    ],
+    [
+      "gold_major_index_mins_nineturn_15m"
+    ],
+    [
+      "gold_major_index_mins_nineturn_30m"
+    ],
+    [
+      "gold_major_index_mins_nineturn_5m"
+    ],
+    [
+      "gold_major_index_mins_nineturn_60m"
+    ],
+    [
+      "gold_major_index_mins_nineturn_90m"
+    ],
+    [
+      "gold_major_index_mins_technical_120m"
+    ],
+    [
+      "gold_major_index_mins_technical_15m"
+    ],
+    [
+      "gold_major_index_mins_technical_1m"
+    ],
+    [
+      "gold_major_index_mins_technical_30m"
+    ],
+    [
+      "gold_major_index_mins_technical_5m"
+    ],
+    [
+      "gold_major_index_mins_technical_60m"
+    ],
+    [
+      "gold_major_index_mins_technical_90m"
+    ],
+    [
+      "gold_major_index_mins_technical_state_120m"
+    ],
+    [
+      "gold_major_index_mins_technical_state_15m"
+    ],
+    [
+      "gold_major_index_mins_technical_state_1m"
+    ],
+    [
+      "gold_major_index_mins_technical_state_30m"
+    ],
+    [
+      "gold_major_index_mins_technical_state_5m"
+    ],
+    [
+      "gold_major_index_mins_technical_state_60m"
+    ],
+    [
+      "gold_major_index_mins_technical_state_90m"
+    ],
+    [
+      "gold_market_breadth_daily"
+    ],
+    [
+      "gold_market_major_indices_daily"
+    ],
+    [
+      "gold_stk_mins_qfq_120m"
+    ],
+    [
+      "gold_stk_mins_qfq_15m"
+    ],
+    [
+      "gold_stk_mins_qfq_1m"
+    ],
+    [
+      "gold_stk_mins_qfq_30m"
+    ],
+    [
+      "gold_stk_mins_qfq_5m"
+    ],
+    [
+      "gold_stk_mins_qfq_60m"
+    ],
+    [
+      "gold_stk_mins_qfq_90m"
+    ],
+    [
+      "gold_stk_mins_qfq_macd_kdj_120m"
+    ],
+    [
+      "gold_stk_mins_qfq_macd_kdj_15m"
+    ],
+    [
+      "gold_stk_mins_qfq_macd_kdj_1m"
+    ],
+    [
+      "gold_stk_mins_qfq_macd_kdj_30m"
+    ],
+    [
+      "gold_stk_mins_qfq_macd_kdj_5m"
+    ],
+    [
+      "gold_stk_mins_qfq_macd_kdj_60m"
+    ],
+    [
+      "gold_stk_mins_qfq_macd_kdj_90m"
+    ],
+    [
+      "gold_stk_mins_qfq_macd_kdj_state_120m"
+    ],
+    [
+      "gold_stk_mins_qfq_macd_kdj_state_15m"
+    ],
+    [
+      "gold_stk_mins_qfq_macd_kdj_state_1m"
+    ],
+    [
+      "gold_stk_mins_qfq_macd_kdj_state_30m"
+    ],
+    [
+      "gold_stk_mins_qfq_macd_kdj_state_5m"
+    ],
+    [
+      "gold_stk_mins_qfq_macd_kdj_state_60m"
+    ],
+    [
+      "gold_stk_mins_qfq_macd_kdj_state_90m"
+    ],
+    [
+      "gold_stk_mins_qfq_nineturn_120m"
+    ],
+    [
+      "gold_stk_mins_qfq_nineturn_30m"
+    ],
+    [
+      "gold_stk_mins_qfq_nineturn_60m"
+    ],
+    [
+      "gold_stk_mins_qfq_nineturn_90m"
+    ],
+    [
+      "gold_stock_daily_qfq_nineturn"
+    ],
+    [
+      "gold_stock_daily_qfq"
+    ],
+    [
+      "gold_stock_daily_trend_channel_state"
+    ],
+    [
+      "gold_stock_daily_trend_channel"
+    ],
+    [
+      "gold_stock_return_distribution"
+    ],
+    [
+      "gold_wealth_market_turnover"
+    ],
+    [
+      "lake_root_health"
+    ],
+    [
+      "prod_ch_dc_daily_technical"
+    ],
+    [
+      "prod_ch_share_fact_market_breadth_daily"
+    ],
+    [
+      "prod_core_index_daily_nineturn"
+    ],
+    [
+      "prod_core_stock_daily_qfq_nineturn"
+    ],
+    [
+      "raw_etf_mins_15m"
+    ],
+    [
+      "raw_etf_mins_1m"
+    ],
+    [
+      "raw_etf_mins_30m"
+    ],
+    [
+      "raw_etf_mins_5m"
+    ],
+    [
+      "raw_etf_mins_60m"
+    ],
+    [
+      "raw_index_daily"
+    ],
+    [
+      "raw_index_global"
+    ],
+    [
+      "raw_index_mins_15m"
+    ],
+    [
+      "raw_index_mins_1m"
+    ],
+    [
+      "raw_index_mins_30m"
+    ],
+    [
+      "raw_index_mins_5m"
+    ],
+    [
+      "raw_index_mins_60m"
+    ],
+    [
+      "raw_major_index_mins_15m"
+    ],
+    [
+      "raw_major_index_mins_1m"
+    ],
+    [
+      "raw_major_index_mins_30m"
+    ],
+    [
+      "raw_major_index_mins_5m"
+    ],
+    [
+      "raw_major_index_mins_60m"
+    ],
+    [
+      "raw_stk_mins_15m"
+    ],
+    [
+      "raw_stk_mins_1m"
+    ],
+    [
+      "raw_stk_mins_30m"
+    ],
+    [
+      "raw_stk_mins_5m"
+    ],
+    [
+      "raw_stk_mins_60m"
+    ],
+    [
+      "raw_tushare_adj_factor"
+    ],
+    [
+      "raw_tushare_anns_d"
+    ],
+    [
+      "raw_tushare_daily_basic"
+    ],
+    [
+      "raw_tushare_dc_daily"
+    ],
+    [
+      "raw_tushare_dc_index"
+    ],
+    [
+      "raw_tushare_dc_member"
+    ],
+    [
+      "raw_tushare_etf_basic"
+    ],
+    [
+      "raw_tushare_fund_adj"
+    ],
+    [
+      "raw_tushare_fund_daily"
+    ],
+    [
+      "raw_tushare_idx_factor_pro"
+    ],
+    [
+      "raw_tushare_index_basic"
+    ],
+    [
+      "raw_tushare_moneyflow_cnt_ths"
+    ],
+    [
+      "raw_tushare_moneyflow_dc"
+    ],
+    [
+      "raw_tushare_moneyflow_ind_dc"
+    ],
+    [
+      "raw_tushare_moneyflow_ind_ths"
+    ],
+    [
+      "raw_tushare_moneyflow_mkt_dc"
+    ],
+    [
+      "raw_tushare_moneyflow_ths"
+    ],
+    [
+      "raw_tushare_moneyflow"
+    ],
+    [
+      "raw_tushare_namechange"
+    ],
+    [
+      "raw_tushare_stk_nineturn"
+    ],
+    [
+      "raw_tushare_stk_period_bar_adj_month"
+    ],
+    [
+      "raw_tushare_stk_period_bar_adj_week"
+    ],
+    [
+      "raw_tushare_stk_period_bar_month"
+    ],
+    [
+      "raw_tushare_stk_period_bar_week"
+    ],
+    [
+      "raw_tushare_stock_basic"
+    ],
+    [
+      "raw_tushare_stock_daily"
+    ],
+    [
+      "raw_tushare_suspend_d"
+    ],
+    [
+      "raw_tushare_trade_calendar"
+    ],
+    [
+      "raw_tushare_weekly"
+    ],
+    [
+      "silver_adj_factor"
+    ],
+    [
+      "silver_dc_daily"
+    ],
+    [
+      "silver_dc_index"
+    ],
+    [
+      "silver_dc_industry_hierarchy"
+    ],
+    [
+      "silver_dc_member"
+    ],
+    [
+      "silver_etf_adj_factor"
+    ],
+    [
+      "silver_etf_basic"
+    ],
+    [
+      "silver_etf_daily"
+    ],
+    [
+      "silver_etf_mins_15m"
+    ],
+    [
+      "silver_etf_mins_1m"
+    ],
+    [
+      "silver_etf_mins_30m"
+    ],
+    [
+      "silver_etf_mins_5m"
+    ],
+    [
+      "silver_etf_mins_60m"
+    ],
+    [
+      "silver_index_basic"
+    ],
+    [
+      "silver_index_daily"
+    ],
+    [
+      "silver_index_factor_pro"
+    ],
+    [
+      "silver_index_global"
+    ],
+    [
+      "silver_index_mins_120m"
+    ],
+    [
+      "silver_index_mins_15m"
+    ],
+    [
+      "silver_index_mins_1m"
+    ],
+    [
+      "silver_index_mins_30m"
+    ],
+    [
+      "silver_index_mins_5m"
+    ],
+    [
+      "silver_index_mins_60m"
+    ],
+    [
+      "silver_index_mins_90m"
+    ],
+    [
+      "silver_major_index_mins_120m"
+    ],
+    [
+      "silver_major_index_mins_15m"
+    ],
+    [
+      "silver_major_index_mins_1m"
+    ],
+    [
+      "silver_major_index_mins_30m"
+    ],
+    [
+      "silver_major_index_mins_5m"
+    ],
+    [
+      "silver_major_index_mins_60m"
+    ],
+    [
+      "silver_major_index_mins_90m"
+    ],
+    [
+      "silver_moneyflow_cnt_ths"
+    ],
+    [
+      "silver_moneyflow_dc"
+    ],
+    [
+      "silver_moneyflow_ind_dc"
+    ],
+    [
+      "silver_moneyflow_ind_ths"
+    ],
+    [
+      "silver_moneyflow_mkt_dc"
+    ],
+    [
+      "silver_moneyflow_ths"
+    ],
+    [
+      "silver_moneyflow"
+    ],
+    [
+      "silver_namechange"
+    ],
+    [
+      "silver_stk_mins_15m"
+    ],
+    [
+      "silver_stk_mins_1m"
+    ],
+    [
+      "silver_stk_mins_30m"
+    ],
+    [
+      "silver_stk_mins_5m"
+    ],
+    [
+      "silver_stk_mins_60m"
+    ],
+    [
+      "silver_stock_basic"
+    ],
+    [
+      "silver_stock_daily"
+    ],
+    [
+      "silver_stock_identity_map"
+    ],
+    [
+      "silver_stock_lifecycle"
+    ],
+    [
+      "silver_stock_monthly"
+    ],
+    [
+      "silver_stock_nineturn_daily"
+    ],
+    [
+      "silver_stock_suspend_confirmed"
+    ],
+    [
+      "silver_stock_suspend_daily"
+    ],
+    [
+      "silver_stock_weekly"
+    ],
+    [
+      "silver_trade_calendar"
+    ]
+  ],
+  "index_keys_without_current_node": [
+    {
+      "asset_key": [
+        "silver_index_daily_active_pool"
+      ],
+      "wipe_timestamp": "2026-05-25 13:21:14.127827",
+      "last_materialization_timestamp": "2026-05-24 03:33:07.380682",
+      "last_run_id": null
+    },
+    {
+      "asset_key": [
+        "gold_market_major_indices"
+      ],
+      "wipe_timestamp": "2026-05-26 11:38:44.332329",
+      "last_materialization_timestamp": "2026-05-23 22:28:41.239037",
+      "last_run_id": null
+    },
+    {
+      "asset_key": [
+        "raw_tushare_index_daily"
+      ],
+      "wipe_timestamp": "2026-05-25 13:21:04.048653",
+      "last_materialization_timestamp": "2026-05-24 16:29:25.317346",
+      "last_run_id": null
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-09 11:30:31.622866",
+      "last_run_id": "b3be2a4f-4f61-4cb2-a77e-49c32c5fc6e8"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_weekly"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-04 00:11:38.000126",
+      "last_run_id": ""
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_month"
+      ],
+      "wipe_timestamp": null,
+      "last_materialization_timestamp": "2026-10-06 00:19:11.328173",
+      "last_run_id": "054854f0-441a-4ce7-8487-616785ecb62b"
+    }
+  ],
+  "check_keys_without_current_node": [
+    [
+      "raw_tushare_stk_period_bar_month"
+    ],
+    [
+      "raw_tushare_stk_period_bar_week"
+    ],
+    [
+      "raw_tushare_weekly"
+    ]
+  ],
+  "candidate_event_counts": [
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_month"
+      ],
+      "event_type": "ASSET_MATERIALIZATION",
+      "count": 203,
+      "min_storage_id": 7425193,
+      "max_storage_id": 7427674,
+      "min_timestamp": "2026-10-05 02:01:45.184159",
+      "max_timestamp": "2026-10-06 00:19:11.328173"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_month"
+      ],
+      "event_type": "ASSET_MATERIALIZATION_PLANNED",
+      "count": 2,
+      "min_storage_id": 7427631,
+      "max_storage_id": 7427663,
+      "min_timestamp": "2026-10-06 00:18:42.380636",
+      "max_timestamp": "2026-10-06 00:19:10.906864"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_month"
+      ],
+      "event_type": "FRESHNESS_STATE_CHANGE",
+      "count": 1,
+      "min_storage_id": 7424664,
+      "max_storage_id": 7424664,
+      "min_timestamp": "2026-10-05 01:48:46.234978",
+      "max_timestamp": "2026-10-05 01:48:46.234978"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "event_type": "ASSET_MATERIALIZATION",
+      "count": 860,
+      "min_storage_id": 7408046,
+      "max_storage_id": 7436795,
+      "min_timestamp": "2026-10-04 00:10:11.260509",
+      "max_timestamp": "2026-10-09 11:30:31.622866"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "event_type": "ASSET_MATERIALIZATION_PLANNED",
+      "count": 4,
+      "min_storage_id": 7427285,
+      "max_storage_id": 7436778,
+      "min_timestamp": "2026-10-05 15:28:13.510899",
+      "max_timestamp": "2026-10-09 11:30:26.228498"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "event_type": "FRESHNESS_STATE_CHANGE",
+      "count": 1,
+      "min_storage_id": 7424665,
+      "max_storage_id": 7424665,
+      "min_timestamp": "2026-10-05 01:48:46.244303",
+      "max_timestamp": "2026-10-05 01:48:46.244303"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_weekly"
+      ],
+      "event_type": "ASSET_MATERIALIZATION",
+      "count": 803,
+      "min_storage_id": 7408903,
+      "max_storage_id": 7409705,
+      "min_timestamp": "2026-10-04 00:10:56.217016",
+      "max_timestamp": "2026-10-04 00:11:38.000126"
+    },
+    {
+      "asset_key": [
+        "raw_tushare_weekly"
+      ],
+      "event_type": "FRESHNESS_STATE_CHANGE",
+      "count": 1,
+      "min_storage_id": 7424666,
+      "max_storage_id": 7424666,
+      "min_timestamp": "2026-10-05 01:48:46.251750",
+      "max_timestamp": "2026-10-05 01:48:46.251750"
+    }
+  ],
+  "candidate_check_execution_counts": [
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_month"
+      ],
+      "check_name": "raw_tushare_stk_period_bar_month_delivery_reconciliation_check",
+      "status": "SUCCEEDED",
+      "count": 203
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_month"
+      ],
+      "check_name": "raw_tushare_stk_period_bar_month_file_contract_check",
+      "status": "SUCCEEDED",
+      "count": 203
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_month"
+      ],
+      "check_name": "raw_tushare_stk_period_bar_month_key_partition_check",
+      "status": "SUCCEEDED",
+      "count": 203
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "check_name": "raw_tushare_stk_period_bar_week_delivery_reconciliation_check",
+      "status": "PLANNED",
+      "count": 1
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "check_name": "raw_tushare_stk_period_bar_week_delivery_reconciliation_check",
+      "status": "SUCCEEDED",
+      "count": 860
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "check_name": "raw_tushare_stk_period_bar_week_file_contract_check",
+      "status": "PLANNED",
+      "count": 1
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "check_name": "raw_tushare_stk_period_bar_week_file_contract_check",
+      "status": "SUCCEEDED",
+      "count": 860
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "check_name": "raw_tushare_stk_period_bar_week_key_partition_check",
+      "status": "PLANNED",
+      "count": 1
+    },
+    {
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "check_name": "raw_tushare_stk_period_bar_week_key_partition_check",
+      "status": "SUCCEEDED",
+      "count": 860
+    },
+    {
+      "asset_key": [
+        "raw_tushare_weekly"
+      ],
+      "check_name": "raw_tushare_weekly_delivery_reconciliation_check",
+      "status": "SUCCEEDED",
+      "count": 803
+    },
+    {
+      "asset_key": [
+        "raw_tushare_weekly"
+      ],
+      "check_name": "raw_tushare_weekly_file_contract_check",
+      "status": "SUCCEEDED",
+      "count": 803
+    },
+    {
+      "asset_key": [
+        "raw_tushare_weekly"
+      ],
+      "check_name": "raw_tushare_weekly_key_partition_check",
+      "status": "SUCCEEDED",
+      "count": 803
+    }
+  ],
+  "other_asset_checks_targeting_retired_materializations": [],
+  "candidate_nonempty_run_ids": [
+    "9f1f413f-22d8-41b7-a819-1b849acfb8fc",
+    "b3be2a4f-4f61-4cb2-a77e-49c32c5fc6e8",
+    "dd120254-9f0b-4ac5-9a7a-bb3547364566",
+    "054854f0-441a-4ce7-8487-616785ecb62b",
+    "3c41d79a-1f36-4bd8-8bd4-47e64462ad99",
+    "bf98de39-0616-4dd1-83e0-e350c07df7e7"
+  ],
+  "run_inventory_complete": true,
+  "asset_events_sharing_candidate_runs": [
+    {
+      "run_id": "054854f0-441a-4ce7-8487-616785ecb62b",
+      "asset_key": [
+        "raw_tushare_stk_period_bar_month"
+      ],
+      "event_count": 2
+    },
+    {
+      "run_id": "3c41d79a-1f36-4bd8-8bd4-47e64462ad99",
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "event_count": 1
+    },
+    {
+      "run_id": "9f1f413f-22d8-41b7-a819-1b849acfb8fc",
+      "asset_key": [
+        "raw_tushare_stk_period_bar_month"
+      ],
+      "event_count": 2
+    },
+    {
+      "run_id": "b3be2a4f-4f61-4cb2-a77e-49c32c5fc6e8",
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "event_count": 2
+    },
+    {
+      "run_id": "bf98de39-0616-4dd1-83e0-e350c07df7e7",
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "event_count": 2
+    },
+    {
+      "run_id": "dd120254-9f0b-4ac5-9a7a-bb3547364566",
+      "asset_key": [
+        "raw_tushare_stk_period_bar_week"
+      ],
+      "event_count": 2
+    }
+  ],
+  "active_run_summary": []
+}
