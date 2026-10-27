@@ -1,0 +1,152 @@
+{
+  "status": "authorized_before_implementation",
+  "phase": "D4步骤7/8",
+  "authorization": "管理员明确PLEASE IMPLEMENT THIS PLAN",
+  "basis": [
+    "docs/architecture/technical-indicator-kernel-low-level-design-v1.html#d4-execution-plan-20261027",
+    "docs/architecture/technical-indicator-kernel-component-design-v1.html#d4-execution-plan-20261027"
+  ],
+  "scope": [
+    "src/app/runtime/technical_indicators/__init__.py",
+    "src/app/runtime/technical_indicators/composition.py",
+    "src/app/runtime/technical_indicators/admission.py",
+    "src/app/runtime/technical_indicators/execution.py",
+    "src/app/runtime/technical_indicators/response.py",
+    "tests/app/technical_indicators/test_admission.py",
+    "tests/app/technical_indicators/test_execution_cancellation.py",
+    "tests/app/technical_indicators/test_response_lifecycle.py",
+    "tests/architecture/test_technical_indicator_dependencies.py",
+    "scripts/diagnostics/technical_indicator_resources.py"
+  ],
+  "protected_code_sha256": {
+    "src/foundation/technical_indicators/service.py": "df05d0fc806885c5a6ebf9fa8dc5a639aff040ca1223c1df78d27796e2d3ffcc",
+    "src/foundation/technical_indicators/contracts.py": "c76737b121ffb59c0f1284793856771c2d716e5e0efb0e8ba8d327991c65c188",
+    "src/foundation/technical_indicators/execution_control.py": "ebc68c68e09810273a261723d3086eb5230d70ac6d21a8e6541ccc300f40cc2b",
+    "src/foundation/technical_indicators/calculation/registry.py": "aba963003df3768f6b134aee388b63ec0d54480cc3d12edea14a9f3f76a25540",
+    "src/foundation/technical_indicators/calculation/calculation.py": "1354380dc3083313de8a53848fae4172916ec84f1ce895546667c12edbaad0f9",
+    "src/foundation/technical_indicators/calculation/indicators/__init__.py": "c4baaa463bd7163ff9e480127142cda7f1319d08b1dbf36040700ff24fda8cb1",
+    "src/foundation/technical_indicators/configuration/settings.py": "a1000d2465c2ba8b8e5155f299787dd6f32a171663287cb0f48b0f13384178c2",
+    "src/foundation/technical_indicators/output/encoding.py": "13390ef668b035326598478a8177a18ba722575327104132135d934e23069b8d",
+    "src/foundation/clients/local_lake/technical_indicator_price_source.py": "e45212b14a04820a0d5737349109d9ec9cbcde8acf1310a3db228a1a3b2c59b1",
+    "src/foundation/clients/local_lake/technical_indicator_price_locator.py": "cd0e4343934d204fee3c0694aa6f366748879e674efa26efecaa4c332ad7b08a",
+    "src/foundation/config/settings.py": "c2184c066157039fa360d56f43e4a9d8a8a66e23d6205a8b3ebe2de590ca4b4e",
+    "src/app/web/lifespan.py": "85cc7e98b0ff33ef7c1b21c1d3bea365394ba80bd67db4e1ceafe108ec5986f0"
+  },
+  "light_test_nodes": [
+    "tests/app/technical_indicators/test_admission.py::test_normal_grant_and_prewait_validation",
+    "tests/app/technical_indicators/test_admission.py::test_fifo_waiting",
+    "tests/app/technical_indicators/test_admission.py::test_waiting_full",
+    "tests/app/technical_indicators/test_admission.py::test_waiting_expired",
+    "tests/app/technical_indicators/test_admission.py::test_waiting_cancelled",
+    "tests/app/technical_indicators/test_admission.py::test_cancel_after_grant_before_handoff",
+    "tests/app/technical_indicators/test_admission.py::test_grant_after_work_deadline",
+    "tests/app/technical_indicators/test_execution_cancellation.py::test_execution_cancelled",
+    "tests/app/technical_indicators/test_execution_cancellation.py::test_execution_deadline",
+    "tests/app/technical_indicators/test_execution_cancellation.py::test_cleanup_failure",
+    "tests/app/technical_indicators/test_execution_cancellation.py::test_shutdown",
+    "tests/app/technical_indicators/test_response_lifecycle.py::test_response_lifecycle",
+    "tests/architecture/test_technical_indicator_dependencies.py::test_indicator_dependency_boundaries"
+  ],
+  "light_rules": {
+    "classes": 12,
+    "maximum_calls_each": 6,
+    "maximum_calls": 72,
+    "new_real_controls": 0,
+    "SQL_rows": 0,
+    "price_rows": 0,
+    "program_seconds": 30,
+    "target_seconds": 5
+  },
+  "real_nodes": [
+    "single_http",
+    "dual_http",
+    "shutdown_and_normal",
+    "read_cancel_and_normal",
+    "slow_send",
+    "disconnect",
+    "encoding_failure"
+  ],
+  "real_request_counts": [
+    1,
+    2,
+    2,
+    2,
+    1,
+    1,
+    1
+  ],
+  "normal_budget": {
+    "real_controls": 10,
+    "input_rows": 19000,
+    "locator_rows": 80000,
+    "sql_logical_rows": 811150
+  },
+  "including_reserve_budget": {
+    "real_controls": 12,
+    "input_rows": 26000,
+    "locator_rows": 96000,
+    "sql_logical_rows": 979780
+  },
+  "per_request": {
+    "price_input_rows": 1500,
+    "locator_rows_max": 8000,
+    "service_sql_logical_rows": 80314,
+    "closed_connection_rejection_probe_rows": 1,
+    "sql_logical_rows_max": 80315
+  },
+  "time": {
+    "normal_request_targets": 72,
+    "source_preparation": 5,
+    "pure_state_checks": 5,
+    "final_static_reconciliation": 5,
+    "authorized_one_node_resume_including_possible_fixture_rebuild": 30,
+    "startup_and_scheduling_reserve": 3,
+    "total_limit": 120,
+    "per_program_limit": 30,
+    "product_work_ms": 6000,
+    "product_total_target_ms": 8000
+  },
+  "fixture": "独立拥有目录，单4000行、600000.SH、1m/qfq/year=2026，日期从2026-01-02；只抽取原价格公式SQL，绝不调用旧prepare/fixtures/完整times/参考生成。CTAS4000+COPY4000。",
+  "expected": "复用原字面/独立预期。正常返回1000日期/10项完整字段及参数，warmup500/source1500；取消/编码错误具体分类、cause和资源释放符合LLD。无新长参考。",
+  "execution": "先静态及逐文件代码审查，再仅指定13函数一次pytest -x无自动插件；通过后诊断唯一顺序执行10真实请求，不由pytest重复真实计算。首错停止。",
+  "resume": "非预期失败立刻停，保存实际累计/已执行/未执行/cleanup；仅另获明确授权最多续一个失败节点、至多2请求及必要重建一次4000。已过节点不重跑，原计数不清零。",
+  "no_changes": [
+    "不改正式lifespan/app.state/路由/API/页面/Biz DTO/XXM",
+    "不停止DG、不删除指标数据、不读写正式Lake/DB",
+    "不安装升级、不新增配置、不建立独立服务/计算池",
+    "不以本次静态审计宣布并发/RSS/原生取消/页面性能通过"
+  ],
+  "implementation_sha256": {
+    "src/app/runtime/technical_indicators/execution.py": "f0e805cc73cf819b8e8edd8169d71dfe38ac1ba686246278151426070a35de5e",
+    "src/app/runtime/technical_indicators/__init__.py": "5b52e3b4b35369fae2bfa9a70614998c64284e8971b6ddb7314f4c73d4be56e8",
+    "src/app/runtime/technical_indicators/response.py": "b3d9e68a5df628538a2a7a20a65f00c886b1f2dba219c8e01f3af2ce170ccaf0",
+    "src/app/runtime/technical_indicators/admission.py": "e9d0c4aa73d0c385cdb2cf8f7a6c58cc80797a48269ac4c4ad6bd2e0be5b8c40",
+    "src/app/runtime/technical_indicators/composition.py": "60f9afe5f18d769a7fb899c2122447ccfafd9313fb6f4d817e135fca69807958",
+    "tests/app/technical_indicators/test_admission.py": "ee5afeca0baf74e4cd493a3d5efd22f8e701d1e38d5261f1130539f35e5878e2",
+    "tests/app/technical_indicators/test_response_lifecycle.py": "afff94a83eb22396c4e657a6a6813850fd03be47bd811142c971d9fb294aa820",
+    "tests/app/technical_indicators/test_execution_cancellation.py": "577e86bee011b2874b1e218f6981d92fb36351923db9a43c5d54b657ec12779c",
+    "tests/architecture/test_technical_indicator_dependencies.py": "e663f1181a047379c55e9a647db4a12c4826430fe479c475b17bb29beffeeb43",
+    "scripts/diagnostics/technical_indicator_resources.py": "d4f57c9c9a8fe3848b167b780bf9e619f69ae2d40f356f260ece5f6b6811b4b8"
+  },
+  "preexecution_static_review": {
+    "status": "passed",
+    "exact_test_nodes": 13,
+    "AST_files": 10,
+    "no_ancestor_conftest": true,
+    "no_auto_plugins": true,
+    "real_calls_not_run": true,
+    "MA_literal_corrected_before_execution": "actual Definition field=value/version1.0.0",
+    "source_schema_basis": "canonical MINUTE_SCHEMA and prior independently checked producer",
+    "same_budget": true
+  },
+  "diagnostic_static_review": {
+    "status": "passed",
+    "independent_review": true,
+    "failure_locator_counters_recorded_in_close": true,
+    "source_SQL_explicit_aliases": true,
+    "reference_schema_and_indexes_checked": true,
+    "actual_2026_dates_and_path": true,
+    "single_fixed_real_execution": true,
+    "no_reference_generation": true
+  }
+}

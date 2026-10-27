@@ -1,0 +1,173 @@
+{
+  "name": "disconnect",
+  "status": "passed",
+  "calls": [
+    {
+      "status": "calculation_error",
+      "arrived_at": 3482362.729043666,
+      "work_until": 3482368.729043666,
+      "target_finish": 3482370.729043666,
+      "worker_thread": 14092890112,
+      "actual_connection_settings": {
+        "temp_directory": "",
+        "max_temp_directory_size": "0 bytes",
+        "threads": 1,
+        "memory_limit": "128.0 MiB"
+      },
+      "metadata_setting_query_seconds": 0.0005714581348001957,
+      "metadata_setting_query_price_logical_rows": 0,
+      "locator_rows": 8000,
+      "selected_preceding_rows": 500,
+      "selected_target_rows": 1000,
+      "source_files": 1,
+      "source_file_bytes": 29370,
+      "locator_closed": true,
+      "price_rows": 1500,
+      "batches": [
+        1500
+      ],
+      "stream_closed": true,
+      "reader_refs_cleared": true,
+      "sql_logical_rows": 8012,
+      "steps": [
+        {
+          "name": "create_parameters",
+          "rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "read_smoothing_limits",
+          "rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "create_state",
+          "rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "name": "create_parameters",
+          "rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "read_smoothing_limits",
+          "rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "create_state",
+          "rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "name": "initialize_state",
+          "rows": 0,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "macd_warmup",
+          "rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "read_warmup_rows",
+          "rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "kdj_warmup",
+          "rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "read_warmup_rows",
+          "rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "locate_stage",
+          "rows": 4000,
+          "output_rows": 4000,
+          "failed": false
+        },
+        {
+          "name": "locate_stage",
+          "rows": 4000,
+          "output_rows": 4000,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": [],
+      "stop_reason": "cancel",
+      "stop_requested_at": 3482362.762585166,
+      "sql_returned_at": 3482362.760769916,
+      "resources_released_at": 3482362.7643615,
+      "monitor_join_ms": 0.05816575139760971,
+      "stop_monitor_ms": 0.060957856476306915,
+      "interrupt_count": 1,
+      "monitor_finished": true,
+      "cleanup_errors": [],
+      "connection_closed": true,
+      "error": {
+        "type": "CalculationCancelledError",
+        "message": "Technical indicator calculation was cancelled",
+        "cause_type": null
+      },
+      "lease_released_at": 3482362.765105666,
+      "lease_released": true
+    }
+  ],
+  "real_controls": 1,
+  "price_rows": 1500,
+  "locator_rows": 8000,
+  "sql_logical_rows": 8012,
+  "health": [],
+  "actual_file_read_bytes": null,
+  "actual_file_read_bytes_reason": "No reliable per-request OS I/O byte counter",
+  "native_SQL_interrupt_evidence": "reused D2; not newly claimed by this case",
+  "independent_reference_sha256": "b06fdd4ba4e01f3a86a0fa110cdc1f375fd1cd1a2b3d7e8aa80df9685573c1a4",
+  "elapsed_seconds": 1.2578069581650198,
+  "pid": 41490,
+  "node_working_directory": "/private/tmp/ti_d4_resume_mushu49t/work_disconnect",
+  "starting_threads": [
+    "MainThread"
+  ],
+  "memory_validation": "not_measured_estimate_only_by_administrator_decision",
+  "memory_estimate_basis": "LLD 16.2; 1500 input / 1000 output / 16 numeric fields",
+  "memory_estimate_request_MiB": 256,
+  "memory_estimate_dual_MiB": 512,
+  "outcomes": [
+    {
+      "status": "error",
+      "error": {
+        "type": "CancelledError",
+        "message": "Cancelled via cancel scope 12d16f9d0 by <Task pending name='src.app.runtime.technical_indicators.execution._execute.<locals>.observe_disconnect' coro=<_execute.<locals>.observe_disconnect() running at /Users/congming/github/goldenshare/src/app/runtime/technical_indicators/execution.py:108> cb=[TaskGroup._spawn.<locals>.task_done() at /Users/congming/github/goldenshare/.venv/lib/python3.13/site-packages/anyio/_backends/_asyncio.py:821]>",
+        "cause_type": null
+      },
+      "sent_messages": 0
+    }
+  ],
+  "ending_threads": [
+    "MainThread"
+  ],
+  "actual_computed_disk_write_bytes": null,
+  "actual_computed_disk_write_bytes_reason": "No reliable per-request OS disk write byte counter",
+  "computed_temporary_disk_evidence": "actual private connection max_temp_directory_size=0; owned/node directory inspection; D2 low-memory evidence reused",
+  "observed_computed_temporary_files": [],
+  "program_elapsed_seconds": 1.5382941248826683,
+  "returncode": 0,
+  "program_timeout": false
+}

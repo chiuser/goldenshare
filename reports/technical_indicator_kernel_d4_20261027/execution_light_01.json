@@ -1,0 +1,30 @@
+{
+  "status": "passed",
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-x",
+    "-p",
+    "no:cacheprovider",
+    "tests/app/technical_indicators/test_admission.py::test_normal_grant_and_prewait_validation",
+    "tests/app/technical_indicators/test_admission.py::test_fifo_waiting",
+    "tests/app/technical_indicators/test_admission.py::test_waiting_full",
+    "tests/app/technical_indicators/test_admission.py::test_waiting_expired",
+    "tests/app/technical_indicators/test_admission.py::test_waiting_cancelled",
+    "tests/app/technical_indicators/test_admission.py::test_cancel_after_grant_before_handoff",
+    "tests/app/technical_indicators/test_admission.py::test_grant_after_work_deadline",
+    "tests/app/technical_indicators/test_execution_cancellation.py::test_execution_cancelled",
+    "tests/app/technical_indicators/test_execution_cancellation.py::test_execution_deadline",
+    "tests/app/technical_indicators/test_execution_cancellation.py::test_cleanup_failure",
+    "tests/app/technical_indicators/test_execution_cancellation.py::test_shutdown",
+    "tests/app/technical_indicators/test_response_lifecycle.py::test_response_lifecycle",
+    "tests/architecture/test_technical_indicator_dependencies.py::test_indicator_dependency_boundaries"
+  ],
+  "automatic_retries": 0,
+  "real_control_budget": 0,
+  "SQL_budget": 0,
+  "returncode": 0,
+  "program_elapsed_seconds": 2.2955547920428216
+}

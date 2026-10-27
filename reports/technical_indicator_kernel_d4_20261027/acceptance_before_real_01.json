@@ -1,0 +1,11 @@
+{
+  "status": "step7_and_light_checks_passed_real_not_started",
+  "light_test_bodies": 13,
+  "light_control_calls": 42,
+  "light_program_seconds": 2.2955547920428216,
+  "input_rows": 0,
+  "locator_rows": 0,
+  "sql_logical_rows": 0,
+  "real_controls": 0,
+  "D4_complete": false
+}

@@ -1,0 +1,11 @@
+{
+  "name": "single_http",
+  "status": "failed_before_node_record",
+  "real_controls": 0,
+  "price_rows": 0,
+  "locator_rows": 0,
+  "sql_logical_rows": 0,
+  "program_elapsed_seconds": 0.07390454178676009,
+  "returncode": 1,
+  "program_timeout": false
+}

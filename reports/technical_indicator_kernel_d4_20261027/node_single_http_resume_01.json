@@ -1,0 +1,555 @@
+{
+  "name": "single_http",
+  "status": "passed",
+  "calls": [
+    {
+      "status": "calculated",
+      "arrived_at": 3482354.504512583,
+      "work_until": 3482360.504512583,
+      "target_finish": 3482362.504512583,
+      "worker_thread": 6162886656,
+      "actual_connection_settings": {
+        "temp_directory": "",
+        "max_temp_directory_size": "0 bytes",
+        "threads": 1,
+        "memory_limit": "128.0 MiB"
+      },
+      "metadata_setting_query_seconds": 0.0011592921800911427,
+      "metadata_setting_query_price_logical_rows": 0,
+      "locator_rows": 8000,
+      "selected_preceding_rows": 500,
+      "selected_target_rows": 1000,
+      "source_files": 1,
+      "source_file_bytes": 29370,
+      "locator_closed": true,
+      "price_rows": 1500,
+      "batches": [
+        1500
+      ],
+      "stream_closed": true,
+      "reader_refs_cleared": true,
+      "sql_logical_rows": 80315,
+      "steps": [
+        {
+          "name": "create_parameters",
+          "rows": 3,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "read_smoothing_limits",
+          "rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "create_state",
+          "rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "name": "create_parameters",
+          "rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "read_smoothing_limits",
+          "rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "create_state",
+          "rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "name": "initialize_state",
+          "rows": 0,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "macd_warmup",
+          "rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "read_warmup_rows",
+          "rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "kdj_warmup",
+          "rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "read_warmup_rows",
+          "rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "locate_stage",
+          "rows": 4000,
+          "output_rows": 4000,
+          "failed": false
+        },
+        {
+          "name": "locate_stage",
+          "rows": 4000,
+          "output_rows": 4000,
+          "failed": false
+        },
+        {
+          "name": "stage_input",
+          "rows": 1500,
+          "output_rows": 1500,
+          "failed": false
+        },
+        {
+          "name": "target_price",
+          "rows": 1500,
+          "output_rows": 1500,
+          "failed": false
+        },
+        {
+          "name": "input_window",
+          "rows": 1500,
+          "output_rows": 1500,
+          "failed": false
+        },
+        {
+          "name": "create_output",
+          "rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "name": "macd_first",
+          "rows": 1500,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "macd_first_output",
+          "rows": 1,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "read_segment_bounds",
+          "rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "macd_segment",
+          "rows": 1502,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "name": "append_segment",
+          "rows": 1024,
+          "output_rows": 1024,
+          "failed": false
+        },
+        {
+          "name": "update_state",
+          "rows": 1025,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "read_segment_bounds",
+          "rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "macd_segment",
+          "rows": 1502,
+          "output_rows": 475,
+          "failed": false
+        },
+        {
+          "name": "append_segment",
+          "rows": 475,
+          "output_rows": 475,
+          "failed": false
+        },
+        {
+          "name": "update_state",
+          "rows": 476,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "read_segment_bounds",
+          "rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "kdj_window",
+          "rows": 1500,
+          "output_rows": 1500,
+          "failed": false
+        },
+        {
+          "name": "create_output",
+          "rows": 0,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "name": "read_segment_bounds",
+          "rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "kdj_segment",
+          "rows": 1502,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "name": "append_segment",
+          "rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "name": "update_state",
+          "rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "read_segment_bounds",
+          "rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "kdj_segment",
+          "rows": 1502,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "name": "append_segment",
+          "rows": 631,
+          "output_rows": 631,
+          "failed": false
+        },
+        {
+          "name": "update_state",
+          "rows": 632,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "read_segment_bounds",
+          "rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "kdj_segment",
+          "rows": 1502,
+          "output_rows": 238,
+          "failed": false
+        },
+        {
+          "name": "append_segment",
+          "rows": 238,
+          "output_rows": 238,
+          "failed": false
+        },
+        {
+          "name": "update_state",
+          "rows": 239,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "read_segment_bounds",
+          "rows": 2,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "rolling_mean",
+          "rows": 1500,
+          "output_rows": 1500,
+          "failed": false
+        },
+        {
+          "name": "rolling_mean",
+          "rows": 1500,
+          "output_rows": 1500,
+          "failed": false
+        },
+        {
+          "name": "rolling_mean",
+          "rows": 1500,
+          "output_rows": 1500,
+          "failed": false
+        },
+        {
+          "name": "rolling_mean",
+          "rows": 1500,
+          "output_rows": 1500,
+          "failed": false
+        },
+        {
+          "name": "rolling_mean",
+          "rows": 1500,
+          "output_rows": 1500,
+          "failed": false
+        },
+        {
+          "name": "rolling_mean",
+          "rows": 1500,
+          "output_rows": 1500,
+          "failed": false
+        },
+        {
+          "name": "rolling_mean",
+          "rows": 1500,
+          "output_rows": 1500,
+          "failed": false
+        },
+        {
+          "name": "bollinger_bands",
+          "rows": 3000,
+          "output_rows": 1500,
+          "failed": false
+        },
+        {
+          "name": "inspect_columns",
+          "rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "name": "check_batch_rows",
+          "rows": 1500,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "inspect_columns",
+          "rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "name": "check_batch_rows",
+          "rows": 1500,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "inspect_columns",
+          "rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "name": "check_batch_rows",
+          "rows": 1500,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "inspect_columns",
+          "rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "name": "check_batch_rows",
+          "rows": 1500,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "inspect_columns",
+          "rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "name": "check_batch_rows",
+          "rows": 1500,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "inspect_columns",
+          "rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "name": "check_batch_rows",
+          "rows": 1500,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "inspect_columns",
+          "rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "name": "check_batch_rows",
+          "rows": 1500,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "inspect_columns",
+          "rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "name": "check_batch_rows",
+          "rows": 1500,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "inspect_columns",
+          "rows": 2,
+          "output_rows": 2,
+          "failed": false
+        },
+        {
+          "name": "check_batch_rows",
+          "rows": 1500,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "inspect_columns",
+          "rows": 4,
+          "output_rows": 4,
+          "failed": false
+        },
+        {
+          "name": "check_batch_rows",
+          "rows": 1500,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "merge_batch",
+          "rows": 16500,
+          "output_rows": 1500,
+          "failed": false
+        },
+        {
+          "name": "retain_tail",
+          "rows": 1500,
+          "output_rows": 1000,
+          "failed": false
+        },
+        {
+          "name": "rename_table",
+          "rows": 1000,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "name": "retain_input_history",
+          "rows": 1500,
+          "output_rows": 249,
+          "failed": false
+        },
+        {
+          "name": "rename_table",
+          "rows": 249,
+          "output_rows": 0,
+          "failed": false
+        },
+        {
+          "name": "count_tail",
+          "rows": 1000,
+          "output_rows": 1,
+          "failed": false
+        },
+        {
+          "name": "select_result",
+          "rows": 1000,
+          "output_rows": 1000,
+          "failed": false
+        }
+      ],
+      "live_tables": [],
+      "live_arrow": [],
+      "stop_reason": null,
+      "stop_requested_at": null,
+      "sql_returned_at": 3482354.623777708,
+      "resources_released_at": 3482354.645752916,
+      "monitor_join_ms": 0.061792321503162384,
+      "stop_monitor_ms": 0.07037539035081863,
+      "interrupt_count": 0,
+      "monitor_finished": true,
+      "cleanup_errors": [],
+      "connection_closed": true,
+      "calculation_result_verified": true,
+      "lease_released_at": 3482354.668715541,
+      "lease_released": true
+    }
+  ],
+  "real_controls": 1,
+  "price_rows": 1500,
+  "locator_rows": 8000,
+  "sql_logical_rows": 80315,
+  "health": [],
+  "actual_file_read_bytes": null,
+  "actual_file_read_bytes_reason": "No reliable per-request OS I/O byte counter",
+  "native_SQL_interrupt_evidence": "reused D2; not newly claimed by this case",
+  "independent_reference_sha256": "b06fdd4ba4e01f3a86a0fa110cdc1f375fd1cd1a2b3d7e8aa80df9685573c1a4",
+  "elapsed_seconds": 1.701991249807179,
+  "pid": 41283,
+  "node_working_directory": "/private/tmp/ti_d4_resume_mushu49t/work_single_http",
+  "starting_threads": [
+    "MainThread"
+  ],
+  "memory_validation": "not_measured_estimate_only_by_administrator_decision",
+  "memory_estimate_basis": "LLD 16.2; 1500 input / 1000 output / 16 numeric fields",
+  "memory_estimate_request_MiB": 256,
+  "memory_estimate_dual_MiB": 512,
+  "outcomes": [
+    {
+      "status": "passed",
+      "output_bytes": 306387,
+      "response_messages": 2
+    }
+  ],
+  "ending_threads": [
+    "MainThread"
+  ],
+  "actual_computed_disk_write_bytes": null,
+  "actual_computed_disk_write_bytes_reason": "No reliable per-request OS disk write byte counter",
+  "computed_temporary_disk_evidence": "actual private connection max_temp_directory_size=0; owned/node directory inspection; D2 low-memory evidence reused",
+  "observed_computed_temporary_files": [],
+  "program_elapsed_seconds": 1.9903058749623597,
+  "returncode": 0,
+  "program_timeout": false
+}

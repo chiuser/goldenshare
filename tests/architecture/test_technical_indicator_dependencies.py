@@ -2,6 +2,7 @@
 
 import ast
 from pathlib import Path
+import sys
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -79,3 +80,33 @@ def test_d3_fixed_sql_resources_and_output_dependency_boundary():
         for path in paths:
             text = path.read_text()
             assert "has_more" not in text and "next_before" not in text
+
+
+def test_indicator_dependency_boundaries():
+    helpers = Path(__file__).resolve().parents[1] / "app/technical_indicators"
+    # Only the fixture-free helper module is made importable; it starts no
+    # calculation, control thread or source read at import time.
+    original = tuple(sys.path)
+    try:
+        sys.path.insert(0, str(helpers))
+        from test_admission import light_case
+    finally:
+        sys.path[:] = original
+    with light_case("test_indicator_dependency_boundaries"):
+        root = Path(__file__).resolve().parents[2]
+        folders = (
+            (root / "src/foundation/technical_indicators", ("src.app", "src.biz", "src.ops", "qtf", "orchestrator", "src.platform", "src.operations", "lake_console")),
+            (root / "src/app/runtime/technical_indicators", ("src.biz", "src.ops", "qtf", "orchestrator", "src.platform", "src.operations", "lake_console")),
+        )
+        for folder, banned in folders:
+            for path in folder.rglob("*.py"):
+                tree = ast.parse(path.read_text())
+                for node in ast.walk(tree):
+                    modules = ([alias.name for alias in node.names] if isinstance(node, ast.Import)
+                               else [node.module] if isinstance(node, ast.ImportFrom) and node.module else [])
+                    assert not any(module == prefix or module.startswith(prefix+".")
+                                   for module in modules for prefix in banned), path
+        package = root / "src/app/runtime/technical_indicators"
+        assert {path.name for path in package.glob("*.py")} == {
+            "__init__.py", "admission.py", "composition.py", "execution.py", "response.py",
+        }

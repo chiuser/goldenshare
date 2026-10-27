@@ -1,0 +1,30 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/congming/github/goldenshare/scripts/diagnostics/technical_indicator_resources.py", line 822, in <module>
+    main()
+    ~~~~^^
+  File "/Users/congming/github/goldenshare/scripts/diagnostics/technical_indicator_resources.py", line 742, in main
+    _run_node(arguments.node, arguments.owned_root)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/congming/github/goldenshare/scripts/diagnostics/technical_indicator_resources.py", line 695, in _run_node
+    startup_rss = _current_rss()
+  File "/Users/congming/github/goldenshare/scripts/diagnostics/technical_indicator_resources.py", line 62, in _current_rss
+    result = subprocess.run(("/bin/ps", "-o", "rss=", "-p", str(os.getpid())),
+                            capture_output=True, text=True, timeout=2, check=True)
+  File "/Users/congming/miniconda3/lib/python3.13/subprocess.py", line 554, in run
+    with Popen(*popenargs, **kwargs) as process:
+         ~~~~~^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/congming/miniconda3/lib/python3.13/subprocess.py", line 1039, in __init__
+    self._execute_child(args, executable, preexec_fn, close_fds,
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                        pass_fds, cwd, env,
+                        ^^^^^^^^^^^^^^^^^^^
+    ...<5 lines>...
+                        gid, gids, uid, umask,
+                        ^^^^^^^^^^^^^^^^^^^^^^
+                        start_new_session, process_group)
+                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/congming/miniconda3/lib/python3.13/subprocess.py", line 1972, in _execute_child
+    raise child_exception_type(errno_num, err_msg, err_filename)
+PermissionError: [Errno 1] Operation not permitted: '/bin/ps'

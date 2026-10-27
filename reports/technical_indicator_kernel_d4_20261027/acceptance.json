@@ -1,0 +1,183 @@
+{
+  "status": "passed",
+  "D4_complete": true,
+  "step7": "complete",
+  "step8": "complete",
+  "scope": "isolated App assembly and fixed bounded acceptance; memory estimated only",
+  "basis": [
+    "docs/architecture/technical-indicator-kernel-component-design-v1.html#d4-resume-execution-20261027",
+    "docs/architecture/technical-indicator-kernel-low-level-design-v1.html#d4-resume-execution-20261027"
+  ],
+  "light_checks": {
+    "functions": 13,
+    "original_classes": 12,
+    "control_substitute_calls": 42,
+    "runs": 1,
+    "repeated_this_round": false,
+    "price_or_SQL_rows": 0,
+    "real_controls": 0,
+    "record": "execution_light_01.json"
+  },
+  "architecture_restoration": {
+    "original_functions": 4,
+    "restored_verbatim_from_HEAD": true,
+    "new_D4_function_retained": true,
+    "lake_console_banned_both_layers": true,
+    "verification": "resume_preexecution_static_review.json",
+    "old_tests_not_rerun": true
+  },
+  "real_nodes": [
+    {
+      "name": "single_http",
+      "status": "passed",
+      "real_controls": 1,
+      "price_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 80315,
+      "program_elapsed_seconds": 1.9903058749623597,
+      "record": "node_single_http_resume_01.json"
+    },
+    {
+      "name": "dual_http",
+      "status": "passed",
+      "real_controls": 2,
+      "price_rows": 3000,
+      "locator_rows": 16000,
+      "sql_logical_rows": 160630,
+      "program_elapsed_seconds": 1.641330084297806,
+      "record": "node_dual_http_resume_01.json"
+    },
+    {
+      "name": "shutdown_and_normal",
+      "status": "passed",
+      "real_controls": 2,
+      "price_rows": 3000,
+      "locator_rows": 16000,
+      "sql_logical_rows": 88327,
+      "program_elapsed_seconds": 1.6040887502022088,
+      "record": "node_shutdown_and_normal_resume_01.json"
+    },
+    {
+      "name": "read_cancel_and_normal",
+      "status": "passed",
+      "real_controls": 2,
+      "price_rows": 3000,
+      "locator_rows": 16000,
+      "sql_logical_rows": 88327,
+      "program_elapsed_seconds": 1.5920813749544322,
+      "record": "node_read_cancel_and_normal_resume_01.json"
+    },
+    {
+      "name": "slow_send",
+      "status": "passed",
+      "real_controls": 1,
+      "price_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 80315,
+      "program_elapsed_seconds": 1.7118347501382232,
+      "record": "node_slow_send_resume_01.json"
+    },
+    {
+      "name": "disconnect",
+      "status": "passed",
+      "real_controls": 1,
+      "price_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 8012,
+      "program_elapsed_seconds": 1.5382941248826683,
+      "record": "node_disconnect_resume_01.json"
+    },
+    {
+      "name": "encoding_failure",
+      "status": "passed",
+      "real_controls": 1,
+      "price_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 80315,
+      "program_elapsed_seconds": 1.565197166055441,
+      "record": "node_encoding_failure_resume_01.json"
+    }
+  ],
+  "real_requests": 10,
+  "request_counts": [
+    1,
+    2,
+    2,
+    2,
+    1,
+    1,
+    1
+  ],
+  "complete_calculations_verified_against_saved_reference": 7,
+  "fixed_read_stage_cancelled_requests": 3,
+  "healthy_requests": [
+    {
+      "elapsed_ms": 0.002333894371986389,
+      "status": 200
+    },
+    {
+      "elapsed_ms": 0.0014593824744224548,
+      "status": 200
+    },
+    {
+      "elapsed_ms": 0.0008330680429935455,
+      "status": 200
+    }
+  ],
+  "request_release_max_ms": 170.20825017243624,
+  "stop_to_release_ms": [
+    2.420583739876747,
+    2.691875211894512,
+    2.5205002166330814
+  ],
+  "resource_cleanup": {
+    "calls_verified": 10,
+    "closed_connections": 10,
+    "monitors_exited": 10,
+    "leases_released_after_resources": 10,
+    "live_tables": 0,
+    "live_arrow": 0,
+    "readers_released": 10,
+    "all_nodes_end_only_MainThread": true,
+    "owned_root_removed": true,
+    "no_observed_calculation_temporary_files": true
+  },
+  "actual_cost": {
+    "input_rows": 23000,
+    "locator_rows": 80000,
+    "sql_logical_rows": 602241,
+    "real_controls": 10,
+    "fixture_preparations": 2,
+    "fixture_rows_total": 8000,
+    "fixture_SQL_logical_rows_total": 16000,
+    "program_seconds": 17.263186499687873
+  },
+  "limits": {
+    "real_controls": 12,
+    "input_rows": 26000,
+    "locator_rows": 96000,
+    "sql_logical_rows": 979780,
+    "program_seconds": 120
+  },
+  "memory_validation": {
+    "status": "not_measured_estimate_only_by_administrator_decision",
+    "request_planning_MiB": 256,
+    "dual_planning_MiB": 512,
+    "query_setting_MiB": 128
+  },
+  "historical_failure": "node_single_http.json",
+  "old_failure_and_costs_preserved": true,
+  "automatic_retries": 0,
+  "independent_review": "independent_review_20261027.json",
+  "open_issues": [],
+  "not_claimed": [
+    "formal Lake/API/page/XXM/DG migration",
+    "RSS/peak memory measurement",
+    "P95",
+    "new native SQL-running interrupt or capacity stress acceptance",
+    "real queued-request load test; queue behavior covered by original lightweight checks"
+  ],
+  "submission": "not committed / not deployed",
+  "final_validation": "final_validation_20261027.json",
+  "submission_status_scope": "Recorded at acceptance before the requested Git commit; actual commit is in Git history. No deployment."
+}

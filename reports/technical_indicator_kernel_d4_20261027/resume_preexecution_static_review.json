@@ -1,0 +1,32 @@
+{
+  "status": "passed_ready_for_fixed_real_nodes",
+  "original_functions_restored_exactly": [
+    "test_kernel_has_no_reverse_or_dg_dependencies",
+    "test_d1_import_requires_no_database_or_arrow",
+    "test_d2_runtime_sql_resources_are_explicitly_declared_for_packaging",
+    "test_d3_fixed_sql_resources_and_output_dependency_boundary"
+  ],
+  "new_D4_check_retained": true,
+  "ban_negative_and_normal_checks": true,
+  "dependency_direction_static_scan": true,
+  "protected_App_Foundation_unchanged": true,
+  "no_RSS_or_sampler_calls": true,
+  "resume_baseline_verified": true,
+  "historical_records_preserved": true,
+  "exact_unexecuted_nodes": 7,
+  "real_requests": 10,
+  "no_old_tests_or_control_calls_executed": true,
+  "elapsed_seconds": 0.14736766647547483,
+  "CodeGraph": [
+    "codegraph_search _run_node",
+    "codegraph_callers _run_node: only diagnostic main"
+  ],
+  "independent_reviews": [
+    "D4 actual Control/App lifecycle reviewed read-only, no identified blocker",
+    "Diagnostic reviewed independently; both time check issues corrected to existing node/total rules before real execution"
+  ],
+  "time_check_corrections_before_execution": [
+    "node elapsed <=30, orchestration cumulative <=120",
+    "final cleanup and outer startup count in total; failure saved before pass"
+  ]
+}

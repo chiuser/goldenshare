@@ -1,0 +1,10 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/congming/github/goldenshare/scripts/diagnostics/technical_indicator_resources.py", line 822, in <module>
+    main()
+    ~~~~^^
+  File "/Users/congming/github/goldenshare/scripts/diagnostics/technical_indicator_resources.py", line 796, in main
+    assert not timeout and process.returncode == 0 and actual["status"] == "passed", actual
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: {'name': 'single_http', 'status': 'failed_before_node_record', 'real_controls': 0, 'price_rows': 0, 'locator_rows': 0, 'sql_logical_rows': 0, 'program_elapsed_seconds': 0.07390454178676009, 'returncode': 1, 'program_timeout': False}

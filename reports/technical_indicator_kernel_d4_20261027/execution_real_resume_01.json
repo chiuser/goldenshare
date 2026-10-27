@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "scripts.diagnostics.technical_indicator_resources"
+  ],
+  "authorization": "管理员明确要求：先恢复，然后继续推进D4",
+  "automatic_retries": 0,
+  "real_request_count": 10,
+  "memory_validation": "estimate only",
+  "returncode": 0,
+  "program_elapsed_seconds": 12.726315625011921,
+  "orchestration_timeout": false
+}

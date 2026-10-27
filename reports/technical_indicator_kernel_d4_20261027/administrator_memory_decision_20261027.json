@@ -1,0 +1,42 @@
+{
+  "decision": "administrator_memory_estimation_only",
+  "date": "2026-10-27",
+  "source": "direct user instruction",
+  "memory_RSS_measurement_required": false,
+  "RSS_gate_required": false,
+  "memory_sampling_required": false,
+  "planning_MiB": {
+    "request": 256,
+    "two_requests": 512,
+    "query_config": 128,
+    "component_total": 244
+  },
+  "payload_estimate": {
+    "input_rows": 1500,
+    "standard_price_bytes_per_row": 72,
+    "price_bytes": 108000,
+    "output_rows": 1000,
+    "numeric_fields": 16,
+    "numeric_bytes": 128000
+  },
+  "unchanged": [
+    "query configuration",
+    "selected-column 32MiB protection",
+    "output 5000000 UTF-8 bytes",
+    "no computation temporary disk",
+    "actual lifecycle and cleanup",
+    "health 200ms",
+    "work 6 seconds and total target 8 seconds",
+    "cost budgets and first-error stop"
+  ],
+  "scope_this_turn": "documents and explanation only; no code repair or acceptance resumption",
+  "test_restoration": {
+    "source": "current HEAD",
+    "original_functions": 4,
+    "single_file": true,
+    "requires_algorithm_rewrite": false,
+    "requires_market_data_or_SQL": false,
+    "historical_reports_lost": false
+  },
+  "past_failure_and_costs_preserved": true
+}

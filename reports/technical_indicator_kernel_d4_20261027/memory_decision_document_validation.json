@@ -1,0 +1,17 @@
+{
+  "status": "passed_bounded_document_validation",
+  "duration_seconds": 0.07662195805460215,
+  "HTML_unique_ids_and_decision": true,
+  "report_JSON_parse": true,
+  "implementation_fingerprints_unchanged": true,
+  "HEAD_original_test_functions": [
+    "test_kernel_has_no_reverse_or_dg_dependencies",
+    "test_d1_import_requires_no_database_or_arrow",
+    "test_d2_runtime_sql_resources_are_explicitly_declared_for_packaging",
+    "test_d3_fixed_sql_resources_and_output_dependency_boundary"
+  ],
+  "test_or_SQL_or_request_executions": 0,
+  "restoration_performed": false,
+  "resumption_performed": false,
+  "CodeGraph": "explore query was broad; exact test scope established with current diff and HEAD AST"
+}

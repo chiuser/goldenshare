@@ -1,0 +1,12 @@
+{
+  "status": "failed_stop_without_retry",
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "scripts.diagnostics.technical_indicator_resources"
+  ],
+  "automatic_retries": 0,
+  "fixed_real_requests": 10,
+  "returncode": 1,
+  "program_elapsed_seconds": 1.0873311669565737
+}

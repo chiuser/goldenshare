@@ -1,0 +1,395 @@
+{
+  "status": "complete",
+  "completed_nodes": [
+    "tests/app/technical_indicators/test_admission.py::test_normal_grant_and_prewait_validation",
+    "tests/app/technical_indicators/test_admission.py::test_fifo_waiting",
+    "tests/app/technical_indicators/test_admission.py::test_waiting_full",
+    "tests/app/technical_indicators/test_admission.py::test_waiting_expired",
+    "tests/app/technical_indicators/test_admission.py::test_waiting_cancelled",
+    "tests/app/technical_indicators/test_admission.py::test_cancel_after_grant_before_handoff",
+    "tests/app/technical_indicators/test_admission.py::test_grant_after_work_deadline",
+    "tests/app/technical_indicators/test_execution_cancellation.py::test_execution_cancelled",
+    "tests/app/technical_indicators/test_execution_cancellation.py::test_execution_deadline",
+    "tests/app/technical_indicators/test_execution_cancellation.py::test_cleanup_failure",
+    "tests/app/technical_indicators/test_execution_cancellation.py::test_shutdown",
+    "tests/app/technical_indicators/test_response_lifecycle.py::test_response_lifecycle",
+    "tests/architecture/test_technical_indicator_dependencies.py::test_indicator_dependency_boundaries"
+  ],
+  "calls": [
+    {
+      "node": "single_http",
+      "record": "node_single_http_resume_01.json",
+      "call_index": 0,
+      "status": "calculated",
+      "price_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 80315,
+      "resources_released": true,
+      "lease_released": true
+    },
+    {
+      "node": "dual_http",
+      "record": "node_dual_http_resume_01.json",
+      "call_index": 0,
+      "status": "calculated",
+      "price_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 80315,
+      "resources_released": true,
+      "lease_released": true
+    },
+    {
+      "node": "dual_http",
+      "record": "node_dual_http_resume_01.json",
+      "call_index": 1,
+      "status": "calculated",
+      "price_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 80315,
+      "resources_released": true,
+      "lease_released": true
+    },
+    {
+      "node": "shutdown_and_normal",
+      "record": "node_shutdown_and_normal_resume_01.json",
+      "call_index": 0,
+      "status": "calculation_error",
+      "price_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 8012,
+      "resources_released": true,
+      "lease_released": true
+    },
+    {
+      "node": "shutdown_and_normal",
+      "record": "node_shutdown_and_normal_resume_01.json",
+      "call_index": 1,
+      "status": "calculated",
+      "price_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 80315,
+      "resources_released": true,
+      "lease_released": true
+    },
+    {
+      "node": "read_cancel_and_normal",
+      "record": "node_read_cancel_and_normal_resume_01.json",
+      "call_index": 0,
+      "status": "calculation_error",
+      "price_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 8012,
+      "resources_released": true,
+      "lease_released": true
+    },
+    {
+      "node": "read_cancel_and_normal",
+      "record": "node_read_cancel_and_normal_resume_01.json",
+      "call_index": 1,
+      "status": "calculated",
+      "price_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 80315,
+      "resources_released": true,
+      "lease_released": true
+    },
+    {
+      "node": "slow_send",
+      "record": "node_slow_send_resume_01.json",
+      "call_index": 0,
+      "status": "calculated",
+      "price_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 80315,
+      "resources_released": true,
+      "lease_released": true
+    },
+    {
+      "node": "disconnect",
+      "record": "node_disconnect_resume_01.json",
+      "call_index": 0,
+      "status": "calculation_error",
+      "price_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 8012,
+      "resources_released": true,
+      "lease_released": true
+    },
+    {
+      "node": "encoding_failure",
+      "record": "node_encoding_failure_resume_01.json",
+      "call_index": 0,
+      "status": "calculated",
+      "price_rows": 1500,
+      "locator_rows": 8000,
+      "sql_logical_rows": 80315,
+      "resources_released": true,
+      "lease_released": true
+    }
+  ],
+  "input_rows": 23000,
+  "locator_rows": 80000,
+  "sql_logical_rows": 602241,
+  "real_controls": 10,
+  "program_seconds": 17.263186499687873,
+  "light_nodes": [
+    {
+      "node": "tests/app/technical_indicators/test_admission.py::test_normal_grant_and_prewait_validation",
+      "status": "passed",
+      "calls": 4,
+      "elapsed_seconds": 0.00741416634991765
+    },
+    {
+      "node": "tests/app/technical_indicators/test_admission.py::test_fifo_waiting",
+      "status": "passed",
+      "calls": 4,
+      "elapsed_seconds": 0.0011103339493274689
+    },
+    {
+      "node": "tests/app/technical_indicators/test_admission.py::test_waiting_full",
+      "status": "passed",
+      "calls": 5,
+      "elapsed_seconds": 0.001048500183969736
+    },
+    {
+      "node": "tests/app/technical_indicators/test_admission.py::test_waiting_expired",
+      "status": "passed",
+      "calls": 3,
+      "elapsed_seconds": 0.0021332078613340855
+    },
+    {
+      "node": "tests/app/technical_indicators/test_admission.py::test_waiting_cancelled",
+      "status": "passed",
+      "calls": 3,
+      "elapsed_seconds": 0.0010699578560888767
+    },
+    {
+      "node": "tests/app/technical_indicators/test_admission.py::test_cancel_after_grant_before_handoff",
+      "status": "passed",
+      "calls": 3,
+      "elapsed_seconds": 0.0009285407140851021
+    },
+    {
+      "node": "tests/app/technical_indicators/test_admission.py::test_grant_after_work_deadline",
+      "status": "passed",
+      "calls": 3,
+      "elapsed_seconds": 0.0009137503802776337
+    },
+    {
+      "node": "tests/app/technical_indicators/test_execution_cancellation.py::test_execution_cancelled",
+      "status": "passed",
+      "calls": 2,
+      "elapsed_seconds": 0.002053250093013048
+    },
+    {
+      "node": "tests/app/technical_indicators/test_execution_cancellation.py::test_execution_deadline",
+      "status": "passed",
+      "calls": 2,
+      "elapsed_seconds": 0.2027574172243476
+    },
+    {
+      "node": "tests/app/technical_indicators/test_execution_cancellation.py::test_cleanup_failure",
+      "status": "passed",
+      "calls": 3,
+      "elapsed_seconds": 0.003512917086482048
+    },
+    {
+      "node": "tests/app/technical_indicators/test_execution_cancellation.py::test_shutdown",
+      "status": "passed",
+      "calls": 5,
+      "elapsed_seconds": 0.0026406249962747097
+    },
+    {
+      "node": "tests/app/technical_indicators/test_response_lifecycle.py::test_response_lifecycle",
+      "status": "passed",
+      "calls": 5,
+      "elapsed_seconds": 0.20697291614487767
+    },
+    {
+      "node": "tests/architecture/test_technical_indicator_dependencies.py::test_indicator_dependency_boundaries",
+      "status": "passed",
+      "calls": 0,
+      "elapsed_seconds": 0.037717499770224094
+    }
+  ],
+  "light_calls": 42,
+  "light_program_seconds": 2.2955547920428216,
+  "light_case_seconds": 0.4702730826102197,
+  "light_execution_record": "execution_light_01.json",
+  "diagnostic_status": "passed",
+  "real_nodes": [
+    {
+      "name": "single_http",
+      "status": "failed_before_node_record",
+      "record": "node_single_http.json"
+    },
+    {
+      "name": "single_http",
+      "status": "passed",
+      "record": "node_single_http_resume_01.json"
+    },
+    {
+      "name": "dual_http",
+      "status": "passed",
+      "record": "node_dual_http_resume_01.json"
+    },
+    {
+      "name": "shutdown_and_normal",
+      "status": "passed",
+      "record": "node_shutdown_and_normal_resume_01.json"
+    },
+    {
+      "name": "read_cancel_and_normal",
+      "status": "passed",
+      "record": "node_read_cancel_and_normal_resume_01.json"
+    },
+    {
+      "name": "slow_send",
+      "status": "passed",
+      "record": "node_slow_send_resume_01.json"
+    },
+    {
+      "name": "disconnect",
+      "status": "passed",
+      "record": "node_disconnect_resume_01.json"
+    },
+    {
+      "name": "encoding_failure",
+      "status": "passed",
+      "record": "node_encoding_failure_resume_01.json"
+    }
+  ],
+  "real_program_seconds": 13.614918999373913,
+  "owned_root": "/private/tmp/ti_d4_resume_mushu49t",
+  "fixture": {
+    "status": "passed",
+    "root": "/private/tmp/ti_d4_resume_mushu49t",
+    "file": "/private/tmp/ti_d4_resume_mushu49t/gold/quote/stk_mins_qfq/freq=1/ts_code=600000.SH/year=2026/part-000.parquet",
+    "file_bytes": 29370,
+    "schema": "canonical minute contract",
+    "row_groups": 1,
+    "connection_closed": true,
+    "elapsed_seconds": 0.6159905423410237
+  },
+  "owned_root_removed": true,
+  "execution_program_seconds_before_final_static": 3.3828859589993954,
+  "outer_real_program_seconds": 1.0873311669565737,
+  "real_request_calls_started": 10,
+  "real_requests_unexecuted": 0,
+  "passed_light_checks_not_repeated": true,
+  "D4_complete": true,
+  "coverage_note": "Original 12 lightweight classes / 13 functions passed once; 4 original architecture checks restored verbatim and statically verified; 7 fixed real nodes / 10 calls passed; no old suites rerun.",
+  "remaining_normal_budget": {
+    "input_rows": 0,
+    "locator_rows": 0,
+    "sql_logical_rows": 216909,
+    "real_controls": 0
+  },
+  "remaining_including_reserve_budget": {
+    "real_controls": 2,
+    "input_rows": 3000,
+    "locator_rows": 16000,
+    "sql_logical_rows": 377539
+  },
+  "protected_code_hashes_still_match": true,
+  "final_static_seconds": 0.06285137496888638,
+  "time_remaining_seconds": 102.73681350031212,
+  "administrator_memory_decision": "administrator_memory_decision_20261027.json",
+  "memory_validation_status": "not_measured_estimate_only_by_administrator_decision",
+  "resume_execution_started": true,
+  "resume_nodes": [
+    {
+      "name": "single_http",
+      "status": "passed",
+      "record": "node_single_http_resume_01.json"
+    },
+    {
+      "name": "dual_http",
+      "status": "passed",
+      "record": "node_dual_http_resume_01.json"
+    },
+    {
+      "name": "shutdown_and_normal",
+      "status": "passed",
+      "record": "node_shutdown_and_normal_resume_01.json"
+    },
+    {
+      "name": "read_cancel_and_normal",
+      "status": "passed",
+      "record": "node_read_cancel_and_normal_resume_01.json"
+    },
+    {
+      "name": "slow_send",
+      "status": "passed",
+      "record": "node_slow_send_resume_01.json"
+    },
+    {
+      "name": "disconnect",
+      "status": "passed",
+      "record": "node_disconnect_resume_01.json"
+    },
+    {
+      "name": "encoding_failure",
+      "status": "passed",
+      "record": "node_encoding_failure_resume_01.json"
+    }
+  ],
+  "resume_program_seconds": 12.631935749668628,
+  "resume_authorization": "管理员明确要求：先恢复，然后继续推进D4",
+  "outer_resume_program_seconds": 12.726315625011921,
+  "historical_pause": {
+    "baseline": "resume_baseline_20261027.json",
+    "first_failure_record": "node_single_http_output.txt",
+    "diagnostic_error": {
+      "type": "AssertionError",
+      "message": "{'name': 'single_http', 'status': 'failed_before_node_record', 'real_controls': 0, 'price_rows': 0, 'locator_rows': 0, 'sql_logical_rows': 0, 'program_elapsed_seconds': 0.07390454178676009, 'returncode': 1, 'program_timeout': False}",
+      "cause_type": null
+    },
+    "note": "Preserved historical failure before any real request; no costs reset"
+  },
+  "resolved_issues": [
+    {
+      "id": "rss_process_launch_denied",
+      "stage": "single_http before _Node construction",
+      "evidence": "node_single_http_output.txt",
+      "error": "PermissionError: [Errno 1] Operation not permitted: /bin/ps",
+      "facts": {
+        "ps_exists": true,
+        "ps_mode": "0o4755",
+        "source_prepared_rows": 4000,
+        "real_controls": 0,
+        "request_calculate_calls": 0
+      },
+      "impact": "All 10 real requests remain unexecuted; RSS and real lifecycle acceptance are unavailable.",
+      "suggestion": "Keep original failure/cost evidence. Current D4 uses data-size estimates; revise the diagnostic to omit RSS calls/gates before a separately authorized resumption.",
+      "status": "resolved_by_admin_memory_scope_change"
+    },
+    {
+      "id": "existing_architecture_tests_overwritten",
+      "stage": "post-stop read-only diff review",
+      "file": "tests/architecture/test_technical_indicator_dependencies.py",
+      "deleted_test_functions": [
+        "test_kernel_has_no_reverse_or_dg_dependencies",
+        "test_d1_import_requires_no_database_or_arrow",
+        "test_d2_runtime_sql_resources_are_explicitly_declared_for_packaging",
+        "test_d3_fixed_sql_resources_and_output_dependency_boundary"
+      ],
+      "new_guard_missing_forbidden_module": "lake_console",
+      "impact": "Original D1/D2/D3 regression checks were removed; the new guard pass does not establish preserved coverage.",
+      "suggestion": "After authorization, restore the four HEAD functions and ROOT/PACKAGE constants without deleting the new D4 function; add lake_console to both new forbidden lists. Check exact static diff; do not rerun old suites automatically.",
+      "status": "restored_exactly_and_statically_verified"
+    }
+  ],
+  "step7": "complete",
+  "step8": "complete",
+  "open_issues": [],
+  "no_automatic_retry": true,
+  "authorized_resumption_executed_once": true,
+  "independent_audit": "independent_review_20261027.json",
+  "submission_status": "not_committed_or_deployed",
+  "metadata_index_sync_seconds": 0.858199666,
+  "program_seconds_before_final_document_validation": 17.17762029145568,
+  "unused_budget_authorizes_extra_execution": false,
+  "final_document_validation_seconds": 0.08556620823219419,
+  "submission_status_scope": "Recorded at acceptance before the requested Git commit; actual commit is in Git history. No deployment."
+}

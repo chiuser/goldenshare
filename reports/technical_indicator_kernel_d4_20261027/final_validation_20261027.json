@@ -1,0 +1,16 @@
+{
+  "status": "passed",
+  "D4_complete": true,
+  "HTML_status_links_and_unique_ids": true,
+  "JSON_parse": true,
+  "original_architecture_functions_exact": 4,
+  "total_architecture_functions": 5,
+  "protected_code_and_old_records_match": true,
+  "AST_and_whitespace": true,
+  "no_new_SQL_or_requests": true,
+  "elapsed_seconds": 0.08556620823219419,
+  "cumulative_program_seconds": 17.263186499687873,
+  "CodeGraph_status": "up to date",
+  "committed": false,
+  "deployed": false
+}

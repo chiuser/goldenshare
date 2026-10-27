@@ -1,0 +1,39 @@
+{
+  "status": "passed_bounded_static_checks_only",
+  "elapsed_seconds": 0.06285137496888638,
+  "HTML_unique_ids_and_paused_status": [
+    "docs/architecture/technical-indicator-kernel-component-design-v1.html",
+    "docs/architecture/technical-indicator-kernel-low-level-design-v1.html"
+  ],
+  "python_AST_files": 10,
+  "report_JSON_parse": true,
+  "protected_fingerprints": {
+    "src/foundation/technical_indicators/service.py": true,
+    "src/foundation/technical_indicators/contracts.py": true,
+    "src/foundation/technical_indicators/execution_control.py": true,
+    "src/foundation/technical_indicators/calculation/registry.py": true,
+    "src/foundation/technical_indicators/calculation/calculation.py": true,
+    "src/foundation/technical_indicators/calculation/indicators/__init__.py": true,
+    "src/foundation/technical_indicators/configuration/settings.py": true,
+    "src/foundation/technical_indicators/output/encoding.py": true,
+    "src/foundation/clients/local_lake/technical_indicator_price_source.py": true,
+    "src/foundation/clients/local_lake/technical_indicator_price_locator.py": true,
+    "src/foundation/config/settings.py": true,
+    "src/app/web/lifespan.py": true
+  },
+  "implementation_unchanged_since_execution": {
+    "src/app/runtime/technical_indicators/execution.py": true,
+    "src/app/runtime/technical_indicators/__init__.py": true,
+    "src/app/runtime/technical_indicators/response.py": true,
+    "src/app/runtime/technical_indicators/admission.py": true,
+    "src/app/runtime/technical_indicators/composition.py": true,
+    "tests/app/technical_indicators/test_admission.py": true,
+    "tests/app/technical_indicators/test_response_lifecycle.py": true,
+    "tests/app/technical_indicators/test_execution_cancellation.py": true,
+    "tests/architecture/test_technical_indicator_dependencies.py": true,
+    "scripts/diagnostics/technical_indicator_resources.py": true
+  },
+  "whitespace_check": true,
+  "no_test_SQL_or_real_request_executed": true,
+  "does_not_resolve_open_issues": true
+}
