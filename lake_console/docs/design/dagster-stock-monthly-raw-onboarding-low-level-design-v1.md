@@ -1,5 +1,7 @@
 # DG 复权月线Raw更新、完整性审计与Silver生成 LLD v1
 
+**本轮修复完成（2026-10-28，开发及隔离验收完成，随本次提交保存）：** 周/月Silver sensor已区分恢复方案建立与文件处理完成，并保留原检查及交付确认。新增62项、原相关207项、受保护资产治理12项，共281项普通case通过，另有518个subtest；完整对账见共享LLD§12.17.6。27日已完成补数保持原状；本轮未部署、未触发正式job、未重载正式code location或执行正式definitions验证，未操作正式instance、Lake、sensor或cursor。
+
 **正式恢复完成（2026-10-28 11:50）：** 本次原27日股票复权周/月Raw及Silver四项均完成；23日周欠账已补，30日当前周及10月已更新到27日。8GiB续跑成功、原83页完整复用；全部实际通知/检查已确认，pending=0，四sensor保持RUNNING。本轮修改及证据随本次提交保存，未推送。完整结果见[正式恢复记录](../../reports/dg_stock_period_delivery_recovery_20261028/formal_execution_20261028.md)及共享LLD§12.12.6。
 
 **005f21f53开发阶段结果（历史）：** 审计第1—5项已按§9.4及共享LLD§12.16完成开发、独立复核与隔离验收。最终固定版本530项中528通过、0失败，2项既有隔离PG实验未启用；136.39秒。三文档及旧相反条款已同步；结果、指纹和失败记录见[五项修复报告](../../reports/dg_stock_period_delivery_recovery_20261028/followup_1_5.md)与共享LLD§12.16.9。本次提交包含五项修复、测试和文档证据，提交号以Git记录为准；未推送、未部署、未修正式状态或补数，测试临时业务目录已清理。
@@ -225,4 +227,18 @@ Raw完成后，本文§6及共享LLD §9的一次完整性审计已通过；本�
 
 月Silver末尾恢复窗口按共享LLD§12.12.5处理：利用已冻结子82c6253a及原月Silver job显式parent，只补153个复用CP及重建2026-10；不改代码/游标或另写补数入口。属既定已批同一通知/预算范围，成功后原sensor继续消费末条月通知。
 
-2026-10-28 11:50本轮数据恢复及全部通知确认完成，最终口径唯一见共享LLD§12.12.6：Raw不同2170/提交2171、Silver不同812/3115094行；pending0、两频刷新/因子27、四sensor RUNNING。月Silver既有恢复窗口通过原job显式parent补完，恢复待执行时的sensor确认时机/提示另留TODO，不新增自动补数要求。本轮修改及证据随本次提交保存，未推送。
+2026-10-28 11:50本轮数据恢复及全部通知确认完成，最终口径唯一见共享LLD§12.12.6：Raw不同2170/提交2171、Silver不同812/3115094行；pending0、两频刷新/因子27、四sensor RUNNING。月Silver既有恢复窗口通过原job显式parent补完，当时将sensor确认时机/提示列为TODO；后续已获准按共享LLD§12.17开发修复，不新增自动补数要求。本轮修改及证据随本次提交保存，未推送。
+
+
+### 9.5 月Silver恢复任务的完成判断与指引
+
+本轮已批准先完善原方案及LLD，再修共享代码并做两频隔离测试。完整规则唯一见[共享LLD§12.17](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-recovery-progress-lld)，对应总方案§10.9；月线不另写算法、job或配置。
+
+原154月任务成功后，Raw合法刷新2026-10，冻结child153月复用/10月重建。execution.json只是方案；子未执行或部分完成时稳定提示当前ID、显式parent、2026-10 partition及原silver_stock_monthly_update_job配置，不能直读未生成2014-01 CP或推进通知。complete缺失但全CP committed仍由原job续跑补汇总；有complete却缺CP、非committed、汇总/身份/版本矛盾属于真实异常。全部文件与原检查通过后才确认子交付并关闭祖先；父SUCCESS/FAILURE不能代替child事实。
+
+tests/test_stock_period_silver_sensor_recovery.py须显式参数化月线，覆盖连续tick、部分中断、坏记录、检查缺失/失败/错绑、回执失败只收尾和正常后续通知。现有test_stock_period_silver_daily_integration.py仅按共享LLD同步错误前缀+恢复指引断言，继续证明错误拒绝、无完成记录及pending保留，不改变业务预期。共用progress/message/缓存，保留自然月坐标、月中asof、21列、原三项检查、cursor及查询预算。
+
+预算只用共享LLD§12.17.5一份，不给月线重复额度：新增0源/正式行情内容/COPY/DG业务事件，154月容量只用metadata；整轮隔离含故障续跑和最后验收临时空间估算≤1GiB、实际汇总，不新增运行限制。已完成27日补数保持原状，本轮不部署/重载正式code location或执行正式definitions验证、不操作正式Lake、instance、job、sensor或cursor；开发及隔离状态按实际证据回写，不把历史人工恢复当成本次代码上线。
+
+
+本节开发及月线隔离验收现已完成，与周线共同对账见共享LLD§12.17.6：新增双频62项及原相关/受保护回归合计281个普通case、另518个subtest通过；月线连续tick、父成功/失败与child实际进度、原检查拒绝、回执失败只收尾及恢复配置均已覆盖。初轮测试注入/旧提示断言和受保护启动入口的纠正依据、metadata容量及3个临时根清理均在共享记录，不另复制额度或再做月线审计。本轮修改随本次提交保存，提交号以Git记录为准；未推送、未部署，未触碰正式数据或状态，已完成补数不重跑。

@@ -725,7 +725,9 @@ def recover_update_execution(
                 record = known.get(unit["period"])
                 if record is not None and record["state"] == "committed":
                     require_recoverable_checks(
-                        evidence.get((asset_name(freq), unit["period"])), freq, record,
+                        evidence.get((asset_name(freq), unit["period"])),
+                        freq,
+                        record,
                         identity,
                     )
                 else:
@@ -1113,6 +1115,107 @@ def emit_progress(value):
     print(value, flush=True)
 
 
+def update_delivery_progress(staging, execution):
+    """Read file-stage facts without creating checkpoints or recovering writes."""
+    identity = execution["identity"]
+    work = run_directory(staging, identity["run_id"])
+    for key, path in identity["references"].items():
+        if file_version(path) != identity["reference_versions"][key]:
+            raise ValueError("silver_event_reference_changed")
+    summary_path = work / "complete.json"
+    summary = None
+    if summary_path.exists():
+        try:
+            summary = read_recovery_evidence(summary_path)
+        except json.JSONDecodeError as error:
+            raise ValueError("silver_completion_invalid") from error
+        if not isinstance(summary, dict):
+            raise ValueError("silver_completion_invalid")
+        if summary.get("run_id") != identity["run_id"]:
+            raise ValueError("silver_completion_identity_changed")
+    totals = {freq: {"files": 0, "rows": 0} for freq in ("week", "month")}
+    for unit in identity["units"]:
+        path = checkpoint_path(work, unit)
+        if not path.exists():
+            if summary is not None:
+                raise ValueError(
+                    "silver_completion_checkpoint_missing:" + unit["period"]
+                )
+            continue
+        try:
+            record = read_recovery_evidence(path)
+        except json.JSONDecodeError as error:
+            raise ValueError("silver_checkpoint_invalid:" + unit["period"]) from error
+        if not isinstance(record, dict):
+            raise TypeError("silver_checkpoint_invalid:" + unit["period"])
+        validate_record(
+            record, identity, unit, identity_hash=execution["identity_hash"]
+        )
+        if record["state"] != "committed":
+            if summary is not None:
+                raise ValueError(
+                    "silver_completion_checkpoint_uncommitted:" + unit["period"]
+                )
+            continue
+        target = safe_path(unit["target"])
+        if not target.exists() or file_version(target) != record["version"]:
+            raise ValueError("silver_event_file_changed")
+        totals[unit["freq"]]["files"] += 1
+        totals[unit["freq"]]["rows"] += record["rows"]
+    if summary is not None:
+        saved = summary.get("totals")
+        if (
+            not isinstance(saved, dict)
+            or set(saved) != set(totals)
+            or any(
+                not isinstance(saved[freq], dict)
+                or set(saved[freq]) != {"files", "rows"}
+                or any(
+                    type(value) is not int or value < 0
+                    for value in saved[freq].values()
+                )
+                for freq in totals
+            )
+            or saved != totals
+        ):
+            raise ValueError("silver_completion_totals_invalid")
+    return {
+        "files": len(identity["units"]),
+        "committed": sum(value["files"] for value in totals.values()),
+        "files_complete": summary is not None,
+    }
+
+
+def update_recovery_message(execution, progress):
+    """Describe the existing job/config needed to finish this exact execution."""
+    from orchestrator.defs.run_contracts.stock_period_silver import asset_name
+
+    identity = execution["identity"]
+    anchor = identity["units"][-1]
+    asset = asset_name(anchor["freq"])
+    config = {
+        "intent": "update",
+        "execution_id": identity["run_id"],
+        "source_completion": identity["source_completion"],
+    }
+    if "resume_from_execution_id" in identity:
+        config["resume_from_execution_id"] = identity["resume_from_execution_id"]
+    run_config = json.dumps({"ops": {asset: {"config": config}}}, separators=(",", ":"))
+    return (
+        "silver_recovery_required:"
+        + identity["run_id"]
+        + f";files_committed={progress['committed']}/{progress['files']}"
+        + ";files_complete="
+        + str(progress["files_complete"]).lower()
+        + ";job="
+        + asset
+        + "_update_job;partition="
+        + anchor["period"]
+        + ";run_config="
+        + run_config
+    )
+
+
 def confirm_update_delivery(lake, staging, execution, evidence):
     """Persist completion from actual bound events; never emit events or compute data."""
     from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
@@ -1128,13 +1231,15 @@ def confirm_update_delivery(lake, staging, execution, evidence):
     )
     from orchestrator.defs.stock_period_checks import verify_period_materialization
 
+    if not update_delivery_progress(staging, execution)["files_complete"]:
+        raise ValueError("silver_update_files_incomplete")
     identity, entries = execution["identity"], []
     work = run_directory(staging, identity["run_id"])
     for key, path in identity["references"].items():
         if file_version(path) != identity["reference_versions"][key]:
             raise ValueError("silver_event_reference_changed")
     for unit in identity["units"]:
-        record = read_json(checkpoint_path(work, unit))
+        record = read_recovery_evidence(checkpoint_path(work, unit))
         validate_record(
             record, identity, unit, identity_hash=execution["identity_hash"]
         )
@@ -1331,10 +1436,16 @@ def evaluate_update_sensor(context, *, freq, staging_root=None):
             limit=1,
         )
         work = run_directory(staging, run_id)
-        if runs and runs[0].status in (
-            dg.DagsterRunStatus.FAILURE,
-            dg.DagsterRunStatus.CANCELED,
+        if (
+            run_id == original_id
+            and runs
+            and runs[0].status
+            in (
+                dg.DagsterRunStatus.FAILURE,
+                dg.DagsterRunStatus.CANCELED,
+            )
         ):
+            guidance = ""
             if (work / "execution.json").exists():
                 with writer_lock(staging), recovery_evidence():
                     execution = load_execution(lake, staging, run_id)
@@ -1344,11 +1455,15 @@ def evaluate_update_sensor(context, *, freq, staging_root=None):
                         lake, staging, execution, context.instance
                     )
                     pending["execution_id"] = execution["identity"]["run_id"]
+                    guidance = ";" + update_recovery_message(
+                        execution, update_delivery_progress(staging, execution)
+                    )
             return skip(
                 "silver_run_requires_review:"
                 + runs[0].run_id
                 + ";resume_execution_id="
                 + pending["execution_id"]
+                + guidance
             )
         if (work / "execution.json").exists():
             with writer_lock(staging), recovery_evidence():
@@ -1363,13 +1478,25 @@ def evaluate_update_sensor(context, *, freq, staging_root=None):
                         lake, staging, execution, context.instance
                     )
                     pending["execution_id"] = execution["identity"]["run_id"]
-                    return skip("silver_recovery_required:" + pending["execution_id"])
-                evidence = batch_event_evidence(
-                    context.instance,
-                    freq,
-                    [u["period"] for u in execution["identity"]["units"]],
-                )
-                confirm_update_delivery(lake, staging, execution, evidence)
+                    return skip(
+                        update_recovery_message(
+                            execution, update_delivery_progress(staging, execution)
+                        )
+                    )
+                progress = update_delivery_progress(staging, execution)
+                if not progress["files_complete"]:
+                    return skip(update_recovery_message(execution, progress))
+                try:
+                    evidence = batch_event_evidence(
+                        context.instance,
+                        freq,
+                        [u["period"] for u in execution["identity"]["units"]],
+                    )
+                    confirm_update_delivery(lake, staging, execution, evidence)
+                except (ValueError, TypeError, OSError) as error:
+                    return skip(
+                        str(error) + ";" + update_recovery_message(execution, progress)
+                    )
                 return ack("silver_batch_complete")
         if runs:
             return skip("silver_run_requires_review:" + runs[0].run_id)

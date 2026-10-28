@@ -1,5 +1,7 @@
 # DG 复权周线、月线Raw更新、完整性审计与Silver生成方案 v1
 
+**本轮修复完成（2026-10-28，开发及隔离验收完成，随本次提交保存）：** 周/月Silver sensor已区分恢复方案建立与文件处理完成，并保留原检查及交付确认。新增62项、原相关207项、受保护资产治理12项，共281项普通case通过，另有518个subtest；完整对账见共享LLD§12.17.6。27日已完成补数保持原状；本轮未部署、未触发正式job、未重载正式code location或执行正式definitions验证，未操作正式instance、Lake、sensor或cursor。
+
 **正式恢复完成（2026-10-28 11:50）：** 本次原27日股票复权周/月Raw及Silver四项均完成；23日周欠账已补，30日当前周及10月已更新到27日。8GiB续跑成功、原83页完整复用；全部实际通知/检查已确认，pending=0，四sensor保持RUNNING。本轮修改及证据随本次提交保存，未推送。完整结果见[正式恢复记录](../../reports/dg_stock_period_delivery_recovery_20261028/formal_execution_20261028.md)及共享LLD§12.12.6。
 
 **005f21f53开发阶段结果（历史）：** 审计第1—5项已按§10.8及共享LLD§12.16完成开发、独立复核与隔离验收。最终固定版本530项中528通过、0失败，2项既有隔离PG实验未启用；136.39秒。三文档及旧相反条款已同步；结果、指纹和失败记录见[五项修复报告](../../reports/dg_stock_period_delivery_recovery_20261028/followup_1_5.md)与共享LLD§12.16.9。本次提交包含五项修复、测试和文档证据，提交号以Git记录为准；未推送、未部署、未修正式状态或补数，测试临时业务目录已清理。
@@ -369,4 +371,17 @@ Silver首次补报旧测试中“失败后追加成功”的断言须明确纠�
 
 月Silver末尾恢复窗口按共享LLD§12.12.5处理：利用已冻结子82c6253a及原月Silver job显式parent，只补153个复用CP及重建2026-10；不改代码/游标或另写补数入口。属既定已批同一通知/预算范围，成功后原sensor继续消费末条月通知。
 
-2026-10-28 11:50本轮数据恢复及全部通知确认完成，最终口径唯一见共享LLD§12.12.6：Raw不同2170/提交2171、Silver不同812/3115094行；pending0、两频刷新/因子27、四sensor RUNNING。月Silver既有恢复窗口通过原job显式parent补完，恢复待执行时的sensor确认时机/提示另留TODO，不新增自动补数要求。本轮修改及证据随本次提交保存，未推送。
+2026-10-28 11:50本轮数据恢复及全部通知确认完成，最终口径唯一见共享LLD§12.12.6：Raw不同2170/提交2171、Silver不同812/3115094行；pending0、两频刷新/因子27、四sensor RUNNING。月Silver既有恢复窗口通过原job显式parent补完，当时将sensor确认时机/提示列为TODO；后续已获准按共享LLD§12.17开发修复，不新增自动补数要求。本轮修改及证据随本次提交保存，未推送。
+
+
+<a id="period-silver-recovery-progress-plan"></a>
+
+### 10.9 周/月Silver恢复任务的完成判断与指引修复
+
+管理员已批准先完善原方案和LLD，再修代码及周/月隔离测试。完整实现唯一见[共享LLD§12.17](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-recovery-progress-lld)，月线按其LLD§9.5对应。27日补数已完成，本轮不重跑、不部署、不重载正式code location或执行正式definitions验证、不操作正式Lake、instance、job、sensor或cursor，不修改其他数据集。
+
+问题发生在原月Silver成功后Raw再次合法更新当月：sensor冻结153个月复用、10月重建的子任务，下一tick却只因execution.json存在就确认全部完成记录。这是恢复任务尚未执行时的状态判断错误，不是2014年行情缺失。修复涉及stock_period_silver.py、新tests/test_stock_period_silver_sensor_recovery.py及原三文档；现有test_stock_period_silver_daily_integration.py仅同步错误前缀及恢复指引断言，继续要求业务拒绝、无完成记录和pending保留，不改业务预期。不改计算/写文件算法、job、检查、源契约、配置或cursor版本。
+
+区分方案建立、文件处理未完成、文件处理完成与交付完成：缺complete.json时，即使全部CP已committed也保留原job续跑指引；有complete却缺CP、非committed、汇总/身份/版本矛盾必须明确拒绝。当前子任务的实际记录决定进度，原run_key命中的父SUCCESS或FAILURE均不能代替。文件完整后继续全部原检查和覆盖证明，回执失败只重试收尾，不能重算或补假绿。未完成提示包含当前执行、显式parent、原job、anchor及可用配置，不自动重新触发恢复。
+
+每tick仍最多1通知/1请求、2次get_runs、2条集合readiness SQL；不逐期查询DG。新增0行情内容读取/写入、0源请求、0DuckDB/COPY、0DG业务事件；同tick每CP/complete内容至多读取一次并复核stat。容量658周/154月仅用metadata，真实producer小fixture验证链路。整轮隔离及必要回归临时空间估算≤1GiB，含故障续跑及最后验收，实际stat汇总后记录；不是新运行限额，不将小行情fixture冒充全部SQLite日志IO。先审计文档再编码、定向验证和实现对账，清理本轮精确临时资源；开发及隔离验收已完成，逐项实现/测试、初轮测试纠正与清理证据见共享LLD§12.17.6；本轮修改随本次提交保存，提交号以Git记录为准；未推送、未部署。

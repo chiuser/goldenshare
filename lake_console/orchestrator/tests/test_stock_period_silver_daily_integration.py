@@ -407,6 +407,10 @@ def test_completion_source_drift_does_not_save_success(update_fixture, monkeypat
                 stream.write(b"unpublished-change")
 
     monkeypatch.setattr(silver, "atomic_json", drift)
-    assert tick(f, ctx, "week").skip_reason.skip_message == "silver_event_file_changed"
+    message = tick(f, ctx, "week").skip_reason.skip_message
+    assert message.split(";", 1)[0] == "silver_event_file_changed"
+    assert "files_complete=true" in message
+    recovery_config = json.loads(message.split(";run_config=", 1)[1])
+    assert recovery_config == request.run_config
     assert not (work / "events_complete.json").exists()
     assert "pending" in json.loads(ctx.cursor)
