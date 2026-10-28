@@ -1,6 +1,8 @@
 # DG 复权月线Raw更新、完整性审计与Silver生成 LLD v1
 
-**本轮修复完成（2026-10-28，开发及隔离验收完成，随本次提交保存）：** 周/月Silver sensor已区分恢复方案建立与文件处理完成，并保留原检查及交付确认。新增62项、原相关207项、受保护资产治理12项，共281项普通case通过，另有518个subtest；完整对账见共享LLD§12.17.6。27日已完成补数保持原状；本轮未部署、未触发正式job、未重载正式code location或执行正式definitions验证，未操作正式instance、Lake、sensor或cursor。
+**本轮补修完成（2026-10-28，开发、隔离验收及独立审计完成，随本次提交保存）：** 已修正来源未变时原ID被旧FAILURE/CANCELED挡住、未完成误入recover的两项遗漏。最终305项普通case及另518个subtest通过，两名非作者分别核对代码/消费者与逐case证据，无阻断；完整对账见共享LLD§12.18.6。来源变化继续原恢复流程及其既有成本，不能将本轮等待分支的0预算扩展到全部tick。27日已完成补数保持原状，未部署、未操作正式资源。
+
+**上轮开发及隔离结果（历史）：** 周/月Silver sensor区分恢复方案建立与文件处理完成的修复已有281项普通case通过，另有518个subtest，详见共享LLD§12.17.6。通过记录保留，但撤回“全部硬口径已覆盖、该问题已全部收尾”的结论；这些测试没有证明本轮遗漏组合。该轮未部署、未触发正式job、未重载正式code location或执行正式definitions验证，未操作正式instance、Lake、sensor或cursor。
 
 **正式恢复完成（2026-10-28 11:50）：** 本次原27日股票复权周/月Raw及Silver四项均完成；23日周欠账已补，30日当前周及10月已更新到27日。8GiB续跑成功、原83页完整复用；全部实际通知/检查已确认，pending=0，四sensor保持RUNNING。本轮修改及证据随本次提交保存，未推送。完整结果见[正式恢复记录](../../reports/dg_stock_period_delivery_recovery_20261028/formal_execution_20261028.md)及共享LLD§12.12.6。
 
@@ -232,13 +234,15 @@ Raw完成后，本文§6及共享LLD §9的一次完整性审计已通过；本�
 
 ### 9.5 月Silver恢复任务的完成判断与指引
 
-本轮已批准先完善原方案及LLD，再修共享代码并做两频隔离测试。完整规则唯一见[共享LLD§12.17](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-recovery-progress-lld)，对应总方案§10.9；月线不另写算法、job或配置。
+本轮已批准先完善原方案及LLD，再修共享代码并做两频隔离测试。原进度合同见[共享LLD§12.17](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-recovery-progress-lld)，本轮遗漏及唯一实现细节见[共享LLD§12.18](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-original-run-recovery-lld)，对应总方案§10.9；月线不另写算法、job或配置。
 
-原154月任务成功后，Raw合法刷新2026-10，冻结child153月复用/10月重建。execution.json只是方案；子未执行或部分完成时稳定提示当前ID、显式parent、2026-10 partition及原silver_stock_monthly_update_job配置，不能直读未生成2014-01 CP或推进通知。complete缺失但全CP committed仍由原job续跑补汇总；有complete却缺CP、非committed、汇总/身份/版本矛盾属于真实异常。全部文件与原检查通过后才确认子交付并关闭祖先；父SUCCESS/FAILURE不能代替child事实。
+上轮原154月任务成功后，Raw合法刷新2026-10，冻结child153月复用/10月重建。execution.json只是方案；子未执行或部分完成时稳定提示当前ID、显式parent、2026-10 partition及原silver_stock_monthly_update_job配置，不能直读未生成2014-01 CP或推进通知。complete缺失但全CP committed仍由原job续跑补汇总；有complete却缺CP、非committed、汇总/身份/版本矛盾属于真实异常。全部文件与原检查通过后才确认交付并关闭祖先；父SUCCESS/FAILURE不能代替child事实。
 
-tests/test_stock_period_silver_sensor_recovery.py须显式参数化月线，覆盖连续tick、部分中断、坏记录、检查缺失/失败/错绑、回执失败只收尾和正常后续通知。现有test_stock_period_silver_daily_integration.py仅按共享LLD同步错误前缀+恢复指引断言，继续证明错误拒绝、无完成记录及pending保留，不改变业务预期。共用progress/message/缓存，保留自然月坐标、月中asof、21列、原三项检查、cursor及查询预算。
+本轮补齐原ID同一条路径：即使旧run_key最新run为FAILURE/CANCELED，已有execution也先核Raw版本。未变时绝不调用recover_update_execution、owned_update_records或recover_committed，直接只读progress；未完成保留silver_run_requires_review、旧run ID及resume ID前缀，并附当前配置，不能补reuse CP、恢复rename或读footer。文件完成后按原检查/confirm/coverage/ack，不因旧失败状态提前return；人工用原月job、同execution配置、不带旧key或用不同key成功后必须能确认。真实检查缺失/FAILED/错绑仍拒绝，回执失败下一tick只收尾。Raw变化继续原recover及父链/范围，首次后继提示保留旧失败前缀；无execution但有run仍复核，不自动请求。
 
-预算只用共享LLD§12.17.5一份，不给月线重复额度：新增0源/正式行情内容/COPY/DG业务事件，154月容量只用metadata；整轮隔离含故障续跑和最后验收临时空间估算≤1GiB、实际汇总，不新增运行限制。已完成27日补数保持原状，本轮不部署/重载正式code location或执行正式definitions验证、不操作正式Lake、instance、job、sensor或cursor；开发及隔离状态按实际证据回写，不把历史人工恢复当成本次代码上线。
+tests/test_stock_period_silver_original_recovery.py须显式覆盖月线×FAILURE/CANCELED、缺reuse CP、validated候选尚在/已rename等中断、人工不同key成功、坏summary及原检查阻断、两tick/回执重试读取次数。沿现有真实小producer约3月及真实SQLite绑定，独立核关键合同，统一DuckDB入口guard防止误用正式资源。原test_stock_period_silver_sensor_recovery.py的62项保持，预计不需修改既有断言；确需修改先在原方案和共享LLD落具体范围及独立依据。原三文档外仅增加共享小型证据lake_console/reports/dg_stock_period_delivery_recovery_20261028/original_silver_recovery_results.json，按共享LLD保留冻结指纹、实际运行参数/版本、逐case结果与修复前失败片段、成本断言及精确清理统计；不复制行情、凭据或完整临时SQLite/Parquet。共用progress/message/缓存，保留自然月坐标、月中asof、21列、原三项检查、cursor、identity及run_key，不改job、算法、CLI或新增tag/config。
 
 
-本节开发及月线隔离验收现已完成，与周线共同对账见共享LLD§12.17.6：新增双频62项及原相关/受保护回归合计281个普通case、另518个subtest通过；月线连续tick、父成功/失败与child实际进度、原检查拒绝、回执失败只收尾及恢复配置均已覆盖。初轮测试注入/旧提示断言和受保护启动入口的纠正依据、metadata容量及3个临时根清理均在共享记录，不另复制额度或再做月线审计。本轮修改随本次提交保存，提交号以Git记录为准；未推送、未部署，未触碰正式数据或状态，已完成补数不重跑。
+预算唯一用共享LLD§12.18.5一份，不给月线重复额度：来源未变未完成0集合SQL、0行情/footer读取、0CP/summary/业务事件补写、每CP/complete同tick实读至多1次，完整最多原2条集合SQL。来源变化原recover每代resolve为2条集合SQL，已有末代recover还可能2条，并可能正常化父CP及读已rename文件footer；这项既有成本保留，不冒称零读取。新增0源请求/业务计算/COPY，不做全局审计；复用上轮未变progress容量证据，不重复154月metadata场景。全轮隔离含故障续跑和最后验收临时空间估算≤1GiB、实际汇总，不新增运行限制。27日补数保持原状，本轮不部署/重载正式code location或执行正式definitions验证，不操作正式Lake、staging、instance、job、sensor或cursor。
+
+上轮共同对账见共享LLD§12.17.6：281个普通case及518个subtest通过、初轮测试纠正、metadata容量与3个临时根清理均保留为历史，原全部覆盖与收尾结论已撤回。本轮先完成三文档审计，再修共享分支；月线×FAILURE/CANCELED及来源未变等待/人工原job完成、坏记录/检查阻断、回执重试均已隔离验证，两名非作者独立审计通过。实际结果唯一见共享LLD§12.18.6：最终305普通case及另518个subtest通过，首次新24中两类3例测试错误及独立纠正依据保留；约139KB逐case报告已保存，3个精确临时根已清理，清理前约29.08MiB不当作累计IO或峰值。当前开发、隔离验收及独立审计完成，修改随本次提交保存，提交号以Git记录为准，未推送；来源变化仍是原恢复路径及其既有成本，未触碰正式资源，不把历史人工恢复当成本次代码上线，不重跑已完成补数。

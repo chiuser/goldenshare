@@ -1,0 +1,2326 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-10-28T05:54:46.331816+00:00",
+  "task": "Original weekly/monthly Silver failed-run recovery",
+  "scope": {
+    "production_file": "lake_console/orchestrator/src/orchestrator/defs/stock_period_silver.py",
+    "new_tests": "lake_console/orchestrator/tests/test_stock_period_silver_original_recovery.py",
+    "formal_operations_performed_by_this_task": [],
+    "source_changed_recovery": "existing behavior retained; its cost is separately documented",
+    "source_unchanged_incomplete": "read-only progress; no recover/owned/footer/check queries or CP writes"
+  },
+  "source_before_sha256": "a3088d8662a908299e113b21f2be1b72690289abc957a994dda52f1ede6a9dc5",
+  "fingerprints": {
+    "lake_console/orchestrator/src/orchestrator/defs/stock_period_silver.py": "f86af1fbe2f830acf6ed71237c8dbcf6121af08049144e2fbdaec18ec8a3e0e6",
+    "lake_console/orchestrator/tests/test_stock_period_silver_original_recovery.py": "c2f1fd3b87e431eece30a604dff6886a83e8222e8e5725b44e239b57257ddd56",
+    "lake_console/orchestrator/tests/test_stock_period_silver_sensor_recovery.py": "0f842181dba6f649f62ad01b7ed5815da6fb18d4966aa2f26d44d9aa62992d98",
+    "lake_console/orchestrator/tests/test_stock_period_silver_daily_integration.py": "3c6217cbd5e6ab5ab9c0618e7fbf572e9d276d96284d79cc3ae800c178a8f0a1"
+  },
+  "environment": {
+    "python": "3.13.5",
+    "dagster": "1.13.26",
+    "duckdb": "1.5.2",
+    "pytest": "9.1.1",
+    "ruff": "0.16.2"
+  },
+  "runs": [
+    {
+      "label": "before",
+      "command": "DAGSTER_HOME=/private/tmp/dg-silver-original-recovery-cr7oen9c/dagster-home TMPDIR=/private/tmp/dg-silver-original-recovery-cr7oen9c/tmp .venv/bin/python3 -B -m pytest -q tests/test_stock_period_silver_original_recovery.py --basetemp=/private/tmp/dg-silver-original-recovery-cr7oen9c/before --junitxml=/private/tmp/dg-silver-original-recovery-cr7oen9c/results/before.xml > /private/tmp/dg-silver-original-recovery-cr7oen9c/results/before.log 2>&1",
+      "cwd": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+      "xml_counts": {
+        "tests": "8",
+        "failures": "8",
+        "errors": "0",
+        "skipped": "0",
+        "time": "6.242"
+      },
+      "pytest_summary": "8 failed, 401 warnings in 6.26s",
+      "cases": [
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_failed_original_waits_without_recovering_renamed_checkpoint[DagsterRunStatus.FAILURE-week]",
+          "time": "0.878",
+          "outcome": "failed",
+          "failure_type": null,
+          "failure_message": "Failed: unfinished sensor recovered files, wrote CPs or queried readiness",
+          "failure_tail": "  \"status\", [dg.DagsterRunStatus.FAILURE, dg.DagsterRunStatus.CANCELED]\n    )\n    def test_failed_original_waits_without_recovering_renamed_checkpoint(\n        update_fixture, monkeypatch, freq, status\n    ):\n        \"\"\"Regression A: unchanged Raw and an incomplete original are read-only.\"\"\"\n        f = update_fixture\n        ctx, original, original_run_id, execution = interrupted_original(\n            f, monkeypatch, freq, status\n        )\n        identity = execution[\"identity\"]\n        work = io.run_directory(f[\"staging\"], identity[\"run_id\"])\n        checkpoint = silver.checkpoint_path(work, identity[\"units\"][0])\n        before = {path: path.read_bytes() for path in work.rglob(\"*.json\")}\n        versions = {\n            unit[key]: file_version(unit[key])\n            for unit in identity[\"units\"]\n            for key in (\"source\", \"target\")\n        }\n        pending = json.loads(ctx.cursor)[\"pending\"]\n        before_events, source_calls = event_count(f[\"instance\"]), len(f[\"source_calls\"])\n        read, reads = silver.read_json, Counter()\n    \n        def counted(path):\n            reads[str(path)] += 1\n            return read(path)\n    \n        monkeypatch.setattr(silver, \"read_json\", counted)\n        guard_waiting_side_effects(monkeypatch)\n        for _ in range(2):\n            reads.clear()\n>           result = tick(f, ctx, freq)\n                     ^^^^^^^^^^^^^^^^^^\n\ntests/test_stock_period_silver_original_recovery.py:207: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ntests/test_stock_period_silver_daily_integration.py:32: in tick\n    return silver.evaluate_update_sensor(ctx, freq=freq, staging_root=f[\"staging\"])\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nsrc/orchestrator/defs/stock_period_silver.py:1454: in evaluate_update_sensor\n    execution = recover_update_execution(\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nargs = (PosixPath('/private/tmp/dg-silver-original-recovery-cr7oen9c/before/test_failed_original_waits_wit0/lake'), PosixPath...48160e76901668788e4d6308c28bd713b12a4ff4474'}, <dagster._core.instance.instance.DagsterInstance object at 0x122914050>)\nkwargs = {}\n\n    def forbidden(*args, **kwargs):\n>       pytest.fail(\"unfinished sensor recovered files, wrote CPs or queried readiness\")\nE       Failed: unfinished sensor recovered files, wrote CPs or queried readiness\n\ntests/test_stock_period_silver_original_recovery.py:144: Failed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_failed_original_waits_without_recovering_renamed_checkpoint[DagsterRunStatus.FAILURE-month]",
+          "time": "0.464",
+          "outcome": "failed",
+          "failure_type": null,
+          "failure_message": "Failed: unfinished sensor recovered files, wrote CPs or queried readiness",
+          "failure_tail": "  \"status\", [dg.DagsterRunStatus.FAILURE, dg.DagsterRunStatus.CANCELED]\n    )\n    def test_failed_original_waits_without_recovering_renamed_checkpoint(\n        update_fixture, monkeypatch, freq, status\n    ):\n        \"\"\"Regression A: unchanged Raw and an incomplete original are read-only.\"\"\"\n        f = update_fixture\n        ctx, original, original_run_id, execution = interrupted_original(\n            f, monkeypatch, freq, status\n        )\n        identity = execution[\"identity\"]\n        work = io.run_directory(f[\"staging\"], identity[\"run_id\"])\n        checkpoint = silver.checkpoint_path(work, identity[\"units\"][0])\n        before = {path: path.read_bytes() for path in work.rglob(\"*.json\")}\n        versions = {\n            unit[key]: file_version(unit[key])\n            for unit in identity[\"units\"]\n            for key in (\"source\", \"target\")\n        }\n        pending = json.loads(ctx.cursor)[\"pending\"]\n        before_events, source_calls = event_count(f[\"instance\"]), len(f[\"source_calls\"])\n        read, reads = silver.read_json, Counter()\n    \n        def counted(path):\n            reads[str(path)] += 1\n            return read(path)\n    \n        monkeypatch.setattr(silver, \"read_json\", counted)\n        guard_waiting_side_effects(monkeypatch)\n        for _ in range(2):\n            reads.clear()\n>           result = tick(f, ctx, freq)\n                     ^^^^^^^^^^^^^^^^^^\n\ntests/test_stock_period_silver_original_recovery.py:207: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ntests/test_stock_period_silver_daily_integration.py:32: in tick\n    return silver.evaluate_update_sensor(ctx, freq=freq, staging_root=f[\"staging\"])\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nsrc/orchestrator/defs/stock_period_silver.py:1454: in evaluate_update_sensor\n    execution = recover_update_execution(\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nargs = (PosixPath('/private/tmp/dg-silver-original-recovery-cr7oen9c/before/test_failed_original_waits_wit1/lake'), PosixPath...10b13eb01caf2728bb0084e82a5a0182ba83dd499d4'}, <dagster._core.instance.instance.DagsterInstance object at 0x126d19950>)\nkwargs = {}\n\n    def forbidden(*args, **kwargs):\n>       pytest.fail(\"unfinished sensor recovered files, wrote CPs or queried readiness\")\nE       Failed: unfinished sensor recovered files, wrote CPs or queried readiness\n\ntests/test_stock_period_silver_original_recovery.py:144: Failed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_failed_original_waits_without_recovering_renamed_checkpoint[DagsterRunStatus.CANCELED-week]",
+          "time": "0.465",
+          "outcome": "failed",
+          "failure_type": null,
+          "failure_message": "Failed: unfinished sensor recovered files, wrote CPs or queried readiness",
+          "failure_tail": "  \"status\", [dg.DagsterRunStatus.FAILURE, dg.DagsterRunStatus.CANCELED]\n    )\n    def test_failed_original_waits_without_recovering_renamed_checkpoint(\n        update_fixture, monkeypatch, freq, status\n    ):\n        \"\"\"Regression A: unchanged Raw and an incomplete original are read-only.\"\"\"\n        f = update_fixture\n        ctx, original, original_run_id, execution = interrupted_original(\n            f, monkeypatch, freq, status\n        )\n        identity = execution[\"identity\"]\n        work = io.run_directory(f[\"staging\"], identity[\"run_id\"])\n        checkpoint = silver.checkpoint_path(work, identity[\"units\"][0])\n        before = {path: path.read_bytes() for path in work.rglob(\"*.json\")}\n        versions = {\n            unit[key]: file_version(unit[key])\n            for unit in identity[\"units\"]\n            for key in (\"source\", \"target\")\n        }\n        pending = json.loads(ctx.cursor)[\"pending\"]\n        before_events, source_calls = event_count(f[\"instance\"]), len(f[\"source_calls\"])\n        read, reads = silver.read_json, Counter()\n    \n        def counted(path):\n            reads[str(path)] += 1\n            return read(path)\n    \n        monkeypatch.setattr(silver, \"read_json\", counted)\n        guard_waiting_side_effects(monkeypatch)\n        for _ in range(2):\n            reads.clear()\n>           result = tick(f, ctx, freq)\n                     ^^^^^^^^^^^^^^^^^^\n\ntests/test_stock_period_silver_original_recovery.py:207: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ntests/test_stock_period_silver_daily_integration.py:32: in tick\n    return silver.evaluate_update_sensor(ctx, freq=freq, staging_root=f[\"staging\"])\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nsrc/orchestrator/defs/stock_period_silver.py:1454: in evaluate_update_sensor\n    execution = recover_update_execution(\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nargs = (PosixPath('/private/tmp/dg-silver-original-recovery-cr7oen9c/before/test_failed_original_waits_wit2/lake'), PosixPath...d9f349326fdc27c5a486f4834be2fd61c290bd61e08'}, <dagster._core.instance.instance.DagsterInstance object at 0x126d182d0>)\nkwargs = {}\n\n    def forbidden(*args, **kwargs):\n>       pytest.fail(\"unfinished sensor recovered files, wrote CPs or queried readiness\")\nE       Failed: unfinished sensor recovered files, wrote CPs or queried readiness\n\ntests/test_stock_period_silver_original_recovery.py:144: Failed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_failed_original_waits_without_recovering_renamed_checkpoint[DagsterRunStatus.CANCELED-month]",
+          "time": "0.461",
+          "outcome": "failed",
+          "failure_type": null,
+          "failure_message": "Failed: unfinished sensor recovered files, wrote CPs or queried readiness",
+          "failure_tail": "  \"status\", [dg.DagsterRunStatus.FAILURE, dg.DagsterRunStatus.CANCELED]\n    )\n    def test_failed_original_waits_without_recovering_renamed_checkpoint(\n        update_fixture, monkeypatch, freq, status\n    ):\n        \"\"\"Regression A: unchanged Raw and an incomplete original are read-only.\"\"\"\n        f = update_fixture\n        ctx, original, original_run_id, execution = interrupted_original(\n            f, monkeypatch, freq, status\n        )\n        identity = execution[\"identity\"]\n        work = io.run_directory(f[\"staging\"], identity[\"run_id\"])\n        checkpoint = silver.checkpoint_path(work, identity[\"units\"][0])\n        before = {path: path.read_bytes() for path in work.rglob(\"*.json\")}\n        versions = {\n            unit[key]: file_version(unit[key])\n            for unit in identity[\"units\"]\n            for key in (\"source\", \"target\")\n        }\n        pending = json.loads(ctx.cursor)[\"pending\"]\n        before_events, source_calls = event_count(f[\"instance\"]), len(f[\"source_calls\"])\n        read, reads = silver.read_json, Counter()\n    \n        def counted(path):\n            reads[str(path)] += 1\n            return read(path)\n    \n        monkeypatch.setattr(silver, \"read_json\", counted)\n        guard_waiting_side_effects(monkeypatch)\n        for _ in range(2):\n            reads.clear()\n>           result = tick(f, ctx, freq)\n                     ^^^^^^^^^^^^^^^^^^\n\ntests/test_stock_period_silver_original_recovery.py:207: \n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \ntests/test_stock_period_silver_daily_integration.py:32: in tick\n    return silver.evaluate_update_sensor(ctx, freq=freq, staging_root=f[\"staging\"])\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nsrc/orchestrator/defs/stock_period_silver.py:1454: in evaluate_update_sensor\n    execution = recover_update_execution(\n_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ \n\nargs = (PosixPath('/private/tmp/dg-silver-original-recovery-cr7oen9c/before/test_failed_original_waits_wit3/lake'), PosixPath...bd31020c30d058f9cc5e387ba457d1a9b63a3c7c59a'}, <dagster._core.instance.instance.DagsterInstance object at 0x126d428b0>)\nkwargs = {}\n\n    def forbidden(*args, **kwargs):\n>       pytest.fail(\"unfinished sensor recovered files, wrote CPs or queried readiness\")\nE       Failed: unfinished sensor recovered files, wrote CPs or queried readiness\n\ntests/test_stock_period_silver_original_recovery.py:144: Failed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_manual_same_execution_job_confirms_despite_original_failed_run[DagsterRunStatus.FAILURE-week]",
+          "time": "0.666",
+          "outcome": "failed",
+          "failure_type": null,
+          "failure_message": "assert 'silver_run_r...94c1cd1\"}}}}}' == 'silver_batch_complete'\n  \n  - silver_batch_complete\n  + silver_run_requires_review:05c2c1bd-495a-4b45-bdba-b8db2c549882;resume_execution_id=3b4fc84d-1666-5ce9-882d-cadda7fc7a4a;silver_recovery_required:3b4fc84d-1666-5ce9-882d-cadda7fc7a4a;files_committed=3/3;files_complete=true;job=silver_stock_weekly_update_job;partition=2026-10-16;run_config={\"ops\":{\"silver_stock_weekly\":{\"config\":{\"intent\":\"update\",\"execution_id\":\"3b4fc84d-1666-5ce9-882d-cadda7fc7a4a\",\"source_completion\":{\"file_receipt_hash\":\"14e27f932d9aee9f032c08cc0891d45db9e0d9af97f935007020d675ccb062d5\",\"raw_execution_id\":\"62a505266b1be5bb1e57d044234...\n  \n  ...Full output truncated (1 line hidden), use '-vv' to show",
+          "failure_tail": "_id, execution = interrupted_original(\n            f, monkeypatch, freq, status\n        )\n        identity = execution[\"identity\"]\n        work = io.run_directory(f[\"staging\"], identity[\"run_id\"])\n        frozen = (work / \"execution.json\").read_bytes()\n        pending = json.loads(ctx.cursor)[\"pending\"]\n        guidance = tick(f, ctx, freq)\n        assert not guidance.run_requests\n        repair = hint_request(\n            guidance.skip_reason.skip_message, original, identity[\"run_id\"]\n        )\n        assert repair.run_key != original.run_key\n        assert repair.tags == {}\n        assert json.loads(ctx.cursor)[\"pending\"] == pending\n        repaired = run_request(f, repair, monkeypatch)\n        assert repaired.success\n        assert f[\"instance\"].get_run_by_id(repaired.run_id).status == dg.DagsterRunStatus.SUCCESS\n        assert f[\"instance\"].get_run_by_id(original_run_id).status == status\n        assert (work / \"execution.json\").read_bytes() == frozen\n        assert io.read_json(work / \"complete.json\")[\"totals\"][freq] == {\"files\": 3, \"rows\": 6}\n        assert not (work / \"events_complete.json\").exists()\n        target_versions = {\n            unit[\"target\"]: file_version(unit[\"target\"]) for unit in identity[\"units\"]\n        }\n        source_versions = {\n            unit[\"source\"]: file_version(unit[\"source\"]) for unit in identity[\"units\"]\n        }\n        before_events, source_calls = event_count(f[\"instance\"]), len(f[\"source_calls\"])\n        guard_market_content(monkeypatch)\n        result = tick(f, ctx, freq)\n        assert not result.run_requests\n>       assert result.skip_reason.skip_message == \"silver_batch_complete\"\nE       assert 'silver_run_r...94c1cd1\"}}}}}' == 'silver_batch_complete'\nE         \nE         - silver_batch_complete\nE         + silver_run_requires_review:05c2c1bd-495a-4b45-bdba-b8db2c549882;resume_execution_id=3b4fc84d-1666-5ce9-882d-cadda7fc7a4a;silver_recovery_required:3b4fc84d-1666-5ce9-882d-cadda7fc7a4a;files_committed=3/3;files_complete=true;job=silver_stock_weekly_update_job;partition=2026-10-16;run_config={\"ops\":{\"silver_stock_weekly\":{\"config\":{\"intent\":\"update\",\"execution_id\":\"3b4fc84d-1666-5ce9-882d-cadda7fc7a4a\",\"source_completion\":{\"file_receipt_hash\":\"14e27f932d9aee9f032c08cc0891d45db9e0d9af97f935007020d675ccb062d5\",\"raw_execution_id\":\"62a505266b1be5bb1e57d044234...\nE         \nE         ...Full output truncated (1 line hidden), use '-vv' to show\n\ntests/test_stock_period_silver_original_recovery.py:272: AssertionError"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_manual_same_execution_job_confirms_despite_original_failed_run[DagsterRunStatus.FAILURE-month]",
+          "time": "0.765",
+          "outcome": "failed",
+          "failure_type": null,
+          "failure_message": "assert 'silver_run_r...8d4f6ef\"}}}}}' == 'silver_batch_complete'\n  \n  - silver_batch_complete\n  + silver_run_requires_review:c2881976-8096-4411-aa05-9630c05a3765;resume_execution_id=9a4596a3-2b47-5795-bfe5-0f4fe7792763;silver_recovery_required:9a4596a3-2b47-5795-bfe5-0f4fe7792763;files_committed=3/3;files_complete=true;job=silver_stock_monthly_update_job;partition=2026-10;run_config={\"ops\":{\"silver_stock_monthly\":{\"config\":{\"intent\":\"update\",\"execution_id\":\"9a4596a3-2b47-5795-bfe5-0f4fe7792763\",\"source_completion\":{\"file_receipt_hash\":\"5b7abcf8978472ed1b66b85db6d039fb5052fd1ee7725b832e97a9180711718c\",\"raw_execution_id\":\"62a505266b1be5bb1e57d0442345...\n  \n  ...Full output truncated (1 line hidden), use '-vv' to show",
+          "failure_tail": "_id, execution = interrupted_original(\n            f, monkeypatch, freq, status\n        )\n        identity = execution[\"identity\"]\n        work = io.run_directory(f[\"staging\"], identity[\"run_id\"])\n        frozen = (work / \"execution.json\").read_bytes()\n        pending = json.loads(ctx.cursor)[\"pending\"]\n        guidance = tick(f, ctx, freq)\n        assert not guidance.run_requests\n        repair = hint_request(\n            guidance.skip_reason.skip_message, original, identity[\"run_id\"]\n        )\n        assert repair.run_key != original.run_key\n        assert repair.tags == {}\n        assert json.loads(ctx.cursor)[\"pending\"] == pending\n        repaired = run_request(f, repair, monkeypatch)\n        assert repaired.success\n        assert f[\"instance\"].get_run_by_id(repaired.run_id).status == dg.DagsterRunStatus.SUCCESS\n        assert f[\"instance\"].get_run_by_id(original_run_id).status == status\n        assert (work / \"execution.json\").read_bytes() == frozen\n        assert io.read_json(work / \"complete.json\")[\"totals\"][freq] == {\"files\": 3, \"rows\": 6}\n        assert not (work / \"events_complete.json\").exists()\n        target_versions = {\n            unit[\"target\"]: file_version(unit[\"target\"]) for unit in identity[\"units\"]\n        }\n        source_versions = {\n            unit[\"source\"]: file_version(unit[\"source\"]) for unit in identity[\"units\"]\n        }\n        before_events, source_calls = event_count(f[\"instance\"]), len(f[\"source_calls\"])\n        guard_market_content(monkeypatch)\n        result = tick(f, ctx, freq)\n        assert not result.run_requests\n>       assert result.skip_reason.skip_message == \"silver_batch_complete\"\nE       assert 'silver_run_r...8d4f6ef\"}}}}}' == 'silver_batch_complete'\nE         \nE         - silver_batch_complete\nE         + silver_run_requires_review:c2881976-8096-4411-aa05-9630c05a3765;resume_execution_id=9a4596a3-2b47-5795-bfe5-0f4fe7792763;silver_recovery_required:9a4596a3-2b47-5795-bfe5-0f4fe7792763;files_committed=3/3;files_complete=true;job=silver_stock_monthly_update_job;partition=2026-10;run_config={\"ops\":{\"silver_stock_monthly\":{\"config\":{\"intent\":\"update\",\"execution_id\":\"9a4596a3-2b47-5795-bfe5-0f4fe7792763\",\"source_completion\":{\"file_receipt_hash\":\"5b7abcf8978472ed1b66b85db6d039fb5052fd1ee7725b832e97a9180711718c\",\"raw_execution_id\":\"62a505266b1be5bb1e57d0442345...\nE         \nE         ...Full output truncated (1 line hidden), use '-vv' to show\n\ntests/test_stock_period_silver_original_recovery.py:272: AssertionError"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_manual_same_execution_job_confirms_despite_original_failed_run[DagsterRunStatus.CANCELED-week]",
+          "time": "0.684",
+          "outcome": "failed",
+          "failure_type": null,
+          "failure_message": "assert 'silver_run_r...e889e02\"}}}}}' == 'silver_batch_complete'\n  \n  - silver_batch_complete\n  + silver_run_requires_review:74171fe4-8362-4245-b00e-ee37b2ab2206;resume_execution_id=6b838218-8125-5ee6-8854-c963d8e28c66;silver_recovery_required:6b838218-8125-5ee6-8854-c963d8e28c66;files_committed=3/3;files_complete=true;job=silver_stock_weekly_update_job;partition=2026-10-16;run_config={\"ops\":{\"silver_stock_weekly\":{\"config\":{\"intent\":\"update\",\"execution_id\":\"6b838218-8125-5ee6-8854-c963d8e28c66\",\"source_completion\":{\"file_receipt_hash\":\"22f88db25d4e3da367cb99eb0cfd2014a9d44d1d65a501aafbed249166a6cf44\",\"raw_execution_id\":\"62a505266b1be5bb1e57d044234...\n  \n  ...Full output truncated (1 line hidden), use '-vv' to show",
+          "failure_tail": "_id, execution = interrupted_original(\n            f, monkeypatch, freq, status\n        )\n        identity = execution[\"identity\"]\n        work = io.run_directory(f[\"staging\"], identity[\"run_id\"])\n        frozen = (work / \"execution.json\").read_bytes()\n        pending = json.loads(ctx.cursor)[\"pending\"]\n        guidance = tick(f, ctx, freq)\n        assert not guidance.run_requests\n        repair = hint_request(\n            guidance.skip_reason.skip_message, original, identity[\"run_id\"]\n        )\n        assert repair.run_key != original.run_key\n        assert repair.tags == {}\n        assert json.loads(ctx.cursor)[\"pending\"] == pending\n        repaired = run_request(f, repair, monkeypatch)\n        assert repaired.success\n        assert f[\"instance\"].get_run_by_id(repaired.run_id).status == dg.DagsterRunStatus.SUCCESS\n        assert f[\"instance\"].get_run_by_id(original_run_id).status == status\n        assert (work / \"execution.json\").read_bytes() == frozen\n        assert io.read_json(work / \"complete.json\")[\"totals\"][freq] == {\"files\": 3, \"rows\": 6}\n        assert not (work / \"events_complete.json\").exists()\n        target_versions = {\n            unit[\"target\"]: file_version(unit[\"target\"]) for unit in identity[\"units\"]\n        }\n        source_versions = {\n            unit[\"source\"]: file_version(unit[\"source\"]) for unit in identity[\"units\"]\n        }\n        before_events, source_calls = event_count(f[\"instance\"]), len(f[\"source_calls\"])\n        guard_market_content(monkeypatch)\n        result = tick(f, ctx, freq)\n        assert not result.run_requests\n>       assert result.skip_reason.skip_message == \"silver_batch_complete\"\nE       assert 'silver_run_r...e889e02\"}}}}}' == 'silver_batch_complete'\nE         \nE         - silver_batch_complete\nE         + silver_run_requires_review:74171fe4-8362-4245-b00e-ee37b2ab2206;resume_execution_id=6b838218-8125-5ee6-8854-c963d8e28c66;silver_recovery_required:6b838218-8125-5ee6-8854-c963d8e28c66;files_committed=3/3;files_complete=true;job=silver_stock_weekly_update_job;partition=2026-10-16;run_config={\"ops\":{\"silver_stock_weekly\":{\"config\":{\"intent\":\"update\",\"execution_id\":\"6b838218-8125-5ee6-8854-c963d8e28c66\",\"source_completion\":{\"file_receipt_hash\":\"22f88db25d4e3da367cb99eb0cfd2014a9d44d1d65a501aafbed249166a6cf44\",\"raw_execution_id\":\"62a505266b1be5bb1e57d044234...\nE         \nE         ...Full output truncated (1 line hidden), use '-vv' to show\n\ntests/test_stock_period_silver_original_recovery.py:272: AssertionError"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_manual_same_execution_job_confirms_despite_original_failed_run[DagsterRunStatus.CANCELED-month]",
+          "time": "0.727",
+          "outcome": "failed",
+          "failure_type": null,
+          "failure_message": "assert 'silver_run_r...ac9331c\"}}}}}' == 'silver_batch_complete'\n  \n  - silver_batch_complete\n  + silver_run_requires_review:0f21b961-bc73-4115-a0f0-f1bc67cf9d07;resume_execution_id=a67f7722-0581-5452-ba9a-11a2ee774ae3;silver_recovery_required:a67f7722-0581-5452-ba9a-11a2ee774ae3;files_committed=3/3;files_complete=true;job=silver_stock_monthly_update_job;partition=2026-10;run_config={\"ops\":{\"silver_stock_monthly\":{\"config\":{\"intent\":\"update\",\"execution_id\":\"a67f7722-0581-5452-ba9a-11a2ee774ae3\",\"source_completion\":{\"file_receipt_hash\":\"555319fcf86fd210fe3bb79dd9ab21bdd3074b0baaffebb0c7bd2ea6c0e8186a\",\"raw_execution_id\":\"62a505266b1be5bb1e57d0442345...\n  \n  ...Full output truncated (1 line hidden), use '-vv' to show",
+          "failure_tail": "_id, execution = interrupted_original(\n            f, monkeypatch, freq, status\n        )\n        identity = execution[\"identity\"]\n        work = io.run_directory(f[\"staging\"], identity[\"run_id\"])\n        frozen = (work / \"execution.json\").read_bytes()\n        pending = json.loads(ctx.cursor)[\"pending\"]\n        guidance = tick(f, ctx, freq)\n        assert not guidance.run_requests\n        repair = hint_request(\n            guidance.skip_reason.skip_message, original, identity[\"run_id\"]\n        )\n        assert repair.run_key != original.run_key\n        assert repair.tags == {}\n        assert json.loads(ctx.cursor)[\"pending\"] == pending\n        repaired = run_request(f, repair, monkeypatch)\n        assert repaired.success\n        assert f[\"instance\"].get_run_by_id(repaired.run_id).status == dg.DagsterRunStatus.SUCCESS\n        assert f[\"instance\"].get_run_by_id(original_run_id).status == status\n        assert (work / \"execution.json\").read_bytes() == frozen\n        assert io.read_json(work / \"complete.json\")[\"totals\"][freq] == {\"files\": 3, \"rows\": 6}\n        assert not (work / \"events_complete.json\").exists()\n        target_versions = {\n            unit[\"target\"]: file_version(unit[\"target\"]) for unit in identity[\"units\"]\n        }\n        source_versions = {\n            unit[\"source\"]: file_version(unit[\"source\"]) for unit in identity[\"units\"]\n        }\n        before_events, source_calls = event_count(f[\"instance\"]), len(f[\"source_calls\"])\n        guard_market_content(monkeypatch)\n        result = tick(f, ctx, freq)\n        assert not result.run_requests\n>       assert result.skip_reason.skip_message == \"silver_batch_complete\"\nE       assert 'silver_run_r...ac9331c\"}}}}}' == 'silver_batch_complete'\nE         \nE         - silver_batch_complete\nE         + silver_run_requires_review:0f21b961-bc73-4115-a0f0-f1bc67cf9d07;resume_execution_id=a67f7722-0581-5452-ba9a-11a2ee774ae3;silver_recovery_required:a67f7722-0581-5452-ba9a-11a2ee774ae3;files_committed=3/3;files_complete=true;job=silver_stock_monthly_update_job;partition=2026-10;run_config={\"ops\":{\"silver_stock_monthly\":{\"config\":{\"intent\":\"update\",\"execution_id\":\"a67f7722-0581-5452-ba9a-11a2ee774ae3\",\"source_completion\":{\"file_receipt_hash\":\"555319fcf86fd210fe3bb79dd9ab21bdd3074b0baaffebb0c7bd2ea6c0e8186a\",\"raw_execution_id\":\"62a505266b1be5bb1e57d0442345...\nE         \nE         ...Full output truncated (1 line hidden), use '-vv' to show\n\ntests/test_stock_period_silver_original_recovery.py:272: AssertionError"
+        }
+      ],
+      "source_revision": "before"
+    },
+    {
+      "label": "core-after",
+      "command": "DAGSTER_HOME=/private/tmp/dg-silver-original-recovery-cr7oen9c/dagster-home TMPDIR=/private/tmp/dg-silver-original-recovery-cr7oen9c/tmp .venv/bin/python3 -B -m pytest -q tests/test_stock_period_silver_original_recovery.py --basetemp=/private/tmp/dg-silver-original-recovery-cr7oen9c/core-after --junitxml=/private/tmp/dg-silver-original-recovery-cr7oen9c/results/core-after.xml > /private/tmp/dg-silver-original-recovery-cr7oen9c/results/core-after.log 2>&1",
+      "cwd": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+      "xml_counts": {
+        "tests": "8",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "6.057"
+      },
+      "pytest_summary": "8 passed, 401 warnings in 6.07s",
+      "cases": [
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_failed_original_waits_without_recovering_renamed_checkpoint[DagsterRunStatus.FAILURE-week]",
+          "time": "1.036",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_failed_original_waits_without_recovering_renamed_checkpoint[DagsterRunStatus.FAILURE-month]",
+          "time": "0.542",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_failed_original_waits_without_recovering_renamed_checkpoint[DagsterRunStatus.CANCELED-week]",
+          "time": "0.538",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_failed_original_waits_without_recovering_renamed_checkpoint[DagsterRunStatus.CANCELED-month]",
+          "time": "0.531",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_manual_same_execution_job_confirms_despite_original_failed_run[DagsterRunStatus.FAILURE-week]",
+          "time": "0.636",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_manual_same_execution_job_confirms_despite_original_failed_run[DagsterRunStatus.FAILURE-month]",
+          "time": "0.600",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_manual_same_execution_job_confirms_despite_original_failed_run[DagsterRunStatus.CANCELED-week]",
+          "time": "0.613",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_manual_same_execution_job_confirms_despite_original_failed_run[DagsterRunStatus.CANCELED-month]",
+          "time": "0.642",
+          "outcome": "passed"
+        }
+      ],
+      "source_revision": "fixed production source"
+    },
+    {
+      "label": "existing-recovery",
+      "cwd": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+      "command": "DAGSTER_HOME=/private/tmp/dg-silver-original-recovery-cr7oen9c/dagster-home TMPDIR=/private/tmp/dg-silver-original-recovery-cr7oen9c/tmp .venv/bin/python3 -B -m pytest -q tests/test_stock_period_silver_sensor_recovery.py --basetemp=/private/tmp/dg-silver-original-recovery-cr7oen9c/existing-recovery --junitxml=/private/tmp/dg-silver-original-recovery-cr7oen9c/results/existing-recovery.xml > /private/tmp/dg-silver-original-recovery-cr7oen9c/results/existing-recovery.log 2>&1",
+      "xml_counts": {
+        "tests": "62",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "48.626"
+      },
+      "pytest_summary": "62 passed, 3467 warnings in 48.64s",
+      "cases": [
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_frozen_child_without_execution_keeps_recovery_guidance_across_ticks[week]",
+          "time": "1.070",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_frozen_child_without_execution_keeps_recovery_guidance_across_ticks[month]",
+          "time": "0.648",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_failed_original_first_recovery_message_has_successor_and_parent_config[week]",
+          "time": "0.753",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_failed_original_first_recovery_message_has_successor_and_parent_config[month]",
+          "time": "0.771",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_full_period_metadata_progress_reads_once_per_tick_without_market_open[week-658]",
+          "time": "1.639",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_full_period_metadata_progress_reads_once_per_tick_without_market_open[month-154]",
+          "time": "0.882",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[run_id-silver_completion_identity_changed-week]",
+          "time": "0.755",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[run_id-silver_completion_identity_changed-month]",
+          "time": "0.749",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[files-silver_completion_totals_invalid-week]",
+          "time": "0.703",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[files-silver_completion_totals_invalid-month]",
+          "time": "0.756",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[rows-silver_completion_totals_invalid-week]",
+          "time": "0.719",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[rows-silver_completion_totals_invalid-month]",
+          "time": "0.760",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[boolean-silver_completion_totals_invalid-week]",
+          "time": "0.719",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[boolean-silver_completion_totals_invalid-month]",
+          "time": "0.840",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[other_frequency-silver_completion_totals_invalid-week]",
+          "time": "0.780",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[other_frequency-silver_completion_totals_invalid-month]",
+          "time": "0.843",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[missing_checkpoint-silver_completion_checkpoint_missing-week]",
+          "time": "0.780",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[missing_checkpoint-silver_completion_checkpoint_missing-month]",
+          "time": "0.819",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[uncommitted-silver_completion_checkpoint_uncommitted-week]",
+          "time": "0.726",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[uncommitted-silver_completion_checkpoint_uncommitted-month]",
+          "time": "0.768",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[json_list-silver_completion_invalid-week]",
+          "time": "0.740",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[json_list-silver_completion_invalid-month]",
+          "time": "0.858",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[invalid_json-silver_completion_invalid-week]",
+          "time": "0.732",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_claimed_file_completion_requires_intact_actual_summary_and_checkpoints[invalid_json-silver_completion_invalid-month]",
+          "time": "0.762",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_unfinished_execution_does_not_hide_existing_corruption[bad_later_checkpoint-week]",
+          "time": "0.676",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_unfinished_execution_does_not_hide_existing_corruption[bad_later_checkpoint-month]",
+          "time": "0.710",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_unfinished_execution_does_not_hide_existing_corruption[target-week]",
+          "time": "0.707",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_unfinished_execution_does_not_hide_existing_corruption[target-month]",
+          "time": "0.717",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_unfinished_execution_does_not_hide_existing_corruption[reference-week]",
+          "time": "0.750",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_unfinished_execution_does_not_hide_existing_corruption[reference-month]",
+          "time": "0.686",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_completed_recovery_keeps_real_check_failure_or_binding_error[failed-week]",
+          "time": "0.771",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_completed_recovery_keeps_real_check_failure_or_binding_error[failed-month]",
+          "time": "0.790",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_completed_recovery_keeps_real_check_failure_or_binding_error[wrong_binding-week]",
+          "time": "0.758",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_completed_recovery_keeps_real_check_failure_or_binding_error[wrong_binding-month]",
+          "time": "0.787",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_source_changes_again_preserve_original_notification_and_successor_chain[week]",
+          "time": "0.705",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_source_changes_again_preserve_original_notification_and_successor_chain[month]",
+          "time": "0.780",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_unfinished_recovery_keeps_progress_and_never_confirms[partial-1-week]",
+          "time": "0.646",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_unfinished_recovery_keeps_progress_and_never_confirms[partial-1-month]",
+          "time": "0.663",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_unfinished_recovery_keeps_progress_and_never_confirms[validated-2-week]",
+          "time": "0.680",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_unfinished_recovery_keeps_progress_and_never_confirms[validated-2-month]",
+          "time": "0.704",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_unfinished_recovery_keeps_progress_and_never_confirms[summary-3-week]",
+          "time": "0.734",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_unfinished_recovery_keeps_progress_and_never_confirms[summary-3-month]",
+          "time": "0.829",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_actual_recovery_closes_parent_and_advances_to_next_notification[False-week]",
+          "time": "0.840",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_actual_recovery_closes_parent_and_advances_to_next_notification[False-month]",
+          "time": "0.782",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_actual_recovery_closes_parent_and_advances_to_next_notification[True-week]",
+          "time": "0.763",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_actual_recovery_closes_parent_and_advances_to_next_notification[True-month]",
+          "time": "0.797",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_recovery_completion_save_failure_retries_only_confirmation[child-week]",
+          "time": "0.770",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_recovery_completion_save_failure_retries_only_confirmation[child-month]",
+          "time": "0.796",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_recovery_completion_save_failure_retries_only_confirmation[parent-week]",
+          "time": "0.772",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_recovery_completion_save_failure_retries_only_confirmation[parent-month]",
+          "time": "0.874",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_direct_confirmation_cannot_bypass_unexecuted_file_stage[week]",
+          "time": "0.670",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_direct_confirmation_cannot_bypass_unexecuted_file_stage[month]",
+          "time": "0.644",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_pending_recovery_preserves_run_and_set_query_budgets[False-week]",
+          "time": "0.653",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_pending_recovery_preserves_run_and_set_query_budgets[False-month]",
+          "time": "0.651",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_pending_recovery_preserves_run_and_set_query_budgets[True-week]",
+          "time": "0.766",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_pending_recovery_preserves_run_and_set_query_budgets[True-month]",
+          "time": "0.779",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_progress_cache_rejects_version_change_and_refreshes_next_tick[checkpoint-week]",
+          "time": "0.721",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_progress_cache_rejects_version_change_and_refreshes_next_tick[checkpoint-month]",
+          "time": "0.811",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_progress_cache_rejects_version_change_and_refreshes_next_tick[summary-week]",
+          "time": "0.707",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_progress_cache_rejects_version_change_and_refreshes_next_tick[summary-month]",
+          "time": "0.755",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_completed_recovery_refuses_missing_anchor_check_evidence[week]",
+          "time": "0.728",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensor_recovery",
+          "name": "test_completed_recovery_refuses_missing_anchor_check_evidence[month]",
+          "time": "0.800",
+          "outcome": "passed"
+        }
+      ],
+      "source_revision": "fixed production source"
+    },
+    {
+      "label": "related",
+      "cwd": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+      "command": "DAGSTER_HOME=/private/tmp/dg-silver-original-recovery-cr7oen9c/dagster-home TMPDIR=/private/tmp/dg-silver-original-recovery-cr7oen9c/tmp .venv/bin/python3 -B -m pytest -q tests/test_stock_period_silver_contracts.py tests/test_stock_period_silver_sensors.py tests/test_stock_period_silver_execution.py tests/test_stock_period_silver_daily_integration.py tests/test_stock_period_silver_events.py tests/test_stock_period_silver_jobs.py tests/test_run_contract_static_gates.py --basetemp=/private/tmp/dg-silver-original-recovery-cr7oen9c/related --junitxml=/private/tmp/dg-silver-original-recovery-cr7oen9c/results/related.xml > /private/tmp/dg-silver-original-recovery-cr7oen9c/results/related.log 2>&1",
+      "xml_counts": {
+        "tests": "212",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "49.589"
+      },
+      "pytest_summary": "207 passed, 7740 warnings, 5 subtests passed in 49.61s",
+      "cases": [
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_contracts",
+          "name": "test_contract_and_names_are_exact",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_contracts",
+          "name": "test_execution_id_rejects_implicit_or_noncanonical_identity[../escape]",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_contracts",
+          "name": "test_execution_id_rejects_implicit_or_noncanonical_identity[efdf63bac0914cc58ed0be88b019e976]",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_contracts",
+          "name": "test_execution_id_rejects_implicit_or_noncanonical_identity[LATEST]",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_contracts",
+          "name": "test_cli_default_does_nothing",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_contracts",
+          "name": "test_update_config_is_explicit_and_business_identity_has_no_event_ids",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensors",
+          "name": "test_exact_definition_contract[week-silver_stock_weekly_update_job_sensor-silver_stock_weekly_update_job]",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensors",
+          "name": "test_exact_definition_contract[month-silver_stock_monthly_update_job_sensor-silver_stock_monthly_update_job]",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensors",
+          "name": "test_notice_rejects_non_contract_inputs[version]",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensors",
+          "name": "test_notice_rejects_non_contract_inputs[freq]",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensors",
+          "name": "test_notice_rejects_non_contract_inputs[count]",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensors",
+          "name": "test_notice_rejects_non_contract_inputs[batch]",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensors",
+          "name": "test_notice_rejects_non_contract_inputs[path]",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensors",
+          "name": "test_idle_tick_does_not_read_receipts_or_market_data",
+          "time": "0.863",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensors",
+          "name": "test_observation_without_actual_checks_is_not_ready",
+          "time": "0.447",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensors",
+          "name": "test_stable_key_pending_cursor_and_failed_run_do_not_auto_retry",
+          "time": "0.460",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensors",
+          "name": "test_active_run_short_circuits_notification_and_data_reads[weekly]",
+          "time": "0.365",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensors",
+          "name": "test_active_run_short_circuits_notification_and_data_reads[monthly]",
+          "time": "0.360",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensors",
+          "name": "test_false_count_and_unknown_target_cannot_trigger",
+          "time": "0.437",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensors",
+          "name": "test_tick_storage_budget_has_no_per_period_queries",
+          "time": "0.431",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_sensors",
+          "name": "test_full_history_metadata_capacity_is_two_queries_per_frequency",
+          "time": "5.211",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_update_process_exit_keeps_commits_and_releases_both_locks[15]",
+          "time": "1.452",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_update_process_exit_keeps_commits_and_releases_both_locks[9]",
+          "time": "1.201",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_cli_resume_shares_recovery_and_never_reports_events[False]",
+          "time": "0.531",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_cli_resume_shares_recovery_and_never_reports_events[True]",
+          "time": "0.693",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_recovery_requires_published_new_raw_reference",
+          "time": "0.624",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_committed_version_cannot_relabel_an_unknown_replacement",
+          "time": "0.502",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_frozen_successor_without_local_checkpoints_uses_explicit_parent",
+          "time": "0.639",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_immutable_recovery_evidence_is_read_once_and_still_rejects_drift",
+          "time": "0.378",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_recovery_rejects_invalid_parent_or_inheritance[parent_hash]",
+          "time": "0.570",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_recovery_rejects_invalid_parent_or_inheritance[cross_root]",
+          "time": "0.543",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_recovery_rejects_invalid_parent_or_inheritance[wrong_parent]",
+          "time": "0.556",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_recovery_rejects_invalid_parent_or_inheritance[cycle]",
+          "time": "0.541",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_recovery_rejects_invalid_parent_or_inheritance[inherited_record]",
+          "time": "0.578",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_recovery_rejects_damaged_checkpoint_before_other_work[rows]",
+          "time": "0.572",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_recovery_rejects_damaged_checkpoint_before_other_work[checks]",
+          "time": "0.476",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_recovery_rejects_damaged_checkpoint_before_other_work[source_version]",
+          "time": "0.478",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_recovery_rejects_damaged_checkpoint_before_other_work[identity_hash]",
+          "time": "0.483",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_recovery_rejects_damaged_checkpoint_before_other_work[target]",
+          "time": "0.481",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_successor_can_cancel_again_resume_and_close_exact_original_scope",
+          "time": "0.641",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_recovery_only_rebuilds_changed_unfinished_period[week]",
+          "time": "0.645",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_recovery_only_rebuilds_changed_unfinished_period[month]",
+          "time": "0.613",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_update_existing_history_removes_old_key_without_touching_months",
+          "time": "0.526",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_update_new_period_keeps_source_date_and_creates_only_selected_week",
+          "time": "0.441",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_update_cancel_after_commit_and_resume_keeps_committed_file",
+          "time": "0.497",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_update_frozen_candidate_rejects_drift_without_overwriting[target_preimage]",
+          "time": "0.544",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_update_frozen_candidate_rejects_drift_without_overwriting[source]",
+          "time": "0.458",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_update_frozen_candidate_rejects_drift_without_overwriting[receipt]",
+          "time": "0.473",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_update_rename_checkpoint_failure_recovers_candidate_without_select",
+          "time": "0.507",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_generation_and_completed_resume_do_not_copy",
+          "time": "0.120",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_cancel_between_units_keeps_first_and_resumes_remaining",
+          "time": "0.123",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_rename_then_checkpoint_failure_is_recovered_without_copy",
+          "time": "0.128",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_validated_candidate_cancel_reused_without_select",
+          "time": "0.129",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_unknown_target_symlink_lock_and_tampered_identity_rejected",
+          "time": "0.121",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_unpassed_audit_or_outside_range_fails_before_output",
+          "time": "0.026",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_real_process_exit_releases_lock_and_reuses_candidate[15]",
+          "time": "1.151",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_real_process_exit_releases_lock_and_reuses_candidate[9]",
+          "time": "0.817",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_long_sql_cancel_is_interrupted",
+          "time": "0.213",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_execution",
+          "name": "test_changed_source_reference_and_candidate_cannot_resume",
+          "time": "0.056",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_daily_integration",
+          "name": "test_two_frequency_history_chain_and_native_anchor_completion",
+          "time": "0.825",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_daily_integration",
+          "name": "test_native_completion_refuses_latest_real_failure_or_binding[failed]",
+          "time": "0.580",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_daily_integration",
+          "name": "test_native_completion_refuses_latest_real_failure_or_binding[wrong_binding]",
+          "time": "0.590",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_daily_integration",
+          "name": "test_actual_sensor_definition_evaluates_real_receipt[week]",
+          "time": "0.448",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_daily_integration",
+          "name": "test_actual_sensor_definition_evaluates_real_receipt[month]",
+          "time": "0.450",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_daily_integration",
+          "name": "test_completion_record_failure_resumes_without_recomputing",
+          "time": "0.676",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_daily_integration",
+          "name": "test_duplicate_closed_notification_after_later_update_does_not_reopen_old_files",
+          "time": "0.927",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_daily_integration",
+          "name": "test_raw_notification_receipt_failure_replays_only_notification",
+          "time": "0.469",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_daily_integration",
+          "name": "test_completion_source_drift_does_not_save_success",
+          "time": "0.590",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_update_events_reject_real_failures_before_new_materializations[raw_failure]",
+          "time": "0.534",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_update_events_reject_real_failures_before_new_materializations[silver_failure]",
+          "time": "0.529",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_update_events_reject_real_failures_before_new_materializations[wrong_binding]",
+          "time": "0.516",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_update_event_receipt_failure_reads_back_actual_events_without_duplicates",
+          "time": "0.586",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_partial_ancestor_coverage_can_finish_without_recomputing",
+          "time": "0.677",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_update_rejects_real_failed_or_wrong_bound_checks_before_files[upstream_failure]",
+          "time": "0.454",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_update_rejects_real_failed_or_wrong_bound_checks_before_files[target_failure]",
+          "time": "0.455",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_update_rejects_real_failed_or_wrong_bound_checks_before_files[wrong_binding]",
+          "time": "0.540",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_update_event_failure_resumes_events_only_and_does_not_duplicate_materializations",
+          "time": "0.551",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_same_source_and_reference_versions_reuse_already_validated_silver",
+          "time": "0.376",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_partial_update_events_do_not_need_batch_complete_or_compute[week]",
+          "time": "0.537",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_partial_update_events_do_not_need_batch_complete_or_compute[month]",
+          "time": "0.602",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_event_failure_resumes_without_sql_or_file_changes",
+          "time": "0.276",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_standalone_checks_need_no_bootstrap_receipt_and_share_one_validation",
+          "time": "0.229",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_events_reject_changed_file_missing_checks_or_fake_run",
+          "time": "0.168",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_event_reporting_never_accepts_planned_or_misbound_checks[planned_only]",
+          "time": "0.177",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_event_reporting_never_accepts_planned_or_misbound_checks[failed]",
+          "time": "0.189",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_event_reporting_never_accepts_planned_or_misbound_checks[wrong_binding]",
+          "time": "0.184",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_event_reporting_never_accepts_planned_or_misbound_checks[wrong_partition]",
+          "time": "0.188",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_events",
+          "name": "test_event_reporting_never_accepts_planned_or_misbound_checks[nonblocking]",
+          "time": "0.193",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_jobs",
+          "name": "test_real_job_selects_only_silver_and_binds_three_checks[week-weekly-2014-01-03-1]",
+          "time": "0.120",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_jobs",
+          "name": "test_real_job_selects_only_silver_and_binds_three_checks[month-monthly-2020-02-1]",
+          "time": "0.123",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_jobs",
+          "name": "test_catalog_entries_and_governance_are_complete",
+          "time": "0.032",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_jobs",
+          "name": "test_real_update_job_batches_history_and_planned_checks_do_not_hide_passed_evidence",
+          "time": "0.613",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_jobs",
+          "name": "test_update_job_uses_actual_successor_for_anchor_and_events",
+          "time": "0.671",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_jobs",
+          "name": "test_event_readiness_uses_two_real_set_queries_instead_of_per_period_api",
+          "time": "0.460",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_adj_factor_human_readable_governance_stays_compact",
+          "time": "0.017",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_asset_check_event_retention_dry_run_has_no_write_path",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_asset_check_event_retention_sample_delete_is_tightly_scoped",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_asset_check_incremental_governance_matrix_exists",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_asset_check_results_use_check_metadata_builder",
+          "time": "0.131",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_asset_definitions_use_asset_tag_and_metadata_helpers",
+          "time": "0.099",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_basic_facts_human_readable_governance_stays_compact",
+          "time": "0.015",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_bounded_continuity_foundation_stays_pure_and_bounded",
+          "time": "0.002",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_bse_minute_history_recovery_keeps_r0_r2_stage_boundaries",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_bse_qfq_r3_stays_scoped_and_outside_dagster_runtime",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_bse_recursive_recovery_uses_staged_bounded_forward_rebuild",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_clickhouse_market_breadth_human_readable_governance_stays_compact",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_cn_a_minute_gold_p2_uses_bounded_lake_only_automation",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_confirmed_external_spec_uses_registered_metadata",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_confirmed_input_has_only_declared_physical_readers",
+          "time": "1.368",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_confirmed_path_has_no_csv_or_git_fallback",
+          "time": "0.041",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_confirmed_writer_and_cli_keep_date_and_connection_boundaries",
+          "time": "0.004",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_dc_board_m102_uses_prod_completion_and_tushare_source_authority",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_dc_board_m3_writers_keep_raw_only_bounded_boundary",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_dc_board_m4_keeps_partitioned_checks_and_hot_path_boundary",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_dc_board_m5_keeps_silver_partition_boundary_and_no_automation",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_dc_board_silver_sensor_is_bounded_and_event_history_free",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_dc_daily_technical_p7_repair_is_bounded_and_partition_attributable",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_dc_industry_hierarchy_is_manual_seed_snapshot_without_automatic_consumers",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_derived_minute_bars_use_one_contract_and_legacy_writers_are_removed",
+          "time": "0.049",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_duckdb_connection_gate_distinguishes_modules_from_resources",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_formal_defs_use_centralized_duckdb_connection",
+          "time": "2.370",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_qfq_factor_repair_does_not_loop_by_changed_code",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_qfq_formal_writes_stay_on_duckdb_helpers",
+          "time": "0.025",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_qfq_repair_event_reconciliation_chain_is_removed",
+          "time": "0.040",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_qfq_sensors_keep_quote_gold_asset_update_tags",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_qfq_sensors_use_batch_readiness_without_history_scans",
+          "time": "0.011",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_qfq_summary_entities_are_not_registered",
+          "time": "0.028",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_qfq_uses_explicit_as_of_adj_factor",
+          "time": "0.003",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_qfq_writer_pool_is_centralized_and_required",
+          "time": "0.031",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_stk_mins_qfq_macd_kdj_entrypoints_keep_contract_boundaries",
+          "time": "0.015",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_stk_mins_qfq_macd_kdj_formal_code_avoids_recursive_cte_and_row_loops",
+          "time": "0.019",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_stock_daily_qfq_daily_sensor_uses_bounded_run_contracts",
+          "time": "0.006",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_stock_daily_qfq_factor_repair_sensor_uses_bounded_run_contracts",
+          "time": "0.004",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_stock_daily_qfq_history_bootstrap_does_not_write_dagster_events",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_stock_daily_qfq_history_events_are_manual_bootstrap_only",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_stock_daily_qfq_ordinary_checks_stay_compact",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_stock_daily_qfq_p8_reset_tool_is_scoped_and_guarded",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_wealth_market_turnover_human_readable_governance_stays_compact",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_wealth_market_turnover_keeps_single_json_integrity_check",
+          "time": "0.009",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_wealth_market_turnover_keeps_source_boundary",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_wealth_market_turnover_prod_sync_boundary",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_wealth_market_turnover_prod_sync_reads_gold_only",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_gold_wealth_market_turnover_wmt7_contract_is_fail_closed",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_historical_materialization_reconciliation_is_materialization_only",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_idx_factor_pro_m4_uses_current_date_fail_closed_automation",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_index_daily_by_date_p5_p6_active_path_contracts",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_index_daily_human_readable_governance_stays_compact",
+          "time": "0.021",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_index_daily_p7_removes_by_code_active_source_and_catalog",
+          "time": "0.054",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_index_daily_sensors_use_registered_gap_guard",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_index_mins_p4_keeps_writer_definition_and_check_boundaries",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_index_mins_p5_uses_dedicated_bounded_sensor_contracts",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_lake_asset_catalog_registry_stays_read_only_and_boundary_safe",
+          "time": "0.015",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_lake_root_health_entrypoints_stay_infra_only",
+          "time": "0.004",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_macd_kdj_repair_legacy_storage_id_field_is_absent_from_production_code",
+          "time": "0.034",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_major_index_mins_p4_keeps_definition_and_check_boundaries",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_major_index_mins_p5_uses_dedicated_bounded_sensor_contracts",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_major_index_mins_p6_bootstrap_separates_plan_stage_and_promote",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_major_index_mins_p7b_fallback_is_bounded_bootstrap_only",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_major_index_mins_technical_m6_is_single_partition_fail_closed",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_major_index_nineturn_history_checks_are_recent_twenty_only",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_market_breadth_continuity_replaces_automation_condition",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_market_breadth_gold_human_readable_governance_stays_compact",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_market_major_indices_human_readable_governance_stays_compact",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_market_major_indices_sensor_uses_bounded_lake_readiness",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_metadata_dicts_do_not_write_legacy_keys",
+          "time": "0.242",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_prod_clickhouse_market_breadth_checks_are_partition_attributable",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_qfq_factor_repair_uses_expected_calendar_for_range",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_qfq_nineturn_checks_and_readiness_do_not_recalculate_formula",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_qfq_nineturn_jobs_and_sensors_keep_p3_boundaries",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_qfq_nineturn_p1_keeps_formula_and_writer_boundaries",
+          "time": "0.003",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_raw_index_daily_by_date_p1_p2_contracts",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_raw_index_daily_runless_bootstrap_removed_from_active_defs",
+          "time": "0.008",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_sensor_cursor_decision_reason_uses_machine_codes",
+          "time": "0.004",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_sensor_cursor_payloads_do_not_embed_readiness_reports",
+          "time": "0.006",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_sensor_definitions_use_registered_definition_tags",
+          "time": "0.116",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_sensor_files_use_run_contract_helpers",
+          "time": "0.094",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_sensor_hot_path_batch_readiness_helpers_stay_runtime_free",
+          "time": "0.010",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_silver_adj_factor_lifecycle_rebuild_stays_narrow_and_fresh",
+          "time": "0.005",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stk_mins_event_history_retention_dry_run_is_scoped_and_read_only",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stk_mins_event_history_retention_sample_delete_is_tightly_scoped",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stk_mins_name_timeline_event_correction_dry_run_is_read_only",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stk_mins_silver_recovery_is_offline_and_sensor_cannot_select_it",
+          "time": "0.013",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stk_nineturn_daily_slice_keeps_definition_boundaries",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_current_trade_day_sensor_uses_bounded_catch_up",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_daily_and_suspend_sensors_use_registered_gap_guard",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_daily_freshness_guard_stays_on_silver_asset",
+          "time": "0.003",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_daily_human_readable_governance_stays_compact",
+          "time": "0.008",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_daily_trend_channel_repair_cursor_is_managed_by_dagster",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_daily_trend_channel_repair_uses_exact_upstream_batch_key",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_lifecycle_consumers_use_silver_lifecycle_asset",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_lifecycle_is_owned_by_stock_basic_silver_job",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_mins_continuity_hot_paths_do_not_reintroduce_slow_readiness",
+          "time": "0.012",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_mins_macd_kdj_human_readable_governance_stays_compact",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_mins_prod_completion_gate_stays_narrow_and_indexed",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_mins_qfq_daily_job_does_not_pull_raw_silver_or_source_config",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_mins_qfq_factor_repair_job_only_calls_repair_op",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_mins_qfq_human_readable_governance_stays_compact",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_mins_raw_default_source_is_prod_db",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_mins_raw_sensor_uses_batch_lake_readiness",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_mins_raw_silver_human_readable_governance_stays_compact",
+          "time": "0.001",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_mins_silver_direct_dependencies_exclude_namechange_and_basic",
+          "time": "0.013",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_mins_silver_filters_post_close_at_the_shared_input_boundary",
+          "time": "0.023",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_mins_silver_job_does_not_pull_raw_or_source_config",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_mins_silver_name_timeline_check_uses_silver_lifecycle",
+          "time": "0.010",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_mins_silver_sensors_do_not_gate_on_namechange",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_stock_mins_silver_sensors_use_batch_lake_readiness",
+          "time": "0.000",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_run_contract_static_gates.RunContractStaticGateTests",
+          "name": "test_suspend_d_human_readable_governance_stays_compact",
+          "time": "0.009",
+          "outcome": "passed"
+        }
+      ],
+      "source_revision": "fixed production source"
+    },
+    {
+      "label": "original-final",
+      "command": "DAGSTER_HOME=/private/tmp/dg-silver-original-recovery-cr7oen9c/dagster-home TMPDIR=/private/tmp/dg-silver-original-recovery-cr7oen9c/tmp .venv/bin/python3 -B -m pytest -q tests/test_stock_period_silver_original_recovery.py --basetemp=/private/tmp/dg-silver-original-recovery-cr7oen9c/original-final --junitxml=/private/tmp/dg-silver-original-recovery-cr7oen9c/results/original-final.xml > /private/tmp/dg-silver-original-recovery-cr7oen9c/results/original-final.log 2>&1",
+      "cwd": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+      "xml_counts": {
+        "tests": "24",
+        "failures": "3",
+        "errors": "0",
+        "skipped": "0",
+        "time": "15.536"
+      },
+      "pytest_summary": "3 failed, 21 passed, 1215 warnings in 15.55s",
+      "cases": [
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_failed_original_waits_without_recovering_renamed_checkpoint[DagsterRunStatus.FAILURE-week]",
+          "time": "1.049",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_failed_original_waits_without_recovering_renamed_checkpoint[DagsterRunStatus.FAILURE-month]",
+          "time": "0.561",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_failed_original_waits_without_recovering_renamed_checkpoint[DagsterRunStatus.CANCELED-week]",
+          "time": "0.555",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_failed_original_waits_without_recovering_renamed_checkpoint[DagsterRunStatus.CANCELED-month]",
+          "time": "0.640",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_manual_same_execution_job_confirms_despite_original_failed_run[DagsterRunStatus.FAILURE-week]",
+          "time": "0.665",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_manual_same_execution_job_confirms_despite_original_failed_run[DagsterRunStatus.FAILURE-month]",
+          "time": "0.648",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_manual_same_execution_job_confirms_despite_original_failed_run[DagsterRunStatus.CANCELED-week]",
+          "time": "0.586",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_manual_same_execution_job_confirms_despite_original_failed_run[DagsterRunStatus.CANCELED-month]",
+          "time": "0.654",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_original_waiting_boundaries_are_read_only_and_native_job_can_continue[candidate-0-week]",
+          "time": "0.578",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_original_waiting_boundaries_are_read_only_and_native_job_can_continue[candidate-0-month]",
+          "time": "0.603",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_original_waiting_boundaries_are_read_only_and_native_job_can_continue[reuse-0-week]",
+          "time": "0.433",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_original_waiting_boundaries_are_read_only_and_native_job_can_continue[reuse-0-month]",
+          "time": "0.457",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_original_waiting_boundaries_are_read_only_and_native_job_can_continue[summary-3-week]",
+          "time": "0.576",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_original_waiting_boundaries_are_read_only_and_native_job_can_continue[summary-3-month]",
+          "time": "0.586",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_completed_original_requires_actual_bound_checks[missing-week]",
+          "time": "0.600",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_completed_original_requires_actual_bound_checks[missing-month]",
+          "time": "0.651",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_completed_original_requires_actual_bound_checks[failed-week]",
+          "time": "0.594",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_completed_original_requires_actual_bound_checks[failed-month]",
+          "time": "0.607",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_completed_original_requires_actual_bound_checks[wrong_binding-week]",
+          "time": "0.591",
+          "outcome": "failed",
+          "failure_type": null,
+          "failure_message": "AssertionError: assert [] == [('2014-01-03...'2026-10-16')]\n  \n  Right contains one more item: ('2014-01-03', '2020-04-03', '2026-10-16')\n  Use -v to get more diff",
+          "failure_tail": "ontracts.stock_period_silver import check_names\n        from tests.test_stock_period_silver_events import emit_test_check\n    \n        f = update_fixture\n        ctx, original_run_id, execution = completed_original(f, monkeypatch, freq)\n        identity = execution[\"identity\"]\n        work = io.run_directory(f[\"staging\"], identity[\"run_id\"])\n        anchor = identity[\"units\"][-1][\"period\"]\n        batch, queries = readiness.batch_event_evidence, []\n    \n        def evidence(*args, **kwargs):\n            result = batch(*args, **kwargs)\n            queries.append(tuple(args[2]))\n            if fault == \"missing\":\n                current = result[(asset_name(freq), anchor)]\n                assert set(current[\"checks\"]) == set(check_names(freq))\n                current[\"checks\"].pop(check_names(freq)[0])\n            return result\n    \n        if fault != \"missing\":\n            bound_period = identity[\"units\"][0][\"period\"] if fault == \"wrong_binding\" else anchor\n            materialization = f[\"instance\"].fetch_materializations(\n                dg.AssetRecordsFilter(\n                    asset_key=dg.AssetKey(asset_name(freq)), asset_partitions=[bound_period]\n                ), limit=1,\n            ).records[0]\n            emit_test_check(\n                f[\"instance\"], asset_name(freq), anchor, check_names(freq)[0],\n                materialization, passed=fault != \"failed\",\n            )\n        pending = json.loads(ctx.cursor)[\"pending\"]\n        before_events = event_count(f[\"instance\"])\n        before = {path: path.read_bytes() for path in work.rglob(\"*.json\")}\n        monkeypatch.setattr(readiness, \"batch_event_evidence\", evidence)\n        guard_market_content(monkeypatch)\n        monkeypatch.setattr(\n            silver, \"atomic_json\", lambda *a, **k: pytest.fail(\"bad checks wrote completion\")\n        )\n        result = tick(f, ctx, freq)\n        assert not result.run_requests\n        assert result.skip_reason.skip_message.startswith(\"silver_target_checks_not_ready\")\n        assert \"files_committed=3/3;files_complete=true\" in result.skip_reason.skip_message\n        assert json.loads(ctx.cursor)[\"pending\"] == pending\n>       assert queries == [tuple(unit[\"period\"] for unit in identity[\"units\"])]\nE       AssertionError: assert [] == [('2014-01-03...'2026-10-16')]\nE         \nE         Right contains one more item: ('2014-01-03', '2020-04-03', '2026-10-16')\nE         Use -v to get more diff\n\ntests/test_stock_period_silver_original_recovery.py:490: AssertionError"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_completed_original_requires_actual_bound_checks[wrong_binding-month]",
+          "time": "0.604",
+          "outcome": "failed",
+          "failure_type": null,
+          "failure_message": "AssertionError: assert [] == [('2020-02', ...', '2026-10')]\n  \n  Right contains one more item: ('2020-02', '2020-04', '2026-10')\n  Use -v to get more diff",
+          "failure_tail": "efs.run_contracts.stock_period_silver import check_names\n        from tests.test_stock_period_silver_events import emit_test_check\n    \n        f = update_fixture\n        ctx, original_run_id, execution = completed_original(f, monkeypatch, freq)\n        identity = execution[\"identity\"]\n        work = io.run_directory(f[\"staging\"], identity[\"run_id\"])\n        anchor = identity[\"units\"][-1][\"period\"]\n        batch, queries = readiness.batch_event_evidence, []\n    \n        def evidence(*args, **kwargs):\n            result = batch(*args, **kwargs)\n            queries.append(tuple(args[2]))\n            if fault == \"missing\":\n                current = result[(asset_name(freq), anchor)]\n                assert set(current[\"checks\"]) == set(check_names(freq))\n                current[\"checks\"].pop(check_names(freq)[0])\n            return result\n    \n        if fault != \"missing\":\n            bound_period = identity[\"units\"][0][\"period\"] if fault == \"wrong_binding\" else anchor\n            materialization = f[\"instance\"].fetch_materializations(\n                dg.AssetRecordsFilter(\n                    asset_key=dg.AssetKey(asset_name(freq)), asset_partitions=[bound_period]\n                ), limit=1,\n            ).records[0]\n            emit_test_check(\n                f[\"instance\"], asset_name(freq), anchor, check_names(freq)[0],\n                materialization, passed=fault != \"failed\",\n            )\n        pending = json.loads(ctx.cursor)[\"pending\"]\n        before_events = event_count(f[\"instance\"])\n        before = {path: path.read_bytes() for path in work.rglob(\"*.json\")}\n        monkeypatch.setattr(readiness, \"batch_event_evidence\", evidence)\n        guard_market_content(monkeypatch)\n        monkeypatch.setattr(\n            silver, \"atomic_json\", lambda *a, **k: pytest.fail(\"bad checks wrote completion\")\n        )\n        result = tick(f, ctx, freq)\n        assert not result.run_requests\n        assert result.skip_reason.skip_message.startswith(\"silver_target_checks_not_ready\")\n        assert \"files_committed=3/3;files_complete=true\" in result.skip_reason.skip_message\n        assert json.loads(ctx.cursor)[\"pending\"] == pending\n>       assert queries == [tuple(unit[\"period\"] for unit in identity[\"units\"])]\nE       AssertionError: assert [] == [('2020-02', ...', '2026-10')]\nE         \nE         Right contains one more item: ('2020-02', '2020-04', '2026-10')\nE         Use -v to get more diff\n\ntests/test_stock_period_silver_original_recovery.py:490: AssertionError"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_completed_original_rejects_corrupt_summary_before_readiness[run_id-silver_completion_identity_changed]",
+          "time": "0.585",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_completed_original_rejects_corrupt_summary_before_readiness[totals-silver_completion_totals_invalid]",
+          "time": "0.585",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_original_confirmation_receipt_failure_retries_without_computation",
+          "time": "0.719",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_original_job_failure_before_execution_freeze_keeps_review",
+          "time": "0.450",
+          "outcome": "failed",
+          "failure_type": null,
+          "failure_message": "AssertionError: assert 'silver_run_r...-36474652f82d' == 'silver_run_r...-77857a8cc570'\n  \n  Skipping 52 identical leading characters in diff, use -v to show\n  - 7857a8cc570\n  + 7857a8cc570;resume_execution_id=5c2494a9-9b62-5a18-934d-36474652f82d",
+          "failure_tail": "update_fixture = {'lake': PosixPath('/private/tmp/dg-silver-original-recovery-cr7oen9c/original-final/test_original_job_failure_befo0/l...cr7oen9c/original-final/test_original_job_failure_befo0/audit'), 'run_id': '2de4a02c-c7bb-4ec7-a857-f925a4d0739d', ...}\nmonkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x167a7e660>\n\n    def test_original_job_failure_before_execution_freeze_keeps_review(\n        update_fixture, monkeypatch\n    ):\n        f = update_fixture\n        ctx = context(f)\n        f[\"capture\"]()\n        request = tick(f, ctx, \"week\").run_requests[0]\n        pending = json.loads(ctx.cursor)[\"pending\"]\n    \n        def fail_freeze(*args, **kwargs):\n            raise OSError(\"isolated execution freeze failure\")\n    \n        with monkeypatch.context() as fault:\n            fault.setattr(silver, \"make_update_execution\", fail_freeze)\n            failed = execute_request(f, request, fault)\n        assert not failed.success\n        assert f[\"instance\"].get_run_by_id(failed.run_id).status == dg.DagsterRunStatus.FAILURE\n        work = io.run_directory(f[\"staging\"], pending[\"execution_id\"])\n        assert not (work / \"execution.json\").exists()\n        guard_market_content(monkeypatch)\n        monkeypatch.setattr(\n            readiness, \"batch_event_evidence\", lambda *a, **k: pytest.fail(\"no execution queried checks\")\n        )\n        result = tick(f, ctx, \"week\")\n        assert not result.run_requests\n>       assert result.skip_reason.skip_message == \"silver_run_requires_review:\" + failed.run_id\nE       AssertionError: assert 'silver_run_r...-36474652f82d' == 'silver_run_r...-77857a8cc570'\nE         \nE         Skipping 52 identical leading characters in diff, use -v to show\nE         - 7857a8cc570\nE         + 7857a8cc570;resume_execution_id=5c2494a9-9b62-5a18-934d-36474652f82d\n\ntests/test_stock_period_silver_original_recovery.py:605: AssertionError"
+        }
+      ],
+      "source_revision": "fixed production source"
+    },
+    {
+      "label": "verified-original",
+      "command": "DAGSTER_HOME=/private/tmp/dg-silver-original-recovery-cr7oen9c/dagster-home TMPDIR=/private/tmp/dg-silver-original-recovery-cr7oen9c/tmp .venv/bin/python3 -B -m pytest -q tests/test_stock_period_silver_original_recovery.py --basetemp=/private/tmp/dg-silver-original-recovery-cr7oen9c/verified-original --junitxml=/private/tmp/dg-silver-original-recovery-cr7oen9c/results/verified-original.xml > /private/tmp/dg-silver-original-recovery-cr7oen9c/results/verified-original.log 2>&1",
+      "cwd": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+      "xml_counts": {
+        "tests": "24",
+        "failures": "0",
+        "errors": "0",
+        "skipped": "0",
+        "time": "14.750"
+      },
+      "pytest_summary": "24 passed, 1215 warnings in 14.76s",
+      "cases": [
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_failed_original_waits_without_recovering_renamed_checkpoint[DagsterRunStatus.FAILURE-week]",
+          "time": "0.841",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_failed_original_waits_without_recovering_renamed_checkpoint[DagsterRunStatus.FAILURE-month]",
+          "time": "0.468",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_failed_original_waits_without_recovering_renamed_checkpoint[DagsterRunStatus.CANCELED-week]",
+          "time": "0.468",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_failed_original_waits_without_recovering_renamed_checkpoint[DagsterRunStatus.CANCELED-month]",
+          "time": "0.510",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_manual_same_execution_job_confirms_despite_original_failed_run[DagsterRunStatus.FAILURE-week]",
+          "time": "0.581",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_manual_same_execution_job_confirms_despite_original_failed_run[DagsterRunStatus.FAILURE-month]",
+          "time": "0.623",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_manual_same_execution_job_confirms_despite_original_failed_run[DagsterRunStatus.CANCELED-week]",
+          "time": "0.577",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_manual_same_execution_job_confirms_despite_original_failed_run[DagsterRunStatus.CANCELED-month]",
+          "time": "0.658",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_original_waiting_boundaries_are_read_only_and_native_job_can_continue[candidate-0-week]",
+          "time": "0.574",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_original_waiting_boundaries_are_read_only_and_native_job_can_continue[candidate-0-month]",
+          "time": "0.577",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_original_waiting_boundaries_are_read_only_and_native_job_can_continue[reuse-0-week]",
+          "time": "0.431",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_original_waiting_boundaries_are_read_only_and_native_job_can_continue[reuse-0-month]",
+          "time": "0.452",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_original_waiting_boundaries_are_read_only_and_native_job_can_continue[summary-3-week]",
+          "time": "0.573",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_original_waiting_boundaries_are_read_only_and_native_job_can_continue[summary-3-month]",
+          "time": "0.581",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_completed_original_requires_actual_bound_checks[missing-week]",
+          "time": "0.618",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_completed_original_requires_actual_bound_checks[missing-month]",
+          "time": "0.655",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_completed_original_requires_actual_bound_checks[failed-week]",
+          "time": "0.588",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_completed_original_requires_actual_bound_checks[failed-month]",
+          "time": "0.639",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_completed_original_requires_actual_bound_checks[wrong_binding-week]",
+          "time": "0.606",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_completed_original_requires_actual_bound_checks[wrong_binding-month]",
+          "time": "0.623",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_completed_original_rejects_corrupt_summary_before_readiness[run_id-silver_completion_identity_changed]",
+          "time": "0.623",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_completed_original_rejects_corrupt_summary_before_readiness[totals-silver_completion_totals_invalid]",
+          "time": "0.614",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_original_confirmation_receipt_failure_retries_without_computation",
+          "time": "0.705",
+          "outcome": "passed"
+        },
+        {
+          "classname": "lake_console.orchestrator.tests.test_stock_period_silver_original_recovery",
+          "name": "test_original_job_failure_before_execution_freeze_keeps_review",
+          "time": "0.442",
+          "outcome": "passed"
+        }
+      ],
+      "source_revision": "fixed production source"
+    }
+  ],
+  "protected_governance": [
+    {
+      "root": "/private/tmp/stock-suspend-isolated-ca2x9x6n",
+      "pytest_result": {
+        "slice": "G-regression:test_asset_governance_contracts.py:1",
+        "completed": 8,
+        "failures": 0,
+        "subtests_completed": 329,
+        "connection_count": 0,
+        "passed": true
+      },
+      "policy_sha256": "fa75ae338743ef97af466a1a034d136e1c1b2ec6b9342c142acf72f9a079227e",
+      "argv": [
+        "/opt/homebrew/bin/uv",
+        "run",
+        "--offline",
+        "--no-sync",
+        "--no-env-file",
+        "--no-config",
+        "--no-python-downloads",
+        "--cache-dir",
+        "/private/tmp/stock-suspend-isolated-ca2x9x6n/allowed/uv-cache",
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/private/tmp/stock-suspend-isolated-ca2x9x6n/allowed/capability.sb",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/bin/python",
+        "-I",
+        "-B",
+        "/private/tmp/stock-suspend-isolated-ca2x9x6n/allowed/bootstrap.py"
+      ],
+      "case_names": [
+        "AssetGovernanceContractTests::test_confirmed_external_spec_has_no_writer_or_partition",
+        "AssetGovernanceContractTests::test_build_asset_tags_returns_dagster_legal_values",
+        "AssetGovernanceContractTests::test_build_asset_tags_rejects_old_chinese_values",
+        "AssetGovernanceContractTests::test_build_dataset_metadata_uses_registered_chinese_names",
+        "AssetGovernanceContractTests::test_current_assets_have_governance_tags_and_dataset_metadata",
+        "AssetGovernanceContractTests::test_catalog_api_returns_registered_entries",
+        "AssetGovernanceContractTests::test_partition_models_are_registered_and_policy_aligned",
+        "AssetGovernanceContractTests::test_raw_index_daily_catalog_and_asset_are_trade_date_partitioned"
+      ],
+      "passed": true
+    },
+    {
+      "root": "/private/tmp/stock-suspend-isolated-hbxhmwmj",
+      "pytest_result": {
+        "slice": "G-regression:test_asset_governance_contracts.py:2",
+        "completed": 4,
+        "failures": 0,
+        "subtests_completed": 184,
+        "connection_count": 0,
+        "passed": true
+      },
+      "policy_sha256": "ba29bc890ea79de04aa650294cb4e9e166f4f78f0d3f22f914f10de423073898",
+      "argv": [
+        "/opt/homebrew/bin/uv",
+        "run",
+        "--offline",
+        "--no-sync",
+        "--no-env-file",
+        "--no-config",
+        "--no-python-downloads",
+        "--cache-dir",
+        "/private/tmp/stock-suspend-isolated-hbxhmwmj/allowed/uv-cache",
+        "/usr/bin/sandbox-exec",
+        "-f",
+        "/private/tmp/stock-suspend-isolated-hbxhmwmj/allowed/capability.sb",
+        "/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/bin/python",
+        "-I",
+        "-B",
+        "/private/tmp/stock-suspend-isolated-hbxhmwmj/allowed/bootstrap.py"
+      ],
+      "case_names": [
+        "AssetGovernanceContractTests::test_stk_mins_assets_use_expected_partitions",
+        "AssetGovernanceContractTests::test_assets_register_definition_column_schema",
+        "AssetGovernanceContractTests::test_catalog_blocking_checks_match_active_check_specs",
+        "AssetGovernanceContractTests::test_column_constants_are_derived_from_schema"
+      ],
+      "passed": true
+    }
+  ],
+  "assertion_evidence": {
+    "proven_by_final_test_assertions": [
+      "week and month each with real native FAILURE/CANCELED after candidate rename",
+      "unchanged incomplete originals: recover/owned/IO/SQL/writes/market-open guards; same pending and per-CP decode once on two ticks",
+      "same execution and original configuration with a different repair run key completes and is acknowledged; original failed status preserved",
+      "original ready tick: two get_runs, zero observations, one two-query readiness helper",
+      "candidate still present, reuse CP absent and summary-save failure remain read-only until the original job resumes",
+      "corrupt summary and missing/failed/misbound checks refuse completion",
+      "completion receipt failure retries confirmation without computation"
+    ],
+    "fixture_boundaries": [
+      "existing literal HTTP transport replaces source",
+      "missing-check case intentionally shortens the consumer response; it is not event-store-loss validation",
+      "isolated SQLite, actual producer Parquet, native jobs and actual failed/misbound check events"
+    ]
+  },
+  "cleanup": {
+    "complete": true,
+    "completed_at": "2026-10-28T05:57:53.050801+00:00",
+    "roots": [
+      {
+        "root": "/private/tmp/dg-silver-original-recovery-cr7oen9c",
+        "regular_files": 24719,
+        "retained_bytes_before_cleanup": 30425658
+      },
+      {
+        "root": "/private/tmp/stock-suspend-isolated-ca2x9x6n",
+        "regular_files": 13,
+        "retained_bytes_before_cleanup": 33356
+      },
+      {
+        "root": "/private/tmp/stock-suspend-isolated-hbxhmwmj",
+        "regular_files": 13,
+        "retained_bytes_before_cleanup": 31830
+      }
+    ],
+    "regular_files": 24745,
+    "retained_bytes_before_cleanup": 30490844,
+    "note": "Pre-cleanup retained-size inventory, not cumulative IO or peak usage. Formal Lake/staging and shared dependencies were not cleaned."
+  },
+  "independent_audit": {
+    "complete": true,
+    "reviews": [
+      {
+        "reviewer": "silver_original_final_code_audit",
+        "result": "passed",
+        "scope": "implementation, LLD, control flow, read/write boundaries, actual consumers",
+        "operations": "read-only; no tests or formal resources"
+      },
+      {
+        "reviewer": "silver_original_final_evidence_audit",
+        "result": "passed",
+        "scope": "test contracts, before/after failures, case-by-case XML and protected runner evidence, hashes",
+        "operations": "read-only; original XML cross-checked before cleanup"
+      }
+    ],
+    "conclusion": "Both omissions closed; no blocking issue or direct regression path into other datasets found. Isolation evidence does not certify deployment."
+  },
+  "final_validation": {
+    "ordinary_cases": 305,
+    "ordinary_case_breakdown": {
+      "new_original_recovery": 24,
+      "previous_recovery": 62,
+      "related": 207,
+      "asset_governance": 12
+    },
+    "subtests": 518,
+    "subtest_breakdown": {
+      "related": 5,
+      "asset_governance": 513
+    },
+    "note": "XML related tests=212 includes five subtests; before/follow-up runs are not counted twice."
+  },
+  "test_corrections": [
+    "First extended 24-case run: 21 passed, three failed because two wrong-binding counters appended only after an already-throwing decoder, and one pre-freeze failure expectation omitted the pre-existing resume_execution_id suffix. Counters now count calls before invocation; the exact legacy suffix was independently checked in d3e8c20e. Production and rejection assertions were unchanged.",
+    "Final 24-case file was formatted and frozen before verified-original run."
+  ],
+  "checks": {
+    "changed_python_default_ruff": "passed",
+    "changed_python_format": "passed",
+    "all_src_tests_fatal_ruff": "passed",
+    "codegraph": "explore/impact and source consumer checks; sync/status current",
+    "documentation_final": {
+      "root_integrity_script": "passed (root docs only)",
+      "changed_lake_local_links_and_explicit_anchors": 5,
+      "scoped_diff_check": "passed",
+      "source_test_hashes": "matched reviewed and tested version",
+      "temporary_roots": "all removed"
+    }
+  },
+  "final_status": "development, isolated validation and independent audit complete; included in this local commit; not pushed or deployed"
+}

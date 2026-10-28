@@ -1436,7 +1436,7 @@ def evaluate_update_sensor(context, *, freq, staging_root=None):
             limit=1,
         )
         work = run_directory(staging, run_id)
-        if (
+        failed_original = bool(
             run_id == original_id
             and runs
             and runs[0].status
@@ -1444,27 +1444,21 @@ def evaluate_update_sensor(context, *, freq, staging_root=None):
                 dg.DagsterRunStatus.FAILURE,
                 dg.DagsterRunStatus.CANCELED,
             )
-        ):
-            guidance = ""
-            if (work / "execution.json").exists():
-                with writer_lock(staging), recovery_evidence():
-                    execution = load_execution(lake, staging, run_id)
-                    if execution["identity"].get("source_completion") != reference:
-                        raise ValueError("silver_completion_identity_changed")
-                    execution = recover_update_execution(
-                        lake, staging, execution, context.instance
-                    )
-                    pending["execution_id"] = execution["identity"]["run_id"]
-                    guidance = ";" + update_recovery_message(
-                        execution, update_delivery_progress(staging, execution)
-                    )
-            return skip(
+        )
+
+        def recovery_reason(execution, progress):
+            message = update_recovery_message(execution, progress)
+            if not failed_original:
+                return message
+            return (
                 "silver_run_requires_review:"
                 + runs[0].run_id
                 + ";resume_execution_id="
-                + pending["execution_id"]
-                + guidance
+                + execution["identity"]["run_id"]
+                + ";"
+                + message
             )
+
         if (work / "execution.json").exists():
             with writer_lock(staging), recovery_evidence():
                 execution = load_execution(lake, staging, run_id)
@@ -1479,13 +1473,13 @@ def evaluate_update_sensor(context, *, freq, staging_root=None):
                     )
                     pending["execution_id"] = execution["identity"]["run_id"]
                     return skip(
-                        update_recovery_message(
+                        recovery_reason(
                             execution, update_delivery_progress(staging, execution)
                         )
                     )
                 progress = update_delivery_progress(staging, execution)
                 if not progress["files_complete"]:
-                    return skip(update_recovery_message(execution, progress))
+                    return skip(recovery_reason(execution, progress))
                 try:
                     evidence = batch_event_evidence(
                         context.instance,
@@ -1499,7 +1493,10 @@ def evaluate_update_sensor(context, *, freq, staging_root=None):
                     )
                 return ack("silver_batch_complete")
         if runs:
-            return skip("silver_run_requires_review:" + runs[0].run_id)
+            reason = "silver_run_requires_review:" + runs[0].run_id
+            if failed_original:
+                reason += ";resume_execution_id=" + pending["execution_id"]
+            return skip(reason)
         receipt = read_completion(lake, staging, reference, freq)
         if (
             sum(f == freq for f, _ in receipt["items"])

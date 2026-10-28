@@ -1,6 +1,8 @@
 # DG 复权周线、月线Raw更新、完整性审计与Silver生成方案 v1
 
-**本轮修复完成（2026-10-28，开发及隔离验收完成，随本次提交保存）：** 周/月Silver sensor已区分恢复方案建立与文件处理完成，并保留原检查及交付确认。新增62项、原相关207项、受保护资产治理12项，共281项普通case通过，另有518个subtest；完整对账见共享LLD§12.17.6。27日已完成补数保持原状；本轮未部署、未触发正式job、未重载正式code location或执行正式definitions验证，未操作正式instance、Lake、sensor或cursor。
+**本轮补修完成（2026-10-28，开发、隔离验收及独立审计完成，随本次提交保存）：** 已修正来源未变时原ID被旧FAILURE/CANCELED挡住、未完成误入recover的两项遗漏。最终305项普通case及另518个subtest通过，两名非作者分别核对代码/消费者与逐case证据，无阻断；完整对账见共享LLD§12.18.6。来源变化继续原恢复流程及其既有成本，不能将本轮等待分支的0预算扩展到全部tick。27日已完成补数保持原状，未部署、未操作正式资源。
+
+**上轮开发及隔离结果（历史）：** 周/月Silver sensor区分恢复方案建立与文件处理完成的修复已有281项普通case通过，另有518个subtest，详见共享LLD§12.17.6。通过记录保留，但撤回“全部硬口径已覆盖、该问题已全部收尾”的结论；这些测试没有证明本轮遗漏组合。该轮未部署、未触发正式job、未重载正式code location或执行正式definitions验证，未操作正式instance、Lake、sensor或cursor。
 
 **正式恢复完成（2026-10-28 11:50）：** 本次原27日股票复权周/月Raw及Silver四项均完成；23日周欠账已补，30日当前周及10月已更新到27日。8GiB续跑成功、原83页完整复用；全部实际通知/检查已确认，pending=0，四sensor保持RUNNING。本轮修改及证据随本次提交保存，未推送。完整结果见[正式恢复记录](../../reports/dg_stock_period_delivery_recovery_20261028/formal_execution_20261028.md)及共享LLD§12.12.6。
 
@@ -378,10 +380,10 @@ Silver首次补报旧测试中“失败后追加成功”的断言须明确纠�
 
 ### 10.9 周/月Silver恢复任务的完成判断与指引修复
 
-管理员已批准先完善原方案和LLD，再修代码及周/月隔离测试。完整实现唯一见[共享LLD§12.17](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-recovery-progress-lld)，月线按其LLD§9.5对应。27日补数已完成，本轮不重跑、不部署、不重载正式code location或执行正式definitions验证、不操作正式Lake、instance、job、sensor或cursor，不修改其他数据集。
+管理员已批准先完善原方案和LLD，再修代码及周/月隔离测试。原进度合同见[共享LLD§12.17](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-recovery-progress-lld)，本轮遗漏及唯一实现细节见[共享LLD§12.18](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-original-run-recovery-lld)，月线按其LLD§9.5对应。27日补数已完成，本轮不重跑、不部署、不重载正式code location或执行正式definitions验证、不操作正式Lake、instance、job、sensor或cursor，不修改其他数据集。
 
-问题发生在原月Silver成功后Raw再次合法更新当月：sensor冻结153个月复用、10月重建的子任务，下一tick却只因execution.json存在就确认全部完成记录。这是恢复任务尚未执行时的状态判断错误，不是2014年行情缺失。修复涉及stock_period_silver.py、新tests/test_stock_period_silver_sensor_recovery.py及原三文档；现有test_stock_period_silver_daily_integration.py仅同步错误前缀及恢复指引断言，继续要求业务拒绝、无完成记录和pending保留，不改业务预期。不改计算/写文件算法、job、检查、源契约、配置或cursor版本。
+上轮问题发生在原月Silver成功后Raw再次合法更新当月：sensor冻结153个月复用、10月重建的子任务，下一tick却只因execution.json存在就确认全部完成记录。这是恢复任务尚未执行时的状态判断错误，不是2014年行情缺失。上轮修改及62项新增测试保留为历史；本轮只修改stock_period_silver.py、新增tests/test_stock_period_silver_original_recovery.py、原三文档及小型证据文件lake_console/reports/dg_stock_period_delivery_recovery_20261028/original_silver_recovery_results.json，原62项测试保持。报告保留冻结指纹、实际运行参数/版本、逐case结果与修复前失败片段、成本断言及精确清理统计，不保留行情、凭据或完整临时数据库。预计不需修改既有断言；确需修改时先把具体范围与独立依据落回本节及共享LLD，再实施。不改计算/写文件算法、job、CLI、检查、源契约、配置/tag、cursor/schema、identity或run_key。
 
-区分方案建立、文件处理未完成、文件处理完成与交付完成：缺complete.json时，即使全部CP已committed也保留原job续跑指引；有complete却缺CP、非committed、汇总/身份/版本矛盾必须明确拒绝。当前子任务的实际记录决定进度，原run_key命中的父SUCCESS或FAILURE均不能代替。文件完整后继续全部原检查和覆盖证明，回执失败只重试收尾，不能重算或补假绿。未完成提示包含当前执行、显式parent、原job、anchor及可用配置，不自动重新触发恢复。
+区分方案建立、文件处理未完成、文件处理完成与交付完成：缺complete.json时，即使全部CP已committed也保留原job续跑指引；有complete却缺CP、非committed、汇总/身份/版本矛盾必须明确拒绝。已有execution统一按当前文件事实判断，原run_key命中的SUCCESS、FAILURE或CANCELED均不能代替。Raw未变时绝不调用recover_update_execution、owned_update_records或recover_committed；未完成只读进度并提示，完成才继续原检查、confirm、覆盖证明与ack。原失败原ID的未完成提示保留旧run ID及resume ID前缀；人工用原job、相同execution配置、不带旧key或使用不同key完成后，也能按真实文件和检查关闭通知。真实检查失败/错绑仍拒绝，回执失败下一tick只重试收尾。Raw已变继续原承接及父链/范围，首次后继提示保留旧失败前缀；无execution且已有run仍提示复核，不自动请求。
 
-每tick仍最多1通知/1请求、2次get_runs、2条集合readiness SQL；不逐期查询DG。新增0行情内容读取/写入、0源请求、0DuckDB/COPY、0DG业务事件；同tick每CP/complete内容至多读取一次并复核stat。容量658周/154月仅用metadata，真实producer小fixture验证链路。整轮隔离及必要回归临时空间估算≤1GiB，含故障续跑及最后验收，实际stat汇总后记录；不是新运行限额，不将小行情fixture冒充全部SQLite日志IO。先审计文档再编码、定向验证和实现对账，清理本轮精确临时资源；开发及隔离验收已完成，逐项实现/测试、初轮测试纠正与清理证据见共享LLD§12.17.6；本轮修改随本次提交保存，提交号以Git记录为准；未推送、未部署。
+每tick仍最多1通知/1请求、2次get_runs。Raw未变的进度等待为0集合readiness SQL、0行情内容读写、0CP/汇总/业务事件补写，同tick每CP/complete内容至多读取一次并复核stat；完整后最多原2条集合SQL，不逐期查询DG。Raw变化时沿用的原recover流程每代resolve会用2条集合SQL，已有末代进入recover还可能再用2条，并可能正常化父CP、读取已rename文件footer；这不是本轮新增能力，也未实现零读取，不能用等待分支的0预算覆盖。新增0源请求、0业务计算/COPY，不做全局审计。复用上轮未变progress的658周/154月metadata证据，本轮只用真实producer小fixture，不重复容量场景。整轮隔离及必要回归含故障续跑和最后验收，临时空间估算≤1GiB，实际stat汇总后记录；不是新运行限额。三文档先审计、再编码及逐项验收的实际结果见共享LLD§12.18.6：修复前8例真实失败，修复后最终新24、原62、相关207及治理12项通过，共305普通case、另518个subtest；首次新24中两类3例测试错误及纠正依据未隐藏。两名非作者独立审计通过，3个本轮精确临时根已清理，清理前留存约29.08MiB。完整小型证据已保存，上轮281项仍为历史；本轮开发、隔离验收及独立审计已完成，随本次提交保存，提交号以Git记录为准；未推送、未操作正式资源。

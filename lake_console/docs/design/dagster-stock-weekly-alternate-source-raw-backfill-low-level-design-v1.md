@@ -1,6 +1,8 @@
 # DG 周/月Raw更新、完整性审计与Silver生成共享 LLD v1
 
-**本轮修复完成（2026-10-28，开发及隔离验收完成，随本次提交保存）：** 周/月Silver sensor已区分恢复方案建立与文件处理完成，并保留原检查及交付确认。新增62项、原相关207项、受保护资产治理12项，共281项普通case通过，另有518个subtest；完整对账见共享LLD§12.17.6。27日已完成补数保持原状；本轮未部署、未触发正式job、未重载正式code location或执行正式definitions验证，未操作正式instance、Lake、sensor或cursor。
+**本轮补修完成（2026-10-28，开发、隔离验收及独立审计完成，随本次提交保存）：** 已修正来源未变时原ID被旧FAILURE/CANCELED挡住、未完成误入recover的两项遗漏。最终305项普通case及另518个subtest通过，两名非作者分别核对代码/消费者与逐case证据，无阻断；完整对账见§12.18.6。来源变化继续原恢复流程及其既有成本，不能将本轮等待分支的0预算扩展到全部tick。27日已完成补数保持原状，未部署、未操作正式资源。
+
+**上轮开发及隔离结果（历史）：** 周/月Silver sensor区分恢复方案建立与文件处理完成的修复已有281项普通case通过，另有518个subtest，详见§12.17.6。通过记录保留，但撤回“全部硬口径已覆盖、该问题已全部收尾”的结论；这些测试没有证明本轮遗漏组合。该轮未部署、未触发正式job、未重载正式code location或执行正式definitions验证，未操作正式instance、Lake、sensor或cursor。
 
 **正式恢复完成（2026-10-28 11:50）：** 本次原27日股票复权周/月Raw及Silver四项均完成；23日周欠账已补，30日当前周及10月已更新到27日。8GiB续跑成功、原83页完整复用；全部实际通知/检查已确认，pending=0，四sensor保持RUNNING。本轮修改及证据随本次提交保存，未推送。完整结果见[正式恢复记录](../../reports/dg_stock_period_delivery_recovery_20261028/formal_execution_20261028.md)及共享LLD§12.12.6。
 
@@ -2068,8 +2070,8 @@ helper和confirm内部共用现有read_recovery_evidence，在已有recovery_evi
 #### 12.17.3 sensor顺序与提示
 
 1. 保留根校验、周/月active共用互斥、原已闭合批次优先ack；closed仍按原证明，不要求旧输出今天仍是旧版。
-2. 加载pending实际execution并核source_completion。原run_key的FAILURE/CANCELED分支仅在pending id仍是original id时适用；已承接child时依据child文件和检查事实，不借父SUCCESS放行或被父FAILURE永远遮挡。不新增无界run查询。
-3. 来源再变沿现有recover_update_execution冻结后继、更新pending.execution_id，保持原范围和父链，返回明确恢复指引。来源不变先查update_delivery_progress；未完成不查batch_event_evidence、不confirm、不ack。
+2. 加载pending实际execution并核source_completion，先核Raw版本。已有execution统一进入进度或承接判断，不因原run_key的FAILURE/CANCELED提前返回；旧失败只在pending仍为original时作为恢复提示前缀。原ID与child都依据当前文件和检查事实，不借旧SUCCESS放行或被旧FAILURE/CANCELED永远遮挡。不新增无界run查询。原失败原ID的补修详见§12.18。
+3. 来源再变沿现有recover_update_execution冻结后继、更新pending.execution_id，保持原范围和父链，返回明确恢复指引；这是既有承接路径，其CP正常化、footer及集合查询成本按§12.17.5如实保留。来源不变绝不调用recover_update_execution、owned_update_records或recover_committed，直接只读update_delivery_progress；未完成不查batch_event_evidence、不confirm、不ack，不补CP或恢复rename。
 4. 文件完成后才按原2条集合SQL取batch_event_evidence并confirm。缺检查/FAILED/错绑/日期或版本矛盾沿原异常拒绝，可附hint但保留原错误前缀，不能改成普通等待，不补绿。
 5. 原完成回执及record_update_coverage全部保存成功后才推进cursor；写失败保留pending，下一tick仅依据原文件和真实检查重试收尾，0计算。来源又变仍须走原承接规则。
 
@@ -2084,24 +2086,28 @@ helper和confirm内部共用现有read_recovery_evidence，在已有recovery_evi
 | 方案不等于完成 | progress与sensor前置分支 | 父SUCCESS、冻结child无CP连续tick稳定提示，0confirm/ack/RunRequest；旧实现复现缺CP错误 |
 | 未完成不掩盖损坏 | progress全CP扫描及原validate_record | 缺首CP但坏后CP仍拒绝；部分validated/committed、全committed无summary可续跑；reference/target变化拒绝 |
 | 汇总按真实合同 | progress complete/totals | 真实build生成小summary通过；错run、缺CP、非committed、错files/rows、bool及坏JSON拒绝 |
-| 当前子任务独立判断 | sensor原run_key条件 | 父FAILURE不挡已完成child，父SUCCESS不使未执行child完成；原失败原ID仍提示复核 |
+| 当前execution独立判断 | sensor统一execution路径及旧run_key提示条件 | 父FAILURE不挡已完成child，父SUCCESS不使未执行child完成；原失败原ID未完成时提示复核、完成后按真实检查确认，补修正反例见§12.18 |
 | 原检查和交付不缩水 | confirm与batch_event_evidence | 缺/失败/错绑拒绝；正常恢复确认祖先并继续下一通知；回执写失败后只收尾 |
-| 恢复不由sensor代做 | progress/message及原恢复路径 | 等待0CP/summary/业务/事件写，来源再变仍保留后继父链和范围，无自动重跑 |
-| 缓存只在同tick同版本 | read_recovery_evidence上下文 | progress+confirm同CP/complete内容解码一次，版本变化拒绝，下一tick重新读取 |
-| 成本及消费者边界不变 | 两sensor及原成本门禁 | 1通知/最多1请求、最多2次get_runs/2集合SQL；658周/154月metadata容量，无逐期DG查询/行情读取 |
+| 恢复不由sensor代做 | progress/message及原恢复路径 | 来源未变等待0CP/summary/业务/事件写，不进入recover；来源再变沿原承接保持父链和范围，不自动重跑，既有成本不能称零 |
+| 缓存只在同tick同版本 | read_recovery_evidence上下文 | 来源未变的progress+confirm同CP/complete内容解码一次，版本变化拒绝，下一tick重新读取；不据此声称原recover全链单次解码 |
+| 成本及消费者边界不变 | 两sensor及原成本门禁 | 1通知/最多1请求、最多2次get_runs；来源未变未完成0集合SQL、完成最多2条，原来源变化成本另列；658周/154月metadata容量，不逐期查询DG |
 
 使用现有真实producer生成临时小Parquet，独立断言日期/类型/行数/关键值；HTTP使用已有替身，不声称真实源验收。沿现有小fixture每频约3周期，具体以case实际范围，合法Raw新版触发child后再检连续tick和原恢复。SQLite存储验证实际物化/检查绑定。坏输入明确作为反例，不改夹具去迎合错误实现；不使用正式资源。
 
 #### 12.17.5 预算、续跑、验收和完成条件
 
-新增0源请求、0行情内容读写、0DuckDB/COPY、0新增DG业务事件、0目录扫描。每tick最多1通知/1请求，active及run-key合计最多2次get_runs；文件未完成readiness查询为0，完成仍最多原2条集合SQL。metadata复杂度O(N+父链)，不把154/658当永久程序上限；同tick每CP/complete实际JSON只读一次并stat复核，父链沿既有缓存校验。
+新增0源请求、0业务计算/COPY、0新增DG业务事件、0目录扫描。每tick最多1通知/1请求，active及run-key合计最多2次get_runs。来源未变的进度等待为0集合readiness SQL、0行情内容读写、0CP/summary补写；完成仍最多原2条集合SQL。该路径metadata复杂度O(N+父链)，不把154/658当永久程序上限；同tick每CP/complete实际JSON只读一次并stat复核，父链沿既有缓存校验。
+
+来源已变时明确沿用原recover，不在本轮重写：resolve_update_sources每代会执行2条集合SQL，已有末代再次进入recover还会执行2条；owned_update_records可能补reuse CP、正常化已rename记录，相关验证可能读取已rename文件footer。以上是原承接流程的既有成本，不是新增全局审计或源请求；上轮笼统“未完成0readiness/0行情读取/每CP单次解码”的结论不能覆盖此流程。本轮只纠正来源未变时误入该流程，不能宣称已将来源变化恢复改成零写或零读取。
 
 正常tick、一次中断后下一tick及最后验收分别按同一明确范围计算，不因失败自动重读行情。658周/154月容量仅metadata与占位target stat，不冒称有效Parquet；真实producer小fixture承担数据链路验证。每case沿现有小fixture每频约3周期，具体以case实际范围，行情文件数MiB以内；新增场景及必要相关回归全轮，含故障续跑/最后验收，临时空间估算≤1GiB，实际stat汇总后记录；不能用小行情大小冒充SQLite/日志总IO，也不新增运行限额/配置。测试后仅删除本轮精确临时目录，保留小结果摘要，不清正式staging或共享环境。
 
 先完成三文档审计再编码，固定实现后跑新正反例及原定向回归、Ruff和文档检查；独立逐项对账上述硬口径/代码/测试，记录数量、查询/读取断言及临时清理。上述为开发前确定的验收步骤，实际完成结果见§12.17.6。隔离通过不代表已部署或正式调度验收，本轮不开展正式操作。
 
 
-#### 12.17.6 开发、隔离验收与实现对账（2026-10-28完成）
+#### 12.17.6 上轮开发、隔离验收与实现对账（2026-10-28，历史）
+
+**覆盖结论更正：** 以下281项普通case及518个subtest的真实通过、指纹、初轮失败和清理记录均保留。随后独立审计发现未覆盖“原ID、旧失败/取消run_key、Raw未变”，因此撤回“全部硬口径已对账、该问题已全部收尾”的结论。父失败/child完成的通过不能证明原ID人工完成后可以确认；所测child等待的零补写/零SQL与单次解码也不能外推至旧原ID失败分支或来源变化recover。补修范围及开发前约束见§12.18，不把历史结果改写为本轮验收。
 
 三文档先落§10.9/§12.17/§9.5、独立审计后才编码。唯一生产修改为stock_period_silver.py，固定源码SHA256为a3088d8662a908299e113b21f2be1b72690289abc957a994dda52f1ede6a9dc5。新增test_stock_period_silver_sensor_recovery.py，既有daily_integration仅按本节已确认范围调整错误提示断言，原业务预期不变；无其他生产数据集代码修改。固定测试SHA256：新sensor_recovery为0f842181dba6f649f62ad01b7ed5815da6fb18d4966aa2f26d44d9aa62992d98；daily_integration为3c6217cbd5e6ab5ab9c0618e7fbf572e9d276d96284d79cc3ae800c178a8f0a1。
 
@@ -2111,8 +2117,8 @@ helper和confirm内部共用现有read_recovery_evidence，在已有recovery_evi
 | 不遮挡坏记录、汇总遵循真实producer | 全已有CP逐一validate_record，reference/committed目标版本核验；summary核run_id及两频files/rows | 首CP缺失但后CP坏仍拒绝，坏JSON/错run/非committed/数量或rows错误/bool及版本漂移均拒绝；真实小summary正常通过 |
 | 当前子任务不受父run结果误判 | 原FAILURE/CANCELED分支限定pending仍为original；恢复后hint使用实际execution | 父SUCCESS不使未执行child完成；父FAILURE不遮挡完成child；原失败首次冻结child也有完整配置，原requires_review前缀保留 |
 | 检查及交付保持原合同 | progress后调用原batch_event_evidence/confirm，成功后原record_update_coverage再ack | 两频缺anchor检查、FAILED及错绑仍拒绝；hint的files_complete=true准确，正常恢复后确认祖先并继续下一通知 |
-| 不由sensor代做、收尾失败不重算 | helper只读，恢复仍走原job；未完成只写原cursor决策，回执失败保留pending | 未执行tick无CP/summary/行情/事件补写、无恢复RunRequest；来源再变仍同原通知/完整父链；child和parent回执写失败后仅确认收尾 |
-| 元数据缓存及查询预算 | 原recovery_evidence/read_recovery_evidence包住进度与确认，逐次stat；原两集合查询 | 同tick每CP/complete实际JSON读取1次，下一tick重新读取；版本变化拒绝；未完成0readiness、完成最多2条集合SQL，get_runs最多2次 |
+| 不由sensor代做、收尾失败不重算 | helper只读；上轮所测child未完成仅写原cursor决策，回执失败保留pending | 所测child未执行tick无CP/summary/行情/事件补写、无恢复RunRequest；来源再变仍同原通知/完整父链；child和parent回执写失败后仅确认收尾；未证明旧失败原ID分支 |
+| 元数据缓存及查询预算 | 原recovery_evidence/read_recovery_evidence包住进度与确认，逐次stat；原两集合查询 | 所测来源未变child同tick每CP/complete实读1次、未完成0readiness、完成最多2条集合SQL，get_runs最多2次；下一tick重新读取且版本变化拒绝，不覆盖原recover全链 |
 | 两频真实合同与影响面 | 原真实producer临时小Parquet、SQLite实际绑定、SDK配置解析；只修改两Silver共用模块 | week/month均独立参数化；配置含实际execution/source_completion/显式parent并指向原job；无真实源请求或正式资源测试 |
 
 **用例及失败记录。** 修复前在原代码上两频核心反例均因缺CP错误失败（2项，2.57秒），修复后同两项通过（2.52秒）。新增首轮60项中58通过、2项partial场景失败：原测试用publish调用次数注入中断，却忽略owned_update_records已先保存2份reuse CP，导致“仅1份已提交”的断言与真实生产者顺序不符。按实际producer改在首CP持久化后取消，独立预期仍为1，不修改生产逻辑或放宽业务断言；相关partial及missing共4项定向通过（3.83秒），最后固定完整文件62项全部通过，46.85秒（XML 46.837秒）。初轮失败保留为测试注入问题，不能以第一次通过数替代最终结果。
@@ -2123,6 +2129,82 @@ helper和confirm内部共用现有read_recovery_evidence，在已有recovery_evi
 
 隔离清理前3个本轮精确根合计35,624个普通文件、43,844,653字节（约41.81MiB）；这是清理前留存统计，不是数据集文件数、累计读写量或峰值。已删除并逐一确认不存在：/private/tmp/dg-silver-sensor-recovery-kp5lfleh、/private/tmp/stock-suspend-isolated-gvecg0eo、/private/tmp/stock-suspend-isolated-zvpay6cx。正式Lake/staging、既有共享环境和正式instance未触碰。
 
-修改的3个Python文件Ruff默认规则、全src/tests致命规则、根docs完整性脚本、原三文档新增本地链接及锚点核验、git diff --check通过；根docs脚本本身不覆盖lake_console文档。CodeGraph explore/impact/sync/status及当前源码补核仅涉及两Silver sensor，无Prod、API或前端消费者。开发后的独立复核发现原失败首次冻结后继提示缺完整配置，已补齐并加入双频反例；本节全部硬口径已按代码及隔离证据对账。
+修改的3个Python文件Ruff默认规则、全src/tests致命规则、根docs完整性脚本、原三文档新增本地链接及锚点核验、git diff --check通过；根docs脚本本身不覆盖lake_console文档。CodeGraph explore/impact/sync/status及当前源码补核仅涉及两Silver sensor，无Prod、API或前端消费者。开发后的独立复核曾发现原失败首次冻结后继提示缺完整配置，已补齐并加入双频反例；该次复核仍遗漏本轮原ID组合，不能继续引用为全部硬口径已覆盖。
 
-本轮修改随本次提交保存，提交号以Git记录为准；未推送、未部署，未重载正式code location、未执行正式definitions验证，未触发正式job或操作sensor/cursor，27日已完成补数保持原状。隔离验收不等于正式调度验收，本轮到此收尾。
+上轮修改随其提交保存，提交号以Git记录为准；当时未推送、未部署，未重载正式code location、未执行正式definitions验证，未触发正式job或操作sensor/cursor，27日已完成补数保持原状。隔离验收不等于正式调度验收；原“到此收尾”仅为上轮记录，本轮补修和独立审计结果见§12.18.6。
+
+<a id="period-silver-original-run-recovery-lld"></a>
+
+### 12.18 原Silver执行失败后按真实文件进度确认
+
+#### 12.18.1 目标、当前依据与范围
+
+管理员已批准先完善并审计总方案§10.9、本节及月线LLD§9.5，再修改共享代码并做周/月隔离测试。目标是让已有execution的真实文件和检查决定等待或交付；旧run_key命中的失败/取消运行继续保留，但不能挡住人工用原job完成同一execution后的确认。§12.12.6已完成27日补数保持原状，本轮不部署、重载正式code location、执行正式definitions验证，不操作正式instance、Lake、staging、job、sensor或cursor。
+
+修复前evaluate_update_sensor在pending仍为原ID且旧key最新run为FAILURE/CANCELED时，先调用recover_update_execution再直接return；Raw未变时recover仍会调用owned_update_records和batch_event_evidence，可能补reuse CP、正常化rename、读footer或多读CP。人工按提示以相同execution配置运行原job成功，只要没有复用旧key，旧key查询仍命中失败run，完整文件和检查也永远不能进入confirm。源码依据为stock_period_silver.py的evaluate_update_sensor、recover_update_execution、owned_update_records、update_delivery_progress、confirm_update_delivery及原两Silver sensor。CodeGraph已核到这条调用链，具体分支仍以当前源码为准；影响限两Silver sensor，无Prod、API或前端契约变化。以下为开发前确认的约束，实际实现及验收见§12.18.6。
+
+唯一生产修改仍为src/orchestrator/defs/stock_period_silver.py，重点为evaluate_update_sensor分支顺序；既有progress、confirm、实际job和恢复算法保持原合同。新测试独占tests/test_stock_period_silver_original_recovery.py，原test_stock_period_silver_sensor_recovery.py的62项保持，并跑必要既有回归。文档范围仅原三文档；小型证据保留在lake_console/reports/dg_stock_period_delivery_recovery_20261028/original_silver_recovery_results.json，不另建报告目录或状态实体。预计不需改既有断言；若发现确需修改，先写明错误假设、独立依据和具体用例范围，审计后再改，禁止为通过而放宽预期。不新增tag、配置、cursor字段/schema、identity、run_key，不改asset/job、CLI、检查名、计算/写文件算法、源请求或其他数据集。
+
+#### 12.18.2 分支顺序与提示
+
+1. 保留根校验、周/月active互斥、原已闭合证明优先ack及原有一次旧run_key查询；active与key查询合计最多2次get_runs，不查人工成功run来猜完成。
+2. 将已有execution收敛到同一路径：load并核source_completion，计算failed_original，即pending ID等于原ID且旧key最新run为FAILURE/CANCELED。此值只决定提示是否附原silver_run_requires_review、旧run ID及resume_execution_id前缀，不能决定文件完成或提前return。
+3. 先比较当前execution冻结的Raw版本。未变时绝不调用recover_update_execution、owned_update_records或recover_committed，直接只读update_delivery_progress。缺complete即使全CP committed也仅等待；坏CP/summary、身份/汇总或版本矛盾仍按原错误拒绝。未完成返回当前ID、source_completion、已有显式parent、原job/partition及可解析run_config；failed_original为真时保留上述复核前缀，不自动发RunRequest。
+4. 来源未变且files_complete为true时，不受旧run失败/取消状态影响：按原2条集合SQL取真实证据，执行confirm_update_delivery、record_update_coverage，再ack。人工用原job、相同execution配置、不带旧key或用不同key完成后，必须走通此路径；原失败run与原key不修改、不删除。缺检查、FAILED、错绑、日期/版本矛盾仍保留真实错误在前并附当前hint，不能当普通等待或补绿。
+5. Raw已变时继续原recover_update_execution，保持原范围、原通知及完整父链，更新pending.execution_id后返回实际后继指引；首次由旧失败原ID进入时保留复核前缀。原recover的副作用与成本在§12.18.5单列，本轮不重写它，也不能把来源未变的等待约束说成来源变化已零写/零读。
+6. 无execution且已有run仍返回原silver_run_requires_review，不自动请求；无execution且无run才继续原首次规划/请求路径。新旧key口径、请求数量及cursor固定字段不变。
+
+#### 12.18.3 失败、中断与继续
+
+来源未变的无CP、部分validated/committed、全committed缺summary都只是尚未完成，保持同ID和原配置，连续tick不补CP、恢复rename或查询检查。validated候选尚在和候选已rename但CP未提交两种中断均由人工原job继续；sensor只观察，已rename文件也不得因等待读取footer。已有坏记录不能因缺其他CP或旧失败状态而被吞掉。
+
+全部文件和检查通过后才能写原交付回执及祖先覆盖证明；任一步回执写失败保留pending，下一tick按同一文件范围和真实检查只重试收尾，不重算、不改身份、不发恢复请求。重试时Raw又变化仍走原承接，不复用过期确认。异常和原失败run保留，不回滚已提交文件、不自动清现场。
+
+#### 12.18.4 硬口径与隔离正反测试
+
+| 硬口径 | 实现位置 | 必须覆盖的独立证据 |
+| --- | --- | --- |
+| 原ID按事实完成，旧失败仅影响hint | evaluate_update_sensor统一execution路径 | week/month分别×FAILURE/CANCELED；旧key仍失败，人工原job无旧key或不同key成功，同ID真实文件/检查通过后confirm、coverage、ack；原失败run保留 |
+| 来源未变未完成只观察 | 版本比较、progress及skip | 同ID无/缺reuse CP、部分validated/committed、全committed缺summary，连续两tick稳定hint；recover/owned/recover_committed哨兵不得触发；0CP/summary/行情/业务事件补写、0readiness、0RunRequest |
+| rename中断由原job继续 | 原进度路径与人工job | 真实producer制造validated候选尚在、已rename但CP尚未提交；sensor不正常化CP、不读footer，人工原job继续后能正常确认；不假造committed结果 |
+| 损坏与原检查不能被旧状态掩盖 | progress及原confirm | 坏summary、缺CP却有summary、错身份/汇总继续拒绝；完整文件缺检查、FAILED、错绑仍拒绝且hint进度真实，不ack、不补绿 |
+| 收尾失败不重算 | 原confirm/coverage/ack顺序 | 回执或覆盖证明写失败后pending保留，下一tick仅同范围确认；人工job/计算不得再调用；Raw再次变化不误确认 |
+| 来源变化及无execution行为不变 | 原recover与原复核分支 | Raw合法变化继续生成原后继/父链/范围、首次旧失败前缀和实际child配置；无execution有run仍复核，无run仍原首次请求；不新增key/tag/config |
+| 读取与查询次数准确 | recovery_evidence上下文及原readiness | 来源未变等待0集合SQL/0行情open或footer、每CP/complete内容实读至多1次；完整最多2集合SQL；两tick和回执重试逐次独立计数，跨tick不复用缓存 |
+| 两频真实合同与隔离边界 | 原producer、SQLite绑定、统一DuckDB入口guard | 使用现有真实小producer每频约3周期，独立断言日期/类型/行数/关键值；实际检查/物化绑定，运行配置由原SDK解析；guard覆盖统一DuckDB入口，不访问正式资源或真实源 |
+
+先在修复前源码上保留能抓住旧失败原ID的失败反例，再固定实现跑周/月×FAILURE/CANCELED及上述禁止项。HTTP继续现有替身，不宣称真实源或正式调度验收；不根据消费者需要反推fixture，不将被测函数的输出当expected。测试证明的单位是各自实际边界，不能用总通过数代替分支及副作用断言。
+
+#### 12.18.5 预算、验证及完成条件
+
+来源未变未完成tick：1份当前execution及其父链metadata、明确units对应CP/complete与必要版本stat，0源请求、0目录扫描、0集合readiness SQL、0行情内容/footer读取、0业务计算/COPY、0CP/summary/行情/DG业务事件补写；每CP/complete内容同tick至多解码1次。来源未变完整tick：同一metadata范围、最多原2条集合SQL，原交付回执/覆盖证明写入成功后才ack；回执失败下一tick仍按同范围验证收尾。正常tick、连续第二tick、一次中断后继续及最后验收分别计数，不以缓存跨tick降低账面成本。
+
+来源变化继续原路径：每代resolve_update_sources用2条集合SQL，递归到已有末代后recover还可能再用2条；原owned_update_records可能补reuse CP、正常化已rename记录并读取其footer。上轮已明确沿用该recover，本轮保留这项既有行为及成本，不把它记为新授权、零SQL或零行情读取，不新增源请求、全局数据读取、范围扫描或业务计算。若测试发现本轮改动扩大该路径或破坏父链/范围，停止并回到原方案说明，不临时加兜底。
+
+本轮不修改progress，658周/154月metadata容量证据可复用§12.17.6，仅补本轮缺失分支，不重复容量场景或全局审计。真实小producer每频约3周期，必要既有回归沿原隔离约束；全轮含修复前反例、一次故障续跑和最终验收，临时空间估算≤1GiB，记录实际普通文件/字节数，不当作程序新限制或累计IO上限。只清本轮精确临时目录，不清正式staging、既有共享环境或上轮证据。
+
+清理前由测试执行记录生成上述original_silver_recovery_results.json，保留源码及新测试SHA256、实际argv、隔离根、解释器与相关测试环境版本、逐case结果及耗时、修复前“完整仍被旧失败挡住”和“未完成误入recover”两类缺陷的真实失败片段、查询/读取/写入计数断言摘要，以及已清理精确根与清理前文件/字节统计。允许保留核验这些结果所需的小型日志或测试结果；不得只保留总通过数后删除全部可复核证据，也不复制完整临时SQLite、Parquet或大日志，不保存行情与凭据。报告只是本轮隔离证据，正式资源读写仍为0。
+
+三文档审计通过后才编码；固定实现后跑新测试、原62项及必要相关回归、修改文件默认Ruff和既有致命规则、文档完整性/本地链接锚点及git diff --check。完成独立逐项审计后，将代码位置、正反例、查询/读取/写入断言、实际数量及临时清理结果回写本节，再标开发和隔离验收完成；不得预填通过、复用上轮全部覆盖结论或把隔离通过写成正式已上线。本段为开发前约束，实际完成结果如下。
+
+#### 12.18.6 实际实现、隔离验收及独立审计（2026-10-28完成，随本次提交保存）
+
+先落原三文档并审计后编码。生产代码只改evaluate_update_sensor分支，18行新增、21行删除：已有execution统一判断，failed_original仅用于hint前缀；来源未变直接progress，完整后沿原检查、confirm、coverage及ack。recover、progress、计算/写文件算法、definitions、job、CLI及其他数据集未改，原62项测试未改。固定源码SHA256为f86af1fbe2f830acf6ed71237c8dbcf6121af08049144e2fbdaec18ec8a3e0e6；新test_stock_period_silver_original_recovery.py为c2f1fd3b87e431eece30a604dff6886a83e8222e8e5725b44e239b57257ddd56，与已保留[逐case证据](../../reports/dg_stock_period_delivery_recovery_20261028/original_silver_recovery_results.json)一致。
+
+| 约束 | 实现及实际隔离证据 |
+| --- | --- |
+| 原ID完整后不被旧失败挡住 | 统一execution路径；week/month×FAILURE/CANCELED共4例，真实人工原job无旧key或不同keySUCCESS后旧key仍失败，原文件及检查通过即可关闭通知，原失败run保留 |
+| 来源未变未完成只观察 | progress前不调用recover/owned/recover_committed；两频×两失败状态共4个副作用反例，及缺reuse CP、validated候选尚在/已rename、连续tick，均保持同ID/hint/pending，0CP/summary/行情/业务事件补写、0readiness、0RunRequest |
+| 坏记录与原检查仍拒绝 | 坏summary、有summary却缺CP、检查缺失/FAILED/错绑均保留真实拒绝；文件完整hint仍为true，不ack、不补绿 |
+| 回执失败仅确认收尾 | 写失败后保留pending，下一tick按同范围原检查确认，0重算/恢复请求；每tick CP/complete内容至多实读1次，来源未变未完成0集合SQL，完整最多原2条 |
+| 其他分支与两频合同不变 | 来源变化仍用原recover/父链/范围及实际child提示；无execution有run继续原复核，无run仍首次请求。真实小producer、SQLite检查绑定、原SDK配置及统一DuckDB入口guard验证，未访问正式资源或真实源 |
+
+**修复前与测试纠正。** 修复前核心8例全部真实失败，6.26秒：4例被未完成误入recover的副作用guard抓住，4例在真实人工SUCCESS后仍被旧key失败挡住。修复后同8例通过，6.07秒。扩展新文件首次24例中21过、3失败（15.55秒），保留两类测试错误：wrong_binding周/月2例业务拒绝、真实进度、pending及零写断言已通过，但包装器在batch返回后才计数，真实decoder先抛错导致漏计；改为调用前计数，expected仍严格为1。另1例无execution复核误期望短提示，依据修复前d3e8c20e源码确认原提示本就含resume_execution_id后缀，纠正新测试精确预期，pending/无execution/无SQL要求不变。只修新测试计数位置与漏掉的既有字段，没有修改生产代码或放宽业务拒绝/预算。
+
+固定新文件最终24项全部通过，14.76秒；原62项通过，48.64秒；相关7文件207项及5个subtest通过，49.61秒；原受保护启动器的治理8+4项及329+184个subtest通过，结束连接数均0。最终去重为24+62+207+12=305个普通case，另518个subtest；修复前8、修复后核心8和首次扩展轮次不重复计入，相关XML tests=212也不当成212个普通case。
+
+**独立审计及边界。** 两名非作者分别以silver_original_final_code_audit核源码、LLD、控制流及真实消费者，以silver_original_final_evidence_audit逐case比对原XML、受保护报告和冻结指纹；均通过，无阻断或向其他数据集直接回归的路径。CodeGraph explore/impact及当前源码消费者核对、sync/status完成；两份修改Python的默认Ruff/格式及全src/tests致命规则通过。来源变化recover的CP正常化、footer及集合查询仍按§12.18.5保留，本轮没有将它重写或验成零成本；上方0预算仅覆盖来源未变的进度等待。
+
+**证据与清理。** 原报告目录已保留约139KB的original_silver_recovery_results.json，含修复前后逐case、实际argv/环境、失败片段、成本断言、指纹、独立审计与清理记录。已精确删除并确认不存在：/private/tmp/dg-silver-original-recovery-cr7oen9c、/private/tmp/stock-suspend-isolated-ca2x9x6n、/private/tmp/stock-suspend-isolated-hbxhmwmj；清理前合计24,745个普通文件、30,490,844字节，约29.08MiB，小于1GiB估算。该数是清理前留存统计，不是累计IO或峰值；没有复制完整临时SQLite/Parquet或大日志，没有清共享环境或上轮证据。
+
+本轮开发、隔离验收及独立审计已完成，修改随本次提交保存，提交号以Git记录为准；未推送。未触发正式job、补数、正式definitions验证、发布/重载，未操作正式instance、Lake、staging、sensor或cursor；27日已完成补数保持原状。隔离证据不代表正式已上线或正式调度验收。
