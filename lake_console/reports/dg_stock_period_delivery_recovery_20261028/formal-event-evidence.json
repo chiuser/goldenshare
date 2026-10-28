@@ -1,0 +1,53 @@
+{
+  "read_only": true,
+  "checks": {
+    "old": {
+      "raw_tushare_stk_period_bar_adj_week_delivery_reconciliation_check": {
+        "evaluation_event_id": 7684832,
+        "target_materialization_id": 7684828
+      },
+      "raw_tushare_stk_period_bar_adj_week_file_contract_check": {
+        "evaluation_event_id": 7684836,
+        "target_materialization_id": 7684828
+      },
+      "raw_tushare_stk_period_bar_adj_week_key_partition_check": {
+        "evaluation_event_id": 7684840,
+        "target_materialization_id": 7684828
+      }
+    },
+    "current": {
+      "raw_tushare_stk_period_bar_adj_week_delivery_reconciliation_check": {
+        "evaluation_event_id": 7705017,
+        "target_materialization_id": 7705014
+      },
+      "raw_tushare_stk_period_bar_adj_week_file_contract_check": {
+        "evaluation_event_id": 7705015,
+        "target_materialization_id": 7705014
+      },
+      "raw_tushare_stk_period_bar_adj_week_key_partition_check": {
+        "evaluation_event_id": 7705016,
+        "target_materialization_id": 7705014
+      }
+    }
+  },
+  "events": {
+    "7684826": {
+      "kind": "completion_observation",
+      "matched_original_notice": true
+    },
+    "7684828": {
+      "kind": "materialization",
+      "rows": 5568,
+      "version_matches": true,
+      "completion_matches": true
+    },
+    "7705014": {
+      "kind": "materialization",
+      "rows": 5569,
+      "version_matches": true,
+      "completion_matches": true
+    }
+  },
+  "formal_writes": 0,
+  "previous_control_report": "660d0b44-9a38-4a6f-bcf9-edee05e7687d"
+}

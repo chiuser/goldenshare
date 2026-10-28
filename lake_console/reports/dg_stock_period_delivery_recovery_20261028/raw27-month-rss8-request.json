@@ -1,0 +1,16 @@
+{
+  "query": "mutation ResumePeriodRun($params: ReexecutionParams!) { launchRunReexecution(reexecutionParams: $params) { __typename ... on LaunchRunSuccess { run { runId } } ... on PythonError { message stack } } }",
+  "variables": {
+    "params": {
+      "parentRunId": "8c9e09c4-9a82-4042-b696-0ffc3a17999d",
+      "strategy": "FROM_FAILURE",
+      "useParentRunTags": true,
+      "extraTags": [
+        {
+          "key": "goldenshare/stock_period_rss_limit_gib",
+          "value": "8"
+        }
+      ]
+    }
+  }
+}

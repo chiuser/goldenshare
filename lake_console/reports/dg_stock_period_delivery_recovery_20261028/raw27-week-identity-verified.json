@@ -1,0 +1,15 @@
+{
+  "at": "2026-10-28T10:27:37.149571+08:00",
+  "run_id": "d7ae3495-bb23-4c33-a4be-d78d2aba2742",
+  "parent_root_preserved": true,
+  "run_config_preserved": true,
+  "partition_run_key_sensor_preserved": true,
+  "asset_plus_three_checks": [
+    "raw_tushare_stk_period_bar_adj_week",
+    "raw_tushare_stk_period_bar_adj_week_raw_tushare_stk_period_bar_adj_week_delivery_reconciliation_check",
+    "raw_tushare_stk_period_bar_adj_week_raw_tushare_stk_period_bar_adj_week_file_contract_check",
+    "raw_tushare_stk_period_bar_adj_week_raw_tushare_stk_period_bar_adj_week_key_partition_check"
+  ],
+  "initial_status": "QUEUED",
+  "no_stock_list_override": true
+}

@@ -1,0 +1,10 @@
+{
+  "query": "mutation ResumePeriodRun($params: ReexecutionParams!) { launchRunReexecution(reexecutionParams: $params) { __typename ... on LaunchRunSuccess { run { runId } } ... on PythonError { message stack } } }",
+  "variables": {
+    "params": {
+      "parentRunId": "319ec97d-cfd4-4ef7-bc4a-c98c7334464a",
+      "strategy": "FROM_FAILURE",
+      "useParentRunTags": true
+    }
+  }
+}

@@ -1,0 +1,286 @@
+{
+  "at": "2026-10-28T11:31:29.045552+08:00",
+  "daily": {
+    "baseline_run_id": "5aa7ab8f3353957a0b9f53cc5794802340c0561ab9b1b26ced5be0013e0bb834",
+    "completed_through": {
+      "month": "2026-09",
+      "week": "2026-10-23"
+    },
+    "factor_through": "2026-10-27",
+    "handoff_cutoff": "2026-10-16",
+    "last_refresh": {
+      "month": "2026-10-27",
+      "week": "2026-10-27"
+    },
+    "last_source_asof": {
+      "month": "20261027",
+      "week": "20261027"
+    }
+  },
+  "pending": {
+    "5d29c1254dd859eb5e30b7f334cfbcf2572118ca8468bc5f945470bcf454ea53": {
+      "frequency": "month",
+      "consumed": true,
+      "intent": {
+        "asof": "2026-10-27",
+        "codes": [],
+        "frequencies": [
+          "month"
+        ],
+        "mode": "upsert",
+        "period_cutoffs": {
+          "month": {
+            "2026-10": "20261027"
+          }
+        },
+        "periods": {
+          "month": [
+            "2026-10"
+          ]
+        },
+        "request_id": "4b268fa25a3912395333db7059f4d195d72ffd463aa38b2ea9a4904eb058a388",
+        "retired_codes": [],
+        "superseded_codes": [],
+        "version": "stock-period-source-v2"
+      }
+    }
+  },
+  "first_raw": {
+    "execution_id": "53a8a26605bc468313dd25069e9a8688d035d51c3b308b7c8d96bba88c4a26be",
+    "phase": "events_complete",
+    "identity_hash": "d0f71fc86b7127294761cac637fff6b27fa2cb431c19f51dfd74fe2652ffc1c5",
+    "file_receipt_hash": "3794c129810b0c6e7bba5d1cf1b369fe4d0dd4a07aa33437d3c3fc9d93c5995f",
+    "source_83_units_415_files_versions_unchanged": true,
+    "summary": {
+      "week": {
+        "files": 1754,
+        "rows": 3626362,
+        "bytes": 301086891
+      },
+      "month": {
+        "files": 416,
+        "rows": 867975,
+        "bytes": 72572849
+      }
+    },
+    "all_committed_metadata_matched": true,
+    "completion_checkpoints": {
+      "week": {
+        "completion": {
+          "file_count": 1754,
+          "file_receipt_hash": "3794c129810b0c6e7bba5d1cf1b369fe4d0dd4a07aa33437d3c3fc9d93c5995f",
+          "freq": "week",
+          "raw_execution_id": "53a8a26605bc468313dd25069e9a8688d035d51c3b308b7c8d96bba88c4a26be",
+          "upstream_batch_id": "stock_period_raw:week:380d447075ea",
+          "version": "stock-period-completion@1"
+        },
+        "observation_id": 7757279
+      },
+      "month": {
+        "completion": {
+          "file_count": 416,
+          "file_receipt_hash": "3794c129810b0c6e7bba5d1cf1b369fe4d0dd4a07aa33437d3c3fc9d93c5995f",
+          "freq": "month",
+          "raw_execution_id": "53a8a26605bc468313dd25069e9a8688d035d51c3b308b7c8d96bba88c4a26be",
+          "upstream_batch_id": "stock_period_raw:month:380d447075ea",
+          "version": "stock-period-completion@1"
+        },
+        "observation_id": 7757278
+      }
+    }
+  },
+  "recent_silver_runs": [
+    {
+      "run_id": "5263e92d-6ac1-4aa5-9c71-35730f6e0179",
+      "job": "silver_stock_weekly_update_job",
+      "status": "SUCCESS",
+      "config": {
+        "ops": {
+          "silver_stock_weekly": {
+            "config": {
+              "execution_id": "ffa67d60-bce3-551b-82d3-5f9f4fe6f9e3",
+              "intent": "update",
+              "source_completion": {
+                "file_receipt_hash": "3794c129810b0c6e7bba5d1cf1b369fe4d0dd4a07aa33437d3c3fc9d93c5995f",
+                "raw_execution_id": "53a8a26605bc468313dd25069e9a8688d035d51c3b308b7c8d96bba88c4a26be",
+                "upstream_batch_id": "stock_period_raw:week:380d447075ea"
+              }
+            }
+          }
+        }
+      },
+      "tags": {
+        "dagster/partition": "2026-10-30",
+        "dagster/sensor_name": "silver_stock_weekly_update_job_sensor"
+      }
+    },
+    {
+      "run_id": "11f14ad3-3e17-4a08-99ff-1c370b767c00",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "config": {
+        "ops": {
+          "silver_stock_monthly": {
+            "config": {
+              "execution_id": "6c6bc96d-29c8-562e-8db0-7347caada68b",
+              "intent": "update",
+              "source_completion": {
+                "file_receipt_hash": "3794c129810b0c6e7bba5d1cf1b369fe4d0dd4a07aa33437d3c3fc9d93c5995f",
+                "raw_execution_id": "53a8a26605bc468313dd25069e9a8688d035d51c3b308b7c8d96bba88c4a26be",
+                "upstream_batch_id": "stock_period_raw:month:380d447075ea"
+              }
+            }
+          }
+        }
+      },
+      "tags": {
+        "dagster/partition": "2026-10",
+        "dagster/sensor_name": "silver_stock_monthly_update_job_sensor"
+      }
+    },
+    {
+      "run_id": "48e91afb-b6c9-4565-ae09-38630f69749e",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "config": {
+        "ops": {
+          "silver_stock_monthly": {
+            "config": {
+              "execution_id": "f647eb24-a219-5e28-b6b2-fd2c925e4623",
+              "intent": "update",
+              "source_completion": {
+                "file_receipt_hash": "d3c852360c08a6709280a3671bd454768a4ab399bcc61940b255f593069fa291",
+                "raw_execution_id": "51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3",
+                "upstream_batch_id": "stock_period_raw:month:502a6f78d037"
+              }
+            }
+          }
+        }
+      },
+      "tags": {
+        "dagster/partition": "2026-10",
+        "dagster/sensor_name": "silver_stock_monthly_update_job_sensor"
+      }
+    },
+    {
+      "run_id": "e48e6c6e-b97b-4031-b4bc-651e97538c17",
+      "job": "silver_stock_weekly_update_job",
+      "status": "SUCCESS",
+      "config": {
+        "ops": {
+          "silver_stock_weekly": {
+            "config": {
+              "execution_id": "0f71f00c-d32d-5dfb-a098-4738d1cd964b",
+              "intent": "update",
+              "source_completion": {
+                "file_receipt_hash": "d3c852360c08a6709280a3671bd454768a4ab399bcc61940b255f593069fa291",
+                "raw_execution_id": "51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3",
+                "upstream_batch_id": "stock_period_raw:week:502a6f78d037"
+              }
+            }
+          }
+        }
+      },
+      "tags": {
+        "dagster/partition": "2026-10-23",
+        "dagster/sensor_name": "silver_stock_weekly_update_job_sensor"
+      }
+    },
+    {
+      "run_id": "671c1373-0f95-4423-808d-c57e1a90d578",
+      "job": "silver_stock_weekly_update_job",
+      "status": "SUCCESS",
+      "config": {
+        "ops": {
+          "silver_stock_weekly": {
+            "config": {
+              "execution_id": "9dee3556-36ee-5c2f-9a7b-37b593e284f6",
+              "intent": "update",
+              "source_completion": {
+                "file_receipt_hash": "420b8fb15bdb264a19a1e144a7d2ec5f6873f2737e53f001b62bdb004d027c3d",
+                "raw_execution_id": "db67897faf10513982324f86e1793cec58328349a65ac00a91b23ab5150917e8",
+                "upstream_batch_id": "stock_period_raw:week:abe43c420380"
+              }
+            }
+          }
+        }
+      },
+      "tags": {
+        "dagster/partition": "2026-10-23",
+        "dagster/sensor_name": "silver_stock_weekly_update_job_sensor"
+      }
+    },
+    {
+      "run_id": "497273cb-975f-45ac-b65b-b8ee61beb749",
+      "job": "silver_stock_weekly_update_job",
+      "status": "SUCCESS",
+      "config": {
+        "ops": {
+          "silver_stock_weekly": {
+            "config": {
+              "execution_id": "2de8dc11-5f8a-5b2b-ab2f-a57d699a5621",
+              "intent": "update",
+              "source_completion": {
+                "file_receipt_hash": "81fd6af1bbd96d16b825da14ce47b59181cae6dc3637d7a004eb8cf43b93cff3",
+                "raw_execution_id": "c19dd8c325e0d118398ce3859dd990621012398a2dd183c1d403209e6743a737",
+                "upstream_batch_id": "stock_period_raw:week:76a716f8c8e3"
+              }
+            }
+          }
+        }
+      },
+      "tags": {
+        "dagster/partition": "2026-10-23",
+        "dagster/sensor_name": "silver_stock_weekly_update_job_sensor"
+      }
+    },
+    {
+      "run_id": "76d7dde5-8b93-4f91-9c61-c8c8a99b9148",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "config": {
+        "ops": {
+          "silver_stock_monthly": {
+            "config": {
+              "execution_id": "b361f3af-2b02-5324-aa97-2461bfe8351f",
+              "intent": "update",
+              "source_completion": {
+                "file_receipt_hash": "81fd6af1bbd96d16b825da14ce47b59181cae6dc3637d7a004eb8cf43b93cff3",
+                "raw_execution_id": "c19dd8c325e0d118398ce3859dd990621012398a2dd183c1d403209e6743a737",
+                "upstream_batch_id": "stock_period_raw:month:76a716f8c8e3"
+              }
+            }
+          }
+        }
+      },
+      "tags": {
+        "dagster/partition": "2026-10",
+        "dagster/sensor_name": "silver_stock_monthly_update_job_sensor"
+      }
+    },
+    {
+      "run_id": "8500bc78-46e7-4be3-a288-e2df2b18712b",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "config": {
+        "ops": {
+          "silver_stock_monthly": {
+            "config": {
+              "execution_id": "ed8a883a-c0dc-5d77-8254-af2b9f191d07",
+              "intent": "update",
+              "source_completion": {
+                "file_receipt_hash": "d4e2ed161da382ff4ca80827c4c6bfbb6ab569860d4582a521eeddd96bcdb06a",
+                "raw_execution_id": "9497bf70b77fcaea54f41d14320f4d1d0797209dc69f57341b78930772e33772",
+                "upstream_batch_id": "stock_period_raw:month:b22640319330"
+              }
+            }
+          }
+        }
+      },
+      "tags": {
+        "dagster/partition": "2026-10",
+        "dagster/sensor_name": "silver_stock_monthly_update_job_sensor"
+      }
+    }
+  ]
+}

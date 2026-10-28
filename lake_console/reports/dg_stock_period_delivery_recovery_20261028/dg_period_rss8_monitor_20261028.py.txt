@@ -1,0 +1,39 @@
+"""Small exact-run monitoring; no business data queries or mutations."""
+from pathlib import Path
+from contextlib import closing
+from datetime import datetime
+import json,os,sys,ast
+import psycopg2
+from dagster._serdes import deserialize_value
+from dagster._core.events.log import EventLogEntry
+from orchestrator.local_startup import configuration
+R=Path('/Users/congming/github/goldenshare/lake_console/reports/dg_stock_period_delivery_recovery_20261028')
+rid=sys.argv[1];name=sys.argv[2];assert name.startswith('rss8-') and '/' not in name
+_,deps=configuration(os.environ,Path.home())
+out={'at':datetime.now().astimezone().isoformat(),'run_id':rid,'recent_progress':[]}
+with closing(psycopg2.connect(deps[0].connection['url'],connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn,conn.cursor() as c:
+ c.execute('SELECT status,start_time,end_time FROM runs WHERE run_id=%s',(rid,));out['status_start_end']=c.fetchone()
+ c.execute('SELECT id,event FROM event_logs WHERE run_id=%s AND dagster_event_type IS NULL ORDER BY id DESC LIMIT 4',(rid,))
+ for eid,event in c.fetchall():
+  e=deserialize_value(event,EventLogEntry)
+  try:message=ast.literal_eval(e.message)
+  except (ValueError,SyntaxError):message=e.message
+  out['recent_progress'].append({'id':eid,'timestamp':e.timestamp,'message':message})
+ c.execute('SELECT id,event FROM event_logs WHERE run_id=%s AND dagster_event_type IS NULL AND event LIKE %s ORDER BY id DESC LIMIT 1',(rid,'%frozen_rss_limit_bytes%'))
+ row=c.fetchone()
+ if row:
+  e=deserialize_value(row[1],EventLogEntry)
+  try:out['latest_memory_observation']=ast.literal_eval(e.message)
+  except (ValueError,SyntaxError):out['latest_memory_observation']=e.message
+ c.execute("SELECT id,event FROM event_logs WHERE run_id=%s AND dagster_event_type='STEP_FAILURE' ORDER BY id DESC LIMIT 1",(rid,))
+ row=c.fetchone()
+ if row:
+  e=deserialize_value(row[1],EventLogEntry);err=e.dagster_event.event_specific_data.error;chain=[]
+  while err:chain.append({'message':err.message,'stack':list(err.stack)});err=err.cause
+  out['failure']={'id':row[0],'chain':chain}
+ if rid=='9edc90f7-1822-4abb-af85-7d1cb1a71034':
+  keys=[json.dumps(['raw_tushare_stk_period_bar_adj_'+f]) for f in ('week','month')]
+  c.execute('SELECT dagster_event_type,count(*) FROM event_logs WHERE id>7748601 AND asset_key=ANY(%s) GROUP BY dagster_event_type',(keys,))
+  out['scoped_raw_events_since_file_completion']=dict(c.fetchall())
+(R/name).write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps(out,ensure_ascii=False,indent=2))

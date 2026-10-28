@@ -1,0 +1,79 @@
+{
+  "date": "2026-10-28",
+  "scope": "shared LLD 12.16.10; pure frozen receipt path comparison only",
+  "source_files": [
+    {
+      "path": "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/io/stock_period_raw.py",
+      "sha256": "e62071fede4590d5b0beb81065f596e2d5fae6da7bca049fd267e23c2fac97e5"
+    },
+    {
+      "path": "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py",
+      "sha256": "e5e26f515ce27d1c4885db6227a8d6b1427ca4dfa55151122383748d7e5497bb"
+    },
+    {
+      "path": "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_period_receipt_paths.py",
+      "sha256": "28da45c25903ba47ec010c0dd9236b71e30bb8c69fd716e9fb85494b147f905e"
+    }
+  ],
+  "red": {
+    "xml": "/private/tmp/dg-period-receipt-paths-red-20261028.xml",
+    "tests": "2",
+    "failures": "2",
+    "errors": "0",
+    "skipped": "0",
+    "time": "1.150"
+  },
+  "green": {
+    "xml": "/private/tmp/dg-period-receipt-paths-green-20261028.xml",
+    "tests": "21",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "3.110"
+  },
+  "regression": {
+    "xml": "/private/tmp/dg-period-receipt-paths-regression-20261028.xml",
+    "tests": "91",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "21.122"
+  },
+  "launch": "env -u PYTHONPATH -u DAGSTER_HOME -u TUSHARE_TOKEN .venv/bin/python3 -B -m pytest -q -p no:cacheprovider --basetemp=/private/tmp/dg-period-receipt-paths-20261028",
+  "static": {
+    "ruff": "passed",
+    "git_diff_check": "passed"
+  },
+  "coverage": [
+    "RED 2/100 metadata cases fail on unselected raw parent Path.lstat before fix",
+    "pure path functions perform zero Path lstat/stat/resolve/open/glob/rglob operations",
+    "independent literal two-frequency path expectations; wrong path/root/traversal/hash reject",
+    "real small producer frozen receipts remain valid when target is missing/replaced/symlink today",
+    "actual target_path/file_version/read_json/publish and dataset_root continue to reject symlinks",
+    "real two-frequency producer and isolated SDK replay: unselected month parent has zero access; closed raw subtree has zero access",
+    "open partial replay successor complete read once; manifest once in confirm plus once in ack; closed both zero",
+    "no new events/source requests and unchanged old manifest/daily during scoped replay"
+  ],
+  "limits": [
+    "2/100 capacity receipts are synthetic metadata derived from two real tiny producer files; no 100-file market-data fixture",
+    "small isolated resources only; documented per-case budgets, not an extra traffic or performance experiment",
+    "no formal Lake/instance/DB/network reads or writes; no install; no commit; no full 528 regression",
+    "regression warnings are existing Dagster datetime utcfromtimestamp deprecations: 270 warnings"
+  ],
+  "cleanup": {
+    "basetemp": "/private/tmp/dg-period-receipt-paths-20261028",
+    "removed": true
+  },
+  "archived_red": {
+    "path": "receipt-path-red.xml.gz",
+    "raw_sha256": "fb53d8054c25368b9e045fb184e2ff99cc53d365d69952c3487a81e7b7b4e920",
+    "archive_sha256": "95efec6d874eb0532a3e0a346eb071f712ffd3157cf0f624b65677d0e1e13498",
+    "raw_bytes_preserved": true
+  },
+  "independent_code_review": "passed; fixed paths pure; actual I/O guards preserved",
+  "repository_evidence": {
+    "red": "receipt-path-red.xml.gz",
+    "green": "receipt-path-green.xml",
+    "regression": "receipt-path-regression.xml"
+  }
+}

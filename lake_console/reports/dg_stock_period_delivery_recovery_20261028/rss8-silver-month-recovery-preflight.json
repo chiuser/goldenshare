@@ -1,0 +1,16 @@
+{
+  "at": "2026-10-28T11:45:51.591415+08:00",
+  "child": "82c6253a-b3ec-513f-8fce-cc8ccacb759e",
+  "parent": "6c6bc96d-29c8-562e-8db0-7347caada68b",
+  "child_identity_hash": "7535e979da758488e3a34773ca6fd9fcd1321c714ee22b04f126b499a8292c78",
+  "parent_identity_hash": "63bbf40cacb00bae0b08cd5fc26ee8134f179fc76887be20d5af619ad80522cc",
+  "units": 154,
+  "reuse": 153,
+  "rebuild": [
+    "2026-10"
+  ],
+  "unit_scope_unchanged": true,
+  "references_unchanged": true,
+  "source_target_versions_match_frozen_child": true,
+  "parquet_content_reads": 0
+}

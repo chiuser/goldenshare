@@ -1,0 +1,32 @@
+{
+  "verified_at": "2026-10-28T09:33:40.095714+08:00",
+  "old_execution": "db67897faf10513982324f86e1793cec58328349a65ac00a91b23ab5150917e8",
+  "phase": "events_complete",
+  "pending_count": 0,
+  "manifest_only_expected_change": true,
+  "daily_only_expected_change": true,
+  "original_complete_and_completion_unchanged": true,
+  "baseline_unchanged_by_version": true,
+  "baseline_reused_sha256": "9940463ded80828bd9d235131d72b7ae1bf5d2080300a2b18ff17b74b5fe24df",
+  "current_parquet_unchanged_by_version": true,
+  "new_file_cp_matches_original_version_sha": true,
+  "parquet_content_reads": 0,
+  "parquet_writes": 0,
+  "control_report_run_id": "0b36ac11-c60d-4dc5-8dc7-a27d23666819",
+  "control_report_status": "SUCCESS",
+  "control_run_event_counts": {
+    "RESOURCE_INIT_STARTED": 1,
+    "LOGS_CAPTURED": 1,
+    "HANDLED_OUTPUT": 1,
+    "ENGINE_EVENT": 2,
+    "STEP_SUCCESS": 1,
+    "STEP_OUTPUT": 1,
+    "PIPELINE_START": 1,
+    "PIPELINE_SUCCESS": 1,
+    "STEP_START": 1,
+    "RESOURCE_INIT_SUCCESS": 1
+  },
+  "new_business_events": 0,
+  "original_27_run_still_failure": true,
+  "four_sensors_and_cursors_unchanged": true
+}

@@ -1,0 +1,33 @@
+from pathlib import Path
+from contextlib import closing
+from datetime import datetime
+import os,json,hashlib
+import psycopg2
+from dagster._serdes import deserialize_value
+from dagster._core.events.log import EventLogEntry
+from orchestrator.local_startup import configuration
+
+R=Path('/Users/congming/github/goldenshare/lake_console/reports/dg_stock_period_delivery_recovery_20261028')
+S=Path('/Volumes/datasource/data_lake_staging/stock_period')
+run_id='d7ae3495-bb23-4c33-a4be-d78d2aba2742'
+_,deps=configuration(os.environ,Path.home())
+result={'at':datetime.now().astimezone().isoformat(),'run_id':run_id,'failures':[]}
+with closing(psycopg2.connect(deps[0].connection['url'],connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn,conn.cursor() as c:
+ c.execute("SELECT id,event,dagster_event_type FROM event_logs WHERE run_id=%s AND dagster_event_type IN ('STEP_FAILURE','PIPELINE_FAILURE') ORDER BY id DESC LIMIT 3",(run_id,))
+ for eid,event,kind in c.fetchall():
+  entry=deserialize_value(event,EventLogEntry);err=getattr(entry.dagster_event.event_specific_data,'error',None)
+  chain=[]
+  while err:
+   chain.append({'message':err.message,'stack':list(err.stack)});err=err.cause
+  result['failures'].append({'event_id':eid,'kind':kind,'message':entry.message,'error_chain':chain})
+ c.execute("SELECT dagster_event_type,count(*) FROM event_logs WHERE run_id=%s GROUP BY dagster_event_type",(run_id,));result['event_counts']=dict(c.fetchall())
+d=(S/'daily.json').read_bytes();daily=json.loads(d)
+result['daily_sha256']=hashlib.sha256(d).hexdigest();result['watermarks']={k:daily.get(k) for k in ('factor_through','completed_through','last_refresh','last_source_asof')}
+result['pending']={}
+for rid,w in daily['pending_work'].items():
+ p=S/'runs'/rid/'manifest.json';m=json.loads(p.read_text()) if p.exists() else None
+ result['pending'][rid]={'intent':w.get('intent'),'consumed':w.get('consumed'),'phase':m.get('phase') if m else None,'candidate_bytes':m.get('candidate_bytes') if m else None,'committed_json_count':sum(1 for _ in (p.parent/'committed').glob('*/*.json')) if (p.parent/'committed').exists() else 0}
+before=json.loads((R/'old20-before.json').read_text())['unchanged_control_versions'][str(S/'baseline.json')]
+t=(S/'baseline.json').stat();result['baseline_unchanged_by_version']=[t.st_dev,t.st_ino,t.st_size,t.st_mtime_ns,t.st_ctime_ns]==before
+(R/'raw27-week-failure-evidence.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps(result,ensure_ascii=False,indent=2))

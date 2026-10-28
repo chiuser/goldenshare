@@ -1,0 +1,41 @@
+"""Scoped completion metadata; no historical Parquet/source-content reads."""
+from pathlib import Path
+from contextlib import closing
+from datetime import datetime
+import json,os,hashlib
+from collections import Counter
+import psycopg2
+from dagster._serdes import deserialize_value
+from dagster._core.storage.dagster_run import DagsterRun
+from orchestrator.local_startup import configuration
+from orchestrator.defs.run_contracts.stock_period import digest
+R=Path('/Users/congming/github/goldenshare/lake_console/reports/dg_stock_period_delivery_recovery_20261028')
+S=Path('/Volumes/datasource/data_lake_staging')
+def version(p):
+ t=p.stat();return [t.st_dev,t.st_ino,t.st_size,t.st_mtime_ns,t.st_ctime_ns]
+daily=json.loads((S/'stock_period/daily.json').read_text())
+pre=json.loads((R/'rss8-execution-preflight.json').read_text())
+first=S/'stock_period/runs/53a8a26605bc468313dd25069e9a8688d035d51c3b308b7c8d96bba88c4a26be'
+m=json.loads((first/'manifest.json').read_text());complete=json.loads((first/'complete.json').read_text())
+assert digest(complete)==m['file_receipt_hash']
+assert m['identity_hash']==pre['frozen_identity_hash'] and m['identity']['policy']==pre['frozen_policy']
+assert all(version(first/p)==v for p,v in pre['source_file_versions_before'].items())
+raw_summary={}
+for freq in ('week','month'):
+ items=[x for x in complete['files'] if x['freq']==freq]
+ raw_summary[freq]={'files':len(items),'rows':sum(x['rows'] for x in items),'bytes':sum(x['version'][2] for x in items)}
+for item in complete['files']:
+ cp=json.loads((first/'committed'/item['freq']/(item['period']+'.json')).read_text())
+ assert all(cp[k]==item[k] for k in ('target','version','rows','sha256','freq','period'))
+_,deps=configuration(os.environ,Path.home())
+out={'at':datetime.now().astimezone().isoformat(),'daily':{k:v for k,v in daily.items() if k!='pending_work'},'pending':{rid:{'frequency':w.get('frequency'),'consumed':w.get('consumed'),'intent':w.get('intent')} for rid,w in daily.get('pending_work',{}).items()},'first_raw':{'execution_id':first.name,'phase':m['phase'],'identity_hash':m['identity_hash'],'file_receipt_hash':m['file_receipt_hash'],'source_83_units_415_files_versions_unchanged':True,'summary':raw_summary,'all_committed_metadata_matched':True,'completion_checkpoints':{}},'recent_silver_runs':[]}
+for freq in ('week','month'):
+ p=first/'events/completion'/f'{freq}.json'
+ out['first_raw']['completion_checkpoints'][freq]=json.loads(p.read_text()) if p.exists() else None
+with closing(psycopg2.connect(deps[0].connection['url'],connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn,conn.cursor() as c:
+ c.execute('SELECT run_id,status,run_body FROM runs WHERE pipeline_name=ANY(%s) ORDER BY id DESC LIMIT 8',(['silver_stock_weekly_update_job','silver_stock_monthly_update_job'],))
+ for rid,status,body in c.fetchall():
+  run=deserialize_value(body,DagsterRun)
+  out['recent_silver_runs'].append({'run_id':rid,'job':run.job_name,'status':status,'config':run.run_config,'tags':{k:v for k,v in run.tags.items() if k in ('dagster/partition','dagster/sensor_name','goldenshare/upstream_batch_id')}})
+(R/'rss8-final-inventory.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps(out,ensure_ascii=False,indent=2))

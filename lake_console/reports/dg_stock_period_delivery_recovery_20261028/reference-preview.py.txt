@@ -1,0 +1,117 @@
+"""Approved LLD12.12.1: original read helpers, budget evidence only."""
+from pathlib import Path
+from datetime import date, datetime
+import hashlib
+import json
+import shutil
+import time
+
+from orchestrator.defs.bootstrap.stock_period_history import load_scope
+from orchestrator.defs import stock_period_update as update
+from orchestrator.defs.io.stock_period_raw import _target_path, range_index_valid
+from orchestrator.defs.run_contracts.stock_period import DEFAULT_POLICY, next_period
+
+ROOT=Path('/Volumes/datasource/data_lake')
+STAGE=Path('/Volumes/datasource/data_lake_staging/stock_period')
+REPORT=Path('/Users/congming/github/goldenshare/lake_console/reports/dg_stock_period_delivery_recovery_20261028')
+WORK=Path('/private/tmp/dg-period-reference-preview-20261028')
+approved=json.loads((REPORT/'reference-scope-stat.json').read_text())
+
+def version(path):
+    s=Path(path).stat();return [s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns]
+
+def content(path):
+    payload=Path(path).read_bytes()
+    return json.loads(payload), hashlib.sha256(payload).hexdigest()
+
+used={name:approved['reference_file_stats'][name] for name in (
+    'silver_stock_basic','silver_stock_identity_map','silver_trade_calendar')}
+used.update({'factor_'+day:item for day,item in approved['factor_file_stats'].items()})
+for item in used.values():assert version(item['path'])==item['version'],item['path']
+daily,daily_sha=content(STAGE/'daily.json')
+baseline,baseline_sha=content(STAGE/'baseline.json')
+assert not daily['pending_work'] and daily['factor_through']=='2026-10-21'
+assert range_index_valid(baseline)
+control_versions={str(p):version(p) for p in (STAGE/'daily.json',STAGE/'baseline.json')}
+assert not WORK.exists();WORK.mkdir()
+started=time.monotonic()
+try:
+    listed,aliases=load_scope(ROOT,WORK/'scope',DEFAULT_POLICY)
+    days=update.calendar_days(ROOT,WORK/'calendar',DEFAULT_POLICY)
+    selected=[d for d in days if daily['factor_through']<d<='2026-10-27']
+    pairs=[(days[days.index(d)-1],d) for d in selected]
+    assert [list(pair) for pair in pairs]==approved['adjacent_pairs']
+    changed=set(update.factor_changes(ROOT,WORK/'factors',days,
+        daily['factor_through'],'2026-10-27',listed,DEFAULT_POLICY))
+    added=set(listed)-set(baseline['listed'])
+    removed={c for c in baseline['listed'] if c not in listed and aliases.get(c,c) not in listed}
+    if removed:
+        used['raw_stock_basic']=approved['reference_file_stats']['raw_stock_basic']
+        assert version(used['raw_stock_basic']['path'])==used['raw_stock_basic']['version']
+    retired=update.confirmed_retirements(ROOT,WORK/'retired',removed,aliases)
+    superseded=sorted(c for c in baseline['listed'] if c not in listed and aliases.get(c,c) in listed)
+    codes=sorted(changed|added)
+    requested={}
+    for frequency in ('week','month'):
+        pending=update.daily_periods(today=date(2026,10,27),freq=frequency,
+            completed_through=daily['completed_through'][frequency],
+            last_refresh=daily['last_refresh'].get(frequency))
+        requested[frequency]=[p for p in pending if not update.no_trading_period(p,frequency,days)]
+    # Metadata estimate only. Actual job selectors are unchanged and receive no list from this file.
+    indexed={(item['freq'],item['period']):item for item in baseline['files']}
+    metadata_inventory={}
+    for frequency in ('week','month'):
+        periods=set(requested[frequency])
+        for code in set(codes)|set(retired)|set(superseded):
+            intervals=baseline['stock_ranges'][frequency].get(code)
+            if intervals is None:
+                assert code not in baseline['listed'],('unverified_old_range',code,frequency)
+                continue
+            for first,last in intervals:
+                period=first
+                while period<=last:
+                    assert (frequency,period) in indexed
+                    periods.add(period)
+                    if period==last:break
+                    period=next_period(period,frequency)
+        items=[]
+        for period in sorted(periods):
+            item=indexed.get((frequency,period))
+            if item is not None:
+                assert item['target']==str(_target_path(ROOT,frequency,period))
+                items.append(item)
+        metadata_inventory[frequency]={
+            'known_periods':sorted(periods),'registered_files':len(items),
+            'registered_bytes':sum(x['version'][2] for x in items),
+            'registered_rows':sum(x['rows'] for x in items),
+            'silver_eligible_registered_files':sum(x['period']>=('2014-01-03' if frequency=='week' else '2014-01') for x in items),
+            'registered_file_facts':[{'freq':x['freq'],'period':x['period'],'bytes':x['version'][2],'rows':x['rows']} for x in items],
+        }
+    for item in used.values():assert version(item['path'])==item['version'],item['path']
+    for path,value in control_versions.items():assert version(path)==value,path
+    temp_files=[p for p in WORK.rglob('*') if p.is_file()]
+    result={'scope':'explicitly approved LLD12.12.1 minimal reference and factor preview',
+        'finished_at':datetime.now().astimezone().isoformat(),'elapsed_seconds':time.monotonic()-started,
+        'reference_versions_unchanged':True,'control_versions_unchanged':True,
+        'daily_sha256':daily_sha,'baseline_sha256':baseline_sha,
+        'listed_count':len(listed),'previous_listed_count':len(baseline['listed']),
+        'factor_changed_codes':sorted(changed),'new_listed_codes':sorted(added),
+        'history_refresh_codes':codes,'removed_unconfirmed_candidates':sorted(removed),
+        'confirmed_retired_codes':retired,'superseded_codes':superseded,
+        'adjacent_pairs':pairs,'factor_comparison_sql_from_code':len(pairs),
+        'factor_file_projections_from_code':2*len(pairs),'reference_versions':used,
+        'requested_periods':requested,'metadata_inventory':metadata_inventory,
+        'source_units_before_page_expansion':sum(len(v) for v in requested.values())+2*len(codes),
+        'temp_files_retained_before_cleanup':len(temp_files),
+        'temp_bytes_retained_before_cleanup':sum(p.stat().st_size for p in temp_files),
+        'formal_writes':0,'dagster_jobs_started':0,'source_api_requests':0,
+        'historical_raw_silver_content_reads':0,
+        'notes':['stock lists are budget evidence only; not supplied to formal job.stock_codes',
+                 'file sizes/rows below are saved baseline registration facts, not actual full-file scans',
+                 'new source periods can add old targets; known metadata inventory is not a complete candidate-file bound',
+                 'compressed file-size basis is not measured process IO or decompressed memory']}
+    (REPORT/'reference-preview-result.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+    print(json.dumps({k:v for k,v in result.items() if k not in ('reference_versions','metadata_inventory')},ensure_ascii=False,indent=2))
+    print(json.dumps({'inventory':{k:{a:b for a,b in v.items() if a not in ('known_periods','registered_file_facts')} for k,v in metadata_inventory.items()}},ensure_ascii=False,indent=2))
+finally:
+    shutil.rmtree(WORK)

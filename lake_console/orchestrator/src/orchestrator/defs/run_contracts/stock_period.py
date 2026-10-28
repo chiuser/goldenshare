@@ -17,6 +17,7 @@ VERSION = "stock-period-source-v2"
 FREQUENCIES = ("week", "month")
 COMPLETION_VERSION = "stock-period-completion@1"
 COMPLETION_METADATA_KEY = "goldenshare/period_completion"
+STOCK_PERIOD_RUNTIME_RSS_GIB_TAG = "goldenshare/stock_period_rss_limit_gib"
 
 
 def completion_reference(run_id, receipt_hash, freq):

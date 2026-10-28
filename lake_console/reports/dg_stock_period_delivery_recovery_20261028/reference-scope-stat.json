@@ -1,0 +1,206 @@
+{
+  "logical_data_reads": [
+    "bounded SSE 2026-10-19 through 2026-10-27 trade_date/is_open",
+    "COUNT only of current L/CNY basic"
+  ],
+  "listed_count": 5577,
+  "calendar_window": [
+    [
+      "2026-10-19",
+      true
+    ],
+    [
+      "2026-10-20",
+      true
+    ],
+    [
+      "2026-10-21",
+      true
+    ],
+    [
+      "2026-10-22",
+      true
+    ],
+    [
+      "2026-10-23",
+      true
+    ],
+    [
+      "2026-10-24",
+      false
+    ],
+    [
+      "2026-10-25",
+      false
+    ],
+    [
+      "2026-10-26",
+      true
+    ],
+    [
+      "2026-10-27",
+      true
+    ]
+  ],
+  "adjacent_pairs": [
+    [
+      "2026-10-21",
+      "2026-10-22"
+    ],
+    [
+      "2026-10-22",
+      "2026-10-23"
+    ],
+    [
+      "2026-10-23",
+      "2026-10-26"
+    ],
+    [
+      "2026-10-26",
+      "2026-10-27"
+    ]
+  ],
+  "reference_file_stats": {
+    "silver_stock_basic": {
+      "path": "/Volumes/datasource/data_lake/silver/basic/stock_basic/full/part-000.parquet",
+      "exists": true,
+      "bytes": 421165,
+      "version": [
+        16777244,
+        26192773,
+        421165,
+        1793092650741316274,
+        1793092650742396208
+      ]
+    },
+    "silver_stock_identity_map": {
+      "path": "/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet",
+      "exists": true,
+      "bytes": 103186,
+      "version": [
+        16777244,
+        26193036,
+        103186,
+        1793093818478661429,
+        1793093818481103155
+      ]
+    },
+    "silver_trade_calendar": {
+      "path": "/Volumes/datasource/data_lake/silver/calendar/trade_calendar/full/part-000.parquet",
+      "exists": true,
+      "bytes": 89590,
+      "version": [
+        16777244,
+        1912308,
+        89590,
+        1779599225007770939,
+        1779599225008092650
+      ]
+    },
+    "silver_stock_lifecycle": {
+      "path": "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet",
+      "exists": true,
+      "bytes": 131684,
+      "version": [
+        16777244,
+        26192774,
+        131684,
+        1793092650741947909,
+        1793092650742224581
+      ]
+    },
+    "raw_stock_basic": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stock_basic/full/part-000.parquet",
+      "exists": true,
+      "bytes": 454684,
+      "version": [
+        16777244,
+        26192672,
+        454684,
+        1793092062490536030,
+        1793092062492990321
+      ]
+    }
+  },
+  "factor_file_stats": {
+    "2026-10-21": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 55566,
+      "version": [
+        16777244,
+        22490251,
+        55566,
+        1792768900572997875,
+        1792768900574121605
+      ]
+    },
+    "2026-10-22": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+      "exists": true,
+      "bytes": 55558,
+      "version": [
+        16777244,
+        22490342,
+        55558,
+        1792769502068020843,
+        1792769502069491375
+      ]
+    },
+    "2026-10-23": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-23/part-000.parquet",
+      "exists": true,
+      "bytes": 55563,
+      "version": [
+        16777244,
+        22490437,
+        55563,
+        1792770108788133168,
+        1792770108789060924
+      ]
+    },
+    "2026-10-26": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-26/part-000.parquet",
+      "exists": true,
+      "bytes": 55539,
+      "version": [
+        16777244,
+        24983173,
+        55539,
+        1793007414281863111,
+        1793007414282626130
+      ]
+    },
+    "2026-10-27": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-27/part-000.parquet",
+      "exists": true,
+      "bytes": 55548,
+      "version": [
+        16777244,
+        26192831,
+        55548,
+        1793093210248352654,
+        1793093210248599449
+      ]
+    }
+  },
+  "planned_factor_projections": 8,
+  "planned_reference_and_factor_compressed_file_basis": 1058375,
+  "baseline_index_hash_valid": true,
+  "baseline_listed_count": 5576,
+  "registered_inventory_from_metadata_only": {
+    "week": {
+      "registered_files": 1820,
+      "registered_bytes": 298272360,
+      "registered_rows": 3623014
+    },
+    "month": {
+      "registered_files": 431,
+      "registered_bytes": 72658415,
+      "registered_rows": 868508
+    }
+  },
+  "formal_writes": 0,
+  "factor_data_read": false,
+  "note": "Baseline inventory bytes/rows are saved registration facts, not a new scan or physical audit of all target files."
+}

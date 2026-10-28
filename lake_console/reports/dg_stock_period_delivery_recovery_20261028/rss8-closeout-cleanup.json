@@ -1,0 +1,41 @@
+{
+  "at": "2026-10-28T11:56:32.506638+08:00",
+  "removed_readonly_scripts": [
+    {
+      "removed": "/private/tmp/dg_period_rss8_preflight_20261028.py",
+      "evidence": "dg_period_rss8_preflight_20261028.py.txt",
+      "sha256": "4ea9460b27c0475b55cd91ca94864858eff748440e32ffe9d60cacc53667456f",
+      "absent": true
+    },
+    {
+      "removed": "/private/tmp/dg_period_rss8_monitor_20261028.py",
+      "evidence": "dg_period_rss8_monitor_20261028.py.txt",
+      "sha256": "b3f46425c7e23ed030271f200ac8f7f375f7c857198037d60d529afbf74ca1a7",
+      "absent": true
+    },
+    {
+      "removed": "/private/tmp/dg_period_rss8_final_inventory_20261028.py",
+      "evidence": "dg_period_rss8_final_inventory_20261028.py.txt",
+      "sha256": "9c37f0268b6e9bf1b172ee22e0a5133626789ff4d3080cc4dad6f9cba5d4d479",
+      "absent": true
+    },
+    {
+      "removed": "/private/tmp/dg_period_rss8_verify_20261028.py",
+      "evidence": "dg_period_rss8_verify_20261028.py.txt",
+      "sha256": "e7b8f2ac338d1a6dfeb13b5e3ce893091414e9354f7d0e6ad21d6813f9a523eb",
+      "absent": true
+    },
+    {
+      "removed": "/private/tmp/dg_period_rss8_silver_status_20261028.py",
+      "evidence": "dg_period_rss8_silver_status_20261028.py.txt",
+      "sha256": "1b047d0876f02cf39fffdb0e76233376161112f076a6d2645a7ba0c4b1392981",
+      "absent": true
+    }
+  ],
+  "all_test_temp_directories_removed": true,
+  "formal_data_or_staging_deleted_by_closeout": false,
+  "active_dg_log_preserved": "/private/tmp/dg-period-dg-start-20261028.log",
+  "formal_results_source_and_receipts_preserved": true,
+  "dg_left_running": true,
+  "sensor_switches_not_changed": true
+}

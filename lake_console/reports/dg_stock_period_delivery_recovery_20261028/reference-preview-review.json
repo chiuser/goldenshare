@@ -1,0 +1,47 @@
+{
+  "at": "2026-10-28T10:19:26.923979+08:00",
+  "approval_status": "minimal reference/factor preview approved and completed; original 27 Oct source/history budget separately requested, no reply yet",
+  "reference_preview": "reference-preview-result.json",
+  "independent_preview_verified": {
+    "factor_changed": 79,
+    "new_listed": 2,
+    "history_refresh": 81,
+    "confirmed_retired": 1,
+    "superseded": 0,
+    "source_units_before_pagination": 165,
+    "approved_input_versions_matched": 9,
+    "file_size_basis_including_conditional_retirement_bytes": 1513059,
+    "tmp_work_removed": true
+  },
+  "independent_history_budget_reviews": [
+    "period_entries_independent: input sets, versions, weighting and metadata counts verified; current/historical authorization and sample-scaling wording clarified",
+    "period_receipts_independent: source control receipts and exact source/old-target scope, normal/recovery I/O formulas",
+    "period_checks_independent: Raw/Silver read/cache/recovery paths; late source dates may commit Raw before Silver rejects; space reserve includes original 16GiB spill reserve"
+  ],
+  "normal_estimated_gib": {
+    "read": 16,
+    "write": 12,
+    "extra_space": 32
+  },
+  "including_one_necessary_same_scope_continuation_and_final_estimated_gib": {
+    "read": 32,
+    "write": 24,
+    "extra_space": 48
+  },
+  "budget_is_new_runtime_limit": false,
+  "budget_is_measured_io": false,
+  "spill_cumulative_io_has_proven_strict_bound": false,
+  "formal_27_jobs_started": 0,
+  "formal_silver_jobs_started_by_this_step": 0,
+  "historical_raw_silver_content_reads_by_this_step": 0,
+  "source_requests_by_this_step": 0,
+  "formal_data_writes_by_this_step": 0,
+  "docs_integrity": "passed",
+  "git_diff_check_scoped": "passed",
+  "new_performance_or_full_dataset_audit": false,
+  "source_hashes_at_close": {
+    "lake_console/orchestrator/src/orchestrator/defs/io/stock_period_raw.py": "e62071fede4590d5b0beb81065f596e2d5fae6da7bca049fd267e23c2fac97e5",
+    "lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py": "e5e26f515ce27d1c4885db6227a8d6b1427ca4dfa55151122383748d7e5497bb",
+    "lake_console/orchestrator/tests/test_stock_period_receipt_paths.py": "28da45c25903ba47ec010c0dd9236b71e30bb8c69fd716e9fb85494b147f905e"
+  }
+}

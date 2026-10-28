@@ -1,0 +1,56 @@
+{
+  "at": "2026-10-28T11:16:16.187017+08:00",
+  "new_distinct_passed": 29,
+  "existing_passed": 89,
+  "new_red_failed": 1,
+  "existing_first": {
+    "passed": 86,
+    "failed": 3,
+    "resolution": "preserve malformed handoff branch by absent key requirement; add real SDK tags field to two lightweight context fixtures; business expectations unchanged"
+  },
+  "artifacts": [
+    {
+      "artifact": "new-red.xml.gz",
+      "original_bytes": 1146,
+      "sha256": "868e6410e8f6efc2eae8f3563c32b815d9c028c6aed675ed25aff7eb71d6b84b"
+    },
+    {
+      "artifact": "existing-first.xml.gz",
+      "original_bytes": 23400,
+      "sha256": "b6f114d3aee1247b16db51e2bd6b97a043917c64a99910e98fa8ceb21458c871"
+    },
+    {
+      "artifact": "existing-final.xml",
+      "original_bytes": 17437,
+      "sha256": "530c29862699c129350379bc6a1dd9319941519b83e3533aa48385c2926f432e"
+    },
+    {
+      "artifact": "new-green.xml",
+      "original_bytes": 5173,
+      "sha256": "e717062e8b74310d358230e741dd27a9f6aced3c943bf98caabacc3ecc25b69e"
+    },
+    {
+      "artifact": "new-manual-history.xml",
+      "original_bytes": 407,
+      "sha256": "158311b6ba881908a2dcee25e1b1acd8593ca84124b5fd754d14a72fab865ab7"
+    }
+  ],
+  "source_sha256": {
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_period_daily_memory.py": "50d2014ad6d59507d5c80d06e45dc4fc9498a9185dfe6f45c1d5eb6a46a2e4a3",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/run_contracts/stock_period.py": "816742dde4f49b820172f22da8ef0bb8f77df8eea5deb17f514ffe542160496e",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py": "b92a9ba218d6423a2e919c5b069f820ea6eb04edf824dac961440289cc912280",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py": "a2ce357110f34544aad3b0fee5bd47b47d5fb1daf92786594f2f23440d85e9fe"
+  },
+  "no_formal_test_resources": true,
+  "no_installs": true,
+  "temporary_test_directories_removed": true,
+  "actual_gib_memory_allocations": 0,
+  "codegraph_tools": [
+    "explore",
+    "impact deliver_asset",
+    "impact verify_rss_resume",
+    "sync",
+    "status"
+  ],
+  "static_checks": "default Ruff on changed files and fatal baseline passed"
+}

@@ -1,0 +1,94 @@
+{
+  "at": "2026-10-28T10:24:46.834866+08:00",
+  "instance_home": "/Users/congming/.goldenshare/dagster_home",
+  "reference_versions_unchanged": true,
+  "baseline_version_unchanged": true,
+  "daily_sha256": "d764c6dd1e7d7052857eb91f759ab7f833add47c6f265319e61d732e8edd3f9a",
+  "pending_count": 0,
+  "source_hashes_unchanged": true,
+  "writer_free": true,
+  "parent_runs": {
+    "319ec97d-cfd4-4ef7-bc4a-c98c7334464a": {
+      "status": "FAILURE",
+      "job_name": "raw_stk_period_bar_adj_week_update_job",
+      "partition": "2026-10-30",
+      "run_config": {
+        "ops": {
+          "raw_tushare_stk_period_bar_adj_week": {
+            "config": {
+              "automatic_intent_date": "2026-10-27",
+              "intent": "daily",
+              "request_id": null,
+              "stock_codes": []
+            }
+          }
+        }
+      },
+      "run_config_sha256": "1f21d6145e68986e74329972ab4349a222c563f17806818c0a2e74c3c8184a61",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpfjgdis42\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/failure_reason": "STEP_FAILURE",
+        "dagster/partition": "2026-10-30",
+        "dagster/partition_set": "raw_stk_period_bar_adj_week_update_job_partition_set",
+        "dagster/run_key": "raw_tushare_stk_period_bar_adj_week:2026-10-27",
+        "dagster/sensor_name": "raw_stock_weekly_update_job_sensor",
+        "dagster/tick": "2886906"
+      },
+      "remote_job_origin": "{\"__class__\": \"ExternalPipelineOrigin\", \"external_repository_origin\": {\"__class__\": \"ExternalRepositoryOrigin\", \"repository_location_origin\": {\"__class__\": \"GrpcServerRepositoryLocationOrigin\", \"additional_metadata\": {\"module_name\": \"orchestrator.definitions\", \"working_directory\": \"/Users/congming/github/goldenshare/lake_console/orchestrator/src\"}, \"host\": \"localhost\", \"location_name\": \"orchestrator\", \"port\": null, \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpfjgdis42\"}, \"repository_name\": \"__repository__\"}, \"pipeline_name\": \"raw_stk_period_bar_adj_week_update_job\"}"
+    },
+    "8c9e09c4-9a82-4042-b696-0ffc3a17999d": {
+      "status": "FAILURE",
+      "job_name": "raw_stk_period_bar_adj_month_update_job",
+      "partition": "2026-10",
+      "run_config": {
+        "ops": {
+          "raw_tushare_stk_period_bar_adj_month": {
+            "config": {
+              "automatic_intent_date": "2026-10-27",
+              "intent": "daily",
+              "request_id": null,
+              "stock_codes": []
+            }
+          }
+        }
+      },
+      "run_config_sha256": "6ab7515f33777ce759cac72f0061985bff02753de59799461119ca17c41db693",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpfjgdis42\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/failure_reason": "STEP_FAILURE",
+        "dagster/partition": "2026-10",
+        "dagster/partition_set": "raw_stk_period_bar_adj_month_update_job_partition_set",
+        "dagster/run_key": "raw_tushare_stk_period_bar_adj_month:2026-10-27",
+        "dagster/sensor_name": "raw_stock_monthly_update_job_sensor",
+        "dagster/tick": "2886891"
+      },
+      "remote_job_origin": "{\"__class__\": \"ExternalPipelineOrigin\", \"external_repository_origin\": {\"__class__\": \"ExternalRepositoryOrigin\", \"repository_location_origin\": {\"__class__\": \"GrpcServerRepositoryLocationOrigin\", \"additional_metadata\": {\"module_name\": \"orchestrator.definitions\", \"working_directory\": \"/Users/congming/github/goldenshare/lake_console/orchestrator/src\"}, \"host\": \"localhost\", \"location_name\": \"orchestrator\", \"port\": null, \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpfjgdis42\"}, \"repository_name\": \"__repository__\"}, \"pipeline_name\": \"raw_stk_period_bar_adj_month_update_job\"}"
+    }
+  },
+  "sensors": {
+    "silver_stock_weekly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"schema_version\":1,\"after\":7706595,\"decision\":\"silver_no_completion\",\"evaluated_at\":\"2026-10-28T01:20:26.386880+08:00\"}"
+    },
+    "raw_stock_monthly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 0, \"decision\": \"request_runs\", \"details\": {\"asset_family\": \"stock_period\", \"blocked_component\": \"none\", \"evidence\": {\"daily_intent_date\": \"2026-10-27\", \"pending_periods\": [\"2026-10\"]}, \"job_name\": \"raw_stk_period_bar_adj_month_update_job\", \"next_action\": \"等待源交付及文件检查。\", \"partition_set\": \"cn_a_stock_months\", \"reason_code\": \"direct_source_request\", \"runtime_state\": {\"direct_completed_through\": \"2026-09\", \"examined_through\": \"2026-09\", \"policy_version\": \"completed-month-v1\", \"source_policy\": \"stock-period-source-v2\", \"verified_through\": \"2026-09\"}, \"sensor_name\": \"raw_stock_monthly_update_job_sensor\", \"summary\": \"先补欠账，再更新当前周期。\"}, \"evaluated_at\": \"2026-10-27T23:59:19.276536+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 1, \"target_date\": \"2026-10\"}"
+    },
+    "raw_stock_weekly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 0, \"decision\": \"request_runs\", \"details\": {\"asset_family\": \"stock_period\", \"blocked_component\": \"none\", \"evidence\": {\"daily_intent_date\": \"2026-10-27\", \"pending_periods\": [\"2026-10-23\", \"2026-10-30\"]}, \"job_name\": \"raw_stk_period_bar_adj_week_update_job\", \"next_action\": \"等待源交付及文件检查。\", \"partition_set\": \"cn_a_stock_week_ends\", \"reason_code\": \"direct_source_request\", \"runtime_state\": {\"adjusted_delivery_revision\": 1785, \"direct_completed_through\": \"2026-10-16\", \"examined_through\": \"2026-10-09\", \"policy_version\": \"completed-week-v1\", \"source_policy\": \"stock-period-source-v2\", \"verified_through\": \"2026-10-09\"}, \"sensor_name\": \"raw_stock_weekly_update_job_sensor\", \"summary\": \"先补欠账，再更新当前周期。\"}, \"evaluated_at\": \"2026-10-27T23:59:37.321421+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 1, \"target_date\": \"2026-10-30\"}"
+    },
+    "silver_stock_monthly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"schema_version\":1,\"after\":7706594,\"decision\":\"silver_no_completion\",\"evaluated_at\":\"2026-10-28T01:20:22.359634+08:00\"}"
+    }
+  },
+  "active_chain_runs": [],
+  "same_filesystem": true,
+  "free_bytes": 2903250866176,
+  "dg_port_already_listening": false,
+  "formal_mutations": 0,
+  "parquet_content_reads": 0
+}

@@ -1,0 +1,36 @@
+"""LLD12.12.4 exact runtime-retry metadata, never instance initialization."""
+from pathlib import Path
+from datetime import datetime
+from contextlib import closing
+import json,hashlib,os,fcntl,shutil
+import psycopg2
+from orchestrator.local_startup import configuration
+B=Path('/Users/congming/github/goldenshare')
+R=B/'lake_console/reports/dg_stock_period_delivery_recovery_20261028'
+S=Path('/Volumes/datasource/data_lake_staging/stock_period')
+W=S/'runs/53a8a26605bc468313dd25069e9a8688d035d51c3b308b7c8d96bba88c4a26be'
+def version(p):
+ t=Path(p).stat();return [t.st_dev,t.st_ino,t.st_size,t.st_mtime_ns,t.st_ctime_ns]
+tested=json.loads((R/'rss8/verification-summary.json').read_text())
+for p,expected in tested['source_sha256'].items():assert hashlib.sha256(Path(p).read_bytes()).hexdigest()==expected,p
+preview=json.loads((R/'reference-preview-result.json').read_text())
+for entry in preview['reference_versions'].values():assert version(entry['path'])==entry['version'],entry['path']
+before=json.loads((R/'old20-before.json').read_text())
+assert version(S/'baseline.json')==before['unchanged_control_versions'][str(S/'baseline.json')]
+daily=(S/'daily.json').read_bytes();failure=json.loads((R/'raw27-week-failure-evidence.json').read_text())
+assert hashlib.sha256(daily).hexdigest()==failure['daily_sha256']
+manifest_bytes=(W/'manifest.json').read_bytes();manifest=json.loads(manifest_bytes)
+assert manifest['phase']=='download' and manifest['identity']['policy']['rss_bytes']==4*1024**3
+assert not (W/'complete.json').exists() and not (W/'committed').exists()
+source_versions={str(p.relative_to(W)):version(p) for p in (W/'source').rglob('*') if p.is_file()}
+assert len(source_versions)==415
+with (S/'writer.lock').open('rb') as f:fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB);fcntl.flock(f,fcntl.LOCK_UN)
+_,deps=configuration(os.environ,Path.home())
+jobs=['raw_stk_period_bar_adj_week_update_job','raw_stk_period_bar_adj_month_update_job','silver_stock_weekly_update_job','silver_stock_monthly_update_job']
+with closing(psycopg2.connect(deps[0].connection['url'],connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn,conn.cursor() as c:
+ c.execute("SELECT run_id,pipeline_name,status FROM runs WHERE pipeline_name=ANY(%s) AND status IN ('QUEUED','NOT_STARTED','STARTING','STARTED','CANCELING')",(jobs,));active=c.fetchall();assert not active
+ c.execute('SELECT run_id,status FROM runs WHERE run_id=ANY(%s)',(['d7ae3495-bb23-4c33-a4be-d78d2aba2742','8c9e09c4-9a82-4042-b696-0ffc3a17999d'],));parents=dict(c.fetchall());assert len(parents)==2 and all(x=='FAILURE' for x in parents.values())
+result={'at':datetime.now().astimezone().isoformat(),'tested_source_sha256':tested['source_sha256'],'reference_versions_unchanged':True,'baseline_version_unchanged':True,'daily_sha256':hashlib.sha256(daily).hexdigest(),'frozen_manifest_sha256':hashlib.sha256(manifest_bytes).hexdigest(),'frozen_identity_hash':manifest['identity_hash'],'frozen_policy':manifest['identity']['policy'],'source_file_versions_before':source_versions,'source_files_before':len(source_versions),'source_complete_units_before':len(list((W/'source').glob('*/complete.json'))),'active_chain_runs':active,'parents':parents,'writer_free':True,'free_bytes':shutil.disk_usage(S).free,'formal_mutations':0,'source_payload_or_historical_parquet_reads':0}
+assert result['free_bytes']>48*1024**3
+(R/'rss8-execution-preflight.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({k:v for k,v in result.items() if k not in ('source_file_versions_before','tested_source_sha256','frozen_policy')},ensure_ascii=False,indent=2))

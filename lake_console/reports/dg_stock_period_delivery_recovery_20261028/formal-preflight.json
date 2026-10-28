@@ -1,0 +1,575 @@
+{
+  "asof": "2026-10-28T09:09:47.588453+08:00",
+  "read_only": true,
+  "json_files": {
+    "daily.json": {
+      "exists": true,
+      "bytes": 215774,
+      "sha256": "a4c12a3ce0d5b182b03c2cc12fc99e3e551596c551a9858ce266fc28b74455fe"
+    },
+    "baseline.json": {
+      "exists": true,
+      "bytes": 3878591,
+      "sha256": "9940463ded80828bd9d235131d72b7ae1bf5d2080300a2b18ff17b74b5fe24df"
+    },
+    "runs/db67897faf10513982324f86e1793cec58328349a65ac00a91b23ab5150917e8/manifest.json": {
+      "exists": true,
+      "bytes": 215955,
+      "sha256": "d01d3f7cbe347a198e4af6e612f46378e827d690460cdf8aa155635cc74830d2"
+    },
+    "runs/db67897faf10513982324f86e1793cec58328349a65ac00a91b23ab5150917e8/complete.json": {
+      "exists": true,
+      "bytes": 724,
+      "sha256": "420b8fb15bdb264a19a1e144a7d2ec5f6873f2737e53f001b62bdb004d027c3d"
+    },
+    "runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/manifest.json": {
+      "exists": true,
+      "bytes": 217182,
+      "sha256": "a990c9efb05faa4025eba9a5600fb6897945eb091ef35656ac4df4d31ab2047e"
+    },
+    "runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/complete.json": {
+      "exists": true,
+      "bytes": 1179303,
+      "sha256": "d3c852360c08a6709280a3671bd454768a4ab399bcc61940b255f593069fa291"
+    },
+    "runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/committed/week/2026-10-23.json": {
+      "exists": true,
+      "bytes": 588,
+      "sha256": "f6a00482a0a272399772b36075cef1c583f34cd1d25ae36ccab6232d0e9f37af"
+    },
+    "runs/db67897faf10513982324f86e1793cec58328349a65ac00a91b23ab5150917e8/events/week/2026-10-23.json": {
+      "exists": false
+    },
+    "runs/db67897faf10513982324f86e1793cec58328349a65ac00a91b23ab5150917e8/events/completion/week.json": {
+      "exists": true,
+      "bytes": 338,
+      "sha256": "4f1ef171e74b14ac3a8a088267b74ea2519df8297e320cdc3f37806966ccd20d"
+    }
+  },
+  "parquet_content_reads": 0,
+  "formal_writes": 0,
+  "mount": {
+    "root_device": 16777244,
+    "staging_device": 16777244,
+    "free_bytes": 2903250681856
+  },
+  "writer_busy": false,
+  "daily": {
+    "baseline_run_id": "5aa7ab8f3353957a0b9f53cc5794802340c0561ab9b1b26ced5be0013e0bb834",
+    "completed_through": {
+      "month": "2026-09",
+      "week": "2026-10-16"
+    },
+    "factor_through": "2026-10-21",
+    "handoff_cutoff": "2026-10-16",
+    "last_refresh": {
+      "month": "2026-10-20",
+      "week": "2026-10-21"
+    },
+    "last_source_asof": {
+      "month": "20261020",
+      "week": "20261021"
+    }
+  },
+  "pending": {
+    "db67897faf10513982324f86e1793cec58328349a65ac00a91b23ab5150917e8": {
+      "kind": null,
+      "consumed": true,
+      "asof": "2026-10-20",
+      "mode": "upsert"
+    }
+  },
+  "baseline": {
+    "status": "ready",
+    "run_id": "5aa7ab8f3353957a0b9f53cc5794802340c0561ab9b1b26ced5be0013e0bb834",
+    "files": 2251,
+    "range_index_version": "stock-period-source-v2"
+  },
+  "old": {
+    "run_id": "db67897faf10513982324f86e1793cec58328349a65ac00a91b23ab5150917e8",
+    "phase": "files_complete",
+    "ranges_recorded": true,
+    "asof": "2026-10-20",
+    "file_receipt_hash": "420b8fb15bdb264a19a1e144a7d2ec5f6873f2737e53f001b62bdb004d027c3d",
+    "file": {
+      "candidate": "/Volumes/datasource/data_lake_staging/stock_period/runs/db67897faf10513982324f86e1793cec58328349a65ac00a91b23ab5150917e8/build/week/outputs/period=2026-10-23/data_0.parquet",
+      "freq": "week",
+      "period": "2026-10-23",
+      "rows": 5568,
+      "sha256": "809d0295769f980840793aee0c2a0ce24a3b0c9f40a834b787c5131ffeb83b3d",
+      "target": "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_adj_week/week_end=2026-10-23/part-000.parquet",
+      "target_preimage": [
+        16777244,
+        22175783,
+        441721,
+        1792503307280718016,
+        1792503374147169963
+      ],
+      "version": [
+        16777244,
+        22183792,
+        445374,
+        1792503779505129588,
+        1792503779565190938
+      ]
+    },
+    "event_cp": null,
+    "completion_cp": {
+      "completion": {
+        "file_count": 1,
+        "file_receipt_hash": "420b8fb15bdb264a19a1e144a7d2ec5f6873f2737e53f001b62bdb004d027c3d",
+        "freq": "week",
+        "raw_execution_id": "db67897faf10513982324f86e1793cec58328349a65ac00a91b23ab5150917e8",
+        "upstream_batch_id": "stock_period_raw:week:abe43c420380",
+        "version": "stock-period-completion@1"
+      },
+      "observation_id": 7684826
+    }
+  },
+  "successor": {
+    "run_id": "51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3",
+    "phase": "events_complete",
+    "files": 2057,
+    "file_receipt_hash": "d3c852360c08a6709280a3671bd454768a4ab399bcc61940b255f593069fa291",
+    "selected_committed": {
+      "candidate": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/build/week/outputs/period=2026-10-23/data_0.parquet",
+      "freq": "week",
+      "period": "2026-10-23",
+      "rows": 5569,
+      "sha256": "f45ce69f515a38594719f08b835c217ebfa0b4137aaf0d431f43cf07aebe7e16",
+      "target": "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_adj_week/week_end=2026-10-23/part-000.parquet",
+      "target_preimage": [
+        16777244,
+        22183792,
+        445374,
+        1792503779505129588,
+        1792503779565190938
+      ],
+      "version": [
+        16777244,
+        22334111,
+        447367,
+        1792582237656923049,
+        1792582390859255088
+      ]
+    }
+  },
+  "selected_current_version": [
+    16777244,
+    22334111,
+    447367,
+    1792582237656923049,
+    1792582390859255088
+  ],
+  "selected_baseline": [
+    {
+      "freq": "week",
+      "period": "2026-10-23",
+      "rows": 5569,
+      "target": "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_adj_week/week_end=2026-10-23/part-000.parquet",
+      "version": [
+        16777244,
+        22334111,
+        447367,
+        1792582237656923049,
+        1792582390859255088
+      ]
+    }
+  ],
+  "database": {
+    "name": "goldenshare_dagster",
+    "transaction_read_only": "on"
+  },
+  "sensors": [
+    {
+      "name": "silver_stock_monthly_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "542a16a30c70cac87da3eebe00b13e9d5e8169b4",
+      "cursor": "{\"schema_version\":1,\"after\":7706594,\"decision\":\"silver_no_completion\",\"evaluated_at\":\"2026-10-28T01:20:22.359634+08:00\"}"
+    },
+    {
+      "name": "raw_stock_weekly_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "9d3d1192720996e7275499294777f1cbbe70a9d8",
+      "cursor": "{\"blocked_count\": 0, \"decision\": \"request_runs\", \"details\": {\"asset_family\": \"stock_period\", \"blocked_component\": \"none\", \"evidence\": {\"daily_intent_date\": \"2026-10-27\", \"pending_periods\": [\"2026-10-23\", \"2026-10-30\"]}, \"job_name\": \"raw_stk_period_bar_adj_week_update_job\", \"next_action\": \"等待源交付及文件检查。\", \"partition_set\": \"cn_a_stock_week_ends\", \"reason_code\": \"direct_source_request\", \"runtime_state\": {\"adjusted_delivery_revision\": 1785, \"direct_completed_through\": \"2026-10-16\", \"examined_through\": \"2026-10-09\", \"policy_version\": \"completed-week-v1\", \"source_policy\": \"stock-period-source-v2\", \"verified_through\": \"2026-10-09\"}, \"sensor_name\": \"raw_stock_weekly_update_job_sensor\", \"summary\": \"先补欠账，再更新当前周期。\"}, \"evaluated_at\": \"2026-10-27T23:59:37.321421+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 1, \"target_date\": \"2026-10-30\"}"
+    },
+    {
+      "name": "silver_stock_weekly_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "a4f419eb53658ca26e9f13de25154479110161d5",
+      "cursor": "{\"schema_version\":1,\"after\":7706595,\"decision\":\"silver_no_completion\",\"evaluated_at\":\"2026-10-28T01:20:26.386880+08:00\"}"
+    },
+    {
+      "name": "raw_stock_monthly_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "3d382af1e6277cf19764ba3e14d2e4c80a8aa981",
+      "cursor": "{\"blocked_count\": 0, \"decision\": \"request_runs\", \"details\": {\"asset_family\": \"stock_period\", \"blocked_component\": \"none\", \"evidence\": {\"daily_intent_date\": \"2026-10-27\", \"pending_periods\": [\"2026-10\"]}, \"job_name\": \"raw_stk_period_bar_adj_month_update_job\", \"next_action\": \"等待源交付及文件检查。\", \"partition_set\": \"cn_a_stock_months\", \"reason_code\": \"direct_source_request\", \"runtime_state\": {\"direct_completed_through\": \"2026-09\", \"examined_through\": \"2026-09\", \"policy_version\": \"completed-month-v1\", \"source_policy\": \"stock-period-source-v2\", \"verified_through\": \"2026-09\"}, \"sensor_name\": \"raw_stock_monthly_update_job_sensor\", \"summary\": \"先补欠账，再更新当前周期。\"}, \"evaluated_at\": \"2026-10-27T23:59:19.276536+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 1, \"target_date\": \"2026-10\"}"
+    }
+  ],
+  "active_runs": [],
+  "recent_runs": {
+    "raw_stk_period_bar_adj_week_update_job": [
+      {
+        "run_id": "319ec97d-cfd4-4ef7-bc4a-c98c7334464a",
+        "job": "raw_stk_period_bar_adj_week_update_job",
+        "status": "FAILURE",
+        "partition": "2026-10-30",
+        "created": "2026-10-27T11:30:49.680496",
+        "intent_config": {
+          "raw_tushare_stk_period_bar_adj_week": {
+            "intent": "daily",
+            "automatic_intent_date": "2026-10-27",
+            "request_id": null,
+            "stock_codes_count": 0
+          }
+        },
+        "partition_tag": "2026-10-30",
+        "parent_run_id": null,
+        "root_run_id": null
+      },
+      {
+        "run_id": "c636d955-90d9-4d26-b173-01f6bd047f2b",
+        "job": "raw_stk_period_bar_adj_week_update_job",
+        "status": "FAILURE",
+        "partition": "2026-10-30",
+        "created": "2026-10-26T11:30:48.814188",
+        "intent_config": {
+          "raw_tushare_stk_period_bar_adj_week": {
+            "intent": "daily",
+            "automatic_intent_date": "2026-10-26",
+            "request_id": null,
+            "stock_codes_count": 0
+          }
+        },
+        "partition_tag": "2026-10-30",
+        "parent_run_id": null,
+        "root_run_id": null
+      },
+      {
+        "run_id": "32268dc7-6c57-4455-a8e3-aad221a4e3b8",
+        "job": "raw_stk_period_bar_adj_week_update_job",
+        "status": "FAILURE",
+        "partition": "2026-10-23",
+        "created": "2026-10-23T14:47:18.683306",
+        "intent_config": {
+          "raw_tushare_stk_period_bar_adj_week": {
+            "intent": "daily",
+            "automatic_intent_date": "2026-10-23",
+            "request_id": null,
+            "stock_codes_count": 0
+          }
+        },
+        "partition_tag": "2026-10-23",
+        "parent_run_id": null,
+        "root_run_id": null
+      },
+      {
+        "run_id": "2cbd297b-b512-40a2-9ae0-0bf97242594e",
+        "job": "raw_stk_period_bar_adj_week_update_job",
+        "status": "FAILURE",
+        "partition": "2026-10-23",
+        "created": "2026-10-22T11:31:14.805607",
+        "intent_config": {
+          "raw_tushare_stk_period_bar_adj_week": {
+            "intent": "daily",
+            "automatic_intent_date": "2026-10-22",
+            "request_id": null,
+            "stock_codes_count": 0
+          }
+        },
+        "partition_tag": "2026-10-23",
+        "parent_run_id": null,
+        "root_run_id": null
+      },
+      {
+        "run_id": "c299d5ca-b734-443e-8435-89e6c535a8f9",
+        "job": "raw_stk_period_bar_adj_week_update_job",
+        "status": "FAILURE",
+        "partition": "2026-10-23",
+        "created": "2026-10-21T11:30:15.780750",
+        "intent_config": {
+          "raw_tushare_stk_period_bar_adj_week": {
+            "intent": "daily",
+            "automatic_intent_date": "2026-10-21",
+            "request_id": null,
+            "stock_codes_count": 0
+          }
+        },
+        "partition_tag": "2026-10-23",
+        "parent_run_id": null,
+        "root_run_id": null
+      },
+      {
+        "run_id": "30e88c98-17a5-4730-b8c5-7479fc5cd084",
+        "job": "raw_stk_period_bar_adj_week_update_job",
+        "status": "SUCCESS",
+        "partition": "2026-10-23",
+        "created": "2026-10-20T13:34:07.173012",
+        "intent_config": {
+          "raw_tushare_stk_period_bar_adj_week": {
+            "intent": "daily",
+            "automatic_intent_date": "2026-10-20",
+            "request_id": null,
+            "stock_codes_count": 0
+          }
+        },
+        "partition_tag": "2026-10-23",
+        "parent_run_id": "a9752a77-78f5-41e5-9a45-9c5cb75a6da9",
+        "root_run_id": "a049a1be-c20b-412d-8ad0-74494565342b"
+      }
+    ],
+    "raw_stk_period_bar_adj_month_update_job": [
+      {
+        "run_id": "8c9e09c4-9a82-4042-b696-0ffc3a17999d",
+        "job": "raw_stk_period_bar_adj_month_update_job",
+        "status": "FAILURE",
+        "partition": "2026-10",
+        "created": "2026-10-27T11:30:14.195314",
+        "intent_config": {
+          "raw_tushare_stk_period_bar_adj_month": {
+            "intent": "daily",
+            "automatic_intent_date": "2026-10-27",
+            "request_id": null,
+            "stock_codes_count": 0
+          }
+        },
+        "partition_tag": "2026-10",
+        "parent_run_id": null,
+        "root_run_id": null
+      },
+      {
+        "run_id": "13337ec5-957c-4b32-8379-25bb711f761c",
+        "job": "raw_stk_period_bar_adj_month_update_job",
+        "status": "FAILURE",
+        "partition": "2026-10",
+        "created": "2026-10-26T11:30:28.421545",
+        "intent_config": {
+          "raw_tushare_stk_period_bar_adj_month": {
+            "intent": "daily",
+            "automatic_intent_date": "2026-10-26",
+            "request_id": null,
+            "stock_codes_count": 0
+          }
+        },
+        "partition_tag": "2026-10",
+        "parent_run_id": null,
+        "root_run_id": null
+      },
+      {
+        "run_id": "7bc366c6-07d0-49e4-9541-292dd1d985b0",
+        "job": "raw_stk_period_bar_adj_month_update_job",
+        "status": "FAILURE",
+        "partition": "2026-10",
+        "created": "2026-10-23T14:42:08.358271",
+        "intent_config": {
+          "raw_tushare_stk_period_bar_adj_month": {
+            "intent": "daily",
+            "automatic_intent_date": "2026-10-23",
+            "request_id": null,
+            "stock_codes_count": 0
+          }
+        },
+        "partition_tag": "2026-10",
+        "parent_run_id": null,
+        "root_run_id": null
+      },
+      {
+        "run_id": "42de3cbc-e0de-4096-9274-5e76bff3b67c",
+        "job": "raw_stk_period_bar_adj_month_update_job",
+        "status": "FAILURE",
+        "partition": "2026-10",
+        "created": "2026-10-22T11:30:10.123129",
+        "intent_config": {
+          "raw_tushare_stk_period_bar_adj_month": {
+            "intent": "daily",
+            "automatic_intent_date": "2026-10-22",
+            "request_id": null,
+            "stock_codes_count": 0
+          }
+        },
+        "partition_tag": "2026-10",
+        "parent_run_id": null,
+        "root_run_id": null
+      },
+      {
+        "run_id": "54795ebd-8e39-438a-921f-990e8800a9e4",
+        "job": "raw_stk_period_bar_adj_month_update_job",
+        "status": "FAILURE",
+        "partition": "2026-10",
+        "created": "2026-10-21T11:31:55.989412",
+        "intent_config": {
+          "raw_tushare_stk_period_bar_adj_month": {
+            "intent": "daily",
+            "automatic_intent_date": "2026-10-21",
+            "request_id": null,
+            "stock_codes_count": 0
+          }
+        },
+        "partition_tag": "2026-10",
+        "parent_run_id": null,
+        "root_run_id": null
+      },
+      {
+        "run_id": "1f4a58a9-a1ca-45ad-837f-ebbce815ce05",
+        "job": "raw_stk_period_bar_adj_month_update_job",
+        "status": "SUCCESS",
+        "partition": "2026-10",
+        "created": "2026-10-20T13:33:59.462758",
+        "intent_config": {
+          "raw_tushare_stk_period_bar_adj_month": {
+            "intent": "daily",
+            "automatic_intent_date": "2026-10-20",
+            "request_id": null,
+            "stock_codes_count": 0
+          }
+        },
+        "partition_tag": "2026-10",
+        "parent_run_id": "a9b845e7-96d1-4d38-b6eb-77d2aa4b2af2",
+        "root_run_id": "a9b845e7-96d1-4d38-b6eb-77d2aa4b2af2"
+      }
+    ],
+    "silver_stock_weekly_update_job": [
+      {
+        "run_id": "e48e6c6e-b97b-4031-b4bc-651e97538c17",
+        "job": "silver_stock_weekly_update_job",
+        "status": "SUCCESS",
+        "partition": "2026-10-23",
+        "created": "2026-10-21T12:09:34.681571",
+        "intent_config": {
+          "silver_stock_weekly": {
+            "intent": "update"
+          }
+        },
+        "partition_tag": "2026-10-23",
+        "parent_run_id": null,
+        "root_run_id": null
+      },
+      {
+        "run_id": "671c1373-0f95-4423-808d-c57e1a90d578",
+        "job": "silver_stock_weekly_update_job",
+        "status": "SUCCESS",
+        "partition": "2026-10-23",
+        "created": "2026-10-21T12:07:30.753457",
+        "intent_config": {
+          "silver_stock_weekly": {
+            "intent": "update"
+          }
+        },
+        "partition_tag": "2026-10-23",
+        "parent_run_id": null,
+        "root_run_id": null
+      },
+      {
+        "run_id": "497273cb-975f-45ac-b65b-b8ee61beb749",
+        "job": "silver_stock_weekly_update_job",
+        "status": "SUCCESS",
+        "partition": "2026-10-23",
+        "created": "2026-10-21T11:45:02.097881",
+        "intent_config": {
+          "silver_stock_weekly": {
+            "intent": "update"
+          }
+        },
+        "partition_tag": "2026-10-23",
+        "parent_run_id": null,
+        "root_run_id": null
+      },
+      {
+        "run_id": "7dd919ea-9ca3-4da8-bbc0-8439f071322a",
+        "job": "silver_stock_weekly_update_job",
+        "status": "SUCCESS",
+        "partition": "2026-10-23",
+        "created": "2026-10-19T11:45:31.182231",
+        "intent_config": {
+          "silver_stock_weekly": {
+            "intent": "update"
+          }
+        },
+        "partition_tag": "2026-10-23",
+        "parent_run_id": null,
+        "root_run_id": null
+      }
+    ],
+    "silver_stock_monthly_update_job": [
+      {
+        "run_id": "48e91afb-b6c9-4565-ae09-38630f69749e",
+        "job": "silver_stock_monthly_update_job",
+        "status": "SUCCESS",
+        "partition": "2026-10",
+        "created": "2026-10-22T11:31:50.348330",
+        "intent_config": {
+          "silver_stock_monthly": {
+            "intent": "update"
+          }
+        },
+        "partition_tag": "2026-10",
+        "parent_run_id": null,
+        "root_run_id": null
+      },
+      {
+        "run_id": "76d7dde5-8b93-4f91-9c61-c8c8a99b9148",
+        "job": "silver_stock_monthly_update_job",
+        "status": "SUCCESS",
+        "partition": "2026-10",
+        "created": "2026-10-20T13:47:14.200150",
+        "intent_config": {
+          "silver_stock_monthly": {
+            "intent": "update"
+          }
+        },
+        "partition_tag": "2026-10",
+        "parent_run_id": null,
+        "root_run_id": null
+      },
+      {
+        "run_id": "8500bc78-46e7-4be3-a288-e2df2b18712b",
+        "job": "silver_stock_monthly_update_job",
+        "status": "SUCCESS",
+        "partition": "2026-10",
+        "created": "2026-10-19T11:48:21.653333",
+        "intent_config": {
+          "silver_stock_monthly": {
+            "intent": "update"
+          }
+        },
+        "partition_tag": "2026-10",
+        "parent_run_id": null,
+        "root_run_id": null
+      },
+      {
+        "run_id": "8cceab72-d285-4e68-b27a-fa7a1bb5f316",
+        "job": "silver_stock_monthly_update_job",
+        "status": "SUCCESS",
+        "partition": "2026-10",
+        "created": "2026-10-19T11:44:19.445496",
+        "intent_config": {
+          "silver_stock_monthly": {
+            "intent": "update"
+          }
+        },
+        "partition_tag": "2026-10",
+        "parent_run_id": null,
+        "root_run_id": null
+      }
+    ]
+  },
+  "original_27_week_run": {
+    "run_id": "319ec97d-cfd4-4ef7-bc4a-c98c7334464a",
+    "job": "raw_stk_period_bar_adj_week_update_job",
+    "status": "FAILURE",
+    "partition": "2026-10-30",
+    "created": "2026-10-27T11:30:49.680496",
+    "intent_config": {
+      "raw_tushare_stk_period_bar_adj_week": {
+        "intent": "daily",
+        "automatic_intent_date": "2026-10-27",
+        "request_id": null,
+        "stock_codes_count": 0
+      }
+    },
+    "partition_tag": "2026-10-30",
+    "parent_run_id": null,
+    "root_run_id": null
+  },
+  "total_control_bytes_read": 5708455
+}

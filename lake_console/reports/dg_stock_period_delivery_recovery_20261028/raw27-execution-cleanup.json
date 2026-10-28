@@ -1,0 +1,33 @@
+{
+  "at": "2026-10-28T10:35:45.945008+08:00",
+  "removed_readonly_scripts": [
+    {
+      "removed": "/private/tmp/dg_period_27_preflight_20261028.py",
+      "sha256": "4cd36036ee34ae1408cee6e8409dbe52a6ef4f6e90db323e10b58e674f193b20",
+      "evidence": "dg_period_27_preflight_20261028.py.txt",
+      "absent": true
+    },
+    {
+      "removed": "/private/tmp/dg_period_27_failure_20261028.py",
+      "sha256": "e52b00b97782e1358d45eb13602fcf49bc5acf080b758989357a84e9e3935e69",
+      "evidence": "dg_period_27_failure_20261028.py.txt",
+      "absent": true
+    },
+    {
+      "removed": "/private/tmp/dg_period_27_staging_stat_20261028.py",
+      "sha256": "04aeba7c51cc253e77ddc34f921e05b3cc8faf7aba3fb99552be37e85db33d8a",
+      "evidence": "dg_period_27_staging_stat_20261028.py.txt",
+      "absent": true
+    },
+    {
+      "removed": "/private/tmp/dg_period_27_stop_metadata_20261028.py",
+      "sha256": "98068b621d2749d8d2b54cb6a9e22fed58902d479acb364df284e7dd43f16724",
+      "evidence": "dg_period_27_stop_metadata_20261028.py.txt",
+      "absent": true
+    }
+  ],
+  "run_staging_preserved": true,
+  "formal_data_deleted": false,
+  "active_dg_log_preserved": "/private/tmp/dg-period-dg-start-20261028.log",
+  "dg_left_running": true
+}

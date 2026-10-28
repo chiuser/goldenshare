@@ -1,0 +1,61 @@
+{
+  "started_at": "2026-10-28T09:32:12.475382+08:00",
+  "run_id": "db67897faf10513982324f86e1793cec58328349a65ac00a91b23ab5150917e8",
+  "expected_manifest_digest": "68355a5b8feb98b0df087361a973443c8483fa2648b7a0fd957f00fe2ddc5482",
+  "expected_daily_digest": "d764c6dd1e7d7052857eb91f759ab7f833add47c6f265319e61d732e8edd3f9a",
+  "expected_file_cp": {
+    "version": [
+      16777244,
+      22183792,
+      445374,
+      1792503779505129588,
+      1792503779565190938
+    ],
+    "sha256": "809d0295769f980840793aee0c2a0ce24a3b0c9f40a834b787c5131ffeb83b3d"
+  },
+  "current_target": "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_adj_week/week_end=2026-10-23/part-000.parquet",
+  "current_target_version": [
+    16777244,
+    22334111,
+    447367,
+    1792582237656923049,
+    1792582390859255088
+  ],
+  "unchanged_control_versions": {
+    "/Volumes/datasource/data_lake_staging/stock_period/baseline.json": [
+      16777244,
+      22344573,
+      3878591,
+      1792582395590316410,
+      1792582395592357639
+    ],
+    "/Volumes/datasource/data_lake_staging/stock_period/runs/db67897faf10513982324f86e1793cec58328349a65ac00a91b23ab5150917e8/complete.json": [
+      16777244,
+      22183801,
+      724,
+      1792503779573794483,
+      1792503779573885319
+    ],
+    "/Volumes/datasource/data_lake_staging/stock_period/runs/db67897faf10513982324f86e1793cec58328349a65ac00a91b23ab5150917e8/events/completion/week.json": [
+      16777244,
+      22183809,
+      338,
+      1792503779833081361,
+      1792503779833517082
+    ]
+  },
+  "baseline_content_sha256": "9940463ded80828bd9d235131d72b7ae1bf5d2080300a2b18ff17b74b5fe24df",
+  "source_sha256": {
+    "src/orchestrator/defs/bootstrap/stock_period_history.py": "e5e26f515ce27d1c4885db6227a8d6b1427ca4dfa55151122383748d7e5497bb",
+    "src/orchestrator/defs/io/stock_period_raw.py": "e62071fede4590d5b0beb81065f596e2d5fae6da7bca049fd267e23c2fac97e5",
+    "src/orchestrator/defs/stock_period_update.py": "9ed9921eb2697604aab367c2a9df6fef30b1c4e2dc054d2df214339511a972f5",
+    "src/orchestrator/defs/ops/stock_weekly_bootstrap_checks.py": "dfdcd630f5d7edd9eceab5229c53838b924381e0ae4c09668cd63be8595bf952",
+    "src/orchestrator/defs/run_contracts/stock_period_silver.py": "bec17a3d87f18eee19640c68eebf19925ed1659b1e16213df4c9fccf7797b953",
+    "src/orchestrator/defs/stock_period_checks.py": "5b7a9459c72e7e3731638870424eae691325f02a83ccb65765b05ab143089e53",
+    "src/orchestrator/defs/checks/stock_period_silver_checks.py": "12a734df362ab2d5cb62885a89a8f0a03c5a394980e404ecae94b2732f5b6392",
+    "src/orchestrator/defs/asset_guards/stock_period_silver_readiness.py": "f0ef98edfdf1065e8b66077f944cefa0529c905b93c4dce21f3450734c0b433d",
+    "src/orchestrator/defs/bootstrap/stock_period_silver_cli.py": "f03f389d726e0d1817d6921f5f7f30216811f3469cc51abf5cb43887756ef77c",
+    "src/orchestrator/defs/stock_period_silver.py": "50b27910313068f7e380e3ce7099ff1357ab13967a5a326ddc392e60e696c251"
+  },
+  "original_failed_run": "319ec97d-cfd4-4ef7-bc4a-c98c7334464a"
+}

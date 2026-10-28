@@ -1,0 +1,71 @@
+{
+  "scope": "exact files created for this formal preflight and path tests; needed evidence copied to this report folder",
+  "files": [
+    {
+      "path": "/private/tmp/dg_period_formal_preflight_20261028.py",
+      "existed": true,
+      "exists_after": false
+    },
+    {
+      "path": "/private/tmp/dg_period_evidence_readonly_20261028.py",
+      "existed": true,
+      "exists_after": false
+    },
+    {
+      "path": "/private/tmp/dg_period_verify_old20_20261028.py",
+      "existed": true,
+      "exists_after": false
+    },
+    {
+      "path": "/private/tmp/dg_period_reference_scope_20261028.py",
+      "existed": true,
+      "exists_after": false
+    },
+    {
+      "path": "/private/tmp/dg-period-formal-preflight-query-20261028.json",
+      "existed": true,
+      "exists_after": false
+    },
+    {
+      "path": "/private/tmp/dg-period-formal-preflight-api-20261028.json",
+      "existed": false,
+      "exists_after": false
+    },
+    {
+      "path": "/private/tmp/dg-period-formal-preflight-20261028.json",
+      "existed": true,
+      "exists_after": false
+    },
+    {
+      "path": "/private/tmp/dg-period-event-evidence-20261028.json",
+      "existed": true,
+      "exists_after": false
+    },
+    {
+      "path": "/private/tmp/dg-period-receipt-paths-results-20261028.json",
+      "existed": true,
+      "exists_after": false
+    },
+    {
+      "path": "/private/tmp/dg-period-receipt-paths-red-20261028.xml",
+      "existed": true,
+      "exists_after": false
+    },
+    {
+      "path": "/private/tmp/dg-period-receipt-paths-green-20261028.xml",
+      "existed": true,
+      "exists_after": false
+    },
+    {
+      "path": "/private/tmp/dg-period-receipt-paths-regression-20261028.xml",
+      "existed": true,
+      "exists_after": false
+    }
+  ],
+  "test_query_directories_removed": [
+    "/private/tmp/dg-period-receipt-paths-20261028",
+    "/private/tmp/dg-period-reference-count-20261028"
+  ],
+  "formal_data_and_staging_results_deleted": false,
+  "dagster_control_run_and_receipts_preserved": true
+}

@@ -1,0 +1,28 @@
+from pathlib import Path
+from datetime import datetime
+from contextlib import closing
+import os,json
+import psycopg2
+from dagster._serdes import deserialize_value
+from dagster._core.events.log import EventLogEntry
+from dagster._core.scheduler.instigation import InstigatorState
+from orchestrator.local_startup import configuration
+R=Path('/Users/congming/github/goldenshare/lake_console/reports/dg_stock_period_delivery_recovery_20261028')
+rid='d7ae3495-bb23-4c33-a4be-d78d2aba2742'
+_,deps=configuration(os.environ,Path.home())
+out={'at':datetime.now().astimezone().isoformat(),'run_id':rid,'progress':[]}
+with closing(psycopg2.connect(deps[0].connection['url'],connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn,conn.cursor() as c:
+ c.execute('SELECT status,start_time,end_time FROM runs WHERE run_id=%s',(rid,));out['run_status_start_end']=c.fetchone()
+ c.execute("SELECT id,event FROM event_logs WHERE run_id=%s AND dagster_event_type IS NULL AND event LIKE ANY(%s) ORDER BY id DESC LIMIT 12",(rid,['%reuse_old_ranges%','%partition_copy%','%process_memory%']))
+ for eid,event in c.fetchall():
+  x=deserialize_value(event,EventLogEntry);out['progress'].append({'event_id':eid,'timestamp':x.timestamp,'message':x.message})
+ names=['raw_stk_period_bar_adj_week_update_job','raw_stk_period_bar_adj_month_update_job','silver_stock_weekly_update_job','silver_stock_monthly_update_job']
+ c.execute("SELECT run_id,pipeline_name,status FROM runs WHERE pipeline_name=ANY(%s) AND status IN ('QUEUED','NOT_STARTED','STARTING','STARTED','CANCELING')",(names,));out['active_chain_runs']=c.fetchall()
+ sensors=['raw_stock_weekly_update_job_sensor','raw_stock_monthly_update_job_sensor','silver_stock_weekly_update_job_sensor','silver_stock_monthly_update_job_sensor']
+ c.execute("SELECT status,job_body FROM jobs WHERE job_type='SENSOR' AND job_body LIKE ANY(%s)",(['%'+n+'%' for n in sensors],));out['sensors']={}
+ for status,body in c.fetchall():
+  state=deserialize_value(body,InstigatorState)
+  if state.name in sensors:out['sensors'][state.name]={'status':status,'cursor':state.instigator_data.cursor}
+(R/'raw27-week-stop-metadata.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({k:v for k,v in out.items() if k!='sensors'},ensure_ascii=False,indent=2))
+print(json.dumps({'sensor_states':{k:v['status'] for k,v in out['sensors'].items()}},ensure_ascii=False))

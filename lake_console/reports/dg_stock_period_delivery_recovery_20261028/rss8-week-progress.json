@@ -1,0 +1,65 @@
+{
+  "at": "2026-10-28T11:28:30.706998+08:00",
+  "run_id": "9edc90f7-1822-4abb-af85-7d1cb1a71034",
+  "recent_progress": [
+    {
+      "id": 7748601,
+      "timestamp": 1793157768.390343,
+      "message": {
+        "stage": "process_memory",
+        "status": "finished",
+        "frozen_rss_limit_bytes": 4294967296,
+        "rss_limit_bytes": 8589934592,
+        "last_observed_rss_bytes": 2341748736,
+        "observed_peak_rss_bytes": 6214270976
+      }
+    },
+    {
+      "id": 7748600,
+      "timestamp": 1793157768.1441832,
+      "message": {
+        "stage": "file_committed",
+        "freq": "month",
+        "completed": 416,
+        "total": 416
+      }
+    },
+    {
+      "id": 7748599,
+      "timestamp": 1793157768.137075,
+      "message": {
+        "stage": "file_committed",
+        "freq": "month",
+        "completed": 415,
+        "total": 416
+      }
+    },
+    {
+      "id": 7748598,
+      "timestamp": 1793157768.126532,
+      "message": {
+        "stage": "file_committed",
+        "freq": "month",
+        "completed": 414,
+        "total": 416
+      }
+    }
+  ],
+  "status_start_end": [
+    "SUCCESS",
+    1793157634.725941,
+    1793158014.583409
+  ],
+  "latest_memory_observation": {
+    "stage": "process_memory",
+    "status": "finished",
+    "frozen_rss_limit_bytes": 4294967296,
+    "rss_limit_bytes": 8589934592,
+    "last_observed_rss_bytes": 2341748736,
+    "observed_peak_rss_bytes": 6214270976
+  },
+  "scoped_raw_events_since_file_completion": {
+    "ASSET_MATERIALIZATION": 2170,
+    "ASSET_OBSERVATION": 2
+  }
+}

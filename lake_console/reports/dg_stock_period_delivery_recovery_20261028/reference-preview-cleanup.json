@@ -1,0 +1,10 @@
+{
+  "at": "2026-10-28T10:10:47.131948+08:00",
+  "removed_script": "/private/tmp/dg_period_reference_preview_20261028.py",
+  "script_sha256": "74b79ffeb7e48c5da0aad9573b0085266cb70e7a041fe9642a3c874dba137001",
+  "script_evidence": "reference-preview.py.txt",
+  "script_absent": true,
+  "work_directory": "/private/tmp/dg-period-reference-preview-20261028",
+  "work_absent": true,
+  "formal_data_or_staging_deleted": false
+}

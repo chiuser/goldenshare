@@ -18,6 +18,7 @@ from orchestrator.defs.io.stock_period_raw import (
 )
 from orchestrator.defs.run_contracts.stock_period import (
     DEFAULT_POLICY,
+    STOCK_PERIOD_RUNTIME_RSS_GIB_TAG,
     VERSION,
     digest,
     execution_id,
@@ -333,6 +334,7 @@ def _execute_daily_locked(
     aliases,
     transport=None,
     policy=DEFAULT_POLICY,
+    runtime_rss_bytes=None,
     cancel=lambda: False,
     progress=lambda _: None,
     events=None,
@@ -452,6 +454,7 @@ def _execute_daily_locked(
             confirmed_retired=work["confirmed_retired"],
             transport=transport,
             policy=work_policy,
+            runtime_rss_bytes=runtime_rss_bytes,
             cancel=cancel,
             progress=progress,
             confirm_delivery=confirm_delivery,
@@ -1695,6 +1698,30 @@ def _current_period_anchor(instance, root, staging, freq, period):
     return item, completion
 
 
+def _runtime_rss_bytes(context, config, freq):
+    """An explicit retry resource choice never changes the frozen source policy."""
+    run = context.run
+    value = run.tags.get(STOCK_PERIOD_RUNTIME_RSS_GIB_TAG)
+    if value is None:
+        return None
+    if (
+        not isinstance(value, str)
+        or not value.isascii()
+        or not value.isdecimal()
+        or value.startswith("0")
+    ):
+        raise ValueError("period_runtime_rss_tag_invalid")
+    if (
+        config.intent != "daily"
+        or not config.automatic_intent_date
+        or not run.parent_run_id
+        or freq not in ("week", "month")
+        or run.job_name != f"raw_stk_period_bar_adj_{freq}_update_job"
+    ):
+        raise ValueError("period_runtime_rss_run_invalid")
+    return int(value) * 1024**3
+
+
 def deliver_asset(context, config, lake_root, freq):
     import dagster as dg
 
@@ -1712,6 +1739,7 @@ def deliver_asset(context, config, lake_root, freq):
     today = _daily_intent_date(context, config) if config.intent == "daily" else None
     if today is not None and period_for(today, freq) != context.partition_key:
         raise ValueError("period_daily_partition_mismatch")
+    runtime_rss_bytes = _runtime_rss_bytes(context, config, freq)
     lake_root.ensure_available_for_run()
     history_intent = {
         "version": VERSION, "mode": "history", "frequencies": ["week", "month"],
@@ -1779,6 +1807,7 @@ def deliver_asset(context, config, lake_root, freq):
             freq=freq,
             listed=listed,
             aliases=aliases,
+            runtime_rss_bytes=runtime_rss_bytes,
             cancel=cancel,
             progress=progress,
             events=events,

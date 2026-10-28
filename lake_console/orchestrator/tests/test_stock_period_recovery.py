@@ -497,7 +497,8 @@ def test_cancellation_observation_is_throttled_without_changing_local_checks(
     monkeypatch.setattr(history, "run_period", run)
     context = NS(
         instance=NS(get_run_by_id=lambda rid: observed.append(rid) or None),
-        run=NS(run_id="isolated-run"),
+        # DagsterRun.tags is an existing SDK field, empty for this untagged run.
+        run=NS(run_id="isolated-run", tags={}),
         partition_key="2026-10-16",
         log=NS(info=lambda _: None),
     )

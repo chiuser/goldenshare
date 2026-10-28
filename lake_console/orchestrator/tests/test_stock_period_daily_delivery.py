@@ -189,6 +189,8 @@ def test_historical_result_is_excluded_from_native_anchor(tmp_path, monkeypatch)
     )
     context = NS(
         partition_key="2026-10-23",
+        # Real AssetExecutionContext exposes the current DagsterRun and its tags.
+        run=NS(tags={}),
         instance=object(),
         log=NS(info=lambda _: None),
     )

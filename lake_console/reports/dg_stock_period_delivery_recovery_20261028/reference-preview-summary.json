@@ -1,0 +1,56 @@
+{
+  "counts": {
+    "factor_changed_codes": 79,
+    "new_listed_codes": 2,
+    "history_refresh_codes": 81,
+    "removed_unconfirmed_candidates": 1,
+    "confirmed_retired_codes": 1,
+    "superseded_codes": 0
+  },
+  "set_sha256": {
+    "factor_changed_codes": "12affc2f68bd62c4cd233ef7f04e0db5a77fcf4cdc6fa0ab967542bab1b85e68",
+    "new_listed_codes": "38d5d29fe83d7930e61f67d717fd2c2cf13bafa6f916c01db7fe07e9816dd772",
+    "history_refresh_codes": "c46e59a617e33d6029379a684869c30820eecb1e2752205ff88ce457823e6612",
+    "removed_unconfirmed_candidates": "f66817ebafe38d008b492761d9040a15f0bffa50614914b224a43715916e3367",
+    "confirmed_retired_codes": "f66817ebafe38d008b492761d9040a15f0bffa50614914b224a43715916e3367",
+    "superseded_codes": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+  },
+  "input_full_file_size_basis_per_logical_projection": 1513059,
+  "base_references_and_eight_factor_projection_bytes": 1058375,
+  "conditional_bounded_retirement_file_size_basis": 454684,
+  "formal_writes": 0,
+  "source_api_requests": 0,
+  "historical_raw_silver_content_reads": 0,
+  "metadata_inventory_summary": {
+    "week": {
+      "earliest_known_period": "1992-03-27",
+      "latest_known_period": "2026-10-30",
+      "registered_files": 1753,
+      "registered_bytes": 297998172,
+      "registered_rows": 3622509,
+      "silver_eligible_registered_files": 657,
+      "silver_eligible_registered_raw_bytes": 207566803,
+      "silver_eligible_registered_raw_rows": 2538554,
+      "max_registered_file_bytes": 463601,
+      "max_registered_file_rows": 5569
+    },
+    "month": {
+      "earliest_known_period": "1992-03",
+      "latest_known_period": "2026-10",
+      "registered_files": 416,
+      "registered_bytes": 72596795,
+      "registered_rows": 868387,
+      "silver_eligible_registered_files": 154,
+      "silver_eligible_registered_raw_bytes": 50374753,
+      "silver_eligible_registered_raw_rows": 606570,
+      "max_registered_file_bytes": 482575,
+      "max_registered_file_rows": 7250
+    }
+  },
+  "work_directory_removed": true,
+  "preview_script_sha256": "74b79ffeb7e48c5da0aad9573b0085266cb70e7a041fe9642a3c874dba137001",
+  "notes": [
+    "file size basis is conservative accounting, not measured column bytes, memory or physical device IO",
+    "source and historical jobs not executed"
+  ]
+}

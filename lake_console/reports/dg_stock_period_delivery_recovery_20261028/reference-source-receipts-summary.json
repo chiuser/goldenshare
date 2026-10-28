@@ -1,0 +1,3330 @@
+{
+  "scope": "exact 51c source unit complete control JSON only; no payload/CSV/Parquet reads or stats",
+  "source_directory": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source",
+  "unit_count": 37,
+  "control_json_bytes_this_pass": 71120,
+  "control_json_passes": 2,
+  "control_json_total_read_bytes_including_first_summary_pass": 142240,
+  "summary": {
+    "week": {
+      "history_units": 18,
+      "history_source_rows": 12048,
+      "max_history_source_rows": 1650,
+      "history_pages": 18,
+      "history_json_bytes": 1754786,
+      "history_csv_bytes": 1643042,
+      "all_unit_count": 19,
+      "all_json_csv_bytes": 4981729
+    },
+    "month": {
+      "history_units": 18,
+      "history_source_rows": 2874,
+      "max_history_source_rows": 395,
+      "history_pages": 18,
+      "history_json_bytes": 430611,
+      "history_csv_bytes": 401433,
+      "all_unit_count": 18,
+      "all_json_csv_bytes": 832044
+    }
+  },
+  "notes": [
+    "The first read-only pass printed identity and rows/pages/bytes without retaining full metadata. This explicit evidence request re-read these same 37 small control JSONs once to retain page sha and exact control digests.",
+    "18 historical stocks are a source-shape reference, not the 81-stock scope or a pagination upper bound.",
+    "No source content hash was recomputed; raw_sha256/csv_sha256 are the values in saved receipts."
+  ],
+  "units": [
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/03e6da88a718d69e452e9d44b7d73e7c8ff3b731a2e3806f8b5f937fe218177d/complete.json",
+      "control_bytes": 1922,
+      "control_sha256": "3b1d77958d663022c61ced5d831e84b2ee21081585e537c36a65ff3f1082f61c",
+      "receipt_hash": "1717211e96bd4bb612d42a3e55a553add74ced2fc74b82b813a488d29b8cd4de",
+      "identity": {
+        "code": "688231.SH",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 218,
+      "rows": 218,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 32812,
+      "csv_bytes": 30666,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 32812,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/03e6da88a718d69e452e9d44b7d73e7c8ff3b731a2e3806f8b5f937fe218177d/0.csv",
+          "raw_version": [
+            16777244,
+            22328371,
+            32812,
+            1792582231476453138,
+            1792582231485389311
+          ],
+          "csv_version": [
+            16777244,
+            22328372,
+            30666,
+            1792582231486963202,
+            1792582231487303372
+          ],
+          "raw_sha256": "df30018441b306c4b3ac6782e1be5de0104c28bff4ee0bc36b3e1d3a77829dc7",
+          "csv_sha256": "458819accb2415fb01abc8ebb8a66b6ef2d33a7a96e0851b178c1bdb5aa61356",
+          "source_rows": 218,
+          "kept_rows": 218,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/050f6168e09f547613d1ed943f4ccd25e881cad446988bc01f429cfd1a8cd2cc/complete.json",
+      "control_bytes": 1924,
+      "control_sha256": "2719c447744cf4e314afaea60ebf931d9b5b3f2d4d6b62ffeaf6f2cf776392a8",
+      "receipt_hash": "f6700d2a033e51c940e3d3c787b053df9872caa600f16b49af7df93077410a97",
+      "identity": {
+        "code": "000425.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 364,
+      "rows": 364,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 54256,
+      "csv_bytes": 50796,
+      "minimum_asof": "20250910",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 54256,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/050f6168e09f547613d1ed943f4ccd25e881cad446988bc01f429cfd1a8cd2cc/0.csv",
+          "raw_version": [
+            16777244,
+            22340444,
+            54256,
+            1792582350240622332,
+            1792582350251688360
+          ],
+          "csv_version": [
+            16777244,
+            22340445,
+            50796,
+            1792582350252954706,
+            1792582350253820172
+          ],
+          "raw_sha256": "7972aae50d63e1e4558785d87c6a40fb48c15caed6421d9d19b5197e5465ac11",
+          "csv_sha256": "1b0bb9aecc120f5a80470634a4636ff4d3b6691a7975b2ffb5511cf861ec1d73",
+          "source_rows": 364,
+          "kept_rows": 364,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/105c638592c8a7fa2e3f54d047fa35c46cff9e334fdf7b8d82e81c8c85c8917e/complete.json",
+      "control_bytes": 1920,
+      "control_sha256": "0b30d3f57214fafd361169ee3c9677e6d1b7ad89ea0eec7a8d7a2697ee7ca785",
+      "receipt_hash": "b0f17dc4e1d86b75f380bc731ad794dc14f8d0198ff5c84bc13b889872e09043",
+      "identity": {
+        "code": "300918.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 71,
+      "rows": 71,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 10897,
+      "csv_bytes": 10074,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 10897,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/105c638592c8a7fa2e3f54d047fa35c46cff9e334fdf7b8d82e81c8c85c8917e/0.csv",
+          "raw_version": [
+            16777244,
+            22340486,
+            10897,
+            1792582353187263873,
+            1792582353190033817
+          ],
+          "csv_version": [
+            16777244,
+            22340487,
+            10074,
+            1792582353190907993,
+            1792582353191065744
+          ],
+          "raw_sha256": "bb4dec5d9b9dae6f33f1095ca6eca021b94dc016a73a268b17766de57b04a40f",
+          "csv_sha256": "6604fdc03b24c3d29b00230626bdcba00ca168744cbfd610018a181a91c7455f",
+          "source_rows": 71,
+          "kept_rows": 71,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/216579bfdf98ae3da9707f67171e6e31bc3503e336da3594e098c6083092728d/complete.json",
+      "control_bytes": 1920,
+      "control_sha256": "1db7a6071a236775df6e79670ac7a7f09bbe6f29813f741aefb985dd6defdb70",
+      "receipt_hash": "3e158c2e881d8a4daa46126bd0a76a96d4892adb78d8ed9e1ef6b6ea09ff9665",
+      "identity": {
+        "code": "002960.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 88,
+      "rows": 88,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 13533,
+      "csv_bytes": 12557,
+      "minimum_asof": "20250910",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 13533,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/216579bfdf98ae3da9707f67171e6e31bc3503e336da3594e098c6083092728d/0.csv",
+          "raw_version": [
+            16777244,
+            22340465,
+            13533,
+            1792582351686825186,
+            1792582351696514033
+          ],
+          "csv_version": [
+            16777244,
+            22340466,
+            12557,
+            1792582351699291852,
+            1792582351700226070
+          ],
+          "raw_sha256": "0d0bbbd0c365e3bf8a54242b9fc90dd33bf192ca970596e9724765beb793702e",
+          "csv_sha256": "12a87f44dfb05a7a496e2758812627a1430cf82e2a078d81ddbf76e7db012deb",
+          "source_rows": 88,
+          "kept_rows": 88,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/2205b5c09464df29801b96f8cda8344a04e2ad5659858c8f9020e660e5362ed8/complete.json",
+      "control_bytes": 1929,
+      "control_sha256": "693b7562d71536ab1831468472c7f174acf783172ce639ed7c0a057da7f9b826",
+      "receipt_hash": "1c8620b821bebe221cb8366ebae9fdf62c1fa5f439a1c38870204d160952610d",
+      "identity": {
+        "code": "000425.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 1513,
+      "rows": 1513,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 220207,
+      "csv_bytes": 206406,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 220207,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/2205b5c09464df29801b96f8cda8344a04e2ad5659858c8f9020e660e5362ed8/0.csv",
+          "raw_version": [
+            16777244,
+            22328266,
+            220207,
+            1792582222854994995,
+            1792582222897209543
+          ],
+          "csv_version": [
+            16777244,
+            22328267,
+            206406,
+            1792582222900648703,
+            1792582222901296001
+          ],
+          "raw_sha256": "8b9e7b4432f2c2bcef0d6574eb8f7d71d2377b33beda9ad9e803af4f0edb1196",
+          "csv_sha256": "305137052a62a6284d6c1fa77beb1cd287816d47c9030feb12a5bec099c129fa",
+          "source_rows": 1513,
+          "kept_rows": 1513,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/231cd133c26bb39e322d54f46190318500ba15c24e90b5064ed8f082784a648c/complete.json",
+      "control_bytes": 1924,
+      "control_sha256": "c36014dcc41d1f30e0d95002a6981a0998346102f26d9a2a118e6adc7a819ac1",
+      "receipt_hash": "0af43d4eed8d7e8f0b0ac5c7c4f048f1d183bb75e0f9c11205d7f62821a71ccd",
+      "identity": {
+        "code": "300037.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 201,
+      "rows": 201,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 31115,
+      "csv_bytes": 29122,
+      "minimum_asof": "20250910",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 31115,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/231cd133c26bb39e322d54f46190318500ba15c24e90b5064ed8f082784a648c/0.csv",
+          "raw_version": [
+            16777244,
+            22340479,
+            31115,
+            1792582352753090234,
+            1792582352767095166
+          ],
+          "csv_version": [
+            16777244,
+            22340480,
+            29122,
+            1792582352769514482,
+            1792582352770809162
+          ],
+          "raw_sha256": "b38e79c93ed7e10cff8a401f42bb19d31d1f0ff8c2867a1c5f4bcff8ede4a4de",
+          "csv_sha256": "304c057e7a3b902553481ac1413a54a802bb308320f99f47928c1d89723499e4",
+          "source_rows": 201,
+          "kept_rows": 201,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/27b58cd1d8a8947984b5cbc1a831c95afdd21577740f168308e7d916f14a967c/complete.json",
+      "control_bytes": 1910,
+      "control_sha256": "702a4ba5b7569df941d1994d03baeb58d062af0b411ad72bc3fe60baa32c8243",
+      "receipt_hash": "188eaac61ae606dd95d871e62d81999381f56fdf4b090db8b1a957078e7c48de",
+      "identity": {
+        "code": "920296.BJ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 1,
+      "rows": 1,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 488,
+      "csv_bytes": 295,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 488,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/27b58cd1d8a8947984b5cbc1a831c95afdd21577740f168308e7d916f14a967c/0.csv",
+          "raw_version": [
+            16777244,
+            22340563,
+            488,
+            1792582357440145447,
+            1792582357441763422
+          ],
+          "csv_version": [
+            16777244,
+            22340564,
+            295,
+            1792582357442290886,
+            1792582357442580139
+          ],
+          "raw_sha256": "21233b340c46532518994d980247c208d90be957b638f0d230c2d0f331e5c918",
+          "csv_sha256": "5da058a4776345c8832b237e2a55efb1c85ae21bc312069789ce0e46ba2c2a57",
+          "source_rows": 1,
+          "kept_rows": 1,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/331755a04bff5ccf2c712a3aed7306afaf8e30e48e8cce2e36528153eb7f0e2d/complete.json",
+      "control_bytes": 1924,
+      "control_sha256": "9c4d784315849425bb34a99bd72051fab1300f06aa8469765e08d160316b5600",
+      "receipt_hash": "fac28f9b61dc35f9be398e34cd3ce83c7a5dba0361deb18545d80b9427202689",
+      "identity": {
+        "code": "300003.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 204,
+      "rows": 204,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 31553,
+      "csv_bytes": 29533,
+      "minimum_asof": "20250910",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 31553,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/331755a04bff5ccf2c712a3aed7306afaf8e30e48e8cce2e36528153eb7f0e2d/0.csv",
+          "raw_version": [
+            16777244,
+            22340472,
+            31553,
+            1792582352217319079,
+            1792582352234740087
+          ],
+          "csv_version": [
+            16777244,
+            22340473,
+            29533,
+            1792582352238671376,
+            1792582352239823138
+          ],
+          "raw_sha256": "3481ebbb8605697744452400d13ecc2c3a4895c3ad1b50961e1b9235f9c6ebd5",
+          "csv_sha256": "5ff621ee5ebb77d866800152ec70415976e547d71e3fc081804cdfbdae1e14c9",
+          "source_rows": 204,
+          "kept_rows": 204,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/362b9381eff5832709cc261e3bf0c08b5c3b02f6917bd3fa674a400c4bdd3092/complete.json",
+      "control_bytes": 1918,
+      "control_sha256": "18ed332b46eadd26e4ca61396ce5d3a64993bcf79100d70c537ff60c88f3902e",
+      "receipt_hash": "86e1487ac7158293dda05264690c20487ed92837124ea503ab87b0a67abee9c5",
+      "identity": {
+        "code": "603271.SH",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 84,
+      "rows": 84,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 12894,
+      "csv_bytes": 11954,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 12894,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/362b9381eff5832709cc261e3bf0c08b5c3b02f6917bd3fa674a400c4bdd3092/0.csv",
+          "raw_version": [
+            16777244,
+            22328364,
+            12894,
+            1792582231081540057,
+            1792582231088950881
+          ],
+          "csv_version": [
+            16777244,
+            22328365,
+            11954,
+            1792582231090722857,
+            1792582231091303738
+          ],
+          "raw_sha256": "29f71a5b3c52ecaee0e2d3aac3687bcfef56caf77453e6918104ce4564ee7281",
+          "csv_sha256": "e669bdb40bd9a3e369a64346104cb2e76b58864b4582167e519fc564bfa4988f",
+          "source_rows": 84,
+          "kept_rows": 84,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/5257de547c88bd6e414ffea5e9275cdae61bdc64f54662f8eb9a68f3e9d75a06/complete.json",
+      "control_bytes": 1925,
+      "control_sha256": "d7abd18a5faf7f65ab2ae3b7ac4c9c596838fbd200a4a69cc1ce3564dc30a10a",
+      "receipt_hash": "3ad0341d2ccce7fe0f4bf34038f0a56a503c8e829b20f86d39e397a48a08a1ca",
+      "identity": {
+        "code": "300003.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 849,
+      "rows": 849,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 128266,
+      "csv_bytes": 120441,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 128266,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/5257de547c88bd6e414ffea5e9275cdae61bdc64f54662f8eb9a68f3e9d75a06/0.csv",
+          "raw_version": [
+            16777244,
+            22328294,
+            128266,
+            1792582224874358359,
+            1792582224914239467
+          ],
+          "csv_version": [
+            16777244,
+            22328295,
+            120441,
+            1792582224917553792,
+            1792582224918656511
+          ],
+          "raw_sha256": "2c10a89c6a61b7a9cccb48ad213402fccdbeb926b08ea7f843cab60647f31059",
+          "csv_sha256": "a188b4ec932b84c2e22bf786df6e72dadeb6b3e335b66e84e81ddfa3c3702d2e",
+          "source_rows": 849,
+          "kept_rows": 849,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/5e1e3fa00ea4b6d94521c7ca23acd756295334727fd16fcf9b8d048e30ef1fb0/complete.json",
+      "control_bytes": 1917,
+      "control_sha256": "db4071232f61ced288976daccbafc37c2de769dd086ba1fe9337a49fa7c5d3ed",
+      "receipt_hash": "6ea128ec060980a930f6c1de124ceadc02f0b669fdfdbf403df4be89e35507b1",
+      "identity": {
+        "code": "301499.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 40,
+      "rows": 40,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 6401,
+      "csv_bytes": 5857,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 6401,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/5e1e3fa00ea4b6d94521c7ca23acd756295334727fd16fcf9b8d048e30ef1fb0/0.csv",
+          "raw_version": [
+            16777244,
+            22340500,
+            6401,
+            1792582353938613227,
+            1792582353940103534
+          ],
+          "csv_version": [
+            16777244,
+            22340501,
+            5857,
+            1792582353940501080,
+            1792582353940635164
+          ],
+          "raw_sha256": "7f7b81911dd0e90075d9e62503e495f7075f950bc4998e48fbea40afbf566138",
+          "csv_sha256": "36b55ccbb0e8c7d07eacd037beae2d57431531cfab4e78af449a47fb10f7683c",
+          "source_rows": 40,
+          "kept_rows": 40,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/6365515c37cb829dfbdb4a072615ebf6bade68df5f22fbd59084a3357f4e25b4/complete.json",
+      "control_bytes": 1924,
+      "control_sha256": "21eb27acad585b68a73af72a31ad0fc6da95e6e1cf722dc6ed9bce83daa6dc6d",
+      "receipt_hash": "ea27844e488a757ccb89436ff81ddaa3b7f744e1de3e7d05bf351ba5a74f93cf",
+      "identity": {
+        "code": "002422.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 198,
+      "rows": 198,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 31222,
+      "csv_bytes": 29256,
+      "minimum_asof": "20250910",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 31222,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/6365515c37cb829dfbdb4a072615ebf6bade68df5f22fbd59084a3357f4e25b4/0.csv",
+          "raw_version": [
+            16777244,
+            22340458,
+            31222,
+            1792582351187339935,
+            1792582351193700790
+          ],
+          "csv_version": [
+            16777244,
+            22340459,
+            29256,
+            1792582351194745509,
+            1792582351195612976
+          ],
+          "raw_sha256": "7097654f227e5290360ff5bf2ef38d1d3f8a2c044a4569b5b000f54990d3f059",
+          "csv_sha256": "bc6b10ac6e2899d7be20a990b8cc7f5e091e026f24888d0b328306f7a1bb89c9",
+          "source_rows": 198,
+          "kept_rows": 198,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/63b962b1a63f1cd7fc86ba095d0e4199afebbd34f2b626e2a614f3b91a2de793/complete.json",
+      "control_bytes": 1925,
+      "control_sha256": "46d9e5e8f281139858988c5fb3f25ecad291d187b0790bf3c4ba3b75a762e10b",
+      "receipt_hash": "746ec530f764bc4793d114a88f9dad7259be5777136dc1b18c57b1494328a49b",
+      "identity": {
+        "code": "601369.SH",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 835,
+      "rows": 835,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 119438,
+      "csv_bytes": 111739,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 119438,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/63b962b1a63f1cd7fc86ba095d0e4199afebbd34f2b626e2a614f3b91a2de793/0.csv",
+          "raw_version": [
+            16777244,
+            22328350,
+            119438,
+            1792582230104440892,
+            1792582230137626391
+          ],
+          "csv_version": [
+            16777244,
+            22328351,
+            111739,
+            1792582230140401336,
+            1792582230141472388
+          ],
+          "raw_sha256": "78cc9b37c6455ab9026b03a046829b84e681d9d9bb4747f89f8ad5d4c6b61633",
+          "csv_sha256": "1c3016e3ad0216acd28f8dd6be817cda7c338f508cee3a7d3fa05db02ed6190e",
+          "source_rows": 835,
+          "kept_rows": 835,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/72f8119f6da0f2ff741473065f0eea204acc88d0ff817f2340f38e0db2f1162b/complete.json",
+      "control_bytes": 1929,
+      "control_sha256": "3100e18d44c03b76ebaa94a9a75f355757afff5132c1d4b2e882e70937a378c8",
+      "receipt_hash": "fd96b2526790d4a5f56d03d0bbf3fd0ff1290c214b25ffbd99cb49c559121b80",
+      "identity": {
+        "code": "601398.SH",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 1023,
+      "rows": 1023,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 143995,
+      "csv_bytes": 134604,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 143995,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/72f8119f6da0f2ff741473065f0eea204acc88d0ff817f2340f38e0db2f1162b/0.csv",
+          "raw_version": [
+            16777244,
+            22328357,
+            143995,
+            1792582230620031266,
+            1792582230653217849
+          ],
+          "csv_version": [
+            16777244,
+            22328358,
+            134604,
+            1792582230656370380,
+            1792582230656884302
+          ],
+          "raw_sha256": "b8d0b990f57642b117829c2014e1640ca6655221197aae34cb4a291bbaddef60",
+          "csv_sha256": "d32da43ebf19b2169ffc70edf4833bca123e7d21b2404412b404ef9811aa687c",
+          "source_rows": 1023,
+          "kept_rows": 1023,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/74718f8369ac5d492e0f9358f8468a1ff27e7351167aa81b5fd395d2e4771310/complete.json",
+      "control_bytes": 1924,
+      "control_sha256": "91722ad9dd965a6e4af4517402f2b2aedfaadaeae983dc3c00ba1308192e74b2",
+      "receipt_hash": "11eaa82eeefd19392eeef877d6727b7cc6e062533eb3ea9adb8f6e3a9b201ca8",
+      "identity": {
+        "code": "601288.SH",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 197,
+      "rows": 197,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 28415,
+      "csv_bytes": 26458,
+      "minimum_asof": "20250910",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 28415,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/74718f8369ac5d492e0f9358f8468a1ff27e7351167aa81b5fd395d2e4771310/0.csv",
+          "raw_version": [
+            16777244,
+            22340521,
+            28415,
+            1792582355252999136,
+            1792582355258753069
+          ],
+          "csv_version": [
+            16777244,
+            22340522,
+            26458,
+            1792582355259828455,
+            1792582355260028707
+          ],
+          "raw_sha256": "2577c80966eb2581106cf522c6e0240fa2196635349b879912aa8dcd03847240",
+          "csv_sha256": "41e5d9a1d564eba3e02f6fd41e5d136c59858f8dbc13c835b72f3afe6a21f35b",
+          "source_rows": 197,
+          "kept_rows": 197,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/757840e44e33c7e3fc7df6a18a4a65a5cdab0793fbfafa5d8a3a861d79fca8a3/complete.json",
+      "control_bytes": 1913,
+      "control_sha256": "3b52150f64a31542f7fc8d67a5c2faa94b42f93499e2ed39a82d88594927e926",
+      "receipt_hash": "e1bbba63fef824a39282f042d7e9228f240f14c8f48868ede5bedb5a50144b50",
+      "identity": {
+        "code": "688813.SH",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 8,
+      "rows": 8,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 1624,
+      "csv_bytes": 1368,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 1624,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/757840e44e33c7e3fc7df6a18a4a65a5cdab0793fbfafa5d8a3a861d79fca8a3/0.csv",
+          "raw_version": [
+            16777244,
+            22340556,
+            1624,
+            1792582357090827200,
+            1792582357091601000
+          ],
+          "csv_version": [
+            16777244,
+            22340557,
+            1368,
+            1792582357091876086,
+            1792582357092022045
+          ],
+          "raw_sha256": "97aad444663b8f02dab79f1fd267fda065ef87ca8ad45b458a1ddd261e4f5af9",
+          "csv_sha256": "be9d4616321d72e8f3af40e512035c79aff60d4eda2c2552793a93a363fa6ba1",
+          "source_rows": 8,
+          "kept_rows": 8,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/8aab8dc0fcd92a127f11cdafbc34081ccb0610a6ed3e717820d90fdf8bc3434a/complete.json",
+      "control_bytes": 1924,
+      "control_sha256": "e83f3b2580365e8231a309cfbe430c429f7dcfa8c9da9d49d8674762c10e9dc2",
+      "receipt_hash": "695a18424ae4179ffc298ce184f08cf7e58591d2ae51e1081206f62d5e0e20f0",
+      "identity": {
+        "code": "601369.SH",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 198,
+      "rows": 198,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 29076,
+      "csv_bytes": 27110,
+      "minimum_asof": "20250910",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 29076,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/8aab8dc0fcd92a127f11cdafbc34081ccb0610a6ed3e717820d90fdf8bc3434a/0.csv",
+          "raw_version": [
+            16777244,
+            22340528,
+            29076,
+            1792582355694944894,
+            1792582355702007298
+          ],
+          "csv_version": [
+            16777244,
+            22340529,
+            27110,
+            1792582355703183435,
+            1792582355703481480
+          ],
+          "raw_sha256": "96acbe1293c96e89abf8a14c4a05e343a48f0f0cc5b6564bd407bffceaec3e95",
+          "csv_sha256": "32c39b266523bc0dc2ff0b7ea3e8b0ade51036ee79b271f5257afe917071b8f6",
+          "source_rows": 198,
+          "kept_rows": 198,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/8f115bf9c6a734f3508f68304c075e0266415fd0996a9eb261181fbc5f7cfbd1/complete.json",
+      "control_bytes": 1925,
+      "control_sha256": "3e5fc96e49ddf7ed126ee73c353939d09abb09afe6030c2fb3dff23a98385cd3",
+      "receipt_hash": "27435b21ec9b2999b3c67732366c914f955cf4fed9543435d2b6a238215fc96f",
+      "identity": {
+        "code": "601199.SH",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 796,
+      "rows": 796,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 113769,
+      "csv_bytes": 106421,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 113769,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/8f115bf9c6a734f3508f68304c075e0266415fd0996a9eb261181fbc5f7cfbd1/0.csv",
+          "raw_version": [
+            16777244,
+            22328336,
+            113769,
+            1792582229038625047,
+            1792582229063968259
+          ],
+          "csv_version": [
+            16777244,
+            22328337,
+            106421,
+            1792582229066385950,
+            1792582229066899955
+          ],
+          "raw_sha256": "b236b822953c830456cef51711a4e9644623f1621778dbe2d54d8f4d5e8c9f55",
+          "csv_sha256": "0d83629da43de5055faba7622a9204a64c54d8e30a585c1f7da262610536c613",
+          "source_rows": 796,
+          "kept_rows": 796,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/92e88a994160d792e4d7d8e864dbd8108ce842060a3b474b665cf63e28a091ea/complete.json",
+      "control_bytes": 1924,
+      "control_sha256": "798edb50f8f49669f53f2dba91a239fb959c8a08512a468977c91fb873227e7d",
+      "receipt_hash": "09724e68825e7da630f0ec67306cbd2c2a5eb47947b412e824b888c2132a1f06",
+      "identity": {
+        "code": "000554.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 395,
+      "rows": 395,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 57221,
+      "csv_bytes": 53482,
+      "minimum_asof": "20250910",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 57221,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/92e88a994160d792e4d7d8e864dbd8108ce842060a3b474b665cf63e28a091ea/0.csv",
+          "raw_version": [
+            16777244,
+            22340451,
+            57221,
+            1792582350657596590,
+            1792582350670456510
+          ],
+          "csv_version": [
+            16777244,
+            22340452,
+            53482,
+            1792582350671944942,
+            1792582350673183913
+          ],
+          "raw_sha256": "93c009c49053ee11a5f5e2a6ad187eceda95d679500ce5cfbef07ed45e7c4dd5",
+          "csv_sha256": "209ddbc3f043fe133dc868e6b7c249b6fe9e92dd6f3237777b2310d5630eb774",
+          "source_rows": 395,
+          "kept_rows": 395,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/976a2a3998825e64dcb67f2636fef3f7b8fee6d0c2b3e24a95de8bf5283d7c68/complete.json",
+      "control_bytes": 1925,
+      "control_sha256": "1d069180fd75db2951a5d312697d372e7ef977908d39e98f741395001747071f",
+      "receipt_hash": "3b2be76ddc425cd86561f114952ffb183ef6ff970f74ff34cac52e99b4e77b1b",
+      "identity": {
+        "code": "300037.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 844,
+      "rows": 844,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 127318,
+      "csv_bytes": 119538,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 127318,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/976a2a3998825e64dcb67f2636fef3f7b8fee6d0c2b3e24a95de8bf5283d7c68/0.csv",
+          "raw_version": [
+            16777244,
+            22328301,
+            127318,
+            1792582225371169047,
+            1792582225396686261
+          ],
+          "csv_version": [
+            16777244,
+            22328302,
+            119538,
+            1792582225399610582,
+            1792582225400373714
+          ],
+          "raw_sha256": "ece2ee254b9421042c574ef4b5a064bca92edea0bfe8d18d5184d34513baaa3a",
+          "csv_sha256": "f2c97081761b4cd7e44715034e311c636606c3605af2a9599cbd30b424a9b746",
+          "source_rows": 844,
+          "kept_rows": 844,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/98e1e367be1d808d1b89acfcde4db7f1d9d5362c046a6376d6b2079ccad545cd/complete.json",
+      "control_bytes": 1924,
+      "control_sha256": "ade507d08e2070972fe42d6180b4e7ef4642ee6cb9cc73305fa58e839340a087",
+      "receipt_hash": "73589ee581ca09075dc6c9ae1264c69ecbf6f2693adc0c6107a0398affd3c1ce",
+      "identity": {
+        "code": "601199.SH",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 189,
+      "rows": 189,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 27785,
+      "csv_bytes": 25900,
+      "minimum_asof": "20250910",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 27785,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/98e1e367be1d808d1b89acfcde4db7f1d9d5362c046a6376d6b2079ccad545cd/0.csv",
+          "raw_version": [
+            16777244,
+            22340514,
+            27785,
+            1792582354835069702,
+            1792582354845681308
+          ],
+          "csv_version": [
+            16777244,
+            22340515,
+            25900,
+            1792582354846941196,
+            1792582354847404201
+          ],
+          "raw_sha256": "9f434098b2b7ef7576d2b0f628c93a7fe21746702d6a21924be281b8e3a35911",
+          "csv_sha256": "21002d9a76544e785d2e8c374393cf2a09e6ec3aa4b01be0a847d74df7fb3181",
+          "source_rows": 189,
+          "kept_rows": 189,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/9a772da6372fc1822e2c7069bc7aee4c42d74a7e0cc89890f2ea25abd2ae62d2/complete.json",
+      "control_bytes": 1922,
+      "control_sha256": "ca3cdd35ea7ab2496180b4a3c11c8a6000270b7d5629f30163f5b9f2b50ca13c",
+      "receipt_hash": "972e8355f328dea5b3988730b8e04b5fe07423b282637a47fd4b44c9318b2cfa",
+      "identity": {
+        "code": "301499.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 168,
+      "rows": 168,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 25428,
+      "csv_bytes": 23732,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 25428,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/9a772da6372fc1822e2c7069bc7aee4c42d74a7e0cc89890f2ea25abd2ae62d2/0.csv",
+          "raw_version": [
+            16777244,
+            22328322,
+            25428,
+            1792582227969025787,
+            1792582227979414475
+          ],
+          "csv_version": [
+            16777244,
+            22328323,
+            23732,
+            1792582227981612539,
+            1792582227982344588
+          ],
+          "raw_sha256": "20f7b40f044c29c5b0effa3308897176d8cc5f0c93ed1ea8d467d449346fcc50",
+          "csv_sha256": "4f5533f82989d51e44e439a0c43702ee01ad0efe57cfe8ff103df44ebdd15eb2",
+          "source_rows": 168,
+          "kept_rows": 168,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/ab0dd9d0bef94989b5b1db04991fcf5c6eb982e9085f7cf9bacd61847e4e9633/complete.json",
+      "control_bytes": 1922,
+      "control_sha256": "066e87cc948e582399b7b0b5d1e3c5094c5399b997742ce46d103433bc99d918",
+      "receipt_hash": "717a5dc96f5fbcc57068a0ccde984d4ba2b8fdde7c65b89899cdf71f58e4881f",
+      "identity": {
+        "code": "301232.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 173,
+      "rows": 173,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 26711,
+      "csv_bytes": 24970,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 26711,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/ab0dd9d0bef94989b5b1db04991fcf5c6eb982e9085f7cf9bacd61847e4e9633/0.csv",
+          "raw_version": [
+            16777244,
+            22328315,
+            26711,
+            1792582227425831886,
+            1792582227436376450
+          ],
+          "csv_version": [
+            16777244,
+            22328316,
+            24970,
+            1792582227438218385,
+            1792582227438717807
+          ],
+          "raw_sha256": "f982a9b88c6b5f5c7872525fe1a334cbf842f59823bc8aecc6df5c888b12d739",
+          "csv_sha256": "378c3348564e956c8f7c65dd7ff442035d071f7cd07230673547eec18b5efd57",
+          "source_rows": 173,
+          "kept_rows": 173,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/ae050f73ad005fbbcdc589dac0551e0be12b6f6af65603db170f635426c98800/complete.json",
+      "control_bytes": 1929,
+      "control_sha256": "8d8863a8d52d0298ced26372793d61f6fe5748f67b132b9bd7bbe6139c662544",
+      "receipt_hash": "a08c093d843850f17ae8311a3cd30d6c5e1d155df855eeda2ff961eab3416b04",
+      "identity": {
+        "code": "600720.SH",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 1524,
+      "rows": 1524,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 219909,
+      "csv_bytes": 206009,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 219909,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/ae050f73ad005fbbcdc589dac0551e0be12b6f6af65603db170f635426c98800/0.csv",
+          "raw_version": [
+            16777244,
+            22328329,
+            219909,
+            1792582228587640403,
+            1792582228634151577
+          ],
+          "csv_version": [
+            16777244,
+            22328330,
+            206009,
+            1792582228638737915,
+            1792582228639396088
+          ],
+          "raw_sha256": "6f753291340bc0b7c1ff66e6ad36766691bd71fa58de6eb6d81848b6981686bf",
+          "csv_sha256": "9dbd11997320451c4b580e237e53f50611c776708e7c40b849344ddd62adcb6b",
+          "source_rows": 1524,
+          "kept_rows": 1524,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/ccf8e23586f2621c77992a3d23ccf95a2b01153de8195e8a1550c9d35b46504d/complete.json",
+      "control_bytes": 1925,
+      "control_sha256": "13670f0062e39c1a111faa1130dfe2b6f2fd520d539ee1163956081cc94326c3",
+      "receipt_hash": "5c0ac4f3818c43498280b26d944fab7cd9069a06c517d102bfa95f4e8b73ddbf",
+      "identity": {
+        "code": "002422.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 837,
+      "rows": 837,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 128828,
+      "csv_bytes": 121111,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 128828,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/ccf8e23586f2621c77992a3d23ccf95a2b01153de8195e8a1550c9d35b46504d/0.csv",
+          "raw_version": [
+            16777244,
+            22328280,
+            128828,
+            1792582223954898728,
+            1792582223995251091
+          ],
+          "csv_version": [
+            16777244,
+            22328281,
+            121111,
+            1792582223998670042,
+            1792582223999333215
+          ],
+          "raw_sha256": "8ed3922c93b1b6b845bd285e81c2f64ca7077279ecb5dc39eddce55ef5808a49",
+          "csv_sha256": "25f9a91e415031c4422f45e3847a1bd97d5c09c17d03ccf96877537644eb23e3",
+          "source_rows": 837,
+          "kept_rows": 837,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/d1c1d449fd26a8c570296d51e29db9fe6a6fdd1a29dd24f058e8caa90aa1c084/complete.json",
+      "control_bytes": 1917,
+      "control_sha256": "4b223acfaf0a338f0c32349985d3eff966dcf6b45b7f8f7333041864442a4673",
+      "receipt_hash": "12bae39fea676ac2b1d5f5ad93c6ec68e9433c648917e6d71ecaf50786d8a375",
+      "identity": {
+        "code": "603271.SH",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 20,
+      "rows": 20,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 3385,
+      "csv_bytes": 3021,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 3385,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/d1c1d449fd26a8c570296d51e29db9fe6a6fdd1a29dd24f058e8caa90aa1c084/0.csv",
+          "raw_version": [
+            16777244,
+            22340542,
+            3385,
+            1792582356484785759,
+            1792582356486320649
+          ],
+          "csv_version": [
+            16777244,
+            22340543,
+            3021,
+            1792582356486864946,
+            1792582356487298617
+          ],
+          "raw_sha256": "1e232651349fb42799cec193e162ead0e3d3ef3ec57bab42dd94905224468a31",
+          "csv_sha256": "3af1869e90244f5fa2f27900500dce60f496b246712d096893f29a2231b23257",
+          "source_rows": 20,
+          "kept_rows": 20,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/d3e889250530e0a9be54af48107c70bb583d3ba7dce5d2dcfd5aa94b87c20c13/complete.json",
+      "control_bytes": 1915,
+      "control_sha256": "0ba361831425997750aadf54a7e9d4be57e7751fa9c7155d3a860161cf580bc5",
+      "receipt_hash": "b5f261ea7d168705ba9f3fc5f35c304fb4bba3f3d83d25ab9810704f4ae09afe",
+      "identity": {
+        "code": "688813.SH",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 30,
+      "rows": 30,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 5168,
+      "csv_bytes": 4714,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 5168,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/d3e889250530e0a9be54af48107c70bb583d3ba7dce5d2dcfd5aa94b87c20c13/0.csv",
+          "raw_version": [
+            16777244,
+            22328378,
+            5168,
+            1792582231778907085,
+            1792582231780003804
+          ],
+          "csv_version": [
+            16777244,
+            22328379,
+            4714,
+            1792582231780394267,
+            1792582231780580602
+          ],
+          "raw_sha256": "2cd6d4bae81ae98c165d16bc50c68b922d013b574db2c5c73d92a83d83e08262",
+          "csv_sha256": "88fe36e34382a15bcd2985f4cb4c30c5203992f9f3b87e6c45d7a8ebf3065d9a",
+          "source_rows": 30,
+          "kept_rows": 30,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/d47582bc6334ba39c8efb316e08b5ff984b1162e3af44f8f00e78bf2899829ba/complete.json",
+      "control_bytes": 1929,
+      "control_sha256": "54a6a15f0937af8029e23557b7ed8dcbdc6cc1d15a8df0d8148b3939b7fe5076",
+      "receipt_hash": "6b2b0ef2cc4c30f31b5fc5a8e2580b5f1b230a119f826d3ef7b20309ed2ab8b6",
+      "identity": {
+        "code": "000554.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 1650,
+      "rows": 1650,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 233585,
+      "csv_bytes": 218551,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 233585,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/d47582bc6334ba39c8efb316e08b5ff984b1162e3af44f8f00e78bf2899829ba/0.csv",
+          "raw_version": [
+            16777244,
+            22328273,
+            233585,
+            1792582223410472688,
+            1792582223472725562
+          ],
+          "csv_version": [
+            16777244,
+            22328274,
+            218551,
+            1792582223477054105,
+            1792582223477759696
+          ],
+          "raw_sha256": "b59d351ac8c108b5a1bf165014555839cb5011bc4826efe1687d3d54130931f4",
+          "csv_sha256": "49ecc40836250f82162ed2f449ba24f877b716a89d30b2d33b0494a312f7e683",
+          "source_rows": 1650,
+          "kept_rows": 1650,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/d574a44e07e0f4365433f046c57f03119db335ece04557b5efa590fd86e13283/complete.json",
+      "control_bytes": 1922,
+      "control_sha256": "214b45d1971daa972c151c4a76fc165eaa686118fcb1996996337e7ab8f8d864",
+      "receipt_hash": "f0194b599ac357a707b715ed637a1fda630ce354789a01d7a88bf3f511a7d012",
+      "identity": {
+        "code": "300918.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 299,
+      "rows": 299,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 43970,
+      "csv_bytes": 41095,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 43970,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/d574a44e07e0f4365433f046c57f03119db335ece04557b5efa590fd86e13283/0.csv",
+          "raw_version": [
+            16777244,
+            22328308,
+            43970,
+            1792582225862893266,
+            1792582225873230870
+          ],
+          "csv_version": [
+            16777244,
+            22328309,
+            41095,
+            1792582225875064972,
+            1792582225875303224
+          ],
+          "raw_sha256": "7292e21ff51fe76072b4ab5ac875a217a8ca48dff7e450cbd0a79479b5165599",
+          "csv_sha256": "8099fcc1e4046ba8e7e5374f326f45eb0466b7ca56f558939be9283427f4cd1c",
+          "source_rows": 299,
+          "kept_rows": 299,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/d6ee62fc51b26483f97eec774a816a089779bc80aeda002b7a40c40600513cc2/complete.json",
+      "control_bytes": 1924,
+      "control_sha256": "a756b3991ebebad22c1f4a62b80135a65c171a7a24a6ebff43894aa53e0d0121",
+      "receipt_hash": "4fb0241bfd7683ff251255cd441d19a2a97290b739faf6986ce2758ae5092fbb",
+      "identity": {
+        "code": "600720.SH",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 365,
+      "rows": 365,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 53851,
+      "csv_bytes": 50382,
+      "minimum_asof": "20250910",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 53851,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/d6ee62fc51b26483f97eec774a816a089779bc80aeda002b7a40c40600513cc2/0.csv",
+          "raw_version": [
+            16777244,
+            22340507,
+            53851,
+            1792582354340952297,
+            1792582354356863581
+          ],
+          "csv_version": [
+            16777244,
+            22340508,
+            50382,
+            1792582354358544640,
+            1792582354359064353
+          ],
+          "raw_sha256": "6eca3c4db4708f1531b0628f186e2c7c04adb986b29543d80d287e697c60b075",
+          "csv_sha256": "e2d1e07be508407c05e8bf18028973ec9dbdcd85a65f22e94d0212a9b7991291",
+          "source_rows": 365,
+          "kept_rows": 365,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/d7638a2571e3b41a791db83246eae511f94e1d92c3108e2d7a4697c03bb43c51/complete.json",
+      "control_bytes": 1932,
+      "control_sha256": "d918bf41de41b9b713973d8c00c7a0c49306bf04f5a7093e55dc9887adad3fc8",
+      "receipt_hash": "af84a7d09b67ceee1885d5b267e1d51d31549cdf5b2efc04d9c4333962b1a418",
+      "identity": {
+        "code": null,
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": "2026-10-23",
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 5569,
+      "rows": 5569,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 817103,
+      "csv_bytes": 766798,
+      "minimum_asof": "20261020",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 817103,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/d7638a2571e3b41a791db83246eae511f94e1d92c3108e2d7a4697c03bb43c51/0.csv",
+          "raw_version": [
+            16777244,
+            22328259,
+            817103,
+            1792582222306531539,
+            1792582222483647189
+          ],
+          "csv_version": [
+            16777244,
+            22328260,
+            766798,
+            1792582222494655508,
+            1792582222495594642
+          ],
+          "raw_sha256": "6bdba214610b38a0145ac8eb48f0097d58a697aee8c86c03dd5e74a562d8afea",
+          "csv_sha256": "b4652df6be106d5b7d1042c8fb520e8553a274532857c5daac1ba0b676295c66",
+          "source_rows": 5569,
+          "kept_rows": 5569,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/dbd66cbbe8ffb2304ff5eb792dbe13cf47d2493f390e6083d481ec5931b06e74/complete.json",
+      "control_bytes": 1908,
+      "control_sha256": "dde1eed501d5670699fce2084eecc4abec8e832d1f5363a36ff4b2c7040ce128",
+      "receipt_hash": "42140c850d39ec85ce8d9c007d0d9268dd885f749e28b9b3bfef0daadcb27064",
+      "identity": {
+        "code": "920296.BJ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 1,
+      "rows": 1,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 487,
+      "csv_bytes": 294,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 487,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/dbd66cbbe8ffb2304ff5eb792dbe13cf47d2493f390e6083d481ec5931b06e74/0.csv",
+          "raw_version": [
+            16777244,
+            22328385,
+            487,
+            1792582232200324348,
+            1792582232202754455
+          ],
+          "csv_version": [
+            16777244,
+            22328386,
+            294,
+            1792582232203986218,
+            1792582232204595682
+          ],
+          "raw_sha256": "48705074fa656f91cbfdb863d8aaaaeae7891f2d14497b1930fb8aa6e53e60fd",
+          "csv_sha256": "21e194e77d549bacbeb128909f7e0693d38cbae1dc2939af741af0dfe6dab9bf",
+          "source_rows": 1,
+          "kept_rows": 1,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/efc6479c2a923c04e3b2cb5fcaeb1411d8cecf7aeeda5add941a91fbdc3e0b3c/complete.json",
+      "control_bytes": 1917,
+      "control_sha256": "0e39bbef633a8f537f7fd6f2b31dda1123ba80317b24807f9147065844625748",
+      "receipt_hash": "63c704ad38c076b07f037f0e3c9992672a6e5d781061217fa7fcc619a94c94ae",
+      "identity": {
+        "code": "688231.SH",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 52,
+      "rows": 52,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 8219,
+      "csv_bytes": 7567,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 8219,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/efc6479c2a923c04e3b2cb5fcaeb1411d8cecf7aeeda5add941a91fbdc3e0b3c/0.csv",
+          "raw_version": [
+            16777244,
+            22340549,
+            8219,
+            1792582356818475933,
+            1792582356820436077
+          ],
+          "csv_version": [
+            16777244,
+            22340550,
+            7567,
+            1792582356820909582,
+            1792582356821082709
+          ],
+          "raw_sha256": "b75939f76fb679bee581ca8adfe5805dc82ff6a3e858fcf6fe949c0e403e34a6",
+          "csv_sha256": "1a4f5cf6005850a62229d1c3dc8ff0e2acb227e3c57925c206abc449a883f146",
+          "source_rows": 52,
+          "kept_rows": 52,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/f62fd954628d36c905ff07b5577a9bc7dccee07ecee36c63d8cbf36679d9b714/complete.json",
+      "control_bytes": 1917,
+      "control_sha256": "45cafd275be84beb43ab9c73f0f969a200b45bb9a9df3fb354c059d32ab8ce37",
+      "receipt_hash": "9719026f801e0746492c94221b1f9363515fddf50197e23bf2b6b5e19a3a80ca",
+      "identity": {
+        "code": "301232.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 41,
+      "rows": 41,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 6703,
+      "csv_bytes": 6150,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 6703,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/f62fd954628d36c905ff07b5577a9bc7dccee07ecee36c63d8cbf36679d9b714/0.csv",
+          "raw_version": [
+            16777244,
+            22340493,
+            6703,
+            1792582353584020470,
+            1792582353586733164
+          ],
+          "csv_version": [
+            16777244,
+            22340494,
+            6150,
+            1792582353587350087,
+            1792582353587619006
+          ],
+          "raw_sha256": "d49a97d929489f1ccec0326004561a721a3b2bcc1b951d809446ae482910fe27",
+          "csv_sha256": "f81212e06a70588dca1037058a302dba772b3af92980aa63a0e8df71bc2e6b76",
+          "source_rows": 41,
+          "kept_rows": 41,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/f7ebdbbabf39e042fb0626adc205243fd476ba8d8f9dd45e68114e55a9974447/complete.json",
+      "control_bytes": 1922,
+      "control_sha256": "c09bb10b98c1667f7e5e02a03289468e081e8ac372d3607c6eacfdb01c3a3077",
+      "receipt_hash": "327c6736db8b5a1857e1b33584de363975d8c0503548e01ecdb69a8ae8430650",
+      "identity": {
+        "code": "002960.SZ",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 370,
+      "rows": 370,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 54711,
+      "csv_bytes": 51197,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 54711,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/f7ebdbbabf39e042fb0626adc205243fd476ba8d8f9dd45e68114e55a9974447/0.csv",
+          "raw_version": [
+            16777244,
+            22328287,
+            54711,
+            1792582224383538399,
+            1792582224396592322
+          ],
+          "csv_version": [
+            16777244,
+            22328288,
+            51197,
+            1792582224398193004,
+            1792582224398611759
+          ],
+          "raw_sha256": "e16dde56e8fb7273584f0ac606bfa26aca0c9104bc94021372d7101f975be3ff",
+          "csv_sha256": "7742497612de11b054ed7187e1d2d8495444e11be083cee2dabb2e195a43019b",
+          "source_rows": 370,
+          "kept_rows": 370,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/fb2df7eaf3e373ee68d18236d644b90b497c332257da39362dcb9379b59c1ba9/complete.json",
+      "control_bytes": 1924,
+      "control_sha256": "69cda1df0d07e4d9bc891c190e06cc43a7d31cd72bcdd749467ee3487d13c836",
+      "receipt_hash": "c2c98912072dc45c507060c0f4ac402dd3f744938a406aa43a80726688ed2f5a",
+      "identity": {
+        "code": "601398.SH",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 242,
+      "rows": 242,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 34867,
+      "csv_bytes": 32505,
+      "minimum_asof": "20250910",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 34867,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/fb2df7eaf3e373ee68d18236d644b90b497c332257da39362dcb9379b59c1ba9/0.csv",
+          "raw_version": [
+            16777244,
+            22340535,
+            34867,
+            1792582356010908015,
+            1792582356016187692
+          ],
+          "csv_version": [
+            16777244,
+            22340536,
+            32505,
+            1792582356016969409,
+            1792582356017470247
+          ],
+          "raw_sha256": "b3f37996abdc71d7fdf3cbabcfa9638764ff9379f3b70979c76eac2f5d4f6092",
+          "csv_sha256": "50d4ee34eae9e40e389e9224f0437e8a51cb60acbc6b0d69869a69f9902ef80e",
+          "source_rows": 242,
+          "kept_rows": 242,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    },
+    {
+      "source_control": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/fe640f044ead7357a697de39145207f18c20422dac16f1ee8b9e14f0308c7137/complete.json",
+      "control_bytes": 1925,
+      "control_sha256": "4b209ba3ca26aede35c50c00112626078500431e119aa9e5d66458fd3949149b",
+      "receipt_hash": "bc76b88a0b0f113af22254c9a066c924e3c59727e9ff425f2bc0ba51071bcabb",
+      "identity": {
+        "code": "601288.SH",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "week",
+        "intent_id": "123e9e7337ceebf6f9d3f642271a699ca4097a53a368ec5b43a2b6c422b7ca7e",
+        "period": null,
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "56231157bf44555e98742bdfdc094fd07e27ae02578ba96f28cab743c5cec0fa",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "source_rows": 834,
+      "rows": 834,
+      "excluded_rows": 0,
+      "page_count": 1,
+      "json_bytes": 117290,
+      "csv_bytes": 109600,
+      "minimum_asof": "20261021",
+      "maximum_asof": "20261021",
+      "pages": [
+        {
+          "bytes": 117290,
+          "csv": "/Volumes/datasource/data_lake_staging/stock_period/runs/51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3/source/fe640f044ead7357a697de39145207f18c20422dac16f1ee8b9e14f0308c7137/0.csv",
+          "raw_version": [
+            16777244,
+            22328343,
+            117290,
+            1792582229615256866,
+            1792582229648639700
+          ],
+          "csv_version": [
+            16777244,
+            22328344,
+            109600,
+            1792582229651670731,
+            1792582229652995161
+          ],
+          "raw_sha256": "79a93744c97bf4654b22f5b7655889d774763a95dea17b7889af651adb082c56",
+          "csv_sha256": "90ee2a316503c5c41483d2fad7fe57dc122e697e701147afefa550af2c492fd6",
+          "source_rows": 834,
+          "kept_rows": 834,
+          "excluded_rows": 0,
+          "offset": 0
+        }
+      ]
+    }
+  ]
+}

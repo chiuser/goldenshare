@@ -1,0 +1,54 @@
+{
+  "purpose": "bounded current period asof gate before original 2026-10-27 recovery",
+  "requests": [
+    {
+      "ts_code": "000001.SZ",
+      "freq": "week",
+      "trade_date": "20261030",
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq"
+      ]
+    },
+    {
+      "ts_code": "000001.SZ",
+      "freq": "month",
+      "start_date": "20261001",
+      "end_date": "20261031",
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq"
+      ]
+    }
+  ],
+  "results": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"000001.SZ\", \"trade_date\": \"20261030\", \"end_date\": \"20261027\", \"freq\": \"week\"}]"
+          }
+        ],
+        "isError": false
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"000001.SZ\", \"trade_date\": \"20261031\", \"end_date\": \"20261027\", \"freq\": \"month\"}]"
+          }
+        ],
+        "isError": false
+      }
+    }
+  ]
+}

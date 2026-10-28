@@ -239,20 +239,31 @@ def file_digest(path):
     return h.hexdigest()
 
 
-def dataset_root(root, freq):
-    return safe_path(
-        Path(root) / "raw" / "tushare" / f"stk_period_bar_adj_{frequency(freq)}"
-    )
+def _dataset_root_path(root, freq):
+    """Compose the fixed dataset path without inspecting the filesystem."""
+    root = Path(root)
+    if not root.is_absolute() or ".." in root.parts:
+        raise ValueError("period_path_invalid")
+    return root / "raw" / "tushare" / f"stk_period_bar_adj_{frequency(freq)}"
 
 
-def target_path(root, freq, period):
+def _target_path(root, freq, period):
+    """The same canonical target identity for metadata and guarded IO."""
     period_date(period, freq)
-    base = dataset_root(root, freq)
-    return safe_path(
+    base = _dataset_root_path(root, freq)
+    return (
         base
         / (f"week_end={period}" if freq == "week" else f"month={period}")
         / ("part-000.parquet" if freq == "week" else "data.parquet")
     )
+
+
+def dataset_root(root, freq):
+    return safe_path(_dataset_root_path(root, freq))
+
+
+def target_path(root, freq, period):
+    return safe_path(_target_path(root, freq, period))
 
 
 def connection(work, policy=DEFAULT_POLICY):

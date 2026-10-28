@@ -263,7 +263,7 @@ def completed_receipt(run, saved, *, cancel=lambda: False, complete=None):
         or not isinstance(complete.get("files"), list)
     ):
         raise ValueError("period_complete_receipt_changed")
-    from orchestrator.defs.io.stock_period_raw import target_path
+    from orchestrator.defs.io.stock_period_raw import _target_path
 
     seen = set()
     for item in complete["files"]:
@@ -289,7 +289,7 @@ def completed_receipt(run, saved, *, cancel=lambda: False, complete=None):
         period_date(period, freq)
         if (
             item["target"]
-            != str(target_path(Path(saved["identity"]["root"]), freq, period))
+            != str(_target_path(Path(saved["identity"]["root"]), freq, period))
             or (freq, period) in seen
         ):
             raise ValueError("period_complete_file_identity_changed")
@@ -888,12 +888,56 @@ def _finish_files(run, saved, baseline, intent, changed):
 
 
 def verify_rss_resume(staging, run_id, identity):
-    """Allow an existing bootstrap or its exact frozen handoff child only."""
-    if not safe_path(
-        staging / "stock_period/runs" / run_id / "manifest.json"
-    ).is_file():
-        raise ValueError("period_runtime_rss_resume_required")
+    """Allow exact recorded daily work or an existing bootstrap/handoff."""
+    manifest_path = safe_path(staging / "stock_period/runs" / run_id / "manifest.json")
     intent = identity["intent"]
+    if (
+        intent["mode"] != "bootstrap"
+        and intent.get("asof") is not None
+        and "bootstrap_parent" not in intent
+    ):
+        daily_path = safe_path(staging / "stock_period/daily.json")
+        work = (
+            read_json(daily_path).get("pending_work", {}).get(run_id)
+            if daily_path.is_file()
+            else None
+        )
+        try:
+            asof = date.fromisoformat(intent["asof"]).isoformat()
+        except (TypeError, ValueError):
+            raise ValueError("period_runtime_rss_daily_invalid") from None
+        if (
+            intent.get("mode") not in ("upsert", "history")
+            or asof != intent["asof"]
+            or not isinstance(work, dict)
+            or work.get("kind") is not None
+            or work.get("frequency") not in ("week", "month")
+            or not isinstance(work.get("listed"), list)
+            or not isinstance(work.get("aliases"), dict)
+            or not isinstance(work.get("policy"), dict)
+            or intent.get("request_id")
+            != digest(
+                {"kind": "period_daily", "frequency": work["frequency"], "date": asof}
+            )
+            or run_id != execution_id(intent["request_id"])
+            or identity
+            != {
+                "intent": work.get("intent"),
+                "policy": work["policy"],
+                "root": identity["root"],
+                "listed": sorted(work["listed"]),
+                "aliases": work["aliases"],
+            }
+        ):
+            raise ValueError("period_runtime_rss_daily_invalid")
+        if manifest_path.is_file():
+            saved = read_json(manifest_path)
+            verify_execution(saved, run_id)
+            if saved["identity"] != identity:
+                raise ValueError("period_manifest_changed")
+        return
+    if not manifest_path.is_file():
+        raise ValueError("period_runtime_rss_resume_required")
     if intent["mode"] == "bootstrap":
         return
     parent_id = intent.get("bootstrap_parent")

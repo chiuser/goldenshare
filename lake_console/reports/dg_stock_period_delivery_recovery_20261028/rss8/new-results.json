@@ -1,0 +1,66 @@
+{
+  "scope": "LLD12.12.4 isolated daily RSS tests only; production changes belong to root",
+  "test_file": "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_period_daily_memory.py",
+  "red": {
+    "xml": "/private/tmp/dg-period-daily-rss8-red-20261028.xml",
+    "tests": "1",
+    "failures": "1",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.086"
+  },
+  "final_module_before_last_single_addition": {
+    "xml": "/private/tmp/dg-period-daily-rss8-green-20261028.xml",
+    "tests": "28",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "3.898"
+  },
+  "last_added_manual_history_negative": {
+    "xml": "/private/tmp/dg-period-daily-rss8-manual-history-20261028.xml",
+    "tests": "1",
+    "failures": "0",
+    "errors": "0",
+    "skipped": "0",
+    "time": "0.835"
+  },
+  "total_distinct_green_cases": 29,
+  "launch": "env -u PYTHONPATH -u DAGSTER_HOME -u TUSHARE_TOKEN .venv/bin/python3 -B -m pytest -q -p no:cacheprovider --basetemp=/private/tmp/dg-period-daily-rss8-tests-20261028",
+  "sha256": {
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_stock_period_daily_memory.py": "50d2014ad6d59507d5c80d06e45dc4fc9498a9185dfe6f45c1d5eb6a46a2e4a3",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/run_contracts/stock_period.py": "816742dde4f49b820172f22da8ef0bb8f77df8eea5deb17f514ffe542160496e",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py": "b92a9ba218d6423a2e919c5b069f820ea6eb04edf824dac961440289cc912280",
+    "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py": "a2ce357110f34544aad3b0fee5bd47b47d5fb1daf92786594f2f23440d85e9fe"
+  },
+  "coverage": [
+    "runtime tag valid/absent/invalid ASCII syntax; original job/parent/daily/explicit date required",
+    "real 2-stock daily producer: literal 7GiB COPY fails under frozen4, then8 succeeds with zero repeat week source calls",
+    "source JSON/CSV/control versions and hashes, original manifest identity/hash and pending/source policy remain frozen4",
+    "month precise daily pending without manifest can create its first frozen4 manifest under runtime8",
+    "legitimate daily mode=history with asof accepts runtime8",
+    "wrong pending frequency/date/request/kind/identity and active manual history stop before capture/candidates",
+    "more than8GiB stops; exception/cancel restore default4 context",
+    "actual retained weekly asset/job and three original checks execute using temporary SDK SQLite; child run stores real parent/root/tags and identical run_config"
+  ],
+  "boundaries": [
+    "HTTP and reference-scope discovery are explicit fixture substitutes in SDK case; daily planning/capture/assembly/publish/native checks are real",
+    "SDK child created with instance.create_run_for_job and execute_run(InMemoryJob); this is job/tag wiring, not GraphQL or PostgreSQL reexecution coverage",
+    "GiB RSS values are literal observations; no GiB memory allocation or performance test",
+    "83 formal saved pages were not read or used; two actual successful week source units prove reuse boundary",
+    "earlier 27-case pass had two fixture-assumption failures corrected without changing production: admissibility-safe identity drift and direct tag date precondition check",
+    "first SDK execution completed successfully; its initial assertion used an absent event convenience property, then corrected to actual ASSET_CHECK_EVALUATION events"
+  ],
+  "static": {
+    "ruff": "passed",
+    "diff_check": "passed"
+  },
+  "cleanup": {
+    "basetemp": "/private/tmp/dg-period-daily-rss8-tests-20261028",
+    "removed": true
+  },
+  "formal_resource_reads": 0,
+  "network_requests": 0,
+  "installs": 0,
+  "commits": 0
+}

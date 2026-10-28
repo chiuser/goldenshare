@@ -1,0 +1,28 @@
+from pathlib import Path
+from contextlib import closing
+from datetime import datetime
+import os,json
+import psycopg2
+from dagster._serdes import deserialize_value
+from dagster._core.storage.dagster_run import DagsterRun
+from dagster._core.scheduler.instigation import InstigatorState,InstigatorTick
+from orchestrator.local_startup import configuration
+R=Path('/Users/congming/github/goldenshare/lake_console/reports/dg_stock_period_delivery_recovery_20261028')
+S=Path('/Volumes/datasource/data_lake_staging/stock_period_silver')
+_,deps=configuration(os.environ,Path.home());out={'at':datetime.now().astimezone().isoformat(),'runs':[],'sensors':{}}
+with closing(psycopg2.connect(deps[0].connection['url'],connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn,conn.cursor() as c:
+ c.execute('SELECT run_id,status,run_body FROM runs WHERE pipeline_name=ANY(%s) AND run_body LIKE ANY(%s) ORDER BY id DESC LIMIT 8',(['silver_stock_weekly_update_job','silver_stock_monthly_update_job'],['%53a8a26605bc468313dd25069e9a8688d035d51c3b308b7c8d96bba88c4a26be%','%5d29c1254dd859eb5e30b7f334cfbcf2572118ca8468bc5f945470bcf454ea53%']))
+ for rid,status,body in c.fetchall():
+  run=deserialize_value(body,DagsterRun);cfg=next(iter(run.run_config['ops'].values()))['config'];w=S/('run_id='+cfg['execution_id']);p=w/'events_complete.json'
+  out['runs'].append({'run_id':rid,'job':run.job_name,'status':status,'config':cfg,'events_complete':json.loads(p.read_text()) if p.exists() else None,'complete_exists':(w/'complete.json').exists()})
+ names=['silver_stock_weekly_update_job_sensor','silver_stock_monthly_update_job_sensor']
+ c.execute("SELECT job_origin_id,status,job_body FROM jobs WHERE job_type='SENSOR' AND job_body LIKE ANY(%s)",(['%'+n+'%' for n in names],));states=c.fetchall()
+ for oid,status,body in states:
+  state=deserialize_value(body,InstigatorState);cursor=json.loads(state.instigator_data.cursor)
+  c.execute('SELECT status,tick_body FROM job_ticks WHERE job_origin_id=%s ORDER BY id DESC LIMIT 2',(oid,))
+  ticks=[]
+  for t_status,t_body in c.fetchall():
+   tick=deserialize_value(t_body,InstigatorTick);error=tick.tick_data.error
+   ticks.append({'status':t_status,'error':error.to_string() if error else None,'skip_reason':tick.tick_data.skip_reason})
+  out['sensors'][state.name]={'status':status,'cursor':cursor,'latest_ticks':ticks}
+(R/'rss8-silver-status.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n');print(json.dumps(out,ensure_ascii=False,indent=2))

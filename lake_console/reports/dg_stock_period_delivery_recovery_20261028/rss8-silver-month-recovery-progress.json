@@ -1,0 +1,65 @@
+{
+  "at": "2026-10-28T11:47:57.018969+08:00",
+  "run_id": "661f50eb-8344-45c4-b801-25b2d8610e21",
+  "recent_progress": [
+    {
+      "id": 7764092,
+      "timestamp": 1793159198.59099,
+      "message": "Silver update events: 153/153 month 2026-09"
+    },
+    {
+      "id": 7764091,
+      "timestamp": 1793159198.513352,
+      "message": "Silver update events: 1/153 month 2014-01"
+    },
+    {
+      "id": 7764090,
+      "timestamp": 1793159198.0576608,
+      "message": {
+        "stage": "files_complete",
+        "run_id": "82c6253a-b3ec-513f-8fce-cc8ccacb759e",
+        "totals": {
+          "week": {
+            "files": 0,
+            "rows": 0
+          },
+          "month": {
+            "files": 154,
+            "rows": 595280
+          }
+        },
+        "elapsed_seconds": 0.6684578750282526,
+        "settings": {
+          "temp_directory": "/Volumes/datasource/data_lake_staging/stock_period_silver/run_id=82c6253a-b3ec-513f-8fce-cc8ccacb759e/spill",
+          "max_temp_directory_size": "512GB",
+          "memory_limit": "16GB",
+          "threads": "4",
+          "preserve_insertion_order": "false"
+        },
+        "source_requests": 0,
+        "process_peak_rss_bytes": 397148160,
+        "output_bytes": 33103454,
+        "stage_seconds": {
+          "select_seconds": 0.024650166742503643,
+          "copy_seconds": 0.006219292059540749,
+          "validation_seconds": 0.013637749943882227,
+          "publish_seconds": 0.0022500413469970226
+        }
+      }
+    },
+    {
+      "id": 7764089,
+      "timestamp": 1793159198.0338151,
+      "message": {
+        "stage": "validate",
+        "period": "2026-10",
+        "done": 153
+      }
+    }
+  ],
+  "status_start_end": [
+    "SUCCESS",
+    1793159196.268544,
+    1793159198.772714
+  ]
+}

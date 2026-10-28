@@ -1,0 +1,61 @@
+"""Approved LLD12.12.2 precise metadata preflight; no instance initialization."""
+from pathlib import Path
+from datetime import datetime
+from contextlib import closing
+import fcntl
+import hashlib
+import json
+import os
+import shutil
+import socket
+import psycopg2
+from dagster._serdes import deserialize_value, serialize_value
+from dagster._core.scheduler.instigation import InstigatorState
+from orchestrator.local_startup import configuration
+
+B=Path('/Users/congming/github/goldenshare')
+R=B/'lake_console/reports/dg_stock_period_delivery_recovery_20261028'
+S=Path('/Volumes/datasource/data_lake_staging/stock_period')
+def version(p):
+    t=Path(p).stat();return [t.st_dev,t.st_ino,t.st_size,t.st_mtime_ns,t.st_ctime_ns]
+def sha(b):return hashlib.sha256(b).hexdigest()
+preview=json.loads((R/'reference-preview-result.json').read_text())
+before=json.loads((R/'old20-before.json').read_text())
+for entry in preview['reference_versions'].values():assert version(entry['path'])==entry['version'],entry['path']
+assert version(S/'baseline.json')==before['unchanged_control_versions'][str(S/'baseline.json')]
+daily_bytes=(S/'daily.json').read_bytes();assert sha(daily_bytes)==preview['daily_sha256']
+daily=json.loads(daily_bytes);assert daily['pending_work']=={}
+for rel,expected in before['source_sha256'].items():assert sha((B/'lake_console/orchestrator'/rel).read_bytes())==expected,rel
+with (S/'writer.lock').open('rb') as f:
+    fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB);fcntl.flock(f,fcntl.LOCK_UN)
+parent_ids=['319ec97d-cfd4-4ef7-bc4a-c98c7334464a','8c9e09c4-9a82-4042-b696-0ffc3a17999d']
+names=['raw_stk_period_bar_adj_week_update_job','raw_stk_period_bar_adj_month_update_job','silver_stock_weekly_update_job','silver_stock_monthly_update_job']
+sensors=['raw_stock_weekly_update_job_sensor','raw_stock_monthly_update_job_sensor','silver_stock_weekly_update_job_sensor','silver_stock_monthly_update_job_sensor']
+home,deps=configuration(os.environ,Path.home())
+output={'at':datetime.now().astimezone().isoformat(),'instance_home':str(home),'reference_versions_unchanged':True,'baseline_version_unchanged':True,'daily_sha256':sha(daily_bytes),'pending_count':0,'source_hashes_unchanged':True,'writer_free':True,'parent_runs':{},'sensors':{}}
+with closing(psycopg2.connect(deps[0].connection['url'],connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn,conn.cursor() as c:
+    c.execute('SHOW transaction_read_only');assert c.fetchone()[0]=='on'
+    c.execute('SELECT run_id,status,run_body FROM runs WHERE run_id=ANY(%s)',(parent_ids,))
+    for rid,status,body in c.fetchall():
+        run=deserialize_value(body);freq='week' if rid==parent_ids[0] else 'month';partition='2026-10-30' if freq=='week' else '2026-10'
+        assert status=='FAILURE' and run.job_name==names[0 if freq=='week' else 1]
+        assert run.tags['dagster/partition']==partition
+        configs=[v.get('config',{}) for v in run.run_config.get('ops',{}).values()]
+        assert any(v.get('automatic_intent_date')=='2026-10-27' for v in configs)
+        output['parent_runs'][rid]={'status':status,'job_name':run.job_name,'partition':partition,'run_config':run.run_config,'run_config_sha256':sha(serialize_value(run.run_config).encode()),'tags':run.tags,'remote_job_origin':serialize_value(run.remote_job_origin)}
+    assert set(output['parent_runs'])==set(parent_ids)
+    c.execute("SELECT run_id,pipeline_name,status FROM runs WHERE pipeline_name=ANY(%s) AND status IN ('QUEUED','NOT_STARTED','STARTING','STARTED','CANCELING')",(names,))
+    output['active_chain_runs']=c.fetchall();assert not output['active_chain_runs']
+    c.execute("SELECT status,job_body FROM jobs WHERE job_type='SENSOR' AND job_body LIKE ANY(%s)",(['%'+n+'%' for n in sensors],))
+    for status,body in c.fetchall():
+        state=deserialize_value(body, InstigatorState)
+        if state.name in sensors:output['sensors'][state.name]={'status':status,'cursor':state.instigator_data.cursor}
+    assert set(output['sensors'])==set(sensors)
+    assert all(v['status']=='RUNNING' for v in output['sensors'].values())
+output['same_filesystem']=Path('/Volumes/datasource/data_lake').stat().st_dev==S.stat().st_dev
+output['free_bytes']=shutil.disk_usage(S).free;assert output['same_filesystem'] and output['free_bytes']>48*1024**3
+with socket.socket() as sock:output['dg_port_already_listening']=sock.connect_ex(('127.0.0.1',3000))==0
+output['formal_mutations']=0;output['parquet_content_reads']=0
+(R/'raw27-execution-preflight.json').write_text(json.dumps(output,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({k:v for k,v in output.items() if k not in ('parent_runs','sensors')},ensure_ascii=False,indent=2))
+print(json.dumps({'parents':{k:{a:b for a,b in v.items() if a in ('status','job_name','partition')} for k,v in output['parent_runs'].items()},'sensor_states':{k:v['status'] for k,v in output['sensors'].items()}},ensure_ascii=False))

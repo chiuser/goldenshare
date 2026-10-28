@@ -1,0 +1,3 @@
+{
+  "query": "{ runOrError(runId: \"66b1c247-4c27-4009-9b21-2e5c7755c432\") { __typename ... on Run { runId status jobName parentRunId rootRunId stepKeysToExecute runConfigYaml tags { key value } } ... on PythonError { message } } runsOrError(filter: {statuses: [STARTED, STARTING, QUEUED]}, limit: 8) { __typename ... on Runs { results { runId jobName status } } ... on PythonError { message } } }"
+}
