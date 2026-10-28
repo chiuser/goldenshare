@@ -280,6 +280,9 @@ docs/
 
 ## 9. 产品原始材料
 
+- [徐小明算法与当前代码实现总结 v0.5（第1—4节为r2核心规则登记；其余保留原核对日期，不作部署或软件相容性证明）](/Users/congming/github/goldenshare/docs/product/xxm-direction-algorithm-plan-v0.5.md)
+- [徐小明r4算法优化方案 v0.1（先近后远最多两个、零柱中性、共用行情/内存进度安全检查；规则已确认，未开发）](/Users/congming/github/goldenshare/docs/product/xxm-r4-implementation-plan-v0.1.md)
+- [徐小明r4算法优化LLD v0.1（共用检查、独立计算及产品边界；先检查后赋值和正反测试已明确，未开发）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-r4-low-level-design-v0.1.md)
 - [徐小明方向识别研究算法方案 V0.1（算法取舍及呈现方式已确认；Figma 已获用户确认，“顶消失”文案已修正，开发态已实现并完成技术验收，等用户验收，未部署）](/Users/congming/github/goldenshare/docs/product/xxm-direction-algorithm-plan-v0.1.md)
 - [上证关键高低点条件预测第一步方案 V0.1（单时点／滚动更新需求已确认；Figma已确认；五项修订及开发／接口验证完成，待用户手动页面验收；技术面底部文字，评分下一步；未部署）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md)
 - [徐小明方向识别研究：MACD 钝化、结构与历史撤销（§8.49 实现、连续基线与页面技术验收已同步；等用户验收；原公式及完整软件时间线未验证）](/Users/congming/github/goldenshare/docs/product/xxm-macd-structure-research-v1.md)
