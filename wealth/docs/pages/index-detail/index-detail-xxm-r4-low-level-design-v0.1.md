@@ -1,12 +1,12 @@
 # 徐小明r4算法优化LLD v0.1
 
-日期：2026-10-28。状态：**B1前共享安全检查及B1独立r4计算已实现，通过本轮人工验收及独立复核，停在B1；B2/C未执行。**对应[方案](../../../../docs/product/xxm-r4-implementation-plan-v0.1.md)。本文保留编码要求和批次边界，实际完成及未验范围统一见§10。未开发比较器、运行双组行情重放或替换现r2产品。
+日期：2026-10-28。状态：**B1已提交ea90f7f2；提交后独立审计发现的底部历史结构编号漏检已按§11修复，通过针对性回归和独立复核。停在B1；B2/C未执行。**对应[方案](../../../../docs/product/xxm-r4-implementation-plan-v0.1.md)。此前开发记录保留在§10，最新修复及验收见§11。未开发比较器、运行双组行情重放或替换现r2产品。
 
 ## 1. 固定范围
 
 r4仅改变：历史同色段B优先、A备选、最多两个；零柱不分段、不作反色、不计有色根数，已有状态仍按原1%和原参照检查。2026-10-28确认有色根数及其余条件满足时，零日也允许首次钝化和底部等待重新钝化。保持原始float输入、收盘价及累计段极值、1%、首次TOP当根DIF>0、真实换色独立确认、底部救援和历史/等待的其余政策。零柱引起的必要配合见§5，不以“其他不变”为由留下零日重置。
 
-当前r2判别规则与两位/日线独立成果保持。已批准的共享安全检查例外为产品目录`src/biz/services/wealth/market/index_detail_xxm/`中的`types.py:XxmBar.validate`、新增`snapshot_validation.py`、`calculator.py:XxmCalculator.restore`及新增恢复状态检查和对应测试；§3.2/§3.3/§5.4明确改动边界。其余产品逐根判别分支、MAIN_SPEC、页面、API及封存原件不改，不安装、启动服务或保存结果。B1逐根计算不自行读取行情，B2来源接入与比较计算分开；r4不新增读取源码、比对源码SHA或检查源码正文完全相同的保护，改按§3.1登记规则并在开发后审计实际代码。正常代码开发/审阅仍须查看当前实现，不等于把源码文件作为运行时算法输入。本轮实现B1前及B1，只运行人工输入测试，不访问数据库或实际行情。生产模块不得导入研究目录。
+当前r2判别规则与两位/日线独立成果保持。已批准的共享安全检查例外为产品目录`src/biz/services/wealth/market/index_detail_xxm/`中的`types.py:XxmBar.validate`、新增`snapshot_validation.py`、`calculator.py:XxmCalculator.restore`及新增恢复状态检查（含§11的`_validate_bottom_history_snapshot`编号补核）和对应测试；§3.2/§3.3/§5.4明确改动边界。其余产品逐根判别分支、MAIN_SPEC、页面、API及封存原件不改，不安装、启动服务或保存结果。B1逐根计算不自行读取行情，B2来源接入与比较计算分开；r4不新增读取源码、比对源码SHA或检查源码正文完全相同的保护，改按§3.1登记规则并在开发后审计实际代码。正常代码开发/审阅仍须查看当前实现，不等于把源码文件作为运行时算法输入。本轮实现B1前及B1，只运行人工输入测试，不访问数据库或实际行情。生产模块不得导入研究目录。
 
 ## 2. 已核源码及依赖
 
@@ -209,7 +209,7 @@ point的`hist`永远是真实源值；活动状态的`ordinaryDirection`取逻�
 | 活动reference | 完整Wave；DULL/STRUCTURE必须有同方向的非零wave及reference，reference等于对应池中的一条旧段；NONE不得带活动reference。缺失不能改成NONE或猜一个旧峰谷；不重新检查当前收盘是否仍满足首次门槛 |
 | 顶部pending | 严格保留现字段`id/confirmedAt/confirmationRoute/pricePeak/pricePeakAt/originalReference/status/endedAt/endReason/observedThrough/ageBars/negativeBars/zeroBars/colorChanges`；只接受PENDING且endedAt/endReason为None；冻结价格正且有限，原参照严格四字段`startTime/endTime/price/dif`并校数字和日期。pricePeakAt≤confirmedAt≤observedThrough=previous.time，原参照结束早于confirmedAt；各计数为0至processed的整数，negativeBars+zeroBars≤ageBars，colorChanges≤ageBars。不能因普通状态为NONE就删掉仍在观察的历史 |
 | 底部历史及等待 | 字段分别严格对应现XxmBottomHistory/XxmRearmRecord；内部价格均正且有限，DIF均有限，计数非布尔整数且有界，日期按本周期且无未来。活动历史为PENDING、等待为WAITING，结束字段为None；observedThrough=previous.time。普通状态仍为BOTTOM STRUCTURE时，必须有同一当前绿段、尚未离段、confirmationRoute=dif_turn且originalReference与活动reference一致的底部历史，以便下根按原规则纠错；缺失/不匹配须在恢复赋值前拒绝。TOP STRUCTURE不要求顶部历史仍在，因其历史可能已按原价格规则退出。继续调用现底部历史/等待方法核具体日期、编号和关联，不放宽原要求 |
-| 所有时间和关联 | 时间复用本周期格式检查，不改写或补齐；编号须非空，关联用当前对象的_id核验。顶部历史id按现`_id('history',confirmedAt,confirmationRoute,originalReference.startTime)`检查；底部/等待沿原方法。历史原参照可已离开最近两段池，不能统一拒绝；活动/等待参照则核现有池关系 |
+| 所有时间和关联 | 时间复用本周期格式检查，不改写或补齐；编号须非空，关联用当前对象的_id核验。顶部历史id按现`_id('history',confirmedAt,confirmationRoute,originalReference.startTime)`检查；底部历史同时核实`structureEventId == _id(confirmedAt, 'STRUCTURE', -1, originalReference.startTime)`及`id == _id('bottom-history', structureEventId)`，两项均在赋值前完成，两编号一起改错也拒绝，dif_turn/color_flip使用同一生成公式；等待沿原方法。历史原参照可已离开最近两段池，不能统一拒绝；活动/等待参照则核现有池关系 |
 
 共用解析只生成独立的`ParsedXxmSnapshot`，不持有来件的可变字典/列表，不调用目标对象赋值。无活动记录时对应字段为None；history始终是两个列表。所有日期关系及计数均相对于副本自身previous/processed，合法回退不能被误拒。没有全量行情时无法证明极值计算本身正确，这项正确性由独立人工序列及连续/分批对账验证，不冒称恢复检查已证明。
 
@@ -411,3 +411,42 @@ CodeGraph使用impact(XxmCalculator)核上游/调用影响，node核calculator_a
 未验/未开发：R4-11比较器、合法双组重放、真实日线接入、双组1000根整体20秒/256MiB/16MiB验收、C的识别/预测真实路由及页面/完整性能。现产品仍r2，仅已批准的共用安全检查例外生效。独立r4只供研究计算；开发交付时未提交，随后管理员已授权提交本批并独立审计B1。本次不推送、部署或推进B2。
 
 人工进程资源补验：四个新增文件259 passed/0.55秒，含启动的壁钟0.83秒，子进程峰值RSS 98.56MiB，小于256MiB；没有运行双组1000根或把该结果当真实产品性能验收。
+
+## 11. 底部历史结构事件编号的修复与验收（2026-10-28）
+
+### 11.1 原因、范围和实现顺序
+
+提交ea90f7f2之后独立审计复现：将pendingBottomHistory.structureEventId改成任意非空文本，并按它重算历史id，旧恢复函数仅核两者相互匹配而接受。下一根结构消失会把错关联带入WAITING；此后等待恢复按正确结构编号核验，反而拒绝。§10此前“未发现遗留缺项”是当时结论，本项现明确未通过；管理员已授权修复并提交，不推进B2。
+
+现事件生产者在`XxmCalculator.step`和`R4Calculator.step`使用`self._id(bar.time, 'STRUCTURE', -1, event_ref.start)`；底部历史在`_start_bottom_history`中保存该structureEventId及`self._id('bottom-history', structureEventId)`。结构事件编号不含route，因此dif_turn和color_flip都应符合相同公式。本轮复用这一真实生产规则，不从当前历史池重新选峰，也不要求历史原参照仍在池内。
+
+只在现`calculator.py:XxmCalculator._validate_bottom_history_snapshot`中，已核原参照字段和时间后、最终返回临时副本前，增加：
+
+```python
+expected_structure_id = self._id(raw['confirmedAt'], 'STRUCTURE', -1, ref['startTime'])
+if raw['structureEventId'] != expected_structure_id:
+    raise ValueError('Invalid BOTTOM structure event identity')
+```
+
+保留现历史id检查、日期/数值检查及所有业务关系。r4没有重写此方法，父restore在临时r4对象上动态使用其_id，自动得到r4编号；禁止用XxmCalculator._id强制生成r2编号，也不新增r4专用通用检查。仍在所有检查成功后才发布九项进度；失败不改目标、来件和此前返回记录，不补写正确编号来接受坏副本。正常snapshot字段、事件生成、MAIN_SPEC、取价/选峰/1%、零柱、历史和等待行为不变。
+
+### 11.2 独立预期与验收
+
+| 场景 | 输入依据和必须结果 |
+|---|---|
+| r2/r4底部结构两个编号配套改错 | 各组独立人工序列或字面副本；改structureEventId并按已登记公式配套改历史id，修前应暴露DID NOT RAISE，修后ValueError；目标、来件和已返回记录不变，随后合法恢复及继续计算仍通过 |
+| 正常dif_turn历史 | 保留原形成日期/旧谷/编号，恢复后继续触发STRUCTURE_DISAPPEARED/WAITING；事件、底部历史和等待编号按独立公式断言，生成的WAITING再次恢复通过 |
+| 正常color_flip历史 | 独立人工输入确认真实翻色生成BOTTOM STRUCTURE，根末普通状态NONE；恢复历史成功并继续观察，不能要求原谷仍在最近两段池 |
+
+测试改动限现主题两个副本/r4测试文件；分别用独立编号公式断言，不调用被测验证函数或r2输出生成r4预期。四个B1人工文件及原r2相关人工节点回归，现查询恢复和预测clone测试继续执行；根三份架构、文档和差异检查保持。禁止整文件运行带冻结输入的旧计算测试，不真实读数、不双组重放、不增加API/页面/配置或源码SHA检查。
+
+读写、失败、中断及预算沿§5.4和方案§11：纯内存，多一次固定字段编号计算，恢复/继续/最终对账计入原预算，单组测试超过60秒先停查因，不安装依赖。完成后记录修前/修后证据、实际回归和独立复核，再仅提交修复相关文件；不推送、部署或开始B2。
+
+### 11.3 实际结果与停点
+
+- 先补文档及15个独立人工测试；其中10个配套错编号反例在旧实现均DID NOT RAISE（r2两条形成路径2项，r4两条路径×四周期8项），证明测试确实命中原漏洞。
+- 共同底部历史检查新增上述3行后，四个B1人工文件274 passed/0.59秒，包含全部新反例和正常恢复/等待继续正例；既有r2的25个人工节点参数化62 passed/0.12秒。没有整文件触发旧冻结输入测试。
+- 根三份架构16 passed/11.57秒，文档完整性及差异检查通过，各组均小于60秒。CodeGraph核共同恢复、r4继承、现查询与预测复制的影响面；独立复核实现与样本通过，未发现本次修复遗留问题。
+- r2/r4通过同一方法核各自结构身份，拒绝发生在赋值前；正常dif_turn/color_flip、原参照已离池和结构消失后WAITING恢复均有直接断言。未改step、编号生成、MAIN_SPEC、研究规则、查询或预测。
+
+修复及针对性验收完成，准备按管理员授权仅提交五个修复相关文件。此结论不代表真实行情效果、双组比较或产品整链预算已验证；不推进B2/C，不推送、部署或保存计算结果。

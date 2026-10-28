@@ -79,6 +79,18 @@ def bottom_structure_snapshot():
     return result
 
 
+def bottom_color_flip_snapshot():
+    result = bottom_structure_snapshot()
+    # Five literal bars: old green, red, two new greens, then red confirms
+    # the previous DULL by color_flip. The new red is outside the frozen low.
+    result.update(state="NONE", reference=None,
+        wave=wave(1, D[4], D[4], 1, 101, -5.9, D[4], D[4]),
+        previous=previous(D[4], 101, -5.9, -6.9, 2))
+    result["history"]["-1"].append(wave(-1, D[2], D[3], 2, 98, -6, D[3], D[2]))
+    result["pendingBottomHistory"].update(confirmationRoute="color_flip", leftOriginAt=D[4])
+    return result
+
+
 def waiting_snapshot():
     result = bottom_structure_snapshot()
     event = ident(D[4], "STRUCTURE", -1, D[0])
@@ -284,6 +296,66 @@ def test_bottom_and_waiting_internal_corruption_is_atomic(factory, field, path, 
         current = current[key]
     current[path[-1]] = value
     assert_bad_rejected(raw)
+
+
+@pytest.mark.parametrize("factory", [bottom_structure_snapshot, bottom_color_flip_snapshot])
+def test_bottom_event_and_history_ids_cannot_be_changed_together(factory):
+    raw = factory()
+    record = raw["pendingBottomHistory"]
+    # Both IDs remain well-formed and internally match, but the event no
+    # longer identifies the literal formation date/direction/reference.
+    record["structureEventId"] = ident("different-structure-event")
+    record["id"] = ident("bottom-history", record["structureEventId"])
+    assert_bad_rejected(raw)
+
+
+@pytest.mark.parametrize("route,factory", [("dif_turn", bottom_structure_snapshot),
+                                          ("color_flip", bottom_color_flip_snapshot)])
+def test_bottom_history_ids_follow_real_formation_for_both_routes(route, factory):
+    raw = factory()
+    calc = calculator()
+    calc.restore(raw)
+    event = ident(D[4], "STRUCTURE", -1, D[0])
+    assert calc.pending_bottom_history["structureEventId"] == event
+    assert calc.pending_bottom_history["id"] == ident("bottom-history", event)
+    assert calc.pending_bottom_history["confirmationRoute"] == route
+    assert calc.snapshot() == raw
+    if route == "dif_turn":
+        result = calc.step(XxmBar(D[5], 100, -6, -5, -2))
+        assert [(e["type"], e["route"]) for e in result.events] == [
+            ("STRUCTURE_DISAPPEARED", "dif_return")]
+        assert result.events[0]["relatedBottomHistoryId"] == ident("bottom-history", event)
+        assert calc.pending_rearm["structureEventId"] == event
+        assert calc.pending_rearm["id"] == ident("rearm", event, D[5])
+    else:
+        result = calc.step(XxmBar(D[5], 102, -5.8, -6.8, 2))
+        assert not result.events and calc.state == "NONE"
+        assert calc.pending_bottom_history["leftOriginAt"] == D[4]
+        assert calc.pending_bottom_history["priceLow"] == 98
+    child = calculator()
+    child.restore(calc.snapshot())
+    assert child.snapshot() == calc.snapshot()
+
+
+def test_bottom_historical_event_identity_does_not_require_reference_in_recent_pool():
+    raw = bottom_color_flip_snapshot()
+    # Two later green segments have displaced the original reference; its
+    # existing history still uses the original formation and reference IDs.
+    raw.update(processed=8, wave=wave(1, D[7], D[7], 1, 102, -5.6, D[7], D[7]),
+        previous=previous(D[7], 102, -5.6, -6.6, 2), history={
+            "-1": [wave(-1, D[2], D[3], 2, 98, -6, D[3], D[2]),
+                   wave(-1, D[6], D[6], 1, 101, -5.7, D[6], D[6])],
+            "1": [wave(1, D[1], D[1], 1, 110, -4, D[1], D[1]),
+                  wave(1, D[4], D[5], 2, 102, -5.8, D[5], D[5])]})
+    raw["pendingBottomHistory"].update(observedThrough=D[7], ageBars=3)
+    calc = calculator()
+    calc.restore(raw)
+    assert all(w.start != D[0] for w in calc.history[-1])
+    assert calc.pending_bottom_history["originalReference"]["startTime"] == D[0]
+    assert calc.pending_bottom_history["structureEventId"] == ident(D[4], "STRUCTURE", -1, D[0])
+    result = calc.step(XxmBar(D[8], 103, -5.5, -6.5, 2))
+    assert not result.events and calc.pending_bottom_history["priceLow"] == 98
+    assert calc.pending_bottom_history["observedThrough"] == D[8]
 
 
 def test_missing_and_extra_fields_are_not_defaulted():

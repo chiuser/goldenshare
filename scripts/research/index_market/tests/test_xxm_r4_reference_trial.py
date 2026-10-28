@@ -537,6 +537,72 @@ def test_bottom_structure_missing_history_is_rejected_but_valid_zero_structure_r
     assert child.pending_bottom_history["leftOriginAt"] is None
 
 
+@pytest.mark.parametrize("period", ["day", "m60", "m90", "m120"])
+@pytest.mark.parametrize("route", ["dif_turn", "color_flip"])
+def test_r4_bottom_event_and_history_ids_cannot_be_changed_together(period, route):
+    values = BOTTOM_STRUCTURE if route == "dif_turn" else BOTTOM_STRUCTURE[:-1] + [(98, -9.19, 2)]
+    calc, steps = run(values, period=period)
+    assert event_types(steps[-1]) == [("STRUCTURE", route, "BOTTOM")]
+    valid = calc.snapshot()
+    prior_results = deepcopy(steps)
+    bad = deepcopy(valid)
+    record = bad["parentState"]["pendingBottomHistory"]
+    record["structureEventId"] = event_id("different-structure-event", period=period)
+    record["id"] = event_id("bottom-history", record["structureEventId"], period=period)
+    original_bad = deepcopy(bad)
+    with pytest.raises(ValueError):
+        calc.restore(bad)
+    assert calc.snapshot() == valid and bad == original_bad and steps == prior_results
+    calc.restore(valid)
+    result = calc.step(bar(7, 100, -9, 0 if route == "dif_turn" else 2, period=period))
+    assert event_types(result) == ([("STRUCTURE_DISAPPEARED", "dif_return", "BOTTOM")]
+                                   if route == "dif_turn" else [])
+    child = R4Calculator(period=period, source_identity=SOURCE)
+    child.restore(calc.snapshot())
+    assert child.snapshot() == calc.snapshot()
+
+
+def test_r4_bottom_structure_and_waiting_keep_canonical_ids_after_restore():
+    calc, steps = run(BOTTOM_STRUCTURE)
+    structure = event_id(stamp(6), "STRUCTURE", -1, stamp(1))
+    history = event_id("bottom-history", structure)
+    assert steps[-1].events[0]["id"] == structure
+    assert steps[-1].events[0]["relatedBottomHistoryId"] == history
+    child = R4Calculator(period="day", source_identity=SOURCE)
+    child.restore(calc.snapshot())
+    disappeared = child.step(bar(7, 100, -9, 0))
+    assert event_types(disappeared) == [("STRUCTURE_DISAPPEARED", "dif_return", "BOTTOM")]
+    waiting = disappeared.rearm_records[0]
+    assert waiting["structureEventId"] == structure and waiting["bottomHistoryId"] == history
+    assert waiting["id"] == event_id("rearm", structure, stamp(7))
+    resumed = R4Calculator(period="day", source_identity=SOURCE)
+    resumed.restore(child.snapshot())
+    reactivated = resumed.step(bar(8, 98.5, -9.2, 0))
+    assert event_types(reactivated) == [("DULL", "reactivation", "BOTTOM")]
+    assert reactivated.events[0]["relatedRearmId"] == waiting["id"]
+    assert reactivated.rearm_records[0]["structureEventId"] == structure
+
+
+def test_r4_color_flip_history_restores_after_original_reference_leaves_pool():
+    values = BOTTOM_STRUCTURE[:-1] + [
+        (100, -9.2, 2), (100, -9.5, -2), (100, -9.6, -2),
+        (101, -9.4, 2), (100, -9.5, -2), (100, -9.4, 2)]
+    calc, steps = run(values)
+    structure = event_id(stamp(6), "STRUCTURE", -1, stamp(1))
+    assert event_types(steps[5]) == [("STRUCTURE", "color_flip", "BOTTOM")]
+    assert all(w.start != stamp(1) for w in calc.history[-1])
+    saved = calc.snapshot()
+    child = R4Calculator(period="day", source_identity=SOURCE)
+    child.restore(saved)
+    assert child.state == "NONE" and child.pending_bottom_history["structureEventId"] == structure
+    assert child.pending_bottom_history["originalReference"]["startTime"] == stamp(1)
+    assert child.pending_bottom_history["priceLow"] == 97
+    assert child.pending_bottom_history["leftOriginAt"] == stamp(6)
+    result = child.step(bar(12, 101, -9.3, 2))
+    assert not result.events and child.pending_bottom_history["structureEventId"] == structure
+    assert calc.snapshot() == saved
+
+
 def test_cross_group_sources_periods_and_unwrapped_parent_are_rejected():
     calc, _ = run(TOP_DULL)
     before = calc.snapshot()

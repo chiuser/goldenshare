@@ -307,6 +307,9 @@ class XxmCalculator:
             if not (raw["originSegmentStart"] <= raw["priceLowAt"] <= raw["confirmedAt"] <= raw["observedThrough"]
                     and ref["startTime"] <= ref["endTime"] < raw["originSegmentStart"]):
                 raise ValueError("Invalid BOTTOM snapshot chronology")
+            expected_structure_id = self._id(raw["confirmedAt"], "STRUCTURE", -1, ref["startTime"])
+            if raw["structureEventId"] != expected_structure_id:
+                raise ValueError("Invalid BOTTOM structure event identity")
             left = raw["leftOriginAt"]
             if left is not None:
                 if not raw["confirmedAt"] <= left <= raw["observedThrough"]:
