@@ -201,6 +201,12 @@ def format_report(result: R4ComparisonResult) -> str:
             events = "、".join(e["direction"] + "/" + e["type"] + "/" + e["route"] for e in group["events"]) or "无新事件"
             lines.append(f"  {side}：{states[point['ordinaryState']]}；{events}；"
                          + reference_text(point["activeReference"]))
+            selected = decision["selectedReference"]
+            if selected is not None and selected["action"] == "rescue":
+                lines.append(f"    参照切换（{row['time']}）")
+                lines.append("    切换前：" + reference_text(decision["before"]["reference"]))
+                lines.append("    切换后：" + reference_text(selected["reference"]))
+                lines.append("    本参照开始使用：" + selected["startedAt"])
             for check in decision["referenceChecks"]:
                 prefix = f"    {check['stage']}/{check['candidate']}："
                 if not check["checked"]:
@@ -213,5 +219,6 @@ def format_report(result: R4ComparisonResult) -> str:
                 lines.append(f"    相邻DIF {turn['previousDif']}→{turn['currentDif']}；1%门槛{turn['threshold']}")
             if turn["referenceBroken"]:
                 lines.append("    原参照DIF已被严格突破")
+            lines.append("    本根判断：" + decision["reason"])
         lines.append("  原因：" + changes[0]["reason"])
     return "\n".join(lines)

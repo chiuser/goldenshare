@@ -239,3 +239,111 @@ def test_observed_selector_returns_the_same_real_parent_object(monkeypatch):
     assert len(returned) == 1
     chosen = calc._select_eligible_reference(calc.wave, calc.history[1])
     assert chosen is returned[-1] and chosen is calc.history[1][-1]
+
+
+# Independent artificial inputs from LLD 15.4.  They intentionally do not
+# replace the complete 2023-04-14--19 market series.
+TOP_SWITCH = [(100, 41.186, 2), (90, 0, -2), (120, 24.935, 2),
+              (110, 0, -2), (129, 17, 2), (130, 17.649, 2)]
+
+
+@pytest.mark.parametrize("bottom", [False, True])
+@pytest.mark.parametrize("hist", [2, 0])
+def test_same_bar_switch_records_old_b_new_a_and_no_repeated_event(bottom, hist):
+    values = TOP_SWITCH + [(131, 26.754, hist), (132, 27.890, 2)]
+    if bottom:
+        values = [(200 - close, -dif, -color) for close, dif, color in values]
+    _, steps, decisions = run(ObservedR4Calculator, values)
+    first, switched, retained = decisions[5:8]
+    b_dif, a_dif = (-24.935, -41.186) if bottom else (24.935, 41.186)
+    stage = "bottom_rescue" if bottom else "top_rescue"
+    assert steps[5].events[0]["type"] == "DULL"
+    assert steps[5].events[0]["eventReference"]["dif"] == b_dif
+    assert first["selectedReference"]["startedAt"] == stamp(6)
+    assert not steps[6].events and not steps[7].events
+    assert switched["before"]["reference"]["dif"] == b_dif
+    assert switched["branch"] == "reference_switch"
+    assert "B已突破" in switched["reason"] and "A价格/DIF合格" in switched["reason"]
+    assert "当根切换并保持钝化" in switched["reason"]
+    assert [item["stage"] for item in switched["referenceChecks"]] == [
+        "nearest_price_gate", stage, stage]
+    assert [(item["candidate"], item["difPassed"]) for item in switched["referenceChecks"][1:]] == [
+        ("B", False), ("A", True)]
+    assert switched["selectedReference"] == {
+        "reference": {"startTime": stamp(1), "endTime": stamp(1), "price": 100, "dif": a_dif},
+        "startedAt": stamp(7), "action": "rescue", "rearmId": None}
+    assert switched["turn"]["referenceBroken"] is False
+    assert switched["turn"]["checked"] is True
+    assert retained["before"]["reference"]["dif"] == a_dif
+    assert retained["branch"] == "retained"
+    assert retained["selectedReference"]["action"] == "retained"
+    assert retained["selectedReference"]["startedAt"] == stamp(7)
+    assert all(not item["checked"] for item in retained["referenceChecks"])
+
+
+def test_failed_switch_keeps_actual_cancellation_and_failed_a_reason():
+    # A's close140 is not exceeded: the nearest B breaks, but A is not
+    # eligible just because its DIF41.186 is higher than the current26.754.
+    values = [(140, 41.186, 2)] + TOP_SWITCH[1:] + [(131, 26.754, 2)]
+    _, steps, decisions = run(ObservedR4Calculator, values)
+    decision = decisions[-1]
+    assert [(event["type"], event["route"]) for event in steps[-1].events] == [("CANCEL", "dif_break")]
+    assert decision["branch"] == "dif_break" and decision["selectedReference"] is None
+    assert [(item["candidate"], item["pricePassed"], item["difPassed"])
+            for item in decision["referenceChecks"][1:]] == [("B", True, False), ("A", False, None)]
+    assert decision["turn"]["referenceBroken"] is True and decision["turn"]["checked"] is False
+
+
+@pytest.mark.parametrize("bottom", [False, True])
+def test_r4_new_rescue_and_selector_delegate_once_without_product_bottom_call(bottom, monkeypatch):
+    values = TOP_SWITCH
+    if bottom:
+        values = [(200 - close, -dif, -hist) for close, dif, hist in values]
+    calc, _, _ = run(ObservedR4Calculator, values)
+    calls = {"rescue": 0, "select": 0}
+    original_rescue, original_select = R4Calculator._rescue_dull_reference, R4Calculator._select_eligible_reference
+
+    def rescue(self, *args):
+        calls["rescue"] += 1
+        return original_rescue(self, *args)
+
+    def select(self, *args):
+        calls["select"] += 1
+        return original_select(self, *args)
+
+    def forbidden_product_bottom_call(*args):
+        raise AssertionError("R4 must invoke only its new helper")
+
+    monkeypatch.setattr(R4Calculator, "_rescue_dull_reference", rescue)
+    monkeypatch.setattr(R4Calculator, "_select_eligible_reference", select)
+    monkeypatch.setattr(XxmCalculator, "_rescue_bottom_dull_reference", forbidden_product_bottom_call)
+    calc.step(bar(7, (69, -26.754, -2) if bottom else (131, 26.754, 2)))
+    assert calls == {"rescue": 1, "select": 1}
+    assert calc.last_decision["branch"] == "reference_switch"
+
+
+def test_equal_b_dif_is_retained_without_claiming_a_check():
+    _, steps, decisions = run(ObservedR4Calculator, TOP_SWITCH + [(131, 24.935, 2)])
+    d = decisions[-1]
+    assert not steps[-1].events and d["branch"] == "retained"
+    assert d["selectedReference"]["action"] == "retained"
+    assert d["selectedReference"]["reference"]["dif"] == 24.935
+    assert d["selectedReference"]["startedAt"] == stamp(6)
+    assert all(not item["checked"] and item["pricePassed"] is None and item["difPassed"] is None
+               for item in d["referenceChecks"])
+
+
+def test_r2_observation_keeps_original_bottom_rescue_branch_and_stage():
+    # R2 initially uses B because A's price80 is not strictly broken yet.
+    # Only the later close88 allows A; its existing rescue behavior remains.
+    values = [(80, -20, -2), (120, 0, 2), (100, -10, -2), (115, 0, 2),
+              (90, -8, -2), (89, -9, -2), (79, -12, -2)]
+    calc, steps, decisions = run(ObservedR2Calculator, values)
+    d = decisions[-1]
+    assert not steps[-1].events and calc.state == "DULL"
+    assert d["before"]["reference"]["dif"] == -10
+    assert d["selectedReference"]["reference"]["dif"] == -20
+    assert d["selectedReference"]["action"] == "rescue"
+    assert d["branch"] == "retained" and d["reason"] == "沿用已有参照；本根无普通事件"
+    assert [item["stage"] for item in d["referenceChecks"]] == [
+        "nearest_price_gate", "bottom_rescue", "bottom_rescue"]

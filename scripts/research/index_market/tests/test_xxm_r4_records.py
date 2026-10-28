@@ -149,6 +149,67 @@ def test_same_label_but_different_reference_is_reported_with_original_values():
     assert item["effect"] == "unknown" and item["previousDifferenceAt"] is None
 
 
+def test_literal_same_bar_switch_keeps_original_events_and_reports_reference_change():
+    # Inspected producer contract, with independent literal decisions:
+    # day0 C115/DIF15 qualifies near B110/20 and far A100/30;
+    # day1 C120/DIF25 breaks B, remains below A, and switches without a label.
+    near = {"startTime": "2025-01-02", "endTime": "2025-01-03", "price": 110, "dif": 20}
+    far = {"startTime": "2024-12-02", "endTime": "2024-12-06", "price": 100, "dif": 30}
+    records = []
+    for i, day in enumerate(DAYS[:2]):
+        sides = []
+        for side in ("r2", "r4"):
+            reference = near if side == "r4" and i == 0 else far
+            g = group(day, state="DULL", direction="TOP")
+            g["point"].update(close=115 if i == 0 else 120, dif=15 if i == 0 else 25,
+                              dea=14 if i == 0 else 24, hist=2, activeReference=deepcopy(reference))
+            g["decision"]["wave"].update(price=g["point"]["close"], dif=g["point"]["dif"])
+            g["decision"]["selectedReference"].update(reference=deepcopy(reference),
+                startedAt=DAYS[0] if side == "r2" or i == 0 else day,
+                action="activation" if i == 0 else "retained" if side == "r2" else "rescue")
+            if i == 0:
+                g["decision"]["turn"].update(previousDif=None, currentDif=15, threshold=None,
+                    referenceBroken=None, checked=False)
+                e = event(side + "-dull", day, "DULL", route="activation")
+                e.update(fromState="NONE", eventReference=deepcopy(reference))
+                g["events"] = [e]
+            else:
+                old = near if side == "r4" else far
+                g["decision"]["before"].update(state="DULL", reference=deepcopy(old),
+                    wave=wave(DAYS[0]), previous={"time": DAYS[0], "close": 115,
+                    "dif": 15, "dea": 14, "hist": 2, "completed": True})
+                g["decision"]["before"]["wave"].update(price=115, dif=15)
+                g["decision"]["turn"].update(previousDif=15, currentDif=25, threshold=.15,
+                    referenceBroken=False, checked=True)
+                if side == "r4":
+                    g["decision"].update(branch="reference_switch",
+                        reason="B已突破，A价格/DIF合格，当根切换并保持钝化")
+                    g["decision"]["referenceChecks"] = [
+                        {"stage": "top_rescue", "candidate": name, "reference": deepcopy(ref),
+                         "wave": deepcopy(g["decision"]["wave"]), "checked": True,
+                         "pricePassed": True, "difPassed": valid,
+                         "reason": "DIF未严格背离" if not valid else "参照已选中"}
+                        for name, ref, valid in (("B", near, False), ("A", far, True))]
+            sides.append(g)
+        records.append(row(day, *sides))
+    original = deepcopy(records)
+    result = compare(records)
+    assert result["summary"]["r2EventCounts"] == result["summary"]["r4EventCounts"] == {"DULL": 1}
+    day1 = [item for item in result["differences"] if item["time"] == DAYS[1]]
+    assert day1 and {item["category"] for item in day1} == {"referenceDecision"}
+    assert not any(item["field"] in ("events", "point.activeReference", "point.ordinaryState") for item in day1)
+    selected = next(item for item in day1 if item["field"] == "decision.selectedReference")
+    assert selected["r4"] == {"reference": far, "startedAt": DAYS[1], "action": "rescue", "rearmId": None}
+    assert selected["r4Decision"]["before"]["reference"] == near
+    assert records == original
+    assert records[0]["r4"]["events"][0]["time"] == DAYS[0]
+    assert records[0]["r4"]["events"][0]["eventReference"] == near
+    # A later common active reference must not retroactively pair different
+    # original activation references or rewrite the original event.
+    assert len(result["idPairs"]) == 2
+    assert {pair["status"] for pair in result["idPairs"]} == {"r2_only", "r4_only"}
+
+
 def test_reference_check_order_and_unchecked_null_are_preserved():
     g = group(DAYS[0])
     checks = [dict(stage="activation", candidate=name, reference=deepcopy(REF), wave=wave(DAYS[0]),

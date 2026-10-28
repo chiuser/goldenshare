@@ -29,8 +29,9 @@ SOURCE = "r4-literal-input"
 # Registered rule identity, not a fingerprint of any source file.
 PARENT_RULE_HASH = "6db425730c72f22ea756c121a832f27c966d1324ef0a72a2312a3c572038724d"
 RULE_FIELDS = {
-    "research_version": "xxm-research-r4-v1",
+    "research_version": "xxm-research-r4-v2",
     "reference_policy": "nearest_then_farther_two",
+    "active_reference_policy": "same_bar_near_to_far_on_dull_break",
     "zero_policy": "neutral_real_opposite",
     "allow_zero_activation": True,
     "allow_zero_reactivation": True,
@@ -83,6 +84,200 @@ TOP_DULL = [(100, 50, 2), (90, 0, -2), (101, 40, 2), (102, 41, 2)]
 BOTTOM_STRUCTURE = [(100, -10, -2), (99, -11, -2), (105, -5, 2),
                     (98, -9, -2), (97, -9.2, -2), (98, -8.8, -2)]
 
+# LLD 15.4: artificial segment closes, not a shortened real-market replay.
+TOP_NEAR_DULL = [(100, 41.186, 2), (90, 0, -2), (120, 24.935, 2),
+                 (90, 0, -2), (130, 17.649, 2), (131, 17.649, 2)]
+
+
+@pytest.mark.parametrize("period", ["day", "m60", "m90", "m120"])
+@pytest.mark.parametrize("bottom", [False, True])
+@pytest.mark.parametrize("zero", [False, True])
+def test_dull_switches_on_break_bar_without_cancel_or_new_activation(period, bottom, zero):
+    values = mirror(TOP_NEAR_DULL) if bottom else TOP_NEAR_DULL
+    calc, earlier = run(values, period=period)
+    original = deepcopy(earlier)
+    original_event = earlier[-1].events[0]
+    assert original_event["eventReference"]["startTime"] == stamp(3, period)
+    incoming = (132, 26.754, 0 if zero else 2)
+    if bottom:
+        incoming = mirror([incoming])[0]
+    switched = calc.step(bar(7, *incoming, period=period))
+    expected_ref = {"startTime": stamp(1, period), "endTime": stamp(1, period),
+                    "price": 100, "dif": -41.186 if bottom else 41.186}
+    assert switched.events == ()
+    assert switched.point["ordinaryState"] == "DULL"
+    assert switched.point["activeReference"] == expected_ref
+    assert calc.wave.count == (2 if zero else 3)
+    assert calc.reference is not calc.history[-1 if bottom else 1][0]
+    assert earlier == original and original_event["eventReference"]["startTime"] == stamp(3, period)
+    later = (131, 27.890, 2)
+    if bottom:
+        later = mirror([later])[0]
+    continued = calc.step(bar(8, *later, period=period))
+    assert continued.events == () and continued.point["ordinaryState"] == "DULL"
+    assert continued.point["activeReference"] == expected_ref
+    structure = (131, 27.4, 2)
+    if bottom:
+        structure = mirror([structure])[0]
+    formed = calc.step(bar(9, *structure, period=period))
+    assert event_types(formed) == [("STRUCTURE", "dif_turn", "BOTTOM" if bottom else "TOP")]
+    assert formed.events[0]["eventReference"] == expected_ref
+    histories = formed.bottom_histories if bottom else formed.histories
+    assert histories[-1]["originalReference"] == expected_ref
+
+
+@pytest.mark.parametrize("far_price,far_dif", [(140, 41.186), (132, 41.186),
+                                             (100, 26.754), (100, 26.5)])
+@pytest.mark.parametrize("bottom", [False, True])
+def test_dull_switch_requires_far_strict_price_and_dif_on_same_bar(far_price, far_dif, bottom):
+    values = [(far_price, far_dif, 2), *TOP_NEAR_DULL[1:]]
+    calc, _ = run(mirror(values) if bottom else values)
+    assert calc.reference.start == stamp(3)
+    incoming = (132, 26.754, 2)
+    if bottom:
+        incoming = mirror([incoming])[0]
+    cancelled = calc.step(bar(7, *incoming))
+    assert event_types(cancelled) == [("CANCEL", "dif_break", "BOTTOM" if bottom else "TOP")]
+    assert cancelled.events[0]["eventReference"]["startTime"] == stamp(3)
+    assert calc.state == "NONE" and calc.reference is None
+
+
+def test_dull_keeps_equal_near_reference_and_does_not_query_far(monkeypatch):
+    calc, _ = run(TOP_NEAR_DULL)
+    def unexpected(*args):
+        raise AssertionError("Equal DIF must retain B without selecting A")
+    monkeypatch.setattr(calc, "_select_eligible_reference", unexpected)
+    result = calc.step(bar(7, 132, 24.935, 2))
+    assert result.events == () and calc.state == "DULL"
+    assert calc.reference.start == stamp(3)
+
+
+def test_missing_far_reference_cancels_on_break_bar():
+    calc, _ = run(TOP_NEAR_DULL[2:])
+    result = calc.step(bar(5, 132, 26.754, 2))
+    assert event_types(result) == [("CANCEL", "dif_break", "TOP")]
+    assert calc.reference is None and calc.state == "NONE"
+
+
+def test_later_far_price_qualification_does_not_erase_prior_cancel():
+    calc, _ = run([(140, 41.186, 2), *TOP_NEAR_DULL[1:]])
+    cancelled = calc.step(bar(7, 132, 26.754, 2))
+    saved_cancel = deepcopy(cancelled)
+    assert event_types(cancelled) == [("CANCEL", "dif_break", "TOP")]
+    activated = calc.step(bar(8, 141, 27.890, 2))
+    assert event_types(activated) == [("DULL", "activation", "TOP")]
+    assert activated.events[0]["eventReference"]["startTime"] == stamp(1)
+    assert cancelled == saved_cancel
+
+
+def test_dull_switch_never_searches_third_candidate_or_returns_to_near(monkeypatch):
+    values = [(80, 60, 2), (70, 0, -2), (100, 26, 2), (90, 0, -2),
+              (120, 24.935, 2), (90, 0, -2), (130, 17.649, 2), (131, 17.649, 2)]
+    calc, _ = run(values)
+    assert [w.start for w in calc.history[1]] == [stamp(3), stamp(5)]
+    result = calc.step(bar(9, 132, 26.754, 2))
+    assert event_types(result) == [("CANCEL", "dif_break", "TOP")]
+    calc, _ = run(TOP_NEAR_DULL + [(132, 26.754, 2)])
+    def unexpected(*args):
+        raise AssertionError("A is already active; never restart B/A search")
+    monkeypatch.setattr(calc, "_select_eligible_reference", unexpected)
+    continued = calc.step(bar(8, 133, 27.890, 2))
+    assert continued.events == () and calc.reference.start == stamp(1)
+    cancelled = calc.step(bar(9, 133, 42, 2))
+    assert event_types(cancelled) == [("CANCEL", "dif_break", "TOP")]
+
+
+def test_top_structure_and_true_flip_do_not_use_dull_switch():
+    calc, _ = run(TOP_NEAR_DULL + [(131, 17, 2)])
+    assert calc.state == "STRUCTURE"
+    cancelled = calc.step(bar(8, 132, 26.754, 0))
+    assert event_types(cancelled) == [("CANCEL", "dif_break", "TOP")]
+    assert cancelled.events[0]["eventReference"]["startTime"] == stamp(3)
+    calc, _ = run(TOP_NEAR_DULL)
+    flipped = calc.step(bar(7, 132, 26.754, -2))
+    assert event_types(flipped) == [("CANCEL", "dif_break_on_flip", "TOP")]
+    assert flipped.events[0]["eventReference"]["startTime"] == stamp(3)
+
+
+def test_switch_does_not_reopen_history_ended_on_natural_dull_return():
+    calc, before = run(TOP_NEAR_DULL + [(131, 17, 2), (131, 17.3, 2)])
+    # Actual producer ends this history on DULL/dif_return, before switching.
+    assert calc.state == "DULL" and calc.pending is None
+    assert before[-1].histories[0]["status"] == "ENDED"
+    assert before[-1].histories[0]["endReason"] == "new_top_DULL"
+    assert before[-1].histories[0]["originalReference"]["startTime"] == stamp(3)
+    previous = deepcopy(before)
+    result = calc.step(bar(9, 132, 26.754, 2))
+    assert result.events == () and result.histories == () and calc.pending is None
+    assert result.point["activeReference"]["startTime"] == stamp(1)
+    assert before == previous
+
+
+def test_switch_preserves_original_reference_in_valid_artificial_pending_snapshot():
+    calc, before = run(TOP_NEAR_DULL + [(131, 17, 2)])
+    # Restore permits this independent state/history combination. It is an
+    # explicit artificial boundary case, not a natural dif_return replay.
+    incoming = calc.snapshot()
+    incoming["parentState"]["state"] = "DULL"
+    calc.restore(incoming)
+    assert calc.state == "DULL" and calc.pending is not None
+    previous = deepcopy(before)
+    old_history = deepcopy(calc.pending)
+    result = calc.step(bar(8, 132, 26.754, 2))
+    assert result.events == () and result.point["ordinaryState"] == "DULL"
+    assert result.point["activeReference"]["startTime"] == stamp(1)
+    assert calc.pending is None and len(result.histories) == 1
+    ended = result.histories[0]
+    assert ended["id"] == old_history["id"]
+    assert ended["originalReference"] == old_history["originalReference"]
+    assert ended["originalReference"]["startTime"] == stamp(3)
+    assert (ended["pricePeak"], ended["pricePeakAt"]) == (131, stamp(6))
+    assert (ended["status"], ended["endReason"], ended["endedAt"]) == (
+        "ENDED", "original_reference_break", stamp(8))
+    assert before == previous
+
+
+@pytest.mark.parametrize("period", ["day", "m60", "m90", "m120"])
+def test_same_bar_switch_prefixes_restore_without_sharing(period):
+    values = TOP_NEAR_DULL + [(132, 26.754, 0), (131, 27.890, 2), (131, 27.4, 2)]
+    full, full_steps = run(values, period=period)
+    states = ["NONE"] * 5 + ["DULL", "DULL", "DULL", "STRUCTURE"]
+    assert [s.point["ordinaryState"] for s in full_steps] == states
+    for cut in (6, 7, 8):
+        calc, previous = run(values[:cut], period=period)
+        saved = deepcopy(calc.snapshot())
+        before = deepcopy(previous)
+        child = R4Calculator(period=period, source_identity=SOURCE)
+        child.restore(saved)
+        tail = [child.step(bar(i, *values[i-1], period=period)) for i in range(cut+1, len(values)+1)]
+        assert [s.point["ordinaryState"] for s in tail] == states[cut:]
+        assert child.snapshot() == full.snapshot()
+        assert calc.snapshot() == saved and previous == before
+        child.reference.price = 1
+        assert calc.reference.price in (100, 120) and saved["parentState"]["reference"]["price"] in (100, 120)
+
+
+def test_prior_v1_snapshot_is_rejected_atomically_then_valid_v2_restores():
+    calc, before = run(TOP_NEAR_DULL + [(132, 26.754, 2)])
+    valid = deepcopy(calc.snapshot())
+    legacy = deepcopy(valid)
+    legacy_fields = {**RULE_FIELDS, "research_version": "xxm-research-r4-v1"}
+    legacy_fields.pop("active_reference_policy", None)
+    legacy_hash = hashlib.sha256(json.dumps(
+        {**legacy_fields, "parentSpecHash": PARENT_RULE_HASH}, sort_keys=True,
+        separators=(",", ":"),
+    ).encode()).hexdigest()
+    legacy.update(researchVersion="xxm-research-r4-v1", researchHash=legacy_hash)
+    legacy["parentState"]["sourceIdentity"] = f"r4|{legacy_hash}|day|{SOURCE}"
+    incoming = deepcopy(legacy)
+    results = deepcopy(before)
+    with pytest.raises(ValueError):
+        calc.restore(legacy)
+    assert calc.snapshot() == valid and legacy == incoming and before == results
+    calc.restore(valid)
+    continued = calc.step(bar(8, 133, 27.890, 2))
+    assert continued.events == () and continued.point["activeReference"]["startTime"] == stamp(1)
+
 
 def test_rule_spec_is_fixed_and_has_independent_rule_identity():
     assert asdict(R4_TRIAL_SPEC) == RULE_FIELDS
@@ -97,6 +292,7 @@ def test_rule_spec_is_fixed_and_has_independent_rule_identity():
     ("allow_zero_activation", False), ("allow_zero_reactivation", False),
     ("dif_turn_pct", .75), ("max_refs", 3), ("min_colored_bars", 1),
     ("reference_policy", "strongest_eligible"), ("zero_policy", "split"),
+    ("active_reference_policy", "fixed"), ("research_version", "xxm-research-r4-v1"),
 ])
 def test_rule_fields_are_not_trial_switches(field, value):
     with pytest.raises(ValueError):
@@ -110,7 +306,7 @@ def test_product_spec_input_identity_and_research_ids_are_separate():
     assert calc.source_identity == f"r4|{RULE_HASH}|day|{SOURCE}"
     assert steps[-1].events[0]["id"] == event_id(stamp(4), "DULL", 1, stamp(1))
     assert calc.snapshot()["researchHash"] == RULE_HASH
-    assert calc.snapshot()["researchVersion"] == "xxm-research-r4-v1"
+    assert calc.snapshot()["researchVersion"] == "xxm-research-r4-v2"
     assert set(calc.snapshot()) == {"researchVersion", "researchHash", "tsCode", "period", "inputIdentity", "parentState"}
     assert calc.snapshot()["parentState"]["specHash"] == PARENT_RULE_HASH
     assert calc.snapshot()["parentState"]["sourceIdentity"] == calc.source_identity

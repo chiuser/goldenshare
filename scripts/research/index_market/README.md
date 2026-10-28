@@ -1,8 +1,10 @@
 # 指数大势研究：统一代码入口
 
-2026-10-28当前B2：[r4方案§12—13](../../../docs/product/xxm-r4-implementation-plan-v0.1.md)、[r4 LLD§12—13](../../../wealth/docs/pages/index-detail/index-detail-xxm-r4-low-level-design-v0.1.md)。独立比较器r4_comparison.py及只读观察/记录比较已完成，B2人工74项通过，实际922根2023-01-03—2026-10-27同源日线比较完成；28日未收盘未补入。253个日期有某类字段差异，普通状态只有1天不同，不能当253天标签变化。完整实际成本与限制见原方案，现产品继续r2。无新reader/CLI或落盘结果，不自动进入C。B1及修复已提交ea90f7f2/faaaa6b5，管理员已授权提交本次B2，随后按方案/LLD§14提取视频核对候选。
+2026-10-28当前r4研究v2：[方案§15](../../../docs/product/xxm-r4-implementation-plan-v0.1.md)、[LLD§15](../../../wealth/docs/pages/index-detail/index-detail-xxm-r4-low-level-design-v0.1.md)。近B失效而远A价格/DIF全合格时，当根切A延续钝化，不新增消失或再次钝化；仅已有DULL同段，原1%/结构/等待/真实翻色规则不扩大。实现、人工验收及独立代码审计已完成；相关七文件398项、原r2人工62项、架构16项通过。旧v1副本不接受；无新产品开关、读取入口或结果落盘。开发交付时真实922根v2对照尚未运行，页面继续r2；随后管理员已授权按方案/LLD§16先提交本轮再重跑，结果待执行。
 
-当前B2人工测试：`.venv/bin/python -B -m pytest -q -p no:cacheprovider scripts/research/index_market/tests/test_xxm_r4_observation.py scripts/research/index_market/tests/test_xxm_r4_records.py scripts/research/index_market/tests/test_xxm_r4_comparison.py`。这条命令只用人工输入；真实比较依LLD的一次性只读装配，不调用旧两位入口或读取旧标签。
+2026-10-28此前B2（研究v1历史）：[r4方案§12—13](../../../docs/product/xxm-r4-implementation-plan-v0.1.md)、[r4 LLD§12—13](../../../wealth/docs/pages/index-detail/index-detail-xxm-r4-low-level-design-v0.1.md)。独立比较器r4_comparison.py及只读观察/记录比较已完成，B2人工74项通过，实际922根2023-01-03—2026-10-27同源日线比较完成；28日未收盘未补入。253个日期有某类字段差异，普通状态只有1天不同，不能当253天标签变化。完整实际成本与限制见原方案，现产品继续r2。无新reader/CLI或落盘结果，不自动进入C。B1及修复已提交ea90f7f2/faaaa6b5，管理员已授权提交本次B2，随后按方案/LLD§14提取视频核对候选。
+
+当前r4研究人工测试（无真实读取）：`.venv/bin/python -B -m pytest -q -p no:cacheprovider scripts/research/index_market/tests/test_xxm_r4_observation.py scripts/research/index_market/tests/test_xxm_r4_records.py scripts/research/index_market/tests/test_xxm_r4_comparison.py`。这条命令只用人工输入；真实比较依LLD的一次性只读装配，不调用旧两位入口或读取旧标签。
 
 2026-10-28此前B1开发：[r4方案](../../../docs/product/xxm-r4-implementation-plan-v0.1.md)、[r4 LLD](../../../wealth/docs/pages/index-detail/index-detail-xxm-r4-low-level-design-v0.1.md)。B1前共享安全检查及B1独立r4计算已实现并完成定向人工验收。研究计算先近B后远A、最多两个，真实反色、零柱中性，保留1%及原历史/等待政策；现产品仍r2，仅共用输入/内存副本安全检查收紧，页面和预测未替换。停在B1，不运行双组对照或恢复封存实验。
 

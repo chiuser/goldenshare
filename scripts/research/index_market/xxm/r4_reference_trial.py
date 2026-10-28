@@ -18,8 +18,9 @@ from src.biz.services.wealth.market.index_detail_xxm.types import (
 
 @dataclass(frozen=True, slots=True)
 class R4TrialSpec:
-    research_version: str = "xxm-research-r4-v1"
+    research_version: str = "xxm-research-r4-v2"
     reference_policy: str = "nearest_then_farther_two"
+    active_reference_policy: str = "same_bar_near_to_far_on_dull_break"
     zero_policy: str = "neutral_real_opposite"
     allow_zero_activation: bool = True
     allow_zero_reactivation: bool = True
@@ -47,7 +48,7 @@ _WRAPPER_FIELDS = frozenset(("researchVersion", "researchHash", "tsCode", "perio
 
 
 class R4Calculator(XxmCalculator):
-    """Keep r2 policy except near-first references and neutral zero columns."""
+    """Near-first references, same-bar DULL switching and neutral zero columns."""
 
     def __init__(self, *, period: XxmPeriod, source_identity: str, ts_code: str = "000001.SH",
                  trial_spec: R4TrialSpec = R4_TRIAL_SPEC) -> None:
@@ -150,7 +151,7 @@ class R4Calculator(XxmCalculator):
             event_type, route, direction, event_ref = "DULL", "reactivation", -1, reactivated
         if not event_type and not blocked:
             if reactivated is None:
-                self._rescue_bottom_dull_reference(bar, old_wave, old_state)
+                self._rescue_dull_reference(bar, old_wave, old_state)
             ref = self.reference
             if ref is not None and sign * (wave.dif - ref.dif) > 0:
                 event_type, route, direction, event_ref = "CANCEL", "dif_break", sign, ref
@@ -252,14 +253,20 @@ class R4Calculator(XxmCalculator):
                      if wave.sign * (wave.price - candidate.price) > 0
                      and wave.sign * (wave.dif - candidate.dif) < 0), None)
 
-    def _rescue_bottom_dull_reference(self, bar: XxmBar, old_wave: Wave | None, old_state: str) -> None:
+    def _rescue_dull_reference(self, bar: XxmBar, old_wave: Wave | None, old_state: str) -> None:
         wave, ref = self.wave, self.reference
         if (old_state != "DULL" or self.state != "DULL" or wave is None or wave is not old_wave
-                or wave.sign != -1 or bar.hist > 0 or ref is None or self.pending_rearm is not None
-                or wave.dif >= ref.dif):
+                or wave.sign not in (-1, 1) or ref is None or self.pending_rearm is not None):
             return
-        candidate = self._select_eligible_reference(wave, self.history[-1])
-        if candidate is not None:
+        sign = wave.sign
+        raw_sign = (bar.hist > 0) - (bar.hist < 0)
+        if raw_sign not in (0, sign) or sign * (wave.dif - ref.dif) <= 0:
+            return
+        pool = list(reversed(self.history[sign]))[:self.spec.max_refs]
+        if len(pool) != 2 or ref.reference() != pool[0].reference():
+            return
+        candidate = self._select_eligible_reference(wave, self.history[sign])
+        if candidate is not None and candidate.reference() == pool[1].reference():
             self.reference = deepcopy(candidate)
 
     def _qualifies_bottom_close(self, bar: XxmBar, reference: Wave, nearest_price: float) -> bool:

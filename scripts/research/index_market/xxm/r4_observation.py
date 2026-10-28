@@ -73,20 +73,24 @@ class _ObservationMixin:
         context["selectionCalls"].append({"stage": stage, "selected": _reference(selected)})
         return selected
 
-    def _rescue_bottom_dull_reference(self, bar, old_wave, old_state):
+    def _observe_rescue_call(self, operation, bar, old_wave, old_state, stage):
         context = self._observation
         if context is None:
-            return super()._rescue_bottom_dull_reference(bar, old_wave, old_state)
+            return operation(bar, old_wave, old_state)
         prior_stage = context["selectionStage"]
-        context["selectionStage"] = "bottom_rescue"
+        context["selectionStage"] = stage
         before = _reference(self.reference)
         try:
-            result = super()._rescue_bottom_dull_reference(bar, old_wave, old_state)
+            result = operation(bar, old_wave, old_state)
         finally:
             context["selectionStage"] = prior_stage
         context["afterRescue"] = {"reference": _reference(self.reference), "wave": _wave(self.wave)}
         context["rescued"] = before != _reference(self.reference)
         return result
+
+    def _rescue_bottom_dull_reference(self, bar, old_wave, old_state):
+        return self._observe_rescue_call(super()._rescue_bottom_dull_reference,
+                                         bar, old_wave, old_state, "bottom_rescue")
 
     def _advance_rearm(self, bar):
         saved = deepcopy(self.pending_rearm)
@@ -135,11 +139,17 @@ class _ObservationMixin:
         raw_sign = (bar.hist > 0) - (bar.hist < 0)
         ordinary = next((event for event in result.events if event["type"] != "RESEARCH_HISTORICAL_WITHDRAWAL"), None)
         rearm = context.get("rearm", (False, None, ()))
+        switched = self._near_first and context.get("rescued")
+        switch_reason = "B已突破，A价格/DIF合格，当根切换并保持钝化"
         if ordinary is not None:
             branch = ordinary["route"]
             reason = "实际普通事件：" + ordinary["type"] + "/" + branch
+            if switched:
+                reason = "B已突破，A价格/DIF合格，当根切换；" + reason
         elif rearm[0]:
             branch, reason = "waiting", "等待处理结束，本根未进入首次或相邻转折判断"
+        elif switched:
+            branch, reason = "reference_switch", switch_reason
         elif self.wave is None:
             branch, reason = "leading_zero", "开头零柱尚无逻辑色段"
         elif before["wave"] is not None and before["wave"]["sign"] != self.wave.sign:
@@ -197,3 +207,8 @@ class ObservedR4Calculator(_ObservationMixin, R4Calculator):
     """Observe the independently identified r4 calculation."""
 
     _near_first = True
+
+    def _rescue_dull_reference(self, bar, old_wave, old_state):
+        stage = "top_rescue" if self.wave.sign == 1 else "bottom_rescue"
+        return self._observe_rescue_call(super()._rescue_dull_reference,
+                                         bar, old_wave, old_state, stage)

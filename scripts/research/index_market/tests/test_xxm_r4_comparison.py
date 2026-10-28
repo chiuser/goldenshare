@@ -85,6 +85,95 @@ def test_nearest_and_strongest_reference_difference_is_reported_with_literal_ref
     assert "未检查" in report and "原因：" in report
 
 
+def test_report_explains_literal_same_bar_reference_switch_without_new_events():
+    """Formatter fixture follows the inspected step/decision fields, not a replay."""
+    near = {"startTime": "2023-03-03", "endTime": "2023-03-06", "price": 120, "dif": 24.935}
+    far = {"startTime": "2023-01-05", "endTime": "2023-02-07", "price": 100, "dif": 41.186}
+    raw = {"time": "2023-04-18", "close": 130, "dif": 26.754, "dea": 25.754, "hist": 2}
+    wave = dict(sign=1, start="2023-04-12", end=raw["time"], count=5, price=130,
+                dif=26.754, price_at=raw["time"], dif_at=raw["time"])
+    def group(old, action, started, branch, reason):
+        checks = ([{"stage": "top_rescue", "candidate": "A", "reference": deepcopy(far),
+                    "wave": deepcopy(wave), "checked": True, "pricePassed": True,
+                    "difPassed": True, "reason": "A价格/DIF合格"}] if action == "rescue" else
+                  [{"stage": "not_entered", "candidate": "A", "reference": deepcopy(far),
+                    "wave": deepcopy(wave), "checked": False, "pricePassed": None,
+                    "difPassed": None, "reason": "已有参照仍有效，未调用选择方法"}])
+        return {"point": {**raw, "ordinaryState": "DULL", "ordinaryDirection": "TOP",
+                          "activeReference": deepcopy(far), "pendingTopHistoryId": None,
+                          "pendingBottomHistoryId": None, "pendingRearmId": None},
+                "events": [], "histories": [], "bottomHistories": [], "rearmRecords": [],
+                "decision": {"before": {"state": "DULL", "reference": deepcopy(old),
+                                        "wave": deepcopy(wave), "previous": {"time": "2023-04-17",
+                                            "close": 129, "dif": 20, "dea": 19, "hist": 2,
+                                            "completed": True}, "pendingRearm": None},
+                             "rawSign": 1, "wave": deepcopy(wave),
+                             "referenceChecks": checks,
+                             "selectedReference": {"reference": deepcopy(far), "startedAt": started,
+                                                   "action": action, "rearmId": None},
+                             "turn": {"previousDif": 20, "currentDif": 26.754, "threshold": .2,
+                                      "referenceBroken": False, "checked": True, "reason": "相邻实际DIF按1%检查"},
+                             "branch": branch, "reason": reason}}
+    row = {"time": raw["time"], "input": {**raw, "completed": True},
+           "r2": group(far, "retained", "2023-04-14", "retained", "沿用原参照"),
+           "r4": group(near, "rescue", "2023-04-18", "reference_switch",
+                       "B已突破，A价格/DIF合格，当根切换并保持钝化")}
+    result = {"metadata": {"period": "day", "requestedStartDate": raw["time"],
+                           "requestedEndDate": raw["time"], "calculationStart": raw["time"],
+                           "calculationEnd": raw["time"], "calculationBarCount": 1, "reportBarCount": 1,
+                           "elapsedSeconds": .01, "peakMemoryBytes": 1024, "resultBytes": 4096},
+              "rows": [row], "differences": [{"time": raw["time"], "field": "decision.selectedReference",
+                  "reason": "此前参照不同，本根使用日期亦不同"}], "idPairs": [],
+              "summary": {"r2EventCounts": {}, "r4EventCounts": {}, "differenceDateCount": 1,
+                          "firstDifference": raw["time"], "differenceDates": [raw["time"]]}}
+    before = deepcopy(result)
+    report = format_report(result)
+    assert "参照切换（2023-04-18）" in report
+    assert "切换前：2023-03-03—2023-03-06，收盘极值120，DIF极值24.935" in report
+    assert "切换后：2023-01-05—2023-02-07，收盘极值100，DIF极值41.186" in report
+    assert "本参照开始使用：2023-04-18" in report
+    assert "B已突破，A价格/DIF合格，当根切换并保持钝化" in report
+    assert "价格通过，DIF通过" in report and "无新事件" in report
+    assert "CANCEL" not in report and "activation" not in report
+    assert result == before
+
+
+def test_same_bar_top_switch_is_reported_but_does_not_add_labels_or_change_original_dull():
+    # LLD15.4 hand-computable artificial history: A100/41.186,
+    # B120/24.935, then C first DULL17.649 -> switch26.754 -> retain27.890.
+    values = bars([(100, 41.186, 2), (90, 0, -2), (120, 24.935, 2), (90, 0, -2),
+                   (125, 17, 2), (130, 17.649, 2), (131, 26.754, 2), (132, 27.890, 2)])
+    result = run(values)
+    first, switched, later = result["rows"][5:8]
+    near = {"startTime": "2023-01-05", "endTime": "2023-01-05", "price": 120, "dif": 24.935}
+    far = {"startTime": "2023-01-03", "endTime": "2023-01-03", "price": 100, "dif": 41.186}
+    assert result["metadata"]["r4ResearchVersion"] == "xxm-research-r4-v2"
+    assert first["r2"]["point"]["activeReference"] == far
+    assert first["r4"]["point"]["activeReference"] == near
+    original = first["r4"]["events"][0]
+    assert (original["time"], original["type"], original["eventReference"]) == ("2023-01-08", "DULL", near)
+    for row in (switched, later):
+        for side in ("r2", "r4"):
+            assert row[side]["point"]["ordinaryState"] == "DULL"
+            assert row[side]["point"]["activeReference"] == far
+            assert row[side]["events"] == []
+    selected = switched["r4"]["decision"]["selectedReference"]
+    assert selected == {"reference": far, "startedAt": "2023-01-09", "action": "rescue", "rearmId": None}
+    assert switched["r4"]["decision"]["before"]["reference"] == near
+    assert switched["r4"]["decision"]["branch"] == "reference_switch"
+    assert later["r4"]["decision"]["selectedReference"]["action"] == "retained"
+    assert later["r4"]["decision"]["selectedReference"]["startedAt"] == "2023-01-09"
+    assert result["summary"]["r2EventCounts"] == result["summary"]["r4EventCounts"] == {"DULL": 1}
+    assert not any(d["category"] in ("ordinaryState", "events")
+                   for d in result["differences"] if d["time"] >= "2023-01-09")
+    assert any(d["category"] == "referenceDecision" and d["time"] == "2023-01-09"
+               for d in result["differences"])
+    report = format_report(result)
+    assert "参照切换（2023-01-09）" in report
+    assert "本参照开始使用：2023-01-09" in report
+    assert original["time"] == "2023-01-08" and original["eventReference"] == near
+
+
 def test_failed_nearest_price_gate_does_not_invent_a_sorting_difference():
     values = bars([(100, -10, -2), (99, -11, -2), (105, -5, 2),
                    (98, -9, -2), (97, -9.2, -2), (100, -9.2, 2),
