@@ -1,5 +1,7 @@
 # 上证关键高低点条件预测：第一步实现方案 V0.1
 
+> 2026-10-28 P1：§36已登记r4预测完整目标合同和数学差异，尚未迁移运行时。当前产品仍v0.3-r2；§1—35保留历史设计/迭代/验收，不以其中旧最强参照、零柱结束、TOP不切换等结论覆盖§36及[产品LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)。P1不重跑历史成绩。
+
 2026-10-19当前状态：**首次TOP修订已按§32—§35开发及冻结／隔离验收，唯一预测v0.3-r2；结果见§35后续完成记录及[本轮报告](../../../../reports/xxm_top_activation_r2_implementation_20261019/README.md)。18项已确认底部结构的原响应保留；最终711项原响应保持、504项独立数学核验。底部与已激活钝化不追加限制，正式全历史／整页待验，未部署。**
 
 2026-10-18前一步设计记录：**首次顶部钝化增加当根DIF资格的预测方案见§32及识别LLD§27，均为拟修订、未实施。该步只完成预测设计和有界文档核算，身份／缓存／消费者迁移接续见下段，不据此进入编码。现产品仍为R1；其历史验收范围按§31.2／31.4区分。**
@@ -1172,3 +1174,126 @@ NONE先重新求下一根的合格激活范围，再按该范围建立P—C关�
 §35完成记录（2026-10-19）：首次TOP完整范围／原因、v0.3-r2身份和全部当前Python／TS消费者已迁移；无底部／已激活信号的新增限制。frozen_06中1215项全部通过：711原数学与display逐字段保持；504按开发前独立证据核完整入口域、参照、213无解／291第二根、目标条件及展示范围，不以三个示例替代全域。原18项已确认底部结构继续CONFIRMED；原件和各失败批次保留。日线1643端点的真实路由隔离检查、20冷／20暖及并发通过，442校准保护保持，模型最长171.51ms；TS新原因／错位／错hash／旧响应拒绝及1191项、类型／构建通过。验收工具完整单元读回已补事件保存／恢复；原CLI新目录及formal-source要求保持。详见[交付报告](../../../../reports/xxm_top_activation_r2_implementation_20261019/README.md)。本轮不读取正式DB／Lake、不部署；正式四周期整页及更早日线仍待办，旧R1预算成绩不冒充本版成绩。
 
 2026-10-19后续安排：按管理员要求，真实数据接口的正确性、性能及四周期实际页面验收先登记为TODO，本次不执行。统一清单见[识别LLD§30.9](index-detail-xxm-implementation-and-low-level-design-v0.1.md#309-r2后续验收todo2026-10-19管理员要求先记录)，已完成的预测开发及冻结／隔离成绩保留。
+
+
+## 36 r4关键高低点预测目标合同（2026-10-28 P1，尚未实施）
+
+本节将已确认[顶底识别产品/技术方案及LLD§5—6](index-detail-top-bottom-recognition-low-level-design-v1.md)回写到原预测入口。当前运行时仍v0.3-r2；本节不是新一轮参数讨论，也不宣称r4预测或历史性能已通过。冲突时按已确认r4规则及本节目标，不沿用§1—35旧阶段的最强参照、零柱结束或顶部恒不切换假设。
+
+### 36.1 路由、参数与环境
+
+```http
+GET /api/v1/wealth/market/index-detail/xxm-key-point-forecast
+```
+
+| 参数 | 必填 | 规则 |
+|---|---:|---|
+| tsCode | 是 | trim+upper后严格六位及SH/SZ/BJ后缀；仅000001.SH支持，格式错400、其他合法标的404 |
+| period | 是 | day/m60/m90/m120，分别计算 |
+| asOf | 否 | 缺省LATEST；非空表示REPLAY。day严格YYYY-MM-DD，minute严格ISO完成端点+08:00；须开市、已完成、不晚于业务允许截止，未来/非交易/非法端点400 |
+| debug | 否 | 缺省或文本0普通，文本1辅助；空/true/01/2及其他值400 |
+
+未知、重复、非法空值拒绝；不接受用户假设P/C或算法选择参数。普通客户端不传debug。仅服务端最终Settings显式dev/local才注册；生产日线/分钟均无该接口，框架404且不计算，debug不能绕过。本地日线不需要分钟Lake；分钟仍依原capability，能力不足404 XXMF_NOT_SUPPORTED。原鉴权、来源和配置优先级不变。
+
+### 36.2 普通与debug的全部根字段
+
+字段全部required；nullable表示允许为null，实际没有值时必须显式返回null而不是省略字段，数组空为[]。每层封闭字段集合、拒未知字段；number有限且拒bool/字符串/NaN/无穷，计数严格int。时间按相应周期，与同一实际完成前缀一致。
+
+| 普通ForecastResponseDto字段 | 类型/固定值 |
+|---|---|
+| tsCode/period | 000001.SH；day/m60/m90/m120 |
+| forecastVersion | xxm-key-point-forecast-v0.3-r4 |
+| forecastSpecHash/detectorSpecHash | string；精确等于正式FORECAST_SPEC/MAIN_SPEC完整hash，不能只看格式 |
+| computedThrough/requestedAsOf | 本周期time或null；requestedAsOf保留真实请求，LATEST可null |
+| mode/dataStatus | LATEST/REPLAY；READY/DELAYED/EMPTY |
+| ordinaryState/direction | NONE/DULL/STRUCTURE或null；TOP/BOTTOM或null，空前缀为null，逻辑色段零日不能由hist=0清空方向 |
+| status | READY/CONDITIONAL_ENTRY/ENTRY_ONLY/NO_CANDIDATE/CONFIRMED/PRECISION_PENDING/DELAYED/EMPTY |
+| reasonCode | ZERO_WAVE/NO_REFERENCE/NO_ENTRY_RANGE/NO_CONFIRMATION_IN_HORIZON/SOURCE_DELAYED/SOURCE_EMPTY/CALIBRATION_FAILED/ROUNDING_BOUNDARY/NARROW_INTERVAL或null |
+| forecastId | string；从同一完整内部结果生成，normal/debug不能改变 |
+| targetEndpoint/barsAhead | 本周期time或null；int1..20或null，按状态同时有效 |
+| confirmedAt/confirmedDirection | 实际确认time或null；TOP/BOTTOM或null |
+| display | 必有statusLabel/targetText/conditionsText/asOfText，均string |
+| applicabilityText/invalidationText | string；普通用户仍得到必要假设及失效说明，不依赖debug拼公式 |
+| refreshAfterMs | int固定60000 |
+
+普通根**没有**sourceInputId/calendarInputId/precisionPolicy/rearmContext/nextBarOutcomes/activation/assumption/targetEntryRanges/targetEntryExclusions/relations/commonConditions/examples，也没有debug:null。`ForecastDebugResponseDto`等于上述全部普通字段加必有非null的debug对象，字段集合为：
+
+| debug字段 | 类型/空值 |
+|---|---|
+| sourceInputId/calendarInputId | string或null；实际行情前缀/日历身份，空预测保留null |
+| precisionPolicy | rounded3_guarded/full_float |
+| rearmContext | [识别合同§10.2](index-detail-api-contract-v1.md#102-普通与debug的完整字段)的完整RearmRecord或null，endReason不接受zero |
+| nextBarOutcomes | NextBarOutcomes或null，仅已有BOTTOM DULL的下一根全正价格分区 |
+| activation | Activation或null |
+| assumption | Assumption或null |
+| targetEntryRanges/targetEntryExclusions | TargetEntryRange[]/TargetEntryExclusion[] |
+| relations/commonConditions/examples | Relation[]/CommonCondition[]/Example[] |
+
+### 36.3 内部及debug嵌套字段和引用
+
+下表是完整字段，不得因普通不显示就从内部模型删掉。Reference采用[识别合同§10.2](index-detail-api-contract-v1.md#102-普通与debug的完整字段)，包含startTime/endTime/price/dif；price严格正。其余number均有限。
+
+| 类型 | 全部字段及限制 |
+|---|---|
+| PriceRange | lower/upper:number或null；lowerInclusive/upperInclusive:boolean。正价格域，null无界不闭合，单点两端闭合，空域拒绝 |
+| CloseRange | PriceRange全部字段＋route:dif_turn/color_flip；displayLower:number>0；displayUpper:number或null；displayPlaces:2/4。显示值在真实合法范围内 |
+| Expression | affine:{op,pCoefficient,cCoefficient,constant}；scale:{op,arg,factor}；abs:{op,arg}；sub:{op,args恰2个}；round3:{op,arg为affine,guard>0}。递归封闭联合，无任意运算符或任意dict |
+| Condition | left:Expression；op:lt/le/eq/ge/gt；right:Expression |
+| EntryRange | entryRangeId:string；priceRange:PriceRange；reference:Reference |
+| EntryExclusion | priceRange:PriceRange；reason:PRICE_NOT_EXTREME/DIF_NOT_DIVERGENT/WRONG_COLOR/INSUFFICIENT_BARS/PRECISION_UNRESOLVED/CURRENT_DIF_NOT_POSITIVE |
+| Activation | endpoint:time；ranges:EntryRange[]；exclusions:EntryExclusion[]，共同无重叠/无缺口覆盖正价格域 |
+| Assumption | policy固定entry_range_then_flat；activationEndpoint:time或null；intermediateEndpoints:time[]；intermediateCloseExpression:affine |
+| TargetEntryRange | entryRangeIds:string[]；priceRange:PriceRange |
+| TargetEntryExclusion | TargetEntryRange全部字段＋reason:CANCEL_BEFORE_TARGET/EARLY_STRUCTURE/OPPOSITE_COLOR/NO_TARGET_SOLUTION/PRECISION_UNRESOLVED |
+| ReferenceTransition | endpoint:time；fromReference/toReference:Reference，至多一次，仅原B→A |
+| NextBarBranch | branchId:string；priceRange:PriceRange；outcome:PRESERVED/REFERENCE_SWITCHED/STRUCTURE_CONFIRMED/CANCELLED/PRECISION_UNRESOLVED；reference:Reference或null；route:dif_turn/color_flip/dif_break/dif_break_on_flip或null |
+| NextBarOutcomes | endpoint:time；initialReference:Reference；branches:NextBarBranch[]，升序、ID唯一，完整覆盖正价格且不重叠；不接受ZERO_RESET |
+| Relation | relationId:string；entryRangeIds:string[]；entryDomain:PriceRange或null；reference/initialReference:Reference；referenceTransitions:ReferenceTransition[]；route:dif_turn/color_flip；prefixConditions/targetConditions:Condition[] |
+| CommonCondition | relationId:string；entryRangeIds:string[]；entryDomain:PriceRange或null；reference:Reference；route:dif_turn/color_flip；closeRanges:CloseRange[] |
+| Example | preClose:number>0；entryRangeId:string；closeRanges:CloseRange[]且每项增加relationId:string |
+
+所有entryRangeId/relationId及引用唯一且真实存在；不能截断辅助数组后留下悬挂关联。TargetEntryRange/Exclusion只能引用实际入口，Relation/CommonCondition/Example必须按完整域、方向、参照、route和真实时点互相对应。Transition.endpoint属于真实前缀intermediateEndpoints，严格晚于激活（已有DULL时为computedThrough）、严格早于目标；TOP的to.dif>from.dif，BOTTOM相反，且A比B更早，不能只据DIF大小推定允许。nextBarOutcomes仍仅BOTTOM，其REFERENCE_SWITCHED维持底部方向检查；RELATION的TOP切换同时支持，不能混淆。
+
+历史/等待完整类型及双向关系沿识别合同，不因窗口左边不可见就拒绝合法原结构；旧asOf不得露未来记录。源输入、原数值、入口全域覆盖、开闭/单点、源精度与状态校验均保留，不用公开最小响应替代内部完整校验。
+
+### 36.4 状态和空值
+
+- CONFIRMED：给实际confirmedAt/confirmedDirection，未来targetEndpoint/barsAhead为null，不伪造下一目标。
+- READY/CONDITIONAL_ENTRY：仅确定有效时给targetEndpoint及barsAhead，普通条件文字与完整关系同源；首次钝化根不能同时作为结构目标，conditional最早第2根。
+- ENTRY_ONLY/NO_CANDIDATE：保留真实原因和可用入口资料，不捏造未来确认时点；没有目标时targetEndpoint/barsAhead均null。
+- PRECISION_PENDING：不给确定形成条件/目标，以CALIBRATION_FAILED/ROUNDING_BOUNDARY/NARROW_INTERVAL等原原因说明；不能把求解超时伪装为精度待定。
+- DELAYED：保持真实computedThrough并给SOURCE_DELAYED，不假装latest已经到收盘；EMPTY/SOURCE_EMPTY：普通状态、方向、computedThrough及debug source/calendar身份均null，无伪造历史/目标。requestedAsOf和mode仍保留真实请求。
+- 合法asOf早于来源首根可为空；未来/非交易/非法端点仍400，不能利用空源跳过请求校验。ZERO_WAVE仅开头无逻辑色段，不是所有最新零柱。
+
+### 36.5 r4预测规则与内部处理顺序
+
+1. 保留entry_range_then_flat、nearest_feasible_over_entry_range、最多20个未来完成根；尚未钝化时下一根P为激活价格变量，之后中间根假定同P，目标C单独求；已有DULL的P固定上一真实close。实际信号只用源原值，不重算实际MACD。
+2. 历史参照仅固定最近B/远A、最多两个：先过B价格门槛，再B完整严格资格，B失败才A自身完整资格；不按DIF强弱排序。累计价格/DIF分别取真实极值，等待重新激活使用当前P与保存参照/最近价格门槛。
+3. 零中性、不切段、不充反色、不增加有色count；两根有色数量够时零日可激活/重激活。预测每个源精度分支必须证实真实count，不能统一count+1。删除WRONG_COLOR_OR_ZERO/COLOR_OR_ZERO/ZERO_RESET，无旧名alias。
+4. 每根前缀依真实翻色、已钝化B严格突破后的当根B→A、原参照突破、相邻1%顺序检查；累计DIF、previous DIF、有色count和transition都逐根更新。首次根仅DULL；零根是实际相邻根，不能跳过。B→A只原DULL同段，取消前当根完成，不改原事件和历史参照。
+5. dif_turn目标保持原逻辑色或零，即s*hist>=0，previous非0且严格反向幅度达到abs(previous)*1%；color_flip仍s*hist<0且DIF不突破原参照，无需1%。原参照突破优先；不能在已有结构/WAITING/真实翻色分支套用救援。
+6. _prefix_signature/partition_prefix_paths保留完整路径；删除旧pool.sort和_flat_cannot_switch快捷证明，不能以区间中点代整域，也不能将不同参照或切换时点域合并。day保留round3/source_options/GUARD源精度分支，minute full_float；这不是两位有效数取数。全部切点和整域证明、零平台和等号要求依LLD§6逐函数落实。
+7. 日线零目标的确定充分边界：dif_turn TOP原hist>−0.0005+GUARD，BOTTOM原hist<+0.0005−GUARD；color_flip TOP原hist<−0.0005−GUARD、BOTTOM原hist>+0.0005+GUARD。等于/边带逐source_options核，不强分侧。minute dif_turn允许恰零闭边界，color_flip保持开边界。
+8. possible_bars/event_options/confirmed_options均clone唯一正式r4，逐根核真实路径。源精度分支参照/取消/确认不同则不宣称确定结果；预算超时真实失败。只在整域证明同分支后用代表点核验，不以三个示例证明完整求解。
+
+### 36.6 返回、预算、错误和全部消费者
+
+query `build`保留现业务参数、增加debug=False并返回bytes。先校验完整内部结果，生成一次forecastId及普通display，再按模式新建公开模型、验证、仅编码一次；最终deadline/字节检查后，API复用`Response(content=body, media_type='application/json')`发送，OpenAPI为普通/debug联合，现no-store不变。缓存只存完整内部结果，读取深复制；debug不进入forecastId，不复算另一组结果，错误投影不降级普通成功。正常客户端不接辅助字段，也不原地删debug来复用对象。
+
+预测版本固定xxm-key-point-forecast-v0.3-r4，识别xxm-direction-v0.1-r4；FORECAST_SPEC增加reference_path_policy=r4_nearest_two_neutral_zero_same_bar_switch并纳hash。P1响应工厂的detector/forecast hash无默认值，P2实现Spec后统一填正式hash；不读源码/SHA证明r2没改，不import当前r2 hash充r4身份，业务字面预期保持。
+
+保留读取总4秒，求解开始后200ms包含clone/恢复/全部精度分支/step核验/文本/模型/投影/最终编码，缓存命中也计本次处理；响应≤32KiB、250根校准、20完成端点/未来90自然日、刷新60000ms。debug不提高限额、不截断引用；前端原scheduler/5秒覆盖网络、JSON、普通及辅助解码和最后提交，迟到不显示。辅助模块尚未就绪时发普通请求0，真正debug响应合同错误整份失败，不能靠降级吞错。
+
+| HTTP | code/行为 | 场景 |
+|---:|---|---|
+| 400 | XXMF_REQUEST_INVALID | 非法参数/debug/asOf、未知或重复参数 |
+| 404 | XXMF_NOT_SUPPORTED | 非支持标的、分钟能力不足；生产未注册为原框架404 |
+| 500 | XXMF_SOURCE_CONTRACT_INVALID | 来源/公开或内部合同不合法 |
+| 500 | XXMF_QUERY_FAILED | 一般查询失败 |
+| 503 | XXMF_BUDGET_EXCEEDED | 读取、求解或字节预算失败 |
+| 503 | XXMF_QUERY_FAILED | 沿现XXM缺分钟reader直接query分支映射的例外；正常HTTP先检查分钟能力并返回不支持404 |
+| 401/403 | 原unauthorized/forbidden | 既有鉴权 |
+
+错误体code/message/request_id和已登记码保留，错误不吞EMPTY；无新包装或错误码。EMPTY/DELAYED是实际来源状态，不是兜底。
+
+所有直接query调用、预测Python schema/API、forecast_detector/entry/paths/relations/text、前端xxm-forecast类型/adapter/client/hook/卡片、页面传参、web/研究验收工具同次迁移；query返回由DTO改bytes的消费者全部解析bytes，不留兼容双轨。普通/debug的公共字段、forecastId和display文本必须相同。P1只准备独立样例及合同，不用现r2模型验证目标r4、不运行双组重放；实现/实际接口/分钟/性能和页面验收分别留P2—P4，旧§35成绩不能作为新通过证据。

@@ -279,6 +279,9 @@ docs/
 - [工程风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md)
 
 ## 9. 产品原始材料
+- [财势乾坤顶底识别产品文档 v1（唯一r4先仅本地支持、生产禁用、debug及两位最小代码保留均已确认；未实施）](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-product-v1.md)
+- [财势乾坤顶底识别技术方案 v1（本地/生产边界、计算及预测迁移、debug、清退；代码级LLD已细化并审计，未实施）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-technical-design-v1.md)
+- [财势乾坤顶底识别LLD v1（唯一r4、预测/合同、debug交接、逐文件清退、独立审计；仅文档）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md)
 
 - [徐小明算法与当前代码实现总结 v0.5（第1—4节为r2核心规则登记；其余保留原核对日期，不作部署或软件相容性证明）](/Users/congming/github/goldenshare/docs/product/xxm-direction-algorithm-plan-v0.5.md)
 - [徐小明r4算法优化方案 v0.1（先近后远最多两个、零柱中性、共用行情/内存进度安全检查；规则已确认，未开发）](/Users/congming/github/goldenshare/docs/product/xxm-r4-implementation-plan-v0.1.md)
