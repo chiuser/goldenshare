@@ -1280,7 +1280,7 @@ GET /api/v1/wealth/market/index-detail/xxm-key-point-forecast
 
 query `build`保留现业务参数、增加debug=False并返回bytes。先校验完整内部结果，生成一次forecastId及普通display，再按模式新建公开模型、验证、仅编码一次；最终deadline/字节检查后，API复用`Response(content=body, media_type='application/json')`发送，OpenAPI为普通/debug联合，现no-store不变。缓存只存完整内部结果，读取深复制；debug不进入forecastId，不复算另一组结果，错误投影不降级普通成功。正常客户端不接辅助字段，也不原地删debug来复用对象。
 
-预测版本固定xxm-key-point-forecast-v0.3-r4，识别xxm-direction-v0.1-r4；FORECAST_SPEC增加reference_path_policy=r4_nearest_two_neutral_zero_same_bar_switch并纳hash。P1响应工厂的detector/forecast hash无默认值，P2实现Spec后统一填正式hash；不读源码/SHA证明r2没改，不import当前r2 hash充r4身份，业务字面预期保持。
+预测版本最终固定xxm-key-point-forecast-v0.3-r4，识别xxm-direction-v0.1-r4；FORECAST_SPEC增加reference_path_policy=r4_nearest_two_neutral_zero_same_bar_switch并纳hash。P2只实现MAIN_SPEC/识别hash及核心、内部query和forecast_detector.clone；**FORECAST_SPEC/预测hash、预测数学、仍写死r2的ForecastResponseDto、HTTP及前端身份在P3同步修改**，不能P2先改预测版本再等P3修模型。P1响应工厂的detector/forecast hash无默认值；P3将两项正式hash一起用于公开响应fixture及前端，P2不塞r2预测hash凑目标响应。不读源码/SHA证明r2没改，不import当前r2 hash充r4身份，业务字面预期保持。
 
 保留读取总4秒，求解开始后200ms包含clone/恢复/全部精度分支/step核验/文本/模型/投影/最终编码，缓存命中也计本次处理；响应≤32KiB、250根校准、20完成端点/未来90自然日、刷新60000ms。debug不提高限额、不截断引用；前端原scheduler/5秒覆盖网络、JSON、普通及辅助解码和最后提交，迟到不显示。辅助模块尚未就绪时发普通请求0，真正debug响应合同错误整份失败，不能靠降级吞错。
 
@@ -1296,4 +1296,4 @@ query `build`保留现业务参数、增加debug=False并返回bytes。先校验
 
 错误体code/message/request_id和已登记码保留，错误不吞EMPTY；无新包装或错误码。EMPTY/DELAYED是实际来源状态，不是兜底。
 
-所有直接query调用、预测Python schema/API、forecast_detector/entry/paths/relations/text、前端xxm-forecast类型/adapter/client/hook/卡片、页面传参、web/研究验收工具同次迁移；query返回由DTO改bytes的消费者全部解析bytes，不留兼容双轨。普通/debug的公共字段、forecastId和display文本必须相同。P1只准备独立样例及合同，不用现r2模型验证目标r4、不运行双组重放；实现/实际接口/分钟/性能和页面验收分别留P2—P4，旧§35成绩不能作为新通过证据。
+除P2先迁forecast_detector.clone及识别内部SeriesEntry/query构造/历史计算外，涉及公开返回合同的直接query消费者、预测Python schema/API、entry/paths/relations/text及两类前端身份/合同消费者在P3同步；query由DTO改bytes的消费者全部解析bytes，不留兼容双轨。页面装配、环境/debug按需加载及原路由研究核验工具在P4按该合同迁完。普通/debug的公共字段、forecastId和display文本必须相同。P1只准备独立样例及合同；P2只验核心/内部query/clone，不运行完整预测build、HTTP或页面宣称r4集成通过，不发布识别r4/预测r2混合版本。真实接口、分钟来源、性能和页面验收仍需P4证据，旧§35成绩不能作为新通过证据。

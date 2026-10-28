@@ -248,4 +248,4 @@ HTTP错误code/message/request_id仍沿原Wealth；400 XXM_REQUEST_INVALID、404
 
 本接口总4秒、并发2、≤2000根/1MiB、缓存64MiB/16系列，全部完整校验、投影、一次编码计入；不是七频行情的5秒/5MB限额。返回目标为query产生已验证bytes、API复用发送；普通/debug共用内部计算而各自投影，模式不改编号。客户端5秒和原scheduler保持，真实合同错误不退成普通/EMPTY。
 
-Spec固定后由P2生成真实hash并迁Python/TS/测试/工具，不使用当前r2 hash或旧JSON换身份充当r4预期。当前`minute-xxm-signals`、minute workspace/xxm client、forecast分钟调用及web/研究核验工具全部同步，不能留下旧DTO返回或根层历史字段兼容。独立样例按LLD§16准备；P1通过不代表分钟真实来源、性能或页面已验收。
+P2只迁内部识别核心/恢复/query/clone及MAIN_SPEC，生成正式detector hash；P3再同步Python公开模型、HTTP返回、TS身份/解码、合同样例及其调用，FORECAST_SPEC/预测hash也到P3与预测模型一并切换。当前`minute-xxm-signals`、xxm client、forecast分钟调用及web合同消费者在P3按同一合同迁移，不能留下旧DTO返回或根层历史字段兼容；minute workspace、环境门禁及真实来源/页面验收仍属P4。不使用r2 hash或旧JSON换身份充当r4预期，不发布中间混合版本。独立样例按LLD§16准备；P1材料或P2内部计算通过均不代表分钟真实来源、性能或页面已验收。
