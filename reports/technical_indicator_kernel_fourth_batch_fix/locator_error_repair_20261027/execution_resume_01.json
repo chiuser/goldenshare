@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-x",
+    "-p",
+    "no:cacheprovider",
+    "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_read_errors_and_cleanup",
+    "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_metadata_memory_and_close_errors",
+    "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_preserves_existing_errors"
+  ],
+  "authorization": "管理员本轮明确修复后续跑",
+  "automatic_retries": 0,
+  "prior_execution": "execution.json",
+  "prior_failure": "failed_setup_01.json",
+  "returncode": 0,
+  "program_elapsed_seconds": 1.1647008331492543
+}

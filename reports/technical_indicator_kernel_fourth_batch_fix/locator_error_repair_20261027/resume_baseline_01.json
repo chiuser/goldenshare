@@ -1,0 +1,66 @@
+{
+  "status": "paused_on_fixture_sql_parse_error",
+  "production_fix": "written_not_validated",
+  "fixed_nodes": [
+    "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_read_errors_and_cleanup",
+    "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_metadata_memory_and_close_errors",
+    "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_preserves_existing_errors"
+  ],
+  "executed_test_bodies": 0,
+  "calculate_calls": 0,
+  "fixture_connection_closed_by_finally": true,
+  "owned_fixture_removed": true,
+  "new_counters": {
+    "input_rows": 1,
+    "locator_rows": 0,
+    "sql_logical_rows": 1,
+    "real_controls": 0
+  },
+  "new_limits_remaining": {
+    "input_rows": 11,
+    "locator_rows": 24,
+    "sql_logical_rows": 127,
+    "real_controls": 0
+  },
+  "cumulative": {
+    "input_rows": 22631,
+    "locator_rows": 29053,
+    "sql_logical_rows": 399478,
+    "real_controls": 0,
+    "known_program_seconds": 8.16236629087894
+  },
+  "whole_remaining": {
+    "input_rows": 12369,
+    "locator_rows": 10947,
+    "sql_logical_rows": 600522,
+    "real_controls": 0
+  },
+  "defect_baseline": "baseline_result.json",
+  "failed_setup": "failed_setup_01.json",
+  "failure_log": "pytest_output.txt",
+  "automatic_retries": 0,
+  "old_phase_evidence_unchanged": 12,
+  "old_d3_evidence_unchanged": 49,
+  "next_correction": [
+    "explicit AS aliases in fixture COPY",
+    "resume counters and preserve failed baseline before reexecution"
+  ],
+  "next_nodes": "same original three; none previously passed",
+  "successful_resume_expected_cumulative": {
+    "input_rows": 7,
+    "locator_rows": 10,
+    "sql_logical_rows": 59,
+    "real_controls": 0
+  },
+  "d4_execution": "not_started; fee draft requires review and two wording clarifications",
+  "final_static_checks": {
+    "docs_integrity": "passed",
+    "html_ids_and_new_links": "passed",
+    "python_ast_files": 3,
+    "git_diff_check": "passed",
+    "no_tests_rerun": true,
+    "elapsed_seconds": 0.079810708,
+    "codegraph_sync": "passed",
+    "codegraph_sync_seconds": 0.410532125
+  }
+}

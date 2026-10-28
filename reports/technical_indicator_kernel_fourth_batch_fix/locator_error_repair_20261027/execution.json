@@ -1,0 +1,18 @@
+{
+  "status": "failed_stop_without_retry",
+  "command": [
+    ".venv/bin/python",
+    "-m",
+    "pytest",
+    "-q",
+    "-x",
+    "-p",
+    "no:cacheprovider",
+    "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_read_errors_and_cleanup",
+    "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_metadata_memory_and_close_errors",
+    "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_preserves_existing_errors"
+  ],
+  "returncode": 1,
+  "program_elapsed_seconds": 0.7453946671448648,
+  "automatic_retries": 0
+}

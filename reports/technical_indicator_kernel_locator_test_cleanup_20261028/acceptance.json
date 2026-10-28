@@ -1,0 +1,86 @@
+{
+  "status": "passed",
+  "authorization": "管理员要求修正3个配套测试问题，先补原方案/LLD，仅验证相关3项，通过后提交",
+  "basis": [
+    "docs/architecture/technical-indicator-kernel-component-design-v1.html#locator-test-cleanup-20261028",
+    "docs/architecture/technical-indicator-kernel-low-level-design-v1.html#locator-test-cleanup-20261028"
+  ],
+  "test_functions": 3,
+  "execution_order": [
+    "test_locator_preserves_existing_errors",
+    "test_locator_metadata_memory_and_close_errors",
+    "test_locator_read_errors_and_cleanup"
+  ],
+  "each_node_attempts": 1,
+  "automatic_retries": 0,
+  "actual": {
+    "input_rows": 9,
+    "locator_rows": 10,
+    "sql_logical_rows": 61,
+    "fake_controls": 12,
+    "real_controls": 0,
+    "program_seconds": 3.9310517483834624
+  },
+  "expected_limits": {
+    "test_functions": 3,
+    "input_rows": 9,
+    "locator_rows": 10,
+    "sql_logical_rows": 61,
+    "fake_controls": 12,
+    "real_controls": 0,
+    "program_seconds": 60
+  },
+  "all_three_issue_repairs": {
+    "ordinary_test_uses_only_current_in_memory_state": true,
+    "historical_report_read_write_forbidden_in_tests": true,
+    "functions_have_independent_fixtures_and_totals": true,
+    "third_function_passed_first_in_own_process": true
+  },
+  "preserved_checks": [
+    "literal prices/dates/schema",
+    "six raw fault classifications and original cause",
+    "five preclassified errors remain the same objects",
+    "real locator/reader/Arrow/table/connection cleanup"
+  ],
+  "temporary_roots_removed": true,
+  "old_history_files": 68,
+  "old_history_set_and_sha256": "unchanged",
+  "production_files_sha256": {
+    "src/foundation/clients/local_lake/technical_indicator_price_source.py": "e45212b14a04820a0d5737349109d9ec9cbcde8acf1310a3db228a1a3b2c59b1",
+    "src/foundation/clients/local_lake/technical_indicator_price_locator.py": "cd0e4343934d204fee3c0694aa6f366748879e674efa26efecaa4c332ad7b08a"
+  },
+  "tested_file_sha256": "4a0f9b29d0ed266e9076447dbcf908b01f50ccbe12ceffb41e8a6f2e3b8dfae6",
+  "no_D4_rerun": true,
+  "no_formal_Lake_read_or_write": true,
+  "scope": "regression isolation plus existing source error classification; fake timing/stop, real local Arrow/Parquet/DuckDB",
+  "not_covered": [
+    "formal API/page integration",
+    "D4 new execution",
+    "RSS/native cancellation"
+  ],
+  "commit_scope": [
+    "src/foundation/clients/local_lake/technical_indicator_price_source.py",
+    "src/foundation/clients/local_lake/technical_indicator_price_locator.py",
+    "tests/foundation/technical_indicators/test_locator_error_classification.py",
+    "docs/architecture/technical-indicator-kernel-component-design-v1.html",
+    "docs/architecture/technical-indicator-kernel-low-level-design-v1.html",
+    "reports/technical_indicator_kernel_fourth_batch_fix/locator_error_repair_20261027",
+    "reports/technical_indicator_kernel_locator_test_cleanup_20261028"
+  ],
+  "document_closeout": "one heading-only pre-write check stopped; selector corrected for two existing HTML structures; no test rerun",
+  "independent_review": "independent_review.json",
+  "docs_integrity": "passed",
+  "commit_whitespace_exception": {
+    "path": "reports/technical_indicator_kernel_fourth_batch_fix/locator_error_repair_20261027/pytest_output.txt",
+    "reason": "verbatim historical pytest failure output; preserve original bytes and SHA256",
+    "existing_trailing_whitespace_lines": [
+      15,
+      16,
+      42
+    ],
+    "file_action": "unchanged",
+    "validation": "exact historical/disk/staged SHA256 equality for this one log; strict git diff --cached --check for every other whitelisted file",
+    "no_source_or_test_check_relaxed": true,
+    "no_config_or_attributes_change": true
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "status": "failed_stop_without_retry",
+  "completed_nodes": [],
+  "attempts": [],
+  "calls": [],
+  "fixture_queries": [
+    {
+      "day": "2026-01-05",
+      "input_rows": 1,
+      "logical_rows": 1,
+      "status": "running"
+    }
+  ],
+  "preservation": [],
+  "fixture_root": "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2154/indicator_locator0/locator_error_f6a4zvxo",
+  "new_input_rows": 1,
+  "new_locator_rows": 0,
+  "new_sql_logical_rows": 1,
+  "new_real_controls": 0,
+  "program_elapsed_seconds": 0.21959599992260337,
+  "cumulative_elapsed_seconds": 7.146224790656677,
+  "cumulative": {
+    "input_rows": 22631,
+    "locator_rows": 29053,
+    "sql_logical_rows": 399478,
+    "real_controls": 0
+  },
+  "fixture_error_type": "ParserException",
+  "fixture_error": "Parser Error: syntax error at or near \"close\"\n\nLINE 2: ... open,$value::DOUBLE high,$value::DOUBLE low,$value::DOUBLE close,\n                                                                       ^",
+  "fixture_cleanup": {
+    "removed": true
+  }
+}

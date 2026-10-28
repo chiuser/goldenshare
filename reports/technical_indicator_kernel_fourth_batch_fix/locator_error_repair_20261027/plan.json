@@ -1,0 +1,144 @@
+{
+  "phase": "第四批-修复开发：定位读取异常分类补齐",
+  "authorization": "管理员要求按独立审计建议先补LLD、修复和补测，再整理D4费用供review；不执行D4",
+  "basis": [
+    "docs/architecture/technical-indicator-kernel-low-level-design-v1.html#locator-error-repair-20261027",
+    "docs/architecture/technical-indicator-kernel-component-design-v1.html#locator-error-repair-20261027"
+  ],
+  "production_paths": [
+    "src/foundation/clients/local_lake/technical_indicator_price_locator.py",
+    "src/foundation/clients/local_lake/technical_indicator_price_source.py"
+  ],
+  "tests": [
+    "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_read_errors_and_cleanup",
+    "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_metadata_memory_and_close_errors",
+    "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_preserves_existing_errors"
+  ],
+  "calls": [
+    "normal",
+    "metadata_arrow_invalid",
+    "key_arrow_invalid",
+    "key_arrow_memory",
+    "inspect_memory",
+    "metadata_close_failure",
+    "key_close_failure"
+  ],
+  "limits": {
+    "new_input_rows": 12,
+    "new_locator_rows": 24,
+    "new_sql_logical_rows": 128,
+    "new_real_controls": 0,
+    "program_seconds": 30,
+    "automatic_retries": 0
+  },
+  "base": {
+    "input_rows": 22630,
+    "locator_rows": 29053,
+    "sql_logical_rows": 399477,
+    "real_controls": 0,
+    "elapsed_seconds": 6.653039124734073
+  },
+  "whole_limits": {
+    "input_rows": 35000,
+    "locator_rows": 40000,
+    "sql_logical_rows": 1000000,
+    "real_controls": 0,
+    "elapsed_seconds": 300
+  },
+  "expected": {
+    "fixture_rows": 3,
+    "price_rows": 3,
+    "locator_rows": 10,
+    "service_sql_rows": 48,
+    "fixture_sql_rows": 3,
+    "closed_probes": 7,
+    "sql_total": 58
+  },
+  "baseline": "Before edits, one no-I/O/no-SQL probe checks that original describe leaks the same ArrowInvalid/ArrowMemoryError objects; explicit known-bug evidence, not an unexpected failure. Save its code and output.",
+  "source_contract": "Existing DAILY_SCHEMA: ts_code VARCHAR, trade_date DATE, OHLC/vol/amount DOUBLE. Three owned date partition files, dates 2026-01-05/06/07 and close 10/12/11; no old fixture or long reference regeneration.",
+  "failure_resume": "Non-expected error stops subsequent nodes; keep counters and cleanup evidence. No automatic rerun or limit increase; continue only explicitly authorized unfinished nodes within recorded remaining budget.",
+  "frozen_old_evidence": {
+    "reports/technical_indicator_kernel_fourth_batch_fix/execution_resume_01_stdout.txt": "bd1b333dd4456bc578ac165ee227847c41e2e6a3a7bc74084331be45d9c76151",
+    "reports/technical_indicator_kernel_fourth_batch_fix/plan.json": "706d55d9cb1b83d14bebe8f37ad1752c6f3af1d95b0e59ed1114e227a5919d0f",
+    "reports/technical_indicator_kernel_fourth_batch_fix/origin_selection_regression.py": "035b915356a4412d10e9ac8f8f00381eb60cde0541974364b43d78e1abf067b4",
+    "reports/technical_indicator_kernel_fourth_batch_fix/acceptance.json": "026d4c97b5aefdaab0457973cb9eeeb6ba28d7730abb9c64f75bebb49aa72a63",
+    "reports/technical_indicator_kernel_fourth_batch_fix/reference_4000_macd9.json": "66604dd62011d3d67b135f91c85ca37ee8c4d67e5e4b7b5320b150b0a1d945a2",
+    "reports/technical_indicator_kernel_fourth_batch_fix/origin_selection_regression_result.json": "a03a1ddf95115b9430d41966574352013248ae484cb097c4f67b8e58ac67791a",
+    "reports/technical_indicator_kernel_fourth_batch_fix/reference_4000_macd10.json": "2d4c26cdc093802ad180e668cd75cbef77dbd59dafbec4e8912a8b2da5b3396d",
+    "reports/technical_indicator_kernel_fourth_batch_fix/audit.md": "7c742cf6ba1415ea2e18b0d26dc0c085f57eecf7c21ebbf6fe779e78b6cba677",
+    "reports/technical_indicator_kernel_fourth_batch_fix/origin_selection_fix.diff": "3af8a5c09db34cd7a50de76a6d3e17cfb4dafbbf27b7c4c6a7a8900273de5e4d",
+    "reports/technical_indicator_kernel_fourth_batch_fix/progress.json": "7ed3f2e86644d768cca512eedc2b2dfcb7ab840a15b89220b5ba51ae8cbd4d7b",
+    "reports/technical_indicator_kernel_fourth_batch_fix/final_static_checks.json": "15032b939e912702ec39cdb43bc3183fba7b7f0a6ab3211086aef1e5f2e5e011",
+    "reports/technical_indicator_kernel_fourth_batch_fix/execution_resume_01.json": "5ef184a66fefeea9fbba69cea9779a734fe4c7dcf576ccb78d31c8e1d4ec5045"
+  },
+  "old_d3_evidence": {
+    "reports/technical_indicator_kernel_d3_20261025/pytest_required_output_raw_20261026.json": "c3705d637ce46efc613b7dfa4a96772d134fcfc8a465bc9ed9d25a0181e97026",
+    "reports/technical_indicator_kernel_d3_20261025/independent_d3_audit_round2_20261026.md": "eb291682976ab070245eb936c7072fd203d33795d9e3d30bf511f1f26ea242b2",
+    "reports/technical_indicator_kernel_d3_20261025/required_fixture_baseline_20261026.json": "ac8247555178b26293d14f8c5e1d2a368efa9c24f889817208499787ede68c47",
+    "reports/technical_indicator_kernel_d3_20261025/execution_20261026.json": "b45ec31ae46a4f5a4a0a173c0bef7ad20d242f5db058243177cc88f934f04b76",
+    "reports/technical_indicator_kernel_d3_20261025/independent_algorithms_audit_20261026.md": "5a7766658eba87b30d58334aec6ac1587f2450cd9e2fef6652cdbc48f813c99e",
+    "reports/technical_indicator_kernel_d3_20261025/d3_final_confirmation_20261026.md": "1b3471a38a13a920f4de636527ad58944f2c77ac4771307e98e570ce3f4273c5",
+    "reports/technical_indicator_kernel_d3_20261025/d3_round2_algorithms_20261026.md": "3706178b7f584f92c17a1a24731c7ba3eacd4ae30785dfb4b72356e17a6ec59e",
+    "reports/technical_indicator_kernel_d3_20261025/fixture_owned_20261026.json": "d2782ca97c09a59561621fc1dd05cfe08d16987641911b6db4d015700e48c861",
+    "reports/technical_indicator_kernel_d3_20261025/plan.json": "6d6ab21b6f07ddf17d529c427899787ae0c5a69e1c4e757788070104d7defdca",
+    "reports/technical_indicator_kernel_d3_20261025/lld_output_template_revision_20261026.json": "74ec35570d06c337a919dee0fe68ea29c4bfba907cb768a70bdb8fef6cc52cd6",
+    "reports/technical_indicator_kernel_d3_20261025/d3_closeout_plan_20261026.json": "2b99320512e88d1f831e26bb2848ab59328af2a131ae753d3a26d524adbea5f3",
+    "reports/technical_indicator_kernel_d3_20261025/pytest_calculate_output_bytes_20261026.txt": "77867685350b6877d0d59307683c52e13b4367bc73e0ba811df040b46ae5a6c7",
+    "reports/technical_indicator_kernel_d3_20261025/independent_d3_audit_20261026.md": "c939b3990e8572f9ee5ae315423fdcd2ec0200d37678b522176ccc9d9ea79a40",
+    "reports/technical_indicator_kernel_d3_20261025/fixture_calculate_output_bytes_20261026.json": "d7082c30875d88923db84a7f125fea6d1cf2ca3b391b6fdb13839e36e748dc07",
+    "reports/technical_indicator_kernel_d3_20261025/execution_final_fetch_count_20261026.json": "de1db26bbbed4ff4d9a630e0ba36d0e2de4b7712f351fd3c511c81c792c3fb5c",
+    "reports/technical_indicator_kernel_d3_20261025/calculate_output_bytes_details_20261026.json": "f2451ce82e293f9fca40e18c57a9ac16fd35603cb5f78b640e90496df44fee3c",
+    "reports/technical_indicator_kernel_d3_20261025/acceptance_gap_baseline_20261026.json": "117c8f260a52b43470141527d5e35b248ed3e49eda6b2b743502a0e231631ce3",
+    "reports/technical_indicator_kernel_d3_20261025/acceptance.json": "e4a3e859147f3f8359165fc45e56798eda1e2a41b542eab09b2110c81d83e3d6",
+    "reports/technical_indicator_kernel_d3_20261025/d3_final_audit.json": "29cf37953868e52c5ea1d7cd7b8d4e9eb309e2ac4b07ac4ac6dc600bfa84e452",
+    "reports/technical_indicator_kernel_d3_20261025/pytest_required_output.txt": "8480643dfea88dc45accd7b100c65d7a661e6fde504636746f4267b14c6c18cb",
+    "reports/technical_indicator_kernel_d3_20261025/d3_round2_requirements_20261026.md": "a3e3072e9ba6ed42de18c7c4756b4cb64817765806925836f7c9a199f0e33036",
+    "reports/technical_indicator_kernel_d3_20261025/fixture_final_fetch_count_20261026.json": "b48d4caf07f9fd6c1efe1ed3aa366f519835040b77cc6b6b218129c61d731b19",
+    "reports/technical_indicator_kernel_d3_20261025/execution_owned_fixture_20261026.json": "ec0f31aa4def6b895bd3559f1c8fd40b5c5cdc63d92b40049b82b7677aa4149a",
+    "reports/technical_indicator_kernel_d3_20261025/independent_service_output_audit_20261026.md": "bfbfedad1acc11594e68aca7718f81d20bb270d1da6594134a5a1cdc24c5d01c",
+    "reports/technical_indicator_kernel_d3_20261025/d3_final_confirmation_20261026.json": "a958369d222cadc8c0d475db7fca9b62cbf9732b9aaaf97c95e3f934d4b1abe4",
+    "reports/technical_indicator_kernel_d3_20261025/pytest_resume_output.txt": "fbf3ce380adbd56d9b6606ae9d3638dcc5d2e8ba927e872f602b406b7fcde062",
+    "reports/technical_indicator_kernel_d3_20261025/final_fetch_count_details_20261026.json": "a90fb218adeea19d0928537f839163485cbb9e7885096dc2917b7dd0d438d97f",
+    "reports/technical_indicator_kernel_d3_20261025/resume_20261026_pause.json": "8e9fd8dacb69c64584a3254ecf19381e78bb3a8581859c9e41a448085301abf2",
+    "reports/technical_indicator_kernel_d3_20261025/calculate_output_bytes_acceptance_20261026.json": "07f0316cae096c3875f582682b55b4391d71c33b79e9bc58d5bcc84b42311fba",
+    "reports/technical_indicator_kernel_d3_20261025/execution_calculate_output_bytes_20261026.json": "3ffeb332b98bd4360e0be6eb2d70d3bfda79ce945356ff7e2c2ba4a5ff92870c",
+    "reports/technical_indicator_kernel_d3_20261025/audit.md": "7387faf7e4f30b5e5e9ab5d8eeb5ef4140f76e078ad12ab898f9ad54f6b86305",
+    "reports/technical_indicator_kernel_d3_20261025/d3_final_fetch_count_independent_20261026.md": "d89165798faf4f12c5a4b83f3fd8246c4edaadf8a28e87696e70296a7ded00a3",
+    "reports/technical_indicator_kernel_d3_20261025/documentation_baseline_20261026.json": "a07cba8846ce0c556905071f5068ca93041183268274f828f901eced0445ae82",
+    "reports/technical_indicator_kernel_d3_20261025/pytest_output.txt": "2aa5159809a9697cf31a867388bd59bc3b6992d638731aea46c2c47ef527330c",
+    "reports/technical_indicator_kernel_d3_20261025/d3_requirement_reconciliation_20261026.md": "94585ba354c98856146f36556009712142572e1a6e761525858ec25b60d61fdb",
+    "reports/technical_indicator_kernel_d3_20261025/final_fetch_count_baseline_20261026.json": "d54f90afcb81544996e6ed10432d30303b8b44352f15dbf490a7572c7176dad0",
+    "reports/technical_indicator_kernel_d3_20261025/d3_final_confirmation_independent_20261026.md": "9e82e029fbb7e1de29f2ee826fb44eb665edca171531341cbe6685e30e4ab0d1",
+    "reports/technical_indicator_kernel_d3_20261025/resume_baseline_20261026.json": "6b9b0a216fd3cd2d23e5e4f38ca908d5c9a1004340b37077a44c37f96961b599",
+    "reports/technical_indicator_kernel_d3_20261025/progress.json": "37e9e74cfd26221418b88f3fff12ce34c969e550579e6318c071bfbe630ca824",
+    "reports/technical_indicator_kernel_d3_20261025/final_fetch_count_acceptance_20261026.json": "afbdcbb87a1b622585b573aa52fffcc9f59a6534707a4b83352f437f4361b1c9",
+    "reports/technical_indicator_kernel_d3_20261025/calculate_output_bytes_baseline_20261026.json": "7a1f6a72d6b76af16fc4c6581de700b7de91872ccdfa304e87bf61f06cdfa057",
+    "reports/technical_indicator_kernel_d3_20261025/pytest_owned_fixture_output.txt": "e3a106e5a6891a4e61d8f141ff730dcd75a0b6b623da3252aa4083b4953f3281",
+    "reports/technical_indicator_kernel_d3_20261025/pytest_final_fetch_count_20261026.txt": "f9c9506451c8c246d741ba6f531e0c5616255ea5048df68bdc58562afc09939b",
+    "reports/technical_indicator_kernel_d3_20261025/execution_required_20261026.json": "6efa80d1abfd5aae6cbeb99c21f3c4f77536decc34bbf316b0a77d49e6578b58",
+    "reports/technical_indicator_kernel_d3_20261025/required_acceptance_pause_20261026.json": "ae4c9df4fe0f87aae2e09d399fa36dd8c799cd1425232bdb556071bdd6cf239d",
+    "reports/technical_indicator_kernel_d3_20261025/d3_round2_service_20261026.md": "b4cfe5be6ee20a777ca02a52c4a9d52eaf8b0c5553e993bb570d7ec8d1b3d6ee",
+    "reports/technical_indicator_kernel_d3_20261025/independent_reference.json": "b06fdd4ba4e01f3a86a0fa110cdc1f375fd1cd1a2b3d7e8aa80df9685573c1a4",
+    "reports/technical_indicator_kernel_d3_20261025/execution_resume_20261026.json": "32875efa174620c88fcf9248a0a1bf89216af5f5a865a266a1215f5f47652993",
+    "reports/technical_indicator_kernel_d3_20261025/lld_revision_20261025.json": "0f449eab7a60e99dcdf29eb657944750e042a90148ae8b8d3a784e30cb85efef"
+  },
+  "code_before": {
+    "src/foundation/clients/local_lake/technical_indicator_price_locator.py": "a6188044eef6e418b80dac4eb1909be1bd8413032c09488d557d55eb043f8fa5",
+    "src/foundation/clients/local_lake/technical_indicator_price_source.py": "1c0dff063e6b899e596e7fa3f8af2c7416e093bed8bdf2fc30a5d8a2ab23c0a5"
+  },
+  "status": "documented_before_implementation",
+  "execution_code_fingerprints": {
+    "src/foundation/clients/local_lake/technical_indicator_price_locator.py": "cd0e4343934d204fee3c0694aa6f366748879e674efa26efecaa4c332ad7b08a",
+    "src/foundation/clients/local_lake/technical_indicator_price_source.py": "e45212b14a04820a0d5737349109d9ec9cbcde8acf1310a3db228a1a3b2c59b1",
+    "tests/foundation/technical_indicators/test_locator_error_classification.py": "b78f94ee5fcf804630f70627fa8da724894f436c86420cae195d4eb14c27b2dc"
+  },
+  "preflight": {
+    "exact_functions_and_fixture_inspected": true,
+    "only_web_conftest_not_applicable": true,
+    "no_auto_plugins": true,
+    "old_fixtures_not_used": true,
+    "AST": "passed",
+    "source_contract": "DAILY_SCHEMA fields/types, existing three-date literal; no formal source needed",
+    "product_diff_matches_lld": true
+  }
+}

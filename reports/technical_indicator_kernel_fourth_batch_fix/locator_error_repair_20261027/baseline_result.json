@@ -1,0 +1,21 @@
+{
+  "status": "known_original_defect_confirmed",
+  "cases": [
+    {
+      "original_type": "ArrowInvalid",
+      "actual_type": "ArrowInvalid",
+      "same_object": true
+    },
+    {
+      "original_type": "ArrowMemoryError",
+      "actual_type": "ArrowMemoryError",
+      "same_object": true
+    }
+  ],
+  "input_rows": 0,
+  "sql_logical_rows": 0,
+  "locator_rows": 0,
+  "real_controls": 0,
+  "elapsed_seconds": 0.0001509999856352806,
+  "program_elapsed_seconds": 0.273589666
+}

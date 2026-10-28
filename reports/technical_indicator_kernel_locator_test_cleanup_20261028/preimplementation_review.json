@@ -1,0 +1,23 @@
+{
+  "status": "passed",
+  "static_only": true,
+  "no_test_SQL_Control": true,
+  "old_historical_status": "passed",
+  "old_initialization_condition": false,
+  "independent_cost_basis": {
+    "saved_service_SQL": 48,
+    "close_probes": 7,
+    "new_fixture_COPY": 6,
+    "normal_price_rows": 3
+  },
+  "expected_new_totals": {
+    "input_rows": 9,
+    "locator_rows": 10,
+    "sql_logical_rows": 61,
+    "fake_controls": 12
+  },
+  "old_file_SHA256_count": 68,
+  "source_SHA256_match": true,
+  "ancestor_conftest": [],
+  "elapsed_seconds": 0.004092082846909761
+}

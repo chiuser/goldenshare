@@ -1,0 +1,50 @@
+{
+  "status": "executed_once_passed",
+  "authorization": "管理员：修复，然后续跑；只修已说明夹具及续跑计数，原3未执行节点一次运行，不启动D4",
+  "nodes": [
+    "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_read_errors_and_cleanup",
+    "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_metadata_memory_and_close_errors",
+    "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_preserves_existing_errors"
+  ],
+  "failed_setup_file": "failed_setup_01.json",
+  "failed_setup_sha256": "83c8e1812e015289f52e49b3b75b1af575c00430cd6632094add4a1763a43d4c",
+  "known_program_seconds_before": 8.16236629087894,
+  "carried_counters": {
+    "input_rows": 1,
+    "locator_rows": 0,
+    "sql_logical_rows": 1,
+    "real_controls": 0
+  },
+  "remaining_limits": {
+    "input_rows": 11,
+    "locator_rows": 24,
+    "sql_logical_rows": 127,
+    "real_controls": 0
+  },
+  "expected_cumulative": {
+    "input_rows": 7,
+    "locator_rows": 10,
+    "sql_logical_rows": 59,
+    "real_controls": 0
+  },
+  "local_limits": {
+    "new_input_rows": 12,
+    "new_locator_rows": 24,
+    "new_sql_logical_rows": 128,
+    "new_real_controls": 0,
+    "program_seconds": 30,
+    "automatic_retries": 0
+  },
+  "automatic_retries": 0,
+  "changes": [
+    "COPY所有列显式AS，OHLC使用固定双引号别名",
+    "_State从不可改写失败记录恢复1/0/1，核当前progress仍等于该失败记录；保留旧失败文件，阻止重复执行",
+    "最终断言7/10/59，耗时接续已保存累计值；不更改正常/错误/清理断言"
+  ],
+  "execution_files": [
+    "execution_resume_01.json",
+    "pytest_resume_01_output.txt"
+  ],
+  "after_pass_only": "统一原两文D4旧顺序及三个HTTP故障各为独立单请求节点，费用不变，仍待review且不执行D4",
+  "result": "acceptance.json"
+}

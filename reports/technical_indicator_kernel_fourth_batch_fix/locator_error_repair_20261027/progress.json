@@ -1,0 +1,305 @@
+{
+  "status": "passed",
+  "completed_nodes": [
+    "test_locator_read_errors_and_cleanup",
+    "test_locator_metadata_memory_and_close_errors",
+    "test_locator_preserves_existing_errors"
+  ],
+  "attempts": [
+    {
+      "node": "test_locator_read_errors_and_cleanup",
+      "status": "passed"
+    },
+    {
+      "node": "test_locator_metadata_memory_and_close_errors",
+      "status": "passed"
+    },
+    {
+      "node": "test_locator_preserves_existing_errors",
+      "status": "passed"
+    }
+  ],
+  "calls": [
+    {
+      "mode": "normal",
+      "status": "passed",
+      "price_rows": 3,
+      "locator_rows": 3,
+      "sql_logical_rows": 41,
+      "actual_key_rows": 3,
+      "metadata_open_calls": 6,
+      "steps": [
+        {
+          "name": "locate_stage",
+          "rows": 1,
+          "output": 1,
+          "failed": false
+        },
+        {
+          "name": "locate_stage",
+          "rows": 1,
+          "output": 1,
+          "failed": false
+        },
+        {
+          "name": "locate_stage",
+          "rows": 1,
+          "output": 1,
+          "failed": false
+        },
+        {
+          "name": "stage_input",
+          "rows": 3,
+          "output": 3,
+          "failed": false
+        },
+        {
+          "name": "target_price",
+          "rows": 3,
+          "output": 3,
+          "failed": false
+        },
+        {
+          "name": "input_window",
+          "rows": 3,
+          "output": 3,
+          "failed": false
+        },
+        {
+          "name": "inspect_columns",
+          "rows": 11,
+          "output": 11,
+          "failed": false
+        },
+        {
+          "name": "check_batch_rows",
+          "rows": 3,
+          "output": 1,
+          "failed": false
+        },
+        {
+          "name": "merge_batch",
+          "rows": 3,
+          "output": 3,
+          "failed": false
+        },
+        {
+          "name": "retain_tail",
+          "rows": 3,
+          "output": 3,
+          "failed": false
+        },
+        {
+          "name": "rename_table",
+          "rows": 3,
+          "output": 0,
+          "failed": false
+        },
+        {
+          "name": "count_tail",
+          "rows": 3,
+          "output": 1,
+          "failed": false
+        },
+        {
+          "name": "select_result",
+          "rows": 3,
+          "output": 3,
+          "failed": false
+        }
+      ],
+      "cleanup": "passed"
+    },
+    {
+      "mode": "metadata_arrow_invalid",
+      "status": "expected_failure",
+      "error_type": "SourceReadError",
+      "cause_type": "ArrowInvalid",
+      "cause_identity": true,
+      "price_rows": 0,
+      "locator_rows": 0,
+      "sql_logical_rows": 0,
+      "actual_key_rows": 0,
+      "metadata_open_calls": 1,
+      "steps": [],
+      "cleanup": "passed"
+    },
+    {
+      "mode": "key_arrow_invalid",
+      "status": "expected_failure",
+      "error_type": "SourceReadError",
+      "cause_type": "ArrowInvalid",
+      "cause_identity": true,
+      "price_rows": 0,
+      "locator_rows": 1,
+      "sql_logical_rows": 1,
+      "actual_key_rows": 1,
+      "metadata_open_calls": 1,
+      "steps": [
+        {
+          "name": "locate_stage",
+          "rows": 1,
+          "output": 1,
+          "failed": false
+        }
+      ],
+      "cleanup": "passed"
+    },
+    {
+      "mode": "key_arrow_memory",
+      "status": "expected_failure",
+      "error_type": "ResourceLimitError",
+      "cause_type": "ArrowMemoryError",
+      "cause_identity": true,
+      "price_rows": 0,
+      "locator_rows": 1,
+      "sql_logical_rows": 1,
+      "actual_key_rows": 1,
+      "metadata_open_calls": 1,
+      "steps": [
+        {
+          "name": "locate_stage",
+          "rows": 1,
+          "output": 1,
+          "failed": false
+        }
+      ],
+      "cleanup": "passed"
+    },
+    {
+      "mode": "inspect_memory",
+      "status": "expected_failure",
+      "error_type": "ResourceLimitError",
+      "cause_type": "MemoryError",
+      "cause_identity": true,
+      "price_rows": 0,
+      "locator_rows": 3,
+      "sql_logical_rows": 3,
+      "actual_key_rows": 3,
+      "metadata_open_calls": 4,
+      "steps": [
+        {
+          "name": "locate_stage",
+          "rows": 1,
+          "output": 1,
+          "failed": false
+        },
+        {
+          "name": "locate_stage",
+          "rows": 1,
+          "output": 1,
+          "failed": false
+        },
+        {
+          "name": "locate_stage",
+          "rows": 1,
+          "output": 1,
+          "failed": false
+        }
+      ],
+      "cleanup": "passed"
+    },
+    {
+      "mode": "metadata_close_failure",
+      "status": "expected_failure",
+      "error_type": "ResourceCleanupError",
+      "cause_type": "OSError",
+      "cause_identity": true,
+      "price_rows": 0,
+      "locator_rows": 1,
+      "sql_logical_rows": 1,
+      "actual_key_rows": 1,
+      "metadata_open_calls": 1,
+      "steps": [
+        {
+          "name": "locate_stage",
+          "rows": 1,
+          "output": 1,
+          "failed": false
+        }
+      ],
+      "cleanup": "passed"
+    },
+    {
+      "mode": "key_close_failure",
+      "status": "expected_failure",
+      "error_type": "ResourceCleanupError",
+      "cause_type": "OSError",
+      "cause_identity": true,
+      "price_rows": 0,
+      "locator_rows": 1,
+      "sql_logical_rows": 1,
+      "actual_key_rows": 1,
+      "metadata_open_calls": 1,
+      "steps": [
+        {
+          "name": "locate_stage",
+          "rows": 1,
+          "output": 1,
+          "failed": false
+        }
+      ],
+      "cleanup": "passed"
+    }
+  ],
+  "fixture_queries": [
+    {
+      "day": "2026-01-05",
+      "input_rows": 1,
+      "logical_rows": 1,
+      "status": "passed"
+    },
+    {
+      "day": "2026-01-06",
+      "input_rows": 1,
+      "logical_rows": 1,
+      "status": "passed"
+    },
+    {
+      "day": "2026-01-07",
+      "input_rows": 1,
+      "logical_rows": 1,
+      "status": "passed"
+    }
+  ],
+  "preservation": [
+    {
+      "error_type": "SourceReadError",
+      "same_object": true
+    },
+    {
+      "error_type": "CalculationCancelledError",
+      "same_object": true
+    },
+    {
+      "error_type": "CalculationDeadlineError",
+      "same_object": true
+    },
+    {
+      "error_type": "KeyboardInterrupt",
+      "same_object": true
+    },
+    {
+      "error_type": "ValueError",
+      "same_object": true
+    }
+  ],
+  "fixture_root": "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2155/indicator_locator0/locator_error_hc8qpx6f",
+  "prior_failure_file": "failed_setup_01.json",
+  "resume_plan": "resume_plan_01.json",
+  "new_input_rows": 7,
+  "new_locator_rows": 10,
+  "new_sql_logical_rows": 59,
+  "new_real_controls": 0,
+  "program_elapsed_seconds": 0.6819382910616696,
+  "cumulative_elapsed_seconds": 8.844304581940609,
+  "cumulative": {
+    "input_rows": 22637,
+    "locator_rows": 29063,
+    "sql_logical_rows": 399536,
+    "real_controls": 0
+  },
+  "fixture_cleanup": {
+    "removed": true
+  }
+}

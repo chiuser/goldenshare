@@ -1,0 +1,57 @@
+{
+  "status": "passed",
+  "production_fix": "validated_by_original_three_nodes",
+  "resume_execution": "execution_resume_01.json",
+  "prior_failed_setup": "failed_setup_01.json",
+  "prior_acceptance": "resume_baseline_01.json",
+  "executed_test_bodies": 3,
+  "calculate_calls": 7,
+  "expected_fault_calls": 6,
+  "automatic_retries": 0,
+  "new_counters_including_failed_setup": {
+    "input_rows": 7,
+    "locator_rows": 10,
+    "sql_logical_rows": 59,
+    "real_controls": 0
+  },
+  "cumulative": {
+    "input_rows": 22637,
+    "locator_rows": 29063,
+    "sql_logical_rows": 399536,
+    "real_controls": 0,
+    "known_program_seconds": 10.008406873628932
+  },
+  "whole_remaining": {
+    "input_rows": 12363,
+    "locator_rows": 10937,
+    "sql_logical_rows": 600464,
+    "real_controls": 0
+  },
+  "local_limits_remaining": {
+    "input_rows": 5,
+    "locator_rows": 14,
+    "sql_logical_rows": 69,
+    "real_controls": 0
+  },
+  "resource_cleanup": {
+    "seven_calls": "passed",
+    "cause_identity": "passed",
+    "owned_fixture_removed": true
+  },
+  "preserved_error_types": [
+    "SourceReadError",
+    "CalculationCancelledError",
+    "CalculationDeadlineError",
+    "KeyboardInterrupt",
+    "ValueError"
+  ],
+  "independent_readonly_review": "passed; no extra tests or SQL; originals 12 fourth-phase and49 D3 hashes unchanged",
+  "d4": "fee draft wording reconciled; pending administrator review; not executed",
+  "limits_of_evidence": [
+    "owned temporary Parquet and real Arrow/DuckDB; timing/stop substitute and named raw error boundary",
+    "no formal Lake data or D4 concurrency/RSS/native cancellation execution",
+    "no old passed suite or reference regeneration",
+    "no commit or deployment"
+  ],
+  "final_static_checks": "resume_final_static_checks_01.json"
+}

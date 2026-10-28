@@ -1,0 +1,121 @@
+{
+  "status": "passed",
+  "completed_nodes": [
+    "test_locator_metadata_memory_and_close_errors"
+  ],
+  "attempts": [
+    {
+      "node": "test_locator_metadata_memory_and_close_errors",
+      "status": "passed"
+    }
+  ],
+  "calls": [
+    {
+      "mode": "inspect_memory",
+      "status": "expected_failure",
+      "error_type": "ResourceLimitError",
+      "cause_type": "MemoryError",
+      "cause_identity": true,
+      "price_rows": 0,
+      "locator_rows": 3,
+      "sql_logical_rows": 3,
+      "actual_key_rows": 3,
+      "metadata_open_calls": 4,
+      "steps": [
+        {
+          "name": "locate_stage",
+          "rows": 1,
+          "output": 1,
+          "failed": false
+        },
+        {
+          "name": "locate_stage",
+          "rows": 1,
+          "output": 1,
+          "failed": false
+        },
+        {
+          "name": "locate_stage",
+          "rows": 1,
+          "output": 1,
+          "failed": false
+        }
+      ],
+      "cleanup": "passed"
+    },
+    {
+      "mode": "metadata_close_failure",
+      "status": "expected_failure",
+      "error_type": "ResourceCleanupError",
+      "cause_type": "OSError",
+      "cause_identity": true,
+      "price_rows": 0,
+      "locator_rows": 1,
+      "sql_logical_rows": 1,
+      "actual_key_rows": 1,
+      "metadata_open_calls": 1,
+      "steps": [
+        {
+          "name": "locate_stage",
+          "rows": 1,
+          "output": 1,
+          "failed": false
+        }
+      ],
+      "cleanup": "passed"
+    },
+    {
+      "mode": "key_close_failure",
+      "status": "expected_failure",
+      "error_type": "ResourceCleanupError",
+      "cause_type": "OSError",
+      "cause_identity": true,
+      "price_rows": 0,
+      "locator_rows": 1,
+      "sql_logical_rows": 1,
+      "actual_key_rows": 1,
+      "metadata_open_calls": 1,
+      "steps": [
+        {
+          "name": "locate_stage",
+          "rows": 1,
+          "output": 1,
+          "failed": false
+        }
+      ],
+      "cleanup": "passed"
+    }
+  ],
+  "fixture_queries": [
+    {
+      "day": "2026-01-05",
+      "input_rows": 1,
+      "logical_rows": 1,
+      "status": "passed"
+    },
+    {
+      "day": "2026-01-06",
+      "input_rows": 1,
+      "logical_rows": 1,
+      "status": "passed"
+    },
+    {
+      "day": "2026-01-07",
+      "input_rows": 1,
+      "logical_rows": 1,
+      "status": "passed"
+    }
+  ],
+  "preservation": [],
+  "fixture_root": "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2158/test_locator_metadata_memory_a0/locator_error_7fwdayxd",
+  "new_input_rows": 3,
+  "new_locator_rows": 5,
+  "new_sql_logical_rows": 11,
+  "new_real_controls": 0,
+  "new_fake_controls": 3,
+  "program_elapsed_seconds": 0.5748763750307262,
+  "fixture_cleanup": {
+    "removed": true,
+    "error_type": null
+  }
+}

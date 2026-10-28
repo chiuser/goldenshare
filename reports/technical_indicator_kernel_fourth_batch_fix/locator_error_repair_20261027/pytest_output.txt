@@ -1,0 +1,50 @@
+E
+==================================== ERRORS ====================================
+____________ ERROR at setup of test_locator_read_errors_and_cleanup ____________
+
+tmp_path_factory = TempPathFactory(_given_basetemp=None, _trace=<pluggy._tracing.TagTracerSub object at 0x104260770>, _basetemp=PosixPath...ders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2154'), _retention_count=3, _retention_policy='all')
+
+    @pytest.fixture(scope="module")
+    def locator_error_data(tmp_path_factory):
+        temporary = TemporaryDirectory(prefix="locator_error_",dir=tmp_path_factory.mktemp("indicator_locator"))
+        state = None
+        try:
+            state = _State(Path(temporary.name))
+>           state.prepare()
+
+tests/foundation/technical_indicators/test_locator_error_classification.py:353: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+self = <test_locator_error_classification._State object at 0x106676660>
+
+    def prepare(self):
+        import duckdb
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+        expected_schema = pa.schema([("ts_code",pa.string()),("trade_date",pa.date32()),
+            *((name,pa.float64()) for name in ("open","high","low","close","vol","amount"))])
+        assert tuple(expected_schema.names) == tuple(name for name,_ in DAILY_SCHEMA)
+        con = duckdb.connect(":memory:",config={"threads":1,"max_temp_directory_size":"0B"})
+        try:
+            for day,value in zip(_DATES,_CLOSES):
+                path = self.root/f"silver/quote/stock_daily/trade_date={day.isoformat()}/part-000.parquet"
+                path.parent.mkdir(parents=True)
+                self.input_rows += 1
+                self.sql_rows += 1
+                event = dict(day=day.isoformat(), input_rows=1, logical_rows=1, status="running")
+                self.saved["fixture_queries"].append(event)
+                self.budget()
+>               actual = con.execute("""COPY (SELECT '600000.SH'::VARCHAR ts_code,$day::DATE trade_date,
+                    $value::DOUBLE open,$value::DOUBLE high,$value::DOUBLE low,$value::DOUBLE close,
+                    100::DOUBLE vol,1000::DOUBLE amount) TO $path (FORMAT PARQUET)""",
+                    dict(day=day,value=value,path=str(path))).fetchall()
+E                   _duckdb.ParserException: Parser Error: syntax error at or near "close"
+E                   
+E                   LINE 2: ... open,$value::DOUBLE high,$value::DOUBLE low,$value::DOUBLE close,
+E                                                                                          ^
+
+tests/foundation/technical_indicators/test_locator_error_classification.py:265: ParserException
+=========================== short test summary info ============================
+ERROR tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_read_errors_and_cleanup
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 error in 0.45s

@@ -60,7 +60,10 @@ class LakePriceLocator:
 
     def _close_metadata(self):
         if self._metadata_reader is not None:
-            self._metadata_reader.close()
+            try:
+                self._metadata_reader.close()
+            except Exception as exc:
+                raise ResourceCleanupError("The price locator metadata handle did not close") from exc
             self._metadata_reader = None
 
     def _open_metadata(self, path, contract, projection):
@@ -109,7 +112,10 @@ class LakePriceLocator:
 
     def _close_key_reader(self):
         if self._reader is not None:
-            self._reader.close()
+            try:
+                self._reader.close()
+            except Exception as exc:
+                raise ResourceCleanupError("The price locator key reader did not close") from exc
         self._reader = self._scanner = self._fragment = None
 
     def _key_batches(self, path, index, projection, standard):
@@ -289,6 +295,7 @@ class LakePriceLocator:
         if self._closed or self._started:
             raise SourceContractError("A source locator can only describe one request")
         self._started = True
+        pa, _, _, _ = _arrow()
         try:
             request = self.requirement.request
             contract = price_contract(request)
@@ -325,7 +332,9 @@ class LakePriceLocator:
             )
         except TechnicalIndicatorError:
             raise
-        except OSError as exc:
+        except MemoryError as exc:
+            raise ResourceLimitError("The price locator exceeded available memory") from exc
+        except (OSError, pa.ArrowException) as exc:
             raise SourceReadError("The price range could not be located") from exc
 
     def close(self):

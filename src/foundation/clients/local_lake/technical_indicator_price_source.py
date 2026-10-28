@@ -164,6 +164,8 @@ class LakeTechnicalIndicatorPriceSource:
             control.check_active()
         except TechnicalIndicatorError:
             raise
+        except MemoryError as exc:
+            raise ResourceLimitError("Source metadata exceeded available memory") from exc
         except Exception as exc:
             raise SourceReadError("Source metadata cannot be read") from exc
         finally:

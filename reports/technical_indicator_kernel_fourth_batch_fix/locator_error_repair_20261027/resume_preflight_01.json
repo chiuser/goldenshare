@@ -1,0 +1,27 @@
+{
+  "status": "passed",
+  "three_exact_functions": [
+    "test_locator_read_errors_and_cleanup",
+    "test_locator_metadata_memory_and_close_errors",
+    "test_locator_preserves_existing_errors"
+  ],
+  "tests_and_private_fixture_inspected": true,
+  "D3Control_only_no_old_fixture": true,
+  "no_test_SQL_executed_in_preflight": true,
+  "old_evidence_unchanged": 61,
+  "production_hashes_unchanged_since_pause": true,
+  "before_counters": {
+    "input_rows": 1,
+    "locator_rows": 0,
+    "sql_logical_rows": 1,
+    "real_controls": 0
+  },
+  "remaining_limits": {
+    "input_rows": 11,
+    "locator_rows": 24,
+    "sql_logical_rows": 127,
+    "real_controls": 0
+  },
+  "test_sha256": "0d02a31c5894f2adc095806790a3e87a22e2bbd9bbc223b1575049926fee0238",
+  "elapsed_seconds": 0.007328624837100506
+}

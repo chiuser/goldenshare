@@ -1,0 +1,47 @@
+{
+  "status": "passed",
+  "completed_nodes": [
+    "test_locator_preserves_existing_errors"
+  ],
+  "attempts": [
+    {
+      "node": "test_locator_preserves_existing_errors",
+      "status": "passed"
+    }
+  ],
+  "calls": [],
+  "fixture_queries": [],
+  "preservation": [
+    {
+      "error_type": "SourceReadError",
+      "same_object": true
+    },
+    {
+      "error_type": "CalculationCancelledError",
+      "same_object": true
+    },
+    {
+      "error_type": "CalculationDeadlineError",
+      "same_object": true
+    },
+    {
+      "error_type": "KeyboardInterrupt",
+      "same_object": true
+    },
+    {
+      "error_type": "ValueError",
+      "same_object": true
+    }
+  ],
+  "fixture_root": "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2157/test_locator_preserves_existin0/locator_error_1xa0suli",
+  "new_input_rows": 0,
+  "new_locator_rows": 0,
+  "new_sql_logical_rows": 0,
+  "new_real_controls": 0,
+  "new_fake_controls": 5,
+  "program_elapsed_seconds": 0.6573832076974213,
+  "fixture_cleanup": {
+    "removed": true,
+    "error_type": null
+  }
+}

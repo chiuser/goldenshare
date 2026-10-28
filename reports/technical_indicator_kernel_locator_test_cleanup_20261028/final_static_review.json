@@ -1,0 +1,28 @@
+{
+  "status": "passed",
+  "independent_readonly_pre_and_post_review": "passed",
+  "no_extra_tests_or_SQL": true,
+  "source_2_SHA256_unchanged": true,
+  "old_68_file_set_and_SHA256_unchanged": true,
+  "all_3_owned_roots_removed": true,
+  "fixture_independence": "third passed first in separate process with 0 input/SQL",
+  "per_mode_value_cause_close_checks": "unchanged from original source snapshot",
+  "CodeGraph": "fixture lookup checked against source; sync/status up to date",
+  "docs_integrity": "passed",
+  "new_sections_in_original_documents": "identical, completed, links valid",
+  "program_seconds": 3.9310517483834624,
+  "commit_pending": true,
+  "commit_whitespace_exception": {
+    "path": "reports/technical_indicator_kernel_fourth_batch_fix/locator_error_repair_20261027/pytest_output.txt",
+    "reason": "verbatim historical pytest failure output; preserve original bytes and SHA256",
+    "existing_trailing_whitespace_lines": [
+      15,
+      16,
+      42
+    ],
+    "file_action": "unchanged",
+    "validation": "exact historical/disk/staged SHA256 equality for this one log; strict git diff --cached --check for every other whitelisted file",
+    "no_source_or_test_check_relaxed": true,
+    "no_config_or_attributes_change": true
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "status": "passed",
+  "no_additional_test_or_SQL": true,
+  "HTML_ids_internal_anchors_new_links": "passed",
+  "python_AST_and_whitespace_files": 3,
+  "old_evidence_hashes_unchanged": 61,
+  "initial_failed_setup_unchanged": true,
+  "D4_fee_arithmetic_and_two_clarifications": "passed",
+  "commands": [
+    {
+      "command": [
+        "python3",
+        "scripts/check_docs_integrity.py"
+      ],
+      "returncode": 0,
+      "output": "[PASS] dead-absolute-links\n[PASS] ds-store-noise\n[PASS] tushare-index-consistency\n\nDocs integrity check passed.\n",
+      "elapsed_seconds": 0.08660508319735527
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--check",
+        "--",
+        "docs/architecture/technical-indicator-kernel-component-design-v1.html",
+        "docs/architecture/technical-indicator-kernel-low-level-design-v1.html",
+        "src/foundation/clients/local_lake/technical_indicator_price_locator.py",
+        "src/foundation/clients/local_lake/technical_indicator_price_source.py"
+      ],
+      "returncode": 0,
+      "output": "",
+      "elapsed_seconds": 0.02546170772984624
+    },
+    {
+      "command": [
+        "/opt/homebrew/bin/codegraph",
+        "sync"
+      ],
+      "returncode": 0,
+      "output": "┌  Syncing CodeGraph\n\u001b[2m│\u001b[0m\n\n\u001b[K\u001b[2m│\u001b[0m  \u001b[38;2;206;146;23m\u001b[1m·\u001b[0m Scanning files...\n\u001b[K\u001b[2m│\u001b[0m  \u001b[38;2;206;146;23m\u001b[1m·\u001b[0m Scanning files...\n\u001b[K\u001b[2m│\u001b[0m  \u001b[38;2;227;167;29m\u001b[1m·\u001b[0m Scanning files...\n\u001b[K\u001b[2m│\u001b[0m  \u001b[38;2;227;167;29m\u001b[1m·\u001b[0m Scanning files...\n\u001b[K\u001b[2m│\u001b[0m  \u001b[38;2;243;183;34m\u001b[1m·\u001b[0m Scanning files...\n\u001b[K\u001b[2m│\u001b[0m  \u001b[32m◆\u001b[0m Scanning files\n│\n◆  Synced 4 changed files\n│\n●  Removed: 4 — 0 nodes in 304ms\n│\n└  Done\n\n",
+      "elapsed_seconds": 0.5255195409990847
+    }
+  ],
+  "elapsed_seconds": 0.6740111247636378
+}

@@ -1,0 +1,138 @@
+{
+  "status": "completed",
+  "input_rows": 9,
+  "locator_rows": 10,
+  "sql_logical_rows": 61,
+  "fake_controls": 12,
+  "real_controls": 0,
+  "program_seconds": 3.9310517483834624,
+  "attempts": [
+    {
+      "name": "test_locator_preserves_existing_errors",
+      "status": "passed",
+      "command": [
+        "/Users/congming/github/goldenshare/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-x",
+        "-p",
+        "no:cacheprovider",
+        "-o",
+        "junit_family=xunit1",
+        "--junitxml=/Users/congming/github/goldenshare/reports/technical_indicator_kernel_locator_test_cleanup_20261028/node_01.xml",
+        "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_preserves_existing_errors"
+      ],
+      "expected": {
+        "name": "test_locator_preserves_existing_errors",
+        "input_rows": 0,
+        "locator_rows": 0,
+        "sql_logical_rows": 0,
+        "fake_controls": 5,
+        "calculate_calls": 0
+      },
+      "returncode": 0,
+      "timed_out": false,
+      "program_seconds": 1.183479541912675,
+      "actual": {
+        "input_rows": 0,
+        "locator_rows": 0,
+        "sql_logical_rows": 0,
+        "fake_controls": 5,
+        "real_controls": 0
+      },
+      "calculate_calls": 0,
+      "fixture_cleanup": {
+        "removed": true,
+        "error_type": null
+      },
+      "fixture_root": "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2157/test_locator_preserves_existin0/locator_error_1xa0suli"
+    },
+    {
+      "name": "test_locator_metadata_memory_and_close_errors",
+      "status": "passed",
+      "command": [
+        "/Users/congming/github/goldenshare/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-x",
+        "-p",
+        "no:cacheprovider",
+        "-o",
+        "junit_family=xunit1",
+        "--junitxml=/Users/congming/github/goldenshare/reports/technical_indicator_kernel_locator_test_cleanup_20261028/node_02.xml",
+        "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_metadata_memory_and_close_errors"
+      ],
+      "expected": {
+        "name": "test_locator_metadata_memory_and_close_errors",
+        "input_rows": 3,
+        "locator_rows": 5,
+        "sql_logical_rows": 11,
+        "fake_controls": 3,
+        "calculate_calls": 3
+      },
+      "returncode": 0,
+      "timed_out": false,
+      "program_seconds": 1.008790375199169,
+      "actual": {
+        "input_rows": 3,
+        "locator_rows": 5,
+        "sql_logical_rows": 11,
+        "fake_controls": 3,
+        "real_controls": 0
+      },
+      "calculate_calls": 3,
+      "fixture_cleanup": {
+        "removed": true,
+        "error_type": null
+      },
+      "fixture_root": "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2158/test_locator_metadata_memory_a0/locator_error_7fwdayxd"
+    },
+    {
+      "name": "test_locator_read_errors_and_cleanup",
+      "status": "passed",
+      "command": [
+        "/Users/congming/github/goldenshare/.venv/bin/python",
+        "-m",
+        "pytest",
+        "-q",
+        "-x",
+        "-p",
+        "no:cacheprovider",
+        "-o",
+        "junit_family=xunit1",
+        "--junitxml=/Users/congming/github/goldenshare/reports/technical_indicator_kernel_locator_test_cleanup_20261028/node_03.xml",
+        "tests/foundation/technical_indicators/test_locator_error_classification.py::test_locator_read_errors_and_cleanup"
+      ],
+      "expected": {
+        "name": "test_locator_read_errors_and_cleanup",
+        "input_rows": 6,
+        "locator_rows": 5,
+        "sql_logical_rows": 50,
+        "fake_controls": 4,
+        "calculate_calls": 4
+      },
+      "returncode": 0,
+      "timed_out": false,
+      "program_seconds": 0.8588196248747408,
+      "actual": {
+        "input_rows": 6,
+        "locator_rows": 5,
+        "sql_logical_rows": 50,
+        "fake_controls": 4,
+        "real_controls": 0
+      },
+      "calculate_calls": 4,
+      "fixture_cleanup": {
+        "removed": true,
+        "error_type": null
+      },
+      "fixture_root": "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2159/test_locator_read_errors_and_c0/locator_error_lrnvov34"
+    }
+  ],
+  "automatic_retries": 0,
+  "closeout_static_seconds": 0.008742125239223242,
+  "final_static_seconds": 0.08512737462297082,
+  "docs_and_codegraph_shell_seconds": 0.7375645
+}

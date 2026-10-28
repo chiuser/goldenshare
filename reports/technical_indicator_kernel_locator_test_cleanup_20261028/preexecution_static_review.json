@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "old_history_files": 68,
+  "source_versions": "unchanged from accepted working version",
+  "unchanged_helpers": [
+    "_request",
+    "_ObservedSource",
+    "_ObservedService",
+    "_Metadata",
+    "_Reader",
+    "_Scanner",
+    "_Faults",
+    "_State.prepare"
+  ],
+  "old_module_report_timer_removed": true,
+  "function_fixtures": 2,
+  "test_functions": 3,
+  "independent_readonly_review": "passed",
+  "no_test_SQL_Control_executed": true,
+  "program_seconds": 0.031309999991208315
+}

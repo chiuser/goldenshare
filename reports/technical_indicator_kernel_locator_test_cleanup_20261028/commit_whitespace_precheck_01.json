@@ -1,0 +1,16 @@
+{
+  "status": "historical_log_format_exception_recorded",
+  "initial_full_index_check": "failed only on the three existing trailing whitespace lines in the raw historical log",
+  "test_retries": 0,
+  "path": "reports/technical_indicator_kernel_fourth_batch_fix/locator_error_repair_20261027/pytest_output.txt",
+  "reason": "verbatim historical pytest failure output; preserve original bytes and SHA256",
+  "existing_trailing_whitespace_lines": [
+    15,
+    16,
+    42
+  ],
+  "file_action": "unchanged",
+  "validation": "exact historical/disk/staged SHA256 equality for this one log; strict git diff --cached --check for every other whitelisted file",
+  "no_source_or_test_check_relaxed": true,
+  "no_config_or_attributes_change": true
+}

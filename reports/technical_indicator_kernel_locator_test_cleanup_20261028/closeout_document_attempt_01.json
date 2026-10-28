@@ -1,0 +1,8 @@
+{
+  "status": "stopped_before_write",
+  "reason": "The component document has the original id on section, not h2; initial heading-only assertion failed",
+  "documents_modified": false,
+  "test_retries": 0,
+  "test_or_production_change": false,
+  "correction": "locate the existing section heading in the component document and the h3 heading in LLD"
+}
