@@ -1,0 +1,9 @@
+{
+  "first_delivery_complete": false,
+  "first_delivery_missing": "missing_checks",
+  "queued_manual_history_count": 0,
+  "new_history_source_requests": 1,
+  "new_history_files_committed": 2,
+  "old_unconfirmed_target_replaced": true,
+  "original_delivery_confirmation_after_new_write": "ValueError:period_delivery_current_file_unknown: job=raw_stk_period_bar_adj_week_update_job date=history partition=2026-10-09 run_id=8d07334107921be1e6fb13a144491ccac9b74da1fedfcbc38f68eeaad9b82d56"
+}

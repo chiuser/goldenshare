@@ -419,29 +419,69 @@ def validate_file(
     return {"rows": rows, "version": before, "sha256": file_digest(path)}
 
 
-def _old_range_paths(allpaths, freq, codes, evidence):
-    """Reuse exact compressed ranges only while the baseline's complete file inventory matches."""
-    if not evidence or evidence.get("range_index_version") != VERSION:
-        return None
-    if evidence.get("range_index_hash") != digest(
-        {k: evidence.get(k) for k in ("files", "stock_ranges")}
-    ):
-        return None
-    files = [i for i in evidence.get("files", []) if i["freq"] == freq]
-    if set(allpaths) != {i["target"] for i in files}:
-        return None
-    if any(i["version"] != file_version(i["target"]) for i in files):
-        return None
-    ranges = evidence.get("stock_ranges", {}).get(freq, {})
-    return [
-        (i["target"], i["period"])
-        for i in files
-        if any(
-            first <= i["period"] <= last
-            for code in codes
-            for first, last in ranges.get(code, [])
-        )
-    ]
+def range_index_valid(evidence):
+    """Metadata integrity only; current files are checked for the selected scope."""
+    return (
+        isinstance(evidence, dict)
+        and evidence.get("range_index_version") == VERSION
+        and isinstance(evidence.get("files"), list)
+        and isinstance(evidence.get("stock_ranges"), dict)
+        and evidence.get("range_index_hash")
+        == digest({k: evidence[k] for k in ("files", "stock_ranges")})
+    )
+
+
+def _old_range_paths(root, freq, codes, evidence):
+    """Resolve approved old periods without opening or enumerating lake files."""
+    if not range_index_valid(evidence):
+        raise ValueError("period_history_range_unverified")
+    registered, paths = {}, set()
+    for item in evidence["files"]:
+        if not isinstance(item, dict) or item.get("freq") not in ("week", "month"):
+            raise ValueError("period_range_registration_invalid")
+        period_date(item.get("period"), item["freq"])
+        key = (item["freq"], item["period"])
+        version = item.get("version")
+        if (
+            key in registered or not isinstance(item.get("target"), str)
+            or item["target"] in paths or not isinstance(version, list)
+            or len(version) != 5
+            or any(type(value) is not int or value < 0 for value in version)
+            or type(item.get("rows")) is not int or item["rows"] < 0
+        ):
+            raise ValueError("period_range_registration_invalid")
+        registered[key] = item
+        paths.add(item["target"])
+    ranges = evidence["stock_ranges"].get(freq)
+    if not isinstance(ranges, dict) or not isinstance(evidence.get("listed"), list):
+        raise TypeError("period_history_range_unverified")
+    selected = set()
+    for code in sorted(codes):
+        if code not in ranges:
+            if code in evidence["listed"]:
+                raise ValueError("period_history_range_unverified")
+            continue  # A new code has no rows in the complete approved index.
+        intervals = ranges[code]
+        if not isinstance(intervals, list) or not intervals:
+            raise ValueError("period_history_range_unverified")
+        for interval in intervals:
+            if not isinstance(interval, list) or len(interval) != 2:
+                raise ValueError("period_history_range_unverified")
+            first, last = interval
+            period_date(first, freq)
+            period_date(last, freq)
+            if first > last:
+                raise ValueError("period_history_range_unverified")
+            period = first
+            while period <= last:
+                item = registered.get((freq, period))
+                if item is None or item["target"] != str(target_path(root, freq, period)):
+                    raise ValueError("period_range_registration_invalid")
+                selected.add(period)
+                if period == last:
+                    break
+                period = next_period(period, freq)
+    return [(registered[(freq, period)]["target"], period) for period in sorted(selected)]
 
 
 def _source_ranges(con, freq, *, cancel, progress, policy):
@@ -684,42 +724,12 @@ def assemble(
         ):
             raise ValueError("period_source_scope_mismatch")
         oldpaths = []
-        allpaths = None
-        range_index_valid = mode == "bootstrap"
-        reused = None
-        if (
-            mode != "bootstrap"
-            and range_evidence
-            and range_evidence.get("range_index_version") == VERSION
-        ):
-            allpaths = [
-                str(safe_path(p)) for p in dataset_root(root, freq).glob("*/*.parquet")
-            ]
-            reused = _old_range_paths(
-                allpaths, freq, set(codes) | set(retired_codes), range_evidence
-            )
-            range_index_valid = reused is not None
+        index_valid = mode == "bootstrap" or range_index_valid(range_evidence)
         if mode == "history" or (mode == "upsert" and (codes or retired_codes)):
-            if allpaths is None:
-                allpaths = [
-                    str(safe_path(p))
-                    for p in dataset_root(root, freq).glob("*/*.parquet")
-                ]
-            if reused is not None:
-                affected = reused
-                progress({"stage": "reuse_old_ranges", "files": len(affected)})
-            elif allpaths:
-                affected = execute(
-                    con,
-                    f"SELECT DISTINCT filename,{PERIOD_SQL} AS period FROM read_parquet(?,hive_partitioning=false,filename=true) WHERE list_contains(?,ts_code)",
-                    [allpaths, sorted(set(codes) | set(retired_codes))],
-                    cancel=cancel,
-                    progress=progress,
-                    stage="locate_old_keys",
-                    policy=policy,
-                ).fetchall()
-            else:
-                affected = []
+            affected = _old_range_paths(
+                root, freq, set(codes) | set(retired_codes), range_evidence
+            )
+            progress({"stage": "reuse_old_ranges", "files": len(affected)})
             selected.update(r[1] for r in affected)
             oldpaths.extend(r[0] for r in affected)
         if mode != "bootstrap":
@@ -853,7 +863,7 @@ def assemble(
                 "stock_ranges": _source_ranges(
                     con, freq, cancel=cancel, progress=progress, policy=policy
                 ),
-                "range_index_valid": range_index_valid,
+                "range_index_valid": index_valid,
                 "expected_rows": {p: expected_rows.get(p, 0) for p in selected},
             },
         )

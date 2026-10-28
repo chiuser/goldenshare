@@ -26,6 +26,8 @@ from orchestrator.defs.run_contracts.stock_period_silver import (
     VERSION,
     asset_name,
     check_names,
+    materialization_scope,
+    validate_materialization_scope,
 )
 from orchestrator.defs.run_contracts.stock_weekly import (
     StockWeeklySource,
@@ -124,6 +126,74 @@ def batch_event_evidence(instance, freq, periods, *, include_raw=True):
     return result
 
 
+def require_silver_materialization(
+    materialization, freq, record=None, identity=None, *, allow_preimage=False
+):
+    """Validate event metadata against its own scope or an explicit committed unit.
+
+    Old preimages use their original declared scope, never the new unit's date or
+    the stat of the path now occupied by a newer file. No file or event reads.
+    """
+    from orchestrator.defs.stock_period_checks import (
+        verify_period_materialization_metadata,
+    )
+
+    try:
+        if materialization is None or materialization.asset_materialization is None:
+            raise ValueError("silver_unknown_target")
+        mat = materialization.asset_materialization
+        metadata = mat.metadata
+        def value(key):
+            return getattr(metadata.get(key), "value", None)
+        version = value("goldenshare/period_file_version")
+        period = record["period"] if record is not None else mat.partition
+        target = record["target"] if record is not None else value("dagster/uri")
+        if type(target) is not str or not target:
+            raise ValueError("silver_materialization_path_invalid")
+        rows, expected_version = None, version
+        current = False
+        if record is not None:
+            if identity is None:
+                raise ValueError("silver_materialization_identity_missing")
+            expected_asof, expected_lower = materialization_scope(record, identity)
+            current = version == record.get("version")
+            if not current and not allow_preimage:
+                raise ValueError("silver_materialization_version_mismatch")
+            expected_version = (
+                record.get("version") if current
+                else record.get("event_preimage", record.get("target_preimage"))
+            )
+            if current:
+                rows = record["rows"]
+                if (
+                    value("goldenshare/silver_asof") != expected_asof
+                    or value("goldenshare/silver_lower") != expected_lower
+                ):
+                    raise ValueError("silver_materialization_input_mismatch")
+        verify_period_materialization_metadata(
+            materialization, period, target, version=expected_version,
+            rows=rows, asset_key=dg.AssetKey(asset_name(freq)),
+        )
+        if value("goldenshare/silver_rule") != VERSION:
+            raise ValueError("silver_materialization_rule_invalid")
+        validate_materialization_scope(
+            freq, period, value("goldenshare/silver_asof"), value("goldenshare/silver_lower")
+        )
+        if current and identity.get("intent") == "update":
+            # Prior bootstrap metadata remains sufficient to recognize an old
+            # target. A current committed update has its own frozen inputs.
+            for key, expected in (
+                ("goldenshare/silver_source", record["source"]),
+                ("goldenshare/silver_source_version", record["source_version"]),
+                ("goldenshare/silver_reference_versions", identity["reference_versions"]),
+            ):
+                if value(key) != expected:
+                    raise ValueError("silver_materialization_input_mismatch")
+        return materialization
+    except (ValueError, TypeError, AttributeError) as error:
+        raise ValueError("silver_target_checks_not_ready") from error
+
+
 def require_checks(item, freq, *, raw):
     if item is None or item["materialization"] is None:
         raise ValueError(
@@ -133,6 +203,8 @@ def require_checks(item, freq, *, raw):
         )
     materialization = item["materialization"]
     mat = materialization.asset_materialization
+    if not raw:
+        require_silver_materialization(materialization, freq)
     for name in raw_check_names(freq) if raw else check_names(freq):
         record = item["checks"].get(name)
         evaluation = record.evaluation if record else None
@@ -156,35 +228,23 @@ def require_checks(item, freq, *, raw):
     return materialization
 
 
-def require_recoverable_checks(item, freq, record):
+def require_recoverable_checks(item, freq, record, identity):
     """Missing registration is recoverable; an actual failure or unexplained binding is not."""
+    try:
+        materialization_scope(record, identity)
+    except ValueError as error:
+        raise ValueError("silver_target_checks_not_ready") from error
     if item is None:
         return
-    allowed = [
-        record.get("version"),
-        record.get("event_preimage", record.get("target_preimage")),
-    ]
     asset = dg.AssetKey(asset_name(freq))
 
     def matches(materialization):
         if materialization is None:
             return False
-        mat = materialization.asset_materialization
-        metadata = mat.metadata if mat else {}
-        return (
-            mat is not None
-            and mat.asset_key == asset
-            and mat.partition == record["period"]
-            and getattr(metadata.get("dagster/uri"), "value", None) == record["target"]
-            and getattr(metadata.get("goldenshare/silver_rule"), "value", None)
-            == VERSION
-            and getattr(metadata.get("goldenshare/silver_lower"), "value", None)
-            == "2014-01-01"
-            and getattr(metadata.get("goldenshare/period_file_version"), "value", None)
-            is not None
-            and getattr(metadata.get("goldenshare/period_file_version"), "value", None)
-            in allowed
+        require_silver_materialization(
+            materialization, freq, record, identity, allow_preimage=True
         )
+        return True
 
     if item["materialization"] is not None and not matches(item["materialization"]):
         raise ValueError("silver_target_checks_not_ready")

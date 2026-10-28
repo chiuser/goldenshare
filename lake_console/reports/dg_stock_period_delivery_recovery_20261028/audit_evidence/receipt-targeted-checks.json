@@ -1,0 +1,20 @@
+{
+  "validation_status": "superseded_invalid_launcher",
+  "valid_acceptance_evidence": false,
+  "superseded_reason": "The launcher manually set PYTHONPATH=src:., contrary to lake_console/orchestrator/AGENTS.md:75-89. The numerical test output is preserved as historical execution only; its acceptance conclusion is withdrawn.",
+  "replacement_record": "receipt-targeted-checks-correct-launcher.json",
+  "commit": "88de377ca",
+  "scope": "Independent receipt/replay audit; selected isolated recovery cases only",
+  "command_working_directory": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+  "command": "PYTHONDONTWRITEBYTECODE=1 PYTHONPATH=src:. .venv/bin/python3 -B -m pytest -q -p no:cacheprovider tests/test_stock_period_delivery_confirmation.py::test_closed_phase_without_original_checkpoint_is_not_success tests/test_stock_period_delivery_confirmation.py::test_ack_refuses_control_drift_and_unconsumed_historical_work tests/test_stock_period_delivery_confirmation.py::test_ack_after_each_atomic_write_can_resume_without_new_events_or_source tests/test_stock_period_delivery_batch_evidence.py::test_cached_successor_json_version_change_refuses_second_unit tests/test_stock_period_daily_delivery.py::test_two_frequency_delivery_cannot_close_with_one_frequency_missing tests/test_stock_period_daily_delivery.py::test_two_explicit_successors_preserve_original_history_and_current_file",
+  "exit_code": 0,
+  "passed": 10,
+  "failed": 0,
+  "skipped": 0,
+  "duration_seconds": 6.74,
+  "warning_count": 69,
+  "warning": "Dagster installed SDK DeprecationWarning for datetime.datetime.utcfromtimestamp",
+  "formal_instance_or_lake_used": false,
+  "dependencies_installed": false,
+  "scope_limit": "Existing selected tests use real tiny producer files and SDK/SQLite events. No formal restore, source request, production database, current production receipt, PG execution, or performance benchmark was performed. The separate partial-week-history.json is a new independently exercised failure combination."
+}

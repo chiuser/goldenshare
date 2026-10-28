@@ -14,6 +14,7 @@ from orchestrator.defs.bootstrap.stock_period_history import (
     run_period,
 )
 from orchestrator.defs.io import stock_period_raw as raw
+from orchestrator.defs.run_contracts.stock_period import VERSION, digest
 from tests.test_stock_period_history import args
 from tests.test_stock_period_raw import POLICY, row, sample
 
@@ -38,7 +39,15 @@ def test_target_preimage_refuses_every_drift(tmp_path, drift):
         target.write_bytes(b"third-party")
     else:
         with raw.connection(tmp_path / "commit", POLICY) as con:
-            raw.publish(item, checkpoint=tmp_path / "initial.json", con=con)
+            committed = raw.publish(item, checkpoint=tmp_path / "initial.json", con=con)
+        # Exact first-producer file identity plus its independent literal source
+        # range. The later failure still tests publish's frozen preimage.
+        evidence = {
+            "files": [{key: committed[key] for key in ("freq", "period", "target", "version", "rows")}],
+            "stock_ranges": {"week": {"000001.SZ": [["2026-10-16", "2026-10-16"]]}},
+            "listed": ["000001.SZ"], "range_index_version": VERSION,
+        }
+        evidence["range_index_hash"] = digest({key: evidence[key] for key in ("files", "stock_ranges")})
         item = raw.assemble(
             [
                 sample(
@@ -50,6 +59,7 @@ def test_target_preimage_refuses_every_drift(tmp_path, drift):
             mode="history",
             freq="week",
             codes=["000001.SZ"],
+            range_evidence=evidence,
             policy=POLICY,
         )[0]
         if drift == "missing":

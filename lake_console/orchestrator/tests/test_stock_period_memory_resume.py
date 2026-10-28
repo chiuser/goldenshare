@@ -268,8 +268,56 @@ def test_override_requires_existing_bootstrap(tmp_path):
 
 
 def test_cli_rejects_override_for_a_real_history_refresh(tmp_path, monkeypatch):
+    from datetime import date, datetime
+
+    import dagster as dg
+
+    from orchestrator.defs.bootstrap.stock_period_history_cli import _run_reporting
+    from orchestrator.defs.paths import silver_trade_calendar_path
+    from orchestrator.defs.stock_period_update import (
+        confirm_period_delivery,
+        handoff_bootstrap,
+        report_completion_events,
+        report_file_events,
+    )
+    from tests.test_stock_period_delivery_confirmation import _emit
+
     kw = args(tmp_path)
+    monkeypatch.setattr(history, "execution_time", lambda: "2026-10-15T20:00:00+08:00")
     bootstrap = history.run_period(**kw)
+    # A manual refresh starts after a real file/event handoff, not by attaching
+    # bootstrap_parent to a history intent while baseline is still files_ready.
+    calendar = silver_trade_calendar_path(kw["root"])
+    calendar.parent.mkdir(parents=True)
+    with raw.connection(tmp_path / "calendar", kw["policy"]) as con:
+        con.sql(
+            "SELECT 'SSE' exchange,DATE '2026-10-12'+i::INTEGER trade_date,"
+            "true is_open,NULL::DATE pretrade_date FROM range(5) t(i)"
+        ).write_parquet(str(calendar))
+    instance_path = tmp_path / "instance"
+    instance_path.mkdir()
+    (instance_path / "dagster.yaml").write_text("telemetry:\n  enabled: false\n")
+    with dg.DagsterInstance.local_temp(str(instance_path)) as instance:
+        confirmation = lambda run: confirm_period_delivery(
+            instance, run, root=kw["root"], staging=kw["staging"]
+        )
+        _emit(instance, bootstrap)
+        history.replay_events(Path(bootstrap["path"]), root=kw["root"], staging=kw["staging"], confirm_delivery=confirmation)
+        _run_reporting(
+            instance,
+            lambda context: handoff_bootstrap(
+                root=kw["root"], staging=kw["staging"], run=Path(bootstrap["path"]),
+                listed=kw["listed"], aliases=kw["aliases"],
+                through=date(2026, 10, 15), now=datetime.fromisoformat("2026-10-15T20:00:00+08:00"),
+                transport=source,
+                events=lambda item, *, completion: report_file_events(instance, item, completion=completion, context=context),
+                completion_events=lambda notice: report_completion_events(instance, notice),
+                confirm_delivery=confirmation,
+            ),
+            handoff=True,
+        )
+    assert raw.read_json(kw["staging"] / "stock_period/baseline.json")["status"] == "ready"
+    assert raw.read_json(kw["staging"] / "stock_period/daily.json")["completed_through"] == {"week": "2026-10-09", "month": "2026-09"}
     kw["intent"] = {
         **kw["intent"],
         "mode": "history",

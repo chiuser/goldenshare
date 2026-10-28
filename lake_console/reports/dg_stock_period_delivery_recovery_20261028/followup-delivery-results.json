@@ -1,0 +1,94 @@
+{
+  "scope": "LLD12.16.3 delivery implementation and scoped receipt tests; parent runs the fixed-version combined regression",
+  "launcher_prefix": "env -u PYTHONPATH -u DAGSTER_HOME -u TUSHARE_TOKEN .venv/bin/python3 -B -m pytest -q -p no:cacheprovider --basetemp=/private/tmp/dg-period-fix-delivery-20261028",
+  "working_directory": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+  "runs": [
+    {
+      "selection": "initial new partial delivery module",
+      "passed": 15,
+      "failed": 0,
+      "seconds": 8.79,
+      "sdk_deprecation_warnings": 126
+    },
+    {
+      "selection": "delivery_confirmation + delivery_history + delivery_batch_evidence + combined event-reader wiring",
+      "passed": 55,
+      "failed": 0,
+      "seconds": 23.31,
+      "sdk_deprecation_warnings": 1386
+    },
+    {
+      "selection": "two atomic interruption cases + later failure + closed scoped reuse + actual single-week history registration",
+      "passed": 5,
+      "failed": 0,
+      "seconds": 3.99,
+      "sdk_deprecation_warnings": 45
+    },
+    {
+      "selection": "strict new flag + actual weekly op + mixed current/history + four linear-stat cases",
+      "passed": 7,
+      "failed": 0,
+      "seconds": 9.3,
+      "sdk_deprecation_warnings": 645
+    },
+    {
+      "selection": "history registration/partial cases and actual single-week full scope after independent ack admission guard",
+      "passed": 3,
+      "failed": 0,
+      "seconds": 3.11,
+      "sdk_deprecation_warnings": 24
+    },
+    {
+      "selection": "new partial 2/100 capacity, actual SQL count and linear stat",
+      "passed": 2,
+      "failed": 0,
+      "seconds": 4.19,
+      "sdk_deprecation_warnings": 318
+    }
+  ],
+  "do_not_sum_runs": "Selections overlap and production code changed between focused runs; these are not one fixed-version combined regression.",
+  "static_checks": {
+    "final_ruff": "passed",
+    "diff_whitespace": "passed",
+    "earlier_ruff_failures": "Two focused style checks reported three findings each; corrected before the final pass."
+  },
+  "new_partial_module_cases": 31,
+  "new_batch_capacity_cases": 2,
+  "formal_resources_accessed": false,
+  "dependencies_installed": false,
+  "basetemp_removed": true,
+  "owned_function_sha256": {
+    "src/orchestrator/defs/stock_period_update.py::confirm_period_delivery": "a9501b9a8674a7875fa91a919cbb345252ee7a1127c9c9b983c38f119933a738",
+    "src/orchestrator/defs/stock_period_update.py::_period_delivery_file_proven": "50f5c5a0a59e40329b46af0d3ae0f012dd95aa7fbc8d3140950a2446d4a230ec",
+    "src/orchestrator/defs/stock_period_update.py::acknowledge_period_delivery": "fcdad7e81a292b27bb137146849be34808e906da7a0d6b0c221f85c4c010c90e",
+    "src/orchestrator/defs/bootstrap/stock_period_history.py::replay_events": "e68add147c0ced13b38ed4c8bd495f5161cdba16a7c35bbd6ffec1bedc41f2c5"
+  },
+  "proof_followup": {
+    "before": {
+      "failed": 7,
+      "passed": 0,
+      "seconds": 5.02,
+      "reason": "The seven malformed historical proofs were wrongly accepted by ack; new negative tests failed as expected before the fix.",
+      "junit": "/private/tmp/dg-period-proof-before-20261028.xml"
+    },
+    "after": {
+      "passed": 19,
+      "failed": 0,
+      "seconds": 16.91,
+      "sdk_deprecation_warnings": 1056,
+      "junit": "/private/tmp/dg-period-proof-after-20261028.xml"
+    },
+    "extra_controls_and_shared_read_count": {
+      "passed": 3,
+      "failed": 0,
+      "junit": "/private/tmp/dg-period-proof-controls-20261028.xml",
+      "seconds": 2.73,
+      "sdk_deprecation_warnings": 30
+    },
+    "same_production_version_for_after_and_extra": true,
+    "bounds": "No new DG query or Parquet content read. Actual two-frequency successor ack reads its manifest once, complete zero times, each related committed JSON once; 2/100 linear-stat cases passed.",
+    "static": "Ruff and diff --check passed"
+  },
+  "new_batch_capacity_and_ack_read_cases": 3,
+  "production_fingerprint_note": "Owned function fingerprints are the final frozen proof-fix version; earlier focused execution rows are retained and must not be summed as a single fixed-version run."
+}

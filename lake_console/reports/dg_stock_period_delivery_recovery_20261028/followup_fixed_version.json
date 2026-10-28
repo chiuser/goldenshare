@@ -1,0 +1,175 @@
+{
+  "base_commit": "88de377ca",
+  "phase": "development_and_isolated_verification_complete",
+  "formal_operations": false,
+  "production_source_sha256": {
+    "src/orchestrator/defs/bootstrap/stock_period_history.py": "96f3fcee259c0d804c782c9ff0789e3fb7a122429bbc38a7aff87ec725ffb7ec",
+    "src/orchestrator/defs/io/stock_period_raw.py": "d339839e853565d3cbd1b7cfe0dea5a7f30ef5fb2091dfe7d27f81cf6e98ba0e",
+    "src/orchestrator/defs/stock_period_update.py": "23497ae0c443750db0afa40a556efbac0993e594cc61f968808ba367174580ce",
+    "src/orchestrator/defs/ops/stock_weekly_bootstrap_checks.py": "dfdcd630f5d7edd9eceab5229c53838b924381e0ae4c09668cd63be8595bf952",
+    "src/orchestrator/defs/run_contracts/stock_period_silver.py": "bec17a3d87f18eee19640c68eebf19925ed1659b1e16213df4c9fccf7797b953",
+    "src/orchestrator/defs/stock_period_checks.py": "5b7a9459c72e7e3731638870424eae691325f02a83ccb65765b05ab143089e53",
+    "src/orchestrator/defs/checks/stock_period_silver_checks.py": "12a734df362ab2d5cb62885a89a8f0a03c5a394980e404ecae94b2732f5b6392",
+    "src/orchestrator/defs/asset_guards/stock_period_silver_readiness.py": "f0ef98edfdf1065e8b66077f944cefa0529c905b93c4dce21f3450734c0b433d",
+    "src/orchestrator/defs/bootstrap/stock_period_silver_cli.py": "f03f389d726e0d1817d6921f5f7f30216811f3469cc51abf5cb43887756ef77c",
+    "src/orchestrator/defs/stock_period_silver.py": "50b27910313068f7e380e3ce7099ff1357ab13967a5a326ddc392e60e696c251"
+  },
+  "first_regression": {
+    "source_unchanged": true,
+    "xml": "followup-fixed-regression.xml.gz",
+    "totals": {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "13",
+      "skipped": "2",
+      "tests": "520",
+      "time": "128.949",
+      "timestamp": "2026-10-28T08:20:14.334424+08:00",
+      "hostname": "bogon"
+    },
+    "failures": [
+      {
+        "case": "test_cli_rejects_override_for_a_real_history_refresh",
+        "message": "ValueError: period_baseline_not_ready"
+      },
+      {
+        "case": "test_target_preimage_refuses_every_drift[missing]",
+        "message": "ValueError: period_history_range_unverified"
+      },
+      {
+        "case": "test_target_preimage_refuses_every_drift[changed]",
+        "message": "ValueError: period_history_range_unverified"
+      },
+      {
+        "case": "test_adjacent_factor_changes_refresh_both_frequencies_and_failure_keeps_notification",
+        "message": "ValueError: period_daily_handoff_required"
+      },
+      {
+        "case": "test_week_midpoint_success_does_not_close_period_or_replay_days",
+        "message": "ValueError: period_daily_handoff_required"
+      },
+      {
+        "case": "test_weekly_backlog_and_current_request_preserve_cursor",
+        "message": "AssertionError: assert (0 == 1)\n +  where 0 = len([])\n +    where [] = SensorResult(run_requests=[], skip_reason=SkipReason(skip_message='新源bootstrap尚未交接，保留旧cursor，不提交任务。'), cursor=None, dynamic_partitions_requests=[], asset_events=[], automation_condition_evaluations=[]).run_requests"
+      },
+      {
+        "case": "test_sensor_rejects_raw_calendar_field[week]",
+        "message": "AssertionError: assert (0 == 1)\n +  where 0 = len([])\n +    where [] = SensorResult(run_requests=[], skip_reason=SkipReason(skip_message='新源bootstrap尚未交接，保留旧cursor，不提交任务。'), cursor=None, dynamic_partitions_requests=[], asset_events=[], automation_condition_evaluations=[]).run_requests"
+      },
+      {
+        "case": "test_sensor_rejects_raw_calendar_field[month]",
+        "message": "AssertionError: assert (0 == 1)\n +  where 0 = len([])\n +    where [] = SensorResult(run_requests=[], skip_reason=SkipReason(skip_message='新源bootstrap尚未交接，保留旧cursor，不提交任务。'), cursor=None, dynamic_partitions_requests=[], asset_events=[], automation_condition_evaluations=[]).run_requests"
+      },
+      {
+        "case": "test_sensor_skips_closed_calendar_day[week]",
+        "message": "AssertionError: assert (0 == 1)\n +  where 0 = len([])\n +    where [] = SensorResult(run_requests=[], skip_reason=SkipReason(skip_message='新源bootstrap尚未交接，保留旧cursor，不提交任务。'), cursor=None, dynamic_partitions_requests=[], asset_events=[], automation_condition_evaluations=[]).run_requests"
+      },
+      {
+        "case": "test_sensor_skips_closed_calendar_day[month]",
+        "message": "AssertionError: assert (0 == 1)\n +  where 0 = len([])\n +    where [] = SensorResult(run_requests=[], skip_reason=SkipReason(skip_message='新源bootstrap尚未交接，保留旧cursor，不提交任务。'), cursor=None, dynamic_partitions_requests=[], asset_events=[], automation_condition_evaluations=[]).run_requests"
+      },
+      {
+        "case": "test_monthly_debt_and_current_request_preserve_cursor",
+        "message": "AssertionError: assert (0 == 1)\n +  where 0 = len([])\n +    where [] = SensorResult(run_requests=[], skip_reason=SkipReason(skip_message='新源bootstrap尚未交接，保留旧cursor，不提交任务。'), cursor=None, dynamic_partitions_requests=[], asset_events=[], automation_condition_evaluations=[]).run_requests"
+      },
+      {
+        "case": "test_actual_job_check_events_and_partition[month-2020-02-2020-02-28-2020-01-days0]",
+        "message": "ValueError: period_daily_handoff_required"
+      },
+      {
+        "case": "test_actual_job_check_events_and_partition[week-2026-10-16-2026-10-16-2026-10-09-days1]",
+        "message": "ValueError: period_daily_handoff_required"
+      }
+    ],
+    "skips": [
+      {
+        "case": "test_actual_check_query_on_postgres",
+        "message": "Explicit isolated PG opt-in required"
+      },
+      {
+        "case": "test_sensor_key_and_real_graphql_from_failure_keep_original_intent",
+        "message": "Explicit isolated PG opt-in required"
+      }
+    ],
+    "archive": {
+      "path": "followup-fixed-regression.xml.gz",
+      "format": "gzip",
+      "raw_xml_sha256": "c1eb91c4946edd7d2d05fd40da8e57ae425711034a8f9f9feeb3dc05bd357fd9",
+      "archive_sha256": "b899bcc56d4b9d00d0579ce7cda2b89145e980f35853b678aec41033bad635d3",
+      "raw_bytes_preserved": true,
+      "reason": "Preserve the exact original pytest failure traceback, including tool-generated trailing whitespace, in Git."
+    }
+  },
+  "final_production_source_sha256": {
+    "src/orchestrator/defs/bootstrap/stock_period_history.py": "96f3fcee259c0d804c782c9ff0789e3fb7a122429bbc38a7aff87ec725ffb7ec",
+    "src/orchestrator/defs/io/stock_period_raw.py": "d339839e853565d3cbd1b7cfe0dea5a7f30ef5fb2091dfe7d27f81cf6e98ba0e",
+    "src/orchestrator/defs/stock_period_update.py": "9ed9921eb2697604aab367c2a9df6fef30b1c4e2dc054d2df214339511a972f5",
+    "src/orchestrator/defs/ops/stock_weekly_bootstrap_checks.py": "dfdcd630f5d7edd9eceab5229c53838b924381e0ae4c09668cd63be8595bf952",
+    "src/orchestrator/defs/run_contracts/stock_period_silver.py": "bec17a3d87f18eee19640c68eebf19925ed1659b1e16213df4c9fccf7797b953",
+    "src/orchestrator/defs/stock_period_checks.py": "5b7a9459c72e7e3731638870424eae691325f02a83ccb65765b05ab143089e53",
+    "src/orchestrator/defs/checks/stock_period_silver_checks.py": "12a734df362ab2d5cb62885a89a8f0a03c5a394980e404ecae94b2732f5b6392",
+    "src/orchestrator/defs/asset_guards/stock_period_silver_readiness.py": "f0ef98edfdf1065e8b66077f944cefa0529c905b93c4dce21f3450734c0b433d",
+    "src/orchestrator/defs/bootstrap/stock_period_silver_cli.py": "f03f389d726e0d1817d6921f5f7f30216811f3469cc51abf5cb43887756ef77c",
+    "src/orchestrator/defs/stock_period_silver.py": "50b27910313068f7e380e3ce7099ff1357ab13967a5a326ddc392e60e696c251"
+  },
+  "final_test_source_sha256": {
+    "tests/test_stock_period_combined.py": "e1c2ba9d417f14345fbeb9d870927daaf6aef3970e8406364f408846e7b41fdf",
+    "tests/test_stock_period_raw.py": "a46de8de54903e2e00cb280f9f364b7b34f54399e811e3428f775c365e30f47a",
+    "tests/test_stock_period_check_evidence.py": "9b2962cee2d4aed511e766b93f91aa62bbf1e5987af53e5a56f0fd0a47575727",
+    "tests/test_stock_period_silver_sensors.py": "820256cc7db3db48c94076f755125cf79dcbaebc422eba963bde9b69cb808710",
+    "tests/test_stock_period_delivery_confirmation.py": "6b6fb21343344406553020a4793177f1356859c16de58db91d98f675c21cca4c",
+    "tests/test_stock_period_delivery_history.py": "68a7037f49f83117aae1c5ceb8a9db4f6748cf10bd84be4e700a7c6238ef2367",
+    "tests/test_stock_period_delivery_batch_evidence.py": "e478a42468d83e30070a6ee5d4dc43fe09625a7f26a3c1a91e1391e4ceaef5b1",
+    "tests/test_stock_period_followup_history.py": "49f7d8df57d09dd06a65fd1d5462eaac1a1fc2ca27cb41d48aad22d8310772e4",
+    "tests/test_stock_period_followup_silver.py": "1c06a0323a4120fc36d9d87f2517177fd783db916f23c6738452abe2281a6588",
+    "tests/test_stock_period_partial_delivery.py": "30c1caab4fb4a89c48bbcc923777e8705d473b17555157061b165b10ce550048",
+    "tests/test_stock_period_memory_resume.py": "a2f57882285d2a4199f35e50c1597f5bec37b528ffe4a3160af910ea856135fa",
+    "tests/test_stock_period_storage.py": "8915bb632c9ae4e2cfcfbe34b45ad9f70516c794c04ab1552db0fd6084e8bfa3",
+    "tests/test_stock_period_update.py": "d6c2b17403627566c489f6db7ff4f197098037b51ce148e84307b4114f9daf11",
+    "tests/test_raw_stock_weekly_update_job_sensor.py": "6ea617b9572f75b154119e0308bb21d1f0cc63b494be4b83f275f181bd3c74d1",
+    "tests/test_stock_monthly_definitions.py": "77c39ea1e77a234c0faa56aa63251194d7a97294128a2010cd654be84b6c267b"
+  },
+  "final_command": "env -u PYTHONPATH -u DAGSTER_HOME -u TUSHARE_TOKEN -u DG_PERIOD_PG_VERIFY PYTHONDONTWRITEBYTECODE=1 .venv/bin/python3 -B -m pytest -q -p no:cacheprovider tests/test_stock_period_*.py tests/test_raw_stock_weekly_update_job_sensor.py tests/test_raw_stock_monthly_update_job_sensor.py tests/test_stock_monthly_definitions.py --basetemp=/private/tmp/dg-period-five-final-20261028 --junitxml=../reports/dg_stock_period_delivery_recovery_20261028/followup-final-regression.xml --durations=8",
+  "final_regression": {
+    "xml": "followup-final-regression.xml",
+    "xml_sha256": "0d44cb8aff9e0a073469e3948b3c1e4e24596362846b9b91cc2c13a7d97909ff",
+    "tests": 530,
+    "passed": 528,
+    "failed": 0,
+    "errors": 0,
+    "skipped": [
+      {
+        "case": "test_actual_check_query_on_postgres",
+        "reason": "Explicit isolated PG opt-in required"
+      },
+      {
+        "case": "test_sensor_key_and_real_graphql_from_failure_keep_original_intent",
+        "reason": "Explicit isolated PG opt-in required"
+      }
+    ],
+    "xml_seconds": "136.381",
+    "pytest_seconds": 136.39,
+    "frozen_files_unchanged": {
+      "final_production_source_sha256": true,
+      "final_test_source_sha256": true
+    }
+  },
+  "static_checks": {
+    "fatal_ruff_src_tests": "passed",
+    "default_ruff_scoped_files": 25,
+    "default_ruff": "passed",
+    "codegraph_sync_status": "passed"
+  },
+  "committed": false,
+  "pushed": false,
+  "finished_at": "2026-10-28T08:33:59.921470+08:00",
+  "documentation_checks": {
+    "local_links_checked": 139,
+    "issues": 0,
+    "five_item_plan_lld_reconciliation": "complete",
+    "scoped_diff_check": "passed",
+    "final_production_and_test_fingerprints_rechecked_after_docs": true,
+    "validator_note": "Initial simple regex truncated a preexisting balanced-parenthesis Tushare filename; corrected target parsing without changing that document link."
+  },
+  "commit_note": "committed=false records the verification-end snapshot before the user requested commit. This repair and evidence are included in the requested commit; consult Git for commit identity."
+}

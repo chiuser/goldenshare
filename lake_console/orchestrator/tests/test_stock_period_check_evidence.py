@@ -328,32 +328,40 @@ def test_legal_preimage_is_missing_current_check_but_late_wrong_binding_is_refus
     target = str(tmp_path / "part.parquet")
     metadata = {
         "dagster/uri": target,
+        "dagster/row_count": 7,
         "goldenshare/silver_rule": VERSION,
         "goldenshare/silver_lower": "2014-01-01",
+        "goldenshare/silver_asof": "2026-10-23",
     }
+    # Native evaluate and materialization_metadata require these scope/row facts;
+    # the former sparse metadata was not a valid Silver materialization.
+    identity = {"asof": "2026-10-23", "lower": "2014-01-01"}
     record = {
+        "freq": "week",
         "period": PARTITION,
         "target": target,
-        "version": [2],
-        "event_preimage": [1],
+        "rows": 7,
+        "version": [1, 2, 128, 3, 5],
+        "event_preimage": [1, 2, 128, 3, 4],
     }
     names = check_names("week")
     with dg.DagsterInstance.local_temp(str(instance_directory(tmp_path))) as instance:
         instance.add_dynamic_partitions("cn_a_stock_week_ends", [PARTITION])
         old = materialize(
-            instance, dg.MetadataValue.json([1]), asset=asset, metadata=metadata
+            instance, dg.MetadataValue.json(record["event_preimage"]), asset=asset,
+            metadata={**metadata, "goldenshare/silver_asof": "2026-10-22"},
         )
         _run_reporting(
             instance,
             lambda context: evaluate(instance, context, names, old, asset=asset),
         )
         current = materialize(
-            instance, dg.MetadataValue.json([2]), asset=asset, metadata=metadata
+            instance, dg.MetadataValue.json(record["version"]), asset=asset, metadata=metadata
         )
         item = batch_event_evidence(instance, "week", [PARTITION], include_raw=False)[
             (asset.to_user_string(), PARTITION)
         ]
-        require_recoverable_checks(item, "week", record)
+        require_recoverable_checks(item, "week", record, identity)
         with pytest.raises(ValueError, match="checks_not_ready"):
             require_checks(item, "week", raw=False)
         _run_reporting(
@@ -364,7 +372,7 @@ def test_legal_preimage_is_missing_current_check_but_late_wrong_binding_is_refus
             (asset.to_user_string(), PARTITION)
         ]
         with pytest.raises(ValueError, match="checks_not_ready"):
-            require_recoverable_checks(late, "week", record)
+            require_recoverable_checks(late, "week", record, identity)
         _run_reporting(
             instance,
             lambda context: evaluate(instance, context, names, current, asset=asset),

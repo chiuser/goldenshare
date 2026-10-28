@@ -1,0 +1,40 @@
+{
+  "audit_commit": "88de377ca",
+  "run_working_directory": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+  "result_source": "Original captured stdout from the executed inline reproduction; not rerun for archival",
+  "dagster_version": "1.13.26",
+  "cases": [
+    {
+      "freq": "week",
+      "rows": 1,
+      "version_same": true,
+      "new_materializations": 0,
+      "checks_after": 3,
+      "all_passed": true,
+      "require_checks_accepted": 1,
+      "native_check_error": "silver_check_scope_missing",
+      "silver_asof_after": null
+    },
+    {
+      "freq": "month",
+      "rows": 1,
+      "version_same": true,
+      "new_materializations": 0,
+      "checks_after": 3,
+      "all_passed": true,
+      "require_checks_accepted": 1,
+      "native_check_error": "silver_check_scope_missing",
+      "silver_asof_after": null
+    }
+  ],
+  "temp_removed": true,
+  "isolation": {
+    "fixture": "existing period_fixture literal 21-column source and real silver.build",
+    "generated_period_files": 6,
+    "formal_resource_access": false,
+    "mock_used": false,
+    "lake_and_staging_cleanup": "TemporaryDirectory exited successfully",
+    "sqlite_cleanup": "Both owned DagsterInstance.ephemeral context managers exited successfully",
+    "repository_files_changed": false
+  }
+}

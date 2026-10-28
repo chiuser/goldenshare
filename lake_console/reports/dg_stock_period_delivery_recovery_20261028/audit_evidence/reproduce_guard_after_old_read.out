@@ -1,0 +1,18 @@
+{
+  "error": "ValueError:period_target_unregistered_version",
+  "completed_sql_stages_before_rejection": [
+    "import_source",
+    "source_integrity",
+    "source_integrity",
+    "source_integrity",
+    "source_integrity",
+    "source_integrity",
+    "source_integrity",
+    "source_integrity",
+    "source_integrity",
+    "locate_old_keys"
+  ],
+  "old_data_location_scan_happened": true,
+  "old_data_copy_happened": false,
+  "partition_copy_happened": false
+}

@@ -11,8 +11,8 @@ from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_met
 from orchestrator.defs.run_contracts.stock_period_silver import (
     VERSION,
     check_names,
-    period_start,
     target_path,
+    validate_materialization_scope,
 )
 from orchestrator.defs.stock_period_checks import verify_period_materialization
 from orchestrator.defs.stock_period_silver import current_validation
@@ -36,20 +36,7 @@ def evaluate(context, lake, staging, freq, kind):
         raise ValueError("silver_check_materialization_binding_invalid")
     asof = getattr(metadata.get("goldenshare/silver_asof"), "value", None)
     lower = getattr(metadata.get("goldenshare/silver_lower"), "value", None)
-    if not asof or not lower:
-        raise ValueError("silver_check_scope_missing")
-    from datetime import date, timedelta
-
-    def start(day):
-        value = date.fromisoformat(day)
-        return (
-            (value - timedelta(days=value.weekday())).isoformat()
-            if freq == "week"
-            else value.replace(day=1).isoformat()
-        )
-
-    if not start(lower) <= period_start(period, freq) <= start(asof):
-        raise ValueError("silver_check_outside_approved_scope")
+    validate_materialization_scope(freq, period, asof, lower)
     rows = current_validation(lake, staging, freq, period, asof=asof)
     verify_period_materialization(
         record, period, target_path(lake, freq, period), rows=rows

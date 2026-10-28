@@ -1,0 +1,53 @@
+{
+  "commit": "88de377ca",
+  "findings": {
+    "P1": 2,
+    "P2": 3
+  },
+  "formal_operations": false,
+  "production_code_modified_during_audit": false,
+  "source_fingerprints_match": true,
+  "root_reproductions": [
+    "replace_before_checkpoint",
+    "manual_history_untracked",
+    "silver_missing_asof"
+  ],
+  "root_silver_result": {
+    "week": {
+      "new_materializations": 0,
+      "checks_passed": 3,
+      "native_error": "silver_check_scope_missing"
+    },
+    "month": {
+      "new_materializations": 0,
+      "checks_passed": 3,
+      "native_error": "silver_check_scope_missing"
+    },
+    "temporary_resources_removed": true
+  },
+  "artifacts": {
+    "reproduce_replace_before_checkpoint.py": "d841fcbc069f696ab439a602a9bd1f0a93a3486c5df6c36975bb91aba5ed539e",
+    "reproduce_replace_before_checkpoint.out": "437d57d727e2ac8b5f5d640894945dc5152d1eeff005c93667a0561632170a9a",
+    "reproduce_manual_history_untracked.py": "7240d49ef79709c3d4de140b877aa0d510263fd486d1f6851f069bbe9b3b8d43",
+    "reproduce_manual_history_untracked.out": "83d3d938948183093a0099a863d13ad211dfa6a4755cefa107afb137a352fb2c",
+    "reproduce_guard_after_old_read.py": "c2a62bd76956856f90a6c5b9b1d8b52cb91ccf46882013b3aad0eb1cd56e608e",
+    "reproduce_guard_after_old_read.out": "0faeb3a5663d85c469012d68b56e40ca27a326aae8b2d2a1316d33a1650ea9e3",
+    "partial_week_history.py": "1d897804bdc13cf28395f22a1dbe8fe906a360bef242327fa7506df44e7c067c",
+    "partial-week-history.json": "c4d68c0d6116831cb8e836b1328d6748e47f12438333bc84841790782145366d",
+    "partial-week-history-invalid-launcher.json": "4f9624185da2ede06a80df2b601b06bb3d9f95cb2f2b21bdb6329592e8da1797",
+    "silver_missing_asof.py": "cd92bb39216dae68ff6c406b76599eca4ff6ec97fa80db2695315172294cfd22",
+    "silver_missing_asof.json": "fabe5674054dff3f79f63e35589606ea006232f1802ae833dfa459702fb19897",
+    "receipt-targeted-checks.json": "4fe7c3d3f7b9aab46660653c2326707c9e0871f1ec662f09fcde2139279a47ec",
+    "receipt-targeted-checks-correct-launcher.json": "a1d9b0f5a267ea82c71b4801b8b686d83f768432a53609963c01b3c77e991075"
+  },
+  "production_sha256": {
+    "src/orchestrator/defs/stock_period_update.py": "bed7815378e4f841ff3492c7eb7b5e68872b24525194782201814dada7191743",
+    "src/orchestrator/defs/asset_guards/stock_period_check_evidence.py": "127ac892bc8d5b43561e2987827142ee073249399eef2d27b45b35450fbc8d1f",
+    "src/orchestrator/defs/asset_guards/stock_period_silver_readiness.py": "df9f0c5d67cbb49ba608917d0baa327ba427706f067eba2cb7b70c6282d3481b",
+    "src/orchestrator/defs/bootstrap/stock_period_history.py": "3fb9131d1cede1ab1d8fbdae315dc74bec768a5c6f2c0ed3cb23c950d5876a57",
+    "src/orchestrator/defs/bootstrap/stock_period_history_cli.py": "d0ee53dc7eab802cb72fb0619f8b5df6086f9349150059b1ef8274bc77706c89",
+    "src/orchestrator/defs/bootstrap/stock_period_silver_cli.py": "b57ffbd9d2d6063755b82da20dd2494934603911f525e9d7d3b4c2b28971f51e",
+    "src/orchestrator/defs/io/stock_period_raw.py": "b58c9fbec91d859746d2bec753476684e5127351f9c80f6d0a1d9561f01a0425",
+    "src/orchestrator/defs/ops/stock_weekly_bootstrap_checks.py": "e17ef5cb66c53bfad97aff6706fcc7992980e8e41dc38e7255228ce2aab1206d"
+  }
+}

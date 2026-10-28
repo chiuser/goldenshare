@@ -76,7 +76,12 @@ def test_actual_job_check_events_and_partition(
     atomic_json(
         staging / "stock_period" / "daily.json",
         {
-            "completed_through": {freq: prior},
+            # Real handoff persists both frequencies, even when this job only
+            # exercises one. Independent prior closed-period fixture values.
+            "completed_through": {
+                "week": prior if freq == "week" else "2020-02-21",
+                "month": prior if freq == "month" else "2026-09",
+            },
             "last_refresh": {},
             "factor_through": today,
         },

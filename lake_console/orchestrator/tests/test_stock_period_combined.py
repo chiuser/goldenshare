@@ -225,12 +225,15 @@ def test_range_record_drift_falls_back_once_and_is_not_reblessed(
             run_period(**kw, intent=combined_intent(), transport=combined_source)
         assert before == {path: file_version(path) for path in before}
         assert "partition_copy" not in stages
+        assert "locate_old_keys" not in stages
+        assert "read_affected_once" not in stages
         assert read_json(baseline) == facts
         return
-    run_period(**kw, intent=combined_intent(), transport=combined_source)
-    assert stages.count("locate_old_keys") == 1
-    assert values(kw["root"], "2026-10-02") == [(B, "20261002", Decimal(9))]
-    assert "range_index_version" not in read_json(baseline)
+    with pytest.raises(ValueError, match="period_history_range_unverified"):
+        run_period(**kw, intent=combined_intent(), transport=combined_source)
+    assert not {"locate_old_keys", "read_affected_once", "partition_copy"} & set(stages)
+    assert before == {path: file_version(path) for path in before}
+    assert read_json(baseline) == facts
 
 
 def test_candidate_missing_row_refuses_before_publication(tmp_path, monkeypatch):
@@ -281,6 +284,25 @@ def test_new_manual_refresh_really_downloads_and_reused_identity_cannot_change_s
         **kw, intent=intent, transport=lambda _: pytest.fail("repeat request")
     )
     assert resumed["run_id"] == first["run_id"]
+    with pytest.raises(ValueError, match="period_original_run_required"):
+        run_period(**kw, intent={**intent, "request_id": "refresh-2"}, transport=transport)
+    import dagster as dg
+
+    from orchestrator.defs.bootstrap.stock_period_history import replay_events
+    from orchestrator.defs.stock_period_update import confirm_period_delivery
+    from tests.test_stock_period_delivery_confirmation import _emit
+
+    isolated = tmp_path / "event-instance"
+    isolated.mkdir()
+    (isolated / "dagster.yaml").write_text("telemetry:\n  enabled: false\n")
+    with dg.DagsterInstance.local_temp(str(isolated)) as instance:
+        _emit(instance, first)
+        replay_events(
+            Path(first["path"]), root=kw["root"], staging=kw["staging"],
+            confirm_delivery=lambda run: confirm_period_delivery(
+                instance, run, root=kw["root"], staging=kw["staging"]
+            ),
+        )
     second = run_period(
         **kw, intent={**intent, "request_id": "refresh-2"}, transport=transport
     )
@@ -556,7 +578,11 @@ def test_event_reader_checks_same_v2_identity_without_real_events(
             "file_receipt_hash": saved["file_receipt_hash"],
             "files": complete["files"],
             "events_complete": False,
+            "allowed_events_complete": False,
             "historical_only": False,
+            "current_files": [item for item in complete["files"] if item["freq"] == "week"],
+            "file_evidence": {},
+            "completion_evidence": {},
             "allowed_frequencies": ["week"],
             "reason": "missing_events",
         }

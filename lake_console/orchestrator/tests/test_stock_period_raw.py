@@ -12,7 +12,11 @@ from orchestrator.defs.io.stock_period_raw import (
     publish,
     target_path,
 )
-from orchestrator.defs.run_contracts.stock_period import StockPeriodPolicy
+from orchestrator.defs.run_contracts.stock_period import (
+    VERSION,
+    StockPeriodPolicy,
+    digest,
+)
 
 POLICY = StockPeriodPolicy(
     duckdb_memory="256MiB", workspace_bytes=1024**3, spill_bytes=128 * 1024**2
@@ -65,7 +69,18 @@ def test_history_replaces_old_keys_keeps_other_stocks_and_old_only_partition(tmp
         freq="week",
         policy=POLICY,
     )
-    commit(items, tmp_path / "c1")
+    committed = commit(items, tmp_path / "c1")
+    # Actual producer file identities; independent literal original source ranges.
+    evidence = {
+        "files": [{key: item[key] for key in ("freq", "period", "target", "version", "rows")} for item in committed],
+        "stock_ranges": {"week": {
+            "000001.SZ": [["2026-10-02", "2026-10-09"]],
+            "000002.SZ": [["2026-10-02", "2026-10-09"]],
+        }},
+        "listed": ["000001.SZ", "000002.SZ"],
+        "range_index_version": VERSION,
+    }
+    evidence["range_index_hash"] = digest({key: evidence[key] for key in ("files", "stock_ranges")})
     untouched = target_path(root, "week", "2026-10-09").read_bytes()
     new = [
         row("000001.SZ", "20261009", "week", "2"),
@@ -78,6 +93,7 @@ def test_history_replaces_old_keys_keeps_other_stocks_and_old_only_partition(tmp
         mode="history",
         freq="week",
         codes=["000001.SZ"],
+        range_evidence=evidence,
         policy=POLICY,
     )
     assert {i["period"] for i in items} == {"2026-10-02", "2026-10-09", "2026-10-16"}
@@ -182,7 +198,7 @@ def test_sql_cancel_interrupts_and_no_progress_is_invented(tmp_path):
 
 def test_confirmed_retirement_prunes_without_any_download(tmp_path):
     root = tmp_path / "lake"
-    commit(
+    committed = commit(
         assemble(
             [
                 sample(
@@ -201,6 +217,15 @@ def test_confirmed_retirement_prunes_without_any_download(tmp_path):
         ),
         tmp_path / "c1",
     )
+    evidence = {
+        "files": [{key: item[key] for key in ("freq", "period", "target", "version", "rows")} for item in committed],
+        "stock_ranges": {"week": {
+            "000001.SZ": [["2026-10-09", "2026-10-09"]],
+            "000002.SZ": [["2026-10-09", "2026-10-09"]],
+        }},
+        "listed": ["000001.SZ", "000002.SZ"], "range_index_version": VERSION,
+    }
+    evidence["range_index_hash"] = digest({key: evidence[key] for key in ("files", "stock_ranges")})
     items = assemble(
         [],
         work=tmp_path / "b2",
@@ -208,6 +233,7 @@ def test_confirmed_retirement_prunes_without_any_download(tmp_path):
         mode="history",
         freq="week",
         retired_codes=["000001.SZ"],
+        range_evidence=evidence,
         policy=POLICY,
     )
     commit(items, tmp_path / "c2")

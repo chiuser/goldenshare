@@ -26,108 +26,132 @@ from orchestrator.defs.stock_period_silver import (
 )
 
 
-def report_file(instance, context, item, identity):
+def _report_files(instance, context, records, identity, *, evidence=None, cancel=lambda: False):
+    """Preflight the whole explicit set, then report with collection reads only."""
     from dagster._core.definitions.asset_checks.asset_check_evaluation import (
         AssetCheckEvaluation,
         AssetCheckEvaluationTargetMaterializationData,
     )
     from dagster._core.events import DagsterEvent, DagsterEventType
 
-    from orchestrator.defs.asset_guards.stock_period_check_evidence import (
-        read_latest_completed_checks,
-    )
     from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
+        batch_event_evidence,
         require_recoverable_checks,
+        require_silver_materialization,
     )
+    from orchestrator.defs.stock_period_silver import check_cancel
 
     if not context.run_id or instance.get_run_by_id(context.run_id) is None:
         raise ValueError("silver_event_real_run_required")
-    asset, partition = dg.AssetKey(asset_name(item["freq"])), item["period"]
-    records = instance.fetch_materializations(
-        dg.AssetRecordsFilter(asset_key=asset, asset_partitions=[partition]), limit=1
-    ).records
-    record = records[0] if records else None
-    metadata = record.asset_materialization.metadata if record else {}
-    try:
-        selected = read_latest_completed_checks(
-            instance,
-            asset_key=asset,
-            check_names=check_names(item["freq"]),
-            partition_key=partition,
+    for key, path in identity.get("references", {}).items():
+        if file_version(path) != identity["reference_versions"][key]:
+            raise ValueError("silver_event_reference_changed")
+    by_freq, metadata = {}, {}
+    for item in records:
+        check_cancel(cancel)
+        key = (item["freq"], item["period"])
+        if key in metadata:
+            raise ValueError("silver_event_scope_duplicate")
+        metadata[key] = materialization_metadata(item, identity)
+        by_freq.setdefault(item["freq"], []).append(item["period"])
+        if (file_version(item["target"]) != item["version"]
+                or file_version(item["source"]) != item["source_version"]):
+            raise ValueError("silver_event_file_changed")
+    if evidence is None:
+        evidence = {}
+        for freq, periods in by_freq.items():
+            evidence.update(batch_event_evidence(instance, freq, periods, include_raw=False))
+    for item in records:
+        require_recoverable_checks(
+            evidence.get((asset_name(item["freq"]), item["period"])),
+            item["freq"], item, identity,
         )
-    except ValueError as error:
-        raise ValueError("silver_target_checks_not_ready") from error
-    require_recoverable_checks(
-        {
-            "materialization": record,
-            "checks": {name: value[0] for name, value in selected.items()},
-            "check_event_storage_ids": {
-                name: value[1] for name, value in selected.items()
-            },
-            "bound_materializations": {
-                name: value[2] for name, value in selected.items()
-            },
-        },
-        item["freq"],
-        item,
-    )
-    instance.add_dynamic_partitions(
-        "cn_a_stock_week_ends" if item["freq"] == "week" else "cn_a_stock_months",
-        [partition],
-    )
-    if (
-        getattr(metadata.get("goldenshare/period_file_version"), "value", None)
-        != item["version"]
-        or getattr(metadata.get("dagster/uri"), "value", None) != item["target"]
-        or getattr(metadata.get("dagster/row_count"), "value", None) != item["rows"]
-    ):
-        instance.report_runless_asset_event(
-            dg.AssetMaterialization(
-                asset_key=asset,
-                partition=partition,
-                metadata=materialization_metadata(item, identity),
-            )
+    wrote = set()
+    for freq, periods in by_freq.items():
+        instance.add_dynamic_partitions(
+            "cn_a_stock_week_ends" if freq == "week" else "cn_a_stock_months", periods
         )
-        record = instance.fetch_materializations(
-            dg.AssetRecordsFilter(asset_key=asset, asset_partitions=[partition]),
-            limit=1,
-        ).records[0]
-    for name in check_names(item["freq"]):
-        evidence = selected.get(name)
-        evaluation = evidence[0].evaluation if evidence else None
-        if (
-            evaluation is not None
-            and evaluation.asset_key == asset
-            and evaluation.check_name == name
-            and evaluation.partition == partition
-            and evaluation.passed
-            and evaluation.blocking
-            and evaluation.target_materialization_data is not None
-            and evaluation.target_materialization_data.storage_id == record.storage_id
-        ):
-            continue
-        instance.report_dagster_event(
-            DagsterEvent(
-                event_type_value=DagsterEventType.ASSET_CHECK_EVALUATION.value,
-                job_name=context.job_name,
-                step_key=context.get_step_execution_context().step.key,
-                event_specific_data=AssetCheckEvaluation(
-                    asset_key=asset,
-                    check_name=name,
-                    partition=partition,
-                    passed=True,
-                    blocking=True,
-                    metadata={"goldenshare/reused_file_validation": True},
-                    target_materialization_data=AssetCheckEvaluationTargetMaterializationData(
-                        storage_id=record.storage_id,
-                        run_id=record.event_log_entry.run_id,
-                        timestamp=record.event_log_entry.timestamp,
+    for item in records:
+        check_cancel(cancel)
+        freq, period = item["freq"], item["period"]
+        old = evidence.get((asset_name(freq), period))
+        mat = old["materialization"] if old else None
+        version = getattr(
+            mat.asset_materialization.metadata.get("goldenshare/period_file_version"),
+            "value", None,
+        ) if mat else None
+        if version != item["version"]:
+            instance.report_runless_asset_event(dg.AssetMaterialization(
+                asset_key=dg.AssetKey(asset_name(freq)), partition=period,
+                metadata=metadata[(freq, period)],
+            ))
+            wrote.add(freq)
+    for freq in sorted(wrote):
+        evidence.update(batch_event_evidence(
+            instance, freq, by_freq[freq], include_raw=False
+        ))
+    # Check all read-back materializations before the first synthetic success.
+    for item in records:
+        current = evidence[(asset_name(item["freq"]), item["period"])]
+        require_recoverable_checks(current, item["freq"], item, identity)
+        require_silver_materialization(
+            current["materialization"], item["freq"], item, identity
+        )
+    result = {}
+    for item in records:
+        check_cancel(cancel)
+        freq, period = item["freq"], item["period"]
+        if (file_version(item["target"]) != item["version"]
+                or file_version(item["source"]) != item["source_version"]):
+            raise ValueError("silver_event_file_changed")
+        current = evidence[(asset_name(freq), period)]
+        mat = current["materialization"]
+        for name in check_names(freq):
+            check = current["checks"].get(name)
+            evaluation = check.evaluation if check else None
+            if (evaluation is not None
+                    and evaluation.target_materialization_data.storage_id == mat.storage_id):
+                continue  # Already fully validated in the common preflight.
+            instance.report_dagster_event(
+                DagsterEvent(
+                    event_type_value=DagsterEventType.ASSET_CHECK_EVALUATION.value,
+                    job_name=context.job_name,
+                    step_key=context.get_step_execution_context().step.key,
+                    event_specific_data=AssetCheckEvaluation(
+                        asset_key=dg.AssetKey(asset_name(freq)), check_name=name,
+                        partition=period, passed=True, blocking=True,
+                        metadata={"goldenshare/reused_file_validation": True},
+                        target_materialization_data=AssetCheckEvaluationTargetMaterializationData(
+                            storage_id=mat.storage_id, run_id=mat.event_log_entry.run_id,
+                            timestamp=mat.event_log_entry.timestamp,
+                        ),
                     ),
-                ),
-            ),
-            run_id=context.run_id,
-        )
-    return record.storage_id
+                ), run_id=context.run_id,
+            )
+        result[(freq, period)] = mat
+    for item in records:
+        if (file_version(item["target"]) != item["version"]
+                or file_version(item["source"]) != item["source_version"]):
+            raise ValueError("silver_event_file_changed")
+    for key, path in identity.get("references", {}).items():
+        if file_version(path) != identity["reference_versions"][key]:
+            raise ValueError("silver_event_reference_changed")
+    return result
+
+
+def report_file(instance, context, item, identity):
+    from orchestrator.defs.stock_period_silver import fingerprint
+
+    unit = next((unit for unit in identity["units"]
+                 if (unit["freq"], unit["period"]) == (item["freq"], item["period"])), None)
+    if unit is None:
+        raise ValueError("silver_event_scope_invalid")
+    validate_record(item, identity, unit, identity_hash=fingerprint(identity))
+    if item["state"] != "committed":
+        raise ValueError("silver_event_files_incomplete")
+    return _report_files(instance, context, [item], identity)[
+        (item["freq"], item["period"])
+    ].storage_id
 
 
 def replay_events(lake, staging, run_id, instance, context):
@@ -145,45 +169,75 @@ def replay_events(lake, staging, run_id, instance, context):
         for key, path in identity["references"].items():
             if file_version(path) != identity["reference_versions"][key]:
                 raise ValueError("silver_event_reference_changed")
-        done = []
+        records, receipts = [], {}
         began, last_emit = time.monotonic(), 0.0
         for unit in identity["units"]:
             item = read_json(checkpoint_path(work, unit))
-            validate_record(
-                item, identity, unit, identity_hash=execution["identity_hash"]
-            )
-            if (
-                item["state"] != "committed"
-                or file_version(item["target"]) != item["version"]
-                or file_version(item["source"]) != item["source_version"]
-            ):
+            validate_record(item, identity, unit, identity_hash=execution["identity_hash"])
+            if (item["state"] != "committed"
+                    or file_version(item["target"]) != item["version"]
+                    or file_version(item["source"]) != item["source_version"]):
                 raise ValueError("silver_event_file_changed")
             cp = work / "events" / unit["freq"] / (unit["period"] + ".json")
             if cp.exists():
                 receipt = read_json(cp)
+                if (receipt.get("version") != item["version"]
+                        or receipt.get("identity_hash") != execution["identity_hash"]
+                        or receipt.get("checks") != list(check_names(unit["freq"]))):
+                    raise ValueError("silver_event_checkpoint_invalid")
+                receipts[(unit["freq"], unit["period"])] = receipt
+            records.append(item)
+        from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
+            batch_event_evidence,
+            require_checks,
+            require_silver_materialization,
+        )
+
+        evidence = {}
+        for freq in sorted({item["freq"] for item in records}):
+            evidence.update(batch_event_evidence(
+                instance, freq, [item["period"] for item in records if item["freq"] == freq],
+                include_raw=False,
+            ))
+        for item in records:
+            receipt = receipts.get((item["freq"], item["period"]))
+            if receipt is not None:
+                current = evidence.get((asset_name(item["freq"]), item["period"]))
+                mat = require_checks(current, item["freq"], raw=False)
+                require_silver_materialization(mat, item["freq"], item, identity)
                 if (
-                    receipt["version"] != item["version"]
-                    or receipt["identity_hash"] != execution["identity_hash"]
+                    type(receipt.get("materialization_id")) is not int
+                    or receipt["materialization_id"] != mat.storage_id
+                    or type(receipt.get("event_run_id")) is not str
+                    or not receipt["event_run_id"]
                 ):
                     raise ValueError("silver_event_checkpoint_invalid")
+        published = _report_files(instance, context, records, identity, evidence=evidence)
+        done = []
+        for item in records:
+            key = (item["freq"], item["period"])
+            mat = published[key]
+            if (file_version(item["target"]) != item["version"]
+                    or file_version(item["source"]) != item["source_version"]
+                    or any(file_version(path) != identity["reference_versions"][k]
+                           for k, path in identity["references"].items())):
+                raise ValueError("silver_event_file_changed")
+            receipt = receipts.get(key)
+            require_silver_materialization(mat, item["freq"], item, identity)
+            if receipt is not None:
+                if receipt.get("materialization_id") != mat.storage_id:
+                    raise ValueError("silver_event_checkpoint_invalid")
             else:
-                materialization_id = report_file(instance, context, item, identity)
                 atomic_json(
-                    cp,
-                    {
-                        "version": item["version"],
-                        "identity_hash": execution["identity_hash"],
-                        "materialization_id": materialization_id,
-                        "checks": list(check_names(item["freq"])),
-                        "event_run_id": context.run_id,
-                    },
+                    work / "events" / item["freq"] / (item["period"] + ".json"),
+                    {"version": item["version"], "identity_hash": execution["identity_hash"],
+                     "materialization_id": mat.storage_id,
+                     "checks": list(check_names(item["freq"])), "event_run_id": context.run_id},
                 )
-            done.append(unit)
+            done.append(item)
             now = time.monotonic()
-            if now - last_emit >= 5 or len(done) == len(identity["units"]):
-                context.log.info(
-                    f"Silver events: {len(done)}/{len(identity['units'])} {unit['freq']} {unit['period']}"
-                )
+            if now - last_emit >= 5 or len(done) == len(records):
+                context.log.info(f"Silver events: {len(done)}/{len(records)} {item['freq']} {item['period']}")
                 last_emit = now
         result = {
             "run_id": run_id,
@@ -201,16 +255,10 @@ def report_update_events(
     lake, staging, run_id, instance, context, *, anchor=None, cancel=lambda: False
 ):
     """Batch event reads. Native anchor is acknowledged only after its real checks exist."""
-    from dagster._core.definitions.asset_checks.asset_check_evaluation import (
-        AssetCheckEvaluation,
-        AssetCheckEvaluationTargetMaterializationData,
-    )
-    from dagster._core.events import DagsterEvent, DagsterEventType
-
     from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
         batch_event_evidence,
         require_checks,
-        require_recoverable_checks,
+        require_silver_materialization,
     )
     from orchestrator.defs.stock_period_silver import check_cancel
 
@@ -276,7 +324,6 @@ def report_update_events(
             raise ValueError("silver_event_real_run_required")
         periods = [r["period"] for r in records]
         evidence = batch_event_evidence(instance, freq, periods)
-        asset = dg.AssetKey(asset_name(freq))
         # Refuse real failures/misbindings before emitting a new materialization.
         for item in records:
             from orchestrator.defs.stock_period_checks import (
@@ -291,33 +338,9 @@ def report_update_events(
                 raw=True,
             )
             verify_period_materialization(upstream, item["period"], item["source"])
-            require_recoverable_checks(
-                evidence.get((asset_name(freq), item["period"])), freq, item
-            )
-        wrote = False
-        for item in records:
-            check_cancel(cancel)
-            old = evidence.get((asset_name(freq), item["period"]))
-            materialization = old["materialization"] if old else None
-            metadata = (
-                materialization.asset_materialization.metadata
-                if materialization
-                else {}
-            )
-            if (
-                getattr(metadata.get("goldenshare/period_file_version"), "value", None)
-                != item["version"]
-            ):
-                instance.report_runless_asset_event(
-                    dg.AssetMaterialization(
-                        asset_key=asset,
-                        partition=item["period"],
-                        metadata=materialization_metadata(item, identity),
-                    )
-                )
-                wrote = True
-        if wrote:
-            evidence = batch_event_evidence(instance, freq, periods)
+        published = _report_files(
+            instance, context, records, identity, evidence=evidence, cancel=cancel
+        )
         began, last_emit = time.monotonic(), 0.0
         for number, item in enumerate(records, 1):
             check_cancel(cancel)
@@ -326,55 +349,8 @@ def report_update_events(
                 or file_version(item["source"]) != item["source_version"]
             ):
                 raise ValueError("silver_event_file_changed")
-            current = evidence[(asset_name(freq), item["period"])]
-            materialization = current["materialization"]
-            metadata = materialization.asset_materialization.metadata
-            if (
-                metadata["goldenshare/period_file_version"].value != item["version"]
-                or metadata["dagster/uri"].value != item["target"]
-                or metadata["dagster/row_count"].value != item["rows"]
-            ):
-                raise ValueError("silver_event_materialization_mismatch")
-            for name in check_names(freq):
-                record = current["checks"].get(name)
-                evaluation = record.evaluation if record else None
-                bound = (
-                    evaluation is not None
-                    and evaluation.target_materialization_data is not None
-                    and evaluation.target_materialization_data.storage_id
-                    == materialization.storage_id
-                )
-                if bound:
-                    if (
-                        not evaluation.passed
-                        or not evaluation.blocking
-                        or evaluation.asset_key != asset
-                        or evaluation.partition != item["period"]
-                        or evaluation.check_name != name
-                    ):
-                        raise ValueError("silver_event_existing_check_failed")
-                    continue
-                instance.report_dagster_event(
-                    DagsterEvent(
-                        event_type_value=DagsterEventType.ASSET_CHECK_EVALUATION.value,
-                        job_name=context.job_name,
-                        step_key=context.get_step_execution_context().step.key,
-                        event_specific_data=AssetCheckEvaluation(
-                            asset_key=asset,
-                            check_name=name,
-                            partition=item["period"],
-                            passed=True,
-                            blocking=True,
-                            metadata={"goldenshare/reused_file_validation": True},
-                            target_materialization_data=AssetCheckEvaluationTargetMaterializationData(
-                                storage_id=materialization.storage_id,
-                                run_id=materialization.event_log_entry.run_id,
-                                timestamp=materialization.event_log_entry.timestamp,
-                            ),
-                        ),
-                    ),
-                    run_id=context.run_id,
-                )
+            materialization = published[(freq, item["period"])]
+            require_silver_materialization(materialization, freq, item, identity)
             if (
                 file_version(item["target"]) != item["version"]
                 or file_version(item["source"]) != item["source_version"]

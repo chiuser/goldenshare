@@ -42,6 +42,7 @@ def report_stock_weekly_bootstrap_checks(
         run,
         root=Path(manifest["identity"]["root"]),
         staging=Path(DEFAULT_LAKE_STAGING_ROOT),
+        allowed_frequencies={"week"},
         events=events,
         completion_events=lambda notice: (
             report_completion_events(context.instance, notice)

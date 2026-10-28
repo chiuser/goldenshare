@@ -43,6 +43,7 @@ def proof(saved, complete, **changes):
         "file_receipt_hash": saved["file_receipt_hash"],
         "files": complete["files"],
         "events_complete": True,
+        "allowed_events_complete": True,
         "historical_only": True,
         "current_files": [],
         "allowed_frequencies": ["month", "week"],
@@ -198,7 +199,8 @@ def test_confirmation_unknown_reason_cannot_fall_through_to_event_repair(
             events=forbid,
             completion_events=forbid,
             confirm_delivery=lambda _: proof(
-                saved, complete, events_complete=False, reason="unknown_replacement"
+                saved, complete, events_complete=False, allowed_events_complete=False,
+                reason="unknown_replacement"
             ),
         )
 
@@ -217,6 +219,7 @@ def test_current_missing_events_are_reconfirmed_after_real_callback_writes(
             saved,
             complete,
             events_complete=len(emitted) == 2,
+            allowed_events_complete=len(emitted) == 2,
             historical_only=False,
             current_files=complete["files"],
             reason="missing_events" if len(emitted) < 2 else "complete",
@@ -259,6 +262,7 @@ def test_successful_callbacks_without_confirmed_results_do_not_close_batch(
             saved,
             complete,
             events_complete=False,
+            allowed_events_complete=False,
             historical_only=False,
             current_files=complete["files"],
             reason="missing_checks",
@@ -277,7 +281,11 @@ def test_closed_week_only_scope_does_not_stat_or_ack_other_frequency(
     saved["phase"] = "events_complete"
     atomic_json(run / "manifest.json", saved)
     monkeypatch.setattr(history, "file_version", forbid)
-    monkeypatch.setattr(update, "acknowledge_period_delivery", forbid, raising=False)
+    acknowledged = []
+    monkeypatch.setattr(
+        update, "acknowledge_period_delivery",
+        lambda *args, **kwargs: acknowledged.append(args), raising=False,
+    )
     result = history.replay_events(
         run,
         root=arguments["root"],
@@ -296,6 +304,8 @@ def test_closed_week_only_scope_does_not_stat_or_ack_other_frequency(
     assert result["events_complete"] is False
     assert result["current_files"] == []
     assert set(result["completions"]) == {"week"}
+    assert result["allowed_events_complete"] is True
+    assert len(acknowledged) == 1
     assert read_json(run / "manifest.json")["phase"] == "events_complete"
 
 

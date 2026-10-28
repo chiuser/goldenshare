@@ -1,0 +1,10 @@
+{
+  "first_error": "OSError:audit_interrupt_after_replace_before_committed_checkpoint",
+  "checkpoint_missing": true,
+  "candidate_missing_after_replace": true,
+  "target_matches_promoted_version": true,
+  "coordinator_resume_error": "ValueError:period_target_unregistered_version",
+  "target_unchanged_after_failed_resume": true,
+  "original_publish_recovered_checkpoint_without_rewrite": true,
+  "manifest_phase": "download"
+}

@@ -42,6 +42,7 @@ from orchestrator.defs.run_contracts.stock_period_silver import (
     SPECS,
     VERSION,
     canonical_run_id,
+    materialization_scope,
     period_key,
     period_start,
     raw_path,
@@ -485,6 +486,7 @@ def update_inputs(
     *,
     cancel=lambda: False,
     known=None,
+    known_identity=None,
     resolved=None,
 ):
     """Recognize registered targets or explicitly owned durable commits, never unknown files."""
@@ -511,7 +513,7 @@ def update_inputs(
         if owned is not None and owned["state"] == "committed":
             if file_version(target) != owned["version"]:
                 raise ValueError("silver_committed_target_changed")
-            require_recoverable_checks(current, freq, owned)
+            require_recoverable_checks(current, freq, owned, known_identity)
             target_version = owned["version"]
             unit["event_preimage"] = owned.get(
                 "event_preimage", owned.get("target_preimage")
@@ -556,6 +558,7 @@ def make_update_execution(
         instance,
         cancel=cancel,
         known=known,
+        known_identity=parent["identity"] if parent is not None else None,
         resolved=resolved,
     )
     if not units:
@@ -722,7 +725,8 @@ def recover_update_execution(
                 record = known.get(unit["period"])
                 if record is not None and record["state"] == "committed":
                     require_recoverable_checks(
-                        evidence.get((asset_name(freq), unit["period"])), freq, record
+                        evidence.get((asset_name(freq), unit["period"])), freq, record,
+                        identity,
                     )
                 else:
                     target = safe_path(unit["target"])
@@ -923,6 +927,7 @@ def materialization_metadata(record, identity):
 
     from orchestrator.defs.run_contracts.metadata import build_materialization_metadata
 
+    asof, lower = materialization_scope(record, identity)
     return build_materialization_metadata(
         uri=record["target"],
         row_count=record["rows"],
@@ -931,8 +936,8 @@ def materialization_metadata(record, identity):
             "goldenshare/period_file_version": dg.MetadataValue.json(record["version"]),
             "goldenshare/silver_rule": VERSION,
             "goldenshare/silver_source": record["source"],
-            "goldenshare/silver_asof": record.get("asof", identity["asof"]),
-            "goldenshare/silver_lower": identity["lower"],
+            "goldenshare/silver_asof": asof,
+            "goldenshare/silver_lower": lower,
             "goldenshare/silver_execution_id": identity["run_id"],
             "goldenshare/silver_source_version": dg.MetadataValue.json(
                 record["source_version"]
@@ -1112,6 +1117,7 @@ def confirm_update_delivery(lake, staging, execution, evidence):
     """Persist completion from actual bound events; never emit events or compute data."""
     from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
         require_checks,
+        require_silver_materialization,
     )
     from orchestrator.defs.bootstrap.stock_period_silver_cli import (
         record_update_coverage,
@@ -1148,20 +1154,7 @@ def confirm_update_delivery(lake, staging, execution, evidence):
         current = evidence.get((asset_name(freq), period))
         mat = require_checks(current, freq, raw=False)
         verify_period_materialization(mat, period, unit["target"], rows=record["rows"])
-        metadata = mat.asset_materialization.metadata
-        if any(
-            getattr(metadata.get(k), "value", None) != v
-            for k, v in (
-                ("goldenshare/silver_rule", VERSION),
-                ("goldenshare/silver_source_version", unit["source_version"]),
-                (
-                    "goldenshare/silver_reference_versions",
-                    identity["reference_versions"],
-                ),
-                ("goldenshare/silver_asof", unit["asof"]),
-            )
-        ):
-            raise ValueError("silver_event_materialization_mismatch")
+        require_silver_materialization(mat, freq, record, identity)
         entries.append(
             (
                 unit,

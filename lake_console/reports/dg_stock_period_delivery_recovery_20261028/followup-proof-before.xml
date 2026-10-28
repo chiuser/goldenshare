@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="0" failures="7" skipped="0" tests="7" time="5.017" timestamp="2026-10-28T08:25:44.981531+08:00" hostname="bogon"><testcase classname="lake_console.orchestrator.tests.test_stock_period_partial_delivery" name="test_historical_proof_requires_its_complete_successor_chain_and_cutoff[drop_chain]" time="0.886"><failure message="Failed: DID NOT RAISE ValueError">fault = 'drop_chain'
+
+    @pytest.mark.parametrize("fault", ["drop_chain", "empty_chain", "cutoff_none", "cutoff_zero",
+                                      "wrong_cutoff", "link_hash", "link_checks"])
+    def test_historical_proof_requires_its_complete_successor_chain_and_cutoff(fault):
+        with _scenario(frequencies=("week", "month")) as case:
+            proof = deepcopy(_confirm(case, allowed_frequencies={"week"}))
+            evidence = proof["file_evidence"][("week", "2026-10-23")]
+            if fault == "drop_chain":
+                del evidence["successors"]
+            elif fault == "empty_chain":
+                evidence["successors"] = []
+            elif fault == "cutoff_none":
+                evidence["before_event_id"] = None
+            elif fault == "cutoff_zero":
+                evidence["before_event_id"] = 0
+            elif fault == "wrong_cutoff":
+                evidence["before_event_id"] += 1
+            elif fault == "link_hash":
+                evidence["successors"][0]["file_receipt_hash"] = "0" * 64
+            else:
+                evidence["successors"][0]["checks"].popitem()
+&gt;           with pytest.raises(ValueError, match="period_delivery_confirmation_invalid"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE ValueError
+
+tests/test_stock_period_partial_delivery.py:149: Failed</failure></testcase><testcase classname="lake_console.orchestrator.tests.test_stock_period_partial_delivery" name="test_historical_proof_requires_its_complete_successor_chain_and_cutoff[empty_chain]" time="0.673"><failure message="Failed: DID NOT RAISE ValueError">fault = 'empty_chain'
+
+    @pytest.mark.parametrize("fault", ["drop_chain", "empty_chain", "cutoff_none", "cutoff_zero",
+                                      "wrong_cutoff", "link_hash", "link_checks"])
+    def test_historical_proof_requires_its_complete_successor_chain_and_cutoff(fault):
+        with _scenario(frequencies=("week", "month")) as case:
+            proof = deepcopy(_confirm(case, allowed_frequencies={"week"}))
+            evidence = proof["file_evidence"][("week", "2026-10-23")]
+            if fault == "drop_chain":
+                del evidence["successors"]
+            elif fault == "empty_chain":
+                evidence["successors"] = []
+            elif fault == "cutoff_none":
+                evidence["before_event_id"] = None
+            elif fault == "cutoff_zero":
+                evidence["before_event_id"] = 0
+            elif fault == "wrong_cutoff":
+                evidence["before_event_id"] += 1
+            elif fault == "link_hash":
+                evidence["successors"][0]["file_receipt_hash"] = "0" * 64
+            else:
+                evidence["successors"][0]["checks"].popitem()
+&gt;           with pytest.raises(ValueError, match="period_delivery_confirmation_invalid"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE ValueError
+
+tests/test_stock_period_partial_delivery.py:149: Failed</failure></testcase><testcase classname="lake_console.orchestrator.tests.test_stock_period_partial_delivery" name="test_historical_proof_requires_its_complete_successor_chain_and_cutoff[cutoff_none]" time="0.555"><failure message="Failed: DID NOT RAISE ValueError">fault = 'cutoff_none'
+
+    @pytest.mark.parametrize("fault", ["drop_chain", "empty_chain", "cutoff_none", "cutoff_zero",
+                                      "wrong_cutoff", "link_hash", "link_checks"])
+    def test_historical_proof_requires_its_complete_successor_chain_and_cutoff(fault):
+        with _scenario(frequencies=("week", "month")) as case:
+            proof = deepcopy(_confirm(case, allowed_frequencies={"week"}))
+            evidence = proof["file_evidence"][("week", "2026-10-23")]
+            if fault == "drop_chain":
+                del evidence["successors"]
+            elif fault == "empty_chain":
+                evidence["successors"] = []
+            elif fault == "cutoff_none":
+                evidence["before_event_id"] = None
+            elif fault == "cutoff_zero":
+                evidence["before_event_id"] = 0
+            elif fault == "wrong_cutoff":
+                evidence["before_event_id"] += 1
+            elif fault == "link_hash":
+                evidence["successors"][0]["file_receipt_hash"] = "0" * 64
+            else:
+                evidence["successors"][0]["checks"].popitem()
+&gt;           with pytest.raises(ValueError, match="period_delivery_confirmation_invalid"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE ValueError
+
+tests/test_stock_period_partial_delivery.py:149: Failed</failure></testcase><testcase classname="lake_console.orchestrator.tests.test_stock_period_partial_delivery" name="test_historical_proof_requires_its_complete_successor_chain_and_cutoff[cutoff_zero]" time="0.531"><failure message="Failed: DID NOT RAISE ValueError">fault = 'cutoff_zero'
+
+    @pytest.mark.parametrize("fault", ["drop_chain", "empty_chain", "cutoff_none", "cutoff_zero",
+                                      "wrong_cutoff", "link_hash", "link_checks"])
+    def test_historical_proof_requires_its_complete_successor_chain_and_cutoff(fault):
+        with _scenario(frequencies=("week", "month")) as case:
+            proof = deepcopy(_confirm(case, allowed_frequencies={"week"}))
+            evidence = proof["file_evidence"][("week", "2026-10-23")]
+            if fault == "drop_chain":
+                del evidence["successors"]
+            elif fault == "empty_chain":
+                evidence["successors"] = []
+            elif fault == "cutoff_none":
+                evidence["before_event_id"] = None
+            elif fault == "cutoff_zero":
+                evidence["before_event_id"] = 0
+            elif fault == "wrong_cutoff":
+                evidence["before_event_id"] += 1
+            elif fault == "link_hash":
+                evidence["successors"][0]["file_receipt_hash"] = "0" * 64
+            else:
+                evidence["successors"][0]["checks"].popitem()
+&gt;           with pytest.raises(ValueError, match="period_delivery_confirmation_invalid"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE ValueError
+
+tests/test_stock_period_partial_delivery.py:149: Failed</failure></testcase><testcase classname="lake_console.orchestrator.tests.test_stock_period_partial_delivery" name="test_historical_proof_requires_its_complete_successor_chain_and_cutoff[wrong_cutoff]" time="0.556"><failure message="Failed: DID NOT RAISE ValueError">fault = 'wrong_cutoff'
+
+    @pytest.mark.parametrize("fault", ["drop_chain", "empty_chain", "cutoff_none", "cutoff_zero",
+                                      "wrong_cutoff", "link_hash", "link_checks"])
+    def test_historical_proof_requires_its_complete_successor_chain_and_cutoff(fault):
+        with _scenario(frequencies=("week", "month")) as case:
+            proof = deepcopy(_confirm(case, allowed_frequencies={"week"}))
+            evidence = proof["file_evidence"][("week", "2026-10-23")]
+            if fault == "drop_chain":
+                del evidence["successors"]
+            elif fault == "empty_chain":
+                evidence["successors"] = []
+            elif fault == "cutoff_none":
+                evidence["before_event_id"] = None
+            elif fault == "cutoff_zero":
+                evidence["before_event_id"] = 0
+            elif fault == "wrong_cutoff":
+                evidence["before_event_id"] += 1
+            elif fault == "link_hash":
+                evidence["successors"][0]["file_receipt_hash"] = "0" * 64
+            else:
+                evidence["successors"][0]["checks"].popitem()
+&gt;           with pytest.raises(ValueError, match="period_delivery_confirmation_invalid"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE ValueError
+
+tests/test_stock_period_partial_delivery.py:149: Failed</failure></testcase><testcase classname="lake_console.orchestrator.tests.test_stock_period_partial_delivery" name="test_historical_proof_requires_its_complete_successor_chain_and_cutoff[link_hash]" time="0.543"><failure message="Failed: DID NOT RAISE ValueError">fault = 'link_hash'
+
+    @pytest.mark.parametrize("fault", ["drop_chain", "empty_chain", "cutoff_none", "cutoff_zero",
+                                      "wrong_cutoff", "link_hash", "link_checks"])
+    def test_historical_proof_requires_its_complete_successor_chain_and_cutoff(fault):
+        with _scenario(frequencies=("week", "month")) as case:
+            proof = deepcopy(_confirm(case, allowed_frequencies={"week"}))
+            evidence = proof["file_evidence"][("week", "2026-10-23")]
+            if fault == "drop_chain":
+                del evidence["successors"]
+            elif fault == "empty_chain":
+                evidence["successors"] = []
+            elif fault == "cutoff_none":
+                evidence["before_event_id"] = None
+            elif fault == "cutoff_zero":
+                evidence["before_event_id"] = 0
+            elif fault == "wrong_cutoff":
+                evidence["before_event_id"] += 1
+            elif fault == "link_hash":
+                evidence["successors"][0]["file_receipt_hash"] = "0" * 64
+            else:
+                evidence["successors"][0]["checks"].popitem()
+&gt;           with pytest.raises(ValueError, match="period_delivery_confirmation_invalid"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE ValueError
+
+tests/test_stock_period_partial_delivery.py:149: Failed</failure></testcase><testcase classname="lake_console.orchestrator.tests.test_stock_period_partial_delivery" name="test_historical_proof_requires_its_complete_successor_chain_and_cutoff[link_checks]" time="0.536"><failure message="Failed: DID NOT RAISE ValueError">fault = 'link_checks'
+
+    @pytest.mark.parametrize("fault", ["drop_chain", "empty_chain", "cutoff_none", "cutoff_zero",
+                                      "wrong_cutoff", "link_hash", "link_checks"])
+    def test_historical_proof_requires_its_complete_successor_chain_and_cutoff(fault):
+        with _scenario(frequencies=("week", "month")) as case:
+            proof = deepcopy(_confirm(case, allowed_frequencies={"week"}))
+            evidence = proof["file_evidence"][("week", "2026-10-23")]
+            if fault == "drop_chain":
+                del evidence["successors"]
+            elif fault == "empty_chain":
+                evidence["successors"] = []
+            elif fault == "cutoff_none":
+                evidence["before_event_id"] = None
+            elif fault == "cutoff_zero":
+                evidence["before_event_id"] = 0
+            elif fault == "wrong_cutoff":
+                evidence["before_event_id"] += 1
+            elif fault == "link_hash":
+                evidence["successors"][0]["file_receipt_hash"] = "0" * 64
+            else:
+                evidence["successors"][0]["checks"].popitem()
+&gt;           with pytest.raises(ValueError, match="period_delivery_confirmation_invalid"):
+                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E           Failed: DID NOT RAISE ValueError
+
+tests/test_stock_period_partial_delivery.py:149: Failed</failure></testcase></testsuite></testsuites>

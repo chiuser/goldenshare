@@ -1,0 +1,36 @@
+{
+  "first_regression": {
+    "path": "/private/tmp/dg-period-five-fixed-20261028",
+    "files": 16309,
+    "retained_bytes_before_cleanup": 51446490,
+    "removed": true,
+    "scope": "only first root pytest basetemp; small red XML retained"
+  },
+  "final_regression": {
+    "path": "/private/tmp/dg-period-five-final-20261028",
+    "files": 16405,
+    "retained_bytes_before_cleanup": 52687132,
+    "scope": "only final pytest basetemp; small XML and source fingerprints retained",
+    "removed": true
+  },
+  "agent_temporary_business_paths": [
+    {
+      "path": "/private/tmp/dg-period-fix-history-20261028",
+      "exists_after_agent_cleanup": false
+    },
+    {
+      "path": "/private/tmp/dg-period-fix-silver-20261028",
+      "exists_after_agent_cleanup": false
+    },
+    {
+      "path": "/private/tmp/dg-period-fix-delivery-20261028",
+      "exists_after_agent_cleanup": false
+    },
+    {
+      "path": "/private/tmp/dg-period-fixture-fix-20261028",
+      "exists_after_agent_cleanup": false
+    }
+  ],
+  "formal_paths_touched": false,
+  "small_failure_and_verification_evidence_retained": true
+}

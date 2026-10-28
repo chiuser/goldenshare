@@ -261,3 +261,58 @@ def test_ack_control_stats_remain_linear(file_count, existing_receipts, monkeypa
         # A linear bound independently rejects the former N * controls scan.
         # These are metadata stat calls, not a benchmark of 100 Parquet bodies.
         assert len(calls) <= 40 * file_count + 80
+
+
+@pytest.mark.parametrize("file_count", [2, 100])
+def test_partial_two_and_hundred_files_keep_three_queries_and_linear_receipt_stats(file_count, monkeypatch):
+    with _scenario(successor=False) as case:
+        result, _ = _capacity_receipt(case, {"week": file_count, "month": 1}, monkeypatch)
+        run = Path(result["path"])
+        daily = (case["staging"] / "stock_period/daily.json").read_bytes()
+        manifest = (run / "manifest.json").read_bytes()
+        with _count_storage_statements(case["instance"].event_log_storage, monkeypatch) as statements:
+            confirmation = update.confirm_period_delivery(case["instance"], run,
+                root=case["root"], staging=case["staging"], allowed_frequencies={"week"})
+        assert len(statements) == 3
+        assert confirmation["allowed_events_complete"] and not confirmation["events_complete"]
+        assert len(confirmation["file_evidence"]) == file_count
+        real_stat, calls = update._period_delivery_stat, []
+
+        def counted(path):
+            calls.append(str(path))
+            assert "/events/month/" not in str(path)
+            assert not str(path).endswith("/completion/month.json")
+            return real_stat(path)
+
+        monkeypatch.setattr(update, "_period_delivery_stat", counted)
+        outcome = update.acknowledge_period_delivery(run, confirmation,
+            root=case["root"], staging=case["staging"])
+        assert outcome == {"run_id": run.name, "allowed_events_complete": True,
+                           "events_complete": False, "pending_removed": False}
+        assert len(calls) <= 40 * file_count + 80
+        assert (run / "manifest.json").read_bytes() == manifest
+        assert (case["staging"] / "stock_period/daily.json").read_bytes() == daily
+
+
+def test_ack_binds_two_frequency_successor_proof_without_rereading_complete(monkeypatch):
+    with _scenario(frequencies=("week", "month"), successor_frequencies=("week", "month")) as case:
+        run, successor = Path(case["old"]["path"]), Path(case["new"]["path"])
+        confirmation = update.confirm_period_delivery(case["instance"], run,
+            root=case["root"], staging=case["staging"])
+        watched = {successor / "manifest.json": 0, successor / "complete.json": 0,
+                   successor / "committed/week/2026-10-23.json": 0,
+                   successor / "committed/month/2026-10.json": 0}
+        real_read = update.read_json
+
+        def read(path):
+            if Path(path) in watched:
+                watched[Path(path)] += 1
+            return real_read(path)
+
+        monkeypatch.setattr(update, "read_json", read)
+        outcome = update.acknowledge_period_delivery(run, confirmation,
+            root=case["root"], staging=case["staging"])
+        assert outcome["events_complete"] and outcome["pending_removed"]
+        assert watched == {successor / "manifest.json": 1, successor / "complete.json": 0,
+                           successor / "committed/week/2026-10-23.json": 1,
+                           successor / "committed/month/2026-10.json": 1}

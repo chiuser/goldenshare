@@ -117,6 +117,55 @@ def period_start(value, freq):
     )
 
 
+def validate_materialization_scope(freq, period, asof, lower):
+    """Validate declared dates without reading files or deriving a run date."""
+    period_key(period, freq)
+    if asof is None or lower is None or asof == "" or lower == "":
+        raise ValueError("silver_check_scope_missing")
+    dates = []
+    for value in (asof, lower):
+        if type(value) is not str:
+            raise ValueError("silver_check_scope_invalid")
+        try:
+            day = date.fromisoformat(value)
+        except ValueError as error:
+            raise ValueError("silver_check_scope_invalid") from error
+        if day.isoformat() != value:
+            raise ValueError("silver_check_scope_invalid")
+        dates.append(day)
+    end, begin = dates
+    if lower != "2014-01-01" or begin > end:
+        raise ValueError("silver_check_scope_invalid")
+
+    def boundary(day):
+        return (
+            day - timedelta(days=day.weekday())
+            if freq == "week"
+            else day.replace(day=1)
+        ).isoformat()
+
+    if not boundary(begin) <= period_start(period, freq) <= boundary(end):
+        raise ValueError("silver_check_outside_approved_scope")
+    return asof, lower
+
+
+def materialization_scope(record, identity):
+    """A committed update owns its date; only bootstrap inherits the report date."""
+    if identity is None:
+        raise ValueError("silver_materialization_identity_missing")
+    if "asof" in record:
+        asof = record["asof"]
+    elif identity.get("intent") == "update":
+        raise ValueError("silver_check_scope_missing")
+    else:
+        asof = identity.get("asof")
+    if identity.get("intent") != "update" and asof != identity.get("asof"):
+        raise ValueError("silver_check_scope_invalid")
+    return validate_materialization_scope(
+        record["freq"], record["period"], asof, identity.get("lower")
+    )
+
+
 def asset_name(freq):
     return (
         "silver_stock_weekly" if frequency(freq) == "week" else "silver_stock_monthly"

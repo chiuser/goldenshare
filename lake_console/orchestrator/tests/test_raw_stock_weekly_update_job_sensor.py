@@ -55,6 +55,9 @@ def exercise_sensor(tmp_path, freq):
         {
             "completed_through": {"week": "2026-10-09", "month": "2026-08"},
             "last_refresh": {},
+            # The shared planner starts after a two-frequency handoff; this
+            # factor date is fixture state, not a derived sensor result.
+            "factor_through": "2026-10-16",
         },
     )
     result = evaluate_daily_sensor(ctx, NOW, freq=freq, staging_root=staging)

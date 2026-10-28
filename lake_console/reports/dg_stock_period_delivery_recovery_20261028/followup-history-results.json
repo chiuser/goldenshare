@@ -1,0 +1,81 @@
+{
+  "scope": [
+    1,
+    2,
+    5
+  ],
+  "formal_resources_accessed": false,
+  "dependencies_installed": false,
+  "code_frozen_by_agent": true,
+  "shared_files_may_still_receive_other_agents_changes": true,
+  "source_and_test_sha256_at_handoff": {
+    "src/orchestrator/defs/bootstrap/stock_period_history.py": "96f3fcee259c0d804c782c9ff0789e3fb7a122429bbc38a7aff87ec725ffb7ec",
+    "src/orchestrator/defs/io/stock_period_raw.py": "d339839e853565d3cbd1b7cfe0dea5a7f30ef5fb2091dfe7d27f81cf6e98ba0e",
+    "src/orchestrator/defs/stock_period_update.py": "23497ae0c443750db0afa40a556efbac0993e594cc61f968808ba367174580ce",
+    "tests/test_stock_period_followup_history.py": "49f7d8df57d09dd06a65fd1d5462eaac1a1fc2ca27cb41d48aad22d8310772e4",
+    "tests/test_stock_period_combined.py": "e1c2ba9d417f14345fbeb9d870927daaf6aef3970e8406364f408846e7b41fdf",
+    "tests/test_stock_period_raw.py": "a46de8de54903e2e00cb280f9f364b7b34f54399e811e3428f775c365e30f47a"
+  },
+  "runs": [
+    {
+      "path": "/private/tmp/dg-period-history-initial.xml",
+      "tests": 24,
+      "failures": 4,
+      "skipped": 0
+    },
+    {
+      "path": "/private/tmp/dg-period-history-second.xml",
+      "tests": 80,
+      "failures": 1,
+      "skipped": 0
+    },
+    {
+      "path": "/private/tmp/dg-period-history-third.xml",
+      "tests": 27,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "path": "/private/tmp/dg-period-history-handoff.xml",
+      "tests": 2,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "path": "/private/tmp/dg-period-history-range-recovery.xml",
+      "tests": 3,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "path": "/private/tmp/dg-period-history-registration-negative.xml",
+      "tests": 2,
+      "failures": 0,
+      "skipped": 0
+    }
+  ],
+  "latest_per_case": {
+    "tests": 89,
+    "passed": 89,
+    "unresolved": []
+  },
+  "test_input_corrections": [
+    "Rename-gap test initially forbade publishing all remaining candidates; only the already-promoted target must not be replaced again. The original 3-file intent still has unfinished targets.",
+    "Manual full-history fixture has original A rows on Oct02/09/16. The Oct02 old-only file must also be committed, so independent expected periods are all three.",
+    "Existing manual-refresh test now explicitly proves the second request is blocked until real SDK events and common confirmation/ack close the first; original request-count and literal price assertions remain.",
+    "Standalone history and retirement assemble tests now receive real first-producer committed files plus independently literal original code ranges and the existing version/hash shape. Original business expectations remain; a missing-evidence negative test is retained.",
+    "Allowed-frequency proof field migration in combined test is owned by the receipt agent."
+  ],
+  "ruff": "All six touched source/test paths passed default ruff check --no-cache.",
+  "cleanup": {
+    "path": "/private/tmp/dg-period-fix-history-20261028",
+    "existed": true,
+    "removed": true
+  },
+  "native_boundary": "Actual existing Raw weekly history job and three original checks ran twice using the frozen history scope with current load_scope and source transport forbidden; changed configuration was rejected. No formal instance or remote source was used.",
+  "late_review_correction": "Explicit pre-fix files_complete history is now durably registered immediately after manifest identity verification, before range/manifest recovery writes. The original time is checked against earlier work; valid closed receipts remain unregistered. New real producer fault test proves a range write failure retains history and blocks new writers; original resume performs no source/COPY/Parquet replacement.",
+  "additional_negative_boundaries": [
+    "pending atomic_json failure precedes manifest/source/COPY",
+    "two cross-frequency rename gaps reject before all digest reads and CP writes"
+  ]
+}

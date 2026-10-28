@@ -126,7 +126,7 @@ def test_adjacent_factor_changes_refresh_both_frequencies_and_failure_keeps_noti
     atomic_json(
         staging / "stock_period/daily.json",
         {
-            "completed_through": {"week": "2026-10-16"},
+            "completed_through": {"week": "2026-10-16", "month": "2026-09"},
             "last_refresh": {"week": "2026-10-16"},
             "factor_through": "2026-10-15",
         },
@@ -185,7 +185,7 @@ def test_week_midpoint_success_does_not_close_period_or_replay_days(
     atomic_json(
         staging / "stock_period/daily.json",
         {
-            "completed_through": {"week": "2026-10-09"},
+            "completed_through": {"week": "2026-10-09", "month": "2026-09"},
             "last_refresh": {},
             "factor_through": "2026-10-14",
         },

@@ -314,7 +314,19 @@ def test_full_history_metadata_capacity_is_two_queries_per_frequency(
             for period in keys:
                 instance.report_runless_asset_event(
                     dg.AssetMaterialization(
-                        asset_key=dg.AssetKey(name), partition=period
+                        asset_key=dg.AssetKey(name), partition=period,
+                        # Literal metadata follows the real producer's required
+                        # scope/row/version contract; no physical file is claimed.
+                        metadata={
+                            "dagster/uri": f"/synthetic/{name}/{period}.parquet",
+                            "dagster/row_count": 0,
+                            "goldenshare/period_file_version": dg.MetadataValue.json(
+                                [1, 2, 128, 3, 4]
+                            ),
+                            "goldenshare/silver_rule": "stock-period-silver@1",
+                            "goldenshare/silver_lower": "2014-01-01",
+                            "goldenshare/silver_asof": "2026-10-16",
+                        },
                     )
                 )
     mats = {

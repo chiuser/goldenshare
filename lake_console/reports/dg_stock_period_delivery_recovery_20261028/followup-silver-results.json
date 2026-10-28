@@ -1,0 +1,103 @@
+{
+  "base_commit": "88de377ca",
+  "branch": "dev-interface",
+  "scope": "LLD12.16.2 Silver item 3",
+  "initial_red": {
+    "failed": 2,
+    "seconds": 1.79,
+    "reason": "both frequencies: missing asof native check refused, report_file did not raise",
+    "evidence_format": "Actual pytest tool stdout; no JUnit XML was requested for that run. Independent prior audit script and JSON retained in audit_evidence/."
+  },
+  "intermediate_runs": [
+    {
+      "passed": 30,
+      "seconds": 9.0,
+      "scope": "first regression: new red cases, generic checks, preimage, Silver events"
+    },
+    {
+      "passed": 108,
+      "seconds": 33.47,
+      "scope": "new cases plus direct execution/daily integration/sensors; before final fixed-lower consolidation"
+    },
+    {
+      "passed": 50,
+      "seconds": 5.98,
+      "scope": "new followup file before final five positive/lower cases"
+    },
+    {
+      "passed": 37,
+      "deselected": 18,
+      "seconds": 2.57,
+      "scope": "lower/scope/readonly/legacy/capacity affected subset"
+    }
+  ],
+  "final": {
+    "tests": 70,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0,
+    "pytest_seconds": 7.31,
+    "xml_seconds": "7.313",
+    "new_followup_cases": 55,
+    "ruff": "default rules all nine modified files passed",
+    "diff_check": "passed"
+  },
+  "budgets": {
+    "metadata_capacity_cases": [
+      2,
+      100
+    ],
+    "evidence_read_sql_each": 2,
+    "first_bootstrap_prefetch_sql_per_frequency": 2,
+    "first_bootstrap_refresh_sql_per_changed_frequency": 2,
+    "repeated_bootstrap_refreshes": 0,
+    "per_file_fetch_materializations": 0,
+    "market_sql_for_event_recovery": 0
+  },
+  "fixture_corrections": {
+    "test_stock_period_check_evidence.py": "literal asof/rows/five-part versions added; earlier old asof and all ordering/binding assertions preserved",
+    "test_stock_period_silver_sensors.py": "literal required metadata added to metadata-only capacity producer; exact two-SQL assertions preserved"
+  },
+  "formal_resources_accessed": false,
+  "dependencies_installed": false,
+  "committed": false,
+  "files": [
+    {
+      "path": "src/orchestrator/defs/run_contracts/stock_period_silver.py",
+      "sha256": "bec17a3d87f18eee19640c68eebf19925ed1659b1e16213df4c9fccf7797b953"
+    },
+    {
+      "path": "src/orchestrator/defs/stock_period_checks.py",
+      "sha256": "5b7a9459c72e7e3731638870424eae691325f02a83ccb65765b05ab143089e53"
+    },
+    {
+      "path": "src/orchestrator/defs/checks/stock_period_silver_checks.py",
+      "sha256": "12a734df362ab2d5cb62885a89a8f0a03c5a394980e404ecae94b2732f5b6392"
+    },
+    {
+      "path": "src/orchestrator/defs/asset_guards/stock_period_silver_readiness.py",
+      "sha256": "f0ef98edfdf1065e8b66077f944cefa0529c905b93c4dce21f3450734c0b433d"
+    },
+    {
+      "path": "src/orchestrator/defs/bootstrap/stock_period_silver_cli.py",
+      "sha256": "f03f389d726e0d1817d6921f5f7f30216811f3469cc51abf5cb43887756ef77c"
+    },
+    {
+      "path": "src/orchestrator/defs/stock_period_silver.py",
+      "sha256": "50b27910313068f7e380e3ce7099ff1357ab13967a5a326ddc392e60e696c251"
+    },
+    {
+      "path": "tests/test_stock_period_followup_silver.py",
+      "sha256": "1c06a0323a4120fc36d9d87f2517177fd783db916f23c6738452abe2281a6588"
+    },
+    {
+      "path": "tests/test_stock_period_check_evidence.py",
+      "sha256": "9b2962cee2d4aed511e766b93f91aa62bbf1e5987af53e5a56f0fd0a47575727"
+    },
+    {
+      "path": "tests/test_stock_period_silver_sensors.py",
+      "sha256": "820256cc7db3db48c94076f755125cf79dcbaebc422eba963bde9b69cb808710"
+    }
+  ],
+  "temporary_base_removed": true
+}

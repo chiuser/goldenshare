@@ -1,6 +1,12 @@
 # DG 周/月Raw更新、完整性审计与Silver生成共享 LLD v1
 
-**当前状态：2026-10-28。** 本次方案/LLD已先提交befd282e0，随后按批准范围完成开发、隔离验证及实现对账，详见[第12.15节](#period-delivery-recovery-implementation)及[报告](../../reports/dg_stock_period_delivery_recovery_20261028/README.md)。411个去重用例最终验证通过，保留原失败轮次及复验；未部署、未修正式状态、未补数。第12节为本次实现依据，原5/10/11节历史验收不代表正式恢复完成；字段、源请求、选行、路径、锁及其余有效约束继续适用。
+**最新结果（2026-10-28）：** 审计第1—5项已按§12.16完成开发、独立复核与隔离验收。最终固定版本530项中528通过、0失败，2项既有隔离PG实验未启用；136.39秒。三文档及旧相反条款已同步，逐项实现结果见§12.16.9与[五项修复报告](../../reports/dg_stock_period_delivery_recovery_20261028/followup_1_5.md)。本次提交包含五项修复、测试和文档证据，提交号以Git记录为准；未推送、未部署、未修正式状态或补数，测试临时业务目录已清理。
+
+**此前独立审计（88de377ca，历史）：** 该提交发现2项P1、3项P2，原411项不能覆盖这些组合；问题、隔离复现及测试漏项继续保留在[原审计报告](../../reports/dg_stock_period_delivery_recovery_20261028/post_commit_audit.md)。这段保留当时发现，不代表五项仍未修复，也不以新通过结果抹掉旧失败。
+
+**本轮授权与顺序：** 管理员现已要求把第1、2项也补入LLD，重新审计1—5项方案/LLD一致后，按本节完成五项开发和隔离验收。唯一细节见[§12.16](#period-delivery-recovery-followup-345)，实际结果另记本节之后。此前“只解释1/2、只写3—5文档”的范围为上一轮记录，不再作为本轮开发限制；正式部署、状态修复、补数及sensor操作仍未获本轮执行授权。
+
+**前一轮开发历史（2026-10-28，88de377ca）：** 方案/LLD先提交befd282e0，随后开发、隔离验证及实现对账见[第12.15节](#period-delivery-recovery-implementation)及[报告](../../reports/dg_stock_period_delivery_recovery_20261028/README.md)。411个去重用例的原失败轮次及复验继续保留，不代替上方五项新增验收；未部署、未修正式状态、未补数。第12节为本次实现依据，原5/10/11节历史验收不代表正式恢复完成；字段、源请求、选行、路径、锁及其余有效约束继续适用。
 
 更新：2026-10-18。**Raw第8步、一次完整性审计、Silver首次生成/登记均已完成。** Raw两频2,250文件/4,486,908行、baseline=ready，截止2026-10-16，见§5.15；审计无缺口或版本冲突，见§9.6。Silver实际810文件/3,105,684行，21列及原值同Raw，810物化/2,430项blocking检查均通过，首次实施结果见§10.10。**§11日常恢复和自动接线开发/隔离验收已完成并提交6e6017712；正式加载、两个Silver sensor初始化/启用及无输入自然tick已通过，见§11.12—11.13。首个真实日常交付待周一原19:30窗口。** Prod后置。25股修复及R5登记已完成，专项工具已清退，结果见其原方案§9和LLD§23.7；下文有日期的暂停要求保留为当时执行边界。
 
@@ -116,7 +122,7 @@ Raw保留当前上市对象的全部源历史，包括北交所正式上市前�
 
 周期回包和完整历史回包有重叠键时，21字段完全一致可合并为一条；同键异值保留两份证据并停止冲突输入，不按先后顺序覆盖。需要重取时只针对冲突对象/范围，不能重新下载整个市场。20200228/29是不同键，两条均保留。
 
-历史替换的范围是目标股旧分区与新源分区的并集，包括仅旧键所在分区。优先使用该股上次已验证源/提交记录的分区范围，记录须绑定数据集基线和文件版本；缺失、漂移或不能证明覆盖旧范围时，对本批目标股只做一次键/filename列投影定位，再只读命中价格。首次bootstrap不运行旧键定位。多股汇集处理，不能每股重扫全历史。移除后空分区按明确的有效空候选处理，不能以此掩盖源下载失败。
+历史替换的范围是目标股旧分区与新源分区的并集，包括仅旧键所在分区。旧范围必须来自可验证且完整的baseline范围及文件登记，选中目标先核归属，再读取合并所需旧行情；缺失、漂移或不能证明覆盖旧范围时停止，不能自动读全频键/filename列定位。具体索引、新上市和纯明确周期规则统一见§12.16.4，本条不再保留原扫描回退。首次bootstrap不读取旧行情。多股汇集处理，不能每股重扫全历史。移除后空分区按明确的有效空候选处理，不能以此掩盖源下载失败。
 
 ### 3.3 检查何时执行、证据如何复用（纠偏11）
 
@@ -1053,7 +1059,7 @@ Raw每个完整文件批次，对实际files中每个受影响频率发一条Ass
 
 仅复用run_contracts/sensor_tags.py的build_sensor_tags(sensor_domain=SensorDomain.QUOTE_DATA, target_layer=SensorTargetLayer.SILVER, role=SensorRole.ASSET_UPDATE)；不新增helper、枚举、标签键或配置，不在sensor内手写标签字典，不混入日期、分区、代码、状态或cursor等动态值。标签仅用于Automation页面分类，不改变执行范围、触发窗口、原Raw sensor状态或水位。
 
-同步文件固定为[运行合同治理](dagster-run-contract-governance.html)、[资产与任务拓扑](../architecture/dagster-asset-job-topology.html)及tests/test_run_contract_static_gates.py；两份治理文档本次先记已确认设计、待开发，不把新sensor加入已实现清单。后续开发时更新现有EXPECTED_SENSOR_DEFINITION_IDS并沿test_sensor_definitions_use_registered_definition_tags验收，同时在本域sensor测试中断言两个定义的精确分类、目标job及默认STOPPED；不得删除名单核对或放宽其他sensor门禁。正向为两定义均复用统一helper且三项值正确；反向须抓住缺键、错层级/角色、手写字典、漏登记或意外默认RUNNING。本轮仅补文档，代码和上述新增断言均待管理员再次确认后开发。
+同步文件固定为[运行合同治理](dagster-run-contract-governance.html)、[资产与任务拓扑](../architecture/dagster-asset-job-topology.html)及tests/test_run_contract_static_gates.py；现有EXPECTED_SENSOR_DEFINITION_IDS和test_sensor_definitions_use_registered_definition_tags须完整登记/验收，同时在本域sensor测试中断言两个定义的精确分类、目标job及默认STOPPED；不得删除名单核对或放宽其他sensor门禁。正向为两定义均复用统一helper且三项值正确；反向须抓住缺键、错层级/角色、手写字典、漏登记或意外默认RUNNING。2026-10-17最初分类设计阶段仅编文档、等待确认的状态已经结束；程序/隔离及正式接线结果分别见§11.12—11.13，不在本轮重新创建或初始化sensor。
 
 单tick先看根可用性、当前相关运行/已有待办，再从该频率Raw资产读取cursor之后最早一条本合同observation（limit=1），校验小引用及完整清单；没有通知则0 DuckDB/0 Parquet。一次最多一个Raw交付、一个RunRequest，先处理最早未交付批次；批次内历史周期是既有Raw实际改动范围，不在sensor中发现或重算全历史。一次Raw周线任务若也改了月线，会发月线资产通知，月线sensor由此处理全部相关月份。
 
@@ -1354,6 +1360,8 @@ Raw单文件回调一次读取三项，替换原三次history查询；历史确�
 
 Raw report_file_events(write=False)只读判断；未完成时返回False并记录原因，不发事件、不把原生检查提前判成成功。write=True遇到上述拒绝项必须抛出明确错误，不得重发一条物化后追加通过来隐藏原失败。Silver require_checks/require_recoverable_checks、首次report_file、update report_update_events遵守同一拒绝语义，保留各自已有前像/输入检查。
 
+Silver的日期、范围及同版本绑定必须按§12.16.2抽取共同校验；不能只检查检查事件的passed/blocking，而遗漏物化本身的silver_asof等必要事实。该项已按§12.16.2开发并新增验收，结果见§12.16.9；§12.15原测试不代替本项新增证据。
+
 当前report_file_events的audit_file仅在当前文件/补缺路径使用，继续复用该精确版本的候选审计证据；不能将历史证明注入当前版本审计缓存。§12.5历史确认不调用audit_file，不计算旧文件摘要，也不要求已不存在的旧文件内容重现。
 
 现有test_stock_period_silver_events.py::test_event_reporting_never_accepts_planned_or_misbound_checks实际在failed/wrong_binding/nonblocking后断言补成通过，与本轮要求冲突。后续必须先记录该依据，再将真实失败/错绑改为“拒绝且新增物化/check均为0”；planned_only及另一合法分区仍证明正常缺项可补。不删除这项覆盖、不把期望交给待测helper生成。
@@ -1375,13 +1383,13 @@ allowed_frequencies默认两频；周线限定补报op必须显式限制为week�
 
 先将completed_files拆成“核原identity/complete摘要/逐文件字段”和“核当前目标版本”两个内部步骤。前一项始终执行，后一项只在当前文件恢复、补事件或新写入准入执行。不能简单删除file_version守卫，也不能只因为phase=events_complete就跳过损坏回执。
 
-分支一：原phase=events_complete且全部原单文件CP、每频completion CP完整一致。
-- 核原run ID、identity_hash、complete hash、文件集合、CP的version/sha以及notice/file_count/observation_id有效；原通知存在且与原引用一致。
+分支一：原phase=events_complete且本次允许范围内全部原单文件CP、每允许频率completion CP完整一致。
+- 核原run ID、identity_hash、complete hash、原完整文件集合、本次允许范围CP的version/sha以及notice/file_count/observation_id有效；每允许频率原通知存在且与原引用一致。完整receipt仍校验，未允许频率的CP/通知/目标不访问；整批events_complete另按本次范围是否覆盖原全部实际频率计算。
 - 这一分支一律返回historical_only=True、current_files=[]，只表示原交付已完成，不尝试判断每个旧文件今天是否仍当前；不逐个stat或重读后来已更新的旧目标、不重新补报业务事件。当前anchor由§12.7单独按必要文件核验，不能为填current_files重扫整批。原有闭合回执作为持久证据，不为重复调用重新扫描该批全部DG检查。
-- 如果daily仍引用该执行且consumed=true，可在锁内幂等移除该待办；consumed=false或控制水位不具备相应文件消费依据时停止，不把旧listed写回当前baseline。
+- 如果daily仍引用该执行，原daily工作必须consumed=true且控制水位具备消费依据才能移除；第2项新增的kind=history工作没有daily消费含义，按§12.16.7核原冻结身份及整批交付后移除，不读写因子/刷新水位。局部频率确认仍不能删除任一类待办，不把旧listed写回当前baseline。
 
 分支二：files_complete或回执缺失，需从真实历史事件补确认。
-- 每个缺项必须核原物化的资产、分区、路径、行数、文件版本和原completion完整引用；原三check按§12.3选择并准确绑定该物化；原每频通知也须存在、引用及file_count完全匹配。
+- 本次允许范围内的历史文件须核原物化的资产、分区、路径、行数、文件版本及原completion完整引用，原三check按§12.3选择并准确绑定；涉及历史文件的频率须有其准确原通知及file_count，缺证停止。仍当前版本则按§12.4区分已有真实错误与合法缺物化/check/通知，合法缺项沿原回调补缺，不因另一文件已历史化就一概报历史缺证。未允许频率不查询或补写；允许范围补齐后重新确认，齐备才补回执。
 - 当前stat等于原版本时，仍核当前最新真实检查；晚失败/错绑不能被更早成功掩盖。
 - 当前stat不同，必须由当前合格物化携带的completion引用定位明确后继manifest/complete/该文件committed。核后继身份/hash、目标路径、target_preimage=原version，当前stat=后继version，且后继该文件的物化和三check准确通过。多个后继时沿物化引用逐段核前像，不枚举整个runs目录，断链即拒绝。
 - 原历史检查只在其后第一个合法新版本物化之前取最新实际完成结果，使用§12.3的before_event_id；不得只筛原目标成功而漏掉该截点前后来的失败/错绑。截点之后检查属于后续版本的当前准入，另核，不拿新版本检查冒充旧检查。
@@ -1396,13 +1404,14 @@ allowed_frequencies默认两频；周线限定补报op必须显式限制为week�
 
 确认结果仅在当前锁内使用；每项控制写之前重新核相关JSON版本/摘要及必要目标stat，防止审计后发生并发变化。输出里historical_only=True的files是历史追溯清单，禁止参与当前asset anchor选取。当前Mat/check证据与历史证据分别返回/消费，不互相替代。
 
-**内部返回值与接线（已实现，不是新持久化合同）。** confirm_delivery回调接收本次run目录，返回下表；无完整原事实时返回未完成原因，证据矛盾则抛错。bootstrap模块不猜bool、不将None当成功。
+**内部返回值与接线（已按第4项统一，不是新持久化合同）。** confirm_delivery回调接收本次run目录，返回下表；无完整原事实时返回未完成原因，证据矛盾则抛错。bootstrap模块不猜bool、不将None当成功。允许频率的确认与落盘按§12.16.3补齐。
 
 | 字段 | 约束/用途 |
 | --- | --- |
 | run_id、identity_hash、file_receipt_hash | 精确等于本次原manifest/complete；ack逐项重核 |
 | files | 原冻结清单，不增删、不改version/sha/rows |
 | events_complete | 仅原整批文件及所有频率通知事实齐备时true；不是job成功或当前文件存在 |
+| allowed_events_complete | 非空允许范围内的全部文件和对应频率原通知均已证明；允许范围小于整批时可为true，但events_complete仍须为false |
 | historical_only | 已闭合旧执行的重复调用一律true；本次补确认的旧批只要存在合法替换也为true；不能交给当前anchor |
 | current_files | 原清单中经当前stat/合法receipt确认仍适用者；历史文件不得混入 |
 | file_evidence | 以(freq,period)为键，列原materialization_id、逐检查evaluation_event_storage_id及绑定ID；历史确认另列后继原执行ID/hash/物化ID及截点；已闭合CP复用时显式注明原CP来源 |
@@ -1410,11 +1419,11 @@ allowed_frequencies默认两频；周线限定补报op必须显式限制为week�
 | control_versions | 本次所读manifest/complete/相关CP/daily的版本或摘要，用于锁内防漂移；仅存在内存 |
 | reason | 未完成时区分缺检查、需原run、未知变化、缺历史证明；日志必须包含原job/日期/分区/执行引用 |
 
-replay_events首先核原receipt，再调用确认回调；整批确认true则调用acknowledge_period_delivery后返回，不进入当前文件补报循环。确认仅表示缺当前可恢复事件且文件仍当前时，才进入原补缺路径；其后重核完整证据再ack。文件不明/原历史事实不全/晚失败错绑必须拒绝，不能因confirm返回False就自动走补绿分支。无确认回调的纯文件路径不负责daily.pending收尾。CLI apply/resume仍保持不自行创建/获取instance的纯文件边界：若存在另一个需确认旧待办，或本次run已到文件完成阶段却缺DG确认，须在新请求/COPY前停止并指向已有events动作。只有当前要恢复的同一冻结意图尚处于文件阶段、且没有更早未处理待办时，才可沿原文件checkpoint继续；文件阶段完成即报告需events，不关闭pending、不冒充业务交付完成。旧phase已完成但当前文件变更，纯文件入口也指向events作历史核实，不自行跳过守卫。
+replay_events首先核原receipt，再调用确认回调；允许范围完整时按§12.16.3调用同一ack补该范围回执。整批完整才进一步关闭phase/pending，局部完成不得返回整批成功。允许范围尚不完整时，仅仍当前且确属原规则允许补缺的文件进入原补缺路径；完整历史证明单独保留，不进入当前文件守卫、审计缓存或事件回调。补缺后重核允许范围再ack。文件不明/原历史事实不全/晚失败错绑必须拒绝，不能因confirm返回False就自动走补绿分支。无确认回调的纯文件路径不负责daily.pending收尾。CLI apply/resume仍保持不自行创建/获取instance的纯文件边界：若存在另一个需确认旧待办，或本次run已到文件完成阶段却缺DG确认，须在新请求/COPY前停止并指向已有events动作。只有当前要恢复的同一冻结意图尚处于文件阶段、且没有更早未处理待办时，才可沿原文件checkpoint继续；文件阶段完成即报告需events，不关闭pending、不冒充业务交付完成。旧phase已完成但当前文件变更，纯文件入口也指向events作历史核实，不自行跳过守卫。
 
-run_period对files_complete/events_complete的恢复分支先走这一共同入口，再决定是否核当前目标/补事件，不能先调用旧completed_files逐个stat而重现本次错误。首次完成文件阶段的源/候选/发布流程不变，随后的事件阶段同样进入该入口。_execute_daily_locked在调用run_period前先确认已完成文件的旧待办；全部已消费旧待办关闭后，才进入当前规划。同一run再次经过replay_events只验证已有CP，不重复写入。
+run_period对files_complete/events_complete的恢复分支先走这一共同入口，再决定是否核当前目标/补事件，不能先调用旧completed_files逐个stat而重现本次错误。首次完成文件阶段的源/候选/发布流程不变，随后的事件阶段同样进入该入口。_execute_daily_locked在调用run_period前先确认已完成文件的旧待办；全部旧待办按各自kind收尾后，才进入当前规划。已闭合原回执快路按允许范围复用；未闭合批重复replay仍重新核最新真实事件，只补实际缺项，齐备者不重复写入，不能因已有部分CP跳过检查。
 
-ack只接已核整批true结果，写前重核身份/摘要和相关当前stat；返回已移除pending或原pending不存在的明确结果。范围不含某频的确认不能整批ack；consumed=false不得借历史分支推进因子或上市集合，必须回原文件消费流程核实际控制事实。所有调用沿同一writer锁，不让“确认成功”和“下一次新写”之间插入不受保护的本域写者。
+ack接收已核allowed_events_complete=true结果，写前重核身份/摘要、精确允许范围及相关当前stat；局部仅补原回执并返回pending_removed=false，events_complete=true且确实覆盖原整批时才执行phase/pending收尾。不得通过伪造整批true绕过范围检查；原daily工作consumed=false的守卫继续保留。kind=history按§12.16.7单独核冻结身份，不伪造consumed、不推进因子或上市集合。所有调用沿同一writer锁，不让“确认成功”和“下一次新写”之间插入不受保护的本域写者。
 
 
 ### 12.6 状态落盘、目标守卫与异常恢复
@@ -1424,14 +1433,14 @@ ack入口自身也须核run目录严格位于staging/stock_period/runs/run_id、
 1. 核完整原身份/清单/所有缺项证据；已有回执必须逐项相等，不能覆盖矛盾回执。
 2. 原单文件events/freq/period.json仅补原version和sha256，保持现有格式；已存在且相等直接复用。
 3. 原events/completion/freq.json缺失时写原notice及真实原observation_id；已有则核相等。不是创建新通知。
-4. 全部原事件事实/回执齐备后，仅将manifest.phase改为events_complete；原identity、identity_hash、complete.json、file_receipt_hash、源页、候选及committed不改。
-5. 最后读回最新daily.json，只移除精确匹配原run_id/原intent且consumed=true的pending；其他键、其他待办、completed_through、last_refresh、last_source_asof、factor_through以及baseline全部保持。
+4. 允许范围小于原整批时，到第3步即返回：不写manifest、不改phase、不改daily/pending或baseline。只有全部原事件事实/回执齐备、确认范围覆盖整批时，才将manifest.phase改为events_complete；原identity、identity_hash、complete.json、file_receipt_hash、源页、候选及committed不改。
+5. 整批完成时最后读回最新daily.json：daily工作只移除精确匹配原run_id/原intent且consumed=true的pending；kind=history工作只移除冻结身份与原交付完全相符的本条。其他键、其他待办、completed_through、last_refresh、last_source_asof、factor_through以及baseline全部保持。后续全频确认不能只凭此前局部CP就推断整批完成。
 
 沿atomic_json的临时小文件→fsync→os.replace写入，每一步后中断均保留已完成事实。恢复先验已有CP/phase，再补缺项；phase已改而pending未移除时只补第5步。daily有新进度不能被旧副本覆盖。确认失败不回滚已提交行情，不创建行情备份或快照。
 
 当前文件准入仍单独执行：即将生成/覆盖的每个目标须匹配baseline已登记版本或由当前合格物化定位的明确后继committed记录；目标前像继续进入候选receipt，发布时再次校验，原publish守卫不减弱。未知文件即使有一份旧历史成功也拒绝。
 
-**2026-10-27开工细化（同一已批准目标守卫，不增加业务口径）。** 当前assemble只捕获现存stat作为target_preimage，原范围索引漂移还会回退读取，不能独立证明目标归属。因此在io/stock_period_raw.py::assemble确定selected目标/冻结前像后、读取旧行情及COPY之前，增加内部validate_targets(targets)回调；run_period注入同一归属核验。targets只含已选freq/period/path/version，不读未选文件。新目标指baseline未登记且目标不存在；baseline已有登记但文件缺失必须拒绝，不能用单股历史把整分区重建成仅目标股。已有目标必须匹配原baseline.files的精确版本，或当前原执行已校验/committed的精确版本。后继版本须先通过本节原交付/范围记录恢复形成已核归属，不能在新任务里把未知stat认作前像。copy.json复用路径同样核冻结前像/当前原提交，不能靠缓存绕过。该接线不改选行、计算、COPY次数、policy、字段或发布算法，基于现有版本元数据，0新增行情读取。独立反例覆盖“篡改原目标但原历史已成功”在旧行情读取/COPY前拒绝，以及新目标、已登记目标、原意图逐文件提交后续跑仍可通过；开发前已将此具体落点补回本LLD。 旧test_stock_period_combined.py::test_range_record_drift_falls_back_once_and_is_not_reblessed的file分支曾允许未登记mtime变化后覆盖，与本轮未知目标拒绝要求冲突；须保留原错误样本并改为写前拒绝。仅范围索引hash失效、文件版本仍匹配的index分支继续允许原有一次范围回退，未选文件变化不能误拦本次目标，不以删掉旧测试消除失败。
+**2026-10-27开工细化及第5项修正。** 修复前assemble只捕获现存stat作为target_preimage，原范围索引漂移还会回退读取，不能独立证明目标归属；该问题已按§12.16.4修正。因此必须在读取旧行情及COPY之前，先按§12.16.4从可信元数据确定selected目标，冻结前像并调用内部validate_targets(targets)；run_period注入同一归属核验。targets只含已选freq/period/path/version，不读未选文件。新目标指baseline未登记且目标不存在；baseline已有登记但文件缺失必须拒绝，不能用单股历史把整分区重建成仅目标股。已有目标必须匹配原baseline.files的精确版本，或当前原执行已校验/committed的精确版本。后继版本须先通过本节原交付/范围记录恢复形成已核归属，不能在新任务里把未知stat认作前像。copy.json复用路径同样核冻结前像/当前原提交，不能靠缓存绕过。字段、选行、计算、COPY次数、policy及原publish核验不变；本项取消locate_old_keys自动全频扫描，不允许先读历史再判断有无读取资格。旧index反例实际上缩窄了stock_ranges却未同步hash，无法证明只是hash字段损坏；原“hash失效仍回退一次”的要求由§12.16.4替代，须保留坏样本并改验收为旧行情读取前停止。可信索引下未选文件的物理变化不影响本次明确目标，不为此新增全湖glob/stat。第1项rename成功但提交回执缺失的恢复另按§12.16.6实现及验收，不能只借本项归属守卫的测试推断其通过；五项分别对账见§12.16.9。
 
 所有新写入口，特别是deliver_asset的history分支与CLI history/resume，必须先经过同一旧待办检查；不能仅日更受保护、手动历史仍能覆盖未确认文件。events只补确认/事件，不顺便规划新日期、因子或历史。handoff沿其原冻结父子身份，不重跑父bootstrap。
 
@@ -1439,7 +1448,7 @@ ack入口自身也须核run目录严格位于staging/stock_period/runs/run_id、
 
 _execute_daily_locked重构为先恢复/确认旧待办，再做当前新规划；必须在_daily_work、factor_changes及任何源请求之前完成旧待办分类。两频共享队列不按传入freq过滤掉另一频待办。
 
-顺序键为已冻结intent.asof（存在时）、manifest.started_at的真实时间、execution_id。无asof的主动历史意图以started_at排序；两者均缺或非法不得用文件mtime/哈希键猜先后。未建立manifest的冻结daily work有asof可用；同日两频以已存在的started_at为先，再以ID作稳定tie-break。
+顺序键为已冻结intent.asof（存在时）、真实started_at、execution_id。无asof的主动历史先使用§12.16.7写在pending中的started_at；manifest存在时两者必须精确一致，禁止用新的时钟覆盖。未建立manifest的daily work沿原asof；缺日期/开始时间或非法值不得用文件mtime/哈希键猜先后。同日以真实开始时间为先，再以ID作稳定tie-break。
 
 | 旧待办状态 | 当前调用允许做什么 |
 | --- | --- |
@@ -1481,7 +1490,7 @@ automatic_intent_date已显式设置的自动任务必须原值恢复。现行�
 
 ### 12.9 文件、消费者与配置审计
 
-以下为本轮获准开发白名单及消费者审计分类；实际改动见§12.15，纯核验薄入口/合同没有必要不改。未列明的新入口/配置仍须先回写原设计，不自由扩展。
+以下为本轮获准开发白名单及消费者审计分类；前轮及五项修正的实际改动分别见§12.15、§12.16.9，纯核验薄入口/合同没有必要不改。未列明的新入口/配置仍须先回写原设计，不自由扩展。
 
 | 文件/入口 | 必须改动或核验的内容 |
 | --- | --- |
@@ -1506,7 +1515,7 @@ automatic_intent_date已显式设置的自动任务必须原值恢复。现行�
 | intent、automatic_intent_date、request_id、stock_codes | 现有StockPeriodRawConfig；默认daily/None/None/[]，history必填ID；原job/asset读取；传入单run生效；日期恢复按§12.8，不新增开关 |
 | policy | 原manifest.identity.policy及StockPeriodPolicy；日常默认4GiB RSS/3GiB DuckDB/2线程等原值；原下载/IO消费者不变；本次不抬高、不覆盖 |
 | 根目录与writer | 当前paths.py固定正式Lake/staging；stock_period/writer.lock；所有本域写入口复用 |
-| 原执行/交付/消费事实 | 原manifest/complete/committed/events及daily/baseline；本轮只允许§12.6列明小范围状态收尾；identity和源业务合同不改 |
+| 原执行/交付/消费事实 | 原manifest/complete/committed/events及daily/baseline；本轮允许§12.6状态收尾及§12.16.7在原daily.pending_work中登记主动history、冻结started_at；原identity/hash和源业务合同不改。正式实例/状态操作仍未获本轮执行授权 |
 | event ID及目标绑定 | 现有DG SQL存储；只读；新本域SQL模块和三个选择入口；随代码加载生效，无schema/config变更 |
 | sensor状态/游标/run key | 正式instance原值；本轮不读写；未来维护只核本链四项并保留原状态，不能由definition默认值覆盖运行状态 |
 
@@ -1519,7 +1528,7 @@ automatic_intent_date已显式设置的自动任务必须原值恢复。现行�
 | 2026-10-27文档阶段 | 当前代码/已有审计JSON；0行情内容，0正式写入 | 只复读修改文档及必要源码，不跑业务 |
 | 隔离测试 | ≤3股、2频、≤8个小周期文件，独立字面21列；每个检查顺序/续跑小场景≤12个原/重执行run（不是整轮既有回归的总run上限）；临时资源预计读≤256MiB/写≤128MiB/空间≤512MiB | 故障注入包含一次中断/恢复和必要原生重执行；总计读≤512MiB/写≤256MiB/空间≤1GiB；非生产配额/限额，不用真实多年行情 |
 | 本次旧20收尾 | 旧manifest约216KB、complete724B；后继manifest217182B、complete1179303B、单文件commit588B；另daily/baseline和少量CP。JSON读≤8MiB、写≤2MiB；原/新Mat各1、原/新check共6、原通知1及目标前后stat | 含一次续跑和最后核验：JSON读≤16MiB、写≤4MiB；上述事件集合至多每轮一次；最后只读原小型控制记录，baseline用未变化stat复用原已核内容，不再次读取后继完整清单；相同文件stat确认，不读后继2057份文件 |
-| 新SQL | Raw当前单文件一组查询取三check；Silver保持2条集合SQL；确认仅查明确receipt涉及的资产/分区/事件窗口 | 存储失败重试须显式操作，不自动重扫；只拉最新正文，事件范围不得扩大成全库 |
+| 新SQL | Raw当前单文件一组查询取三check；Silver每参与频率每轮保持2条集合SQL，首次两频预取及必要写后批量重取按§12.16.2；确认仅查明确receipt涉及的资产/分区/事件窗口，历史取证另按§12.16.3计 | 存储失败重试须显式操作，不自动重扫；只拉最新正文，事件范围不得扩大成全库 |
 | 后续Raw/Silver补数 | 由当时实际欠账/因子变更/交付清单确定，正常/中断/验收分项列清后批准 | 不含在旧20“0行情读写”中；不得用本节代替历史读取批准 |
 
 旧20收尾的源请求、行情SQL、DuckDB、COPY、行情文件读写均为0，新增业务Mat/check/通知为0。原events CLI可产生一次stock_period_event_report控制面run及正常日志/终态，必要时至多显式续跑一轮；不能将其说成“DG完全零写入”。无需安装工具/依赖；PG隔离用已有18.4二进制和临时数据目录，端口/目录须独占且不访问正式凭据。
@@ -1643,9 +1652,11 @@ SQLite先跑上述受影响测试；PG18.4仅放少量计划/完成/原生job记
 
 ### 12.15 2026-10-28开发、测试与实现对账
 
-管理员本轮授权：先提交文档，然后严格按方案/LLD完成开发、测试和实现对账；**不执行正式状态修复和补数**。三文档设计基线已提交befd282e0，未推送。当前生产代码、测试、报告及本节结果回写尚未提交；未加载/重启正式code location、未操作正式job/sensor/cursor/DB/Lake。
+以下保留开发提交时的实现和测试记录；提交后独立审计已发现5项遗漏，结论以本文开头的审计补充为准。本节的既有通过项不等于本轮全部要求已完成。
 
-**实现完成。** 三处检查选择均改用实际结果事件排序和双left join，真实失败/晚错绑/非blocking在业务事件补报前拒绝；原清单与当前版本校验分离，原历史事实+明确后继可只补CP/phase/pending；未知当前文件仍拒绝。共享待办按原意图恢复，原生检查保留物化后的真实执行顺序，历史结果不能当当前anchor，日期/分区不符读源前停止。所有既有events/resume/handoff/周线限定补报/Silver消费者均已迁移或核验；原业务字段/选行/源请求/policy/命名和sensor key不变。原生失败用既有FROM_FAILURE，不引入新正式配置/入口。
+管理员本轮授权：先提交文档，然后严格按方案/LLD完成开发、测试和实现对账；**不执行正式状态修复和补数**。三文档设计基线已提交befd282e0，未推送。生产代码、测试、报告及本节结果回写随后已提交88de377ca，未推送；未加载/重启正式code location、未操作正式job/sensor/cursor/DB/Lake。
+
+**提交时的实现记录。** 三处检查选择均改用实际结果事件排序和双left join，真实失败/晚错绑/非blocking在业务事件补报前拒绝；原清单与当前版本校验分离，原历史事实+明确后继可只补CP/phase/pending；未知当前文件仍拒绝。共享待办按原意图恢复，原生检查保留物化后的真实执行顺序，历史结果不能当当前anchor，日期/分区不符读源前停止。所有既有events/resume/handoff/周线限定补报/Silver消费者均已迁移或核验；原业务字段/选行/源请求/policy/命名和sensor key不变。原生失败用既有FROM_FAILURE，不引入新正式配置/入口。
 
 **性能复核已落地。** 未闭合当前同版确认2文件与100文件均为3条实际SQLite SQL（两频为4），不再逐文件新增查询；真实历史变版才追加有限取证。共享后继/候选JSON各只读一次，缓存版本变化拒绝。ack由平方级stat改为入口/阶段整体核验、逐项相关控制核验；2/100项CP存在/缺失均有线性界测试。首次纯文件完成0确认/重放/通知，恢复分支仍查真实交付。细化点先回写§12.5—12.6/白名单后实现，不改行情计算或新增数据扫描。
 
@@ -1653,6 +1664,208 @@ SQLite先跑上述受影响测试；PG18.4仅放少量计划/完成/原生job记
 
 隔离证据包括实际Raw小producer/临时Parquet、完整CLI/localhost HTTP worker/取消/交接/实际Raw job/check，以及Raw→通知→两Silver sensor/job/check；PG18.4实际共享SQL和真实GraphQL/sensor重执行另外验证。PG job为独立最小业务夹具，证明SDK保持原日期/分区/config/root/parent/key且asset只运行一次、子run仅恢复失败check；不将此夹具冒称正式319业务链已执行。容量100项明确为metadata/stat替身测试，实际SQL与失败拒绝真实执行，不等于100份行情审计。
 
-全部A1—D4要求的实现函数、独立正反用例、证据边界及逐项结果见[本轮实现及验收报告](../../reports/dg_stock_period_delivery_recovery_20261028/README.md)；[results.json](../../reports/dg_stock_period_delivery_recovery_20261028/results.json)保留轮次和固定生产代码指纹。Ruff本次所有Python文件默认规则、src/tests致命错误基线、CodeGraph sync/status、文档/新增链接及diff检查通过；独立代码审查的集合读取、共享清单、线性stat、ack根/设备、日期/分区项已关闭，未留下已知阻塞实现项。
+全部A1—D4要求的实现函数、独立正反用例、证据边界及逐项结果见[本轮实现及验收报告](../../reports/dg_stock_period_delivery_recovery_20261028/README.md)；[results.json](../../reports/dg_stock_period_delivery_recovery_20261028/results.json)保留轮次和固定生产代码指纹。Ruff本次所有Python文件默认规则、src/tests致命错误基线、CodeGraph sync/status、文档/新增链接及diff检查通过；当轮已关闭集合读取、共享清单、线性stat、ack根/设备、日期/分区项；提交后独立审计另发现5项未关闭问题，以本文开头链接的审计结论为准，不再认定无已知阻塞项。
 
 隔离PG均按原datadir停止后删除；本轮临时目录/旧函数稿/已应用补丁按精确路径清理，记录见报告cleanup.json。未安装依赖、未操作正式数据。正式§12.11收尾、§12.12补数及自然运行验收全部保持未执行；下一步先由管理员review本次开发结果。
+
+<a id="period-delivery-recovery-followup-345"></a>
+
+### 12.16 独立审计第1—5项修正设计（2026-10-28）
+
+#### 12.16.1 目标、范围与开工条件
+
+本节将[提交后独立审计](../../reports/dg_stock_period_delivery_recovery_20261028/post_commit_audit.md)第1—5项转成开发约束。第3—5项原细节保留并补充澄清，第1、2项见§12.16.6—12.16.7；锚点沿用原值，避免既有引用失效。先完成全部文档审计，再编码；五项实际结果逐条对账，不能沿用88de377ca原411项通过代替新增边界验收。
+
+字段、21列、源请求/分页、价格、选行、正式路径、锁、检查身份、job/sensor、日期配置及run key不改；不加配置项、CLI动作/参数、运行tag、数据库表、契约版本或另一套持久状态。例外的内部行为调整明确为：取消不可信范围索引触发的自动全频行情扫描；局部回执允许补写，但整批完成含义不变。不得保留新旧两套准入或扫描兜底。
+
+开工前按下列映射核真实消费者。CodeGraph search/impact结合当前源码已确认本轮落点；动态回调以代码为准，无Prod/API/前端迁移。后续若发现新增消费者，先补本表，不绕过共同规则。
+
+| 项 | 生产代码落点（相对orchestrator/src/orchestrator/defs） | 直接验收 |
+| --- | --- | --- |
+| 1 | bootstrap/stock_period_history.py的run_period缓存恢复、validate_registered_targets；io/stock_period_raw.py的publish及原rename证明复用 | 真实producer在replace后/CP前中断，原入口resume及反例；原publish/checkpoint/memory_resume恢复回归 |
+| 2 | bootstrap/stock_period_history.py的历史登记/ordered_pending_work/run_period/replay；stock_period_update.py的daily、history资产、handoff、sensor状态及ack | 真实history登记—缺检查—阻断新写—原ID恢复—确认移除；无manifest/无daily/跨日原scope/交接保留等中断反例；原update、两个Raw sensor、monthly_definitions和memory_resume夹具按真实完整handoff/SDK闭合步骤校准，原业务结果不变 |
+| 3 | run_contracts/stock_period_silver.py；stock_period_checks.py；checks/stock_period_silver_checks.py；asset_guards/stock_period_silver_readiness.py；bootstrap/stock_period_silver_cli.py；stock_period_silver.py | Silver合同、events、execution、jobs、daily_integration、recovery/sensors相关场景；审计silver_missing_asof复现 |
+| 4 | stock_period_update.py的confirm/ack；bootstrap/stock_period_history.py的replay_events；ops/stock_weekly_bootstrap_checks.py接线核对 | delivery_confirmation/history/daily_delivery/batch_evidence、combined及周线限定op；审计partial_week_history复现 |
+| 5 | io/stock_period_raw.py的_old_range_paths/assemble；bootstrap/stock_period_history.py的run_period/validate_registered_targets/_record_ranges | raw、combined、storage、delivery_history及缓存复用场景；审计guard_after_old_read复现；直接history assemble夹具须由真实原publish结果及独立字面范围提供可信证据 |
+
+#### 12.16.2 第3项：Silver物化的日期、范围与版本共同校验
+
+**开发前依据与错误位置（88de377ca）。** 当时正式checks/stock_period_silver_checks.py::evaluate读取silver_asof/lower，缺失即拒绝，再按周一/月首判断目标周期位于范围内；current_validation继续验证实际文件和来源。readiness::require_recoverable_checks的matches却遗漏asof，CLI report_file只比较版本/路径/行数即可沿用物化并追加三项通过。只加一个“asof非空”判断不够：同周/月内错用另一unit的日期、非法范围及同版行数冲突仍会漏过。
+
+**日期来源与内部接口。** 在run_contracts/stock_period_silver.py抽取纯函数validate_materialization_scope(freq, period, asof, lower)，返回已核验的asof/lower；不读文件、查询实例、推导系统今天或修改输入。asof/lower必须是现行YYYY-MM-DD文本且能精确往返为合法日期；缺失、空值、错误类型/格式、lower晚于asof或周期不在允许范围均拒绝。继续复用period_key/period_start：周线将lower/asof归到各自周一，月线归到各自月首，然后比较period_start是否在闭区间内。不能把周五/月末标签直接与asof比较，也不能要求目标周期等于asof所在周期。
+
+lower的来源仍为已核identity/报告，但本域§11.2—11.3的有效合同固定为2014-01-01，不表示报告可随意选择下限。共同scope函数同时核这一原有固定值，正式evaluate、补报和readiness都拒绝2013等其他合法日期；不能只保留readiness原固定门禁、让原生检查继续接受。该项在开发复核时发现原native与recoverable条件不完整一致，现明确收敛到同一已有合同；不更改业务起点、21列或源请求。周线2014首周以周一2013-12-30参与坐标比较仍合法，不能把坐标早于2014误当lower错误。
+
+| 场景 | asof/lower事实来源及相等规则 |
+| --- | --- |
+| 首次bootstrap | 使用已验证审计报告冻结到identity的asof/lower，不取今天 |
+| update当前版本 | 使用该unit/提交记录的asof，lower取所属identity；identity.asof只是整批最大日期，不能覆盖各unit的日期 |
+| 已提交父成果/合法继承 | 父提交记录配已核父identity；通过显式来源引用和hash核归属，不用新identity或新整批最大日期验证旧记录 |
+| 合法旧前像 | 使用旧物化自身有效的原asof/lower；若已有明确原CP/identity，按原上下文比较。不得要求旧asof等于本次新asof，也不得为找到原上下文扫描历史runs目录 |
+
+materialization_metadata先解析record中明确存在的asof，否则才按现行bootstrap合同使用identity.asof；明确存在却为None/非法的值必须拒绝，不能静默回退。生成元数据、正式evaluate及readiness复用同一scope函数；evaluate保留current_validation和原三个blocking check范围，不能用这个纯函数代替文件/来源验证，也不为补报重算全部行情。
+
+**路径、行数、版本及业务绑定。** 从stock_period_checks.py::verify_period_materialization抽取其纯元数据比较部分，由原带当前stat的包装与Silver readiness共用；旧包装和Raw消费者保留当前语义。纯比较不stat目标，不追溯业务文件，要求asset/partition/URI正确、row_count为非负严格int（bool/float拒绝）；版本保持原五项非负严格int格式，并与明确允许的当前版/原前像一致，不能将一个格式错误的值与自身比较相等便接受。
+
+该共用包装的现有调用方还包括checks/stock_weekly_checks.py、checks/stock_monthly_checks.py以及Silver的resolve_update_sources/update_inputs/recover_update_execution/confirm_update_delivery和update补报；抽取时核对全部消费者，保留test_stock_period_checks.py及两Raw检查的当前反例，不把Silver日期校验加到Raw路径。无需变更的调用方只核验，不为迁移批量改写其他检查。
+
+- 当前版本有已核提交记录时，路径、版本、行数、rule、lower和实际unit.asof必须与该记录及所属identity对应；同版但日期或行数矛盾要报错，不能再发物化修正后补绿。
+- update原有source_version、reference_versions及适用Raw完成引用核验继续保留；当前上下文确有这些事实时要按对应记录比较。合法同版复用或继承可能沿用旧execution_id/完成引用，不能把整个metadata字典与新生成字典强行判等。
+- §11.3已承认首次bootstrap物化可能缺后加的来源版本字段，仍能据原合同识别旧目标；缺这些后加字段不能自动当成“已与新Raw对齐”。原先首次update正常重建的行为保留。silver_asof/lower等原必要字段不因此可缺。
+- 旧前像必须精确等于已核target_preimage/event_preimage，真实成功检查准确绑定且实际结果先于新物化。旧文件已经替换时不能调用带当前stat的verify_period_materialization去核旧版，也不能拿新日期/行数冒充旧事实；晚错绑仍拒绝。
+
+**调用顺序及消费者。** require_checks仅raw=False增加共同scope及纯元数据规则，raw=True不改；require_recoverable_checks使用同一规则区分当前版和合法前像。CLI report_file与report_update_events先校验所属记录/identity和全部本次明确文件的既有证据，再开始任何动态分区/业务物化/check写入；一项矛盾即整组停止。确实缺当前合法事件才沿原回调补缺。新物化读回及写本地成功CP之前再用同一比较核其绑定，禁止修坏元数据后补绿。
+
+首次replay_events未闭合批次中，不能因为本地events CP已存在就跳过共同准入；对本次明确units按频率一次集合预取事件，校验已有CP、当前元数据及真实检查。保留的是现有update已闭合历史快路；bootstrap首次replay没有这份历史状态合同，本项不得擅自新增bootstrap快路。update_inputs和recover_update_execution处理owned记录时须显式传入原identity；confirm_update_delivery使用同一比较替代局部条件。sensor只消费共同确认结果，不另写一套日期规则；SQL检查选择/decoder保持§12.3。
+
+**失败、恢复及成本。** 缺必要日期、日期非法/错unit、范围不符、同版行数矛盾、已存在真实失败或错绑时，0新增业务物化、0新增通过check、0成功CP；保留正式文件、原回执和已有事件，不自动重试、改日期、取系统时间或重算。网络/事件写入中断后沿原ID重新分类证据，只补合法缺项，不覆盖失败。新增纯规则为0 SQL/0 stat/0行情读取/0写入；update继续复用原每频2条集合SQL及原有写后集合重取，首次两频最多4条证据读取SQL，新物化后按实际涉及频率批量重取，不给每CP增加N次fetch。独立单文件report_file仍可做有界读取；事件写入本身SDK SQL不混入恒定读取次数。显式父JSON在现有recovery_evidence调用内各解码/hash一次，控制版本变化仍拒绝；不为本项追全历史。
+
+**独立正反验收，周/月都要覆盖。**
+
+1. 保留审计“当前Mat缺asof但文件/CP正确”的真实小producer样本：补报应拒绝，0新增Mat/check/成功CP，实际原生evaluate也拒绝；不能用mock提前返回绕过共同规则。
+2. asof/lower缺失、空、非法格式/类型、颠倒、范围外、同周期内asof不等于该unit；同版行数冲突及bool/float行数均拒绝。多unit最后一项坏时，前面也不能先补业务事件。
+3. 周中如2026-10-22对应2026-10-23周标签、月中对应2026-10，以及2014-01-03首周的周一起点早于2014-01-01，均按原范围语义正常通过。2014/2020旧周期配2026的合法asof也必须通过；源end_date≤asof仍由原选行/检查负责。
+4. 同批不同unit.asof、原父identity、旧前像较早日期、同版继承旧execution_id/完成引用、旧bootstrap缺后加来源字段均有正常反例；证明不会被新检查误拦。合法旧前像只补本次缺项，晚错绑仍拒绝。
+5. 实际首次CLI、update补报、原生job、已有CP恢复和sensor共同收尾均经过同一规则；重复补报无新增事件，SQL次数不随units增加。
+
+#### 12.16.3 第4项：允许频率的历史回执可以补记，整批不得提前完成
+
+**开发前依据与内部结果（88de377ca）。** 当时replay_events只有原phase已events_complete时才接受局部历史返回；files_complete批次又落到旧版必须当前的校验。confirm尾部还将“任一文件历史化”和“其他当前文件缺项”合并为历史缺证。不能只删除一个phase条件。
+
+confirm增加仅存内存的allowed_events_complete。设F为原完整清单实际频率，A为allowed_frequencies与F的交集，A必须非空；错误频率或空交集明确拒绝。仍读取/验证完整原receipt身份/hash，但事件、CP和目标stat只取A。
+
+~~~text
+allowed_events_complete = A内每文件原交付证明完整，且A内每频原通知完整
+events_complete = allowed_events_complete 且 A覆盖F
+~~~
+
+files保持原完整冻结清单；allowed_frequencies明确本次权限。file_evidence、completion_evidence和current_files只含允许频率，不能用空映射或None推断成功。reason按允许范围缺物化/检查/通知返回原缺项原因；允许范围完整时为ok，即使整批events_complete仍为false。replay原“整批false只能是缺项原因”的检查相应调整，不能拒绝这个合法ok。
+
+**逐文件/逐频证明。** 历史文件仍须原Mat的资产/分区/路径/行数/版本/完整completion引用、三项真实blocking通过、明确合法后继链及截点，任一缺证、断链、失败、错绑或未知版本立即停止。当前文件核最新实际结果；合法可补缺项与真实错误分开。每频通知的file_count须等于该频在原完整清单中的全部文件数，引用及真实observation_id准确；不能只按本次已看见几个文件计算。
+
+存在历史文件而该频原通知缺失时，不新发通知冒充历史交付。另一仍当前频率仅缺合法可补通知/检查，不应被概括成历史缺证；按该频事实分别处理。已有单文件CP不能替代未闭合批次的最新真实检查。现有已闭合快路仍只核允许CP/通知，不stat旧行情或查询未允许频率。
+
+**同一replay与ack流程。**
+
+1. replay核原receipt，执行confirm。allowed_events_complete=true时直接交同一ack写允许回执，不再进入require_current_files或事件回调。
+2. 允许范围不完整时，逐文件区分：完整历史证明保留；只把仍当前且符合原补缺规则的文件交原回调。历史项不得进入当前版本校验、_AUDITS缓存或任何Mat/check/通知补报。实际错误直接停止。
+3. 当前缺项补完后重新confirm；只有允许范围证明完整，才调用同一ack。同一次锁内调用可以复用已核且相关控制版本未变的原历史截点证明/共享JSON，但当前及后继当前Mat/check必须重新取最新；新一次重放不复用上次当前事件状态。不得把historical_only全局标志当成每文件都已完成，也不能因某个当前文件缺项就丢掉其他完整历史证明。
+4. confirmed_result不能硬写events_complete=true，必须返回确认中的两个完成字段；completions只含A。historical_only保持原保守约束：存在历史项时整份结果不得作为当前asset anchor；逐文件current_files仅供明确的当前补缺使用。
+
+ack自身接收allowed_events_complete=true结果并重新核原根、设备、锁内控制版本、run/identity/hash、原完整files；file_evidence键必须恰好覆盖A内全部文件，completion_evidence键恰好覆盖A，证明内容必须完整。重新计算A是否覆盖F，核events_complete值与之相符；不能信任调用者伪造true。daily的consumed与因子/刷新事实守卫保持；kind=history的身份/移除采用§12.16.7，局部补CP始终不能删除其待办或推进任何消费。
+
+ack的完整性核验不能只看Mat/check编号为正数。未闭合且目标控制版本仍是原版时，证明必须为当前文件的空successors及None截点；目标已变版时，必须有非空合法successors，before_event_id为正整数且等于首后继的first_materialization_id。原检查须绑定原Mat且发生在该截点前，中间后继的检查/Mat也须按对应截点有序，后继执行不能循环。逐段由原version对到后继committed.target_preimage、后继version，最终对到controls中的目标当前版本；原执行身份、根、设备、完成引用/hash及必需manifest/complete/committed控制均须一致。删链、空截点、错序、错hash/前像或漏控制必须在任何CP写入前拒绝；不能用evidence.get(successors, [])将缺证明变为当前文件。已闭合批的精确cp_source快路保持。
+
+这些核验不新增DG查询或行情读取：复用confirm已经核验并冻结的小JSON摘要/证明；ack确需解码的后继manifest按执行ID缓存一次，单文件committed逐项核，后继complete不按文件重读整份。相关控制版本在使用和写入前继续复核；已闭合快路不stat旧Parquet。容量断言须保留共享清单一次与线性stat，正常单后继、多后继及两频历史不能被严格证明规则误拦。
+
+沿原writer.lock与atomic_json，先逐项补A内缺失events/freq/period.json（原version/sha），再补A内events/completion/freq.json（原notice和真实原ID）。已有CP必须精确相等；通知CP写前核该频所有文件CP的完整内容和版本，不只确认存在。每次写前复核相关控制、目标及后继证明依赖；局部补记完成、返回之前仍做一次整组control_versions复核，不能因为不写phase/pending就省掉最后核验。保持共享清单一次读取与线性stat；冲突不覆盖，中断保留真实已完成CP，不回滚行情。
+
+**局部完成到此即止。** A小于F时不写manifest、不改phase、不改daily或pending，不推进水位/上市集合/baseline，返回allowed_events_complete=true、events_complete=false、pending_removed=false。后续全频events重新核全部频率，不能单凭局部CP判断其余频率完成；只有整批齐备才能沿原步骤更新phase及按kind精确移除可收尾条目。周线限定op继续固定week，不加动作/参数、不代补month。若显式未闭合的主动history此前从未登记，受限入口须先拒绝并指向原resume/全频events登记；本次不新增pending、也不补CP，不能与§12.16.7登记规则互相绕过。已登记history及非主动history的原合法局部场景照常处理。
+
+**失败、续跑及成本。** 任一历史原证据缺失/CP矛盾/控制变化停止；局部CP后中断，下一次同范围重新确认最新事件、核已有CP相等后只补缺项。旧文件版本不再当前本身不构成错误，必须通过原证明及合法后继识别；不能直接取消版本守卫。已齐的局部历史路径0源请求、0行情读取/写入、0新业务Mat/check/通知。一次确认的基础集合查询仍是2条SQL+每允许频率1条通知，单频3条、两频4条；变版文件的有限历史窗口、原检查截点和中间后继取证另计，不把上述数字冒充历史场景SQL总数。历史取证限明确文件/窗口/后继，未允许频率访问为0。
+
+**必须新增的验收。** 原两频files_complete、week合法后继且week CP缺失时，week-only只补week原回执，month CP/事件/文件stat访问为0，phase/pending/行情不变。覆盖允许范围内全历史、全当前及混合；历史完整而当前合法缺项时仅当前补事件，再补允许CP。缺任一原历史检查/通知、错file_count、断链、晚失败及CP冲突拒绝。每个atomic写后中断和重复重放无重复业务事件；局部后全频确认须核month，缺项不能关闭。空交集、伪造允许范围完整但少文件/少通知、伪造整批true均拒绝。已闭合week-only不扫旧文件；2/100允许文件SQL维持常数、stat保持线性。
+
+#### 12.16.4 第5项：先从可信范围记录列出目标，再读旧行情
+
+**开发前依据与必须替换的行为（88de377ca）。** 当时_old_range_paths把hash、目录清单或任一文件版本异常都返回None；assemble随后locate_old_keys对allpaths读旧ts_code/日期，再调用validate_targets。这不能满足§12.6读取前拒绝。原index测试实为缩窄stock_ranges但不更新hash，不能判断只是hash字段坏，继续信任区间会漏掉旧-only记录，自动全频扫描又违反读取边界。因此明确取消自动回退，不把它换名、拆批或挪到守卫内部。
+
+**索引事实与内部选择。** baseline.files、stock_ranges、range_index_version和range_index_hash为唯一已有范围事实。_source_ranges由完整源行生成每股区间，_record_ranges对历史替换更新、日更合并、退市/换码移除，并共同摘要files与stock_ranges。将_old_range_paths改成纯元数据选择，不接allpaths、不glob目录、不stat全部文件；按批次一次读取/核版本与hash，校验类型、频率、周期、唯一路径及区间完整性。区间首尾必须合法且first≤last，每个按周/月步进的周期都须有唯一对应登记，不能只匹配端点/交集或悄悄跳过中间缺失记录。以下旧索引要求仅适用于非bootstrap；bootstrap沿原获准流程与空目标核验生成首份索引，不要求事先存在旧索引，也不因本节获得重新清理或执行授权。
+
+| 本次工作和证据 | 拟执行规则 |
+| --- | --- |
+| 纯明确周期upsert，无股票历史替换/移除 | 目标来自本次已验证源周期及明确periods；无需旧股票历史区间，只核这些目标。范围索引异常不能借机扫描历史或修复索引 |
+| history，或upsert含codes/retired_codes | 索引必须完整有效；以codes∪retired_codes的原区间与baseline.files对应得出旧目标，再与本次源实际周期/明确periods去重合并。即使源已不含旧周期，也不能漏掉需要移除该股旧行的旧-only目标 |
+| 选中目标版本不同、已登记文件丢失 | 读取旧行情前由现有归属核验拒绝，不能退回定位SQL |
+| 本次明确目标存在未登记文件 | 拒绝；只有未登记且目标确实不存在才是新文件 |
+| 未选文件物理版本变化或未选范围未知路径 | 不glob、不stat、不读、不写这些路径，不因此扩大当前工作；不得声称已完成全湖一致性审计 |
+| 历史范围所需索引缺版本/hash、hash失配或结构不完整 | 明确停止，报告无法证明完整历史范围；0旧行情SQL/0 COPY。不用现存坏区间、新源最早日期或文件名猜范围，不自动重建索引/重新加可信标志 |
+
+新上市无旧区间的正常路径不能被误拦：索引整体有效、新码不在baseline.listed且该频没有其旧区间时，可按原完整索引生产合同认定该新码无旧历史；有旧别名则必须先通过现行换码确认，并独立把旧码纳入superseded_codes处理原区间。run_period现已将superseded并入传给assemble的retired_codes，必须保留。原已登记上市代码却缺该频区间，不能当成新上市；bootstrap每股每频真实空源会拒绝，此时现合同不足以证明无旧数据，停止报告。
+
+**新生成与缓存的顺序。** 没有可复用copy/candidates时，先用上述元数据及本次源关系确定selected，捕获这些目标版本，调用同一validate_registered_targets；通过后才执行原read_affected_once、合并、单次COPY和候选完整校验。locate_old_keys全频回退从这条生产路径删除；不保留备用函数调用或任意旧目录发现。
+
+copy.json或频率candidates命中时，不重新定位旧行情，按已冻结identity、periods、target_preimages及候选摘要核验；若候选已移动而提交CP缺失，先按§12.16.6严格恢复原CP，再经同一目标归属守卫复用，不能另设未知版本放行规则。旧已完成文件/历史交付确认不需要规划旧行，本项索引准入不能插到§12.5历史元数据确认之前，导致旧20收尾要求额外行情或索引恢复。
+
+_record_ranges的非bootstrap更新在已有有效索引下维护实际已交付范围及版本，未选记录保持原登记事实，不将其当前物理版本当成已核。纯period工作不依赖股票旧区间且索引已失效时，允许按原合同完成该明确周期并记录其文件，但索引必须保持不可用，不能重新添加range_index_version或重算hash来“证明”被篡改内容；以后需要股票历史范围仍须拒绝。既有bootstrap首次建立完整索引的生产合同不变，不在本轮重新执行。索引本身需要恢复时另核来源、范围、必要读取及执行授权；需要该索引的日常/历史补数调用保留已完成源页/候选/回执并停止，不用全频扫描自动修复。
+
+**失败、中断及成本。** 归属/索引错误发生在旧行情读取和COPY前；正常进程取消保留原冻结文件，从同一ID复用成功源单元及缓存，不能再次全频定位。baseline JSON及摘要每批常数次，内存处理与其现有元数据条目数成正比；物理stat只与本次明确目标数成正比。目录枚举、全湖stat及locate_old_keys均为0。需要合并的旧行情大小仅为本次明确文件大小之和；使用既有一次合并/候选校验预算，不引入附加全量审计。范围或实际历史读取超出原授权时，在执行前按§12.10另核并获准，本节不是历史读取批准。
+
+**必须新增/校正的验收。** 保留原index缩窄/hash失配样本，预期改为读取前拒绝，断言locate_old_keys/read_affected_once/partition_copy均为0、旧文件/baseline/hash/可信标志不变；不能删样本或把hash重算到通过。file漂移分支也断言上述三个阶段为0。有效索引正常更新、源中消失的旧-only周期清理、新上市空旧范围、换码旧区间移除、选中版本变化/登记缺失、未知选中目标、未选文件变化不误拦、copy/candidates复用均有独立结果。另验原bootstrap正常建立首份索引；纯period在索引异常下仅提交明确周期，文件登记更新后下一次任务仍能识别其归属，索引保持无效；区间缺中间周期/重复登记必须拒绝。目标列表只来自可信元数据/明确源周期；用少量选中目标和大量未选元数据、路径哨兵证明无全湖glob/stat、无守卫前旧行情SQL，只汇总本次选中文件大小。正例保持原Decimal、NULL、未选股/分区和全部21列断言，不用待测selector生成expected。
+
+#### 12.16.5 统一预算、实施顺序与验收结论
+
+文档审计阶段不运行业务或测试。通过后依次落实1/2恢复及登记、3共同准入、4允许范围确认、5读取前目标选择，互不重叠部分可并行；迁移全部消费者、补直接正反例，再做固定版本一次必要回归与实现对账。不能只改最初发现问题的一个入口。若需扩大范围或改变原日期/源/持久合同，先回本节说明，不现场编码兜底。
+
+| 阶段 | 正常一次 | 一次中断续跑及最终验收 |
+| --- | --- | --- |
+| 第1项rename后恢复 | 仅缺CP且候选已移动的明确目标摘要读取1次，大小记B；补1份原CP，0源/0 COPY/0新replace；常规CP已存在为0摘要读取 | 一次恢复又在CP前中断时，下一次仍需最多再读B，合计≤2B；最后只核CP/版本。异常多缺CP不自动扩成全批hash；正式B须纳入当次已批准预算 |
+| 第2项历史登记 | 同一daily.json内增加/复用1条原scope历史工作，manifest前先落登记；共享待办按元数据排序，0历史行情读取 | 登记后/manifest后/文件后中断均复用原记录和原source/candidates，结束核原JSON及事件；不扫runs，不重复源请求/已完成文件，不改其他工作/水位 |
+| 第3项新增校验 | 纯scope/元数据比较0 SQL/0行情读取/0 COPY；消费既有集合结果和显式父JSON，不加逐文件查库；合法补缺沿原≤N物化/3N检查，坏证据为0新增业务事件 | 同ID重新取当前集合、复核必要小JSON及相关版本，补实际缺项；原已闭合历史快路不扫旧数据；不重复原文件计算 |
+| 第4项证据已齐的允许范围补CP | 1次确认：基础集合为两条SQL+每允许频率1次通知，明确历史窗口/截点/中间后继查询另计；共享清单各读一次，写CP≤允许文件数+允许频率数，0新业务事件 | 成功、一次中断续跑和最终核验合计至多3次确认；若当前合法缺项需要原补报，正常及续跑各按补前/补后确认、最终1次，合计至多5次。3/5是确认调用次数，非SQL总数；另列每轮历史取证及原回调的实际缺项事件/查询，不按频率重复给预算 |
+| 第5项合并 | 索引无效或未知目标时0旧行情SQL/0 COPY；有效时只核/合并明确目标，删除原全频定位读取 | 缓存命中不再定位/读旧文件；未完成目标按原作业预算读/写，最后只核本次交付清单；超范围先重新核定 |
+| 后续隔离验收 | 沿§12.10 ≤3股、2频、≤8个小周期文件/场景；≤12个run/顺序恢复小场景；预计读≤256MiB、写≤128MiB、空间≤512MiB | 含故障注入与续跑合计读≤512MiB、写≤256MiB、空间≤1GiB；2/100容量用metadata/stat替身，不拿真实历史行情做性能实验 |
+
+正式旧20收尾仍只可沿§12.11已有精确元数据预算与原events动作，不读取后继2057份行情；真正补数仍按实际变更清单另核历史范围。本次不新增程序限额、配置或正式操作授权。测试使用既有.venv/bin/python3 -B及隔离根，不设PYTHONPATH、不安装依赖；临时资源结束清理，失败则保留小证据并停止，不自动重复全套回归。
+
+交付必须分别列第1—5项“要求—代码—正常例—反例—实际入口—SQL/文件计数—通过或未完成”。历史411项和审计10项通过不能替代新增组合验收。本节编制完成不等于实现完成；开发/隔离结果另按实际回写，正式执行始终不包含在本轮。
+
+#### 12.16.6 第1项：rename已成功而committed回执缺失的原ID恢复
+
+开发前88de377ca的run_period缓存candidates分支先执行validate_registered_targets，候选已原子替换为目标但committed JSON尚未写成时，目标不等于旧baseline且无CP，被错误判为未知；原publish本可按候选身份和摘要恢复，却到不了该分支。
+
+只在原writer锁、根/设备、原identity/hash和该频candidate_hash全部已核且旧待办守卫通过后，处理本执行缓存中**CP缺失、候选路径确实不存在、目标存在**的文件。核唯一freq/period/target/candidate路径、冻结target_preimage及候选版本/摘要；再调用原publish的rename后恢复分支：目标dev/inode/size/mtime须等于原候选前四项，真实sha256等于原候选摘要，允许rename改变ctime。证明通过仅fsync/补原committed回执；不重新下载、生成候选、COPY或os.replace目标，不更改manifest.identity/identity_hash、候选清单及hash、原complete/hash。
+
+补CP后仍执行同一validate_registered_targets；后续原publish沿CP快路复用，不第二次读摘要/重写。候选仍在、目标不符、缺冻结前像、摘要/路径/身份/设备冲突均不得借恢复放行。不得仅因候选消失就把现存目标认领成本次成果。正常逐文件CP下单次中断最多留下一个这种间隙；若发现不符合该序列的多项异常，停止报告而非批量重hash。
+
+预算为明确目标字节B的一次摘要读取，加小JSON写入；重试前又中断需再读B，正常+一次续跑≤2B，最后以版本/CP读回，不再hash。旧20 files_complete历史确认无需此分支，0行情读取承诺不变。正式目标B超出已有获准范围时先重新核定，本节开发授权不替代正式历史读取批准。
+
+隔离验收从真实producer/run_period注入**os.replace成功之后、committed atomic_json之前**的失败；恢复同请求不重复源请求/COPY/replace，最多1次摘要读取，价格/行数/版本不变且CP准确补成。另测候选被删除但目标不匹配、同大小坏内容、前像/路径/hash/设备错误拒绝，CP写后中断及已有CP恢复为0摘要读取，所有新守卫仍能拒绝真正未知目标。必须通过原协调入口，不只直接测试publish。
+
+#### 12.16.7 第2项：主动history进入同一待办，任何新写不得越过
+
+**持久位置与类型。** 继续使用staging/stock_period/daily.json的pending_work，以原execution_id为键；正式主动history入口构造的是无asof的history意图，使用内部kind=history标记，保留原intent、policy、listed、aliases、root、identity_hash、confirmed_retired、devices及started_at，足够重建并核对原manifest身份。identity_hash仍严格为digest({intent,policy,root,listed,aliases})；kind、confirmed_retired、devices和started_at不加入原业务identity/hash，独立核对。没有新增文件/状态实体或运营参数。原daily work形状及consumed含义不变；已有daily条目优先复用，mode=history且有asof的daily工作不能登记为kind=history或借显式resume绕过消费守卫。kind=history不使用/伪造consumed，不能调用_consume_daily_files或推进任何daily水位。
+
+**登记早于任何请求和业务写入。** 以run_period的writer锁为唯一写者，新history先确认更早待办，再冻结当前history原身份/开始时间并atomic写入pending_work，然后创建manifest；manifest.started_at必须沿用登记值。登记写失败不得下载/COPY，登记后manifest前中断则条目仍可识别/排序，原请求续跑沿同时间创建manifest。存在原manifest但漏登记的显式resume/全频events，只按该精确ID/冻结身份和原started_at补登记，再按共同顺序核更早工作，不能把实际更晚的条目当成更早而反向阻断原恢复。哈希、根、scope、policy、设备或开始时间矛盾拒绝，不扫描runs目录发现旧任务。已闭合且原回执完整的history重复确认不重新登记，不将完成历史变成新待办。
+
+该先后次序也覆盖run_period的files_complete早返回：即使只是恢复ranges_recorded/原范围登记，也须先补原history待办，再进行这些控制写入，不能等到最后replay才登记。须注入files_complete已落盘、ranges_recorded尚未写成时的失败，验证待办仍保留且原ID不重下/不重写行情；不能只测download阶段漏登记。
+
+内部共同入口固定为history.ensure_history_pending(run, *, root, staging, saved=None, identity=None, confirmed_retired=(), allowed_frequencies=None, cancel=...)，返回已核原history工作或None；history_work_identity(work)只还原原五字段身份。run_period在manifest前传identity，replay传指定manifest的saved，不各自实现登记。replay增加仅内部使用的allowed_frequencies，weekly op显式传week，必须与确认回调范围一致；没有新CLI/运营参数。是否局部以允许范围是否覆盖该交付全部频率判定：已完成receipt可核时取其实际files频率，否则取冻结intent频率；原意图/交付本来仅week且允许week完整覆盖不算局部。局部缺登记必须在第一次confirm/写CP之前拒绝；完整范围可按本节补登记。已有daily条目要核原身份，不得仅比较intent便当成主动history。
+
+daily.json尚不存在时允许仅建立真实pending_work，不伪造baseline_run_id、factor_through、completed_through或last_refresh。普通daily执行及其sensor须识别handoff字段尚不完整，按现有未交接原因明确停止/跳过，不能KeyError、初始化假水位或规划源请求。handoff在calendar/factor扫描或新子意图之前先处理旧待办；已有冻结子ID只能恢复该子本身，不借父bootstrap ID跳过旧history。handoff最终写daily前读最新状态、保留所有pending_work，不以baseline_run_id一致为条件覆盖它们。
+
+**恢复与所有入口。** 同请求history续跑使用已登记条目及原manifest的冻结scope/policy/root；真实SDK history资产在load_scope今天信息之前按精确request_id查原条目/manifest，核配置codes及意图一致后复用原listed/aliases，不能因跨日上市集合变化换身份。首次history仍按原方式load_scope，CLI resume沿原冻结身份；全频events对显式未闭合history同样登记，只做其已有事件/确认步骤。周线限定等受限入口不得补登记未登记的主动history；须先明确要求原resume/全频events登记，本次保持daily/pending/CP不变。这样不以局部确认绕过登记，也不以登记扩大受限动作权限。
+
+ordered_pending_work按原asof/冻结started_at顺序，manifest存在时核登记时间一致；不同daily/history、CLI和handoff新意图均先经过同一守卫。daily.perform看到kind=history只能：文件和全部真实交付已齐则调用共同ack；否则在新因子扫描/源请求/COPY前明确要求恢复原history，不能代做其文件、返回旧anchor或进入daily消费。原history自身仍可复用原源单元/候选/提交文件，文件完成后返回实际anchor等待真实原生检查；检查/通知未齐，待办继续保留。事件补报不能把真实失败刷绿。
+
+**整批收尾。** ack必须按kind核对原冻结身份、原清单/hash和最新pending；kind=history只有整批events_complete=true且覆盖全部原频率时才删除该精确条目，不要求也不修改consumed。daily分支继续要求consumed=true及原因子/刷新消费事实。两者局部确认均不能移除pending；其它条目、所有水位和baseline均不变。删除前重读最新daily防旧副本覆盖，新条目/控制变化停止；CP/phase成功而pending未移除时可原ID幂等补最后一步。
+
+代码只保证进入本次共同入口的显式工作被登记，不承诺自动发现历史上从未登记的任意旧history。部署/正式修复前沿原有限run及精确引用核有无这类在途任务；若有，先明确原ID通过既有resume/events处理，不扫runs、不删pending或重做全历史。本轮不实施这一步。
+
+**必须验收。** 真实history执行产生真实小文件和SDK物化、故意保留检查未完；第二条不同history及daily/handoff必须0新源/0因子扫描/0 COPY，原文件不变。补齐原真实检查后原ID确认/ack移除，再新意图能正常通过；同请求跨日仍用原scope，配置改codes/根/hash等拒绝。覆盖登记前失败、登记后manifest前、源页后、replace/CP后、files_complete后和phase后pending前各中断；重复登记相同不增条目、不重置时间，冲突不覆盖。无daily时最小登记不造水位，daily/sensor明确未交接，handoff保留旧pending；局部week完成不删除两频history。已有闭合history重复events不重登记。所有样本来自当前producer/合同，不能只手造queue证明排序器可用。
+
+#### 12.16.8 开发前五项文档独立审计
+
+本轮先由三个相互分工的只读审查核对总方案§10.8、共享LLD§12.16及月线§9.4，结合CodeGraph status/impact和实际入口/消费者；正式检查平台依据复用安装版1.13.26并查Context7官方checks文档。发现并在编码前消除三处交叉歧义：主动history与daily的history模式不可混同；漏登记原manifest按原开始时间恢复；未登记主动history不能由受限week-only动作写pending，须先原resume/全频events。另统一history不要求consumed、原identity/hash不变和每频集合查询预算。原3—5项反例及新1/2真实入口反例均列明，未发现仍需另行拍板的设计分歧。文档检查通过后才开始编码；该记录不代表实现/测试通过，正式操作未执行。
+
+<a id="period-delivery-recovery-followup-implementation"></a>
+
+#### 12.16.9 五项开发、独立复核及隔离验收结果
+
+2026-10-28，dev-interface、开发基线88de377ca。第1—5项已落实，当前代码/测试与本节要求对账见[五项修复报告](../../reports/dg_stock_period_delivery_recovery_20261028/followup_1_5.md)。最终固定版本回归单次530项，**528通过、0失败，2项既有PG opt-in未启用**，136.39秒；10份生产代码、15份直接修改/新增测试运行前后SHA一致，见[指纹和总结果](../../reports/dg_stock_period_delivery_recovery_20261028/followup_fixed_version.json)及[最终XML](../../reports/dg_stock_period_delivery_recovery_20261028/followup-final-regression.xml)。未将多个重叠定向轮次相加为通过数。
+
+| 项 | 已落实现及验收 |
+| --- | --- |
+| 1 | run_period缓存先按原publish证明恢复唯一rename间隙，再核共同归属；真实中断、原ID恢复、1次摘要/0重复源或COPY、坏版本与多异常间隙拒绝通过 |
+| 2 | 原daily.pending_work登记/冻结/排序与SDK scope恢复，daily/history/handoff/CLI共用；真实原生job、无manifest/无daily/范围登记及phase/pending中断均通过，history无consumed、不推进水位 |
+| 3 | 共同scope和纯metadata规则迁移原生checks、readiness、首次/update/父成果/继承；两频坏日期/行数/版本0新增业务事件，合法周中/月中/2014首周及旧bootstrap首更均通过 |
+| 4 | confirm/replay/ack分开允许范围与整批；真实周线op、混合当前/历史、中断、伪造/漂移及合法多后继通过；局部不动month或phase/pending，历史proof逐段内容与截点必须完整 |
+| 5 | 可信范围元数据列明确目标并在旧行读取前核归属；无自动全频定位。坏索引/未知目标0旧行情SQL/COPY，旧-only/新上市/换码/未选股及缓存恢复通过 |
+
+第一次固定回归505过/13失败/2跳过的原XML保留。13例旧夹具缺真实交接或范围输入，按独立字面事实、真实SDK确认和handoff补齐，原价格/行数/错误拒绝不改，定向13过；第4项proof漏内容校验先有7个真实失败反例，补修后均拒绝，未隐藏失败。第3项开发前两红例只有原工具输出、未生成XML，原独立审计脚本/JSON继续留证；不补造历史记录。原411项及PG证据仍归§12.15历史，SQL/SDK重执行接口未改，本轮没有重跑PG实验。
+
+开发后的独立审查补齐files_complete/ranges_recorded窗口的登记顺序和ack证明完整性，明确回写本节后实施；再复核未见五项仍待处理或待拍板的问题。全文旧扫描回退、局部频率、最新检查、history状态表、每频SQL及sensor历史状态表述已同步，不仅依靠“新节覆盖旧节”。CodeGraph sync/status、全src/tests致命Ruff、本次25文件默认Ruff、文档/链接与差异检查通过。
+
+读取/写入与原预算对账见报告：新增元数据准入0行情读；历史ack不新增DG查询，真实两频共享后继manifest读1次、complete读0次、committed各1次；2/100容量仍为明确metadata/stat样本，不能冒称全市场行情审计。指定临时Lake/staging/SQLite/工作文件已删除，小型失败及验证证据保留，见[清理记录](../../reports/dg_stock_period_delivery_recovery_20261028/followup_temp_cleanup.json)。
+
+本轮修复、测试及文档证据随本次提交保存，提交号以Git记录为准；未推送、未部署/加载定义、未访问正式行情/Tushare/Prod、未执行正式状态修复/补数/sensor或cursor操作。§12.11—12.12正式步骤保持未执行；本节隔离通过不代替其授权、精确预核和实际数据范围批准。

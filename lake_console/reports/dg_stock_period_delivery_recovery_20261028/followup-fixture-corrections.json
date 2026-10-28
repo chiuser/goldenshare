@@ -1,0 +1,50 @@
+{
+  "original_red_evidence": {
+    "path": "/Users/congming/github/goldenshare/lake_console/reports/dg_stock_period_delivery_recovery_20261028/followup-fixed-regression.xml",
+    "sha256": "c1eb91c4946edd7d2d05fd40da8e57ae425711034a8f9f9feeb3dc05bd357fd9",
+    "tests": 520,
+    "failed": 13,
+    "skipped": 2,
+    "preserved": true,
+    "compressed_archive": {
+      "path": "followup-fixed-regression.xml.gz",
+      "format": "gzip",
+      "raw_xml_sha256": "c1eb91c4946edd7d2d05fd40da8e57ae425711034a8f9f9feeb3dc05bd357fd9",
+      "archive_sha256": "b899bcc56d4b9d00d0579ce7cda2b89145e980f35853b678aec41033bad635d3",
+      "raw_bytes_preserved": true,
+      "reason": "Preserve the exact original pytest failure traceback, including tool-generated trailing whitespace, in Git."
+    }
+  },
+  "targeted_recheck": {
+    "xml": "/private/tmp/dg-period-thirteen-fixtures-20261028.xml",
+    "tests": 13,
+    "passed": 13,
+    "failed": 0,
+    "skipped": 0,
+    "duration_seconds": 2.86
+  },
+  "production_code_changed_in_this_correction": false,
+  "fixture_contract_corrections": {
+    "memory_resume_1": "The old test used history+bootstrap_parent on files_ready baseline before handoff. It now closes actual SDK Mat/check/notice facts, runs the real tiny handoff, verifies ready and both literal watermarks, then keeps the original real history refresh and CLI RSS override rejection/manifest immutability assertions.",
+    "storage_2": "The replacement history assembly now receives the actual initial publish identity plus an independent literal single-week code range and original index version/hash. The missing/changed mutation and publish preimage rejection assertions remain.",
+    "update_2": "Daily planner unit fixtures now include both period watermarks persisted by the real handoff. File-producer substitution remains explicit; original factor notification, failure preservation and midweek business assertions remain.",
+    "sensor_6": "The shared weekly/monthly fixture now includes the independent prior factor_through required for a complete handoff. Original run request, calendar rejection, closed-day skip and cursor assertions remain.",
+    "monthly_definitions_2": "Actual weekly/monthly job fixture contains both literal prior watermarks, preserving the real source row counts, partition and original three blocking checks."
+  },
+  "modified_test_sha256": {
+    "tests/test_stock_period_memory_resume.py": "a2f57882285d2a4199f35e50c1597f5bec37b528ffe4a3160af910ea856135fa",
+    "tests/test_stock_period_storage.py": "8915bb632c9ae4e2cfcfbe34b45ad9f70516c794c04ab1552db0fd6084e8bfa3",
+    "tests/test_stock_period_update.py": "d6c2b17403627566c489f6db7ff4f197098037b51ce148e84307b4114f9daf11",
+    "tests/test_raw_stock_weekly_update_job_sensor.py": "6ea617b9572f75b154119e0308bb21d1f0cc63b494be4b83f275f181bd3c74d1",
+    "tests/test_stock_monthly_definitions.py": "77c39ea1e77a234c0faa56aa63251194d7a97294128a2010cd654be84b6c267b"
+  },
+  "ruff": "Default ruff check --no-cache passed on the five modified and one importing monthly-sensor test files.",
+  "formal_resource_access": false,
+  "installed_dependencies": false,
+  "reran_full_regression": false,
+  "cleanup": {
+    "path": "/private/tmp/dg-period-fixture-fix-20261028",
+    "removed": true
+  },
+  "frozen": true
+}

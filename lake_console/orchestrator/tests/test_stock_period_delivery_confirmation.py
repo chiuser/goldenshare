@@ -97,8 +97,9 @@ def _emit(instance, result, *, checks="all", notice=True, materializations=True)
                 dg.AssetRecordsFilter(asset, asset_partitions=[item["period"]]), limit=1,
             ).records[0]
             produced[(item["freq"], item["period"])] = mat
-            if checks != "none":
-                _check_event(context, item, mat, passed=checks != "failed")
+            file_checks = checks.get(item["freq"], "all") if isinstance(checks, dict) else checks
+            if file_checks != "none":
+                _check_event(context, item, mat, passed=file_checks != "failed")
         if notice:
             for frequency in {item["freq"] for item in result["files"]}:
                 context.log_event(dg.AssetObservation(
@@ -322,10 +323,17 @@ def test_week_only_confirmation_does_not_touch_month_or_close_whole_batch(monkey
         monkeypatch.setattr(update, "_period_delivery_stat", no_month)
         confirmation = _confirm(case, allowed_frequencies={"week"})
         assert confirmation["events_complete"] is False
-        assert confirmation["reason"] == "current_events_incomplete"
+        assert confirmation["allowed_events_complete"] is True
+        assert confirmation["reason"] == "ok"
         assert set(confirmation["file_evidence"]) == {("week", "2026-10-23")}
-        with pytest.raises(ValueError, match="confirmation_invalid"):
-            _ack(case, confirmation)
+        outcome = _ack(case, confirmation)
+        assert outcome["allowed_events_complete"] is True
+        assert not outcome["events_complete"] and not outcome["pending_removed"]
+        run = Path(case["old"]["path"])
+        assert raw.read_json(run / "events/week/2026-10-23.json") == {
+            key: case["old"]["files"][0][key] for key in ("version", "sha256")
+        }
+        assert raw.read_json(run / "manifest.json")["phase"] == "files_complete"
         assert raw.read_json(case["staging"] / "stock_period/daily.json") == case["daily"]
 
 
