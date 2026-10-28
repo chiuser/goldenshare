@@ -55,7 +55,7 @@ def test_new_top_event_and_dif_break_precede_price_withdrawal():
     assert steps[-1].point["activeReference"] is None
 
 
-def test_color_flip_keeps_old_event_but_clears_current_state_and_zero_does_not_confirm():
+def test_color_flip_keeps_old_event_but_zero_can_confirm_by_actual_dif_turn():
     _, steps = run(BASE[:5] + [(101, 9.99, -2)])
     assert steps[-1].events[0]["route"] == "color_flip"
     assert steps[-1].point["ordinaryState"] == "NONE"
@@ -64,7 +64,8 @@ def test_color_flip_keeps_old_event_but_clears_current_state_and_zero_does_not_c
     _, steps = run(BASE[:5] + [(101, 13, -2)])
     assert steps[-1].events[0]["route"] == "dif_break_on_flip"
     _, steps = run(BASE[:5] + [(101, 9, 0)])
-    assert not steps[-1].events and steps[-1].point["ordinaryState"] == "NONE"
+    assert [(e["type"], e["route"]) for e in steps[-1].events] == [("STRUCTURE", "dif_turn")]
+    assert steps[-1].point["ordinaryState"] == "STRUCTURE"
 
 
 def test_bottom_event_and_historical_withdrawal_can_coexist():
@@ -75,7 +76,7 @@ def test_bottom_event_and_historical_withdrawal_can_coexist():
         ("BOTTOM", "DULL"), ("TOP", "RESEARCH_HISTORICAL_WITHDRAWAL")]
 
 
-def test_raw_two_pool_strongest_eligible_tie_and_nearest_price_gate():
+def test_raw_two_pool_nearest_then_farther_and_strict_price_gate():
     prefix = [(100, 50, 2), (90, 0, -2), (110, 40, 2), (90, 0, -2), (120, 20, 2), (90, 0, -2)]
     _, steps = run(prefix + [(121, 30, 2), (122, 31, 2)])
     assert steps[-1].events[0]["eventReference"]["dif"] == 40  # third older 50 cannot enter pool
@@ -138,14 +139,14 @@ BOTTOM = [(200-c, -d, -h) for c, d, h in BASE]
 
 
 def test_bottom_freezes_original_close_low_and_waits_for_origin_exit():
-    calc, steps = run(BOTTOM + [(96, -9.75, -2), (98, -9.74, 0), (96.5, -9.7, -2), (95, -9.6, -2)])
+    calc, steps = run(BOTTOM + [(96, -9.75, -2), (98, -9.74, 2), (96.5, -9.7, -2), (95, -9.6, -2)])
     created = steps[5].bottom_histories[0]
     assert created['priceLow'] == 97 and created['priceLowAt'] == '2020-01-06'
     assert created['originSegmentStart'] == '2020-01-04' and created['leftOriginAt'] is None
     assert created['structureEventId'] == steps[5].events[0]['id']
     assert steps[5].events[0]['relatedBottomHistoryId'] == created['id']
     assert not steps[6].events  # new low in the original negative segment is not B
-    assert steps[7].bottom_histories[0]['leftOriginAt'] == '2020-01-08'  # exact zero exits
+    assert steps[7].bottom_histories[0]['leftOriginAt'] == '2020-01-08'  # only real red leaves the original green segment
     event = steps[8].events[-1]
     assert event['direction'] == 'BOTTOM' and event['type'] == 'RESEARCH_HISTORICAL_WITHDRAWAL'
     assert event['relatedTopHistoryId'] is None and event['eventReference'] == created['originalReference']
@@ -204,7 +205,8 @@ def test_bottom_snapshot_restore_atomic_strict_and_can_rewind():
     from copy import deepcopy
     calc, _ = run(BOTTOM)
     origin = calc.snapshot()
-    calc.step(bars(BOTTOM + [(98, -9.8, 0)])[-1])
+    # LLD 3.3: a genuine red bar, rather than neutral zero, leaves the origin.
+    calc.step(bars(BOTTOM + [(98, -9.8, 2)])[-1])
     exited = calc.snapshot()
     assert exited['pendingBottomHistory']['leftOriginAt'] is not None
     calc.restore(origin)
@@ -240,9 +242,9 @@ def test_bottom_period_identity_and_step_snapshot_continuation(period):
     child = XxmCalculator(period=period, source_identity='B-test'); child.restore(calc.snapshot())
     assert [child.step(b) for b in values[6:]] == [calc.step(b) for b in values[6:]]
     assert calc.snapshot() == child.snapshot()
-    assert calc.spec.algorithm_version == 'xxm-direction-v0.1-r2'
-    # Approved r1 version plus immutable prebreak_strongest_eligible_v1 policy.
-    assert calc.spec.spec_hash == '6db425730c72f22ea756c121a832f27c966d1324ef0a72a2312a3c572038724d'
+    assert calc.spec.algorithm_version == 'xxm-direction-v0.1-r4'
+    # Fixed formal fields from LLD section 2.2, verified independently in Spec tests.
+    assert calc.spec.spec_hash == 'ebd2afeefd470e19520daa8f86467d58977b02134313b9363a95e71c6b9e356e'
 
 
 def test_new_top_structure_and_bottom_history_disappearance_are_independent_on_same_bar():
@@ -291,7 +293,7 @@ def same_segment_setup(gate=1.):
     return c
 
 
-@pytest.mark.parametrize('gate', [.75,1.,1.2])
+@pytest.mark.parametrize('gate', [1.0])
 def test_disappearance_wait_reactivation_and_original_low_are_separate(gate):
     c = same_segment_setup(gate)
     structure = c.pending_bottom_history['structureEventId']
@@ -309,7 +311,7 @@ def test_disappearance_wait_reactivation_and_original_low_are_separate(gate):
     assert c.pending_bottom_history['structureEventId'] != structure
 
 
-@pytest.mark.parametrize('gate', [.75,1.,1.2])
+@pytest.mark.parametrize('gate', [1.0])
 def test_qualifying_return_is_dull_without_green_and_preserves_successor_structure(gate):
     c = same_segment_setup(gate)
     original_structure = c.pending_bottom_history['structureEventId']
@@ -342,12 +344,18 @@ def test_return_keeps_nearest_price_gate_and_true_reference_break_priority():
 
 
 @pytest.mark.parametrize('hist', [0.,2.])
-def test_color_or_zero_releases_wait_without_fabricated_cancel(hist):
+def test_real_red_releases_wait_but_zero_retains_wait_without_fabricated_cancel(hist):
     c = same_segment_setup(); c.step(same_segment_bar(7,100,-9))
     step = c.step(same_segment_bar(8,101,-9.2,hist))
-    assert not step.events and c.pending_rearm is None
-    assert step.rearm_records[0]['status'] == 'SEGMENT_ENDED'
-    assert step.rearm_records[0]['endReason'] == ('zero' if hist == 0 else 'color_flip')
+    assert not step.events
+    if hist == 0:
+        assert c.pending_rearm is not None
+        assert step.rearm_records[0]['status'] == 'WAITING'
+        assert step.rearm_records[0]['endReason'] is None
+    else:
+        assert c.pending_rearm is None
+        assert step.rearm_records[0]['status'] == 'SEGMENT_ENDED'
+        assert step.rearm_records[0]['endReason'] == 'color_flip'
 
 
 def test_reference_and_price_equalities_and_true_dif_break():

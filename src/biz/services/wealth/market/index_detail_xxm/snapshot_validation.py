@@ -64,6 +64,8 @@ def _time(value: Any, period: XxmPeriod, upper: str | None = None) -> None:
 def _wave(value: Any, *, period: XxmPeriod, processed: int, upper: str) -> Wave:
     raw = _fields(value, _WAVE_FIELDS, "Wave")
     _integer(raw["sign"], minimum=-1, maximum=1)
+    if raw["sign"] == 0:
+        raise ValueError("A logical Wave must be red or green")
     _integer(raw["count"], minimum=1, maximum=processed)
     _number(raw["price"], positive=True)
     _number(raw["dif"])

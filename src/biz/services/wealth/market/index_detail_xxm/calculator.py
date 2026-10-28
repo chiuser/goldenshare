@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from dataclasses import asdict
+from dataclasses import asdict, replace
 import hashlib
 import math
 from typing import Any
@@ -14,7 +14,10 @@ from .types import Wave, XxmBar, XxmBottomHistory, XxmPeriod, XxmRearmRecord, Xx
 class XxmCalculator:
     """Causal bounded state. Callers keep the immutable event/point ledger."""
 
-    def __init__(self, *, period: XxmPeriod, source_identity: str, ts_code: str = "000001.SH", spec: XxmSpec = MAIN_SPEC) -> None:
+    def __init__(self, *, period: XxmPeriod, source_identity: str, ts_code: str = "000001.SH",
+                 spec: XxmSpec = MAIN_SPEC, record_decisions: bool = False) -> None:
+        if type(record_decisions) is not bool:
+            raise ValueError("record_decisions must be a boolean")
         if ts_code != "000001.SH" or period not in ("day", "m60", "m90", "m120") or not source_identity:
             raise ValueError("Unsupported XXM identity")
         self.period, self.source_identity, self.ts_code, self.spec = period, source_identity, ts_code, spec
@@ -27,159 +30,285 @@ class XxmCalculator:
         self.pending_bottom_history: XxmBottomHistory | None = None
         self.pending_rearm: XxmRearmRecord | None = None
         self.processed = 0
+        self.record_decisions = record_decisions
+        self._decision_context: dict[str, Any] | None = None
 
     def _id(self, *parts: Any) -> str:
         identity = [self.spec.algorithm_version, self.spec.spec_hash, self.ts_code, self.period, *parts]
         return hashlib.sha256("|".join(map(str, identity)).encode()).hexdigest()[:24]
 
+    def _point(self, bar: XxmBar) -> dict[str, Any]:
+        sign = self.wave.sign if self.wave is not None else 0
+        return {"time": bar.time, "close": bar.close, "dif": bar.dif, "dea": bar.dea, "hist": bar.hist,
+                "ordinaryState": self.state,
+                "ordinaryDirection": ("TOP" if sign == 1 else "BOTTOM") if self.state != "NONE" else None,
+                "activeReference": self.reference.reference() if self.reference else None,
+                "pendingTopHistoryId": self.pending["id"] if self.pending else None,
+                "pendingBottomHistoryId": self.pending_bottom_history["id"] if self.pending_bottom_history else None,
+                "pendingRearmId": self.pending_rearm["id"] if self.pending_rearm else None}
+
+    def _begin_decision(self, bar: XxmBar) -> None:
+        previous = self.previous.dif if self.previous else None
+        self._decision_context = {
+            "time": bar.time, "rawSign": (bar.hist > 0) - (bar.hist < 0),
+            "before": {"state": self.state, "reference": self.reference.reference() if self.reference else None,
+                       "wave": asdict(self.wave) if self.wave else None, "previousDif": previous},
+            "referenceChecks": [], "selectionCalls": [], "selectionStage": "activation",
+            "turn": {"previousDif": previous, "currentDif": bar.dif, "threshold": None,
+                     "referenceBroken": None, "checked": False, "reason": "未进入相邻DIF转折分支"},
+            "rearm": {"blocked": False, "status": None, "referenceBroken": None}, "switched": False,
+        }
+
+    def _record_reference_check(self, stage: str, name: str, candidate: Wave, *, checked: bool = False,
+                                price: bool | None = None, dif: bool | None = None, reason: str) -> None:
+        if self._decision_context is not None:
+            self._decision_context["referenceChecks"].append({
+                "stage": stage, "candidate": name, "wave": asdict(candidate), "checked": checked,
+                "pricePassed": price, "difPassed": dif, "reason": reason,
+            })
+
+    def _selection_result(self, selected: Wave | None) -> Wave | None:
+        context = self._decision_context
+        if context is not None:
+            context["selectionCalls"].append({"stage": context["selectionStage"],
+                                               "selected": selected.reference() if selected else None})
+        return selected
+
+    def _finish_step(self, result: XxmStep) -> XxmStep:
+        context = self._decision_context
+        if context is None:
+            return result
+        ordinary = next((event for event in result.events if event["type"] != "RESEARCH_HISTORICAL_WITHDRAWAL"), None)
+        if ordinary is not None:
+            branch, reason = ordinary["route"], "实际普通事件：" + ordinary["type"] + "/" + ordinary["route"]
+        elif context["rearm"]["blocked"]:
+            branch, reason = "waiting", "等待处理阻断本根首次或相邻转折判断"
+        elif context["switched"]:
+            branch, reason = "reference_switch", "B已突破且A合格，当根切换并保持钝化"
+        elif self.wave is None:
+            branch, reason = "leading_zero", "开头零柱尚无逻辑色段"
+        elif context["before"]["wave"] is not None and context["before"]["wave"]["sign"] != self.wave.sign:
+            branch, reason = "segment_changed", "真实柱色改变，本根无普通事件"
+        elif self.reference is not None:
+            branch, reason = "retained", "沿用已有参照，本根无普通事件"
+        else:
+            branch, reason = "no_activation", "未达到首次钝化条件"
+        if context["switched"] and ordinary is not None:
+            reason = "当根已从B切换到A；" + reason
+        if not context["selectionCalls"] and self.wave is not None:
+            for i, candidate in enumerate(reversed(self.history[self.wave.sign])):
+                self._record_reference_check("not_entered", "B" if i == 0 else "A", candidate,
+                                             reason="未调用参照选择：" + reason)
+        decision = {key: context[key] for key in (
+            "time", "rawSign", "before", "referenceChecks", "selectionCalls", "turn", "rearm", "switched")}
+        decision.update(wave=asdict(self.wave) if self.wave else None,
+                        referenceAfter=self.reference.reference() if self.reference else None,
+                        branch=branch, reason=reason)
+        return replace(result, decision=deepcopy(decision))
+
     def step(self, bar: XxmBar) -> XxmStep:
         bar.validate(self.period)
         if self.previous is not None and bar.time <= self.previous.time:
             raise ValueError("Duplicate or unordered XXM input")
-        sign = (bar.hist > 0) - (bar.hist < 0)
-        old_wave, old_state = self.wave, self.state
-        event_type, route, direction, event_ref = "", "", 0, None
-        if old_wave is None or sign != old_wave.sign:
-            if old_wave is not None and old_wave.sign:
-                old_sign = old_wave.sign
-                if sign == -old_sign and self.reference is not None:
-                    if old_sign * (bar.dif - self.reference.dif) > 0:
-                        event_type, route = "CANCEL", "dif_break_on_flip"
-                    elif self.state == "DULL":
-                        event_type, route = "STRUCTURE", "color_flip"
-                    if event_type:
-                        direction, event_ref = old_sign, self.reference
-                pool = self.history[old_sign]
-                pool.append(deepcopy(old_wave))
-                del pool[:-self.spec.max_refs]
-            self.wave = Wave(sign, bar.time, bar.time, 0, bar.close, bar.dif, bar.time, bar.time)
-            self.state, self.reference = "NONE", None
-        wave = self.wave
-        assert wave is not None
-        wave.count += 1
-        wave.end = bar.time
-        if sign * (bar.close - wave.price) > 0:
-            wave.price, wave.price_at = bar.close, bar.time
-        if sign * (bar.dif - wave.dif) > 0:
-            wave.dif, wave.dif_at = bar.dif, bar.time
-        blocked, reactivated, rearm_records = self._advance_rearm(bar)
-        if reactivated is not None:
-            event_type, route, direction, event_ref = "DULL", "reactivation", -1, reactivated
-        if not event_type and not blocked:
-            if reactivated is None:
-                self._rescue_bottom_dull_reference(bar, old_wave, old_state)
-            ref = self.reference
-            if sign and ref is not None and sign * (wave.dif - ref.dif) > 0:
-                event_type, route, direction, event_ref = "CANCEL", "dif_break", sign, ref
+        if self.record_decisions:
+            self._begin_decision(bar)
+        try:
+            raw_sign = (bar.hist > 0) - (bar.hist < 0)
+            old_wave, old_state = self.wave, self.state
+            if old_wave is None and raw_sign == 0:
+                self.previous = bar
+                self.processed += 1
+                return self._finish_step(XxmStep(self._point(bar), (), (), (), ()))
+            true_flip = old_wave is not None and raw_sign == -old_wave.sign
+            event_type, route, direction, event_ref = "", "", 0, None
+            if old_wave is None or true_flip:
+                if old_wave is not None:
+                    old_sign = old_wave.sign
+                    if self.reference is not None:
+                        broken_on_flip = old_sign * (bar.dif - self.reference.dif) > 0
+                        if self._decision_context is not None:
+                            self._decision_context["turn"].update(referenceBroken=broken_on_flip, reason="真实翻色，未检查相邻转折")
+                        if broken_on_flip:
+                            event_type, route = "CANCEL", "dif_break_on_flip"
+                        elif self.state == "DULL":
+                            event_type, route = "STRUCTURE", "color_flip"
+                        if event_type:
+                            direction, event_ref = old_sign, self.reference
+                    pool = self.history[old_sign]
+                    pool.append(deepcopy(old_wave))
+                    del pool[:-self.spec.max_refs]
+                self.wave = Wave(raw_sign, bar.time, bar.time, 0, bar.close, bar.dif, bar.time, bar.time)
                 self.state, self.reference = "NONE", None
-            elif sign and ref is not None and self.previous is not None:
-                basis = self.previous.dif
-                delta = sign * (bar.dif - basis)
-                gate = abs(basis) * self.spec.dif_turn_pct / 100
-                if basis != 0 and self.state == "DULL" and delta < 0 and -delta >= gate:
-                    event_type, route, self.state = "STRUCTURE", "dif_turn", "STRUCTURE"
-                elif basis != 0 and self.state == "STRUCTURE" and delta > 0 and delta >= gate:
-                    if sign == -1 and not self._qualifies_bottom_close(bar, ref, self.history[-1][-1].price):
-                        original = self.pending_bottom_history
-                        if original is None:
-                            raise ValueError("Same-segment structure has no BOTTOM history")
-                        rearm_records = (self._start_rearm(bar, ref, original),)
-                        event_type, route, self.state = "STRUCTURE_DISAPPEARED", "dif_return", "NONE"
-                        self.reference = None
-                    else:
-                        event_type, route, self.state = "DULL", "dif_return", "DULL"
-                if event_type:
-                    direction, event_ref = sign, ref
-            elif (sign and wave.count >= self.spec.min_bars and self.history[sign]
-                  and (sign != 1 or bar.dif > 0)):
-                candidate = self._select_eligible_reference(wave, self.history[sign])
-                if candidate is not None:
-                    self.reference = deepcopy(candidate)
-                    event_type, route, direction, event_ref = "DULL", "activation", sign, self.reference
-                    self.state = "DULL"
-        events: list[dict[str, Any]] = []
-        if event_type:
-            events.append({"id": self._id(bar.time, event_type, direction, event_ref.start if event_ref else ""), "time": bar.time,
-                           "direction": "TOP" if direction == 1 else "BOTTOM", "type": event_type, "route": route,
-                           "fromState": old_state, "eventReference": event_ref.reference() if event_ref else None,
-                           "relatedTopHistoryId": None, "relatedBottomHistoryId": None,
-                           "relatedRearmId": rearm_records[-1]["id"] if event_type == "STRUCTURE_DISAPPEARED" or route == "reactivation" else None})
-            if event_type == "STRUCTURE_DISAPPEARED":
-                events[0]["relatedBottomHistoryId"] = rearm_records[-1]["bottomHistoryId"]
-        ordinary_event = events[0] if event_type else None
-        histories: list[dict[str, Any]] = []
-        pending = self.pending
-        top_new = direction == 1 and event_type in ("DULL", "STRUCTURE")
-        if pending is not None:
-            pending["observedThrough"] = bar.time
-            pending["ageBars"] += 1
-            pending["negativeBars"] += int(sign < 0)
-            pending["zeroBars"] += int(sign == 0)
-            pending["colorChanges"] += int(self.previous is not None and sign != (self.previous.hist > 0) - (self.previous.hist < 0))
-            reason = None
-            if bar.dif > pending["originalReference"]["dif"]:
-                reason = "original_reference_break"
-            elif top_new:
-                reason = f"new_top_{event_type}"
-            elif bar.time > pending["confirmedAt"] and bar.close > pending["pricePeak"]:
-                reason = "historical_price_break"
-                events.append({"id": self._id(bar.time, "RESEARCH_HISTORICAL_WITHDRAWAL", pending["id"]), "time": bar.time,
-                               "direction": "TOP", "type": "RESEARCH_HISTORICAL_WITHDRAWAL", "route": "historical_price_break",
-                               "fromState": self.state, "eventReference": deepcopy(pending["originalReference"]),
-                               "relatedTopHistoryId": pending["id"], "relatedBottomHistoryId": None, "relatedRearmId": None})
-            if reason is not None:
-                pending.update(status="ENDED", endedAt=bar.time, endReason=reason)
-                self.pending = None
-            histories.append(deepcopy(pending))
-        if direction == 1 and event_type == "STRUCTURE":
-            assert event_ref is not None
-            peak_wave = wave if sign == 1 else old_wave
-            assert peak_wave is not None and peak_wave.sign == 1
-            history_id = self._id("history", bar.time, route, event_ref.start)
-            self.pending = {"id": history_id, "confirmedAt": bar.time, "confirmationRoute": route,
-                            "pricePeak": peak_wave.price, "pricePeakAt": peak_wave.price_at,
-                            "originalReference": event_ref.reference(), "status": "PENDING", "endedAt": None, "endReason": None,
-                            "observedThrough": bar.time, "ageBars": 0, "negativeBars": 0, "zeroBars": 0, "colorChanges": 0}
-            histories.append(deepcopy(self.pending))
-            events[0]["relatedTopHistoryId"] = history_id
-        bottom_events, bottom_histories = self._advance_bottom_history(bar, ordinary_event)
-        events.extend(bottom_events)
-        if ordinary_event is not None and direction == -1 and event_type == "STRUCTURE":
-            negative_wave = wave if sign == -1 else old_wave
-            if negative_wave is None or negative_wave.sign != -1:
-                raise ValueError("BOTTOM structure requires its original negative segment")
-            bottom_histories.append(self._start_bottom_history(bar, ordinary_event, negative_wave))
-        point = {"time": bar.time, "close": bar.close, "dif": bar.dif, "dea": bar.dea, "hist": bar.hist,
-                 "ordinaryState": self.state, "ordinaryDirection": ("TOP" if sign == 1 else "BOTTOM") if self.state != "NONE" else None,
-                 "activeReference": self.reference.reference() if self.reference else None,
-                 "pendingTopHistoryId": self.pending["id"] if self.pending else None,
-                 "pendingBottomHistoryId": self.pending_bottom_history["id"] if self.pending_bottom_history else None,
-                 "pendingRearmId": self.pending_rearm["id"] if self.pending_rearm else None}
-        self.previous = bar
-        self.processed += 1
-        return XxmStep(point, tuple(events), tuple(histories), tuple(bottom_histories), rearm_records)
+            wave = self.wave
+            assert wave is not None
+            sign = wave.sign
+            wave.count += int(raw_sign != 0)
+            wave.end = bar.time
+            if sign * (bar.close - wave.price) > 0:
+                wave.price, wave.price_at = bar.close, bar.time
+            if sign * (bar.dif - wave.dif) > 0:
+                wave.dif, wave.dif_at = bar.dif, bar.time
+            blocked, reactivated, rearm_records = self._advance_rearm(bar)
+            if self._decision_context is not None:
+                record = rearm_records[-1] if rearm_records else None
+                self._decision_context["rearm"].update(
+                    blocked=blocked, status=record["status"] if record else None)
+                if blocked:
+                    self._decision_context["turn"]["reason"] = "等待处理阻断相邻转折分支"
+            if reactivated is not None:
+                event_type, route, direction, event_ref = "DULL", "reactivation", -1, reactivated
+            if not event_type and not blocked:
+                if reactivated is None:
+                    self._rescue_dull_reference(bar, old_wave, old_state)
+                ref = self.reference
+                reference_broken = sign * (wave.dif - ref.dif) > 0 if ref is not None else None
+                if self._decision_context is not None:
+                    self._decision_context["turn"]["referenceBroken"] = reference_broken
+                    if reference_broken:
+                        self._decision_context["turn"]["reason"] = "原参照DIF已突破，优先取消"
+                if ref is not None and reference_broken:
+                    event_type, route, direction, event_ref = "CANCEL", "dif_break", sign, ref
+                    self.state, self.reference = "NONE", None
+                elif ref is not None and self.previous is not None:
+                    basis = self.previous.dif
+                    delta = sign * (bar.dif - basis)
+                    gate = abs(basis) * self.spec.dif_turn_pct / 100
+                    if self._decision_context is not None:
+                        self._decision_context["turn"].update(threshold=gate, checked=True,
+                            reason="相邻实际DIF按1%检查" if basis != 0 else "前值DIF为0，不触发转折")
+                    if basis != 0 and self.state == "DULL" and delta < 0 and -delta >= gate:
+                        event_type, route, self.state = "STRUCTURE", "dif_turn", "STRUCTURE"
+                    elif basis != 0 and self.state == "STRUCTURE" and delta > 0 and delta >= gate:
+                        if sign == -1 and not self._qualifies_bottom_close(bar, ref, self.history[-1][-1].price):
+                            original = self.pending_bottom_history
+                            if original is None:
+                                raise ValueError("Same-segment structure has no BOTTOM history")
+                            rearm_records = (self._start_rearm(bar, ref, original),)
+                            event_type, route, self.state = "STRUCTURE_DISAPPEARED", "dif_return", "NONE"
+                            self.reference = None
+                        else:
+                            event_type, route, self.state = "DULL", "dif_return", "DULL"
+                    if event_type:
+                        direction, event_ref = sign, ref
+                elif (wave.count >= self.spec.min_bars and self.history[sign]
+                      and (sign != 1 or bar.dif > 0)):
+                    candidate = self._select_eligible_reference(wave, self.history[sign])
+                    if candidate is not None:
+                        self.reference = deepcopy(candidate)
+                        event_type, route, direction, event_ref = "DULL", "activation", sign, self.reference
+                        self.state = "DULL"
+            events: list[dict[str, Any]] = []
+            if event_type:
+                events.append({"id": self._id(bar.time, event_type, direction, event_ref.start if event_ref else ""),
+                               "time": bar.time, "direction": "TOP" if direction == 1 else "BOTTOM",
+                               "type": event_type, "route": route, "fromState": old_state,
+                               "eventReference": event_ref.reference() if event_ref else None,
+                               "relatedTopHistoryId": None, "relatedBottomHistoryId": None,
+                               "relatedRearmId": rearm_records[-1]["id"]
+                               if event_type == "STRUCTURE_DISAPPEARED" or route == "reactivation" else None})
+                if event_type == "STRUCTURE_DISAPPEARED":
+                    events[0]["relatedBottomHistoryId"] = rearm_records[-1]["bottomHistoryId"]
+            ordinary_event = events[0] if event_type else None
+            histories: list[dict[str, Any]] = []
+            pending = self.pending
+            top_new = direction == 1 and event_type in ("DULL", "STRUCTURE")
+            if pending is not None:
+                pending["observedThrough"] = bar.time
+                pending["ageBars"] += 1
+                pending["negativeBars"] += int(raw_sign < 0)
+                pending["zeroBars"] += int(raw_sign == 0)
+                pending["colorChanges"] += int(true_flip)
+                reason = None
+                if bar.dif > pending["originalReference"]["dif"]:
+                    reason = "original_reference_break"
+                elif top_new:
+                    reason = f"new_top_{event_type}"
+                elif bar.time > pending["confirmedAt"] and bar.close > pending["pricePeak"]:
+                    reason = "historical_price_break"
+                    events.append({"id": self._id(bar.time, "RESEARCH_HISTORICAL_WITHDRAWAL", pending["id"]),
+                                   "time": bar.time, "direction": "TOP", "type": "RESEARCH_HISTORICAL_WITHDRAWAL",
+                                   "route": "historical_price_break", "fromState": self.state,
+                                   "eventReference": deepcopy(pending["originalReference"]),
+                                   "relatedTopHistoryId": pending["id"], "relatedBottomHistoryId": None,
+                                   "relatedRearmId": None})
+                if reason is not None:
+                    pending.update(status="ENDED", endedAt=bar.time, endReason=reason)
+                    self.pending = None
+                histories.append(deepcopy(pending))
+            if direction == 1 and event_type == "STRUCTURE":
+                assert event_ref is not None
+                peak_wave = wave if sign == 1 else old_wave
+                assert peak_wave is not None and peak_wave.sign == 1
+                history_id = self._id("history", bar.time, route, event_ref.start)
+                self.pending = {"id": history_id, "confirmedAt": bar.time, "confirmationRoute": route,
+                                "pricePeak": peak_wave.price, "pricePeakAt": peak_wave.price_at,
+                                "originalReference": event_ref.reference(), "status": "PENDING", "endedAt": None,
+                                "endReason": None, "observedThrough": bar.time, "ageBars": 0,
+                                "negativeBars": 0, "zeroBars": 0, "colorChanges": 0}
+                histories.append(deepcopy(self.pending))
+                events[0]["relatedTopHistoryId"] = history_id
+            bottom_events, bottom_histories = self._advance_bottom_history(bar, ordinary_event)
+            events.extend(bottom_events)
+            if ordinary_event is not None and direction == -1 and event_type == "STRUCTURE":
+                negative_wave = wave if sign == -1 else old_wave
+                if negative_wave is None or negative_wave.sign != -1:
+                    raise ValueError("BOTTOM structure requires its original negative segment")
+                bottom_histories.append(self._start_bottom_history(bar, ordinary_event, negative_wave))
+            point = self._point(bar)
+            self.previous = bar
+            self.processed += 1
+            return self._finish_step(XxmStep(point, tuple(events), tuple(histories), tuple(bottom_histories), rearm_records))
+        finally:
+            self._decision_context = None
 
     def _select_eligible_reference(self, wave: Wave, history: list[Wave]) -> Wave | None:
         if not history or wave.count < self.spec.min_bars:
-            return None
-        sign = wave.sign
-        pool = list(reversed(history))
-        if sign * (wave.price - pool[0].price) <= 0:
-            return None
-        pool.sort(key=lambda candidate: sign * candidate.dif, reverse=True)
-        return next((candidate for candidate in pool
-                     if sign * (wave.price - candidate.price) > 0
-                     and sign * (wave.dif - candidate.dif) < 0), None)
+            return self._selection_result(None)
+        pool = list(reversed(history))[:self.spec.max_refs]
+        stage = self._decision_context["selectionStage"] if self._decision_context is not None else "activation"
+        nearest_price = wave.sign * (wave.price - pool[0].price) > 0
+        self._record_reference_check("nearest_price_gate", "B", pool[0], checked=True, price=nearest_price,
+                                     reason="最近B收盘门槛通过" if nearest_price else "未严格突破最近B收盘门槛")
+        if not nearest_price:
+            if len(pool) == 2:
+                self._record_reference_check(stage, "A", pool[1], reason="B价格门槛未过，未检查A")
+            return self._selection_result(None)
+        for index, candidate in enumerate(pool):
+            price = nearest_price if index == 0 else wave.sign * (wave.price - candidate.price) > 0
+            dif = wave.sign * (wave.dif - candidate.dif) < 0 if price else None
+            self._record_reference_check(stage, "B" if index == 0 else "A", candidate,
+                                         checked=True, price=price, dif=dif,
+                                         reason="参照合格" if price and dif else "DIF未严格背离" if price else "未突破该参照收盘")
+            if price and dif:
+                if index == 0 and len(pool) == 2:
+                    self._record_reference_check(stage, "A", pool[1], reason="B已合格，未检查A")
+                return self._selection_result(candidate)
+        return self._selection_result(None)
 
-    def _rescue_bottom_dull_reference(self, bar: XxmBar, old_wave: Wave | None, old_state: str) -> None:
+    def _rescue_dull_reference(self, bar: XxmBar, old_wave: Wave | None, old_state: str) -> None:
         wave, ref = self.wave, self.reference
-        if (old_state != 'DULL' or self.state != 'DULL' or wave is None or wave is not old_wave
-                or wave.sign != -1 or bar.hist >= 0 or ref is None or self.pending_rearm is not None
-                or wave.dif >= ref.dif):
+        if (old_state != "DULL" or self.state != "DULL" or wave is None or wave is not old_wave
+                or wave.sign not in (-1, 1) or ref is None or self.pending_rearm is not None):
             return
-        candidate = self._select_eligible_reference(wave, self.history[-1])
-        if candidate is not None:
+        sign = wave.sign
+        raw_sign = (bar.hist > 0) - (bar.hist < 0)
+        if raw_sign not in (0, sign) or sign * (wave.dif - ref.dif) <= 0:
+            return
+        pool = list(reversed(self.history[sign]))[:self.spec.max_refs]
+        if len(pool) != 2 or ref.reference() != pool[0].reference():
+            return
+        context = self._decision_context
+        if context is not None:
+            context["selectionStage"] = "same_bar_rescue"
+        try:
+            candidate = self._select_eligible_reference(wave, self.history[sign])
+        finally:
+            if context is not None:
+                context["selectionStage"] = "activation"
+        if candidate is not None and candidate.reference() == pool[1].reference():
             self.reference = deepcopy(candidate)
+            if context is not None:
+                context["switched"] = True
 
     def snapshot(self) -> dict[str, Any]:
         return {"specHash": self.spec.spec_hash, "tsCode": self.ts_code, "period": self.period, "sourceIdentity": self.source_identity,
@@ -190,7 +319,7 @@ class XxmCalculator:
                 "pendingBottomHistory": deepcopy(self.pending_bottom_history), "pendingRearm": deepcopy(self.pending_rearm)}
 
     def _qualifies_bottom_close(self, bar: XxmBar, reference: Wave, nearest_price: float) -> bool:
-        return (bar.hist < 0 and self.wave is not None and self.wave.sign == -1
+        return (bar.hist <= 0 and self.wave is not None and self.wave.sign == -1
                 and self.wave.count >= self.spec.min_bars and bar.close < min(reference.price, nearest_price)
                 and self.wave.dif > reference.dif)
 
@@ -221,10 +350,13 @@ class XxmCalculator:
         if record is None:
             return False, None, ()
         assert self.wave is not None
-        if bar.hist >= 0 or self.wave.start != record["segmentStart"]:
-            return False, None, (self._end_rearm(bar, "SEGMENT_ENDED", "zero" if bar.hist == 0 else "color_flip"),)
+        if bar.hist > 0 or self.wave.start != record["segmentStart"]:
+            return False, None, (self._end_rearm(bar, "SEGMENT_ENDED", "color_flip"),)
         reference = Wave(**record["referenceWave"])
-        if bar.dif < reference.dif:
+        reference_broken = bar.dif < reference.dif
+        if self._decision_context is not None:
+            self._decision_context["rearm"]["referenceBroken"] = reference_broken
+        if reference_broken:
             return True, None, (self._end_rearm(bar, "INVALIDATED", "reference_dif_break"),)
         if bar.time > record["disappearedAt"] and self._qualifies_bottom_close(bar, reference, record["nearestPriceGate"]):
             self.reference, self.state = reference, "DULL"
@@ -239,14 +371,14 @@ class XxmCalculator:
             return [], []
         record["observedThrough"] = bar.time
         record["ageBars"] += 1
-        if record["leftOriginAt"] is None and bar.hist >= 0:
+        if record["leftOriginAt"] is None and bar.hist > 0:
             record["leftOriginAt"] = bar.time
         reason = None
         events = []
         if bar.dif < record["originalReference"]["dif"]:
             reason = "original_reference_break"
         elif ordinary_event is not None and ordinary_event["type"] == "STRUCTURE_DISAPPEARED":
-            if (record["leftOriginAt"] is not None or ordinary_event["relatedBottomHistoryId"] != record["id"]):
+            if record["leftOriginAt"] is not None or ordinary_event["relatedBottomHistoryId"] != record["id"]:
                 raise ValueError("Same-segment disappearance targets unrelated BOTTOM history")
             reason = "structure_disappeared"
         elif ordinary_event is not None and ordinary_event["direction"] == "BOTTOM" and ordinary_event["type"] in ("DULL", "STRUCTURE"):
@@ -270,7 +402,7 @@ class XxmCalculator:
         record: XxmBottomHistory = {
             "id": history_id, "structureEventId": structure_event["id"], "confirmedAt": bar.time,
             "confirmationRoute": structure_event["route"], "originSegmentStart": negative_wave.start,
-            "leftOriginAt": bar.time if bar.hist >= 0 else None,
+            "leftOriginAt": bar.time if bar.hist > 0 else None,
             "priceLow": negative_wave.price, "priceLowAt": negative_wave.price_at,
             "originalReference": deepcopy(structure_event["eventReference"]), "status": "PENDING",
             "endedAt": None, "endReason": None, "observedThrough": bar.time, "ageBars": 0,
@@ -332,7 +464,7 @@ class XxmCalculator:
                     or raw["direction"] != "BOTTOM" or raw["structureRoute"] != "dif_turn"
                     or state != "NONE" or reference is not None or bottom_history is not None
                     or previous is None or processed < 1 or wave is None or wave.sign != -1
-                    or previous.hist >= 0 or wave.end != previous.time or type(wave.count) is not int
+                    or previous.hist > 0 or wave.end != previous.time or type(wave.count) is not int
                     or not 1 <= wave.count <= processed
                     or raw["segmentStart"] != wave.start or raw["observedThrough"] != previous.time
                     or not math.isfinite(raw["nearestPriceGate"]) or raw["nearestPriceGate"] <= 0):
@@ -346,7 +478,7 @@ class XxmCalculator:
                     or saved not in history[-1] or not history[-1]
                     or raw["nearestPriceGate"] != history[-1][-1].price or wave.dif < saved.dif):
                 raise ValueError("Invalid saved rearm reference")
-            stamps = [raw[k] for k in ("segmentStart", "structureConfirmedAt", "disappearedAt", "observedThrough")]
+            stamps = [raw[key] for key in ("segmentStart", "structureConfirmedAt", "disappearedAt", "observedThrough")]
             stamps += [saved.start, saved.end, saved.price_at, saved.dif_at]
             for stamp in stamps:
                 XxmBar(stamp, 1., 0., 0., 0.).validate(self.period)
@@ -363,11 +495,18 @@ class XxmCalculator:
         return deepcopy(raw)
 
     def _validate_restored_state(self, parsed: ParsedXxmSnapshot) -> None:
-        if parsed.processed:
-            previous = parsed.previous
-            if (previous is None or parsed.wave is None
-                    or parsed.wave.sign != (previous.hist > 0) - (previous.hist < 0)):
-                raise ValueError("r2 snapshot lost its current color segment")
+        if parsed.wave is None:
+            if (parsed.state != "NONE" or parsed.reference is not None or any(parsed.history.values())
+                    or parsed.pending is not None or parsed.pending_bottom_history is not None
+                    or parsed.pending_rearm is not None
+                    or (parsed.previous is not None and parsed.previous.hist != 0)):
+                raise ValueError("R4 leading-zero snapshot carries an active segment")
+            return
+        if (parsed.wave.sign not in (-1, 1) or parsed.previous is None
+                or (parsed.previous.hist > 0) - (parsed.previous.hist < 0) not in (0, parsed.wave.sign)):
+            raise ValueError("R4 snapshot lost its logical color segment")
+        if parsed.state != "NONE" and parsed.wave.count < self.spec.min_bars:
+            raise ValueError("An active r4 state requires two colored bars")
 
     def restore(self, snapshot: dict[str, Any]) -> None:
         # Build independent progress before publishing, including legal rewinds.
@@ -393,3 +532,4 @@ class XxmCalculator:
         self.wave, self.history, self.state, self.reference = parsed.wave, parsed.history, parsed.state, parsed.reference
         self.previous, self.pending, self.processed = parsed.previous, parsed.pending, parsed.processed
         self.pending_bottom_history, self.pending_rearm = parsed.pending_bottom_history, parsed.pending_rearm
+        self._decision_context = None

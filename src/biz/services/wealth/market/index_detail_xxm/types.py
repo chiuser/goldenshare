@@ -85,7 +85,77 @@ class XxmRearmRecord(TypedDict):
     observedThrough: str
     status: Literal["WAITING", "REACTIVATED", "INVALIDATED", "SEGMENT_ENDED"]
     endedAt: str | None
-    endReason: Literal["price_requalified", "reference_dif_break", "color_flip", "zero"] | None
+    endReason: Literal["price_requalified", "reference_dif_break", "color_flip"] | None
+
+
+class XxmReferenceFacts(TypedDict):
+    startTime: str
+    endTime: str
+    price: float
+    dif: float
+
+
+class XxmWaveFacts(TypedDict):
+    sign: int
+    start: str
+    end: str
+    count: int
+    price: float
+    dif: float
+    price_at: str
+    dif_at: str
+
+
+class XxmDecisionBefore(TypedDict):
+    state: Literal["NONE", "DULL", "STRUCTURE"]
+    reference: XxmReferenceFacts | None
+    wave: XxmWaveFacts | None
+    previousDif: float | None
+
+
+class XxmReferenceCheck(TypedDict):
+    stage: Literal["nearest_price_gate", "activation", "same_bar_rescue", "not_entered"]
+    candidate: Literal["B", "A"]
+    wave: XxmWaveFacts
+    checked: bool
+    pricePassed: bool | None
+    difPassed: bool | None
+    reason: str
+
+
+class XxmSelectionCall(TypedDict):
+    stage: Literal["activation", "same_bar_rescue"]
+    selected: XxmReferenceFacts | None
+
+
+class XxmTurnFacts(TypedDict):
+    previousDif: float | None
+    currentDif: float
+    threshold: float | None
+    referenceBroken: bool | None
+    checked: bool
+    reason: str
+
+
+class XxmRearmFacts(TypedDict):
+    blocked: bool
+    status: Literal["WAITING", "REACTIVATED", "INVALIDATED", "SEGMENT_ENDED"] | None
+    referenceBroken: bool | None
+
+
+class XxmDecision(TypedDict):
+    time: str
+    rawSign: int
+    before: XxmDecisionBefore
+    wave: XxmWaveFacts | None
+    referenceAfter: XxmReferenceFacts | None
+    referenceChecks: list[XxmReferenceCheck]
+    selectionCalls: list[XxmSelectionCall]
+    turn: XxmTurnFacts
+    rearm: XxmRearmFacts
+    switched: bool
+    branch: str
+    reason: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -95,3 +165,4 @@ class XxmStep:
     histories: tuple[dict[str, Any], ...]
     bottom_histories: tuple[XxmBottomHistory, ...]
     rearm_records: tuple[XxmRearmRecord, ...]
+    decision: XxmDecision | None = None

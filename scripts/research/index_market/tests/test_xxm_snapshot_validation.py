@@ -1,7 +1,7 @@
-"""LLD R4-16A: independent literal r2 progress, entirely in memory.
+"""LLD v1 sections 2–4: independent literal r4 progress, entirely in memory.
 
 These fixtures state the snapshot producer's actual field contract explicitly.
-IDs are derived independently from the registered r2 ID format, never by
+IDs are derived independently from the registered formal ID format, never by
 calling calculator._id or by replaying the calculator to create expected data.
 """
 from copy import deepcopy
@@ -14,6 +14,7 @@ from src.biz.services.wealth.market.index_detail_xxm.forecast_detector import cl
 from src.biz.services.wealth.market.index_detail_xxm.snapshot_validation import parse_xxm_snapshot
 from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from scripts.research.index_market.tests.xxm_product_v1_cases import CASES, PERIODS
 
 
 SOURCE = "snapshot-unit"
@@ -122,7 +123,7 @@ def assert_bad_rejected(snapshot):
     calc.restore(empty_snapshot())
     assert calc.processed == 0 and calc.state == "NONE"
     calc.step(XxmBar(D[0], 100, 0, 0, 0))
-    assert calc.processed == 1 and calc.wave.sign == 0
+    assert calc.processed == 1 and calc.wave is None
 
 
 @pytest.mark.parametrize("factory", [empty_snapshot, top_dull_snapshot, top_structure_snapshot,
@@ -384,17 +385,14 @@ def test_empty_snapshot_and_legal_rewind_work_on_used_calculator():
     assert calc.snapshot() == empty_snapshot()
 
 
-def test_r2_independent_zero_segment_is_legal_and_keeps_pending_history():
+def test_r2_independent_zero_segment_is_rejected_without_mutation():
     raw = top_structure_snapshot()
     raw.update(processed=7, state="NONE", reference=None,
         wave=wave(0, D[6], D[6], 1, 102, 9.7, D[6], D[6]),
         previous=previous(D[6], 102, 9.7, 9.7, 0))
     raw["history"]["1"].append(wave(1, D[3], D[5], 3, 103, 10, D[5], D[4]))
     raw["pending"].update(observedThrough=D[6], ageBars=1, zeroBars=1, colorChanges=1)
-    calc = calculator()
-    calc.restore(raw)
-    assert calc.wave.sign == 0 and calc.pending["pricePeak"] == 103
-    assert calc.snapshot() == raw
+    assert_bad_rejected(raw)
 
 
 def test_historical_original_reference_may_have_left_recent_pool():
@@ -438,3 +436,135 @@ def test_unknown_program_errors_are_not_swallowed_or_published(monkeypatch):
     assert calc.snapshot() == before
     calc.restore(top_structure_snapshot())
     assert calc.state == "STRUCTURE"
+
+
+@pytest.mark.parametrize("state", ["DULL", "STRUCTURE"])
+def test_active_state_cannot_restore_with_only_one_colored_bar(state):
+    raw = top_dull_snapshot() if state == "DULL" else top_structure_snapshot()
+    raw["wave"]["count"] = 1
+    assert_bad_rejected(raw)
+    # The corresponding literal two/three-bar states remain legal.
+    good = top_dull_snapshot() if state == "DULL" else top_structure_snapshot()
+    calc = calculator()
+    calc.restore(good)
+    assert calc.snapshot() == good
+
+
+def test_zero_after_structure_retains_logical_wave_and_frozen_history():
+    # LLD section 3: this zero extends the existing red Wave without adding
+    # a colored bar or color change; the previously frozen 103 peak stays.
+    raw = top_structure_snapshot()
+    raw.update(processed=7, wave=wave(1, D[3], D[6], 3, 103, 10, D[5], D[4]),
+               previous=previous(D[6], 102, 9.7, 9.7, 0))
+    raw["pending"].update(observedThrough=D[6], ageBars=1, zeroBars=1)
+    calc = calculator()
+    calc.restore(raw)
+    assert calc.snapshot() == raw
+    result = calc.step(XxmBar(D[7], 101, 9.69, 8.69, 2))
+    assert not result.events and calc.state == "STRUCTURE"
+    assert calc.wave.count == 4 and calc.wave.start == D[3]
+    assert calc.pending["pricePeak"] == 103
+    assert calc.pending["zeroBars"] == 1 and calc.pending["colorChanges"] == 0
+
+
+def test_bottom_zero_has_not_left_original_green_segment():
+    raw = bottom_structure_snapshot()
+    raw.update(processed=6, wave=wave(-1, D[2], D[5], 3, 98, -6, D[3], D[2]),
+               previous=previous(D[5], 101, -5.85, -5.85, 0))
+    raw["pendingBottomHistory"].update(observedThrough=D[5], ageBars=1)
+    calc = calculator()
+    calc.restore(raw)
+    assert calc.snapshot() == raw
+    result = calc.step(XxmBar(D[6], 101, -5.84, -4.84, -2))
+    assert not result.events and calc.state == "STRUCTURE"
+    assert calc.pending_bottom_history["leftOriginAt"] is None
+    assert calc.pending_bottom_history["priceLow"] == 98
+
+
+def test_zero_waiting_restore_reactivates_saved_reference_without_count_increment():
+    raw = waiting_snapshot()
+    raw.update(processed=7, wave=wave(-1, D[2], D[6], 4, 98, -6, D[3], D[2]),
+               previous=previous(D[6], 100, -6, -6, 0))
+    raw["pendingRearm"]["observedThrough"] = D[6]
+    calc = calculator()
+    calc.restore(raw)
+    assert calc.snapshot() == raw
+    result = calc.step(XxmBar(D[7], 99, -6, -6, 0))
+    assert [(e["type"], e["route"]) for e in result.events] == [("DULL", "reactivation")]
+    assert calc.wave.count == 4 and calc.reference.start == D[0]
+    assert result.rearm_records[0]["endReason"] == "price_requalified"
+
+
+def test_all_zero_prefix_restores_without_creating_a_wave():
+    raw = empty_snapshot()
+    raw.update(processed=2, previous=previous(D[1], 101, 7, 7, 0))
+    calc = calculator()
+    calc.restore(raw)
+    assert calc.snapshot() == raw and calc.wave is None
+    result = calc.step(XxmBar(D[2], 102, 8, 7, 2))
+    assert not result.events and calc.wave.start == D[2] and calc.wave.count == 1
+    assert calc.history == {1: [], -1: []}
+
+
+@pytest.mark.parametrize("corruption", ["previous_color", "history", "wave_direction"])
+def test_logical_wave_and_leading_zero_relations_are_not_repaired(corruption):
+    if corruption == "wave_direction":
+        raw = top_dull_snapshot()
+        raw["previous"]["hist"] = -2
+    else:
+        raw = empty_snapshot()
+        raw.update(processed=2, previous=previous(D[1], 101, 7, 7, 0))
+        if corruption == "previous_color":
+            raw["previous"]["hist"] = 2
+        else:
+            raw["history"]["1"] = [wave(1, D[0], D[0], 1, 100, 8, D[0], D[0])]
+    assert_bad_rejected(raw)
+
+
+def test_actual_old_spec_hash_and_research_wrapper_are_rejected():
+    import json
+
+    # Explicit old producer contract, retained solely as a rejection input;
+    # this test never imports or executes an old detector or old Spec.
+    old_rules = {
+        "algorithm_version": "xxm-direction-v0.1-r2", "dif_turn_pct": 1.0,
+        "max_refs": 2, "min_bars": 2, "reference_policy": "strongest_eligible",
+        "macd_parameters": (12, 26, 9), "histogram_multiplier": 2,
+        "color_flip": True, "flip_requires_turn": False, "historical_price_only": True,
+        "fixed_expiry": None, "bottom_history_policy": "closed_origin_close_break_v1",
+        "same_segment_bottom_policy": "current_close_rearm_v1",
+        "bottom_dull_reference_policy": "prebreak_strongest_eligible_v1",
+    }
+    old_hash = hashlib.sha256(json.dumps(old_rules, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    assert old_hash != MAIN_SPEC.spec_hash
+    raw = top_dull_snapshot()
+    raw["specHash"] = old_hash
+    assert_bad_rejected(raw)
+    assert_bad_rejected({
+        "researchVersion": "xxm-research-r4-v2", "researchHash": "old-research-hash",
+        "tsCode": "000001.SH", "period": "day", "inputIdentity": SOURCE,
+        "parentState": top_dull_snapshot(),
+    })
+
+
+@pytest.mark.parametrize("case", CASES, ids=lambda case: case.name)
+@pytest.mark.parametrize("period", PERIODS)
+def test_every_p1_prefix_restores_and_continues_in_all_four_periods(case, period):
+    # This integration assertion covers producer/restore continuation only.
+    # The literal tests above and the separate P1 facts prove business values.
+    source = f"p1:{period}:{case.name}"
+    bars = tuple(XxmBar(**row) for row in case.inputs(period))
+    original = XxmCalculator(period=period, source_identity=source)
+    snapshots, steps = [original.snapshot()], []
+    for bar in bars:
+        steps.append(original.step(bar))
+        snapshots.append(original.snapshot())
+    for cutoff, snapshot in enumerate(snapshots):
+        incoming = deepcopy(snapshot)
+        child = XxmCalculator(period=period, source_identity=source)
+        # Legal rewinds must also work on an already used calculator.
+        child.restore(snapshots[-1])
+        child.restore(snapshot)
+        assert child.snapshot() == incoming and snapshot == incoming
+        assert [child.step(bar) for bar in bars[cutoff:]] == steps[cutoff:]
+        assert child.snapshot() == snapshots[-1]

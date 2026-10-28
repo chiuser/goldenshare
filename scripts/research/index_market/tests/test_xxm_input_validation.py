@@ -1,6 +1,6 @@
 """Artificial values for r4 LLD §3.2; no source data or dual replay.
 
-The six-bar sequence is hand checked from the registered r2 rules: its fifth
+The six-bar sequence is hand checked from the approved r4 rules: its fifth
 bar first activates TOP, and the sixth DIF falls 2%, forming a structure.
 """
 from copy import deepcopy
@@ -10,6 +10,7 @@ from datetime import date, datetime
 import pytest
 
 from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
+from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC, XxmSpec
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
 
 
@@ -74,7 +75,7 @@ def test_duplicate_or_reverse_time_rejects_without_advancing(stamp):
     assert calc.processed == 2 and calc.wave.sign == 1 and calc.wave.count == 1
 
 
-def test_normal_r2_hand_sequence_retains_original_policy_and_events():
+def test_normal_r4_hand_sequence_retains_approved_events():
     dates = ("2025-03-03", "2025-03-04", "2025-03-05", "2025-03-06", "2025-03-07", "2025-03-10")
     values = ((100, 10, 9, 2), (101, 12, 11, 2), (99, 9, 10, -2),
               (100, 9, 8, 2), (102, 10, 9, 2), (103, 9.8, 8.8, 2))
@@ -87,3 +88,49 @@ def test_normal_r2_hand_sequence_retains_original_policy_and_events():
     assert steps[5].events[0]["eventReference"] == {
         "startTime": "2025-03-03", "endTime": "2025-03-04", "price": 101, "dif": 12}
     assert calc.pending["pricePeak"] == 103 and calc.pending["confirmedAt"] == "2025-03-10"
+
+
+@pytest.mark.parametrize("field,value", [
+    ("algorithm_version", "xxm-direction-v0.1-r2"),
+    ("dif_turn_pct", 0.75), ("dif_turn_pct", 1.2), ("dif_turn_pct", 1),
+    ("dif_turn_pct", True), ("max_refs", 2.0), ("max_refs", True),
+    ("min_bars", 2.0), ("min_bars", True),
+    ("reference_policy", "strongest_eligible"),
+    ("active_reference_policy", "other"), ("zero_policy", "reset"),
+    ("allow_zero_activation", 1), ("allow_zero_activation", False),
+    ("allow_zero_reactivation", 1), ("allow_zero_reactivation", False),
+    ("macd_parameters", [12, 26, 9]), ("macd_parameters", (12.0, 26, 9)),
+    ("histogram_multiplier", 2.0), ("color_flip", 1),
+    ("flip_requires_turn", 0), ("historical_price_only", 1),
+    ("fixed_expiry", 0), ("bottom_history_policy", "other"),
+    ("same_segment_bottom_policy", "other"),
+])
+def test_formal_spec_has_one_exactly_typed_rule_set(field, value):
+    # LLD v1 section 2.2 fixes these values; numeric equality is insufficient.
+    with pytest.raises(ValueError):
+        XxmSpec(**{field: value})
+    assert XxmSpec() == MAIN_SPEC
+
+
+def test_formal_spec_contains_every_approved_rule_and_hashes_canonical_content():
+    from dataclasses import asdict
+    import hashlib
+    import json
+
+    # Independent literal contract from LLD v1 section 2.2, no research Spec.
+    expected = {
+        "algorithm_version": "xxm-direction-v0.1-r4", "dif_turn_pct": 1.0,
+        "max_refs": 2, "min_bars": 2, "reference_policy": "nearest_then_farther_two",
+        "active_reference_policy": "same_bar_near_to_far_on_dull_break",
+        "zero_policy": "neutral_real_opposite", "allow_zero_activation": True,
+        "allow_zero_reactivation": True, "macd_parameters": (12, 26, 9),
+        "histogram_multiplier": 2, "color_flip": True, "flip_requires_turn": False,
+        "historical_price_only": True, "fixed_expiry": None,
+        "bottom_history_policy": "closed_origin_close_break_v1",
+        "same_segment_bottom_policy": "current_close_rearm_v1",
+    }
+    assert asdict(MAIN_SPEC) == expected
+    canonical = json.dumps(expected, sort_keys=True, separators=(",", ":")).encode()
+    assert MAIN_SPEC.spec_hash == hashlib.sha256(canonical).hexdigest()
+    with pytest.raises(TypeError):
+        XxmSpec(bottom_dull_reference_policy="prebreak_strongest_eligible_v1")

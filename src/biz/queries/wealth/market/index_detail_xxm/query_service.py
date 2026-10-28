@@ -76,6 +76,9 @@ class SeriesEntry:
         current = self.calculator
         child = XxmCalculator(period=current.period, source_identity=current.source_identity,
                               ts_code=current.ts_code, spec=current.spec)
+        if count == 0:
+            check()
+            return child
         if count == len(self.processed):
             child.restore(current.snapshot())
             check()

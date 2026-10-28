@@ -7,7 +7,7 @@ from .forecast_math import source_options
 
 
 def clone(c):
-    child = XxmCalculator(period=c.period, source_identity=c.source_identity, spec=c.spec)
+    child = XxmCalculator(period=c.period, source_identity=c.source_identity, ts_code=c.ts_code, spec=c.spec)
     child.restore(c.snapshot())
     return child
 
