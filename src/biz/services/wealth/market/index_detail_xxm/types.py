@@ -19,17 +19,24 @@ class XxmBar:
     completed: bool = True
 
     def validate(self, period: XxmPeriod) -> None:
-        if not self.completed or self.close <= 0 or not all(
-            math.isfinite(v) for v in (self.close, self.dif, self.dea, self.hist)
-        ):
-            raise ValueError("XXM requires finite completed bars and positive closes")
-        if period == "day":
-            if date.fromisoformat(self.time).isoformat() != self.time:
-                raise ValueError("Invalid daily time")
-        else:
-            stamp = datetime.fromisoformat(self.time)
-            if stamp.utcoffset() != timedelta(hours=8):
-                raise ValueError("Minute endpoint must include +08:00")
+        values = (self.close, self.dif, self.dea, self.hist)
+        if (self.completed is not True or not isinstance(self.time, str) or not self.time
+                or any(type(value) not in (int, float) for value in values)):
+            raise ValueError("XXM requires numeric completed bars and a valid time")
+        try:
+            if self.close <= 0 or not all(math.isfinite(value) for value in values):
+                raise ValueError("XXM requires finite completed bars and positive closes")
+            if period == "day":
+                if date.fromisoformat(self.time).isoformat() != self.time:
+                    raise ValueError("Invalid daily time")
+            elif period in ("m60", "m90", "m120"):
+                stamp = datetime.fromisoformat(self.time)
+                if stamp.utcoffset() != timedelta(hours=8):
+                    raise ValueError("Minute endpoint must include +08:00")
+            else:
+                raise ValueError("Unsupported XXM period")
+        except (TypeError, OverflowError) as exc:
+            raise ValueError("Malformed XXM bar") from exc
 
 
 @dataclass(slots=True)

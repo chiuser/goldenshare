@@ -1,22 +1,23 @@
 # 徐小明r4算法优化LLD v0.1
 
-日期：2026-10-28。状态：**设计稿；采用r2规则登记和开发后代码审计，取消源码SHA保护。r2/r4共用单根行情及内存进度副本的安全检查，各自检查不同的零柱规则，改动已确认。零日决定及B1/B2分工保持。未开发或运行r4。**对应[方案](../../../../docs/product/xxm-r4-implementation-plan-v0.1.md)。本文对B阶段独立计算给出函数、处理顺序和验收；C阶段仅列必须同步的产品影响，产品编码前还须按B阶段结果完成§8门禁。本轮仅更新并提交文档，不进入开发。
+日期：2026-10-28。状态：**B1前共享安全检查及B1独立r4计算已实现，通过本轮人工验收及独立复核，停在B1；B2/C未执行。**对应[方案](../../../../docs/product/xxm-r4-implementation-plan-v0.1.md)。本文保留编码要求和批次边界，实际完成及未验范围统一见§10。未开发比较器、运行双组行情重放或替换现r2产品。
 
 ## 1. 固定范围
 
 r4仅改变：历史同色段B优先、A备选、最多两个；零柱不分段、不作反色、不计有色根数，已有状态仍按原1%和原参照检查。2026-10-28确认有色根数及其余条件满足时，零日也允许首次钝化和底部等待重新钝化。保持原始float输入、收盘价及累计段极值、1%、首次TOP当根DIF>0、真实换色独立确认、底部救援和历史/等待的其余政策。零柱引起的必要配合见§5，不以“其他不变”为由留下零日重置。
 
-当前r2判别规则与两位/日线独立成果保持。已批准的共享安全检查例外为产品目录`src/biz/services/wealth/market/index_detail_xxm/`中的`types.py:XxmBar.validate`、新增`snapshot_validation.py`、`calculator.py:XxmCalculator.restore`及新增恢复状态检查和对应测试；§3.2/§3.3/§5.4明确改动边界。其余产品逐根判别分支、MAIN_SPEC、页面、API及封存原件不改，不安装、启动服务或保存结果。B1逐根计算不自行读取行情，B2来源接入与比较计算分开；r4不新增读取源码、比对源码SHA或检查源码正文完全相同的保护，改按§3.1登记规则并在开发后审计实际代码。正常代码开发/审阅仍须查看当前实现，不等于把源码文件作为运行时算法输入。本轮只写文稿，不访问数据库或运行r4。生产模块不得导入研究目录。
+当前r2判别规则与两位/日线独立成果保持。已批准的共享安全检查例外为产品目录`src/biz/services/wealth/market/index_detail_xxm/`中的`types.py:XxmBar.validate`、新增`snapshot_validation.py`、`calculator.py:XxmCalculator.restore`及新增恢复状态检查和对应测试；§3.2/§3.3/§5.4明确改动边界。其余产品逐根判别分支、MAIN_SPEC、页面、API及封存原件不改，不安装、启动服务或保存结果。B1逐根计算不自行读取行情，B2来源接入与比较计算分开；r4不新增读取源码、比对源码SHA或检查源码正文完全相同的保护，改按§3.1登记规则并在开发后审计实际代码。正常代码开发/审阅仍须查看当前实现，不等于把源码文件作为运行时算法输入。本轮实现B1前及B1，只运行人工输入测试，不访问数据库或实际行情。生产模块不得导入研究目录。
 
 ## 2. 已核源码及依赖
 
-| 位置 | 当前处理 | r4落点 |
+| 位置 | 开工前处理 | r4落点 |
 |---|---|---|
 | `src/biz/services/wealth/market/index_detail_xxm/calculator.py:step` | hist正负零分别切段；累积价格/DIF；1%状态转换 | B阶段在独立研究类复制该step并限定修改；C阶段才替换产品 |
 | 同文件`_select_eligible_reference` | 最近价门槛后按DIF强弱排序 | B→A固定时间顺序 |
 | 同文件`_rescue_bottom_dull_reference` | 已有底钝化在参照突破前寻找替代 | 保留触发条件；按逻辑段方向允许零日，选峰调用同一B→A函数 |
 | 同文件`_advance_rearm/_advance_bottom_history/_start_bottom_history` | hist>=0会结束底部原段/等待 | 零不结束；符合条件的零日重新钝化；真实红柱才退出原绿段；原DIF/当根收盘规则和关联保留 |
 | 同文件`snapshot/restore/_validate_rearm_snapshot` | restore已先解析后赋值；Wave、普通参照和顶部历史检查不全，等待要求previous.hist<0 | 补共用安全检查，保持副本字段/签名；r2保留独立零段，r4允许原绿逻辑段末根为零；研究身份独立 |
+| `src/biz/queries/wealth/market/index_detail_xxm/query_service.py:SeriesEntry.calculator_at/_load_series` | 最新复制和历史位置分别在calculator_at调用restore；追加行情前_load_series也恢复旧进度 | B1前按§7.1用人工输入直接验现查询调用，不改查询、缓存、API；C阶段的r4身份迁移另行实施 |
 | `types.py:Wave/XxmBar` | 色段方向、首末/count、价/DIF及位置；完成K线校验未明确排除bool数字和真值完成标志 | Wave不新增字段；XxmBar共享安全校验按§3.2收紧，r2/r4共同使用；count在r4只数有色柱 |
 | `spec.py:MAIN_SPEC` | `xxm-direction-v0.1-r2`，1%，max_refs=2，min_bars=2 | B阶段保持真实父Spec；新增研究Spec，不伪造产品Spec |
 | `forecast_entry.py:stable_reference_on_band` | 合格性证明含DIF排序 | C阶段按B→A顺序证明，不能由r2校验r4 |
@@ -28,20 +29,20 @@ r4仅改变：历史同色段B优先、A备选、最多两个；零柱不分段�
 
 ## 3. B阶段文件和身份
 
-拟新增到现研究主题：
+本轮文件和后续批次职责（实际完成见§10）：
 
 | 批次 | 文件/符号 | 职责和停点 |
 |---|---|---|
-| B1前共享检查 | 产品目录`types.py:XxmBar.validate`、`snapshot_validation.py:ParsedXxmSnapshot/parse_xxm_snapshot`、`calculator.py:restore/_validate_restored_state`；主题`tests/test_xxm_input_validation.py`及`test_xxm_snapshot_validation.py` | 按§3.2/§3.3/§5.4统一检查，验正常r2继续计算/预测复制、坏副本拒绝、失败不改原对象及§3.1规则审计；不检查源码SHA，不以前置恢复封存试验代替验收 |
+| B1前共享检查 | 产品目录`types.py:XxmBar.validate`、`snapshot_validation.py:ParsedXxmSnapshot/parse_xxm_snapshot`、`calculator.py:restore/_validate_restored_state`；主题`tests/test_xxm_input_validation.py`、`test_xxm_snapshot_validation.py`、`test_xxm_snapshot_consumers.py` | 按§3.2/§3.3/§5.4统一检查，完成R4-16A及R4-17：验正常r2继续/预测复制/现查询恢复、坏副本拒绝、失败不改原对象及§3.1规则审计；不以前置执行r4测试、源码SHA或封存试验代替验收 |
 | B1 | `scripts/research/index_market/xxm/r4_reference_trial.py:R4TrialSpec/R4Calculator` | 不可变研究规则、B→A选择、零日处理、独立编号和快照；共同输入调用同一XxmBar.validate；按规则登记交付审计，不开发源码指纹检查 |
-| B1 | 主题`tests/test_xxm_r4_reference_trial.py` | 选择、零日、历史/等待、快照/编号的独立人工序列；不运行双组行情重放 |
+| B1 | 主题`tests/test_xxm_r4_reference_trial.py` | 选择、零日、历史/等待、快照/编号的独立人工序列，含R4-16B的r4合法/错误副本；不运行双组行情重放 |
 | B2 | 同目录`r4_comparison.py:compare_r4` | 接收已验证同源XxmBar元组，以两个独立对象计算逐根结果和差异；不自己取行情，来源接入另按本步合同 |
 | B2 | 主题`tests/test_xxm_r4_comparison.py` | 先手写记录检比较，再按本步授权验同源输入、逐根差异、关联、预算和隔离 |
 | 各批收尾 | 主题README | 仅记录已完成批次和当前停点，不提前发布下一批运行命令或恢复封存模块 |
 
-B1先完成计算器及其人工验收，停止汇报；比较器代码和真实对照均归B2，不在B1提前实现或运行。B2前先完成实际来源、字段转换及只读保护交接，日期范围沿§6.1已定决定，不再重复询问。
+B1前完成共用检查、现r2的R4-16A及现查询的R4-17，不要求r4测试通过；随后B1实现r4计算器并完成R4-16B等人工验收，停止汇报。比较器代码和真实对照均归B2，不在B1提前实现或运行。B2前先完成实际来源、字段转换及只读保护交接，日期范围沿§6.1已定决定，不再重复询问。
 
-`R4TrialSpec`集中定义：`research_version='xxm-research-r4-v1'`、`reference_policy='nearest_then_farther_two'`、`zero_policy='neutral_real_opposite'`、`allow_zero_activation=True`、`allow_zero_reactivation=True`、`dif_turn_pct=1.0`、`max_refs=2`、`min_colored_bars=2`及1000根/20秒/256MiB/16MiB研究限额。两项allow_zero字段只登记本轮已确认规则，固定为True并进入规范序列化/hash；不是可切换试验参数，调用者不得传其他值或假扮MAIN_SPEC。它们只存在此不可变研究Spec，消费者是r4计算、身份/恢复、比较报告及研究测试；没有env、Settings、数据库、磁盘或页面配置。后续如需试其他规则，先改方案/LLD并review，再变更研究身份，不能静默复用本轮结果。
+`R4TrialSpec`集中定义：`research_version='xxm-research-r4-v1'`、`reference_policy='nearest_then_farther_two'`、`zero_policy='neutral_real_opposite'`、`allow_zero_activation=True`、`allow_zero_reactivation=True`、`dif_turn_pct=1.0`、`max_refs=2`、`min_colored_bars=2`及`max_input_bars=1000`、`deadline_seconds=20.0`、`max_memory_bytes=256*1024**2`、`max_result_bytes=16*1024**2`研究限额。两项allow_zero字段只登记本轮已确认规则，固定为True并进入规范序列化/hash；不是可切换试验参数，调用者不得传其他值或假扮MAIN_SPEC。它们只存在此不可变研究Spec，消费者是r4计算、身份/恢复、比较报告及研究测试；没有env、Settings、数据库、磁盘或页面配置。后续如需试其他规则，先改方案/LLD并review，再变更研究身份，不能静默复用本轮结果。
 
 研究hash只包含研究版本、完整r4规则（包括两个固定True的零日决定）及父MAIN_SPEC描述的规则身份，不包含源码文件路径、字节或SHA。该值只用于区分内存中的计算版本/事件和拒绝跨组恢复，不读取源码，也不证明代码是否被修改。父MAIN_SPEC仍使用现行真实r2，不伪造产品Spec。r2代码是否仍符合原业务规则，按§3.1登记、测试和开发后审计确认；本设计删除源码SHA清单，不再要求为r4固定新的文件指纹。
 
@@ -73,7 +74,7 @@ r2核心事实直接采用[当前代码总结v0.5第1—4节](../../../../docs/p
 
 统一实现落在现`XxmBar.validate(period)`，不在r4单写另一份。r2现step首行已调用它，r4复制step也须在任何状态变更前调用；恢复中的previous字段仍调用同一方法。方法签名和正常返回保持，不能借安全修正更改1%、取价、选峰、换色、救援、历史/等待、事件编号或MAIN_SPEC。
 
-| 检查项 | 当前r2事实 | 本轮统一要求 |
+| 检查项 | 开工前r2事实 | 本轮统一要求 |
 |---|---|---|
 | close/dif/dea/hist类型 | 仅按数值运算和math.isfinite检查，bool可能作为0/1通过 | 接受正常int/float，先排除bool及None/字符串/其他非法类型，再检查有限性；不隐式转数字或补值 |
 | completed | 仅按真值判断，1等也能通过 | 必须`completed is True`，False、0、1、字符串等均拒绝 |
@@ -82,17 +83,17 @@ r2核心事实直接采用[当前代码总结v0.5第1—4节](../../../../docs/p
 | 日期升序唯一 | r2.step在状态更新前已检查 | 两组保留该顺序，不把此检查搬到更新之后 |
 | 交易日/分钟端点完整性 | 产品`queries/wealth/market/index_detail_xxm/source.py:assert_continuous`已有来源核验 | 留B2来源层按实际合同核验，不在单根检查中猜日历，也不误称r2完全缺失 |
 
-本节单根输入改动只落types.py及相应测试，恢复改动另按§3.3/§5.4。非法输入在任何状态变更前拒绝，统一抛ValueError；拒绝后原计算器不变，合法下一根仍能继续。正例包括普通int/float、日线合法日期、合法分钟时区和零值指标；反例包括True/False数值、完成标志1或字符串、None、字符串数字、NaN/无穷、非法时间类型和逆序/重复输入。有效r2人工序列的point、事件、原参照和历史/等待关联必须与修改前独立预期完全一致；不拿重新计算出的结果生成expected。当前没有代码/验收结果，不预先声称正常输出已经验证一致。
+本节单根输入改动只落types.py及相应测试，恢复改动另按§3.3/§5.4。非法输入在任何状态变更前拒绝，统一抛ValueError；拒绝后原计算器不变，合法下一根仍能继续。正例包括普通int/float、日线合法日期、合法分钟时区和零值指标；反例包括True/False数值、完成标志1或字符串、None、字符串数字、NaN/无穷、非法时间类型和逆序/重复输入。有效r2人工序列的point、事件、原参照和历史/等待关联必须与修改前独立预期完全一致；不拿重新计算出的结果生成expected。本节已由§10的定向人工验收覆盖，不据此声称真实来源或产品整链通过。
 
 ### 3.3 共享内存进度副本检查（2026-10-28已确认）
 
-r2.restore当前已在局部变量中解析检查、最后才替换自身，保留此顺序并补齐Wave、普通reference及顶部pending等检查。`snapshot()`的字段、`restore(snapshot)->None`签名、规则身份、事件编号及现预测的`restore(snapshot())`调用保持；不新增副本格式版本、保存文件、恢复入口或配置项，不改step判别。坏副本被更明确地拒绝，正常副本继续计算结果不变。
+改动前r2.restore已先在局部变量中解析检查、最后才替换自身；本轮保留顺序并补齐Wave、普通reference及顶部pending等检查。`snapshot()`的字段、`restore(snapshot)->None`签名、规则身份、事件编号及现预测的`restore(snapshot())`调用保持；不新增副本格式版本、保存文件、恢复入口或配置项，不改step判别。坏副本被更明确地拒绝，正常副本继续计算结果不变。
 
 通用实现放在同产品目录`snapshot_validation.py`，只依赖标准库及本目录types；不导入研究、App、QTF，不读取源码/行情/文件或访问网络/数据库。定义仅供内部使用的`ParsedXxmSnapshot`，保存恢复所需的九项进度；定义`parse_xxm_snapshot(snapshot, *, expected_identity, period, max_refs)->ParsedXxmSnapshot`。expected_identity为调用者已有的`specHash/tsCode/period/sourceIdentity`，不从来件接受新身份。先核固定字段和容器数量，再解析为独立对象；具体字段及关系检查见§5.4，不调用step重算历史或补缺值。
 
 `XxmCalculator.restore`复用该解析，随后动态调用现`_validate_bottom_history_snapshot`、`_validate_rearm_snapshot`及新增`_validate_restored_state(parsed)`。前两者保留原r2业务关系要求，r4只覆盖已批准的零日差异；最后一个方法分别核本算法的wave/previous/零段关系。r4包装检查研究身份后，使用同一父restore处理临时r4对象，不另写通用数值/字段检查，也不在共享模块加入r4模式开关。只有全部成功才发布九项进度。
 
-恢复不要求来件比目标更新，允许在已使用对象上回到更早的合法前缀。不能要求历史结构保存的原参照一直存在于最近两段池；仅当前活动reference、WAITING保存的referenceWave按现有关系核池。正常零段及前缀样本、失败不改对象和预测复制均是B1前的定向验收，不以源码SHA或整段真实重放证明安全。
+恢复不要求来件比目标更新，允许在已使用对象上回到更早的合法前缀。不能要求历史结构保存的原参照一直存在于最近两段池；仅当前活动reference、WAITING保存的referenceWave按现有关系核池。正常r2零段及前缀样本、失败不改对象、预测复制和现查询恢复均是B1前的定向验收；r4合法零日副本归B1，不以源码SHA或整段真实重放证明安全。
 
 ## 4. 选择函数的具体要求
 
@@ -207,7 +208,7 @@ point的`hist`永远是真实源值；活动状态的`ordinaryDirection`取逻�
 | Wave和history | Wave字段严格对应现dataclass，空只能用None，不能把空字典当None。sign为非布尔整数，通用解析允许−1/0/1；count为1至processed的整数；price有限且>0，DIF有限，bool/字符串数字/NaN/无穷拒绝。start≤price_at/dif_at≤end≤previous.time，当前wave.end=previous.time。history保留原snapshot的字符串键`1/-1`，每池列表≤max_refs；池内方向正确、发生顺序严格、区间不重叠，结束早于当前段开始 |
 | 活动reference | 完整Wave；DULL/STRUCTURE必须有同方向的非零wave及reference，reference等于对应池中的一条旧段；NONE不得带活动reference。缺失不能改成NONE或猜一个旧峰谷；不重新检查当前收盘是否仍满足首次门槛 |
 | 顶部pending | 严格保留现字段`id/confirmedAt/confirmationRoute/pricePeak/pricePeakAt/originalReference/status/endedAt/endReason/observedThrough/ageBars/negativeBars/zeroBars/colorChanges`；只接受PENDING且endedAt/endReason为None；冻结价格正且有限，原参照严格四字段`startTime/endTime/price/dif`并校数字和日期。pricePeakAt≤confirmedAt≤observedThrough=previous.time，原参照结束早于confirmedAt；各计数为0至processed的整数，negativeBars+zeroBars≤ageBars，colorChanges≤ageBars。不能因普通状态为NONE就删掉仍在观察的历史 |
-| 底部历史及等待 | 字段分别严格对应现XxmBottomHistory/XxmRearmRecord；内部价格均正且有限，DIF均有限，计数非布尔整数且有界，日期按本周期且无未来。活动历史为PENDING、等待为WAITING，结束字段为None；observedThrough=previous.time；继续调用现底部历史/等待方法核具体日期、编号和关联，不放宽原要求 |
+| 底部历史及等待 | 字段分别严格对应现XxmBottomHistory/XxmRearmRecord；内部价格均正且有限，DIF均有限，计数非布尔整数且有界，日期按本周期且无未来。活动历史为PENDING、等待为WAITING，结束字段为None；observedThrough=previous.time。普通状态仍为BOTTOM STRUCTURE时，必须有同一当前绿段、尚未离段、confirmationRoute=dif_turn且originalReference与活动reference一致的底部历史，以便下根按原规则纠错；缺失/不匹配须在恢复赋值前拒绝。TOP STRUCTURE不要求顶部历史仍在，因其历史可能已按原价格规则退出。继续调用现底部历史/等待方法核具体日期、编号和关联，不放宽原要求 |
 | 所有时间和关联 | 时间复用本周期格式检查，不改写或补齐；编号须非空，关联用当前对象的_id核验。顶部历史id按现`_id('history',confirmedAt,confirmationRoute,originalReference.startTime)`检查；底部/等待沿原方法。历史原参照可已离开最近两段池，不能统一拒绝；活动/等待参照则核现有池关系 |
 
 共用解析只生成独立的`ParsedXxmSnapshot`，不持有来件的可变字典/列表，不调用目标对象赋值。无活动记录时对应字段为None；history始终是两个列表。所有日期关系及计数均相对于副本自身previous/processed，合法回退不能被误拒。没有全量行情时无法证明极值计算本身正确，这项正确性由独立人工序列及连续/分批对账验证，不冒称恢复检查已证明。
@@ -227,7 +228,7 @@ point的`hist`永远是真实源值；活动状态的`ordinaryDirection`取逻�
 
 ### 5.5 两个零日场景及已确认预期（2026-10-28）
 
-以下不是已找到的市场案例，不运行r4或对照程序；仅按EMA12/26、DEA9逐根做算术核对。标准递推是EMA12＝前值×11/13＋收盘×2/13，EMA26＝前值×25/27＋收盘×2/27，DIF＝EMA12−EMA26，DEA＝前DEA×0.8＋DIF×0.2，柱值＝2×(DIF−DEA)。表中非零小数省略显示，零日按精确关系计算，不把四舍五入得到的0当真零。
+以下不是已找到的市场案例；原先按EMA12/26、DEA9逐根做算术核对，本轮已由R4单组人工测试验证对应标签，见§10。标准递推是EMA12＝前值×11/13＋收盘×2/13，EMA26＝前值×25/27＋收盘×2/27，DIF＝EMA12−EMA26，DEA＝前DEA×0.8＋DIF×0.2，柱值＝2×(DIF−DEA)。表中非零小数省略显示，零日按精确关系计算，不把四舍五入得到的0当真零。
 
 **场景一：已有两根红柱，零柱日才首次价格合格。**人工给定更早的旧红段B最高收盘100、DIF峰6，B与当前红段之间已有真实绿柱；当前红段此前没有收盘超过100。
 
@@ -239,7 +240,7 @@ point的`hist`永远是真实源值；活动状态的`ordinaryDirection`取逻�
 
 可复核的EMA状态：红柱日1 EMA12＝95.454545…（1050/11）、EMA26＝90.36；随后收盘99得到96和91；再收盘100.5175得到96.695和91.705，因此零日DIF与DEA都为4.99。**本轮预期：前两日无首次钝化，零日累计最高收盘更新为100.5175，有色count仍为2，DIF峰仍为5.094545…，当天首次顶部DULL/activation，参照B；不追加STRUCTURE。**管理员已选此处理，原草稿“零日仍不首次”不再作为有效候选。不宣称课程已给出零日答案。
 
-**场景二：底部结构消失后等待，零柱日价格重新合格。**人工给定旧绿段B最低收盘100、DIF谷−8，经过真实红柱后进入当前绿段；当前绿段已有至少两根绿柱，累计DIF始终高于−8。以下依保留的r2转折及收盘条件推演，不是已执行的r4测试成绩。
+**场景二：底部结构消失后等待，零柱日价格重新合格。**人工给定旧绿段B最低收盘100、DIF谷−8，经过真实红柱后进入当前绿段；当前绿段已有至少两根绿柱，累计DIF始终高于−8。以下记录依保留r2条件所做的原人工推演，本轮已纳入R4人工测试，不是市场样本或双组对照成绩。
 
 | 顺序 | 收盘 | DIF | DEA | MACD柱 | 本轮预期状态 |
 |---|---:|---:|---:|---:|---|
@@ -251,7 +252,7 @@ point的`hist`永远是真实源值；活动状态的`ordinaryDirection`取逻�
 
 日1 EMA12＝104.263636…（57345/550）、EMA26＝110.244；日2递推得到105.3和110.3。其后逐根递推；日5的精确模拟收盘为`(前DEA−11/13×前EMA12＋25/27×前EMA26)/(2/13−2/27)`，表中99.3815265787…仅为简写。**本轮预期：日3等待、日4继续等待，日5原等待结束为REACTIVATED，原参照B不变，普通事件仅DULL/reactivation，保留原结构及等待关联，不记activation或同根STRUCTURE。**原草稿“零日继续等待”已撤回。
 
-两例仅固定本轮规则及人工可核预期，不是市场样本覆盖或r4测试通过结论。§7补齐有色根数不足、价格等于门槛、原参照突破、连续零柱、底部镜像及恢复等反例；后续新case如需改变口径，先回到方案/LLD说明并review，不临时修改既定expected。
+两例的R4人工断言已通过，但不构成市场样本覆盖、原软件相容或双组对照结论。§7补齐有色根数不足、价格等于门槛、原参照突破、连续零柱、底部镜像及恢复等反例；后续新case如需改变口径，先回到方案/LLD说明并review，不临时修改既定expected。
 
 ## 6. 输入、比较和资源
 
@@ -291,7 +292,7 @@ point的`hist`永远是真实源值；活动状态的`ordinaryDirection`取逻�
 
 ## 7. B阶段测试及对账
 
-所有关键expected为独立字面值或人工可算序列；禁止调用选择函数或r2生成expected。先完成§3.2/§3.3共享安全检查、R4-16和r2正常人工回归，并按§3.1核登记规则后进入B1；B1覆盖R4-01—10、12—15中的计算/恢复要求，并用r4合法零日副本验证共用检查；B2承担R4-11比较逻辑及完整同源输入/双组预算。R4-13核已登记规则/允许改动及实际副作用，不做源码SHA或正文匹配。最后才做同源真实对照。零日首次及等待重新激活的expected按管理员2026-10-28决定和§5.5固定，原“零日禁止”草稿不再保留。下面是设计要求，尚未执行，不把算术复核或文档检查当作r4测试通过。
+所有关键expected为独立字面值或人工可算序列；禁止调用选择函数或r2生成expected。B1前先完成§3.2/§3.3共享安全检查、R4-16A、R4-17及r2正常人工回归，按§3.1核登记规则；此时不要求r4尚未存在的测试通过。随后B1覆盖R4-01—10、12—15中的r4计算/恢复要求及R4-16B；B2承担R4-11比较逻辑及完整同源输入/双组预算。R4-12/13按各自代码所在批次验收：B1前验r2/共用检查，B1再补r4，不能把后者倒置为前置。R4-13不做源码SHA或正文匹配。零日首次及等待重新激活的expected按管理员2026-10-28决定和§5.5固定，原“零日禁止”草稿不再保留。下表持续作为验收要求；已执行的人工范围和结果见§10，B2/C未执行，不能把人工或文档检查当作真实对照通过。
 
 | 编号 | 正反样本 | 必须断言 |
 |---|---|---|
@@ -310,9 +311,28 @@ point的`hist`永远是真实源值；活动状态的`ordinaryDirection`取逻�
 | R4-13 | 算法不隐藏读取行情/源码或写文件，不访问网络/DB；对照v0.5登记的r2核心规则及r4批准变化审计代码/回归 | 只有获准安全检查例外，其余r2判别/Spec保持，封存原件不动；交付说明逐项列实现及测试，不新增源码SHA、AST正文相等检查或借skip冒充旧试验通过 |
 | R4-14 | §5.5场景一完整独立人工序列及底部镜像；另测只有1根有色柱后连续零、开头全零、严格价/DIF相等、无历史参照、TOP当根DIF<=0 | 场景一零日更新价格到100.5175、count=2、峰DIF不变，当天仅DULL/activation且选B；反例不首次钝化，不把零计色或当反色；下一根按已有DULL而非重复activation处理 |
 | R4-15 | §5.5场景二完整独立人工序列；等于价格门槛、有色根数不足、原参照突破、同根新建等待、连续零日及重新钝化前后恢复 | 日3/4 WAITING，日5仅DULL/reactivation、REACTIVATED，原参照/relatedRearmId及等待的历史/结构关联完整；不重新选峰、不加activation或同根STRUCTURE，不以此前累计最低价代替当根，不重复激活；非法状态件拒绝 |
-| R4-16 | r2/r4共用解析：Wave、池、普通参照、顶部pending、底部/等待内部的非有限值/布尔数字/缺列/错日期/错关联；DULL/STRUCTURE缺参照、NONE带活动参照、跨对象/周期/来源。正例含原始空进度、已使用对象合法回退、r2独立零段、换色后仍有历史且旧参照已离池、预测clone，以及B1新增的r4开头全零/段内零/零日WAITING | 通用错误都在赋值前拒绝；两组各自合法状态不误拒；坏副本失败后原对象、来件及已返回记录不变，继续输入或恢复合法副本仍成功。正常r2字段、编号、point/事件和连续/分批结果符合独立人工预期；不要求来件processed≥目标processed，不要求所有历史原参照仍在池，不把r4零规则用于r2 |
+| R4-16A（B1前） | 共用解析及现r2：Wave、池、普通参照、顶部pending、底部/等待内部的非有限值/布尔数字/缺列/错日期/错关联；DULL/STRUCTURE缺参照、NONE带活动参照、跨对象/周期/来源。正例含原始空进度、合法回退、r2独立零段、换色后历史仍在且旧参照已离池、预测clone | 赋值前拒绝坏副本，原对象/来件/已返回记录不变，随后正常输入或合法恢复仍成功；正常r2字段/编号/point/事件及连续/分批结果符合独立预期；不要求来件比目标更新或所有历史原参照仍在池。本批不创建r4对象 |
+| R4-16B（B1） | r4计算器完成后复用上述共用反例，再验开头全零、段内零、零日DULL/STRUCTURE/WAITING的合法副本及r2/r4双向跨组拒绝 | 合法零日副本恢复后继续计算与连续计算符合独立预期；跨组/坏副本失败不改状态，不把r4零规则用于r2。仅在B1执行，不作为B1前验收条件 |
+| R4-17（B1前） | §7.1现r2查询方法的最新复制、历史恢复、追加行情继续计算，以及坏副本不得替换缓存中的原结果 | 真实调用calculator_at和_load_series，实际执行共用restore；人工来源只替代输入读取，恢复函数和共享检查不得被mock；原进度/已返回记录不变，无真实数据读取或查询/缓存/API政策修改 |
 
-回归只选择现r2中已核人工节点，覆盖1%、独立换色、原参照突破、底部救援/历史/等待、snapshot；不整文件触发旧冻结行情重放。恢复直接节点在主题`tests/test_xxm_calculator.py`：`test_bottom_snapshot_restore_atomic_strict_and_can_rewind`、`test_bottom_period_identity_and_step_snapshot_continuation`、`test_snapshot_clone_restore_and_failed_restore_are_isolated`、`test_rearm_restore_strict_atomic_and_original_pool_identity`、`test_rearm_period_specific_identity_restore_and_rewind`，新通用反例落`test_xxm_snapshot_validation.py`。合法副本可由当前snapshot生产者提供，但字段和继续计算结果须有独立字面断言，不能只验证生产者与消费者互相一致。类型检查的直接消费者还包括产品日线/分钟读取与预测假设K线，应以合法输入定向测试证明未误拦，不为此扩大真实取数。封存两位的旧源码检查及专用测试不在本轮执行范围，也不修改其代码、默认收集或旧预期；不得称未执行项通过。根三份架构检查、研究不得反向被产品导入检查及文档检查必做；每组超过60秒先停查因，不安装依赖。B2真实对照另按批准区间最小核验并报告实际成本，不能引用单元测试证明软件相容。
+回归只选择现r2中已核人工节点，覆盖1%、独立换色、原参照突破、底部救援/历史/等待、snapshot；不整文件触发旧冻结行情重放。恢复直接节点在主题`tests/test_xxm_calculator.py`：`test_bottom_snapshot_restore_atomic_strict_and_can_rewind`、`test_bottom_period_identity_and_step_snapshot_continuation`、`test_snapshot_clone_restore_and_failed_restore_are_isolated`、`test_rearm_restore_strict_atomic_and_original_pool_identity`、`test_rearm_period_specific_identity_restore_and_rewind`，新通用反例落`test_xxm_snapshot_validation.py`，含BOTTOM STRUCTURE缺原历史、已离段/错误route/原参照不匹配的坏副本，以及TOP STRUCTURE无活动顶部历史仍合法的正例。合法副本可由当前snapshot生产者提供，但字段和继续计算结果须有独立字面断言，不能只验证生产者与消费者互相一致。类型检查的直接消费者还包括产品日线/分钟读取与预测假设K线，应以合法输入定向测试证明未误拦，不为此扩大真实取数。封存两位的旧源码检查及专用测试不在本轮执行范围，也不修改其代码、默认收集或旧预期；不得称未执行项通过。根三份架构检查、研究不得反向被产品导入检查及文档检查必做；每组超过60秒先停查因，不安装依赖。B2真实对照另按批准区间最小核验并报告实际成本，不能引用单元测试证明软件相容。
+
+### 7.1 B1前现r2查询调用方的定向验收
+
+共享restore改变后，现`query_service.SeriesEntry.calculator_at`的最新复制/历史恢复，以及`IndexDetailXxmQueryService._load_series`的追加计算立即受到影响，因此R4-17属于B1前，不能等C阶段迁移r4身份才检查。新增主题`tests/test_xxm_snapshot_consumers.py`，只导入现r2查询/计算代码，使用人工可核算的日线、日期和真实SeriesEntry字段；不导入App、不连接数据库、不读冻结行情，也不通过新API或页面验收扩大范围。
+
+| 已新增测试 | 真实调用及必须证明的结果 |
+|---|---|
+| `test_r2_latest_snapshot_copy_stays_independent` | 人工序列建立SeriesEntry，调用`calculator_at(len(entry.processed), check)`，实际走current.snapshot→child.restore。明确断言processed/previous、状态、原参照及已有历史/等待关联；修改返回对象再确认原entry及已返回记录未变 |
+| `test_r2_history_checkpoint_restore_stays_independent` | 至少一个早于最新位置的count进入已有checkpoints恢复分支，随后补算到指定count；不能只测offset=0而实际未调用restore。核历史时点/状态/参照，不能带未来状态；返回对象不得与缓存进度或checkpoint共用可变对象 |
+| `test_r2_incremental_load_uses_validated_snapshot` | 真实调用_load_series两次：先载入人工前段，再追加后续完成日线；两次使用相同对象、日线周期及来源起点。实际从旧进度snapshot→新计算器restore继续；旧entry不变，新entry只追加对应point/事件/历史/等待，字段及计数有独立预期，不重复累计旧结果 |
+| `test_r2_invalid_snapshot_does_not_replace_cached_result` | 只在传给恢复的副本中构造缺参照或非有限值；实际restore应抛ValueError。查询不得把半份新entry放入缓存，原缓存内容及既有结果保持；移除错误副本后正常追加仍成功。不mock restore返回成功或吞错 |
+
+小样本的历史恢复测试可仅在该测试内用`dataclasses.replace(BUDGET, source_batch_rows=3)`替换query_service所引用的预算对象，使5根人工输入即可覆盖count=4时先恢复第3根再补算第4根；测试结束恢复引用。此替身只缩小测试批次间隔，不修改产品runtime.py、生产1000根分批值或研究1000根上限，不代表真实规模性能验收。checkpoint由真实snapshot生产，必须独立断言其processed=3和previous为第3根，不能拿被测返回值生成expected。
+
+_load_series测试只替代`calendar_dates/read_daily`的外部输入，返回人工开市日期及同一套XxmBar，冻结now和business_date；`expected_through/assert_continuous`、XxmCache、查询方法、snapshot/restore及共用检查均使用真实代码。fake reader要按completed参数给出人工前段，不能用不受日期约束的全量返回掩盖取值错误。这里仅证明内存输入接入后的查询恢复调用，不能声称真实数据库、路由或页面验收通过。
+
+生产者输出可用于构造输入，但核心状态、参照、计数、事件类型及关联的预期须来自人工规则和字面断言；连续计算只作额外交叉检查。测试不重放r2/r4两组行情，不整文件运行已有冻结材料测试；与其余B1前人工测试共用单组60秒、进程256MiB限制，记录实际开销，不放宽现识别4秒/预测200ms预算。
 
 ## 8. C阶段产品影响与开工前条件
 
@@ -336,7 +356,7 @@ point的`hist`永远是真实源值；活动状态的`ordinaryDirection`取逻�
 
 拟版本为识别`xxm-direction-v0.1-r4`、预测`xxm-key-point-forecast-v0.3-r4`。新Spec完整登记近优先及零中性，仍保留1%、max_refs=2、min_bars=2；hash从真实Spec生成。拟新增字段集中于Spec代码，仅内部只读，无env/DB/用户参数；消费者为识别/恢复、查询缓存、预测、后端schema、Wealth types/adapter及身份测试，同次迁移，不散落手写不同值。
 
-同次审计并迁移`query_service.SeriesEntry/calculator_at`、识别/预测缓存键、snapshot恢复、两套schema及Wealth xxm/xxm-forecast身份；旧r2响应/快照不可被r4接受，必须从同源前段重算。URL、请求字段、数值原值、图层布局不增加新的用户功能；前端不自行选峰或求价。r2只保留可追溯的离线基准，不新增产品双算法开关或兼容入口。
+同次审计并迁移`query_service.SeriesEntry/calculator_at`、识别/预测缓存键、snapshot恢复、两套schema及Wealth xxm/xxm-forecast身份；旧r2响应/快照不可被r4接受，必须从同源前段重算。这里指未来r4产品身份/规则迁移；现r2查询恢复在B1前就按§7.1验收，不能推迟。URL、请求字段、数值原值、图层布局不增加新的用户功能；前端不自行选峰或求价。r2只保留可追溯的离线基准，不新增产品双算法开关或兼容入口。
 
 封存两位实验的旧源码SHA、AST检查和继承保持历史原样，不作为r4的新要求；共享安全修改使其拒绝新文件时如实说明，不能更新旧SHA或让封存实验悄悄继承r4后仍叫r2对照，也不作为B1开工前必须恢复的任务。C阶段真正替换产品算法前仍须核这些历史消费者及其运行方式；本轮不处理历史复现，不用skip或改旧预期冒充通过，不能据B阶段LLD宣称产品迁移已准备好。
 
@@ -344,8 +364,50 @@ point的`hist`永远是真实源值；活动状态的`ordinaryDirection`取逻�
 
 必须补真实识别/预测路由、共享源读取、零日有效方向、版本/缓存/恢复及四周期前端合同的验收；保护现识别4秒、预测200ms、响应大小和前端时限。旧r3新增两位求解、统一整数/编号改造不自动带入，本轮保留r2现有展示政策。若完整r4预测在原预算内不可行，先报告反例、调用量及耗时，再review设计，不能只改识别后发布或放宽预算。
 
-## 9. 本轮交付与停止条件
+## 9. 开工前文档审计记录（此前时点）
 
-本轮只更新并提交方案、本LLD及r2核心规则登记的说明，落实取消源码SHA保护、开发后代码审计、共用行情/内存副本安全检查及分别检查零段差异的决定。源码范围、函数、先检查后赋值、失败处理和正反例已在§1/§3/§5.4/§7明确；原“是否统一恢复仍待讨论”不再有效。此前零日决定、B1/B2分工、旧r3清理及封存材料保持。r4尚无代码或验证成绩。两文档的选峰、零日、保留项、阶段/预算及产品边界须相同；文档/链接检查不能替代规则验证。
+本轮只更新方案和本LLD并独立审计开工条件：R4-16拆为B1前的R4-16A和B1的R4-16B；新增现r2查询调用方的R4-17及§7.1实现/验收要求。r2规则登记、取消源码SHA保护、开发后代码审计、共用检查、零日决定、旧r3清理及封存边界保持。r4尚无代码或验证成绩。两文档的规则、批次交接、预算及产品边界须一致；文档/链接检查不能替代规则验证。
 
-B1开发待后续指令，B2实际计算与C产品集成分别另行指令；本轮规则已拍板不等于已开发或已获准立即执行。若实现与已登记r2规则或r4批准范围冲突、需要新增未明确行为，停止说明具体输入、旧行为、拟变化及影响，不临时改规则或扩大范围。
+2026-10-28补齐后的独立审计已核当前calculator/spec/types、query_service/runtime/source及人工测试合同。R4-16A/16B顺序、R4-17真实恢复调用、共用检查与各自零柱规则、先检查后赋值，以及B1/B2/C边界一致；未发现阻碍B1前及B1开发的剩余缺项。此为设计开工结论，不是代码、真实来源或算法效果验收；本轮仅文档和静态核对，没有运行算法、行情对比或自动提交。
+
+该次设计审计时B1开发尚待指令；后续已获得的B1前及B1授权见§10，B2实际计算与C产品集成仍分别另行指令。若实现与已登记r2规则或r4批准范围冲突、需要新增未明确行为，停止说明具体输入、旧行为、拟变化及影响，不临时改规则或扩大范围。
+
+## 10. 本轮授权执行与验收对账（2026-10-28）
+
+本节记录随后已获得的B1前及B1开发授权；§9的文档审计为此前时点记录。开工前已核当前源码与AGENTS、CodeGraph影响面，按方案§10先共享检查、再独立r4。实现只使用现有环境；标准库及已安装依赖，不安装软件，不触发原研究重放。
+
+| 硬要求 | 实现文件/函数 | 本轮证明方式 |
+|---|---|---|
+| 同一份单根检查、状态更新前拒错 | 产品types.py:XxmBar.validate；r2/r4 step入口 | 新test_xxm_input_validation.py人工正反例及原r2人工节点 |
+| 共用副本解析、分别检查零规则、最后赋值 | 产品snapshot_validation.py、calculator.py:restore/_validate_restored_state；研究r4_reference_trial.py恢复包装 | test_xxm_snapshot_validation.py/R4-16A，B1再执行R4-16B；合法回退、错误拒绝且对象/来件不变 |
+| 现查询、预测复制不受误拦 | 现query_service.py与forecast_detector.py不改 | 新test_xxm_snapshot_consumers.py按§7.1实际调用；原r2 clone人工回归 |
+| 先近B后远A最多两个，零中性及已定事件顺序 | 研究r4_reference_trial.py:R4TrialSpec/R4Calculator | test_xxm_r4_reference_trial.py，按§7逐项人工断言；独立审阅对照r2登记 |
+| 研究与产品身份/状态隔离，禁止项不发生 | 研究Spec、_id、snapshot/restore；无B2文件或产品入口变动 | 跨组/坏副本与无副作用测试，三份架构检查及研究依赖检查 |
+
+共用解析返回`ParsedXxmSnapshot`九项Python属性为wave/history/state/reference/previous/pending/pending_bottom_history/pending_rearm/processed；expected_identity依次为(specHash,tsCode,period,sourceIdentity)四元组。保留原snapshot外部字段和编号，不添加配置开关。README仅追加本轮完成事实，不覆盖已有未提交研究记录。
+
+研究限额四字段在B1只作不可变规则登记及hash输入；整体输入数量、时限和结果大小的执行检查归B2 compare_r4，不新增单根step的1000根或20秒失效政策，也不改产品预算。
+
+B1编码的内部身份接口固定为`R4TrialSpec.research_hash`：对全部dataclass字段及`parentSpecHash=MAIN_SPEC.spec_hash`规范JSON序列化（sort_keys=True、separators=(",",":" )）后计算SHA-256；它是规则身份，不读取源码。研究事件编号取`SHA256(research_hash+"|"+父_id结果)`前24位。snapshot包装严格为researchVersion/researchHash/tsCode/period/inputIdentity/parentState六字段；parentState来自父snapshot，来源身份仍为§3的r4组合值。r4.restore在副本字段/身份全检后恢复临时candidate，再发布九项进度。此处只固定已定身份/隔离规则的编码格式，不改外部产品合同或Spec。
+
+B1前与B1各自跑定向人工测试，单组超过60秒停止查因；两组行情对照和其完整规模预算不提前运行。恢复/最终核对开销计入原预算。根三份架构、无研究/App/QTF反向依赖、文档/差异检查及独立代码审阅完成后，把实际结果回写本节，再停止汇报。源码读取仅用于正常开发审计，不运行SHA或AST全文相等保护；不提交、推送、部署。
+
+B1前阶段验收记录：共享实现及现r2调用方人工测试149项通过（0.36秒），其中底部结构缺原历史的四反例已证修前失败/修后拒绝，顶部历史正常退出不误拦；原r2恢复节点30项通过（0.06秒），其他已选人工规则节点32项通过（0.09秒），三份架构测试16项通过（11.26秒）。没有读取真实行情或运行两组比较；独立复核后继续B1。
+
+### B1最终对账及停点
+
+| 要求 | 实际实现/证据 | 结论 |
+|---|---|---|
+| 共用输入及恢复、安全失败保护、现查询不误拦 | 产品types.py/snapshot_validation.py/calculator.restore与hook；test_xxm_input_validation/test_xxm_snapshot_validation/test_xxm_snapshot_consumers三文件149项 | 通过；包含错误恢复不改对象/来件、合法回退、r2零段、历史参照离池和真实query恢复路径 |
+| B→A/零中性/原1%与历史等待配合 | 研究r4_reference_trial.py；test_xxm_r4_reference_trial.py共110项 | 通过；含R4-01—10、12—15和16B的本批部分；两例数值场景、零日/真实翻色、救援后的A结构关联及四周期恢复有独立预期 |
+| 正常r2政策及编号/历史等待保持 | 原test_xxm_calculator.py明确选出的25个人工节点，参数化62项；独立读取实现和登记规则核对 | 通过；未执行该文件的两个冻结重放节点，不用源码SHA/AST全文相等作保护 |
+| 层级及禁止项 | 三份根架构测试16项、研究和三个共享生产模块的导入边界测试、导入后拒绝外部访问的单组计算测试 | 通过；未改API/页面/来源查询/旧实验或增加配置 |
+| 最终合并与检查 | 四个新文件259项+既有人工62项=321 passed/0.55秒；架构16 passed/11.26秒；文档/链接/差异检查 | 各组均小于60秒；无安装、真实取数或结果落盘 |
+
+B1前发现的底部STRUCTURE原历史关联遗漏，按先补具体文档、再修共用检查、再补反例处理：修前4个反例均DID NOT RAISE，修后全部拒绝；TOP STRUCTURE历史提前结束的正例保持。R4-09救援后结构/原参照A关联及R4-15不足两根的资格也已补直接断言，没有修改既定判别政策。
+
+CodeGraph使用impact(XxmCalculator)核上游/调用影响，node核calculator_at/_load_series，开发后已执行sync/status；新代码及索引未完整表达的动态分派以当前源码、消费者和独立测试核验。独立复核未发现本批遗留缺项。
+
+未验/未开发：R4-11比较器、合法双组重放、真实日线接入、双组1000根整体20秒/256MiB/16MiB验收、C的识别/预测真实路由及页面/完整性能。现产品仍r2，仅已批准的共用安全检查例外生效。独立r4只供研究计算；开发交付时未提交，随后管理员已授权提交本批并独立审计B1。本次不推送、部署或推进B2。
+
+人工进程资源补验：四个新增文件259 passed/0.55秒，含启动的壁钟0.83秒，子进程峰值RSS 98.56MiB，小于256MiB；没有运行双组1000根或把该结果当真实产品性能验收。

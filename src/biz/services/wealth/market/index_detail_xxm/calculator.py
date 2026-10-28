@@ -6,6 +6,7 @@ import hashlib
 import math
 from typing import Any
 
+from .snapshot_validation import ParsedXxmSnapshot, parse_xxm_snapshot
 from .spec import MAIN_SPEC, XxmSpec
 from .types import Wave, XxmBar, XxmBottomHistory, XxmPeriod, XxmRearmRecord, XxmStep
 
@@ -358,35 +359,34 @@ class XxmCalculator:
             raise ValueError("Malformed rearm snapshot") from exc
         return deepcopy(raw)
 
+    def _validate_restored_state(self, parsed: ParsedXxmSnapshot) -> None:
+        if parsed.processed:
+            previous = parsed.previous
+            if (previous is None or parsed.wave is None
+                    or parsed.wave.sign != (previous.hist > 0) - (previous.hist < 0)):
+                raise ValueError("r2 snapshot lost its current color segment")
+
     def restore(self, snapshot: dict[str, Any]) -> None:
-        # Parse and validate everything before publishing any state, including on
-        # an already-used calculator or a legal rewind to an earlier real prefix.
+        # Build independent progress before publishing, including legal rewinds.
         try:
-            if not isinstance(snapshot, dict) or set(snapshot) != {"specHash", "tsCode", "period", "sourceIdentity", "processed",
-                    "wave", "history", "state", "reference", "previous", "pending", "pendingBottomHistory", "pendingRearm"}:
-                raise ValueError("Invalid XXM snapshot fields")
             expected = (self.spec.spec_hash, self.ts_code, self.period, self.source_identity)
-            if tuple(snapshot[k] for k in ("specHash", "tsCode", "period", "sourceIdentity")) != expected:
-                raise ValueError("XXM snapshot version/source identity mismatch")
-            wave = Wave(**snapshot["wave"]) if snapshot["wave"] else None
-            history = {int(k): [Wave(**w) for w in values] for k, values in snapshot["history"].items()}
-            if set(history) != {1, -1} or any(len(pool) > self.spec.max_refs for pool in history.values()):
-                raise ValueError("Invalid reference pool")
-            state = snapshot["state"]
-            reference = Wave(**snapshot["reference"]) if snapshot["reference"] else None
-            previous = XxmBar(**snapshot["previous"]) if snapshot["previous"] else None
-            pending = deepcopy(snapshot["pending"])
-            processed = snapshot["processed"]
-            if state not in ("NONE", "DULL", "STRUCTURE") or type(processed) is not int or processed < 0:
-                raise ValueError("Invalid XXM snapshot state")
-            if previous is not None:
-                previous.validate(self.period)
-            bottom = self._validate_bottom_history_snapshot(snapshot["pendingBottomHistory"],
-                        previous=previous, wave=wave, processed=processed)
-            rearm = self._validate_rearm_snapshot(snapshot["pendingRearm"], previous=previous, wave=wave,
-                        state=state, reference=reference, bottom_history=bottom, processed=processed, history=history)
+            parsed = parse_xxm_snapshot(snapshot, expected_identity=expected, period=self.period,
+                                        max_refs=self.spec.max_refs)
+            parsed.pending_bottom_history = self._validate_bottom_history_snapshot(
+                parsed.pending_bottom_history, previous=parsed.previous, wave=parsed.wave, processed=parsed.processed)
+            parsed.pending_rearm = self._validate_rearm_snapshot(
+                parsed.pending_rearm, previous=parsed.previous, wave=parsed.wave, state=parsed.state,
+                reference=parsed.reference, bottom_history=parsed.pending_bottom_history,
+                processed=parsed.processed, history=parsed.history)
+            if parsed.pending is not None:
+                pending = parsed.pending
+                expected_top_id = self._id("history", pending["confirmedAt"], pending["confirmationRoute"],
+                                           pending["originalReference"]["startTime"])
+                if pending["id"] != expected_top_id:
+                    raise ValueError("Invalid TOP snapshot identity")
+            self._validate_restored_state(parsed)
         except (KeyError, TypeError, AttributeError, OverflowError) as exc:
             raise ValueError("Malformed XXM snapshot") from exc
-        self.wave, self.history, self.state, self.reference = wave, history, state, reference
-        self.previous, self.pending, self.processed, self.pending_bottom_history = previous, pending, processed, bottom
-        self.pending_rearm = rearm
+        self.wave, self.history, self.state, self.reference = parsed.wave, parsed.history, parsed.state, parsed.reference
+        self.previous, self.pending, self.processed = parsed.previous, parsed.pending, parsed.processed
+        self.pending_bottom_history, self.pending_rearm = parsed.pending_bottom_history, parsed.pending_rearm

@@ -1,5 +1,19 @@
 # 指数大势研究：统一代码入口
 
+2026-10-28当前开发：[r4方案](../../../docs/product/xxm-r4-implementation-plan-v0.1.md)、[r4 LLD](../../../wealth/docs/pages/index-detail/index-detail-xxm-r4-low-level-design-v0.1.md)。B1前共享安全检查及B1独立r4计算已实现并完成定向人工验收。研究计算先近B后远A、最多两个，真实反色、零柱中性，保留1%及原历史/等待政策；现产品仍r2，仅共用输入/内存副本安全检查收紧，页面和预测未替换。停在B1，不运行双组对照或恢复封存实验。
+
+本轮新增[独立计算器](xxm/r4_reference_trial.py)及四个主题人工测试文件：test_xxm_input_validation.py、test_xxm_snapshot_validation.py、test_xxm_snapshot_consumers.py、test_xxm_r4_reference_trial.py；没有新CLI或compare_r4入口。共用恢复位于产品snapshot_validation.py与calculator.restore，正常字段/编号和各自零柱规则保持，错误副本在赋值前拒绝。
+
+当前可运行的限定人工验收（259项，无来源读取）：
+
+```bash
+.venv/bin/python -B -m pytest -q -p no:cacheprovider scripts/research/index_market/tests/test_xxm_input_validation.py scripts/research/index_market/tests/test_xxm_snapshot_validation.py scripts/research/index_market/tests/test_xxm_snapshot_consumers.py scripts/research/index_market/tests/test_xxm_r4_reference_trial.py
+```
+
+本轮另显式选择原r2人工节点62项，与新测试合并321 passed/0.55秒；三份架构检查16 passed/11.26秒。没有整文件执行旧冻结重放。R4-16A及现查询R4-17已在B1前验，R4-16B在B1验，具体实现与独立证据见LLD§10。不能把这些人工成绩当作真实行情/原软件相容性通过。
+
+下一步B2比较器、同源真实日线及完整双组规模预算尚未执行；须在本批review后按后续指令推进。C的产品/缓存/预测/页面迁移仍后置。旧r3产品正文已删除；下列旧徐小明首批和运行命令只保留历史，封存两位与独立日线模块不恢复。两位旧来源/源码校验和历史报告保持原样，本轮没有重跑或修改。
+
 2026-10-26当前：[两位确认开发范围及结果](../../../docs/product/xxm-next-implementation-plan-v0.6.md#xxm-confirmation-development-result)、[LLD实现与限定验收](../../../wealth/docs/pages/index-detail/index-detail-xxm-next-implementation-low-level-design-v0.6.md#xxm-confirmation-development-acceptance)。`xxm/confirmation_only_trial.py`、`xxm/confirmation_comparison.py`及两个对应主题测试已完成。当前仅开发及限定测试通过，停在启动r2对比之前；r2源码/Spec/产品保持原样。两位人工70项、输入/日期/手写记录比较及帮助/非法参数117项、原r2人工回归116项、架构16项均通过，尚未执行任何双组行情重放或实际差异报告。
 
 本轮帮助入口：`.venv/bin/python -B -m scripts.research.index_market.xxm.confirmation_comparison --help`。合法日期入口已实现，仅有`--start-date`/`--end-date`，默认2023-10-24至2026-10-13；正常运行会读取固定本地日线并启动双组重放，必须等管理员后续指令，本轮不运行。没有原视频/软件观察、页面、API、导出或结果落盘。合法入口集成、912根真实材料、双组1000根/完整20秒性能及实际差异解释仍未执行，不据限定测试声称完整实验通过。下文原首批1、2、9和旧运行命令仅保留此前历史，不由本次恢复执行。
