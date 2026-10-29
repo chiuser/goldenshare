@@ -247,6 +247,7 @@ def _qfq_reconciliation(
         with context.resources.duckdb.connect() as connection:
             plan = build_gold_stock_daily_qfq_factor_repair_plan(
                 connection=connection,
+                silver_stock_lifecycle_path=silver_stock_lifecycle_path(root),
                 current_adj_factor_path=current_adj_factor_path,
                 previous_adj_factor_path=previous_adj_factor_path,
                 qfq_factor_trade_date=target_trade_date,

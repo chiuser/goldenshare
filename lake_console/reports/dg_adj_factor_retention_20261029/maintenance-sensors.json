@@ -1,0 +1,134 @@
+{
+  "started_at": "2026-10-29T07:47:36.064596+08:00",
+  "results": [
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "prior_status": "RUNNING",
+      "result": {
+        "data": {
+          "stopSensor": {
+            "__typename": "StopSensorMutationResult",
+            "instigationState": {
+              "id": "772281db6caf1b865496e2a2916e74059bc56604::f7097a5f811f8e1260f1b32b7d128afbec5d53bb",
+              "status": "STOPPED",
+              "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+      "prior_status": "RUNNING",
+      "result": {
+        "data": {
+          "stopSensor": {
+            "__typename": "StopSensorMutationResult",
+            "instigationState": {
+              "id": "a67f3ab45ac8841a399432c03c982d49734ab525::e739480038f6d0807e2989cd23d199d18f0715e7",
+              "status": "STOPPED",
+              "name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "prior_status": "RUNNING",
+      "result": {
+        "data": {
+          "stopSensor": {
+            "__typename": "StopSensorMutationResult",
+            "instigationState": {
+              "id": "48b83117c18ae7132887a622875eff56012430d8::99d31a375eebcb8cd66c62866edc623c35dcbd7d",
+              "status": "STOPPED",
+              "name": "gold_stk_mins_qfq_nineturn_update_job_sensor"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "gold_stock_daily_qfq_factor_repair_job_sensor",
+      "prior_status": "RUNNING",
+      "result": {
+        "data": {
+          "stopSensor": {
+            "__typename": "StopSensorMutationResult",
+            "instigationState": {
+              "id": "b3409b7bea1155577ec1cded2f834533efd96e4f::81e32ecf4b114609b591bd2a02c22214674de238",
+              "status": "STOPPED",
+              "name": "gold_stock_daily_qfq_factor_repair_job_sensor"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "gold_stock_daily_qfq_update_job_sensor",
+      "prior_status": "RUNNING",
+      "result": {
+        "data": {
+          "stopSensor": {
+            "__typename": "StopSensorMutationResult",
+            "instigationState": {
+              "id": "4a20a72bb8a645b43d1140466135807e170aaf5b::8d6fd7385a1e30ed649e990361d15253c2bf4cac",
+              "status": "STOPPED",
+              "name": "gold_stock_daily_qfq_update_job_sensor"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "silver_adj_factor_update_job_sensor",
+      "prior_status": "RUNNING",
+      "result": {
+        "data": {
+          "stopSensor": {
+            "__typename": "StopSensorMutationResult",
+            "instigationState": {
+              "id": "9430ab34eea37acd6148fba32c4129e7c32782fb::056042bcd88efce5637caae9bbc0aeb33cac9d46",
+              "status": "STOPPED",
+              "name": "silver_adj_factor_update_job_sensor"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "stock_mins_qfq_daily_sensor",
+      "prior_status": "RUNNING",
+      "result": {
+        "data": {
+          "stopSensor": {
+            "__typename": "StopSensorMutationResult",
+            "instigationState": {
+              "id": "0d26182e833dbe4fc79aee2b0bfa9d9564b5c535::3ab800ed537bd69b153d69fb1e3a6259b8ae3777",
+              "status": "STOPPED",
+              "name": "stock_mins_qfq_daily_sensor"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "stock_mins_qfq_factor_repair_sensor",
+      "prior_status": "RUNNING",
+      "result": {
+        "data": {
+          "stopSensor": {
+            "__typename": "StopSensorMutationResult",
+            "instigationState": {
+              "id": "a891bed1d6185e5f36dba3ec9bc988f9c8991d13::41dc5e4a579d10becf079e7a18e18f4f086e008f",
+              "status": "STOPPED",
+              "name": "stock_mins_qfq_factor_repair_sensor"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "finished_at": "2026-10-29T07:47:36.272341+08:00"
+}

@@ -34,6 +34,9 @@ def source_row(code, day, freq, asof, price):
 
 
 def write_upstreams(root, work, *, newcomer=False):
+    from tests.factor_repair_fixtures import write_repair_lifecycle
+    write_repair_lifecycle(paths.silver_stock_lifecycle_path(root),
+                           [{"ts_code": code} for code in ([A, B, C] if newcomer else [A, B])])
     with raw.connection(work) as con:
         basic = paths.silver_stock_basic_path(root)
         basic.parent.mkdir(parents=True, exist_ok=True)
@@ -58,8 +61,9 @@ def write_upstreams(root, work, *, newcomer=False):
             target = paths.silver_adj_factor_path(root, day)
             target.parent.mkdir(parents=True, exist_ok=True)
             con.sql(
-                "SELECT ? ts_code,?::DOUBLE adj_factor UNION ALL SELECT ?,1 UNION ALL SELECT ?,1",
-                params=[A, factor, B, C],
+                "SELECT ? ts_code,?::DATE trade_date,?::DOUBLE adj_factor "
+                "UNION ALL SELECT ?,?::DATE,1 UNION ALL SELECT ?,?::DATE,1",
+                params=[A, day, factor, B, day, C, day],
             ).write_parquet(str(target))
 
 

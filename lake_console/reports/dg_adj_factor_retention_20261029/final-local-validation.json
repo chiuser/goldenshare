@@ -1,0 +1,10 @@
+{
+  "observed_at": "2026-10-29T08:45:37.967426+08:00",
+  "scope": "仅本地代码、文档及已归档证据；无正式资源再读取",
+  "docs_integrity": "passed",
+  "owned_diff_whitespace": "passed",
+  "selected_document_links": "passed",
+  "exact_test_cleanup_paths": "passed",
+  "archive_script_sha256": "passed",
+  "current_branch": "dev-interface"
+}

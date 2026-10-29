@@ -70,11 +70,16 @@ from orchestrator.defs.stock_daily_trend_channel import (
     audit_stock_daily_trend_channel_state,
     audit_stock_daily_trend_channel_state_coverage,
 )
+from tests.factor_repair_fixtures import (
+    isolated_factor_repair_connections as isolated_factor_repair_connections,
+)
 from tests.test_stock_daily_trend_channel_m3 import (
     _write_calendar,
     _write_day,
     _write_parquet,
 )
+
+pytestmark = pytest.mark.usefixtures("isolated_factor_repair_connections")
 
 DAY_1 = "2026-08-27"
 DAY_2 = "2026-08-28"

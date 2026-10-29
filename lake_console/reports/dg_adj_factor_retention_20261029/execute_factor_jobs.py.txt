@@ -1,0 +1,155 @@
+"""Trigger only the approved original factor job; never write business data here."""
+import hashlib
+import json
+import os
+import time
+from contextlib import closing
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import psycopg2
+import requests
+import yaml
+from dagster._serdes import deserialize_value
+
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
+from orchestrator.defs.io.adj_factor_silver_publication import file_identity
+from orchestrator.defs.paths import silver_adj_factor_publication_root
+
+ROOT = Path('/Users/congming/github/goldenshare')
+OUT = ROOT / 'lake_console/reports/dg_adj_factor_retention_20261029'
+TEMP = Path('/private/tmp/dg_adj_factor_implementation_20261029')
+URL = 'http://127.0.0.1:3000/graphql'
+STAGE = Path('/Volumes/datasource/data_lake_staging')
+ZONE = ZoneInfo('Asia/Shanghai')
+DAY = '2026-10-28'
+CHECKS = {'silver_adj_factor_contract_check','silver_adj_factor_key_value_integrity_check',
+          'silver_adj_factor_lifecycle_coverage_check','silver_adj_factor_partition_allowed_check'}
+BASE = json.loads((TEMP / 'formal-preflight.json').read_text())
+DATES = [x['date'] for x in BASE['days']]
+KEYS = [{'ts_code':'301139.SZ','trade_date':d} for d in DATES if d != DAY]
+assert DATES == ['2026-10-15','2026-10-16','2026-10-19','2026-10-20','2026-10-21',
+                 '2026-10-22','2026-10-23','2026-10-26','2026-10-27',DAY]
+STATE = {'started_at':datetime.now(ZONE).isoformat(),'job':'silver_adj_factor_update_job',
+         'runs':[],'stock_minute_jobs_launched':False,'complete':False}
+RESULT = OUT / 'execution-result.json'
+CONFIG = yaml.safe_load(Path('/Users/congming/.goldenshare/dagster_home/dagster.yaml').read_text())
+DB_URL = CONFIG['storage']['postgres']['postgres_url']
+if isinstance(DB_URL,dict):
+    DB_URL = os.environ[DB_URL['env']]
+
+
+def persist():
+    RESULT.write_text(json.dumps(STATE,ensure_ascii=False,indent=2,default=str)+'\n')
+
+
+def query(q,variables=None):
+    data = requests.post(URL,json={'query':q,'variables':variables or {}},timeout=30).json()
+    if data.get('errors'):
+        raise ValueError(data)
+    return data['data']
+
+
+def assert_inputs(item):
+    assert file_identity(Path(item['raw_path'])) == item['raw_identity'],'Raw input changed'
+    assert file_identity(Path(BASE['lifecycle_path'])) == BASE['lifecycle_identity'],'Lifecycle changed'
+    assert file_identity(Path(item['silver_path'])) == item['silver_identity'],'Target changed before launch'
+
+
+def verify_run(run_id,item):
+    with closing(psycopg2.connect(DB_URL,connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as db,db.cursor() as cursor:
+        db.set_session(readonly=True)
+        cursor.execute("SELECT id,dagster_event_type,event FROM event_logs WHERE run_id=%s AND dagster_event_type IN ('ASSET_MATERIALIZATION','ASSET_CHECK_EVALUATION') ORDER BY id ASC LIMIT 20",(run_id,))
+        mats,checks = [],[]
+        for eid,kind,body in cursor.fetchall():
+            event = deserialize_value(body)
+            detail = event.dagster_event.event_specific_data
+            if kind == 'ASSET_MATERIALIZATION':
+                mat = detail.materialization
+                mats.append({'storage_id':eid,'asset_key':list(mat.asset_key.path),
+                             'metadata':{k:v.value for k,v in mat.metadata.items()}})
+            else:
+                target = detail.target_materialization_data
+                checks.append({'storage_id':eid,'asset_key':list(detail.asset_key.path),
+                               'name':detail.check_name,'passed':detail.passed,
+                               'target_run_id':target.run_id if target else None,
+                               'target_storage_id':target.storage_id if target else None,
+                               'metadata':{k:v.value for k,v in detail.metadata.items()}})
+    assert len(mats)==1 and mats[0]['asset_key']==['silver_adj_factor'],mats
+    assert len(checks)==4 and {c['name'] for c in checks}==CHECKS,checks
+    assert all(c['asset_key']==['silver_adj_factor'] and c['passed'] and c['target_run_id']==run_id and c['target_storage_id']==mats[0]['storage_id'] for c in checks),checks
+    path = Path(item['silver_path'])
+    with connect_configured_duckdb(temp_policy='existing_no_spill') as con:
+        rows,code_rows,factor = con.execute("SELECT count(*),count(*) FILTER(WHERE ts_code='301139.SZ'),max(adj_factor) FILTER(WHERE ts_code='301139.SZ') FROM read_parquet(?,hive_partitioning=false)",[str(path)]).fetchone()
+    expected_rows = BASE['expected_28_rows'] if item['date']==DAY else item['counts_before']['silver']+1
+    expected_factor = 1.1319 if item['date']==DAY else 1.0079
+    assert rows==expected_rows and code_rows==1 and factor==expected_factor,(rows,code_rows,factor)
+    receipt_path = silver_adj_factor_publication_root(STAGE,run_id,item['date']) / 'publication.json'
+    receipt = json.loads(receipt_path.read_text())
+    assert receipt['phase']=='committed',receipt
+    assert receipt['binding']['trade_date']==item['date'] and receipt['binding']['target']==str(path)
+    expected_keys=[] if item['date']==DAY else [[k['ts_code'],k['trade_date']] for k in KEYS]
+    assert receipt['binding']['restore_keys']==expected_keys
+    actual = file_identity(path)
+    assert all(actual[k]==receipt['published_identity'][k] for k in ('device','inode','bytes','mtime_ns'))
+    assert receipt['result']['restored_row_count']==(0 if item['date']==DAY else 1)
+    return {'materialization':mats[0],'checks':checks,'physical_row_count':rows,
+            'target_code_row_count':code_rows,'target_code_factor':factor,
+            'publication_path':str(receipt_path),'publication_result':receipt['result'],
+            'target_identity':actual}
+
+
+def main():
+    assert not RESULT.exists(),'Do not automatically replay an existing execution ledger'
+    persist()
+    for item in BASE['days']:
+        assert_inputs(item)
+        config = {} if item['date']==DAY else {'ops':{'silver_adj_factor':{'config':{'restore_missing_keys':KEYS}}}}
+        params = {'selector':{'repositoryLocationName':'orchestrator','repositoryName':'__repository__','jobName':'silver_adj_factor_update_job'},
+                  'runConfigData':config,'executionMetadata':{'tags':[
+                      {'key':'dagster/partition','value':item['date']},
+                      {'key':'goldenshare/recovery','value':'adj_factor_retention_20261029'}]}}
+        record = {'date':item['date'],'request':params,'submitted_at':datetime.now(ZONE).isoformat()}
+        STATE['runs'].append(record);persist()
+        response = query('mutation Launch($params:ExecutionParams!){ launchRun(executionParams:$params){ __typename ... on LaunchRunSuccess { run { runId status } } } }',{'params':params})['launchRun']
+        record['launch_response']=response;persist()
+        assert response['__typename']=='LaunchRunSuccess',response
+        run_id=response['run']['runId'];record['run_id']=run_id;persist()
+        print(json.dumps({'date':item['date'],'run_id':run_id,'status':response['run']['status']},ensure_ascii=False),flush=True)
+        last = None
+        while True:
+            observed = query('query Status($id:ID!){ runOrError(runId:$id){ __typename ... on Run { status } } }',{'id':run_id})['runOrError']
+            assert observed['__typename']=='Run',observed
+            status=observed['status'];record['status']=status
+            if status != last:
+                persist();print(json.dumps({'date':item['date'],'run_id':run_id,'status':status},ensure_ascii=False),flush=True);last=status
+            if status in {'SUCCESS','FAILURE','CANCELED'}:
+                break
+            time.sleep(10)
+        assert status=='SUCCESS',(run_id,status)
+        record['verification']=verify_run(run_id,item)
+        record['verified_at']=datetime.now(ZONE).isoformat();persist()
+        print(json.dumps({'date':item['date'],'verified':True,'rows':record['verification']['physical_row_count'],'checks_passed':4},ensure_ascii=False),flush=True)
+    unchanged=[]
+    for item in BASE['source_files']:
+        path=Path(item['path'])
+        if '/raw/' not in str(path) and str(path)!=BASE['lifecycle_path']:
+            continue
+        digest=hashlib.sha256(path.read_bytes()).hexdigest()
+        assert digest==item['sha256_before'],path
+        unchanged.append(str(path))
+    STATE.update(complete=True,finished_at=datetime.now(ZONE).isoformat(),
+                 restored_historical_rows=9,verified_check_count=40,
+                 unchanged_raw_and_lifecycle_paths=unchanged)
+    persist();print(json.dumps({'complete':True,'dates':DATES,'restored_historical_rows':9,'day28_rows':BASE['expected_28_rows'],'checks_passed':40},ensure_ascii=False),flush=True)
+
+
+if __name__=='__main__':
+    if RESULT.exists():
+        raise RuntimeError('Existing execution ledger must be inspected; no automatic replay')
+    try:
+        main()
+    except Exception as error:
+        STATE['error']=str(error);STATE['stopped_at']=datetime.now(ZONE).isoformat();persist()
+        raise

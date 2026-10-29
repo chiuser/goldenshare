@@ -9,14 +9,15 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 import duckdb
+import pytest
 
-from orchestrator.defs.asset_guards.bounded_continuity import (
-    ContinuityBatchReadiness,
-    ContinuityDateReadiness,
-)
 from orchestrator.defs.asset_guards.adj_factor_lake_readiness import (
     SILVER_ADJ_FACTOR_COVERAGE_COMPLETE_CHECK,
     SilverAdjFactorLifecycleRebuildAssessment,
+)
+from orchestrator.defs.asset_guards.bounded_continuity import (
+    ContinuityBatchReadiness,
+    ContinuityDateReadiness,
 )
 from orchestrator.defs.checks import adj_factor_checks
 from orchestrator.defs.duckdb_sql import duckdb_string
@@ -29,7 +30,9 @@ from orchestrator.defs.run_contracts.sensor_tags import (
     SENSOR_TARGET_LAYER_TAG,
 )
 from orchestrator.defs.sensors import readiness
-from orchestrator.defs.sensors import stock_adj_factor_sensor as adj_factor_sensor_module
+from orchestrator.defs.sensors import (
+    stock_adj_factor_sensor as adj_factor_sensor_module,
+)
 from orchestrator.defs.sensors.readiness import (
     AssetReadinessStatus,
     DatasetReadinessStatus,
@@ -45,10 +48,15 @@ from orchestrator.defs.sensors.stock_current_trade_day_sensor import (
     STOCK_CURRENT_TRADE_DAY_REGISTER_START,
     stock_current_trade_day_sensor,
 )
+from tests.adj_factor_test_support import (
+    isolated_factor_duckdb,
+)
+
+pytestmark = pytest.mark.usefixtures(isolated_factor_duckdb.__name__)
 
 
 EVALUATED_AT = datetime(2026, 5, 29, 9, 30, tzinfo=ZoneInfo("Asia/Shanghai"))
-ADJ_FACTOR_REGISTERED_DAYS = ("2026-06-03", "2026-06-04", "2026-06-05")
+ADJ_FACTOR_REGISTERED_DAYS = ("2026-10-26", "2026-10-27", "2026-10-28")
 
 
 class _FakeInstance:
@@ -112,25 +120,25 @@ class _CurrentTradeDayContext:
 
 class _FixedDateTime(datetime):
     @classmethod
-    def now(cls, tz=None):  # noqa: ANN001
-        return datetime(2026, 6, 5, 10, 0, tzinfo=tz or UTC)
+    def now(cls, tz=None):
+        return datetime(2026, 10, 28, 10, 0, tzinfo=tz or UTC)
 
 
 class _EarlyDateTime(datetime):
     @classmethod
-    def now(cls, tz=None):  # noqa: ANN001
-        return datetime(2026, 6, 5, 9, 0, tzinfo=tz or UTC)
+    def now(cls, tz=None):
+        return datetime(2026, 10, 28, 9, 0, tzinfo=tz or UTC)
 
 
 class _AfterCurrentTradeDayRegisterWindowDateTime(datetime):
     @classmethod
-    def now(cls, tz=None):  # noqa: ANN001
+    def now(cls, tz=None):
         return datetime(2026, 6, 17, 6, 30, tzinfo=tz or UTC)
 
 
 class _BeforeCurrentTradeDayRegisterWindowDateTime(datetime):
     @classmethod
-    def now(cls, tz=None):  # noqa: ANN001
+    def now(cls, tz=None):
         return datetime(2026, 6, 17, 5, 59, tzinfo=tz or UTC)
 
 
@@ -146,7 +154,7 @@ def _raw_status(
     *,
     ready: bool,
     materialized: bool = True,
-    partition_key: str = "2026-06-05",
+    partition_key: str = "2026-10-28",
     missing_check_names: tuple[str, ...] = (),
     failed_check_names: tuple[str, ...] = (),
     reason: str = "ready",
@@ -177,7 +185,7 @@ def _stock_basic_status(*, ready: bool) -> DatasetReadinessStatus:
             checks_passed=ready,
             freshness_passed=ready,
             materialization_storage_id=1 if ready else None,
-            materialization_date="2026-06-04" if ready else None,
+            materialization_date="2026-10-27" if ready else None,
             missing_check_names=() if ready else ("check_missing",),
             failed_check_names=(),
             reason="ready" if ready else f"{asset_key} not ready",
@@ -205,7 +213,7 @@ def _stock_lifecycle_status(
     if materialization_storage_id is None and materialized:
         materialization_storage_id = 1
     if materialization_date is None and materialized:
-        materialization_date = "2026-06-05"
+        materialization_date = "2026-10-28"
     return AssetReadinessStatus(
         asset_key="silver_stock_lifecycle",
         partition_key=None,
@@ -306,9 +314,9 @@ def _write_adj_factor_sensor_calendar(lake_root: Path) -> None:
             COPY (
               SELECT * FROM (
                 VALUES
-                  ('SSE', true, DATE '2026-06-03'),
-                  ('SSE', true, DATE '2026-06-04'),
-                  ('SSE', true, DATE '2026-06-05')
+                  ('SSE', true, DATE '2026-10-26'),
+                  ('SSE', true, DATE '2026-10-27'),
+                  ('SSE', true, DATE '2026-10-28')
               ) AS calendar(exchange, is_open, trade_date)
             ) TO {duckdb_string(calendar_path)} (FORMAT PARQUET)
             """
@@ -486,7 +494,7 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         self.assertIn("06:00", result.skip_reason.skip_message)
 
     def test_raw_sensor_skips_when_registered_trade_days_have_gap(self) -> None:
-        context = _FakeContext(partitions=("2026-06-03", "2026-06-05"))
+        context = _FakeContext(partitions=("2026-10-26", "2026-10-28"))
         with patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.datetime",
             _FixedDateTime,
@@ -499,7 +507,7 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         self.assertIn("分区存在缺口", result.skip_reason.skip_message)
         batch_readiness.assert_not_called()
         cursor_payload = load_sensor_cursor(result.cursor)
-        self.assertEqual(cursor_payload["target_date"], "2026-06-04")
+        self.assertEqual(cursor_payload["target_date"], "2026-10-27")
         self.assertEqual(
             cursor_payload["details"]["reason_code"],
             "missing_registered_partition",
@@ -541,16 +549,16 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         ), patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_raw_adj_factor_lake_readiness",
             return_value=_batch_status(
-                ready_dates=("2026-06-03", "2026-06-04"),
-                missing_dates=("2026-06-05",),
+                ready_dates=("2026-10-26", "2026-10-27"),
+                missing_dates=("2026-10-28",),
             ),
         ):
             result = _raw_sensor_result(context)
 
         self.assertEqual(len(result.run_requests), 1)
         request = result.run_requests[0]
-        self.assertEqual(request.partition_key, "2026-06-05")
-        self.assertEqual(request.run_key, "raw_adj_factor_update:2026-06-05")
+        self.assertEqual(request.partition_key, "2026-10-28")
+        self.assertEqual(request.run_key, "raw_adj_factor_update:2026-10-28")
         self.assertEqual(request.run_config, {})
         cursor_payload = load_sensor_cursor(result.cursor)
         cursor_text = json.dumps(cursor_payload, ensure_ascii=False)
@@ -570,8 +578,8 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         ), patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_raw_adj_factor_lake_readiness",
             return_value=_batch_status(
-                ready_dates=("2026-06-03", "2026-06-04"),
-                failed_dates=("2026-06-05",),
+                ready_dates=("2026-10-26", "2026-10-27"),
+                failed_dates=("2026-10-28",),
             ),
         ):
             result = _raw_sensor_result(context)
@@ -606,26 +614,26 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         self.assertIn("无需处理", cursor_payload["details"]["next_action"])
 
     def test_raw_and_silver_run_request_contracts(self) -> None:
-        raw_request = _raw_run_request_for_trade_date("2026-06-05")
-        self.assertEqual(raw_request.partition_key, "2026-06-05")
-        self.assertEqual(raw_request.run_key, "raw_adj_factor_update:2026-06-05")
+        raw_request = _raw_run_request_for_trade_date("2026-10-28")
+        self.assertEqual(raw_request.partition_key, "2026-10-28")
+        self.assertEqual(raw_request.run_key, "raw_adj_factor_update:2026-10-28")
         self.assertEqual(raw_request.tags, {})
         self.assertEqual(raw_request.run_config, {})
 
-        silver_request = _silver_run_request_for_trade_date("2026-06-05")
-        self.assertEqual(silver_request.partition_key, "2026-06-05")
-        self.assertEqual(silver_request.run_key, "silver_adj_factor_update:2026-06-05")
+        silver_request = _silver_run_request_for_trade_date("2026-10-28")
+        self.assertEqual(silver_request.partition_key, "2026-10-28")
+        self.assertEqual(silver_request.run_key, "silver_adj_factor_update:2026-10-28")
         self.assertEqual(silver_request.tags, {})
         self.assertEqual(silver_request.run_config, {})
 
         lifecycle_rebuild_request = _silver_lifecycle_rebuild_run_request_for_trade_date(
-            trade_date="2026-06-05",
+            trade_date="2026-10-28",
             lifecycle_materialization_storage_id=42,
         )
-        self.assertEqual(lifecycle_rebuild_request.partition_key, "2026-06-05")
+        self.assertEqual(lifecycle_rebuild_request.partition_key, "2026-10-28")
         self.assertEqual(
             lifecycle_rebuild_request.run_key,
-            "silver_adj_factor_lifecycle_rebuild:2026-06-05:lifecycle:42",
+            "silver_adj_factor_lifecycle_rebuild:2026-10-28:lifecycle:42",
         )
         self.assertEqual(lifecycle_rebuild_request.tags, {})
         self.assertEqual(lifecycle_rebuild_request.run_config, {})
@@ -633,16 +641,16 @@ class AdjFactorM4ContractTests(unittest.TestCase):
     def test_silver_sensor_skips_when_raw_missing_or_checks_not_ready(self) -> None:
         cases = (
             _batch_status(
-                ready_dates=("2026-06-03", "2026-06-04"),
-                missing_dates=("2026-06-05",),
+                ready_dates=("2026-10-26", "2026-10-27"),
+                missing_dates=("2026-10-28",),
             ),
             _batch_status(
-                ready_dates=("2026-06-03", "2026-06-04"),
-                failed_dates=("2026-06-05",),
+                ready_dates=("2026-10-26", "2026-10-27"),
+                failed_dates=("2026-10-28",),
             ),
         )
         for raw_batch_status in cases:
-            raw_target_status = raw_batch_status.status_for_trade_date("2026-06-05")
+            raw_target_status = raw_batch_status.status_for_trade_date("2026-10-28")
             with self.subTest(reason=raw_target_status.reason):
                 context = _FakeContext(partitions=ADJ_FACTOR_REGISTERED_DAYS)
                 with patch(
@@ -654,8 +662,8 @@ class AdjFactorM4ContractTests(unittest.TestCase):
                 ), patch(
                     "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_silver_adj_factor_lake_readiness",
                     return_value=_batch_status(
-                        ready_dates=("2026-06-03", "2026-06-04"),
-                        missing_dates=("2026-06-05",),
+                        ready_dates=("2026-10-26", "2026-10-27"),
+                        missing_dates=("2026-10-28",),
                     ),
                 ):
                     result = _silver_sensor_result(context)
@@ -690,8 +698,8 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         ), patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_silver_adj_factor_lake_readiness",
             return_value=_batch_status(
-                ready_dates=("2026-06-03", "2026-06-04"),
-                missing_dates=("2026-06-05",),
+                ready_dates=("2026-10-26", "2026-10-27"),
+                missing_dates=("2026-10-28",),
             ),
         ), patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.stock_basic_ready_without_freshness",
@@ -739,8 +747,8 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         ), patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_silver_adj_factor_lake_readiness",
             return_value=_batch_status(
-                ready_dates=("2026-06-03", "2026-06-04"),
-                missing_dates=("2026-06-05",),
+                ready_dates=("2026-10-26", "2026-10-27"),
+                missing_dates=("2026-10-28",),
             ),
         ), patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.stock_basic_ready_without_freshness",
@@ -790,8 +798,8 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         ), patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_silver_adj_factor_lake_readiness",
             return_value=_batch_status(
-                ready_dates=("2026-06-03", "2026-06-04"),
-                missing_dates=("2026-06-05",),
+                ready_dates=("2026-10-26", "2026-10-27"),
+                missing_dates=("2026-10-28",),
             ),
         ), patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.stock_basic_ready_without_freshness",
@@ -806,8 +814,8 @@ class AdjFactorM4ContractTests(unittest.TestCase):
 
         self.assertEqual(len(result.run_requests), 1)
         request = result.run_requests[0]
-        self.assertEqual(request.partition_key, "2026-06-05")
-        self.assertEqual(request.run_key, "silver_adj_factor_update:2026-06-05")
+        self.assertEqual(request.partition_key, "2026-10-28")
+        self.assertEqual(request.run_key, "silver_adj_factor_update:2026-10-28")
         cursor_payload = load_sensor_cursor(result.cursor)
         cursor_text = json.dumps(cursor_payload, ensure_ascii=False)
         self.assertLess(len(cursor_text), 3000)
@@ -826,7 +834,7 @@ class AdjFactorM4ContractTests(unittest.TestCase):
             "silver_stock_lifecycle",
         )
         self.assertTrue(stock_lifecycle_payload["ready"])
-        lifecycle_ready.assert_called_once_with(context.instance, "2026-06-05")
+        lifecycle_ready.assert_called_once_with(context.instance, "2026-10-28")
         assess_rebuild.assert_not_called()
 
     def test_silver_sensor_waits_for_target_date_lifecycle_freshness(self) -> None:
@@ -837,7 +845,7 @@ class AdjFactorM4ContractTests(unittest.TestCase):
             checks_passed=True,
             freshness_passed=False,
             materialization_storage_id=41,
-            materialization_date="2026-06-04",
+            materialization_date="2026-10-27",
         )
         with patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.datetime",
@@ -848,8 +856,8 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         ), patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_silver_adj_factor_lake_readiness",
             return_value=_batch_status(
-                ready_dates=("2026-06-03", "2026-06-04"),
-                missing_dates=("2026-06-05",),
+                ready_dates=("2026-10-26", "2026-10-27"),
+                missing_dates=("2026-10-28",),
             ),
         ), patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.stock_basic_ready_without_freshness",
@@ -894,8 +902,8 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         ), patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_silver_adj_factor_lake_readiness",
             return_value=_batch_status(
-                ready_dates=("2026-06-03", "2026-06-04"),
-                failed_dates=("2026-06-05",),
+                ready_dates=("2026-10-26", "2026-10-27"),
+                failed_dates=("2026-10-28",),
                 failed_check_names=(SILVER_ADJ_FACTOR_COVERAGE_COMPLETE_CHECK,),
             ),
         ), patch(
@@ -916,7 +924,7 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         self.assertEqual(len(result.run_requests), 1)
         self.assertEqual(
             result.run_requests[0].run_key,
-            "silver_adj_factor_lifecycle_rebuild:2026-06-05:lifecycle:42",
+            "silver_adj_factor_lifecycle_rebuild:2026-10-28:lifecycle:42",
         )
         assess_rebuild.assert_called_once()
         cursor_payload = load_sensor_cursor(result.cursor)
@@ -959,8 +967,8 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         ), patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_silver_adj_factor_lake_readiness",
             return_value=_batch_status(
-                ready_dates=("2026-06-03", "2026-06-04"),
-                failed_dates=("2026-06-05",),
+                ready_dates=("2026-10-26", "2026-10-27"),
+                failed_dates=("2026-10-28",),
                 failed_check_names=(SILVER_ADJ_FACTOR_COVERAGE_COMPLETE_CHECK,),
             ),
         ), patch(
@@ -1003,8 +1011,8 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         ), patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_silver_adj_factor_lake_readiness",
             return_value=_batch_status(
-                ready_dates=("2026-06-03", "2026-06-04"),
-                failed_dates=("2026-06-05",),
+                ready_dates=("2026-10-26", "2026-10-27"),
+                failed_dates=("2026-10-28",),
             ),
         ), patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.stock_basic_ready_without_freshness",
@@ -1035,6 +1043,24 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         )
         self.assertIn("blocking checks 未全绿", cursor_payload["details"]["summary"])
         self.assertIn("silver_adj_factor checks", cursor_payload["details"]["next_action"])
+
+    def test_silver_sensor_never_automatically_rebuilds_pre_cutover_partition(self) -> None:
+        context = _FakeContext(partitions=ADJ_FACTOR_REGISTERED_DAYS)
+        with patch("orchestrator.defs.sensors.stock_adj_factor_sensor.datetime", _FixedDateTime), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_raw_adj_factor_lake_readiness",
+            return_value=_batch_status(ready_dates=ADJ_FACTOR_REGISTERED_DAYS),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_silver_adj_factor_lake_readiness",
+            return_value=_batch_status(ready_dates=("2026-10-26", "2026-10-28"), missing_dates=("2026-10-27",)),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.stock_basic_ready_without_freshness",
+            side_effect=AssertionError("must stop before additional readiness or any run request"),
+        ):
+            result = _silver_sensor_result(context)
+        self.assertEqual(result.run_requests, [])
+        cursor = load_sensor_cursor(result.cursor)
+        self.assertEqual(cursor["target_date"], "2026-10-27")
+        self.assertEqual(cursor["details"]["reason_code"], "historical_partition_requires_explicit_restore")
 
     def test_legacy_silver_sensor_cases_removed(self) -> None:
         sensor_source = Path(adj_factor_sensor_module.__file__).read_text()

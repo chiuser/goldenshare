@@ -53,12 +53,17 @@ from orchestrator.defs.stock_daily_trend_channel import (
     StockDailyTrendChannelRepairPartition,
     write_stock_daily_trend_channel_factor_repair,
 )
+from tests.factor_repair_fixtures import (
+    isolated_factor_repair_connections as isolated_factor_repair_connections,
+)
 from tests.test_stock_daily_trend_channel_m3 import (
     _rows,
     _write_calendar,
     _write_day,
     _write_qfq,
 )
+
+pytestmark = pytest.mark.usefixtures("isolated_factor_repair_connections")
 
 DATES = ("2026-08-27", "2026-08-28", "2026-08-31")
 AFFECTED_CODE = "000001.SZ"

@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 import duckdb
+import pytest
 
 from orchestrator.defs.catalog import DATASET_CHINESE_NAMES
 from orchestrator.defs.duckdb_sql import (
@@ -22,6 +23,11 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     SILVER_ADJ_FACTOR_SCHEMA,
 )
+from tests.adj_factor_test_support import (
+    isolated_factor_duckdb,
+)
+
+pytestmark = pytest.mark.usefixtures(isolated_factor_duckdb.__name__)
 
 
 def _write_raw_adj_factor_parquet(path: Path) -> None:
@@ -127,7 +133,7 @@ class AdjFactorContractTests(unittest.TestCase):
             "data_lake/silver/quote/adj_factor/trade_date=2026-05-29/part-000.parquet",
         )
 
-    def test_silver_select_keeps_only_current_listed_cny_history(
+    def test_silver_select_retains_known_cny_source_factors_after_delisting(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -151,6 +157,8 @@ class AdjFactorContractTests(unittest.TestCase):
             rows,
             [
                 ("000001.SZ", "2026-05-28", 1.1),
+                ("000002.SZ", "2026-05-28", 2.2),
+                ("000006.SZ", "2026-05-28", 6.6),
             ],
         )
 

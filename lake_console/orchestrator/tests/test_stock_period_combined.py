@@ -15,12 +15,14 @@ from orchestrator.defs.io.stock_period_raw import (
     read_json,
     target_path,
 )
+from orchestrator.defs.paths import silver_stock_lifecycle_path
 from orchestrator.defs.run_contracts.stock_period import (
     FIELDS,
     VERSION,
     StockPeriodPolicy,
     execution_id,
 )
+from tests.factor_repair_fixtures import write_repair_lifecycle
 
 A, B = "000001.SZ", "000002.SZ"
 POLICY = StockPeriodPolicy(
@@ -46,6 +48,10 @@ def bootstrap(tmp_path):
         "aliases": {},
         "policy": POLICY,
     }
+
+    write_repair_lifecycle(silver_stock_lifecycle_path(kw["root"]), [
+        {"ts_code": A}, {"ts_code": B},
+    ])
 
     def initial(params):
         dates = (
@@ -398,8 +404,9 @@ def test_real_daily_execution_plans_period_and_factor_history_before_one_publica
             p = silver_adj_factor_path(kw["root"], day)
             p.parent.mkdir(parents=True, exist_ok=True)
             con.sql(
-                "SELECT '000001.SZ' ts_code,?::DOUBLE adj_factor UNION ALL SELECT '000002.SZ',1",
-                params=[factor],
+                "SELECT '000001.SZ' ts_code,?::DATE trade_date,?::DOUBLE adj_factor "
+                "UNION ALL SELECT '000002.SZ',?::DATE,1",
+                params=[day, factor, day],
             ).write_parquet(str(p))
     atomic_json(
         kw["staging"] / "stock_period/daily.json",

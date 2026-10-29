@@ -1,0 +1,55 @@
+{
+  "started_at": "2026-10-29T08:37:59.945630+08:00",
+  "results": [
+    {
+      "name": "silver_adj_factor_update_job_sensor",
+      "response": {
+        "data": {
+          "startSensor": {
+            "__typename": "Sensor",
+            "name": "silver_adj_factor_update_job_sensor",
+            "sensorState": {
+              "status": "RUNNING"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "gold_stock_daily_qfq_update_job_sensor",
+      "response": {
+        "data": {
+          "startSensor": {
+            "__typename": "Sensor",
+            "name": "gold_stock_daily_qfq_update_job_sensor",
+            "sensorState": {
+              "status": "RUNNING"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "gold_stock_daily_qfq_factor_repair_job_sensor",
+      "response": {
+        "data": {
+          "startSensor": {
+            "__typename": "Sensor",
+            "name": "gold_stock_daily_qfq_factor_repair_job_sensor",
+            "sensorState": {
+              "status": "RUNNING"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "minute_sensors_left_stopped": [
+    "stock_mins_qfq_daily_sensor",
+    "stock_mins_qfq_factor_repair_sensor",
+    "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+    "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+    "gold_stk_mins_qfq_nineturn_update_job_sensor"
+  ],
+  "finished_at": "2026-10-29T08:38:00.022966+08:00"
+}

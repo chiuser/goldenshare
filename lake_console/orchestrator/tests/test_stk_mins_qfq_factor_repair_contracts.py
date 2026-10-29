@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import duckdb
+import pytest
 
 from orchestrator.defs.catalog.name_mapping import DATASET_CHINESE_NAMES
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
@@ -30,7 +31,12 @@ from orchestrator.defs.stk_mins_qfq import (
     build_gold_stk_mins_qfq_factor_repair_plan,
     gold_stk_mins_qfq_factor_repair_codes_hash,
 )
+from tests.factor_repair_fixtures import (
+    isolated_factor_repair_connections as isolated_factor_repair_connections,
+)
+from tests.factor_repair_fixtures import write_repair_lifecycle
 
+pytestmark = pytest.mark.usefixtures("isolated_factor_repair_connections")
 
 TRADE_DATE = "2026-05-29"
 PREVIOUS_TRADE_DATE = "2026-05-28"
@@ -118,7 +124,7 @@ class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
         current_rows: list[dict[str, object]],
         previous_rows: list[dict[str, object]],
         stock_basic_rows: list[dict[str, object]],
-    ) -> tuple[Path, Path, Path]:
+    ) -> tuple[Path, Path, Path, Path]:
         current_path = root / "current_adj_factor.parquet"
         previous_path = root / "previous_adj_factor.parquet"
         stock_basic_path = root / "silver_stock_basic.parquet"
@@ -140,11 +146,16 @@ class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
             rows=stock_basic_rows,
             order_by="ts_code",
         )
-        return current_path, previous_path, stock_basic_path
+        lifecycle_path = write_repair_lifecycle(
+            root / "silver_stock_lifecycle.parquet",
+            [{"ts_code": row["ts_code"], "list_date": row["list_date"]}
+             for row in stock_basic_rows],
+        )
+        return current_path, previous_path, stock_basic_path, lifecycle_path
 
     def test_repair_plan_is_no_change_when_factors_are_unchanged(self) -> None:
         with TemporaryDirectory() as temp_dir:
-            current_path, previous_path, stock_basic_path = self._write_inputs(
+            current_path, previous_path, stock_basic_path, lifecycle_path = self._write_inputs(
                 Path(temp_dir),
                 current_rows=[
                     _adj_row("600000.SH", TRADE_DATE, 2.0),
@@ -164,6 +175,7 @@ class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
                 current_adj_factor_path=current_path,
                 previous_adj_factor_path=previous_path,
                 silver_stock_basic_path=stock_basic_path,
+                    silver_stock_lifecycle_path=lifecycle_path,
                 trade_date=TRADE_DATE,
                 previous_trade_date=PREVIOUS_TRADE_DATE,
             )
@@ -176,7 +188,7 @@ class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
 
     def test_repair_plan_marks_factor_changed_codes_for_repair(self) -> None:
         with TemporaryDirectory() as temp_dir:
-            current_path, previous_path, stock_basic_path = self._write_inputs(
+            current_path, previous_path, stock_basic_path, lifecycle_path = self._write_inputs(
                 Path(temp_dir),
                 current_rows=[
                     _adj_row("600000.SH", TRADE_DATE, 2.0),
@@ -196,6 +208,7 @@ class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
                 current_adj_factor_path=current_path,
                 previous_adj_factor_path=previous_path,
                 silver_stock_basic_path=stock_basic_path,
+                    silver_stock_lifecycle_path=lifecycle_path,
                 trade_date=TRADE_DATE,
                 previous_trade_date=PREVIOUS_TRADE_DATE,
             )
@@ -210,7 +223,7 @@ class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
 
     def test_current_only_new_listing_is_not_repair_required(self) -> None:
         with TemporaryDirectory() as temp_dir:
-            current_path, previous_path, stock_basic_path = self._write_inputs(
+            current_path, previous_path, stock_basic_path, lifecycle_path = self._write_inputs(
                 Path(temp_dir),
                 current_rows=[
                     _adj_row("600000.SH", TRADE_DATE, 2.0),
@@ -228,6 +241,7 @@ class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
                     current_adj_factor_path=current_path,
                     previous_adj_factor_path=previous_path,
                     silver_stock_basic_path=stock_basic_path,
+                    silver_stock_lifecycle_path=lifecycle_path,
                     trade_date=TRADE_DATE,
                     previous_trade_date=PREVIOUS_TRADE_DATE,
                 )
@@ -236,6 +250,7 @@ class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
                 current_adj_factor_path=current_path,
                 previous_adj_factor_path=previous_path,
                 silver_stock_basic_path=stock_basic_path,
+                    silver_stock_lifecycle_path=lifecycle_path,
                 trade_date=TRADE_DATE,
                 previous_trade_date=PREVIOUS_TRADE_DATE,
             )
@@ -251,7 +266,7 @@ class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
         self,
     ) -> None:
         with TemporaryDirectory() as temp_dir:
-            current_path, previous_path, stock_basic_path = self._write_inputs(
+            current_path, previous_path, stock_basic_path, lifecycle_path = self._write_inputs(
                 Path(temp_dir),
                 current_rows=[
                     _adj_row("600000.SH", TRADE_DATE, 2.0),
@@ -269,6 +284,7 @@ class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
                     current_adj_factor_path=current_path,
                     previous_adj_factor_path=previous_path,
                     silver_stock_basic_path=stock_basic_path,
+                    silver_stock_lifecycle_path=lifecycle_path,
                     trade_date=TRADE_DATE,
                     previous_trade_date=PREVIOUS_TRADE_DATE,
                 )
@@ -277,6 +293,7 @@ class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
                 current_adj_factor_path=current_path,
                 previous_adj_factor_path=previous_path,
                 silver_stock_basic_path=stock_basic_path,
+                    silver_stock_lifecycle_path=lifecycle_path,
                 trade_date=TRADE_DATE,
                 previous_trade_date=PREVIOUS_TRADE_DATE,
             )
@@ -293,7 +310,7 @@ class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
         self,
     ) -> None:
         with TemporaryDirectory() as temp_dir:
-            current_path, previous_path, stock_basic_path = self._write_inputs(
+            current_path, previous_path, stock_basic_path, lifecycle_path = self._write_inputs(
                 Path(temp_dir),
                 current_rows=[
                     _adj_row("600000.SH", TRADE_DATE, 2.0),
@@ -310,6 +327,7 @@ class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
                 current_adj_factor_path=current_path,
                 previous_adj_factor_path=previous_path,
                 silver_stock_basic_path=stock_basic_path,
+                    silver_stock_lifecycle_path=lifecycle_path,
                 trade_date=TRADE_DATE,
                 previous_trade_date=PREVIOUS_TRADE_DATE,
             )
@@ -322,7 +340,7 @@ class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
 
     def test_previous_only_code_does_not_trigger_repair(self) -> None:
         with TemporaryDirectory() as temp_dir:
-            current_path, previous_path, stock_basic_path = self._write_inputs(
+            current_path, previous_path, stock_basic_path, lifecycle_path = self._write_inputs(
                 Path(temp_dir),
                 current_rows=[_adj_row("600000.SH", TRADE_DATE, 2.0)],
                 previous_rows=[
@@ -339,6 +357,7 @@ class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
                 current_adj_factor_path=current_path,
                 previous_adj_factor_path=previous_path,
                 silver_stock_basic_path=stock_basic_path,
+                    silver_stock_lifecycle_path=lifecycle_path,
                 trade_date=TRADE_DATE,
                 previous_trade_date=PREVIOUS_TRADE_DATE,
             )
@@ -349,7 +368,7 @@ class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
 
     def test_repair_check_metadata_is_namespaced_and_truncated(self) -> None:
         with TemporaryDirectory() as temp_dir:
-            current_path, previous_path, stock_basic_path = self._write_inputs(
+            current_path, previous_path, stock_basic_path, lifecycle_path = self._write_inputs(
                 Path(temp_dir),
                 current_rows=[
                     _adj_row("000001.SZ", TRADE_DATE, 1.1),
@@ -371,6 +390,7 @@ class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
                 current_adj_factor_path=current_path,
                 previous_adj_factor_path=previous_path,
                 silver_stock_basic_path=stock_basic_path,
+                    silver_stock_lifecycle_path=lifecycle_path,
                 trade_date=TRADE_DATE,
                 previous_trade_date=PREVIOUS_TRADE_DATE,
                 sample_limit=2,

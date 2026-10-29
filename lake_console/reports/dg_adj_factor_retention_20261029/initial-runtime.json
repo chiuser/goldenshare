@@ -1,0 +1,87 @@
+{
+  "observed_at": "2026-10-29T07:45:15.559264+08:00",
+  "read_only": true,
+  "active_runs": [],
+  "sensors": [
+    {
+      "name": "prod_core_stock_daily_qfq_nineturn_sync_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "e7540ba0ce20e12685df5602e25ff75ed4c93cfe"
+    },
+    {
+      "name": "stock_mins_qfq_daily_sensor",
+      "status": "RUNNING",
+      "selector_id": "3ab800ed537bd69b153d69fb1e3a6259b8ae3777"
+    },
+    {
+      "name": "stock_daily_trend_channel_trade_day_sensor",
+      "status": "RUNNING",
+      "selector_id": "1e25f182a780e9185cf07bea7e57fd8050999207"
+    },
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "e739480038f6d0807e2989cd23d199d18f0715e7"
+    },
+    {
+      "name": "stock_adj_factor_sensor",
+      "status": "RUNNING",
+      "selector_id": "1d438f4cbf419a29e055826545518669b98db5b0"
+    },
+    {
+      "name": "raw_adj_factor_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "c45b7395b6b143043b9ba8de406743349965ce93"
+    },
+    {
+      "name": "gold_stock_daily_qfq_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "8d6fd7385a1e30ed649e990361d15253c2bf4cac"
+    },
+    {
+      "name": "stock_mins_qfq_factor_repair_sensor",
+      "status": "RUNNING",
+      "selector_id": "41dc5e4a579d10becf079e7a18e18f4f086e008f"
+    },
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "f7097a5f811f8e1260f1b32b7d128afbec5d53bb"
+    },
+    {
+      "name": "silver_etf_adj_factor_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "c66127ce33837377705e2f3cb37eb7eac2b1fdae"
+    },
+    {
+      "name": "gold_stock_daily_qfq_factor_repair_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "81e32ecf4b114609b591bd2a02c22214674de238"
+    },
+    {
+      "name": "gold_stock_daily_trend_channel_repair_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "e083c6d73e3109feb4739ae10b1ff3ae20d3f010"
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "99d31a375eebcb8cd66c62866edc623c35dcbd7d"
+    },
+    {
+      "name": "silver_adj_factor_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "056042bcd88efce5637caae9bbc0aeb33cac9d46"
+    },
+    {
+      "name": "gold_stock_daily_trend_channel_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "ee6ed973054a677eb76b2a7988bb9503855c13e1"
+    },
+    {
+      "name": "gold_stock_daily_qfq_nineturn_update_job_sensor",
+      "status": "RUNNING",
+      "selector_id": "63419d07f713bcc9dca7aae7a3b2a5529c4e7ad9"
+    }
+  ]
+}

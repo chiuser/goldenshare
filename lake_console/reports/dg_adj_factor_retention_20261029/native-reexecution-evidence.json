@@ -1,0 +1,74 @@
+{
+  "native_normal_evidence.json": {
+    "api": "execute_job(reconstructable(module_scope_factory))",
+    "run_id": "7d284e5c-0772-48d8-a9ca-6433184c16d7",
+    "status": "SUCCESS",
+    "date": "2026-10-28",
+    "publication_root_run_id": "7d284e5c-0772-48d8-a9ca-6433184c16d7",
+    "delivery": {
+      "materialization_storage_id": 7,
+      "check_names": [
+        "silver_adj_factor_contract_check",
+        "silver_adj_factor_key_value_integrity_check",
+        "silver_adj_factor_lifecycle_coverage_check",
+        "silver_adj_factor_partition_allowed_check"
+      ],
+      "check_target_storage_ids": [
+        7,
+        7,
+        7,
+        7
+      ]
+    }
+  },
+  "native_reexecution_evidence.json": {
+    "api": "execute_job + ReexecutionOptions.from_failure",
+    "parent_run_id": "02eb6df4-6ed3-4384-bbc8-225d42947fd0",
+    "parent_status": "FAILURE",
+    "retry_run_id": "f2e650ca-1d89-4656-a00e-ff447f045351",
+    "retry_status": "SUCCESS",
+    "retry_root_run_id": "02eb6df4-6ed3-4384-bbc8-225d42947fd0",
+    "retry_parent_run_id": "02eb6df4-6ed3-4384-bbc8-225d42947fd0",
+    "publication_root_run_id": "02eb6df4-6ed3-4384-bbc8-225d42947fd0",
+    "calls": {
+      "candidates": 1,
+      "promotions": 1,
+      "receipt_failures": 1
+    },
+    "file_identity_unchanged_after_retry": true,
+    "raw_unchanged": true,
+    "lifecycle_unchanged": true,
+    "delivery": {
+      "materialization_storage_id": 14,
+      "check_names": [
+        "silver_adj_factor_contract_check",
+        "silver_adj_factor_key_value_integrity_check",
+        "silver_adj_factor_lifecycle_coverage_check",
+        "silver_adj_factor_partition_allowed_check"
+      ],
+      "check_target_storage_ids": [
+        14,
+        14,
+        14,
+        14
+      ]
+    }
+  },
+  "observed_at": "2026-10-29T08:05:58.089063+08:00",
+  "isolated_persistent_instance": true,
+  "configured_duckdb_temp_explicitly_isolated": true,
+  "formal_instance_lookup_forbidden_by_test": true,
+  "junit_report": "/private/tmp/factor_retention_native_reexecution_junit_20261029.xml",
+  "owned_test_roots_cleaned": [
+    {
+      "path": "/private/tmp/factor_retention_native_reexecution_20261029_01",
+      "files": 31,
+      "bytes": 1375435
+    },
+    {
+      "path": "/private/tmp/factor_retention_native_reexecution_20261029_02",
+      "files": 35,
+      "bytes": 1377067
+    }
+  ]
+}

@@ -5,13 +5,19 @@ from pathlib import Path
 from typing import Any
 
 from orchestrator.defs.duckdb_sql import (
-    adj_factor_current_listed_stock_select,
+    adj_factor_required_stock_select,
+    adj_factor_retained_record_predicate_sql,
+    adj_factor_retained_stock_select,
     count_parquet_query,
     describe_parquet_query,
     duckdb_string,
     read_parquet,
+    silver_adj_factor_select,
 )
 from orchestrator.defs.partitions import cn_a_stock_current_trade_days
+from orchestrator.defs.run_contracts.adj_factor import (
+    ADJ_FACTOR_RETIRED_RETENTION_START_DATE,
+)
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     SILVER_ADJ_FACTOR_SCHEMA,
@@ -21,7 +27,7 @@ ADJ_FACTOR_RAW_COLUMN_TYPES = {c.name: c.type for c in RAW_TUSHARE_ADJ_FACTOR_SC
 ADJ_FACTOR_SILVER_COLUMN_TYPES = {c.name: c.type for c in SILVER_ADJ_FACTOR_SCHEMA}
 ADJ_FACTOR_MIN_TRADE_DATE = "2009-01-05"
 ADJ_FACTOR_PARTITION_SET = cn_a_stock_current_trade_days.name
-ADJ_FACTOR_INVALID_VALUE_PREDICATE = "adj_factor IS NULL OR adj_factor <= 0"
+ADJ_FACTOR_INVALID_VALUE_PREDICATE = "adj_factor IS NULL OR NOT isfinite(adj_factor) OR adj_factor <= 0"
 
 def adj_factor_duplicate_keys_sql(path: Path) -> str:
     return f"""SELECT ts_code,trade_date,count(*) AS duplicate_count
@@ -30,27 +36,57 @@ def adj_factor_duplicate_keys_sql(path: Path) -> str:
 
 
 def adj_factor_invalid_lifecycle_sql(path: Path, lifecycle_path: Path) -> str:
-    lifecycle = adj_factor_current_listed_stock_select(lifecycle_path)
+    lifecycle = adj_factor_retained_stock_select(lifecycle_path)
     return f"""WITH stock_lifecycle AS ({lifecycle})
       SELECT adj.ts_code,adj.trade_date,stock_lifecycle.list_date,
              stock_lifecycle.delist_date,adj.adj_factor
       FROM {read_parquet(path, hive_partitioning=False)} adj
       LEFT JOIN stock_lifecycle ON adj.ts_code=stock_lifecycle.ts_code
-      WHERE stock_lifecycle.ts_code IS NULL OR adj.trade_date<stock_lifecycle.list_date
-         OR (stock_lifecycle.delist_date IS NOT NULL AND adj.trade_date>=stock_lifecycle.delist_date)
+      WHERE NOT ({adj_factor_retained_record_predicate_sql("adj.trade_date", lifecycle_alias="stock_lifecycle")})
     """
 
 
-def adj_factor_coverage_relations_sql(path: Path, lifecycle_path: Path, partition_key: str) -> str:
-    lifecycle = adj_factor_current_listed_stock_select(lifecycle_path)
-    partition_date = f"DATE {duckdb_string(partition_key)}"
+def adj_factor_coverage_relations_sql(
+    path: Path, lifecycle_path: Path, partition_key: str, *, raw_path: Path | None = None,
+) -> str:
+    """Required identities and permitted/source rows are separate contracts."""
+    retained = adj_factor_retained_stock_select(lifecycle_path)
+    required = adj_factor_required_stock_select(lifecycle_path, partition_key)
+    day = f"DATE {duckdb_string(partition_key)}"
+    if partition_key >= ADJ_FACTOR_RETIRED_RETENTION_START_DATE:
+        if raw_path is None or not raw_path.exists():
+            raise FileNotFoundError("Raw factor partition is required for retained-source validation")
+        source_expected = silver_adj_factor_select(raw_path, lifecycle_path)
+    else:
+        source_expected = "SELECT NULL::VARCHAR ts_code,NULL::DATE trade_date,NULL::DOUBLE adj_factor WHERE false"
+    source_actual = (
+        f"SELECT ts_code,trade_date,adj_factor FROM {read_parquet(path)} WHERE trade_date={day}"
+        if partition_key >= ADJ_FACTOR_RETIRED_RETENTION_START_DATE
+        else "SELECT NULL::VARCHAR ts_code,NULL::DATE trade_date,NULL::DOUBLE adj_factor WHERE false"
+    )
     return f"""WITH expected AS (
-      SELECT DISTINCT ts_code FROM ({lifecycle}) stock_lifecycle
-      WHERE list_date<={partition_date} AND (delist_date IS NULL OR delist_date>{partition_date})
+      SELECT DISTINCT ts_code FROM ({required})
     ),actual AS (
-      SELECT DISTINCT ts_code FROM {read_parquet(path, hive_partitioning=False)}
-      WHERE trade_date={partition_date}
-    )"""
+      SELECT DISTINCT ts_code FROM {read_parquet(path)} WHERE trade_date={day}
+    ),allowed AS (
+      SELECT DISTINCT ts_code FROM ({retained}) lifecycle
+      WHERE {adj_factor_retained_record_predicate_sql(day)}
+    ),source_expected AS ({source_expected}),source_actual AS ({source_actual}),
+    source_missing AS (SELECT * FROM source_expected EXCEPT ALL SELECT * FROM source_actual),
+    source_unexpected AS (SELECT * FROM source_actual EXCEPT ALL SELECT * FROM source_expected)
+    """
+
+
+def adj_factor_coverage_counts_sql(
+    path: Path, lifecycle_path: Path, partition_key: str, *, raw_path: Path | None = None,
+) -> str:
+    relations = adj_factor_coverage_relations_sql(path, lifecycle_path, partition_key, raw_path=raw_path)
+    return f"""{relations}
+    SELECT (SELECT count(*) FROM expected), (SELECT count(*) FROM actual),
+      (SELECT count(*) FROM (SELECT ts_code FROM expected EXCEPT SELECT ts_code FROM actual)),
+      (SELECT count(*) FROM (SELECT ts_code FROM actual EXCEPT SELECT ts_code FROM allowed)),
+      (SELECT count(*) FROM source_missing), (SELECT count(*) FROM source_unexpected)
+    """
 
 
 def adj_factor_partition_mismatch_predicate(partition_key: str, *, raw: bool) -> str:
@@ -64,7 +100,7 @@ def adj_factor_partition_mismatch_predicate(partition_key: str, *, raw: bool) ->
 
 
 def audit_adj_factor_candidate_rules(connection, path: Path, partition_key: str, *, raw: bool,
-                                     lifecycle_path: Path) -> dict[str, int]:
+                                     lifecycle_path: Path, raw_path: Path | None = None) -> dict[str, int]:
     """Pure existing checks semantics; no resources, instance or formal writes."""
     source = read_parquet(path, hive_partitioning=False)
     expected_schema = ADJ_FACTOR_RAW_COLUMN_TYPES if raw else ADJ_FACTOR_SILVER_COLUMN_TYPES
@@ -79,15 +115,19 @@ def audit_adj_factor_candidate_rules(connection, path: Path, partition_key: str,
     result = dict(zip(("rows", "partition_mismatch", "nonpositive_factor", "duplicate_keys"),
                       map(int, summary), strict=True))
     if not raw:
-        coverage = adj_factor_coverage_relations_sql(path, lifecycle_path, partition_key)
-        summary = connection.execute(f"""
-            {coverage}
-            SELECT (SELECT count(*) FROM ({adj_factor_invalid_lifecycle_sql(path, lifecycle_path)})),
-              (SELECT count(*) FROM (SELECT ts_code FROM expected EXCEPT SELECT ts_code FROM actual)),
-              (SELECT count(*) FROM (SELECT ts_code FROM actual EXCEPT SELECT ts_code FROM expected))
-        """).fetchone()
-        result.update(zip(("lifecycle_invalid", "coverage_missing", "coverage_unexpected"),
-                          map(int, summary), strict=True))
+        counts = connection.execute(adj_factor_coverage_counts_sql(
+            path, lifecycle_path, partition_key, raw_path=raw_path,
+        )).fetchone()
+        invalid = connection.execute(
+            f"SELECT count(*) FROM ({adj_factor_invalid_lifecycle_sql(path, lifecycle_path)})"
+        ).fetchone()[0]
+        result.update({
+            "lifecycle_invalid": int(invalid),
+            "coverage_missing": int(counts[2]),
+            "coverage_unexpected": int(counts[3]),
+            "source_missing": int(counts[4]),
+            "source_unexpected": int(counts[5]),
+        })
     return result
 
 

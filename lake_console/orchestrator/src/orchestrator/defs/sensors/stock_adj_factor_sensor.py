@@ -23,14 +23,17 @@ from orchestrator.defs.asset_guards.bounded_continuity import (
 )
 from orchestrator.defs.partitions import cn_a_stock_current_trade_days
 from orchestrator.defs.paths import silver_trade_calendar_path
-from orchestrator.defs.run_contracts.cursors import (
-    SensorCursorDecision,
-    build_sensor_cursor,
+from orchestrator.defs.run_contracts.adj_factor import (
+    ADJ_FACTOR_RETIRED_RETENTION_START_DATE,
 )
 from orchestrator.defs.run_contracts.cursor_payloads import (
     build_cursor_details,
     compact_continuity_frontier,
     compact_gate_statuses,
+)
+from orchestrator.defs.run_contracts.cursors import (
+    SensorCursorDecision,
+    build_sensor_cursor,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
@@ -41,13 +44,12 @@ from orchestrator.defs.run_contracts.sensor_tags import (
     build_sensor_tags,
 )
 from orchestrator.defs.sensors.readiness import (
-    AssetReadinessStatus,
     CN_A_SENSOR_TIMEZONE,
+    AssetReadinessStatus,
     DatasetReadinessStatus,
     silver_stock_lifecycle_ready_for_trade_date,
     stock_basic_ready_without_freshness,
 )
-
 
 STOCK_ADJ_FACTOR_RUN_START = time(9, 30)
 
@@ -819,6 +821,26 @@ def silver_adj_factor_update_job_sensor(
         raise RuntimeError("silver adj factor selection has no target trade date")
     raw_status = raw_batch_status.status_for_trade_date(selected_trade_date)
     silver_status = silver_batch_status.status_for_trade_date(selected_trade_date)
+
+    if selected_trade_date < ADJ_FACTOR_RETIRED_RETENTION_START_DATE:
+        reason = "旧日期因子仅允许明确键补缺，自动任务不重建旧分区。"
+        return dg.SensorResult(
+            skip_reason=reason,
+            cursor=_silver_sensor_cursor(
+                evaluated_at=evaluated_at,
+                registered_trade_day_count=len(registered_trade_days),
+                target_trade_date=selected_trade_date,
+                selected_trade_date=None,
+                reason=reason,
+                source_window_started=True,
+                raw_status=raw_status,
+                silver_status=silver_status,
+                continuity_details=continuity_details,
+                raw_continuity_details=raw_continuity_details,
+                reason_code="historical_partition_requires_explicit_restore",
+                blocked_component="silver_adj_factor",
+            ),
+        )
 
     stock_basic_status = stock_basic_ready_without_freshness(context.instance)
     if not stock_basic_status.ready:

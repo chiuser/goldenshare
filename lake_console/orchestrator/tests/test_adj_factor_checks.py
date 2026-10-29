@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 
 import duckdb
+import pytest
 
 from orchestrator.defs.checks import adj_factor_checks as checks
 from orchestrator.defs.duckdb_sql import duckdb_string
@@ -12,6 +13,12 @@ from orchestrator.defs.paths import (
     silver_stock_lifecycle_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from tests.adj_factor_test_support import (
+    isolated_factor_duckdb,
+)
+
+pytestmark = pytest.mark.usefixtures(isolated_factor_duckdb.__name__)
+
 
 TARGET_TRADE_DATE = "2026-05-29"
 
@@ -325,6 +332,7 @@ class AdjFactorCheckTests(unittest.TestCase):
                 (
                     ("000001.SZ", TARGET_TRADE_DATE, 1.1),
                     ("000004.SZ", TARGET_TRADE_DATE, 4.4),
+                    ("200001.SZ", TARGET_TRADE_DATE, 5.5),
                 ),
             )
             listed_check = _check_function(checks.silver_adj_factor_listed_stock_only)
@@ -333,7 +341,7 @@ class AdjFactorCheckTests(unittest.TestCase):
             coverage_check = _check_function(checks.silver_adj_factor_coverage_complete)
             self.assertFalse(coverage_check(context, lake_root, duckdb_resource).passed)
 
-    def test_silver_adj_factor_lifecycle_rejects_delist_effective_date_row(
+    def test_silver_adj_factor_lifecycle_accepts_existing_delist_effective_date_row(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -356,17 +364,17 @@ class AdjFactorCheckTests(unittest.TestCase):
             listed_result = listed_check(context, lake_root, duckdb_resource)
             coverage_result = coverage_check(context, lake_root, duckdb_resource)
 
-        self.assertFalse(listed_result.passed)
+        self.assertTrue(listed_result.passed)
         listed_metadata = {
             key: _metadata_value(value) for key, value in listed_result.metadata.items()
         }
-        self.assertEqual(listed_metadata["goldenshare/failed_row_count"], 1)
-        self.assertFalse(coverage_result.passed)
+        self.assertEqual(listed_metadata["goldenshare/failed_row_count"], 0)
+        self.assertTrue(coverage_result.passed)
         coverage_metadata = {
             key: _metadata_value(value) for key, value in coverage_result.metadata.items()
         }
         self.assertEqual(coverage_metadata["goldenshare/expected_code_count"], 0)
-        self.assertEqual(coverage_metadata["goldenshare/unexpected_code_count"], 1)
+        self.assertEqual(coverage_metadata["goldenshare/unexpected_code_count"], 0)
 
     def test_silver_adj_factor_coverage_does_not_require_delist_effective_date(
         self,

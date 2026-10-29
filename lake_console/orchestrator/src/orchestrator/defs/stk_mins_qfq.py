@@ -11,6 +11,7 @@ import duckdb
 
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
+    adj_factor_repair_scope_select,
     copy_query_to_parquet,
     duckdb_string,
     read_parquet,
@@ -52,11 +53,13 @@ QFQ_FACTOR_REPAIR_REASON_NO_FACTOR_CHANGED = "no_factor_changed"
 QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED = "factor_changed"
 QFQ_FACTOR_REPAIR_REASON_NEW_CURRENT_CODE = "new_current_code"
 QFQ_FACTOR_REPAIR_REASON_MISSING_PREVIOUS_FACTOR = "missing_previous_factor"
+QFQ_FACTOR_REPAIR_REASON_UNRESOLVED_DELIST_DATE = "unresolved_delist_date"
 QFQ_FACTOR_REPAIR_REASONS = (
     QFQ_FACTOR_REPAIR_REASON_NO_FACTOR_CHANGED,
     QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED,
     QFQ_FACTOR_REPAIR_REASON_NEW_CURRENT_CODE,
     QFQ_FACTOR_REPAIR_REASON_MISSING_PREVIOUS_FACTOR,
+    QFQ_FACTOR_REPAIR_REASON_UNRESOLVED_DELIST_DATE,
 )
 QFQ_FACTOR_REPAIR_METADATA_SAMPLE_LIMIT = 20
 QFQ_FACTOR_REPAIR_AUTO_MACD_KDJ_CODE_LIMIT = 500
@@ -126,6 +129,8 @@ class GoldStkMinsQfqFactorRepairPlan:
     factor_changed_code_samples: tuple[str, ...]
     new_current_code_samples: tuple[str, ...]
     missing_previous_factor_code_samples: tuple[str, ...]
+    unresolved_delisted_code_count: int = 0
+    unresolved_delisted_code_samples: tuple[str, ...] = ()
 
 
 def build_as_of_adj_factor_by_code_sql(as_of_adj_factor_paths: Sequence[Path]) -> str:
@@ -1099,9 +1104,10 @@ def build_adj_factor_changed_codes_sql(
     *,
     current_adj_factor_path: Path,
     previous_adj_factor_path: Path,
+    silver_stock_lifecycle_path: Path,
+    trade_date: str,
+    previous_trade_date: str,
     silver_stock_basic_path: Path | None = None,
-    trade_date: str | None = None,
-    previous_trade_date: str | None = None,
 ) -> str:
     _validate_repair_detection_args(
         silver_stock_basic_path=silver_stock_basic_path,
@@ -1110,39 +1116,12 @@ def build_adj_factor_changed_codes_sql(
     )
     current_source = read_parquet(current_adj_factor_path, hive_partitioning=False)
     previous_source = read_parquet(previous_adj_factor_path, hive_partitioning=False)
-    stock_basic_cte = ""
-    stock_basic_join = ""
-    change_reason_sql = """
-    CASE
-      WHEN previous_factor.ts_code IS NULL THEN 'new_current_code'
-      ELSE 'factor_changed'
-    END
-    """
-    if silver_stock_basic_path is not None:
-        stock_basic_source = read_parquet(silver_stock_basic_path, hive_partitioning=False)
-        stock_basic_cte = f""",
-stock_basic AS (
-  SELECT
-    CAST(ts_code AS VARCHAR) AS ts_code,
-    CAST(list_date AS DATE) AS list_date
-  FROM {stock_basic_source}
-)"""
-        stock_basic_join = """
-LEFT JOIN stock_basic
-  ON current_factor.ts_code = stock_basic.ts_code
-"""
-        change_reason_sql = f"""
-    CASE
-      WHEN previous_factor.ts_code IS NULL
-       AND stock_basic.list_date >= DATE {duckdb_string(previous_trade_date)}
-       AND stock_basic.list_date <= DATE {duckdb_string(trade_date)}
-        THEN 'new_current_code'
-      WHEN previous_factor.ts_code IS NULL THEN 'missing_previous_factor'
-      ELSE 'factor_changed'
-    END
-        """
+    scope_sql = adj_factor_repair_scope_select(silver_stock_lifecycle_path, trade_date)
     return f"""
-WITH current_factor AS (
+WITH repair_scope AS MATERIALIZED (
+  {scope_sql}
+),
+current_factor AS (
   SELECT
     CAST(ts_code AS VARCHAR) AS ts_code,
     CAST(adj_factor AS DOUBLE) AS current_adj_factor
@@ -1153,19 +1132,36 @@ previous_factor AS (
     CAST(ts_code AS VARCHAR) AS ts_code,
     CAST(adj_factor AS DOUBLE) AS previous_adj_factor
   FROM {previous_source}
-){stock_basic_cte}
+)
 SELECT
   current_factor.ts_code,
   current_factor.current_adj_factor,
   previous_factor.previous_adj_factor,
-  {change_reason_sql} AS change_reason
+  CASE
+    WHEN previous_factor.ts_code IS NULL
+     AND repair_scope.list_date >= DATE {duckdb_string(previous_trade_date)}
+     AND repair_scope.list_date <= DATE {duckdb_string(trade_date)}
+      THEN 'new_current_code'
+    WHEN previous_factor.ts_code IS NULL THEN 'missing_previous_factor'
+    ELSE 'factor_changed'
+  END AS change_reason
 FROM current_factor
+INNER JOIN repair_scope
+  ON current_factor.ts_code = repair_scope.ts_code
+ AND repair_scope.repair_eligible
 LEFT JOIN previous_factor
   ON current_factor.ts_code = previous_factor.ts_code
-{stock_basic_join}
 WHERE previous_factor.ts_code IS NULL
    OR current_factor.current_adj_factor IS DISTINCT FROM previous_factor.previous_adj_factor
-ORDER BY current_factor.ts_code
+UNION ALL
+SELECT current_factor.ts_code,current_factor.current_adj_factor,
+       previous_factor.previous_adj_factor,'unresolved_delist_date' AS change_reason
+FROM current_factor
+INNER JOIN repair_scope
+  ON current_factor.ts_code = repair_scope.ts_code
+ AND repair_scope.unresolved_delist_date
+LEFT JOIN previous_factor ON current_factor.ts_code = previous_factor.ts_code
+ORDER BY ts_code
 """
 
 
@@ -1174,6 +1170,7 @@ def build_gold_stk_mins_qfq_factor_repair_plan(
     current_adj_factor_path: Path,
     previous_adj_factor_path: Path,
     silver_stock_basic_path: Path,
+    silver_stock_lifecycle_path: Path,
     trade_date: str,
     previous_trade_date: str,
     sample_limit: int = QFQ_FACTOR_REPAIR_METADATA_SAMPLE_LIMIT,
@@ -1186,6 +1183,7 @@ def build_gold_stk_mins_qfq_factor_repair_plan(
         current_adj_factor_path=current_adj_factor_path,
         previous_adj_factor_path=previous_adj_factor_path,
         silver_stock_basic_path=silver_stock_basic_path,
+        silver_stock_lifecycle_path=silver_stock_lifecycle_path,
         trade_date=trade_date,
         previous_trade_date=previous_trade_date,
     )
@@ -1207,6 +1205,11 @@ def build_gold_stk_mins_qfq_factor_repair_plan(
         for ts_code, _current_factor, _previous_factor, change_reason in rows
         if change_reason == QFQ_FACTOR_REPAIR_REASON_MISSING_PREVIOUS_FACTOR
     )
+    unresolved_delisted_codes = tuple(
+        str(ts_code)
+        for ts_code, _current_factor, _previous_factor, change_reason in rows
+        if change_reason == QFQ_FACTOR_REPAIR_REASON_UNRESOLVED_DELIST_DATE
+    )
 
     if missing_previous_codes:
         reason = QFQ_FACTOR_REPAIR_REASON_MISSING_PREVIOUS_FACTOR
@@ -1214,6 +1217,8 @@ def build_gold_stk_mins_qfq_factor_repair_plan(
         reason = QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED
     elif new_current_codes:
         reason = QFQ_FACTOR_REPAIR_REASON_NEW_CURRENT_CODE
+    elif unresolved_delisted_codes:
+        reason = QFQ_FACTOR_REPAIR_REASON_UNRESOLVED_DELIST_DATE
     else:
         reason = QFQ_FACTOR_REPAIR_REASON_NO_FACTOR_CHANGED
 
@@ -1223,7 +1228,7 @@ def build_gold_stk_mins_qfq_factor_repair_plan(
         reason=reason,
         can_execute_repair=not missing_previous_codes,
         repair_required=bool(factor_changed_codes),
-        detected_change_code_count=len(rows),
+        detected_change_code_count=len(rows) - len(unresolved_delisted_codes),
         repair_required_code_count=len(factor_changed_codes),
         factor_changed_code_count=len(factor_changed_codes),
         new_current_code_count=len(new_current_codes),
@@ -1232,6 +1237,8 @@ def build_gold_stk_mins_qfq_factor_repair_plan(
         factor_changed_code_samples=factor_changed_codes[:sample_limit],
         new_current_code_samples=new_current_codes[:sample_limit],
         missing_previous_factor_code_samples=missing_previous_codes[:sample_limit],
+        unresolved_delisted_code_count=len(unresolved_delisted_codes),
+        unresolved_delisted_code_samples=unresolved_delisted_codes[:sample_limit],
     )
 
 
@@ -1365,6 +1372,19 @@ def build_gold_stk_mins_qfq_factor_repair_check_metadata(
             "missing_previous_factor_code_samples": (
                 list(plan.missing_previous_factor_code_samples)
             ),
+            "unresolved_delisted_code_count": plan.unresolved_delisted_code_count,
+            "unresolved_delisted_code_samples": list(plan.unresolved_delisted_code_samples),
+            "unresolved_delisted_code_samples_truncated": (
+                plan.unresolved_delisted_code_count > len(plan.unresolved_delisted_code_samples)
+            ),
+            "unresolved_delisted_reason": (
+                "list_status=D, delist_date is missing; not included in automatic repair"
+                if plan.unresolved_delisted_code_count else ""
+            ),
+            **({
+                "summary": "Eligible stock scope evaluated; retired stocks with missing delist dates were not repaired.",
+                "next_action": "Confirm missing delist dates before explicitly repairing the unresolved retired stocks.",
+            } if plan.unresolved_delisted_code_count else {}),
         },
     )
 
@@ -1861,13 +1881,9 @@ def _validate_repair_detection_args(
     trade_date: str | None,
     previous_trade_date: str | None,
 ) -> None:
-    args = (silver_stock_basic_path, trade_date, previous_trade_date)
-    if any(item is not None for item in args) and not all(
-        item is not None for item in args
-    ):
+    if trade_date is None or previous_trade_date is None:
         raise ValueError(
-            "silver_stock_basic_path, trade_date, and previous_trade_date must "
-            "be provided together."
+            "trade_date and previous_trade_date must be provided."
         )
     if trade_date is not None:
         date.fromisoformat(trade_date)

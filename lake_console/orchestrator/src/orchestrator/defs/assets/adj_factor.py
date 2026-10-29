@@ -1,4 +1,4 @@
-import os
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -9,16 +9,21 @@ from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     ADJ_FACTOR_RAW_REQUIRED_COLUMNS,
-    adj_factor_current_listed_stock_select,
     adj_factor_normalized_select,
-    copy_query_to_parquet,
+    adj_factor_retained_record_predicate_sql,
+    adj_factor_retained_stock_select,
     count_parquet_query,
     describe_parquet_query,
-    silver_adj_factor_select,
     silver_cny_stock_lifecycle_select,
 )
+from orchestrator.defs.io.adj_factor_silver_candidate import (
+    build_silver_adj_factor_candidate,
+    normalize_restore_keys,
+)
+from orchestrator.defs.io.adj_factor_silver_publication import publish_silver_adj_factor
 from orchestrator.defs.partitions import cn_a_stock_current_trade_days
 from orchestrator.defs.paths import (
+    DEFAULT_LAKE_STAGING_ROOT,
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
     lake_path_template,
@@ -70,6 +75,11 @@ class SilverAdjFactorPartitionWriteResult:
     rejected_row_count: int
     row_count: int
     observed_columns: tuple[str, ...]
+    restored_row_count: int = 0
+    unchanged: bool = False
+    source_eligible_row_count: int = 0
+    preserved_row_count: int = 0
+    write_mode: str = "normal"
 
     def materialization_extra_metadata(self, partition_key: str) -> dict[str, object]:
         return {
@@ -80,6 +90,11 @@ class SilverAdjFactorPartitionWriteResult:
             "lifecycle_stock_count": self.lifecycle_stock_count,
             "selected_row_count": self.selected_row_count,
             "rejected_row_count": self.rejected_row_count,
+            "restored_row_count": self.restored_row_count,
+            "unchanged": self.unchanged,
+            "source_eligible_row_count": self.source_eligible_row_count,
+            "preserved_row_count": self.preserved_row_count,
+            "write_mode": self.write_mode,
         }
 
 
@@ -98,16 +113,6 @@ def _row_count(connection, path: Path, *, hive_partitioning: bool = False) -> in
             count_parquet_query(path, hive_partitioning=hive_partitioning)
         ).fetchone()[0]
     )
-
-
-def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) -> None:
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path = target_path.with_name(f"{target_path.name}.tmp")
-    if temporary_path.exists():
-        temporary_path.unlink()
-
-    connection.execute(copy_query_to_parquet(select_sql, temporary_path))
-    os.replace(temporary_path, target_path)
 
 
 def _human_materialization_metadata(
@@ -144,17 +149,13 @@ def _silver_filter_counts(
           {normalized_sql}
         ),
         stock_lifecycle AS (
-          {adj_factor_current_listed_stock_select(stock_lifecycle_path)}
+          {adj_factor_retained_stock_select(stock_lifecycle_path)}
         ),
         selected AS (
           SELECT normalized.*
           FROM normalized
           INNER JOIN stock_lifecycle USING (ts_code)
-          WHERE normalized.trade_date >= stock_lifecycle.list_date
-            AND (
-              stock_lifecycle.delist_date IS NULL
-              OR normalized.trade_date < stock_lifecycle.delist_date
-            )
+          WHERE {adj_factor_retained_record_predicate_sql('normalized.trade_date', lifecycle_alias='stock_lifecycle')}
         )
         SELECT
           (SELECT count(*) FROM normalized) AS source_row_count,
@@ -177,42 +178,49 @@ def write_silver_adj_factor_partition(
     lake_root: Path,
     duckdb: DuckDBResource,
     partition_key: str,
+    publication_id: str,
     overwrite: bool = False,
+    staging_root: Path = Path(DEFAULT_LAKE_STAGING_ROOT),
+    restore_missing_keys: Sequence[Mapping[str, str]] = (),
 ) -> SilverAdjFactorPartitionWriteResult:
+    restore_keys = normalize_restore_keys(restore_missing_keys, partition_key)
     raw_path = raw_adj_factor_path(lake_root, partition_key)
     stock_lifecycle_path = silver_stock_lifecycle_path(lake_root)
     target_path = silver_adj_factor_path(lake_root, partition_key)
-    if not raw_path.exists():
-        raise FileNotFoundError(f"Missing raw adj factor file: {raw_path}")
-    if not stock_lifecycle_path.exists():
-        raise FileNotFoundError(
-            f"Missing silver stock lifecycle file: {stock_lifecycle_path}"
-        )
-    if target_path.exists() and not overwrite:
-        raise FileExistsError(f"Silver adj factor file already exists: {target_path}")
-
     with connect_configured_duckdb() as connection:
-        filter_counts = _silver_filter_counts(connection, raw_path, stock_lifecycle_path)
-        _replace_parquet_from_query(
-            connection,
-            silver_adj_factor_select(raw_path, stock_lifecycle_path),
-            target_path,
+        def build_candidate(candidate: Path) -> dict:
+            return build_silver_adj_factor_candidate(
+                connection, candidate=candidate, target=target_path,
+                raw_path=raw_path, lifecycle=stock_lifecycle_path, day=partition_key,
+                restore_keys=restore_keys, overwrite=overwrite,
+                filter_counts=_silver_filter_counts(connection, raw_path, stock_lifecycle_path),
+            )
+
+        result = publish_silver_adj_factor(
+            lake_root=lake_root, staging_root=staging_root, publication_id=publication_id,
+            trade_date=partition_key, target=target_path,
+            sources=(raw_path, stock_lifecycle_path), restore_keys=restore_keys,
+            build_candidate=build_candidate,
         )
         columns = tuple(
             _column_names(connection, target_path, hive_partitioning=False)
         )
-        row_count = _row_count(connection, target_path, hive_partitioning=False)
 
     return SilverAdjFactorPartitionWriteResult(
         raw_file_path=raw_path,
         stock_lifecycle_file_path=stock_lifecycle_path,
         silver_file_path=target_path,
-        source_row_count=filter_counts["source_row_count"],
-        lifecycle_stock_count=filter_counts["lifecycle_stock_count"],
-        selected_row_count=filter_counts["selected_row_count"],
-        rejected_row_count=filter_counts["rejected_row_count"],
-        row_count=row_count,
+        source_row_count=result["source_row_count"],
+        lifecycle_stock_count=result["lifecycle_stock_count"],
+        selected_row_count=result["selected_row_count"],
+        rejected_row_count=result["rejected_row_count"],
+        row_count=result["rows"],
         observed_columns=columns,
+        restored_row_count=result["restored_row_count"],
+        unchanged=result["unchanged"],
+        source_eligible_row_count=result["source_eligible_row_count"],
+        preserved_row_count=result["preserved_row_count"],
+        write_mode=result["write_mode"],
     )
 
 
@@ -300,6 +308,13 @@ def raw_tushare_adj_factor(
     partitions_def=cn_a_stock_current_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
+    config_schema={
+        "restore_missing_keys": dg.Field(
+            [dg.Shape({"ts_code": str, "trade_date": str})],
+            default_value=[],
+            description="人工旧日定点补缺键；空列表不代表全市场。正常28日起更新不传。",
+        ),
+    },
     metadata=build_asset_definition_metadata(
         dataset_id="adj_factor",
         source_system=SourceSystem.DERIVED,
@@ -313,10 +328,9 @@ def raw_tushare_adj_factor(
         ),
         extra_metadata={
             "filter_policy": (
-                "Keep currently listed CNY stocks (list_status='L') where "
-                "list_date <= trade_date < delist_date when present; exclude "
-                "delisted stocks even from historical partitions; "
-                "raw remains the Tushare source mirror."
+                "Keep real Raw factors for known CNY L/D stocks from list_date, "
+                "including the delist date and later source records. Normal full "
+                "updates start at 2026-10-28; older files require explicit missing keys."
             ),
             "upstream_ready_policy": (
                 "silver_stock_lifecycle must exist before silver_adj_factor is "
@@ -324,7 +338,7 @@ def raw_tushare_adj_factor(
             ),
         },
     ),
-    description="复权因子 silver 标准事实，仅保留当前上市 CNY 股票的合法历史因子，供 qfq 和指标计算使用。",
+    description="复权因子Silver标准事实，保留CNY上市及退市股票真实源因子，供复权和指标计算；旧历史仅按明确键补缺。",
 )
 def silver_adj_factor(
     context: dg.AssetExecutionContext,
@@ -342,7 +356,10 @@ def silver_adj_factor(
         lake_root=lake_root.root(),
         duckdb=duckdb,
         partition_key=partition_key,
+        publication_id=context.dagster_run.root_run_id or context.run_id,
+        staging_root=Path(DEFAULT_LAKE_STAGING_ROOT),
         overwrite=True,
+        restore_missing_keys=context.op_config.get("restore_missing_keys", []),
     )
     extra_metadata = {
         **_human_materialization_metadata(
@@ -364,6 +381,10 @@ def silver_adj_factor(
                 "selected_row_count": write_result.selected_row_count,
                 "rejected_row_count": write_result.rejected_row_count,
                 "output_row_count": write_result.row_count,
+                "source_eligible_row_count": write_result.source_eligible_row_count,
+                "preserved_row_count": write_result.preserved_row_count,
+                "restored_row_count": write_result.restored_row_count,
+                "write_mode": write_result.write_mode,
             },
             diagnostic_ref="完整诊断看 silver adj_factor checks、过滤统计 metadata 和 run stdout。",
         ),

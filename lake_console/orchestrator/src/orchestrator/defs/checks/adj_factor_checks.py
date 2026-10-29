@@ -31,6 +31,7 @@ from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 from orchestrator.defs.stock_factor_price_checks import (
     ADJ_FACTOR_INVALID_VALUE_PREDICATE,
+    adj_factor_coverage_counts_sql,
     adj_factor_coverage_relations_sql,
     adj_factor_duplicate_keys_sql,
     adj_factor_invalid_lifecycle_sql,
@@ -769,61 +770,33 @@ def silver_adj_factor_coverage_complete(
     if not lifecycle_path.exists():
         return _missing_input_file_result([lifecycle_path])
 
-    coverage_sql = adj_factor_coverage_relations_sql(path, lifecycle_path, partition_key)
+    raw_path = raw_adj_factor_path(lake_root.root(), partition_key)
+    try:
+        coverage_sql = adj_factor_coverage_relations_sql(
+            path, lifecycle_path, partition_key, raw_path=raw_path,
+        )
+    except FileNotFoundError:
+        return _missing_input_file_result([raw_path])
     with connect_configured_duckdb() as connection:
-        summary = connection.execute(
-            f"""
-            {coverage_sql},
-            missing AS (
-              SELECT expected.ts_code
-              FROM expected
-              LEFT JOIN actual USING (ts_code)
-              WHERE actual.ts_code IS NULL
-            ),
-            unexpected AS (
-              SELECT actual.ts_code
-              FROM actual
-              LEFT JOIN expected USING (ts_code)
-              WHERE expected.ts_code IS NULL
-            )
-            SELECT
-              (SELECT count(*) FROM expected) AS expected_code_count,
-              (SELECT count(*) FROM actual) AS actual_code_count,
-              (SELECT count(*) FROM missing) AS missing_code_count,
-              (SELECT count(*) FROM unexpected) AS unexpected_code_count
-            """
-        ).fetchone()
-        missing_rows = connection.execute(
-            f"""
-            {coverage_sql}
-            SELECT expected.ts_code
-            FROM expected
-            LEFT JOIN actual USING (ts_code)
-            WHERE actual.ts_code IS NULL
-            ORDER BY expected.ts_code
-            LIMIT 10
-            """
-        ).fetchall()
-        unexpected_rows = connection.execute(
-            f"""
-            {coverage_sql}
-            SELECT actual.ts_code
-            FROM actual
-            LEFT JOIN expected USING (ts_code)
-            WHERE expected.ts_code IS NULL
-            ORDER BY actual.ts_code
-            LIMIT 10
-            """
-        ).fetchall()
-
-    missing_count = int(summary[2])
-    unexpected_count = int(summary[3])
+        summary = connection.execute(adj_factor_coverage_counts_sql(
+            path, lifecycle_path, partition_key, raw_path=raw_path,
+        )).fetchone()
+        missing_rows = connection.execute(f"""{coverage_sql}
+            SELECT ts_code FROM expected EXCEPT SELECT ts_code FROM actual
+            ORDER BY ts_code LIMIT 10""").fetchall()
+        unexpected_rows = connection.execute(f"""{coverage_sql}
+            SELECT ts_code FROM actual EXCEPT SELECT ts_code FROM allowed
+            ORDER BY ts_code LIMIT 10""").fetchall()
+        source_difference_rows = connection.execute(f"""{coverage_sql}
+            SELECT 'missing' AS difference, * FROM source_missing
+            UNION ALL SELECT 'unexpected', * FROM source_unexpected LIMIT 10""").fetchall()
+    missing_count, unexpected_count, source_missing, source_unexpected = map(int, summary[2:])
     return dg.AssetCheckResult(
-        passed=missing_count == 0 and unexpected_count == 0,
+        passed=not (missing_count or unexpected_count or source_missing or source_unexpected),
         metadata=build_check_metadata(
             check_scope=CheckScope.RECONCILIATION,
-            failed_row_count=missing_count + unexpected_count,
-            input_file_paths=[path, lifecycle_path],
+            failed_row_count=missing_count + unexpected_count + source_missing + source_unexpected,
+            input_file_paths=[path, lifecycle_path, raw_path],
             extra_metadata={
                 "partition_key": partition_key,
                 "lifecycle_fact_source": "silver_stock_lifecycle",
@@ -832,12 +805,13 @@ def silver_adj_factor_coverage_complete(
                 "actual_code_count": int(summary[1]),
                 "missing_code_count": missing_count,
                 "unexpected_code_count": unexpected_count,
-                "missing_code_samples": [
-                    row[0] for row in missing_rows
-                ],
-                "unexpected_code_samples": [
-                    row[0] for row in unexpected_rows
-                ],
+                "retained_source_missing_count": source_missing,
+                "retained_source_unexpected_count": source_unexpected,
+                "missing_code_samples": [row[0] for row in missing_rows],
+                "unexpected_code_samples": [row[0] for row in unexpected_rows],
+                "retained_source_difference_samples": _sample_dicts(
+                    ["difference", "ts_code", "trade_date", "adj_factor"], source_difference_rows,
+                ),
             },
         ),
     )

@@ -2,7 +2,9 @@ from datetime import date
 
 import pytest
 
+from orchestrator.defs.paths import silver_stock_lifecycle_path
 from orchestrator.defs.stock_period_update import close_day, daily_periods
+from tests.factor_repair_fixtures import write_repair_lifecycle
 
 
 def test_calendar_consumer_reads_real_producer_contract(tmp_path):
@@ -116,8 +118,9 @@ def test_adjacent_factor_changes_refresh_both_frequencies_and_failure_keeps_noti
             path = silver_adj_factor_path(root, day)
             path.parent.mkdir(parents=True)
             con.sql(
-                "SELECT '000001.SZ' ts_code,?::DOUBLE adj_factor UNION ALL SELECT '000002.SZ',1",
-                params=[factor],
+                "SELECT '000001.SZ' ts_code,?::DATE trade_date,?::DOUBLE adj_factor "
+                "UNION ALL SELECT '000002.SZ',?::DATE,1",
+                params=[day, factor, day],
             ).write_parquet(str(path))
     atomic_json(
         staging / "stock_period/baseline.json",
@@ -131,6 +134,9 @@ def test_adjacent_factor_changes_refresh_both_frequencies_and_failure_keeps_noti
             "factor_through": "2026-10-15",
         },
     )
+    write_repair_lifecycle(silver_stock_lifecycle_path(root), [
+        {"ts_code": "000001.SZ"}, {"ts_code": "000002.SZ"},
+    ])
     observed = []
 
     def failed(**kw):

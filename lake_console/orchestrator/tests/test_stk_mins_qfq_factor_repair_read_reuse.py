@@ -30,12 +30,19 @@ from orchestrator.defs.paths import (
     silver_adj_factor_path,
     silver_stk_mins_path,
     silver_stock_basic_path,
+    silver_stock_lifecycle_path,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STK_MINS_QFQ_SCHEMA,
     SILVER_ADJ_FACTOR_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
 )
+from tests.factor_repair_fixtures import (
+    isolated_factor_repair_connections as isolated_factor_repair_connections,
+)
+from tests.factor_repair_fixtures import write_repair_lifecycle
+
+pytestmark = pytest.mark.usefixtures("isolated_factor_repair_connections")
 
 OLDER = "2025-12-30"
 PREVIOUS = "2026-10-21"
@@ -133,6 +140,11 @@ def _gold_row(code, day, freq, price):
 def _inputs(root, *, days=(PREVIOUS, TARGET), codes=(CODE,), empty_year=False):
     _write_rows(
         silver_stock_basic_path(root), SILVER_STOCK_BASIC_SCHEMA,
+        [{"ts_code": code, "list_date": TARGET if code == NEW else "2000-01-01"}
+         for code in (*codes, KEEP, NEW)],
+    )
+    write_repair_lifecycle(
+        silver_stock_lifecycle_path(root),
         [{"ts_code": code, "list_date": TARGET if code == NEW else "2000-01-01"}
          for code in (*codes, KEEP, NEW)],
     )

@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import duckdb
+import pytest
 
 from orchestrator.defs import stk_mins_qfq as qfq_module
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
@@ -17,6 +18,12 @@ from orchestrator.defs.stk_mins_qfq import (
     build_daily_qfq_coverage_sql,
     build_daily_qfq_select_sql,
 )
+from tests.factor_repair_fixtures import (
+    isolated_factor_repair_connections as isolated_factor_repair_connections,
+)
+from tests.factor_repair_fixtures import write_repair_lifecycle
+
+pytestmark = pytest.mark.usefixtures("isolated_factor_repair_connections")
 
 TRADE_DATE = "2014-06-03"
 LATEST_DATE = "2014-06-04"
@@ -289,10 +296,16 @@ class StkMinsQfqSqlHelperTests(unittest.TestCase):
                 order_by="ts_code",
             )
 
+            lifecycle_path = write_repair_lifecycle(root / "lifecycle.parquet", [
+                {"ts_code": "600000.SH"}, {"ts_code": "000001.SZ"},
+                {"ts_code": "300001.SZ", "list_date": TRADE_DATE},
+            ])
             rows = _fetch_dicts(
                 build_adj_factor_changed_codes_sql(
                     current_adj_factor_path=current_path,
                     previous_adj_factor_path=previous_path,
+                    silver_stock_lifecycle_path=lifecycle_path,
+                    trade_date=TRADE_DATE, previous_trade_date="2014-06-02",
                 )
             )
 

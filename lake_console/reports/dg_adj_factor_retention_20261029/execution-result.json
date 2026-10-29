@@ -1,0 +1,2799 @@
+{
+  "started_at": "2026-10-29T08:32:42.863200+08:00",
+  "job": "silver_adj_factor_update_job",
+  "runs": [
+    {
+      "date": "2026-10-15",
+      "request": {
+        "selector": {
+          "repositoryLocationName": "orchestrator",
+          "repositoryName": "__repository__",
+          "jobName": "silver_adj_factor_update_job"
+        },
+        "runConfigData": {
+          "ops": {
+            "silver_adj_factor": {
+              "config": {
+                "restore_missing_keys": [
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-15"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-16"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-19"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-20"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-21"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-22"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-23"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-26"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-27"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "executionMetadata": {
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-15"
+            },
+            {
+              "key": "goldenshare/recovery",
+              "value": "adj_factor_retention_20261029"
+            }
+          ]
+        }
+      },
+      "submitted_at": "2026-10-29T08:32:42.864746+08:00",
+      "launch_response": {
+        "__typename": "LaunchRunSuccess",
+        "run": {
+          "runId": "54a13ad7-8984-4c9d-9bc5-019172c2ec05",
+          "status": "QUEUED"
+        }
+      },
+      "run_id": "54a13ad7-8984-4c9d-9bc5-019172c2ec05",
+      "status": "SUCCESS",
+      "verification": {
+        "materialization": {
+          "storage_id": 7785081,
+          "asset_key": [
+            "silver_adj_factor"
+          ],
+          "metadata": {
+            "dagster/uri": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-15/part-000.parquet",
+            "dagster/row_count": 5573,
+            "goldenshare/observed_columns": [
+              "ts_code",
+              "trade_date",
+              "adj_factor"
+            ],
+            "goldenshare/summary": "已写入复权因子 silver 标准事实分区。",
+            "goldenshare/next_action": "等待 silver blocking checks 全部通过；通过后 qfq 分钟线和指标链路可以消费复权因子。",
+            "goldenshare/result_status": "written",
+            "goldenshare/diagnostic_ref": "完整诊断看 silver adj_factor checks、过滤统计 metadata 和 run stdout。",
+            "goldenshare/input_summary": {
+              "partition_key": "2026-10-15",
+              "raw_file_exists": true,
+              "source_asset": "raw_tushare_adj_factor",
+              "stock_lifecycle_file_exists": true,
+              "supporting_asset": "silver_stock_lifecycle"
+            },
+            "goldenshare/filter_summary": {
+              "lifecycle_stock_count": 5919,
+              "output_row_count": 5573,
+              "preserved_row_count": 5572,
+              "rejected_row_count": 5575,
+              "restored_row_count": 1,
+              "selected_row_count": 1,
+              "source_eligible_row_count": 5576,
+              "source_row_count": 5576,
+              "write_mode": "restore_missing_keys"
+            },
+            "goldenshare/raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-15/part-000.parquet",
+            "goldenshare/stock_lifecycle_file_path": "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet",
+            "goldenshare/partition_key": "2026-10-15",
+            "goldenshare/source_row_count": 5576,
+            "goldenshare/lifecycle_stock_count": 5919,
+            "goldenshare/selected_row_count": 1,
+            "goldenshare/rejected_row_count": 5575,
+            "goldenshare/restored_row_count": 1,
+            "goldenshare/unchanged": false,
+            "goldenshare/source_eligible_row_count": 5576,
+            "goldenshare/preserved_row_count": 5572,
+            "goldenshare/write_mode": "restore_missing_keys"
+          }
+        },
+        "checks": [
+          {
+            "storage_id": 7785109,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_key_value_integrity_check",
+            "passed": true,
+            "target_run_id": "54a13ad7-8984-4c9d-9bc5-019172c2ec05",
+            "target_storage_id": 7785081,
+            "metadata": {
+              "goldenshare/check_scope": "key_uniqueness",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_positive_factor": true,
+                "silver_adj_factor_unique_ts_code_trade_date": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_unique_ts_code_trade_date"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_positive_factor"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785110,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_contract_check",
+            "passed": true,
+            "target_run_id": "54a13ad7-8984-4c9d-9bc5-019172c2ec05",
+            "target_storage_id": 7785081,
+            "metadata": {
+              "goldenshare/check_scope": "schema",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_file_exists": true,
+                "silver_adj_factor_partition_date_matches": true,
+                "silver_adj_factor_required_columns": true,
+                "silver_adj_factor_row_count_positive": true,
+                "silver_adj_factor_schema_matches_contract": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_file_exists"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_row_count_positive"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_required_columns"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_schema_matches_contract"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_partition_date_matches"
+                }
+              ],
+              "goldenshare/summary": "通过：5 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785113,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_lifecycle_coverage_check",
+            "passed": true,
+            "target_run_id": "54a13ad7-8984-4c9d-9bc5-019172c2ec05",
+            "target_storage_id": 7785081,
+            "metadata": {
+              "goldenshare/check_scope": "referential_integrity",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_coverage_complete": true,
+                "silver_adj_factor_listed_stock_only": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_listed_stock_only"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_coverage_complete"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785114,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_partition_allowed_check",
+            "passed": true,
+            "target_run_id": "54a13ad7-8984-4c9d-9bc5-019172c2ec05",
+            "target_storage_id": 7785081,
+            "metadata": {
+              "goldenshare/check_scope": "partition_alignment",
+              "goldenshare/is_not_before_start": true,
+              "goldenshare/is_not_future": true,
+              "goldenshare/is_registered": true,
+              "goldenshare/min_trade_date": "2009-01-05",
+              "goldenshare/next_action": "无需处理；该分区可以继续参与 adj_factor 更新链路。",
+              "goldenshare/partition_key": "2026-10-15",
+              "goldenshare/partition_set": "cn_a_stock_current_trade_days",
+              "goldenshare/summary": "通过：复权因子分区日期属于允许的股票当前交易日范围。",
+              "goldenshare/today": "2026-10-29"
+            }
+          }
+        ],
+        "physical_row_count": 5573,
+        "target_code_row_count": 1,
+        "target_code_factor": 1.0079,
+        "publication_path": "/Volumes/datasource/data_lake_staging/adj_factor/silver/run_id=54a13ad7-8984-4c9d-9bc5-019172c2ec05/trade_date=2026-10-15/publication.json",
+        "publication_result": {
+          "lifecycle_stock_count": 5919,
+          "preserved_row_count": 5572,
+          "rejected_row_count": 5575,
+          "restored_row_count": 1,
+          "rows": 5573,
+          "selected_row_count": 1,
+          "source_eligible_row_count": 5576,
+          "source_row_count": 5576,
+          "unchanged": false,
+          "write_mode": "restore_missing_keys"
+        },
+        "target_identity": {
+          "device": 16777244,
+          "inode": 27503277,
+          "bytes": 55491,
+          "mtime_ns": 1793233972124446257,
+          "ctime_ns": 1793233972135536050
+        }
+      },
+      "verified_at": "2026-10-29T08:33:03.394708+08:00"
+    },
+    {
+      "date": "2026-10-16",
+      "request": {
+        "selector": {
+          "repositoryLocationName": "orchestrator",
+          "repositoryName": "__repository__",
+          "jobName": "silver_adj_factor_update_job"
+        },
+        "runConfigData": {
+          "ops": {
+            "silver_adj_factor": {
+              "config": {
+                "restore_missing_keys": [
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-15"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-16"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-19"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-20"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-21"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-22"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-23"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-26"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-27"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "executionMetadata": {
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-16"
+            },
+            {
+              "key": "goldenshare/recovery",
+              "value": "adj_factor_retention_20261029"
+            }
+          ]
+        }
+      },
+      "submitted_at": "2026-10-29T08:33:03.395053+08:00",
+      "launch_response": {
+        "__typename": "LaunchRunSuccess",
+        "run": {
+          "runId": "8a1292c1-5eba-4dbb-a863-84dbeba2394b",
+          "status": "QUEUED"
+        }
+      },
+      "run_id": "8a1292c1-5eba-4dbb-a863-84dbeba2394b",
+      "status": "SUCCESS",
+      "verification": {
+        "materialization": {
+          "storage_id": 7785139,
+          "asset_key": [
+            "silver_adj_factor"
+          ],
+          "metadata": {
+            "dagster/uri": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-16/part-000.parquet",
+            "dagster/row_count": 5574,
+            "goldenshare/observed_columns": [
+              "ts_code",
+              "trade_date",
+              "adj_factor"
+            ],
+            "goldenshare/summary": "已写入复权因子 silver 标准事实分区。",
+            "goldenshare/next_action": "等待 silver blocking checks 全部通过；通过后 qfq 分钟线和指标链路可以消费复权因子。",
+            "goldenshare/result_status": "written",
+            "goldenshare/diagnostic_ref": "完整诊断看 silver adj_factor checks、过滤统计 metadata 和 run stdout。",
+            "goldenshare/input_summary": {
+              "partition_key": "2026-10-16",
+              "raw_file_exists": true,
+              "source_asset": "raw_tushare_adj_factor",
+              "stock_lifecycle_file_exists": true,
+              "supporting_asset": "silver_stock_lifecycle"
+            },
+            "goldenshare/filter_summary": {
+              "lifecycle_stock_count": 5919,
+              "output_row_count": 5574,
+              "preserved_row_count": 5573,
+              "rejected_row_count": 5576,
+              "restored_row_count": 1,
+              "selected_row_count": 1,
+              "source_eligible_row_count": 5577,
+              "source_row_count": 5577,
+              "write_mode": "restore_missing_keys"
+            },
+            "goldenshare/raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-16/part-000.parquet",
+            "goldenshare/stock_lifecycle_file_path": "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet",
+            "goldenshare/partition_key": "2026-10-16",
+            "goldenshare/source_row_count": 5577,
+            "goldenshare/lifecycle_stock_count": 5919,
+            "goldenshare/selected_row_count": 1,
+            "goldenshare/rejected_row_count": 5576,
+            "goldenshare/restored_row_count": 1,
+            "goldenshare/unchanged": false,
+            "goldenshare/source_eligible_row_count": 5577,
+            "goldenshare/preserved_row_count": 5573,
+            "goldenshare/write_mode": "restore_missing_keys"
+          }
+        },
+        "checks": [
+          {
+            "storage_id": 7785164,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_contract_check",
+            "passed": true,
+            "target_run_id": "8a1292c1-5eba-4dbb-a863-84dbeba2394b",
+            "target_storage_id": 7785139,
+            "metadata": {
+              "goldenshare/check_scope": "schema",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_file_exists": true,
+                "silver_adj_factor_partition_date_matches": true,
+                "silver_adj_factor_required_columns": true,
+                "silver_adj_factor_row_count_positive": true,
+                "silver_adj_factor_schema_matches_contract": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_file_exists"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_row_count_positive"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_required_columns"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_schema_matches_contract"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_partition_date_matches"
+                }
+              ],
+              "goldenshare/summary": "通过：5 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785168,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_key_value_integrity_check",
+            "passed": true,
+            "target_run_id": "8a1292c1-5eba-4dbb-a863-84dbeba2394b",
+            "target_storage_id": 7785139,
+            "metadata": {
+              "goldenshare/check_scope": "key_uniqueness",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_positive_factor": true,
+                "silver_adj_factor_unique_ts_code_trade_date": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_unique_ts_code_trade_date"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_positive_factor"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785172,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_lifecycle_coverage_check",
+            "passed": true,
+            "target_run_id": "8a1292c1-5eba-4dbb-a863-84dbeba2394b",
+            "target_storage_id": 7785139,
+            "metadata": {
+              "goldenshare/check_scope": "referential_integrity",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_coverage_complete": true,
+                "silver_adj_factor_listed_stock_only": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_listed_stock_only"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_coverage_complete"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785174,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_partition_allowed_check",
+            "passed": true,
+            "target_run_id": "8a1292c1-5eba-4dbb-a863-84dbeba2394b",
+            "target_storage_id": 7785139,
+            "metadata": {
+              "goldenshare/check_scope": "partition_alignment",
+              "goldenshare/is_not_before_start": true,
+              "goldenshare/is_not_future": true,
+              "goldenshare/is_registered": true,
+              "goldenshare/min_trade_date": "2009-01-05",
+              "goldenshare/next_action": "无需处理；该分区可以继续参与 adj_factor 更新链路。",
+              "goldenshare/partition_key": "2026-10-16",
+              "goldenshare/partition_set": "cn_a_stock_current_trade_days",
+              "goldenshare/summary": "通过：复权因子分区日期属于允许的股票当前交易日范围。",
+              "goldenshare/today": "2026-10-29"
+            }
+          }
+        ],
+        "physical_row_count": 5574,
+        "target_code_row_count": 1,
+        "target_code_factor": 1.0079,
+        "publication_path": "/Volumes/datasource/data_lake_staging/adj_factor/silver/run_id=8a1292c1-5eba-4dbb-a863-84dbeba2394b/trade_date=2026-10-16/publication.json",
+        "publication_result": {
+          "lifecycle_stock_count": 5919,
+          "preserved_row_count": 5573,
+          "rejected_row_count": 5576,
+          "restored_row_count": 1,
+          "rows": 5574,
+          "selected_row_count": 1,
+          "source_eligible_row_count": 5577,
+          "source_row_count": 5577,
+          "unchanged": false,
+          "write_mode": "restore_missing_keys"
+        },
+        "target_identity": {
+          "device": 16777244,
+          "inode": 27503295,
+          "bytes": 55504,
+          "mtime_ns": 1793233991570086077,
+          "ctime_ns": 1793233991580356227
+        }
+      },
+      "verified_at": "2026-10-29T08:33:23.514185+08:00"
+    },
+    {
+      "date": "2026-10-19",
+      "request": {
+        "selector": {
+          "repositoryLocationName": "orchestrator",
+          "repositoryName": "__repository__",
+          "jobName": "silver_adj_factor_update_job"
+        },
+        "runConfigData": {
+          "ops": {
+            "silver_adj_factor": {
+              "config": {
+                "restore_missing_keys": [
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-15"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-16"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-19"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-20"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-21"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-22"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-23"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-26"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-27"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "executionMetadata": {
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-19"
+            },
+            {
+              "key": "goldenshare/recovery",
+              "value": "adj_factor_retention_20261029"
+            }
+          ]
+        }
+      },
+      "submitted_at": "2026-10-29T08:33:23.514955+08:00",
+      "launch_response": {
+        "__typename": "LaunchRunSuccess",
+        "run": {
+          "runId": "2c48db76-9c8d-4f90-9d14-3761b92ab3dd",
+          "status": "QUEUED"
+        }
+      },
+      "run_id": "2c48db76-9c8d-4f90-9d14-3761b92ab3dd",
+      "status": "SUCCESS",
+      "verification": {
+        "materialization": {
+          "storage_id": 7785197,
+          "asset_key": [
+            "silver_adj_factor"
+          ],
+          "metadata": {
+            "dagster/uri": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-19/part-000.parquet",
+            "dagster/row_count": 5574,
+            "goldenshare/observed_columns": [
+              "ts_code",
+              "trade_date",
+              "adj_factor"
+            ],
+            "goldenshare/summary": "已写入复权因子 silver 标准事实分区。",
+            "goldenshare/next_action": "等待 silver blocking checks 全部通过；通过后 qfq 分钟线和指标链路可以消费复权因子。",
+            "goldenshare/result_status": "written",
+            "goldenshare/diagnostic_ref": "完整诊断看 silver adj_factor checks、过滤统计 metadata 和 run stdout。",
+            "goldenshare/input_summary": {
+              "partition_key": "2026-10-19",
+              "raw_file_exists": true,
+              "source_asset": "raw_tushare_adj_factor",
+              "stock_lifecycle_file_exists": true,
+              "supporting_asset": "silver_stock_lifecycle"
+            },
+            "goldenshare/filter_summary": {
+              "lifecycle_stock_count": 5919,
+              "output_row_count": 5574,
+              "preserved_row_count": 5573,
+              "rejected_row_count": 5576,
+              "restored_row_count": 1,
+              "selected_row_count": 1,
+              "source_eligible_row_count": 5577,
+              "source_row_count": 5577,
+              "write_mode": "restore_missing_keys"
+            },
+            "goldenshare/raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-19/part-000.parquet",
+            "goldenshare/stock_lifecycle_file_path": "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet",
+            "goldenshare/partition_key": "2026-10-19",
+            "goldenshare/source_row_count": 5577,
+            "goldenshare/lifecycle_stock_count": 5919,
+            "goldenshare/selected_row_count": 1,
+            "goldenshare/rejected_row_count": 5576,
+            "goldenshare/restored_row_count": 1,
+            "goldenshare/unchanged": false,
+            "goldenshare/source_eligible_row_count": 5577,
+            "goldenshare/preserved_row_count": 5573,
+            "goldenshare/write_mode": "restore_missing_keys"
+          }
+        },
+        "checks": [
+          {
+            "storage_id": 7785223,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_contract_check",
+            "passed": true,
+            "target_run_id": "2c48db76-9c8d-4f90-9d14-3761b92ab3dd",
+            "target_storage_id": 7785197,
+            "metadata": {
+              "goldenshare/check_scope": "schema",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_file_exists": true,
+                "silver_adj_factor_partition_date_matches": true,
+                "silver_adj_factor_required_columns": true,
+                "silver_adj_factor_row_count_positive": true,
+                "silver_adj_factor_schema_matches_contract": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_file_exists"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_row_count_positive"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_required_columns"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_schema_matches_contract"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_partition_date_matches"
+                }
+              ],
+              "goldenshare/summary": "通过：5 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785226,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_key_value_integrity_check",
+            "passed": true,
+            "target_run_id": "2c48db76-9c8d-4f90-9d14-3761b92ab3dd",
+            "target_storage_id": 7785197,
+            "metadata": {
+              "goldenshare/check_scope": "key_uniqueness",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_positive_factor": true,
+                "silver_adj_factor_unique_ts_code_trade_date": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_unique_ts_code_trade_date"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_positive_factor"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785229,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_partition_allowed_check",
+            "passed": true,
+            "target_run_id": "2c48db76-9c8d-4f90-9d14-3761b92ab3dd",
+            "target_storage_id": 7785197,
+            "metadata": {
+              "goldenshare/check_scope": "partition_alignment",
+              "goldenshare/is_not_before_start": true,
+              "goldenshare/is_not_future": true,
+              "goldenshare/is_registered": true,
+              "goldenshare/min_trade_date": "2009-01-05",
+              "goldenshare/next_action": "无需处理；该分区可以继续参与 adj_factor 更新链路。",
+              "goldenshare/partition_key": "2026-10-19",
+              "goldenshare/partition_set": "cn_a_stock_current_trade_days",
+              "goldenshare/summary": "通过：复权因子分区日期属于允许的股票当前交易日范围。",
+              "goldenshare/today": "2026-10-29"
+            }
+          },
+          {
+            "storage_id": 7785232,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_lifecycle_coverage_check",
+            "passed": true,
+            "target_run_id": "2c48db76-9c8d-4f90-9d14-3761b92ab3dd",
+            "target_storage_id": 7785197,
+            "metadata": {
+              "goldenshare/check_scope": "referential_integrity",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_coverage_complete": true,
+                "silver_adj_factor_listed_stock_only": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_listed_stock_only"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_coverage_complete"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          }
+        ],
+        "physical_row_count": 5574,
+        "target_code_row_count": 1,
+        "target_code_factor": 1.0079,
+        "publication_path": "/Volumes/datasource/data_lake_staging/adj_factor/silver/run_id=2c48db76-9c8d-4f90-9d14-3761b92ab3dd/trade_date=2026-10-19/publication.json",
+        "publication_result": {
+          "lifecycle_stock_count": 5919,
+          "preserved_row_count": 5573,
+          "rejected_row_count": 5576,
+          "restored_row_count": 1,
+          "rows": 5574,
+          "selected_row_count": 1,
+          "source_eligible_row_count": 5577,
+          "source_row_count": 5577,
+          "unchanged": false,
+          "write_mode": "restore_missing_keys"
+        },
+        "target_identity": {
+          "device": 16777244,
+          "inode": 27503309,
+          "bytes": 55509,
+          "mtime_ns": 1793234012133167244,
+          "ctime_ns": 1793234012143829736
+        }
+      },
+      "verified_at": "2026-10-29T08:33:43.657549+08:00"
+    },
+    {
+      "date": "2026-10-20",
+      "request": {
+        "selector": {
+          "repositoryLocationName": "orchestrator",
+          "repositoryName": "__repository__",
+          "jobName": "silver_adj_factor_update_job"
+        },
+        "runConfigData": {
+          "ops": {
+            "silver_adj_factor": {
+              "config": {
+                "restore_missing_keys": [
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-15"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-16"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-19"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-20"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-21"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-22"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-23"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-26"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-27"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "executionMetadata": {
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-20"
+            },
+            {
+              "key": "goldenshare/recovery",
+              "value": "adj_factor_retention_20261029"
+            }
+          ]
+        }
+      },
+      "submitted_at": "2026-10-29T08:33:43.658137+08:00",
+      "launch_response": {
+        "__typename": "LaunchRunSuccess",
+        "run": {
+          "runId": "a8105a0c-72c0-4b06-bf87-675da35ff794",
+          "status": "QUEUED"
+        }
+      },
+      "run_id": "a8105a0c-72c0-4b06-bf87-675da35ff794",
+      "status": "SUCCESS",
+      "verification": {
+        "materialization": {
+          "storage_id": 7785255,
+          "asset_key": [
+            "silver_adj_factor"
+          ],
+          "metadata": {
+            "dagster/uri": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-20/part-000.parquet",
+            "dagster/row_count": 5574,
+            "goldenshare/observed_columns": [
+              "ts_code",
+              "trade_date",
+              "adj_factor"
+            ],
+            "goldenshare/summary": "已写入复权因子 silver 标准事实分区。",
+            "goldenshare/next_action": "等待 silver blocking checks 全部通过；通过后 qfq 分钟线和指标链路可以消费复权因子。",
+            "goldenshare/result_status": "written",
+            "goldenshare/diagnostic_ref": "完整诊断看 silver adj_factor checks、过滤统计 metadata 和 run stdout。",
+            "goldenshare/input_summary": {
+              "partition_key": "2026-10-20",
+              "raw_file_exists": true,
+              "source_asset": "raw_tushare_adj_factor",
+              "stock_lifecycle_file_exists": true,
+              "supporting_asset": "silver_stock_lifecycle"
+            },
+            "goldenshare/filter_summary": {
+              "lifecycle_stock_count": 5919,
+              "output_row_count": 5574,
+              "preserved_row_count": 5573,
+              "rejected_row_count": 5576,
+              "restored_row_count": 1,
+              "selected_row_count": 1,
+              "source_eligible_row_count": 5577,
+              "source_row_count": 5577,
+              "write_mode": "restore_missing_keys"
+            },
+            "goldenshare/raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-20/part-000.parquet",
+            "goldenshare/stock_lifecycle_file_path": "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet",
+            "goldenshare/partition_key": "2026-10-20",
+            "goldenshare/source_row_count": 5577,
+            "goldenshare/lifecycle_stock_count": 5919,
+            "goldenshare/selected_row_count": 1,
+            "goldenshare/rejected_row_count": 5576,
+            "goldenshare/restored_row_count": 1,
+            "goldenshare/unchanged": false,
+            "goldenshare/source_eligible_row_count": 5577,
+            "goldenshare/preserved_row_count": 5573,
+            "goldenshare/write_mode": "restore_missing_keys"
+          }
+        },
+        "checks": [
+          {
+            "storage_id": 7785283,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_contract_check",
+            "passed": true,
+            "target_run_id": "a8105a0c-72c0-4b06-bf87-675da35ff794",
+            "target_storage_id": 7785255,
+            "metadata": {
+              "goldenshare/check_scope": "schema",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_file_exists": true,
+                "silver_adj_factor_partition_date_matches": true,
+                "silver_adj_factor_required_columns": true,
+                "silver_adj_factor_row_count_positive": true,
+                "silver_adj_factor_schema_matches_contract": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_file_exists"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_row_count_positive"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_required_columns"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_schema_matches_contract"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_partition_date_matches"
+                }
+              ],
+              "goldenshare/summary": "通过：5 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785284,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_key_value_integrity_check",
+            "passed": true,
+            "target_run_id": "a8105a0c-72c0-4b06-bf87-675da35ff794",
+            "target_storage_id": 7785255,
+            "metadata": {
+              "goldenshare/check_scope": "key_uniqueness",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_positive_factor": true,
+                "silver_adj_factor_unique_ts_code_trade_date": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_unique_ts_code_trade_date"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_positive_factor"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785286,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_partition_allowed_check",
+            "passed": true,
+            "target_run_id": "a8105a0c-72c0-4b06-bf87-675da35ff794",
+            "target_storage_id": 7785255,
+            "metadata": {
+              "goldenshare/check_scope": "partition_alignment",
+              "goldenshare/is_not_before_start": true,
+              "goldenshare/is_not_future": true,
+              "goldenshare/is_registered": true,
+              "goldenshare/min_trade_date": "2009-01-05",
+              "goldenshare/next_action": "无需处理；该分区可以继续参与 adj_factor 更新链路。",
+              "goldenshare/partition_key": "2026-10-20",
+              "goldenshare/partition_set": "cn_a_stock_current_trade_days",
+              "goldenshare/summary": "通过：复权因子分区日期属于允许的股票当前交易日范围。",
+              "goldenshare/today": "2026-10-29"
+            }
+          },
+          {
+            "storage_id": 7785288,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_lifecycle_coverage_check",
+            "passed": true,
+            "target_run_id": "a8105a0c-72c0-4b06-bf87-675da35ff794",
+            "target_storage_id": 7785255,
+            "metadata": {
+              "goldenshare/check_scope": "referential_integrity",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_coverage_complete": true,
+                "silver_adj_factor_listed_stock_only": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_listed_stock_only"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_coverage_complete"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          }
+        ],
+        "physical_row_count": 5574,
+        "target_code_row_count": 1,
+        "target_code_factor": 1.0079,
+        "publication_path": "/Volumes/datasource/data_lake_staging/adj_factor/silver/run_id=a8105a0c-72c0-4b06-bf87-675da35ff794/trade_date=2026-10-20/publication.json",
+        "publication_result": {
+          "lifecycle_stock_count": 5919,
+          "preserved_row_count": 5573,
+          "rejected_row_count": 5576,
+          "restored_row_count": 1,
+          "rows": 5574,
+          "selected_row_count": 1,
+          "source_eligible_row_count": 5577,
+          "source_row_count": 5577,
+          "unchanged": false,
+          "write_mode": "restore_missing_keys"
+        },
+        "target_identity": {
+          "device": 16777244,
+          "inode": 27503318,
+          "bytes": 55518,
+          "mtime_ns": 1793234032485670013,
+          "ctime_ns": 1793234032499436242
+        }
+      },
+      "verified_at": "2026-10-29T08:34:03.861010+08:00"
+    },
+    {
+      "date": "2026-10-21",
+      "request": {
+        "selector": {
+          "repositoryLocationName": "orchestrator",
+          "repositoryName": "__repository__",
+          "jobName": "silver_adj_factor_update_job"
+        },
+        "runConfigData": {
+          "ops": {
+            "silver_adj_factor": {
+              "config": {
+                "restore_missing_keys": [
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-15"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-16"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-19"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-20"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-21"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-22"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-23"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-26"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-27"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "executionMetadata": {
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-21"
+            },
+            {
+              "key": "goldenshare/recovery",
+              "value": "adj_factor_retention_20261029"
+            }
+          ]
+        }
+      },
+      "submitted_at": "2026-10-29T08:34:03.861768+08:00",
+      "launch_response": {
+        "__typename": "LaunchRunSuccess",
+        "run": {
+          "runId": "52dd4c77-4f1a-4967-bb94-3b33a3c0f7bc",
+          "status": "QUEUED"
+        }
+      },
+      "run_id": "52dd4c77-4f1a-4967-bb94-3b33a3c0f7bc",
+      "status": "SUCCESS",
+      "verification": {
+        "materialization": {
+          "storage_id": 7785313,
+          "asset_key": [
+            "silver_adj_factor"
+          ],
+          "metadata": {
+            "dagster/uri": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-21/part-000.parquet",
+            "dagster/row_count": 5575,
+            "goldenshare/observed_columns": [
+              "ts_code",
+              "trade_date",
+              "adj_factor"
+            ],
+            "goldenshare/summary": "已写入复权因子 silver 标准事实分区。",
+            "goldenshare/next_action": "等待 silver blocking checks 全部通过；通过后 qfq 分钟线和指标链路可以消费复权因子。",
+            "goldenshare/result_status": "written",
+            "goldenshare/diagnostic_ref": "完整诊断看 silver adj_factor checks、过滤统计 metadata 和 run stdout。",
+            "goldenshare/input_summary": {
+              "partition_key": "2026-10-21",
+              "raw_file_exists": true,
+              "source_asset": "raw_tushare_adj_factor",
+              "stock_lifecycle_file_exists": true,
+              "supporting_asset": "silver_stock_lifecycle"
+            },
+            "goldenshare/filter_summary": {
+              "lifecycle_stock_count": 5919,
+              "output_row_count": 5575,
+              "preserved_row_count": 5574,
+              "rejected_row_count": 5577,
+              "restored_row_count": 1,
+              "selected_row_count": 1,
+              "source_eligible_row_count": 5578,
+              "source_row_count": 5578,
+              "write_mode": "restore_missing_keys"
+            },
+            "goldenshare/raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-21/part-000.parquet",
+            "goldenshare/stock_lifecycle_file_path": "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet",
+            "goldenshare/partition_key": "2026-10-21",
+            "goldenshare/source_row_count": 5578,
+            "goldenshare/lifecycle_stock_count": 5919,
+            "goldenshare/selected_row_count": 1,
+            "goldenshare/rejected_row_count": 5577,
+            "goldenshare/restored_row_count": 1,
+            "goldenshare/unchanged": false,
+            "goldenshare/source_eligible_row_count": 5578,
+            "goldenshare/preserved_row_count": 5574,
+            "goldenshare/write_mode": "restore_missing_keys"
+          }
+        },
+        "checks": [
+          {
+            "storage_id": 7785340,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_contract_check",
+            "passed": true,
+            "target_run_id": "52dd4c77-4f1a-4967-bb94-3b33a3c0f7bc",
+            "target_storage_id": 7785313,
+            "metadata": {
+              "goldenshare/check_scope": "schema",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_file_exists": true,
+                "silver_adj_factor_partition_date_matches": true,
+                "silver_adj_factor_required_columns": true,
+                "silver_adj_factor_row_count_positive": true,
+                "silver_adj_factor_schema_matches_contract": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_file_exists"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_row_count_positive"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_required_columns"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_schema_matches_contract"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_partition_date_matches"
+                }
+              ],
+              "goldenshare/summary": "通过：5 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785342,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_key_value_integrity_check",
+            "passed": true,
+            "target_run_id": "52dd4c77-4f1a-4967-bb94-3b33a3c0f7bc",
+            "target_storage_id": 7785313,
+            "metadata": {
+              "goldenshare/check_scope": "key_uniqueness",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_positive_factor": true,
+                "silver_adj_factor_unique_ts_code_trade_date": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_unique_ts_code_trade_date"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_positive_factor"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785344,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_partition_allowed_check",
+            "passed": true,
+            "target_run_id": "52dd4c77-4f1a-4967-bb94-3b33a3c0f7bc",
+            "target_storage_id": 7785313,
+            "metadata": {
+              "goldenshare/check_scope": "partition_alignment",
+              "goldenshare/is_not_before_start": true,
+              "goldenshare/is_not_future": true,
+              "goldenshare/is_registered": true,
+              "goldenshare/min_trade_date": "2009-01-05",
+              "goldenshare/next_action": "无需处理；该分区可以继续参与 adj_factor 更新链路。",
+              "goldenshare/partition_key": "2026-10-21",
+              "goldenshare/partition_set": "cn_a_stock_current_trade_days",
+              "goldenshare/summary": "通过：复权因子分区日期属于允许的股票当前交易日范围。",
+              "goldenshare/today": "2026-10-29"
+            }
+          },
+          {
+            "storage_id": 7785347,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_lifecycle_coverage_check",
+            "passed": true,
+            "target_run_id": "52dd4c77-4f1a-4967-bb94-3b33a3c0f7bc",
+            "target_storage_id": 7785313,
+            "metadata": {
+              "goldenshare/check_scope": "referential_integrity",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_coverage_complete": true,
+                "silver_adj_factor_listed_stock_only": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_listed_stock_only"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_coverage_complete"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          }
+        ],
+        "physical_row_count": 5575,
+        "target_code_row_count": 1,
+        "target_code_factor": 1.0079,
+        "publication_path": "/Volumes/datasource/data_lake_staging/adj_factor/silver/run_id=52dd4c77-4f1a-4967-bb94-3b33a3c0f7bc/trade_date=2026-10-21/publication.json",
+        "publication_result": {
+          "lifecycle_stock_count": 5919,
+          "preserved_row_count": 5574,
+          "rejected_row_count": 5577,
+          "restored_row_count": 1,
+          "rows": 5575,
+          "selected_row_count": 1,
+          "source_eligible_row_count": 5578,
+          "source_row_count": 5578,
+          "unchanged": false,
+          "write_mode": "restore_missing_keys"
+        },
+        "target_identity": {
+          "device": 16777244,
+          "inode": 27503328,
+          "bytes": 55556,
+          "mtime_ns": 1793234052719170401,
+          "ctime_ns": 1793234052730990710
+        }
+      },
+      "verified_at": "2026-10-29T08:34:24.013703+08:00"
+    },
+    {
+      "date": "2026-10-22",
+      "request": {
+        "selector": {
+          "repositoryLocationName": "orchestrator",
+          "repositoryName": "__repository__",
+          "jobName": "silver_adj_factor_update_job"
+        },
+        "runConfigData": {
+          "ops": {
+            "silver_adj_factor": {
+              "config": {
+                "restore_missing_keys": [
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-15"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-16"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-19"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-20"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-21"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-22"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-23"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-26"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-27"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "executionMetadata": {
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-22"
+            },
+            {
+              "key": "goldenshare/recovery",
+              "value": "adj_factor_retention_20261029"
+            }
+          ]
+        }
+      },
+      "submitted_at": "2026-10-29T08:34:24.014652+08:00",
+      "launch_response": {
+        "__typename": "LaunchRunSuccess",
+        "run": {
+          "runId": "f226c961-f73f-40d5-a36b-ab0023f775c2",
+          "status": "QUEUED"
+        }
+      },
+      "run_id": "f226c961-f73f-40d5-a36b-ab0023f775c2",
+      "status": "SUCCESS",
+      "verification": {
+        "materialization": {
+          "storage_id": 7785371,
+          "asset_key": [
+            "silver_adj_factor"
+          ],
+          "metadata": {
+            "dagster/uri": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+            "dagster/row_count": 5576,
+            "goldenshare/observed_columns": [
+              "ts_code",
+              "trade_date",
+              "adj_factor"
+            ],
+            "goldenshare/summary": "已写入复权因子 silver 标准事实分区。",
+            "goldenshare/next_action": "等待 silver blocking checks 全部通过；通过后 qfq 分钟线和指标链路可以消费复权因子。",
+            "goldenshare/result_status": "written",
+            "goldenshare/diagnostic_ref": "完整诊断看 silver adj_factor checks、过滤统计 metadata 和 run stdout。",
+            "goldenshare/input_summary": {
+              "partition_key": "2026-10-22",
+              "raw_file_exists": true,
+              "source_asset": "raw_tushare_adj_factor",
+              "stock_lifecycle_file_exists": true,
+              "supporting_asset": "silver_stock_lifecycle"
+            },
+            "goldenshare/filter_summary": {
+              "lifecycle_stock_count": 5919,
+              "output_row_count": 5576,
+              "preserved_row_count": 5575,
+              "rejected_row_count": 5578,
+              "restored_row_count": 1,
+              "selected_row_count": 1,
+              "source_eligible_row_count": 5579,
+              "source_row_count": 5579,
+              "write_mode": "restore_missing_keys"
+            },
+            "goldenshare/raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-22/part-000.parquet",
+            "goldenshare/stock_lifecycle_file_path": "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet",
+            "goldenshare/partition_key": "2026-10-22",
+            "goldenshare/source_row_count": 5579,
+            "goldenshare/lifecycle_stock_count": 5919,
+            "goldenshare/selected_row_count": 1,
+            "goldenshare/rejected_row_count": 5578,
+            "goldenshare/restored_row_count": 1,
+            "goldenshare/unchanged": false,
+            "goldenshare/source_eligible_row_count": 5579,
+            "goldenshare/preserved_row_count": 5575,
+            "goldenshare/write_mode": "restore_missing_keys"
+          }
+        },
+        "checks": [
+          {
+            "storage_id": 7785399,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_key_value_integrity_check",
+            "passed": true,
+            "target_run_id": "f226c961-f73f-40d5-a36b-ab0023f775c2",
+            "target_storage_id": 7785371,
+            "metadata": {
+              "goldenshare/check_scope": "key_uniqueness",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_positive_factor": true,
+                "silver_adj_factor_unique_ts_code_trade_date": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_unique_ts_code_trade_date"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_positive_factor"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785400,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_contract_check",
+            "passed": true,
+            "target_run_id": "f226c961-f73f-40d5-a36b-ab0023f775c2",
+            "target_storage_id": 7785371,
+            "metadata": {
+              "goldenshare/check_scope": "schema",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_file_exists": true,
+                "silver_adj_factor_partition_date_matches": true,
+                "silver_adj_factor_required_columns": true,
+                "silver_adj_factor_row_count_positive": true,
+                "silver_adj_factor_schema_matches_contract": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_file_exists"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_row_count_positive"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_required_columns"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_schema_matches_contract"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_partition_date_matches"
+                }
+              ],
+              "goldenshare/summary": "通过：5 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785402,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_partition_allowed_check",
+            "passed": true,
+            "target_run_id": "f226c961-f73f-40d5-a36b-ab0023f775c2",
+            "target_storage_id": 7785371,
+            "metadata": {
+              "goldenshare/check_scope": "partition_alignment",
+              "goldenshare/is_not_before_start": true,
+              "goldenshare/is_not_future": true,
+              "goldenshare/is_registered": true,
+              "goldenshare/min_trade_date": "2009-01-05",
+              "goldenshare/next_action": "无需处理；该分区可以继续参与 adj_factor 更新链路。",
+              "goldenshare/partition_key": "2026-10-22",
+              "goldenshare/partition_set": "cn_a_stock_current_trade_days",
+              "goldenshare/summary": "通过：复权因子分区日期属于允许的股票当前交易日范围。",
+              "goldenshare/today": "2026-10-29"
+            }
+          },
+          {
+            "storage_id": 7785406,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_lifecycle_coverage_check",
+            "passed": true,
+            "target_run_id": "f226c961-f73f-40d5-a36b-ab0023f775c2",
+            "target_storage_id": 7785371,
+            "metadata": {
+              "goldenshare/check_scope": "referential_integrity",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_coverage_complete": true,
+                "silver_adj_factor_listed_stock_only": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_listed_stock_only"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_coverage_complete"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          }
+        ],
+        "physical_row_count": 5576,
+        "target_code_row_count": 1,
+        "target_code_factor": 1.0079,
+        "publication_path": "/Volumes/datasource/data_lake_staging/adj_factor/silver/run_id=f226c961-f73f-40d5-a36b-ab0023f775c2/trade_date=2026-10-22/publication.json",
+        "publication_result": {
+          "lifecycle_stock_count": 5919,
+          "preserved_row_count": 5575,
+          "rejected_row_count": 5578,
+          "restored_row_count": 1,
+          "rows": 5576,
+          "selected_row_count": 1,
+          "source_eligible_row_count": 5579,
+          "source_row_count": 5579,
+          "unchanged": false,
+          "write_mode": "restore_missing_keys"
+        },
+        "target_identity": {
+          "device": 16777244,
+          "inode": 27503341,
+          "bytes": 55561,
+          "mtime_ns": 1793234068767852272,
+          "ctime_ns": 1793234068778045461
+        }
+      },
+      "verified_at": "2026-10-29T08:34:34.174776+08:00"
+    },
+    {
+      "date": "2026-10-23",
+      "request": {
+        "selector": {
+          "repositoryLocationName": "orchestrator",
+          "repositoryName": "__repository__",
+          "jobName": "silver_adj_factor_update_job"
+        },
+        "runConfigData": {
+          "ops": {
+            "silver_adj_factor": {
+              "config": {
+                "restore_missing_keys": [
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-15"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-16"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-19"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-20"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-21"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-22"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-23"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-26"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-27"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "executionMetadata": {
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-23"
+            },
+            {
+              "key": "goldenshare/recovery",
+              "value": "adj_factor_retention_20261029"
+            }
+          ]
+        }
+      },
+      "submitted_at": "2026-10-29T08:34:34.175667+08:00",
+      "launch_response": {
+        "__typename": "LaunchRunSuccess",
+        "run": {
+          "runId": "2e05d42f-a828-4143-b41a-d413428a604f",
+          "status": "QUEUED"
+        }
+      },
+      "run_id": "2e05d42f-a828-4143-b41a-d413428a604f",
+      "status": "SUCCESS",
+      "verification": {
+        "materialization": {
+          "storage_id": 7785429,
+          "asset_key": [
+            "silver_adj_factor"
+          ],
+          "metadata": {
+            "dagster/uri": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-23/part-000.parquet",
+            "dagster/row_count": 5577,
+            "goldenshare/observed_columns": [
+              "ts_code",
+              "trade_date",
+              "adj_factor"
+            ],
+            "goldenshare/summary": "已写入复权因子 silver 标准事实分区。",
+            "goldenshare/next_action": "等待 silver blocking checks 全部通过；通过后 qfq 分钟线和指标链路可以消费复权因子。",
+            "goldenshare/result_status": "written",
+            "goldenshare/diagnostic_ref": "完整诊断看 silver adj_factor checks、过滤统计 metadata 和 run stdout。",
+            "goldenshare/input_summary": {
+              "partition_key": "2026-10-23",
+              "raw_file_exists": true,
+              "source_asset": "raw_tushare_adj_factor",
+              "stock_lifecycle_file_exists": true,
+              "supporting_asset": "silver_stock_lifecycle"
+            },
+            "goldenshare/filter_summary": {
+              "lifecycle_stock_count": 5919,
+              "output_row_count": 5577,
+              "preserved_row_count": 5576,
+              "rejected_row_count": 5579,
+              "restored_row_count": 1,
+              "selected_row_count": 1,
+              "source_eligible_row_count": 5580,
+              "source_row_count": 5580,
+              "write_mode": "restore_missing_keys"
+            },
+            "goldenshare/raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-23/part-000.parquet",
+            "goldenshare/stock_lifecycle_file_path": "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet",
+            "goldenshare/partition_key": "2026-10-23",
+            "goldenshare/source_row_count": 5580,
+            "goldenshare/lifecycle_stock_count": 5919,
+            "goldenshare/selected_row_count": 1,
+            "goldenshare/rejected_row_count": 5579,
+            "goldenshare/restored_row_count": 1,
+            "goldenshare/unchanged": false,
+            "goldenshare/source_eligible_row_count": 5580,
+            "goldenshare/preserved_row_count": 5576,
+            "goldenshare/write_mode": "restore_missing_keys"
+          }
+        },
+        "checks": [
+          {
+            "storage_id": 7785456,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_key_value_integrity_check",
+            "passed": true,
+            "target_run_id": "2e05d42f-a828-4143-b41a-d413428a604f",
+            "target_storage_id": 7785429,
+            "metadata": {
+              "goldenshare/check_scope": "key_uniqueness",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_positive_factor": true,
+                "silver_adj_factor_unique_ts_code_trade_date": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_unique_ts_code_trade_date"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_positive_factor"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785459,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_partition_allowed_check",
+            "passed": true,
+            "target_run_id": "2e05d42f-a828-4143-b41a-d413428a604f",
+            "target_storage_id": 7785429,
+            "metadata": {
+              "goldenshare/check_scope": "partition_alignment",
+              "goldenshare/is_not_before_start": true,
+              "goldenshare/is_not_future": true,
+              "goldenshare/is_registered": true,
+              "goldenshare/min_trade_date": "2009-01-05",
+              "goldenshare/next_action": "无需处理；该分区可以继续参与 adj_factor 更新链路。",
+              "goldenshare/partition_key": "2026-10-23",
+              "goldenshare/partition_set": "cn_a_stock_current_trade_days",
+              "goldenshare/summary": "通过：复权因子分区日期属于允许的股票当前交易日范围。",
+              "goldenshare/today": "2026-10-29"
+            }
+          },
+          {
+            "storage_id": 7785461,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_contract_check",
+            "passed": true,
+            "target_run_id": "2e05d42f-a828-4143-b41a-d413428a604f",
+            "target_storage_id": 7785429,
+            "metadata": {
+              "goldenshare/check_scope": "schema",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_file_exists": true,
+                "silver_adj_factor_partition_date_matches": true,
+                "silver_adj_factor_required_columns": true,
+                "silver_adj_factor_row_count_positive": true,
+                "silver_adj_factor_schema_matches_contract": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_file_exists"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_row_count_positive"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_required_columns"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_schema_matches_contract"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_partition_date_matches"
+                }
+              ],
+              "goldenshare/summary": "通过：5 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785462,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_lifecycle_coverage_check",
+            "passed": true,
+            "target_run_id": "2e05d42f-a828-4143-b41a-d413428a604f",
+            "target_storage_id": 7785429,
+            "metadata": {
+              "goldenshare/check_scope": "referential_integrity",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_coverage_complete": true,
+                "silver_adj_factor_listed_stock_only": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_listed_stock_only"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_coverage_complete"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          }
+        ],
+        "physical_row_count": 5577,
+        "target_code_row_count": 1,
+        "target_code_factor": 1.0079,
+        "publication_path": "/Volumes/datasource/data_lake_staging/adj_factor/silver/run_id=2e05d42f-a828-4143-b41a-d413428a604f/trade_date=2026-10-23/publication.json",
+        "publication_result": {
+          "lifecycle_stock_count": 5919,
+          "preserved_row_count": 5576,
+          "rejected_row_count": 5579,
+          "restored_row_count": 1,
+          "rows": 5577,
+          "selected_row_count": 1,
+          "source_eligible_row_count": 5580,
+          "source_row_count": 5580,
+          "unchanged": false,
+          "write_mode": "restore_missing_keys"
+        },
+        "target_identity": {
+          "device": 16777244,
+          "inode": 27503352,
+          "bytes": 55562,
+          "mtime_ns": 1793234078774003645,
+          "ctime_ns": 1793234078783623779
+        }
+      },
+      "verified_at": "2026-10-29T08:34:44.316022+08:00"
+    },
+    {
+      "date": "2026-10-26",
+      "request": {
+        "selector": {
+          "repositoryLocationName": "orchestrator",
+          "repositoryName": "__repository__",
+          "jobName": "silver_adj_factor_update_job"
+        },
+        "runConfigData": {
+          "ops": {
+            "silver_adj_factor": {
+              "config": {
+                "restore_missing_keys": [
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-15"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-16"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-19"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-20"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-21"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-22"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-23"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-26"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-27"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "executionMetadata": {
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-26"
+            },
+            {
+              "key": "goldenshare/recovery",
+              "value": "adj_factor_retention_20261029"
+            }
+          ]
+        }
+      },
+      "submitted_at": "2026-10-29T08:34:44.316887+08:00",
+      "launch_response": {
+        "__typename": "LaunchRunSuccess",
+        "run": {
+          "runId": "5606b57c-d8af-4b65-b3d9-d17700311837",
+          "status": "QUEUED"
+        }
+      },
+      "run_id": "5606b57c-d8af-4b65-b3d9-d17700311837",
+      "status": "SUCCESS",
+      "verification": {
+        "materialization": {
+          "storage_id": 7785487,
+          "asset_key": [
+            "silver_adj_factor"
+          ],
+          "metadata": {
+            "dagster/uri": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-26/part-000.parquet",
+            "dagster/row_count": 5577,
+            "goldenshare/observed_columns": [
+              "ts_code",
+              "trade_date",
+              "adj_factor"
+            ],
+            "goldenshare/summary": "已写入复权因子 silver 标准事实分区。",
+            "goldenshare/next_action": "等待 silver blocking checks 全部通过；通过后 qfq 分钟线和指标链路可以消费复权因子。",
+            "goldenshare/result_status": "written",
+            "goldenshare/diagnostic_ref": "完整诊断看 silver adj_factor checks、过滤统计 metadata 和 run stdout。",
+            "goldenshare/input_summary": {
+              "partition_key": "2026-10-26",
+              "raw_file_exists": true,
+              "source_asset": "raw_tushare_adj_factor",
+              "stock_lifecycle_file_exists": true,
+              "supporting_asset": "silver_stock_lifecycle"
+            },
+            "goldenshare/filter_summary": {
+              "lifecycle_stock_count": 5919,
+              "output_row_count": 5577,
+              "preserved_row_count": 5576,
+              "rejected_row_count": 5579,
+              "restored_row_count": 1,
+              "selected_row_count": 1,
+              "source_eligible_row_count": 5580,
+              "source_row_count": 5580,
+              "write_mode": "restore_missing_keys"
+            },
+            "goldenshare/raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-26/part-000.parquet",
+            "goldenshare/stock_lifecycle_file_path": "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet",
+            "goldenshare/partition_key": "2026-10-26",
+            "goldenshare/source_row_count": 5580,
+            "goldenshare/lifecycle_stock_count": 5919,
+            "goldenshare/selected_row_count": 1,
+            "goldenshare/rejected_row_count": 5579,
+            "goldenshare/restored_row_count": 1,
+            "goldenshare/unchanged": false,
+            "goldenshare/source_eligible_row_count": 5580,
+            "goldenshare/preserved_row_count": 5576,
+            "goldenshare/write_mode": "restore_missing_keys"
+          }
+        },
+        "checks": [
+          {
+            "storage_id": 7785515,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_key_value_integrity_check",
+            "passed": true,
+            "target_run_id": "5606b57c-d8af-4b65-b3d9-d17700311837",
+            "target_storage_id": 7785487,
+            "metadata": {
+              "goldenshare/check_scope": "key_uniqueness",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_positive_factor": true,
+                "silver_adj_factor_unique_ts_code_trade_date": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_unique_ts_code_trade_date"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_positive_factor"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785516,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_contract_check",
+            "passed": true,
+            "target_run_id": "5606b57c-d8af-4b65-b3d9-d17700311837",
+            "target_storage_id": 7785487,
+            "metadata": {
+              "goldenshare/check_scope": "schema",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_file_exists": true,
+                "silver_adj_factor_partition_date_matches": true,
+                "silver_adj_factor_required_columns": true,
+                "silver_adj_factor_row_count_positive": true,
+                "silver_adj_factor_schema_matches_contract": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_file_exists"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_row_count_positive"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_required_columns"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_schema_matches_contract"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_partition_date_matches"
+                }
+              ],
+              "goldenshare/summary": "通过：5 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785519,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_partition_allowed_check",
+            "passed": true,
+            "target_run_id": "5606b57c-d8af-4b65-b3d9-d17700311837",
+            "target_storage_id": 7785487,
+            "metadata": {
+              "goldenshare/check_scope": "partition_alignment",
+              "goldenshare/is_not_before_start": true,
+              "goldenshare/is_not_future": true,
+              "goldenshare/is_registered": true,
+              "goldenshare/min_trade_date": "2009-01-05",
+              "goldenshare/next_action": "无需处理；该分区可以继续参与 adj_factor 更新链路。",
+              "goldenshare/partition_key": "2026-10-26",
+              "goldenshare/partition_set": "cn_a_stock_current_trade_days",
+              "goldenshare/summary": "通过：复权因子分区日期属于允许的股票当前交易日范围。",
+              "goldenshare/today": "2026-10-29"
+            }
+          },
+          {
+            "storage_id": 7785520,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_lifecycle_coverage_check",
+            "passed": true,
+            "target_run_id": "5606b57c-d8af-4b65-b3d9-d17700311837",
+            "target_storage_id": 7785487,
+            "metadata": {
+              "goldenshare/check_scope": "referential_integrity",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_coverage_complete": true,
+                "silver_adj_factor_listed_stock_only": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_listed_stock_only"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_coverage_complete"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          }
+        ],
+        "physical_row_count": 5577,
+        "target_code_row_count": 1,
+        "target_code_factor": 1.0079,
+        "publication_path": "/Volumes/datasource/data_lake_staging/adj_factor/silver/run_id=5606b57c-d8af-4b65-b3d9-d17700311837/trade_date=2026-10-26/publication.json",
+        "publication_result": {
+          "lifecycle_stock_count": 5919,
+          "preserved_row_count": 5576,
+          "rejected_row_count": 5579,
+          "restored_row_count": 1,
+          "rows": 5577,
+          "selected_row_count": 1,
+          "source_eligible_row_count": 5580,
+          "source_row_count": 5580,
+          "unchanged": false,
+          "write_mode": "restore_missing_keys"
+        },
+        "target_identity": {
+          "device": 16777244,
+          "inode": 27503364,
+          "bytes": 55542,
+          "mtime_ns": 1793234089347467026,
+          "ctime_ns": 1793234089358196311
+        }
+      },
+      "verified_at": "2026-10-29T08:34:54.425005+08:00"
+    },
+    {
+      "date": "2026-10-27",
+      "request": {
+        "selector": {
+          "repositoryLocationName": "orchestrator",
+          "repositoryName": "__repository__",
+          "jobName": "silver_adj_factor_update_job"
+        },
+        "runConfigData": {
+          "ops": {
+            "silver_adj_factor": {
+              "config": {
+                "restore_missing_keys": [
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-15"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-16"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-19"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-20"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-21"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-22"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-23"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-26"
+                  },
+                  {
+                    "ts_code": "301139.SZ",
+                    "trade_date": "2026-10-27"
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "executionMetadata": {
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-27"
+            },
+            {
+              "key": "goldenshare/recovery",
+              "value": "adj_factor_retention_20261029"
+            }
+          ]
+        }
+      },
+      "submitted_at": "2026-10-29T08:34:54.425592+08:00",
+      "launch_response": {
+        "__typename": "LaunchRunSuccess",
+        "run": {
+          "runId": "c238fb7e-3c86-405d-9c26-be132b4fb944",
+          "status": "QUEUED"
+        }
+      },
+      "run_id": "c238fb7e-3c86-405d-9c26-be132b4fb944",
+      "status": "SUCCESS",
+      "verification": {
+        "materialization": {
+          "storage_id": 7785545,
+          "asset_key": [
+            "silver_adj_factor"
+          ],
+          "metadata": {
+            "dagster/uri": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-27/part-000.parquet",
+            "dagster/row_count": 5577,
+            "goldenshare/observed_columns": [
+              "ts_code",
+              "trade_date",
+              "adj_factor"
+            ],
+            "goldenshare/summary": "已写入复权因子 silver 标准事实分区。",
+            "goldenshare/next_action": "等待 silver blocking checks 全部通过；通过后 qfq 分钟线和指标链路可以消费复权因子。",
+            "goldenshare/result_status": "written",
+            "goldenshare/diagnostic_ref": "完整诊断看 silver adj_factor checks、过滤统计 metadata 和 run stdout。",
+            "goldenshare/input_summary": {
+              "partition_key": "2026-10-27",
+              "raw_file_exists": true,
+              "source_asset": "raw_tushare_adj_factor",
+              "stock_lifecycle_file_exists": true,
+              "supporting_asset": "silver_stock_lifecycle"
+            },
+            "goldenshare/filter_summary": {
+              "lifecycle_stock_count": 5919,
+              "output_row_count": 5577,
+              "preserved_row_count": 5576,
+              "rejected_row_count": 5579,
+              "restored_row_count": 1,
+              "selected_row_count": 1,
+              "source_eligible_row_count": 5580,
+              "source_row_count": 5580,
+              "write_mode": "restore_missing_keys"
+            },
+            "goldenshare/raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-27/part-000.parquet",
+            "goldenshare/stock_lifecycle_file_path": "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet",
+            "goldenshare/partition_key": "2026-10-27",
+            "goldenshare/source_row_count": 5580,
+            "goldenshare/lifecycle_stock_count": 5919,
+            "goldenshare/selected_row_count": 1,
+            "goldenshare/rejected_row_count": 5579,
+            "goldenshare/restored_row_count": 1,
+            "goldenshare/unchanged": false,
+            "goldenshare/source_eligible_row_count": 5580,
+            "goldenshare/preserved_row_count": 5576,
+            "goldenshare/write_mode": "restore_missing_keys"
+          }
+        },
+        "checks": [
+          {
+            "storage_id": 7785572,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_contract_check",
+            "passed": true,
+            "target_run_id": "c238fb7e-3c86-405d-9c26-be132b4fb944",
+            "target_storage_id": 7785545,
+            "metadata": {
+              "goldenshare/check_scope": "schema",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_file_exists": true,
+                "silver_adj_factor_partition_date_matches": true,
+                "silver_adj_factor_required_columns": true,
+                "silver_adj_factor_row_count_positive": true,
+                "silver_adj_factor_schema_matches_contract": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_file_exists"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_row_count_positive"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_required_columns"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_schema_matches_contract"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_partition_date_matches"
+                }
+              ],
+              "goldenshare/summary": "通过：5 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785574,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_key_value_integrity_check",
+            "passed": true,
+            "target_run_id": "c238fb7e-3c86-405d-9c26-be132b4fb944",
+            "target_storage_id": 7785545,
+            "metadata": {
+              "goldenshare/check_scope": "key_uniqueness",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_positive_factor": true,
+                "silver_adj_factor_unique_ts_code_trade_date": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_unique_ts_code_trade_date"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_positive_factor"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785577,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_partition_allowed_check",
+            "passed": true,
+            "target_run_id": "c238fb7e-3c86-405d-9c26-be132b4fb944",
+            "target_storage_id": 7785545,
+            "metadata": {
+              "goldenshare/check_scope": "partition_alignment",
+              "goldenshare/is_not_before_start": true,
+              "goldenshare/is_not_future": true,
+              "goldenshare/is_registered": true,
+              "goldenshare/min_trade_date": "2009-01-05",
+              "goldenshare/next_action": "无需处理；该分区可以继续参与 adj_factor 更新链路。",
+              "goldenshare/partition_key": "2026-10-27",
+              "goldenshare/partition_set": "cn_a_stock_current_trade_days",
+              "goldenshare/summary": "通过：复权因子分区日期属于允许的股票当前交易日范围。",
+              "goldenshare/today": "2026-10-29"
+            }
+          },
+          {
+            "storage_id": 7785579,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_lifecycle_coverage_check",
+            "passed": true,
+            "target_run_id": "c238fb7e-3c86-405d-9c26-be132b4fb944",
+            "target_storage_id": 7785545,
+            "metadata": {
+              "goldenshare/check_scope": "referential_integrity",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_coverage_complete": true,
+                "silver_adj_factor_listed_stock_only": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_listed_stock_only"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_coverage_complete"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          }
+        ],
+        "physical_row_count": 5577,
+        "target_code_row_count": 1,
+        "target_code_factor": 1.0079,
+        "publication_path": "/Volumes/datasource/data_lake_staging/adj_factor/silver/run_id=c238fb7e-3c86-405d-9c26-be132b4fb944/trade_date=2026-10-27/publication.json",
+        "publication_result": {
+          "lifecycle_stock_count": 5919,
+          "preserved_row_count": 5576,
+          "rejected_row_count": 5579,
+          "restored_row_count": 1,
+          "rows": 5577,
+          "selected_row_count": 1,
+          "source_eligible_row_count": 5580,
+          "source_row_count": 5580,
+          "unchanged": false,
+          "write_mode": "restore_missing_keys"
+        },
+        "target_identity": {
+          "device": 16777244,
+          "inode": 27503373,
+          "bytes": 55548,
+          "mtime_ns": 1793234099689537335,
+          "ctime_ns": 1793234099701371228
+        }
+      },
+      "verified_at": "2026-10-29T08:35:04.586656+08:00"
+    },
+    {
+      "date": "2026-10-28",
+      "request": {
+        "selector": {
+          "repositoryLocationName": "orchestrator",
+          "repositoryName": "__repository__",
+          "jobName": "silver_adj_factor_update_job"
+        },
+        "runConfigData": {},
+        "executionMetadata": {
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-28"
+            },
+            {
+              "key": "goldenshare/recovery",
+              "value": "adj_factor_retention_20261029"
+            }
+          ]
+        }
+      },
+      "submitted_at": "2026-10-29T08:35:04.587695+08:00",
+      "launch_response": {
+        "__typename": "LaunchRunSuccess",
+        "run": {
+          "runId": "de9b3d56-0f19-4566-963a-2db1d8882ab0",
+          "status": "QUEUED"
+        }
+      },
+      "run_id": "de9b3d56-0f19-4566-963a-2db1d8882ab0",
+      "status": "SUCCESS",
+      "verification": {
+        "materialization": {
+          "storage_id": 7785603,
+          "asset_key": [
+            "silver_adj_factor"
+          ],
+          "metadata": {
+            "dagster/uri": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet",
+            "dagster/row_count": 5580,
+            "goldenshare/observed_columns": [
+              "ts_code",
+              "trade_date",
+              "adj_factor"
+            ],
+            "goldenshare/summary": "已写入复权因子 silver 标准事实分区。",
+            "goldenshare/next_action": "等待 silver blocking checks 全部通过；通过后 qfq 分钟线和指标链路可以消费复权因子。",
+            "goldenshare/result_status": "written",
+            "goldenshare/diagnostic_ref": "完整诊断看 silver adj_factor checks、过滤统计 metadata 和 run stdout。",
+            "goldenshare/input_summary": {
+              "partition_key": "2026-10-28",
+              "raw_file_exists": true,
+              "source_asset": "raw_tushare_adj_factor",
+              "stock_lifecycle_file_exists": true,
+              "supporting_asset": "silver_stock_lifecycle"
+            },
+            "goldenshare/filter_summary": {
+              "lifecycle_stock_count": 5919,
+              "output_row_count": 5580,
+              "preserved_row_count": 0,
+              "rejected_row_count": 0,
+              "restored_row_count": 0,
+              "selected_row_count": 5580,
+              "source_eligible_row_count": 5580,
+              "source_row_count": 5580,
+              "write_mode": "normal"
+            },
+            "goldenshare/raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-28/part-000.parquet",
+            "goldenshare/stock_lifecycle_file_path": "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet",
+            "goldenshare/partition_key": "2026-10-28",
+            "goldenshare/source_row_count": 5580,
+            "goldenshare/lifecycle_stock_count": 5919,
+            "goldenshare/selected_row_count": 5580,
+            "goldenshare/rejected_row_count": 0,
+            "goldenshare/restored_row_count": 0,
+            "goldenshare/unchanged": false,
+            "goldenshare/source_eligible_row_count": 5580,
+            "goldenshare/preserved_row_count": 0,
+            "goldenshare/write_mode": "normal"
+          }
+        },
+        "checks": [
+          {
+            "storage_id": 7785630,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_contract_check",
+            "passed": true,
+            "target_run_id": "de9b3d56-0f19-4566-963a-2db1d8882ab0",
+            "target_storage_id": 7785603,
+            "metadata": {
+              "goldenshare/check_scope": "schema",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_file_exists": true,
+                "silver_adj_factor_partition_date_matches": true,
+                "silver_adj_factor_required_columns": true,
+                "silver_adj_factor_row_count_positive": true,
+                "silver_adj_factor_schema_matches_contract": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_file_exists"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_row_count_positive"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_required_columns"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_schema_matches_contract"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_partition_date_matches"
+                }
+              ],
+              "goldenshare/summary": "通过：5 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785632,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_key_value_integrity_check",
+            "passed": true,
+            "target_run_id": "de9b3d56-0f19-4566-963a-2db1d8882ab0",
+            "target_storage_id": 7785603,
+            "metadata": {
+              "goldenshare/check_scope": "key_uniqueness",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_positive_factor": true,
+                "silver_adj_factor_unique_ts_code_trade_date": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_unique_ts_code_trade_date"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_positive_factor"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          },
+          {
+            "storage_id": 7785634,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_partition_allowed_check",
+            "passed": true,
+            "target_run_id": "de9b3d56-0f19-4566-963a-2db1d8882ab0",
+            "target_storage_id": 7785603,
+            "metadata": {
+              "goldenshare/check_scope": "partition_alignment",
+              "goldenshare/is_not_before_start": true,
+              "goldenshare/is_not_future": true,
+              "goldenshare/is_registered": true,
+              "goldenshare/min_trade_date": "2009-01-05",
+              "goldenshare/next_action": "无需处理；该分区可以继续参与 adj_factor 更新链路。",
+              "goldenshare/partition_key": "2026-10-28",
+              "goldenshare/partition_set": "cn_a_stock_current_trade_days",
+              "goldenshare/summary": "通过：复权因子分区日期属于允许的股票当前交易日范围。",
+              "goldenshare/today": "2026-10-29"
+            }
+          },
+          {
+            "storage_id": 7785638,
+            "asset_key": [
+              "silver_adj_factor"
+            ],
+            "name": "silver_adj_factor_lifecycle_coverage_check",
+            "passed": true,
+            "target_run_id": "de9b3d56-0f19-4566-963a-2db1d8882ab0",
+            "target_storage_id": 7785603,
+            "metadata": {
+              "goldenshare/check_scope": "referential_integrity",
+              "goldenshare/failed_rule_names": [],
+              "goldenshare/next_action": "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。",
+              "goldenshare/rule_passed": {
+                "silver_adj_factor_coverage_complete": true,
+                "silver_adj_factor_listed_stock_only": true
+              },
+              "goldenshare/rule_summary": [
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_listed_stock_only"
+                },
+                {
+                  "passed": true,
+                  "rule_name": "silver_adj_factor_coverage_complete"
+                }
+              ],
+              "goldenshare/summary": "通过：2 条复权因子质量规则全部通过。"
+            }
+          }
+        ],
+        "physical_row_count": 5580,
+        "target_code_row_count": 1,
+        "target_code_factor": 1.1319,
+        "publication_path": "/Volumes/datasource/data_lake_staging/adj_factor/silver/run_id=de9b3d56-0f19-4566-963a-2db1d8882ab0/trade_date=2026-10-28/publication.json",
+        "publication_result": {
+          "lifecycle_stock_count": 5919,
+          "preserved_row_count": 0,
+          "rejected_row_count": 0,
+          "restored_row_count": 0,
+          "rows": 5580,
+          "selected_row_count": 5580,
+          "source_eligible_row_count": 5580,
+          "source_row_count": 5580,
+          "unchanged": false,
+          "write_mode": "normal"
+        },
+        "target_identity": {
+          "device": 16777244,
+          "inode": 27503383,
+          "bytes": 55562,
+          "mtime_ns": 1793234110109858042,
+          "ctime_ns": 1793234110124456831
+        }
+      },
+      "verified_at": "2026-10-29T08:35:14.735948+08:00"
+    }
+  ],
+  "stock_minute_jobs_launched": false,
+  "complete": true,
+  "finished_at": "2026-10-29T08:35:14.739232+08:00",
+  "restored_historical_rows": 9,
+  "verified_check_count": 40,
+  "unchanged_raw_and_lifecycle_paths": [
+    "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-15/part-000.parquet",
+    "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-16/part-000.parquet",
+    "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-19/part-000.parquet",
+    "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-20/part-000.parquet",
+    "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-21/part-000.parquet",
+    "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-22/part-000.parquet",
+    "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-23/part-000.parquet",
+    "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-26/part-000.parquet",
+    "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-27/part-000.parquet",
+    "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-28/part-000.parquet",
+    "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet"
+  ]
+}

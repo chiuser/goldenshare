@@ -1,0 +1,49 @@
+{
+  "observed_at": "2026-10-29T08:37:31.522436+08:00",
+  "read_only": true,
+  "scope": "27/28日因子及生命周期；不读分钟或日线历史行情、不运行repair",
+  "minute_reason_counts": {
+    "factor_changed": 16
+  },
+  "minute_changed_codes": [
+    "300601.SZ",
+    "601298.SH",
+    "601991.SH",
+    "603689.SH",
+    "688087.SH",
+    "920047.BJ",
+    "920145.BJ",
+    "920199.BJ",
+    "920227.BJ",
+    "920242.BJ",
+    "920339.BJ",
+    "920427.BJ",
+    "920656.BJ",
+    "920751.BJ",
+    "920892.BJ",
+    "920957.BJ"
+  ],
+  "minute_new_codes": [],
+  "minute_unresolved_codes": [],
+  "daily_changed_codes": [
+    "300601.SZ",
+    "601298.SH",
+    "601991.SH",
+    "603689.SH",
+    "688087.SH",
+    "920047.BJ",
+    "920145.BJ",
+    "920199.BJ",
+    "920227.BJ",
+    "920242.BJ",
+    "920339.BJ",
+    "920427.BJ",
+    "920656.BJ",
+    "920751.BJ",
+    "920892.BJ",
+    "920957.BJ"
+  ],
+  "daily_unresolved_count": 0,
+  "301139_excluded_on_delist_day": true,
+  "jobs_launched": false
+}

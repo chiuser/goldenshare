@@ -1,5 +1,7 @@
 # 25股修复LLD v1：R3/R4/R5完成记录
 
+> 2026-10-29 §25本轮因子修正已完成：退市源因子保留规则已落地，301139.SZ九键已恢复，28日Silver为5,580行，10次原job成功、40项原检查通过；停在股票分钟链补数前。它与已完成的25股/R3/R4/R5及10月13日规则迁移分开，不重开这些历史任务。开发、验证和正式结果分别记在§25.9—§25.11；本次方案口径见[资产设计§15](dagster-adj-factor-asset-design.md#adj-factor-retired-retention-plan-20261028)。
+
 更新：2026-10-18。R4正式文件修复及收尾已完成：31资产、11,425个COMMITTED、4,363个SKIPPED、失败0；原R4状态FILES_COMPLETE_EVENTS_PENDING、completed=15,788不改。收尾修正及原实现结果见§22.9。R5步骤1—6现已完成：31条实际观察记录、31写/63读约1.4931秒，29项隔离测试和一条原生DG页面抽看通过，详见§24.9—§24.10。未重新读取行情、下载、计算或改写正式文件；原plan/hash及报告保留。Prod、serving和sensor操作未执行；第7步专用工具清退及必要断言迁移已完成，见§23.7；本轮按清退白名单提交，不推送。
 
 §1—§13是已完成R3及历史证据；§14—§22保存R4设计和执行结果，R4收尾修正已提交b476f1bcc。R5文档先提交a536bf63，再完成§24步骤1—6；第7步已按§23完成；专项源码/测试已退出，原执行材料与DG观察记录仍保留。原准备/计算/提升记录不再作为R5待执行步骤。
@@ -1088,3 +1090,155 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python3 -B /pri
 | silver_adj_factor | 7634180 |
 
 R5完成；后续第7步工具清退已按§23完成。本节是当时登记过程的历史记录，不是再次登记的入口。
+
+<a id="adj-factor-retired-retention-20261028"></a>
+
+## 25. 退市因子保留与九键恢复LLD（2026-10-29，已批准实施）
+
+### 25.1 本次硬口径与日期边界
+
+对应资产设计§15，不把旧13日L-only迁移重新执行。普通Silver新生成范围的起点是因子的业务日期`2026-10-28`，不是进程启动时间。自该日起，不因股票当前状态D删除已有历史；日期早于28日不全量重建。管理员已确认的唯一历史写入例外为301139.SZ的九个键：10月15、16、19、20、21、22、23、26、27日，各从同日Raw补回1.0079。
+
+Raw、Prod、生命周期、行情股票池、schema、正式asset/job/check名称、原QFQ覆盖检查及修复公式不改。P、未知身份、非CNY不扩大。退市日及其后Raw提供的因子可保留，但不能因此创建行情、要求所有退市股票每天有源因子或触发退市后的历史repair。
+
+### 25.2 当前代码及真实输入依据
+
+| 当前位置 | 已核实行为 | 本次处理 |
+| --- | --- | --- |
+| `duckdb_sql.py:adj_factor_current_listed_stock_select/silver_adj_factor_select` | 先取当前L，再按上市/退市区间过滤；D全部消失 | 改为因子专属的允许保留及必需覆盖规则，所有调用方同步迁移，不保留旧L-only分支供运行时兜底。 |
+| `assets/adj_factor.py:_silver_filter_counts/write_silver_adj_factor_partition` | 使用同一旧集合，整分区覆盖 | 28日起从Raw生成；旧日只能显式定点补缺，不做全Raw重建。 |
+| `stock_factor_price_checks.py`及`adj_factor_lake_readiness.py` | actual与当前L expected双向比较，D为多余 | 分开检查允许记录、必须覆盖和新日期Raw保留一致性。 |
+| `sensors/stock_adj_factor_sensor.py` | 最近10日可因生命周期变化重建旧Silver | 旧日期禁止普通重建；新增D不再令合法已有历史成为多余。真实旧缺口继续报告，不跳过。 |
+| `stk_mins_qfq.py:build_adj_factor_changed_codes_sql/build_gold_stk_mins_qfq_factor_repair_plan` | 全部当日因子参与比较，缺前因子可挡住整批 | 在比较前限定目标业务日计算对象；保留真正的缺前因子、新上市和因子变化分类。 |
+| `stock_daily_qfq.py:build_stock_daily_qfq_factor_changed_codes_sql` | 全部两日共同因子变化均进名单；周月也调用它 | 所有调用方显式传入目标日及生命周期；周月原listed收口保留。 |
+| `bootstrap/adj_factor_silver_history.py:_rebuild_batch_comparison` | 旧迁移只允许删除，新增即拒绝 | 不用于九键恢复；同步新合同并拒绝旧合同计划，不再把删除D作为新规则。 |
+| `assets/adj_factor.py:_replace_parquet_from_query` | 目标旁`.tmp`，替换前无完整候选规则校验 | 只对因子Silver改为staging、候选校验、原子提升及回执。 |
+
+依据为当前代码、原测试、CodeGraph影响面、Raw与生命周期的指定代码样本；源字段合同为本地`docs/sources/tushare/股票数据/行情数据/0028_复权因子.md`（doc_id=28）。不改源参数，无重新请求源站的必要。已核301139.SZ当前D、上市日2022-07-08、退市日2026-10-28；九个Raw值均1.0079、Silver对应零行。28日Raw值1.1319只是保留样本，不是九键恢复值或历史重算依据。
+
+### 25.3 一处定义保留和覆盖规则
+
+在DG因子专属合同/SQL模块集中定义生效日，不新增env、数据库配置或页面开关。将`adj_factor_current_listed_stock_select`改为语义准确的因子保留选择函数并迁移所有调用，不留下旧名对应另一套筛选。
+
+1. **允许保留的记录**：生命周期存在，`is_cny_stock=true`、`list_status IN ('L','D')`、代码与上市日合法，因子业务日期不早于上市日。退市日期不再是存储上界。P及未知状态仍排除。每条因子必须有限、正数、非空，键唯一且日期等于目标分区；不做填值、补日期或吞异常。
+2. **每日必须覆盖的对象**：目标日上市有效区间内的原上市股票必须覆盖。对28日起才退市的股票，退市前已有历史也必须保留，不能因现在D而删除；即旧日期覆盖纳入`list_status='D' AND delist_date >= DATE '2026-10-28' AND list_date <= target_trade_date AND target_trade_date < delist_date`。28日前已退市、原迁移已清退的历史不新增补齐义务。D的退市日及以后不因身份而每天要求一行。
+3. **28日起源记录保留一致性**：同日Raw中满足第1条的键、值与Silver双向相等；与第2条覆盖检查分开。源缺少目标日在市股票仍报错；源没有某退市代码时，不凭生命周期补一行。
+4. **旧分区**：不对Raw全部退市数据做差异恢复；检查允许合法已有D，验证第2条及既有字段/键/值规则。因子分区通过不代替下游针对实际历史行情的逐键因子覆盖检查。
+
+共享SQL须给出允许对象、必须对象、Raw应保留记录三种明确结果；writer、过滤统计、正式四检查、候选检查、batch readiness和重建评估调用同一规则。batch一次加载小型生命周期及各日期Raw/Silver必要三列，按业务日期连接，不在Python逐股处理，不逐日期回调单日readiness。四个正式check名称保持；内部`listed_stock_only`说明及诊断改为允许保留的股票身份检查，不能继续声称D均不合法。
+
+### 25.4 旧日补缺及配置边界
+
+复用`silver_adj_factor_update_job`，为Silver asset增加可选的运行配置`restore_missing_keys`，默认`[]`，内容为`{ts_code, trade_date}`对象列表；`trade_date`使用`YYYY-MM-DD`文本，与既有分区日期逐项校验，不新增另一种分区输入。仅由此次人工运行的`run_config`提供，不加入环境、Settings、数据库、sensor自动请求或对外产品界面。生效立即限于该run，不持久化为全局开关。代码和日期须合法、键不得重复，列表冻结到执行记录；**空列表绝不代表全市场**。
+
+本次正式执行单只允许九个已确认键，例如`{ts_code: '301139.SZ', trade_date: '2026-10-15'}`；每个run只取列表中与其原分区键相同的键，分区不在清单中或当日子集为空即拒绝。业务日期早于28日时，普通writer没有此显式列表即拒绝重建；sensor不生成带该配置的历史恢复请求。历史工具不能绕过此边界做旧日整分区Raw重建。日期不早于28日的正常writer使用新保留规则；若同时传入旧日恢复配置则拒绝，不能用它裁剪当日完整输出。
+
+旧日算法在原有Silver三列上做插入式合并：
+
+1. 冻结该日Raw、Silver、生命周期输入身份与明确股票名单；先严格校验原Silver的三列名称、顺序及类型，不允许通过投影丢额外列或UNION隐式改类型。只取Raw中名单内、日期匹配且值有效的记录。
+2. 目标无键则插入；目标同值则无需修改；目标异值、任一来源重复键、Raw缺键、身份或日期不符则失败，不覆盖旧值。
+3. 旧Silver去除授权键后的三列集合必须与候选完全相同，行数不变；本次总新增最多九行。没有实际差异的分区不替换文件。
+4. 同一配置重放幂等；不能以“保留D”为由加入名单之外的其他退市记录。
+
+旧日统计单独说明：`source_eligible_row_count`是Raw中符合保留规则的记录数，不能误写成本次选入数；旧日`selected_row_count/restored_row_count`只计实际从Raw插入的授权缺键，`preserved_row_count`计原Silver保留行，二者之和等于输出行数。`rejected_row_count`在此模式表示源中本次未选入的行数，metadata明确`write_mode=restore_missing_keys`，不把未选旧退市行描述为已恢复。正常新日期仍按完整源筛选统计。
+
+原历史迁移工具不能直接复用：其比较器、plan不变量、changed筛选、事件及续跑均按removed_rows删除计数，放开一个新增判断会使新行被跳过或破坏恢复。因此本轮不为它重新开发全量重建能力；原入口名保留，正式规划及写入入口统一明确拒绝`legacy_current_listed_rebuild_retired`，包括尝试借旧工具生成28日以后全量计划。共享选择/校验引用迁到新规则，旧L-only计划不得执行，已完成报告和计划保留只读查看。九键恢复及新日常更新均走原Silver job。未来确需恢复通用全量重建，须另定范围与方案，不算本轮待办或已实现能力。
+
+### 25.5 候选、提交和中断
+
+只重整因子Silver写入；Raw通用writer不在本轮改动清单。使用`defs.paths.DEFAULT_LAKE_STAGING_ROOT`，新增本数据集的路径helper，在`/Volumes/datasource/data_lake_staging/adj_factor/silver/run_id=<publication_id>/trade_date=<D>/`保存候选、冻结输入及publication回执，禁止正式Lake旁的`.tmp`，禁止备份和Kopia。现有`LakeRootResource`没有staging方法，不臆造该接口或用旧config推断路径。
+
+`write_silver_adj_factor_partition`增加显式`publication_id`参数，由asset固定传`context.dagster_run.root_run_id or context.run_id`，不允许helper生成随机身份。首次运行使用本run id；原生reexecution沿同一个root run id寻找原回执。人工续跑必须针对原run走原生reexecution，不能把新建独立run声称为原执行续跑，也不扫描staging猜测目录。独立新run即使对九键执行幂等无修改，也不能据此伪称已经补齐另一原run的回执。
+
+候选完成一次字段/日期/唯一键/有限正值/身份/覆盖检查；新日期另核Raw保留一致性，旧日另核只有授权键插入。检查通过后重核输入与目标stat身份、同设备及writer空闲，逐文件`os.replace()`。提升前持久记录原输入身份、候选的设备号/inode/字节数/mtime_ns及一次SHA256，状态为待提升；提升后记录已提交。一份分区完成后才处理下一份。候选摘要用于识别‘已替换但回执未完成’，不是安排正式目标的三次摘要扫描；正常提升后只核对应身份和必要计数。
+
+中断前未提升不改正式文件；已提升结果保留。若已替换而回执尚未写完，下一次先处理待提升记录：比较正式目标与已记录候选的设备号/inode/字节数/mtime_ns，并仅为该故障分区读一次目标SHA256，匹配才补齐已提交回执。rename可能改变ctime，不能将ctime用于候选与正式目标相等判断。必须先识别已提交结果，再核原输入；不能因为原Silver已经被合法替换就用旧输入stat守卫堵死恢复。来源后来变化时保留已提交事实并停止其他动作，不回滚。目标既不是原输入也不匹配候选时停止人工核查，不能重新生成所有已完成分区，也不能将当前目标当成旧输入再次插入。错误候选及回执保留供核查，不自动删除失败现场。
+
+原job产生真实物化并执行原检查；事件或检查失败不回滚已提交文件。先用回执查已完成分区，再单独补未完成记录/检查，不能手写绿色事件。正常结果生成临时工作文件可在无活动引用后按明确清单清理；正式staging恢复依据不作为垃圾删除。
+
+正常提升和无需替换两条路径在写完已提交回执、返回结果前，也必须再核Raw/生命周期身份。若来源在提交期间变化，保留已提交事实并使本run停止，不能只有续跑路径才检查该条件。
+
+### 25.6 repair消费范围及参数迁移
+
+分钟和日线因子变化builder均增加明确的生命周期路径和目标业务日输入，比较前按上市有效日期筛选目标日计算对象；已有CNY及状态边界不扩大。L采用`list_date <= target_trade_date AND (delist_date IS NULL OR target_trade_date < delist_date)`；D必须同时满足`delist_date IS NOT NULL AND list_date <= target_trade_date AND target_trade_date < delist_date`。当前D但历史目标日在已知退市日前的股票仍可参与，退市日及之后只保留其因子，不据此自动修历史。函数、planner、executor、sensor、metadata/hash生产者及测试全部迁移相同计算对象，不能仅在最终执行时过滤而保留旧名单hash。
+
+真实生命周期合同允许D且`delist_date=NULL`，上游没有拒绝它。此类代码保留源因子，但不自动纳入repair，计划另列`list_status`、缺失退市日期及代码诊断；不能分类为正常在市、新上市、无变化或修复完成，亦不能造成其他正常在市股票被跳过。人工明确指定修复此类股票时应拒绝执行并要求先核清生命周期，不用虚构日期或将NULL当永久在市。此排除规则只控制自动计算对象，不删除其任何因子。
+
+分钟repair executor把生命周期加入`plan_input_paths`和原输入身份检查；保留新上市代码与真正缺前日因子的分类。旧退市源记录首次进入Silver、前日无因子，不得令整批`can_execute_repair=False`；目标日在市股票真正缺前日因子则继续失败。日线repair的原变化比较公式和阈值不改，只收窄到应计算对象。周/月调用同一builder时传入当前遍历的`day`及生命周期，保留最终`changed & listed`和原有通知、receipt、恢复规则，不重跑已完成周/月数据。
+
+普通QFQ价格计算、历史行情需要的因子覆盖、MACD/KDJ及九转公式不改，不加Raw因子兜底。正式补分钟数据前先核新job生成的repair名单，不人工指定/删除名单；其历史读取须按实际范围另行明确，本次因子小文件预算不覆盖它。
+
+### 25.7 测试与开发对账
+
+测试先使用当前Raw三列和生命周期字段合同，采用独立字面样本：301139.SZ上市2022-07-08、退市2026-10-28，15—27日Raw因子1.0079、28日1.1319。人为错误样本须标明用途，expected不能由被测helper生成。全部使用临时Lake/staging及隔离DG资源。
+
+| 硬口径 | 必须通过的正例与反例 |
+| --- | --- |
+| 退市后保留源因子 | 28日及后D有Raw行则原值保留；源无行不填造，不要求所有D每天一行。 |
+| 不扩大其他股票类型 | P、未知、非CNY及上市前记录继续拒绝或按原明确过滤统计排除；不能静默改变范围。 |
+| 在市覆盖保护 | 合法L数据正常通过；在市代码缺Raw因子、无效值、重复键仍失败，不能因放开D而忽略。 |
+| 旧日仅补明确键 | 九日各增加一条；其他代码/值不变；空名单、分区不在键清单、候选有清单外变更、异值、重复、源缺键均拒绝。 |
+| 未来再次退市 | 另一只原L股票以后变D时，已有退市前因子仍被接受；普通job/sensor不重写28日前分区或删D。 |
+| 原检查与readiness一致 | 同一合法/非法候选分别通过正式检查、candidate检查和batch；混合27/28日批次按各自日期规则，不串集合。 |
+| repair对象正确 | 新保留旧D缺前因子不阻断；目标日在市缺前因子仍阻断；D在已知退市前历史日正常比较；退市后的变化不扩名单；D且退市日期NULL保留源因子、单列诊断且不当作永久在市，人工指定修复则拒绝。 |
+| 其他消费者不变 | 日线与分钟名单hash同源；周/月相同listed样本的变化名单、通知和恢复结果不变。 |
+| 写入安全与恢复 | 候选失败/输入变化/目标变化不替换；替换前中断、替换后回执失败、重放同值及只继续未完成分区均覆盖。 |
+| 范围及性能 | 不访问正式资源、不请求Tushare、不读分钟历史；正常10日batch复用同批数据，新增生命周期仅读一次，无逐日深扫回退。 |
+
+优先回归`test_adj_factor_contracts.py`、`test_adj_factor_current_listed_policy.py`、`test_adj_factor_checks.py`、`test_adj_factor_lifecycle_rebuildability.py`、因子batch/sensor测试、`test_stk_mins_qfq_factor_repair_contracts.py`、`test_stk_mins_qfq_sql_helpers.py`、日线QFQ/repair及周月factor_changes相关测试和catalog静态门禁；新写入恢复测试独立覆盖上述故障。旧测试若明确断言“退市后删除全部历史”，应按本次业务决定重写，而不是同时保留两套运行语义。
+
+开发完成逐条对账本表的真实代码、测试和有界验证；只跑必要回归，不用全仓测试数量代替业务证明。文档完整性与`git diff --check`通过只证明文档结构，不证明正式数据恢复。正式defs检查和代码重载按其实际读写行为单独确认，不用初始化正式instance冒充只读验证。
+
+### 25.8 性能预算、正式执行卡和停点
+
+现有证据21个小文件合计1,242,729B：9旧日各Raw/Silver、28日Raw/Silver、生命周期。只读核验已取得，不再扫整个因子历史或任何分钟年度文件。正式因子步骤预算含候选、原检查、逐键对账、一次中断后仅未完成分区续跑和最终验收：读32MiB、写4MiB、额外空间4MiB，0次Tushare请求；不是新增DuckDB内存/超时/并发限制。repair名单验证只用两日小因子和生命周期，不为此读取历史分钟行情。
+
+前一轮已完成文档评审，管理员本轮批准严格按LLD开发并完成Silver因子此处修正，停在股票分钟链补数前。正式执行前补齐实际run_config、DAGSTER_HOME、原sensor开关、writer空闲、输入身份及逐日执行清单。正式动作固定为九键恢复→28日因子→原检查及有界收尾；不自动扩大到其他历史。下游28日QFQ/repair/指标/九转未获本轮执行授权，其年度读写也不包含在本节。
+
+全部过程无全历史事务、备份或全局审计。出现清单外差异、源缺键、异值、并发写入、输入变化或回执不清即停；已提交数据保留，不自动整批重跑。当前进展按§25.9记录，不把设计规则表当成实现或执行完成证据。
+
+### 25.9 本轮开发及执行记录
+
+管理员本轮原话为“按照lld推进开发……完成silver复权因子的这一处修正。停在股票分钟链补前”。据此只实施本节的因子开发、隔离验收、九键及28日Silver修正，不运行股票分钟QFQ、repair或指标任务。当前分支dev-interface；其他工作区改动不纳入本任务。
+
+2026-10-29 07:45只读预检确认无活动run，相关sensor均RUNNING。基线保存于`/private/tmp/dg_adj_factor_implementation_20261029/initial-runtime.json`。因工作区代码会被正式code location加载，先隔离受影响writer，避免开发中或因子补回后自动触发下游：仅停止silver_adj_factor_update_job_sensor、gold_stock_daily_qfq_update_job_sensor、gold_stock_daily_qfq_factor_repair_job_sensor，以及stock_mins_qfq_daily_sensor、stock_mins_qfq_factor_repair_sensor、gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor、gold_stk_mins_qfq_macd_kdj_repair_job_sensor、gold_stk_mins_qfq_nineturn_update_job_sensor八项；不停止daemon、Raw、其他数据集或调整并发。通过本机3000端口GraphQL原生stopSensor，身份来自现有只读instigator记录；只变这八个开关，不修改cursor、事件或动态分区。
+
+因子正式验收后，因子及日线三项按原开关恢复；五项股票分钟下游保持停止，以落实本轮停点，并明确记录待管理员继续分钟链时恢复。任何停止失败先保存已完成状态并停止后续正式动作，不扩大清理或改用直接SQL写状态。正式命令均在orchestrator目录，使用现有.venv，不安装或uv自动同步依赖；DAGSTER_HOME固定为`/Users/congming/.goldenshare/dagster_home`。
+
+开发验收已完成：规则组80项及18个子测试、相关静态5项；repair消费者166项及12个子测试；最终writer/原生job合并24项，其中真实`execute_job + ReexecutionOptions.from_failure`验证已替换而回执失败后仅提升一次、root/parent继承、原4检查绑定retry真实物化。全部有效测试显式隔离DuckDB临时目录；初轮遗漏临时目录隔离的结果已撤回，不作为验收。全项目Definitions在临时DAGSTER_HOME验证可加载，目标job只执行1个Silver asset。CodeGraph已sync/status。独立审计发现的提交后来源核对、旧日统计和旧输入schema三处均已补回本LLD并修复，复审无新增阻断。
+
+08:09正式只读预检再次核实21个小文件仍为1,242,729B、九键仍缺、Raw值均1.0079、28日源值1.1319、生命周期D且退市日28日。同设备及挂载通过，staging空闲约2.9TB。旧九日Silver计数依次5572/5573/5573/5573/5574/5575/5576/5576/5576，每日只加1；28日当前5576，新保留SQL预期5580，新增的4条是28日当日源记录，不是恢复其他旧历史。输入身份及摘要见`formal-preflight.json`。
+
+正式执行卡：先确认无活动run后，仅用GraphQL `reloadRepositoryLocation(repositoryLocationName: "orchestrator")`使已验证代码生效，不重启DG/daemon。用`launchRun`触发原job，selector固定`repositoryLocationName=orchestrator / repositoryName=__repository__ / jobName=silver_adj_factor_update_job`；旧日`runConfigData.ops.silver_adj_factor.config.restore_missing_keys`为上述九个明确键，每个run保留原`dagster/partition`标签、只处理该日子集。按15/16/19/20/21/22/23/26/27日顺序，每日SUCCESS、单个真实Silver物化和4条绑定该物化的原检查全部通过后再提交下一日。最后28日使用空runConfig，按新日常保留规则执行。
+
+触发脚本只编排上述原job及读取结果，不在脚本中计算或写Parquet；保存每次请求、返回run id、终态、原检查和当日计数。观察请求超时只停止后续提交，不取消已提交job，不加运行限额。失败即停，不自动另起同范围新run；如需获准续跑使用原生FROM_FAILURE身份，保留所有正式已提交文件。执行入口为`/private/tmp/dg_adj_factor_implementation_20261029/execute_factor_jobs.py`，已有预检摘要作为输入；最终材料归档到`lake_console/reports/dg_adj_factor_retention_20261029/`，临时脚本随后清理。
+
+收尾只核10个本次分区、40项原检查、九键/28日源保留、Raw与生命周期身份不变及本次publication已提交；repair只读取27/28日小因子和生命周期生成名单，不运行repair。复用逐日已验证计数，不再做全局审计或读取分钟年度文件。
+
+### 25.10 硬口径、实现及验收对账
+
+下表实现均位于`lake_console/orchestrator/`。没有新增asset、job、check、分区或环境配置；原Silver asset只增加默认空列表的`restore_missing_keys`运行配置，范围、持久化和所有消费者按§25.3—§25.5执行。
+
+| 方案/LLD要求 | 实际代码 | 测试及真实证据 |
+| --- | --- | --- |
+| 28日起允许保留已知CNY L/D源因子，覆盖集合与保留集合分开，不要求所有D每日有行 | `defs/run_contracts/adj_factor.py`单一日期常量；`defs/duckdb_sql.py`的retained/required谓词；`defs/stock_factor_price_checks.py`、`defs/checks/adj_factor_checks.py`、`defs/asset_guards/adj_factor_lake_readiness.py` | `test_adj_factor_retained_source_policy.py`及原contract/check/readiness测试：有/无D源行、退市日及以后、旧日新退市、上市前/非CNY/P/未知、在市缺因子、错值/重复及混合日期batch；正式28日5,580行和4项原检查通过 |
+| 旧日仅恢复明确缺失键，其他行、三列schema及值不变；空列表不能变成全市场重建 | `defs/assets/adj_factor.py`运行配置与writer；`defs/io/adj_factor_silver_candidate.py`配置归一化、旧schema检查、仅插缺行、逐字段差异校验 | `test_adj_factor_silver_publication.py`覆盖同值重放、异值/缺源/重复/越界/空配置及旧schema错误；正式九日各仅新增1条、值均1.0079 |
+| 日常sensor不再触发旧日整分区删除，旧删除型历史工具不可继续写 | `defs/sensors/stock_adj_factor_sensor.py`日期边界及新required集合；`defs/bootstrap/adj_factor_silver_history.py`旧写入口明确拒绝 | `test_adj_factor_lifecycle_rebuildability.py`、`test_adj_factor_silver_history.py`、`test_adj_factor_silver_rebuild.py`及静态门禁；旧计划仍可读，未重跑或重建其他旧历史 |
+| 候选只能在正式staging，检查后同设备原子替换，失败保留依据，仅续未完成项 | `defs/paths.py`因子publication路径；`defs/io/adj_factor_silver_publication.py`锁、输入/目标身份、planned/prepared/committed回执；Silver asset使用原生root run id | writer故障测试覆盖替换前、替换后回执失败、源变化、目标变化、并发、schema和恢复；`test_adj_factor_job_reexecution.py`真实临时instance的原job及FROM_FAILURE重执行，证明只提升一次、检查绑定retry真实物化；正式本批无需续跑 |
+| repair只按目标日在市对象比较，不把D无退市日期视为永不退市，不放宽真正缺因子错误 | `defs/duckdb_sql.py`repair集合；`defs/stk_mins_qfq.py`、`defs/stk_mins_qfq_factor_repair.py`、`defs/stock_daily_qfq.py`及其sensor/hash调用方；分钟repair输入身份增加生命周期 | `test_adj_factor_repair_retired_scope.py`及分钟/日线原回归：新保留旧D缺前因子不阻断、在市缺前因子仍失败、退市前历史目标日仍入选、D无日期另列诊断/人工强推拒绝；正式27/28日只读名单均16股、301139.SZ排除 |
+| 周/月结果、通知和恢复不变；普通QFQ/指标公式不改、不读Raw兜底 | `defs/stock_period_update.py`只迁移builder的生命周期及目标日期参数，保留`changed & listed`；价格及指标核未改 | 原周/月update/combined/integration/recovery及日线趋势相关回归；无周/月正式重跑、无分钟历史读取 |
+| 不增加全历史扫描、重复候选摘要或运行限制 | 一次候选完整校验；正常10日batch复用同批关系，新增生命周期读取不逐日深扫；恢复仅在需要时核对目标摘要 | 规则组10日×5,000股合成批次及查询量约束；实际仅本次10日因子和生命周期输入、原检查及收尾；预算仍为读32MiB/写4MiB/额外空间4MiB，未采集底层实际I/O字节，不能把预算当作实测 |
+
+有效隔离结果按组保留：规则80项/18子测试，相关静态5项，repair消费者166项/12子测试及独立临时HTTP/DG/CLI/取消续跑集成，最终writer和原生job合并24项。组间可能有覆盖重叠，不将其相加宣称独立业务用例数。所有有效测试显式使用临时Lake、staging、DuckDB临时目录和DG资源；初轮不完整隔离的结论已撤回并重新验证。一次较宽performance测试文件在收集时因既有`stock_suspend_confirmed_test_support`导入失败，未作为通过证据，也没有为此改其他专项；本轮必要的有界batch覆盖已独立通过。repair消费者默认Ruff尚有原有未修改`date.today()`的DTZ011提示，未借本次改变时间语义；相应E9/F/I/UP及本轮writer静态检查通过。正式生产者schema和九键合同依据来自本次有界预检；测试不冒充正式执行。
+
+CodeGraph已使用status/explore/impact/callers并在修改后sync，覆盖共享SQL、分钟/日线repair、周/月调用、check/readiness、sensor及历史入口；图中动态路径以当前源码补核。没有Prod、前端/API或跨工程contract变更；无仍待人工确认的本轮代码边界。分钟链后续正式运行及其历史读写范围仍未授权、未执行。
+
+### 25.11 正式完成记录、清理及后续TODO
+
+10月29日08:32:42—08:35:14按执行卡完成九个旧日和28日的原`silver_adj_factor_update_job`，共10次SUCCESS，无失败、无自动重跑。每次4项原检查全部通过，且asset key、run id和目标物化storage id均对应本次真实物化。九个旧日Silver行数分别变为5,573/5,574/5,574/5,574/5,575/5,576/5,577/5,577/5,577；各只补回301139.SZ一条1.0079，其他行原值保留。28日从5,576变为5,580，保留该股1.1319及新规则允许的真实源行；新增4条仅为28日源记录，不扩大旧日恢复。10份Raw和生命周期摘要不变。逐日run id、请求、物化、检查、计数和提交回执见[执行证据](../../reports/dg_adj_factor_retention_20261029/execution-result.json)。
+
+08:37只读核对27/28日因子及生命周期，分钟与日线repair变化名单均16股；新上市0、无法判断0、缺前日因子0，301139.SZ在退市当日排除。此处未执行repair、不读任何价格历史。08:38恢复因子及日线3项sensor的原RUNNING状态；08:39只读确认这3项RUNNING，5项分钟链STOPPED，其他记录到的开关不变，自本批开始没有分钟链job新run。没有清cursor、补runless事件或调整并发、内存、时间限制。
+
+TODO：后续经管理员批准继续股票分钟链时，核清实际job生成名单及年度/历史读取范围，再按QFQ日更→因子repair→MACD/KDJ日更→指标repair→九转推进，并恢复下列5项sensor：`stock_mins_qfq_daily_sensor`、`stock_mins_qfq_factor_repair_sensor`、`gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor`、`gold_stk_mins_qfq_macd_kdj_repair_job_sensor`、`gold_stk_mins_qfq_nineturn_update_job_sensor`。当前保持停止是本轮明确停点，不得在收尾时自动开启。
+
+本轮5个合成测试目录及7个临时编排/控制文件已按精确清单清理，释放测试目录1,777,355字节；触发脚本已逐字节归档为`execute_factor_jobs.py.txt`，SHA256为`f2956c1a864f7f8f484f22c0295b82551cef303d620ede4715287e8f6f0b855a`，原可执行临时脚本已删除。正式staging提交记录、恢复依据及锁文件保持，不做“垃圾清理”。详细清单、最终开关、测试及独立复审边界见[本轮完成报告](../../reports/dg_adj_factor_retention_20261029/README.md)。管理员随后已批准提交本轮实现、测试和执行材料；其他工作区改动不纳入，不推送，股票分钟链停点不变。

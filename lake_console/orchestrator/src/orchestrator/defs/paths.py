@@ -626,6 +626,17 @@ def silver_adj_factor_path(root: Path, partition_key: str) -> Path:
     )
 
 
+def silver_adj_factor_publication_root(
+    staging_root: Path, publication_id: str, trade_date: str,
+) -> Path:
+    if str(UUID(publication_id)) != publication_id:
+        raise ValueError("Factor publication id must be a canonical UUID")
+    if date.fromisoformat(trade_date).isoformat() != trade_date:
+        raise ValueError("Factor partition must use YYYY-MM-DD")
+    return (staging_root / "adj_factor" / "silver"
+            / f"run_id={publication_id}" / f"trade_date={trade_date}")
+
+
 def gold_stock_daily_qfq_path(root: Path, partition_key: str) -> Path:
     return lake_path(
         root,

@@ -1,34 +1,40 @@
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import ANY, patch
 
 import dagster as dg
 import duckdb
+import pytest
 
 from orchestrator.defs.assets import adj_factor as adj_factor_assets
 from orchestrator.defs.assets.adj_factor import SilverAdjFactorPartitionWriteResult
 from orchestrator.defs.bootstrap.adj_factor_silver_history import (
-    GENERATED_STATUS,
-    SKIPPED_EXISTING_STATUS,
     discover_adj_factor_raw_partition_keys,
     plan_adj_factor_silver_history,
     report_adj_factor_silver_history,
     write_adj_factor_silver_history,
     write_adj_factor_silver_history_partition,
 )
-from orchestrator.defs.partitions import cn_a_stock_current_trade_days
 from orchestrator.defs.duckdb_sql import (
     ADJ_FACTOR_SILVER_REQUIRED_COLUMNS,
     duckdb_string,
     read_parquet,
 )
+from orchestrator.defs.partitions import cn_a_stock_current_trade_days
 from orchestrator.defs.paths import (
+    DEFAULT_LAKE_STAGING_ROOT,
     raw_adj_factor_path,
     silver_adj_factor_path,
     silver_stock_lifecycle_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from tests.adj_factor_test_support import (
+    isolated_factor_duckdb,
+)
+
+pytestmark = pytest.mark.usefixtures(isolated_factor_duckdb.__name__)
 
 
 TARGET_TRADE_DATE = "2026-05-29"
@@ -36,6 +42,10 @@ TARGET_TRADE_DATE = "2026-05-29"
 
 class _PartitionContext:
     partition_key = TARGET_TRADE_DATE
+    run_id = "11111111-1111-4111-8111-111111111111"
+    dagster_run = SimpleNamespace(root_run_id=None)
+    def __init__(self):
+        self.op_config = {"restore_missing_keys": []}
 
 
 def _sql_string(value: str) -> str:
@@ -141,43 +151,12 @@ def _read_silver_columns(path: Path) -> tuple[str, ...]:
 
 
 class AdjFactorSilverHistoryTests(unittest.TestCase):
-    def test_generates_silver_partition_from_migrated_raw(self) -> None:
+    def test_old_history_generation_is_rejected_before_data_access(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            _write_raw_adj_factor_file(
-                root,
-                TARGET_TRADE_DATE,
-                (
-                    ("000001.SZ", "20260529", 1.1),
-                    ("000002.SZ", "20260529", 2.2),
-                    ("000003.SZ", "20260529", 3.3),
-                ),
-            )
-            _write_silver_stock_lifecycle_file(
-                root,
-                (
-                    ("000001.SZ", "CNY", "L", "2020-01-01"),
-                    ("000002.SZ", "CNY", "D", "2020-01-01"),
-                    ("000003.SZ", "CNY", "L", "2026-05-30"),
-                ),
-            )
-
-            audit = write_adj_factor_silver_history_partition(
-                lake_root=root,
-                duckdb=DuckDBResource(),
-                partition_key=TARGET_TRADE_DATE,
-            )
-            target_path = silver_adj_factor_path(root, TARGET_TRADE_DATE)
-            target_columns = _read_silver_columns(target_path)
-            target_rows = _read_silver_rows(target_path)
-
-        self.assertEqual(audit.status, GENERATED_STATUS)
-        self.assertEqual(audit.source_row_count, 3)
-        self.assertEqual(audit.selected_row_count, 1)
-        self.assertEqual(audit.rejected_row_count, 2)
-        self.assertEqual(audit.observed_columns, ADJ_FACTOR_SILVER_REQUIRED_COLUMNS)
-        self.assertEqual(target_columns, ADJ_FACTOR_SILVER_REQUIRED_COLUMNS)
-        self.assertEqual(target_rows, [("000001.SZ", "2026-05-29", 1.1)])
+            with self.assertRaisesRegex(ValueError, "historical_partition_requires_explicit_restore"):
+                write_adj_factor_silver_history_partition(lake_root=root, duckdb=DuckDBResource(), partition_key=TARGET_TRADE_DATE)
+            self.assertEqual(list(root.iterdir()), [])
 
     def test_discovers_raw_partitions(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -196,35 +175,16 @@ class AdjFactorSilverHistoryTests(unittest.TestCase):
 
         self.assertEqual(partition_keys, ("2026-05-28", "2026-05-29"))
 
-    def test_existing_target_requires_explicit_overwrite_for_single_partition(self) -> None:
+    def test_overwrite_cannot_bypass_old_history_guard(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            _write_raw_adj_factor_file(
-                root,
-                TARGET_TRADE_DATE,
-                (("000001.SZ", "20260529", 1.1),),
-            )
-            _write_silver_stock_lifecycle_file(
-                root,
-                (("000001.SZ", "CNY", "L", "2020-01-01"),),
-            )
             _write_existing_silver_file(root, TARGET_TRADE_DATE)
-
-            with self.assertRaisesRegex(FileExistsError, "already exists"):
-                write_adj_factor_silver_history_partition(
-                    lake_root=root,
-                    duckdb=DuckDBResource(),
-                    partition_key=TARGET_TRADE_DATE,
-                )
-
-            audit = write_adj_factor_silver_history_partition(
-                lake_root=root,
-                duckdb=DuckDBResource(),
-                partition_key=TARGET_TRADE_DATE,
-                overwrite=True,
-            )
-
-        self.assertEqual(audit.status, GENERATED_STATUS)
+            path = silver_adj_factor_path(root, TARGET_TRADE_DATE)
+            before = path.read_bytes()
+            for overwrite in (False, True):
+                with self.assertRaisesRegex(ValueError, "historical_partition_requires_explicit_restore"):
+                    write_adj_factor_silver_history_partition(lake_root=root, duckdb=DuckDBResource(), partition_key=TARGET_TRADE_DATE, overwrite=overwrite)
+            self.assertEqual(path.read_bytes(), before)
 
     def test_dry_run_report_does_not_write_silver_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -288,51 +248,21 @@ class AdjFactorSilverHistoryTests(unittest.TestCase):
 
         self.assertEqual(plan.raw_not_ready_partition_keys, (TARGET_TRADE_DATE,))
 
-    def test_bulk_generation_skips_existing_targets_by_default(self) -> None:
+    def test_bulk_history_cannot_create_missing_old_partition(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            for partition_key in ("2026-05-28", "2026-05-29"):
-                _write_raw_adj_factor_file(
-                    root,
-                    partition_key,
-                    (("000001.SZ", partition_key.replace("-", ""), 1.0),),
-                )
-            _write_silver_stock_lifecycle_file(
-                root,
-                (("000001.SZ", "CNY", "L", "2020-01-01"),),
-            )
-            _write_existing_silver_file(root, "2026-05-28")
+            _write_raw_adj_factor_file(root, TARGET_TRADE_DATE, (("000001.SZ", "20260529", 1.0),))
+            _write_silver_stock_lifecycle_file(root, (("000001.SZ", "CNY", "L", "2020-01-01"),))
+            with self.assertRaisesRegex(ValueError, "historical_partition_requires_explicit_restore"):
+                write_adj_factor_silver_history(lake_root=root, duckdb=DuckDBResource())
+            self.assertFalse(silver_adj_factor_path(root, TARGET_TRADE_DATE).exists())
 
-            audits = write_adj_factor_silver_history(
-                lake_root=root,
-                duckdb=DuckDBResource(),
-            )
-
-        self.assertEqual([audit.partition_key for audit in audits], ["2026-05-28", "2026-05-29"])
-        self.assertEqual([audit.status for audit in audits], [SKIPPED_EXISTING_STATUS, GENERATED_STATUS])
-
-    def test_missing_inputs_raise_clear_errors(self) -> None:
+    def test_new_date_history_helper_requires_original_job(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-
-            with self.assertRaisesRegex(FileNotFoundError, "Missing raw adj factor file"):
-                write_adj_factor_silver_history_partition(
-                    lake_root=root,
-                    duckdb=DuckDBResource(),
-                    partition_key=TARGET_TRADE_DATE,
-                )
-
-            _write_raw_adj_factor_file(
-                root,
-                TARGET_TRADE_DATE,
-                (("000001.SZ", "20260529", 1.1),),
-            )
-            with self.assertRaisesRegex(FileNotFoundError, "Missing silver stock lifecycle file"):
-                write_adj_factor_silver_history_partition(
-                    lake_root=root,
-                    duckdb=DuckDBResource(),
-                    partition_key=TARGET_TRADE_DATE,
-                )
+            with self.assertRaisesRegex(ValueError, "factor_history_write_requires_silver_adj_factor_update_job"):
+                write_adj_factor_silver_history_partition(lake_root=root, duckdb=DuckDBResource(), partition_key="2026-10-28")
+            self.assertEqual(list(root.iterdir()), [])
 
     def test_silver_asset_uses_shared_partition_writer(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -366,7 +296,10 @@ class AdjFactorSilverHistoryTests(unittest.TestCase):
             lake_root=root,
             duckdb=ANY,
             partition_key=TARGET_TRADE_DATE,
+            publication_id=_PartitionContext.run_id,
+            staging_root=Path(DEFAULT_LAKE_STAGING_ROOT),
             overwrite=True,
+            restore_missing_keys=[],
         )
 
 

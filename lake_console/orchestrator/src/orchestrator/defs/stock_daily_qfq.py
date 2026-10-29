@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-import os
 import hashlib
+import os
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Sequence
 
 import duckdb
 
 from orchestrator.defs.duckdb_sql import (
+    adj_factor_repair_scope_select,
     copy_query_to_parquet,
     count_parquet_query,
     describe_parquet_query,
@@ -20,13 +21,13 @@ from orchestrator.defs.paths import (
     gold_stock_daily_qfq_path,
     silver_adj_factor_path,
     silver_stock_daily_path,
+    silver_stock_lifecycle_path,
     silver_trade_calendar_path,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STOCK_DAILY_QFQ_SCHEMA,
 )
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
-
 
 GOLD_STOCK_DAILY_QFQ_COLUMNS = tuple(
     column.name for column in GOLD_STOCK_DAILY_QFQ_SCHEMA
@@ -41,6 +42,7 @@ GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME = (
 GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_AUTO_CODE_LIMIT = 500
 GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_REASON_NO_FACTOR_CHANGED = "no_factor_changed"
 GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED = "factor_changed"
+GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_REASON_UNRESOLVED_DELIST_DATE = "unresolved_delist_date"
 GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_METADATA_SAMPLE_LIMIT = 20
 STOCK_DAILY_QFQ_TRADE_FACTOR_COVERAGE_SAMPLE_LIMIT = 5
 
@@ -103,6 +105,8 @@ class GoldStockDailyQfqFactorRepairPlan:
     repair_required: bool
     repair_required_codes: tuple[str, ...]
     repair_required_codes_hash: str
+    unresolved_delisted_code_count: int = 0
+    unresolved_delisted_code_samples: tuple[str, ...] = ()
 
     @property
     def repair_required_code_count(self) -> int:
@@ -175,29 +179,46 @@ def load_stock_daily_qfq_previous_lookup_trade_dates(
 def build_stock_daily_qfq_factor_changed_codes_sql(
     *,
     current_adj_factor_path: Path,
-    previous_adj_factor_path: Path,
+    previous_adj_factor_path: Path | None,
+    silver_stock_lifecycle_path: Path,
+    trade_date: str,
 ) -> str:
+    scope_sql = adj_factor_repair_scope_select(silver_stock_lifecycle_path, trade_date)
+    previous_sql = (
+        f"SELECT CAST(ts_code AS VARCHAR) AS ts_code,CAST(adj_factor AS DOUBLE) AS previous_adj_factor "
+        f"FROM {read_parquet(previous_adj_factor_path, hive_partitioning=False)}"
+        if previous_adj_factor_path is not None else
+        "SELECT NULL::VARCHAR AS ts_code,NULL::DOUBLE AS previous_adj_factor WHERE false"
+    )
     return f"""
-WITH current_adj_factor AS (
+WITH repair_scope AS MATERIALIZED (
+  {scope_sql}
+),
+current_adj_factor AS (
   SELECT
     CAST(ts_code AS VARCHAR) AS ts_code,
     CAST(adj_factor AS DOUBLE) AS current_adj_factor
   FROM {read_parquet(current_adj_factor_path, hive_partitioning=False)}
 ),
 previous_adj_factor AS (
-  SELECT
-    CAST(ts_code AS VARCHAR) AS ts_code,
-    CAST(adj_factor AS DOUBLE) AS previous_adj_factor
-  FROM {read_parquet(previous_adj_factor_path, hive_partitioning=False)}
+  {previous_sql}
 )
-SELECT current_adj_factor.ts_code
+SELECT current_adj_factor.ts_code,'factor_changed' AS change_reason
 FROM current_adj_factor
+INNER JOIN repair_scope
+  ON current_adj_factor.ts_code = repair_scope.ts_code AND repair_scope.repair_eligible
 INNER JOIN previous_adj_factor
   ON current_adj_factor.ts_code = previous_adj_factor.ts_code
 WHERE current_adj_factor.current_adj_factor IS NOT NULL
   AND previous_adj_factor.previous_adj_factor IS NOT NULL
   AND abs(current_adj_factor.current_adj_factor - previous_adj_factor.previous_adj_factor) > 1e-12
-ORDER BY current_adj_factor.ts_code
+UNION ALL
+SELECT current_adj_factor.ts_code,'unresolved_delist_date' AS change_reason
+FROM current_adj_factor
+INNER JOIN repair_scope
+  ON current_adj_factor.ts_code = repair_scope.ts_code
+ AND repair_scope.unresolved_delist_date
+ORDER BY ts_code
 """
 
 
@@ -206,24 +227,16 @@ def build_gold_stock_daily_qfq_factor_repair_plan(
     connection: duckdb.DuckDBPyConnection,
     current_adj_factor_path: Path,
     previous_adj_factor_path: Path | None,
+    silver_stock_lifecycle_path: Path,
     qfq_factor_trade_date: str,
     previous_trade_date: str | None,
 ) -> GoldStockDailyQfqFactorRepairPlan:
     normalized_trade_date = date.fromisoformat(qfq_factor_trade_date).isoformat()
-    if previous_trade_date is None or previous_adj_factor_path is None:
-        return GoldStockDailyQfqFactorRepairPlan(
-            qfq_factor_trade_date=normalized_trade_date,
-            previous_trade_date=None,
-            reason=GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_REASON_NO_FACTOR_CHANGED,
-            can_execute_repair=True,
-            repair_required=False,
-            repair_required_codes=(),
-            repair_required_codes_hash=gold_stock_daily_qfq_factor_repair_codes_hash(()),
-        )
-    for input_path, label in (
-        (current_adj_factor_path, "current adj factor"),
-        (previous_adj_factor_path, "previous adj factor"),
-    ):
+    input_paths = [(current_adj_factor_path, "current adj factor"),
+                   (silver_stock_lifecycle_path, "stock lifecycle")]
+    if previous_adj_factor_path is not None:
+        input_paths.append((previous_adj_factor_path, "previous adj factor"))
+    for input_path, label in input_paths:
         if not input_path.exists():
             raise FileNotFoundError(f"Missing {label} file: {input_path}")
 
@@ -231,17 +244,24 @@ def build_gold_stock_daily_qfq_factor_repair_plan(
         build_stock_daily_qfq_factor_changed_codes_sql(
             current_adj_factor_path=current_adj_factor_path,
             previous_adj_factor_path=previous_adj_factor_path,
+            silver_stock_lifecycle_path=silver_stock_lifecycle_path,
+            trade_date=normalized_trade_date,
         )
     ).fetchall()
-    repair_required_codes = tuple(str(row[0]).strip().upper() for row in rows)
+    repair_required_codes = tuple(str(code).strip().upper() for code, reason in rows
+                                  if reason == GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED)
+    unresolved_codes = tuple(str(code).strip().upper() for code, reason in rows
+                             if reason == GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_REASON_UNRESOLVED_DELIST_DATE)
     repair_required = bool(repair_required_codes)
     return GoldStockDailyQfqFactorRepairPlan(
         qfq_factor_trade_date=normalized_trade_date,
-        previous_trade_date=date.fromisoformat(previous_trade_date).isoformat(),
+        previous_trade_date=(date.fromisoformat(previous_trade_date).isoformat()
+                             if previous_trade_date is not None else None),
         reason=(
             GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED
             if repair_required
-            else GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_REASON_NO_FACTOR_CHANGED
+            else GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_REASON_UNRESOLVED_DELIST_DATE
+            if unresolved_codes else GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_REASON_NO_FACTOR_CHANGED
         ),
         can_execute_repair=True,
         repair_required=repair_required,
@@ -249,6 +269,8 @@ def build_gold_stock_daily_qfq_factor_repair_plan(
         repair_required_codes_hash=gold_stock_daily_qfq_factor_repair_codes_hash(
             repair_required_codes
         ),
+        unresolved_delisted_code_count=len(unresolved_codes),
+        unresolved_delisted_code_samples=unresolved_codes[:GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_METADATA_SAMPLE_LIMIT],
     )
 
 
@@ -648,6 +670,7 @@ def execute_gold_stock_daily_qfq_factor_repair(
         ),
         qfq_factor_trade_date=normalized_trade_date,
         previous_trade_date=previous_trade_date,
+        silver_stock_lifecycle_path=silver_stock_lifecycle_path(lake_root),
     )
     if repair_required_codes_hash != plan.repair_required_codes_hash:
         raise ValueError(
@@ -840,11 +863,19 @@ def build_gold_stock_daily_qfq_factor_repair_check_metadata(
         failed_row_count=0,
         extra_metadata={
             "summary": (
+                "Eligible stock repair completed; retired stocks with missing delist dates were not repaired."
+                if result.plan.repair_required and result.plan.unresolved_delisted_code_count
+                else
                 "Stock daily qfq factor repair completed."
                 if result.plan.repair_required
+                else "Retired stocks with missing delist dates require lifecycle review; no automatic repair for them."
+                if result.plan.unresolved_delisted_code_count
                 else "Stock daily qfq factor repair found no changed factors."
             ),
-            "next_action": "No action needed.",
+            "next_action": (
+                "Confirm missing delist dates before explicitly repairing the unresolved retired stocks."
+                if result.plan.unresolved_delisted_code_count else "No action needed."
+            ),
             "qfq_factor_trade_date": result.plan.qfq_factor_trade_date,
             "repair_start_trade_date": result.repair_start_trade_date or "",
             "repair_end_trade_date": result.repair_end_trade_date,
@@ -864,6 +895,15 @@ def build_gold_stock_daily_qfq_factor_repair_check_metadata(
             "upstream_batch_id": result.upstream_batch_id,
             "producer_run_id": producer_run_id,
             "reason": result.plan.reason,
+            "unresolved_delisted_code_count": result.plan.unresolved_delisted_code_count,
+            "unresolved_delisted_code_samples": list(result.plan.unresolved_delisted_code_samples),
+            "unresolved_delisted_code_samples_truncated": (
+                result.plan.unresolved_delisted_code_count > len(result.plan.unresolved_delisted_code_samples)
+            ),
+            "unresolved_delisted_reason": (
+                "list_status=D, delist_date is missing; not included in automatic repair"
+                if result.plan.unresolved_delisted_code_count else ""
+            ),
         },
     )
 

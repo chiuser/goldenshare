@@ -1,0 +1,39 @@
+{
+  "observed_at": "2026-10-29T07:59:44.554169+08:00",
+  "deleted_only_owned_isolated_test_directories": [
+    {
+      "path": "/private/tmp/factor_retention_period_tests_20261029_01",
+      "files": 1461,
+      "bytes": 6649513
+    },
+    {
+      "path": "/private/tmp/factor_retention_period_http_tests_20261029_01",
+      "files": 178,
+      "bytes": 1993459
+    },
+    {
+      "path": "/private/tmp/factor_retention_scope_tests_20261029_01",
+      "files": 42,
+      "bytes": 51013
+    },
+    {
+      "path": "/private/tmp/factor_retention_consumers_tests_final_20261029_01",
+      "files": 2246,
+      "bytes": 7744717
+    },
+    {
+      "path": "/private/tmp/factor_retention_consumers_isolated_final_20261029_01",
+      "files": 2246,
+      "bytes": 7750506
+    }
+  ],
+  "preserved_reports": [
+    "/private/tmp/factor_retention_consumers_http_20261029.json",
+    "/private/tmp/factor_retention_consumers_junit_20261029.xml"
+  ],
+  "formal_business_data_accessed": false,
+  "initial_configured_temp_isolation_gap": "Earlier planner/executor tests inherited the default DuckDB temp path; no price/Lake/DB data was accessed. That isolation claim is superseded by explicit per-test real DuckDB settings and 166 passing revalidated tests.",
+  "revalidated_tests": 166,
+  "revalidated_subtests": 12,
+  "latest_junit": "/private/tmp/factor_retention_consumers_junit_20261029.xml"
+}

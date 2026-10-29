@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import duckdb
+import pytest
 
 from orchestrator.defs.asset_guards.adj_factor_lake_readiness import (
     SILVER_ADJ_FACTOR_COVERAGE_COMPLETE_CHECK,
@@ -16,8 +17,14 @@ from orchestrator.defs.paths import (
     silver_adj_factor_path,
     silver_stock_lifecycle_path,
 )
+from tests.adj_factor_test_support import (
+    isolated_factor_duckdb,
+)
 
-TRADE_DATE = "2026-06-05"
+pytestmark = pytest.mark.usefixtures(isolated_factor_duckdb.__name__)
+
+
+TRADE_DATE = "2026-10-28"
 
 
 def _readiness_status(
@@ -45,7 +52,7 @@ def _write_fixture_files(*, lake_root: Path, raw_codes: tuple[str, ...]) -> None
         path.parent.mkdir(parents=True, exist_ok=True)
 
     raw_values = ", ".join(
-        f"({duckdb_string(ts_code)}, '20260605', 1.0)" for ts_code in raw_codes
+        f"({duckdb_string(ts_code)}, '20261028', 1.0)" for ts_code in raw_codes
     )
     with duckdb.connect(database=":memory:") as connection:
         connection.execute(
@@ -69,7 +76,7 @@ def _write_fixture_files(*, lake_root: Path, raw_codes: tuple[str, ...]) -> None
         connection.execute(
             f"""
             COPY (
-              SELECT * FROM (VALUES ('000001.SZ', DATE '2026-06-05', 1.0))
+              SELECT * FROM (VALUES ('000001.SZ', DATE '2026-10-28', 1.0))
                 AS silver(ts_code, trade_date, adj_factor)
             ) TO {duckdb_string(silver_path)} (FORMAT PARQUET)
             """

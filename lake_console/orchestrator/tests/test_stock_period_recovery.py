@@ -51,8 +51,9 @@ def daily_fixture(tmp_path):
             path = silver_adj_factor_path(kw["root"], day)
             path.parent.mkdir(parents=True, exist_ok=True)
             con.sql(
-                "SELECT '000001.SZ' ts_code,?::DOUBLE adj_factor UNION ALL SELECT '000002.SZ',1",
-                params=[factor],
+                "SELECT '000001.SZ' ts_code,?::DATE trade_date,?::DOUBLE adj_factor "
+                "UNION ALL SELECT '000002.SZ',?::DATE,1",
+                params=[day, factor, day],
             ).write_parquet(str(path))
     raw.atomic_json(
         kw["staging"] / "stock_period/daily.json",

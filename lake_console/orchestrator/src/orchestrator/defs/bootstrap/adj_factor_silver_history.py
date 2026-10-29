@@ -3,27 +3,22 @@ import json
 import os
 import re
 import resource
-import shutil
 import stat
 import sys
 from collections.abc import Callable, Sequence
-from dataclasses import asdict, dataclass, replace
-from datetime import date
+from dataclasses import asdict, dataclass
 from pathlib import Path
 
 import dagster as dg
 
 from orchestrator.defs.assets.adj_factor import (
     SilverAdjFactorPartitionWriteResult,
-    write_silver_adj_factor_partition,
 )
 from orchestrator.defs.duckdb_connection import (
     DuckDBConnectionSettings,
-    connect_configured_duckdb,
 )
 from orchestrator.defs.duckdb_sql import (
-    adj_factor_current_listed_stock_select,
-    copy_query_to_parquet,
+    adj_factor_retained_stock_select,
     duckdb_string,
     read_parquet,
     silver_adj_factor_select,
@@ -37,12 +32,14 @@ from orchestrator.defs.paths import (
     silver_stock_lifecycle_path,
 )
 from orchestrator.defs.resources import DuckDBResource
+from orchestrator.defs.run_contracts.adj_factor import (
+    ADJ_FACTOR_RETIRED_RETENTION_START_DATE,
+)
 from orchestrator.defs.sensors.readiness import (
     RAW_ADJ_FACTOR_ASSET_KEY,
     RAW_ADJ_FACTOR_CHECKS,
     AssetReadinessSpec,
     asset_readiness_status,
-    silver_stock_lifecycle_ready_for_trade_date,
 )
 
 TRADE_DATE_PARTITION_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -292,16 +289,12 @@ def write_adj_factor_silver_history_partition(
     partition_key: str,
     overwrite: bool = False,
 ) -> AdjFactorSilverHistoryPartitionAudit:
+    if partition_key < ADJ_FACTOR_RETIRED_RETENTION_START_DATE:
+        raise ValueError("historical_partition_requires_explicit_restore")
     if not TRADE_DATE_PARTITION_PATTERN.match(partition_key):
         raise ValueError(f"Invalid trade_date partition key: {partition_key}")
 
-    write_result = write_silver_adj_factor_partition(
-        lake_root=lake_root,
-        duckdb=duckdb,
-        partition_key=partition_key,
-        overwrite=overwrite,
-    )
-    return _generated_audit(partition_key, write_result)
+    raise ValueError("factor_history_write_requires_silver_adj_factor_update_job")
 
 
 def write_adj_factor_silver_history(
@@ -500,7 +493,7 @@ def _rebuild_batch_comparison(connection, raw_paths: Sequence[Path], silver_path
         "CREATE OR REPLACE TEMP TABLE factor_rebuild_expected AS "
         + silver_adj_factor_select(raw_paths, lifecycle_path)
     )
-    retained_sql = adj_factor_current_listed_stock_select(lifecycle_path)
+    retained_sql = adj_factor_retained_stock_select(lifecycle_path)
     additions, current_removals = connection.execute(f"""
         WITH added AS (SELECT * FROM factor_rebuild_expected EXCEPT ALL SELECT * FROM factor_rebuild_before),
         removed AS (SELECT * FROM factor_rebuild_before EXCEPT ALL SELECT * FROM factor_rebuild_expected)
@@ -536,86 +529,12 @@ def plan_silver_adj_factor_rebuild(
     listing_as_of_date: str, cancel: Callable[[], None] = lambda: None,
     progress: Callable[[int, int], None] = lambda completed, total: None,
 ) -> AdjFactorSilverRebuildPlan:
-    """Read-only bounded plan for existing Silver; reject changes to any listed value."""
-    from orchestrator.defs import assets, duckdb_sql, paths
-    from orchestrator.defs.checks import adj_factor_checks
-
-    _rebuild_check_path(lake_root)
-    if lake_root != Path(DEFAULT_LAKE_ROOT) and not (
-        lake_root.is_relative_to(Path("/private/tmp"))
-        or lake_root.is_relative_to(Path("/private/var/folders"))
-    ):
-        raise AdjFactorSilverRebuildError("rebuild_lake_root_invalid")
-    if date.fromisoformat(listing_as_of_date).isoformat() != listing_as_of_date:
-        raise AdjFactorSilverRebuildError("rebuild_listing_date_invalid")
-    if not silver_stock_lifecycle_ready_for_trade_date(instance, listing_as_of_date).ready:
-        raise AdjFactorSilverRebuildError("rebuild_current_listing_not_ready")
-    lifecycle = _rebuild_fingerprint(silver_stock_lifecycle_path(lake_root), cancel)
-    raw_inputs = tuple(_rebuild_fingerprint(raw_adj_factor_path(lake_root, day), cancel)
-                       for day in discover_adj_factor_raw_partition_keys(lake_root))
-    raw_by_path = {identity.path: identity for identity in raw_inputs}
-    days = discover_adj_factor_silver_partition_keys(lake_root)
-    if not days:
-        raise AdjFactorSilverRebuildError("rebuild_no_existing_silver")
-    identities = [_rebuild_fingerprint(silver_adj_factor_path(lake_root, day), cancel) for day in days]
-    units = []
-    for offset in range(0, len(days), REBUILD_BATCH_DATES):
-        _rebuild_check_budget(cancel)
-        selected = days[offset:offset + REBUILD_BATCH_DATES]
-        raw = [raw_adj_factor_path(lake_root, day) for day in selected]
-        silver = [silver_adj_factor_path(lake_root, day) for day in selected]
-        if any(str(path) not in raw_by_path for path in raw):
-            raise AdjFactorSilverRebuildError("rebuild_raw_missing")
-        with connect_configured_duckdb(_rebuild_settings(temp_directory), temp_policy="existing_no_spill") as connection:
-            invalid_lifecycle = connection.execute(f"""SELECT count(*) FROM (
-                SELECT ts_code FROM {read_parquet(Path(lifecycle.path))}
-                GROUP BY ts_code HAVING ts_code IS NULL OR trim(ts_code)='' OR count(*)<>1
-            )""").fetchone()[0]
-            if invalid_lifecycle:
-                raise AdjFactorSilverRebuildError("rebuild_listing_identity_invalid")
-            observed = _rebuild_batch_comparison(connection, raw, silver, Path(lifecycle.path))
-            for day, raw_path, silver_path in zip(selected, raw, silver, strict=True):
-                for path, schema in ((raw_path, adj_factor_checks.ADJ_FACTOR_RAW_COLUMN_TYPES),
-                                     (silver_path, adj_factor_checks.ADJ_FACTOR_SILVER_COLUMN_TYPES)):
-                    columns = dict(row[:2] for row in connection.execute(
-                        f"DESCRIBE SELECT * FROM {read_parquet(path)}").fetchall())
-                    if columns != schema:
-                        raise AdjFactorSilverRebuildError("rebuild_schema_invalid")
-                if day not in observed or observed[day][1] <= 0:
-                    raise AdjFactorSilverRebuildError("rebuild_partition_invalid")
-                units.append(AdjFactorSilverRebuildUnit(day, raw_by_path[str(raw_path)],
-                    identities[offset + selected.index(day)], *observed[day]))
-        progress(min(offset + REBUILD_BATCH_DATES, len(days)), len(days))
-    source_code = tuple(_rebuild_fingerprint(Path(module.__file__), cancel)
-                        for module in (sys.modules[__name__], duckdb_sql, adj_factor_checks, assets.adj_factor, paths))
-    plan = AdjFactorSilverRebuildPlan(str(lake_root), listing_as_of_date, lifecycle,
-                                    raw_inputs, source_code, tuple(units))
-    plan = replace(plan, plan_hash=_rebuild_plan_hash(plan))
-    _rebuild_assert_inputs(plan, cancel)
-    for unit in plan.units:
-        _rebuild_assert_identity(unit.silver, cancel)
-    return plan
+    """The old removal-only migration is retired; use the normal Silver job."""
+    raise AdjFactorSilverRebuildError("legacy_current_listed_rebuild_retired")
 
 
 def _rebuild_assert_inputs(plan: AdjFactorSilverRebuildPlan, cancel: Callable[[], None]) -> None:
-    if _rebuild_plan_hash(plan) != plan.plan_hash:
-        raise AdjFactorSilverRebuildError("rebuild_plan_invalid")
-    if plan.budget != AdjFactorSilverRebuildBudget():
-        raise AdjFactorSilverRebuildError("rebuild_budget_changed")
-    for identity in (plan.lifecycle, *plan.source_code, *plan.raw_inputs):
-        _rebuild_assert_identity(identity, cancel)
-    root = Path(plan.lake_root)
-    seen = set()
-    for unit in plan.units:
-        day = unit.partition_key
-        if date.fromisoformat(day).isoformat() != day or day in seen:
-            raise AdjFactorSilverRebuildError("rebuild_unit_invalid")
-        seen.add(day)
-        if (unit.raw.path != str(raw_adj_factor_path(root, day))
-                or unit.silver.path != str(silver_adj_factor_path(root, day))
-                or unit.original_rows - unit.expected_rows != unit.removed_rows
-                or unit.removed_rows < 0):
-            raise AdjFactorSilverRebuildError("rebuild_unit_scope_invalid")
+    raise AdjFactorSilverRebuildError("legacy_current_listed_rebuild_retired")
 
 
 def _rebuild_run_root(plan: AdjFactorSilverRebuildPlan, run_root: Path) -> None:
@@ -650,15 +569,8 @@ def _rebuild_fsync_directory(directory: Path) -> None:
 
 
 def freeze_silver_adj_factor_rebuild(plan: AdjFactorSilverRebuildPlan, run_root: Path) -> None:
-    """Persist only this operation's plan under staging, never under reports or Lake."""
-    _rebuild_run_root(plan, run_root)
-    _rebuild_assert_inputs(plan, lambda: None)
-    target = run_root / "plan.json"
-    if target.exists():
-        if json.loads(target.read_text()) != json.loads(json.dumps(asdict(plan))):
-            raise AdjFactorSilverRebuildError("rebuild_frozen_plan_conflict")
-        return
-    _rebuild_write_json(target, asdict(plan))
+    """Removal-only migration is retired under the retained-factor contract."""
+    raise AdjFactorSilverRebuildError("legacy_current_listed_rebuild_retired")
 
 
 def load_silver_adj_factor_rebuild(run_root: Path) -> AdjFactorSilverRebuildPlan:
@@ -676,7 +588,8 @@ def load_silver_adj_factor_rebuild(run_root: Path) -> AdjFactorSilverRebuildPlan
     ) for unit in payload["units"])
     plan = AdjFactorSilverRebuildPlan(**payload)
     _rebuild_run_root(plan, run_root)
-    _rebuild_assert_inputs(plan, lambda: None)
+    if _rebuild_plan_hash(plan) != plan.plan_hash:
+        raise AdjFactorSilverRebuildError("rebuild_plan_invalid")
     return plan
 
 
@@ -692,7 +605,7 @@ def _rebuild_validate_candidate(connection, path: Path, unit: AdjFactorSilverReb
     )
 
     rules = audit_adj_factor_candidate_rules(connection, path, unit.partition_key,
-        raw=False, lifecycle_path=Path(plan.lifecycle.path))
+        raw=False, lifecycle_path=Path(plan.lifecycle.path), raw_path=Path(unit.raw.path))
     if rules["rows"] != unit.expected_rows or any(value for key, value in rules.items() if key != "rows"):
         raise AdjFactorSilverRebuildError("rebuild_candidate_rules_failed")
     expected = silver_adj_factor_select(Path(unit.raw.path), Path(plan.lifecycle.path))
@@ -707,63 +620,8 @@ def build_silver_adj_factor_rebuild_candidates(
     cancel: Callable[[], None] = lambda: None,
     progress: Callable[[int, int], None] = lambda completed, total: None,
 ) -> None:
-    """Generate all changed day files under staging, with no formal writes."""
-    _rebuild_run_root(plan, run_root)
-    _rebuild_assert_inputs(plan, cancel)
-    freeze_silver_adj_factor_rebuild(plan, run_root)
-    if shutil.disk_usage(run_root).free < REBUILD_MIN_FREE_BYTES:
-        raise AdjFactorSilverRebuildError("rebuild_staging_space_insufficient")
-    completed, candidate_bytes = 0, 0
-    candidate_records = {}
-    changed = [unit for unit in plan.units if unit.removed_rows]
-    for unit in plan.units:
-        _rebuild_check_budget(cancel)
-        _rebuild_assert_identity(unit.silver, cancel)
-        if not unit.removed_rows:
-            continue
-        candidate = _rebuild_candidate_path(plan, run_root, unit)
-        record_path = run_root / "checkpoints/candidates" / f"{unit.partition_key}.json"
-        _rebuild_check_path(candidate)
-        _rebuild_check_path(record_path)
-        candidate.parent.mkdir(parents=True, exist_ok=True)
-        with connect_configured_duckdb(_rebuild_settings(run_root / "temp")) as connection:
-            if record_path.exists():
-                record = json.loads(record_path.read_text())
-                if record.get("plan_hash") != plan.plan_hash or not candidate.exists():
-                    raise AdjFactorSilverRebuildError("rebuild_candidate_record_invalid")
-                if _rebuild_fingerprint(candidate, cancel).sha256 != record["candidate_sha256"]:
-                    raise AdjFactorSilverRebuildError("rebuild_candidate_drift")
-            else:
-                if candidate.exists():
-                    candidate.unlink()  # Only an unfinished staging output; never a Lake file.
-                connection.execute(copy_query_to_parquet(
-                    silver_adj_factor_select(Path(unit.raw.path), Path(plan.lifecycle.path)), candidate,
-                ))
-            _rebuild_validate_candidate(connection, candidate, unit, plan)
-        _rebuild_check_budget(cancel)
-        identity = _rebuild_fingerprint(candidate, cancel)
-        with candidate.open("rb") as handle:
-            os.fsync(handle.fileno())
-        _rebuild_fsync_directory(candidate.parent)
-        candidate_bytes += identity.size
-        if candidate_bytes > REBUILD_MAX_CANDIDATE_BYTES:
-            raise AdjFactorSilverRebuildError("rebuild_candidate_budget_exceeded")
-        _rebuild_assert_identity(unit.raw, cancel)
-        _rebuild_assert_identity(unit.silver, cancel)
-        _rebuild_write_json(record_path, {
-            "plan_hash": plan.plan_hash, "partition_key": unit.partition_key,
-            "candidate_sha256": identity.sha256, "candidate_bytes": identity.size,
-        })
-        candidate_records[unit.partition_key] = _rebuild_fingerprint(record_path, cancel).sha256
-        completed += 1
-        progress(completed, len(changed))
-    _rebuild_assert_inputs(plan, cancel)
-    _rebuild_write_json(run_root / "audit.json", {
-        "plan_hash": plan.plan_hash, "status": "candidates_ready",
-        "changed_files": len(changed), "removed_rows": sum(unit.removed_rows for unit in changed),
-        "candidate_bytes": candidate_bytes,
-        "candidate_records": candidate_records,
-    })
+    """Removal-only migration is retired under the retained-factor contract."""
+    raise AdjFactorSilverRebuildError("legacy_current_listed_rebuild_retired")
 
 
 def _rebuild_candidate_record(plan, run_root, unit, audit, cancel):
@@ -782,100 +640,14 @@ def promote_silver_adj_factor_rebuild(
     cancel: Callable[[], None] = lambda: None,
     progress: Callable[[int, int], None] = lambda completed, total: None,
 ) -> None:
-    """Explicit per-file atomic promote; interruption preserves completed days."""
-    if not maintenance_confirmed:
-        raise AdjFactorSilverRebuildError("rebuild_maintenance_required")
-    _rebuild_run_root(plan, run_root)
-    _rebuild_assert_inputs(plan, cancel)
-    _rebuild_check_path(run_root / "audit.json")
-    if not (run_root / "audit.json").is_file():
-        raise AdjFactorSilverRebuildError("rebuild_full_candidates_not_ready")
-    audit = json.loads((run_root / "audit.json").read_text())
-    if audit.get("plan_hash") != plan.plan_hash or audit.get("status") not in ("candidates_ready", "files_verified"):
-        raise AdjFactorSilverRebuildError("rebuild_full_candidates_not_ready")
-    changed = [unit for unit in plan.units if unit.removed_rows]
-    # Validate every remaining candidate before the first formal replace.
-    for unit in plan.units:
-        target = Path(unit.silver.path)
-        current = _rebuild_fingerprint(target, cancel)
-        if not unit.removed_rows:
-            if current != unit.silver:
-                raise AdjFactorSilverRebuildError("rebuild_unchanged_target_drift")
-            continue
-        record = _rebuild_candidate_record(plan, run_root, unit, audit, cancel)
-        if current.sha256 == record["candidate_sha256"]:
-            continue
-        if current != unit.silver:
-            raise AdjFactorSilverRebuildError("rebuild_target_drift")
-        candidate = _rebuild_candidate_path(plan, run_root, unit)
-        if _rebuild_fingerprint(candidate, cancel).sha256 != record["candidate_sha256"]:
-            raise AdjFactorSilverRebuildError("rebuild_candidate_drift")
-        with connect_configured_duckdb(_rebuild_settings(run_root / "temp")) as connection:
-            _rebuild_validate_candidate(connection, candidate, unit, plan)
-    for completed, unit in enumerate(changed, 1):
-        _rebuild_check_budget(cancel)
-        _rebuild_assert_identity(plan.lifecycle, cancel)
-        for identity in plan.source_code:
-            _rebuild_assert_identity(identity, cancel)
-        _rebuild_assert_identity(unit.raw, cancel)
-        target = Path(unit.silver.path)
-        record = _rebuild_candidate_record(plan, run_root, unit, audit, cancel)
-        current = _rebuild_fingerprint(target, cancel)
-        if current.sha256 != record["candidate_sha256"]:
-            if current != unit.silver:
-                raise AdjFactorSilverRebuildError("rebuild_target_drift")
-            candidate = _rebuild_candidate_path(plan, run_root, unit)
-            if _rebuild_fingerprint(candidate, cancel).sha256 != record["candidate_sha256"]:
-                raise AdjFactorSilverRebuildError("rebuild_candidate_drift")
-            if candidate.stat().st_dev != target.parent.stat().st_dev:
-                raise AdjFactorSilverRebuildError("rebuild_cross_filesystem")
-            cancel()
-            os.replace(candidate, target)
-            _rebuild_fsync_directory(target.parent)
-            if _rebuild_fingerprint(target, cancel).sha256 != record["candidate_sha256"]:
-                raise AdjFactorSilverRebuildError("rebuild_promoted_file_invalid")
-        _rebuild_write_json(run_root / "checkpoints/promoted" / f"{unit.partition_key}.json", {
-            "plan_hash": plan.plan_hash, "partition_key": unit.partition_key,
-            "target_sha256": record["candidate_sha256"],
-        })
-        progress(completed, len(changed))
-    verify_silver_adj_factor_rebuild(plan, run_root, cancel=cancel)
+    """Removal-only migration is retired under the retained-factor contract."""
+    raise AdjFactorSilverRebuildError("legacy_current_listed_rebuild_retired")
 
 
 def verify_silver_adj_factor_rebuild(plan: AdjFactorSilverRebuildPlan, run_root: Path, *,
                                     cancel: Callable[[], None] = lambda: None) -> dict:
-    """One final physical reconciliation of this frozen operation."""
-    _rebuild_run_root(plan, run_root)
-    _rebuild_assert_inputs(plan, cancel)
-    _rebuild_check_path(run_root / "audit.json")
-    audit = json.loads((run_root / "audit.json").read_text())
-    if audit.get("plan_hash") != plan.plan_hash:
-        raise AdjFactorSilverRebuildError("rebuild_full_candidates_not_ready")
-    units = plan.units
-    for offset in range(0, len(units), REBUILD_BATCH_DATES):
-        selected = units[offset:offset + REBUILD_BATCH_DATES]
-        for unit in selected:
-            target = Path(unit.silver.path)
-            if unit.removed_rows:
-                record = _rebuild_candidate_record(plan, run_root, unit, audit, cancel)
-                if _rebuild_fingerprint(target, cancel).sha256 != record["candidate_sha256"]:
-                    raise AdjFactorSilverRebuildError("rebuild_formal_file_drift")
-            else:
-                _rebuild_assert_identity(unit.silver, cancel)
-        with connect_configured_duckdb(_rebuild_settings(run_root / "temp")) as connection:
-            observed = _rebuild_batch_comparison(connection,
-                [Path(unit.raw.path) for unit in selected], [Path(unit.silver.path) for unit in selected],
-                Path(plan.lifecycle.path))
-        if any(observed.get(unit.partition_key) != (unit.expected_rows, unit.expected_rows, 0) for unit in selected):
-            raise AdjFactorSilverRebuildError("rebuild_formal_values_differ")
-    _rebuild_assert_inputs(plan, cancel)
-    result = {"plan_hash": plan.plan_hash, "status": "files_verified",
-              "changed_files": sum(bool(unit.removed_rows) for unit in units),
-              "removed_rows": sum(unit.removed_rows for unit in units),
-              "rows": sum(unit.expected_rows for unit in units),
-              "candidate_records": audit["candidate_records"]}
-    _rebuild_write_json(run_root / "audit.json", result)
-    return result
+    """Removal-only migration is retired under the retained-factor contract."""
+    raise AdjFactorSilverRebuildError("legacy_current_listed_rebuild_retired")
 
 
 def silver_adj_factor_rebuild_check_job(definitions: dg.Definitions) -> dg.JobDefinition:
@@ -902,63 +674,5 @@ def report_silver_adj_factor_rebuild_events(
     cancel: Callable[[], None] = lambda: None,
     progress: Callable[[int, int], None] = lambda completed, total: None,
 ) -> dict:
-    """Register actual replaced files, then run real checks against each new materialization."""
-    from orchestrator.defs.sensors.readiness import SILVER_ADJ_FACTOR_BLOCKING_CHECKS
-
-    if not maintenance_confirmed:
-        raise AdjFactorSilverRebuildError("rebuild_event_maintenance_required")
-    verify_silver_adj_factor_rebuild(plan, run_root, cancel=cancel)
-    job = silver_adj_factor_rebuild_check_job(definitions)
-    changed = [unit for unit in plan.units if unit.removed_rows]
-    for completed, unit in enumerate(changed, 1):
-        _rebuild_check_budget(cancel)
-        _rebuild_assert_identity(plan.lifecycle, cancel)
-        day = unit.partition_key
-        event_path = run_root / "checkpoints/events" / f"{day}.json"
-        _rebuild_check_path(event_path)
-        target_hash = _rebuild_fingerprint(Path(unit.silver.path), cancel).sha256
-        candidate_record = json.loads((run_root / "checkpoints/candidates" / f"{day}.json").read_text())
-        if target_hash != candidate_record["candidate_sha256"]:
-            raise AdjFactorSilverRebuildError("rebuild_event_target_drift")
-        records_filter = dg.AssetRecordsFilter(
-            asset_key=dg.AssetKey("silver_adj_factor"), asset_partitions=[day],
-        )
-        latest = instance.fetch_materializations(records_filter, limit=1).records
-        if not latest or latest[0].asset_materialization.metadata.get("factor_silver_rebuild_plan_hash", dg.MetadataValue.text("")).value != plan.plan_hash:
-            instance.report_runless_asset_event(dg.AssetMaterialization(
-                asset_key="silver_adj_factor", partition=day, metadata={
-                    "dagster/row_count": unit.expected_rows,
-                    "factor_silver_rebuild_plan_hash": plan.plan_hash,
-                    "target_sha256": target_hash, "removed_rows": unit.removed_rows,
-                    "goldenshare/summary": "按当前上市股票名单重建复权因子Silver；Raw和行情未改写。",
-                },
-            ))
-            latest = instance.fetch_materializations(records_filter, limit=1).records
-        materialization_id = latest[0].storage_id
-        if (latest[0].asset_materialization.metadata["target_sha256"].value != target_hash
-                or latest[0].asset_materialization.metadata["factor_silver_rebuild_plan_hash"].value != plan.plan_hash):
-            raise AdjFactorSilverRebuildError("rebuild_event_materialization_drift")
-        if event_path.exists():
-            recorded = json.loads(event_path.read_text())
-            if recorded.get("plan_hash") != plan.plan_hash:
-                raise AdjFactorSilverRebuildError("rebuild_event_record_invalid")
-            run = instance.get_run_by_id(recorded["run_id"])
-            if (run and run.is_success and recorded.get("checks_verified") is True
-                    and recorded.get("materialization_id") == materialization_id):
-                progress(completed, len(changed))
-                continue
-        cancel()
-        result = job.execute_in_process(instance=instance, partition_key=day, raise_on_error=False)
-        event_record = {"plan_hash": plan.plan_hash, "materialization_id": materialization_id,
-                        "run_id": result.run_id, "checks_verified": False}
-        _rebuild_write_json(event_path, event_record)
-        evaluations = result.get_asset_check_evaluations()
-        if (not result.success or len(evaluations) != 4
-                or {evaluation.check_name for evaluation in evaluations} != set(SILVER_ADJ_FACTOR_BLOCKING_CHECKS)
-                or any(not evaluation.passed or evaluation.target_materialization_data is None
-                       or evaluation.target_materialization_data.storage_id != materialization_id
-                       for evaluation in evaluations)):
-            raise AdjFactorSilverRebuildError("rebuild_real_checks_failed")
-        _rebuild_write_json(event_path, {**event_record, "checks_verified": True})
-        progress(completed, len(changed))
-    return preview_silver_adj_factor_rebuild_events(plan)
+    """Removal-only migration is retired under the retained-factor contract."""
+    raise AdjFactorSilverRebuildError("legacy_current_listed_rebuild_retired")

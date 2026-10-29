@@ -4,6 +4,9 @@ from pathlib import Path
 from orchestrator.defs.corrections.suspend_timing import (
     suspend_timing_corrections_values_sql,
 )
+from orchestrator.defs.run_contracts.adj_factor import (
+    ADJ_FACTOR_RETIRED_RETENTION_START_DATE,
+)
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_INDEX_DAILY_SCHEMA,
     RAW_STK_MINS_SCHEMA,
@@ -338,20 +341,78 @@ FROM {read_parquet(raw_path, hive_partitioning=False)}
 """
 
 
-def adj_factor_current_listed_stock_select(stock_lifecycle_path: Path) -> str:
-    """Factor-only current listing policy; other datasets retain lifecycle history."""
+def adj_factor_retained_stock_select(stock_lifecycle_path: Path) -> str:
+    """Known CNY L/D identities whose real source factors may be retained."""
     return f"""
 SELECT DISTINCT
   CAST(ts_code AS VARCHAR) AS ts_code,
+  CAST(list_status AS VARCHAR) AS list_status,
   CAST(list_date AS DATE) AS list_date,
   CAST(delist_date AS DATE) AS delist_date
 FROM {read_parquet(stock_lifecycle_path, hive_partitioning=False)}
 WHERE is_cny_stock
-  AND list_status = 'L'
+  AND list_status IN ('L', 'D')
   AND ts_code IS NOT NULL
   AND trim(CAST(ts_code AS VARCHAR)) != ''
   AND list_date IS NOT NULL
 """
+
+
+def adj_factor_required_stock_select(stock_lifecycle_path: Path, partition_key: str) -> str:
+    """Required in-market factors, preserving newly retired stocks' history."""
+    day = f"DATE {duckdb_string(partition_key)}"
+    return f"""
+SELECT * FROM ({adj_factor_retained_stock_select(stock_lifecycle_path)}) lifecycle
+WHERE {adj_factor_required_stock_predicate_sql(day)}
+"""
+
+
+def adj_factor_retained_record_predicate_sql(
+    trade_date_expression: str, *, lifecycle_alias: str = "lifecycle",
+) -> str:
+    """Compile trusted internal date expressions against the retained identity relation."""
+    return (f"{lifecycle_alias}.ts_code IS NOT NULL "
+            f"AND {lifecycle_alias}.list_date <= {trade_date_expression}")
+
+
+def adj_factor_required_stock_predicate_sql(
+    trade_date_expression: str, *, lifecycle_alias: str = "lifecycle",
+) -> str:
+    """One required-factor rule shared by single-partition and batch checks."""
+    day = trade_date_expression
+    life = lifecycle_alias
+    boundary = f"DATE {duckdb_string(ADJ_FACTOR_RETIRED_RETENTION_START_DATE)}"
+    return f"""
+({adj_factor_retained_record_predicate_sql(day, lifecycle_alias=life)})
+  AND ({life}.delist_date IS NULL OR {day} < {life}.delist_date)
+  AND (
+    {life}.list_status = 'L'
+    OR ({life}.list_status = 'D' AND {life}.delist_date IS NOT NULL
+        AND {life}.delist_date >= {boundary})
+  )
+"""
+
+
+def adj_factor_repair_scope_select(stock_lifecycle_path: Path, trade_date: str) -> str:
+    """One lifecycle read supplies eligible identities and unresolved D diagnostics."""
+    day = f"DATE {duckdb_string(trade_date)}"
+    return f"""
+SELECT lifecycle.*,
+  (list_date <= {day}
+  AND (
+    (list_status = 'L' AND (delist_date IS NULL OR {day} < delist_date))
+    OR (list_status = 'D' AND delist_date IS NOT NULL AND {day} < delist_date)
+  )) AS repair_eligible,
+  (list_status = 'D' AND delist_date IS NULL) AS unresolved_delist_date
+FROM ({adj_factor_retained_stock_select(stock_lifecycle_path)}) lifecycle
+"""
+
+
+def adj_factor_repair_stock_select(stock_lifecycle_path: Path, trade_date: str) -> str:
+    """Target-date calculation identities; a D without delist date is unknown."""
+    return f"""SELECT ts_code,list_status,list_date,delist_date
+      FROM ({adj_factor_repair_scope_select(stock_lifecycle_path, trade_date)})
+      WHERE repair_eligible"""
 
 
 def silver_adj_factor_select(
@@ -361,21 +422,27 @@ def silver_adj_factor_select(
     if not raw_paths:
         raise ValueError("At least one Raw factor partition is required")
     normalized = "\nUNION ALL\n".join(adj_factor_normalized_select(path) for path in raw_paths)
+    return silver_adj_factor_select_from_relations(
+        normalized,
+        adj_factor_retained_stock_select(stock_lifecycle_path),
+    )
+
+
+def silver_adj_factor_select_from_relations(
+    normalized_relation_sql: str, stock_lifecycle_relation_sql: str,
+) -> str:
+    """Reuse the retention join for file writers and materialized readiness batches."""
     return f"""
 WITH normalized AS (
-  {normalized}
+  {normalized_relation_sql}
 ),
 stock_lifecycle AS (
-  {adj_factor_current_listed_stock_select(stock_lifecycle_path)}
+  {stock_lifecycle_relation_sql}
 )
 SELECT normalized.*
 FROM normalized
 INNER JOIN stock_lifecycle USING (ts_code)
-WHERE normalized.trade_date >= stock_lifecycle.list_date
-  AND (
-    stock_lifecycle.delist_date IS NULL
-    OR normalized.trade_date < stock_lifecycle.delist_date
-  )
+WHERE {adj_factor_retained_record_predicate_sql('normalized.trade_date', lifecycle_alias='stock_lifecycle')}
 """
 
 

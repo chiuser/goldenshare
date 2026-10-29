@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import dagster as dg
 import duckdb
+import pytest
 
 from orchestrator.defs import stk_mins_qfq_factor_repair as repair_module
 from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
@@ -30,6 +31,7 @@ from orchestrator.defs.paths import (
     silver_adj_factor_path,
     silver_stk_mins_path,
     silver_stock_basic_path,
+    silver_stock_lifecycle_path,
     silver_trade_calendar_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
@@ -52,6 +54,12 @@ from orchestrator.defs.stk_mins_qfq import (
 from orchestrator.defs.stk_mins_qfq_factor_repair import (
     execute_gold_stk_mins_qfq_factor_repair,
 )
+from tests.factor_repair_fixtures import (
+    isolated_factor_repair_connections as isolated_factor_repair_connections,
+)
+from tests.factor_repair_fixtures import write_repair_lifecycle
+
+pytestmark = pytest.mark.usefixtures("isolated_factor_repair_connections")
 
 PREVIOUS_DATE = "2026-05-28"
 TRADE_DATE = "2026-05-29"
@@ -162,9 +170,13 @@ def _stock_basic_row(ts_code: str, list_date: str) -> dict[str, object]:
     }
 
 
-def _write_stock_basic(path: Path, rows: list[dict[str, object]]) -> None:
+def _write_stock_basic(lake_root: Path, rows: list[dict[str, object]]) -> None:
+    write_repair_lifecycle(
+        silver_stock_lifecycle_path(lake_root),
+        [{"ts_code": row["ts_code"], "list_date": row["list_date"]} for row in rows],
+    )
     _write_rows(
-        path,
+        silver_stock_basic_path(lake_root),
         schema=SILVER_STOCK_BASIC_SCHEMA,
         rows=rows,
         order_by="ts_code",
@@ -240,7 +252,7 @@ def _write_repair_inputs(
     previous_factor = 2.0
     current_factor = 4.0 if changed else 2.0
     _write_stock_basic(
-        silver_stock_basic_path(lake_root),
+        lake_root,
         [_stock_basic_row(STOCK_A, "1999-11-10")],
     )
     _write_adj_factor(
@@ -304,7 +316,7 @@ def _write_multi_code_repair_inputs(
     missing_silver_codes: tuple[str, ...] = (),
 ) -> None:
     _write_stock_basic(
-        silver_stock_basic_path(lake_root),
+        lake_root,
         [_stock_basic_row(stock_code, "1999-11-10") for stock_code in stock_codes],
     )
     for partition_key in partition_keys:
@@ -601,7 +613,7 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
             _write_stock_basic(
-                silver_stock_basic_path(lake_root),
+                lake_root,
                 [_stock_basic_row(STOCK_A, "1999-11-10")],
             )
             _write_adj_factor(

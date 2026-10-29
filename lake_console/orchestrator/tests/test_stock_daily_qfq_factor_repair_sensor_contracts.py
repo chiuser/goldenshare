@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import dagster as dg
+import pytest
 
 from orchestrator.defs.asset_guards.stock_daily_qfq_factor_repair import (
     GoldStockDailyQfqFactorRepairStatus,
@@ -27,7 +28,11 @@ from orchestrator.defs.stock_daily_qfq import (
     GoldStockDailyQfqFactorRepairPlan,
     gold_stock_daily_qfq_factor_repair_codes_hash,
 )
+from tests.factor_repair_fixtures import (
+    isolated_factor_repair_connections as isolated_factor_repair_connections,
+)
 
+pytestmark = pytest.mark.usefixtures("isolated_factor_repair_connections")
 
 TARGET_DATE = "2026-06-18"
 PREVIOUS_DATE = "2026-06-17"

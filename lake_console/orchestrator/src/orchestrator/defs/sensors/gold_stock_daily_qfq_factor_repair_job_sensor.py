@@ -22,6 +22,7 @@ from orchestrator.defs.jobs.stock_daily_qfq_update import (
 from orchestrator.defs.paths import (
     DEFAULT_LAKE_ROOT,
     silver_adj_factor_path,
+    silver_stock_lifecycle_path,
     silver_trade_calendar_path,
 )
 from orchestrator.defs.run_contracts.configs import (
@@ -47,7 +48,6 @@ from orchestrator.defs.stock_daily_qfq import (
     GoldStockDailyQfqFactorRepairPlan,
     build_gold_stock_daily_qfq_factor_repair_plan,
 )
-
 
 DAGSTER_PARTITION_TAG = "dagster/partition"
 GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_SENSOR_NAME = (
@@ -277,6 +277,7 @@ def _evaluate_gold_stock_daily_qfq_factor_repair_job_sensor(
             with connect_configured_duckdb() as connection:
                 repair_plan = build_gold_stock_daily_qfq_factor_repair_plan(
                     connection=connection,
+                    silver_stock_lifecycle_path=silver_stock_lifecycle_path(lake_root),
                     current_adj_factor_path=silver_adj_factor_path(
                         lake_root,
                         target_trade_date,

@@ -1,0 +1,116 @@
+{
+  "observed_at": "2026-10-29T08:39:33.211676+08:00",
+  "read_only": true,
+  "runs": [
+    {
+      "run_id": "54a13ad7-8984-4c9d-9bc5-019172c2ec05",
+      "job": "silver_adj_factor_update_job",
+      "status": "SUCCESS",
+      "started_at": "2026-10-29T08:32:49.980596+08:00",
+      "ended_at": "2026-10-29T08:32:55.416328+08:00"
+    },
+    {
+      "run_id": "8a1292c1-5eba-4dbb-a863-84dbeba2394b",
+      "job": "silver_adj_factor_update_job",
+      "status": "SUCCESS",
+      "started_at": "2026-10-29T08:33:09.479051+08:00",
+      "ended_at": "2026-10-29T08:33:14.750478+08:00"
+    },
+    {
+      "run_id": "2c48db76-9c8d-4f90-9d14-3761b92ab3dd",
+      "job": "silver_adj_factor_update_job",
+      "status": "SUCCESS",
+      "started_at": "2026-10-29T08:33:29.999346+08:00",
+      "ended_at": "2026-10-29T08:33:35.358590+08:00"
+    },
+    {
+      "run_id": "a8105a0c-72c0-4b06-bf87-675da35ff794",
+      "job": "silver_adj_factor_update_job",
+      "status": "SUCCESS",
+      "started_at": "2026-10-29T08:33:50.361570+08:00",
+      "ended_at": "2026-10-29T08:33:55.610948+08:00"
+    },
+    {
+      "run_id": "52dd4c77-4f1a-4967-bb94-3b33a3c0f7bc",
+      "job": "silver_adj_factor_update_job",
+      "status": "SUCCESS",
+      "started_at": "2026-10-29T08:34:10.667453+08:00",
+      "ended_at": "2026-10-29T08:34:15.821124+08:00"
+    },
+    {
+      "run_id": "f226c961-f73f-40d5-a36b-ab0023f775c2",
+      "job": "silver_adj_factor_update_job",
+      "status": "SUCCESS",
+      "started_at": "2026-10-29T08:34:26.660239+08:00",
+      "ended_at": "2026-10-29T08:34:31.885826+08:00"
+    },
+    {
+      "run_id": "2e05d42f-a828-4143-b41a-d413428a604f",
+      "job": "silver_adj_factor_update_job",
+      "status": "SUCCESS",
+      "started_at": "2026-10-29T08:34:36.687373+08:00",
+      "ended_at": "2026-10-29T08:34:41.909673+08:00"
+    },
+    {
+      "run_id": "5606b57c-d8af-4b65-b3d9-d17700311837",
+      "job": "silver_adj_factor_update_job",
+      "status": "SUCCESS",
+      "started_at": "2026-10-29T08:34:47.284974+08:00",
+      "ended_at": "2026-10-29T08:34:52.494515+08:00"
+    },
+    {
+      "run_id": "c238fb7e-3c86-405d-9c26-be132b4fb944",
+      "job": "silver_adj_factor_update_job",
+      "status": "SUCCESS",
+      "started_at": "2026-10-29T08:34:57.647432+08:00",
+      "ended_at": "2026-10-29T08:35:02.838777+08:00"
+    },
+    {
+      "run_id": "de9b3d56-0f19-4566-963a-2db1d8882ab0",
+      "job": "silver_adj_factor_update_job",
+      "status": "SUCCESS",
+      "started_at": "2026-10-29T08:35:07.998406+08:00",
+      "ended_at": "2026-10-29T08:35:13.345782+08:00"
+    }
+  ],
+  "sensors": [
+    {
+      "name": "stock_mins_qfq_daily_sensor",
+      "status": "STOPPED"
+    },
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+      "status": "STOPPED"
+    },
+    {
+      "name": "gold_stock_daily_qfq_update_job_sensor",
+      "status": "RUNNING"
+    },
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "status": "STOPPED"
+    },
+    {
+      "name": "stock_mins_qfq_factor_repair_sensor",
+      "status": "STOPPED"
+    },
+    {
+      "name": "gold_stock_daily_qfq_factor_repair_job_sensor",
+      "status": "RUNNING"
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "status": "STOPPED"
+    },
+    {
+      "name": "silver_adj_factor_update_job_sensor",
+      "status": "RUNNING"
+    }
+  ],
+  "other_recorded_sensor_status_changes": [],
+  "minute_runs_since_factor_execution_start": [],
+  "physical_and_checks_reused_from_per_day_verification": true,
+  "verified_check_count": 40,
+  "historical_keys_restored": 9,
+  "day28_row_count": 5580
+}

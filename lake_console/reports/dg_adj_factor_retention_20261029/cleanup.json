@@ -1,0 +1,78 @@
+{
+  "observed_at": "2026-10-29T08:41:44.847065+08:00",
+  "formal_lake_or_staging_deleted": false,
+  "archived": [
+    {
+      "source": "/private/tmp/dg_adj_factor_implementation_20261029/code-location-before-reload.json",
+      "archive": "code-location-before-reload.json",
+      "bytes": 232,
+      "sha256": "b7b36d418322ad7b27ee17da7e9af09cb73c3f603d74c5847bc3b86e25c48f61"
+    },
+    {
+      "source": "/private/tmp/dg_adj_factor_implementation_20261029/reload-result.json",
+      "archive": "reload-result.json",
+      "bytes": 248,
+      "sha256": "af9ede890a7daa7e8ff3140fddf5e0e85ffb0836878f54a72b3954a8f82f5778"
+    },
+    {
+      "source": "/private/tmp/dg_adj_factor_implementation_20261029/code-location-after-reload.json",
+      "archive": "code-location-after-reload.json",
+      "bytes": 250,
+      "sha256": "4e11dd9062d372614992a4909cb20c972d8346393efc527cd9089b84571b5012"
+    },
+    {
+      "source": "/private/tmp/dg_adj_factor_implementation_20261029/execute_factor_jobs.py",
+      "archive": "execute_factor_jobs.py.txt",
+      "bytes": 9081,
+      "sha256": "f2956c1a864f7f8f484f22c0295b82551cef303d620ede4715287e8f6f0b855a"
+    },
+    {
+      "source": "/private/tmp/factor_retention_consumers_http_20261029.json",
+      "archive": "repair-consumer-http-integration.json",
+      "bytes": 26400,
+      "sha256": "d06d9c734ff97bae74d45cc13d332fe8c6ca6d8109621226d7450151df3d58d6"
+    },
+    {
+      "source": "/private/tmp/factor_retention_consumers_test_cleanup_20261029.json",
+      "archive": "repair-consumer-test-cleanup.json",
+      "bytes": 1383,
+      "sha256": "0cc1b3f101f4539613cc6f1a7021aa87766524959d44b6b8216a9f97927909bc"
+    }
+  ],
+  "removed_synthetic_test_directories": [
+    {
+      "path": "/private/tmp/factor_silver_writer_tests_20261029",
+      "files": 56,
+      "bytes": 41594
+    },
+    {
+      "path": "/private/tmp/factor_silver_writer_tests_20261029_r2",
+      "files": 76,
+      "bytes": 60672
+    },
+    {
+      "path": "/private/tmp/factor_silver_writer_tests_20261029_r3",
+      "files": 118,
+      "bytes": 95448
+    },
+    {
+      "path": "/private/tmp/factor_silver_writer_tests_20261029_r4",
+      "files": 125,
+      "bytes": 101616
+    },
+    {
+      "path": "/private/tmp/factor_silver_final_tests_20261029",
+      "files": 160,
+      "bytes": 1478025
+    }
+  ],
+  "removed_temporary_control_files": [
+    "/private/tmp/dg_adj_factor_implementation_20261029/code-location-before-reload.json",
+    "/private/tmp/dg_adj_factor_implementation_20261029/reload-result.json",
+    "/private/tmp/dg_adj_factor_implementation_20261029/code-location-after-reload.json",
+    "/private/tmp/dg_adj_factor_implementation_20261029/execute_factor_jobs.py",
+    "/private/tmp/dg_adj_factor_implementation_20261029/initial-runtime.json",
+    "/private/tmp/dg_adj_factor_implementation_20261029/maintenance-sensors.json",
+    "/private/tmp/dg_adj_factor_implementation_20261029/formal-preflight.json"
+  ]
+}

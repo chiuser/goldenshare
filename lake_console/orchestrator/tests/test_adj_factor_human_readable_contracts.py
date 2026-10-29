@@ -2,11 +2,19 @@ import ast
 import unittest
 from pathlib import Path
 
+import pytest
+
 from orchestrator.defs.assets.adj_factor import (
     _human_materialization_metadata,
     raw_tushare_adj_factor,
     silver_adj_factor,
 )
+from tests.adj_factor_test_support import (
+    isolated_factor_duckdb,
+)
+
+pytestmark = pytest.mark.usefixtures(isolated_factor_duckdb.__name__)
+
 
 ASSET_PATH = Path("src/orchestrator/defs/assets/adj_factor.py")
 
@@ -36,7 +44,7 @@ class AdjFactorHumanReadableContractTests(unittest.TestCase):
         self.assertIn("源镜像", raw_description)
         self.assertIn("qfq", raw_description)
         self.assertIn("标准事实", silver_description)
-        self.assertIn("当前上市", silver_description)
+        self.assertIn("上市及退市", silver_description)
         self.assertNotIn("selection", raw_description)
         self.assertNotIn("selection", silver_description)
 

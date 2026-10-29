@@ -3,6 +3,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import duckdb
+import pytest
 
 from orchestrator.defs.asset_guards.stock_daily_qfq_factor_repair import (
     _status_from_metadata,
@@ -10,7 +11,7 @@ from orchestrator.defs.asset_guards.stock_daily_qfq_factor_repair import (
 from orchestrator.defs.paths import (
     gold_stock_daily_qfq_path,
     silver_adj_factor_path,
-    silver_stock_daily_path,
+    silver_stock_lifecycle_path,
 )
 from orchestrator.defs.stock_daily_qfq import (
     GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_AUTO_CODE_LIMIT,
@@ -25,6 +26,10 @@ from orchestrator.defs.stock_daily_qfq import (
     gold_stock_daily_qfq_factor_repair_codes_hash,
     write_gold_stock_daily_qfq_partition,
 )
+from tests.factor_repair_fixtures import (
+    isolated_factor_repair_connections as isolated_factor_repair_connections,
+)
+from tests.factor_repair_fixtures import write_repair_lifecycle
 from tests.test_stock_daily_qfq_contracts import (
     EARLIER_DATE,
     PREVIOUS_DATE,
@@ -37,6 +42,7 @@ from tests.test_stock_daily_qfq_contracts import (
     _write_stock_daily,
 )
 
+pytestmark = pytest.mark.usefixtures("isolated_factor_repair_connections")
 
 def _prepare_repair_lake(
     root: Path,
@@ -44,6 +50,9 @@ def _prepare_repair_lake(
     current_000001_adj_factor: float = 4.0,
 ) -> None:
     _write_calendar(root)
+    write_repair_lifecycle(silver_stock_lifecycle_path(root), [
+        {"ts_code": "000001.SZ"}, {"ts_code": "600000.SH"},
+    ])
     _write_stock_daily(
         root,
         EARLIER_DATE,
@@ -321,6 +330,7 @@ class StockDailyQfqFactorRepairContractTests(unittest.TestCase):
                     previous_adj_factor_path=silver_adj_factor_path(root, PREVIOUS_DATE),
                     qfq_factor_trade_date=TRADE_DATE,
                     previous_trade_date=PREVIOUS_DATE,
+                    silver_stock_lifecycle_path=silver_stock_lifecycle_path(root),
                 )
 
         self.assertTrue(plan.repair_required)

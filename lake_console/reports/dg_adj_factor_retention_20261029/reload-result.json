@@ -1,0 +1,12 @@
+{
+  "data": {
+    "reloadRepositoryLocation": {
+      "__typename": "WorkspaceLocationEntry",
+      "name": "orchestrator",
+      "loadStatus": "LOADED",
+      "locationOrLoadError": {
+        "__typename": "RepositoryLocation"
+      }
+    }
+  }
+}

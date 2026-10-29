@@ -1,0 +1,582 @@
+{
+  "observed_at": "2026-10-29T08:09:13.694851+08:00",
+  "readonly": true,
+  "days": [
+    {
+      "date": "2026-10-15",
+      "raw_target": [
+        [
+          "20261015",
+          1.0079
+        ]
+      ],
+      "silver_target": [],
+      "counts_before": {
+        "raw": 5576,
+        "silver": 5572
+      },
+      "raw_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-15/part-000.parquet",
+      "silver_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-15/part-000.parquet",
+      "raw_identity": {
+        "device": 16777244,
+        "inode": 20896554,
+        "bytes": 55560,
+        "mtime_ns": 1792028286390006864,
+        "ctime_ns": 1792028286392018589
+      },
+      "silver_identity": {
+        "device": 16777244,
+        "inode": 27443566,
+        "bytes": 55482,
+        "mtime_ns": 1793179688819264707,
+        "ctime_ns": 1793179688819686590
+      }
+    },
+    {
+      "date": "2026-10-16",
+      "raw_target": [
+        [
+          "20261016",
+          1.0079
+        ]
+      ],
+      "silver_target": [],
+      "counts_before": {
+        "raw": 5577,
+        "silver": 5573
+      },
+      "raw_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-16/part-000.parquet",
+      "silver_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-16/part-000.parquet",
+      "raw_identity": {
+        "device": 16777244,
+        "inode": 21023738,
+        "bytes": 55570,
+        "mtime_ns": 1792114477113248641,
+        "ctime_ns": 1792114477115216950
+      },
+      "silver_identity": {
+        "device": 16777244,
+        "inode": 27443670,
+        "bytes": 55495,
+        "mtime_ns": 1793180290202594511,
+        "ctime_ns": 1793180290204085750
+      }
+    },
+    {
+      "date": "2026-10-19",
+      "raw_target": [
+        [
+          "20261019",
+          1.0079
+        ]
+      ],
+      "silver_target": [],
+      "counts_before": {
+        "raw": 5577,
+        "silver": 5573
+      },
+      "raw_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-19/part-000.parquet",
+      "silver_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-19/part-000.parquet",
+      "raw_identity": {
+        "device": 16777244,
+        "inode": 22011415,
+        "bytes": 55573,
+        "mtime_ns": 1792373930241916154,
+        "ctime_ns": 1792373930243491288
+      },
+      "silver_identity": {
+        "device": 16777244,
+        "inode": 27443840,
+        "bytes": 55498,
+        "mtime_ns": 1793180895300369562,
+        "ctime_ns": 1793180895301882135
+      }
+    },
+    {
+      "date": "2026-10-20",
+      "raw_target": [
+        [
+          "20261020",
+          1.0079
+        ]
+      ],
+      "silver_target": [],
+      "counts_before": {
+        "raw": 5577,
+        "silver": 5573
+      },
+      "raw_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-20/part-000.parquet",
+      "silver_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-20/part-000.parquet",
+      "raw_identity": {
+        "device": 16777244,
+        "inode": 22163166,
+        "bytes": 55579,
+        "mtime_ns": 1792460034986641074,
+        "ctime_ns": 1792460034988299762
+      },
+      "silver_identity": {
+        "device": 16777244,
+        "inode": 27443993,
+        "bytes": 55509,
+        "mtime_ns": 1793181556598713146,
+        "ctime_ns": 1793181556599376785
+      }
+    },
+    {
+      "date": "2026-10-21",
+      "raw_target": [
+        [
+          "20261021",
+          1.0079
+        ]
+      ],
+      "silver_target": [],
+      "counts_before": {
+        "raw": 5578,
+        "silver": 5574
+      },
+      "raw_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-21/part-000.parquet",
+      "silver_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-21/part-000.parquet",
+      "raw_identity": {
+        "device": 16777244,
+        "inode": 22308980,
+        "bytes": 55626,
+        "mtime_ns": 1792546450791496102,
+        "ctime_ns": 1792546450793037196
+      },
+      "silver_identity": {
+        "device": 16777244,
+        "inode": 27444102,
+        "bytes": 55552,
+        "mtime_ns": 1793182105566483072,
+        "ctime_ns": 1793182105567105918
+      }
+    },
+    {
+      "date": "2026-10-22",
+      "raw_target": [
+        [
+          "20261022",
+          1.0079
+        ]
+      ],
+      "silver_target": [],
+      "counts_before": {
+        "raw": 5579,
+        "silver": 5575
+      },
+      "raw_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-22/part-000.parquet",
+      "silver_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+      "raw_identity": {
+        "device": 16777244,
+        "inode": 22460760,
+        "bytes": 55630,
+        "mtime_ns": 1792632706886814091,
+        "ctime_ns": 1792632706894255728
+      },
+      "silver_identity": {
+        "device": 16777244,
+        "inode": 27444218,
+        "bytes": 55547,
+        "mtime_ns": 1793182705763103500,
+        "ctime_ns": 1793182705764115646
+      }
+    },
+    {
+      "date": "2026-10-23",
+      "raw_target": [
+        [
+          "20261023",
+          1.0079
+        ]
+      ],
+      "silver_target": [],
+      "counts_before": {
+        "raw": 5580,
+        "silver": 5576
+      },
+      "raw_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-23/part-000.parquet",
+      "silver_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-23/part-000.parquet",
+      "raw_identity": {
+        "device": 16777244,
+        "inode": 22486830,
+        "bytes": 55631,
+        "mtime_ns": 1792719567475682034,
+        "ctime_ns": 1792719567477794578
+      },
+      "silver_identity": {
+        "device": 16777244,
+        "inode": 27444284,
+        "bytes": 55556,
+        "mtime_ns": 1793183310524695325,
+        "ctime_ns": 1793183310526033603
+      }
+    },
+    {
+      "date": "2026-10-26",
+      "raw_target": [
+        [
+          "20261026",
+          1.0079
+        ]
+      ],
+      "silver_target": [],
+      "counts_before": {
+        "raw": 5580,
+        "silver": 5576
+      },
+      "raw_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-26/part-000.parquet",
+      "silver_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-26/part-000.parquet",
+      "raw_identity": {
+        "device": 16777244,
+        "inode": 24982161,
+        "bytes": 55614,
+        "mtime_ns": 1793000196300509283,
+        "ctime_ns": 1793000196302865591
+      },
+      "silver_identity": {
+        "device": 16777244,
+        "inode": 27444358,
+        "bytes": 55528,
+        "mtime_ns": 1793183916484705013,
+        "ctime_ns": 1793183916485928539
+      }
+    },
+    {
+      "date": "2026-10-27",
+      "raw_target": [
+        [
+          "20261027",
+          1.0079
+        ]
+      ],
+      "silver_target": [],
+      "counts_before": {
+        "raw": 5580,
+        "silver": 5576
+      },
+      "raw_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-27/part-000.parquet",
+      "silver_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-27/part-000.parquet",
+      "raw_identity": {
+        "device": 16777244,
+        "inode": 25476651,
+        "bytes": 55609,
+        "mtime_ns": 1793067281566863014,
+        "ctime_ns": 1793067281567970280
+      },
+      "silver_identity": {
+        "device": 16777244,
+        "inode": 27444424,
+        "bytes": 55533,
+        "mtime_ns": 1793184521977395968,
+        "ctime_ns": 1793184521978777955
+      }
+    },
+    {
+      "date": "2026-10-28",
+      "raw_target": [
+        [
+          "20261028",
+          1.1319
+        ]
+      ],
+      "silver_target": [],
+      "counts_before": {
+        "raw": 5580,
+        "silver": 5576
+      },
+      "raw_path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-28/part-000.parquet",
+      "silver_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet",
+      "raw_identity": {
+        "device": 16777244,
+        "inode": 27407448,
+        "bytes": 55586,
+        "mtime_ns": 1793154954354143481,
+        "ctime_ns": 1793154954355763113
+      },
+      "silver_identity": {
+        "device": 16777244,
+        "inode": 27444490,
+        "bytes": 55512,
+        "mtime_ns": 1793185122424013074,
+        "ctime_ns": 1793185122425098513
+      }
+    }
+  ],
+  "source_files": [
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-15/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 20896554,
+        "bytes": 55560,
+        "mtime_ns": 1792028286390006864,
+        "ctime_ns": 1792028286392018589
+      },
+      "sha256_before": "f92d87563a5df7efec5ebc158a1b76f85c7f227c3657054264e266e58578f1c7"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-15/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 27443566,
+        "bytes": 55482,
+        "mtime_ns": 1793179688819264707,
+        "ctime_ns": 1793179688819686590
+      },
+      "sha256_before": "05e48a8a9ce5d2f198f2d8ce3c2c32d7e7998639b526737d97bc7c16840baf57"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-16/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 21023738,
+        "bytes": 55570,
+        "mtime_ns": 1792114477113248641,
+        "ctime_ns": 1792114477115216950
+      },
+      "sha256_before": "d67994f828e1edd981d51d5e26ae0f8c1d7f5fbdae075255aa4d826bc4fe658a"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-16/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 27443670,
+        "bytes": 55495,
+        "mtime_ns": 1793180290202594511,
+        "ctime_ns": 1793180290204085750
+      },
+      "sha256_before": "f102b50b5e15492af20a2b572f728e002fde4d474b438f745c1d6c1e8ae639b2"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-19/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 22011415,
+        "bytes": 55573,
+        "mtime_ns": 1792373930241916154,
+        "ctime_ns": 1792373930243491288
+      },
+      "sha256_before": "83ce7e26b9d1af045c6e2a87a718830029ef2430ac72605251d8d4ccbaa089b4"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-19/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 27443840,
+        "bytes": 55498,
+        "mtime_ns": 1793180895300369562,
+        "ctime_ns": 1793180895301882135
+      },
+      "sha256_before": "7925d0cf69335fc53e1078831d7e3ed81a90a0d4c8651bacf22e66e963e230fb"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-20/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 22163166,
+        "bytes": 55579,
+        "mtime_ns": 1792460034986641074,
+        "ctime_ns": 1792460034988299762
+      },
+      "sha256_before": "48cf918ae89998bc90ecd21cb7f93bc0cb2bde5b1a6f3c8e0a41e6cbe407fc8e"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-20/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 27443993,
+        "bytes": 55509,
+        "mtime_ns": 1793181556598713146,
+        "ctime_ns": 1793181556599376785
+      },
+      "sha256_before": "c65f098a7efa84d6edc97243c9d492564019399bd8feb2305bd8a00195e0174b"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-21/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 22308980,
+        "bytes": 55626,
+        "mtime_ns": 1792546450791496102,
+        "ctime_ns": 1792546450793037196
+      },
+      "sha256_before": "808c8896645a7a70ea2f98381d308d4b8e095e503dcb18a89225125cb3a6aafc"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-21/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 27444102,
+        "bytes": 55552,
+        "mtime_ns": 1793182105566483072,
+        "ctime_ns": 1793182105567105918
+      },
+      "sha256_before": "f74fa3e3e54dbc42558ff3b3d371633bb78d0439ab1a4ca8cc2037e53eea4aac"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-22/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 22460760,
+        "bytes": 55630,
+        "mtime_ns": 1792632706886814091,
+        "ctime_ns": 1792632706894255728
+      },
+      "sha256_before": "f31a42ba56c9def2544cb750491e8c60a60918a636fe473f01c3422125dab014"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-22/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 27444218,
+        "bytes": 55547,
+        "mtime_ns": 1793182705763103500,
+        "ctime_ns": 1793182705764115646
+      },
+      "sha256_before": "8b61ab3f3985edbcebe836d3a6a419531b3fa3875726cff8617a46e8e6a2836a"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-23/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 22486830,
+        "bytes": 55631,
+        "mtime_ns": 1792719567475682034,
+        "ctime_ns": 1792719567477794578
+      },
+      "sha256_before": "841d18e0dfe2dd702537ed18a6e9551687d9a65ac5ebba87529c4de6450782ed"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-23/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 27444284,
+        "bytes": 55556,
+        "mtime_ns": 1793183310524695325,
+        "ctime_ns": 1793183310526033603
+      },
+      "sha256_before": "26d921717daa573af267baf651e5e89e8f462fae1bf8557c04c821ee28922c6d"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-26/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 24982161,
+        "bytes": 55614,
+        "mtime_ns": 1793000196300509283,
+        "ctime_ns": 1793000196302865591
+      },
+      "sha256_before": "e3c18dab3576839933ed2ba629741f7429a932ef2dba8ba74475b73768e0b437"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-26/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 27444358,
+        "bytes": 55528,
+        "mtime_ns": 1793183916484705013,
+        "ctime_ns": 1793183916485928539
+      },
+      "sha256_before": "46ca1891d68f2ad20196c6322f35ecc02c5c327a1c1a367917228e6b85274a69"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-27/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 25476651,
+        "bytes": 55609,
+        "mtime_ns": 1793067281566863014,
+        "ctime_ns": 1793067281567970280
+      },
+      "sha256_before": "22bb04b9da838d6f52933234a2113332859a49be6b9d541285f6c0de947525b8"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-27/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 27444424,
+        "bytes": 55533,
+        "mtime_ns": 1793184521977395968,
+        "ctime_ns": 1793184521978777955
+      },
+      "sha256_before": "cfdff20483681793b43f42ee61beac85db4997f205616437d9c5e72fb75d5a4f"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-28/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 27407448,
+        "bytes": 55586,
+        "mtime_ns": 1793154954354143481,
+        "ctime_ns": 1793154954355763113
+      },
+      "sha256_before": "d9509f6929b42ddbdee9d697c37bda05b32265487055bcc1c04075554c3a24f4"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 27444490,
+        "bytes": 55512,
+        "mtime_ns": 1793185122424013074,
+        "ctime_ns": 1793185122425098513
+      },
+      "sha256_before": "66b9508e2eb2792a62043c05b8314468eb5d783c998d3ee7b3d75a42b166f0a2"
+    },
+    {
+      "path": "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet",
+      "identity": {
+        "device": 16777244,
+        "inode": 27443496,
+        "bytes": 131539,
+        "mtime_ns": 1793179134382103022,
+        "ctime_ns": 1793179134382809021
+      },
+      "sha256_before": "29168592dcba321561c8077a3932da8ed388e82fe35799e310619308b4a936f8"
+    }
+  ],
+  "lifecycle_path": "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet",
+  "lifecycle_identity": {
+    "device": 16777244,
+    "inode": 27443496,
+    "bytes": 131539,
+    "mtime_ns": 1793179134382103022,
+    "ctime_ns": 1793179134382809021
+  },
+  "free_bytes": 2904446218240,
+  "same_device": true,
+  "mounted": true,
+  "lifecycle_stock": [
+    [
+      "301139.SZ",
+      "D",
+      "2022-07-08",
+      "2026-10-28"
+    ]
+  ],
+  "expected_28_rows": 5580,
+  "total_source_bytes": 1242729,
+  "workspace": {
+    "data": {
+      "workspaceOrError": {
+        "__typename": "Workspace",
+        "locationEntries": [
+          {
+            "name": "orchestrator",
+            "loadStatus": "LOADED",
+            "locationOrLoadError": {
+              "__typename": "RepositoryLocation",
+              "name": "orchestrator",
+              "repositories": [
+                {
+                  "name": "__repository__"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+}

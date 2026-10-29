@@ -1,0 +1,8 @@
+{
+  "data": {
+    "assetNodeOrError": {
+      "__typename": "AssetNode",
+      "description": "复权因子 silver 标准事实，仅保留当前上市 CNY 股票的合法历史因子，供 qfq 和指标计算使用。"
+    }
+  }
+}

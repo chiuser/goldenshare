@@ -1,0 +1,8 @@
+{
+  "data": {
+    "assetNodeOrError": {
+      "__typename": "AssetNode",
+      "description": "复权因子Silver标准事实，保留CNY上市及退市股票真实源因子，供复权和指标计算；旧历史仅按明确键补缺。"
+    }
+  }
+}

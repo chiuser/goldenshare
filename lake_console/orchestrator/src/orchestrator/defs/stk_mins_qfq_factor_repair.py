@@ -20,6 +20,7 @@ from orchestrator.defs.paths import (
     silver_adj_factor_path,
     silver_stk_mins_path,
     silver_stock_basic_path,
+    silver_stock_lifecycle_path,
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.stk_mins import (
@@ -125,12 +126,14 @@ def execute_gold_stk_mins_qfq_factor_repair(
     current_factor_path = silver_adj_factor_path(lake_root, normalized_trade_date)
     previous_factor_path = silver_adj_factor_path(lake_root, previous_trade_date)
     basic_path = silver_stock_basic_path(lake_root)
-    plan_input_paths = (current_factor_path, previous_factor_path, basic_path)
+    lifecycle_path = silver_stock_lifecycle_path(lake_root)
+    plan_input_paths = (current_factor_path, previous_factor_path, basic_path, lifecycle_path)
     plan_input_identities = _input_identities(plan_input_paths)
     plan = build_gold_stk_mins_qfq_factor_repair_plan(
         current_adj_factor_path=current_factor_path,
         previous_adj_factor_path=previous_factor_path,
         silver_stock_basic_path=basic_path,
+        silver_stock_lifecycle_path=lifecycle_path,
         trade_date=normalized_trade_date,
         previous_trade_date=previous_trade_date,
     )

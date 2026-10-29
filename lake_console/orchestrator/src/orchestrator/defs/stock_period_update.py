@@ -109,7 +109,10 @@ def factor_changes(
     progress=lambda _: None,
 ):
     """Each unconsumed adjacent trading-day pair once; never compare complete price history."""
-    from orchestrator.defs.paths import silver_adj_factor_path
+    from orchestrator.defs.paths import (
+        silver_adj_factor_path,
+        silver_stock_lifecycle_path,
+    )
     from orchestrator.defs.stock_daily_qfq import (
         build_stock_daily_qfq_factor_changed_codes_sql,
     )
@@ -134,12 +137,15 @@ def factor_changes(
                     build_stock_daily_qfq_factor_changed_codes_sql(
                         current_adj_factor_path=current_path,
                         previous_adj_factor_path=prior_path,
+                        silver_stock_lifecycle_path=safe_path(silver_stock_lifecycle_path(root)),
+                        trade_date=day,
                     ),
                     policy=policy,
                     cancel=cancel,
                     progress=progress,
                     stage="adjacent_factor_changes",
                 ).fetchall()
+                if r[1] == "factor_changed"
             )
     return sorted(changed & set(listed))
 
