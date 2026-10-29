@@ -1,5 +1,7 @@
 # 股票分钟前复权与MACD/KDJ写入修正方案和LLD
 
+> 2026-10-30新增：MACD/KDJ正常日更读取修正的编码LLD在第19节，对应[原业务方案第17节](dagster-stk-mins-qfq-macd-kdj-indicators-plan.md#17-macdkdj日更读取修正方案2026-10-30)。本轮只改文档，未开发、未测试业务代码、未读取正式行情、未补数。第3—8节保留早期写入设计/执行背景，其中摘要重复读取已由第9—10节及当前publication实现修正，不得恢复旧多遍摘要；第19节继续复用现行一次摘要和逐文件恢复。第13—18节的具体日期批准及结果不是本轮开发或新日期执行授权。
+
 日期：2026-10-24；读取优化及正式执行：2026-10-25。最新状态：22日七频QFQ及原28检查已完成（第13节）；因子repair读取/续跑身份修正完成，26项隔离回归通过，随后获准正常执行一次26股历史修复，七条真实检查及消费者门槛ready（第14.8节）。不再做性能样本或全局复审。此前样本失败及297项回归证据保留，不用旧阶段结论替代本次正式结果。
 
 ## 1. 目标、依据和边界
@@ -931,3 +933,254 @@ Prod事务失败回滚；若提交成功后事件或check失败，不当作未�
 随后由原Prod run-status sensor自动提交run `22dbd172-3a3c-4c51-bb1f-075eb31256bf`，SUCCESS，5.369秒，11行及一项原check通过，read_back_row_count与Gold一致，expected/observed业务hash相等。验收以本次Gold计算的原upstream batch/run_key及sensor名、job、日期绑定，未额外手工提交Prod。
 
 最终只count这两项：Gold与Prod均11行。必要21份输入stat、27/29日Gold目标stat及Prod邻日计数保持；原两sensor仍RUNNING。本步没有业务代码变更、正式job重跑、资源限制、全目录重复计数或额外历史明细比对。原10:40计数157/159加本次2项恢复，得28日159/159按日资产有数据、缺失0；原计数JSON不改，后续证据单存[两项最终收尾](../../reports/datasets_recovery_20261028_20261029/index-daily-nineturn/final.json)。该结论仅针对28日；23/26/27日THS历史缺口仍未处理。临时辅助材料先归档后精确清理，正式结果及staging保留，详见本轮报告第7节。
+
+## 19. MACD/KDJ日更读取修正LLD（2026-10-30）
+
+### 19.1 本步目标、状态和证据
+
+业务要求逐条对应[MACD/KDJ方案第17节](dagster-stk-mins-qfq-macd-kdj-indicators-plan.md#17-macdkdj日更读取修正方案2026-10-30)。本节目标只限七频正常日更的数据准备与等价共用代码提取；历史repair的日期/代码/计算组织、history/bootstrap及其他数据集本轮不优化。本轮授权是审计和文档，以下函数、常量和测试均为**待开发设计**，不能作为已经存在或已通过的实现证据。
+
+证据及其适用范围：
+
+| 证据 | 结论/限制 |
+| --- | --- |
+| 当前`defs/stk_mins_qfq_macd_kdj.py`的discover、source preparation、segment、replacement和writer | 目标年/上一年发现；全历史临时表后排名；公式只对目标行递推；完整结果之后才bind |
+| 当前`assets/stk_mins_qfq_macd_kdj.py`与连续性guard | 原qfq/factor-repair门禁、exact previous expected state、root run身份和multi_asset保持 |
+| 当前`ops/gold_stk_mins_qfq_macd_kdj_repair.py`与history helper | repair按实际名单读取，每频传完整repair日期范围；history另按频率/年调用；均不能误切到新日更准备函数 |
+| 当前`io/stk_mins_qfq_publication.py`和staging隔离测试 | 完整冻结文件SHA及targets精确匹配、逐文件记录、同设备提升、冲突拒绝，不支持每股单独bind后拼接 |
+| 当前`src/foundation/clients/local_lake/stock_mins_reader.py`、`StockMinuteQueryService`、股票详情API和页面 | 本资产有真实只读消费者；页面按时间对应行情与六项指标。保留原路径/12列schema/键/数值/版本/分页，不能宣称没有API消费者；本轮未核该能力的运行态开关 |
+| 29日run `98f3d25c-1380-47da-b079-b15701bdbbce`的已有日志 | 1m在准备计算表时失败，六频12物化及24检查已成功；不能推定30日实时状态，也不能确定DuckDB内部4GB对象的调用方 |
+| 本文第17节及[年度metadata基线](../../reports/datasets_recovery_20261028_20261029/annual-baseline-current.json) | 2026-10-29 08:58、28日QFQ更新前：七频2026 QFQ 8,245,446,955B，2025 QFQ 9,463,886,567B，2026指标18,830,843,744B；旧stat不是新执行的精确目标大小 |
+| 原方案第8.5节 | 历史全市场benchmark确实存在，但不是当前日更读取范围、内存或4GB异常验收 |
+
+本轮CodeGraph explore/impact覆盖主writer和wrapper；decorated repair入口及bootstrap消费者由源码补齐。依据优先级为当前代码/合同、来源明确的历史记录、未来设计；不能只凭CodeGraph未显示调用方就删改公共函数。
+
+### 19.2 输入、输出与禁止项
+
+- 输入仍为单个`partition_key=D`、一个原频率、原discover得到的`Y/Y-1`现存文件、原exact previous expected state以及原root publication身份。
+- 源字段读取显式投影`ts_code/freq/trade_date/trade_time/high/low/close`。QFQ生产者的DATE/TIMESTAMP及stock-year合同来自`run_contracts/asset_column_schemas.py`和`stk_mins_qfq.py`，不是从待写SQL反推夹具。`hive_partitioning=false`，不把目录推导列当文件内部合同。
+- 输出仍为`StkMinsQfqMacdKdjReplacementTables`对应的当日indicator替换表、完整当日state替换表和原整体初始化标记；wrapper原返回类型/字段、资产metadata和checks不改。
+- 不扩读`Y-2`，不引入Raw/Silver/Prod/Tushare替代来源，不新增正式LIST/JSON字段；不修改EMA/KDJ公式、参数、1024根分段、前日选择、schema、paths、版本、run key和repair时序。
+- 不新增不足8根失败条件或股票数量限制。原集合1—7根仍使用实际条数；不存在早期行时仍按原seed规则处理，不能声称因此已经核实真实上市日期。
+- 不把每股或每64股变成新job、publication、正式提交或恢复单元；不改现有候选/摘要/receipt，不用新入口绕过它们。
+- 不因本次读取优化重算已完成历史、重建历史state、迁移API/前端、清理历史DG事件或重跑已完成repair批次。若新计算结果、state或原消费者不能兼容，停止并修正本轮实现，不通过重刷历史消除差异；原数值容差不得提高。正常上游因子变化已要求的repair范围/去重不因本条改变。
+
+### 19.3 函数分工与共用代码提取
+
+仅在`defs/stk_mins_qfq_macd_kdj.py`内按下表拆分职责；不新增对外CLI/job或跨工程依赖。私有名字表达长期职责，不带阶段编号。
+
+| 当前代码 | 待实现的私有职责 | 保持方式 |
+| --- | --- | --- |
+| `_create_macd_kdj_source_tables`末尾创建work表 | 提取`_create_macd_kdj_indicator_work_table(connection)` | 原历史准备仍在同一时机调用，DDL/schema原样；日更仅在批次前创建一次 |
+| `prepare_stk_mins_qfq_macd_kdj_replacement_tables`中从work生成indicator/state的部分 | 提取`_build_macd_kdj_replacement_tables_from_work(...)` | 继续使用原排序和state合并SQL，初始化标记由调用方传入；不重写历史state关联 |
+| 原公共writer中prepare返回之后的空结果、分组、bind、年度/state候选和promote | 提取`_publish_macd_kdj_replacement_tables(...)` | 接收已打开的connection/publication、原日期/股票/flags及replacement结果；原分支、返回值及调用顺序原样迁入。私有`before_promote`回调仅供daily检查输入文件身份，默认None，公共writer和repair/history不传入 |
+| 日更资产wrapper原来调用公共历史writer | 新增`_prepare_daily_macd_kdj_replacement_tables(...)`并明确调用上述共用发布函数 | 在wrapper中用原family/root/freq/dates打开publication和原配置连接，先准备完整日更结果再发布 |
+| 原`write_gold_stk_mins_qfq_macd_kdj_rows` | 签名、默认值和返回不变 | 仍打开同一publication/connection → 原历史prepare → 共用发布函数；repair/history/direct tests仍走此链 |
+
+不能通过“目标日期只有一个”猜测daily模式：历史/repair也可能只有一天。新日更准备只由日更资产wrapper明确选择，原公共prepare及writer不能自动改道；不加运营mode或新公共参数。daily与history只分开**输入准备**，公式与发布仍共用，不能复制一套candidate、锁或状态机。
+
+调用关系应是：
+
+```text
+日更原asset wrapper
+  原门禁、discover、exact previous state
+  原publication锁 + 原DuckDB连接
+    新日更prepare：有限输入 → 原segment公式 → 当日完整replacement
+    共用publish：一次bind → 原候选/校验/逐文件提升
+
+repair/history原调用方
+  原公共writer（签名和默认值不变）
+    原publication锁 + 原DuckDB连接
+      原history prepare → 原segment公式 → 原范围replacement
+      同一个共用publish
+```
+
+### 19.4 日更准备算法及SQL边界
+
+**A. 完整前日state及批次规划**
+
+1. 完整前日state只读一次，继续使用原投影、频率过滤和每股最新行选择SQL，保留全部股票。整体`initialized_without_previous_state`仍为这张表是否为空；不在新股分支重新赋值。
+2. 路径按原stock/year布局分组，只保存`code → Y/Y-1路径`和稳定代码序列，按64只切成互不重叠的批次；不修改discover实现及其repair消费者。路径分组建立在现行QFQ文件/分区合同上，原上游checks和日期/字段合同不取消。
+3. 创建一次原work表。每批覆盖临时`macd_kdj_calculation_rows`及少量选择表，原work表只追加目标日结果；不能在下一批开始清空已完成股票结果。Python不接收价格明细，只接收最多64个代码和小型分组计数。
+4. 来源一致性继续依赖`GOLD_STK_MINS_QFQ_WRITER_POOL`的真实串行设置；QFQ日更、因子repair和MACD原资产已共用该pool。MACD publication锁按family隔离，不阻止QFQ写入，不能把它当跨来源锁。未来正式执行前只读核对pool实际并发为1及无不受该pool控制的来源writer；本轮不查运行态、不改pool配置。
+5. 新日更私有`_assert_daily_macd_kdj_source_files_unchanged`只比较实际读取文件的`(st_dev, st_ino, st_size, st_mtime_ns, st_ctime_ns)`：前日state读前/读后各一次；本批来源首次读前/该批全部SQL读完各一次；全频结果完成bind前及所有候选生成后promote前，再统一核对已记录的实际输入。这使每个实际文件最多四次stat，不在每个股票批次重复核对整张前日state或此前所有路径。后读到的上一年文件加入同一映射；从未读取的上一年文件不为本检查做stat。首次缺文件沿用原来源读取失败，不进行重试；身份变化则抛错并按19.6停在下一次bind/提升之前。mtime以ns比较，不使用atime；正常只读及其他无关文件变化不能误拦。该检查不新增行情读取、SHA、来源副本或全局目录扫描，其元数据成本计Fr。它只验证可观察到的文件变化，不能替代共享pool及“无脱管writer”的执行前提。
+
+**B. 当日行与前序至多8根**
+
+1. 对批内当前年现存路径先执行`trade_date = DATE D AND freq = f`并投影七列，得到当日表；保留原行，不DISTINCT、不填值，不把错误输入清洗成通过。没有当日行的代码不参与历史尾部读取，完整前日state仍保留它们。
+2. 对有当日行的代码，在**当年**文件上直接执行`trade_date < DATE D`，按股聚合最近至多8根。采用下面的有界聚合形态，不能先创建全部历史临时表或完整窗口排名：
+
+```sql
+SELECT ts_code, freq,
+       arg_max(
+         struct_pack(trade_date := trade_date, trade_time := trade_time,
+                     high := high, low := low, close := close),
+         trade_time, 8
+       ) AS prior_bars
+FROM read_parquet(<本批有当日行情代码的当年现存文件>,
+                  hive_partitioning=false, union_by_name=true)
+WHERE freq = <原频率> AND trade_date < DATE <目标日>
+GROUP BY ts_code, freq;
+```
+
+上式是待编码SQL形态，参数与路径沿现有安全builder生成，不把占位符原样执行。临时STRUCT保留完整一根K线，不能用若干彼此独立的`max(high)/last(low)`拼成不存在的K线。`arg_max`在val为NULL时会忽略该行，因此其使用前提是QFQ生产者的有效非空时间/唯一键：`stk_mins_qfq.py::_validate_replacement_rows`拒绝NULL业务键`ts_code/trade_date/trade_time`及重复`ts_code+trade_time`。该生产者拒绝边界不等于MACD prepare全面校验所有NULL/缺列，不能为满足笼统测试而新增daily业务guard。开发时按19.8分别验收生产者合同和有效来源的日更选择，不安装或升级版本。
+
+3. 当年最近条数不足8的代码，包括当年此前0行的代码，才查它们**原集合内**上一年现存文件；仍按每股取最近至多8根。无上一年路径时按空集合处理，不能由DuckDB读取空路径列表引发新错误。
+4. 每股两路至多16根，合并后再按时间保留最近8根，展开并升序排列。上一年充足且当年已有数根时必须合并后取8，不能取每年8根合计16根直接计算。目标日未来行一律不进入prefix或递推。
+5. 当年已有8根时不读取该股上一年文件；完全无当日行情的批次不发历史SQL。当前年与上一年的读取次数分别记录，不能把“查询只返回8根”写成“硬盘只读取8行”。
+
+**C. 原业务检查与递推**
+
+1. 原候选集合中有目标日前行情的代码，必在prefix中至少有1根；使用这份存在性证据与完整前日state检查原缺state老股票错误。不得裁剪历史后只检查当日表而绕过原错误，也不追加更早年份的存在性扫描。
+2. prefix与当日表合并后按`ts_code/freq/trade_time`计算原9根HHV/LLV和RSV，再筛仅当日行，生成原`calculation_row_number/segment_index/segment_row_number`。
+3. 调用原`_populate_macd_kdj_indicator_work_rows`及`_insert_macd_kdj_segment_rows`。prefix只影响RSV；不能给prefix生成indicator、推进state，或把它的close作为新的递推起点覆盖前日seed。
+4. 原work表可以保留前面批次的**当日**结果；每批代码不重叠，segment的previous_work联接必须仍按`ts_code/freq`，不能把另一股/另一批结果当seed。分段长度仍为1024，不因64股票批次改成64根K线。
+5. 每批结束记录实际完成股票数、当日行数、prefix行数、已用当年/上一年路径数和耗时，再释放批内选择/计算表。记录实际进度，不新增心跳或伪造ETA；保留原`source_file_count`字段的原discover候选数量含义，实际读过的路径数量用另名日志字段，不改返回合同。
+
+**D. 完整结果与state**
+
+全部批次完成后，从累计当日work调用共用replacement builder，使用原SQL统一生成当日indicator和完整state。无当日行情的旧股票仍保留，`last_trade_time`不改成今日；新股加入state；当日全空仍触发原空结果错误。一个频率只保留当日work/indicator/state、完整前日state及当前小批输入，不保留前面批次的历史输入。
+
+### 19.5 内部批量和现有配置审计
+
+| 项 | 值、来源与持久化 | 消费者、作用与生效 | 验收 |
+| --- | --- | --- | --- |
+| `MACD_KDJ_DAILY_STOCK_BATCH_SIZE`（拟新增内部算法常量） | 64，定义在原MACD模块；不来自env/Settings/DB/run config，不持久化、不暴露运营输入 | 仅新日更批次规划及其测试读取该定义；随代码部署生效，无其他消费者。每批最多64股，不限制总股数 | 65股跨批次正例；1/64/65股完整覆盖，无截断；history/repair不读取此常量 |
+| 公式、KDJ历史条数及分段 | 原12/26/9、9/3/3、8根前序和1024分段 | 原公式函数；不得将股票批量当K线分段 | 独立字面金样本、跨批次seed、前序第9根极值反例 |
+| DuckDB设置 | 原`DEFAULT_DUCKDB_CONNECTION_SETTINGS`，16GB/4线程、managed及既有512GB临时容量 | 新日更复用原默认；history自有设置及其他消费者不改 | 不新增timeout、内存/临时容量限制，不套用QFQ的no-spill策略 |
+| 目录与并发 | 原formal/staging根、writer pool、publication同family/freq文件锁 | 从准备输入到统一提升覆盖整个频率；不按64股释放重拿 | 并发拒绝、全部候选准备后提升、锁随进程退出释放 |
+| 实际输入文件身份（非配置） | 日更内存映射，仅stat五项身份；不持久化源行情，不新增参数或跨工程能力 | 仅新日更准备及私有发布前回调消费，repair/history不增加新检查；最多每个实际来源及前日state四次stat | 原pool串行、正常读取不误拦；批内/候选生成期间来源替换均在正式提升前停止 |
+
+64用于使每批当日与prefix输入有界：以合同内1m每股最多241根、64股计，窗口输入至多`64×(241+8)=15,936`根；不是实测最优批量，也不是新运行拒绝阈值。全频当日结果仍需累计，规模为当日行数，不能声称整个进程内存只等于15,936行。若以后改批量、设置来源或公开输入，应重新审计本表全部消费者，不散落另一组默认值。
+
+### 19.6 完整绑定、失败、中断与续跑
+
+1. 与原writer一致，在计算前获得publication锁并打开原连接；计算失败退出并保留其已有staging目录。计算尚未完成时不得调用bind、创建年度候选或替换正式目标。原pool的串行状态和无脱管来源writer是正式执行前提，不能靠MACD文件锁或冻结结果替代。
+2. 指标及state全部准备完成，按原顺序生成完整目标集合和稳定排序的两份冻结输入，再调用一次原`publication.bind`。common publish内的空结果、`allow_empty_replacement`、`fail_if_target_exists`及scoped state分支原样保留；daily不引入这些参数的新外部入口。
+3. 年度文件按原SQL保留非目标日，今日共享state由完整替换表写出。全部候选经现行校验、一次完整摘要及原预检后才开始逐文件提升；不重新引入每文件三遍SHA、不新增公式审计或全局比对。
+4. 发布前失败不改正式目标；提升过程中失败保留已替换文件，不回滚，不删除异常现场。只有原`validated/promoting/promoted`记录、真实文件身份及输入摘要满足原规则才可续跑；冲突继续拒绝。
+5. 本轮不增加批次checkpoint。计算中断需要重建当日替换输入，开销单列；已完成候选/正式目标仍由原receipt判断，不能因为计算批次完成就宣称年度文件已提交。
+6. 新旧prepare虽应产生语义等价结果，浮点尾数、行组或Parquet编码可能导致冻结SHA不一致。不能承诺新代码自动接管旧root operation；禁止修改摘要算法、放宽比较、删除operation/receipt或换root掩盖部分正式结果。新实现自身同输入重放也必须验证稳定冻结和幂等。
+7. 29日1m历史日志显示失败在prepare，仅在正式恢复前有界确认该频率确实未bind、无旧候选/receipt且来源仍匹配时，才可另列原生恢复办法；不能仅凭run失败推定。六频成功结果不因本轮文档或未来开发被重跑，repair之后仍按原job产物和原顺序推进。
+8. 日更来源/前日state身份变化：bind前发现则不产生年度候选；候选生成期间变化由私有`before_promote`再次核对，失败保留完整候选但不调用promote、不写正式目标。发布后已替换部分的恢复仍按原receipt，不增加自动回滚。冻结输入只是replacement/state输出，不能声明源行情已做快照；即使更改后价格相同或文件大小相同，inode/mtime/ctime变化也不能静默忽略。
+9. 旧候选冻结摘要冲突只属于该次未完成发布的恢复问题，不构成历史业务数据失效证据。先保留既有正式结果和原记录，仅在核定的未完成日期/频率内另列恢复办法；不能重刷历史、删原记录或重跑全job绕过。原年度合并仍只替换目标日，非目标日记录原样保留；API reader不消费publication冻结SHA，不能把文件摘要差异推断成下游必须迁移或重建。
+
+### 19.7 正常、续跑与收尾的读写预算
+
+**本轮文档工作**：正式Parquet内容读取、价格计算、网络源请求、数据库及Lake写入均为0；只读源码、测试、原文档和已有metadata报告。没有重做年度stat、计数审计、性能样本或正式运行。下列是待开发方案的成本模型，不是读取批准或当前实测。
+
+按每个独立文件步骤最多计一次完整文件大小，不按列比例、缓存或row group裁剪打折：
+
+- `Qy`：当前年候选QFQ总大小；`Qp`：上一年原候选总大小；`L≤Qp`：当年不足8根而确需读取的上一年子集。没有当日行情的股票不计入L。
+- `I`：实际受影响旧指标年度文件总大小；`C`：新指标年度候选和当日state合计；`V`：完整前日state。
+- `P`：两份冻结输入文件大小；`Fr/Fw`：footer/schema/记录/日志等读写留量；`Tr/Tw`：现有managed连接的引擎临时读写，不能默认为0。
+
+| 步骤 | 保守文件读取/写入 | 保留理由 |
+| --- | --- | --- |
+| 日更输入选择 | 读`2Qy+L+V` | 当日行和当年历史各一个查询；上一年按需一次；前日state一次。没有全历史临时表，不等于只扫描一次文件 |
+| 当日窗口与递推 | DuckDB当日/小批工作表；spill计Tr/Tw | 不另读正式QFQ；Python不承载明细；存在中间表实现差异应记录，不能用函数名代替预算 |
+| 冻结输入 | 写P，读P一次SHA | 原完整bind；不冻结前序历史 |
+| 年度候选 | 读`2I+2C`，写C | 原旧年度分区校验及合并各一次；候选投影校验一次及原一次SHA；count/footer计Fr，不额外加一次SHA |
+| 原四项checks/每频 | 读上界`4(Qy+Qp)+2C`，另计Fr | 三处`_indicator_expected_paths`来源发现查询，加source coverage一次来源查询；指标行数及state覆盖各一次目标读取。schema/footer不当成零成本，也不因此改checks |
+| 来源稳定性及最后收尾 | 仅实际来源/前日state最多四次stat计Fr；复用原物化/28checks、receipt及必要stat小汇总 | 不追加一次来源SHA、全量公式或年度内容审计；不触碰未使用年份 |
+
+合计：
+
+```text
+正常R = 6Qy + 4Qp + L + 2I + 4C + P + V + Fr + Tr
+正常W = C + P + Fw + Tw
+正常新增空间按候选/冻结/记录/峰值引擎临时文件另留20%余量
+```
+
+同一频率的source和目标查询可能因过滤/缓存实际少读，本模型仍按独立查询完整文件大小保守计费。旧年度2I及原checks的重复发现本轮没有优化；不得沿用QFQ第9节的`I+3C`口径冒充MACD已实现相同优化。
+
+基于19.1历史metadata，给出供未来执行前核定的七频条件：`Qy≤8.5GiB、Qp≤9GiB、L≤Qp、I≤20GiB、C≤22GiB、P≤128MiB、V≤2MiB、Fr/Fw各≤1GiB、Tr/Tw各暂留8GiB`。代入正常读取约233.13GiB，向上预留**240GiB读、32GiB写、40GiB新增空间**。这些是估算条件，C/P/临时读写未实测；8GiB是预算留量，不写成DuckDB配额、限制或额外批准。不能把此数当实际耗时、实际硬盘I/O或“优化一定节省到该值”的结论。若目标只剩1m，必须按该频变量重新核定，不能照七频全跑；若旧stats或条件不适用，先修预算及执行卡，不以运行限流/超时截断任务。
+
+一次必要续跑必须重新准备当日输入及冻结P，不能假定只从第65只股票继续。按真实记录分别计：未生成目标的旧文件校验/合并、重建候选校验与一次摘要；已validated/promoted文件只做原恢复核验，不重写。全部未完成时，正常一次加一次最坏重建参考上界为**480GiB读、64GiB写**；失败现场与新候选并存时，按`(2C+2P+2Fw+两次峰值临时占用)×1.2`保守预留至**80GiB新增空间**。这是恢复前核定的成本，不授权第二遍全范围执行或自动重试；实际应扣除已经完成且可复用部分，其他run遗留文件另计。
+
+原28checks已经包含在正常R，正常结束不再加一轮。若只重跑checks，其读上界为`4(Qy+Qp)+2C+Fr`，无年度COPY；条件示例约115GiB，非正常必做。最后汇报只汇总原结果、receipt与必要stat；只有确有缺失证据且另列增量成本时才追加明细查询。
+
+耗时边界：未来上述隔离夹具预计数分钟完成，不设置新的正式job超时或内存/临时容量限制。当前没有新算法的真实耗时和spill测量，不能凭旧152秒benchmark承诺29/30日全市场时长；这不阻止先开发和隔离验证，但正式执行卡必须使用当时未完成频率及已有运行日志补齐预估，不能将本节条件预算直接当作可执行批准，也不为填时长数字另跑全市场性能测试。
+
+### 19.8 待开发测试、独立依据及验收条件
+
+本节是验收清单，本轮不执行这些测试。未来开发使用orchestrator现有`.venv`、隔离临时Lake/staging/temp，不初始化正式instance、不访问正式凭据或安装依赖。普通夹具不超过2股、2年和少量K线；批次边界用65股各少量行，临时文件目标预算64MiB。64股阈值是批量边界，不能改成测试过滤掉超出股票。
+
+| 要求 | 代码点 | 正例与反例/独立expected |
+| --- | --- | --- |
+| 七频数值与前日seed | 新daily prepare → 原segment | 原字面金样本六指标及EMA/K/D；MACD柱倍数、平价HHV=LLV、J超界；prefix只影响RSV，不能重复推进state |
+| 真正最近至多8根 | 当年Top8＋上一年补足 | 当年≥8不打开上一年；当年0/3根与上一年8根正确拼接；第9根极值不影响；跨多日停牌不按自然日截断 |
+| 保持原来源和部分窗口 | 路径分组及prefix | 仅1—7根不新增失败；Y-2极值文件设置禁止读取，结果不受影响；无上一年路径不执行空read_parquet |
+| 不把旧股当新股 | prefix存在性与完整state | 其他股有state、本股新股无prefix可原seed；本股有prefix却无state必须原错误；整体初始化标记不能被单股分支改写 |
+| 连续性与停牌state | wrapper guard＋共用state SQL | exact前日文件正常；缺前日不得更早回退；无当日行情代码保留旧state/last_trade_time；全频当日空结果仍失败 |
+| 64股批次无丢失/串值 | 新日更planner/全日work | 1、64、65股计数及集合完整；新批不清前批结果，不把前批另一股当seed；批次顺序固定，分段仍1024 |
+| 不再全市场历史排名 | 输入SQL/隔离查询观察 | SQLspy＋隔离小型EXPLAIN/行数证明只对有限输入做窗口，不创建`macd_kdj_source_all_rows`；不能用仅有函数调用次数或新函数自制expected证明 |
+| 输入合同真实性 | 原QFQ schema/producer、新日更输入投影 | 夹具注明源合同；隔离调用原`_validate_replacement_rows`证明NULL业务键及重复键拒绝；新daily在有效来源上保持七列投影/类型，不用其自身生成expected。不得笼统断言MACD会拒绝所有NULL/缺列；多文件`union_by_name=true`缺列可能补NULL的原行为不在本轮新增guard或变更 |
+| 年度与共享state保持 | 共用publish/两类writer | 原真实隔离writer链证明其他日期、无行情股state和返回合同不变；不能mock掉待验收的候选/合并边界 |
+| 一次完整publication | bind、candidate、promote | 65股也只bind完整inputs一次；第2候选失败不提升第1；完成1文件/replace后receipt前故障，原恢复仍核验、已完成文件不重写 |
+| 同输入稳定及旧输入冲突 | 冻结和输入SHA | 新路径同输入重复运行稳定且幂等；旧operation冻结不同必须拒绝，不能用浮点容差放宽文件SHA |
+| 来源分批读取一致 | 日更五项文件身份＋原pool依赖 | 批内源被替换、候选生成时源/前日state被替换，均在相应bind/提升前拒绝；相同大小不同inode也拒绝；正常只读/atime变化、未使用年份及无关文件变化不误拦；原pool元数据及装饰器仍保留，共用发布默认回调为None不改变repair/history |
+| repair/history不改道 | 原公共writer与调用方 | 单日期repair仍走原prepare；多日期history仍完整递推；old flags、scope、完整state预检及14 completion门禁不变 |
+| 原数据及真实下游兼容 | 原年度合并、完整state、`StockMinsLakeReader`与股票详情指标API | 隔离小文件证明非目标日期/股票业务值不变、前日state不重写；新目标结果可由原reader按原列/类型/键读回并按日期时间与行情对应，版本/参数/分页不改；既有已完成repair不重复触发。测试经临时文件交接并各用本工程现有环境，不在DG运行时import `src.foundation`或主工程API |
+
+复用测试为：`test_stk_mins_qfq_macd_kdj_formula_golden_contracts.py`、`test_stk_mins_qfq_m12_macd_kdj.py`、`test_stk_mins_qfq_macd_kdj_repair_op_contracts.py`、`test_stk_mins_qfq_macd_kdj_repair_gate.py`、`test_stk_mins_qfq_staging_publication.py`、`test_stk_mins_qfq_publication_single_digest.py`和原运行契约静态门禁。新增日更测试拟放`tests/test_stk_mins_qfq_macd_kdj_daily_read.py`，当前尚无此文件；不为了本轮文档创建测试代码。
+
+expected以原已核实公式和独立字面小样本为准，不能调用新daily或同一选择helper生成。与旧prepare做有界结果对账仅作补充。保留原浮点容差（绝对1e-10、相对1e-12）、类型、行数、代码/日期集合及其他日期不变断言；不能只靠放宽容差通过。受保护套件走原测试启动器，单元、隔离集成、既有真实合同证据和未来正式执行分别报告。现有§6.1真实小样本/当前producer合同可作接入依据；缺证据时只补有界字段样本并单独说明，不能顺便重跑全市场或性能测试。
+
+真实消费者的已有隔离测试还包括仓库根`tests/test_stock_mins_reader.py`和`tests/web/test_stock_detail_minutes_api.py`；未来开发先核对现有环境和测试资源边界，再按必要范围运行，不因本轮文档调用它们或访问正式Lake。
+
+开发完成验收应逐条对账：业务方案17.2的9条要求 → 上表代码点 → 正/反测试 → 实际证据。源码正确性通过不等于4GB错误已被实际复现并消除；正式run是否成功只能由其真实结果证明。
+
+### 19.9 下一步及正式执行边界
+
+1. 本轮审计原设计、当前代码及消费者，完成第17节业务方案和本节LLD一致性/负面影响审查、文档检查，向管理员汇报并停止，不提交业务改动或运行job。
+2. 获准开发后，先做私有等价提取并回归旧公共writer，再实现明确daily调用和有限输入；不同时开发repair优化，不扩展配置或源年份。方案17.9及19.11是执行约束，不得绕过。
+3. 完成19.8隔离验证和19.11逐项交付对账，证明原正式数据/state可直接继续使用且不需要历史重刷，才可申请部署或正式补数；任一项不满足继续修代码，本轮开发不算完成。仅在来源明确、范围必要时补最小真实只读合同核验，不安排额外全市场性能测试。
+4. 正式恢复前只读核实当时缺口、来源/前日state、root operation、receipt和活动writer，按实际未完成频率列原生job恢复入口、具体读写预算、失败及收尾安排；另按根规则取得必要执行/年度读取批准。已有29日六频成功记录不要求重跑。
+5. 日更恢复后，历史repair仍按原上游产物及daily→repair顺序推进；若其规模或运行事实暴露新问题，停止并另行完善repair方案。不得用本轮日更测试替代repair性能验收或擅自重跑已经完成的历史。
+
+### 19.10 本轮文档审计及未完成项
+
+已核清业务方案原第1/6.2/12节的读取意图与代码差异，修正“上一交易日之前”的歧义；旧benchmark仍保留为历史证据。R5为repair范围硬化和7月恢复依据，不作为本轮日更LLD；其中旧备份/quarantine操作不执行，现行写入只使用本文件和当前publication。
+
+本轮写入范围仅两份原文档；本文件第13.2节已有sensor收尾改动保持，不纳入本次设计改写。实现、业务测试、正式29/30日状态修复、补数、sensor变更及repair优化均未执行。文档检查、独立复核及其发现的修改在本节末记录，不能预填开发或正式验收通过。
+
+本节SQL与读取能力另参考DuckDB官方[每组最近N条聚合](https://duckdb.org/docs/current/sql/functions/aggregates.html#arg_maxarg-val-n)和[Parquet部分读取](https://duckdb.org/docs/current/data/parquet/overview.html#partial-reading)。前者支持有限候选聚合，后者说明列裁剪、过滤下推及统计条件下的row group跳过；二者均不证明本轮真实设备读取量或4GB异常的具体内部原因。
+
+2026-10-30独立审文结果：
+
+| 初审发现 | 已落修正 | 复审结论 |
+| --- | --- | --- |
+| NULL/缺列测试笼统要求MACD全面拒绝，超出现有拒绝边界 | 19.4B/19.8明确原QFQ生产者的NULL业务键/重复键验证及各层证据，不增加daily业务guard | 未发现原拒绝口径被扩大或由mock绕过 |
+| 原方案`last_trade_time`描述与停牌状态承接矛盾 | 方案6.2按“截至state日期”解释，17.2/19.4D保留旧时间 | 方案/LLD及现代码一致 |
+| 分批多次读取未说清来源稳定性 | 方案17.2/17.3/17.7与19.3—19.8明确原pool、实际文件五项身份、四次stat及bind/提升前停止 | 私有回调默认None，不改变repair/history；不把结果冻结当源快照 |
+
+两位独立审查者在上述修正后复核，均未发现本轮方案/LLD仍有必须先修的阻断矛盾。根代理另核了Top8与两年来源、64股边界、仅目标日递推、全state、共用发布、正常/一次续跑/原检查预算及文档状态。只审代码和已有证据，没有正式行情重读或业务测试。
+
+文档验证：`python3 scripts/check_docs_integrity.py`三组检查通过；两份文件`git diff --check`通过；另单独核对新增段落和文首跨文档相对链接及锚点（统一脚本不覆盖本目录全部相对链接）。这些只证明文档结构/链接，不证明未来代码数值、性能或正式数据完整性。当前剩余工作是19.9的获准开发、隔离验证及实现对账，正式恢复另列执行卡；没有以未测事项冒充通过，也没有留下待决定的新数据口径或公开配置。
+
+2026-10-30按管理员“不接受由本次优化导致历史重刷”的补充要求，再核实际消费者：分钟指标年度文件→`StockMinsLakeReader`→`StockMinuteQueryService`→股票详情API/页面；九转实际读取QFQ而不是MACD/KDJ。该次补查修正了原影响面表未逐一列出API/前端消费者的问题，并在方案17.2第9项及本节加入不重刷已完成历史、原reader兼容及既有repair去重验收。本轮仍未改业务代码、运行测试或核正式运行态。
+
+### 19.11 开发必须提交的等价与不重刷历史验收
+
+对应[业务方案17.9](dagster-stk-mins-qfq-macd-kdj-indicators-plan.md#179-讨论收口计算等价与不重刷历史是交付条件)。以下均为待开发验收，不能预填通过；不改变19.8的独立expected、隔离资源和必要读取边界。
+
+| 讨论要求 | 必须落到的实现约束 | 必须提交的隔离证据 |
+| --- | --- | --- |
+| 改取数，不改算法或结果 | 新daily只准备有限输入；原`_insert_macd_kdj_segment_rows`公式/seed/1024分段及参数版本原样复用；原公共prepare不改道 | 七频独立金样本＋原prepare有界补充对账。键/类型/行数/参数/版本精确一致，六项指标及EMA/DEA/K/D按原容差一致；不得修改expected或提高容差迎合新实现 |
+| KDJ仍需要历史迭代 | prefix只供9根HHV/LLV计算RSV，K/D从正确前日state逐根递推，MACD从原EMA/DEA递推 | 使用非初始50的字面K/D及非首价EMA/DEA作为前日state；独立核算目标日前几根，证明没有重新初始化或将prefix重复递推。第9根更早极值不影响目标窗口 |
+| 原state可直接承接，无需历史初始化 | 保持旧state的schema、params/version、所有递推值与`last_trade_time`语义 | 在临时目录放置原合同的前日state直接计算D，再把新D state用于D+1；与独立连续样本及原算法结果对账。D以前state文件内容和文件身份不变，不先重建它们 |
+| 年度写出不等于重算旧记录 | 年度merge仅替换D，其余日期从原表直接保留；不写D之外state或更早指标年份 | 隔离年度文件同时包含D之前、D及D之后的字面记录，验证仅D替换、其他记录字段/键/类型/数量不变。捕获实际写入目标集合，禁止出现未授权日期state和更早年份 |
+| 旧候选冲突不扩成历史修复 | 原publication的输入SHA/targets比较不放宽；旧正式数据保持可读；未完成范围另列恢复卡 | 构造旧operation冻结摘要冲突，仍应拒绝且不写正式目标、不删记录；原正式历史及前日state仍能由原reader/新daily使用。不能因冲突自动重刷历史或换root掩盖已提交结果 |
+| DG及真实消费者保持兼容 | asset/分区/check/schema/path/版本/run key不改；API/前端不迁移；九转仍读QFQ | 保留原定义/契约静态门禁。用临时结果交接给原reader验证字段、日期时间关联和历史查询；复用原API隔离测试。无正式event补录/历史分区重登记，无DG运行时代码跨工程import |
+| 原repair仍按原上游范围及完成去重 | 不新增优化专用repair，不把文件编码/SHA变化作为factor repair理由 | 原因子repair无历史变化则不提交MACD repair；确需repair时日期/名单/hash/upstream身份不变，已完成批次仍跳过；单日期repair也不进入新daily准备 |
+| 64股仅是组织方式，不是数据截断 | 每股只属于一批；保留所有批次结果及完整停牌state，不改源年份/不足8根行为 | 1/64/65股集合与计数全覆盖；跨年、停牌、原集合不足8根、无当日行情和无上一年路径均按19.8通过；实际来源选择和SQL证明没有全市场历史排名 |
+| 小结果不冒充小物理读取 | 当年两次选择、上一年按需、年度合并/原checks及来源stat均计预算 | 隔离记录查询及文件集合、输入/中间表行数和COPY/摘要次数；不凭返回8行声称只读8行，不加一次全量审计、重复SHA或正式性能样本 |
+
+验收结论必须把“方案已审计”“实现已通过隔离验证”“正式job已成功”分开。**不重刷已完成历史数据是本轮修改的交付硬条件，不是以后再争取的优化目标。** 任何必须重算历史、清空state、改下游或补历史事件才能继续的实现均不合格，应停在正式数据写入之前修正代码；不能将历史重刷改名为初始化、迁移、校准或恢复来绕过。若正式执行已按原原子提升提交了部分目标，仍按原记录保护已提交结果，不回滚或扩大范围。
+
+开发完成报告须列出上表每项对应的代码位置、测试名、预期依据、实际结果及未覆盖边界；存在未通过项时不申请部署/补数，不把其他测试数量或文档检查通过当作替代。正常因子变化原先就要求的repair仍保留，这与本次优化不得新增历史重刷的约束分别对账。
+
+本次补充仅更新两份原文档，没有新增实现、测试代码、正式读取、job/sensor操作或Git提交；完成后再做一次方案/LLD一致性审查及文档结构检查。第19.7节原预算和第19.9节阶段授权边界不变，不因本表列出验收就自动运行测试或正式恢复。
+
+本次补充复核已完成：两位独立审查者对照17.2/17.9及19.9/19.11确认，不重刷历史的硬门槛、原state承接、公式迭代、旧候选、年度记录保留、真实下游和原repair边界一致，未发现新增条款的阻断矛盾或讨论遗漏。文档完整性三组检查、新增相对链接/锚点及`git diff --check`通过；结论仅为文档验收，全部业务实现和测试证据仍待开发后取得。
