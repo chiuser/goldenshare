@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
+from datetime import date
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -29,3 +30,14 @@ class SecurityDAO(BaseDAO[Security]):
             return set()
         stmt = select(Security.ts_code).where(Security.ts_code.in_(code_list))
         return {str(code) for code in self.session.scalars(stmt)}
+
+    def get_listing_dates(self, ts_codes: Sequence[str]) -> dict[str, date | None]:
+        """Read listing dates for the requested codes, including delisted stocks."""
+        codes = sorted({code for code in ts_codes if code})
+        dates: dict[str, date | None] = {}
+        for start in range(0, len(codes), 500):
+            stmt = select(Security.ts_code, Security.list_date).where(
+                Security.ts_code.in_(codes[start : start + 500])
+            )
+            dates.update((row.ts_code, row.list_date) for row in self.session.execute(stmt))
+        return dates

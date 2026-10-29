@@ -1,12 +1,14 @@
 # A 股现金流量表（cashflow）维护说明
 
-更新时间：2026-09-10。已实现；2026-08-30 已完成下文所列初始范围的 Prod 验收，原开发需求关闭。原 LLD 有效内容已合入本页及共用规则；本次不重新认证当前生产数据、源接口或部署状态。
+更新时间：2026-10-29。原开发方案与 LLD 有效内容已合入本页及共用规则；2026-08-30 初始范围 Prod 验收保留为历史。本次 end_type=0 修正已先更新方案与 LLD，再完成代码和隔离验证，结果见共用规则 §7.5；未部署或重跑生产任务。
 
 ## 1. 当前链路与共用规则
 
 `cashflow.maintain → 公告自然日×report_type units → cashflow_vip 分页 → Raw 规范化/upsert → Serving 普通 view`。
 
 本表完整沿用[财务三表共用规则](/Users/congming/github/goldenshare/docs/datasets/income-dataset-development.md#financial-statement-shared-rules)：公告日而非报告期输入、默认真实 1..12、多选全选交互、七字段身份、end_type 规范化、指纹与修订、HDD/视图选择、事务、Ops 和调度。这里不再复制另一套共享合同。
+
+本次共享校验修正的[开发方案与 LLD](/Users/congming/github/goldenshare/docs/datasets/income-dataset-development.md#financial-statement-prelisting-zero-end-type)集中在共用规则 §7：源 end_type=0，且报告期严格早于正式上市日或查询成功但查不到上市日期时，保留源值并豁免季度末与类型映射检查；其他检查不变，数据库查询错误仍停止。不增加 is_calc 或其他运营输入，不改变现金流量表源合同。
 
 | 本表事实 | 当前值 |
 | --- | --- |

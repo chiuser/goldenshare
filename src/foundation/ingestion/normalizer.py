@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import math
+from collections.abc import Callable, Mapping, Sequence
 from datetime import date
 from decimal import InvalidOperation
 from typing import Any
@@ -79,6 +80,13 @@ class DatasetNormalizer:
     )
     _SOURCE_CONTENT_HASH_FIELD = "__ingestion_source_content_hash"
 
+    def __init__(
+        self,
+        *,
+        listing_dates_loader: Callable[[Sequence[str]], Mapping[str, date | None]] | None = None,
+    ) -> None:
+        self._listing_dates_loader = listing_dates_loader
+
     def normalize(
         self,
         *,
@@ -101,6 +109,11 @@ class DatasetNormalizer:
                     )
                 )
 
+        financial_statement = row_transform in FINANCIAL_STATEMENT_ROW_TRANSFORMS  # noqa: F405
+        listing_dates = (
+            self._load_financial_statement_listing_dates(fetch_result)
+            if financial_statement else {}
+        )
         rows_normalized: list[dict] = []
         rejected_reasons: dict[str, int] = {}
         rejected_samples: dict[str, list[dict[str, Any]]] = {}
@@ -141,7 +154,11 @@ class DatasetNormalizer:
                     else:
                         normalized["raw_payload"] = json.dumps(_diagnostic_payload(raw_row), ensure_ascii=False, default=str, allow_nan=False)
                 if row_transform is not None:
-                    normalized = row_transform(normalized)
+                    if financial_statement:
+                        code = str(normalized.get("ts_code") or "").replace("\x00", "").strip().upper()
+                        normalized = row_transform(normalized, listing_date=listing_dates.get(code))
+                    else:
+                        normalized = row_transform(normalized)
             except ObservedSnapshotHashError as exc:
                 raise IngestionNormalizeError(
                     StructuredError(
@@ -261,6 +278,28 @@ class DatasetNormalizer:
             quality_counts=quality_counts,
             quality_samples=quality_samples,
         )
+
+    def _load_financial_statement_listing_dates(
+        self, fetch_result: SourceFetchResult,
+    ) -> Mapping[str, date | None]:
+        codes = sorted({
+            str(row.get("ts_code") or "").replace("\x00", "").strip().upper()
+            for row in fetch_result.rows_raw
+            if str(row.get("end_type")).replace("\x00", "").strip() == "0"
+        } - {""})
+        if not codes or self._listing_dates_loader is None:
+            return {}
+        try:
+            return self._listing_dates_loader(codes)
+        except Exception as exc:
+            raise IngestionNormalizeError(StructuredError(
+                error_code="normalize.financial_statement_listing_dates_failed",
+                error_type="normalize",
+                phase="normalizer",
+                message="读取财务报表相关股票的上市日期失败，当前单元停止",
+                retryable=True,
+                unit_id=fetch_result.unit_id,
+            )) from exc
 
     @classmethod
     def _apply_source_multiplicity_policy(

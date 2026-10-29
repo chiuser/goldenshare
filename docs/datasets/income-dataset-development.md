@@ -1,6 +1,6 @@
 # A 股利润表（income）维护说明与财务三表共用规则
 
-更新时间：2026-09-10。已实现；2026-08-30 已完成下文所列初始范围的 Prod 验收，原开发需求关闭。本次将 LLD 有效细节并入本文，不重新认证当前生产数据、源接口或部署状态。
+更新时间：2026-10-29。原开发方案与 LLD 已合并于本文；2026-08-30 初始范围 Prod 验收保留为历史。§7 的特殊报告期修正已按先设计、后代码完成并通过隔离验证；本次不部署、不迁移、不重跑生产任务。
 
 ## 1. 范围与阅读入口
 
@@ -66,8 +66,8 @@
 七字段身份不能与源字段列表的前七列混淆：源字段前部还含 end_type，而身份含 update_flag。三表保留全部不同身份和已选择类型；同身份的内容修正允许覆盖，不是无限保留每次拉取副本。
 
 1. 标准 normalizer 转 Date/Decimal；共享 row transform 清 NUL、代码 trim/upper，校验三个日期、非空身份、report_type=1..12 和 update_flag=0/1。
-2. end_type 不入身份：按 end_date 的 03-31/06-30/09-30/12-31 映射为 1/2/3/4，缺失补齐，非空值必须匹配。
-3. 非季度末报 `normalize.financial_statement_end_date_invalid`，非法 end_type 报 `normalize.invalid_enum:end_type`，矛盾报 `normalize.end_type_mismatch`；禁止静默覆盖矛盾值。
+2. end_type 不入身份：源 end_type 为 0，且（end_date 严格早于证券主数据的正式上市日期，或查询成功但查不到上市日期）时，保留 end_date 与 end_type=0，跳过季度末及对应类型校验；完整实现与验收见 §7。其他记录按 end_date 的 03-31/06-30/09-30/12-31 映射为 1/2/3/4，缺失补齐，非空值必须匹配。
+3. 不满足上述例外的非季度末报 `normalize.financial_statement_end_date_invalid`，非法 end_type 报 `normalize.invalid_enum:end_type`，矛盾报 `normalize.end_type_mismatch`。查不到上市日期不同于数据库查询报错，后者必须停止；禁止静默覆盖矛盾值。
 4. 对全部规范化源字段计算 SHA-256 source_content_hash；先 NULL、后正确 end_type 得到同一指纹。
 5. `deduplicate_identical` 和批次唯一检查优先使用规范化 source_content_hash，未提供时才回退隐藏原始指纹。同批同身份同内容去重，异内容报 `normalize.batch_unique_key_conflicting` 并使 unit 失败。
 6. 跨任务同身份修订由 Raw upsert 更新业务列、指纹及 fetched_at；不因本次响应少了旧身份而删除历史行。
@@ -158,7 +158,7 @@ raw/core DAO 名均指向各表的 Raw GenericDAO；`raw_only_upsert` 实际不�
 | 字段与定义 | 94/86、158/150、97/89 的源/数值字段数和固定顺序；no_pool、raw/view、event freshness |
 | 输入和 planner | 缺省全部、子集去重、周末保留、显式空/非法/sentinel 拒绝；负例不产生有效计划或源请求 |
 | 分页 | 满页继续、短页结束、空类型合法；中间页错误不能写半套数据 |
-| 规范化 | comp_type=7、nullable 科目、四类季度、缺失 end_type 补齐、规范化指纹一致；非法/矛盾/同身份异内容失败且不进入 DAO |
+| 规范化 | comp_type=7、nullable 科目、四类季度、缺失 end_type 补齐、规范化指纹一致；end_type=0 且（上市前或查不到上市日期）时保留；其他非法/矛盾/同身份异内容失败且不进入 DAO；本次边界矩阵见 §7 |
 | 写入与 view | 只调 Raw DAO、跨任务修订覆盖；不同 f_ann_date 的版本保留，Serving 按 flag 优先再日期和稳定并列规则选择 |
 | 迁移 | HDD 缺失拒绝；000167 对空值补齐、非法现状在写入前失败、不扩大到 PK/索引/tablespace/删表，downgrade 拒绝 |
 | Ops/UI | 中文标签、全选/取消/子集、真实数组、空输入拒绝；手动/自动一致，无数据集私有分支 |
@@ -181,3 +181,62 @@ raw/core DAO 名均指向各表的 Raw GenericDAO；`raw_only_upsert` 实际不�
 5. migration 已到 `20260830_000167`，表、主键及索引继续位于 `gs_raw_cold_hdd`；页面验收由运营确认通过。
 
 该记录证明当时所列范围已验收；不证明全历史覆盖，也不证明此后每个公告日或当前生产状态已重新核验。
+
+<a id="financial-statement-prelisting-zero-end-type"></a>
+
+## 7. 2026-10-29 上市前 end_type=0 修正方案与 LLD
+
+### 7.1 目标、依据与范围
+
+管理员确认并在同次开发中补充：**源 end_type=0，且（end_date < 正式上市日期，或查询成功但上市日期查不到）** 的记录豁免季度末和 end_type 映射校验，保留源值。查不到包括无该证券记录、该记录 list_date 为 NULL；不能据此认定它未上市。比较的是报告期，不是公告日，也不是任务运行当天是否已上市；已知上市日时，等于上市日不豁免。适用于 income、balancesheet、cashflow 的共享规范化步骤。
+
+问题依据：TaskRun 17453 / node 26701 的 balancesheet 公告日 2024-01-11、report_type=1 单元，源记录 `920202.BJ / end_date=20230831 / end_type=0` 被原季度末检查拒绝，writer 按既有规则阻止整单元写入。2026-10-29 通过 tushareMcp 以同公告日及类型复现，stock_basic 返回安达股份正式上市日 20260929。本地源说明为 [doc 36](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/财务数据/0036_资产负债表.md)：end_type 是报告期类型，未明确说明 0 的定义；本次是获准的本地保留规则，不将推断写成源合同。
+
+现有实现审计：CodeGraph explore/impact 已追踪 `_financial_statement_row_transform` 的三个 wrapper；结合当前 normalizer、executor、SecurityDAO、Security 模型、stock_basic writer、财务 Raw ORM、000163～000167 及测试核验。股票基础数据发布到 `core_serving.security_serving`，其中 `list_date` 为 DATE、允许空；财务 Raw 的 end_type 是非空字符串，无 1..4 CHECK，保留 0 无需 schema 迁移。原 LLD 合并记录见 [文档治理记录](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#cyq-biying-financial-docs-consolidation-20260910)。
+
+范围：只修改上述三表的共享规范化、上市日期的有界只读查询和执行器接线、错误说明及相关测试。源字段、请求、分页、DatasetDefinition、DatasetExecutionPlan、日期输入、七字段身份、view 选择、Ops/API/前端合同不变；不增加运营参数或配置，不安装依赖，不恢复旧 LLD，不修改历史迁移或其他数据集。
+
+### 7.2 LLD：读取、判断与写入
+
+1. `SecurityDAO.get_listing_dates(ts_codes)` 只从 `core_serving.security_serving` 读取给定代码的 `ts_code/list_date`，不按当前上市状态过滤，不读取证券池。代码去重后每批最多 500 个，空集合不发 SQL；不查询全表、不调用 Tushare、不提交事务。
+2. `IngestionExecutor.__init__` 将同一 session 上的该只读方法注入 `DatasetNormalizer`。normalizer 仅在所选 row transform 属于三表 wrapper 时收集当前 fetch_result 内源 end_type=0 的代码，按现有清 NUL、trim/upper 规则匹配主数据；无此类行则无额外 SQL。结果仅存活于本次 normalize 调用，不增加跨 unit/跨任务缓存。
+3. 三个 wrapper 将对应上市日期传给共享 `_financial_statement_row_transform`。日期仍先经标准 coerce 转为 Python date；三个日期与 ts_code 必填检查继续执行。end_type=0 且 list_date 为 None 或严格晚于 end_date 时保留 0，不推导季度、不改 end_date；实际存在但类型错误的上市日期不是“查不到”，报 `normalize.invalid_date:list_date`。其余记录执行原季度检查、缺失补齐及映射一致性检查。纯内存调用未提供查询方法时，上市日期上下文为空；正式执行器必须注入查询方法。
+4. 例外分支之后仍执行 report_type=1..12、comp_type 非空、update_flag=0/1、完整源字段内容指纹、公告日期一致性、同身份内容冲突和去重规则。上市日期仅为校验上下文，不能进入源字段、Raw 行或 source_content_hash。
+5. 主数据 SQL 失败由 normalizer 抛出 `normalize.financial_statement_listing_dates_failed`，当前单元在 writer 前终止；不得吞异常、按无上市日期继续放行或部分写入。错误登记 codebook，不新增缺日期拒绝原因。正常的缺失补齐、拒绝整单元策略保持不变。
+
+### 7.3 事务、取消、续跑与性能预算
+
+| 项目 | 本次边界与预算 |
+| --- | --- |
+| 执行 unit / 幂等键 | 沿用公告自然日×report_type；七字段身份不变，同一 unit 重放仍为 upsert |
+| 批次与内存 | 源 page_limit=5000 不变；本次新增内存仅与当前 unit 内 end_type=0 的不同代码数 K 有关，O(K)，不累积历史日期或全市场主数据 |
+| 额外请求量 | Tushare 额外请求为 0；主数据 SQL 为 ceil(K/500)，无 0 记录时为 0，每次只投影两列；500 为内部查询分批上限，不新增配置 |
+| 目标耗时 / 配额 | 小样本新增查询与判断目标小于 1 秒；不会增加源分页或 Tushare 配额消耗。若真实环境缺表、权限错误或查询失败，停止该 unit，不尝试全表读取或源端补查 |
+| 持久化 / 事务 | 查询与业务写入使用既有 unit session；仍完整规范化后写 Raw、每 unit 提交。查询本身无写入，不引入长历史事务或额外状态表 |
+| 失败 / 中断 | 当前 unit 提交前失败/退出无新增业务事实；此前已提交 unit 保留。按既有重试入口重新获取当前 unit、重新查询上市日期，不以进程内字典作为续跑依据 |
+| 取消 / 可见进度 | 复用当前 unit 前后取消与进度检查，串行/并发入口及 TaskRun/节点终态不改；查询按最多 500 代码短查询执行，不新增超过 30 秒的不可分割工作 |
+| 续跑与最后验收开销 | 重试当前 unit 增量仍为 ceil(K/500) 次主数据查询；最终验收仅以单股票、单公告日源样本和主数据单代码查询核验，不全库对比、不重跑历史 |
+| 真实执行边界 | 本次只做源端/数据库有界只读和临时资源的隔离验证；不启动或重试生产 TaskRun，不宣称长任务取消恢复或部署已验收 |
+
+### 7.4 硬口径与验收矩阵
+
+| 要求 | 代码位置 | 必须覆盖的场景 |
+| --- | --- | --- |
+| 类型与日期条件必须同时成立 | row_transforms 共享 helper | 上市前非季度末+0 放行；上市前季度末+0 也保留；查不到上市日期+0 保留；已知上市当日/之后+0 拒绝；上市前或日期未知+非0/空值仍检查 |
+| 查不到日期与查询错误分开 | security_dao / normalizer / executor | 已退市状态仍可读取原上市日；缺代码/NULL 日期且 end_type=0 保留；错误日期类型拒绝；数据库异常停止且不调用 writer |
+| 其他检查不被跳过 | row_transforms / normalizer / writer | 例外记录仍拒绝非法日期、空身份、非法 report_type/update_flag、错误公告日和同身份异内容；合法常规季度及缺失 end_type 补齐不误拒绝 |
+| 不污染源字段和指纹 | wrappers / normalizer | 上市日期上下文不进入输出；0 原值保留；相同源记录在两次合法上市日期上下文中指纹一致；重复源行幂等去重 |
+| 读取有界且无额外源请求 | DAO / executor | 只查 0 记录的去重代码、500/501 代码分批、无候选不发查询；通过真实 SQL 的隔离数据库验证列与过滤条件 |
+| 真实错误可复现并修复 | 三表测试 / 有界源端验证 | 安达股份真实报文在旧逻辑被拒绝；修正后字段原值保留、拒绝数为 0，并能经正式 writer 写入隔离 Raw 表再读回；生产不写入 |
+
+### 7.5 实施与验证结果（2026-10-29）
+
+本次先完成 §7.1～7.4 并通过文档完整性检查，再修改代码；管理员补充“查不到上市日期且 end_type=0 也保留”后，先同步原方案与 LLD，再调整实现。实现文件为 §7.2 所列 security_dao.py、executor.py、normalizer.py、row_transforms.py 和 codebook.py。未修改源合同、Definition、执行计划、模型或迁移。
+
+1. **真实上游与错误重现**：tushareMcp `balancesheet_vip(ts_code=920202.BJ, ann_date=20240111, report_type=1, fields=完整158字段)` 返回 3 条；旧代码归一化 2 条、拒绝 1 条，原因为 `normalize.financial_statement_end_date_invalid`。其中完整特殊报告期记录连同请求及来源日期保存为[真实夹具](/Users/congming/github/goldenshare/tests/fixtures/financial_statements/balancesheet_920202_prelisting.json)，不是按消费者猜出的报文。
+2. **真实主数据只读核验**：使用仓库 psql-remote 入口，READ ONLY 事务、5 秒查询超时，只查 `core_serving.security_serving` 的单个 `920202.BJ`，投影 ts_code/list_date/list_status、LIMIT 1，结果为 `920202.BJ / 2026-09-29 / L`，随后 ROLLBACK；与 tushareMcp stock_basic 一致。没有生产写入或全局明细读取。
+3. **修正后最小链路**：重放同一批 3 条完整源记录，实际 IngestionExecutor → SecurityDAO → DatasetNormalizer → DatasetWriter/Raw GenericDAO → 临时 SQLite，源端/归一化/写入/目标表均为 3 条、拒绝为 0；读回保留 `2023-08-31 / 0`，样本链路耗时约 0.015 秒。这证明源合同交接与本地写入路径，不能替代生产 PostgreSQL 写入或部署验收。
+4. **硬口径逐项覆盖**：[专项测试](/Users/congming/github/goldenshare/tests/test_financial_statement_prelisting.py)共 83 项。`test_zero_end_type_preserved_before_listing_or_with_unknown_date` / `test_other_cases_still_rejected` 覆盖类型与日期条件；`test_exemption_does_not_skip_other_fields` / `test_exemption_keeps_unit_date_and_conflict_checks` 覆盖其他校验；`test_valid_quarter_needs_no_listing_query_and_zero_has_stable_source_hash` 覆盖指纹和常规补齐；两个 `test_listing_dao_*` 场景覆盖只查指定两列/代码、退市证券与 500/501 分批；`test_executor_uses_listing_dao_then_real_writer_and_idempotent_readback` 在三表×已知/NULL/无记录共 9 个场景写入、提交、重放及读回；`test_executor_reads_known_listing_date_and_blocks_postlisting_zero` 防止遗漏执行器接线被误当未知日期；查询异常和混合拒绝单元均验证 writer 不写入。
+5. **共享回归**：上述专项、原三表、通用 normalizer、fina_indicator、fund_daily 两阶段执行器、Definition registry、action resolver、子系统依赖/runtime/codebook 护栏，共 399 项通过；`ingestion-lint-definitions` 通过。文档完整性与差异空白检查通过。CodeGraph explore/impact 覆盖共享校验三个调用者及 DAO/normalizer/executor，修改后 sync/status 正常。
+
+交付状态：文档、代码和有界验证完成；未提交、未部署、未执行数据库迁移、未重试 TaskRun 17453。正式运行、页面效果及长任务真实取消恢复不在本次验证范围，历史 Prod 验收不作为本次通过依据。

@@ -290,6 +290,7 @@ def _financial_statement_row_transform(
     row: dict[str, Any],
     *,
     source_fields: tuple[str, ...],
+    listing_date: date | None = None,
 ) -> dict[str, Any]:
     transformed = {
         key: value.replace("\x00", "") if isinstance(value, str) else value
@@ -314,12 +315,20 @@ def _financial_statement_row_transform(
     expected_end_type = FINANCIAL_STATEMENT_END_TYPE_BY_MONTH_DAY.get(
         transformed["end_date"].strftime("%m%d")
     )
-    if expected_end_type is None:
+    if normalized_end_type == "0" and listing_date is not None and type(listing_date) is not date:
+        raise RowTransformReject(
+            "normalize.invalid_date:list_date",
+            "证券主数据的正式上市日期必须是 date 或空值",
+        )
+    if normalized_end_type == "0" and (listing_date is None or transformed["end_date"] < listing_date):
+        # Keep special periods before listing, or when the listing date is unknown.
+        transformed["end_type"] = "0"
+    elif expected_end_type is None:
         raise RowTransformReject(
             "normalize.financial_statement_end_date_invalid",
             "财务报表 end_date 必须是自然季度末",
         )
-    if normalized_end_type is None:
+    elif normalized_end_type is None:
         transformed["end_type"] = expected_end_type
     elif normalized_end_type not in FINANCIAL_STATEMENT_END_TYPE_BY_MONTH_DAY.values():
         raise RowTransformReject(
@@ -352,16 +361,21 @@ def _financial_statement_row_transform(
     return transformed
 
 
-def _income_row_transform(row: dict[str, Any]) -> dict[str, Any]:
-    return _financial_statement_row_transform(row, source_fields=INCOME_SOURCE_FIELDS)
+def _income_row_transform(row: dict[str, Any], *, listing_date: date | None = None) -> dict[str, Any]:
+    return _financial_statement_row_transform(row, source_fields=INCOME_SOURCE_FIELDS, listing_date=listing_date)
 
 
-def _balancesheet_row_transform(row: dict[str, Any]) -> dict[str, Any]:
-    return _financial_statement_row_transform(row, source_fields=BALANCESHEET_SOURCE_FIELDS)
+def _balancesheet_row_transform(row: dict[str, Any], *, listing_date: date | None = None) -> dict[str, Any]:
+    return _financial_statement_row_transform(row, source_fields=BALANCESHEET_SOURCE_FIELDS, listing_date=listing_date)
 
 
-def _cashflow_row_transform(row: dict[str, Any]) -> dict[str, Any]:
-    return _financial_statement_row_transform(row, source_fields=CASHFLOW_SOURCE_FIELDS)
+def _cashflow_row_transform(row: dict[str, Any], *, listing_date: date | None = None) -> dict[str, Any]:
+    return _financial_statement_row_transform(row, source_fields=CASHFLOW_SOURCE_FIELDS, listing_date=listing_date)
+
+
+FINANCIAL_STATEMENT_ROW_TRANSFORMS = (
+    _income_row_transform, _balancesheet_row_transform, _cashflow_row_transform,
+)
 
 
 def _fund_portfolio_staged_fact_row_transform(row: dict[str, Any]) -> dict[str, Any]:
@@ -1178,6 +1192,7 @@ def _biying_moneyflow_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 __all__ = [
+    "FINANCIAL_STATEMENT_ROW_TRANSFORMS",
     "MONEYFLOW_VOLUME_FIELDS",
     "RowTransformReject",
     "_moneyflow_row_transform",

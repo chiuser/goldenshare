@@ -6,6 +6,7 @@ from datetime import date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
+from src.foundation.dao.security_dao import SecurityDAO
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.ingestion.error_mapper import IngestionErrorMapper
 from src.foundation.ingestion.errors import IngestionError, IngestionWriteError, StructuredError
@@ -97,7 +98,7 @@ class IngestionExecutor:
     def __init__(self, session) -> None:  # type: ignore[no-untyped-def]
         self.session = session
         self.source_client = DatasetSourceClient()
-        self.normalizer = DatasetNormalizer()
+        self.normalizer = DatasetNormalizer(listing_dates_loader=SecurityDAO(session).get_listing_dates)
         self.writer = DatasetWriter(session)
         self.error_mapper = IngestionErrorMapper()
 

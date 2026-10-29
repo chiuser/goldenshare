@@ -24,6 +24,12 @@ INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-30.v2"
 INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-30T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
+    IngestionCodebookEntry(
+        "normalize.financial_statement_listing_dates_failed",
+        "读取财务报表相关股票的上市日期失败",
+        "normalize",
+        "检查证券主数据查询的连接与权限后重试；不得按未知上市日期放行",
+    ),
     IngestionCodebookEntry("weekly_adj.business_deadline_exceeded", "周线单元业务事务超过期限", "writer", "核对本单元规模/数据库状态后恢复原批"),
     IngestionCodebookEntry("weekly_adj.response_size_exceeded", "周线源响应超过字节预算", "source", "核验本单元响应大小，未经评审不得放宽预算"),
     IngestionCodebookEntry("weekly_adj.source_deadline_exceeded", "周线源调用超过总期限", "source", "核验源站状态并恢复原意图"),
@@ -199,7 +205,7 @@ INGESTION_REASON_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
         "normalize.financial_statement_end_date_invalid",
         "财务报表报告期非季度末",
         "normalize",
-        "核验 end_date 必须是 03-31、06-30、09-30 或 12-31",
+        "除 end_type=0 且报告期早于上市日期或查不到上市日期的记录外，end_date 必须是 03-31、06-30、09-30 或 12-31",
     ),
     IngestionCodebookEntry(
         "normalize.end_type_mismatch",
