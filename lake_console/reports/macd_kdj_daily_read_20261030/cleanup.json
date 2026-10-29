@@ -1,0 +1,155 @@
+{
+  "scope": "Only this development/tests identified temporary roots and scratch files; all retained evidence copied first",
+  "removed": [
+    {
+      "path": "/private/tmp/stock-suspend-isolated-au20dr9n",
+      "regular_files": 13,
+      "bytes": 29741,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/stock-suspend-isolated-zn37tjk3",
+      "regular_files": 13,
+      "bytes": 29955,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/stock-suspend-isolated-qw0tp__0",
+      "regular_files": 13,
+      "bytes": 29927,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/stock-suspend-isolated-h446sp54",
+      "regular_files": 13,
+      "bytes": 30004,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/stock-suspend-isolated-uissezf_",
+      "regular_files": 13,
+      "bytes": 29824,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/stock-suspend-isolated-gdd7gz40",
+      "regular_files": 13,
+      "bytes": 29491,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/stock-suspend-isolated-4awivhdi",
+      "regular_files": 13,
+      "bytes": 29550,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/stock-suspend-isolated-piu2rnuv",
+      "regular_files": 13,
+      "bytes": 29819,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/stock-suspend-isolated-r5j4_atb",
+      "regular_files": 13,
+      "bytes": 29639,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/stock-suspend-isolated-o5fi6bgb",
+      "regular_files": 13,
+      "bytes": 29681,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/stock-suspend-isolated-1cdfzbth",
+      "regular_files": 13,
+      "bytes": 29938,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/stock-suspend-isolated-ju6ea74p",
+      "regular_files": 13,
+      "bytes": 29898,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/stock-suspend-isolated-g__rczfi",
+      "regular_files": 13,
+      "bytes": 29801,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/stock-suspend-isolated-wf02jrj9",
+      "regular_files": 13,
+      "bytes": 29877,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/stock-suspend-isolated-jocdw6fe",
+      "regular_files": 13,
+      "bytes": 24741,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/macd_existing_regression_20261030_d6k6akg_",
+      "regular_files": 8,
+      "bytes": 46015,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/macd_daily_consumer_review_20261030",
+      "regular_files": 12,
+      "bytes": 40309,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/macd-kdj-validation-20261030",
+      "regular_files": 4,
+      "bytes": 14177,
+      "removed": true
+    },
+    {
+      "path": "/private/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/pytest-of-congming/pytest-2194",
+      "regular_files": 733,
+      "bytes": 1012474,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/macd-kdj-isolated-tests-20261030.py",
+      "regular_files": 1,
+      "bytes": 2079,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/macd-kdj-validation-20261030-run.log",
+      "regular_files": 1,
+      "bytes": 398,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/macd-kdj-publication-validation-20261030.json",
+      "regular_files": 1,
+      "bytes": 1107,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/macd-kdj-static-gates-20261030.log",
+      "regular_files": 1,
+      "bytes": 295061,
+      "removed": true
+    },
+    {
+      "path": "/private/tmp/macd-kdj-daily-docs-20261030.patch",
+      "regular_files": 1,
+      "bytes": 71712,
+      "removed": true
+    }
+  ],
+  "removed_regular_files": 957,
+  "removed_bytes": 1925218,
+  "formal_lake_or_staging_removed": false,
+  "unrelated_pytest_roots_untouched": true,
+  "final_66_case_temp_root_already_removed": true,
+  "consumer_fixture_cleanup_verified": true
+}

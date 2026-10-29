@@ -1,0 +1,27 @@
+{
+  "status": "development_and_isolated_verification_complete_pending_formal_recovery",
+  "documents_commit": "4a4a689e",
+  "code_committed": true,
+  "production_module_sha256": "615fb452a137107e0cc330963d6216e0e5a3995877144cbc0926e604b272a76f",
+  "tests": {
+    "daily_and_publication": 66,
+    "history_repair_and_formulas": 121,
+    "protected_static_gates": 113,
+    "reader_api": 15,
+    "total": 315,
+    "subtests": 23
+  },
+  "handoff": "actual DG producer DuckDB1.5.2 -> original reader/API DuckDB1.5.5 through isolated Parquet, D and D+1",
+  "formula_ast_and_public_signatures_unchanged": true,
+  "non_target_records_and_previous_states_preserved": true,
+  "repair_history_and_consumers_compatible_in_isolated_tests": true,
+  "new_history_refresh_required": false,
+  "formal_job_triggered": false,
+  "sensor_changed": false,
+  "formal_lake_accessed": false,
+  "dependency_installation": false,
+  "production_performance_measured": false,
+  "original_4gib_exception_reproduced": false,
+  "independent_review": "no blocking finding; see independent-review.md",
+  "test_resource_note": "Final 66-case guard denied one socket.bind attempt; no socket.connect or formal-file request was recorded. See daily-and-publication.json; protection was not disabled."
+}

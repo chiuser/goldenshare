@@ -1,0 +1,19 @@
+{
+  "baseline": "4a4a689e",
+  "unchanged_function_ast": {
+    "discover_gold_stk_mins_qfq_source_year_paths": true,
+    "_insert_macd_kdj_segment_rows": true,
+    "_populate_macd_kdj_indicator_work_rows": true,
+    "_write_indicator_group_to_year_file": true,
+    "_write_state_partition_file": true,
+    "_validate_indicator_year_file": true,
+    "_existing_indicator_rows_select": true,
+    "_existing_state_rows_select": true
+  },
+  "public_signatures_unchanged": {
+    "write_gold_stk_mins_qfq_macd_kdj_rows": true,
+    "write_gold_stk_mins_qfq_macd_kdj_asset_partition": true,
+    "prepare_stk_mins_qfq_macd_kdj_replacement_tables": true
+  },
+  "formal_execution": false
+}

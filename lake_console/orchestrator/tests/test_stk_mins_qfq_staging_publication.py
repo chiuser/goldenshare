@@ -17,6 +17,10 @@ import duckdb
 import pytest
 
 from orchestrator.defs import stk_mins_qfq, stk_mins_qfq_macd_kdj
+from orchestrator.defs.duckdb_connection import (
+    DuckDBConnectionSettings,
+    connect_configured_duckdb,
+)
 from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.io import stk_mins_qfq_publication as publication_module
 from orchestrator.defs.io.stk_mins_qfq_publication import StkMinsQfqPublication
@@ -25,10 +29,37 @@ from orchestrator.defs.paths import (
     gold_stk_mins_qfq_macd_kdj_state_path,
     gold_stk_mins_qfq_path,
 )
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA,
+    GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA,
+)
 
 DAY = "2026-10-22"
 PRIOR = "2026-10-21"
 CODES = ("000001.SZ", "600000.SH")
+
+
+@pytest.fixture(autouse=True)
+def isolated_writer_connections(tmp_path, monkeypatch):
+    """Replace only connection configuration; every real SQL/writer still runs.
+
+    The public MACD daily wrapper has no settings input. Neither it nor older
+    tests in this file may create the production DuckDB temporary directory.
+    """
+    directory = tmp_path / "duckdb"
+    directory.mkdir()
+    settings = DuckDBConnectionSettings(
+        temp_directory=directory,
+        memory_limit="128MiB",
+        max_temp_directory_size="64MiB",
+        threads=1,
+    )
+
+    def isolated(*_args, **kwargs):
+        return connect_configured_duckdb(settings, **kwargs)
+
+    monkeypatch.setattr(stk_mins_qfq, "connect_configured_duckdb", isolated)
+    monkeypatch.setattr(stk_mins_qfq_macd_kdj, "connect_configured_duckdb", isolated)
 
 
 def _sql(codes=CODES, *, day=DAY, price=10) -> str:
@@ -482,3 +513,366 @@ def test_receipt_directory_failure_releases_acquired_writer_lock(tmp_path):
     obstruction.unlink()  # Only the obstruction created by this isolated fixture.
     with _publication(tmp_path / "lake"):
         pass
+
+
+def _write_contract_rows(path, schema, rows, *, order_by):
+    """Fixture layout comes from the real producers' current column contracts."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    columns = tuple(column.name for column in schema)
+    definitions = ", ".join(f'"{column.name}" {column.type}' for column in schema)
+    with duckdb.connect(database=":memory:") as connection:
+        connection.execute(f"CREATE TEMP TABLE fixture_rows ({definitions})")
+        connection.executemany(
+            f"INSERT INTO fixture_rows VALUES ({', '.join('?' for _ in columns)})",
+            [[row[column] for column in columns] for row in rows],
+        )
+        connection.execute(
+            f"COPY (SELECT * FROM fixture_rows ORDER BY {order_by}) "
+            "TO ? (FORMAT PARQUET)",
+            [str(path)],
+        )
+
+
+def _daily_inputs(tmp_path, *, codes=CODES, include_suspended=False):
+    """Two-year contracts, three date sentinels, and a suspended state-only code.
+
+    Quote rows are produced by the actual QFQ writer. Historical indicator
+    numbers are independent literal sentinels: this fixture tests preservation,
+    not historical formula acceptance. Previous state is also literal, and
+    constant close=10 with HHV/LLV=11/9 gives current DIF/DEA/MACD=0, K/D/J=50.
+    """
+    root = tmp_path / "daily-lake"
+    after = "2026-10-23"
+    source_sql = " UNION ALL ".join(
+        _sql(codes=codes, day=day, price=10) for day in (PRIOR, DAY, after)
+    )
+    stk_mins_qfq.write_gold_stk_mins_qfq_rows_to_year_files(
+        lake_root=root,
+        freq=5,
+        qfq_select_sql=source_sql,
+        replace_trade_dates=(PRIOR, DAY, after),
+    )
+    params_key = "macd_12_26_9__kdj_9_3_3"
+    for code in codes:
+        old_rows = []
+        for day, marker in ((PRIOR, 1.0), (after, 2.0)):
+            old_rows.append({
+                "ts_code": code, "freq": 5, "trade_date": day,
+                "trade_time": f"{day} 09:35:00",
+                "macd_dif_qfq": marker,
+                "macd_dea_qfq": marker / 4,
+                "macd_qfq": 1.5 * marker,
+                "kdj_k_qfq": 10.0,
+                "kdj_d_qfq": 20.0,
+                "kdj_qfq": -10.0,
+                "params_key": params_key, "indicator_version": 1,
+            })
+        _write_contract_rows(
+            gold_stk_mins_qfq_macd_kdj_path(root, 5, code, 2026),
+            GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA, old_rows, order_by="trade_time",
+        )
+    state_rows = [{
+        "ts_code": code, "freq": 5, "trade_date": PRIOR,
+        "last_trade_time": f"{PRIOR} 09:35:00",
+        "macd_ema_fast": 10.0, "macd_ema_slow": 10.0, "macd_dea": 0.0,
+        "kdj_k": 50.0, "kdj_d": 50.0,
+        "params_key": params_key, "indicator_version": 1,
+    } for code in codes]
+    if include_suspended:
+        state_rows.append({
+            **state_rows[0], "ts_code": "300001.SZ",
+            "last_trade_time": "2025-12-31 09:35:00",
+            "macd_ema_fast": 9.0, "macd_ema_slow": 8.0,
+            "macd_dea": 1.0, "kdj_k": 61.0, "kdj_d": 42.0,
+        })
+    prior_state = gold_stk_mins_qfq_macd_kdj_state_path(root, 5, PRIOR)
+    _write_contract_rows(
+        prior_state, GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA, state_rows,
+        order_by="ts_code",
+    )
+    return root, prior_state
+
+
+def _daily(root, *, operation="daily-publication"):
+    return stk_mins_qfq_macd_kdj.write_gold_stk_mins_qfq_macd_kdj_asset_partition(
+        lake_root=root, freq=5, partition_key=DAY,
+        previous_expected_trade_date=PRIOR,
+        allow_without_previous_state=False,
+        publication_id=operation,
+    )
+
+
+def _daily_targets(root, codes=CODES):
+    return tuple(
+        gold_stk_mins_qfq_macd_kdj_path(root, 5, code, 2026)
+        for code in codes
+    ) + (gold_stk_mins_qfq_macd_kdj_state_path(root, 5, DAY),)
+
+
+def _replace_same_bytes(path):
+    """Simulate an external atomic rewrite, even though byte length is equal."""
+    replacement = path.with_name("fixture-replacement.parquet")
+    replacement.write_bytes(path.read_bytes())
+    os.replace(replacement, path)
+
+
+def test_daily_one_complete_publication_preserves_history_state_and_is_idempotent(
+    tmp_path,
+):
+    codes = CODES[:1]
+    root, prior = _daily_inputs(tmp_path, codes=codes, include_suspended=True)
+    prior_before = _physical(prior)
+    old_rows = {
+        code: _rows(gold_stk_mins_qfq_macd_kdj_path(root, 5, code, 2026), "*")
+        for code in codes
+    }
+    binds = []
+    original_bind = StkMinsQfqPublication.bind
+
+    def capture_bind(publication, connection, **kwargs):
+        if publication.scope["family"] == "macd_kdj":
+            binds.append(kwargs["targets"])
+        return original_bind(publication, connection, **kwargs)
+
+    with patch.object(StkMinsQfqPublication, "bind", capture_bind):
+        result = _daily(root)
+    assert binds == [_daily_targets(root, codes)]
+    assert result.indicator_row_count == 1
+    assert result.state_row_count == 2
+    assert _physical(prior) == prior_before
+    for code in codes:
+        path = gold_stk_mins_qfq_macd_kdj_path(root, 5, code, 2026)
+        rows = _rows(path, "*")
+        assert [row for row in rows if str(row[2]) != DAY] == old_rows[code]
+        current = next(row for row in rows if str(row[2]) == DAY)
+        assert current[4:7] == pytest.approx((0, 0, 0), abs=1e-12)
+        assert current[7:10] == pytest.approx((50, 50, 50), abs=1e-12)
+    state = _daily_targets(root, codes)[-1]
+    old_suspended = next(row for row in _rows(prior, "*") if row[0] == "300001.SZ")
+    suspended = next(row for row in _rows(state, "*") if row[0] == "300001.SZ")
+    assert str(suspended[2]) == DAY
+    assert suspended[:2] + suspended[3:] == old_suspended[:2] + old_suspended[3:]
+    before = {path: _physical(path) for path in _daily_targets(root, codes)}
+    _daily(root)
+    assert {path: _physical(path) for path in before} == before
+    assert _physical(prior) == prior_before
+    assert not list(root.rglob("*.tmp"))
+
+
+def test_daily_publication_lock_covers_input_preparation(tmp_path):
+    root, _prior = _daily_inputs(tmp_path)
+    prepare = stk_mins_qfq_macd_kdj._prepare_daily_macd_kdj_replacement_tables
+    observed = []
+
+    def locked_prepare(*args, **kwargs):
+        with (
+            pytest.raises(BlockingIOError),
+            StkMinsQfqPublication(
+                lake_root=root, family="macd_kdj", freq=5,
+                trade_dates=(PRIOR,), publication_id="concurrent-writer",
+            ),
+        ):
+            pass
+        observed.append(True)
+        return prepare(*args, **kwargs)
+
+    with patch.object(
+        stk_mins_qfq_macd_kdj,
+        "_prepare_daily_macd_kdj_replacement_tables",
+        side_effect=locked_prepare,
+    ):
+        _daily(root)
+    assert observed == [True]
+
+
+def test_daily_multiple_stock_batches_still_bind_one_complete_target_set(tmp_path):
+    # The approved batch-boundary fixture is 65 stocks with only three rows each.
+    codes = tuple(f"{index:06d}.SZ" for index in range(1, 66))
+    root, prior = _daily_inputs(tmp_path, codes=codes)
+    prior_before = _physical(prior)
+    binds = []
+    original_bind = StkMinsQfqPublication.bind
+
+    def capture_bind(publication, connection, **kwargs):
+        binds.append(kwargs["targets"])
+        return original_bind(publication, connection, **kwargs)
+
+    with patch.object(StkMinsQfqPublication, "bind", capture_bind):
+        result = _daily(root)
+    assert binds == [_daily_targets(root, codes)]
+    assert result.indicator_row_count == 65
+    assert result.state_row_count == 65
+    assert len(binds[0]) == 66
+    assert _physical(prior) == prior_before
+
+
+def test_daily_old_frozen_input_conflict_does_not_invalidate_formal_history(tmp_path):
+    root, prior = _daily_inputs(tmp_path)
+    _daily(root)
+    targets = _daily_targets(root)
+    before = {path: _physical(path) for path in (*targets, prior)}
+    # A real producer update changes the subsequent replacement values. Reusing
+    # the original daily publication must reject its old frozen input digest.
+    stk_mins_qfq.write_gold_stk_mins_qfq_rows_to_year_files(
+        lake_root=root,
+        freq=5,
+        qfq_select_sql=_sql(price=20),
+        replace_trade_dates=(DAY,),
+    )
+    with pytest.raises(ValueError, match="inputs or targets changed"):
+        _daily(root)
+    assert {path: _physical(path) for path in before} == before
+    for path in targets:
+        assert _rows(path, "trade_date")
+
+
+def test_daily_second_candidate_failure_preserves_all_formal_results_then_resumes(
+    tmp_path,
+):
+    root, prior = _daily_inputs(tmp_path)
+    targets = _daily_targets(root)
+    before = {path: _physical(path) for path in targets[:-1]}
+    prior_before = _physical(prior)
+    validated = StkMinsQfqPublication.validated
+    calls = []
+
+    def fail_second(publication, *args, **kwargs):
+        result = validated(publication, *args, **kwargs)
+        calls.append(args[0])
+        if len(calls) == 2:
+            raise RuntimeError("daily candidate interrupted")
+        return result
+
+    with (
+        patch.object(StkMinsQfqPublication, "validated", fail_second),
+        pytest.raises(RuntimeError, match="daily candidate interrupted"),
+    ):
+        _daily(root)
+    assert len(calls) == 2
+    assert {path: _physical(path) for path in before} == before
+    assert _physical(prior) == prior_before
+    assert not targets[-1].exists()
+    assert list((tmp_path / "daily-lake_staging").rglob("candidates/*/gold/**/*.parquet"))
+    _daily(root)
+    assert targets[-1].exists()
+    assert _physical(prior) == prior_before
+
+
+@pytest.mark.parametrize("after_replace", [False, True])
+def test_daily_resumes_both_replace_boundaries_without_rewriting_completed_file(
+    tmp_path, after_replace,
+):
+    root, prior = _daily_inputs(tmp_path)
+    targets = _daily_targets(root)
+    prior_before = _physical(prior)
+    original_replace = os.replace
+    stop_target = targets[0] if after_replace else targets[1]
+
+    def interrupt(source, destination):
+        if Path(destination) == stop_target:
+            if after_replace:
+                original_replace(source, destination)
+            raise RuntimeError("daily process exited at replace")
+        return original_replace(source, destination)
+
+    with (
+        patch.object(publication_module.os, "replace", side_effect=interrupt),
+        pytest.raises(RuntimeError, match="daily process exited"),
+    ):
+        _daily(root)
+    first = _physical(targets[0])
+    _daily(root)
+    assert _physical(targets[0]) == first
+    assert targets[-1].exists()
+    assert _physical(prior) == prior_before
+
+
+def test_daily_changed_source_during_computation_stops_before_bind(tmp_path):
+    root, prior = _daily_inputs(tmp_path)
+    targets = _daily_targets(root)
+    before = {path: _physical(path) for path in targets[:-1]}
+    source = gold_stk_mins_qfq_path(root, 5, CODES[0], 2026)
+    calculate = stk_mins_qfq_macd_kdj._populate_macd_kdj_indicator_work_rows
+
+    def changed_after_calculation(*args, **kwargs):
+        result = calculate(*args, **kwargs)
+        _replace_same_bytes(source)
+        return result
+
+    with (
+        patch.object(
+            stk_mins_qfq_macd_kdj, "_populate_macd_kdj_indicator_work_rows",
+            side_effect=changed_after_calculation,
+        ),
+        patch.object(StkMinsQfqPublication, "bind") as bind,
+        pytest.raises(RuntimeError, match="source file changed"),
+    ):
+        _daily(root)
+    bind.assert_not_called()
+    assert {path: _physical(path) for path in before} == before
+    assert prior.exists() and not targets[-1].exists()
+    macd_staging = tmp_path / "daily-lake_staging" / "stk_mins_qfq" / "macd_kdj"
+    assert not list(macd_staging.rglob("operation.json"))
+
+
+@pytest.mark.parametrize("changed_input", ["qfq", "previous_state"])
+def test_daily_source_change_while_building_candidates_stops_before_promotion(
+    tmp_path, changed_input,
+):
+    root, prior = _daily_inputs(tmp_path)
+    targets = _daily_targets(root)
+    before = {path: _physical(path) for path in targets[:-1]}
+    source = (
+        gold_stk_mins_qfq_path(root, 5, CODES[0], 2026)
+        if changed_input == "qfq" else prior
+    )
+    write_indicator = stk_mins_qfq_macd_kdj._write_indicator_group_to_year_file
+    changed = False
+
+    def change_after_candidate(*args, **kwargs):
+        nonlocal changed
+        result = write_indicator(*args, **kwargs)
+        if not changed:
+            _replace_same_bytes(source)
+            changed = True
+        return result
+
+    with (
+        patch.object(
+            stk_mins_qfq_macd_kdj, "_write_indicator_group_to_year_file",
+            side_effect=change_after_candidate,
+        ),
+        patch.object(StkMinsQfqPublication, "promote") as promote,
+        pytest.raises(RuntimeError, match="source file changed"),
+    ):
+        _daily(root)
+    promote.assert_not_called()
+    assert {path: _physical(path) for path in before} == before
+    assert not targets[-1].exists()
+    assert len(list(
+        (tmp_path / "daily-lake_staging").rglob("candidates/*/gold/**/*.parquet")
+    )) == 3
+
+
+def test_daily_normal_reads_and_unread_year_change_do_not_false_block(tmp_path):
+    root, prior = _daily_inputs(tmp_path)
+    source = gold_stk_mins_qfq_path(root, 5, CODES[0], 2026)
+    unused = gold_stk_mins_qfq_path(root, 5, CODES[0], 2024)
+    unused.parent.mkdir(parents=True)
+    unused.write_bytes(b"not a selected source year")
+    calculate = stk_mins_qfq_macd_kdj._populate_macd_kdj_indicator_work_rows
+
+    def ordinary_reads(*args, **kwargs):
+        result = calculate(*args, **kwargs)
+        source.read_bytes()  # A normal read may update atime, not input identity.
+        prior.read_bytes()
+        _replace_same_bytes(unused)
+        return result
+
+    with patch.object(
+        stk_mins_qfq_macd_kdj, "_populate_macd_kdj_indicator_work_rows",
+        side_effect=ordinary_reads,
+    ):
+        result = _daily(root)
+    assert result.indicator_row_count == 2
+    assert result.state_row_count == 2

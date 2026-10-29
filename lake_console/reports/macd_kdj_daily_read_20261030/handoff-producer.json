@@ -1,0 +1,85 @@
+{
+  "producer_interpreter": "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/python3",
+  "duckdb_version": "1.5.2",
+  "producer_module": "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq_macd_kdj.py",
+  "producer_module_sha256": "615fb452a137107e0cc330963d6216e0e5a3995877144cbc0926e604b272a76f",
+  "lake_root": "/private/tmp/macd_daily_consumer_review_20261030/handoff-data/lake",
+  "isolation": "Actual DG prepare/candidate/publication; only configured temp_directory substituted in this process",
+  "day_results": [
+    {
+      "day": "2026-10-28",
+      "indicator_rows": 2,
+      "state_rows": 2
+    },
+    {
+      "day": "2026-10-29",
+      "indicator_rows": 1,
+      "state_rows": 2
+    }
+  ],
+  "old_files_sha256": {
+    "gold/indicator/stk_mins_qfq_macd_kdj_state/freq=5/trade_date=2026-10-27/part-000.parquet": "9003c1b4f1c2e31d527dc1ed0f3fdba6216fdb2d5bf616dd725d3f321a3d78ed",
+    "gold/quote/stk_mins_qfq/freq=5/ts_code=000638.SZ/year=2026/part-000.parquet": "74f9d4f1f5294fa0e9a64a93b9db2b9e4cc0e238c642c48a4252aeb6ea299689",
+    "gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=600000.SH/year=2026/part-000.parquet": "db03054f58be556da8701e73c0d1a4e8c1f8ab176d13a1238baf19cbec5372b8"
+  },
+  "protected_old_files_unchanged": true,
+  "non_target_indicator_rows_unchanged": true,
+  "state_carried_forward": true,
+  "expected_target_rows": [
+    {
+      "trade_date": "2026-10-28",
+      "time": "09:35:00",
+      "macd_dif_qfq": 1.0056980056980056,
+      "macd_dea_qfq": 0.6011396011396012,
+      "macd_qfq": 0.8091168091168092,
+      "kdj_k_qfq": 51.666666666666664,
+      "kdj_d_qfq": 57.22222222222222,
+      "kdj_qfq": 40.55555555555556
+    },
+    {
+      "trade_date": "2026-10-28",
+      "time": "09:40:00",
+      "macd_dif_qfq": 0.9987013092426198,
+      "macd_dea_qfq": 0.6806519427602049,
+      "macd_qfq": 0.6360987329648299,
+      "kdj_k_qfq": 59.44444444444444,
+      "kdj_d_qfq": 57.96296296296296,
+      "kdj_qfq": 62.407407407407405
+    },
+    {
+      "trade_date": "2026-10-29",
+      "time": "09:35:00",
+      "macd_dif_qfq": 0.8222941959599941,
+      "macd_dea_qfq": 0.7089803934001627,
+      "macd_qfq": 0.22662760511966282,
+      "kdj_k_qfq": 47.96296296296296,
+      "kdj_d_qfq": 54.629629629629626,
+      "kdj_qfq": 34.629629629629626
+    }
+  ],
+  "expected_historical_rows": [
+    {
+      "trade_date": "2026-10-27",
+      "time": "15:00:00",
+      "macd_dif_qfq": 1.0,
+      "macd_dea_qfq": 2.0,
+      "macd_qfq": 3.0,
+      "kdj_k_qfq": 4.0,
+      "kdj_d_qfq": 5.0,
+      "kdj_qfq": 6.0
+    },
+    {
+      "trade_date": "2026-10-30",
+      "time": "09:35:00",
+      "macd_dif_qfq": 7.0,
+      "macd_dea_qfq": 8.0,
+      "macd_qfq": 9.0,
+      "kdj_k_qfq": 10.0,
+      "kdj_d_qfq": 11.0,
+      "kdj_qfq": 12.0
+    }
+  ],
+  "denied_access_attempts": [],
+  "cross_engineering_imports": false,
+  "fixture_bytes": 22825
+}

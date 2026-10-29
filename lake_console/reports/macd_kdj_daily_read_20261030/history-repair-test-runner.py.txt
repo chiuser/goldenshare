@@ -1,0 +1,46 @@
+import dataclasses
+import json
+from pathlib import Path
+import sys
+import pytest
+from orchestrator.defs import duckdb_connection as connection_module
+
+ALLOWED=Path(__file__).parent
+ACTIVE_TEMP=None
+ORIGINAL_CONNECT=connection_module.connect_configured_duckdb
+CONNECT_COUNT=0
+
+def isolated_connect(settings=connection_module.DEFAULT_DUCKDB_CONNECTION_SETTINGS, *, temp_policy="managed"):
+    global CONNECT_COUNT
+    if ACTIVE_TEMP is None:
+        raise AssertionError("configured DuckDB connection outside isolated test fixture")
+    CONNECT_COUNT += 1
+    return ORIGINAL_CONNECT(dataclasses.replace(settings,temp_directory=ACTIVE_TEMP),temp_policy=temp_policy)
+
+connection_module.connect_configured_duckdb=isolated_connect
+
+class Isolation:
+    reports=[]
+    @pytest.fixture(autouse=True)
+    def isolated_temp(self,tmp_path,monkeypatch):
+        global ACTIVE_TEMP
+        ACTIVE_TEMP=tmp_path/"configured_duckdb_temp"
+        ACTIVE_TEMP.mkdir()
+        for module in tuple(sys.modules.values()):
+            namespace=getattr(module,"__dict__",{})
+            name=namespace.get("__name__","")
+            if isinstance(name,str) and name.startswith("orchestrator."):
+                for attribute,value in tuple(namespace.items()):
+                    if value is ORIGINAL_CONNECT:
+                        monkeypatch.setattr(module,attribute,isolated_connect)
+        yield
+        ACTIVE_TEMP=None
+    def pytest_runtest_logreport(self,report):
+        if report.when=="call" or report.failed:
+            self.reports.append({"nodeid":report.nodeid,"when":report.when,"outcome":report.outcome})
+    def pytest_sessionfinish(self,session,exitstatus):
+        (ALLOWED/"summary.json").write_text(json.dumps({"exitstatus":int(exitstatus),"collected":session.testscollected,"configured_connections":CONNECT_COUNT,"reports":self.reports},indent=2))
+
+selected=json.loads((ALLOWED/"selected.json").read_text())
+args=["--rootdir","/Users/congming/github/goldenshare/lake_console/orchestrator/tests","--confcutdir","/Users/congming/github/goldenshare/lake_console/orchestrator/tests","--import-mode=importlib","--ignore-glob","/Users/congming/github/goldenshare/lake_console/orchestrator/tests/*","-q","--tb=short","--noconftest","-p","no:cacheprovider","-c",str(ALLOWED/"pytest.ini"),"--basetemp",str(ALLOWED/"pytest_tmp"),*selected]
+raise SystemExit(pytest.main(args,plugins=[Isolation()]))

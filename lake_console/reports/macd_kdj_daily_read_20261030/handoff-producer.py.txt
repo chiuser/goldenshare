@@ -1,0 +1,119 @@
+"""DG process: create tiny contract fixtures and publish real daily results."""
+from __future__ import annotations
+
+from dataclasses import replace
+from datetime import date, datetime, timedelta
+from fractions import Fraction
+import hashlib
+import json
+import os
+from pathlib import Path
+import sys
+
+TASK = Path(__file__).parent
+DATA = TASK / "handoff-data"
+LAKE = DATA / "lake"
+os.environ["DAGSTER_HOME"] = str(DATA / "forbidden-instance")
+DENIED: list[str] = []
+
+
+def audit(event, args):
+    if event in {"socket.connect", "socket.getaddrinfo"}:
+        DENIED.append(event)
+        raise AssertionError("Network forbidden")
+    if event in {"open", "os.listdir", "os.scandir", "os.mkdir"} and args and isinstance(args[0], (str, bytes, os.PathLike)):
+        path = os.fsdecode(args[0])
+        if path.startswith(("/Volumes/datasource/", "/Users/congming/.goldenshare/dagster_home", str(DATA / "forbidden-instance"))):
+            DENIED.append(event)
+            raise AssertionError("Formal/shared resource forbidden")
+
+
+sys.addaudithook(audit)
+import duckdb
+from orchestrator.defs import stk_mins_qfq_macd_kdj as core
+from orchestrator.defs.duckdb_connection import DEFAULT_DUCKDB_CONNECTION_SETTINGS, connect_configured_duckdb
+
+assert not any(name.startswith("src.foundation") for name in sys.modules)
+assert not DATA.exists(), "Do not overwrite existing fixtures"
+LAKE.mkdir(parents=True)
+isolated_settings = replace(DEFAULT_DUCKDB_CONNECTION_SETTINGS, temp_directory=DATA / "duckdb-temp")
+core.connect_configured_duckdb = lambda *_args, **_kwargs: connect_configured_duckdb(isolated_settings)
+
+CODE = "000638.SZ"
+OTHER = "600000.SH"
+PARAMS = "macd_12_26_9__kdj_9_3_3"
+COLS = ("macd_dif_qfq", "macd_dea_qfq", "macd_qfq", "kdj_k_qfq", "kdj_d_qfq", "kdj_qfq")
+# Independent rational expectations, manually derived from the documented
+# EMA(12,26,9) / KDJ(9,3,3) recurrence, with EMA=10/9, DEA=.5, K=40,D=60.
+EXPECTED = [
+    ("2026-10-28", "09:35:00", (Fraction(353,351), Fraction(211,351), Fraction(284,351), Fraction(155,3), Fraction(515,9), Fraction(365,9))),
+    ("2026-10-28", "09:40:00", (Fraction(123041,123201), Fraction(83857,123201), Fraction(78368,123201), Fraction(535,9), Fraction(1565,27), Fraction(1685,27))),
+    ("2026-10-29", "09:35:00", (Fraction(35558921,43243551), Fraction(153294149,216217755), Fraction(49000912,216217755), Fraction(1295,27), Fraction(1475,27), Fraction(935,27))),
+]
+
+
+def path(dataset, code=CODE):
+    layer = "quote" if dataset == "stk_mins_qfq" else "indicator"
+    return LAKE / "gold" / layer / dataset / "freq=5" / f"ts_code={code}" / "year=2026" / "part-000.parquet"
+
+
+def digest(p):
+    return hashlib.sha256(p.read_bytes()).hexdigest()
+
+
+def write_table(connection, name, ddl, rows, target):
+    target.parent.mkdir(parents=True, exist_ok=True)
+    connection.execute(f"CREATE TABLE {name} ({ddl})")
+    connection.executemany(f"INSERT INTO {name} VALUES ({','.join('?' for _ in rows[0])})", rows)
+    connection.execute(f"COPY {name} TO ? (FORMAT PARQUET)", [str(target)])
+
+
+indicator_ddl = "ts_code VARCHAR, freq INTEGER, trade_date DATE, trade_time TIMESTAMP, macd_dif_qfq DOUBLE, macd_dea_qfq DOUBLE, macd_qfq DOUBLE, kdj_k_qfq DOUBLE, kdj_d_qfq DOUBLE, kdj_qfq DOUBLE, params_key VARCHAR, indicator_version INTEGER"
+state_ddl = "ts_code VARCHAR, freq INTEGER, trade_date DATE, last_trade_time TIMESTAMP, macd_ema_fast DOUBLE, macd_ema_slow DOUBLE, macd_dea DOUBLE, kdj_k DOUBLE, kdj_d DOUBLE, params_key VARCHAR, indicator_version INTEGER"
+prior = LAKE / "gold/indicator/stk_mins_qfq_macd_kdj_state/freq=5/trade_date=2026-10-27/part-000.parquet"
+source_rows = []
+for i in range(8):
+    t = datetime(2026, 10, 27, 14, 25) + timedelta(minutes=5*i)
+    source_rows.append((CODE,5,t.date(),t,10.,12.,8.,10.,10.,100.,"SZSE"))
+for day, time, close in (("2026-10-28","09:35:00",11.),("2026-10-28","09:40:00",11.),("2026-10-29","09:35:00",9.)):
+    source_rows.append((CODE,5,date.fromisoformat(day),datetime.fromisoformat(day+" "+time),10.,12.,8.,close,10.,100.,"SZSE"))
+old_rows = [
+    (CODE,5,date(2026,10,27),datetime(2026,10,27,15),1.,2.,3.,4.,5.,6.,PARAMS,1),
+    (CODE,5,date(2026,10,30),datetime(2026,10,30,9,35),7.,8.,9.,10.,11.,12.,PARAMS,1),
+]
+with duckdb.connect(config={"temp_directory":str(DATA/"fixture-temp"),"autoinstall_known_extensions":"false","autoload_known_extensions":"false"}) as con:
+    write_table(con,"qfq", "ts_code VARCHAR, freq INTEGER, trade_date DATE, trade_time TIMESTAMP, open DOUBLE, high DOUBLE, low DOUBLE, close DOUBLE, vol DOUBLE, amount DOUBLE, exchange VARCHAR", source_rows,path("stk_mins_qfq"))
+    write_table(con,"old_indicators",indicator_ddl,old_rows,path("stk_mins_qfq_macd_kdj"))
+    write_table(con,"other_indicators",indicator_ddl,[(OTHER,5,date(2026,10,27),datetime(2026,10,27,15),1.,2.,3.,4.,5.,6.,PARAMS,1)],path("stk_mins_qfq_macd_kdj",OTHER))
+    write_table(con,"prior_state",state_ddl,[(CODE,5,date(2026,10,27),datetime(2026,10,27,15),10.,9.,.5,40.,60.,PARAMS,1),(OTHER,5,date(2026,10,27),datetime(2026,10,27,15),3.,2.,.25,35.,65.,PARAMS,1)],prior)
+before = {str(p.relative_to(LAKE)):digest(p) for p in (prior,path("stk_mins_qfq"),path("stk_mins_qfq_macd_kdj",OTHER))}
+results = []
+for day, prev in (("2026-10-28","2026-10-27"),("2026-10-29","2026-10-28")):
+    result = core.write_gold_stk_mins_qfq_macd_kdj_asset_partition(lake_root=LAKE,freq=5,partition_key=day,previous_expected_trade_date=prev,allow_without_previous_state=False,publication_id="consumer-handoff-"+day)
+    assert result.indicator_row_count == (2 if day.endswith("28") else 1)
+    assert result.state_row_count == 2
+    results.append({"day":day,"indicator_rows":result.indicator_row_count,"state_rows":result.state_row_count})
+after = {name:digest(LAKE/name) for name in before}
+assert before == after, "QFQ, previous state, and unrelated stock must be byte-identical"
+with duckdb.connect(config={"temp_directory":str(DATA/"fixture-temp"),"autoinstall_known_extensions":"false","autoload_known_extensions":"false"}) as con:
+    rows = con.execute("SELECT * FROM read_parquet(?,hive_partitioning=false) ORDER BY trade_date,trade_time",[str(path("stk_mins_qfq_macd_kdj"))]).fetchall()
+    assert len(rows) == 5
+    assert rows[0] == old_rows[0] and rows[-1] == old_rows[1]
+    for day,time,values in EXPECTED:
+        row = next(r for r in rows if str(r[2])==day and str(r[3].time())==time)
+        for value, expected in zip(row[4:10],values,strict=True):
+            assert abs(value-float(expected)) <= 1e-10+1e-12*abs(float(expected)), (day,time,value,float(expected))
+    for day,fast,slow,dea,k,d in (("2026-10-28",Fraction(1738,169),Fraction(6769,729),Fraction(83857,123201),Fraction(535,9),Fraction(1565,27)),("2026-10-29",Fraction(22160,2197),Fraction(182347,19683),Fraction(153294149,216217755),Fraction(1295,27),Fraction(1475,27))):
+        state = LAKE / f"gold/indicator/stk_mins_qfq_macd_kdj_state/freq=5/trade_date={day}/part-000.parquet"
+        all_state = con.execute("SELECT * FROM read_parquet(?,hive_partitioning=false) ORDER BY ts_code",[str(state)]).fetchall()
+        assert len(all_state)==2
+        target = next(r for r in all_state if r[0]==CODE)
+        for value,expected in zip(target[4:9],(fast,slow,dea,k,d),strict=True):
+            assert abs(value-float(expected)) <= 1e-10+1e-12*abs(float(expected))
+        other = next(r for r in all_state if r[0]==OTHER)
+        assert other[3] == datetime(2026,10,27,15) and other[4:9] == (3.,2.,.25,35.,65.)
+assert not any(name.startswith("src.foundation") for name in sys.modules)
+assert not DENIED
+manifest = {"producer_interpreter":sys.executable,"duckdb_version":duckdb.__version__,"producer_module":core.__file__,"producer_module_sha256":digest(Path(core.__file__)),"lake_root":str(LAKE),"isolation":"Actual DG prepare/candidate/publication; only configured temp_directory substituted in this process","day_results":results,"old_files_sha256":before,"protected_old_files_unchanged":before==after,"non_target_indicator_rows_unchanged":True,"state_carried_forward":True,"expected_target_rows":[{"trade_date":day,"time":time,**dict(zip(COLS,map(float,values),strict=True))} for day,time,values in EXPECTED],"expected_historical_rows":[{"trade_date":str(r[2]),"time":str(r[3].time()),**dict(zip(COLS,r[4:10],strict=True))} for r in old_rows],"denied_access_attempts":DENIED,"cross_engineering_imports":False,"fixture_bytes":sum(p.stat().st_size for p in DATA.rglob('*') if p.is_file())}
+(TASK/"handoff-producer.json").write_text(json.dumps(manifest,indent=2)+"\n")
+print(json.dumps({k:v for k,v in manifest.items() if k not in {"expected_target_rows","expected_historical_rows","old_files_sha256"}}))

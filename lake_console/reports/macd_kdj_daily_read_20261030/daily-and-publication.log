@@ -1,0 +1,3 @@
+..................................................................       [100%]
+66 passed in 10.07s
+{"exit_code": 0, "seconds": 10.46551450015977, "test_files": 2, "generated_files": 1352, "generated_bytes": 10133658, "temporary_root": "/private/tmp/macd-kdj-final-tests-1fsybvei", "blocked_resource_attempts": [{"event": "socket.bind"}], "formal_execution": false, "temporary_root_removed": true}

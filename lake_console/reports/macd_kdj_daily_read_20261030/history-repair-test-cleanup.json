@@ -1,0 +1,61 @@
+{
+  "generated_before_cleanup": {
+    "files": 724,
+    "bytes": 448941
+  },
+  "fixture_removed": {
+    "files": 717,
+    "bytes": 404236
+  },
+  "removed_top_level": [
+    "tmpqonyy5tg_staging",
+    "tmpugx4ykuh_staging",
+    "tmpta9qwn08_staging",
+    "tmpinmsnahs_staging",
+    "tmp7jsrw4hw_staging",
+    "tmp1blzsnd7_staging",
+    "tmp8xyysqay_staging",
+    "dagster_home",
+    "tmpf73nidc2_staging",
+    "tmpu50lzsxh_staging",
+    "tmppmog76uc_staging",
+    "tmp9j2sl8nr_staging",
+    "pytest_tmp",
+    "tmp01efsz0v_staging",
+    "tmp56vmso16_staging"
+  ],
+  "retained_files": [
+    "launch.json",
+    "pytest.ini",
+    "run.py",
+    "selected.json",
+    "summary.json",
+    "test.log",
+    "test.sb"
+  ],
+  "formal_resources_touched": false,
+  "startup_attempts": [
+    {
+      "stage": "OS sandbox application",
+      "exitstatus": 71,
+      "tests_executed": 0
+    },
+    {
+      "stage": "pytest collector without confcutdir/importlib",
+      "exitstatus": 4,
+      "tests_executed": 0
+    },
+    {
+      "stage": "same collector with rootdir only",
+      "exitstatus": 4,
+      "tests_executed": 0
+    },
+    {
+      "stage": "complete existing protected collection arguments",
+      "exitstatus": 0,
+      "tests_passed": 121,
+      "subtests_passed": 18
+    }
+  ],
+  "temporary_runner_only": true
+}

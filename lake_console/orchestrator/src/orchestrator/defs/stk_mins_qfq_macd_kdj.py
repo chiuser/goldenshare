@@ -4,6 +4,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from time import perf_counter
 
 import duckdb
 
@@ -35,6 +36,7 @@ from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_QFQ_FREQS,
     normalize_stk_mins_qfq_freq,
 )
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 GOLD_STK_MINS_QFQ_MACD_KDJ_COLUMNS = tuple(
     column.name for column in GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA
@@ -55,6 +57,8 @@ GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME = (
     "gold_stk_mins_qfq_macd_kdj_repair_completed_check"
 )
 SEGMENT_BAR_COUNT = 1024
+MACD_KDJ_DAILY_STOCK_BATCH_SIZE = 64
+LOGGER = DgStdoutLogger("stk_mins_qfq_macd_kdj")
 
 MACD_FAST_PERIOD = 12
 MACD_SLOW_PERIOD = 26
@@ -111,18 +115,24 @@ def _read_parquet_paths(paths: Sequence[Path]) -> str:
     if len(paths) == 1:
         return read_parquet(paths[0], hive_partitioning=False, union_by_name=True)
     quoted_paths = ", ".join(duckdb_string(path) for path in paths)
-    return f"read_parquet([{quoted_paths}], hive_partitioning=false, union_by_name=true)"
+    return (
+        f"read_parquet([{quoted_paths}], hive_partitioning=false, union_by_name=true)"
+    )
 
 
 def _date_values_sql(trade_dates: Sequence[str]) -> str:
     if not trade_dates:
         raise ValueError("At least one trade date is required.")
-    values = ", ".join(f"(DATE {duckdb_string(trade_date)})" for trade_date in trade_dates)
+    values = ", ".join(
+        f"(DATE {duckdb_string(trade_date)})" for trade_date in trade_dates
+    )
     return f"(VALUES {values}) AS target_trade_dates(trade_date)"
 
 
 def _stock_code_filter_sql(stock_codes: Sequence[str]) -> str:
-    normalized = tuple(sorted({stock_code.strip() for stock_code in stock_codes if stock_code.strip()}))
+    normalized = tuple(
+        sorted({stock_code.strip() for stock_code in stock_codes if stock_code.strip()})
+    )
     if not normalized:
         return ""
     values = ", ".join(duckdb_string(stock_code) for stock_code in normalized)
@@ -130,7 +140,9 @@ def _stock_code_filter_sql(stock_codes: Sequence[str]) -> str:
 
 
 def _normalize_trade_dates(trade_dates: Sequence[str]) -> tuple[str, ...]:
-    normalized = tuple(sorted({date.fromisoformat(item).isoformat() for item in trade_dates}))
+    normalized = tuple(
+        sorted({date.fromisoformat(item).isoformat() for item in trade_dates})
+    )
     if not normalized:
         raise ValueError("At least one trade date is required.")
     return normalized
@@ -283,7 +295,9 @@ def _create_macd_kdj_source_tables(
         """
     )
     previous_state_count = int(
-        connection.execute("SELECT count(*) FROM macd_kdj_previous_state_rows").fetchone()[0]
+        connection.execute(
+            "SELECT count(*) FROM macd_kdj_previous_state_rows"
+        ).fetchone()[0]
     )
     initialized_without_previous_state = previous_state_count == 0
 
@@ -394,6 +408,13 @@ def _create_macd_kdj_source_tables(
             "Gold qfq MACD/KDJ previous state is missing for existing stocks: "
             f"freq={freq}, missing_old_state_count={missing_old_state_count}."
         )
+    _create_macd_kdj_indicator_work_table(connection)
+    return initialized_without_previous_state
+
+
+def _create_macd_kdj_indicator_work_table(
+    connection: duckdb.DuckDBPyConnection,
+) -> None:
     connection.execute(
         """
         CREATE OR REPLACE TEMP TABLE macd_kdj_indicator_work_rows (
@@ -419,7 +440,6 @@ def _create_macd_kdj_source_tables(
         )
         """
     )
-    return initialized_without_previous_state
 
 
 def _insert_macd_kdj_segment_rows(
@@ -580,21 +600,33 @@ def _insert_macd_kdj_segment_rows(
     )
 
 
-def _populate_macd_kdj_indicator_work_rows(connection: duckdb.DuckDBPyConnection,
-    *,progress:Callable[[int],None]|None=None) -> int:
+def _populate_macd_kdj_indicator_work_rows(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    progress: Callable[[int], None] | None = None,
+) -> int:
     row = connection.execute(
         "SELECT max(segment_index) FROM macd_kdj_calculation_rows"
     ).fetchone()
     if row is None or row[0] is None:
         return 0
     max_segment_index = int(row[0])
-    if progress:progress(0)
+    if progress:
+        progress(0)
     for segment_index in range(max_segment_index + 1):
         _insert_macd_kdj_segment_rows(connection, segment_index=segment_index)
         if progress:
-            progress(int(connection.execute('SELECT count(*) FROM macd_kdj_indicator_work_rows').fetchone()[0]))
+            progress(
+                int(
+                    connection.execute(
+                        "SELECT count(*) FROM macd_kdj_indicator_work_rows"
+                    ).fetchone()[0]
+                )
+            )
     return int(
-        connection.execute("SELECT count(*) FROM macd_kdj_indicator_work_rows").fetchone()[0]
+        connection.execute(
+            "SELECT count(*) FROM macd_kdj_indicator_work_rows"
+        ).fetchone()[0]
     )
 
 
@@ -606,7 +638,7 @@ def prepare_stk_mins_qfq_macd_kdj_replacement_tables(
     previous_state_paths: Sequence[Path],
     freq: int,
     stock_codes: Sequence[str] = (),
-    progress: Callable[[int],None]|None = None,
+    progress: Callable[[int], None] | None = None,
 ) -> StkMinsQfqMacdKdjReplacementTables:
     """Prepare the canonical result/state relations without COPY or replacement."""
     initialized_without_previous_state = _create_macd_kdj_source_tables(
@@ -617,7 +649,20 @@ def prepare_stk_mins_qfq_macd_kdj_replacement_tables(
         freq=freq,
         stock_codes=stock_codes,
     )
-    _populate_macd_kdj_indicator_work_rows(connection,progress=progress)
+    _populate_macd_kdj_indicator_work_rows(connection, progress=progress)
+    return _build_macd_kdj_replacement_tables_from_work(
+        connection,
+        target_trade_dates=target_trade_dates,
+        initialized_without_previous_state=initialized_without_previous_state,
+    )
+
+
+def _build_macd_kdj_replacement_tables_from_work(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    target_trade_dates: Sequence[str],
+    initialized_without_previous_state: bool,
+) -> StkMinsQfqMacdKdjReplacementTables:
     connection.execute(
         f"""
         CREATE OR REPLACE TEMP TABLE macd_kdj_indicator_replacement_rows AS
@@ -709,9 +754,333 @@ def prepare_stk_mins_qfq_macd_kdj_replacement_tables(
         """
     )
     return StkMinsQfqMacdKdjReplacementTables(
-        "macd_kdj_indicator_replacement_rows", "macd_kdj_state_replacement_rows",
+        "macd_kdj_indicator_replacement_rows",
+        "macd_kdj_state_replacement_rows",
         initialized_without_previous_state,
     )
+
+
+def _daily_macd_kdj_source_file_identity(path: Path) -> tuple[int, int, int, int, int]:
+    observed = path.stat()
+    return (
+        observed.st_dev,
+        observed.st_ino,
+        observed.st_size,
+        observed.st_mtime_ns,
+        observed.st_ctime_ns,
+    )
+
+
+def _assert_daily_macd_kdj_source_files_unchanged(
+    source_file_identities: dict[Path, tuple[int, int, int, int, int]],
+    *,
+    paths: Sequence[Path] | None = None,
+) -> None:
+    for path in paths if paths is not None else source_file_identities:
+        try:
+            observed = _daily_macd_kdj_source_file_identity(path)
+        except FileNotFoundError as error:
+            raise RuntimeError(
+                f"Daily MACD/KDJ source file changed during computation: {path}."
+            ) from error
+        if observed != source_file_identities[path]:
+            raise RuntimeError(
+                f"Daily MACD/KDJ source file changed during computation: {path}."
+            )
+
+
+def _daily_macd_kdj_prior_bars_sql(
+    paths: Sequence[Path],
+    *,
+    freq: int,
+    trade_date: str,
+) -> str:
+    return f"""
+    SELECT
+      CAST(ts_code AS VARCHAR) AS ts_code,
+      CAST(freq AS INTEGER) AS freq,
+      arg_max(
+        struct_pack(
+          trade_date := CAST(trade_date AS DATE),
+          trade_time := CAST(trade_time AS TIMESTAMP),
+          high := CAST(high AS DOUBLE),
+          low := CAST(low AS DOUBLE),
+          close := CAST(close AS DOUBLE)
+        ),
+        CAST(trade_time AS TIMESTAMP),
+        {KDJ_PERIOD - 1}
+      ) AS prior_bars
+    FROM {_read_parquet_paths(paths)}
+    WHERE CAST(freq AS INTEGER) = {freq}
+      AND CAST(trade_date AS DATE) < DATE {duckdb_string(trade_date)}
+      AND CAST(ts_code AS VARCHAR) IN (
+        SELECT ts_code FROM macd_kdj_daily_target_rows
+      )
+    GROUP BY CAST(ts_code AS VARCHAR), CAST(freq AS INTEGER)
+    """
+
+
+def _create_daily_macd_kdj_calculation_rows(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    trade_date: str,
+) -> None:
+    connection.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE macd_kdj_calculation_rows AS
+        WITH rows_with_lookback AS (
+          SELECT * FROM macd_kdj_daily_target_rows
+          UNION ALL
+          SELECT
+            ts_code, freq, bar.trade_date, bar.trade_time,
+            bar.high, bar.low, bar.close
+          FROM macd_kdj_daily_prior_rows
+        ),
+        rsv_rows AS (
+          SELECT
+            *,
+            max(high) OVER (
+              PARTITION BY ts_code, freq
+              ORDER BY trade_time
+              ROWS BETWEEN {KDJ_PERIOD - 1} PRECEDING AND CURRENT ROW
+            ) AS kdj_hhv,
+            min(low) OVER (
+              PARTITION BY ts_code, freq
+              ORDER BY trade_time
+              ROWS BETWEEN {KDJ_PERIOD - 1} PRECEDING AND CURRENT ROW
+            ) AS kdj_llv
+          FROM rows_with_lookback
+        ),
+        target_rows AS (
+          SELECT
+            ts_code, freq, trade_date, trade_time, close,
+            CASE
+              WHEN kdj_hhv = kdj_llv THEN 50.0
+              ELSE (close - kdj_llv) / (kdj_hhv - kdj_llv) * 100.0
+            END AS kdj_rsv
+          FROM rsv_rows
+          WHERE trade_date = DATE {duckdb_string(trade_date)}
+        )
+        SELECT
+          *,
+          row_number() OVER (
+            PARTITION BY ts_code, freq ORDER BY trade_time
+          ) AS calculation_row_number,
+          CAST(floor((row_number() OVER (
+            PARTITION BY ts_code, freq ORDER BY trade_time
+          ) - 1) / {SEGMENT_BAR_COUNT}) AS INTEGER) AS segment_index,
+          CAST(((row_number() OVER (
+            PARTITION BY ts_code, freq ORDER BY trade_time
+          ) - 1) % {SEGMENT_BAR_COUNT}) + 1 AS INTEGER) AS segment_row_number
+        FROM target_rows
+        ORDER BY segment_index, ts_code, trade_time
+        """
+    )
+
+
+def _prepare_daily_macd_kdj_replacement_tables(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    source_qfq_paths: Sequence[Path],
+    target_trade_date: str,
+    previous_state_paths: Sequence[Path],
+    freq: int,
+    source_file_identities: dict[Path, tuple[int, int, int, int, int]],
+) -> StkMinsQfqMacdKdjReplacementTables:
+    trade_date = date.fromisoformat(target_trade_date).isoformat()
+    current_year = trade_date[:4]
+    previous_year = str(int(current_year) - 1)
+    paths_by_code: dict[str, dict[str, Path]] = {}
+    for path in source_qfq_paths:
+        code = path.parents[1].name.removeprefix("ts_code=")
+        year = path.parent.name.removeprefix("year=")
+        paths_by_code.setdefault(code, {})[year] = path
+    codes = tuple(sorted(paths_by_code))
+
+    for path in previous_state_paths:
+        source_file_identities[path] = _daily_macd_kdj_source_file_identity(path)
+    previous_state_sql = (
+        _read_parquet_paths(previous_state_paths)
+        if previous_state_paths
+        else _empty_state_source_sql()
+    )
+    connection.execute(
+        f"""
+        CREATE OR REPLACE TEMP TABLE macd_kdj_previous_state_rows AS
+        SELECT {_schema_cast_columns(GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_COLUMN_TYPES)}
+        FROM {previous_state_sql}
+        WHERE CAST(freq AS INTEGER) = {freq}
+        QUALIFY row_number() OVER (
+          PARTITION BY ts_code, freq
+          ORDER BY trade_date DESC, last_trade_time DESC
+        ) = 1
+        """
+    )
+    _assert_daily_macd_kdj_source_files_unchanged(
+        source_file_identities,
+        paths=previous_state_paths,
+    )
+    initialized_without_previous_state = (
+        int(
+            connection.execute(
+                "SELECT count(*) FROM macd_kdj_previous_state_rows"
+            ).fetchone()[0]
+        )
+        == 0
+    )
+    _create_macd_kdj_indicator_work_table(connection)
+
+    for offset in range(0, len(codes), MACD_KDJ_DAILY_STOCK_BATCH_SIZE):
+        started_at = perf_counter()
+        batch_codes = codes[offset : offset + MACD_KDJ_DAILY_STOCK_BATCH_SIZE]
+        current_paths = tuple(
+            paths_by_code[code][current_year]
+            for code in batch_codes
+            if current_year in paths_by_code[code]
+        )
+        actual_paths = list(current_paths)
+        for path in current_paths:
+            source_file_identities[path] = _daily_macd_kdj_source_file_identity(path)
+        target_counts = []
+        prefix_row_count = 0
+        previous_paths: tuple[Path, ...] = ()
+        if current_paths:
+            connection.execute(
+                f"""
+                CREATE OR REPLACE TEMP TABLE macd_kdj_daily_target_rows AS
+                SELECT
+                  CAST(ts_code AS VARCHAR) AS ts_code,
+                  CAST(freq AS INTEGER) AS freq,
+                  CAST(trade_date AS DATE) AS trade_date,
+                  CAST(trade_time AS TIMESTAMP) AS trade_time,
+                  CAST(high AS DOUBLE) AS high,
+                  CAST(low AS DOUBLE) AS low,
+                  CAST(close AS DOUBLE) AS close
+                FROM {_read_parquet_paths(current_paths)}
+                WHERE CAST(freq AS INTEGER) = {freq}
+                  AND CAST(trade_date AS DATE) = DATE {duckdb_string(trade_date)}
+                """
+            )
+            target_counts = connection.execute(
+                "SELECT ts_code, count(*) FROM macd_kdj_daily_target_rows "
+                "GROUP BY ts_code ORDER BY ts_code"
+            ).fetchall()
+        if target_counts:
+            active_codes = tuple(str(row[0]) for row in target_counts)
+            active_current_paths = tuple(
+                paths_by_code[code][current_year] for code in active_codes
+            )
+            connection.execute(
+                "CREATE OR REPLACE TEMP TABLE macd_kdj_daily_current_prior AS "
+                + _daily_macd_kdj_prior_bars_sql(
+                    active_current_paths,
+                    freq=freq,
+                    trade_date=trade_date,
+                )
+            )
+            prior_counts = dict(
+                connection.execute(
+                    "SELECT ts_code, len(prior_bars) FROM macd_kdj_daily_current_prior"
+                ).fetchall()
+            )
+            previous_paths = tuple(
+                paths_by_code[code][previous_year]
+                for code in active_codes
+                if prior_counts.get(code, 0) < KDJ_PERIOD - 1
+                and previous_year in paths_by_code[code]
+            )
+            prior_select = (
+                "SELECT ts_code, freq, unnest(prior_bars) AS bar "
+                "FROM macd_kdj_daily_current_prior"
+            )
+            if previous_paths:
+                for path in previous_paths:
+                    source_file_identities[path] = _daily_macd_kdj_source_file_identity(
+                        path
+                    )
+                actual_paths.extend(previous_paths)
+                connection.execute(
+                    "CREATE OR REPLACE TEMP TABLE macd_kdj_daily_previous_prior AS "
+                    + _daily_macd_kdj_prior_bars_sql(
+                        previous_paths,
+                        freq=freq,
+                        trade_date=trade_date,
+                    )
+                )
+                prior_select += (
+                    " UNION ALL SELECT ts_code, freq, unnest(prior_bars) AS bar "
+                    "FROM macd_kdj_daily_previous_prior"
+                )
+            connection.execute(
+                f"""
+                CREATE OR REPLACE TEMP TABLE macd_kdj_daily_prior_rows AS
+                SELECT
+                  ts_code, freq,
+                  unnest(arg_max(bar, bar.trade_time, {KDJ_PERIOD - 1})) AS bar
+                FROM ({prior_select}) prior_candidates
+                GROUP BY ts_code, freq
+                """
+            )
+            missing_old_state_count = int(
+                connection.execute(
+                    """
+                SELECT count(*)
+                FROM (SELECT DISTINCT ts_code, freq FROM macd_kdj_daily_target_rows) target_codes
+                LEFT JOIN macd_kdj_previous_state_rows previous_state
+                  ON previous_state.ts_code = target_codes.ts_code
+                 AND previous_state.freq = target_codes.freq
+                WHERE previous_state.ts_code IS NULL
+                  AND EXISTS (
+                    SELECT 1 FROM macd_kdj_daily_prior_rows prior_source
+                    WHERE prior_source.ts_code = target_codes.ts_code
+                      AND prior_source.freq = target_codes.freq
+                  )
+                """
+                ).fetchone()[0]
+            )
+            if missing_old_state_count:
+                raise RuntimeError(
+                    "Gold qfq MACD/KDJ previous state is missing for existing stocks: "
+                    f"freq={freq}, missing_old_state_count={missing_old_state_count}."
+                )
+            _create_daily_macd_kdj_calculation_rows(connection, trade_date=trade_date)
+            _populate_macd_kdj_indicator_work_rows(connection)
+            prefix_row_count = int(
+                connection.execute(
+                    "SELECT count(*) FROM macd_kdj_daily_prior_rows"
+                ).fetchone()[0]
+            )
+        _assert_daily_macd_kdj_source_files_unchanged(
+            source_file_identities,
+            paths=actual_paths,
+        )
+        LOGGER.stdout(
+            "gold_stk_mins_qfq_macd_kdj_daily_batch_completed",
+            trade_date=trade_date,
+            freq=freq,
+            completed_stock_count=offset + len(batch_codes),
+            total_stock_count=len(codes),
+            target_row_count=sum(int(row[1]) for row in target_counts),
+            prefix_row_count=prefix_row_count,
+            current_year_source_file_count=len(current_paths),
+            previous_year_source_file_count=len(previous_paths),
+            elapsed_seconds=round(perf_counter() - started_at, 3),
+        )
+        for table_name in (
+            "macd_kdj_daily_target_rows",
+            "macd_kdj_daily_current_prior",
+            "macd_kdj_daily_previous_prior",
+            "macd_kdj_daily_prior_rows",
+            "macd_kdj_calculation_rows",
+        ):
+            connection.execute(f"DROP TABLE IF EXISTS {table_name}")
+    replacement_tables = _build_macd_kdj_replacement_tables_from_work(
+        connection,
+        target_trade_dates=(trade_date,),
+        initialized_without_previous_state=initialized_without_previous_state,
+    )
+    _assert_daily_macd_kdj_source_files_unchanged(source_file_identities)
+    return replacement_tables
 
 
 def _existing_indicator_rows_select(target_path: Path) -> str:
@@ -774,7 +1143,8 @@ def _write_indicator_group_to_year_file(
     publication: StkMinsQfqPublication,
 ) -> int:
     temp_path, reused_count = publication.candidate(
-        target_path, fail_if_target_exists=fail_if_target_exists,
+        target_path,
+        fail_if_target_exists=fail_if_target_exists,
     )
     if temp_path is None:
         return int(reused_count)
@@ -917,6 +1287,136 @@ def _write_state_partition_file(
     return row_count
 
 
+def _publish_macd_kdj_replacement_tables(
+    connection: duckdb.DuckDBPyConnection,
+    *,
+    publication: StkMinsQfqPublication,
+    lake_root: Path,
+    normalized_freq: int,
+    normalized_trade_dates: tuple[str, ...],
+    replacement_tables: StkMinsQfqMacdKdjReplacementTables,
+    stock_codes: Sequence[str],
+    fail_if_target_exists: bool,
+    allow_empty_replacement: bool,
+    before_promote: Callable[[], None] | None = None,
+) -> tuple[
+    tuple[GoldStkMinsQfqMacdKdjWriteResult, ...],
+    tuple[GoldStkMinsQfqMacdKdjStateWriteResult, ...],
+    bool,
+]:
+    initialized_without_previous_state = (
+        replacement_tables.initialized_without_previous_state
+    )
+    replacement_row_count = int(
+        connection.execute(
+            "SELECT count(*) FROM macd_kdj_indicator_replacement_rows"
+        ).fetchone()[0]
+    )
+    if replacement_row_count == 0 and allow_empty_replacement:
+        return (), (), initialized_without_previous_state
+    if replacement_row_count == 0:
+        raise RuntimeError(
+            "Gold qfq MACD/KDJ computation produced no indicator rows: "
+            f"freq={normalized_freq}, trade_dates={normalized_trade_dates}."
+        )
+
+    groups = connection.execute(
+        """
+        SELECT
+          ts_code,
+          strftime(trade_date, '%Y') AS year,
+          count(*) AS replacement_row_count
+        FROM macd_kdj_indicator_replacement_rows
+        GROUP BY ts_code, year
+        ORDER BY ts_code, year
+        """
+    ).fetchall()
+    publication.bind(
+        connection,
+        inputs={
+            "indicator": (
+                f"SELECT {', '.join(GOLD_STK_MINS_QFQ_MACD_KDJ_COLUMNS)} "
+                "FROM macd_kdj_indicator_replacement_rows ORDER BY ts_code, trade_time"
+            ),
+            "state": (
+                f"SELECT {', '.join(GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_COLUMNS)} "
+                "FROM macd_kdj_state_replacement_rows ORDER BY trade_date, ts_code"
+            ),
+        },
+        targets=tuple(
+            gold_stk_mins_qfq_macd_kdj_path(
+                lake_root, normalized_freq, str(code), str(year)
+            )
+            for code, year, _ in groups
+        )
+        + tuple(
+            gold_stk_mins_qfq_macd_kdj_state_path(lake_root, normalized_freq, day)
+            for day in normalized_trade_dates
+        ),
+    )
+    indicator_results: list[GoldStkMinsQfqMacdKdjWriteResult] = []
+    for ts_code, year, group_replacement_row_count in groups:
+        target_path = gold_stk_mins_qfq_macd_kdj_path(
+            lake_root,
+            normalized_freq,
+            str(ts_code),
+            str(year),
+        )
+        row_count = _write_indicator_group_to_year_file(
+            connection,
+            target_path=target_path,
+            freq=normalized_freq,
+            ts_code=str(ts_code),
+            year=str(year),
+            replacement_trade_dates=normalized_trade_dates,
+            fail_if_target_exists=fail_if_target_exists,
+            publication=publication,
+        )
+        indicator_results.append(
+            GoldStkMinsQfqMacdKdjWriteResult(
+                path=target_path,
+                ts_code=str(ts_code),
+                year=str(year),
+                row_count=row_count,
+                replacement_row_count=int(group_replacement_row_count),
+            )
+        )
+
+    state_results: list[GoldStkMinsQfqMacdKdjStateWriteResult] = []
+    for trade_date_value in normalized_trade_dates:
+        state_path = gold_stk_mins_qfq_macd_kdj_state_path(
+            lake_root,
+            normalized_freq,
+            trade_date_value,
+        )
+        row_count = _write_state_partition_file(
+            connection,
+            target_path=state_path,
+            freq=normalized_freq,
+            trade_date=trade_date_value,
+            scoped_stock_codes=stock_codes,
+            publication=publication,
+        )
+        state_results.append(
+            GoldStkMinsQfqMacdKdjStateWriteResult(
+                path=state_path,
+                freq=normalized_freq,
+                trade_date=trade_date_value,
+                row_count=row_count,
+            )
+        )
+
+    if before_promote is not None:
+        before_promote()
+    publication.promote()
+
+    return (
+        tuple(indicator_results),
+        tuple(state_results),
+        initialized_without_previous_state,
+    )
+
+
 def write_gold_stk_mins_qfq_macd_kdj_rows(
     *,
     lake_root: Path,
@@ -937,12 +1437,20 @@ def write_gold_stk_mins_qfq_macd_kdj_rows(
     normalized_freq = normalize_stk_mins_qfq_freq(freq)
     normalized_trade_dates = _normalize_trade_dates(target_trade_dates)
     if not source_qfq_paths:
-        raise FileNotFoundError("Missing source gold qfq files for MACD/KDJ computation.")
+        raise FileNotFoundError(
+            "Missing source gold qfq files for MACD/KDJ computation."
+        )
 
-    with StkMinsQfqPublication(
-        lake_root=lake_root, family="macd_kdj", freq=normalized_freq,
-        trade_dates=normalized_trade_dates, publication_id=publication_id,
-    ) as publication, connect_configured_duckdb(duckdb_settings) as connection:
+    with (
+        StkMinsQfqPublication(
+            lake_root=lake_root,
+            family="macd_kdj",
+            freq=normalized_freq,
+            trade_dates=normalized_trade_dates,
+            publication_id=publication_id,
+        ) as publication,
+        connect_configured_duckdb(duckdb_settings) as connection,
+    ):
         replacement_tables = prepare_stk_mins_qfq_macd_kdj_replacement_tables(
             connection,
             source_qfq_paths=source_qfq_paths,
@@ -951,110 +1459,17 @@ def write_gold_stk_mins_qfq_macd_kdj_rows(
             freq=normalized_freq,
             stock_codes=stock_codes,
         )
-        initialized_without_previous_state = replacement_tables.initialized_without_previous_state
-        replacement_row_count = int(
-            connection.execute(
-                "SELECT count(*) FROM macd_kdj_indicator_replacement_rows"
-            ).fetchone()[0]
-        )
-        if replacement_row_count == 0 and allow_empty_replacement:
-            return (), (), initialized_without_previous_state
-        if replacement_row_count == 0:
-            raise RuntimeError(
-                "Gold qfq MACD/KDJ computation produced no indicator rows: "
-                f"freq={normalized_freq}, trade_dates={normalized_trade_dates}."
-            )
-
-        groups = connection.execute(
-            """
-            SELECT
-              ts_code,
-              strftime(trade_date, '%Y') AS year,
-              count(*) AS replacement_row_count
-            FROM macd_kdj_indicator_replacement_rows
-            GROUP BY ts_code, year
-            ORDER BY ts_code, year
-            """
-        ).fetchall()
-        publication.bind(
+        return _publish_macd_kdj_replacement_tables(
             connection,
-            inputs={
-                "indicator": (
-                    f"SELECT {', '.join(GOLD_STK_MINS_QFQ_MACD_KDJ_COLUMNS)} "
-                    "FROM macd_kdj_indicator_replacement_rows ORDER BY ts_code, trade_time"
-                ),
-                "state": (
-                    f"SELECT {', '.join(GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_COLUMNS)} "
-                    "FROM macd_kdj_state_replacement_rows ORDER BY trade_date, ts_code"
-                ),
-            },
-            targets=tuple(
-                gold_stk_mins_qfq_macd_kdj_path(lake_root, normalized_freq, str(code), str(year))
-                for code, year, _ in groups
-            ) + tuple(
-                gold_stk_mins_qfq_macd_kdj_state_path(lake_root, normalized_freq, day)
-                for day in normalized_trade_dates
-            ),
+            publication=publication,
+            lake_root=lake_root,
+            normalized_freq=normalized_freq,
+            normalized_trade_dates=normalized_trade_dates,
+            replacement_tables=replacement_tables,
+            stock_codes=stock_codes,
+            fail_if_target_exists=fail_if_target_exists,
+            allow_empty_replacement=allow_empty_replacement,
         )
-        indicator_results: list[GoldStkMinsQfqMacdKdjWriteResult] = []
-        for ts_code, year, group_replacement_row_count in groups:
-            target_path = gold_stk_mins_qfq_macd_kdj_path(
-                lake_root,
-                normalized_freq,
-                str(ts_code),
-                str(year),
-            )
-            row_count = _write_indicator_group_to_year_file(
-                connection,
-                target_path=target_path,
-                freq=normalized_freq,
-                ts_code=str(ts_code),
-                year=str(year),
-                replacement_trade_dates=normalized_trade_dates,
-                fail_if_target_exists=fail_if_target_exists,
-                publication=publication,
-            )
-            indicator_results.append(
-                GoldStkMinsQfqMacdKdjWriteResult(
-                    path=target_path,
-                    ts_code=str(ts_code),
-                    year=str(year),
-                    row_count=row_count,
-                    replacement_row_count=int(group_replacement_row_count),
-                )
-            )
-
-        state_results: list[GoldStkMinsQfqMacdKdjStateWriteResult] = []
-        for trade_date_value in normalized_trade_dates:
-            state_path = gold_stk_mins_qfq_macd_kdj_state_path(
-                lake_root,
-                normalized_freq,
-                trade_date_value,
-            )
-            row_count = _write_state_partition_file(
-                connection,
-                target_path=state_path,
-                freq=normalized_freq,
-                trade_date=trade_date_value,
-                scoped_stock_codes=stock_codes,
-                publication=publication,
-            )
-            state_results.append(
-                GoldStkMinsQfqMacdKdjStateWriteResult(
-                    path=state_path,
-                    freq=normalized_freq,
-                    trade_date=trade_date_value,
-                    row_count=row_count,
-                )
-            )
-
-        publication.promote()
-
-    return (
-        tuple(indicator_results),
-        tuple(state_results),
-        initialized_without_previous_state,
-    )
 
 
 def write_gold_stk_mins_qfq_macd_kdj_asset_partition(
@@ -1084,18 +1499,43 @@ def write_gold_stk_mins_qfq_macd_kdj_asset_partition(
         previous_expected_trade_date=previous_expected_trade_date,
         allow_without_previous_state=allow_without_previous_state,
     )
-    indicator_results, state_results, initialized_without_previous_state = (
-        write_gold_stk_mins_qfq_macd_kdj_rows(
+    source_file_identities: dict[Path, tuple[int, int, int, int, int]] = {}
+    with (
+        StkMinsQfqPublication(
             lake_root=lake_root,
+            family="macd_kdj",
             freq=normalized_freq,
-            source_qfq_paths=source_paths,
-            target_trade_dates=[partition_key],
+            trade_dates=(partition_key,),
             publication_id=publication_id,
+        ) as publication,
+        connect_configured_duckdb() as connection,
+    ):
+        replacement_tables = _prepare_daily_macd_kdj_replacement_tables(
+            connection,
+            source_qfq_paths=source_paths,
+            target_trade_date=partition_key,
             previous_state_paths=(
                 (previous_state_path,) if previous_state_path is not None else ()
             ),
+            freq=normalized_freq,
+            source_file_identities=source_file_identities,
         )
-    )
+        indicator_results, state_results, initialized_without_previous_state = (
+            _publish_macd_kdj_replacement_tables(
+                connection,
+                publication=publication,
+                lake_root=lake_root,
+                normalized_freq=normalized_freq,
+                normalized_trade_dates=(partition_key,),
+                replacement_tables=replacement_tables,
+                stock_codes=(),
+                fail_if_target_exists=False,
+                allow_empty_replacement=False,
+                before_promote=lambda: _assert_daily_macd_kdj_source_files_unchanged(
+                    source_file_identities,
+                ),
+            )
+        )
     if not indicator_results:
         raise RuntimeError(
             "Gold qfq MACD/KDJ asset write produced no indicator files: "
@@ -1115,7 +1555,9 @@ def write_gold_stk_mins_qfq_macd_kdj_asset_partition(
         previous_state_file_path=previous_state_path,
         indicator_file_count=len(indicator_results),
         indicator_sample_file_paths=indicator_file_paths[:20],
-        indicator_row_count=sum(result.replacement_row_count for result in indicator_results),
+        indicator_row_count=sum(
+            result.replacement_row_count for result in indicator_results
+        ),
         indicator_replacement_row_count=sum(
             result.replacement_row_count for result in indicator_results
         ),

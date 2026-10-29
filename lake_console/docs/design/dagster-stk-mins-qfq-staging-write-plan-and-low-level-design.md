@@ -1,6 +1,6 @@
 # 股票分钟前复权与MACD/KDJ写入修正方案和LLD
 
-> 2026-10-30新增：MACD/KDJ正常日更读取修正的编码LLD在第19节，对应[原业务方案第17节](dagster-stk-mins-qfq-macd-kdj-indicators-plan.md#17-macdkdj日更读取修正方案2026-10-30)。本轮只改文档，未开发、未测试业务代码、未读取正式行情、未补数。第3—8节保留早期写入设计/执行背景，其中摘要重复读取已由第9—10节及当前publication实现修正，不得恢复旧多遍摘要；第19节继续复用现行一次摘要和逐文件恢复。第13—18节的具体日期批准及结果不是本轮开发或新日期执行授权。
+> 2026-10-30最新状态：MACD/KDJ正常日更读取修正见第19节，对应[原业务方案第17节](dagster-stk-mins-qfq-macd-kdj-indicators-plan.md#17-macdkdj日更读取修正方案2026-10-30)。设计文档已提交`4a4a689e`，本轮开发、隔离测试、真实临时文件交接和独立实现审计已完成，第19.12节逐项对账；代码及验收记录随本次实现提交归档。未读取正式行情、未补数、未重载任务或改sensor。第3—8节为早期背景，摘要次数以第9—10节和当前publication为准，不恢复旧多遍摘要；第13—18节旧执行批准不覆盖新日期恢复。
 
 日期：2026-10-24；读取优化及正式执行：2026-10-25。最新状态：22日七频QFQ及原28检查已完成（第13节）；因子repair读取/续跑身份修正完成，26项隔离回归通过，随后获准正常执行一次26股历史修复，七条真实检查及消费者门槛ready（第14.8节）。不再做性能样本或全局复审。此前样本失败及297项回归证据保留，不用旧阶段结论替代本次正式结果。
 
@@ -938,7 +938,7 @@ Prod事务失败回滚；若提交成功后事件或check失败，不当作未�
 
 ### 19.1 本步目标、状态和证据
 
-业务要求逐条对应[MACD/KDJ方案第17节](dagster-stk-mins-qfq-macd-kdj-indicators-plan.md#17-macdkdj日更读取修正方案2026-10-30)。本节目标只限七频正常日更的数据准备与等价共用代码提取；历史repair的日期/代码/计算组织、history/bootstrap及其他数据集本轮不优化。本轮授权是审计和文档，以下函数、常量和测试均为**待开发设计**，不能作为已经存在或已通过的实现证据。
+业务要求逐条对应[MACD/KDJ方案第17节](dagster-stk-mins-qfq-macd-kdj-indicators-plan.md#17-macdkdj日更读取修正方案2026-10-30)。本节目标只限七频正常日更的数据准备与等价共用代码提取；历史repair的日期/代码/计算组织、history/bootstrap及其他数据集本轮不优化。以下为编码前确认的设计约束；设计文档提交后管理员已授权开发与隔离验收，实际实现、验证及未覆盖边界见第19.12节，不能仅凭设计条目存在就认定通过。
 
 证据及其适用范围：
 
@@ -969,7 +969,7 @@ Prod事务失败回滚；若提交成功后事件或check失败，不当作未�
 
 仅在`defs/stk_mins_qfq_macd_kdj.py`内按下表拆分职责；不新增对外CLI/job或跨工程依赖。私有名字表达长期职责，不带阶段编号。
 
-| 当前代码 | 待实现的私有职责 | 保持方式 |
+| 原代码 | 私有职责（实现对账见19.12） | 保持方式 |
 | --- | --- | --- |
 | `_create_macd_kdj_source_tables`末尾创建work表 | 提取`_create_macd_kdj_indicator_work_table(connection)` | 原历史准备仍在同一时机调用，DDL/schema原样；日更仅在批次前创建一次 |
 | `prepare_stk_mins_qfq_macd_kdj_replacement_tables`中从work生成indicator/state的部分 | 提取`_build_macd_kdj_replacement_tables_from_work(...)` | 继续使用原排序和state合并SQL，初始化标记由调用方传入；不重写历史state关联 |
@@ -1045,7 +1045,7 @@ GROUP BY ts_code, freq;
 
 | 项 | 值、来源与持久化 | 消费者、作用与生效 | 验收 |
 | --- | --- | --- | --- |
-| `MACD_KDJ_DAILY_STOCK_BATCH_SIZE`（拟新增内部算法常量） | 64，定义在原MACD模块；不来自env/Settings/DB/run config，不持久化、不暴露运营输入 | 仅新日更批次规划及其测试读取该定义；随代码部署生效，无其他消费者。每批最多64股，不限制总股数 | 65股跨批次正例；1/64/65股完整覆盖，无截断；history/repair不读取此常量 |
+| `MACD_KDJ_DAILY_STOCK_BATCH_SIZE`（本轮实现的内部算法常量） | 64，定义在原MACD模块；不来自env/Settings/DB/run config，不持久化、不暴露运营输入 | 仅新日更批次规划及其测试读取该定义；随代码部署生效，无其他消费者。每批最多64股，不限制总股数 | 65股跨批次正例；1/64/65股完整覆盖，无截断；history/repair不读取此常量 |
 | 公式、KDJ历史条数及分段 | 原12/26/9、9/3/3、8根前序和1024分段 | 原公式函数；不得将股票批量当K线分段 | 独立字面金样本、跨批次seed、前序第9根极值反例 |
 | DuckDB设置 | 原`DEFAULT_DUCKDB_CONNECTION_SETTINGS`，16GB/4线程、managed及既有512GB临时容量 | 新日更复用原默认；history自有设置及其他消费者不改 | 不新增timeout、内存/临时容量限制，不套用QFQ的no-spill策略 |
 | 目录与并发 | 原formal/staging根、writer pool、publication同family/freq文件锁 | 从准备输入到统一提升覆盖整个频率；不按64股释放重拿 | 并发拒绝、全部候选准备后提升、锁随进程退出释放 |
@@ -1067,7 +1067,7 @@ GROUP BY ts_code, freq;
 
 ### 19.7 正常、续跑与收尾的读写预算
 
-**本轮文档工作**：正式Parquet内容读取、价格计算、网络源请求、数据库及Lake写入均为0；只读源码、测试、原文档和已有metadata报告。没有重做年度stat、计数审计、性能样本或正式运行。下列是待开发方案的成本模型，不是读取批准或当前实测。
+**开发前文档阶段**：当时正式Parquet内容读取、价格计算、网络源请求、数据库及Lake写入均为0，只读源码、测试、原文档和已有metadata报告。随后开发使用人工临时文件，未重做正式年度stat、计数审计、性能样本或正式运行。下列仍是未来正式执行的成本模型，不是读取批准或实际设备I/O；本轮隔离成本另见19.12。
 
 按每个独立文件步骤最多计一次完整文件大小，不按列比例、缓存或row group裁剪打折：
 
@@ -1102,9 +1102,9 @@ GROUP BY ts_code, freq;
 
 耗时边界：未来上述隔离夹具预计数分钟完成，不设置新的正式job超时或内存/临时容量限制。当前没有新算法的真实耗时和spill测量，不能凭旧152秒benchmark承诺29/30日全市场时长；这不阻止先开发和隔离验证，但正式执行卡必须使用当时未完成频率及已有运行日志补齐预估，不能将本节条件预算直接当作可执行批准，也不为填时长数字另跑全市场性能测试。
 
-### 19.8 待开发测试、独立依据及验收条件
+### 19.8 测试、独立依据及验收条件
 
-本节是验收清单，本轮不执行这些测试。未来开发使用orchestrator现有`.venv`、隔离临时Lake/staging/temp，不初始化正式instance、不访问正式凭据或安装依赖。普通夹具不超过2股、2年和少量K线；批次边界用65股各少量行，临时文件目标预算64MiB。64股阈值是批量边界，不能改成测试过滤掉超出股票。
+本节是编码前确认的验收清单，实际执行结果见19.12。开发使用orchestrator现有`.venv`、隔离临时Lake/staging/temp，不初始化正式instance、不访问正式凭据或安装依赖。普通夹具不超过2股、2年和少量K线；批次边界用65股各少量行，临时文件目标预算64MiB。64股阈值是批量边界，不能改成测试过滤掉超出股票。
 
 | 要求 | 代码点 | 正例与反例/独立expected |
 | --- | --- | --- |
@@ -1123,23 +1123,25 @@ GROUP BY ts_code, freq;
 | repair/history不改道 | 原公共writer与调用方 | 单日期repair仍走原prepare；多日期history仍完整递推；old flags、scope、完整state预检及14 completion门禁不变 |
 | 原数据及真实下游兼容 | 原年度合并、完整state、`StockMinsLakeReader`与股票详情指标API | 隔离小文件证明非目标日期/股票业务值不变、前日state不重写；新目标结果可由原reader按原列/类型/键读回并按日期时间与行情对应，版本/参数/分页不改；既有已完成repair不重复触发。测试经临时文件交接并各用本工程现有环境，不在DG运行时import `src.foundation`或主工程API |
 
-复用测试为：`test_stk_mins_qfq_macd_kdj_formula_golden_contracts.py`、`test_stk_mins_qfq_m12_macd_kdj.py`、`test_stk_mins_qfq_macd_kdj_repair_op_contracts.py`、`test_stk_mins_qfq_macd_kdj_repair_gate.py`、`test_stk_mins_qfq_staging_publication.py`、`test_stk_mins_qfq_publication_single_digest.py`和原运行契约静态门禁。新增日更测试拟放`tests/test_stk_mins_qfq_macd_kdj_daily_read.py`，当前尚无此文件；不为了本轮文档创建测试代码。
+复用测试为：`test_stk_mins_qfq_macd_kdj_formula_golden_contracts.py`、`test_stk_mins_qfq_m12_macd_kdj.py`、`test_stk_mins_qfq_macd_kdj_repair_op_contracts.py`、`test_stk_mins_qfq_macd_kdj_repair_gate.py`、`test_stk_mins_qfq_staging_publication.py`、`test_stk_mins_qfq_publication_single_digest.py`和原运行契约静态门禁。新增日更测试已放入`tests/test_stk_mins_qfq_macd_kdj_daily_read.py`；原staging测试新增日更发布回归，未删减既有用例。
 
 expected以原已核实公式和独立字面小样本为准，不能调用新daily或同一选择helper生成。与旧prepare做有界结果对账仅作补充。保留原浮点容差（绝对1e-10、相对1e-12）、类型、行数、代码/日期集合及其他日期不变断言；不能只靠放宽容差通过。受保护套件走原测试启动器，单元、隔离集成、既有真实合同证据和未来正式执行分别报告。现有§6.1真实小样本/当前producer合同可作接入依据；缺证据时只补有界字段样本并单独说明，不能顺便重跑全市场或性能测试。
 
-真实消费者的已有隔离测试还包括仓库根`tests/test_stock_mins_reader.py`和`tests/web/test_stock_detail_minutes_api.py`；未来开发先核对现有环境和测试资源边界，再按必要范围运行，不因本轮文档调用它们或访问正式Lake。
+真实消费者的已有隔离测试包括仓库根`tests/test_stock_mins_reader.py`和`tests/web/test_stock_detail_minutes_api.py`；本轮已在其现有环境运行15项，并补新daily临时文件到原reader/API的实际交接，详见19.12。未访问正式Lake；API认证/数据库依赖在测试中隔离，不宣称验收真实认证或数据库。
 
 开发完成验收应逐条对账：业务方案17.2的9条要求 → 上表代码点 → 正/反测试 → 实际证据。源码正确性通过不等于4GB错误已被实际复现并消除；正式run是否成功只能由其真实结果证明。
 
 ### 19.9 下一步及正式执行边界
 
-1. 本轮审计原设计、当前代码及消费者，完成第17节业务方案和本节LLD一致性/负面影响审查、文档检查，向管理员汇报并停止，不提交业务改动或运行job。
-2. 获准开发后，先做私有等价提取并回归旧公共writer，再实现明确daily调用和有限输入；不同时开发repair优化，不扩展配置或源年份。方案17.9及19.11是执行约束，不得绕过。
-3. 完成19.8隔离验证和19.11逐项交付对账，证明原正式数据/state可直接继续使用且不需要历史重刷，才可申请部署或正式补数；任一项不满足继续修代码，本轮开发不算完成。仅在来源明确、范围必要时补最小真实只读合同核验，不安排额外全市场性能测试。
-4. 正式恢复前只读核实当时缺口、来源/前日state、root operation、receipt和活动writer，按实际未完成频率列原生job恢复入口、具体读写预算、失败及收尾安排；另按根规则取得必要执行/年度读取批准。已有29日六频成功记录不要求重跑。
+1. 已完成原设计、代码及消费者审计和方案/LLD独立复核，文档以`4a4a689e`提交；旧sensor收尾改动没有混入该提交。
+2. 已获准并完成私有等价提取及明确daily有限输入，原repair/history不改道，不扩展配置或源年份；实现遵守方案17.9及19.11。
+3. 已完成19.8隔离验证和19.11逐项交付对账，证据见19.12；正式恢复仍需下一项单独核定。测试没有使用正式行情，没有安排全市场性能测试，不能将隔离结论扩大为正式4GB场景已验收。
+4. 本轮停在此处：未来正式恢复前只读核实当时缺口、来源/前日state、root operation、receipt和活动writer，按实际未完成频率列原生job恢复入口、具体读写预算、失败及收尾安排；另按根规则取得必要执行/年度读取批准。已有29日六频成功记录不要求重跑。
 5. 日更恢复后，历史repair仍按原上游产物及daily→repair顺序推进；若其规模或运行事实暴露新问题，停止并另行完善repair方案。不得用本轮日更测试替代repair性能验收或擅自重跑已经完成的历史。
 
 ### 19.10 本轮文档审计及未完成项
+
+本节以下内容为开发前文档阶段的记录，其中“未开发/未测试”只描述当时状态。后续已获准实施的最新结果统一见19.12；本轮始终未正式补数。
 
 已核清业务方案原第1/6.2/12节的读取意图与代码差异，修正“上一交易日之前”的歧义；旧benchmark仍保留为历史证据。R5为repair范围硬化和7月恢复依据，不作为本轮日更LLD；其中旧备份/quarantine操作不执行，现行写入只使用本文件和当前publication。
 
@@ -1163,7 +1165,7 @@ expected以原已核实公式和独立字面小样本为准，不能调用新dai
 
 ### 19.11 开发必须提交的等价与不重刷历史验收
 
-对应[业务方案17.9](dagster-stk-mins-qfq-macd-kdj-indicators-plan.md#179-讨论收口计算等价与不重刷历史是交付条件)。以下均为待开发验收，不能预填通过；不改变19.8的独立expected、隔离资源和必要读取边界。
+对应[业务方案17.9](dagster-stk-mins-qfq-macd-kdj-indicators-plan.md#179-讨论收口计算等价与不重刷历史是交付条件)。以下为编码前确定的交付标准，实际逐项证据见19.12；不改变19.8的独立expected、隔离资源和必要读取边界，不能仅凭条目存在就认定通过。
 
 | 讨论要求 | 必须落到的实现约束 | 必须提交的隔离证据 |
 | --- | --- | --- |
@@ -1181,6 +1183,56 @@ expected以原已核实公式和独立字面小样本为准，不能调用新dai
 
 开发完成报告须列出上表每项对应的代码位置、测试名、预期依据、实际结果及未覆盖边界；存在未通过项时不申请部署/补数，不把其他测试数量或文档检查通过当作替代。正常因子变化原先就要求的repair仍保留，这与本次优化不得新增历史重刷的约束分别对账。
 
-本次补充仅更新两份原文档，没有新增实现、测试代码、正式读取、job/sensor操作或Git提交；完成后再做一次方案/LLD一致性审查及文档结构检查。第19.7节原预算和第19.9节阶段授权边界不变，不因本表列出验收就自动运行测试或正式恢复。
+本节最初作为文档增补完成两位独立审查，并随设计提交`4a4a689e`。之后管理员另行批准开发与隔离验收，实际证据见19.12。第19.7节正式预算和第19.9节阶段授权边界不变，不能因测试已完成自动进入正式恢复。
 
-本次补充复核已完成：两位独立审查者对照17.2/17.9及19.9/19.11确认，不重刷历史的硬门槛、原state承接、公式迭代、旧候选、年度记录保留、真实下游和原repair边界一致，未发现新增条款的阻断矛盾或讨论遗漏。文档完整性三组检查、新增相对链接/锚点及`git diff --check`通过；结论仅为文档验收，全部业务实现和测试证据仍待开发后取得。
+### 19.12 开发、隔离测试与实现对账（2026-10-30）
+
+**状态与范围。** 先按要求提交设计文档`4a4a689e`，仅两份本轮文档；第13.2节原sensor收尾改动未混入提交。随后按本节LLD完成开发、隔离测试和独立实现审计，**代码、测试及本次验收记录随本次实现提交归档，正式补数未执行**。没有触发或重载正式job，没有改sensor/pool/run key/动态分区，也没有读取正式Lake、instance或Prod数据。本轮未安装或升级依赖。
+
+证据统一归档至[开发验收报告](../../reports/macd_kdj_daily_read_20261030/README.md)；[总汇总](../../reports/macd_kdj_daily_read_20261030/validation-summary.json)记录生产文件SHA、设计提交、测试计数与未覆盖范围。正式路径只作为代码合同读取，没有拿正式数据做夹具。
+
+**实际文件。**
+
+| 文件 | 已完成内容 |
+| --- | --- |
+| `defs/stk_mins_qfq_macd_kdj.py` | 按19.3提取work/replacement/publish私有职责；daily明确走64股有限准备、当年Top8/上一年按需补足、实际输入身份核对；原公共writer继续history/repair原prepare |
+| `tests/test_stk_mins_qfq_macd_kdj_daily_read.py` | 新增35项：七频独立字面值、两年及0—8根窗口、原state连续D→D+1、65股批次、原异常、输入SQL/EXPLAIN及原QFQ producer负例 |
+| `tests/test_stk_mins_qfq_staging_publication.py` | 原20项保留，新增11项daily发布/恢复/来源变化测试；autouse fixture只将两个真实连接入口的设置改到临时目录，不替换计算、校验或文件发布逻辑 |
+| 两份原方案/LLD | 同步本轮状态、逐条实现/测试对账、未验收边界；无其他产品或数据合同变更 |
+
+CodeGraph `explore/impact`已覆盖主writer与wrapper，并按源码补查其索引未完整识别的repair/history及真实reader/API/前端消费者；代码完成后执行`codegraph sync`及`status`，索引正常、无待同步提示。原八项来源发现、公式及年度/state writer的AST与设计提交完全一致，三个公开函数的参数/默认值/返回注解保持，见[AST对账](../../reports/macd_kdj_daily_read_20261030/ast-compatibility.json)。原work DDL和replacement/state SQL为等价提取；公共发布除增加默认None的私有提升前回调外，仅SQL缩进变化，已由独立审查逐句核对。
+
+**19.11逐项对账。**
+
+| 硬要求 | 实现位置 | 实际证据与结论 |
+| --- | --- | --- |
+| 取数变化、公式/结果等价 | `_prepare_daily_macd_kdj_replacement_tables`复用原`_insert_macd_kdj_segment_rows`与`_populate_macd_kdj_indicator_work_rows` | 七频非初始seed的字面有理数预期及旧prepare补充对账通过；原公式AST相同、原容差未提高 |
+| 前8根只供RSV，state直接承接 | `_create_daily_macd_kdj_calculation_rows`、原segment/state生成SQL | `test_daily_keeps_literal_noninitial_state_and_original_formula`、`test_new_state_continues_next_day_without_rebuilding_old_state`及实际跨环境D→D+1文件交接通过，没有重建前日state |
+| 不重刷历史与年度保留 | 原`_write_indicator_group_to_year_file`、`_write_state_partition_file`原样复用 | 发布测试和handoff验证非D前后记录原值保留，旧state文件SHA/身份不变，无关股票和停牌state保留；测试写入均为临时文件 |
+| 旧候选冲突不扩大恢复 | `_publish_macd_kdj_replacement_tables`调用原publication | `test_daily_old_frozen_input_conflict_does_not_invalidate_formal_history`及replace前后中断续跑通过；已完成文件不重写，冲突不删记录/不重刷历史 |
+| DG及真实下游兼容 | 原定义/paths/schema不变；新输出仍为原12列指标和原state | 原受保护113项门禁、原reader/API15项、DG DuckDB1.5.2→原reader/API DuckDB1.5.5真实临时文件交接通过；字段、时间键、分页、params/version兼容 |
+| 不影响repair/history及原去重 | 原公共writer继续原prepare，私有回调默认None；原repair/sensor文件未改 | 原MACD/history/golden/repair op/gate/sensor/single-digest相关6套完整回归121项及18子测试通过；单日期repair不误入daily、原已完成batch仍跳过 |
+| 两年Top8与全部股票分批 | `_daily_macd_kdj_prior_bars_sql`、daily prepare | 当年足8不读上一年、跨年/长停牌/原集合0—7根、Y-2不读、1/64/65股完整集合和不串seed通过；SQL及EXPLAIN证明原始历史使用Top8聚合而非全市场历史排名 |
+| 整频一次发布与来源一致性 | 原锁覆盖prepare→publish；五项身份读前后/bind前/promote前检查 | 65股仍只bind一套完整目标；第2候选失败不提升第1、同大小不同inode、候选期源/前state变动均拒绝；正常读取、atime及未用年份变化不误拦 |
+| 读取成本如实记录、无额外全局审计 | 输入选择及原checks/年度发布保留，源身份只stat | 无来源SHA、额外公式审计或性能试跑；19.7正式预算未当作已实测/授权。本轮只对少量人工数据执行SQL |
+
+**验证数量和边界。**
+
+| 验证 | 结果 | 资源隔离与说明 |
+| --- | --- | --- |
+| 新日更＋原staging发布完整两文件 | **66 passed**（35＋31），10.07秒 | 同一次最终运行；真实DuckDB/SQL/publication，连接仅绑定临时资源；临时1,352文件、10,133,658B，退出已清理 |
+| 原6套MACD/history/repair相关回归 | **121 passed，18 subtests passed**，6.38秒 | 原测试不筛选、不改expected；59次统一连接仅重定向temp，OS策略拒绝正式Lake/instance/凭据/网络，原子进程同受保护 |
+| 原`test_run_contract_static_gates.py` | **113 passed，5 subtests passed** | 原受保护启动器15批完整执行；不以普通pytest绕开其资源保护 |
+| 原reader/API两文件 | **15 passed**，0.93秒 | 主工程现有环境、独立FastAPI/TestClient和临时配置；不是正式HTTP/认证/数据库验收 |
+| 新daily→原reader/API真实文件交接 | **通过**，不另计pytest数量 | 1股非初始state、D两行与D+1一行，独立有理数预期；原reader读5条历史及分页，原API两日200/READY，字段与K线键对应；停牌股state也保留 |
+| 静态检查 | **通过** | 项目src/tests致命Ruff基线、本次三个Python文件默认Ruff、源码/新测试格式、`git diff --check`；文档检查与新增相对链接单列复核 |
+
+合计**315项测试、23项子测试通过**；不重复累计前面单跑或失败重试。新daily第一次有一例测试把原前日缺state的`dg.Failure`误写为普通异常，按现行guard精确校正；新增发布测试曾把fixture producer的operation误当MACD operation，按真实family边界修正断言。两项均未改生产逻辑、放宽数值或取消拒绝。原6套隔离runner启动时的OS/收集参数错误均在进入业务测试前失败，随后复用原保护方式及完整收集参数通过，见清理记录；没有改原测试来消除失败。
+
+最终66项的资源保护记录了一次本地`socket.bind`拒绝，未记录`socket.connect`或正式文件请求，保护未解除；不能把它写成“没有任何尝试”。原consumer和实际handoff未有拒绝请求。所有正式数据源/DB/instance调用均未进入；API认证/数据库依赖在该测试中隔离为None，不扩张验收结论。
+
+**独立审计、清理及停点。** 独立审查者按已提交方案/LLD检查实际代码和两份测试，确认公式、旧prepare、共享state、公开合同、完整publication及原repair路径保持，未发现阻断，见[独立报告](../../reports/macd_kdj_daily_read_20261030/independent-review.md)。原guard、candidate校验、正式checks均未削弱；不重刷历史的硬条件在本轮隔离范围内满足。
+
+证据归档后，只清理本任务确认的临时根、夹具、staging和runner，未删除正式Lake/staging或其他任务pytest目录。最终66项、旧回归和consumer夹具均已清理；另移除957个本轮暂存证据/脚本及早期夹具文件、1,925,218B，保留本报告必要证据，详见[清理账](../../reports/macd_kdj_daily_read_20261030/cleanup.json)。没有清理共享依赖或环境。
+
+本轮**没有正式补数、没有部署/重载、没有全市场性能测试，也没有真实复现原4GB异常**。实际市场规模、当时未完成频率、旧root/receipt及具体正式预算仍须依19.9第4项单独核实；不能把以上隔离通过当正式29/30日数据完整性或原异常已经消失的证明。管理员已要求提交本轮修改；下一步正式恢复仍须按19.9第4项完成核实及取得必要批准，不自动重跑任何日期、频率或repair。

@@ -1,0 +1,28 @@
+{
+  "source_file": "lake_console/orchestrator/tests/test_stk_mins_qfq_staging_publication.py",
+  "passed": 31,
+  "new_daily_cases": 11,
+  "existing_cases_preserved": 20,
+  "elapsed_seconds": 5.58,
+  "ruff": "passed",
+  "git_diff_check": "passed",
+  "production_data_reads": 0,
+  "production_data_writes": 0,
+  "formal_instance_access": 0,
+  "dependency_installation": 0,
+  "fixture_resource_override": "only real DuckDB connection settings to tmp_path; SQL/formulas/publication/validators unchanged",
+  "test_temp_root_cleanup": "mktemp --basetemp root removed on shell EXIT",
+  "coverage": [
+    "non-target annual rows unchanged",
+    "prior state unchanged",
+    "suspended state carry-forward",
+    "one full bind across 65 stocks/2 batches",
+    "publication lock during prepare",
+    "second candidate failure",
+    "interrupt before/after replace and completed-file idempotence",
+    "old frozen input conflict",
+    "same-size source replacement during compute",
+    "source/prior-state replacement during candidate creation",
+    "normal reads and unselected-year changes do not false-block"
+  ]
+}

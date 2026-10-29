@@ -1,0 +1,101 @@
+"""Root process: unmodified reader and API consume the DG-produced files."""
+from __future__ import annotations
+
+from datetime import date
+import json
+import os
+from pathlib import Path
+import shutil
+import sys
+
+TASK=Path(__file__).parent
+DATA=TASK/"handoff-data"
+manifest=json.loads((TASK/"handoff-producer.json").read_text())
+LAKE=Path(manifest["lake_root"])
+assert LAKE == DATA/"lake"
+os.environ.update({"APP_ENV":"dev","GOLDENSHARE_ENV_FILE":str(TASK/"missing.env"),"WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED":"true","GOLDENSHARE_LAKE_ROOT":str(LAKE),"QUOTE_API_AUTH_REQUIRED":"false","DATABASE_URL":f"sqlite+pysqlite:///{DATA/'unused-auth.sqlite'}","DAGSTER_HOME":str(DATA/"forbidden-instance")})
+DENIED=[]
+
+
+def audit(event,args):
+    if event in {"socket.connect","socket.getaddrinfo"}:
+        DENIED.append(event)
+        raise AssertionError("Network forbidden")
+    if event in {"open","os.listdir","os.scandir","os.mkdir"} and args and isinstance(args[0],(str,bytes,os.PathLike)):
+        if os.fsdecode(args[0]).startswith(("/Volumes/datasource/","/Users/congming/.goldenshare/dagster_home",str(DATA/"forbidden-instance"))):
+            DENIED.append(event)
+            raise AssertionError("Formal/shared resource forbidden")
+
+
+sys.addaudithook(audit)
+from fastapi import FastAPI
+from fastapi.testclient import TestClient
+from src.app.dependencies.db import get_db_session
+from src.app.exceptions import install_exception_handlers
+from src.biz.api.wealth.market import stock_detail_minutes
+from src.foundation.clients.local_lake.stock_mins_reader import MinuteReadRequest,StockMinsLakeReader
+from src.foundation.config.settings import get_settings
+
+get_settings.cache_clear()
+# The original reader opens its own real DuckDB connections. Keep their
+# possible default relative temporary directory within the owned fixture root.
+os.chdir(DATA)
+reader=StockMinsLakeReader(LAKE)
+COLS=("macd_dif_qfq","macd_dea_qfq","macd_qfq","kdj_k_qfq","kdj_d_qfq","kdj_qfq")
+API_COLS=("macdDif","macdDea","macd","kdjK","kdjD","kdjJ")
+expected=manifest["expected_target_rows"]+manifest["expected_historical_rows"]
+
+
+def check_values(row,expected_row,columns):
+    for actual_col,source_col in zip(columns,COLS,strict=True):
+        value=row[actual_col]
+        value_expected=expected_row[source_col]
+        assert abs(value-value_expected)<=1e-10+1e-12*abs(value_expected)
+
+
+request=MinuteReadRequest("000638.SZ",5,date(2026,10,28),date(2026,10,28),10,None)
+day=reader.read_indicators(request)
+bars=reader.read_bars(request)
+assert day.count==bars.count==2
+assert [(r["trade_date"],r["trade_time"]) for r in day.rows]==[(r["trade_date"],r["trade_time"]) for r in bars.rows]
+for row in day.rows:
+    match=next(e for e in expected if e["trade_date"]==str(row["trade_date"]) and e["time"]==str(row["trade_time"].time()))
+    check_values(row,match,COLS)
+    assert row["params_key"]=="macd_12_26_9__kdj_9_3_3" and row["indicator_version"]==1
+history=reader.read_indicators(MinuteReadRequest("000638.SZ",5,date(2026,10,27),date(2026,10,30),10,None))
+assert history.count==5
+for row in history.rows:
+    match=next(e for e in expected if e["trade_date"]==str(row["trade_date"]) and e["time"]==str(row["trade_time"].time()))
+    check_values(row,match,COLS)
+first=reader.read_indicators(MinuteReadRequest("000638.SZ",5,date(2026,10,28),date(2026,10,28),1,None))
+second=reader.read_indicators(MinuteReadRequest("000638.SZ",5,date(2026,10,28),date(2026,10,28),1,first.next_cursor))
+assert first.has_more and not second.has_more
+assert first.rows[0]["trade_time"]>second.rows[0]["trade_time"]
+
+app=FastAPI()
+install_exception_handlers(app)
+app.include_router(stock_detail_minutes.router)
+def no_database_dependency():
+    yield None
+app.dependency_overrides[get_db_session]=no_database_dependency
+responses=[]
+with TestClient(app) as client:
+    for day_value,count in (("2026-10-28",2),("2026-10-29",1)):
+        response=client.get("/wealth/market/stock-detail/minute-indicators",params={"tsCode":"000638.SZ","freq":5,"startDate":day_value,"endDate":day_value,"limit":10})
+        assert response.status_code==200,response.text
+        payload=response.json()
+        assert payload["meta"]["count"]==count and payload["dataStatus"]["status"]=="READY"
+        for row in payload["items"]:
+            match=next(e for e in expected if e["trade_date"]==row["tradeDate"] and e["time"]==row["tradeTime"][11:19])
+            check_values(row,match,API_COLS)
+            assert row["tradeTime"].endswith("+08:00")
+            assert row["paramsKey"]=="macd_12_26_9__kdj_9_3_3" and row["indicatorVersion"]==1
+        responses.append({"day":day_value,"count":count,"status":payload["dataStatus"]["status"]})
+assert not any(name.startswith("orchestrator") for name in sys.modules)
+assert not DENIED
+files=[p for p in DATA.rglob("*") if p.is_file()]
+result={"consumer_interpreter":sys.executable,"handoff":"Separate DG producer process to original root reader/API through Parquet files","source_root_is_temporary":True,"reader_target_rows":day.count,"reader_historical_rows":history.count,"pagination_without_duplicates":True,"bars_and_indicators_keys_identical":True,"independent_rational_expected_values_match":True,"api_responses":responses,"api_auth_database_dependency":"Isolated, yielded None; auth/database not under acceptance","original_reader_api_unchanged":True,"cross_engineering_imports":False,"denied_access_attempts":DENIED,"fixture_file_count_before_cleanup":len(files),"fixture_bytes_before_cleanup":sum(p.stat().st_size for p in files)}
+shutil.rmtree(DATA)
+result["fixture_directory_removed"]=not DATA.exists()
+(TASK/"handoff-consumer.json").write_text(json.dumps(result,indent=2)+"\n")
+print(json.dumps(result))

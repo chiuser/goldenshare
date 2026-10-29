@@ -1,0 +1,28 @@
+{
+  "baseline_commit": "4a4a689e",
+  "source_sha256": "615fb452a137107e0cc330963d6216e0e5a3995877144cbc0926e604b272a76f",
+  "kind": "Static AST comparison; no production imports/data/tests executed",
+  "checks": {
+    "discover_gold_stk_mins_qfq_source_year_paths": true,
+    "_insert_macd_kdj_segment_rows": true,
+    "_populate_macd_kdj_indicator_work_rows": true,
+    "_existing_indicator_rows_select": true,
+    "_existing_state_rows_select": true,
+    "_validate_indicator_year_file": true,
+    "_write_indicator_group_to_year_file": true,
+    "_write_state_partition_file": true,
+    "old_source_preparation_before_work_unchanged": true,
+    "work_table_ddl_extracted_unchanged": true,
+    "history_prepare_prefix_unchanged": true,
+    "replacement_sql_and_return_extracted_unchanged": true,
+    "public_writer_signature_unchanged": true,
+    "daily_wrapper_signature_unchanged": true,
+    "history_publication_connection_context_unchanged": true,
+    "history_prepare_call_unchanged": true,
+    "publish_body_extracted_unchanged_except_callback": false,
+    "all_formula_parameters_and_version_unchanged": true,
+    "publish_body_extracted_unchanged_except_callback_and_groups_sql_indent": true
+  },
+  "raw_publish_ast_delta": "Only indentation inside the groups SELECT string; SQL inspected unchanged",
+  "all_semantic_match": true
+}

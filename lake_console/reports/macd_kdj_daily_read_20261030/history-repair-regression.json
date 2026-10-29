@@ -1,0 +1,702 @@
+{
+  "exitstatus": 0,
+  "collected": 121,
+  "configured_connections": 59,
+  "reports": [
+    {
+      "nodeid": "test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_bounded_rebuild_rejects_missing_exact_previous_state",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_bounded_rebuild_uses_checkpoint_and_exact_expected_sequence",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_daily_asset_partition_allows_baseline_without_previous_state",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_daily_asset_partition_fails_without_exact_previous_expected_state",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_daily_asset_partition_uses_exact_previous_expected_state",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_daily_asset_wrapper_allows_first_expected_without_previous_state",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_daily_asset_wrapper_rejects_target_outside_expected_calendar",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_history_rebuild_removes_stale_indicator_date_absent_from_source",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_history_rebuild_uses_bounded_duckdb_memory",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_macd_kdj_writes_indicator_and_state_with_expected_formulas",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_old_stock_without_previous_state_fails_closed",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_previous_state_allows_incremental_next_day",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_rebuild_cli_uses_full_market_scope_when_stock_codes_are_omitted",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_scoped_repair_state_merge_preserves_unaffected_stock_state",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_m12_macd_kdj.py::StkMinsQfqM12MacdKdjTests::test_source_year_discovery_preserves_full_scope_and_supports_code_scope",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_formula_golden_contracts.py::StkMinsQfqMacdKdjFormulaGoldenContractsTests::test_initial_and_incremental_state_have_literal_indicator_values",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_formula_golden_contracts.py::StkMinsQfqMacdKdjFormulaGoldenContractsTests::test_scoped_repair_preserves_unselected_state_rows",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_formula_golden_contracts.py::StkMinsQfqMacdKdjFormulaGoldenContractsTests::test_seven_frequencies_keep_literal_values_and_state_across_years",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_formula_golden_contracts.py::StkMinsQfqMacdKdjFormulaGoldenContractsTests::test_seven_frequencies_keep_literal_values_and_state_across_years",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_formula_golden_contracts.py::StkMinsQfqMacdKdjFormulaGoldenContractsTests::test_seven_frequencies_keep_literal_values_and_state_across_years",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_formula_golden_contracts.py::StkMinsQfqMacdKdjFormulaGoldenContractsTests::test_seven_frequencies_keep_literal_values_and_state_across_years",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_formula_golden_contracts.py::StkMinsQfqMacdKdjFormulaGoldenContractsTests::test_seven_frequencies_keep_literal_values_and_state_across_years",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_formula_golden_contracts.py::StkMinsQfqMacdKdjFormulaGoldenContractsTests::test_seven_frequencies_keep_literal_values_and_state_across_years",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_formula_golden_contracts.py::StkMinsQfqMacdKdjFormulaGoldenContractsTests::test_seven_frequencies_keep_literal_values_and_state_across_years",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_formula_golden_contracts.py::StkMinsQfqMacdKdjFormulaGoldenContractsTests::test_seven_frequencies_keep_literal_values_and_state_across_years",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_allows_first_expected_trade_date_without_previous_state",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_fails_before_writing_when_any_target_state_is_missing",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_fails_before_writing_when_expected_range_has_gap",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_preflights_all_freqs_before_first_write",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_empty_stock_codes_before_writing",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_empty_stock_codes_before_writing",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_empty_stock_codes_before_writing",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_explicit_scope_mismatch",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_explicit_scope_mismatch",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_explicit_scope_mismatch",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_missing_qfq_factor_repair_trade_date",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_missing_upstream_batch_id",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_non_full_frequency_scope_before_writing",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_non_full_frequency_scope_before_writing",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_non_full_frequency_scope_before_writing",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_non_full_frequency_scope_before_writing",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_scattered_manual_scope_before_writing",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_scope_outside_expected_calendar_before_writing",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_scope_outside_expected_calendar_before_writing",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_scope_outside_expected_calendar_before_writing",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_stock_codes_that_conflict_with_qfq_metadata",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_rejects_upstream_batch_id_mismatch",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_replays_qfq_factor_repair_batch_when_config_matches_metadata",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_requires_exact_previous_expected_state_before_writing",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_repair_op_uses_qfq_writer_pool",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_successful_replay_emits_fourteen_completion_check_events",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_op_contracts.py::StkMinsQfqMacdKdjRepairOpContractTests::test_target_state_preflight_keeps_upstream_repair_identity",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_gate.py::StkMinsQfqMacdKdjRepairGateTests::test_completion_gate_can_be_called_directly_by_upstream_batch_id",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_gate.py::StkMinsQfqMacdKdjRepairGateTests::test_failed_or_incomplete_qfq_repair_metadata_fails_closed",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_gate.py::StkMinsQfqMacdKdjRepairGateTests::test_history_rewrite_requires_macd_kdj_completion",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_gate.py::StkMinsQfqMacdKdjRepairGateTests::test_history_rewrite_with_valid_macd_kdj_completion_is_ready",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_gate.py::StkMinsQfqMacdKdjRepairGateTests::test_macd_kdj_completion_undercovered_fails_closed",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_gate.py::StkMinsQfqMacdKdjRepairGateTests::test_missing_or_wrong_partition_qfq_repair_fails_closed",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_gate.py::StkMinsQfqMacdKdjRepairGateTests::test_new_completion_gate_does_not_depend_on_event_storage_id_ordering",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_gate.py::StkMinsQfqMacdKdjRepairGateTests::test_qfq_factor_repair_status_exposes_upstream_batch_identity",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_gate.py::StkMinsQfqMacdKdjRepairGateTests::test_qfq_factor_repair_status_rejects_inconsistent_batch_identity",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_gate.py::StkMinsQfqMacdKdjRepairGateTests::test_qfq_factor_repair_status_rejects_inconsistent_batch_identity",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_gate.py::StkMinsQfqMacdKdjRepairGateTests::test_qfq_factor_repair_status_rejects_inconsistent_batch_identity",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_gate.py::StkMinsQfqMacdKdjRepairGateTests::test_qfq_factor_repair_status_rejects_missing_batch_identity",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_gate.py::StkMinsQfqMacdKdjRepairGateTests::test_qfq_repair_without_history_rewrite_is_ready_without_macd_kdj_completion",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_normal_hashes_each_candidate_once_and_never_reads_formal_bytes[qfq]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_normal_hashes_each_candidate_once_and_never_reads_formal_bytes[macd_kdj]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_digest_optional_callback_counts_actual_chunks_and_default_still_works",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_progress_separates_stat_budgets_from_actual_digest_bytes[False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_progress_separates_stat_budgets_from_actual_digest_bytes[True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_resume_hashes_only_each_selected_file_once[qfq-validated]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_resume_hashes_only_each_selected_file_once[qfq-promoting_before]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_resume_hashes_only_each_selected_file_once[qfq-promoting_after]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_resume_hashes_only_each_selected_file_once[qfq-promoted]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_resume_hashes_only_each_selected_file_once[macd_kdj-validated]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_resume_hashes_only_each_selected_file_once[macd_kdj-promoting_before]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_resume_hashes_only_each_selected_file_once[macd_kdj-promoting_after]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_resume_hashes_only_each_selected_file_once[macd_kdj-promoted]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_digest_rejects_change_during_hash_even_if_payload_is_restored",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_last_candidate_conflict_is_found_before_first_promotion",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_same_bytes_replacement_before_resume_digest_cannot_pass_batch_preflight",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_build_receipt_cannot_change_before_validation",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_receipt_change_during_resume_digest_stops_batch_preflight",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_verified_receipt_changes_cannot_borrow_prior_digest[sha256]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_verified_receipt_changes_cannot_borrow_prior_digest[row_count]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_verified_receipt_changes_cannot_borrow_prior_digest[candidate_identity]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_verified_receipt_changes_cannot_borrow_prior_digest[before]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_verified_receipt_changes_cannot_borrow_prior_digest[status]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[row_count-candidate-validated]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[row_count-candidate-promoted]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[row_count-promote-validated]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[row_count-promote-promoted]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[status-candidate-validated]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[status-candidate-promoted]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[status-promote-validated]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[status-promote-promoted]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[before-candidate-validated]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[before-candidate-promoted]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[before-promote-validated]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[before-promote-promoted]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[sha256-candidate-validated]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[sha256-candidate-promoted]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[sha256-promote-validated]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[sha256-promote-promoted]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[candidate_identity-candidate-validated]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[candidate_identity-candidate-promoted]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[candidate_identity-promote-validated]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_bind_receipt_changes_cannot_become_first_verification_baseline[candidate_identity-promote-promoted]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_malformed_receipt_stops_before_any_promotion[json]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_malformed_receipt_stops_before_any_promotion[sha256]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_malformed_receipt_stops_before_any_promotion[row_count]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_malformed_receipt_stops_before_any_promotion[before]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_malformed_receipt_stops_before_any_promotion[candidate_identity]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_malformed_receipt_stops_before_any_promotion[candidate]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_malformed_receipt_stops_before_any_promotion[status]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_post_replace_stable_identity_changes_are_rejected[0]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_post_replace_stable_identity_changes_are_rejected[1]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_post_replace_stable_identity_changes_are_rejected[2]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_post_replace_stable_identity_changes_are_rejected[3]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_post_replace_ctime_change_is_allowed_and_remembered",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_promoting_ambiguous_paths_stop_without_trying_hashes[both_changed]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_promoting_ambiguous_paths_stop_without_trying_hashes[both_missing]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_promoting_ambiguous_paths_stop_without_trying_hashes[different_inode]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_resume_inputs_changed_stops_before_annual_hash",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_missing_completed_receipts_block_resume[False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_missing_completed_receipts_block_resume[True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_build_interruption_can_continue_unstarted_suffix",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_building_candidate_is_preserved_and_rebuild_hashes_only_new_files",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_missing_verified_receipt_blocks_current_process",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_publication_single_digest.py::test_real_exit_after_replace_reuses_formal_once",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_sensor_contracts.py::StkMinsQfqMacdKdjRepairSensorContractTests::test_above_five_hundred_or_missing_code_list_skips",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_sensor_contracts.py::StkMinsQfqMacdKdjRepairSensorContractTests::test_completion_gate_not_ready_submits_run_request",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_sensor_contracts.py::StkMinsQfqMacdKdjRepairSensorContractTests::test_completion_gate_ready_skips_run_request",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_sensor_contracts.py::StkMinsQfqMacdKdjRepairSensorContractTests::test_macd_kdj_daily_not_ready_skips",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_sensor_contracts.py::StkMinsQfqMacdKdjRepairSensorContractTests::test_missing_upstream_batch_id_skips",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_sensor_contracts.py::StkMinsQfqMacdKdjRepairSensorContractTests::test_one_to_five_hundred_codes_submit_scoped_repair",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_sensor_contracts.py::StkMinsQfqMacdKdjRepairSensorContractTests::test_repair_sensor_definition_contract",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_sensor_contracts.py::StkMinsQfqMacdKdjRepairSensorContractTests::test_upstream_batch_id_is_the_idempotency_key",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_stk_mins_qfq_macd_kdj_repair_sensor_contracts.py::StkMinsQfqMacdKdjRepairSensorContractTests::test_zero_code_or_no_history_rewrite_skips",
+      "when": "call",
+      "outcome": "passed"
+    }
+  ]
+}

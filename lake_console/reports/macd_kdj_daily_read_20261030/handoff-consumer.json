@@ -1,0 +1,29 @@
+{
+  "consumer_interpreter": "/Users/congming/github/goldenshare/.venv/bin/python3",
+  "handoff": "Separate DG producer process to original root reader/API through Parquet files",
+  "source_root_is_temporary": true,
+  "reader_target_rows": 2,
+  "reader_historical_rows": 5,
+  "pagination_without_duplicates": true,
+  "bars_and_indicators_keys_identical": true,
+  "independent_rational_expected_values_match": true,
+  "api_responses": [
+    {
+      "day": "2026-10-28",
+      "count": 2,
+      "status": "READY"
+    },
+    {
+      "day": "2026-10-29",
+      "count": 1,
+      "status": "READY"
+    }
+  ],
+  "api_auth_database_dependency": "Isolated, yielded None; auth/database not under acceptance",
+  "original_reader_api_unchanged": true,
+  "cross_engineering_imports": false,
+  "denied_access_attempts": [],
+  "fixture_file_count_before_cleanup": 17,
+  "fixture_bytes_before_cleanup": 22825,
+  "fixture_directory_removed": true
+}
