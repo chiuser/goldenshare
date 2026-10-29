@@ -1,6 +1,6 @@
 # 指数详情页正式 API / DTO 合同 v1
 
-> 2026-10-28 P1：§10新增已确认的r4日线识别目标合同，尚未改变运行时。§1—9原有page-init/kline/weights及其`debugInfo`规则不在本次修改范围；r4使用独立普通/debug响应，不能套用§2第6条的`debugInfo`规则。正式r4实施与验收按[产品LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)P2—P4推进。
+> 2026-10-30：§10为本次r4日线识别的唯一目标合同入口，字段与代码顺序统一由[顶底识别LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)登记；本轮仅同步文书，未修改运行接口。§1—9的page-init/kline/weights及其debugInfo规则不变。
 
 > 合同版本：`1.3.1`
 >
@@ -442,84 +442,44 @@ interface IndexDetailErrorResponseDto {
 | `1.0.0` | 2026-08-11 | 首次冻结 page-init/kline/weights 独立 DTO |
 
 
-## 10. r4日线顶底识别目标合同（P1已登记，运行时尚未迁移）
+## 10. r4日线顶底识别目标合同
 
-本节只扩展独立`xxm-signals`接口，不向page-init/kline/weights添加识别字段，不改变这三个接口的版本、错误码或debugInfo。当前产品代码仍是r2、响应包含根层历史等辅助字段；本节是管理员已确认的后续r4目标，P1只回写文档和独立样例。代码级顺序及完整校验见[LLD§3—5、§9](index-detail-top-bottom-recognition-low-level-design-v1.md)。
+本节普通响应必须没有debug键，debug请求才有独立debug对象；**不得套用§2.6对原page-init/kline/weights的debugInfo始终存在要求，也不得返回debugInfo、debug:null或空debug对象作兼容。**
+
+本节约束独立`xxm-signals`接口的后续实施，不向page-init/kline/weights添加识别字段。完整字段、空值、结构记录和校验要求唯一登记于[顶底识别LLD§2—5](index-detail-top-bottom-recognition-low-level-design-v1.md)，开发必须逐项执行；不得从其他版本合同拼装字段。本次只同步文档，接口实现尚未按目标修改。
 
 ### 10.1 路由、环境与请求
 
-```http
-GET /api/v1/wealth/market/index-detail/xxm-signals
-```
+`GET /api/v1/wealth/market/index-detail/xxm-signals`，沿原鉴权及no-store。
 
-| 参数 | 必填 | 规则 |
-|---|---:|---|
-| tsCode | 是 | trim+upper后严格六位代码及SH/SZ/BJ后缀；仅000001.SH支持，其他合法标的404，格式非法400 |
-| period | 否 | 缺省day，仅day合法 |
-| startDate/endDate | 否 | 非空标准YYYY-MM-DD，开始不得晚于结束；仅筛响应窗口，不能作为算法/MACD重算起点 |
-| limit | 否 | 缺省300，1..2000；指数页显式1000，不改变API默认值 |
-| debug | 否 | 缺省或文本0为普通，文本1为debug；空、true、01、2及其他值400 |
+| 参数 | 规则 |
+|---|---|
+| tsCode | 必填；trim+upper后仅000001.SH；非法格式400，其他合法标的404 |
+| period | 缺省day，只接受day |
+| startDate/endDate | 可选非空YYYY-MM-DD，开始不得晚于结束；只筛响应窗口，不能截断建立识别状态所需前段 |
+| limit | 缺省300，1..2000；指数页面显式1000，不改变接口默认值 |
+| debug | 缺省或文本0普通，文本1辅助；空/true/01/2等非法值、未知或重复参数均400 |
 
-未知参数、重复参数及非法空值均400 `XXM_REQUEST_INVALID`。普通客户端省略debug；没有算法选择、r2回退或另一个r4路径。
-
-服务端最终Settings须**显式配置dev/local**才注册本接口；默认dev但未显式配置也不注册。生产、未知环境和缺配置均由原框架返回404，不进入源读取/计算；生产日线也无r4，debug=1不能绕过。不改变全局配置优先级、原鉴权或生产正常日线能力；本地日线不依赖分钟开关/Lake。日线来源仍为原IndexFactorPro收盘及DIF/DEA/MACD柱，只消费已完成根，不补值、不重算实际MACD。
+必须由最终Settings显式dev/local才装配；生产、缺配置及未知环境不注册，框架404且不得读取来源或计算，debug不能绕过。日线不依赖分钟Lake；既有正常日线功能不受影响。来源只用IndexFactorPro完成根的原收盘/DIF/DEA/MACD柱，不补值或重算实际指标。
 
 ### 10.2 普通与debug的完整字段
 
-下列字段全部必有；nullable表示允许为null，实际没有值时必须显式返回null，不能省略字段。所有对象封闭字段集合，不接受额外字段；number仅有限int/float，拒bool、字符串数值、NaN和无穷，close/price严格大于0。日线time均YYYY-MM-DD；分钟同结构的时间规则见[分钟合同§8](index-detail-minutes-api-contract-v1.md#8-r4分钟顶底识别目标合同p1已登记运行时尚未迁移)。
-
-| 对象 | 必有字段、类型与含义 |
-|---|---|
-| 普通根XxmResponseDto | tsCode:string固定000001.SH；period:day；algorithmVersion:string固定xxm-direction-v0.1-r4；specHash:string为正式MAIN_SPEC完整hash；source:XxmSourceDto；points:XxmPointDto[]；events:XxmEventDto[]；meta:XxmMetaDto；dataStatus:XxmDataStatusDto |
-| source | kind固定daily_factor；startTime/computedThrough:time或null；initialHistoryIncomplete:boolean；indicatorVersion:int或null（日线null）。**没有inputId** |
-| point | time；close:number>0；dif/dea/hist:number；ordinaryState:NONE/DULL/STRUCTURE；ordinaryDirection:TOP/BOTTOM/null |
-| event | id:string非空；time；direction:TOP/BOTTOM；type:DULL/STRUCTURE/CANCEL/RESEARCH_HISTORICAL_WITHDRAWAL/STRUCTURE_DISAPPEARED |
-| meta | count:int≥0；responseStart/responseEnd:time或null |
-| dataStatus | status:READY/DELAYED/EMPTY；message:string或null；asOf:time或null |
-| debug根XxmDebugResponseDto | **全部普通根字段**加必有非null的debug:XxmDebugDto；不是根层透传原内部模型 |
-| debug | sourceInputId:string；points:DebugPoint[]；events:DebugEvent[]；topHistories:TopHistory[]；bottomHistories:BottomHistory[]；rearmRecords:RearmRecord[] |
-| DebugPoint | time；activeReference:Reference或null；pendingTopHistoryId/pendingBottomHistoryId/pendingRearmId:string或null |
-| DebugEvent | id；route:activation/dif_turn/dif_return/color_flip/dif_break/dif_break_on_flip/historical_price_break/reactivation；fromState:NONE/DULL/STRUCTURE；eventReference:Reference或null；relatedTopHistoryId/relatedBottomHistoryId/relatedRearmId:string或null |
-| Reference | startTime/endTime:time；price:number>0；dif:number。历史参照时间不得晚于相应当前段 |
-| TopHistory | id；confirmedAt；confirmationRoute:dif_turn/color_flip；pricePeak:number>0；pricePeakAt；originalReference:Reference；status:PENDING/ENDED；endedAt:time或null；endReason:下述枚举或null；observedThrough:time；ageBars:int≥0 |
-| BottomHistory | id；structureEventId；confirmedAt；confirmationRoute:dif_turn/color_flip；originSegmentStart；leftOriginAt:time或null；priceLow:number>0；priceLowAt；originalReference:Reference；status:PENDING/ENDED；endedAt:time或null；endReason:下述枚举或null；observedThrough；ageBars:int≥0 |
-| RearmRecord | id；direction固定BOTTOM；bottomHistoryId/structureEventId:string；structureConfirmedAt；structureRoute固定dif_turn；segmentStart；nearestPriceGate:number>0；reference:Reference；disappearedAt/observedThrough:time；status:WAITING/REACTIVATED/INVALIDATED/SEGMENT_ENDED；endedAt:time或null；endReason:下述枚举或null |
-
-未另注明的id为非空string、日期为本周期time。历史/等待结束原因的完整集合：
-
-- TopHistory：original_reference_break/new_top_DULL/new_top_STRUCTURE/historical_price_break。
-- BottomHistory：original_reference_break/new_bottom_DULL/new_bottom_STRUCTURE/historical_price_break/structure_disappeared。
-- RearmRecord：price_requalified/reference_dif_break/color_flip；**不接受zero**。WAITING时endedAt/endReason均null，其他状态按上述原因对应；PENDING历史同样没有结束值，ENDED必须有结束时间及原因。
-
-普通响应没有debug键、sourceInputId、参照、route、历史、等待或离线decision；不能用debug:null占位。DIF/DEA/柱仍为正常指标原值，event.id用于去重。RESEARCH_HISTORICAL_WITHDRAWAL仍是正常可见的“结构消失”，不得因枚举含RESEARCH过滤。普通悬停仅状态/当根事件/发生时间；debug可展示实际参照、编号和原历史，不能另跑算法猜解释。
+- 识别版本固定`xxm-direction-v0.2-r4`，specHash必须等于完整新MAIN_SPEC的真实hash；禁止换旧响应的版本/hash冒充新结果。
+- 普通根仅身份/source/points/events/meta/dataStatus；正常point保留原值、普通状态和方向，event仅id/time/direction/type，类型只有DULL/STRUCTURE/CANCEL。普通响应没有debug字段。
+- debug在相同普通字段之外，仅增加sourceInputId、同time的points、同id的events和统一structures集合。参照完整六字段为startTime/endTime/price/dif/priceAt/difAt；活动结构用activeStructureId，事件关联用relatedStructureId。
+- 顶底统一结构状态为ASSESSING/LOCKED/DISAPPEARED，形成、锁死和消失的时点及原参照按LLD§2.3保存。不得输出等待记录、旧顶/底历史集合、旧历史追溯撤销事件，也不得以空数组/别名保留它们。
+- 所有字段集合、required/null、原始数值/时间、类型和结构引用检查必须按LLD§5.3完整执行；不得仅依本节摘要省略内部校验。日线time保持YYYY-MM-DD。数值须有限、价格正，拒bool和字符串数字。
 
 ### 10.3 数据、关联及身份校验
 
-1. points按time升序唯一，events保持真实发生顺序；meta.count及首末精确对应points，event.time在响应points内。source.startTime可早于显示窗口，computedThrough和dataStatus.asOf一致，不能带未来值。
-2. ordinaryState为NONE则direction为null，DULL/STRUCTURE则为TOP或BOTTOM。内部完整状态/参照/历史/等待先校验，再投影普通字段；普通不显示不等于内部不检查。
-3. debug.points.time与普通points逐一相同，debug.events.id与普通events逐一相同，全部编号及双向历史/等待关联必须存在、唯一且日期一致。原结构可以在可见窗口之前形成，不得误作悬挂；截至时点之后的确认和结束不能泄露。
-4. 已钝化同根B→A只改变当根活动参照；原DULL事件及历史的原参照不回写。debug保留这个真实区别，不要求旧事件参照等于最新活动参照。
-5. READY按实际完成前缀返回；DELAYED保留真实可用结果并说明截止，不补最新根、不挪标签。EMPTY时points/events为空、count0、首末及源起止/asOf为null，debug数组为空，sourceInputId仍为原空源sha256(b'empty')身份字符串，不虚构历史或用请求日补日期。
-6. algorithmVersion固定上述r4版本，specHash须与同次构建的完整MAIN_SPEC精确相等，不只验64位格式。P1样例hash是显式必填参数，无默认r2值；P2固定Spec后统一生成并填入各消费者，业务预期不由程序重算。这里的数据hash不是运行时源码SHA保护。
+历史point的活动结构表示该point当时的考核状态；查询截至时该记录可以已锁死或消失。必须按发生时点及查询截止分别校验，不因如今已锁死而拒绝合法历史点，也不得把未来终态泄露给更早asOf。窗口外形成、窗口内结束的结构引用须完整带齐。
+
+同根B→A只能改本根活动参照，不能回写原DULL事件。取消后不能在同根补首次钝化；锁死后不能追溯撤销。READY/DELAYED/EMPTY和source/meta的空值与窗口关系按LLD§5.3执行，失败不得返回EMPTY或保留失效标签。
 
 ### 10.4 返回、预算、错误及消费者
 
-query目标签名为`build(session, *, period, start_date, end_date, limit, debug=False, now=None) -> bytes`。同源内部计算/cache可被两种模式复用；分别新建公开模型，不能原地删debug字段或把普通投影存回完整内部缓存。普通/debug的公共字段、事件ID完全相同，debug不进入算法身份。
+query目标返回已校验bytes：完整内部校验→显式新建普通/debug投影→公开校验→一次编码→检查同一deadline和字节上限→API发送同一正文。禁止二次编码、修改缓存对象或debug失败降级普通成功。
 
-内部/公开字段及关联全部校验后，仅`model_dump_json().encode('utf-8')`一次；检查最终字节和原deadline，再由API以`Response(content=body, media_type='application/json')`发送，OpenAPI声明普通/debug联合。保留现no-store策略，不让框架在检查后重新编码，不用exclude_none删除合法null。debug合同错误整份失败，不降级普通成功。
+总4秒（含共享等待、来源、恢复、完整/公开校验及编码），并发2、返回≤2000根/1MiB、缓存64MiB/16系列；客户端同一5秒截止覆盖网络、解码和最终显示。错误体及既有400/404/500/503、鉴权行为按[LLD§9](index-detail-top-bottom-recognition-low-level-design-v1.md#9-预算错误取消及数据读写边界)和现异常登记，不新增错误包装。
 
-固定预算：总4秒（含共享等待、读取、历史恢复、完整/公开校验及编码），并发2，返回≤2000根且≤1MiB，缓存≤64MiB/16系列；普通/debug同上限，不能截断关联凑容量。客户端沿原scheduler及5秒截止，覆盖解析和最终显示，模式/日期变化清理旧请求，迟到结果不能串用。
-
-| HTTP | code/行为 | 场景 |
-|---:|---|---|
-| 400 | XXM_REQUEST_INVALID | 请求格式、日期、debug、未知/重复参数非法 |
-| 404 | XXM_NOT_SUPPORTED | 合法但不支持的标的；生产/未注册路径为原框架404，不伪造此业务错误或EMPTY |
-| 500 | XXM_SOURCE_CONTRACT_INVALID | 源缺口、非法数值/时点、完整或公开结果合同不合法 |
-| 500 | XXM_QUERY_FAILED | 一般查询失败 |
-| 503 | XXM_BUDGET_EXCEEDED | 读取/处理超时、数量或字节预算超限 |
-| 503 | XXM_QUERY_FAILED | 保留当前直接query调用缺本地分钟reader的显式例外；不把一般QUERY_FAILED全改503。日线不因缺分钟reader失败 |
-| 401/403 | 原unauthorized/forbidden | 既有鉴权 |
-
-错误体仍为现Wealth的code/message/request_id，不改成另一个包装。错误不能吞成EMPTY；失败清本请求失效标记及辅助结果，正常K线保留。完整错误及异常登记以[LLD§9](index-detail-top-bottom-recognition-low-level-design-v1.md#9-预算错误取消及数据读写边界)为准，不新增错误码。
-
-P2—P4须同步query直接调用、Python schema/API、前端xxm类型/decoder/client/hook、日线和分钟图表及悬停、web测试和保留核验工具；旧DTO返回或根层辅助字段没有兼容别名。P1仅冻结目标，不能用尚未实现的r4合同验证当前r2并声称通过；独立样例位于现主题tests，详见LLD§16。后续本地/生产/真实来源和删后验收完成前，不宣称产品迁移完成。
+实施必须按LLD§11顺序同步query、schema、API、直接Python调用、TS类型/解码/client/Hook和普通悬停，不发布中间混配版本；消费者清单见LLD§11.2.6。保留核验工具在P4使用前整体迁移，清退在P5完成，均不得提前。

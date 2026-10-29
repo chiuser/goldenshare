@@ -1,6 +1,6 @@
 # 指数详情本地分钟 API / DTO 合同 v1
 
-> 2026-10-28 P1：§8登记r4分钟顶底识别目标合同，尚未改运行时。§1—7的七频分钟行情/指标及1.1.0验收保持；新增目标仅60/90/120识别，不将七频和10000行情上限套到识别。
+> 2026-10-30：§8为本次r4分钟识别的唯一目标合同入口，完整字段以[顶底识别LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)为准；本轮仅同步文书，未修改运行接口。§1—7的七频分钟行情/指标合同不变，不将七频或10000行情上限套到识别。
 
 > 版本：`1.1.0`
 > 状态：指数分钟交付已完成。P10 业务读取已切换并验收；bars 只读正式 Gold canonical bars，indicators 只读正式 Gold technical；没有 Silver、旧 Lake、staging 或 Mock fallback。七频合同、全历史对齐、性能、分页、局部状态、浏览器和生产隔离门禁均已闭环。切换与历史重建证据见 [A 股分钟线 Gold 标准 K 线合同与历史重建 LLD](../../../../lake_console/docs/design/dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md)。
@@ -202,50 +202,36 @@ uv run python -m src.scripts.audit_index_minute_gold --runs 10 --full-alignment 
 | 1.0.0 | 2026-08-11 | 冻结 local-only 双接口、Silver bars、Gold indicators、状态/异常/cursor/5MB 边界与 M5-A 开发态 Mock 例外 | Codex |
 
 
-## 8. r4分钟顶底识别目标合同（P1已登记，运行时尚未迁移）
+## 8. r4分钟顶底识别目标合同
 
-本节只扩展独立`minute-xxm-signals`，不是修改原`minutes/minute-indicators`，也不开放生产分钟。当前正式识别仍r2；目标为[产品LLD§1、§5、§9](index-detail-top-bottom-recognition-low-level-design-v1.md)规定的唯一r4，P1只维护文稿/样例，不作运行时变更或新验收声明。
+本节仅约束独立`minute-xxm-signals`，不修改minutes/minute-indicators行情合同，不开放生产分钟。识别规则、六字段参照、统一structures、普通/debug、版本和全部校验必须执行[顶底识别LLD§2—5](index-detail-top-bottom-recognition-low-level-design-v1.md)；本节不维护第二份字段表。本次仅同步文书，运行接口尚未按目标修改。
 
 ### 8.1 请求及环境
 
-```http
-GET /api/v1/wealth/market/index-detail/minute-xxm-signals
-```
+`GET /api/v1/wealth/market/index-detail/minute-xxm-signals`，原鉴权及no-store保持。
 
-| 参数 | 必填 | 规则 |
-|---|---:|---|
-| tsCode | 是 | trim+upper；严格代码格式，且仅000001.SH。格式错400，其他合法标的404 |
-| freq | 是 | 文本60/90/120；响应period分别m60/m90/m120。不得用period代替freq，不支持1/5/15/30 |
-| startDate/endDate | 否 | 非空YYYY-MM-DD，开始≤结束；只限制显示窗口，不截断建立识别状态所需历史 |
-| limit | 否 | 缺省500，1..2000；本节没有cursor，不使用行情接口10000上限 |
-| debug | 否 | 缺省或文本0为普通，文本1为debug；空/true/01/2等及重复均400 |
-
-未知参数、重复参数和非法空值400 `XXM_REQUEST_INVALID`。沿原鉴权，普通客户端省略debug，不增加算法参数或另一套r4路径。
-
-仅最终Settings显式dev/local，**且**原分钟capability可用时注册；生产、缺配置、未知环境均无此路由，原框架404且不进入源/计算，debug=1不能绕过。注册和reader使用同一传入Settings，不另从全局环境读取第二次。本地日线识别独立于此分钟条件；普通分钟行情/九转路由保持原规则。
-
-### 8.2 完整响应及时间规则
-
-本接口与[日线合同§10.2—10.4](index-detail-api-contract-v1.md#102-普通与debug的完整字段)使用**完全相同的普通/debug对象字段、历史/等待字段、所有枚举及关系校验**，该节是识别DTO字段的唯一登记处；本节仅列分钟必须覆盖的差异，不另维护一份省略历史字段的副本：
-
-| 对象/字段 | 分钟专属值或要求 |
+| 参数 | 规则 |
 |---|---|
-| 根身份 | tsCode=000001.SH；period=m60/m90/m120；algorithmVersion=xxm-direction-v0.1-r4；specHash为同次正式MAIN_SPEC完整hash |
-| source | kind=minute_gold，indicatorVersion为现Gold整数版本，不是string；startTime/computedThrough为标准周期time或null；无inputId |
-| 普通根 | 身份/source/points/events/meta/dataStatus，普通根没有debug和根层历史/等待 |
-| debug根 | 全部普通根加必有非null debug，含sourceInputId/points/events/topHistories/bottomHistories/rearmRecords；不加入离线decision |
-| 全部time | 标准ISO-8601，保留+08:00、日期及精确完成时刻；不能截成日线日期；必须按source.ENDPOINTS及SSE开市日对应实际完成根 |
-| 同源对齐 | 源Gold价格/指标按ts_code/freq/trade_date/trade_time严格配对；保留原close/DIF/DEA/柱，不补值或重算MACD |
-| 空/延迟 | 同日线EMPTY/DELAYED规则；不借当日15:00填空、不假设latest已到当日收盘；合法时间空值仍显式null |
+| tsCode | 必填；trim+upper后仅000001.SH；非法格式400，其他合法标的404 |
+| freq | 必填文本60/90/120；对应m60/m90/m120，不接受period代替或其他分钟周期 |
+| startDate/endDate | 可选非空YYYY-MM-DD且开始≤结束；仅响应窗口，不截断算法历史 |
+| limit | 缺省500，1..2000，无cursor；不得套用行情10000上限 |
+| debug | 缺省或文本0普通，文本1辅助；非法空/值、未知/重复参数400 |
 
-已核当前周期完成点：m60为10:30/11:30/14:00/15:00，m90为11:00/14:00/15:00，m120为11:30/15:00；不增加独立09:30。以当前正式source.ENDPOINTS为唯一代码来源，P2不复制第二份日历规则。
+服务端最终Settings必须显式dev/local且原分钟capability可用才装配，reader使用同一Settings；生产/缺配置/未知环境无路由、无源读取或计算，debug不得绕过。日线不依赖分钟能力，普通分钟行情/九转边界不变。
 
-所有字段必有、所有嵌套对象封闭，数值有限且拒bool/字符串，价格严格正。points.time升序唯一、events位于窗口、meta匹配，debug的point时间/event ID逐一对应普通响应；历史可早于窗口但不得超过同computedThrough。等待endReason不接受zero，同根B→A的原事件参照不回写；具体完整字段和反例依上述唯一字段登记。
+### 8.2 响应及分钟专属要求
 
-### 8.3 错误、预算及迁移交接
+- detector版本固定`xxm-direction-v0.2-r4`，specHash绑定完整新MAIN_SPEC；普通与debug完整字段和结构关系仅按LLD§5.3及[日线合同§10](index-detail-api-contract-v1.md)执行。
+- source.kind=minute_gold、indicatorVersion为当前Gold整数版本；time保留ISO精确完成时刻和+08:00，不截成日期、不拿当日15:00补latest或空值。
+- 当前正式source.ENDPOINTS是唯一代码来源：m60为10:30/11:30/14:00/15:00，m90为11:00/14:00/15:00，m120为11:30/15:00。必须同时按SSE开市日验证，不另加09:30或复制一份日历策略。
+- 源Gold价格/指标按ts_code/freq/trade_date/trade_time严格配对，保留原close/DIF/DEA/柱，不补值、不重算实际MACD。
+- 普通响应不带辅助对象；debug只有实际参照、结构关联和统一structures。等待、旧顶/底历史集合、追溯撤销事件在两种模式均禁止。历史引用和asOf投影与日线同规则，不能因旧结构形成点在窗口外而误拒。
 
-HTTP错误code/message/request_id仍沿原Wealth；400 XXM_REQUEST_INVALID、404 XXM_NOT_SUPPORTED、500 XXM_SOURCE_CONTRACT_INVALID或一般XXM_QUERY_FAILED、503 XXM_BUDGET_EXCEEDED。生产/未注册路径为框架404，不返回假业务成功。保留当前直接query缺分钟reader显式XXM_QUERY_FAILED/503的例外，不把所有一般失败改503；正常装配应先保证分钟能力。401/403保留原鉴权。
+### 8.3 预算、错误与交接
 
-本接口总4秒、并发2、≤2000根/1MiB、缓存64MiB/16系列，全部完整校验、投影、一次编码计入；不是七频行情的5秒/5MB限额。返回目标为query产生已验证bytes、API复用发送；普通/debug共用内部计算而各自投影，模式不改编号。客户端5秒和原scheduler保持，真实合同错误不退成普通/EMPTY。
+识别总4秒、并发2、≤2000根/1MiB、缓存64MiB/16系列，完整/公开校验及一次编码均计入；不是行情接口5秒/5MB限额。query返回已校验bytes，API发送同一正文；普通/debug复用内部计算、分别投影，模式不改变编号。
 
-P2只迁内部识别核心/恢复/query/clone及MAIN_SPEC，生成正式detector hash；P3再同步Python公开模型、HTTP返回、TS身份/解码、合同样例及其调用，FORECAST_SPEC/预测hash也到P3与预测模型一并切换。当前`minute-xxm-signals`、xxm client、forecast分钟调用及web合同消费者在P3按同一合同迁移，不能留下旧DTO返回或根层历史字段兼容；minute workspace、环境门禁及真实来源/页面验收仍属P4。不使用r2 hash或旧JSON换身份充当r4预期，不发布中间混合版本。独立样例按LLD§16准备；P1材料或P2内部计算通过均不代表分钟真实来源、性能或页面已验收。
+HTTP沿已登记XXM错误、原code/message/request_id及鉴权。直接query缺分钟reader的现有503例外保持，正常HTTP装配先保证分钟能力；生产未注册由框架404，不伪造EMPTY。
+
+新核心、内部类型/恢复/聚合先按LLD§11完成，再迁公开模型/API和TS客户端/Hook/悬停；完整新身份及消费者必须同一P3完成，不保留旧字段兼容或发布混配版本。P4再验环境、真实分钟来源/预算和页面；内部测试通过不能代替它们。当前开工以本次已同步目标合同及LLD为依据，不重做旧捕获或旧算法等价核验。
