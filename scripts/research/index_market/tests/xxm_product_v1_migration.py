@@ -15,6 +15,7 @@ import signal
 import subprocess
 import sys
 import time
+import traceback
 
 from .xxm_product_v1_cases import CASES, PERIODS
 from . import xxm_product_v1_migration_worker as protocol
@@ -398,72 +399,122 @@ def _first_difference(a, b, path=""):
     return None if a == b and (type(a) is bool) == (type(b) is bool) else path + ": value differs"
 
 
-def capture_baseline():
-    budget = protocol.Budget()
-    with budget.interrupt_at_deadline():
-        with budget.stage("capture inputs"):
-            cases = artificial_inputs()
-            protocol.validate_inputs(cases, budget)
-        # Importing this disposable module exposes constants only.  Its old
-        # algorithm modules are loaded solely inside the separate interpreter.
-        with budget.stage("capture source identity"):
-            from .xxm_product_v1_migration_capture import (
-                BASELINE_COMMIT, SOURCE_BLOBS, SOURCE_BYTES, R2_SPEC_FIELDS, R4_SPEC_FIELDS,
-                R2_SPEC_HASH, R4_RESEARCH_HASH,
-            )
-        result, _ = _run_child(CAPTURE_MODULE, cases, budget, ())
-        with budget.stage("capture metadata"):
-            protocol.fields(result, {"records", "metadata"}, "capture result")
-            metadata = result["metadata"]
-            protocol.fields(metadata, {"algorithmVersion", "specHash", "researchVersion", "researchHash", "identities",
-                                       "commit", "sourceReads", "sourceBytes"}, "capture metadata")
-            if (metadata["algorithmVersion"] != R2_SPEC_FIELDS["algorithm_version"]
-                    or metadata["researchVersion"] != R4_SPEC_FIELDS["research_version"]
-                    or metadata["specHash"] != R2_SPEC_HASH or metadata["researchHash"] != R4_RESEARCH_HASH
-                    or metadata["commit"] != BASELINE_COMMIT
-                    or metadata["sourceReads"] != dict.fromkeys(SOURCE_BLOBS, 1)
-                    or any(type(value) is not int for value in metadata["sourceReads"].values())
-                    or type(metadata["sourceBytes"]) is not int or metadata["sourceBytes"] != SOURCE_BYTES):
-                raise MigrationError("capture source identity differs")
-            for key in ("specHash", "researchHash"):
-                if (type(metadata[key]) is not str or len(metadata[key]) != 64
-                        or any(char not in "0123456789abcdef" for char in metadata[key])):
-                    raise MigrationError("capture algorithm hash differs")
-            records, identities = result["records"], metadata["identities"]
-            if type(records) is not list or len(records) != 148 or type(identities) is not list or len(identities) != 148:
-                raise MigrationError("capture case count differs")
-            retained = protocol.RetainedSize(cases, result, budget=budget)
-        for index, (case, record, identity) in enumerate(zip(cases, records, identities, strict=True)):
-            with budget.stage("capture validation", case):
-                protocol.validate_record(record, budget)
-                if any(record[key] != case[key] for key in protocol.CASE_FIELDS):
-                    raise MigrationError("capture input/order differs")
-                expected = dict(caseName=case["caseName"], period=case["period"], inputIdentity=case["sourceIdentity"],
-                                sourceIdentity=f"r4|{metadata['researchHash']}|{case['period']}|{case['sourceIdentity']}")
-                if identity != expected:
-                    raise MigrationError("capture per-case identity differs")
-                indexed = _index(record, budget)
-                retained.check(indexed)
-                del indexed
-                assert_case_facts(CASES[index % 37], record, budget)
-        with budget.stage("capture final checks"):
-            protocol.bounded_size(cases, result)
-            # Drop the accounting registry before collecting the real retained
-            # graph, and keep collection inside this same capture deadline.
-            del retained, cases, case, record, identity, expected
-            gc.collect()
-        result["seconds"] = 0.0
-        budget.timings["capture ready"] = 0.0
-        result["timings"] = budget.timings
-        protocol.bounded_size(result)
-        with budget.stage("capture ready"):
-            print("CAPTURE_READY cases=148 periods=day,m60,m90,m120", flush=True)
-        result["seconds"] = time.monotonic() - budget.started
-        protocol.bounded_size(result)
-        budget.check()
-        result["seconds"] = time.monotonic() - budget.started
-        return result
+def _write_diagnostic(message):
+    """A broken diagnostic stream must not prevent releasing retained data."""
+    try:
+        print(message[:800], file=sys.stderr, flush=True)
+    except TimeoutError:
+        # TimeoutError is also an OSError; the cleanup deadline still wins.
+        raise
+    except (OSError, ValueError):
+        pass
 
+
+def _report_failure(error, *, stage=None):
+    """Flush the original reason before cleanup can terminate the CLI."""
+    if getattr(error, "_p2_failure_reported", False):
+        return
+    detail = str(error)[:600]
+    if stage is not None and "stage=" not in detail:
+        detail = f"stage={stage}: {detail}"
+    error._p2_failure_reported = True
+    _write_diagnostic(f"FAIL {type(error).__name__}: {detail}")
+
+
+def _clear_exception_frames(error):
+    """Release every ended work frame, including chained failure frames."""
+    pending, seen = [error], set()
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        pending.extend(item for item in (current.__cause__, current.__context__) if item is not None)
+        traceback.clear_frames(current.__traceback__)
+        current.__traceback__ = None
+
+
+def capture_baseline(*, terminal=False):
+    budget = protocol.Budget()
+    result = None
+    try:
+        with budget.interrupt_at_deadline():
+            result = _capture_records(budget)
+            with budget.stage("capture final checks"):
+                # Successful capture must remove this native guard before
+                # READY waits for a command for an unrestricted duration.
+                with budget.cleanup_at_deadline(terminal=terminal):
+                    gc.collect()
+            result["seconds"] = 0.0
+            result["timings"] = budget.timings
+            protocol.bounded_size(result)
+            with budget.stage("capture ready"):
+                print("CAPTURE_READY cases=148 periods=day,m60,m90,m120", flush=True)
+            protocol.bounded_size(result)
+            budget.check()
+            result["seconds"] = time.monotonic() - budget.started
+            return result
+    except BaseException as exc:
+        with budget.cleanup_at_deadline(terminal=terminal, keep_armed=terminal):
+            _report_failure(exc, stage="capture cleanup")
+            _clear_exception_frames(exc)
+            if result is not None:
+                result.clear()
+            gc.collect()
+        raise
+
+
+def _capture_records(budget):
+    with budget.stage("capture inputs"):
+        cases = artificial_inputs()
+        protocol.validate_inputs(cases, budget)
+    # Importing this disposable module exposes constants only.  Its old
+    # algorithm modules are loaded solely inside the separate interpreter.
+    with budget.stage("capture source identity"):
+        from .xxm_product_v1_migration_capture import (
+            BASELINE_COMMIT, SOURCE_BLOBS, SOURCE_BYTES, R2_SPEC_FIELDS, R4_SPEC_FIELDS,
+            R2_SPEC_HASH, R4_RESEARCH_HASH,
+        )
+    result, _ = _run_child(CAPTURE_MODULE, cases, budget, ())
+    with budget.stage("capture metadata"):
+        protocol.fields(result, {"records", "metadata"}, "capture result")
+        metadata = result["metadata"]
+        protocol.fields(metadata, {"algorithmVersion", "specHash", "researchVersion", "researchHash", "identities",
+                                   "commit", "sourceReads", "sourceBytes"}, "capture metadata")
+        if (metadata["algorithmVersion"] != R2_SPEC_FIELDS["algorithm_version"]
+                or metadata["researchVersion"] != R4_SPEC_FIELDS["research_version"]
+                or metadata["specHash"] != R2_SPEC_HASH or metadata["researchHash"] != R4_RESEARCH_HASH
+                or metadata["commit"] != BASELINE_COMMIT
+                or metadata["sourceReads"] != dict.fromkeys(SOURCE_BLOBS, 1)
+                or any(type(value) is not int for value in metadata["sourceReads"].values())
+                or type(metadata["sourceBytes"]) is not int or metadata["sourceBytes"] != SOURCE_BYTES):
+            raise MigrationError("capture source identity differs")
+        for key in ("specHash", "researchHash"):
+            if (type(metadata[key]) is not str or len(metadata[key]) != 64
+                    or any(char not in "0123456789abcdef" for char in metadata[key])):
+                raise MigrationError("capture algorithm hash differs")
+        records, identities = result["records"], metadata["identities"]
+        if type(records) is not list or len(records) != 148 or type(identities) is not list or len(identities) != 148:
+            raise MigrationError("capture case count differs")
+        retained = protocol.RetainedSize(cases, result, budget=budget)
+    for index, (case, record, identity) in enumerate(zip(cases, records, identities, strict=True)):
+        with budget.stage("capture validation", case):
+            protocol.validate_record(record, budget)
+            if any(record[key] != case[key] for key in protocol.CASE_FIELDS):
+                raise MigrationError("capture input/order differs")
+            expected = dict(caseName=case["caseName"], period=case["period"], inputIdentity=case["sourceIdentity"],
+                            sourceIdentity=f"r4|{metadata['researchHash']}|{case['period']}|{case['sourceIdentity']}")
+            if identity != expected:
+                raise MigrationError("capture per-case identity differs")
+            indexed = _index(record, budget)
+            retained.check(indexed)
+            del indexed
+            assert_case_facts(CASES[index % 37], record, budget)
+    with budget.stage("capture final checks"):
+        protocol.bounded_size(cases, result)
+        # The wrapper collects after this frame has released its registry.
+        del retained, cases, case, record, identity, expected
+    return result
 
 def _signal_group(child, sig):
     # Reap an already exited leader first. Still signal the group: descendants
@@ -585,48 +636,62 @@ def run_worker(cases, budget, retained):
     return _run_child(WORKER_MODULE, cases, budget, retained)
 
 
-def compare_baseline(baseline, *, release_baseline=False):
+def compare_baseline(baseline, *, release_baseline=False, terminal=False):
     budget = protocol.Budget()
-    with budget.interrupt_at_deadline():
-        with budget.stage("formal inputs"):
-            cases = [{k: record[k] for k in protocol.CASE_FIELDS} for record in baseline["records"]]
-            retained = protocol.RetainedSize(baseline, cases, budget=budget)
-        result, result_bytes = run_worker(cases, budget, retained)
-        with budget.stage("formal identity"):
-            protocol.fields(result, {"algorithmVersion", "specHash", "tsCode", "records"}, "worker result")
-            if (result["algorithmVersion"] != "xxm-direction-v0.1-r4" or result["tsCode"] != "000001.SH"
-                    or result["specHash"] != protocol.formal_hash()):
-                raise MigrationError("worker formal identity differs")
-            records = result["records"]
-            if type(records) is not list or len(records) != 148:
-                raise MigrationError("worker case count differs")
-            retained.add(result)
-        for i, (old, new) in enumerate(zip(baseline["records"], records, strict=True)):
-            try:
-                with budget.stage("formal independent facts", old):
-                    protocol.validate_record(new, budget)
-                    if any(new[key] != old[key] for key in protocol.CASE_FIELDS):
-                        raise MigrationError("input/order differs")
-                    assert_case_facts(CASES[i % 37], new, budget)
-                with budget.stage("formal exact comparison", old):
-                    compare_records(old, new, budget, retained=retained)
-            except (ValueError, KeyError, TypeError) as exc:
-                raise MigrationError(f"case={old['caseName']}/period={old['period']}/{exc}") from exc
-        with budget.stage("formal final checks"):
-            if protocol.bounded_size(baseline, cases, result) != retained.total:
-                raise MigrationError("retained accounting differs")
-            summary = dict(cases=148, periods=",".join(PERIODS), seconds=0.0, resultBytes=result_bytes,
-                           algorithmVersion=result["algorithmVersion"], specHash=result["specHash"])
-            del retained, cases, result, records, old, new
+    try:
+        with budget.interrupt_at_deadline():
+            summary = _compare_records(baseline, budget)
+            summary["timings"] = dict(budget.timings)
+            protocol.bounded_size(baseline, summary)
+            budget.check()
+        with budget.cleanup_at_deadline(terminal=terminal, keep_armed=terminal):
             if release_baseline:
                 baseline.clear()
             gc.collect()
         summary["timings"] = dict(budget.timings)
-        protocol.bounded_size(baseline, summary)
-        budget.check()
         summary["seconds"] = time.monotonic() - budget.started
         return summary
+    except BaseException as exc:
+        with budget.cleanup_at_deadline(terminal=terminal, keep_armed=terminal):
+            _report_failure(exc, stage="formal cleanup")
+            _clear_exception_frames(exc)
+            baseline.clear()
+            gc.collect()
+        raise
 
+
+def _compare_records(baseline, budget):
+    with budget.stage("formal inputs"):
+        cases = [{k: record[k] for k in protocol.CASE_FIELDS} for record in baseline["records"]]
+        retained = protocol.RetainedSize(baseline, cases, budget=budget)
+    result, result_bytes = run_worker(cases, budget, retained)
+    with budget.stage("formal identity"):
+        protocol.fields(result, {"algorithmVersion", "specHash", "tsCode", "records"}, "worker result")
+        if (result["algorithmVersion"] != "xxm-direction-v0.1-r4" or result["tsCode"] != "000001.SH"
+                or result["specHash"] != protocol.formal_hash()):
+            raise MigrationError("worker formal identity differs")
+        records = result["records"]
+        if type(records) is not list or len(records) != 148:
+            raise MigrationError("worker case count differs")
+        retained.add(result)
+    for i, (old, new) in enumerate(zip(baseline["records"], records, strict=True)):
+        try:
+            with budget.stage("formal independent facts", old):
+                protocol.validate_record(new, budget)
+                if any(new[key] != old[key] for key in protocol.CASE_FIELDS):
+                    raise MigrationError("input/order differs")
+                assert_case_facts(CASES[i % 37], new, budget)
+            with budget.stage("formal exact comparison", old):
+                compare_records(old, new, budget, retained=retained)
+        except (ValueError, KeyError, TypeError) as exc:
+            raise MigrationError(f"case={old['caseName']}/period={old['period']}/{exc}") from exc
+    with budget.stage("formal final checks"):
+        if protocol.bounded_size(baseline, cases, result) != retained.total:
+            raise MigrationError("retained accounting differs")
+        summary = dict(cases=148, periods=",".join(PERIODS), seconds=0.0, resultBytes=result_bytes,
+                       algorithmVersion=result["algorithmVersion"], specHash=result["specHash"])
+        del retained, cases, result, records, old, new
+    return summary
 
 def read_command(stream):
     line = stream.readline(64)
@@ -637,15 +702,34 @@ def read_command(stream):
     raise MigrationError("expected one line: compare or abort")
 
 
-def main(argv=None):
+def _release_waiting(baseline, *, terminal=False, error=None):
+    # Waiting is unmetered. A command or interruption starts only this one
+    # second of exit cleanup, never another computation phase.
+    budget = protocol.Budget(seconds=1.0, reserve=1.0)
+    budget.location = "READY exit cleanup"
+    with budget.cleanup_at_deadline(terminal=terminal, keep_armed=terminal):
+        if error is not None:
+            _report_failure(error, stage=budget.location)
+            _clear_exception_frames(error)
+        else:
+            _write_diagnostic("ABORT stage=READY exit cleanup: releasing retained records")
+        baseline.clear()
+        gc.collect()
+
+
+def main(argv=None, *, terminal=False):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.parse_args(argv)
     if not sys.dont_write_bytecode:
         parser.error("start this disposable verifier with python -B")
     baseline = None
+    phase = "capture"
     try:
-        baseline = capture_baseline()
+        baseline = capture_baseline(terminal=terminal)
+        phase = "waiting"
         if read_command(sys.stdin) == "abort":
+            phase = "waiting cleanup"
+            _release_waiting(baseline, terminal=terminal)
             print("ABORT cases=148", flush=True)
             return 2
         capture_seconds = baseline["seconds"]
@@ -654,19 +738,28 @@ def main(argv=None):
         if "metadata" in baseline:
             source_summary = (f" commit={baseline['metadata']['commit']} sourceBytes={baseline['metadata']['sourceBytes']} sourceReads="
                               + ",".join(f"{path}:{count}" for path, count in baseline["metadata"]["sourceReads"].items()))
-        summary = compare_baseline(baseline, release_baseline=True)
+        phase = "compare"
+        summary = compare_baseline(baseline, release_baseline=True, terminal=terminal)
         baseline = None
         compare_stages = ",".join(f"{name}:{seconds:.3f}" for name, seconds in summary["timings"].items())
         print(f"PASS cases=148 periods={summary['periods']} captureSeconds={capture_seconds:.3f} compareSeconds={summary['seconds']:.3f} resultBytes={summary['resultBytes']} captureStages={capture_stages} compareStages={compare_stages}{source_summary}", flush=True)
         return 0
     except (Exception, KeyboardInterrupt) as exc:
-        print(f"FAIL {type(exc).__name__}: {str(exc)[:600]}", file=sys.stderr, flush=True)
+        failure = exc
+        if phase == "waiting":
+            try:
+                _release_waiting(baseline, terminal=terminal, error=exc)
+            except (Exception, KeyboardInterrupt) as cleanup_error:
+                failure = cleanup_error
+        _report_failure(failure)
         return 1
-    finally:
-        if baseline is not None:
-            baseline.clear()
-            gc.collect()
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    exit_code = main(terminal=True)
+    try:
+        sys.stdout.flush()
+        sys.stderr.flush()
+    except (Exception, KeyboardInterrupt):
+        exit_code = 1
+    os._exit(exit_code)

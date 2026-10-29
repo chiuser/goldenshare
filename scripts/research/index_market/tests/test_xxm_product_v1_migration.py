@@ -9,9 +9,12 @@ import io
 import hashlib
 import os
 import select
+import signal
 import subprocess
 import sys
 import time
+import textwrap
+import weakref
 
 import pytest
 
@@ -264,9 +267,9 @@ def test_wait_command_is_one_line_and_eof_is_abort(command, expected):
 
 
 def test_unknown_command_does_not_start_comparison(monkeypatch, capsys):
-    monkeypatch.setattr(migration, "capture_baseline", lambda: {"records": [], "seconds": 0})
+    monkeypatch.setattr(migration, "capture_baseline", lambda **kwargs: {"records": [], "seconds": 0})
     monkeypatch.setattr(migration.sys, "stdin", io.StringIO("status\n"))
-    monkeypatch.setattr(migration, "compare_baseline", lambda _: pytest.fail("must not compare"))
+    monkeypatch.setattr(migration, "compare_baseline", lambda *args, **kwargs: pytest.fail("must not compare"))
     assert migration.main([]) == 1
     assert "PASS" not in capsys.readouterr().out
 
@@ -330,9 +333,9 @@ def test_substitute_child_success_reads_bounded_json_and_reaps(monkeypatch):
 @pytest.mark.parametrize("command", ["abort\n", ""])
 def test_abort_and_eof_release_retained_records_without_success(monkeypatch, capsys, command):
     retained = {"records": [top_record()], "seconds": 0}
-    monkeypatch.setattr(migration, "capture_baseline", lambda: retained)
+    monkeypatch.setattr(migration, "capture_baseline", lambda **kwargs: retained)
     monkeypatch.setattr(migration.sys, "stdin", io.StringIO(command))
-    monkeypatch.setattr(migration, "compare_baseline", lambda _: pytest.fail("abort must not compare"))
+    monkeypatch.setattr(migration, "compare_baseline", lambda *args, **kwargs: pytest.fail("abort must not compare"))
     assert migration.main([]) == 2
     assert retained == {} and "PASS" not in capsys.readouterr().out
 
@@ -572,3 +575,303 @@ def test_git_cleanup_uses_reserved_time_when_term_is_ignored():
         if child.poll() is None:
             child.kill()
             child.wait(timeout=1)
+
+
+def test_failure_cleanup_keeps_original_deadline_active(monkeypatch, capsys):
+    # The failing boundary is only the worker transport. No old capture or
+    # market source is opened, and the timer must cover GC after that failure.
+    baseline = {"records": [top_record()], "seconds": 0}
+    budgets, cleanup = [], []
+    original_budget = p.Budget
+    def short_budget(*args, **kwargs):
+        current = original_budget(seconds=.15, reserve=.05)
+        budgets.append(current)
+        return current
+    def failed_worker(*args, **kwargs):
+        raise p.MigrationError("literal worker failure")
+    def collect():
+        cleanup.append((signal.getitimer(signal.ITIMER_REAL)[0], time.monotonic()))
+        return 0
+    monkeypatch.setattr(p, "Budget", short_budget)
+    monkeypatch.setattr(migration, "capture_baseline", lambda **kwargs: baseline)
+    monkeypatch.setattr(migration, "run_worker", failed_worker)
+    monkeypatch.setattr(migration.gc, "collect", collect)
+    monkeypatch.setattr(migration.sys, "stdin", io.StringIO("compare\n"))
+    assert migration.main([]) == 1
+    assert baseline == {} and len(budgets) == 1
+    assert cleanup and all(alarm > 0 and at < budgets[0].end for alarm, at in cleanup)
+    output = capsys.readouterr()
+    assert "literal worker failure" in output.err and "PASS" not in output.out
+
+
+@pytest.mark.parametrize("operation", ["capture", "compare"])
+@pytest.mark.parametrize("interrupt", [False, True])
+def test_failed_phase_releases_private_frames_exception_chains_and_registry(monkeypatch, operation, interrupt):
+    refs, checks, ends = [], [], []
+    original_budget = p.Budget
+    baseline = {"records": [top_record()], "seconds": 0}
+    class PartialResult:
+        pass
+    def budget(*args, **kwargs):
+        value = original_budget()
+        ends.append(value.end)
+        return value
+    def nested_failure(marker):
+        cause_result = PartialResult()
+        refs.append(weakref.ref(cause_result))
+        raise ValueError("literal inner failure")
+    def fail(*args):
+        partial = PartialResult()
+        registry = p.RetainedSize({"newRecords": [bottom_record()]})
+        refs.extend((weakref.ref(partial), weakref.ref(registry)))
+        try:
+            nested_failure(partial)
+        except ValueError as cause:
+            if interrupt:
+                raise KeyboardInterrupt("literal interruption") from cause
+            raise p.MigrationError("literal phase failure") from cause
+    def collect():
+        checks.append((signal.getitimer(signal.ITIMER_REAL)[0], signal.getsignal(signal.SIGINT)))
+        assert refs and all(ref() is None for ref in refs)
+        return 0
+    monkeypatch.setattr(p, "Budget", budget)
+    monkeypatch.setattr(migration.gc, "collect", collect)
+    monkeypatch.setattr(migration, "_capture_records" if operation == "capture" else "_compare_records", fail)
+    handler = signal.getsignal(signal.SIGINT)
+    expected = KeyboardInterrupt if interrupt else p.MigrationError
+    with pytest.raises(expected, match="literal"):
+        if operation == "capture":
+            migration.capture_baseline()
+        else:
+            migration.compare_baseline(baseline, release_baseline=False)
+    assert len(ends) == 1 and checks and all(alarm > 0 and sig == signal.SIG_IGN for alarm, sig in checks)
+    assert signal.getsignal(signal.SIGINT) == handler and signal.getitimer(signal.ITIMER_REAL)[0] == 0
+    if operation == "compare":
+        assert baseline == {}  # release_baseline=False never retains a failed run.
+
+
+def test_second_sigint_during_cleanup_does_not_interrupt_release(monkeypatch):
+    baseline = {"records": [top_record()]}
+    def failed(*args):
+        raise KeyboardInterrupt("first interruption")
+    def collect():
+        assert baseline == {} and signal.getsignal(signal.SIGINT) == signal.SIG_IGN
+        os.kill(os.getpid(), signal.SIGINT)
+        return 0
+    monkeypatch.setattr(migration, "_compare_records", failed)
+    monkeypatch.setattr(migration.gc, "collect", collect)
+    before = signal.getsignal(signal.SIGINT)
+    with pytest.raises(KeyboardInterrupt, match="first interruption"):
+        migration.compare_baseline(baseline)
+    assert signal.getsignal(signal.SIGINT) == before
+
+
+@pytest.mark.parametrize("command", ["abort\n", "", "wrong\n", "interrupt"])
+def test_ready_exit_only_gets_one_cleanup_budget_and_never_computes(monkeypatch, capsys, command):
+    baseline = {"records": [top_record()], "seconds": 0}
+    original_budget, requested, collections = p.Budget, [], []
+    def budget(*args, **kwargs):
+        requested.append((args, kwargs))
+        return original_budget(seconds=.3, reserve=.1)
+    class InterruptedInput:
+        def readline(self, limit):
+            raise KeyboardInterrupt("waiting interrupted")
+    def collect():
+        collections.append(signal.getitimer(signal.ITIMER_REAL)[0])
+        assert baseline == {}
+        return 0
+    monkeypatch.setattr(p, "Budget", budget)
+    monkeypatch.setattr(migration, "capture_baseline", lambda **kwargs: baseline)
+    monkeypatch.setattr(migration, "compare_baseline", lambda *args, **kwargs: pytest.fail("must not compute"))
+    monkeypatch.setattr(migration.gc, "collect", collect)
+    monkeypatch.setattr(migration.sys, "stdin", InterruptedInput() if command == "interrupt" else io.StringIO(command))
+    assert migration.main([]) == (2 if command in ("abort\n", "") else 1)
+    assert requested == [((), {"seconds": 1.0, "reserve": 1.0})]
+    assert collections and all(alarm > 0 for alarm in collections)
+    assert "PASS" not in capsys.readouterr().out
+
+
+def test_expired_cleanup_does_not_grant_new_time_or_start_gc(monkeypatch):
+    budget = p.Budget(seconds=.1, reserve=.05)
+    budget.end = time.monotonic() - 1
+    entered = []
+    with pytest.raises(TimeoutError, match="original deadline"):
+        with budget.cleanup_at_deadline():
+            entered.append(True)
+    assert not entered and signal.getitimer(signal.ITIMER_REAL)[0] == 0
+
+
+def _exit_probe(body):
+    # Every deadline-kill test owns this fresh process. No old capture/source
+    # runs; only the private work boundary is substituted with literal facts.
+    prelude = '''
+import hashlib,io,os,signal,sys,time
+from scripts.research.index_market.tests import xxm_product_v1_migration as m
+from scripts.research.index_market.tests import xxm_product_v1_migration_worker as p
+RealBudget=p.Budget
+RealCapture=m.capture_baseline
+def short_budget(*args,**kwargs):
+    return RealBudget(seconds=.25,reserve=.1)
+p.Budget=short_budget
+baseline={'records':[],'seconds':0.0}
+m.capture_baseline=lambda **kwargs:baseline
+m.sys.stdin=io.StringIO('compare\\n')
+'''
+    started = time.monotonic()
+    result = subprocess.run([sys.executable, "-B", "-c", textwrap.dedent(prelude) + textwrap.dedent(body)],
+                            capture_output=True, text=True, timeout=3)
+    return result, time.monotonic() - started
+
+
+@pytest.mark.parametrize("operation", ["capture", "compare", "abort"])
+def test_terminal_cleanup_kills_delayed_c_call_at_original_end(operation):
+    if operation == "capture":
+        setup = '''
+m.capture_baseline=RealCapture
+def failure(budget):
+    raise m.MigrationError('literal capture fault')
+m._capture_records=failure
+'''
+    elif operation == "compare":
+        setup = '''
+def failure(*args):
+    raise m.MigrationError('literal comparison fault')
+m._compare_records=failure
+'''
+    else:
+        setup = "m.sys.stdin=io.StringIO('abort\\n')\n"
+    body = setup + '''
+def delayed_c_gc():
+    print('CLEANUP_C_STARTED',flush=True)
+    hashlib.pbkdf2_hmac('sha256',b'a',b'b',10000000)
+    print('CLEANUP_C_FINISHED',flush=True)
+m.gc.collect=delayed_c_gc
+code=m.main([],terminal=True)
+print('MAIN_RETURNED',flush=True)
+os._exit(code)
+'''
+    result, elapsed = _exit_probe(body)
+    assert result.returncode == -signal.SIGALRM
+    assert "CLEANUP_C_STARTED" in result.stdout
+    assert "CLEANUP_C_FINISHED" not in result.stdout and "MAIN_RETURNED" not in result.stdout
+    assert "PASS" not in result.stdout and elapsed < 1.5
+    if operation == "abort":
+        assert "READY exit cleanup" in result.stderr
+    else:
+        assert "literal " + ("capture" if operation == "capture" else "comparison") + " fault" in result.stderr
+
+
+def test_terminal_quick_cleanup_can_return_normally_without_extra_gc():
+    result, elapsed = _exit_probe('''
+def success(*args):
+    return dict(cases=148,periods='day,m60,m90,m120',seconds=0.0,resultBytes=1,
+                algorithmVersion='xxm-direction-v0.1-r4',specHash=p.formal_hash())
+m._compare_records=success
+def quick_gc():
+    print('FAST_CLEANUP',flush=True)
+    return 0
+m.gc.collect=quick_gc
+code=m.main([],terminal=True)
+assert baseline == {} and code == 0
+assert signal.getsignal(signal.SIGALRM) == signal.SIG_DFL
+assert signal.getitimer(signal.ITIMER_REAL)[0] > 0
+sys.stdout.flush();sys.stderr.flush();os._exit(code)
+''')
+    assert result.returncode == 0 and result.stdout.count("FAST_CLEANUP") == 1
+    assert "PASS cases=148" in result.stdout and elapsed < 1.5
+
+
+def test_work_timeout_cleanup_keeps_original_absolute_end():
+    result, elapsed = _exit_probe('''
+import json
+def slow_work(baseline,budget):
+    print(json.dumps({'phaseEnd':budget.end}),flush=True)
+    with budget.stage('literal delayed comparison'):
+        time.sleep(.5)
+m._compare_records=slow_work
+def delayed_c_gc():
+    print('CLEANUP_AFTER_WORK_TIMEOUT',flush=True)
+    hashlib.pbkdf2_hmac('sha256',b'a',b'b',10000000)
+m.gc.collect=delayed_c_gc
+code=m.main([],terminal=True)
+os._exit(code)
+''')
+    import json
+    phase_end = json.loads(result.stdout.splitlines()[0])["phaseEnd"]
+    assert result.returncode == -signal.SIGALRM
+    assert "CLEANUP_AFTER_WORK_TIMEOUT" in result.stdout and "PASS" not in result.stdout
+    assert "literal delayed comparison" in result.stderr and "work deadline" in result.stderr
+    # The subprocess startup precedes Budget creation. Only post-end return
+    # scheduling allowance is considered here; no new cleanup duration is granted.
+    assert time.monotonic() - phase_end < .08 and elapsed < 1.5
+
+
+def test_cleanup_expired_in_terminal_exits_before_touching_gc():
+    result, elapsed = _exit_probe('''
+budget=RealBudget(seconds=.1,reserve=.05)
+budget.end=time.monotonic()-1
+with budget.cleanup_at_deadline(terminal=True):
+    print('MUST_NOT_ENTER_EXPIRED_CLEANUP',flush=True)
+os._exit(0)
+''')
+    assert result.returncode == 1 and not result.stdout and elapsed < 1.5
+
+
+def test_capture_success_restores_timer_before_ready_wait(monkeypatch, capsys):
+    result = {"records": [], "metadata": {}}
+    monkeypatch.setattr(migration, "_capture_records", lambda budget: result)
+    monkeypatch.setattr(migration.gc, "collect", lambda: 0)
+    before = signal.getsignal(signal.SIGALRM)
+    assert migration.capture_baseline() is result
+    assert signal.getsignal(signal.SIGALRM) == before and signal.getitimer(signal.ITIMER_REAL)[0] == 0
+    assert "CAPTURE_READY" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("operation", ["capture", "compare", "abort"])
+@pytest.mark.parametrize("broken_at", ["write", "flush"])
+def test_broken_error_stream_does_not_replace_failure_or_block_cleanup(monkeypatch, operation, broken_at):
+    baseline, collected, attempts = {"records": [top_record()], "seconds": 0}, [], []
+    class BrokenErrorStream:
+        def write(self, value):
+            attempts.append("write")
+            if broken_at == "write":
+                raise BrokenPipeError("literal disconnected stderr")
+            return len(value)
+        def flush(self):
+            attempts.append("flush")
+            if broken_at == "flush":
+                raise ValueError("literal closed stderr")
+    def fail(*args):
+        raise p.MigrationError("original work failure")
+    def collect():
+        collected.append(signal.getitimer(signal.ITIMER_REAL)[0])
+        if operation != "capture":
+            assert baseline == {}
+        return 0
+    monkeypatch.setattr(migration.sys, "stderr", BrokenErrorStream())
+    monkeypatch.setattr(migration.gc, "collect", collect)
+    if operation == "abort":
+        monkeypatch.setattr(migration, "capture_baseline", lambda **kwargs: baseline)
+        monkeypatch.setattr(migration.sys, "stdin", io.StringIO("abort\n"))
+        assert migration.main([]) == 2
+    else:
+        monkeypatch.setattr(migration, "_capture_records" if operation == "capture" else "_compare_records", fail)
+        with pytest.raises(p.MigrationError, match="original work failure"):
+            if operation == "capture":
+                migration.capture_baseline()
+            else:
+                migration.compare_baseline(baseline)
+    assert collected and all(alarm > 0 for alarm in collected)
+    assert len(attempts) <= 3  # print may write message and newline; never retry.
+
+
+@pytest.mark.parametrize("failure", [TimeoutError("literal timer"), RuntimeError("literal program error"),
+                                    KeyboardInterrupt("literal interrupt")])
+def test_diagnostic_does_not_swallow_deadline_unknown_error_or_interrupt(monkeypatch, failure):
+    class ErrorStream:
+        def write(self, value):
+            raise failure
+    monkeypatch.setattr(migration.sys, "stderr", ErrorStream())
+    with pytest.raises(type(failure)) as actual:
+        migration._write_diagnostic("bounded diagnostic")
+    assert actual.value is failure

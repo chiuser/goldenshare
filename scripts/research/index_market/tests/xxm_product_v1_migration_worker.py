@@ -12,6 +12,7 @@ from datetime import date, datetime, timedelta
 import hashlib
 import json
 import math
+import os
 import resource
 import signal
 import sys
@@ -121,6 +122,47 @@ class Budget:
             signal.signal(signal.SIGALRM, old_handler)
             if old_timer[0]:
                 signal.setitimer(signal.ITIMER_REAL, *old_timer)
+
+    @contextmanager
+    def cleanup_at_deadline(self, *, terminal=False, keep_armed=False):
+        """Clean up within this phase's absolute end, without a new allowance.
+
+        Only the disposable CLI uses the native termination action. Imported
+        calls raise a Python exception, which cannot interrupt every C call.
+        A terminating CLI keeps its guard through diagnostics and os._exit.
+        """
+        def expired(_signum=None, _frame=None):
+            if terminal:
+                os._exit(1)
+            raise TimeoutError(f"stage={self.location}: cleanup exceeded its original deadline")
+
+        started = time.monotonic()
+        old_handler = signal.getsignal(signal.SIGALRM)
+        old_interrupt = signal.getsignal(signal.SIGINT)
+        old_timer = signal.getitimer(signal.ITIMER_REAL)
+        old_end = started + old_timer[0]
+        armed = False
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        try:
+            signal.setitimer(signal.ITIMER_REAL, 0)
+            signal.signal(signal.SIGALRM, signal.SIG_DFL if terminal else expired)
+            remaining = self.end - time.monotonic()
+            if remaining <= 0:
+                expired()
+            signal.setitimer(signal.ITIMER_REAL, remaining)
+            armed = True
+            yield
+            if time.monotonic() >= self.end:
+                expired()
+        finally:
+            self.timings["exit cleanup"] = self.timings.get("exit cleanup", 0.0) + time.monotonic() - started
+            if not (terminal and keep_armed and armed):
+                signal.setitimer(signal.ITIMER_REAL, 0)
+                signal.signal(signal.SIGALRM, old_handler)
+                signal.signal(signal.SIGINT, old_interrupt)
+                remaining = old_end - time.monotonic()
+                if old_timer[0] and remaining > 0:
+                    signal.setitimer(signal.ITIMER_REAL, remaining, old_timer[1])
 
 
 def fields(value, expected, path):
