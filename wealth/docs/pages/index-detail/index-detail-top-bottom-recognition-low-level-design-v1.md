@@ -1,6 +1,6 @@
 # 财势乾坤顶底识别低层设计 v1
 
-日期：2026-10-28；更新：2026-10-29。状态：**P1、P2限定验收完成；P2成功路径证据见§19.6，提交后发现的失败清理计时缺口已按§20修复并独立复核，最终成绩见§20.4。P2原中断保留于§18。P3预测/公开合同、P4页面及真实来源、P5清退尚未推进；本轮修复未提交或部署。**
+日期：2026-10-28；更新：2026-10-29。状态：**P1、P2限定验收完成；P2成功路径证据见§19.6，提交后发现的失败清理计时缺口已按§20修复并独立复核，最终成绩见§20.4。P2原中断保留于§18。P2修复已本地提交730b0cee8；本轮仅补§11.4的两处P3/P4交接，P3预测/公开合同、P4页面及真实来源、P5清退尚未推进，未部署。**
 
 依据：[产品文档](../../../../docs/product/wealth-top-bottom-recognition-product-v1.md)、[技术方案](index-detail-top-bottom-recognition-technical-design-v1.md)。研究规则依据为[r4研究LLD§15—16](index-detail-xxm-r4-low-level-design-v0.1.md)。本文件细化编码和验收，不恢复r3、两位确认或其他旧算法。发现与上述已确认决策不同的真实情况时，先说明并同步原方案，不能现场改变规则。
 
@@ -243,7 +243,7 @@ calculator_at(count,check)：
 
 #### 4.2.3 返回合同、缓存与forecastId
 
-按§5集中合同：现完整schema收敛为Internal*，normal/debug是两种封闭公开模型；普通没有debug字段，debug必须有对象，合法None仍保留。response_projection纯函数显式新建字段；query build最终返回bytes，不再返回公开DTO。顺序为完整内部模型校验→显式投影→公开模型校验→一次model_dump_json并检查字节/时限→返回编码body。API用Response(content=body)发送，OpenAPI声明公开normal/debug联合；所有直接build调用同步按bytes解析，不留旧返回类型兼容。缓存命中也必须完成本次投影/公开校验/单次编码并计入4秒与预测200ms；缓存只省已完成内部求解，不绕过当前请求的最终检查。
+按§5集中合同：现完整schema收敛为Internal*，normal/debug是两种封闭公开模型；普通没有debug字段，debug必须有对象，合法None仍保留。response_projection纯函数显式新建字段；query build最终返回bytes，不再返回公开DTO。顺序为完整内部模型校验→显式投影→公开模型校验→一次model_dump_json并检查字节/时限→返回编码body。API用Response(content=body)发送，OpenAPI声明公开normal/debug联合；P3运行时及本批验收中的直接build调用同步按bytes解析，不留旧返回类型兼容。P4保留工具和P5待删运行器的停点按§11.4，不以“全部调用同步”为由提前执行或扩大清退。缓存命中也必须完成本次投影/公开校验/单次编码并计入4秒与预测200ms；缓存只省已完成内部求解，不绕过当前请求的最终检查。
 
 
 保持计算缓存key的连接/来源身份、period、MAIN_SPEC.spec_hash及共享加载业务日期/完成端点；debug不改变计算身份。预测内部缓存key继续含连接/湖身份、period、detector hash、forecast hash、前缀fingerprint、expected、asOf和未来calendar hash。
@@ -267,7 +267,7 @@ _latest source_updated或未来calendar_updated即沿现key失效；prefix之后
 
 每个公开嵌套类型均封闭字段集合，Pydantic沿现`extra='forbid', allow_inf_nan=False`；数值字段在解析前检查`type(value) in (int, float)`（整数计数严格int），拒绝bool/字符串数字/NaN/无穷，同时允许101这样的合法int价格；禁止用`Any`、任意dict透传内部结果。普通模型没有`debug`字段；debug扩展模型的`debug`必填且非None。根模型使用两种模型的联合，不用`exclude_none=True`省略全部None，因为合法必有的空时间、空方向和参照空值仍须返回。
 
-识别query `build(session, *, period, start_date, end_date, limit, debug=False, now=None) -> bytes`；预判query `build`保留现业务参数，新增同样`debug=False`，也返回bytes。所有直接调用方、API测试及验收工具同步改为解析bytes，不留旧DTO返回兼容。流程固定：
+识别query `build(session, *, period, start_date, end_date, limit, debug=False, now=None) -> bytes`；预判query `build`保留现业务参数，新增同样`debug=False`，也返回bytes。P3同步运行时直接调用方、直接读取DTO字段的消费者及本批API/验收测试，接口发送bytes，测试按新公开模型解析；不留旧DTO返回兼容。§16.2.1列明的P4保留工具在P3不运行、不作为通过依据，P4使用前按§11.2.3—4整体迁移；P5待删旧运行器不因本次返回变化提前修改或清退。流程固定：
 
 1. 在原时限内取得同一完整内部结果/缓存；按r4内部schema全部校验。
 2. 预判从完整内部结果生成一次`forecastId`和普通display文本，debug不得进入该身份。
@@ -506,18 +506,18 @@ B门槛未过只记已查B价格、difPassed=None，再为存在的A记checked=F
 |---|---|
 | `pages/index-detail/IndexDetailPage.tsx` | 计算本地/debug启用条件；普通业务hooks继续按规则调用；控制debug模块的延迟加载、稳定子组件挂载和有效扩展；给右栏传forecast或undefined |
 | `features/index-detail/model/indexRecognitionAvailability.ts`（新） | 纯函数集中返回本地正式能力和debug能力；输入DEV布尔、tsCode、search；不读取env文件、不设置配置、不判断Lake目录 |
-| `features/index-detail/debug/types.ts`（新，纯类型） | 页面与debug组件的props、扩展快照、动态模块导出和解码函数签名；禁止有运行时初始化/import副作用 |
+| `features/index-detail/debug/types.ts`（新，纯类型） | P3建立页面与debug组件的props、扩展快照、动态模块导出和解码函数签名；只用import type、禁止运行时初始化/import副作用；P4再接页面动态装配 |
 | `features/index-detail/debug/useIndexDebugModule.ts`（新） | 仅enabled时动态import `./IndexRecognitionDebug`；管理idle/loading/ready/error、加载序号及retry，不执行行情计算 |
 | `features/index-detail/debug/IndexRecognitionDebug.tsx`（新） | 动态模块入口，导出debug控制组件、识别/预测debug解码器及详情renderer；独占波段hooks、研究primitive和研究UI运行时导入 |
-| `features/index-detail/debug/xxmDebugContract.ts`（新） | 迁入现adapter中参照/历史/等待/事件关联校验，按本文 DTO的debug对象校验；不重算算法 |
-| `features/index-detail/debug/forecastDebugContract.ts`（新） | 迁入现预判公式/区间/参照转换/历史关联校验，并按r4迁移；不调用预判求解器 |
+| `features/index-detail/debug/xxmDebugContract.ts`（新） | P3迁入现adapter中参照/历史/等待/事件关联纯校验，按本文DTO的debug对象校验；不重算算法；P4由动态模块导出/注入，普通路径不静态导入 |
+| `features/index-detail/debug/forecastDebugContract.ts`（新） | P3迁入现预判公式/区间/参照转换/历史关联纯校验，并按r4迁移；不调用预判求解器；P4由动态模块导出/注入，普通路径不静态导入 |
 | `features/index-detail/debug/ForecastDebugDetails.tsx`（新） | 仅debug的预测精度、参照/路径及区间详情；由卡片注入的renderer调用，不求价 |
 | `features/index-detail/debug/XxmDebugDetails.tsx`（新） | 迁移现XxmResearchDetails的参照、历史、等待说明；依据debug对象，不前端推测原因 |
 | `features/index-detail/chart/indexChartPointAdapter.ts`（新） | 原日线toDetailChartPoint原样迁出为纯函数，普通图与debug图共用；不改值、不格式化后比较 |
-| `features/index-detail/chart/IndexChartWorkspace.tsx` | 去除daily-wave运行时import及hooks/primitive创建；保持同一组件位置；接收纯类型定义的可选debug扩展，消费其中图表数据/辅助render slots；本地r4正常识别继续存在 |
-| `features/index-detail/chart/IndexMinuteChartWorkspace.tsx` | 传本地enabled/debug模式及解码器，挂正常简要悬停和可选debug详情；不加分钟波段功能 |
-| `features/index-detail/xxm/{types,adapter,apiClient,useIndexXxmLayer,XxmLayerUi}.ts[x]` | 按本文正常/debug DTO迁移，改正式r4版本，正常解码与加载/绘图；XxmLayerUi仅保留正式状态与简要详情 |
-| `features/index-detail/xxm-forecast/{types,adapter,apiClient,useXxmForecast}.ts` | 正常预判DTO、请求参数、身份/模式隔离、开发环境启用与可选debug解码；正常卡只消费display等正常字段 |
+| `features/index-detail/chart/IndexChartWorkspace.tsx` | P3先把悬停改为只读普通字段的XxmSignalDetails及必要调用；P4去除daily-wave运行时import及hooks/primitive创建，保持同一组件位置，接可选debug扩展和renderer；本地r4正常识别继续存在 |
+| `features/index-detail/chart/IndexMinuteChartWorkspace.tsx` | P3同步正常简要悬停及必要调用；P4传本地enabled/debug模式和解码器、接可选debug详情；不加分钟波段功能 |
+| `features/index-detail/xxm/{types,adapter,apiClient,useIndexXxmLayer,XxmLayerUi}.ts[x]` | P3完成r4身份、正常/debug DTO、纯解码、客户端返回和原截止时间的Hook交接、普通字段view model/绘图及XxmSignalDetails；P4接页面环境资格、模式及动态注入，XxmLayerUi不静态导入辅助详情 |
+| `features/index-detail/xxm-forecast/{types,adapter,apiClient,useXxmForecast}.ts` | P3完成r4身份、正常/debug DTO和纯解码、客户端返回与原截止时间的Hook交接；正常卡只消费display等普通字段；P4接enabled/effectiveDebug、模式切换与动态注入 |
 | `features/index-detail/sidebar/{IndexInfoRail,IndexTechnicalTab}.tsx` | 延续forecast可选prop；生产传undefined即整卡不存在，其他技术面内容不变 |
 | `features/index-detail/daily-wave/*` | 保留现算法合同/请求/说明/几何行为，仅由debug模块运行时导入；hook增加显式enabled保护，清理语义如下 |
 | `features/nine-turn/ui/NineTurnLayerStatus.tsx` | 新增可选`showAlignmentDiagnostics?: boolean`，默认true；指数详情显式传debugEnabled；真实故障不受该参数隐藏；股票等调用不变 |
@@ -724,6 +724,8 @@ NineTurnLayerStatus新增showAlignmentDiagnostics默认true。指数普通模式
 ### 8.8. 自动测试与验收清单
 
 所有新合同样本手写并按本文后端DTO核验，不能把旧r2 JSON改hash后作r4真值。允许读取原报告作历史证据，当前有效测试改为r4独立字面样本。
+
+本表列最终交付要求，不把P4条件提前算成P3已实现：P3执行§11.4.2的身份/普通及debug纯解析/客户端返回/同一deadline/普通悬停及必要调用测试；本表的DEV禁用、URL与模块加载、动态注入、辅助详情、波段及环境页面专项在P4实施验收。同一测试文件含两类节点时逐节点登记归属，不用整文件排除掩盖P3应通过的用例。
 
 | 测试位置/新增组 | 必须断言 |
 |---|---|
@@ -1079,11 +1081,11 @@ compare
 |---|---|---|
 | P1 合同和独立样例 | 按§5回写三个原合同；登记现所有直接query调用；逐文件复核§10的git状态/消费者；把§3/6/12人工输入和手写预期放入现产品主题tests；确定公开normal/debug fixture | 不删代码；字段、None、错误、Spec新字段已按本文冻结；设计冲突先停；迁移前基准捕获须排在P2改父类前 |
 | P2 唯一r4 | 先按§10.4.1建立一次性测试入口并实际捕获旧r4-v2；再原位置迁step、MAIN_SPEC/识别hash和安全检查；迁from-empty/append/calculator_at/clone/识别缓存；迁可选离线记录（查询默认关闭）；独立预期及内存对账 | 仅一个产品类，无r2参数/转发；全部业务记录一致。FORECAST_SPEC/预测schema/HTTP/前端不在本批；核心及内部查询通过不能称整条产品可用。逐步顺序见§11.3 |
-| P3 预测及HTTP合同 | P2核心及迁移对账验收后，统一修改FORECAST_SPEC/预测hash、§6预测路径与数学、§5识别/预测内部及公开模型、query bytes/API、两类前端身份/类型/解析/fixture | 预测版本/模型/消费者一次交接；不能单改预测Spec。普通/debug公共字段及ID/文本相同；正常返回无辅助；完整校验不能取消；失败不露旧缓存 |
-| P4 环境、页面、保留工具 | §1本地路由；§8本地正式/生产关闭、debug动态模块及decoder；研究工具依§10解除旧算法/SHA依赖 | 本地日线无分钟Lake仍可用，分钟按已有能力；生产API和真实build无入口；三角/1000/原图不退化；用户review页面 |
+| P3 预测及HTTP合同 | P2核心及迁移对账验收后，统一修改FORECAST_SPEC/预测hash、§6预测路径与数学、§5内部/公开模型、query bytes/API；同步两类前端身份/类型/纯解析器/fixture、客户端、两个Hook及普通悬停必要消费者，逐步要求见§11.4 | 预测版本/模型/消费者一次交接；不能单改预测Spec。普通/debug公共字段及ID/文本相同；正常返回无辅助；完整校验不能取消；类型/编译和正常调用通过；失败不露旧缓存 |
+| P4 环境、页面、保留工具 | §1本地路由；在P3纯类型/解析器及正常调用上接§8本地正式/生产关闭、debug动态模块、详细辅助呈现；保留工具整体迁移模式/签名/纯内存并依§10解除旧算法/SHA依赖 | 工具使用前完成迁移和回归；本地日线无分钟Lake仍可用，分钟按已有能力；生产API和真实build无入口；三角/1000/原图不退化；用户review页面 |
 | P5 清退及最终审计 | P2—P4验收后按§10名单删旧实现/专属suite和对应生成缓存；清活动命令/动态入口/Notebook字符串；原设计/开发文档标历史并指新入口 | 删后新进程导入、核心/预测/HTTP/debug/峰谷工具回归；没有r2执行副本/模式；原始材料和研究事实保留；停止待下一指令 |
 
-P2只验识别核心、内部查询/恢复与独立clone，不调用完整预测build、HTTP或页面宣称集成通过；P3才同步预测Spec、两类公共合同及其前端消费者，P4才交付环境/页面与真实来源验收。不得用“消费者后续同步”或“同一未发布改动”把这些归属留给开发临时决定。P2—P4均不发布中间混合版本，也不新增兼容字段、旧版本回退或临时算法开关。每批完成回写实际改动/测试/未覆盖来源，不能把本文的“计划测试”改写成已经通过。公共接口、配置和主链有实质变化时，按根规则同步CodeGraph并核是否需要更新架构快照；不为普通文件数增加另建图索引。
+P2只验识别核心、内部查询/恢复与独立clone，不调用完整预测build、HTTP或页面宣称集成通过；P3同步预测Spec、两类公共合同及其直接必需的前端消费，P4才交付完整环境/页面与真实来源验收。P3/P4逐文件及工具停点以§11.4为准，不把“P4页面”解释为P3可以留下不能编译或仍读旧字段的正常调用。P2—P4均不发布中间混合版本，也不新增兼容字段、旧版本回退或临时算法开关。每批完成回写实际改动/测试/未覆盖来源，不能把本文的“计划测试”改写成已经通过。公共接口、配置和主链有实质变化时，按根规则同步CodeGraph并核是否需要更新架构快照；不为普通文件数增加另建图索引。
 
 ### 11.1 保留能力的明确落点
 
@@ -1203,6 +1205,7 @@ P1只准备独立字面业务输入/预期及字段形状，不先修改`MAIN_SP
 P1 fixture构造函数将detector/forecast hash作为无默认值的显式参数，业务预期仍为字面数据；不能取当前r2 hash作r4真值。文档样例的说明占位不进入实际HTTP。
 P2实现MAIN_SPEC后只生成正式detector hash，用于核心/恢复、内部SeriesEntry/query、clone及其人工测试。P1识别材料可由调用方显式传该真hash用于内部字段核对，但普通/debug公开响应尚不交旧模型验收。现识别完整XxmResponseDto的版本/hash动态校验MAIN_SPEC、没有r2 Literal，P2可继续用它核完整内部结果；这是沿现内部模型，不是提前实现P3公开投影。
 P3实现FORECAST_SPEC并生成forecast hash后，才把两项正式hash填入公开识别/预测合同fixture、两个前端types身份常量、decoder和拒绝旧/混配身份测试，同步预测Python模型及query/API。forecast响应工厂需要两项hash的用例不能在P2塞r2预测hash或人工占位凑通过。P1可校对字段和手算结果，不拿未迁移r2模型验目标公开响应，不靠skip/xfail伪装该路径通过；业务预期仍手写，不随实际标签重生成。
+P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同一deadline的Hook交接、普通悬停及其日分钟调用和受影响fixture；P4接动态模块和完整页面。P4保留工具及其尚未迁移的专属执行测试在P3不运行、不计通过；P5旧runner保持既定清退归属。按节点列清未执行原因，不删除/改低预期、不以skip/xfail或整文件过滤掩盖本属P3的失败；通用核心/恢复/输入/源精度及P3消费者测试仍须通过。
 清退后测试收集须覆盖新数学、纯窗口、离线观察、普通/debug HTTP、工具RAM及异常清理；静态检查不能替代真实入口执行。
 针对工具补负例：缺旧模块仍可import；禁止旧动态candidate加载；不创建结果目录或写完整body；启动/请求/Node失败后清理及包装恢复。
 真实分钟不可用时保留该周期“未验收”并说明原因；不得把日线或人工替身抵充。P4按已声明四周期完成条件判断，缺必要真实证据不能宣称整批通过或据此进入P5。
@@ -1223,6 +1226,48 @@ P3实现FORECAST_SPEC并生成forecast hash后，才把两项正式hash填入公
 | 6 独立验收和停点 | 前五步定向测试通过；最初父进程仍持捕获结果 | 触发compare，全新worker从空计算、独立字面及完整业务记录对账均通过，补必要架构/依赖/文档检查并独立审计；汇报实际覆盖与P3未做项后停止。对账失效按§10.4失败处理，不能拿单测成绩替代 |
 
 P3开始前须取得P2第6步的真实通过记录；P3首步同时列出FORECAST_SPEC、预测Literal/双hash校验、预测数学、识别/预测公共模型、query返回bytes、API及两个前端身份/decoder/fixture的完整改动清单。它们完成前不运行旧公共消费者来声称r4整体通过，也不因为旧Literal报错而回改算法。P4真实路由/来源/页面及预算证据不足时，仍不得进入P5清退。
+
+### 11.4 P3/P4前端与验收工具的确定交接
+
+2026-10-29开工审计发现两处批次划分不足，管理员已批准按下文补清。本节只细化既有合同和开发依赖，不新增算法、开关、兼容返回或验收预算。P2限定验收已完成，证据见§19.6、§20.4；本次只更新文档，P3尚未开发。
+
+#### 11.4.1 P3内的依赖顺序
+
+| 顺序 | 实现位置与本步必须完成 | 后续步骤使用的结果及验收 |
+|---|---|---|
+| 1 预测数学 | §6的forecast_entry、forecast_paths、forecast_joint及相关数学/实际step复核按r4迁移；先用P1独立Fraction预期及新手写边界用例核选峰、零柱和当根切换 | 规则和精度分支符合唯一r4；不能用新预测输出生成expected，不能单改版本文字称迁移完成 |
+| 2 模型和身份 | FORECAST_SPEC/forecast hash、内部及普通/debug Python模型一同迁移；MAIN_SPEC沿P2正式身份；完整关联检查保留 | 实现后的真实两项hash供后续响应和前端使用；不填旧hash/说明占位，不发布中间混配版本 |
+| 3 query与API | §4—5完整内部缓存、forecastId/display、纯投影、公开校验、一次编码和原API发送；同步本批直接调用及API/投影测试 | 普通/debug公共字段/ID/文本相同，失败不发布半份或旧缓存；4秒/200ms及大小上限含最终编码；不能第二次读取同一批行情代替复用 |
+| 4 前端必要调用 | 按下表先完成纯类型和解析器，再客户端、Hook、view model、普通悬停及其日分钟调用；更新本批受影响的fixture/测试 | 新响应及返回外层对象不再交旧消费者；类型、编译、普通字段消费与截止时间反例均通过；普通路径不静态导入辅助实现 |
+| 5 P3验收和停止 | 本批后端/前端合同、数学/恢复/共享读取回归、Wealth测试/typecheck/build、必要架构和文档检查及独立审计 | 按原§9/12有界分组，单组超过60秒停查；列明未执行的P4工具/真实来源/浏览器及P5清退，不把它们计为通过；验收后停止，不部署或自动进P4 |
+
+“统一迁移”指同批结束时全部直接消费者一致，不要求先把FORECAST_SPEC改成r4再让旧模型继续接收。前四步全部完成前不发布、部署或声称完整P3通过。200ms是否满足须开发后测量；若区间证明或预算不能满足，依§6停止说明，不靠放宽精度/预算或恢复旧快捷证明继续。
+
+#### 11.4.2 P3必须同步的前端文件
+
+路径均相对`wealth/src/`；§8描述最终P4交付形态，本表明确其中必须先在P3完成的部分。
+
+| 文件或调用 | P3结束时必须满足 | P4才接入的部分 |
+|---|---|---|
+| `features/index-detail/xxm/types.ts`、`xxm-forecast/types.ts`及`debug/types.ts` | 正式身份、普通/debug字段、可空语义和辅助函数签名明确；debug/types仅import type，无运行时初始化 | 页面/工作区实际注入模块、环境及辅助renderer |
+| `debug/xxmDebugContract.ts`、`debug/forecastDebugContract.ts`及两类adapter | 辅助纯校验从现adapter迁入固定位置；普通和debug分别验字段/引用/方向；普通夹debug、debug缺对象、旧/混配hash和ZERO_RESET均按合同拒绝；独立合同测试可显式导入辅助解析器 | IndexRecognitionDebug运行时导出/注入；普通adapter/client不得静态导入辅助解析器来凑功能 |
+| 两类`apiClient.ts` | 按§8.3.5返回`{response, deadline}`，本次请求/解码沿同一5秒；普通请求省略debug；完整模式参数/解析能力用独立客户端测试验证 | URL、模块ready及effectiveDebug的页面联动 |
+| `xxm/useIndexXxmLayer.ts`、`xxm-forecast/useXxmForecast.ts` | 显式提取response和deadline，不再把外层对象交adapter或取refreshAfterMs；适配/显示前验同deadline、取消、序号；缓存命中按§8.3.5重建本次检查，受影响mock返回同一新合同 | §8的最终enabled/effectiveDebug外部资格、动态decoder注入、模式切换及页面生命周期装配；不为P3增加临时算法/调试开关 |
+| `xxm/adapter.ts`、`XxmLayerUi.tsx`、`chart/IndexChartWorkspace.tsx`、`chart/IndexMinuteChartWorkspace.tsx` | 普通view model/marker只读普通字段；XxmSignalDetails显示状态、当根事件和时间；两个工作区同步使用它，不再从普通point读取pendingRearmId/activeReference或遍历普通响应已移走的历史；不以补空数组、假参照或旧字段alias维持旧调用 | XxmDebugDetails/ForecastDebugDetails、可选辅助renderer、研究扩展及动态模块完整装配；不把辅助内容静态放回正常悬停 |
+| 相关API client/adapter/Hook/UI、日分钟工作区及页面测试fixture | 同步本批签名和普通字段；旧字段/旧hash仅作明确拒绝反例；正常悬停在无debug数据时可用，解码/适配超过原deadline不进入ready | 模块加载失败/迟到、URL移除、环境关闭、辅助详情/三角等P4专项及真实浏览器验收 |
+
+P3不等待P4才修复被新合同直接破坏的调用；也不提前做P4环境配置、本地路由装配、动态模块、研究图层或完整页面验收。尚未接入页面的debug纯解析器通过隔离合同/客户端测试验证，不宣称debug页面已交付。P3只改客户端新返回及普通字段所必需的Hook调用；§8最终enabled/debug/decodeDebug外部参数及其全部页面调用在P4同次接入既定资格和模式，不提前塞固定true或伪造decoder。当前未接debug的页面请求沿普通模式，不增加旧合同兼容或临时静态辅助加载。
+
+#### 11.4.3 保留验收工具及旧运行器的停点
+
+P3的“调用同步”仅指本批运行时代码、直接DTO消费者和本批验收调用。下列工具仍按原归属推进：
+
+- P4保留并整体迁移`xxm/daily_window_precheck.py`、`xxm_page_request_audit.py/.mjs`、`xxm_forecast_display_audit.py`及其专属执行测试。P3不运行其CLI/旧客户端、真实源或旧runner测试，不用旧报告证明新合同。P4第一次使用前须同时完成新签名/bytes、普通/debug对象、原deadline、明确周期/日期/次数、纯内存和finally清理，并执行§11.2.3—4已有正反例；不只改hash/类型后运行旧落盘入口。
+- 两个Python页面/预判工具目前的build包装原样返回结果，不因结果改为bytes就需要提前重写；其Node消费、旧完整DTO断言、candidate/输出目录等仍须P4整体迁移。该事实不构成保留旧返回类型的理由。
+- P5待删的`bottom_history_acceptance.py`、`reference_rescue_acceptance.py`和§16.2.1报告runner只保留清退登记；P3不为它们加兼容、换成新算法继续运行或提前删除。仍适用的字面业务预期依原清单迁入长期测试，不能沿用旧执行输出作新预期。
+- P3测试清单逐节点区分本批必测和上述后续任务，并写明未执行原因。不能借工具未迁移跳过P3原路由的隔离API合同、共享读取/取消、输入恢复、数学及前端消费测试；隔离App/替代存储覆盖什么必须说明，不能当作P4真实来源验收；不以删除失败断言、改低预期、skip/xfail或整目录不收集来掩盖错误。
+
+本节范围内所有计算和测试沿原仅内存、只读及预算要求；真实来源/浏览器和工具实际执行仍在P4按已有授权边界进行。P3/P4完成情况分别报告，P4证据未齐不得进入P5。
 
 
 ## 12. 测试、真实验收和完成标准
@@ -1382,7 +1427,7 @@ P3开始前须取得P2第6步的真实通过记录；P3首步同时列出FORECAS
 
 ### 16.2 当前文件和调用清单
 
-2026-10-28在`dev-interface`以CodeGraph及当前Python导入/引用静态核对；未执行这些入口。下表登记实际调用，不使用运行时源码SHA保护。P3把直接build返回从DTO迁为bytes并同步解析；P4接正式本地装配；P5仅删除已登记旧运行器，不能把该表误当P1删除许可。
+2026-10-28在`dev-interface`以CodeGraph及当前Python导入/引用静态核对；未执行这些入口。下表登记实际调用，不使用运行时源码SHA保护。2026-10-29按§11.4补清批次：P3同步本批运行时及验收调用的bytes/新合同；P4接正式本地装配并在使用前整体迁移保留工具，P3不运行这些工具作证；P5仅删除已登记旧运行器，不能把该表误当P1删除许可。
 
 #### 16.2.1 query直接调用及包装
 
@@ -1397,9 +1442,10 @@ P3开始前须取得P2第6步的真实通过记录；P3首步同时列出FORECAS
 | `tests/web/test_wealth_index_detail_xxm_api.py`（106、128、149、211、274、306、377等） | P3直接build和_response断言改按目标合同；保留来源、恢复、历史及失败反例，不只替换hash |
 | `tests/web/test_wealth_index_detail_xxm_forecast_api.py`（104、387、498、520、567、621等） | P3直接build结果解析bytes；旧r2/A1/R1响应只留明确拒绝反例，P4环境验收 |
 | `scripts/research/index_market/tests/test_xxm_snapshot_consumers.py`（40） | P2保留真实query/恢复调用，改唯一r4身份；P3受影响响应按bytes |
-| `scripts/research/index_market/xxm/daily_window_precheck.py`（133—143、205—249） | P4仅保留§11.2.3的窗口/隔离客户端；旧build计时/check/capture包装随旧runner清退 |
-| `scripts/research/index_market/xxm_page_request_audit.py`（50—60） | P4保留原真实只读/鉴权计时，适配bytes和模式，finally恢复；不写响应文件 |
-| `scripts/research/index_market/xxm_forecast_display_audit.py`（56—95） | P4同上，移除candidate/旧display替换；使用唯一正式r4 |
+| `scripts/research/index_market/xxm/daily_window_precheck.py`（133—143、205—249） | P4仅保留§11.2.3的窗口/隔离客户端，使用前完成bytes/模式及相关测试迁移；P3不执行或用作验收；旧build计时/check/capture包装随旧runner清退 |
+| `scripts/research/index_market/xxm_page_request_audit.py`（50—60） | P4保留原真实只读/鉴权计时，适配bytes和模式，finally恢复、不写响应文件；P3不执行或用作验收 |
+| `scripts/research/index_market/xxm_page_request_audit.mjs`（原客户端/根辅助字段消费） | P4与Python父入口同次迁新客户端返回及普通/debug解析，去落盘；P3不执行，不静态导入辅助实现充当普通模式 |
+| `scripts/research/index_market/xxm_forecast_display_audit.py`（56—95） | P4使用前同步新公开模型和模式，移除candidate/旧display替换及落盘；使用唯一正式r4；P3不执行或用作验收 |
 | `scripts/research/index_market/xxm/bottom_history_acceptance.py`（268—348） | P5删除旧build/_response计时及来源runner；有效独立样例先迁出 |
 | `scripts/research/index_market/xxm/reference_rescue_acceptance.py`（173—216） | P5删除旧build包装及比较；不让它继续当正式r4入口 |
 | `reports/xxm_bottom_history_precheck_20261016/run_budget.py`（55） | 已在§10.3.2具体删除名单；P5清退旧query/预算运行器，保留原报告 |
@@ -1407,7 +1453,7 @@ P3开始前须取得P2第6步的真实通过记录；P3首步同时列出FORECAS
 | `reports/xxm_forecast_range_implementation_20261014/http_acceptance.py`（43—70） | 同上，旧forecast build替换随文件清退 |
 | `reports/xxm_minute_reader_optimization_20261014/http_precheck.py`（45—60） | 同上，旧build包装随文件清退 |
 
-query_service自身的_response/历史投影互调仍属于该query实现，不是遗漏的外部消费者。另有间接消费者：`tests/web/test_xxm_shared_loads.py`保留并发/取消及共享来源；研究tests中借上述工具的调用依§10.5迁移。前端实际HTTP消费者为`xxm/apiClient.ts`→`adapter.ts`→`useIndexXxmLayer.ts`→日/分钟图表，以及`xxm-forecast/apiClient.ts`→`adapter.ts`→`useXxmForecast.ts`→页面/右栏；P3统一字段/身份，P4再接延迟辅助模块。`daily-wave/apiClient.ts`的原合同和算法不变，仅P4环境/debug生命周期变化。
+query_service自身的_response/历史投影互调仍属于该query实现，不是遗漏的外部消费者。另有间接消费者：`tests/web/test_xxm_shared_loads.py`保留并发/取消及共享来源，P3受影响合同必须同步；研究tests中借上述工具的专属执行节点按§10.5及§11.4.3在归属批次迁移，不拿旧工具作P3通过证据。前端实际HTTP消费者为`xxm/apiClient.ts`→`adapter.ts`→`useIndexXxmLayer.ts`→日/分钟图表，以及`xxm-forecast/apiClient.ts`→`adapter.ts`→`useXxmForecast.ts`→页面/右栏；P3按§11.4.2同步字段/身份、纯解析器、客户端返回与原deadline、Hook及普通悬停必要调用，P4再接环境和延迟辅助模块。`daily-wave/apiClient.ts`的原合同和算法不变，仅P4环境/debug生命周期变化。
 
 #### 16.2.2 逐文件状态及处理边界
 
