@@ -1,0 +1,165 @@
+"""Only bounded read-only observations; launches use the original GraphQL CLI."""
+import argparse,json,os,shutil
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+import dagster as dg,requests,yaml
+from dagster_postgres import PostgresEventLogStorage,PostgresRunStorage
+from orchestrator.defs.catalog.lake_assets import LAKE_ASSET_CATALOG
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
+from orchestrator.defs.major_index_nineturn import build_major_index_nineturn_source_fingerprint
+from orchestrator.defs.resources import ProdPostgresWriteResource
+from orchestrator.defs.run_contracts.run_keys import build_batch_id,build_upstream_triggered_run_key
+DAY='2026-10-28';PREV='2026-10-27';NEXT='2026-10-29'
+ROOT=Path('/Volumes/datasource/data_lake');STAGING=Path('/Volumes/datasource/data_lake_staging')
+OUT=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261028_20261029/index-daily-nineturn')
+ASSETS={'gold':'gold_major_index_daily_nineturn','prod':'prod_core_index_daily_nineturn'}
+JOBS={'gold':'gold_major_index_daily_nineturn_update_job','prod':'prod_core_index_daily_nineturn_sync_job'}
+SENSORS={'gold':JOBS['gold']+'_sensor','prod':JOBS['prod']+'_sensor'}
+CAT={v.asset_key:v for v in LAKE_ASSET_CATALOG}
+ACTIVE=[dg.DagsterRunStatus(x) for x in ['QUEUED','NOT_STARTED','STARTING','STARTED','CANCELING']]
+def now():return datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
+def require(ok,reason):
+ if not ok:raise ValueError(reason)
+def save(name,value):(OUT/name).write_text(json.dumps(value,ensure_ascii=False,indent=2,default=str)+'\n')
+def load(name):return json.loads((OUT/name).read_text())
+def path(asset,day):return ROOT/CAT[asset].path_template.removeprefix('data_lake/').format(partition_key=day)
+def stat(p):
+ try:
+  s=p.stat();return {'path':str(p),'exists':True,'identity':[s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns]}
+ except FileNotFoundError:return {'path':str(p),'exists':False}
+def meta(values):return {k:getattr(v,'value',str(v)) for k,v in values.items() if k!='dagster/column_schema'}
+def sensor(stage):
+ selector={'repositoryLocationName':'orchestrator','repositoryName':'__repository__','sensorName':SENSORS[stage]}
+ q='query Sensor($s:SensorSelector!){sensorOrError(sensorSelector:$s){__typename ... on Sensor{name sensorState{status}}}}'
+ response=requests.post('http://127.0.0.1:3000/graphql',json={'query':q,'variables':{'s':selector}},timeout=30)
+ response.raise_for_status();value=response.json();require(not value.get('errors'),'Sensor query failed')
+ s=value['data']['sensorOrError'];require(s.get('__typename')=='Sensor' and s.get('name')==SENSORS[stage],'Sensor identity differs')
+ return s['sensorState']['status']
+def prod_counts(days=None):
+ days=days or [PREV,DAY,NEXT]
+ with ProdPostgresWriteResource().connect_readonly() as c,c.cursor() as cur:
+  cur.execute('SELECT trade_date,count(*) FROM core_serving.index_nineturn_daily WHERE trade_date=ANY(%s::date[]) GROUP BY trade_date ORDER BY trade_date',(days,))
+  rows={str(d):{'rows':n} for d,n in cur.fetchall()}
+ return {d:rows.get(d,{'rows':0}) for d in days}
+def recent(runs,stage,statuses=None):
+ filters=dg.RunsFilter(job_name=JOBS[stage],tags={'dagster/partition':DAY},statuses=statuses)
+ return [{'run_id':x.run_id,'status':x.status.value,'job':x.job_name,'tags':dict(x.tags)} for x in runs.get_runs(filters,limit=5)]
+def latest(events,asset,day):
+ rows=events.fetch_materializations(dg.AssetRecordsFilter(asset_key=dg.AssetKey(asset),asset_partitions=[day]),limit=1).records
+ require(len(rows)==1,'Missing upstream materialization: '+asset+' '+day)
+ return rows[0]
+def accepted(runs,events,asset,day,rid=None):
+ latest_mat=latest(events,asset,day);rid=rid or latest_mat.run_id
+ rr=runs.get_run_records(dg.RunsFilter(run_ids=[rid]),limit=1);require(len(rr)==1,'Run missing')
+ rr=rr[0];run=rr.dagster_run
+ require(run.tags.get('dagster/partition')==day and run.status==dg.DagsterRunStatus.SUCCESS,'Run not successful for exact date')
+ evs=events.get_records_for_run(rid,of_type={dg.DagsterEventType.ASSET_MATERIALIZATION,dg.DagsterEventType.ASSET_CHECK_EVALUATION,dg.DagsterEventType.STEP_FAILURE,dg.DagsterEventType.PIPELINE_FAILURE},limit=150)
+ require(not evs.has_more,'Event bound exceeded')
+ mats=[];checks=[];failures=[]
+ for record in evs.records:
+  ev=record.event_log_entry.dagster_event
+  if ev.event_type==dg.DagsterEventType.ASSET_MATERIALIZATION:
+   m=record.asset_materialization
+   if m.asset_key.to_user_string()!=asset:continue
+   require(m.partition==day and record.storage_id==latest_mat.storage_id,'Materialization date/version differs')
+   mats.append({'asset':asset,'partition':m.partition,'storage_id':record.storage_id,'run_id':rid,'metadata':meta(m.metadata)})
+  elif ev.event_type==dg.DagsterEventType.ASSET_CHECK_EVALUATION:
+   c=ev.event_specific_data
+   if c.asset_key.to_user_string()!=asset:continue
+   target=c.target_materialization_data
+   checks.append({'asset':asset,'name':c.check_name,'passed':c.passed,'blocking':c.blocking,'partition':c.partition,'target_storage_id':target.storage_id if target else None,'target_run_id':target.run_id if target else None,'metadata':meta(c.metadata)})
+  else:failures.append(str(ev.event_specific_data)[:2500])
+ require(not failures and len(mats)==1,'Output missing or native failure')
+ required=set(CAT[asset].blocking_check_names)
+ valid={c['name'] for c in checks if c['passed'] and c['blocking'] and c['partition'] in (None,day) and c['target_storage_id']==mats[0]['storage_id'] and c['target_run_id']==rid}
+ require(required<=valid,'Original checks not bound/passing')
+ n=mats[0]['metadata'].get('dagster/row_count');require(isinstance(n,int) and n>0,'Positive row count missing')
+ return {'date':day,'run_id':rid,'job':run.job_name,'status':run.status.value,'materializations':mats,'checks':checks,'failures':failures,'row_count':n,'required_checks':sorted(required),'verified':True,'elapsed_seconds':rr.end_time-rr.start_time if rr.end_time and rr.start_time else None}
+def unchanged(pre):
+ require(all(stat(Path(p))==s for p,s in pre['inputs'].items()),'Necessary input identity changed')
+def main(runs,events,args):
+ mode=args.mode;stage=args.stage
+ if mode=='preflight':
+  require(not (OUT/'preflight.json').exists(),'Preflight exists; preserve it')
+  registered=sorted(events.get_dynamic_partitions('cn_a_index_trade_days'))
+  require(DAY in registered and max(d for d in registered if d<DAY)==PREV,'Registered target/previous date differs')
+  source=accepted(runs,events,'gold_market_major_indices_daily',DAY)
+  previous=accepted(runs,events,ASSETS['gold'],PREV)
+  require(ROOT.parent.is_mount() and ROOT.is_dir() and STAGING.is_dir() and ROOT.stat().st_dev==STAGING.stat().st_dev,'Lake/staging boundary invalid')
+  require(all(os.access(p,os.R_OK|os.W_OK|os.X_OK) for p in [ROOT,STAGING]),'Lake unavailable')
+  ps=sorted(p for p in (ROOT/'gold/market/major_indices_daily').glob('trade_date=*/part-000.parquet') if p.parent.name[11:]<=DAY)[-20:]
+  require(len(ps)==20 and ps[-1]==path('gold_market_major_indices_daily',DAY),'Original source window differs')
+  ps.append(path(ASSETS['gold'],PREV))
+  counts=prod_counts()
+  data={'as_of':now(),'date':DAY,'source':source,'previous':previous,'inputs':{str(p):stat(p) for p in ps},'input_bytes':sum(p.stat().st_size for p in ps),'neighbors':{str(path(ASSETS['gold'],d)):stat(path(ASSETS['gold'],d)) for d in [PREV,NEXT]},'prod_counts_before':counts,'sensors':{s:sensor(s) for s in JOBS},'active':{s:recent(runs,s,ACTIVE) for s in JOBS},'recent':{s:recent(runs,s) for s in JOBS},'gold_target':stat(path(ASSETS['gold'],DAY)),'free_bytes':shutil.disk_usage(STAGING).free,'extra_history_content_reads':0}
+  require(data['free_bytes']>=8*1024**2,'Space insufficient')
+  save('preflight.json',data);print(json.dumps({k:data[k] for k in ['sensors','active','recent','gold_target','input_bytes','prod_counts_before']},ensure_ascii=False))
+ elif mode=='status':
+  print(json.dumps({'date':DAY,'stage':stage,'active':recent(runs,stage,ACTIVE),'recent':recent(runs,stage),'sensor_status':sensor(stage)},ensure_ascii=False))
+ elif mode=='before':
+  pre=load('preflight.json');unchanged(pre)
+  require(not recent(runs,stage,ACTIVE),'Same target job active: follow original run')
+  current_sensor=sensor(stage)
+  if current_sensor!='STOPPED':
+   require(stage=='gold','Automatic Prod sensor active; follow it instead of manual double submission')
+   require(NEXT not in events.get_dynamic_partitions('cn_a_index_trade_days'),'29th now registered; follow automatic Gold instead')
+   selector={'repositoryLocationName':'orchestrator','repositoryName':'__repository__','sensorName':SENSORS['gold']}
+   q='query($s:SensorSelector!){sensorOrError(sensorSelector:$s){__typename ... on Sensor{sensorState{status ticks(limit:1){status timestamp cursor runIds error{message}}}}}}'
+   response=requests.post('http://127.0.0.1:3000/graphql',json={'query':q,'variables':{'s':selector}},timeout=30);response.raise_for_status();value=response.json()
+   require(not value.get('errors'),'Gold tick query failed')
+   state=value['data']['sensorOrError']['sensorState'];tick=state['ticks'][0];cursor=json.loads(tick['cursor'])
+   require(state['status']=='RUNNING' and tick['status']=='SKIPPED' and not tick['runIds'] and not tick['error'] and cursor['target_date']==NEXT and cursor['details']['reason_code']=='missing_registered_partition','Gold automatic path is no longer blocked on29')
+   save('gold-tick-at-manual-launch.json',value)
+  if stage=='gold':require(not path(ASSETS['gold'],DAY).exists(),'Target appeared: inspect before overwrite')
+  else:
+   gold=load('gold-verified.json');require(gold['verified'] and gold['date']==DAY and gold['status']=='SUCCESS','Gold not accepted')
+   accepted(runs,events,ASSETS['gold'],DAY,gold['run_id'])
+   require(stat(path(ASSETS['gold'],DAY))==gold['file'],'Accepted Gold source changed before Prod')
+   require(prod_counts([DAY])[DAY]['rows']==0,'Prod target appeared: inspect instead of overwrite')
+  intent=OUT/(stage+'-launch-intent.json');require(not intent.exists(),'Existing launch intent; do not resubmit')
+  intent.write_text(json.dumps({'at':now(),'date':DAY,'job':JOBS[stage],'attempt':1,'source_preflight':'preflight.json'},ensure_ascii=False,indent=2)+'\n')
+  print(json.dumps({'ready':True,'job':JOBS[stage],'date':DAY},ensure_ascii=False))
+ elif mode=='verify':
+  pre=load('preflight.json');unchanged(pre)
+  require(args.run_id,'An exact run id is required')
+  if stage=='prod':
+   gold=load('gold-verified.json');require(stat(path(ASSETS['gold'],DAY))==gold['file'],'Accepted Gold source changed before Prod verification')
+   bid=build_batch_id(producer='gold_major_index_daily_nineturn_update',scope=DAY,payload={'producer_run_id':gold['run_id'],'partition_key':DAY})
+   expected_key=build_upstream_triggered_run_key(consumer='prod_core_index_daily_nineturn_sync',upstream_batch_id=bid)
+   original=runs.get_runs(dg.RunsFilter(run_ids=[args.run_id]),limit=1);require(len(original)==1,'Automatic Prod run missing')
+   if pre['sensors']['prod']=='RUNNING':require(original[0].tags.get('dagster/run_key')==expected_key and original[0].tags.get('dagster/sensor_name')==SENSORS['prod'],'Automatic Prod run does not correspond to this Gold')
+  result=accepted(runs,events,ASSETS[stage],DAY,args.run_id);require(result['job']==JOBS[stage],'Wrong original job')
+  n=pre['source']['row_count'];require(result['row_count']==n,'Output/source count differs')
+  mm=result['materializations'][0]['metadata']
+  if stage=='gold':
+   require(mm['dagster/uri']==str(path(ASSETS['gold'],DAY)),'Gold location differs')
+   require(mm['goldenshare/source_file_count']==len(pre['inputs']),'Source file count differs')
+   fp=build_major_index_nineturn_source_fingerprint(lake_root=ROOT,source_paths=[Path(x) for x in pre['inputs']])
+   require(mm['goldenshare/source_fingerprint']==fp,'Source identity differs')
+   result['file']=stat(path(ASSETS['gold'],DAY));require(result['file']['exists'] and result['file']['identity'][2]>0,'Gold physical file missing')
+  else:
+   require(mm['goldenshare/read_back_row_count']==n,'Prod native readback count differs')
+   for check in result['checks']:
+    cm=check['metadata'];require(cm['goldenshare/expected_row_count']==cm['goldenshare/read_back_row_count']==n and cm['goldenshare/expected_content_hash']==cm['goldenshare/observed_content_hash'],'Prod original check content/count differs')
+  save(stage+'-verified.json',result);print(json.dumps({k:result[k] for k in ['job','run_id','status','row_count','verified','elapsed_seconds']},ensure_ascii=False))
+ elif mode=='final':
+  pre=load('preflight.json');unchanged(pre);gold=load('gold-verified.json');prod=load('prod-verified.json');n=gold['row_count']
+  require(gold['verified'] and prod['verified'] and n==prod['row_count'],'Final original acceptance missing')
+  require(stat(path(ASSETS['gold'],DAY))==gold['file'],'Gold changed after acceptance')
+  require(all(stat(Path(p))==s for p,s in pre['neighbors'].items()),'Gold neighbor changed')
+  with connect_configured_duckdb(temp_policy='existing_no_spill') as c:
+   count=int(c.execute('SELECT count(*) FROM read_parquet(?,hive_partitioning=false) WHERE trade_date=CAST(? AS DATE)',[str(path(ASSETS['gold'],DAY)),DAY]).fetchone()[0])
+  counts=prod_counts();require(count==counts[DAY]['rows']==n,'Physical count differs')
+  require(all(counts[d]['rows']==pre['prod_counts_before'][d]['rows'] for d in [PREV,NEXT]),'Prod neighbor counts changed')
+  sensors={s:sensor(s) for s in JOBS};require(sensors==pre['sensors'],'Sensor states changed unexpectedly')
+  result={'as_of':now(),'date':DAY,'passed':True,'gold_rows':count,'prod_rows':counts[DAY]['rows'],'input_and_neighbor_stats_unchanged':True,'prod_neighbor_counts_unchanged':True,'sensors_unchanged':sensors,'global_audit_repeated':False,'new_full_catalog_audit_runs':0,'original_checks_passed':2,'runs':[{'stage':s,'job':v['job'],'run_id':v['run_id'],'status':v['status']} for s,v in [('gold',gold),('prod',prod)]],'closure_from_original_count':{'original_present':157,'newly_restored':2,'audited':159,'present_after_followup':159,'remaining_missing_for_20261028':0,'proof':'Original final-physical-audit.json plus exact two-asset followup; no global audit rerun.'},'history_ths_not_repaired':True}
+  save('final.json',result);print(json.dumps(result,ensure_ascii=False))
+if __name__=='__main__':
+ parser=argparse.ArgumentParser();parser.add_argument('mode',choices=['preflight','before','status','verify','final']);parser.add_argument('--stage',choices=['gold','prod'],default='gold');parser.add_argument('--run-id');args=parser.parse_args()
+ require(os.environ.get('DAGSTER_HOME')=='/Users/congming/.goldenshare/dagster_home','Wrong formal instance')
+ os.environ['PGOPTIONS']='-c default_transaction_read_only=on -c statement_timeout=30000'
+ value=yaml.safe_load(Path(os.environ['DAGSTER_HOME'],'dagster.yaml').read_text())['storage']['postgres']['postgres_url'];url=os.environ[value['env']] if isinstance(value,dict) else value
+ runs=PostgresRunStorage(url,should_autocreate_tables=False);events=PostgresEventLogStorage(url,should_autocreate_tables=False)
+ try:main(runs,events,args)
+ finally:runs.dispose();events.dispose()

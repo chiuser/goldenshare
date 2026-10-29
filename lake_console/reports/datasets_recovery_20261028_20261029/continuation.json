@@ -1,0 +1,26 @@
+{
+  "task": "补28日股票分钟链，然后只做一次28日全catalog物理计数审计",
+  "approval_file": "/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261028_20261029/history-approval.json",
+  "current_phase": "COMPLETE",
+  "active_run_id": null,
+  "active_observer_session_id": null,
+  "completed": {
+    "qfq_daily": "94384f7b-0b77-4317-998c-32da2a5e88dd",
+    "factor_repair": "816a0d01-a56f-4f06-bdb3-1a7e0c05a793",
+    "actual_factor_codes": 16,
+    "history_dates": 3115,
+    "factor_batch": "qfq_factor_repair:2026-10-28:3afb0b0b08f6"
+  },
+  "remaining_order": [],
+  "temp_root": "/private/tmp/dg_minute_chain_20261028_20261029",
+  "cwd": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+  "runtime": "已有.venv python3 -B；DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home",
+  "failure_rule": "失败停止，不自动重跑；尤其MACD历史repair随机operation，必须核receipt再处理",
+  "five_sensors": "原5项均RUNNING，未清cursor",
+  "final_audit_runs": 1,
+  "no_business_code_changes": true,
+  "legacy_check_dates": "部分Native partition None，按原方法强绑定目标物化日期、run/storage_id；缺失不填造，已有矛盾日期拒绝",
+  "metadata_baseline": "已追回原session95290结果并归档，未重复年度stat；后续仅receipt净增",
+  "execution_summary": "execution-summary.json",
+  "cleanup_complete": true
+}

@@ -1,0 +1,242 @@
+"""Pure temporary fixtures: validate launch guards, never contact a service.
+
+Fixture field contracts were read from the two retained readback producers and
+GoldStkMinsQfqFactorRepairStatus.to_payload. Values below are literal examples,
+not real completed jobs, factor decisions, or source-data acceptance evidence.
+"""
+import contextlib
+import copy
+import importlib.util
+import io
+import json
+from pathlib import Path
+import sys
+import tempfile
+
+SOURCE = Path('/private/tmp/dg_minute_chain_20261028_20261029/run_original_job.py')
+REPORT = SOURCE.parent / ('trigger-isolation-O' + str(sys.flags.optimize) + '.json')
+DAY = '2026-10-28'
+JOBS = {
+    'qfq-daily': ('stock_mins_qfq_daily_update_job', 'batch9', 'daily', True),
+    'factor': ('stock_mins_qfq_factor_repair_job', 'batch9', 'factor', False),
+    'macd-daily': ('gold_stk_mins_qfq_macd_kdj_daily_update_job', 'batch10', 'daily', True),
+    'macd-repair': ('gold_stk_mins_qfq_macd_kdj_repair_job', 'batch10', 'repair', False),
+    'nineturn': ('gold_stk_mins_qfq_nineturn_update_job', 'batch11', 'daily', True),
+}
+FACTOR_GATE = {
+    'ready': True, 'trade_date': DAY, 'producer_run_id': 'fixture-factor-run',
+    'upstream_batch_id': 'qfq_factor_repair:2026-10-28:fixture',
+    'repair_start_trade_date': '2014-01-02', 'repair_end_trade_date': DAY,
+    'repair_required_codes': ['000001.SZ', '600000.SH'],
+    'repair_required_codes_hash': 'a' * 64,
+    'repair_required_codes_truncated': False, 'repair_required_code_count': 2,
+    'rewrote_history': True,
+}
+CONFIG = {'ops': {'gold_stk_mins_qfq_macd_kdj_repair_op': {'config': {
+    'qfq_factor_repair_trade_date': DAY,
+    'start_trade_date': '2014-01-02', 'freqs': [1, 5, 15, 30, 60, 90, 120],
+    'stock_codes': ['000001.SZ', '600000.SH'],
+    'reason': 'qfq_factor_repair:2026-10-28',
+    'repair_required_codes_hash': 'a' * 64,
+    'upstream_batch_id': 'qfq_factor_repair:2026-10-28:fixture',
+}}}}
+
+
+def check(condition, message):
+    if not condition:
+        raise RuntimeError(message)
+
+
+def write(path, value):
+    path.write_text(json.dumps(value), encoding='utf-8')
+
+
+def update(path, function):
+    value = json.loads(path.read_text())
+    function(value)
+    write(path, value)
+
+
+def fixtures(root):
+    for name in ('batch9', 'batch10', 'batch11', 'logs'):
+        (root / name).mkdir()
+    write(root / 'history-approval.json', {'approved': True, 'trade_date': DAY})
+    pre = {'safe_to_launch': True, 'date': DAY, 'factor_gate': FACTOR_GATE,
+           'factor_gate_ready': True, 'macd_gate_ready': True,
+           'seed_and_candidate_scope_verified': True}
+    for name in ('batch9', 'batch10', 'batch11'):
+        write(root / name / 'preflight.json', pre)
+    for stage in ('qfq-daily', 'factor', 'macd-daily'):
+        job, batch, mode, _ = JOBS[stage]
+        run = {'qfq-daily': 'fixture-qfq-run', 'factor': 'fixture-factor-run',
+               'macd-daily': 'fixture-macd-run'}[stage]
+        accepted = {'date': DAY, 'mode': mode, 'job': job, 'status': 'SUCCESS',
+                    'run_id': run, 'verified': True, 'stage_acceptance_complete': True}
+        if stage in ('factor', 'macd-daily'):
+            accepted['factor_gate'] = copy.deepcopy(FACTOR_GATE)
+        write(root / batch / (mode + '-run-verified.json'), accepted)
+        write(root / batch / (mode + '-native-run.json'), {
+            'run_id': run, 'status': 'SUCCESS',
+            'request': {'selector': {'jobName': job}}})
+    write(root / 'batch10/repair-run-config.json', CONFIG)
+    write(root / 'batch10/repair-decision.json', {
+        'date': DAY, 'factor_gate': FACTOR_GATE, 'daily_run_id': 'fixture-macd-run',
+        'run_config': CONFIG})
+
+
+def load_module(root, requests, behavior):
+    spec = importlib.util.spec_from_file_location('fixture_original_trigger', SOURCE)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    module.OUT = root
+    real_path = Path
+
+    def isolated_path(value):
+        if str(value) == '/Users/congming/.goldenshare/dagster_logs':
+            return root / 'logs'
+        return real_path(value)
+
+    module.Path = isolated_path
+
+    def fake_post(url, *, json, timeout):
+        # This replaces transport before calling main: no socket is opened.
+        check(url == 'http://127.0.0.1:3000/graphql', 'Unexpected URL')
+        requests.append(copy.deepcopy(json))
+        if json['query'].startswith('mutation Launch'):
+            if behavior == 'unknown':
+                raise TimeoutError('Synthetic unknown launch outcome')
+            payload = {'launchRun': {'__typename': 'LaunchRunSuccess',
+                                    'run': {'runId': 'fixture-launched-run', 'status': 'STARTING'}}}
+        else:
+            check(json['query'].startswith('query R'), 'Unexpected operation')
+            payload = {'runOrError': {'__typename': 'Run', 'runId': 'fixture-launched-run',
+                                     'status': 'SUCCESS'}}
+        return type('Response', (), {'json': lambda self: {'data': payload}})()
+
+    module.requests.post = fake_post
+    return module
+
+
+def invoke(module, stage):
+    old = sys.argv
+    try:
+        sys.argv = [str(SOURCE), '--stage', stage]
+        with contextlib.redirect_stdout(io.StringIO()):
+            module.main()
+        return None
+    except Exception as error:
+        return error
+    finally:
+        sys.argv = old
+
+
+results = []
+fixture_roots = []
+
+
+def case(name, stage, mutate=None, *, allow=False, behavior='success'):
+    with tempfile.TemporaryDirectory(prefix='trigger-fixture-', dir=SOURCE.parent) as directory:
+        root = Path(directory)
+        fixture_roots.append(str(root))
+        fixtures(root)
+        if mutate:
+            mutate(root)
+        requests = []
+        module = load_module(root, requests, behavior)
+        error = invoke(module, stage)
+        job, batch, mode, partition = JOBS[stage]
+        intent = root / batch / (mode + '-launch-intent.json')
+        if allow:
+            check(error is None, name + ': ' + repr(error))
+            check(len(requests) == 2, name + ': expected one launch and one observation')
+            p = requests[0]['variables']['p']
+            check(p['selector'] == {'repositoryLocationName': 'orchestrator',
+                                   'repositoryName': '__repository__', 'jobName': job}, name)
+            check(set(p) == {'selector', 'runConfigData', 'executionMetadata'}, name)
+            tags = p['executionMetadata']['tags']
+            check({'key': 'dagster/partition', 'value': DAY} in tags if partition
+                  else not any(x['key'] == 'dagster/partition' for x in tags), name)
+            expected = CONFIG if stage == 'macd-repair' else (
+                {'ops': {'stock_mins_qfq_factor_repair_op': {'config': {'trade_date': DAY}}}}
+                if stage == 'factor' else {})
+            check(p['runConfigData'] == expected, name)
+            # A second call must stop before any further GraphQL request.
+            second = invoke(module, stage)
+            check(second is not None and len(requests) == 2, name + ': duplicate relaunch')
+        elif behavior == 'unknown':
+            check(isinstance(error, TimeoutError) and len(requests) == 1 and intent.exists(), name)
+            second = invoke(module, stage)
+            check(second is not None and len(requests) == 1, name + ': unknown launch was resubmitted')
+        else:
+            check(error is not None, name + ': should refuse')
+            check(not requests, name + ': touched GraphQL before rejection')
+        results.append({'name': name, 'stage': stage, 'passed': True,
+                        'graphql_transport_calls': len(requests),
+                        'error': type(error).__name__ if error else None})
+
+
+def accepted_edit(stage, field, value):
+    _, batch, mode, _ = JOBS[stage]
+    return lambda root: update(root / batch / (mode + '-run-verified.json'),
+                               lambda d: d.__setitem__(field, value))
+
+
+def config_edit(field, value):
+    def mutate(root):
+        update(root / 'batch10/repair-run-config.json',
+               lambda d: d['ops']['gold_stk_mins_qfq_macd_kdj_repair_op']['config'].__setitem__(field, value))
+        config = json.loads((root / 'batch10/repair-run-config.json').read_text())
+        # Mutate both copied artifacts: prove the gate comparison also rejects,
+        # rather than merely detecting unequal copies of the same bad config.
+        update(root / 'batch10/repair-decision.json', lambda d: d.__setitem__('run_config', config))
+    return mutate
+
+
+for stage in JOBS:
+    case('normal-28-' + stage, stage, allow=True)
+case('missing-approval', 'qfq-daily', lambda r: (r / 'history-approval.json').unlink())
+case('approval-false', 'qfq-daily', lambda r: write(r / 'history-approval.json', {'approved': False, 'trade_date': DAY}))
+case('approval-23', 'qfq-daily', lambda r: write(r / 'history-approval.json', {'approved': True, 'trade_date': '2026-10-23'}))
+case('existing-intent', 'qfq-daily', lambda r: write(r / 'batch9/daily-launch-intent.json', {'unknown_outcome': True}))
+for field, value in [('date', '2026-10-23'), ('mode', 'factor'), ('job', 'wrong_job'),
+                     ('status', 'FAILURE'), ('run_id', 'wrong-run'),
+                     ('stage_acceptance_complete', False)]:
+    case('prior-' + field, 'factor', accepted_edit('qfq-daily', field, value))
+case('native-job', 'factor', lambda r: update(r / 'batch9/daily-native-run.json',
+     lambda d: d['request']['selector'].__setitem__('jobName', 'wrong_job')))
+case('factor-producer', 'macd-daily', lambda r: update(r / 'batch9/factor-run-verified.json',
+     lambda d: d['factor_gate'].__setitem__('producer_run_id', 'wrong-run')))
+case('factor-date', 'macd-daily', lambda r: update(r / 'batch9/factor-run-verified.json',
+     lambda d: d['factor_gate'].__setitem__('trade_date', '2026-10-23')))
+case('preflight-date', 'qfq-daily', lambda r: update(r / 'batch9/preflight.json',
+     lambda d: d.__setitem__('date', '2026-10-23')))
+case('preflight-not-ready', 'qfq-daily', lambda r: update(r / 'batch9/preflight.json',
+     lambda d: d.__setitem__('safe_to_launch', False)))
+case('repair-daily-factor-batch', 'macd-repair', lambda r: update(r / 'batch10/daily-run-verified.json',
+     lambda d: d['factor_gate'].__setitem__('upstream_batch_id', 'wrong-batch')))
+case('repair-decision-date', 'macd-repair', lambda r: update(r / 'batch10/repair-decision.json',
+     lambda d: d.__setitem__('date', '2026-10-23')))
+case('repair-decision-daily-run', 'macd-repair', lambda r: update(r / 'batch10/repair-decision.json',
+     lambda d: d.__setitem__('daily_run_id', 'wrong-run')))
+for field, value in [('qfq_factor_repair_trade_date', '2026-10-23'),
+                     ('start_trade_date', '2015-01-05'), ('freqs', [1, 5]),
+                     ('stock_codes', ['000001.SZ']),
+                     ('repair_required_codes_hash', 'b' * 64), ('upstream_batch_id', 'wrong-batch')]:
+    case('repair-config-' + field, 'macd-repair', config_edit(field, value))
+case('repair-original-builder-mismatch', 'macd-repair', lambda r: update(r / 'batch10/repair-run-config.json',
+     lambda d: d['ops']['gold_stk_mins_qfq_macd_kdj_repair_op']['config'].__setitem__('stock_codes', ['000001.SZ'])))
+case('nine-turn-seed-unverified', 'nineturn', lambda r: update(r / 'batch11/preflight.json',
+     lambda d: d.__setitem__('seed_and_candidate_scope_verified', False)))
+case('unknown-outcome-no-resubmit', 'qfq-daily', behavior='unknown')
+check(all(not Path(p).exists() for p in fixture_roots), 'Temporary fixture residue')
+check('assert ' not in SOURCE.read_text(), 'Launch guard still contains assert')
+report = {'python_optimize': sys.flags.optimize, 'case_count': len(results),
+          'passed': True, 'real_network_calls': 0, 'real_db_access': 0,
+          'real_lake_access': 0, 'fixture_directories_removed': True,
+          'fixture_contract_sources': ['qfq_factor_readback_20261028.py main/verify_factor',
+            'macd_readback_20261028.py verify_run',
+            'defs/asset_guards/stk_mins_qfq_factor_repair.py GoldStkMinsQfqFactorRepairStatus.to_payload'],
+          'limitations': 'Literal fixture guard checks only; not real builder outputs or job acceptance.',
+          'results': results}
+write(REPORT, report)
+print(json.dumps({k: v for k, v in report.items() if k != 'results'}, ensure_ascii=False))

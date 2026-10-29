@@ -1,0 +1,68 @@
+{
+  "gold_major_index_daily_nineturn_update_job_sensor": {
+    "data": {
+      "sensorOrError": {
+        "__typename": "Sensor",
+        "name": "gold_major_index_daily_nineturn_update_job_sensor",
+        "sensorState": {
+          "id": "85221bc9edeb29565dddec152db8dc10242b4df2::84e335f931d07087fb917bd4e6306c2e927ff665",
+          "selectorId": "84e335f931d07087fb917bd4e6306c2e927ff665",
+          "status": "RUNNING",
+          "ticks": [
+            {
+              "status": "SKIPPED",
+              "timestamp": 1793247251.499811,
+              "endTimestamp": 1793247251.888651,
+              "skipReason": "等待主要指数九转交易日分区注册。",
+              "cursor": "{\"blocked_count\": 1, \"decision\": \"skip\", \"details\": {\"asset_family\": \"major_index_nineturn\", \"blocked_component\": \"missing_registered_partition\", \"evidence\": {\"max_run_requests_per_tick\": 1, \"minute_frequencies\": [5, 15, 30, 60, 90, 120]}, \"job_name\": \"gold_major_index_daily_nineturn_update_job\", \"next_action\": \"wait for the gate to clear\", \"partition_set\": \"cn_a_index_trade_days\", \"reason_code\": \"missing_registered_partition\", \"sensor_name\": \"gold_major_index_daily_nineturn_update_job_sensor\", \"summary\": \"major-index nine-turn sensor: missing_registered_partition\"}, \"evaluated_at\": \"2026-10-29T12:14:11.838728+08:00\", \"sample_keys\": [\"2026-10-29\"], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": \"2026-10-29\"}",
+              "runIds": [],
+              "error": null
+            },
+            {
+              "status": "SKIPPED",
+              "timestamp": 1793246649.85762,
+              "endTimestamp": 1793246650.285643,
+              "skipReason": "等待主要指数九转交易日分区注册。",
+              "cursor": "{\"blocked_count\": 1, \"decision\": \"skip\", \"details\": {\"asset_family\": \"major_index_nineturn\", \"blocked_component\": \"missing_registered_partition\", \"evidence\": {\"max_run_requests_per_tick\": 1, \"minute_frequencies\": [5, 15, 30, 60, 90, 120]}, \"job_name\": \"gold_major_index_daily_nineturn_update_job\", \"next_action\": \"wait for the gate to clear\", \"partition_set\": \"cn_a_index_trade_days\", \"reason_code\": \"missing_registered_partition\", \"sensor_name\": \"gold_major_index_daily_nineturn_update_job_sensor\", \"summary\": \"major-index nine-turn sensor: missing_registered_partition\"}, \"evaluated_at\": \"2026-10-29T12:04:10.221210+08:00\", \"sample_keys\": [\"2026-10-29\"], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": \"2026-10-29\"}",
+              "runIds": [],
+              "error": null
+            }
+          ]
+        }
+      }
+    }
+  },
+  "prod_core_index_daily_nineturn_sync_job_sensor": {
+    "data": {
+      "sensorOrError": {
+        "__typename": "Sensor",
+        "name": "prod_core_index_daily_nineturn_sync_job_sensor",
+        "sensorState": {
+          "id": "9602cf5abd0a4bdf9a186c208f5b711248c170da::b3bffb4b79e938596cac13ae74abfcd83e33bf05",
+          "selectorId": "b3bffb4b79e938596cac13ae74abfcd83e33bf05",
+          "status": "RUNNING",
+          "ticks": [
+            {
+              "status": "SKIPPED",
+              "timestamp": 1793247601.420206,
+              "endTimestamp": 1793247601.7308218,
+              "skipReason": "Sensor function returned an empty result",
+              "cursor": "{\"__class__\": \"RunStatusSensorCursor\", \"record_id\": 7786408, \"record_timestamp\": \"2026-10-29T04:00:11.750940+00:00\", \"update_timestamp\": null}",
+              "runIds": [],
+              "error": null
+            },
+            {
+              "status": "SKIPPED",
+              "timestamp": 1793247571.346487,
+              "endTimestamp": 1793247571.6375701,
+              "skipReason": "Sensor function returned an empty result",
+              "cursor": "{\"__class__\": \"RunStatusSensorCursor\", \"record_id\": 7786408, \"record_timestamp\": \"2026-10-29T04:00:11.750940+00:00\", \"update_timestamp\": null}",
+              "runIds": [],
+              "error": null
+            }
+          ]
+        }
+      }
+    }
+  }
+}

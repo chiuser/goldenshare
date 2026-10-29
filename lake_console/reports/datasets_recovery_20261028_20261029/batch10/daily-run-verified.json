@@ -1,0 +1,2451 @@
+{
+  "as_of": "2026-10-29T10:16:58.657741+08:00",
+  "date": "2026-10-28",
+  "mode": "daily",
+  "run_id": "13e1b027-22c4-4268-950d-aaac9b5be9d2",
+  "verified": true,
+  "stage_acceptance_complete": true,
+  "extra_price_content_reads": 0,
+  "extra_data_sha_passes": 0,
+  "formal_writes": 0,
+  "job": "gold_stk_mins_qfq_macd_kdj_daily_update_job",
+  "status": "SUCCESS",
+  "root_run_id": "13e1b027-22c4-4268-950d-aaac9b5be9d2",
+  "elapsed_seconds": 837.6655180454254,
+  "materializations": [
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_120m",
+      "partition": "2026-10-28",
+      "storage_id": 7786140,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000001.SZ/year=2026/part-000.parquet",
+        "dagster/row_count": 11140,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "macd_dif_qfq",
+          "macd_dea_qfq",
+          "macd_qfq",
+          "kdj_k_qfq",
+          "kdj_d_qfq",
+          "kdj_qfq",
+          "params_key",
+          "indicator_version"
+        ],
+        "freq": 120,
+        "partition_key": "2026-10-28",
+        "source_file_count": 11057,
+        "output_file_count": 5570,
+        "output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "replacement_row_count": 11140,
+        "previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=120/trade_date=2026-10-27/part-000.parquet",
+        "initialized_without_previous_state": false,
+        "summary": "已写入股票 120min 分钟 qfq MACD/KDJ 指标：交易日 2026-10-28，11140 行，5570 个股票年份文件。",
+        "next_action": "等待 MACD/KDJ indicator blocking checks 全部通过；通过后 state 和后续指标消费方可以继续。",
+        "result_status": "written",
+        "input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-27",
+          "source_asset": "gold_stk_mins_qfq_120m",
+          "source_file_count": 11057,
+          "state_asset": "gold_stk_mins_qfq_macd_kdj_state_120m"
+        },
+        "filter_summary": {
+          "indicator_version": 1,
+          "output_file_count": 5570,
+          "output_row_count": 11140,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 11140
+        },
+        "diagnostic_ref": "完整诊断看 MACD/KDJ indicator checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_120m",
+      "partition": "2026-10-28",
+      "storage_id": 7786142,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=120/trade_date=2026-10-28/part-000.parquet",
+        "dagster/row_count": 5594,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "last_trade_time",
+          "macd_ema_fast",
+          "macd_ema_slow",
+          "macd_dea",
+          "kdj_k",
+          "kdj_d",
+          "params_key",
+          "indicator_version"
+        ],
+        "freq": 120,
+        "partition_key": "2026-10-28",
+        "previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=120/trade_date=2026-10-27/part-000.parquet",
+        "initialized_without_previous_state": false,
+        "summary": "已写入股票 120min 分钟 qfq MACD/KDJ 日终 state：交易日 2026-10-28，5594 行。",
+        "next_action": "等待 state blocking checks 全部通过；通过后下一 expected 交易日的 MACD/KDJ daily 可以承接该状态。",
+        "result_status": "written",
+        "input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-27",
+          "source_asset": "gold_stk_mins_qfq_macd_kdj_120m"
+        },
+        "filter_summary": {
+          "indicator_row_count": 11140,
+          "indicator_version": 1,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "source_file_count": 11057,
+          "state_row_count": 5594
+        },
+        "diagnostic_ref": "完整诊断看 MACD/KDJ state checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_15m",
+      "partition": "2026-10-28",
+      "storage_id": 7786146,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000001.SZ/year=2026/part-000.parquet",
+        "dagster/row_count": 89120,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "macd_dif_qfq",
+          "macd_dea_qfq",
+          "macd_qfq",
+          "kdj_k_qfq",
+          "kdj_d_qfq",
+          "kdj_qfq",
+          "params_key",
+          "indicator_version"
+        ],
+        "freq": 15,
+        "partition_key": "2026-10-28",
+        "source_file_count": 11057,
+        "output_file_count": 5570,
+        "output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "replacement_row_count": 89120,
+        "previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=15/trade_date=2026-10-27/part-000.parquet",
+        "initialized_without_previous_state": false,
+        "summary": "已写入股票 15min 分钟 qfq MACD/KDJ 指标：交易日 2026-10-28，89120 行，5570 个股票年份文件。",
+        "next_action": "等待 MACD/KDJ indicator blocking checks 全部通过；通过后 state 和后续指标消费方可以继续。",
+        "result_status": "written",
+        "input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-27",
+          "source_asset": "gold_stk_mins_qfq_15m",
+          "source_file_count": 11057,
+          "state_asset": "gold_stk_mins_qfq_macd_kdj_state_15m"
+        },
+        "filter_summary": {
+          "indicator_version": 1,
+          "output_file_count": 5570,
+          "output_row_count": 89120,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 89120
+        },
+        "diagnostic_ref": "完整诊断看 MACD/KDJ indicator checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_15m",
+      "partition": "2026-10-28",
+      "storage_id": 7786148,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=15/trade_date=2026-10-28/part-000.parquet",
+        "dagster/row_count": 5594,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "last_trade_time",
+          "macd_ema_fast",
+          "macd_ema_slow",
+          "macd_dea",
+          "kdj_k",
+          "kdj_d",
+          "params_key",
+          "indicator_version"
+        ],
+        "freq": 15,
+        "partition_key": "2026-10-28",
+        "previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=15/trade_date=2026-10-27/part-000.parquet",
+        "initialized_without_previous_state": false,
+        "summary": "已写入股票 15min 分钟 qfq MACD/KDJ 日终 state：交易日 2026-10-28，5594 行。",
+        "next_action": "等待 state blocking checks 全部通过；通过后下一 expected 交易日的 MACD/KDJ daily 可以承接该状态。",
+        "result_status": "written",
+        "input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-27",
+          "source_asset": "gold_stk_mins_qfq_macd_kdj_15m"
+        },
+        "filter_summary": {
+          "indicator_row_count": 89120,
+          "indicator_version": 1,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "source_file_count": 11057,
+          "state_row_count": 5594
+        },
+        "diagnostic_ref": "完整诊断看 MACD/KDJ state checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_1m",
+      "partition": "2026-10-28",
+      "storage_id": 7786152,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000001.SZ/year=2026/part-000.parquet",
+        "dagster/row_count": 1342370,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "macd_dif_qfq",
+          "macd_dea_qfq",
+          "macd_qfq",
+          "kdj_k_qfq",
+          "kdj_d_qfq",
+          "kdj_qfq",
+          "params_key",
+          "indicator_version"
+        ],
+        "freq": 1,
+        "partition_key": "2026-10-28",
+        "source_file_count": 11057,
+        "output_file_count": 5570,
+        "output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "replacement_row_count": 1342370,
+        "previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=1/trade_date=2026-10-27/part-000.parquet",
+        "initialized_without_previous_state": false,
+        "summary": "已写入股票 1min 分钟 qfq MACD/KDJ 指标：交易日 2026-10-28，1342370 行，5570 个股票年份文件。",
+        "next_action": "等待 MACD/KDJ indicator blocking checks 全部通过；通过后 state 和后续指标消费方可以继续。",
+        "result_status": "written",
+        "input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-27",
+          "source_asset": "gold_stk_mins_qfq_1m",
+          "source_file_count": 11057,
+          "state_asset": "gold_stk_mins_qfq_macd_kdj_state_1m"
+        },
+        "filter_summary": {
+          "indicator_version": 1,
+          "output_file_count": 5570,
+          "output_row_count": 1342370,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 1342370
+        },
+        "diagnostic_ref": "完整诊断看 MACD/KDJ indicator checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_1m",
+      "partition": "2026-10-28",
+      "storage_id": 7786154,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=1/trade_date=2026-10-28/part-000.parquet",
+        "dagster/row_count": 5594,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "last_trade_time",
+          "macd_ema_fast",
+          "macd_ema_slow",
+          "macd_dea",
+          "kdj_k",
+          "kdj_d",
+          "params_key",
+          "indicator_version"
+        ],
+        "freq": 1,
+        "partition_key": "2026-10-28",
+        "previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=1/trade_date=2026-10-27/part-000.parquet",
+        "initialized_without_previous_state": false,
+        "summary": "已写入股票 1min 分钟 qfq MACD/KDJ 日终 state：交易日 2026-10-28，5594 行。",
+        "next_action": "等待 state blocking checks 全部通过；通过后下一 expected 交易日的 MACD/KDJ daily 可以承接该状态。",
+        "result_status": "written",
+        "input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-27",
+          "source_asset": "gold_stk_mins_qfq_macd_kdj_1m"
+        },
+        "filter_summary": {
+          "indicator_row_count": 1342370,
+          "indicator_version": 1,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "source_file_count": 11057,
+          "state_row_count": 5594
+        },
+        "diagnostic_ref": "完整诊断看 MACD/KDJ state checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_30m",
+      "partition": "2026-10-28",
+      "storage_id": 7786158,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000001.SZ/year=2026/part-000.parquet",
+        "dagster/row_count": 44560,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "macd_dif_qfq",
+          "macd_dea_qfq",
+          "macd_qfq",
+          "kdj_k_qfq",
+          "kdj_d_qfq",
+          "kdj_qfq",
+          "params_key",
+          "indicator_version"
+        ],
+        "freq": 30,
+        "partition_key": "2026-10-28",
+        "source_file_count": 11057,
+        "output_file_count": 5570,
+        "output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "replacement_row_count": 44560,
+        "previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=30/trade_date=2026-10-27/part-000.parquet",
+        "initialized_without_previous_state": false,
+        "summary": "已写入股票 30min 分钟 qfq MACD/KDJ 指标：交易日 2026-10-28，44560 行，5570 个股票年份文件。",
+        "next_action": "等待 MACD/KDJ indicator blocking checks 全部通过；通过后 state 和后续指标消费方可以继续。",
+        "result_status": "written",
+        "input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-27",
+          "source_asset": "gold_stk_mins_qfq_30m",
+          "source_file_count": 11057,
+          "state_asset": "gold_stk_mins_qfq_macd_kdj_state_30m"
+        },
+        "filter_summary": {
+          "indicator_version": 1,
+          "output_file_count": 5570,
+          "output_row_count": 44560,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 44560
+        },
+        "diagnostic_ref": "完整诊断看 MACD/KDJ indicator checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_30m",
+      "partition": "2026-10-28",
+      "storage_id": 7786160,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=30/trade_date=2026-10-28/part-000.parquet",
+        "dagster/row_count": 5594,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "last_trade_time",
+          "macd_ema_fast",
+          "macd_ema_slow",
+          "macd_dea",
+          "kdj_k",
+          "kdj_d",
+          "params_key",
+          "indicator_version"
+        ],
+        "freq": 30,
+        "partition_key": "2026-10-28",
+        "previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=30/trade_date=2026-10-27/part-000.parquet",
+        "initialized_without_previous_state": false,
+        "summary": "已写入股票 30min 分钟 qfq MACD/KDJ 日终 state：交易日 2026-10-28，5594 行。",
+        "next_action": "等待 state blocking checks 全部通过；通过后下一 expected 交易日的 MACD/KDJ daily 可以承接该状态。",
+        "result_status": "written",
+        "input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-27",
+          "source_asset": "gold_stk_mins_qfq_macd_kdj_30m"
+        },
+        "filter_summary": {
+          "indicator_row_count": 44560,
+          "indicator_version": 1,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "source_file_count": 11057,
+          "state_row_count": 5594
+        },
+        "diagnostic_ref": "完整诊断看 MACD/KDJ state checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_5m",
+      "partition": "2026-10-28",
+      "storage_id": 7786164,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000001.SZ/year=2026/part-000.parquet",
+        "dagster/row_count": 267360,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "macd_dif_qfq",
+          "macd_dea_qfq",
+          "macd_qfq",
+          "kdj_k_qfq",
+          "kdj_d_qfq",
+          "kdj_qfq",
+          "params_key",
+          "indicator_version"
+        ],
+        "freq": 5,
+        "partition_key": "2026-10-28",
+        "source_file_count": 11057,
+        "output_file_count": 5570,
+        "output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "replacement_row_count": 267360,
+        "previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=5/trade_date=2026-10-27/part-000.parquet",
+        "initialized_without_previous_state": false,
+        "summary": "已写入股票 5min 分钟 qfq MACD/KDJ 指标：交易日 2026-10-28，267360 行，5570 个股票年份文件。",
+        "next_action": "等待 MACD/KDJ indicator blocking checks 全部通过；通过后 state 和后续指标消费方可以继续。",
+        "result_status": "written",
+        "input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-27",
+          "source_asset": "gold_stk_mins_qfq_5m",
+          "source_file_count": 11057,
+          "state_asset": "gold_stk_mins_qfq_macd_kdj_state_5m"
+        },
+        "filter_summary": {
+          "indicator_version": 1,
+          "output_file_count": 5570,
+          "output_row_count": 267360,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 267360
+        },
+        "diagnostic_ref": "完整诊断看 MACD/KDJ indicator checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_5m",
+      "partition": "2026-10-28",
+      "storage_id": 7786166,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=5/trade_date=2026-10-28/part-000.parquet",
+        "dagster/row_count": 5594,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "last_trade_time",
+          "macd_ema_fast",
+          "macd_ema_slow",
+          "macd_dea",
+          "kdj_k",
+          "kdj_d",
+          "params_key",
+          "indicator_version"
+        ],
+        "freq": 5,
+        "partition_key": "2026-10-28",
+        "previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=5/trade_date=2026-10-27/part-000.parquet",
+        "initialized_without_previous_state": false,
+        "summary": "已写入股票 5min 分钟 qfq MACD/KDJ 日终 state：交易日 2026-10-28，5594 行。",
+        "next_action": "等待 state blocking checks 全部通过；通过后下一 expected 交易日的 MACD/KDJ daily 可以承接该状态。",
+        "result_status": "written",
+        "input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-27",
+          "source_asset": "gold_stk_mins_qfq_macd_kdj_5m"
+        },
+        "filter_summary": {
+          "indicator_row_count": 267360,
+          "indicator_version": 1,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "source_file_count": 11057,
+          "state_row_count": 5594
+        },
+        "diagnostic_ref": "完整诊断看 MACD/KDJ state checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_60m",
+      "partition": "2026-10-28",
+      "storage_id": 7786170,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000001.SZ/year=2026/part-000.parquet",
+        "dagster/row_count": 22280,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "macd_dif_qfq",
+          "macd_dea_qfq",
+          "macd_qfq",
+          "kdj_k_qfq",
+          "kdj_d_qfq",
+          "kdj_qfq",
+          "params_key",
+          "indicator_version"
+        ],
+        "freq": 60,
+        "partition_key": "2026-10-28",
+        "source_file_count": 11057,
+        "output_file_count": 5570,
+        "output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "replacement_row_count": 22280,
+        "previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=60/trade_date=2026-10-27/part-000.parquet",
+        "initialized_without_previous_state": false,
+        "summary": "已写入股票 60min 分钟 qfq MACD/KDJ 指标：交易日 2026-10-28，22280 行，5570 个股票年份文件。",
+        "next_action": "等待 MACD/KDJ indicator blocking checks 全部通过；通过后 state 和后续指标消费方可以继续。",
+        "result_status": "written",
+        "input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-27",
+          "source_asset": "gold_stk_mins_qfq_60m",
+          "source_file_count": 11057,
+          "state_asset": "gold_stk_mins_qfq_macd_kdj_state_60m"
+        },
+        "filter_summary": {
+          "indicator_version": 1,
+          "output_file_count": 5570,
+          "output_row_count": 22280,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 22280
+        },
+        "diagnostic_ref": "完整诊断看 MACD/KDJ indicator checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_60m",
+      "partition": "2026-10-28",
+      "storage_id": 7786172,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=60/trade_date=2026-10-28/part-000.parquet",
+        "dagster/row_count": 5594,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "last_trade_time",
+          "macd_ema_fast",
+          "macd_ema_slow",
+          "macd_dea",
+          "kdj_k",
+          "kdj_d",
+          "params_key",
+          "indicator_version"
+        ],
+        "freq": 60,
+        "partition_key": "2026-10-28",
+        "previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=60/trade_date=2026-10-27/part-000.parquet",
+        "initialized_without_previous_state": false,
+        "summary": "已写入股票 60min 分钟 qfq MACD/KDJ 日终 state：交易日 2026-10-28，5594 行。",
+        "next_action": "等待 state blocking checks 全部通过；通过后下一 expected 交易日的 MACD/KDJ daily 可以承接该状态。",
+        "result_status": "written",
+        "input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-27",
+          "source_asset": "gold_stk_mins_qfq_macd_kdj_60m"
+        },
+        "filter_summary": {
+          "indicator_row_count": 22280,
+          "indicator_version": 1,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "source_file_count": 11057,
+          "state_row_count": 5594
+        },
+        "diagnostic_ref": "完整诊断看 MACD/KDJ state checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_90m",
+      "partition": "2026-10-28",
+      "storage_id": 7786176,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000001.SZ/year=2026/part-000.parquet",
+        "dagster/row_count": 16710,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "macd_dif_qfq",
+          "macd_dea_qfq",
+          "macd_qfq",
+          "kdj_k_qfq",
+          "kdj_d_qfq",
+          "kdj_qfq",
+          "params_key",
+          "indicator_version"
+        ],
+        "freq": 90,
+        "partition_key": "2026-10-28",
+        "source_file_count": 11057,
+        "output_file_count": 5570,
+        "output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "replacement_row_count": 16710,
+        "previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=90/trade_date=2026-10-27/part-000.parquet",
+        "initialized_without_previous_state": false,
+        "summary": "已写入股票 90min 分钟 qfq MACD/KDJ 指标：交易日 2026-10-28，16710 行，5570 个股票年份文件。",
+        "next_action": "等待 MACD/KDJ indicator blocking checks 全部通过；通过后 state 和后续指标消费方可以继续。",
+        "result_status": "written",
+        "input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-27",
+          "source_asset": "gold_stk_mins_qfq_90m",
+          "source_file_count": 11057,
+          "state_asset": "gold_stk_mins_qfq_macd_kdj_state_90m"
+        },
+        "filter_summary": {
+          "indicator_version": 1,
+          "output_file_count": 5570,
+          "output_row_count": 16710,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 16710
+        },
+        "diagnostic_ref": "完整诊断看 MACD/KDJ indicator checks metadata 和本次 run stdout。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_90m",
+      "partition": "2026-10-28",
+      "storage_id": 7786178,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=90/trade_date=2026-10-28/part-000.parquet",
+        "dagster/row_count": 5594,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "last_trade_time",
+          "macd_ema_fast",
+          "macd_ema_slow",
+          "macd_dea",
+          "kdj_k",
+          "kdj_d",
+          "params_key",
+          "indicator_version"
+        ],
+        "freq": 90,
+        "partition_key": "2026-10-28",
+        "previous_state_file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=90/trade_date=2026-10-27/part-000.parquet",
+        "initialized_without_previous_state": false,
+        "summary": "已写入股票 90min 分钟 qfq MACD/KDJ 日终 state：交易日 2026-10-28，5594 行。",
+        "next_action": "等待 state blocking checks 全部通过；通过后下一 expected 交易日的 MACD/KDJ daily 可以承接该状态。",
+        "result_status": "written",
+        "input_summary": {
+          "initialized_without_previous_state": false,
+          "previous_state_ready": true,
+          "previous_trade_date": "2026-10-27",
+          "source_asset": "gold_stk_mins_qfq_macd_kdj_90m"
+        },
+        "filter_summary": {
+          "indicator_row_count": 16710,
+          "indicator_version": 1,
+          "params_key": "macd_12_26_9__kdj_9_3_3",
+          "source_file_count": 11057,
+          "state_row_count": 5594
+        },
+        "diagnostic_ref": "完整诊断看 MACD/KDJ state checks metadata 和本次 run stdout。"
+      }
+    }
+  ],
+  "checks": [
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_120m",
+      "name": "gold_stk_mins_qfq_macd_kdj_contract_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786182,
+      "target_storage_id": 7786140,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "schema",
+        "checked_row_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，继续等待 source coverage 与公式检查。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "file_exists"
+          },
+          {
+            "passed": true,
+            "rule_name": "schema"
+          }
+        ],
+        "schema_mismatch_samples": [],
+        "source_file_count": 11057,
+        "summary": "股票 120min MACD/KDJ indicator 文件契约 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_120m",
+      "name": "gold_stk_mins_qfq_macd_kdj_source_coverage_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786186,
+      "target_storage_id": 7786140,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "reconciliation",
+        "checked_row_count": 11140,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "indicator_row_count": 11140,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，等待下游消费。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_source_ready_check"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_row_count_matches_qfq_check"
+          }
+        ],
+        "source_row_count": 11140,
+        "summary": "股票 120min MACD/KDJ source 覆盖 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_120m",
+      "name": "gold_stk_mins_qfq_macd_kdj_state_file_exists_and_schema_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786190,
+      "target_storage_id": 7786142,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "schema",
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=120/trade_date=2026-10-28/part-000.parquet",
+        "next_action": "无需处理，继续等待 state 最新覆盖检查。",
+        "observed_schema": {
+          "freq": "INTEGER",
+          "indicator_version": "INTEGER",
+          "kdj_d": "DOUBLE",
+          "kdj_k": "DOUBLE",
+          "last_trade_time": "TIMESTAMP",
+          "macd_dea": "DOUBLE",
+          "macd_ema_fast": "DOUBLE",
+          "macd_ema_slow": "DOUBLE",
+          "params_key": "VARCHAR",
+          "trade_date": "DATE",
+          "ts_code": "VARCHAR"
+        },
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "file_exists"
+          },
+          {
+            "passed": true,
+            "rule_name": "schema"
+          }
+        ],
+        "summary": "股票 120min MACD/KDJ state 文件契约 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_120m",
+      "name": "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786194,
+      "target_storage_id": 7786142,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "carry_forward_state_row_count": 24,
+        "check_scope": "reconciliation",
+        "checked_row_count": 5570,
+        "current_indicator_mismatch_count": 0,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=120/trade_date=2026-10-28/part-000.parquet",
+        "future_state_mismatch_count": 0,
+        "indicator_stock_count": 5570,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，下一 expected 交易日可以承接该 state。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check"
+          }
+        ],
+        "state_row_count": 5594,
+        "summary": "股票 120min MACD/KDJ state 最新覆盖 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_15m",
+      "name": "gold_stk_mins_qfq_macd_kdj_contract_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786198,
+      "target_storage_id": 7786146,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "schema",
+        "checked_row_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，继续等待 source coverage 与公式检查。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "file_exists"
+          },
+          {
+            "passed": true,
+            "rule_name": "schema"
+          }
+        ],
+        "schema_mismatch_samples": [],
+        "source_file_count": 11057,
+        "summary": "股票 15min MACD/KDJ indicator 文件契约 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_15m",
+      "name": "gold_stk_mins_qfq_macd_kdj_source_coverage_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786202,
+      "target_storage_id": 7786146,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "reconciliation",
+        "checked_row_count": 89120,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "indicator_row_count": 89120,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，等待下游消费。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_source_ready_check"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_row_count_matches_qfq_check"
+          }
+        ],
+        "source_row_count": 89120,
+        "summary": "股票 15min MACD/KDJ source 覆盖 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_15m",
+      "name": "gold_stk_mins_qfq_macd_kdj_state_file_exists_and_schema_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786206,
+      "target_storage_id": 7786148,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "schema",
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=15/trade_date=2026-10-28/part-000.parquet",
+        "next_action": "无需处理，继续等待 state 最新覆盖检查。",
+        "observed_schema": {
+          "freq": "INTEGER",
+          "indicator_version": "INTEGER",
+          "kdj_d": "DOUBLE",
+          "kdj_k": "DOUBLE",
+          "last_trade_time": "TIMESTAMP",
+          "macd_dea": "DOUBLE",
+          "macd_ema_fast": "DOUBLE",
+          "macd_ema_slow": "DOUBLE",
+          "params_key": "VARCHAR",
+          "trade_date": "DATE",
+          "ts_code": "VARCHAR"
+        },
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "file_exists"
+          },
+          {
+            "passed": true,
+            "rule_name": "schema"
+          }
+        ],
+        "summary": "股票 15min MACD/KDJ state 文件契约 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_15m",
+      "name": "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786210,
+      "target_storage_id": 7786148,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "carry_forward_state_row_count": 24,
+        "check_scope": "reconciliation",
+        "checked_row_count": 5570,
+        "current_indicator_mismatch_count": 0,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=15/trade_date=2026-10-28/part-000.parquet",
+        "future_state_mismatch_count": 0,
+        "indicator_stock_count": 5570,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，下一 expected 交易日可以承接该 state。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check"
+          }
+        ],
+        "state_row_count": 5594,
+        "summary": "股票 15min MACD/KDJ state 最新覆盖 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_1m",
+      "name": "gold_stk_mins_qfq_macd_kdj_contract_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786214,
+      "target_storage_id": 7786152,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "schema",
+        "checked_row_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，继续等待 source coverage 与公式检查。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "file_exists"
+          },
+          {
+            "passed": true,
+            "rule_name": "schema"
+          }
+        ],
+        "schema_mismatch_samples": [],
+        "source_file_count": 11057,
+        "summary": "股票 1min MACD/KDJ indicator 文件契约 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_1m",
+      "name": "gold_stk_mins_qfq_macd_kdj_source_coverage_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786218,
+      "target_storage_id": 7786152,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "reconciliation",
+        "checked_row_count": 1342370,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "indicator_row_count": 1342370,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，等待下游消费。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_source_ready_check"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_row_count_matches_qfq_check"
+          }
+        ],
+        "source_row_count": 1342370,
+        "summary": "股票 1min MACD/KDJ source 覆盖 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_1m",
+      "name": "gold_stk_mins_qfq_macd_kdj_state_file_exists_and_schema_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786222,
+      "target_storage_id": 7786154,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "schema",
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=1/trade_date=2026-10-28/part-000.parquet",
+        "next_action": "无需处理，继续等待 state 最新覆盖检查。",
+        "observed_schema": {
+          "freq": "INTEGER",
+          "indicator_version": "INTEGER",
+          "kdj_d": "DOUBLE",
+          "kdj_k": "DOUBLE",
+          "last_trade_time": "TIMESTAMP",
+          "macd_dea": "DOUBLE",
+          "macd_ema_fast": "DOUBLE",
+          "macd_ema_slow": "DOUBLE",
+          "params_key": "VARCHAR",
+          "trade_date": "DATE",
+          "ts_code": "VARCHAR"
+        },
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "file_exists"
+          },
+          {
+            "passed": true,
+            "rule_name": "schema"
+          }
+        ],
+        "summary": "股票 1min MACD/KDJ state 文件契约 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_1m",
+      "name": "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786226,
+      "target_storage_id": 7786154,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "carry_forward_state_row_count": 24,
+        "check_scope": "reconciliation",
+        "checked_row_count": 5570,
+        "current_indicator_mismatch_count": 0,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=1/trade_date=2026-10-28/part-000.parquet",
+        "future_state_mismatch_count": 0,
+        "indicator_stock_count": 5570,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，下一 expected 交易日可以承接该 state。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check"
+          }
+        ],
+        "state_row_count": 5594,
+        "summary": "股票 1min MACD/KDJ state 最新覆盖 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_30m",
+      "name": "gold_stk_mins_qfq_macd_kdj_contract_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786230,
+      "target_storage_id": 7786158,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "schema",
+        "checked_row_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，继续等待 source coverage 与公式检查。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "file_exists"
+          },
+          {
+            "passed": true,
+            "rule_name": "schema"
+          }
+        ],
+        "schema_mismatch_samples": [],
+        "source_file_count": 11057,
+        "summary": "股票 30min MACD/KDJ indicator 文件契约 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_30m",
+      "name": "gold_stk_mins_qfq_macd_kdj_source_coverage_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786234,
+      "target_storage_id": 7786158,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "reconciliation",
+        "checked_row_count": 44560,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "indicator_row_count": 44560,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，等待下游消费。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_source_ready_check"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_row_count_matches_qfq_check"
+          }
+        ],
+        "source_row_count": 44560,
+        "summary": "股票 30min MACD/KDJ source 覆盖 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_30m",
+      "name": "gold_stk_mins_qfq_macd_kdj_state_file_exists_and_schema_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786238,
+      "target_storage_id": 7786160,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "schema",
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=30/trade_date=2026-10-28/part-000.parquet",
+        "next_action": "无需处理，继续等待 state 最新覆盖检查。",
+        "observed_schema": {
+          "freq": "INTEGER",
+          "indicator_version": "INTEGER",
+          "kdj_d": "DOUBLE",
+          "kdj_k": "DOUBLE",
+          "last_trade_time": "TIMESTAMP",
+          "macd_dea": "DOUBLE",
+          "macd_ema_fast": "DOUBLE",
+          "macd_ema_slow": "DOUBLE",
+          "params_key": "VARCHAR",
+          "trade_date": "DATE",
+          "ts_code": "VARCHAR"
+        },
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "file_exists"
+          },
+          {
+            "passed": true,
+            "rule_name": "schema"
+          }
+        ],
+        "summary": "股票 30min MACD/KDJ state 文件契约 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_30m",
+      "name": "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786242,
+      "target_storage_id": 7786160,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "carry_forward_state_row_count": 24,
+        "check_scope": "reconciliation",
+        "checked_row_count": 5570,
+        "current_indicator_mismatch_count": 0,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=30/trade_date=2026-10-28/part-000.parquet",
+        "future_state_mismatch_count": 0,
+        "indicator_stock_count": 5570,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，下一 expected 交易日可以承接该 state。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check"
+          }
+        ],
+        "state_row_count": 5594,
+        "summary": "股票 30min MACD/KDJ state 最新覆盖 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_5m",
+      "name": "gold_stk_mins_qfq_macd_kdj_contract_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786246,
+      "target_storage_id": 7786164,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "schema",
+        "checked_row_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，继续等待 source coverage 与公式检查。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "file_exists"
+          },
+          {
+            "passed": true,
+            "rule_name": "schema"
+          }
+        ],
+        "schema_mismatch_samples": [],
+        "source_file_count": 11057,
+        "summary": "股票 5min MACD/KDJ indicator 文件契约 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_5m",
+      "name": "gold_stk_mins_qfq_macd_kdj_source_coverage_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786250,
+      "target_storage_id": 7786164,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "reconciliation",
+        "checked_row_count": 267360,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "indicator_row_count": 267360,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，等待下游消费。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_source_ready_check"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_row_count_matches_qfq_check"
+          }
+        ],
+        "source_row_count": 267360,
+        "summary": "股票 5min MACD/KDJ source 覆盖 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_5m",
+      "name": "gold_stk_mins_qfq_macd_kdj_state_file_exists_and_schema_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786254,
+      "target_storage_id": 7786166,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "schema",
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=5/trade_date=2026-10-28/part-000.parquet",
+        "next_action": "无需处理，继续等待 state 最新覆盖检查。",
+        "observed_schema": {
+          "freq": "INTEGER",
+          "indicator_version": "INTEGER",
+          "kdj_d": "DOUBLE",
+          "kdj_k": "DOUBLE",
+          "last_trade_time": "TIMESTAMP",
+          "macd_dea": "DOUBLE",
+          "macd_ema_fast": "DOUBLE",
+          "macd_ema_slow": "DOUBLE",
+          "params_key": "VARCHAR",
+          "trade_date": "DATE",
+          "ts_code": "VARCHAR"
+        },
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "file_exists"
+          },
+          {
+            "passed": true,
+            "rule_name": "schema"
+          }
+        ],
+        "summary": "股票 5min MACD/KDJ state 文件契约 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_5m",
+      "name": "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786258,
+      "target_storage_id": 7786166,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "carry_forward_state_row_count": 24,
+        "check_scope": "reconciliation",
+        "checked_row_count": 5570,
+        "current_indicator_mismatch_count": 0,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=5/trade_date=2026-10-28/part-000.parquet",
+        "future_state_mismatch_count": 0,
+        "indicator_stock_count": 5570,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，下一 expected 交易日可以承接该 state。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check"
+          }
+        ],
+        "state_row_count": 5594,
+        "summary": "股票 5min MACD/KDJ state 最新覆盖 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_60m",
+      "name": "gold_stk_mins_qfq_macd_kdj_contract_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786262,
+      "target_storage_id": 7786170,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "schema",
+        "checked_row_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，继续等待 source coverage 与公式检查。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "file_exists"
+          },
+          {
+            "passed": true,
+            "rule_name": "schema"
+          }
+        ],
+        "schema_mismatch_samples": [],
+        "source_file_count": 11057,
+        "summary": "股票 60min MACD/KDJ indicator 文件契约 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_60m",
+      "name": "gold_stk_mins_qfq_macd_kdj_source_coverage_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786266,
+      "target_storage_id": 7786170,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "reconciliation",
+        "checked_row_count": 22280,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "indicator_row_count": 22280,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，等待下游消费。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_source_ready_check"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_row_count_matches_qfq_check"
+          }
+        ],
+        "source_row_count": 22280,
+        "summary": "股票 60min MACD/KDJ source 覆盖 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_60m",
+      "name": "gold_stk_mins_qfq_macd_kdj_state_file_exists_and_schema_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786270,
+      "target_storage_id": 7786172,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "schema",
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=60/trade_date=2026-10-28/part-000.parquet",
+        "next_action": "无需处理，继续等待 state 最新覆盖检查。",
+        "observed_schema": {
+          "freq": "INTEGER",
+          "indicator_version": "INTEGER",
+          "kdj_d": "DOUBLE",
+          "kdj_k": "DOUBLE",
+          "last_trade_time": "TIMESTAMP",
+          "macd_dea": "DOUBLE",
+          "macd_ema_fast": "DOUBLE",
+          "macd_ema_slow": "DOUBLE",
+          "params_key": "VARCHAR",
+          "trade_date": "DATE",
+          "ts_code": "VARCHAR"
+        },
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "file_exists"
+          },
+          {
+            "passed": true,
+            "rule_name": "schema"
+          }
+        ],
+        "summary": "股票 60min MACD/KDJ state 文件契约 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_60m",
+      "name": "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786274,
+      "target_storage_id": 7786172,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "carry_forward_state_row_count": 24,
+        "check_scope": "reconciliation",
+        "checked_row_count": 5570,
+        "current_indicator_mismatch_count": 0,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=60/trade_date=2026-10-28/part-000.parquet",
+        "future_state_mismatch_count": 0,
+        "indicator_stock_count": 5570,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，下一 expected 交易日可以承接该 state。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check"
+          }
+        ],
+        "state_row_count": 5594,
+        "summary": "股票 60min MACD/KDJ state 最新覆盖 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_90m",
+      "name": "gold_stk_mins_qfq_macd_kdj_contract_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786278,
+      "target_storage_id": 7786176,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "schema",
+        "checked_row_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，继续等待 source coverage 与公式检查。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "file_exists"
+          },
+          {
+            "passed": true,
+            "rule_name": "schema"
+          }
+        ],
+        "schema_mismatch_samples": [],
+        "source_file_count": 11057,
+        "summary": "股票 90min MACD/KDJ indicator 文件契约 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_90m",
+      "name": "gold_stk_mins_qfq_macd_kdj_source_coverage_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786282,
+      "target_storage_id": 7786176,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "reconciliation",
+        "checked_row_count": 16710,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "indicator_row_count": 16710,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，等待下游消费。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_source_ready_check"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_row_count_matches_qfq_check"
+          }
+        ],
+        "source_row_count": 16710,
+        "summary": "股票 90min MACD/KDJ source 覆盖 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_90m",
+      "name": "gold_stk_mins_qfq_macd_kdj_state_file_exists_and_schema_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786286,
+      "target_storage_id": 7786178,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "check_scope": "schema",
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=90/trade_date=2026-10-28/part-000.parquet",
+        "next_action": "无需处理，继续等待 state 最新覆盖检查。",
+        "observed_schema": {
+          "freq": "INTEGER",
+          "indicator_version": "INTEGER",
+          "kdj_d": "DOUBLE",
+          "kdj_k": "DOUBLE",
+          "last_trade_time": "TIMESTAMP",
+          "macd_dea": "DOUBLE",
+          "macd_ema_fast": "DOUBLE",
+          "macd_ema_slow": "DOUBLE",
+          "params_key": "VARCHAR",
+          "trade_date": "DATE",
+          "ts_code": "VARCHAR"
+        },
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "file_exists"
+          },
+          {
+            "passed": true,
+            "rule_name": "schema"
+          }
+        ],
+        "summary": "股票 90min MACD/KDJ state 文件契约 检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_90m",
+      "name": "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check",
+      "partition": "2026-10-28",
+      "storage_id": 7786290,
+      "target_storage_id": 7786178,
+      "passed": true,
+      "blocking": true,
+      "metadata": {
+        "carry_forward_state_row_count": 24,
+        "check_scope": "reconciliation",
+        "checked_row_count": 5570,
+        "current_indicator_mismatch_count": 0,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=90/trade_date=2026-10-28/part-000.parquet",
+        "future_state_mismatch_count": 0,
+        "indicator_stock_count": 5570,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "next_action": "无需处理，下一 expected 交易日可以承接该 state。",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check"
+          }
+        ],
+        "state_row_count": 5594,
+        "summary": "股票 90min MACD/KDJ state 最新覆盖 检查通过。"
+      }
+    }
+  ],
+  "failures": [],
+  "factor_gate": {
+    "ready": true,
+    "trade_date": "2026-10-28",
+    "reason": "qfq factor repair rewrote history; reconciliation is required.",
+    "repair_required": true,
+    "rewrote_history": true,
+    "qfq_factor_repair_event_storage_ids": [
+      7786047,
+      7786048,
+      7786049,
+      7786050,
+      7786051,
+      7786052,
+      7786053
+    ],
+    "producer_run_id": "816a0d01-a56f-4f06-bdb3-1a7e0c05a793",
+    "upstream_batch_id": "qfq_factor_repair:2026-10-28:3afb0b0b08f6",
+    "missing_qfq_asset_keys": [],
+    "failed_qfq_asset_keys": [],
+    "repair_start_trade_date": "2014-01-02",
+    "repair_end_trade_date": "2026-10-28",
+    "selected_partition_count": 3115,
+    "repair_required_code_count": 16,
+    "repair_required_codes": [
+      "300601.SZ",
+      "601298.SH",
+      "601991.SH",
+      "603689.SH",
+      "688087.SH",
+      "920047.BJ",
+      "920145.BJ",
+      "920199.BJ",
+      "920227.BJ",
+      "920242.BJ",
+      "920339.BJ",
+      "920427.BJ",
+      "920656.BJ",
+      "920751.BJ",
+      "920892.BJ",
+      "920957.BJ"
+    ],
+    "repair_required_codes_hash": "c4a301285eb06a998bb596c4113580fb329a0f1b38f1d9fffa3119efa9824a91",
+    "repair_required_codes_truncated": false,
+    "rewritten_file_count": 510,
+    "rewritten_row_count": 6785698,
+    "derived_rewrite_required": true,
+    "derived_rewritten_file_count": 208,
+    "derived_rewritten_row_count": 110853,
+    "requires_derived_reconciliation": true
+  },
+  "publications": [
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=1/run_id=6892019eb09f2e7c95ceca0d310808b6a779014054a56fd26891e1f8f3c5573d/scope=6ebe31b9c8f757dab377be24331c923cbd22a6de3c08a689caaf78476d71c601",
+      "frequency": 1,
+      "scope_trade_date_count": 1,
+      "scope_first_trade_date": "2026-10-28",
+      "scope_last_trade_date": "2026-10-28",
+      "target_count": 5571,
+      "indicator_files": 5570,
+      "state_files": 1,
+      "promoted_files": 5571,
+      "indicator_old_bytes": 13954023327,
+      "state_old_bytes": 0,
+      "indicator_candidate_bytes": 14026546464,
+      "state_candidate_bytes": 250790,
+      "annual_rows_in_receipts": 259441320,
+      "state_rows_in_receipts": 5594,
+      "scoped_2026_indicator_size_delta": 208400,
+      "frozen_input_bytes": 64880932,
+      "frozen_input_bytes_all_attempts": 64880932,
+      "frozen_attempts": [
+        {
+          "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=1/run_id=6892019eb09f2e7c95ceca0d310808b6a779014054a56fd26891e1f8f3c5573d/scope=6ebe31b9c8f757dab377be24331c923cbd22a6de3c08a689caaf78476d71c601/attempts/f1c9ce1497034723894a44f8406ee7ad",
+          "bytes": {
+            "indicator": 64630142,
+            "state": 250790
+          }
+        }
+      ]
+    },
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=120/run_id=6892019eb09f2e7c95ceca0d310808b6a779014054a56fd26891e1f8f3c5573d/scope=4e1d8b2ad3a8a21a959e95c99233e47452cb2ce1ca473275daf2a9b551607579",
+      "frequency": 120,
+      "scope_trade_date_count": 1,
+      "scope_first_trade_date": "2026-10-28",
+      "scope_last_trade_date": "2026-10-28",
+      "target_count": 5571,
+      "indicator_files": 5570,
+      "state_files": 1,
+      "promoted_files": 5571,
+      "indicator_old_bytes": 135973010,
+      "state_old_bytes": 0,
+      "indicator_candidate_bytes": 136619251,
+      "state_candidate_bytes": 250793,
+      "annual_rows_in_receipts": 2153040,
+      "state_rows_in_receipts": 5594,
+      "scoped_2026_indicator_size_delta": 1856,
+      "frozen_input_bytes": 823128,
+      "frozen_input_bytes_all_attempts": 823128,
+      "frozen_attempts": [
+        {
+          "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=120/run_id=6892019eb09f2e7c95ceca0d310808b6a779014054a56fd26891e1f8f3c5573d/scope=4e1d8b2ad3a8a21a959e95c99233e47452cb2ce1ca473275daf2a9b551607579/attempts/db4e783cb0da4da5a98bb68a9b61e97d",
+          "bytes": {
+            "indicator": 572335,
+            "state": 250793
+          }
+        }
+      ]
+    },
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=15/run_id=6892019eb09f2e7c95ceca0d310808b6a779014054a56fd26891e1f8f3c5573d/scope=eb83fb4a0f33651fee9b35a23cfa05a21bfe0a22207f8a0761089181d55444a7",
+      "frequency": 15,
+      "scope_trade_date_count": 1,
+      "scope_first_trade_date": "2026-10-28",
+      "scope_last_trade_date": "2026-10-28",
+      "target_count": 5571,
+      "indicator_files": 5570,
+      "state_files": 1,
+      "promoted_files": 5571,
+      "indicator_old_bytes": 950645843,
+      "state_old_bytes": 0,
+      "indicator_candidate_bytes": 955514580,
+      "state_candidate_bytes": 250793,
+      "annual_rows_in_receipts": 17224320,
+      "state_rows_in_receipts": 5594,
+      "scoped_2026_indicator_size_delta": 13984,
+      "frozen_input_bytes": 4583227,
+      "frozen_input_bytes_all_attempts": 4583227,
+      "frozen_attempts": [
+        {
+          "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=15/run_id=6892019eb09f2e7c95ceca0d310808b6a779014054a56fd26891e1f8f3c5573d/scope=eb83fb4a0f33651fee9b35a23cfa05a21bfe0a22207f8a0761089181d55444a7/attempts/76124e517df14088be7e9b8fd3150d2d",
+          "bytes": {
+            "indicator": 4332434,
+            "state": 250793
+          }
+        }
+      ]
+    },
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=30/run_id=6892019eb09f2e7c95ceca0d310808b6a779014054a56fd26891e1f8f3c5573d/scope=bfb45f27f085c89ece10cefe5e5095e4aaeecf7e0384dc2023f75f6807ca9694",
+      "frequency": 30,
+      "scope_trade_date_count": 1,
+      "scope_first_trade_date": "2026-10-28",
+      "scope_last_trade_date": "2026-10-28",
+      "target_count": 5571,
+      "indicator_files": 5570,
+      "state_files": 1,
+      "promoted_files": 5571,
+      "indicator_old_bytes": 487485571,
+      "state_old_bytes": 0,
+      "indicator_candidate_bytes": 489948044,
+      "state_candidate_bytes": 250793,
+      "annual_rows_in_receipts": 8612160,
+      "state_rows_in_receipts": 5594,
+      "scoped_2026_indicator_size_delta": 7072,
+      "frozen_input_bytes": 2442620,
+      "frozen_input_bytes_all_attempts": 2442620,
+      "frozen_attempts": [
+        {
+          "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=30/run_id=6892019eb09f2e7c95ceca0d310808b6a779014054a56fd26891e1f8f3c5573d/scope=bfb45f27f085c89ece10cefe5e5095e4aaeecf7e0384dc2023f75f6807ca9694/attempts/ecc37f8a65db43f390dd6dedc969328a",
+          "bytes": {
+            "indicator": 2191827,
+            "state": 250793
+          }
+        }
+      ]
+    },
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=5/run_id=6892019eb09f2e7c95ceca0d310808b6a779014054a56fd26891e1f8f3c5573d/scope=2f3ff78d15c078033ef4c544e6267e062b3e2cfa528b68fc07b19751658ed657",
+      "frequency": 5,
+      "scope_trade_date_count": 1,
+      "scope_first_trade_date": "2026-10-28",
+      "scope_last_trade_date": "2026-10-28",
+      "target_count": 5571,
+      "indicator_files": 5570,
+      "state_files": 1,
+      "promoted_files": 5571,
+      "indicator_old_bytes": 2801944786,
+      "state_old_bytes": 0,
+      "indicator_candidate_bytes": 2816438443,
+      "state_candidate_bytes": 250793,
+      "annual_rows_in_receipts": 51672960,
+      "state_rows_in_receipts": 5594,
+      "scoped_2026_indicator_size_delta": 41632,
+      "frozen_input_bytes": 13153034,
+      "frozen_input_bytes_all_attempts": 13153034,
+      "frozen_attempts": [
+        {
+          "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=5/run_id=6892019eb09f2e7c95ceca0d310808b6a779014054a56fd26891e1f8f3c5573d/scope=2f3ff78d15c078033ef4c544e6267e062b3e2cfa528b68fc07b19751658ed657/attempts/e1a450759fa64bd5a009580a4ae6f99c",
+          "bytes": {
+            "indicator": 12902241,
+            "state": 250793
+          }
+        }
+      ]
+    },
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=60/run_id=6892019eb09f2e7c95ceca0d310808b6a779014054a56fd26891e1f8f3c5573d/scope=b68e8ce07f072a0f60e5859d79e3ddd06adc4e99e5314ea8a5e4f4eb0c27bd44",
+      "frequency": 60,
+      "scope_trade_date_count": 1,
+      "scope_first_trade_date": "2026-10-28",
+      "scope_last_trade_date": "2026-10-28",
+      "target_count": 5571,
+      "indicator_files": 5570,
+      "state_files": 1,
+      "promoted_files": 5571,
+      "indicator_old_bytes": 254520417,
+      "state_old_bytes": 0,
+      "indicator_candidate_bytes": 255779298,
+      "state_candidate_bytes": 250793,
+      "annual_rows_in_receipts": 4306080,
+      "state_rows_in_receipts": 5594,
+      "scoped_2026_indicator_size_delta": 3616,
+      "frozen_input_bytes": 1358713,
+      "frozen_input_bytes_all_attempts": 1358713,
+      "frozen_attempts": [
+        {
+          "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=60/run_id=6892019eb09f2e7c95ceca0d310808b6a779014054a56fd26891e1f8f3c5573d/scope=b68e8ce07f072a0f60e5859d79e3ddd06adc4e99e5314ea8a5e4f4eb0c27bd44/attempts/400b2ec4f399433e9dbe7d45121deb50",
+          "bytes": {
+            "indicator": 1107920,
+            "state": 250793
+          }
+        }
+      ]
+    },
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=90/run_id=6892019eb09f2e7c95ceca0d310808b6a779014054a56fd26891e1f8f3c5573d/scope=9f03b040e5f05e9b72f31b1ac0e9379e4e1c2fd35ffe360a8d3d87c0d79f830a",
+      "frequency": 90,
+      "scope_trade_date_count": 1,
+      "scope_first_trade_date": "2026-10-28",
+      "scope_last_trade_date": "2026-10-28",
+      "target_count": 5571,
+      "indicator_files": 5570,
+      "state_files": 1,
+      "promoted_files": 5571,
+      "indicator_old_bytes": 194706165,
+      "state_old_bytes": 0,
+      "indicator_candidate_bytes": 195658667,
+      "state_candidate_bytes": 250793,
+      "annual_rows_in_receipts": 3229560,
+      "state_rows_in_receipts": 5594,
+      "scoped_2026_indicator_size_delta": 2736,
+      "frozen_input_bytes": 1091128,
+      "frozen_input_bytes_all_attempts": 1091128,
+      "frozen_attempts": [
+        {
+          "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=90/run_id=6892019eb09f2e7c95ceca0d310808b6a779014054a56fd26891e1f8f3c5573d/scope=9f03b040e5f05e9b72f31b1ac0e9379e4e1c2fd35ffe360a8d3d87c0d79f830a/attempts/ff7443daaf6243fcae3e2a6fc881b815",
+          "bytes": {
+            "indicator": 840335,
+            "state": 250793
+          }
+        }
+      ]
+    }
+  ],
+  "log_sources": [
+    "/Users/congming/.goldenshare/dagster_logs/13e1b027-22c4-4268-950d-aaac9b5be9d2/compute_logs/eqyqsgvt.out"
+  ],
+  "candidate_bytes": 18878260295,
+  "old_annual_bytes": 18779299119,
+  "old_state_bytes": 0,
+  "frozen_input_bytes": 88332782,
+  "target_identity_file": "/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261028_20261029/batch10/daily-target-identities.json",
+  "indicator_files": 38990,
+  "state_files": 7,
+  "scoped_2026_indicator_size_delta": 279296,
+  "state_size_delta": 1755548,
+  "daily_identity_snapshot_must_precede_repair": true
+}

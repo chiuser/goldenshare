@@ -1,0 +1,1 @@
+{"p": {"selector": {"repositoryLocationName": "orchestrator", "repositoryName": "__repository__", "jobName": "gold_major_index_daily_nineturn_update_job"}, "runConfigData": {}, "executionMetadata": {"tags": [{"key": "dagster/partition", "value": "2026-10-28"}, {"key": "goldenshare/recovery", "value": "index_nineturn_20261028_20261029"}]}}}

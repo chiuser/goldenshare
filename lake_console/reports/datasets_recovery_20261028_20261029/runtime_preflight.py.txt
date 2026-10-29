@@ -1,0 +1,34 @@
+import json,os
+from pathlib import Path
+from contextlib import closing
+from datetime import datetime
+from zoneinfo import ZoneInfo
+import psycopg2,yaml
+from dagster._serdes import deserialize_value
+from dagster._core.scheduler.instigation import InstigatorState
+OUT=Path('/private/tmp/dg_minute_chain_20261028_20261029')
+CONFIG=yaml.safe_load(Path('/Users/congming/.goldenshare/dagster_home/dagster.yaml').read_text())
+url=CONFIG['storage']['postgres']['postgres_url']
+if isinstance(url,dict):url=os.environ[url['env']]
+jobs=['stock_mins_raw_update_from_prod_job','stock_mins_silver_update_job','stock_mins_qfq_daily_update_job','stock_mins_qfq_factor_repair_job','gold_stk_mins_qfq_macd_kdj_daily_update_job','gold_stk_mins_qfq_macd_kdj_repair_job','gold_stk_mins_qfq_nineturn_update_job']
+initial=json.loads(Path('/Users/congming/github/goldenshare/lake_console/reports/dg_adj_factor_retention_20261029/initial-runtime.json').read_text())
+names=['stock_mins_qfq_daily_sensor','stock_mins_qfq_factor_repair_sensor','gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor','gold_stk_mins_qfq_macd_kdj_repair_job_sensor','gold_stk_mins_qfq_nineturn_update_job_sensor']
+ids=[s['selector_id'] for s in initial['sensors'] if s['name'] in names]
+r={'observed_at':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'read_only':True,'recent_runs':[],'active_runs':[],'sensors':[]}
+with closing(psycopg2.connect(url,connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=15000')) as db,db.cursor() as c:
+ db.set_session(readonly=True)
+ c.execute("SELECT run_id,pipeline_name,status,start_time,end_time FROM runs WHERE status=ANY(%s) ORDER BY id DESC LIMIT 40",(['QUEUED','NOT_STARTED','STARTING','STARTED','CANCELING'],))
+ r['active_runs']=[dict(zip(['run_id','job','status','start_time','end_time'],x)) for x in c.fetchall()]
+ for job in jobs:
+  c.execute('SELECT run_id,pipeline_name,status,run_body,start_time,end_time FROM runs WHERE pipeline_name=%s ORDER BY id DESC LIMIT 6',(job,))
+  for rid,jn,st,body,start,end in c.fetchall():
+   run=deserialize_value(body)
+   r['recent_runs'].append({'run_id':rid,'job':jn,'status':st,'tags':dict(run.tags),'run_config':dict(run.run_config),'start_time':start,'end_time':end,'root_run_id':run.root_run_id,'parent_run_id':run.parent_run_id})
+ c.execute('SELECT selector_id,status,instigator_body FROM instigators WHERE selector_id=ANY(%s)',(ids,))
+ for sid,st,body in c.fetchall():
+  s=deserialize_value(body,InstigatorState)
+  r['sensors'].append({'name':s.name,'selector_id':sid,'status':st,'origin_id':s.instigator_origin_id})
+ c.execute('SELECT daemon_type,timestamp FROM daemon_heartbeats ORDER BY daemon_type')
+ r['daemon_heartbeats']=[dict(zip(['daemon_type','timestamp'],x)) for x in c.fetchall()]
+(OUT/'runtime-preflight.json').write_text(json.dumps(r,ensure_ascii=False,indent=2,default=str)+'\n')
+print(json.dumps({'observed_at':r['observed_at'],'active_runs':r['active_runs'],'sensors':r['sensors'],'recent_runs':[{'job':x['job'],'status':x['status'],'run_id':x['run_id'],'partition':x['tags'].get('dagster/partition'),'config':x['run_config']} for x in r['recent_runs']],'daemon_heartbeats':r['daemon_heartbeats']},ensure_ascii=False,default=str))

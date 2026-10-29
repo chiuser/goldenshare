@@ -1,0 +1,222 @@
+"""Isolated metadata fixtures; real decision/config helpers, no formal resources."""
+import ast
+import importlib.util
+import json
+import unittest
+from contextlib import contextmanager
+from dataclasses import replace
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace
+from unittest.mock import patch
+
+from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import GoldStkMinsQfqFactorRepairStatus
+from orchestrator.defs.sensors.readiness import AssetReadinessStatus, DatasetReadinessStatus
+
+BASE = Path(__file__).parent
+SCRIPT = BASE / "prepare_macd_20261028.py"
+
+
+class PreparationTests(unittest.TestCase):
+    def setUp(self):
+        self.temp = TemporaryDirectory(prefix="dg28-macd-preparation-", dir="/private/tmp")
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        spec = importlib.util.spec_from_file_location("isolated_macd_preparation", SCRIPT)
+        self.m = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(self.m)
+        self.m.ROOT = self.root / "lake"
+        self.m.STAGE = self.root / "stage"
+        self.m.REPORT = self.root / "report"
+        self.m.PREPARATION = self.root / "preparation"
+        for path in (self.m.ROOT, self.m.STAGE, self.m.REPORT / "batch9", self.m.REPORT / "batch10", self.m.PREPARATION):
+            path.mkdir(parents=True)
+        self.factor = GoldStkMinsQfqFactorRepairStatus(ready=True, trade_date=self.m.DAY, reason="isolated fixture",
+            repair_required=True, producer_run_id="factor-run", upstream_batch_id="fixture-batch",
+            repair_start_trade_date="2014-01-02", repair_end_trade_date=self.m.DAY, selected_partition_count=3115,
+            repair_required_code_count=1, repair_required_codes=("600000.SH",), repair_required_codes_hash="fixture-hash",
+            rewritten_file_count=1, rewritten_row_count=1)
+        self.m.controls = lambda *args: {"isolated": True}
+        self.m.exact_success = lambda *args: SimpleNamespace(start_time=1793236000.0)
+        @contextmanager
+        def fake_state():
+            yield None, None, None, object()
+        self.m.open_state = fake_state
+        self.addCleanup(patch.stopall)
+        patch("dagster_postgres.PostgresRunStorage", side_effect=AssertionError("Formal storage forbidden")).start()
+        patch("dagster_postgres.PostgresEventLogStorage", side_effect=AssertionError("Formal storage forbidden")).start()
+        patch("dagster_postgres.PostgresScheduleStorage", side_effect=AssertionError("Formal storage forbidden")).start()
+        patch("orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair.gold_stk_mins_qfq_factor_repair_status", side_effect=lambda *args: self.factor).start()
+        self.assets = tuple("gold_stk_mins_qfq_macd_kdj_" + kind + str(freq) + "m" for kind in ("", "state_") for freq in self.m.FREQS)
+        self.readiness = self.ready(self.assets)
+        patch("orchestrator.defs.sensors.readiness.partition_dataset_readiness_status_from_latest_checks", side_effect=lambda *a, **k: self.readiness).start()
+        self.completed = False
+        patch("orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj.gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch", side_effect=lambda *a, **k: SimpleNamespace(ready=self.completed, to_payload=lambda: {"ready": self.completed})).start()
+        patch("orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj.gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status", side_effect=lambda *a: SimpleNamespace(ready=True, requires_macd_kdj_repair=self.factor.rewrote_history, to_payload=lambda: {"ready": True})).start()
+
+    def ready(self, assets):
+        return DatasetReadinessStatus(True, tuple(AssetReadinessStatus(asset, self.m.DAY, True, True, True, True,
+            100 + number, self.m.DAY, (), (), "isolated") for number, asset in enumerate(assets)))
+
+    def put(self, path, value):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps(value))
+
+    def daily_evidence(self):
+        # This is deliberately a stat-only marker, not a Parquet-contract fixture.
+        source = self.m.ROOT / "stat-only-source.parquet"
+        source.write_bytes(b"isolated-stat-marker")
+        frozen = {"date": self.m.DAY, "safe_to_launch": True, "factor_gate": self.factor.to_payload(),
+                  "scoped_qfq_inputs": {str(source): self.m.identity(source)},
+                  "budget": {"Qr": 100, "Ir_before_daily": 100, "B_before_daily": 1000}}
+        self.put(self.m.REPORT / "batch10/preflight.json", frozen)
+        daily = {"date": self.m.DAY, "verified": True, "stage_acceptance_complete": True, "status": "SUCCESS",
+                 "job": "gold_stk_mins_qfq_macd_kdj_daily_update_job", "run_id": "daily-run", "factor_gate": self.factor.to_payload(),
+                 "materializations": [{"asset": asset, "storage_id": 100 + number} for number, asset in enumerate(self.assets)]}
+        self.put(self.m.REPORT / "batch10/daily-run-verified.json", daily)
+        targets = {}
+        for freq in self.m.FREQS:
+            state = self.m.ROOT / "gold/indicator/stk_mins_qfq_macd_kdj_state" / ("freq=" + str(freq)) / ("trade_date=" + self.m.DAY) / "part-000.parquet"
+            indicator = self.m.ROOT / "gold/indicator/stk_mins_qfq_macd_kdj" / ("freq=" + str(freq)) / "ts_code=600000.SH/year=2026/part-000.parquet"
+            targets[str(state)] = {"kind": "state", "identity": [1, 1, 10, 1, 1], "before": None}
+            targets[str(indicator)] = {"kind": "indicator", "identity": [1, 1, 20, 1, 1], "before": [1, 1, 15, 1, 1]}
+        self.put(self.m.REPORT / "batch10/daily-target-identities.json", targets)
+        return source, daily
+
+    def test_original_builder_output_and_budget(self):
+        self.daily_evidence()
+        result = self.m.prepare_repair()
+        expected = {"ops": {"gold_stk_mins_qfq_macd_kdj_repair_op": {"config": {
+            "qfq_factor_repair_trade_date": "2026-10-28", "start_trade_date": "2014-01-02", "freqs": [1, 5, 15, 30, 60, 90, 120],
+            "stock_codes": ["600000.SH"], "reason": "qfq_factor_repair:2026-10-28", "repair_required_codes_hash": "fixture-hash", "upstream_batch_id": "fixture-batch"}}}}
+        self.assertEqual(result["run_config"], expected)
+        self.assertEqual(json.loads((self.m.REPORT / "batch10/repair-run-config.json").read_text()), expected)
+        self.assertEqual(result["daily_run_id"], "daily-run")
+        self.assertEqual(result["repair_budget"]["Ir_after_daily"], 135)
+        self.assertEqual(result["repair_budget"]["B_after_daily"], 1070)
+
+    def test_daily_binding_failure_writes_no_config(self):
+        self.daily_evidence()
+        self.readiness = replace(self.readiness, statuses=(replace(self.readiness.statuses[0], materialization_storage_id=999), *self.readiness.statuses[1:]))
+        with self.assertRaisesRegex(ValueError, "bound"):
+            self.m.prepare_repair()
+        self.assertFalse((self.m.REPORT / "batch10/repair-run-config.json").exists())
+
+    def test_changed_factor_rejected(self):
+        self.daily_evidence()
+        self.factor = replace(self.factor, upstream_batch_id="changed-batch")
+        with self.assertRaisesRegex(ValueError, "batch changed"):
+            self.m.prepare_repair()
+
+    def test_changed_source_identity_rejected(self):
+        source, _ = self.daily_evidence()
+        source.write_bytes(b"changed-size")
+        with self.assertRaisesRegex(ValueError, "source changed"):
+            self.m.prepare_repair()
+        self.assertFalse((self.m.REPORT / "batch10/repair-run-config.json").exists())
+
+    def test_original_decision_rejects_truncated_scope(self):
+        self.factor = replace(self.factor, repair_required_codes_truncated=True)
+        self.daily_evidence()
+        with self.assertRaisesRegex(ValueError, "自动上限"):
+            self.m.prepare_repair()
+
+    def test_existing_completion_does_not_write_config(self):
+        self.daily_evidence()
+        self.completed = True
+        result = self.m.prepare_repair()
+        self.assertFalse(result["repair_to_launch"])
+        self.assertIsNone(result["run_config"])
+        self.assertFalse((self.m.REPORT / "batch10/repair-run-config.json").exists())
+
+    def test_no_history_does_not_create_empty_repair(self):
+        self.factor = replace(self.factor, repair_required=False, repair_required_code_count=0,
+                              repair_required_codes=(), repair_required_codes_hash=None, rewritten_file_count=0, rewritten_row_count=0)
+        self.daily_evidence()
+        result = self.m.prepare_repair()
+        self.assertFalse(result["repair_to_launch"])
+        self.assertIsNone(result["run_config"])
+        self.assertFalse((self.m.REPORT / "batch10/repair-run-config.json").exists())
+
+    def test_preflight_real_baseline_schema_and_exact_day_state(self):
+        from orchestrator.defs.paths import gold_stk_mins_qfq_macd_kdj_state_path
+        self.readiness = self.ready(tuple("gold_stk_mins_qfq_macd_kdj_state_" + str(f) + "m" for f in self.m.FREQS))
+        for freq in self.m.FREQS:
+            p = gold_stk_mins_qfq_macd_kdj_state_path(self.m.ROOT, freq, self.m.PRIOR)
+            p.parent.mkdir(parents=True)
+            p.write_bytes(b"stat-marker")
+        reports = [dict(date=self.m.DAY, verified=True, stage_acceptance_complete=True, status="SUCCESS", job=job,
+                        run_id=("daily-run" if number == 0 else "factor-run"), factor_gate=self.factor.to_payload()) for number, job in enumerate(self.m.JOBS[:2])]
+        for name, value in zip(("daily-run-verified.json", "factor-run-verified.json"), reports):
+            self.put(self.m.REPORT / "batch9" / name, value)
+        self.m.qfq_growth = lambda *args: 42
+        self.m.scoped_annual_stats = lambda *args: ({}, 100)
+        hist = {"date_range": ["2014-01-02", self.m.DAY], "date_count": 3115,
+                "shared_state_history": {"bytes": 1000, "requested": 21805, "missing": 7}, "groups": {}}
+        for freq in self.m.FREQS:
+            p = gold_stk_mins_qfq_macd_kdj_state_path(self.m.ROOT, freq, self.m.DAY)
+            hist["groups"]["shared_state_history_" + str(freq)] = {"missing": 1, "missing_samples": [str(p)]}
+        self.put(self.m.PREPARATION / "history-stat-consumer.json", hist)
+        annual = self.root / "annual.json"
+        self.put(annual, {"trade_date": self.m.DAY, "baseline_stage": "before_qfq_daily", "day28_downstream_jobs_launched": 0,
+                          "observed_at": "2026-10-29T08:58:31+08:00", "qfq_two_year_bytes": 300,
+                          "qfq_2025_bytes": 100, "qfq_2026_bytes": 200, "macd_2026_bytes": 400})
+        result = self.m.preflight(annual)
+        self.assertTrue(result["safe_to_launch"])
+        self.assertEqual(result["budget"]["Qd"], 342)
+        self.assertEqual(result["budget"]["Id"], 400)
+        self.assertEqual(len(result["previous_state_inputs"]), 7)
+        self.assertEqual(result["factor_gate"], self.factor.to_payload())
+
+    def growth_fixture(self):
+        reports = []
+        target26 = str(self.m.ROOT / "gold/quote/stk_mins_qfq/freq=1/ts_code=600000.SH/year=2026/part-000.parquet")
+        target25 = str(self.m.ROOT / "gold/quote/stk_mins_qfq/freq=1/ts_code=600000.SH/year=2025/part-000.parquet")
+        directories = []
+        for mode, root_id, scopes in (("daily", "daily-root", (("2026", 10, 15, target26),)),
+                                      ("factor", "factor-root", (("2025", 20, 22, target25), ("2026", 15, 18, target26)))):
+            report = {"mode": mode, "root_run_id": root_id, "publications": []}
+            for year, before_bytes, after_bytes, target in scopes:
+                directory = self.m.STAGE / "stk_mins_qfq/qfq/root=fixture/freq=1" / ("run_id=" + self.m.text_hash(root_id)) / ("scope=" + year)
+                self.put(directory / "operation.json", {"scope": {"family": "qfq", "freq": 1, "trade_dates": [self.m.DAY if year == "2026" else "2025-01-02"]}, "targets": [target]})
+                self.put(directory / "files" / (self.m.text_hash(target) + ".json"), {"target": target, "status": "promoted",
+                    "before": [1, 1, before_bytes, 4, 5] if mode == "daily" else [1, 2, before_bytes, 4, 5],
+                    "candidate_identity": [1, 2, after_bytes, 4, 5] if mode == "daily" else [1, 3, after_bytes, 4, 5]})
+                report["publications"].append({"directory": str(directory), "year": year, "frequency": 1,
+                    "promoted_files": 1, "files": 1, "candidate_bytes": after_bytes, "old_annual_bytes": before_bytes})
+                directories.append(directory)
+            reports.append(report)
+        return reports, directories[-1], target26
+
+    def test_qfq_net_growth_includes_2025_and_overlap_once(self):
+        reports, _, _ = self.growth_fixture()
+        self.assertEqual(self.m.qfq_growth(reports, self.factor.to_payload()), 10)
+
+    def test_qfq_overlap_wrong_before_identity_is_rejected(self):
+        reports, directory, target = self.growth_fixture()
+        path = directory / "files" / (self.m.text_hash(target) + ".json")
+        receipt = json.loads(path.read_text())
+        receipt["before"][1] = 999
+        self.put(path, receipt)
+        with self.assertRaisesRegex(ValueError, "continue"):
+            self.m.qfq_growth(reports, self.factor.to_payload())
+
+
+if __name__ == "__main__":
+    source = SCRIPT.read_text()
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            name = node.func.id if isinstance(node.func, ast.Name) else node.func.attr if isinstance(node.func, ast.Attribute) else ""
+            assert name not in ("launchRun", "materialize", "execute_job", "report_runless_asset_event", "read_parquet", "copy_query_to_parquet", "execute", "executemany")
+            if name in ("PostgresRunStorage", "PostgresEventLogStorage", "PostgresScheduleStorage"):
+                assert any(k.arg == "should_autocreate_tables" and isinstance(k.value, ast.Constant) and k.value.value is False for k in node.keywords)
+    suite = unittest.defaultTestLoader.loadTestsFromTestCase(PreparationTests)
+    result = unittest.TextTestRunner(verbosity=2).run(suite)
+    report = {"test_count": result.testsRun, "failures": len(result.failures), "errors": len(result.errors),
+              "successful": result.wasSuccessful(), "real_decision_and_config_builder": True, "guard_readiness_and_storages_replaced": True,
+              "formal_db_connections": 0, "formal_lake_accesses": 0, "parquet_content_reads": 0, "jobs_launched": 0,
+              "fixture_leftovers": [str(p) for p in Path('/private/tmp').glob('dg28-macd-preparation-*')],
+              "limits": "Metadata fixtures prove orchestration/identity/config behavior only; no real guard, storage, price or job acceptance"}
+    (BASE / "prepare-macd-isolation.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+    raise SystemExit(0 if result.wasSuccessful() else 1)

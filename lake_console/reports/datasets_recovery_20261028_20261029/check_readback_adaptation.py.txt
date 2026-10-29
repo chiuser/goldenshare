@@ -1,0 +1,122 @@
+"""Static/synthetic only. Never import prepared modules or access formal resources."""
+import argparse
+import ast
+import contextlib
+import copy
+import io
+import json
+import sys
+import types
+from pathlib import Path
+
+OUTPUT = Path(__file__).parent
+results = []
+modules = {}
+
+
+def passed(name):
+    results.append({"name": name, "passed": True})
+
+
+def reject(call):
+    try:
+        call()
+    except (ValueError, SystemExit) as error:
+        if isinstance(error, SystemExit):
+            assert error.code == 2
+    else:
+        raise AssertionError("Expected rejection did not occur")
+
+
+for filename in ("qfq_factor_readback_20261028.py", "macd_readback_20261028.py"):
+    source = (OUTPUT / filename).read_text()
+    tree = ast.parse(source)
+    functions = {node.name: node for node in tree.body if isinstance(node, ast.FunctionDef)}
+    assert not {"run_preflight", "prepare_repair", "final_control", "_control_open", "_control_quiet"} & set(functions)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call):
+            name = node.func.id if isinstance(node.func, ast.Name) else node.func.attr if isinstance(node.func, ast.Attribute) else ""
+            assert name not in ("DagsterInstance", "read_parquet", "materialize", "launchRun", "execute_job", "report_runless_asset_event", "copy_query_to_parquet")
+            if name in ("PostgresRunStorage", "PostgresEventLogStorage"):
+                assert any(key.arg == "should_autocreate_tables" and isinstance(key.value, ast.Constant) and key.value.value is False for key in node.keywords)
+    assert not any(isinstance(node, ast.Attribute) and node.attr in ("read_bytes", "execute", "executemany") for node in ast.walk(tree))
+    compile(source, str(OUTPUT / filename), "exec")
+    passed(filename + ": syntax and forbidden-operation guards")
+    modules[filename] = (source, tree, functions)
+
+summary = json.loads((OUTPUT / "readback-adaptation-summary.json").read_text())
+for item in summary:
+    original = Path(item["source"]).read_text()
+    source, tree, functions = modules[Path(item["target"]).name]
+    old_functions = {node.name: node for node in ast.parse(original).body if isinstance(node, ast.FunctionDef)}
+    for name in item["business_verifier_functions_byte_identical"]:
+        assert ast.get_source_segment(source, functions[name]) == ast.get_source_segment(original, old_functions[name])
+    passed(Path(item["target"]).name + ": all retained verifier bodies byte-identical")
+
+# Execute only each main() AST, with no prepared-module imports or real verifier.
+for filename, modes in (("qfq_factor_readback_20261028.py", ("preflight",)), ("macd_readback_20261028.py", ("preflight", "prepare-repair", "final"))):
+    functions = modules[filename][2]
+    selected = ast.Module(body=[copy.deepcopy(functions["main"])], type_ignores=[])
+    namespace = {"argparse": argparse, "Path": Path, "B10_REPORT": Path("/private/tmp/synthetic-macd"), "REPORT_ROOT": Path("/private/tmp/synthetic-qfq"), "__doc__": "synthetic CLI only", "json": json}
+    exec(compile(ast.fix_missing_locations(selected), "<synthetic-cli>", "exec"), namespace)
+    for mode in modes:
+        previous = sys.argv
+        sys.argv = ["synthetic", "--mode", mode, "--report-dir", "/private/tmp/synthetic-report"]
+        try:
+            with contextlib.redirect_stderr(io.StringIO()):
+                reject(namespace["main"])
+        finally:
+            sys.argv = previous
+        passed(filename + ": rejects old mode " + mode + " before filesystem/storage")
+
+# Artificial catalog names test event binding/date rejection only. They do not
+# constitute real catalog, guard, DB or physical-data acceptance evidence.
+frequencies = (1, 5, 15, 30, 60, 90, 120)
+cases = (
+    ("qfq_factor_readback_20261028.py", "", tuple("gold_stk_mins_qfq_" + str(freq) + "m" for freq in frequencies), 4),
+    ("macd_readback_20261028.py", "b10_", tuple("gold_stk_mins_qfq_macd_kdj_" + kind + str(freq) + "m" for kind in ("", "state_") for freq in frequencies), 2),
+)
+for filename, prefix, assets, check_count in cases:
+    functions = modules[filename][2]
+    require_name = "b10_require" if prefix else "require"
+    verify_name = "b10_verify_daily_events" if prefix else "verify_daily"
+    namespace = {"DAY": "2026-10-28", "B10_DAY": "2026-10-28", "ASSETS": set(assets), "B10_ASSETS": set(assets)}
+    selected = ast.Module(body=[copy.deepcopy(functions[name]) for name in (require_name, verify_name)], type_ignores=[])
+    exec(compile(ast.fix_missing_locations(selected), "<synthetic-events>", "exec"), namespace)
+    catalog_name = "orchestrator.defs.catalog.lake_assets"
+    previous_catalog = sys.modules.get(catalog_name)
+    fake_catalog = types.ModuleType(catalog_name)
+    fake_catalog.LAKE_ASSET_CATALOG = [types.SimpleNamespace(asset_key=asset, blocking_check_names=tuple("synthetic_check_" + str(number) for number in range(check_count))) for asset in assets]
+    sys.modules[catalog_name] = fake_catalog
+    namespace["LAKE_ASSET_CATALOG"] = fake_catalog.LAKE_ASSET_CATALOG
+    materializations = [{"asset": asset, "partition": "2026-10-28", "storage_id": 100 + number} for number, asset in enumerate(assets)]
+    checks = [{"asset": asset, "name": "synthetic_check_" + str(check), "partition": "2026-10-28", "target_storage_id": 100 + number, "passed": True, "blocking": True} for number, asset in enumerate(assets) for check in range(check_count)]
+    job = "gold_stk_mins_qfq_macd_kdj_daily_update_job" if prefix else "stock_mins_qfq_daily_update_job"
+    run = types.SimpleNamespace(job_name=job, tags={"dagster/partition": "2026-10-28"})
+    try:
+        namespace[verify_name](run, materializations, checks)
+        passed(filename + ": synthetic28-day exact event binding accepted")
+        wrong_day = types.SimpleNamespace(job_name=job, tags={"dagster/partition": "2026-10-27"})
+        reject(lambda: namespace[verify_name](wrong_day, materializations, checks))
+        passed(filename + ": rejects wrong target day")
+        reject(lambda: namespace[verify_name](run, materializations[:-1], checks))
+        passed(filename + ": rejects missing materialization")
+        reject(lambda: namespace[verify_name](run, materializations, checks[:-1]))
+        passed(filename + ": rejects missing check")
+        failed_checks = copy.deepcopy(checks)
+        failed_checks[0]["passed"] = False
+        reject(lambda: namespace[verify_name](run, materializations, failed_checks))
+        passed(filename + ": rejects failed check")
+        unbound_checks = copy.deepcopy(checks)
+        unbound_checks[0]["target_storage_id"] = 999999
+        reject(lambda: namespace[verify_name](run, materializations, unbound_checks))
+        passed(filename + ": rejects wrong materialization binding")
+    finally:
+        if previous_catalog is None:
+            sys.modules.pop(catalog_name, None)
+        else:
+            sys.modules[catalog_name] = previous_catalog
+
+report = {"scope": "Static AST/compile plus artificial CLI/event dictionaries only; prepared modules were not imported and no real guard or verifier was invoked", "formal_db_connections": 0, "formal_lake_calls": 0, "real_guard_evaluations": 0, "real_run_acceptances": 0, "parquet_reads": 0, "data_sha_reads": 0, "checks": results, "passed": len(results), "all_passed": all(item["passed"] for item in results)}
+(OUTPUT / "readback-static-checks.json").write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+print(json.dumps({"checks": report["passed"], "all_passed": report["all_passed"], "formal_calls": 0}, ensure_ascii=False))

@@ -1,0 +1,1876 @@
+{
+  "observed_at": "2026-10-29T08:58:11.688588+08:00",
+  "read_only": true,
+  "recent_runs": [
+    {
+      "run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+      "job": "stock_mins_raw_update_from_prod_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpunh3ke6k\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-28",
+        "dagster/partition_set": "stock_mins_raw_update_from_prod_job_partition_set",
+        "dagster/run_key": "stock_mins_raw_update_from_prod:2026-10-28",
+        "dagster/sensor_name": "stock_mins_raw_sensor",
+        "dagster/tick": "2917016"
+      },
+      "run_config": {
+        "ops": {
+          "raw_stk_mins_15m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-28T19:12:45.634620+08:00",
+                "ended_at": "2026-10-28T18:27:28.542825+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "14960769fbf14dc0e717ab7e81b98e60",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "fab4a1b0dc2813285e155f29f1e7176f006c05a7ca28a76103bf9226e7e70d37",
+                "task_run_id": 17269,
+                "trade_date": "2026-10-28"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_1m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-28T19:12:45.634620+08:00",
+                "ended_at": "2026-10-28T18:27:28.542825+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "14960769fbf14dc0e717ab7e81b98e60",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "fab4a1b0dc2813285e155f29f1e7176f006c05a7ca28a76103bf9226e7e70d37",
+                "task_run_id": 17269,
+                "trade_date": "2026-10-28"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_30m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-28T19:12:45.634620+08:00",
+                "ended_at": "2026-10-28T18:27:28.542825+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "14960769fbf14dc0e717ab7e81b98e60",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "fab4a1b0dc2813285e155f29f1e7176f006c05a7ca28a76103bf9226e7e70d37",
+                "task_run_id": 17269,
+                "trade_date": "2026-10-28"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_5m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-28T19:12:45.634620+08:00",
+                "ended_at": "2026-10-28T18:27:28.542825+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "14960769fbf14dc0e717ab7e81b98e60",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "fab4a1b0dc2813285e155f29f1e7176f006c05a7ca28a76103bf9226e7e70d37",
+                "task_run_id": 17269,
+                "trade_date": "2026-10-28"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_60m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-28T19:12:45.634620+08:00",
+                "ended_at": "2026-10-28T18:27:28.542825+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "14960769fbf14dc0e717ab7e81b98e60",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "fab4a1b0dc2813285e155f29f1e7176f006c05a7ca28a76103bf9226e7e70d37",
+                "task_run_id": 17269,
+                "trade_date": "2026-10-28"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          }
+        }
+      },
+      "start_time": 1793186272.246482,
+      "end_time": 1793186370.122049,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "c7bd0494-103a-4bb9-9900-52b5dcd11994",
+      "job": "stock_mins_raw_update_from_prod_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpfjgdis42\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-27",
+        "dagster/partition_set": "stock_mins_raw_update_from_prod_job_partition_set",
+        "dagster/run_key": "stock_mins_raw_update_from_prod:2026-10-27",
+        "dagster/sensor_name": "stock_mins_raw_sensor",
+        "dagster/tick": "2885998"
+      },
+      "run_config": {
+        "ops": {
+          "raw_stk_mins_15m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-27T19:05:57.335678+08:00",
+                "ended_at": "2026-10-27T18:29:39.445902+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "c3599ec9451c54491852692abd897d17",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "e942a352717b1dbad48b4ac4c605f564f1f3f8a11494df19bf0ebce2feef3ae9",
+                "task_run_id": 17133,
+                "trade_date": "2026-10-27"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_1m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-27T19:05:57.335678+08:00",
+                "ended_at": "2026-10-27T18:29:39.445902+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "c3599ec9451c54491852692abd897d17",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "e942a352717b1dbad48b4ac4c605f564f1f3f8a11494df19bf0ebce2feef3ae9",
+                "task_run_id": 17133,
+                "trade_date": "2026-10-27"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_30m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-27T19:05:57.335678+08:00",
+                "ended_at": "2026-10-27T18:29:39.445902+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "c3599ec9451c54491852692abd897d17",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "e942a352717b1dbad48b4ac4c605f564f1f3f8a11494df19bf0ebce2feef3ae9",
+                "task_run_id": 17133,
+                "trade_date": "2026-10-27"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_5m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-27T19:05:57.335678+08:00",
+                "ended_at": "2026-10-27T18:29:39.445902+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "c3599ec9451c54491852692abd897d17",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "e942a352717b1dbad48b4ac4c605f564f1f3f8a11494df19bf0ebce2feef3ae9",
+                "task_run_id": 17133,
+                "trade_date": "2026-10-27"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_60m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-27T19:05:57.335678+08:00",
+                "ended_at": "2026-10-27T18:29:39.445902+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "c3599ec9451c54491852692abd897d17",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "e942a352717b1dbad48b4ac4c605f564f1f3f8a11494df19bf0ebce2feef3ae9",
+                "task_run_id": 17133,
+                "trade_date": "2026-10-27"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          }
+        }
+      },
+      "start_time": 1793099172.076409,
+      "end_time": 1793099269.445238,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "92032801-e4e3-4de2-ab68-3d82aa4bc561",
+      "job": "stock_mins_raw_update_from_prod_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp2znsrlnd\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-26",
+        "dagster/partition_set": "stock_mins_raw_update_from_prod_job_partition_set",
+        "dagster/run_key": "stock_mins_raw_update_from_prod:2026-10-26",
+        "dagster/sensor_name": "stock_mins_raw_sensor",
+        "dagster/tick": "2859295"
+      },
+      "run_config": {
+        "ops": {
+          "raw_stk_mins_15m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-26T19:06:05.729332+08:00",
+                "ended_at": "2026-10-26T18:31:40.226711+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "c3599ec9451c54491852692abd897d17",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "490264767bd7f476886faa83257ae0368389fb72e0475391b94ca6343566dbdd",
+                "task_run_id": 16997,
+                "trade_date": "2026-10-26"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_1m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-26T19:06:05.729332+08:00",
+                "ended_at": "2026-10-26T18:31:40.226711+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "c3599ec9451c54491852692abd897d17",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "490264767bd7f476886faa83257ae0368389fb72e0475391b94ca6343566dbdd",
+                "task_run_id": 16997,
+                "trade_date": "2026-10-26"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_30m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-26T19:06:05.729332+08:00",
+                "ended_at": "2026-10-26T18:31:40.226711+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "c3599ec9451c54491852692abd897d17",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "490264767bd7f476886faa83257ae0368389fb72e0475391b94ca6343566dbdd",
+                "task_run_id": 16997,
+                "trade_date": "2026-10-26"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_5m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-26T19:06:05.729332+08:00",
+                "ended_at": "2026-10-26T18:31:40.226711+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "c3599ec9451c54491852692abd897d17",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "490264767bd7f476886faa83257ae0368389fb72e0475391b94ca6343566dbdd",
+                "task_run_id": 16997,
+                "trade_date": "2026-10-26"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_60m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-26T19:06:05.729332+08:00",
+                "ended_at": "2026-10-26T18:31:40.226711+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "c3599ec9451c54491852692abd897d17",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "490264767bd7f476886faa83257ae0368389fb72e0475391b94ca6343566dbdd",
+                "task_run_id": 16997,
+                "trade_date": "2026-10-26"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          }
+        }
+      },
+      "start_time": 1793012781.733244,
+      "end_time": 1793012872.414021,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "4365769c-a69d-4a0d-a216-17ab2723afcc",
+      "job": "stock_mins_raw_update_from_prod_job",
+      "status": "SUCCESS",
+      "tags": {
+        "dagster/partition": "2026-10-23",
+        "dagster/partition_set": "stock_mins_raw_update_from_prod_job_partition_set"
+      },
+      "run_config": {
+        "ops": {
+          "raw_stk_mins_15m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-26T12:33:28.326090+08:00",
+                "ended_at": "2026-10-25T01:16:41.811462+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "c3599ec9451c54491852692abd897d17",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "23038389a9966a235ff8847d8b29917a2f32b8af6f2a1aa4b6fb37f01ae92323",
+                "task_run_id": 16729,
+                "trade_date": "2026-10-23"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_1m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-26T12:33:28.326090+08:00",
+                "ended_at": "2026-10-25T01:16:41.811462+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "c3599ec9451c54491852692abd897d17",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "23038389a9966a235ff8847d8b29917a2f32b8af6f2a1aa4b6fb37f01ae92323",
+                "task_run_id": 16729,
+                "trade_date": "2026-10-23"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_30m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-26T12:33:28.326090+08:00",
+                "ended_at": "2026-10-25T01:16:41.811462+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "c3599ec9451c54491852692abd897d17",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "23038389a9966a235ff8847d8b29917a2f32b8af6f2a1aa4b6fb37f01ae92323",
+                "task_run_id": 16729,
+                "trade_date": "2026-10-23"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_5m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-26T12:33:28.326090+08:00",
+                "ended_at": "2026-10-25T01:16:41.811462+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "c3599ec9451c54491852692abd897d17",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "23038389a9966a235ff8847d8b29917a2f32b8af6f2a1aa4b6fb37f01ae92323",
+                "task_run_id": 16729,
+                "trade_date": "2026-10-23"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_60m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-26T12:33:28.326090+08:00",
+                "ended_at": "2026-10-25T01:16:41.811462+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "c3599ec9451c54491852692abd897d17",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "23038389a9966a235ff8847d8b29917a2f32b8af6f2a1aa4b6fb37f01ae92323",
+                "task_run_id": 16729,
+                "trade_date": "2026-10-23"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          }
+        }
+      },
+      "start_time": 1792989261.799654,
+      "end_time": 1792989354.815493,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "ea31d235-8eee-4962-a006-9f114e87d18e",
+      "job": "stock_mins_raw_update_from_prod_job",
+      "status": "SUCCESS",
+      "tags": {
+        "dagster/partition": "2026-10-22",
+        "dagster/partition_set": "stock_mins_raw_update_from_prod_job_partition_set"
+      },
+      "run_config": {
+        "ops": {
+          "raw_stk_mins_15m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-25T16:16:57.162652+08:00",
+                "ended_at": "2026-10-25T01:16:41.811462+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "ba874499bfc6e1145ea0002088484244",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "47279ed5045a1ae9a0480c75e76f10b5ad2eb6eaebc132a6f8da9737c5dc7410",
+                "task_run_id": 16729,
+                "trade_date": "2026-10-22"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_1m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-25T16:16:57.162652+08:00",
+                "ended_at": "2026-10-25T01:16:41.811462+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "ba874499bfc6e1145ea0002088484244",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "47279ed5045a1ae9a0480c75e76f10b5ad2eb6eaebc132a6f8da9737c5dc7410",
+                "task_run_id": 16729,
+                "trade_date": "2026-10-22"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_30m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-25T16:16:57.162652+08:00",
+                "ended_at": "2026-10-25T01:16:41.811462+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "ba874499bfc6e1145ea0002088484244",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "47279ed5045a1ae9a0480c75e76f10b5ad2eb6eaebc132a6f8da9737c5dc7410",
+                "task_run_id": 16729,
+                "trade_date": "2026-10-22"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_5m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-25T16:16:57.162652+08:00",
+                "ended_at": "2026-10-25T01:16:41.811462+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "ba874499bfc6e1145ea0002088484244",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "47279ed5045a1ae9a0480c75e76f10b5ad2eb6eaebc132a6f8da9737c5dc7410",
+                "task_run_id": 16729,
+                "trade_date": "2026-10-22"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_60m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-25T16:16:57.162652+08:00",
+                "ended_at": "2026-10-25T01:16:41.811462+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "ba874499bfc6e1145ea0002088484244",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "47279ed5045a1ae9a0480c75e76f10b5ad2eb6eaebc132a6f8da9737c5dc7410",
+                "task_run_id": 16729,
+                "trade_date": "2026-10-22"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          }
+        }
+      },
+      "start_time": 1792916348.112017,
+      "end_time": 1792916439.694626,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "4aee38af-c787-4abe-95a9-3f55c90b6863",
+      "job": "stock_mins_raw_update_from_prod_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpvmebrb9s\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-21",
+        "dagster/partition_set": "stock_mins_raw_update_from_prod_job_partition_set",
+        "dagster/run_key": "stock_mins_raw_update_from_prod:2026-10-21",
+        "dagster/sensor_name": "stock_mins_raw_sensor",
+        "dagster/tick": "2752958"
+      },
+      "run_config": {
+        "ops": {
+          "raw_stk_mins_15m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-21T19:05:07.855504+08:00",
+                "ended_at": "2026-10-21T18:23:39.276085+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "0ca13216341ab2514b059c6ec573c81e",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "50d122148c8c83276e1fb9b3a74e3e5e21d2ccefebb53b02c060c3187a6be8f3",
+                "task_run_id": 16642,
+                "trade_date": "2026-10-21"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_1m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-21T19:05:07.855504+08:00",
+                "ended_at": "2026-10-21T18:23:39.276085+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "0ca13216341ab2514b059c6ec573c81e",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "50d122148c8c83276e1fb9b3a74e3e5e21d2ccefebb53b02c060c3187a6be8f3",
+                "task_run_id": 16642,
+                "trade_date": "2026-10-21"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_30m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-21T19:05:07.855504+08:00",
+                "ended_at": "2026-10-21T18:23:39.276085+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "0ca13216341ab2514b059c6ec573c81e",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "50d122148c8c83276e1fb9b3a74e3e5e21d2ccefebb53b02c060c3187a6be8f3",
+                "task_run_id": 16642,
+                "trade_date": "2026-10-21"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_5m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-21T19:05:07.855504+08:00",
+                "ended_at": "2026-10-21T18:23:39.276085+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "0ca13216341ab2514b059c6ec573c81e",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "50d122148c8c83276e1fb9b3a74e3e5e21d2ccefebb53b02c060c3187a6be8f3",
+                "task_run_id": 16642,
+                "trade_date": "2026-10-21"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_60m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-21T19:05:07.855504+08:00",
+                "ended_at": "2026-10-21T18:23:39.276085+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "0ca13216341ab2514b059c6ec573c81e",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "50d122148c8c83276e1fb9b3a74e3e5e21d2ccefebb53b02c060c3187a6be8f3",
+                "task_run_id": 16642,
+                "trade_date": "2026-10-21"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          }
+        }
+      },
+      "start_time": 1792580724.879544,
+      "end_time": 1792580819.256833,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+      "job": "stock_mins_silver_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp3mibxzgb\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-28",
+        "dagster/partition_set": "stock_mins_silver_update_job_partition_set",
+        "dagster/run_key": "stock_mins_silver_update:2026-10-28",
+        "dagster/sensor_name": "stock_mins_silver_sensor",
+        "dagster/tick": "2917814"
+      },
+      "run_config": {},
+      "start_time": 1793200327.81464,
+      "end_time": 1793200342.564591,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "bb18920c-cc6a-488e-86f1-de16eaf64e4b",
+      "job": "stock_mins_silver_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpfjgdis42\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-27",
+        "dagster/partition_set": "stock_mins_silver_update_job_partition_set",
+        "dagster/run_key": "stock_mins_silver_update:2026-10-27",
+        "dagster/sensor_name": "stock_mins_silver_sensor",
+        "dagster/tick": "2886406"
+      },
+      "run_config": {},
+      "start_time": 1793099859.62862,
+      "end_time": 1793099875.118798,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "29c8dfe4-13b0-4ae9-8b27-2931ba7f8b0d",
+      "job": "stock_mins_silver_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp2znsrlnd\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-26",
+        "dagster/partition_set": "stock_mins_silver_update_job_partition_set",
+        "dagster/run_key": "stock_mins_silver_update:2026-10-26",
+        "dagster/sensor_name": "stock_mins_silver_sensor",
+        "dagster/tick": "2859689"
+      },
+      "run_config": {},
+      "start_time": 1793013454.051792,
+      "end_time": 1793013467.68223,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "9f6b4a4c-f18b-4fc3-8ec7-f4b2aef79167",
+      "job": "stock_mins_silver_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        "dagster/partition": "2026-10-23",
+        "dagster/partition_set": "stock_mins_silver_update_job_partition_set"
+      },
+      "run_config": {},
+      "start_time": 1792989419.677279,
+      "end_time": 1792989436.594227,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "b761abc1-e060-4184-b11f-7b09c6f350b8",
+      "job": "stock_mins_silver_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        "dagster/partition": "2026-10-22",
+        "dagster/partition_set": "stock_mins_silver_update_job_partition_set"
+      },
+      "run_config": {},
+      "start_time": 1792916514.274115,
+      "end_time": 1792916530.357979,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "6c909762-1534-4a0a-9d4b-ee0b47f3f4f5",
+      "job": "stock_mins_silver_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpvmebrb9s\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-21",
+        "dagster/partition_set": "stock_mins_silver_update_job_partition_set",
+        "dagster/run_key": "stock_mins_silver_update:2026-10-21",
+        "dagster/sensor_name": "stock_mins_silver_sensor",
+        "dagster/tick": "2753714"
+      },
+      "run_config": {},
+      "start_time": 1792582022.405509,
+      "end_time": 1792582036.723946,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "014d6347-3658-40c0-9b7e-aa6d4e2c962c",
+      "job": "stock_mins_qfq_daily_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpfjgdis42\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-27",
+        "dagster/partition_set": "stock_mins_qfq_daily_update_job_partition_set",
+        "dagster/run_key": "stock_mins_qfq_daily_update:2026-10-27",
+        "dagster/sensor_name": "stock_mins_qfq_daily_sensor",
+        "dagster/tick": "2887139"
+      },
+      "run_config": {},
+      "start_time": 1793101120.750058,
+      "end_time": 1793102064.741445,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "2b767cdf-6f91-46a4-a9c0-5ec987d66b94",
+      "job": "stock_mins_qfq_daily_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp2znsrlnd\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-26",
+        "dagster/partition_set": "stock_mins_qfq_daily_update_job_partition_set",
+        "dagster/run_key": "stock_mins_qfq_daily_update:2026-10-26",
+        "dagster/sensor_name": "stock_mins_qfq_daily_sensor",
+        "dagster/tick": "2860408"
+      },
+      "run_config": {},
+      "start_time": 1793014724.746849,
+      "end_time": 1793015568.458658,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "6db0d861-b521-4e32-b55f-100729614b1a",
+      "job": "stock_mins_qfq_daily_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        "dagster/partition": "2026-10-23",
+        "dagster/partition_set": "stock_mins_qfq_daily_update_job_partition_set"
+      },
+      "run_config": {},
+      "start_time": 1792989745.855096,
+      "end_time": 1792990692.312882,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "78a6791a-a540-42b3-9ac3-e27abda235c6",
+      "job": "stock_mins_qfq_daily_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        "dagster/partition": "2026-10-22",
+        "dagster/partition_set": "stock_mins_qfq_daily_update_job_partition_set"
+      },
+      "run_config": {},
+      "start_time": 1792934666.48775,
+      "end_time": 1792935581.11699,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "6215f4fd-75d4-4126-b02b-0af047dbca4a",
+      "job": "stock_mins_qfq_daily_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpvmebrb9s\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-21",
+        "dagster/partition_set": "stock_mins_qfq_daily_update_job_partition_set",
+        "dagster/run_key": "stock_mins_qfq_daily_update:2026-10-21",
+        "dagster/sensor_name": "stock_mins_qfq_daily_sensor",
+        "dagster/tick": "2754016"
+      },
+      "run_config": {},
+      "start_time": 1792582763.254109,
+      "end_time": 1792583039.181275,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "42636339-b93f-4ddc-bc84-a661fb7a6b90",
+      "job": "stock_mins_qfq_daily_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpvmebrb9s\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-20",
+        "dagster/partition_set": "stock_mins_qfq_daily_update_job_partition_set",
+        "dagster/run_key": "stock_mins_qfq_daily_update:2026-10-20",
+        "dagster/sensor_name": "stock_mins_qfq_daily_sensor",
+        "dagster/tick": "2709392"
+      },
+      "run_config": {},
+      "start_time": 1792504800.318014,
+      "end_time": 1792505074.51575,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "a6443996-49fe-46f7-9b8d-6e184c0fab27",
+      "job": "stock_mins_qfq_factor_repair_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpfjgdis42\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/run_key": "stock_mins_qfq_factor_repair:2026-10-27",
+        "dagster/sensor_name": "stock_mins_qfq_factor_repair_sensor",
+        "dagster/tick": "2887800"
+      },
+      "run_config": {
+        "ops": {
+          "stock_mins_qfq_factor_repair_op": {
+            "config": {
+              "trade_date": "2026-10-27"
+            }
+          }
+        }
+      },
+      "start_time": 1793102324.49303,
+      "end_time": 1793102380.733682,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "335ba6de-cc23-4450-8be3-02b6bee3e7ec",
+      "job": "stock_mins_qfq_factor_repair_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp2znsrlnd\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/run_key": "stock_mins_qfq_factor_repair:2026-10-26",
+        "dagster/sensor_name": "stock_mins_qfq_factor_repair_sensor",
+        "dagster/tick": "2860750"
+      },
+      "run_config": {
+        "ops": {
+          "stock_mins_qfq_factor_repair_op": {
+            "config": {
+              "trade_date": "2026-10-26"
+            }
+          }
+        }
+      },
+      "start_time": 1793015572.102975,
+      "end_time": 1793015622.231129,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "f9e95a68-8774-483f-a73c-97190614ad7d",
+      "job": "stock_mins_qfq_factor_repair_job",
+      "status": "SUCCESS",
+      "tags": {},
+      "run_config": {
+        "ops": {
+          "stock_mins_qfq_factor_repair_op": {
+            "config": {
+              "trade_date": "2026-10-23"
+            }
+          }
+        }
+      },
+      "start_time": 1792990877.329335,
+      "end_time": 1792991022.746091,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "f23ca4a2-b7c0-459f-9c55-764cb585db26",
+      "job": "stock_mins_qfq_factor_repair_job",
+      "status": "SUCCESS",
+      "tags": {},
+      "run_config": {
+        "ops": {
+          "stock_mins_qfq_factor_repair_op": {
+            "config": {
+              "trade_date": "2026-10-22"
+            }
+          }
+        }
+      },
+      "start_time": 1792940059.816171,
+      "end_time": 1792940172.330097,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "ec3d17f9-30a7-40d1-8127-88c45d3bda3c",
+      "job": "stock_mins_qfq_factor_repair_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpvmebrb9s\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/run_key": "stock_mins_qfq_factor_repair:2026-10-21",
+        "dagster/sensor_name": "stock_mins_qfq_factor_repair_sensor",
+        "dagster/tick": "2754380"
+      },
+      "run_config": {
+        "ops": {
+          "stock_mins_qfq_factor_repair_op": {
+            "config": {
+              "trade_date": "2026-10-21"
+            }
+          }
+        }
+      },
+      "start_time": 1792583230.57616,
+      "end_time": 1792583434.897438,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "76dcb7ab-7549-487f-b55f-e56720038f5c",
+      "job": "stock_mins_qfq_factor_repair_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpvmebrb9s\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/run_key": "stock_mins_qfq_factor_repair:2026-10-20",
+        "dagster/sensor_name": "stock_mins_qfq_factor_repair_sensor",
+        "dagster/tick": "2709760"
+      },
+      "run_config": {
+        "ops": {
+          "stock_mins_qfq_factor_repair_op": {
+            "config": {
+              "trade_date": "2026-10-20"
+            }
+          }
+        }
+      },
+      "start_time": 1792505683.780827,
+      "end_time": 1792505915.747048,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "383f2004-9f6a-4742-92a8-d5b7ac65d8ea",
+      "job": "gold_stk_mins_qfq_macd_kdj_daily_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpfjgdis42\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-27",
+        "dagster/partition_set": "gold_stk_mins_qfq_macd_kdj_daily_update_job_partition_set",
+        "dagster/run_key": "gold_stk_mins_qfq_macd_kdj_daily_update:2026-10-27",
+        "dagster/sensor_name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+        "dagster/tick": "2887887"
+      },
+      "run_config": {},
+      "start_time": 1793102414.903929,
+      "end_time": 1793103172.741686,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "dae77a12-5b05-4b99-ac25-9d432e4798b5",
+      "job": "gold_stk_mins_qfq_macd_kdj_daily_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpfjgdis42\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-26",
+        "dagster/partition_set": "gold_stk_mins_qfq_macd_kdj_daily_update_job_partition_set",
+        "dagster/run_key": "gold_stk_mins_qfq_macd_kdj_daily_update:2026-10-26",
+        "dagster/sensor_name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+        "dagster/tick": "2872061"
+      },
+      "run_config": {},
+      "start_time": 1793075014.277106,
+      "end_time": 1793075758.074467,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "bae395a8-d840-4fdf-95d0-b428477c8967",
+      "job": "gold_stk_mins_qfq_macd_kdj_daily_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        "dagster/partition": "2026-10-23",
+        "dagster/partition_set": "gold_stk_mins_qfq_macd_kdj_daily_update_job_partition_set"
+      },
+      "run_config": {},
+      "start_time": 1792991232.31702,
+      "end_time": 1792991976.01403,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "31e25001-653a-40b8-8907-572891c30f95",
+      "job": "gold_stk_mins_qfq_macd_kdj_daily_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        "dagster/failure_reason": "UNEXPECTED_TERMINATION",
+        "dagster/partition": "2026-10-22",
+        "dagster/partition_set": "gold_stk_mins_qfq_macd_kdj_daily_update_job_partition_set"
+      },
+      "run_config": {},
+      "start_time": 1792947978.273123,
+      "end_time": 1792948571.561864,
+      "root_run_id": "b7b7a82f-cc07-4985-aa74-a0c3f1498936",
+      "parent_run_id": "b7b7a82f-cc07-4985-aa74-a0c3f1498936"
+    },
+    {
+      "run_id": "b7b7a82f-cc07-4985-aa74-a0c3f1498936",
+      "job": "gold_stk_mins_qfq_macd_kdj_daily_update_job",
+      "status": "FAILURE",
+      "tags": {
+        "dagster/failure_reason": "UNEXPECTED_TERMINATION",
+        "dagster/partition": "2026-10-22",
+        "dagster/partition_set": "gold_stk_mins_qfq_macd_kdj_daily_update_job_partition_set"
+      },
+      "run_config": {},
+      "start_time": 1792944620.195245,
+      "end_time": 1792945169.170148,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "e21ba0b3-a1ac-4d33-8708-dbeb16b82675",
+      "job": "gold_stk_mins_qfq_macd_kdj_daily_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpvmebrb9s\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-21",
+        "dagster/partition_set": "gold_stk_mins_qfq_macd_kdj_daily_update_job_partition_set",
+        "dagster/run_key": "gold_stk_mins_qfq_macd_kdj_daily_update:2026-10-21",
+        "dagster/sensor_name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+        "dagster/tick": "2754564"
+      },
+      "run_config": {},
+      "start_time": 1792583484.939312,
+      "end_time": 1792584069.078931,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "70d09499-a56e-44ab-8e59-68734e043f16",
+      "job": "gold_stk_mins_qfq_macd_kdj_repair_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpfjgdis42\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/run_key": "gold_stk_mins_qfq_macd_kdj_repair:qfq_factor_repair:2026-10-27:0c1eafc93793",
+        "dagster/sensor_name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+        "dagster/tick": "2888299"
+      },
+      "run_config": {
+        "ops": {
+          "gold_stk_mins_qfq_macd_kdj_repair_op": {
+            "config": {
+              "freqs": [
+                1,
+                5,
+                15,
+                30,
+                60,
+                90,
+                120
+              ],
+              "qfq_factor_repair_trade_date": "2026-10-27",
+              "reason": "qfq_factor_repair:2026-10-27",
+              "repair_required_codes_hash": "20d4c5e63ab7115d5d2b95ac3379c4e1dcfe596342765290aab7290a0a174aaf",
+              "start_trade_date": "2014-01-02",
+              "stock_codes": [
+                "001399.SZ",
+                "600017.SH",
+                "600360.SH",
+                "600479.SH",
+                "601229.SH",
+                "688293.SH"
+              ],
+              "upstream_batch_id": "qfq_factor_repair:2026-10-27:0c1eafc93793"
+            }
+          }
+        }
+      },
+      "start_time": 1793103252.027842,
+      "end_time": 1793103553.86586,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "b904ef1e-f3d0-4a85-a867-71660f7422ae",
+      "job": "gold_stk_mins_qfq_macd_kdj_repair_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpfjgdis42\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/run_key": "gold_stk_mins_qfq_macd_kdj_repair:qfq_factor_repair:2026-10-26:0438bb2907d2",
+        "dagster/sensor_name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+        "dagster/tick": "2872567"
+      },
+      "run_config": {
+        "ops": {
+          "gold_stk_mins_qfq_macd_kdj_repair_op": {
+            "config": {
+              "freqs": [
+                1,
+                5,
+                15,
+                30,
+                60,
+                90,
+                120
+              ],
+              "qfq_factor_repair_trade_date": "2026-10-26",
+              "reason": "qfq_factor_repair:2026-10-26",
+              "repair_required_codes_hash": "36880089ae897fc029e8e21d740ca8e120992d3bff75a59061b00d7043a1d597",
+              "start_trade_date": "2014-01-02",
+              "stock_codes": [
+                "000630.SZ",
+                "301217.SZ",
+                "601088.SH",
+                "601866.SH",
+                "601990.SH",
+                "688379.SH"
+              ],
+              "upstream_batch_id": "qfq_factor_repair:2026-10-26:0438bb2907d2"
+            }
+          }
+        }
+      },
+      "start_time": 1793075784.733928,
+      "end_time": 1793076068.732815,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "9c3a3e7c-6dae-40eb-beea-afa3c0cef439",
+      "job": "gold_stk_mins_qfq_macd_kdj_repair_job",
+      "status": "SUCCESS",
+      "tags": {},
+      "run_config": {
+        "ops": {
+          "gold_stk_mins_qfq_macd_kdj_repair_op": {
+            "config": {
+              "freqs": [
+                1,
+                5,
+                15,
+                30,
+                60,
+                90,
+                120
+              ],
+              "qfq_factor_repair_trade_date": "2026-10-23",
+              "reason": "qfq_factor_repair:2026-10-23",
+              "repair_required_codes_hash": "70360076b0a2f986428f21eab9c310e295116f12d7de050b2bd64989510c9f39",
+              "start_trade_date": "2014-01-02",
+              "stock_codes": [
+                "000099.SZ",
+                "000338.SZ",
+                "000403.SZ",
+                "000623.SZ",
+                "000880.SZ",
+                "000987.SZ",
+                "002203.SZ",
+                "002444.SZ",
+                "002545.SZ",
+                "002673.SZ",
+                "300917.SZ",
+                "301638.SZ",
+                "600023.SH",
+                "600150.SH",
+                "600426.SH",
+                "600686.SH",
+                "600714.SH",
+                "600903.SH",
+                "601375.SH",
+                "601600.SH",
+                "601601.SH",
+                "601688.SH",
+                "601872.SH",
+                "601901.SH",
+                "601919.SH",
+                "601928.SH",
+                "601985.SH",
+                "603517.SH",
+                "603599.SH",
+                "603629.SH",
+                "603871.SH",
+                "603949.SH",
+                "688008.SH",
+                "688029.SH",
+                "688122.SH",
+                "688247.SH",
+                "688358.SH",
+                "688396.SH",
+                "688507.SH",
+                "688809.SH",
+                "920220.BJ"
+              ],
+              "upstream_batch_id": "qfq_factor_repair:2026-10-23:48e264f2d598"
+            }
+          }
+        }
+      },
+      "start_time": 1792992320.228621,
+      "end_time": 1792992799.549338,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "b1be4dde-70ef-45b1-aff2-0c82686a79c5",
+      "job": "gold_stk_mins_qfq_macd_kdj_repair_job",
+      "status": "SUCCESS",
+      "tags": {},
+      "run_config": {
+        "ops": {
+          "gold_stk_mins_qfq_macd_kdj_repair_op": {
+            "config": {
+              "freqs": [
+                1,
+                5,
+                15,
+                30,
+                60,
+                90,
+                120
+              ],
+              "qfq_factor_repair_trade_date": "2026-10-22",
+              "reason": "qfq_factor_repair:2026-10-22",
+              "repair_required_codes_hash": "41b905809024cb2d5d37c2feb4e3c3b9fb8c4a13919b19e4c8ffceea498da2d6",
+              "start_trade_date": "2014-01-02",
+              "stock_codes": [
+                "000498.SZ",
+                "000528.SZ",
+                "002250.SZ",
+                "002475.SZ",
+                "002500.SZ",
+                "002644.SZ",
+                "002838.SZ",
+                "002867.SZ",
+                "002929.SZ",
+                "300881.SZ",
+                "301261.SZ",
+                "301555.SZ",
+                "600026.SH",
+                "600218.SH",
+                "600415.SH",
+                "600477.SH",
+                "600570.SH",
+                "600685.SH",
+                "600814.SH",
+                "601222.SH",
+                "601225.SH",
+                "601966.SH",
+                "603323.SH",
+                "603373.SH",
+                "605089.SH",
+                "688046.SH"
+              ],
+              "upstream_batch_id": "qfq_factor_repair:2026-10-22:1ecb794186a4"
+            }
+          }
+        }
+      },
+      "start_time": 1792948809.099795,
+      "end_time": 1792949193.711222,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "2b129c86-6ad2-4eea-b98f-e00577b59f3a",
+      "job": "gold_stk_mins_qfq_macd_kdj_repair_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpvmebrb9s\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/run_key": "gold_stk_mins_qfq_macd_kdj_repair:qfq_factor_repair:2026-10-21:8452ada2966d",
+        "dagster/sensor_name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+        "dagster/tick": "2754902"
+      },
+      "run_config": {
+        "ops": {
+          "gold_stk_mins_qfq_macd_kdj_repair_op": {
+            "config": {
+              "freqs": [
+                1,
+                5,
+                15,
+                30,
+                60,
+                90,
+                120
+              ],
+              "qfq_factor_repair_trade_date": "2026-10-21",
+              "reason": "qfq_factor_repair:2026-10-21",
+              "repair_required_codes_hash": "b052d62828e4f3a9332684e1c84132ebba1282861f5951f73e6e6f288a1fc1a8",
+              "start_trade_date": "2014-01-02",
+              "stock_codes": [
+                "000425.SZ",
+                "000554.SZ",
+                "002422.SZ",
+                "002960.SZ",
+                "300003.SZ",
+                "300037.SZ",
+                "300918.SZ",
+                "301232.SZ",
+                "301499.SZ",
+                "600720.SH",
+                "601199.SH",
+                "601288.SH",
+                "601369.SH",
+                "601398.SH",
+                "603271.SH",
+                "688231.SH",
+                "688813.SH"
+              ],
+              "upstream_batch_id": "qfq_factor_repair:2026-10-21:8452ada2966d"
+            }
+          }
+        }
+      },
+      "start_time": 1792584124.887131,
+      "end_time": 1792584300.626608,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "a26772ad-cf3e-4b31-a8bd-2a30e521add4",
+      "job": "gold_stk_mins_qfq_macd_kdj_repair_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpvmebrb9s\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/run_key": "gold_stk_mins_qfq_macd_kdj_repair:qfq_factor_repair:2026-10-20:a7d7a0b09f91",
+        "dagster/sensor_name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+        "dagster/tick": "2710378"
+      },
+      "run_config": {
+        "ops": {
+          "gold_stk_mins_qfq_macd_kdj_repair_op": {
+            "config": {
+              "freqs": [
+                1,
+                5,
+                15,
+                30,
+                60,
+                90,
+                120
+              ],
+              "qfq_factor_repair_trade_date": "2026-10-20",
+              "reason": "qfq_factor_repair:2026-10-20",
+              "repair_required_codes_hash": "999703fd1b6aa46afc17fec07bda548d65c4ac1953b335f2d603789bb78d2460",
+              "start_trade_date": "2014-01-02",
+              "stock_codes": [
+                "000563.SZ",
+                "000783.SZ",
+                "002428.SZ",
+                "002756.SZ",
+                "002812.SZ",
+                "002851.SZ",
+                "003028.SZ",
+                "003031.SZ",
+                "300433.SZ",
+                "300595.SZ",
+                "300843.SZ",
+                "300879.SZ",
+                "301168.SZ",
+                "301587.SZ",
+                "600380.SH",
+                "600906.SH",
+                "601598.SH",
+                "601898.SH",
+                "603026.SH",
+                "603207.SH",
+                "603256.SH",
+                "603699.SH",
+                "603728.SH",
+                "603991.SH",
+                "605255.SH",
+                "605376.SH",
+                "688016.SH",
+                "688041.SH",
+                "688166.SH",
+                "688433.SH"
+              ],
+              "upstream_batch_id": "qfq_factor_repair:2026-10-20:a7d7a0b09f91"
+            }
+          }
+        }
+      },
+      "start_time": 1792506688.796936,
+      "end_time": 1792506892.649342,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "459146ff-d2b1-479c-8c4a-5fbdab04e55a",
+      "job": "gold_stk_mins_qfq_nineturn_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpfjgdis42\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-27",
+        "dagster/partition_set": "gold_stk_mins_qfq_nineturn_update_job_partition_set",
+        "dagster/run_key": "gold_stk_mins_qfq_nineturn_update:2026-10-27",
+        "dagster/sensor_name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+        "dagster/tick": "2887946"
+      },
+      "run_config": {},
+      "start_time": 1793103175.910547,
+      "end_time": 1793103248.183531,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "85b235af-c9fc-427a-a8f4-96cc9ae3c6ef",
+      "job": "gold_stk_mins_qfq_nineturn_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpfjgdis42\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-26",
+        "dagster/partition_set": "gold_stk_mins_qfq_nineturn_update_job_partition_set",
+        "dagster/run_key": "gold_stk_mins_qfq_nineturn_update:2026-10-26",
+        "dagster/sensor_name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+        "dagster/tick": "2871986"
+      },
+      "run_config": {},
+      "start_time": 1793074830.137805,
+      "end_time": 1793074899.715152,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "5c7773fc-6fe9-4586-b250-528542881801",
+      "job": "gold_stk_mins_qfq_nineturn_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        "dagster/partition": "2026-10-23",
+        "dagster/partition_set": "gold_stk_mins_qfq_nineturn_update_job_partition_set"
+      },
+      "run_config": {},
+      "start_time": 1792993281.876519,
+      "end_time": 1792993349.61684,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "2d6cea3f-c4cf-4884-b2a1-1d36dd667159",
+      "job": "gold_stk_mins_qfq_nineturn_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        "dagster/partition": "2026-10-22",
+        "dagster/partition_set": "gold_stk_mins_qfq_nineturn_update_job_partition_set"
+      },
+      "run_config": {},
+      "start_time": 1792974278.355411,
+      "end_time": 1792974347.198943,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "24c67557-60a3-4c91-81f7-194f6f677fc1",
+      "job": "gold_stk_mins_qfq_nineturn_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpvmebrb9s\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-21",
+        "dagster/partition_set": "gold_stk_mins_qfq_nineturn_update_job_partition_set",
+        "dagster/run_key": "gold_stk_mins_qfq_nineturn_update:2026-10-21",
+        "dagster/sensor_name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+        "dagster/tick": "2754745"
+      },
+      "run_config": {},
+      "start_time": 1792584078.302229,
+      "end_time": 1792584108.282797,
+      "root_run_id": null,
+      "parent_run_id": null
+    },
+    {
+      "run_id": "93ca5059-304e-4310-9066-89e31e1b5490",
+      "job": "gold_stk_mins_qfq_nineturn_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpvmebrb9s\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-20",
+        "dagster/partition_set": "gold_stk_mins_qfq_nineturn_update_job_partition_set",
+        "dagster/run_key": "gold_stk_mins_qfq_nineturn_update:2026-10-20",
+        "dagster/sensor_name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+        "dagster/tick": "2710131"
+      },
+      "run_config": {},
+      "start_time": 1792506632.363829,
+      "end_time": 1792506664.924885,
+      "root_run_id": null,
+      "parent_run_id": null
+    }
+  ],
+  "active_runs": [],
+  "sensors": [
+    {
+      "name": "stock_mins_qfq_daily_sensor",
+      "selector_id": "3ab800ed537bd69b153d69fb1e3a6259b8ae3777",
+      "status": "STOPPED",
+      "origin_id": "0d26182e833dbe4fc79aee2b0bfa9d9564b5c535"
+    },
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+      "selector_id": "e739480038f6d0807e2989cd23d199d18f0715e7",
+      "status": "STOPPED",
+      "origin_id": "a67f3ab45ac8841a399432c03c982d49734ab525"
+    },
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "selector_id": "f7097a5f811f8e1260f1b32b7d128afbec5d53bb",
+      "status": "STOPPED",
+      "origin_id": "772281db6caf1b865496e2a2916e74059bc56604"
+    },
+    {
+      "name": "stock_mins_qfq_factor_repair_sensor",
+      "selector_id": "41dc5e4a579d10becf079e7a18e18f4f086e008f",
+      "status": "STOPPED",
+      "origin_id": "a891bed1d6185e5f36dba3ec9bc988f9c8991d13"
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "selector_id": "99d31a375eebcb8cd66c62866edc623c35dcbd7d",
+      "status": "STOPPED",
+      "origin_id": "48b83117c18ae7132887a622875eff56012430d8"
+    }
+  ],
+  "daemon_heartbeats": [
+    {
+      "daemon_type": "ASSET",
+      "timestamp": "2026-10-29 00:58:09.856816"
+    },
+    {
+      "daemon_type": "BACKFILL",
+      "timestamp": "2026-10-29 00:57:44.474570"
+    },
+    {
+      "daemon_type": "FRESHNESS_DAEMON",
+      "timestamp": "2026-10-29 00:58:08.283534"
+    },
+    {
+      "daemon_type": "MONITORING",
+      "timestamp": "2026-10-29 00:58:02.763898"
+    },
+    {
+      "daemon_type": "QUEUED_RUN_COORDINATOR",
+      "timestamp": "2026-10-29 00:57:58.840294"
+    },
+    {
+      "daemon_type": "SCHEDULER",
+      "timestamp": "2026-10-29 00:58:00.010687"
+    },
+    {
+      "daemon_type": "SENSOR",
+      "timestamp": "2026-10-29 00:58:00.485004"
+    }
+  ]
+}

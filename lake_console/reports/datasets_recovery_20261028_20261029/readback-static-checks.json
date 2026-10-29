@@ -1,0 +1,93 @@
+{
+  "scope": "Static AST/compile plus artificial CLI/event dictionaries only; prepared modules were not imported and no real guard or verifier was invoked",
+  "formal_db_connections": 0,
+  "formal_lake_calls": 0,
+  "real_guard_evaluations": 0,
+  "real_run_acceptances": 0,
+  "parquet_reads": 0,
+  "data_sha_reads": 0,
+  "checks": [
+    {
+      "name": "qfq_factor_readback_20261028.py: syntax and forbidden-operation guards",
+      "passed": true
+    },
+    {
+      "name": "macd_readback_20261028.py: syntax and forbidden-operation guards",
+      "passed": true
+    },
+    {
+      "name": "qfq_factor_readback_20261028.py: all retained verifier bodies byte-identical",
+      "passed": true
+    },
+    {
+      "name": "macd_readback_20261028.py: all retained verifier bodies byte-identical",
+      "passed": true
+    },
+    {
+      "name": "qfq_factor_readback_20261028.py: rejects old mode preflight before filesystem/storage",
+      "passed": true
+    },
+    {
+      "name": "macd_readback_20261028.py: rejects old mode preflight before filesystem/storage",
+      "passed": true
+    },
+    {
+      "name": "macd_readback_20261028.py: rejects old mode prepare-repair before filesystem/storage",
+      "passed": true
+    },
+    {
+      "name": "macd_readback_20261028.py: rejects old mode final before filesystem/storage",
+      "passed": true
+    },
+    {
+      "name": "qfq_factor_readback_20261028.py: synthetic28-day exact event binding accepted",
+      "passed": true
+    },
+    {
+      "name": "qfq_factor_readback_20261028.py: rejects wrong target day",
+      "passed": true
+    },
+    {
+      "name": "qfq_factor_readback_20261028.py: rejects missing materialization",
+      "passed": true
+    },
+    {
+      "name": "qfq_factor_readback_20261028.py: rejects missing check",
+      "passed": true
+    },
+    {
+      "name": "qfq_factor_readback_20261028.py: rejects failed check",
+      "passed": true
+    },
+    {
+      "name": "qfq_factor_readback_20261028.py: rejects wrong materialization binding",
+      "passed": true
+    },
+    {
+      "name": "macd_readback_20261028.py: synthetic28-day exact event binding accepted",
+      "passed": true
+    },
+    {
+      "name": "macd_readback_20261028.py: rejects wrong target day",
+      "passed": true
+    },
+    {
+      "name": "macd_readback_20261028.py: rejects missing materialization",
+      "passed": true
+    },
+    {
+      "name": "macd_readback_20261028.py: rejects missing check",
+      "passed": true
+    },
+    {
+      "name": "macd_readback_20261028.py: rejects failed check",
+      "passed": true
+    },
+    {
+      "name": "macd_readback_20261028.py: rejects wrong materialization binding",
+      "passed": true
+    }
+  ],
+  "passed": 20,
+  "all_passed": true
+}

@@ -1,0 +1,12 @@
+{
+  "generated_at": "2026-10-29T01:09:52.809639+00:00",
+  "test_count": 14,
+  "failure_count": 0,
+  "error_count": 0,
+  "successful": true,
+  "fixture_leftovers": [],
+  "formal_audit_executed": false,
+  "formal_lake_db_services_accessed": false,
+  "tests_are_implementation_author_evidence_not_independent_review": true,
+  "test_output": "test_annual_absent_date_is_missing (__main__.CountOnlyTests.test_annual_absent_date_is_missing) ... ok\ntest_annual_literal_rows_only_count_target_date (__main__.CountOnlyTests.test_annual_literal_rows_only_count_target_date) ... ok\ntest_annual_no_file_does_not_query (__main__.CountOnlyTests.test_annual_no_file_does_not_query) ... ok\ntest_annual_permission_error_is_not_missing (__main__.CountOnlyTests.test_annual_permission_error_is_not_missing) ... ok\ntest_annual_sql_contains_only_count_and_day_predicate (__main__.CountOnlyTests.test_annual_sql_contains_only_count_and_day_predicate) ... ok\ntest_ch_whitelist_count_queries_and_unknown_refused (__main__.CountOnlyTests.test_ch_whitelist_count_queries_and_unknown_refused) ... ok\ntest_ch_zero_rows_stays_missing (__main__.CountOnlyTests.test_ch_zero_rows_stays_missing) ... ok\ntest_existing_corrupt_file_is_unverified (__main__.CountOnlyTests.test_existing_corrupt_file_is_unverified) ... ok\ntest_module_factory_not_global_and_adapter_close_once (__main__.CountOnlyTests.test_module_factory_not_global_and_adapter_close_once) ... ok\ntest_other_dates_and_annual_year_are_rejected (__main__.CountOnlyTests.test_other_dates_and_annual_year_are_rejected) ... ok\ntest_pg_and_original_source_are_not_modified (__main__.CountOnlyTests.test_pg_and_original_source_are_not_modified) ... ok\ntest_real_configured_connection_is_closed_after_success_and_failure (__main__.CountOnlyTests.test_real_configured_connection_is_closed_after_success_and_failure) ... ok\ntest_reused_classification_totals_failures_and_zero_separate (__main__.CountOnlyTests.test_reused_classification_totals_failures_and_zero_separate) ... ok\ntest_unknown_status_is_unverified_and_unsupported_exclusion_is_visible (__main__.CountOnlyTests.test_unknown_status_is_unverified_and_unsupported_exclusion_is_visible) ... ok\n\n----------------------------------------------------------------------\nRan 14 tests in 0.396s\n\nOK\n"
+}

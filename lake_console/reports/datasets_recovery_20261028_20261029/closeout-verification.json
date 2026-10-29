@@ -1,0 +1,38 @@
+{
+  "as_of": "2026-10-29T10:44:49.176510+08:00",
+  "passed": true,
+  "business_source_sha256_unchanged": {
+    "assets/stk_mins.py": true,
+    "stk_mins_qfq.py": true,
+    "stk_mins_qfq_factor_repair.py": true,
+    "ops/stock_mins_qfq_factor_repair.py": true,
+    "io/stk_mins_qfq_publication.py": true,
+    "stk_mins_qfq_macd_kdj.py": true,
+    "ops/gold_stk_mins_qfq_macd_kdj_repair.py": true,
+    "assets/qfq_nineturn.py": true
+  },
+  "head_unchanged": "876cc6a8ed1c0fb944d8a01be69dd17e0dff2507",
+  "report_relative_links_valid": true,
+  "archive_sha256_verified_files": 39,
+  "temporary_root_absent": true,
+  "checks_passed": 81,
+  "minute_datasets_present": 25,
+  "final_audit_runs": 1,
+  "business_reexecutions": 0,
+  "docs_integrity_command": "existing .venv python3 -B ../../scripts/check_docs_integrity.py",
+  "docs_integrity_exit_code": 0,
+  "scoped_diff_whitespace_exit_code": 0,
+  "additional_formal_content_reads": 0,
+  "new_formal_jobs": 0,
+  "commit_archive_whitespace_review": {
+    "raw_archives_preserved": [
+      "readback-adaptation.diff",
+      "nineturn-readback-adaptation.diff",
+      "nineturn_readback_20261028.py.txt"
+    ],
+    "all_archive_sha256_match_cleanup_manifest": true,
+    "reason": "Unified diff context lines retain required spaces; source text retains original EOF. These are verbatim evidence, not edited business code.",
+    "other_staged_files_default_whitespace_check": "passed",
+    "archive_only_check_ignores_blank_at_eol_and_blank_at_eof": true
+  }
+}

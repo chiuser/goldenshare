@@ -1,0 +1,13 @@
+{
+  "head": "876cc6a8ed1c0fb944d8a01be69dd17e0dff2507",
+  "files": {
+    "assets/stk_mins.py": "5428228a86630fdffdb8329889922e56048e6519f8bdd499e164c4502d610170",
+    "stk_mins_qfq.py": "1522dbe8c4138ba3f793f6593e146a5e174640dca12312a4639a7c4b421b70af",
+    "stk_mins_qfq_factor_repair.py": "f0ea933d9ad22e74c2d60fd84e23118020e38cf7354e9b08533ef2ea4be7ccd9",
+    "ops/stock_mins_qfq_factor_repair.py": "ca9b31a5b23d91698908bf633594085133ff0732600ed65298ff4fe01a8b8bd4",
+    "io/stk_mins_qfq_publication.py": "c7db5e54de124f1919d673e5d7ad3e1a8767f548321749f114f3e307996b58bb",
+    "stk_mins_qfq_macd_kdj.py": "1facdbd47ec13d8bcc24fda798bff39d16ae1fbb747a4f40eb0c5a0b226736f6",
+    "ops/gold_stk_mins_qfq_macd_kdj_repair.py": "996f9292838a589c2276ca9f0bc31f605378aea73fb05fe8901c9b3b88966f91",
+    "assets/qfq_nineturn.py": "8e0045eba90a21b7427abe45f41b34be3cef77ca24a17fd9ed0a7a30b9df08e0"
+  }
+}

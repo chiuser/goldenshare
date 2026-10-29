@@ -1,0 +1,600 @@
+{
+  "as_of": "2026-10-29T08:58:31.124273+08:00",
+  "observed_at": "2026-10-29T08:58:31.124273+08:00",
+  "as_of_unix": 1793235511.1242728,
+  "trade_date": "2026-10-28",
+  "baseline_stage": "before_qfq_daily",
+  "day28_downstream_jobs_launched": 0,
+  "metadata_only": true,
+  "parquet_content_reads": 0,
+  "source_record": "recovered-metadata-stat.json",
+  "source_sha256": "00e68ffcb133935b6ce418ca98c0c7ee7484a765d5a83536d89d399c1499f930",
+  "groups": {
+    "qfq_all_1_2025": {
+      "requested": 5463,
+      "files": 5463,
+      "bytes": 6271213275,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "qfq_all_1_2026": {
+      "requested": 5594,
+      "files": 5594,
+      "bytes": 5483918341,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "macd_all_1_2026": {
+      "requested": 5594,
+      "files": 5594,
+      "bytes": 13991990116,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "factor_16_qfq_1": {
+      "requested": 208,
+      "files": 99,
+      "bytes": 96387311,
+      "missing": 109,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=300601.SZ/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=300601.SZ/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=300601.SZ/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=601298.SH/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=601298.SH/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=601298.SH/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=601298.SH/year=2017/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=601298.SH/year=2018/part-000.parquet"
+      ]
+    },
+    "factor_16_macd_1": {
+      "requested": 208,
+      "files": 99,
+      "bytes": 280175722,
+      "missing": 109,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=300601.SZ/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=300601.SZ/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=300601.SZ/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=601298.SH/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=601298.SH/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=601298.SH/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=601298.SH/year=2017/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=601298.SH/year=2018/part-000.parquet"
+      ]
+    },
+    "probe_2013_1": {
+      "requested": 16,
+      "files": 0,
+      "bytes": 0,
+      "missing": 16,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=300601.SZ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=601298.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=601991.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=603689.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=688087.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=920047.BJ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=920145.BJ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=920199.BJ/year=2013/part-000.parquet"
+      ]
+    },
+    "state_history_1": {
+      "requested": 3115,
+      "files": 3114,
+      "bytes": 548338103,
+      "missing": 1,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=1/trade_date=2026-10-28/part-000.parquet"
+      ]
+    },
+    "silver_history_1": {
+      "requested": 3115,
+      "files": 3115,
+      "bytes": 35282264814,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "qfq_all_5_2025": {
+      "requested": 5463,
+      "files": 5463,
+      "bytes": 1627961235,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "qfq_all_5_2026": {
+      "requested": 5594,
+      "files": 5594,
+      "bytes": 1424039463,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "macd_all_5_2026": {
+      "requested": 5594,
+      "files": 5594,
+      "bytes": 2809748404,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "factor_16_qfq_5": {
+      "requested": 208,
+      "files": 104,
+      "bytes": 26154475,
+      "missing": 104,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=300601.SZ/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=300601.SZ/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=300601.SZ/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=601298.SH/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=601298.SH/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=601298.SH/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=601298.SH/year=2017/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=601298.SH/year=2018/part-000.parquet"
+      ]
+    },
+    "factor_16_macd_5": {
+      "requested": 208,
+      "files": 104,
+      "bytes": 56279000,
+      "missing": 104,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=300601.SZ/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=300601.SZ/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=300601.SZ/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=601298.SH/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=601298.SH/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=601298.SH/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=601298.SH/year=2017/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=601298.SH/year=2018/part-000.parquet"
+      ]
+    },
+    "probe_2013_5": {
+      "requested": 16,
+      "files": 0,
+      "bytes": 0,
+      "missing": 16,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=300601.SZ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=601298.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=601991.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=603689.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=688087.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=920047.BJ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=920145.BJ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=920199.BJ/year=2013/part-000.parquet"
+      ]
+    },
+    "state_history_5": {
+      "requested": 3115,
+      "files": 3114,
+      "bytes": 549242347,
+      "missing": 1,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=5/trade_date=2026-10-28/part-000.parquet"
+      ]
+    },
+    "silver_history_5": {
+      "requested": 3115,
+      "files": 3115,
+      "bytes": 8697848388,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "qfq_all_15_2025": {
+      "requested": 5463,
+      "files": 5463,
+      "bytes": 663249264,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "qfq_all_15_2026": {
+      "requested": 5594,
+      "files": 5594,
+      "bytes": 572546830,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "macd_all_15_2026": {
+      "requested": 5594,
+      "files": 5594,
+      "bytes": 953333801,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "factor_16_qfq_15": {
+      "requested": 208,
+      "files": 104,
+      "bytes": 11057577,
+      "missing": 104,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=300601.SZ/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=300601.SZ/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=300601.SZ/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=601298.SH/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=601298.SH/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=601298.SH/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=601298.SH/year=2017/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=601298.SH/year=2018/part-000.parquet"
+      ]
+    },
+    "factor_16_macd_15": {
+      "requested": 208,
+      "files": 104,
+      "bytes": 19634549,
+      "missing": 104,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=300601.SZ/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=300601.SZ/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=300601.SZ/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=601298.SH/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=601298.SH/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=601298.SH/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=601298.SH/year=2017/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=601298.SH/year=2018/part-000.parquet"
+      ]
+    },
+    "probe_2013_15": {
+      "requested": 16,
+      "files": 0,
+      "bytes": 0,
+      "missing": 16,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=300601.SZ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=601298.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=601991.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=603689.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=688087.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=920047.BJ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=920145.BJ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=920199.BJ/year=2013/part-000.parquet"
+      ]
+    },
+    "state_history_15": {
+      "requested": 3115,
+      "files": 3114,
+      "bytes": 549330867,
+      "missing": 1,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=15/trade_date=2026-10-28/part-000.parquet"
+      ]
+    },
+    "qfq_all_30_2025": {
+      "requested": 5463,
+      "files": 5463,
+      "bytes": 381698202,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "qfq_all_30_2026": {
+      "requested": 5594,
+      "files": 5594,
+      "bytes": 325043813,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "macd_all_30_2026": {
+      "requested": 5594,
+      "files": 5594,
+      "bytes": 488874203,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "factor_16_qfq_30": {
+      "requested": 208,
+      "files": 104,
+      "bytes": 6396168,
+      "missing": 104,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=300601.SZ/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=300601.SZ/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=300601.SZ/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=601298.SH/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=601298.SH/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=601298.SH/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=601298.SH/year=2017/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=601298.SH/year=2018/part-000.parquet"
+      ]
+    },
+    "factor_16_macd_30": {
+      "requested": 208,
+      "files": 104,
+      "bytes": 10063434,
+      "missing": 104,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=300601.SZ/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=300601.SZ/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=300601.SZ/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=601298.SH/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=601298.SH/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=601298.SH/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=601298.SH/year=2017/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=601298.SH/year=2018/part-000.parquet"
+      ]
+    },
+    "probe_2013_30": {
+      "requested": 16,
+      "files": 0,
+      "bytes": 0,
+      "missing": 16,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=300601.SZ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=601298.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=601991.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=603689.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=688087.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=920047.BJ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=920145.BJ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=920199.BJ/year=2013/part-000.parquet"
+      ]
+    },
+    "state_history_30": {
+      "requested": 3115,
+      "files": 3114,
+      "bytes": 549330860,
+      "missing": 1,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=30/trade_date=2026-10-28/part-000.parquet"
+      ]
+    },
+    "silver_history_30": {
+      "requested": 3115,
+      "files": 3115,
+      "bytes": 2260593735,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "qfq_all_60_2025": {
+      "requested": 5463,
+      "files": 5463,
+      "bytes": 219239649,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "qfq_all_60_2026": {
+      "requested": 5594,
+      "files": 5594,
+      "bytes": 185715327,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "macd_all_60_2026": {
+      "requested": 5594,
+      "files": 5594,
+      "bytes": 255253498,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "factor_16_qfq_60": {
+      "requested": 208,
+      "files": 104,
+      "bytes": 3691942,
+      "missing": 104,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=300601.SZ/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=300601.SZ/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=300601.SZ/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=601298.SH/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=601298.SH/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=601298.SH/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=601298.SH/year=2017/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=601298.SH/year=2018/part-000.parquet"
+      ]
+    },
+    "factor_16_macd_60": {
+      "requested": 208,
+      "files": 104,
+      "bytes": 5236490,
+      "missing": 104,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=300601.SZ/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=300601.SZ/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=300601.SZ/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=601298.SH/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=601298.SH/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=601298.SH/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=601298.SH/year=2017/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=601298.SH/year=2018/part-000.parquet"
+      ]
+    },
+    "probe_2013_60": {
+      "requested": 16,
+      "files": 0,
+      "bytes": 0,
+      "missing": 16,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=300601.SZ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=601298.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=601991.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=603689.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=688087.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=920047.BJ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=920145.BJ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=920199.BJ/year=2013/part-000.parquet"
+      ]
+    },
+    "state_history_60": {
+      "requested": 3115,
+      "files": 3114,
+      "bytes": 549330866,
+      "missing": 1,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=60/trade_date=2026-10-28/part-000.parquet"
+      ]
+    },
+    "silver_history_60": {
+      "requested": 3115,
+      "files": 3115,
+      "bytes": 1183225493,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "qfq_all_90_2025": {
+      "requested": 5463,
+      "files": 5463,
+      "bytes": 173675044,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "qfq_all_90_2026": {
+      "requested": 5594,
+      "files": 5594,
+      "bytes": 147330234,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "macd_all_90_2026": {
+      "requested": 5594,
+      "files": 5594,
+      "bytes": 195271055,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "factor_16_qfq_90": {
+      "requested": 208,
+      "files": 104,
+      "bytes": 2937175,
+      "missing": 104,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=300601.SZ/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=300601.SZ/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=300601.SZ/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=601298.SH/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=601298.SH/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=601298.SH/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=601298.SH/year=2017/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=601298.SH/year=2018/part-000.parquet"
+      ]
+    },
+    "factor_16_macd_90": {
+      "requested": 208,
+      "files": 104,
+      "bytes": 4000419,
+      "missing": 104,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=300601.SZ/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=300601.SZ/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=300601.SZ/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=601298.SH/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=601298.SH/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=601298.SH/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=601298.SH/year=2017/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=601298.SH/year=2018/part-000.parquet"
+      ]
+    },
+    "probe_2013_90": {
+      "requested": 16,
+      "files": 0,
+      "bytes": 0,
+      "missing": 16,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=300601.SZ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=601298.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=601991.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=603689.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=688087.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=920047.BJ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=920145.BJ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=920199.BJ/year=2013/part-000.parquet"
+      ]
+    },
+    "state_history_90": {
+      "requested": 3115,
+      "files": 3114,
+      "bytes": 549328893,
+      "missing": 1,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=90/trade_date=2026-10-28/part-000.parquet"
+      ]
+    },
+    "qfq_all_120_2025": {
+      "requested": 5463,
+      "files": 5463,
+      "bytes": 126849898,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "qfq_all_120_2026": {
+      "requested": 5594,
+      "files": 5594,
+      "bytes": 106852947,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "macd_all_120_2026": {
+      "requested": 5594,
+      "files": 5594,
+      "bytes": 136372667,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "factor_16_qfq_120": {
+      "requested": 208,
+      "files": 104,
+      "bytes": 2166190,
+      "missing": 104,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=300601.SZ/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=300601.SZ/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=300601.SZ/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=601298.SH/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=601298.SH/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=601298.SH/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=601298.SH/year=2017/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=601298.SH/year=2018/part-000.parquet"
+      ]
+    },
+    "factor_16_macd_120": {
+      "requested": 208,
+      "files": 104,
+      "bytes": 2792992,
+      "missing": 104,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=300601.SZ/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=300601.SZ/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=300601.SZ/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=601298.SH/year=2014/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=601298.SH/year=2015/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=601298.SH/year=2016/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=601298.SH/year=2017/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=601298.SH/year=2018/part-000.parquet"
+      ]
+    },
+    "probe_2013_120": {
+      "requested": 16,
+      "files": 0,
+      "bytes": 0,
+      "missing": 16,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=300601.SZ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=601298.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=601991.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=603689.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=688087.SH/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=920047.BJ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=920145.BJ/year=2013/part-000.parquet",
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=920199.BJ/year=2013/part-000.parquet"
+      ]
+    },
+    "state_history_120": {
+      "requested": 3115,
+      "files": 3114,
+      "bytes": 549326176,
+      "missing": 1,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=120/trade_date=2026-10-28/part-000.parquet"
+      ]
+    },
+    "factor_history": {
+      "requested": 3115,
+      "files": 3115,
+      "bytes": 113410783,
+      "missing": 0,
+      "missing_samples": []
+    }
+  },
+  "elapsed_seconds": 18.647804541047662,
+  "qfq_two_year_bytes": 17709333522,
+  "qfq_2026_bytes": 8245446955,
+  "qfq_2025_bytes": 9463886567,
+  "macd_2026_bytes": 18830843744
+}

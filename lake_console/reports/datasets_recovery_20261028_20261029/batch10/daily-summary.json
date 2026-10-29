@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-28",
+  "daily_run_id": "13e1b027-22c4-4268-950d-aaac9b5be9d2",
+  "elapsed_seconds": 837.6655180454254,
+  "materializations": 14,
+  "checks": 28,
+  "indicator_files": 38990,
+  "state_files": 7,
+  "candidate_bytes": 18878260295,
+  "stage_acceptance_complete": true,
+  "repair_run_id": "44caf58c-a1d9-4e37-b525-b82cda3179b3",
+  "repair_budget": {
+    "Qr": 150264957,
+    "Ir_after_daily": 378461902,
+    "B_after_daily": 3845983660,
+    "read_estimate_gib": 28.426736776717007,
+    "write_estimate_gib": 16.5
+  }
+}

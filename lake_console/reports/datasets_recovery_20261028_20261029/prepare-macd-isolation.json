@@ -1,0 +1,27 @@
+{
+  "test_count": 10,
+  "failures": 0,
+  "errors": 0,
+  "successful": true,
+  "real_decision_and_config_builder": true,
+  "guard_readiness_and_storages_replaced": true,
+  "formal_db_connections": 0,
+  "formal_lake_accesses": 0,
+  "parquet_content_reads": 0,
+  "jobs_launched": 0,
+  "fixture_leftovers": [],
+  "limits": "Metadata fixtures prove orchestration/identity/config behavior only; no real guard, storage, price or job acceptance",
+  "script_sha256": "c005a08a761a2240d4079d8b663bf40c01c011ea1bb715bc3225654798807dd7",
+  "syntax_compile": true,
+  "real_baseline_schema_checked": [
+    "trade_date",
+    "observed_at",
+    "baseline_stage",
+    "day28_downstream_jobs_launched",
+    "qfq_two_year_bytes",
+    "qfq_2025_bytes",
+    "qfq_2026_bytes",
+    "macd_2026_bytes"
+  ],
+  "formal_preflight_executed": false
+}

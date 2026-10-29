@@ -1,0 +1,53 @@
+"""Restore only five original sensors after the approved 28th chain passed."""
+import importlib.util,json,os
+from pathlib import Path
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from contextlib import closing
+import requests,psycopg2,yaml
+from dagster._serdes import deserialize_value
+from dagster._core.scheduler.instigation import InstigatorState
+ROOT=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261028_20261029')
+NAMES=['stock_mins_qfq_daily_sensor','stock_mins_qfq_factor_repair_sensor','gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor','gold_stk_mins_qfq_macd_kdj_repair_job_sensor','gold_stk_mins_qfq_nineturn_update_job_sensor']
+def now():return datetime.now(ZoneInfo('Asia/Shanghai')).isoformat()
+def load(p):return json.loads(p.read_text())
+def require(value,reason):
+ if not value:raise ValueError(reason)
+def save(value):(ROOT/'sensor-restoration.json').write_text(json.dumps(value,ensure_ascii=False,indent=2,default=str)+'\n')
+spec=importlib.util.spec_from_file_location('approved_trigger','/private/tmp/dg_minute_chain_20261028_20261029/run_original_job.py')
+m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m)
+accepted=[m.accepted(ROOT/directory/(mode+'-run-verified.json'),job,mode) for directory,mode,job in [('batch9','daily','stock_mins_qfq_daily_update_job'),('batch9','factor','stock_mins_qfq_factor_repair_job'),('batch10','daily','gold_stk_mins_qfq_macd_kdj_daily_update_job'),('batch10','repair','gold_stk_mins_qfq_macd_kdj_repair_job')]]
+n=load(ROOT/'batch11/final-verified.json');native=load(ROOT/'batch11/daily-native-run.json')
+require(n.get('passed') is True and n.get('date')=='2026-10-28' and n.get('status')=='SUCCESS','Nine-turn final acceptance missing')
+require(n.get('run_id')==native.get('run_id') and native.get('status')=='SUCCESS','Nine-turn native run mismatch')
+require(n.get('materializations_verified')==4 and n.get('blocking_checks_passed')==4,'Nine-turn checks incomplete')
+config=yaml.safe_load(Path('/Users/congming/.goldenshare/dagster_home/dagster.yaml').read_text())
+url=config['storage']['postgres']['postgres_url']
+if isinstance(url,dict):url=os.environ[url['env']]
+initial=load(Path('/Users/congming/github/goldenshare/lake_console/reports/dg_adj_factor_retention_20261029/initial-runtime.json'))
+ids=[s['selector_id'] for s in initial['sensors'] if s['name'] in NAMES]
+require(len(ids)==5,'Original sensor identities incomplete')
+def states():
+ with closing(psycopg2.connect(url,connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=15000')) as db,db.cursor() as c:
+  db.set_session(readonly=True)
+  c.execute('SELECT selector_id,status,instigator_body FROM instigators WHERE selector_id=ANY(%s)',(ids,))
+  result=[]
+  for sid,status,body in c.fetchall():
+   state=deserialize_value(body,InstigatorState)
+   result.append({'name':state.name,'selector_id':sid,'status':status})
+  require({v['name'] for v in result}==set(NAMES),'Formal sensor identity mismatch')
+  return result
+report={'started_at':now(),'target_date':'2026-10-28','accepted_run_ids':[v['run_id'] for v in accepted]+[n['run_id']],'cursor_mutations':0,'before':states(),'responses':[]}
+save(report)
+query='mutation Start($selector:SensorSelector!){startSensor(sensorSelector:$selector){__typename ... on Sensor{name sensorState{status}}}}'
+for name in NAMES:
+ selector={'repositoryLocationName':'orchestrator','repositoryName':'__repository__','sensorName':name}
+ response=requests.post('http://127.0.0.1:3000/graphql',json={'query':query,'variables':{'selector':selector}},timeout=30)
+ response.raise_for_status();data=response.json()
+ report['responses'].append({'at':now(),'selector':selector,'response':data});save(report)
+ require(not data.get('errors'),'GraphQL sensor restoration rejected')
+ value=data['data']['startSensor']
+ require(value.get('__typename')=='Sensor' and value.get('name')==name and value.get('sensorState',{}).get('status')=='RUNNING','Sensor restoration not confirmed')
+report['after']=states();require(all(v['status']=='RUNNING' for v in report['after']),'Five sensors not RUNNING')
+report.update(completed_at=now(),passed=True);save(report)
+print(json.dumps({'passed':True,'restored_sensor_count':5,'sensors':report['after'],'cursor_mutations':0},ensure_ascii=False))

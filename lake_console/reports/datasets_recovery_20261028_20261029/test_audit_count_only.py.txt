@@ -1,0 +1,317 @@
+"""Bounded isolation tests for LLD 17.7; no live catalog, Lake or services.
+
+DATE fixture projection follows current stock-year catalog trade_date semantics.
+Literal rows on the 27th/28th/29th independently specify expected day-28 counts.
+Backend clients are substitutes, not evidence of live CH/PG connectivity.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import io
+import json
+import tempfile
+import unittest
+from contextlib import contextmanager
+from datetime import UTC, datetime
+from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
+
+import duckdb
+
+ROOT = Path("/private/tmp/dg_minute_chain_20261028_20261029")
+spec = importlib.util.spec_from_file_location("audit_count_only", ROOT / "audit_count_only.py")
+assert spec is not None and spec.loader is not None
+adapter = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(adapter)
+
+
+def entry(key, template, *, model="trade_date_partition_fixture", layer="gold", policy="lake"):
+    return SimpleNamespace(
+        asset_key=key,
+        path_template=template,
+        partition_model=SimpleNamespace(value=model),
+        layer=SimpleNamespace(value=layer),
+        write_policy=SimpleNamespace(value=policy),
+        performance_contract=SimpleNamespace(batch_grain="trade_date"),
+    )
+
+
+class CountOnlyTests(unittest.TestCase):
+    def setUp(self):
+        self.temporary = tempfile.TemporaryDirectory(prefix="audit_count_only_fixture_", dir=ROOT)
+        self.addCleanup(self.temporary.cleanup)
+        self.root = Path(self.temporary.name)
+        self.module = adapter.load_count_only_module()
+
+    def parquet(self, path, dates):
+        path.parent.mkdir(parents=True, exist_ok=True)
+        # Only the date projection is present, so non-count code/time queries fail.
+        if dates:
+            literals = ",".join(f"(DATE '{day}')" for day in dates)
+            query = f"SELECT * FROM (VALUES {literals}) AS fixture(trade_date)"
+        else:
+            query = "SELECT DATE '2026-10-28' AS trade_date WHERE false"
+        with adapter.connect_configured_duckdb(
+            adapter.DuckDBConnectionSettings(temp_directory=Path("/private/tmp")),
+            temp_policy="existing_no_spill",
+        ) as connection:
+            connection.execute(f"COPY ({query}) TO ? (FORMAT PARQUET)", [str(path)])
+        return path
+
+    def family(self, name, dates):
+        self.parquet(self.root / name / "ts_code=FIXTURE" / "year=2026" / "part-000.parquet", dates)
+        return str(self.root / name / "ts_code=*" / "year=2026" / "part-000.parquet")
+
+    def test_annual_literal_rows_only_count_target_date(self):
+        pattern = self.family("annual", ["2026-10-27", "2026-10-28", "2026-10-28", "2026-10-29"])
+        connection = adapter._ConfiguredConnection()
+        try:
+            result = adapter._stock_year_count(connection, pattern, "2026-10-28")
+        finally:
+            connection.close()
+        self.assertEqual(result, {"status": "present", "pattern": pattern, "row_count": 2})
+
+    def test_annual_absent_date_is_missing(self):
+        pattern = self.family("other_day", ["2026-10-27"])
+        connection = adapter._ConfiguredConnection()
+        try:
+            result = adapter._stock_year_count(connection, pattern, "2026-10-28")
+        finally:
+            connection.close()
+        self.assertEqual(result["status"], "missing_date_rows")
+        self.assertEqual(result["row_count"], 0)
+
+    def test_annual_no_file_does_not_query(self):
+        pattern = str(self.root / "absent" / "ts_code=*" / "year=2026" / "part-000.parquet")
+        connection = SimpleNamespace(execute=lambda *args: self.fail("No file must not query"))
+        self.assertEqual(
+            adapter._stock_year_count(connection, pattern, "2026-10-28"),
+            {"status": "missing_date_rows", "pattern": pattern},
+        )
+
+    def test_existing_corrupt_file_is_unverified(self):
+        path = self.root / "bad" / "ts_code=FIXTURE" / "year=2026" / "part-000.parquet"
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"This is deliberately not Parquet")
+        pattern = str(self.root / "bad" / "ts_code=*" / "year=2026" / "part-000.parquet")
+        connection = adapter._ConfiguredConnection()
+        try:
+            result = adapter._stock_year_count(connection, pattern, "2026-10-28")
+        finally:
+            connection.close()
+        self.assertEqual(result["status"], "unreadable_file")
+        self.assertIn("error", result)
+
+    def test_annual_permission_error_is_not_missing(self):
+        with patch.object(adapter.os, "scandir", side_effect=PermissionError("fixture denied")):
+            result = adapter._stock_year_count(
+                None, str(self.root / "ts_code=*" / "year=2026" / "part-000.parquet"), "2026-10-28"
+            )
+        self.assertEqual(result["status"], "unreadable_file")
+
+    def test_annual_sql_contains_only_count_and_day_predicate(self):
+        pattern = self.family("capture", ["2026-10-28"])
+        calls = []
+
+        def execute(query, params):
+            calls.append((" ".join(query.split()), params))
+            return SimpleNamespace(fetchone=lambda: (7,))
+
+        result = adapter._stock_year_count(SimpleNamespace(execute=execute), pattern, "2026-10-28")
+        self.assertEqual(result["row_count"], 7)
+        self.assertEqual(calls, [(
+            "SELECT count(*) FROM read_parquet(?, hive_partitioning=false) WHERE trade_date = CAST(? AS DATE)",
+            [pattern, "2026-10-28"],
+        )])
+        self.assertEqual(set(result), {"status", "pattern", "row_count"})
+
+    def test_other_dates_and_annual_year_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, "only for"):
+            adapter._stock_year_count(None, "not read", "2026-10-27")
+        result = adapter._stock_year_count(
+            None, str(self.root / "ts_code=*" / "year=2025" / "part-000.parquet"), "2026-10-28"
+        )
+        self.assertEqual(result["status"], "unreadable_file")
+
+    def test_ch_whitelist_count_queries_and_unknown_refused(self):
+        calls = []
+
+        def execute(query, params):
+            calls.append((query, params))
+            return [(4,)]
+
+        client = SimpleNamespace(execute=execute)
+        for table in ("share_fact_market_breadth_daily", "board_fact_technical_daily"):
+            result = adapter._clickhouse_count(client, table_name=table, trade_date="2026-10-28")
+            self.assertEqual(result, {"status": "present", "table": table, "row_count": 4})
+            self.assertEqual(calls[-1], (
+                f"SELECT count() FROM {table} WHERE trade_date = %(trade_date)s LIMIT 1",
+                {"trade_date": "2026-10-28"},
+            ))
+        with self.assertRaisesRegex(ValueError, "Unsupported"):
+            adapter._clickhouse_count(client, table_name="unknown_table", trade_date="2026-10-28")
+        with self.assertRaisesRegex(ValueError, "only for"):
+            adapter._clickhouse_count(client, table_name="board_fact_technical_daily", trade_date="2026-10-29")
+        self.assertEqual(len(calls), 2)
+
+    def test_ch_zero_rows_stays_missing(self):
+        result = adapter._clickhouse_count(
+            SimpleNamespace(execute=lambda *args: [(0,)]),
+            table_name="board_fact_technical_daily", trade_date="2026-10-28",
+        )
+        self.assertEqual(result["status"], "missing_rows")
+        self.assertEqual(result["row_count"], 0)
+
+    def test_module_factory_not_global_and_adapter_close_once(self):
+        real_connect = duckdb.connect
+        self.assertIsNot(self.module.duckdb, duckdb)
+        events = []
+
+        @contextmanager
+        def configured(settings, *, temp_policy):
+            self.assertEqual(settings.temp_directory, Path("/private/tmp"))
+            self.assertEqual(temp_policy, "existing_no_spill")
+            events.append("enter")
+            try:
+                yield SimpleNamespace(execute=lambda: None)
+            finally:
+                events.append("exit")
+
+        with patch.object(adapter, "connect_configured_duckdb", configured):
+            connection = self.module.duckdb.connect()
+            connection.close()
+            connection.close()
+        self.assertEqual(events, ["enter", "exit"])
+        self.assertIs(duckdb.connect, real_connect)
+
+    def test_real_configured_connection_is_closed_after_success_and_failure(self):
+        real_connect = duckdb.connect
+        original = adapter.connect_configured_duckdb
+        opened = []
+
+        @contextmanager
+        def configured(*args, **kwargs):
+            with original(*args, **kwargs) as connection:
+                opened.append(connection)
+                # Independently assert the exact no-spill/extension contract.
+                actual = dict(connection.execute(
+                    "SELECT name,value FROM duckdb_settings() WHERE name IN "
+                    "('max_temp_directory_size','temp_directory','autoinstall_known_extensions','autoload_known_extensions')"
+                ).fetchall())
+                self.assertEqual(actual, {
+                    "max_temp_directory_size": "0 bytes", "temp_directory": "/private/tmp",
+                    "autoinstall_known_extensions": "false", "autoload_known_extensions": "false",
+                })
+                yield connection
+
+        with patch.object(adapter, "connect_configured_duckdb", configured):
+            report = adapter.audit_count_only(module=self.module, catalog=(), lake_root=self.root)
+            self.assertTrue(report["catalog_classification_complete"])
+            with self.assertRaises(AttributeError):
+                adapter.audit_count_only(module=self.module, catalog=(object(),), lake_root=self.root)
+        self.assertEqual(len(opened), 2)
+        for connection in opened:
+            with self.assertRaises(duckdb.ConnectionException):
+                connection.execute("SELECT 1")
+        self.assertIs(duckdb.connect, real_connect)
+
+    def test_reused_classification_totals_failures_and_zero_separate(self):
+        direct_root = self.root / "2026-10-28"
+        self.parquet(direct_root / "present.parquet", ["2026-10-28"])
+        self.parquet(direct_root / "zero.parquet", [])
+        (direct_root / "empty.parquet").touch()
+        (direct_root / "corrupt.parquet").write_bytes(b"deliberate corrupt fixture")
+        self.family("annual", ["2026-10-27", "2026-10-28", "2026-10-28"])
+        self.family("old", ["2026-10-27"])
+        catalog = tuple(entry(name, f"data_lake/{{partition_key}}/{name}.parquet") for name in (
+            "present", "zero", "empty", "corrupt", "missing"
+        )) + (
+            entry("annual", "data_lake/annual/ts_code={ts_code}/year={year}/part-000.parquet"),
+            entry("old", "data_lake/old/ts_code={ts_code}/year={year}/part-000.parquet"),
+            entry("snapshot", None, model="no_time_snapshot"),
+            entry("local_ch", "clickhouse://local/t", layer="serving", policy="clickhouse_table_sync",
+                  model="serving_table_serving_market_breadth"),
+            entry("prod_ch", "clickhouse://prod/t", layer="serving", policy="clickhouse_table_sync",
+                  model="serving_table_serving_dc_daily_technical"),
+            entry("prod_pg", "postgresql://prod/core_serving.fixture", layer="serving", policy="postgres_table_sync"),
+        )
+        clients = []
+        prefixes = []
+
+        def client_factory(prefix):
+            prefixes.append(prefix)
+            client = SimpleNamespace(
+                execute=lambda query, params: [(0,)] if "board_fact" in query else [(9,)],
+                disconnect=lambda: clients.append("closed"),
+            )
+            return client
+
+        def pg_count(entries, day):
+            self.assertEqual(day, "2026-10-28")
+            self.assertEqual([item.asset_key for item in entries], ["prod_pg"])
+            return {"prod_pg": {"status": "backend_unavailable", "backend": "prod_postgres"}}
+
+        with patch.object(self.module, "_clickhouse_client", client_factory), patch.object(
+            self.module, "_audit_prod_postgres_serving", pg_count
+        ):
+            report = adapter.audit_count_only(module=self.module, catalog=catalog, lake_root=self.root)
+        self.assertEqual(report["catalog_asset_count"], 11)
+        self.assertEqual(report["audited_asset_count"], 10)
+        self.assertEqual(report["excluded_asset_count"], 1)
+        self.assertEqual(report["present_asset_count"], 3)
+        self.assertEqual(report["physical_missing_asset_count"], 4)
+        self.assertEqual(report["present_zero_row_asset_keys"], ["zero"])
+        self.assertEqual(report["unverified_asset_keys"], ["corrupt", "prod_pg"])
+        self.assertEqual(report["missing_file_asset_keys"], ["empty", "missing"])
+        self.assertEqual(report["missing_date_rows_asset_keys"], ["old"])
+        self.assertEqual(report["missing_serving_asset_keys"], ["prod_ch"])
+        self.assertTrue(report["catalog_classification_complete"])
+        self.assertEqual(prefixes, ["CLICKHOUSE", "PROD_CLICKHOUSE"])
+        self.assertEqual(clients, ["closed", "closed"])
+
+    def test_unknown_status_is_unverified_and_unsupported_exclusion_is_visible(self):
+        report = self.module._audit_trade_date(catalog=(), lake_root=self.root, trade_date="2026-10-28")
+        report["direct_partition_assets"] = {"future": {"status": "unknown_future_status"}}
+        report.update(audited_asset_count=1, catalog_asset_count=2, excluded_asset_count=1)
+        report["excluded_assets"] = {"unsupported": "unsupported_path_template:fixture"}
+        report = adapter.normalize_report(report)
+        self.assertEqual(report["unverified_asset_keys"], ["future"])
+        self.assertEqual(report["physical_missing_asset_count"], 0)
+        self.assertEqual(report["classification_issues"], ["unsupported"])
+        self.assertFalse(report["catalog_classification_complete"])
+
+    def test_pg_and_original_source_are_not_modified(self):
+        source_before = adapter.SKILL_SCRIPT.read_bytes()
+        second = adapter.load_count_only_module()
+        self.assertEqual(
+            self.module._audit_prod_postgres_serving.__code__.co_code,
+            second._audit_prod_postgres_serving.__code__.co_code,
+        )
+        self.assertEqual(adapter.SKILL_SCRIPT.read_bytes(), source_before)
+        self.assertNotEqual(self.module._stock_year_summary.__name__, "_stock_year_summary")
+
+
+if __name__ == "__main__":
+    buffer = io.StringIO()
+    suite = unittest.defaultTestLoader.loadTestsFromTestCase(CountOnlyTests)
+    result = unittest.TextTestRunner(stream=buffer, verbosity=2).run(suite)
+    leftovers = sorted(str(path) for path in ROOT.glob("audit_count_only_fixture_*"))
+    evidence = {
+        "generated_at": datetime.now(UTC).isoformat(),
+        "test_count": result.testsRun,
+        "failure_count": len(result.failures),
+        "error_count": len(result.errors),
+        "successful": result.wasSuccessful() and not leftovers,
+        "fixture_leftovers": leftovers,
+        "formal_audit_executed": False,
+        "formal_lake_db_services_accessed": False,
+        "tests_are_implementation_author_evidence_not_independent_review": True,
+        "test_output": buffer.getvalue(),
+    }
+    (ROOT / "audit_count_only_tests.json").write_text(
+        json.dumps(evidence, ensure_ascii=False, indent=2) + "\n"
+    )
+    print(buffer.getvalue())
+    raise SystemExit(0 if evidence["successful"] else 1)

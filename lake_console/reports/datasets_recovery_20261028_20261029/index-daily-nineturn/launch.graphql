@@ -1,0 +1,1 @@
+mutation Launch($p:ExecutionParams!){launchRun(executionParams:$p){__typename ... on LaunchRunSuccess{run{runId status}} ... on RunConfigValidationInvalid{errors{message reason}} ... on PythonError{message}}}

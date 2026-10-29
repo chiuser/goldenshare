@@ -1,0 +1,38 @@
+{
+  "as_of": "2026-10-29T12:24:50.556077+08:00",
+  "passed": true,
+  "archived_before_delete": true,
+  "files": [
+    {
+      "source": "/private/tmp/dg-index-nine-20261028-20261029/gold-variables.json",
+      "archive": "gold-variables.json",
+      "bytes": 342,
+      "sha256": "81f0e58daede8c94340bb00962b0735fbdcbf4286b3e16ae52d428257fe0489a"
+    },
+    {
+      "source": "/private/tmp/dg-index-nine-20261028-20261029/launch.graphql",
+      "archive": "launch.graphql",
+      "bytes": 209,
+      "sha256": "43d762b247187ee2c24f2cf0444b921c23ea11ac4f97a8d888a7ba539335a027"
+    },
+    {
+      "source": "/private/tmp/dg-index-nine-20261028-20261029/prod-variables.json",
+      "archive": "prod-variables.json",
+      "bytes": 339,
+      "sha256": "0138cd5a32ff65e65c83e907acef828f9771309f54f4cfbdee45fe3584bf512b"
+    },
+    {
+      "source": "/private/tmp/dg-index-nine-20261028-20261029/readback.py",
+      "archive": "readback.py.txt",
+      "bytes": 15261,
+      "sha256": "78478b4c9f4ffc6b65bbe9a47a66354915e107787ad3d08df42f5a7bed4d86d9"
+    }
+  ],
+  "deleted_file_count": 4,
+  "deleted_bytes": 16151,
+  "temporary_directory_removed": true,
+  "formal_lake_deleted": 0,
+  "formal_staging_deleted": 0,
+  "shared_duckdb_deleted": 0,
+  "unused_prod_variables_never_submitted": true
+}

@@ -1,0 +1,285 @@
+"""AST and literal-fixture verification only; no production imports or resources."""
+import ast
+import contextlib
+import copy
+from datetime import datetime, date
+from enum import Enum
+import hashlib
+import io
+import json
+import os
+from pathlib import Path
+import shutil
+import tempfile
+from types import SimpleNamespace as NS
+from zoneinfo import ZoneInfo
+
+HERE=Path('/private/tmp/dg_minute_chain_20261028_20261029')
+SOURCE=HERE/'nineturn_readback_20261028.py'
+OLD=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261023_20261026/batch11/readback.py.txt')
+code=SOURCE.read_text();tree=ast.parse(code)
+old_code=OLD.read_text();old_tree=ast.parse(old_code)
+functions={n.name:n for n in tree.body if isinstance(n,ast.FunctionDef)}
+old_functions={n.name:n for n in old_tree.body if isinstance(n,ast.FunctionDef)}
+FREQS=(30,60,90,120);DAY='2026-10-28';PRIOR='2026-10-27'
+COLUMNS=['ts_code','freq','trade_date','trade_time','up_count','down_count','nine_up_turn','nine_down_turn']
+RULES=['file_contract','partition_alignment','key_integrity','value_domain','source_key_coverage']
+COMPARE_FIELDS=('trade_date','trade_time','up_count','down_count','nine_up_turn','nine_down_turn')
+RESULTS=[]
+
+
+def check(condition,message):
+    if not condition:raise RuntimeError(message)
+
+
+def case(name,action,refuse=False):
+    error=None
+    try:action()
+    except (ValueError,FileNotFoundError,KeyError) as caught:error=caught
+    check((error is not None)==refuse,name+': '+repr(error))
+    RESULTS.append({'name':name,'passed':True,'refused':error is not None})
+
+
+def namespace(root):
+    result={'__builtins__':__builtins__,'__name__':'fixture_only',
+      'Path':Path,'json':json,'os':os,'shutil':shutil,'hashlib':hashlib,
+      'datetime':datetime,'ZoneInfo':ZoneInfo,'SimpleNamespace':NS,
+      'BASE':root/'report/batch11','ROOT':root/'lake','STAGE':root/'staging',
+      'APPROVED_DAGSTER_HOME':root/'home','DAY':DAY,'PRIOR':PRIOR,'NEXT':'2026-10-29',
+      'PRIOR_RUN':'459146ff-d2b1-479c-8c4a-5fbdab04e55a',
+      'FREQS':FREQS,'JOB':'gold_stk_mins_qfq_nineturn_update_job','ROWS':{30:3,60:3,90:3,120:3},
+      'COLUMNS':COLUMNS,'RULES':RULES,'COMPARE_FIELDS':COMPARE_FIELDS,
+      'QFQ_NINETURN_VERSION':1,'QFQ_NINETURN_FALLBACK_CODE_LIMIT':500,
+      'STK_MINS_QFQ_FREQS':(1,5,15,30,60,90,120)}
+    # Compile function bodies alone: imports/top-level production code never run.
+    module=ast.Module(body=list(functions.values()),type_ignores=[])
+    exec(compile(ast.fix_missing_locations(module),str(SOURCE),'exec'),result)
+    result['BASE'].mkdir(parents=True)
+    return result
+
+
+summary=json.loads((HERE/'nineturn-readback-adaptation-summary.json').read_text())
+for name in summary['preserved_functions']:
+    a=ast.get_source_segment(old_code,old_functions[name])
+    b=ast.get_source_segment(code,functions[name])
+    a=a.replace('The 21 October filter','The prior-date filter').replace('22/24 out-of-scope','27/29 out-of-scope')
+    check(a==b,'Retained function changed: '+name)
+RESULTS.append({'name':'23-original-functions-byte-preserved-except-comments-and-error-date','passed':True})
+check('subprocess' not in code and 'pgrep' not in code and 'dg launch' not in code,'Old control retained')
+check('def run_discover' not in code and 'launchRun' not in code,'Job launch/discovery retained')
+check('PostgresScheduleStorage' in code and "'Five minute-chain sensors must remain stopped'" in code,'Five sensor gate missing')
+check('year=*/part-000.parquet' in ast.get_source_segment(code,functions['historical_paths']),'All-year enumeration missing')
+check('plan_gold_stk_mins_qfq_nineturn_source(' not in code and '_fallback_codes_with_history(' not in code,'Full planner/fallback read added')
+RESULTS.append({'name':'no-launch-daemon-old-control-full-planner-or-fallback-entry','passed':True})
+
+with tempfile.TemporaryDirectory(prefix='nineturn-fixture-',dir=HERE) as temporary:
+    fixture_root=Path(temporary);ns=namespace(fixture_root)
+    ns['_nineturn_file_identity']=lambda p:(p.stat().st_dev,p.stat().st_ino,p.stat().st_size,p.stat().st_mtime_ns,p.stat().st_ctime_ns)
+    # Path/stat tests use empty local files only, never Parquet or formal paths.
+    code_root=ns['ROOT']/'gold/quote/stk_mins_qfq/freq=30/ts_code=000001.SZ'
+    for year in (2014,2025,2026):
+        path=code_root/f'year={year}'/'part-000.parquet';path.parent.mkdir(parents=True);path.touch()
+    case('all-approved-year-paths-retained',lambda:check(len(ns['historical_paths'](30,('000001.SZ',)))==3,'Wrong path count'))
+    outside=code_root/'year=2013'/'part-000.parquet';outside.parent.mkdir();outside.touch()
+    case('2013-rejected-before-content',lambda:ns['historical_paths'](30,('000001.SZ',)),True)
+    outside.unlink();outside.parent.rmdir()
+
+    # A literal full-history marker proves the date filter is outside the original
+    # formula; the real producer and formula are not executed in this preparation.
+    formula_calls=[]
+    ns['build_gold_stk_mins_qfq_nineturn_select_sql']=lambda **kw:(formula_calls.append(kw) or 'SELECT full_history_lag_and_count')
+    ns['duckdb_string']=lambda x:"'"+str(x).replace("'","''")+"'"
+    ns['read_parquet']=lambda p,**kw:'read_parquet_fixture'
+    sql=ns['compare_sql']((Path('/fixture/2014'),),Path('/fixture/seed'),30,('000001.SZ',))
+    check(sql.index('FROM (SELECT full_history_lag_and_count)')<sql.index("WHERE trade_date = DATE '2026-10-27'"),'Date clips full history')
+    check(formula_calls==[{'source_paths':(Path('/fixture/2014'),),'freq':30,'stock_codes':('000001.SZ',)}],'Formula scope changed')
+    RESULTS.append({'name':'original-formula-input-and-outer-prior-day-filter','passed':True})
+
+    pre={'seed_history':{str(f):{'inputs':{}} for f in FREQS}}
+    cand={'candidate_groups':{str(f):{'history_inputs':{}} for f in FREQS}}
+    older=str(code_root/'year=2014'/'part-000.parquet')
+    value=[1,2,123,4,5]
+    pre['seed_history']['30']['inputs'][older]=value
+    cand['candidate_groups']['30']['history_inputs'][older]=value
+    case('combined-history-deduplicates-same-path',lambda:check(ns['approved_history_summary'](pre,cand)=={'all_history_files':1,'all_history_bytes':123,'older_files':1,'older_bytes':123,'path_deduplicated':True},'Double counted'))
+    oversized=copy.deepcopy(pre);oversized['seed_history']['30']['inputs'][older]=[1,2,1024**3+1,4,5]
+    case('earlier-over-one-GiB-rejected',lambda:ns['approved_history_summary'](oversized,{'candidate_groups':{str(f):{'history_inputs':{}} for f in FREQS}}),True)
+    escaped=copy.deepcopy(pre);escaped['seed_history']['30']['inputs']={str(code_root/'year=2013/part-000.parquet'):value}
+    case('combined-scope-2013-rejected',lambda:ns['approved_history_summary'](escaped,cand),True)
+    only2026pre={'seed_history':{str(f):{'inputs':{}} for f in FREQS}}
+    only2026candidate={'candidate_groups':{str(f):{'history_inputs':{}} for f in FREQS}}
+    only2026candidate['candidate_groups']['30']['history_inputs'][str(code_root/'year=2026/part-000.parquet')]=[1,2,1024**3+1,4,5]
+    case('2026-candidate-alone-over-one-GiB-rejected',lambda:ns['approved_history_summary'](only2026pre,only2026candidate),True)
+    only2026candidate['candidate_groups']['30']['history_inputs'][str(code_root/'year=2026/part-000.parquet')]=[1,2,123,4,5]
+    case('2026-history-in-total-with-zero-older-diagnostic',lambda:check(ns['approved_history_summary'](only2026pre,only2026candidate)=={'all_history_files':1,'all_history_bytes':123,'older_files':0,'older_bytes':0,'path_deduplicated':True},'2026 excluded from total'))
+
+    # Current producer contract: assets/qfq_nineturn.py _materialization_metadata,
+    # checks/qfq_nineturn_checks.py and metadata builder namespaced fields. Literal
+    # independent counts are 3 rows, 2 stocks, zero fallback and zero failures.
+    class Status(Enum):SUCCESS='SUCCESS'
+    TYPES=NS(ASSET_MATERIALIZATION='materialization',ASSET_CHECK_EVALUATION='check',STEP_FAILURE='step_failure',PIPELINE_FAILURE='pipeline_failure')
+    ns['dg']=NS(DagsterEventType=TYPES,DagsterRunStatus=Status,
+                RunsFilter=lambda **kw:kw,AssetRecordsFilter=lambda **kw:kw,AssetKey=lambda name:name)
+    os.environ['DAGSTER_HOME']=str(ns['APPROVED_DAGSTER_HOME'])
+    ns['APPROVED_DAGSTER_HOME'].mkdir()
+    (ns['APPROVED_DAGSTER_HOME']/'dagster.yaml').write_text('fixture')
+    ns['yaml']=NS(safe_load=lambda text:{'storage':{'postgres':{'postgres_url':'fixture://readonly'}}})
+
+    def event_fixture(day,run_id):
+        records=[];mats=[];checks=[]
+        for index,freq in enumerate(FREQS):
+            name=f'gold_stk_mins_qfq_nineturn_{freq}m';storage=100+index
+            uri=str(ns['target_path'](freq,day))
+            mat_meta={'dagster/row_count':3,'goldenshare/source_row_count':3,'dagster/uri':uri,
+              'goldenshare/observed_columns':list(COLUMNS),'goldenshare/formula_version':1,
+              'goldenshare/result_status':'written','goldenshare/source_fingerprint':'a'*64,
+              'goldenshare/input_summary':{'partition_key':day,'freq':freq,'source_row_count':3,'source_file_count':2},
+              'goldenshare/filter_summary':{'output_row_count':3,'stock_code_count':2,'fallback_recomputed_code_count':0},
+              'goldenshare/stock_code_count':2,'goldenshare/fallback_recomputed_code_count':0}
+            rule={'rules':list(RULES),'checked_row_count':3,'source_row_count':3,
+              'source_duplicate_key_count':0,'duplicate_key_count':0,'null_key_count':0,'invalid_value_count':0,'missing_source_key_count':0,'extra_output_key_count':0}
+            check_meta={'goldenshare/file_path':uri,'goldenshare/checked_row_count':3,'goldenshare/failed_row_count':0,'goldenshare/failed_rule_names':[],'goldenshare/rule_summary':rule}
+            mat=NS(asset_key=NS(to_user_string=lambda n=name:n),partition=day,metadata={k:NS(value=v) for k,v in mat_meta.items()})
+            evaluation=NS(asset_key=NS(to_user_string=lambda n=name:n),check_name=name+'_integrity_check',passed=True,blocking=True,partition=day,target_materialization_data=NS(storage_id=storage,run_id=run_id),metadata={k:NS(value=v) for k,v in check_meta.items()})
+            records.extend([NS(storage_id=storage,asset_materialization=mat,event_log_entry=NS(dagster_event=NS(event_type=TYPES.ASSET_MATERIALIZATION))),
+                            NS(storage_id=200+index,event_log_entry=NS(dagster_event=NS(event_type=TYPES.ASSET_CHECK_EVALUATION,event_specific_data=evaluation)))])
+            mats.append(mat);checks.append(evaluation)
+        return records,mats,checks
+
+    def verify_event_case(prior=False,mutate=None):
+        day=PRIOR if prior else DAY;rid=ns['PRIOR_RUN'] if prior else 'fixture-run-28'
+        records,mats,checks=event_fixture(day,rid)
+        if mutate:mutate(records,mats,checks)
+        run=NS(job_name=ns['JOB'],tags={'dagster/partition':day},run_id=rid,root_run_id=None,status=Status.SUCCESS)
+        record=NS(dagster_run=run,create_timestamp=datetime.fromisoformat('2026-10-29T10:00:00+08:00'),start_time=1,end_time=2)
+        disposed=[]
+        class Runs:
+            def __init__(self,*a,**k):check(k=={'should_autocreate_tables':False},'Autocreate enabled')
+            def get_run_records(self,*a,**k):return [record]
+            def dispose(self):disposed.append('runs')
+        class Events:
+            def __init__(self,*a,**k):check(k=={'should_autocreate_tables':False},'Autocreate enabled')
+            def get_records_for_run(self,*a,**k):return NS(records=records,has_more=False)
+            def fetch_materializations(self,filter,limit):
+                index=[f'gold_stk_mins_qfq_nineturn_{f}m' for f in FREQS].index(filter['asset_key'])
+                return NS(records=[NS(storage_id=100+index)])
+            def dispose(self):disposed.append('events')
+        ns['PostgresRunStorage']=Runs;ns['PostgresEventLogStorage']=Events
+        try:
+            output={}
+            return ns['verify_prior_events' if prior else 'verify_events'](rid,{'as_of':'2026-10-29T09:00:00+08:00'},output)
+        finally:check(disposed==['runs','events'],'Readback fake sessions leaked')
+
+    case('28-original-event-and-check-binding-positive',lambda:verify_event_case())
+    case('27-exact-prior-event-and-check-binding-positive',lambda:verify_event_case(True))
+    case('28-wrong-source-count-refused',lambda:verify_event_case(False,lambda r,m,c:setattr(m[0].metadata['goldenshare/source_row_count'],'value',4)),True)
+    case('28-wrong-materialization-date-refused',lambda:verify_event_case(False,lambda r,m,c:setattr(m[0],'partition','2026-10-23')),True)
+    case('28-wrong-check-storage-binding-refused',lambda:verify_event_case(False,lambda r,m,c:setattr(c[0].target_materialization_data,'storage_id',999)),True)
+    case('28-failed-check-refused',lambda:verify_event_case(False,lambda r,m,c:setattr(c[0],'passed',False)),True)
+    case('28-wrong-formula-version-refused',lambda:verify_event_case(False,lambda r,m,c:setattr(m[0].metadata['goldenshare/formula_version'],'value',999)),True)
+    case('27-wrong-target-run-refused',lambda:verify_event_case(True,lambda r,m,c:setattr(c[0].target_materialization_data,'run_id','wrong-run')),True)
+    case('27-missing-event-refused',lambda:verify_event_case(True,lambda r,m,c:r.pop()),True)
+
+    # Publication producer fields were checked in io/stk_mins_qfq_publication.py:
+    # root/frequency/run/scope identities, operation inputs and promoted receipts.
+    # These are tiny ordinary files, used only for JSON/stat verification.
+    def publication_case(prior=False,change=None):
+        work=fixture_root/('publication-'+str(len(RESULTS)));work.mkdir();n=namespace(work)
+        n['_nineturn_file_identity']=lambda p:(p.stat().st_dev,p.stat().st_ino,p.stat().st_size,p.stat().st_mtime_ns,p.stat().st_ctime_ns)
+        day=PRIOR if prior else DAY;by_asset={};receipts=[]
+        h=lambda text:hashlib.sha256(text.encode()).hexdigest()
+        for freq in FREQS:
+            target=n['ROOT']/f'gold/indicator/stk_mins_qfq_nineturn/freq={freq}/trade_date={day}/part-000.parquet'
+            target.parent.mkdir(parents=True);target.write_bytes(b'fixture-stat-only')
+            observed=list(n['_nineturn_file_identity'](target))
+            scope={'version':1,'family':'nineturn','freq':freq,'trade_dates':[day]}
+            directory=n['STAGE']/'stk_mins_qfq/nineturn'/f'root={h(str(n["ROOT"]))}'/f'freq={freq}'/f'run_id={h("fixture-root-run")}'/f'scope={h(json.dumps(scope,sort_keys=True))}'
+            (directory/'files').mkdir(parents=True)
+            (directory/'operation.json').write_text(json.dumps({'scope':scope,'targets':[str(target)],'inputs':{'nineturn_inputs':'a'*64}}))
+            receipt={'target':str(target),'status':'promoted','before':[1,2,3,4,5] if prior else None,
+              'sha256':'a'*64,'candidate_identity':observed,'promoted_identity':observed,'row_count':3,
+              'candidate':str(directory/'candidates/frozen'/target.relative_to(n['ROOT']))}
+            receipts.append((directory/'files'/f'{h(str(target))}.json',receipt))
+            by_asset[f'gold_stk_mins_qfq_nineturn_{freq}m']={'metadata':{'dagster/row_count':3,'goldenshare/source_row_count':3}}
+        if change:change(receipts[0][1])
+        for path,value in receipts:path.write_text(json.dumps(value))
+        result=n['verify_prior_publications' if prior else 'verify_publications']('fixture-root-run',by_asset)
+        check(len(result)==4 and all(x['row_count']==3 for x in result),'Publication set incorrect')
+
+    case('28-original-publication-json-stat-positive',lambda:publication_case())
+    case('27-existing-before-publication-json-stat-positive',lambda:publication_case(True))
+    case('28-unapproved-overwrite-refused',lambda:publication_case(False,lambda d:d.__setitem__('before',[1,2,3,4,5])),True)
+    case('27-wrong-promoted-identity-refused',lambda:publication_case(True,lambda d:d.__setitem__('promoted_identity',[1,2,3,4,5])),True)
+    case('27-wrong-receipt-row-count-refused',lambda:publication_case(True,lambda d:d.__setitem__('row_count',4)),True)
+
+    # Actual run_prepare body, with only transport/formula/stat producers replaced.
+    # Its observable order and failure-before-historical-SQL boundary stay intact.
+    def preparation_case(kind):
+        work=fixture_root/('prepare-'+kind);work.mkdir();n=namespace(work)
+        calls=[];n['approved_history']=lambda:None;n['controls']=lambda **kw:{}
+        n['guard_group']=lambda *a,**kw:None
+        codes=['000001.SZ']
+        pre={'passed':True,'date':DAY,'factor_status':{'repair_required_codes':codes,'upstream_batch_id':'fixture-batch','rewrote_history':kind!='no-history'},
+          'normal_paths':{},'seed_groups':{},'seed_history':{}}
+        for freq in FREQS:
+            key=str(freq);normal=n['ROOT']/f'gold/quote/stk_mins_qfq/freq={freq}/ts_code=000001.SZ/year=2026/part-000.parquet'
+            history=n['ROOT']/f'gold/quote/stk_mins_qfq/freq={freq}/ts_code=000001.SZ/year=2014/part-000.parquet'
+            pre['normal_paths'][key]={str(normal):[1,2,1,4,5]}
+            pre['seed_groups'][key]={'path':str(n['ROOT']/f'seed-{freq}')}
+            pre['seed_history'][key]={'inputs':{str(history):[1,2,1,4,5]}}
+        (n['BASE']/'metadata-preflight.json').write_text(json.dumps(pre))
+        def candidates(connection,**kw):calls.append('candidate-'+str(kw['freq']));return 3,('000001.SZ',)
+        n['_bounded_candidate_codes']=candidates
+        def paths(freq,codes):
+            calls.append('stat-'+str(freq))
+            if kind=='bad-year':raise ValueError('2013 outside approved scope')
+            year=2026 if kind=='over-budget-2026' else 2014
+            return [n['ROOT']/f'gold/quote/stk_mins_qfq/freq={freq}/ts_code=000001.SZ/year={year}/part-000.parquet']
+        n['historical_paths']=paths
+        n['snap']=lambda paths:{str(p):[1,2,1024**3+1 if kind in ('over-budget','over-budget-2026') else 1,4,5] for p in paths}
+        # Preserve identical same-path seed stat for the over-budget scenario.
+        if kind=='over-budget':
+            for group in pre['seed_history'].values():
+                for value in group['inputs'].values():value[2]=1024**3+1
+            (n['BASE']/'metadata-preflight.json').write_text(json.dumps(pre))
+        n['compare_sql']=lambda *a:'fixture-seed-sql'
+        class Connection:
+            def __enter__(self):return self
+            def __exit__(self,*a):pass
+            def execute(self,sql):
+                check(len([x for x in calls if x.startswith('candidate-')])==4,'Seed SQL before all candidate queries')
+                calls.append('seed-sql')
+                expected=[date(2026,10,27),datetime(2026,10,27,15),1,0,None,None]
+                seed=expected.copy()
+                if kind=='seed-mismatch':seed[2]=2
+                return NS(fetchall=lambda:[('000001.SZ',*expected,*seed)])
+        n['DuckDBResource']=lambda:NS(connect=lambda:Connection())
+        error=None
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):n['run_prepare']()
+        except ValueError as caught:error=caught
+        data=json.loads((n['BASE']/'candidate-scope.json').read_text())
+        if kind in ('bad-year','over-budget','over-budget-2026','seed-mismatch'):
+            check(error is not None and not data['passed'] and data['status']=='failed_without_retry','Failure not retained')
+            check(calls.count('seed-sql')==(1 if kind=='seed-mismatch' else 0),'Unexpected historical SQL')
+        else:
+            check(error is None and data['passed'],'Normal prepare failed')
+            check(calls.count('seed-sql')==(0 if kind=='no-history' else 4),'Wrong seed query count')
+        # Existing query record prevents any automatic replay after success/failure.
+        before=list(calls)
+        try:n['run_prepare']()
+        except ValueError:pass
+        else:raise RuntimeError('Automatic replay accepted')
+        check(calls==before,'Queries repeated on second prepare')
+
+    for kind in ('normal','no-history','bad-year','over-budget','over-budget-2026','seed-mismatch'):
+        case('prepare-order-stop-and-no-replay-'+kind,lambda k=kind:preparation_case(k))
+
+check(not fixture_root.exists(),'Temporary fixture directory remains')
+report={'passed':True,'case_count':len(RESULTS),'results':RESULTS,
+  'source_sha256':hashlib.sha256(code.encode()).hexdigest(),
+  'real_network_calls':0,'real_db_access':0,'formal_lake_reads_or_stats':0,
+  'production_module_imports':0,'fixture_directories_removed':True,
+  'limitations':'AST-extracted functions and literal fake event/stat/SQL transport; not real source, formula execution, guard, job, or formal acceptance evidence.'}
+(HERE/'nineturn-preparation-static-checks.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({k:v for k,v in report.items() if k!='results'},ensure_ascii=False))

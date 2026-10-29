@@ -1,0 +1,480 @@
+"""Prepare-only archive: inspect exact batch 9 run/events, receipts and stat.
+
+Run daily BEFORE factor repair; factor legitimately changes the affected annual
+files after daily verification. This script never opens Parquet, computes a data
+digest, starts a job, writes events or constructs a DagsterInstance.
+
+Required runtime: existing orchestrator .venv (editable package; no PYTHONPATH override). Supply the exact
+run's original stdout/compute log(s), including publication completed messages.
+Input manifest: {"inputs": {"/absolute/input/path": [dev, ino, bytes, mtime, ctime]},
+"metadata": {...}}; a top-level path-to-identity object is also accepted.
+
+Implementation sources: original Oct 22 qfq/factor verifiers; current factor
+op/guard, QFQ publication, catalog and factor execution logger. No fixed stock
+count, calendar count, year-batch count, source byte count or remaining count.
+"""
+
+import argparse
+import hashlib
+import json
+import os
+import re
+import stat as stat_module
+from datetime import date, datetime
+from pathlib import Path
+from types import SimpleNamespace
+from zoneinfo import ZoneInfo
+
+import dagster as dg
+import yaml
+from dagster_postgres import PostgresEventLogStorage, PostgresRunStorage
+
+from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
+    gold_stk_mins_qfq_factor_repair_status,
+)
+from orchestrator.defs.catalog.lake_assets import LAKE_ASSET_CATALOG
+from orchestrator.defs.run_contracts.run_keys import build_batch_id
+
+
+DAY = "2026-10-28"
+ROOT = Path("/Volumes/datasource/data_lake")
+STAGE = Path("/Volumes/datasource/data_lake_staging/stk_mins_qfq/qfq")
+REPORT_ROOT = Path(
+    "/Users/congming/github/goldenshare/lake_console/reports/"
+    "datasets_recovery_20261028_20261029"
+)
+FREQS = (1, 5, 15, 30, 60, 90, 120)
+SOURCE_FREQS = (1, 5, 30, 60)
+ASSETS = {f"gold_stk_mins_qfq_{freq}m" for freq in FREQS}
+FACTOR_CHECK = "gold_stk_mins_qfq_factor_repair_plan_evaluated"
+SHA = re.compile(r"[0-9a-f]{64}")
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def text_hash(value):
+    # Hash only small identifiers/JSON text, never Lake file content.
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def identity(path):
+    value = path.lstat()
+    require(stat_module.S_ISREG(value.st_mode), f"Not a regular file: {path}")
+    return [value.st_dev, value.st_ino, value.st_size,
+            value.st_mtime_ns, value.st_ctime_ns]
+
+
+def valid_identity(value):
+    return (isinstance(value, list) and len(value) == 5
+            and all(type(item) is int and item >= 0 for item in value))
+
+
+def read_json(path):
+    require(not path.is_symlink(), f"JSON is a symlink: {path}")
+    return json.loads(path.read_text())
+
+
+def metadata(values):
+    result = {}
+    for key, value in values.items():
+        if key == "dagster/column_schema":
+            continue
+        key = str(key).removeprefix("goldenshare/")
+        unwrapped = getattr(value, "value", getattr(value, "data", str(value)))
+        require(key not in result or result[key] == unwrapped,
+                f"Conflicting metadata keys: {key}")
+        result[key] = unwrapped
+    return result
+
+
+def save_result(report_dir, mode, value):
+    path = report_dir / f"{mode}-run-verified.json"
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2, default=str) + "\n")
+    return path
+
+
+def postgres_url():
+    home = Path(os.environ["DAGSTER_HOME"])
+    config = yaml.safe_load((home / "dagster.yaml").read_text())
+    value = config["storage"]["postgres"]["postgres_url"]
+    return os.environ[value["env"]] if isinstance(value, dict) else value
+
+
+def events_for_run(storage, run_id):
+    fetched = storage.get_records_for_run(
+        run_id,
+        of_type={dg.DagsterEventType.ASSET_MATERIALIZATION,
+                 dg.DagsterEventType.ASSET_CHECK_EVALUATION,
+                 dg.DagsterEventType.STEP_FAILURE,
+                 dg.DagsterEventType.PIPELINE_FAILURE},
+        limit=100,
+    )
+    require(not fetched.has_more, "Exact-run event response was truncated")
+    mats, checks, failures = [], [], []
+    for record in fetched.records:
+        event = record.event_log_entry.dagster_event
+        if event.event_type == dg.DagsterEventType.ASSET_MATERIALIZATION:
+            value = record.asset_materialization
+            mats.append({"asset": value.asset_key.to_user_string(),
+                         "partition": value.partition,
+                         "storage_id": record.storage_id,
+                         "metadata": metadata(value.metadata)})
+        elif event.event_type == dg.DagsterEventType.ASSET_CHECK_EVALUATION:
+            value = event.event_specific_data
+            target = value.target_materialization_data
+            checks.append({"asset": value.asset_key.to_user_string(),
+                           "name": value.check_name,
+                           "partition": value.partition,
+                           "storage_id": record.storage_id,
+                           "passed": value.passed, "blocking": value.blocking,
+                           "target_storage_id": target.storage_id if target else None,
+                           "metadata": metadata(value.metadata)})
+        else:
+            failures.append(str(event.event_specific_data))
+    return mats, checks, failures
+
+
+def unique_log_row(mapping, key, value, label):
+    require(key not in mapping or mapping[key] == value,
+            f"Conflicting repeated {label} log: {key}")
+    mapping[key] = value
+
+
+def load_logs(paths):
+    progress, targets, sources, factors, as_of = {}, {}, {}, {}, {}
+    for path in dict.fromkeys(paths):
+        for line in path.read_text().splitlines():
+            fields = dict(re.findall(r"(\w+)=([^\s]+)", line))
+            event = fields.get("event")
+            if event == "stock_minute_file_publication_progress" and fields.get("stage") == "completed":
+                # Keep only stable producer fields; timestamps/log prefixes can differ.
+                selected = {key: fields[key] for key in (
+                    "operation_directory", "stage", "validated_file_count",
+                    "promoted_file_count", "total_file_count",
+                    "existing_build_target_stat_bytes", "frozen_input_stat_bytes",
+                    "verified_candidate_stat_bytes", "verified_formal_stat_bytes",
+                    "input_sha256_read_bytes", "candidate_sha256_read_bytes",
+                    "formal_sha256_read_bytes") if key in fields}
+                unique_log_row(progress, fields["operation_directory"], selected, "publication")
+            elif event == "factor_repair_target_completed":
+                selected = {key: fields[key] for key in (
+                    "year", "freq", "output_file_count", "replacement_row_count",
+                    "cumulative_source_stat_bytes")}
+                unique_log_row(targets, (fields["year"], int(fields["freq"])), selected, "target")
+            elif event == "factor_repair_source_loaded":
+                selected = {key: fields[key] for key in (
+                    "year", "source_freq", "file_count", "cumulative_stat_bytes",
+                    "target_code_count")}
+                unique_log_row(sources, (fields["year"], int(fields["source_freq"])), selected, "source")
+            elif event == "factor_repair_year_factor_loaded":
+                selected = {key: fields[key] for key in (
+                    "year", "file_count", "cumulative_stat_bytes")}
+                unique_log_row(factors, fields["year"], selected, "factor")
+            elif event == "factor_repair_as_of_loaded":
+                selected = {key: fields[key] for key in (
+                    "file_count", "stat_bytes", "target_code_count")}
+                unique_log_row(as_of, "current", selected, "as-of")
+    return progress, targets, sources, factors, as_of
+
+
+def verify_operation(directory_text, snapshot, root_run_id, mode, factor_metadata):
+    directory = Path(directory_text)
+    require(directory.is_absolute() and ".." not in directory.parts
+            and directory.is_relative_to(STAGE), "Publication path escaped QFQ staging")
+    require(not directory.is_symlink(), "Publication directory is a symlink")
+    operation = read_json(directory / "operation.json")
+    scope = operation["scope"]
+    require(set(scope) == {"version", "family", "freq", "trade_dates"}
+            and scope["version"] == 1 and scope["family"] == "qfq"
+            and scope["freq"] in FREQS, "Unexpected publication scope")
+    dates = scope["trade_dates"]
+    require(isinstance(dates, list) and dates and dates == sorted(set(dates)),
+            "Invalid publication date list")
+    require(all(date.fromisoformat(day).isoformat() == day for day in dates),
+            "Invalid publication business date")
+    years = {day[:4] for day in dates}
+    require(len(years) == 1, "Factor publication crossed year boundary")
+    year = next(iter(years))
+    if mode == "daily":
+        require(dates == [DAY], "Daily publication is outside the target day")
+        allowed_codes = None
+    else:
+        require(factor_metadata["repair_start_trade_date"] <= dates[0]
+                and dates[-1] <= factor_metadata["repair_end_trade_date"],
+                "Factor publication date range differs from original job metadata")
+        allowed_codes = set(factor_metadata["repair_required_codes"])
+    expected_directory = (STAGE / f"root={text_hash(str(ROOT.resolve()))}"
+                          / f"freq={scope['freq']}" / f"run_id={text_hash(root_run_id)}"
+                          / f"scope={text_hash(json.dumps(scope, sort_keys=True))}")
+    # Both batch 9 jobs pass their root identity. This is a check of a logged
+    # directory, not discovery by guessing another family's operation path.
+    require(directory == expected_directory, "Logged operation belongs to another root or scope")
+    require(set(operation["inputs"]) == {"replacement"}
+            and bool(SHA.fullmatch(operation["inputs"]["replacement"])),
+            "Unexpected frozen replacement descriptor")
+    targets = operation["targets"]
+    require(isinstance(targets, list) and targets and len(targets) == len(set(targets)),
+            "Empty or duplicate publication targets")
+    result = {"directory": str(directory), "year": year, "frequency": scope["freq"],
+              "trade_date_count": len(dates), "first_trade_date": dates[0],
+              "last_trade_date": dates[-1], "files": len(targets), "promoted_files": 0,
+              "old_annual_bytes": 0, "candidate_bytes": 0, "annual_rows": 0,
+              "frozen_input_bytes": int(snapshot["frozen_input_stat_bytes"])}
+    for target in targets:
+        path = Path(target)
+        base = ROOT / "gold/quote/stk_mins_qfq" / f"freq={scope['freq']}"
+        require(path.is_absolute() and ".." not in path.parts and path.is_relative_to(base),
+                "Target escaped formal QFQ frequency")
+        parts = path.relative_to(base).parts
+        require(len(parts) == 3 and parts[0].startswith("ts_code=")
+                and parts[1] == f"year={year}" and parts[2] == "part-000.parquet",
+                "Unexpected annual target path")
+        code = parts[0].removeprefix("ts_code=")
+        require(code and (allowed_codes is None or code in allowed_codes),
+                "Target is outside the original factor job's stock list")
+        receipt = read_json(directory / "files" / f"{text_hash(target)}.json")
+        require(receipt["target"] == target and receipt["status"] == "promoted"
+                and bool(SHA.fullmatch(receipt["sha256"])), "Incomplete promoted receipt")
+        require(valid_identity(receipt["candidate_identity"])
+                and (receipt["before"] is None or valid_identity(receipt["before"])),
+                "Invalid receipt stat identity")
+        require(type(receipt["row_count"]) is int and receipt["row_count"] >= 0,
+                "Invalid receipt row count")
+        candidate = Path(receipt["candidate"])
+        candidate_base = directory / "candidates"
+        require(candidate.is_absolute() and ".." not in candidate.parts
+                and candidate.is_relative_to(candidate_base), "Candidate escaped staging")
+        relative = candidate.relative_to(candidate_base).parts
+        require(len(relative) >= 2 and relative[1:] == path.relative_to(ROOT).parts,
+                "Candidate does not correspond to its target")
+        require(not os.path.lexists(candidate), "Promoted candidate unexpectedly remains")
+        require(identity(path)[:4] == receipt["candidate_identity"][:4],
+                f"Final stat differs from promoted candidate: {path}")
+        result["promoted_files"] += 1
+        result["old_annual_bytes"] += receipt["before"][2] if receipt["before"] else 0
+        result["candidate_bytes"] += receipt["candidate_identity"][2]
+        result["annual_rows"] += receipt["row_count"]
+    for key in ("validated_file_count", "promoted_file_count", "total_file_count"):
+        require(int(snapshot[key]) == len(targets), f"Publication {key} disagrees with receipts")
+    require(int(snapshot["existing_build_target_stat_bytes"]) == result["old_annual_bytes"],
+            "Publication old target bytes disagree with receipts")
+    require(int(snapshot["candidate_sha256_read_bytes"]) == result["candidate_bytes"]
+            and int(snapshot["verified_formal_stat_bytes"]) == result["candidate_bytes"],
+            "Producer candidate summary does not close with promoted receipts")
+    require(int(snapshot["verified_candidate_stat_bytes"]) == 0
+            and int(snapshot["formal_sha256_read_bytes"]) == 0,
+            "Unexpected producer extra candidate/formal verification pass")
+    require(int(snapshot["input_sha256_read_bytes"]) == result["frozen_input_bytes"],
+            "Frozen input byte accounting disagrees with producer snapshot")
+    return result
+
+
+def verify_daily(run, mats, checks):
+    require(run.job_name == "stock_mins_qfq_daily_update_job"
+            and run.tags.get("dagster/partition") == DAY, "Wrong daily run or partition")
+    require(len(mats) == 7 and {item["asset"] for item in mats} == ASSETS
+            and all(item["partition"] == DAY for item in mats), "Daily materialization set is incomplete")
+    catalog = {str(item.asset_key): item for item in LAKE_ASSET_CATALOG}
+    expected = {(asset, name) for asset in ASSETS for name in catalog[asset].blocking_check_names}
+    require(len(checks) == 28 and len(expected) == 28
+            and {(item["asset"], item["name"]) for item in checks} == expected,
+            "Daily original check set is incomplete")
+    materialization_ids = {item["asset"]: item["storage_id"] for item in mats}
+    require(all(item["passed"] and item["blocking"]
+                and item["partition"] in (None, DAY)
+                and item["target_storage_id"] == materialization_ids[item["asset"]]
+                for item in checks), "Daily checks are not green/bound to this run's target-day materializations")
+
+
+def verify_factor(run, mats, checks, event_storage):
+    require(run.job_name == "stock_mins_qfq_factor_repair_job", "Wrong factor run")
+    config = run.run_config["ops"]["stock_mins_qfq_factor_repair_op"]["config"]
+    require(config == {"trade_date": DAY}, "Factor run did not use the date-only original config")
+    require(not mats and len(checks) == 7
+            and {item["asset"] for item in checks} == ASSETS, "Wrong factor op-only event set")
+    require(all(item["name"] == FACTOR_CHECK and item["partition"] == DAY
+                and item["passed"] and item["blocking"] for item in checks),
+            "Factor completion checks are not all green for target day")
+    md = checks[0]["metadata"]
+    require(all(item["metadata"] == md for item in checks), "Seven factor metadata payloads differ")
+    require(md["producer_run_id"] == run.run_id and md["trade_date"] == DAY
+            and md["can_execute_repair"] is True, "Wrong factor producer or execution decision")
+    require(md["failed_code_count"] == 0 and md["derived_failed_code_count"] == 0
+            and md["missing_previous_factor_code_count"] == 0
+            and md["failed_row_count"] == 0
+            and md["repaired_code_count"] == md["repair_required_code_count"],
+            "Factor job did not finish all required repairs")
+    require(md["repair_required_codes_truncated"] is False, "Factor metadata list is truncated; this scoped verifier cannot invent the missing list")
+    codes = md["repair_required_codes"]
+    require(isinstance(codes, list) and codes == sorted(set(codes))
+            and len(codes) == md["repair_required_code_count"], "Factor native stock metadata is incomplete")
+    require(text_hash("\n".join(codes)) == md["repair_required_codes_hash"],
+            "Factor native stock-list hash disagrees")
+    expected_batch = build_batch_id(producer="qfq_factor_repair", scope=DAY,
+                                   payload={"producer_run_id": run.run_id,
+                                            "repair_required_codes_hash": md["repair_required_codes_hash"]})
+    require(md["upstream_batch_id"] == expected_batch, "Factor upstream identity is not bound to this producer")
+    require(md["executed_batch_count"] == md["planned_batch_count"]
+            and md["derived_executed_batch_count"] == md["derived_planned_batch_count"],
+            "Factor native/derived batch execution is incomplete")
+    facade = SimpleNamespace(event_log_storage=event_storage,
+                             get_event_records=event_storage.get_event_records)
+    status = gold_stk_mins_qfq_factor_repair_status(facade, DAY)
+    require(status.ready and status.producer_run_id == run.run_id
+            and set(status.qfq_factor_repair_event_storage_ids)
+            == {item["storage_id"] for item in checks},
+            "Current native factor gate is not ready/bound to this run's seven events")
+    return md, status.to_payload()
+
+
+def verify_factor_logs(md, publications, targets, sources, factors, as_of):
+    if not md["repair_required"]:
+        require(not publications and not targets and not sources and not factors and not as_of,
+                "No-change factor branch unexpectedly reports historical work")
+        return {"history_rewritten": False, "sources": [], "year_factors": []}
+    years = set(factors)
+    require(years and len(as_of) == 1, "Missing factor source/year/as-of log evidence")
+    require(sum(int(item["file_count"]) for item in factors.values()) == md["selected_partition_count"],
+            "Original year factor counts do not cover selected dates")
+    require(set(sources) == {(year, freq) for year in years for freq in SOURCE_FREQS},
+            "Unique source/year log set is incomplete")
+    require(set(targets) == {(year, freq) for year in years for freq in FREQS},
+            "Seven-frequency/year completion log set is incomplete")
+    require(all(int(item["file_count"]) == int(factors[year]["file_count"])
+                and int(item["target_code_count"]) == md["repair_required_code_count"]
+                for (year, _), item in sources.items()), "Source scope/count differs from factor target metadata")
+    require(int(as_of["current"]["file_count"]) == 1
+            and int(as_of["current"]["target_code_count"]) == md["repair_required_code_count"],
+            "As-of factor log differs from native target scope")
+    nonempty = {key for key, item in targets.items() if int(item["output_file_count"]) > 0}
+    by_key = {(item["year"], item["frequency"]): item for item in publications}
+    require(len(by_key) == len(publications) and set(by_key) == nonempty,
+            "Nonempty target batches and completed publications disagree")
+    for key, item in by_key.items():
+        require(item["files"] == int(targets[key]["output_file_count"])
+                and item["trade_date_count"] == int(factors[key[0]]["file_count"]),
+                "Publication file/date count differs from original target/year log")
+    for derived, prefix in ((False, ""), (True, "derived_")):
+        selected = [item for item in publications if (item["frequency"] >= 90) == derived]
+        logs = [item for (_, freq), item in targets.items() if (freq >= 90) == derived]
+        require(len(logs) == md[prefix + "executed_batch_count"], "Target logs disagree with executed batch metadata")
+        require(sum(item["files"] for item in selected) == md[prefix + "rewritten_file_count"],
+                "Promoted file count differs from factor check metadata")
+        require(sum(int(item["replacement_row_count"]) for item in logs) == md[prefix + "rewritten_row_count"],
+                "Replacement row count differs from factor check metadata")
+    return {"history_rewritten": True, "source_file_count": sum(int(item["file_count"]) for item in sources.values()),
+            "source_stat_bytes": max(int(item["cumulative_stat_bytes"]) for item in sources.values()),
+            "factor_file_count": sum(int(item["file_count"]) for item in factors.values()),
+            "factor_stat_bytes": max(int(item["cumulative_stat_bytes"]) for item in factors.values()),
+            "as_of_factor_stat_bytes": int(as_of["current"]["stat_bytes"]),
+            "sources": list(sources.values()), "year_factors": list(factors.values()),
+            "target_batches": list(targets.values())}
+
+
+def verify_input_manifest(path):
+    if path is None:
+        return {"provided": False, "verified": False,
+                "reason": "No input manifest supplied; this is not a complete input-identity acceptance."}
+    value = read_json(path)
+    inputs = value.get("inputs", value)
+    require(isinstance(inputs, dict) and inputs, "Input identity manifest is empty")
+    count = 0
+    for name, expected in inputs.items():
+        if name == "metadata":
+            continue
+        candidate = Path(name)
+        require(candidate.is_absolute() and ".." not in candidate.parts
+                and candidate.is_relative_to(ROOT) and valid_identity(expected),
+                "Invalid input path/identity manifest entry")
+        require(identity(candidate) == expected, f"Frozen input changed: {candidate}")
+        count += 1
+    require(count > 0, "No input path identities were supplied")
+    return {"provided": True, "verified": True, "file_count": count, "manifest": str(path)}
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--mode", choices=("daily", "factor"), required=True)
+    parser.add_argument("--run-id")
+    parser.add_argument("--report-dir", type=Path, required=True)
+    parser.add_argument("--log", action="append", type=Path, default=[])
+    parser.add_argument("--input-manifest", type=Path)
+    args = parser.parse_args()
+    require(args.report_dir.is_absolute() and ".." not in args.report_dir.parts
+            and args.report_dir.is_relative_to(REPORT_ROOT), "Report output must stay inside the 28-day recovery report")
+    args.report_dir.mkdir(parents=True, exist_ok=True)
+    if not args.run_id or not args.log:
+        parser.error("daily/factor requires --run-id and at least one --log")
+    result = {"as_of": datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
+              "date": DAY, "mode": args.mode, "run_id": args.run_id,
+              "verified": False, "extra_price_content_reads": 0,
+              "extra_data_sha_passes": 0, "formal_writes": 0}
+    run_storage = event_storage = None
+    try:
+        # Applies only to these readback DB sessions, never to a business job.
+        os.environ["PGOPTIONS"] = "-c default_transaction_read_only=on -c statement_timeout=30000"
+        url = postgres_url()
+        run_storage = PostgresRunStorage(url, should_autocreate_tables=False)
+        event_storage = PostgresEventLogStorage(url, should_autocreate_tables=False)
+        found = run_storage.get_run_records(dg.RunsFilter(run_ids=[args.run_id]), limit=1)
+        require(len(found) == 1, "Exact run id is not present")
+        record = found[0]
+        run = record.dagster_run
+        root_run_id = run.root_run_id or run.run_id
+        mats, checks, failures = events_for_run(event_storage, run.run_id)
+        result.update(root_run_id=root_run_id, job=run.job_name, status=run.status.value,
+                      elapsed_seconds=(record.end_time - record.start_time)
+                      if record.end_time and record.start_time else None,
+                      materializations=mats, checks=checks, failures=failures)
+        require(run.status == dg.DagsterRunStatus.SUCCESS and not failures,
+                "Run has not succeeded cleanly; do not advance or relaunch")
+        md = None
+        if args.mode == "daily":
+            verify_daily(run, mats, checks)
+        else:
+            md, gate = verify_factor(run, mats, checks, event_storage)
+            result["factor_gate"] = gate
+        progress, targets, sources, factors, as_of = load_logs(args.log)
+        publications = [verify_operation(directory, snapshot, root_run_id, args.mode, md)
+                        for directory, snapshot in sorted(progress.items())]
+        if args.mode == "daily":
+            require(len(publications) == 7
+                    and {item["frequency"] for item in publications} == set(FREQS),
+                    "Daily seven completed publication scopes are missing")
+            require(not targets and not sources and not factors and not as_of,
+                    "Daily log inputs contain a factor repair run")
+        else:
+            result["factor_source_accounting"] = verify_factor_logs(
+                md, publications, targets, sources, factors, as_of)
+        result.update(publications=publications,
+                      old_annual_bytes=sum(item["old_annual_bytes"] for item in publications),
+                      candidate_bytes=sum(item["candidate_bytes"] for item in publications),
+                      frozen_input_bytes=sum(item["frozen_input_bytes"] for item in publications),
+                      promoted_annual_files=sum(item["files"] for item in publications),
+                      input_identity_acceptance=verify_input_manifest(args.input_manifest))
+        result["verified"] = True
+        result["input_identity_complete"] = result["input_identity_acceptance"]["verified"]
+        result["stage_acceptance_complete"] = result["input_identity_complete"]
+        output = save_result(args.report_dir, args.mode, result)
+        print(json.dumps({"mode": args.mode, "run_id": run.run_id,
+                          "status": result["status"], "events_and_receipts_verified": True,
+                          "stage_acceptance_complete": result["stage_acceptance_complete"],
+                          "output": str(output)}, ensure_ascii=False))
+    except Exception as error:
+        result["verified"] = False
+        result["stage_acceptance_complete"] = False
+        result["error"] = f"{type(error).__name__}: {error}"
+        save_result(args.report_dir, args.mode, result)
+        raise
+    finally:
+        if event_storage is not None:
+            event_storage.dispose()
+        if run_storage is not None:
+            run_storage.dispose()
+
+
+if __name__ == "__main__":
+    main()

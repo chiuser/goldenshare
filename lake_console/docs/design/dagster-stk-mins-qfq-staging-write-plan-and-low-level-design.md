@@ -735,3 +735,199 @@ repair配置完全复用现行sensor的结构，七项为qfq_factor_repair_trade
 正常续跑阶段未设置额外资源阈值、未发送中断、未改业务代码/原配置、未做性能样本或全局审计。最终来源路径79,576条stat无变化，范围外595条目标无变化，无活动run、pool空闲、两个sensor STOPPED。DuckDB工作目录为空，新计算工作文件正常释放，所有staging恢复与审计资料保留。脚本归档后清除本轮/tmp副本，不清理正式staging。
 
 本阶段接受14项，原剩18降为九转4项；completion14条不再次扣资产数。不启动九转或23日任务，待23日补齐再启用sensor的TODO仍在。原失败记录保留，最后结果以本节及恢复报告46.1为准。
+
+## 17. 2026-10-28股票分钟链补齐：方案和执行LLD（2026-10-29）
+
+### 17.1 目标、前序和授权边界
+
+管理员在Silver因子修正提交`876cc6a8`后要求“继续推进分钟链补数，完成后向我汇报。并审计dg数据集在28日还有哪些有缺失”。本节只承接2026-10-28股票分钟链，以及最后一次该日DG物理完整性审计，不扩展到其他日期补数、Prod写入、读取优化开发或已完成周/月重跑。
+
+因子前序已按[原修复LLD §25](dagster-stock-adj-factor-history-repair-low-level-design-v1.md#adj-factor-retired-retention-20261028)完成：九条指定旧因子已补回，28日Silver5,580行、40项原检查通过，Raw/生命周期不变。10月29日08:58只读运行核实，28日Raw run `a64e909f-cf02-4771-9504-6439d50c5584`及Silver run `ab9d6a45-3693-4729-9b31-edda681da85f`均SUCCESS；27日分钟链五阶段均完成，无活动run，五个分钟下游sensor仍STOPPED。复用这些产物，不重新下载或生成Raw/Silver，不重新检查27日历史行情。
+
+补数动作已获本轮授权；本节列明的年度/历史全局读取仍须根AGENTS的具体范围批准，取得前不得启动业务job或开启这五个sensor。23日428GiB旧批准、因子小文件批准均不能替代28日范围批准。准备阶段只读当前代码、已有证据、控制记录及文件stat，未打开年度价格正文。
+
+### 17.2 必须保留的顺序和名单来源
+
+| 顺序 | 原job及目标 | 必须通过后才能继续的条件 |
+| --- | --- | --- |
+| 1 | `stock_mins_qfq_daily_update_job`，28日七频QFQ | SUCCESS、7物化、28项原检查，检查绑定各自真实物化；当日来源及2026年度合并通过原publication |
+| 2 | `stock_mins_qfq_factor_repair_job`，只传`trade_date=2026-10-28` | 原job自动生成实际名单/起止/批次，7条真实完成check及现成factor guard ready，缺失/失败为0；无变化也由job形成完成依据 |
+| 3 | `gold_stk_mins_qfq_macd_kdj_daily_update_job`，28日七频指标和state | 原factor guard通过后运行；14物化、28项原检查及真实绑定通过，当日state先生成 |
+| 4 | 必要的`gold_stk_mins_qfq_macd_kdj_repair_job` | 只用现成decision/config函数承接步骤2实际产物，执行后14条completion及完整MACD repair gate ready；无历史改写时依原gate明确不需要，不向job传空名单或伪造完成check |
+| 5 | `gold_stk_mins_qfq_nineturn_update_job`，28日四频九转 | 完整factor/MACD gate通过，必要前日seed及实际有界候选范围明确后运行；4物化、4原检查及真实绑定通过 |
+
+日更对应25个资产：QFQ7、MACD/KDJ指标与state14、九转4。两个repair是额外依赖操作，不将其7/14条完成check当成新增数据集或要求不存在的物化。名单始终由原job生成，不把预估16股写进原因子job参数，不复制23日41股、27日6股或旧批次/hash。
+
+本轮前序小因子只读证据得到28日16股因子变化、新上市0、无法判断0、缺前因子0；301139.SZ因28日退市，不进入当日repair。这只用于测算范围。若实际job产物改变，先核其输入身份及是否仍在批准范围，不人工删减名单或越范围读取。
+
+### 17.3 当前实现依据和复用位置
+
+复用§9/13/14/15/16已经实现并验证的writer、publication和恢复规则；业务代码本轮不改。日更job、`assets/stk_mins.py`、`assets/stk_mins_qfq_macd_kdj.py`、`ops/stock_mins_qfq_factor_repair.py`、`ops/gold_stk_mins_qfq_macd_kdj_repair.py`、两个repair guard、九转原planner及相应sensor为当前依据，因子对象口径沿`876cc6a8`。
+
+真实配置及验收方法复用23日恢复报告`batch9/10/11/execution-card.md`和`readback.py.txt`，只替换业务日期、前序日27日、当前run/root、输出目录和真实产物；去掉旧固定股票数、日期数、文件数及旧run断言，保留原check/receipt/输入身份保护。已有readback不读Parquet内容、不计算价格或写事件。不能另写行情计算入口、把日线repair builder用于分钟因子job，或借本轮补数增加全量审计、性能测试和重复SHA。
+
+两份23日readback还包含旧preflight/control/prepare入口，要求当时daemon停止、只核当时2个sensor并依赖41股的旧目录材料，与本轮DG继续运行、隔离5个sensor的事实不同。本轮不执行这些入口；临时验收模块只保留原daily/factor/repair的事件、guard、日志、receipt/stat验收函数及其依赖，保持函数业务断言不变，配置其28日和新报告根后用薄CLI调用。移除不再调用的旧准备入口不能连带删减验收保护。当前safe_to_launch及factor_gate必须来自本轮真实前序检查，不手写虚假的通过值；正式调用前先检查依赖闭包及语法，隔离静态结果不能冒充真实运行验收。
+
+CodeGraph explore已核原job、repair消费者、同日daily/state前置和现成decision调用；GraphQL启动语义参考当前Dagster官方文档及前序已成功的`launchRun`。`dg launch`为本地进程执行，不用它替代当前正式webserver调度。观察器只负责提交原job、读取其事件/日志和receipt/stat，不加入数据计算。
+
+### 17.4 必要历史范围、stat依据和预算
+
+准备证据位于`/private/tmp/dg_minute_chain_20261028_20261029/history-stat-consumer.json`。28日QFQ来源按七频映射计D=56,815,263B；27日7份state1,755,431B、4份九转seed234,465B均存在。16股2014—2026年七频现有QFQ723份/148,790,838B，MACD723份/378,182,606B；原discover探测的2013年112条路径均不存在。
+
+因子repair实际历史上界为2014-01-02至2026-10-28、3,115个交易日；四个唯一来源频率1/5/30/60的全市场Silver12,460文件47,423,932,430B，因子3,115份113,410,783B。不能按16股占全市场比例缩小共享日文件的读取成本。现有共享state21,798份3,844,228,112B，28日7份须先由MACD daily生成，repair合并时保留其他股票。
+
+23日已存16.37GiB QFQ/17.27GiB指标只是旧参考，不能仅加28日差额就漏掉23/26/27三天变化。为避免逐批补读旧operation材料造成复杂拼接，本轮执行前对当前2025/2026七频QFQ、2026七频指标做一次文件路径/大小统计，不打开Parquet正文、不计算数据摘要；不重做已经有本轮stat的16股历史、Silver日来源或shared state统计。该一次metadata统计给出真实当前Qd/Id，后续仅按28日实际receipt的before→candidate差额增量更新，不能再次扫描整个年度目录。与沿所有旧批次补差额相比，此办法直接得到当前文件大小，且只是目录/stat，不是历史行情审计。
+
+仍沿原Qd18GiB/Cd20GiB增长预留；16股年度部分小于23日41股，Silver历史及state增量仅约47MiB/5MiB，分项预算上界不增加。年度metadata统计约12万次文件stat、只保存按频/年汇总与必要控制身份，预计数秒至几十秒、内存为路径清单量级；不新增性能样本，不将文件大小当成实际设备I/O。后续预算由真实前序receipt更新。
+
+| 阶段 | 本轮必要读取及写入 | 正常估读/写GiB | 额外空间GiB |
+| --- | --- | --- | ---: |
+| QFQ daily | 28日七频对应Silver/因子；合并实际股票2026年七频QFQ年度，保留其他日期，不读2025年QFQ | 34 / 9 | 12 |
+| 因子repair | 原job实际名单的2014-01-02—28日七频历史；共享四频全市场Silver及相应因子、QFQ年度合并 | 52 / 3 | 4 |
+| MACD daily | 2025/2026七频QFQ、27日state；合并2026指标年度并生成28日state | 280 / 88 | 96 |
+| MACD repair | 实际因子产物对应股票2014—28日历史指标；3,115日七频共享state合并并保留其他股票 | 36 / 20 | 24 |
+| 九转 | 2025/2026四频QFQ及27日seed；必要一次实际变化股票seed核验；更早历史仅限原有界候选实际代码、2014—2026年、合计≤1GiB，先stat再读 | 26 / 3 | 3 |
+
+正常必要job各一次，合计保守估读428GiB、写123GiB、顺序额外空间128GiB。包括原job合并、计算、原检查、一次候选摘要、DuckDB工作文件及最后receipt/stat；不是额外428GiB审计，不是实际设备I/O测量，不新增运行限制或人工中止阈值。当前MACD两年装入是原实现开销，本轮没有进行读取优化，不能宣称算法必须读两年或已优化。
+
+中断继续成本单列：最坏再计相应未完成阶段一次预算，仅供恢复前核定，不授权自动重跑。失败保留正式已提交结果及staging，先查原root/receipt/未完成unit及空间；不得另起root重放完整已完成阶段或手工回滚。原job资源、共享pool和锁保持现状，无套件安装、备份、Kopia、全历史事务或额外性能样本。
+
+现行MACD历史repair op未向writer传publication_id，operation目录随机生成，不能承诺原生重执行会自动复用旧候选。若此步失败，必须先由原日志定位全部真实operation/receipt并核剩余范围，再制定具体继续办法；本轮正常一次授权不包含另起run盲重算。其他已传root身份的日更/因子/九转继续沿其原有恢复规则。
+
+### 17.5 原生启动、配置和五步执行
+
+工作目录为`/Users/congming/github/goldenshare/lake_console/orchestrator`，使用现有`.venv`；正式`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`。所有job通过现有`http://127.0.0.1:3000/graphql`的`launchRun(executionParams:...)`提交，selector固定`orchestrator/__repository__/<原job>`，等待真实run终态和本步验收后才提交下步。
+
+步骤1/3/5的`runConfigData={}`、tag仅目标`dagster/partition=2026-10-28`及本轮审计标识；不改原job资源或业务配置。步骤2为非分区op-only，配置只有`{"ops":{"stock_mins_qfq_factor_repair_op":{"config":{"trade_date":"2026-10-28"}}}}`，不得传虚构partition或股票列表。步骤4从原`build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision`及`_run_config_for_repair_decision`取得完整实际配置，保存上游事件IDs、batch/hash、名单和日期后原样提交，不手拼repair名单。
+
+临时触发器的审批、防重复提交及前序保护必须显式拒绝，不以Python优化模式可删除的assert承担。前序验收除通过标记外，还须核28日、对应mode/job、SUCCESS及run id等于本轮native-run记录；factor gate的producer/date必须绑定本轮原因子run。MACD repair配置须等于已保存的原builder输出，且日期、起点、七频、实际名单/hash和upstream batch与本轮factor gate一致，并与本轮MACD daily run及decision来源绑定。误放23日或其他run的合法配置/通过材料仍须在提交前拒绝，不能依赖原op替本次执行意图识别错日。启动前以纯临时材料验证拒绝路径，不能请求正式GraphQL作测试。
+
+每步只读取精确run的有限事件和原日志，记录原job进度；观察请求超时只影响观察，不能擅自取消job或重交。原publication路径从真实日志/metadata定位，不根据样本URI猜整个年度产物。day28动态分区已随前序存在；若实际缺失或原guard拒绝，先说明而非绕过，不擅自注册全历史。
+
+### 17.6 逐步验收、并发和sensor恢复
+
+开始前复用08:58运行记录及必要增量状态核无同链活动writer、pool/空间及正式Lake/staging同设备；五个分钟sensor保持STOPPED直到五步完整通过，避免自动接续与手工提交重叠。不关闭DG/daemon或其他数据集，不清cursor或改调度参数。
+
+九转sensor现行代码只等待QFQ、因子repair和前序九转，并不等待MACD历史repair；不能声称sensor天然保证本节五段顺序。本轮由逐job提交和五开关保持停止来保证先MACD repair、后九转。
+
+日更核精确run、业务日期、资产/check名称、passing/blocking及目标物化storage id；两个repair按原guard核本批真实完成记录及一致的名单/范围/batch/hash，而非只看SUCCESS。逐频只核真实operation/receipt的promoted和正式目标stat前四项、候选已提升；不在repair合法覆盖后再用daily旧identity要求保持不变。完成后按最后writer的receipt核最终身份，原每日checks不为“再绿一次”重跑。
+
+现行旧Raw/Silver、因子及普通日更检查有原生event partition为空的存量记录，23日原readback明确允许None，但必须准确绑定本次目标日期的真实物化。准备入口最初额外强制旧check原生partition非空，随后又错误地要求因子每条check都具备日期metadata；这两项额外假设均不符合原验收实现，在任何新年度/价格读取和job启动前已拒绝并纠正。原口径为：check passing/blocking、asset及target run/storage id对应28日物化、物化partition为28日；日期metadata或原生partition若实际提供，不能与28日冲突，缺失时由已强绑定的真实物化日期证明，不能填造日期。已取得三份精确run的完整39条check小型证据，后续复用，不反复读取。此处仅观察既有事实，不修改正式checks、补事件、放宽数据检查或重跑上游；事件原生分区缺失单独记录，不能宣称它已修复。
+
+九转先检查原gate及27日seed是否可用。若实际factor repair改写历史，而现有receipt不能证明旧连续计数不变，仅对job实际变化股票×四频按原九转公式计算其必要历史，再筛27日末根，比较时间、up_count/down_count及两个九信号；无实际前史的新股不伪造seed。价格重定价和舍入后，旧checks绿色或文件stat一致不能证明旧连续计数仍然正确；原seed读取代码直接承接旧计数，候选函数也不校验这一点。该核验最多一次，沿23日batch11既有规则，不回写seed或重跑其他日期。出现差异立即停，明确影响与处理方案，不手改seed、硬算28日或虚构九转repair job。
+
+准备先后固定为：先用原`_bounded_candidate_codes`取得真实候选（只读正常2025/2026来源及27日seed的必要键），再对原候选和实际因子变化股seed所需路径按原helper会枚举的全部`year=*`路径stat，按路径去重，核所有实际年份在2014—2026且更早历史合计≤1GiB；通过后才执行一次必要seed历史比较，最后形成允许启动九转的前置。不得先做seed完整历史读取后才知道候选合计超范围，也不能先过滤批准年份再让原planner发现范围外文件。16股当前2013缺失证据只用于这16股，不能代替原候选其他股票的年份核对。通过后才交原planner；不调用完整planner先读未知历史、复制旧候选或篡改名单。超出批准范围或前序身份冲突时停止，不能用填值、Raw兜底或手工绿色事件绕过。
+
+本次1GiB范围按这些seed/候选会实际枚举的2014—2026全部文件去重合计，包括其中2025/2026文件，不能仅加总2025年前文件而放大候选读取。正常两年全市场来源另按原26GiB九转预算计费；这里的1GiB是已获准候选/seed读取范围核定，不是给正式job增加内存、时间或运行中断限制。
+
+全部完成后恢复原本RUNNING的5项：`stock_mins_qfq_daily_sensor`、`stock_mins_qfq_factor_repair_sensor`、`gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor`、`gold_stk_mins_qfq_macd_kdj_repair_job_sensor`、`gold_stk_mins_qfq_nineturn_update_job_sensor`，只改这5个开关、不改cursor；只读确认恢复结果。THS等独立数据集缺口不作为继续关闭已完成分钟链sensor的理由。
+
+### 17.7 最后一次28日DG物理完整性审计
+
+用户明确要求分钟链补齐后列28日剩余缺口。沿`audit-dg-datasets-by-date`的当前catalog、路径分类和后端计数，只运行一次该日完整性审计；不以job绿色替代文件/数据库真实行数。
+
+原skill脚本年度分支还计算distinct代码和时间min/max，本轮缺失判断只需计数，不为这些非必要输出扩大读取。复用原分类、直接分区及serving计数；年度分支临时入口仅`SELECT count(*) ... WHERE trade_date=DATE '2026-10-28'`，不取代码/时间/OHLC、不导出明细，不读2025年文件或其他日期。连接复用现行configured DuckDB的existing_no_spill，不隐式新建未知临时目录、不修改业务或skill源码。具体适配及夹具验证如下，验证通过前不执行正式审计。
+
+具体入口：在本轮`/private/tmp/dg_minute_chain_20261028_20261029/`动态载入原skill脚本，复用`_load_catalog`、`_audit_trade_date`、直接Parquet分类和既有后端连接。仅替换该模块的年度汇总和CH汇总：年度对目标2026文件族只做带28日WHERE的`count(*)`，CH只对原两个白名单表做28日`count()`；不输出distinct/min/max、无效键统计或价格字段。PG原同日只读count保持不变。原模块局部`duckdb`引用改为连接工厂，工厂通过`connect_configured_duckdb(DuckDBConnectionSettings(temp_directory=Path('/private/tmp')), temp_policy='existing_no_spill')`取得连接，close退出原context；不得改真实duckdb模块的全局connect，以免递归或影响其他任务。该限制仅作用本次只读审计，不施加给业务job。
+
+年度文件族无匹配路径才记缺日期行；有文件但查询失败、直接文件不可读或后端不可用都归未核实，不沿原汇总把unreadable说成缺失。生成最终统计前重整三类叶子状态，确保有数据、真实缺失、合法零行、未核实互不混淆，总数与catalog分类一致。目标分区文件只读count，真实零行与文件不存在分列；不把本审计当成质量/readiness验收。
+
+临时入口编写后，使用独立字面小样本的临时Parquet验证目标日期count/不存在日期/缺文件/不可读；捕获年度和CH请求，断言只有count和28日过滤、未知表拒绝；证明模块局部替换不改变真实duckdb.connect及连接最终关闭。隔离测试不访问正式资源、不安装依赖，报告入口自身不留业务临时文件。测试及独立复核通过后才执行正式一次。
+
+当前catalog静态分类为180项＝直接分区138＋年度族14＋Serving7＋明确排除21，正式审计仍以运行时catalog为准，不硬编码清单。年度14族为2026年QFQ及MACD，按已有全年文件总字节约25GiB作极保守读取上界，最终审计另预留读32GiB/写8MiB/空间16MiB；实际上只需日期列和Parquet元数据，不宣称读取完整文件全部字段。该计数开销与业务补数428GiB分列，不暗算成原job读写，也不为观察重复执行计数。
+
+全部catalog必须被审计或明确排除；真正全量快照/健康资产列为非按交易日数据集，合法零行单列；数据库不可用列未核实，不说成缺失。两端CH及Prod PG均只读、限定28日，仅计数。此步骤受根AGENTS统计计数例外覆盖，不对全市场明细作额外比对；预算读写仅包含计数/目录/报告，年度行数查询不重复运行。报告保存时间、catalog/审计/排除/有数据/缺失/未核实/零行数量与缺失清单；不自动修复本次分钟链之外的缺口。
+
+### 17.8 材料、清理及本步状态
+
+本轮证据目录固定`lake_console/reports/datasets_recovery_20261028_20261029/`，正式启动请求/返回run id、每步验收、原repair产物及最终物理审计分开保存；准备阶段材料从本次/tmp目录逐字节归档。临时编排只触发原job、观察结果和stat，不计算或写Parquet。结束时仅精确删除本轮已归档的临时脚本和隔离夹具，保留正式结果、候选/receipt/恢复依据；不清共享工作目录或其他任务文件。
+
+当前状态：用户已授权补数及最后审计；代码及只读准备已核，本节年度/历史具体范围尚待单独批准，未触发28日下游job。批准及实际执行结果随后逐项追加，不能预填完成。
+
+### 17.9 准备验证记录（不是真实执行结果）
+
+三类必要临时入口已经完成有界验证：计数入口14项隔离测试及root源码复核通过；原readback适配保留33个验收函数逐字节不变，20项静态/合成检查通过；薄触发器独立审计发现的assert及旧日期/批次误绑定问题已先补回§17.5并修正，普通Python与优化模式各32例通过。缺批准、错日期/job/run、factor producer、MACD批次/名单/hash/频率/起点或重复intent均在请求前拒绝；未知启动结果保留intent且不重交。
+
+准备验证使用纯临时字面材料和模拟请求，真实网络、正式DB/Lake访问均0；夹具目录已清理。不能将这些结果宣称为原job、真实builder、repair或正式审计已通过。来源、适配diff、测试和当前等待批准状态见[本轮报告](../../reports/datasets_recovery_20261028_20261029/README.md)。业务代码未新增修改，现阶段原job启动0、最后计数审计0，具体历史范围审批仍待管理员回复。
+
+### 17.10 具体范围批准及开始执行
+
+管理员已回复本轮具体范围问题：“批准，按原job及repair顺序执行”。批准对象为§17.4的28日五阶段正常各一次、估读428GiB/写123GiB/额外128GiB及所列必要seed/有界历史范围；不扩大到其他日期补数，不自动重跑失败阶段。批准原文、问题身份及范围保存在本轮报告`history-approval.json`。§17.8—17.9的等待状态保留为准备阶段历史；现在先核必要增量控制及输入身份，通过后依次启动原job，后续逐项记录真实结果。
+
+准备阶段08:58:31的一次完整年度metadata统计已从原exec session 95290追回，原命令终态exit0、统计18.648秒、正文读取0；没有再执行一次年度目录扫描。原始证据为本轮`recovered-metadata-stat.json`，保留其真实观测时间，不以归档时间替换。基线为2025/2026七频QFQ77,399份17,709,333,522B，其中2026年39,158份8,245,446,955B；2026指标39,158份18,830,843,744B。该统计发生在28日下游尚未启动且五sensor停止之后；正式前只核此后无同链新run即可复用。其后仍只用28日receipt增量，不重复stat整个年度目录。
+
+### 17.11 前两步完成，MACD日更已启动
+
+28日QFQ daily run `94384f7b-0b77-4317-998c-32da2a5e88dd` SUCCESS，耗时877.983秒；7物化及28条原检查全部通过、绑定正确，38,990份2026年度目标的原receipt/stat通过，候选合8,264,362,172B；原输入身份保持。只通过原job更新28日并合并年度，未重新下载Raw/Silver、未执行额外价格/SHA审计。
+
+随后原因子repair run `816a0d01-a56f-4f06-bdb3-1a7e0c05a793` SUCCESS，7条真实完成check及原guard ready；原job实际选择16股，范围2014-01-02至2026-10-28、3,115个交易日。原生510份、派生208份年度改写，scope/hash/batch及输入身份核对通过，批次为`qfq_factor_repair:2026-10-28:3afb0b0b08f6`。名单未人工指定。源日志累计四频Silver读取文件stat合47,423,932,430B，与批准来源一致；不将stat字节称为实测设备I/O。
+
+MACD前置用真实初始年度基线及这两步receipt净增，Qd变为17,748,649,275B；正常估读264.237GiB/写85.004GiB，仍在批准280/88GiB分项内。27日state原readiness通过，五sensor仍停止、pool空闲。10:00:43通过原job提交MACD daily run `13e1b027-22c4-4268-950d-aaac9b5be9d2`。其历史repair和九转尚未提交，后续结果继续追加；验收材料见本轮报告batch9/batch10。
+
+### 17.12 MACD日更验收完成，指标repair启动
+
+MACD daily run `13e1b027-22c4-4268-950d-aaac9b5be9d2` SUCCESS；14物化、28条原检查及对应storage id绑定全部通过，七频年度指标及28日7份state均完成原receipt/stat验收。日更后保存真实target身份，后续repair合法替换的目标按最后writer回执核，不重新要求daily旧身份保持。
+
+通过原decision/config函数、真实factor batch及本次14物化readiness生成16股repair配置。必要历史预算估读28.427GiB/写16.5GiB，仍在批准36/20GiB分项内；QR150,264,957B、日更后旧指标378,461,902B、共享state3,845,983,660B均由原产物和必要stat得出，无额外价格读取或全目录扫描。10:20:19提交原repair run `44caf58c-a1d9-4e37-b525-b82cda3179b3`一次，待14条原完成记录及完整gate通过后才进入九转。未重跑daily、未手改名单，未添加资源或时间限制。
+
+### 17.13 五阶段补齐完成、sensor恢复及最后单日计数
+
+2026-10-29已按本节顺序完成2026-10-28股票分钟链。MACD/KDJ历史repair run `44caf58c-a1d9-4e37-b525-b82cda3179b3` SUCCESS，耗时300.672秒；14条原完成检查全部通过，completion和完整factor/MACD检查均ready，事件、起止日期、16股名单/hash及上游批次一致。实际发布723份指标年度文件，重算6,906,176行；合并21,805份共享state后共85,262,709行，包含保留的其他股票，不表示重新计算全市场。原operation/receipt与正式文件stat通过。证据：[指标repair验收](../../reports/datasets_recovery_20261028_20261029/batch10/repair-run-verified.json)。
+
+随后先核27日九转原产物，再对本次实际变化16股的30/60/90/120分钟末根seed进行必要核验，64组全部匹配、差异0；有界查询所得候选历史52份、2,230,410B。候选及seed按路径去重合468份、17,922,588B，包含2025/2026年，按这一合计核对未超已批准的1GiB范围。原九转job run `a9f7bedc-5041-48ab-8171-20c388bff5ea` SUCCESS，耗时68.201秒；4物化、4条原检查及真实绑定通过，28日四文件共94,690行、241,902B，receipt/stat及输入身份验收通过。没有重跑27日九转。证据：[seed及候选范围](../../reports/datasets_recovery_20261028_20261029/batch11/candidate-scope.json)、[九转验收](../../reports/datasets_recovery_20261028_20261029/batch11/final-verified.json)。
+
+本轮5个原job各执行一次、全部SUCCESS，无失败重跑或原生重执行。QFQ日更7项、MACD/KDJ指标及state14项、九转4项，共25个28日资产补齐；原检查合计81项全部通过：28条QFQ日更检查＋7条因子repair完成检查＋28条MACD日更检查＋14条指标repair完成检查＋4条九转检查。两个repair均消费原job自动确定的同一16股范围，没有人工指定名单，也未重复执行已完成的Raw/Silver或Silver因子修正。
+
+10:40:16按批准恢复本节列出的5个分钟sensor，逐项读回均为RUNNING，未清理或重置cursor，未改其他sensor、daemon或资源设置。此前各节STOPPED是执行期间的历史状态，恢复待办已关闭。证据：[sensor恢复记录](../../reports/datasets_recovery_20261028_20261029/sensor-restoration.json)。
+
+本轮39个`/tmp`中间文件合611,044B，已逐字节核对归档后删除，临时目录已移除；正式staging及其提交、恢复记录保留。精确清单和结果见[清理记录](../../reports/datasets_recovery_20261028_20261029/cleanup-manifest.json)。
+
+最后仅执行一次28日DG物理计数：catalog180项，实际审计159项、明确排除21项；157项有数据，缺失2项，未核实0、零行0。本轮分钟链25项均有数据；剩余缺失为`gold_major_index_daily_nineturn`和`prod_core_index_daily_nineturn`。计数原文单独保存在[最终物理审计](../../reports/datasets_recovery_20261028_20261029/final-physical-audit.json)，完整说明见[本轮报告](../../reports/datasets_recovery_20261028_20261029/README.md)，不以任务成功代替物理计数，也不在本轮自动补齐这两项独立缺口。
+
+批准的估读428GiB、写123GiB和额外空间128GiB是执行前保守预算。上述文件数、行数和文件字节来自原产物、日志及receipt/stat，不是实测设备累计I/O；收尾未追加年度全文读取、普通检查重跑或数据SHA校验。
+
+## 18. 2026-10-28剩余两项主要指数日线九转补齐方案和执行LLD
+
+### 18.1 授权、目标和禁止项
+
+管理员在§17分钟链完成及单次计数之后要求“将28日的两项补齐吧先”，随后要求继续推进。本步仅补`gold_major_index_daily_nineturn`和`prod_core_index_daily_nineturn`在2026-10-28的数据，沿本轮恢复报告继续记账；不改业务代码、不重跑上游Raw/Silver/主要指数日线Gold或股票分钟链、不补23/26/27日THS、不重复全目录审计，不修改sensor、cursor、并发、资源或daemon。
+
+### 18.2 当前代码及有限来源
+
+原`jobs/major_index_nineturn_update.py`只选择一个Gold日线九转及其聚合blocking check；`assets/major_index_nineturn.py`从`cn_a_index_trade_days`取上一注册交易日，使用`major_index_nineturn.py`选择截至28日最近20份`gold/market/major_indices_daily`日文件和27日九转结果延续计数。只写28日七列Gold九转。当前stat为20份来源合52,537B，范围2026-09-23至2026-10-28；27日九转文件存在，28日目标不存在。原28日物理计数已确认当日主要指数Gold11行，最后以原job实际N和原检查为准，不把11写成publisher硬上限。读取只投影原公式所需代码、日期、close以及原seed列，是本次job必要的有界历史上下文，不做全历史读取或额外历史明细审计。
+
+Gold原writer在`data_lake_staging`生成独立候选，核schema、日期、键、行数、值域和来源身份，核对后`os.replace`提升单文件；该writer没有股票QFQ式publication JSON或跨run checkpoint，不能虚构回执或承诺失败后自动续跑。原finally会清理自身剩余候选，本步不改变此行为或额外删除现场；正式目标已替换时保留现状，先查真实步骤和物化/check事实，禁止盲目整链重跑。
+
+原`jobs/index_daily_nineturn_prod_core_sync.py`独立选择Prod资产及一个check。`assets/index_daily_nineturn_prod_core.py`先按原六项Gold完整性规则核同日源，再显式取七业务列；`prod_db/index_daily_nineturn.py`在同一事务内只替换`core_serving.index_nineturn_daily`的28日行，读取同日业务内容hash一致才提交。原Prod check再只读同日比对业务内容；published_at不进业务hash，INSERT page_size100不是业务行数上限。不会清表或改其他日期。CodeGraph explore已核原两job及Gold消费者，publisher实现及22/23日原执行证据另作静态独立核对；无接口、契约或前端改动。
+
+### 18.3 执行前只读核验及唯一触发方
+
+复用23日`batch2-3-index/execution-readback.py.txt`和22日`batch5-index-nineturn-prod-readback.py.txt`的精确run验收语义，但不整份运行：旧脚本要求daemon停止、全五步日线链及旧邻日、固定行数，与本轮不符。本步薄观察入口只处理这两个job、28日及必要前序，使用现有orchestrator `.venv/bin/python3 -B`；正式storage设置只读和`should_autocreate_tables=False`，不初始化instance。
+
+先核动态分区已注册、上一日27日、28日主要指数Gold和27日九转的最新物化及原blocking checks准确绑定、必要21个输入文件stat、正式Lake/staging同设备与空间、同日同链活动run、两条相关sensor实际状态；另对Prod27/28/29日只做一次分组count保存基线。只需已有上游证据和必要stat，不重算公式、不重跑原checks。运行中上游或seed身份变化即停止后续提交。
+
+`prod_core_index_daily_nineturn_sync_job_sensor`默认STOPPED不能证明实际停止。当前若RUNNING，则Gold通过后优先跟踪其唯一自动Prod run，不再手工重复提交；若STOPPED，才手工提交Prod。Gold本身若已有同日活动run则跟踪原run，已有有效成功及绑定检查则复用。若Gold自动sensor当前RUNNING，先核其最近真实tick：有同日活动/提交则跟踪；当前因29日尚未注册而在整窗检查处SKIPPED、29日仍未注册且28日无活动run时，可以手工精确提交28日，不为此登记29日或停用sensor。该例外在提交前再次只读确认；不与能够自动提交28日的评估并行。目标已有但没有可核验的成功记录、同日多个活动run或输入冲突时停止说明；不停止整个DG或其他任务。原失败run不自动重试，本次若复用的来源已修复，允许按本次意图运行原job正常一轮，失败仍即停。
+
+### 18.4 原生提交、验收与收尾
+
+工作目录`/Users/congming/github/goldenshare/lake_console/orchestrator`，`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`，正式GraphQL `http://127.0.0.1:3000/graphql`，selector固定`orchestrator/__repository__`。以现有`.venv/bin/dagster-graphql --remote http://127.0.0.1:3000 --file <launch.graphql> --variables "<本步JSON文件的完整JSON文本>"`执行原`launchRun`，runConfigData空对象，tag只含`dagster/partition=2026-10-28`及本轮标识；先Gold job验收，再Prod job，不直接调用writer或手写数据库补数。
+
+启动前保存唯一intent和完整请求，返回run id立即归档；响应未知先只读查同日同job，禁止重复提交。观察请求超时不取消业务run或重交。每个精确run按有界事件核SUCCESS、准确资产、28日物化、原check passing/blocking、target run/storage id一致；有原生partition时必须为28日，不补造事件。Gold原六项规则全部通过、来源身份保持后才进入Prod；Prod核`row_count=read_back_row_count=N`和原check的expected/observed内容hash一致。最终只对28日Gold文件和Prod同日做count核实际N，同时复核27/29日目标stat/Prod计数与基线一致；不再次全目录审计、不额外全表或历史hash。
+
+Prod事务失败回滚；若提交成功后事件或check失败，不当作未写入，保存原状态并先核28日事实，不自动回滚、覆盖或重跑Gold。正式结果、staging及失败原日志保留。执行材料固定在本轮报告`index-daily-nineturn/`；辅助观察脚本只存本轮精确`/private/tmp/dg-index-nine-20261028-20261029/`目录，完成后逐字归档为文本并删除本轮临时文件，不清共享目录。
+
+### 18.5 性能预算与验收边界
+
+范围是20份小型日线文件、1份前序九转、目标1日/11个物理seed指数，源请求0。原Gold正常一次预计数秒，Prod原22/23日执行约6秒，队列和解释器加载另计；不做性能测试。正常连原计算、原检查、精确事件、最后同日计数及报告保守预算读8MiB、写1MiB、额外空间8MiB；中断后的必要状态确认和未完成部分另预留相同额度，仅用于恢复前判断，不授权自动再跑。现有资源配置不改变，不新增运行中断限制。
+
+本步不开发业务代码，原公式与publisher测试及既有22/23日真实成功证据复用；只做临时观察入口的语法/静态范围核验，不拿正式环境试跑测试。真实验收是本次两job原检查和限定两项物理计数，不宣称重新审计159项或历史THS已齐。若两个缺口均完成，可以把10:40计数的157/159按本次两项后续证据更新为28日159/159，但必须明确是原计数加本次两项收尾推导，没有再次全目录审计；原JSON保留不改。
+
+执行前实际状态：两sensor均RUNNING、28日两job尚无run；Gold最近两tick因29日缺注册跳过。预检21份输入合53,860B，上游28日Gold及27日九转的原检查均已验收，Prod27日11行、28/29日0行。采用上述精确28日Gold手工触发、Prod原sensor唯一自动接续；自动Prod必须以原build_batch_id/build_upstream_triggered_run_key产生的dagster/run_key、sensor名、job和日期对应本次Gold run，不能只取最新同日run。
+
+### 18.6 两项正式完成及必要收尾
+
+2026-10-29 12:23已完成。实际两sensor均RUNNING；原Gold sensor最近两tick在整窗注册检查因29日未注册跳过，28日自身注册、来源及前序检查完整。提交前再次核这个事实、无28日活动run且Gold目标缺失后，只手工提交一次Gold原job，run `d4c794f5-4939-482e-a93c-4ba70d3eadd7` SUCCESS，4.845秒，11行及一项原blocking check通过。未注册29日、未改sensor或cursor。
+
+随后由原Prod run-status sensor自动提交run `22dbd172-3a3c-4c51-bb1f-075eb31256bf`，SUCCESS，5.369秒，11行及一项原check通过，read_back_row_count与Gold一致，expected/observed业务hash相等。验收以本次Gold计算的原upstream batch/run_key及sensor名、job、日期绑定，未额外手工提交Prod。
+
+最终只count这两项：Gold与Prod均11行。必要21份输入stat、27/29日Gold目标stat及Prod邻日计数保持；原两sensor仍RUNNING。本步没有业务代码变更、正式job重跑、资源限制、全目录重复计数或额外历史明细比对。原10:40计数157/159加本次2项恢复，得28日159/159按日资产有数据、缺失0；原计数JSON不改，后续证据单存[两项最终收尾](../../reports/datasets_recovery_20261028_20261029/index-daily-nineturn/final.json)。该结论仅针对28日；23/26/27日THS历史缺口仍未处理。临时辅助材料先归档后精确清理，正式结果及staging保留，详见本轮报告第7节。

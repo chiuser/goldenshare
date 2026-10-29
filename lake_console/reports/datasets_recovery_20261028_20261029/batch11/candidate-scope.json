@@ -1,0 +1,486 @@
+{
+  "as_of": "2026-10-29T10:28:59.173060+08:00",
+  "date": "2026-10-28",
+  "prior_date": "2026-10-27",
+  "passed": true,
+  "phase": "complete",
+  "status": "passed_seed_and_candidate_scope",
+  "formal_writes": 0,
+  "jobs_launched": 0,
+  "full_planner_calls": 0,
+  "fallback_history_queries": 0,
+  "new_data_sha_reads": 0,
+  "seed_comparisons": {
+    "30": {
+      "result_count": 16,
+      "matches": 16,
+      "both_absent_on_prior_date": 0,
+      "mismatch_count": 0,
+      "differences": []
+    },
+    "60": {
+      "result_count": 16,
+      "matches": 16,
+      "both_absent_on_prior_date": 0,
+      "mismatch_count": 0,
+      "differences": []
+    },
+    "90": {
+      "result_count": 16,
+      "matches": 16,
+      "both_absent_on_prior_date": 0,
+      "mismatch_count": 0,
+      "differences": []
+    },
+    "120": {
+      "result_count": 16,
+      "matches": 16,
+      "both_absent_on_prior_date": 0,
+      "mismatch_count": 0,
+      "differences": []
+    }
+  },
+  "candidate_groups": {
+    "30": {
+      "source_row_count": 44560,
+      "candidate_codes": [
+        "600621.SH"
+      ],
+      "candidate_code_count": 1,
+      "history_inputs": {
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=600621.SH/year=2014/part-000.parquet": [
+          16777244,
+          19739509,
+          62936,
+          1790728656396419248,
+          1790728656398093086
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=600621.SH/year=2015/part-000.parquet": [
+          16777244,
+          19739522,
+          78168,
+          1790728657399336491,
+          1790728657401246080
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=600621.SH/year=2016/part-000.parquet": [
+          16777244,
+          19739538,
+          55527,
+          1790728658529528432,
+          1790728658530618811
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=600621.SH/year=2017/part-000.parquet": [
+          16777244,
+          19739556,
+          65265,
+          1790728659827714368,
+          1790728659830652794
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=600621.SH/year=2018/part-000.parquet": [
+          16777244,
+          19739574,
+          74141,
+          1790728661214687712,
+          1790728661216498968
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=600621.SH/year=2019/part-000.parquet": [
+          16777244,
+          19739592,
+          74714,
+          1790728662691665801,
+          1790728662693418140
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=600621.SH/year=2020/part-000.parquet": [
+          16777244,
+          19739612,
+          85864,
+          1790728664305495786,
+          1790728664307419584
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=600621.SH/year=2021/part-000.parquet": [
+          16777244,
+          19739633,
+          83014,
+          1790728666222587823,
+          1790728666224403954
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=600621.SH/year=2022/part-000.parquet": [
+          16777244,
+          19739657,
+          69664,
+          1790728668344216223,
+          1790728668345684394
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=600621.SH/year=2023/part-000.parquet": [
+          16777244,
+          19739685,
+          68623,
+          1790728670481351547,
+          1790728670483893763
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=600621.SH/year=2024/part-000.parquet": [
+          16777244,
+          19739714,
+          73841,
+          1790728672708381700,
+          1790728672709860705
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=600621.SH/year=2025/part-000.parquet": [
+          16777244,
+          19739744,
+          70180,
+          1790728675191451629,
+          1790728675194822015
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=600621.SH/year=2026/part-000.parquet": [
+          16777244,
+          27738159,
+          58245,
+          1793238212829162723,
+          1793238239951478480
+        ]
+      },
+      "history_scope_complete": true,
+      "history_files": 13,
+      "history_bytes": 920182
+    },
+    "60": {
+      "source_row_count": 22280,
+      "candidate_codes": [
+        "600621.SH"
+      ],
+      "candidate_code_count": 1,
+      "history_inputs": {
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=600621.SH/year=2014/part-000.parquet": [
+          16777244,
+          19739796,
+          37710,
+          1790728677585171982,
+          1790728677586840362
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=600621.SH/year=2015/part-000.parquet": [
+          16777244,
+          19739809,
+          46591,
+          1790728678086099915,
+          1790728678088441714
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=600621.SH/year=2016/part-000.parquet": [
+          16777244,
+          19739825,
+          33511,
+          1790728678635183335,
+          1790728678637692843
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=600621.SH/year=2017/part-000.parquet": [
+          16777244,
+          19739843,
+          38934,
+          1790728679203850693,
+          1790728679205409739
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=600621.SH/year=2018/part-000.parquet": [
+          16777244,
+          19739861,
+          46067,
+          1790728679798703217,
+          1790728679800415056
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=600621.SH/year=2019/part-000.parquet": [
+          16777244,
+          19739879,
+          43427,
+          1790728680378907653,
+          1790728680381073951
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=600621.SH/year=2020/part-000.parquet": [
+          16777244,
+          19739899,
+          50362,
+          1790728680947065716,
+          1790728680948562762
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=600621.SH/year=2021/part-000.parquet": [
+          16777244,
+          19739920,
+          48599,
+          1790728681519032376,
+          1790728681521139674
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=600621.SH/year=2022/part-000.parquet": [
+          16777244,
+          19739944,
+          43018,
+          1790728682153937903,
+          1790728682155517242
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=600621.SH/year=2023/part-000.parquet": [
+          16777244,
+          19739972,
+          40541,
+          1790728683015776698,
+          1790728683017926079
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=600621.SH/year=2024/part-000.parquet": [
+          16777244,
+          19740001,
+          43346,
+          1790728683705893110,
+          1790728683709081870
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=600621.SH/year=2025/part-000.parquet": [
+          16777244,
+          19740031,
+          41801,
+          1790728684670892816,
+          1790728684672236570
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=600621.SH/year=2026/part-000.parquet": [
+          16777244,
+          27871968,
+          34906,
+          1793238364555912805,
+          1793238391165617293
+        ]
+      },
+      "history_scope_complete": true,
+      "history_files": 13,
+      "history_bytes": 548813
+    },
+    "90": {
+      "source_row_count": 16710,
+      "candidate_codes": [
+        "600621.SH"
+      ],
+      "candidate_code_count": 1,
+      "history_inputs": {
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=600621.SH/year=2014/part-000.parquet": [
+          16777244,
+          19740083,
+          30438,
+          1790728685768051653,
+          1790728685770002034
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=600621.SH/year=2015/part-000.parquet": [
+          16777244,
+          19740096,
+          36834,
+          1790728686201003409,
+          1790728686202561206
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=600621.SH/year=2016/part-000.parquet": [
+          16777244,
+          19740112,
+          27848,
+          1790728686680827317,
+          1790728686683347867
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=600621.SH/year=2017/part-000.parquet": [
+          16777244,
+          19740130,
+          31254,
+          1790728687199960391,
+          1790728687203965738
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=600621.SH/year=2018/part-000.parquet": [
+          16777244,
+          19740148,
+          37061,
+          1790728687763990984,
+          1790728687766289242
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=600621.SH/year=2019/part-000.parquet": [
+          16777244,
+          19740166,
+          34645,
+          1790728688286673570,
+          1790728688288839243
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=600621.SH/year=2020/part-000.parquet": [
+          16777244,
+          19740187,
+          38257,
+          1790728688801309338,
+          1790728688803582179
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=600621.SH/year=2021/part-000.parquet": [
+          16777244,
+          19740208,
+          38377,
+          1790728689283830921,
+          1790728689284799049
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=600621.SH/year=2022/part-000.parquet": [
+          16777244,
+          19740232,
+          33443,
+          1790728689865310903,
+          1790728689868198704
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=600621.SH/year=2023/part-000.parquet": [
+          16777244,
+          19740260,
+          33870,
+          1790728690625158746,
+          1790728690628130922
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=600621.SH/year=2024/part-000.parquet": [
+          16777244,
+          19740289,
+          35003,
+          1790728691258631227,
+          1790728691260927192
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=600621.SH/year=2025/part-000.parquet": [
+          16777244,
+          19740319,
+          33362,
+          1790728691886171523,
+          1790728691888605572
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=600621.SH/year=2026/part-000.parquet": [
+          16777244,
+          27938863,
+          28029,
+          1793238419477406993,
+          1793238445443267733
+        ]
+      },
+      "history_scope_complete": true,
+      "history_files": 13,
+      "history_bytes": 438421
+    },
+    "120": {
+      "source_row_count": 11140,
+      "candidate_codes": [
+        "600621.SH"
+      ],
+      "candidate_code_count": 1,
+      "history_inputs": {
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=600621.SH/year=2014/part-000.parquet": [
+          16777244,
+          19740371,
+          23065,
+          1790728692979992806,
+          1790728692983191317
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=600621.SH/year=2015/part-000.parquet": [
+          16777244,
+          19740384,
+          27351,
+          1790728693365926039,
+          1790728693368268755
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=600621.SH/year=2016/part-000.parquet": [
+          16777244,
+          19740400,
+          20055,
+          1790728693828511308,
+          1790728693831087816
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=600621.SH/year=2017/part-000.parquet": [
+          16777244,
+          19740418,
+          23468,
+          1790728694310796682,
+          1790728694312294353
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=600621.SH/year=2018/part-000.parquet": [
+          16777244,
+          19740436,
+          26340,
+          1790728694793022305,
+          1790728694795661438
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=600621.SH/year=2019/part-000.parquet": [
+          16777244,
+          19740454,
+          26196,
+          1790728695285867754,
+          1790728695288326054
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=600621.SH/year=2020/part-000.parquet": [
+          16777244,
+          19740474,
+          27212,
+          1790728695784071054,
+          1790728695786174060
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=600621.SH/year=2021/part-000.parquet": [
+          16777244,
+          19740495,
+          27016,
+          1790728696358859555,
+          1790728696363277069
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=600621.SH/year=2022/part-000.parquet": [
+          16777244,
+          19740519,
+          25945,
+          1790728696984439011,
+          1790728696986783394
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=600621.SH/year=2023/part-000.parquet": [
+          16777244,
+          19740547,
+          24590,
+          1790728697664277724,
+          1790728697665955896
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=600621.SH/year=2024/part-000.parquet": [
+          16777244,
+          19740576,
+          26008,
+          1790728698348986243,
+          1790728698350108122
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=600621.SH/year=2025/part-000.parquet": [
+          16777244,
+          19740606,
+          24537,
+          1790728699024516651,
+          1790728699025986614
+        ],
+        "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=600621.SH/year=2026/part-000.parquet": [
+          16777244,
+          27537443,
+          21211,
+          1793237876769067701,
+          1793237899858408211
+        ]
+      },
+      "history_scope_complete": true,
+      "history_files": 13,
+      "history_bytes": 322994
+    }
+  },
+  "actual_factor_codes": [
+    "300601.SZ",
+    "601298.SH",
+    "601991.SH",
+    "603689.SH",
+    "688087.SH",
+    "920047.BJ",
+    "920145.BJ",
+    "920199.BJ",
+    "920227.BJ",
+    "920242.BJ",
+    "920339.BJ",
+    "920427.BJ",
+    "920656.BJ",
+    "920751.BJ",
+    "920892.BJ",
+    "920957.BJ"
+  ],
+  "factor_batch": "qfq_factor_repair:2026-10-28:3afb0b0b08f6",
+  "history_scope": {
+    "all_history_files": 468,
+    "all_history_bytes": 17922588,
+    "older_files": 332,
+    "older_bytes": 12240473,
+    "path_deduplicated": true
+  },
+  "candidate_history_files": 52,
+  "candidate_history_bytes": 2230410,
+  "updated_at": "2026-10-29T10:29:19.424663+08:00"
+}

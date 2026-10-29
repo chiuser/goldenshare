@@ -1,0 +1,541 @@
+[
+  {
+    "run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+    "mats": {
+      "raw_stk_mins_15m": {
+        "id": 7766858,
+        "partition": "2026-10-28"
+      },
+      "raw_stk_mins_1m": {
+        "id": 7766865,
+        "partition": "2026-10-28"
+      },
+      "raw_stk_mins_30m": {
+        "id": 7766869,
+        "partition": "2026-10-28"
+      },
+      "raw_stk_mins_5m": {
+        "id": 7766879,
+        "partition": "2026-10-28"
+      },
+      "raw_stk_mins_60m": {
+        "id": 7766883,
+        "partition": "2026-10-28"
+      }
+    },
+    "checks": [
+      {
+        "name": "raw_stk_mins_contract_check",
+        "asset": "raw_stk_mins_15m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7766858,
+        "target_run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+        "date_metadata": {
+          "goldenshare/partition_date_failed_row_count": 0,
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "raw_stk_mins_key_integrity_check",
+        "asset": "raw_stk_mins_15m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7766858,
+        "target_run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28",
+          "goldenshare/partition_set": "cn_a_stock_mins_trade_days"
+        }
+      },
+      {
+        "name": "raw_stk_mins_value_domain_check",
+        "asset": "raw_stk_mins_15m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7766858,
+        "target_run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "raw_stk_mins_contract_check",
+        "asset": "raw_stk_mins_1m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7766865,
+        "target_run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+        "date_metadata": {
+          "goldenshare/partition_date_failed_row_count": 0,
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "raw_stk_mins_key_integrity_check",
+        "asset": "raw_stk_mins_1m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7766865,
+        "target_run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28",
+          "goldenshare/partition_set": "cn_a_stock_mins_trade_days"
+        }
+      },
+      {
+        "name": "raw_stk_mins_value_domain_check",
+        "asset": "raw_stk_mins_1m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7766865,
+        "target_run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "raw_stk_mins_contract_check",
+        "asset": "raw_stk_mins_30m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7766869,
+        "target_run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+        "date_metadata": {
+          "goldenshare/partition_date_failed_row_count": 0,
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "raw_stk_mins_key_integrity_check",
+        "asset": "raw_stk_mins_30m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7766869,
+        "target_run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28",
+          "goldenshare/partition_set": "cn_a_stock_mins_trade_days"
+        }
+      },
+      {
+        "name": "raw_stk_mins_value_domain_check",
+        "asset": "raw_stk_mins_30m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7766869,
+        "target_run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "raw_stk_mins_contract_check",
+        "asset": "raw_stk_mins_5m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7766879,
+        "target_run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+        "date_metadata": {
+          "goldenshare/partition_date_failed_row_count": 0,
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "raw_stk_mins_key_integrity_check",
+        "asset": "raw_stk_mins_5m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7766879,
+        "target_run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28",
+          "goldenshare/partition_set": "cn_a_stock_mins_trade_days"
+        }
+      },
+      {
+        "name": "raw_stk_mins_value_domain_check",
+        "asset": "raw_stk_mins_5m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7766879,
+        "target_run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "raw_stk_mins_contract_check",
+        "asset": "raw_stk_mins_60m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7766883,
+        "target_run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+        "date_metadata": {
+          "goldenshare/partition_date_failed_row_count": 0,
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "raw_stk_mins_key_integrity_check",
+        "asset": "raw_stk_mins_60m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7766883,
+        "target_run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28",
+          "goldenshare/partition_set": "cn_a_stock_mins_trade_days"
+        }
+      },
+      {
+        "name": "raw_stk_mins_value_domain_check",
+        "asset": "raw_stk_mins_60m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7766883,
+        "target_run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      }
+    ]
+  },
+  {
+    "run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+    "mats": {
+      "silver_stk_mins_15m": {
+        "id": 7774315,
+        "partition": "2026-10-28"
+      },
+      "silver_stk_mins_1m": {
+        "id": 7774319,
+        "partition": "2026-10-28"
+      },
+      "silver_stk_mins_30m": {
+        "id": 7774323,
+        "partition": "2026-10-28"
+      },
+      "silver_stk_mins_5m": {
+        "id": 7774327,
+        "partition": "2026-10-28"
+      },
+      "silver_stk_mins_60m": {
+        "id": 7774331,
+        "partition": "2026-10-28"
+      }
+    },
+    "checks": [
+      {
+        "name": "silver_stk_mins_contract_check",
+        "asset": "silver_stk_mins_15m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774315,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_key_integrity_check",
+        "asset": "silver_stk_mins_15m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774315,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_reference_coverage_check",
+        "asset": "silver_stk_mins_15m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774315,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_value_domain_check",
+        "asset": "silver_stk_mins_15m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774315,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_contract_check",
+        "asset": "silver_stk_mins_1m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774319,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_key_integrity_check",
+        "asset": "silver_stk_mins_1m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774319,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_reference_coverage_check",
+        "asset": "silver_stk_mins_1m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774319,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_value_domain_check",
+        "asset": "silver_stk_mins_1m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774319,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_contract_check",
+        "asset": "silver_stk_mins_30m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774323,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_key_integrity_check",
+        "asset": "silver_stk_mins_30m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774323,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_reference_coverage_check",
+        "asset": "silver_stk_mins_30m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774323,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_value_domain_check",
+        "asset": "silver_stk_mins_30m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774323,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_contract_check",
+        "asset": "silver_stk_mins_5m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774327,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_key_integrity_check",
+        "asset": "silver_stk_mins_5m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774327,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_reference_coverage_check",
+        "asset": "silver_stk_mins_5m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774327,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_value_domain_check",
+        "asset": "silver_stk_mins_5m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774327,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_contract_check",
+        "asset": "silver_stk_mins_60m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774331,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_key_integrity_check",
+        "asset": "silver_stk_mins_60m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774331,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_reference_coverage_check",
+        "asset": "silver_stk_mins_60m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774331,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      },
+      {
+        "name": "silver_stk_mins_value_domain_check",
+        "asset": "silver_stk_mins_60m",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7774331,
+        "target_run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+        "date_metadata": {
+          "goldenshare/partition_key": "2026-10-28"
+        }
+      }
+    ]
+  },
+  {
+    "run_id": "de9b3d56-0f19-4566-963a-2db1d8882ab0",
+    "mats": {
+      "silver_adj_factor": {
+        "id": 7785603,
+        "partition": "2026-10-28"
+      }
+    },
+    "checks": [
+      {
+        "name": "silver_adj_factor_contract_check",
+        "asset": "silver_adj_factor",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7785603,
+        "target_run_id": "de9b3d56-0f19-4566-963a-2db1d8882ab0",
+        "date_metadata": {}
+      },
+      {
+        "name": "silver_adj_factor_key_value_integrity_check",
+        "asset": "silver_adj_factor",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7785603,
+        "target_run_id": "de9b3d56-0f19-4566-963a-2db1d8882ab0",
+        "date_metadata": {}
+      },
+      {
+        "name": "silver_adj_factor_partition_allowed_check",
+        "asset": "silver_adj_factor",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7785603,
+        "target_run_id": "de9b3d56-0f19-4566-963a-2db1d8882ab0",
+        "date_metadata": {
+          "goldenshare/min_trade_date": "2009-01-05",
+          "goldenshare/partition_key": "2026-10-28",
+          "goldenshare/partition_set": "cn_a_stock_current_trade_days"
+        }
+      },
+      {
+        "name": "silver_adj_factor_lifecycle_coverage_check",
+        "asset": "silver_adj_factor",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_id": 7785603,
+        "target_run_id": "de9b3d56-0f19-4566-963a-2db1d8882ab0",
+        "date_metadata": {}
+      }
+    ]
+  }
+]

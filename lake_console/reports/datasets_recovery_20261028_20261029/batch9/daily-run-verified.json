@@ -1,0 +1,2156 @@
+{
+  "as_of": "2026-10-29T09:53:27.262013+08:00",
+  "date": "2026-10-28",
+  "mode": "daily",
+  "run_id": "94384f7b-0b77-4317-998c-32da2a5e88dd",
+  "verified": true,
+  "extra_price_content_reads": 0,
+  "extra_data_sha_passes": 0,
+  "formal_writes": 0,
+  "root_run_id": "94384f7b-0b77-4317-998c-32da2a5e88dd",
+  "job": "stock_mins_qfq_daily_update_job",
+  "status": "SUCCESS",
+  "elapsed_seconds": 877.9833509922028,
+  "materializations": [
+    {
+      "asset": "gold_stk_mins_qfq_120m",
+      "partition": "2026-10-28",
+      "storage_id": 7785939,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120",
+        "dagster/row_count": 11140,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "partition_key": "2026-10-28",
+        "freq": 120,
+        "source_freq": 60,
+        "source_file_count": 1,
+        "source_row_count": 27850,
+        "source_stock_day_count": 5570,
+        "expected_window_count": 11140,
+        "generated_window_count": 11140,
+        "incomplete_window_count": 0,
+        "exchange_mismatch_window_count": 0,
+        "output_file_count": 5570,
+        "output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "replacement_row_count": 11140,
+        "physical_layout": "freq_ts_code_year",
+        "calculation_model": "silver_direct_canonical_qfq",
+        "summary": "已写入股票 120min 分钟 gold 前复权派生行情：交易日 2026-10-28，11140 行，5570 个股票年份文件。",
+        "next_action": "等待派生 qfq blocking checks 全部通过；通过后 MACD/KDJ 指标链路可以消费。",
+        "result_status": "written",
+        "diagnostic_ref": "完整诊断看 gold_stk_mins_qfq derived checks metadata 和本次 run stdout。",
+        "input_summary": {
+          "source_asset": "silver_stk_mins_60m",
+          "source_file_count": 1,
+          "source_freq": 60,
+          "source_row_count": 27850,
+          "source_stock_day_count": 5570
+        },
+        "filter_summary": {
+          "exchange_mismatch_window_count": 0,
+          "expected_window_count": 11140,
+          "generated_window_count": 11140,
+          "incomplete_window_count": 0,
+          "output_file_count": 5570,
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 11140
+        }
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_15m",
+      "partition": "2026-10-28",
+      "storage_id": 7785943,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15",
+        "dagster/row_count": 89120,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "partition_key": "2026-10-28",
+        "freq": 15,
+        "silver_file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-28/part-000.parquet",
+        "trade_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet",
+        "as_of_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet",
+        "as_of_trade_date": "2026-10-28",
+        "output_file_count": 5570,
+        "output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "replacement_row_count": 89120,
+        "physical_layout": "freq_ts_code_year",
+        "summary": "已写入股票 15min 分钟 gold 前复权行情：交易日 2026-10-28，89120 行，5570 个股票年份文件。",
+        "next_action": "等待 gold qfq blocking checks 全部通过；通过后 factor repair 和 MACD/KDJ 指标链路可以继续。",
+        "result_status": "written",
+        "diagnostic_ref": "完整诊断看 gold_stk_mins_qfq checks metadata 和本次 run stdout。",
+        "input_summary": {
+          "as_of_adj_factor_asset": "silver_adj_factor",
+          "as_of_trade_date": "2026-10-28",
+          "source_asset": "silver_stk_mins_5m",
+          "trade_adj_factor_asset": "silver_adj_factor"
+        },
+        "filter_summary": {
+          "output_file_count": 5570,
+          "output_row_count": 89120,
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 89120
+        }
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_1m",
+      "partition": "2026-10-28",
+      "storage_id": 7785947,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1",
+        "dagster/row_count": 1342370,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "partition_key": "2026-10-28",
+        "freq": 1,
+        "silver_file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-28/part-000.parquet",
+        "trade_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet",
+        "as_of_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet",
+        "as_of_trade_date": "2026-10-28",
+        "output_file_count": 5570,
+        "output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "replacement_row_count": 1342370,
+        "physical_layout": "freq_ts_code_year",
+        "summary": "已写入股票 1min 分钟 gold 前复权行情：交易日 2026-10-28，1342370 行，5570 个股票年份文件。",
+        "next_action": "等待 gold qfq blocking checks 全部通过；通过后 factor repair 和 MACD/KDJ 指标链路可以继续。",
+        "result_status": "written",
+        "diagnostic_ref": "完整诊断看 gold_stk_mins_qfq checks metadata 和本次 run stdout。",
+        "input_summary": {
+          "as_of_adj_factor_asset": "silver_adj_factor",
+          "as_of_trade_date": "2026-10-28",
+          "source_asset": "silver_stk_mins_1m",
+          "trade_adj_factor_asset": "silver_adj_factor"
+        },
+        "filter_summary": {
+          "output_file_count": 5570,
+          "output_row_count": 1342370,
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 1342370
+        }
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_30m",
+      "partition": "2026-10-28",
+      "storage_id": 7785951,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30",
+        "dagster/row_count": 44560,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "partition_key": "2026-10-28",
+        "freq": 30,
+        "silver_file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-28/part-000.parquet",
+        "trade_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet",
+        "as_of_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet",
+        "as_of_trade_date": "2026-10-28",
+        "output_file_count": 5570,
+        "output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "replacement_row_count": 44560,
+        "physical_layout": "freq_ts_code_year",
+        "summary": "已写入股票 30min 分钟 gold 前复权行情：交易日 2026-10-28，44560 行，5570 个股票年份文件。",
+        "next_action": "等待 gold qfq blocking checks 全部通过；通过后 factor repair 和 MACD/KDJ 指标链路可以继续。",
+        "result_status": "written",
+        "diagnostic_ref": "完整诊断看 gold_stk_mins_qfq checks metadata 和本次 run stdout。",
+        "input_summary": {
+          "as_of_adj_factor_asset": "silver_adj_factor",
+          "as_of_trade_date": "2026-10-28",
+          "source_asset": "silver_stk_mins_5m",
+          "trade_adj_factor_asset": "silver_adj_factor"
+        },
+        "filter_summary": {
+          "output_file_count": 5570,
+          "output_row_count": 44560,
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 44560
+        }
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_5m",
+      "partition": "2026-10-28",
+      "storage_id": 7785955,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5",
+        "dagster/row_count": 267360,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "partition_key": "2026-10-28",
+        "freq": 5,
+        "silver_file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-28/part-000.parquet",
+        "trade_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet",
+        "as_of_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet",
+        "as_of_trade_date": "2026-10-28",
+        "output_file_count": 5570,
+        "output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "replacement_row_count": 267360,
+        "physical_layout": "freq_ts_code_year",
+        "summary": "已写入股票 5min 分钟 gold 前复权行情：交易日 2026-10-28，267360 行，5570 个股票年份文件。",
+        "next_action": "等待 gold qfq blocking checks 全部通过；通过后 factor repair 和 MACD/KDJ 指标链路可以继续。",
+        "result_status": "written",
+        "diagnostic_ref": "完整诊断看 gold_stk_mins_qfq checks metadata 和本次 run stdout。",
+        "input_summary": {
+          "as_of_adj_factor_asset": "silver_adj_factor",
+          "as_of_trade_date": "2026-10-28",
+          "source_asset": "silver_stk_mins_1m",
+          "trade_adj_factor_asset": "silver_adj_factor"
+        },
+        "filter_summary": {
+          "output_file_count": 5570,
+          "output_row_count": 267360,
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 267360
+        }
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_60m",
+      "partition": "2026-10-28",
+      "storage_id": 7785959,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60",
+        "dagster/row_count": 22280,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "partition_key": "2026-10-28",
+        "freq": 60,
+        "silver_file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-28/part-000.parquet",
+        "trade_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet",
+        "as_of_adj_factor_file_path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet",
+        "as_of_trade_date": "2026-10-28",
+        "output_file_count": 5570,
+        "output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "replacement_row_count": 22280,
+        "physical_layout": "freq_ts_code_year",
+        "summary": "已写入股票 60min 分钟 gold 前复权行情：交易日 2026-10-28，22280 行，5570 个股票年份文件。",
+        "next_action": "等待 gold qfq blocking checks 全部通过；通过后 factor repair 和 MACD/KDJ 指标链路可以继续。",
+        "result_status": "written",
+        "diagnostic_ref": "完整诊断看 gold_stk_mins_qfq checks metadata 和本次 run stdout。",
+        "input_summary": {
+          "as_of_adj_factor_asset": "silver_adj_factor",
+          "as_of_trade_date": "2026-10-28",
+          "source_asset": "silver_stk_mins_30m",
+          "trade_adj_factor_asset": "silver_adj_factor"
+        },
+        "filter_summary": {
+          "output_file_count": 5570,
+          "output_row_count": 22280,
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 22280
+        }
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_90m",
+      "partition": "2026-10-28",
+      "storage_id": 7785963,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90",
+        "dagster/row_count": 16710,
+        "observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "partition_key": "2026-10-28",
+        "freq": 90,
+        "source_freq": 30,
+        "source_file_count": 1,
+        "source_row_count": 50130,
+        "source_stock_day_count": 5570,
+        "expected_window_count": 16710,
+        "generated_window_count": 16710,
+        "incomplete_window_count": 0,
+        "exchange_mismatch_window_count": 0,
+        "output_file_count": 5570,
+        "output_sample_file_paths": [
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000001.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000002.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000006.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000007.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000008.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000009.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000010.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000011.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000012.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000014.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000017.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000019.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000020.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000021.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000025.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000026.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000027.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000028.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000029.SZ/year=2026/part-000.parquet",
+          "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=000030.SZ/year=2026/part-000.parquet"
+        ],
+        "replacement_row_count": 16710,
+        "physical_layout": "freq_ts_code_year",
+        "calculation_model": "silver_direct_canonical_qfq",
+        "summary": "已写入股票 90min 分钟 gold 前复权派生行情：交易日 2026-10-28，16710 行，5570 个股票年份文件。",
+        "next_action": "等待派生 qfq blocking checks 全部通过；通过后 MACD/KDJ 指标链路可以消费。",
+        "result_status": "written",
+        "diagnostic_ref": "完整诊断看 gold_stk_mins_qfq derived checks metadata 和本次 run stdout。",
+        "input_summary": {
+          "source_asset": "silver_stk_mins_30m",
+          "source_file_count": 1,
+          "source_freq": 30,
+          "source_row_count": 50130,
+          "source_stock_day_count": 5570
+        },
+        "filter_summary": {
+          "exchange_mismatch_window_count": 0,
+          "expected_window_count": 16710,
+          "generated_window_count": 16710,
+          "incomplete_window_count": 0,
+          "output_file_count": 5570,
+          "physical_layout": "freq_ts_code_year",
+          "replacement_row_count": 16710
+        }
+      }
+    }
+  ],
+  "checks": [
+    {
+      "asset": "gold_stk_mins_qfq_120m",
+      "name": "gold_stk_mins_qfq_contract_check",
+      "partition": null,
+      "storage_id": 7785967,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785939,
+      "metadata": {
+        "check_scope": "schema",
+        "checked_row_count": 5570,
+        "exchange_mismatch_window_count": 0,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "expected_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "expected_window_count": 11140,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120",
+        "freq": 120,
+        "generated_window_count": 11140,
+        "gold_target_row_count": 11140,
+        "incomplete_window_count": 0,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_file_paths": [],
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待指标链路消费。",
+        "observed_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "partition_key": "2026-10-28",
+        "path_mismatch_row_count": 0,
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_freq_date_path_match"
+          }
+        ],
+        "schema_error": null,
+        "source_file_count": 1,
+        "source_freq": 60,
+        "source_row_count": 27850,
+        "source_stock_day_count": 5570,
+        "summary": "通过：股票 120 分钟 gold qfq 派生文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_120m",
+      "name": "gold_stk_mins_qfq_key_integrity_check",
+      "partition": null,
+      "storage_id": 7785969,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785939,
+      "metadata": {
+        "check_scope": "key_uniqueness",
+        "checked_row_count": 11140,
+        "exchange_mismatch_window_count": 0,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "expected_window_count": 11140,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120",
+        "freq": 120,
+        "generated_window_count": 11140,
+        "gold_target_row_count": 11140,
+        "incomplete_window_count": 0,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待指标链路消费。",
+        "partition_key": "2026-10-28",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_unique_ts_code_trade_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "source_file_count": 1,
+        "source_freq": 60,
+        "source_row_count": 27850,
+        "source_stock_day_count": 5570,
+        "summary": "通过：股票 120 分钟 gold qfq 派生主键 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_120m",
+      "name": "gold_stk_mins_qfq_value_domain_check",
+      "partition": null,
+      "storage_id": 7785971,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785939,
+      "metadata": {
+        "check_scope": "value_sanity",
+        "checked_row_count": 11140,
+        "exchange_mismatch_window_count": 0,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "expected_window_count": 11140,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120",
+        "freq": 120,
+        "generated_window_count": 11140,
+        "gold_target_row_count": 11140,
+        "incomplete_window_count": 0,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待指标链路消费。",
+        "partition_key": "2026-10-28",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "source_file_count": 1,
+        "source_freq": 60,
+        "source_row_count": 27850,
+        "source_stock_day_count": 5570,
+        "summary": "通过：股票 120 分钟 gold qfq 派生取值 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_120m",
+      "name": "gold_stk_mins_qfq_derived_source_coverage_check",
+      "partition": null,
+      "storage_id": 7785973,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785939,
+      "metadata": {
+        "check_scope": "reconciliation",
+        "checked_row_count": 27850,
+        "exchange_mismatch_window_count": 0,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "expected_window_count": 11140,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120",
+        "freq": 120,
+        "generated_window_count": 11140,
+        "gold_target_row_count": 11140,
+        "incomplete_window_count": 0,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待指标链路消费。",
+        "partition_key": "2026-10-28",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_derived_source_ready"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_derived_row_count_matches_source_windows"
+          }
+        ],
+        "source_file_count": 1,
+        "source_freq": 60,
+        "source_row_count": 27850,
+        "source_stock_day_count": 5570,
+        "summary": "通过：股票 120 分钟 gold qfq 派生输入覆盖 的 2 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_15m",
+      "name": "gold_stk_mins_qfq_contract_check",
+      "partition": null,
+      "storage_id": 7785977,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785943,
+      "metadata": {
+        "check_scope": "schema",
+        "checked_row_count": 5570,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "expected_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15",
+        "freq": 15,
+        "gold_target_row_count": 89120,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_file_paths": [],
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "observed_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "partition_key": "2026-10-28",
+        "path_mismatch_row_count": 0,
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_freq_date_path_match"
+          }
+        ],
+        "schema_error": null,
+        "silver_row_count": 272930,
+        "summary": "通过：股票 15 分钟 gold qfq 文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_15m",
+      "name": "gold_stk_mins_qfq_key_integrity_check",
+      "partition": null,
+      "storage_id": 7785979,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785943,
+      "metadata": {
+        "check_scope": "key_uniqueness",
+        "checked_row_count": 89120,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15",
+        "freq": 15,
+        "gold_target_row_count": 89120,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "partition_key": "2026-10-28",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_unique_ts_code_trade_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "silver_row_count": 272930,
+        "summary": "通过：股票 15 分钟 gold qfq 主键 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_15m",
+      "name": "gold_stk_mins_qfq_value_domain_check",
+      "partition": null,
+      "storage_id": 7785981,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785943,
+      "metadata": {
+        "check_scope": "value_sanity",
+        "checked_row_count": 89120,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15",
+        "freq": 15,
+        "gold_target_row_count": 89120,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "partition_key": "2026-10-28",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "silver_row_count": 272930,
+        "summary": "通过：股票 15 分钟 gold qfq 取值 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_15m",
+      "name": "gold_stk_mins_qfq_source_coverage_check",
+      "partition": null,
+      "storage_id": 7785983,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785943,
+      "metadata": {
+        "check_scope": "reconciliation",
+        "checked_row_count": 272930,
+        "exchange_mismatch_row_count": 0,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15",
+        "freq": 15,
+        "gold_target_row_count": 89120,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "invalid_as_of_adj_factor_row_count": 0,
+        "invalid_trade_adj_factor_row_count": 0,
+        "missing_as_of_adj_factor_row_count": 0,
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "missing_gold_identity_row_count": 0,
+        "missing_trade_adj_factor_row_count": 0,
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "partition_key": "2026-10-28",
+        "qfq_output_row_count": 272930,
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_canonical_identity_matches_source"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_factor_coverage_complete"
+          }
+        ],
+        "silver_row_count": 272930,
+        "summary": "通过：股票 15 分钟 gold qfq 输入覆盖 的 2 条质量规则全部通过。",
+        "unexpected_gold_identity_row_count": 0
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_1m",
+      "name": "gold_stk_mins_qfq_contract_check",
+      "partition": null,
+      "storage_id": 7785987,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785947,
+      "metadata": {
+        "check_scope": "schema",
+        "checked_row_count": 5570,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "expected_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1",
+        "freq": 1,
+        "gold_target_row_count": 1342370,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_file_paths": [],
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "observed_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "partition_key": "2026-10-28",
+        "path_mismatch_row_count": 0,
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_freq_date_path_match"
+          }
+        ],
+        "schema_error": null,
+        "silver_row_count": 1342370,
+        "summary": "通过：股票 1 分钟 gold qfq 文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_1m",
+      "name": "gold_stk_mins_qfq_key_integrity_check",
+      "partition": null,
+      "storage_id": 7785989,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785947,
+      "metadata": {
+        "check_scope": "key_uniqueness",
+        "checked_row_count": 1342370,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1",
+        "freq": 1,
+        "gold_target_row_count": 1342370,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "partition_key": "2026-10-28",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_unique_ts_code_trade_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "silver_row_count": 1342370,
+        "summary": "通过：股票 1 分钟 gold qfq 主键 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_1m",
+      "name": "gold_stk_mins_qfq_value_domain_check",
+      "partition": null,
+      "storage_id": 7785991,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785947,
+      "metadata": {
+        "check_scope": "value_sanity",
+        "checked_row_count": 1342370,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1",
+        "freq": 1,
+        "gold_target_row_count": 1342370,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "partition_key": "2026-10-28",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "silver_row_count": 1342370,
+        "summary": "通过：股票 1 分钟 gold qfq 取值 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_1m",
+      "name": "gold_stk_mins_qfq_source_coverage_check",
+      "partition": null,
+      "storage_id": 7785993,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785947,
+      "metadata": {
+        "check_scope": "reconciliation",
+        "checked_row_count": 1342370,
+        "exchange_mismatch_row_count": 0,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1",
+        "freq": 1,
+        "gold_target_row_count": 1342370,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "invalid_as_of_adj_factor_row_count": 0,
+        "invalid_trade_adj_factor_row_count": 0,
+        "missing_as_of_adj_factor_row_count": 0,
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "missing_gold_identity_row_count": 0,
+        "missing_trade_adj_factor_row_count": 0,
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "partition_key": "2026-10-28",
+        "qfq_output_row_count": 1342370,
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_canonical_identity_matches_source"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_factor_coverage_complete"
+          }
+        ],
+        "silver_row_count": 1342370,
+        "summary": "通过：股票 1 分钟 gold qfq 输入覆盖 的 2 条质量规则全部通过。",
+        "unexpected_gold_identity_row_count": 0
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_30m",
+      "name": "gold_stk_mins_qfq_contract_check",
+      "partition": null,
+      "storage_id": 7785997,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785951,
+      "metadata": {
+        "check_scope": "schema",
+        "checked_row_count": 5570,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "expected_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30",
+        "freq": 30,
+        "gold_target_row_count": 44560,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_file_paths": [],
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "observed_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "partition_key": "2026-10-28",
+        "path_mismatch_row_count": 0,
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_freq_date_path_match"
+          }
+        ],
+        "schema_error": null,
+        "silver_row_count": 272930,
+        "summary": "通过：股票 30 分钟 gold qfq 文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_30m",
+      "name": "gold_stk_mins_qfq_key_integrity_check",
+      "partition": null,
+      "storage_id": 7785999,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785951,
+      "metadata": {
+        "check_scope": "key_uniqueness",
+        "checked_row_count": 44560,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30",
+        "freq": 30,
+        "gold_target_row_count": 44560,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "partition_key": "2026-10-28",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_unique_ts_code_trade_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "silver_row_count": 272930,
+        "summary": "通过：股票 30 分钟 gold qfq 主键 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_30m",
+      "name": "gold_stk_mins_qfq_value_domain_check",
+      "partition": null,
+      "storage_id": 7786001,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785951,
+      "metadata": {
+        "check_scope": "value_sanity",
+        "checked_row_count": 44560,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30",
+        "freq": 30,
+        "gold_target_row_count": 44560,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "partition_key": "2026-10-28",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "silver_row_count": 272930,
+        "summary": "通过：股票 30 分钟 gold qfq 取值 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_30m",
+      "name": "gold_stk_mins_qfq_source_coverage_check",
+      "partition": null,
+      "storage_id": 7786003,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785951,
+      "metadata": {
+        "check_scope": "reconciliation",
+        "checked_row_count": 272930,
+        "exchange_mismatch_row_count": 0,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30",
+        "freq": 30,
+        "gold_target_row_count": 44560,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "invalid_as_of_adj_factor_row_count": 0,
+        "invalid_trade_adj_factor_row_count": 0,
+        "missing_as_of_adj_factor_row_count": 0,
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "missing_gold_identity_row_count": 0,
+        "missing_trade_adj_factor_row_count": 0,
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "partition_key": "2026-10-28",
+        "qfq_output_row_count": 272930,
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_canonical_identity_matches_source"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_factor_coverage_complete"
+          }
+        ],
+        "silver_row_count": 272930,
+        "summary": "通过：股票 30 分钟 gold qfq 输入覆盖 的 2 条质量规则全部通过。",
+        "unexpected_gold_identity_row_count": 0
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_5m",
+      "name": "gold_stk_mins_qfq_contract_check",
+      "partition": null,
+      "storage_id": 7786007,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785955,
+      "metadata": {
+        "check_scope": "schema",
+        "checked_row_count": 5570,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "expected_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5",
+        "freq": 5,
+        "gold_target_row_count": 267360,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_file_paths": [],
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "observed_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "partition_key": "2026-10-28",
+        "path_mismatch_row_count": 0,
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_freq_date_path_match"
+          }
+        ],
+        "schema_error": null,
+        "silver_row_count": 1342370,
+        "summary": "通过：股票 5 分钟 gold qfq 文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_5m",
+      "name": "gold_stk_mins_qfq_key_integrity_check",
+      "partition": null,
+      "storage_id": 7786009,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785955,
+      "metadata": {
+        "check_scope": "key_uniqueness",
+        "checked_row_count": 267360,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5",
+        "freq": 5,
+        "gold_target_row_count": 267360,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "partition_key": "2026-10-28",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_unique_ts_code_trade_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "silver_row_count": 1342370,
+        "summary": "通过：股票 5 分钟 gold qfq 主键 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_5m",
+      "name": "gold_stk_mins_qfq_value_domain_check",
+      "partition": null,
+      "storage_id": 7786011,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785955,
+      "metadata": {
+        "check_scope": "value_sanity",
+        "checked_row_count": 267360,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5",
+        "freq": 5,
+        "gold_target_row_count": 267360,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "partition_key": "2026-10-28",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "silver_row_count": 1342370,
+        "summary": "通过：股票 5 分钟 gold qfq 取值 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_5m",
+      "name": "gold_stk_mins_qfq_source_coverage_check",
+      "partition": null,
+      "storage_id": 7786013,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785955,
+      "metadata": {
+        "check_scope": "reconciliation",
+        "checked_row_count": 1342370,
+        "exchange_mismatch_row_count": 0,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5",
+        "freq": 5,
+        "gold_target_row_count": 267360,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "invalid_as_of_adj_factor_row_count": 0,
+        "invalid_trade_adj_factor_row_count": 0,
+        "missing_as_of_adj_factor_row_count": 0,
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "missing_gold_identity_row_count": 0,
+        "missing_trade_adj_factor_row_count": 0,
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "partition_key": "2026-10-28",
+        "qfq_output_row_count": 1342370,
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_canonical_identity_matches_source"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_factor_coverage_complete"
+          }
+        ],
+        "silver_row_count": 1342370,
+        "summary": "通过：股票 5 分钟 gold qfq 输入覆盖 的 2 条质量规则全部通过。",
+        "unexpected_gold_identity_row_count": 0
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_60m",
+      "name": "gold_stk_mins_qfq_contract_check",
+      "partition": null,
+      "storage_id": 7786017,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785959,
+      "metadata": {
+        "check_scope": "schema",
+        "checked_row_count": 5570,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "expected_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60",
+        "freq": 60,
+        "gold_target_row_count": 22280,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_file_paths": [],
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "observed_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "partition_key": "2026-10-28",
+        "path_mismatch_row_count": 0,
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_freq_date_path_match"
+          }
+        ],
+        "schema_error": null,
+        "silver_row_count": 50130,
+        "summary": "通过：股票 60 分钟 gold qfq 文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_60m",
+      "name": "gold_stk_mins_qfq_key_integrity_check",
+      "partition": null,
+      "storage_id": 7786019,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785959,
+      "metadata": {
+        "check_scope": "key_uniqueness",
+        "checked_row_count": 22280,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60",
+        "freq": 60,
+        "gold_target_row_count": 22280,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "partition_key": "2026-10-28",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_unique_ts_code_trade_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "silver_row_count": 50130,
+        "summary": "通过：股票 60 分钟 gold qfq 主键 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_60m",
+      "name": "gold_stk_mins_qfq_value_domain_check",
+      "partition": null,
+      "storage_id": 7786021,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785959,
+      "metadata": {
+        "check_scope": "value_sanity",
+        "checked_row_count": 22280,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60",
+        "freq": 60,
+        "gold_target_row_count": 22280,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "partition_key": "2026-10-28",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "silver_row_count": 50130,
+        "summary": "通过：股票 60 分钟 gold qfq 取值 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_60m",
+      "name": "gold_stk_mins_qfq_source_coverage_check",
+      "partition": null,
+      "storage_id": 7786023,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785959,
+      "metadata": {
+        "check_scope": "reconciliation",
+        "checked_row_count": 50130,
+        "exchange_mismatch_row_count": 0,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60",
+        "freq": 60,
+        "gold_target_row_count": 22280,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "invalid_as_of_adj_factor_row_count": 0,
+        "invalid_trade_adj_factor_row_count": 0,
+        "missing_as_of_adj_factor_row_count": 0,
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "missing_gold_identity_row_count": 0,
+        "missing_trade_adj_factor_row_count": 0,
+        "next_action": "无需处理；等待 factor repair 或指标链路消费。",
+        "partition_key": "2026-10-28",
+        "qfq_output_row_count": 50130,
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_canonical_identity_matches_source"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_factor_coverage_complete"
+          }
+        ],
+        "silver_row_count": 50130,
+        "summary": "通过：股票 60 分钟 gold qfq 输入覆盖 的 2 条质量规则全部通过。",
+        "unexpected_gold_identity_row_count": 0
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_90m",
+      "name": "gold_stk_mins_qfq_contract_check",
+      "partition": null,
+      "storage_id": 7786027,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785963,
+      "metadata": {
+        "check_scope": "schema",
+        "checked_row_count": 5570,
+        "exchange_mismatch_window_count": 0,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "expected_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "expected_window_count": 16710,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90",
+        "freq": 90,
+        "generated_window_count": 16710,
+        "gold_target_row_count": 16710,
+        "incomplete_window_count": 0,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_file_paths": [],
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待指标链路消费。",
+        "observed_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_date": "DATE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "DOUBLE"
+        },
+        "partition_key": "2026-10-28",
+        "path_mismatch_row_count": 0,
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_freq_date_path_match"
+          }
+        ],
+        "schema_error": null,
+        "source_file_count": 1,
+        "source_freq": 30,
+        "source_row_count": 50130,
+        "source_stock_day_count": 5570,
+        "summary": "通过：股票 90 分钟 gold qfq 派生文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_90m",
+      "name": "gold_stk_mins_qfq_key_integrity_check",
+      "partition": null,
+      "storage_id": 7786029,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785963,
+      "metadata": {
+        "check_scope": "key_uniqueness",
+        "checked_row_count": 16710,
+        "exchange_mismatch_window_count": 0,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "expected_window_count": 16710,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90",
+        "freq": 90,
+        "generated_window_count": 16710,
+        "gold_target_row_count": 16710,
+        "incomplete_window_count": 0,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待指标链路消费。",
+        "partition_key": "2026-10-28",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_unique_ts_code_trade_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "source_file_count": 1,
+        "source_freq": 30,
+        "source_row_count": 50130,
+        "source_stock_day_count": 5570,
+        "summary": "通过：股票 90 分钟 gold qfq 派生主键 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_90m",
+      "name": "gold_stk_mins_qfq_value_domain_check",
+      "partition": null,
+      "storage_id": 7786031,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785963,
+      "metadata": {
+        "check_scope": "value_sanity",
+        "checked_row_count": 16710,
+        "exchange_mismatch_window_count": 0,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "expected_window_count": 16710,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "failure_samples": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90",
+        "freq": 90,
+        "generated_window_count": 16710,
+        "gold_target_row_count": 16710,
+        "incomplete_window_count": 0,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待指标链路消费。",
+        "partition_key": "2026-10-28",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_schema_matches_contract"
+          }
+        ],
+        "source_file_count": 1,
+        "source_freq": 30,
+        "source_row_count": 50130,
+        "source_stock_day_count": 5570,
+        "summary": "通过：股票 90 分钟 gold qfq 派生取值 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_90m",
+      "name": "gold_stk_mins_qfq_derived_source_coverage_check",
+      "partition": null,
+      "storage_id": 7786033,
+      "passed": true,
+      "blocking": true,
+      "target_storage_id": 7785963,
+      "metadata": {
+        "check_scope": "reconciliation",
+        "checked_row_count": 50130,
+        "exchange_mismatch_window_count": 0,
+        "existing_file_count": 5570,
+        "expected_file_count": 5570,
+        "expected_window_count": 16710,
+        "failed_row_count": 0,
+        "failed_rule_names": [],
+        "file_path": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90",
+        "freq": 90,
+        "generated_window_count": 16710,
+        "gold_target_row_count": 16710,
+        "incomplete_window_count": 0,
+        "input_file_paths": [
+          "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-28/part-000.parquet",
+          "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet"
+        ],
+        "missing_file_count": 0,
+        "missing_gold_file_samples": [],
+        "next_action": "无需处理；等待指标链路消费。",
+        "partition_key": "2026-10-28",
+        "rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_derived_source_ready"
+          },
+          {
+            "passed": true,
+            "rule_name": "gold_stk_mins_qfq_derived_row_count_matches_source_windows"
+          }
+        ],
+        "source_file_count": 1,
+        "source_freq": 30,
+        "source_row_count": 50130,
+        "source_stock_day_count": 5570,
+        "summary": "通过：股票 90 分钟 gold qfq 派生输入覆盖 的 2 条质量规则全部通过。"
+      }
+    }
+  ],
+  "failures": [],
+  "publications": [
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/qfq/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=1/run_id=7ee152a130ec7f1af96f9e244353f3de83ab995a89254d0023d702c8fbecfd06/scope=19e58e8b65bfd8377b8a58f62ceae5d27f751664cb50a98846571622cf67b0f5",
+      "year": "2026",
+      "frequency": 1,
+      "trade_date_count": 1,
+      "first_trade_date": "2026-10-28",
+      "last_trade_date": "2026-10-28",
+      "files": 5570,
+      "promoted_files": 5570,
+      "old_annual_bytes": 5471236849,
+      "candidate_bytes": 5497833669,
+      "annual_rows": 259441320,
+      "frozen_input_bytes": 21464971
+    },
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/qfq/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=120/run_id=7ee152a130ec7f1af96f9e244353f3de83ab995a89254d0023d702c8fbecfd06/scope=82ba7d69586c4bf3ae8aa7ea3364144ae6be3c0d820c6cda9ab60b6d01f53744",
+      "year": "2026",
+      "frequency": 120,
+      "trade_date_count": 1,
+      "first_trade_date": "2026-10-28",
+      "last_trade_date": "2026-10-28",
+      "files": 5570,
+      "promoted_files": 5570,
+      "old_annual_bytes": 106566250,
+      "candidate_bytes": 107010502,
+      "annual_rows": 2153040,
+      "frozen_input_bytes": 351934
+    },
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/qfq/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=15/run_id=7ee152a130ec7f1af96f9e244353f3de83ab995a89254d0023d702c8fbecfd06/scope=3c0515bbc06e02286fd51df431fc2c68c3f7e8c6d3d6f2a2f00b036ddd46be8a",
+      "year": "2026",
+      "frequency": 15,
+      "trade_date_count": 1,
+      "first_trade_date": "2026-10-28",
+      "last_trade_date": "2026-10-28",
+      "files": 5570,
+      "promoted_files": 5570,
+      "old_annual_bytes": 571152754,
+      "candidate_bytes": 573674291,
+      "annual_rows": 17224320,
+      "frozen_input_bytes": 1895666
+    },
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/qfq/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=30/run_id=7ee152a130ec7f1af96f9e244353f3de83ab995a89254d0023d702c8fbecfd06/scope=192fe128666f2613ba2a95a5ac210d0ff68d3e596fb7501d2feab3f94887207f",
+      "year": "2026",
+      "frequency": 30,
+      "trade_date_count": 1,
+      "first_trade_date": "2026-10-28",
+      "last_trade_date": "2026-10-28",
+      "files": 5570,
+      "promoted_files": 5570,
+      "old_annual_bytes": 324240319,
+      "candidate_bytes": 325494021,
+      "annual_rows": 8612160,
+      "frozen_input_bytes": 1051395
+    },
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/qfq/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=5/run_id=7ee152a130ec7f1af96f9e244353f3de83ab995a89254d0023d702c8fbecfd06/scope=b693b914a707523ef657c9eef003f7803bd1ee3f6aab2f828e07023708978c36",
+      "year": "2026",
+      "frequency": 5,
+      "trade_date_count": 1,
+      "first_trade_date": "2026-10-28",
+      "last_trade_date": "2026-10-28",
+      "files": 5570,
+      "promoted_files": 5570,
+      "old_annual_bytes": 1420672056,
+      "candidate_bytes": 1426806061,
+      "annual_rows": 51672960,
+      "frozen_input_bytes": 5263375
+    },
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/qfq/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=60/run_id=7ee152a130ec7f1af96f9e244353f3de83ab995a89254d0023d702c8fbecfd06/scope=31bc6282042ed2c739629259355eac30f2658c79f93ea1d41111e93904f00e53",
+      "year": "2026",
+      "frequency": 60,
+      "trade_date_count": 1,
+      "first_trade_date": "2026-10-28",
+      "last_trade_date": "2026-10-28",
+      "files": 5570,
+      "promoted_files": 5570,
+      "old_annual_bytes": 185241952,
+      "candidate_bytes": 185960796,
+      "annual_rows": 4306080,
+      "frozen_input_bytes": 642962
+    },
+    {
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/qfq/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=90/run_id=7ee152a130ec7f1af96f9e244353f3de83ab995a89254d0023d702c8fbecfd06/scope=4cb50cf8746755eb7566ddd909418a1baff682a1f9bc06754edff011d3c271ee",
+      "year": "2026",
+      "frequency": 90,
+      "trade_date_count": 1,
+      "first_trade_date": "2026-10-28",
+      "last_trade_date": "2026-10-28",
+      "files": 5570,
+      "promoted_files": 5570,
+      "old_annual_bytes": 146945842,
+      "candidate_bytes": 147582832,
+      "annual_rows": 3229560,
+      "frozen_input_bytes": 499367
+    }
+  ],
+  "old_annual_bytes": 8226056022,
+  "candidate_bytes": 8264362172,
+  "frozen_input_bytes": 31169670,
+  "promoted_annual_files": 38990,
+  "input_identity_acceptance": {
+    "provided": true,
+    "verified": true,
+    "file_count": 10,
+    "manifest": "/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261028_20261029/batch9/input-manifest.json"
+  },
+  "input_identity_complete": true,
+  "stage_acceptance_complete": true
+}

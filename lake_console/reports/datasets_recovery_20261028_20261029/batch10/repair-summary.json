@@ -1,0 +1,11 @@
+{
+  "date": "2026-10-28",
+  "run_id": "44caf58c-a1d9-4e37-b525-b82cda3179b3",
+  "elapsed_seconds": 300.6717460155487,
+  "completion_checks": 14,
+  "full_gate_ready": true,
+  "indicator_files": 723,
+  "state_files": 21805,
+  "candidate_bytes": 4221544281,
+  "factor_codes": 16
+}

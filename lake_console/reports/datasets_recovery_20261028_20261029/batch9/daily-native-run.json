@@ -1,0 +1,37 @@
+{
+  "stage": "qfq-daily",
+  "trade_date": "2026-10-28",
+  "submitted_at": "2026-10-29T09:37:30.032652+08:00",
+  "request": {
+    "selector": {
+      "repositoryLocationName": "orchestrator",
+      "repositoryName": "__repository__",
+      "jobName": "stock_mins_qfq_daily_update_job"
+    },
+    "runConfigData": {},
+    "executionMetadata": {
+      "tags": [
+        {
+          "key": "goldenshare/recovery",
+          "value": "stock_mins_20261028_20261029"
+        },
+        {
+          "key": "dagster/partition",
+          "value": "2026-10-28"
+        }
+      ]
+    }
+  },
+  "business_data_writes_by_observer": false,
+  "launch_response": {
+    "__typename": "LaunchRunSuccess",
+    "run": {
+      "runId": "94384f7b-0b77-4317-998c-32da2a5e88dd",
+      "status": "QUEUED"
+    }
+  },
+  "run_id": "94384f7b-0b77-4317-998c-32da2a5e88dd",
+  "status": "SUCCESS",
+  "last_observed_at": "2026-10-29T09:52:22.014739+08:00",
+  "observed_terminal_at": "2026-10-29T09:52:22.016458+08:00"
+}

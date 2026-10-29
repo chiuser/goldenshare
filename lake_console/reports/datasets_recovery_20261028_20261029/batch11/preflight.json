@@ -1,0 +1,182 @@
+{
+  "as_of": "2026-10-29T10:31:41.821201+08:00",
+  "date": "2026-10-28",
+  "job": "gold_stk_mins_qfq_nineturn_update_job",
+  "safe_to_launch": true,
+  "factor_gate_ready": true,
+  "macd_gate_ready": true,
+  "seed_and_candidate_scope_verified": true,
+  "control": {
+    "factor_status": {
+      "ready": true,
+      "trade_date": "2026-10-28",
+      "reason": "qfq factor repair rewrote history; reconciliation is required.",
+      "repair_required": true,
+      "rewrote_history": true,
+      "qfq_factor_repair_event_storage_ids": [
+        7786047,
+        7786048,
+        7786049,
+        7786050,
+        7786051,
+        7786052,
+        7786053
+      ],
+      "producer_run_id": "816a0d01-a56f-4f06-bdb3-1a7e0c05a793",
+      "upstream_batch_id": "qfq_factor_repair:2026-10-28:3afb0b0b08f6",
+      "missing_qfq_asset_keys": [],
+      "failed_qfq_asset_keys": [],
+      "repair_start_trade_date": "2014-01-02",
+      "repair_end_trade_date": "2026-10-28",
+      "selected_partition_count": 3115,
+      "repair_required_code_count": 16,
+      "repair_required_codes": [
+        "300601.SZ",
+        "601298.SH",
+        "601991.SH",
+        "603689.SH",
+        "688087.SH",
+        "920047.BJ",
+        "920145.BJ",
+        "920199.BJ",
+        "920227.BJ",
+        "920242.BJ",
+        "920339.BJ",
+        "920427.BJ",
+        "920656.BJ",
+        "920751.BJ",
+        "920892.BJ",
+        "920957.BJ"
+      ],
+      "repair_required_codes_hash": "c4a301285eb06a998bb596c4113580fb329a0f1b38f1d9fffa3119efa9824a91",
+      "repair_required_codes_truncated": false,
+      "rewritten_file_count": 510,
+      "rewritten_row_count": 6785698,
+      "derived_rewrite_required": true,
+      "derived_rewritten_file_count": 208,
+      "derived_rewritten_row_count": 110853,
+      "requires_derived_reconciliation": true
+    },
+    "macd_complete_gate": {
+      "ready": true,
+      "trade_date": "2026-10-28",
+      "reason": "qfq factor repair and required MACD/KDJ repair completion are ready.",
+      "requires_macd_kdj_repair": true,
+      "qfq_factor_repair_event_storage_ids": [
+        7786047,
+        7786048,
+        7786049,
+        7786050,
+        7786051,
+        7786052,
+        7786053
+      ],
+      "upstream_batch_id": "qfq_factor_repair:2026-10-28:3afb0b0b08f6",
+      "missing_qfq_asset_keys": [],
+      "failed_qfq_asset_keys": [],
+      "repair_start_trade_date": "2014-01-02",
+      "repair_end_trade_date": "2026-10-28",
+      "selected_partition_count": 3115,
+      "repair_required_code_count": 16,
+      "repair_required_codes": [
+        "300601.SZ",
+        "601298.SH",
+        "601991.SH",
+        "603689.SH",
+        "688087.SH",
+        "920047.BJ",
+        "920145.BJ",
+        "920199.BJ",
+        "920227.BJ",
+        "920242.BJ",
+        "920339.BJ",
+        "920427.BJ",
+        "920656.BJ",
+        "920751.BJ",
+        "920892.BJ",
+        "920957.BJ"
+      ],
+      "repair_required_codes_hash": "c4a301285eb06a998bb596c4113580fb329a0f1b38f1d9fffa3119efa9824a91",
+      "repair_required_codes_truncated": false,
+      "automatic_macd_kdj_repair_allowed": true,
+      "macd_kdj_repair_status": {
+        "ready": true,
+        "reason": "MACD/KDJ repair completion check covers qfq repair scope.",
+        "event_storage_ids": [
+          7786312,
+          7786313,
+          7786314,
+          7786315,
+          7786316,
+          7786317,
+          7786318,
+          7786319,
+          7786320,
+          7786321,
+          7786322,
+          7786323,
+          7786324,
+          7786325
+        ],
+        "missing_asset_keys": [],
+        "failed_asset_keys": [],
+        "covered_start_trade_date": "2014-01-02",
+        "covered_end_trade_date": "2026-10-28",
+        "stock_code_scope": "explicit",
+        "stock_code_count": 16,
+        "repair_required_code_count": 16,
+        "repair_required_codes_hash": "c4a301285eb06a998bb596c4113580fb329a0f1b38f1d9fffa3119efa9824a91",
+        "source_upstream_batch_id": "qfq_factor_repair:2026-10-28:3afb0b0b08f6",
+        "freqs": [
+          1,
+          5,
+          15,
+          30,
+          60,
+          90,
+          120
+        ]
+      }
+    },
+    "previous_registered_day": "2026-10-27",
+    "factor_run_id": "816a0d01-a56f-4f06-bdb3-1a7e0c05a793",
+    "macd_daily_run_id": "13e1b027-22c4-4268-950d-aaac9b5be9d2",
+    "macd_repair_run_id": "44caf58c-a1d9-4e37-b525-b82cda3179b3",
+    "sensors": [
+      {
+        "name": "stock_mins_qfq_daily_sensor",
+        "status": "STOPPED"
+      },
+      {
+        "name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+        "status": "STOPPED"
+      },
+      {
+        "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+        "status": "STOPPED"
+      },
+      {
+        "name": "stock_mins_qfq_factor_repair_sensor",
+        "status": "STOPPED"
+      },
+      {
+        "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+        "status": "STOPPED"
+      }
+    ],
+    "pool": {
+      "limit": 1,
+      "active": 0,
+      "pending": 0
+    }
+  },
+  "input_identity_acceptance": {
+    "normal_and_candidate_stat_unchanged": true,
+    "seed_stat_unchanged": true,
+    "factor_history_stat_unchanged": true,
+    "parquet_content_reads": 0,
+    "sha_body_reads": 0
+  },
+  "metadata_preflight": "metadata-preflight.json",
+  "candidate_scope": "candidate-scope.json"
+}

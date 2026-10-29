@@ -1,0 +1,16 @@
+import importlib.util,json
+from pathlib import Path
+TEMP=Path('/private/tmp/dg_minute_chain_20261028_20261029')
+OUT=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261028_20261029')
+def module(name,p):
+ spec=importlib.util.spec_from_file_location(name,p);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);return m
+trigger=module('trigger_factor_control',TEMP/'run_original_job.py')
+prep=module('macd_control_helpers',TEMP/'prepare_macd_20261028.py')
+parent=trigger.accepted(OUT/'batch9/daily-run-verified.json','stock_mins_qfq_daily_update_job','daily')
+with prep.open_state() as (runs,events,schedules,facade):
+ control=prep.controls(runs,events,schedules,4*1024**3)
+ prep.exact_success(runs,parent)
+p=OUT/'batch9/preflight.json';pre=json.loads(p.read_text());prep.require(pre['safe_to_launch'] and pre['date']=='2026-10-28','Wrong initial preflight')
+pre['factor_controls']=control;pre['factor_parent_daily_run_id']=parent['run_id'];pre['factor_safe_to_launch_at']=prep.now()
+p.write_text(json.dumps(pre,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({'date':'2026-10-28','factor_safe_to_launch':True,'accepted_parent_daily':parent['run_id'],'controls':control},ensure_ascii=False))

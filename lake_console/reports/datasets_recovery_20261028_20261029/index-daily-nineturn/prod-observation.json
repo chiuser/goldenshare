@@ -1,0 +1,19 @@
+{
+  "date": "2026-10-28",
+  "run_id": "22dbd172-3a3c-4c51-bb1f-075eb31256bf",
+  "job": "prod_core_index_daily_nineturn_sync_job",
+  "tags": {
+    "dagster/code_location": "orchestrator",
+    "dagster/partition": "2026-10-28",
+    "dagster/partition_set": "prod_core_index_daily_nineturn_sync_job_partition_set",
+    "dagster/run_key": "prod_core_index_daily_nineturn_sync:gold_major_index_daily_nineturn_update:2026-10-28:f5bd8c6a84d5",
+    "dagster/sensor_name": "prod_core_index_daily_nineturn_sync_job_sensor",
+    "dagster/tick": "2951503"
+  },
+  "observations": [
+    {
+      "at": "2026-10-29T12:23:08.290572+08:00",
+      "status": "SUCCESS"
+    }
+  ]
+}

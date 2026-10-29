@@ -1,0 +1,289 @@
+{
+  "scope": "Only this round owned /private/tmp directory; no formal Lake, formal staging, shared files or other tasks removed.",
+  "archive_verified_before_delete": true,
+  "started_at": "2026-10-29T10:44:08.548141+08:00",
+  "files": [
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/audit-count-only-root-review.json",
+      "archive": "audit-count-only-root-review.json",
+      "bytes": 3080,
+      "sha256": "2903c299a6df3dc621678f7976ef14da5b7f73b7405bd9e9451602fb65597616",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/audit_count_only.py",
+      "archive": "audit_count_only.py.txt",
+      "bytes": 8991,
+      "sha256": "4c79aec08279148f137cc5175bf616c5663647dcf54f92a9fa69e5a3308d4d63",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/audit_count_only_tests.json",
+      "archive": "audit_count_only_tests.json",
+      "bytes": 2295,
+      "sha256": "0ddf884f2e4b931df00da68b21fd3939fff6e20b3d4cbe28a764527d8097cae2",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/before_factor.py",
+      "archive": "before_factor.py.txt",
+      "bytes": 1241,
+      "sha256": "63784fdb715563ddfc60fbaaec34f22fb6811da268bf6d1623d127ad1c60ce10",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/build_nineturn_readback.py",
+      "archive": "build_nineturn_readback.py.txt",
+      "bytes": 29537,
+      "sha256": "46fff659ed585992c71b1d0191fdc01b6482ad3f88b1ddfc2c470de49b3a96a3",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/check_nineturn_preparation.py",
+      "archive": "check_nineturn_preparation.py.txt",
+      "bytes": 20813,
+      "sha256": "0cae095ba360678579c1f419feb42bfcc77182100cbc41118c5e1464014aa0bd",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/check_original_job_trigger.py",
+      "archive": "check_original_job_trigger.py.txt",
+      "bytes": 12379,
+      "sha256": "947c7419f2b5b9e1b00e83faa1c1976647503a103bfe3750da1b8c52b89661a8",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/check_prepare_macd_20261028.py",
+      "archive": "check_prepare_macd_20261028.py.txt",
+      "bytes": 15002,
+      "sha256": "1d8ecd823ec1a42509322f9735ff800e8ad918ba5f2677f390c8195b90adcb80",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/check_readback_adaptation.py",
+      "archive": "check_readback_adaptation.py.txt",
+      "bytes": 7562,
+      "sha256": "bd2410cfe8ba938ecca24a809591198b8678b94967e8af4615db3aac901d00e9",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/consumer-budget.json",
+      "archive": "consumer-budget.json",
+      "bytes": 5566,
+      "sha256": "fe9646f2e3b7b7148fdb72f2ee9376003a16a94c0bb5cbdb3a3c948f8fc9f304",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/consumer-review.md",
+      "archive": "consumer-review.md",
+      "bytes": 8853,
+      "sha256": "d50023ee378df44f2fcd6aaf584d87eedcc4b4778ed6c9d2ecdeced0cb908beb",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/consumer-small-stat.json",
+      "archive": "consumer-small-stat.json",
+      "bytes": 15989,
+      "sha256": "b4686f5abb21ebd923fe143d9c290e6c444fb81d521ef38fd83eee344f456e25",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/dg_dataset_audit_count_only_20261028_20261029T024035847498Z.json",
+      "archive": "final-physical-audit.json",
+      "bytes": 39155,
+      "sha256": "d64a1346b4a3e1705ee412b07502c2f64065d212064c5986f13ce73b58e7aac8",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/history-stat-consumer.json",
+      "archive": "history-stat-consumer.json",
+      "bytes": 3413,
+      "sha256": "3cac98ee14c9e1d7683ea55540aa0b15478f3343dd915158ad13546f5582a659",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/macd_readback_20261028.py",
+      "archive": "macd_readback_20261028.py.txt",
+      "bytes": 33341,
+      "sha256": "6110dac0142aa7254ad6ead3334f842c5d7cdb1cfe55bb0864f3be8527b99840",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/nineturn-preparation-design.md",
+      "archive": "nineturn-preparation-design.md",
+      "bytes": 6436,
+      "sha256": "14ea6526260ddd66a2dccd9ae307a45c736f00f8a63ffab4988cf7e049cc727a",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/nineturn-preparation-static-checks.json",
+      "archive": "nineturn-preparation-static-checks.json",
+      "bytes": 3839,
+      "sha256": "c479fbbb62e7b1e1bb7ee020c11763e155bc870ee600609b09226b003d510420",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/nineturn-readback-adaptation-summary.json",
+      "archive": "nineturn-readback-adaptation-summary.json",
+      "bytes": 1387,
+      "sha256": "9c09216fc65fad0eb2a65b33dd62d863b4a5d6a61b9920f84edb7ce3d69b2a70",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/nineturn-readback-adaptation.diff",
+      "archive": "nineturn-readback-adaptation.diff",
+      "bytes": 54946,
+      "sha256": "03177299a371a7f033ddb5cd24815666a85796e9dcb5cf9314e8f74832f79181",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/nineturn_readback_20261028.py",
+      "archive": "nineturn_readback_20261028.py.txt",
+      "bytes": 50174,
+      "sha256": "93ddd7ac34256f60d097cc79eb2eaa9600affacd34c638ba5963879e74e4f2a3",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/prepare-macd-isolation.json",
+      "archive": "prepare-macd-isolation.json",
+      "bytes": 821,
+      "sha256": "8612701e71b26fdfb6386f063cd95575a96ce3a6f19b59c45c5478dc9099637f",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/prepare-macd-method.md",
+      "archive": "prepare-macd-method.md",
+      "bytes": 5266,
+      "sha256": "2cc6c24dff53dfd449b23a8bd8b1186b4a7a88dc7b72e413e19afca7b915b38d",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/prepare_macd_20261028.py",
+      "archive": "prepare_macd_20261028.py.txt",
+      "bytes": 22121,
+      "sha256": "c005a08a761a2240d4079d8b663bf40c01c011ea1bb715bc3225654798807dd7",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/prepare_qfq_preflight.py",
+      "archive": "prepare_qfq_preflight.py.txt",
+      "bytes": 6752,
+      "sha256": "673dec2967f6852054de5523fc31e69631aa11a262b8b474f2973f307bb304ea",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/qfq_factor_readback_20261028.py",
+      "archive": "qfq_factor_readback_20261028.py.txt",
+      "bytes": 27120,
+      "sha256": "c049d9d1540936cb2631da9a2f2719303aab075d643df163243788bb68e773c0",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/readback-adaptation-summary.json",
+      "archive": "readback-adaptation-summary.json",
+      "bytes": 2833,
+      "sha256": "6cc0b313e4f3305e2fe324c21b73be7efb837ecd5d11fbe33e28d262ad1f0b90",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/readback-adaptation.diff",
+      "archive": "readback-adaptation.diff",
+      "bytes": 36858,
+      "sha256": "266007e5fababb66ce530d6b14d902d4eee7683fe11d815cca179436d14f4f16",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/readback-adaptation.md",
+      "archive": "readback-adaptation.md",
+      "bytes": 5606,
+      "sha256": "39930a50c18494e39981a536a74504d563c152cf264dabc17a6b440219f5602a",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/readback-static-checks.json",
+      "archive": "readback-static-checks.json",
+      "bytes": 2732,
+      "sha256": "e2af9a6ab21b8052aacba3f639ab88d81e565a7ecd5f48c2f1a56a8812cd1a92",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/recovered-metadata-stat.json",
+      "archive": "recovered-metadata-stat.json",
+      "bytes": 43690,
+      "sha256": "00e68ffcb133935b6ce418ca98c0c7ee7484a765d5a83536d89d399c1499f930",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/restore_sensors.py",
+      "archive": "restore_sensors.py.txt",
+      "bytes": 4320,
+      "sha256": "11b4b4276457231fc15dc5bb57effbb481b2a92ae2d0c64fcfe8b74935e5a9f3",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/run_original_job.py",
+      "archive": "run_original_job.py.txt",
+      "bytes": 7589,
+      "sha256": "2b7de95cfe3b866b9d71917e658734124ade2c3b141d607f252064288ddb0ecb",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/runtime-preflight.json",
+      "archive": "runtime-preflight.json",
+      "bytes": 70731,
+      "sha256": "f7c9f31ec366e2f690794fcd7a195fded0e459a086aca401e62ccddd4d638b5b",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/runtime_preflight.py",
+      "archive": "runtime_preflight.py.txt",
+      "bytes": 3223,
+      "sha256": "8dcbf88dc06280e438fbfc241bf7d4e772a9446efac06af3e8ed1dcd68937487",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/source-check-diagnostic.json",
+      "archive": "source-check-diagnostic.json",
+      "bytes": 6640,
+      "sha256": "4d7ed31eeb717c49055821facc610a856dd822b92fcaa602ea9d427cafd03f1a",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/source-checks-all.json",
+      "archive": "source-checks-all.json",
+      "bytes": 16367,
+      "sha256": "580f00110f6f9bb2d0eeab047c0754ca2216cf68d04de9c46e6c57b42a1fa743",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/test_audit_count_only.py",
+      "archive": "test_audit_count_only.py.txt",
+      "bytes": 15450,
+      "sha256": "b80783ce9bd1032cab851e3ad074bf1054355a8aaecc1cbd759c27e67edcf559",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/trigger-isolation-O0.json",
+      "archive": "trigger-isolation-O0.json",
+      "bytes": 4463,
+      "sha256": "1d883850533cb20d716f0bb2ca9a055789e96244ebb66d92357122c3eb79851e",
+      "deleted": true
+    },
+    {
+      "temporary_path": "/private/tmp/dg_minute_chain_20261028_20261029/trigger-isolation-O1.json",
+      "archive": "trigger-isolation-O1.json",
+      "bytes": 4463,
+      "sha256": "4312487d55165968a9c0c6f7ea4ce4068cf8d6fa0b24ae42acc2cec2cee58cd0",
+      "deleted": true
+    }
+  ],
+  "removed_test_fixture_directories": 0,
+  "shared_duckdb_files_deleted": 0,
+  "formal_lake_files_deleted": 0,
+  "formal_staging_files_deleted": 0,
+  "completed": true,
+  "completed_at": "2026-10-29T10:44:08.553045+08:00",
+  "temporary_directory_removed": true,
+  "deleted_file_count": 39,
+  "deleted_bytes": 611044
+}

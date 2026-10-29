@@ -1,0 +1,241 @@
+"""One-date count-only adapter for the approved LLD section 17.7 audit.
+
+Importing this file does not audit data. Only main() loads the live catalog and
+audits 2026-10-28. The original skill and all business source remain unchanged.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import os
+import stat
+from datetime import UTC, datetime
+from pathlib import Path
+from types import SimpleNamespace
+from typing import Any
+
+from orchestrator.defs.duckdb_connection import (
+    DuckDBConnectionSettings,
+    connect_configured_duckdb,
+)
+
+TARGET_DATE = "2026-10-28"
+REPO_ROOT = Path("/Users/congming/github/goldenshare")
+LAKE_ROOT = Path("/Volumes/datasource/data_lake")
+OUTPUT_DIR = Path("/private/tmp/dg_minute_chain_20261028_20261029")
+SKILL_SCRIPT = Path(
+    "/Users/congming/.codex/skills/audit-dg-datasets-by-date/scripts/audit_datasets.py"
+)
+CH_TABLES = frozenset(
+    {"share_fact_market_breadth_daily", "board_fact_technical_daily"}
+)
+
+
+def _require_date(trade_date: str) -> None:
+    if trade_date != TARGET_DATE:
+        raise ValueError(f"This audit is approved only for {TARGET_DATE}.")
+
+
+class _ConfiguredConnection:
+    """Exit the configured context when the original skill calls close()."""
+
+    def __init__(self) -> None:
+        self._context = connect_configured_duckdb(
+            DuckDBConnectionSettings(temp_directory=Path("/private/tmp")),
+            temp_policy="existing_no_spill",
+        )
+        self._connection = self._context.__enter__()
+        self._closed = False
+
+    def execute(self, *args: Any, **kwargs: Any) -> Any:
+        return self._connection.execute(*args, **kwargs)
+
+    def close(self) -> None:
+        if not self._closed:
+            self._closed = True
+            self._context.__exit__(None, None, None)
+
+
+def _annual_family_has_file(pattern: str) -> bool:
+    # The current catalog has exactly one wildcard: ts_code=*. Walk it with
+    # scandir so a permission error cannot silently become "no matching file".
+    parts = Path(pattern).parts
+    wildcard = parts.index("ts_code=*")
+    if (
+        not Path(pattern).is_absolute()
+        or sum("*" in part for part in parts) != 1
+        or any("?" in part or "[" in part for part in parts)
+        or parts[wildcard + 1 :] != ("year=2026", "part-000.parquet")
+    ):
+        raise ValueError("Unexpected annual pattern outside the approved 2026 family.")
+    parent = Path(*parts[:wildcard])
+    try:
+        with os.scandir(parent) as entries:
+            for entry in entries:
+                if not entry.name.startswith("ts_code="):
+                    continue
+                path = Path(entry.path) / "year=2026" / "part-000.parquet"
+                try:
+                    mode = path.stat().st_mode
+                except FileNotFoundError:
+                    continue
+                if not stat.S_ISREG(mode):
+                    raise ValueError(f"Annual input is not a regular file: {path}")
+                return True
+    except FileNotFoundError:
+        return False
+    return False
+
+
+def _stock_year_count(
+    connection: Any, pattern: str, trade_date: str
+) -> dict[str, Any]:
+    _require_date(trade_date)
+    try:
+        if not _annual_family_has_file(pattern):
+            return {"status": "missing_date_rows", "pattern": pattern}
+        row_count = int(
+            connection.execute(
+                "SELECT count(*) FROM read_parquet(?, hive_partitioning=false) "
+                "WHERE trade_date = CAST(? AS DATE)",
+                [pattern, trade_date],
+            ).fetchone()[0]
+        )
+    except Exception as error:  # noqa: BLE001 - every query failure must remain unverified
+        return {
+            "status": "unreadable_file",
+            "pattern": pattern,
+            "error": str(error)[:500],
+        }
+    return {
+        "status": "present" if row_count else "missing_date_rows",
+        "pattern": pattern,
+        "row_count": row_count,
+    }
+
+
+def _clickhouse_count(
+    client: Any, *, table_name: str, trade_date: str
+) -> dict[str, Any]:
+    _require_date(trade_date)
+    if table_name not in CH_TABLES:
+        raise ValueError(f"Unsupported ClickHouse serving table: {table_name}")
+    row_count = int(
+        client.execute(
+            f"SELECT count() FROM {table_name} "
+            "WHERE trade_date = %(trade_date)s LIMIT 1",
+            {"trade_date": trade_date},
+        )[0][0]
+    )
+    return {
+        "status": "present" if row_count else "missing_rows",
+        "table": table_name,
+        "row_count": row_count,
+    }
+
+
+def load_count_only_module() -> Any:
+    spec = importlib.util.spec_from_file_location("dg_skill_count_only_20261028", SKILL_SCRIPT)
+    if spec is None or spec.loader is None:
+        raise RuntimeError("Cannot load the original physical-audit skill.")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    # Replace this module binding, never the real duckdb module's connect().
+    module.duckdb = SimpleNamespace(
+        connect=_ConfiguredConnection, IOException=module.duckdb.IOException
+    )
+    module._stock_year_summary = _stock_year_count
+    module._clickhouse_partition_summary = _clickhouse_count
+    return module
+
+
+def normalize_report(report: dict[str, Any]) -> dict[str, Any]:
+    """Rebuild totals from leaves; query failures are not missing data."""
+    groups = (
+        report["direct_partition_assets"],
+        report["stock_year_partition_assets"],
+        report["serving_partition_assets"],
+    )
+    direct, annual, serving = groups
+    missing_files = sorted(
+        key for key, value in direct.items()
+        if value["status"] in {"missing_file", "empty_file"}
+    )
+    missing_dates = sorted(
+        key for key, value in annual.items() if value["status"] == "missing_date_rows"
+    )
+    missing_serving = sorted(
+        key for key, value in serving.items() if value["status"] == "missing_rows"
+    )
+    zero_rows = sorted(
+        key for key, value in direct.items() if value["status"] == "present_zero_rows"
+    )
+    present = sorted(
+        key for group in groups for key, value in group.items()
+        if value["status"] == "present"
+    )
+    classified = set(present + missing_files + missing_dates + missing_serving + zero_rows)
+    unverified = sorted(
+        key for group in groups for key in group if key not in classified
+    )
+    audited_keys = [key for group in groups for key in group]
+    exclusions = report["excluded_assets"]
+    issues = sorted(
+        key for key, reason in exclusions.items() if reason != "not_a_trade_date_dataset"
+    )
+    if len(set(audited_keys) | set(exclusions)) != len(audited_keys) + len(exclusions):
+        issues.append("overlapping_asset_classification")
+    report.update(
+        count_only=True,
+        annual_source_year="2026",
+        missing_file_asset_keys=missing_files,
+        missing_date_rows_asset_keys=missing_dates,
+        missing_serving_asset_keys=missing_serving,
+        present_zero_row_asset_keys=zero_rows,
+        unverified_asset_keys=unverified,
+        unverified_lake_asset_keys=sorted(set(unverified) & (set(direct) | set(annual))),
+        unverified_serving_asset_keys=sorted(set(unverified) & set(serving)),
+        present_asset_count=len(present),
+        physical_missing_asset_count=len(missing_files) + len(missing_dates) + len(missing_serving),
+        present_zero_row_asset_count=len(zero_rows),
+        unverified_asset_count=len(unverified),
+        classification_issues=issues,
+        catalog_classification_complete=(
+            report["catalog_classification_complete"]
+            and not issues
+            and len(present) + len(missing_files) + len(missing_dates)
+            + len(missing_serving) + len(zero_rows) + len(unverified)
+            == report["audited_asset_count"]
+        ),
+    )
+    return report
+
+
+def audit_count_only(*, module: Any, catalog: tuple[Any, ...], lake_root: Path) -> dict[str, Any]:
+    return normalize_report(
+        module._audit_trade_date(catalog=catalog, lake_root=lake_root, trade_date=TARGET_DATE)
+    )
+
+
+def main() -> None:
+    module = load_count_only_module()
+    report = audit_count_only(
+        module=module, catalog=module._load_catalog(REPO_ROOT), lake_root=LAKE_ROOT
+    )
+    timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+    output = OUTPUT_DIR / f"dg_dataset_audit_count_only_20261028_{timestamp}.json"
+    with output.open("x", encoding="utf-8") as stream:
+        json.dump(report, stream, ensure_ascii=False, indent=2)
+        stream.write("\n")
+    print(json.dumps({"report": str(output), **{
+        key: report[key] for key in (
+            "trade_date", "catalog_asset_count", "audited_asset_count", "excluded_asset_count",
+            "present_asset_count", "physical_missing_asset_count", "present_zero_row_asset_count",
+            "unverified_asset_count", "catalog_classification_complete",
+        )
+    }}, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()

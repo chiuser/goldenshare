@@ -1,0 +1,60 @@
+import json,os,stat,time,shutil,hashlib
+from pathlib import Path
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from contextlib import closing
+import yaml,psycopg2
+from dagster._serdes import deserialize_value
+ROOT=Path('/Volumes/datasource/data_lake');STAGE=Path('/Volumes/datasource/data_lake_staging');DAY='2026-10-28'
+OUT=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261028_20261029')
+TEMP=Path('/private/tmp/dg_minute_chain_20261028_20261029');BATCH=OUT/'batch9';BATCH.mkdir(exist_ok=True)
+def need(ok,msg):
+ if not ok:raise ValueError(msg)
+def save(p,v):p.write_text(json.dumps(v,ensure_ascii=False,indent=2,default=str)+'\n')
+def identity(p):
+ st=p.lstat();need(stat.S_ISREG(st.st_mode),str(p));return [st.st_dev,st.st_ino,st.st_size,st.st_mtime_ns,st.st_ctime_ns]
+approval=json.loads((OUT/'history-approval.json').read_text());need(approval.get('approved') is True and approval['trade_date']==DAY,'approval')
+need(Path('/Volumes/datasource').is_mount() and ROOT.stat().st_dev==STAGE.stat().st_dev,'formal roots/mount')
+free=shutil.disk_usage(STAGE).free;need(free>=128*1024**3,'insufficient planned staging space before start')
+base=json.loads((OUT/'runtime-preflight.json').read_text());sensor_ids={s['selector_id']:s['name'] for s in base['sensors']}
+config=yaml.safe_load(Path('/Users/congming/.goldenshare/dagster_home/dagster.yaml').read_text());url=config['storage']['postgres']['postgres_url']
+if isinstance(url,dict):url=os.environ[url['env']]
+conflicts=['stock_mins_qfq_daily_update_job','stock_mins_qfq_factor_repair_job','gold_stk_mins_qfq_macd_kdj_daily_update_job','gold_stk_mins_qfq_macd_kdj_repair_job','gold_stk_mins_qfq_nineturn_update_job','stock_mins_silver_update_job']
+pre={'as_of':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'date':DAY,'safe_to_launch':False,'free_bytes':free,'formal_root_device':ROOT.stat().st_dev,'upstream_runs':[]}
+with closing(psycopg2.connect(url,connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=15000')) as db,db.cursor() as c:
+ db.set_session(readonly=True)
+ c.execute("SELECT run_id,pipeline_name,status FROM runs WHERE pipeline_name=ANY(%s) AND status=ANY(%s) LIMIT 30",(conflicts,['QUEUED','NOT_STARTED','STARTING','STARTED','CANCELING']))
+ pre['active_conflicting_runs']=c.fetchall();need(not pre['active_conflicting_runs'],'conflicting writer')
+ c.execute('SELECT selector_id,status FROM instigators WHERE selector_id=ANY(%s)',(list(sensor_ids),));rows=c.fetchall()
+ need(len(rows)==5 and all(st=='STOPPED' for _,st in rows),'five sensors must remain stopped')
+ pre['sensors']=[{'name':sensor_ids[sid],'status':st} for sid,st in rows]
+ c.execute('SELECT concurrency_key,run_id,step_key FROM concurrency_slots WHERE run_id IS NOT NULL LIMIT 30');pre['active_pool_slots']=c.fetchall();need(not pre['active_pool_slots'],'active writer pool')
+ c.execute('SELECT count(*) FROM pending_steps');pre['pending_steps']=c.fetchone()[0];need(pre['pending_steps']==0,'pending writer steps')
+ expected={'a64e909f-cf02-4771-9504-6439d50c5584':(5,15),'ab9d6a45-3693-4729-9b31-edda681da85f':(5,20),'de9b3d56-0f19-4566-963a-2db1d8882ab0':(1,4)}
+ saved=json.loads((TEMP/'source-checks-all.json').read_text());need({x['run_id'] for x in saved}==set(expected),'exact upstream run set')
+ for group in saved:
+  rid=group['run_id'];nm,nc=expected[rid];mats=group['mats'];checks=group['checks']
+  c.execute('SELECT pipeline_name,status FROM runs WHERE run_id=%s',(rid,));job,status=c.fetchone();need(status=='SUCCESS',rid)
+  need(len(mats)==nm and len(checks)==nc and all(m['partition']==DAY for m in mats.values()),'source materialization/count')
+  for x in checks:
+   need(x['passed'] and x['blocking'] and x['partition'] in (None,DAY) and x['target_run_id']==rid and x['target_id']==mats.get(x['asset'],{}).get('id'),'source check not passing/bound')
+   dates=[v for k,v in x['date_metadata'].items() if k in {'goldenshare/partition_key','partition_key','trade_date','goldenshare/trade_date'}]
+   need(all(v==DAY for v in dates),'source supplied date conflicts')
+  pre['upstream_runs'].append({'run_id':rid,'job':job,'status':status,'materializations':mats,'checks':checks})
+# Reuse the recovered completed metadata baseline; never repeat its annual glob/stat.
+annual_path=OUT/'annual-baseline-current.json';annual=json.loads(annual_path.read_text())
+need(annual['metadata_only'] and annual['parquet_content_reads']==0 and annual['baseline_stage']=='before_qfq_daily' and annual['trade_date']==DAY,'wrong baseline')
+need(annual['qfq_two_year_bytes']<18*1024**3 and annual['macd_2026_bytes']<20*1024**3,'annual growth assumption')
+with closing(psycopg2.connect(url,connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=15000')) as db,db.cursor() as c:
+ db.set_session(readonly=True)
+ c.execute('SELECT run_id,pipeline_name,status FROM runs WHERE pipeline_name=ANY(%s) AND create_timestamp>=to_timestamp(%s) LIMIT 10',(conflicts[:5],annual['as_of_unix']))
+ since=c.fetchall();need(not since,'minute source changed after baseline')
+pre['runs_since_metadata_baseline']=since
+paths=[ROOT/f'silver/quote/stk_mins/freq={f}/trade_date={DAY}/part-000.parquet' for f in [1,5,15,30,60]]
+paths += [ROOT/f'silver/quote/adj_factor/trade_date={d}/part-000.parquet' for d in ['2026-10-27',DAY]]
+paths += [ROOT/'silver/basic/stock_basic/full/part-000.parquet',ROOT/'silver/basic/stock_lifecycle/full/part-000.parquet',ROOT/'silver/calendar/trade_calendar/full/part-000.parquet']
+inputs={str(p):identity(p) for p in paths};D=2*inputs[str(paths[0])][2]+2*inputs[str(paths[1])][2]+2*inputs[str(paths[3])][2]+inputs[str(paths[4])][2]
+pre.update(safe_to_launch=True,inputs=inputs,mapped_daily_source_bytes=D,annual_baseline_file=str(annual_path),annual_current_summary={k:v for k,v in annual.items() if k not in ['groups']},budget_gib={'read':34,'write':9,'extra_space':12},original_business_code_changed=False,price_content_reads=0,source_of_formal_repair_scope='Original factor job only')
+save(BATCH/'input-manifest.json',{'inputs':inputs,'metadata':{'date':DAY,'scope':'Actual daily Silver, adjacent factors, lifecycle/basic/calendar; original publication freezes all actual inputs'}})
+save(BATCH/'preflight.json',pre);save(OUT/'current-state.json',{'status':'APPROVED_PREFLIGHT_PASSED_READY_QFQ','trade_date':DAY,'business_jobs_launched':0,'final_physical_audit_runs':0})
+print(json.dumps({'safe_to_launch':True,'date':DAY,'source_checks_bound':39,'mapped_D_bytes':D,'qfq_two_year_gib':annual['qfq_two_year_bytes']/1024**3,'qfq_2026_gib':annual['qfq_2026_bytes']/1024**3,'macd_2026_gib':annual['macd_2026_bytes']/1024**3,'stat_seconds':annual['elapsed_seconds'],'free_gib':free/1024**3},ensure_ascii=False))

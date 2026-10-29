@@ -1,0 +1,15 @@
+{
+  "approved": true,
+  "trade_date": "2026-10-28",
+  "recorded_at": "2026-10-29T09:28:12.536857+08:00",
+  "user_answer": "批准，按原job及repair顺序执行",
+  "question_item_id": "[\"request_user_input_async\",\"call_ee5245a24fe848689e1a5c89305748f1\",0]",
+  "normal_once_budget_gib": {
+    "read": 428,
+    "write": 123,
+    "extra_space": 128
+  },
+  "scope_document": "dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md §17",
+  "failure_rule": "失败停止，不自动重跑；不新增业务运行限制",
+  "final_audit": "28日一次物理count-only审计"
+}

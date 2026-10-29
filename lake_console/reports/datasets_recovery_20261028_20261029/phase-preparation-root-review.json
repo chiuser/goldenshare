@@ -1,0 +1,19 @@
+{
+  "as_of": "2026-10-29T09:46:44.965009+08:00",
+  "reviewer": "root，独立于两个准备入口实现者",
+  "prepare_macd_sha256": "c005a08a761a2240d4079d8b663bf40c01c011ea1bb715bc3225654798807dd7",
+  "nineturn_sha256": "93ddd7ac34256f60d097cc79eb2eaa9600affacd34c638ba5963879e74e4f2a3",
+  "reviewed": [
+    "真实baseline schema及28日receipt净增量，原factor/readiness/decision和config生产者",
+    "本轮原run/名单/hash/batch绑定、5sensor/pool/日期检查、无业务job启动或写湖",
+    "27日真实seed原run证据、ALL year=*事先核范围、先候选/大小再一次seed比较",
+    "seed/候选2014..2026全部路径去重≤1GiB，包含2025/2026",
+    "公式/原run/check/receipt保护保留，异常停止，不盲重跑"
+  ],
+  "isolation_results": {
+    "macd": 10,
+    "nineturn": 30
+  },
+  "formal_execution_by_reviewer": false,
+  "production_business_code_changed": false
+}

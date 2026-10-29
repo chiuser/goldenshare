@@ -1239,6 +1239,14 @@ CodeGraph已使用status/explore/impact/callers并在修改后sync，覆盖共�
 
 08:37只读核对27/28日因子及生命周期，分钟与日线repair变化名单均16股；新上市0、无法判断0、缺前日因子0，301139.SZ在退市当日排除。此处未执行repair、不读任何价格历史。08:38恢复因子及日线3项sensor的原RUNNING状态；08:39只读确认这3项RUNNING，5项分钟链STOPPED，其他记录到的开关不变，自本批开始没有分钟链job新run。没有清cursor、补runless事件或调整并发、内存、时间限制。
 
-TODO：后续经管理员批准继续股票分钟链时，核清实际job生成名单及年度/历史读取范围，再按QFQ日更→因子repair→MACD/KDJ日更→指标repair→九转推进，并恢复下列5项sensor：`stock_mins_qfq_daily_sensor`、`stock_mins_qfq_factor_repair_sensor`、`gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor`、`gold_stk_mins_qfq_macd_kdj_repair_job_sensor`、`gold_stk_mins_qfq_nineturn_update_job_sensor`。当前保持停止是本轮明确停点，不得在收尾时自动开启。
+08:39登记的历史TODO（已由下方§25.12的后续完成记录关闭）：后续经管理员批准继续股票分钟链时，核清实际job生成名单及年度/历史读取范围，再按QFQ日更→因子repair→MACD/KDJ日更→指标repair→九转推进，并恢复下列5项sensor：`stock_mins_qfq_daily_sensor`、`stock_mins_qfq_factor_repair_sensor`、`gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor`、`gold_stk_mins_qfq_macd_kdj_repair_job_sensor`、`gold_stk_mins_qfq_nineturn_update_job_sensor`。当时保持停止是该阶段的明确停点，不得在该阶段收尾时自动开启。
 
 本轮5个合成测试目录及7个临时编排/控制文件已按精确清单清理，释放测试目录1,777,355字节；触发脚本已逐字节归档为`execute_factor_jobs.py.txt`，SHA256为`f2956c1a864f7f8f484f22c0295b82551cef303d620ede4715287e8f6f0b855a`，原可执行临时脚本已删除。正式staging提交记录、恢复依据及锁文件保持，不做“垃圾清理”。详细清单、最终开关、测试及独立复审边界见[本轮完成报告](../../reports/dg_adj_factor_retention_20261029/README.md)。管理员随后已批准提交本轮实现、测试和执行材料；其他工作区改动不纳入，不推送，股票分钟链停点不变。
+
+2026-10-29后续授权：管理员在本节修改提交`876cc6a8`后要求继续28日股票分钟链及完成后审计28日缺口。§25.11的停点是上一阶段完成事实，不再作为拒绝后续工作的理由；新的原job顺序、具体历史范围及五sensor恢复见[分钟链原方案/LLD §17](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#17-2026-10-28股票分钟链补齐方案和执行lld2026-10-29)。新历史范围取得单独批准后才执行，不重开九键/28日因子写入，不再扫描已完成因子历史。
+
+### 25.12 后续分钟链及sensor待办已完成
+
+2026-10-29取得本轮28日具体历史范围批准后，按QFQ日更→因子repair→MACD/KDJ日更→指标repair→九转的顺序，各运行一次原job并全部成功。28日分钟链25个资产补齐，81项原检查全部通过；两个repair采用原因子job自动确定的16股名单、2014-01-02至2026-10-28范围及同一真实批次，未人工调整名单。九转前16股×4频共64组27日seed核验全部匹配。没有重跑已经完成的Raw/Silver及本节九键/28日Silver因子修正。各run和验收依据见[分钟链完成记录§17.13](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#1713-五阶段补齐完成sensor恢复及最后单日计数)。
+
+10:40:16恢复§25.11历史TODO中的5个分钟sensor，读回全部RUNNING，cursor修改0；该TODO已关闭，原08:39停点和原执行记录保留。证据：[恢复记录](../../reports/datasets_recovery_20261028_20261029/sensor-restoration.json)。最后一次28日DG物理计数为180项catalog、159项审计、21项排除；157项有数据，仅主要指数日线九转Gold及其Prod两项缺失，未核实及零行均0，分钟链25项全部有数据。该单日计数与本节因子修正验收分别保留于[本轮分钟链报告](../../reports/datasets_recovery_20261028_20261029/README.md)，不重复读取或恢复已完成因子历史。428/123/128GiB仍是事前读写及空间预算，不能将其写成实际累计设备I/O。

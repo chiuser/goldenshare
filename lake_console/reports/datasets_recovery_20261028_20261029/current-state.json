@@ -1,0 +1,21 @@
+{
+  "status": "COMPLETE",
+  "date": "2026-10-28",
+  "completed_and_accepted_jobs": 5,
+  "business_jobs_launched": 5,
+  "business_job_reexecutions": 0,
+  "original_checks_passed": 81,
+  "minute_datasets_present": 25,
+  "final_physical_audit_runs": 1,
+  "physical_missing_asset_count": 0,
+  "sensors_running": 5,
+  "evidence": "execution-summary.json",
+  "cleanup_pending": false,
+  "cleanup_complete": true,
+  "index_nineturn_followup_complete": true,
+  "index_nineturn_followup_date": "2026-10-28",
+  "index_nineturn_followup_evidence": "index-daily-nineturn/final.json",
+  "present_after_followup": 159,
+  "final_full_catalog_audit_runs": 1,
+  "global_audit_repeated": false
+}

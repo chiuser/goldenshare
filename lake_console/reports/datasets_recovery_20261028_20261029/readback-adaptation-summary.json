@@ -1,0 +1,85 @@
+[
+  {
+    "source": "/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261023_20261026/batch9/readback.py.txt",
+    "target": "/private/tmp/dg_minute_chain_20261028_20261029/qfq_factor_readback_20261028.py",
+    "source_sha256": "c83f16decacf533a8e6953538d271cbce207e441580d255f2e381015acdaefdf",
+    "target_sha256": "c049d9d1540936cb2631da9a2f2719303aab075d643df163243788bb68e773c0",
+    "literal_replacements": {
+      "2026-10-23": "2026-10-28",
+      "datasets_recovery_20261023_20261026": "datasets_recovery_20261028_20261029"
+    },
+    "omitted_out_of_scope_functions": [
+      "run_preflight"
+    ],
+    "changed_functions": [
+      "main (only allowed verifier modes and CLI delegation)"
+    ],
+    "business_verifier_functions_byte_identical": [
+      "require",
+      "text_hash",
+      "identity",
+      "valid_identity",
+      "read_json",
+      "metadata",
+      "save_result",
+      "postgres_url",
+      "events_for_run",
+      "unique_log_row",
+      "load_logs",
+      "verify_operation",
+      "verify_daily",
+      "verify_factor",
+      "verify_factor_logs",
+      "verify_input_manifest"
+    ],
+    "business_verifier_functions_count": 16,
+    "syntax_compile": "passed",
+    "formal_runtime_executed": false
+  },
+  {
+    "source": "/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261023_20261026/batch10/readback.py.txt",
+    "target": "/private/tmp/dg_minute_chain_20261028_20261029/macd_readback_20261028.py",
+    "source_sha256": "508fa32f83643b79598c1eb48e18e7bbe2f80a6c86d596409434540fdf508fb2",
+    "target_sha256": "6110dac0142aa7254ad6ead3334f842c5d7cdb1cfe55bb0864f3be8527b99840",
+    "literal_replacements": {
+      "2026-10-23": "2026-10-28",
+      "datasets_recovery_20261023_20261026": "datasets_recovery_20261028_20261029"
+    },
+    "omitted_out_of_scope_functions": [
+      "_control_load",
+      "_control_save",
+      "_control_open",
+      "_control_quiet",
+      "_control_upstream_receipts",
+      "_control_scope_baseline",
+      "run_preflight",
+      "prepare_repair",
+      "final_control"
+    ],
+    "changed_functions": [
+      "main (only allowed verifier modes and CLI delegation)"
+    ],
+    "business_verifier_functions_byte_identical": [
+      "b10_require",
+      "b10_text_hash",
+      "b10_read_json",
+      "b10_save_json",
+      "b10_identity",
+      "b10_valid_identity",
+      "b10_metadata",
+      "b10_postgres_url",
+      "b10_run_events",
+      "b10_current_factor_status",
+      "b10_verify_daily_events",
+      "b10_verify_repair_events",
+      "b10_collect_compute_logs",
+      "b10_frozen_sizes",
+      "b10_verify_publication",
+      "b10_verify_publications",
+      "verify_run"
+    ],
+    "business_verifier_functions_count": 17,
+    "syntax_compile": "passed",
+    "formal_runtime_executed": false
+  }
+]

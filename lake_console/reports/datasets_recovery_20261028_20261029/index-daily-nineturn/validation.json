@@ -1,0 +1,29 @@
+{
+  "passed": true,
+  "docs_integrity_passed": true,
+  "diff_whitespace_passed": true,
+  "report_links_passed": true,
+  "json_files_valid": [
+    "prod-verified.json",
+    "prod-variables.json",
+    "prod-observation.json",
+    "gold-tick-at-manual-launch.json",
+    "cleanup.json",
+    "sensor-ticks-before.json",
+    "gold-launch-response.json",
+    "gold-verified.json",
+    "gold-variables.json",
+    "final.json",
+    "preflight.json",
+    "gold-launch-intent.json"
+  ],
+  "archived_temporary_files_verified": 4,
+  "exact_two_asset_counts_passed": true,
+  "full_catalog_audit_reexecutions": 0,
+  "business_code_changes": 0,
+  "business_job_reexecutions": 0,
+  "manual_gold_runs": 1,
+  "manual_prod_runs": 0,
+  "automatic_prod_runs": 1,
+  "history_ths_repaired": false
+}

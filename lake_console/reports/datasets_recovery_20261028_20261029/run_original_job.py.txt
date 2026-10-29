@@ -1,0 +1,101 @@
+"""Submit one approved original job, observe it, and stop before downstream acceptance."""
+import argparse,json,time
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+import requests
+DAY='2026-10-28'
+OUT=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261028_20261029')
+URL='http://127.0.0.1:3000/graphql'
+ZONE=ZoneInfo('Asia/Shanghai')
+STAGES={
+ 'qfq-daily':('stock_mins_qfq_daily_update_job','batch9','daily',True),
+ 'factor':('stock_mins_qfq_factor_repair_job','batch9','factor',False),
+ 'macd-daily':('gold_stk_mins_qfq_macd_kdj_daily_update_job','batch10','daily',True),
+ 'macd-repair':('gold_stk_mins_qfq_macd_kdj_repair_job','batch10','repair',False),
+ 'nineturn':('gold_stk_mins_qfq_nineturn_update_job','batch11','daily',True),
+}
+def now():return datetime.now(ZONE).isoformat()
+def require(ok,message):
+ if not ok:raise ValueError(message)
+def load(p):return json.loads(p.read_text())
+def save(p,v):p.write_text(json.dumps(v,ensure_ascii=False,indent=2,default=str)+'\n')
+def gql(q,v):
+ data=requests.post(URL,json={'query':q,'variables':v},timeout=30).json()
+ if data.get('errors'):raise RuntimeError(json.dumps(data['errors'],ensure_ascii=False))
+ return data['data']
+def accepted(p,job,mode):
+ v=load(p);native=load(p.parent/(mode+'-native-run.json'))
+ require(v.get('verified') is True and v.get('stage_acceptance_complete') is True,str(p))
+ require(v.get('date')==DAY and v.get('mode')==mode and v.get('job')==job and v.get('status')=='SUCCESS','Wrong accepted date/mode/job/status')
+ require(v.get('run_id') and v['run_id']==native.get('run_id') and native.get('status')=='SUCCESS','Accepted run is not the current native run')
+ require(native['request']['selector']['jobName']==job,'Native job mismatch')
+ return v
+
+def factor_evidence():
+ v=accepted(OUT/'batch9/factor-run-verified.json','stock_mins_qfq_factor_repair_job','factor')
+ g=v['factor_gate'];require(g.get('ready') is True and g.get('trade_date')==DAY and g.get('producer_run_id')==v['run_id'],'Factor gate producer/date mismatch')
+ return v,g
+
+def macd_repair_config(directory):
+ _,g=factor_evidence()
+ daily=accepted(OUT/'batch10/daily-run-verified.json','gold_stk_mins_qfq_macd_kdj_daily_update_job','daily')
+ require(daily['factor_gate']==g,'MACD daily accepted a different factor batch')
+ pre=load(directory/'preflight.json');require(pre['factor_gate']==g,'Preflight factor mismatch')
+ decision=load(directory/'repair-decision.json');config=load(directory/'repair-run-config.json')
+ require(decision.get('date')==DAY and decision.get('factor_gate')==g and decision.get('daily_run_id')==daily['run_id'],'Repair decision provenance mismatch')
+ require(decision.get('run_config')==config,'Config differs from recorded original builder output')
+ require(set(config)=={'ops'} and set(config['ops'])=={'gold_stk_mins_qfq_macd_kdj_repair_op'},'Unexpected repair ops')
+ c=config['ops']['gold_stk_mins_qfq_macd_kdj_repair_op']['config']
+ require(set(c)=={'qfq_factor_repair_trade_date','start_trade_date','freqs','stock_codes','reason','repair_required_codes_hash','upstream_batch_id'},'Unexpected repair configuration fields')
+ require(c['qfq_factor_repair_trade_date']==DAY and c['start_trade_date']==g['repair_start_trade_date'],'Repair dates mismatch')
+ require(c['freqs']==[1,5,15,30,60,90,120] and c['stock_codes']==g['repair_required_codes'],'Repair frequencies or actual stock scope mismatch')
+ require(c['repair_required_codes_hash']==g['repair_required_codes_hash'] and c['upstream_batch_id']==g['upstream_batch_id'],'Repair batch/hash mismatch')
+ require(g.get('repair_required_codes_truncated') is False and len(c['stock_codes'])==g['repair_required_code_count'],'Repair scope is incomplete')
+ return config
+
+def main():
+ parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--stage',choices=STAGES,required=True);a=parser.parse_args()
+ approval=load(OUT/'history-approval.json')
+ require(approval.get('approved') is True and approval.get('trade_date')==DAY,'Specific historical range approval missing')
+ job,batch,mode,partition=STAGES[a.stage];directory=OUT/batch;directory.mkdir(exist_ok=True)
+ intent=directory/(mode+'-launch-intent.json');require(not intent.exists(),'Existing launch must be inspected; no automatic resubmission')
+ pre=load(directory/'preflight.json');require(pre.get('safe_to_launch') is True and pre.get('date')==DAY,'Current preflight is not ready')
+ if a.stage=='factor':accepted(OUT/'batch9/daily-run-verified.json','stock_mins_qfq_daily_update_job','daily')
+ if a.stage=='macd-daily':
+  _,gate=factor_evidence();require(pre['factor_gate']==gate,'Current factor preflight mismatch')
+ if a.stage=='macd-repair':accepted(OUT/'batch10/daily-run-verified.json','gold_stk_mins_qfq_macd_kdj_daily_update_job','daily')
+ if a.stage=='nineturn':require(pre.get('factor_gate_ready') is True and pre.get('macd_gate_ready') is True and pre.get('seed_and_candidate_scope_verified') is True,'Nine-turn prerequisites are incomplete')
+ config={}
+ if a.stage=='factor':config={'ops':{'stock_mins_qfq_factor_repair_op':{'config':{'trade_date':DAY}}}}
+ if a.stage=='macd-repair':config=macd_repair_config(directory)
+ tags=[{'key':'goldenshare/recovery','value':'stock_mins_20261028_20261029'}]
+ if partition:tags.append({'key':'dagster/partition','value':DAY})
+ params={'selector':{'repositoryLocationName':'orchestrator','repositoryName':'__repository__','jobName':job},'runConfigData':config,'executionMetadata':{'tags':tags}}
+ state={'stage':a.stage,'trade_date':DAY,'submitted_at':now(),'request':params,'business_data_writes_by_observer':False}
+ save(intent,state)
+ # One mutation only. A network/unknown result stops this observer; never retry launch blindly.
+ response=gql('mutation Launch($p:ExecutionParams!){launchRun(executionParams:$p){__typename ... on LaunchRunSuccess{run{runId status}} ... on RunConfigValidationInvalid{errors{message reason}} ... on PythonError{message}}}',{'p':params})['launchRun']
+ state['launch_response']=response;save(intent,state)
+ require(response['__typename']=='LaunchRunSuccess',str(response))
+ rid=response['run']['runId'];state['run_id']=rid;save(intent,state)
+ output=directory/(mode+'-native-run.json');last=None;last_log=None
+ while True:
+  r=gql('query R($id:ID!){runOrError(runId:$id){__typename ... on Run{runId status}}}',{'id':rid})['runOrError']
+  require(r['__typename']=='Run',str(r))
+  state.update(status=r['status'],last_observed_at=now());save(output,state)
+  if r['status']!=last:
+   print(json.dumps({'stage':a.stage,'run_id':rid,'status':r['status'],'at':now()},ensure_ascii=False),flush=True);last=r['status']
+  logs=sorted((Path('/Users/congming/.goldenshare/dagster_logs')/rid/'compute_logs').glob('*.out'),key=lambda p:p.stat().st_mtime_ns)
+  if logs:
+   with logs[-1].open('rb') as f:
+    f.seek(max(0,logs[-1].stat().st_size-8192));lines=f.read().decode(errors='replace').splitlines()
+   progress=next((x for x in reversed(lines) if 'progress' in x or 'completed' in x or 'source' in x),None)
+   if progress and progress!=last_log:
+    print(json.dumps({'stage':a.stage,'run_id':rid,'progress':progress[-1500:]},ensure_ascii=False),flush=True);last_log=progress
+  if r['status'] in {'SUCCESS','FAILURE','CANCELED'}:break
+  time.sleep(10)
+ state['observed_terminal_at']=now();save(output,state)
+ require(state['status']=='SUCCESS',state['status'])
+ print(json.dumps({'stage':a.stage,'run_id':rid,'status':'SUCCESS','next':'Exact-run acceptance required before downstream'},ensure_ascii=False),flush=True)
+if __name__=='__main__':main()

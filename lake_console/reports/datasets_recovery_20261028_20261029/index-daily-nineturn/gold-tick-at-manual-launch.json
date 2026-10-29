@@ -1,0 +1,19 @@
+{
+  "data": {
+    "sensorOrError": {
+      "__typename": "Sensor",
+      "sensorState": {
+        "status": "RUNNING",
+        "ticks": [
+          {
+            "status": "SKIPPED",
+            "timestamp": 1793247251.499811,
+            "cursor": "{\"blocked_count\": 1, \"decision\": \"skip\", \"details\": {\"asset_family\": \"major_index_nineturn\", \"blocked_component\": \"missing_registered_partition\", \"evidence\": {\"max_run_requests_per_tick\": 1, \"minute_frequencies\": [5, 15, 30, 60, 90, 120]}, \"job_name\": \"gold_major_index_daily_nineturn_update_job\", \"next_action\": \"wait for the gate to clear\", \"partition_set\": \"cn_a_index_trade_days\", \"reason_code\": \"missing_registered_partition\", \"sensor_name\": \"gold_major_index_daily_nineturn_update_job_sensor\", \"summary\": \"major-index nine-turn sensor: missing_registered_partition\"}, \"evaluated_at\": \"2026-10-29T12:14:11.838728+08:00\", \"sample_keys\": [\"2026-10-29\"], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": \"2026-10-29\"}",
+            "runIds": [],
+            "error": null
+          }
+        ]
+      }
+    }
+  }
+}

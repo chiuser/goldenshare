@@ -1,0 +1,404 @@
+"""Prepare the Oct28 adapter from the reviewed Oct23 readback, without importing it."""
+import ast
+import difflib
+import hashlib
+import json
+from pathlib import Path
+
+HERE = Path('/private/tmp/dg_minute_chain_20261028_20261029')
+OLD = Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261023_20261026/batch11/readback.py.txt')
+OUT = HERE / 'nineturn_readback_20261028.py'
+old_source = OLD.read_text()
+old_tree = ast.parse(old_source)
+old_functions = {n.name: n for n in old_tree.body if isinstance(n, ast.FunctionDef)}
+
+
+def source(name):
+    return ast.get_source_segment(old_source, old_functions[name])
+
+
+preserved = [
+    'require', 'now', 'load', 'save', 'text_hash', 'identity', 'valid_identity',
+    'valid_digest', 'metadata', 'target_path', 'safe_code', 'source_coordinates',
+    'snap', 'summary', 'historical_paths', 'guard_group', 'postgres_url',
+    'accepted_report', 'compare_sql', 'complete_inputs', 'verify_events',
+    'verify_publications', 'verify_neighbors',
+]
+header = '''"""Prepared Oct28 nine-turn metadata/prepare/before/exact-run readback.
+
+Only explicit later invocations read approved formal sources. No top-level
+service/file access, job/sensor control, Lake writes, runless events or data SHA.
+"""
+from __future__ import annotations
+import argparse
+import hashlib
+import json
+import os
+import shutil
+from datetime import datetime
+from pathlib import Path
+from types import SimpleNamespace
+from zoneinfo import ZoneInfo
+import dagster as dg
+import yaml
+from dagster_postgres import PostgresEventLogStorage, PostgresRunStorage, PostgresScheduleStorage
+from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
+from orchestrator.defs.qfq_nineturn import (
+    _bounded_candidate_codes, _minute_nineturn_source_paths, _nineturn_file_identity,
+    build_gold_stk_mins_qfq_nineturn_select_sql,
+)
+from orchestrator.defs.resources import DuckDBResource
+from orchestrator.defs.run_contracts.qfq_nineturn import (
+    QFQ_NINETURN_MINUTE_FREQS, QFQ_NINETURN_FALLBACK_CODE_LIMIT,
+    QFQ_NINETURN_VERSION,
+)
+from orchestrator.defs.run_contracts.stk_mins import STK_MINS_QFQ_FREQS
+from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import gold_stk_mins_qfq_factor_repair_status
+from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status
+
+BASE=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261028_20261029/batch11')
+ROOT=Path('/Volumes/datasource/data_lake');STAGE=Path('/Volumes/datasource/data_lake_staging')
+APPROVED_DAGSTER_HOME=Path('/Users/congming/.goldenshare/dagster_home')
+DAY='2026-10-28';PRIOR='2026-10-27';NEXT='2026-10-29'
+PRIOR_RUN='459146ff-d2b1-479c-8c4a-5fbdab04e55a'
+FREQS=QFQ_NINETURN_MINUTE_FREQS
+JOB='gold_stk_mins_qfq_nineturn_update_job'
+ROWS={}
+COLUMNS=['ts_code','freq','trade_date','trade_time','up_count','down_count','nine_up_turn','nine_down_turn']
+RULES=['file_contract','partition_alignment','key_integrity','value_domain','source_key_coverage']
+COMPARE_FIELDS=('trade_date','trade_time','up_count','down_count','nine_up_turn','nine_down_turn')
+WRITER_JOBS=(JOB,'stock_mins_qfq_daily_update_job','stock_mins_qfq_factor_repair_job',
+             'gold_stk_mins_qfq_macd_kdj_daily_update_job','gold_stk_mins_qfq_macd_kdj_repair_job')
+SENSORS={'stock_mins_qfq_daily_sensor','stock_mins_qfq_factor_repair_sensor',
+         'gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor',
+         'gold_stk_mins_qfq_macd_kdj_repair_job_sensor',
+         'gold_stk_mins_qfq_nineturn_update_job_sensor'}
+'''
+pieces = [header]
+for name in preserved:
+    text = source(name)
+    text = text.replace('The 21 October filter', 'The prior-date filter')
+    text = text.replace('22/24 out-of-scope', '27/29 out-of-scope')
+    pieces.append(text)
+
+
+class PriorVariant(ast.NodeTransformer):
+    """Adapt the same assertions to already-existing, exact Oct27 evidence."""
+    def visit_Name(self, node):
+        if node.id == 'DAY':
+            node.id = 'PRIOR'
+        return node
+
+    def visit_Call(self, node):
+        self.generic_visit(node)
+        if isinstance(node.func, ast.Name) and node.func.id == 'target_path':
+            if len(node.args) == 1:
+                node.args.append(ast.Name(id='PRIOR', ctx=ast.Load()))
+        return node
+
+
+prior_events = ast.parse(source('verify_events')).body[0]
+prior_events.name = 'verify_prior_events'
+prior_events = PriorVariant().visit(prior_events)
+for try_node in (n for n in ast.walk(prior_events) if isinstance(n, ast.Try)):
+    # Its exact old run ID is fixed above; the new Oct28 launch-window condition
+    # does not apply to an existing Oct27 seed. All other assertions remain.
+    try_node.body = [statement for statement in try_node.body
+                     if 'Run predates this preflight.' not in ast.unparse(statement)]
+for node in ast.walk(prior_events):
+    if isinstance(node, ast.Assign) and len(node.targets) == 1:
+        if isinstance(node.targets[0], ast.Name) and node.targets[0].id == 'count':
+            node.value = ast.parse("item['goldenshare/source_row_count']", mode='eval').body
+            # Prior evidence checks metadata/check/receipt consistency, not a
+            # newly executed source count. The real Oct28 verifier still uses
+            # ROWS from the original bounded query, unchanged.
+for node in ast.walk(prior_events):
+    if isinstance(node, ast.For) and isinstance(node.target, ast.Name) and node.target.id == 'freq':
+        count_index = next(i for i,s in enumerate(node.body) if isinstance(s, ast.Assign)
+                           and any(isinstance(t, ast.Name) and t.id == 'count' for t in s.targets))
+        node.body[count_index+1:count_index+1] = ast.parse("require(type(count) is int and count > 0, 'Prior source row count is invalid.')").body
+        mat_index = next(i for i,s in enumerate(node.body) if isinstance(s, ast.Assign)
+                         and any(isinstance(t, ast.Name) and t.id == 'materialization' for t in s.targets))
+        node.body[mat_index+1:mat_index+1] = ast.parse('''latest=events.fetch_materializations(dg.AssetRecordsFilter(asset_key=dg.AssetKey(name),asset_partitions=[PRIOR]),limit=1).records
+require(len(latest)==1 and latest[0].storage_id==materialization['storage_id'],'Prior materialization no longer current.')''').body
+ast.fix_missing_locations(prior_events)
+pieces.append(ast.unparse(prior_events))
+
+prior_publications = ast.parse(source('verify_publications')).body[0]
+prior_publications.name = 'verify_prior_publications'
+prior_publications = PriorVariant().visit(prior_publications)
+for node in ast.walk(prior_publications):
+    if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == 'require':
+        if len(node.args) > 1 and isinstance(node.args[1], ast.Constant) and node.args[1].value == 'This recovery unexpectedly overwrote an existing target.':
+            node.args[0] = ast.parse("receipt['before'] is None or valid_identity(receipt['before'])", mode='eval').body
+            node.args[1] = ast.Constant('Invalid prior before identity.')
+class PriorRows(ast.NodeTransformer):
+    def visit_Subscript(self, node):
+        if isinstance(node.value, ast.Name) and node.value.id == 'ROWS':
+            return ast.parse("by_asset[f'gold_stk_mins_qfq_nineturn_{freq}m']['metadata']['goldenshare/source_row_count']", mode='eval').body
+        return self.generic_visit(node)
+prior_publications = PriorRows().visit(prior_publications)
+ast.fix_missing_locations(prior_publications)
+pieces.append(ast.unparse(prior_publications))
+
+extra = r'''
+def approved_history():
+    value=load(BASE.parent/'history-approval.json')
+    require(value.get('approved') is True and value.get('trade_date')==DAY,'Specific Oct28 historical approval missing')
+
+
+def current_accepted(path,job,mode):
+    report=accepted_report(path)
+    require(report.get('verified') is True and report.get('job')==job and report.get('mode')==mode,'Wrong accepted predecessor job/mode')
+    native=load(Path(path).parent/(mode+'-native-run.json'))
+    require(native.get('run_id')==report['run_id'] and native.get('status')=='SUCCESS','Predecessor native run mismatch')
+    require(native['request']['selector']['jobName']==job,'Predecessor native job mismatch')
+    return report
+
+
+def controls(expected=None):
+    # These settings affect only auxiliary readonly DB sessions, never a job.
+    os.environ['PGOPTIONS']='-c default_transaction_read_only=on -c statement_timeout=30000'
+    url=postgres_url()
+    runs=PostgresRunStorage(url,should_autocreate_tables=False)
+    events=PostgresEventLogStorage(url,should_autocreate_tables=False)
+    schedules=PostgresScheduleStorage(url,should_autocreate_tables=False)
+    try:
+        facade=SimpleNamespace(event_log_storage=events,get_event_records=events.get_event_records)
+        factor=gold_stk_mins_qfq_factor_repair_status(facade,DAY).to_payload()
+        gate=gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status(facade,DAY).to_payload()
+        require(factor['ready'] and gate['ready'] and factor['trade_date']==gate['trade_date']==DAY,'Factor/MACD complete gate not ready for Oct28')
+        for key in ('upstream_batch_id','repair_required_codes_hash','repair_required_codes','repair_required_code_count','repair_start_trade_date','repair_end_trade_date','selected_partition_count','qfq_factor_repair_event_storage_ids'):
+            require(factor[key]==gate[key],f'Factor/complete gate mismatch: {key}')
+        codes=tuple(factor['repair_required_codes'])
+        require(codes==tuple(sorted(set(codes))) and all(map(safe_code,codes)) and len(codes)==factor['repair_required_code_count'] and not factor['repair_required_codes_truncated'],'Incomplete actual factor code scope')
+        require(text_hash('\n'.join(codes))==factor['repair_required_codes_hash'],'Actual factor list/hash mismatch')
+        if expected is not None:
+            require(factor==expected['factor_status'] and gate==expected['macd_complete_gate'],'Upstream gate changed')
+        factor_report=current_accepted(BASE.parent/'batch9/factor-run-verified.json','stock_mins_qfq_factor_repair_job','factor')
+        require(factor_report['run_id']==factor['producer_run_id'] and factor_report['factor_gate']==factor,'Wrong accepted factor report/batch')
+        require(len(factor_report['checks'])==len(STK_MINS_QFQ_FREQS) and {x['storage_id'] for x in factor_report['checks']}==set(factor['qfq_factor_repair_event_storage_ids']),'Factor seven completion evidence differs')
+        daily=current_accepted(BASE.parent/'batch10/daily-run-verified.json','gold_stk_mins_qfq_macd_kdj_daily_update_job','daily')
+        require(daily['factor_gate']==factor,'MACD daily accepted a different factor batch')
+        mats={x['asset']:x for x in daily['materializations']};checks=daily['checks']
+        require(len(mats)==2*len(STK_MINS_QFQ_FREQS) and len(checks)==4*len(STK_MINS_QFQ_FREQS),'MACD daily14/28 evidence incomplete')
+        for check in checks:
+            require(check['passed'] and check['blocking'] and check['asset'] in mats and check['target_storage_id']==mats[check['asset']]['storage_id'],'MACD daily original check not bound/passed')
+        for name,materialization in mats.items():
+            latest=events.fetch_materializations(dg.AssetRecordsFilter(asset_key=dg.AssetKey(name),asset_partitions=[DAY]),limit=1).records
+            require(len(latest)==1 and latest[0].storage_id==materialization['storage_id'],'MACD daily materialization changed')
+        repair_run_id=None
+        if gate['requires_macd_kdj_repair']:
+            repair=current_accepted(BASE.parent/'batch10/repair-run-verified.json','gold_stk_mins_qfq_macd_kdj_repair_job','repair')
+            require(repair['factor_gate']==factor and repair['full_gate']==gate,'MACD accepted repair/full gate mismatch')
+            require(repair['completion_gate']==gate['macd_kdj_repair_status'],'MACD completion differs from current full gate')
+            require(len(repair['checks'])==2*len(STK_MINS_QFQ_FREQS) and {x['storage_id'] for x in repair['checks']}==set(gate['macd_kdj_repair_status']['event_storage_ids']),'MACD14 completion evidence differs')
+            repair_run_id=repair['run_id']
+        else:
+            require(not factor['rewrote_history'],'Rewritten QFQ history cannot skip MACD repair')
+        active_statuses=[dg.DagsterRunStatus.NOT_STARTED,dg.DagsterRunStatus.QUEUED,dg.DagsterRunStatus.STARTING,dg.DagsterRunStatus.STARTED,dg.DagsterRunStatus.CANCELING]
+        for job in WRITER_JOBS:
+            require(not runs.get_runs(dg.RunsFilter(job_name=job,statuses=active_statuses),limit=1),f'Related writer active: {job}')
+        pool=events.get_concurrency_info('gold_stk_mins_qfq_writer')
+        require(not pool.active_slot_count and not pool.pending_step_count,'QFQ writer pool active')
+        states=[s for s in schedules.all_instigator_state() if s.name in SENSORS and s.repository_selector.location_name=='orchestrator']
+        require({s.name for s in states}==SENSORS and all(s.status.value=='STOPPED' for s in states),'Five minute-chain sensors must remain stopped')
+        keys=events.get_dynamic_partitions('cn_a_stock_mins_silver_trade_days')
+        require(DAY in keys and max(k for k in keys if k<DAY)==PRIOR,'Wrong registered preceding trade date')
+        return {'factor_status':factor,'macd_complete_gate':gate,'previous_registered_day':PRIOR,
+                'factor_run_id':factor_report['run_id'],'macd_daily_run_id':daily['run_id'],'macd_repair_run_id':repair_run_id,
+                'sensors':[{'name':s.name,'status':s.status.value} for s in states],
+                'pool':{'limit':pool.limit,'active':pool.active_slot_count,'pending':pool.pending_step_count}}
+    finally:runs.dispose();events.dispose();schedules.dispose()
+
+
+def run_metadata():
+    approved_history()
+    BASE.mkdir(parents=True,exist_ok=True)
+    require(not (BASE/'metadata-preflight.json').exists() and not (BASE/'prior-seed-verified.json').exists(),'Preserve existing metadata/prior evidence; no automatic rerun')
+    control=controls()
+    require(ROOT.parent.is_mount() and ROOT.is_dir() and STAGE.is_dir() and ROOT.stat().st_dev==STAGE.stat().st_dev,'Lake/staging mounting or device mismatch')
+    require(all(os.access(p,os.R_OK|os.W_OK|os.X_OK) for p in (ROOT,STAGE)),'Lake/staging access missing')
+    free=shutil.disk_usage(STAGE).free;require(free>=3*1024**3,'Insufficient planned extra space')
+    prior={'as_of':now(),'date':PRIOR,'passed':False,'evidence_only':True,'parquet_content_reads':0,'sha_body_reads':0,'formal_writes':0}
+    mats=verify_prior_events(PRIOR_RUN,{},prior)
+    prior['publications']=verify_prior_publications(prior['root_run_id'],mats)
+    prior['passed']=True;save('prior-seed-verified.json',prior,new=True)
+    pubs={x['freq']:x for x in prior['publications']}
+    pre={'as_of':now(),'date':DAY,'passed':False,**control,'normal_paths':{},'normal_groups':{},'seed_groups':{},'seed_history':{},'neighbor_stat':{},'formal_writes':0,'parquet_content_reads':0,'free_bytes':free,
+         'seed_evidence':str(BASE/'prior-seed-verified.json'),'prior_run_id':PRIOR_RUN,'specific_read_approval':'original plan/LLD section17 plus history-approval.json'}
+    codes=tuple(control['factor_status']['repair_required_codes'])
+    for freq in FREQS:
+        key=str(freq);normal=_minute_nineturn_source_paths(lake_root=ROOT,freq=freq,partition_key=DAY)
+        require(normal,'Missing two-year normal source')
+        for path in normal:require(source_coordinates(path,freq)[1] in (2025,2026),'Normal source outside two years')
+        pre['normal_paths'][key]=snap(normal);pre['normal_groups'][key]=summary(pre['normal_paths'][key])
+        seed=target_path(freq,PRIOR);value=identity(seed)
+        require(value==pubs[freq]['formal_identity'],'27 seed identity changed from exact prior receipt')
+        name=f'gold_stk_mins_qfq_nineturn_{freq}m';mat=mats[name]
+        check=next(c for c in prior['checks'] if c['asset']==name)
+        pre['seed_groups'][key]={'path':str(seed),'identity':value,'materialization_storage_id':mat['storage_id'],'original_check_storage_id':check['storage_id']}
+        for day in (PRIOR,DAY,NEXT):pre['neighbor_stat'][str(target_path(freq,day))]=identity(target_path(freq,day))
+        require(pre['neighbor_stat'][str(target_path(freq))] is None,'28 target already exists')
+        history=historical_paths(freq,codes) if control['factor_status']['rewrote_history'] else ()
+        values=snap(history)
+        pre['seed_history'][key]={'codes':list(codes) if history else [],'inputs':values,**summary(values)}
+    pre['passed']=True;save('metadata-preflight.json',pre,new=True)
+    print(json.dumps({'mode':'metadata','passed':True,'source_files':sum(x['files'] for x in pre['normal_groups'].values()),'actual_factor_codes':len(codes),'rewrote_history':control['factor_status']['rewrote_history'],'seed_history_bytes':sum(x['bytes'] for x in pre['seed_history'].values())}))
+
+
+def approved_history_summary(pre,result):
+    # The approved 1GiB applies to ALL enumerated 2014..2026 seed/candidate
+    # history, deduplicated by path. Normal full-market two-year inputs are
+    # separately budgeted; do not exempt candidate 2025/2026 files here.
+    inputs={}
+    for freq in FREQS:
+        key=str(freq)
+        groups=(pre['seed_history'][key]['inputs'],result['candidate_groups'][key]['history_inputs'])
+        for group in groups:
+            for path,value in group.items():
+                _,year=source_coordinates(path,freq)
+                require(2014<=year<=2026,'History outside approved years')
+                if path in inputs:require(inputs[path]['identity']==value,'Conflicting same-path identity')
+                inputs[path]={'identity':value,'year':year}
+    older={p:v['identity'] for p,v in inputs.items() if v['year']<2025}
+    total=sum(v['identity'][2] for v in inputs.values())
+    require(total<=1024**3,'Combined seed/candidate history exceeds approved1GiB')
+    return {'all_history_files':len(inputs),'all_history_bytes':total,
+            'older_files':len(older),'older_bytes':sum(v[2] for v in older.values()),
+            'path_deduplicated':True}
+
+
+def run_prepare():
+    approved_history()
+    pre=load(BASE/'metadata-preflight.json');require(pre['passed'] and pre['date']==DAY,'Incomplete metadata')
+    require(not (BASE/'candidate-scope.json').exists(),'Preserve prior queries; do not rerun automatically')
+    controls(expected=pre)
+    result={'as_of':now(),'date':DAY,'prior_date':PRIOR,'passed':False,'phase':'start','status':'running','formal_writes':0,'jobs_launched':0,'full_planner_calls':0,'fallback_history_queries':0,'new_data_sha_reads':0,'seed_comparisons':{},'candidate_groups':{},'actual_factor_codes':pre['factor_status']['repair_required_codes'],'factor_batch':pre['factor_status']['upstream_batch_id']}
+    save('candidate-scope.json',result,new=True)
+    try:
+        with DuckDBResource().connect() as connection:
+            # Key-only normal-source queries precede ALL earlier-history reads.
+            for freq in FREQS:
+                key=str(freq);result['phase']=f'bounded_candidate_{freq}';save('candidate-scope.json',result)
+                guard_group(freq,pre,normal=True)
+                count,candidates=_bounded_candidate_codes(connection,source_paths=tuple(map(Path,pre['normal_paths'][key])),partition_key=DAY,previous_partition_path=Path(pre['seed_groups'][key]['path']),freq=freq,after_query=lambda f=freq:guard_group(f,pre,normal=True))
+                require(candidates==tuple(sorted(set(candidates))) and all(map(safe_code,candidates)),'Unsafe candidate list')
+                paths=historical_paths(freq,candidates);values=snap(paths)
+                result['candidate_groups'][key]={'source_row_count':count,'candidate_codes':list(candidates),'candidate_code_count':len(candidates),'history_inputs':values,'history_scope_complete':True,'history_files':len(values),'history_bytes':sum(v[2] for v in values.values())}
+                save('candidate-scope.json',result)
+            require(set(result['candidate_groups'])==set(map(str,FREQS)),'Candidate frequencies incomplete')
+            result['history_scope']=approved_history_summary(pre,result)
+            result['candidate_history_files']=sum(g['history_files'] for g in result['candidate_groups'].values())
+            result['candidate_history_bytes']=sum(g['history_bytes'] for g in result['candidate_groups'].values())
+            result['phase']='all_history_scope_verified';save('candidate-scope.json',result)
+            codes=tuple(pre['factor_status']['repair_required_codes'])
+            if pre['factor_status']['rewrote_history']:
+                require(codes,'Rewrote-history scope has no actual codes')
+                for freq in FREQS:
+                    key=str(freq);result['phase']=f'seed_compare_{freq}';save('candidate-scope.json',result)
+                    guard_group(freq,pre,seed_history=True,candidate=result['candidate_groups'][key])
+                    paths=tuple(map(Path,pre['seed_history'][key]['inputs']))
+                    require(paths,'Rewrote-history seed source set missing')
+                    rows=connection.execute(compare_sql(paths,Path(pre['seed_groups'][key]['path']),freq,codes)).fetchall()
+                    guard_group(freq,pre,seed_history=True,candidate=result['candidate_groups'][key])
+                    require(len(rows)==len(codes),'Unexpected seed comparison count')
+                    differences=[];both_absent=0
+                    for row in rows:
+                        expected=dict(zip(COMPARE_FIELDS,row[1:7],strict=True));seed=dict(zip(COMPARE_FIELDS,row[7:13],strict=True))
+                        both_absent+=expected['trade_time'] is None and seed['trade_time'] is None
+                        if expected!=seed:differences.append({'ts_code':row[0],'expected':expected,'seed':seed})
+                    result['seed_comparisons'][key]={'result_count':len(rows),'matches':len(rows)-len(differences),'both_absent_on_prior_date':both_absent,'mismatch_count':len(differences),'differences':differences}
+                    save('candidate-scope.json',result)
+                    require(not differences,'Changed-code27 seed differs; stop before original job')
+            else:
+                result['seed_check_skipped_reason']='Native factor status rewrote_history=false; exact27 seed receipt/stat reused'
+        result.update(passed=True,status='passed_seed_and_candidate_scope',phase='complete',updated_at=now())
+    except Exception as error:
+        result.update(status='failed_without_retry',failure_type=type(error).__name__,failure=str(error) if isinstance(error,ValueError) else 'Query/stat failed; inspect error without exporting price data')
+        raise
+    finally:save('candidate-scope.json',result)
+    print(json.dumps({'mode':'prepare','passed':result['passed'],'history_scope':result['history_scope'],'candidate_counts':{k:v['candidate_code_count'] for k,v in result['candidate_groups'].items()},'source_rows':{k:v['source_row_count'] for k,v in result['candidate_groups'].items()}}))
+
+
+def run_before():
+    approved_history()
+    pre=load(BASE/'metadata-preflight.json');candidate=load(BASE/'candidate-scope.json')
+    require(pre['passed'] and pre['date']==DAY and candidate['passed'] and candidate['date']==DAY,'Prerequisite scope not ready')
+    require(candidate['prior_date']==PRIOR and candidate['factor_batch']==pre['factor_status']['upstream_batch_id'] and candidate['actual_factor_codes']==pre['factor_status']['repair_required_codes'],'Candidate scope belongs to a different predecessor batch')
+    require(not (BASE/'daily-launch-intent.json').exists() and not (BASE/'preflight.json').exists(),'Preserve original launch/preflight; no automatic rerun')
+    control=controls(expected=pre);acceptance=complete_inputs(pre,candidate)
+    require(approved_history_summary(pre,candidate)==candidate['history_scope'],'Approved history summary changed')
+    require(all(identity(target_path(f)) is None for f in FREQS),'28 target appeared')
+    require(shutil.disk_usage(STAGE).free>=3*1024**3,'Insufficient planned extra space')
+    save('preflight.json',{'as_of':now(),'date':DAY,'job':JOB,'safe_to_launch':True,
+         'factor_gate_ready':control['factor_status']['ready'],'macd_gate_ready':control['macd_complete_gate']['ready'],
+         'seed_and_candidate_scope_verified':True,'control':control,'input_identity_acceptance':acceptance,
+         'metadata_preflight':'metadata-preflight.json','candidate_scope':'candidate-scope.json'},new=True)
+    print(json.dumps({'mode':'before','passed':True,'job_not_launched_by_helper':True}))
+
+
+def run_verify(run_id):
+    global ROWS
+    pre=load(BASE/'metadata-preflight.json');candidate=load(BASE/'candidate-scope.json')
+    intent=load(BASE/'daily-launch-intent.json');native=load(BASE/'daily-native-run.json')
+    require(pre['passed'] and candidate['passed'] and pre['date']==candidate['date']==DAY and pre['previous_registered_day']==PRIOR,'Incomplete preflight/candidate scope')
+    require(candidate['prior_date']==PRIOR and candidate['factor_batch']==pre['factor_status']['upstream_batch_id'] and candidate['actual_factor_codes']==pre['factor_status']['repair_required_codes'],'Candidate scope belongs to a different predecessor batch')
+    require(native['run_id']==run_id and native['status']=='SUCCESS' and native['trade_date']==DAY,'Wrong current native run')
+    require(intent['run_id']==run_id and intent['stage']=='nineturn' and intent['trade_date']==DAY,'Wrong current launch intent')
+    require(intent['request']==native['request'] and intent['request']['selector']['jobName']==JOB and intent['request']['runConfigData']=={},'Wrong original launch request')
+    require({'key':'dagster/partition','value':DAY} in intent['request']['executionMetadata']['tags'],'Wrong launch partition')
+    ROWS={freq:candidate['candidate_groups'][str(freq)]['source_row_count'] for freq in FREQS}
+    require(all(type(n) is int and n>0 for n in ROWS.values()),'Missing real source counts')
+    require(all(pre['neighbor_stat'][str(target_path(freq))] is None for freq in FREQS),'Targets were not empty before launch')
+    output={'as_of':now(),'date':DAY,'passed':False,'formal_content_reads':0,'new_data_sha_reads':0,'formal_writes':0,'verification':'original exact run/checks plus publication JSON/stat; counts from current bounded candidate query','read_scope_evidence':'candidate-scope.json','native_job_reexecutions':0}
+    require(not (BASE/'final-verified.json').exists(),'Preserve original final receipt')
+    try:
+        by_asset=verify_events(run_id,{'as_of':intent['submitted_at']},output)
+        output['publications']=verify_publications(output['root_run_id'],by_asset)
+        output['input_identity_acceptance']=complete_inputs(pre,candidate)
+        output['neighbor_stat']=verify_neighbors(pre)
+        output['controls_final']=controls(expected=pre)
+        output['output_rows']=sum(x['row_count'] for x in output['publications'])
+        output['output_bytes']=sum(x['bytes'] for x in output['publications'])
+        require(output['output_rows']==sum(ROWS.values()),'Total rows differ from actual current query')
+        output.update(passed=True,stage_acceptance_complete=True)
+    except Exception as error:
+        output.update(failure_type=type(error).__name__,failure=str(error) if isinstance(error,ValueError) else 'Verification failed; inspect process error')
+        raise
+    finally:save('final-verified.json',output,new=True)
+    print(json.dumps({key:output[key] for key in ('run_id','status','passed','materializations_verified','blocking_checks_passed','output_rows','output_bytes')}))
+
+
+def main():
+    parser=argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('mode',choices=('metadata','prepare','before','verify'))
+    parser.add_argument('--run-id')
+    args=parser.parse_args()
+    if args.mode=='metadata':run_metadata()
+    elif args.mode=='prepare':run_prepare()
+    elif args.mode=='before':run_before()
+    else:
+        if not args.run_id:parser.error('verify requires exact --run-id')
+        run_verify(args.run_id)
+
+
+if __name__=='__main__':main()
+'''
+pieces.append(extra)
+output = '\n\n'.join(pieces) + '\n'
+ast.parse(output)
+OUT.write_text(output)
+(HERE / 'nineturn-readback-adaptation.diff').write_text(''.join(difflib.unified_diff(old_source.splitlines(True), output.splitlines(True), fromfile=str(OLD), tofile=str(OUT))))
+summary = {'old_source': str(OLD), 'old_sha256': hashlib.sha256(old_source.encode()).hexdigest(),
+           'new_source': str(OUT), 'new_sha256': hashlib.sha256(output.encode()).hexdigest(),
+           'preserved_functions': preserved,
+           'prior_verifier_changes': ['DAY->PRIOR with explicit target day',
+              'old exact seed does not use new launch window',
+              'prior existing source count from original metadata/check/receipt only',
+              'prior before identity may be valid existing value',
+              'latest prior materialization IDs checked'],
+           'removed_entrypoints': ['discover', 'old dg launch window creation', 'daemon pgrep', 'old22 archived-final dependency', 'old2sensor control'],
+           'formal_accesses_during_preparation': 0}
+(HERE / 'nineturn-readback-adaptation-summary.json').write_text(json.dumps(summary, ensure_ascii=False, indent=2)+'\n')
+print(json.dumps({'generated': str(OUT), 'preserved_functions': len(preserved), 'syntax': 'passed'}))

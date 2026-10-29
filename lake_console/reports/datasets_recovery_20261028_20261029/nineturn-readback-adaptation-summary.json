@@ -1,0 +1,46 @@
+{
+  "old_source": "/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261023_20261026/batch11/readback.py.txt",
+  "old_sha256": "6041723a39197a0c93e890c9dbd3053c7b3b0f3638497dfa482d0ec206ea251d",
+  "new_source": "/private/tmp/dg_minute_chain_20261028_20261029/nineturn_readback_20261028.py",
+  "new_sha256": "93ddd7ac34256f60d097cc79eb2eaa9600affacd34c638ba5963879e74e4f2a3",
+  "preserved_functions": [
+    "require",
+    "now",
+    "load",
+    "save",
+    "text_hash",
+    "identity",
+    "valid_identity",
+    "valid_digest",
+    "metadata",
+    "target_path",
+    "safe_code",
+    "source_coordinates",
+    "snap",
+    "summary",
+    "historical_paths",
+    "guard_group",
+    "postgres_url",
+    "accepted_report",
+    "compare_sql",
+    "complete_inputs",
+    "verify_events",
+    "verify_publications",
+    "verify_neighbors"
+  ],
+  "prior_verifier_changes": [
+    "DAY->PRIOR with explicit target day",
+    "old exact seed does not use new launch window",
+    "prior existing source count from original metadata/check/receipt only",
+    "prior before identity may be valid existing value",
+    "latest prior materialization IDs checked"
+  ],
+  "removed_entrypoints": [
+    "discover",
+    "old dg launch window creation",
+    "daemon pgrep",
+    "old22 archived-final dependency",
+    "old2sensor control"
+  ],
+  "formal_accesses_during_preparation": 0
+}

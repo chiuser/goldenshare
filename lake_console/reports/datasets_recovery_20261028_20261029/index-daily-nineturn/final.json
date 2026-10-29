@@ -1,0 +1,39 @@
+{
+  "as_of": "2026-10-29T12:23:21.414399+08:00",
+  "date": "2026-10-28",
+  "passed": true,
+  "gold_rows": 11,
+  "prod_rows": 11,
+  "input_and_neighbor_stats_unchanged": true,
+  "prod_neighbor_counts_unchanged": true,
+  "sensors_unchanged": {
+    "gold": "RUNNING",
+    "prod": "RUNNING"
+  },
+  "global_audit_repeated": false,
+  "new_full_catalog_audit_runs": 0,
+  "original_checks_passed": 2,
+  "runs": [
+    {
+      "stage": "gold",
+      "job": "gold_major_index_daily_nineturn_update_job",
+      "run_id": "d4c794f5-4939-482e-a93c-4ba70d3eadd7",
+      "status": "SUCCESS"
+    },
+    {
+      "stage": "prod",
+      "job": "prod_core_index_daily_nineturn_sync_job",
+      "run_id": "22dbd172-3a3c-4c51-bb1f-075eb31256bf",
+      "status": "SUCCESS"
+    }
+  ],
+  "closure_from_original_count": {
+    "original_present": 157,
+    "newly_restored": 2,
+    "audited": 159,
+    "present_after_followup": 159,
+    "remaining_missing_for_20261028": 0,
+    "proof": "Original final-physical-audit.json plus exact two-asset followup; no global audit rerun."
+  },
+  "history_ths_not_repaired": true
+}

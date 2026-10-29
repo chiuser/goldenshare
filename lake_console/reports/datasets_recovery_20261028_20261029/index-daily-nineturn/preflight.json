@@ -1,0 +1,570 @@
+{
+  "as_of": "2026-10-29T12:19:24.011876+08:00",
+  "date": "2026-10-28",
+  "source": {
+    "date": "2026-10-28",
+    "run_id": "324843d1-5c83-4d4a-a447-7e2befcbde40",
+    "job": "market_major_indices_daily_update_job",
+    "status": "SUCCESS",
+    "materializations": [
+      {
+        "asset": "gold_market_major_indices_daily",
+        "partition": "2026-10-28",
+        "storage_id": 7785757,
+        "run_id": "324843d1-5c83-4d4a-a447-7e2befcbde40",
+        "metadata": {
+          "dagster/row_count": 11,
+          "goldenshare/observed_columns": [
+            "trade_date",
+            "rank",
+            "ts_code",
+            "display_name",
+            "open",
+            "high",
+            "low",
+            "close",
+            "pre_close",
+            "change_amount",
+            "pct_chg",
+            "vol",
+            "amount"
+          ],
+          "goldenshare/summary": "已生成主要指数日线 gold 分区，供首页和市场概览展示主要指数行情。",
+          "goldenshare/next_action": "等待 gold_market_major_indices_daily blocking checks 全部通过；通过后 serving 和前端展示链路可以消费。",
+          "goldenshare/result_status": "written",
+          "goldenshare/input_summary": {
+            "partition_count": 1,
+            "seed_row_count": 11,
+            "seed_source": "orchestrator.seeds.market.major_indices",
+            "source_asset": "silver_index_daily"
+          },
+          "goldenshare/metric_summary": {
+            "active_seed_row_counts": {
+              "2026-10-28": 11
+            },
+            "output_row_count": 11
+          },
+          "goldenshare/diagnostic_ref": "完整诊断看 gold_market_major_indices_daily checks、partition_metadata 和 run stdout。",
+          "goldenshare/partition_keys": [
+            "2026-10-28"
+          ],
+          "goldenshare/partition_metadata": {
+            "2026-10-28": {
+              "active_seed_codes": [
+                "000001.SH",
+                "399001.SZ",
+                "399006.SZ",
+                "000688.SH",
+                "000300.SH",
+                "000905.SH",
+                "000852.SH",
+                "899050.BJ",
+                "000510.SH",
+                "000016.SH",
+                "000680.SH"
+              ],
+              "active_seed_row_count": 11,
+              "file_path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-28/part-000.parquet",
+              "inactive_seed_row_count": 0,
+              "output_columns": [
+                "trade_date",
+                "rank",
+                "ts_code",
+                "display_name",
+                "open",
+                "high",
+                "low",
+                "close",
+                "pre_close",
+                "change_amount",
+                "pct_chg",
+                "vol",
+                "amount"
+              ],
+              "output_row_count": 11,
+              "partition_key": "2026-10-28",
+              "seed_columns": [
+                "rank",
+                "ts_code",
+                "display_name",
+                "effective_start_date",
+                "effective_end_date"
+              ],
+              "seed_row_count": 11,
+              "source_asset": "silver_index_daily",
+              "source_file_path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2026-10-28/part-000.parquet"
+            }
+          }
+        }
+      }
+    ],
+    "checks": [
+      {
+        "asset": "gold_market_major_indices_daily",
+        "name": "gold_market_major_indices_daily_ranking_consistency_check",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_storage_id": 7785757,
+        "target_run_id": "324843d1-5c83-4d4a-a447-7e2befcbde40",
+        "metadata": {
+          "goldenshare/check_scope": "partition_alignment",
+          "goldenshare/failed_rule_names": [],
+          "goldenshare/next_action": "等待下游 serving 或前端展示链路消费。",
+          "goldenshare/partition_keys": [
+            "2026-10-28"
+          ],
+          "goldenshare/rule_passed": {
+            "gold_market_major_indices_daily_rank_matches_active_seed_order": true,
+            "gold_market_major_indices_daily_unique_ts_code": true
+          },
+          "goldenshare/rule_summary": {
+            "failed_rule_count": 0,
+            "failed_rule_names": [],
+            "partition_count": 1,
+            "rule_count": 2
+          },
+          "goldenshare/summary": "主要指数 gold 聚合检查通过。"
+        }
+      },
+      {
+        "asset": "gold_market_major_indices_daily",
+        "name": "gold_market_major_indices_daily_seed_coverage_check",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_storage_id": 7785757,
+        "target_run_id": "324843d1-5c83-4d4a-a447-7e2befcbde40",
+        "metadata": {
+          "goldenshare/check_scope": "referential_integrity",
+          "goldenshare/failed_rule_names": [],
+          "goldenshare/next_action": "等待下游 serving 或前端展示链路消费。",
+          "goldenshare/partition_keys": [
+            "2026-10-28"
+          ],
+          "goldenshare/rule_passed": {
+            "gold_market_major_indices_daily_seed_codes_present": true,
+            "gold_market_major_indices_seed_codes_exist_in_index_basic": true,
+            "gold_market_major_indices_seed_codes_exist_in_registered_index_ts_codes": true
+          },
+          "goldenshare/rule_summary": {
+            "failed_rule_count": 0,
+            "failed_rule_names": [],
+            "partition_count": 1,
+            "rule_count": 3
+          },
+          "goldenshare/summary": "主要指数 gold 聚合检查通过。"
+        }
+      },
+      {
+        "asset": "gold_market_major_indices_daily",
+        "name": "gold_market_major_indices_daily_value_domain_check",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_storage_id": 7785757,
+        "target_run_id": "324843d1-5c83-4d4a-a447-7e2befcbde40",
+        "metadata": {
+          "goldenshare/check_scope": "partition_alignment",
+          "goldenshare/failed_partitions": [],
+          "goldenshare/invalid_counts": {
+            "2026-10-28": 0
+          },
+          "goldenshare/invalid_samples": {
+            "2026-10-28": []
+          },
+          "goldenshare/missing_file_paths": [],
+          "goldenshare/next_action": "等待下游消费。",
+          "goldenshare/rule_summary": {
+            "failed_partition_count": 0,
+            "missing_file_count": 0,
+            "partition_count": 1
+          },
+          "goldenshare/summary": "主要指数 gold 价格域检查通过。"
+        }
+      },
+      {
+        "asset": "gold_market_major_indices_daily",
+        "name": "gold_market_major_indices_daily_contract_check",
+        "passed": true,
+        "blocking": true,
+        "partition": null,
+        "target_storage_id": 7785757,
+        "target_run_id": "324843d1-5c83-4d4a-a447-7e2befcbde40",
+        "metadata": {
+          "goldenshare/check_scope": "schema",
+          "goldenshare/failed_rule_names": [],
+          "goldenshare/next_action": "等待下游 serving 或前端展示链路消费。",
+          "goldenshare/partition_keys": [
+            "2026-10-28"
+          ],
+          "goldenshare/rule_passed": {
+            "gold_market_major_indices_daily_file_exists": true,
+            "gold_market_major_indices_daily_partition_date_matches": true,
+            "gold_market_major_indices_daily_required_columns_and_types": true,
+            "gold_market_major_indices_daily_row_count_matches_seed": true
+          },
+          "goldenshare/rule_summary": {
+            "failed_rule_count": 0,
+            "failed_rule_names": [],
+            "partition_count": 1,
+            "rule_count": 4
+          },
+          "goldenshare/summary": "主要指数 gold 聚合检查通过。"
+        }
+      }
+    ],
+    "failures": [],
+    "row_count": 11,
+    "required_checks": [
+      "gold_market_major_indices_daily_contract_check",
+      "gold_market_major_indices_daily_ranking_consistency_check",
+      "gold_market_major_indices_daily_seed_coverage_check",
+      "gold_market_major_indices_daily_value_domain_check"
+    ],
+    "verified": true,
+    "elapsed_seconds": 5.426486015319824
+  },
+  "previous": {
+    "date": "2026-10-27",
+    "run_id": "187f7026-3189-4090-9ebf-a87f54cf9771",
+    "job": "gold_major_index_daily_nineturn_update_job",
+    "status": "SUCCESS",
+    "materializations": [
+      {
+        "asset": "gold_major_index_daily_nineturn",
+        "partition": "2026-10-27",
+        "storage_id": 7737409,
+        "run_id": "187f7026-3189-4090-9ebf-a87f54cf9771",
+        "metadata": {
+          "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-27/part-000.parquet",
+          "dagster/row_count": 11,
+          "goldenshare/observed_columns": [
+            "ts_code",
+            "trade_date",
+            "close",
+            "up_count",
+            "down_count",
+            "nine_up_turn",
+            "nine_down_turn"
+          ],
+          "goldenshare/summary": "已生成主要指数日线九转分区。",
+          "goldenshare/next_action": "等待同分区 blocking integrity check 通过。",
+          "goldenshare/result_status": "written",
+          "goldenshare/partition_key": "2026-10-27",
+          "goldenshare/freq": "daily",
+          "goldenshare/source_file_count": 21,
+          "goldenshare/source_row_count": 11,
+          "goldenshare/output_row_count": 11,
+          "goldenshare/index_code_count": 11,
+          "goldenshare/source_fingerprint": "9f5924af834d660258200235913e1c5c72a3d49b409a58159e8bac59702f7478",
+          "goldenshare/formula_version": 1
+        }
+      }
+    ],
+    "checks": [
+      {
+        "asset": "gold_major_index_daily_nineturn",
+        "name": "gold_major_index_daily_nineturn_integrity_check",
+        "passed": true,
+        "blocking": true,
+        "partition": "2026-10-27",
+        "target_storage_id": 7737409,
+        "target_run_id": "187f7026-3189-4090-9ebf-a87f54cf9771",
+        "metadata": {
+          "goldenshare/check_scope": "reconciliation",
+          "goldenshare/checked_row_count": 11,
+          "goldenshare/duplicate_key_count": 0,
+          "goldenshare/extra_output_key_count": 0,
+          "goldenshare/failed_row_count": 0,
+          "goldenshare/failed_rule_names": [],
+          "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-27/part-000.parquet",
+          "goldenshare/formula_version": 1,
+          "goldenshare/invalid_value_count": 0,
+          "goldenshare/missing_source_key_count": 0,
+          "goldenshare/next_action": "无需处理。",
+          "goldenshare/null_key_count": 0,
+          "goldenshare/rules": [
+            "file_contract",
+            "partition_alignment",
+            "key_integrity",
+            "value_domain",
+            "source_key_coverage",
+            "source_value_consistency"
+          ],
+          "goldenshare/source_row_count": 11,
+          "goldenshare/source_value_mismatch_count": 0,
+          "goldenshare/summary": "主要指数九转分区完整性检查通过。"
+        }
+      }
+    ],
+    "failures": [],
+    "row_count": 11,
+    "required_checks": [
+      "gold_major_index_daily_nineturn_integrity_check"
+    ],
+    "verified": true,
+    "elapsed_seconds": 5.062963008880615
+  },
+  "inputs": {
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-23/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-23/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        19287029,
+        2628,
+        1790157339481155959
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-24/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-24/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        19427490,
+        2627,
+        1790246264117368959
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-28/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-28/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        19571912,
+        2629,
+        1790589186305697598
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-29/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-29/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        19681301,
+        2628,
+        1790689560372803704
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-30/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-30/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        19822164,
+        2628,
+        1790762161284577385
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-08/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-08/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        20069893,
+        2628,
+        1791470256538639724
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-09/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-09/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        20328220,
+        2626,
+        1791539616637532514
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-12/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-12/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        20479859,
+        2626,
+        1791798900858415757
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-13/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-13/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        20624871,
+        2628,
+        1791885905509082584
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-14/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-14/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        20787747,
+        2627,
+        1791971619475470574
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-15/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-15/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        20914916,
+        2625,
+        1792057907773757616
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-16/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-16/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        21042120,
+        2625,
+        1792144590293026532
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-19/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-19/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        22014532,
+        2624,
+        1792403535470790148
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-20/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-20/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        22164982,
+        2626,
+        1792502398224051932
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-21/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        22327569,
+        2627,
+        1792576669564287842
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-22/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-22/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        22507413,
+        2628,
+        1792843133503961835
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-23/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-23/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        23732202,
+        2627,
+        1792978571178482627
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-26/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-26/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        24999100,
+        2626,
+        1793009210172597891
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-27/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-27/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        26209105,
+        2627,
+        1793095687825911814
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-28/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-28/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        27503592,
+        2627,
+        1793235937599468975
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-27/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-27/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        26209184,
+        1323,
+        1793096288627652943
+      ]
+    }
+  },
+  "input_bytes": 53860,
+  "neighbors": {
+    "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-27/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-27/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        26209184,
+        1323,
+        1793096288627652943
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-29/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-29/part-000.parquet",
+      "exists": false
+    }
+  },
+  "prod_counts_before": {
+    "2026-10-27": {
+      "rows": 11,
+      "codes": 11
+    },
+    "2026-10-28": {
+      "rows": 0,
+      "codes": 0
+    },
+    "2026-10-29": {
+      "rows": 0,
+      "codes": 0
+    }
+  },
+  "sensors": {
+    "gold": "RUNNING",
+    "prod": "RUNNING"
+  },
+  "active": {
+    "gold": [],
+    "prod": []
+  },
+  "recent": {
+    "gold": [],
+    "prod": []
+  },
+  "gold_target": {
+    "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-28/part-000.parquet",
+    "exists": false
+  },
+  "free_bytes": 2902128025600,
+  "extra_history_content_reads": 0
+}

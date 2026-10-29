@@ -1,0 +1,383 @@
+{
+  "as_of": "2026-10-29T10:18:26.228684+08:00",
+  "date": "2026-10-28",
+  "mode": "prepare-repair",
+  "factor_gate": {
+    "ready": true,
+    "trade_date": "2026-10-28",
+    "reason": "qfq factor repair rewrote history; reconciliation is required.",
+    "repair_required": true,
+    "rewrote_history": true,
+    "qfq_factor_repair_event_storage_ids": [
+      7786047,
+      7786048,
+      7786049,
+      7786050,
+      7786051,
+      7786052,
+      7786053
+    ],
+    "producer_run_id": "816a0d01-a56f-4f06-bdb3-1a7e0c05a793",
+    "upstream_batch_id": "qfq_factor_repair:2026-10-28:3afb0b0b08f6",
+    "missing_qfq_asset_keys": [],
+    "failed_qfq_asset_keys": [],
+    "repair_start_trade_date": "2014-01-02",
+    "repair_end_trade_date": "2026-10-28",
+    "selected_partition_count": 3115,
+    "repair_required_code_count": 16,
+    "repair_required_codes": [
+      "300601.SZ",
+      "601298.SH",
+      "601991.SH",
+      "603689.SH",
+      "688087.SH",
+      "920047.BJ",
+      "920145.BJ",
+      "920199.BJ",
+      "920227.BJ",
+      "920242.BJ",
+      "920339.BJ",
+      "920427.BJ",
+      "920656.BJ",
+      "920751.BJ",
+      "920892.BJ",
+      "920957.BJ"
+    ],
+    "repair_required_codes_hash": "c4a301285eb06a998bb596c4113580fb329a0f1b38f1d9fffa3119efa9824a91",
+    "repair_required_codes_truncated": false,
+    "rewritten_file_count": 510,
+    "rewritten_row_count": 6785698,
+    "derived_rewrite_required": true,
+    "derived_rewritten_file_count": 208,
+    "derived_rewritten_row_count": 110853,
+    "requires_derived_reconciliation": true
+  },
+  "daily_run_id": "13e1b027-22c4-4268-950d-aaac9b5be9d2",
+  "daily_readiness": {
+    "ready": true,
+    "statuses": [
+      {
+        "asset_key": "gold_stk_mins_qfq_macd_kdj_1m",
+        "partition_key": "2026-10-28",
+        "ready": true,
+        "materialized": true,
+        "checks_passed": true,
+        "freshness_passed": true,
+        "materialization_storage_id": 7786152,
+        "materialization_date": "2026-10-29",
+        "missing_check_names": [],
+        "failed_check_names": [],
+        "reason": "ready"
+      },
+      {
+        "asset_key": "gold_stk_mins_qfq_macd_kdj_5m",
+        "partition_key": "2026-10-28",
+        "ready": true,
+        "materialized": true,
+        "checks_passed": true,
+        "freshness_passed": true,
+        "materialization_storage_id": 7786164,
+        "materialization_date": "2026-10-29",
+        "missing_check_names": [],
+        "failed_check_names": [],
+        "reason": "ready"
+      },
+      {
+        "asset_key": "gold_stk_mins_qfq_macd_kdj_15m",
+        "partition_key": "2026-10-28",
+        "ready": true,
+        "materialized": true,
+        "checks_passed": true,
+        "freshness_passed": true,
+        "materialization_storage_id": 7786146,
+        "materialization_date": "2026-10-29",
+        "missing_check_names": [],
+        "failed_check_names": [],
+        "reason": "ready"
+      },
+      {
+        "asset_key": "gold_stk_mins_qfq_macd_kdj_30m",
+        "partition_key": "2026-10-28",
+        "ready": true,
+        "materialized": true,
+        "checks_passed": true,
+        "freshness_passed": true,
+        "materialization_storage_id": 7786158,
+        "materialization_date": "2026-10-29",
+        "missing_check_names": [],
+        "failed_check_names": [],
+        "reason": "ready"
+      },
+      {
+        "asset_key": "gold_stk_mins_qfq_macd_kdj_60m",
+        "partition_key": "2026-10-28",
+        "ready": true,
+        "materialized": true,
+        "checks_passed": true,
+        "freshness_passed": true,
+        "materialization_storage_id": 7786170,
+        "materialization_date": "2026-10-29",
+        "missing_check_names": [],
+        "failed_check_names": [],
+        "reason": "ready"
+      },
+      {
+        "asset_key": "gold_stk_mins_qfq_macd_kdj_90m",
+        "partition_key": "2026-10-28",
+        "ready": true,
+        "materialized": true,
+        "checks_passed": true,
+        "freshness_passed": true,
+        "materialization_storage_id": 7786176,
+        "materialization_date": "2026-10-29",
+        "missing_check_names": [],
+        "failed_check_names": [],
+        "reason": "ready"
+      },
+      {
+        "asset_key": "gold_stk_mins_qfq_macd_kdj_120m",
+        "partition_key": "2026-10-28",
+        "ready": true,
+        "materialized": true,
+        "checks_passed": true,
+        "freshness_passed": true,
+        "materialization_storage_id": 7786140,
+        "materialization_date": "2026-10-29",
+        "missing_check_names": [],
+        "failed_check_names": [],
+        "reason": "ready"
+      },
+      {
+        "asset_key": "gold_stk_mins_qfq_macd_kdj_state_1m",
+        "partition_key": "2026-10-28",
+        "ready": true,
+        "materialized": true,
+        "checks_passed": true,
+        "freshness_passed": true,
+        "materialization_storage_id": 7786154,
+        "materialization_date": "2026-10-29",
+        "missing_check_names": [],
+        "failed_check_names": [],
+        "reason": "ready"
+      },
+      {
+        "asset_key": "gold_stk_mins_qfq_macd_kdj_state_5m",
+        "partition_key": "2026-10-28",
+        "ready": true,
+        "materialized": true,
+        "checks_passed": true,
+        "freshness_passed": true,
+        "materialization_storage_id": 7786166,
+        "materialization_date": "2026-10-29",
+        "missing_check_names": [],
+        "failed_check_names": [],
+        "reason": "ready"
+      },
+      {
+        "asset_key": "gold_stk_mins_qfq_macd_kdj_state_15m",
+        "partition_key": "2026-10-28",
+        "ready": true,
+        "materialized": true,
+        "checks_passed": true,
+        "freshness_passed": true,
+        "materialization_storage_id": 7786148,
+        "materialization_date": "2026-10-29",
+        "missing_check_names": [],
+        "failed_check_names": [],
+        "reason": "ready"
+      },
+      {
+        "asset_key": "gold_stk_mins_qfq_macd_kdj_state_30m",
+        "partition_key": "2026-10-28",
+        "ready": true,
+        "materialized": true,
+        "checks_passed": true,
+        "freshness_passed": true,
+        "materialization_storage_id": 7786160,
+        "materialization_date": "2026-10-29",
+        "missing_check_names": [],
+        "failed_check_names": [],
+        "reason": "ready"
+      },
+      {
+        "asset_key": "gold_stk_mins_qfq_macd_kdj_state_60m",
+        "partition_key": "2026-10-28",
+        "ready": true,
+        "materialized": true,
+        "checks_passed": true,
+        "freshness_passed": true,
+        "materialization_storage_id": 7786172,
+        "materialization_date": "2026-10-29",
+        "missing_check_names": [],
+        "failed_check_names": [],
+        "reason": "ready"
+      },
+      {
+        "asset_key": "gold_stk_mins_qfq_macd_kdj_state_90m",
+        "partition_key": "2026-10-28",
+        "ready": true,
+        "materialized": true,
+        "checks_passed": true,
+        "freshness_passed": true,
+        "materialization_storage_id": 7786178,
+        "materialization_date": "2026-10-29",
+        "missing_check_names": [],
+        "failed_check_names": [],
+        "reason": "ready"
+      },
+      {
+        "asset_key": "gold_stk_mins_qfq_macd_kdj_state_120m",
+        "partition_key": "2026-10-28",
+        "ready": true,
+        "materialized": true,
+        "checks_passed": true,
+        "freshness_passed": true,
+        "materialization_storage_id": 7786142,
+        "materialization_date": "2026-10-29",
+        "missing_check_names": [],
+        "failed_check_names": [],
+        "reason": "ready"
+      }
+    ]
+  },
+  "decision": {
+    "target_trade_date": "2026-10-28",
+    "selected_trade_date": "2014-01-02",
+    "reason": "MACD/KDJ daily 成功，提交 scoped MACD/KDJ repair。",
+    "next_action": "等待 scoped MACD/KDJ repair run 完成并写入 completion check。",
+    "stock_codes": [
+      "300601.SZ",
+      "601298.SH",
+      "601991.SH",
+      "603689.SH",
+      "688087.SH",
+      "920047.BJ",
+      "920145.BJ",
+      "920199.BJ",
+      "920227.BJ",
+      "920242.BJ",
+      "920339.BJ",
+      "920427.BJ",
+      "920656.BJ",
+      "920751.BJ",
+      "920892.BJ",
+      "920957.BJ"
+    ],
+    "repair_required_codes_hash": "c4a301285eb06a998bb596c4113580fb329a0f1b38f1d9fffa3119efa9824a91",
+    "upstream_batch_id": "qfq_factor_repair:2026-10-28:3afb0b0b08f6"
+  },
+  "controls": {
+    "same_chain_active_runs": [],
+    "sensors": [
+      {
+        "name": "stock_mins_qfq_daily_sensor",
+        "status": "STOPPED"
+      },
+      {
+        "name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+        "status": "STOPPED"
+      },
+      {
+        "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+        "status": "STOPPED"
+      },
+      {
+        "name": "stock_mins_qfq_factor_repair_sensor",
+        "status": "STOPPED"
+      },
+      {
+        "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+        "status": "STOPPED"
+      }
+    ],
+    "pool": {
+      "limit": 1,
+      "active_slots": 0,
+      "pending_steps": 0
+    },
+    "free_bytes": 2902617042944,
+    "daemon_change": false,
+    "other_dataset_runs_blocked": false
+  },
+  "repair_to_launch": true,
+  "run_config": {
+    "ops": {
+      "gold_stk_mins_qfq_macd_kdj_repair_op": {
+        "config": {
+          "qfq_factor_repair_trade_date": "2026-10-28",
+          "start_trade_date": "2014-01-02",
+          "freqs": [
+            1,
+            5,
+            15,
+            30,
+            60,
+            90,
+            120
+          ],
+          "stock_codes": [
+            "300601.SZ",
+            "601298.SH",
+            "601991.SH",
+            "603689.SH",
+            "688087.SH",
+            "920047.BJ",
+            "920145.BJ",
+            "920199.BJ",
+            "920227.BJ",
+            "920242.BJ",
+            "920339.BJ",
+            "920427.BJ",
+            "920656.BJ",
+            "920751.BJ",
+            "920892.BJ",
+            "920957.BJ"
+          ],
+          "reason": "qfq_factor_repair:2026-10-28",
+          "repair_required_codes_hash": "c4a301285eb06a998bb596c4113580fb329a0f1b38f1d9fffa3119efa9824a91",
+          "upstream_batch_id": "qfq_factor_repair:2026-10-28:3afb0b0b08f6"
+        }
+      }
+    }
+  },
+  "additional_price_reads": 0,
+  "formal_writes": 0,
+  "existing_completion": {
+    "ready": false,
+    "reason": "MACD/KDJ repair completion check is missing or not green.",
+    "event_storage_ids": [],
+    "missing_asset_keys": [
+      "gold_stk_mins_qfq_macd_kdj_1m",
+      "gold_stk_mins_qfq_macd_kdj_5m",
+      "gold_stk_mins_qfq_macd_kdj_15m",
+      "gold_stk_mins_qfq_macd_kdj_30m",
+      "gold_stk_mins_qfq_macd_kdj_60m",
+      "gold_stk_mins_qfq_macd_kdj_90m",
+      "gold_stk_mins_qfq_macd_kdj_120m",
+      "gold_stk_mins_qfq_macd_kdj_state_1m",
+      "gold_stk_mins_qfq_macd_kdj_state_5m",
+      "gold_stk_mins_qfq_macd_kdj_state_15m",
+      "gold_stk_mins_qfq_macd_kdj_state_30m",
+      "gold_stk_mins_qfq_macd_kdj_state_60m",
+      "gold_stk_mins_qfq_macd_kdj_state_90m",
+      "gold_stk_mins_qfq_macd_kdj_state_120m"
+    ],
+    "failed_asset_keys": [],
+    "covered_start_trade_date": null,
+    "covered_end_trade_date": null,
+    "stock_code_scope": null,
+    "stock_code_count": 0,
+    "repair_required_code_count": 0,
+    "repair_required_codes_hash": null,
+    "source_upstream_batch_id": null,
+    "freqs": []
+  },
+  "config_file": "repair-run-config.json",
+  "repair_budget": {
+    "Qr": 150264957,
+    "Ir_after_daily": 378461902,
+    "B_after_daily": 3845983660,
+    "read_estimate_gib": 28.426736776717007,
+    "write_estimate_gib": 16.5
+  }
+}

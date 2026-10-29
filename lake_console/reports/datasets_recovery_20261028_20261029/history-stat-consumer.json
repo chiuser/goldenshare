@@ -1,0 +1,125 @@
+{
+  "as_of_unix": 1793235590.5388339,
+  "mode": "stat_only",
+  "date_range": [
+    "2014-01-02",
+    "2026-10-28"
+  ],
+  "date_count": 3115,
+  "dates_basis": "existing verified23 scope plus26/27/28 current trading dates",
+  "parquet_content_reads": 0,
+  "formal_writes": 0,
+  "source_history": {
+    "requested": 12460,
+    "files": 12460,
+    "bytes": 47423932430,
+    "missing": 0
+  },
+  "shared_state_history": {
+    "requested": 21805,
+    "files": 21798,
+    "bytes": 3844228112,
+    "missing": 7
+  },
+  "groups": {
+    "silver_history_1": {
+      "requested": 3115,
+      "files": 3115,
+      "bytes": 35282264814,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "silver_history_5": {
+      "requested": 3115,
+      "files": 3115,
+      "bytes": 8697848388,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "silver_history_30": {
+      "requested": 3115,
+      "files": 3115,
+      "bytes": 2260593735,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "silver_history_60": {
+      "requested": 3115,
+      "files": 3115,
+      "bytes": 1183225493,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "factor_history": {
+      "requested": 3115,
+      "files": 3115,
+      "bytes": 113410783,
+      "missing": 0,
+      "missing_samples": []
+    },
+    "shared_state_history_1": {
+      "requested": 3115,
+      "files": 3114,
+      "bytes": 548338103,
+      "missing": 1,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=1/trade_date=2026-10-28/part-000.parquet"
+      ]
+    },
+    "shared_state_history_5": {
+      "requested": 3115,
+      "files": 3114,
+      "bytes": 549242347,
+      "missing": 1,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=5/trade_date=2026-10-28/part-000.parquet"
+      ]
+    },
+    "shared_state_history_15": {
+      "requested": 3115,
+      "files": 3114,
+      "bytes": 549330867,
+      "missing": 1,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=15/trade_date=2026-10-28/part-000.parquet"
+      ]
+    },
+    "shared_state_history_30": {
+      "requested": 3115,
+      "files": 3114,
+      "bytes": 549330860,
+      "missing": 1,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=30/trade_date=2026-10-28/part-000.parquet"
+      ]
+    },
+    "shared_state_history_60": {
+      "requested": 3115,
+      "files": 3114,
+      "bytes": 549330866,
+      "missing": 1,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=60/trade_date=2026-10-28/part-000.parquet"
+      ]
+    },
+    "shared_state_history_90": {
+      "requested": 3115,
+      "files": 3114,
+      "bytes": 549328893,
+      "missing": 1,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=90/trade_date=2026-10-28/part-000.parquet"
+      ]
+    },
+    "shared_state_history_120": {
+      "requested": 3115,
+      "files": 3114,
+      "bytes": 549326176,
+      "missing": 1,
+      "missing_samples": [
+        "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=120/trade_date=2026-10-28/part-000.parquet"
+      ]
+    }
+  },
+  "elapsed_seconds": 2.125341583043337
+}

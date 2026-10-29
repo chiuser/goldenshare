@@ -1,0 +1,548 @@
+"""Batch 10 readback components; prepared statically, not executed on creation.
+
+Public entry: verify_run(mode, run_id, report_dir, log_paths=()). Only daily and
+repair are accepted. The caller owns CLI, preflight and config generation.
+Requires preflight.json['factor_gate'] from the real factor guard. A previously
+completed exact-run acceptance is reused: daily annual/state identities are a
+historical snapshot once the subsequent repair has legitimately replaced them.
+
+No Parquet content, formula calculation, data digest, DagsterInstance, event write
+or job launch. Text SHA below hashes only small identifiers and JSON metadata.
+"""
+
+import hashlib
+import json
+import os
+import re
+import stat as stat_module
+from datetime import date, datetime
+from pathlib import Path
+from types import SimpleNamespace
+from zoneinfo import ZoneInfo
+
+
+B10_DAY = "2026-10-28"
+B10_ROOT = Path("/Volumes/datasource/data_lake")
+B10_STAGE = Path("/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj")
+B10_REPORT = Path("/Users/congming/github/goldenshare/lake_console/reports/"
+                  "datasets_recovery_20261028_20261029/batch10")
+B10_COMPUTE_LOG_ROOT = Path("/Users/congming/.goldenshare/dagster_logs")
+B10_FREQS = (1, 5, 15, 30, 60, 90, 120)
+B10_INDICATOR = B10_ROOT / "gold/indicator/stk_mins_qfq_macd_kdj"
+B10_STATE = B10_ROOT / "gold/indicator/stk_mins_qfq_macd_kdj_state"
+B10_ASSETS = ({f"gold_stk_mins_qfq_macd_kdj_{freq}m" for freq in B10_FREQS}
+              | {f"gold_stk_mins_qfq_macd_kdj_state_{freq}m" for freq in B10_FREQS})
+B10_COMPLETION_CHECK = "gold_stk_mins_qfq_macd_kdj_repair_completed_check"
+
+
+def b10_require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def b10_text_hash(value):
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def b10_read_json(path):
+    path = Path(path)
+    b10_require(not path.is_symlink(), f"JSON path is a symlink: {path}")
+    return json.loads(path.read_text())
+
+
+def b10_save_json(path, value):
+    Path(path).write_text(json.dumps(value, ensure_ascii=False, indent=2, default=str) + "\n")
+
+
+def b10_identity(path):
+    value = Path(path).lstat()
+    b10_require(stat_module.S_ISREG(value.st_mode), f"Not a regular file: {path}")
+    return [value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns]
+
+
+def b10_valid_identity(value):
+    return (isinstance(value, list) and len(value) == 5
+            and all(type(item) is int and item >= 0 for item in value))
+
+
+def b10_metadata(values):
+    result = {}
+    for key, value in values.items():
+        if key == "dagster/column_schema":
+            continue
+        normalized = str(key).removeprefix("goldenshare/")
+        unwrapped = getattr(value, "value", getattr(value, "data", str(value)))
+        b10_require(normalized not in result or result[normalized] == unwrapped,
+                    f"Conflicting metadata aliases: {normalized}")
+        result[normalized] = unwrapped
+    return result
+
+
+def b10_postgres_url():
+    import yaml
+
+    home = Path(os.environ["DAGSTER_HOME"])
+    b10_require(home == Path("/Users/congming/.goldenshare/dagster_home"),
+                "Use the existing formal Dagster home")
+    value = yaml.safe_load((home / "dagster.yaml").read_text())["storage"]["postgres"]["postgres_url"]
+    return os.environ[value["env"]] if isinstance(value, dict) else value
+
+
+def b10_run_events(event_storage, run_id):
+    import dagster as dg
+
+    fetched = event_storage.get_records_for_run(
+        run_id,
+        of_type={dg.DagsterEventType.ASSET_MATERIALIZATION,
+                 dg.DagsterEventType.ASSET_CHECK_EVALUATION,
+                 dg.DagsterEventType.STEP_FAILURE, dg.DagsterEventType.PIPELINE_FAILURE},
+        limit=100,
+    )
+    b10_require(not fetched.has_more, "Exact-run event result is truncated")
+    mats, checks, failures = [], [], []
+    for record in fetched.records:
+        event = record.event_log_entry.dagster_event
+        if event.event_type == dg.DagsterEventType.ASSET_MATERIALIZATION:
+            value = record.asset_materialization
+            mats.append({"asset": value.asset_key.to_user_string(),
+                         "partition": value.partition, "storage_id": record.storage_id,
+                         "metadata": b10_metadata(value.metadata)})
+        elif event.event_type == dg.DagsterEventType.ASSET_CHECK_EVALUATION:
+            value = event.event_specific_data
+            target = value.target_materialization_data
+            checks.append({"asset": value.asset_key.to_user_string(),
+                           "name": value.check_name, "partition": value.partition,
+                           "storage_id": record.storage_id,
+                           "target_storage_id": target.storage_id if target else None,
+                           "passed": value.passed, "blocking": value.blocking,
+                           "metadata": b10_metadata(value.metadata)})
+        else:
+            failures.append(str(event.event_specific_data))
+    return mats, checks, failures
+
+
+def b10_current_factor_status(event_storage, expected):
+    from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
+        gold_stk_mins_qfq_factor_repair_status,
+    )
+
+    facade = SimpleNamespace(event_log_storage=event_storage,
+                             get_event_records=event_storage.get_event_records)
+    actual = gold_stk_mins_qfq_factor_repair_status(facade, B10_DAY)
+    payload = actual.to_payload()
+    b10_require(actual.ready and actual.trade_date == B10_DAY,
+                "Same-day original factor completion is not ready")
+    for key in ("producer_run_id", "upstream_batch_id", "repair_start_trade_date",
+                "repair_end_trade_date", "selected_partition_count",
+                "repair_required_code_count", "repair_required_codes",
+                "repair_required_codes_hash", "repair_required_codes_truncated",
+                "qfq_factor_repair_event_storage_ids", "rewrote_history"):
+        b10_require(payload[key] == expected[key], f"Factor identity changed since preflight: {key}")
+    codes = payload["repair_required_codes"]
+    b10_require(payload["repair_required_codes_truncated"] is False
+                and codes == sorted(set(codes))
+                and len(codes) == payload["repair_required_code_count"]
+                and b10_text_hash("\n".join(codes)) == payload["repair_required_codes_hash"],
+                "Original factor code list/hash is incomplete")
+    return actual, payload, facade
+
+
+def b10_verify_daily_events(run, mats, checks):
+    from orchestrator.defs.catalog.lake_assets import LAKE_ASSET_CATALOG
+
+    b10_require(run.job_name == "gold_stk_mins_qfq_macd_kdj_daily_update_job"
+                and run.tags.get("dagster/partition") == B10_DAY, "Wrong daily job/partition")
+    b10_require(len(mats) == 14 and {item["asset"] for item in mats} == B10_ASSETS
+                and all(item["partition"] == B10_DAY for item in mats),
+                "Daily indicator/state materializations are incomplete")
+    catalog = {str(item.asset_key): item for item in LAKE_ASSET_CATALOG}
+    expected = {(asset, name) for asset in B10_ASSETS for name in catalog[asset].blocking_check_names}
+    b10_require(len(checks) == 28 and len(expected) == 28
+                and {(item["asset"], item["name"]) for item in checks} == expected,
+                "Daily original check set is incomplete")
+    mat_ids = {item["asset"]: item["storage_id"] for item in mats}
+    b10_require(all(item["passed"] and item["blocking"]
+                    and item["partition"] in (None, B10_DAY)
+                    and item["target_storage_id"] == mat_ids[item["asset"]]
+                    for item in checks), "Daily checks are not green and bound to this run")
+
+
+def b10_verify_repair_events(run, mats, checks, factor, expected_config, facade):
+    from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
+        gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status,
+        gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch,
+    )
+
+    b10_require(run.job_name == "gold_stk_mins_qfq_macd_kdj_repair_job", "Wrong repair job")
+    b10_require(factor["rewrote_history"] and factor["repair_required_code_count"] > 0,
+                "Original factor job did not require historical MACD repair")
+    actual_config = run.run_config["ops"]["gold_stk_mins_qfq_macd_kdj_repair_op"]["config"]
+    config = expected_config["ops"]["gold_stk_mins_qfq_macd_kdj_repair_op"]["config"]
+    b10_require(actual_config == config, "Repair run config differs from saved original-builder output")
+    expected_values = {"qfq_factor_repair_trade_date": B10_DAY,
+                       "start_trade_date": factor["repair_start_trade_date"],
+                       "freqs": list(B10_FREQS), "stock_codes": factor["repair_required_codes"],
+                       "repair_required_codes_hash": factor["repair_required_codes_hash"],
+                       "upstream_batch_id": factor["upstream_batch_id"],
+                       "reason": f"qfq_factor_repair:{B10_DAY}"}
+    b10_require(config == expected_values, "Original builder output does not match real factor scope")
+    b10_require(not mats and len(checks) == 14
+                and {item["asset"] for item in checks} == B10_ASSETS,
+                "Repair must produce fourteen completion checks and no new materializations")
+    b10_require(all(item["name"] == B10_COMPLETION_CHECK and item["partition"] == B10_DAY
+                    and item["passed"] and item["blocking"] for item in checks),
+                "Repair completion checks are not all green for target day")
+    md = checks[0]["metadata"]
+    b10_require(all(item["metadata"] == md for item in checks), "Repair completion metadata differs across assets")
+    expected_metadata = {"covered_start_trade_date": factor["repair_start_trade_date"],
+                         "covered_end_trade_date": factor["repair_end_trade_date"],
+                         "freqs": list(B10_FREQS), "qfq_factor_repair_trade_date": B10_DAY,
+                         "stock_code_scope": "explicit",
+                         "stock_code_count": factor["repair_required_code_count"],
+                         "repair_required_code_count": factor["repair_required_code_count"],
+                         "repair_required_codes_hash": factor["repair_required_codes_hash"],
+                         "source_upstream_batch_id": factor["upstream_batch_id"],
+                         "failed_row_count": 0}
+    b10_require(all(md.get(key) == value for key, value in expected_metadata.items()),
+                "Repair completion does not cover original factor scope/batch")
+    completion = gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch(
+        facade, qfq_factor_repair_trade_date=B10_DAY,
+        repair_start_trade_date=factor["repair_start_trade_date"],
+        repair_end_trade_date=factor["repair_end_trade_date"],
+        upstream_batch_id=factor["upstream_batch_id"],
+        repair_required_code_count=factor["repair_required_code_count"],
+        repair_required_codes_hash=factor["repair_required_codes_hash"],
+    )
+    b10_require(completion.ready and set(completion.event_storage_ids)
+                == {item["storage_id"] for item in checks},
+                "Original completion gate is not bound to this run's fourteen checks")
+    full = gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status(facade, B10_DAY)
+    b10_require(full.ready and full.requires_macd_kdj_repair
+                and full.upstream_batch_id == factor["upstream_batch_id"],
+                "Complete factor-plus-MACD gate is not ready for current batch")
+    return md, completion.to_payload(), full.to_payload()
+
+
+def b10_collect_compute_logs(run_id, log_paths):
+    b10_require(bool(re.fullmatch(r"[0-9a-fA-F-]{36}", run_id)), "Invalid exact run id")
+    base = B10_COMPUTE_LOG_ROOT / run_id / "compute_logs"
+    paths = tuple(dict.fromkeys(Path(path) for path in log_paths)) if log_paths else tuple(sorted(base.glob("*.out")))
+    b10_require(paths, "No original exact-run compute stdout is available")
+    snapshots, repair_completed = {}, []
+    for path in paths:
+        b10_require(path.is_absolute() and ".." not in path.parts
+                    and path.is_relative_to(base) and path.suffix == ".out"
+                    and not path.is_symlink(), "Use stdout from the exact run's compute_logs directory")
+        for line in path.read_text().splitlines():
+            fields = dict(re.findall(r"(\w+)=([^\s]+)", line))
+            if fields.get("event") == "stock_minute_file_publication_progress" and fields.get("stage") == "completed":
+                selected = {key: fields[key] for key in (
+                    "operation_directory", "stage", "validated_file_count", "promoted_file_count",
+                    "total_file_count", "existing_build_target_stat_bytes", "frozen_input_stat_bytes",
+                    "verified_candidate_stat_bytes", "verified_formal_stat_bytes",
+                    "input_sha256_read_bytes", "candidate_sha256_read_bytes", "formal_sha256_read_bytes")}
+                key = fields["operation_directory"]
+                b10_require(key not in snapshots or snapshots[key] == selected,
+                            "Exact-run completed publication evidence conflicts")
+                snapshots[key] = selected
+            elif fields.get("event") == "gold_stk_mins_qfq_macd_kdj_repair_completed":
+                selected = {key: fields[key] for key in (
+                    "qfq_factor_repair_trade_date", "start_trade_date", "end_trade_date",
+                    "target_date_count", "freq_count", "stock_code_count",
+                    "repair_required_codes_hash", "upstream_batch_id", "indicator_file_count",
+                    "indicator_row_count", "state_file_count", "state_row_count")}
+                if selected not in repair_completed:
+                    repair_completed.append(selected)
+    return paths, snapshots, repair_completed
+
+
+def b10_frozen_sizes(directory, snapshot):
+    attempts = []
+    for attempt in sorted((directory / "attempts").iterdir()):
+        b10_require(attempt.is_dir() and not attempt.is_symlink(), "Invalid frozen attempt directory")
+        sizes = {name: b10_identity(attempt / f"{name}.parquet")[2]
+                 for name in ("indicator", "state") if (attempt / f"{name}.parquet").exists()}
+        attempts.append({"directory": str(attempt), "bytes": sizes})
+    selected = int(snapshot["frozen_input_stat_bytes"])
+    b10_require(selected in {sum(item["bytes"].values()) for item in attempts if len(item["bytes"]) == 2},
+                "Producer frozen bytes do not match any complete persisted attempt")
+    return selected, sum(sum(item["bytes"].values()) for item in attempts), attempts
+
+
+def b10_verify_publication(directory_text, snapshot, mode, root_run_id, factor):
+    directory = Path(directory_text)
+    b10_require(directory.is_absolute() and ".." not in directory.parts
+                and directory.is_relative_to(B10_STAGE) and not directory.is_symlink(),
+                "Logged operation escaped current MACD staging")
+    operation = b10_read_json(directory / "operation.json")
+    scope = operation["scope"]
+    b10_require(set(scope) == {"version", "family", "freq", "trade_dates"}
+                and scope["version"] == 1 and scope["family"] == "macd_kdj"
+                and scope["freq"] in B10_FREQS, "Wrong MACD publication scope")
+    dates = scope["trade_dates"]
+    b10_require(isinstance(dates, list) and dates and dates == sorted(set(dates))
+                and all(date.fromisoformat(day).isoformat() == day for day in dates),
+                "Invalid publication date list")
+    if mode == "daily":
+        b10_require(dates == [B10_DAY], "Daily publication escaped target day")
+    else:
+        b10_require(len(dates) == factor["selected_partition_count"]
+                    and dates[0] == factor["repair_start_trade_date"]
+                    and dates[-1] == factor["repair_end_trade_date"],
+                    "Repair publication differs from original factor date scope")
+    tail = directory.relative_to(B10_STAGE).parts
+    b10_require(len(tail) == 4 and tail[0] == f"root={b10_text_hash(str(B10_ROOT.resolve()))}"
+                and tail[1] == f"freq={scope['freq']}"
+                and bool(re.fullmatch(r"run_id=[0-9a-f]{64}", tail[2]))
+                and tail[3] == f"scope={b10_text_hash(json.dumps(scope, sort_keys=True))}",
+                "Logged publication namespace does not match its real scope")
+    if mode == "daily":
+        b10_require(tail[2] == f"run_id={b10_text_hash(root_run_id)}", "Daily publication is not bound to original root")
+    # Repair's operation identity is intentionally not derived from its run id:
+    # current op leaves publication_id unset. Exact stdout is its provenance.
+    b10_require(set(operation["inputs"]) == {"indicator", "state"}
+                and all(isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value)
+                        for value in operation["inputs"].values()), "Invalid frozen input descriptors")
+    targets = operation["targets"]
+    b10_require(isinstance(targets, list) and targets and len(targets) == len(set(targets)),
+                "Empty or duplicate MACD publication targets")
+    codes = set(factor["repair_required_codes"])
+    summary = {"directory": str(directory), "frequency": scope["freq"],
+               "scope_trade_date_count": len(dates), "scope_first_trade_date": dates[0],
+               "scope_last_trade_date": dates[-1], "target_count": len(targets),
+               "indicator_files": 0, "state_files": 0, "promoted_files": 0,
+               "indicator_old_bytes": 0, "state_old_bytes": 0,
+               "indicator_candidate_bytes": 0, "state_candidate_bytes": 0,
+               "annual_rows_in_receipts": 0, "state_rows_in_receipts": 0,
+               "scoped_2026_indicator_size_delta": 0}
+    identities, state_days = {}, set()
+    for target in targets:
+        path = Path(target)
+        b10_require(path.is_absolute() and ".." not in path.parts, "Invalid formal target")
+        indicator_root = B10_INDICATOR / f"freq={scope['freq']}"
+        state_root = B10_STATE / f"freq={scope['freq']}"
+        code = year = day = None
+        if path.is_relative_to(indicator_root):
+            parts = path.relative_to(indicator_root).parts
+            b10_require(len(parts) == 3 and parts[0].startswith("ts_code=")
+                        and re.fullmatch(r"year=\d{4}", parts[1]) and parts[2] == "part-000.parquet",
+                        "Invalid indicator annual target path")
+            code, year = parts[0].removeprefix("ts_code="), parts[1].removeprefix("year=")
+            if mode == "daily":
+                b10_require(year == B10_DAY[:4], "Daily indicator escaped current year")
+            else:
+                b10_require(code in codes and factor["repair_start_trade_date"][:4] <= year
+                            <= factor["repair_end_trade_date"][:4], "Repair indicator escaped real code/year scope")
+            kind = "indicator"
+        else:
+            b10_require(path.is_relative_to(state_root), "Formal target escaped current frequency")
+            parts = path.relative_to(state_root).parts
+            b10_require(len(parts) == 2 and parts[0].startswith("trade_date=")
+                        and parts[1] == "part-000.parquet", "Invalid state target path")
+            day = parts[0].removeprefix("trade_date=")
+            b10_require(day in dates and day not in state_days, "Duplicate/out-of-scope shared state target")
+            state_days.add(day)
+            kind = "state"
+        receipt = b10_read_json(directory / "files" / f"{b10_text_hash(target)}.json")
+        b10_require(receipt["target"] == target and receipt["status"] == "promoted"
+                    and isinstance(receipt["sha256"], str) and re.fullmatch(r"[0-9a-f]{64}", receipt["sha256"]),
+                    "Receipt is not a fully promoted validated target")
+        b10_require(b10_valid_identity(receipt["candidate_identity"])
+                    and (receipt["before"] is None or b10_valid_identity(receipt["before"]))
+                    and type(receipt["row_count"]) is int and receipt["row_count"] >= 0,
+                    "Invalid promoted receipt identity/count")
+        candidate = Path(receipt["candidate"])
+        candidate_base = directory / "candidates"
+        b10_require(candidate.is_absolute() and ".." not in candidate.parts
+                    and candidate.is_relative_to(candidate_base), "Candidate escaped operation staging")
+        suffix = candidate.relative_to(candidate_base).parts
+        b10_require(len(suffix) >= 2 and suffix[1:] == path.relative_to(B10_ROOT).parts
+                    and not os.path.lexists(candidate), "Promoted candidate path does not close")
+        current = b10_identity(path)
+        b10_require(current[:4] == receipt["candidate_identity"][:4],
+                    f"Current formal stat differs from latest promoted receipt: {path}")
+        old_bytes = receipt["before"][2] if receipt["before"] else 0
+        new_bytes = receipt["candidate_identity"][2]
+        summary["promoted_files"] += 1
+        summary[f"{kind}_files"] += 1
+        summary[f"{kind}_old_bytes"] += old_bytes
+        summary[f"{kind}_candidate_bytes"] += new_bytes
+        summary["annual_rows_in_receipts" if kind == "indicator" else "state_rows_in_receipts"] += receipt["row_count"]
+        if mode == "daily" and kind == "indicator" and code in codes:
+            summary["scoped_2026_indicator_size_delta"] += new_bytes - old_bytes
+        identities[target] = {"identity": current, "before": receipt["before"],
+                              "candidate_identity": receipt["candidate_identity"], "kind": kind,
+                              "code": code, "year": year, "day": day,
+                              "frequency": scope["freq"], "row_count": receipt["row_count"],
+                              "operation_directory": str(directory)}
+    b10_require(state_days == set(dates), "Shared state target dates do not cover publication scope")
+    for key in ("validated_file_count", "promoted_file_count", "total_file_count"):
+        b10_require(int(snapshot[key]) == len(targets), f"Producer {key} disagrees with receipts")
+    total_old = summary["indicator_old_bytes"] + summary["state_old_bytes"]
+    total_new = summary["indicator_candidate_bytes"] + summary["state_candidate_bytes"]
+    b10_require(int(snapshot["existing_build_target_stat_bytes"]) == total_old
+                and int(snapshot["candidate_sha256_read_bytes"]) == total_new
+                and int(snapshot["verified_formal_stat_bytes"]) == total_new
+                and int(snapshot["verified_candidate_stat_bytes"]) == 0
+                and int(snapshot["formal_sha256_read_bytes"]) == 0,
+                "Producer byte totals do not close with promoted targets")
+    frozen, stored, attempts = b10_frozen_sizes(directory, snapshot)
+    b10_require(int(snapshot["input_sha256_read_bytes"]) == frozen,
+                "Frozen producer input byte totals disagree")
+    summary.update(frozen_input_bytes=frozen, frozen_input_bytes_all_attempts=stored,
+                   frozen_attempts=attempts)
+    return summary, identities, dates
+
+
+def b10_verify_publications(mode, run_id, root_run_id, factor, mats, completion_metadata, log_paths=()):
+    paths, snapshots, completed = b10_collect_compute_logs(run_id, log_paths)
+    summaries, all_identities, common_dates = [], {}, None
+    for directory, snapshot in sorted(snapshots.items()):
+        summary, identities, dates = b10_verify_publication(directory, snapshot, mode, root_run_id, factor)
+        b10_require(not set(all_identities).intersection(identities), "Duplicate target across this run's operations")
+        all_identities.update(identities)
+        if common_dates is None:
+            common_dates = dates
+        b10_require(common_dates == dates, "Seven frequency scopes use different dates")
+        summaries.append(summary)
+    b10_require(len(summaries) == 7 and {item["frequency"] for item in summaries} == set(B10_FREQS),
+                "Need exactly seven completed native MACD publication scopes")
+    if mode == "daily":
+        b10_require(not completed, "Daily stdout unexpectedly contains repair completion")
+        by_asset = {item["asset"]: item for item in mats}
+        for summary in summaries:
+            freq = summary["frequency"]
+            indicator = by_asset[f"gold_stk_mins_qfq_macd_kdj_{freq}m"]["metadata"]
+            state = by_asset[f"gold_stk_mins_qfq_macd_kdj_state_{freq}m"]["metadata"]
+            b10_require(indicator["output_file_count"] == summary["indicator_files"]
+                        and summary["state_files"] == 1
+                        and state["dagster/row_count"] == summary["state_rows_in_receipts"],
+                        "Original daily materialization counts do not close with physical receipts")
+            sample = indicator.get("dagster/uri")
+            b10_require(sample in all_identities and all_identities[sample]["kind"] == "indicator",
+                        "Indicator sample URI is not an actual published target")
+            state_uri = state.get("dagster/uri")
+            b10_require(state_uri in all_identities and all_identities[state_uri]["kind"] == "state",
+                        "State URI is not an actual published target")
+    else:
+        b10_require(len(completed) == 1, "Need original repair-completed producer log")
+        log = completed[0]
+        expected = {"qfq_factor_repair_trade_date": B10_DAY,
+                    "start_trade_date": factor["repair_start_trade_date"],
+                    "end_trade_date": factor["repair_end_trade_date"],
+                    "target_date_count": factor["selected_partition_count"], "freq_count": len(B10_FREQS),
+                    "stock_code_count": factor["repair_required_code_count"],
+                    "repair_required_codes_hash": factor["repair_required_codes_hash"],
+                    "upstream_batch_id": factor["upstream_batch_id"]}
+        for key in ("indicator_file_count", "indicator_row_count", "state_file_count", "state_row_count"):
+            expected[key] = completion_metadata[key]
+        b10_require(all(log[key] == str(value) for key, value in expected.items()),
+                    "Original repair-completed log differs from actual factor/completion metadata")
+        b10_require(sum(item["indicator_files"] for item in summaries) == completion_metadata["indicator_file_count"]
+                    and sum(item["state_files"] for item in summaries) == completion_metadata["state_file_count"]
+                    and sum(item["state_rows_in_receipts"] for item in summaries) == completion_metadata["state_row_count"],
+                    "Repair promoted file/state totals do not close with original completion")
+        # Indicator completion rows are replacement rows; receipt rows include
+        # preserved annual dates. Do not falsely equate those different counts.
+    return summaries, all_identities, [str(path) for path in paths]
+
+
+def verify_run(mode, run_id, report_dir, log_paths=()):
+    """Verify exact completed daily/repair run; never launch or retry anything."""
+    import dagster as dg
+    from dagster_postgres import PostgresEventLogStorage, PostgresRunStorage
+
+    b10_require(mode in ("daily", "repair"), "verify_run supports daily or repair only")
+    report_dir = Path(report_dir)
+    b10_require(report_dir == B10_REPORT and report_dir.is_dir(), "Use the approved existing batch10 report directory")
+    output = report_dir / f"{mode}-run-verified.json"
+    if output.exists():
+        saved = b10_read_json(output)
+        b10_require(saved["run_id"] == run_id, "Preserve previous run evidence; do not overwrite with a new run")
+        if saved.get("verified") and saved.get("stage_acceptance_complete"):
+            # In particular, don't stat old daily identities after repair.
+            return {**saved, "reused_saved_acceptance": True}
+    preflight = b10_read_json(report_dir / "preflight.json")
+    b10_require(preflight["safe_to_launch"] is True, "Batch10 preflight did not pass")
+    expected_factor = preflight["factor_gate"]
+    if mode == "repair":
+        daily = b10_read_json(report_dir / "daily-run-verified.json")
+        b10_require(daily["verified"] and daily["stage_acceptance_complete"]
+                    and daily["factor_gate"]["upstream_batch_id"] == expected_factor["upstream_batch_id"],
+                    "Daily must be fully accepted before original repair")
+    result = {"as_of": datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
+              "date": B10_DAY, "mode": mode, "run_id": run_id,
+              "verified": False, "stage_acceptance_complete": False,
+              "extra_price_content_reads": 0, "extra_data_sha_passes": 0, "formal_writes": 0}
+    run_storage = event_storage = None
+    try:
+        os.environ["PGOPTIONS"] = "-c default_transaction_read_only=on -c statement_timeout=30000"
+        url = b10_postgres_url()
+        run_storage = PostgresRunStorage(url, should_autocreate_tables=False)
+        event_storage = PostgresEventLogStorage(url, should_autocreate_tables=False)
+        found = run_storage.get_run_records(dg.RunsFilter(run_ids=[run_id]), limit=1)
+        b10_require(len(found) == 1, "Exact MACD run id does not exist")
+        record = found[0]
+        run = record.dagster_run
+        mats, checks, failures = b10_run_events(event_storage, run_id)
+        result.update(job=run.job_name, status=run.status.value,
+                      root_run_id=run.root_run_id or run.run_id,
+                      elapsed_seconds=(record.end_time - record.start_time)
+                      if record.end_time and record.start_time else None,
+                      materializations=mats, checks=checks, failures=failures)
+        b10_require(run.status == dg.DagsterRunStatus.SUCCESS and not failures,
+                    "Original run has not succeeded cleanly; stop without retry")
+        _, factor, facade = b10_current_factor_status(event_storage, expected_factor)
+        result["factor_gate"] = factor
+        completion_metadata = None
+        if mode == "daily":
+            b10_verify_daily_events(run, mats, checks)
+        else:
+            config = b10_read_json(report_dir / "repair-run-config.json")
+            completion_metadata, completion, full = b10_verify_repair_events(
+                run, mats, checks, factor, config, facade)
+            result.update(completion_gate=completion, full_gate=full)
+        publications, identities, logs = b10_verify_publications(
+            mode, run_id, result["root_run_id"], factor, mats, completion_metadata, log_paths)
+        result.update(publications=publications, log_sources=logs,
+                      candidate_bytes=sum(item["indicator_candidate_bytes"] + item["state_candidate_bytes"] for item in publications),
+                      old_annual_bytes=sum(item["indicator_old_bytes"] for item in publications),
+                      old_state_bytes=sum(item["state_old_bytes"] for item in publications),
+                      frozen_input_bytes=sum(item["frozen_input_bytes"] for item in publications),
+                      target_identity_file=str(report_dir / f"{mode}-target-identities.json"),
+                      indicator_files=sum(item["indicator_files"] for item in publications),
+                      state_files=sum(item["state_files"] for item in publications),
+                      scoped_2026_indicator_size_delta=sum(item["scoped_2026_indicator_size_delta"] for item in publications),
+                      state_size_delta=sum(item["state_candidate_bytes"] - item["state_old_bytes"] for item in publications),
+                      daily_identity_snapshot_must_precede_repair=(mode == "daily"))
+        b10_save_json(report_dir / f"{mode}-target-identities.json", identities)
+        result.update(verified=True, stage_acceptance_complete=True)
+        b10_save_json(output, result)
+        return result
+    except Exception as error:
+        result.update(verified=False, stage_acceptance_complete=False,
+                      error=f"{type(error).__name__}: {error}")
+        b10_save_json(output, result)
+        raise
+    finally:
+        if event_storage is not None:
+            event_storage.dispose()
+        if run_storage is not None:
+            run_storage.dispose()
+
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Read-only exact-run batch10 receipts; never launch a job")
+    parser.add_argument('--mode', choices=('daily', 'repair'), required=True)
+    parser.add_argument('--report-dir', type=Path, default=B10_REPORT)
+    parser.add_argument('--run-id', required=True)
+    parser.add_argument('--log', action='append', type=Path, default=[])
+    args = parser.parse_args()
+    b10_require(args.report_dir == B10_REPORT and args.report_dir.is_dir(), 'Use the existing approved batch10 report directory')
+    result = verify_run(args.mode, args.run_id, args.report_dir, tuple(args.log))
+    print(json.dumps({key: result[key] for key in ('date', 'mode', 'run_id', 'status', 'verified', 'stage_acceptance_complete') if key in result}, ensure_ascii=False))
+
+
+if __name__ == '__main__':
+    main()

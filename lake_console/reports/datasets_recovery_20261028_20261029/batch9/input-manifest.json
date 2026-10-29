@@ -1,0 +1,78 @@
+{
+  "inputs": {
+    "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-28/part-000.parquet": [
+      16777244,
+      27483233,
+      21464971,
+      1793200332585783973,
+      1793200332696866766
+    ],
+    "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-28/part-000.parquet": [
+      16777244,
+      27483260,
+      5388562,
+      1793200337715250958,
+      1793200337792499667
+    ],
+    "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=15/trade_date=2026-10-28/part-000.parquet": [
+      16777244,
+      27483217,
+      1995517,
+      1793200330334339890,
+      1793200330385483940
+    ],
+    "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-28/part-000.parquet": [
+      16777244,
+      27483247,
+      1152613,
+      1793200335063143707,
+      1793200335125044193
+    ],
+    "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-28/part-000.parquet": [
+      16777244,
+      27483275,
+      802971,
+      1793200339890434141,
+      1793200339951887744
+    ],
+    "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-27/part-000.parquet": [
+      16777244,
+      27503373,
+      55548,
+      1793234099689537335,
+      1793234099701371228
+    ],
+    "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-28/part-000.parquet": [
+      16777244,
+      27503383,
+      55562,
+      1793234110109858042,
+      1793234110124456831
+    ],
+    "/Volumes/datasource/data_lake/silver/basic/stock_basic/full/part-000.parquet": [
+      16777244,
+      27443495,
+      421187,
+      1793179134384418549,
+      1793179134384983739
+    ],
+    "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet": [
+      16777244,
+      27443496,
+      131539,
+      1793179134382103022,
+      1793179134382809021
+    ],
+    "/Volumes/datasource/data_lake/silver/calendar/trade_calendar/full/part-000.parquet": [
+      16777244,
+      1912308,
+      89590,
+      1779599225007770939,
+      1779599225008092650
+    ]
+  },
+  "metadata": {
+    "date": "2026-10-28",
+    "scope": "Actual daily Silver, adjacent factors, lifecycle/basic/calendar; original publication freezes all actual inputs"
+  }
+}

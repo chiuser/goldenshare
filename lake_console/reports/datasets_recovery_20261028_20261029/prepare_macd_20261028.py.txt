@@ -1,0 +1,351 @@
+"""Prepare real batch10 evidence/config only. Never launch jobs or write data/events."""
+import argparse
+import hashlib
+import json
+import os
+import shutil
+import stat
+from contextlib import contextmanager
+from dataclasses import asdict
+from datetime import datetime
+from pathlib import Path
+from types import SimpleNamespace
+from zoneinfo import ZoneInfo
+
+DAY = "2026-10-28"
+PRIOR = "2026-10-27"
+FREQS = (1, 5, 15, 30, 60, 90, 120)
+GIB = 1024 ** 3
+ROOT = Path("/Volumes/datasource/data_lake")
+STAGE = Path("/Volumes/datasource/data_lake_staging")
+HOME = Path("/Users/congming/.goldenshare/dagster_home")
+REPORT = Path("/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261028_20261029")
+PREPARATION = Path("/private/tmp/dg_minute_chain_20261028_20261029")
+SENSORS = {
+    "stock_mins_qfq_daily_sensor", "stock_mins_qfq_factor_repair_sensor",
+    "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+    "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+    "gold_stk_mins_qfq_nineturn_update_job_sensor",
+}
+JOBS = (
+    "stock_mins_qfq_daily_update_job", "stock_mins_qfq_factor_repair_job",
+    "gold_stk_mins_qfq_macd_kdj_daily_update_job",
+    "gold_stk_mins_qfq_macd_kdj_repair_job", "gold_stk_mins_qfq_nineturn_update_job",
+)
+
+
+def require(condition, message):
+    if not condition:
+        raise ValueError(message)
+
+
+def load(path):
+    path = Path(path)
+    require(not path.is_symlink(), f"JSON symlink: {path}")
+    return json.loads(path.read_text())
+
+
+def save_new(path, value):
+    path = Path(path)
+    require(path.parent.is_dir() and not path.exists(), f"Preserve existing evidence or prepare report directory: {path}")
+    with path.open("x") as stream:
+        stream.write(json.dumps(value, ensure_ascii=False, indent=2, default=str) + "\n")
+
+
+def now():
+    return datetime.now(ZoneInfo("Asia/Shanghai")).isoformat()
+
+
+def text_hash(value):
+    return hashlib.sha256(value.encode()).hexdigest()
+
+
+def identity(path):
+    path = Path(path)
+    require(path.is_absolute() and ".." not in path.parts and path.is_relative_to(ROOT), "Stat input escaped formal Lake")
+    require(all(not part.is_symlink() for part in path.parents), f"Stat input parent symlink: {path}")
+    value = path.lstat()
+    require(stat.S_ISREG(value.st_mode), f"Stat input is not a regular file: {path}")
+    return [value.st_dev, value.st_ino, value.st_size, value.st_mtime_ns, value.st_ctime_ns]
+
+
+def accepted(name, batch):
+    value = load(REPORT / batch / name)
+    require(value["date"] == DAY and value["verified"] is True
+            and value["stage_acceptance_complete"] is True and value["status"] == "SUCCESS",
+            f"Unaccepted real predecessor: {batch}/{name}")
+    return value
+
+
+@contextmanager
+def open_state():
+    import yaml
+    from dagster_postgres import PostgresEventLogStorage, PostgresRunStorage, PostgresScheduleStorage
+
+    require(Path(os.environ.get("DAGSTER_HOME", "")) == HOME, "Use the actual formal DAGSTER_HOME")
+    os.environ["PGOPTIONS"] = "-c default_transaction_read_only=on -c statement_timeout=30000"
+    configured = yaml.safe_load((HOME / "dagster.yaml").read_text())["storage"]["postgres"]["postgres_url"]
+    url = os.environ[configured["env"]] if isinstance(configured, dict) else configured
+    opened = []
+    try:
+        runs = PostgresRunStorage(url, should_autocreate_tables=False)
+        opened.append(runs)
+        events = PostgresEventLogStorage(url, should_autocreate_tables=False)
+        opened.append(events)
+        schedules = PostgresScheduleStorage(url, should_autocreate_tables=False)
+        opened.append(schedules)
+        facade = SimpleNamespace(event_log_storage=events, get_event_records=events.get_event_records,
+                                 fetch_materializations=events.fetch_materializations)
+        yield runs, events, schedules, facade
+    finally:
+        for resource in reversed(opened):
+            resource.dispose()
+
+
+def controls(runs, events, schedules, required_space):
+    import dagster as dg
+
+    active_statuses = [dg.DagsterRunStatus.NOT_STARTED, dg.DagsterRunStatus.QUEUED,
+                      dg.DagsterRunStatus.STARTING, dg.DagsterRunStatus.STARTED,
+                      dg.DagsterRunStatus.CANCELING]
+    for job in JOBS:
+        require(not runs.get_runs(dg.RunsFilter(job_name=job, statuses=active_statuses), limit=1),
+                f"A minute-chain run is active: {job}")
+    states = [state for state in schedules.all_instigator_state()
+              if state.name in SENSORS and state.repository_selector.location_name == "orchestrator"]
+    require(len(states) == 5 and {state.name for state in states} == SENSORS
+            and all(state.status.value == "STOPPED" for state in states), "Keep the actual five minute sensors STOPPED")
+    pool = events.get_concurrency_info("gold_stk_mins_qfq_writer")
+    require(pool.limit == 1 and pool.active_slot_count == 0 and pool.pending_step_count == 0,
+            "Original stock-minute writer pool is not idle")
+    require(events.has_dynamic_partition("cn_a_stock_mins_silver_trade_days", DAY), "28-day partition is not registered")
+    require(ROOT.parent.is_mount() and ROOT.is_dir() and STAGE.is_dir(), "Formal Lake/staging mount unavailable")
+    require(all(not part.is_symlink() for path in (ROOT, STAGE) for part in (path, *path.parents)), "Formal root symlink")
+    require(ROOT.stat().st_dev == STAGE.stat().st_dev, "Lake/staging devices differ")
+    require(all(os.access(path, os.R_OK | os.W_OK | os.X_OK) for path in (ROOT, STAGE)), "Formal roots unavailable")
+    free = shutil.disk_usage(STAGE).free
+    require(free >= required_space, "Documented staging space is unavailable before the next job")
+    return {"same_chain_active_runs": [], "sensors": [{"name": s.name, "status": s.status.value} for s in states],
+            "pool": {"limit": pool.limit, "active_slots": pool.active_slot_count, "pending_steps": pool.pending_step_count},
+            "free_bytes": free, "daemon_change": False, "other_dataset_runs_blocked": False}
+
+
+def exact_success(runs, report):
+    import dagster as dg
+
+    rows = runs.get_run_records(dg.RunsFilter(run_ids=[report["run_id"]]), limit=1)
+    require(len(rows) == 1, "Exact accepted predecessor run is missing")
+    record = rows[0]
+    require(record.dagster_run.job_name == report["job"] and record.dagster_run.status == dg.DagsterRunStatus.SUCCESS,
+            "Exact predecessor job/status changed")
+    run = record.dagster_run
+    if run.job_name == "stock_mins_qfq_factor_repair_job":
+        require(run.run_config["ops"]["stock_mins_qfq_factor_repair_op"]["config"] == {"trade_date": DAY}, "Wrong factor target date/config")
+    else:
+        require(run.tags.get("dagster/partition") == DAY, "Wrong predecessor business partition")
+    return record
+
+
+def qfq_growth(reports, factor):
+    """Use accepted summaries; inspect only factor targets that overlap daily."""
+    base = STAGE / "stk_mins_qfq/qfq"
+    delta = 0
+    daily = {}
+    for report in reports:
+        for publication in report["publications"]:
+            directory = Path(publication["directory"])
+            require(directory.is_relative_to(base) and ".." not in directory.parts and not directory.is_symlink(), "QFQ operation escaped staging")
+            operation = load(directory / "operation.json")
+            scope = operation["scope"]
+            require(scope["family"] == "qfq" and scope["freq"] in FREQS, "Wrong upstream operation family/frequency")
+            dates = scope["trade_dates"]
+            require(dates and dates == sorted(set(dates)) and len({d[:4] for d in dates}) == 1, "Invalid upstream scope dates")
+            year, freq = dates[0][:4], scope["freq"]
+            require(publication["year"] == year and publication["frequency"] == freq, "Accepted scope summary differs")
+            require(directory.parent.name == "run_id=" + text_hash(report["root_run_id"]), "QFQ operation root differs from accepted run")
+            require(publication["promoted_files"] == publication["files"] == len(operation["targets"]), "Accepted operation file count differs")
+            if report["mode"] == "daily":
+                require(dates == [DAY], "QFQ daily operation escaped28")
+                daily[(year, freq)] = (directory, set(operation["targets"]))
+            else:
+                require(report["mode"] == "factor" and factor["repair_start_trade_date"] <= dates[0]
+                        and dates[-1] <= factor["repair_end_trade_date"], "Factor operation escaped original scope")
+                if (year, freq) in daily:
+                    previous_dir, previous_targets = daily[(year, freq)]
+                    for target in operation["targets"]:
+                        if target not in previous_targets:
+                            continue
+                        previous = load(previous_dir / "files" / (text_hash(target) + ".json"))
+                        current = load(directory / "files" / (text_hash(target) + ".json"))
+                        require(previous["target"] == current["target"] == target and previous["status"] == current["status"] == "promoted"
+                                and current["before"] and current["before"][:4] == previous["candidate_identity"][:4],
+                                "Factor receipt does not continue the accepted daily replacement")
+            if year in ("2025", "2026"):
+                delta += publication["candidate_bytes"] - publication["old_annual_bytes"]
+    return delta
+
+
+def scoped_annual_stats(factor, dates):
+    from orchestrator.defs.paths import gold_stk_mins_qfq_macd_kdj_path
+    from orchestrator.defs.stk_mins_qfq_macd_kdj import discover_gold_stk_mins_qfq_source_year_paths
+
+    codes = factor["repair_required_codes"]
+    sources, indicator_bytes = {}, 0
+    years = sorted({day[:4] for day in dates})
+    if not factor["rewrote_history"]:
+        return sources, 0
+    for freq in FREQS:
+        paths = discover_gold_stk_mins_qfq_source_year_paths(ROOT, freq=freq, trade_dates=dates, stock_codes=codes)
+        require(paths, f"No scoped QFQ source for {freq}")
+        for path in paths:
+            require(path.parts[-2] in {"year=" + year for year in years}, "Source discovery found a year outside approved2014..2026")
+            sources[str(path)] = identity(path)
+        for code in codes:
+            for year in years:
+                path = gold_stk_mins_qfq_macd_kdj_path(ROOT, freq, code, year)
+                if path.exists():
+                    indicator_bytes += identity(path)[2]
+    return sources, indicator_bytes
+
+
+def preflight(annual_path):
+    from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import gold_stk_mins_qfq_factor_repair_status
+    from orchestrator.defs.paths import gold_stk_mins_qfq_macd_kdj_state_path
+    from orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor import GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS
+    from orchestrator.defs.sensors.readiness import partition_dataset_readiness_status_from_latest_checks
+
+    upstream = [accepted(name, "batch9") for name in ("daily-run-verified.json", "factor-run-verified.json")]
+    require([r["job"] for r in upstream] == list(JOBS[:2]), "Wrong accepted QFQ/factor jobs")
+    baseline = load(annual_path)
+    require(baseline["trade_date"] == DAY and baseline["baseline_stage"] == "before_qfq_daily"
+            and baseline["day28_downstream_jobs_launched"] == 0
+            and baseline["qfq_two_year_bytes"] == baseline["qfq_2025_bytes"] + baseline["qfq_2026_bytes"],
+            "Use the real before28 current annual metadata baseline")
+    with open_state() as (runs, events, schedules, facade):
+        control = controls(runs, events, schedules, 96 * GIB)
+        records = [exact_success(runs, report) for report in upstream]
+        require(records[0].start_time and datetime.fromisoformat(baseline["observed_at"]).timestamp() < records[0].start_time,
+                "Annual baseline was not observed before28 QFQ daily")
+        current = gold_stk_mins_qfq_factor_repair_status(facade, DAY)
+        factor = current.to_payload()
+        require(current.ready and current.producer_run_id == upstream[1]["run_id"] and factor == upstream[1]["factor_gate"],
+                "The accepted real factor completion changed")
+        previous_ready = partition_dataset_readiness_status_from_latest_checks(facade, GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS, partition_key=PRIOR)
+        require(previous_ready.ready, "Exact27-day state native checks are not ready")
+    history = load(PREPARATION / "history-stat-consumer.json")
+    require(history["date_range"] == [factor["repair_start_trade_date"], factor["repair_end_trade_date"]]
+            and history["date_count"] == factor["selected_partition_count"], "Actual history range needs metadata reconciliation")
+    require(history["shared_state_history"]["requested"] == 7 * factor["selected_partition_count"]
+            and history["shared_state_history"]["missing"] == 7
+            and all(value["missing"] == 1 and value["missing_samples"] == [str(ROOT / "gold/indicator/stk_mins_qfq_macd_kdj_state" / ("freq=" + str(freq)) / ("trade_date=" + DAY) / "part-000.parquet")]
+                    for freq in FREQS for value in [history["groups"]["shared_state_history_" + str(freq)]]),
+            "Existing state evidence has a missing day besides28")
+    old_dates = load(Path("/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261023_20261026/history-scope-preparation/selected-paths.json"))["trade_dates"]
+    dates = sorted(set(old_dates) | {"2026-10-26", PRIOR, DAY})
+    require(len(dates) == factor["selected_partition_count"] and dates[0] == factor["repair_start_trade_date"]
+            and dates[-1] == factor["repair_end_trade_date"], "Verified calendar evidence differs from original factor scope")
+    growth = qfq_growth(upstream, factor)
+    qd = baseline["qfq_two_year_bytes"] + growth
+    sources, ir = scoped_annual_stats(factor, dates)
+    qr = sum(value[2] for value in sources.values())
+    previous = {}
+    for freq in FREQS:
+        path = gold_stk_mins_qfq_macd_kdj_state_path(ROOT, freq, PRIOR)
+        previous[str(path)] = identity(path)
+        require(not gold_stk_mins_qfq_macd_kdj_state_path(ROOT, freq, DAY).exists(), "28-day state already exists; inspect completed work first")
+    u, b, id_bytes = sum(v[2] for v in previous.values()), history["shared_state_history"]["bytes"], baseline["macd_2026_bytes"]
+    require(0 < qd <= 18 * GIB and qr <= GIB and ir <= 2 * GIB and b < 4 * GIB, "Actual metadata exceeds documented prospective accounting")
+    read = 5 * qd + u + 2 * id_bytes + 4 * (20 * GIB) + 3 * (4 * 1024 ** 2) + GIB // 2 + 2 * GIB + 64 * GIB
+    write = 20 * GIB + 4 * 1024 ** 2 + GIB // 2 + GIB // 2 + 64 * GIB
+    require(read <= 280 * GIB and write <= 88 * GIB, "Reconcile original daily budget before launch")
+    result = {"as_of": now(), "date": DAY, "mode": "preflight", "safe_to_launch": True, "factor_gate": factor,
+              "upstream_runs": [{"run_id": r["run_id"], "job": r["job"]} for r in upstream], "controls": control,
+              "previous_state_inputs": previous, "previous_state_native_readiness": asdict(previous_ready),
+              "scoped_qfq_inputs": sources, "annual_baseline": str(annual_path), "qfq28_net_growth_bytes": growth,
+              "repair_target_dates": dates, "budget": {"Qd": qd, "Qr": qr, "Ir_before_daily": ir, "B_before_daily": b,
+                 "Id": id_bytes, "U": u, "daily_read_estimate_gib": read / GIB, "daily_write_estimate_gib": write / GIB},
+              "additional_price_reads": 0, "new_annual_globs": 0, "formal_writes": 0}
+    save_new(REPORT / "batch10/preflight.json", result)
+    return result
+
+
+def prepare_repair():
+    from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import gold_stk_mins_qfq_factor_repair_status
+    from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status, gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch
+    from orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor import GOLD_STK_MINS_QFQ_MACD_KDJ_READINESS_SPECS
+    from orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_repair_job_sensor import build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision, _run_config_for_repair_decision
+    from orchestrator.defs.sensors.readiness import partition_dataset_readiness_status_from_latest_checks
+
+    frozen = load(REPORT / "batch10/preflight.json")
+    daily = accepted("daily-run-verified.json", "batch10")
+    require(frozen["date"] == DAY and frozen["safe_to_launch"] is True
+            and daily["factor_gate"] == frozen["factor_gate"], "Daily used a different factor/preflight")
+    with open_state() as (runs, events, schedules, facade):
+        control = controls(runs, events, schedules, 24 * GIB)
+        exact_success(runs, daily)
+        factor = gold_stk_mins_qfq_factor_repair_status(facade, DAY)
+        require(factor.ready and factor.to_payload() == frozen["factor_gate"], "The actual factor batch changed after daily")
+        readiness = partition_dataset_readiness_status_from_latest_checks(facade, GOLD_STK_MINS_QFQ_MACD_KDJ_READINESS_SPECS, partition_key=DAY)
+        require(readiness.ready and {s.asset_key: s.materialization_storage_id for s in readiness.statuses}
+                == {m["asset"]: m["storage_id"] for m in daily["materializations"]}, "Daily native readiness is not bound to the accepted14 materializations")
+        decision = build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision(target_trade_date=DAY, qfq_factor_repair_status=factor, macd_kdj_daily_ready=readiness.ready)
+        result = {"as_of": now(), "date": DAY, "mode": "prepare-repair", "factor_gate": factor.to_payload(),
+                  "daily_run_id": daily["run_id"], "daily_readiness": asdict(readiness), "decision": asdict(decision),
+                  "controls": control, "repair_to_launch": False, "run_config": None, "additional_price_reads": 0, "formal_writes": 0}
+        if not factor.rewrote_history:
+            require(decision.selected_trade_date is None, "No-history factor unexpectedly selected repair")
+            gate = gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status(facade, DAY)
+            require(gate.ready and not gate.requires_macd_kdj_repair, "No-repair complete gate is not ready")
+            result.update(reason="Original factor job did not rewrite history", full_gate=gate.to_payload())
+        else:
+            require(decision.selected_trade_date is not None, decision.reason + " " + decision.next_action)
+            completion = gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch(facade, qfq_factor_repair_trade_date=DAY,
+                repair_start_trade_date=factor.repair_start_trade_date, repair_end_trade_date=factor.repair_end_trade_date,
+                upstream_batch_id=factor.upstream_batch_id, repair_required_code_count=factor.repair_required_code_count,
+                repair_required_codes_hash=factor.repair_required_codes_hash)
+            result["existing_completion"] = completion.to_payload()
+            if completion.ready:
+                gate = gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status(facade, DAY)
+                require(gate.ready, "Existing repair completion has no complete gate")
+                result.update(reason="This actual upstream batch is already repaired; do not resubmit", full_gate=gate.to_payload())
+            else:
+                result.update(repair_to_launch=True, run_config=_run_config_for_repair_decision(decision), config_file="repair-run-config.json")
+    for path, expected in frozen["scoped_qfq_inputs"].items():
+        require(identity(path) == expected, "Scoped QFQ source changed after preflight")
+    targets = load(REPORT / "batch10/daily-target-identities.json")
+    codes = set(result["factor_gate"]["repair_required_codes"])
+    ir, b = frozen["budget"]["Ir_before_daily"], frozen["budget"]["B_before_daily"]
+    state_targets = 0
+    for path, value in targets.items():
+        after, before = value["identity"], value["before"]
+        if value["kind"] == "indicator" and Path(path).parts[-3].removeprefix("ts_code=") in codes:
+            ir += after[2] - (before[2] if before else 0)
+        if value["kind"] == "state":
+            require(before is None and f"trade_date={DAY}" in Path(path).parts, "Daily state does not match the missing28 target")
+            b += after[2]
+            state_targets += 1
+    require(state_targets == 7, "Daily target identities omit a28-day shared state")
+    if result["factor_gate"]["rewrote_history"]:
+        require(ir <= 2 * GIB, "Actual scoped indicator growth needs budget reconciliation")
+        read = frozen["budget"]["Qr"] + 2 * ir + b + 4 * GIB + 8 * GIB + 2 * GIB + 2 * GIB + 8 * GIB
+        write = 2 * GIB + 4 * GIB + 2 * GIB + GIB // 2 + 8 * GIB
+        require(read <= 36 * GIB and write <= 20 * GIB, "Reconcile original repair budget before launch")
+        result["repair_budget"] = {"Qr": frozen["budget"]["Qr"], "Ir_after_daily": ir, "B_after_daily": b,
+                                    "read_estimate_gib": read / GIB, "write_estimate_gib": write / GIB}
+    if result["repair_to_launch"]:
+        save_new(REPORT / "batch10/repair-run-config.json", result["run_config"])
+    save_new(REPORT / "batch10/repair-decision.json", result)
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--mode", choices=("preflight", "prepare-repair"), required=True)
+    parser.add_argument("--annual-baseline", type=Path, default=REPORT / "annual-baseline-current.json")
+    args = parser.parse_args()
+    result = preflight(args.annual_baseline) if args.mode == "preflight" else prepare_repair()
+    print(json.dumps({key: result[key] for key in ("date", "mode", "safe_to_launch", "daily_run_id", "repair_to_launch", "budget", "repair_budget") if key in result}, ensure_ascii=False))
+
+
+if __name__ == "__main__":
+    main()
