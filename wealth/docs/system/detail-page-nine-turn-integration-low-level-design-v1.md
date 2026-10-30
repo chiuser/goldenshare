@@ -10,7 +10,7 @@
 >
 > 正式设计：[Goldenshare Web](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?m=dev)
 
-> 2026-10-30 补充状态：历史 M0～M6 验收保持。本次主要指数九转跨日日期判断修复对应总方案第 6.4 节和本文第 6.5 节；目前只完成文档设计，未修改代码、reload、触发 job 或补 29 日数据，不能用文首历史完成状态代替本次验收。
+> 2026-10-30 补充状态：历史 M0～M6 验收保持。本次主要指数九转跨日日期判断修复对应总方案第 6.4 节和本文第 6.5 节；开发与隔离验证已完成，既定四文件 99 项测试通过，实际对账见第 6.5.10 节。未正式加载、触发 job 或补 29 日数据，开发通过不代表正式结果已完成。
 
 ---
 
@@ -398,11 +398,11 @@ gold_major_index_mins_nineturn_update_job_sensor
 4. 历史构建使用有界批次、compact seed、逐文件原子提升和 checkpoint；不全历史单 SQL 常驻内存。
 5. 本文不授权任何历史写入、动态分区登记或 runless event。
 
-### 6.5 主要指数九转跨日日期判断修复 LLD（2026-10-30，待实施）
+### 6.5 主要指数九转跨日日期判断修复 LLD（2026-10-30，开发与隔离验证完成）
 
 #### 6.5.1 对应目标、依据与实施边界
 
-对应总方案第 6.4 节。目标是：期望窗口末尾存在尚未注册日期时，仍能按原检查和最早未完成顺序处理已经注册的旧日期；窗口内部真正漏注册时继续停止。现有 `gap.ready` 要求整个窗口都注册，不能再作为是否处理旧日期的总开关。
+对应总方案第 6.4 节。目标是：期望窗口末尾存在尚未注册日期时，仍能按原检查和最早未完成顺序处理已经注册的旧日期；窗口内部真正漏注册时继续停止。修复前使用的 `gap.ready` 要求整个窗口都注册，不能再作为是否处理旧日期的总开关。
 
 证据来源为总方案第 6.4.1 节的原 tick、run、原检查及 Git 核验；不重读行情来重复证明。29 日上游四项检查的原生 `partition` 为 NULL，但均通过 `targetMaterialization.storageId=7791240` 关联到 29 日 run `140070cc`；`sensors/readiness.py` 当前按该关联判断，不能将按 check partition 查询为空误报为缺检查。本轮保持此读取语义。
 
@@ -484,10 +484,19 @@ CodeGraph 使用 `codegraph_explore` 定位共用 `_evaluate`，再核对上述�
 
 旧 `_expected_window()` 固定返回 `window_limit=10`，且 `_install_gold_sensor_fakes` 忽略 loader 实参，不能作为分钟 5 日窗口证据；新增 fixture/spy 必须修正这一点。mock 决策测试不冒充正式 job 或生产数据库验收；本次不跑前端、API 或公式性能测试，因为这些实现均未修改。
 
-在 `lake_console/orchestrator` 使用现有 `.venv`，不安装或同步依赖；开发完成后执行：
+在 `lake_console/orchestrator` 使用现有 `.venv`，不安装或同步依赖。执行前代码核验发现 `test_major_index_nineturn_m4b.py` 既有用例使用默认 `DuckDBResource()`，且历史 helper 显式构造的设置也沿用正式临时目录；因此不能直接运行原四文件 pytest 命令。复用既有 `lake_console/reports/macd_kdj_daily_read_20261030/history-repair-test-runner.py.txt` 的隔离办法：在 `/private/tmp` 本任务独占目录生成临时 runner，提前包装 `connect_configured_duckdb`，仅把每次连接设置中的 `temp_directory` 替换为本用例 tmp_path 子目录，保留原内存、线程、spill等所有其他设置；对已导入的同一函数别名使用同一替换。启动前完成这项替身，不能先碰正式目录再重试，不修改共享生产连接代码或其他测试文件。
+
+runner 只执行下面四个既定测试文件，按现有隔离启动器设置 `--rootdir/--confcutdir` 到本项目 tests、`--import-mode=importlib`、`--noconftest`，防止收集阶段遍历用户目录。已核本组用例不依赖 conftest 中仅显式请求的钱流替身，不跳过用例或业务断言。关闭自动 pytest 插件和 cache，将 `DAGSTER_HOME`、系统临时目录和 pytest basetemp 设为任务独占目录；复用现有 `sandbox-exec` 策略在测试进程内拒绝网络、`/Volumes` 及正式 `~/.goldenshare` 的读写。该策略仅隔离测试，不是给生产任务新增运行限制。runner 记录配置连接次数、临时文件量和 pytest 结果；测试结束删除本轮 runner、日历/Parquet、临时实例和工作目录，保留必要结果摘要入本节。若当前工具不能启动这项隔离，则停止该完整回归，不移除保护直接跑正式默认路径。
+
+隔离 runner 内传给 pytest 的既定文件集合如下（不是直接在正式资源环境执行的命令）：
 
 ```bash
 .venv/bin/python3 -B -m pytest -q tests/test_major_index_nineturn_sensors.py tests/test_bounded_continuity.py tests/test_major_index_nineturn_m4b.py tests/test_index_daily_nineturn_prod_core.py
+```
+
+以下静态检查不访问正式资源，可直接执行：
+
+```bash
 .venv/bin/ruff check --no-cache src/orchestrator/defs/sensors/major_index_nineturn_sensor.py tests/test_major_index_nineturn_sensors.py
 ```
 
@@ -511,7 +520,7 @@ CodeGraph 使用 `codegraph_explore` 定位共用 `_evaluate`，再核对上述�
 
 #### 6.5.7 后续加载、29 日补齐及失败处理
 
-本轮只写文档，以下为后续操作要求，不是已经取得的执行授权：
+本轮完成开发与隔离验证，以下正式操作尚未实施，仍需按阶段取得执行授权：
 
 1. 开发和隔离验收通过、独立对账完成后，正式阶段的明确授权必须覆盖原 code location 加载及随后原 sensor 的自然任务；加载动作统一在第 2 步预检之后进行。保留两个 Gold sensor 和 Prod sensor 的原实例状态、cursor、run key；不重启或启停无关对象。
 2. 正式只读核当前版本、29 日原 Gold/Prod 任务、原 sensor、注册状态与已有检查，再按授权加载新代码并只观察修正后的日线 sensor 自动提交 29 日原 job；已有成功则复用验收，已有活动则跟踪。运行中的 sensor 会继续产生 tick，查询与提交之间可能变化，因此不能凭一次无活动查询手工发任务，也不能通过新增 run key 绕过幂等。原 sensor 未提交时先停止、只读查因，不手工补发；确需人工恢复时，须另行先设计和批准仅暂停目标日线 sensor、等待在途 tick 完成、复核 run/run key、单次提交和恢复原状态/cursor 的互斥步骤。本轮方案不以人工路径作为备用动作。
@@ -530,15 +539,15 @@ CodeGraph 使用 `codegraph_explore` 定位共用 `_evaluate`，再核对上述�
 | 6.4.2.6：计算与其他数据集不变 | 仅一个 sensor 源文件及定向测试 | 修改白名单、原 job/default/频率选择回归、共享 helper/公式/writer/Prod/API/路径无 diff |
 | 6.4.4：依原 job 先 Gold 后 Prod，失败不重跑 | 后续原生触发和原 sensor 接续；不新增执行器 | 当前阶段只记录待执行；正式阶段才登记两个实际 run、原检查和两项收尾 |
 
-文档退出条件：上述设计无待决定分支、两文口径一致、直接代码引用和证据链接有效；本次只达到文档阶段。后续开发退出条件是定向测试、受影响文件 lint、实现对账和独立审计均通过；正式补齐退出条件则另外要求第 6.5.7 节的真实执行与两项结果。不得相互替代，也不得将历史 M6 完成写成此次缺陷已修复。
+文档退出条件：上述设计无待决定分支、两文口径一致、直接代码引用和证据链接有效。开发退出条件是定向测试、受影响文件 lint、实现对账和独立审计均通过，实际结果见第 6.5.10 节；正式补齐退出条件则另外要求第 6.5.7 节的真实执行与两项结果。不得相互替代，也不得将历史 M6 完成写成此次正式缺口已补齐。
 
-#### 6.5.9 两文与当前代码对账记录（2026-10-30）
+#### 6.5.9 开发前的两文与代码对账记录（2026-10-30）
 
-本次只审计并修改总方案和 LLD，未修改业务代码，未运行代码测试，未读取正式 Lake/数据库或执行正式任务。静态核验与带日期的旧执行结果不混写为今日生产验收。
+本节保留 `0ab9847de` 文档提交时的历史记录：当时只审计并修改总方案和 LLD，未修改业务代码、运行代码测试、读取正式 Lake/数据库或执行正式任务。后续开发结果见第 6.5.10 节，不把静态核验和旧执行结果混写为今日生产验收。
 
 | 纠正内容 | 当前依据与两文口径 |
 |---|---|
-| 历史状态、阶段和审批 | 原 M0～M6、S0～S5、D0～D6 已完成；8 月行数/版本/开关只是当时快照，不能覆盖本次待开发状态。只读审计沿根 AGENTS 持续授权，正式写入另批 |
+| 历史状态、阶段和审批 | 原 M0～M6、S0～S5、D0～D6 已完成；8 月行数/版本/开关只是当时快照，不能覆盖本次修复状态。只读审计沿根 AGENTS 持续授权，正式写入另批 |
 | 指数 Gold 检查 | `defs/major_index_nineturn_integrity.py` 的六规则含源价格一致性，不读版本 metadata、不重算公式；不套用股票无价格检查 |
 | serving 价格与版本 | `defs/prod_db/index_daily_nineturn.py`、`stock_daily_qfq_nineturn.py` 和两表 schema：股票无价格，指数保留 close；publisher 写版本常量，原 read-back/hash 核验，不读取 Gold 版本列 |
 | Foundation Reader | `src/foundation/clients/local_lake/{stock,index}_nine_turn_reader.py` 现有两组 Request/Page，请求使用 freq，不新增通用 subject_type/period 合同 |
@@ -547,7 +556,31 @@ CodeGraph 使用 `codegraph_explore` 定位共用 `_evaluate`，再核对上述�
 | 已失效的操作指令 | 替换不存在的 migration 占位文件；撤销恢复旧分钟 schema 指令，删除依赖旧报告的 D5-B/D6 可执行脚本，保留历史报告/指纹/结果；不照旧步骤重跑历史 |
 | 本次范围与预算 | 仅主要指数两个 Gold sensor 共用日期判断及定向测试；34/109 条 SQL 和原上游事件查询分列，业务载荷预算不冒充进程总 I/O；公式、路径、其他数据集和下游合同不变 |
 
-推进判断：第 6.5.1～6.5.8 节设计与总方案第 6.4 节一致，可用于后续开发及隔离测试；`major_index_nineturn_sensor.py` 当前仍使用 `if not gap.ready`，不能称为已修复。正式加载及补数必须等待实际实现、定向验证、逐项对账及独立审计通过，并遵守第 6.5.7 节的执行授权和范围。文档完整性/链接检查只验证文档结构，不替代代码或正式数据验收。
+当时的推进判断：第 6.5.1～6.5.8 节设计与总方案第 6.4 节一致，可进入开发；当时 `major_index_nineturn_sensor.py` 仍使用 `if not gap.ready`，尚未修复。此分支现已按第 6.5.10 节完成修改。正式加载及补数继续遵守第 6.5.7 节的授权和范围，文档完整性/链接检查不替代代码或正式数据验收。
+
+#### 6.5.10 本轮开发与验证记录（2026-10-30）
+
+管理员在方案与文档对账提交后允许按计划推进；本轮只实施第 6.5.3～6.5.5 节并按第 6.5.8 节对账，停在正式 code location 加载与补数之前。代码白名单为共用 sensor 和定向测试两个文件，结果同步回本 LLD 与总方案；不改共享 helper、公式、原 job/check、注册器、Prod 或 API。
+
+实现与验收结果：
+
+| 硬口径 | 实际实现 | 实际测试证据 |
+|---|---|---|
+| 末尾未注册不挡已注册旧日；内部漏注册仍停止 | `_evaluate` 改为先判 `gap.has_internal_gap`，目标 batch 和 selector 同用 `actionable_dates`；空窗口与全未注册分开处理 | `recovers_registered_old_date_before_unregistered_tail` 日线/分钟；`registration_cases_stop_before_target_or_upstream_reads` 覆盖空、全未注册、内部缺口及开头缺口 |
+| 不跳过原保护，不扩大前日或频率范围 | 保留两条原上游分支、完整 registered 集合中的前日检查；readiness 日期不符或未知结果进入原异常分支 | `unregistered_tail_does_not_weaken_existing_quality_or_continuity_gates`、`window_first_date_still_checks_registered_previous_outside_window`、`incomplete_or_mismatched_readiness_stops_instead_of_claiming_all_ready` 的日线/分钟正反例 |
+| 只选最早未完成日，每 tick 一个原请求 | 原 `build_run_request` 与 run key 不变；未注册尾日不进入 batch 或 selector | `multiple_unregistered_tail_dates_preserve_earliest_request_and_run_key` 重复评估；旧请求身份测试保留 |
+| 等待尾日不报全部完成，不迁移 cursor | `_cursor` 只增加四个注册摘要；原 reason/schema 不变 | `completed_registered_prefix_waits_for_first_tail_without_claiming_all_ready`；分支断言共同检查 cursor 不超过 2048 字节 |
+| 真实窗口仍为日线 10/分钟 5，注册时间规则不变 | 两个原入口、window_limit、`same_day_register_start=None` 与注册器不变 | `real_silver_calendar_preserves_window_and_registration_before_and_after_1600`、`real_calendar_year_boundary_and_closed_days_do_not_create_fake_targets`：12 个临时四列日历案例，真实窗口/helper，字面预期；后续行情 readiness 和实例状态仍为替身 |
+| 公式、原数据与下游不变 | 生产代码只有 `_evaluate`、`_cursor` 两个函数的 AST 变化；两个 sensor 入口与装饰器、分钟来源列表 AST 均与开发基线一致 | 原 M4-B 与 Prod publisher/check 定向回归保留，未增加正式计算、发布或历史重刷；CodeGraph 与当前调用链静态复核 |
+
+1. **旧代码反例先行**：源 SHA-256 为 `4e1ea308a89d792b3f10a6bb92ccb02f59fac32a8cd913de31cf1540cdef21f2` 时，仅运行新增缺陷用例，结果为 `2 failed, 18 deselected`。日线、分钟都因尾日未注册得到零请求，而预期为只请求 29 日；因此反例确实抓住原错误。日志和指纹保存在 `/private/tmp/major_index_nineturn_tail_old_code_failure.txt`、`/private/tmp/major_index_nineturn_tail_old_code_evidence.json`。
+2. **完整隔离回归**：按第 6.5.5 节保护方式运行四个既定文件，`test_major_index_nineturn_sensors.py` 62、`test_bounded_continuity.py` 13、`test_major_index_nineturn_m4b.py` 18、`test_index_daily_nineturn_prod_core.py` 6，合计 **99 passed，0 skipped/deselected，4.76 秒**。runner 记录 39 次配置连接，只有临时目录替换；正式根和网络被系统策略拒绝。另有 32 条既有依赖弃用/预览警告，不影响测试结果，未修改依赖来消除警告。
+3. **测试范围修正**：首次完整 runner 在 pytest 收集目录阶段被系统策略拒绝访问正式用户目录，未执行任何用例；缺少既有隔离启动器使用的收集范围参数。先补本 LLD 的 `rootdir/confcutdir/import-mode/noconftest` 约束，再修正临时 runner，仅重做同四文件；未解除目录/网络保护、未跳过用例、未触及正式实例。这不是正式数据 job 的失败或重跑。
+4. **真实性和范围**：人工日历按当前四列 Silver 生产合同创建，并独立断言 schema；真实窗口、注册分类和 selector 参与测试。行情完整性、Dagster 状态与 Prod 交互的替身只用于隔离，不能证明 29 日正式数据已补齐。公式与发布实现未改，本次不另跑行情性能测试或前端/API 测试。
+5. **静态与独立复核**：受影响源文件和测试的 Ruff、四文件 whitespace 检查、函数 AST 范围核对通过。独立复核已只读审查方案/LLD、完整源差异、测试输入与断言、旧失败和新通过记录、隔离 runner，未发现实现错误或关键遗漏；未替代正式验收。新源 SHA-256 为 `dbf59a02cf4d69bbcfdc74325761204d02a9991d646eb8f026b4903e563e9fdd`。
+6. **临时资源收尾**：仅删除本轮三个独占测试目录，含 runner、系统策略文件、临时日历/Parquet、DuckDB 目录和临时实例；删除前剩余普通文件共 243 个、241,252 字节，这只是收尾存量，不能当作峰值或累计 I/O 实测。旧代码反例证据保留；最终 99 项结果、源指纹、逐文件结果和清理清单保存在 `/private/tmp/major_index_nineturn_validation_20261030.json`，配套 `.log` 保存测试输出，`-collection-error.log` 与 `-collection-error-summary.json` 保留首次零用例收集失败记录。没有清理正式 staging、其他任务临时文件或现有依赖。
+
+正式动作仍未执行：未读取正式 Lake/Prod/实例，未 reload、触发 job、切 sensor、改 cursor、注册分区或写 runless event；不重刷已完成历史，不新增 repair。开发验收与第 6.5.7 节正式验收分开登记。
 
 ## 7. 日线 PostgreSQL serving
 
@@ -1444,7 +1477,7 @@ M6-D 的产品、数据、性能、权限、路由、页面与回滚门禁均已
 
 ## 18. 历史发布顺序与现行故障处理边界
 
-下列第 1～8 项保留原专项已完成的发布顺序，不能作为当前待执行清单；S0～S5、D0～D6 和 M6 均已完成。不得照此重复迁移或写事件。本次唯一待实施修复的顺序见第 6.5.7 节：
+下列第 1～8 项保留原专项已完成的发布顺序，不能作为当前待执行清单；S0～S5、D0～D6 和 M6 均已完成。不得照此重复迁移或写事件。本次修复开发与隔离验证已完成，后续正式步骤见第 6.5.7 节：
 
 1. 已完成既有 migration、Gold/serving、日线 API、shared primitive、股票接入和 M4-B 指数后端发布。
 2. 先实施股票分钟去价格代码与隔离测试，不触碰正式 Lake 或 Dagster runtime。
@@ -1960,3 +1993,4 @@ D6-2 与 D6-3 正式执行结果如下：
 | v1.41 | 2026-08-27 | 需求关闭复核：生产为干净的 `f732f8bd` 且仍包含关闭、固定六周期与 D6 提交；三项服务 active、双 health 200、日线未登录 401、分钟 404，当前 API/Wealth/Orchestrator 回归全绿。正式 Dagster 实例未重读，后续 freshness 归常规运维 | Codex |
 | v1.42 | 2026-10-30 | 细化主要指数九转跨日日期判断修复：两个共用入口、内部/尾部注册缺口分支、batch与selector同范围、原cursor摘要、窗口外前日保护、真实合同隔离测试、读写预算及 29 日 Gold→Prod 的独立执行边界；仅文档，未开发或正式补数 | Codex |
 | v1.43 | 2026-10-30 | 完成两文及当前代码静态对账：纠正历史状态、只读授权、指数检查/版本、Reader实际类型、缓存/取消、状态映射和active异常码，撤销旧schema恢复及过期脚本指令；只完成文档，尚未开发或正式补数 | Codex |
+| v1.44 | 2026-10-30 | 按原 LLD 完成共用 sensor 日期修正和测试，登记旧代码两例失败、修复后四文件 99 项隔离通过、真实日历/窗口/保护条件对账及测试隔离要求；未正式加载或补数 | Codex |

@@ -7,6 +7,7 @@ from datetime import datetime
 import dagster as dg
 
 from orchestrator.defs.asset_guards.bounded_continuity import (
+    ContinuityRegisteredGapStatus,
     build_registered_gap_status,
     load_expected_trade_date_window,
     select_first_not_ready_trade_date,
@@ -76,7 +77,21 @@ def _cursor(
     target_date: str | None,
     reason_code: str,
     request_run: bool,
+    gap: ContinuityRegisteredGapStatus | None = None,
 ) -> str:
+    evidence = {
+        "minute_frequencies": list(MAJOR_INDEX_NINETURN_MINUTE_FREQS),
+        "max_run_requests_per_tick": 1,
+    }
+    if gap is not None:
+        evidence.update(
+            {
+                "registration_gap_class": gap.registration_gap_class,
+                "first_internal_missing_date": gap.first_internal_missing_date,
+                "first_trailing_unregistered_date": gap.first_trailing_unregistered_date,
+                "actionable_registered_count": len(gap.actionable_expected_trade_dates),
+            }
+        )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=(
@@ -99,10 +114,7 @@ def _cursor(
             next_action=(
                 "run one partition" if request_run else "wait for the gate to clear"
             ),
-            evidence={
-                "minute_frequencies": list(MAJOR_INDEX_NINETURN_MINUTE_FREQS),
-                "max_run_requests_per_tick": 1,
-            },
+            evidence=evidence,
         ),
     )
 
@@ -125,6 +137,7 @@ def _evaluate(context: dg.SensorEvaluationContext, *, minute: bool) -> dg.Sensor
         if minute
         else MAJOR_INDEX_NINETURN_SENSOR_WINDOW_DAILY
     )
+    gap = None
     try:
         context.resources.lake_root.ensure_available_for_run()
         with context.resources.duckdb.connect() as connection:
@@ -143,10 +156,10 @@ def _evaluate(context: dg.SensorEvaluationContext, *, minute: bool) -> dg.Sensor
                 expected_trade_dates=window.expected_trade_dates,
                 registered_trade_dates=registered,
             )
-            if not gap.ready:
-                target = gap.first_missing_registered_date
+            if gap.has_internal_gap:
+                target = gap.first_internal_missing_date
                 return dg.SensorResult(
-                    skip_reason="等待主要指数九转交易日分区注册。",
+                    skip_reason="主要指数九转窗口内有交易日分区漏注册。",
                     cursor=_cursor(
                         sensor_name=sensor_name,
                         job_name=job_name,
@@ -155,31 +168,61 @@ def _evaluate(context: dg.SensorEvaluationContext, *, minute: bool) -> dg.Sensor
                         target_date=target,
                         reason_code="missing_registered_partition",
                         request_run=False,
+                        gap=gap,
+                    ),
+                )
+            actionable_dates = gap.actionable_expected_trade_dates
+            if not actionable_dates:
+                waiting_for_registration = bool(window.expected_trade_dates)
+                return dg.SensorResult(
+                    skip_reason=(
+                        "等待主要指数九转交易日分区注册。"
+                        if waiting_for_registration
+                        else "最近窗口的主要指数九转均已 ready。"
+                    ),
+                    cursor=_cursor(
+                        sensor_name=sensor_name,
+                        job_name=job_name,
+                        partition_set=partitions_def.name,
+                        evaluated_at=evaluated_at,
+                        target_date=gap.first_missing_registered_date,
+                        reason_code=(
+                            "missing_registered_partition"
+                            if waiting_for_registration
+                            else "all_ready"
+                        ),
+                        request_run=False,
+                        gap=gap,
                     ),
                 )
             target_batch = batch_gold_major_index_nineturn_readiness(
                 connection=connection,
                 lake_root=context.resources.lake_root.root(),
-                expected_trade_dates=window.expected_trade_dates,
+                expected_trade_dates=actionable_dates,
                 minute=minute,
             )
+        if target_batch.expected_trade_dates != actionable_dates:
+            raise RuntimeError("Major-index nine-turn readiness dates do not match.")
         selection = select_first_not_ready_trade_date(
-            expected_trade_dates=window.expected_trade_dates,
+            expected_trade_dates=actionable_dates,
             readiness=target_batch,
         )
+        if selection.blocked_reason not in {None, "materialized_check_failed"}:
+            raise RuntimeError("Major-index nine-turn readiness result is incomplete.")
         target = selection.first_not_ready_trade_date
         if selection.selected_trade_date is None:
-            reason = (
-                "target_integrity_failed"
-                if selection.blocked_reason == "materialized_check_failed"
-                else "all_ready"
-            )
+            if selection.blocked_reason == "materialized_check_failed":
+                reason = "target_integrity_failed"
+                skip_reason = "目标九转文件存在但完整性失败，拒绝自动覆盖。"
+            elif gap.has_trailing_gap:
+                reason = "missing_registered_partition"
+                target = gap.first_trailing_unregistered_date
+                skip_reason = "已注册的主要指数九转日期已完成，等待后续日期注册。"
+            else:
+                reason = "all_ready"
+                skip_reason = "最近窗口的主要指数九转均已 ready。"
             return dg.SensorResult(
-                skip_reason=(
-                    "目标九转文件存在但完整性失败，拒绝自动覆盖。"
-                    if reason == "target_integrity_failed"
-                    else "最近窗口的主要指数九转均已 ready。"
-                ),
+                skip_reason=skip_reason,
                 cursor=_cursor(
                     sensor_name=sensor_name,
                     job_name=job_name,
@@ -188,6 +231,7 @@ def _evaluate(context: dg.SensorEvaluationContext, *, minute: bool) -> dg.Sensor
                     target_date=target,
                     reason_code=reason,
                     request_run=False,
+                    gap=gap,
                 ),
             )
         target = selection.selected_trade_date
@@ -213,6 +257,7 @@ def _evaluate(context: dg.SensorEvaluationContext, *, minute: bool) -> dg.Sensor
                     target_date=target,
                     reason_code="upstream_not_ready",
                     request_run=False,
+                    gap=gap,
                 ),
             )
         previous = next(
@@ -237,6 +282,7 @@ def _evaluate(context: dg.SensorEvaluationContext, *, minute: bool) -> dg.Sensor
                         target_date=target,
                         reason_code="previous_partition_not_ready",
                         request_run=False,
+                        gap=gap,
                     ),
                 )
         return dg.SensorResult(
@@ -256,6 +302,7 @@ def _evaluate(context: dg.SensorEvaluationContext, *, minute: bool) -> dg.Sensor
                 target_date=target,
                 reason_code="request_run",
                 request_run=True,
+                gap=gap,
             ),
         )
     except Exception as error:  # noqa: BLE001 - sensors fail closed.
@@ -269,6 +316,7 @@ def _evaluate(context: dg.SensorEvaluationContext, *, minute: bool) -> dg.Sensor
                 target_date=None,
                 reason_code=f"sensor_error_{type(error).__name__}",
                 request_run=False,
+                gap=gap,
             ),
         )
 
