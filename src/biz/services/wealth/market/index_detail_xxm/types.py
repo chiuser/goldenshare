@@ -3,7 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 import math
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, TypedDict, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .forecast_math import Interval
 
 
 XxmPeriod = Literal["day", "m60", "m90", "m120"]
@@ -146,3 +149,50 @@ class XxmStep:
     events: tuple[dict[str, Any], ...]
     structures: tuple[XxmStructureRecord, ...]
     decision: XxmDecision | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class ForecastPrecheck:
+    snapshot: dict[str, Any]
+    direction: Literal["TOP", "BOTTOM"] | None
+    references: dict[str, XxmReferenceFacts | None]
+    active_role: Literal["NEAR", "FAR"] | None
+    nearest_decision: dict[str, str | None]
+    stop_reason: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class ComparisonRanges:
+    certain_true: tuple[Interval, ...]
+    certain_false: tuple[Interval, ...]
+    undecided: tuple[Interval, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ForecastConditionDraft:
+    outcome: str
+    reference_role: Literal["NEAR", "FAR"]
+    price_ranges: tuple[dict[str, Any], ...]
+    predicates: tuple[dict[str, Any], ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ReferenceForecast:
+    conditions: tuple[ForecastConditionDraft, ...]
+    relationship_ranges: tuple[Interval, ...]
+    relationship_precision_ranges: tuple[Interval, ...]
+    precision_ranges: tuple[Interval, ...]
+
+
+@dataclass(frozen=True, slots=True)
+class ForecastKernelResult:
+    status: str
+    reason_code: str | None
+    target_endpoint: str | None
+    bars_ahead: Literal[1] | None
+    references: dict[str, XxmReferenceFacts | None]
+    selected_reference: Literal["NEAR", "FAR"] | None
+    nearest_decision: dict[str, str | None]
+    far_evaluated: bool
+    conditions: tuple[ForecastConditionDraft, ...]
+    precision_ranges: tuple[dict[str, Any], ...]

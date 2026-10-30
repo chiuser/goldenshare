@@ -18,8 +18,7 @@ import pytest
 
 from scripts.research.index_market.xxm.frozen_inputs import load_frozen_inputs
 from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
-from src.biz.services.wealth.market.index_detail_xxm.forecast_detector import clone, activation_signature
-from src.biz.services.wealth.market.index_detail_xxm.forecast_entry import solve_entry_ranges
+from src.biz.services.wealth.market.index_detail_xxm.forecast_detector import clone
 from src.biz.services.wealth.market.index_detail_xxm.projection import ProjectionState
 from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC, XxmSpec
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
@@ -216,6 +215,8 @@ def test_entire_frozen_ordinary_and_historical_baseline(gate):
 
 
 def test_entry_partition_uses_current_price_and_keeps_waiting_copy():
+    from src.biz.services.wealth.market.index_detail_xxm.forecast_detector import activation_signature
+    from src.biz.services.wealth.market.index_detail_xxm.forecast_entry import solve_entry_ranges
     c = same_segment_setup();c.step(same_segment_bar(7,100,-9));before=c.snapshot()
     solve = solve_entry_ranges
     projection = ProjectionState(110.,119.,-8.)

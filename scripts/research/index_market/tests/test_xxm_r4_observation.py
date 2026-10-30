@@ -10,7 +10,6 @@ from datetime import date, timedelta
 import pytest
 
 from scripts.research.index_market.tests.test_xxm_r4_rules import CASES, PERIODS, _time
-from scripts.research.index_market.xxm import history_disappearance_screen as observation
 from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
 
@@ -154,6 +153,7 @@ def test_recording_flag_requires_a_real_boolean(value):
 
 
 def test_observe_rows_is_pure_bounded_and_checks_its_own_deadline(monkeypatch):
+    from scripts.research.index_market.xxm import history_disappearance_screen as observation
     from pathlib import Path
     values = [bar(i, value) for i, value in enumerate(TOP, 1)]
     monkeypatch.setattr(Path, "write_text", lambda *a, **k: pytest.fail("result write"))
@@ -168,6 +168,7 @@ def test_observe_rows_is_pure_bounded_and_checks_its_own_deadline(monkeypatch):
 
 
 def test_observe_rows_rejects_row_and_result_limits_and_memory(monkeypatch):
+    from scripts.research.index_market.xxm import history_disappearance_screen as observation
     values = (bar(i + 1, (100, 1, 2)) for i in range(1001))
     with pytest.raises(ValueError, match="1000"):
         observation.observe_rows(values, period="day", source_identity=SOURCE, check=lambda: None)

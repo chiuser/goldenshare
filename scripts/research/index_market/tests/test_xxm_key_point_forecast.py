@@ -1,236 +1,513 @@
-import csv
-from datetime import date, datetime, timedelta
+"""P3 step 2: literal M/PF expectations, no market files or HTTP replay.
+
+M1-M5 and the T/B/AB prefixes are transcribed from LLD 5.4.4/14.2.
+Dispatch substitutes below test orchestration only; actual mathematical results
+are separately checked against the literal original-kernel outcomes.
+"""
+from copy import deepcopy
+from dataclasses import asdict, replace
+import hashlib
+import importlib
 import json
 import math
-from pathlib import Path
-import random
+import time
 
 import pytest
+
 from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
-from src.biz.services.wealth.market.index_detail_xxm.forecast import forecast
-from src.biz.services.wealth.market.index_detail_xxm.forecast_detector import clone, activation_signature, confirmed_options, event_options
-from src.biz.services.wealth.market.index_detail_xxm.forecast_entry import solve_entry_ranges, entry_cuts
-from src.biz.services.wealth.market.index_detail_xxm.forecast_math import Interval, as_interval, display_range, project_affine_prefix, K
-from src.biz.services.wealth.market.index_detail_xxm.forecast_joint import close_bounds, survival_reason, domains_for_target
-from src.biz.services.wealth.market.index_detail_xxm.projection import ProjectionState, ProjectionPrecisionError, recover_projection
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar, Wave
-from src.biz.queries.wealth.market.index_detail_xxm.source import ENDPOINTS, CN_ZONE
+from src.biz.services.wealth.market.index_detail_xxm.forecast import forecast, precheck_next_bar
+from src.biz.services.wealth.market.index_detail_xxm import forecast_detector as detector
+from src.biz.services.wealth.market.index_detail_xxm.forecast_math import Interval, as_interval
+from src.biz.services.wealth.market.index_detail_xxm.forecast_next import solve_active_reference
+from src.biz.services.wealth.market.index_detail_xxm.forecast_spec import ForecastSpec, FORECAST_SPEC
+from src.biz.services.wealth.market.index_detail_xxm.forecast_text import make_display
+from src.biz.services.wealth.market.index_detail_xxm.projection import ProjectionState
+from src.biz.services.wealth.market.index_detail_xxm.types import (
+    XxmBar, ForecastConditionDraft, ForecastKernelResult, ReferenceForecast,
+)
 
-ROOT = Path(__file__).resolve().parents[4]
-SOURCE = ROOT / "reports/xxm_source_audit_20261013_213852"
-
-
-def frozen(period):
-    path = SOURCE / ("daily_source.csv" if period == "day" else f"minute_{period[1:]}_source.csv")
-    with path.open() as f:
-        rows = list(csv.DictReader(f))
-    if period == "day":
-        return tuple(XxmBar(r["trade_date"], float(r["close"]), float(r["macd_dif_bfq"]), float(r["macd_dea_bfq"]), float(r["macd_bfq"])) for r in rows)
-    return tuple(XxmBar(r["trade_time"].replace(" ", "T") + "+08:00", float(r["close"]), float(r["macd_dif"]), float(r["macd_dea"]), float(r["macd"])) for r in rows)
-
-
-def endpoints(period, through):
-    rows = sorted({r["trade_date"]:r for r in json.loads((SOURCE / "sse_minute_calendar.json").read_text()) + json.loads((ROOT / "reports/xxm_forecast_precheck_20261014/future_sse_calendar.json").read_text())["rows"]}.values(),key=lambda r:r["trade_date"])
-    slots = []
-    for r in rows:
-        if not r["is_open"]:
-            continue
-        for t in ([None] if period == "day" else ENDPOINTS[int(period[1:])]):
-            stamp = r["trade_date"] if t is None else datetime.combine(date.fromisoformat(r["trade_date"]), t, CN_ZONE).isoformat()
-            if stamp > through:
-                slots.append(stamp)
-    return slots[:20]
+engine = importlib.import_module('src.biz.services.wealth.market.index_detail_xxm.forecast')
+next_solver = importlib.import_module('src.biz.services.wealth.market.index_detail_xxm.forecast_next')
+PERIODS = ('day', 'm60', 'm90', 'm120')
+DATES = ('2023-01-03', '2023-01-04', '2023-01-05', '2023-01-06',
+         '2023-01-09', '2023-01-10', '2023-01-11', '2023-01-12', '2023-01-13')
+M1 = ((100,-60,-2),(110,0,2),(90,-50,-2),(100,0,2),(89,-15,-30),(88,-14,-28))
+M2 = ((100,60,2),(90,0,-2),(110,50,2),(100,0,-2),(111,15,30),(112,14,28))
+M3 = ((70,10,2),(90,0,-2),(100,2,8))
+T = ((100,200,2),(90,0,-2),(101,100,2),(102,100,2))
+B = ((100,-200,-2),(110,0,2),(99,-100,-2),(98,-100,-2))
+TS, BS = T+((103,99,2),), B+((97,-99,-2),)
+ABTD = ((100,300,2),(90,0,-2),(120,200,2),(110,0,-2),(130,100,2),(131,100,2))
+ABBD = ((100,-300,-2),(110,0,2),(80,-200,-2),(90,0,2),(70,-100,-2),(69,-100,-2))
 
 
-def replay(bars, period):
-    c = XxmCalculator(period=period, source_identity="frozen-test")
-    for b in bars:
-        c.step(b)
+def stamp(period, index):
+    return DATES[index] + ('' if period == 'day' else 'T15:00:00+08:00')
+
+
+def calculator(values, period='day'):
+    c = XxmCalculator(period=period, source_identity='next-bar-independent-literals')
+    for index, (close, dif, hist) in enumerate(values):
+        c.step(XxmBar(stamp(period,index), close, dif, dif-hist/2, hist))
     return c
 
 
-@pytest.mark.parametrize("period,target", [("day", "2026-10-15"), ("m60", None), ("m90", "2026-10-14T14:00:00+08:00"), ("m120", None)])
-def test_frozen_nearest_endpoint_full_ranges_and_no_real_mutation(period, target):
-    bars = frozen(period);c = replay(bars, period);projection = recover_projection(bars, period, lambda: None)
-    before=c.snapshot();slots=endpoints(period,bars[-1].time)
-    result=forecast(c,projection,slots)
-    assert result["targetEndpoint"] == target and c.snapshot()==before
-    assert forecast(c,projection,slots)==result
-    assert "scenarios" not in result
-    validate_replay(c,projection,slots,result)
-    if period=="day":
-        act=result["activation"]["ranges"][0]["priceRange"]
-        assert act["lower"] < 3500 < act["upper"] < 3764.16
-        assert any(3500 < e["preClose"] < 3764 for e in result["examples"])
-        assert len(result["commonConditions"])==2
+def run(c, projection):
+    prepared = precheck_next_bar(c, lambda:None)
+    return forecast(c, projection, stamp(c.period,c.processed), lambda:None, prepared=prepared)
 
 
-@pytest.mark.parametrize('period,through',[
-    ('m60','2022-03-04T15:00:00+08:00'),
-    ('m90','2025-12-15T14:00:00+08:00'),
-    ('m120','2026-07-10T15:00:00+08:00'),
+def outcomes_at(result, price):
+    return {item.outcome for item in result.conditions
+            if any(as_interval(value).contains(price) for value in item.price_ranges)}
+
+
+def reference_result(outcome, role, region, *, relationship=True, pending=(), relation_pending=()):
+    # Independent dispatch fixture, not an expected mathematical computation.
+    price = dict(region.json(),displayLower=None,displayUpper=None)
+    draft = ForecastConditionDraft(outcome, role, (price,), ())
+    return ReferenceForecast((draft,), (region,) if relationship else (), tuple(relation_pending),tuple(pending))
+
+
+def empty_result(*, pending=(), relationship_pending=()):
+    return ReferenceForecast((),(),tuple(relationship_pending),tuple(pending))
+
+
+@pytest.mark.parametrize('period',PERIODS)
+@pytest.mark.parametrize('values,projection,zero,flip,other',[
+    (M1,ProjectionState(13,27,0),175.5,176.,'STRUCTURE_FORMED'),
+    (M2,ProjectionState(187,173,0),24.5,24.,'STRUCTURE_FORMED'),
 ])
-def test_waiting_complete_entry_and_joint_domains_use_product_clone(period,through):
-    # Select a genuine waiting prefix rather than manufacturing private state.
-    bars=frozen(period);c=XxmCalculator(period=period,source_identity='waiting-domain')
-    prefix=[]
-    for b in bars:
-        c.step(b);prefix.append(b)
-        if c.pending_rearm and b.time>=through:break
-    assert c.pending_rearm
-    projection=recover_projection(tuple(prefix),period,lambda:None);before=c.snapshot()
-    slots=endpoints(period,prefix[-1].time)
-    result=forecast(c,projection,slots)
-    assert result['status'] not in ('READY','CONFIRMED')
-    if result['activation']:
-        assert all(r['reference']==Wave(**c.pending_rearm['referenceWave']).reference() for r in result['activation']['ranges'])
-    validate_replay(c,projection,slots,result)
+def test_pf01_m1_m2_zero_and_actual_flip(period,values,projection,zero,flip,other):
+    c=calculator(values,period); before=c.snapshot()
+    result=run(c,projection)
+    assert result.status=='READY' and result.bars_ahead==1
+    assert result.selected_reference=='NEAR' and not result.far_evaluated
+    assert outcomes_at(result,zero)=={other}
+    assert outcomes_at(result,flip)=={'STRUCTURE_FORMED_AND_LOCKED'}
+    actual=detector.evaluate_next_at_price(c,projection,zero,stamp(period,len(values)),'NEAR',lambda:None)
+    assert actual['outcome']==other and actual['reference']==c.reference.reference()
     assert c.snapshot()==before
 
 
-def validate_replay(c,projection,slots,result):
-    rng=random.Random(1209);activation=result['activation']
-    if activation:
-        # Complete activation partition, including exact/one-ULP cuts.
-        for cut in entry_cuts(c,projection):
-            for p in (cut,math.nextafter(cut,0),math.nextafter(cut,math.inf),cut-.0001,cut+.0001):
-                if p<=0:continue
-                owners=[r for r in activation['ranges']+activation['exclusions'] if as_interval(r['priceRange']).contains(p)]
-                assert len(owners)==1
-                hit=activation_signature(c,projection,p,slots[0]);owner=owners[0]
-                if 'reference' in owner:assert hit==owner['reference']
-                elif owner['reason']!='PRECISION_UNRESOLVED':assert hit is None
-    if not result['relations']:return
-    j=result['barsAhead'];ds,hs,d,h=project_affine_prefix(projection,j-1)
-    domains=result['targetEntryRanges'] if activation else [dict(priceRange=Interval(c.previous.close,c.previous.close,True,True).json(),entryRangeIds=[])]
-    for domain in domains:
-        iv=as_interval(domain['priceRange'])
-        prices=[iv.lo] if iv.lo==iv.hi else [rng.uniform(iv.lo+1e-6,iv.hi-1e-6) for _ in range(20)]
-        ref=next(r['reference'] for r in activation['ranges'] if r['entryRangeId'] in domain['entryRangeIds']) if activation else c.reference.reference()
-        for p in prices:
-            for route in ('dif_turn','color_flip'):
-                raw=close_bounds(c,ref,ds,d,h,p,route);shown=display_range(raw) if raw else None
-                if shown:
-                    for close in [shown['displayLower'],shown['displayUpper'] or shown['displayLower']+10000]:
-                        assert confirmed_options(c,projection,slots[:j],p,close,route,ref)
-    for common in result['commonConditions']:
-        iv=as_interval(common['entryDomain']) if common['entryDomain'] else Interval(c.previous.close,c.previous.close,True,True)
-        for p in ([iv.lo] if iv.lo==iv.hi else [rng.uniform(iv.lo+1e-6,iv.hi-1e-6) for _ in range(20)]):
-            for shown in common['closeRanges']:
-                for close in [shown['displayLower'],shown['displayUpper'] or shown['displayLower']+10000]:
-                    assert confirmed_options(c,projection,slots[:j],p,close,common['route'],common['reference'])
-    if activation:
-        for entry in activation['ranges']:
-            iv=as_interval(entry['priceRange'])
-            relevant=[r for r in result['targetEntryRanges']+result['targetEntryExclusions'] if entry['entryRangeId'] in r['entryRangeIds']]
-            for p in [iv.lo+(iv.hi-iv.lo)*t for t in (.001,.25,.5,.75,.999)]:
-                assert sum(as_interval(r['priceRange']).contains(p) for r in relevant)==1
+@pytest.mark.parametrize('period',PERIODS)
+def test_pf07_m3_first_activation_never_same_bar_structure(period):
+    c=calculator(M3,period); result=run(c,ProjectionState(102,100,-2))
+    assert outcomes_at(result,100.)=={'DULL_FORMED'}
+    assert {condition.outcome for condition in result.conditions}=={'DULL_FORMED'}
+    assert result.target_endpoint==stamp(period,3) and result.bars_ahead==1
 
 
-T0='2020-01-02T15:00:00+08:00';T1='2020-01-03T10:30:00+08:00';T2='2020-01-03T11:30:00+08:00'
-def wave(sign,price,dif,stamp='2019-01-02T10:30:00+08:00',count=4):
-    return Wave(sign,stamp,stamp,count,price,dif,stamp,stamp)
-def synthetic(sign,price,dif,dea):
-    c=XxmCalculator(period='m60',source_identity='synthetic')
-    c.wave=wave(sign,price,dif,T0,1);c.previous=XxmBar(T0,price,dif,dea,2*(dif-dea));return c
+@pytest.mark.parametrize('values,reason',[ ((), 'ZERO_WAVE'), (((100,0,0),),'ZERO_WAVE'),
+    (((100,2,2),),'NO_REFERENCE'),
+    (((100,10,2),(110,0,-2),(101,11,2)), 'NO_ENTRY_RANGE') ])
+def test_pf02_static_without_projection_or_calendar(values,reason):
+    c=calculator(values); prepared=precheck_next_bar(c,lambda:None)
+    assert prepared.stop_reason==reason
+    result=forecast(c,None,None,lambda:None,prepared=prepared)
+    assert result.status=='NO_CANDIDATE' and result.reason_code==reason
+    assert result.target_endpoint is None and result.bars_ahead is None
+    assert not result.conditions and not result.far_evaluated
 
 
-def test_price_above_old_low_can_activate_when_wave_already_made_new_low():
-    c=synthetic(-1,85,-1,2);c.history[-1]=[wave(-1,90,-20),wave(-1,100,-10,'2019-02-01T10:30:00+08:00')]
-    p=ProjectionState(99,100,2);a=solve_entry_ranges(c,p,T1)
-    assert any(as_interval(r['priceRange']).contains(105) for r in a['ranges'])
-    assert activation_signature(c,p,105,T1)['price']==90
-    result=forecast(c,p,[T1,T2]);assert result['targetEndpoint']==T2
-    c.wave.count=0;assert not solve_entry_ranges(c,p,T1)['ranges']
+def test_pf02_current_price_and_nonpositive_top_dif_do_not_exclude_next_bar():
+    c=calculator(((100,10,2),(90,0,-2),(99,-1,2)))
+    assert c.state=='NONE' and c.previous.close<100 and c.previous.dif<0
+    assert precheck_next_bar(c,lambda:None).stop_reason is None
 
 
-def test_strongest_qualified_reference_changes_with_price_not_tied_to_example():
-    c=synthetic(1,105,8,4);c.history[1]=[wave(1,110,20),wave(1,100,10,'2019-02-01T10:30:00+08:00')]
-    p=ProjectionState(108,100,4)
-    assert activation_signature(c,p,107,T1)['price']==100
-    assert activation_signature(c,p,111,T1)['price']==110
-    assert len(solve_entry_ranges(c,p,T1)['ranges'])>=2
+@pytest.mark.parametrize('values,projection',[(M1,ProjectionState(13,27,0)),(ABTD,ProjectionState(102,100,0))])
+def test_pf03_pf09_near_relationship_never_evaluates_far(values,projection,monkeypatch):
+    c=calculator(values); far=list(reversed(c.history[c.wave.sign]))[1]
+    original=XxmCalculator._current_reference_qualifies
+    def only_near(self,bar,wave,reference,nearest):
+        if reference==far: raise AssertionError('far eligibility was called')
+        return original(self,bar,wave,reference,nearest)
+    monkeypatch.setattr(XxmCalculator,'_current_reference_qualifies',only_near)
+    result=run(c,projection)
+    assert result.status=='READY' and not result.far_evaluated
+    if values==ABTD:
+        assert outcomes_at(result,3000.)=={'REFERENCE_INVALIDATED'}
+        assert '近参照失效' in make_display(result,prepared=precheck_next_bar(c,lambda:None),
+            period=c.period,through=c.previous.time,mode='LATEST',check=lambda:None)['conditionsText']
 
 
-def test_zero_and_reference_break_and_intermediate_flip_order():
-    c=synthetic(-1,100,-1,0);c.wave.count=4;c.reference=wave(-1,110,-2);c.state='DULL'
-    assert not event_options(c,ProjectionState(100,100,0),100,T1,'STRUCTURE')[0][2]
-    c.reference=wave(-1,110,-10);p=ProjectionState(80,100,-50)
-    child=clone(c);bar,_=p.project(100,T1,'m60');events=child.step(bar).events
-    assert events[0]['type']=='CANCEL'
-    from src.biz.services.wealth.market.index_detail_xxm.forecast_math import Affine
-    ds=[Affine(b=-1),Affine(b=-11)];hs=[Affine(b=-1),Affine(b=1)]
-    assert survival_reason(c,c.reference.reference(),ds,hs,100)=='CANCEL_BEFORE_TARGET'
-    ds[1]=Affine(b=-9)
-    assert survival_reason(c,c.reference.reference(),ds,hs,100)=='EARLY_STRUCTURE'
-    hs[1]=Affine(b=0)
-    assert survival_reason(c,c.reference.reference(),ds,hs,100)=='COLOR_OR_ZERO'
+def test_pf03_none_candidate_outside_near_range_does_not_call_far_eligibility(monkeypatch):
+    c=calculator(ABTD[:-1]); far=c.history[1][0]
+    original=XxmCalculator._current_reference_qualifies
+    def only_near(self,bar,wave,reference,nearest):
+        if reference==far: raise AssertionError('far qualification during near verification')
+        return original(self,bar,wave,reference,nearest)
+    monkeypatch.setattr(XxmCalculator,'_current_reference_qualifies',only_near)
+    result=run(c,ProjectionState(102,100,0))
+    assert result.status=='READY' and not result.far_evaluated
 
 
-def test_earlier_narrow_interval_is_not_skipped():
-    c=synthetic(1,100,0,-1);c.reference=wave(1,90,10);c.state='DULL'
-    # With zero previous DIF the 1% turn is disabled. The flip interval is
-    # positive but narrower than the four-decimal display lattice.
-    base=100*11/13-100*25/27
-    result=forecast(c,ProjectionState(100,100,base+K*.00001),[T1,T2])
-    assert result['status']=='PRECISION_PENDING' and result['reasonCode']=='NARROW_INTERVAL'
-    assert result['targetEndpoint']==T1 and result['barsAhead']==1
+@pytest.mark.parametrize('relation,pending,side_pending,expected,far_expected',[
+    (True,False,True,'READY',False), (False,True,False,'PRECISION_PENDING',False),
+    (False,False,True,'READY',True),
+])
+def test_pf05_dispatch_uses_relationship_uncertainty_only(monkeypatch,relation,pending,side_pending,expected,far_expected):
+    c=calculator(ABTD); calls=[]; band=Interval(120.1,120.2,False,False)
+    def solve(c,p,e,reference,role,check):
+        calls.append(role)
+        if role=='FAR': return reference_result('DULL_HELD',role,band)
+        if relation: return reference_result('DULL_HELD',role,band,pending=(band,) if side_pending else ())
+        return empty_result(pending=(band,) if side_pending or pending else (),
+                            relationship_pending=(band,) if pending else ())
+    monkeypatch.setattr(engine,'solve_active_reference',solve)
+    result=run(c,ProjectionState(13,27,0))
+    assert result.status==expected and result.far_evaluated==far_expected
+    assert calls==(['NEAR','FAR'] if far_expected else ['NEAR'])
+    assert result.selected_reference==('FAR' if far_expected else 'NEAR')
 
 
-def test_whole_twenty_bar_horizon_has_no_positive_close_solution():
-    c=synthetic(1,1,-600,-1000);c.wave=wave(1,1,-500,T0,4);c.reference=wave(1,.5,-100);c.state='DULL'
-    slots=[f'2020-01-{day:02d}T15:00:00+08:00' for day in range(3,23)]
-    result=forecast(c,ProjectionState(400,1000,-1000),slots)
-    assert result['status']=='NO_CANDIDATE' and result['reasonCode']=='NO_CONFIRMATION_IN_HORIZON'
+def test_pf04_none_b_previously_broken_uses_only_a(monkeypatch):
+    c=calculator(((100,300,2),(90,0,-2),(120,200,2),(110,0,-2),(130,201,2)))
+    assert c.state=='NONE'
+    calls=[]
+    def solve(c,p,e,reference,role,check):
+        calls.append(role); return reference_result('DULL_FORMED',role,Interval(130.,140.,True,True))
+    monkeypatch.setattr(engine,'solve_first_dull',solve)
+    result=run(c,ProjectionState(13,27,0))
+    assert calls==['FAR'] and result.nearest_decision['status']=='UNAVAILABLE'
+    assert result.selected_reference=='FAR' and result.far_evaluated
 
 
-def test_daily_half_tick_not_guessed():
-    from src.biz.services.wealth.market.index_detail_xxm.projection import near_rounding_tie
-    assert near_rounding_tie(.0005) and near_rounding_tie(-.0005)
-    assert not near_rounding_tie(.00050001)
-    p=ProjectionState(100,100,0);b=100*11/13-100*25/27
-    with pytest.raises(ProjectionPrecisionError,match='ROUNDING_BOUNDARY'):p.project((.0005-b)/K,'2020-01-03','day')
-
-
-@pytest.mark.parametrize('period',['day','m60','m90','m120'])
-def test_calibration_requires_full_tail_and_rejects_changed_source(period):
-    from dataclasses import replace
-    bars=frozen(period)
-    with pytest.raises(ProjectionPrecisionError,match='CALIBRATION_FAILED'):recover_projection(bars[:249],period,lambda:None)
-    with pytest.raises(ProjectionPrecisionError):recover_projection((*bars[:-1],replace(bars[-1],dif=bars[-1].dif+1)),period,lambda:None)
-
-
-@pytest.mark.parametrize('period',['day','m60','m90','m120'])
-def test_history_states_signs_replay_rebuild_and_no_future_leak(period):
-    bars=frozen(period);c=XxmCalculator(period=period,source_identity='frozen-test');selected={}
-    for i,b in enumerate(bars):
-        c.step(b)
-        if i>=250:selected[(c.state,c.wave.sign)]=(i,c.snapshot())
-    assert {'NONE','DULL','STRUCTURE'} <= {key[0] for key in selected}
-    for (state,sign),(idx,snapshot) in selected.items():
-        prefix=bars[:idx+1];child=replay(prefix,period);assert child.snapshot()==snapshot
-        before=child.snapshot();proj=None if state=='STRUCTURE' else recover_projection(prefix,period,lambda:None);slots=endpoints(period,prefix[-1].time)
-        result=forecast(child,proj,slots);assert child.snapshot()==before
-        validate_replay(child,proj,slots,result)
-        if state=='STRUCTURE':assert result['status']=='CONFIRMED' and result['targetEndpoint'] is None
-        if idx+1<len(bars):
-            child.step(bars[idx+1]);assert child.snapshot()==replay(bars[:idx+2],period).snapshot()
-
-
-def test_original_replay_variants_obey_budget_check_without_mutating_real_state():
-    c=synthetic(-1,100,-1,0);c.wave.count=4;c.reference=wave(-1,110,-2);c.state='DULL';before=c.snapshot()
-    def reject():raise TimeoutError('budget checkpoint')
-    with pytest.raises(TimeoutError,match='budget checkpoint'):
-        confirmed_options(c,ProjectionState(100,100,0),[T1,T2],100,110,'color_flip',c.reference.reference(),reject)
+def test_pf04_actual_same_bar_far_rescue_has_no_new_event():
+    c=calculator(ABTD); before=c.snapshot(); projection=ProjectionState(500,186,0)
+    result=run(c,projection)
+    assert result.far_evaluated and result.selected_reference=='FAR'
+    assert result.nearest_decision['status']=='NO_RANGE'
+    assert outcomes_at(result,200.)=={'DULL_HELD'}
+    actual=detector.evaluate_next_at_price(c,projection,200.,stamp('day',6),'FAR',lambda:None)
+    assert actual=={'outcome':'DULL_HELD','reference':c.history[1][0].reference()}
     assert c.snapshot()==before
 
 
-def test_bottom_history_clone_preserves_independent_state_without_becoming_forecast_confirmation():
-    values = frozen('day'); n = next(i+1 for i,b in enumerate(values) if b.time=='2024-07-22')
-    parent = replay(values[:n], 'day'); before = parent.snapshot()
-    assert before['pendingBottomHistory']['confirmedAt']=='2024-07-09'
-    child = clone(parent); step = child.step(values[n])
-    event = next(e for e in step.events if e['direction']=='BOTTOM' and e['type']=='RESEARCH_HISTORICAL_WITHDRAWAL')
-    assert event['relatedBottomHistoryId'] == before['pendingBottomHistory']['id']
-    assert not any(e['type']=='STRUCTURE' for e in step.events)
-    assert parent.snapshot() == before and child.pending_bottom_history is None
+@pytest.mark.parametrize('values',[T,ABTD])
+def test_pf04_no_rescue_reports_no_new_relationship_not_actual_disappearance(monkeypatch,values):
+    c=calculator(values); calls=[]
+    def solve(c,p,e,r,role,check): calls.append(role); return empty_result()
+    monkeypatch.setattr(engine,'solve_active_reference',solve)
+    result=run(c,ProjectionState(13,27,0))
+    assert result.status=='NO_CANDIDATE' and result.reason_code=='NO_ENTRY_RANGE'
+    assert result.target_endpoint is not None and result.bars_ahead==1
+    assert not result.conditions and not result.precision_ranges
+    assert calls==(['NEAR'] if values==T else ['NEAR','FAR'])
+    text=make_display(result,prepared=precheck_next_bar(c,lambda:None),period='day',
+        through=c.previous.time,mode='LATEST',check=lambda:None)['conditionsText']
+    assert '这不表示当前真实钝化已经消失' in text
+
+
+def test_pf06_far_broken_does_not_invalidate_near():
+    values=((100,100,2),(90,0,-2),(120,200,2),(110,0,-2),(130,150,2),(131,150,2))
+    c=calculator(values); result=run(c,ProjectionState(102,100,0))
+    assert result.selected_reference=='NEAR' and not result.far_evaluated
+
+
+def test_pf10_active_far_is_fixed_even_with_only_a_disappearance(monkeypatch):
+    c=calculator(ABTD+((132,201,2),)); assert c.reference==c.history[1][0]
+    calls=[]
+    def solve(c,p,e,r,role,check):
+        calls.append(role)
+        return reference_result('SIGNAL_DISAPPEARED',role,Interval(300.,None,False,False),relationship=False)
+    monkeypatch.setattr(engine,'solve_active_reference',solve)
+    result=run(c,ProjectionState(13,27,0))
+    assert result.status=='READY' and calls==['FAR'] and result.far_evaluated
+    assert result.nearest_decision['status']=='NOT_EVALUATED'
+
+
+@pytest.mark.parametrize('period',PERIODS)
+@pytest.mark.parametrize('values,projection,cases',[
+    (TS,ProjectionState(10099,10000,98),((10204.,'RETURNED_TO_DULL'),(10197.,'STRUCTURE_HELD'),(11470.,'SIGNAL_DISAPPEARED'))),
+    (BS,ProjectionState(9901,10000,-98),((9796.,'RETURNED_TO_DULL'),(9803.,'STRUCTURE_HELD'),(8530.,'SIGNAL_DISAPPEARED'))),
+])
+def test_pf11_m5_assessing_structure_outcomes(period,values,projection,cases):
+    c=calculator(values,period); before=c.snapshot(); result=run(c,projection)
+    assert result.status=='READY' and result.nearest_decision['status']=='NOT_EVALUATED'
+    for C,expected in cases:
+        assert outcomes_at(result,C)=={expected}
+        actual=detector.evaluate_next_at_price(c,projection,C,stamp(period,len(values)),'NEAR',lambda:None)
+        assert actual['outcome']==expected and actual['reference']==c.reference.reference()
+    assert c.snapshot()==before
+
+
+def test_pf12_structure_never_rescues_far(monkeypatch):
+    c=calculator(ABTD+((132,99,2),)); far=c.history[1][0]
+    original=XxmCalculator._current_reference_qualifies
+    def no_far(self,bar,wave,reference,nearest):
+        if reference==far: raise AssertionError('structure rescue called')
+        return original(self,bar,wave,reference,nearest)
+    monkeypatch.setattr(XxmCalculator,'_current_reference_qualifies',no_far)
+    value=detector.evaluate_next_at_price(c,ProjectionState(500,186,0),200.,stamp('day',7),'NEAR',lambda:None)
+    assert value['outcome']=='SIGNAL_DISAPPEARED' and value['reference']==c.reference.reference()
+
+
+@pytest.mark.parametrize('period',PERIODS)
+def test_pf13_lock_has_no_new_structure_event_and_none_is_not_cancel(period):
+    c=calculator(TS,period)
+    value=detector.evaluate_next_at_price(c,ProjectionState(187,173,0),24.,stamp(period,5),'NEAR',lambda:None)
+    assert value['outcome']=='STRUCTURE_LOCKED'
+    # Same input, high DEA: actual flip and reference break must cancel first.
+    value=detector.evaluate_next_at_price(c,ProjectionState(500,186,1000),200.,stamp(period,5),'NEAR',lambda:None)
+    assert value['outcome']=='SIGNAL_DISAPPEARED'
+
+
+def test_pf14_locked_history_starts_new_loop():
+    c=calculator(TS+((104,98,-2),)); assert c.state=='NONE' and c.active_structure is None
+    prepared=precheck_next_bar(c,lambda:None)
+    # T's second row is a completed green segment: the new green loop must
+    # use its price90/DIF0, rather than forget it or reopen the locked TOP.
+    assert prepared.direction=='BOTTOM' and prepared.stop_reason is None
+    assert prepared.references['nearest']=={
+        'startTime':DATES[1],'endTime':DATES[1],'price':90,'dif':0,
+        'priceAt':DATES[1],'difAt':DATES[1]}
+    result=run(c,ProjectionState(102,100,50))
+    assert outcomes_at(result,85.)=={'DULL_FORMED'}
+    assert c.state=='NONE' and c.active_structure is None
+
+
+def test_pf15_certified_point_mismatch_fails_without_mutating_real_progress(monkeypatch):
+    c=calculator(M1); before=c.snapshot()
+    monkeypatch.setattr(next_solver,'evaluate_next_at_price',lambda *a,**k:None)
+    with pytest.raises(ValueError): run(c,ProjectionState(13,27,0))
+    assert c.snapshot()==before
+
+
+def test_pf15_display_integer_mismatch_reaches_its_own_failure(monkeypatch):
+    c=calculator(M1); before=c.snapshot(); original=next_solver.evaluate_next_at_price
+    reached=[]
+    def evaluate(c,projection,C,endpoint,role,check):
+        if C==2.:
+            reached.append(C)
+            return None  # M1's independently known first display integer.
+        return original(c,projection,C,endpoint,role,check)
+    monkeypatch.setattr(next_solver,'evaluate_next_at_price',evaluate)
+    with pytest.raises(ValueError,match='Display integer'):
+        run(c,ProjectionState(13,27,0))
+    assert reached and c.snapshot()==before
+
+
+@pytest.mark.parametrize('mutate',[
+    lambda p:replace(p,direction='TOP'),lambda p:replace(p,stop_reason='NO_REFERENCE'),
+    lambda p:replace(p,snapshot={**p.snapshot,'processed':999}),
+])
+def test_pf17_prepared_cannot_change_state_or_identity(mutate):
+    c=calculator(M1); before=c.snapshot(); p=mutate(precheck_next_bar(c,lambda:None))
+    with pytest.raises(ValueError): forecast(c,ProjectionState(13,27,0),stamp('day',6),lambda:None,prepared=p)
+    assert c.snapshot()==before
+
+
+@pytest.mark.parametrize('projection',[ProjectionState(math.nan,27,0),ProjectionState(True,27,0),
+    ProjectionState(math.inf,27,0),ProjectionState(10**400,27,0)])
+def test_pf17_nonfinite_original_projection_rejected(projection):
+    with pytest.raises(ValueError): run(calculator(M1),projection)
+
+
+def test_pf17_check_after_real_child_step_cleans_context_and_keeps_progress(monkeypatch):
+    c=calculator(M1); prepared=precheck_next_bar(c,lambda:None); before=c.snapshot(); did_step=[]
+    original=XxmCalculator.step
+    def step(self,bar):
+        result=original(self,bar); did_step.append(True); return result
+    def check():
+        if did_step: raise RuntimeError('cancel after child step')
+    monkeypatch.setattr(XxmCalculator,'step',step)
+    with pytest.raises(RuntimeError,match='cancel after child step'):
+        forecast(c,ProjectionState(13,27,0),stamp('day',6),check,prepared=prepared)
+    assert did_step and c.snapshot()==before and detector._EVALUATIONS.get() is None
+
+
+def test_pf18_source_combinations_isolated_and_one_advance_per_price(monkeypatch):
+    c=calculator(M1); before=c.snapshot(); projection=ProjectionState(13,27,0)
+    advances=[]; children=[]; steps=[]
+    original_advance,original_clone,original_step=ProjectionState.advance,detector.clone,XxmCalculator.step
+    def advance(self,C): advances.append(C); return original_advance(self,C)
+    def clone(parent):
+        child=original_clone(parent); children.append(child); return child
+    def step(self,bar): steps.append(id(self)); return original_step(self,bar)
+    # Source substitute only: both values remain well inside the M1 formation case.
+    monkeypatch.setattr(detector,'source_options',lambda v,day:(v-1e-9,v+1e-9))
+    monkeypatch.setattr(ProjectionState,'advance',advance)
+    monkeypatch.setattr(detector,'clone',clone)
+    monkeypatch.setattr(XxmCalculator,'step',step)
+    with detector.next_bar_evaluations():
+        first=detector.evaluate_next_at_price(c,projection,2.,stamp('day',6),'NEAR',lambda:None)
+        first['reference']['dif']=999
+        second=detector.evaluate_next_at_price(c,projection,2.,stamp('day',6),'NEAR',lambda:None)
+    assert second['outcome']=='STRUCTURE_FORMED' and second['reference']['dif']==-50
+    assert advances==[2.] and len(steps)==4 and len(set(steps))==4
+    assert all(child is not c for child in children) and c.snapshot()==before
+    assert detector._EVALUATIONS.get() is None
+
+
+def test_pf18_source_disagreement_stays_uncertain(monkeypatch):
+    c=calculator(M1)
+    # H remains zero while the two independent D options straddle the 1% gate.
+    calls=[]
+    def options(v,day):
+        calls.append(v)
+        return (-14.,-13.) if len(calls)==1 else (0.,)
+    monkeypatch.setattr(detector,'source_options',options)
+    assert detector.evaluate_next_at_price(c,ProjectionState(13,27,0),175.5,stamp('day',6),'NEAR',lambda:None) is None
+
+
+def test_pf20_fixed_spec_literal_contract_and_hash():
+    expected={'forecast_version':'xxm-key-point-forecast-v0.4-r4','scenario_policy':'next_completed_bar',
+        'target_selection':'near_range_before_far','max_future_bars':1,'calibration_tail_bars':250,
+        'daily_calibration_abs_tol':0.0005,'minute_calibration_abs_tol':1e-8,'daily_rounding_guard':1e-10,
+        'display_policy':'valid_integer_boundaries','structure_text_places':0,
+        'forecast_compute_budget_ms':400,'max_response_bytes':32768,'future_calendar_days':90,'refresh_after_ms':60000}
+    assert asdict(FORECAST_SPEC)==expected
+    assert FORECAST_SPEC.spec_hash==hashlib.sha256(json.dumps(expected,sort_keys=True).encode()).hexdigest()
+
+
+@pytest.mark.parametrize('kw',[{'max_future_bars':20},{'max_future_bars':True},{'forecast_compute_budget_ms':400.},
+    {'price_display_places':2},{'scenario_policy':'entry_range_then_flat'},{'calibration_tail_bars':250.}])
+def test_pf20_old_or_wrongly_typed_spec_is_rejected(kw):
+    with pytest.raises((ValueError,TypeError)): ForecastSpec(**kw)
+
+
+def test_pf20_endpoint_is_one_future_string_and_prepared_is_required():
+    c=calculator(M1); p=precheck_next_bar(c,lambda:None)
+    with pytest.raises(ValueError): forecast(c,ProjectionState(13,27,0),[stamp('day',6)],lambda:None,prepared=p)
+    with pytest.raises(ValueError): forecast(c,ProjectionState(13,27,0),c.previous.time,lambda:None,prepared=p)
+    with pytest.raises(TypeError): forecast(c,ProjectionState(13,27,0),stamp('day',6),lambda:None)
+
+
+def test_pf20_text_reads_actual_direction_keeps_singletons_and_all_ranges():
+    c=calculator(((100,-200,-2),(110,0,2),(99,1,-2),(98,2,-2)))
+    p=precheck_next_bar(c,lambda:None); assert p.direction=='BOTTOM' and c.previous.dif>0
+    price=dict(lower=175.5,upper=175.5,lowerInclusive=True,upperInclusive=True,displayLower=None,displayUpper=None)
+    integer=dict(lower=180.,upper=181.,lowerInclusive=True,upperInclusive=True,displayLower=180,displayUpper=181)
+    draft=ForecastConditionDraft('STRUCTURE_FORMED','NEAR',(price,integer),())
+    r=ForecastKernelResult('READY',None,stamp('day',4),1,deepcopy(p.references),'NEAR',
+        {'status':'HAS_RANGE','reason':'字面测试'},False,(draft,),())
+    display=make_display(r,prepared=p,period='day',through=c.previous.time,mode='LATEST',check=lambda:None)
+    assert set(display)=={'statusLabel','targetText','conditionsText','asOfText'}
+    assert all(type(v) is str for v in display.values())
+    assert '底部结构' in display['conditionsText'] and '顶部' not in display['conditionsText']
+    assert '仅单一收盘点' in display['conditionsText'] and '180' in display['conditionsText'] and '181' in display['conditionsText']
+    with pytest.raises(ValueError): make_display(r,prepared=p,period='m60',through=c.previous.time,mode='LATEST',check=lambda:None)
+    with pytest.raises(ValueError): make_display(r,prepared=p,period='day',through=DATES[0],mode='LATEST',check=lambda:None)
+
+
+@pytest.mark.parametrize('period',PERIODS)
+def test_pf19_mathematical_time_and_repeat_leave_no_shared_results(period,record_property):
+    c=calculator(M1,period); before=c.snapshot(); start=time.perf_counter(); one=run(c,ProjectionState(13,27,0))
+    elapsed=time.perf_counter()-start
+    record_property('math_ms',round(elapsed*1000,3))
+    assert elapsed<0.4  # Mathematical portion only; not the full query budget.
+    two=run(c,ProjectionState(13,27,0)); assert one==two and c.snapshot()==before
+    one.references['nearest']['dif']=999
+    assert two.references['nearest']['dif']==-50 and c.reference.dif==-50
+
+
+@pytest.mark.parametrize('period',PERIODS)
+@pytest.mark.parametrize('values,expected',[
+    (((100,-200,-2),(110,0,2),(99,-100,-2)),set()),
+    (((100,-200,-2),(110,0,2),(101,-100,-2),(102,-100,-2)),{'DULL_FORMED'}),
+])
+def test_pf07_zero_does_not_supply_second_colored_bar(period,values,expected):
+    # M2 projection has exact D=H=0 at C24.5; bottom price/DIF gates pass.
+    c=calculator(values,period)
+    result=run(c,ProjectionState(187,173,0))
+    assert outcomes_at(result,24.5)==expected
+    actual=detector.evaluate_next_at_price(c,ProjectionState(187,173,0),24.5,
+        stamp(period,len(values)),'NEAR',lambda:None)
+    assert actual['outcome']==('DULL_FORMED' if expected else None)
+
+
+@pytest.mark.parametrize('period',PERIODS)
+def test_pf08_zero_previous_dif_disables_turn_and_return(period):
+    dull=calculator(((100,-200,-2),(110,0,2),(99,-100,-2),(98,0,-2)),period)
+    assert dull.state=='DULL' and dull.previous.dif==0
+    value=detector.evaluate_next_at_price(dull,ProjectionState(13,27,0),2.,stamp(period,4),'NEAR',lambda:None)
+    assert value['outcome']=='DULL_HELD'
+    structure=calculator(TS+((104,0,2),),period)
+    assert structure.state=='STRUCTURE' and structure.previous.dif==0
+    value=detector.evaluate_next_at_price(structure,ProjectionState(187,173,0),30.,stamp(period,6),'NEAR',lambda:None)
+    assert value['outcome']=='STRUCTURE_HELD'
+
+
+@pytest.mark.parametrize('period',PERIODS)
+@pytest.mark.parametrize('sign',[1,-1])
+def test_pf08_gate_underflow_keeps_strict_direction(period,sign):
+    tiny=math.nextafter(0.,math.inf)
+    values=((100,sign*200,sign*2),(90 if sign==1 else 110,0,-sign*2),
+            (101 if sign==1 else 99,sign*100,sign*2),
+            (102 if sign==1 else 98,sign*tiny,sign*2))
+    c=calculator(values,period); assert c.state=='DULL' and abs(c.previous.dif)*1.0/100==0
+    value=detector.evaluate_next_at_price(c,ProjectionState(187,173,0),24.5,
+        stamp(period,4),'NEAR',lambda:None)
+    assert value['outcome']=='STRUCTURE_FORMED'  # strict tiny -> 0, gate is zero.
+
+
+def test_pf06_reference_identity_includes_dates_not_only_values():
+    c=calculator(((120,200,2),(90,0,-2),(120,200,2),(110,0,-2),(130,100,2),(131,100,2)))
+    assert c.history[1][0].price==c.history[1][1].price
+    assert c.history[1][0].dif==c.history[1][1].dif
+    assert c.history[1][0].start!=c.history[1][1].start
+    result=run(c,ProjectionState(102,100,0))
+    assert result.selected_reference=='NEAR' and not result.far_evaluated
+    assert result.references['nearest']['startTime']==DATES[2]
+    with pytest.raises(ValueError):
+        solve_active_reference(c,ProjectionState(102,100,0),stamp('day',6),
+                               c.history[1][0],'NEAR',lambda:None)
+
+
+def test_pf07_first_top_positive_dif_policy_remains_unchanged():
+    c=calculator(((100,200,2),(90,0,-2),(99,-10,2),(99,-9,2)))
+    result=run(c,ProjectionState(13,27,-20))
+    assert outcomes_at(result,110.)==set()  # price passes, red H, but D remains negative.
+    assert outcomes_at(result,200.)=={'DULL_FORMED'}
+
+
+def test_pf17_reference_comparison_overflow_is_rejected_before_forecast():
+    c=calculator(((100,-1e308,2),(90,0,-2),(101,1e308,2)))
+    before=c.snapshot()
+    with pytest.raises(ValueError,match='Non-finite reference'):
+        precheck_next_bar(c,lambda:None)
+    assert c.snapshot()==before
+
+
+def test_pf17_selected_far_difference_overflow_is_not_a_disappearance():
+    values=((100,1.7e308,-2),(110,0,2),(80,1.75e308,-2),(90,0,2),
+            (70,1.78e308,-2),(69,1.78e308,-2),(68,1.725e308,-2))
+    c=calculator(values); assert c.state=='DULL' and c.reference==c.history[-1][0]
+    before=c.snapshot()
+    with pytest.raises(ValueError):
+        detector.evaluate_next_at_price(c,ProjectionState(-1.6e307,7e306,-2e307),1.,
+                                       stamp('day',7),'FAR',lambda:None)
+    assert c.snapshot()==before and detector._EVALUATIONS.get() is None
+
+
+@pytest.mark.parametrize('values,projection',[
+    (((100,1.7e308,2),(90,0,-2),(101,100,2),(102,100,2),(103,-1.79e308,2)),
+     ProjectionState(1e307,-1e306,-1e307)),
+    (((100,1.79e308,2),(90,0,-2),(101,100,2),(102,100,2),(103,99,2)),
+     ProjectionState(-1e307,1e306,-1e307)),
+])
+def test_pf17_structure_finite_dif_must_not_overflow_turn_or_reference(values,projection):
+    # All inputs and projected D are finite; D-P or D-R is not.
+    c=calculator(values,'m60'); assert c.state=='STRUCTURE'
+    before=c.snapshot()
+    with pytest.raises(ValueError):
+        detector.evaluate_next_at_price(c,projection,1.,stamp('m60',len(values)),
+                                       'NEAR',lambda:None)
+    assert c.snapshot()==before and detector._EVALUATIONS.get() is None
+
+
+def test_pf17_normal_kernel_needs_no_files_or_network(monkeypatch):
+    import builtins
+    import io
+    import socket
+    c=calculator(M1); before=c.snapshot()
+    def forbidden(*args,**kwargs):
+        pytest.fail('pure forecast attempted file or network access')
+    with monkeypatch.context() as guard:
+        guard.setattr(builtins,'open',forbidden)
+        guard.setattr(io,'open',forbidden)
+        guard.setattr(socket,'socket',forbidden)
+        result=run(c,ProjectionState(13,27,0))
+    assert result.status=='READY' and c.snapshot()==before

@@ -1,116 +1,155 @@
-"""Single nearest-target solver over complete, causal reference paths."""
-from .forecast_spec import FORECAST_SPEC
-from .forecast_math import Interval, Affine, as_interval, project_affine_prefix, display_range, number_inside, const
-from .forecast_entry import solve_entry_ranges
-from .forecast_joint import close_bounds, common_interval, target_lines, feasible_for_lines
-from .forecast_paths import partition_prefix_paths, build_path_relation, validate_path_options, solve_next_bar_outcomes, ReferencePath, path_displayable_witness
+"""One completed bar only, with an explicit nearest-reference decision."""
+from copy import deepcopy
+import math
+
+from .calculator import XxmCalculator
+from .forecast_detector import clone, next_bar_evaluations
+from .forecast_entry import solve_first_dull
+from .forecast_next import solve_active_reference
+from .projection import ProjectionState
+from .types import ForecastKernelResult, ForecastPrecheck, ReferenceForecast, XxmBar
 
 
-def inactive_result(status, reason=None):
-    return dict(status=status, reasonCode=reason, targetEndpoint=None, barsAhead=None,
-                activation=None, assumption=None, targetEntryRanges=[], targetEntryExclusions=[],
-                relations=[], commonConditions=[], examples=[], nextBarOutcomes=None)
+def _already_broken(c, reference):
+    try:
+        difference = c.wave.dif - reference.dif
+        valid = math.isfinite(difference)
+    except (OverflowError, TypeError) as exc:
+        raise ValueError("Non-finite reference comparison") from exc
+    if not valid:
+        raise ValueError("Non-finite reference comparison")
+    return c._reference_was_broken(c.wave, reference)
 
 
-def forecast(c,projection,endpoints,check=lambda:None):
-    base=inactive_result('NO_CANDIDATE')
-    if c.state=='STRUCTURE':return dict(base,status='CONFIRMED')
-    if not c.wave or not c.wave.sign:return dict(base,reasonCode='ZERO_WAVE')
-    base['nextBarOutcomes']=solve_next_bar_outcomes(c,projection,endpoints[0],check)
-    conditional=c.state=='NONE'
-    if conditional:
-        if not c.history[c.wave.sign]:return dict(base,reasonCode='NO_REFERENCE')
-        activation=solve_entry_ranges(c,projection,endpoints[0],check)
-        base['activation']=activation
-        if not activation['ranges']:
-            if any(v['reason']=='PRECISION_UNRESOLVED' for v in activation['exclusions']):
-                return dict(base,status='PRECISION_PENDING',reasonCode='ROUNDING_BOUNDARY')
-            return dict(base,reasonCode='NO_ENTRY_RANGE')
-        seeds=[(as_interval(r['priceRange']),r['reference'],r['entryRangeId']) for r in activation['ranges']]
-    else:
-        seeds=[(Interval(c.previous.close,c.previous.close,True,True),c.reference.reference(),None)]
-    for j,stamp in enumerate(endpoints,1):
+def precheck_next_bar(c, check):
+    """Inspect the real progress without sources or hypothetical closes."""
+    check()
+    if type(c) is not XxmCalculator:
+        raise ValueError("Forecast requires the formal r4 calculator")
+    snapshot = c.snapshot()
+    clone(c)
+    wave = c.wave
+    pool = list(reversed(c.history[wave.sign])) if wave is not None else []
+    if len(pool) > c.spec.max_refs:
+        raise ValueError("Forecast reference pool exceeds the formal limit")
+    references = {"nearest": pool[0].reference() if pool else None,
+                  "farther": pool[1].reference() if len(pool) == 2 else None}
+    direction = ("TOP" if wave.sign == 1 else "BOTTOM") if wave is not None else None
+    active_role = None
+    if c.reference is not None:
+        for index, reference in enumerate(pool):
+            if reference == c.reference:
+                active_role = "NEAR" if index == 0 else "FAR"
+                break
+        if active_role is None:
+            raise ValueError("Active reference is absent from the real pool")
+    decision = {"status": "NOT_EVALUATED", "reason": None}
+    stop = None
+    if wave is None:
+        stop = "ZERO_WAVE"
+    elif c.state == "NONE":
+        if not pool:
+            decision = {"status": "UNAVAILABLE", "reason": "没有可比较的近参照。"}
+            stop = "NO_REFERENCE"
+        elif wave.count + 1 < c.spec.min_bars:
+            stop = "NO_ENTRY_RANGE"
+        elif _already_broken(c, pool[0]):
+            decision = {"status": "UNAVAILABLE", "reason": "近参照已被本轮DIF严格突破。"}
+            # Do not examine A eligibility while an unbroken B can still work.
+            if len(pool) == 1 or _already_broken(c, pool[1]):
+                stop = "NO_ENTRY_RANGE"
+    elif c.state not in ("DULL", "STRUCTURE") or active_role is None:
+        raise ValueError("Invalid forecast state")
+    result = ForecastPrecheck(deepcopy(snapshot), direction, deepcopy(references), active_role,
+                              deepcopy(decision), stop)
+    check()
+    return result
+
+
+def _result(prepared, *, status, reason, endpoint=None, selected=None, nearest=None,
+            far=False, solved=None):
+    conditions = deepcopy(solved.conditions) if solved is not None else ()
+    precision = tuple({"priceRange": interval.json(), "reason": "ROUNDING_BOUNDARY"}
+                      for interval in solved.precision_ranges) if solved is not None else ()
+    return ForecastKernelResult(status, reason, endpoint, 1 if endpoint is not None else None,
+                                deepcopy(prepared.references), selected,
+                                deepcopy(nearest or prepared.nearest_decision), far,
+                                conditions, deepcopy(precision))
+
+
+def _resolved(prepared, solved, *, endpoint, role, nearest, far, relationships_only=False):
+    if type(solved) is not ReferenceForecast:
+        raise ValueError("Invalid single-reference result")
+    has_range = bool(solved.relationship_ranges) if relationships_only else bool(solved.conditions)
+    pending = bool(solved.relationship_precision_ranges) if relationships_only else bool(solved.precision_ranges)
+    if has_range:
+        return _result(prepared, status="READY", reason="ROUNDING_BOUNDARY" if solved.precision_ranges else None,
+                       endpoint=endpoint, selected=role, nearest=nearest, far=far, solved=solved)
+    if pending:
+        return _result(prepared, status="PRECISION_PENDING", reason="ROUNDING_BOUNDARY", endpoint=endpoint,
+                       selected=role, nearest=nearest, far=far, solved=solved)
+    return _result(prepared, status="NO_CANDIDATE", reason="NO_ENTRY_RANGE", endpoint=endpoint,
+                   selected=role, nearest=nearest, far=far)
+
+
+def forecast(c, projection, endpoint, check, *, prepared):
+    """Return only the internal next-bar result; HTTP assembly is a later step."""
+    check()
+    if type(prepared) is not ForecastPrecheck or prepared != precheck_next_bar(c, check):
+        raise ValueError("Forecast preparation differs from the real progress")
+    if endpoint is not None and type(endpoint) is not str:
+        raise ValueError("Forecast takes a single endpoint, never a sequence")
+    if prepared.stop_reason is not None:
+        result = _result(prepared, status="NO_CANDIDATE", reason=prepared.stop_reason)
         check()
-        if conditional and j==1:continue
-        n=j-1
-        relations=[];targets=[];commons=[];examples=[];target_exclusions=[];unresolved=False;narrow=False
-        for domain,ref,key in seeds:
-            parts,exclusions,coeffs=partition_prefix_paths(c,projection,domain,ref,endpoints[:n],check)
-            unresolved |= any(e['reason']=='PRECISION_UNRESOLVED' for e in exclusions)
-            target_exclusions.extend(dict(entryRangeIds=[key] if key else [],priceRange=e['interval'].json(),reason=e['reason']) for e in exclusions)
-            if not parts:continue
-            ds,hs,d,h=coeffs
-            targets.extend(dict(entryRangeIds=[key] if key else [],priceRange=part.domain.json()) for part in parts)
-            for part in parts:
-                v,path=part.domain,part.path
-                final=path.final
-                route_ids={}
-                for route in ('dif_turn','color_flip'):
-                    if feasible_for_lines(v,target_lines(c,final,ds,d,h,v.lo if v.lo==v.hi else (v.lo+(v.hi or v.lo+1))/2,route)) is None:
-                        if v.lo!=v.hi or close_bounds(c,final,ds,d,h,v.lo,route) is None:continue
-                    rel=build_path_relation(c,projection,v if conditional else None,path,n,route,endpoints[:n])
-                    rel.update(relationId=f'relation-{len(relations)+1}',entryRangeIds=[key] if key else [])
-                    route_ids[route]=rel['relationId']
-                    if not conditional:
-                        def substitute(expr):
-                            if isinstance(expr,dict):
-                                if expr.get('op')=='affine':
-                                    return dict(expr,constant=expr['constant']+expr['pCoefficient']*domain.lo,pCoefficient=0.)
-                                return {k:substitute(x) for k,x in expr.items()}
-                            if isinstance(expr,list):return [substitute(x) for x in expr]
-                            return expr
-                        rel=substitute(rel)
-                    relations.append(rel)
-                    common=common_interval(c,final,ds,d,h,v,route,check)
-                    display=display_range(common) if common else None
-                    if display:
-                        for p in [v.lo+(v.hi-v.lo)*t for t in (.001,.5,.999)] if v.hi!=v.lo else [v.lo]:
-                            assert validate_path_options(c,projection,endpoints[:j],p,display['displayLower'],route,path,check)
-                            if display['displayUpper'] is not None:
-                                assert validate_path_options(c,projection,endpoints[:j],p,display['displayUpper'],route,path,check)
-                        commons.append(dict(relationId=rel['relationId'],entryRangeIds=[key] if key else [],entryDomain=v.json() if conditional else None,reference=final,route=route,closeRanges=[dict(display,route=route)]))
-                if conditional:
-                    prices=[number_inside(v.lo,True,2),(v.lo+v.hi)/2,number_inside(v.hi,False,2)] if v.hi is not None else [v.lo+1,v.lo+10,v.lo+100]
-                    for p in prices:
-                        p=round(p,2)
-                        if not v.contains(p):continue
-                        ranges=[]
-                        for route,rid in route_ids.items():
-                            iv=close_bounds(c,final,ds,d,h,p,route);shown=display_range(iv) if iv else None
-                            if shown:
-                                assert validate_path_options(c,projection,endpoints[:j],p,shown['displayLower'],route,path,check)
-                                if shown['displayUpper'] is not None:assert validate_path_options(c,projection,endpoints[:j],p,shown['displayUpper'],route,path,check)
-                                ranges.append(dict(shown,route=route,relationId=rid))
-                        if ranges:examples.append(dict(preClose=p,entryRangeId=key,closeRanges=ranges))
-        if relations and not commons and not examples:
-            for target in targets:
-                key=target['entryRangeIds'][0] if target['entryRangeIds'] else None
-                seed=next((v for v in seeds if v[2]==key),None)
-                if seed and conditional:
-                    relation=next(r for r in relations if r['entryRangeIds']==[key] and r['entryDomain']==target['priceRange'])
-                    path=ReferencePath(relation['initialReference'],tuple(relation['referenceTransitions']))
-                    witness=path_displayable_witness(c,projection,as_interval(target['priceRange']),path,j-1,endpoints[:j],check)
-                    if witness:
-                        for v in witness['closeRanges']:
-                            v['relationId']=next(r['relationId'] for r in relations if r['entryRangeIds']==[key] and r['route']==v['route'] and as_interval(r['entryDomain']).contains(witness['preClose']))
-                        examples.append(dict(witness,entryRangeId=key));break
-            if not examples:
-                return dict(base,status='PRECISION_PENDING',reasonCode='NARROW_INTERVAL',targetEndpoint=stamp,barsAhead=j)
-        if relations:
-            # At least one example per selected reference; filling is deterministic.
-            selected=[]
-            for _,_,key in seeds:
-                v=next((e for e in examples if e['entryRangeId']==key),None)
-                if v and v not in selected:selected.append(v)
-            for e in examples:
-                if len(selected)>=FORECAST_SPEC.explanation_sample_count:break
-                if e not in selected:selected.append(e)
-            return dict(base,status='CONDITIONAL_ENTRY' if conditional else 'READY',targetEndpoint=stamp,barsAhead=j,
-                        assumption=dict(policy='entry_range_then_flat',activationEndpoint=endpoints[0] if conditional else None,
-                                        intermediateEndpoints=list(endpoints[:j-1]),intermediateCloseExpression=Affine(p=1).json() if conditional else const(c.previous.close)),
-                        targetEntryRanges=targets if conditional else [],targetEntryExclusions=target_exclusions,relations=relations,commonConditions=commons,examples=selected)
-        if narrow:
-            return dict(base,status='PRECISION_PENDING',reasonCode='NARROW_INTERVAL',targetEndpoint=stamp,barsAhead=j)
-        if unresolved:
-            return dict(base,status='PRECISION_PENDING',reasonCode='ROUNDING_BOUNDARY',targetEndpoint=stamp,barsAhead=j)
-    return dict(base,status='ENTRY_ONLY' if conditional else 'NO_CANDIDATE',reasonCode='NO_CONFIRMATION_IN_HORIZON')
+        return result
+    if type(projection) is not ProjectionState:
+        raise ValueError("Invalid original EMA projection")
+    try:
+        valid = all(type(value) in (int, float) and math.isfinite(value)
+                    for value in (projection.e12, projection.e26, projection.dea))
+    except OverflowError as exc:
+        raise ValueError("Non-finite original EMA projection") from exc
+    if not valid:
+        raise ValueError("Invalid original EMA projection")
+    XxmBar(endpoint, 1., 0., 0., 0.).validate(c.period)
+    if c.previous is None or endpoint <= c.previous.time:
+        raise ValueError("Forecast endpoint must follow the real prefix")
+    pool = list(reversed(c.history[c.wave.sign]))
+    solver = solve_first_dull if c.state == "NONE" else solve_active_reference
+    with next_bar_evaluations():
+        if c.state == "STRUCTURE" or prepared.active_role == "FAR":
+            role = prepared.active_role
+            nearest = {"status": "NOT_EVALUATED", "reason": "沿已选原参照继续考核，不重新选择近远。"}
+            solved = solver(c, projection, endpoint, c.reference, role, check)
+            result = _resolved(prepared, solved, endpoint=endpoint, role=role,
+                               nearest=nearest, far=role == "FAR")
+        else:
+            near, solved, role = pool[0], None, None
+            if _already_broken(c, near):
+                nearest = {"status": "UNAVAILABLE", "reason": "近参照已被本轮DIF严格突破。"}
+            else:
+                role = "NEAR"
+                solved = solver(c, projection, endpoint, near, role, check)
+                if solved.relationship_ranges:
+                    nearest = {"status": "HAS_RANGE", "reason": "近参照有有效关系范围，远参照未计算。"}
+                elif solved.relationship_precision_ranges:
+                    nearest = {"status": "UNCERTAIN", "reason": "近参照关系仍有临界未决范围，远参照未计算。"}
+                else:
+                    nearest = {"status": "NO_RANGE", "reason": "近参照没有有效的首次或延续范围。"}
+            if solved is not None and (solved.relationship_ranges or solved.relationship_precision_ranges):
+                result = _resolved(prepared, solved, endpoint=endpoint, role=role, nearest=nearest,
+                                   far=False, relationships_only=True)
+            elif len(pool) != 2 or _already_broken(c, pool[1]):
+                nearest["reason"] += "远参照不存在或已被本轮DIF突破，没有救援范围。"
+                result = _result(prepared, status="NO_CANDIDATE", reason="NO_ENTRY_RANGE",
+                                 endpoint=endpoint, selected=role, nearest=nearest)
+            else:
+                check()
+                far = solver(c, projection, endpoint, pool[1], "FAR", check)
+                if not far.relationship_ranges and not far.relationship_precision_ranges:
+                    nearest["reason"] += "远参照也没有首次或救援范围。"
+                result = _resolved(prepared, far, endpoint=endpoint, role="FAR", nearest=nearest,
+                                   far=True, relationships_only=True)
+    check()
+    return result
