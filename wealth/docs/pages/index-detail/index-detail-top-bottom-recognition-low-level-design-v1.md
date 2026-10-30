@@ -310,18 +310,34 @@ snapshot固定字段为specHash/tsCode/period/sourceIdentity/processed/wave/hist
 - activeStructure仅stateSTRUCTURE时存在，必须ASSESSING、方向/原段/原参照匹配；DULL/NONE为空。FOLLOWING不可冒充activeStructure。
 - **验证followedStructures必须发生在stateNONE/DULL的提前返回之前。**每记录id/方向/形成关联正确、statusFOLLOWING、firstOppositeAt和originWave均非空，trackingEndedAt/disappearedAt/disappearanceReason均None。originWave.sign与槽方向一致且完整等于该方向历史池最近已结束Wave；原originalReference可以已被池淘汰，不能要求它仍存在而误拒合法进度。
 - 尚未到下一同色段时nextSameColorStart=None，当前wave必须与记录方向相反，且wave.start==firstOppositeAt；已到时必须等于当前同色wave.start，且当前wave方向相同，该方向相反的最近已结束分隔Wave须start==firstOppositeAt、end<nextSameColorStart。不能只核日期先后而接受伪造的首次反色或错误分隔段。零柱沿该wave，所以不另开状态。
+- 已设置nextSameColorStart且旧结构仍为FOLLOWING时，必须检查当前同色wave整段价格极值：TOP要求wave.price<=originWave.price，BOTTOM要求wave.price>=originWave.price。严格越过说明此前某根已应触发消失，即使末根收盘回到门槛内也拒绝该进度；不得补报消失后继续恢复，失败不改self或来件。分隔反色段（nextSameColorStart=None）不适用此检查，其价格越过仍是合法进度；相等合法。snapshot/restore、step最终发布前、clone/precheck入口共用该检查，不在各处另写一套。
 - originWave各日期/极值、firstOppositeAt、nextSameColorStart按时间有序且不晚于previous；firstOppositeAt严格晚于originWave.end，nextSameColorStart若存在必须晚于firstOppositeAt。priceExtreme/At仍只表达形成时事实，不能用最终originWave强制改写它。
 - FINISHED/DISAPPEARED不能留在槽，两个槽不得同id，也不与activeStructure同id。错误NaN、未来起点、未完成原Wave、把远峰当仍在跟踪的近峰，均拒绝；正常单根历史、相等极值、零柱、普通状态NONE却仍有合法后续记录必须通过。
 
 ### 4.2 结构校验、聚合与asOf
 
-validate_structure_record及InternalXxmStructureDto同时实现§2.3完整字段/状态。ASSESSING没有firstOppositeAt/originWave/nextSameColorStart/结束信息；FOLLOWING有首次反色及最终原Wave、无结束；FINISHED需nextSameColorStart和trackingEndedAt、无消失字段；DISAPPEARED需trackingEndedAt==disappearedAt，原因及阶段合法。dif_return/reference_dif_break属于反色前失效，originWave/firstOppositeAt/nextSameColorStart均None；structure_price_break必须在下一同色段已有起点后，保留首次反色与完整原Wave。通用时间/数字/id检查必须先完成；originalReference.endTime<originSegmentStart，形成priceExtremeAt位于原段起点至形成根；originWave若存在，其start==originSegmentStart，end<firstOppositeAt，最终方向极值不得弱于形成极值。dif_turn的firstOppositeAt若存在必须晚于formedAt，color_flip则二者相等。nextSameColorStart严格晚于firstOppositeAt；价格消失可在该起点同根，正常结束必须晚于该起点。color_flip形成可当根FOLLOWING，后续也可消失，不因formationRoute不是dif_turn而拒绝合法后续记录。
+validate_structure_record及InternalXxmStructureDto同时实现§2.3完整字段/状态。ASSESSING没有firstOppositeAt/originWave/nextSameColorStart/结束信息；FOLLOWING有首次反色及最终原Wave、无结束；FINISHED需nextSameColorStart和trackingEndedAt、无消失字段；DISAPPEARED需trackingEndedAt==disappearedAt，原因及阶段合法。dif_return/reference_dif_break属于反色前失效，originWave/firstOppositeAt/nextSameColorStart均None；structure_price_break必须在下一同色段已有起点后，保留首次反色与完整原Wave。通用时间/数字/id检查必须先完成；originalReference.endTime<originSegmentStart，形成priceExtremeAt位于原段起点至形成根；originWave若存在，其start==originSegmentStart，end<firstOppositeAt，最终方向极值不得弱于形成极值。dif_turn的firstOppositeAt若存在必须晚于formedAt，color_flip则二者相等。nextSameColorStart严格晚于firstOppositeAt；价格消失可在该起点同根，正常结束必须晚于该起点。color_flip形成可当根FOLLOWING，后续也可消失或正常FINISHED，不因formationRoute不是dif_turn而拒绝合法后续记录。color_flip的形成priceExtremeAt必须严格早于formedAt==firstOppositeAt，原段最终originWave的所有日期也须早于firstOppositeAt；不能把反色根收盘混进原段。
 
-SeriesEntry._merge_structure_updates沿§2.3转换校验：形成字段不改；首次反色只补originWave和firstOppositeAt，后续只允许nextSameColorStart首次写入、或跟踪结束/消失字段写入。FOLLOWING可正常结束/消失，不再当不可覆盖终态。FINISHED/DISAPPEARED才禁止后续更新；任一同id重复、倒序或不合法变化整次候选entry失败。对应根的完整记录经校验后才替换缓存。
+SeriesEntry._merge_structure_updates沿§2.3转换校验：形成字段不改；首次反色只补originWave和firstOppositeAt，后续只允许nextSameColorStart首次写入、或跟踪结束/消失字段写入。FOLLOWING可正常结束/消失，不再当不可覆盖终态。FINISHED/DISAPPEARED才禁止后续更新；任一同id重复、倒序或不合法变化整次候选entry失败。对应根的完整记录经校验后才替换缓存。color_flip形成时直接FOLLOWING，之后允许同一FOLLOWING内部填写下一段起点及正常FINISHED；不能因未经过ASSESSING而拒绝合法后续更新。
 
 asOf只按当时已有前缀投影：formedAt>through不出现；首次反色晚于through时还原ASSESSING并清未来originWave/firstOppositeAt/nextSameColorStart/结束信息；已首次反色但下一同色段尚晚于through时FOLLOWING且nextSameColorStart=None；结束/消失晚于through时还原当时FOLLOWING或ASSESSING并清未来结束字段。color_flip形成与首次反色同根，在这根直接FOLLOWING。不能清除该asOf之前已经真实发生的字段，也不能让后来FINISHED或DISAPPEARED倒写过去。
 
 历史point.activeStructureId只指当时原色段内考核结构。记录最新已FOLLOWING/FINISHED/DISAPPEARED不妨碍此前point合法引用；有效区间从formedAt至firstOppositeAt或更早disappearedAt。旧结构后续CANCEL独立关联旧id，事件方向不必等于当前point方向，不能按当前ordinaryState拒绝它。窗口外形成、窗口内消失仍须带齐所需原结构，不能只保留最后一份。
+
+#### 4.2.1 查询窗口内必须保留的结构集合
+
+_response先按原startDate/endDate/limit取真实points，得到实际窗口[first,last]；through仍是本次来源前缀截止，不由结构形成日倒推。先把所有已形成记录按through投影，清除未来字段，再做以下筛选，禁止拿最新未投影的终态筛历史窗口：
+
+1. points.activeStructureId或本窗口events.relatedStructureId引用的记录必须保留。
+2. formedAt/firstOppositeAt/nextSameColorStart/trackingEndedAt/disappearedAt中，任一已知时点位于[first,last]的记录必须保留。正常结束没有事件，仍须通过trackingEndedAt保留该记录。
+3. 结构仍有效的时间覆盖窗口时必须保留：projected.formedAt<=last，且projected.trackingEndedAt为None或>=first。结束当根包含在内；结束早于first且没有本窗口引用/变化的记录不附带。该条件同时适用于原段ASSESSING和首次反色后的FOLLOWING，不要求当天产生事件。
+
+以上三类取id集合并集，按formedAt/id唯一排序，返回投影后的完整记录；不是遍历所有历史并全部传给页面。窗口无points时events/structures均空，不虚构单根窗口；source/dataStatus仍按原真实前缀表示，不因窗口为空改成来源EMPTY。只改变请求窗口不得改变事件/结构id及同一through的记录事实。
+
+筛选前，对全部投影记录校验：ASSESSING集合必须与同次calculator_at(end_index)的active_structure完全一致，FOLLOWING按方向组成的集合必须与其followed_structures非空项完全一致；不能让窗口过滤藏掉错误状态。calculator_at只取一次，不逐记录重放；同一次遍历按原check间隔执行，无新读取或持久化。过期FINISHED/DISAPPEARED不进入该进度集合，但按上面窗口规则仍可返回。
+
+内部结果据此保留完整校验事实；普通投影仍不序列化structures，debug才返回该集合。正常FINISHED没有CANCEL或图上消失标记，debug可查看正常停止的时间；FOLLOWING仍可查看其所处阶段。不能为显示记录增加假事件。日线和60/90/120分钟同语义。查询、模型、普通/debug投影和前端各阶段按RC93及§14.16独立字面预期验收。
+
 
 ### 4.3 来源、缓存与预算
 
@@ -1624,10 +1640,10 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 | 层次及落点 | 必须执行的设计 | 负向及正常变化反例 |
 |---|---|---|
 | `scripts/research/index_market/tests/test_xxm_calculator.py`及同主题新的`test_xxm_r4_rules.py` | §14的RC01—69及RC74—88、RC94、RC96业务序列；按case参数化四周期。已有文件保留仍正确测试，新规则按逐项输入与expected改写；不复制计算器生成预期 | 当根C/D、逐参照曾破、A破B有效、零柱、严格等号、B/A/第三个、1%/前0/不累计、首次反色及下一同色段有限跟踪、多轮结构 |
-| `test_xxm_snapshot_validation.py/test_xxm_snapshot_consumers.py` | RC70—72、RC89—92、RC95及§4所有字段/引用；from-empty、append、calculator_at、clone都经过真实恢复 | 旧身份/WAIT/NaN/bool/未来日期/终态冒充active拒绝且来件/self不变；合法早前缀、等号/当前价格回升仍能继续 |
+| `test_xxm_snapshot_validation.py/test_xxm_snapshot_consumers.py` | RC70—72、RC89—92、RC95及§4所有字段/引用，包括§14.16全部恢复/asOf子样本；from-empty、append、calculator_at、clone都经过真实恢复 | 旧身份/WAIT/NaN/bool/未来日期/终态冒充active拒绝且来件/self不变；合法早前缀、等号/当前价格回升仍能继续 |
 | `test_xxm_r4_observation.py` | §7真实执行观察及默认关闭；True/False完整业务结果一致 | 未查A不当失败、原事件参照不改、before/after不混、翻色旧事件方向正确、重复选择和对象共享 |
 | `test_xxm_p3_forecast_math.py`及`test_xxm_key_point_forecast.py` | §5.4.4 M1—M5和§6.10 PF01—28；独立Fraction/手算，不由forecast helper生成expected | 合法零/整数边界、近有解A零调用、无解与未决区分、已成结构继续考核、首次反色后有限跟踪与新轮并行、失败无半结果及400ms |
-| `tests/web/test_wealth_index_detail_xxm_api.py`、`test_wealth_index_detail_xxm_forecast_api.py`、`test_xxm_shared_loads.py` | RC73/93、新普通/debug字面合同、同时间多事件、一次编码/同次来源只读一次、真实query调用/缓存/取消及身份 | 拒旧JSON而非改hash；历史point引用终态record合法；旧asOf不泄未来；不重复读、不二次编码、不吞错EMPTY |
+| `tests/web/test_wealth_index_detail_xxm_api.py`、`test_wealth_index_detail_xxm_forecast_api.py`、`test_xxm_shared_loads.py` | RC73/93及§14.16全部窄窗口子样本、新普通/debug字面合同、同时间多事件、一次编码/同次来源只读一次、真实query调用/缓存/取消及身份 | 拒旧JSON而非改hash；历史point引用终态record合法；旧asOf不泄未来；不重复读、不二次编码、不吞错EMPTY |
 | Wealth现识别/预测`types/adapter/apiClient/Hook`测试、工作区/页面测试 | §8合同/迟到/截止时间、普通无debug可展示、同源公共值相同；P3先验必要调用，P4再验动态模式/生产资格 | 不静态加载辅助、不以false诊断隐藏真错、关闭清理、研究日期不影响右栏/预测、生产任何debug不请求r4 |
 | 依赖边界/清退/工具 | 根三份架构、Biz不导入research/App/QTF、§10逐文件清退及§11保留工具 | 无旧算法/父类/动态副本/源码SHA保护；保留工具在旧模块缺席时正常人工输入可运行 |
 
@@ -1927,7 +1943,7 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 | RC77 同根旧消失与新钝化 | `TF;(102,97,2);(104,96,2)`；`BF;(98,-97,-2);(96,-96,-2)` | t7不突破，t8两根已够且突破；先旧CANCEL，再当前DULL，两条事件独立，旧结构DISAPPEARED、普通状态DULL。不可只保留一条或把新状态清NONE。 |
 | RC78 原段最终高点而非形成时高点 | `TS;(105,98.5,2);(110,98,-2);(104,97,2);(106,96,2)` | t5形成priceExtreme103；t6仍原红段、最终高点变105；t7首绿C110排除，originWave.price105；t8新红C104不撤销；t9C106才旧消失+新DULL。形成priceExtreme103不回填。再仅把t6 H2改H0：零日高价仍进最终105，但原段有色count为3而非4；t8不消失、t9消失的预期不变。 |
 | RC79 原段最终低点镜像 | `BS;(95,-98.5,-2);(90,-98,2);(96,-97,-2);(94,-96,-2)` | 形成priceExtreme97，原绿段最终95，首红C90排除；t8C96不消失，t9C94才旧消失+新DULL。再仅把t6 H−2改H0：零日低价仍进最终95，有色count为3而非4；事件预期不变。 |
-| RC80 下一同色段结束正常停止 | `TN;(120,95,-2);(121,94,2)`；`BN;(80,-95,2);(79,-94,-2)` | t9真实反色先FINISHED，无旧CANCEL，即使本根价格已越门槛；t10更后同色不得再撤销t5旧结构。 |
+| RC80 下一同色段结束正常停止 | `TN;(120,95,-2);(121,94,2)`；`BN;(80,-95,2);(79,-94,-2)`；另按§14.16执行color_flip形成路线 | t9真实反色先FINISHED，无旧CANCEL，即使本根价格已越门槛；t10更后同色不得再撤销t5旧结构。翻色当天形成的结构也须完成正常停止子样本，不能只测dif_turn。 |
 | RC81 DIF拐头不结束范围 | `TN;(102,98,2);(104,97,2)`；`BN;(98,-98,-2);(96,-97,-2)` | t9 DIF回转但仍同色，旧跟踪继续；t10价格突破才旧消失+当前DULL。不能用局部DIF峰谷提前退出。 |
 | RC82 分隔零柱不开始下一段 | `TF;(110,97,0);(104,96,2)`；`BF;(90,-97,0);(96,-96,-2)` | t7零归分隔段，即使价格越门槛也不开始；t8真实同色第一根才旧消失，nextSameColorStart=t8。 |
 | RC83 下一段零柱仍可价格失效 | `TF;(102,97,2);(104,96,0)`；`BF;(98,-97,-2);(96,-96,0)` | t8零归新同色段，旧结构消失；count仍1，所以没有新DULL。 |
@@ -1936,11 +1952,11 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 | RC86 已回转结构不能借反色复活 | `TS;(104,100,2);(90,99,-2);(105,98,2)`；`BS;(96,-100,-2);(110,-99,2);(95,-98,-2)` | t6旧t5结构回钝化并DISAPPEARED；t7可按原color_flip形成另一id并FOLLOWING；t8若价格使后者消失，只关联t7的新id，不能复活/撤销t5第二次。 |
 | RC87 原段变远参照也不复开结构 | `TN;(102,95,-2);(103,98,2);(104,99,2)`；`BN;(98,-95,2);(97,-98,-2);(96,-99,-2)` | t9旧结构FINISHED；t10近参照DIF被突破，t11可依原规则首次选更远原段；旧t5结构仍FINISHED、不再报消失。选峰用途和旧结构跟踪不能混淆。 |
 | RC88 旧消失与反向新结构同根 | 从空顶`(100,200,2);(90,-200,-2);(101,100,2);(102,100,2);(103,99,2);(89,-100,-2);(88,-100,-2);(87,-101,-2);(104,90,2)`；底`(100,-200,-2);(110,200,2);(99,-100,-2);(98,-100,-2);(97,-99,-2);(111,100,2);(112,100,2);(113,101,2);(96,-90,-2)` | t9先旧TOP/BOTTOM结构消失，后当前相反方向DULL按color_flip形成结构并FOLLOWING；普通新段NONE。两事件方向不同、各自引用正确，不能用旧消失覆盖当前反色确认。 |
-| RC89 普通NONE也校验旧跟踪 | TF/BF合法snapshot；分别把FOLLOWING改FINISHED、originWave价改NaN、nextSameColorStart写未来、槽方向写反、原Wave换远段；另用合法TF/BF | 非法即使普通NONE也拒绝，正常NONE/FOLLOWING能恢复；检查失败原对象/输入不变。另用TF/BF再追加一根分隔实柱、下一根原方向实柱，在等待/已开始两阶段只把firstOppositeAt伪改为后加分隔柱时点：虽时间先后仍合理，因不是分隔段start也必须拒绝；原正确副本通过。 |
-| RC90 连续/分批/复制一致 | RC74/77/78/80/88分别在形成、首次反色、下一段第一根、消失/正常结束前后分割 | 四周期逐根事件/记录/参照一致；最多两份旧结构，不共享对象，不落盘。 |
-| RC91 历史asOf无未来极值/消失 | RC78截至t5/t6/t7/t8/t9；随后追加再查询相同asOf | t5/t6结构形成priceExtreme仍103、originWave=None；t7首次出现originWave105；t8有nextSameColorStart无消失；t9才DISAPPEARED。先前对象不改。 |
+| RC89 普通NONE也校验旧跟踪 | TF/BF合法snapshot；分别把FOLLOWING改FINISHED、originWave价改NaN、nextSameColorStart写未来、槽方向写反、原Wave换远段；另用合法TF/BF | 非法即使普通NONE也拒绝，正常NONE/FOLLOWING能恢复；检查失败原对象/输入不变。另用TF/BF再追加一根分隔实柱、下一根原方向实柱，在等待/已开始两阶段只把firstOppositeAt伪改为后加分隔柱时点：虽时间先后仍合理，因不是分隔段start也必须拒绝；原正确副本通过。另按§14.16验证已发生价格突破却伪装FOLLOWING的副本拒绝，末根回到门槛内不例外；分隔段越过和同色段等号必须正常通过。 |
+| RC90 连续/分批/复制一致 | RC74/77/78/80/88分别在形成、首次反色、下一段第一根、消失/正常结束前后分割；RC80的color_flip完整子样本按§14.16同样分割 | 四周期逐根事件/记录/参照一致；最多两份旧结构，不共享对象，不落盘。 |
+| RC91 历史asOf无未来极值/消失 | RC78截至t5/t6/t7/t8/t9；随后追加再查询相同asOf | t5/t6结构形成priceExtreme仍103、originWave=None；t7首次出现originWave105；t8有nextSameColorStart无消失；t9才DISAPPEARED。先前对象不改。另按§14.16核color_flip形成当根直接FOLLOWING、正常结束前后及未来对象不泄漏。 |
 | RC92 来源修订从空重建 | RC78只把t6 C105改106，其余不变 | 新来源originWave106，t9C106等号不撤销/不首次钝化；旧来源仍t9消失。形成时103及形成时间不变，两个来源各自结果/缓存不混。 |
-| RC93 schema/聚合/前端关联 | RC77/88真实step字面结果进入内部模型→普通/debug投影→后续真实TS解码；反例丢旧id/改事件方向/用形成price当最终价/正常结束伪造CANCEL | 正常FOLLOWING→DISAPPEARED或FINISHED合法，同根多事件完整；异常在真实边界拒绝，不能靠隐藏图层通过。公共originWave恰八字段、priceAt/difAt与内部price_at/dif_at原值对应；内部合法拼写可校验，公开出现下划线拼写或两套字段并存必须拒绝。 |
+| RC93 schema/聚合/前端关联 | RC77/88真实step字面结果进入内部模型→普通/debug投影→后续真实TS解码；反例丢旧id/改事件方向/用形成price当最终价/正常结束伪造CANCEL | 正常FOLLOWING→DISAPPEARED或FINISHED合法，同根多事件完整；异常在真实边界拒绝，不能靠隐藏图层通过。公共originWave恰八字段、priceAt/difAt与内部price_at/dif_at原值对应；内部合法拼写可校验，公开出现下划线拼写或两套字段并存必须拒绝。§14.16的单根无事件、正常结束及结束后窄窗口是必验正反例；普通无structures，debug含准确集合，不能仅验事件关联。 |
 | RC94 5月案例独立机制样本 | 从空`(3285.6705,41.186,2);(3200,0,-2);(3393.3312,28.215,2);(3380,28.215,2);(3301.2575,22.901,2);(3275.413,16.415,-2);(3395.0036,14.006,2);(3357.6707,15.217,2);(3319.1506,12.920,2)` | t5旧结构、t6首次反色；t7旧结构消失但新根数1；t8/t9当天价格未过3393.3312，均无新DULL/STRUCTURE。这是独立人工机制样本，不冒称完整历史EMA或真实左侧行情；截图和完整922根另按专项核验。 |
 | RC95 构造后失败不能半发布 | 对TF/BF及RC77，在跟踪更新/普通事件都构造后故意使_validate_step或聚合模型失败；正常同前缀对照 | self、已发布entry和早先对象均不变，无半份消失；正常路径通过，不误拒旧新同根。 |
 | RC96 两方向同时保留且各自结束 | RC88顶部序列最后C104改102，再追加`(102,91,2);(86,-90,-2)`；镜像序列最后C96改98，再追加`(98,-91,-2);(114,90,2)` | t9两个槽合法存在：一个正在下一同色段、另一个刚首次反色等待；t11一个正常FINISHED无事件，另一个价格突破而DISAPPEARED一次，互不覆盖。额外第三槽/重复id拒绝。 |
@@ -1961,6 +1977,23 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 PF21—23是纯手写EMA/表达式的隔离算术样本，不冒称这些任意人工价格来自真实EMA历史；分钟三个周期走原full_float，日线复用原rounded3_guarded来源选项并独立核整点及未决边界。来源读取/最近250根校准仍按原真实合同测试，不用算术样本替代接入验收。
 
 新增所有业务用例按day/m60/m90/m120展开，预期明确检查旧结构形成/首次反色/下一段起点/最终原Wave/消失或正常结束、普通状态及同根全部事件；不以测试数量替代规则覆盖。本轮只写上述设计，不声称任何新测试或真实重跑已经通过。
+
+### 14.16 三处审计补齐的测试子样本（待编码，沿原case编号）
+
+以下均为独立字面输入/预期，不新增算法模式，不把当前程序输出作为expected。DEA仍按§14.1给定。每个业务序列展开四周期；恢复与查询分别进入对应真实边界，不以mock筛选函数代替后续query/schema验收。
+
+| 父case | 输入/具体操作 | 独立预期及正常反例 |
+|---|---|---|
+| RC89 已发生突破不得恢复跟踪 | 顶`TF;(104,97,2);(102,96,2)`；底`BF;(96,-97,-2);(98,-96,-2)`。t7实际已消失、t8价已回门槛内。故意在t8内存副本放回t6旧记录，改成FOLLOWING、nextSameColorStart=t7、结束/消失字段None，其余合法 | 虽然末根顶102<103/底98>97，当前同色wave极值为104/96，证明t7已严格突破，恢复必须拒绝且self/来件不变。原真实t8副本（该旧槽None）恢复通过。对照RC76同色极值103/97相等、RC75分隔段价格104/96越过，两者FOLLOWING恢复都通过。另给顶`TF;(102,97,2);(104,96,0);(102,95,2)`、底`BF;(98,-97,-2);(96,-96,0);(98,-95,-2)`：t7已开始同色段，t8零日突破、t9回门槛内；同样放回伪FOLLOWING且起点t7，必须拒绝，不能漏记零日价格。 |
+| RC80 翻色当天形成后的正常结束 | 顶`T;(90,100,-2);(101,99,2);(102,98,2);(120,97,-2);(121,96,2)`；底`B;(110,-100,2);(99,-99,-2);(98,-98,-2);(80,-97,2);(79,-96,-2)` | t5由color_flip形成并FOLLOWING，formedAt==firstOppositeAt=t5，originWave最终价102/98、结束t4；t6设置nextSameColorStart，t7价等原极值仍保持；t8新反色先FINISHED，无消失事件，不能用t8价120/80撤销；t9后来的同色柱不复开旧关系。 |
+| RC90 翻色路线分段恢复 | 上一行顶底序列，分别在t4/t5/t6/t7/t8/t9切开snapshot→独立实例restore→继续；原未分割字面预期保持 | t5恢复后仍FOLLOWING且无active_structure；t6/7在下一同色段，t8/9旧槽None且历史记录FINISHED。合并原已获得steps后，每根状态/事件/id/日期与手写预期一致；不要求snapshot携带历史全集。 |
+| RC91 翻色路线历史查看 | 上一行序列算完后查询asOf=t4/t5/t6/t7/t8/t9；每次保留此前对象 | t4旧结构尚未形成，不返回；t5直接FOLLOWING、形成/首次反色同根，不先投影成ASSESSING；t6/7有下一段起点，无未来结束；t8/9为FINISHED且trackingEndedAt=t8，无CANCEL。形成priceExtreme102/98与日期t4固定，旧对象不被改写。反例把color_flip的priceExtremeAt改t5须拒绝。 |
+| RC93 无事件的分隔段窄窗口 | 顶`TF;(90,97,-2)`、底`BF;(110,-97,2)`，只查询t7（start/end对应当日、limit=1） | 一个point，无事件；debug仍有t5旧结构FOLLOWING，nextSameColorStart=None。普通投影没有structures/debug键，不为保留资料增加事件。 |
+| RC93 无事件的下一同色段窄窗口 | TN/BN只查询t8、limit=1。旧结构形成t5、首次反色t6、下一段开始t7都在窗口外 | 一个point，无事件；debug恰有该旧结构FOLLOWING，起点t7保留；不得只因本窗口没有事件/变化就删记录。 |
+| RC93 正常结束及已过期窄窗口 | RC80原TN/BN序列，只查询t9、再只查询t10；color_flip子样本分别只查询t8、t9 | 正常结束当天debug含FINISHED及准确trackingEndedAt，无CANCEL或消失marker；后一天该旧结构已结束且无本窗引用/变化，debug不再附带。不能改成全历史都返回。 |
+| RC93 窗口与asOf互不篡改 | RC78及color_flip子样本，分别改变limit、startDate，只要保留同一根和through；另给startDate晚于through的空窗口；在全记录校验前放入非法旧跟踪记录 | 同一根事件/id/记录投影相同，仅返回集合按§4.2.1变化；未来终态不泄漏。空窗口points/events/structures为空，source/dataStatus按真实前缀；非法记录不能靠窗口过滤变成功。完整校验发生在过滤之前。 |
+
+实现落点：RC89在snapshot_validation/恢复与clone入口；RC80/90在唯一核心/聚合/恢复；RC91/93在真实query _response、内部schema及后续普通/debug投影与TS解码。窄窗口用例必须走真实查询方法并断言完整结构id集合，不能只测_model或返回非空；测试所有输入、被拒副本和预期均独立于被测函数。
 
 ## 15. 历史基线：P3第1步实施与独立验收（2026-10-30）
 
@@ -2108,3 +2141,14 @@ MAIN_SPEC目标v0.3-r4，FORECAST_SPEC目标v0.5-r4；真实hash只从实施后�
 规则仍按已确认口径：原结构仅在紧接下一同色段内按原段最终收盘极值判断，第一根可触发，零不开始/结束范围，结束或消失即停止，顶底镜像；首次同根C/D、曾破记忆、B后A、1%及两项暂缓TODO均未变。本次范围内没有新增需要管理员决定的业务口径。
 
 文档验证：本组89个Markdown文件链接均存在，主章节编号无重复，RC01—96及PF01—28条目齐全且唯一；PF24/26四个手写价点用独立分数算术核对DIF及柱色，非程序回归。仓库文档完整性和diff空白检查通过。上述检查只证明文档与手算设计，完整实现、产品预算及真实来源仍待按§17顺序开发和验收。
+
+
+### 17.2 三处审计补齐及本次文档提交范围（2026-10-31）
+
+管理员已批准补齐后提交，再独立审计；本次只改原产品/技术方案/本文及日线目标合同，日线合同仅提交§10，本文件外其他未提交工作保留。业务代码、测试代码、行情、预测及回测不执行；本次文档提交不等于识别修正已实现，不进入P3第3步。
+
+- §4.1共用恢复/最终发布检查下一同色段整段价格极值，拒绝“此前已突破却仍FOLLOWING”；RC89新增普通根和零根突破后回撤的非法副本，同时有分隔段突破/同色等号/真实已清槽进度正常通过。
+- §4.2.1固定窗口结构集合，先按through投影/全记录核对，再取本窗引用、变化或有效时间覆盖窗口的记录；无事件、正常结束当根、结束次根及空窗口均有RC93独立预期，不增加假事件或改变普通投影。
+- color_flip形成后正常结束、恢复及历史查看以§14.16的完整顶底序列补入RC80/90/91/93；原RC01—96和PF01—28编号保持，不以新增子样本数冒充已执行测试。
+
+这些是已确认业务规则的编码/测试细化，不改变1%、首次资格、近远顺序、有限跟踪或两个暂缓TODO。开发时必须执行§14.16的全部子样本，不能只运行父case原来的一条序列就声称已覆盖。
