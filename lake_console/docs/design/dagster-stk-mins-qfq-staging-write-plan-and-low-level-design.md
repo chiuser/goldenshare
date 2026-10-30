@@ -1,6 +1,6 @@
 # 股票分钟前复权与MACD/KDJ写入修正方案和LLD
 
-> 2026-10-30最新状态：MACD/KDJ正常日更读取修正见第19节，对应[原业务方案第17节](dagster-stk-mins-qfq-macd-kdj-indicators-plan.md#17-macdkdj日更读取修正方案2026-10-30)。设计文档已提交`4a4a689e`，本轮开发、隔离测试、真实临时文件交接和独立实现审计已完成，第19.12节逐项对账；代码及验收记录随本次实现提交归档。未读取正式行情、未补数、未重载任务或改sensor。第3—8节为早期背景，摘要次数以第9—10节和当前publication为准，不恢复旧多遍摘要；第13—18节旧执行批准不覆盖新日期恢复。
+> 2026-10-30最新状态：MACD/KDJ日更读取修正对应[原业务方案第17节](dagster-stk-mins-qfq-macd-kdj-indicators-plan.md#17-macdkdj日更读取修正方案2026-10-30)，方案`4a4a689e`及实现`5a0b13401`已提交，315项测试及23子测试通过（19.12）。之后按19.13专项批准，经原job仅恢复29日1m，run`63c25bed-bdc8-4fee-9af8-0321b5b13ac7`已SUCCESS，两项物化及原四项检查通过，154.728秒，事实见19.14。其他六频未重跑、2股历史repair未执行；MACD repair sensor按批准STOPPED，原cursor保留。第3—8节为早期背景，摘要次数以第9—10节和当前publication为准；第13—18节旧批准不覆盖新日期恢复。
 
 日期：2026-10-24；读取优化及正式执行：2026-10-25。最新状态：22日七频QFQ及原28检查已完成（第13节）；因子repair读取/续跑身份修正完成，26项隔离回归通过，随后获准正常执行一次26股历史修复，七条真实检查及消费者门槛ready（第14.8节）。不再做性能样本或全局复审。此前样本失败及297项回归证据保留，不用旧阶段结论替代本次正式结果。
 
@@ -1236,3 +1236,141 @@ CodeGraph `explore/impact`已覆盖主writer与wrapper，并按源码补查其�
 证据归档后，只清理本任务确认的临时根、夹具、staging和runner，未删除正式Lake/staging或其他任务pytest目录。最终66项、旧回归和consumer夹具均已清理；另移除957个本轮暂存证据/脚本及早期夹具文件、1,925,218B，保留本报告必要证据，详见[清理账](../../reports/macd_kdj_daily_read_20261030/cleanup.json)。没有清理共享依赖或环境。
 
 本轮**没有正式补数、没有部署/重载、没有全市场性能测试，也没有真实复现原4GB异常**。实际市场规模、当时未完成频率、旧root/receipt及具体正式预算仍须依19.9第4项单独核实；不能把以上隔离通过当正式29/30日数据完整性或原异常已经消失的证明。管理员已要求提交本轮修改；下一步正式恢复仍须按19.9第4项完成核实及取得必要批准，不自动重跑任何日期、频率或repair。
+
+### 19.13 29日1分钟正式恢复执行方案（已获专项批准）
+
+**目标、证据及审计状态。** 对应业务方案17.10。当前实现提交`5a0b13401`，生产模块SHA仍为`615fb452a137107e0cc330963d6216e0e5a3995877144cbc0926e604b272a76f`。三条独立只读审计未发现阻断；计算、公开合同、原repair/history、年度保留及逐文件继续规则与19.2—19.11一致。未重复执行315项隔离测试、未做性能样本。65股不同活跃状态用例可增强，相关原公式按股票/频率关联且AST未变，属于证据限制，没有发现计算错误；详见[提交后审计](../../reports/macd_kdj_daily_read_20261030/post_commit_audit_20261030.md)。
+
+**本次只读核定。** 2026-10-30 02:37（Asia/Shanghai）附近，通过正式DG GraphQL只读查询原run、四条股票链job各最近4条、活动run最多40条、原run步骤、一个现有pool及三个相关sensor；只对目标1m的年度文件做一次metadata/stat，没有读Parquet内容。证据在[本步目录](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_1m/)。
+
+| 核定项 | 当前事实及限制 |
+| --- | --- |
+| 正式入口 | `http://127.0.0.1:3000/graphql`，Dagster1.13.26，location=`orchestrator`、repository=`__repository__`，对应正式`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`；不初始化instance |
+| 原run/缺口 | `98f3d25c-1380-47da-b079-b15701bdbbce`、2026-10-29，只有`gold_stk_mins_qfq_macd_kdj_1m_assets`失败；六频资产步骤及24项检查成功；没有更新的MACD日更run |
+| 输入及完成状态 | 29日QFQ原job成功，29日原因子repair原run`536c3220-7817-483a-9b6e-b69a05beb5fe`的7项检查通过；1m的28日state存在且250,790B，29日state不存在，六个已完成频率的29日state均存在；这不是重新验收全部行情内容 |
+| 旧1m现场 | 原root下精确1m operation目录存在且没有文件，无bind、冻结输入、候选或receipt；没有新旧摘要混用问题，也不删除或换root |
+| 并发及目录 | 无活动run；`gold_stk_mins_qfq_writer` limit=1、active=0、pending=0；进程有界检查未发现脱管股票分钟写入者。formal/staging同设备，约2.64TiB空闲；同用户实际可写。工具隔离环境中`os.access=False`未当作正式权限错误 |
+| 已加载代码 | location已加载，但加载时间为2026-10-29 08:15，早于本次修改；正式恢复前需要原生reload，不把磁盘源码提交当作代码服务已刷新 |
+| 自动衔接 | MACD daily/repair、九转三个sensor当前均RUNNING。29日原因子repair实际生成2股、2014-01-02至2026-10-29的历史范围；本次1m成功后MACD repair sensor可能自动发任务，必须在其历史范围批准前暂缓触发 |
+
+**只恢复的内容及禁止项。** 29日`gold_stk_mins_qfq_macd_kdj_1m`及`gold_stk_mins_qfq_macd_kdj_state_1m`，连同原四项blocking checks。指标只合入29日并保留其他日期；共享state按原完整生成规则处理。保持原job、partition、run config、公开参数、writer pool与DuckDB设置，不增加超时、内存或临时容量限制；不重跑已完成六频、28日、源QFQ、原因子repair或历史MACD repair，不做全局完整性审计、不造runless事件、不删旧operation/receipt。
+
+**年度读取必要性及预算。** 依据本次1m stat，Qy=5,537,980,413B（5,595文件，5.158GiB）、Qp=6,271,310,456B（5,463文件，5.841GiB）、I=14,064,513,302B（5,594文件，13.099GiB）。I用全频率1m现存2026指标文件作为保守上界；实际仅改有29日行情的股票。前日state为V，L仍只限当年不足8根的实际上一年子集。全部文件都很小，不是单个4GiB数据文件。
+
+复用19.7原公式，取L≤Qp、C≤15GiB的候选估算、P≤0.128GiB、Fr/Fw各1GiB、Tr/Tw各8GiB：
+
+```text
+正常读 = 6Qy + 4Qp + L + 2I + 4C + P + V + Fr + Tr < 156GiB
+正常写 = C + P + Fw + Tw < 25GiB
+新增空间 = (C + P + Fw + Tw) × 1.2 < 29GiB
+申请向上留量：读160GiB、写26GiB、额外空间32GiB。
+```
+
+该预算包含当日选择、原年度合并、一次候选摘要、原四项检查、必要metadata收尾和原DuckDB临时读写留量；没有新增行情审计或性能测试。8GiB、15GiB都是成本估算条件，**不是新增运行限制**；不按设备缓存、列裁剪效果折扣，也不是已发生I/O。正常只执行一次，失败即停、无自动重跑。中断后重新准备的最坏增量另需约160GiB读/26GiB写，两次候选及临时占用按64GiB空间估算；本次不预先批准该第二次执行，必须按原receipt扣除已完成部分后另核定。旧六频及其候选不在预算也不重读。
+
+原29日整run约572秒，同时包含六频成功及1m准备失败，不能用它承诺新1m耗时。没有同规模新实现实测，暂无法可靠估计完成时间；正式运行按原批次/文件进度观察，不另做全市场性能测试填时长。160/26预算不包含2股历史repair或其他日期。
+
+**批准后执行顺序。** 制定本段时尚无正式状态写入；管理员随后已批准，实际执行结果记入19.14：
+
+1. 取得根AGENTS要求的上述具体年度读取批准，同时明确暂缓MACD repair sensor自动历史读取。启动前仅刷新原run/活动writer/pool/关键state及空operation的小型事实；若scope、代码、原现场或并发条件改变，停下核定，不自行扩大范围。
+2. 保存MACD repair sensor原`id/status/lastCursor/lastRunKey`，仅使用原生`stopSensor`停止这一项并读回STOPPED，核对cursor/lastRunKey保留；其他sensor和pool不改。若历史repair已经启动则停止本步并汇报，不并发再发一个。
+3. 用原生`reloadRepositoryLocation(repositoryLocationName: "orchestrator")`刷新并读回LOADED及新versionKey；reload失败不触发run，不重启其他服务、不安装依赖。
+4. 用原job的原生`launchRunReexecution(reexecutionParams: {parentRunId: "98f3d25c-1380-47da-b079-b15701bdbbce", strategy: FROM_FAILURE})`提交一次。当前1.13.26的原生实现从parent构建重跑，并保留run group/root；不能改成ALL_STEPS、重发完整七频或换一个自造写入入口。正式请求保存为本步目录的`launch-request.json`，响应保存`launch-response.json`。命令工作目录为`/Users/congming/github/goldenshare/lake_console/orchestrator`：
+
+   ```bash
+   curl --silent --show-error --fail --max-time 20 --header 'Content-Type: application/json' --data-binary @/Users/congming/github/goldenshare/lake_console/reports/macd_kdj_daily_read_20261030/recovery_20261029_1m/launch-request.json --output /Users/congming/github/goldenshare/lake_console/reports/macd_kdj_daily_read_20261030/recovery_20261029_1m/launch-response.json http://127.0.0.1:3000/graphql
+   ```
+
+   HTTP请求20秒只限制提交请求的等待，不限制正式job运行时间。响应若不明确成功，不重发；按原parent/root及最近run查明是否已创建，避免重复任务。返回后核对`rootRunId/parentRunId/partition/stepKeysToExecute`，预期只有1m资产步骤及其四项检查。原四检查分别为indicator contract/source coverage、state schema/latest coverage；若范围超出，不继续计算，按原生取消并保留现场。
+5. 复用原job实际写入、原四项checks及publication receipt验收；保存run成功、两项物化、四项检查、实际文件/完成记录小汇总。不追加一轮年度扫描/摘要或公式重算；失败立即停止，保留已完成正式结果和staging，不自动重试或回滚。
+6. 报告1m结果并核定后续2股repair的真实历史读写范围。**TODO：该历史范围明确批准后，按原repair job实际产物推进并恢复本次暂缓的MACD repair sensor，核对原cursor/lastRunKey及RUNNING。** 未批准前不能为“恢复开关”而启动未批准历史任务；停用状态及原值必须在本步报告明确交接，不留下无记录的开关变化。不能将本轮日更优化当作历史repair优化已经完成。
+
+**批准前停点。** 先完成代码/方案独立审计及必要metadata预检，未做年度内容读取、停sensor、reload、提交重跑或正式补数。根AGENTS规定一般继续推进授权不能替代具体全局读取批准，因此先提出精确申请；管理员随后明确回复“确认，批准”，授权范围及实际结果见19.14。
+
+### 19.14 29日1分钟恢复执行记录
+
+管理员已明确批准19.13的正常一次恢复：读160GiB、写26GiB、额外空间32GiB，包含原四项检查和收尾，先暂缓MACD repair sensor，不自动重跑、不执行2股历史repair。
+
+启动前已刷新原run、近两条MACD日更、活动run、原pool、前日/目标state及精确operation，范围未变；源码SHA仍与已验收提交一致。`repair-sensor-before.json`保存原身份、RUNNING状态、cursor及lastRunKey。另完整有界读取原run191条事件（hasMore=False），确认没有STEP_SKIPPED；四项1m checks从未启动，FROM_FAILURE会选择失败1m资产及这四项未启动检查，不套用“已标跳过步骤不再选”的情形。此项仅metadata，不重复读取行情；证据在本步目录的`approved-preflight-*`及`parent-skips-*`。
+
+正式状态动作和job结果在下方按实际发生追加；此刻只完成获批范围记录和启动前核对，未把计划预填为成功。
+
+按批准顺序已停止唯一MACD repair sensor并读回STOPPED，原id/cursor/lastRunKey逐值一致；随后原生reload返回LOADED且versionKey改变，刷新后再次确认sensor仍STOPPED、pool=1且空闲、无活动run。09:06通过原生FROM_FAILURE只提交一次恢复run`63c25bed-bdc8-4fee-9af8-0321b5b13ac7`，返回root/parent均为`98f3d25c-1380-47da-b079-b15701bdbbce`，`stepKeysToExecute`精确为1m资产及四检查共5步。09:06已进入STARTED，日志捕获键`vlkrlovg`；没有启动其他六频或历史repair。结果仍在执行，不能提前记为成功；原生请求/回执及首次观察已保存到本步目录。
+
+**最终结果：SUCCESS。** 原run group内本次恢复09:06:14.256243开始，09:08:48.984675结束，154.728432秒，恰好5步均成功。只产生29日1m indicator/state两项物化和原四项成功检查；5,570份年度指标文件合入当日1,342,370行，当日state5,595行。与原已完成六频及24项检查合计，29日MACD/KDJ七频日更已齐备；原失败run仍保留其历史失败状态，不修改旧状态掩盖原因。
+
+原报4GB错误的prepare阶段实际完成5,595个候选来源股票的全部批次，进入完整publication；全部5,571候选通过后逐文件发布。最终operation含5,571 targets、5,571份完成记录，candidates目录0文件，目标state实体250,842B。必要operation/receipt及2份冻结输入64,894,667B保留用于原续跑；没有清理正式结果或恢复依据，没有遗留测试文件。这里只读metadata/完成记录及原日志，没有追加Parquet内容审计、年度摘要或公式重算。
+
+本次原writer日志记录：受影响旧年度文件stat合计14,024,558,618B，生成候选/正式文件14,097,349,030B，冻结输入64,894,667B；冻结输入SHA读取64,894,667B、候选SHA读取14,097,349,030B，未额外读取正式SHA。这些是对应文件大小和原摘要计数，**不是实际设备总I/O**；原输入选择、年度合并、checks及引擎临时I/O仍按批准模型计，未另做设备性能测量。候选13.13GiB在15GiB估算条件内，未添加配额、超时或额外审计。
+
+收尾一次原生读回证明两物化与四checks均绑定本恢复run和29日分区；repair sensor仍STOPPED且身份/cursor/lastRunKey与保存值一致，无新MACD历史repair run、无活动run，原pool仍limit=1/active=0/pending=0。**TODO仍待后续处理：2股2014-01-02至2026-10-29的原MACD repair按实际产物核定历史读写范围、另获批准后用原job推进，再恢复本次暂缓的repair sensor并读回RUNNING。** 本轮不自动启动该历史任务，也不把七频日更齐备表述为repair已完成。
+
+最终证据：[结果对账](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_1m/final-verified.json)、[原生输出/检查/开关读回](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_1m/final-response.json)、[publication元数据](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_1m/publication-final-metadata.json)。本阶段仅更新原方案、LLD和执行证据，没有再改实现或重跑测试，尚未提交这些收尾文档。
+
+### 19.15 29日2股历史repair执行方案与LLD
+
+**目标及授权。** 承接业务方案17.11和管理员“继续推进repair执行、完成修补、提交修改”的要求。本步只通过现成`gold_stk_mins_qfq_macd_kdj_repair_job`完成29日原因子repair产物对应的历史指标/state；随后恢复本次暂停的repair sensor，再按明确文件清单提交本轮文档/证据。没有修改业务代码、配置默认值、公式、schema、repair名单生成或新读写入口的需求。具体历史读取预算未曾包含在1m日更批准内，启动前另按根AGENTS核准下列精确范围。
+
+**当前代码和独立审计。** CodeGraph及源码核过`jobs/gold_stk_mins_qfq_macd_kdj_repair.py`、`ops/gold_stk_mins_qfq_macd_kdj_repair.py:377—650`、原公共writer/prepare/publication和repair sensor。两条独立审查分别核读写次数/成本及原job合同/开关去重，没有发现正常一次执行需要改代码的阻断。现成op先校验scope、日历/已注册日期和全部目标state，再七频顺序计算/发布，最后为14资产写completion；它不向新的daily prepare改道。复用已通过的原repair/历史相关隔离证据，不新跑性能样本、全套测试或正式试算。
+
+**上游事实和配置。** 原因子run`536c3220-7817-483a-9b6e-b69a05beb5fe`在29日已成功，7项因子完成检查通过；沿本轮已保存原metadata取得：
+
+| 项 | 原产物/原job取值 |
+| --- | --- |
+| `qfq_factor_repair_trade_date` | `2026-10-29` |
+| `start_trade_date` | `2014-01-02` |
+| 终点 | 原op从产物派生`2026-10-29`，不新增或传入不存在的end配置 |
+| `freqs` | 固定顺序`[1,5,15,30,60,90,120]`，不能缩频 |
+| `stock_codes` | 原名单`["000878.SZ","688563.SH"]`，不能空名单触发全市场 |
+| `repair_required_codes_hash` | `e53fc5c69277b27eb383eb4bc5eacae92b02dfe39bd779947d7779b5874af198` |
+| `upstream_batch_id` | `qfq_factor_repair:2026-10-29:633a5dece517` |
+| `reason` | `qfq_factor_repair:2026-10-29` |
+
+正常启动的runConfigData为`ops.gold_stk_mins_qfq_macd_kdj_repair_op.config`对应上表七个实际配置项（终点只派生）。实际创建请求优先调用现成decision/config纯函数从保存的原metadata生成，再与本表完整核对；不拷贝旧26/41/16股配置。正式入口是现有本机GraphQL的原生`launchRun`，selector为`orchestrator / __repository__ / gold_stk_mins_qfq_macd_kdj_repair_job`。不调用自行计算/写湖脚本，不执行本地in-process `dg launch`替代正式服务，也不恢复旧CLI/Kopia。
+
+**读写范围和不变项。**
+
+- QFQ只discover原2股、七频、2013—2026候选年（2013仅探测，当前无实际文件），实读现存2014—2026年文件的`ts_code/freq/trade_date/trade_time/high/low/close`一次；目标仅2014-01-02至29日。既有SSE Silver日历只读`trade_date/exchange/is_open`，按原helper筛baseline至执行当天，再取截至29日的目标日期；不是写30日数据。
+- 原start是expected calendar首日时V=0；否则按现成exact前日guard取必要state，不任意回退。原op依据日历确定target_dates、核对原动态分区登记，再预检整个范围×七频state存在；本次只读stat显示每频3,116份，完整性以原op守卫为准，不新写动态分区。
+- 指标只合并原2股现存受影响年度文件，非目标记录按原SQL保留。七频3,116日共享state合并时保留其他股票及原last_trade_time；读取共享文件不代表重算全市场其他股票。
+- 原job的14项completion是末尾原生检查事件，不是14轮全历史审计，也不是14个新数据集/普通物化；不补普通历史materialization/check事件，不重跑29日日更或已完成原因子repair。
+- 正式Lake及staging根、原16GB/4线程等连接设置、writer pool和原publication不变；不加超时、内存或临时目录限制。现场文件和逐文件记录沿原staging保留，不备份、不Kopia、不删除正式数据。
+
+**metadata基线和预算。** 09:25只对精确2股候选年及目标七频state做一次stat，未读Parquet内容，见[metadata](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/metadata-budget-inputs.json)及[预算模型](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/budget-model.json)。Q=119份28,812,168B（0.0268GiB），I=119份65,863,089B（0.0613GiB），S=21,812份3,847,741,455B（3.5835GiB）。2013没有实际文件；当前无活动run、pool=1空闲，repair sensor仍STOPPED，没有同批次近期repair run。
+
+```text
+Q：2股七频QFQ来源；V：必要起点前state，本次预计0
+I：2股旧指标年度；S：目标日期七频旧共享state
+C=Ci+Cs：两类候选；P：冻结的两股指标和scoped state
+Fr/Fw：footer、manifest、receipt、日志等留量；Tr/Tw：原DuckDB临时读写
+
+正常读 R = Q + V + 2I + S + 2C + P + Fr + Tr
+正常写 W = C + P + Fw + Tw
+保守新增空间 = (C + P + Fw + Tw) × 1.2
+```
+
+旧指标两读分别为原年度合法性校验及合并；旧state一读保留其他股票；候选两读分别为原投影校验和一次SHA，promote只核身份和receipt，不追加全文SHA。源QFQ一次七列读取，COUNT/footer计入Fr。14 completion及收尾只复用原结果/控制记录，不再扫全史行情。
+
+取C≤5GiB、P≤0.25GiB、Fr/Fw各1GiB、Tr/Tw各2GiB，正常读模型16.983GiB、写8.25GiB、新增空间9.9GiB；申请向上预留**读20GiB、写10GiB、额外空间12GiB**。这是正常一次含原校验、临时读写及收尾的估算，不是实际设备I/O或新运行配额。候选空间保守按全七频合计留，实际原job逐频发布；不以2股占市场比例缩小共享state成本，也不写临时读写为0。
+
+本次不自动重试。一次中断后重新执行的最坏增量另按20GiB读/10GiB写、现场并存24GiB空间核算，须扣除真实已完成范围后另行确认，不能自动动用第二次范围。既有22日26股同类repair及约3,111日共享state正式耗时384.611秒；本次股票更少、共享state近似，只作数分钟至十几分钟的规划参考，不能保证时长或据此中断，不新做性能测试。
+
+**失败、中断及重复执行边界。** 原repair op本身没有已完成batch跳过分支，手工launch前必须核定同batch未完成且无活动重复run。原op每频调用公共writer时未传固定publication_id，沿现成独立operation语义；正常一次可用，但**新启动整个job不保证复用此前operation或跳过完成频率**。失败保留已完成正式频率及全部现场，停止后另按具体operation/receipt制定恢复办法，不照抄日更FROM_FAILURE的root承诺、不删记录、不自动重跑。不在本次顺手改repair代码。
+
+**执行、验收和恢复开关。**
+
+1. 取得以上具体历史范围及20/10/12GiB预算批准后，仅刷新最新因子产物身份、同batch完成记录/近期run、活动writer/pool及本次保存sensor原状态；范围变动先停止核定。repair sensor继续STOPPED，阻止同时自动发同一任务。既有日更成功及state实体直接复用，不重做日更或额外行情审计。
+2. 原14项同batch completion如果已经齐备，则不再启动job，直接核定恢复sensor；如果尚未完成且没有同批活动任务，使用完整上表config，通过原生`launchRun`只提交一次，保存`launch-request.json/launch-response.json`。工作目录`/Users/congming/github/goldenshare/lake_console/orchestrator`，正式服务仍为`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`对应`http://127.0.0.1:3000/graphql`：
+
+   ```bash
+   curl --silent --show-error --fail --max-time 20 --header 'Content-Type: application/json' --data-binary @/Users/congming/github/goldenshare/lake_console/reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/launch-request.json --output /Users/congming/github/goldenshare/lake_console/reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/launch-response.json http://127.0.0.1:3000/graphql
+   ```
+
+   20秒只限提交HTTP请求，不限job运行。响应不明确时查run/config/batch是否已经创建，不盲目重发、不改用另一个job。观察只读本run原日志和事件进度，无额外行情读取；失败停止，不恢复可能自动再发的sensor。
+3. 成功后一次读回本run的14个`gold_stk_mins_qfq_macd_kdj_repair_completed_check`，均passed且partition=29日、资产集合完整、原op设置blocking=True。14行共同scope必须逐行符合start=2014-01-02/end=29日、七频、explicit、两项代码数都为2、原hash及source_upstream_batch_id；不能只看run SUCCESS。结合原完成门禁一致性、日志中的七个operation及必要receipt/stat收尾，不读取全量价格或再算指标，不补报自造通过事件。
+4. 只有14项完成事实通过才用原生`startSensor(sensorSelector:{repositoryLocationName:"orchestrator",repositoryName:"__repository__",sensorName:"gold_stk_mins_qfq_macd_kdj_repair_job_sensor"})`恢复本次一项sensor。返回时核RUNNING、id/cursor/lastRunKey与暂停前保存值一致。原start会更新启动时刻但保留这些字段；之后daemon正常tick允许推进cursor，不把正常推进误报成丢失。原sensor先检查该batch14项完成事实，ready就skip，手工job不依赖sensor run key去重。没有其他sensor监听本repair成功，因此不借恢复此开关新发另一历史任务。
+5. 保存最终run/14completion/sensor原生读回、七频publication完成及候选清理状态、小型计数汇总。保留必要冻结输入和receipt，不清理正式staging恢复依据；仅清理本轮明确临时观察副本。更新原方案和本LLD最终状态/TODO，白名单提交两份原文档及本轮报告，不混入LLD13.2旧sensor收尾或工作区其他改动，不push。
+
+当前只完成代码/方案审计、现成产物复用和stat预检，没有读取历史行情、启动repair或恢复sensor。两条独立审查结果及预算依据保存本步报告；具体历史读取等待单独批准，不把管理员一般继续推进指令替代根规则。
+
+**提交安排。** 管理员同时要求提交修改；若具体历史读取批准尚待答复，先白名单提交已完成1m收尾、提交后审计、2股repair方案/LLD及metadata依据，不把待执行repair标为完成。批准后原job执行、恢复sensor和最终结果再按本节追加并提交，原任务持续待办；不因等待读取批准留下已经完成但未提交的授权工作。

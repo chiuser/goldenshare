@@ -1,0 +1,1 @@
+{"query": "mutation PauseApprovedRepair($id:String!){stopSensor(id:$id){__typename ... on StopSensorMutationResult{instigationState{id status typeSpecificData{... on SensorData{lastCursor lastRunKey}}}} ... on PythonError{message} ... on UnauthorizedError{message}}}", "variables": {"id": "a67f3ab45ac8841a399432c03c982d49734ab525::e739480038f6d0807e2989cd23d199d18f0715e7"}}

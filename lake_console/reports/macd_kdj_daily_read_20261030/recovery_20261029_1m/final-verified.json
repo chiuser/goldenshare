@@ -1,0 +1,70 @@
+{
+  "status": "SUCCESS",
+  "run_id": "63c25bed-bdc8-4fee-9af8-0321b5b13ac7",
+  "root_run_id": "98f3d25c-1380-47da-b079-b15701bdbbce",
+  "parent_run_id": "98f3d25c-1380-47da-b079-b15701bdbbce",
+  "target_trade_date": "2026-10-29",
+  "freq": 1,
+  "start_time": "2026-10-30T09:06:14.256243+08:00",
+  "end_time": "2026-10-30T09:08:48.984675+08:00",
+  "duration_seconds": 154.72843194007874,
+  "executed_step_count": 5,
+  "materialization_count": 2,
+  "blocking_checks": [
+    {
+      "assetKey": {
+        "path": [
+          "gold_stk_mins_qfq_macd_kdj_1m"
+        ]
+      },
+      "checkName": "gold_stk_mins_qfq_macd_kdj_contract_check",
+      "success": true,
+      "partition": "2026-10-29"
+    },
+    {
+      "assetKey": {
+        "path": [
+          "gold_stk_mins_qfq_macd_kdj_1m"
+        ]
+      },
+      "checkName": "gold_stk_mins_qfq_macd_kdj_source_coverage_check",
+      "success": true,
+      "partition": "2026-10-29"
+    },
+    {
+      "assetKey": {
+        "path": [
+          "gold_stk_mins_qfq_macd_kdj_state_1m"
+        ]
+      },
+      "checkName": "gold_stk_mins_qfq_macd_kdj_state_file_exists_and_schema_check",
+      "success": true,
+      "partition": "2026-10-29"
+    },
+    {
+      "assetKey": {
+        "path": [
+          "gold_stk_mins_qfq_macd_kdj_state_1m"
+        ]
+      },
+      "checkName": "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check",
+      "success": true,
+      "partition": "2026-10-29"
+    }
+  ],
+  "indicator_files": 5570,
+  "indicator_target_rows": 1342370,
+  "state_rows": 5595,
+  "target_state_file_bytes": 250842,
+  "publication_promoted_files": 5571,
+  "repair_sensor_status": "STOPPED",
+  "repair_cursor_and_identity_preserved": true,
+  "history_repair_launched": false,
+  "active_runs": 0,
+  "writer_pool": {
+    "limit": 1,
+    "activeSlotCount": 0,
+    "pendingStepCount": 0
+  },
+  "extra_parquet_audit_reads": 0
+}

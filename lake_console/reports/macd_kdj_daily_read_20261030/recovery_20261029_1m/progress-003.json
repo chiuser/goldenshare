@@ -1,0 +1,16 @@
+{
+  "observed_at": "2026-10-30T09:09:55.316365+08:00",
+  "out": {
+    "bytes": 32288,
+    "last_progress": [
+      "[stk_mins_qfq_publication] event=stock_minute_file_publication_progress stage=promote_files validated_file_count=5571 promoted_file_count=0 total_file_count=5571 target=- operation_directory=/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=1/run_id=036fe4b21c46dc8703e987217883839ba84915e739820bc45c09da9a4062b47b/scope=2fd25ed7ead3917f5874f2a79a51c2887685d05cb3e9e0be4dc69f02d97a06dd existing_build_target_stat_bytes=14024558618 frozen_input_stat_bytes=64894667 verified_candidate_stat_bytes=14097349030 verified_formal_stat_bytes=0 input_sha256_read_bytes=64894667 candidate_sha256_read_bytes=14097349030 formal_sha256_read_bytes=0",
+      "[stk_mins_qfq_publication] event=stock_minute_file_publication_progress stage=completed validated_file_count=5571 promoted_file_count=5571 total_file_count=5571 target=- operation_directory=/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=1/run_id=036fe4b21c46dc8703e987217883839ba84915e739820bc45c09da9a4062b47b/scope=2fd25ed7ead3917f5874f2a79a51c2887685d05cb3e9e0be4dc69f02d97a06dd existing_build_target_stat_bytes=14024558618 frozen_input_stat_bytes=64894667 verified_candidate_stat_bytes=0 verified_formal_stat_bytes=14097349030 input_sha256_read_bytes=64894667 candidate_sha256_read_bytes=14097349030 formal_sha256_read_bytes=0",
+      "[stk_mins_qfq_macd_kdj] event=gold_stk_mins_qfq_macd_kdj_indicator_completed partition_key=2026-10-29 freq=1 source_file_count=11058 output_file_count=5570 output_row_count=1342370 replacement_row_count=1342370",
+      "[stk_mins_qfq_macd_kdj] event=gold_stk_mins_qfq_macd_kdj_state_completed partition_key=2026-10-29 freq=1 state_row_count=5595 previous_state_ready=True initialized_without_previous_state=False"
+    ]
+  },
+  "err": {
+    "bytes": 0,
+    "last_progress": []
+  }
+}

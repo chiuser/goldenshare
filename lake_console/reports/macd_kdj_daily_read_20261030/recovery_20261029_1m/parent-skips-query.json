@@ -1,0 +1,1 @@
+{"query": "query ParentSkippedSteps { runOrError(runId:\"98f3d25c-1380-47da-b079-b15701bdbbce\") {__typename ... on Run {runId eventConnection(limit:250) {hasMore cursor events {__typename ... on ExecutionStepSkippedEvent {stepKey message} ... on ExecutionStepFailureEvent {stepKey} ... on ExecutionStepSuccessEvent {stepKey}}}} ... on PythonError {message}}}"}

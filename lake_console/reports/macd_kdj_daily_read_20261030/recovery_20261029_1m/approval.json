@@ -1,0 +1,10 @@
+{
+  "user_approval": "确认，批准",
+  "scope": "LLD19.13: 2026-10-29 MACD/KDJ1m indicator/state and original four checks; pause MACD repair sensor; no historical repair",
+  "normal_budget_GiB": {
+    "read": 160,
+    "write": 26,
+    "additional_space": 32
+  },
+  "automatic_retry": false
+}

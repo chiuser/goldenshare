@@ -1,0 +1,12 @@
+{
+  "observed_at": "2026-10-30T09:12:00.401433+08:00",
+  "operation_directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=1/run_id=036fe4b21c46dc8703e987217883839ba84915e739820bc45c09da9a4062b47b/scope=2fd25ed7ead3917f5874f2a79a51c2887685d05cb3e9e0be4dc69f02d97a06dd",
+  "target_count": 5571,
+  "receipt_file_count": 5571,
+  "remaining_candidate_file_count": 0,
+  "retained_attempt_file_count": 2,
+  "retained_attempt_bytes": 64894667,
+  "formal_data_or_receipt_deleted": false,
+  "extra_parquet_content_reads": 0,
+  "retained_reason": "Frozen inputs, operation and per-file receipts are original resumability evidence, not disposable test files."
+}

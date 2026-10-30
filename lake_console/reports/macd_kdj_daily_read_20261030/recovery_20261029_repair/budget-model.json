@@ -1,0 +1,24 @@
+{
+  "source_Q_GiB": 0.026833422482013702,
+  "old_indicator_I_GiB": 0.0613397816196084,
+  "old_shared_state_S_GiB": 3.5834884783253074,
+  "candidate_C_estimate_GiB": 5,
+  "frozen_P_estimate_GiB": 0.25,
+  "Fr_Fw_each_GiB": 1,
+  "Tr_Tw_each_GiB": 2,
+  "normal_read_model_GiB": 16.983001464046538,
+  "normal_write_model_GiB": 8.25,
+  "conservative_space_GiB": 9.9,
+  "requested_normal_budget_GiB": {
+    "read": 20,
+    "write": 10,
+    "extra_space": 12
+  },
+  "not_a_runtime_resource_limit": true,
+  "automatic_retry": false,
+  "worst_second_execution_not_authorized_GiB": {
+    "read": 20,
+    "write": 10,
+    "space_with_retained_candidates": 24
+  }
+}

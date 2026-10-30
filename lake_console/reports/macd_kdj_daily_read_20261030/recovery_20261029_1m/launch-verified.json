@@ -1,0 +1,8 @@
+{
+  "observed_at": "2026-10-30T09:06:19.804554+08:00",
+  "run_id": "63c25bed-bdc8-4fee-9af8-0321b5b13ac7",
+  "status_at_submit": "QUEUED",
+  "scope_exactly_five_steps": true,
+  "root_and_parent_preserved": true,
+  "repair_sensor_status": "STOPPED"
+}

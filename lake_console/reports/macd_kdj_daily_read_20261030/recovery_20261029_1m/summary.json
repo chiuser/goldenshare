@@ -1,0 +1,49 @@
+{
+  "status": "formal_1m_recovery_success_history_repair_pending",
+  "implementation_commit": "5a0b13401",
+  "target_trade_date": "2026-10-29",
+  "target_freq": 1,
+  "formal_job_name": "gold_stk_mins_qfq_macd_kdj_daily_update_job",
+  "parent_root_run_id": "98f3d25c-1380-47da-b079-b15701bdbbce",
+  "formal_mutations_performed": true,
+  "reexecution_strategy_planned": "FROM_FAILURE",
+  "skip_completed_freqs": [
+    5,
+    15,
+    30,
+    60,
+    90,
+    120
+  ],
+  "proposed_budget_GiB": {
+    "Qy": 5.157646176405251,
+    "Qp": 5.840613000094891,
+    "I": 13.098598739132285,
+    "C_estimate_ceiling": 15,
+    "normal_read_formula_result": 155.474373103559,
+    "normal_write_formula_result": 24.128,
+    "read": 160,
+    "write": 26,
+    "extra_space": 32,
+    "automatic_retry": false
+  },
+  "repair_sensor_was_running": true,
+  "repair_sensor_pause_performed": true,
+  "pending_upstream_repair_code_count": 2,
+  "pending_upstream_repair_start": "2014-01-02",
+  "pending_upstream_repair_end": "2026-10-29",
+  "repair_history_not_in_budget": true,
+  "normal_test_results_reused": {
+    "passed": 315,
+    "subtests": 23
+  },
+  "new_blocking_code_findings": [],
+  "nonblocking_test_suggestion": "Use distinct previous state for the first and 65th active stock; static joins already match ts_code/freq and original AST is unchanged.",
+  "approval": "User explicitly confirmed the exact 1m range and temporary repair sensor pause.",
+  "manual_parquet_content_reads": 0,
+  "formal_reads_performed_by": "Original Dagster job only, under approved 160/26/32 GiB model; no physical device I/O measurement.",
+  "repair_sensor_final_status": "STOPPED",
+  "final_result": "final-verified.json",
+  "publication_final_metadata": "publication-final-metadata.json",
+  "history_repair_launched": false
+}
