@@ -1,19 +1,19 @@
-# DG指定日期自动审计：七项补充LLD
+# DG指定日期自动审计：五项补充LLD
 
 日期：2026-10-31。状态：已按管理员确认的精简口径修正，文档待review；脚本开发、隔离测试和正式数据审计均未执行。对应[修改方案](automatic-audit-script-plan.md)。本文件替代2026-10-30同路径的人工补查提纲作为开发细节，自动脚本验收前仍必须执行skill中的人工补查要求。
 
 ## 1. 硬口径、事实依据与范围
 
-P1按当前catalog及模型定义分类；P2周月检查物理数据与观察日期；P3公告允许合法零行；P4日历检查指定日及周期窗口；P5失败/未核实/等待不算通过；P6真正快照明确排除；P7原按日/Serving语义保留，移入既有计数及错误分类修正；P8同一文件不重复扫描；P9无正式副作用；P10报告和退出状态准确。测试映射见§12。
+P1按当前catalog及模型定义分类；P2周月检查物理数据与观察日期；P3公告允许合法零行；P4周月仅使用现有Silver日历作为日期依据；P5失败/未核实/等待不算通过；P6日历、真正快照及湖健康明确排除；P7原按日/Serving语义保留，移入既有计数及错误分类修正；P8同一文件不重复扫描；P9无正式副作用；P10报告和退出状态准确。测试映射见§12。
 
 源码依据以仓库`/Users/congming/github/goldenshare`为根：
 
 下文`defs/`均指`lake_console/orchestrator/src/orchestrator/defs/`；未来修改白名单中的`scripts/`指本机skill目录`/Users/congming/.codex/skills/audit-dg-datasets-by-date/scripts/`，不是仓库根scripts目录。
 
-- `lake_console/orchestrator/src/orchestrator/defs/catalog/lake_assets.py`：`LAKE_ASSET_CATALOG`、`PARTITION_MODEL_DEFINITIONS`、`LakeAssetCatalogEntry`、`PartitionModelDefinition`及七项注册。目录列表不是数据事实。
+- `lake_console/orchestrator/src/orchestrator/defs/catalog/lake_assets.py`：`LAKE_ASSET_CATALOG`、`PARTITION_MODEL_DEFINITIONS`、`LakeAssetCatalogEntry`、`PartitionModelDefinition`及五项注册。目录列表不是数据事实。
 - `defs/run_contracts/stock_period.py::period_for/source_period`：自然周坐标为周五，月坐标为YYYY-MM；`stock_period_update.py`只从此处导入函数，不为审计导入整个更新执行器。
-- `defs/paths.py`：七项正式路径；catalog已复用这些helper，执行器使用catalog模板，不再拼一套路径。
-- `defs/run_contracts/asset_column_schemas.py`：Raw/Silver周月的日期和频率列均为VARCHAR；公告六列均为VARCHAR；Raw日历cal_date为VARCHAR、is_open为INTEGER，Silver日历trade_date为DATE、is_open为BOOLEAN。
+- `defs/paths.py`：五项正式路径及现有Silver日历路径；catalog已复用这些helper，执行器使用catalog模板，不再拼一套路径。
+- `defs/run_contracts/asset_column_schemas.py`：Raw/Silver周月的日期和频率列均为VARCHAR；公告六列均为VARCHAR；作为日期依据的Silver日历trade_date为DATE、is_open为BOOLEAN。
 - `defs/anns_d_io.py::write_page/_audit_relation`：零行仍可生成合法Parquet，ann_date必须对应目标日，URL/rec_time允许缺失。原生公告检查会读取交付/源页，本审计不调用它们。
 - `defs/stock_period_update.py::evaluate_daily_sensor`及源文档doc365：19:30触发，源说明19—20点发布；不是Silver超时合同。
 - 原skill脚本的`_audit_trade_date/_stock_year_summary/_direct_summary/main`，以及28日归档`lake_console/reports/datasets_recovery_20261028_20261029/audit_count_only.py.txt`及同目录`test_audit_count_only.py.txt`：旧分类问题、计数/错误修正与直接调用方依据。归档代码只供审查，不改、不执行。
@@ -29,12 +29,11 @@ P1按当前catalog及模型定义分类；P2周月检查物理数据与观察日
 | `_parse_args` | 保留--date/--repo-root/--lake-root/--output-dir；用严格ISO格式加date解析拒绝不存在日期；重复日期按首次顺序去重 |
 | `_load_catalog` | 保留原返回catalog的入口；从同一repo加载模型定义；不得初始化instance、resource或扫描Lake |
 | `_build_audit_plan`（新增） | 纯函数：catalog/model核对、策略选择、精确文件、日期条件、排除/未知项、跨日期去重；不做IO |
-| `_load_calendar_windows`（新增） | 两个精确日历文件，各一次必要查询，为所有目标日期复用有限日历结果 |
+| `_load_calendar_windows`（新增） | 仅从现有Silver日历一次取得周月所需SSE日期依据，供所有目标日期复用；不生成日历审计结果，不读取Raw日历 |
 | `_period_summary`（新增） | 每个精确周/月文件一次统计，覆盖该路径所有请求日期的阈值；返回物理及更新观察，不读价格 |
 | `_announcement_summary`（新增） | 每个指定自然日文件一次ann_date统计，合法空与坏文件分开 |
-| `_calendar_summary`（新增） | 复用已加载日历结果，出指定日和必要窗口的覆盖结果，不再查询文件 |
 | `_stock_year_summary` | 同一年度文件族仅按所请求日期count(*)，去掉code_count及分钟时间极值；多日期同年合并到一次计数查询 |
-| `_normalize_report`（新增） | 六组叶子结果统一分类、互斥计数、缺失/滞后/等待/未核实列表和最终判定 |
+| `_normalize_report`（新增） | 五组叶子结果统一分类、互斥计数、缺失/滞后/等待/未核实列表和最终判定 |
 | `_audit_trade_date/main` | 单日和多日期使用同一套实现；一次调用固定observed_at和缓存，开始时一次检查Lake根并建立共享连接；失败直接报错退出。保留单日函数及三项原必传参数，不另建旧版本执行分支 |
 
 实现可增加少量只负责版本stat、日期归一化和JSON输出的私有函数，不能引入另一套正式入口或通用治理框架。文件数和策略事实从catalog发现；测试使用同样的实际catalog定义或独立小型合同。
@@ -46,31 +45,25 @@ P1按当前catalog及模型定义分类；P2周月检查物理数据与观察日
 1. 先校验asset key不重复、模型存在、模型定义唯一且family/layout与模板相容；重复或冲突记classification_issues，禁止数量抵消。
 2. 按日Serving沿原`_is_trade_date_serving`、backend和表白名单；不把无日期的Serving快照混入。
 3. TRADE_DATE_PARTITION按实际PARTITION_FILE/STOCK_YEAR_FILE选择原两类查询，不再由名称前缀决定业务含义。
-4. 周/月模型仅对当前已明确的股票复权Raw及股票Silver策略执行§5；自然日公告按§7；trade_cal两模型按§4。策略绑定模型枚举和预期family/layout，字段/路径仍读catalog，不能只看到自然周/自然日就假定其他新数据集同语义。
+4. 周/月模型仅对当前已明确的股票复权Raw及股票Silver策略执行§5；自然日公告按§7。策略绑定模型枚举和预期family/layout，字段/路径仍读catalog，不能只看到自然周/自然日就假定其他新数据集同语义。
 5. 已明确的13项全量快照按对应模型排除，理由为full_snapshot_not_daily_completeness：Raw/Silver stock_basic、silver_stock_lifecycle、Raw/Silver namechange、silver_stock_identity_map、Raw/Silver index_basic、Raw/Silver etf_basic、silver_dc_industry_hierarchy、silver_stock_suspend_confirmed、prod_core_wealth_sector_hierarchy。
-6. lake_root_health对应已知无文件平台模型排除，理由为platform_health_not_daily_completeness。
-7. 上述排除策略只声明“不适用日级正行数”，不维护另一份catalog/路径/字段；新模型不因family=FULL_FILE或NON_PARTITIONED就自动排除。没有明确策略的模型、未知模板、需要新后端的对象记unclassified_asset_keys及原因，不能报no_physical_location后算分类成功。
+6. `raw_tushare_trade_calendar`及`silver_trade_calendar`按管理员确定的范围排除，理由为calendar_excluded_by_scope；不生成独立审计结果或Raw/Silver对账。Silver日历仅作为§4的周月日期依据。
+7. lake_root_health对应已知无文件平台模型排除，理由为platform_health_not_daily_completeness。
+8. 上述排除只说明本次不审计，不代表废弃、健康或新鲜度通过，不维护另一份catalog/路径/字段；新模型不因family=FULL_FILE或NON_PARTITIONED就自动排除。没有明确策略的模型、未知模板、需要新后端的对象记unclassified_asset_keys及原因，不能报no_physical_location后算分类成功。
 
-七项以各自asset key只出现一次，不能同时在结果和excluded中出现。当前范围应由catalog推导出166/14，但测试还须插入第181项未知模型，证明它报未分类而非自动排除。
+五项以各自asset key只出现一次，不能同时在结果和excluded中出现。当前范围应由catalog推导出164/16，但测试还须插入第181项未知模型，证明它报未分类而非自动排除。两项日历只在excluded中列明，不进入审计结果或通过/缺失/未核实计数。
 
-## 4. 日期上下文和日历读取
+## 4. 日期上下文和周月日期依据
 
 主入口一次获取UTC带时区observed_at，统一转换Asia/Shanghai用于“当天”和源窗口；generated_at可继续用UTC。测试把时钟传入纯逻辑，不新增面向运营的时间覆盖参数。指定日期D与观察日期分开，不能把历史D改成系统当天。
 
 周期坐标复用`run_contracts.stock_period.period_for`。周窗口从D所在周周一至D，月窗口从D所在月1日至D；周六/日仍落本周周五。每个D所需自然日最多31个，两种窗口求并集，多D按实际日期集合去重，不把相隔数月的两个日期扩成中间整段历史。SQL只查SSE与这些日期。
 
-Raw查询cal_date、is_open，参数用YYYYMMDD；Silver查询trade_date、is_open，参数为DATE。预期schema按catalog核对，不依赖INTEGER与BOOLEAN、字符串与DATE之间的隐式转换。每份日历在同一查询中按日期分组，返回每个所需日期的行数、合法开市/休市计数、NULL/非法标志计数；至多返回所需日期数，不fetch全日历。缺日期由预期集合与返回集合求差。
+仅为确定周月应有的更新日期，从现有Silver日历读取所需SSE记录，字段为trade_date DATE及is_open BOOLEAN，日期参数使用DATE。同一查询按日期分组，取得记录数和开休市标志，返回不超过所需日期数的结果，不取全日历，不读取Raw日历，不做两层对账。
 
-- 指定日0行：该日历结果是missing_date_rows；重复或坏标志是invalid_data；读失败是unreadable_file/未核实。正常休市1行是present。
-- 周期所需Silver日历日期有缺失、重复、NULL或类型问题，不能只从剩余开市记录猜应有日；相关周月更新判断为unverified。
-- Silver是当前周期生产代码采用的依据。Raw不可读但Silver有效时，可用Silver计算，并独立报告Raw未核实；Silver不可用时不偷偷用Raw兜底。两者都有效而同日开休市冲突时，报告calendar_conflict，相关周期未核实。
-- 有效窗口最后一个open日是expected_source_date；没有open日则not_due。Raw/Silver日历结果同时包含requested_date_covered和window_coverage，不能用“指定日有记录”隐藏月内缺日。
+日期依据必须能够唯一确定窗口内每天的开休市状态。所需记录缺失、重复、NULL、类型不符、文件不可读或读取前后改变时，只把受影响周月的日期判断记为unverified并说明依据不足；不另生成日历叶子结果或缺口统计，不从剩余日期猜测，也不使用Raw日历兜底。现有日历正常可用时，最后一个open日为expected_source_date；整个窗口均休市则not_due。
 
-未来D也按日历的上述覆盖规则判断：不能因日期尚未来临，把缺日历记录自动改成等待。日历未能提供有效窗口时，周月按§6报未核实；此时没有可靠的应更新日，不计算一个假设的等待时刻。
-
-日历自身的assessment规则：已确认缺日或重复/非法标志为gap；读取/schema问题或两端已知冲突为unverified；指定日及必要窗口合法完整为satisfied。指定日有记录但窗口缺日时，物理status可保留present，assessment必须为gap。窗口里发现的Raw/Silver矛盾不能让两日历仍被汇总成正常；只对实际受影响窗口施加冲突，未涉及日期不扩大。
-
-不读取其它交易所，也不要求新增SZSE。不声称检查了所需日期集合外的坏记录或整份日历质量。
+未来D同样需要可用日期依据；无法确定应更新日时，相关周月为unverified，不设假定等待时刻。日历只作为计算依赖，不能因读取它就声称本次审计了日历。两项日历保持§3中的排除状态；不读取其它交易所、不要求新增SZSE、不对照交易所公告。
 
 ## 5. 周/月文件统计SQL和日期判定
 
@@ -123,7 +116,7 @@ not_due的物理status为not_checked_not_due，不能仅凭stat非0字节填入�
 
 ## 8. 多日期、文件身份、原范围和只读连接
 
-一次调用建立共享上下文：observed_at、catalog/model、去重日期、文件计划和内存缓存。每个七项目标读前/读后比较dev/inode/size/mtime_ns/ctime_ns；变化则该文件涉及且需要内容的全部日期结果未核实，不扩大到本来不要求读取的not_due日期。不自动再读、不混用新旧缓存，不声称跨所有文件拥有数据库快照。
+一次调用建立共享上下文：observed_at、catalog/model、去重日期、文件计划和内存缓存。每个五项目标及必要的Silver日历读前/读后比较dev/inode/size/mtime_ns/ctime_ns；目标变化则该文件涉及且需要内容的全部日期结果未核实，不扩大到本来不要求读取的not_due日期；日历变化按§4使受影响周月的日期依据未核实，不生成日历审计结果。不自动再读、不混用新旧缓存，不声称跨所有文件拥有数据库快照。
 
 年度文件族沿原模板和请求年份，仅执行`count(*)`，按所请求日期过滤并分组，多日期同年合并。不能读取ts_code、trade_time、OHLC做无关摘要。文件族不存在须先有安全枚举的元数据依据；把所有DuckDB IOException都当不存在的旧逻辑必须移除。只有明确没有匹配文件或成功查询为0才报missing_date_rows；损坏、权限、IO和SQL错误一律未核实。沿用28日安全枚举思路但按请求年份泛化，不硬编码2026，不扫描其他年份。
 
@@ -135,16 +128,16 @@ DuckDB复用`connect_configured_duckdb(DuckDBConnectionSettings(temp_directory=P
 
 ## 9. 报告版本2与计数定义
 
-每个D仍生成一份JSON，保留trade_date（其值仍是所请求日期，并不表示所有对象都是交易日分区）、audit_kind及原三组direct_partition_assets/stock_year_partition_assets/serving_partition_assets。新增period_partition_assets、natural_date_partition_assets、reference_date_assets。一个asset在六组中只能出现一次；每个结果必须包含原始status及归一化assessment_status，必要时有reason和有界error。周月另有period_key、expected_source_date、max_source_date、各日期计数、update_status、source_window_status。日历包含指定日和窗口结果；公告包含source_delivery_status。
+每个D仍生成一份JSON，保留trade_date（其值仍是所请求日期，并不表示所有对象都是交易日分区）、audit_kind及原三组direct_partition_assets/stock_year_partition_assets/serving_partition_assets。新增period_partition_assets、natural_date_partition_assets。一个asset在五组中只能出现一次；每个结果必须包含原始status及归一化assessment_status，必要时有reason和有界error。周月另有period_key、expected_source_date、max_source_date、各日期计数、update_status、source_window_status；公告包含source_delivery_status。两项日历仅列excluded及范围排除理由，不生成独立结果或日历输出字段。
 
 `report_schema_version=2`、observed_at固定，generated_at为报告完成时间；新增declared_scope说明这是物理、必要日期及覆盖审计，不是全量质量、全市场对象覆盖或历史任务成功证明。旧JSON不重写。年度原可选code_count/min_trade_time/max_trade_time不再生成，方案已核对的消费者仅归档使用；不能保留虚假空字段假装统计过。
 
-- audited_asset_count=六组实际选入的asset数，包含读取失败的未核实项，不表示通过数。
-- excluded_asset_count=有明确非日级适用理由的asset数；unclassified_asset_keys为无策略/冲突对象。分类三组必须互斥，catalog总数=审计数+排除数+未分类数。未知项仍须保留诊断结果，不能漏出总数。
+- audited_asset_count=五组实际选入的asset数，包含读取失败的未核实项，不表示通过数。
+- excluded_asset_count=有明确不适用或管理员限定范围排除理由的asset数；unclassified_asset_keys为无策略/冲突对象。分类三组必须互斥，catalog总数=审计数+排除数+未分类数。未知项仍须保留诊断结果，不能漏出总数。
 - catalog_classification_complete只在无未分类、无重复/冲突且上述恒等式成立时为true。
 - present_asset_count=物理有正行数且目标日期/周期位置可确认的对象数；更新落后但有行可保留在此数中，因此它绝不能单独代表审计通过。
 - physical_missing_asset_count为确认文件不存在/0字节、指定日期成功计数为0等物理缺失asset去重数；不包括不可读、未知或可读零行文件。其明细分别沿用missing_file_asset_keys、missing_date_rows_asset_keys、missing_serving_asset_keys。
-- present_zero_row_asset_keys与present_zero_row_asset_count单列目标分区文件total_rows=0的可读零行，不将年度/日历/Serving的日期过滤结果0混入此列表；allowed_zero_row_asset_keys与allowed_zero_row_asset_count只含已明确允许空的公告。原按日资产的零行没有本轮获准的具体允许空合同，则assessment=unverified，不擅自报源缺失或通过。
+- present_zero_row_asset_keys与present_zero_row_asset_count单列目标分区文件total_rows=0的可读零行，不将年度/Serving的日期过滤结果0混入此列表；allowed_zero_row_asset_keys与allowed_zero_row_asset_count只含已明确允许空的公告。原按日资产的零行没有本轮获准的具体允许空合同，则assessment=unverified，不擅自报源缺失或通过。
 - update_behind_asset_keys与update_behind_asset_count单列日期落后；pending_asset_keys、not_due_asset_keys、unverified_asset_keys及分组未核实列表分别给出。错误/不可读不得进入missing列表。
 - 最终assessment五组互斥，其数量相加必须等于audited_asset_count。data_gap_asset_keys与data_gap_asset_count来自assessment=gap；audit_evidence_complete要求无未分类/未核实；audit_passed要求分类完整、证据完整、gap=0且pending=0。not_due及公告允许空不阻断本次范围审计。任何“通过”必须带declared_scope，不能说全部180项健康。
 
@@ -160,7 +153,7 @@ stdout每日期摘要必须输出版本、范围、物理缺失、零行、滞�
 | --- | --- | --- |
 | status | 字符串 | 按§4—8及既有Serving分支取值；例如present、missing_file、unreadable_file、allowed_zero_rows、invalid_data、not_checked_not_due |
 | assessment_status | 字符串 | 仅satisfied、gap、pending、not_due、unverified；每项一个结果 |
-| row_count | 整数或null | 目标文件总行数；日历/年度/Serving为所请求日期行数；未完成统计为null |
+| row_count | 整数或null | 目标文件总行数；年度/Serving为所请求日期行数；未完成统计为null |
 | reason、error | 可选字符串 | 说明原因；error仅存不含凭据的简短错误，不另建错误分类体系 |
 | period_key | 字符串 | 周为YYYY-MM-DD周五，月为YYYY-MM |
 | expected_source_date、max_source_date | 日期字符串或null | 前者仅有效日历可推导；后者仅本次聚合取得合法非NULL end_date时有值 |
@@ -168,13 +161,10 @@ stdout每日期摘要必须输出版本、范围、物理缺失、零行、滞�
 | null_end_date_count、invalid_end_date_count、invalid_trade_date_count、invalid_freq_count | 整数或null | 周月本次SQL取得的各类计数；未查询或失败为null |
 | update_status | 字符串 | §5的date_observed、behind、unverified、not_due；invalid_data使本项更新判断为unverified，最终assessment仍按§6为gap |
 | source_window_status | 字符串 | 有应更新日时，observed_at早于其20:00为pending，否则elapsed；周期无开市日为not_due；日历无法判定为unverified。该字段不覆盖读取错误或非法数据 |
-| requested_date_covered | 布尔或null | 日历指定日有合法唯一记录为true；成功查明不满足为false；无法读取/核验为null |
-| window_coverage | 字符串 | 日历必要窗口合法完整为complete，查明缺日/坏记录为incomplete，读取失败或两端冲突为unverified |
-| window_missing_dates、window_invalid_dates、window_conflict_dates | 日期字符串数组 | 日历已查明的对应日期，去重排序；无法取得证据时为空数组，并由window_coverage=unverified说明，不能当成没有问题 |
 | source_delivery_status | 字符串 | 公告始终为not_checked，无论正行还是合法零行；本工具不核对源交付 |
 | declared_scope | 字符串 | 报告根字段，说明“物理数据与必要日期覆盖；不代表全市场对象、全部质量检查或历史任务成功” |
 
-周月字段在周月结果中提供，日历字段在日历结果中提供，source_delivery_status在公告结果中提供；不适用其它类型的字段不添加。五个assessment列表分别固定为satisfied_asset_keys、data_gap_asset_keys、pending_asset_keys、not_due_asset_keys、unverified_asset_keys；对应数量分别为satisfied_asset_count、data_gap_asset_count、pending_asset_count、not_due_asset_count、unverified_asset_count。列表均为去重排序的asset key数组，空列表与0计数照常输出。unverified_lake_asset_keys和既有unverified_serving_asset_keys只是未核实列表的分组，不再加入五组数量相加。
+周月字段在周月结果中提供，source_delivery_status在公告结果中提供；不适用其它类型的字段不添加。五个assessment列表分别固定为satisfied_asset_keys、data_gap_asset_keys、pending_asset_keys、not_due_asset_keys、unverified_asset_keys；对应数量分别为satisfied_asset_count、data_gap_asset_count、pending_asset_count、not_due_asset_count、unverified_asset_count。列表均为去重排序的asset key数组，空列表与0计数照常输出。unverified_lake_asset_keys和既有unverified_serving_asset_keys只是未核实列表的分组，不再加入五组数量相加。
 
 下例只演示一个月文件有3行、其中2行截至28日、1行合法NULL，审计29日且源窗口已过；不是正式数据或完整报告：
 
@@ -212,7 +202,7 @@ stdout每日期摘要必须输出版本、范围、物理缺失、零行、滞�
 | 周期审计时间规则 | 内部策略，Asia/Shanghai；源说明20:00窗口末端 | 仅解释当天等待；不是新可调参数或Silver完成期限 |
 | DuckDB参数 | §8的既有helper/default，进程内、不持久化 | 仅审计连接，不影响任何job |
 
-日期格式错误用现有argparse错误方式，无查询。未来D保留可观察的物理结果，不设统一覆盖所有类别的pending规则：日历按§4的实际覆盖结果；周月按§6，缺有效日历依据为unverified，能够确定应更新日且尚未到该日源窗口末端才为pending；公告按§7，未来文件尚未生成可pending，读取失败仍unverified，明确错日仍gap。原按日对象的既有日期合同不在本轮重定义。
+日期格式错误用现有argparse错误方式，无查询。未来D保留可观察的物理结果，不设统一覆盖所有类别的pending规则：周月按§6，缺有效日历依据为unverified，能够确定应更新日且尚未到该日源窗口末端才为pending；公告按§7，未来文件尚未生成可pending，读取失败仍unverified，明确错日仍gap。原按日对象的既有日期合同不在本轮重定义。
 
 开始实际审计前，只对所选Lake根做一次普通只读检查：stat确认它存在且为目录，再以scandir打开目录确认可读取，不递归遍历。不存在、不是目录或无法读取就清楚报错并以非0结束，不继续Serving，不生成部分结果。不得为了检查可用性创建目录或调用会写探测文件的ensure_available_for_run/evaluate_lake_root_health；也不新增挂载监控、设备探测或定时检查。显式隔离测试根按同一规则检查。
 
@@ -226,11 +216,11 @@ Lake根检查通过后建立共享DuckDB连接；构造或进入连接上下文�
 
 ## 11. 性能预算、必要性与中断收尾
 
-令N为去重日期数、W/M为其不同自然周/月数、F=2W+2M+N。新增七项的不同Parquet最多F+2份（另2份日历）；例：23/26/27日对应2周、1月、3公告，最多11份，不能按7×3重复读21份。每个周/月文件聚合一次，公告每文件一次，日历各一次；schema/footer读取和stat前后核对计为元数据访问，不冒称零IO。
+令N为去重日期数、W/M为其不同自然周/月数、F=2W+2M+N。新增五项对应的不同Parquet最多F份，另有1份必要的Silver日历；例：23/26/27日对应2周、1月、3公告，合计最多10份，不能逐日期重复扫描同一文件。每个周/月文件聚合一次，公告每文件一次，Silver日历仅一次有界查询；Raw日历读取为0。schema/footer读取和stat前后核对计为元数据访问，不冒称零IO。
 
-令B为这些精确文件stat字节和，C为只投影三列周月、ann_date公告及日历必要列后的实际读取量。正常新增读取保守按B加必要footer/目录元数据估算，但B不是实测磁盘读量，不能把列投影当作固定压缩比。若实际文件规模不明，运行前先列精确stat，不读取内容测性能。日历返回记录上界为所需自然日数，≤31N；周月每条聚合返回一行统计，单文件日期阈值≤31，不返回股票明细。
+令B为上述五项文件及必要Silver日历的精确stat字节和，C为只投影三列周月、ann_date公告及Silver日期依据列后的实际读取量。正常新增读取保守按B加必要footer/目录元数据估算，但B不是实测磁盘读量，不能把列投影当作固定压缩比。若实际文件规模不明，运行前先列精确stat，不读取内容测性能。Silver日期依据返回记录上界为所需自然日数，≤31N；周月每条聚合返回一行统计，单文件日期阈值≤31，不返回股票明细。
 
-原159项预算另列，不藏入F：原直接文件逐路径一次计数，年度族按请求年份/日期计数且同族同年一次查询，Serving沿原日期过滤；不读额外年份或行情字段。年度/全局仅计数例外不能被扩大为详情或计算。已有较大范围不因新增七项授权重新全局审计。
+原159项预算另列，不藏入F：原直接文件逐路径一次计数，年度族按请求年份/日期计数且同族同年一次查询，Serving沿原日期过滤；不读额外年份或行情字段。年度/全局仅计数例外不能被扩大为详情或计算。已有较大范围不因新增五项授权重新全局审计。
 
 正常正式业务写入0、源请求0、额外源下载0、COPY0、spill0、持久化checkpoint0；报告空间按实际JSON输出字节R计。报告写入过程临时及最终文件共存按2R预算，不把它叫行情写入。正常一次统计；中断不自动重跑，若管理员后来明确重新执行同范围，预算再预留B及原范围的一轮计数；进程内缓存不承诺跨进程复用。最终验收只检查报告结构/计数和已经保存的结果，不二次扫描数据。无数值依据时不承诺秒数、GiB或“读取一定下降多少”。
 
@@ -240,19 +230,19 @@ Lake根检查通过后建立共享DuckDB连接；构造或进入连接上下文�
 
 | 硬口径 | 必须覆盖的正反场景 | 代码落点 |
 | --- | --- | --- |
-| P1 分类 | 当前catalog七项都被选入，166/14从事实计算；插入未知模型/坏模板/重复asset，不能静默排除或抵消 | 规划、normalize |
+| P1 分类 | 当前catalog五项都被选入，164/16从事实计算；两项日历仅在排除清单，不进入审计叶子及通过/缺失/未核实计数；插入未知模型/坏模板/重复asset，不能静默排除或抵消 | 规划、normalize |
 | P2 周月 | 四项参数化：29日文件有行但最大28→滞后；29日达到→观察通过；旧/NULL部分行不误拦；全NULL→未核实；非法日期/频率/周期/缺列拒绝；更晚合法数据不能当历史当天成功；Raw月文件名data.parquet | period查询与判定 |
-| P2/P4 日期 | 周中、周六/日、跨月/跨年、闰月、20200228与29同月；整周期休市不强求文件；缺日历不能猜；未来日历未覆盖仍按覆盖结果，相关周月未核实；有日历且未来行情未到窗口则等待；未来公告缺文件可等待，读取失败/错日不被等待覆盖；跨年只查所选周期，不读整个历史 | 规划、日历、period |
+| P2/P4 日期 | 周中、周六/日、跨月/跨年、闰月、20200228与29同月；整周期休市不强求文件；缺日历依据不能猜，未来日历依据不足同样使相关周月未核实；有日历且未来行情未到窗口则等待；未来公告缺文件可等待，读取失败/错日不被等待覆盖；跨年只查所选周期，不读整个历史 | 规划、日期依据、period |
 | P3 公告 | 实际六列VARCHAR样本的正行和合法0行、0字节、错ann_date、缺schema、NULL URL/rec_time；0行不调用源/原检查，不伪报交付完成 | announcement |
-| P4 日历 | Raw INTEGER与Silver BOOLEAN真实合同、正常开市/休市、缺记录/重复/NULL/错类型、窗口缺日、两端冲突、无SZSE也正常、Raw坏但Silver有效与Silver坏时不暗自兜底 | calendar |
+| P4 周月日期依据 | 现有Silver BOOLEAN/DATE合同及正常开休市例子；缺少可靠日期依据或文件读取中改变→仅受影响周月未核实；Raw日历无任何读取、无两层对账、不生成日历字段或独立结果；无SZSE也正常 | 日期依据、period |
 | P5 状态 | 当天19:29/19:30/19:59/20:00，目标未到→窗口内等待/窗口后滞后；周六早晨不能替周五缺口继续等20点；已到日期不强制等待；读失败不伪装等待；不把20点当Silver超时；文件前后版本变化→未核实且0重读 | 时钟与normalize |
-| P6 排除 | 当前13快照+health各有正确理由；ETF snapshot_id不任取目录；新FULL_FILE模型不自动排除；输出不声称14项健康 | 规划、报告 |
+| P6 排除 | 当前2日历+13快照+health各有正确理由；日历范围排除与快照不适用日级判断分开；ETF snapshot_id不任取目录；新FULL_FILE模型不自动排除；输出不声称16项健康 | 规划、报告 |
 | P7 既有行为 | 原日表/Serving叶子与日期/表参数保持；年度仅目标年/date COUNT；无匹配文件与真实0行→缺失，损坏/权限/SQL失败→未核实，零行不混物理缺失；其它年份禁止读 | 原入口、annual、normalize |
-| P8 成本 | 23/26/27文件计划正好11份上界；同月/同周多日期每实际文件一次聚合；两日历各一次；稀疏日期不拉中间月份；收尾0数据查询 | 共享上下文、SQL记录 |
+| P8 成本 | 23/26/27文件计划正好10份上界；同月/同周多日期每实际文件一次聚合；Silver日历一次、Raw日历0读取；稀疏日期不拉中间月份；收尾0数据查询 | 共享上下文、SQL记录 |
 | P9 隔离 | 禁正式Lake/staging/home、网络、Tushare、job/sensor/check写入；测试只能临时根；模块import只定义不执行；根不存在/不可读或连接建立失败→报错退出、无Serving调用、不补部分结果；根正常且单文件缺失→正常报告缺失；已有连接上的单文件查询失败→仅该项未核实；不写探测文件；失败和取消释放连接、清理自己的临时报告且不删旧JSON | 测试guard、main |
 | P10 报告 | 带滞后/等待/未核实即audit_passed=false；公告合法空不增加缺失；五assessment互斥且数量正确；未知分类为false；日期ISO字符串/null、计数0/null和窗口枚举与§9.1字面示例一致；正常CLI输出0不等于通过；初始化/输出失败非0；输出冲突/失败不覆盖历史JSON | normalize、CLI |
 
-测试夹具先按上述生产者合同建立：Raw日历INTEGER、Silver BOOLEAN/DATE、公告全六列VARCHAR、周月必要日期列VARCHAR。关键日期、计数和分类使用独立字面预期，不用被测period_for/normalize生成expected。真实小Parquet由隔离DuckDB创建，实际运行新增聚合SQL；schema/日期错误样本明确用于反例。Serving网络可替身但必须断言确切资源/表/日期/只读设置，不能声称真实DB验收。
+测试夹具先按上述生产者合同建立：日期依据使用现有Silver BOOLEAN/DATE、公告全六列VARCHAR、周月必要日期列VARCHAR。不为已排除的Raw日历创建审计夹具。关键日期、计数和分类使用独立字面预期，不用被测period_for/normalize生成expected。真实小Parquet由隔离DuckDB创建，实际运行新增聚合SQL；schema/日期错误样本明确用于反例。Serving网络可替身但必须断言确切资源/表/日期/只读设置，不能声称真实DB验收。
 
 采用现有orchestrator `.venv/bin/python3 -B -m pytest`显式指向skill测试，输出到专属临时目录；不uv sync、不改PYTHONPATH、不安装依赖。不调用正式producer入口绕开其路径保护。测试guard拦正式资源和网络，证明最小“真实合同小文件→实际审计函数→JSON/摘要”通过，名称仅为隔离集成，不冒称正式job端到端。
 
@@ -260,6 +250,6 @@ Lake根检查通过后建立共享DuckDB连接；构造或进入连接上下文�
 
 ## 13. 文档阶段复核与下一步
 
-文档自审须逐项核对：方案七项与本LLD相同、保留既有正确修正、scope动态计数、Silver BOOLEAN合同、公告空与源交付分开、period_for真实来源、窗口与完成时间分开、同文件一次聚合、错误不算缺失、零行不混缺失、未知不排除、无正式副作用、CLI退出语义保持、正常/中断/收尾预算完整。另核对本次精简修正：根与连接初始化失败直接退出、无继续其它后端的降级流程；未来日期依各类具体规则；必要字段及简短例子明确，不增加运行时schema校验框架。
+文档自审须逐项核对：方案五项与本LLD相同、两项日历只排除不出独立结果、Silver日历仅用于周月日期依据、无Raw日历读取/两层对账/日历专属输出、保留既有正确修正、scope动态计数、Silver BOOLEAN合同、公告空与源交付分开、period_for真实来源、窗口与完成时间分开、同文件一次聚合、错误不算缺失、零行不混缺失、未知不排除、无正式副作用、CLI退出语义保持、正常/中断/收尾预算完整。另核对本次精简修正：根与连接初始化失败直接退出、无继续其它后端的降级流程；未来日期依各类具体规则；必要字段及简短例子明确，不增加运行时schema校验框架。
 
-本轮只发布方案、更新LLD与SKILL链接，验证文档及原脚本未改变；不运行本表测试或正式审计。管理员review后，下一步才按§2白名单开发、隔离测试和实现对账。自动入口验收通过前，SKILL保留七项人工补查要求；通过后同次回写已实现状态和报告解释，不留新旧两套审计执行逻辑。
+本轮只发布方案、更新LLD与SKILL链接，验证文档及原脚本未改变；不运行本表测试或正式审计。管理员review后，下一步才按§2白名单开发、隔离测试和实现对账。自动入口验收通过前，SKILL保留五项人工补查要求；通过后同次回写已实现状态和报告解释，不留新旧两套审计执行逻辑。
