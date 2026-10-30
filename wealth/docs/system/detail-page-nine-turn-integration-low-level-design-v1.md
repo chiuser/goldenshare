@@ -10,6 +10,8 @@
 >
 > 正式设计：[Goldenshare Web](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?m=dev)
 
+> 2026-10-30 补充状态：历史 M0～M6 验收保持。本次主要指数九转跨日日期判断修复对应总方案第 6.4 节和本文第 6.5 节；目前只完成文档设计，未修改代码、reload、触发 job 或补 29 日数据，不能用文首历史完成状态代替本次验收。
+
 ---
 
 ## 1. 目的、范围与结论
@@ -391,10 +393,144 @@ gold_major_index_mins_nineturn_update_job_sensor
 约束：
 
 1. 分钟 job 精确选择六个资产和六个 checks。
-2. sensor 以同分区上游 materialization + blocking checks 通过为唯一触发门禁。
-3. sensor 定义初始默认 `STOPPED`；正式实例持久化状态是独立运行事实，当前状态见第 4.5 节。M6 仍必须完成自然触发验收。
+2. sensor 必须先核日期注册和目标完整性，再核同分区上游 materialization + blocking checks 及前一注册日九转；完整顺序和跨日修复见第 6.5 节，不得把同日上游通过当作唯一门禁。
+3. sensor 定义初始默认 `STOPPED`；第 4.5 节为带日期的历史快照，正式实例持久化状态须按操作时点核实。历史 M6 自然触发已验收，但不覆盖第 6.5 节新发现的跨日场景。
 4. 历史构建使用有界批次、compact seed、逐文件原子提升和 checkpoint；不全历史单 SQL 常驻内存。
 5. 本文不授权任何历史写入、动态分区登记或 runless event。
+
+### 6.5 主要指数九转跨日日期判断修复 LLD（2026-10-30，待实施）
+
+#### 6.5.1 对应目标、依据与实施边界
+
+对应总方案第 6.4 节。目标是：期望窗口末尾存在尚未注册日期时，仍能按原检查和最早未完成顺序处理已经注册的旧日期；窗口内部真正漏注册时继续停止。现有 `gap.ready` 要求整个窗口都注册，不能再作为是否处理旧日期的总开关。
+
+证据来源为总方案第 6.4.1 节的原 tick、run、原检查及 Git 核验；不重读行情来重复证明。29 日上游四项检查的原生 `partition` 为 NULL，但均通过 `targetMaterialization.storageId=7791240` 关联到 29 日 run `140070cc`；`sensors/readiness.py` 当前按该关联判断，不能将按 check partition 查询为空误报为缺检查。本轮保持此读取语义。
+
+| 位置 | 本次处理 |
+|---|---|
+| `lake_console/orchestrator/src/orchestrator/defs/sensors/major_index_nineturn_sensor.py` | 只修改共用 `_evaluate` 的日期分支及 `_cursor` 的小型注册摘要；日线/分钟两个入口共同生效 |
+| `lake_console/orchestrator/tests/test_major_index_nineturn_sensors.py` | 修正旧测试对尾部缺口的错误假设，新增日线/分钟跨日与保护条件回归，以及真实临时日历链路 |
+| `defs/asset_guards/bounded_continuity.py` | 阅读并直接复用 `has_internal_gap`、`actionable_expected_trade_dates` 及原 selector；不修改通用语义和其他消费者 |
+| `defs/sensors/cn_a_trade_day_sensor.py`、`index_trade_day_sensor.py` | 保留当日 16:00 注册行为；九转 sensor 不注册日期、不复制时间常量 |
+| `defs/asset_guards/major_index_nineturn.py`、公式、source planner、writer、job/check 定义 | 不修改；原完整性检查与计算结果保持 |
+| `defs/sensors/index_daily_nineturn_prod_core_sensor.py`、Prod publisher/check、Reader/API、Web | 不修改；继续接续同日 Gold 原 job 成功并复核检查 |
+
+CodeGraph 使用 `codegraph_explore` 定位共用 `_evaluate`，再核对上述当前实现和测试，确认两个主要指数 Gold sensor 共用分支、Prod 仅监听日线 Gold 成功。索引返回的同名其他 `evaluate` 不作为本次影响面。股票九转、其他数据集和 shared helper 的消费者均不迁移。本次不新增配置项、依赖、入口、schema 或状态表。
+
+#### 6.5.2 保留的配置、数据与运行合同
+
+| 现有值或合同 | 来源与作用 | 本次要求 |
+|---|---|---|
+| 日线 10 日、分钟 5 日 | `run_contracts/major_index_nineturn.py` 的两项 `MAJOR_INDEX_NINETURN_SENSOR_WINDOW_*`；调用窗口 loader | 保留；不回补窗口外日期来凑数量 |
+| `same_day_register_start=None` | 本 sensor 传给 `load_expected_trade_date_window` 的现有参数 | 保留；期望窗口可包含今天，实际可行动范围由注册事实决定 |
+| 当日 16:00 起注册 | `cn_a_trade_day_sensor.py:SAME_DAY_PARTITION_REGISTER_START`，由 `index_trade_day_sensor` 复用 | 不调整、不复制到本 sensor；16:00 后注册暂未完成也不能阻止此前已注册日期 |
+| `cn_a_index_trade_days` / `cn_major_index_mins_trade_days` | 日线/分钟各自原分区定义 | 不互借、不新增或删除日期 |
+| 600 秒、最多一个请求 | 原 sensor 定义及 `_evaluate` | 保留；不改默认 `STOPPED`，不清实例开关/cursor |
+| 日线 Gold 上游及四项检查 | `gold_market_major_indices_daily_ready_for_trade_date` | 保留物化关联检查，不改成仅看文件或行数 |
+| 分钟六频 Gold 上游 | `_MINUTE_UPSTREAM_SPECS` / `partition_dataset_readiness_status_from_latest_checks` | 保留同分区六频检查，不读 Silver，不增加 1 分钟九转 |
+| 前一日及幂等键 | 从完整 `registered` 集合找 `< target` 的最大值；原 `build_asset_update_run_key` | 保留窗口外前日检查、原 job subject 和日期，不用 cursor 解析执行参数 |
+| Lake 与 staging | `/Volumes/datasource/data_lake`、`/Volumes/datasource/data_lake_staging` | 原路径与原 writer 不变；无备份、旧湖或 Kopia |
+
+#### 6.5.3 `_evaluate` 的准确顺序
+
+1. 按原 `minute` 分支选择 job、sensor、分区集和窗口上限。进入 `try` 前初始化 `gap = None`，保证异常分支也可构造 cursor。
+2. 保留 Lake 可用性、中央 DuckDB 连接和原 `load_expected_trade_date_window` 调用；读取一次原完整注册集合并排序。不要先过滤注册集合后再构造期望窗口。
+3. 用完整期望窗口和完整注册集合调用 `build_registered_gap_status`。分类以窗口内最后一个已注册日为界：所有早于它的未注册期望日都属于内部缺口，包括窗口开头漏注册；晚于它的未注册日期才属于尾部。全部未注册时为无可行动日期，不能误当作可以跨越的缺口。
+4. **仅 `gap.has_internal_gap` 为真时因漏注册立即退出**。使用原 `missing_registered_partition`，`target_date=gap.first_internal_missing_date`，零请求；不做目标/上游/前日读取。
+5. 定义 `actionable_dates = gap.actionable_expected_trade_dates`。期望窗口为空时保留原 `all_ready` 语义；期望窗口非空而 `actionable_dates` 为空时返回等待注册，仍使用 `missing_registered_partition`、首个缺失日期，零目标/上游/前日读取。
+6. 仅调用一次 `batch_gold_major_index_nineturn_readiness(expected_trade_dates=actionable_dates, minute=minute)`；随后 `select_first_not_ready_trade_date` **也必须使用同一个 `actionable_dates`**。未注册日期不进入目标文件读取或 selector；原 `window.expected_trade_dates` 只留作窗口与注册分类依据。
+7. selector 遇到已存在且检查失败的目标时，继续 `target_integrity_failed` 并指向该目标；不得因末尾还没注册就优先显示等待尾日。若缺少某日期的 readiness 或出现未知阻断，抛出异常进入原 `sensor_error_*`，不能落到 `all_ready` 或继续后一天。
+8. 可行动日期全部通过且 `gap.has_trailing_gap` 为真时，返回原 `missing_registered_partition`，日期指向 `first_trailing_unregistered_date`，明确“已注册日期已完成，等待后续日期注册”。只有完整期望窗口已注册且全部通过，才返回原 `all_ready`。
+9. 有选中日期时，`target=selection.selected_trade_date`；即使尾部仍未注册，也继续原同日上游检查。日线和分钟分别使用原 helper，不互换。失败仍为 `upstream_not_ready`，日期必须是选中的旧日期。
+10. 仍从完整 `registered` 集合找 `previous < target`，存在时原样检查前日九转。不能从 `actionable_dates` 找前日，否则窗口首日会遗漏窗口外 seed。失败仍为 `previous_partition_not_ready`。
+11. 仅构造一个原 `build_run_request`，partition 为选中日期，原 run key 不变；cursor 为 `request_run`、`selected_count=1`。不提交未注册尾日，不提交后一个缺失日，不在 sensor 内计算、写文件或启动上游。
+12. 异常仍由原异常分支停止，reason 生成和 ASCII 归一化保留。不能清 cursor、补注册或自动重跑来绕过错误。
+
+#### 6.5.4 Cursor、提示和中断
+
+`_cursor` 只增加私有可选入参 `gap: ContinuityRegisteredGapStatus | None = None`；各分支传入本次 `gap`，异常发生在分类前时传 NULL。沿用原 `build_cursor_details` 和 `build_sensor_cursor`，schema 版本不变，无旧 cursor 迁移。
+
+`details.evidence` 保留原频率/单请求信息，只补 `registration_gap_class`、`first_internal_missing_date`、`first_trailing_unregistered_date`、`actionable_registered_count` 四个已有 helper 语义的小摘要；不复制完整注册列表、文件列表或检查报告。现有 `TYPICAL_SENSOR_CURSOR_BYTES=2048` 继续作为测试门禁，不提高阈值。
+
+| 分支 | 原 reason code | `target_date` / `sample_keys` | 请求与提示 |
+|---|---|---|---|
+| 内部漏注册 | `missing_registered_partition` | 首个内部漏注册日 | 0；明确内部缺日 |
+| 没有已注册日期，或已注册日期都完成但尾部未注册 | `missing_registered_partition` | 首个未注册尾日 | 0；等待注册，不声称全窗口完成 |
+| 最早目标已存在但检查失败 | `target_integrity_failed` | 该失败日 | 0；拒绝覆盖 |
+| 同日上游失败 / 前日失败 | 原 `upstream_not_ready` / `previous_partition_not_ready` | 当前选中的待补日 | 0；保留原保护 |
+| 有旧日可执行且所有原检查通过 | `request_run` | 旧日，例如 29 日；不能改成 30 日 | 1；tail 信息只进入上述摘要 |
+| 整个窗口完成 / 空窗口 | `all_ready` | NULL / 空样本 | 0；无未注册尾日时才称窗口完成 |
+| 异常或检查结果缺失 | 原 `sensor_error_*` | 保留原异常分支 NULL 语义 | 0；不能伪报完成 |
+
+非 `all_ready` 的零请求分支沿用原 blocked count 计算；本轮不另建状态投影。该 sensor 不依赖旧 cursor 决定业务日期，中断后按原文件、注册事实和原 run key 重新判断；相同日期重复评估保持同一幂等键。不要声称这能自动恢复一个已部分写入的数据 job，数据恢复按第 6.5.7 节处理。
+
+#### 6.5.5 隔离测试、真实合同与执行命令
+
+测试主文件为 `tests/test_major_index_nineturn_sensors.py`，所有 Gold 日期分支均对日线/分钟参数化，并分别记录实际分区集、`window_limit`、上游 helper 和目标日期，不能用相同 mock 返回值掩盖分支调用错误。
+
+| 用例 | 独立输入与必须断言 |
+|---|---|
+| 本次缺陷回归 | 上海时间 2026-10-30 上午，期望 28/29/30、注册 28/29，28 完成、29 缺失；实际 readiness 和 selector 都只收到 28/29，核 29 上游及 28 前日，只请求 29，run key 与旧规则相同。旧代码必须在此用例失败 |
+| 内部漏注册 | 期望 28/29/30、注册 28/30；在目标读取前停止，cursor 指 29。再覆盖仅注册 29/30、窗口开头 28 日漏注册，仍先停止并指 28。原 `test_gold_sensor_stops_at_missing_registration_before_readiness` 的“期望 13/14、仅注册 13”实为尾部缺口，应改成“期望 13/14/17、注册 13/17”，不是删掉保护断言 |
+| 尾部等待 | 28/29 都完成、30 未注册；0 请求，等待 30，不得 `all_ready`；多个未注册尾日也只返回首个等待日 |
+| 空与全未注册 | 空窗口保留 `all_ready`；非空窗口全部未注册则等待首日；两者不进入目标、上游或前日读取 |
+| 保护条件 | 尾日未注册条件下分别令旧日上游失败、前日失败、目标已有坏文件，仍准确停止；若更早坏文件与后面缺失同时存在，不能越过坏文件 |
+| 前日在窗口外 | 选中窗口首日，完整注册集合含窗口外的前一交易日，仍检查它；缺失/失败时不发请求 |
+| 时间、窗口与注册变化 | 16:00 前后末尾仍未注册时都可推进已注册旧日；注册完成后当日可进入原检查；跨年、休市日按真实窗口处理；日线 10/分钟 5 的实际调用参数和最大范围准确，不向前扩展 |
+| 未知结果与幂等 | batch 缺目标日期的结果时停止，不能 `all_ready`；重复评估同一输入仍为同一原 run key、最多一个请求；错误分区集/上游分支会被 spy 抓住 |
+| Cursor 与副作用 | 所有分支满足原结构和 2048 字节门禁；不调用动态分区写入、run/event 写入、Prod/Lake writer 或无界 event 扫描 |
+
+至少增加一项真正贯通“临时日历 → 原窗口 loader → 原注册分类 → 共用 `_evaluate` 日期选择”的隔离测试。日历 fixture 必须按 `run_contracts/asset_column_schemas.py:SILVER_TRADE_CALENDAR_SCHEMA` 的四列合同构造：`exchange VARCHAR`、`trade_date DATE`、`is_open BOOLEAN`、`pretrade_date DATE`；生产者依据为 `assets/calendar.py:silver_trade_calendar` 和 `duckdb_sql.py:silver_trade_calendar_select`。不能因为消费者只查三列就省掉第四列。最多 20 条人工可核算日历记录，使用临时 DuckDB/Parquet，固定上海时间；不 mock 窗口 loader 或注册分类，仅隔离后续行情 readiness 和 Dagster 状态。预期日期及 run key 用字面值独立断言，不由待测 helper 生成 expected。
+
+旧 `_expected_window()` 固定返回 `window_limit=10`，且 `_install_gold_sensor_fakes` 忽略 loader 实参，不能作为分钟 5 日窗口证据；新增 fixture/spy 必须修正这一点。mock 决策测试不冒充正式 job 或生产数据库验收；本次不跑前端、API 或公式性能测试，因为这些实现均未修改。
+
+在 `lake_console/orchestrator` 使用现有 `.venv`，不安装或同步依赖；开发完成后执行：
+
+```bash
+.venv/bin/python3 -B -m pytest -q tests/test_major_index_nineturn_sensors.py tests/test_bounded_continuity.py tests/test_major_index_nineturn_m4b.py tests/test_index_daily_nineturn_prod_core.py
+.venv/bin/ruff check --no-cache src/orchestrator/defs/sensors/major_index_nineturn_sensor.py tests/test_major_index_nineturn_sensors.py
+```
+
+测试通过后对照第 6.5.8 节逐条登记实际结果，不能在文档阶段预填通过。测试临时资源清理只限本任务创建部分，正式 staging 和既有环境不清理。
+
+#### 6.5.6 读取次数、预算与验收开销
+
+以下为代码推导的规划量，不是设备 I/O 实测，也不是新运行限额。无需为这次日期分支增加性能测试或全市场读取。
+
+| 阶段 | 读取与计算上界 | 写入、空间与继续/验收 |
+|---|---|---|
+| 当前文档 | 代码、Git 及已有只读响应；新增正式行情/服务表读取 0 | 仅两份原文档；正式业务写入 0 |
+| 隔离验证 | 最多 20 行四列临时日历；其他目标状态用有独立字面依据的有界 fixture | 临时资源总预算 16MiB，读写各 32MiB 含失败定位和一次修正后定向验证；清理和最终检查包含在内，不访问正式资源 |
+| 修复后的日线 tick | 日历 SQL 1、注册集合 API 1；目标日期最多 10、前日最多 1；目标/对应源最多 22 个不同路径。当前 integrity 每目标 3 条 SQL（含 DESCRIBE），含日历最多 34 条 | sensor 业务写入 0，最多 1 个原请求；不是 22 次物理读取承诺，原完整性 SQL 的读取次数不变 |
+| 修复后的分钟 tick | 日历 SQL 1、注册集合 API 1；最多 5 日×6频及前日 6频，目标/对应源最多 72 个不同路径；含日历最多 109 条 SQL | sensor 业务写入 0，最多 1 个六频原请求；本轮不正式重跑分钟数据 |
+| 29 日日线补齐，后续另授权 | 原最近 20 份日线来源和 28 日 seed，共最多 21 份必要输入；原公式只产出 29 日 11-code 物理对象池结果。执行前仅 stat 确认具体文件与字节量，不追加全局审计 | 参照 28 日同类原 job 的小文件证据，正常一轮含原 Gold/Prod 检查和两项收尾暂按读 8MiB、写 1MiB、额外空间 8MiB 规划；失败状态核验和经另行确认的未完成部分再预留读 8MiB/写 1MiB，合计读 16MiB/写 2MiB、空间峰值 8MiB；不授权自动重跑 |
+
+同日上游事件读取保持原实现：日线 1 次目标物化读取和 4 次原 check history 查询，每次沿用 `CHECK_HISTORY_LIMIT=5000`；分钟最多 6 次同日物化读取和 1 次六个 key 的 latest-check 批查。本次不增加这些查询、不另扫全部日期的事件，也不借此修改共享 readiness。上述 34/109 是文件检查 SQL 上界，不包含 Dagster 存储内部 SQL；不同文件路径数不等于文件读取遍数。
+
+窗口末尾存在未注册日时，修复后会开始执行此前被提前拦住、但本应执行的旧日检查；不能声称这时的开销和原先直接跳过一样。与原来可以正常执行的 tick 相比，日期数与 SQL 模型均不扩大。执行前发现来源、对象池、写入日期或规模不符时，先核清并更新本方案/LLD，不临时放大范围或给 job 增加限制。
+
+#### 6.5.7 后续加载、29 日补齐及失败处理
+
+本轮只写文档，以下为后续操作要求，不是已经取得的执行授权：
+
+1. 开发和隔离验收通过、独立对账完成后，正式阶段的明确授权必须覆盖原 code location 加载及随后原 sensor 的自然任务；加载动作统一在第 2 步预检之后进行。保留两个 Gold sensor 和 Prod sensor 的原实例状态、cursor、run key；不重启或启停无关对象。
+2. 正式只读核当前版本、29 日原 Gold/Prod 任务、原 sensor、注册状态与已有检查，再按授权加载新代码并只观察修正后的日线 sensor 自动提交 29 日原 job；已有成功则复用验收，已有活动则跟踪。运行中的 sensor 会继续产生 tick，查询与提交之间可能变化，因此不能凭一次无活动查询手工发任务，也不能通过新增 run key 绕过幂等。原 sensor 未提交时先停止、只读查因，不手工补发；确需人工恢复时，须另行先设计和批准仅暂停目标日线 sensor、等待在途 tick 完成、复核 run/run key、单次提交和恢复原状态/cursor 的互斥步骤。本轮方案不以人工路径作为备用动作。
+3. `gold_major_index_daily_nineturn_update_job` 只生成 29 日目标；沿用原 source planner 的最近 20 份行情和 28 日九转 seed，不扩大历史、不重算其他日期。原完整性检查通过后，才推进发布。
+4. 原 `prod_core_index_daily_nineturn_sync_job_sensor` 监听此次 Gold job 的 `SUCCESS` 并核同日检查，只由它提交 Prod 原 job，不手工提交另一份 Prod。若原 sensor 未接续，先停止并查其 cursor、匹配 run 和 skip，不修改为监听其他 job，不写 runless 事件代替。
+5. 原 Prod 发布检查通过后，仅核本次两个目标与实际 run：29 日 Gold/Prod 各 11 行或原合同明确的同日源键数、检查绑定正确、同日业务内容一致。复用原 job/check 结果，不重复扫描全部数据集，不验证前端/API或重刷已有历史。30 日后续正常任务不纳入本次恢复结果。
+6. 任一步失败即停止推进，记录 run、已写入文件/Prod 事务状态和原检查，保留候选/回执和已成功正式结果；不删除正式文件、不重做已成功 Gold 或 Prod。job 成功但检查/观察未完成时先复用原记录核实，不能笼统重跑；确需补检查或续跑时另行明确范围与授权。sensor 自身失败不替代数据 job 的恢复设计。
+
+#### 6.5.8 方案—代码—测试对账与退出条件
+
+| 总方案硬口径 | 计划代码落点 | 必须有的验收证据 |
+|---|---|---|
+| 6.4.2.1～3：尾部未注册不挡旧日，内部漏注册仍挡 | `_evaluate` 的 gap 分支、actionable_dates、目标 batch 与 selector 两处输入 | 日线/分钟回归、内部漏注册反例、真实四列日历链路、10/5 窗口实参 |
+| 6.4.2.4：不跳过坏目标、上游或前日 | 原目标 selection、原两条上游分支、完整注册集合的 previous | 坏文件/上游/前日/未知结果反例，窗口外前日正反例，最早缺失优先 |
+| 6.4.2.5：提示真实、不改执行日期和 schema | `_cursor` 可选 gap 摘要、原 reason code 和 target_date | 等待尾日不报 all_ready；旧日请求仍指旧日；全部分支小于等于 2048 字节 |
+| 6.4.2.6：计算与其他数据集不变 | 仅一个 sensor 源文件及定向测试 | 修改白名单、原 job/default/频率选择回归、共享 helper/公式/writer/Prod/API/路径无 diff |
+| 6.4.4：依原 job 先 Gold 后 Prod，失败不重跑 | 后续原生触发和原 sensor 接续；不新增执行器 | 当前阶段只记录待执行；正式阶段才登记两个实际 run、原检查和两项收尾 |
+
+文档退出条件：上述设计无待决定分支、两文口径一致、直接代码引用和证据链接有效；本次只达到文档阶段。后续开发退出条件是定向测试、受影响文件 lint、实现对账和独立审计均通过；正式补齐退出条件则另外要求第 6.5.7 节的真实执行与两项结果。不得相互替代，也不得将历史 M6 完成写成此次缺陷已修复。
 
 ## 7. 日线 PostgreSQL serving
 
@@ -1922,3 +2058,4 @@ D6-2 与 D6-3 正式执行结果如下：
 | v1.39 | 2026-08-17 | 纠正 D6-3 时间口径并同步实时进度：21:34 的 DELAYED 发生在当日收盘维护任务实际执行前，不是 freshness 故障；22:54 后 `equity_factor_pro` 已覆盖 2026-08-17 共 5,538 行，生产 `603806.SH` READY 页面复验通过，股票日线去价格 D6 完成。三个指数 sensor 均为唯一 RUNNING，2026-08-17 日线、六分钟与 serving 自然 run 全部 SUCCESS，M6-B/M6-C 完成；只剩 M6-D 最终验收 | Codex |
 | v1.40 | 2026-08-22 | M6-D 最终收口：登记生产 `57ece8a3`、十指数日线九转 50 次 READY/300 根完全对齐/P95 12.795ms、allowlist 与生产分钟 404、固定六周期摘要和用户视觉验收；冻结当前分支前向回滚步骤，并明确 2026-08-17 Dagster 快照不是 2026-08-22 实时状态 | Codex |
 | v1.41 | 2026-08-27 | 需求关闭复核：生产为干净的 `f732f8bd` 且仍包含关闭、固定六周期与 D6 提交；三项服务 active、双 health 200、日线未登录 401、分钟 404，当前 API/Wealth/Orchestrator 回归全绿。正式 Dagster 实例未重读，后续 freshness 归常规运维 | Codex |
+| v1.42 | 2026-10-30 | 细化主要指数九转跨日日期判断修复：两个共用入口、内部/尾部注册缺口分支、batch与selector同范围、原cursor摘要、窗口外前日保护、真实合同隔离测试、读写预算及 29 日 Gold→Prod 的独立执行边界；仅文档，未开发或正式补数 | Codex |
