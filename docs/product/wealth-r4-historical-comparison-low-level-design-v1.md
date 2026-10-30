@@ -1,6 +1,19 @@
 # 修订后r4历史识别对比专项LLD v1
 
-更新：2026-10-30。状态：专项编码设计及提交后独立审计已完成，审计补充已定向复核；未开发、未读取行情、未执行对比。开发及真实执行另等指令。
+更新：2026-10-30。状态：第一批专项工具、人工验收及独立代码审计完成，停在第二批之前。未读取真实行情、未执行真实对比、未提交或部署，证据见§11。
+
+本轮执行状态：第一批已按授权完成下列硬口径、人工验收和独立代码审计；停止在第二批真实数据读取与对比之前。未调用真实run_historical_comparison入口、修改产品/旧研究实现及现有测试预期，未自动提交。以下为开发对账，实际证据见§11。
+
+| 硬口径 | 实现位置 | 验证 |
+|---|---|---|
+| 固定版本/模块及纯内存隔离，现有核心不改 | comparison的Spec/Git/启动，worker装载 | HC01/09/19，核心四文件Git差异 |
+| 一次六列行情/三列日历、922根及原float，拒绝补值重算 | comparison.read_input | HC02/03，按真实生产者合同人工源；本批不接真实库 |
+| 三管道分块且完整消息不插帧，全部成功才返回 | comparison._pump_process、worker发送 | HC04/05/06 |
+| 共享20秒及清理预留，父子合计256MiB，全部结果16MiB | ResearchBudget、两侧检查及回收 | HC07—12/18 |
+| 旧基准先核，新旧关联/参照日期和结构含义如实呈现 | records三入口及comparison编排 | HC13—17、手写预期及真实小字面进程 |
+| 失败取消完成本次进程回收，不重试或落盘 | comparison清理，worker失败 | HC06/10/11/19 |
+
+本批人工规模验收在新的独立父进程使用922根合成值，预算包含源码读取、两次worker、比较、编码及回收；不调用正式真实入口或把合成源计为真实SSE通过。旧真实基准仅设计检查及手写反例，本批不声称复现。
 
 依据：[专项方案](wealth-r4-historical-comparison-plan-v1.md)、[当前正式规则及测试](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md)。本文件只规定一次性识别核验工具，不改变正式r4、P3停点、产品接口或后续P4/P5顺序。
 
@@ -18,7 +31,7 @@
 
 源代码检查与CodeGraph已覆盖读取、会话、校验、核心及旧比较调用链。不得把历史研究类接到当前父类上，不为兼容旧结果修改产品types或Spec。
 
-现有`src/**`、`wealth/src/**`、旧研究实现/测试和正式P3文档均为保护范围。将来只新增§2列明的三个研究文件及对应测试，主题README只加本专项入口；本轮只提交专项方案/本LLD及docs索引相关条目。不创建分支/worktree、不安装、不改Git工作区、不提交他人改动、不部署。
+现有`src/**`、`wealth/src/**`、旧研究实现/测试和正式P3文档均为保护范围。本批只新增§2列明的三个研究文件及对应测试，主题README只加本专项入口；更新专项方案/本LLD执行记录，不提交。不创建分支/worktree、不安装、不恢复Git文件、不提交他人改动、不部署。
 
 ## 2. 文件、入口及固定参数
 
@@ -29,7 +42,7 @@
 | `xxm/r4_history_comparison.py` | 不可变HistoryComparisonSpec；`run_historical_comparison(*, check_cancelled=None)`真实入口；`read_input`、`read_git_sources`、`run_worker`、ResearchBudget及受控管道；只返回成功结果，不增加CLI/API |
 | `xxm/r4_history_worker.py` | 仅标准库的内部子进程程序；`worker_main()`接一次内存请求，加载固定模块并计算；无命令行业务参数，不读行情文件/数据库 |
 | `xxm/r4_history_records.py` | `validate_baseline`、`compare_fact_groups`、`format_report`；组内关联/旧日期映射、逐日比较和文字；不调用识别器 |
-| `tests/test_xxm_r4_history_{comparison,worker,records}.py` | 独立字面输入/手写结果、真实小样本进程、资源与失败退出；不得修改现有测试预期 |
+| `tests/test_xxm_r4_history_{comparison,worker,records}.py` | 独立字面输入/手写结果、实际子进程的人工小样本、资源与失败退出；不得修改现有测试预期 |
 
 函数交接固定：`read_input(budget)`返回§3输入对象；`read_git_sources(budget)`返回按OLD_PAIR/CURRENT分开的固定模块元组；`run_worker(bundle, rows, sources, budget)`返回该组已验证事实。内部`_pump_process(proc, request_bytes, *, protocol, budget)`只处理已创建且登记的本次Popen，protocol仅GIT_BLOBS/WORKER，不接受任意用户命令。人工管道测试可直接给这个内部函数专用测试进程；真实run_worker的解释器/入口路径不可注入替换。
 
@@ -60,7 +73,7 @@ HistoryComparisonSpec集中保存下表的唯一值，严格校验类型和值�
 
 专项在新的独立父进程执行，不借用Web、Notebook或长期pytest进程的资源计数。父进程不同时拥有两个活动子进程；Git及计算进程均不产生后代。旧进程彻底回收后才可启动新进程。
 
-1. 建立`t0=monotonic()`、`deadline=t0+20`、`work_deadline=deadline-0.5`，所有后续操作和最终检查使用它们。检查取消及本机环境、分支、保护文件/暂存差异；只记录事实，不自动恢复文件。只核正式4个核心文件相对固定提交的差异，不要求HEAD等于c6a845fe3，也不要求清空其他dirty文件；纯文档提交不得误拦，正式核心已变化则停止review。
+1. 建立`t0=monotonic()`、`deadline=t0+20`、`work_deadline=deadline-0.5`，所有后续操作和最终检查使用它们。检查取消及本机环境；在下一项仓库模式拒绝检查完成前，不运行涉及固定提交对象的diff/cat-file，防止先触发自动补对象。记录分支/暂存和保护文件差异在拒绝检查后进行，只记录事实，不恢复文件。只核正式4个核心文件相对固定提交的差异，不要求HEAD等于c6a845fe3，也不要求清空其他dirty文件；纯文档提交不得误拦，正式核心已变化则停止review。
 2. 确认Git不是partial/promisor仓库，无replace引用/grafts；不继承GIT_*变量，不运行hook或网络命令。配置查询返回1且正文为空表示未设置，属正常；promisor显式false也允许，其他非法值/查询失败拒绝。refs/replace空列表正常，存在替换引用或非空grafts拒绝。检查固定提交/路径，不存在即失败，不fetch。
 3. 用§4固定名单从Git对象读源码至RAM并回收Git进程，核源码总量与资源；之后不再启动Git与计算进程并行。
 4. 读取一次六列行情、一次SSE日历。只在专项装配`replace(DEFAULT_SPEC, requested_start='2023-01-03', requested_end='2026-10-27', absolute_start='2023-01-03', max_main_points=1000, max_context_points=0, max_total_points=1000)`，其他已有源校验/读取预算不变；不改DEFAULT_SPEC。只读上下文结束后继续，不把连接传给子进程。
@@ -80,6 +93,8 @@ HistoryComparisonSpec集中保存下表的唯一值，严格校验类型和值�
 产品包全名为`src.biz.services.wealth.market.index_detail_xxm`；研究包为`scripts.research.index_market.xxm`。名单由Spec提供，不接受外部路径/提交参数。通过一个受控`git cat-file --batch`按12个固定`提交:路径`读取；解析blob类型、声明长度、结束换行及总量，missing/非blob/非法UTF-8/多余正文均拒绝。Git协议中对象编号仅用于解析，不作源码SHA保护。读取/回收遵守§5—6同一管道和资源规则，不解压旧目录。
 
 `run_worker`只启动`[现有解释器, '-I', '-S', '-B', 专项r4_history_worker.py绝对路径]`，shell=False、二进制三管道、bufsize=0、close_fds=True、env={}。worker仅导入标准库；-I不从当前目录/用户包找代码，-S不执行site，-B不写pyc。获准的新worker文件及解释器/标准库的启动读取允许，固定旧/新算法源码只经请求传入RAM。
+
+上述空环境仅用于计算worker。Git使用固定`/usr/bin/git`，环境只从当前进程继承已有的`HOME/TMPDIR/PATH`三项，不传`GIT_*`、数据库凭据或其余变量；不新设配置、不改Git路径和2秒限制。Apple的Git入口在完全空环境下可能调用开发工具并警告，禁止把worker的空环境额外套用到Git。该最小环境仍须通过无异常stderr、预算和无后代检查，否则停止，不消音警告或自行更换路径。
 
 先建立有限空包，`__path__=[]`，不执行真实仓库__init__；按名单建立ModuleType并先登记sys.modules，再按固定顺序执行原源码，设置原完整__name__/__package__和只用于定位的虚拟__file__。不重写import、不修改源码、不临时补旧types。名单外src/scripts业务模块若被导入必须失败，不退回工作区。当前types的TYPE_CHECKING不触发forecast_math运行时导入。
 
@@ -182,6 +197,8 @@ check在源读取、Git、启动、每行/消息/分块、比较、编码以及�
 
 保留首个业务/取消异常；清理异常只附固定阶段和异常类型，不用finally的新异常覆盖原错。不能确认回收或清理超时属于本轮失败，报告超限及退出未确认，继续仅对本次句柄做终止/回收处理，不放行新工作、不声称20秒验收通过。不自动重试，不返回旧组结果充新组，不留下恢复文件/长期进程。专项不得使用hook保证退出。
 
+关闭stdin、终止/等待进程、关闭其余各管道及登记回收必须分别尝试；任一close抛错都不能跳过后续动作。内部管道入口对已登记进程的错误协议或请求检查也必须位于同一finally保护内，不能因错误输入发生得早就漏回收。
+
 ## 7. 原事实校验、日期映射和比较
 
 ### 7.1 组内合同
@@ -209,6 +226,8 @@ check在源读取、Git、启动、每行/消息/分块、比较、编码以及�
 differenceDays按日期严格升序，每日只放一次当根证据、三个组的必要事实及changes。changes各项固定字段为`category/field/comparedGroups/ruleSource/explanation/pendingReview`，后三项分别表示规则出处、中文说明和是否待核（bool）；不把字段处数混为日期数。保留全部差异日，文字可先展开首次/典型日，但不能静默删掉剩余日期。
 
 metrics记录唯一t0后的各阶段耗时、parentPeak、最高子峰值、最终combinedPeakUpper、三组step数、读取次数、两次worker正文及报告字节、所有子进程已回收。结果和reportText一起测最终字节，reportText已含于JSON时不能又重复相加；旧/新worker正文另计。资源字段更新使最终候选大小变化时，最多5轮核字节和峰值，未稳定整轮失败。结果和报告先准备并check，最后一次校验后只返回已准备对象，不在返回后再编码或清理可能失败的资源。
+
+报告正文只生成一次；先完成一次完整候选编码并检查内存，再记录elapsedSeconds（截至该准备完成时的实测耗时）。后续最多5轮只回填结果字节及新增峰值，不逐轮重写计时或生成整份报告，避免检查对象持续变化；这些最终编码/核验开销仍受同一20秒截止约束，不从预算中排除。读取计数来自实际调用次数，合成规模未调用读取器时必须为0，不能写死为1冒充真实读取。
 
 ## 8. 逐项测试设计与验收
 
@@ -244,12 +263,58 @@ metrics记录唯一t0后的各阶段耗时、parentPeak、最高子峰值、最�
 
 真实成功验收必须含：三组输入相同、旧基准复现、关联/差异完整、资源/回收及保护范围证据；独立审阅者只审同次返回，不重复读DB/重算。算法待核项保留交管理员review，不自动改产品。源行情/源码/完整账本只RAM，文档可记录摘要和差异说明，不生成结果目录、JSON或恢复文件。
 
-本轮只完成方案及专项LLD文档提交和独立审计；当前P3第3步、专项代码/测试、真实对比、产品400ms/浏览器及P5清退均未执行。文档审计通过不能记成实现验收。
+本轮只完成专项第一批工具、人工测试和独立代码审计；当前P3第3步、真实对比、产品400ms/浏览器及P5清退均未执行。人工验收不能记成真实旧基准已复现。
 
 ## 10. 资料与证据边界
 
-已使用CodeGraph核读取/会话/校验/计算调用；对固定Git源码补核加载顺序、旧Wave及旧/新记录合同。现有Python3.13.5和本机Git路径已只读确认，未导入算法或读取行情。
+已使用CodeGraph核读取/会话/校验/计算调用；对固定Git源码补核加载顺序、旧Wave及旧/新记录合同。使用现有Python3.13.5和本机Git；本批只在人工输入下装载算法，未读取真实行情。
 
 通过Context7查阅[Python subprocess](https://github.com/python/cpython/blob/v3.13.9/Doc/library/subprocess.rst)、[selectors](https://github.com/python/cpython/blob/v3.13.9/Doc/library/selectors.rst)、[resource](https://github.com/python/cpython/blob/v3.13.9/Doc/library/resource.rst)官方资料。实际API语义仍以现解释器和有界人工测试核验；文档链接或静态审计不代替进程通信、预算或真实来源已通过。
 
-提交后按通信退出、资源预算、版本输入及结果含义分工独立审计。发现并补齐清理不能重复调用取消检查、完整消息之间才能发送资源/错误消息两处要求；同时明确HC04替身边界及changes字段名。修订已定向复核通过，方案与LLD一致，未发现需要新增业务决定的开工阻塞。HC01—19是后续测试设计，尚未执行；实际耗时、内存、字节及旧基准复现仍须后续验收。
+文档阶段提交后按通信退出、资源预算、版本输入及结果含义分工独立审计。发现并补齐清理不能重复调用取消检查、完整消息之间才能发送资源/错误消息两处要求；同时明确HC04替身边界及changes字段名。修订通过后按本设计实施第一批，人工执行及代码审计证据见§11；真实资源及旧基准复现仍须第二批验收。
+
+## 11. 第一批实现对账及独立验收（2026-10-30）
+
+本节是工具及人工测试的实际证据。人工用例已按下表执行，真实922根基准及真实资源验收仍未执行。没有以人工旧计数替代真实30/17/12/7、24/13/254的复现。
+
+### 11.1 硬口径与落地位置
+
+| 要求 | 实际代码 | 对应测试证据 |
+|---|---|---|
+| 固定Spec、12段Git源码只在RAM、正式核心保护、先拒绝partial再取对象 | [comparison](../../scripts/research/index_market/xxm/r4_history_comparison.py)的HistoryComparisonSpec、_preflight_git、read_git_sources | comparison测试HC01，缺模块/错范围/不安全仓库正常与反例；worker真实固定模块字面样本 |
+| 六列/三列真实查询合同、原float、922/1394/922、只读关闭、外层及原8秒 | comparison._read_input_async/read_input，复用原Query/Session/normalizer/_points | HC02/03以真实SQL投影及人工行检查各查询一次、正向原值、类型/日期/缺日/超限/H关系拒绝，错误时关闭 |
+| 完整消息、并行读写三管道、先回收旧组、身份/Spec及自身规则hash核对 | comparison._pump_process/_WorkerFrames/run_worker，[worker](../../scripts/research/index_market/xxm/r4_history_worker.py)的validate_request/_Runtime | HC04/05/06；大于管道容量的独立测试进程、半包/错误消息/错PID/RESULT后取消；两实际worker人工联调 |
+| 单一20秒、合计峰值、16MiB及最终核验；取消不打断清理 | ResearchBudget/_cleanup_process/_finish_result及worker资源报告 | HC07—12/18，分别低于256但合计超限、回收后更高峰、编码后过期、控制/结果超限、重复取消、close抛错、0秒清理反例 |
+| 原算法不改，CURRENT单只逐根；旧资源观察原值及finally恢复 | worker._calculate/_observe_old_memory，固定源码原文装载 | HC09；开关包装业务事实不变、成功/失败原函数恢复；独立手写状态和事件预期 |
+| 组内关联、旧Wave日期、新旧结构含义、日期差异和依据 | [records](../../scripts/research/index_market/xxm/r4_history_records.py)的validate_baseline/compare_fact_groups/format_report | HC13—17，旧WAITING、新回钝化、形成并锁死、同标签异参照、旧池移除仍查日期、同日多候选/跨日不强配、悬挂/未来/终态回退拒绝 |
+| 无读取/算法/产品副作用，不落盘、不恢复旧文件、无新CLI | worker仅stdlib和固定模块；读取器惰性导入；入口无自动执行 | HC19源码/实际进程检查；测试探针对仓库内外文件读、写、socket、子进程、数据库使用不同拒绝类型，正常固定模块仍通过 |
+
+测试只新增[test_xxm_r4_history_comparison.py](../../scripts/research/index_market/tests/test_xxm_r4_history_comparison.py)、[test_xxm_r4_history_worker.py](../../scripts/research/index_market/tests/test_xxm_r4_history_worker.py)、[test_xxm_r4_history_records.py](../../scripts/research/index_market/tests/test_xxm_r4_history_records.py)，没有修改既有测试预期。
+
+### 11.2 实际执行与结果
+
+全部使用现有解释器、禁用pytest自动插件和缓存、-B不写字节码；每组均未超过60秒：
+
+| 分组 | 本次结果 |
+|---|---|
+| 三份专项人工测试，含922合成新父进程 | 138 passed / 3.40秒 |
+| 正式规则/恢复/输入与通用恢复四文件 | 1138 passed / 1.87秒 |
+| P3第2步预测与数学两文件 | 154 passed / 1.06秒 |
+| 原calculator七个CURRENT_CORE_NODES，未运行旧冻结节点 | 19 passed / 0.08秒 |
+| 根三份架构检查 | 16 passed / 12.72秒 |
+
+HC18合成同一次结果：准备完成时0.473622秒；父峰75,710,464字节、最高子峰70,778,880字节、保守合计146,489,344字节。三组各922次step，旧/新worker正文1,886,422和652,118字节，最终对象含报告4,190,902字节，合计6,729,442字节。最终核验继续使用原deadline，所有本次进程已wait回收，实际行情/日历读取0次。仅证明本人工规模，未冒充真实SSE、真实读取或真实报告成绩。
+
+### 11.3 审计发现与修复
+
+独立审阅按未承担对应实现的范围分工：输入及保护/父退出、结果语义、worker装载与通信。发现的问题均已修正：
+
+1. Git错误套用worker空环境，触发Apple工具警告：先细化原§4.1，再仅继承HOME/TMPDIR/PATH，固定路径/2秒不变；一次有界只读正常0.0208秒、rc0、stderr0，补两种环境的反例检查。
+2. partial检查曾晚于固定对象diff；管道close错误会跳回收；内部早期错误请求会绕finally：三个独立反例先失败，再修正顺序及清理，最终专项组通过。
+3. 最终每轮重建大报告和计时导致候选持续变化：报告仅一次、初次编码后冻结计时、最多5轮仅核字节和新增峰，仍共用原20秒；没有增轮、过滤记录或放宽预算。
+4. 父返回身份补严bool计数、实际Spec与自身规则hash；规则hash核对不是源码SHA保护。
+5. HC19原探针只拦仓库内读取，补齐外部读取及六个精确拒绝反例，未增加运行时安全框架或产品约束。
+
+审计核对通过，未发现剩余第一批阻塞。254天基准使用固定旧比较器已计算的原summary，对照原§16独立预期；父不另复制旧比较政策重算。CodeGraph explore已覆盖原读取/校验/核心入口及消费者，开发后sync/status完成；新研究不进入任何产品调用链，不新增跨域依赖。
+
+本轮未调用真实run_historical_comparison、未读DB/Lake/真实行情、未保存行情/旧源码/完整账本、未改正式四核心及Spec/预测/API/页面/已有测试，未创建分支/worktree、安装、提交、推送或部署。第二批仍须按§9独立获准后执行一次真实区间及旧基准检查，本批到此停止。

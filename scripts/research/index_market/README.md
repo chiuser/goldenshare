@@ -1,5 +1,15 @@
 # 指数大势研究：统一代码入口
 
+2026-10-30修订后r4历史对比专项第一批：[专项方案](../../../docs/product/wealth-r4-historical-comparison-plan-v1.md)、[专项LLD](../../../docs/product/wealth-r4-historical-comparison-low-level-design-v1.md)。仅新增`xxm/r4_history_comparison.py`、`r4_history_worker.py`、`r4_history_records.py`及三个对应人工测试文件；历史r2/历史r4只从固定Git对象进入短期进程内存，现有正式r4识别、预测、API及页面不改。真实函数`run_historical_comparison`会读取数据库，第二批获准前不得调用；没有新CLI或自动执行入口。行情、源码、完整账本不落盘。
+
+本批安全测试命令（仅人工源、小字面计算及922根合成规模，不读取真实行情）：
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -m pytest -q -p no:cacheprovider scripts/research/index_market/tests/test_xxm_r4_history_comparison.py scripts/research/index_market/tests/test_xxm_r4_history_worker.py scripts/research/index_market/tests/test_xxm_r4_history_records.py
+```
+
+本批状态及独立审计证据在专项LLD执行记录；真实922根旧基准复现及三组差异报告留第二批。下列旧r2/r4研究成绩按当时记录保留，不作为当前正式r4或本专项的新验收结果。
+
 2026-10-28当前r4研究v2：[方案§15](../../../docs/product/xxm-r4-implementation-plan-v0.1.md)、[LLD§15](../../../wealth/docs/pages/index-detail/index-detail-xxm-r4-low-level-design-v0.1.md)。近B失效而远A价格/DIF全合格时，当根切A延续钝化，不新增消失或再次钝化；仅已有DULL同段，原1%/结构/等待/真实翻色规则不扩大。实现、人工验收及独立代码审计已完成；相关七文件398项、原r2人工62项、架构16项通过。旧v1副本不接受；无新产品开关、读取入口或结果落盘。开发交付时真实922根v2对照尚未运行，页面继续r2；随后管理员已授权按方案/LLD§16先提交本轮再重跑，结果待执行。
 
 2026-10-28此前B2（研究v1历史）：[r4方案§12—13](../../../docs/product/xxm-r4-implementation-plan-v0.1.md)、[r4 LLD§12—13](../../../wealth/docs/pages/index-detail/index-detail-xxm-r4-low-level-design-v0.1.md)。独立比较器r4_comparison.py及只读观察/记录比较已完成，B2人工74项通过，实际922根2023-01-03—2026-10-27同源日线比较完成；28日未收盘未补入。253个日期有某类字段差异，普通状态只有1天不同，不能当253天标签变化。完整实际成本与限制见原方案，现产品继续r2。无新reader/CLI或落盘结果，不自动进入C。B1及修复已提交ea90f7f2/faaaa6b5，管理员已授权提交本次B2，随后按方案/LLD§14提取视频核对候选。
