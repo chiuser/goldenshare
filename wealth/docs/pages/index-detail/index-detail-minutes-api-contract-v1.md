@@ -222,7 +222,7 @@ uv run python -m src.scripts.audit_index_minute_gold --runs 10 --full-alignment 
 
 ### 8.2 响应及分钟专属要求
 
-- detector版本固定`xxm-direction-v0.2-r4`，specHash绑定完整新MAIN_SPEC；普通与debug完整字段和结构关系仅按LLD§5.3及[日线合同§10](index-detail-api-contract-v1.md)执行。
+- detector版本固定`xxm-direction-v0.3-r4`，specHash绑定完整新MAIN_SPEC；普通与debug完整字段和结构关系仅按LLD§5.3及[日线合同§10](index-detail-api-contract-v1.md)执行。
 - source.kind=minute_gold、indicatorVersion为当前Gold整数版本；time保留ISO精确完成时刻和+08:00，不截成日期、不拿当日15:00补latest或空值。
 - 当前正式source.ENDPOINTS是唯一代码来源：m60为10:30/11:30/14:00/15:00，m90为11:00/14:00/15:00，m120为11:30/15:00。必须同时按SSE开市日验证，不另加09:30或复制一份日历策略。
 - 源Gold价格/指标按ts_code/freq/trade_date/trade_time严格配对，保留原close/DIF/DEA/柱，不补值、不重算实际MACD。
@@ -235,3 +235,5 @@ uv run python -m src.scripts.audit_index_minute_gold --runs 10 --full-alignment 
 HTTP沿已登记XXM错误、原code/message/request_id及鉴权。直接query缺分钟reader的现有503例外保持，正常HTTP装配先保证分钟能力；生产未注册由框架404，不伪造EMPTY。
 
 新核心、内部类型/恢复/聚合先按LLD§11完成，再迁公开模型/API和TS客户端/Hook/悬停；完整新身份及消费者必须同一P3完成，不保留旧字段兼容或发布混配版本。P4再验环境、真实分钟来源/预算和页面；内部测试通过不能代替它们。当前开工以本次已同步目标合同及LLD为依据，不重做旧捕获或旧算法等价核验。
+
+本节r4目标配套修订（2026-10-31，待实施）：与日线目标同为detector v0.3-r4，使用LLD§2.3的ASSESSING/FOLLOWING/FINISHED/DISAPPEARED和首次反色/最终原Wave/下一同色段/结束字段。分钟同样只在下一同色段内有限判断旧结构价格失效，普通CANCEL及debug关联可与当前新事件同根；正常结束不报消失，不重算实际MACD、不新增来源读取。既有分钟行情合同、生产禁用和原预算不变，实施前Python/TS全体消费者同批更新。

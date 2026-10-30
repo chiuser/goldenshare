@@ -464,17 +464,17 @@ interface IndexDetailErrorResponseDto {
 
 ### 10.2 普通与debug的完整字段
 
-- 识别版本固定`xxm-direction-v0.2-r4`，specHash必须等于完整新MAIN_SPEC的真实hash；禁止换旧响应的版本/hash冒充新结果。
+- 识别版本固定`xxm-direction-v0.3-r4`，specHash必须等于完整新MAIN_SPEC的真实hash；禁止换旧响应的版本/hash冒充新结果。
 - 普通根仅身份/source/points/events/meta/dataStatus；正常point保留原值、普通状态和方向，event仅id/time/direction/type，类型只有DULL/STRUCTURE/CANCEL。普通响应没有debug字段。
 - debug在相同普通字段之外，仅增加sourceInputId、同time的points、同id的events和统一structures集合。参照完整六字段为startTime/endTime/price/dif/priceAt/difAt；活动结构用activeStructureId，事件关联用relatedStructureId。
-- 顶底统一结构状态为ASSESSING/LOCKED/DISAPPEARED，形成、锁死和消失的时点及原参照按LLD§2.3保存。不得输出等待记录、旧顶/底历史集合、旧历史追溯撤销事件，也不得以空数组/别名保留它们。
+- 顶底统一结构状态为ASSESSING/FOLLOWING/FINISHED/DISAPPEARED，形成、首次反色、完整原Wave、下一同色段起点、消失或正常停止时点按LLD§2.3保存。不得输出等待记录、旧顶/底历史集合、旧历史追溯撤销事件，也不得以空数组/别名保留它们。
 - 所有字段集合、required/null、原始数值/时间、类型和结构引用检查必须按LLD§5.3完整执行；不得仅依本节摘要省略内部校验。日线time保持YYYY-MM-DD。数值须有限、价格正，拒bool和字符串数字。
 
 ### 10.3 数据、关联及身份校验
 
-历史point的活动结构表示该point当时的考核状态；查询截至时该记录可以已锁死或消失。必须按发生时点及查询截止分别校验，不因如今已锁死而拒绝合法历史点，也不得把未来终态泄露给更早asOf。窗口外形成、窗口内结束的结构引用须完整带齐。
+历史point的活动结构表示该point当时的考核状态；查询截至时该记录可以已首次反色、正常结束或消失。必须按发生时点及查询截止分别校验，不因如今已进入后续跟踪或终态而拒绝合法历史点，也不得把未来终态泄露给更早asOf。窗口外形成、窗口内结束的结构引用须完整带齐。
 
-同根B→A只能改本根活动参照，不能回写原DULL事件。取消后不能在同根补首次钝化；锁死后不能追溯撤销。READY/DELAYED/EMPTY和source/meta的空值与窗口关系按LLD§5.3执行，失败不得返回EMPTY或保留失效标签。
+同根B→A只能改本根活动参照，不能回写原DULL事件。当前普通钝化取消后不能在同根补首次钝化；旧结构在下一同色段价格突破而消失时，仍须正常评估新段，允许旧CANCEL与当前新事件同根且各自关联。正常停止不报消失。READY/DELAYED/EMPTY和source/meta的空值与窗口关系按LLD§5.3执行，失败不得返回EMPTY或保留失效标签。
 
 ### 10.4 返回、预算、错误及消费者
 
@@ -483,3 +483,5 @@ query目标返回已校验bytes：完整内部校验→显式新建普通/debug�
 总4秒（含共享等待、来源、恢复、完整/公开校验及编码），并发2、返回≤2000根/1MiB、缓存64MiB/16系列；客户端同一5秒截止覆盖网络、解码和最终显示。错误体及既有400/404/500/503、鉴权行为按[LLD§9](index-detail-top-bottom-recognition-low-level-design-v1.md#9-预算错误取消及数据读写边界)和现异常登记，不新增错误包装。
 
 实施必须按LLD§11顺序同步query、schema、API、直接Python调用、TS类型/解码/client/Hook和普通悬停，不发布中间混配版本；消费者清单见LLD§11.2.6。保留核验工具在P4使用前整体迁移，清退在P5完成，均不得提前。
+
+本次目标修订（2026-10-31，待实施）：首次反色后的旧结构只在紧接下一段同色柱内，以原段最终最高/最低收盘判断价格突破；第一根可触发，等号不触发，零不开始/结束范围。下一同色段结束或旧结构消失即停，不能无限跨段。CANCEL/structure_price_break在debug关联旧relatedStructureId，不能用本根普通状态/方向拒绝这条事件；points按time严格升序唯一；events按time非递减、id唯一，同根不同id按后端顺序全部保留，不能按time去重。完整字段和校验唯一依LLD§2—5，不恢复旧历史事件集合。接口尚未按本次目标改代码。
