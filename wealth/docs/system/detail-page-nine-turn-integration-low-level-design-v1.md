@@ -537,7 +537,7 @@ runner 只执行下面四个既定测试文件，按现有隔离启动器设置 
 | 6.4.2.4：不跳过坏目标、上游或前日 | 原目标 selection、原两条上游分支、完整注册集合的 previous | 坏文件/上游/前日/未知结果反例，窗口外前日正反例，最早缺失优先 |
 | 6.4.2.5：提示真实、不改执行日期和 schema | `_cursor` 可选 gap 摘要、原 reason code 和 target_date | 等待尾日不报 all_ready；旧日请求仍指旧日；全部分支小于等于 2048 字节 |
 | 6.4.2.6：计算与其他数据集不变 | 仅一个 sensor 源文件及定向测试 | 修改白名单、原 job/default/频率选择回归、共享 helper/公式/writer/Prod/API/路径无 diff |
-| 6.4.4：依原 job 先 Gold 后 Prod，失败不重跑 | 后续原生触发和原 sensor 接续；不新增执行器 | 当前阶段只记录待执行；正式阶段才登记两个实际 run、原检查和两项收尾 |
+| 6.4.4：依原 job 先 Gold 后 Prod，失败不重跑 | 原生触发和原 sensor 接续；不新增执行器 | 文档/开发阶段记为待执行；现已完成，两个实际 run、原检查和两项收尾见第 6.5.11 节 |
 
 文档退出条件：上述设计无待决定分支、两文口径一致、直接代码引用和证据链接有效。开发退出条件是定向测试、受影响文件 lint、实现对账和独立审计均通过，实际结果见第 6.5.10 节；正式补齐退出条件则另外要求第 6.5.7 节的真实执行与两项结果。不得相互替代，也不得将历史 M6 完成写成此次正式缺口已补齐。
 
@@ -573,12 +573,12 @@ runner 只执行下面四个既定测试文件，按现有隔离启动器设置 
 | 真实窗口仍为日线 10/分钟 5，注册时间规则不变 | 两个原入口、window_limit、`same_day_register_start=None` 与注册器不变 | `real_silver_calendar_preserves_window_and_registration_before_and_after_1600`、`real_calendar_year_boundary_and_closed_days_do_not_create_fake_targets`：12 个临时四列日历案例，真实窗口/helper，字面预期；后续行情 readiness 和实例状态仍为替身 |
 | 公式、原数据与下游不变 | 生产代码只有 `_evaluate`、`_cursor` 两个函数的 AST 变化；两个 sensor 入口与装饰器、分钟来源列表 AST 均与开发基线一致 | 原 M4-B 与 Prod publisher/check 定向回归保留，未增加正式计算、发布或历史重刷；CodeGraph 与当前调用链静态复核 |
 
-1. **旧代码反例先行**：源 SHA-256 为 `4e1ea308a89d792b3f10a6bb92ccb02f59fac32a8cd913de31cf1540cdef21f2` 时，仅运行新增缺陷用例，结果为 `2 failed, 18 deselected`。日线、分钟都因尾日未注册得到零请求，而预期为只请求 29 日；因此反例确实抓住原错误。日志和指纹保存在 `/private/tmp/major_index_nineturn_tail_old_code_failure.txt`、`/private/tmp/major_index_nineturn_tail_old_code_evidence.json`。
+1. **旧代码反例先行**：源 SHA-256 为 `4e1ea308a89d792b3f10a6bb92ccb02f59fac32a8cd913de31cf1540cdef21f2` 时，仅运行新增缺陷用例，结果为 `2 failed, 18 deselected`。日线、分钟都因尾日未注册得到零请求，而预期为只请求 29 日；因此反例确实抓住原错误。原[失败日志](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/validation/major_index_nineturn_tail_old_code_failure.txt)和[源指纹证据](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/validation/major_index_nineturn_tail_old_code_evidence.json)已归入恢复报告，内容未改写。
 2. **完整隔离回归**：按第 6.5.5 节保护方式运行四个既定文件，`test_major_index_nineturn_sensors.py` 62、`test_bounded_continuity.py` 13、`test_major_index_nineturn_m4b.py` 18、`test_index_daily_nineturn_prod_core.py` 6，合计 **99 passed，0 skipped/deselected，4.76 秒**。runner 记录 39 次配置连接，只有临时目录替换；正式根和网络被系统策略拒绝。另有 32 条既有依赖弃用/预览警告，不影响测试结果，未修改依赖来消除警告。
 3. **测试范围修正**：首次完整 runner 在 pytest 收集目录阶段被系统策略拒绝访问正式用户目录，未执行任何用例；缺少既有隔离启动器使用的收集范围参数。先补本 LLD 的 `rootdir/confcutdir/import-mode/noconftest` 约束，再修正临时 runner，仅重做同四文件；未解除目录/网络保护、未跳过用例、未触及正式实例。这不是正式数据 job 的失败或重跑。
 4. **真实性和范围**：人工日历按当前四列 Silver 生产合同创建，并独立断言 schema；真实窗口、注册分类和 selector 参与测试。行情完整性、Dagster 状态与 Prod 交互的替身只用于隔离，不能证明 29 日正式数据已补齐。公式与发布实现未改，本次不另跑行情性能测试或前端/API 测试。
 5. **静态与独立复核**：受影响源文件和测试的 Ruff、四文件 whitespace 检查、函数 AST 范围核对通过。独立复核已只读审查方案/LLD、完整源差异、测试输入与断言、旧失败和新通过记录、隔离 runner，未发现实现错误或关键遗漏；未替代正式验收。新源 SHA-256 为 `dbf59a02cf4d69bbcfdc74325761204d02a9991d646eb8f026b4903e563e9fdd`。
-6. **临时资源收尾**：仅删除本轮三个独占测试目录，含 runner、系统策略文件、临时日历/Parquet、DuckDB 目录和临时实例；删除前剩余普通文件共 243 个、241,252 字节，这只是收尾存量，不能当作峰值或累计 I/O 实测。旧代码反例证据保留；最终 99 项结果、源指纹、逐文件结果和清理清单保存在 `/private/tmp/major_index_nineturn_validation_20261030.json`，配套 `.log` 保存测试输出，`-collection-error.log` 与 `-collection-error-summary.json` 保留首次零用例收集失败记录。没有清理正式 staging、其他任务临时文件或现有依赖。
+6. **临时资源收尾**：仅删除本轮三个独占测试目录，含 runner、系统策略文件、临时日历/Parquet、DuckDB 目录和临时实例；删除前剩余普通文件共 243 个、241,252 字节，这只是收尾存量，不能当作峰值或累计 I/O 实测。旧代码反例证据保留；最终[99 项结果、源指纹和清理清单](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/validation/major_index_nineturn_validation_20261030.json)及[测试输出](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/validation/major_index_nineturn_validation_20261030.log)现已归档；同目录 `-collection-error.log` 与 `-collection-error-summary.json` 保留首次零用例收集失败记录。没有清理正式 staging、其他任务临时文件或现有依赖。
 
 上述开发阶段没有读取正式 Lake/Prod/实例，没有 reload、触发 job、切 sensor、改 cursor、注册分区或写 runless event；不重刷已完成历史，不新增 repair。后续正式动作经另行批准才按第 6.5.11 节执行，不将两阶段证据混写。
 
@@ -605,6 +605,14 @@ runner 只执行下面四个既定测试文件，按现有隔离启动器设置 
 Prod 原生读回内容 hash 为 `f95a12d40bfee2e3e5eeeb72b35cdca59b231cbf0c35578e1a73cb50f16a5c03`，发布结果与原检查 expected/observed 三者相同。必要输入只有 20 份最近行情及 28 日 seed，2026-09-24 至 2026-10-29 的行情窗口加 seed 合计 53,829 字节；预检只 stat，读取与计算由原 job/check 执行，没有新增运行限制或性能测试。报告只记录业务文件字节量和原任务耗时，不声称测得整个进程 I/O。
 
 本次两项已完成；30 日常规任务、分钟链、股票链及其他历史不纳入结果。恢复后不重跑已成功任务，不再追加全目录验收。完整证据入口为 [恢复记录](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/README.md)。
+
+#### 6.5.12 本轮证据与临时文件收尾（2026-10-30，已完成）
+
+对应总方案第 6.4.6 节。当前代码、两次提交和正式补齐结果已完成，收尾不触发开发或正式环境动作。临时材料仅限 `/private/tmp/dg_index_nineturn_cause_20261029_20261030/` 下已核实的 8 份原因审计文件，以及 `major_index_nineturn_tail_old_code_{evidence.json,failure.txt}`、`major_index_nineturn_validation_20261030{.json,.log,-collection-error.log,-collection-error-summary.json}` 六份测试证据，共 14 文件、64,736 字节。逐份复制至现有恢复报告 `audit/`、`validation/`，保留原始内容；原始 JSON 内的旧路径属于执行时记录，不改写为新执行输入。
+
+复制前核对来源是本任务普通文件、原路径与数量准确；复制后核对字节量及 SHA-256，生成 `cleanup-manifest.json`。只有全部目标核验通过且来源仍与原摘要一致，才逐份删除上述临时文件；原因审计目录为空后才移除，不递归删除未知文件。失败即保留剩余来源和已验证副本，按清单继续核实，不扩大删除范围。纯本任务小文件预算读写各 1MiB、额外空间 1MiB，含摘要核对和收尾；没有数据集读取、正式 Lake/staging 或服务状态写入。
+
+最后更新原两文与恢复报告的引用，校验文档链接、内容摘要及相关文件 Git 状态；仅提交本次明确清单，保留无关工作区改动。不重跑测试、补数或全局审计，复用已经保存并独立验收的结果。实际结果：14 份证据共 64,736 字节，归档内容逐份 SHA-256 相同，原临时副本均已删除、原因审计目录已空后移除；[逐份清单](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/cleanup-manifest.json)记录原路径、归档路径和摘要。文档遗留“当前阶段待执行”已修正，本轮没有追加开发或正式数据动作。两份 `.log` 命中既有忽略规则，提交时只按这两个完整路径强制加入；原始失败日志含 pytest 输出的行末空白，为保持摘要一致不改写该证据。其余文件用默认 whitespace 检查，此原始日志单独允许原有行末空白并核内容摘要，不修改仓库配置。
 
 ## 7. 日线 PostgreSQL serving
 
@@ -2019,3 +2027,4 @@ D6-2 与 D6-3 正式执行结果如下：
 | v1.43 | 2026-10-30 | 完成两文及当前代码静态对账：纠正历史状态、只读授权、指数检查/版本、Reader实际类型、缓存/取消、状态映射和active异常码，撤销旧schema恢复及过期脚本指令；只完成文档，尚未开发或正式补数 | Codex |
 | v1.44 | 2026-10-30 | 按原 LLD 完成共用 sensor 日期修正和测试，登记旧代码两例失败、修复后四文件 99 项隔离通过、真实日历/窗口/保护条件对账及测试隔离要求；未正式加载或补数 | Codex |
 | v1.45 | 2026-10-30 | 按明确批准提交、正式预检和reload，原sensor完成29日Gold→Prod自动链，两项11行、原绑定检查与内容读回、最终计数通过；记录只读验收入口、原writer候选清理事实及独立复核，保留其他日期和sensor状态 | Codex |
+| v1.46 | 2026-10-30 | 收尾完成：14份审计/测试证据原样归档并逐份校验，删除对应临时副本；同步证据引用，清除实现对账遗留待执行文字，保留正式结果及其他工作区改动 | Codex |

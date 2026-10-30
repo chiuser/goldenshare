@@ -411,7 +411,7 @@ up_count, down_count, nine_up_turn, nine_down_turn
 
 29 日自身已注册，28 日九转原检查通过，两个相关 sensor 实际均为 `RUNNING`。Git 表明错误分支自 `553b7db36`（2026-08-15）引入后未修改，没有近期回退证据。本节解释的是 30 日上午上游完成后为何仍未推进，不把 29 日上游更早的延迟也归因于九转。
 
-证据：[28 日补齐执行记录](../../../lake_console/reports/datasets_recovery_20261028_20261029/README.md)、[原始阻断 tick](../../../lake_console/reports/datasets_recovery_20261028_20261029/index-daily-nineturn/gold-tick-at-manual-launch.json)。30 日只读核验的请求、响应及摘要保存在 `/private/tmp/dg_index_nineturn_cause_20261029_20261030/`；这是本次审计材料，不是运行时依赖或长期存储路径。
+证据：[28 日补齐执行记录](../../../lake_console/reports/datasets_recovery_20261028_20261029/README.md)、[原始阻断 tick](../../../lake_console/reports/datasets_recovery_20261028_20261029/index-daily-nineturn/gold-tick-at-manual-launch.json)。30 日修复前的请求、响应及摘要已归入[原因审计记录](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/audit/README.md)，保持当时原文，不作为修复后的当前代码或待执行操作。
 
 #### 6.4.2 修复范围与必须保留的行为
 
@@ -447,6 +447,10 @@ up_count, down_count, nine_up_turn, nine_down_turn
 已对照当前 DG 数据链、Foundation Reader、Biz API 和 Wealth registry/adapter 静态核验两文，详细纠正清单与代码依据见 LLD 第 6.5.9 节。历史快照与待实施设计分别标明；旧迁移不作为当前待办，旧文件恢复指令撤销，检查/版本/Reader/缓存/延迟/异常码说明按当前实现对齐。没有因此新增 API、前端或数据迁移工作。
 
 文档对账后已按 LLD 完成共用 sensor 修正和隔离测试：旧代码在日线、分钟两个缺陷用例均失败，修复后四文件 99 项通过。其后经管理员明确批准，完成正式预检、一次 code location reload、原 Gold→Prod 自然任务和单日收尾。15:31:44 的新 tick 在 30 日仍未注册时只请求 29 日，Gold `566dbcc9` 和 Prod `a0cddfca` 均成功，各 11 行；两个原检查正确绑定，Prod 读回内容一致。最终单次计数 11/11，21 份必要输入及 28 日 seed 身份未变，三个相关 sensor 保持 RUNNING。执行证据与独立验收见 [恢复记录](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/README.md)及 LLD 第 6.5.11 节。没有手工发 job、重刷历史或重复全局审计，本次 29 日日线两项已完成。
+
+#### 6.4.6 本轮收尾（2026-10-30）
+
+只处理本次遗留的审计/测试证据与文档状态：将 `/private/tmp` 中已确认的 14 份必要证据原样移入本次恢复报告的 `audit/` 和 `validation/`，逐份核对 SHA-256 后删除原临时副本并同步引用；清单、字节量和结果记录在同一报告。修正实现对账中遗留的“待执行”字样，不追加代码、测试、正式查询、补数或 sensor 操作，不清理正式 Lake/staging 和其他任务文件。14 份证据已逐份校验后归档，原临时副本和空目录已删除；文档引用与状态已同步，无需追加开发或补数。具体清单与校验见 LLD 第 6.5.12 节。
 
 ## 7. 服务与 API 边界
 
@@ -920,3 +924,4 @@ M0～M6、股票分钟去价格 S0～S5 与股票日线去价格 D0～D6 的历�
 | v1.43 | 2026-10-30 | 对照当前代码同步两文：历史状态与待实施修复分开，清理旧迁移/恢复指令，纠正检查、版本、Reader、缓存、状态及异常码说明；文档设计可进入开发验证，正式补数仍待实现和验收 | Codex |
 | v1.44 | 2026-10-30 | 按 LLD 完成主要指数日线/分钟九转共用 sensor 日期修正；旧代码两个缺陷回归失败，修复后既定四文件 99 项隔离测试通过，补齐实现对账与临时资源清理记录；未正式加载或补数 | Codex |
 | v1.45 | 2026-10-30 | 提交 dc051b657 并按获准顺序正式加载；原 sensor 自动补齐 29 日 Gold→Prod，各 11 行，原检查、Prod 内容读回与最终单日计数通过，输入/28日seed及sensor开关保持；记录正式证据和独立验收，不重刷历史或重复全局审计 | Codex |
+| v1.46 | 2026-10-30 | 完成本轮收尾：14份必要证据原样归入恢复报告并核SHA-256，删除对应临时副本及空目录；修正文档引用和遗留待执行字样，未重跑任务或操作正式环境 | Codex |

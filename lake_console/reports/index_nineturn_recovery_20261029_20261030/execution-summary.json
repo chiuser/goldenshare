@@ -25,5 +25,15 @@
   },
   "passed": true,
   "final_acceptance": "final.json",
-  "original_check_content_hash": "f95a12d40bfee2e3e5eeeb72b35cdca59b231cbf0c35578e1a73cb50f16a5c03"
+  "original_check_content_hash": "f95a12d40bfee2e3e5eeeb72b35cdca59b231cbf0c35578e1a73cb50f16a5c03",
+  "closeout": {
+    "completed": true,
+    "evidence_manifest": "cleanup-manifest.json",
+    "archived_files": 14,
+    "archived_bytes": 64736,
+    "temporary_copies_deleted": 14,
+    "additional_formal_queries": 0,
+    "additional_jobs": 0,
+    "additional_code_changes": 0
+  }
 }

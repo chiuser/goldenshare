@@ -1,0 +1,30 @@
+ERROR: found no collectors for /Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_major_index_nineturn_sensors.py
+
+ERROR: found no collectors for /Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_bounded_continuity.py
+
+ERROR: found no collectors for /Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_major_index_nineturn_m4b.py
+
+ERROR: found no collectors for /Users/congming/github/goldenshare/lake_console/orchestrator/tests/test_index_daily_nineturn_prod_core.py
+
+
+==================================== ERRORS ====================================
+________________________ ERROR collecting test session _________________________
+.venv/lib/python3.13/site-packages/pluggy/_hooks.py:512: in __call__
+    return self._hookexec(self.name, self._hookimpls.copy(), kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/pluggy/_manager.py:120: in _hookexec
+    return self._inner_hookexec(hook_name, methods, kwargs, firstresult)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+.venv/lib/python3.13/site-packages/_pytest/main.py:467: in pytest_ignore_collect
+    if collection_path.is_dir():
+       ^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../miniconda3/lib/python3.13/pathlib/_abc.py:465: in is_dir
+    return S_ISDIR(self.stat(follow_symlinks=follow_symlinks).st_mode)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+../../../../miniconda3/lib/python3.13/pathlib/_local.py:515: in stat
+    return os.stat(self, follow_symlinks=follow_symlinks)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+E   PermissionError: [Errno 1] Operation not permitted: '/Users/congming/.goldenshare'
+=========================== short test summary info ============================
+ERROR ::Users::congming - PermissionError: [Errno 1] Operation not permitted:...
+1 error in 0.04s

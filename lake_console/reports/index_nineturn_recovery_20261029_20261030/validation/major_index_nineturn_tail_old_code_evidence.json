@@ -1,0 +1,8 @@
+{
+  "working_directory": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+  "command": "env -u DAGSTER_HOME .venv/bin/python3 -B -m pytest -q -p no:cacheprovider --basetemp=/private/tmp/major_index_nineturn_tail_old_code_tests tests/test_major_index_nineturn_sensors.py -k recovers_registered_old_date_before_unregistered_tail",
+  "source_sha256": "4e1ea308a89d792b3f10a6bb92ccb02f59fac32a8cd913de31cf1540cdef21f2",
+  "result": "2 failed, 18 deselected",
+  "expected_failure": "registered old day blocked by unregistered current tail before readiness",
+  "log": "/private/tmp/major_index_nineturn_tail_old_code_failure.txt"
+}

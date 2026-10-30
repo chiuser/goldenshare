@@ -1,0 +1,197 @@
+FF                                                                       [100%]
+=================================== FAILURES ===================================
+_ test_gold_sensor_recovers_registered_old_date_before_unregistered_tail[False] _
+
+tmp_path = PosixPath('/private/tmp/major_index_nineturn_tail_old_code_tests/test_gold_sensor_recovers_regi0')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x105436780>
+minute = False
+
+    @pytest.mark.parametrize("minute", [False, True])
+    def test_gold_sensor_recovers_registered_old_date_before_unregistered_tail(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        minute: bool,
+    ) -> None:
+        """Literal dates reproduce the Oct 30 tick and its already registered Oct 29.
+    
+        Readiness substitutes only the existing target/upstream/previous checks;
+        the registration classifier and earliest-date selector remain real.
+        """
+        previous_date = "2026-10-28"
+        target_date = "2026-10-29"
+        expected_dates = (previous_date, target_date, "2026-10-30")
+        actionable_dates = (previous_date, target_date)
+        context = _gold_sensor_context(
+            tmp_path, registered_trade_dates=actionable_dates
+        )
+        monkeypatch.setattr(
+            gold_sensor,
+            "load_expected_trade_date_window",
+            lambda *_args, **_kwargs: ContinuityExpectedDateWindow(
+                expected_trade_dates=expected_dates,
+                min_trade_date=None,
+                max_trade_date="2026-10-30",
+                evaluated_at=datetime(
+                    2026, 10, 30, 9, 30, tzinfo=gold_sensor.CN_A_SENSOR_TIMEZONE
+                ),
+                window_limit=5 if minute else 10,
+            ),
+        )
+        readiness_calls: list[tuple[str, ...]] = []
+    
+        def _readiness(**kwargs):
+            dates = tuple(kwargs["expected_trade_dates"])
+            readiness_calls.append(dates)
+            assert kwargs["minute"] is minute
+            if dates == (previous_date,):
+                return _batch(_ready(previous_date))
+            assert dates == actionable_dates
+            return _batch(_ready(previous_date), _missing(target_date))
+    
+        monkeypatch.setattr(
+            gold_sensor, "batch_gold_major_index_nineturn_readiness", _readiness
+        )
+        upstream_calls: list[str] = []
+    
+        def _daily_upstream(_instance, trade_date):
+            assert minute is False
+            upstream_calls.append(trade_date)
+            return SimpleNamespace(ready=True)
+    
+        def _minute_upstream(_instance, specs, *, partition_key):
+            assert minute is True
+            assert specs is gold_sensor._MINUTE_UPSTREAM_SPECS
+            upstream_calls.append(partition_key)
+            return SimpleNamespace(ready=True)
+    
+        monkeypatch.setattr(
+            gold_sensor,
+            "gold_market_major_indices_daily_ready_for_trade_date",
+            _daily_upstream,
+        )
+        monkeypatch.setattr(
+            gold_sensor,
+            "partition_dataset_readiness_status_from_latest_checks",
+            _minute_upstream,
+        )
+        selector_calls: list[tuple[str, ...]] = []
+        real_selector = gold_sensor.select_first_not_ready_trade_date
+    
+        def _selector(**kwargs):
+            selector_calls.append(tuple(kwargs["expected_trade_dates"]))
+            return real_selector(**kwargs)
+    
+        monkeypatch.setattr(gold_sensor, "select_first_not_ready_trade_date", _selector)
+    
+        result = _evaluate_gold_sensor(minute=minute, context=context)
+    
+>       assert len(result.run_requests) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+E        +    where [] = SensorResult(run_requests=[], skip_reason=SkipReason(skip_message='等待主要指数九转交易日分区注册。'), cursor='{"blocked_count": 1, "d...0, "target_date": "2026-10-30"}', dynamic_partitions_requests=[], asset_events=[], automation_condition_evaluations=[]).run_requests
+
+tests/test_major_index_nineturn_sensors.py:564: AssertionError
+_ test_gold_sensor_recovers_registered_old_date_before_unregistered_tail[True] _
+
+tmp_path = PosixPath('/private/tmp/major_index_nineturn_tail_old_code_tests/test_gold_sensor_recovers_regi1')
+monkeypatch = <_pytest.monkeypatch.MonkeyPatch object at 0x10a0fc2b0>
+minute = True
+
+    @pytest.mark.parametrize("minute", [False, True])
+    def test_gold_sensor_recovers_registered_old_date_before_unregistered_tail(
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        minute: bool,
+    ) -> None:
+        """Literal dates reproduce the Oct 30 tick and its already registered Oct 29.
+    
+        Readiness substitutes only the existing target/upstream/previous checks;
+        the registration classifier and earliest-date selector remain real.
+        """
+        previous_date = "2026-10-28"
+        target_date = "2026-10-29"
+        expected_dates = (previous_date, target_date, "2026-10-30")
+        actionable_dates = (previous_date, target_date)
+        context = _gold_sensor_context(
+            tmp_path, registered_trade_dates=actionable_dates
+        )
+        monkeypatch.setattr(
+            gold_sensor,
+            "load_expected_trade_date_window",
+            lambda *_args, **_kwargs: ContinuityExpectedDateWindow(
+                expected_trade_dates=expected_dates,
+                min_trade_date=None,
+                max_trade_date="2026-10-30",
+                evaluated_at=datetime(
+                    2026, 10, 30, 9, 30, tzinfo=gold_sensor.CN_A_SENSOR_TIMEZONE
+                ),
+                window_limit=5 if minute else 10,
+            ),
+        )
+        readiness_calls: list[tuple[str, ...]] = []
+    
+        def _readiness(**kwargs):
+            dates = tuple(kwargs["expected_trade_dates"])
+            readiness_calls.append(dates)
+            assert kwargs["minute"] is minute
+            if dates == (previous_date,):
+                return _batch(_ready(previous_date))
+            assert dates == actionable_dates
+            return _batch(_ready(previous_date), _missing(target_date))
+    
+        monkeypatch.setattr(
+            gold_sensor, "batch_gold_major_index_nineturn_readiness", _readiness
+        )
+        upstream_calls: list[str] = []
+    
+        def _daily_upstream(_instance, trade_date):
+            assert minute is False
+            upstream_calls.append(trade_date)
+            return SimpleNamespace(ready=True)
+    
+        def _minute_upstream(_instance, specs, *, partition_key):
+            assert minute is True
+            assert specs is gold_sensor._MINUTE_UPSTREAM_SPECS
+            upstream_calls.append(partition_key)
+            return SimpleNamespace(ready=True)
+    
+        monkeypatch.setattr(
+            gold_sensor,
+            "gold_market_major_indices_daily_ready_for_trade_date",
+            _daily_upstream,
+        )
+        monkeypatch.setattr(
+            gold_sensor,
+            "partition_dataset_readiness_status_from_latest_checks",
+            _minute_upstream,
+        )
+        selector_calls: list[tuple[str, ...]] = []
+        real_selector = gold_sensor.select_first_not_ready_trade_date
+    
+        def _selector(**kwargs):
+            selector_calls.append(tuple(kwargs["expected_trade_dates"]))
+            return real_selector(**kwargs)
+    
+        monkeypatch.setattr(gold_sensor, "select_first_not_ready_trade_date", _selector)
+    
+        result = _evaluate_gold_sensor(minute=minute, context=context)
+    
+>       assert len(result.run_requests) == 1
+E       assert 0 == 1
+E        +  where 0 = len([])
+E        +    where [] = SensorResult(run_requests=[], skip_reason=SkipReason(skip_message='等待主要指数九转交易日分区注册。'), cursor='{"blocked_count": 1, "d...0, "target_date": "2026-10-30"}', dynamic_partitions_requests=[], asset_events=[], automation_condition_evaluations=[]).run_requests
+
+tests/test_major_index_nineturn_sensors.py:564: AssertionError
+=============================== warnings summary ===============================
+.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74
+.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74
+.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74
+.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74
+  /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster_shared/dagster_model/pydantic_compat_layer.py:74: PydanticDeprecatedSince20: The `__fields__` attribute is deprecated, use the `model_fields` class property instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.13/migration/
+    fields = getattr(model, "__fields__")
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/test_major_index_nineturn_sensors.py::test_gold_sensor_recovers_registered_old_date_before_unregistered_tail[False]
+FAILED tests/test_major_index_nineturn_sensors.py::test_gold_sensor_recovers_registered_old_date_before_unregistered_tail[True]
+2 failed, 18 deselected, 4 warnings in 0.75s

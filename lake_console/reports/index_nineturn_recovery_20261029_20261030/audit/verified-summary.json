@@ -1,0 +1,18 @@
+{
+  "generated_at": "2026-10-30T10:39:21.523684+08:00",
+  "trade_date": "2026-10-29",
+  "gold_target_run_count": 0,
+  "prod_target_run_count": 0,
+  "gold_sensor_status": "RUNNING",
+  "prod_sensor_status": "RUNNING",
+  "blocking_date": "2026-10-30",
+  "reason_code": "missing_registered_partition",
+  "latest_registered_date": "2026-10-29",
+  "same_day_registration_start": "16:00",
+  "upstream_run_id": "140070cc-3768-47b6-b4cb-2313195a70d5",
+  "upstream_check_count": 4,
+  "upstream_checks_passed": true,
+  "previous_20261028_nineturn_check_passed": true,
+  "formal_writes": false,
+  "additional_parquet_reads": false
+}

@@ -1,0 +1,528 @@
+{
+  "exitstatus": 0,
+  "collected": 99,
+  "configured_connections": 39,
+  "reports": [
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_gold_sensor_stops_at_missing_registration_before_readiness[False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_gold_sensor_stops_at_missing_registration_before_readiness[True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_gold_sensor_skips_when_entire_window_is_ready[False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_gold_sensor_skips_when_entire_window_is_ready[True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_gold_sensor_refuses_to_overwrite_failed_target[False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_gold_sensor_refuses_to_overwrite_failed_target[True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_gold_sensor_waits_for_same_partition_upstream[False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_gold_sensor_waits_for_same_partition_upstream[True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_gold_sensor_refuses_to_break_previous_partition_chain[False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_gold_sensor_refuses_to_break_previous_partition_chain[True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_gold_sensor_fails_closed_on_unexpected_error[False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_gold_sensor_fails_closed_on_unexpected_error[True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_gold_sensor_requests_exactly_one_partition_with_stable_identity[False-gold_major_index_daily_nineturn_update:2026-08-14]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_gold_sensor_requests_exactly_one_partition_with_stable_identity[True-gold_major_index_mins_nineturn_update:2026-08-14]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_serving_sensor_rejects_invalid_partition_before_readiness",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_serving_sensor_waits_for_gold_blocking_check",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_serving_sensor_run_key_is_idempotent_per_producer_run",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_serving_sensor_first_tick_initializes_cursor_without_history_replay",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_gold_sensor_recovers_registered_old_date_before_unregistered_tail[False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_gold_sensor_recovers_registered_old_date_before_unregistered_tail[True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_registration_cases_stop_before_target_or_upstream_reads[empty-window-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_registration_cases_stop_before_target_or_upstream_reads[empty-window-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_registration_cases_stop_before_target_or_upstream_reads[all-unregistered-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_registration_cases_stop_before_target_or_upstream_reads[all-unregistered-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_registration_cases_stop_before_target_or_upstream_reads[internal-gap-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_registration_cases_stop_before_target_or_upstream_reads[internal-gap-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_registration_cases_stop_before_target_or_upstream_reads[leading-gap-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_registration_cases_stop_before_target_or_upstream_reads[leading-gap-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_completed_registered_prefix_waits_for_first_tail_without_claiming_all_ready[False-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_completed_registered_prefix_waits_for_first_tail_without_claiming_all_ready[False-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_completed_registered_prefix_waits_for_first_tail_without_claiming_all_ready[True-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_completed_registered_prefix_waits_for_first_tail_without_claiming_all_ready[True-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_unregistered_tail_does_not_weaken_existing_quality_or_continuity_gates[upstream-upstream_not_ready-2026-10-29-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_unregistered_tail_does_not_weaken_existing_quality_or_continuity_gates[upstream-upstream_not_ready-2026-10-29-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_unregistered_tail_does_not_weaken_existing_quality_or_continuity_gates[previous-previous_partition_not_ready-2026-10-29-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_unregistered_tail_does_not_weaken_existing_quality_or_continuity_gates[previous-previous_partition_not_ready-2026-10-29-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_unregistered_tail_does_not_weaken_existing_quality_or_continuity_gates[bad-target-target_integrity_failed-2026-10-29-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_unregistered_tail_does_not_weaken_existing_quality_or_continuity_gates[bad-target-target_integrity_failed-2026-10-29-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_unregistered_tail_does_not_weaken_existing_quality_or_continuity_gates[earlier-bad-target-target_integrity_failed-2026-10-28-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_unregistered_tail_does_not_weaken_existing_quality_or_continuity_gates[earlier-bad-target-target_integrity_failed-2026-10-28-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_window_first_date_still_checks_registered_previous_outside_window[False-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_window_first_date_still_checks_registered_previous_outside_window[False-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_window_first_date_still_checks_registered_previous_outside_window[True-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_window_first_date_still_checks_registered_previous_outside_window[True-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_incomplete_or_mismatched_readiness_stops_instead_of_claiming_all_ready[False-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_incomplete_or_mismatched_readiness_stops_instead_of_claiming_all_ready[False-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_incomplete_or_mismatched_readiness_stops_instead_of_claiming_all_ready[True-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_incomplete_or_mismatched_readiness_stops_instead_of_claiming_all_ready[True-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_multiple_unregistered_tail_dates_preserve_earliest_request_and_run_key[False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_multiple_unregistered_tail_dates_preserve_earliest_request_and_run_key[True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_real_silver_calendar_preserves_window_and_registration_before_and_after_1600[9-False-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_real_silver_calendar_preserves_window_and_registration_before_and_after_1600[9-False-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_real_silver_calendar_preserves_window_and_registration_before_and_after_1600[16-False-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_real_silver_calendar_preserves_window_and_registration_before_and_after_1600[16-False-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_real_silver_calendar_preserves_window_and_registration_before_and_after_1600[17-False-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_real_silver_calendar_preserves_window_and_registration_before_and_after_1600[17-False-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_real_silver_calendar_preserves_window_and_registration_before_and_after_1600[17-True-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_real_silver_calendar_preserves_window_and_registration_before_and_after_1600[17-True-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_real_calendar_year_boundary_and_closed_days_do_not_create_fake_targets[False-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_real_calendar_year_boundary_and_closed_days_do_not_create_fake_targets[False-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_real_calendar_year_boundary_and_closed_days_do_not_create_fake_targets[True-False]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_sensors.py::test_real_calendar_year_boundary_and_closed_days_do_not_create_fake_targets[True-True]",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_bounded_continuity.py::BoundedContinuityTests::test_batch_readiness_unknown_date_fails_closed",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_bounded_continuity.py::BoundedContinuityTests::test_cursor_details_are_summary_only",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_bounded_continuity.py::BoundedContinuityTests::test_date_readiness_rejects_ready_mismatch",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_bounded_continuity.py::BoundedContinuityTests::test_empty_registered_window_has_no_actionable_dates",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_bounded_continuity.py::BoundedContinuityTests::test_expected_date_window_rejects_invalid_window_limit",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_bounded_continuity.py::BoundedContinuityTests::test_expected_date_window_respects_min_same_day_and_window_limit",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_bounded_continuity.py::BoundedContinuityTests::test_registered_gap_reports_first_missing_and_small_sample",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_bounded_continuity.py::BoundedContinuityTests::test_registered_internal_gap_blocks_all_actionable_dates",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_bounded_continuity.py::BoundedContinuityTests::test_registered_tail_gap_does_not_block_registered_prefix",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_bounded_continuity.py::BoundedContinuityTests::test_selector_all_ready_sets_ready_frontier",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_bounded_continuity.py::BoundedContinuityTests::test_selector_blocks_materialized_check_failure",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_bounded_continuity.py::BoundedContinuityTests::test_selector_blocks_missing_readiness_status",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_bounded_continuity.py::BoundedContinuityTests::test_selector_returns_first_not_ready_in_expected_order",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_exactly_seven_gold_assets_and_checks_are_discoverable",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_assets_consume_only_frozen_gold_upstreams_and_catalog_checks",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_jobs_select_exact_assets_and_sensors_stay_stopped",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_index_adapters_use_shared_formula_for_daily_and_six_minutes",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_integrity_check_is_formula_free",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_daily_writer_promotes_only_validated_partition_and_integrity_passes",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_minute_writer_promotes_exact_schema_and_integrity_passes",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_history_plan_is_twenty_day_bounded_and_read_only",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_history_builder_requires_reviewed_sources_and_validates_resume_targets",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_history_builder_rejects_source_changed_after_review",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_history_builder_continues_sequence_across_twenty_day_batches",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_history_plan_reload_supports_bounded_cross_process_resume",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_history_plan_reload_rejects_modified_report",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_history_final_audit_reconciles_checkpoint_source_and_targets",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_history_events_are_sampled_batched_and_bound_to_materializations",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_history_event_plan_limits_checks_to_recent_twenty",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_daily_serving_history_plan_freezes_audited_source_identities",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_major_index_nineturn_m4b.py::test_daily_serving_history_publishes_sample_then_resumes_batch",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_index_daily_nineturn_prod_core.py::test_serving_asset_catalog_check_job_and_sensor_contract",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_index_daily_nineturn_prod_core.py::test_publisher_bulk_replaces_and_readback_hashes",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_index_daily_nineturn_prod_core.py::test_publisher_rolls_back_on_readback_drift",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_index_daily_nineturn_prod_core.py::test_readonly_audit_detects_content_drift",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_index_daily_nineturn_prod_core.py::test_publisher_rejects_invalid_signal_before_database_write",
+      "when": "call",
+      "outcome": "passed"
+    },
+    {
+      "nodeid": "test_index_daily_nineturn_prod_core.py::test_checkpoint_audit_streams_and_matches_partition_hash",
+      "when": "call",
+      "outcome": "passed"
+    }
+  ],
+  "elapsed_seconds": 4.7913504159078,
+  "source_sha256": "dbf59a02cf4d69bbcfdc74325761204d02a9991d646eb8f026b4903e563e9fdd",
+  "source_changed_functions": [
+    "_cursor",
+    "_evaluate"
+  ],
+  "independent_review": "passed; code and evidence only; no formal resources",
+  "formal_execution": "not performed",
+  "cleanup_inventory": [
+    {
+      "path": "/private/tmp/major_index_nineturn_dev_20261030_hj47fgrb",
+      "remaining_files_before_cleanup": 231,
+      "remaining_file_bytes_before_cleanup": 232620
+    },
+    {
+      "path": "/private/tmp/major_index_nineturn_tail_old_code_tests",
+      "remaining_files_before_cleanup": 0,
+      "remaining_file_bytes_before_cleanup": 0
+    },
+    {
+      "path": "/private/tmp/major_index_nineturn_sensor_matrix_20261030",
+      "remaining_files_before_cleanup": 12,
+      "remaining_file_bytes_before_cleanup": 8632
+    }
+  ],
+  "test_resources_cleaned": true
+}
