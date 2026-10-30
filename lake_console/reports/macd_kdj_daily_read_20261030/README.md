@@ -1,6 +1,6 @@
 # MACD/KDJ日更读取修正：开发与隔离验收
 
-2026-10-30。依据原方案第17节与原写入LLD第19节，设计`4a4a689e`及实现`5a0b13401`已提交。最新正式结果：获准后只恢复29日1m，run`63c25bed-bdc8-4fee-9af8-0321b5b13ac7`已SUCCESS，两物化/四检查通过，154.728秒，详见[最终对账](recovery_20261029_1m/final-verified.json)。其他六频未重跑，2股历史repair未执行，repair sensor按批准暂缓并保留原cursor。
+2026-10-30。设计`4a4a689e`及实现`5a0b13401`已提交。原job只恢复29日1m的run`63c25bed-bdc8-4fee-9af8-0321b5b13ac7`SUCCESS，两物化/四检查通过，154.728秒，见[日更对账](recovery_20261029_1m/final-verified.json)；其他六频日更未重跑。随后原2股七频历史repair run`86d8b492-c056-412d-b9cc-551462e3188e`SUCCESS、14completion一致、281.185秒，见[repair对账](recovery_20261029_repair/final-verified.json)。sensor已恢复RUNNING，原光标保留，无重复repair。
 
 - [总体结果](validation-summary.json)：315项测试、23项子测试通过，另完成实际新producer到原reader/API的双环境隔离文件交接。
 - [新日更及发布测试](daily-and-publication.xml)：66项；[日志](daily-and-publication.log)。
@@ -14,6 +14,6 @@
 
 提交后又完成[独立实现审计](post_commit_audit_20261030.md)和[29日1m有界恢复预检及执行汇总](recovery_20261029_1m/summary.json)。管理员明确批准160/26/32GiB的1m范围及暂缓repair sensor后，按原job原root只续跑失败1m；原4GB报错的数据准备阶段本次实际通过。没有新增性能测试、全局审计或自动重跑；原方案17.10及LLD19.13—19.14记录批准与执行。
 
-收尾publication有5,571份完成记录，候选目录已空；必要冻结输入及receipt保留，未删正式数据或续跑依据。原生结果/检查/开关读回见[final-response](recovery_20261029_1m/final-response.json)，没有额外行情内容读取。TODO：另核原job生成的2股历史repair预算并获准后执行，再恢复本次暂缓的sensor。
+1m收尾publication有5,571份完成记录，候选目录已空；必要冻结输入及receipt保留，未删正式数据或续跑依据。该阶段原生结果/检查/暂停开关读回见[1m final-response](recovery_20261029_1m/final-response.json)，没有额外行情内容读取；其当时的2股repair和sensor恢复TODO现已完成。
 
-后续2股repair的[方案、metadata和预算](recovery_20261029_repair/README.md)已完成，两条独立审查未发现需要改代码的阻断；正常原job读20GiB、写10GiB、空间12GiB，具体历史读取正在申请，尚未执行。先按管理员要求提交已完成结果及可review的执行安排，后续修补和开关恢复结果另行追加提交，不将方案存在当作repair成功。
+2股repair的[方案、metadata、预算与实际结果](recovery_20261029_repair/README.md)已闭合：20/10/12GiB具体范围另获批准后，原job正常一次完成。119份指标重算1,209,754行；21,812份共享state写回85,301,874行含保留的其他股票。七频21,931目标及完成记录齐备，候选0。原sensor原生恢复RUNNING、id/cursor/lastRunKey在恢复响应与原保存值相同，最新tick跳过且没有重复run；后续cursor正常推进。没有再改代码、增加性能测试、全局审计或自动重跑；本次执行记录按管理员要求另行提交。

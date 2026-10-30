@@ -1,0 +1,8 @@
+{
+  "submitted_at": "2026-10-30T09:39:26.237445+08:00",
+  "run_id": "86d8b492-c056-412d-b9cc-551462e3188e",
+  "status": "QUEUED",
+  "exact_original_run_config_matched": true,
+  "automatic_retry": false,
+  "repair_sensor_still_stopped": true
+}

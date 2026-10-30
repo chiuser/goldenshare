@@ -1,0 +1,9 @@
+{
+  "observed_at": "2026-10-30T09:45:25.314027+08:00",
+  "name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+  "status": "RUNNING",
+  "identity_preserved": true,
+  "cursor_preserved_at_start_response": true,
+  "last_run_key_preserved_at_start_response": true,
+  "normal_later_cursor_advancement_allowed": true
+}

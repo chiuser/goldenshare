@@ -1,0 +1,16 @@
+{
+  "observed_at": "2026-10-30T09:43:02.193503+08:00",
+  "out": {
+    "bytes": 19322,
+    "last_lines": [
+      "[stk_mins_qfq_publication] event=stock_minute_file_publication_progress stage=promote_files validated_file_count=3133 promoted_file_count=0 total_file_count=3133 target=- operation_directory=/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=60/run_id=99725ab79e4b15cf693cbbdc56460666c8ef9c4ba9b72a819d2b8a0125cdb3f7/scope=5fc0ceead18ff8bf947fd8eead8d5d110f784448f57fc420a53989bd1e48f3e8 existing_build_target_stat_bytes=550720113 frozen_input_stat_bytes=1027304 verified_candidate_stat_bytes=550720114 verified_formal_stat_bytes=0 input_sha256_read_bytes=1027304 candidate_sha256_read_bytes=550720114 formal_sha256_read_bytes=0",
+      "[stk_mins_qfq_publication] event=stock_minute_file_publication_progress stage=completed validated_file_count=3133 promoted_file_count=3133 total_file_count=3133 target=- operation_directory=/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=60/run_id=99725ab79e4b15cf693cbbdc56460666c8ef9c4ba9b72a819d2b8a0125cdb3f7/scope=5fc0ceead18ff8bf947fd8eead8d5d110f784448f57fc420a53989bd1e48f3e8 existing_build_target_stat_bytes=550720113 frozen_input_stat_bytes=1027304 verified_candidate_stat_bytes=0 verified_formal_stat_bytes=550720114 input_sha256_read_bytes=1027304 candidate_sha256_read_bytes=550720114 formal_sha256_read_bytes=0",
+      "[stk_mins_qfq_publication] event=stock_minute_file_publication_progress stage=freeze_inputs validated_file_count=0 promoted_file_count=0 total_file_count=3133 target=- operation_directory=/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=90/run_id=8fdd73455745771afebc672a3c2d359fb7d442d8c10d71ccc03cbb75cfb02031/scope=adb5ef44314381f33bd3b712f3604ed330be2b854b6a2ae7513f49f4f9419ba2 existing_build_target_stat_bytes=0 frozen_input_stat_bytes=0 verified_candidate_stat_bytes=0 verified_formal_stat_bytes=0 input_sha256_read_bytes=0 candidate_sha256_read_bytes=0 formal_sha256_read_bytes=0",
+      "[stk_mins_qfq_publication] event=stock_minute_file_publication_progress stage=build_candidates validated_file_count=0 promoted_file_count=0 total_file_count=3133 target=- operation_directory=/Volumes/datasource/data_lake_staging/stk_mins_qfq/macd_kdj/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=90/run_id=8fdd73455745771afebc672a3c2d359fb7d442d8c10d71ccc03cbb75cfb02031/scope=adb5ef44314381f33bd3b712f3604ed330be2b854b6a2ae7513f49f4f9419ba2 existing_build_target_stat_bytes=550508301 frozen_input_stat_bytes=828201 verified_candidate_stat_bytes=0 verified_formal_stat_bytes=0 input_sha256_read_bytes=828201 candidate_sha256_read_bytes=0 formal_sha256_read_bytes=0"
+    ]
+  },
+  "err": {
+    "bytes": 0,
+    "last_lines": []
+  }
+}

@@ -1,0 +1,142 @@
+{
+  "status": "SUCCESS",
+  "run_id": "86d8b492-c056-412d-b9cc-551462e3188e",
+  "scope": {
+    "covered_start_trade_date": "2014-01-02",
+    "covered_end_trade_date": "2026-10-29",
+    "freqs": [
+      1,
+      5,
+      15,
+      30,
+      60,
+      90,
+      120
+    ],
+    "qfq_factor_repair_trade_date": "2026-10-29",
+    "stock_code_scope": "explicit",
+    "stock_code_count": 2,
+    "repair_required_code_count": 2,
+    "repair_required_codes_hash": "e53fc5c69277b27eb383eb4bc5eacae92b02dfe39bd779947d7779b5874af198",
+    "source_upstream_batch_id": "qfq_factor_repair:2026-10-29:633a5dece517"
+  },
+  "completion_count": 14,
+  "all_fourteen_scopes_match": true,
+  "completion_rows": [
+    {
+      "asset_key": "gold_stk_mins_qfq_macd_kdj_1m",
+      "success": true,
+      "partition": "2026-10-29",
+      "scope_verified": true
+    },
+    {
+      "asset_key": "gold_stk_mins_qfq_macd_kdj_5m",
+      "success": true,
+      "partition": "2026-10-29",
+      "scope_verified": true
+    },
+    {
+      "asset_key": "gold_stk_mins_qfq_macd_kdj_15m",
+      "success": true,
+      "partition": "2026-10-29",
+      "scope_verified": true
+    },
+    {
+      "asset_key": "gold_stk_mins_qfq_macd_kdj_30m",
+      "success": true,
+      "partition": "2026-10-29",
+      "scope_verified": true
+    },
+    {
+      "asset_key": "gold_stk_mins_qfq_macd_kdj_60m",
+      "success": true,
+      "partition": "2026-10-29",
+      "scope_verified": true
+    },
+    {
+      "asset_key": "gold_stk_mins_qfq_macd_kdj_90m",
+      "success": true,
+      "partition": "2026-10-29",
+      "scope_verified": true
+    },
+    {
+      "asset_key": "gold_stk_mins_qfq_macd_kdj_120m",
+      "success": true,
+      "partition": "2026-10-29",
+      "scope_verified": true
+    },
+    {
+      "asset_key": "gold_stk_mins_qfq_macd_kdj_state_1m",
+      "success": true,
+      "partition": "2026-10-29",
+      "scope_verified": true
+    },
+    {
+      "asset_key": "gold_stk_mins_qfq_macd_kdj_state_5m",
+      "success": true,
+      "partition": "2026-10-29",
+      "scope_verified": true
+    },
+    {
+      "asset_key": "gold_stk_mins_qfq_macd_kdj_state_15m",
+      "success": true,
+      "partition": "2026-10-29",
+      "scope_verified": true
+    },
+    {
+      "asset_key": "gold_stk_mins_qfq_macd_kdj_state_30m",
+      "success": true,
+      "partition": "2026-10-29",
+      "scope_verified": true
+    },
+    {
+      "asset_key": "gold_stk_mins_qfq_macd_kdj_state_60m",
+      "success": true,
+      "partition": "2026-10-29",
+      "scope_verified": true
+    },
+    {
+      "asset_key": "gold_stk_mins_qfq_macd_kdj_state_90m",
+      "success": true,
+      "partition": "2026-10-29",
+      "scope_verified": true
+    },
+    {
+      "asset_key": "gold_stk_mins_qfq_macd_kdj_state_120m",
+      "success": true,
+      "partition": "2026-10-29",
+      "scope_verified": true
+    }
+  ],
+  "counts": {
+    "indicator_file_count": 119,
+    "indicator_row_count": 1209754,
+    "state_file_count": 21812,
+    "state_row_count": 85301874
+  },
+  "start_time": "2026-10-30T09:39:15.610584+08:00",
+  "end_time": "2026-10-30T09:43:56.795943+08:00",
+  "duration_seconds": 281.18535900115967,
+  "run_config_matches_approved": true,
+  "extra_parquet_audit_reads": 0,
+  "sensor_restore_pending": false,
+  "repair_sensor_final_status": "RUNNING",
+  "same_batch_run_count": 1,
+  "no_active_duplicate_repair": true,
+  "sensor_identity_cursor_preserved_at_start_response": true,
+  "last_sensor_tick": [
+    {
+      "status": "SKIPPED",
+      "timestamp": 1793324827.20017,
+      "skipReason": "Sensor function returned an empty result",
+      "runIds": []
+    }
+  ],
+  "closeout_observed_at": "2026-10-30T09:47:32.564660+08:00",
+  "pool_at_closeout": {
+    "limit": 1,
+    "activeSlotCount": 0,
+    "pendingStepCount": 0
+  },
+  "active_run_count_at_closeout": 0
+}
