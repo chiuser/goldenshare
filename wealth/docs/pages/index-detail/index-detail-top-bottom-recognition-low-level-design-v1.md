@@ -289,13 +289,13 @@ step固定顺序：
 | FOLLOWING，下一同色段已开始，输入真实反色 | FINISHED，无消失；本根价格不用于旧结构 |
 | 旧结构已FINISHED/DISAPPEARED | 不在跟踪槽；后续任何价格/参照身份均不复开 |
 
-当前原色段结构仍可ASSESSING→DULL回转并结束该次结构，之后新转折生成新id。首次反色只对当时有效记录进入FOLLOWING。停止跟踪不删除历史峰谷或原形成事件，新段仍按正常近远规则运行。
+当前普通状态STRUCTURE可回转到DULL，同时该次结构记录由ASSESSING变为DISAPPEARED、原因dif_return；结构记录不存在DULL状态。之后新转折生成新id。首次反色只对当时有效记录进入FOLLOWING。停止跟踪不删除历史峰谷或原形成事件，新段仍按正常近远规则运行。
 
 ### 3.12 识别核心开发的强制检查
 
 逐条核对§2—4与§14：不借前根价格首次；原段曾破DIF不恢复；1%原运算不改；反色根排除旧极值；只在下一同色段内按完整原Wave价格撤销；正常结束不报消失；一根即可撤销与新钝化至少两根不得混淆；零柱起止正确；旧新事件可同根独立；只有FINISHED/DISAPPEARED为终态。禁止保留“首次反色后永久不可消失”的隐含断言。
 
-恢复/查询/schema/预测必须同批满足本规则，不能仅改step让后续聚合仍拒绝FOLLOWING→DISAPPEARED。新身份和所有消费者同步之前不进入P3第3步或发布。
+恢复/查询/schema/预测必须同批满足本规则，不能仅改step让后续聚合仍拒绝FOLLOWING→DISAPPEARED。本次前两步的内部类型/恢复/聚合/预测消费者和双Spec须先完成修正，并通过回归/专项对比review，才进入P3第3步；公开模型和HTTP在第3步迁移，TS及必要调用在第4步迁移。全部消费者迁完并验收前禁止发布，不能把第3、4步的工作倒写成第3步开工前置。
 
 ## 4. 计算进度、结构结果、历史查询与缓存
 
@@ -1041,7 +1041,7 @@ interface IndexRecognitionProps {
 - debug响应的必有debug对象包含sourceInputId、同time的debug.points、同id的debug.events、structures。普通请求不允许出现该对象；debug请求要求符合本文各状态对应的对象形状。
 - 保留XxmPeriod四种；事件仅DULL/STRUCTURE/CANCEL，旧RESEARCH_HISTORICAL_WITHDRAWAL/STRUCTURE_DISAPPEARED必须被新decoder拒绝，不在绘图层隐藏或改名兼容。
 - XxmMarker只依赖正常event的id/time/type/direction和源DIF；markerGeometry/XxmMacdPrimitive不得强读debug route/history。每个事件各有marker，同根共同锚定真实时刻和源DIF，沿现有避让/拥挤汇总规则绘制；不按time合并或删事件。悬停events数组必须完整保留同根全部事件。
-- XxmViewModel.byTime正常只关联point和events；增加可空debugDetail只在通过debug解码时构造。正常按ordinaryState/direction显示真实当前状态。新业务没有等待，普通或debug均不能继续生成“待重新钝化”；首次反色记录在debug说明，正常标记仍由真实形成事件驱动。
+- XxmViewModel.byTime正常只关联point和events；增加可空debugDetail只在通过debug解码时构造。模式1的debugDetail.structures为必有数组：以time对应debug.points、以普通event.id对应debug.events，保留该时刻辅助点的activeStructureId及同根辅助事件relatedStructureId引用的记录；普通point/event不存在这些辅助字段，不得直接读取。同时保留formedAt<=point.time且trackingEndedAt为None或>=point.time的响应结构；按id去重、formedAt/id排序。由已校验debug.structures关联，不依赖本根有事件，不只寻找activeStructureId，不重新用价格/DIF算状态。模式0不创建辅助对象。正常按ordinaryState/direction显示真实当前状态。新业务没有等待，普通或debug均不能继续生成“待重新钝化”；首次反色记录在debug说明，正常标记仍由真实形成事件驱动。
 
 #### 8.4.2 正常与debug解码分开
 
@@ -1051,7 +1051,7 @@ interface IndexRecognitionProps {
 
 当debug=1：要求decodeDebug已由动态模块提供；先完成正常检查，再调用`decodeXxmDebug`检查辅助对象，按time/id与正常points/events精确配对，补齐本窗口引用的更早历史。按§5.3迁结构考核/首次反色/消失及恢复前后记录关系检查，不要求所有历史形成事件都在可见窗口，但被引用的记录必须存在。错参照、悬挂ID、重复ID、越过computedThrough、错方向、错结束原因均拒绝整份识别结果，不保留旧三角或把失败当EMPTY。普通/debug任一不合格仍保留正常K线。
 
-`XxmLayerUi`正常导出XxmLayerStatus与XxmSignalDetails。简要详情含“顶底识别·r4”、当前状态、当根事件和对应时间。debug详情renderer仅在debug模块已加载且该响应有合格debugDetail时追加；不补推断原因。
+`XxmLayerUi`正常导出XxmLayerStatus与XxmSignalDetails。简要详情含“顶底识别·r4”、当前状态、当根事件和对应时间。debug详情renderer仅在debug模块已加载且该响应有合格debugDetail时追加；即使本根events为空、activeStructureId=None，只要debugDetail.structures非空，也须展示已有结构事实。形成/首次反色/下一同色段/正常停止或消失时间均用后端字段，正常停止不画消失marker。结构记录状态截至response.source.computedThrough；悬停较早K线时，不能用该记录后来终态替换该point.ordinaryState。可列明“截至请求时点的记录”及实际日期，不自行推断悬停当根的未提供状态或原因。
 
 #### 8.4.3 hook和请求生命周期
 
@@ -1991,9 +1991,10 @@ PF21—23是纯手写EMA/表达式的隔离算术样本，不冒称这些任意�
 | RC93 无事件的分隔段窄窗口 | 顶`TF;(90,97,-2)`、底`BF;(110,-97,2)`，只查询t7（start/end对应当日、limit=1） | 一个point，无事件；debug仍有t5旧结构FOLLOWING，nextSameColorStart=None。普通投影没有structures/debug键，不为保留资料增加事件。 |
 | RC93 无事件的下一同色段窄窗口 | TN/BN只查询t8、limit=1。旧结构形成t5、首次反色t6、下一段开始t7都在窗口外 | 一个point，无事件；debug恰有该旧结构FOLLOWING，起点t7保留；不得只因本窗口没有事件/变化就删记录。 |
 | RC93 正常结束及已过期窄窗口 | RC80原TN/BN序列，只查询t9、再只查询t10；color_flip子样本分别只查询t8、t9 | 正常结束当天debug含FINISHED及准确trackingEndedAt，无CANCEL或消失marker；后一天该旧结构已结束且无本窗引用/变化，debug不再附带。不能改成全历史都返回。 |
+| RC93 无事件记录的前端关联与展示 | 用上述t7分隔段、t8下一同色段、正常结束当根/次根的独立普通及debug字段夹具，经真实decoder/adapter/byTime及注入的renderXxmDetails；另以旧结构后来已FINISHED的响应悬停较早point | 无事件、activeStructureId=None时仍按已返回记录的有效时间关联并显示形成/跟踪事实；结束当根显示准确停止日期而无消失marker，次根不附带旧记录。较早point的普通状态不被记录后来终态覆盖。模式0没有辅助对象/详情DOM；P3第4步验纯关联/渲染，P4验动态装配和真实页面，不重新求价或判别。 |
 | RC93 窗口与asOf互不篡改 | RC78及color_flip子样本，分别改变limit、startDate，只要保留同一根和through；另给startDate晚于through的空窗口；在全记录校验前放入非法旧跟踪记录 | 同一根事件/id/记录投影相同，仅返回集合按§4.2.1变化；未来终态不泄漏。空窗口points/events/structures为空，source/dataStatus按真实前缀；非法记录不能靠窗口过滤变成功。完整校验发生在过滤之前。 |
 
-实现落点：RC89在snapshot_validation/恢复与clone入口；RC80/90在唯一核心/聚合/恢复；RC91/93在真实query _response、内部schema及后续普通/debug投影与TS解码。窄窗口用例必须走真实查询方法并断言完整结构id集合，不能只测_model或返回非空；测试所有输入、被拒副本和预期均独立于被测函数。
+实现落点：RC89在snapshot_validation/恢复与clone入口；RC80/90在唯一核心/聚合/恢复；RC91/93在真实query _response、内部schema及后续普通/debug投影与TS解码。窄窗口用例必须走真实查询方法并断言完整结构id集合，不能只测_model或返回非空；P3第4步还须用上述独立字段夹具验证byTime关联及注入renderer后的纯详情展示，P4再验动态debug装配和真实页面，不能把JSON含记录当成页面已可查看；测试所有输入、被拒副本和预期均独立于被测函数。
 
 ## 15. 历史基线：P3第1步实施与独立验收（2026-10-30）
 
@@ -2152,3 +2153,10 @@ MAIN_SPEC目标v0.3-r4，FORECAST_SPEC目标v0.5-r4；真实hash只从实施后�
 - color_flip形成后正常结束、恢复及历史查看以§14.16的完整顶底序列补入RC80/90/91/93；原RC01—96和PF01—28编号保持，不以新增子样本数冒充已执行测试。
 
 这些是已确认业务规则的编码/测试细化，不改变1%、首次资格、近远顺序、有限跟踪或两个暂缓TODO。开发时必须执行§14.16的全部子样本，不能只运行父case原来的一条序列就声称已覆盖。
+
+
+### 17.3 提交后三处补齐的独立复核（2026-10-31）
+
+三处补齐文档已提交0400e4ff6，业务/测试代码未改。随后独立复核又明确两项上下游说明：§3.12只以前两步内部迁移及review作为第3步前置，公开/TS消费者分别在第3/4步迁移、发布前全部通过；§8.4将无事件旧结构按后端时间字段关联至debugDetail.structures，保留普通point状态，RC93补真实adapter/renderer展示子样本。另把普通状态回DULL与结构记录DISAPPEARED区分写清，避免混用枚举。这些修正不改变业务条件、公开字段集合或阶段范围，不增加接口/页面入口/算法模式。
+
+本轮覆盖复核按普通NONE/DULL/STRUCTURE、同色/零/反色、旧跟踪未开始/已开始/已结束/已消失交叉检查，并核对应case中的不可达状态用恢复反例拒绝。RC01—96/PF01—28及§14.16子样本是已确认规则的设计覆盖，不是已执行成绩；根数和条目计数不能证明实现无误。既有源码事实、源/接口/性能及页面验收仍按各阶段另行执行，本轮不运行算法或回测。
