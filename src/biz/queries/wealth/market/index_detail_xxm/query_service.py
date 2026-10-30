@@ -17,11 +17,12 @@ from sqlalchemy.orm import Session
 
 from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContextQuery
 from src.foundation.clients.local_lake.major_index_mins_reader import IndexMinuteHistoryBudgetError, IndexMinuteSourceContractError
-from src.biz.schemas.wealth.market.index_detail_xxm import XxmResponseDto, XxmTopHistoryDto
+from src.biz.schemas.wealth.market.index_detail_xxm import InternalXxmResponseDto
 from src.biz.schemas.wealth.market.index_detail_xxm_forecast import ForecastResponseDto
 from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
 from src.biz.services.wealth.market.index_detail_xxm.runtime import BUDGET
 from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
+from src.biz.services.wealth.market.index_detail_xxm.snapshot_validation import validate_structure_record
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar, XxmPeriod
 from .source import (CN_ZONE, INDICATOR_VERSION, XxmSourceError, assert_continuous, calendar_dates,
                      expected_through, minute_reader, minute_request, read_daily, read_minutes)
@@ -60,9 +61,7 @@ class SeriesEntry:
     processed: tuple[XxmBar, ...]
     points: list[dict]
     events: list[dict]
-    histories: dict[str, dict]
-    bottom_histories: dict[str, dict]
-    rearm_records: dict[str, dict]
+    structure_records: dict[str, dict]
     fingerprints: list[str]
     checkpoints: dict[int, dict]
     open_dates: tuple[date, ...] = ()
@@ -70,7 +69,7 @@ class SeriesEntry:
 
     def calculator_at(self, count: int, check) -> XxmCalculator:
         """Independent real prefix state; no hypothetical/future state is cached."""
-        if not 0 <= count <= len(self.processed):
+        if type(count) is not int or not 0 <= count <= len(self.processed):
             raise ValueError("XXM prefix outside processed source")
         check()
         current = self.calculator
@@ -111,9 +110,13 @@ class XxmCache:
             self.entries.move_to_end(key)
             return self.entries[key][0]
 
-    def put(self, key: tuple, entry: SeriesEntry | ForecastResponseDto) -> None:
+    def put(self, key: tuple, entry: SeriesEntry | ForecastResponseDto, *, check=None) -> None:
         size = _deep_size(entry)
+        if check is not None:
+            check()
         with self.lock:
+            if check is not None:
+                check()
             self.entries.pop(key, None)
             if size <= self.max_bytes:
                 self.entries[key] = (entry, size)
@@ -140,7 +143,7 @@ class IndexDetailXxmQueryService:
         self.lake_identity = str(lake_root.resolve()) if lake_root is not None else "daily"
 
     def build(self, session: Session, *, period: XxmPeriod, start_date: date | None, end_date: date | None,
-              limit: int, now: datetime | None = None) -> XxmResponseDto:
+              limit: int, now: datetime | None = None) -> InternalXxmResponseDto:
         if period not in _PERIODS or not 1 <= limit <= BUDGET.max_response_rows or (start_date and end_date and start_date > end_date):
             raise XxmQueryError("XXM_REQUEST_INVALID", "研究指标请求参数不合法。", 400)
         with self.load_entry(session, period=period, now=now) as (entry, context, open_dates, remaining):
@@ -205,7 +208,7 @@ class IndexDetailXxmQueryService:
     def _load_series(self, session, *, key, period, now, business_date, remaining):
         open_dates = calendar_dates(session, end=now.date())
         completed = expected_through(period, open_dates, now, business_date)
-        entry = self.cache.get(key)
+        previous_entry = self.cache.get(key)
         if period == "day":
             raw = read_daily(session, completed=completed, check=remaining)
             signature = ()
@@ -215,152 +218,150 @@ class IndexDetailXxmQueryService:
             request = minute_request(freq, business_date)
             signature = tuple(self.reader.history_source_signature(request, dataset=dataset) for dataset in ("bars", "indicators"))
             remaining()
-            raw = entry.raw if entry is not None and signature == entry.signature else read_minutes(
+            raw = previous_entry.raw if previous_entry is not None and signature == previous_entry.signature else read_minutes(
                 self.reader, freq=freq, end=business_date, deadline=remaining)
         remaining()
-        if (entry is not None and signature == entry.signature and raw == entry.raw
-                and completed == entry.validated_through and open_dates == entry.open_dates):
-            return entry, open_dates
+        if (previous_entry is not None and signature == previous_entry.signature and raw == previous_entry.raw
+                and completed == previous_entry.validated_through and open_dates == previous_entry.open_dates):
+            return previous_entry, open_dates
         processed = tuple(bar for bar in raw if completed is not None and bar.time <= completed)
         assert_continuous(processed, period=period, open_dates=open_dates)
         origin = f"{period}|{processed[0].time if processed else 'empty'}|{INDICATOR_VERSION if period != 'day' else 'bfq'}"
-        if entry is None or processed[:len(entry.processed)] != entry.processed or entry.calculator.source_identity != origin:
-            entry = SeriesEntry(raw=raw, signature=signature, calculator=XxmCalculator(period=period, source_identity=origin),
-                                processed=(), points=[], events=[], histories={}, bottom_histories={}, rearm_records={}, fingerprints=[], checkpoints={})
-        offset = len(entry.processed)
-        if offset != len(processed):
-            calculator = XxmCalculator(period=period, source_identity=origin)
-            calculator.restore(entry.calculator.snapshot())
-            entry = SeriesEntry(raw=raw, signature=signature, calculator=calculator, processed=entry.processed,
-                                points=list(entry.points), events=list(entry.events), histories=dict(entry.histories),
-                                bottom_histories=dict(entry.bottom_histories), rearm_records=dict(entry.rearm_records), fingerprints=list(entry.fingerprints),
-                                checkpoints=dict(entry.checkpoints))
-        for index in range(offset, len(processed)):
+        revised = (previous_entry is None or processed[:len(previous_entry.processed)] != previous_entry.processed
+                   or previous_entry.calculator.source_identity != origin)
+        calculator = XxmCalculator(period=period, source_identity=origin)
+        if revised:
+            entry = SeriesEntry(raw=raw, signature=signature, calculator=calculator, processed=(), points=[], events=[],
+                                structure_records={}, fingerprints=[], checkpoints={})
+        else:
+            calculator.restore(previous_entry.calculator.snapshot())
+            # No published container or terminal record is ever mutated in place.
+            entry = SeriesEntry(raw=raw, signature=signature, calculator=calculator, processed=previous_entry.processed,
+                                points=deepcopy(previous_entry.points), events=deepcopy(previous_entry.events),
+                                structure_records=deepcopy(previous_entry.structure_records),
+                                fingerprints=list(previous_entry.fingerprints), checkpoints=deepcopy(previous_entry.checkpoints))
+        for index in range(len(entry.processed), len(processed)):
             if index % BUDGET.source_batch_rows == 0:
                 remaining()
             bar = processed[index]
             step = entry.calculator.step(bar)
+            self._merge_structure_updates(entry, step.structures, through=bar.time)
             if (index + 1) % BUDGET.source_batch_rows == 0:
                 entry.checkpoints[index + 1] = entry.calculator.snapshot()
-            entry.points.append(step.point)
-            entry.events.extend(step.events)
-            entry.histories.update({history["id"]: history for history in step.histories})
-            entry.bottom_histories.update({history["id"]: history for history in step.bottom_histories})
-            entry.rearm_records.update({record["id"]: record for record in step.rearm_records})
+            entry.points.append(deepcopy(step.point))
+            entry.events.extend(deepcopy(step.events))
             previous_hash = entry.fingerprints[-1] if entry.fingerprints else origin
             numeric = "|".join(float(v).hex() for v in (bar.close, bar.dif, bar.dea, bar.hist))
             entry.fingerprints.append(hashlib.sha256(f"{previous_hash}|{bar.time}|{numeric}".encode()).hexdigest())
         entry = replace(entry, processed=processed, raw=raw, signature=signature,
                         open_dates=open_dates, validated_through=completed)
+        # Validate the entire candidate, including all structure associations,
+        # before publishing. A failed candidate is discarded with its calculator.
+        self._validate_entry(entry, check=remaining)
+        self._response(entry, period=period, expected=completed, start_date=None,
+                       limit=len(processed), check=remaining)
         remaining()
-        self.cache.put(key, entry)
-        remaining()
+        self.cache.put(key, entry, check=remaining)
         return entry, open_dates
 
     @staticmethod
-    def _response(entry: SeriesEntry, *, period: XxmPeriod, expected: str | None,
-                  start_date: date | None, limit: int, check) -> XxmResponseDto:
-        times = [bar.time for bar in entry.processed]
-        end_index = bisect_right(times, expected) if expected is not None else 0
-        indices = [index for index in range(end_index) if start_date is None or times[index][:10] >= start_date.isoformat()][-limit:]
-        points = [entry.points[index] for index in indices]
-        first, last = (points[0]["time"], points[-1]["time"]) if points else (None, None)
-        through = times[end_index - 1] if end_index else None
-        events = [event for event in entry.events if first is not None and first <= event["time"] <= last]
-        related = {event["relatedTopHistoryId"] for event in events if event["relatedTopHistoryId"]}
-        histories = []
-        for index, record in enumerate(entry.histories.values()):
+    def _validate_entry(entry: SeriesEntry, *, check) -> None:
+        """A visible-window filter must never sanitize an invalid candidate."""
+        count = len(entry.processed)
+        if (entry.calculator.processed != count or len(entry.points) != count
+                or len(entry.fingerprints) != count):
+            raise ValueError("XXM result/source cardinality mismatch")
+        times = {bar.time for bar in entry.processed}
+        for index, (bar, point) in enumerate(zip(entry.processed, entry.points)):
             if index % BUDGET.source_batch_rows == 0:
                 check()
-            if through is None or record["confirmedAt"] > through:
-                continue
-            history = deepcopy(record)
-            if history["endedAt"] is not None and history["endedAt"] > through:
-                history.update(status="PENDING", endedAt=None, endReason=None)
-            history["observedThrough"] = history["endedAt"] or through
-            history["ageBars"] = bisect_right(times, history["observedThrough"]) - bisect_right(times, history["confirmedAt"])
-            if first is not None and (history["id"] in related or history["status"] == "PENDING" or history["endedAt"] >= first):
-                histories.append({field: history[field] for field in XxmTopHistoryDto.model_fields})
-        rearms = IndexDetailXxmQueryService._rearm_records_for_response(
-            entry, points=points, events=events, first=first, last=last, through=through, check=check)
-        bottom_histories = IndexDetailXxmQueryService._bottom_histories_for_response(
-            entry, points=points, events=events, first=first, last=last, through=through, times=times, check=check,
-            rearms=rearms)
-        status = "EMPTY" if through is None else "DELAYED" if expected and through < expected else "READY"
-        message = "研究指标暂无数据" if status == "EMPTY" else f"研究指标数据截至 {through}" if status == "DELAYED" else None
-        return XxmResponseDto(tsCode="000001.SH", period=period, algorithmVersion=MAIN_SPEC.algorithm_version,
-                              specHash=MAIN_SPEC.spec_hash,
-                              source={"kind": "daily_factor" if period == "day" else "minute_gold",
-                                      "inputId": entry.fingerprints[end_index - 1] if end_index else hashlib.sha256(b"empty").hexdigest(),
-                                      "startTime": times[0] if end_index else None, "computedThrough": through,
-                                      "initialHistoryIncomplete": True, "indicatorVersion": None if period == "day" else INDICATOR_VERSION},
-                              points=points, events=events, topHistories=histories, bottomHistories=bottom_histories, rearmRecords=rearms,
-                              meta={"count": len(points), "responseStart": first, "responseEnd": last},
-                              dataStatus={"status": status, "message": message, "asOf": through})
-
-    @staticmethod
-    def _project_bottom_history(record: dict, *, through: str, times: list[str]) -> dict | None:
-        if record["confirmedAt"] > through:
-            return None
-        history = deepcopy(record)
-        if history["leftOriginAt"] is not None and history["leftOriginAt"] > through:
-            history["leftOriginAt"] = None
-        if history["endedAt"] is not None and history["endedAt"] > through:
-            history.update(status="PENDING", endedAt=None, endReason=None)
-        history["observedThrough"] = history["endedAt"] or through
-        history["ageBars"] = bisect_right(times, history["observedThrough"]) - bisect_right(times, history["confirmedAt"])
-        return history
-
-    @staticmethod
-    def _bottom_histories_for_response(entry: SeriesEntry, *, points: list[dict], events: list[dict],
-                                       first: str | None, last: str | None, through: str | None,
-                                       times: list[str], check, rearms: list[dict]) -> list[dict]:
-        if first is None or last is None or through is None:
-            return []
-        related = {p["pendingBottomHistoryId"] for p in points if p["pendingBottomHistoryId"]}
-        related.update(e["relatedBottomHistoryId"] for e in events if e["relatedBottomHistoryId"])
-        related.update(r["bottomHistoryId"] for r in rearms)
-        histories = []
-        for index, record in enumerate(entry.bottom_histories.values()):
+            if any(point[field] != getattr(bar, field) for field in ("time", "close", "dif", "dea", "hist")):
+                raise ValueError("XXM point differs from the original source bar")
+        if any(event["time"] not in times for event in entry.events):
+            raise ValueError("XXM event outside its real prefix")
+        for index, (identity, record) in enumerate(entry.structure_records.items()):
             if index % BUDGET.source_batch_rows == 0:
                 check()
-            if record["confirmedAt"] > through:
-                continue
-            end = record["endedAt"]
-            if record["id"] in related or end is None or end > through or first <= end <= last:
-                history = IndexDetailXxmQueryService._project_bottom_history(record, through=through, times=times)
-                if history is not None:
-                    histories.append(history)
-        return sorted(histories, key=lambda h: (h["confirmedAt"], h["id"]))
+            if not entry.processed or identity != record["id"]:
+                raise ValueError("XXM structure outside its real prefix")
+            validate_structure_record(record, period=entry.calculator.period, upper=entry.processed[-1].time,
+                                      id_factory=entry.calculator._id)
 
     @staticmethod
-    def _project_rearm_record(record: dict, *, through: str) -> dict | None:
-        if record["disappearedAt"] > through:
+    def _merge_structure_updates(entry: SeriesEntry, updates, *, through: str) -> None:
+        seen = set()
+        for incoming in updates:
+            record = validate_structure_record(incoming, period=entry.calculator.period, upper=through,
+                                               id_factory=entry.calculator._id)
+            identity = record["id"]
+            if identity in seen:
+                raise ValueError("Duplicate structure update in one bar")
+            seen.add(identity)
+            previous = entry.structure_records.get(identity)
+            if previous is None:
+                if record["status"] not in ("ASSESSING", "LOCKED") or record["formedAt"] != through:
+                    raise ValueError("A new structure must be formed by this bar")
+            else:
+                if previous["status"] != "ASSESSING" or record["status"] not in ("LOCKED", "DISAPPEARED"):
+                    raise ValueError("A terminal structure cannot be overwritten or reopened")
+                changed = {"status", "lockedAt", "disappearedAt", "disappearanceReason"}
+                if any(record[field] != value for field, value in previous.items() if field not in changed):
+                    raise ValueError("Structure formation facts are immutable")
+                terminal_time = record["lockedAt"] or record["disappearedAt"]
+                if terminal_time != through:
+                    raise ValueError("A structure must terminate on this bar")
+            entry.structure_records[identity] = record
+
+    @staticmethod
+    def _project_structure(record: dict, *, through: str) -> dict | None:
+        if record["formedAt"] > through:
             return None
         result = deepcopy(record)
-        saved = result.pop("referenceWave")
-        result["reference"] = {"startTime": saved["start"], "endTime": saved["end"],
-                               "price": saved["price"], "dif": saved["dif"]}
-        if result["endedAt"] is not None and result["endedAt"] > through:
-            result.update(status="WAITING", endedAt=None, endReason=None)
-        result["observedThrough"] = result["endedAt"] or through
+        if result["lockedAt"] is not None and result["lockedAt"] > through:
+            result.update(status="ASSESSING", lockedAt=None)
+        if result["disappearedAt"] is not None and result["disappearedAt"] > through:
+            result.update(status="ASSESSING", disappearedAt=None, disappearanceReason=None)
         return result
 
     @staticmethod
-    def _rearm_records_for_response(entry: SeriesEntry, *, points, events, first, last, through, check):
-        if first is None or last is None or through is None:
-            return []
-        related = {p["pendingRearmId"] for p in points if p["pendingRearmId"]}
-        related.update(e["relatedRearmId"] for e in events if e["relatedRearmId"])
-        bottom_ids = {p["pendingBottomHistoryId"] for p in points if p["pendingBottomHistoryId"]}
-        bottom_ids.update(e["relatedBottomHistoryId"] for e in events if e["relatedBottomHistoryId"])
-        result = []
-        for index, record in enumerate(entry.rearm_records.values()):
+    def _response(entry: SeriesEntry, *, period: XxmPeriod, expected: str | None,
+                  start_date: date | None, limit: int, check) -> InternalXxmResponseDto:
+        times = [bar.time for bar in entry.processed]
+        end_index = bisect_right(times, expected) if expected is not None else 0
+        indices = [index for index in range(end_index) if start_date is None or times[index][:10] >= start_date.isoformat()][-limit:] if limit else []
+        points = deepcopy([entry.points[index] for index in indices])
+        first, last = (points[0]["time"], points[-1]["time"]) if points else (None, None)
+        through = times[end_index - 1] if end_index else None
+        events = deepcopy([event for event in entry.events if first is not None and first <= event["time"] <= last])
+        related = {point["activeStructureId"] for point in points if point["activeStructureId"] is not None}
+        related.update(event["relatedStructureId"] for event in events if event["relatedStructureId"] is not None)
+        structures = []
+        assessing = []
+        for index, record in enumerate(entry.structure_records.values()):
             if index % BUDGET.source_batch_rows == 0:
                 check()
-            if (record["id"] in related or record["bottomHistoryId"] in bottom_ids
-                    or record["disappearedAt"] <= last and (record["endedAt"] is None or record["endedAt"] >= first)):
-                value = IndexDetailXxmQueryService._project_rearm_record(record, through=through)
-                if value is not None:
-                    result.append(value)
-        return sorted(result, key=lambda r: (r["disappearedAt"], r["id"]))
+            projected = IndexDetailXxmQueryService._project_structure(record, through=through) if through else None
+            if projected is None:
+                continue
+            if projected["status"] == "ASSESSING":
+                assessing.append(projected)
+            stamps = (projected["formedAt"], projected["lockedAt"], projected["disappearedAt"])
+            if (projected["id"] in related or first is not None
+                    and any(stamp is not None and first <= stamp <= last for stamp in stamps)):
+                structures.append(projected)
+        current = entry.calculator_at(end_index, check)
+        if assessing != ([current.active_structure] if current.active_structure is not None else []):
+            raise ValueError("Projected structure differs from the actual prefix calculator")
+        status = "EMPTY" if through is None else "DELAYED" if expected and through < expected else "READY"
+        message = "研究指标暂无数据" if status == "EMPTY" else f"研究指标数据截至 {through}" if status == "DELAYED" else None
+        response = InternalXxmResponseDto(
+            tsCode="000001.SH", period=period, algorithmVersion=MAIN_SPEC.algorithm_version, specHash=MAIN_SPEC.spec_hash,
+            source={"kind": "daily_factor" if period == "day" else "minute_gold",
+                    "inputId": entry.fingerprints[end_index - 1] if end_index else hashlib.sha256(b"empty").hexdigest(),
+                    "startTime": times[0] if end_index else None, "computedThrough": through,
+                    "initialHistoryIncomplete": True, "indicatorVersion": None if period == "day" else INDICATOR_VERSION},
+            points=points, events=events, structures=sorted(structures, key=lambda item: (item["formedAt"], item["id"])),
+            meta={"count": len(points), "responseStart": first, "responseEnd": last},
+            dataStatus={"status": status, "message": message, "asOf": through})
+        check()
+        return response

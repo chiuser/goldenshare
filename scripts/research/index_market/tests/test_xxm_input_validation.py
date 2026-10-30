@@ -86,8 +86,9 @@ def test_normal_r4_hand_sequence_retains_approved_events():
     assert steps[4].events[0]["route"] == "activation"
     assert steps[5].events[0]["route"] == "dif_turn"
     assert steps[5].events[0]["eventReference"] == {
-        "startTime": "2025-03-03", "endTime": "2025-03-04", "price": 101, "dif": 12}
-    assert calc.pending["pricePeak"] == 103 and calc.pending["confirmedAt"] == "2025-03-10"
+        "startTime": "2025-03-03", "endTime": "2025-03-04", "price": 101, "dif": 12,
+        "priceAt": "2025-03-04", "difAt": "2025-03-04"}
+    assert calc.active_structure["priceExtreme"] == 103 and calc.active_structure["formedAt"] == "2025-03-10"
 
 
 @pytest.mark.parametrize("field,value", [
@@ -98,12 +99,13 @@ def test_normal_r4_hand_sequence_retains_approved_events():
     ("reference_policy", "strongest_eligible"),
     ("active_reference_policy", "other"), ("zero_policy", "reset"),
     ("allow_zero_activation", 1), ("allow_zero_activation", False),
-    ("allow_zero_reactivation", 1), ("allow_zero_reactivation", False),
+    ("activation_policy", "cumulative_close"), ("reference_break_policy", "current_only"),
+    ("structure_return_policy", "wait_for_price"), ("structure_lock_policy", "later_price_break"),
+    ("historical_min_bars", 2), ("historical_min_bars", True),
+    ("top_activation_requires_positive_dif", False), ("top_activation_requires_positive_dif", 1),
     ("macd_parameters", [12, 26, 9]), ("macd_parameters", (12.0, 26, 9)),
     ("histogram_multiplier", 2.0), ("color_flip", 1),
-    ("flip_requires_turn", 0), ("historical_price_only", 1),
-    ("fixed_expiry", 0), ("bottom_history_policy", "other"),
-    ("same_segment_bottom_policy", "other"),
+    ("flip_requires_turn", 0),
 ])
 def test_formal_spec_has_one_exactly_typed_rule_set(field, value):
     # LLD v1 section 2.2 fixes these values; numeric equality is insufficient.
@@ -119,18 +121,27 @@ def test_formal_spec_contains_every_approved_rule_and_hashes_canonical_content()
 
     # Independent literal contract from LLD v1 section 2.2, no research Spec.
     expected = {
-        "algorithm_version": "xxm-direction-v0.1-r4", "dif_turn_pct": 1.0,
+        "algorithm_version": "xxm-direction-v0.2-r4", "dif_turn_pct": 1.0,
         "max_refs": 2, "min_bars": 2, "reference_policy": "nearest_then_farther_two",
         "active_reference_policy": "same_bar_near_to_far_on_dull_break",
         "zero_policy": "neutral_real_opposite", "allow_zero_activation": True,
-        "allow_zero_reactivation": True, "macd_parameters": (12, 26, 9),
+        "activation_policy": "current_close_and_current_dif",
+        "reference_break_policy": "strict_break_within_current_segment",
+        "structure_return_policy": "adjacent_one_percent_to_dull",
+        "structure_lock_policy": "first_valid_opposite_color",
+        "historical_min_bars": 1, "top_activation_requires_positive_dif": True,
+        "macd_parameters": (12, 26, 9),
         "histogram_multiplier": 2, "color_flip": True, "flip_requires_turn": False,
-        "historical_price_only": True, "fixed_expiry": None,
-        "bottom_history_policy": "closed_origin_close_break_v1",
-        "same_segment_bottom_policy": "current_close_rearm_v1",
     }
     assert asdict(MAIN_SPEC) == expected
     canonical = json.dumps(expected, sort_keys=True, separators=(",", ":")).encode()
     assert MAIN_SPEC.spec_hash == hashlib.sha256(canonical).hexdigest()
     with pytest.raises(TypeError):
         XxmSpec(bottom_dull_reference_policy="prebreak_strongest_eligible_v1")
+
+
+@pytest.mark.parametrize("field", ["allow_zero_reactivation", "historical_price_only", "fixed_expiry",
+                                   "bottom_history_policy", "same_segment_bottom_policy"])
+def test_removed_waiting_and_historical_withdrawal_spec_fields_are_not_aliases(field):
+    with pytest.raises(TypeError):
+        XxmSpec(**{field: None})

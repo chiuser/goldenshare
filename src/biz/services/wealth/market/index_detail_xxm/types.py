@@ -51,41 +51,24 @@ class Wave:
     dif_at: str
 
     def reference(self) -> dict[str, Any]:
-        return {"startTime": self.start, "endTime": self.end, "price": self.price, "dif": self.dif}
+        return {"startTime": self.start, "endTime": self.end, "price": self.price, "dif": self.dif,
+                "priceAt": self.price_at, "difAt": self.dif_at}
 
 
-class XxmBottomHistory(TypedDict):
+class XxmStructureRecord(TypedDict):
     id: str
+    direction: Literal["TOP", "BOTTOM"]
     structureEventId: str
-    confirmedAt: str
-    confirmationRoute: Literal["dif_turn", "color_flip"]
+    formedAt: str
+    formationRoute: Literal["dif_turn", "color_flip"]
     originSegmentStart: str
-    leftOriginAt: str | None
-    priceLow: float
-    priceLowAt: str
-    originalReference: dict[str, Any]
-    status: Literal["PENDING", "ENDED"]
-    endedAt: str | None
-    endReason: Literal["original_reference_break", "new_bottom_DULL", "new_bottom_STRUCTURE", "historical_price_break", "structure_disappeared"] | None
-    observedThrough: str
-    ageBars: int
-
-
-class XxmRearmRecord(TypedDict):
-    id: str
-    direction: Literal["BOTTOM"]
-    bottomHistoryId: str
-    structureEventId: str
-    structureConfirmedAt: str
-    structureRoute: Literal["dif_turn"]
-    segmentStart: str
-    nearestPriceGate: float
-    referenceWave: dict[str, Any]
-    disappearedAt: str
-    observedThrough: str
-    status: Literal["WAITING", "REACTIVATED", "INVALIDATED", "SEGMENT_ENDED"]
-    endedAt: str | None
-    endReason: Literal["price_requalified", "reference_dif_break", "color_flip"] | None
+    originalReference: XxmReferenceFacts
+    priceExtreme: float
+    priceExtremeAt: str
+    status: Literal["ASSESSING", "LOCKED", "DISAPPEARED"]
+    lockedAt: str | None
+    disappearedAt: str | None
+    disappearanceReason: Literal["dif_return", "reference_dif_break"] | None
 
 
 class XxmReferenceFacts(TypedDict):
@@ -93,6 +76,8 @@ class XxmReferenceFacts(TypedDict):
     endTime: str
     price: float
     dif: float
+    priceAt: str
+    difAt: str
 
 
 class XxmWaveFacts(TypedDict):
@@ -111,6 +96,7 @@ class XxmDecisionBefore(TypedDict):
     reference: XxmReferenceFacts | None
     wave: XxmWaveFacts | None
     previousDif: float | None
+    activeStructureId: str | None
 
 
 class XxmReferenceCheck(TypedDict):
@@ -120,6 +106,7 @@ class XxmReferenceCheck(TypedDict):
     checked: bool
     pricePassed: bool | None
     difPassed: bool | None
+    referenceBroken: bool | None
     reason: str
 
 
@@ -137,12 +124,6 @@ class XxmTurnFacts(TypedDict):
     reason: str
 
 
-class XxmRearmFacts(TypedDict):
-    blocked: bool
-    status: Literal["WAITING", "REACTIVATED", "INVALIDATED", "SEGMENT_ENDED"] | None
-    referenceBroken: bool | None
-
-
 class XxmDecision(TypedDict):
     time: str
     rawSign: int
@@ -152,8 +133,9 @@ class XxmDecision(TypedDict):
     referenceChecks: list[XxmReferenceCheck]
     selectionCalls: list[XxmSelectionCall]
     turn: XxmTurnFacts
-    rearm: XxmRearmFacts
     switched: bool
+    structureId: str | None
+    structureStatus: Literal["ASSESSING", "LOCKED", "DISAPPEARED"] | None
     branch: str
     reason: str
 
@@ -162,7 +144,5 @@ class XxmDecision(TypedDict):
 class XxmStep:
     point: dict[str, Any]
     events: tuple[dict[str, Any], ...]
-    histories: tuple[dict[str, Any], ...]
-    bottom_histories: tuple[XxmBottomHistory, ...]
-    rearm_records: tuple[XxmRearmRecord, ...]
+    structures: tuple[XxmStructureRecord, ...]
     decision: XxmDecision | None = None

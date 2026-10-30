@@ -1,4 +1,4 @@
-"""P2: real product query/cache/restore/clone, artificial input boundary only.
+"""P3 step 1: real product query/cache/restore/clone, artificial input boundary only.
 
 The reader and calendar are the sole external-source substitutes. There is no
 database, App, frozen input, API call or old/new algorithm comparison. The
@@ -29,7 +29,8 @@ RAW = tuple(XxmBar(stamp, *value) for stamp, value in zip(DATES,
     ((100, 10, 9, 2), (101, 12, 11, 2), (99, 9, 10, -2),
      (100, 9, 8, 2), (102, 10, 9, 2), (103, 9.8, 8.8, 2))))
 KEY = ("product-r4-snapshot-consumer-unit", "day", MAIN_SPEC.spec_hash)
-REFERENCE = {"startTime": "2025-03-03", "endTime": "2025-03-04", "price": 101, "dif": 12}
+REFERENCE = {"startTime": "2025-03-03", "endTime": "2025-03-04", "price": 101, "dif": 12,
+             "priceAt": "2025-03-04", "difAt": "2025-03-04"}
 
 
 @pytest.fixture
@@ -59,7 +60,7 @@ def assert_fifth_bar_dull(calc):
     assert calc.state == "DULL" and calc.wave.start == "2025-03-06"
     assert calc.wave.count == 2 and calc.wave.price == 102 and calc.wave.dif == 10
     assert calc.reference.reference() == REFERENCE
-    assert calc.pending is None and calc.pending_bottom_history is None and calc.pending_rearm is None
+    assert calc.active_structure is None
 
 
 def test_product_latest_snapshot_copy_stays_independent(source_boundary):
@@ -97,7 +98,7 @@ def test_product_history_checkpoint_restore_stays_independent(source_boundary, m
     assert child.wave.sign == 1 and child.wave.start == "2025-03-06" and child.wave.count == 1
     assert child.wave.price == 100 and child.wave.dif == 9
     assert child.history[1][0].reference() == REFERENCE
-    assert child.pending is None and child.pending_bottom_history is None and child.pending_rearm is None
+    assert child.active_structure is None
     child.history[1][0].dif = -999
     assert entry.calculator.snapshot() == before and entry.checkpoints[3] == checkpoint_before
     assert original_budget.source_batch_rows == 1000
@@ -116,7 +117,7 @@ def test_product_incremental_load_uses_validated_snapshot(source_boundary):
     assert [p["time"] for p in new.points] == list(DATES[:5])
     assert len(new.events) == 1 and new.events[0]["type"] == "DULL"
     assert new.events[0]["eventReference"] == REFERENCE
-    assert not new.histories and not new.bottom_histories and not new.rearm_records
+    assert not new.structure_records
     assert new.points[:3] == old_points
     assert tuple(new.fingerprints[:3]) == old_fingerprints and len(new.fingerprints) == 5
     assert old.calculator.snapshot() == old_progress and old.points == old_points
@@ -142,8 +143,8 @@ def test_product_invalid_snapshot_does_not_replace_cached_result(source_boundary
     assert new is not old and new.calculator.processed == 6
     assert new.calculator.state == "STRUCTURE" and new.calculator.reference.reference() == REFERENCE
     assert [(e["type"], e["route"]) for e in new.events] == [("DULL", "activation"), ("STRUCTURE", "dif_turn")]
-    assert new.events[-1]["relatedTopHistoryId"] in new.histories
-    assert new.histories[new.events[-1]["relatedTopHistoryId"]]["pricePeak"] == 103
+    assert new.events[-1]["relatedStructureId"] in new.structure_records
+    assert new.structure_records[new.events[-1]["relatedStructureId"]]["priceExtreme"] == 103
     assert old.calculator.snapshot() == original and old.points == before_points and old.events == before_events
     assert service.cache.get(KEY) is new
     assert reads == ["2025-03-07", "2025-03-10", "2025-03-10"]
@@ -177,8 +178,7 @@ def daily_source(monkeypatch, bars):
 
 def entry_facts(entry):
     return deepcopy((entry.calculator.snapshot(), entry.raw, entry.signature, entry.processed,
-                     entry.points, entry.events, entry.histories, entry.bottom_histories,
-                     entry.rearm_records, entry.fingerprints, entry.checkpoints,
+                     entry.points, entry.events, entry.structure_records, entry.fingerprints, entry.checkpoints,
                      entry.open_dates, entry.validated_through))
 
 
@@ -209,12 +209,12 @@ def test_count_zero_returns_new_empty_state_without_snapshot_or_checkpoint(monke
     checks = []
     child = entry.calculator_at(0, lambda: checks.append(True))
     assert type(child) is XxmCalculator and child is not entry.calculator
-    assert child.spec is MAIN_SPEC and child.spec.algorithm_version == "xxm-direction-v0.1-r4"
+    assert child.spec is MAIN_SPEC and child.spec.algorithm_version == "xxm-direction-v0.2-r4"
     assert (child.period, child.source_identity, child.ts_code) == (
         entry.calculator.period, entry.calculator.source_identity, entry.calculator.ts_code)
     assert child.processed == 0 and child.previous is None and child.wave is None
     assert child.state == "NONE" and child.reference is None and child.history == {1: [], -1: []}
-    assert child.pending is None and child.pending_bottom_history is None and child.pending_rearm is None
+    assert child.active_structure is None
     assert not checkpoints.reads and len(checks) >= 2
 
 
@@ -239,7 +239,7 @@ def test_real_thousand_bar_checkpoint_boundaries(monkeypatch, count, checkpoint_
     assert type(child) is XxmCalculator and child.spec is MAIN_SPEC
     assert child.processed == count and child.state == "NONE" and child.reference is None
     assert child.history == {1: [], -1: []}
-    assert child.pending is None and child.pending_bottom_history is None and child.pending_rearm is None
+    assert child.active_structure is None
     if count:
         assert child.previous == bars[count - 1]
         assert child.wave.sign == 1 and child.wave.count == count
@@ -265,14 +265,13 @@ def test_past_prefix_and_empty_response_do_not_use_future_confirmation(source_bo
     assert past.dataStatus.asOf == DATES[4]
     assert past.points[-1].ordinaryState == "DULL" and past.points[-1].activeReference.model_dump() == REFERENCE
     assert [(event.type, event.route) for event in past.events] == [("DULL", "activation")]
-    assert not past.topHistories and not past.bottomHistories and not past.rearmRecords
+    assert not past.structures
     empty = IndexDetailXxmQueryService._response(new, period="day", expected="2025-03-02",
         start_date=None, limit=1000, check=lambda: None)
     assert empty.dataStatus.status == "EMPTY" and empty.dataStatus.asOf is None
     assert empty.source.inputId == hashlib.sha256(b"empty").hexdigest()
     assert empty.source.startTime is None and empty.source.computedThrough is None
-    assert not empty.points and not empty.events and not empty.topHistories
-    assert not empty.bottomHistories and not empty.rearmRecords
+    assert not empty.points and not empty.events and not empty.structures
 
 
 def test_increment_failure_after_real_step_preserves_old_entry(monkeypatch):
@@ -280,18 +279,17 @@ def test_increment_failure_after_real_step_preserves_old_entry(monkeypatch):
     service, load, _ = daily_source(monkeypatch, bars)
     old = load(6)
     before = entry_facts(old)
-    assert old.histories and old.calculator.pending is not None
+    assert old.structure_records and old.calculator.active_structure is not None
     original_step = XxmCalculator.step
 
     def interrupted_step(self, bar):
         result = original_step(self, bar)
         if bar.time == "2025-03-11":
-            # Actual new progress has already changed before interruption.
-            # LLD 3.3: 104 strictly exceeds frozen TOP pricePeak=103, so the
-            # real step ends that history and emits its price-break event.
-            assert self.processed == 7 and self.pending is None
-            assert result.histories[0]["endedAt"] == bar.time
-            assert result.histories[0]["endReason"] == "historical_price_break"
+            # The independent candidate has advanced, but a higher close alone
+            # cannot cancel the assessing structure under LLD 3.6/RC59.
+            assert self.processed == 7 and self.active_structure["status"] == "ASSESSING"
+            assert self.active_structure["priceExtreme"] == 103
+            assert result.events == () and result.structures == ()
             raise RuntimeError("artificial interruption after real step")
         return result
 
@@ -302,19 +300,18 @@ def test_increment_failure_after_real_step_preserves_old_entry(monkeypatch):
     assert service.cache.get(KEY) is old and entry_facts(old) == before
     new = load(7)
     assert new is not old and new.calculator.processed == 7
-    assert new.calculator.state == "STRUCTURE" and new.calculator.pending is None
-    assert new.points[:6] == old.points and new.events[:-1] == old.events
-    assert new.events[-1]["type"] == "RESEARCH_HISTORICAL_WITHDRAWAL"
-    assert new.events[-1]["route"] == "historical_price_break"
-    history_id = old.calculator.pending["id"]
-    assert new.histories[history_id]["status"] == "ENDED"
-    assert new.histories[history_id]["endedAt"] == "2025-03-11"
+    assert new.calculator.state == "STRUCTURE" and new.calculator.active_structure is not None
+    assert new.points[:6] == old.points and new.events == old.events
+    structure_id = old.calculator.active_structure["id"]
+    assert new.structure_records[structure_id]["status"] == "ASSESSING"
+    assert new.structure_records[structure_id]["priceExtreme"] == 103
+    assert new.calculator.wave.price == 104
     past = IndexDetailXxmQueryService._response(new, period="day", expected=DATES[5],
         start_date=None, limit=1000, check=lambda: None)
     original = IndexDetailXxmQueryService._response(old, period="day", expected=DATES[5],
         start_date=None, limit=1000, check=lambda: None)
     assert past.model_dump() == original.model_dump()
-    assert past.topHistories[0].status == "PENDING" and past.topHistories[0].endedAt is None
+    assert past.structures[0].status == "ASSESSING" and past.structures[0].lockedAt is None
     assert service.cache.get(KEY) is new and entry_facts(old) == before
 
 
@@ -358,7 +355,7 @@ def test_load_entry_cache_separates_rule_connection_and_source_identity(monkeypa
     actual_key = (id(session.bind), service.lake_identity, "day", MAIN_SPEC.spec_hash)
     # This is a stale cache-key fixture, not a relabelled old algorithm result.
     old_hash = "6db425730c72f22ea756c121a832f27c966d1324ef0a72a2312a3c572038724d"
-    assert MAIN_SPEC.algorithm_version == "xxm-direction-v0.1-r4" and MAIN_SPEC.spec_hash != old_hash
+    assert MAIN_SPEC.algorithm_version == "xxm-direction-v0.2-r4" and MAIN_SPEC.spec_hash != old_hash
     old_key = (*actual_key[:-1], old_hash)
     old = service._load_series(None, key=old_key, period="day", now=stamp,
         business_date=stamp.date(), remaining=lambda: None)[0]
@@ -385,11 +382,11 @@ def test_clone_restores_formal_identity_and_isolates_mutable_state(source_bounda
     before = entry_facts(entry)
     child = clone(parent)
     assert type(child) is XxmCalculator and child is not parent
-    assert child.spec is MAIN_SPEC and child.spec.algorithm_version == "xxm-direction-v0.1-r4"
+    assert child.spec is MAIN_SPEC and child.spec.algorithm_version == "xxm-direction-v0.2-r4"
     assert (child.ts_code, child.period, child.source_identity) == (parent.ts_code, parent.period, parent.source_identity)
     assert child.processed == 6 and child.state == "STRUCTURE" and child.reference.reference() == REFERENCE
-    assert child.pending["confirmedAt"] == DATES[5] and child.pending["pricePeak"] == 103
-    child.pending["originalReference"]["dif"] = -999
+    assert child.active_structure["formedAt"] == DATES[5] and child.active_structure["priceExtreme"] == 103
+    child.active_structure["originalReference"]["dif"] = -999
     child.history[1][0].price = -999
     child.reference.dif = -999
     child.wave.price = 999
@@ -410,11 +407,10 @@ def test_clone_rejects_wrong_source_snapshot_without_changing_parent(source_boun
 
 
 @pytest.mark.parametrize("period", ["day", "m60", "m90", "m120"])
-def test_historical_prefix_and_zero_waiting_clone_in_every_period(monkeypatch, period):
-    # Product LLD 3.2/4.1 and P1's BOTTOM/WAITING literals: the sixth bar
-    # confirms a bottom with frozen low 97; the seventh close 100 no longer
-    # breaks the nearest old valley 99, so the same-segment structure waits.
-    # Its true zero remains in the existing green logical segment.
+def test_historical_prefix_and_zero_return_to_dull_clone_in_every_period(monkeypatch, period):
+    # LLD 3.6/4.1 and RC47/52: bar6 forms a bottom structure; bar7 is
+    # zero, its -8.8 -> -9.0 return exceeds 1%, so it returns directly
+    # to DULL despite C100 > previous valley99. Zero never adds a bar.
     values = ((100, -10, -9, -2), (99, -11, -10, -2), (105, -5, -6, 2),
               (98, -9, -8, -2), (97, -9.2, -8.2, -2), (98, -8.8, -7.8, -2),
               (100, -9, -9, 0))
@@ -443,34 +439,36 @@ def test_historical_prefix_and_zero_waiting_clone_in_every_period(monkeypatch, p
     before = entry_facts(old)
     full = load(7)
     assert entry_facts(old) == before
-    assert full.calculator.processed == 7 and full.calculator.state == "NONE"
+    assert full.calculator.processed == 7 and full.calculator.state == "DULL"
     assert full.calculator.wave.sign == -1 and full.calculator.wave.count == 3
-    assert full.calculator.previous.hist == 0 and full.calculator.pending_bottom_history is None
-    assert full.calculator.pending_rearm["status"] == "WAITING"
-    assert full.calculator.pending_rearm["nearestPriceGate"] == 99
+    assert full.calculator.previous.hist == 0 and full.calculator.active_structure is None
+    assert full.calculator.reference.price == 99 and full.calculator.reference.dif == -11
+    assert [(event["type"], event["route"]) for event in full.events] == [
+        ("DULL", "activation"), ("STRUCTURE", "dif_turn"), ("DULL", "dif_return")]
+    structure = next(iter(full.structure_records.values()))
+    assert structure["status"] == "DISAPPEARED" and structure["disappearedAt"] == stamps[6]
+    assert structure["disappearanceReason"] == "dif_return"
 
-    # Actual calculator_at replay must return the earlier active structure,
-    # rather than the latest WAITING state or the later-ended history record.
+    # Actual prefix replay returns the earlier active structure, not the
+    # latest DULL state or the later disappearance fact.
     past = full.calculator_at(6, lambda: None)
     assert type(past) is XxmCalculator and past.spec is MAIN_SPEC
     assert past.processed == 6 and past.previous.time == stamps[5]
-    assert past.state == "STRUCTURE" and past.pending_rearm is None
-    assert past.pending_bottom_history["status"] == "PENDING"
-    assert past.pending_bottom_history["priceLow"] == 97
-    assert past.pending_bottom_history["endedAt"] is None
+    assert past.state == "STRUCTURE" and past.active_structure["status"] == "ASSESSING"
+    assert past.active_structure["priceExtreme"] == 97
+    assert past.active_structure["disappearedAt"] is None
     assert past.snapshot() == old.calculator.snapshot()
     response = service._response(full, period=period, expected=stamps[5], start_date=None,
         limit=1000, check=lambda: None)
-    assert response.bottomHistories[0].status == "PENDING"
-    assert response.bottomHistories[0].endedAt is None and response.bottomHistories[0].leftOriginAt is None
-    assert not response.rearmRecords
+    assert response.structures[0].status == "ASSESSING"
+    assert response.structures[0].disappearedAt is None
+    assert response.structures[0].lockedAt is None
 
     full_before = entry_facts(full)
     child = clone(full.calculator)
     assert type(child) is XxmCalculator and child.period == period and child.spec is MAIN_SPEC
-    assert child.pending_rearm["status"] == "WAITING" and child.previous.hist == 0
-    child.pending_rearm["referenceWave"]["dif"] = 999
-    child.pending_rearm["nearestPriceGate"] = 999
+    assert child.state == "DULL" and child.active_structure is None and child.previous.hist == 0
+    child.reference.dif = 999
     child.history[-1][0].price = 999
     child.wave.price = 999
     assert entry_facts(full) == full_before and entry_facts(old) == before
