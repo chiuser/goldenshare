@@ -1,10 +1,14 @@
 """HC01-12/18-19: literal sources and owned test processes; no real market I/O.
 
-Source fixtures follow DailyWaveQuery's six/three projections and the real
-DATE/Float/bool contract, not the consumer's guesses. Synthetic open days are
-explicitly artificial and never evidence about the historical SSE calendar.
+Source fixtures follow the DG idx_factor_pro Silver and calendar contracts:
+DATE/DOUBLE/BOOLEAN become ISO dates and original numbers on the local pipe.
+These parent-validation substitutes do not exercise DuckDB or real Lake data;
+that boundary is covered by the separate temporary-Parquet tests. Synthetic
+open days are artificial and never evidence about the historical SSE calendar.
 """
 import ast
+import builtins
+import math
 from copy import deepcopy
 from datetime import date, timedelta
 import json
@@ -62,100 +66,136 @@ def synthetic_source():
     return rows, calendar
 
 
-def install_source(monkeypatch, rows, calendar):
-    from src.app.dependencies import daily_wave
-    events, calls = [], []
-
-    class Session:
-        def __init__(self, *, budget):
-            assert budget.spec.max_main_points == 1000
-            assert budget.spec.max_context_points == 0
-            assert budget.spec.connection_seconds == 2
-            assert budget.spec.query_seconds == 3
-            assert budget.spec.lock_seconds == 1
-            assert budget.spec.cleanup_seconds == .5
-            self.budget = budget
-
-        async def __aenter__(self):
-            events.append("enter")
-            return self
-
-        async def execute_read(self, statement, parameters=None):
-            columns = tuple(statement.selected_columns.keys())
-            calls.append((columns, str(statement), statement.compile().params))
-            if columns == ("ts_code", "trade_date", "close", "macd_dif_bfq", "macd_dea_bfq", "macd_bfq"):
-                return rows
-            assert columns == ("exchange", "trade_date", "is_open")
-            return calendar
-
-        async def __aexit__(self, *error):
-            events.append("closed")
-            return False
-
-    monkeypatch.setattr(daily_wave, "DailyWaveReadSession", Session)
-    return events, calls
+def source_payload(rows=None, calendar=None):
+    """Literal pipe layout, independent of the reader's encoder/column helpers."""
+    if rows is None:
+        rows, calendar = synthetic_source()
+    def scalars(row):
+        return [value.isoformat() if type(value) is date else value for value in row.values()]
+    return {"marketRows": [scalars(row) for row in rows],
+            "calendarRows": [scalars(row) for row in calendar],
+            "fileCount": 922, "fileBytes": 100_000, "calendarBytes": 10_000,
+            "connectionClosed": True}
 
 
-def test_hc02_03_real_producer_projection_literal_rows_preserve_float(monkeypatch):
-    rows, calendar = synthetic_source()
-    events, calls = install_source(monkeypatch, rows, calendar)
-    result = m.read_input(m.ResearchBudget())
-    assert events == ["enter", "closed"]
-    assert len(calls) == 2
-    assert 1001 in calls[0][2].values() and 2001 in calls[1][2].values()
+def install_source(monkeypatch, payload):
+    calls = []
+    def literal_payload(budget, read_deadline):
+        calls.append(read_deadline)
+        # This is a substitute for an already closed read process, not proof
+        # of actual SQL calls or Lake completeness.
+        budget.schema_reads += 1
+        budget.market_reads += 1
+        budget.calendar_reads += 1
+        return payload
+    monkeypatch.setattr(m, "_read_local_payload", literal_payload)
+    return calls
+
+
+def test_hc02_03_literal_local_response_preserves_float(monkeypatch):
+    calls = install_source(monkeypatch, source_payload())
+    budget = m.ResearchBudget()
+    result = m.read_input(budget)
+    assert len(calls) == 1
     assert result["rows"][0] == ("2023-01-03", 100.123456789, -0.0, -0.0, 0.0, True)
     assert all(type(v) is float for v in result["rows"][0][1:5])
+    assert math.copysign(1, result["rows"][0][2]) == -1
     assert result["calendarCount"] == 1394 and result["openCount"] == 922
     assert result["rows"][-1][0] == "2026-10-27"
-    assert result["sourceDescription"]["sourceTypes"] == "DATE/Float(53)/bool"
+    source = result["sourceDescription"]
+    assert source["source"] == "local-dg-silver"
+    assert source["sourceTypes"] == "VARCHAR/DATE/DOUBLE;VARCHAR/DATE/BOOLEAN"
+    assert source["schemaReads"] == source["marketReads"] == source["calendarReads"] == 1
+    assert source["fields"] == ["ts_code", "trade_date", "close", "macd_dif_bfq", "macd_dea_bfq", "macd_bfq"]
+    assert source["calendarFields"] == ["exchange", "trade_date", "is_open"]
+    assert "table" not in source
     assert m.SPEC.max_input_bars == 1000
     from src.biz.services.wealth.market.index_detail_daily_wave.spec import DEFAULT_SPEC
     assert DEFAULT_SPEC.max_main_points == 800 and DEFAULT_SPEC.requested_start == "2023-10-24"
 
 
-@pytest.mark.parametrize("bad", ["short", "overflow", "duplicate", "reverse", "date_text", "int_float",
-                                 "nan", "extra_field", "wrong_object", "h_relation", "calendar_missing",
-                                 "calendar_bool", "calendar_open", "wrong_start", "wrong_end"])
-def test_hc03_bad_source_rejected_and_session_closed(monkeypatch, bad):
+@pytest.mark.parametrize("bad", ["short", "overflow", "duplicate", "reverse", "date_text", "date_object", "int_float",
+                                 "nan", "infinity", "nonpositive", "extra_field", "wrong_object", "h_relation", "calendar_missing",
+                                 "calendar_overflow", "calendar_bool", "calendar_open", "calendar_date", "wrong_start", "wrong_end"])
+def test_hc03_bad_local_response_rejected(monkeypatch, bad):
     rows, calendar = synthetic_source()
     if bad == "short": rows.pop(5)
     elif bad == "overflow": rows.extend(deepcopy(rows[:79]))
     elif bad == "duplicate": rows[5]["trade_date"] = rows[4]["trade_date"]
     elif bad == "reverse": rows[5], rows[6] = rows[6], rows[5]
-    elif bad == "date_text": rows[5]["trade_date"] = "2023-01-08"
+    elif bad == "date_text": rows[5]["trade_date"] = "20230108"
     elif bad == "int_float": rows[5]["close"] = 100
     elif bad == "nan": rows[5]["macd_dif_bfq"] = float("nan")
+    elif bad == "infinity": rows[5]["macd_dif_bfq"] = float("inf")
+    elif bad == "nonpositive": rows[5]["close"] = 0.0
     elif bad == "extra_field": rows[5]["extra"] = 1
     elif bad == "wrong_object": rows[5]["ts_code"] = "399001.SZ"
     elif bad == "h_relation": rows[5]["macd_bfq"] = 0.003
     elif bad == "calendar_missing": calendar.pop(3)
+    elif bad == "calendar_overflow": calendar.extend(deepcopy(calendar[:607]))
     elif bad == "calendar_bool": calendar[3]["is_open"] = 1
     elif bad == "calendar_open": calendar[1000]["is_open"] = True
+    elif bad == "calendar_date": calendar[3]["trade_date"] = "20230106"
     elif bad == "wrong_start": rows[0]["trade_date"] += timedelta(days=1)
-    else: rows[-1]["trade_date"] -= timedelta(days=1)
-    events, _ = install_source(monkeypatch, rows, calendar)
+    elif bad == "wrong_end": rows[-1]["trade_date"] -= timedelta(days=1)
+    payload = source_payload(rows, calendar)
+    if bad == "date_object": payload["marketRows"][5][1] = date(2023, 1, 8)
+    calls = install_source(monkeypatch, payload)
+    monkeypatch.setattr(m, "run_worker", lambda *a, **kw: (_ for _ in ()).throw(AssertionError("no algorithm")))
     with pytest.raises((ValueError, RuntimeError)):
         m.read_input(m.ResearchBudget())
-    assert events == ["enter", "closed"]
+    assert len(calls) == 1
 
 
-def test_hc03_read_bridge_shares_outer_deadline_and_no_extra_source(monkeypatch):
+@pytest.mark.parametrize("changes", [{"connectionClosed": False}, {"connectionClosed": 1},
+                                      {"fileCount": True}, {"fileCount": 1001}, {"fileCount": 0},
+                                      {"fileBytes": 32 * 1024 * 1024 + 1}, {"fileBytes": -1},
+                                      {"calendarBytes": 128 * 1024 + 1}, {"calendarBytes": 0},
+                                      {"extra": 1}])
+def test_hc22_parent_refuses_bad_file_facts_or_unclosed_connection(monkeypatch, changes):
+    payload = source_payload()
+    payload.update(changes)
+    install_source(monkeypatch, payload)
+    with pytest.raises(ValueError): m.read_input(m.ResearchBudget())
+
+
+def test_hc03_23_parent_validation_uses_original_read_work_deadline(monkeypatch):
     from src.biz.services.wealth.market.index_detail_daily_wave import budget as daily_budget
-    rows, calendar = synthetic_source()
-    events, _ = install_source(monkeypatch, rows, calendar)
+    calls = install_source(monkeypatch, source_payload())
     outer = m.ResearchBudget()
-    calls = []
+    captures = []
     original = daily_budget.DailyWaveBudget
-
     def capture(*args, **kw):
-        calls.append(kw)
-        assert kw["deadline"] <= outer.work_deadline
+        captures.append(kw)
+        assert kw["deadline"] == min(calls[0] - .5, outer.work_deadline)
         assert kw["check_cancelled"]() is False
         return original(*args, **kw)
-
     monkeypatch.setattr(daily_budget, "DailyWaveBudget", capture)
     m.read_input(outer)
-    assert len(calls) == 1 and events[-1] == "closed"
+    assert len(captures) == len(calls) == 1
+    assert calls[0] <= outer.t0 + 8.1
+    assert calls[0] <= outer.work_deadline
+    monkeypatch.setattr(daily_budget, "DailyWaveBudget", original)
+    outer = m.ResearchBudget()
+    with pytest.raises(RuntimeError):
+        m._validate_local_input(source_payload(), outer, time.monotonic() + .4)
+
+
+def test_hc24_parent_validation_has_no_app_settings_or_pg_reads(monkeypatch):
+    from src.biz.queries.wealth.market.index_detail_daily_wave.query import DailyWaveQuery
+    from src.foundation.config import settings
+    def forbidden(*args, **kw): raise AssertionError("remote source forbidden")
+    monkeypatch.setattr(DailyWaveQuery, "load_main_window", forbidden)
+    monkeypatch.setattr(DailyWaveQuery, "load_calendar", forbidden)
+    monkeypatch.setattr(settings, "get_settings", forbidden)
+    imported = builtins.__import__
+    def guard(name, *args, **kw):
+        if name == "src.app" or name.startswith("src.app."):
+            raise AssertionError("App import forbidden")
+        return imported(name, *args, **kw)
+    monkeypatch.setattr(builtins, "__import__", guard)
+    install_source(monkeypatch, source_payload())
+    assert len(m.read_input(m.ResearchBudget())["rows"]) == 922
 
 
 def blob(value):
@@ -536,3 +576,315 @@ def test_hc01_identity_rejects_bool_count_even_for_one_literal_bar():
 def test_hc05_nontext_message_kind_is_a_protocol_error(monkeypatch):
     p, _ = parser(monkeypatch)
     with pytest.raises(ValueError): p.feed(frame(message([])))
+
+
+def lake_request(*, deadline=None):
+    return {"kind": "READ_INPUT", "protocolVersion": 1, "source": "local-dg-silver",
+            "readDeadline": time.monotonic() + 8 if deadline is None else deadline,
+            "maxWorkerMemoryBytes": 128 * 1024 * 1024}
+
+
+def lake_message(kind, *, pid=123, **extra):
+    return {"kind": kind, "protocolVersion": 1, "source": "local-dg-silver", "pid": pid, **extra}
+
+
+def lake_parser(monkeypatch=None):
+    if monkeypatch is not None:
+        monkeypatch.setattr(m.resource, "getrusage", lambda who: SimpleNamespace(ru_maxrss=20 * 1024 * 1024))
+    budget = m.ResearchBudget()
+    return m._LakeFrames(SimpleNamespace(pid=123), lake_request(), budget), budget
+
+
+def lake_prefix():
+    messages = [lake_message("HELLO", peakMemoryBytes=1)]
+    for query in ("SCHEMA", "MARKET", "CALENDAR"):
+        messages.extend([lake_message("QUERY_START", query=query, peakMemoryBytes=1),
+                         lake_message("QUERY_DONE", query=query, peakMemoryBytes=1)])
+    return messages
+
+
+def test_hc23_local_protocol_split_frames_and_attempt_counts(monkeypatch):
+    parser, budget = lake_parser(monkeypatch)
+    messages = lake_prefix() + [lake_message("RESULT", payload={"literal": "x" * 100_000}),
+                                lake_message("DONE", peakMemoryBytes=2)]
+    raw = b"".join(frame(msg) for msg in messages)
+    for i in range(0, len(raw), 31): parser.feed(raw[i:i + 31])
+    parser.finish()
+    assert parser.payload == {"literal": "x" * 100_000}
+    assert (budget.schema_reads, budget.market_reads, budget.calendar_reads) == (1, 1, 1)
+    assert budget.reported_peak == 2
+    with pytest.raises(ValueError): parser.feed(frame(lake_message("DONE", peakMemoryBytes=2)))
+
+
+@pytest.mark.parametrize("bad", [lake_message("HELLO", pid=99, peakMemoryBytes=1),
+                                 lake_message("HELLO", peakMemoryBytes=True),
+                                 lake_message("HELLO", peakMemoryBytes=-1),
+                                 lake_message("HELLO", peakMemoryBytes=1, extra=1),
+                                 {**lake_message("HELLO", peakMemoryBytes=1), "protocolVersion": True},
+                                 {**lake_message("HELLO", peakMemoryBytes=1), "source": "remote"},
+                                 lake_message([]), lake_message("UNKNOWN"),
+                                 lake_message("RESULT", payload={}), lake_message("DONE", peakMemoryBytes=1)])
+def test_hc23_local_bad_identity_fields_or_initial_order(monkeypatch, bad):
+    parser, _ = lake_parser(monkeypatch)
+    with pytest.raises(ValueError): parser.feed(frame(bad))
+
+
+@pytest.mark.parametrize("messages", [
+    [lake_message("HELLO", peakMemoryBytes=1)],
+    [lake_message("QUERY_START", query="MARKET", peakMemoryBytes=1)],
+    [lake_message("QUERY_DONE", query="SCHEMA", peakMemoryBytes=1)],
+    [lake_message("RESULT", payload={})],
+    [lake_message("QUERY_START", query="SCHEMA", peakMemoryBytes=1),
+     lake_message("QUERY_START", query="SCHEMA", peakMemoryBytes=1)],
+])
+def test_hc23_local_queries_cannot_be_skipped_reordered_or_overlapped(monkeypatch, messages):
+    parser, _ = lake_parser(monkeypatch)
+    parser.feed(frame(lake_message("HELLO", peakMemoryBytes=1)))
+    with pytest.raises(ValueError):
+        for msg in messages: parser.feed(frame(msg))
+
+
+def test_hc23_local_missing_done_duplicate_result_partial_and_size(monkeypatch):
+    parser, _ = lake_parser(monkeypatch)
+    for msg in lake_prefix(): parser.feed(frame(msg))
+    parser.feed(frame(lake_message("RESULT", payload={})))
+    with pytest.raises(ValueError): parser.finish()
+    with pytest.raises(ValueError): parser.feed(frame(lake_message("RESULT", payload={})))
+    parser, _ = lake_parser(monkeypatch)
+    parser.feed(frame(lake_message("HELLO", peakMemoryBytes=1))[:-1])
+    with pytest.raises(ValueError): parser.finish()
+    parser, _ = lake_parser(monkeypatch)
+    with pytest.raises(OverflowError): parser.feed((1024 * 1024 + 1).to_bytes(8, "big"))
+
+
+def test_hc23_local_attempt_count_is_not_success_count(monkeypatch):
+    parser, budget = lake_parser(monkeypatch)
+    parser.feed(frame(lake_message("HELLO", peakMemoryBytes=1)))
+    parser.feed(frame(lake_message("QUERY_START", query="SCHEMA", peakMemoryBytes=1)))
+    with pytest.raises(ValueError):
+        parser.feed(frame(lake_message("ERROR", exceptionType="ValueError", errorKind="INPUT")))
+    assert (budget.schema_reads, budget.market_reads, budget.calendar_reads) == (1, 0, 0)
+    with pytest.raises(ValueError): parser.finish()
+
+
+def test_hc23_local_query_deadline_cannot_refresh_read_or_outer_budget(monkeypatch):
+    clock = [100.0]
+    monkeypatch.setattr(m.time, "monotonic", lambda: clock[0])
+    parser, budget = lake_parser(monkeypatch)
+    assert parser.read_work_deadline == 107.5
+    assert budget.deadline == 120.0
+    parser.feed(frame(lake_message("HELLO", peakMemoryBytes=1)))
+    clock[0] = 105.0
+    parser.feed(frame(lake_message("QUERY_START", query="SCHEMA", peakMemoryBytes=1)))
+    assert budget.process_deadline == 107.5
+    clock[0] = 107.49
+    parser.feed(frame(lake_message("QUERY_DONE", query="SCHEMA", peakMemoryBytes=1)))
+    parser.feed(frame(lake_message("QUERY_START", query="MARKET", peakMemoryBytes=1)))
+    assert budget.process_deadline == 107.5 and budget.deadline == 120.0
+    clock[0] = 107.51
+    with pytest.raises(TimeoutError):
+        parser.feed(frame(lake_message("QUERY_DONE", query="MARKET", peakMemoryBytes=1)))
+    # An already shorter outer work deadline also remains the upper bound.
+    clock[0] = 100.0
+    budget = m.ResearchBudget()
+    budget.work_deadline = 100.1
+    parser = m._LakeFrames(SimpleNamespace(pid=123), lake_request(deadline=108.0), budget)
+    assert parser.read_work_deadline == budget.process_deadline == 100.1
+
+
+def local_peer_code(scenario="success"):
+    # This peer implements only the stated pipe protocol; it never imports the
+    # reader, opens Parquet or executes an identification algorithm.
+    prefix = '''
+import os,sys,json,time
+sys.stdin.buffer.read()
+def send(kind, **fields):
+    msg={"kind":kind,"protocolVersion":1,"source":"local-dg-silver","pid":os.getpid(),**fields}
+    raw=json.dumps(msg,separators=(",",":")).encode()
+    sys.stdout.buffer.write(len(raw).to_bytes(8,"big")+raw);sys.stdout.buffer.flush()
+'''
+    if scenario == "stderr": return prefix + "sys.stderr.write('secret credential');sys.stderr.flush()"
+    if scenario == "exit1": return prefix + "raise SystemExit(1)"
+    if scenario == "partial": return prefix + "sys.stdout.buffer.write((99).to_bytes(8,'big')+b'{');sys.stdout.buffer.flush()"
+    code = prefix + 'send("HELLO",peakMemoryBytes=1)\n'
+    if scenario == "query_block":
+        return code + 'send("QUERY_START",query="SCHEMA",peakMemoryBytes=1)\ntime.sleep(10)\n'
+    if scenario == "wrong_pid":
+        return code + 'send("QUERY_START",query="SCHEMA",peakMemoryBytes=1,pid=99)\n'
+    code += '''
+for query in ("SCHEMA","MARKET","CALENDAR"):
+    send("QUERY_START",query=query,peakMemoryBytes=1)
+    send("QUERY_DONE",query=query,peakMemoryBytes=1)
+send("RESULT",payload={"literal":"x"*200000})
+'''
+    if scenario != "missing_done": code += 'send("DONE",peakMemoryBytes=1)\n'
+    if scenario == "hang_after_done": code += 'time.sleep(10)\n'
+    if scenario == "exit1_after_done": code += 'raise SystemExit(1)\n'
+    return code
+
+
+def test_hc23_local_real_pipe_large_result_is_closed_and_reaped():
+    budget = m.ResearchBudget()
+    proc = peer(local_peer_code(), budget)
+    result = m._pump_process(proc, frame(lake_request()), protocol="LOCAL_INPUT", budget=budget)
+    assert result["payload"] == {"literal": "x" * 200000}
+    assert (budget.schema_reads, budget.market_reads, budget.calendar_reads) == (1, 1, 1)
+    assert budget.active is None and proc.returncode == 0
+    assert all(pipe.closed for pipe in (proc.stdin, proc.stdout, proc.stderr))
+
+
+@pytest.mark.parametrize("scenario", ["stderr", "exit1", "partial", "missing_done", "wrong_pid", "exit1_after_done",
+                                      "hang_after_done", "read_deadline", "outer_deadline", "cancel_always", "query_block"])
+def test_hc23_local_real_pipe_failures_reap_only_owned_process(scenario):
+    budget = m.ResearchBudget()
+    code = local_peer_code("query_block" if scenario in {"read_deadline", "outer_deadline"} else scenario)
+    proc = peer(code, budget)
+    request_deadline = time.monotonic() + (0.65 if scenario == "read_deadline" else 8)
+    budget.process_cleanup_deadline = min(request_deadline, budget.deadline)
+    if scenario == "hang_after_done": request_deadline = time.monotonic() + .65
+    if scenario == "outer_deadline": budget.work_deadline = time.monotonic() + .15
+    cancellation_calls = []
+    if scenario == "cancel_always":
+        def cancel():
+            cancellation_calls.append(1)
+            raise LookupError("first cancellation")
+        budget.check_cancelled = cancel
+    started = time.monotonic()
+    with pytest.raises((ValueError, RuntimeError, TimeoutError, LookupError)) as caught:
+        m._pump_process(proc, frame(lake_request(deadline=request_deadline)), protocol="LOCAL_INPUT", budget=budget)
+    elapsed = time.monotonic() - started
+    assert "secret credential" not in str(caught.value)
+    assert budget.active is None and proc.returncode is not None
+    assert all(pipe.closed for pipe in (proc.stdin, proc.stdout, proc.stderr))
+    if scenario == "cancel_always": assert cancellation_calls == [1]
+    if scenario == "query_block":
+        assert isinstance(caught.value, TimeoutError) and 3 <= elapsed < 4.5
+        assert (budget.schema_reads, budget.market_reads, budget.calendar_reads) == (1, 0, 0)
+    if scenario in {"read_deadline", "outer_deadline", "hang_after_done"}:
+        assert isinstance(caught.value, TimeoutError) and elapsed < 1
+
+
+def test_hc24_local_reader_launch_uses_existing_site_and_fixed_entry(monkeypatch):
+    calls = []
+    budget = m.ResearchBudget()
+    deadline = min(time.monotonic() + 8, budget.work_deadline)
+    proc = SimpleNamespace(returncode=0)
+    def spawn(args, owner, **kw):
+        calls.append(args)
+        owner.register(proc)
+        return proc
+    def pump(process, body, *, protocol, budget):
+        assert process is proc and protocol == "LOCAL_INPUT"
+        decoded = json.loads(body[8:])
+        assert int.from_bytes(body[:8], "big") == len(body) - 8
+        assert set(decoded) == {"kind", "protocolVersion", "source", "readDeadline", "maxWorkerMemoryBytes"}
+        assert decoded["kind"] == "READ_INPUT" and decoded["source"] == "local-dg-silver"
+        assert decoded["readDeadline"] == deadline
+        assert budget.process_cleanup_deadline == min(deadline, budget.deadline)
+        assert budget.process_deadline == min(deadline - .5, budget.work_deadline)
+        budget.collected(proc)
+        return {"payload": {"literal": True}}
+    monkeypatch.setattr(m, "_spawn", spawn)
+    monkeypatch.setattr(m, "_pump_process", pump)
+    assert m._read_local_payload(budget, deadline) == {"literal": True}
+    assert len(calls) == 1 and calls[0][:3] == [sys.executable, "-I", "-B"]
+    assert Path(calls[0][3]).name == "r4_history_lake.py" and "-S" not in calls[0]
+
+
+def test_hc25_encoding_peak_can_grow_without_false_failure(monkeypatch):
+    from scripts.research.index_market.xxm import r4_history_records
+    monkeypatch.setattr(r4_history_records, 'format_report', lambda result, *, check: 'literal report')
+    peaks = {'parent': 40 * 1024 * 1024, 'child': 10 * 1024 * 1024}
+    monkeypatch.setattr(m.resource, 'getrusage', lambda who: SimpleNamespace(
+        ru_maxrss=peaks['parent' if who == m.resource.RUSAGE_SELF else 'child']))
+    original = m._encoded
+    calls = []
+    def allocating(value):
+        body = original(value)
+        calls.append(len(body))
+        peaks['parent'] += 1024 * 1024
+        return body
+    monkeypatch.setattr(m, '_encoded', allocating)
+    result = m._finish_result(*minimal_finish_args(), m.ResearchBudget())
+    metrics = result['metrics']
+    assert metrics['parentPeak'] == peaks['parent']
+    assert metrics['highestChildPeak'] == peaks['child']
+    assert metrics['combinedPeakUpper'] == peaks['parent'] + peaks['child']
+    independent = json.dumps(result, ensure_ascii=False, allow_nan=False, separators=(',', ':')).encode('utf-8')
+    assert metrics['finalResultBytes'] == len(independent)
+    assert 2 <= len(calls) <= 1 + m.SPEC.final_checks
+
+
+def test_hc25_crossing_decimal_digits_requires_another_encoding(monkeypatch):
+    from scripts.research.index_market.xxm import r4_history_records
+    monkeypatch.setattr(r4_history_records, 'format_report', lambda result, *, check: 'literal report')
+    peak = [99_999_999]
+    monkeypatch.setattr(m.resource, 'getrusage', lambda who: SimpleNamespace(
+        ru_maxrss=peak[0] if who == m.resource.RUSAGE_SELF else 0))
+    original = m._encoded
+    calls = []
+    def crossing(value):
+        body = original(value)
+        calls.append(value.get('metrics', {}).get('parentPeak'))
+        if len(calls) == 3:
+            peak[0] = 100_000_000
+        return body
+    monkeypatch.setattr(m, '_encoded', crossing)
+    result = m._finish_result(*minimal_finish_args(), m.ResearchBudget())
+    assert calls == [None, 99_999_999, 99_999_999, 100_000_000]
+    assert result['metrics']['parentPeak'] == 100_000_000
+    assert result['metrics']['combinedPeakUpper'] == 100_000_000
+    assert result['metrics']['finalResultBytes'] == len(original(result))
+
+
+def test_hc25_continually_changing_digit_lengths_still_refuse_after_five(monkeypatch):
+    from scripts.research.index_market.xxm import r4_history_records
+    monkeypatch.setattr(r4_history_records, 'format_report', lambda result, *, check: 'literal report')
+    peak = [1]
+    monkeypatch.setattr(m.resource, 'getrusage', lambda who: SimpleNamespace(
+        ru_maxrss=peak[0] if who == m.resource.RUSAGE_SELF else 0))
+    original = m._encoded
+    calls = []
+    def growing(value):
+        body = original(value)
+        calls.append(len(body))
+        peak[0] *= 10
+        return body
+    monkeypatch.setattr(m, '_encoded', growing)
+    with pytest.raises(ValueError, match='5轮'):
+        m._finish_result(*minimal_finish_args(), m.ResearchBudget())
+    assert len(calls) == 1 + m.SPEC.final_checks
+
+
+def test_hc26_fresh_parent_validation_cannot_import_settings_or_database():
+    code = '''
+import importlib.abc,json,sys,time
+class Deny(importlib.abc.MetaPathFinder):
+    def find_spec(self, fullname, path=None, target=None):
+        if any(fullname == p or fullname.startswith(p+'.') for p in ('src.app','src.foundation.config','psycopg','orchestrator')):
+            raise AssertionError('forbidden indirect dependency: '+fullname)
+sys.meta_path.insert(0,Deny())
+from scripts.research.index_market.xxm import r4_history_comparison as m
+payload=json.load(sys.stdin)
+result=m._validate_local_input(payload,m.ResearchBudget(),time.monotonic()+8)
+assert len(result['rows'])==922 and result['calendarCount']==1394
+assert result['rows'][0][1:5]==(100.123456789,-0.0,-0.0,0.0)
+assert not any(n.startswith(('src.app','src.foundation.config','psycopg','orchestrator')) for n in sys.modules)
+print('PURE_LOCAL_VALIDATION_PASSED')
+'''
+    proc = subprocess.run([sys.executable, '-B', '-c', code], cwd=m.REPO_ROOT,
+                          input=json.dumps(source_payload(), allow_nan=False).encode(),
+                          capture_output=True, env={}, timeout=10)
+    assert proc.returncode == 0, proc.stderr.decode()
+    assert proc.stdout == b'PURE_LOCAL_VALIDATION_PASSED\n'
+
+
+def test_hc26_unfinished_source_day_is_still_rejected(monkeypatch):
+    from datetime import datetime, timezone
+    class BeforeClose(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return datetime(2023, 1, 3, 14, 59, tzinfo=timezone(timedelta(hours=8)))
+    monkeypatch.setattr(m, 'datetime', BeforeClose)
+    with pytest.raises(ValueError, match='未完成日线收盘'):
+        m._validate_local_input(source_payload(), m.ResearchBudget(), time.monotonic() + 8)

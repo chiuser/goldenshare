@@ -5,7 +5,6 @@ functions with literal source rows; importing this module performs no I/O.
 """
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass, fields, replace
 from datetime import date, datetime, timedelta, timezone
 import hashlib
@@ -20,23 +19,24 @@ import sys
 import time
 
 from . import r4_history_worker as wire
+from . import r4_history_lake as lake
 
 
 @dataclass(frozen=True, slots=True)
 class HistoryComparisonSpec:
     old_commit: str = wire.OLD_COMMIT
     current_commit: str = wire.CURRENT_COMMIT
-    ts_code: str = "000001.SH"
-    period: str = "day"
-    start_date: str = "2023-01-03"
-    end_date: str = "2026-10-27"
-    input_count: int = 922
-    calendar_count: int = 1394
-    max_input_bars: int = wire.MAX_INPUT_BARS
-    max_calendar_days: int = 2000
+    ts_code: str = lake.SPEC.ts_code
+    period: str = lake.SPEC.period
+    start_date: str = lake.SPEC.start_date
+    end_date: str = lake.SPEC.end_date
+    input_count: int = lake.SPEC.input_count
+    calendar_count: int = lake.SPEC.calendar_count
+    max_input_bars: int = lake.SPEC.max_input_bars
+    max_calendar_days: int = lake.SPEC.max_calendar_days
     total_seconds: float = 20.0
     cleanup_seconds: float = 0.5
-    read_seconds: float = 8.0
+    read_seconds: float = lake.SPEC.read_seconds
     git_seconds: float = 2.0
     max_memory_bytes: int = wire.MAX_MEMORY_BYTES
     max_result_bytes: int = wire.MAX_RESULT_BYTES
@@ -88,8 +88,9 @@ class ResearchBudget:
         self.stage_started = self.t0
         self.stage_seconds = {}
         self.process_deadline = self.work_deadline
+        self.process_cleanup_deadline = self.deadline
         self.result_sizes = []
-        self.market_reads = self.calendar_reads = 0
+        self.schema_reads = self.market_reads = self.calendar_reads = 0
         self.check()
 
     def measure(self):
@@ -120,12 +121,14 @@ class ResearchBudget:
         self.active = proc
         self.processes.append(proc)
         self.process_deadline = min(self.work_deadline, time.monotonic() + SPEC.git_seconds) if git else self.work_deadline
+        self.process_cleanup_deadline = self.deadline
 
     def collected(self, proc):
         if self.active is not proc or proc.returncode is None:
             raise RuntimeError("本次子进程尚未确认回收")
         self.active = None
         self.process_deadline = self.work_deadline
+        self.process_cleanup_deadline = self.deadline
         self.measure()
 
     @property
@@ -150,6 +153,7 @@ def _close_pipes(proc):
 def _cleanup_process(proc, budget, original=None):
     """No cancellation callback here: a second cancellation cannot skip wait."""
     failure = None
+    deadline = min(budget.deadline, budget.process_cleanup_deadline)
     if proc.stdin is not None and not proc.stdin.closed:
         try:
             proc.stdin.close()
@@ -157,7 +161,7 @@ def _cleanup_process(proc, budget, original=None):
             failure = exc
     try:
         if proc.poll() is None:
-            remaining = max(0.0, budget.deadline - time.monotonic())
+            remaining = max(0.0, deadline - time.monotonic())
             if remaining:
                 proc.terminate()
                 try:
@@ -167,7 +171,7 @@ def _cleanup_process(proc, budget, original=None):
             if proc.poll() is None:
                 proc.kill()
                 try:
-                    proc.wait(timeout=max(0.0, budget.deadline - time.monotonic()))
+                    proc.wait(timeout=max(0.0, deadline - time.monotonic()))
                 except subprocess.TimeoutExpired:
                     failure = TimeoutError("专项清理超时，进程退出尚未确认")
                     # It is already a failed run. Reap this handle after SIGKILL;
@@ -175,7 +179,7 @@ def _cleanup_process(proc, budget, original=None):
                     proc.wait(timeout=0.1)
         else:
             proc.wait(timeout=0)
-        if time.monotonic() > budget.deadline:
+        if time.monotonic() > deadline:
             failure = failure or TimeoutError("专项清理超过原总时限")
     except BaseException as exc:
         failure = failure or exc
@@ -294,6 +298,98 @@ class _WorkerFrames:
             raise ValueError("worker不完整EOF或缺少完成消息")
 
 
+class _LakeFrames(_WorkerFrames):
+    """Same bounded framing, separate source identity and SELECT deadlines."""
+
+    def __init__(self, proc, request, budget):
+        super().__init__(proc, {"maxResultBytes": lake.SPEC.max_read_result_bytes}, budget)
+        self.read_work_deadline = min(request["readDeadline"] - SPEC.cleanup_seconds,
+                                      budget.work_deadline)
+        self.query_index = 0
+        self.query_active = None
+        budget.process_deadline = self.read_work_deadline
+
+    def accept(self, message, length):
+        fields_by_kind = {
+            "HELLO": {"peakMemoryBytes"},
+            "QUERY_START": {"query", "peakMemoryBytes"},
+            "QUERY_DONE": {"query", "peakMemoryBytes"},
+            "RESULT": {"payload"}, "DONE": {"peakMemoryBytes"},
+            "ERROR": {"exceptionType", "errorKind"},
+        }
+        if type(message) is not dict:
+            raise ValueError("本地读取消息必须为对象")
+        kind = message.get("kind")
+        base = {"kind", "protocolVersion", "source", "pid"}
+        if (type(kind) is not str or kind not in fields_by_kind
+                or set(message) != base | fields_by_kind[kind]
+                or type(message["protocolVersion"]) is not int or message["protocolVersion"] != 1
+                or message["source"] != lake.SPEC.source
+                or type(message["pid"]) is not int or message["pid"] != self.proc.pid):
+            raise ValueError("本地读取消息身份或字段错误")
+        if kind != "RESULT":
+            self.controls += 1
+            self.control_bytes += length
+            if (length > SPEC.max_control_bytes or self.controls > SPEC.max_control_count
+                    or self.control_bytes > SPEC.max_control_total):
+                raise OverflowError("本地读取控制消息超限")
+        if "peakMemoryBytes" in message:
+            peak = message["peakMemoryBytes"]
+            if type(peak) is not int or peak < self.last_peak:
+                raise ValueError("本地读取峰值必须单调且为非负整数")
+            self.last_peak = peak
+            self.budget.reported_peak = max(self.budget.reported_peak, peak)
+            self.budget.check()
+        if kind == "ERROR":
+            name, error = message["exceptionType"], message["errorKind"]
+            if (type(name) is not str or not name.isidentifier() or len(name) > 128
+                    or type(error) is not str or error not in {"INPUT", "TIMEOUT", "MEMORY", "SIZE", "INTERNAL"}):
+                raise ValueError("本地读取错误消息非法")
+            cls = {"INPUT": ValueError, "TIMEOUT": TimeoutError,
+                   "MEMORY": MemoryError, "SIZE": OverflowError}.get(error, RuntimeError)
+            raise cls(f"本地读取失败：{name}")
+        if kind == "HELLO":
+            if self.hello:
+                raise ValueError("本地读取HELLO重复")
+            self.hello = True
+            return
+        if not self.hello:
+            raise ValueError("本地读取缺少HELLO")
+        if kind in {"QUERY_START", "QUERY_DONE"}:
+            queries = ("SCHEMA", "MARKET", "CALENDAR")
+            if (self.payload is not None or self.query_index >= len(queries)
+                    or message["query"] != queries[self.query_index]):
+                raise ValueError("本地查询顺序错误")
+            if kind == "QUERY_START":
+                if self.query_active is not None:
+                    raise ValueError("本地查询尚未结束")
+                self.query_active = message["query"]
+                counter = {"SCHEMA": "schema_reads", "MARKET": "market_reads",
+                           "CALENDAR": "calendar_reads"}[self.query_active]
+                setattr(self.budget, counter, getattr(self.budget, counter) + 1)
+                self.budget.process_deadline = min(self.read_work_deadline,
+                                                   time.monotonic() + lake.SPEC.query_seconds)
+            else:
+                if self.query_active != message["query"]:
+                    raise ValueError("本地查询未开始即结束")
+                # Check the old SQL deadline before restoring the read deadline.
+                self.budget.check()
+                self.query_active = None
+                self.query_index += 1
+                self.budget.process_deadline = self.read_work_deadline
+        elif kind == "RESULT":
+            if (self.query_index != 3 or self.query_active is not None or self.payload is not None
+                    or type(message["payload"]) is not dict):
+                raise ValueError("本地读取结果顺序或类型错误")
+            if length > lake.SPEC.max_read_result_bytes:
+                raise OverflowError("本地读取正文超过1MiB")
+            self.payload, self.result_bytes = message["payload"], length
+        elif kind == "DONE":
+            if self.payload is None:
+                raise ValueError("本地读取尚无结果即结束")
+            self.done = True
+
+
 def _pump_process(proc, request_bytes, *, protocol, budget):
     """Pump only a process registered by this caller; never wait before draining."""
     if budget.active is not proc:
@@ -303,15 +399,16 @@ def _pump_process(proc, request_bytes, *, protocol, budget):
     selector = selectors.DefaultSelector()
     original = None
     try:
-        if protocol not in {"GIT_BLOBS", "WORKER"}:
+        if protocol not in {"GIT_BLOBS", "LOCAL_INPUT", "WORKER"}:
             raise ValueError("不支持的固定协议")
         if type(request_bytes) is not bytes or len(request_bytes) > SPEC.max_request_bytes + 8:
             raise OverflowError("请求大小或类型错误")
         frames = None
-        if protocol == "WORKER":
+        if protocol in {"WORKER", "LOCAL_INPUT"}:
             if len(request_bytes) < 9 or int.from_bytes(request_bytes[:8], "big") != len(request_bytes) - 8:
                 raise ValueError("请求消息长度错误")
-            frames = _WorkerFrames(proc, wire.strict_json_loads(request_bytes[8:]), budget)
+            cls = _WorkerFrames if protocol == "WORKER" else _LakeFrames
+            frames = cls(proc, wire.strict_json_loads(request_bytes[8:]), budget)
         for stream, event in ((proc.stdin, selectors.EVENT_WRITE), (proc.stdout, selectors.EVENT_READ),
                               (proc.stderr, selectors.EVENT_READ)):
             os.set_blocking(stream.fileno(), False)
@@ -481,17 +578,45 @@ def read_git_sources(budget):
     return {"OLD_PAIR": modules[:8], "CURRENT": modules[8:]}
 
 
-async def _read_input_async(budget):
-    # This is the sole database boundary; import alone does not enter it.
-    from src.app.dependencies.daily_wave import DailyWaveReadSession
-    from src.biz.queries.wealth.market.index_detail_daily_wave.query import DailyWaveQuery
-    from src.biz.queries.wealth.market.index_detail_daily_wave.query_service import normalize_source_row, validate_calendar
+def _read_local_payload(budget, read_deadline):
+    request = {"kind": "READ_INPUT", "protocolVersion": 1, "source": lake.SPEC.source,
+               "readDeadline": read_deadline,
+               "maxWorkerMemoryBytes": SPEC.max_memory_bytes - budget.parent_peak}
+    body = _encoded(request)
+    proc = _spawn([sys.executable, "-I", "-B", str(Path(lake.__file__).resolve())], budget)
+    budget.process_cleanup_deadline = min(read_deadline, budget.deadline)
+    budget.process_deadline = min(read_deadline - SPEC.cleanup_seconds, budget.work_deadline)
+    received = _pump_process(proc, len(body).to_bytes(8, "big") + body,
+                             protocol="LOCAL_INPUT", budget=budget)
+    budget.check()
+    return received["payload"]
+
+
+def _iso_source_date(value):
+    if type(value) is not str:
+        raise ValueError("本地源日期传输必须为ISO文本")
+    parsed = date.fromisoformat(value)
+    if parsed.isoformat() != value:
+        raise ValueError("本地源日期格式错误")
+    return parsed
+
+
+def _validate_local_input(payload, budget, read_deadline):
+    # query_service imports ORM/registry/Settings indirectly. Keep this source
+    # contract check local and reuse only the I/O-free numeric validator.
     from src.biz.services.wealth.market.index_detail_daily_wave.budget import DailyWaveBudget
     from src.biz.services.wealth.market.index_detail_daily_wave.calculator import _points
     from src.biz.services.wealth.market.index_detail_daily_wave.spec import DEFAULT_SPEC
-    from src.biz.services.wealth.market.index_detail_daily_wave.types import DateRange
 
     budget.check()
+    expected = {"marketRows", "calendarRows", "fileCount", "fileBytes", "calendarBytes", "connectionClosed"}
+    if type(payload) is not dict or set(payload) != expected or payload["connectionClosed"] is not True:
+        raise ValueError("本地源返回字段或关闭状态错误")
+    for name, cap in (("fileCount", SPEC.max_input_bars), ("fileBytes", lake.SPEC.max_market_bytes),
+                      ("calendarBytes", lake.SPEC.max_calendar_bytes)):
+        value = payload[name]
+        if type(value) is not int or not 0 < value <= cap:
+            raise ValueError("本地源文件数量或大小错误")
     source_spec = replace(DEFAULT_SPEC, requested_start=SPEC.start_date, requested_end=SPEC.end_date,
                           absolute_start=SPEC.start_date, max_main_points=SPEC.max_input_bars,
                           max_context_points=0, max_total_points=SPEC.max_input_bars)
@@ -500,53 +625,83 @@ async def _read_input_async(budget):
         budget.check()
         return False
 
-    guard = DailyWaveBudget(source_spec, deadline=min(time.monotonic() + SPEC.read_seconds,
-                                                     budget.work_deadline), check_cancelled=cancel_bridge)
-    when = datetime.now(timezone(timedelta(hours=8)))
-    query = DailyWaveQuery()
-    async with DailyWaveReadSession(budget=guard) as session:
-        budget.market_reads += 1
-        raw = await query.load_main_window(session, start_date=date.fromisoformat(SPEC.start_date),
-                                           end_date=date.fromisoformat(SPEC.end_date), spec=source_spec)
-        guard.check()
-        if len(raw) != SPEC.input_count:
-            raise ValueError("专项要求指定范围恰922根真实行情")
-        normalized = []
-        for row in raw:
-            guard.check()
-            normalized.append(normalize_source_row(row, calculated_at=when, spec=source_spec))
-        days = [row["date"] for row in normalized]
-        if days[0] != SPEC.start_date or days[-1] != SPEC.end_date:
-            raise ValueError("专项行情首末日期不符")
-        _points(normalized, as_of=SPEC.end_date, spec=source_spec, guard=guard)
-        budget.calendar_reads += 1
-        calendar = await query.load_calendar(session, context_start=date.fromisoformat(SPEC.start_date),
-                                             observation_end=date.fromisoformat(SPEC.end_date), spec=source_spec)
-        guard.check()
-        if len(calendar) != SPEC.calendar_count:
-            raise ValueError("专项要求1394个自然日日历")
-        checked = validate_calendar(calendar, context_range=DateRange(SPEC.start_date, SPEC.end_date),
-                                    market_dates=days)
-        if sum(row.isOpen for row in checked) != SPEC.input_count:
-            raise ValueError("专项要求922个开市日与行情对应")
-        rows = tuple((row["trade_date"].isoformat(), row["close"], row["macd_dif_bfq"],
-                      row["macd_dea_bfq"], row["macd_bfq"], True) for row in raw)
-        guard.check()
+    guard = DailyWaveBudget(source_spec,
+        deadline=min(read_deadline - SPEC.cleanup_seconds, budget.work_deadline),
+        check_cancelled=cancel_bridge)
     guard.check()
-    budget.check()
+    when = datetime.now(timezone(timedelta(hours=8)))
+    raw, normalized = [], []
+    market = payload["marketRows"]
+    if type(market) not in (list, tuple) or len(market) != SPEC.input_count:
+        raise ValueError("专项要求指定范围恰922根真实行情")
+    for values in market:
+        guard.check()
+        if type(values) not in (list, tuple) or len(values) != len(lake.MARKET_COLUMNS):
+            raise ValueError("本地行情必须为六列")
+        row = dict(zip(lake.MARKET_COLUMNS, values, strict=True))
+        row["trade_date"] = _iso_source_date(row["trade_date"])
+        if row["ts_code"] != SPEC.ts_code:
+            raise ValueError("本地源行情对象错误")
+        closed = datetime.combine(row["trade_date"], datetime.min.time(), when.tzinfo) + timedelta(hours=15)
+        if closed > when:
+            raise ValueError("本地源行情尚未完成日线收盘")
+        point = {"tsCode": row["ts_code"], "date": row["trade_date"].isoformat(), "completed": True}
+        for target, name in (("close", "close"), ("dif", "macd_dif_bfq"),
+                             ("dea", "macd_dea_bfq"), ("macd", "macd_bfq")):
+            value = row[name]
+            if type(value) is not float or not math.isfinite(value) or target == "close" and value <= 0:
+                raise ValueError("本地源行情必须为有限原始DOUBLE且收盘为正")
+            point[target] = str(value)  # For validation only; preserve source floats below.
+        normalized.append(point)
+        raw.append(row)
+    days = [row["date"] for row in normalized]
+    if days[0] != SPEC.start_date or days[-1] != SPEC.end_date:
+        raise ValueError("专项行情首末日期不符")
+    _points(normalized, as_of=SPEC.end_date, spec=source_spec, guard=guard)
+    calendar = payload["calendarRows"]
+    if type(calendar) not in (list, tuple) or len(calendar) != SPEC.calendar_count:
+        raise ValueError("专项要求1394个自然日日历")
+    opened = []
+    calendar_start = date.fromisoformat(SPEC.start_date)
+    for index, values in enumerate(calendar):
+        guard.check()
+        if type(values) not in (list, tuple) or len(values) != len(lake.CALENDAR_COLUMNS):
+            raise ValueError("本地日历必须为三列")
+        row = dict(zip(lake.CALENDAR_COLUMNS, values, strict=True))
+        row["trade_date"] = _iso_source_date(row["trade_date"])
+        if (row["exchange"] != "SSE" or type(row["is_open"]) is not bool
+                or row["trade_date"] != calendar_start + timedelta(days=index)):
+            raise ValueError("本地SSE日历字段或逐日连续性错误")
+        if row["is_open"]:
+            opened.append(row["trade_date"].isoformat())
+    if opened != days or calendar[-1][1] != SPEC.end_date:
+        raise ValueError("专项要求922个开市日与行情逐日对应")
+    rows = tuple((row["trade_date"].isoformat(), row["close"], row["macd_dif_bfq"],
+                  row["macd_dea_bfq"], row["macd_bfq"], True) for row in raw)
+    guard.check()
     return {"rows": rows, "calendarCount": len(calendar), "openCount": len(rows),
             "requestedStart": SPEC.start_date, "requestedEnd": SPEC.end_date,
             "actualStart": rows[0][0], "actualEnd": rows[-1][0],
-            "sourceDescription": {"tsCode": SPEC.ts_code, "period": SPEC.period,
-                                  "table": "core_serving.index_factor_pro", "calendar": "SSE",
-                                  "fields": ["ts_code", "trade_date", "close", "macd_dif_bfq", "macd_dea_bfq", "macd_bfq"],
-                                  "sourceTypes": "DATE/Float(53)/bool", "actualStart": rows[0][0],
-                                  "actualEnd": rows[-1][0], "inputCount": len(rows)}}
+            "sourceDescription": {"source": lake.SPEC.source, "lakeRoot": lake.SPEC.lake_root,
+                "tsCode": SPEC.ts_code, "period": SPEC.period,
+                "marketPathTemplate": lake.SPEC.market_relative,
+                "calendarPath": lake.SPEC.calendar_relative, "calendar": "SSE",
+                "fields": list(lake.MARKET_COLUMNS), "calendarFields": list(lake.CALENDAR_COLUMNS),
+                "sourceTypes": "VARCHAR/DATE/DOUBLE;VARCHAR/DATE/BOOLEAN",
+                "fileCount": payload["fileCount"], "fileBytes": payload["fileBytes"],
+                "calendarBytes": payload["calendarBytes"], "schemaReads": budget.schema_reads,
+                "marketReads": budget.market_reads, "calendarReads": budget.calendar_reads,
+                "actualStart": rows[0][0], "actualEnd": rows[-1][0], "inputCount": len(rows)}}
 
 
 def read_input(budget):
+    """One local-only read. This does not load or execute any signal algorithm."""
     budget.enter("READ")
-    return asyncio.run(_read_input_async(budget))
+    read_deadline = min(time.monotonic() + SPEC.read_seconds, budget.work_deadline)
+    payload = _read_local_payload(budget, read_deadline)
+    result = _validate_local_input(payload, budget, read_deadline)
+    budget.check()
+    return result
 
 
 def _check_identity(payload, request):
@@ -665,7 +820,16 @@ def _finish_result(source, old, current, baseline, compared, budget):
         budget.check()
         if sum(budget.result_sizes) + size > SPEC.max_result_bytes:
             raise OverflowError("全部事实与最终报告合计超过16MiB")
-        if final_size == size and combined == budget.measure():
+        latest_combined = budget.measure()
+        latest = {"parentPeak": budget.parent_peak,
+                  "highestChildPeak": max(budget.waited_peak, budget.reported_peak),
+                  "combinedPeakUpper": latest_combined, "finalResultBytes": size}
+        # Only these nonnegative integer tokens change. Equal decimal lengths
+        # prove the checked UTF-8 JSON size remains exact after the update.
+        # A new measured peak is valid; it need not stop growing after encoding.
+        if all(len(str(result["metrics"][key])) == len(str(value))
+               for key, value in latest.items()):
+            result["metrics"].update(latest)
             return result
         final_size = size
     raise ValueError("最终结果字节及资源检查未在5轮内稳定")
