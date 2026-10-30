@@ -1,6 +1,6 @@
 # A 股利润表（income）维护说明与财务三表共用规则
 
-更新时间：2026-10-29。原开发方案与 LLD 已合并于本文；2026-08-30 初始范围 Prod 验收保留为历史。§7 的特殊报告期修正已按先设计、后代码完成并通过隔离验证；本次不部署、不迁移、不重跑生产任务。
+更新时间：2026-10-31。原开发方案与 LLD 已合并于本文；2026-08-30 初始范围 Prod 验收保留为历史。§7 的特殊报告期修正开发已结案，开发提交为 `96bc3b191`，本轮复核见 §7.6；本轮未部署、迁移或重跑生产任务。
 
 ## 1. 范围与阅读入口
 
@@ -239,4 +239,14 @@ raw/core DAO 名均指向各表的 Raw GenericDAO；`raw_only_upsert` 实际不�
 4. **硬口径逐项覆盖**：[专项测试](/Users/congming/github/goldenshare/tests/test_financial_statement_prelisting.py)共 83 项。`test_zero_end_type_preserved_before_listing_or_with_unknown_date` / `test_other_cases_still_rejected` 覆盖类型与日期条件；`test_exemption_does_not_skip_other_fields` / `test_exemption_keeps_unit_date_and_conflict_checks` 覆盖其他校验；`test_valid_quarter_needs_no_listing_query_and_zero_has_stable_source_hash` 覆盖指纹和常规补齐；两个 `test_listing_dao_*` 场景覆盖只查指定两列/代码、退市证券与 500/501 分批；`test_executor_uses_listing_dao_then_real_writer_and_idempotent_readback` 在三表×已知/NULL/无记录共 9 个场景写入、提交、重放及读回；`test_executor_reads_known_listing_date_and_blocks_postlisting_zero` 防止遗漏执行器接线被误当未知日期；查询异常和混合拒绝单元均验证 writer 不写入。
 5. **共享回归**：上述专项、原三表、通用 normalizer、fina_indicator、fund_daily 两阶段执行器、Definition registry、action resolver、子系统依赖/runtime/codebook 护栏，共 399 项通过；`ingestion-lint-definitions` 通过。文档完整性与差异空白检查通过。CodeGraph explore/impact 覆盖共享校验三个调用者及 DAO/normalizer/executor，修改后 sync/status 正常。
 
-交付状态：文档、代码和有界验证完成；未提交、未部署、未执行数据库迁移、未重试 TaskRun 17453。正式运行、页面效果及长任务真实取消恢复不在本次验证范围，历史 Prod 验收不作为本次通过依据。
+2026-10-29 验证结束时，文档、代码和有界验证已完成，当时尚未提交；随后按管理员指令提交为 `96bc3b191`。当轮未部署、未执行数据库迁移、未重试 TaskRun 17453。正式运行、页面效果及长任务真实取消恢复不在当轮验证范围，历史 Prod 验收不作为本次通过依据。
+
+### 7.6 开发结案（2026-10-31）
+
+**本次特殊报告期校验修正的开发工作已完成并结案。** 最终规则为：源 `end_type=0`，且报告期严格早于上市日期或查询成功但查不到上市日期时，保留源报告期及类型；其他记录继续原有校验。数据库查询报错仍停止当前单元，其他必填、类型、公告日和身份冲突检查继续生效。
+
+- 开发提交：`96bc3b1915ca89dd9cf72fcbaad8609aac384260`，包含三表文档、五个实现文件、专项测试和真实源报文夹具，共 10 个文件；当前 `dev-interface` 分支包含该提交。与收尾修改前 HEAD `02cad691d` 对比，相关代码、测试及三表原文档均无后续差异。
+- 本轮复核：重跑 §7.5 所列相同范围的 399 项测试，全部通过（4.40 秒）；`ingestion-lint-definitions`、文档完整性及差异空白检查通过。测试继续覆盖三表、已知/NULL/缺失上市日期、上市当日与之后的拒绝、其他校验保留、有界查询及隔离数据库写入读回和幂等重放。本轮未新增代码、配置或迁移。
+- 源端与主数据证据：沿用 §7.5 的 2026-10-29 有界实测及完整夹具，不将其表述为 2026-10-31 再次查询结果；无需为文档收尾重复访问源接口或生产数据库。
+- 收尾修改仅限 income、balancesheet、cashflow 三份原开发说明，修正提交状态并统一结案标记；历史验收及原方案、LLD、测试证据保留，工作区其他修改不纳入本次收尾。
+- 生产边界：本会话未执行部署或重试 TaskRun 17453；本轮未核验当前生产版本、该任务终态或页面效果，不将开发结案等同于生产验收。后续如需部署或正式运行，应另按明确授权执行。
