@@ -1,0 +1,18 @@
+{
+  "as_of": "2026-10-30T15:33:09.741008+08:00",
+  "date": "2026-10-29",
+  "passed": true,
+  "gold_rows": 11,
+  "prod_rows": 11,
+  "original_checks_passed": 2,
+  "input_files": 21,
+  "input_bytes": 53829,
+  "inputs_and_28th_seed_unchanged": true,
+  "global_audit_repeated": false,
+  "manual_job_launches": 0,
+  "manual_sensor_evaluations": 0,
+  "runs": {
+    "gold": "566dbcc9-59a5-421b-8b1a-c1ef224e8871",
+    "prod": "a0cddfca-3222-4357-859b-8af6197fc9c5"
+  }
+}

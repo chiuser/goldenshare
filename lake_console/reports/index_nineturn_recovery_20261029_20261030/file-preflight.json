@@ -1,0 +1,239 @@
+{
+  "as_of": "2026-10-30T15:23:35.787648+08:00",
+  "inputs": {
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-24/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-24/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        19427490,
+        2627,
+        1790246264117368959
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-28/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-28/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        19571912,
+        2629,
+        1790589186305697598
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-29/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-29/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        19681301,
+        2628,
+        1790689560372803704
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-30/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-09-30/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        19822164,
+        2628,
+        1790762161284577385
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-08/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-08/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        20069893,
+        2628,
+        1791470256538639724
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-09/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-09/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        20328220,
+        2626,
+        1791539616637532514
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-12/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-12/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        20479859,
+        2626,
+        1791798900858415757
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-13/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-13/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        20624871,
+        2628,
+        1791885905509082584
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-14/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-14/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        20787747,
+        2627,
+        1791971619475470574
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-15/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-15/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        20914916,
+        2625,
+        1792057907773757616
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-16/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-16/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        21042120,
+        2625,
+        1792144590293026532
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-19/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-19/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        22014532,
+        2624,
+        1792403535470790148
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-20/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-20/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        22164982,
+        2626,
+        1792502398224051932
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-21/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        22327569,
+        2627,
+        1792576669564287842
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-22/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-22/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        22507413,
+        2628,
+        1792843133503961835
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-23/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-23/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        23732202,
+        2627,
+        1792978571178482627
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-26/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-26/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        24999100,
+        2626,
+        1793009210172597891
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-27/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-27/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        26209105,
+        2627,
+        1793095687825911814
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-28/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-28/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        27503592,
+        2627,
+        1793235937599468975
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-29/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-29/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        29663647,
+        2628,
+        1793322725354247699
+      ]
+    },
+    "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-28/part-000.parquet": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-28/part-000.parquet",
+      "exists": true,
+      "identity": [
+        16777244,
+        28699800,
+        1292,
+        1793247733578332831
+      ]
+    }
+  },
+  "input_bytes": 53829,
+  "first_source_date": "trade_date=2026-09-24",
+  "last_source_date": "trade_date=2026-10-29",
+  "target": {
+    "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-29/part-000.parquet",
+    "exists": false
+  },
+  "previous": {
+    "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-28/part-000.parquet",
+    "exists": true,
+    "identity": [
+      16777244,
+      28699800,
+      1292,
+      1793247733578332831
+    ]
+  },
+  "next": {
+    "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-30/part-000.parquet",
+    "exists": false
+  },
+  "same_filesystem": true,
+  "free_bytes": 2899881820160,
+  "content_reads": 0
+}

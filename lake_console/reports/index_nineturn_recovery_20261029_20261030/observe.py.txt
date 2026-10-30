@@ -1,0 +1,118 @@
+"""Bounded read-only acceptance; never launch or evaluate jobs/sensors."""
+from pathlib import Path
+import argparse,json,os,datetime
+os.environ['PGOPTIONS']='-c default_transaction_read_only=on -c statement_timeout=30000'
+import dagster as dg,yaml
+from dagster_postgres import PostgresRunStorage,PostgresEventLogStorage
+from orchestrator.defs.catalog.lake_assets import LAKE_ASSET_CATALOG
+from orchestrator.defs.resources import ProdPostgresWriteResource
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
+from orchestrator.defs.major_index_nineturn import build_major_index_nineturn_source_fingerprint
+from orchestrator.defs.run_contracts.run_keys import build_batch_id,build_upstream_triggered_run_key
+DAY='2026-10-29'
+ROOT=Path('/Volumes/datasource/data_lake')
+OUT=Path(__file__).parent
+CAT={v.asset_key:v for v in LAKE_ASSET_CATALOG}
+def require(ok,reason):
+ if not ok:raise ValueError(reason)
+
+def meta(values):return {k:getattr(v,'value',str(v)) for k,v in values.items() if k!='dagster/column_schema'}
+
+def latest(events,asset,day):
+ rows=events.fetch_materializations(dg.AssetRecordsFilter(asset_key=dg.AssetKey(asset),asset_partitions=[day]),limit=1).records
+ require(len(rows)==1,'Missing upstream materialization: '+asset+' '+day)
+ return rows[0]
+
+def accepted(runs,events,asset,day,rid=None):
+ latest_mat=latest(events,asset,day);rid=rid or latest_mat.run_id
+ rr=runs.get_run_records(dg.RunsFilter(run_ids=[rid]),limit=1);require(len(rr)==1,'Run missing')
+ rr=rr[0];run=rr.dagster_run
+ require(run.tags.get('dagster/partition')==day and run.status==dg.DagsterRunStatus.SUCCESS,'Run not successful for exact date')
+ evs=events.get_records_for_run(rid,of_type={dg.DagsterEventType.ASSET_MATERIALIZATION,dg.DagsterEventType.ASSET_CHECK_EVALUATION,dg.DagsterEventType.STEP_FAILURE,dg.DagsterEventType.PIPELINE_FAILURE},limit=150)
+ require(not evs.has_more,'Event bound exceeded')
+ mats=[];checks=[];failures=[]
+ for record in evs.records:
+  ev=record.event_log_entry.dagster_event
+  if ev.event_type==dg.DagsterEventType.ASSET_MATERIALIZATION:
+   m=record.asset_materialization
+   if m.asset_key.to_user_string()!=asset:continue
+   require(m.partition==day and record.storage_id==latest_mat.storage_id,'Materialization date/version differs')
+   mats.append({'asset':asset,'partition':m.partition,'storage_id':record.storage_id,'run_id':rid,'metadata':meta(m.metadata)})
+  elif ev.event_type==dg.DagsterEventType.ASSET_CHECK_EVALUATION:
+   c=ev.event_specific_data
+   if c.asset_key.to_user_string()!=asset:continue
+   target=c.target_materialization_data
+   checks.append({'asset':asset,'name':c.check_name,'passed':c.passed,'blocking':c.blocking,'partition':c.partition,'target_storage_id':target.storage_id if target else None,'target_run_id':target.run_id if target else None,'metadata':meta(c.metadata)})
+  else:failures.append(str(ev.event_specific_data)[:2500])
+ require(not failures and len(mats)==1,'Output missing or native failure')
+ required=set(CAT[asset].blocking_check_names)
+ valid={c['name'] for c in checks if c['passed'] and c['blocking'] and c['partition'] in (None,day) and c['target_storage_id']==mats[0]['storage_id'] and c['target_run_id']==rid}
+ require(required<=valid,'Original checks not bound/passing')
+ n=mats[0]['metadata'].get('dagster/row_count');require(isinstance(n,int) and n>0,'Positive row count missing')
+ return {'date':day,'run_id':rid,'job':run.job_name,'status':run.status.value,'materializations':mats,'checks':checks,'failures':failures,'row_count':n,'required_checks':sorted(required),'verified':True,'elapsed_seconds':rr.end_time-rr.start_time if rr.end_time and rr.start_time else None}
+def save(name,value):(OUT/name).write_text(json.dumps(value,ensure_ascii=False,indent=2,default=str)+'\n')
+def stat(p):
+ if not p.exists():return {'path':str(p),'exists':False}
+ s=p.stat();return {'path':str(p),'exists':True,'identity':[s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns]}
+def prod_count():
+ with ProdPostgresWriteResource().connect_readonly() as c,c.cursor() as cur:
+  cur.execute('SELECT count(*) FROM core_serving.index_nineturn_daily WHERE trade_date=%s::date',(DAY,))
+  return int(cur.fetchone()[0])
+def unchanged(pre):
+ require(all(stat(Path(p))==s for p,s in pre['inputs'].items()),'Necessary input identity changed')
+ require(stat(Path(pre['previous']['path']))==pre['previous'],'28th seed changed')
+def storage():
+ value=yaml.safe_load(Path(os.environ['DAGSTER_HOME'],'dagster.yaml').read_text())['storage']['postgres']['postgres_url']
+ url=os.environ[value['env']] if isinstance(value,dict) else value
+ return PostgresRunStorage(url,should_autocreate_tables=False),PostgresEventLogStorage(url,should_autocreate_tables=False)
+def main(args):
+ require(os.environ.get('DAGSTER_HOME')=='/Users/congming/.goldenshare/dagster_home','Wrong formal instance')
+ if args.mode=='count-before':
+  require(not (OUT/'prod-count-before.json').exists(),'Preserve original pre-count')
+  value={'date':DAY,'rows':prod_count(),'readonly':True};save('prod-count-before.json',value);print(json.dumps(value));return
+ pre=json.loads((OUT/'file-preflight.json').read_text());unchanged(pre)
+ if args.mode=='verify':
+  require(args.stage and args.run_id,'Exact stage and run required')
+  runs,events=storage()
+  try:
+   result=accepted(runs,events,'gold_major_index_daily_nineturn' if args.stage=='gold' else 'prod_core_index_daily_nineturn',DAY,args.run_id)
+   original=runs.get_runs(dg.RunsFilter(run_ids=[args.run_id]),limit=1);require(len(original)==1,'Original run missing')
+   trigger_tags=dict(original[0].tags)
+  finally:runs.dispose();events.dispose()
+  expected_job='gold_major_index_daily_nineturn_update_job' if args.stage=='gold' else 'prod_core_index_daily_nineturn_sync_job'
+  require(result['job']==expected_job,'Unexpected original job')
+  expected_sensor=expected_job+'_sensor'
+  if args.stage=='gold':expected_key='gold_major_index_daily_nineturn_update:'+DAY
+  else:
+   producer=json.loads((OUT/'gold-verified.json').read_text())['run_id']
+   batch=build_batch_id(producer='gold_major_index_daily_nineturn_update',scope=DAY,payload={'producer_run_id':producer,'partition_key':DAY})
+   expected_key=build_upstream_triggered_run_key(consumer='prod_core_index_daily_nineturn_sync',upstream_batch_id=batch)
+  require(trigger_tags.get('dagster/run_key')==expected_key and trigger_tags.get('dagster/sensor_name')==expected_sensor,'Run not from original automatic sensor or expected producer')
+  result['trigger_tags']=trigger_tags
+  n=result['row_count'];require(n==11,'Expected source count changed: inspect contract')
+  metadata=result['materializations'][0]['metadata']
+  if args.stage=='gold':
+   require(metadata['goldenshare/source_file_count']==21,'Necessary source count differs')
+   fingerprint=build_major_index_nineturn_source_fingerprint(lake_root=ROOT,source_paths=[Path(p) for p in pre['inputs']])
+   require(metadata['goldenshare/source_fingerprint']==fingerprint,'Input fingerprint differs')
+   path=ROOT/'gold/indicator/major_index_daily_nineturn'/('trade_date='+DAY)/'part-000.parquet'
+   require(metadata['dagster/uri']==str(path),'Gold target path differs')
+   result['file']=stat(path);require(result['file']['exists'],'Gold target missing')
+  else:
+   gold=json.loads((OUT/'gold-verified.json').read_text());require(stat(Path(gold['file']['path']))==gold['file'],'Accepted Gold changed')
+   require(metadata['goldenshare/read_back_row_count']==n,'Native Prod readback differs')
+   for check in result['checks']:
+    cm=check['metadata'];require(cm['goldenshare/expected_row_count']==cm['goldenshare/read_back_row_count']==n and cm['goldenshare/expected_content_hash']==cm['goldenshare/observed_content_hash'],'Native Prod check content/count differs')
+  save(args.stage+'-verified.json',result)
+  print(json.dumps({k:result[k] for k in ['date','job','run_id','status','row_count','verified','elapsed_seconds']}));return
+ gold=json.loads((OUT/'gold-verified.json').read_text());prod=json.loads((OUT/'prod-verified.json').read_text())
+ require(gold['verified'] and prod['verified'] and gold['row_count']==prod['row_count']==11,'Final original acceptance missing')
+ require(stat(Path(gold['file']['path']))==gold['file'],'Gold changed after acceptance')
+ with connect_configured_duckdb(temp_policy='existing_no_spill') as c:
+  gold_rows=int(c.execute('SELECT count(*) FROM read_parquet(?,hive_partitioning=false) WHERE trade_date=CAST(? AS DATE)',[gold['file']['path'],DAY]).fetchone()[0])
+ rows=prod_count();require(gold_rows==rows==11,'Physical target count differs')
+ unchanged(pre)
+ result={'as_of':datetime.datetime.now().astimezone().isoformat(),'date':DAY,'passed':True,'gold_rows':gold_rows,'prod_rows':rows,'original_checks_passed':2,'input_files':21,'input_bytes':pre['input_bytes'],'inputs_and_28th_seed_unchanged':True,'global_audit_repeated':False,'manual_job_launches':0,'manual_sensor_evaluations':0,'runs':{'gold':gold['run_id'],'prod':prod['run_id']}}
+ save('final.json',result);print(json.dumps(result,ensure_ascii=False))
+if __name__=='__main__':
+ p=argparse.ArgumentParser();p.add_argument('mode',choices=['count-before','verify','final']);p.add_argument('--stage',choices=['gold','prod']);p.add_argument('--run-id');main(p.parse_args())

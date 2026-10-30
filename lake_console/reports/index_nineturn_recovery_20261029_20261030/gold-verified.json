@@ -1,0 +1,100 @@
+{
+  "date": "2026-10-29",
+  "run_id": "566dbcc9-59a5-421b-8b1a-c1ef224e8871",
+  "job": "gold_major_index_daily_nineturn_update_job",
+  "status": "SUCCESS",
+  "materializations": [
+    {
+      "asset": "gold_major_index_daily_nineturn",
+      "partition": "2026-10-29",
+      "storage_id": 7791539,
+      "run_id": "566dbcc9-59a5-421b-8b1a-c1ef224e8871",
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-29/part-000.parquet",
+        "dagster/row_count": 11,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "trade_date",
+          "close",
+          "up_count",
+          "down_count",
+          "nine_up_turn",
+          "nine_down_turn"
+        ],
+        "goldenshare/summary": "已生成主要指数日线九转分区。",
+        "goldenshare/next_action": "等待同分区 blocking integrity check 通过。",
+        "goldenshare/result_status": "written",
+        "goldenshare/partition_key": "2026-10-29",
+        "goldenshare/freq": "daily",
+        "goldenshare/source_file_count": 21,
+        "goldenshare/source_row_count": 11,
+        "goldenshare/output_row_count": 11,
+        "goldenshare/index_code_count": 11,
+        "goldenshare/source_fingerprint": "51a07c27caeb9aac95aa5fc6dfb8109f3cf98e4a146bcc7ce4d4aa65e7981b83",
+        "goldenshare/formula_version": 1
+      }
+    }
+  ],
+  "checks": [
+    {
+      "asset": "gold_major_index_daily_nineturn",
+      "name": "gold_major_index_daily_nineturn_integrity_check",
+      "passed": true,
+      "blocking": true,
+      "partition": "2026-10-29",
+      "target_storage_id": 7791539,
+      "target_run_id": "566dbcc9-59a5-421b-8b1a-c1ef224e8871",
+      "metadata": {
+        "goldenshare/check_scope": "reconciliation",
+        "goldenshare/checked_row_count": 11,
+        "goldenshare/duplicate_key_count": 0,
+        "goldenshare/extra_output_key_count": 0,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-29/part-000.parquet",
+        "goldenshare/formula_version": 1,
+        "goldenshare/invalid_value_count": 0,
+        "goldenshare/missing_source_key_count": 0,
+        "goldenshare/next_action": "无需处理。",
+        "goldenshare/null_key_count": 0,
+        "goldenshare/rules": [
+          "file_contract",
+          "partition_alignment",
+          "key_integrity",
+          "value_domain",
+          "source_key_coverage",
+          "source_value_consistency"
+        ],
+        "goldenshare/source_row_count": 11,
+        "goldenshare/source_value_mismatch_count": 0,
+        "goldenshare/summary": "主要指数九转分区完整性检查通过。"
+      }
+    }
+  ],
+  "failures": [],
+  "row_count": 11,
+  "required_checks": [
+    "gold_major_index_daily_nineturn_integrity_check"
+  ],
+  "verified": true,
+  "elapsed_seconds": 4.994343996047974,
+  "trigger_tags": {
+    ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp3mibxzgb\"}",
+    "dagster/code_location": "orchestrator",
+    "dagster/partition": "2026-10-29",
+    "dagster/partition_set": "gold_major_index_daily_nineturn_update_job_partition_set",
+    "dagster/run_key": "gold_major_index_daily_nineturn_update:2026-10-29",
+    "dagster/sensor_name": "gold_major_index_daily_nineturn_update_job_sensor",
+    "dagster/tick": "3007441"
+  },
+  "file": {
+    "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-29/part-000.parquet",
+    "exists": true,
+    "identity": [
+      16777244,
+      29907424,
+      1225,
+      1793345512689669669
+    ]
+  }
+}

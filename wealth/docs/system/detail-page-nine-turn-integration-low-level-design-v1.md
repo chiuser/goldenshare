@@ -10,7 +10,7 @@
 >
 > 正式设计：[Goldenshare Web](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?m=dev)
 
-> 2026-10-30 补充状态：历史 M0～M6 验收保持。本次主要指数九转跨日日期判断修复对应总方案第 6.4 节和本文第 6.5 节；开发与隔离验证已完成，既定四文件 99 项测试通过，实际对账见第 6.5.10 节。未正式加载、触发 job 或补 29 日数据，开发通过不代表正式结果已完成。
+> 2026-10-30 补充状态：历史 M0～M6 验收保持。本次主要指数九转跨日日期判断修复已提交 `dc051b657` 并正式加载；2026-10-29 日线 Gold→Prod 已由原 sensor 自动补齐，各 11 行，原检查、Prod 内容读回及单日最终计数通过。开发 99 项隔离测试与正式执行分别见第 6.5.10、6.5.11 节；不重刷历史、不执行分钟补数。
 
 ---
 
@@ -398,7 +398,7 @@ gold_major_index_mins_nineturn_update_job_sensor
 4. 历史构建使用有界批次、compact seed、逐文件原子提升和 checkpoint；不全历史单 SQL 常驻内存。
 5. 本文不授权任何历史写入、动态分区登记或 runless event。
 
-### 6.5 主要指数九转跨日日期判断修复 LLD（2026-10-30，开发与隔离验证完成）
+### 6.5 主要指数九转跨日日期判断修复 LLD（2026-10-30，已加载并完成 29 日日线补齐）
 
 #### 6.5.1 对应目标、依据与实施边界
 
@@ -520,14 +520,14 @@ runner 只执行下面四个既定测试文件，按现有隔离启动器设置 
 
 #### 6.5.7 后续加载、29 日补齐及失败处理
 
-本轮完成开发与隔离验证，以下正式操作尚未实施，仍需按阶段取得执行授权：
+以下为正式操作要求；开发验收后经管理员明确批准，已按此顺序完成本次正式操作，实际记录见第 6.5.11 节：
 
 1. 开发和隔离验收通过、独立对账完成后，正式阶段的明确授权必须覆盖原 code location 加载及随后原 sensor 的自然任务；加载动作统一在第 2 步预检之后进行。保留两个 Gold sensor 和 Prod sensor 的原实例状态、cursor、run key；不重启或启停无关对象。
 2. 正式只读核当前版本、29 日原 Gold/Prod 任务、原 sensor、注册状态与已有检查，再按授权加载新代码并只观察修正后的日线 sensor 自动提交 29 日原 job；已有成功则复用验收，已有活动则跟踪。运行中的 sensor 会继续产生 tick，查询与提交之间可能变化，因此不能凭一次无活动查询手工发任务，也不能通过新增 run key 绕过幂等。原 sensor 未提交时先停止、只读查因，不手工补发；确需人工恢复时，须另行先设计和批准仅暂停目标日线 sensor、等待在途 tick 完成、复核 run/run key、单次提交和恢复原状态/cursor 的互斥步骤。本轮方案不以人工路径作为备用动作。
 3. `gold_major_index_daily_nineturn_update_job` 只生成 29 日目标；沿用原 source planner 的最近 20 份行情和 28 日九转 seed，不扩大历史、不重算其他日期。原完整性检查通过后，才推进发布。
 4. 原 `prod_core_index_daily_nineturn_sync_job_sensor` 监听此次 Gold job 的 `SUCCESS` 并核同日检查，只由它提交 Prod 原 job，不手工提交另一份 Prod。若原 sensor 未接续，先停止并查其 cursor、匹配 run 和 skip，不修改为监听其他 job，不写 runless 事件代替。
 5. 原 Prod 发布检查通过后，仅核本次两个目标与实际 run：29 日 Gold/Prod 各 11 行或原合同明确的同日源键数、检查绑定正确、同日业务内容一致。复用原 job/check 结果，不重复扫描全部数据集，不验证前端/API或重刷已有历史。30 日后续正常任务不纳入本次恢复结果。
-6. 任一步失败即停止推进，记录 run、已写入文件/Prod 事务状态和原检查，保留候选/回执和已成功正式结果；不删除正式文件、不重做已成功 Gold 或 Prod。job 成功但检查/观察未完成时先复用原记录核实，不能笼统重跑；确需补检查或续跑时另行明确范围与授权。sensor 自身失败不替代数据 job 的恢复设计。
+6. 任一步失败即停止推进，记录 run、已写入文件/Prod 事务状态和原检查，保留已成功正式结果及原 job 实际仍存在的 staging/日志；`major_index_nineturn.py:_write_partition` 的 finally 会删除尚存候选，没有候选回执，不承诺失败候选一定留存，不在本轮改 writer 或新增回执。不删除正式文件、不重做已成功 Gold 或 Prod。job 成功但检查/观察未完成时先复用原记录核实，不能笼统重跑；确需补检查或续跑时另行明确范围与授权。sensor 自身失败不替代数据 job 的恢复设计。
 
 #### 6.5.8 方案—代码—测试对账与退出条件
 
@@ -558,9 +558,9 @@ runner 只执行下面四个既定测试文件，按现有隔离启动器设置 
 
 当时的推进判断：第 6.5.1～6.5.8 节设计与总方案第 6.4 节一致，可进入开发；当时 `major_index_nineturn_sensor.py` 仍使用 `if not gap.ready`，尚未修复。此分支现已按第 6.5.10 节完成修改。正式加载及补数继续遵守第 6.5.7 节的授权和范围，文档完整性/链接检查不替代代码或正式数据验收。
 
-#### 6.5.10 本轮开发与验证记录（2026-10-30）
+#### 6.5.10 开发阶段与隔离验证记录（2026-10-30）
 
-管理员在方案与文档对账提交后允许按计划推进；本轮只实施第 6.5.3～6.5.5 节并按第 6.5.8 节对账，停在正式 code location 加载与补数之前。代码白名单为共用 sensor 和定向测试两个文件，结果同步回本 LLD 与总方案；不改共享 helper、公式、原 job/check、注册器、Prod 或 API。
+管理员在方案与文档对账提交后允许按计划推进；本节保留开发阶段验收，实施第 6.5.3～6.5.5 节并按第 6.5.8 节对账，当时停在正式 code location 加载与补数之前。代码白名单为共用 sensor 和定向测试两个文件，结果同步回本 LLD 与总方案；不改共享 helper、公式、原 job/check、注册器、Prod 或 API。后续正式授权与结果单列在第 6.5.11 节。
 
 实现与验收结果：
 
@@ -580,7 +580,31 @@ runner 只执行下面四个既定测试文件，按现有隔离启动器设置 
 5. **静态与独立复核**：受影响源文件和测试的 Ruff、四文件 whitespace 检查、函数 AST 范围核对通过。独立复核已只读审查方案/LLD、完整源差异、测试输入与断言、旧失败和新通过记录、隔离 runner，未发现实现错误或关键遗漏；未替代正式验收。新源 SHA-256 为 `dbf59a02cf4d69bbcfdc74325761204d02a9991d646eb8f026b4903e563e9fdd`。
 6. **临时资源收尾**：仅删除本轮三个独占测试目录，含 runner、系统策略文件、临时日历/Parquet、DuckDB 目录和临时实例；删除前剩余普通文件共 243 个、241,252 字节，这只是收尾存量，不能当作峰值或累计 I/O 实测。旧代码反例证据保留；最终 99 项结果、源指纹、逐文件结果和清理清单保存在 `/private/tmp/major_index_nineturn_validation_20261030.json`，配套 `.log` 保存测试输出，`-collection-error.log` 与 `-collection-error-summary.json` 保留首次零用例收集失败记录。没有清理正式 staging、其他任务临时文件或现有依赖。
 
-正式动作仍未执行：未读取正式 Lake/Prod/实例，未 reload、触发 job、切 sensor、改 cursor、注册分区或写 runless event；不重刷已完成历史，不新增 repair。开发验收与第 6.5.7 节正式验收分开登记。
+上述开发阶段没有读取正式 Lake/Prod/实例，没有 reload、触发 job、切 sensor、改 cursor、注册分区或写 runless event；不重刷已完成历史，不新增 repair。后续正式动作经另行批准才按第 6.5.11 节执行，不将两阶段证据混写。
+
+#### 6.5.11 正式加载与 29 日补齐执行记录（2026-10-30，已完成）
+
+管理员已明确要求“提交，然后加载正式环境，推进补数完成”，覆盖第 6.5.7 节的原 code location 加载与原 sensor 自然提交的 29 日 Gold→Prod 两项任务。本轮开发提交为 `dc051b657`，不推送远端；正式核验和执行结果保存在 `lake_console/reports/index_nineturn_recovery_20261029_20261030/`。本节不扩大日期、历史读取、job selection 或 sensor 开关权限。
+
+执行入口为现有正式 GraphQL `http://127.0.0.1:3000/graphql`，工作目录为 `/Users/congming/github/goldenshare/lake_console/orchestrator`；目标实例仍是 `/Users/congming/.goldenshare/dagster_home`，不调用实例初始化。每项请求使用 `curl --fail-with-body -sS http://127.0.0.1:3000/graphql -H 'Content-Type: application/json' --data-binary @<报告目录>/<request>.json`，输出存同目录响应；查询和唯一 reload 请求分开记录。
+
+先复用原只读查询核 target/recent runs、两个 Gold sensor 与 Prod sensor、分区和原检查，读取 active workspace 的实际 code origin；对原 20 份行情与 28 日 seed 仅 stat，核挂载、目标和空间。通过后仅执行 `mutation { reloadRepositoryLocation(repositoryLocationName:"orchestrator") { __typename ... on WorkspaceLocationEntry { name loadStatus } ... on PythonError { message } } }`，沿当前安装 schema 的原生能力加载。保留实例状态/cursor，不手工执行 sensor evaluation、不手工发 job、不清 run key；下一自然 tick 以新增四项注册摘要证明新分支实际运行。若已有成功/在途任务则复用/跟踪，若原 sensor 没有接续则先只读查因。
+
+成功收尾仅接受两个原任务的 SUCCESS、对应目标物化及绑定通过的 blocking check、原 Prod read-back 行数/hash、29 日 Gold/Prod 实际计数；输入和 28 日相邻文件仅以 stat 核未变，不增加行情明细审计。观察脚本 `observe.py.txt` 复用 28 日执行记录 `readback.py.txt` 的 `accepted/latest/meta` 原只读核验，删去手工提交前置和执行分支，仅允许 `count-before`、`verify`、`final`。使用项目现有 `.venv/bin/python3 -B <脚本> <mode>`，显式 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`；原 DG PostgreSQL storage 使用 `should_autocreate_tables=False` 和只读事务，Prod 使用现有 resource 的 `connect_readonly()`，SQL 仅计数 29 日。最后 Gold 计数使用既有 `existing_no_spill` 只读连接策略，不创建临时目录，不改变数据 job 的任何配置。原 job/检查承担业务读取，延用第 6.5.6 节预算与失败规则。执行前独立静态复核澄清了第 6.5.7.6 的候选清理事实；只修正文档，不改既有 writer。
+
+实际执行与验收：
+
+| 阶段 | 原任务与结果 | 核验依据 |
+|---|---|---|
+| 预检与加载 | 29 日原 Gold/Prod 均无任务，目标 Gold 不存在、Prod 0 行；上游四项与 28 日原检查通过；一次原生 reload 返回 LOADED | `preflight-response.json`、`gates-response.json`、`file-preflight.json`、`prod-count-before.json`、`reload-response.json` |
+| 原 Gold 自动任务 | 15:31:44 新 tick 在 30 日未注册时选择 29 日；`566dbcc9-59a5-421b-8b1a-c1ef224e8871`，15:31:50～15:31:55，SUCCESS，11 行，约 4.99 秒 | 原 run key/sensor 标签；物化 `7791539`；原完整性检查通过并准确绑定；21 份输入指纹与文件数匹配 |
+| 原 Prod 自动接续 | `a0cddfca-3222-4357-859b-8af6197fc9c5`，15:32:16～15:32:21，SUCCESS，11 行，约 5.56 秒 | 原 run key 由上述 Gold run 生成；物化 `7791567`；原发布检查通过且准确绑定，expected/observed hash 一致 |
+| 单日收尾 | 15:33:09 最终 Gold/Prod 实际计数各 11；21 份输入和 28 日 seed 身份不变 | `final.json`；未重复全局审计，未读额外行情明细 |
+| 运行状态与独立复核 | 原日线、分钟 Gold sensor 与 Prod sensor 均保持 RUNNING，location 仍为 LOADED；独立只读复核原始报告通过 | `final-state-response.json`、`execution-summary.json`；未改开关/cursor、未手工发 job/evaluation、未写 runless event |
+
+Prod 原生读回内容 hash 为 `f95a12d40bfee2e3e5eeeb72b35cdca59b231cbf0c35578e1a73cb50f16a5c03`，发布结果与原检查 expected/observed 三者相同。必要输入只有 20 份最近行情及 28 日 seed，2026-09-24 至 2026-10-29 的行情窗口加 seed 合计 53,829 字节；预检只 stat，读取与计算由原 job/check 执行，没有新增运行限制或性能测试。报告只记录业务文件字节量和原任务耗时，不声称测得整个进程 I/O。
+
+本次两项已完成；30 日常规任务、分钟链、股票链及其他历史不纳入结果。恢复后不重跑已成功任务，不再追加全目录验收。完整证据入口为 [恢复记录](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/README.md)。
 
 ## 7. 日线 PostgreSQL serving
 
@@ -1994,3 +2018,4 @@ D6-2 与 D6-3 正式执行结果如下：
 | v1.42 | 2026-10-30 | 细化主要指数九转跨日日期判断修复：两个共用入口、内部/尾部注册缺口分支、batch与selector同范围、原cursor摘要、窗口外前日保护、真实合同隔离测试、读写预算及 29 日 Gold→Prod 的独立执行边界；仅文档，未开发或正式补数 | Codex |
 | v1.43 | 2026-10-30 | 完成两文及当前代码静态对账：纠正历史状态、只读授权、指数检查/版本、Reader实际类型、缓存/取消、状态映射和active异常码，撤销旧schema恢复及过期脚本指令；只完成文档，尚未开发或正式补数 | Codex |
 | v1.44 | 2026-10-30 | 按原 LLD 完成共用 sensor 日期修正和测试，登记旧代码两例失败、修复后四文件 99 项隔离通过、真实日历/窗口/保护条件对账及测试隔离要求；未正式加载或补数 | Codex |
+| v1.45 | 2026-10-30 | 按明确批准提交、正式预检和reload，原sensor完成29日Gold→Prod自动链，两项11行、原绑定检查与内容读回、最终计数通过；记录只读验收入口、原writer候选清理事实及独立复核，保留其他日期和sensor状态 | Codex |
