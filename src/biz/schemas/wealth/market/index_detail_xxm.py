@@ -9,6 +9,14 @@ from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
 
 
+def _validate_wave_facts(*, sign, start, end, count, price, dif, price_at, dif_at):
+    if (type(sign) is not int or sign not in (-1, 1)
+            or type(count) is not int or count < 1
+            or price <= 0 or not math.isfinite(price) or not math.isfinite(dif)
+            or not start <= price_at <= end or not start <= dif_at <= end):
+        raise ValueError("Invalid wave facts")
+
+
 class InternalXxmDto(BaseModel):
     """Complete r4 facts, validated before any public response is projected."""
 
@@ -119,6 +127,11 @@ class InternalXxmWaveDto(InternalXxmDto):
         if any(type(value.get(key)) not in (int, float) for key in ("price", "dif")):
             raise ValueError("Wave must retain original numbers")
         return value
+
+    @model_validator(mode="after")
+    def wave_facts(self):
+        _validate_wave_facts(**self.model_dump())
+        return self
 
 
 class InternalXxmStructureDto(InternalXxmDto):
@@ -379,8 +392,8 @@ class XxmWaveDto(XxmDto):
 
     @model_validator(mode="after")
     def wave_fields(self):
-        if type(self.sign) is not int or not (self.start <= self.priceAt <= self.end and self.start <= self.difAt <= self.end):
-            raise ValueError("Invalid public wave")
+        _validate_wave_facts(sign=self.sign, start=self.start, end=self.end, count=self.count,
+                             price=self.price, dif=self.dif, price_at=self.priceAt, dif_at=self.difAt)
         return self
 
 

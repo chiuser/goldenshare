@@ -114,7 +114,7 @@ export const decodeForecastDebug: DecodeForecastDebug = (raw, { response, period
         validateExpression(p.left, bindings, check);
         validateExpression(p.right, bindings, check);
     } };
-    const id = (v: unknown) => { assert(typeof v === "string" && !!v && !ids.has(v)); ids.add(v); };
+    const id = (v: unknown) => { assert(typeof v === "string" && v.length === 64 && /^[0-9a-f]{64}$/.test(v) && !ids.has(v)); ids.add(v); };
     const allowed: Record<string, string[]> = { NONE: ["DULL_FORMED"], DULL: ["DULL_HELD", "STRUCTURE_FORMED", "STRUCTURE_FORMED_AND_FOLLOWING", "STRUCTURE_PRICE_DISAPPEARED", "SIGNAL_DISAPPEARED", "REFERENCE_INVALIDATED"], STRUCTURE: ["STRUCTURE_HELD", "RETURNED_TO_DULL", "STRUCTURE_FOLLOWING", "STRUCTURE_PRICE_DISAPPEARED", "SIGNAL_DISAPPEARED"] };
     for (const c of raw.conditions) {
         check();

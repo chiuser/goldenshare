@@ -273,12 +273,15 @@ def test_actual_source_calibration_solver_models_and_encoding_share_budget(sourc
         assert len(json.dumps(value).encode())<=32768
 
 
-def test_bad_cached_full_model_is_refused_without_solving_again(m1,source_db,monkeypatch):
+@pytest.mark.parametrize("fault",["numeric","result_id","condition_id"])
+def test_bad_cached_full_model_is_refused_without_solving_again(m1,source_db,monkeypatch,fault):
     service,_=m1
     with Session(source_db) as s:
         read(service,s)
         cached=next(v[0] for k,v in service.source.cache.entries.items() if k[0]=='forecast')
-        cached.references.nearest.price=float('nan')
+        if fault=='numeric':cached.references.nearest.price=float('nan')
+        elif fault=='result_id':cached.forecastId='f'*64
+        else:cached.conditions[0].id='f'*64
         monkeypatch.setattr(query,'forecast',lambda *a,**k:pytest.fail('invalid cache was silently solved again'))
         with pytest.raises(XxmQueryError) as error:read(service,s,debug=True)
         assert error.value.code=='XXM_SOURCE_CONTRACT_INVALID'
@@ -293,3 +296,117 @@ def test_final_json_encoding_cannot_exceed_original_budget_or_publish(m1,source_
     monkeypatch.setattr(ForecastResponseDto,'model_dump_json',slow_encode)
     with Session(source_db) as s,pytest.raises(XxmQueryError) as error:read(service,s)
     assert error.value.status==503 and not service.source.cache.entries
+
+
+@pytest.mark.parametrize('phase',['inside','exit','publish'])
+def test_f06_unexpected_failure_returns_forecast_error_and_keeps_old_cache(m1,source_db,monkeypatch,phase):
+    from src.biz.api.wealth.market import index_detail_xxm_forecast as route
+    service,_=m1
+    with Session(source_db) as session:read(service,session)
+    old=dict(service.source.cache.entries)
+    failure=RuntimeError('private injected cache detail')
+    def fail(*a,**kw):raise failure
+    if phase=='publish':monkeypatch.setattr(service.source.cache,'put_forecast',fail)
+    elif phase=='inside':monkeypatch.setattr(query,'forecast',fail)
+    else:
+        original=service.source.load_entry
+        @contextmanager
+        def failing(*a,**kw):
+            with original(*a,**kw) as value:yield value
+            raise failure
+        monkeypatch.setattr(service.source,'load_entry',failing)
+    monkeypatch.setattr(route,'IndexDetailXxmForecastQueryService',lambda **kw:service)
+    response=api(source_db).get(PATH,params=dict(tsCode='000001.SH',period='day',asOf='2023-01-10'))
+    assert response.status_code==500 and response.json()['code']=='XXMF_QUERY_FAILED'
+    assert response.json()['message']=='下一根预判查询失败，请重试。'
+    assert 'private' not in response.text
+    assert set(service.source.cache.entries)==set(old)
+    assert all(service.source.cache.entries[k][0] is old[k][0] for k in old)
+
+
+@pytest.mark.parametrize('kind',['timeout','async_cancel','future_cancel','known'])
+def test_f07_final_publication_preserves_known_timeout_and_cancel_errors(m1,source_db,monkeypatch,kind):
+    from asyncio import CancelledError as AsyncCancelled
+    from concurrent.futures import CancelledError as FutureCancelled
+    service,_=m1
+    with Session(source_db) as session:read(service,session)
+    old=dict(service.source.cache.entries)
+    failure={'timeout':TimeoutError('timeout'), 'async_cancel':AsyncCancelled('cancel'),
+             'future_cancel':FutureCancelled('cancel'),
+             'known':XxmQueryError('XXM_REQUEST_INVALID','原请求错误',400)}[kind]
+    def fail(*a,**kw):raise failure
+    monkeypatch.setattr(service.source.cache,'put_forecast',fail)
+    with Session(source_db) as session,pytest.raises(type(failure) if kind in ('async_cancel','future_cancel','known') else XxmQueryError) as error:
+        read(service,session,as_of='2023-01-10')
+    if kind in ('async_cancel','future_cancel','known'):assert error.value is failure
+    else:assert error.value.code=='XXM_BUDGET_EXCEEDED' and error.value.status==503
+    assert set(service.source.cache.entries)==set(old)
+    assert all(service.source.cache.entries[k][0] is old[k][0] for k in old)
+
+
+def test_f06_actual_cache_candidate_failure_releases_lock_and_keeps_members(m1,source_db,monkeypatch):
+    from collections import OrderedDict
+    from concurrent.futures import ThreadPoolExecutor
+    service,_=m1
+    with Session(source_db) as session:read(service,session)
+    class BrokenCandidate(OrderedDict):
+        def copy(self):raise RuntimeError('candidate allocation failed')
+    service.source.cache.entries=BrokenCandidate(service.source.cache.entries)
+    old=service.source.cache.entries
+    with Session(source_db) as session,pytest.raises(XxmQueryError) as error:read(service,session,as_of='2023-01-10')
+    assert error.value.code=='XXM_QUERY_FAILED' and isinstance(error.value.__cause__,RuntimeError)
+    assert service.source.cache.entries is old
+    def can_lock():
+        acquired=service.source.cache.lock.acquire(timeout=.5)
+        if acquired:service.source.cache.lock.release()
+        return acquired
+    with ThreadPoolExecutor(max_workers=1) as worker:assert worker.submit(can_lock).result(timeout=1)
+
+
+@pytest.mark.parametrize('failure_kind',['query','source','async_cancel','future_cancel'])
+def test_f07_real_load_exit_does_not_replace_original_error_with_a_later_timeout(source_db,monkeypatch,failure_kind):
+    from asyncio import CancelledError as AsyncCancelled
+    from concurrent.futures import CancelledError as FutureCancelled
+    cache=XxmCache();service=query.IndexDetailXxmQueryService(cache=cache);clock=[0.]
+    monkeypatch.setattr(query.time,'perf_counter',lambda:clock[0])
+    failure={'query':RuntimeError('original failure'),'source':ValueError('original source gap'),
+             'async_cancel':AsyncCancelled('cancel'),'future_cancel':FutureCancelled('cancel')}[failure_kind]
+    expected=type(failure) if 'cancel' in failure_kind else XxmQueryError
+    with Session(source_db) as session,pytest.raises(expected) as error:
+        with service.load_entry(session,period='day',now=NOW):
+            clock[0]=4.001
+            raise failure
+    if 'cancel' in failure_kind:assert error.value is failure
+    else:
+        assert error.value.code==('XXM_QUERY_FAILED' if failure_kind=='query' else 'XXM_SOURCE_CONTRACT_INVALID')
+        assert error.value.__cause__ is failure
+    assert not cache.loads._pending
+    # A normal request after rejection still obtains the released resources.
+    clock[0]=0
+    with Session(source_db) as session:
+        with service.load_entry(session,period='day',now=NOW) as value:
+            assert value[0].processed
+
+
+@pytest.mark.parametrize('kind',['async_cancel','future_cancel'])
+def test_f07_cancellation_inside_cache_lock_is_atomic_and_unlocks(m1,source_db,kind):
+    from asyncio import CancelledError as AsyncCancelled
+    from concurrent.futures import CancelledError as FutureCancelled,ThreadPoolExecutor
+    service,_=m1
+    with Session(source_db) as session:read(service,session)
+    cache=service.source.cache;old=cache.entries;checks=[]
+    prepared=next(v[0] for k,v in old.items() if k[0]=='forecast').model_copy(deep=True)
+    failure=AsyncCancelled('cancel while locked') if kind=='async_cancel' else FutureCancelled('cancel while locked')
+    def check():
+        checks.append(1)
+        if len(checks)==2:raise failure
+        return 1.
+    with pytest.raises(type(failure)) as error:cache.put_forecast(('new identity',),prepared,100,check=check)
+    assert error.value is failure and len(checks)==2 and cache.entries is old
+    def can_lock():
+        acquired=cache.lock.acquire(timeout=.5)
+        if acquired:cache.lock.release()
+        return acquired
+    with ThreadPoolExecutor(max_workers=1) as worker:assert worker.submit(can_lock).result(timeout=1)
+    cache.put_forecast(('new identity',),prepared,100,check=lambda:1.)
+    assert ('forecast','new identity') in cache.entries

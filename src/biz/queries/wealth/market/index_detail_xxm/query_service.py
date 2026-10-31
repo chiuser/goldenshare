@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from asyncio import CancelledError as AsyncCancelledError
+from concurrent.futures import CancelledError as FutureCancelledError
 from bisect import bisect_right
 from collections import OrderedDict
 from contextlib import contextmanager
@@ -221,6 +223,8 @@ class IndexDetailXxmQueryService:
             remaining()
             yield entry, context, open_dates, remaining
             remaining()
+        except (AsyncCancelledError, FutureCancelledError):
+            raise
         except XxmQueryError:
             raise
         except TimeoutError as exc:
@@ -230,7 +234,6 @@ class IndexDetailXxmQueryService:
         except (XxmSourceError, IndexMinuteSourceContractError, ValueError, TypeError) as exc:
             raise XxmQueryError("XXM_SOURCE_CONTRACT_INVALID", "研究指标来源存在缺口或字段不一致。") from exc
         except Exception as exc:
-            remaining()
             raise XxmQueryError("XXM_QUERY_FAILED", "研究指标查询失败，请重试。") from exc
 
     def _load_series(self, session, *, key, period, now, business_date, remaining):

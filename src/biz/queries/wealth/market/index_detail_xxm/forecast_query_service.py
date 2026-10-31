@@ -1,9 +1,9 @@
 """One source prefix, one next-bar forecast, one encoded public response."""
+from asyncio import CancelledError as AsyncCancelledError
+from concurrent.futures import CancelledError as FutureCancelledError
 from bisect import bisect_right
 from copy import deepcopy
 from datetime import date, datetime, time as daytime, timedelta
-import hashlib
-import json
 import time
 
 from sqlalchemy import select
@@ -16,12 +16,11 @@ from src.biz.services.wealth.market.index_detail_xxm.projection import recover_p
 from src.biz.services.wealth.market.index_detail_xxm.response_projection import project_forecast_response
 from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.types import ForecastKernelResult
+from src.biz.services.wealth.market.index_detail_xxm.forecast_identity import (
+    digest, forecast_result_id, forecast_condition_id,
+)
 from .query_service import IndexDetailXxmQueryService, XxmQueryError, _deep_size
 from .source import CN_ZONE, ENDPOINTS, expected_through
-
-
-def digest(value):
-    return hashlib.sha256(json.dumps(value,sort_keys=True,separators=(",",":"),ensure_ascii=False,allow_nan=False).encode()).hexdigest()
 
 
 def future_calendar(session, period, through, check):
@@ -57,16 +56,6 @@ def _draft(result):
     return conditions,following
 
 
-def _identity(payload):
-    excluded={'forecastId','display','applicabilityText','invalidationText','refreshAfterMs'}
-    value=deepcopy({k:v for k,v in payload.items() if k not in excluded})
-    for c in [*value['conditions'],*value['structureFollowConditions']]:
-        c.pop('id',None)
-        for r in c['priceRanges']:
-            r.pop('displayLower',None);r.pop('displayUpper',None)
-    return digest(value)
-
-
 def _assemble(*, period, through, as_of, data_status, ordinary, direction, source_id, calendar_id,
               result, prepared, check):
     conditions,following=_draft(result) if result else ([],[])
@@ -82,11 +71,11 @@ def _assemble(*, period, through, as_of, data_status, ordinary, direction, sourc
         nearestDecision=result.nearest_decision if result else {'status':'NOT_EVALUATED','reason':None},
         farEvaluated=result.far_evaluated if result else False,conditions=conditions,
         precisionRanges=deepcopy(list(result.precision_ranges)) if result else [],structureFollowConditions=following)
-    payload['forecastId']=_identity(payload)
+    payload['forecastId']=forecast_result_id(payload)
     for c in conditions:
-        c['id']=digest({'forecastId':payload['forecastId'],'outcome':c['outcome']})
+        c['id']=forecast_condition_id(payload['forecastId'],c['outcome'])
     for c in following:
-        c['id']=digest({'forecastId':payload['forecastId'],'outcome':c['outcome'],'relatedStructureId':c['relatedStructureId']})
+        c['id']=forecast_condition_id(payload['forecastId'],c['outcome'],c['relatedStructureId'])
     if result is not None:
         display=make_display(result,prepared=prepared,period=period,through=through,mode=payload['mode'],check=check)
     else:
@@ -168,9 +157,13 @@ class IndexDetailXxmForecastQueryService:
             if candidate is not None:
                 self.source.cache.put_forecast(*candidate,check=check)
             return body
+        except (AsyncCancelledError, FutureCancelledError):
+            raise
         except XxmQueryError:
             raise
         except TimeoutError as exc:
             raise XxmQueryError('XXM_BUDGET_EXCEEDED','下一根预判超过预算。',503) from exc
         except (ValueError,TypeError) as exc:
             raise XxmQueryError('XXM_SOURCE_CONTRACT_INVALID','下一根预判来源或结果合同不一致。') from exc
+        except Exception as exc:
+            raise XxmQueryError('XXM_QUERY_FAILED','下一根预判查询失败，请重试。') from exc

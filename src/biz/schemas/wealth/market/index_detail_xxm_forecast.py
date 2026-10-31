@@ -3,11 +3,14 @@ from __future__ import annotations
 
 import math
 from typing import Annotated, Literal, Union
-from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StrictInt, model_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StrictInt, field_validator, model_validator
 from .index_detail_xxm import XxmReferenceDto, XxmWaveDto, InternalXxmWaveDto
 from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.forecast_spec import FORECAST_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from src.biz.services.wealth.market.index_detail_xxm.forecast_identity import (
+    ROOT_FACT_FIELDS, DETAIL_FACT_FIELDS, forecast_result_id, forecast_condition_id,
+)
 
 
 def _expression_number(value):
@@ -126,7 +129,7 @@ Outcome = Literal["DULL_FORMED", "DULL_HELD", "STRUCTURE_FORMED", "STRUCTURE_HEL
 
 
 class ForecastConditionDto(Dto):
-    id: str = Field(min_length=1)
+    id: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
     outcome: Outcome
     referenceRole: Literal["NEAR", "FAR"]
     priceRanges: list[DisplayPriceRangeDto] = Field(min_length=1)
@@ -134,7 +137,7 @@ class ForecastConditionDto(Dto):
 
 
 class StructureFollowConditionDto(Dto):
-    id: str = Field(min_length=1)
+    id: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
     outcome: Literal["SIGNAL_DISAPPEARED"]
     relatedStructureId: str = Field(min_length=1)
     direction: Literal["TOP", "BOTTOM"]
@@ -183,11 +186,18 @@ class ForecastResponseDto(Dto):
     barsAhead: Literal[1] | None
     status: Literal["READY", "NO_CANDIDATE", "PRECISION_PENDING", "DELAYED", "EMPTY"]
     reasonCode: Literal["SOURCE_EMPTY", "SOURCE_DELAYED", "ZERO_WAVE", "NO_REFERENCE", "NO_ENTRY_RANGE", "CALIBRATION_FAILED", "ROUNDING_BOUNDARY"] | None
-    forecastId: str = Field(min_length=1)
+    forecastId: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
     display: ForecastDisplayDto
     applicabilityText: str = Field(min_length=1)
     invalidationText: str = Field(min_length=1)
     refreshAfterMs: StrictInt
+
+    @field_validator("barsAhead", mode="before")
+    @classmethod
+    def original_bar_count(cls, value):
+        if value is not None and (type(value) is not int or value != 1):
+            raise ValueError("A forecast requires original integer 1 or None")
+        return value
 
     @model_validator(mode="after")
     def public_facts(self):
@@ -199,7 +209,7 @@ class ForecastResponseDto(Dto):
         for stamp in (self.computedThrough, self.requestedAsOf, self.targetEndpoint):
             if stamp is not None:
                 XxmBar(stamp, 1., 0., 0., 0.).validate(self.period)
-        if (self.targetEndpoint is None) != (self.barsAhead is None) or self.barsAhead is not None and type(self.barsAhead) is not int:
+        if (self.targetEndpoint is None) != (self.barsAhead is None):
             raise ValueError("A forecast has exactly one endpoint")
         if self.targetEndpoint is not None and (self.computedThrough is None or self.targetEndpoint <= self.computedThrough):
             raise ValueError("Endpoint must follow real prefix")
@@ -354,3 +364,22 @@ def _validate_details(root, details):
         raise ValueError("Uncertain forecast cannot contain certain conditions")
     if root.reasonCode == 'ROUNDING_BOUNDARY' and not pending:
         raise ValueError("Missing precision ranges")
+    _validate_identity(root, details)
+
+
+def _validate_identity(root, details):
+    payload = {name: getattr(root, name) for name in ROOT_FACT_FIELDS}
+    raw_details = details.model_dump()
+    payload.update({name: raw_details[name] for name in DETAIL_FACT_FIELDS})
+    if isinstance(details, ForecastDebugDto):
+        for condition in payload['structureFollowConditions']:
+            wave = condition['originWave']
+            wave['price_at'], wave['dif_at'] = wave.pop('priceAt'), wave.pop('difAt')
+    if root.forecastId != forecast_result_id(payload):
+        raise ValueError("Forecast identity does not match complete facts")
+    for condition in details.conditions:
+        if condition.id != forecast_condition_id(root.forecastId, condition.outcome):
+            raise ValueError("Forecast condition identity mismatch")
+    for condition in details.structureFollowConditions:
+        if condition.id != forecast_condition_id(root.forecastId, condition.outcome, condition.relatedStructureId):
+            raise ValueError("Followed structure condition identity mismatch")

@@ -40,7 +40,7 @@ export function adaptForecast(raw: unknown, options: {
         assert(raw.targetEndpoint !== null);
     if (raw.reasonCode === "CALIBRATION_FAILED")
         assert(raw.targetEndpoint === null);
-    assert(typeof raw.forecastId === "string" && !!raw.forecastId && raw.refreshAfterMs === 60000);
+    assert(typeof raw.forecastId === "string" && raw.forecastId.length === 64 && /^[0-9a-f]{64}$/.test(raw.forecastId) && raw.refreshAfterMs === 60000);
     keys(raw.display, "statusLabel targetText conditionsText asOfText");
     assert(Object.values(raw.display).every(v => typeof v === "string" && v.length > 0) && typeof raw.applicabilityText === "string" && !!raw.applicabilityText && typeof raw.invalidationText === "string" && !!raw.invalidationText);
     const response = Object.fromEntries(root.split(" ").map(k => [k, raw[k]])) as unknown as ForecastResponse;

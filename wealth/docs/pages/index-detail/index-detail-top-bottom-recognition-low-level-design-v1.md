@@ -1,6 +1,6 @@
 # 财势乾坤顶底识别低层设计 v1
 
-更新：2026-10-31。状态：P3第1—5步开发与限定工程验收已完成，待管理员review。识别v0.4-r4、预测v0.6-r4及先前922根对比证据见§19；本批公开模型/HTTP、必要前端、辅助组件提取及独立审计证据见§20.7。P4环境装配、debug动态挂载、真实来源/浏览器验收和P5清退未执行，未提交或部署。§15—17仍仅为修改前历史。
+更新：2026-10-31。状态：P3第3—5步提交bebe6f403后的两类审计问题已按LLD§20.8补齐设计、修复并完成定向验收和独立复审，待管理员review；本轮按管理员指令提交，未部署。识别v0.4-r4、预测v0.6-r4的取价/选峰/1%/EMA及价格解规则不变。P4/P5与真实来源/浏览器验收未推进。
 
 依据：[产品文档](../../../../docs/product/wealth-top-bottom-recognition-product-v1.md)、[技术方案](index-detail-top-bottom-recognition-technical-design-v1.md)。本文件只规定当前目标、代码迁移位置、开发顺序和验收，不包含已废弃的开发流程。实施必须使用本文规则和独立用例，不得从旧实验或旧输出推导当前预期。
 
@@ -357,6 +357,8 @@ _merge_structure_updates新签名为(entry, step: XxmStep, *, bar: XxmBar)，调
 
 - `project_xxm_response(internal: InternalXxmResponseDto, *, debug: bool) -> XxmResponseDto | XxmDebugResponseDto`。
 - `project_forecast_response(internal: InternalForecastResponseDto, *, debug: bool) -> ForecastResponseDto | ForecastDebugResponseDto`。
+
+barsAhead在字段解析前只接受None或type(value) is int且值恰1；拒绝True/False、1.0和字符串，不依赖Literal转换后的检查。原生InternalXxmWaveDto与公开XxmWaveDto复用本schema的一处波段事实检查：sign严格±1、count严格正整数（合法1根保留）、price正有限、dif有限、start≤price_at/priceAt≤end且start≤dif_at/difAt≤end。原生字段名不变，根模型继续检查周期及来源时间范围。不能仅debug投影才检查这些事实。
 
 每个公开嵌套类型均封闭字段集合，Pydantic沿现`extra='forbid', allow_inf_nan=False`；数值字段在解析前检查`type(value) in (int, float)`（整数计数严格int），拒绝bool/字符串数字/NaN/无穷，同时允许101这样的合法int价格；禁止用`Any`、任意dict透传内部结果。普通模型没有`debug`字段；debug扩展模型的`debug`必填且非None。根模型使用两种模型的联合，不用`exclude_none=True`省略全部None，因为合法必有的空时间、空方向和参照空值仍须返回。
 
@@ -800,6 +802,8 @@ f_source = f + k*(abs(b)+f) + t
 6. 未命中调用同次prepared的单根forecast，再依§6.8.1组装、校验、投影、公开校验、一次编码并检查32KiB；准备独立完整缓存副本和大小。已实际求解的NO_CANDIDATE、PRECISION_PENDING/ROUNDING_BOUNDARY及仅旧结构条件READY都按完整结果缓存，不能按status粗略跳过。
 7. with块内只准备结果/body及可选缓存候选，禁止发布预测缓存或return。先正常退出load_entry，执行其现有yield后remaining()；再在with外执行同一check。只有上述全部成功才按§6.8.2锁内最后检查并发布，随后唯一return已准备body。命中和未求解的来源/静态/校准失败结果不写缓存，但退出和最终时限检查仍必须完成。
 
+外层build的异常映射覆盖with内、上下文退出和with外发布：XxmQueryError原code/status保持；TimeoutError仍按503预算错误；ValueError/TypeError仍按来源/结果合同错误；其他普通Exception（包括缓存候选构造/发布的RuntimeError）转现XXM_QUERY_FAILED/500和中文“下一根预判查询失败，请重试”，API仍映射XXMF_QUERY_FAILED，不改全局处理器。asyncio.CancelledError、concurrent.futures.CancelledError明确原样抛出，其他BaseException不捕获。load_entry也须在通用Exception处理前原样抛出两类取消，并删除通用异常处理中的remaining()，防止错误发生后再查时间遮住原因。正常/出口的既定remaining检查保留，finally只释放资源，不发布。
+
 外层build的异常映射覆盖with内、上下文退出和with外发布；已有XxmQueryError按原code/status重抛，取消和外部check异常向上传递，其他错误按§9既有映射。错误处理中不得再用一次时限检查把原来源/内部错误盖成超时。load_entry已经合法发布的来源SeriesEntry不因预测失败回滚；失败不发布本次预测候选，不污染原有效预测缓存。禁止发布后再做模型构造、复制、编码、大小统计或可能失败的检查。
 
 每参照/比较/反根/来源组合/整数及最终编码前后共用check；无自动重试、后台任务、落盘恢复或价格跨度相关循环。第2步只把传入check贯穿纯计算，用M1—M5记录数学耗时；**完整400ms必须第3/5步把校准/模型/query/编码接齐后验，P4另验真实来源。**超限就停止说明，不以全未知、漏条件或放宽预算冒充完成。
@@ -824,7 +828,11 @@ forecastId=digest(上述事实)；普通条件id=digest({'forecastId':forecastId
 - READY但静态退出或明确CALIBRATION_FAILED：已有真实prepared，按该退出原因构造诚实的ForecastKernelResult，target/barsAhead/selected=None、far=False、条件/未决数组为空，nearestDecision/references保留真实precheck事实；静态状态NO_CANDIDATE、校准失败状态PRECISION_PENDING。它仅表示未求解退出，不调用forecast/日历。仍用真实make_display生成四字符串，不能为此伪造已经求过价格范围。
 - EMPTY/DELAYED：不构造prepared或KernelResult，query按§5.4.2的来源状态文字生成四字符串及必要说明；方向/状态/target等空值遵循§5.4。编号仍取同一规范事实，但无源/无参照如实为空。
 
-缓存命中保留已生成的编号/文字，必须重验完整对象；普通/debug及显示格式不改业务编号。纯文本不参加规范求解事实，不读取历史样本或重新计算条件。
+编号生成与核验共用新增services/wealth/market/index_detail_xxm/forecast_identity.py的forecast_result_id(payload)及forecast_condition_id(forecast_id,outcome,related_structure_id=None)。身份事实仅显式列出的15项根事实及10项辅助事实；Root字段清单沿本节，不包含展示内容。该纯函数只依赖标准库，不依赖query/schema/研究/App，不读取数据。query用它先生成id；完整内部模型及完整debug模型在字段/关联合格后用它复核结果id和每个条件id。普通模型没有完整事实，只核forecastId长度恰64且为小写十六进制（含尾随换行在内的额外字符一律拒绝），不让前端补造或推算id。普通和旧结构条件id也须64位小写十六进制；关联旧结构id不改既有格式。
+
+数值规范只作用于生成摘要的独立事实副本，不修改DIF、EMA、价格范围或任何模型原值：price/dif/lower/upper/e12/e26/dea/pCoefficient/cCoefficient/constant/factor/guard按原有限float统一表示，合法int数值先转同值float，±0统一0.0；bool/非有限值拒绝。barsAhead、sign、count、nextSameColorCount保留严格整数，开闭/farEvaluated保留bool，None和文本不变。已生成事实中的displayLower/Upper、条件id、display等仍排除。debug的originWave在核验副本上明确映射回price_at/dif_at，不兼容旧字段。这样合法101与101.0经过模型转换仍有同一编号；篡改64位有效外形的结果id、条件id或事实均拒绝，不能只验长度或非空。原错误生成的编号不兼容、不在缓存命中时重写，内存失败不发布；后续同源新计算按此唯一规范生成。规则Spec及算法版本不变，此修复只纠正结果身份与事实核验，不改变标签/价格解。
+
+缓存命中保留已生成的编号/文字，必须重验完整对象；普通/debug及显示格式不改业务编号。列明的display/适用/失效纯显示文本不参加规范求解事实；nearestDecision.reason仍在既定十项事实中，本修复不另改字段集合。不读取历史样本或重新计算条件。
 
 #### 6.8.2 缓存方法与退出后发布
 
@@ -2507,9 +2515,52 @@ P1/P2中与本批直接合同冲突的web/Wealth等待、多步和旧身份正�
 - 隔离接入：临时SQLite和临时Parquet采用真实reader、原路由与现鉴权/异常处理器；不访问正式DB、Lake或网络。另用独立EMA算术生成的290根人工日线，实际走来源读取、识别进度恢复、250根校准、下一端点、真实求解、完整模型、公开投影及编码。一次本机记录冷请求58.50ms、缓存命中5.22ms、debug正文8926bytes，均含最后校验/编码，未放宽400ms及32KiB。该人工日线成绩不证明真实四周期性能，也未开展20次真实采样。
 - Wealth完整回归：182个文件、1392项通过，26.15秒；随后新增普通入口无辅助运行时导入检查1项通过；typecheck及生产build通过。构建仍有已有的大包体积提示，未改配置或扩大本批。一次前轮全量运行中非本需求PriceVolumeWorkspace测试出现异步请求数量波动；原测试单独15项通过，最终全量也通过，未改该测试或代码凑通过。
 - 架构：根规则三份测试16项通过，12.98秒；未引入Biz对研究/App/QTF依赖。开工已用CodeGraph核入口、调用链及消费者；完成后`codegraph sync`/`codegraph status`显示索引最新，并补看query→模型/投影→API、TS client→Hook→工作区/侧栏、研究控制器→扩展交接的当前源码。
-- 独立代码复核：重新核对完整字段生成先于完整校验、显示标志不改计算事件、原截止传递、单来源和单下一端点、with退出检查先于预测缓存发布、失败无半份成功、研究日期不污染普通日期、辅助无事件记录关联及普通静态依赖。测试发现的研究趋势图层重建及首次反色形成记录的解码问题已修复，保留对应回归。未发现本批尚未处理的逻辑阻碍。
+- 独立代码复核：重新核对完整字段生成先于完整校验、显示标志不改计算事件、原截止传递、单来源和单下一端点、with退出检查先于预测缓存发布、失败无半份成功、研究日期不污染普通日期、辅助无事件记录关联及普通静态依赖。测试发现的研究趋势图层重建及首次反色形成记录的解码问题已修复，保留对应回归。后续提交bebe6f403后的独立审计已复现完整预测检查及退出后错误映射两类遗漏；本段初轮审计不能作为全部符合LLD的依据，修复见§20.8。
 - 文档：产品、技术方案及本文状态已对齐；本批三文档链接和改动差异单独核对。全库`check_docs_integrity.py`有两条与本需求无关的失效链接，分别在行业景气度方法/研究方案中引用缺失的`reports/a_share_industry_prosperity_2026q3_coverage_20261031/scope-2024-and-workload.md`；未擅自改动这些文档，不能把全库检查写成通过。
 
-**本批工程验收通过，停止于P3第3—5步交付，等待管理员review。**没有提交、部署、重启服务、安装依赖、重放实际行情或保存业务结果。P4的App显式本地/生产注册、动态debug模块ready/挂载、保留工具、四周期真实来源/预算及浏览器review均尚未执行；P5清退也未执行，不能据此宣称产品已经可发布或生产门禁已完整生效。
+**本节初轮交付后的独立审计未通过；两类问题现已由§20.8修复及复审，最新结论见该节。**没有提交、部署、重启服务、安装依赖、重放实际行情或保存业务结果。P4的App显式本地/生产注册、动态debug模块ready/挂载、保留工具、四周期真实来源/预算及浏览器review均尚未执行；P5清退也未执行，不能据此宣称产品已经可发布或生产门禁已完整生效。
 
 提交交接：管理员已批准提交本批P3第3—5步改动。只提交本批明确文件及必要的同文件代码改动，其他工作区修改保留；不推送、部署或推进P4/P5。随后按当前方案和LLD对这次提交重新独立审计，审计结论另行汇报。本次提交前重新执行全库文档完整性检查，已全部通过，上一轮两处无关失效链接已不再出现；上文保留其当时真实检查结果。
+
+### 20.8 P3提交后两类遗漏的修复（2026-10-31）
+
+管理员已授权先补LLD缺失再修复及复审。依据bebe6f403及其独立审计：严格类型/统一波段及通用失败映射原原则已明确，本轮补实§5.1解析前检查、§6.8完整退出错误分类及§6.8.1唯一编号生成/核验和数值表示。目标只修结果安全检查与失败返回；不改核心calculator/spec/snapshot_validation、单根预测规则、EMA、取价/选峰、预算、来源SQL/范围、鉴权或HTTP字段。无新配置、持久化、网络、实际行情重放、安装或服务重启。不进入P4/P5，不自动提交/部署。
+
+编码顺序：①一处原生/公开Wave事实检查、barsAhead输入检查；②纯编号函数及query/schema双方调用、前端只验编号格式；③forecast外层及共享load_entry错误/取消原样处理；④逐项反例与正例、完整接口/缓存验收；⑤独立复核同类遗漏并回写实际结果。每一步直接沿本节编码，不恢复旧字段、旧编号分支或第二识别实现。新helper不增加schema对query的反向依赖。
+
+| 编号 | 独立输入与错误反例 | 必须结果及对应代码 |
+|---|---|---|
+| F01 | 合法单根目标1/None；True、False、1.0、字符串1、0/2 | schema在解析前拒非法类型，合法1和合法空目标通过；HTTP/缓存完整结果同检查 |
+| F02 | 既有手写旧结构originWave，合法1根；0/负数/bool/小数，错误sign、非正价格、非有限DIF及极值日期落段外、起止倒置 | 内部和debug都在公共输出前拒错；普通/debug一致，合法1根不得被误拦，也不改历史至少1根口径 |
+| F03 | 独立字面身份事实/规范JSON及预先可核对SHA；整数/float同数值、±0、中文、dict键顺序变化 | 单一helper稳定编号，合法数据重验不误拒；时间、真实价格/参照/源身份变化改号，debug/文字/显示整数变化不改号 |
+| F04 | 实际M1完整结果；改结果id、条件id为错误字符串或另一64位hash，改事实而不改id；旧结构relatedStructureId改而不改其条件id | 完整内部及debug模型均拒绝；坏缓存不重新求解、不静默改号、不发布候选，原成员/内容不变；正常缓存命中保持编号和公共文字 |
+| F05 | 单独普通响应因无完整辅助事实，仅错误格式id（含64位之后多一个换行）；前端同样错误格式/True目标 | 仅做格式/类型检查，不由普通端或前端推算hash；普通合法DTO仍可用 |
+| F06 | 退出前、退出时、退出后发布RuntimeError；HTTP实际异常处理器 | 一般失败500/XXMF_QUERY_FAILED及中文，不泄内部异常文本；已知XxmQueryError原code/status；失败后旧缓存内容/成员保持，正常发布仍成功 |
+| F07 | TimeoutError、两种CancelledError，以及错误发生同时已过时限 | 超时按503；取消原样传递，旧缓存不改且锁/请求资源释放；原来源/查询错误不被错误处理的新时间检查覆盖；成功超时仍须被正常出口/最终检查拒绝 |
+| F08 | 原M1/旧结构条件、四周期/asOf、真假空结果、一次编码、正常/debug共用缓存 | 原有正例保持；完整预测400ms/32KiB、识别4秒及原缓存总量保持。额外核验人工290根冷/热链路，不能拿其替代P4真实数据 |
+
+测试落点：新增tests/web/test_wealth_index_detail_xxm_forecast_validation.py存字面模型和编号反例；现test_wealth_index_detail_xxm_forecast_api.py补真实query/HTTP、缓存及取消/错误优先级；test_xxm_shared_loads.py或现源fixture补load_entry释放；Wealth现forecast合同测试补编号格式，定向测试、typecheck/build和根三份架构检查。输入expected不能由新helper生成；独立字面JSON与标准SHA可作依据。每组限60秒，现环境执行，不安装。失败仅丢弃本次内存副本，重新调用从头读取/计算，不能自动重试或保存恢复文件。代码完成后独立重看所有直接消费者、已校验缓存及普通/debug路径，记录未覆盖边界后停止。
+
+#### 20.8.1 修复完成及独立复审
+
+已按本节顺序完成，未改变核心/Spec/EMA/求价规则，原预算不变；只修改本轮明确的13个文件；管理员已授权提交，本轮仅提交这些文件，未部署，保留其他工作区修改。
+
+| 已定要求 | 实际落点与验证 |
+|---|---|
+| F01解析前严格整数 | ForecastResponseDto.original_bar_count；True/False/1.0/字符串/0/2拒绝，合法1及原空目标正例通过。不再依赖Literal转换后的无效类型检查 |
+| F02原生与公开Wave同一检查 | index_detail_xxm.py:_validate_wave_facts同时被两个Wave模型调用；正根数、方向、正有限价格/DIF及段内发生时间一致。测试以匹配编号的非法Wave证明拒绝源于事实错误，合法单根、顶底及四周期保持 |
+| F03—F05编号事实一致 | 新forecast_identity.py纯函数；query生成、完整内部/公开debug复核共用；标准库SHA对独立字面JSON验证、101与101.0/±0/键顺序/中文、真实事实变化及显示内容不入号。篡改64位有效外形的编号、关系或原事实均拒绝。普通与TS只核恰64位小写十六进制，不在前端生成编号；尾随换行反例也拒绝 |
+| F04坏缓存不兜底 | 已有预测API测试扩展为非有限数、错误结果id和错误条件id；命中后重验拒绝，不调用求解、不静默改号；model_copy不是校验，投影仍按完整dict重新验证 |
+| F06一般失败的接口一致性 | forecast_query_service外层包含退出后通用Exception到XXM_QUERY_FAILED；真实API及异常处理器验证内部/退出/发布500/XXMF_QUERY_FAILED和中文，不泄故障注入文本；实际缓存候选copy失败后，旧字典对象/条目保持，另一线程能重新拿锁 |
+| F07取消、错误优先级与释放 | 预测和load_entry原样传播两种CancelledError；一般错误处理不重新调用remaining。已过预算同时出现真实错误时保留其原因；正常超限仍拒绝。实际锁内取消后原缓存不变、锁释放、下一次正常发布成功；源共享加载无残留且后续正常请求可用 |
+| F08旧行为/资源边界 | 原字面业务、恢复/asOf、HTTP单次编码、普通/debug缓存、静态/校准失败、目标下一端点及前端请求/组件回归保留；不重复跑实际行情对比 |
+
+最新验证（参数展开后的测试项数，分组均少于60秒）：
+
+- 后端公开API/模型/共享加载、内部/asOf/恢复消费者：210项通过，6.78秒。其中新增编号/模型文件38项及接口故障/取消扩展，与原suite共同验证本轮反例及正常变化；不使用旧算法输出作预期。
+- 核心规则及单根数学回归：1093项通过，10.69秒。核心calculator/spec/snapshot_validation/projection/forecast/forecast_next/forecast_detector/forecast_spec的Git差异为空。模型层Wave事实检查修复不改变合法识别状态。
+- Wealth全量：183文件1394项通过，14.77秒；typecheck和生产build通过。只有编号格式解码及测试变更，没有页面布局、路由、数据加载或动态装配变更，未新增浏览器验收。
+- 根三份架构检查：16项通过，13.45秒。新身份函数只依赖标准库；未新增Biz对query上层、研究/App/QTF依赖。CodeGraph开工核上下游，完成后sync/status显示最新，并按源码复核直接消费者和缓存发布流程。
+- 隔离临时来源的人工290根完整请求：冷66.52ms、热5.75ms、debug正文8926bytes；包含真实reader、校准、求解、模型/身份复核和编码。仍在原400ms/32KiB内，不代表P4真实四周期性能已验收。
+
+独立复审重新核对：完整模型校验先于普通/debug分流；原生与公开Wave合法性相同；编号生成与复核字段/数值规范同源；缓存命中不重算/改号；with正常退出及最终check后才发布；所有错误路径保留旧缓存，取消/锁释放正确；错误处理不掩盖原因；前端不生成编号。本次复审另补齐编号尾随换行检查，未发现本修复范围内其他未处理阻碍。P3可重新交管理员review；P4环境/动态模块/真实来源/浏览器及P5清退仍未执行，不能视为产品可发布。
