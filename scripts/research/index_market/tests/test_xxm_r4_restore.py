@@ -49,7 +49,7 @@ def bar(i, values, period):
 def literal_snapshot(period="day", *, sign=1, state="DULL"):
     raw = dict(specHash=MAIN_SPEC.spec_hash, tsCode="000001.SH", period=period,
                sourceIdentity=SOURCE, processed=0, wave=None, history={"1": [], "-1": []},
-               state="NONE", reference=None, previous=None, activeStructure=None)
+               state="NONE", reference=None, previous=None, activeStructure=None, followedStructures={"TOP": None, "BOTTOM": None})
     if state == "EMPTY":
         return raw
     if state == "ZERO":
@@ -75,7 +75,7 @@ def literal_snapshot(period="day", *, sign=1, state="DULL"):
                        originalReference=dict(startTime=stamp(0, period), endTime=stamp(0, period),
                                               price=100, dif=sign * 200, priceAt=stamp(0, period), difAt=stamp(0, period)),
                        priceExtreme=extreme, priceExtremeAt=stamp(4, period), status="ASSESSING",
-                       lockedAt=None, disappearedAt=None, disappearanceReason=None))
+                       originWave=None, firstOppositeAt=None, nextSameColorStart=None, trackingEndedAt=None, disappearedAt=None, disappearanceReason=None))
     return raw
 
 
@@ -171,8 +171,8 @@ def test_rc71_old_extra_or_missing_fields_are_not_defaulted(field):
 
 STRUCTURE_BAD_PATHS = [
     (("id",), "wrong"), (("structureEventId",), "wrong"), (("direction",), "BOTTOM"),
-    (("formationRoute",), "color_flip"), (("status",), "LOCKED"),
-    (("status",), "DISAPPEARED"), (("lockedAt",), "2023-01-10"),
+    (("formationRoute",), "color_flip"), (("status",), "FOLLOWING"),
+    (("status",), "DISAPPEARED"), (("firstOppositeAt",), "2023-01-10"),
     (("disappearedAt",), "2023-01-10"), (("disappearanceReason",), "dif_return"),
     (("formedAt",), "2023-01-10"), (("originSegmentStart",), "2023-01-04"),
     (("priceExtreme",), float("nan")), (("priceExtreme",), True), (("priceExtreme",), 0),
@@ -295,17 +295,19 @@ def test_rc71_clone_and_returned_snapshots_share_no_mutable_progress(period, sig
     assert calc.record_decisions is True
 
 
-@pytest.mark.parametrize("status,route", [("ASSESSING", "dif_turn"), ("LOCKED", "dif_turn"),
-                                         ("LOCKED", "color_flip"), ("DISAPPEARED", "dif_turn")])
+@pytest.mark.parametrize("status,route", [("ASSESSING", "dif_turn"), ("FOLLOWING", "dif_turn"),
+                                         ("FOLLOWING", "color_flip"), ("DISAPPEARED", "dif_turn")])
 def test_structure_record_validator_checks_both_live_and_terminal_contract(status, route):
     raw = literal_snapshot(state="STRUCTURE")["activeStructure"]
     raw.update(status=status, formationRoute=route)
-    if status == "LOCKED":
-        raw["lockedAt"] = stamp(4 if route == "color_flip" else 5, "day")
+    if status == "FOLLOWING":
+        raw["firstOppositeAt"] = stamp(4 if route == "color_flip" else 5, "day")
+        raw['originWave'] = literal_wave(1, 2, 4, 3, 103, 100, 4, 2, 'day')
         if route == "color_flip":
             raw.update(priceExtreme=102, priceExtremeAt=stamp(3, "day"))
+            raw['originWave'] = literal_wave(1, 2, 3, 2, 102, 100, 3, 2, 'day')
     if status == "DISAPPEARED":
-        raw.update(disappearedAt=stamp(5, "day"), disappearanceReason="dif_return")
+        raw.update(disappearedAt=stamp(5, "day"), trackingEndedAt=stamp(5, "day"), disappearanceReason="dif_return")
     before = deepcopy(raw)
     record = validate_structure_record(raw, period="day", upper=stamp(5, "day"),
                                        id_factory=lambda *parts: ident("day", *parts))
@@ -317,18 +319,19 @@ def test_structure_record_validator_checks_both_live_and_terminal_contract(statu
 @pytest.mark.parametrize("corruption", ["same_lock_time", "future_lock", "both_terminal_times", "old_reason", "color_flip_unlocked"])
 def test_terminal_structure_invalid_transitions_are_rejected(corruption):
     raw = literal_snapshot(state="STRUCTURE")["activeStructure"]
-    raw.update(status="LOCKED", lockedAt=stamp(5, "day"))
+    raw.update(status="FOLLOWING", firstOppositeAt=stamp(5, "day"),
+               originWave=literal_wave(1,2,4,3,103,100,4,2,"day"))
     if corruption == "same_lock_time":
-        raw["lockedAt"] = raw["formedAt"]
+        raw["firstOppositeAt"] = raw["formedAt"]
     elif corruption == "future_lock":
-        raw["lockedAt"] = stamp(6, "day")
+        raw["firstOppositeAt"] = stamp(6, "day")
     elif corruption == "both_terminal_times":
-        raw.update(disappearedAt=stamp(5, "day"), disappearanceReason="dif_return")
+        raw.update(disappearedAt=stamp(5, "day"), trackingEndedAt=stamp(5, "day"), disappearanceReason="dif_return")
     elif corruption == "old_reason":
-        raw.update(status="DISAPPEARED", lockedAt=None, disappearedAt=stamp(5, "day"),
-                   disappearanceReason="historical_price_break")
+        raw.update(status="DISAPPEARED", originWave=None, firstOppositeAt=None, trackingEndedAt=stamp(5,"day"),
+                   disappearedAt=stamp(5, "day"), disappearanceReason="historical_price_break")
     else:
-        raw.update(status="ASSESSING", lockedAt=None, formationRoute="color_flip")
+        raw.update(status="ASSESSING", originWave=None, firstOppositeAt=None, formationRoute="color_flip")
     with pytest.raises(ValueError):
         validate_structure_record(raw, period="day", upper=stamp(5, "day"),
                                    id_factory=lambda *parts: ident("day", *parts))
@@ -375,7 +378,7 @@ def test_bad_direct_work_validation_does_not_change_the_supplied_work():
     raw = literal_snapshot(state="STRUCTURE")
     parsed = parse_xxm_snapshot(raw, expected_identity=(MAIN_SPEC.spec_hash, "000001.SH", "day", SOURCE),
                                 period="day", max_refs=2)
-    parsed.active_structure["status"] = "LOCKED"
+    parsed.active_structure["status"] = "FOLLOWING"
     before = deepcopy(parsed)
     with pytest.raises(ValueError):
         validate_xxm_progress(parsed, period="day", id_factory=lambda *parts: ident("day", *parts))
@@ -425,7 +428,7 @@ def test_rc71_structure_formed_extreme_need_not_equal_later_wave_extreme(period,
     (("referenceChecks", 0, "checked"), 1),
     (("referenceChecks", 0, "referenceBroken"), False),
     (("selectionCalls",), [{"stage": "activation", "selected": None}]),
-    (("structureId",), "wrong-structure"), (("structureStatus",), "LOCKED"),
+    (("structureId",), "wrong-structure"), (("structureStatus",), "FOLLOWING"),
 ])
 def test_rc70_corrupt_constructed_decision_is_rejected_before_publication(path, value, monkeypatch):
     calc = new_calc(record_decisions=True)
@@ -454,7 +457,7 @@ def test_rc70_turn_return_cannot_publish_a_locked_structure_record(sign, monkeyp
 
     def wrong_terminal(record, item, status, reason):
         result = original_finish(record, item, status, reason)
-        result.update(status="LOCKED", lockedAt=item.time, disappearedAt=None, disappearanceReason=None)
+        result.update(status="FOLLOWING", firstOppositeAt=item.time, disappearedAt=None, disappearanceReason=None)
         return result
 
     monkeypatch.setattr(calc, "_finish_structure", wrong_terminal)

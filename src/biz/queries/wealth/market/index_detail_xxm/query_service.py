@@ -299,17 +299,24 @@ class IndexDetailXxmQueryService:
             seen.add(identity)
             previous = entry.structure_records.get(identity)
             if previous is None:
-                if record["status"] not in ("ASSESSING", "LOCKED") or record["formedAt"] != through:
+                if record["status"] not in ("ASSESSING", "FOLLOWING") or record["formedAt"] != through:
                     raise ValueError("A new structure must be formed by this bar")
             else:
-                if previous["status"] != "ASSESSING" or record["status"] not in ("LOCKED", "DISAPPEARED"):
+                allowed = {"ASSESSING": {"FOLLOWING", "DISAPPEARED"},
+                           "FOLLOWING": {"FOLLOWING", "FINISHED", "DISAPPEARED"}}
+                if record["status"] not in allowed.get(previous["status"], set()):
                     raise ValueError("A terminal structure cannot be overwritten or reopened")
-                changed = {"status", "lockedAt", "disappearedAt", "disappearanceReason"}
-                if any(record[field] != value for field, value in previous.items() if field not in changed):
+                changes = {"status", "originWave", "firstOppositeAt", "nextSameColorStart",
+                           "trackingEndedAt", "disappearedAt", "disappearanceReason"}
+                if any(record[field] != value for field, value in previous.items() if field not in changes):
                     raise ValueError("Structure formation facts are immutable")
-                terminal_time = record["lockedAt"] or record["disappearedAt"]
-                if terminal_time != through:
-                    raise ValueError("A structure must terminate on this bar")
+                for field in changes - {"status"}:
+                    if previous[field] is not None and record[field] != previous[field]:
+                        raise ValueError("Known structure facts cannot be rewritten")
+                changed_times = [record[field] for field in ("firstOppositeAt", "nextSameColorStart", "trackingEndedAt")
+                                 if record[field] != previous[field]]
+                if not changed_times or any(stamp != through for stamp in changed_times):
+                    raise ValueError("A structure update must occur on this bar")
             entry.structure_records[identity] = record
 
     @staticmethod
@@ -317,10 +324,14 @@ class IndexDetailXxmQueryService:
         if record["formedAt"] > through:
             return None
         result = deepcopy(record)
-        if result["lockedAt"] is not None and result["lockedAt"] > through:
-            result.update(status="ASSESSING", lockedAt=None)
-        if result["disappearedAt"] is not None and result["disappearedAt"] > through:
-            result.update(status="ASSESSING", disappearedAt=None, disappearanceReason=None)
+        if result["trackingEndedAt"] is not None and result["trackingEndedAt"] > through:
+            result.update(status="FOLLOWING" if result["firstOppositeAt"] is not None
+                          and result["firstOppositeAt"] <= through else "ASSESSING",
+                          trackingEndedAt=None, disappearedAt=None, disappearanceReason=None)
+        if result["nextSameColorStart"] is not None and result["nextSameColorStart"] > through:
+            result["nextSameColorStart"] = None
+        if result["firstOppositeAt"] is not None and result["firstOppositeAt"] > through:
+            result.update(status="ASSESSING", originWave=None, firstOppositeAt=None, nextSameColorStart=None)
         return result
 
     @staticmethod
@@ -337,6 +348,7 @@ class IndexDetailXxmQueryService:
         related.update(event["relatedStructureId"] for event in events if event["relatedStructureId"] is not None)
         structures = []
         assessing = []
+        following = {"TOP": None, "BOTTOM": None}
         for index, record in enumerate(entry.structure_records.values()):
             if index % BUDGET.source_batch_rows == 0:
                 check()
@@ -345,13 +357,23 @@ class IndexDetailXxmQueryService:
                 continue
             if projected["status"] == "ASSESSING":
                 assessing.append(projected)
-            stamps = (projected["formedAt"], projected["lockedAt"], projected["disappearedAt"])
+            if projected["status"] == "FOLLOWING":
+                direction = projected["direction"]
+                if following[direction] is not None:
+                    raise ValueError("Multiple followed structures for one direction")
+                following[direction] = projected
+            stamps = tuple(projected[key] for key in ("formedAt", "firstOppositeAt", "nextSameColorStart",
+                                                       "trackingEndedAt", "disappearedAt"))
             if (projected["id"] in related or first is not None
-                    and any(stamp is not None and first <= stamp <= last for stamp in stamps)):
+                    and (any(stamp is not None and first <= stamp <= last for stamp in stamps)
+                         or projected["formedAt"] <= last and (projected["trackingEndedAt"] is None
+                                                                or projected["trackingEndedAt"] >= first))):
                 structures.append(projected)
         current = entry.calculator_at(end_index, check)
         if assessing != ([current.active_structure] if current.active_structure is not None else []):
             raise ValueError("Projected structure differs from the actual prefix calculator")
+        if following != current.followed_structures:
+            raise ValueError("Projected following structures differ from the actual prefix calculator")
         status = "EMPTY" if through is None else "DELAYED" if expected and through < expected else "READY"
         message = "研究指标暂无数据" if status == "EMPTY" else f"研究指标数据截至 {through}" if status == "DELAYED" else None
         response = InternalXxmResponseDto(

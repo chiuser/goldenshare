@@ -84,7 +84,7 @@ def test_pf01_m1_m2_zero_and_actual_flip(period,values,projection,zero,flip,othe
     assert result.status=='READY' and result.bars_ahead==1
     assert result.selected_reference=='NEAR' and not result.far_evaluated
     assert outcomes_at(result,zero)=={other}
-    assert outcomes_at(result,flip)=={'STRUCTURE_FORMED_AND_LOCKED'}
+    assert outcomes_at(result,flip)=={'STRUCTURE_FORMED_AND_FOLLOWING'}
     actual=detector.evaluate_next_at_price(c,projection,zero,stamp(period,len(values)),'NEAR',lambda:None)
     assert actual['outcome']==other and actual['reference']==c.reference.reference()
     assert c.snapshot()==before
@@ -248,7 +248,7 @@ def test_pf12_structure_never_rescues_far(monkeypatch):
 def test_pf13_lock_has_no_new_structure_event_and_none_is_not_cancel(period):
     c=calculator(TS,period)
     value=detector.evaluate_next_at_price(c,ProjectionState(187,173,0),24.,stamp(period,5),'NEAR',lambda:None)
-    assert value['outcome']=='STRUCTURE_LOCKED'
+    assert value['outcome']=='STRUCTURE_FOLLOWING'
     # Same input, high DEA: actual flip and reference break must cancel first.
     value=detector.evaluate_next_at_price(c,ProjectionState(500,186,1000),200.,stamp(period,5),'NEAR',lambda:None)
     assert value['outcome']=='SIGNAL_DISAPPEARED'
@@ -353,7 +353,7 @@ def test_pf18_source_disagreement_stays_uncertain(monkeypatch):
 
 
 def test_pf20_fixed_spec_literal_contract_and_hash():
-    expected={'forecast_version':'xxm-key-point-forecast-v0.4-r4','scenario_policy':'next_completed_bar',
+    expected={'forecast_version':'xxm-key-point-forecast-v0.5-r4','scenario_policy':'next_completed_bar',
         'target_selection':'near_range_before_far','max_future_bars':1,'calibration_tail_bars':250,
         'daily_calibration_abs_tol':0.0005,'minute_calibration_abs_tol':1e-8,'daily_rounding_guard':1e-10,
         'display_policy':'valid_integer_boundaries','structure_text_places':0,
@@ -382,7 +382,7 @@ def test_pf20_text_reads_actual_direction_keeps_singletons_and_all_ranges():
     integer=dict(lower=180.,upper=181.,lowerInclusive=True,upperInclusive=True,displayLower=180,displayUpper=181)
     draft=ForecastConditionDraft('STRUCTURE_FORMED','NEAR',(price,integer),())
     r=ForecastKernelResult('READY',None,stamp('day',4),1,deepcopy(p.references),'NEAR',
-        {'status':'HAS_RANGE','reason':'字面测试'},False,(draft,),())
+        {'status':'HAS_RANGE','reason':'字面测试'},False,(draft,),(),())
     display=make_display(r,prepared=p,period='day',through=c.previous.time,mode='LATEST',check=lambda:None)
     assert set(display)=={'statusLabel','targetText','conditionsText','asOfText'}
     assert all(type(v) is str for v in display.values())

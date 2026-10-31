@@ -68,10 +68,13 @@ class XxmStructureRecord(TypedDict):
     originalReference: XxmReferenceFacts
     priceExtreme: float
     priceExtremeAt: str
-    status: Literal["ASSESSING", "LOCKED", "DISAPPEARED"]
-    lockedAt: str | None
+    status: Literal["ASSESSING", "FOLLOWING", "FINISHED", "DISAPPEARED"]
+    originWave: XxmWaveFacts | None
+    firstOppositeAt: str | None
+    nextSameColorStart: str | None
+    trackingEndedAt: str | None
     disappearedAt: str | None
-    disappearanceReason: Literal["dif_return", "reference_dif_break"] | None
+    disappearanceReason: Literal["dif_return", "reference_dif_break", "structure_price_break"] | None
 
 
 class XxmReferenceFacts(TypedDict):
@@ -127,6 +130,19 @@ class XxmTurnFacts(TypedDict):
     reason: str
 
 
+class XxmStructureFollowCheck(TypedDict):
+    relatedStructureId: str
+    direction: Literal["TOP", "BOTTOM"]
+    originWave: dict[str, Any]
+    firstOppositeAt: str
+    nextSameColorStartBefore: str | None
+    nextSameColorStartAfter: str | None
+    checked: bool
+    pricePassed: bool | None
+    action: Literal["KEEP", "START", "DISAPPEAR", "FINISH"]
+    reason: str
+
+
 class XxmDecision(TypedDict):
     time: str
     rawSign: int
@@ -137,8 +153,9 @@ class XxmDecision(TypedDict):
     selectionCalls: list[XxmSelectionCall]
     turn: XxmTurnFacts
     switched: bool
+    structureFollowChecks: list[XxmStructureFollowCheck]
     structureId: str | None
-    structureStatus: Literal["ASSESSING", "LOCKED", "DISAPPEARED"] | None
+    structureStatus: Literal["ASSESSING", "FOLLOWING", "FINISHED", "DISAPPEARED"] | None
     branch: str
     reason: str
 
@@ -159,6 +176,7 @@ class ForecastPrecheck:
     active_role: Literal["NEAR", "FAR"] | None
     nearest_decision: dict[str, str | None]
     stop_reason: str | None
+    following_structures: tuple[XxmStructureRecord, ...]
 
 
 @dataclass(frozen=True, slots=True)
@@ -185,6 +203,18 @@ class ReferenceForecast:
 
 
 @dataclass(frozen=True, slots=True)
+class StructureFollowConditionDraft:
+    outcome: Literal["SIGNAL_DISAPPEARED"]
+    related_structure_id: str
+    direction: Literal["TOP", "BOTTOM"]
+    origin_wave: XxmWaveFacts
+    next_same_color_start: str | None
+    price_ranges: tuple[dict[str, Any], ...]
+    precision_ranges: tuple[dict[str, Any], ...]
+    predicates: tuple[dict[str, Any], ...]
+
+
+@dataclass(frozen=True, slots=True)
 class ForecastKernelResult:
     status: str
     reason_code: str | None
@@ -196,3 +226,4 @@ class ForecastKernelResult:
     far_evaluated: bool
     conditions: tuple[ForecastConditionDraft, ...]
     precision_ranges: tuple[dict[str, Any], ...]
+    structure_follow_conditions: tuple[StructureFollowConditionDraft, ...]

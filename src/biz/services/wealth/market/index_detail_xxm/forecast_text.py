@@ -9,10 +9,10 @@ from .types import ForecastKernelResult, ForecastPrecheck
 
 _OUTCOME_ORDER = {
     "NONE": ("DULL_FORMED",),
-    "DULL": ("STRUCTURE_FORMED", "STRUCTURE_FORMED_AND_LOCKED",
+    "DULL": ("STRUCTURE_FORMED", "STRUCTURE_FORMED_AND_FOLLOWING",
              "SIGNAL_DISAPPEARED", "REFERENCE_INVALIDATED", "DULL_HELD"),
     "STRUCTURE": ("SIGNAL_DISAPPEARED", "RETURNED_TO_DULL",
-                  "STRUCTURE_LOCKED", "STRUCTURE_HELD"),
+                  "STRUCTURE_FOLLOWING", "STRUCTURE_HELD"),
 }
 _RANGE_FIELDS = {"lower", "upper", "lowerInclusive", "upperInclusive",
                  "displayLower", "displayUpper"}
@@ -92,10 +92,10 @@ def _outcome_text(outcome: str, state: str, direction: str, rescue: bool) -> str
         "DULL_FORMED": f"形成{side}钝化",
         "DULL_HELD": f"转用远参照并保持{side}钝化" if rescue else f"保持{side}钝化",
         "STRUCTURE_FORMED": f"形成{name}结构，进入结构形成考核期",
-        "STRUCTURE_FORMED_AND_LOCKED": f"形成{name}结构并锁死",
+        "STRUCTURE_FORMED_AND_FOLLOWING": f"形成{name}结构，开始后续有限跟踪",
         "STRUCTURE_HELD": f"保持{name}结构",
         "RETURNED_TO_DULL": f"{name}结构消失，退回{side}钝化",
-        "STRUCTURE_LOCKED": f"{name}结构锁死",
+        "STRUCTURE_FOLLOWING": f"{name}结构开始后续有限跟踪",
         "SIGNAL_DISAPPEARED": f"{name}结构直接消失" if state == "STRUCTURE" else f"{side}钝化消失",
         "REFERENCE_INVALIDATED": "近参照失效，远参照本次未计算，真实收盘按r4同根规则检查",
     }[outcome]
@@ -142,9 +142,9 @@ def make_display(result, *, prepared, period, through, mode, check):
             or (result.target_endpoint is not None and (type(result.bars_ahead) is not int or result.bars_ahead != 1))
             or (result.target_endpoint is not None and through is not None and result.target_endpoint <= through)):
         raise ValueError("Display requires one future completed-bar target")
-    if result.status == "READY" and (not result.conditions or result.target_endpoint is None):
+    if result.status == "READY" and (not (result.conditions or any(item.price_ranges for item in result.structure_follow_conditions)) or result.target_endpoint is None):
         raise ValueError("READY display needs a proved condition")
-    if result.status == "NO_CANDIDATE" and (result.conditions or result.precision_ranges):
+    if result.status == "NO_CANDIDATE" and (result.conditions or result.precision_ranges or result.structure_follow_conditions):
         raise ValueError("NO_CANDIDATE cannot display condition ranges")
     side = "顶" if direction == "TOP" else "底" if direction == "BOTTOM" else ""
     name = "顶部" if direction == "TOP" else "底部" if direction == "BOTTOM" else ""
@@ -180,10 +180,26 @@ def make_display(result, *, prepared, period, through, mode, check):
         for price_range in condition.price_ranges:
             check()
             lines.append(f"{_range_text(price_range)}：{action}。")
+    known = {record['id']: record for record in prepared.following_structures}
+    for condition in result.structure_follow_conditions:
+        check()
+        record = known.get(condition.related_structure_id)
+        if (record is None or condition.outcome != "SIGNAL_DISAPPEARED"
+                or condition.direction != record["direction"] or condition.origin_wave != record["originWave"]
+                or condition.next_same_color_start != record["nextSameColorStart"]):
+            raise ValueError("Old structure display differs from prepared progress")
+        side_text = "顶部" if condition.direction == "TOP" else "底部"
+        scope = "下一根仍属正在考核的同色段（含零柱）" if record["nextSameColorStart"] else "下一根开始新的同色段"
+        for price_range in condition.price_ranges:
+            lines.append(f"{scope}且{_range_text(price_range)}：{side_text}旧结构消失。")
+        if condition.precision_ranges:
+            lines.append(f"{side_text}旧结构另有临界范围待核验，未当作无解。")
+    if result.structure_follow_conditions and not result.conditions and result.status == "READY":
+        labels["READY"] = "旧结构消失条件"
     if result.precision_ranges:
         lines.append("另有临界价格范围尚不能确定，未并入以上条件；新完成收盘后重新计算。")
     if state == "STRUCTURE":
-        lines.append("首次真实反色且结构仍有效时锁死；已锁死的旧结构不再预测撤销。")
+        lines.append("首次真实反色且结构仍有效时，转入后续有限跟踪；只在下一同色段考核旧结构消失。")
     if result.target_endpoint is not None:
         target = f"{_time_text(result.target_endpoint, period)} · 下一根条件"
     else:

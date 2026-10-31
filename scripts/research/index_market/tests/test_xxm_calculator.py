@@ -33,7 +33,7 @@ CURRENT_CORE_NODES = (
     "test_raw_two_pool_nearest_then_farther_and_strict_price_gate",
     "test_turn_exact_threshold_zero_basis_and_independent_extremes",
     "test_structure_return_ignores_price_and_direct_break_has_priority",
-    "test_color_flip_freezes_old_structure_and_locks_without_expiry",
+    "test_color_flip_freezes_origin_and_keeps_following_in_separator",
     "test_snapshot_clone_restore_and_failed_restore_are_isolated",
     "test_fixed_formal_rule_identity_rejects_policy_changes",
 )
@@ -125,7 +125,7 @@ def test_structure_return_ignores_price_and_direct_break_has_priority(sign):
 
 
 @pytest.mark.parametrize("sign",[1,-1])
-def test_color_flip_freezes_old_structure_and_locks_without_expiry(sign):
+def test_color_flip_freezes_origin_and_keeps_following_in_separator(sign):
     prefix=TOP if sign==1 else BOTTOM
     formed=(103 if sign==1 else 97,sign*99,sign*2)
     opposite=(104 if sign==1 else 96,sign*98,-sign*2)
@@ -133,13 +133,13 @@ def test_color_flip_freezes_old_structure_and_locks_without_expiry(sign):
     calc,steps=run(values)
     creation=steps[4].structures[0]
     locked=steps[5].structures[0]
-    assert creation["status"] == "ASSESSING" and locked["status"] == "LOCKED"
+    assert creation["status"] == "ASSESSING" and locked["status"] == "FOLLOWING"
     assert locked["id"] == creation["id"] and locked["formedAt"] == "2023-01-07"
-    assert locked["lockedAt"] == "2023-01-08" and steps[5].events == ()
+    assert locked["firstOppositeAt"] == "2023-01-08" and steps[5].events == ()
     assert locked["priceExtreme"] == (103 if sign==1 else 97)
     assert all(not step.events and not step.structures for step in steps[6:])
     assert calc.state == "NONE" and calc.active_structure is None
-    assert creation["status"] == "ASSESSING" and locked["status"] == "LOCKED"
+    assert creation["status"] == "ASSESSING" and locked["status"] == "FOLLOWING"
 
 
 @pytest.mark.parametrize("period",["day","m60","m90","m120"])
@@ -165,8 +165,8 @@ def test_snapshot_clone_restore_and_failed_restore_are_isolated(period):
     first.step(inputs[5])
     first.restore(before)  # Valid rewind before the first opposite bar.
     assert first.snapshot() == before and first.active_structure["status"] == "ASSESSING"
-    assert first.step(inputs[5]).structures[0]["status"] == "LOCKED"
-    assert first.spec.algorithm_version == "xxm-direction-v0.2-r4"
+    assert first.step(inputs[5]).structures[0]["status"] == "FOLLOWING"
+    assert first.spec.algorithm_version == "xxm-direction-v0.3-r4"
     assert first.spec.spec_hash == MAIN_SPEC.spec_hash
     for rejected in [replace(inputs[-1], completed=False),replace(inputs[-1], dif=float("nan"))]:
         current=first.snapshot()

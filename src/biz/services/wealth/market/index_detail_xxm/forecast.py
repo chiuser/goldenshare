@@ -1,11 +1,12 @@
 """One completed bar only, with an explicit nearest-reference decision."""
 from copy import deepcopy
+from dataclasses import replace
 import math
 
 from .calculator import XxmCalculator
-from .forecast_detector import clone, next_bar_evaluations
+from .forecast_detector import clone, next_bar_evaluations, evaluation_scope
 from .forecast_entry import solve_first_dull
-from .forecast_next import solve_active_reference
+from .forecast_next import solve_active_reference, solve_followed_structure
 from .projection import ProjectionState
 from .types import ForecastKernelResult, ForecastPrecheck, ReferenceForecast, XxmBar
 
@@ -61,7 +62,8 @@ def precheck_next_bar(c, check):
     elif c.state not in ("DULL", "STRUCTURE") or active_role is None:
         raise ValueError("Invalid forecast state")
     result = ForecastPrecheck(deepcopy(snapshot), direction, deepcopy(references), active_role,
-                              deepcopy(decision), stop)
+                              deepcopy(decision), stop, tuple(deepcopy(record) for direction, record
+                                  in sorted(c.followed_structures.items()) if record is not None))
     check()
     return result
 
@@ -74,7 +76,7 @@ def _result(prepared, *, status, reason, endpoint=None, selected=None, nearest=N
     return ForecastKernelResult(status, reason, endpoint, 1 if endpoint is not None else None,
                                 deepcopy(prepared.references), selected,
                                 deepcopy(nearest or prepared.nearest_decision), far,
-                                conditions, deepcopy(precision))
+                                conditions, deepcopy(precision), ())
 
 
 def _resolved(prepared, solved, *, endpoint, role, nearest, far, relationships_only=False):
@@ -92,7 +94,7 @@ def _resolved(prepared, solved, *, endpoint, role, nearest, far, relationships_o
                    selected=role, nearest=nearest, far=far)
 
 
-def forecast(c, projection, endpoint, check, *, prepared):
+def _forecast_ordinary(c, projection, endpoint, check, *, prepared):
     """Return only the internal next-bar result; HTTP assembly is a later step."""
     check()
     if type(prepared) is not ForecastPrecheck or prepared != precheck_next_bar(c, check):
@@ -117,7 +119,7 @@ def forecast(c, projection, endpoint, check, *, prepared):
         raise ValueError("Forecast endpoint must follow the real prefix")
     pool = list(reversed(c.history[c.wave.sign]))
     solver = solve_first_dull if c.state == "NONE" else solve_active_reference
-    with next_bar_evaluations():
+    with evaluation_scope():
         if c.state == "STRUCTURE" or prepared.active_role == "FAR":
             role = prepared.active_role
             nearest = {"status": "NOT_EVALUATED", "reason": "沿已选原参照继续考核，不重新选择近远。"}
@@ -153,3 +155,32 @@ def forecast(c, projection, endpoint, check, *, prepared):
                                    far=True, relationships_only=True)
     check()
     return result
+
+
+def forecast(c, projection, endpoint, check, *, prepared):
+    """Use one projection/evaluation scope for ordinary and independent old targets."""
+    with next_bar_evaluations():
+        result = _forecast_ordinary(c, projection, endpoint, check, prepared=prepared)
+        if not prepared.following_structures:
+            check()
+            return result
+        if type(projection) is not ProjectionState:
+            raise ValueError('Old structures require the original EMA projection')
+        try:
+            valid = all(type(value) in (int, float) and math.isfinite(value)
+                        for value in (projection.e12, projection.e26, projection.dea))
+        except OverflowError as exc:
+            raise ValueError('Non-finite original EMA projection') from exc
+        if not valid:
+            raise ValueError('Invalid original EMA projection')
+        conditions = tuple(value for record in prepared.following_structures
+                           if (value := solve_followed_structure(c, projection, endpoint, record, check)) is not None)
+        certain = bool(result.conditions) or any(item.price_ranges for item in conditions)
+        pending = bool(result.precision_ranges) or any(item.precision_ranges for item in conditions)
+        status = 'READY' if certain else 'PRECISION_PENDING' if pending else 'NO_CANDIDATE'
+        check()
+        result = replace(result, status=status, reason_code='ROUNDING_BOUNDARY' if pending else
+                       None if certain else result.reason_code, target_endpoint=endpoint, bars_ahead=1,
+                       structure_follow_conditions=deepcopy(conditions))
+        check()
+        return result

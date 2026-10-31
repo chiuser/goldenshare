@@ -6,7 +6,7 @@ import json
 
 @dataclass(frozen=True, slots=True)
 class ForecastSpec:
-    forecast_version: str = "xxm-key-point-forecast-v0.4-r4"
+    forecast_version: str = "xxm-key-point-forecast-v0.5-r4"
     scenario_policy: str = "next_completed_bar"
     target_selection: str = "near_range_before_far"
     max_future_bars: int = 1

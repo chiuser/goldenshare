@@ -10,9 +10,9 @@ from .types import ForecastConditionDraft, ReferenceForecast
 
 
 _RELATIONSHIPS = frozenset(('DULL_FORMED', 'DULL_HELD', 'STRUCTURE_FORMED',
-                            'STRUCTURE_FORMED_AND_LOCKED'))
+                            'STRUCTURE_FORMED_AND_FOLLOWING'))
 OUTCOME_ORDER = ('DULL_FORMED', 'DULL_HELD', 'STRUCTURE_FORMED', 'STRUCTURE_HELD',
-                 'RETURNED_TO_DULL', 'STRUCTURE_FORMED_AND_LOCKED', 'STRUCTURE_LOCKED',
+                 'RETURNED_TO_DULL', 'STRUCTURE_FORMED_AND_FOLLOWING', 'STRUCTURE_FOLLOWING',
                  'SIGNAL_DISAPPEARED', 'REFERENCE_INVALIDATED')
 
 
@@ -181,7 +181,7 @@ def solve_active_reference(c, projection, endpoint, reference, role, check):
             raise ValueError('Non-finite original one-percent gate')
         delta = _against(d, P, s)
         if c.state == 'DULL':
-            definitions = [('STRUCTURE_FORMED_AND_LOCKED', (opposite, valid))]
+            definitions = [('STRUCTURE_FORMED_AND_FOLLOWING', (opposite, valid))]
             if P != 0:
                 definitions.append(('STRUCTURE_FORMED',
                                     (same, valid, _compare(delta, 'lt'),
@@ -196,7 +196,7 @@ def solve_active_reference(c, projection, endpoint, reference, role, check):
                 definitions.append(('SIGNAL_DISAPPEARED', (broken,)))
         else:
             definitions = [('SIGNAL_DISAPPEARED', (broken,)),
-                           ('STRUCTURE_LOCKED', (opposite, valid))]
+                           ('STRUCTURE_FOLLOWING', (opposite, valid))]
             if P != 0:
                 definitions.append(('RETURNED_TO_DULL',
                                     (same, valid, _compare(delta, 'gt'), _compare(delta, 'ge', gate))))
@@ -204,3 +204,62 @@ def solve_active_reference(c, projection, endpoint, reference, role, check):
                                       if gate > 0 else (_compare(delta, 'le'),))
             definitions.append(('STRUCTURE_HELD', (same, valid, *hold)))
     return _solve_conditions(c, projection, endpoint, reference, role, definitions, check)
+
+
+def solve_followed_structure(c, projection, endpoint, record, check):
+    """One finite price/color conjunction per old structure, with no near/far work."""
+    from .forecast_detector import evaluate_structure_follow_at_price
+    from .types import StructureFollowConditionDraft
+
+    check()
+    _validate_endpoint(c, endpoint)
+    if record not in c.followed_structures.values():
+        raise ValueError('Following forecast record is absent from real progress')
+    before = c.snapshot()
+    sign = 1 if record['direction'] == 'TOP' else -1
+    _, h, price = _nodes(c, projection)
+    predicates = (_compare(scaled(h, sign), 'ge' if record['nextSameColorStart'] else 'gt'),
+                  _compare(_against(price, record['originWave']['price'], sign), 'gt'))
+    with evaluation_scope():
+        certificate = solve_predicates(predicates, projection=projection, period=c.period, check=check)
+        candidates = set(candidate_prices(predicates, projection=projection, period=c.period, check=check))
+        for region in (*certificate.certain_true, *certificate.undecided):
+            candidates.update(value for value in (region.lo, region.hi)
+                              if value is not None and value > 0 and math.isfinite(value))
+        confirmed, pending = list(certificate.certain_true), list(certificate.undecided)
+        evaluated = {}
+        def verify(C):
+            check()
+            if C not in evaluated:
+                evaluated[C] = evaluate_structure_follow_at_price(c, projection, C, endpoint, record['id'], check)
+            return evaluated[C]
+        for C in sorted(candidates):
+            value = verify(C)
+            if any(region.contains(C) for region in certificate.certain_true) and value is not True:
+                raise ValueError('Certified old structure point differs from finite core tracking')
+            if any(region.contains(C) for region in certificate.certain_false) and value is True:
+                raise ValueError('Certified old structure false point differs from finite core tracking')
+            if value is True and any(region.contains(C) for region in pending):
+                point = Interval(C, C, True, True)
+                confirmed.append(point)
+                pending = list(_remove(pending, (point,)))
+        ranges = []
+        for region in merge(confirmed):
+            check()
+            shown = display_range(region)
+            for number in (shown['displayLower'], shown['displayUpper']):
+                if number is not None and (not region.contains(float(number)) or verify(float(number)) is not True):
+                    raise ValueError('Old structure display integer failed original certification')
+            ranges.append(shown)
+        check()
+        if c.snapshot() != before:
+            raise ValueError('Old structure solver changed real progress')
+        precision = tuple({'priceRange': region.json(), 'reason': 'ROUNDING_BOUNDARY'} for region in merge(pending))
+        if not ranges and not precision:
+            check()
+            return None
+        result = StructureFollowConditionDraft('SIGNAL_DISAPPEARED', record['id'], record['direction'],
+            deepcopy(record['originWave']), record['nextSameColorStart'], tuple(deepcopy(ranges)),
+            deepcopy(precision), tuple(deepcopy(predicates)))
+        check()
+        return result

@@ -70,10 +70,10 @@ def test_rc72_append_preserves_earlier_assessing_result(monkeypatch, values, dir
     record = old_result.structures[0]
     assert (record.direction, record.status, record.formedAt, record.priceExtreme) == (
         direction, "ASSESSING", DATES[4], extreme)
-    assert record.lockedAt is None
+    assert record.firstOppositeAt is None
     new = load(6)
     locked = response(new, 6).structures[0]
-    assert locked.id == record.id and locked.status == "LOCKED" and locked.lockedAt == DATES[5]
+    assert locked.id == record.id and locked.status == "FOLLOWING" and locked.firstOppositeAt == DATES[5]
     assert [(event.type, event.route) for event in response(new, 6).events] == [
         ("DULL", "activation"), ("STRUCTURE", "dif_turn")]
     assert new.points[-1]["ordinaryState"] == "NONE" and new.points[-1]["activeStructureId"] is None
@@ -90,11 +90,11 @@ def test_rc72_asof_projection_is_causal_and_window_keeps_referenced_record(monke
     complete_before = deepcopy(entry.structure_records)
     assert response(entry, 4).structures == []
     early = response(entry, 5)
-    assert early.structures[0].status == "ASSESSING" and early.structures[0].lockedAt is None
+    assert early.structures[0].status == "ASSESSING" and early.structures[0].firstOppositeAt is None
     assert early.points[-1].activeStructureId == early.structures[0].id
     assert entry.calculator_at(5, lambda: None).active_structure["status"] == "ASSESSING"
     terminal = response(entry, 6)
-    assert terminal.structures[0].status == "LOCKED"
+    assert terminal.structures[0].status == "FOLLOWING"
     # The older point may legally reference a record terminal at query cutoff.
     assert terminal.points[4].activeStructureId == terminal.structures[0].id
     window = response(entry, 6, start=date.fromisoformat(DATES[5]), limit=1)
@@ -126,12 +126,12 @@ def test_rc72_source_revision_rebuilds_without_overwriting_old_terminal(monkeypa
     old_state, old_points = deepcopy(old.calculator.snapshot()), deepcopy(old.points)
     old_output = response(old, 6).model_dump()
     old_record = deepcopy(next(iter(old.structure_records.values())))
-    assert old_record["priceExtreme"] == original and old_record["status"] == "LOCKED"
+    assert old_record["priceExtreme"] == original and old_record["status"] == "FOLLOWING"
     rows[4] = replace(rows[4], close=revised_close)
     new = load(6)
     new_record = next(iter(new.structure_records.values()))
     assert new_record["id"] == old_record["id"]  # Same identity, revised source, separate entry.
-    assert (new_record["priceExtreme"], new_record["formedAt"], new_record["lockedAt"]) == (
+    assert (new_record["priceExtreme"], new_record["formedAt"], new_record["firstOppositeAt"]) == (
         revised_close, DATES[4], DATES[5])
     assert old.structure_records[old_record["id"]] == old_record
     assert old.calculator.snapshot() == old_state and old.points == old_points
@@ -140,25 +140,27 @@ def test_rc72_source_revision_rebuilds_without_overwriting_old_terminal(monkeypa
     assert new is not old and service.cache.get(key) is new
 
 
-def test_rc72_two_cycles_keep_two_locked_records(monkeypatch):
+def test_rc72_two_cycles_preserve_old_disappearance_and_new_following(monkeypatch):
     values = TOP[:5] + ((90, 0, -2), (110, 95, 2), (111, 96, 2), (112, 95, 2), (100, 94, -2))
     _, _, _, _, load = source(monkeypatch, values)
     result = response(load(10), 10)
-    assert [(r.formedAt, r.lockedAt, r.status, r.priceExtreme) for r in result.structures] == [
-        (DATES[4], DATES[5], "LOCKED", 103), (DATES[8], DATES[9], "LOCKED", 112)]
+    assert [(r.formedAt, r.firstOppositeAt, r.status, r.priceExtreme) for r in result.structures] == [
+        (DATES[4], DATES[5], "DISAPPEARED", 103), (DATES[8], DATES[9], "FOLLOWING", 112)]
+    assert result.structures[0].disappearanceReason == "structure_price_break"
+    assert result.structures[0].disappearedAt == DATES[6]
     assert result.structures[0].id != result.structures[1].id
     assert result.structures[1].originalReference.price == 103
     assert result.structures[1].originalReference.dif == 100
 
 
-@pytest.mark.parametrize("fault", ["reopen", "formedAt", "lockedAt", "originalReference"])
+@pytest.mark.parametrize("fault", ["reopen", "formedAt", "firstOppositeAt", "originalReference"])
 def test_rc71_terminal_structure_cannot_be_reopened_or_overwritten(monkeypatch, fault):
     _, _, _, _, load = source(monkeypatch, TOP)
     entry = load(6)
     original = deepcopy(entry.structure_records)
     bad = deepcopy(next(iter(original.values())))
     if fault == "reopen":
-        bad.update(status="ASSESSING", lockedAt=None)
+        bad.update(status="ASSESSING", firstOppositeAt=None)
     elif fault == "originalReference":
         bad[fault]["price"] = 99
     else:
@@ -188,7 +190,7 @@ def test_rc72_post_step_failure_discards_candidate_preserves_published_cache(mon
         local.setattr(service, "_merge_structure_updates", merge)
         if failure == "complete_validation":
             def fail_model(**kwargs):
-                assert kwargs["structures"][0]["status"] == "LOCKED"
+                assert kwargs["structures"][0]["status"] == "FOLLOWING"
                 raise ValueError("intentional complete validation failure")
             local.setattr(query_service, "InternalXxmResponseDto", fail_model)
         with pytest.raises(ValueError):
@@ -198,7 +200,7 @@ def test_rc72_post_step_failure_discards_candidate_preserves_published_cache(mon
     assert service.cache.get(key) is old
     assert old.calculator.snapshot() == old_state and old.structure_records == old_records
     assert old.points == old_points and old.events == old_events
-    assert next(iter(load(6).structure_records.values()))["status"] == "LOCKED"
+    assert next(iter(load(6).structure_records.values()))["status"] == "FOLLOWING"
 
 
 @pytest.mark.parametrize("bad", [True, "103", float("nan"), float("inf")])
@@ -223,7 +225,7 @@ def test_internal_model_rejects_legacy_or_broken_structure_associations(monkeypa
     elif fault == "duplicate_formation":
         body["events"].append(deepcopy(body["events"][-1]))
     else:
-        body["structures"][0]["lockedAt"] = DATES[6]
+        body["structures"][0]["firstOppositeAt"] = DATES[6]
     with pytest.raises(ValidationError):
         InternalXxmResponseDto.model_validate(body)
 
@@ -245,7 +247,7 @@ def test_rc72_checkpoint_and_zero_prefix_do_not_use_latest_terminal_facts(monkey
     assert empty.processed == 0 and empty.previous is None and empty.active_structure is None
     early = entry.calculator_at(5, lambda: None)
     assert early.processed == 5 and early.active_structure["status"] == "ASSESSING"
-    assert early.active_structure["lockedAt"] is None
+    assert early.active_structure["firstOppositeAt"] is None
     assert entry.calculator.active_structure is None
     early.active_structure["priceExtreme"] = 999
     assert next(iter(entry.structure_records.values()))["priceExtreme"] == 103
@@ -264,7 +266,7 @@ def test_complete_entry_validation_does_not_hide_invalid_facts_with_window_filte
     if fault == "future_event":
         entry.events[-1]["time"] = DATES[6]
     elif fault == "future_structure":
-        next(iter(entry.structure_records.values()))["lockedAt"] = DATES[6]
+        next(iter(entry.structure_records.values()))["firstOppositeAt"] = DATES[6]
     elif fault == "point_value":
         entry.points[4]["close"] = 999
     else:
@@ -336,7 +338,7 @@ def test_rc72_normal_size_and_lock_checks_allow_complete_candidate_publication(m
     monkeypatch.setattr(service.cache, "put", put)
     new = load(6)
     assert len(checks) == 2 and service.cache.get(key) is new and new is not old
-    assert next(iter(new.structure_records.values()))["status"] == "LOCKED"
+    assert next(iter(new.structure_records.values()))["status"] == "FOLLOWING"
 
 
 @pytest.mark.parametrize("values", [TOP, BOTTOM])
@@ -348,10 +350,10 @@ def test_internal_model_rejects_same_bar_dif_turn_lock_when_formation_is_outside
     # cannot accidentally reject this invalid chronology on the model's behalf.
     assert [point["time"] for point in body["points"]] == [DATES[5]] and body["events"] == []
     assert body["structures"][0]["formedAt"] == DATES[4]
-    assert body["structures"][0]["lockedAt"] == DATES[5]
-    assert InternalXxmResponseDto.model_validate(body).structures[0].status == "LOCKED"
-    body["structures"][0]["lockedAt"] = DATES[4]
-    with pytest.raises(ValidationError, match="later bar"):
+    assert body["structures"][0]["firstOppositeAt"] == DATES[5]
+    assert InternalXxmResponseDto.model_validate(body).structures[0].status == "FOLLOWING"
+    body["structures"][0]["firstOppositeAt"] = DATES[4]
+    with pytest.raises(ValidationError, match="closed origin Wave"):
         InternalXxmResponseDto.model_validate(body)
 
 
@@ -361,11 +363,11 @@ def test_internal_model_rejects_color_flip_extreme_from_confirmation_bar(monkeyp
     result = response(load(5), 5, start=date.fromisoformat(DATES[4]), limit=1)
     body = result.model_dump()
     record = body["structures"][0]
-    assert record["formationRoute"] == "color_flip" and record["formedAt"] == record["lockedAt"] == DATES[4]
+    assert record["formationRoute"] == "color_flip" and record["formedAt"] == record["firstOppositeAt"] == DATES[4]
     assert record["priceExtremeAt"] == DATES[3] and record["priceExtreme"] == 102
-    assert InternalXxmResponseDto.model_validate(body).structures[0].status == "LOCKED"
+    assert InternalXxmResponseDto.model_validate(body).structures[0].status == "FOLLOWING"
     record["priceExtremeAt"] = DATES[4]
-    with pytest.raises(ValidationError, match="old segment"):
+    with pytest.raises(ValidationError, match="closed origin Wave"):
         InternalXxmResponseDto.model_validate(body)
 
 

@@ -38,7 +38,7 @@ def previous(stamp, close, dif, dea, hist):
 def empty_snapshot():
     return dict(specHash=MAIN_SPEC.spec_hash, tsCode="000001.SH", period="day", sourceIdentity=SOURCE,
                 processed=0, wave=None, history={"1": [], "-1": []}, state="NONE", reference=None,
-                previous=None, activeStructure=None)
+                previous=None, activeStructure=None, followedStructures={"TOP": None, "BOTTOM": None})
 
 
 def reference(ref):
@@ -51,7 +51,7 @@ def structure(sign, formed_at, origin, ref, price, price_at):
     return dict(id=ident("structure", event), direction="TOP" if sign == 1 else "BOTTOM",
                 structureEventId=event, formedAt=formed_at, formationRoute="dif_turn",
                 originSegmentStart=origin, originalReference=reference(ref), priceExtreme=price,
-                priceExtremeAt=price_at, status="ASSESSING", lockedAt=None,
+                priceExtremeAt=price_at, status="ASSESSING", originWave=None, firstOppositeAt=None, nextSameColorStart=None, trackingEndedAt=None,
                 disappearedAt=None, disappearanceReason=None)
 
 
@@ -145,8 +145,8 @@ def test_structures_are_locked_on_flip_and_not_retained_as_active_progress():
         calc = calculator()
         calc.restore(raw)
         result = calc.step(item)
-        assert not result.events and result.structures[0]["status"] == "LOCKED"
-        assert result.structures[0]["lockedAt"] == item.time
+        assert not result.events and result.structures[0]["status"] == "FOLLOWING"
+        assert result.structures[0]["firstOppositeAt"] == item.time
         assert result.structures[0]["id"] == raw["activeStructure"]["id"]
         assert calc.state == "NONE" and calc.active_structure is None
         child = calculator()
@@ -240,13 +240,13 @@ def test_active_structure_numbers_dates_direction_and_ids_are_checked(factory, p
 
 
 @pytest.mark.parametrize("factory", [top_structure_snapshot, bottom_structure_snapshot])
-@pytest.mark.parametrize("status", ["LOCKED", "DISAPPEARED"])
+@pytest.mark.parametrize("status", ["FOLLOWING", "DISAPPEARED"])
 def test_terminal_structure_cannot_masquerade_as_an_active_snapshot(factory, status):
     raw = factory()
     record = raw["activeStructure"]
     record.update(status=status)
-    if status == "LOCKED":
-        record["lockedAt"] = record["formedAt"]
+    if status == "FOLLOWING":
+        record["firstOppositeAt"] = record["formedAt"]
     else:
         record.update(disappearedAt=record["formedAt"], disappearanceReason="dif_return")
     assert_bad_rejected(raw)
@@ -349,7 +349,7 @@ def test_zero_after_structure_retains_logical_wave_and_original_structure(factor
     calc.restore(raw)
     assert calc.snapshot() == raw
     assert calc.active_structure["status"] == "ASSESSING"
-    assert calc.active_structure["lockedAt"] is None
+    assert calc.active_structure["firstOppositeAt"] is None
     assert calc.wave.count == raw["wave"]["count"]
 
 

@@ -112,7 +112,7 @@ class InternalXxmEventDto(InternalXxmDto):
     time: str
     direction: Literal["TOP", "BOTTOM"]
     type: Literal["DULL", "STRUCTURE", "CANCEL"]
-    route: Literal["activation", "dif_turn", "dif_return", "color_flip", "dif_break", "dif_break_on_flip"]
+    route: Literal["activation", "dif_turn", "dif_return", "color_flip", "dif_break", "dif_break_on_flip", "structure_price_break"]
     fromState: Literal["NONE", "DULL", "STRUCTURE"]
     eventReference: InternalXxmReferenceDto
     relatedStructureId: str | None
@@ -120,7 +120,7 @@ class InternalXxmEventDto(InternalXxmDto):
     @model_validator(mode="after")
     def event_relationship(self):
         routes = {"DULL": {"activation", "dif_return"}, "STRUCTURE": {"dif_turn", "color_flip"},
-                  "CANCEL": {"dif_break", "dif_break_on_flip"}}
+                  "CANCEL": {"dif_break", "dif_break_on_flip", "structure_price_break"}}
         if self.route not in routes[self.type]:
             raise ValueError("XXM event type/route mismatch")
         expected_from = "NONE" if self.route == "activation" else "DULL" if self.type == "STRUCTURE" else "STRUCTURE"
@@ -128,10 +128,34 @@ class InternalXxmEventDto(InternalXxmDto):
             raise ValueError("XXM event fromState mismatch")
         if self.type == "CANCEL" and self.fromState not in ("DULL", "STRUCTURE"):
             raise ValueError("Cancellation requires an active relationship")
+        if self.route == "structure_price_break" and self.fromState != "STRUCTURE":
+            raise ValueError("Old structure price cancellation must target STRUCTURE")
         related = self.type == "STRUCTURE" or self.fromState == "STRUCTURE"
         if related != (self.relatedStructureId is not None) or self.relatedStructureId == "":
             raise ValueError("XXM event structure association mismatch")
         return self
+
+
+class InternalXxmWaveDto(InternalXxmDto):
+    sign: int
+    start: str
+    end: str
+    count: int
+    price: float
+    dif: float
+    price_at: str
+    dif_at: str
+
+    @model_validator(mode="before")
+    @classmethod
+    def native_fields(cls, value):
+        if not isinstance(value, dict):
+            raise ValueError("Wave must contain native fields")
+        if any(type(value.get(key)) is not int for key in ("sign", "count")):
+            raise ValueError("Wave sign/count must be integers")
+        if any(type(value.get(key)) not in (int, float) for key in ("price", "dif")):
+            raise ValueError("Wave must retain original numbers")
+        return value
 
 
 class InternalXxmStructureDto(InternalXxmDto):
@@ -144,10 +168,13 @@ class InternalXxmStructureDto(InternalXxmDto):
     originalReference: InternalXxmReferenceDto
     priceExtreme: float = Field(gt=0)
     priceExtremeAt: str
-    status: Literal["ASSESSING", "LOCKED", "DISAPPEARED"]
-    lockedAt: str | None
+    status: Literal["ASSESSING", "FOLLOWING", "FINISHED", "DISAPPEARED"]
+    originWave: InternalXxmWaveDto | None
+    firstOppositeAt: str | None
+    nextSameColorStart: str | None
+    trackingEndedAt: str | None
     disappearedAt: str | None
-    disappearanceReason: Literal["dif_return", "reference_dif_break"] | None
+    disappearanceReason: Literal["dif_return", "reference_dif_break", "structure_price_break"] | None
 
     @field_validator("priceExtreme", mode="before")
     @classmethod
@@ -158,25 +185,14 @@ class InternalXxmStructureDto(InternalXxmDto):
 
     @model_validator(mode="after")
     def lifecycle(self):
-        if not (self.originalReference.endTime < self.originSegmentStart
-                <= self.priceExtremeAt <= self.formedAt):
-            raise ValueError("XXM structure chronology mismatch")
-        if self.status == "ASSESSING":
-            if any(value is not None for value in (self.lockedAt, self.disappearedAt, self.disappearanceReason)):
-                raise ValueError("Assessing structure cannot have a terminal fact")
-        elif self.status == "LOCKED":
-            if (self.lockedAt is None or self.lockedAt < self.formedAt
-                    or self.disappearedAt is not None or self.disappearanceReason is not None):
-                raise ValueError("Invalid structure lock")
-        elif (self.disappearedAt is None or self.disappearedAt <= self.formedAt
-              or self.disappearanceReason is None or self.lockedAt is not None):
-            raise ValueError("Invalid structure disappearance")
-        if self.formationRoute == "color_flip" and not (self.status == "LOCKED" and self.lockedAt == self.formedAt):
-            raise ValueError("Color flip must form and lock in the same bar")
-        if self.formationRoute == "dif_turn" and self.status == "LOCKED" and self.lockedAt <= self.formedAt:
-            raise ValueError("A DIF-turn structure can lock only on a later bar")
-        if self.formationRoute == "color_flip" and self.priceExtremeAt >= self.formedAt:
-            raise ValueError("Color-flip structure extreme belongs to the old segment")
+        from src.biz.services.wealth.market.index_detail_xxm.snapshot_validation import validate_structure_facts
+
+        raw = self.model_dump()
+        upper = max(value for value in (self.formedAt, self.firstOppositeAt,
+                    self.nextSameColorStart, self.trackingEndedAt, self.disappearedAt) if value is not None)
+        # Only the full response knows algorithm/source identity. It validates
+        # IDs below; this shared guard checks the same native lifecycle facts.
+        validate_structure_facts(raw, period="day" if len(self.formedAt) == 10 else "m60", upper=upper)
         return self
 
 
@@ -238,8 +254,17 @@ class InternalXxmResponseDto(InternalXxmDto):
                 (record.formedAt, record.id) for record in self.structures):
             raise ValueError("XXM structures are not in formation order")
         event_times = [event.time for event in self.events]
-        if event_times != sorted(set(event_times)) or any(stamp not in times for stamp in event_times):
-            raise ValueError("XXM events must be ordered, unique per bar and visible")
+        if event_times != sorted(event_times) or any(stamp not in times for stamp in event_times):
+            raise ValueError("XXM events must be ordered and visible")
+        ordinary_times = set()
+        for event in self.events:
+            if event.route == "structure_price_break":
+                if event.time in ordinary_times:
+                    raise ValueError("Old structure events must precede the current ordinary event")
+            elif event.time in ordinary_times:
+                raise ValueError("Multiple ordinary events on one bar")
+            else:
+                ordinary_times.add(event.time)
         through, start = self.source.computedThrough, self.source.startTime
         if self.dataStatus.asOf != through:
             raise ValueError("XXM asOf mismatch")
@@ -267,8 +292,12 @@ class InternalXxmResponseDto(InternalXxmDto):
         stamp(through)
         for record in self.structures:
             for value in (record.formedAt, record.originSegmentStart, record.priceExtremeAt,
-                          record.lockedAt, record.disappearedAt):
+                          record.firstOppositeAt, record.nextSameColorStart, record.trackingEndedAt, record.disappearedAt):
                 if value is not None:
+                    stamp(value)
+            if record.originWave is not None:
+                for value in (record.originWave.start, record.originWave.end,
+                              record.originWave.price_at, record.originWave.dif_at):
                     stamp(value)
             reference(record.originalReference)
             sign = 1 if record.direction == "TOP" else -1
@@ -284,7 +313,7 @@ class InternalXxmResponseDto(InternalXxmDto):
             if point.activeStructureId is not None:
                 record = records.get(point.activeStructureId)
                 if (record is None or not record.formedAt <= point.time
-                        or record.lockedAt is not None and point.time >= record.lockedAt
+                        or record.firstOppositeAt is not None and point.time >= record.firstOppositeAt
                         or record.disappearedAt is not None and point.time >= record.disappearedAt
                         or point.ordinaryDirection != record.direction
                         or point.activeReference != record.originalReference):
@@ -295,7 +324,9 @@ class InternalXxmResponseDto(InternalXxmDto):
             reference(event.eventReference)
             sign = 1 if event.direction == "TOP" else -1
             if event.eventReference.endTime >= event.time or event.id != self._id(
-                    event.time, event.type, sign, event.eventReference.startTime):
+                    *( (event.time, "CANCEL", "structure_price_break", event.relatedStructureId)
+                       if event.route == "structure_price_break" else
+                       (event.time, event.type, sign, event.eventReference.startTime) )):
                 raise ValueError("XXM event identity/reference mismatch")
             index, point = points_by_time[event.time]
             if event.route in ("activation", "dif_return", "dif_turn"):
@@ -305,11 +336,11 @@ class InternalXxmResponseDto(InternalXxmDto):
                     raise ValueError("XXM event and final point state/direction/reference disagree")
                 if event.route == "dif_turn" and point.activeStructureId != event.relatedStructureId:
                     raise ValueError("XXM formation event and final point structure disagree")
-            elif point.ordinaryState != "NONE":
+            elif event.route != "structure_price_break" and point.ordinaryState != "NONE":
                 raise ValueError("XXM flip/cancellation must leave the final point in NONE")
             # The response window need not include the preceding source bar.
             # When it does, fromState is an existing fact, not a recomputation.
-            if index and event.fromState != self.points[index - 1].ordinaryState:
+            if event.route != "structure_price_break" and index and event.fromState != self.points[index - 1].ordinaryState:
                 raise ValueError("XXM event fromState disagrees with the preceding visible point")
             if event.relatedStructureId is not None:
                 record = records.get(event.relatedStructureId)
@@ -322,12 +353,16 @@ class InternalXxmResponseDto(InternalXxmDto):
                         raise ValueError("XXM formation association mismatch")
                 elif (record.status != "DISAPPEARED" or record.disappearedAt != event.time
                       or record.disappearanceReason != ("dif_return" if event.route == "dif_return"
+                                                        else "structure_price_break" if event.route == "structure_price_break"
                                                         else "reference_dif_break")):
                     raise ValueError("XXM disappearance association mismatch")
         for record in self.structures:
             event = events.get(record.structureEventId)
             if record.formedAt in times and (event is None or event.relatedStructureId != record.id):
                 raise ValueError("XXM visible structure has no formation event")
+        following_directions = [record.direction for record in self.structures if record.status == "FOLLOWING"]
+        if len(set(following_directions)) != len(following_directions):
+            raise ValueError("Multiple followed structures for one direction")
         assessing = [record for record in self.structures if record.status == "ASSESSING"]
         if len(assessing) > 1:
             raise ValueError("Multiple active XXM structures")

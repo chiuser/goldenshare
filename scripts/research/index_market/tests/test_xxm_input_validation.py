@@ -100,7 +100,7 @@ def test_normal_r4_hand_sequence_retains_approved_events():
     ("active_reference_policy", "other"), ("zero_policy", "reset"),
     ("allow_zero_activation", 1), ("allow_zero_activation", False),
     ("activation_policy", "cumulative_close"), ("reference_break_policy", "current_only"),
-    ("structure_return_policy", "wait_for_price"), ("structure_lock_policy", "later_price_break"),
+    ("structure_return_policy", "wait_for_price"), ("structure_follow_policy", "later_price_break"), ("structure_follow_price_policy", "formation_price"),
     ("historical_min_bars", 2), ("historical_min_bars", True),
     ("top_activation_requires_positive_dif", False), ("top_activation_requires_positive_dif", 1),
     ("macd_parameters", [12, 26, 9]), ("macd_parameters", (12.0, 26, 9)),
@@ -121,14 +121,15 @@ def test_formal_spec_contains_every_approved_rule_and_hashes_canonical_content()
 
     # Independent literal contract from LLD v1 section 2.2, no research Spec.
     expected = {
-        "algorithm_version": "xxm-direction-v0.2-r4", "dif_turn_pct": 1.0,
+        "algorithm_version": "xxm-direction-v0.3-r4", "dif_turn_pct": 1.0,
         "max_refs": 2, "min_bars": 2, "reference_policy": "nearest_then_farther_two",
         "active_reference_policy": "same_bar_near_to_far_on_dull_break",
         "zero_policy": "neutral_real_opposite", "allow_zero_activation": True,
         "activation_policy": "current_close_and_current_dif",
         "reference_break_policy": "strict_break_within_current_segment",
         "structure_return_policy": "adjacent_one_percent_to_dull",
-        "structure_lock_policy": "first_valid_opposite_color",
+        "structure_follow_policy": "next_same_color_close_break",
+        "structure_follow_price_policy": "closed_origin_wave_extreme",
         "historical_min_bars": 1, "top_activation_requires_positive_dif": True,
         "macd_parameters": (12, 26, 9),
         "histogram_multiplier": 2, "color_flip": True, "flip_requires_turn": False,

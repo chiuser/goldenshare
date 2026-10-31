@@ -161,7 +161,11 @@ def _check_original_arithmetic(c, bar):
 
 def _actual_outcome(c, child, step):
     """Read actual events and structure updates, including a flip's old state."""
-    events, records = step.events, step.structures
+    followed_ids = {record['id'] for record in c.followed_structures.values() if record is not None}
+    # The formal step has already validated every event/record. Separate only
+    # for reading the ordinary outcome; never delete facts from the actual step.
+    events = tuple(event for event in step.events if event['route'] != 'structure_price_break')
+    records = tuple(record for record in step.structures if record['id'] not in followed_ids)
     old_id = c.active_structure['id'] if c.active_structure is not None else None
     if events:
         if len(events) != 1:
@@ -195,10 +199,10 @@ def _actual_outcome(c, child, step):
                     or record['originalReference'] != reference):
                 raise ValueError('Forecast formation association differs')
             if event['route'] == 'color_flip':
-                if (record['status'] != 'LOCKED' or record['formedAt'] != record['lockedAt']
+                if (record['status'] != 'FOLLOWING' or record['formedAt'] != record['firstOppositeAt']
                         or child.state != 'NONE'):
                     raise ValueError('Invalid same-bar lock forecast semantics')
-                outcome = 'STRUCTURE_FORMED_AND_LOCKED'
+                outcome = 'STRUCTURE_FORMED_AND_FOLLOWING'
             elif event['route'] == 'dif_turn':
                 if (record['status'] != 'ASSESSING' or child.state != 'STRUCTURE'
                         or child.active_structure['id'] != record['id']):
@@ -224,11 +228,11 @@ def _actual_outcome(c, child, step):
     if records:
         record = records[0]
         if (c.state != 'STRUCTURE' or len(records) != 1 or record['id'] != old_id
-                or record['status'] != 'LOCKED' or child.state != 'NONE'
-                or record['lockedAt'] != step.point['time']
+                or record['status'] != 'FOLLOWING' or child.state != 'NONE'
+                or record['firstOppositeAt'] != step.point['time']
                 or record['originalReference'] != c.reference.reference()):
             raise ValueError('Invalid existing-structure lock forecast semantics')
-        return {'outcome': 'STRUCTURE_LOCKED', 'reference': c.reference.reference()}
+        return {'outcome': 'STRUCTURE_FOLLOWING', 'reference': c.reference.reference()}
     if c.state == 'STRUCTURE' and child.state == 'STRUCTURE':
         if (child.active_structure['id'] != old_id or child.active_structure['status'] != 'ASSESSING'
                 or child.reference != c.reference):
@@ -295,3 +299,48 @@ def evaluate_next_at_price(c, projection, C, endpoint, role, check):
         check()
         cache[key] = deepcopy(result)
         return deepcopy(result)
+
+
+def evaluate_structure_follow_at_price(c, projection, C, endpoint, related_id, check):
+    """Certify one old structure without ordinary selection, rescue, or a full step."""
+    check()
+    _validate_endpoint(c, endpoint)
+    _finite(C)
+    actual_close = float(C)
+    if actual_close != C or actual_close <= 0:
+        raise ValueError('Invalid old-structure forecast close')
+    snapshot = c.snapshot()
+    records = [record for record in c.followed_structures.values()
+               if record is not None and record['id'] == related_id]
+    if len(records) != 1:
+        raise ValueError('Old forecast target is not a live followed structure')
+    clone(c)  # Full shared bounded-progress guard; never publish a child result.
+    with evaluation_scope():
+        cache = _EVALUATIONS.get()
+        key = ('structure-follow', id(projection), actual_close, endpoint, related_id,
+               json.dumps(snapshot, sort_keys=True, separators=(',', ':')))
+        if key in cache:
+            check()
+            return cache[key]
+        _, bars = possible_bars(projection, C, endpoint, c.period == 'day', check)
+        values = []
+        for bar in bars:
+            check()
+            _finite(bar.close - records[0]['originWave']['price'])
+            work = deepcopy(c._progress())
+            events, updates = c._advance_followed_structures(bar, work)
+            check()
+            matching = [event for event in events if event['relatedStructureId'] == related_id]
+            finals = [record for record in updates if record['id'] == related_id]
+            passed = bool(matching)
+            if passed and (len(matching) != 1 or len(finals) != 1
+                    or finals[0]['status'] != 'DISAPPEARED'
+                    or finals[0]['disappearanceReason'] != 'structure_price_break'):
+                raise ValueError('Invalid old structure disappearance proof')
+            values.append(passed)
+        result = values[0] if all(value == values[0] for value in values) else None
+        if c.snapshot() != snapshot:
+            raise ValueError('Old structure certification changed real progress')
+        check()
+        cache[key] = result
+        return result

@@ -116,8 +116,8 @@ def test_same_bar_switch_preserves_actual_b_break_and_never_runs_turn(sign,hist,
 def test_structure_actions_and_zero_basis_have_real_observed_branches():
     _,steps,facts=run(TOP+[(103,99,2),(104,100,-2)])
     assert facts[-2]["branch"] == "dif_turn" and facts[-2]["structureStatus"] == "ASSESSING"
-    assert steps[-1].events == () and facts[-1]["branch"] == "structure_locked"
-    assert facts[-1]["structureStatus"] == "LOCKED" and not facts[-1]["turn"]["checked"]
+    assert steps[-1].events == () and facts[-1]["branch"] == "structure_following"
+    assert facts[-1]["structureStatus"] == "FOLLOWING" and not facts[-1]["turn"]["checked"]
     _,_,facts=run(TOP+[(103,0,2),(99,1,2)])
     assert facts[-1]["branch"] == "retained" and facts[-1]["turn"]["threshold"] == 0
     assert "为0" in facts[-1]["turn"]["reason"]

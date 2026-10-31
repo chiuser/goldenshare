@@ -1,12 +1,12 @@
 # 财势乾坤顶底识别低层设计 v1
 
-更新：2026-10-31。状态：本轮仅同步已确认的下一段同色柱有限跟踪、顶部/底部镜像和全套配套编码/测试设计，尚未实施。本次目标识别v0.3-r4、预测v0.5-r4；现代码仍为此前v0.2-r4/v0.4-r4，§15—16只保留其历史验收，不作为本次通过证据。先修核心及恢复/聚合，再同步预测，回归和新对比后才可继续P3第3步。
+更新：2026-10-31。状态：本轮整体修复已完成核心v0.3-r4、预测内核v0.5-r4及内部类型/恢复/聚合/asOf/窗口。限定测试与独立代码审计见§17.4；§15—16保留修改前历史成绩。公开HTTP/TS/页面、完整请求性能及真实行情对比尚未验收，不推进P3第3步、P4/P5，本批已获管理员提交授权，未部署。
 
 依据：[产品文档](../../../../docs/product/wealth-top-bottom-recognition-product-v1.md)、[技术方案](index-detail-top-bottom-recognition-technical-design-v1.md)。本文件只规定当前目标、代码迁移位置、开发顺序和验收，不包含已废弃的开发流程。实施必须使用本文规则和独立用例，不得从旧实验或旧输出推导当前预期。
 
 ## 0. 本轮产物、后续实施范围和硬要求
 
-此前已完成修改前的第1步及第2步预测内核基线，证据见§15—16。本轮只补齐最新规则、配套编码设计和测试设计，不写业务或测试代码，不读真实行情、不重跑对比、不提交或部署。当前dev-interface工作区保留清单外修改，不创建分支/worktree或安装依赖。后续先按§17修正前两步，再推进第3步完整来源、日历、模型、缓存和一次编码；完整400ms必须计入新增旧结构条件，不能拿此前数学部分耗时作为通过证据。
+此前已完成修改前的第1步及第2步预测内核基线，证据见§15—16。本轮已按最新规则与编码设计完成核心、内部配套和单根预测及限定测试；不读真实行情、不重跑对比、不提交或部署。当前dev-interface工作区保留清单外修改，不创建分支/worktree或安装依赖。前两步修正成绩见§17.4；后续经专项对比及review后再推进第3步完整来源、日历、模型、缓存和一次编码；完整400ms必须计入新增旧结构条件，不能拿此前数学部分耗时作为通过证据。
 
 目标范围是唯一r4识别、下一根预测、本地普通/debug与生产禁用，最后按P5清退旧执行代码。输入/进度/结果只在内存，不增加数据库或Lake写入、结果文件、恢复文件、后台任务、用户算法开关和浏览器持久缓存。
 
@@ -39,7 +39,7 @@
 
 ### 0.2 当前代码依据和影响面
 
-当前正式代码仍是此前v0.2-r4基线，已实现首次当根C/D、统一回转及旧反色终止行为；本次§2—4有限跟踪尚未实现。既有§15—16仅是历史证据，后续须按本轮核心→配套预测→回归顺序修正，不复制识别器。
+当前唯一正式核心为v0.3-r4，首次当根C/D、统一回转和§2—4有限跟踪已实现；预测内核为v0.5-r4。既有§15—16仅是历史证据；本轮核心→内部配套→预测→限定回归的实际结果见§17.4，未复制识别器。
 
 `SeriesEntry`、snapshot恢复、历史calculator_at和forecast clone都消费同一产品类；必须同步新结构记录、关联、身份和缓存。现预测内核Spec仍为xxm-key-point-forecast-v0.4-r4，本次目标为v0.5-r4；公开预测模型和Wealth身份/字段尚未迁目标。按§17、§11整批推进，不能发布中间混合版本。
 
@@ -318,6 +318,8 @@ snapshot固定字段为specHash/tsCode/period/sourceIdentity/processed/wave/hist
 
 validate_structure_record及InternalXxmStructureDto同时实现§2.3完整字段/状态。ASSESSING没有firstOppositeAt/originWave/nextSameColorStart/结束信息；FOLLOWING有首次反色及最终原Wave、无结束；FINISHED需nextSameColorStart和trackingEndedAt、无消失字段；DISAPPEARED需trackingEndedAt==disappearedAt，原因及阶段合法。dif_return/reference_dif_break属于反色前失效，originWave/firstOppositeAt/nextSameColorStart均None；structure_price_break必须在下一同色段已有起点后，保留首次反色与完整原Wave。通用时间/数字/id检查必须先完成；originalReference.endTime<originSegmentStart，形成priceExtremeAt位于原段起点至形成根；originWave若存在，其start==originSegmentStart，end<firstOppositeAt，最终方向极值不得弱于形成极值。dif_turn的firstOppositeAt若存在必须晚于formedAt，color_flip则二者相等。nextSameColorStart严格晚于firstOppositeAt；价格消失可在该起点同根，正常结束必须晚于该起点。color_flip形成可当根FOLLOWING，后续也可消失或正常FINISHED，不因formationRoute不是dif_turn而拒绝合法后续记录。color_flip的形成priceExtremeAt必须严格早于formedAt==firstOppositeAt，原段最终originWave的所有日期也须早于firstOppositeAt；不能把反色根收盘混进原段。
 
+字段和生命周期共用`validate_structure_facts(value, period, upper)`，它只检查来件形状、原数值、日期、阶段和必填事实；`validate_structure_record`在此基础上使用计算器的真实`_id`校验编号。`InternalXxmStructureDto`复用前者，`InternalXxmResponseDto`再用响应中的真实algorithmVersion/specHash/标的/周期校验全部编号。不得传入“直接返回来件自身编号”的函数伪装编号校验；没有身份上下文的单记录类型不能自行猜身份。
+
 SeriesEntry._merge_structure_updates沿§2.3转换校验：形成字段不改；首次反色只补originWave和firstOppositeAt，后续只允许nextSameColorStart首次写入、或跟踪结束/消失字段写入。FOLLOWING可正常结束/消失，不再当不可覆盖终态。FINISHED/DISAPPEARED才禁止后续更新；任一同id重复、倒序或不合法变化整次候选entry失败。对应根的完整记录经校验后才替换缓存。color_flip形成时直接FOLLOWING，之后允许同一FOLLOWING内部填写下一段起点及正常FINISHED；不能因未经过ASSESSING而拒绝合法后续更新。
 
 asOf只按当时已有前缀投影：formedAt>through不出现；首次反色晚于through时还原ASSESSING并清未来originWave/firstOppositeAt/nextSameColorStart/结束信息；已首次反色但下一同色段尚晚于through时FOLLOWING且nextSameColorStart=None；结束/消失晚于through时还原当时FOLLOWING或ASSESSING并清未来结束字段。color_flip形成与首次反色同根，在这根直接FOLLOWING。不能清除该asOf之前已经真实发生的字段，也不能让后来FINISHED或DISAPPEARED倒写过去。
@@ -530,7 +532,7 @@ EMPTY识别points/events为空、meta.count=0及首末None；debug对应数组�
 
 ## 6. 下一根预测编码设计（本次有限跟踪配套待修正）
 
-本节规定最新识别规则对应的单根预测；必须先完成§2—4的本次修正，再实施本节，不引入第二个识别器。本轮只修设计和测试设计，不编码、不读取真实行情。§16为修改前成绩，不证明本节新增旧结构条件或完整请求性能已经通过。
+本节规定最新识别规则对应的单根预测；必须先完成§2—4的本次修正，再实施本节，不引入第二个识别器。本轮已完成纯内核实现和限定测试；不读取真实行情。§16为修改前成绩，不证明本节新增旧结构条件或完整请求性能已经通过。
 
 ### 6.1 本步范围、输入和代码交接
 
@@ -809,7 +811,7 @@ f_source = f + k*(abs(b)+f) + t
 
 ### 6.10 预测测试设计与识别规则对应
 
-§16记录的是此前纯内核154项基线，本轮有限跟踪配套及PF21—28仍待编码；第3—5步的完整请求/合同/预算和P4真实来源部分尚未执行，不得拿P3第1步成绩代替。新数学测试放现主题`test_xxm_p3_forecast_math.py`及必要`test_xxm_key_point_forecast.py`，不创建新研究项目。业务expected来自§14字面事实，数学expected来自M1—M5/Fraction或明确原运算，不能由待测forecast生成。
+§16记录的是此前纯内核154项基线，本轮有限跟踪纯内核配套及PF21—28内部部分的实际成绩见§17.4；第3—5步的完整请求/合同/预算和P4真实来源部分尚未执行，不得拿P3第1步成绩代替。新数学测试放现主题`test_xxm_p3_forecast_math.py`及必要`test_xxm_key_point_forecast.py`，不创建新研究项目。业务expected来自§14字面事实，数学expected来自M1—M5/Fraction或明确原运算，不能由待测forecast生成。
 
 | 编号 | 独立样本/明确操作 | 必须证明 |
 |---|---|---|
@@ -879,7 +881,7 @@ XxmDecision删除rearm及waiting分支；referenceChecks对每个参照分别增
 
 ### 7.2 观察字段与资源边界
 
-XxmDecision增加structureFollowChecks数组，最多TOP/BOTTOM两项，记录relatedStructureId、direction、originWave.price/price_at、firstOppositeAt、nextSameColorStart根前/根后值、checked、pricePassed(bool或None)、action(KEEP/START/DISAPPEAR/FINISH)、reason。未进入价格检查必须None，不伪造通过。当前referenceChecks/turn仍只描述当前普通关系，旧动作不改变其含义；默认record_decisions=False不计算辅助记录。
+XxmDecision增加structureFollowChecks数组，最多TOP/BOTTOM两项，记录relatedStructureId、direction、originWave（仅price/price_at两字段）、firstOppositeAt、nextSameColorStartBefore/nextSameColorStartAfter（根前/根后值）、checked、pricePassed(bool或None)、action(KEEP/START/DISAPPEAR/FINISH)、reason。未进入价格检查必须None，不伪造通过。当前referenceChecks/turn仍只描述当前普通关系，旧动作不改变其含义；默认record_decisions=False不计算辅助记录。
 
 `XxmDecision`完整字段为time/rawSign/before/wave/referenceAfter/referenceChecks/selectionCalls/turn/switched/structureId/structureStatus/structureFollowChecks/branch/reason。before在现state/reference/wave/previousDif上加activeStructureId；referenceChecks保留现stage/candidate/wave/checked/pricePassed/difPassed/reason并加referenceBroken，未执行的bool字段均None；selectionCalls保留实际stage/selected；turn保持previousDif/currentDif/threshold/referenceBroken/checked/reason。结构动作字段只用于离线观察，不是event关联字段别名。
 
@@ -1425,7 +1427,7 @@ NineTurnLayerStatus新增showAlignmentDiagnostics默认true。指数普通模式
 
 ## 11. 后续开发顺序、前置条件与上下游交接
 
-新规则并入重新安排后的P3，先修识别，再预测，再HTTP与必要前端，P3整批独立验收后才进入P4。普通/debug、生产禁用和最终旧代码清退的既定范围不变。本次有限跟踪及预测配套均尚未编码；此前前两步仅是§15—16中的修改前基线。当前先执行§17的修正/回归/专项对比交接，再继续下表P3第3步；不能用旧成绩跳过修正。
+新规则并入重新安排后的P3，先修识别，再预测，再HTTP与必要前端，P3整批独立验收后才进入P4。普通/debug、生产禁用和最终旧代码清退的既定范围不变。本次有限跟踪及内部预测配套已完成，当前成绩见§17.4；§15—16仅是修改前基线。接下来先按专项LLD固定源码、迁移记录解析、对比并review，再继续下表P3第3步，不能用旧成绩代替当前验收。
 
 ### 11.1 保留能力的明确落点
 
@@ -1585,7 +1587,7 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 
 #### 当前代码依据
 
-1. `query_service.py:SeriesEntry`现保存`points/events/structure_records`，`_load_series`聚合新`XxmStep`，`calculator_at`经新snapshot/restore返回截至指定根的独立计算器。此前第1步仅迁移了修改前完整内部结果、聚合、复制和asOf投影，并移除等待聚合；本次新字段、FOLLOWING变化、有限结束及相应历史投影仍须按§4修正并重新验收。
+1. `query_service.py:SeriesEntry`现保存`points/events/structure_records`，`_load_series`聚合新`XxmStep`，`calculator_at`经新snapshot/restore返回截至指定根的独立计算器。本次新字段、FOLLOWING变化、有限结束及相应历史投影已按§4修正并完成限定验收，证据见§17.4；后续第3步才接公开投影/一次编码，不再把这些内部实现列为未开发。
 2. 当前`IndexDetailXxmQueryService.build`在第1步返回`InternalXxmResponseDto`，先`model_dump_json`计字节；日线和分钟路由再通过FastAPI的`response_model`编码。目标是内部完整模型→正常/debug投影→公开校验→一次编码后返回bytes；不能拿旧完整DTO当新普通响应，或计完一份后再让框架重编码第二份。
 3. 当前预测query还从`pendingTopHistoryId/pendingBottomHistoryId`找结构，并把结构一形成直接当`CONFIRMED`、跳过未来日历和预测；也按原hist符号把零柱当无方向。新规则要从同次恢复的有效尚未首次反色结构及逻辑色段取状态；首次反色后的普通新段可以NONE，不能据旧STRUCTURE事件跳过新循环。`rearmContext`及其失效文案一起删除，不能只改文字。
 4. 当前预测模型同时校验`MAIN_SPEC`和`FORECAST_SPEC`，Python与TS仍有旧20根、等待及固定r2身份。识别hash变更后不能先让预测旧模型或TS旧decoder接收混配结果。两项真实hash和正常/debug目标模型在同一P3完成，再填入前端常量和明确身份的fixture；hash来自完整固定Spec，不是源码SHA，也不由旧响应换几个字段生成新expected。
@@ -1929,11 +1931,11 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 
 ### 14.14 本轮交付边界
 
-§15—16仅保留修改前两步成绩。本次先修P3第1步有限跟踪与内部配套，再修第2步旧结构预测，按RC01—96/PF01—28重新验收；本轮仅完成设计，停在编码前。RC73及RC93的公开HTTP/前端和完整请求验收仍依后续步骤，不自动进入第3步或部署。
+§15—16仅保留修改前两步成绩。本次先修P3第1步有限跟踪与内部配套，再修第2步旧结构预测，按RC01—96/PF01—28分层验收；本批已完成核心与内部层，成绩见§17.4。RC73及RC93的公开HTTP/前端和完整请求验收仍依后续步骤，不自动进入第3步或部署。
 
-### 14.15 下一同色段有限跟踪及顶底镜像测试设计（74—96，待编码）
+### 14.15 下一同色段有限跟踪及顶底镜像测试设计（74—96，核心/内部已实施）
 
-本轮只设计测试，不写测试代码、不跑新规则。以下仍为(C,D,H)独立字面输入；沿§14.2从空状态建T/B/TS/BS，不用待测函数生成expected。补充前缀TF=`TS;(90,98,-2)`、BF=`BS;(110,-98,2)`：t6首次反色，旧TOP/BOTTOM为FOLLOWING，originWave最终价格分别103/97、nextSameColorStart=None。TN=`TF;(102,97,2);(103,96,2)`、BN=`BF;(98,-97,-2);(97,-96,-2)`：t7/t8进入下一同色段，count2但价格未严格突破，旧结构仍FOLLOWING且新普通NONE。
+本轮已按下列字面预期实现核心/内部测试，不读取真实行情或启动历史对比。以下仍为(C,D,H)独立字面输入；沿§14.2从空状态建T/B/TS/BS，不用待测函数生成expected。补充前缀TF=`TS;(90,98,-2)`、BF=`BS;(110,-98,2)`：t6首次反色，旧TOP/BOTTOM为FOLLOWING，originWave最终价格分别103/97、nextSameColorStart=None。TN=`TF;(102,97,2);(103,96,2)`、BN=`BF;(98,-97,-2);(97,-96,-2)`：t7/t8进入下一同色段，count2但价格未严格突破，旧结构仍FOLLOWING且新普通NONE。
 
 | case | 顶部及底部字面输入/动作 | 独立预期 |
 |---|---|---|
@@ -1961,7 +1963,7 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 | RC95 构造后失败不能半发布 | 对TF/BF及RC77，在跟踪更新/普通事件都构造后故意使_validate_step或聚合模型失败；正常同前缀对照 | self、已发布entry和早先对象均不变，无半份消失；正常路径通过，不误拒旧新同根。 |
 | RC96 两方向同时保留且各自结束 | RC88顶部序列最后C104改102，再追加`(102,91,2);(86,-90,-2)`；镜像序列最后C96改98，再追加`(98,-91,-2);(114,90,2)` | t9两个槽合法存在：一个正在下一同色段、另一个刚首次反色等待；t11一个正常FINISHED无事件，另一个价格突破而DISAPPEARED一次，互不覆盖。额外第三槽/重复id拒绝。 |
 
-新增预测设计（不写代码）：
+新增预测设计（纯内核已实施，完整请求后续验收）：
 
 | case | 独立输入/数学预期 | 必须验证 |
 |---|---|---|
@@ -1976,9 +1978,9 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 
 PF21—23是纯手写EMA/表达式的隔离算术样本，不冒称这些任意人工价格来自真实EMA历史；分钟三个周期走原full_float，日线复用原rounded3_guarded来源选项并独立核整点及未决边界。来源读取/最近250根校准仍按原真实合同测试，不用算术样本替代接入验收。
 
-新增所有业务用例按day/m60/m90/m120展开，预期明确检查旧结构形成/首次反色/下一段起点/最终原Wave/消失或正常结束、普通状态及同根全部事件；不以测试数量替代规则覆盖。本轮只写上述设计，不声称任何新测试或真实重跑已经通过。
+新增所有业务用例按day/m60/m90/m120展开，预期明确检查旧结构形成/首次反色/下一段起点/最终原Wave/消失或正常结束、普通状态及同根全部事件；不以测试数量替代规则覆盖。核心/内部新测试的实际执行记录见§17.4；不将此扩展为公开接口、页面、完整预算或真实重跑通过。
 
-### 14.16 三处审计补齐的测试子样本（待编码，沿原case编号）
+### 14.16 三处审计补齐的测试子样本（核心/内部已实施，公开部分后续，沿原case编号）
 
 以下均为独立字面输入/预期，不新增算法模式，不把当前程序输出作为expected。DEA仍按§14.1给定。每个业务序列展开四周期；恢复与查询分别进入对应真实边界，不以mock筛选函数代替后续query/schema验收。
 
@@ -1998,7 +2000,7 @@ PF21—23是纯手写EMA/表达式的隔离算术样本，不冒称这些任意�
 
 ## 15. 历史基线：P3第1步实施与独立验收（2026-10-30）
 
-本节只保留本次有限跟踪修正前v0.2-r4实际实施与验收事实；其中旧LOCKED及不再撤销的行为不作为当前开发要求。最新规则与新增验收依§2—4及§14.15，本轮尚未开发。
+本节只保留本次有限跟踪修正前v0.2-r4实际实施与验收事实；其中旧LOCKED及不再撤销的行为不作为当前开发要求。最新规则与新增验收依§2—4及§14.15，当前实现和成绩另见§17.4。
 
 **结论：新识别核心及完整内部结果已完成本步限定验收，独立审计通过。**本轮停止在§11.4第1步，不进入下一根预测、公开投影/API、前端、环境装配或P5清退。没有提交、部署、安装依赖、启动服务或读取真实行情；不能把本步结果解释为页面或完整产品已可用。
 
@@ -2052,7 +2054,7 @@ PF21—23是纯手写EMA/表达式的隔离算术样本，不冒称这些任意�
 
 本节只保留本次修正前v0.4-r4单根预测验收；尚未包含旧结构有限失效条件，不能作为§6.12已完成证据。
 
-**结论：单根预测纯计算、固定Spec及限定测试已完成，独立审计通过。**只证明本步内核符合§6，不表示公开预测接口、页面或完整400ms请求已可用。本轮不提交、部署、安装、启动服务或读取真实行情；第3步及后续尚未执行。
+**此前结论（v0.4-r4基线）：单根预测纯计算、固定Spec及限定测试已完成，独立审计通过。**只证明当时内核基线，不覆盖本次§6.12有限跟踪，也不表示公开预测接口、页面或完整400ms请求已可用。当时没有提交、部署、安装、启动服务或读取真实行情；当前内部成绩见§17.4，第3步及后续仍未执行。
 
 ### 16.1 硬要求、实现及验收对应
 
@@ -2118,17 +2120,17 @@ CodeGraph使用codegraph_explore和codegraph_impact核对原forecast调用及测
 
 ## 17. 本轮有限跟踪修正的执行范围与开发停点（2026-10-31）
 
-本轮只修改原产品文档、技术方案、本LLD和直接日线/分钟/预测目标合同，并在历史对比方案/LLD追加下一次交接；没有业务/测试代码修改、源读取、重跑、提交或部署。已确认顶底镜像、完整原色段最终极值、下一同色段第一根即可失效、零中性、正常结束不报消失及消失不恢复。
+本轮按已批准的整体修复批次修改唯一识别核心、结构/Spec类型、内存恢复、内部模型/query、单根预测及对应测试，状态同步原产品/技术方案/本LLD；没有真实源读取、历史重跑、公开HTTP/TS变更、清退、提交或部署。已确认顶底镜像、完整原色段最终极值、下一同色段第一根即可失效、零中性、正常结束不报消失及消失不恢复。
 
-先完成本轮设计/独立审计，再按以下顺序另获准开发：①唯一核心/结构类型、followedStructures、恢复与完整内部模型/聚合/asOf；②旧结构下一根条件及同源预算、普通/debug设计；③RC74—96/PF21—28及原回归、前后规则对账；④修正源码提交确定后更新专项固定CURRENT及记录解析，再按专项授权一次重跑。以上结束并review前，不推进P3第3步、P4或P5，不提前改正式HTTP/前端运行行为。
+设计及开工前审计后，管理员已批准并完成下列①—③的内部实现；④仍须后续提交固定源码及授权：①唯一核心/结构类型、followedStructures、恢复与完整内部模型/聚合/asOf；②旧结构下一根条件及同源预算、普通/debug设计；③RC74—96/PF21—28及原回归、前后规则对账；④修正源码提交确定后更新专项固定CURRENT及记录解析，再按专项授权一次重跑。以上结束并review前，不推进P3第3步、P4或P5，不提前改正式HTTP/前端运行行为。
 
-MAIN_SPEC目标v0.3-r4，FORECAST_SPEC目标v0.5-r4；真实hash只从实施后的完整Spec生成，文档不填假值。原日线/分钟/预测目标章节同步新身份和条件，运行代码仍旧身份，不用改字符串伪装实现。既有§15/16及历史922根报告均不改当时结果，不作为本次新验收；当前专项固定c6a845fe3只复现旧核心，不能拿它证明本轮规则已生效。
+MAIN_SPEC已实现v0.3-r4，FORECAST_SPEC已实现v0.5-r4；真实hash由完整Spec生成，见§17.4，不在代码中硬编码。原日线/分钟/预测目标章节同步新身份和条件，内部运行代码已用新身份，公开运行链后续迁移；不用只改字符串伪装已完成公开集成。既有§15/16及历史922根报告均不改当时结果，不作为本次新验收；当前专项固定c6a845fe3只复现旧核心，不能拿它证明本轮规则已生效。
 
 检查范围包括core→snapshot→query/internal models→forecast math/record matching→HTTP投影/TS解码及既有测试。CodeGraph已覆盖validate_structure_record、ParsedXxmSnapshot和直接调用方，结合实际源码核当前FOLLOWING目标与旧LOCKED行为的差异。新规则不恢复r2永久历史列表或旧底部价格等待，普通/debug环境限制、波段研究工具、1000根、1%/近远/TODO和既有真实来源不变。产品400ms及日线/分钟原预算不放宽，专项仍20秒/1GiB/100MiB，两者不混用。
 
-### 17.1 本轮独立文档审计及测试设计修正（2026-10-31）
+### 17.1 开发前文档审计及测试设计修正记录（2026-10-31）
 
-核对范围为原产品、技术方案、本文和直接配套日线/分钟/预测目标合同；本地工作区历史专项§22交接草案一并复核，§21原成绩不改；这两份专项文档含另一批尚未提交的执行报告/预算变更，本次只提交六份识别方案与合同，专项另随对应代码提交。CodeGraph及当前calculator/query/forecast_detector、Wealth adapter/primitive确认：运行代码仍是旧终态、预测仍限制单普通事件，不能用文档改完宣称代码已支持。本轮仅修文档，未运行识别、行情重放、API或测试代码。
+核对范围为原产品、技术方案、本文和直接配套日线/分钟/预测目标合同；本地工作区历史专项§22交接草案一并复核，§21原成绩不改；这两份专项文档含另一批尚未提交的执行报告/预算变更，本次只提交六份识别方案与合同，专项另随对应代码提交。当时CodeGraph及calculator/query/forecast_detector、Wealth adapter/primitive确认：运行代码仍是旧终态、预测仍限制单普通事件，不能用文档改完宣称代码已支持。该文档阶段仅修文档，未运行识别、行情重放、API或测试代码。
 
 | 发现的矛盾或遗漏 | 修正位置和必须验的用例 |
 |---|---|
@@ -2146,7 +2148,7 @@ MAIN_SPEC目标v0.3-r4，FORECAST_SPEC目标v0.5-r4；真实hash只从实施后�
 
 ### 17.2 三处审计补齐及本次文档提交范围（2026-10-31）
 
-管理员已批准补齐后提交，再独立审计；本次只改原产品/技术方案/本文及日线目标合同，日线合同仅提交§10，本文件外其他未提交工作保留。业务代码、测试代码、行情、预测及回测不执行；本次文档提交不等于识别修正已实现，不进入P3第3步。
+管理员已批准补齐后提交，再独立审计；当时只改原产品/技术方案/本文及日线目标合同，日线合同仅提交§10，本文件外其他未提交工作保留。当时没有执行业务代码、测试代码、行情、预测及回测；该文档提交不等于识别修正已实现，不进入P3第3步。
 
 - §4.1共用恢复/最终发布检查下一同色段整段价格极值，拒绝“此前已突破却仍FOLLOWING”；RC89新增普通根和零根突破后回撤的非法副本，同时有分隔段突破/同色等号/真实已清槽进度正常通过。
 - §4.2.1固定窗口结构集合，先按through投影/全记录核对，再取本窗引用、变化或有效时间覆盖窗口的记录；无事件、正常结束当根、结束次根及空窗口均有RC93独立预期，不增加假事件或改变普通投影。
@@ -2157,6 +2159,66 @@ MAIN_SPEC目标v0.3-r4，FORECAST_SPEC目标v0.5-r4；真实hash只从实施后�
 
 ### 17.3 提交后三处补齐的独立复核（2026-10-31）
 
-三处补齐文档已提交0400e4ff6，业务/测试代码未改。随后独立复核又明确两项上下游说明：§3.12只以前两步内部迁移及review作为第3步前置，公开/TS消费者分别在第3/4步迁移、发布前全部通过；§8.4将无事件旧结构按后端时间字段关联至debugDetail.structures，保留普通point状态，RC93补真实adapter/renderer展示子样本。另把普通状态回DULL与结构记录DISAPPEARED区分写清，避免混用枚举。这些修正不改变业务条件、公开字段集合或阶段范围，不增加接口/页面入口/算法模式。
+三处补齐文档提交0400e4ff6时，业务/测试代码未改。随后独立复核又明确两项上下游说明：§3.12只以前两步内部迁移及review作为第3步前置，公开/TS消费者分别在第3/4步迁移、发布前全部通过；§8.4将无事件旧结构按后端时间字段关联至debugDetail.structures，保留普通point状态，RC93补真实adapter/renderer展示子样本。另把普通状态回DULL与结构记录DISAPPEARED区分写清，避免混用枚举。这些修正不改变业务条件、公开字段集合或阶段范围，不增加接口/页面入口/算法模式。
 
 本轮覆盖复核按普通NONE/DULL/STRUCTURE、同色/零/反色、旧跟踪未开始/已开始/已结束/已消失交叉检查，并核对应case中的不可达状态用恢复反例拒绝。RC01—96/PF01—28及§14.16子样本是已确认规则的设计覆盖，不是已执行成绩；根数和条目计数不能证明实现无误。既有源码事实、源/接口/性能及页面验收仍按各阶段另行执行，本轮不运行算法或回测。
+
+
+### 17.4 本轮整体修复批次执行与独立审计（2026-10-31）
+
+管理员已批准按既定步骤实施。本轮依次完成唯一核心与结构类型、内存副本校验、内部聚合/asOf及查询窗口、单根预测和必要回归；不迁移公开HTTP/TS/页面，不清退旧版本，不读真实行情或运行历史对比，不提交或部署。失败只丢弃本根工作副本，不返回半份结果、不落盘，取消和中断检查沿用同一预算。本轮实现、限定回归与独立代码审计已完成；实际成绩及未覆盖边界见下文。
+
+| 已定要求 | 实现位置 | 验证依据 |
+|---|---|---|
+| 原段最终极值、下一同色段有限跟踪、同根多事件、终态不恢复 | calculator/types/spec | RC74—88、94—96及原RC01—73独立字面回归 |
+| 最多顶底各一条跟踪、曾突破后回撤不得伪造有效状态 | snapshot_validation | RC89—90、§14.16恢复子样本及错误副本原子拒绝 |
+| 内部记录聚合、按当时日期投影、无事件窗口仍可查看有效结构 | query_service及内部schema | RC91—93、§14.16窗口子样本 |
+| 旧结构条件独立、只算下一根、不因核验旧结构调用远参照 | forecast/forecast_next/forecast_detector/types | PF21—28、原M1—M5和PF01—20 |
+| 业务结果不受观察开关影响、无文件或网络副作用 | calculator及本地人工测试 | 开关同序列、故障注入、架构检查 |
+
+400ms仍为完整预测请求预算，本轮只测预测内核，不能以此宣称后续公开接口性能验收通过。RC93的公开投影/真实renderer子样本及HTTP/TS验收保留在后续P3第3—4步，不计入本批完成项。
+
+
+#### 实现与验收对账
+
+| 实现内容 | 实际代码与测试证据 |
+|---|---|
+| 单一核心、最终原段事实和有限范围 | `calculator.py:_start_structure/_finish_structure/_advance_followed_structures/step/_validate_step`；`types.py`新记录及两个固定方向槽。RC74—88/94—96在`test_xxm_r4_following.py`逐根检查起点、原段最终值、终态、全部事件；同根旧CANCEL与新DULL/color_flip均保留。RC94在`test_xxm_r4_following_query.py`使用§14.15原九根字面数值，不冒充真实EMA重放。 |
+| 保持原判断规则 | `test_xxm_r4_rules.py`原RC01—69字面序列仍逐根核对原值、当根首次、曾破、两根柱、零柱、B/A先后、救援、1%及转折优先；只按本次已批准状态扩展结构预期。`test_xxm_calculator.py`仅执行CURRENT_CORE_NODES七个完整函数名，不运行旧冻结重放节点。 |
+| 有界恢复和原子拒绝 | `snapshot_validation.py:validate_structure_facts/validate_structure_record/validate_xxm_progress/parse_xxm_snapshot`；快照仅activeStructure和TOP/BOTTOM两份followedStructures。RC89包括假终态、NaN、未来/错分隔起点、远段冒充、额外槽、重复id、旧字段、曾突破后回撤（实柱/零柱）；合法等号、分隔段越价、已被历史池淘汰的原远参照均正常恢复。空进度/开头零柱的槽必须精确None，0/False/空字典/空列表拒绝。RC90每个切点连续/恢复/观察开关一致，RC95构造后故障不改self或旧输出。 |
+| 完整内部模型、聚合/asOf/窗口 | `query_service.py:_merge_structure_updates/_project_structure/_response`及仅InternalXxm*模型；RC91—93在旧测试及`test_xxm_r4_following_query.py`核未来字段、最终极值不倒写、合法历史引用、无事件有效窗口、结束当根/次根和空窗、双方向/多事件、窗口外错误不被过滤、只取一次calculator_at及终态不可重开。没有改源读取/SQL、公开DTO或HTTP。 |
+| 单根预测与相同计算依据 | `forecast.py:precheck_next_bar/forecast`及`forecast_next.py:solve_followed_structure`、`forecast_detector.py:evaluate_structure_follow_at_price`。旧结构核验只运行同一核心的有限跟踪方法，不运行完整普通step；旧范围与普通范围分开，不跨对象删精度范围。PF21—28位于`test_xxm_r4_following_forecast.py`，包含四周期字面EMA/原运算、真实H=0、普通静态退出仍返回旧条件、手写草稿状态合成、整次请求A资格/救援/求解零调用、同一候选价的advance复用、错误目标/证据冲突、旧step后及最终构造后的超时退出。原M1—M5/PF01—20继续通过。 |
+| 说明、观察、身份和边界 | `forecast_text.py`仍四字符串，说明旧结构适用段、临界未决及正常停止，不说锁死后永不消失。`record_decisions=False`仍默认，旧检查写独立structureFollowChecks，不覆盖普通branch。Spec为v0.3-r4/v0.5-r4，仅规则身份变化；无新配置/依赖/开关/源码SHA保护。纯核心IO拒绝测试和架构检查通过。 |
+
+实际Spec hash（由完整Spec生成，不用于源码保护）：
+
+- MAIN_SPEC：`3576235a25d6e308cfa34e7df4d168c8303059c37e4c4c538cf6c2799bb878ce`。
+- FORECAST_SPEC：`0f93850843d9be9dfb64baae5aef6e4477fa04ba5a8d35e2a8c67acc8e3d9467`。
+
+#### 限定测试执行结果
+
+各组均使用现有`.venv`，执行器单组60秒上限，无安装或来源读取。以下是参数展开项数，不是业务case数量，也不能替代真实数据/完整接口验收。
+
+| 组 | 选择范围 | 结果 |
+|---|---|---|
+| 核心/恢复/输入/有限跟踪 | `test_xxm_r4_rules.py`、`test_xxm_r4_restore.py`、`test_xxm_input_validation.py`、`test_xxm_r4_following.py` | 1249通过，最后整组5.34秒 |
+| 内部查询/消费/恢复 | `test_xxm_r4_internal_results.py`、`test_xxm_snapshot_consumers.py`、`test_xxm_snapshot_validation.py`、`test_xxm_r4_following_query.py` | 332通过，最后整组2.01秒 |
+| 单根数学/文本/旧结构预测 | `test_xxm_key_point_forecast.py`、`test_xxm_p3_forecast_math.py`、`test_xxm_r4_following_forecast.py` | 189通过（最终构造后超时回归包含在内） |
+| 正式核心观察 | `test_xxm_r4_observation.py -k 'not observe_rows'` | 513通过；2个旧研究入口明确不纳入本轮验收 |
+| 原人工核心节点 | `test_xxm_calculator.py`的CURRENT_CORE_NODES七个完整`::函数名` | 19通过，约0.2秒 |
+| 根要求三份架构测试 | `test_subsystem_dependency_matrix.py`、`test_platform_legacy_guardrails.py`、`test_operations_legacy_guardrails.py` | 16通过，12.66秒 |
+
+五组定向测试合计2302项；架构16项另计。开发时试跑曾误选两个旧observe_rows节点和旧完整oracle的三个参数项，均在旧`bottom_history_acceptance.py`导入不存在的`inactive_result`时失败，未进入其来源读取或重放。核对开发前Git版本已无该函数；该runner在§10/11已列后续清退。本轮没有添加兼容函数、修改旧入口、skip失败或把它们算成通过；最终按既定人工节点范围验收。今后原核心必须用CURRENT_CORE_NODES完整函数名，不能用first_activation关键词误选旧oracle。
+
+本机额外使用两方向跟踪并存的人工前缀运行20次纯计算、四字符串说明和临时JSON编码：P95为35.89ms、最大36.431ms，样本编码6274字节，两份旧结构条件均保留。此值只证明这一隔离样本，不含真实来源校准/查询、公开模型、真实HTTP编码及浏览器，不能宣布完整400ms产品预算通过；产品预算未放宽。
+
+#### 独立审计及未覆盖项
+
+开发后重新按§2—4、§6.12、§7和§14逐条查看真实代码、调用方与测试，不以测试数量代替规则判断。重点复核：原段最终值和形成值不混用、反色根不计旧段、第一根新同色可失效、零柱延续、正常结束不造事件、失效不重开、同根旧新事件均校验、原参照被池淘汰不误拦、过去窗口不泄漏未来事实、旧价格条件不调用A、只有真正末次构造后check通过才返回、失败不发布。审计发现并修复空槽假空值以及最终结果构造后未再次检查时限的遗漏，并补正反例。未发现本批未处理的规则歧义或阻碍。
+
+已用CodeGraph的explore/node/impact核对XxmCalculator、ParsedXxmSnapshot、校验函数、query消费者、forecast匹配及其测试；开发后sync/status复核索引。没有新增跨子系统依赖；字段/生命周期检查在biz内部共用。HTTP投影、公开模型与TS调用方仍是后续迁移边界，不声称它们已支持新结构集合。
+
+保留未执行：RC73/RC93公开投影、真实adapter/renderer和TS；PF28完整请求编码/普通debug一致性、真实来源及400ms全链预算；专项固定源码后历史重跑。日线/分钟源读取、250根校准、SQL、数据库/Lake、公开API/页面、r2/旧研究清退均未改；没有运行922根行情、比较报告或软件截图回放。工作停在本批交付，未提交、推送、部署或自动进入下一阶段。
+
+
+提交交接：管理员本轮已明确批准提交这次整体修复。开发阶段“不自动提交”的停止条件至此解除，仅限本批26个文件；其他未提交工作保留。实际版本以本次Git提交为准，下一次专项须登记该真实提交后再适配记录解析和开展受控对比。本轮只提交并提出后续顺序供review，不读取行情、不运行历史对比、不推进公开接口/页面、清退或部署。

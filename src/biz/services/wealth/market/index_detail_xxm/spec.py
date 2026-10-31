@@ -7,7 +7,7 @@ import json
 
 @dataclass(frozen=True, slots=True)
 class XxmSpec:
-    algorithm_version: str = "xxm-direction-v0.2-r4"
+    algorithm_version: str = "xxm-direction-v0.3-r4"
     dif_turn_pct: float = 1.0
     max_refs: int = 2
     min_bars: int = 2
@@ -18,7 +18,8 @@ class XxmSpec:
     activation_policy: str = "current_close_and_current_dif"
     reference_break_policy: str = "strict_break_within_current_segment"
     structure_return_policy: str = "adjacent_one_percent_to_dull"
-    structure_lock_policy: str = "first_valid_opposite_color"
+    structure_follow_policy: str = "next_same_color_close_break"
+    structure_follow_price_policy: str = "closed_origin_wave_extreme"
     historical_min_bars: int = 1
     top_activation_requires_positive_dif: bool = True
     macd_parameters: tuple[int, int, int] = (12, 26, 9)

@@ -209,7 +209,7 @@ def test_count_zero_returns_new_empty_state_without_snapshot_or_checkpoint(monke
     checks = []
     child = entry.calculator_at(0, lambda: checks.append(True))
     assert type(child) is XxmCalculator and child is not entry.calculator
-    assert child.spec is MAIN_SPEC and child.spec.algorithm_version == "xxm-direction-v0.2-r4"
+    assert child.spec is MAIN_SPEC and child.spec.algorithm_version == "xxm-direction-v0.3-r4"
     assert (child.period, child.source_identity, child.ts_code) == (
         entry.calculator.period, entry.calculator.source_identity, entry.calculator.ts_code)
     assert child.processed == 0 and child.previous is None and child.wave is None
@@ -311,7 +311,7 @@ def test_increment_failure_after_real_step_preserves_old_entry(monkeypatch):
     original = IndexDetailXxmQueryService._response(old, period="day", expected=DATES[5],
         start_date=None, limit=1000, check=lambda: None)
     assert past.model_dump() == original.model_dump()
-    assert past.structures[0].status == "ASSESSING" and past.structures[0].lockedAt is None
+    assert past.structures[0].status == "ASSESSING" and past.structures[0].firstOppositeAt is None
     assert service.cache.get(KEY) is new and entry_facts(old) == before
 
 
@@ -355,7 +355,7 @@ def test_load_entry_cache_separates_rule_connection_and_source_identity(monkeypa
     actual_key = (id(session.bind), service.lake_identity, "day", MAIN_SPEC.spec_hash)
     # This is a stale cache-key fixture, not a relabelled old algorithm result.
     old_hash = "6db425730c72f22ea756c121a832f27c966d1324ef0a72a2312a3c572038724d"
-    assert MAIN_SPEC.algorithm_version == "xxm-direction-v0.2-r4" and MAIN_SPEC.spec_hash != old_hash
+    assert MAIN_SPEC.algorithm_version == "xxm-direction-v0.3-r4" and MAIN_SPEC.spec_hash != old_hash
     old_key = (*actual_key[:-1], old_hash)
     old = service._load_series(None, key=old_key, period="day", now=stamp,
         business_date=stamp.date(), remaining=lambda: None)[0]
@@ -382,7 +382,7 @@ def test_clone_restores_formal_identity_and_isolates_mutable_state(source_bounda
     before = entry_facts(entry)
     child = clone(parent)
     assert type(child) is XxmCalculator and child is not parent
-    assert child.spec is MAIN_SPEC and child.spec.algorithm_version == "xxm-direction-v0.2-r4"
+    assert child.spec is MAIN_SPEC and child.spec.algorithm_version == "xxm-direction-v0.3-r4"
     assert (child.ts_code, child.period, child.source_identity) == (parent.ts_code, parent.period, parent.source_identity)
     assert child.processed == 6 and child.state == "STRUCTURE" and child.reference.reference() == REFERENCE
     assert child.active_structure["formedAt"] == DATES[5] and child.active_structure["priceExtreme"] == 103
@@ -462,7 +462,7 @@ def test_historical_prefix_and_zero_return_to_dull_clone_in_every_period(monkeyp
         limit=1000, check=lambda: None)
     assert response.structures[0].status == "ASSESSING"
     assert response.structures[0].disappearedAt is None
-    assert response.structures[0].lockedAt is None
+    assert response.structures[0].firstOppositeAt is None
 
     full_before = entry_facts(full)
     child = clone(full.calculator)
