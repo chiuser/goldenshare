@@ -22,7 +22,7 @@ Read the [automatic-script change plan](references/automatic-audit-script-plan.m
 ## Procedure
 
 1. Read applicable `AGENTS.md` files, current catalog/model definitions, path helpers and relevant producer contracts. Follow the repository's read-only and data-reading approval boundaries.
-2. Use the existing orchestrator environment. The invocation below identifies the existing entrypoint. Until the planned implementation is accepted, first check its read scope: the old annual summary still reads nonessential code/time statistics and its error totals need correction. Do not mechanically run those extra reads under count-only authorization. The five supplements and the existing correct count/error semantics remain required:
+2. Use the existing orchestrator environment. The invocation below identifies the existing entrypoint. Until the planned implementation is accepted, first check its read scope: the old annual summary still reads nonessential code/time statistics, ClickHouse still performs unnecessary code/category statistics, and error totals need correction. Do not mechanically run those extra reads under count-only authorization. The five supplements and the existing correct count/error semantics remain required:
 
    ```bash
    cd /Users/congming/github/goldenshare/lake_console/orchestrator
@@ -45,7 +45,7 @@ Read the [automatic-script change plan](references/automatic-audit-script-plan.m
 - Every current catalog entry must have a justified audited, excluded or unverified classification. `catalog_classification_complete=false` is an audit failure; `true` alone is not an acceptance result.
 - `catalog_classification_complete=true` from the former script proves only that every asset received some classification. It does not validate the exclusions or prove complete audit coverage.
 - The current plan adds four stock period assets and one announcement asset to the former 159-asset scope: 164 audited and 16 excluded out of the existing 180 catalog entries. The exclusions are two calendars, thirteen full snapshots and one health asset. Derive counts from the actual catalog on future runs; do not treat exclusions as obsolete, healthy or fresh.
-- Counts and bounded date predicates are preferred. No full-history market scans, source-wide comparisons, source downloads, repeated global audits or unapproved global detail reads. Do not automatically execute the original job or checks.
+- Counts and bounded date predicates are preferred. Development and isolated acceptance must not trigger a formal catalog-wide audit. For a later explicit date audit, establish the necessary scope and reuse applicable evidence; run a complete catalog audit only when the request actually requires it. No full-history market scans, source-wide comparisons, source downloads, repeated global audits or unapproved global detail reads. Do not automatically execute the original job or checks.
 - Keep date-filtered ClickHouse queries read-only with the existing scan/result/time limits. Prod PostgreSQL reads must use the existing resource's forced-read-only transaction, even if its account has write grants. A missing connection or tunnel is `backend_unavailable`, never a silent exclusion or physical gap.
 - No jobs, sensor evaluation, sensor/cursor changes, materialization, dynamic partitions, runless events, database writes, Lake writes or repairs. Use existing read-only resources; do not initialize or upgrade an instance.
 - A dataset audit must not modify repository files or rewrite historical audit evidence.
@@ -55,3 +55,5 @@ Read the [automatic-script change plan](references/automatic-audit-script-plan.m
 `missing_file` means the expected file is absent; `empty_file` is a zero-byte file. `missing_date_rows` means the requested date has no rows in the audited annual-file family. `missing_rows` means a date-driven serving table has no rows for that date. A readable file with zero records is a separate observation; whether zero is allowed depends on its producer contract. `backend_unavailable` and unverified scope are not missing data.
 
 A period file containing rows is not enough to say its daily update completed. Report its observation date separately. Physical presence, freshness, source coverage, native checks and task success are distinct conclusions; claim only what the evidence establishes.
+
+Missing, zero-byte and readable zero-row period files have no observed update date; they are not evidence of a valid older update. Follow LLD section 5.1 for pending/gap and null/zero fields. Missing columns, wrong types and read failures make that item unverified while other normal items continue. Count unverified assets from `assessment_status`, not merely from `update_status`.
