@@ -1,0 +1,853 @@
+{
+  "status": "completed",
+  "stage": "all_comparisons_saved",
+  "attempt": 2,
+  "authorized": true,
+  "cached_database_sha256": "33d23d4bc0a7241a8ac1d0fc324de0d7dc5f29a1970a59feef34abfc920d6288",
+  "database_reconnected": false,
+  "formal_data_written": false,
+  "source_files_expected": 43,
+  "source_files_metadata_inspected": 43,
+  "source_files_data_read": 43,
+  "real_controls": 0,
+  "kernel_calls": 0,
+  "previous_attempt_not_overwritten": true,
+  "stages": [
+    {
+      "stage": "prices",
+      "selected_rows": 42,
+      "source_files": 21
+    },
+    {
+      "stage": "factors",
+      "selected_rows": 42,
+      "source_files": 21
+    },
+    {
+      "stage": "basis",
+      "selected_rows": 2,
+      "source_files": 1
+    }
+  ],
+  "source_manifest": [
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-03/part-000.parquet",
+      "size": 269127,
+      "mtime_ns": 1783073690588819349,
+      "inode": 6584397,
+      "file_rows": 5516,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 121450,
+      "projected_uncompressed_bytes": 248411
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-06/part-000.parquet",
+      "size": 269176,
+      "mtime_ns": 1783384260984716059,
+      "inode": 6699855,
+      "file_rows": 5517,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 121284,
+      "projected_uncompressed_bytes": 248456
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-07/part-000.parquet",
+      "size": 267845,
+      "mtime_ns": 1783517206146499824,
+      "inode": 6703921,
+      "file_rows": 5517,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 121468,
+      "projected_uncompressed_bytes": 248456
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-08/part-000.parquet",
+      "size": 268301,
+      "mtime_ns": 1783518411289509168,
+      "inode": 6707049,
+      "file_rows": 5518,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 121324,
+      "projected_uncompressed_bytes": 248501
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-09/part-000.parquet",
+      "size": 266463,
+      "mtime_ns": 1783648542403258955,
+      "inode": 6707543,
+      "file_rows": 5520,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 121024,
+      "projected_uncompressed_bytes": 248591
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-10/part-000.parquet",
+      "size": 268818,
+      "mtime_ns": 1783949301377382872,
+      "inode": 7128600,
+      "file_rows": 5521,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 120920,
+      "projected_uncompressed_bytes": 248636
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-13/part-000.parquet",
+      "size": 269266,
+      "mtime_ns": 1783935470194221873,
+      "inode": 7128060,
+      "file_rows": 5524,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 120697,
+      "projected_uncompressed_bytes": 248771
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-14/part-000.parquet",
+      "size": 266542,
+      "mtime_ns": 1784023784352417423,
+      "inode": 7218185,
+      "file_rows": 5524,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 120654,
+      "projected_uncompressed_bytes": 248771
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-15/part-000.parquet",
+      "size": 266054,
+      "mtime_ns": 1784107949974892447,
+      "inode": 7674745,
+      "file_rows": 5525,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 120572,
+      "projected_uncompressed_bytes": 248816
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-16/part-000.parquet",
+      "size": 265779,
+      "mtime_ns": 1784194368420010677,
+      "inode": 7786900,
+      "file_rows": 5524,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 120349,
+      "projected_uncompressed_bytes": 248771
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-17/part-000.parquet",
+      "size": 269108,
+      "mtime_ns": 1784281369683033685,
+      "inode": 7899790,
+      "file_rows": 5522,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 120657,
+      "projected_uncompressed_bytes": 248681
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-20/part-000.parquet",
+      "size": 268780,
+      "mtime_ns": 1784539820774088648,
+      "inode": 8024944,
+      "file_rows": 5524,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 119980,
+      "projected_uncompressed_bytes": 248771
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-21/part-000.parquet",
+      "size": 267656,
+      "mtime_ns": 1784626509734208860,
+      "inode": 8133467,
+      "file_rows": 5525,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 119881,
+      "projected_uncompressed_bytes": 248816
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-22/part-000.parquet",
+      "size": 265595,
+      "mtime_ns": 1784713171265643923,
+      "inode": 8141388,
+      "file_rows": 5526,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 119811,
+      "projected_uncompressed_bytes": 248861
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-23/part-000.parquet",
+      "size": 265900,
+      "mtime_ns": 1784798896832724147,
+      "inode": 8248479,
+      "file_rows": 5526,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 120085,
+      "projected_uncompressed_bytes": 248861
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-24/part-000.parquet",
+      "size": 265024,
+      "mtime_ns": 1784885016325883199,
+      "inode": 8503299,
+      "file_rows": 5526,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 119915,
+      "projected_uncompressed_bytes": 248861
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-27/part-000.parquet",
+      "size": 261734,
+      "mtime_ns": 1785144786490213347,
+      "inode": 8623086,
+      "file_rows": 5523,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 119984,
+      "projected_uncompressed_bytes": 248726
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-28/part-000.parquet",
+      "size": 265416,
+      "mtime_ns": 1785232084014276293,
+      "inode": 8808657,
+      "file_rows": 5524,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 120068,
+      "projected_uncompressed_bytes": 248771
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-29/part-000.parquet",
+      "size": 264970,
+      "mtime_ns": 1785333681069684203,
+      "inode": 8960874,
+      "file_rows": 5524,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 120037,
+      "projected_uncompressed_bytes": 248771
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-30/part-000.parquet",
+      "size": 265099,
+      "mtime_ns": 1785414219604748756,
+      "inode": 9070422,
+      "file_rows": 5528,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 120016,
+      "projected_uncompressed_bytes": 248951
+    },
+    {
+      "kind": "prices",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-07-31/part-000.parquet",
+      "size": 264997,
+      "mtime_ns": 1785490724305212267,
+      "inode": 9185788,
+      "file_rows": 5528,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close"
+      ],
+      "projected_compressed_bytes": 119748,
+      "projected_uncompressed_bytes": 248951
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-03/part-000.parquet",
+      "size": 54753,
+      "mtime_ns": 1792261366665482077,
+      "inode": 21406860,
+      "file_rows": 5522,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54294,
+      "projected_uncompressed_bytes": 116066
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-06/part-000.parquet",
+      "size": 54783,
+      "mtime_ns": 1792261366699724786,
+      "inode": 21406877,
+      "file_rows": 5522,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54324,
+      "projected_uncompressed_bytes": 116066
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-07/part-000.parquet",
+      "size": 54790,
+      "mtime_ns": 1792261366733716407,
+      "inode": 21406894,
+      "file_rows": 5522,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54331,
+      "projected_uncompressed_bytes": 116066
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-08/part-000.parquet",
+      "size": 54801,
+      "mtime_ns": 1792261366766121916,
+      "inode": 21406911,
+      "file_rows": 5523,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54342,
+      "projected_uncompressed_bytes": 116087
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-09/part-000.parquet",
+      "size": 54809,
+      "mtime_ns": 1792261366799736364,
+      "inode": 21406928,
+      "file_rows": 5524,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54350,
+      "projected_uncompressed_bytes": 116108
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-10/part-000.parquet",
+      "size": 54865,
+      "mtime_ns": 1792261366833681442,
+      "inode": 21406945,
+      "file_rows": 5526,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54406,
+      "projected_uncompressed_bytes": 116150
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-13/part-000.parquet",
+      "size": 54878,
+      "mtime_ns": 1792261366866169327,
+      "inode": 21406962,
+      "file_rows": 5526,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54419,
+      "projected_uncompressed_bytes": 116150
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-14/part-000.parquet",
+      "size": 54899,
+      "mtime_ns": 1792261366898873217,
+      "inode": 21406979,
+      "file_rows": 5526,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54440,
+      "projected_uncompressed_bytes": 116150
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-15/part-000.parquet",
+      "size": 54916,
+      "mtime_ns": 1792261366931150348,
+      "inode": 21406996,
+      "file_rows": 5526,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54457,
+      "projected_uncompressed_bytes": 116150
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-16/part-000.parquet",
+      "size": 54950,
+      "mtime_ns": 1792261366963231559,
+      "inode": 21407013,
+      "file_rows": 5527,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54491,
+      "projected_uncompressed_bytes": 116171
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-17/part-000.parquet",
+      "size": 54978,
+      "mtime_ns": 1792261366994268793,
+      "inode": 21407030,
+      "file_rows": 5527,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54519,
+      "projected_uncompressed_bytes": 116171
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-20/part-000.parquet",
+      "size": 54976,
+      "mtime_ns": 1792261367025726826,
+      "inode": 21407047,
+      "file_rows": 5527,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54517,
+      "projected_uncompressed_bytes": 116171
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-21/part-000.parquet",
+      "size": 54978,
+      "mtime_ns": 1792261367058542134,
+      "inode": 21407064,
+      "file_rows": 5528,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54519,
+      "projected_uncompressed_bytes": 116192
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-22/part-000.parquet",
+      "size": 54994,
+      "mtime_ns": 1792261367088249093,
+      "inode": 21407082,
+      "file_rows": 5529,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54535,
+      "projected_uncompressed_bytes": 116213
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-23/part-000.parquet",
+      "size": 55007,
+      "mtime_ns": 1792261367118579231,
+      "inode": 21407099,
+      "file_rows": 5529,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54548,
+      "projected_uncompressed_bytes": 116213
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-24/part-000.parquet",
+      "size": 55008,
+      "mtime_ns": 1792261367149664424,
+      "inode": 21407116,
+      "file_rows": 5530,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54549,
+      "projected_uncompressed_bytes": 116234
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-27/part-000.parquet",
+      "size": 55018,
+      "mtime_ns": 1792261367184761523,
+      "inode": 21407133,
+      "file_rows": 5532,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54559,
+      "projected_uncompressed_bytes": 116276
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-28/part-000.parquet",
+      "size": 55035,
+      "mtime_ns": 1792261367219046442,
+      "inode": 21407150,
+      "file_rows": 5532,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54576,
+      "projected_uncompressed_bytes": 116276
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-29/part-000.parquet",
+      "size": 55052,
+      "mtime_ns": 1792261367252521095,
+      "inode": 21407167,
+      "file_rows": 5533,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54593,
+      "projected_uncompressed_bytes": 116297
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-30/part-000.parquet",
+      "size": 55067,
+      "mtime_ns": 1792261367288486294,
+      "inode": 21407184,
+      "file_rows": 5534,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54608,
+      "projected_uncompressed_bytes": 116318
+    },
+    {
+      "kind": "factors",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-07-31/part-000.parquet",
+      "size": 55060,
+      "mtime_ns": 1792261367322231077,
+      "inode": 21407201,
+      "file_rows": 5534,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 54601,
+      "projected_uncompressed_bytes": 116318
+    },
+    {
+      "kind": "basis",
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-30/part-000.parquet",
+      "size": 55582,
+      "mtime_ns": 1793352373130805712,
+      "inode": 29908214,
+      "file_rows": 5581,
+      "row_groups": 1,
+      "projected_columns": [
+        "ts_code",
+        "trade_date",
+        "adj_factor"
+      ],
+      "projected_compressed_bytes": 55123,
+      "projected_uncompressed_bytes": 117305
+    }
+  ],
+  "candidate_physical_rows": 237642,
+  "projected_compressed_bytes": 3729025,
+  "projected_uncompressed_bytes": 7780349,
+  "physical_disk_bytes_read": "not_measured; footer sizes are candidate I/O cost only",
+  "summary": [
+    {
+      "ts_code": "600000.SH",
+      "row_count": 84,
+      "raw_exact_count": 84,
+      "qfq_native_exact_count": 48,
+      "qfq_rounded_5_exact_count": 84,
+      "max_absolute_difference": 4.9760033160595185e-06,
+      "max_relative_difference": 5.723854384959158e-07
+    },
+    {
+      "ts_code": "603806.SH",
+      "row_count": 84,
+      "raw_exact_count": 84,
+      "qfq_native_exact_count": 0,
+      "qfq_rounded_5_exact_count": 84,
+      "max_absolute_difference": 4.8741234621729745e-06,
+      "max_relative_difference": 3.492092811208929e-07
+    }
+  ],
+  "factor_summary": [
+    {
+      "ts_code": "600000.SH",
+      "row_count": 21,
+      "factor_exact_count": 21,
+      "factor_values": 2,
+      "first_date": "2026-07-03",
+      "last_date": "2026-07-31"
+    },
+    {
+      "ts_code": "603806.SH",
+      "row_count": 21,
+      "factor_exact_count": 21,
+      "factor_values": 1,
+      "first_date": "2026-07-03",
+      "last_date": "2026-07-31"
+    }
+  ],
+  "basis": [
+    {
+      "ts_code": "600000.SH",
+      "basis_date": "2026-10-30",
+      "basis_value": 17.3774
+    },
+    {
+      "ts_code": "603806.SH",
+      "basis_date": "2026-10-30",
+      "basis_value": 6.9592
+    }
+  ],
+  "exact_raw_prices_and_factors": true,
+  "qfq_native_exact": false,
+  "qfq_rounded_5_exact": true,
+  "selected_rows_including_cached_database": 128,
+  "price_field_comparisons": 168,
+  "sql_logical_rows_accounted": 1228,
+  "source_files_unchanged_during_read": true,
+  "cleanup": {
+    "duckdb_closed": true,
+    "parquet_metadata_handles_closed": true,
+    "formal_writes": 0,
+    "database_connections": 0
+  },
+  "elapsed_seconds": 0.5372250839136541
+}

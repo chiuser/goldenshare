@@ -1,0 +1,23 @@
+{
+  "status": "authorized_single_node_resume_before_execution",
+  "authorization": "2026-10-31 administrator: 查清SQL报错原因，把开发前价格对照做好做完整",
+  "preserve_original_evidence": true,
+  "database_reconnect": false,
+  "cached_database": "database_probe.json",
+  "codes": ["600000.SH", "603806.SH"],
+  "dates_from_cached_sample": true,
+  "expected_dates": 21,
+  "first_date": "2026-07-03",
+  "last_date": "2026-07-31",
+  "latest_basis_date": "2026-10-30",
+  "lake_root": "/Volumes/datasource/data_lake",
+  "expected_files": {"prices": 21, "factors": 21, "basis": 1, "total": 43},
+  "expected_selected_rows": {"prices": 42, "factors": 42, "basis": 2, "cached_database": 42, "total": 128},
+  "qfq_comparisons": 168,
+  "limits": {"projected_uncompressed_bytes": 67108864, "duckdb_memory_bytes": 134217728, "threads": 1, "spill_bytes": 0, "program_seconds": 30, "logical_rows": 5000},
+  "preflight": "reproduce expected parser failure without Lake, safe alias success, bind and execute comparison/summary on empty typed tables",
+  "comparison": "exact raw OHLC and factors; latest declared basis; raw*factor/basis; preserve native precision differences and separate exact 5-decimal rounded comparison",
+  "no_automatic_retry": true,
+  "no_business_implementation": true,
+  "no_formal_writes": true
+}

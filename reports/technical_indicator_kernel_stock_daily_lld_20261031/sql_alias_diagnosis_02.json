@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "purpose": "Precisely classify the already reproduced implicit rows alias error; no source reread",
+  "rows_keyword_category": "unreserved in DuckDB 1.5.5",
+  "results": [
+    {
+      "sql": "SELECT count(*) AS rows FROM (VALUES (1)) AS sample(value)",
+      "row_count": 1
+    },
+    {
+      "sql": "SELECT count(*) \"rows\" FROM (VALUES (1)) AS sample(value)",
+      "row_count": 1
+    },
+    {
+      "sql": "SELECT count(*) total FROM (VALUES (1)) AS sample(value)",
+      "row_count": 1
+    }
+  ],
+  "cause": "Implicit unquoted rows alias with omitted AS fails in this context; explicit AS rows and quoted rows work. It is incorrect to classify ROWS as a reserved keyword.",
+  "fix": "Use explicit AS row_count in the summary",
+  "lake_files_read": 0,
+  "database_connections": 0,
+  "kernel_calls": 0
+}

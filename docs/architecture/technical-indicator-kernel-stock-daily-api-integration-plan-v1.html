@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="股票详情页日线技术指标接入方案：保持现有API和前端不变，一次计算并返回MA、BOLL、MACD、KDJ。">
+  <title>股票详情页日线技术指标 · 正式接入方案 v1</title>
+  <style>
+    :root{--ink:#173340;--muted:#5a707c;--line:#d9e3e8;--bg:#f1f5f6;--blue:#285d7a;--green:#236b58;--warn:#8b631f}
+    *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:20px}
+    body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.85 -apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif}
+    main{max-width:1180px;margin:auto;padding:32px 24px 64px}header{background:#173746;color:#fff;padding:32px;border-radius:12px}
+    header p{color:#d8e8ec}h1{font-size:30px;line-height:1.45;margin:0 0 12px}h2{font-size:23px;margin:0 0 16px}h3{font-size:17px;margin:22px 0 8px}
+    section{background:white;border:1px solid var(--line);border-radius:10px;padding:26px 30px;margin-top:22px}
+    nav{display:flex;flex-wrap:wrap;gap:8px 20px;padding:20px 0 0}a{color:var(--blue);text-underline-offset:4px}header a{color:#d8ecff}
+    code{font:13px/1.65 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:#edf3f5;padding:2px 4px;border-radius:3px;overflow-wrap:anywhere}
+    pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f6f8;padding:16px;border-radius:6px;font:13px/1.8 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+    .meta,.muted{font-size:13px;color:var(--muted)}header .meta{color:#c4dfe3}.note,.warning{border-left:3px solid var(--green);background:#edf7f2;padding:14px 18px;margin:16px 0}.warning{border-color:var(--warn);background:#fff8e9}
+    .table-wrap{overflow-x:auto}table{border-collapse:collapse;width:100%;font-size:13px;line-height:1.75}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:10px 12px}th{background:#eff4f7}td:first-child{min-width:125px}
+    li{margin:6px 0}.flow{display:flex;flex-wrap:wrap;align-items:stretch;gap:10px;margin:16px 0}.box{flex:1 1 170px;border:1px solid #aec4cf;border-radius:7px;padding:14px;background:#f6fafb}.box strong{display:block;color:var(--blue)}.arrow{align-self:center;color:var(--muted);font-size:20px}
+    footer{color:var(--muted);font-size:13px;margin:24px 0}@media(max-width:700px){main{padding:16px 12px 40px}header,section{padding:22px 18px}h1{font-size:25px}h2{font-size:20px}.arrow{display:none}}
+  </style>
+</head>
+<body><main>
+<header>
+  <p class="meta">技术指标计算内核 · 第一个正式消费者</p>
+  <h1>股票详情页日线技术指标<br>正式接入方案 v1</h1>
+  <p>页面继续调用原来的日线接口。后端把原来读取已保存指标的部分，替换成调用计算内核；所有现有指标仍在一次响应中返回。</p>
+  <p class="meta">2026-10-31 · 方向按管理员要求形成配套代码级LLD，尚未开发或执行接入验收；正式来源事实门禁单列，不能把文档成稿当作已经可上线。</p>
+</header>
+<nav aria-label="文档目录">
+  <a href="#scope">01 范围</a><a href="#current">02 当前链路</a><a href="#request">03 请求合同</a><a href="#fields">04 返回字段</a><a href="#calculation">05 计算及取数</a><a href="#layers">06 分层与位置</a><a href="#lifecycle">07 生命周期</a><a href="#consumers">08 消费者</a><a href="#acceptance">09 验收</a><a href="#lld">10 LLD要求</a><a href="#review">11 审计与推进</a>
+</nav>
+
+<section id="scope">
+  <h2>01 · 本阶段只替换股票日线技术指标</h2>
+  <div class="note"><strong>2026-10-31修订状态：</strong>管理员已将唯一来源文件上限改定为10000。数据库部分初始化/清理及旧入口迁移顺序已按要求补全到LLD；SQLite仅沿用现有隔离测试，PG业务读取与DuckDB计算的职责、独立预期及测试替换位置已写明。见<a href="../../reports/technical_indicator_kernel_stock_daily_lld_20261031/lld_revision_04.md">本轮修订记录</a>。三位价格对照标准保持；本轮修改文档，未把后续代码修改或验收标为已完成。</div>
+  <p>配套<a href="technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html">股票日线接入代码级LLD v1</a>已明确文件、对象、签名、查询与字段映射、D4执行/实际发送、关闭、错误、配置及固定验收。当前来源门禁与只读核验结果见其第02节，未通过前不进入开发。</p>
+  <div class="note"><strong>已确认的方向：</strong>先做股票详情页日线；API协议和下游保持不变；无论某项指标是否正在显示，均一次返回七条MA、BOLL、MACD、KDJ。切换MA、BOLL继续只改变画图，不重新请求。</div>
+  <ul>
+    <li>唯一接入接口：<code>GET /api/v1/wealth/market/stock-detail/kline</code>。</li>
+    <li>替换七条MA、BOLL三条线、MACD三项和KDJ三项，共16个数值字段。内核一次计算10项：七套MA参数及BOLL、MACD、KDJ各一项。</li>
+    <li>前端请求、API类型、ViewModel、图表、颜色、布局、切换、提示和现有加载数量均保持现状。</li>
+    <li>股票身份、页面日期、K线OHLC、成交量、成交额、涨跌、振幅、换手率、量比等继续来自原有查询；本阶段不更换这些字段的来源。</li>
+    <li>不修改分钟线、指数、周月线、九转、趋势通道、XXM或研究消费者；不启停DG，不清理指标文件或数据库字段，不安装或升级依赖。</li>
+    <li>不新增API地址、版本、业务指标选择参数、任意指标参数、复权选项或新开关；不保留失败时自动改读旧指标的备用路径。</li>
+  </ul>
+  <p>本文是<a href="technical-indicator-kernel-component-design-v1.html">内核组件方案</a>的股票日线接入专题。内核对象、SQL、预热及资源规则继续引用<a href="technical-indicator-kernel-low-level-design-v1.html">内核LLD</a>，本阶段不重写算法。<a href="technical-indicator-kernel-frontend-integration-requirements-v1.html">后续前端要求</a>中的1000根分页和提前加载不在本阶段实施，不能据该文改变旧API或页面行为。</p>
+</section>
+
+<section id="current">
+  <h2>02 · 当前是一次取齐，再在页面选择显示</h2>
+  <div class="flow" aria-label="当前日线数据流">
+    <div class="box"><strong>股票详情页</strong>先请求page-init，再请求日线300根。</div><span class="arrow">→</span>
+    <div class="box"><strong>现有日线API</strong>按股票、日期和limit查询。</div><span class="arrow">→</span>
+    <div class="box"><strong>数据库</strong>从equity_factor_pro同时读取K线、指标和其他行情字段。</div><span class="arrow">→</span>
+    <div class="box"><strong>原响应及图表</strong>MA、BOLL、MACD、KDJ全部交给页面；切换MA/BOLL只选已有数据。</div>
+  </div>
+  <p>日线主图默认选择MA，可切换BOLL。MACD、成交量、KDJ为现有副图。成交量副图标题中的MA5、MA10当前也读取同一套价格均线字段，不能在这次迁移时自行换成成交量均线。趋势通道首次选中时另行请求，九转也有独立请求，两者均保持原状。</p>
+  <p>“代码支持绘制”与“某次打开页面实际显示”分开：本轮核对的是当前源码，没有运行浏览器确认当前部署的展示。</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>当前代码</th><th>已核实行为</th></tr></thead><tbody>
+      <tr><td><a href="../../wealth/src/pages/stock-detail/StockDetailPage.tsx">StockDetailPage.tsx</a></td><td>日线请求显式传period=day、adjustment=forward、limit=300；在page-init取得交易日期后请求kline。</td></tr>
+      <tr><td><a href="../../src/biz/api/wealth/market/stock_detail.py">stock_detail.py</a></td><td>原GET路由、行情访问鉴权、数据库依赖及参数入口。</td></tr>
+      <tr><td><a href="../../src/biz/queries/wealth/market/stock_detail/stock_detail_query.py">StockDetailQuery</a></td><td>证券信息来自security_serving；K线及指标来自模型映射的core_serving.equity_factor_pro；倒序取limit后转为正序。</td></tr>
+      <tr><td><a href="../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">StockDetailQueryService</a></td><td>同类同时承担page-init和kline。只替换kline指标路径，不能连带更换page-init。</td></tr>
+      <tr><td><a href="../../wealth/src/features/stock-detail/chart/StockChartWorkspace.tsx">StockChartWorkspace.tsx</a></td><td>切换MA/BOLL只改变本地选择；选择趋势通道才调用独立加载方法。</td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="request">
+  <h2>03 · 原请求合同保持不变</h2>
+  <pre>GET /api/v1/wealth/market/stock-detail/kline
+    ?tsCode=603806.SH&amp;period=day&amp;adjustment=forward
+    &amp;endDate=2026-05-29&amp;limit=300</pre>
+  <div class="table-wrap"><table>
+    <thead><tr><th>参数</th><th>保留的当前规则</th></tr></thead><tbody>
+      <tr><td>tsCode</td><td>必填字符串；原路由继续strip、转大写；未知股票保持404001。不能因为内核只识别规范代码，就改变原接口对未知标的的判定顺序。</td></tr>
+      <tr><td>period / adjustment</td><td>默认day / forward；本接口仍只支持这两个值。内部把forward映射为qfq，不对外接受qfq等新值。</td></tr>
+      <tr><td>tradeDate / endDate</td><td>保持原日期解析及优先级：先以endDate或tradeDate解析页面日期，查询截止日为endDate或解析出的页面日期。沿用现有A股日期上下文，不引入另一套日历。</td></tr>
+      <tr><td>startDate</td><td>可选、包含该日；与endDate均显式传入时，startDate晚于endDate保持原400001。不额外改变现有日期默认行为。</td></tr>
+      <tr><td>limit</td><td>接口默认300，合法范围1～2000；页面目前显式传300。不是内核默认1000；本阶段不增加cursor、before、hasMore、nextCursor或额外探测请求。</td></tr>
+      <tr><td>debug</td><td>保留0/1，默认0。原有鉴权和请求参数解析错误继续走既有处理。</td></tr>
+    </tbody></table></div>
+  <p>日线仍返回请求区间内最近limit根，并按交易日期升序排列。历史少于limit时返回实际数量；不补零、不复制日期。合法无数据仍返回原DTO的空bars、count=0及EMPTY状态，不把内核的msg字段加到旧API。</p>
+</section>
+
+<section id="fields">
+  <h2>04 · 只替换factors中的16个字段</h2>
+  <p>响应仍严格使用<a href="../../src/biz/schemas/wealth/market/stock_detail.py">StockDetailKlineResponseDto</a>及其子DTO。没有新的内核响应包裹层，也不把内核版本、统计、预热信息或内部对象透传给页面。</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>原返回路径</th><th>当前数据库字段</th><th>内核结果与固定参数</th></tr></thead><tbody>
+      <tr><td>bars[].factors.ma.ma5 / ma10 / ma20 / ma30 / ma60 / ma90 / ma250</td><td>ma_qfq_5 / 10 / 20 / 30 / 60 / 90 / 250</td><td>ma.value；period分别为5、10、20、30、60、90、250。</td></tr>
+      <tr><td>bars[].factors.boll.upper / middle / lower</td><td>boll_upper_qfq / boll_mid_qfq / boll_lower_qfq</td><td>boll.upper / middle / lower；显式固定period=20、multiplier=2；总体标准差，沿用内核定义。</td></tr>
+      <tr><td>bars[].factors.macd.dif / dea / macd</td><td>macd_dif_qfq / macd_dea_qfq / macd_qfq</td><td>macd.dif / dea / hist；fast=12、slow=26、signal=9；hist映射为旧字段macd，柱值为2×(DIF−DEA)。</td></tr>
+      <tr><td>bars[].factors.kdj.k / d / j</td><td>kdj_k_qfq / kdj_d_qfq / kdj_qfq</td><td>kdj.k / d / j；window=9、k_period=3、d_period=3。注意旧kdj_qfq表示J，不能误接为K或整个对象。</td></tr>
+    </tbody></table></div>
+  <p>本接口此前只读取外部保存值，没有携带算法参数。现已由本地来源文档doc_id=328确认BOLL为20/2，MACD、KDJ与当前页面参数相同；保存的两股各21行中四个完整20日窗口支持总体标准差，旧BOLL值按3位小数与该口径相符，证据见配套LLD第02节。不把四个窗口升级为全历史算法一致性；前复权价格及其他实际差异仍须先核实，不能把“字段相同”写成“算法已一致”。</p>
+  <h3>保持原来源、类型和含义的字段</h3>
+  <p>顶层：<code>pageContext</code>、<code>stockRef</code>、<code>period</code>、<code>adjustment</code>、<code>sourceAdjustment</code>、<code>bars</code>、<code>meta</code>、<code>dataStatus</code>、<code>debugInfo</code>。K线内：<code>tradeDate</code>、<code>open/high/low/close</code>、<code>preClose</code>、<code>change</code>、<code>changePct</code>、<code>amplitude</code>、<code>vol</code>、<code>volDisplay</code>、<code>amount</code>、<code>turnoverRate</code>、<code>volumeRatio</code>。</p>
+  <ul>
+    <li>日级日期仍为DATE，JSON为YYYY-MM-DD。数量、顺序、单位及原mapper对外保留10位小数的处理保持一致；指标公式仍只在DuckDB SQL中执行。</li>
+    <li>MA窗口不足时保留该日期，数值为null；第N根首次产生MAN。BOLL按内核完整窗口规则，未满窗口三项均为null；不能改成0或删掉日期。</li>
+    <li>合法null与没有生成应有的结果行严格区分。缺少指标、字段、日期或长度不一致时整次失败，不能用字典get或关联自动补null掩盖漏算。</li>
+    <li>meta的count、limit、startDate、endDate仍描述原请求及实际返回；dataStatus仍按原数据库K线末日与期望日判断READY/DELAYED/EMPTY。内核失败不能转换成EMPTY或DELAYED。</li>
+    <li>debugInfo的结构不变；kline的sourceTables、query内容须如实反映数据库和实际Lake来源，不能保留“指标仍来自旧表”的错误说明。page-init的debugInfo保持原状，不增加对外字段或暴露本机绝对路径。</li>
+  </ul>
+  <div class="warning"><strong>现有前端限制：</strong><a href="../../wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.ts">当前adapter</a>对BOLL使用valueOrZero，可能把null显示成0；MA、MACD、KDJ使用finiteOrNull。本阶段不擅自修改前端，也不在后端伪造BOLL数值回避问题。验收须明确短历史下的现有表现；若新数据使该问题成为接入阻塞，应先提交最小前端修正供review，不能声称所有短历史展示都已正确。</div>
+</section>
+
+<section id="calculation">
+  <h2>05 · 一次计算十项，同一批日线只准备一次</h2>
+  <div class="flow" aria-label="目标日线数据流">
+    <div class="box"><strong>原API</strong>按原规则查询证券、日期和现有K线，确定实际返回日期。</div><span class="arrow">→</span>
+    <div class="box"><strong>一次内核调用</strong>stock / day / qfq，七条MA与BOLL、MACD、KDJ一起提交。</div><span class="arrow">→</span>
+    <div class="box"><strong>现有Lake读取</strong>按指标需要定位历史，读日线和因子，统一复权并计算。</div><span class="arrow">→</span>
+    <div class="box"><strong>原DTO</strong>按日期填入16个指标值，其他行情字段保持原样。</div>
+  </div>
+  <h3>日期范围由现有K线决定</h3>
+  <p>若原查询实际返回300个日期，内部请求使用这些日期的首日和末日，limit=300、before不传；输出必须与这300个日期逐一对应。start只限定对外结果范围，不能裁掉首日之前必需的预热历史。数据库返回0根时，按原空结果处理，不为组织空响应而访问Lake。数据库有K线而Lake没有对应结果，是来源交接失败，不能返回空成功。</p>
+  <p>例如旧查询截至2026-05-29返回300根：内核返回相同300个日期的指标；按当前默认递推规则，价格计算输入通常为300+500=800根。请求1000根通常计算1500根，请求2000根通常计算2500根。这里的500来自现有参数下的预热规则，不由业务写死；MA250需要249根前置历史，组合采用最大需求，不把十项需求相加。上市历史不足时用实际起点初始化，MA/BOLL保留合法null。</p>
+  <p>当前8192根合批规则继续有效：上述输入不足8192时，跨日期文件合并后一次交给计算模块，不能一份日线文件就调用一次指标。只读取所需列和候选范围；定位、文件解压及基准读取也计入成本，不能用“返回300根”冒充“只读取300根”。MA20与BOLL20复用均值；同请求复权一次，不增加跨请求状态缓存。</p>
+  <h3>来源与复权必须与页面K线一致</h3>
+  <p>复用<a href="../../src/foundation/clients/local_lake/technical_indicator_contracts.py">现有日线来源合同</a>：<code>silver/quote/stock_daily</code>是不复权输入，由现有来源读取对应复权因子，按既定最新基准转成qfq。Lake根只从现有Settings取得，不在页面、API或脚本中另写根路径。</p>
+  <div class="warning"><strong>本阶段最重要的接入核验：</strong>页面OHLC来自数据库的*_qfq，新指标将使用Lake复权后的价格。同名“前复权”不保证基准、精度和更新日期一致。冻结LLD并进入编码前，要用一只有除权事件的股票和一只有普通历史的股票作有界对照，记录日期、原始价格、因子、基准以及两边OHLC；先核实输入口径，再谈指标误差。若不一致，停止接入并说明原因，不能暗中改变页面K线、改复权基准或把指标按比例修补。</div>
+  <p>所选历史范围不改变复权基准；历史请求也沿用当前来源既定基准，不开放任意基准日期。上述有界对照属于接入验收，不是在每次请求中增加全历史质量扫描。内核继续信任外部数据质量，不新增交易日缺口、停牌、退市或数值逐根审计。</p>
+  <p><strong>2026-10-31单节点续做：</strong>管理员已明确要求核清首次SQL错误并完成这项开发前检查。复用保存的数据库42行，不重连数据库；只读取原两股21个日期的21份日线、21份因子和2026-10-30最新因子，共43份文件。先用无行情小例重现并修正汇总SQL的rows别名错误，再核日期/数量/唯一性、原始OHLC、因子、最新基准及168个前复权价格值；同时保存全精度差值和显式五位小数对照，不用舍入掩盖基准或行情差异。执行范围、费用及失败规则见专项LLD第02.1节；本轮不因此进入业务开发。</p>
+  <p><strong>本次结果：</strong>有界来源/复权口径检查通过。原始开高低收168/168、当天因子42/42完全一致；新计算按五位小数与旧值168/168完全对应，原生DOUBLE的尾数差最大0.0000049760033160595185元，全部可由旧样本五位舍入解释。不是两边原生精度逐位相等，也不推定所有历史均已检查。保留页面原DB价格和内核原DOUBLE算法，不先round五位、不改变指标精度标准。<a href="../../reports/technical_indicator_kernel_stock_daily_lld_20261031/price_source_comparison_report_02.md">样本、差值、SQL错误原因及实际开销</a>已保存。</p>
+  <p><strong>管理员确认后的后续审计标准：</strong>数据库与Lake前复权价格均以DuckDB的<code>ROUND(value,3)</code>统一保留小数点后三位后比较，一致即可；不要求原生DOUBLE或五位小数完全相同。计算仍保留原DOUBLE精度，API仍用原10位小数格式化，不在计算前舍入，也不把API改成只返回三位。日期、数量、字段和NULL仍按原合同精确核对；同输入算法与独立参考的误差标准保持不变。此前五位对照保留为历史证据，不作为后续更严的门槛；具体见专项LLD第02.2节。</p>
+</section>
+
+<section id="layers">
+  <h2>06 · 新后端实现接在原接口后面</h2>
+  <p>不并存两个相同URL的路由，也不新增要求页面改用的新URL。新实现替换旧kline中的指标读取路径；page-init仍使用原实现。Biz负责原业务合同，App负责把它与计算内核装配起来，Foundation继续不知道股票详情页DTO。</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>位置</th><th>拟承担的职责及影响</th></tr></thead><tbody>
+      <tr><td><a href="../../src/biz/api/wealth/market/stock_detail.py">原stock_detail路由</a></td><td>保留GET、参数、鉴权和公开DTO；kline接入新实现。page-init不换计算来源。</td></tr>
+      <tr><td><a href="../../src/biz/queries/wealth/market/stock_detail/stock_detail_query.py">原数据库查询</a></td><td>kline只查询仍需保留的K线和行情列，移除该路径对16个已保存指标列的依赖；load_latest_factor_row及page-init所需列不受连带影响。</td></tr>
+      <tr><td><a href="../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">原query service</a></td><td>保留证券、日期、meta、状态规则；将日线指标来源替换为注入的计算能力，不从Biz新增导入App运行时。</td></tr>
+      <tr><td><code>src/biz/services/wealth/market/stock_detail/</code></td><td>定义本业务使用的窄接口及日线响应组装：固定十项计算说明、按日期接回16个字段。文件和方法签名在本专项LLD中给全，不把通用内核计划交给页面理解。</td></tr>
+      <tr><td><code>src/app/runtime/technical_indicators/</code>与App依赖目录</td><td>D4目录只修订通用执行入口并保持不依赖Biz；股票专用装配放src/app/dependencies/stock_daily_technical_indicators.py。复用同一runtime、Admission、ExecutionControl、工作线程和清理，由App注入Biz所需能力，不新增反向依赖。</td></tr>
+      <tr><td><a href="../../src/app/web/lifespan.py">Web生命周期</a>、<a href="../../src/app/web/app.py">应用装配</a></td><td>安装该业务依赖，启动时创建每业务进程一个runtime，退出时拒绝新请求并停止、等待活动请求；不在导入时、每条指标或每次请求中创建runtime。</td></tr>
+      <tr><td>既有RequestId、AccessLog中间件</td><td>仅本GET日线路径直接以ASGI转发，保留请求ID/日志，并记录同一到达时刻；其他路径沿原分支。当前BaseHTTP转接可能在实际send结束前让内层返回，具体最小修正和反例见配套LLD第09节。</td></tr>
+      <tr><td><a href="../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">原field mapper</a>、<a href="../../src/biz/schemas/wealth/market/stock_detail.py">原schema</a></td><td>保留非指标映射及既有DTO；新的指标映射不回退读取旧指标。不能通过改schema、字段别名或前端兜底适配内部错误。</td></tr>
+      <tr><td><code>wealth/src/</code></td><td>生产实现零改动。只核验旧消费者仍能接收和展示新响应，不增加分页、参数或按指标请求。</td></tr>
+    </tbody></table></div>
+  <p>当前<a href="../../src/app/runtime/technical_indicators/execution.py">execute_http</a>直接编码CalculationResult，不能原样挂到股票API，否则会改变公开协议。也不能简单使用execute_library后在名额归还之后，才无约束地组装、编码、发送旧DTO。正式接入须复用原有执行和清理主链，只在受控响应组装位置构造原DTO；不另写一套排队、中断或收发流程。具体内部改动及既有调用方迁移必须先在LLD中完成影响面审计。</p>
+</section>
+
+<section id="lifecycle">
+  <h2>07 · 生命周期、错误和配置沿用既有约束</h2>
+  <ul>
+    <li>明显非法的参数先拒绝；合法请求才等待计算名额。一只股票的十项指标占一个名额。</li>
+    <li>数据库Session在所属工作线程内完成读取，不在并发任务之间共享；跨线程交接只使用已取出的普通数据及不可变说明。不得把慢SQL放在事件循环中直接执行。</li>
+    <li>同一请求只有一份截止时间。数据库准备、等待、Lake定位与读取、计算、DTO组装及编码都不能重新获得完整时限；最终发送与清理仍归入原总目标。</li>
+    <li>App通过原TechnicalIndicatorService管理本请求计算连接，实际创建与关闭仍由同一服务完成，App不重复关闭；读取模块管理K线和复权数据，指标管理自己的状态。对外发送的结果必须脱离连接。</li>
+    <li>仅一个任务观察HTTP断开。取消或停机先通知停止，等待实际工作退出，清理结果、body、交接容器及异常栈帧引用，最后归还名额；不能遗弃线程或提前报告成功。</li>
+    <li>保留原参数失败400001、未知股票404001、原框架参数校验及鉴权行为。新增来源、计算、繁忙、到期、编码和清理失败保持失败响应，复用既有HTTP 500、internal_error及code/message/request_id结构；不新增业务异常码，具体内部分类保留在有限诊断中。连接已断开时不伪造成功响应。</li>
+    <li>成功无K线与执行失败严格分开。读取、指标、结果交接或清理错误不返回部分指标、旧指标或空成功。</li>
+  </ul>
+  <div class="table-wrap"><table>
+    <thead><tr><th>既有配置</th><th>本阶段使用方式</th></tr></thead><tbody>
+      <tr><td>同时处理2、等待2、最多等2000ms</td><td>复用现有Settings及进程内runtime，不建立按指标的等待队列，不另加配置。</td></tr>
+      <tr><td>总目标8000ms、清理预留2000ms</td><td>第6000ms停止正常工作；发送已开始时按总目标控制。沿用现有中断和实际退出规则，不承诺底层阻塞必能硬性结束。</td></tr>
+      <tr><td>SQL线程1、8192根合批、查询内存128MiB、临时落盘0</td><td>沿用原资源约束；本阶段不增加线程池、进程池、预取或落盘能力。</td></tr>
+      <tr><td>输出5000000个UTF-8字节</td><td>最终旧DTO的全部字段都计入；恰等允许，超限整次失败，禁止截断。不能仅测内核中间响应大小。</td></tr>
+      <tr><td>150万输入、10000来源文件、16项计算、10000输出位置</td><td>只有唯一来源文件数由管理员从5000改为10000，其他初值不变。后续同次更新Settings既有字段和配置字面预期；旧API仍限limit≤2000，不新增参数或放宽其他资源保护。</td></tr>
+    </tbody></table></div>
+  <p>配置唯一来源为<a href="../../src/foundation/config/settings.py">Settings</a>及<a href="../../src/foundation/technical_indicators/configuration/settings.py">KernelConfig</a>。本方案不新增配置项。内存先按实际选中列、输入量、结果和并发估算，不恢复已暂停的系统RSS采样要求，不声称本阶段已有性能实测。</p>
+  <p>文件数仍统一计入定位、价格、因子与基准的唯一物理文件，不把最新基准排除计数，也不通过减预热或拆成多次calculate规避限制。当前代码默认仍5000，已批准目标10000在正式接入开发中落地；环境显式覆盖及重启生效规则不变。配置来源、消费者、依赖、最小检查与旧证据边界见专项LLD第13.1节。</p>
+  <p>数据库资源采用一个contextmanager，完整定义尚未创建、仅有Session、已有Connection和已尝试登记监听器四种状态；移除/关闭失败仍继续清理，原错误优先，正常清理失败不能成功。具体代码级流程见LLD第10节，不另造资源框架或重试。生产业务读取继续使用既有PG；SQLite只是现有临时测试库，内核始终由DuckDB计算，详LLD第14.0节。</p>
+</section>
+
+<section id="consumers">
+  <h2>08 · 消费者和需要保护的调用方</h2>
+  <p>已用CodeGraph explore/impact核对StockDetailQueryService、build_kline及mapper，并用当前文件引用补核动态路由、同名符号和前端调用；不能把同名的指数build_kline_bar当作股票实现。以下是本仓已发现的直接消费者，仓库外调用方无法由源码枚举，须靠原公开协议保持兼容。</p>
+  <div class="table-wrap"><table>
+    <thead><tr><th>消费者/验证文件</th><th>必须保证</th></tr></thead><tbody>
+      <tr><td><a href="../../wealth/src/pages/stock-detail/StockDetailPage.tsx">StockDetailPage</a></td><td>同一路径、同一请求和300根加载；仍先page-init后kline；既有取消行为有效。</td></tr>
+      <tr><td><a href="../../wealth/src/features/stock-detail/api/stockDetailApiClient.ts">stockDetailApiClient</a>、<a href="../../wealth/src/features/stock-detail/api/stockDetailApiTypes.ts">stockDetailApiTypes</a></td><td>原DTO及HTTP失败解析可原样使用；不增加内核字段、请求或额外参数。</td></tr>
+      <tr><td><a href="../../wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.ts">stockDetailViewModelAdapter</a></td><td>日期和16项原路径不变；MA、MACD、KDJ合法null原样处理。BOLL现有null行为见第04节。</td></tr>
+      <tr><td><a href="../../wealth/src/features/stock-detail/chart/StockChartWorkspace.tsx">StockChartWorkspace</a>及<code>wealth/src/shared/charts/detail-workspace/</code></td><td>七MA、BOLL及MACD/KDJ副图、标题数值、日期对齐和断线行为保持；切换MA/BOLL不触发网络请求。</td></tr>
+      <tr><td><a href="../../tests/web/test_wealth_stock_detail_api.py">股票日线API测试</a></td><td>原请求、鉴权、状态、价格和NULL合同继续保护；旧夹具中的任意指标字面值不能作为新算法的独立预期。</td></tr>
+      <tr><td><a href="../../wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.test.ts">adapter测试</a>、<a href="../../wealth/src/features/stock-detail/chart/StockChartWorkspace.test.tsx">图表测试</a>、<a href="../../wealth/src/pages/stock-detail/StockDetailPage.test.tsx">页面测试</a></td><td>保持原消费合同和展示；补的是新后端真实响应的接入证据，不能只让mock相互证明正确。</td></tr>
+      <tr><td>同类中的page-init、独立九转/趋势通道、分钟API、指数API</td><td>作为保护范围核对引用；不迁移其来源、DTO或调用，不扩展为第二个接入任务。</td></tr>
+    </tbody></table></div>
+</section>
+
+<section id="acceptance">
+  <h2>09 · 只验证这个日线替换</h2>
+  <div class="table-wrap"><table>
+    <thead><tr><th>验收范围</th><th>有限场景与独立依据</th></tr></thead><tbody>
+      <tr><td>原API协议</td><td>默认请求及显式start/end；limit合法边界1、2000和非法值；day/forward限制、未知股票、空结果和DELAYED。以原schema、当前查询和原HTTP测试为依据，不新增参数矩阵。</td></tr>
+      <tr><td>来源与算法口径</td><td>普通历史与含除权事件的有界样本；核数据库qfq和Lake目标价格、基准、日期、单位。旧指标只用作迁移差异对照，不能替代独立公式预期；先解释输入或公式差异，不放宽误差掩盖问题。</td></tr>
+      <tr><td>一次组合计算</td><td>正常老股票首屏保持300根；1000及2000只用临时查询和字面结果替身核请求/响应范围，不另跑长指标计算。隔离短样本与一次真实首屏分别核一次调用十项、读取和复权共用；MA20/BOLL20共用均值复用既有算法证据，不重跑内核整组或长历史压力。</td></tr>
+      <tr><td>短历史与字段完整</td><td>可人工核对的短样本验证MA20前19根null、第20根首值、BOLL窗口规则及KDJ初始化；故意少一个日期/字段时失败，不靠补null通过。</td></tr>
+      <tr><td>失败与资源</td><td>只补正式路由特有的参数队前拒绝、来源失败、取消/断开、最终旧DTO超限及发送/清理。复用D4排队、中断等已有证据，不重新跑其整组；错误不得携带整份结果长期占内存。</td></tr>
+      <tr><td>真实API和页面</td><td>走真实路由、真实查询、真实内核、临时或已批准有界来源；用该响应驱动原页面验证MA/BOLL切换不再请求，MACD/KDJ/成交量日期与数值对应，page-init和独立图层行为不变。</td></tr>
+    </tbody></table></div>
+  <p>指标计算沿用内核验收标准：<code>abs(actual-reference) ≤ 1e-8 + 1e-10 × abs(reference)</code>，日期、数量和NULL精确一致，近零符号按原LLD记录；外部接口的10位小数格式化另行核对。MACD/KDJ内部近似误差不能拿来解释前复权基准不同。非指标字段在固定日期上下文下与旧响应比较，generatedAt等动态时刻须固定或按原生成规则核对。</p>
+  <p>LLD必须先给出唯一执行清单：具体函数、夹具生产合同、独立预期、真实来源边界、调用次数、选中价格根数、定位键、文件和行组、SQL逻辑量、单程序/整轮耗时、失败及一次续跑预留；通过节点不重跑，首个非预期错误停下。采用小样本与已有证据，不扩大参数组合，不为了测试先生成多年全量数据。本轮不执行这些计算，也不预先声称预算或性能已经通过。</p>
+  <p>阶段结果分别记录：静态/单元、隔离集成、真实有界来源、正式API和页面。隔离通过不能代替真实来源对齐，浏览器通过不能代替算法一致；未通过的部分不得写成“日线已正式接入”。</p>
+</section>
+
+<section id="lld">
+  <h2>10 · 本专项LLD必须给开发者的内容</h2>
+  <p>以下为本方案对代码级LLD的12项要求。配套LLD已经逐项给出对象、文件、方法、执行和验收定义，最后第17节逐条对账；来源事实门禁见第02节，不能由编码阶段临时选择来源、参数、错误或生命周期规则。</p>
+  <ol>
+    <li><strong>原合同对账：</strong>逐字段列原请求、原响应、类型、日期、单位、空值、舍入和默认规则；明确debug内容变化与协议不变的区别。</li>
+    <li><strong>来源证据：</strong>记录数据库与Lake有界样本的价格/复权一致性、BOLL旧参数及其他公式差异；证据不足明确阻塞原因，先供review。</li>
+    <li><strong>代码组织：</strong>给全新旧文件清单、Biz使用的窄接口、App提供者和安装位置；迁移所有本次内部消费者，不新增反向依赖或双轨实现。</li>
+    <li><strong>取数与对应：</strong>普通数据库数据交接方式、实际返回日期、内部start/end/limit、组合预热和日期结果一致性；0根的唯一成功路径。</li>
+    <li><strong>固定指标：</strong>十项固定ID/参数、内核字段至原16字段映射、当前算法版本；不接受业务SQL、动态模板、表名或表达式。</li>
+    <li><strong>执行与发送：</strong>复用D4主链的具体修改方式；原DTO构造、编码、5000000字节计量在名额覆盖范围内，名额直到实际发送、停止和清理结束才归还；不得改成执行库函数返回后不受控发送。</li>
+    <li><strong>数据库与线程：</strong>Session创建、使用、关闭所在位置；库查询与DuckDB连接不能跨任务共享；同一截止时间如何覆盖准备与排队，并说明数据库本身的取消边界。</li>
+    <li><strong>异常：</strong>各具体内核异常到原HTTP失败结构的映射、取消/到期/清理主错误保留、有限日志；不新增未登记异常码，不让错误引用结果。</li>
+    <li><strong>装配与配置：</strong>Web启动/退出及依赖注入、原Settings消费者、未配置Lake时的明确失败；不把应用导入变成读行情，不新增配置或启停DG。</li>
+    <li><strong>有限执行：</strong>第09节的固定函数和费用、正常/错误/续跑清单，检查fixture与conftest副作用；既有API测试的指标假样本只能用于合同，数值改用独立依据。</li>
+    <li><strong>前端零改动核验：</strong>真实页面加载及MA/BOLL切换网络记录；覆盖BOLL合法null既有问题，若需修正前端先向管理员说明，不能扩大当前授权。</li>
+    <li><strong>逐条对账：</strong>按本方案硬约束对应代码、SQL、测试及证据；未验收项单列，完成后才请求提交或部署授权。</li>
+  </ol>
+</section>
+
+<section id="review">
+  <h2>11 · 本次审计结论与下一步</h2>
+  <p><strong>已明确且不能跑偏：</strong>只替换股票日线16个指标值；十项计算一次提交；原URL和公开DTO不变；现有页面300根及API范围不变；切换MA/BOLL不请求；其他行情来源、page-init和独立图层不变；不推进分钟线、指数、XXM或DG退出。</p>
+  <p><strong>事实核验状态：</strong>数据库两股各21行已强制只读保存；旧BOLL20/2及四个窗口支持的总体标准差口径已记录。获准的Lake单节点续做已完成，来源/复权口径检查通过，五位保存精度差异单列，不声称原生DOUBLE逐位相等；首次SQL错误和原证据保留。当前Web的Lake根尚未配置，短历史BOLL的前端null转0问题仍按范围外限制保留。详情及接入条件见配套LLD第02节。</p>
+  <p><strong>推进顺序：</strong>来源核验已完成，后续价格对照按三位小数；本次按管理员决定补齐文件上限、清理和迁移步骤，先review修订后的LLD。开发先准备合同/配置，再改纯D4共用执行；随后把业务查询/映射/后台、原路由及App装配作为同一迁移单元，全部接上后才删除旧调用并验API，不留下“路由仍调用已删除方法”的阶段版本。不保留旧指标回退，不中途发布半套变更。固定P/R清单与预算保持，阶段间冲突仍先报告。</p>
+  <h3>设计原则对照</h3>
+  <div class="table-wrap"><table>
+    <thead><tr><th>原则</th><th>本方案落点</th></tr></thead><tbody>
+      <tr><td>事实来源与合同</td><td>第03～05节：原行情来源不变，内核计算替换16字段，来源差异须先核实。</td></tr>
+      <tr><td>配置与默认</td><td>第03、07节：原接口默认300，既有Settings唯一来源，无新开关。</td></tr>
+      <tr><td>排序、范围及复用</td><td>第05节：原日期决定输出、预热另取、同批只准备一次；不改变复权基准。</td></tr>
+      <tr><td>性能、异常及验收</td><td>第07、09、10节：复用D4生命周期，最终旧DTO计量，有限执行和独立预期。</td></tr>
+      <tr><td>用户可见结果</td><td>第02、08、09节：原页面与图表保留，真实响应驱动原页面验证；不新做视觉设计。</td></tr>
+    </tbody></table></div>
+  <p class="muted">方案首稿于本日形成，本轮按管理员要求编写专项LLD并同步设计落实和有界核验状态；不修改业务代码或指标SQL，不执行接入测试、不提交或部署。</p>
+</section>
+<footer>依据：2026-10-31管理员确认的股票日线优先范围、当前API/schema/query/mapper及前端消费者、内核与D4实现。方案和配套LLD不等于接入已实施，来源核验与开发验收分别记录。</footer>
+</main></body></html>

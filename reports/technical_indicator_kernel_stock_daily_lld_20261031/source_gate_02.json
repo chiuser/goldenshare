@@ -1,0 +1,24 @@
+{
+  "status": "bounded_price_source_semantics_passed",
+  "scope": "600000.SH and 603806.SH; 21 observed trading dates from 2026-07-03 through 2026-07-31; existing 42-row DB snapshot and 43 original Lake files",
+  "date_count_per_code": 21,
+  "raw_ohlc_exact": {"passed": 168, "total": 168},
+  "daily_factors_exact": {"passed": 42, "total": 42},
+  "keys_dates_null_and_source_stability": "passed",
+  "basis": [
+    {"ts_code": "600000.SH", "date": "2026-10-30", "value": 17.3774},
+    {"ts_code": "603806.SH", "date": "2026-10-30", "value": 6.9592}
+  ],
+  "qfq_native_double_exact": {"passed": 48, "total": 168, "all_equal": false},
+  "qfq_explicit_round_5_exact": {"passed": 168, "total": 168},
+  "max_native_absolute_price_difference": 0.0000049760033160595185,
+  "precision_explanation": "Every old sample qfq value exactly equals round(raw*actual_daily_factor/independently_read_latest_basis,5). The 120 native DOUBLE differences are fully explained by this sample-level quantization. Native precision is not claimed equal.",
+  "implementation_instruction": "Keep original DB OHLC unchanged and kernel native DOUBLE arithmetic unchanged. Do not insert round(,5) before indicators or relax the existing indicator error standard.",
+  "gate_meaning": "The required bounded source/adjustment check is completed and its source semantics are verified. This is not all-history, live API, library integration, browser, deployment or full development acceptance.",
+  "first_attempt_correction": "ROWS is unreserved in DuckDB 1.5.5. The omitted-AS implicit alias form failed; AS rows and quoted rows work. The fixed summary uses explicit AS row_count.",
+  "evidence": ["sql_preflight_02.json", "sql_alias_diagnosis_02.json", "lake_probe_attempt_02.json", "price_comparison_02.json"],
+  "database_reconnected": false,
+  "business_implementation_performed": false,
+  "formal_data_written": false,
+  "remaining_before_development": "LLD review and explicit development authorization; deployment must configure existing Lake root/read permissions; existing BOLL frontend limitation remains"
+}

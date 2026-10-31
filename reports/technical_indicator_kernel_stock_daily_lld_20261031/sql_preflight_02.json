@@ -1,0 +1,21 @@
+{
+  "status": "passed",
+  "duckdb_version": "1.5.5",
+  "script_sha256": "08fe9bee2e09a351d10c89dfe64a794312840fb4f94e114a475ae7586647636a",
+  "old_sql": "SELECT count(*) rows FROM (VALUES (1)) AS sample(value)",
+  "expected_old_failure": {
+    "type": "ParserException",
+    "message": "Parser Error: syntax error at or near \"rows\"\n\nLINE 1: SELECT count(*) rows FROM (VALUES (1)) AS sample(value)\n                        ^"
+  },
+  "safe_alias_row_count": 1,
+  "quoted_alias_row_count": 1,
+  "keyword_metadata": [
+    {
+      "keyword_name": "rows",
+      "keyword_category": "unreserved"
+    }
+  ],
+  "comparison_and_summary_bound_on_empty_typed_tables": true,
+  "lake_files_read": 0,
+  "database_connections": 0
+}

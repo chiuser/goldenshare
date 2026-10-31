@@ -1,0 +1,58 @@
+{
+  "status": "document_static_checks_passed",
+  "scope": "plan and LLD design only, not implementation acceptance",
+  "checks": {
+    "technical-indicator-kernel-stock-daily-api-integration-plan-v1.html": {
+      "ids": 11,
+      "links_checked": 43,
+      "sha256": "18fe8a694a50ba21c45ff0d60642dbad1a105fe175685d73670965cbdc7017dc"
+    },
+    "technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html": {
+      "ids": 18,
+      "links_checked": 39,
+      "sha256": "19f1e7b8c7655b806c062c41234b325adf3ba982d6b95470156b67594154f42e"
+    }
+  },
+  "parseable_contract_code_blocks": 6,
+  "protected_source_sha256": {
+    "src/biz/api/wealth/market/stock_detail.py": "89acfe2cad0d0a94bc53a0c31b10b2ae5e883902c313733c38e5c3448a0fb449",
+    "src/biz/queries/wealth/market/stock_detail/stock_detail_query.py": "53f0c7213d61f6f1a3d3b7331ca2f07a7d386114973d76d02b637bb38ef8d7a4",
+    "src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py": "f15d78cb2e40909bbf94044814c9f7f1b3cee4c4e493166f903d638b7a6f4c9d",
+    "src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py": "2d2cd58342d27148ce3186361f24225238a1bac4b9eecddaab508860fca07cc7",
+    "src/app/runtime/technical_indicators/execution.py": "b0103f62471639d51348dadea969d3145e3b1b7b8b3766df8d514ba9f89eb54b",
+    "src/app/runtime/technical_indicators/response.py": "b3d9e68a5df628538a2a7a20a65f00c886b1f2dba219c8e01f3af2ce170ccaf0",
+    "src/app/runtime/technical_indicators/admission.py": "e9d0c4aa73d0c385cdb2cf8f7a6c58cc80797a48269ac4c4ad6bd2e0be5b8c40",
+    "src/db.py": "9a724640965c5566be4215359ed13c631cd41ced599a456f47d4db05848e6315"
+  },
+  "api_indicator_fields": {
+    "StockMovingAverageDto": [
+      "ma5",
+      "ma10",
+      "ma20",
+      "ma30",
+      "ma60",
+      "ma90",
+      "ma250"
+    ],
+    "StockBollDto": [
+      "upper",
+      "middle",
+      "lower"
+    ],
+    "StockMacdDto": [
+      "dif",
+      "dea",
+      "macd"
+    ],
+    "StockKdjDto": [
+      "k",
+      "d",
+      "j"
+    ]
+  },
+  "real_kernel_calls": 0,
+  "real_controls": 0,
+  "source_comparison_gate": "bounded_price_source_semantics_passed",
+  "code_or_sql_modified": false,
+  "integration_tests_executed": false
+}

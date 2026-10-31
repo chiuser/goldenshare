@@ -249,6 +249,11 @@
   </head>
   <body>
     <main>
+      <section id="daily-indicator-kernel-plan-20261031">
+        <h2>2026-10-31：日线技术指标来源替换方案</h2>
+        <p>本文保留股票详情页既有真实API合同和原接入依据。管理员现已确认先替换日线MA、BOLL、MACD、KDJ的后端取得方式，原API协议、页面及其他行情字段不变，全部指标仍随日线一次返回；具体见<a href="../../../../docs/architecture/technical-indicator-kernel-stock-daily-api-integration-plan-v1.html">股票日线技术指标正式接入方案v1</a>。</p>
+        <p>配套<a href="../../../../docs/architecture/technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html">代码级LLD</a>已成稿，两股21日来源/复权口径核验已通过，旧样本五位保存精度差异已写明；接入尚未实施。下文“全部指标只读取已有字段、不做自研计算”描述当前旧链路，不能作为后续替换指标来源的限制；新专项只覆盖这部分来源设计，不覆盖page-init、基础K线、分钟线、九转或趋势通道。本轮仅写方案，没有修改API或页面。</p>
+      </section>
       <section class="hero">
         <h1>股票详情页真实 API 对接方案 v1</h1>
         <p>

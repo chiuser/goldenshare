@@ -1,0 +1,17 @@
+{
+  "status": "passed",
+  "rule": "DuckDB ROUND(value,3), numeric equality with explicit NULL contract",
+  "source_report": "price_comparison_02.json",
+  "source_sha256": "6bb8daa7e52fd38c5df30a99c69cdbb4c1bc395801722f67b1a5000865d34902",
+  "sql": "WITH fields AS (SELECT unnest(fields) AS r FROM read_json(?))\nSELECT count(*) AS value_count,\ncount(*) FILTER (WHERE ROUND(r.database_qfq,3) IS NOT DISTINCT FROM ROUND(r.calculated_qfq,3)) AS same_at_three_decimals\nFROM fields",
+  "compared_values": 168,
+  "matched_values": 168,
+  "kernel_precision_unchanged": true,
+  "api_rounding_unchanged": true,
+  "formula_reference_tolerance_unchanged": true,
+  "formal_lake_files_read": 0,
+  "database_connections": 0,
+  "real_controls": 0,
+  "calculate_calls": 0,
+  "source_node_rerun": false
+}

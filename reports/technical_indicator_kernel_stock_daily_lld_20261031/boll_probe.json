@@ -1,0 +1,53 @@
+{
+  "status": "bounded_database_values_compared",
+  "scope": "existing saved42rows only; no DB reconnect or Lake reads; not a price-gate retry",
+  "source_rows": 42,
+  "sql_logical_rows": 84,
+  "result_rows": [
+    {
+      "ts_code": "600000.SH",
+      "trade_date": "2026-07-30",
+      "mid": 8.8838525,
+      "boll_mid_qfq": 8.884,
+      "upper_pop": 9.515899097423798,
+      "upper_sample": 9.532318626465898,
+      "boll_upper_qfq": 9.516,
+      "lower_pop": 8.251805902576201,
+      "boll_lower_qfq": 8.252
+    },
+    {
+      "ts_code": "600000.SH",
+      "trade_date": "2026-07-31",
+      "mid": 8.944453,
+      "boll_mid_qfq": 8.944,
+      "upper_pop": 9.572591825009251,
+      "upper_sample": 9.588909836563696,
+      "boll_upper_qfq": 9.573,
+      "lower_pop": 8.316314174990747,
+      "boll_lower_qfq": 8.316
+    },
+    {
+      "ts_code": "603806.SH",
+      "trade_date": "2026-07-30",
+      "mid": 14.216821499999995,
+      "boll_mid_qfq": 14.217,
+      "upper_pop": 15.271850201302001,
+      "upper_sample": 15.299258108364368,
+      "boll_upper_qfq": 15.272,
+      "lower_pop": 13.161792798697988,
+      "boll_lower_qfq": 13.162
+    },
+    {
+      "ts_code": "603806.SH",
+      "trade_date": "2026-07-31",
+      "mid": 14.162795499999996,
+      "boll_mid_qfq": 14.163,
+      "upper_pop": 15.01553094836543,
+      "upper_sample": 15.03768361007856,
+      "boll_upper_qfq": 15.016,
+      "lower_pop": 13.310060051634562,
+      "boll_lower_qfq": 13.31
+    }
+  ],
+  "claim": "source default20/2 confirmed by local doc328; saved values compared to pop/sample formulas; no general tolerance or full-history equivalence claimed"
+}

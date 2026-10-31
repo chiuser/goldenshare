@@ -1,0 +1,42 @@
+{
+  "status": "four_findings_addressed_in_design",
+  "date": "2026-10-31",
+  "scope": "documentation repair and explanation only",
+  "decisions": {
+    "max_source_files": {
+      "approved_design": 10000,
+      "current_code_default": 5000,
+      "implementation": "future stock daily integration; existing Settings Field and literal default test only"
+    },
+    "database_cleanup": "explicit primary error, four acquisition states, listener removal, session owner close, failure invalidation, finite cleanup diagnostics, ended-frame release before admission return",
+    "test_database": "existing SQLite is test-only; exact scoped replacement and fresh App assembly documented; real PG probe unchanged",
+    "reference": "21 target-qfq literal rows with close/high/low; separate formula reference, not production SQL or helper",
+    "migration": "contracts and config, generic execution, all stock API migration files together, then finite checks and fixed P/R acceptance",
+    "source_price_audit_decimal_places": 3
+  },
+  "checks": {
+    "document_static": "document_static_checks_passed",
+    "html_sections": 18,
+    "parseable_python_examples": 7,
+    "protected_code_fingerprints_unchanged": 8,
+    "repository_docs_integrity": "passed",
+    "tracked_scoped_git_diff_check": "passed",
+    "scoped_document_trailing_whitespace": "passed"
+  },
+  "document_sha256": {
+    "docs/architecture/technical-indicator-kernel-stock-daily-api-integration-plan-v1.html": "d170f907d06028b2905a3848b62b0f5d12504e43afcb1776a3b5bbfe7d1ce46d",
+    "docs/architecture/technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html": "a2cd781b62ee4c722a0c12704e1b3d377f716ad8a54b19a79ae79975ea0217ac",
+    "docs/architecture/technical-indicator-kernel-component-design-v1.html": "86ac707ab5825b7ff0866ed38697a598d6c919da97841e95bb2cf60328d6aebf",
+    "docs/architecture/technical-indicator-kernel-low-level-design-v1.html": "723600eef63fc6d291276f3ccc660420e81d569ac0970aebc99f3b9ef10cdcce"
+  },
+  "runtime_verification": false,
+  "real_control_count": 0,
+  "database_access": false,
+  "lake_access": false,
+  "business_code_or_configuration_changed": false,
+  "test_code_changed": false,
+  "dependencies_changed": false,
+  "historical_reports_overwritten": false,
+  "commit_or_deployment": false,
+  "remaining": "implementation and originally planned bounded acceptance; no runtime leak-free claim from static document checks"
+}

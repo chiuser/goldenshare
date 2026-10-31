@@ -1,0 +1,19 @@
+{
+  "status": "stopped_for_permission",
+  "attempt": 1,
+  "stage": "summary_sql_parse",
+  "error_type": "duckdb.ParserException",
+  "reason": "unquoted reserved rows alias",
+  "database_retried": false,
+  "database_rows": 42,
+  "lake_unique_files": 43,
+  "comparison_rows_computed_but_not_saved": 42,
+  "product_changed": false,
+  "formal_data_written": false,
+  "cleanup": "ephemeral process exited; no persistent DuckDB or Lake writes; connections released by process",
+  "next": "await confirmation for this one node; continue independent LLD design",
+  "expected_selected_lake_rows": 84,
+  "expected_basis_rows": 2,
+  "actual_selected_lake_rows": "not_saved_before_parser_failure",
+  "physical_rows_and_decoded_bytes": "not_measured; selected output is not physical scan volume"
+}

@@ -1,0 +1,56 @@
+{
+  "status": "readonly_scope_frozen",
+  "purpose": "LLD前核对股票日线原qfq与Lake日线/因子是否一致；本轮不开发或验收完整API",
+  "target": "configured DATABASE_URL, PostgreSQL goldenshare, direct existing credential; no secret persisted",
+  "tables": [
+    "core_serving.equity_factor_pro"
+  ],
+  "codes": [
+    "600000.SH",
+    "603806.SH"
+  ],
+  "start": "2026-06-01",
+  "end": "2026-07-31",
+  "max_rows_per_code": 21,
+  "fields": [
+    "ts_code",
+    "trade_date",
+    "open",
+    "high",
+    "low",
+    "close",
+    "open_qfq",
+    "high_qfq",
+    "low_qfq",
+    "close_qfq",
+    "adj_factor",
+    "boll_mid_qfq",
+    "boll_upper_qfq",
+    "boll_lower_qfq",
+    "ma_qfq_20",
+    "macd_dif_qfq",
+    "macd_dea_qfq",
+    "macd_qfq",
+    "kdj_k_qfq",
+    "kdj_d_qfq",
+    "kdj_qfq"
+  ],
+  "read_only": "connection options default_transaction_read_only=on; statement_timeout=5000; connect_timeout=5; SELECT only; connection rollback/close",
+  "lake_root": "/Volumes/datasource/data_lake",
+  "lake_scope": "only projected columns for selected codes and DB dates; latest 2026-10-30 adj_factor file; <=43 files per dataset; no glob scan of all data",
+  "lake_max_files": 85,
+  "sql_computation": "bounded DuckDB price/basis comparison only, no full indicator engine or new reference",
+  "no_installs": true,
+  "no_retries": true,
+  "code_sha256": {
+    "docs/architecture/technical-indicator-kernel-stock-daily-api-integration-plan-v1.html": "02be61833091c1a8fc8234d73d76c4fae84df7cdba26ca3b2712204ab352971f",
+    "src/biz/api/wealth/market/stock_detail.py": "89acfe2cad0d0a94bc53a0c31b10b2ae5e883902c313733c38e5c3448a0fb449",
+    "src/biz/queries/wealth/market/stock_detail/stock_detail_query.py": "53f0c7213d61f6f1a3d3b7331ca2f07a7d386114973d76d02b637bb38ef8d7a4",
+    "src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py": "f15d78cb2e40909bbf94044814c9f7f1b3cee4c4e493166f903d638b7a6f4c9d",
+    "src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py": "2d2cd58342d27148ce3186361f24225238a1bac4b9eecddaab508860fca07cc7",
+    "src/app/runtime/technical_indicators/execution.py": "b0103f62471639d51348dadea969d3145e3b1b7b8b3766df8d514ba9f89eb54b",
+    "src/app/runtime/technical_indicators/response.py": "b3d9e68a5df628538a2a7a20a65f00c886b1f2dba219c8e01f3af2ce170ccaf0",
+    "src/app/runtime/technical_indicators/admission.py": "e9d0c4aa73d0c385cdb2cf8f7a6c58cc80797a48269ac4c4ad6bd2e0be5b8c40",
+    "src/db.py": "9a724640965c5566be4215359ed13c631cd41ced599a456f47d4db05848e6315"
+  }
+}
