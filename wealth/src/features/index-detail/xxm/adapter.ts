@@ -1,241 +1,132 @@
 import { XXM_ALGORITHM_VERSION, XXM_SPEC_HASH } from "./types";
-import { validRearmRecord } from "./rearmContract";
 import type { DetailChartPoint } from "../../../shared/charts/detail-workspace/detailChartTypes";
-import type { Time } from "lightweight-charts";
-import type { XxmEvent, XxmPeriod, XxmReference, XxmResponse, XxmViewModel } from "./types";
-
-function assert(condition: unknown): asserts condition {
-  if (!condition) throw new Error("研究指标与当前价格或指标数据不一致");
+import type { DecodeXxmDebug } from "../debug/types";
+import type { XxmEvent, XxmPeriod, XxmResponse, XxmDebugResponse, XxmViewModel } from "./types";
+export function assert(value: unknown): asserts value { if (!value)
+    throw new Error("顶底识别数据与合同不一致"); }
+export const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+export const record = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+export function keys(v: unknown, expected: string): asserts v is Record<string, unknown> {
+    const names = expected.split(" ");
+    assert(record(v) && Object.keys(v).length === names.length && names.every(k => Object.hasOwn(v, k)));
 }
-function timeKey(time: string, period: XxmPeriod): string {
-  if (period === "day") {
-    assert(/^\d{4}-\d{2}-\d{2}$/.test(time) && new Date(`${time}T00:00:00Z`).toISOString().slice(0, 10) === time);
-    return time;
-  }
-  assert(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+08:00$/.test(time));
-  const value = Date.parse(time) / 1000;
-  assert(Number.isFinite(value));
-  return String(value);
+export function timeKey(stamp: unknown, period: XxmPeriod): string {
+    assert(typeof stamp === "string");
+    assert(/^\d{4}-\d{2}-\d{2}$/.test(stamp.slice(0, 10)) && new Date(stamp.slice(0, 10) + "T00:00:00Z").toISOString().slice(0, 10) === stamp.slice(0, 10));
+    if (period === "day") {
+        assert(stamp.length === 10);
+        return stamp;
+    }
+    const endpoints = period === "m60" ? ["10:30", "11:30", "14:00", "15:00"] : period === "m90" ? ["11:00", "14:00", "15:00"] : ["11:30", "15:00"];
+    assert(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00\+08:00$/.test(stamp) && endpoints.includes(stamp.slice(11, 16)));
+    const value = Date.parse(stamp) / 1000;
+    assert(Number.isFinite(value));
+    return String(value);
 }
-function validateReference(reference: XxmReference | null, period: XxmPeriod) {
-  if (!reference) return;
-  assert(Number.isFinite(reference.price) && reference.price > 0 && Number.isFinite(reference.dif));
-  timeKey(reference.startTime, period); timeKey(reference.endTime, period);
-  assert(reference.startTime <= reference.endTime);
-}
-
-export function buildXxmViewModel(response: XxmResponse, points: DetailChartPoint[], period: XxmPeriod, tsCode: string,
-  indicatorVersion: number | null = null): XxmViewModel {
-  assert(response.tsCode === tsCode && tsCode === "000001.SH" && response.period === period);
-  assert(response.algorithmVersion === XXM_ALGORITHM_VERSION && response.specHash === XXM_SPEC_HASH);
-  assert(Array.isArray(response.bottomHistories) && Array.isArray(response.rearmRecords));
-  assert(/^[a-f0-9]{64}$/.test(response.source.inputId));
-  assert(response.source.kind === (period === "day" ? "daily_factor" : "minute_gold"));
-  assert(response.source.indicatorVersion === (period === "day" ? null : indicatorVersion));
-  assert(["READY", "DELAYED", "EMPTY"].includes(response.dataStatus.status));
-  const sourceByTime = new Map<string, typeof response.points[number]>();
-  let previous = "";
-  for (const point of response.points) {
-    const key = timeKey(point.time, period);
-    assert(point.time > previous && !sourceByTime.has(key)); previous = point.time;
-    assert([point.close, point.dif, point.dea, point.hist].every(Number.isFinite) && point.close > 0);
-    assert(["NONE", "DULL", "STRUCTURE"].includes(point.ordinaryState));
-    assert(point.ordinaryState === "NONE"
-      ? point.ordinaryDirection === null && point.activeReference === null
-      : ["TOP", "BOTTOM"].includes(point.ordinaryDirection ?? "") && point.activeReference !== null);
-    assert(point.pendingBottomHistoryId === null || (typeof point.pendingBottomHistoryId === "string" && point.pendingBottomHistoryId.length > 0));
-    assert(point.pendingRearmId === null || typeof point.pendingRearmId === "string" && point.pendingRearmId.length > 0
-      && point.ordinaryState === "NONE" && point.pendingBottomHistoryId === null);
-    validateReference(point.activeReference, period);
-    sourceByTime.set(key, point);
-  }
-  assert(response.meta.count === response.points.length);
-  assert(response.meta.responseStart === (response.points[0]?.time ?? null) && response.meta.responseEnd === (response.points.at(-1)?.time ?? null));
-  assert(response.dataStatus.asOf === response.source.computedThrough);
-  if (response.dataStatus.status === "EMPTY") {
-    assert(response.points.length === 0 && response.events.length === 0 && response.topHistories.length === 0 && response.bottomHistories.length === 0 && response.rearmRecords.length === 0 && response.source.computedThrough === null);
-    return { response, markers: [], byTime: new Map() };
-  }
-  assert(response.source.computedThrough !== null && response.source.startTime !== null);
-  timeKey(response.source.computedThrough, period); timeKey(response.source.startTime, period);
-  assert(response.points.every(point => point.time >= response.source.startTime! && point.time <= response.source.computedThrough!));
-  const chartByTime = new Map(points.map(point => [String(point.time), point]));
-  const through = timeKey(response.source.computedThrough, period);
-  const comparable = (key: string) => period === "day" ? key : Number(key);
-  for (const chart of points) {
-    if (comparable(String(chart.time)) > comparable(through)) continue;
-    const source = sourceByTime.get(String(chart.time));
-    assert(source && [chart.close, chart.dif, chart.dea, chart.macd].every(Number.isFinite));
-    assert(chart.close === source.close && chart.dif === source.dif && chart.dea === source.dea && chart.macd === source.hist);
-  }
-  const histories = new Map(response.topHistories.map(history => [history.id, history]));
-  assert(histories.size === response.topHistories.length);
-  for (const history of histories.values()) {
-    timeKey(history.confirmedAt, period); timeKey(history.pricePeakAt, period); timeKey(history.observedThrough, period);
-    validateReference(history.originalReference, period);
-    assert(history.confirmedAt <= history.observedThrough && history.observedThrough <= response.source.computedThrough);
-    assert(Number.isFinite(history.pricePeak) && Number.isInteger(history.ageBars) && history.ageBars >= 0);
-    assert(history.status === "PENDING" ? history.endedAt === null && history.endReason === null
-      : history.status === "ENDED" && history.endedAt !== null && history.endReason !== null && history.endedAt <= response.source.computedThrough);
-  }
-  const bottomHistories = new Map(response.bottomHistories.map(history => [history.id, history]));
-  assert(bottomHistories.size === response.bottomHistories.length);
-  assert([...bottomHistories.values()].filter(h => h.status === "PENDING").length <= 1);
-  for (const h of bottomHistories.values()) {
-    assert(typeof h.id === "string" && h.id.length > 0 && !histories.has(h.id));
-    assert(typeof h.structureEventId === "string" && h.structureEventId.length > 0);
-    for (const stamp of [h.confirmedAt, h.originSegmentStart, h.priceLowAt, h.observedThrough]) timeKey(stamp, period);
-    validateReference(h.originalReference, period);
-    assert(h.originalReference && h.originalReference.endTime < h.originSegmentStart);
-    assert(["dif_turn", "color_flip"].includes(h.confirmationRoute));
-    assert(h.originSegmentStart <= h.priceLowAt && h.priceLowAt <= h.confirmedAt && h.confirmedAt <= h.observedThrough);
-    assert(h.observedThrough <= response.source.computedThrough && Number.isFinite(h.priceLow) && h.priceLow > 0);
-    assert(Number.isInteger(h.ageBars) && h.ageBars >= 0);
-    assert(h.leftOriginAt === null || (typeof h.leftOriginAt === "string" && h.confirmedAt <= h.leftOriginAt && h.leftOriginAt <= h.observedThrough));
-    if (h.leftOriginAt !== null) timeKey(h.leftOriginAt, period);
-    if (h.status === "PENDING") assert(h.endedAt === null && h.endReason === null && h.observedThrough === response.source.computedThrough);
+export function decodeXxmResponse(raw: unknown, options: {
+    tsCode: string;
+    period: XxmPeriod;
+    debug: 0 | 1;
+    decodeDebug?: DecodeXxmDebug;
+    check: () => void;
+}): XxmResponse | XxmDebugResponse {
+    const { period, check } = options;
+    check();
+    const names = "tsCode period algorithmVersion specHash source points events meta dataStatus";
+    keys(raw, names + (options.debug ? " debug" : ""));
+    assert(raw.tsCode === options.tsCode && raw.tsCode === "000001.SH" && raw.period === period && raw.algorithmVersion === XXM_ALGORITHM_VERSION && raw.specHash === XXM_SPEC_HASH);
+    keys(raw.source, "kind startTime computedThrough initialHistoryIncomplete indicatorVersion");
+    keys(raw.meta, "count responseStart responseEnd");
+    keys(raw.dataStatus, "status message asOf");
+    const source = raw.source, meta = raw.meta, status = raw.dataStatus;
+    assert(source.kind === (period === "day" ? "daily_factor" : "minute_gold") && typeof source.initialHistoryIncomplete === "boolean" && (period === "day" ? source.indicatorVersion === null : Number.isInteger(source.indicatorVersion)));
+    assert(["READY", "DELAYED", "EMPTY"].includes(String(status.status)) && (status.message === null || typeof status.message === "string") && status.asOf === source.computedThrough);
+    assert(Array.isArray(raw.points) && Array.isArray(raw.events));
+    let previous = "";
+    const times = new Set<string>();
+    for (const [i, p] of raw.points.entries()) {
+        if (i % 128 === 0)
+            check();
+        keys(p, "time close dif dea hist ordinaryState ordinaryDirection");
+        timeKey(p.time, period);
+        assert(typeof p.time === "string" && p.time > previous && finite(p.close) && p.close > 0 && [p.dif, p.dea, p.hist].every(finite));
+        assert(["NONE", "DULL", "STRUCTURE"].includes(String(p.ordinaryState)) && (p.ordinaryState === "NONE" ? p.ordinaryDirection === null : ["TOP", "BOTTOM"].includes(String(p.ordinaryDirection))));
+        previous = p.time;
+        times.add(p.time);
+    }
+    assert(Number.isInteger(meta.count) && meta.count === raw.points.length && meta.responseStart === (raw.points[0]?.time ?? null) && meta.responseEnd === (raw.points.at(-1)?.time ?? null));
+    if (status.status === "EMPTY")
+        assert(raw.points.length === 0 && raw.events.length === 0 && source.startTime === null && source.computedThrough === null);
     else {
-      assert(h.status === "ENDED" && typeof h.endedAt === "string" && h.confirmedAt < h.endedAt && h.endedAt === h.observedThrough);
-      timeKey(h.endedAt, period);
-      assert(["original_reference_break", "new_bottom_DULL", "new_bottom_STRUCTURE", "structure_disappeared", "historical_price_break"].includes(h.endReason ?? ""));
-      assert(h.endReason !== "historical_price_break" || h.leftOriginAt !== null);
-      assert(h.endReason !== "structure_disappeared" || h.leftOriginAt === null);
+        timeKey(source.startTime, period);
+        timeKey(source.computedThrough, period);
+        assert(String(source.startTime) <= String(source.computedThrough));
+        for (const p of raw.points)
+            assert(p.time >= String(source.startTime) && p.time <= String(source.computedThrough));
     }
-  }
-  const rearms = new Map(response.rearmRecords.map(r => [r.id, r]));
-  assert(rearms.size === response.rearmRecords.length && [...rearms.values()].filter(r => r.status === "WAITING").length <= 1);
-  const sameReference = (a: XxmReference | null, b: XxmReference | null) => !!a && !!b
-    && ["startTime", "endTime", "price", "dif"].every(k => a[k as keyof XxmReference] === b[k as keyof XxmReference]);
-  for (const r of rearms.values()) {
-    assert(validRearmRecord(r, period, response.source.computedThrough));
-    assert(!histories.has(r.id) && !bottomHistories.has(r.id));
-    const h = bottomHistories.get(r.bottomHistoryId);
-    assert(h && h.structureEventId === r.structureEventId && h.confirmedAt === r.structureConfirmedAt
-      && h.confirmationRoute === r.structureRoute && h.originSegmentStart === r.segmentStart
-      && sameReference(h.originalReference, r.reference) && h.endReason === "structure_disappeared" && h.endedAt === r.disappearedAt);
-  }
-  for (const h of bottomHistories.values()) if (h.endReason === "structure_disappeared")
-    assert([...rearms.values()].filter(r => r.bottomHistoryId === h.id).length === 1);
-  // Associations are validated for the complete API window, even before the
-  // first loaded minute endpoint. A later ENDED record was pending at old points.
-  for (const point of response.points) {
-    if (point.pendingRearmId !== null) {
-      const r = rearms.get(point.pendingRearmId);
-      assert(r && r.disappearedAt <= point.time && (r.endedAt === null || point.time < r.endedAt));
+    const ids = new Set<string>();
+    previous = "";
+    for (const e of raw.events) {
+        check();
+        keys(e, "id time direction type displayOnChart");
+        assert(typeof e.id === "string" && !!e.id && !ids.has(e.id) && typeof e.time === "string" && times.has(e.time) && e.time >= previous && ["DULL", "STRUCTURE", "CANCEL"].includes(String(e.type)) && ["TOP", "BOTTOM"].includes(String(e.direction)) && typeof e.displayOnChart === "boolean");
+        if (!e.displayOnChart)
+            assert(e.type === "CANCEL" && raw.events.some(v => record(v) && v.time === e.time && v.direction === e.direction && v.type === "DULL" && v.displayOnChart === true));
+        ids.add(e.id);
+        previous = e.time;
     }
-    for (const [id, records] of [[point.pendingTopHistoryId, histories], [point.pendingBottomHistoryId, bottomHistories]] as const) {
-      if (id !== null) {
-        const h = records.get(id);
-        assert(h && h.confirmedAt <= point.time && (h.endedAt === null || point.time < h.endedAt));
-      }
+    const response = Object.fromEntries(names.split(" ").map(k => [k, raw[k]])) as unknown as XxmResponse;
+    if (options.debug) {
+        assert(options.decodeDebug);
+        const debug = options.decodeDebug(raw.debug, { response, tsCode: options.tsCode, period, check });
+        check();
+        return { ...response, debug };
     }
-  }
-  const byTime: XxmViewModel["byTime"] = new Map();
-  for (const [key, point] of sourceByTime) {
-    if (!chartByTime.has(key)) continue; // date-level API window may start before a loaded minute endpoint
-    assert(!point.pendingTopHistoryId || histories.has(point.pendingTopHistoryId));
-    byTime.set(key, { point, events: [], histories: point.pendingTopHistoryId ? [histories.get(point.pendingTopHistoryId)!] : [],
-      bottomHistories: point.pendingBottomHistoryId ? [bottomHistories.get(point.pendingBottomHistoryId)!] : [],
-      rearmRecords: point.pendingRearmId ? [rearms.get(point.pendingRearmId)!] : [] });
-  }
-  for (const history of histories.values()) {
-    if (history.endedAt) timeKey(history.endedAt, period);
-    const endedDetail = history.endedAt ? byTime.get(timeKey(history.endedAt, period)) : undefined;
-    if (endedDetail && !endedDetail.histories.some(existing => existing.id === history.id)) endedDetail.histories.push(history);
-  }
-  for (const h of bottomHistories.values()) {
-    const detail = h.endedAt ? byTime.get(timeKey(h.endedAt, period)) : undefined;
-    if (detail && !detail.bottomHistories.some(existing => existing.id === h.id)) detail.bottomHistories.push(h);
-  }
-  for (const r of rearms.values()) {
-    if (!r.endedAt) continue;
-    const detail = byTime.get(timeKey(r.endedAt, period));
-    if (detail && !detail.rearmRecords.some(existing => existing.id === r.id)) detail.rearmRecords.push(r);
-  }
-  const eventIds = new Set<string>();
-  const rearmEvents = new Set<string>();
-  const markers: XxmViewModel["markers"] = [];
-  for (const event of response.events) {
-    assert(typeof event.id === "string" && event.id.length > 0 && !eventIds.has(event.id) && !rearms.has(event.id)); eventIds.add(event.id);
-    const key = timeKey(event.time, period); const source = sourceByTime.get(key);
-    assert(source && ["TOP", "BOTTOM"].includes(event.direction));
-    assert(["activation", "reactivation", "dif_turn", "dif_return", "color_flip", "dif_break", "dif_break_on_flip", "historical_price_break"].includes(event.route));
-    assert(["NONE", "DULL", "STRUCTURE"].includes(event.fromState));
-    assert(event.relatedBottomHistoryId === null || (typeof event.relatedBottomHistoryId === "string" && event.relatedBottomHistoryId.length > 0));
-    const historical = event.type === "RESEARCH_HISTORICAL_WITHDRAWAL";
-    assert(historical === (event.route === "historical_price_break"));
-    const disappeared = event.type === "STRUCTURE_DISAPPEARED";
-    if (disappeared || event.route === "reactivation") {
-      const key = `${event.relatedRearmId}:${event.type}`;
-      assert(!rearmEvents.has(key)); rearmEvents.add(key);
-    }
-    const associated = historical || event.type === "STRUCTURE" || disappeared;
-    const ownId = event.direction === "TOP" ? event.relatedTopHistoryId : event.relatedBottomHistoryId;
-    const otherId = event.direction === "TOP" ? event.relatedBottomHistoryId : event.relatedTopHistoryId;
-    assert(otherId === null);
-    if (associated) {
-      const h = event.direction === "TOP" ? histories.get(ownId!) : bottomHistories.get(ownId!);
-      assert(ownId && h);
-      if (historical) {
-        assert(event.route === "historical_price_break" && h.status === "ENDED" && h.endReason === "historical_price_break" && h.endedAt === event.time);
-        assert(event.eventReference && ["startTime", "endTime", "price", "dif"].every(k => h.originalReference[k as keyof XxmReference] === event.eventReference![k as keyof XxmReference]));
-      } else if (disappeared) {
-        const r = rearms.get(event.relatedRearmId!);
-        assert(event.direction === "BOTTOM" && event.route === "dif_return" && event.fromState === "STRUCTURE"
-          && r && r.bottomHistoryId === ownId && r.disappearedAt === event.time
-          && sameReference(event.eventReference, r.reference) && source.pendingRearmId === r.id);
-      } else {
-        assert(h.confirmedAt === event.time && h.confirmationRoute === event.route);
-        if (event.direction === "BOTTOM") assert(bottomHistories.get(ownId!)!.structureEventId === event.id);
-      }
-    } else assert(ownId === null);
-    if (event.route === "reactivation") {
-      const r = rearms.get(event.relatedRearmId!);
-      assert(event.type === "DULL" && event.direction === "BOTTOM" && event.fromState === "NONE"
-        && r && r.status === "REACTIVATED" && r.endedAt === event.time && sameReference(r.reference, event.eventReference)
-        && source.ordinaryState === "DULL" && source.pendingRearmId === null);
-    } else if (!disappeared) assert(event.relatedRearmId === null);
-    eventLabel(event);
-    validateReference(event.eventReference, period);
-    assert(!event.relatedTopHistoryId || histories.has(event.relatedTopHistoryId));
-    const detail = byTime.get(key);
-    if (!detail) {
-      const first = points[0]; assert(first && comparable(key) < comparable(String(first.time)));
-      continue;
-    }
-    detail.events.push(event);
-    if (event.relatedRearmId && !detail.rearmRecords.some(r => r.id === event.relatedRearmId))
-      detail.rearmRecords.push(rearms.get(event.relatedRearmId)!);
-    if (event.relatedTopHistoryId && !detail.histories.some(history => history.id === event.relatedTopHistoryId)) {
-      detail.histories.push(histories.get(event.relatedTopHistoryId)!);
-    }
-    if (event.relatedBottomHistoryId && !detail.bottomHistories.some(h => h.id === event.relatedBottomHistoryId)) {
-      detail.bottomHistories.push(bottomHistories.get(event.relatedBottomHistoryId)!);
-    }
-    markers.push({ time: chartByTime.get(key)!.time as Time, dif: source.dif, event });
-  }
-  const eventsById = new Map(response.events.map(e => [e.id, e]));
-  for (const h of bottomHistories.values()) {
-    const event = eventsById.get(h.structureEventId);
-    if (event) assert(event.direction === "BOTTOM" && event.type === "STRUCTURE" && event.relatedBottomHistoryId === h.id
-      && event.time === h.confirmedAt && event.route === h.confirmationRoute);
-  }
-  return { response, markers, byTime };
+    check();
+    return response;
 }
-
+export function buildXxmViewModel(response: XxmResponse | XxmDebugResponse, points: DetailChartPoint[], period: XxmPeriod, tsCode: string, indicatorVersion: number | null = null, check: () => void = () => { }): XxmViewModel {
+    check();
+    assert(response.algorithmVersion === XXM_ALGORITHM_VERSION && response.specHash === XXM_SPEC_HASH);
+    assert(response.period === period && response.tsCode === tsCode && response.source.indicatorVersion === (period === "day" ? null : indicatorVersion));
+    const source = new Map(response.points.map(p => [timeKey(p.time, period), p]));
+    const chart = new Map(points.map(p => [String(p.time), p]));
+    const through = response.source.computedThrough === null ? null : timeKey(response.source.computedThrough, period);
+    for (const [i, p] of points.entries()) {
+        if (i % 128 === 0)
+            check();
+        if (through === null || (period === "day" ? String(p.time) > through : Number(p.time) > Number(through)))
+            continue;
+        const s = source.get(String(p.time));
+        assert(s && [p.close, p.dif, p.dea, p.macd].every(finite) && p.close === s.close && p.dif === s.dif && p.dea === s.dea && p.macd === s.hist);
+    }
+    const byTime: XxmViewModel["byTime"] = new Map();
+    const markers: XxmViewModel["markers"] = [];
+    const debug = "debug" in response ? response.debug : null;
+    for (const [i, [key, p]] of [...source].entries()) {
+        if (i % 128 === 0)
+            check();
+        if (!chart.has(key))
+            continue;
+        const events = response.events.filter(e => e.time === p.time), displayEvents = events.filter(e => e.displayOnChart);
+        let debugDetail = null;
+        if (debug) {
+            const point = debug.points.find(v => v.time === p.time)!;
+            const eventsDebug = debug.events.filter(e => events.some(v => v.id === e.id));
+            const ids = new Set([point.activeStructureId, ...eventsDebug.map(e => e.relatedStructureId)]);
+            debugDetail = { point, events: eventsDebug, structures: debug.structures.filter(s => ids.has(s.id) || (s.formedAt <= p.time && (s.trackingEndedAt === null || s.trackingEndedAt >= p.time))) };
+        }
+        byTime.set(key, { point: p, events, displayEvents, debugDetail });
+        for (const event of displayEvents)
+            markers.push({ time: chart.get(key)!.time, dif: p.dif, event });
+    }
+    check();
+    return { response, markers, byTime };
+}
 export function eventLabel(event: Pick<XxmEvent, "type" | "direction">): string {
-  if (event.type === "STRUCTURE_DISAPPEARED") return "底部结构消失";
-  if (event.type === "RESEARCH_HISTORICAL_WITHDRAWAL") {
-    return event.direction === "TOP" ? "顶结构消失" : "底部结构消失";
-  }
-  const side = event.direction === "TOP" ? "顶" : "底";
-  if (event.type === "DULL") return `${side}钝化`;
-  if (event.type === "STRUCTURE") return `${side}结构`;
-  if (event.type === "CANCEL") return event.direction === "TOP" ? "顶消失" : "底取消";
-  throw new Error("研究事件类型未识别");
+    if (event.type === "CANCEL")
+        return event.direction === "TOP" ? "顶消失" : "底取消";
+    const side = event.direction === "TOP" ? "顶" : "底";
+    return side + ({ DULL: "钝化", STRUCTURE: "结构", CANCEL: "消失" }[event.type]);
 }
-
-export function eventMarkerLabel(event: Pick<XxmEvent, "type" | "direction">): string {
-  if (event.type === "STRUCTURE_DISAPPEARED" || event.type === "RESEARCH_HISTORICAL_WITHDRAWAL" && event.direction === "BOTTOM") return "消失";
-  return eventLabel(event).replace(/^[顶底]/u, "");
-}
+export function eventMarkerLabel(event: Pick<XxmEvent, "type" | "direction">): string { return eventLabel(event).replace(/^[顶底]/u, ""); }

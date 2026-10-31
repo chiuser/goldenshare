@@ -30,8 +30,7 @@ import {
 import { fetchMarketMajorIndices } from "../../features/major-indices/api/marketMajorIndicesApi";
 import type { NineTurnPeriod } from "../../features/nine-turn/api/nineTurnApiTypes";
 import { useNineTurnSeriesRegistry } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
-import { useDailyWaveReview } from "../../features/index-detail/daily-wave/useDailyWaveReview";
-import { useDailyWaveCompanionLayers } from "../../features/index-detail/daily-wave/useDailyWaveCompanionLayers";
+import { resolveIndexRecognitionAvailability } from "../../features/index-detail/model/indexRecognitionAvailability";
 import { INDEX_DAILY_HISTORY_LIMIT } from "../../features/index-detail/model/indexDetailConstants";
 import { unsupportedNineTurnLayer } from "../../features/nine-turn/model/nineTurnAdapter";
 import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
@@ -68,17 +67,10 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
     supportsNineTurn: viewModel?.capabilities.supportsNineTurn ?? false,
     tsCode: normalizedTsCode,
   });
-  const waveReview = useDailyWaveReview({ tsCode: normalizedTsCode, activePeriod });
-  const waveReady = waveReview.phase === "ready" && waveReview.response?.status === "ready";
-  const waveLayers = useDailyWaveCompanionLayers({
-    active: waveReady,
-    endDate: waveReady && waveReview.response?.status === "ready" ? waveReview.response.observationEnd : null,
-    tsCode: normalizedTsCode,
-    supportsNineTurn: viewModel?.capabilities.supportsNineTurn ?? false,
-    supportsTrend: viewModel?.capabilities.supportsTrendChannel ?? false,
-  });
+  const { recognitionEnabled } = resolveIndexRecognitionAvailability({ development: import.meta.env.DEV, tsCode: normalizedTsCode, search });
   const forecast = useXxmForecast({
-    active: activeTab === "technical" && hasData,
+    active: recognitionEnabled && activeTab === "technical" && hasData,
+    enabled: recognitionEnabled, debug: 0,
     tsCode: normalizedTsCode,
     historicalDate: new URLSearchParams(search).has("tradeDate") ? viewModel?.asOfTradeDate ?? undefined : undefined,
     minutes: import.meta.env.DEV && (viewModel?.capabilities.supportsMinute ?? false),
@@ -213,19 +205,19 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
         ) : (
           activePeriod === "day" ? (
             <IndexChartWorkspace
-              review={waveReview}
-              nineTurnLayer={waveReady ? waveLayers.nineTurnLayer : nineTurnLayer}
+              recognition={{ recognitionEnabled, debug: 0 }}
+              nineTurnLayer={nineTurnLayer}
               onNineTurnRetry={() => {
-                if (waveReady) waveLayers.retryNineTurn();
-                else if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
+                if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
               }}
-              onTrendRetry={waveReady ? waveLayers.retryTrend : controller.retryTrend}
-              trend={waveReady ? waveLayers.trend : controller.trend}
-              trendPhase={waveReady ? waveLayers.trendPhase : controller.trendPhase}
+              onTrendRetry={controller.retryTrend}
+              trend={controller.trend}
+              trendPhase={controller.trendPhase}
               viewModel={viewModel}
             />
           ) : (
             <IndexMinuteChartWorkspace
+              recognition={{ recognitionEnabled, debug: 0 }}
               data={minute.data}
               errorMessage={minute.errorMessage}
               nineTurnLayer={nineTurnLayer}
@@ -238,7 +230,7 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
           )
         )}
         <IndexInfoRail
-          forecast={normalizedTsCode === "000001.SH" ? forecast : undefined}
+          forecast={recognitionEnabled ? forecast : undefined}
           activeTab={activeTab}
           onAction={showToast}
           onTabChange={setActiveTab}

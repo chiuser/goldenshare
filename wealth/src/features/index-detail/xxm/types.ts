@@ -1,63 +1,136 @@
 import type { Time } from "lightweight-charts";
-
-export const XXM_ALGORITHM_VERSION = "xxm-direction-v0.1-r2" as const;
-export const XXM_SPEC_HASH = "6db425730c72f22ea756c121a832f27c966d1324ef0a72a2312a3c572038724d";
-
+export const XXM_ALGORITHM_VERSION = "xxm-direction-v0.4-r4" as const;
+export const XXM_SPEC_HASH = "db435b39a3d198c126bfff567dfbe66faf74ff9299005578ec6b49bf065fd110";
 export type XxmPeriod = "day" | "m60" | "m90" | "m120";
 export type XxmDirection = "TOP" | "BOTTOM";
-export interface XxmReference { startTime: string; endTime: string; price: number; dif: number }
+export interface XxmReference {
+    startTime: string;
+    endTime: string;
+    price: number;
+    dif: number;
+    priceAt: string;
+    difAt: string;
+}
+export interface XxmWave {
+    sign: 1 | -1;
+    start: string;
+    end: string;
+    count: number;
+    price: number;
+    dif: number;
+    priceAt: string;
+    difAt: string;
+}
 export interface XxmPoint {
-  time: string; close: number; dif: number; dea: number; hist: number;
-  ordinaryState: "NONE" | "DULL" | "STRUCTURE";
-  ordinaryDirection: XxmDirection | null;
-  activeReference: XxmReference | null;
-  pendingTopHistoryId: string | null;
-  pendingBottomHistoryId: string | null;
-  pendingRearmId: string | null;
+    time: string;
+    close: number;
+    dif: number;
+    dea: number;
+    hist: number;
+    ordinaryState: "NONE" | "DULL" | "STRUCTURE";
+    ordinaryDirection: XxmDirection | null;
 }
 export interface XxmEvent {
-  id: string; time: string; direction: XxmDirection;
-  type: "DULL" | "STRUCTURE" | "CANCEL" | "STRUCTURE_DISAPPEARED" | "RESEARCH_HISTORICAL_WITHDRAWAL";
-  route: "activation" | "reactivation" | "dif_turn" | "dif_return" | "color_flip" | "dif_break" | "dif_break_on_flip" | "historical_price_break";
-  fromState: XxmPoint["ordinaryState"];
-  eventReference: XxmReference | null;
-  relatedTopHistoryId: string | null;
-  relatedBottomHistoryId: string | null;
-  relatedRearmId: string | null;
+    id: string;
+    time: string;
+    direction: XxmDirection;
+    type: "DULL" | "STRUCTURE" | "CANCEL";
+    displayOnChart: boolean;
 }
-export interface XxmHistory {
-  id: string; confirmedAt: string; confirmationRoute: "dif_turn" | "color_flip";
-  pricePeak: number; pricePeakAt: string; originalReference: XxmReference;
-  status: "PENDING" | "ENDED"; endedAt: string | null;
-  endReason: "original_reference_break" | "new_top_DULL" | "new_top_STRUCTURE" | "historical_price_break" | null;
-  observedThrough: string; ageBars: number;
+export interface XxmDebugPoint {
+    time: string;
+    activeReference: XxmReference | null;
+    activeStructureId: string | null;
 }
-export interface XxmBottomHistory {
-  id: string; structureEventId: string; confirmedAt: string; confirmationRoute: "dif_turn" | "color_flip";
-  originSegmentStart: string; leftOriginAt: string | null; priceLow: number; priceLowAt: string;
-  originalReference: XxmReference; status: "PENDING" | "ENDED"; endedAt: string | null;
-  endReason: "original_reference_break" | "new_bottom_DULL" | "new_bottom_STRUCTURE" | "structure_disappeared" | "historical_price_break" | null;
-  observedThrough: string; ageBars: number;
+export interface XxmDebugEvent {
+    id: string;
+    route: "activation" | "dif_turn" | "dif_return" | "color_flip" | "dif_break" | "dif_break_on_flip" | "structure_price_break";
+    fromState: XxmPoint["ordinaryState"];
+    eventReference: XxmReference;
+    relatedStructureId: string | null;
 }
-export interface XxmRearmRecord {
-  id: string; direction: "BOTTOM"; bottomHistoryId: string; structureEventId: string;
-  structureConfirmedAt: string; structureRoute: "dif_turn"; segmentStart: string;
-  nearestPriceGate: number; reference: XxmReference; disappearedAt: string; observedThrough: string;
-  status: "WAITING" | "REACTIVATED" | "INVALIDATED" | "SEGMENT_ENDED";
-  endedAt: string | null; endReason: "price_requalified" | "reference_dif_break" | "color_flip" | "zero" | null;
+export interface XxmStructure {
+    id: string;
+    direction: XxmDirection;
+    structureEventId: string;
+    formedAt: string;
+    formationRoute: "dif_turn" | "color_flip";
+    originSegmentStart: string;
+    originalReference: XxmReference;
+    priceExtreme: number;
+    priceExtremeAt: string;
+    status: "ASSESSING" | "FOLLOWING" | "FINISHED" | "DISAPPEARED";
+    originWave: XxmWave | null;
+    firstOppositeAt: string | null;
+    nextSameColorStart: string | null;
+    nextSameColorCount: number;
+    trackingPriceExtreme: number | null;
+    trackingPriceExtremeAt: string | null;
+    trackingEndedAt: string | null;
+    disappearedAt: string | null;
+    disappearanceReason: "dif_return" | "reference_dif_break" | "structure_price_break" | null;
 }
 export interface XxmResponse {
-  tsCode: "000001.SH"; period: XxmPeriod; algorithmVersion: string; specHash: string;
-  source: { kind: "daily_factor" | "minute_gold"; inputId: string; startTime: string | null;
-    computedThrough: string | null; initialHistoryIncomplete: boolean; indicatorVersion: number | null };
-  points: XxmPoint[]; events: XxmEvent[]; topHistories: XxmHistory[]; bottomHistories: XxmBottomHistory[]; rearmRecords: XxmRearmRecord[];
-  meta: { count: number; responseStart: string | null; responseEnd: string | null };
-  dataStatus: { status: "READY" | "DELAYED" | "EMPTY"; message: string | null; asOf: string | null };
+    tsCode: "000001.SH";
+    period: XxmPeriod;
+    algorithmVersion: string;
+    specHash: string;
+    source: {
+        kind: "daily_factor" | "minute_gold";
+        startTime: string | null;
+        computedThrough: string | null;
+        initialHistoryIncomplete: boolean;
+        indicatorVersion: number | null;
+    };
+    points: XxmPoint[];
+    events: XxmEvent[];
+    meta: {
+        count: number;
+        responseStart: string | null;
+        responseEnd: string | null;
+    };
+    dataStatus: {
+        status: "READY" | "DELAYED" | "EMPTY";
+        message: string | null;
+        asOf: string | null;
+    };
 }
-export interface XxmMarker { time: Time; dif: number; event: XxmEvent }
-export interface XxmDetail { point: XxmPoint; events: XxmEvent[]; histories: XxmHistory[]; bottomHistories: XxmBottomHistory[]; rearmRecords: XxmRearmRecord[] }
-export interface XxmViewModel { response: XxmResponse; markers: XxmMarker[]; byTime: Map<string, XxmDetail> }
+export interface XxmDebugData {
+    sourceInputId: string;
+    points: XxmDebugPoint[];
+    events: XxmDebugEvent[];
+    structures: XxmStructure[];
+}
+export interface XxmDebugResponse extends XxmResponse {
+    debug: XxmDebugData;
+}
+export interface XxmMarker {
+    time: Time;
+    dif: number;
+    event: XxmEvent;
+}
+export interface XxmDetail {
+    point: XxmPoint;
+    events: XxmEvent[];
+    displayEvents: XxmEvent[];
+    debugDetail: {
+        point: XxmDebugPoint;
+        events: XxmDebugEvent[];
+        structures: XxmStructure[];
+    } | null;
+}
+export interface XxmViewModel {
+    response: XxmResponse | XxmDebugResponse;
+    markers: XxmMarker[];
+    byTime: Map<string, XxmDetail>;
+}
 export interface XxmLayerState {
-  requestKey: string; phase: "unsupported" | "loading" | "ready" | "empty" | "delayed" | "error";
-  data: XxmViewModel | null; errorMessage: string;
+    requestKey: string;
+    phase: "unsupported" | "loading" | "ready" | "empty" | "delayed" | "error";
+    data: XxmViewModel | null;
+    errorMessage: string;
+}
+export interface XxmRequestResult {
+    response: XxmResponse | XxmDebugResponse;
+    deadline: number;
 }

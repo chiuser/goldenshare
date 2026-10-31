@@ -13,7 +13,7 @@ vi.mock("../api/indexDetailApiClient", async importOriginal => ({
 }));
 type Props = { tsCode: string; activePeriod: IndexPeriodKey };
 const initial: Props = { tsCode: "000001.SH", activePeriod: "day" };
-function mount(props = initial) { return renderHook((value: Props) => useDailyWaveReview(value), { initialProps: props }); }
+function mount(props = initial) { return renderHook((value: Props) => useDailyWaveReview({ ...value, enabled: true, ownerKey: "000001.SH|day|2026-07-31" }), { initialProps: props }); }
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>(done => { resolve = done; });

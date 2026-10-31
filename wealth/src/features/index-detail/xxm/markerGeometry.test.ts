@@ -168,14 +168,14 @@ describe("MACD marker pixel geometry", () => {
       series: { priceToCoordinate: coordinate }, requestUpdate: update } as unknown as SeriesAttachedParameter<Time>);
     primitive.setMarkers(markers);
     const context = { font: "", save: vi.fn(), restore: vi.fn(), beginPath: vi.fn(), rect: vi.fn(), clip: vi.fn(), arc: vi.fn(), fill: vi.fn(),
-      fillText: vi.fn(), measureText: (text: string) => ({ width: text.length * 11 }) };
+      moveTo: vi.fn(), lineTo: vi.fn(), stroke: vi.fn(), fillText: vi.fn(), measureText: (text: string) => ({ width: text.length * 11 }) };
     primitive.draw({ useMediaCoordinateSpace: (draw: (scope: unknown) => void) => draw({ context, mediaSize: { width: 200, height: 100 } }) } as never);
-    expect(coordinate.mock.calls.map(call => call[0])).toEqual([-1, -1]);
+    expect(coordinate.mock.calls.map(call => call[0])).toEqual([-16, -16]);
     expect(context.arc).toHaveBeenCalledTimes(2);
     expect(context.arc.mock.calls.every(call => call[0] === 40 && call[1] === 50 && call[2] === 4)).toBe(true);
     expect(context.font).toMatch(/^700 12px /);
     expect(XXM_MARKER_STYLE.lineHeight).toBe(16);
-    expect(context.fillText.mock.calls.map(call => call[0])).toEqual(["钝化", "结构消失"]);
+    expect(context.fillText.mock.calls.map(call => call[0])).toEqual(["钝化", "消失"]);
     expect(update).toHaveBeenCalled(); expect(primitive.autoscaleInfo()).toBeNull();
     primitive.detached(); primitive.setMarkers([]);
   });

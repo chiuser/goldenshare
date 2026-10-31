@@ -42,3 +42,18 @@ describe("XXM HTTP client", () => {
     await expect(fetchXxm(params, new AbortController().signal)).rejects.toThrow("暂时无法连接");
   });
 });
+
+it.each([4999,5001])("keeps the original deadline through real debug decoding at %dms", async end => {
+  const { xxmDebugFixture } = await import("./xxmFixtures.test-support");
+  const { decodeXxmDebug } = await import("../debug/xxmDebugContract");
+  let now=0;vi.spyOn(performance,"now").mockImplementation(()=>now);
+  vi.mocked(wealthFetch).mockImplementation(async()=>{now=4990;return new Response(JSON.stringify(xxmDebugFixture().response));});
+  const pending=fetchXxm({...params,period:"day",debug:1,decodeDebug:(raw,context)=>{
+    const data=decodeXxmDebug(raw,context);now=end;return data;
+  }},new AbortController().signal);
+  try {
+    if(end<5000)expect((await pending).deadline).toBe(5000);
+    else await expect(pending).rejects.toThrow("超时");
+    expect(new URL(String(vi.mocked(wealthFetch).mock.calls[0]![0])).searchParams.get("debug")).toBe("1");
+  } finally {vi.restoreAllMocks();}
+});

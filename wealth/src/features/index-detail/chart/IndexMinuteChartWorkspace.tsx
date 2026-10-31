@@ -1,6 +1,7 @@
+import type { IndexRecognitionProps } from "../debug/types";
 import { useMemo, useState } from "react";
 import { useIndexXxmLayer } from "../xxm/useIndexXxmLayer";
-import { XxmLayerStatus, XxmResearchDetails } from "../xxm/XxmLayerUi";
+import { XxmLayerStatus, XxmSignalDetails } from "../xxm/XxmLayerUi";
 import type { XxmLayerState } from "../xxm/types";
 import type { UTCTimestamp } from "lightweight-charts";
 
@@ -25,25 +26,28 @@ import type {
 } from "../model/indexDetailTypes";
 
 interface IndexMinuteChartWorkspaceProps extends IndexMinuteSeriesState {
+  recognition: IndexRecognitionProps;
   nineTurnLayer: NineTurnLayerViewModel;
   onNineTurnRetry: () => void;
   onRetry: () => void;
 }
 
-export function IndexMinuteChartWorkspace({ data, errorMessage, nineTurnLayer, onNineTurnRetry, onRetry, phase }: IndexMinuteChartWorkspaceProps) {
+export function IndexMinuteChartWorkspace({ data, errorMessage, nineTurnLayer, onNineTurnRetry, onRetry, phase, recognition }: IndexMinuteChartWorkspaceProps) {
   if (!data || data.points.length === 0) {
     return <IndexMinuteModuleState errorMessage={errorMessage} onRetry={onRetry} phase={phase} />;
   }
-  return <LoadedIndexMinuteChart data={data} message={errorMessage} nineTurnLayer={nineTurnLayer} onNineTurnRetry={onNineTurnRetry} phase={phase} />;
+  return <LoadedIndexMinuteChart recognition={recognition} data={data} message={errorMessage} nineTurnLayer={nineTurnLayer} onNineTurnRetry={onNineTurnRetry} phase={phase} />;
 }
 
 function LoadedIndexMinuteChart({
+  recognition,
   data,
   message,
   nineTurnLayer,
   onNineTurnRetry,
   phase,
 }: {
+  recognition: IndexRecognitionProps;
   data: IndexMinuteChartViewModel;
   message: string;
   nineTurnLayer: NineTurnLayerViewModel;
@@ -55,6 +59,7 @@ function LoadedIndexMinuteChart({
   const mainLines = useMemo(() => overlay === "MA" ? buildMaLines() : buildBollLines(), [overlay]);
   const dataKey = `index:${data.tsCode}:m${data.freq}`;
   const xxm = useIndexXxmLayer({ tsCode: data.tsCode, period: `m${data.freq}`, points,
+    enabled: recognition.recognitionEnabled, debug: recognition.debug, decodeDebug: recognition.decodeXxmDebug,
     indicatorVersion: data.indicatorVersion, indicatorsPending: phase === "loading" });
   const nineTurnChartLayer = useNineTurnChartLayer({ dataKey, layer: nineTurnLayer, points, timeMode: "minute" });
 
@@ -66,6 +71,7 @@ function LoadedIndexMinuteChart({
       dataKey={dataKey}
       mainLayerAccessory={(
         <NineTurnLayerStatus
+          showAlignmentDiagnostics={recognition.debug === 1}
           droppedMarkerCount={nineTurnChartLayer.droppedMarkerCount}
           layer={nineTurnLayer}
           onRetry={onNineTurnRetry}
@@ -78,7 +84,7 @@ function LoadedIndexMinuteChart({
       points={points}
       renderMainHeader={(point) => <IndexMinuteMainHeader overlay={overlay} point={point} setOverlay={setOverlay} />}
       renderPanelHeader={(panel, point) => <><IndexMinutePanelHeader panel={panel} point={point} />{panel === "macd" ? <XxmLayerStatus layer={xxm} onRetry={xxm.retry} /> : null}</>}
-      renderTooltip={(point, side) => <IndexMinuteTooltip point={point} side={side} xxm={xxm} />}
+      renderTooltip={(point, side) => <IndexMinuteTooltip point={point} side={side} xxm={xxm} debugDetails={recognition.debug === 1 ? recognition.renderXxmDetails?.(xxm, String(point.time)) : null} />}
       timeAxisAriaLabel="指数分钟底部时间轴"
       timeMode="minute"
     />
@@ -178,7 +184,7 @@ function IndexMinuteIndicatorBar({
   </div>;
 }
 
-function IndexMinuteTooltip({ point, side, xxm }: { point: DetailChartPoint; side: DetailChartTooltipSide; xxm: XxmLayerState }) {
+function IndexMinuteTooltip({ point, side, xxm, debugDetails }: { point: DetailChartPoint; side: DetailChartTooltipSide; xxm: XxmLayerState; debugDetails?: import("react").ReactNode }) {
   const rows = [
     ["时间", formatMinuteTradeTime(point.fullDate), "secondary"],
     ["开盘", format(point.open), "flat"],
@@ -190,7 +196,7 @@ function IndexMinuteTooltip({ point, side, xxm }: { point: DetailChartPoint; sid
   ];
   return <div aria-label="指数分钟K线数据提示" className={`detail-chart-tooltip ${side}`}><div className="detail-chart-tooltip-grid">
     {rows.map(([label, value, tone]) => <div className="detail-chart-tooltip-row" key={label}><span>{label}</span><b className={tone}>{value}</b></div>)}
-  </div><XxmResearchDetails layer={xxm} time={String(point.time)} /></div>;
+  </div><XxmSignalDetails layer={xxm} time={String(point.time)} />{debugDetails}</div>;
 }
 
 function IndexMinuteModuleState({

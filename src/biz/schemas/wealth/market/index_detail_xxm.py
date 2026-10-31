@@ -9,43 +9,6 @@ from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
 
 
-class XxmDto(BaseModel):
-    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
-
-
-class XxmReferenceDto(XxmDto):
-    startTime: str
-    endTime: str
-    price: float
-    dif: float
-
-
-class XxmPointDto(XxmDto):
-    time: str
-    close: float
-    dif: float
-    dea: float
-    hist: float
-    ordinaryState: Literal["NONE", "DULL", "STRUCTURE"]
-    ordinaryDirection: Literal["TOP", "BOTTOM"] | None
-    activeReference: XxmReferenceDto | None
-    pendingTopHistoryId: str | None
-    pendingBottomHistoryId: str | None
-    pendingRearmId: str | None
-
-    @model_validator(mode="after")
-    def consistent_state(self):
-        if self.close <= 0 or not all(math.isfinite(v) for v in (self.close, self.dif, self.dea, self.hist)):
-            raise ValueError("Invalid XXM values")
-        if (self.ordinaryState == "NONE" and (self.ordinaryDirection is not None or self.activeReference is not None)) or (
-            self.ordinaryState != "NONE" and (self.ordinaryDirection is None or self.activeReference is None)
-        ):
-            raise ValueError("XXM state/reference mismatch")
-        if self.pendingRearmId is not None and (self.ordinaryState != "NONE" or self.pendingBottomHistoryId is not None):
-            raise ValueError("Waiting rearm cannot be active dulling or structure")
-        return self
-
-
 class InternalXxmDto(BaseModel):
     """Complete r4 facts, validated before any public response is projected."""
 
@@ -389,135 +352,83 @@ class InternalXxmResponseDto(InternalXxmDto):
         return self
 
 
+class XxmDto(BaseModel):
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False, strict=True)
+
+
+class XxmReferenceDto(InternalXxmReferenceDto):
+    pass
+
+
+class XxmWaveDto(XxmDto):
+    sign: Literal[-1, 1]
+    start: str
+    end: str
+    count: StrictInt = Field(gt=0)
+    price: float = Field(gt=0)
+    dif: float
+    priceAt: str
+    difAt: str
+
+    @field_validator("sign", mode="before")
+    @classmethod
+    def strict_sign(cls, value):
+        if type(value) is not int:
+            raise ValueError("Wave sign must be an original integer")
+        return value
+
+    @model_validator(mode="after")
+    def wave_fields(self):
+        if type(self.sign) is not int or not (self.start <= self.priceAt <= self.end and self.start <= self.difAt <= self.end):
+            raise ValueError("Invalid public wave")
+        return self
+
+
+class XxmPointDto(XxmDto):
+    time: str
+    close: float = Field(gt=0)
+    dif: float
+    dea: float
+    hist: float
+    ordinaryState: Literal["NONE", "DULL", "STRUCTURE"]
+    ordinaryDirection: Literal["TOP", "BOTTOM"] | None
+
+    @field_validator("close", "dif", "dea", "hist", mode="before")
+    @classmethod
+    def numbers(cls, value):
+        if type(value) not in (int, float):
+            raise ValueError("Original numeric values required")
+        return value
+
+    @model_validator(mode="after")
+    def state(self):
+        if (self.ordinaryState == "NONE") != (self.ordinaryDirection is None):
+            raise ValueError("Invalid ordinary direction")
+        return self
+
+
 class XxmEventDto(XxmDto):
-    id: str
+    id: str = Field(min_length=1)
     time: str
     direction: Literal["TOP", "BOTTOM"]
-    type: Literal["DULL", "STRUCTURE", "CANCEL", "RESEARCH_HISTORICAL_WITHDRAWAL", "STRUCTURE_DISAPPEARED"]
-    route: Literal["activation", "dif_turn", "dif_return", "color_flip", "dif_break", "dif_break_on_flip", "historical_price_break", "reactivation"]
-    fromState: Literal["NONE", "DULL", "STRUCTURE"]
-    eventReference: XxmReferenceDto | None
-    relatedTopHistoryId: str | None
-    relatedBottomHistoryId: str | None
-    relatedRearmId: str | None
-
-    @model_validator(mode="after")
-    def consistent_route(self):
-        if (self.type == "RESEARCH_HISTORICAL_WITHDRAWAL") != (self.route == "historical_price_break"):
-            raise ValueError("Historical route requires a historical event")
-        return self
-
-
-class XxmTopHistoryDto(XxmDto):
-    id: str
-    confirmedAt: str
-    confirmationRoute: Literal["dif_turn", "color_flip"]
-    pricePeak: float
-    pricePeakAt: str
-    originalReference: XxmReferenceDto
-    status: Literal["PENDING", "ENDED"]
-    endedAt: str | None
-    endReason: Literal["original_reference_break", "new_top_DULL", "new_top_STRUCTURE", "historical_price_break"] | None
-    observedThrough: str
-    ageBars: int
-
-
-class XxmBottomHistoryDto(XxmDto):
-    id: str = Field(min_length=1)
-    structureEventId: str = Field(min_length=1)
-    confirmedAt: str
-    confirmationRoute: Literal["dif_turn", "color_flip"]
-    originSegmentStart: str
-    leftOriginAt: str | None
-    priceLow: float = Field(gt=0)
-    priceLowAt: str
-    originalReference: XxmReferenceDto
-    status: Literal["PENDING", "ENDED"]
-    endedAt: str | None
-    endReason: Literal["original_reference_break", "new_bottom_DULL", "new_bottom_STRUCTURE", "historical_price_break", "structure_disappeared"] | None
-    observedThrough: str
-    ageBars: StrictInt = Field(ge=0)
-
-    @model_validator(mode="after")
-    def consistent_history(self):
-        if not (self.originSegmentStart <= self.priceLowAt <= self.confirmedAt <= self.observedThrough
-                and self.originalReference.startTime <= self.originalReference.endTime < self.originSegmentStart):
-            raise ValueError("Invalid BOTTOM history chronology")
-        if self.leftOriginAt is not None and not self.confirmedAt <= self.leftOriginAt <= self.observedThrough:
-            raise ValueError("Invalid BOTTOM origin exit")
-        if self.status == "PENDING":
-            if self.endedAt is not None or self.endReason is not None:
-                raise ValueError("Pending BOTTOM history has an ending")
-        elif (self.endedAt is None or self.endReason is None
-              or not self.confirmedAt < self.endedAt == self.observedThrough):
-            raise ValueError("Invalid BOTTOM history ending")
-        if self.endReason == "historical_price_break" and self.leftOriginAt is None:
-            raise ValueError("BOTTOM price break before origin exit")
-        if self.endReason == "structure_disappeared" and self.leftOriginAt is not None:
-            raise ValueError("Same-segment disappearance after origin exit")
-        return self
-
-
-class XxmRearmRecordDto(XxmDto):
-    id: str = Field(min_length=1)
-    direction: Literal["BOTTOM"]
-    bottomHistoryId: str = Field(min_length=1)
-    structureEventId: str = Field(min_length=1)
-    structureConfirmedAt: str
-    structureRoute: Literal["dif_turn"]
-    segmentStart: str
-    nearestPriceGate: float = Field(gt=0)
-    reference: XxmReferenceDto
-    disappearedAt: str
-    observedThrough: str
-    status: Literal["WAITING", "REACTIVATED", "INVALIDATED", "SEGMENT_ENDED"]
-    endedAt: str | None
-    endReason: Literal["price_requalified", "reference_dif_break", "color_flip", "zero"] | None
-
-    @model_validator(mode="after")
-    def consistent(self):
-        if not (self.reference.startTime <= self.reference.endTime < self.segmentStart
-                <= self.structureConfirmedAt < self.disappearedAt <= self.observedThrough) or self.reference.price <= 0:
-            raise ValueError("Invalid rearm chronology/reference")
-        if self.status == "WAITING":
-            if self.endedAt is not None or self.endReason is not None:
-                raise ValueError("WAITING record has an ending")
-        else:
-            reasons = {"REACTIVATED": ("price_requalified",), "INVALIDATED": ("reference_dif_break",),
-                       "SEGMENT_ENDED": ("color_flip", "zero")}
-            if (self.endReason not in reasons[self.status] or self.endedAt is None
-                    or not self.disappearedAt < self.endedAt == self.observedThrough):
-                raise ValueError("Invalid rearm ending")
-        return self
-
-    def validate_cutoff(self, period: str, through: str):
-        for stamp in (self.reference.startTime, self.reference.endTime, self.segmentStart, self.structureConfirmedAt,
-                      self.disappearedAt, self.observedThrough, self.endedAt):
-            if stamp is not None:
-                XxmBar(stamp, 1., 0., 0., 0.).validate(period)
-        if self.observedThrough > through or self.status == "WAITING" and self.observedThrough != through:
-            raise ValueError("Rearm observation outside real cutoff")
+    type: Literal["DULL", "STRUCTURE", "CANCEL"]
+    displayOnChart: bool
 
 
 class XxmSourceDto(XxmDto):
     kind: Literal["daily_factor", "minute_gold"]
-    inputId: str
     startTime: str | None
     computedThrough: str | None
     initialHistoryIncomplete: bool
-    indicatorVersion: int | None
+    indicatorVersion: StrictInt | None
 
 
-class XxmMetaDto(XxmDto):
-    count: int
-    responseStart: str | None
-    responseEnd: str | None
+class XxmMetaDto(InternalXxmMetaDto):
+    pass
 
 
-class XxmDataStatusDto(XxmDto):
-    status: Literal["READY", "DELAYED", "EMPTY"]
-    message: str | None
-    asOf: str | None
+class XxmDataStatusDto(InternalXxmDataStatusDto):
+    pass
 
 
 class XxmResponseDto(XxmDto):
@@ -528,125 +439,98 @@ class XxmResponseDto(XxmDto):
     source: XxmSourceDto
     points: list[XxmPointDto]
     events: list[XxmEventDto]
-    topHistories: list[XxmTopHistoryDto]
-    bottomHistories: list[XxmBottomHistoryDto]
-    rearmRecords: list[XxmRearmRecordDto]
     meta: XxmMetaDto
     dataStatus: XxmDataStatusDto
 
     @model_validator(mode="after")
-    def consistent_window(self):
+    def public_facts(self):
         if self.algorithmVersion != MAIN_SPEC.algorithm_version or self.specHash != MAIN_SPEC.spec_hash:
             raise ValueError("Unsupported XXM identity")
-        times = [point.time for point in self.points]
+        times = [p.time for p in self.points]
         if times != sorted(set(times)) or self.meta.count != len(times):
-            raise ValueError("XXM point window is invalid")
-        if self.meta.responseStart != (times[0] if times else None) or self.meta.responseEnd != (times[-1] if times else None):
-            raise ValueError("XXM window bounds mismatch")
-        if any(event.time not in times for event in self.events):
-            raise ValueError("XXM event outside response window")
-        top = {h.id: h for h in self.topHistories}
-        bottom = {h.id: h for h in self.bottomHistories}
-        rearms = {r.id: r for r in self.rearmRecords}
-        event_ids = {event.id for event in self.events}
-        if (len(top) != len(self.topHistories) or len(bottom) != len(self.bottomHistories)
-                or set(top) & set(bottom) or len(event_ids) != len(self.events)
-                or len(rearms) != len(self.rearmRecords) or set(rearms) & (set(top) | set(bottom) | event_ids)
-                or any(not key for key in (*top, *bottom, *event_ids, *rearms))):
-            raise ValueError("Duplicate or empty XXM identity")
+            raise ValueError("Invalid public XXM window")
+        if (self.meta.responseStart != (times[0] if times else None) or self.meta.responseEnd != (times[-1] if times else None)):
+            raise ValueError("Invalid public XXM bounds")
+        if self.source.kind != ("daily_factor" if self.period == "day" else "minute_gold"):
+            raise ValueError("Invalid source kind")
+        if self.period == "day" and self.source.indicatorVersion is not None:
+            raise ValueError("Daily source has no indicator version")
         through = self.source.computedThrough
         if self.dataStatus.asOf != through:
-            raise ValueError("XXM source asOf mismatch")
+            raise ValueError("Invalid public asOf")
         if self.dataStatus.status == "EMPTY":
-            if times or self.events or top or bottom or rearms or through is not None:
-                raise ValueError("Nonempty XXM EMPTY response")
-            return self
-        if through is None or self.source.startTime is None or any(
-                not self.source.startTime <= stamp <= through for stamp in times):
-            raise ValueError("XXM point outside source")
-        def validate_time(stamp):
-            XxmBar(stamp, 1., 0., 0., 0.).validate(self.period)
-        validate_time(through)
-        if sum(r.status == "WAITING" for r in rearms.values()) > 1:
-            raise ValueError("Multiple waiting rearm records")
-        for r in rearms.values():
-            r.validate_cutoff(self.period, through)
-            h = bottom.get(r.bottomHistoryId)
-            if (h is None or h.structureEventId != r.structureEventId or h.confirmedAt != r.structureConfirmedAt
-                    or h.confirmationRoute != r.structureRoute or h.originSegmentStart != r.segmentStart
-                    or h.originalReference != r.reference or h.endReason != "structure_disappeared"
-                    or h.endedAt != r.disappearedAt):
-                raise ValueError("Rearm original structure association mismatch")
-        for h in bottom.values():
-            if h.endReason == "structure_disappeared" and sum(r.bottomHistoryId == h.id for r in rearms.values()) != 1:
-                raise ValueError("Disappeared structure has no unique rearm record")
-        if sum(h.status == "PENDING" for h in bottom.values()) > 1:
-            raise ValueError("Multiple pending BOTTOM histories")
-        for h in bottom.values():
-            for stamp in (h.confirmedAt, h.originSegmentStart, h.priceLowAt, h.observedThrough,
-                          h.originalReference.startTime, h.originalReference.endTime, h.leftOriginAt, h.endedAt):
-                if stamp is not None:
-                    validate_time(stamp)
-            if h.observedThrough > through or (h.status == "PENDING" and h.observedThrough != through):
-                raise ValueError("BOTTOM history contains future or incomplete observation")
-            if h.originalReference.price <= 0:
-                raise ValueError("Invalid BOTTOM original price")
-        for point in self.points:
-            if point.pendingRearmId is not None:
-                r = rearms.get(point.pendingRearmId)
-                if r is None or point.time < r.disappearedAt or r.endedAt is not None and point.time >= r.endedAt:
-                    raise ValueError("Point rearm association missing at point time")
-            for key, records in ((point.pendingTopHistoryId, top), (point.pendingBottomHistoryId, bottom)):
-                if key is not None:
-                    h = records.get(key)
-                    if h is None or not h.confirmedAt <= point.time or (h.endedAt is not None and point.time >= h.endedAt):
-                        raise ValueError("XXM point history association missing at point time")
-        points_by_time = {point.time: point for point in self.points}
-        rearm_events = set()
+            if times or self.events or through is not None or self.source.startTime is not None:
+                raise ValueError("Nonempty EMPTY result")
+        elif not self.source.startTime or not through or self.source.startTime > through:
+            raise ValueError("Missing public source interval")
+        for stamp in [self.source.startTime, through, *times]:
+            if stamp is not None:
+                XxmBar(stamp, 1., 0., 0., 0.).validate(self.period)
+                if not self.source.startTime <= stamp <= through:
+                    raise ValueError("Public point outside source")
+        if len({e.id for e in self.events}) != len(self.events) or [e.time for e in self.events] != sorted(e.time for e in self.events):
+            raise ValueError("Duplicate or unordered public events")
         for event in self.events:
-            point = points_by_time[event.time]
-            historical = event.type == "RESEARCH_HISTORICAL_WITHDRAWAL"
-            disappeared = event.type == "STRUCTURE_DISAPPEARED"
-            if disappeared or event.route == "reactivation":
-                key = (event.relatedRearmId, event.type)
-                if key in rearm_events:
-                    raise ValueError("Duplicate rearm transition")
-                rearm_events.add(key)
-            associated = historical or event.type == "STRUCTURE" or disappeared
-            own_id = event.relatedTopHistoryId if event.direction == "TOP" else event.relatedBottomHistoryId
-            other_id = event.relatedBottomHistoryId if event.direction == "TOP" else event.relatedTopHistoryId
-            records = top if event.direction == "TOP" else bottom
-            if other_id is not None or (associated and (not own_id or own_id not in records)) or (not associated and own_id is not None):
-                raise ValueError("XXM event direction/history association mismatch")
-            if associated:
-                h = records[own_id]
-                if historical:
-                    if (event.route != "historical_price_break" or h.status != "ENDED"
-                            or h.endReason != "historical_price_break" or h.endedAt != event.time
-                            or h.originalReference != event.eventReference):
-                        raise ValueError("XXM historical disappearance association mismatch")
-                elif disappeared:
-                    r = rearms.get(event.relatedRearmId)
-                    if (event.direction != "BOTTOM" or event.route != "dif_return" or event.fromState != "STRUCTURE"
-                            or r is None or r.bottomHistoryId != own_id or r.disappearedAt != event.time
-                            or r.reference != event.eventReference or point.pendingRearmId != r.id):
-                        raise ValueError("Same-segment disappearance association mismatch")
-                elif (h.confirmedAt != event.time or h.confirmationRoute != event.route
-                      or (event.direction == "BOTTOM" and h.structureEventId != event.id)):
-                    raise ValueError("XXM structure association mismatch")
-            if event.route == "reactivation":
-                r = rearms.get(event.relatedRearmId)
-                if (event.type != "DULL" or event.direction != "BOTTOM" or event.fromState != "NONE"
-                        or r is None or r.status != "REACTIVATED" or r.endedAt != event.time
-                        or r.reference != event.eventReference or point.ordinaryState != "DULL"
-                        or point.pendingRearmId is not None):
-                    raise ValueError("Reactivation association mismatch")
-            elif not disappeared and event.relatedRearmId is not None:
-                raise ValueError("Unexpected rearm event association")
-        visible_events = {event.id: event for event in self.events}
-        for h in bottom.values():
-            event = visible_events.get(h.structureEventId)
-            if event is not None and (event.direction != "BOTTOM" or event.type != "STRUCTURE"
-                    or event.relatedBottomHistoryId != h.id or event.time != h.confirmedAt or event.route != h.confirmationRoute):
-                raise ValueError("BOTTOM reverse structure association mismatch")
+            if event.time not in times:
+                raise ValueError("Event outside visible window")
+            if not event.displayOnChart and (event.type != "CANCEL" or not any(
+                    e.time == event.time and e.direction == event.direction and e.type == "DULL" and e.displayOnChart for e in self.events)):
+                raise ValueError("Invalid hidden event")
+        return self
+
+
+class XxmDebugPointDto(XxmDto):
+    time: str
+    activeReference: XxmReferenceDto | None
+    activeStructureId: str | None
+
+
+class XxmDebugEventDto(XxmDto):
+    id: str
+    route: Literal["activation", "dif_turn", "dif_return", "color_flip", "dif_break", "dif_break_on_flip", "structure_price_break"]
+    fromState: Literal["NONE", "DULL", "STRUCTURE"]
+    eventReference: XxmReferenceDto
+    relatedStructureId: str | None
+
+
+class XxmStructureDto(InternalXxmStructureDto):
+    originWave: XxmWaveDto | None
+
+    @model_validator(mode="after")
+    def lifecycle(self):
+        # Native lifecycle validation is performed on the reconstructed complete
+        # internal response below; the wire wave deliberately uses camelCase.
+        return self
+
+
+class XxmDebugDto(XxmDto):
+    sourceInputId: str = Field(min_length=1)
+    points: list[XxmDebugPointDto]
+    events: list[XxmDebugEventDto]
+    structures: list[XxmStructureDto]
+
+
+class XxmDebugResponseDto(XxmResponseDto):
+    debug: XxmDebugDto
+
+    @model_validator(mode="after")
+    def complete_debug(self):
+        raw = self.model_dump()
+        details = raw.pop("debug")
+        if ([p["time"] for p in details["points"]] != [p["time"] for p in raw["points"]]
+                or [e["id"] for e in details["events"]] != [e["id"] for e in raw["events"]]):
+            raise ValueError("Debug/public order mismatch")
+        raw["source"]["inputId"] = details["sourceInputId"]
+        raw["points"] = [dict(p, **q) for p, q in zip(raw["points"], details["points"])]
+        raw["events"] = [dict({k:v for k,v in p.items() if k != "displayOnChart"}, **q) for p,q in zip(raw["events"],details["events"])]
+        for record in details["structures"]:
+            wave = record["originWave"]
+            if wave is not None:
+                wave["price_at"], wave["dif_at"] = wave.pop("priceAt"), wave.pop("difAt")
+        raw["structures"] = details["structures"]
+        InternalXxmResponseDto.model_validate(raw)
+        from src.biz.services.wealth.market.index_detail_xxm.response_projection import event_display_flags
+        flags = event_display_flags(raw["events"])
+        if any(event.displayOnChart != flags[event.id] for event in self.events):
+            raise ValueError("Incorrect display selection")
         return self

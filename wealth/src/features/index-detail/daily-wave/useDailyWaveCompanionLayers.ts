@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { loadIndexNineTurnSeries } from "../api/indexNineTurnLoader";
 import { fetchTrendChannel } from "../api/trendChannelApiClient";
@@ -46,6 +46,9 @@ export function useDailyWaveCompanionLayers({ active, endDate, tsCode, supportsN
   }, [active, endDate, key, supportsTrend, tsCode]);
   const retryTrend = useCallback(() => setRetryToken((n) => n + 1), []);
   const current = state.key === key ? state : { key, trend: null, phase: active && supportsTrend ? "loading" as const : "unavailable" as const };
-  return { nineTurnLayer: registry.stateFor("day"), retryNineTurn: () => { void registry.retry("day"); },
+  const retryNineTurn = useCallback(() => { void registry.retry("day"); }, [registry.retry]);
+  const layer = registry.stateFor("day");
+  const nineTurnLayer = useMemo(() => layer, [layer.phase, layer.data, layer.errorCode, layer.message, layer.canRetry, layer.period]);
+  return { nineTurnLayer, retryNineTurn,
     trend: current.trend, trendPhase: current.phase, retryTrend };
 }

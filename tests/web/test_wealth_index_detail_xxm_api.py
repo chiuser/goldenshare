@@ -49,6 +49,11 @@ def source_db(monkeypatch, request):
     engine.dispose()
 
 
+def build_debug(service, *args, **kwargs):
+    from src.biz.schemas.wealth.market.index_detail_xxm import XxmDebugResponseDto
+    return XxmDebugResponseDto.model_validate_json(service.build(*args, debug=True, **kwargs))
+
+
 def client(engine, auth=lambda: None):
     app = FastAPI()
     install_exception_handlers(app)
@@ -65,19 +70,19 @@ def test_real_router_query_and_window_reference_history_are_consistent(source_db
     api = client(source_db)
     path = "/api/v1/wealth/market/index-detail/xxm-signals"
     full = api.get(path, params={"tsCode": "000001.SH", "endDate": "2020-01-08", "limit": 8}).json()
-    small_response = api.get(path, params={"tsCode": "000001.SH", "startDate": "2020-01-05", "endDate": "2020-01-08", "limit": 3})
+    small_response = api.get(path, params={"tsCode": "000001.SH", "startDate": "2020-01-05", "endDate": "2020-01-08", "limit": 3, "debug": 1})
     assert small_response.status_code == 200
     small = small_response.json()
     assert small["points"] == full["points"][-3:]
-    assert small["points"][0]["activeReference"]["startTime"] == "2020-01-01"
+    assert small["debug"]["points"][0]["activeReference"]["startTime"] == "2020-01-01"
     assert small["source"]["startTime"] == "2020-01-01"
     assert small["dataStatus"]["status"] == "READY"
     assert len(small["specHash"]) == 64 and small["source"]["initialHistoryIncomplete"]
-    past = api.get(path, params={"tsCode": "000001.SH", "endDate": "2020-01-06", "limit": 8}).json()
-    assert len(past["topHistories"]) == 1
-    assert past["topHistories"][0]["status"] == "PENDING"
-    assert past["topHistories"][0]["endedAt"] is None
-    assert past["topHistories"][0]["endReason"] is None
+    past = api.get(path, params={"tsCode": "000001.SH", "endDate": "2020-01-06", "limit": 8, "debug": 1}).json()
+    assert len(past["debug"]["structures"]) == 1
+    assert past["debug"]["structures"][0]["status"] == "ASSESSING"
+    assert past["debug"]["structures"][0]["trackingEndedAt"] is None
+    assert past["debug"]["structures"][0]["disappearanceReason"] is None
     assert past["source"]["computedThrough"] == "2020-01-06"
 
 
@@ -106,20 +111,20 @@ def test_append_revision_and_incomplete_day_do_not_mutate_past(source_db):
     service = IndexDetailXxmQueryService(cache=cache)
     kwargs = dict(period="day", start_date=None, end_date=date(2020,1,6), limit=8)
     with Session(source_db) as session:
-        first = service.build(session, now=datetime(2020,1,8,10,tzinfo=ZONE), **kwargs)
+        first = build_debug(service, session, now=datetime(2020,1,8,10,tzinfo=ZONE), **kwargs)
         assert first.source.computedThrough == "2020-01-06"
-        all_before_close = service.build(session, now=datetime(2020,1,8,10,tzinfo=ZONE), **{**kwargs,"end_date":date(2020,1,8)})
+        all_before_close = build_debug(service, session, now=datetime(2020,1,8,10,tzinfo=ZONE), **{**kwargs,"end_date":date(2020,1,8)})
         assert all_before_close.source.computedThrough == "2020-01-07"
         # Explicit isolated SQLite fixture mutation; no formal DB/lake access.
         session.execute(text("INSERT INTO core_serving.index_factor_pro VALUES ('000001.SH','2020-01-09',106,9.6,8.6,2)"))
         session.commit()
-        after = service.build(session, now=datetime(2020,1,10,16,tzinfo=ZONE), **kwargs)
+        after = build_debug(service, session, now=datetime(2020,1,10,16,tzinfo=ZONE), **kwargs)
         assert after.model_dump() == first.model_dump()
-        previous_input = after.source.inputId
+        previous_input = after.debug.sourceInputId
         session.execute(text("UPDATE core_serving.index_factor_pro SET close=99.5 WHERE trade_date='2020-01-01'"))
         session.commit()
-        revised = service.build(session, now=datetime(2020,1,10,16,tzinfo=ZONE), **kwargs)
-        assert revised.source.inputId != previous_input
+        revised = build_debug(service, session, now=datetime(2020,1,10,16,tzinfo=ZONE), **kwargs)
+        assert revised.debug.sourceInputId != previous_input
         assert revised.points[0].close == 99.5
 
 
@@ -128,7 +133,7 @@ def test_missing_calendar_day_fails_closed(source_db):
     service = IndexDetailXxmQueryService(cache=XxmCache())
     with Session(source_db) as session:
         with pytest.raises(XxmQueryError, match="缺口") as error:
-            service.build(session, period="day", start_date=None, end_date=date(2020,1,8), limit=8,
+            build_debug(service, session, period="day", start_date=None, end_date=date(2020,1,8), limit=8,
                           now=datetime(2020,1,10,16,tzinfo=ZONE))
         assert error.value.code == "XXM_SOURCE_CONTRACT_INVALID"
 
@@ -146,7 +151,7 @@ def test_budgets_and_calendar_gap_on_both_streams_are_not_silently_skipped(sourc
     monkeypatch.setattr(query_service, "BUDGET", replace(query_service.BUDGET, max_response_bytes=10))
     with Session(source_db) as session:
         with pytest.raises(XxmQueryError) as error:
-            IndexDetailXxmQueryService(cache=XxmCache()).build(session, period="day", start_date=None,
+            build_debug(IndexDetailXxmQueryService(cache=XxmCache()), session, period="day", start_date=None,
                 end_date=date(2020,1,8),limit=8,now=datetime(2020,1,10,16,tzinfo=ZONE))
         assert error.value.code == "XXM_BUDGET_EXCEEDED"
     values = (XxmBar("2020-01-01T15:00:00+08:00",100,1,0,2), XxmBar("2020-01-03T11:30:00+08:00",100,1,0,2))
@@ -209,182 +214,83 @@ def test_minute_router_uses_real_two_stream_reader_and_completed_endpoints(sourc
     # Even a full current-day file must not enter the page before the 20:00 switch.
     with Session(source_db) as session:
         service = IndexDetailXxmQueryService(lake_root=tmp_path, cache=XxmCache())
-        full_at_20 = service.build(session, period=f"m{freq}", start_date=None, end_date=end, limit=500,
+        full_at_20 = build_debug(service, session, period=f"m{freq}", start_date=None, end_date=end, limit=500,
                                    now=datetime.combine(end, datetime.min.time().replace(hour=20), ZONE))
         assert len(full_at_20.points) == len(values)
         before = datetime.combine(end,endpoints[-1],ZONE) - timedelta(minutes=1)
-        partial = service.build(session,
+        partial = build_debug(service, session,
             period=f"m{freq}",start_date=None,end_date=end,limit=500,now=before)
     assert len(partial.points) == len(values)-len(endpoints)
     assert partial.dataStatus.status == "READY"
     assert all(e.time <= partial.source.computedThrough for e in partial.events)
 
 
-def bottom_entry(period='day', stop=None):
-    from scripts.research.index_market.xxm.acceptance import load_source
-    from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
-    from src.biz.queries.wealth.market.index_detail_xxm.query_service import SeriesEntry
-    source = Path(__file__).resolve().parents[2] / 'reports/xxm_source_audit_20261013_213852'
-    raw = tuple(load_source(source, period))
-    values = raw if stop is None else tuple(b for b in raw if b.time <= stop)
-    calc = XxmCalculator(period=period, source_identity='B-api-test')
-    points, events, histories, bottom, rearms, checkpoints = [], [], {}, {}, {}, {}
-    for n, bar in enumerate(values, 1):
-        step = calc.step(bar); points.append(step.point); events.extend(step.events)
-        histories.update({h['id']: h for h in step.histories})
-        bottom.update({h['id']: h for h in step.bottom_histories})
-        rearms.update({r['id']: r for r in step.rearm_records})
-        if n % 1000 == 0: checkpoints[n] = calc.snapshot()
-    return SeriesEntry(raw=raw, signature=(), calculator=calc, processed=values, points=points,
-                       events=events, histories=histories, bottom_histories=bottom, rearm_records=rearms,
-                       fingerprints=['a'*64]*len(values), checkpoints=checkpoints)
+
+@pytest.mark.parametrize("period", ["day", "m60", "m90", "m120"])
+@pytest.mark.parametrize("sign", [1, -1])
+def test_current_public_window_full_events_and_no_future_structure(period, sign):
+    # RC77/93 literal producer: all inputs and their independent expected events
+    # are documented in LLD14.15; this exercises the real internal producer.
+    from scripts.research.index_market.tests.test_xxm_r4_following_query import entry, response
+    from scripts.research.index_market.tests.test_xxm_r4_following import TF, values
+    from src.biz.services.wealth.market.index_detail_xxm.response_projection import project_xxm_response
+    source = entry(values(TF + [(102,97,2),(104,96,2)],sign),period)
+    internal = response(source,8,limit=1)
+    ordinary = project_xxm_response(internal,debug=False)
+    debug = project_xxm_response(internal,debug=True)
+    assert ordinary.model_dump() == {k:v for k,v in debug.model_dump().items() if k != 'debug'}
+    assert [e.type for e in ordinary.events] == ['CANCEL','DULL']
+    assert [e.displayOnChart for e in ordinary.events] == [False,True]
+    assert len(debug.debug.events)==2
+    record=debug.debug.structures[0]
+    assert record.formedAt < ordinary.meta.responseStart and record.status=='DISAPPEARED'
+    assert record.originWave.priceAt and record.originWave.difAt
+    earlier=project_xxm_response(response(source,5),debug=True)
+    assert earlier.debug.structures[0].status=='ASSESSING'
+    assert earlier.debug.structures[0].firstOppositeAt is None
 
 
-@pytest.mark.parametrize('period', ['day', 'm60', 'm90', 'm120'])
-def test_bottom_asof_restore_past_window_and_single_bar_external_structure(period):
-    service = IndexDetailXxmQueryService
-    entry = bottom_entry(period)
-    for day in ('2024-07-09', '2024-07-11', '2024-07-22', '2024-07-23'):
-        through = day if period == 'day' else day+'T15:00:00+08:00'
-        actual = service._response(entry, period=period, expected=through, start_date=None, limit=2000, check=lambda: None)
-        prefix = bottom_entry(period, through)
-        independent = service._response(prefix, period=period, expected=through, start_date=None, limit=2000, check=lambda: None)
-        assert actual.model_dump() == independent.model_dump()
-        child = entry.calculator_at(len(prefix.processed), lambda: None)
-        assert child.snapshot() == prefix.calculator.snapshot()
-        before = entry.calculator.snapshot()
-        if child.pending_bottom_history:
-            child.pending_bottom_history['originalReference']['dif'] = -999
-        assert entry.calculator.snapshot() == before
-    event = next(e for e in entry.events if e['direction']=='BOTTOM' and e['type']=='RESEARCH_HISTORICAL_WITHDRAWAL')
-    response = service._response(entry, period=period, expected=event['time'], start_date=None, limit=1, check=lambda: None)
-    h = next(h for h in response.bottomHistories if h.id == event['relatedBottomHistoryId'])
-    assert h.confirmedAt < response.meta.responseStart and h.structureEventId not in {e.id for e in response.events}
-    assert h.status == 'ENDED' and h.endReason == 'historical_price_break'
-    empty = service._response(entry, period=period, expected=event['time'], start_date=date(2099,1,1), limit=1, check=lambda: None)
-    assert empty.dataStatus.status == 'READY' and empty.points == [] and empty.bottomHistories == []
-
-
-def test_bottom_strict_dto_rejects_partial_contracts_and_accepts_old_point_pending():
+def test_public_and_debug_contracts_reject_legacy_bad_types_and_links():
     from copy import deepcopy
-    from pydantic import ValidationError
+    from src.biz.schemas.wealth.market.index_detail_xxm import XxmResponseDto, XxmDebugResponseDto
+    from src.biz.services.wealth.market.index_detail_xxm.response_projection import project_xxm_response
+    from scripts.research.index_market.tests.test_xxm_r4_following_query import entry, response
+    from scripts.research.index_market.tests.test_xxm_r4_following import TN
+    value=project_xxm_response(response(entry(TN),8),debug=True).model_dump()
+    assert XxmDebugResponseDto.model_validate(value)
+    normal={k:v for k,v in value.items() if k!='debug'}
+    assert XxmResponseDto.model_validate(normal)
+    changes=[lambda v:v.update(topHistories=[]),lambda v:v.update(specHash='wrong'),
+        lambda v:v['points'][0].update(close=True),lambda v:v['points'][0].update(dif='99'),
+        lambda v:v['events'][0].pop('displayOnChart'), lambda v:v['events'][0].update(displayOnChart=1),
+        lambda v:v['debug']['points'][0].update(activeStructureId='dangling'),
+        lambda v:v['debug']['structures'][0].update(firstOppositeAt='2099-01-01'),
+        lambda v:v['debug']['events'][0].update(relatedStructureId='missing'),
+        lambda v:v['debug']['structures'][0]['originWave'].update(priceAt='2099-01-01')]
+    for change in changes:
+        bad=deepcopy(value);change(bad)
+        with pytest.raises(ValueError): XxmDebugResponseDto.model_validate(bad)
+    with pytest.raises(ValueError): XxmResponseDto.model_validate(value)
+
+
+@pytest.mark.parametrize('raw',['','true','01','2','1&debug=0'])
+def test_invalid_debug_does_not_enter_source(source_db,raw,monkeypatch):
+    monkeypatch.setattr(IndexDetailXxmQueryService,'build',lambda *a,**k:pytest.fail('bad request read source'))
+    r=client(source_db).get('/api/v1/wealth/market/index-detail/xxm-signals?tsCode=000001.SH&debug='+raw)
+    assert r.status_code==400
+
+
+def test_real_http_normal_debug_same_facts_and_no_store(source_db,monkeypatch):
     from src.biz.schemas.wealth.market.index_detail_xxm import XxmResponseDto
-    from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
-    entry = bottom_entry()
-    response = IndexDetailXxmQueryService._response(entry, period='day', expected='2024-07-23',
-                                                   start_date=date(2024,7,22), limit=2, check=lambda: None)
-    payload = response.model_dump()
-    assert payload['points'][0]['pendingBottomHistoryId'] and payload['bottomHistories'][0]['status'] == 'ENDED'
-    assert XxmResponseDto.model_validate(payload).algorithmVersion == MAIN_SPEC.algorithm_version
-    changes = [lambda r:r.pop('bottomHistories'), lambda r:r['points'][0].pop('pendingBottomHistoryId'),
-               lambda r:r['events'][0].pop('relatedBottomHistoryId'), lambda r:r.update(algorithmVersion='xxm-direction-v0.1'),
-               lambda r:r.update(specHash='a'*64), lambda r:r.update(bottomHistories=[]),
-               lambda r:r['bottomHistories'][0].update(extra=True),
-               lambda r:r['bottomHistories'][0].update(ageBars=True),
-               lambda r:r['bottomHistories'][0].update(leftOriginAt='2024-07-24'),
-               lambda r:r['bottomHistories'][0].update(priceLow=float('inf')),
-               lambda r:r['bottomHistories'][0].update(endedAt='2024-07-24'),
-               lambda r:r['events'][0].update(relatedTopHistoryId='other'),
-               lambda r:r['events'][0].update(direction='TOP'),
-               lambda r:r['events'][0].update(type='DULL',relatedBottomHistoryId=None),
-               lambda r:r['events'][0].update(eventReference={**r['events'][0]['eventReference'],'dif':-999}),
-               lambda r:r['points'][1].update(pendingBottomHistoryId=r['bottomHistories'][0]['id']),
-               lambda r:r['dataStatus'].update(status='EMPTY')]
-    for mutate in changes:
-        changed = deepcopy(payload); mutate(changed)
-        with pytest.raises(ValidationError): XxmResponseDto.model_validate(changed)
-
-
-def test_bottom_increment_copy_revision_and_eviction(source_db, monkeypatch):
-    from copy import deepcopy
-    from scripts.research.index_market.xxm.acceptance import load_source
-    source = Path(__file__).resolve().parents[2] / 'reports/xxm_source_audit_20261013_213852'
-    full = tuple(load_source(source, 'day'))
-    actual = [tuple(b for b in full if b.time <= '2024-07-22')]
-    monkeypatch.setattr(query_service, 'read_daily', lambda *a, **kw: actual[0])
-    monkeypatch.setattr(query_service, 'calendar_dates', lambda *a, **kw: tuple(date.fromisoformat(b.time) for b in full))
-    cache = XxmCache(); service = IndexDetailXxmQueryService(cache=cache)
-    now = datetime(2026,10,14,21,tzinfo=ZONE)
-    with Session(source_db) as session:
-        first, _ = service._load_series(session, key=('B',), period='day', now=now,
-                      business_date=date(2026,10,13), remaining=lambda: 4)
-        before = deepcopy(first.bottom_histories); old_snapshot = first.calculator.snapshot()
-        actual[0] = tuple(b for b in full if b.time <= '2024-07-23')
-        next_entry, _ = service._load_series(session, key=('B',), period='day', now=now,
-                      business_date=date(2026,10,13), remaining=lambda: 4)
-        assert first.bottom_histories == before and first.calculator.snapshot() == old_snapshot
-        assert first.bottom_histories is not next_entry.bottom_histories
-        assert any(h['endReason']=='historical_price_break' and h['endedAt']=='2024-07-23' for h in next_entry.bottom_histories.values())
-        actual[0] = (replace(actual[0][0], close=actual[0][0].close+.1), *actual[0][1:])
-        revised, _ = service._load_series(session, key=('B',), period='day', now=now,
-                      business_date=date(2026,10,13), remaining=lambda: 4)
-        assert revised.points[0]['close'] != next_entry.points[0]['close']
-        assert revised.bottom_histories is not next_entry.bottom_histories
-    tiny = XxmCache(max_bytes=1); tiny.put(('B',), next_entry)
-    assert tiny.get(('B',)) is None
-
-
-@pytest.mark.parametrize('period',['m60','m90','m120'])
-def test_rearm_asof_single_bar_and_strict_bidirectional_contract(period):
-    from copy import deepcopy
-    from pydantic import ValidationError
-    from src.biz.schemas.wealth.market.index_detail_xxm import XxmResponseDto
-    service=IndexDetailXxmQueryService;entry=bottom_entry(period)
-    record=next(iter(entry.rearm_records.values()));stamp=record['disappearedAt']
-    response=service._response(entry,period=period,expected=stamp,start_date=None,limit=1,check=lambda:None)
-    value=response.model_dump();r=value['rearmRecords'][0]
-    assert r['status']=='WAITING' and r['endedAt'] is None and r['observedThrough']==stamp
-    assert r['reference'] and 'referenceWave' not in r
-    assert value['bottomHistories'][0]['structureEventId']==r['structureEventId']
-    assert r['structureEventId'] not in {e['id'] for e in value['events']}
-    prefix=bottom_entry(period,stamp)
-    assert response==service._response(prefix,period=period,expected=stamp,start_date=None,limit=1,check=lambda:None)
-    assert entry.calculator_at(len(prefix.processed),lambda:None).snapshot()==prefix.calculator.snapshot()
-    mutations=[lambda v:v.pop('rearmRecords'),lambda v:v['points'][0].pop('pendingRearmId'),
-        lambda v:v['events'][0].pop('relatedRearmId'),lambda v:v.update(rearmRecords=[]),
-        lambda v:v['rearmRecords'][0].update(referenceWave={}),
-        lambda v:v['rearmRecords'][0].update(direction='TOP'),
-        lambda v:v['rearmRecords'][0].update(observedThrough='2099-01-01T15:00:00+08:00'),
-        lambda v:v['rearmRecords'][0]['reference'].update(price=float('inf')),
-        lambda v:v['rearmRecords'][0].update(endReason='zero'),
-        lambda v:v['rearmRecords'][0].update(bottomHistoryId='wrong'),
-        lambda v:v['points'][0].update(pendingRearmId='wrong'),
-        lambda v:v['events'][0].update(relatedRearmId=None),
-        lambda v:v['events'].append({**v['events'][0],'id':'duplicate-transition'}),
-        lambda v:v['bottomHistories'][0].update(endReason='historical_price_break',leftOriginAt=stamp),
-        lambda v:v['events'][0].update(type='CANCEL',relatedBottomHistoryId=None),
-        lambda v:v['dataStatus'].update(status='EMPTY')]
-    for mutate in mutations:
-        bad=deepcopy(value);mutate(bad)
-        with pytest.raises(ValidationError):XxmResponseDto.model_validate(bad)
-    if record['endedAt']:
-        whole=service._response(entry,period=period,expected=record['endedAt'],start_date=date.fromisoformat(stamp[:10]),limit=2000,check=lambda:None)
-        assert any(p.pendingRearmId==record['id'] for p in whole.points)
-        assert next(r for r in whole.rearmRecords if r.id==record['id']).status==record['status']
-        assert XxmResponseDto.model_validate(whole.model_dump())==whole
-
-
-@pytest.mark.parametrize('period',['m60','m90','m120'])
-def test_rearm_ledger_increment_isolation_revision_and_cache_rebuild(source_db,tmp_path,monkeypatch,period):
-    from copy import deepcopy
-    entry=bottom_entry(period);record=next(iter(entry.rearm_records.values()))
-    values={'bars':tuple(b for b in entry.raw if b.time<record['disappearedAt']),'revision':1}
-    class Reader:
-        def history_source_signature(self,request,*,dataset):return (dataset,values['revision'])
-    monkeypatch.setattr(query_service,'minute_reader',lambda root:Reader())
-    monkeypatch.setattr(query_service,'read_minutes',lambda *a,**kw:values['bars'])
-    monkeypatch.setattr(query_service,'calendar_dates',lambda *a,**kw:tuple(sorted({date.fromisoformat(b.time[:10]) for b in entry.raw})))
-    service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
-    now=datetime(2026,10,16,16,tzinfo=ZONE)
-    with Session(source_db) as session:
-        first,_=service._load_series(session,key=('rearm',period),period=period,now=now,business_date=date(2026,10,15),remaining=lambda:4)
-        before=deepcopy(first.rearm_records);snapshot=first.calculator.snapshot()
-        values.update(bars=tuple(b for b in entry.raw if b.time<=record['disappearedAt']),revision=2)
-        second,_=service._load_series(session,key=('rearm',period),period=period,now=now,business_date=date(2026,10,15),remaining=lambda:4)
-        assert first.rearm_records==before and first.calculator.snapshot()==snapshot
-        assert first.rearm_records is not second.rearm_records and second.calculator.pending_rearm
-        old=deepcopy(second.rearm_records)
-        values.update(bars=(replace(values['bars'][0],close=values['bars'][0].close+.1),*values['bars'][1:]),revision=3)
-        rebuilt,_=service._load_series(session,key=('rearm',period),period=period,now=now,business_date=date(2026,10,15),remaining=lambda:4)
-        assert second.rearm_records==old and rebuilt.rearm_records is not second.rearm_records
-        assert rebuilt.points[0]['close']!=second.points[0]['close']
+    encoded=[];original=XxmResponseDto.model_dump_json
+    def encode(value,*a,**k):
+        body=original(value,*a,**k);encoded.append(body.encode());return body
+    monkeypatch.setattr(XxmResponseDto,"model_dump_json",encode)
+    c=client(source_db);path='/api/v1/wealth/market/index-detail/xxm-signals'
+    normal=c.get(path,params={'tsCode':'000001.SH','endDate':'2020-01-08'})
+    debug=c.get(path,params={'tsCode':'000001.SH','endDate':'2020-01-08','debug':'1'})
+    assert normal.status_code==debug.status_code==200
+    assert normal.headers['cache-control']==debug.headers['cache-control']=='no-store'
+    assert encoded==[normal.content,debug.content]
+    assert normal.json()=={k:v for k,v in debug.json().items() if k!='debug'}
+    assert 'inputId' not in normal.json()['source']

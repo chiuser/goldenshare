@@ -1,3 +1,5 @@
+import type { ReactNode } from "react";
+import type { ForecastDebugResponse } from "../xxm-forecast/types";
 import { XxmForecastCard } from "../xxm-forecast/XxmForecastCard";
 import type { ForecastPeriod, ForecastRows } from "../xxm-forecast/types";
 import type { NineTurnPeriod } from "../../nine-turn/api/nineTurnApiTypes";
@@ -7,7 +9,7 @@ import { INDEX_TECHNICAL_NINE_TURN_PERIODS, type IndexTechnicalNineTurnSummary }
 import { IndexDetailModuleState } from "../state/IndexDetailModuleState";
 
 interface IndexTechnicalTabProps {
-  forecast?: { rows: ForecastRows; retry: (period: ForecastPeriod) => void };
+  forecast?: { rows: ForecastRows; retry: (period: ForecastPeriod) => void; renderDebugDetails?: (response: ForecastDebugResponse) => ReactNode };
   nineTurnSummary: IndexTechnicalNineTurnSummary;
   onNineTurnRetry: (period: NineTurnPeriod) => void;
   onTrendRetry: () => void;

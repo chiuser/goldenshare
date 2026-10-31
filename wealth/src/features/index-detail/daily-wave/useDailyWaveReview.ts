@@ -8,11 +8,12 @@ import type { DailyWaveReviewState } from "./types";
 
 export const DAILY_WAVE_TIMEOUT_MS = 10_000;
 type Snapshot = Pick<DailyWaveReviewState, "enabled" | "phase" | "response" | "candles" | "dataKey" | "errorMessage">;
-const closed = (): Snapshot => ({ enabled: false, phase: "closed", response: null, candles: [], dataKey: null, errorMessage: "" });
+const EMPTY_CANDLES: DailyWaveReviewState["candles"] = [];
+const closed = (): Snapshot => ({ enabled: false, phase: "closed", response: null, candles: EMPTY_CANDLES, dataKey: null, errorMessage: "" });
 
-export function useDailyWaveReview({ tsCode, activePeriod }: { tsCode: string; activePeriod: IndexPeriodKey }): DailyWaveReviewState {
-  const supported = tsCode === "000001.SH" && activePeriod === "day";
-  const contextKey = `${tsCode}|${activePeriod}`;
+export function useDailyWaveReview({ tsCode, activePeriod, enabled, ownerKey }: { tsCode: string; activePeriod: IndexPeriodKey; enabled: boolean; ownerKey: string }): DailyWaveReviewState {
+  const supported = enabled && tsCode === "000001.SH" && activePeriod === "day";
+  const contextKey = `${ownerKey}|${enabled}|${tsCode}|${activePeriod}`;
   const [snapshot, setSnapshot] = useState<Snapshot>(closed);
   const sequence = useRef(0);
   const controller = useRef<AbortController | null>(null);

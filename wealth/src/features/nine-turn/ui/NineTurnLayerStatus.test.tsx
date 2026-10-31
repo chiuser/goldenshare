@@ -46,3 +46,12 @@ function layer(phase: NineTurnLayerPhase): NineTurnLayerViewModel {
     phase,
   };
 }
+
+it("hides only alignment diagnostics, while a real failure and retry stay visible",()=>{
+  const retry=vi.fn();const {rerender}=render(<NineTurnLayerStatus showAlignmentDiagnostics={false} droppedMarkerCount={2} layer={{...layer("ERROR"),canRetry:true}} onRetry={retry}/>);
+  expect(screen.getByRole("status")).toHaveTextContent("九转序列加载失败");
+  expect(screen.queryByText(/未找到对应 K 线/)).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button",{name:"重试九转"}));expect(retry).toHaveBeenCalledOnce();
+  rerender(<NineTurnLayerStatus showAlignmentDiagnostics={false} droppedMarkerCount={2} layer={layer("READY")} onRetry={retry}/>);
+  expect(screen.queryByRole("status")).not.toBeInTheDocument();
+});

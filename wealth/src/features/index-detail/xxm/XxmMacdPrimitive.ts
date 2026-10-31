@@ -4,10 +4,8 @@ import { layoutXxmLabels, XXM_MARKER_STYLE } from "./markerGeometry";
 import type { XxmEvent, XxmMarker } from "./types";
 
 function color(event: XxmEvent): string {
-  const token = event.type === "DULL" ? "--cs-color-warning" : event.type === "STRUCTURE" ? "--cs-color-purple"
-    : (event.type === "RESEARCH_HISTORICAL_WITHDRAWAL" || event.type === "STRUCTURE_DISAPPEARED") ? "--cs-color-market-down" : "--cs-color-text-secondary";
-  const fallback = event.type === "DULL" ? DETAIL_CHART_COLORS.amber : event.type === "STRUCTURE" ? DETAIL_CHART_COLORS.purple
-    : (event.type === "RESEARCH_HISTORICAL_WITHDRAWAL" || event.type === "STRUCTURE_DISAPPEARED") ? DETAIL_CHART_COLORS.down : DETAIL_CHART_COLORS.text;
+  const token = event.type === "DULL" ? "--cs-color-warning" : event.type === "STRUCTURE" ? "--cs-color-purple" : "--cs-color-text-secondary";
+  const fallback = event.type === "DULL" ? DETAIL_CHART_COLORS.amber : event.type === "STRUCTURE" ? DETAIL_CHART_COLORS.purple : DETAIL_CHART_COLORS.text;
   return typeof document === "undefined" ? fallback : getComputedStyle(document.documentElement).getPropertyValue(token).trim() || fallback;
 }
 

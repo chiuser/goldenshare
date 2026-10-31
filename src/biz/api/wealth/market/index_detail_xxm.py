@@ -4,33 +4,33 @@ from datetime import date
 import re
 from typing import Callable
 
-from fastapi import APIRouter, Depends, Query, Request
+from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.orm import Session
 
 from src.biz.queries.wealth.market.index_detail_xxm.query_service import IndexDetailXxmQueryService, XxmQueryError
-from src.biz.schemas.wealth.market.index_detail_xxm import XxmResponseDto
+from src.biz.schemas.wealth.market.index_detail_xxm import XxmResponseDto, XxmDebugResponseDto
 from src.biz.services.wealth.market.index_detail_xxm.runtime import BUDGET
 
 
 def parse_parameters(request: Request, *, minute: bool) -> dict:
-    allowed = {"tsCode", "freq" if minute else "period", "startDate", "endDate", "limit"}
+    allowed = {"tsCode", "freq" if minute else "period", "startDate", "endDate", "limit", "debug"}
     supplied = [key for key, _value in request.query_params.multi_items()]
     if set(supplied) - allowed or len(supplied) != len(set(supplied)):
-        raise XxmQueryError("XXM_REQUEST_INVALID", "研究指标参数未知或重复。", 400)
+        raise XxmQueryError("XXM_REQUEST_INVALID", "顶底识别参数未知或重复。", 400)
     code = (request.query_params.get("tsCode") or "").strip().upper()
     if not re.fullmatch(r"[0-9]{6}\.(?:SH|SZ|BJ)", code):
         raise XxmQueryError("XXM_REQUEST_INVALID", "tsCode 必须是六位代码及市场后缀。", 400)
     if code != "000001.SH":
-        raise XxmQueryError("XXM_NOT_SUPPORTED", "研究指标 V0.1 仅支持上证指数。", 404)
+        raise XxmQueryError("XXM_NOT_SUPPORTED", "顶底识别 仅支持上证指数。", 404)
     if minute:
         raw = request.query_params.get("freq", "")
         if raw not in ("60", "90", "120"):
-            raise XxmQueryError("XXM_REQUEST_INVALID", "研究指标分钟周期只支持 60／90／120。", 400)
+            raise XxmQueryError("XXM_REQUEST_INVALID", "顶底识别分钟周期只支持 60／90／120。", 400)
         period = f"m{raw}"
     else:
         period = request.query_params.get("period", "day")
         if period != "day":
-            raise XxmQueryError("XXM_REQUEST_INVALID", "此研究接口只支持日线。", 400)
+            raise XxmQueryError("XXM_REQUEST_INVALID", "此识别接口只支持日线。", 400)
     dates = {}
     for name in ("startDate", "endDate"):
         raw = request.query_params.get(name)
@@ -46,20 +46,28 @@ def parse_parameters(request: Request, *, minute: bool) -> dict:
     raw_limit = request.query_params.get("limit", str(default))
     if not re.fullmatch(r"[0-9]{1,4}", raw_limit) or not 1 <= int(raw_limit) <= BUDGET.max_response_rows:
         raise XxmQueryError("XXM_REQUEST_INVALID", "limit 必须在 1～2000 之间。", 400)
-    return {"period": period, "start_date": dates["startDate"], "end_date": dates["endDate"], "limit": int(raw_limit)}
+    return {"period": period, "start_date": dates["startDate"], "end_date": dates["endDate"], "limit": int(raw_limit), "debug": parse_debug(request)}
+
+
+def parse_debug(request):
+    value = request.query_params.get("debug", "0")
+    if value not in ("0", "1"):
+        raise XxmQueryError("XXM_REQUEST_INVALID", "debug 仅允许0或1。", 400)
+    return value == "1"
 
 
 def build_router(*, db_dependency: Callable, auth_dependency: Callable, error_factory: Callable) -> APIRouter:
     """App supplies infrastructure dependencies; Biz never imports App."""
     router = APIRouter(prefix="/wealth/market/index-detail", tags=["wealth-market"])
 
-    @router.get("/xxm-signals", response_model=XxmResponseDto)
+    @router.get("/xxm-signals", response_model=XxmResponseDto | XxmDebugResponseDto)
     def get_index_xxm(request: Request, ts_code: str | None = Query(None, alias="tsCode"),
                       period: str | None = Query(None), start_date: str | None = Query(None, alias="startDate"),
-                      end_date: str | None = Query(None, alias="endDate"), limit: str | None = Query(None),
-                      _user=Depends(auth_dependency), session: Session = Depends(db_dependency)) -> XxmResponseDto:
+                      end_date: str | None = Query(None, alias="endDate"), limit: str | None = Query(None), debug: str | None = Query(None),
+                      _user=Depends(auth_dependency), session: Session = Depends(db_dependency)) -> Response:
         try:
-            return IndexDetailXxmQueryService().build(session, **parse_parameters(request, minute=False))
+            body = IndexDetailXxmQueryService().build(session, **parse_parameters(request, minute=False))
+            return Response(content=body, media_type="application/json", headers={"Cache-Control": "no-store"})
         except XxmQueryError as exc:
             raise error_factory(status_code=exc.status, code=exc.code, message=str(exc)) from exc
 

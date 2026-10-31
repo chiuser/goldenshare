@@ -24,7 +24,7 @@ describe("IndexMinuteChartWorkspace adapter", () => {
   beforeEach(() => workspaceMock.reset());
 
   it("uses the index/frequency dataKey and keeps the partial message without a mock badge", () => {
-    render(<IndexMinuteChartWorkspace data={makeData()} errorMessage="指标部分缺失" nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="partial" />);
+    render(<IndexMinuteChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} data={makeData()} errorMessage="指标部分缺失" nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="partial" />);
 
     const props = latestProps();
     expect(props.dataKey).toBe("index:000001.SH:m5");
@@ -36,7 +36,7 @@ describe("IndexMinuteChartWorkspace adapter", () => {
   });
 
   it("keeps empty/error module states outside the loaded shared workspace", () => {
-    render(<IndexMinuteChartWorkspace data={null} errorMessage="分钟数据失败" nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="error" />);
+    render(<IndexMinuteChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} data={null} errorMessage="分钟数据失败" nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="error" />);
     expect(workspaceMock.props).toHaveLength(0);
     expect(screen.getByText("分钟数据失败")).toBeInTheDocument();
   });

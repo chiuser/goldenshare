@@ -1,11 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { DailyWavePrimitive } from "../daily-wave/DailyWavePrimitive";
-import { DailyWaveLayerUi, DailyWaveLegend, DailyWaveResearchDetails } from "../daily-wave/DailyWaveLayerUi";
-import { buildDailyWavePresentation } from "../daily-wave/presentation";
-import type { DailyWaveMarkerIssue } from "../daily-wave/markerGeometry";
-import type { DailyWaveReviewState } from "../daily-wave/types";
+import { useEffect, useMemo, useState } from "react";
+import type { IndexRecognitionProps, IndexRecognitionDebugExtension } from "../debug/types";
 import { useIndexXxmLayer } from "../xxm/useIndexXxmLayer";
-import { XxmLayerStatus, XxmResearchDetails } from "../xxm/XxmLayerUi";
+import { XxmLayerStatus, XxmSignalDetails } from "../xxm/XxmLayerUi";
 import type { XxmLayerState } from "../xxm/types";
 
 import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
@@ -36,67 +32,49 @@ interface IndexChartWorkspaceProps {
   trend: TrendChannelViewModel | null;
   trendPhase: "unavailable" | "loading" | "ready" | "error";
   viewModel: IndexDetailViewModel;
-  review?: DailyWaveReviewState;
+  recognition: IndexRecognitionProps;
+  debugExtension?: IndexRecognitionDebugExtension;
   onTrendRetry?: () => void;
 }
 
-export function IndexChartWorkspace({ nineTurnLayer, onNineTurnRetry, trend, trendPhase, viewModel, review, onTrendRetry }: IndexChartWorkspaceProps) {
+export function IndexChartWorkspace({ nineTurnLayer: ordinaryNineTurn, onNineTurnRetry: ordinaryNineTurnRetry, trend: ordinaryTrend, trendPhase: ordinaryTrendPhase, viewModel, recognition, debugExtension, onTrendRetry: ordinaryTrendRetry }: IndexChartWorkspaceProps) {
+  const ownerKey = `${viewModel.identity.tsCode}|day|${viewModel.asOfTradeDate}`;
+  const extension = recognition.debug === 1 && debugExtension?.ownerKey === ownerKey ? debugExtension : null;
+  const research = extension?.chartOverride ?? null;
+  const nineTurnLayer = research?.nineTurnLayer ?? ordinaryNineTurn;
+  const trend = research ? research.trend : ordinaryTrend;
+  const trendPhase = research?.trendPhase ?? ordinaryTrendPhase;
+  const onNineTurnRetry = research?.onNineTurnRetry ?? ordinaryNineTurnRetry;
+  const onTrendRetry = research?.onTrendRetry ?? ordinaryTrendRetry;
   const supportsTrend = viewModel.capabilities.supportsTrendChannel && viewModel.identity.tsCode === "000001.SH";
-  const research = review?.phase === "ready" && review.response?.status === "ready" ? review : null;
   const [overlay, setOverlay] = useState<IndexMainOverlay>(supportsTrend && trend ? "TREND_CHANNEL" : "MA");
-  useEffect(() => {
-    if (research) return;
-    setOverlay(supportsTrend && trend ? "TREND_CHANNEL" : "MA");
-  }, [supportsTrend, trend, viewModel.identity.tsCode, research !== null]);
-
-  const response = review?.response?.status === "ready" ? review.response : null;
-  const candles = research ? research.candles : viewModel.chart.candles;
+  useEffect(() => { if (!research) setOverlay(supportsTrend && trend ? "TREND_CHANNEL" : "MA"); }, [supportsTrend, trend, viewModel.identity.tsCode, research !== null]);
+  const candles = research?.candles ?? viewModel.chart.candles;
   const points = useMemo(() => candles.map(toDetailChartPoint), [candles]);
   const dataKey = research?.dataKey ?? `index:${viewModel.identity.tsCode}:day`;
-  const [layout, setLayout] = useState<{ key: string; issues: readonly DailyWaveMarkerIssue[] }>({ key: "", issues: [] });
-  const reportIssues = useCallback((issues: readonly DailyWaveMarkerIssue[]) => {
-    setLayout((previous) => previous.key === dataKey && JSON.stringify(previous.issues) === JSON.stringify(issues)
-      ? previous : { key: dataKey, issues });
-  }, [dataKey]);
-  const presentation = useMemo(() => response ? buildDailyWavePresentation(response,
-    research && layout.key === dataKey ? layout.issues : []) : null, [dataKey, layout, research, response]);
-  const wavePrimitive = useMemo(() => new DailyWavePrimitive(), [dataKey]);
-  const xxm = useIndexXxmLayer({ tsCode: viewModel.identity.tsCode, period: "day", points });
+  const xxm = useIndexXxmLayer({ tsCode: viewModel.identity.tsCode, period: "day", points, enabled: recognition.recognitionEnabled, debug: recognition.debug, decodeDebug: recognition.decodeXxmDebug });
   const nineTurnChartLayer = useNineTurnChartLayer({ dataKey, layer: nineTurnLayer, points, timeMode: "daily" });
-  useEffect(() => {
-    wavePrimitive.setData({ points, markers: research ? presentation?.markers ?? [] : [],
-      nineTurnMarkers: nineTurnChartLayer.markers, onIssues: reportIssues });
-  }, [wavePrimitive, points, research, presentation, nineTurnChartLayer.markers, reportIssues]);
   const trendByTime = useMemo(() => new Map((trend?.points ?? []).map((point) => [point.time, point])), [trend]);
   const mainLines = useMemo(() => overlay === "MA" ? buildMaLines() : overlay === "BOLL" ? buildBollLines() : [], [overlay]);
-  const researchTrendPrimitive = useMemo(() => new TrendChannelPanePrimitive([]), [dataKey]);
+  const ordinaryTrendPrimitive = useMemo(() => new TrendChannelPanePrimitive([]), [dataKey]);
   useEffect(() => {
-    researchTrendPrimitive.setLines(research && overlay === "TREND_CHANNEL" && trend
-      ? buildTrendChannelLines(trend.points, points.map((point) => String(point.time))) : []);
-  }, [researchTrendPrimitive, research, overlay, trend, points]);
-  const stableResearchTrendPrimitives = useMemo(() => [researchTrendPrimitive], [researchTrendPrimitive]);
-  const ordinaryTrendPrimitives = useMemo(() => {
-    if (overlay !== "TREND_CHANNEL" || !trend) return [];
-    const lines = buildTrendChannelLines(trend.points, points.map((point) => String(point.time)));
-    return [new TrendChannelPanePrimitive(lines)];
-  }, [overlay, points, trend]);
-  const trendPrimitives = research ? stableResearchTrendPrimitives : ordinaryTrendPrimitives;
-  const mainPrimitives = useMemo(
-    () => [...trendPrimitives, ...nineTurnChartLayer.mainPrimitives, ...(research ? [wavePrimitive] : [])],
-    [nineTurnChartLayer.mainPrimitives, trendPrimitives, research !== null, wavePrimitive],
-  );
+    ordinaryTrendPrimitive.setLines(!research && trend ? buildTrendChannelLines(trend.points, points.map(p => String(p.time))) : []);
+  }, [ordinaryTrendPrimitive, research !== null, points, trend]);
+  const ordinaryTrendPrimitives = useMemo(() => overlay === "TREND_CHANNEL" ? [ordinaryTrendPrimitive] : [], [overlay, ordinaryTrendPrimitive]);
+  const mainPrimitives = useMemo(() => [...(overlay === "TREND_CHANNEL" ? research?.trendMainPrimitives ?? ordinaryTrendPrimitives : []), ...nineTurnChartLayer.mainPrimitives, ...(research?.waveMainPrimitives ?? [])], [overlay, research?.trendMainPrimitives, research?.waveMainPrimitives, ordinaryTrendPrimitives, nineTurnChartLayer.mainPrimitives]);
 
   return (
     <DetailChartWorkspace
       ariaLabel="指数日线图表区"
-      bottomBar={<div className={review?.supported ? "daily-wave-bottom-bar" : undefined}>
+      bottomBar={<div className={extension ? "daily-wave-bottom-bar" : undefined}>
         <IndexIndicatorBar overlay={overlay} setOverlay={setOverlay} supportsTrend={supportsTrend && (!!research || trendPhase === "ready")} />
-        {review ? <DailyWaveLayerUi review={review} presentation={presentation} /> : null}
+        {extension?.controls}
       </div>}
       bottomBarAriaLabel="指数指标栏"
       dataKey={dataKey}
       mainLayerAccessory={(
         <><NineTurnLayerStatus
+          showAlignmentDiagnostics={recognition.debug === 1}
           droppedMarkerCount={nineTurnChartLayer.droppedMarkerCount}
           layer={nineTurnLayer}
           onRetry={onNineTurnRetry}
@@ -104,7 +82,7 @@ export function IndexChartWorkspace({ nineTurnLayer, onNineTurnRetry, trend, tre
       )}
       mainLines={mainLines}
       mainPrimitives={mainPrimitives}
-      mainPriceScalePaddingPx={research ? WAVE_PADDING : undefined}
+      mainPriceScalePaddingPx={research?.mainPriceScalePaddingPx}
       macdPrimitives={xxm.macdPrimitives}
       panelAriaLabels={{ kline: "指数K线主图", macd: "MACD(12,26,9)", volume: "成交量", kdj: "KDJ(9,3,3)" }}
       points={points}
@@ -115,21 +93,18 @@ export function IndexChartWorkspace({ nineTurnLayer, onNineTurnRetry, trend, tre
           setOverlay={setOverlay}
           supportsTrend={supportsTrend && (!!research || trendPhase === "ready")}
           trendPoint={point ? trendByTime.get(String(point.time)) : undefined}
-          waveLegend={research && response ? <DailyWaveLegend response={response} /> : undefined}
+          waveLegend={extension?.legend}
         />
       )}
       renderPanelHeader={(panel, point) => <><IndexPanelHeader panel={panel} point={point} />{panel === "macd" ? <XxmLayerStatus layer={xxm} onRetry={xxm.retry} /> : null}</>}
-      renderTooltip={(point, side) => <IndexTooltip point={point} side={side} xxm={xxm} waveDetails={research && response && presentation
-        ? <DailyWaveResearchDetails response={response} facts={presentation.byDate.get(point.fullDate.slice(0, 10)) ?? []} /> : undefined} />}
+      renderTooltip={(point, side) => <IndexTooltip point={point} side={side} xxm={xxm} waveDetails={<>{recognition.debug === 1 ? recognition.renderXxmDetails?.(xxm, String(point.time)) : null}{extension?.renderWaveDetails(point)}</>} />}
       timeAxisAriaLabel="指数日线底部时间轴"
       timeMode="daily"
     />
   );
 }
 
-const WAVE_PADDING = { top: 44, bottom: 44 };
-
-function toDetailChartPoint(point: IndexCandlePoint): DetailChartPoint {
+export function toDetailChartPoint(point: IndexCandlePoint): DetailChartPoint {
   return {
     time: point.time,
     fullDate: point.fullDate,
@@ -240,7 +215,7 @@ function IndexTooltip({ point, side, xxm, waveDetails }: { point: DetailChartPoi
     ["成交量", point.volumeDisplay ?? "--", "secondary"],
     ["成交额", formatCompact(point.amount, ""), "secondary"],
   ];
-  return <div className={`detail-chart-tooltip ${side}`}><div className="detail-chart-tooltip-grid">{rows.map(([label, value, tone]) => <div className="detail-chart-tooltip-row" key={label}><span>{label}</span><b className={tone}>{value}</b></div>)}</div><XxmResearchDetails layer={xxm} time={String(point.time)} />{waveDetails}</div>;
+  return <div className={`detail-chart-tooltip ${side}`}><div className="detail-chart-tooltip-grid">{rows.map(([label, value, tone]) => <div className="detail-chart-tooltip-row" key={label}><span>{label}</span><b className={tone}>{value}</b></div>)}</div><XxmSignalDetails layer={xxm} time={String(point.time)} />{waveDetails}</div>;
 }
 
 function pointValue(value: number | undefined): number | null { return Number.isFinite(value) ? value ?? null : null; }

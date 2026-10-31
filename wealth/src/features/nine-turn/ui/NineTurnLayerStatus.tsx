@@ -5,18 +5,21 @@ export function NineTurnLayerStatus({
   droppedMarkerCount,
   layer,
   onRetry,
+  showAlignmentDiagnostics = true,
 }: {
   droppedMarkerCount: number;
   layer: NineTurnLayerViewModel;
   onRetry: () => void;
+  showAlignmentDiagnostics?: boolean;
 }) {
-  if (layer.phase === "IDLE" || (layer.phase === "READY" && droppedMarkerCount === 0)) return null;
-  const alignmentMessage = droppedMarkerCount > 0
+  if (layer.phase === "IDLE" || (layer.phase === "READY" && (droppedMarkerCount === 0 || !showAlignmentDiagnostics))) return null;
+  const alignmentMessage = showAlignmentDiagnostics && droppedMarkerCount > 0
     ? `${droppedMarkerCount} 个九转标记未找到对应 K 线，已隐藏。`
     : null;
   return (
     <div className={`nine-turn-layer-status ${layer.phase.toLowerCase()}`} role="status">
-      <span>{alignmentMessage ?? layer.message ?? fallbackMessage(layer.phase)}</span>
+      {alignmentMessage ? <span>{alignmentMessage}</span> : null}
+      {layer.phase !== "READY" ? <span>{layer.message ?? fallbackMessage(layer.phase)}</span> : null}
       {layer.canRetry ? (
         <button type="button" onClick={onRetry}>重试九转</button>
       ) : null}

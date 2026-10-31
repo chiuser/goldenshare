@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContextQuery
 from src.foundation.clients.local_lake.major_index_mins_reader import IndexMinuteHistoryBudgetError, IndexMinuteSourceContractError
 from src.biz.schemas.wealth.market.index_detail_xxm import InternalXxmResponseDto
-from src.biz.schemas.wealth.market.index_detail_xxm_forecast import ForecastResponseDto
+from src.biz.schemas.wealth.market.index_detail_xxm_forecast import InternalForecastResponseDto
 from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
 from src.biz.services.wealth.market.index_detail_xxm.runtime import BUDGET
 from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
@@ -99,18 +99,18 @@ class SeriesEntry:
 class XxmCache:
     def __init__(self, *, max_bytes: int = BUDGET.cache_max_bytes, max_series: int = BUDGET.cache_max_series) -> None:
         self.max_bytes, self.max_series = max_bytes, max_series
-        self.entries: OrderedDict[tuple, tuple[SeriesEntry | ForecastResponseDto, int]] = OrderedDict()
+        self.entries: OrderedDict[tuple, tuple[SeriesEntry | InternalForecastResponseDto, int]] = OrderedDict()
         self.lock = RLock()
         self.loads = SharedLoads(max_entries=max_series)
 
-    def get(self, key: tuple) -> SeriesEntry | ForecastResponseDto | None:
+    def get(self, key: tuple) -> SeriesEntry | InternalForecastResponseDto | None:
         with self.lock:
             if key not in self.entries:
                 return None
             self.entries.move_to_end(key)
             return self.entries[key][0]
 
-    def put(self, key: tuple, entry: SeriesEntry | ForecastResponseDto, *, check=None) -> None:
+    def put(self, key: tuple, entry: SeriesEntry | InternalForecastResponseDto, *, check=None) -> None:
         size = _deep_size(entry)
         if check is not None:
             check()
@@ -123,12 +123,36 @@ class XxmCache:
             while self.entries and (len(self.entries) > self.max_series or sum(v[1] for v in self.entries.values()) > self.max_bytes):
                 self.entries.popitem(last=False)
 
-    def get_forecast(self, key: tuple) -> ForecastResponseDto | None:
-        response = self.get(("forecast", *key))
-        return response.model_copy(deep=True) if response is not None else None
+    def get_forecast(self, key: tuple, *, check) -> InternalForecastResponseDto | None:
+        if not self.lock.acquire(timeout=check()):
+            raise XxmQueryError("XXM_BUDGET_EXCEEDED", "预测缓存读取超时。", 503)
+        try:
+            check()
+            stored = self.entries.get(("forecast", *key))
+            if stored is None:
+                return None
+            self.entries.move_to_end(("forecast", *key))
+            response = stored[0].model_copy(deep=True)
+            check()
+            return response
+        finally:
+            self.lock.release()
 
-    def put_forecast(self, key: tuple, response: ForecastResponseDto) -> None:
-        self.put(("forecast", *key), response.model_copy(deep=True))
+    def put_forecast(self, key: tuple, prepared: InternalForecastResponseDto, size: int, *, check) -> None:
+        if type(size) is not int or size <= 0 or size > self.max_bytes:
+            raise XxmQueryError("XXM_BUDGET_EXCEEDED", "预测缓存超过预算。", 503)
+        if not self.lock.acquire(timeout=check()):
+            raise XxmQueryError("XXM_BUDGET_EXCEEDED", "预测缓存写入超时。", 503)
+        try:
+            candidate = self.entries.copy()
+            candidate.pop(("forecast", *key), None)
+            candidate[("forecast", *key)] = (prepared, size)
+            while len(candidate) > self.max_series or sum(item[1] for item in candidate.values()) > self.max_bytes:
+                candidate.popitem(last=False)
+            check()
+            self.entries = candidate
+        finally:
+            self.lock.release()
 
 
 _CACHE = XxmCache()
@@ -143,17 +167,21 @@ class IndexDetailXxmQueryService:
         self.lake_identity = str(lake_root.resolve()) if lake_root is not None else "daily"
 
     def build(self, session: Session, *, period: XxmPeriod, start_date: date | None, end_date: date | None,
-              limit: int, now: datetime | None = None) -> InternalXxmResponseDto:
+              limit: int, debug: bool = False, now: datetime | None = None) -> bytes:
         if period not in _PERIODS or not 1 <= limit <= BUDGET.max_response_rows or (start_date and end_date and start_date > end_date):
             raise XxmQueryError("XXM_REQUEST_INVALID", "研究指标请求参数不合法。", 400)
         with self.load_entry(session, period=period, now=now) as (entry, context, open_dates, remaining):
             upper = min(end_date or context.trade_date, context.trade_date)
             expected = expected_through(period, open_dates, context.generated_at, upper)
             response = self._response(entry, period=period, expected=expected, start_date=start_date, limit=limit, check=remaining)
-            if len(response.model_dump_json().encode()) > BUDGET.max_response_bytes:
+            from src.biz.services.wealth.market.index_detail_xxm.response_projection import project_xxm_response
+            response = project_xxm_response(response, debug=debug)
+            remaining()
+            body = response.model_dump_json().encode("utf-8")
+            if len(body) > BUDGET.max_response_bytes:
                 raise XxmQueryError("XXM_BUDGET_EXCEEDED", "研究指标响应超过预算。", 503)
             remaining()
-            return response
+            return body
 
     @contextmanager
     def load_entry(self, session: Session, *, period: XxmPeriod, now: datetime | None = None):
