@@ -1,0 +1,148 @@
+{
+  "run": {
+    "run_id": "104911a4-e1fa-4a42-a8ad-cd55a7b0dedf",
+    "job": "raw_stk_period_bar_adj_month_update_job",
+    "status": "STARTED",
+    "started_at": "2026-10-28T19:30:32.959197+08:00",
+    "ended_at": null,
+    "elapsed_seconds": 12116.5,
+    "tags": {
+      "dagster/partition": "2026-10",
+      "dagster/run_key": "raw_tushare_stk_period_bar_adj_month:2026-10-28",
+      "dagster/sensor_name": "raw_stock_monthly_update_job_sensor"
+    },
+    "ops_config": {
+      "raw_tushare_stk_period_bar_adj_month": {
+        "automatic_intent_date": "2026-10-28",
+        "intent": "daily",
+        "request_id": null,
+        "stock_codes": {
+          "count": 0,
+          "sample": []
+        }
+      }
+    }
+  },
+  "native_process_pid": 68394,
+  "native_process_present_at_check": false,
+  "last_native_event": {
+    "at": "2026-10-28T19:33:00.771631+08:00",
+    "asset": [
+      "raw_tushare_stk_period_bar_adj_week"
+    ],
+    "partition": "2019-09-27",
+    "check_name": "raw_tushare_stk_period_bar_adj_week_delivery_reconciliation_check",
+    "passed": true
+  },
+  "current_dg_service_processes_started_at_beijing": "2026-10-28 19:33:30-19:33:35",
+  "data_control": {
+    "daily": {
+      "baseline_run_id": "5aa7ab8f3353957a0b9f53cc5794802340c0561ab9b1b26ced5be0013e0bb834",
+      "completed_through": {
+        "month": "2026-09",
+        "week": "2026-10-23"
+      },
+      "factor_through": "2026-10-28",
+      "handoff_cutoff": "2026-10-16",
+      "last_refresh": {
+        "month": "2026-10-28",
+        "week": "2026-10-27"
+      },
+      "last_source_asof": {
+        "month": "20261028",
+        "week": "20261027"
+      }
+    },
+    "pending": [
+      {
+        "execution_id": "ecd358c33a8dfeeb073fb881d93c4c70a1a4ab61033a8df7ef48ee746eeda7ae",
+        "consumed": true,
+        "asof": "2026-10-28",
+        "frequencies": [
+          "week",
+          "month"
+        ],
+        "code_count": 16,
+        "retired_code_count": 1,
+        "control_files": {
+          "manifest.json": {
+            "exists": true,
+            "bytes": 217118,
+            "keys": [
+              "candidate_bytes",
+              "candidate_hashes",
+              "devices",
+              "file_receipt_hash",
+              "files_completed_at",
+              "identity",
+              "identity_hash",
+              "phase",
+              "ranges_recorded",
+              "source_asof",
+              "source_bytes",
+              "started_at",
+              "unit_asofs"
+            ],
+            "flags": {
+              "phase": "files_complete",
+              "ranges_recorded": true
+            }
+          },
+          "complete.json": {
+            "exists": true,
+            "bytes": 721957,
+            "keys": [
+              "files",
+              "run_id",
+              "unit_asofs"
+            ],
+            "file_count": 1254,
+            "frequencies": {
+              "week": 1015,
+              "month": 239
+            },
+            "flags": {}
+          },
+          "checkpoint.json": {
+            "exists": false,
+            "bytes": null
+          }
+        },
+        "event_receipts_by_frequency": {
+          "week": 0,
+          "month": 0
+        },
+        "completion_receipts": {
+          "week": false,
+          "month": false
+        }
+      }
+    ],
+    "run_launcher_config": {
+      "module": null,
+      "class": null
+    },
+    "run_monitoring_config": {
+      "enabled": true,
+      "free_slots_after_run_end_seconds": 300
+    }
+  },
+  "observed_event_counts": {
+    "RESOURCE_INIT_SUCCESS": 1,
+    "null": 4562,
+    "ASSET_CHECK_EVALUATION": 1956,
+    "ASSET_MATERIALIZATION_PLANNED": 1,
+    "RESOURCE_INIT_STARTED": 1,
+    "PIPELINE_ENQUEUED": 1,
+    "LOGS_CAPTURED": 1,
+    "ENGINE_EVENT": 2,
+    "ASSET_CHECK_EVALUATION_PLANNED": 3,
+    "PIPELINE_START": 1,
+    "PIPELINE_STARTING": 1,
+    "STEP_START": 1
+  },
+  "diagnosis": "The original run process is absent; STARTED is stale. Data control says files_complete; event confirmation and run termination are unfinished. The temporal relationship to DG process replacement is recorded, but no exit reason is proven.",
+  "read_scope": "Bounded native run metadata, process identity/start times, small control JSONs and empty compute log tails. No Parquet content reads or jobs/state mutations.",
+  "source_observed_at": "2026-10-28T22:53:21.386515+08:00",
+  "mutations": 0
+}

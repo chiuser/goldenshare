@@ -1,0 +1,95 @@
+"""Final exact-delivery verification using producer/sensor control evidence only."""
+from pathlib import Path
+from datetime import datetime
+from contextlib import closing
+from collections import Counter
+import json,os
+import psycopg2
+from dagster._serdes import deserialize_value
+from dagster._core.storage.dagster_run import DagsterRun
+from dagster._core.scheduler.instigation import InstigatorState
+import yaml
+from zoneinfo import ZoneInfo
+from orchestrator.defs.run_contracts.stock_period import digest
+from orchestrator.defs.stock_period_silver import fingerprint
+from orchestrator.defs.io.stock_period_silver import run_directory
+R=Path('/Users/congming/github/goldenshare/lake_console/reports/dg_stock_period_delivery_recovery_20261028/recovery_20261028_after_interrupt')
+S=Path('/Volumes/datasource/data_lake_staging')
+raw_ids=['ecd358c33a8dfeeb073fb881d93c4c70a1a4ab61033a8df7ef48ee746eeda7ae']
+expected={};raw={};latest={}
+for rid in raw_ids:
+ w=S/'stock_period/runs'/rid;m=json.loads((w/'manifest.json').read_text());c=json.loads((w/'complete.json').read_text())
+ assert m['phase']=='events_complete' and m['file_receipt_hash']==digest(c)
+ freqs=sorted({x['freq'] for x in c['files']});totals={}
+ for f in freqs:
+  files=[x for x in c['files'] if x['freq']==f]
+  notice=json.loads((w/'events/completion'/f'{f}.json').read_text())
+  reference={k:notice['completion'][k] for k in ('raw_execution_id','file_receipt_hash','upstream_batch_id')}
+  assert reference['raw_execution_id']==rid and reference['file_receipt_hash']==m['file_receipt_hash']
+  assert notice['completion']['file_count']==len(files)
+  expected[reference['upstream_batch_id']]={'freq':f,'reference':reference,'observation_id':notice['observation_id'],'periods':sorted(x['period'] for x in files if x['period']>=('2014-01-03' if f=='week' else '2014-01'))}
+  totals[f]={'files':len(files),'rows':sum(x['rows'] for x in files),'bytes':sum(x['version'][2] for x in files)}
+ for item in c['files']:
+  st=Path(item['target']).stat();assert [st.st_dev,st.st_ino,st.st_size,st.st_mtime_ns,st.st_ctime_ns]==item['version']
+  cp=json.loads((w/'committed'/item['freq']/f"{item['period']}.json").read_text())
+  assert all(cp[k]==item[k] for k in ('target','version','rows','sha256','freq','period'))
+  event=json.loads((w/'events'/item['freq']/f"{item['period']}.json").read_text())
+  assert event=={k:item[k] for k in ('version','sha256')}
+  latest[(item['freq'],item['period'])]=item
+ raw[rid]={'phase':m['phase'],'file_receipt_hash':m['file_receipt_hash'],'identity_hash':m['identity_hash'],'policy':m['identity']['policy'],'totals':totals}
+daily=json.loads((S/'stock_period/daily.json').read_text());assert daily['pending_work']=={}
+assert daily['factor_through']=='2026-10-28' and daily['last_refresh']=={'week':'2026-10-27','month':'2026-10-28'}
+assert daily['completed_through']=={'week':'2026-10-23','month':'2026-09'}
+config=yaml.safe_load(Path('/Users/congming/.goldenshare/dagster_home/dagster.yaml').read_text())
+url=config['storage']['postgres']['postgres_url']
+if isinstance(url,dict):url=os.environ[url['env']]
+silver=[];runs={};sensors={};verified_executions={}
+with closing(psycopg2.connect(url,connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn,conn.cursor() as cursor:
+ raw_runs=['08b25eaf-c4c7-491f-9f71-77455d9fda11']
+ cursor.execute('SELECT run_id,status,run_body FROM runs WHERE run_id=ANY(%s)',(raw_runs,))
+ for rid,status,body in cursor.fetchall():
+  job=deserialize_value(body,DagsterRun);assert status=='SUCCESS';assert job.tags.get('goldenshare/stock_period_rss_limit_gib') is None;assert job.run_config['ops']['raw_tushare_stk_period_bar_adj_month']['config']['automatic_intent_date']=='2026-10-28'
+  runs[rid]={'status':status,'job':job.job_name,'parent':job.parent_run_id,'root':job.root_run_id,'runtime_rss_gib':job.tags.get('goldenshare/stock_period_rss_limit_gib'),'config':job.run_config}
+ assert len(runs)==1
+ cursor.execute('SELECT run_id,status,run_body FROM runs WHERE pipeline_name=ANY(%s) AND run_body LIKE ANY(%s) ORDER BY id DESC LIMIT 8',(['silver_stock_weekly_update_job','silver_stock_monthly_update_job'],['%'+x+'%' for x in raw_ids]))
+ for rid,status,body in cursor.fetchall():
+  run=deserialize_value(body,DagsterRun);cfg=next(iter(run.run_config['ops'].values()))['config'];reference=cfg['source_completion'];batch=reference['upstream_batch_id']
+  if batch not in expected:continue
+  assert status=='SUCCESS';want=expected[batch];assert reference==want['reference']
+  w=run_directory(S,cfg['execution_id']);e=json.loads((w/'execution.json').read_text());identity=e['identity'];closed=json.loads((w/'events_complete.json').read_text())
+  assert e['identity_hash']==fingerprint(identity) and identity['source_completion']==reference
+  units=identity['units'];assert sorted(u['period'] for u in units)==want['periods']
+  assert closed['status']=='complete' and closed['identity_hash']==e['identity_hash'] and closed['files']==len(units) and closed['checks']==3*len(units)
+  if closed.get('covered_by_execution_id'):
+   child=run_directory(S,closed['covered_by_execution_id']);child_done=json.loads((child/'events_complete.json').read_text());assert child_done['status']=='complete' and child_done['identity_hash']==closed['covered_by_identity_hash']
+   child_execution=json.loads((child/'execution.json').read_text());assert child_execution['identity']['resume_from_execution_id']==cfg['execution_id']
+   assert child_execution['identity']['source_completion']==reference
+   assert [(u['freq'],u['period']) for u in child_execution['identity']['units']]==[(u['freq'],u['period']) for u in units]
+   w,e,identity,units=child,child_execution,child_execution['identity'],child_execution['identity']['units']
+  effective_id=identity['run_id'];done=json.loads((w/'complete.json').read_text())
+  if effective_id in verified_executions:
+   silver.append({'run_id':rid,'execution_id':cfg['execution_id'],'effective_execution_id':effective_id,'job':run.job_name,'status':status,'source_batch':batch,'observation_id':want['observation_id'],'units':len(units),'events_complete':closed,'totals':done['totals'],'covered_by_verified_execution':True})
+   continue
+  rows=0;reused=0
+  for unit in units:
+   record=json.loads((w/'files'/unit['freq']/f"{unit['period']}.json").read_text());event=json.loads((w/'events'/unit['freq']/f"{unit['period']}.json").read_text())
+   assert record['state']=='committed' and record['target']==unit['target'] and record['source_version']==unit['source_version']
+   assert event['version']==record['version'] and event['identity_hash']==e['identity_hash']
+   st=Path(record['target']).stat();assert [st.st_dev,st.st_ino,st.st_size,st.st_mtime_ns,st.st_ctime_ns]==record['version']
+   rows+=record['rows'];reused+=bool(unit.get('reuse'))
+  verified_executions[effective_id]=True
+  silver.append({'run_id':rid,'execution_id':cfg['execution_id'],'effective_execution_id':effective_id,'job':run.job_name,'status':status,'source_batch':batch,'observation_id':want['observation_id'],'units':len(units),'rows':rows,'events_complete':closed,'reused_records':reused,'totals':done['totals']})
+ assert {x['source_batch'] for x in silver}==set(expected),('missing_silver',set(expected)-{x['source_batch'] for x in silver})
+ names=['raw_stock_weekly_update_job_sensor','raw_stock_monthly_update_job_sensor','silver_stock_weekly_update_job_sensor','silver_stock_monthly_update_job_sensor']
+ cursor.execute("SELECT status,job_body FROM jobs WHERE job_type='SENSOR' AND job_body LIKE ANY(%s)",(['%'+n+'%' for n in names],))
+ for status,body in cursor.fetchall():
+  state=deserialize_value(body,InstigatorState)
+  if state.name in names:sensors[state.name]={'status':status,'cursor':json.loads(state.instigator_data.cursor)}
+ assert len(sensors)==4 and all(v['status']=='RUNNING' for v in sensors.values())
+ for freq in ('week','month'):
+  state=sensors[f'silver_stock_{"weekly" if freq=="week" else "monthly"}_update_job_sensor']['cursor']
+  assert not state.get('pending') and state['after']>=max(x['observation_id'] for x in expected.values() if x['freq']==freq)
+out={'at':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'raw':raw,'raw_native_runs':runs,'raw_unique_files':len(latest),'raw_commit_operations':sum(x['totals'][f]['files'] for x in raw.values() for f in x['totals']),'silver':silver,'expected_notices':expected,'daily':daily,'sensors':sensors,'verifier_parquet_or_source_payload_reads':0,'formal_mutations':0,'verification':'all actual Raw files/CP/event receipts and two actual source notices match all Silver committed units and completed original checks; no extra data scan'}
+(R/'final-verified.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({k:v for k,v in out.items() if k not in ('raw_native_runs','expected_notices','sensors','daily')},ensure_ascii=False,indent=2))
+print(json.dumps({'pending_count':len(daily['pending_work']),'factor_through':daily['factor_through'],'last_refresh':daily['last_refresh'],'sensor_states':{k:v['status'] for k,v in sensors.items()}},ensure_ascii=False))

@@ -1,0 +1,135 @@
+[
+  {
+    "directory": "/Volumes/datasource/data_lake_staging/stock_period/runs/ecd358c33a8dfeeb073fb881d93c4c70a1a4ab61033a8df7ef48ee746eeda7ae/source/a34fb3575f5853c62d75e35bb226d054314c3a57634e2eb415de6fb495c310cd",
+    "identity": {
+      "code": null,
+      "fields": [
+        "ts_code",
+        "trade_date",
+        "end_date",
+        "freq",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "open_qfq",
+        "high_qfq",
+        "low_qfq",
+        "close_qfq",
+        "open_hfq",
+        "high_hfq",
+        "low_hfq",
+        "close_hfq",
+        "vol",
+        "amount",
+        "change",
+        "pct_chg"
+      ],
+      "freq": "month",
+      "intent_id": "7060a4796d7716485c050e434e64b30d1aedd954e80941fc51dc56937dee876c",
+      "period": "2026-10",
+      "policy": {
+        "duckdb_memory": "3GiB",
+        "duckdb_threads": 2,
+        "page_limit": 6000,
+        "progress_seconds": 5,
+        "response_bytes": 16777216,
+        "retries": 2,
+        "rss_bytes": 4294967296,
+        "spill_bytes": 17179869184,
+        "timeout_seconds": 30,
+        "unit_bytes": 134217728,
+        "workspace_bytes": 34359738368
+      },
+      "scope_hash": "31560cffe009904fe9775f63e687f6f08cf28d648799443d270af26692e9ee1c",
+      "transport": {
+        "endpoint": "https://api.tushare.pro",
+        "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+        "max_calls_per_minute": 280
+      },
+      "version": "stock-period-source-v2"
+    },
+    "complete_summary": {
+      "excluded_rows": 1,
+      "identity": {
+        "code": null,
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ],
+        "freq": "month",
+        "intent_id": "7060a4796d7716485c050e434e64b30d1aedd954e80941fc51dc56937dee876c",
+        "period": "2026-10",
+        "policy": {
+          "duckdb_memory": "3GiB",
+          "duckdb_threads": 2,
+          "page_limit": 6000,
+          "progress_seconds": 5,
+          "response_bytes": 16777216,
+          "retries": 2,
+          "rss_bytes": 4294967296,
+          "spill_bytes": 17179869184,
+          "timeout_seconds": 30,
+          "unit_bytes": 134217728,
+          "workspace_bytes": 34359738368
+        },
+        "scope_hash": "31560cffe009904fe9775f63e687f6f08cf28d648799443d270af26692e9ee1c",
+        "transport": {
+          "endpoint": "https://api.tushare.pro",
+          "endpoint_hash": "ce2a35303f486ed21e39bab677f95ca192524a0c8368e5937afa11f74c738a9f",
+          "max_calls_per_minute": 280
+        },
+        "version": "stock-period-source-v2"
+      },
+      "maximum_asof": "20261028",
+      "minimum_asof": "20261012",
+      "receipt_hash": "e3106d9bc32618e4936ef941d3fe3a1635411f4eecc52683109d386e4b3ed85a",
+      "rows": 5575,
+      "source_rows": 5576
+    },
+    "page_summaries": [
+      {
+        "maximum_asof": "20261028",
+        "minimum_asof": "20261012",
+        "null_asof": false,
+        "params": {
+          "end_date": "20261031",
+          "freq": "month",
+          "limit": 6000,
+          "offset": 0,
+          "start_date": "20261001"
+        },
+        "raw_sha256": "045d2067d5494858d8f72f4204e91a156a8662a2a7ca5111a6a8a28b5364ee79",
+        "raw_version": [
+          16777244,
+          27467766,
+          840172,
+          1793187075183820867,
+          1793187075352370107
+        ],
+        "receipt_hash": "5997b6f66f7537324176a614fc60755c3c151019e737c0cf24878bd49f31cb42",
+        "rows": 5576
+      }
+    ]
+  }
+]

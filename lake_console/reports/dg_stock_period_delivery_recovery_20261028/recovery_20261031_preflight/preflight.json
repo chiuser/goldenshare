@@ -1,0 +1,941 @@
+{
+  "observed_at": "2026-10-31T09:03:47.760139+08:00",
+  "readonly": true,
+  "target_date": "2026-10-30",
+  "runs": [
+    {
+      "run_id": "ba86b78f-be13-4bd9-8a6d-b3ab25f148b8",
+      "job": "raw_stk_period_bar_adj_week_update_job",
+      "status": "FAILURE",
+      "start": "2026-10-30T19:30:46.648856+08:00",
+      "end": "2026-10-30T19:30:46.974411+08:00",
+      "partition": "2026-10-30",
+      "parent": null,
+      "root": null,
+      "config": {
+        "raw_tushare_stk_period_bar_adj_week": {
+          "config": {
+            "automatic_intent_date": "2026-10-30",
+            "intent": "daily",
+            "request_id": null,
+            "stock_codes": []
+          }
+        }
+      },
+      "failure": [
+        {
+          "id": 7793891,
+          "at": "2026-10-30T19:30:46.894442+08:00",
+          "message": "Execution of step \"raw_tushare_stk_period_bar_adj_week\" failed.",
+          "error": "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"raw_tushare_stk_period_bar_adj_week\":\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py\", line 243, in dagster_event_sequence_for_step\n    yield from check.generator(step_events)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 505, in core_dagster_event_sequence_for_step\n    for user_event in _step_output_error_checked_user_event_sequence(\n                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        step_context,\n        ^^^^^^^^^^^^^\n        _process_asset_results_to_events(step_context, user_event_sequence),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 184, in _step_output_error_checked_user_event_sequence\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 88, in _process_asset_results_to_events\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 188, in execute_core_compute\n    for step_output in _yield_compute_results(step_context, inputs, compute_fn, compute_context):\n                       ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 157, in _yield_compute_results\n    for event in iterate_with_context(\n                 ~~~~~~~~~~~~~~~~~~~~^\n        lambda: op_execution_error_boundary(\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<7 lines>...\n        user_event_generator,\n        ^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 392, in iterate_with_context\n    with context_fn():\n         ~~~~~~~~~~^^\n  File \"/Users/congming/miniconda3/lib/python3.13/contextlib.py\", line 162, in __exit__\n    self.gen.throw(value)\n    ~~~~~~~~~~~~~~^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 87, in op_execution_error_boundary\n    raise error_cls(\n    ...<4 lines>...\n    ) from e\n\nThe above exception was caused by the following exception:\nValueError: period_original_run_required:job=raw_stk_period_bar_adj_month_update_job:asof=2026-10-29:execution=2742186f0ce0d15bc231ccc76afc566a71b6e4f500576a4e061afb8a6af297f3\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 57, in op_execution_error_boundary\n    yield\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 394, in iterate_with_context\n    next_output = next(iterator)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 136, in _coerce_op_compute_fn_to_iterator\n    result = invoke_compute_fn(\n        fn, context, kwargs, context_arg_provided, config_arg_class, resource_arg_mapping\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 116, in invoke_compute_fn\n    return fn(context, **args_to_pass) if context_arg_provided else fn(**args_to_pass)\n           ~~^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_weekly.py\", line 64, in raw_tushare_stk_period_bar_adj_week\n    return deliver_asset(context, config, lake_root, \"week\")\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 1809, in deliver_asset\n    results = execute_daily(\n        root=root,\n    ...<12 lines>...\n        confirm_delivery=confirm_delivery,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 535, in execute_daily\n    return _execute_daily_locked(**kwargs)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 495, in _execute_daily_locked\n    if not perform(work):\n           ~~~~~~~^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 453, in perform\n    original_run_required(work)\n    ~~~~~~~~~~~~~~~~~~~~~^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 376, in original_run_required\n    raise ValueError(\n    ...<3 lines>...\n    )\n"
+        }
+      ]
+    },
+    {
+      "run_id": "fc4783c6-57e3-4d5b-b4df-a335c3e7e74f",
+      "job": "raw_stk_period_bar_adj_week_update_job",
+      "status": "FAILURE",
+      "start": "2026-10-29T19:30:45.898848+08:00",
+      "end": "2026-10-29T19:30:46.196510+08:00",
+      "partition": "2026-10-30",
+      "parent": null,
+      "root": null,
+      "config": {
+        "raw_tushare_stk_period_bar_adj_week": {
+          "config": {
+            "automatic_intent_date": "2026-10-29",
+            "intent": "daily",
+            "request_id": null,
+            "stock_codes": []
+          }
+        }
+      },
+      "failure": [
+        {
+          "id": 7788860,
+          "at": "2026-10-29T19:30:46.135085+08:00",
+          "message": "Execution of step \"raw_tushare_stk_period_bar_adj_week\" failed.",
+          "error": "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"raw_tushare_stk_period_bar_adj_week\":\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py\", line 243, in dagster_event_sequence_for_step\n    yield from check.generator(step_events)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 505, in core_dagster_event_sequence_for_step\n    for user_event in _step_output_error_checked_user_event_sequence(\n                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        step_context,\n        ^^^^^^^^^^^^^\n        _process_asset_results_to_events(step_context, user_event_sequence),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 184, in _step_output_error_checked_user_event_sequence\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 88, in _process_asset_results_to_events\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 188, in execute_core_compute\n    for step_output in _yield_compute_results(step_context, inputs, compute_fn, compute_context):\n                       ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 157, in _yield_compute_results\n    for event in iterate_with_context(\n                 ~~~~~~~~~~~~~~~~~~~~^\n        lambda: op_execution_error_boundary(\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<7 lines>...\n        user_event_generator,\n        ^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 392, in iterate_with_context\n    with context_fn():\n         ~~~~~~~~~~^^\n  File \"/Users/congming/miniconda3/lib/python3.13/contextlib.py\", line 162, in __exit__\n    self.gen.throw(value)\n    ~~~~~~~~~~~~~~^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 87, in op_execution_error_boundary\n    raise error_cls(\n    ...<4 lines>...\n    ) from e\n\nThe above exception was caused by the following exception:\nValueError: period_original_run_required:job=raw_stk_period_bar_adj_month_update_job:asof=2026-10-29:execution=2742186f0ce0d15bc231ccc76afc566a71b6e4f500576a4e061afb8a6af297f3\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 57, in op_execution_error_boundary\n    yield\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 394, in iterate_with_context\n    next_output = next(iterator)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 136, in _coerce_op_compute_fn_to_iterator\n    result = invoke_compute_fn(\n        fn, context, kwargs, context_arg_provided, config_arg_class, resource_arg_mapping\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 116, in invoke_compute_fn\n    return fn(context, **args_to_pass) if context_arg_provided else fn(**args_to_pass)\n           ~~^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_weekly.py\", line 64, in raw_tushare_stk_period_bar_adj_week\n    return deliver_asset(context, config, lake_root, \"week\")\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 1809, in deliver_asset\n    results = execute_daily(\n        root=root,\n    ...<12 lines>...\n        confirm_delivery=confirm_delivery,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 535, in execute_daily\n    return _execute_daily_locked(**kwargs)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 495, in _execute_daily_locked\n    if not perform(work):\n           ~~~~~~~^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 453, in perform\n    original_run_required(work)\n    ~~~~~~~~~~~~~~~~~~~~~^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 376, in original_run_required\n    raise ValueError(\n    ...<3 lines>...\n    )\n"
+        }
+      ]
+    },
+    {
+      "run_id": "5b138892-0b82-46da-958c-93fc5a3b9a30",
+      "job": "raw_stk_period_bar_adj_week_update_job",
+      "status": "FAILURE",
+      "start": "2026-10-28T23:22:45.161168+08:00",
+      "end": "2026-10-28T23:22:47.832517+08:00",
+      "partition": "2026-10-30",
+      "parent": null,
+      "root": null,
+      "config": {
+        "raw_tushare_stk_period_bar_adj_week": {
+          "config": {
+            "automatic_intent_date": "2026-10-28",
+            "intent": "daily",
+            "request_id": null,
+            "stock_codes": []
+          }
+        }
+      },
+      "failure": [
+        {
+          "id": 7774856,
+          "at": "2026-10-28T23:22:47.723412+08:00",
+          "message": "Execution of step \"raw_tushare_stk_period_bar_adj_week\" failed.",
+          "error": "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"raw_tushare_stk_period_bar_adj_week\":\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py\", line 243, in dagster_event_sequence_for_step\n    yield from check.generator(step_events)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 505, in core_dagster_event_sequence_for_step\n    for user_event in _step_output_error_checked_user_event_sequence(\n                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        step_context,\n        ^^^^^^^^^^^^^\n        _process_asset_results_to_events(step_context, user_event_sequence),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 184, in _step_output_error_checked_user_event_sequence\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 88, in _process_asset_results_to_events\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 188, in execute_core_compute\n    for step_output in _yield_compute_results(step_context, inputs, compute_fn, compute_context):\n                       ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 157, in _yield_compute_results\n    for event in iterate_with_context(\n                 ~~~~~~~~~~~~~~~~~~~~^\n        lambda: op_execution_error_boundary(\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<7 lines>...\n        user_event_generator,\n        ^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 392, in iterate_with_context\n    with context_fn():\n         ~~~~~~~~~~^^\n  File \"/Users/congming/miniconda3/lib/python3.13/contextlib.py\", line 162, in __exit__\n    self.gen.throw(value)\n    ~~~~~~~~~~~~~~^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 87, in op_execution_error_boundary\n    raise error_cls(\n    ...<4 lines>...\n    ) from e\n\nThe above exception was caused by the following exception:\nValueError: period_original_run_required:job=raw_stk_period_bar_adj_month_update_job:asof=2026-10-28:execution=ecd358c33a8dfeeb073fb881d93c4c70a1a4ab61033a8df7ef48ee746eeda7ae\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 57, in op_execution_error_boundary\n    yield\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 394, in iterate_with_context\n    next_output = next(iterator)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 136, in _coerce_op_compute_fn_to_iterator\n    result = invoke_compute_fn(\n        fn, context, kwargs, context_arg_provided, config_arg_class, resource_arg_mapping\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 116, in invoke_compute_fn\n    return fn(context, **args_to_pass) if context_arg_provided else fn(**args_to_pass)\n           ~~^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_weekly.py\", line 64, in raw_tushare_stk_period_bar_adj_week\n    return deliver_asset(context, config, lake_root, \"week\")\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 1803, in deliver_asset\n    results = execute_daily(\n        root=root,\n    ...<12 lines>...\n        confirm_delivery=confirm_delivery,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 529, in execute_daily\n    return _execute_daily_locked(**kwargs)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 489, in _execute_daily_locked\n    if not perform(work):\n           ~~~~~~~^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 447, in perform\n    original_run_required(work)\n    ~~~~~~~~~~~~~~~~~~~~~^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 370, in original_run_required\n    raise ValueError(\n    ...<3 lines>...\n    )\n"
+        }
+      ]
+    },
+    {
+      "run_id": "9edc90f7-1822-4abb-af85-7d1cb1a71034",
+      "job": "raw_stk_period_bar_adj_week_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-28T11:20:34.725941+08:00",
+      "end": "2026-10-28T11:26:54.583409+08:00",
+      "partition": "2026-10-30",
+      "parent": "d7ae3495-bb23-4c33-a4be-d78d2aba2742",
+      "root": "319ec97d-cfd4-4ef7-bc4a-c98c7334464a",
+      "config": {
+        "raw_tushare_stk_period_bar_adj_week": {
+          "config": {
+            "automatic_intent_date": "2026-10-27",
+            "intent": "daily",
+            "request_id": null,
+            "stock_codes": []
+          }
+        }
+      }
+    },
+    {
+      "run_id": "d7ae3495-bb23-4c33-a4be-d78d2aba2742",
+      "job": "raw_stk_period_bar_adj_week_update_job",
+      "status": "FAILURE",
+      "start": "2026-10-28T10:27:03.741148+08:00",
+      "end": "2026-10-28T10:27:45.755284+08:00",
+      "partition": "2026-10-30",
+      "parent": "319ec97d-cfd4-4ef7-bc4a-c98c7334464a",
+      "root": "319ec97d-cfd4-4ef7-bc4a-c98c7334464a",
+      "config": {
+        "raw_tushare_stk_period_bar_adj_week": {
+          "config": {
+            "automatic_intent_date": "2026-10-27",
+            "intent": "daily",
+            "request_id": null,
+            "stock_codes": []
+          }
+        }
+      },
+      "failure": [
+        {
+          "id": 7740074,
+          "at": "2026-10-28T10:27:45.657039+08:00",
+          "message": "Execution of step \"raw_tushare_stk_period_bar_adj_week\" failed.",
+          "error": "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"raw_tushare_stk_period_bar_adj_week\":\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py\", line 243, in dagster_event_sequence_for_step\n    yield from check.generator(step_events)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 505, in core_dagster_event_sequence_for_step\n    for user_event in _step_output_error_checked_user_event_sequence(\n                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        step_context,\n        ^^^^^^^^^^^^^\n        _process_asset_results_to_events(step_context, user_event_sequence),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 184, in _step_output_error_checked_user_event_sequence\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 88, in _process_asset_results_to_events\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 188, in execute_core_compute\n    for step_output in _yield_compute_results(step_context, inputs, compute_fn, compute_context):\n                       ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 157, in _yield_compute_results\n    for event in iterate_with_context(\n                 ~~~~~~~~~~~~~~~~~~~~^\n        lambda: op_execution_error_boundary(\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<7 lines>...\n        user_event_generator,\n        ^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 392, in iterate_with_context\n    with context_fn():\n         ~~~~~~~~~~^^\n  File \"/Users/congming/miniconda3/lib/python3.13/contextlib.py\", line 162, in __exit__\n    self.gen.throw(value)\n    ~~~~~~~~~~~~~~^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 87, in op_execution_error_boundary\n    raise error_cls(\n    ...<4 lines>...\n    ) from e\n\nThe above exception was caused by the following exception:\nValueError: period_process_memory_exceeded\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 57, in op_execution_error_boundary\n    yield\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 394, in iterate_with_context\n    next_output = next(iterator)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 136, in _coerce_op_compute_fn_to_iterator\n    result = invoke_compute_fn(\n        fn, context, kwargs, context_arg_provided, config_arg_class, resource_arg_mapping\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 116, in invoke_compute_fn\n    return fn(context, **args_to_pass) if context_arg_provided else fn(**args_to_pass)\n           ~~^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_weekly.py\", line 64, in raw_tushare_stk_period_bar_adj_week\n    return deliver_asset(context, config, lake_root, \"week\")\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 1775, in deliver_asset\n    results = execute_daily(\n        root=root,\n    ...<11 lines>...\n        confirm_delivery=confirm_delivery,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 526, in execute_daily\n    return _execute_daily_locked(**kwargs)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 517, in _execute_daily_locked\n    perform(work)\n    ~~~~~~~^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 446, in perform\n    result = run_period(\n        root=root,\n    ...<9 lines>...\n        confirm_delivery=confirm_delivery,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 1254, in run_period\n    candidates = assemble(\n        paths,\n    ...<23 lines>...\n        ),\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/io/stock_period_raw.py\", line 847, in assemble\n    execute(\n    ~~~~~~~^\n        con,\n        ^^^^\n    ...<5 lines>...\n        policy=policy,\n        ^^^^^^^^^^^^^^\n    )\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/io/stock_period_raw.py\", line 372, in execute\n    check_memory(policy)\n    ~~~~~~~~~~~~^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/io/stock_period_raw.py\", line 332, in check_memory\n    raise ValueError(\"period_process_memory_exceeded\")\n"
+        }
+      ]
+    },
+    {
+      "run_id": "319ec97d-cfd4-4ef7-bc4a-c98c7334464a",
+      "job": "raw_stk_period_bar_adj_week_update_job",
+      "status": "FAILURE",
+      "start": "2026-10-27T19:30:55.955116+08:00",
+      "end": "2026-10-27T19:30:56.274919+08:00",
+      "partition": "2026-10-30",
+      "parent": null,
+      "root": null,
+      "config": {
+        "raw_tushare_stk_period_bar_adj_week": {
+          "config": {
+            "automatic_intent_date": "2026-10-27",
+            "intent": "daily",
+            "request_id": null,
+            "stock_codes": []
+          }
+        }
+      },
+      "failure": [
+        {
+          "id": 7737797,
+          "at": "2026-10-27T19:30:56.199522+08:00",
+          "message": "Execution of step \"raw_tushare_stk_period_bar_adj_week\" failed.",
+          "error": "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"raw_tushare_stk_period_bar_adj_week\":\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py\", line 243, in dagster_event_sequence_for_step\n    yield from check.generator(step_events)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 505, in core_dagster_event_sequence_for_step\n    for user_event in _step_output_error_checked_user_event_sequence(\n                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        step_context,\n        ^^^^^^^^^^^^^\n        _process_asset_results_to_events(step_context, user_event_sequence),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 184, in _step_output_error_checked_user_event_sequence\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 88, in _process_asset_results_to_events\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 188, in execute_core_compute\n    for step_output in _yield_compute_results(step_context, inputs, compute_fn, compute_context):\n                       ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 157, in _yield_compute_results\n    for event in iterate_with_context(\n                 ~~~~~~~~~~~~~~~~~~~~^\n        lambda: op_execution_error_boundary(\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<7 lines>...\n        user_event_generator,\n        ^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 392, in iterate_with_context\n    with context_fn():\n         ~~~~~~~~~~^^\n  File \"/Users/congming/miniconda3/lib/python3.13/contextlib.py\", line 162, in __exit__\n    self.gen.throw(value)\n    ~~~~~~~~~~~~~~^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 87, in op_execution_error_boundary\n    raise error_cls(\n    ...<4 lines>...\n    ) from e\n\nThe above exception was caused by the following exception:\nValueError: period_committed_file_changed\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 57, in op_execution_error_boundary\n    yield\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 394, in iterate_with_context\n    next_output = next(iterator)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 136, in _coerce_op_compute_fn_to_iterator\n    result = invoke_compute_fn(\n        fn, context, kwargs, context_arg_provided, config_arg_class, resource_arg_mapping\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 116, in invoke_compute_fn\n    return fn(context, **args_to_pass) if context_arg_provided else fn(**args_to_pass)\n           ~~^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_weekly.py\", line 64, in raw_tushare_stk_period_bar_adj_week\n    return deliver_asset(context, config, lake_root, \"week\")\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 658, in deliver_asset\n    results = execute_daily(\n        root=root,\n    ...<10 lines>...\n        ),\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 430, in execute_daily\n    return _execute_daily_locked(**kwargs)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 397, in _execute_daily_locked\n    perform(work)\n    ~~~~~~~^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 364, in perform\n    result = run_period(\n        root=root,\n    ...<8 lines>...\n        progress=progress,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 504, in run_period\n    return replay_events(\n        run,\n    ...<4 lines>...\n        cancel=cancel,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 272, in replay_events\n    complete = completed_files(run, saved, cancel=cancel)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 251, in completed_files\n    raise ValueError(\"period_committed_file_changed\")\n"
+        }
+      ]
+    },
+    {
+      "run_id": "c636d955-90d9-4d26-b173-01f6bd047f2b",
+      "job": "raw_stk_period_bar_adj_week_update_job",
+      "status": "FAILURE",
+      "start": "2026-10-26T19:30:54.991982+08:00",
+      "end": "2026-10-26T19:30:55.272239+08:00",
+      "partition": "2026-10-30",
+      "parent": null,
+      "root": null,
+      "config": {
+        "raw_tushare_stk_period_bar_adj_week": {
+          "config": {
+            "automatic_intent_date": "2026-10-26",
+            "intent": "daily",
+            "request_id": null,
+            "stock_codes": []
+          }
+        }
+      },
+      "failure": [
+        {
+          "id": 7732725,
+          "at": "2026-10-26T19:30:55.199618+08:00",
+          "message": "Execution of step \"raw_tushare_stk_period_bar_adj_week\" failed.",
+          "error": "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"raw_tushare_stk_period_bar_adj_week\":\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py\", line 243, in dagster_event_sequence_for_step\n    yield from check.generator(step_events)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 505, in core_dagster_event_sequence_for_step\n    for user_event in _step_output_error_checked_user_event_sequence(\n                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        step_context,\n        ^^^^^^^^^^^^^\n        _process_asset_results_to_events(step_context, user_event_sequence),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 184, in _step_output_error_checked_user_event_sequence\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 88, in _process_asset_results_to_events\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 188, in execute_core_compute\n    for step_output in _yield_compute_results(step_context, inputs, compute_fn, compute_context):\n                       ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 157, in _yield_compute_results\n    for event in iterate_with_context(\n                 ~~~~~~~~~~~~~~~~~~~~^\n        lambda: op_execution_error_boundary(\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<7 lines>...\n        user_event_generator,\n        ^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 392, in iterate_with_context\n    with context_fn():\n         ~~~~~~~~~~^^\n  File \"/Users/congming/miniconda3/lib/python3.13/contextlib.py\", line 162, in __exit__\n    self.gen.throw(value)\n    ~~~~~~~~~~~~~~^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 87, in op_execution_error_boundary\n    raise error_cls(\n    ...<4 lines>...\n    ) from e\n\nThe above exception was caused by the following exception:\nValueError: period_committed_file_changed\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 57, in op_execution_error_boundary\n    yield\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 394, in iterate_with_context\n    next_output = next(iterator)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 136, in _coerce_op_compute_fn_to_iterator\n    result = invoke_compute_fn(\n        fn, context, kwargs, context_arg_provided, config_arg_class, resource_arg_mapping\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 116, in invoke_compute_fn\n    return fn(context, **args_to_pass) if context_arg_provided else fn(**args_to_pass)\n           ~~^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_weekly.py\", line 64, in raw_tushare_stk_period_bar_adj_week\n    return deliver_asset(context, config, lake_root, \"week\")\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 658, in deliver_asset\n    results = execute_daily(\n        root=root,\n    ...<10 lines>...\n        ),\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 430, in execute_daily\n    return _execute_daily_locked(**kwargs)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 397, in _execute_daily_locked\n    perform(work)\n    ~~~~~~~^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 364, in perform\n    result = run_period(\n        root=root,\n    ...<8 lines>...\n        progress=progress,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 504, in run_period\n    return replay_events(\n        run,\n    ...<4 lines>...\n        cancel=cancel,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 272, in replay_events\n    complete = completed_files(run, saved, cancel=cancel)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 251, in completed_files\n    raise ValueError(\"period_committed_file_changed\")\n"
+        }
+      ]
+    },
+    {
+      "run_id": "32268dc7-6c57-4455-a8e3-aad221a4e3b8",
+      "job": "raw_stk_period_bar_adj_week_update_job",
+      "status": "FAILURE",
+      "start": "2026-10-23T22:47:22.731257+08:00",
+      "end": "2026-10-23T22:47:22.905820+08:00",
+      "partition": "2026-10-23",
+      "parent": null,
+      "root": null,
+      "config": {
+        "raw_tushare_stk_period_bar_adj_week": {
+          "config": {
+            "automatic_intent_date": "2026-10-23",
+            "intent": "daily",
+            "request_id": null,
+            "stock_codes": []
+          }
+        }
+      },
+      "failure": [
+        {
+          "id": 7721185,
+          "at": "2026-10-23T22:47:22.860352+08:00",
+          "message": "Execution of step \"raw_tushare_stk_period_bar_adj_week\" failed.",
+          "error": "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"raw_tushare_stk_period_bar_adj_week\":\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py\", line 243, in dagster_event_sequence_for_step\n    yield from check.generator(step_events)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 505, in core_dagster_event_sequence_for_step\n    for user_event in _step_output_error_checked_user_event_sequence(\n                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        step_context,\n        ^^^^^^^^^^^^^\n        _process_asset_results_to_events(step_context, user_event_sequence),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 184, in _step_output_error_checked_user_event_sequence\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 88, in _process_asset_results_to_events\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 188, in execute_core_compute\n    for step_output in _yield_compute_results(step_context, inputs, compute_fn, compute_context):\n                       ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 157, in _yield_compute_results\n    for event in iterate_with_context(\n                 ~~~~~~~~~~~~~~~~~~~~^\n        lambda: op_execution_error_boundary(\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<7 lines>...\n        user_event_generator,\n        ^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 392, in iterate_with_context\n    with context_fn():\n         ~~~~~~~~~~^^\n  File \"/Users/congming/miniconda3/lib/python3.13/contextlib.py\", line 162, in __exit__\n    self.gen.throw(value)\n    ~~~~~~~~~~~~~~^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 87, in op_execution_error_boundary\n    raise error_cls(\n    ...<4 lines>...\n    ) from e\n\nThe above exception was caused by the following exception:\nValueError: period_committed_file_changed\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 57, in op_execution_error_boundary\n    yield\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 394, in iterate_with_context\n    next_output = next(iterator)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 136, in _coerce_op_compute_fn_to_iterator\n    result = invoke_compute_fn(\n        fn, context, kwargs, context_arg_provided, config_arg_class, resource_arg_mapping\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 116, in invoke_compute_fn\n    return fn(context, **args_to_pass) if context_arg_provided else fn(**args_to_pass)\n           ~~^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_weekly.py\", line 64, in raw_tushare_stk_period_bar_adj_week\n    return deliver_asset(context, config, lake_root, \"week\")\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 658, in deliver_asset\n    results = execute_daily(\n        root=root,\n    ...<10 lines>...\n        ),\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 430, in execute_daily\n    return _execute_daily_locked(**kwargs)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 397, in _execute_daily_locked\n    perform(work)\n    ~~~~~~~^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 364, in perform\n    result = run_period(\n        root=root,\n    ...<8 lines>...\n        progress=progress,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 504, in run_period\n    return replay_events(\n        run,\n    ...<4 lines>...\n        cancel=cancel,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 272, in replay_events\n    complete = completed_files(run, saved, cancel=cancel)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 251, in completed_files\n    raise ValueError(\"period_committed_file_changed\")\n"
+        }
+      ]
+    },
+    {
+      "run_id": "99f738d8-badd-49e7-81e9-931d4f45b979",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "FAILURE",
+      "start": "2026-10-30T19:31:07.379923+08:00",
+      "end": "2026-10-30T19:31:07.661996+08:00",
+      "partition": "2026-10",
+      "parent": null,
+      "root": null,
+      "config": {
+        "raw_tushare_stk_period_bar_adj_month": {
+          "config": {
+            "automatic_intent_date": "2026-10-30",
+            "intent": "daily",
+            "request_id": null,
+            "stock_codes": []
+          }
+        }
+      },
+      "failure": [
+        {
+          "id": 7793911,
+          "at": "2026-10-30T19:31:07.590125+08:00",
+          "message": "Execution of step \"raw_tushare_stk_period_bar_adj_month\" failed.",
+          "error": "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"raw_tushare_stk_period_bar_adj_month\":\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py\", line 243, in dagster_event_sequence_for_step\n    yield from check.generator(step_events)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 505, in core_dagster_event_sequence_for_step\n    for user_event in _step_output_error_checked_user_event_sequence(\n                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        step_context,\n        ^^^^^^^^^^^^^\n        _process_asset_results_to_events(step_context, user_event_sequence),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 184, in _step_output_error_checked_user_event_sequence\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 88, in _process_asset_results_to_events\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 188, in execute_core_compute\n    for step_output in _yield_compute_results(step_context, inputs, compute_fn, compute_context):\n                       ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 157, in _yield_compute_results\n    for event in iterate_with_context(\n                 ~~~~~~~~~~~~~~~~~~~~^\n        lambda: op_execution_error_boundary(\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<7 lines>...\n        user_event_generator,\n        ^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 392, in iterate_with_context\n    with context_fn():\n         ~~~~~~~~~~^^\n  File \"/Users/congming/miniconda3/lib/python3.13/contextlib.py\", line 162, in __exit__\n    self.gen.throw(value)\n    ~~~~~~~~~~~~~~^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 87, in op_execution_error_boundary\n    raise error_cls(\n    ...<4 lines>...\n    ) from e\n\nThe above exception was caused by the following exception:\nValueError: period_original_run_required:job=raw_stk_period_bar_adj_month_update_job:asof=2026-10-29:execution=2742186f0ce0d15bc231ccc76afc566a71b6e4f500576a4e061afb8a6af297f3\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 57, in op_execution_error_boundary\n    yield\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 394, in iterate_with_context\n    next_output = next(iterator)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 136, in _coerce_op_compute_fn_to_iterator\n    result = invoke_compute_fn(\n        fn, context, kwargs, context_arg_provided, config_arg_class, resource_arg_mapping\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 116, in invoke_compute_fn\n    return fn(context, **args_to_pass) if context_arg_provided else fn(**args_to_pass)\n           ~~^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_monthly.py\", line 66, in raw_tushare_stk_period_bar_adj_month\n    return deliver_asset(context, config, lake_root, \"month\")\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 1809, in deliver_asset\n    results = execute_daily(\n        root=root,\n    ...<12 lines>...\n        confirm_delivery=confirm_delivery,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 535, in execute_daily\n    return _execute_daily_locked(**kwargs)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 495, in _execute_daily_locked\n    if not perform(work):\n           ~~~~~~~^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 453, in perform\n    original_run_required(work)\n    ~~~~~~~~~~~~~~~~~~~~~^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 376, in original_run_required\n    raise ValueError(\n    ...<3 lines>...\n    )\n"
+        }
+      ]
+    },
+    {
+      "run_id": "4d3edf1d-9958-44b0-bde1-8a9f0cce1965",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "FAILURE",
+      "start": "2026-10-29T19:30:10.239508+08:00",
+      "end": "2026-10-29T19:30:11.961287+08:00",
+      "partition": "2026-10",
+      "parent": null,
+      "root": null,
+      "config": {
+        "raw_tushare_stk_period_bar_adj_month": {
+          "config": {
+            "automatic_intent_date": "2026-10-29",
+            "intent": "daily",
+            "request_id": null,
+            "stock_codes": []
+          }
+        }
+      },
+      "failure": [
+        {
+          "id": 7788840,
+          "at": "2026-10-29T19:30:11.867358+08:00",
+          "message": "Execution of step \"raw_tushare_stk_period_bar_adj_month\" failed.",
+          "error": "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"raw_tushare_stk_period_bar_adj_month\":\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py\", line 243, in dagster_event_sequence_for_step\n    yield from check.generator(step_events)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 505, in core_dagster_event_sequence_for_step\n    for user_event in _step_output_error_checked_user_event_sequence(\n                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        step_context,\n        ^^^^^^^^^^^^^\n        _process_asset_results_to_events(step_context, user_event_sequence),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 184, in _step_output_error_checked_user_event_sequence\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 88, in _process_asset_results_to_events\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 188, in execute_core_compute\n    for step_output in _yield_compute_results(step_context, inputs, compute_fn, compute_context):\n                       ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 157, in _yield_compute_results\n    for event in iterate_with_context(\n                 ~~~~~~~~~~~~~~~~~~~~^\n        lambda: op_execution_error_boundary(\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<7 lines>...\n        user_event_generator,\n        ^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 392, in iterate_with_context\n    with context_fn():\n         ~~~~~~~~~~^^\n  File \"/Users/congming/miniconda3/lib/python3.13/contextlib.py\", line 162, in __exit__\n    self.gen.throw(value)\n    ~~~~~~~~~~~~~~^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 87, in op_execution_error_boundary\n    raise error_cls(\n    ...<4 lines>...\n    ) from e\n\nThe above exception was caused by the following exception:\nValueError: period_source_empty\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 57, in op_execution_error_boundary\n    yield\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 394, in iterate_with_context\n    next_output = next(iterator)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 136, in _coerce_op_compute_fn_to_iterator\n    result = invoke_compute_fn(\n        fn, context, kwargs, context_arg_provided, config_arg_class, resource_arg_mapping\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 116, in invoke_compute_fn\n    return fn(context, **args_to_pass) if context_arg_provided else fn(**args_to_pass)\n           ~~^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_monthly.py\", line 66, in raw_tushare_stk_period_bar_adj_month\n    return deliver_asset(context, config, lake_root, \"month\")\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 1809, in deliver_asset\n    results = execute_daily(\n        root=root,\n    ...<12 lines>...\n        confirm_delivery=confirm_delivery,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 535, in execute_daily\n    return _execute_daily_locked(**kwargs)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 526, in _execute_daily_locked\n    perform(work)\n    ~~~~~~~^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 454, in perform\n    result = run_period(\n        root=root,\n    ...<10 lines>...\n        confirm_delivery=confirm_delivery,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 1231, in run_period\n    captured = capture_unit(\n        work=run / \"source\",\n    ...<21 lines>...\n        progress=progress,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_source.py\", line 548, in capture_unit\n    raise ValueError(\"period_source_empty\")\n"
+        }
+      ]
+    },
+    {
+      "run_id": "08b25eaf-c4c7-491f-9f71-77455d9fda11",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-29T00:20:07.913513+08:00",
+      "end": "2026-10-29T00:21:51.149748+08:00",
+      "partition": "2026-10",
+      "parent": "104911a4-e1fa-4a42-a8ad-cd55a7b0dedf",
+      "root": "104911a4-e1fa-4a42-a8ad-cd55a7b0dedf",
+      "config": {
+        "raw_tushare_stk_period_bar_adj_month": {
+          "config": {
+            "automatic_intent_date": "2026-10-28",
+            "intent": "daily",
+            "request_id": null,
+            "stock_codes": []
+          }
+        }
+      }
+    },
+    {
+      "run_id": "104911a4-e1fa-4a42-a8ad-cd55a7b0dedf",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "CANCELED",
+      "start": "2026-10-28T19:30:32.959197+08:00",
+      "end": "2026-10-28T23:12:03.157705+08:00",
+      "partition": "2026-10",
+      "parent": null,
+      "root": null,
+      "config": {
+        "raw_tushare_stk_period_bar_adj_month": {
+          "config": {
+            "automatic_intent_date": "2026-10-28",
+            "intent": "daily",
+            "request_id": null,
+            "stock_codes": []
+          }
+        }
+      },
+      "failure": []
+    },
+    {
+      "run_id": "66b1c247-4c27-4009-9b21-2e5c7755c432",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-28T11:29:55.197138+08:00",
+      "end": "2026-10-28T11:30:02.055973+08:00",
+      "partition": "2026-10",
+      "parent": "8c9e09c4-9a82-4042-b696-0ffc3a17999d",
+      "root": "8c9e09c4-9a82-4042-b696-0ffc3a17999d",
+      "config": {
+        "raw_tushare_stk_period_bar_adj_month": {
+          "config": {
+            "automatic_intent_date": "2026-10-27",
+            "intent": "daily",
+            "request_id": null,
+            "stock_codes": []
+          }
+        }
+      }
+    },
+    {
+      "run_id": "8c9e09c4-9a82-4042-b696-0ffc3a17999d",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "FAILURE",
+      "start": "2026-10-27T19:30:20.302917+08:00",
+      "end": "2026-10-27T19:30:20.689142+08:00",
+      "partition": "2026-10",
+      "parent": null,
+      "root": null,
+      "config": {
+        "raw_tushare_stk_period_bar_adj_month": {
+          "config": {
+            "automatic_intent_date": "2026-10-27",
+            "intent": "daily",
+            "request_id": null,
+            "stock_codes": []
+          }
+        }
+      },
+      "failure": [
+        {
+          "id": 7737777,
+          "at": "2026-10-27T19:30:20.605076+08:00",
+          "message": "Execution of step \"raw_tushare_stk_period_bar_adj_month\" failed.",
+          "error": "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"raw_tushare_stk_period_bar_adj_month\":\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py\", line 243, in dagster_event_sequence_for_step\n    yield from check.generator(step_events)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 505, in core_dagster_event_sequence_for_step\n    for user_event in _step_output_error_checked_user_event_sequence(\n                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        step_context,\n        ^^^^^^^^^^^^^\n        _process_asset_results_to_events(step_context, user_event_sequence),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 184, in _step_output_error_checked_user_event_sequence\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 88, in _process_asset_results_to_events\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 188, in execute_core_compute\n    for step_output in _yield_compute_results(step_context, inputs, compute_fn, compute_context):\n                       ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 157, in _yield_compute_results\n    for event in iterate_with_context(\n                 ~~~~~~~~~~~~~~~~~~~~^\n        lambda: op_execution_error_boundary(\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<7 lines>...\n        user_event_generator,\n        ^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 392, in iterate_with_context\n    with context_fn():\n         ~~~~~~~~~~^^\n  File \"/Users/congming/miniconda3/lib/python3.13/contextlib.py\", line 162, in __exit__\n    self.gen.throw(value)\n    ~~~~~~~~~~~~~~^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 87, in op_execution_error_boundary\n    raise error_cls(\n    ...<4 lines>...\n    ) from e\n\nThe above exception was caused by the following exception:\nValueError: period_committed_file_changed\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 57, in op_execution_error_boundary\n    yield\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 394, in iterate_with_context\n    next_output = next(iterator)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 136, in _coerce_op_compute_fn_to_iterator\n    result = invoke_compute_fn(\n        fn, context, kwargs, context_arg_provided, config_arg_class, resource_arg_mapping\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 116, in invoke_compute_fn\n    return fn(context, **args_to_pass) if context_arg_provided else fn(**args_to_pass)\n           ~~^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_monthly.py\", line 66, in raw_tushare_stk_period_bar_adj_month\n    return deliver_asset(context, config, lake_root, \"month\")\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 658, in deliver_asset\n    results = execute_daily(\n        root=root,\n    ...<10 lines>...\n        ),\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 430, in execute_daily\n    return _execute_daily_locked(**kwargs)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 397, in _execute_daily_locked\n    perform(work)\n    ~~~~~~~^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 364, in perform\n    result = run_period(\n        root=root,\n    ...<8 lines>...\n        progress=progress,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 504, in run_period\n    return replay_events(\n        run,\n    ...<4 lines>...\n        cancel=cancel,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 272, in replay_events\n    complete = completed_files(run, saved, cancel=cancel)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 251, in completed_files\n    raise ValueError(\"period_committed_file_changed\")\n"
+        }
+      ]
+    },
+    {
+      "run_id": "13337ec5-957c-4b32-8379-25bb711f761c",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "FAILURE",
+      "start": "2026-10-26T19:30:34.840011+08:00",
+      "end": "2026-10-26T19:30:35.180261+08:00",
+      "partition": "2026-10",
+      "parent": null,
+      "root": null,
+      "config": {
+        "raw_tushare_stk_period_bar_adj_month": {
+          "config": {
+            "automatic_intent_date": "2026-10-26",
+            "intent": "daily",
+            "request_id": null,
+            "stock_codes": []
+          }
+        }
+      },
+      "failure": [
+        {
+          "id": 7732705,
+          "at": "2026-10-26T19:30:35.098360+08:00",
+          "message": "Execution of step \"raw_tushare_stk_period_bar_adj_month\" failed.",
+          "error": "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"raw_tushare_stk_period_bar_adj_month\":\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py\", line 243, in dagster_event_sequence_for_step\n    yield from check.generator(step_events)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 505, in core_dagster_event_sequence_for_step\n    for user_event in _step_output_error_checked_user_event_sequence(\n                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        step_context,\n        ^^^^^^^^^^^^^\n        _process_asset_results_to_events(step_context, user_event_sequence),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 184, in _step_output_error_checked_user_event_sequence\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 88, in _process_asset_results_to_events\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 188, in execute_core_compute\n    for step_output in _yield_compute_results(step_context, inputs, compute_fn, compute_context):\n                       ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 157, in _yield_compute_results\n    for event in iterate_with_context(\n                 ~~~~~~~~~~~~~~~~~~~~^\n        lambda: op_execution_error_boundary(\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<7 lines>...\n        user_event_generator,\n        ^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 392, in iterate_with_context\n    with context_fn():\n         ~~~~~~~~~~^^\n  File \"/Users/congming/miniconda3/lib/python3.13/contextlib.py\", line 162, in __exit__\n    self.gen.throw(value)\n    ~~~~~~~~~~~~~~^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 87, in op_execution_error_boundary\n    raise error_cls(\n    ...<4 lines>...\n    ) from e\n\nThe above exception was caused by the following exception:\nValueError: period_committed_file_changed\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 57, in op_execution_error_boundary\n    yield\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 394, in iterate_with_context\n    next_output = next(iterator)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 136, in _coerce_op_compute_fn_to_iterator\n    result = invoke_compute_fn(\n        fn, context, kwargs, context_arg_provided, config_arg_class, resource_arg_mapping\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 116, in invoke_compute_fn\n    return fn(context, **args_to_pass) if context_arg_provided else fn(**args_to_pass)\n           ~~^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_monthly.py\", line 66, in raw_tushare_stk_period_bar_adj_month\n    return deliver_asset(context, config, lake_root, \"month\")\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 658, in deliver_asset\n    results = execute_daily(\n        root=root,\n    ...<10 lines>...\n        ),\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 430, in execute_daily\n    return _execute_daily_locked(**kwargs)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 397, in _execute_daily_locked\n    perform(work)\n    ~~~~~~~^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 364, in perform\n    result = run_period(\n        root=root,\n    ...<8 lines>...\n        progress=progress,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 504, in run_period\n    return replay_events(\n        run,\n    ...<4 lines>...\n        cancel=cancel,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 272, in replay_events\n    complete = completed_files(run, saved, cancel=cancel)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 251, in completed_files\n    raise ValueError(\"period_committed_file_changed\")\n"
+        }
+      ]
+    },
+    {
+      "run_id": "7bc366c6-07d0-49e4-9541-292dd1d985b0",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "FAILURE",
+      "start": "2026-10-23T22:46:57.178113+08:00",
+      "end": "2026-10-23T22:46:57.467103+08:00",
+      "partition": "2026-10",
+      "parent": null,
+      "root": null,
+      "config": {
+        "raw_tushare_stk_period_bar_adj_month": {
+          "config": {
+            "automatic_intent_date": "2026-10-23",
+            "intent": "daily",
+            "request_id": null,
+            "stock_codes": []
+          }
+        }
+      },
+      "failure": [
+        {
+          "id": 7721165,
+          "at": "2026-10-23T22:46:57.402149+08:00",
+          "message": "Execution of step \"raw_tushare_stk_period_bar_adj_month\" failed.",
+          "error": "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"raw_tushare_stk_period_bar_adj_month\":\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py\", line 243, in dagster_event_sequence_for_step\n    yield from check.generator(step_events)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 505, in core_dagster_event_sequence_for_step\n    for user_event in _step_output_error_checked_user_event_sequence(\n                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^\n        step_context,\n        ^^^^^^^^^^^^^\n        _process_asset_results_to_events(step_context, user_event_sequence),\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 184, in _step_output_error_checked_user_event_sequence\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_step.py\", line 88, in _process_asset_results_to_events\n    for user_event in user_event_sequence:\n                      ^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 188, in execute_core_compute\n    for step_output in _yield_compute_results(step_context, inputs, compute_fn, compute_context):\n                       ~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute.py\", line 157, in _yield_compute_results\n    for event in iterate_with_context(\n                 ~~~~~~~~~~~~~~~~~~~~^\n        lambda: op_execution_error_boundary(\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<7 lines>...\n        user_event_generator,\n        ^^^^^^^^^^^^^^^^^^^^^\n    ):\n    ^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 392, in iterate_with_context\n    with context_fn():\n         ~~~~~~~~~~^^\n  File \"/Users/congming/miniconda3/lib/python3.13/contextlib.py\", line 162, in __exit__\n    self.gen.throw(value)\n    ~~~~~~~~~~~~~~^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 87, in op_execution_error_boundary\n    raise error_cls(\n    ...<4 lines>...\n    ) from e\n\nThe above exception was caused by the following exception:\nValueError: period_committed_file_changed\n\nStack Trace:\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py\", line 57, in op_execution_error_boundary\n    yield\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_utils/__init__.py\", line 394, in iterate_with_context\n    next_output = next(iterator)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 136, in _coerce_op_compute_fn_to_iterator\n    result = invoke_compute_fn(\n        fn, context, kwargs, context_arg_provided, config_arg_class, resource_arg_mapping\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py\", line 116, in invoke_compute_fn\n    return fn(context, **args_to_pass) if context_arg_provided else fn(**args_to_pass)\n           ~~^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/assets/stock_monthly.py\", line 66, in raw_tushare_stk_period_bar_adj_month\n    return deliver_asset(context, config, lake_root, \"month\")\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 658, in deliver_asset\n    results = execute_daily(\n        root=root,\n    ...<10 lines>...\n        ),\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 430, in execute_daily\n    return _execute_daily_locked(**kwargs)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 397, in _execute_daily_locked\n    perform(work)\n    ~~~~~~~^^^^^^\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py\", line 364, in perform\n    result = run_period(\n        root=root,\n    ...<8 lines>...\n        progress=progress,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 504, in run_period\n    return replay_events(\n        run,\n    ...<4 lines>...\n        cancel=cancel,\n    )\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 272, in replay_events\n    complete = completed_files(run, saved, cancel=cancel)\n  File \"/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py\", line 251, in completed_files\n    raise ValueError(\"period_committed_file_changed\")\n"
+        }
+      ]
+    },
+    {
+      "run_id": "de5acd12-5a5e-4fc1-834a-a1c3050fdaca",
+      "job": "silver_stock_weekly_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-29T00:22:24.113953+08:00",
+      "end": "2026-10-29T00:24:11.297977+08:00",
+      "partition": "2026-10-30",
+      "parent": null,
+      "root": null,
+      "config": {
+        "silver_stock_weekly": {
+          "config": {
+            "execution_id": "926794f9-6216-5541-8bf9-51d5738a10f7",
+            "intent": "update",
+            "source_completion": {
+              "file_receipt_hash": "b5caab9573cb48e4dd250a36c3f2f173ab45848e43484f278d43d0e7247074ad",
+              "raw_execution_id": "ecd358c33a8dfeeb073fb881d93c4c70a1a4ab61033a8df7ef48ee746eeda7ae",
+              "upstream_batch_id": "stock_period_raw:week:7ee2d006ced4"
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "5263e92d-6ac1-4aa5-9c71-35730f6e0179",
+      "job": "silver_stock_weekly_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-28T11:28:08.141923+08:00",
+      "end": "2026-10-28T11:29:50.583942+08:00",
+      "partition": "2026-10-30",
+      "parent": null,
+      "root": null,
+      "config": {
+        "silver_stock_weekly": {
+          "config": {
+            "execution_id": "ffa67d60-bce3-551b-82d3-5f9f4fe6f9e3",
+            "intent": "update",
+            "source_completion": {
+              "file_receipt_hash": "3794c129810b0c6e7bba5d1cf1b369fe4d0dd4a07aa33437d3c3fc9d93c5995f",
+              "raw_execution_id": "53a8a26605bc468313dd25069e9a8688d035d51c3b308b7c8d96bba88c4a26be",
+              "upstream_batch_id": "stock_period_raw:week:380d447075ea"
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "e48e6c6e-b97b-4031-b4bc-651e97538c17",
+      "job": "silver_stock_weekly_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-21T20:09:38.591400+08:00",
+      "end": "2026-10-21T20:09:51.825902+08:00",
+      "partition": "2026-10-23",
+      "parent": null,
+      "root": null,
+      "config": {
+        "silver_stock_weekly": {
+          "config": {
+            "execution_id": "0f71f00c-d32d-5dfb-a098-4738d1cd964b",
+            "intent": "update",
+            "source_completion": {
+              "file_receipt_hash": "d3c852360c08a6709280a3671bd454768a4ab399bcc61940b255f593069fa291",
+              "raw_execution_id": "51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3",
+              "upstream_batch_id": "stock_period_raw:week:502a6f78d037"
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "671c1373-0f95-4423-808d-c57e1a90d578",
+      "job": "silver_stock_weekly_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-21T20:07:36.911787+08:00",
+      "end": "2026-10-21T20:07:37.806868+08:00",
+      "partition": "2026-10-23",
+      "parent": null,
+      "root": null,
+      "config": {
+        "silver_stock_weekly": {
+          "config": {
+            "execution_id": "9dee3556-36ee-5c2f-9a7b-37b593e284f6",
+            "intent": "update",
+            "source_completion": {
+              "file_receipt_hash": "420b8fb15bdb264a19a1e144a7d2ec5f6873f2737e53f001b62bdb004d027c3d",
+              "raw_execution_id": "db67897faf10513982324f86e1793cec58328349a65ac00a91b23ab5150917e8",
+              "upstream_batch_id": "stock_period_raw:week:abe43c420380"
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "497273cb-975f-45ac-b65b-b8ee61beb749",
+      "job": "silver_stock_weekly_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-21T19:45:08.663787+08:00",
+      "end": "2026-10-21T19:46:38.981008+08:00",
+      "partition": "2026-10-23",
+      "parent": null,
+      "root": null,
+      "config": {
+        "silver_stock_weekly": {
+          "config": {
+            "execution_id": "2de8dc11-5f8a-5b2b-ab2f-a57d699a5621",
+            "intent": "update",
+            "source_completion": {
+              "file_receipt_hash": "81fd6af1bbd96d16b825da14ce47b59181cae6dc3637d7a004eb8cf43b93cff3",
+              "raw_execution_id": "c19dd8c325e0d118398ce3859dd990621012398a2dd183c1d403209e6743a737",
+              "upstream_batch_id": "stock_period_raw:week:76a716f8c8e3"
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "7dd919ea-9ca3-4da8-bbc0-8439f071322a",
+      "job": "silver_stock_weekly_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-19T19:45:36.695242+08:00",
+      "end": "2026-10-19T19:47:45.654542+08:00",
+      "partition": "2026-10-23",
+      "parent": null,
+      "root": null,
+      "config": {
+        "silver_stock_weekly": {
+          "config": {
+            "execution_id": "372e9cd6-cfdf-553c-9e6d-f83b79a635e6",
+            "intent": "update",
+            "source_completion": {
+              "file_receipt_hash": "a9d99d69b784afcbe1143a302eae6d9e2aee7ba3bcc60778708ee2660d8c1562",
+              "raw_execution_id": "6f17745170d69ff5003f666b2e54e1a067a242c7432fe7fa85d07a7aac0883d6",
+              "upstream_batch_id": "stock_period_raw:week:48577b7dc3b9"
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "5a20903d-1bf0-4e52-ad9b-0c52a0709800",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-29T00:24:50.693258+08:00",
+      "end": "2026-10-29T00:25:22.410884+08:00",
+      "partition": "2026-10",
+      "parent": null,
+      "root": null,
+      "config": {
+        "silver_stock_monthly": {
+          "config": {
+            "execution_id": "cbc8b25e-dbd0-5d68-9612-b3660bc81582",
+            "intent": "update",
+            "source_completion": {
+              "file_receipt_hash": "b5caab9573cb48e4dd250a36c3f2f173ab45848e43484f278d43d0e7247074ad",
+              "raw_execution_id": "ecd358c33a8dfeeb073fb881d93c4c70a1a4ab61033a8df7ef48ee746eeda7ae",
+              "upstream_batch_id": "stock_period_raw:month:7ee2d006ced4"
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "2e0e739d-9711-4de6-b9ed-53e1f08dcdc7",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-28T11:48:18.857845+08:00",
+      "end": "2026-10-28T11:48:19.686555+08:00",
+      "partition": "2026-10",
+      "parent": null,
+      "root": null,
+      "config": {
+        "silver_stock_monthly": {
+          "config": {
+            "execution_id": "eb9a958f-ff1d-51d5-8c9c-f974c6421f89",
+            "intent": "update",
+            "source_completion": {
+              "file_receipt_hash": "5dc62a8f3fd8077392d828e9ec2033464c7ab0b7dd6114e10436434be02bf30f",
+              "raw_execution_id": "5d29c1254dd859eb5e30b7f334cfbcf2572118ca8468bc5f945470bcf454ea53",
+              "upstream_batch_id": "stock_period_raw:month:78eda8638c56"
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "661f50eb-8344-45c4-b801-25b2d8610e21",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-28T11:46:36.268544+08:00",
+      "end": "2026-10-28T11:46:38.772714+08:00",
+      "partition": "2026-10",
+      "parent": "11f14ad3-3e17-4a08-99ff-1c370b767c00",
+      "root": "11f14ad3-3e17-4a08-99ff-1c370b767c00",
+      "config": {
+        "silver_stock_monthly": {
+          "config": {
+            "execution_id": "82c6253a-b3ec-513f-8fce-cc8ccacb759e",
+            "intent": "update",
+            "resume_from_execution_id": "6c6bc96d-29c8-562e-8db0-7347caada68b",
+            "source_completion": {
+              "file_receipt_hash": "3794c129810b0c6e7bba5d1cf1b369fe4d0dd4a07aa33437d3c3fc9d93c5995f",
+              "raw_execution_id": "53a8a26605bc468313dd25069e9a8688d035d51c3b308b7c8d96bba88c4a26be",
+              "upstream_batch_id": "stock_period_raw:month:380d447075ea"
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "11f14ad3-3e17-4a08-99ff-1c370b767c00",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-28T11:27:17.224632+08:00",
+      "end": "2026-10-28T11:27:42.818564+08:00",
+      "partition": "2026-10",
+      "parent": null,
+      "root": null,
+      "config": {
+        "silver_stock_monthly": {
+          "config": {
+            "execution_id": "6c6bc96d-29c8-562e-8db0-7347caada68b",
+            "intent": "update",
+            "source_completion": {
+              "file_receipt_hash": "3794c129810b0c6e7bba5d1cf1b369fe4d0dd4a07aa33437d3c3fc9d93c5995f",
+              "raw_execution_id": "53a8a26605bc468313dd25069e9a8688d035d51c3b308b7c8d96bba88c4a26be",
+              "upstream_batch_id": "stock_period_raw:month:380d447075ea"
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "48e91afb-b6c9-4565-ae09-38630f69749e",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-22T19:31:54.474607+08:00",
+      "end": "2026-10-22T19:32:21.002858+08:00",
+      "partition": "2026-10",
+      "parent": null,
+      "root": null,
+      "config": {
+        "silver_stock_monthly": {
+          "config": {
+            "execution_id": "f647eb24-a219-5e28-b6b2-fd2c925e4623",
+            "intent": "update",
+            "source_completion": {
+              "file_receipt_hash": "d3c852360c08a6709280a3671bd454768a4ab399bcc61940b255f593069fa291",
+              "raw_execution_id": "51c154973ebf53204d3a57f7507bebf91f64d111787f7ff657bd556b40ca5ad3",
+              "upstream_batch_id": "stock_period_raw:month:502a6f78d037"
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "76d7dde5-8b93-4f91-9c61-c8c8a99b9148",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-20T21:47:18.148969+08:00",
+      "end": "2026-10-20T21:47:51.276640+08:00",
+      "partition": "2026-10",
+      "parent": null,
+      "root": null,
+      "config": {
+        "silver_stock_monthly": {
+          "config": {
+            "execution_id": "b361f3af-2b02-5324-aa97-2461bfe8351f",
+            "intent": "update",
+            "source_completion": {
+              "file_receipt_hash": "81fd6af1bbd96d16b825da14ce47b59181cae6dc3637d7a004eb8cf43b93cff3",
+              "raw_execution_id": "c19dd8c325e0d118398ce3859dd990621012398a2dd183c1d403209e6743a737",
+              "upstream_batch_id": "stock_period_raw:month:76a716f8c8e3"
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "8500bc78-46e7-4be3-a288-e2df2b18712b",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-19T19:48:24.764882+08:00",
+      "end": "2026-10-19T19:48:25.450350+08:00",
+      "partition": "2026-10",
+      "parent": null,
+      "root": null,
+      "config": {
+        "silver_stock_monthly": {
+          "config": {
+            "execution_id": "ed8a883a-c0dc-5d77-8254-af2b9f191d07",
+            "intent": "update",
+            "source_completion": {
+              "file_receipt_hash": "d4e2ed161da382ff4ca80827c4c6bfbb6ab569860d4582a521eeddd96bcdb06a",
+              "raw_execution_id": "9497bf70b77fcaea54f41d14320f4d1d0797209dc69f57341b78930772e33772",
+              "upstream_batch_id": "stock_period_raw:month:b22640319330"
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "8cceab72-d285-4e68-b27a-fa7a1bb5f316",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-19T19:44:24.796418+08:00",
+      "end": "2026-10-19T19:44:56.457941+08:00",
+      "partition": "2026-10",
+      "parent": null,
+      "root": null,
+      "config": {
+        "silver_stock_monthly": {
+          "config": {
+            "execution_id": "26569801-8a9f-5535-80f4-3255d067a55b",
+            "intent": "update",
+            "source_completion": {
+              "file_receipt_hash": "a9d99d69b784afcbe1143a302eae6d9e2aee7ba3bcc60778708ee2660d8c1562",
+              "raw_execution_id": "6f17745170d69ff5003f666b2e54e1a067a242c7432fe7fa85d07a7aac0883d6",
+              "upstream_batch_id": "stock_period_raw:month:48577b7dc3b9"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "sensors": {
+    "raw_stock_monthly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 0, \"decision\": \"request_runs\", \"details\": {\"asset_family\": \"stock_period\", \"blocked_component\": \"none\", \"evidence\": {\"daily_intent_date\": \"2026-10-30\", \"pending_periods\": [\"2026-10\"]}, \"job_name\": \"raw_stk_period_bar_adj_month_update_job\", \"next_action\": \"等待源交付及文件检查。\", \"partition_set\": \"cn_a_stock_months\", \"reason_code\": \"direct_source_request\", \"runtime_state\": {\"direct_completed_through\": \"2026-09\", \"examined_through\": \"2026-09\", \"policy_version\": \"completed-month-v1\", \"source_policy\": \"stock-period-source-v2\", \"verified_through\": \"2026-09\"}, \"sensor_name\": \"raw_stock_monthly_update_job_sensor\", \"summary\": \"先补欠账，再更新当前周期。\"}, \"evaluated_at\": \"2026-10-30T23:59:16.430549+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 1, \"target_date\": \"2026-10\"}"
+    },
+    "raw_stock_weekly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 0, \"decision\": \"request_runs\", \"details\": {\"asset_family\": \"stock_period\", \"blocked_component\": \"none\", \"evidence\": {\"daily_intent_date\": \"2026-10-30\", \"pending_periods\": [\"2026-10-30\"]}, \"job_name\": \"raw_stk_period_bar_adj_week_update_job\", \"next_action\": \"等待源交付及文件检查。\", \"partition_set\": \"cn_a_stock_week_ends\", \"reason_code\": \"direct_source_request\", \"runtime_state\": {\"adjusted_delivery_revision\": 1785, \"direct_completed_through\": \"2026-10-23\", \"examined_through\": \"2026-10-09\", \"policy_version\": \"completed-week-v1\", \"source_policy\": \"stock-period-source-v2\", \"verified_through\": \"2026-10-09\"}, \"sensor_name\": \"raw_stock_weekly_update_job_sensor\", \"summary\": \"先补欠账，再更新当前周期。\"}, \"evaluated_at\": \"2026-10-30T23:59:55.591688+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 1, \"target_date\": \"2026-10-30\"}"
+    },
+    "silver_stock_monthly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"schema_version\":1,\"after\":7778142,\"decision\":\"silver_no_completion\",\"evaluated_at\":\"2026-10-31T09:02:51.286339+08:00\"}"
+    },
+    "silver_stock_weekly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"schema_version\":1,\"after\":7778143,\"decision\":\"silver_no_completion\",\"evaluated_at\":\"2026-10-31T09:03:31.948871+08:00\"}"
+    }
+  },
+  "files": [
+    {
+      "layer": "raw",
+      "freq": "week",
+      "period": "2026-10-30",
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_adj_week/week_end=2026-10-30/part-000.parquet",
+      "exists": true,
+      "row_count": 5569,
+      "min_end_date": "20261027",
+      "max_end_date": "20261028",
+      "rows_asof_30": 0,
+      "rows_after_30": 0,
+      "new_stock_rows": 0,
+      "version": [
+        16777244,
+        27466744,
+        447219,
+        1793187064438765079,
+        1793187095112120381
+      ],
+      "unchanged_during_read": true
+    },
+    {
+      "layer": "silver",
+      "freq": "week",
+      "period": "2026-10-30",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_weekly/week_end=2026-10-30/part-000.parquet",
+      "exists": true,
+      "row_count": 5569,
+      "min_end_date": "20261027",
+      "max_end_date": "20261028",
+      "rows_asof_30": 0,
+      "rows_after_30": 0,
+      "new_stock_rows": 0,
+      "version": [
+        16777244,
+        27488847,
+        302125,
+        1793204592346620179,
+        1793204592372873643
+      ],
+      "unchanged_during_read": true
+    },
+    {
+      "layer": "raw",
+      "freq": "month",
+      "period": "2026-10",
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_adj_month/month=2026-10/data.parquet",
+      "exists": true,
+      "row_count": 5575,
+      "min_end_date": "20261012",
+      "max_end_date": "20261028",
+      "rows_asof_30": 0,
+      "rows_after_30": 0,
+      "new_stock_rows": 0,
+      "version": [
+        16777244,
+        27468418,
+        462583,
+        1793187084292491160,
+        1793187097120991537
+      ],
+      "unchanged_during_read": true
+    },
+    {
+      "layer": "silver",
+      "freq": "month",
+      "period": "2026-10",
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_monthly/month=2026-10/part-000.parquet",
+      "exists": true,
+      "row_count": 5575,
+      "min_end_date": "20261012",
+      "max_end_date": "20261028",
+      "rows_asof_30": 0,
+      "rows_after_30": 0,
+      "new_stock_rows": 0,
+      "version": [
+        16777244,
+        27492055,
+        311182,
+        1793204701744723075,
+        1793204701766932544
+      ],
+      "unchanged_during_read": true
+    }
+  ],
+  "control": {
+    "completed_through": {
+      "month": "2026-09",
+      "week": "2026-10-23"
+    },
+    "factor_through": "2026-10-28",
+    "last_refresh": {
+      "month": "2026-10-28",
+      "week": "2026-10-27"
+    },
+    "last_source_asof": {
+      "month": "20261028",
+      "week": "20261027"
+    }
+  },
+  "pending": [
+    {
+      "execution": "2742186f0ce0d15bc231ccc76afc566a71b6e4f500576a4e061afb8a6af297f3",
+      "frequency": "month",
+      "kind": null,
+      "consumed": false,
+      "intent": {
+        "asof": "2026-10-29",
+        "codes": [
+          "000878.SZ",
+          "688563.SH",
+          "920306.BJ"
+        ],
+        "frequencies": [
+          "week",
+          "month"
+        ],
+        "mode": "upsert",
+        "period_cutoffs": {
+          "month": {
+            "2026-10": "20261029"
+          }
+        },
+        "periods": {
+          "month": [
+            "2026-10"
+          ]
+        },
+        "request_id": "4f59f2bf8a554d6c36459ea024b3249754343260867bcfa1913daf64430dd887",
+        "retired_codes": [],
+        "superseded_codes": [],
+        "version": "stock-period-source-v2"
+      },
+      "phase": "download",
+      "started_at": "2026-10-29T19:30:10.554567+08:00",
+      "completed_artifacts": [],
+      "source_units": [
+        {
+          "code": "688563.SH",
+          "freq": "week",
+          "period": null,
+          "complete": true,
+          "unit": "/Volumes/datasource/data_lake_staging/stock_period/runs/2742186f0ce0d15bc231ccc76afc566a71b6e4f500576a4e061afb8a6af297f3/source/50b46ad6eea0aeaf83b831f83465367676cce1e4fc86b63d9083a0523741f115",
+          "rows": 169,
+          "minimum_asof": "20261029",
+          "maximum_asof": "20261029"
+        },
+        {
+          "code": "920306.BJ",
+          "freq": "week",
+          "period": null,
+          "complete": false,
+          "unit": "/Volumes/datasource/data_lake_staging/stock_period/runs/2742186f0ce0d15bc231ccc76afc566a71b6e4f500576a4e061afb8a6af297f3/source/c0ee446fcc02e3e031de31172d0e105babe07f9240e31baa1ff3742a0878778d",
+          "rows": 0,
+          "kept_rows": 0,
+          "minimum_asof": null,
+          "maximum_asof": null,
+          "captured_at": "2026-10-29T19:30:11.845804+08:00"
+        },
+        {
+          "code": "000878.SZ",
+          "freq": "week",
+          "period": null,
+          "complete": true,
+          "unit": "/Volumes/datasource/data_lake_staging/stock_period/runs/2742186f0ce0d15bc231ccc76afc566a71b6e4f500576a4e061afb8a6af297f3/source/f08d9c00e2601a9365961ec9ec59425e7720765033943d4fd6fb9e964e7a79c0",
+          "rows": 1409,
+          "minimum_asof": "20261029",
+          "maximum_asof": "20261029"
+        }
+      ]
+    }
+  ],
+  "control_unchanged_during_read": true,
+  "chain_active_runs": [],
+  "expected_source_date": "2026-10-30"
+}

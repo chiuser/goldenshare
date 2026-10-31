@@ -1,0 +1,23 @@
+{
+  "status": "prepared_not_executed",
+  "business_target_date": "2026-10-28",
+  "raw_parent_run_id": "104911a4-e1fa-4a42-a8ad-cd55a7b0dedf",
+  "silver_months": 154,
+  "silver_weeks": 658,
+  "normal_budget": {
+    "read_mib": 768,
+    "write_mib": 384,
+    "space_mib": 512
+  },
+  "budget_including_one_partial_resume_and_closeout": {
+    "read_gib": 2,
+    "write_gib": 1,
+    "space_gib": 1
+  },
+  "docs_integrity": "passed",
+  "whitespace_check": "passed",
+  "historical_read_approval": "pending",
+  "formal_operations_this_turn": 0,
+  "independent_code_and_plan_review": "passed",
+  "monthly_lld_pointer": "section 9.6 added"
+}

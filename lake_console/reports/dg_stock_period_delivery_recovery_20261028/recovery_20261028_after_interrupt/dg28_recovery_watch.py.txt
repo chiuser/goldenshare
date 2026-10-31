@@ -1,0 +1,60 @@
+"""Bounded native run/sensor progress readback; does not execute pipeline code."""
+import json
+import os
+import sys
+from contextlib import closing
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+import psycopg2
+import yaml
+from dagster._serdes import deserialize_value
+from dagster._core.scheduler.instigation import InstigatorState
+
+zone=ZoneInfo('Asia/Shanghai')
+REPORT=Path('/Users/congming/github/goldenshare/lake_console/reports/dg_stock_period_delivery_recovery_20261028/recovery_20261028_after_interrupt')
+raw_id=json.loads((REPORT/'raw-launch.json').read_text())['data']['launchRunReexecution']['run']['runId']
+cfg=yaml.safe_load(Path('/Users/congming/.goldenshare/dagster_home/dagster.yaml').read_text())
+url=cfg['storage']['postgres']['postgres_url']
+if isinstance(url,dict):url=os.environ[url['env']]
+def at(value):return datetime.fromtimestamp(value,zone).isoformat() if value else None
+out={'at':datetime.now(zone).isoformat(),'raw_run_id':raw_id,'runs':[]}
+jobs=['raw_stk_period_bar_adj_week_update_job','raw_stk_period_bar_adj_month_update_job','silver_stock_weekly_update_job','silver_stock_monthly_update_job']
+with closing(psycopg2.connect(url,connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn,conn.cursor() as c:
+    conn.set_session(readonly=True)
+    c.execute("SELECT run_id,pipeline_name,status,start_time,end_time,run_body FROM runs WHERE run_id=%s OR (pipeline_name=ANY(%s) AND id>(SELECT id FROM runs WHERE run_id=%s)) ORDER BY id LIMIT 15",(raw_id,jobs,raw_id))
+    for rid,job,state,start,end,body in c.fetchall():
+        run=deserialize_value(body)
+        entry={'run_id':rid,'job':job,'status':state,'started_at':at(start),'ended_at':at(end),'parent_run_id':run.parent_run_id,'root_run_id':run.root_run_id,'partition':run.tags.get('dagster/partition'),'ops_config':{key:value.get('config',{}) for key,value in run.run_config.get('ops',{}).items()}}
+        c.execute('SELECT dagster_event_type,count(*) FROM event_logs WHERE run_id=%s GROUP BY dagster_event_type',(rid,))
+        entry['event_counts']={kind or 'logs':count for kind,count in c.fetchall()}
+        c.execute('SELECT dagster_event_type,event FROM event_logs WHERE run_id=%s ORDER BY id DESC LIMIT 2',(rid,))
+        entry['last_events']=[]
+        for kind,event in c.fetchall():
+            e=deserialize_value(event)
+            entry['last_events'].append({'type':kind,'at':at(e.timestamp),'message':e.message[:500]})
+        c.execute('SELECT event FROM event_logs WHERE run_id=%s AND dagster_event_type=%s ORDER BY id DESC LIMIT 1',(rid,'STEP_FAILURE'))
+        failure=c.fetchone()
+        if failure:
+            d=deserialize_value(failure[0]).dagster_event.event_specific_data
+            errors=[];error=getattr(d,'error',None)
+            while error is not None and len(errors)<4:
+                errors.append(error.message);error=getattr(error,'cause',None)
+            entry['failure']=errors
+        out['runs'].append(entry)
+    c.execute("SELECT run_id,pipeline_name,status,start_time FROM runs WHERE status=ANY(%s) ORDER BY id DESC LIMIT 5",(['STARTING','STARTED','CANCELING'],))
+    out['current_active']=[{'run_id':rid,'job':job,'status':state,'started_at':at(start)} for rid,job,state,start in c.fetchall()]
+    sensors=['silver_stock_weekly_update_job_sensor','silver_stock_monthly_update_job_sensor']
+    c.execute("SELECT status,job_body FROM jobs WHERE job_type='SENSOR' AND job_body LIKE ANY(%s)",(['%'+s+'%' for s in sensors],))
+    out['sensors']={}
+    for status,body in c.fetchall():
+        state=deserialize_value(body,InstigatorState)
+        if state.name in sensors:out['sensors'][state.name]={'status':status,'cursor':state.instigator_data.cursor}
+staging=Path('/Volumes/datasource/data_lake_staging/stock_period')
+manifest=json.loads((staging/'runs/ecd358c33a8dfeeb073fb881d93c4c70a1a4ab61033a8df7ef48ee746eeda7ae/manifest.json').read_text())
+daily=json.loads((staging/'daily.json').read_text())
+out['raw_control']={'phase':manifest['phase'],'pending_count':len(daily.get('pending_work',{})),'factor_through':daily.get('factor_through'),'last_refresh':daily.get('last_refresh')}
+label=sys.argv[1] if len(sys.argv)>1 else 'current'
+(REPORT/f'{label}.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+display={'at':out['at'],'runs':[{k:v for k,v in r.items() if k!='ops_config'} for r in out['runs']],'raw_control':out['raw_control'],'active':out['current_active'],'sensor_states':{k:v['status'] for k,v in out['sensors'].items()}}
+print(json.dumps(display,ensure_ascii=False))

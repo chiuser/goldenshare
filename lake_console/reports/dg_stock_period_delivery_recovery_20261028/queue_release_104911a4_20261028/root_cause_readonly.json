@@ -1,0 +1,75 @@
+{
+  "observed_at": "2026-10-28T23:24:27.030677+08:00",
+  "target_run_id": "104911a4-e1fa-4a42-a8ad-cd55a7b0dedf",
+  "scope": "Read-only investigation. No job, service, configuration, state or Lake mutations.",
+  "restart_command": [
+    {
+      "source": ".zsh_history",
+      "line": 3872,
+      "at": "2026-10-28T19:33:30+08:00",
+      "command": "bash /Users/congming/github/goldenshare/lake_console/bin/lake-dg-start"
+    }
+  ],
+  "old_dg_log": {
+    "path": "/private/tmp/dg-period-dg-start-20261028.log",
+    "last_lines": [
+      {
+        "line": 39244,
+        "text": "2026-10-28 19:32:47 +0800 - dagster.daemon.SensorDaemon - INFO - Checking for new runs for sensor: raw_index_global_update_job_sensor"
+      },
+      {
+        "line": 39245,
+        "text": "2026-10-28 19:32:47 +0800 - dagster.daemon.SensorDaemon - INFO - Sensor raw_index_global_update_job_sensor skipped: all_slots_dispatched: no dispatchable phase slot"
+      },
+      {
+        "line": 39246,
+        "text": "2026-10-28 19:32:52 +0800 - dagster.daemon.QueuedRunCoordinatorDaemon - INFO - 1 runs are currently in progress. Maximum is 1, won't launch more."
+      },
+      {
+        "line": 39247,
+        "text": "2026-10-28 19:32:52 +0800 - dagster.daemon.SensorDaemon - INFO - Checking for new runs for sensor: gold_major_index_mins_technical_daily_update_job_sensor"
+      },
+      {
+        "line": 39248,
+        "text": "2026-10-28 19:32:52 +0800 - dagster.daemon.SensorDaemon - INFO - Sensor gold_major_index_mins_technical_daily_update_job_sensor skipped: Sensor function returned an empty result"
+      },
+      {
+        "line": 39249,
+        "text": "2026-10-28 19:32:57 +0800 - dagster.daemon.QueuedRunCoordinatorDaemon - INFO - 1 runs are currently in progress. Maximum is 1, won't launch more."
+      },
+      {
+        "line": 39250,
+        "text": "2026-10-28 19:32:57 +0800 - dagster.daemon.SensorDaemon - INFO - Checking for new runs for sensor: prod_core_stock_daily_qfq_nineturn_sync_job_sensor"
+      },
+      {
+        "line": 39251,
+        "text": "2026-10-28 19:32:57 +0800 - dagster.daemon.SensorDaemon - INFO - Sensor prod_core_stock_daily_qfq_nineturn_sync_job_sensor skipped: Sensor function returned an empty result"
+      }
+    ],
+    "contains_shutdown_or_interrupt_record": false
+  },
+  "process_facts": {
+    "old_run_pid": 68394,
+    "old_run_pid_absent": true,
+    "new_dg_parent_pid": 89797,
+    "new_dg_start_beijing": "2026-10-28 19:33:30",
+    "new_services_start_beijing": "2026-10-28 19:33:32-19:33:35"
+  },
+  "established_mechanism": [
+    "The old run did not write a terminal status before its execution process disappeared.",
+    "The old gRPC server tracks run processes in an in-memory _executions map; a replacement server does not inherit it.",
+    "DefaultRunLauncher inherits supports_check_run_worker_health=False; monitor_started_run skips worker health detection for it.",
+    "QueuedRunCoordinator counts STARTED/CANCELING against max_concurrent_runs=1, so the stale status blocked subsequent runs."
+  ],
+  "code_evidence": {
+    "project_start": "lake_console/bin/lake-dg-start; local_startup.py:360-381 and 420-430",
+    "server_worker_tracking": "dagster/_grpc/server.py:440-443,584-602,1392-1400",
+    "default_launcher": "dagster/_core/launcher/base.py:93-101; default_run_launcher.py:31",
+    "monitor": "dagster/_daemon/monitoring/run_monitoring.py:121",
+    "queue_limit": "dagster/_daemon/run_coordinator/queued_run_coordinator_daemon.py:210-220"
+  },
+  "unproven": "No record establishes the old process termination signal, actor or exact exit cause. No corresponding 19:33 crash/memory termination report was found in the bounded checks. Normal code-location reload is graceful and is not proven as the cause.",
+  "system_exit_log_scope": "2026-10-28 19:32:55 to 19:33:36, kernel/launchd/ReportCrash/runningboardd/diagnosticd, messages mentioning the worker/Python/Dagster; no matching exit rows.",
+  "resolved_at": "2026-10-28T23:12:03.157705+08:00",
+  "resolution_event_storage_id": 7774305
+}

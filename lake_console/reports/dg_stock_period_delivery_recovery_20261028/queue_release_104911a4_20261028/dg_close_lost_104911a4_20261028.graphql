@@ -1,0 +1,9 @@
+mutation CloseLostRun($runId: String!) {
+  terminateRun(runId: $runId, terminatePolicy: MARK_AS_CANCELED_IMMEDIATELY) {
+    __typename
+    ... on TerminateRunSuccess { run { runId status } }
+    ... on TerminateRunFailure { message }
+    ... on RunNotFoundError { runId }
+    ... on PythonError { message }
+  }
+}

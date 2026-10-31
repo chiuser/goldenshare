@@ -1,0 +1,219 @@
+{
+  "observed_at": "2026-10-28T23:40:39.977353+08:00",
+  "scope": "Only current month 2026-10, two existing Parquet files and bounded native metadata; no hash/full-history audit or writes.",
+  "files": {
+    "raw": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_adj_month/month=2026-10/data.parquet",
+      "bytes": 462583,
+      "mtime": "2026-10-28T19:31:24.292491+08:00",
+      "ctime": "2026-10-28T19:31:37.120991+08:00",
+      "version": [
+        16777244,
+        27468418,
+        462583,
+        1793187084292491160,
+        1793187097120991537
+      ],
+      "row_count": 5575,
+      "distinct_codes": 5575,
+      "min_trade_date": "20261031",
+      "max_trade_date": "20261031",
+      "min_end_date": "20261012",
+      "max_end_date": "20261028",
+      "rows_asof_28": 3364,
+      "null_end_dates": 0,
+      "latest_materialization": {
+        "storage_id": 7763892,
+        "run_id": "66b1c247-4c27-4009-9b21-2e5c7755c432",
+        "at": "2026-10-28T11:30:01.858292+08:00",
+        "metadata_keys": [
+          "dagster/uri",
+          "dagster/row_count",
+          "goldenshare/observed_columns",
+          "goldenshare/period_file_version",
+          "goldenshare/period_completion"
+        ],
+        "metadata": {
+          "dagster/row_count": 5576,
+          "dagster/uri": "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_adj_month/month=2026-10/data.parquet",
+          "goldenshare/period_file_version": [
+            16777244,
+            27440055,
+            461960,
+            1793158201375953838,
+            1793158201511157070
+          ]
+        }
+      },
+      "latest_checks": [
+        {
+          "name": "raw_tushare_stk_period_bar_adj_month_delivery_reconciliation_check",
+          "state": "SUCCEEDED",
+          "passed": true,
+          "evaluation_event_id": 7763896,
+          "target_storage_id": 7763892,
+          "target_run_id": "66b1c247-4c27-4009-9b21-2e5c7755c432"
+        },
+        {
+          "name": "raw_tushare_stk_period_bar_adj_month_file_contract_check",
+          "state": "SUCCEEDED",
+          "passed": true,
+          "evaluation_event_id": 7763900,
+          "target_storage_id": 7763892,
+          "target_run_id": "66b1c247-4c27-4009-9b21-2e5c7755c432"
+        },
+        {
+          "name": "raw_tushare_stk_period_bar_adj_month_key_partition_check",
+          "state": "SUCCEEDED",
+          "passed": true,
+          "evaluation_event_id": 7763904,
+          "target_storage_id": 7763892,
+          "target_run_id": "66b1c247-4c27-4009-9b21-2e5c7755c432"
+        }
+      ]
+    },
+    "silver": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_monthly/month=2026-10/part-000.parquet",
+      "bytes": 310915,
+      "mtime": "2026-10-28T11:46:38.033269+08:00",
+      "ctime": "2026-10-28T11:46:38.053387+08:00",
+      "version": [
+        16777244,
+        27441013,
+        310915,
+        1793159198033269261,
+        1793159198053386619
+      ],
+      "row_count": 5576,
+      "distinct_codes": 5576,
+      "min_trade_date": "20261031",
+      "max_trade_date": "20261031",
+      "min_end_date": "20261012",
+      "max_end_date": "20261027",
+      "rows_asof_28": 0,
+      "null_end_dates": 0,
+      "latest_materialization": {
+        "storage_id": 7764127,
+        "run_id": "2e0e739d-9711-4de6-b9ed-53e1f08dcdc7",
+        "at": "2026-10-28T11:48:19.296348+08:00",
+        "metadata_keys": [
+          "dagster/uri",
+          "dagster/row_count",
+          "goldenshare/observed_columns",
+          "goldenshare/period_file_version",
+          "goldenshare/silver_rule",
+          "goldenshare/silver_source",
+          "goldenshare/silver_asof",
+          "goldenshare/silver_lower",
+          "goldenshare/silver_execution_id",
+          "goldenshare/silver_source_version",
+          "goldenshare/silver_reference_versions",
+          "goldenshare/silver_source_completion"
+        ],
+        "metadata": {
+          "dagster/row_count": 5576,
+          "dagster/uri": "/Volumes/datasource/data_lake/silver/quote/stock_monthly/month=2026-10/part-000.parquet",
+          "goldenshare/period_file_version": [
+            16777244,
+            27441013,
+            310915,
+            1793159198033269261,
+            1793159198053386619
+          ],
+          "goldenshare/silver_source_version": [
+            16777244,
+            27440055,
+            461960,
+            1793158201375953838,
+            1793158201511157070
+          ]
+        }
+      },
+      "latest_checks": [
+        {
+          "name": "silver_stock_monthly_file_contract_check",
+          "state": "SUCCEEDED",
+          "passed": true,
+          "evaluation_event_id": 7764131,
+          "target_storage_id": 7764127,
+          "target_run_id": "2e0e739d-9711-4de6-b9ed-53e1f08dcdc7"
+        },
+        {
+          "name": "silver_stock_monthly_key_partition_check",
+          "state": "SUCCEEDED",
+          "passed": true,
+          "evaluation_event_id": 7764135,
+          "target_storage_id": 7764127,
+          "target_run_id": "2e0e739d-9711-4de6-b9ed-53e1f08dcdc7"
+        },
+        {
+          "name": "silver_stock_monthly_source_projection_check",
+          "state": "SUCCEEDED",
+          "passed": true,
+          "evaluation_event_id": 7764139,
+          "target_storage_id": 7764127,
+          "target_run_id": "2e0e739d-9711-4de6-b9ed-53e1f08dcdc7"
+        }
+      ]
+    }
+  },
+  "raw_receipt": {
+    "phase": "files_complete",
+    "files_completed_at": "2026-10-28T19:31:37.137699+08:00",
+    "unit_asof_month": "20261028",
+    "complete_version": [
+      16777244,
+      27468418,
+      462583,
+      1793187084292491160,
+      1793187097120991537
+    ],
+    "complete_rows": 5575,
+    "physical_version_matches": true,
+    "physical_count_matches": true
+  },
+  "latest_monthly_runs": [
+    {
+      "run_id": "104911a4-e1fa-4a42-a8ad-cd55a7b0dedf",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "CANCELED",
+      "started_at": "2026-10-28T19:30:32.959197+08:00",
+      "ended_at": "2026-10-28T23:12:03.157705+08:00"
+    },
+    {
+      "run_id": "2e0e739d-9711-4de6-b9ed-53e1f08dcdc7",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "started_at": "2026-10-28T11:48:18.857845+08:00",
+      "ended_at": "2026-10-28T11:48:19.686555+08:00"
+    },
+    {
+      "run_id": "661f50eb-8344-45c4-b801-25b2d8610e21",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "started_at": "2026-10-28T11:46:36.268544+08:00",
+      "ended_at": "2026-10-28T11:46:38.772714+08:00"
+    },
+    {
+      "run_id": "66b1c247-4c27-4009-9b21-2e5c7755c432",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "SUCCESS",
+      "started_at": "2026-10-28T11:29:55.197138+08:00",
+      "ended_at": "2026-10-28T11:30:02.055973+08:00"
+    },
+    {
+      "run_id": "11f14ad3-3e17-4a08-99ff-1c370b767c00",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "started_at": "2026-10-28T11:27:17.224632+08:00",
+      "ended_at": "2026-10-28T11:27:42.818564+08:00"
+    },
+    {
+      "run_id": "8c9e09c4-9a82-4042-b696-0ffc3a17999d",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "FAILURE",
+      "started_at": "2026-10-27T19:30:20.302917+08:00",
+      "ended_at": "2026-10-27T19:30:20.689142+08:00"
+    }
+  ]
+}

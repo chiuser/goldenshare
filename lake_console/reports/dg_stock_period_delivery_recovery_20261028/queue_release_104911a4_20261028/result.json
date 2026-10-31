@@ -1,0 +1,53 @@
+{
+  "target_run_id": "104911a4-e1fa-4a42-a8ad-cd55a7b0dedf",
+  "approved_by_user": "马上执行",
+  "operation": "One terminateRun request, MARK_AS_CANCELED_IMMEDIATELY",
+  "pre_execution_status": "CANCELING",
+  "pre_existing_canceling_event": {
+    "storage_id": 7774304,
+    "type": "PIPELINE_CANCELING",
+    "at": "2026-10-28T23:09:59.074617+08:00",
+    "step": null,
+    "message": "Sending run termination request.",
+    "metadata": {}
+  },
+  "pre_execution_process_check": {
+    "pid": 68394,
+    "command": "ps -p 68394 -o pid,ppid,lstart,etime,state,comm",
+    "exit_code": 1,
+    "process_rows": 0,
+    "when": "Repeated immediately before the approved mutation"
+  },
+  "final_status": "CANCELED",
+  "ended_at": "2026-10-28T23:12:03.157705+08:00",
+  "canceled_event_storage_id": 7774305,
+  "queue_counts_before": {
+    "QUEUED": 15,
+    "STARTED": 1
+  },
+  "first_queue_counts_after": {
+    "QUEUED": 14,
+    "STARTING": 1
+  },
+  "final_queue_observed_at": "2026-10-28T23:13:46.506528+08:00",
+  "final_queue_counts": {
+    "QUEUED": 7,
+    "STARTED": 1
+  },
+  "current_active_runs": [
+    {
+      "run_id": "5c8c618c-baaa-4f32-8983-63ad056ab830",
+      "job": "raw_tushare_moneyflow_ind_ths_update_job",
+      "status": "STARTED",
+      "started_at": "2026-10-28T23:13:29.585637+08:00",
+      "ended_at": null
+    }
+  ],
+  "max_concurrent_runs": 1,
+  "claimed_slots": [],
+  "manual_job_launches": 0,
+  "manual_lake_data_operations": 0,
+  "sensor_or_configuration_changes": 0,
+  "raw_data_delivery_completed_by_this_operation": false,
+  "notes": "Existing queued jobs resumed naturally. Month Raw files/receipts/pending are retained; this operation does not complete their unfinished delivery."
+}

@@ -1,0 +1,94 @@
+{
+  "audit_date": "2026-10-31",
+  "scope": "Only 920306.BJ week/month for October 2026; no full source download",
+  "calls": [
+    {
+      "request": {
+        "ts_code": "920306.BJ",
+        "freq": "week",
+        "start_date": "20261001",
+        "end_date": "20261031",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ]
+      },
+      "tool": "tushareMcp.stk_week_month_adj",
+      "response": {
+        "status": "fulfilled",
+        "value": {
+          "content": [
+            {
+              "type": "text",
+              "text": "[{\"ts_code\": \"920306.BJ\", \"trade_date\": \"20261030\", \"end_date\": \"20261030\", \"freq\": \"week\", \"open\": 12.26, \"high\": 12.8, \"low\": 7.54, \"close\": 7.58, \"pre_close\": 4.48, \"open_qfq\": 12.26, \"high_qfq\": 12.8, \"low_qfq\": 7.54, \"close_qfq\": 7.58, \"open_hfq\": 12.26, \"high_hfq\": 12.8, \"low_hfq\": 7.54, \"close_hfq\": 7.58, \"vol\": 539666.18, \"amount\": 543145.95, \"change\": 3.1, \"pct_chg\": 69.2}]"
+            }
+          ],
+          "isError": false
+        }
+      }
+    },
+    {
+      "request": {
+        "ts_code": "920306.BJ",
+        "freq": "month",
+        "start_date": "20261001",
+        "end_date": "20261031",
+        "fields": [
+          "ts_code",
+          "trade_date",
+          "end_date",
+          "freq",
+          "open",
+          "high",
+          "low",
+          "close",
+          "pre_close",
+          "open_qfq",
+          "high_qfq",
+          "low_qfq",
+          "close_qfq",
+          "open_hfq",
+          "high_hfq",
+          "low_hfq",
+          "close_hfq",
+          "vol",
+          "amount",
+          "change",
+          "pct_chg"
+        ]
+      },
+      "tool": "tushareMcp.stk_week_month_adj",
+      "response": {
+        "status": "fulfilled",
+        "value": {
+          "content": [
+            {
+              "type": "text",
+              "text": "[{\"ts_code\": \"920306.BJ\", \"trade_date\": \"20261031\", \"end_date\": \"20261030\", \"freq\": \"month\", \"open\": 12.26, \"high\": 12.8, \"low\": 7.54, \"close\": 7.58, \"pre_close\": 4.48, \"open_qfq\": 12.26, \"high_qfq\": 12.8, \"low_qfq\": 7.54, \"close_qfq\": 7.58, \"open_hfq\": 12.26, \"high_hfq\": 12.8, \"low_hfq\": 7.54, \"close_hfq\": 7.58, \"vol\": 539666.18, \"amount\": 543145.95, \"change\": 3.1, \"pct_chg\": 69.2}]"
+            }
+          ],
+          "isError": false
+        }
+      }
+    }
+  ]
+}

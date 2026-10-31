@@ -403,9 +403,10 @@ def read_completion(lake, staging, reference, freq):
     completed_at = datetime.fromisoformat(saved["files_completed_at"])
     if completed_at.tzinfo is None:
         raise ValueError("silver_raw_completion_time_invalid")
+    completed_day = completed_at.astimezone(ZoneInfo("Asia/Shanghai")).date()
     asof = (
         identity["intent"].get("asof")
-        or completed_at.astimezone(ZoneInfo("Asia/Shanghai")).date().isoformat()
+        or completed_day.isoformat()
     )
     if date.fromisoformat(asof).isoformat() != asof:
         raise ValueError("silver_raw_completion_time_invalid")
@@ -414,7 +415,20 @@ def read_completion(lake, staging, reference, freq):
         f, period = item["freq"], item["period"]
         if item["target"] != str(raw_path(lake, f, period)) or (f, period) in items:
             raise ValueError("silver_raw_completion_scope_invalid")
-        items[(f, period)] = item
+        # Keep the requested date frozen; only this verified file's source date
+        # can extend the Silver scope. Completion time is a bound, not a source.
+        source_asof = item.get("source_asof")
+        if source_asof is not None:
+            try:
+                source_day = date.fromisoformat(source_asof)
+            except (ValueError, TypeError) as error:
+                raise ValueError("silver_raw_completion_source_date_invalid") from error
+            if source_day.isoformat() != source_asof or source_day > completed_day:
+                raise ValueError("silver_raw_completion_source_date_invalid")
+        items[(f, period)] = {
+            **item,
+            "asof": max(asof, source_asof) if source_asof is not None else asof,
+        }
     return {"reference": reference, "items": items, "asof": asof}
 
 
@@ -470,7 +484,7 @@ def resolve_update_sources(
                 "target": str(target),
                 "source_version": raw_version,
                 "source_completion": delivery["reference"],
-                "asof": delivery["asof"],
+                "asof": item["asof"],
                 "supersedes": reference if delivery is not origin else None,
             }
         )

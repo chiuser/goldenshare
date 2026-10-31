@@ -1,0 +1,80 @@
+{
+  "unique_passing_cases": 463,
+  "new_passing_cases": 28,
+  "runs": {
+    "old-regression.xml": {
+      "cases": 2,
+      "failures": 2,
+      "errors": 0,
+      "skips": 0,
+      "seconds": 2.288
+    },
+    "regression.xml": {
+      "cases": 461,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "seconds": 165.559
+    },
+    "successor-tests.xml": {
+      "cases": 2,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "seconds": 2.379
+    }
+  },
+  "cleanup": [
+    {
+      "path": "/private/tmp/dg-stock-period-cross-day-20261031/old-fixtures",
+      "regular_files": 150,
+      "bytes": 170546
+    },
+    {
+      "path": "/private/tmp/dg-stock-period-cross-day-20261031/new-fixtures",
+      "regular_files": 1369,
+      "bytes": 1614606
+    },
+    {
+      "path": "/private/tmp/dg-stock-period-cross-day-20261031/expanded-fixtures",
+      "regular_files": 2065,
+      "bytes": 2464120
+    },
+    {
+      "path": "/private/tmp/dg-stock-period-cross-day-20261031/regression-fixtures",
+      "regular_files": 27533,
+      "bytes": 49069338
+    },
+    {
+      "path": "/private/tmp/dg-stock-period-cross-day-20261031/successor-fixtures",
+      "regular_files": 256,
+      "bytes": 296853
+    }
+  ],
+  "total_cleaned_bytes": 53615463,
+  "total_cleaned_files": 31373,
+  "formal_data_reads": 0,
+  "formal_data_writes": 0,
+  "formal_dg_operations": 0,
+  "new_source_requests": 0,
+  "packages_installed": 0,
+  "codegraph_synced": true,
+  "git_committed_this_turn": false,
+  "code_readiness": "passed",
+  "formal_execution_readiness": "requires_loaded_code_and_current_scope_budget_preflight",
+  "final_source_hashes_match": true,
+  "documentation_integrity_passed": true,
+  "diff_check_passed": true,
+  "ruff_default_passed": true,
+  "ruff_fatal_baseline_passed": true,
+  "new_test_format_passed": true,
+  "checked_current_scope_local_links": 12,
+  "fixtures_remaining": false,
+  "link_check_scope": "New implementation report and LLD12.22/plan10.13/month9.8; historical temporary paths are not current implementation evidence",
+  "commit_archive": {
+    "raw_old_regression_sha256": "988e8aaa76033859cffbf5e64d9714d022f139c2458ff0c630f88a3f9a662867",
+    "old_regression_archive": "old-regression.xml.gz",
+    "decompresses_to_exact_original": true,
+    "reason": "Preserve exact pytest whitespace and traceback while passing staged whitespace checks"
+  }
+}

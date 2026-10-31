@@ -1,0 +1,38 @@
+{
+  "lake_console/orchestrator/src/orchestrator/defs/io/stock_period_raw.py": {
+    "changed": true,
+    "sha256": "59f18ec06a50a6be20c54576d05971bcb5d4506a2e00edb190a67ec27f82b285",
+    "changed_functions": [
+      "_validate_candidates",
+      "publish"
+    ]
+  },
+  "lake_console/orchestrator/src/orchestrator/defs/stock_period_silver.py": {
+    "changed": true,
+    "sha256": "c758d62ec816fb690d95eb13cd9c0ffa66b9a4a103d1005ac21697c6bc6be48b",
+    "changed_functions": [
+      "read_completion",
+      "resolve_update_sources"
+    ]
+  },
+  "lake_console/orchestrator/src/orchestrator/defs/stock_period_source.py": {
+    "changed": false,
+    "sha256": "c399f72c47e8942328a0c32284a16d02995849a5165b9059467d7a3db328e22a"
+  },
+  "lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py": {
+    "changed": false,
+    "sha256": "e1539d6dd3bd5b8d342ce362c1411dfc4806abb52c0d06a24b30fce1070d4efc"
+  },
+  "lake_console/orchestrator/src/orchestrator/defs/run_contracts/stock_period_silver.py": {
+    "changed": false,
+    "sha256": "bec17a3d87f18eee19640c68eebf19925ed1659b1e16213df4c9fccf7797b953"
+  },
+  "lake_console/orchestrator/src/orchestrator/defs/checks/stock_period_silver_checks.py": {
+    "changed": false,
+    "sha256": "12a734df362ab2d5cb62885a89a8f0a03c5a394980e404ecae94b2732f5b6392"
+  },
+  "new_test": {
+    "path": "lake_console/orchestrator/tests/test_stock_period_cross_day_asof.py",
+    "sha256": "e58d5a5e8937af4d2eb5792009087e629991244f2ec006bb57e69b9eb136c4d7"
+  }
+}

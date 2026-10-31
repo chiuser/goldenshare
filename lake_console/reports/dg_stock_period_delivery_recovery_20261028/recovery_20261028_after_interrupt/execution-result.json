@@ -1,0 +1,138 @@
+{
+  "business_date": "2026-10-28",
+  "executed_on": "2026-10-29",
+  "verified_at": "2026-10-29T00:26:41.609969+08:00",
+  "status": "complete_for_approved_batch",
+  "raw_native_run_id": "08b25eaf-c4c7-491f-9f71-77455d9fda11",
+  "original_canceled_run_id": "104911a4-e1fa-4a42-a8ad-cd55a7b0dedf",
+  "original_raw_files_reused": 1254,
+  "new_raw_parquet_replacements": 0,
+  "raw_control_phase": "events_complete",
+  "pending_count": 0,
+  "silver": [
+    {
+      "run_id": "5a20903d-1bf0-4e52-ad9b-0c52a0709800",
+      "execution_id": "cbc8b25e-dbd0-5d68-9612-b3660bc81582",
+      "effective_execution_id": "cbc8b25e-dbd0-5d68-9612-b3660bc81582",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "source_batch": "stock_period_raw:month:7ee2d006ced4",
+      "observation_id": 7778142,
+      "units": 154,
+      "rows": 595228,
+      "events_complete": {
+        "checks": 462,
+        "files": 154,
+        "identity_hash": "37e5bd9c15747ed7ac083f61d50d71b616d113f7623c473a12d9cc128964adba",
+        "run_id": "cbc8b25e-dbd0-5d68-9612-b3660bc81582",
+        "status": "complete"
+      },
+      "reused_records": 0,
+      "totals": {
+        "month": {
+          "files": 154,
+          "rows": 595228
+        },
+        "week": {
+          "files": 0,
+          "rows": 0
+        }
+      }
+    },
+    {
+      "run_id": "de5acd12-5a5e-4fc1-834a-a1c3050fdaca",
+      "execution_id": "926794f9-6216-5541-8bf9-51d5738a10f7",
+      "effective_execution_id": "926794f9-6216-5541-8bf9-51d5738a10f7",
+      "job": "silver_stock_weekly_update_job",
+      "status": "SUCCESS",
+      "source_batch": "stock_period_raw:week:7ee2d006ced4",
+      "observation_id": 7778143,
+      "units": 658,
+      "rows": 2519597,
+      "events_complete": {
+        "checks": 1974,
+        "files": 658,
+        "identity_hash": "46809005e78acc5b3d7cc5ccd88a24b2e94573b8b6f67ad89e02db11022d83e9",
+        "run_id": "926794f9-6216-5541-8bf9-51d5738a10f7",
+        "status": "complete"
+      },
+      "reused_records": 0,
+      "totals": {
+        "month": {
+          "files": 0,
+          "rows": 0
+        },
+        "week": {
+          "files": 658,
+          "rows": 2519597
+        }
+      }
+    }
+  ],
+  "silver_files": 812,
+  "silver_rows": 3114825,
+  "silver_checks_passed": 2436,
+  "notices_consumed": 2,
+  "current_month": {
+    "raw_rows": 5575,
+    "silver_rows": 5575,
+    "max_end_date": "20261028",
+    "rows_asof_28": 3364,
+    "earlier_end_date_rows": 2211,
+    "raw_and_silver_source_version_match": true
+  },
+  "daily": {
+    "baseline_run_id": "5aa7ab8f3353957a0b9f53cc5794802340c0561ab9b1b26ced5be0013e0bb834",
+    "completed_through": {
+      "month": "2026-09",
+      "week": "2026-10-23"
+    },
+    "factor_through": "2026-10-28",
+    "handoff_cutoff": "2026-10-16",
+    "last_refresh": {
+      "month": "2026-10-28",
+      "week": "2026-10-27"
+    },
+    "last_source_asof": {
+      "month": "20261028",
+      "week": "20261027"
+    },
+    "pending_work": {}
+  },
+  "normal_data_job_runs": [
+    {
+      "run_id": "08b25eaf-c4c7-491f-9f71-77455d9fda11",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "SUCCESS",
+      "started_at": "2026-10-29T00:20:07.913513+08:00",
+      "ended_at": "2026-10-29T00:21:51.149748+08:00"
+    },
+    {
+      "run_id": "de5acd12-5a5e-4fc1-834a-a1c3050fdaca",
+      "job": "silver_stock_weekly_update_job",
+      "status": "SUCCESS",
+      "started_at": "2026-10-29T00:22:24.113953+08:00",
+      "ended_at": "2026-10-29T00:24:11.297977+08:00"
+    },
+    {
+      "run_id": "5a20903d-1bf0-4e52-ad9b-0c52a0709800",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "started_at": "2026-10-29T00:24:50.693258+08:00",
+      "ended_at": "2026-10-29T00:25:22.410884+08:00"
+    }
+  ],
+  "approved_budget": {
+    "read_gib": 2,
+    "write_gib": 1,
+    "additional_space_gib": 1,
+    "includes_original_checks_partial_resume_closeout": true,
+    "external_runtime_limit_added": false
+  },
+  "independent_evidence_review": "passed",
+  "limitations": [
+    "Completion is for the frozen 28-day monthly batch and its changed weekly history; weekly independent daily last_refresh stays 2026-10-27.",
+    "Mixed source end_date values are preserved; this does not claim every stock has end_date=20261028.",
+    "No new Raw source download, code/configuration/concurrency changes or extra global dataset audit."
+  ]
+}

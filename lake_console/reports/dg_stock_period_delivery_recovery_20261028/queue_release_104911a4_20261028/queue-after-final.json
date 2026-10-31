@@ -1,0 +1,107 @@
+{
+  "observed_at": "2026-10-28T23:13:46.506528+08:00",
+  "read_only": true,
+  "concurrency_config": {
+    "runs": {
+      "max_concurrent_runs": 1
+    },
+    "pools": {
+      "granularity": "run"
+    }
+  },
+  "run_monitoring_config": {
+    "enabled": true,
+    "free_slots_after_run_end_seconds": 300
+  },
+  "nonterminal_status_counts": {
+    "QUEUED": 7,
+    "STARTED": 1
+  },
+  "active_runs": [
+    {
+      "run_id": "5c8c618c-baaa-4f32-8983-63ad056ab830",
+      "job": "raw_tushare_moneyflow_ind_ths_update_job",
+      "status": "STARTED",
+      "started_at": "2026-10-28T23:13:29.585637+08:00",
+      "ended_at": null
+    }
+  ],
+  "queue_counts_by_job": {
+    "raw_stk_period_bar_adj_week_update_job": 1,
+    "raw_tushare_moneyflow_cnt_ths_update_job": 1,
+    "raw_tushare_moneyflow_dc_update_job": 1,
+    "raw_tushare_moneyflow_ind_dc_update_job": 1,
+    "raw_tushare_moneyflow_mkt_dc_update_job": 1,
+    "raw_tushare_moneyflow_ths_update_job": 1,
+    "raw_tushare_moneyflow_update_job": 1
+  },
+  "oldest_five_queued": [
+    {
+      "run_id": "7975930a-638f-4d52-904f-0a85c1287f72",
+      "job": "raw_tushare_moneyflow_ind_dc_update_job",
+      "created_at_storage": "2026-10-28 14:09:57.421708"
+    },
+    {
+      "run_id": "ad412093-351a-47e0-85a2-47df46cd4409",
+      "job": "raw_tushare_moneyflow_ths_update_job",
+      "created_at_storage": "2026-10-28 14:11:26.063352"
+    },
+    {
+      "run_id": "28ccb698-a3d4-4bee-b04d-b65a2ecec5a6",
+      "job": "raw_tushare_moneyflow_cnt_ths_update_job",
+      "created_at_storage": "2026-10-28 14:11:31.455294"
+    },
+    {
+      "run_id": "3b7a2f10-2a66-4462-a172-4743d295b98c",
+      "job": "raw_tushare_moneyflow_mkt_dc_update_job",
+      "created_at_storage": "2026-10-28 14:11:35.376697"
+    },
+    {
+      "run_id": "647793d0-6632-4cb9-89c8-56c7cfd96f51",
+      "job": "raw_tushare_moneyflow_update_job",
+      "created_at_storage": "2026-10-28 14:11:49.246746"
+    }
+  ],
+  "daemon_heartbeats": [
+    {
+      "type": "ASSET",
+      "last_heartbeat": "2026-10-28T23:13:38.191229+08:00",
+      "error_count": 0
+    },
+    {
+      "type": "BACKFILL",
+      "last_heartbeat": "2026-10-28T23:13:25.546602+08:00",
+      "error_count": 0
+    },
+    {
+      "type": "FRESHNESS_DAEMON",
+      "last_heartbeat": "2026-10-28T23:13:18.515383+08:00",
+      "error_count": 0
+    },
+    {
+      "type": "MONITORING",
+      "last_heartbeat": "2026-10-28T23:13:41.959465+08:00",
+      "error_count": 0
+    },
+    {
+      "type": "QUEUED_RUN_COORDINATOR",
+      "last_heartbeat": "2026-10-28T23:13:17.830326+08:00",
+      "error_count": 0
+    },
+    {
+      "type": "SCHEDULER",
+      "last_heartbeat": "2026-10-28T23:13:00.007082+08:00",
+      "error_count": 0
+    },
+    {
+      "type": "SENSOR",
+      "last_heartbeat": "2026-10-28T23:13:35.791486+08:00",
+      "error_count": 0
+    }
+  ],
+  "claimed_slots": [],
+  "pool_limits": {
+    "gold_stk_mins_qfq_writer": 1,
+    "moneyflow_tushare_writer": 1
+  }
+}

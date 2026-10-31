@@ -1,0 +1,8 @@
+{
+  "lake_console/orchestrator/src/orchestrator/defs/io/stock_period_raw.py": "e62071fede4590d5b0beb81065f596e2d5fae6da7bca049fd267e23c2fac97e5",
+  "lake_console/orchestrator/src/orchestrator/defs/stock_period_silver.py": "f86af1fbe2f830acf6ed71237c8dbcf6121af08049144e2fbdaec18ec8a3e0e6",
+  "lake_console/orchestrator/src/orchestrator/defs/stock_period_source.py": "c399f72c47e8942328a0c32284a16d02995849a5165b9059467d7a3db328e22a",
+  "lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py": "e1539d6dd3bd5b8d342ce362c1411dfc4806abb52c0d06a24b30fce1070d4efc",
+  "lake_console/orchestrator/src/orchestrator/defs/run_contracts/stock_period_silver.py": "bec17a3d87f18eee19640c68eebf19925ed1659b1e16213df4c9fccf7797b953",
+  "lake_console/orchestrator/src/orchestrator/defs/checks/stock_period_silver_checks.py": "12a734df362ab2d5cb62885a89a8f0a03c5a394980e404ecae94b2732f5b6392"
+}

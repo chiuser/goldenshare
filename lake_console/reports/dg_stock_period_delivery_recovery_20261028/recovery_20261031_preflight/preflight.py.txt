@@ -1,0 +1,119 @@
+"""Bounded read-only preflight for the four approved stock period datasets."""
+import json
+import os
+from contextlib import closing
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import psycopg2
+import yaml
+from dagster._serdes import deserialize_value
+from dagster._core.scheduler.instigation import InstigatorState
+from orchestrator.defs.duckdb_connection import DuckDBConnectionSettings, connect_configured_duckdb
+from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT, silver_trade_calendar_path
+from orchestrator.defs.run_contracts.stock_period_silver import raw_path, target_path
+
+ZONE = ZoneInfo("Asia/Shanghai")
+OUT = Path("/private/tmp/dg_period_20261031_preflight")
+OUT.mkdir(exist_ok=True)
+ROOT = Path(DEFAULT_LAKE_ROOT)
+STAGING = Path(DEFAULT_LAKE_STAGING_ROOT) / "stock_period"
+JOBS = ["raw_stk_period_bar_adj_week_update_job", "raw_stk_period_bar_adj_month_update_job", "silver_stock_weekly_update_job", "silver_stock_monthly_update_job"]
+SENSORS = ["raw_stock_weekly_update_job_sensor", "raw_stock_monthly_update_job_sensor", "silver_stock_weekly_update_job_sensor", "silver_stock_monthly_update_job_sensor"]
+
+def stamp(value):
+    return datetime.fromtimestamp(value, ZONE).isoformat() if value else None
+
+def version(path):
+    s = path.stat()
+    return [s.st_dev, s.st_ino, s.st_size, s.st_mtime_ns, s.st_ctime_ns]
+
+out = {"observed_at": datetime.now(ZONE).isoformat(), "readonly": True, "target_date": "2026-10-30", "runs": [], "sensors": {}, "files": []}
+daily_path = STAGING / "daily.json"
+before = version(daily_path)
+daily = json.loads(daily_path.read_text())
+out["control"] = {k: daily.get(k) for k in ["completed_through", "factor_through", "last_refresh", "last_source_asof"]}
+out["pending"] = []
+for execution, work in daily.get("pending_work", {}).items():
+    record = {"execution": execution, "frequency": work.get("frequency"), "kind": work.get("kind"), "consumed": work.get("consumed"), "intent": work.get("intent")}
+    run = STAGING / "runs" / execution
+    manifest = run / "manifest.json"
+    if manifest.exists():
+        saved = json.loads(manifest.read_text())
+        record["phase"] = saved.get("phase")
+        record["started_at"] = saved.get("started_at")
+        record["completed_artifacts"] = [name for name in ["build.json", "candidates.json", "complete.json", "committed.json"] if (run / name).exists()]
+    units = []
+    for identity_path in sorted((run / "source").glob("*/identity.json")):
+        identity = json.loads(identity_path.read_text())
+        unit = identity_path.parent
+        active = unit / "active_chain.json"
+        if active.exists():
+            chain = json.loads(active.read_text())["chain"]
+            unit = unit / "chains" / chain
+        result = {"code": identity.get("code"), "freq": identity.get("freq"), "period": identity.get("period"), "complete": (unit / "complete.json").exists(), "unit": str(unit)}
+        if result["complete"]:
+            complete = json.loads((unit / "complete.json").read_text())
+            result.update({k: complete.get(k) for k in ["rows", "minimum_asof", "maximum_asof"]})
+        elif (unit / "0.receipt.json").exists():
+            page = json.loads((unit / "0.receipt.json").read_text())
+            result.update({k: page.get(k) for k in ["rows", "kept_rows", "minimum_asof", "maximum_asof"]})
+            result["captured_at"] = datetime.fromtimestamp(page["captured_at_ns"] / 1e9, ZONE).isoformat()
+        units.append(result)
+    record["source_units"] = units
+    out["pending"].append(record)
+out["control_unchanged_during_read"] = before == version(daily_path)
+
+cfg = yaml.safe_load(Path("/Users/congming/.goldenshare/dagster_home/dagster.yaml").read_text())
+url = cfg["storage"]["postgres"]["postgres_url"]
+if isinstance(url, dict):
+    url = os.environ[url["env"]]
+with closing(psycopg2.connect(url, connect_timeout=3, options="-c default_transaction_read_only=on -c statement_timeout=10000")) as conn, conn.cursor() as cur:
+    conn.set_session(readonly=True)
+    cur.execute("SHOW transaction_read_only")
+    assert cur.fetchone()[0] == "on"
+    for job in JOBS:
+        cur.execute("SELECT run_id,pipeline_name,status,start_time,end_time,run_body FROM runs WHERE pipeline_name=%s ORDER BY id DESC LIMIT 8", (job,))
+        for rid, name, status, start, end, body in cur.fetchall():
+            run = deserialize_value(body)
+            record = {"run_id": rid, "job": name, "status": status, "start": stamp(start), "end": stamp(end), "partition": run.tags.get("dagster/partition"), "parent": run.parent_run_id, "root": run.root_run_id, "config": run.run_config.get("ops", {})}
+            if status in ("FAILURE", "CANCELED"):
+                cur.execute("SELECT id,event FROM event_logs WHERE run_id=%s AND dagster_event_type='STEP_FAILURE' ORDER BY id DESC LIMIT 1", (rid,))
+                failures = []
+                for eid, raw in cur.fetchall():
+                    event = deserialize_value(raw)
+                    error = getattr(event.dagster_event.event_specific_data, "error", None)
+                    failures.append({"id": eid, "at": stamp(event.timestamp), "message": event.message[:500], "error": str(error)[:7000] if error else None})
+                record["failure"] = failures
+            out["runs"].append(record)
+    cur.execute("SELECT status,job_body FROM jobs WHERE job_type='SENSOR' AND job_body LIKE ANY(%s)", (["%" + s + "%" for s in SENSORS],))
+    for status, body in cur.fetchall():
+        state = deserialize_value(body, InstigatorState)
+        if state.name in SENSORS:
+            out["sensors"][state.name] = {"status": status, "cursor": state.instigator_data.cursor}
+    cur.execute("SELECT run_id,pipeline_name,status FROM runs WHERE pipeline_name=ANY(%s) AND status=ANY(%s) ORDER BY id DESC LIMIT 12", (JOBS, ["QUEUED", "NOT_STARTED", "STARTING", "STARTED", "CANCELING"]))
+    out["chain_active_runs"] = cur.fetchall()
+
+with connect_configured_duckdb(DuckDBConnectionSettings(temp_directory=Path("/private/tmp")), temp_policy="existing_no_spill") as con:
+    calendar = silver_trade_calendar_path(ROOT)
+    expected = con.execute("SELECT max(trade_date) FROM read_parquet(?,hive_partitioning=false) WHERE exchange='SSE' AND trade_date BETWEEN DATE '2026-10-01' AND DATE '2026-10-30' AND is_open=true", [str(calendar)]).fetchone()[0]
+    out["expected_source_date"] = expected.isoformat() if expected else None
+    for freq, period in [("week", "2026-10-30"), ("month", "2026-10")]:
+        for layer, helper in [("raw", raw_path), ("silver", target_path)]:
+            path = helper(ROOT, freq, period)
+            result = {"layer": layer, "freq": freq, "period": period, "path": str(path), "exists": path.is_file()}
+            if result["exists"]:
+                first = version(path)
+                names = ["row_count", "min_end_date", "max_end_date", "rows_asof_30", "rows_after_30", "new_stock_rows"]
+                row = con.execute("SELECT count(*),min(end_date),max(end_date),count(*) FILTER(WHERE end_date='20261030'),count(*) FILTER(WHERE end_date>'20261030'),count(*) FILTER(WHERE ts_code='920306.BJ') FROM read_parquet(?,hive_partitioning=false)", [str(path)]).fetchone()
+                result.update(zip(names, row))
+                result["version"] = first
+                result["unchanged_during_read"] = first == version(path)
+            out["files"].append(result)
+
+assert out["control_unchanged_during_read"]
+assert all(f.get("unchanged_during_read", True) for f in out["files"])
+(OUT / "preflight.json").write_text(json.dumps(out, ensure_ascii=False, indent=2, default=str) + "\n")
+print(json.dumps({k: out[k] for k in ["observed_at", "expected_source_date", "control", "pending", "chain_active_runs", "files"]}, ensure_ascii=False, default=str))
+print(json.dumps({"sensor_states": {k: v["status"] for k, v in out["sensors"].items()}, "recent_runs": [{k: r[k] for k in ["run_id", "job", "status", "start", "partition"]} for r in out["runs"] if r["start"] and r["start"] >= "2026-10-29"]}, ensure_ascii=False))

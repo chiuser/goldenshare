@@ -909,7 +909,7 @@ def _validate_candidates(con, pending, freq, cancel, progress, policy, *, fragme
         OR freq IS DISTINCT FROM ? OR trade_date IS NULL
         OR NOT regexp_full_match(trade_date,'[0-9]{{8}}') OR try_strptime(trade_date,'%Y%m%d') IS NULL
         OR (end_date IS NOT NULL AND (NOT regexp_full_match(end_date,'[0-9]{{8}}') OR try_strptime(end_date,'%Y%m%d') IS NULL))),
-        min({PERIOD_SQL}),max({PERIOD_SQL})
+        min({PERIOD_SQL}),max({PERIOD_SQL}),max(try_strptime(end_date,'%Y%m%d')::DATE)
         FROM read_parquet(?,hive_partitioning=false,filename=true) GROUP BY filename""",
         [freq, paths],
         cancel=cancel,
@@ -918,15 +918,17 @@ def _validate_candidates(con, pending, freq, cancel, progress, policy, *, fragme
         policy=policy,
     ).fetchall()
     facts = {
-        path: (count, unique, invalid, first, last)
-        for path, count, unique, invalid, first, last in rows
+        path: (count, unique, invalid, first, last, source_date)
+        for path, count, unique, invalid, first, last, source_date in rows
     }
     if any(file_version(path) != version for path, version in versions.items()):
         raise ValueError("period_validated_candidate_changed")
     result = {}
     for period, path in pending:
         key = str(path)
-        count, unique, invalid, first, last = facts.get(key, (0, 0, 0, None, None))
+        count, unique, invalid, first, last, source_date = facts.get(
+            key, (0, 0, 0, None, None, None)
+        )
         if (
             count != unique
             or invalid
@@ -937,6 +939,7 @@ def _validate_candidates(con, pending, freq, cancel, progress, policy, *, fragme
             "rows": count,
             "version": versions[key],
             "sha256": file_digest(path),
+            "source_asof": source_date.isoformat() if source_date is not None else None,
         }
     return result
 
@@ -1155,7 +1158,7 @@ def publish(item, *, checkpoint, con=None, cancel=lambda: False):
             raise ValueError("period_committed_file_changed")
         if any(
             saved.get(k) != item.get(k)
-            for k in ("rows", "freq", "period", "target", "sha256")
+            for k in ("rows", "freq", "period", "target", "sha256", "source_asof")
         ):
             raise ValueError("period_checkpoint_identity_changed")
         with _AUDIT_LOCK:

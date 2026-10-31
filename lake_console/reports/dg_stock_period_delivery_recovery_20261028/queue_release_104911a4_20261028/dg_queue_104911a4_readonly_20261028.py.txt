@@ -1,0 +1,40 @@
+"""Read only current queue, active run metadata, concurrency claims and daemon heartbeat."""
+import json
+import os
+from contextlib import closing
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+import psycopg2
+import yaml
+from dagster._serdes import deserialize_value
+from dagster._daemon.types import DaemonHeartbeat
+
+zone=ZoneInfo('Asia/Shanghai')
+def at(t):return datetime.fromtimestamp(t,zone).isoformat() if t else None
+cfg=yaml.safe_load(Path('/Users/congming/.goldenshare/dagster_home/dagster.yaml').read_text())
+url=cfg['storage']['postgres']['postgres_url']
+if isinstance(url,dict):url=os.environ[url['env']]
+out={'observed_at':datetime.now(zone).isoformat(),'read_only':True,'concurrency_config':cfg.get('concurrency'),'run_monitoring_config':cfg.get('run_monitoring')}
+with closing(psycopg2.connect(url,connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn,conn.cursor() as c:
+    conn.set_session(readonly=True)
+    c.execute("SELECT status,count(*) FROM runs WHERE status=ANY(%s) GROUP BY status",(['QUEUED','NOT_STARTED','STARTING','STARTED','CANCELING'],))
+    out['nonterminal_status_counts']=dict(c.fetchall())
+    c.execute("SELECT run_id,pipeline_name,status,start_time,end_time FROM runs WHERE status=ANY(%s) ORDER BY id DESC LIMIT 20",(['STARTING','STARTED','CANCELING'],))
+    out['active_runs']=[{'run_id':rid,'job':job,'status':state,'started_at':at(start),'ended_at':at(end)} for rid,job,state,start,end in c.fetchall()]
+    c.execute("SELECT pipeline_name,count(*) AS jobs FROM runs WHERE status='QUEUED' GROUP BY pipeline_name ORDER BY jobs DESC LIMIT 20")
+    out['queue_counts_by_job']=dict(c.fetchall())
+    c.execute("SELECT run_id,pipeline_name,create_timestamp FROM runs WHERE status='QUEUED' ORDER BY id ASC LIMIT 5")
+    out['oldest_five_queued']=[{'run_id':rid,'job':job,'created_at_storage':str(created)} for rid,job,created in c.fetchall()]
+    c.execute('SELECT daemon_type,body FROM daemon_heartbeats ORDER BY daemon_type')
+    out['daemon_heartbeats']=[]
+    for kind,body in c.fetchall():
+        heartbeat=deserialize_value(body, DaemonHeartbeat)
+        out['daemon_heartbeats'].append({'type':kind,'last_heartbeat':at(heartbeat.timestamp),'error_count':len(heartbeat.errors or [])})
+    c.execute('SELECT run_id,concurrency_key,step_key FROM concurrency_slots WHERE run_id IS NOT NULL LIMIT 20')
+    out['claimed_slots']=[{'run_id':rid,'pool':key,'step_key':step} for rid,key,step in c.fetchall()]
+    c.execute('SELECT concurrency_key,"limit" FROM concurrency_limits ORDER BY concurrency_key LIMIT 30')
+    out['pool_limits']=dict(c.fetchall())
+p=Path('/private/tmp/dg_queue_104911a4_readonly_20261028.json')
+p.write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps(out,ensure_ascii=False))

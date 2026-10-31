@@ -1,0 +1,76 @@
+{
+  "at": "2026-10-29T00:20:48.871045+08:00",
+  "raw_run_id": "08b25eaf-c4c7-491f-9f71-77455d9fda11",
+  "runs": [
+    {
+      "run_id": "08b25eaf-c4c7-491f-9f71-77455d9fda11",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "STARTED",
+      "started_at": "2026-10-29T00:20:07.913513+08:00",
+      "ended_at": null,
+      "parent_run_id": "104911a4-e1fa-4a42-a8ad-cd55a7b0dedf",
+      "root_run_id": "104911a4-e1fa-4a42-a8ad-cd55a7b0dedf",
+      "partition": "2026-10",
+      "ops_config": {
+        "raw_tushare_stk_period_bar_adj_month": {
+          "automatic_intent_date": "2026-10-28",
+          "intent": "daily",
+          "request_id": null,
+          "stock_codes": []
+        }
+      },
+      "event_counts": {
+        "ASSET_CHECK_EVALUATION": 690,
+        "ASSET_MATERIALIZATION_PLANNED": 1,
+        "RESOURCE_INIT_STARTED": 1,
+        "PIPELINE_ENQUEUED": 1,
+        "LOGS_CAPTURED": 1,
+        "ENGINE_EVENT": 2,
+        "ASSET_CHECK_EVALUATION_PLANNED": 3,
+        "PIPELINE_START": 1,
+        "PIPELINE_STARTING": 1,
+        "STEP_START": 1,
+        "RESOURCE_INIT_SUCCESS": 1
+      },
+      "last_events": [
+        {
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-29T00:20:48.692997+08:00",
+          "message": ""
+        },
+        {
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-29T00:20:48.639412+08:00",
+          "message": ""
+        }
+      ]
+    }
+  ],
+  "current_active": [
+    {
+      "run_id": "08b25eaf-c4c7-491f-9f71-77455d9fda11",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "STARTED",
+      "started_at": "2026-10-29T00:20:07.913513+08:00"
+    }
+  ],
+  "sensors": {
+    "silver_stock_weekly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"schema_version\":1,\"after\":7757279,\"decision\":\"silver_run_active\",\"evaluated_at\":\"2026-10-29T00:20:09.832443+08:00\"}"
+    },
+    "silver_stock_monthly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"schema_version\":1,\"after\":7763890,\"decision\":\"silver_run_active\",\"evaluated_at\":\"2026-10-29T00:20:39.436328+08:00\"}"
+    }
+  },
+  "raw_control": {
+    "phase": "files_complete",
+    "pending_count": 1,
+    "factor_through": "2026-10-28",
+    "last_refresh": {
+      "month": "2026-10-28",
+      "week": "2026-10-27"
+    }
+  }
+}

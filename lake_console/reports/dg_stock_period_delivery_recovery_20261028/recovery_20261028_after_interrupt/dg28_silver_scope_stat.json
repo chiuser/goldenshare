@@ -1,0 +1,43 @@
+{
+  "observed_at": "2026-10-29T00:00:44.426858+08:00",
+  "execution_id": "ecd358c33a8dfeeb073fb881d93c4c70a1a4ab61033a8df7ef48ee746eeda7ae",
+  "scope": {
+    "month": {
+      "count": 154,
+      "first_period": "2014-01",
+      "last_period": "2026-10",
+      "source_rows": 606370,
+      "raw_bytes": 50375136,
+      "existing_silver_files": 154,
+      "silver_bytes": 33103454,
+      "largest_raw_bytes": 478435,
+      "largest_silver_bytes": 313847
+    },
+    "week": {
+      "count": 658,
+      "first_period": "2014-01-03",
+      "last_period": "2026-10-30",
+      "source_rows": 2543279,
+      "raw_bytes": 210008763,
+      "existing_silver_files": 658,
+      "silver_bytes": 137665356,
+      "largest_raw_bytes": 468531,
+      "largest_silver_bytes": 309293
+    }
+  },
+  "references": {
+    "stock_basic": {
+      "path": "/Volumes/datasource/data_lake/silver/basic/stock_basic/full/part-000.parquet",
+      "bytes": 421187
+    },
+    "identity_map": {
+      "path": "/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet",
+      "bytes": 103202
+    },
+    "lifecycle": {
+      "path": "/Volumes/datasource/data_lake/silver/basic/stock_lifecycle/full/part-000.parquet",
+      "bytes": 131539
+    }
+  },
+  "method": "Existing complete.json + exact selected file stat only; no Parquet body/hash read."
+}

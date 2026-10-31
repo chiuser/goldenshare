@@ -1,0 +1,26 @@
+{
+  "files": [
+    {
+      "path": "/private/tmp/dg28_recovery_preflight.py",
+      "archive": "/Users/congming/github/goldenshare/lake_console/reports/dg_stock_period_delivery_recovery_20261028/recovery_20261028_after_interrupt/dg28_recovery_preflight.py.txt",
+      "bytes": 4266,
+      "verified_equal": true,
+      "deleted": true
+    },
+    {
+      "path": "/private/tmp/dg28_recovery_watch.py",
+      "archive": "/Users/congming/github/goldenshare/lake_console/reports/dg_stock_period_delivery_recovery_20261028/recovery_20261028_after_interrupt/dg28_recovery_watch.py.txt",
+      "bytes": 4618,
+      "verified_equal": true,
+      "deleted": true
+    },
+    {
+      "path": "/private/tmp/dg28_recovery_final_verify.py",
+      "archive": "/Users/congming/github/goldenshare/lake_console/reports/dg_stock_period_delivery_recovery_20261028/recovery_20261028_after_interrupt/dg28_recovery_final_verify.py.txt",
+      "bytes": 9116,
+      "verified_equal": true,
+      "deleted": true
+    }
+  ],
+  "business_staging_or_data_deleted": false
+}

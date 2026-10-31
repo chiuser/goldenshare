@@ -1,0 +1,14 @@
+{
+  "docs_integrity": "passed",
+  "changed_docs_whitespace": "passed",
+  "local_report_links_checked": 5,
+  "json_files_parsed": 16,
+  "independent_final_evidence_review": "passed",
+  "native_data_jobs_success": 3,
+  "raw_events_closeout_exit_code": 0,
+  "source_notices_consumed": 2,
+  "business_pending": 0,
+  "temporary_helpers_removed": 3,
+  "business_staging_preserved": true,
+  "new_code_or_dependency_changes": false
+}

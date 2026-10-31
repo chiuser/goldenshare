@@ -1,0 +1,47 @@
+"""Read one run's current state and a bounded set of recent log messages."""
+import json
+import os
+from contextlib import closing
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import psycopg2
+import yaml
+from dagster._serdes import deserialize_value
+
+zone=ZoneInfo('Asia/Shanghai')
+def at(t):return datetime.fromtimestamp(t,zone).isoformat() if t else None
+config=yaml.safe_load(Path('/Users/congming/.goldenshare/dagster_home/dagster.yaml').read_text())
+url=config['storage']['postgres']['postgres_url']
+if isinstance(url,dict):url=os.environ[url['env']]
+out={'observed_at':datetime.now(zone).isoformat(),'runs':[],'readonly':True}
+with closing(psycopg2.connect(url,connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn,conn.cursor() as c:
+    conn.set_session(readonly=True)
+    c.execute('SELECT run_id,pipeline_name,status,start_time,end_time,run_body FROM runs WHERE run_id LIKE %s ORDER BY id DESC LIMIT 3',('104911a4%',))
+    rows=c.fetchall();assert len(rows)==1, len(rows)
+    for rid,job,status,start,end,body in rows:
+        run=deserialize_value(body)
+        record={'run_id':rid,'job':job,'status':status,'started_at':at(start),'ended_at':at(end),'elapsed_seconds':round((end or datetime.now().timestamp())-start,1) if start else None,'tags':{k:v for k,v in run.tags.items() if k in ('dagster/partition','dagster/sensor_name','dagster/parent_run_id','dagster/root_run_id','dagster/run_key')},'ops_config':{}}
+        allowed={'trade_date','start_date','end_date','freq','mode','intent','automatic_intent_date','execution_id','request_id','as_of','as_of_date','stock_codes','frequency','target_date','year','parent_execution_id'}
+        for op,data in run.run_config.get('ops',{}).items():
+            cfg=data.get('config',{})
+            record['ops_config'][op]={k:({'count':len(v),'sample':v[:3]} if isinstance(v,list) else v) for k,v in cfg.items() if k in allowed}
+        for name,order,limit in (('first_events','ASC',5),('recent_events','DESC',30)):
+            c.execute(f'SELECT id,dagster_event_type,event FROM event_logs WHERE run_id=%s ORDER BY id {order} LIMIT %s',(rid,limit))
+            events=[]
+            for identifier,kind,raw in c.fetchall():
+                e=deserialize_value(raw)
+                item={'storage_id':identifier,'type':kind,'at':at(e.timestamp),'step':getattr(e,'step_key',None),'message':e.message[:1600]}
+                if e.dagster_event:
+                    data=e.dagster_event.event_specific_data
+                    metadata=getattr(data,'metadata',{})
+                    item['metadata']={k:v.value for k,v in metadata.items() if not any(word in k.lower() for word in ('token','password','secret'))}
+                events.append(item)
+            record[name]=events
+        out['runs'].append(record)
+path=Path('/private/tmp/dg_run_104911a4_readonly_20261028.json')
+path.write_text(json.dumps(out,ensure_ascii=False,indent=2,default=str)+'\n')
+for run in out['runs']:
+    print(json.dumps({k:v for k,v in run.items() if k not in ('first_events','recent_events')},ensure_ascii=False))
+    print(json.dumps({'first_events':run['first_events'],'recent_events':run['recent_events'][:12]},ensure_ascii=False,default=str))

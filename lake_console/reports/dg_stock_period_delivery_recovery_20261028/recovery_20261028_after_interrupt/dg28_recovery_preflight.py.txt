@@ -1,0 +1,57 @@
+"""Approved LLD12.20 bounded native/control preflight; no instance initialization or data writes."""
+import json
+import os
+import shutil
+from contextlib import closing
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+import psycopg2
+import yaml
+from dagster._serdes import deserialize_value
+from dagster._core.scheduler.instigation import InstigatorState
+
+ROOT=Path('/Users/congming/github/goldenshare')
+REPORT=ROOT/'lake_console/reports/dg_stock_period_delivery_recovery_20261028/recovery_20261028_after_interrupt'
+STAGING=Path('/Volumes/datasource/data_lake_staging/stock_period')
+EXECUTION='ecd358c33a8dfeeb073fb881d93c4c70a1a4ab61033a8df7ef48ee746eeda7ae'
+PARENT='104911a4-e1fa-4a42-a8ad-cd55a7b0dedf'
+zone=ZoneInfo('Asia/Shanghai')
+daily=json.loads((STAGING/'daily.json').read_text())
+manifest=json.loads((STAGING/'runs'/EXECUTION/'manifest.json').read_text())
+complete=json.loads((STAGING/'runs'/EXECUTION/'complete.json').read_text())
+assert manifest['phase']=='files_complete' and daily['pending_work'][EXECUTION]['consumed'] is True
+assert manifest['identity']['intent']['asof']=='2026-10-28'
+assert len(complete['files'])==1254
+item=next(x for x in complete['files'] if x['freq']=='month' and x['period']=='2026-10')
+t=Path(item['target']).stat()
+assert [t.st_dev,t.st_ino,t.st_size,t.st_mtime_ns,t.st_ctime_ns]==item['version']
+out={'at':datetime.now(zone).isoformat(),'target_date':'2026-10-28','raw_execution_id':EXECUTION,'phase':manifest['phase'],'pending_count':len(daily['pending_work']),'consumed':True,'raw_current_month_version_unchanged':True,'file_count':len(complete['files']),'free_bytes':shutil.disk_usage(STAGING).free}
+assert out['free_bytes']>1024**3
+cfg=yaml.safe_load(Path('/Users/congming/.goldenshare/dagster_home/dagster.yaml').read_text())
+url=cfg['storage']['postgres']['postgres_url']
+if isinstance(url,dict):url=os.environ[url['env']]
+jobs=['raw_stk_period_bar_adj_week_update_job','raw_stk_period_bar_adj_month_update_job','silver_stock_weekly_update_job','silver_stock_monthly_update_job']
+sensors=['silver_stock_weekly_update_job_sensor','silver_stock_monthly_update_job_sensor']
+with closing(psycopg2.connect(url,connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn,conn.cursor() as c:
+    conn.set_session(readonly=True)
+    c.execute('SELECT status,run_body FROM runs WHERE run_id=%s',(PARENT,))
+    state,body=c.fetchone();run=deserialize_value(body)
+    op=run.run_config['ops']['raw_tushare_stk_period_bar_adj_month']['config']
+    assert state=='CANCELED' and op['automatic_intent_date']=='2026-10-28' and op['intent']=='daily' and op['stock_codes']==[]
+    assert run.tags['dagster/partition']=='2026-10'
+    out['parent']={'run_id':PARENT,'status':state,'job':run.job_name,'config':op,'partition':run.tags['dagster/partition']}
+    c.execute("SELECT run_id,pipeline_name,status FROM runs WHERE pipeline_name=ANY(%s) AND status=ANY(%s) ORDER BY id DESC LIMIT 12",(jobs,['QUEUED','NOT_STARTED','STARTING','STARTED','CANCELING']))
+    out['chain_active_runs']=[{'run_id':rid,'job':job,'status':s} for rid,job,s in c.fetchall()]
+    assert not out['chain_active_runs'],'existing_chain_run_must_be_followed'
+    c.execute("SELECT r.run_id,r.status FROM runs r JOIN run_tags t ON r.run_id=t.run_id WHERE t.key='dagster/root_run_id' AND t.value=%s ORDER BY r.id DESC LIMIT 3",(PARENT,))
+    out['existing_children']=c.fetchall();assert not out['existing_children'],'existing_child_must_be_followed'
+    c.execute("SELECT status,job_body FROM jobs WHERE job_type='SENSOR' AND job_body LIKE ANY(%s)",(['%'+s+'%' for s in sensors],))
+    out['sensors']={}
+    for status,body in c.fetchall():
+        s=deserialize_value(body,InstigatorState)
+        if s.name in sensors:out['sensors'][s.name]={'status':status,'cursor':s.instigator_data.cursor}
+    assert set(out['sensors'])==set(sensors) and all(v['status']=='RUNNING' for v in out['sensors'].values())
+(REPORT/'execution-preflight.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({k:v for k,v in out.items() if k!='sensors'},ensure_ascii=False))
+print(json.dumps({'sensor_states':{k:v['status'] for k,v in out['sensors'].items()}},ensure_ascii=False))

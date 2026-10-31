@@ -1,5 +1,7 @@
 # DG 周/月Raw更新、完整性审计与Silver生成共享 LLD v1
 
+**2026-10-31跨日日期修正已完成开发和隔离验收：** 当前实现规则及463项不重复用例结果见§12.22，新增28项；原任务身份保留，Silver使用逐文件实际来源范围，下载、水位、21列及原检查不改。本轮修改随本次提交保存，未正式补数；28日各项结果保留为历史，不表示29/30日已经补齐。
+
 **本轮补修完成（2026-10-28，开发、隔离验收及独立审计完成，随本次提交保存）：** 已修正来源未变时原ID被旧FAILURE/CANCELED挡住、未完成误入recover的两项遗漏。最终305项普通case及另518个subtest通过，两名非作者分别核对代码/消费者与逐case证据，无阻断；完整对账见§12.18.6。来源变化继续原恢复流程及其既有成本，不能将本轮等待分支的0预算扩展到全部tick。27日已完成补数保持原状，未部署、未操作正式资源。
 
 **上轮开发及隔离结果（历史）：** 周/月Silver sensor区分恢复方案建立与文件处理完成的修复已有281项普通case通过，另有518个subtest，详见§12.17.6。通过记录保留，但撤回“全部硬口径已覆盖、该问题已全部收尾”的结论；这些测试没有证明本轮遗漏组合。该轮未部署、未触发正式job、未重载正式code location或执行正式definitions验证，未操作正式instance、Lake、sensor或cursor。
@@ -2208,3 +2210,171 @@ helper和confirm内部共用现有read_recovery_evidence，在已有recovery_evi
 **证据与清理。** 原报告目录已保留约139KB的original_silver_recovery_results.json，含修复前后逐case、实际argv/环境、失败片段、成本断言、指纹、独立审计与清理记录。已精确删除并确认不存在：/private/tmp/dg-silver-original-recovery-cr7oen9c、/private/tmp/stock-suspend-isolated-ca2x9x6n、/private/tmp/stock-suspend-isolated-hbxhmwmj；清理前合计24,745个普通文件、30,490,844字节，约29.08MiB，小于1GiB估算。该数是清理前留存统计，不是累计IO或峰值；没有复制完整临时SQLite/Parquet或大日志，没有清共享环境或上轮证据。
 
 本轮开发、隔离验收及独立审计已完成，修改随本次提交保存，提交号以Git记录为准；未推送。未触发正式job、补数、正式definitions验证、发布/重载，未操作正式instance、Lake、staging、sensor或cursor；27日已完成补数保持原状。隔离证据不代表正式已上线或正式调度验收。
+
+
+<a id="period-lost-run-queue-release-lld"></a>
+
+### 12.19 仅结束失去进程的run以恢复队列（已获准，结果另记）
+
+对应总方案§10.10。目标仅run `104911a4-e1fa-4a42-a8ad-cd55a7b0dedf`的原生任务终态，不修改月Raw/Silver业务逻辑或文件。只读证据为`/private/tmp/dg_run_104911a4_status_summary_20261028.json`及`/private/tmp/dg_queue_104911a4_readonly_20261028.json`。截至23:03，STARTED1、QUEUED15、max_concurrent_runs=1、pool粒度run、实际claimed slots0、全部daemon心跳正常；原PID68394不存在。旧状态占用全局名额，不是仍有计算进程占CPU。manifest为files_complete，complete列1015周/239月，daily.pending保留；不据此宣称已完成事件确认或全部原检查。
+
+**实现及正式入口依据。** 已安装`dagster_graphql/schema/roots/mutation.py`的GrapheneTerminateRunPolicy/GrapheneTerminateRunMutation、`implementation/execution/__init__.py`的terminate_pipeline_execution/_force_mark_as_canceled已逐项核对。强制策略先尝试coordinator.cancel_run，异常被记录后仍调用report_run_canceled；不会调用asset、Parquet writer、删除源/候选或重建数据。终态CANCELED不在ACTIVE_RUN_STATUSES，QueuedRunCoordinator下一轮按原max_concurrent_runs计算名额；run粒度pool也不另claim步骤槽位。保持run key、配置、父子关系及既有完成证据原样，不使用SDK手工FAILURE来触发失败重试判断，不调用freeConcurrencySlots。
+
+**动作顺序与边界。** 先在只读连接复核精确run的状态、原PID及最后事件，没有新worker/续跑迹象；如已终态则只读验收。如进程仍在或状态与证据冲突，停止报告。获管理员明确批准后，从工作目录`/Users/congming/github/goldenshare/lake_console/orchestrator`，针对原`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`的正式服务`http://127.0.0.1:3000`，只提交一次以下mutation：
+
+~~~graphql
+mutation CloseLostRun($runId: String!) {
+  terminateRun(runId: $runId, terminatePolicy: MARK_AS_CANCELED_IMMEDIATELY) {
+    __typename
+    ... on TerminateRunSuccess { run { runId status } }
+    ... on TerminateRunFailure { message }
+    ... on RunNotFoundError { runId }
+    ... on PythonError { message }
+  }
+}
+~~~
+
+变量唯一为`{"runId":"104911a4-e1fa-4a42-a8ad-cd55a7b0dedf"}`。命令使用现有`.venv/bin/dagster-graphql --remote http://127.0.0.1:3000 --file /private/tmp/dg_close_lost_104911a4_20261028.graphql --variables <上述JSON>`；捕获stdout并解析保存响应，不使用直写SQL/初始化instance，不加进程/内存/网络超时配置。接口可能尝试联系旧gRPC入口；无响应或CLI异常时先读原run，不盲重发。原CLI、资源和依赖不变。
+
+**检查与验收。** 本步无业务代码开发，不以正式资源作测试。平台合同以本机1.13.26源码和Dagster官方GraphQL/运行监控文档核验；实际状态操作需获准后才可称执行。响应应为TerminateRunSuccess且精确run CANCELED；再只读核状态及取消事件。随后在原队列节奏内检查排队任务开始进入STARTING/STARTED、心跳正常、全局并发仍1，不要求15个业务job全部成功。现无pool占用，不额外释放；如后续仍不推进，只读定位并报告，不改开关/调并发/重启服务。队列自然启动已有任务属本次预期影响，不增加手工任务。月Raw收尾另按原断点和本次具体历史范围再核定，不混入本操作。
+
+**预算及失败恢复。** 与总方案一致，正常读取4MiB、写入1MiB、额外空间2MiB；一次不确定响应后的核验另预留读2MiB/写1MiB。只读取任务/队列、进程和小型报告，不读写Parquet、全历史或重做统计；保持所有正式结果/业务staging和daily.pending。取消事件一旦成功保留，不尝试把旧run改回STARTED，不取消其他run或改写其事件。原run记录和本轮请求/响应/队列快照保留；仅可清理本轮已归档的辅助脚本。管理员随后明确回复“马上执行”，本步精确状态收尾已获准；执行结果和原队列恢复证据在下节记录。
+
+
+#### 12.19.1 已批准执行结果：旧run结束，原队列恢复
+
+管理员明确回复“马上执行”后，先再次查询原run及原PID。原进程68394连续两次精确`ps -p`无进程行、退出码1；原run已在23:09:59留下PIPELINE_CANCELING，本次执行前状态为CANCELING。该取消中事件先于本次mutation存在，不能算作本次新提交；没有新worker或业务进度，最后业务check仍为19:33:00。
+
+2026-10-28 23:12:03只通过原正式GraphQL提交一次精确run的MARK_AS_CANCELED_IMMEDIATELY，响应TerminateRunSuccess/CANCELED。安装版对CANCELING不再进入coordinator.cancel_run分支，本次直接补原生取消终态，没有再次请求或重启旧执行器。数据库读回run终态CANCELED、ended_at=23:12:03.157705，新增取消事件storage_id=7774305，run ID准确一致。没有直写SQL状态、手工job、并发/pool/sensor/cursor修改或正式Lake数据操作。
+
+队列自然恢复：23:12:06原排队15降14，原队首ab9d6a45-3693-4729-9b31-edda681da85f的stock_mins_silver_update_job进入STARTING；23:13:46再读排队已降至7，当前raw_tushare_moneyflow_ind_ths_update_job的5c8c618c-baaa-4f32-8983-63ad056ab830自23:13:29起STARTED。全局并发仍1，步骤槽位仍空，daemon心跳正常。本步只证明队列恢复调度，不把队列减少量当作全部业务数据成功数，也不等待其余任务全部完成。
+
+月Raw原files_complete、1015周/239月文件及续跑依据保留，本步未完成其事件确认、原生检查和Silver交接，不能销掉该数据待办。后续若需恢复此链，仍按原断点和本次具体范围核定；不因队列恢复就自动重跑。当前月Raw交付未完成与其他已有队列任务继续执行分开记录。
+
+请求、响应、执行前/后run及队列快照、只读辅助源码和结果存[本轮执行证据](../../reports/dg_stock_period_delivery_recovery_20261028/queue_release_104911a4_20261028/result.json)。本次只读预算内的元数据核验和一次状态事件写入，无Parquet正文读取、无历史重算。独立复核确认请求精确、状态和队列恢复证据一致，取消中事件归属已明确；文档验证另记同目录validation.json。未提交或部署代码。
+
+
+#### 12.19.2 仅只读追因：旧执行退出后未被新服务收尾
+
+管理员要求追查本次长时间占用，已只读核对原日志、进程/启动历史、对应41秒系统退出事件及安装版1.13.26源码。终端历史明确19:33:30执行原lake-dg-start，当前DG主进程同秒启动；原daemon日志最后19:32:57、原run最后业务事件19:33:00，旧PID68394已无，且没有原生成功/失败/取消终态。旧服务维护的_executions只在内存，新服务不继承；DefaultRunLauncher未实现worker健康检测，monitor_started_run在supports_check_run_worker_health=False时跳过。因此新daemon虽正常运行，遗留STARTED仍计入全局并发1，直到本轮获准的取消终态才释放。
+
+本项目local_startup在依赖/端口检查后exec为dg dev，没有启动时的遗留活动run核对。正常SDK代码位置重载是优雅关闭、等待执行完成；不能把上述新启动直接解释成正常代码位置重载杀掉worker。本次未找到旧进程的退出信号/动作来源，也未找到19:33对应崩溃或内存终止报告；具体退出方式未证实，不猜测为内存超限或某个操作者强杀。
+
+[只读追因报告](../../reports/dg_stock_period_delivery_recovery_20261028/queue_release_104911a4_20261028/root_cause_readonly.md)保存时间线、小型原始证据和代码位置。长时间队列阻塞的状态收尾缺口已确认；后续若整改停止/启动保护、遗留状态核对，须另行完善方案和LLD并获准，不在本次读取中改代码/配置或继续补月Raw。
+
+
+<a id="period-28-resume-lld"></a>
+
+### 12.20 恢复28日原月Raw及两频Silver：操作细节（具体历史范围已获准）
+
+对应总方案§10.11。目标授权来自管理员“推进，把今天的这个数据集补完整”；日期冻结2026-10-28，跨到29日不变。本节无开发、无新配置/资源限额。统计依据仅原complete.json、相关源控制回执和选中目标stat，见[精确范围](../../reports/dg_stock_period_delivery_recovery_20261028/recovery_20261028_after_interrupt/dg28_silver_scope_stat.json)。本次具体历史读取未经批准前，不提交会产生两频Silver通知的Raw恢复。
+
+**当前实现及恢复准入。** 安装Dagster1.13.26的KnownExecutionState.build_resume_retry_reexecution接受FAILURE/CANCELED，仅STEP_START而无终态视为interrupted；原月job选择asset及三blocking checks，FROM_FAILURE恢复中断asset和未完成checks。原run104911a4已CANCELED，原配置automatic_intent_date=2026-10-28、intent=daily、stock_codes=[]；不重新选股票或业务ID。当前stock_period_update的files_complete/consumed路径恢复原交付，不调用_daily_work、factor_changes、源请求、历史COPY或Raw替换；load_scope仍读股票基础及身份映射，原当前月native checks仍需实际验证。replay_events给已验文件注入版本缓存后补缺事件，未完成真实原生check仍须原job，禁止手填通过。
+
+**精确读写范围。** Raw只收尾原ecd358…da7ae的1254文件交付、当前2026-10锚点原生物化及三checks，不重生成已完成1254份Parquet。原21字段和价格不变。Silver由原completion选择，按原2014起界限得到：month154（2014-01—2026-10、源606370行、Raw50,375,136B）、week658（2014-01-03—2026-10-30、源2543279行、Raw210,008,763B）。这不是只更新10月，亦非全Raw239月/1015周照收；原selector负责范围，无人工名单。旧Silver仅stat/归属检查，不读正文作合并。正常每重建周期Raw21列读取一次、COPY一次、候选21列校验一次、提升后footer一次；单连接加载参考后整job复用，正常原生三checks共用缓存。冷进程仅额外锚点Raw/Silver及参考一轮，不全批重读。
+
+Raw参考投影为stock_basic的ts_code/list_status/curr_type、identity_map的source_ts_code/latest_ts_code/confidence；Silver生命周期ts_code/list_status/list_date/delist_date/is_cny_stock五列及身份映射三列。现参考文件421187B/103202B/131539B，允许原job完整投影读取，不能把参考读漏算成0。无Prod、日线、停牌、因子或新Tushare请求。正式Lake仍唯一/Volumes/datasource/data_lake，Silver目标quote/stock_weekly和quote/stock_monthly的上述周期；全部候选和控制记录仍原/Volumes/datasource/data_lake_staging。
+
+**顺序、参数和失败规则。**
+
+1. 获具体范围批准后，只读确认原run配置/父子身份、原phase/consumed/范围摘要、引用版本、无冲突写者、当前两Silver sensor状态及对应活动run。已有实际执行跟踪原run，原通知已消费则验收复用，不重复提交。原sensor/cursor/并发及资源配置保持，不做正式reload或服务重启。
+2. 通过现有`.venv/bin/dagster-graphql --remote http://127.0.0.1:3000 --file <本轮请求> --variables <JSON>`，用§12.8原launchRunReexecution，只提交一次parentRunId=104911a4-e1fa-4a42-a8ad-cd55a7b0dedf、strategy=FROM_FAILURE、useParentRunTags=true，不加extraTags，不改runConfig。原意图28日/月分区2026-10随父继承；SDK生成新parent/root关系，原CANCELED记录不改。
+3. 跟踪原asset及三原生checks，核同分区、原新文件版本和正确Mat绑定；本批其他交付按原完整清单确认。即使phase仍files_complete，也不得用checks-only跳过未成功asset，不重跑apply/resume生成文件。
+4. 由原week/month通知和原sensor生成原silver_stock_weekly_update_job、silver_stock_monthly_update_job；按原队列逐job推进，两层依赖先Raw再Silver，不加新run key或手工猜execution_id。每tick最多原1通知/请求，名单/日期由job生成。本次明确纳入两频通知导致的历史更新。若sensor要求原显式恢复，先核冻结原execution/parent及真实文件进度，再复用原job已有resume_from_execution_id方式，不能临时开发、手写CP或无限重试。
+5. Raw原生检查完成后，如原pending尚未关闭，仅按§12.11原events入口对同一ecd358…da7ae确认：`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python3 -B -m orchestrator.defs.bootstrap.stock_period_history_cli events --lake-root /Volumes/datasource/data_lake --staging-root /Volumes/datasource/data_lake_staging --run-id ecd358c33a8dfeeb073fb881d93c4c70a1a4ab61033a8df7ef48ee746eeda7ae`。该步骤只核原回执/真实检查后ack，0新源/0历史重算；不借此补缺的真实失败check或换日期。
+6. 任一原job/检查/身份/日期或归属失败，保留已正式提交文件及全部源/CP/receipt，停止后续手工操作、报告已自动开始的任务，不自动重跑或提高资源。响应不确定先查原run。中断余项只能依原CP续跑，不整批重新读取已完成输出。现有CANCELED当日key不自动换key重跑，不把正常29日任务拿来冒充28日修复。
+
+**预算、验收及结果。** 两频已有Raw约248.32MiB、旧Silver约162.86MiB；正常读768MiB/写384MiB/空间512MiB。含一次必要中断后仅余项恢复、冷锚点checks及唯一最后收尾，总读2GiB/写1GiB/额外空间1GiB，含元数据及DB事件开销；不是外部运行限额。预算不授权重复整批重算或任意重试。验收复用完整manifest/逐期CP/真实Mat和三checks，核来源版本、文件计数/行数及两Silver cursor消费/无pending；仅对当前月必要统计核新版本，不另做全湖或年度深扫。原当月end_date较早的2211行不强改、不直接认定缺失；源回执原本混合12—28日，原排除1行后5575行与正式Raw吻合。若要另查源站是否后续更新，需先说明新范围，本轮不重下源伪造原批结果。
+
+本步已完成当前代码/平台和范围审计，不需要新开发或性能测试；正式job结果在获具体读取批准并执行后另记。准备不代表执行通过，旧27日批准不覆盖本节28日读取。
+
+
+管理员已明确选择“批准，按此范围恢复”，授权本节28日原任务及154个月/658周Silver、必要参考读取和含余项续跑收尾的读2GiB/写1GiB/空间1GiB预算。执行日期已为29日，原意图28日不变；正式结果另记，不以批准代替成功。
+
+
+#### 12.20.1 28日原任务恢复及两频Silver执行完成（29日凌晨）
+
+按本节获准范围仅提交一次原月Raw的FROM_FAILURE，子run08b25eaf-c4c7-491f-9f71-77455d9fda11，10月29日00:20:07—00:21:51 SUCCESS，parent/root仍104911a4，原28日意图/10月分区/原参数保持，无RSS额外标签。恢复补齐剩余1806条原检查事件并完成当前锚点真实物化/三checks；原1254个Raw文件当前版本与旧complete全部一致，本轮0新下载/0 Raw重写。原events控制入口执行一次成功，phase=events_complete、原pending=0；没有手填状态或刷绿。
+
+原通知自动生成原周Silver de5acd12-5a5e-4fc1-834a-a1c3050fdaca（00:22:24—00:24:11）与月Silver5a20903d-1bf0-4e52-ad9b-0c52a0709800（00:24:50—00:25:22），两者均SUCCESS。周658周期/2519597行/1974检查，月154周期/595228行/462检查，合812文件/3114825行/2436检查。每个实际unit的committed CP、events回执和正式stat版本吻合；两个源引用均绑定原ecd358批及同一回执hash。原通知7778143（周）/7778142（月）均被两sensor确认，after已越过、pending均无。四sensor仍RUNNING，不改cursor或原并发。
+
+00:26完成唯一最终对账：2026-10月Raw/Silver均5575行，Silver的source_version精确等当前Raw，最新物化对应实际文件、六项最新原检查各绑定本层新物化；两文件max(end_date)=28日、3364行end_date为28。其余2211行保留原源较早值，不把最大日期当全部股票新鲜度。daily.factor_through=28、month.last_refresh=28；week.last_refresh仍27，因为本次是月任务联动历史，不冒称28日独立周Raw日更完成。已闭合周23日/月9月不提前关闭当前周期。
+
+[本轮执行与证据](../../reports/dg_stock_period_delivery_recovery_20261028/recovery_20261028_after_interrupt/README.md)保存请求/响应、原控制收尾、进度、最终回执和当前月统计。沿原最终验收程序仅调整实际ID/日期，原模板three notices文字按本轮实际two修正，不改变事实数字或重验行情。final verifier中的formal_mutations=0只描述该只读程序，不把整轮Silver正式写入说成0；Raw commit_operations1254指原批次，不是本轮重写。独立复核通过；本轮三份临时辅助源码逐字归档后删除，业务staging及正式成果保留。无代码/配置/依赖/部署变更，文档和证据验证另存validation.json。
+
+<a id="period-29-30-preflight"></a>
+
+### 12.21 31日恢复准入：29日意图与30日来源的日期冲突
+
+对应总方案§10.12。本轮仅完成已获准的定点只读核验，发现冲突即停止，尚未修改业务代码或执行正式恢复；不是可直接编码的完整修正LLD。结果和完整原始证据唯一见[本轮记录](../../reports/dg_stock_period_delivery_recovery_20261028/recovery_20261031_preflight/README.md)。
+
+**当前事实。** 31日09:03:47，原29日月执行2742186f…97f3仍download/consumed=false，无候选/提交/完成回执；冻结asof=2026-10-29，原job名单为000878.SZ、688563.SH、920306.BJ，两频均需处理。前两股周线单元完成，新股周线当时0行。当前四文件各一次聚合确认：week Raw/Silver各5569行、month Raw/Silver各5575行，max(end_date)均20261028，0行截至30日，均无920306.BJ。四sensor RUNNING、链路无活动run；latest source/date统计不能替代全市场覆盖或历史任务成功证明。旧23/28日完成证据复用，不读其他历史周期。
+
+**已确认的具体代码冲突。** `stock_period_source.capture_unit`已经支持跨日重取未完成页且保留已完成单元；原空源并非要求永远缓存为空。本轮MCP仅单股/10月/两频/完整21字段，各1行end_date=20261030。`stock_period_silver.read_completion`优先使用Raw冻结intent.asof（本次29日），`select_period`拒绝source_asof超过此日期；`stock_period_update._execute_daily_locked`又禁止不同意图越过旧待办。因此直接接入当前源行将触发Silver日期拒绝，本轮没有提交正式job去复现。
+
+**停止边界及建议。** 保留原29日意图/业务ID、成功源单元、所有正式结果和pending。后续方案须明确原任务日期与经来源回执核实的实际截至日期分别用于什么，完整核对Raw交付、Silver身份/范围、检查、物化、恢复及sensor，不只删除日期谓词、不用机器当天、不伪造29日源快照。旧29日完成不能冒记30日因子水位或日更，之后仍需原30日处理。先补齐具体方案/LLD与正反隔离验证，再正式恢复；本节建议未开发，不给出实现通过结论。恢复的真实历史范围及含中断/收尾预算仍须按原job产物核定，旧28日批准不替代本次范围。
+
+**读取及清理记录。** 本轮无行情历史读取；当前四文件磁盘合计1,523,109B，仅ts_code/end_date计数聚合各一次，不把文件大小当实测IO。Silver日历只读10月1—30日SSE日期依据，不读Raw日历或产生独立日历审计。只读PG限定四job各最近8run及四sensor、原失败事件；源仅两次单股请求。无COPY、Lake/staging写入、Dagster状态写入、job/check/sensor操作、安装或重跑补数。辅助脚本首次缺类型导入在元数据阶段退出，补齐后完成，行情聚合只执行一轮；最终归档.py.txt后删除临时可执行副本，保留必要JSON，不清理业务staging。
+
+<a id="period-cross-day-source-asof-fix"></a>
+
+### 12.22 跨日恢复的来源日期：具体开发与验收LLD
+
+对应总方案§10.13，管理员已授权先修正并审计补数条件，本轮不正式补数。§12.12关于跨日超出意图日期即停止的操作记录保留为历史；本节实施验收后，日常新交付按下述有来源证明的逐文件日期承接，不把旧操作停点当作新实现永久限制。
+
+#### 12.22.1 目标、现有代码及影响面
+
+真实证据复用§12.21的920306.BJ两频各1行、end_date=20261030及原29日pending，不重新查询正式源或行情。当前capture_unit已经按跨日未完成页另建来源链、复用完成单元，本轮不改下载模块。当前Raw _validate_candidates已经一次聚合验证end_date格式，但未将最大日期交付给Silver；publish保留item字段，_finish_files把逐文件item保存为complete.files并绑定原digest。Silver read_completion已有完整回执/hash/设备/路径核验，但只返回原意图日期；resolve_update_sources将其分配给全部unit，导致本次拒绝。
+
+CodeGraph已核read_completion→resolve_update_sources→update_inputs/recover_update_execution/evaluate_update_sensor；按当前代码补核Raw候选/发布、Silver真实选行、检查、物化及恢复。改动只在DG内，不涉及Prod、业务API、前端或其他数据集。源码白名单为defs/io/stock_period_raw.py与defs/stock_period_silver.py；新增tests/test_stock_period_cross_day_asof.py，必要既有周/月回归只运行不弱化断言。三份原文档及本轮验收报告同步，不新增运行入口、配置、job、sensor、检查或字段schema。
+
+#### 12.22.2 日期含义与Raw实际生产
+
+1. intent.asof仍是原任务计划更新日。冻结29日请求续跑仍属29日，执行ID、request_id、日/月分区及来源单元身份不变；不得改为30/31日。
+2. 新增每文件控制字段source_asof，表示该候选实际max(end_date)，不是全市场更新完成证明。JSON为规范YYYY-MM-DD字符串；全NULL/零行时为null，后续Silver原NULL/完整性规则仍负责拒绝。Raw/Silver Parquet的21列、类型、值和排序均不变。
+3. 在_validate_candidates现有candidate_facts分组聚合中增加对end_date的max；已有非法日期计数必须先拒绝，再将日期规范化。原查询次数、读取列、完整校验及摘要次数保持，不另读候选计算日期。返回facts增加source_asof，由_candidate_receipts现有展开写入item及原验证hash；publish提交checkpoint时保留，并把该字段纳入已提交checkpoint与item的一致性比较。_finish_files继续原样收集changed并计算完整回执hash，无需新增格式版本或另一套回执。
+4. 新字段只随本次新候选生产。既有已验证/已提交/完整回执不补写、不改hash、不重扫行情；字段缺失时Silver保留原日期上限，不推测更晚日期。当前29日现场尚无build/candidates/complete/committed，恢复后会正常生成带此字段的新回执，不需要重建28日批次。
+
+#### 12.22.3 Silver逐文件接收与必要拒绝
+
+read_completion必须先完成原validate_completion_reference、verify_execution、root/phase/run/hash、设备、带时区files_completed_at、原asof和每文件路径/重复检查。随后仅用已校验complete.files中的source_asof：
+
+- 字段缺失或null：该文件unit.asof沿原交付asof，不读取Parquet或旧源页猜日期。
+- 有值：必须是规范ISO日字符串；非法值拒绝为silver_raw_completion_source_date_invalid。来源日期晚于原files_completed_at的上海日期也拒绝；不能把一条未来日期取max后自证合法。完成时间仅作独立上限，不能赋给有明确意图的新源观察日期。
+- 该文件unit.asof=max(原交付asof,该文件source_asof)。同日来源不变、合法较早历史来源不倒退；29日意图/30日来源/31日完成的unit应为30日，不能误取31日。
+- 原read_completion返回的asof保留原交付日期，items保存不改原JSON的副本，为各item增加用于执行的asof。resolve_update_sources从实际选中delivery的item读取asof，不用原批次或整批最大日期。合法后继Raw也必须取其自身item日期；不同周期可为29/30两个日期。
+
+已有Silver unit.asof继续进入make_update_execution的冻结units、select_period的source_asof上限、validate_materialization_scope、物化goldenshare/silver_asof、原三检查和恢复input_hash。SQL日期谓词不删除、不重算价格、不重建state。已完成Silver unit/回执不改；同来源原ID恢复保持已冻结日期，真实Raw来源变化继续原后继恢复流程。没有新增双轨计算或历史迁移。
+
+无intent.asof的原主动history原先以files_completed_at日期为交付范围，保持其原口径；max运算及未来日期校验不会将其改为更早源日。首次Silver bootstrap继续原审计报告asof/lower，完全不进入本次更新日期选择。
+
+#### 12.22.4 水位、失败、中断和成本
+
+_consume_daily_files继续只以原intent.asof推进last_refresh/factor_through及原source_final；unit_asofs原实际源观察记录不改。29日原任务的完成不能冒记30日日更、30日因子变化或上市集合处理完成，之后仍运行30日原job。原pending守卫、事件绑定、三项检查、唯一writer及幂等checkpoint不放宽。
+
+失败停止并保留已完成源单元、正式文件和原回执，不删除pending、伪造成功或修改源日期。已有checkpoint不允许source_asof与候选item冲突。文件已rename但回执未写仍沿原digest/版本恢复，原source_asof随item保留。Silver中断只继续未完成unit，已有unit日期、源hash和检查绑定不变；sensor确认失败继续原有界收尾，不重做已完成行情。
+
+正常及一次必要中断恢复/最终验收均不增加行情读取轮数、源请求、COPY或完整摘要读取。每新候选在原SQL里新增一个max，控制JSON每文件只增加一个ISO日期/null，随原hash核验；不创建额外控制文件，不扫描历史目录寻找日期。开发全轮用少数股票/周期、临时源与隔离instance，预计临时空间≤1GiB（包含故障恢复及最后验收），不是正式job新限额。无性能试跑、依赖安装、正式数据读取/写入或正式DG操作。后续正式补数预算另按实际原job范围核定，不能拿隔离预算或28日批准替代。
+
+#### 12.22.5 必须落实的验收对账
+
+| 要求 | 代码/消费者 | 独立正反验收 |
+| --- | --- | --- |
+| 来源日期由真实候选产生且不加读取轮数 | Raw原candidate_facts→validated item→publish CP→complete | 实际21列小Parquet/原producer，字面max日期；记录原查询次数，字段改动不增加扫描；合法NULL保持，不把错误日期归零 |
+| 保留原意图、下载及水位 | capture_unit、run_period、execute_daily原逻辑 | 29日空源后跨到30日，仅未完成单元重取；request_id不变，成功页/其他日期版本保留，29日完成不把factor_through推进30日 |
+| 两频跨日来源可通过 | read_completion/resolve及原Silver job/check | 29意图、30源、31完成，应按30通过week/month；修复前同样例真实失败，修复后原三checks及metadata通过 |
+| 拒绝真实错误，不抹掉原检查 | 原回执hash/路径及选行日期谓词 | 非法/未来source_asof、坏hash、错路径、真实失败/错绑仍拒绝；缺日期证明保留原上限，不通过读行情临时补证 |
+| 不用整批最大日/机器当天 | 实际delivery的逐item.asof | 两周期29/30分别保留，恢复/后继来源各取其文件日；同日正常与合法早历史通过；主动history/bootstrap口径不变 |
+| 中断、幂等与其他历史保留 | 原逐文件CP、Silver恢复与sensor | 带日期CP冲突拒绝，rename后回执失败可恢复；Silver中断后只续余项、完成后同通知确认不重写；原28日/无关文件版本不变 |
+
+测试预期来自独立字面日期、当前真实21列合同及§12.21单股证据，不从待测函数生成expected；允许替代上游HTTP，但明确验证实际文件/SQL/回执/job/check。隔离资源禁止访问正式instance、Lake/DB/Tushare，不以mock通过冒充正式补数完成。先写方案/LLD并核对以上落点，再编写缺陷反例，记录旧代码失败，修改后运行必要周/月回归；最后独立重读源码和测试逐条对账、清理本轮夹具并汇报。正式加载/补数和具体历史批准均不包含在本次开发。
+
+#### 12.22.6 开发、隔离验收及源码复核完成
+
+2026-10-31已按本节顺序完成。运行文件仅改Raw _validate_candidates/publish及Silver read_completion/resolve_update_sources四函数，新增test_stock_period_cross_day_asof.py；下载、日常水位、Silver21列合同、原日期谓词、三检查定义及其他数据集未改。source_asof实际由原候选聚合产生，原CP/complete传递并核hash；每文件范围与metadata/恢复一致，旧回执不修改或补扫。
+
+修复前两个隔离反例真实失败；修复后相关461项全部通过，另补旧通知选择新Raw的两频日期验证2项，通过463个不重复用例，其中新增28项。两频“29日空源→30日原请求续跑→Silver实际job/三checks/ack”、正常/部分提交中断、逐文件29/29/30日期及31日完成、旧回执无证明仍拒绝晚日期、非法/未来日期、CP冲突和rename后回执失败均有证据。HTTP/时钟使用替身，实际文件、SQL、回执、job/check及隔离事件存储；不冒充正式运行。最终Ruff、文档及差异检查通过，CodeGraph sync/status已更新；独立重读确认代码与本节无阻断遗漏。
+
+完整逐项对账、命令、源码指纹、XML及清理见[本轮实施报告](../../reports/dg_stock_period_delivery_recovery_20261028/cross_day_source_asof_fix_20261031/README.md)。已清理5个本轮夹具树、31,373普通文件／53,615,463B，非实测累计IO；必要小型证据保留，正式结果/staging和共享依赖未动。开发验收阶段未触发正式job、重载code location、读写正式数据、查询源或安装依赖。本轮修改随本次提交保存；正式加载及预算核定另记，验收JSON保留提交前状态。
+
+代码层面具备继续恢复29日的条件；正式执行前仍须确认加载本轮代码，并核精确pending、活动run及29/30日原job的历史范围/预算。预算必须先于可能自动通知Silver的Raw恢复取得批准，旧28日范围不替代。通过后先原29日月Raw及其两频Silver，再原30日日更；不重跑28日完成批次或增加全局审计。

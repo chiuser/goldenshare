@@ -1,0 +1,45 @@
+[
+  {
+    "path": "lake_console/orchestrator/src/orchestrator/defs/stock_period_source.py",
+    "sha256": "c399f72c47e8942328a0c32284a16d02995849a5165b9059467d7a3db328e22a",
+    "snippets": [
+      {
+        "start": 368,
+        "end": 387,
+        "text": "    complete = unit / \"complete.json\"\n    if not complete.exists():\n        receipts = list(unit.glob(\"*.receipt.json\"))\n        today = datetime.now(ZoneInfo(\"Asia/Shanghai\")).date()\n        if any(\n            datetime.fromtimestamp(\n                read_json(p)[\"captured_at_ns\"] / 1e9, ZoneInfo(\"Asia/Shanghai\")\n            ).date()\n            != today\n            for p in receipts\n        ):\n            # Keep every old page/receipt at its original path. Only the active\n            # unfinished chain changes; no old fingerprint is rewritten.\n            chain = uuid4().hex\n            unit = safe_path(unit_base / \"chains\" / chain)\n            unit.mkdir(parents=True)\n            identity_path = unit / \"identity.json\"\n            atomic_json(identity_path, identity)\n            atomic_json(active_path, {\"chain\": chain})\n            complete = unit / \"complete.json\""
+      },
+      {
+        "start": 543,
+        "end": 548,
+        "text": "    if not kept:\n        atomic_json(\n            unit / \"empty.failure.json\",\n            {\"reason_code\": \"period_source_empty\", \"unit_id\": digest(identity)},\n        )\n        raise ValueError(\"period_source_empty\")"
+      }
+    ]
+  },
+  {
+    "path": "lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py",
+    "sha256": "e1539d6dd3bd5b8d342ce362c1411dfc4806abb52c0d06a24b30fce1070d4efc",
+    "snippets": [
+      {
+        "start": 450,
+        "end": 466,
+        "text": "        if run_id != requested_id:\n            # Only already-verified historical delivery may be acknowledged by\n            # another date/frequency. Recover missing native steps in its own run.\n            original_run_required(work)\n        result = run_period(\n            root=root,\n            staging=staging,\n            intent=intent,\n            listed=set(work[\"listed\"]),\n            aliases=work[\"aliases\"],\n            confirmed_retired=work[\"confirmed_retired\"],\n            transport=transport,\n            policy=work_policy,\n            runtime_rss_bytes=runtime_rss_bytes,\n            cancel=cancel,\n            progress=progress,\n            confirm_delivery=confirm_delivery,"
+      }
+    ]
+  },
+  {
+    "path": "lake_console/orchestrator/src/orchestrator/defs/stock_period_silver.py",
+    "sha256": "f86af1fbe2f830acf6ed71237c8dbcf6121af08049144e2fbdaec18ec8a3e0e6",
+    "snippets": [
+      {
+        "start": 175,
+        "end": 184,
+        "text": "        \"\"\"SELECT count(*) FROM silver_scoped WHERE\n        canonical_code IS NULL OR confidence IS DISTINCT FROM 'confirmed' OR list_status IS NULL\n        OR bar_date IS NULL OR source_asof IS NULL OR freq IS DISTINCT FROM ?\n        OR strftime(bar_date,'%Y%m%d')<>trade_date OR strftime(source_asof,'%Y%m%d')<>end_date\n        OR period_start<>?::DATE OR source_asof>?::DATE\n        OR (list_status='L' AND is_cny_stock AND list_date IS NULL)\"\"\",\n        [freq, period_start(period, freq), asof],\n    ).fetchone()[0]\n    if invalid:\n        raise ValueError(\"silver_source_identity_date_or_partition_invalid\")"
+      },
+      {
+        "start": 405,
+        "end": 418,
+        "text": "        raise ValueError(\"silver_raw_completion_time_invalid\")\n    asof = (\n        identity[\"intent\"].get(\"asof\")\n        or completed_at.astimezone(ZoneInfo(\"Asia/Shanghai\")).date().isoformat()\n    )\n    if date.fromisoformat(asof).isoformat() != asof:\n        raise ValueError(\"silver_raw_completion_time_invalid\")\n    items = {}\n    for item in complete[\"files\"]:\n        f, period = item[\"freq\"], item[\"period\"]\n        if item[\"target\"] != str(raw_path(lake, f, period)) or (f, period) in items:\n            raise ValueError(\"silver_raw_completion_scope_invalid\")\n        items[(f, period)] = item\n    return {\"reference\": reference, \"items\": items, \"asof\": asof}"
+      }
+    ]
+  }
+]

@@ -1,0 +1,1 @@
+{'data': {'terminateRun': {'__typename': 'TerminateRunSuccess', 'run': {'runId': '104911a4-e1fa-4a42-a8ad-cd55a7b0dedf', 'status': 'CANCELED'}}}}

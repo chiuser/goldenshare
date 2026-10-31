@@ -1,0 +1,9 @@
+{
+  "docs_integrity": "passed",
+  "changed_doc_whitespace": "passed",
+  "evidence_json_files_parsed": 8,
+  "native_canceled_event_verified": true,
+  "queue_progress_verified": true,
+  "independent_scope_review": "passed",
+  "original_month_data_delivery_claimed_complete": false
+}

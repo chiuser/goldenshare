@@ -1,0 +1,50 @@
+[
+  {
+    "cwd": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+    "kind": "before_fix_expected_failure",
+    "command": ".venv/bin/python3 -B -m pytest tests/test_stock_period_cross_day_asof.py -q -p no:cacheprovider -k 'candidate_source_date or cross_day_original_capture' --basetemp=/private/tmp/dg-stock-period-cross-day-20261031/old-fixtures --junitxml=/private/tmp/dg-stock-period-cross-day-20261031/old-regression.xml",
+    "result": "2 expected failures reproducing the defect"
+  },
+  {
+    "cwd": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+    "kind": "related_regression",
+    "command": ".venv/bin/python3 -B -m pytest tests/test_stock_period_cross_day_asof.py tests/test_stock_period_raw.py tests/test_stock_period_candidate_fragments.py tests/test_stock_period_receipt_paths.py tests/test_stock_period_combined.py tests/test_stock_period_source_intent.py tests/test_stock_period_history.py tests/test_stock_period_recovery.py tests/test_stock_period_update.py tests/test_stock_period_daily_delivery.py tests/test_stock_period_delivery_confirmation.py tests/test_stock_period_followup_history.py tests/test_stock_period_silver_contracts.py tests/test_stock_period_silver_projection.py tests/test_stock_period_silver_execution.py tests/test_stock_period_silver_events.py tests/test_stock_period_silver_jobs.py tests/test_stock_period_silver_sensors.py tests/test_stock_period_silver_sensor_recovery.py tests/test_stock_period_silver_original_recovery.py tests/test_stock_period_silver_daily_integration.py tests/test_stock_period_followup_silver.py -q -p no:cacheprovider --basetemp=/private/tmp/dg-stock-period-cross-day-20261031/regression-fixtures --junitxml=/private/tmp/dg-stock-period-cross-day-20261031/regression.xml",
+    "result": "461 passed"
+  },
+  {
+    "cwd": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+    "kind": "selected_successor_date",
+    "command": ".venv/bin/python3 -B -m pytest tests/test_stock_period_cross_day_asof.py -q -p no:cacheprovider -k 'old_notice_uses_the_selected_successor' --basetemp=/private/tmp/dg-stock-period-cross-day-20261031/successor-fixtures --junitxml=/private/tmp/dg-stock-period-cross-day-20261031/successor-tests.xml",
+    "result": "2 passed; 26 deselected, already covered by the related regression"
+  },
+  {
+    "cwd": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+    "kind": "ruff_default",
+    "command": ".venv/bin/ruff check --no-cache src/orchestrator/defs/io/stock_period_raw.py src/orchestrator/defs/stock_period_silver.py tests/test_stock_period_cross_day_asof.py --output-format concise",
+    "result": "passed"
+  },
+  {
+    "cwd": "/Users/congming/github/goldenshare/lake_console/orchestrator",
+    "kind": "ruff_fatal_baseline",
+    "command": ".venv/bin/ruff check --no-cache --select E9,F63,F7,F82 src tests --output-format concise",
+    "result": "passed"
+  },
+  {
+    "cwd": "/Users/congming/github/goldenshare",
+    "kind": "documentation",
+    "command": "python3 scripts/check_docs_integrity.py",
+    "result": "passed"
+  },
+  {
+    "cwd": "/Users/congming/github/goldenshare",
+    "kind": "codegraph",
+    "command": "codegraph sync",
+    "result": "passed; no index rebuild"
+  },
+  {
+    "cwd": "/Users/congming/github/goldenshare",
+    "kind": "codegraph_status",
+    "command": "codegraph status",
+    "result": "Index is up to date"
+  }
+]

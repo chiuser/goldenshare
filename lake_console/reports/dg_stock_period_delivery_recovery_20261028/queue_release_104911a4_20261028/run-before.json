@@ -1,0 +1,314 @@
+{
+  "observed_at": "2026-10-28T23:11:16.962197+08:00",
+  "runs": [
+    {
+      "run_id": "104911a4-e1fa-4a42-a8ad-cd55a7b0dedf",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "CANCELING",
+      "started_at": "2026-10-28T19:30:32.959197+08:00",
+      "ended_at": null,
+      "elapsed_seconds": 13244.3,
+      "tags": {
+        "dagster/partition": "2026-10",
+        "dagster/run_key": "raw_tushare_stk_period_bar_adj_month:2026-10-28",
+        "dagster/sensor_name": "raw_stock_monthly_update_job_sensor"
+      },
+      "ops_config": {
+        "raw_tushare_stk_period_bar_adj_month": {
+          "automatic_intent_date": "2026-10-28",
+          "intent": "daily",
+          "request_id": null,
+          "stock_codes": {
+            "count": 0,
+            "sample": []
+          }
+        }
+      },
+      "first_events": [
+        {
+          "storage_id": 7767046,
+          "type": "ASSET_MATERIALIZATION_PLANNED",
+          "at": "2026-10-28T19:30:28.507818+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "raw_stk_period_bar_adj_month_update_job intends to materialize asset [\"raw_tushare_stk_period_bar_adj_month\"]",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7767047,
+          "type": "ASSET_CHECK_EVALUATION_PLANNED",
+          "at": "2026-10-28T19:30:28.530788+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month_raw_tushare_stk_period_bar_adj_month_delivery_reconciliation_check",
+          "message": "raw_stk_period_bar_adj_month_update_job intends to execute asset check raw_tushare_stk_period_bar_adj_month_delivery_reconciliation_check on asset [\"raw_tushare_stk_period_bar_adj_month\"]",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7767048,
+          "type": "ASSET_CHECK_EVALUATION_PLANNED",
+          "at": "2026-10-28T19:30:28.556216+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month_raw_tushare_stk_period_bar_adj_month_file_contract_check",
+          "message": "raw_stk_period_bar_adj_month_update_job intends to execute asset check raw_tushare_stk_period_bar_adj_month_file_contract_check on asset [\"raw_tushare_stk_period_bar_adj_month\"]",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7767049,
+          "type": "ASSET_CHECK_EVALUATION_PLANNED",
+          "at": "2026-10-28T19:30:28.576668+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month_raw_tushare_stk_period_bar_adj_month_key_partition_check",
+          "message": "raw_stk_period_bar_adj_month_update_job intends to execute asset check raw_tushare_stk_period_bar_adj_month_key_partition_check on asset [\"raw_tushare_stk_period_bar_adj_month\"]",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7767050,
+          "type": "PIPELINE_ENQUEUED",
+          "at": "2026-10-28T19:30:28.623510+08:00",
+          "step": null,
+          "message": "",
+          "metadata": {}
+        }
+      ],
+      "recent_events": [
+        {
+          "storage_id": 7774304,
+          "type": "PIPELINE_CANCELING",
+          "at": "2026-10-28T23:09:59.074617+08:00",
+          "step": null,
+          "message": "Sending run termination request.",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774228,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.771631+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774227,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.758801+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774226,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.745379+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774224,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.673352+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774223,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.658049+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774222,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.643376+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774220,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.567446+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774219,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.549068+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774218,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.526710+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774216,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.234974+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774215,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.220794+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774214,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.201097+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774212,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.134917+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774211,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.120394+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774210,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.105439+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774208,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.036086+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774207,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.019954+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774206,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:33:00.003607+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774204,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:32:59.934389+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774203,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:32:59.911476+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774202,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:32:59.896202+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774200,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:32:59.828216+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774199,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:32:59.816404+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774198,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:32:59.802973+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774196,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:32:59.738805+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774195,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:32:59.727056+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774194,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:32:59.714951+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774192,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:32:59.657678+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        },
+        {
+          "storage_id": 7774191,
+          "type": "ASSET_CHECK_EVALUATION",
+          "at": "2026-10-28T19:32:59.646564+08:00",
+          "step": "raw_tushare_stk_period_bar_adj_month",
+          "message": "",
+          "metadata": {}
+        }
+      ]
+    }
+  ],
+  "readonly": true
+}

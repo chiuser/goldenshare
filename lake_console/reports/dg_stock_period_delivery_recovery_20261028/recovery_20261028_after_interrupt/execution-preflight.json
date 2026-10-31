@@ -1,0 +1,35 @@
+{
+  "at": "2026-10-29T00:19:41.747900+08:00",
+  "target_date": "2026-10-28",
+  "raw_execution_id": "ecd358c33a8dfeeb073fb881d93c4c70a1a4ab61033a8df7ef48ee746eeda7ae",
+  "phase": "files_complete",
+  "pending_count": 1,
+  "consumed": true,
+  "raw_current_month_version_unchanged": true,
+  "file_count": 1254,
+  "free_bytes": 2894571024384,
+  "parent": {
+    "run_id": "104911a4-e1fa-4a42-a8ad-cd55a7b0dedf",
+    "status": "CANCELED",
+    "job": "raw_stk_period_bar_adj_month_update_job",
+    "config": {
+      "automatic_intent_date": "2026-10-28",
+      "intent": "daily",
+      "request_id": null,
+      "stock_codes": []
+    },
+    "partition": "2026-10"
+  },
+  "chain_active_runs": [],
+  "existing_children": [],
+  "sensors": {
+    "silver_stock_weekly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"schema_version\":1,\"after\":7757279,\"decision\":\"silver_no_completion\",\"evaluated_at\":\"2026-10-29T00:19:09.200055+08:00\"}"
+    },
+    "silver_stock_monthly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"schema_version\":1,\"after\":7763890,\"decision\":\"silver_no_completion\",\"evaluated_at\":\"2026-10-29T00:19:38.645777+08:00\"}"
+    }
+  }
+}
