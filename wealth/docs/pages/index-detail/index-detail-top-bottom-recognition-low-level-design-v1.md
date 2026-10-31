@@ -1,6 +1,6 @@
 # 财势乾坤顶底识别低层设计 v1
 
-更新：2026-10-31。状态：核心/记录/恢复/历史查询已完成本次限定验收，下一根预测已完成限定验收，专项工具适配和一次922根对比已完成，证据见§19.3。当前实现为识别v0.4-r4、预测v0.6-r4，本次目标为v0.4-r4/v0.6-r4。§15—17仅为修改前历史实施/验收；本次文件、测试及后续顺序见§18。管理员现已授权按§18.2依次推进核心/内部配套、单根预测、工具及受控对比；本轮不迁公开HTTP/页面，不部署。
+更新：2026-10-31。状态：核心/记录/恢复/历史查询已完成本次限定验收，下一根预测已完成限定验收，专项工具适配和一次922根对比已完成，管理员已验收通过，证据见§19.3/§20。当前实现为识别v0.4-r4、预测v0.6-r4，本次目标为v0.4-r4/v0.6-r4。§15—17仅为修改前历史实施/验收；本次文件、测试及后续顺序见§18。管理员现已授权按§18.2依次推进核心/内部配套、单根预测、工具及受控对比；本轮不迁公开HTTP/页面，不部署。
 
 依据：[产品文档](../../../../docs/product/wealth-top-bottom-recognition-product-v1.md)、[技术方案](index-detail-top-bottom-recognition-technical-design-v1.md)。本文件只规定当前目标、代码迁移位置、开发顺序和验收，不包含已废弃的开发流程。实施必须使用本文规则和独立用例，不得从旧实验或旧输出推导当前预期。
 
@@ -8,7 +8,7 @@
 
 本轮依据专项回测方案§29及管理员最新确认，只细化三项修正：旧结构从首次反色起逐根检查价格；排除单根同色段引发的提前停止；同根旧价格消失及新同向首次钝化均保留计算事实但只画钝化。三项业务方向已经确定，不再列为待拍板；原软件内部怎样保存事件仍未被证实，不影响本产品采用该口径。
 
-当前三项已按顺序完成，核心、预测、专项对比证据分别见§19.1—19.3。停止交管理员review，通过后才续P3第3—4步公开投影和必要前端。不得从本文设计完成推出开发或回测已通过；§15—17旧成绩不能替代本次。
+当前三项已按顺序完成，核心、预测、专项对比证据分别见§19.1—19.3。管理员已验收通过；本轮按§20收尾并提出P3剩余步骤计划，等待review后才开工。不得从本文设计完成推出开发或回测已通过；§15—17旧成绩不能替代本次。
 
 只在当前dev-interface工作区保留清单外修改，不创建分支/worktree、安装依赖或恢复旧算法。输入、进度和结果仅内存，无数据库/Lake写入、结果/恢复文件、后台任务、用户算法开关或浏览器持久缓存。原1%、近远选择、首次资格、原EMA、预算及正式来源精度保持；P3完整400ms含最终校验和编码，不因三项修正放宽。
 
@@ -41,9 +41,9 @@
 
 ### 0.2 当前代码依据和影响面
 
-修补前唯一计算器为v0.3-r4、预测为v0.5-r4；本轮进度及实际身份见§19。已用CodeGraph codegraph_explore核对XxmCalculator、snapshot_validation及调用关系，再用当前源码补核query_service、forecast_next/forecast_detector、内部schema、前端adapter和专项对比。CodeGraph对通用query_service名称匹配到无关域的结果未作为依据，已回到明确的xxm路径核实。
+当前唯一计算器为v0.4-r4、预测为v0.6-r4，已验收证据见§19。已用CodeGraph codegraph_explore核对XxmCalculator、snapshot_validation及调用关系，再用当前源码补核query_service、forecast_next/forecast_detector、内部schema、前端adapter和专项对比。CodeGraph对通用query_service名称匹配到无关域的结果未作为依据，已回到明确的xxm路径核实。
 
-修补前_advance_followed_structures在nextSameColorStart非空前不查价格，并在下一同色段第一次反色即停止；forecast_next复用了相同的旧柱色限制；snapshot_validation和聚合又把下一段起点当成不可重置事实。前端尚消费旧公开合同。必须按本文成套修改，不在现旧接口/页面上临时隐藏标签。
+_advance_followed_structures、forecast_next、snapshot_validation及内部聚合已按§19完成逐根比价、单根段不终止和可重置候选起点修正。本批不重做这些实现；forecast_query_service和Wealth仍消费旧公开合同，按§5/§8/§20成套迁移，不能临时隐藏标签或恢复已删除函数。
 
 Biz仍只依赖自身及允许Foundation；App组合，Wealth消费HTTP；研究工具可调用正式类，业务反向依赖研究、App或QTF均禁止。本次不改变这些边界。接口和TS目标文书同步见§5/§8，但运行消费者仍按原阶段实施，不提前发布混配版本。
 
@@ -94,7 +94,7 @@ return (
 
 现有唯一XxmCalculator、XxmBar、Wave及原数字校验继续复用；识别v0.3-r4、预测v0.5-r4仅是本次修补前基线。首次当根价格/DIF、近B后远A、相邻1%原浮点顺序和曾突破记忆没有新增变更；不得因此恢复r2、独立日线候选或两位判断。
 
-本次识别身份升为`xxm-direction-v0.4-r4`，预测升为`xxm-key-point-forecast-v0.6-r4`。先落实完整Spec/新跟踪字段和真实hash，再依次迁移恢复、缓存、模型、预测、公开投影及前端；旧身份和缺新字段一律拒绝并由同源重算，不添加兼容分支。不得硬写假hash或读取源码SHA。
+当前识别身份为`xxm-direction-v0.4-r4`，预测为`xxm-key-point-forecast-v0.6-r4`。完整Spec/跟踪字段、真实hash、恢复及预测内部配套已按§19验收；第3步复核该产物后迁查询缓存、完整内部预测模型和公开投影，第4步迁前端；旧身份和缺新字段一律拒绝并由同源重算，不添加兼容分支。不得硬写假hash或读取源码SHA。
 
 当前作用点：calculator/types/spec；snapshot_validation；src/biz/queries/wealth/market/index_detail_xxm/query_service.py及内部schema；forecast_next/forecast_detector/forecast/types/spec；第3步既定response_projection和公开schema；第4步Wealth xxm类型/decoder/adapter/详情。测试文件及具体修改见§18.3。
 
@@ -119,7 +119,7 @@ return (
 
 删除`allow_zero_reactivation/historical_price_only/fixed_expiry/bottom_history_policy/same_segment_bottom_policy`等旧等待/撤销或无作用字段，不留旧值别名。`__post_init__`逐字段精确检查类型及默认值，bool不能冒充int。`spec_hash`保持asdict、sort_keys及现固定分隔符的规范序列化后SHA256；这是规则身份，不读取源码或核源码SHA。
 
-新预测Spec完整集合见§6；版本固定`xxm-key-point-forecast-v0.6-r4`；当前物理实现v0.5仍须同步。两项hash只在对应完整Spec、模型和消费者同次迁移时真实生成；文档不预填假hash。旧r2、旧r4-v2/正式v0.1-r4和混配快照/缓存/响应均拒绝，按同源重算；不设运行时切换。
+新预测Spec完整集合见§6；版本固定`xxm-key-point-forecast-v0.6-r4`；已与识别v0.4一同限定验收并固定于50b0f22bb，实际证据见§19。两项真实hash已确定，第3—4步模型/API/缓存/TS消费这些实际身份，不重新生成另一套规则或用旧响应换hash。旧r2、旧r4-v2/正式v0.1-r4和混配快照/缓存/响应均拒绝，按同源重算；不设运行时切换。
 
 ### 2.3 统一结构记录与事件（本次完整目标）
 
@@ -351,7 +351,7 @@ _merge_structure_updates新签名为(entry, step: XxmStep, *, bar: XxmBar)，调
 
 ### 5.1 文件、方法和调用顺序
 
-修改既有`src/biz/schemas/wealth/market/index_detail_xxm.py`及`index_detail_xxm_forecast.py`，保留通用数值/时间/引用/表达式检查，等待专属部分按§3.8清退并改为结构考核/首次反色事实检查；完整模型统一改名为`InternalXxm*`和`InternalForecast*`，不把已有模型先删成公开最小字段。特别是query当前按`XxmPointDto.model_fields`挑字段，必须同步改用内部类型，否则历史ID会在完整校验之前丢失。
+在既有两份schema文件内保留已经实现的InternalXxm*完整字段、严格校验和query内部_response合同；第3步新增/迁移独立公开Xxm*投影及InternalForecast*/公开Forecast*。当前query已使用InternalXxmResponseDto，不再登记为按旧XxmPointDto过滤。禁止为了缩减普通字段先删内部关联；预测旧等待/多步专属模型按本批新合同整体迁移，通用数值/时间/引用检查保留。
 
 在`src/biz/services/wealth/market/index_detail_xxm/response_projection.py`新增两个纯函数：
 
@@ -360,13 +360,15 @@ _merge_structure_updates新签名为(entry, step: XxmStep, *, bar: XxmBar)，调
 
 每个公开嵌套类型均封闭字段集合，Pydantic沿现`extra='forbid', allow_inf_nan=False`；数值字段在解析前检查`type(value) in (int, float)`（整数计数严格int），拒绝bool/字符串数字/NaN/无穷，同时允许101这样的合法int价格；禁止用`Any`、任意dict透传内部结果。普通模型没有`debug`字段；debug扩展模型的`debug`必填且非None。根模型使用两种模型的联合，不用`exclude_none=True`省略全部None，因为合法必有的空时间、空方向和参照空值仍须返回。
 
-识别query `build(session, *, period, start_date, end_date, limit, debug=False, now=None) -> bytes`；预判query `build`保留现业务参数，新增同样`debug=False`，也返回bytes。按§11第3—4步同步运行时直接调用方、直接读取DTO字段的消费者及本批API/验收测试，接口发送bytes，测试按新公开模型解析；不留旧DTO返回兼容。§11.2.6列明的P4保留工具在P3不运行、不作为通过依据，P4使用前按§11.2.3—4整体迁移；P5待删旧运行器不因本次返回变化提前修改或清退。流程固定：
+识别query `build(session, *, period, start_date, end_date, limit, debug=False, now=None) -> bytes`；预判query `build`保留现业务参数，新增同样`debug=False`，也返回bytes。按§11第3—4步同步运行时直接调用方、直接读取DTO字段的消费者及本批API/验收测试，接口发送bytes，测试按新公开模型解析；不留旧DTO返回兼容。§11.2.6列明的P4保留工具在P3不运行、不作为通过依据，P4使用前按§11.2.3—4整体迁移；P5待删旧运行器不因本次返回变化提前修改或清退。流程固定，识别与预测不能颠倒“生成必填字段”和“校验完整模型”的顺序：
 
-1. 在原时限内取得同一完整内部结果/缓存；按r4内部schema全部校验。
-2. 预判从完整内部结果生成一次`forecastId`和普通display文本，debug不得进入该身份。
-3. 显式逐字段新建公开dict→对应公开模型校验；普通请求不复制、序列化辅助数组。
-4. 一次`model_dump_json().encode('utf-8')`；检查最终字节上限及原截止时间后返回该bytes。
-5. API声明公开联合`response_model`供OpenAPI，实际用`Response(content=body, media_type='application/json')`复用已校验/已编码正文；现no-store等响应策略保持。不得返回DTO让框架在预算检查后再序列化一次。
+1. 识别取得同次完整内部结果，使用InternalXxmResponseDto验证全部记录/关联；预测先验证prepared/KernelResult及原来源事实，不能把尚无forecastId/条件id/display的候选送进完整InternalForecastResponseDto。
+2. 预测未命中缓存时，先按§6.8.1生成forecastId、条件id和同次display/必要说明，再验证完整InternalForecastResponseDto。命中则独立复制已完整的内部对象并重新验证全部字段/关联，不重新生成id或文字。
+3. 显式逐字段新建公开dict→对应公开模型校验；普通请求不复制、序列化辅助数组。debug错误整份失败。
+4. 一次model_dump_json().encode('utf-8')，检查最终字节及同一截止；预测仍先按§6.8.2退出load_entry并检查，再发布缓存，最后返回已准备bytes。
+5. 三条API保持公开联合response_model供文书，实际返回Response(content=body, media_type='application/json', headers={'Cache-Control':'no-store'})，不再返回DTO或调用JSONResponse重编正文。直接Response不会替开发者做模型校验，必须以第1—4项为前置。成功200的no-store是本目标明确要求；三个现行xxm成功处理器尚未设置，不再误称“原策略已存在”。错误响应保持现error_factory/处理器的状态、正文及header，不因本次另改全局错误处理；daily-waves既有成功/错误no-store不变。
+
+直接Response的框架行为已用Context7核对[FastAPI自定义响应](https://fastapi.tiangolo.com/advanced/custom-response/)及[响应头](https://fastapi.tiangolo.com/advanced/response-headers/)：返回Response时不会替本批执行响应模型校验/序列化。因此第1—4项不能省略，OpenAPI仍显式描述公开模型，HTTP测试须核同一bytes和成功header。
 
 预测缓存仅保存已完整校验的内部结果，读取深复制、按本请求重新投影/公开校验/编码；正常和debug不各算一遍，也不把普通删减结果放回完整缓存。debug投影失败即本请求失败，不回退普通成功；反过来也不得直接透出未校验内部对象。
 
@@ -379,7 +381,7 @@ _merge_structure_updates新签名为(entry, step: XxmStep, *, bar: XxmBar)，调
 | `xxm-key-point-forecast` | 原`tsCode,period,asOf` + `debug` | day/m60/m90/m120，保留LATEST/REPLAY和完成时刻检查 |
 | `daily-waves` | **仅**原唯一`tsCode=000001.SH` | 不新增debug参数；本地环境注册+前端debug手动请求控制；原严格422不变 |
 
-前三个参数解析器继续拒未知参数、重复参数和非法空值。`debug`缺省或文本`0`→False，文本`1`→True，空/true/01/2及重复均原请求错误400。不使用Python字符串truthiness。普通客户端省略debug；debug明确传1。标的按既有大写归一化，仅上证可用，非法格式400、其他合法标的404。鉴权与日期范围原语义保持，无另一个r4接口/算法参数。
+前三个参数解析器继续拒未知参数、重复参数和非法空值。`debug`缺省或文本`0`→False，文本`1`→True，空/true/01/2及重复均原请求错误400。不使用Python字符串truthiness。普通客户端省略debug；debug明确传1。日线/分钟识别沿现trim+upper后判定；预测保留现原串格式检查，不新增trim或大小写容错。三条均仅上证，非法格式400、其他合法标的404；不得把识别的归一化顺手扩展到预测。鉴权与日期范围原语义保持，无另一个r4接口/算法参数。
 
 [日线合同§10](index-detail-api-contract-v1.md)、[分钟合同§8](index-detail-minutes-api-contract-v1.md)和[预测目标§36](index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md)已同步本目标入口。完整字段唯一由本节规定，实施必须同步所有消费者；文书一致不能替代运行模型与HTTP验收。**任何字段、版本、空值或错误语义不一致，必须先修正文档再编码，不允许在实现中任选一套。**
 
@@ -420,11 +422,11 @@ project_xxm_response将该结果作为每项普通event的displayOnChart；debug
 
 该标志仅用于图表标记和普通当根事件列表；debug事实详情仍可列明旧结构已结束。它不进入内部step、snapshot或预测数学条件，不改变事件id，也不新增用户开关。第3步加入正式公开合同及测试，第4步同步全部TS消费者；不能在旧前端协议里临时塞字段。
 
-### 5.4 下一根预测目标合同（待实施）
+### 5.4 下一根预测公开目标合同（P3第3步实施）
 
-本节与§6同批实施。沿既有预测URL、标的/周期/asOf/鉴权和debug请求规则，不新增预测入口。目标只下一根；旧20步、等待和结构形成即停算格式不兼容。以下明确的是待实现目标，不是当前运行响应。
+§6内核已限定验收；本节完整公开模型/投影在P3第3步实施，TS在第4步迁移。沿既有预测URL、标的/周期/asOf/鉴权和debug请求规则，不新增预测入口。目标只下一根；旧20步、等待和结构形成即停算格式不兼容。以下明确的是待实现目标，不是当前运行响应。
 
-`InternalForecastResponseDto`完整根为下文全部普通根字段，加sourceInputId/calendarInputId/precisionPolicy/references/selectedReference/nearestDecision/farEvaluated/conditions/precisionRanges/structureFollowConditions十项内部事实；内部不加debug嵌套。`project_forecast_response`先校验此完整集合，普通显式复制公共字段，debug再把这十项组为debug对象；只生成一次display和forecastId。缓存保存这个完整内部对象，不保存普通删减结果。
+`InternalForecastResponseDto`完整根为下文全部普通根字段，加sourceInputId/calendarInputId/precisionPolicy/references/selectedReference/nearestDecision/farEvaluated/conditions/precisionRanges/structureFollowConditions十项内部事实；内部不加debug嵌套。`project_forecast_response`先校验此完整集合，普通显式复制公共字段，debug再把这十项组为debug对象；只复用组装阶段已经生成的display和forecastId，投影不得重新生成。缓存保存这个完整内部对象，不保存普通删减结果。
 
 #### 5.4.1 普通响应完整字段
 
@@ -541,9 +543,9 @@ EMPTY识别points/events为空、meta.count=0及首末None；debug对应数组�
 
 旧格式拒绝、新格式正常接收、合法int数值、显式None、事件多种真实route、日期不同但数值相同、结构终态时间晚于查询截止等均须正反测试。普通/debug对同一内部结果的全部公共字段和字节解码值相同，只有debug部分不同；debug失败不得退回普通成功。真实HTTP分别验普通和debug，不拿内部模型通过替代API验收。
 
-## 6. 下一根预测编码设计（本次有限跟踪配套待修正）
+## 6. 下一根预测编码设计（内核已验收，公开查询交接待实施）
 
-本节规定最新识别规则对应的单根预测；必须先完成§2—4的本次修正，再实施本节，不引入第二个识别器。本次三项修正后的纯内核仍待实施；不读取真实行情。§16—17是修改前成绩，不证明本节新条件或完整请求性能已经通过。
+本节规定最新识别规则对应的单根预测；必须先完成§2—4的本次修正，再实施本节，不引入第二个识别器。本次三项修正后的纯内核已按§19.2限定验收，P3第3—5步接公开查询及完整预算；不读取真实行情。§16—17是修改前成绩，不证明本节新条件或完整请求性能已经通过。
 
 ### 6.1 本步范围、输入和代码交接
 
@@ -763,9 +765,9 @@ f_source = f + k*(abs(b)+f) + t
 
 文字只读取新结果及显式传入的同次prepared。当前状态读取prepared.snapshot的state，顶底方向读取prepared.direction；核对period与snapshot.period、through与snapshot.previous.time一致，不从DIF正负、条件是否为空或某个outcome猜方向。NONE重点说明首次钝化范围；DULL优先结构形成/形成首次反色与失效限定，再列保持；STRUCTURE优先直接消失/回钝化，再列首次反色/保持。完整条件不得被历史分位数或示例选择裁掉；同outcome多段按已有顺序列出，不凭前端合并。B未算A的失效限定必须出现在普通文字，不藏debug。display仍为原四字段，不增加页面功能。
 
-### 6.7 逐文件处理及第3步接口准备
+### 6.7 第2步已验收实现及第3步接口交接
 
-| 位置 | 第2步必须处理 | 后续责任 |
+| 位置 | 第2步已限定验收的要求 | 第3步及后续责任 |
 |---|---|---|
 | `forecast.py` | 替换20端点foreach、旧inactive字段和STRUCTURE早停；只保留本节两个入口及新结果组装 | 第3步query改为单endpoint和prepared调用，不保留旧序列签名兼容 |
 | `forecast_entry.py` | 旧entry_partition/entry_cuts/stable_reference_on_band/reason_for/solve_entry_ranges整体换为单参照首次条件，去pending_rearm和旧全域入口 | 旧工具专属调用按P4/P5处理，本步不运行 |
@@ -775,7 +777,7 @@ f_source = f + k*(abs(b)+f) + t
 | `forecast_expression.py` | MACD节点只e12/e26/dea/field；移除prefixBars/prefixClose/target和P变量；保留原运算/同源绑定及包络小函数，新增单步原值/源值专用包络 | 第3步Python/TS表达式合同同次迁，不由旧JSON换字段充新fixture |
 | `forecast_joint.py/forecast_paths.py` | 正式多步、多变量、全float路径实现移除；必要纯Interval能力已在forecast_math，原核验在forecast_detector，不复制两个求解器 | 先查全部活动引用；P4/P5旧runner明确未迁、未执行，不为保持其可运行而留下旧算法 |
 | `forecast_text.py` | 删除reference_band/build_display_context/select_display及旧relations/activation/WAIT文案；替换为§6.6纯文字 | 第3步query移除这些旧导入，不再扫描历史60样本/95%分位数裁价 |
-| `forecast_spec.py` | §6.9完整固定字段和类型；生成实际v0.5-r4 hash | 第3步模型/API和第4步TS登记同次hash，不伪造旧hash |
+| `forecast_spec.py` | §6.9完整固定字段和类型；v0.6-r4及真实hash已由第2步验收固定 | 第3步模型/API和第4步TS登记同次hash，不伪造旧hash |
 | `forecast_query_service.py`、预测schema/API | 第2步不编码、不验旧公开入口；本节已固定新输入/结果与下一端点交接 | 第3步按下列唯一顺序整体迁，移除_active_confirmation、rearmContext、20步及旧DTO |
 
 第2步移除正式旧求解路径，不删除P5专属研究/报告执行器或原材料。依赖它们的未迁工具留明确停点，不能当新预测验收。生产/页面不发布中间版本，识别核心及其Spec/记录格式不得为了适配预测而改回旧规则。
@@ -788,15 +790,17 @@ f_source = f + k*(abs(b)+f) + t
 
 400ms仍包含calculator_at/恢复、前提检查、完整前缀EMA校准、日历/缓存处理、求界、全部来源组合及必要step、文字、模型、投影、一次编码、缓存复制/大小统计/锁等待和最后检查。有效截止=min(原4秒请求截止，本次计算或缓存处理开始+0.4秒)。缓存命中也在同一截止中，不能命中后再开400ms或读取完成后另加4秒。
 
-第3步query采用以下简单固定顺序，不新增缓存索引或另一套恢复机制：
+第3步query采用以下唯一顺序；函数落点为现forecast_query_service.py的digest、future_calendar、build和query_service.py的XxmCache.get_forecast/put_forecast。删除_active_confirmation、旧inactive_result导入、等待/多端点路径；不恢复旧函数或另建查询入口：
 
-1. 通过同次`load_entry`取得已校验真实前缀；EMPTY/DELAYED直接按来源状态生成结果，不进calculator_at/校准/未来日历。
-2. READY在calculator_at、前提检查及任何预测缓存处理之前建立同一400ms截止。只有当前普通关系静态无可能、且following_structures为空时，才直接生成静态结果，不校准、不读未来日历；存在有效旧结构必须继续。
-3. 仍可能时recover_projection只用同次完整前缀一次；校准失败形成PRECISION_PENDING/CALIBRATION_FAILED，target及日历身份为None，不读未来日历。
-4. 校准成功才沿现SSE日历搜索最多90自然日，实际只取严格晚于through的一个本周期端点，得到本次calendarInputId；不读20端点，不重复查日历。
-5. 以连接/Lake/周期、detector+forecast hash、真实前缀指纹、expected/asOf及calendarInputId的完整key查预测缓存。为保持单路径，命中也完成了前述一次校准，不另建跨阶段缓存；命中后不再求界、step或生成文字，仅独立复制完整内部结果并做本次投影/校验/编码。
-6. 未命中才调用单根forecast，生成完整内部身份、Condition id及文字，完整模型校验→本次正常/debug显式投影→公开校验→一次编码→32KiB检查。准备独立缓存副本、计算大小；这些都在同一截止内。
-7. 缓存锁内、修改前最后check；成功后一次发布并返回已准备bytes，发布后不得再做可能失败的复制/构造/校验。失败只丢弃本次预测候选，保留既有有效预测缓存；load_entry此前已合法发布的来源SeriesEntry仍保持有效，不因后续预测失败回滚。debug错误不降级普通成功。
+1. 在原load_entry中取得已校验真实前缀。EMPTY/DELAYED按§5.4生成完整来源状态结果，不进calculator_at/校准/未来日历/预测缓存。
+2. READY在calculator_at、前提检查和任何预测缓存处理前建立同一400ms截止，check同时检查原4秒与该截止。用真实calculator_at和precheck_next_bar判断；仅普通关系静态无可能且无following_structures才生成静态结果，不校准、不读未来日历、不访问预测缓存。
+3. 仍可能则recover_projection只用同次完整前缀一次。明确校准失败生成PRECISION_PENDING/CALIBRATION_FAILED，target/calendar身份为None，不读未来日历、不访问预测缓存；其他异常不降级。
+4. 校准成功按§6.8.3从SSE日历得到严格晚于through的单个endpoint字符串及calendarInputId，不返回/构造20端点序列，不重复读日历。
+5. 以现连接/Lake/period、detector+forecast hash、行情前缀指纹、expected/asOf和calendarInputId完整key查询缓存。命中也已经完成上述一次校准/日历核对；独立复制、完整内部重验、本次投影/公开校验/一次编码，不求界、step、编号或文字。
+6. 未命中调用同次prepared的单根forecast，再依§6.8.1组装、校验、投影、公开校验、一次编码并检查32KiB；准备独立完整缓存副本和大小。已实际求解的NO_CANDIDATE、PRECISION_PENDING/ROUNDING_BOUNDARY及仅旧结构条件READY都按完整结果缓存，不能按status粗略跳过。
+7. with块内只准备结果/body及可选缓存候选，禁止发布预测缓存或return。先正常退出load_entry，执行其现有yield后remaining()；再在with外执行同一check。只有上述全部成功才按§6.8.2锁内最后检查并发布，随后唯一return已准备body。命中和未求解的来源/静态/校准失败结果不写缓存，但退出和最终时限检查仍必须完成。
+
+外层build的异常映射覆盖with内、上下文退出和with外发布；已有XxmQueryError按原code/status重抛，取消和外部check异常向上传递，其他错误按§9既有映射。错误处理中不得再用一次时限检查把原来源/内部错误盖成超时。load_entry已经合法发布的来源SeriesEntry不因预测失败回滚；失败不发布本次预测候选，不污染原有效预测缓存。禁止发布后再做模型构造、复制、编码、大小统计或可能失败的检查。
 
 每参照/比较/反根/来源组合/整数及最终编码前后共用check；无自动重试、后台任务、落盘恢复或价格跨度相关循环。第2步只把传入check贯穿纯计算，用M1—M5记录数学耗时；**完整400ms必须第3/5步把校准/模型/query/编码接齐后验，P4另验真实来源。**超限就停止说明，不以全未知、漏条件或放宽预算冒充完成。
 
@@ -808,7 +812,36 @@ f_source = f + k*(abs(b)+f) + t
 | 非法输入/状态/表达式、非有限必要原运算/反根 | ValueError向上传递；第3步按现源/内部合同或查询错误映射，不能捕获成成功 |
 | deadline、取消、外部check异常 | 原异常向上传递，释放本次RAM；不以finally失败覆盖原错，不缓存 |
 
-本次第2步顺序：已修正核心/clone→内部类型及precheck→原数学/来源包络复用→当前普通B/A条件→旧结构独立条件及唯一核心函数核验→普通完整step的多事件匹配→精度/status/显示合成→固定新Spec→独立PF测试与审计。每一项先有相应独立字面预期，不能先接旧公开DTO跑通再倒改字段。
+第2步已按以下顺序完成限定验收：已修正核心/clone→内部类型及precheck→原数学/来源包络复用→当前普通B/A条件→旧结构独立条件及唯一核心函数核验→普通完整step的多事件匹配→精度/status/显示合成→固定新Spec→独立PF测试与审计。每一项先有相应独立字面预期，不能先接旧公开DTO跑通再倒改字段。
+
+#### 6.8.1 预测编号与完整模型的生成
+
+沿现digest的sort_keys/固定分隔符/ensure_ascii=False规范序列化。未命中只生成一次forecastId；事实对象固定为tsCode/period/forecastVersion/forecastSpecHash/detectorSpecHash/computedThrough/requestedAsOf/mode/dataStatus/ordinaryState/direction/targetEndpoint/barsAhead/status/reasonCode，加§5.4十项内部事实。普通conditions和structureFollowConditions此时不含id；priceRanges规范身份只使用lower/upper及两端开闭。originWave在内部仍按price_at/dif_at拼写，公开投影才转camelCase。事实不得包含forecastId自身、任何条件id、debug/displayOnChart、display文本、适用/失效说明、refreshAfterMs、显示整数栏或请求计时，避免循环和显示变化改号。
+
+forecastId=digest(上述事实)；普通条件id=digest({'forecastId':forecastId,'outcome':outcome})；旧结构条件id=digest({'forecastId':forecastId,'outcome':outcome,'relatedStructureId':旧id})。所有id和下列显示字段补齐后才构造完整InternalForecastResponseDto：
+
+- dataStatus=READY且实际求解：同次KernelResult及真实prepared调用现make_display一次，取得四字符串；适用/失效两字段由query按§5.4一次生成，make_display不新增参数或负责它们。
+- READY但静态退出或明确CALIBRATION_FAILED：已有真实prepared，按该退出原因构造诚实的ForecastKernelResult，target/barsAhead/selected=None、far=False、条件/未决数组为空，nearestDecision/references保留真实precheck事实；静态状态NO_CANDIDATE、校准失败状态PRECISION_PENDING。它仅表示未求解退出，不调用forecast/日历。仍用真实make_display生成四字符串，不能为此伪造已经求过价格范围。
+- EMPTY/DELAYED：不构造prepared或KernelResult，query按§5.4.2的来源状态文字生成四字符串及必要说明；方向/状态/target等空值遵循§5.4。编号仍取同一规范事实，但无源/无参照如实为空。
+
+缓存命中保留已生成的编号/文字，必须重验完整对象；普通/debug及显示格式不改业务编号。纯文本不参加规范求解事实，不读取历史样本或重新计算条件。
+
+#### 6.8.2 缓存方法与退出后发布
+
+预测缓存继续使用同一XxmCache.entries、现有('forecast', *key)前缀和总64MiB/16项限制，不新增索引、持久化或第二个缓存。entries类型改为SeriesEntry|InternalForecastResponseDto；识别get/put、_load_series及load_entry现有出口remaining检查保持业务路径。
+
+- get_forecast(key, *, check)返回InternalForecastResponseDto独立深副本或None。锁等待、取值及复制前后检查同一预算；读取副本仍须在build中按完整模型字段/关联重新验证，不能把model_copy当校验。命中可沿原LRU更新访问顺序；失败保护针对已有条目内容、成员及字节计量，不承诺访问顺序从未变化。
+- build在with内已准备完整独立副本，并用现_deep_size统计大小，全部计入原截止。put_forecast(key, prepared, size, *, check)只接该完整候选及已算大小，禁止内部再复制或编码。非法size/超缓存限额在改旧状态前拒绝并按预算失败；不得先pop旧项再决定能否保存。
+- put_forecast以check提供的剩余时间有界等待同一锁，锁内从现entries浅复制最多16项的OrderedDict候选，替换本key、按原LRU及总字节上限淘汰候选；不复制其他SeriesEntry业务对象。全部构造/计量后最后check，才一次替换self.entries；finally仅释放锁。超时/取消/候选构造失败不改变原成员或有效内容。成功后不再触发来源出口检查或其他可失败动作，build只返回已准备bytes。
+- check在query实现中返回min(原请求剩余,400ms剩余)的正秒数，非正立即按现预算异常退出；数学helper仍只需调用它，不另建时限。不得无界锁等待后才宣称满足400ms。
+
+内部_response测试继续消费InternalXxmResponseDto，不机械改成bytes；只有build/API及其直接消费者按公开bytes迁移。旧P1/P2响应夹具中的WAIT/多步字段必须按独立新输入整体改为当前正例，或明确作为拒旧反例，不能只换hash复用。
+
+#### 6.8.3 单个下一端点与日历身份
+
+future_calendar保留现位置，目标签名future_calendar(session, period, through, check)->tuple[str,str]，恰为(endpoint, calendarInputId)。用现SSE模型有界查through日期起最多90自然日，逐日校验日期连续、唯一、升序及is_open严格bool。按唯一source.ENDPOINTS枚举本周期时刻，只取第一个严格晚于through的端点：同日有下一分钟端点则不跳次日；15:00末根及日线跨到下一开市日，周末/节假日照日历跳过。无覆盖、缺日期或非法开市标志按既有源合同错误失败，不当作无解。
+
+anchor固定为through按现源时区确定的业务日期；calendarInputId沿digest，只包含从anchor到选中端点所在日实际使用的逐日(date,is_open)事实；不把未使用未来日期混入身份。搜索截止仍计90日上限，响应只返回1个端点；calendar身份进入现缓存key，合法日历变化必须导致缓存不命中。不得为取身份第二次查日历、用SSE缺少另一个交易所日历当阻碍，或把分钟端点统一改成15:00。
 
 ### 6.9 FORECAST_SPEC与有限工作量
 
@@ -823,13 +856,13 @@ f_source = f + k*(abs(b)+f) + t
 | forecast_compute_budget_ms / max_response_bytes | 400 / 32768 |
 | future_calendar_days / refresh_after_ms | 90 / 60000 |
 
-删除旧price_display_places/price_boundary_places/explanation_sample_count/display_move_samples/display_move_quantile和多步政策，不加可选算法/源误差参数。`__post_init__`按MAIN_SPEC方式逐字段严格验证类型和固定值，拒bool冒充数字。预测hash继续由自身全部字段按现`json.dumps(asdict(spec), sort_keys=True).encode()`规范生成，不手填hash、不混用detector的序列化约定。本表是本轮目标Spec；当前运行仍为修补前v0.5，§16—17只记录此前基线。新增条件和新版本实施后再生成真实hash，公开模型/消费者同批同步。
+删除旧price_display_places/price_boundary_places/explanation_sample_count/display_move_samples/display_move_quantile和多步政策，不加可选算法/源误差参数。`__post_init__`按MAIN_SPEC方式逐字段严格验证类型和固定值，拒bool冒充数字。预测hash继续由自身全部字段按现`json.dumps(asdict(spec), sort_keys=True).encode()`规范生成，不手填hash、不混用detector的序列化约定。本表Spec已在50b0f22bb实现为v0.6-r4并限定验收，真实hash见§19.2；§16—17仅为此前基线。第3—4步只迁公开模型/消费者，不重做内核或改规则。
 
 普通关系最多求两个实际参照：B有关系或有未决关系时A为0次。另最多两份旧结构独立条件按§6.12处理，不增加普通候选数，也不跳过其预算统计。每个参照只生成适用谓词的有限根及相关邻点/整数；一个C至多一次advance、至多4组来源核验。记录实际参照数、谓词数、反根数、点核验及step次数；同状态/门槛个数相同，价格尺度扩大不得按跨度增加循环。无96/192等未经依据的额外次数上限；400ms仍为计算时限，不通过增加源码保护或全float搜索达成证明。
 
 ### 6.10 预测测试设计与识别规则对应
 
-§16记录的是此前纯内核154项基线，本轮有限跟踪纯内核配套及PF21—34内部部分的实际成绩见§17.4；第3—5步的完整请求/合同/预算和P4真实来源部分尚未执行，不得拿P3第1步成绩代替。新数学测试放现主题`test_xxm_p3_forecast_math.py`及必要`test_xxm_key_point_forecast.py`，不创建新研究项目。业务expected来自§14字面事实，数学expected来自M1—M5/Fraction或明确原运算，不能由待测forecast生成。
+§16—17只为修改前基线，本次内核及PF21—34内部部分的实际成绩见§19.2；第3—5步的完整请求/合同/预算和P4真实来源部分尚未执行，不得拿P3第1步成绩代替。新数学测试放现主题`test_xxm_p3_forecast_math.py`及必要`test_xxm_key_point_forecast.py`，不创建新研究项目。业务expected来自§14字面事实，数学expected来自M1—M5/Fraction或明确原运算，不能由待测forecast生成。
 
 | 编号 | 独立样本/明确操作 | 必须证明 |
 |---|---|---|
@@ -854,15 +887,33 @@ f_source = f + k*(abs(b)+f) + t
 | PF19 | M1/M2四周期数学计时及等数量门槛的价格尺度变化；第3/5步含完整前缀校准/日历/模型/编码/缓存复制与锁等待 | 记录调用数及数学耗时；完整400ms分层验收，发布前最后check、冷/热/异常不重复读或返回半成功。真实源留P4 |
 | PF20 | 旧20步/P变量/WAIT/prefix字段/旧版本fixture；新单endpoint及内部Draft→完整模型/id；BOTTOM但DIF为正、空条件及错误period/through的文字输入 | 第2步内核拒旧收新、不回退旧求解；文字只读显式prepared，不猜状态方向，错进度拒绝；第3/4步再验HTTP/TS完整合同，不能用换hash或空旧字段兼容 |
 
+#### PF28完整请求子样本的固定归属（P3第3—5步）
+
+在现test_wealth_index_detail_xxm_forecast_api.py增加独立完整模型/HTTP样本，test_xxm_shared_loads.py保留共享加载并增加必要缓存边界；内部_response用例仍验内部DTO：
+
+| 独立前置/反例 | 通过要求 |
+|---|---|
+| 先生成forecastId/条件id/display再完整模型；去任一必填id | 正常完整模型通过，缺失拒绝；不同debug/显示文字不改编号，实际来源/规则/日历/求解事实变更改号 |
+| 同源普通/debug、两次命中及旧结构独立条件 | 公共字段及id/文字一致，真实校准/日历各按一次路径；命中零求界/step/文字，完整副本重验而非只copy；修改返回不污染缓存 |
+| SOURCE_EMPTY/DELAYED、静态结束、CALIBRATION_FAILED | 不访问未来日历/预测缓存；按分支target和空值正确；只明确校准失败能PRECISION_PENDING |
+| 实际求解后的NO_CANDIDATE、ROUNDING_BOUNDARY或仅旧结构READY | 保留实际target/选择事实并可缓存，不因status标签跳过完整模型/预算 |
+| 编码、深复制、大小统计、get锁等待、put锁等待超限 | 全部在原400ms，失败不发布候选、不删原有效内容；正常近截止路径也应通过，不能过度拦截 |
+| load_entry正常yield后出口检查跨4秒/400ms，或外部取消 | with内未发布；退出失败无响应/无新预测缓存，原已合法SeriesEntry仍在；不得删出口检查或发布后再return触发它 |
+| put锁内最后check失败、候选构造失败、非法/过大size | 原缓存成员/内容/字节计量不变；正常提交后仅返回准备bytes，后面不再构造或验证 |
+| 日线次交易日、m60/m90/m120同日下一时刻及末根跨日 | 只1个str端点且严格晚于through，m90保留11:00/14:00/15:00，周末/节假日依SSE；无覆盖/缺日/坏bool源错误 |
+| 日历合法变更、仅未用远期变化 | 参与实际端点搜索的事实变化导致新calendarInputId和不命中；未用远期不混入id，不第二次读日历 |
+| 三条xxm成功响应和错误分支 | 成功返回同一已编码bytes且Cache-Control:no-store；请求400/标的404/源或查询500/预算503及原鉴权正文/header保持；daily-waves策略不变 |
+| tsCode规范串、大小写/空格、其他合法代码 | 日/分钟识别保留trim+upper，预测保持原串严格校验；不因共同debug解析扩大预测容错 |
+
 ### 6.11 本轮文档核对与开工条件
 
-本节是新目标，不把§16旧预测验收当本次通过。开工前先完成新核心/结构进度/恢复/内部聚合，确认§2—4与§14.15字段及边界一致；再按§6.12补旧条件及当前条件配合。M1—M5/PF01—20原正确数学与安全目的继续保留，PF14按新范围调整，新增PF21—34。
+核心/结构进度/恢复/内部聚合及§6.12旧条件配合已按§19完成限定验收；不重复开发内核或重放专项。P3第3—5步复核固定身份/字段、独立用例的适用范围，接完整查询、公开模型和预算。M1—M5/PF01—34中已验收的正确数学与安全目的保留；公开HTTP/TS及PF28完整请求子样本按本批新增路径验收，不拿§16旧成绩代替。未经新发现及确认，不回改已验收规则。
 
 完整Spec、同次projection复用及两类核验入口、旧新条件字段、精度及status/display必须同次明确；不新增源读取、额外下一根端点、普通卡片或超过400ms的办法。若实际编码需要变更用户已定规则/公开字段集合/源表示/预算，按原要求先停报，不临时改算法。
 
 ### 6.12 旧结构下一根消失条件（本次三项修正配套）
 
-先完成§2—4核心/恢复/聚合，再修改本节。继续只下一完成根、先前提后有限边界，复用同次MACD/原EMA/源选项/校准/端点，无中点/价格遍历/新读取；原400ms含全部检查及最终输出。
+本节内核已按§19.2限定验收；第3步复用真实prepared和本节结果，接公开查询，不重新设计求解。继续只下一完成根、先前提后有限边界，复用同次MACD/原EMA/源选项/校准/端点，无中点/价格遍历/新读取；原400ms含全部检查及最终输出。
 
 输入为同次真实前缀snapshot中最多两份合法FOLLOWING，包含start/count及跟踪极值。已FINISHED/DISAPPEARED无旧条件。令s=旧方向、P0=originWave.price，C/H来自同一次下一根表达式，根前计数n=nextSameColorCount：
 
@@ -911,7 +962,7 @@ XxmDecision的structureFollowChecks按实际顺序记录根前旧槽及本根新
 - 本地开发普通页保留唯一r4的正常标签、当前状态/当根事件/时间和关键高低点预判。普通悬停不显示参照、编号、历史或等待记录。
 - 生产构建不请求日线或分钟r4识别/预判/研究接口，不创建r4圆点或标签图层，不显示r4悬停/预判卡/研究入口；不留“加载中/未开放”占位，不退回r2。普通K线/MACD/MA/BOLL/九转/趋势与1000根不变。
 - 只使用现有`import.meta.env.DEV`作为前端开发环境判断；后端另按本文本地路由装配。前端判断不是后端权限保护，不新增env或开关。
-- `debugEnabled = import.meta.env.DEV && new URLSearchParams(search).get('debug') === '1'`；严格沿现URL入口，无页面开关、无持久化。开发环境不自动开启debug。
+- debugEnabled只取§8.3.1唯一resolveIndexRecognitionAvailability的结果，同时满足DEV、上证及URL精确debug=1；不再另写漏标的条件的公式，无页面开关或持久化，开发环境不自动开启。
 - 波段工具仅上证日线，进入debug只加载工具代码；用户点击“波段核对”才开始计算。r4计算周期仍只上证day/m60/m90/m120，分钟行情沿已有配置与能力，不扩大生产分钟或其他标的。
 - debug只增加本次r4结果的辅助字段与呈现，不另跑识别器。正常/debug公共字段、事件编号和预判文本一致。
 
@@ -921,28 +972,38 @@ XxmDecision的structureFollowChecks按实际顺序记录根前旧槽及本根新
 
 | 文件（wealth/src下） | 改动/新增及唯一职责 |
 |---|---|
-| `pages/index-detail/IndexDetailPage.tsx` | 计算本地/debug启用条件；普通业务hooks继续按规则调用；控制debug模块的延迟加载、稳定子组件挂载和有效扩展；给右栏传forecast或undefined |
-| `features/index-detail/model/indexRecognitionAvailability.ts`（新） | 纯函数集中返回本地正式能力和debug能力；输入DEV布尔、tsCode、search；不读取env文件、不设置配置、不判断Lake目录 |
+| `pages/index-detail/IndexDetailPage.tsx` | P3接真实资格、普通模式参数及可选扩展交接，移除研究运行时import/hooks；P4接同一模块的动态加载、ready联动及挂载，不重新实现页面或控制器 |
+| `features/index-detail/model/indexRecognitionAvailability.ts`（新） | P3第4步建立纯函数，集中返回本地正式能力和debug能力；输入DEV布尔、tsCode、search；不读env文件、不设置配置、不判断Lake目录 |
 | `features/index-detail/debug/types.ts`（新，纯类型） | P3建立页面与debug组件的props、扩展快照、动态模块导出和解码函数签名；只用import type、禁止运行时初始化/import副作用；P4再接页面动态装配 |
 | `features/index-detail/debug/useIndexDebugModule.ts`（新） | 仅enabled时动态import `./IndexRecognitionDebug`；管理idle/loading/ready/error、加载序号及retry，不执行行情计算 |
-| `features/index-detail/debug/IndexRecognitionDebug.tsx`（新） | 动态模块入口，导出debug控制组件、识别/预测debug解码器及详情renderer；独占波段hooks、研究primitive和研究UI运行时导入 |
-| `features/index-detail/debug/xxmDebugContract.ts`（新） | P3迁入现adapter中参照/历史/等待/事件关联纯校验，按本文DTO的debug对象校验；不重算算法；P4由动态模块导出/注入，普通路径不静态导入 |
-| `features/index-detail/debug/forecastDebugContract.ts`（新） | P3迁入现预判公式/区间/参照转换/历史关联纯校验，并按r4迁移；不调用预判求解器；P4由动态模块导出/注入，普通路径不静态导入 |
-| `features/index-detail/debug/ForecastDebugDetails.tsx`（新） | 仅debug的预测精度、参照/路径及区间详情；由卡片注入的renderer调用，不求价 |
-| `features/index-detail/debug/XxmDebugDetails.tsx`（新） | 将现XxmResearchDetails改为参照、结构考核/首次反色/消失说明；依据debug对象，不前端推测原因 |
+| `features/index-detail/debug/IndexRecognitionDebug.tsx`（新） | P3真实提取控制组件和固定五项导出，独占研究hooks/UI/primitive；P4才从页面动态加载并挂载同一模块，不留占位组件 |
+| `features/index-detail/debug/xxmDebugContract.ts`（新） | P3迁入现adapter中参照/历史/等待/事件关联纯校验，按本文DTO的debug对象校验；不重算算法；P3由模块真实导出，P4动态注入，普通路径不静态导入 |
+| `features/index-detail/debug/forecastDebugContract.ts`（新） | P3迁入现预判公式/区间/参照转换/历史关联纯校验，并按r4迁移；不调用预判求解器；P3由模块真实导出，P4动态注入，普通路径不静态导入 |
+| `features/index-detail/debug/ForecastDebugDetails.tsx`（新） | P3实现并独立测试真实预测详情renderer；P4动态注入，正常卡不静态导入或求价 |
+| `features/index-detail/debug/XxmDebugDetails.tsx`（新） | P3实现并以RC93/104独立测试真实关联/显示；P4动态注入，依据debug事实不推测原因 |
 | `features/index-detail/chart/indexChartPointAdapter.ts`（新） | 原日线toDetailChartPoint原样迁出为纯函数，普通图与debug图共用；不改值、不格式化后比较 |
-| `features/index-detail/chart/IndexChartWorkspace.tsx` | P3先把悬停改为只读普通字段的XxmSignalDetails及必要调用；P4去除daily-wave运行时import及hooks/primitive创建，保持同一组件位置，接可选debug扩展和renderer；本地r4正常识别继续存在 |
-| `features/index-detail/chart/IndexMinuteChartWorkspace.tsx` | P3同步正常简要悬停及必要调用；P4传本地enabled/debug模式和解码器、接可选debug详情；不加分钟波段功能 |
-| `features/index-detail/xxm/{types,adapter,apiClient,useIndexXxmLayer,XxmLayerUi}.ts[x]` | P3完成r4身份、正常/debug DTO、纯解码、客户端返回和原截止时间的Hook交接、普通字段view model/绘图及XxmSignalDetails；P4接页面环境资格、模式及动态注入，XxmLayerUi不静态导入辅助详情 |
-| `features/index-detail/xxm-forecast/{types,adapter,apiClient,useXxmForecast}.ts` | P3完成r4身份、正常/debug DTO和纯解码、客户端返回与原截止时间的Hook交接；正常卡只消费display等普通字段；P4接enabled/effectiveDebug、模式切换与动态注入 |
-| `features/index-detail/sidebar/{IndexInfoRail,IndexTechnicalTab}.tsx` | 延续forecast可选prop；生产传undefined即整卡不存在，其他技术面内容不变 |
-| `features/index-detail/daily-wave/*` | 保留现算法合同/请求/说明/几何行为，仅由debug模块运行时导入；hook增加显式enabled保护，清理语义如下 |
+| `features/index-detail/chart/IndexChartWorkspace.tsx` | P3改普通悬停、传真实资格和模式，移除daily-wave运行时import/hooks/primitive创建并接好类型化可选扩展及renderer；保持同一组件位置；P4仅动态提供已有扩展和renderer；本地r4正常识别继续存在 |
+| `features/index-detail/chart/IndexMinuteChartWorkspace.tsx` | P3接正常悬停、新recognition参数及可选decoder/renderer；P4从已加载模块提供同一参数，不再改Hook签名；不加分钟波段功能 |
+| `features/index-detail/xxm/{types,adapter,apiClient,useIndexXxmLayer,XxmLayerUi}.ts[x]` | P3完成r4身份、正常/debug DTO、纯解码、客户端返回和原截止时间的Hook交接、普通字段view model/绘图及XxmSignalDetails；P3接页面真实资格和普通模式，P4只接模块ready模式变化及动态注入，XxmLayerUi不静态导入辅助详情 |
+| `features/index-detail/xxm-forecast/{types,adapter,apiClient,useXxmForecast}.ts` | P3完成r4身份、正常/debug DTO和纯解码、客户端返回与原截止时间的Hook交接；正常卡只消费display等普通字段；P3必须接enabled及普通debug=0，P4接effectiveDebug随模块ready变化及动态注入 |
+| `features/index-detail/sidebar/{IndexInfoRail,IndexTechnicalTab}.tsx`及预测卡 | P3接好forecast可选值及renderDebugDetails逐层透传，普通页面省略renderer、无资格传undefined；P4才注入已加载的真实renderer |
+| `features/index-detail/daily-wave/*` | P3将调用整体迁入真实debug控制组件，保留算法/合同/1000根/几何，补enabled保护及稳定重试回调；P4只动态挂载，不二次改研究行为 |
 | `features/nine-turn/ui/NineTurnLayerStatus.tsx` | 新增可选`showAlignmentDiagnostics?: boolean`，默认true；指数详情显式传debugEnabled；真实故障不受该参数隐藏；股票等调用不变 |
 | `features/index-detail/model/indexDetailConstants.ts` | 保持唯一`INDEX_DAILY_HISTORY_LIMIT=1000`，不新增同值副本 |
 
 生产无r4信息并不要求删除常规MACD的DIF/DEA/柱值。XxmMacdPrimitive和markerGeometry属于正常识别绘图；daily-wave三角与研究趋势primitive属于仅debug加载。
 
 ### 8.3. 页面props、延迟模块与稳定工作区
+
+#### 8.3.0 P3提取完成与P4挂载的精确分界
+
+P3第4步先完成以下最终代码，不建立临时兼容入口：纯资格函数→纯类型/两个debug解码器→正常decoder/adapter/client→两个Hook→页面/工作区及右栏全部新参数→实际两个详情renderer/研究控制组件与扩展→对应测试。普通Page/Workspace不得静态import debug组件、decoder、研究hooks/UI/primitive；只允许import type。原Page的waveReview/waveLayers调用、旧工作区review参数和研究对象构造同次移除，不留双路径。
+
+P3页面是正式普通请求模式：依据真实DEV/标的算recognitionEnabled；日/分钟工作区传recognition={recognitionEnabled,debug:0}，Hook将它映射为enabled；useXxmForecast同时传enabled=recognitionEnabled、debug=0及现active/日期/分钟能力。右栏仅有资格时给forecast，否则undefined。debug=0就是普通合同取值，P4的模块idle/loading/error也继续使用这条普通分支；不能伪造enabled=true、decoder、renderer或module-ready让测试通过，不能把普通阶段当作debug页面已实现。
+
+P3第4步必须建立IndexRecognitionDebug.tsx的5个真实命名导出：IndexRecognitionDebug、decodeXxmDebug、decodeForecastDebug、renderXxmDetails、renderForecastDetails；它们实际满足§8.3.4模块类型。两个renderer无Hook，由真实辅助组件渲染；研究hooks只在真实控制组件内调用。P3独立测试直接import该模块属于测试入口，不得反向把它引入普通页面的运行时依赖。
+
+P4只新增useIndexDebugModule及页面ready挂载/模式选择：动态import同一模块、传同一组已存在props，将已有普通debug=0分支扩展为§8.3.1的effectiveDebug；不再改公共协议、Hook签名、控制组件或图表数据交接，也不重写另一套renderer。正常/辅助切换反例在P3用真实解码器/组件独立验证，真实页面动态流程在P4验收。
 
 #### 8.3.1 页面内唯一能力计算
 
@@ -953,7 +1014,7 @@ XxmDecision的structureFollowChecks按实际顺序记录根前旧槽及本根新
 
 该函数的development由调用方传`import.meta.env.DEV`；不是新的产品开关。周期资格仍由识别hook精确限制四种。其他指数保持不请求识别；现URL debug与page-init/权重等既有诊断能力不因本次额外扩大。
 
-`IndexDetailPage`始终调用`useIndexDebugModule(debugEnabled)`、`useXxmForecast`等hooks，不放在条件分支。debug组件仅在模块ready、debugEnabled且当前页面存在可用行情时挂载。不是用CSS隐藏。
+P3必须先完成资格、普通请求及以下props交接。P4接动态模块后，`IndexDetailPage`始终调用`useIndexDebugModule(debugEnabled)`、`useXxmForecast`等hooks，不放在条件分支。debug组件仅在模块ready、debugEnabled且当前页面存在可用行情时挂载。不是用CSS隐藏。
 
 页面另取`effectiveDebug: 0|1 = debugEnabled && module.phase === 'ready' ? 1 : 0`，只用于识别/预测请求及其缓存key、解码模式。URL表达是否需要辅助工具，effectiveDebug表达本次实际请求格式；二者不能混用。模块loading/error时继续以0请求普通识别和预判，简要标签、状态、条件照常工作；ready后用1取消旧请求、升新模式并取得辅助投影，后端复用同源内部计算缓存，不运行第二套算法。移除URL或重试模块尚未ready时恢复0并清旧辅助，不能因为没有decoder就堵住正常请求。renderer、波段控制器和辅助扩展仍要求debugEnabled且module ready，不凭普通结果生成辅助说明。
 
@@ -989,11 +1050,11 @@ XxmDecision的structureFollowChecks按实际顺序记录根前旧槽及本根新
 - `renderWaveDetails(point): ReactNode`；识别详情renderer从动态模块直接传工作区，见§8.3.4，不重复放进extension。
 - 不能带自建识别结果、普通右栏日期或一个带研究日期的整页viewModel。
 
-controller通过effect发布useMemo稳定的extension；所有函数useCallback稳定。页面只接收ownerKey等于当前owner的扩展，且渲染时再检查debugEnabled及owner一致。旧控制器清理回调也携带ownerKey，不得清掉新实例的结果。扩展为null时普通工作区立即只消费普通数据。
+controller通过effect发布useMemo稳定的extension；所有函数useCallback稳定。useDailyWaveReview返回的外层对象和useDailyWaveCompanionLayers返回的外层对象不作为memo依赖；显式依赖实际阶段/数据/owner和稳定callback。现retryNineTurn等新建箭头须在提取时改为useCallback，相同业务数据/owner不重复发布，避免onChange更新父组件后形成循环。页面只接收ownerKey等于当前owner的扩展，且渲染时再检查debugEnabled及owner一致。旧控制器清理回调也携带ownerKey，不得清掉新实例的结果。扩展为null时普通工作区立即只消费普通数据。ownerKey始终取普通asOf；普通Page/controller/右栏/forecast的日期和数据不受研究覆盖。工作区只在owner匹配且chartOverride非空时，整组使用该override的candles/dataKey/九转/趋势/状态/两种重试/primitive/padding，不得只换K线而保留普通九转/趋势。清空override立即恢复普通整组。
 
 开启debug但波段未开启：chartOverride=null，普通dataKey/points/趋势/九转primitive数组保持原身份，进入/退出debug不重建图表。波段ready后允许切换现研究dataKey；关闭波段或退出debug按原生命周期恢复普通dataKey，允许必要重建，不留旧研究实例。
 
-#### 8.3.4 动态模块导出、两种解码器及工作区props
+#### 8.3.4 P3固定导出/props与P4动态使用
 
 以下均写在`debug/types.ts`，只用`import type`引用现业务类型；普通路径不经运行时桶文件导入debug实现。`XxmResponse/ForecastResponse`表示§5普通模型，`XxmDebugData/ForecastDebugData`严格对应§5辅助对象。
 
@@ -1029,7 +1090,7 @@ interface IndexRecognitionProps {
 - 分钟`IndexMinuteChartWorkspaceProps`及其内部`LoadedIndexMinuteChart`都新增并完整向下传`recognition`，不经过日线波段控制器。页面从已加载模块直接传decoder/renderer，因此分钟可看r4实际参照/依据，但没有日线三角或波段计算入口。
 - 日线/分钟工作区各自调用同一个`useIndexXxmLayer`，把recognition中的资格/debug/decoder完整传入；正常悬停总用`XxmSignalDetails`，只有合法debug数据和renderer都有才追加`renderXxmDetails(xxm,真实time)`。extension不再另带第二份renderXxmDetails，避免分钟依赖日线控制器。
 - 页面给`useXxmForecast`传`decodeForecastDebug`；给右栏现forecast可选prop增加`renderDebugDetails?: IndexRecognitionDebugModule['renderForecastDetails']`。`IndexInfoRail`→`IndexTechnicalTab`→`XxmForecastCard`逐层透传，不自行拼公式。
-- 新增延迟模块内`ForecastDebugDetails.tsx`，只在合法debug响应时由卡片该周期行末呈现“计算依据”的debug详情，展示已返回的精度、参照/路径和区间条件；不另请求、不求价、不改普通display文字或行状态。普通/生产不传renderer，也没有该详情DOM。源代码/绝对路径不得显示。
+- P3实现延迟模块内`ForecastDebugDetails.tsx`及独立测试，P4动态提供renderer；只在合法debug响应时由卡片该周期行末呈现“计算依据”的debug详情，展示已返回的精度、参照/路径和区间条件；不另请求、不求价、不改普通display文字或行状态。普通/生产不传renderer，也没有该详情DOM。源代码/绝对路径不得显示。
 - `IndexRecognitionDebugModule`的renderer是普通纯渲染函数，不在条件调用中运行Hook。需要Hook的波段逻辑只放在稳定的子组件`IndexRecognitionDebug`中。
 
 #### 8.3.5 五秒请求的同一截止时间
@@ -1142,7 +1203,7 @@ NineTurnLayerStatus新增showAlignmentDiagnostics默认true。指数普通模式
 
 所有新合同样本手写并按本文后端DTO核验，不能把旧r2 JSON改hash后作r4真值。允许读取原报告作历史证据，当前有效测试改为r4独立字面样本。
 
-本表列最终交付要求，不把P4条件提前算成P3已实现：P3执行§11.4第4步的身份/普通及debug纯解析/客户端返回/同一deadline/普通悬停及必要调用测试；本表的DEV禁用、URL与模块加载、动态注入、辅助详情、波段及环境页面专项在P4实施验收。同一测试文件含两类节点时逐节点登记归属，不用整文件排除掩盖P3应通过的用例。
+本表列最终交付要求，不把P4条件提前算成P3已实现：P3执行§11.4第4步的身份/普通及debug纯解析/客户端返回/同一deadline/普通悬停及必要调用测试；本表纯DEV资格/必要参数、真实辅助renderer/控制组件、扩展交接及静态依赖拆分在P3独立实施验收；URL动态模块加载/ready注入、页面生命周期及真实生产preview在P4实施验收。同一测试文件含两类节点时逐节点登记归属，不用整文件排除掩盖P3应通过的用例。
 
 | 测试位置/新增组 | 必须断言 |
 |---|---|
@@ -1150,16 +1211,18 @@ NineTurnLayerStatus新增showAlignmentDiagnostics默认true。指数普通模式
 | `debug/useIndexDebugModule.test.tsx`（新） | false不import；true才import；退出前迟到resolve/reject不发布；重试不算波段；模块对象不存业务数据 |
 | `xxm/adapter.test.tsx` | 正常/EMPTY/DELAYED独立新合同；旧r2身份/错hash/混合源/重复日期或ID/NaN/state方向非法拒绝；正常strict原值对图，模式字段越界拒绝；普通无历史字段仍通过 |
 | `debug/xxmDebugContract.test.ts`（新） | 正常time/id和debug双向对应；悬挂/重复/错期/错原参照/结构关联/旧等待拒绝/窗口前形成记录/根末NONE但仍有事件，合法及非法均覆盖 |
-| `xxm/useIndexXxmLayer.test.tsx` | day生产也无请求/primitive；本地day与三分钟仅支持集合；模式/indicatorVersion/key隔离、取消、迟到、失败清旧标记；debug decoder未ready不发请求 |
+| `xxm/useIndexXxmLayer.test.tsx` | day生产也无请求/primitive；本地day与三分钟仅支持集合；模式/indicatorVersion/key隔离、取消、迟到、失败清旧标记；debug decoder未ready不发辅助请求，普通请求继续 |
 | `xxm/apiClient.test.ts` | 普通省略debug、debug明确1，原路径/日期/limit不变；5秒、scheduler、外部abort、失败finally清理 |
 | `xxm/markerGeometry.test.ts` | 正常最小event含必填displayOnChart；True生成标记，False保留事实而不画，不依赖debug字段；不改变原颜色/位置/连线/拥挤规则 |
 | `xxm-forecast/forecast.test.tsx`、identity测试 | 正常公共DTO可用；debug解码只在显式模式；r4双身份、旧/混合hash拒绝；各状态必要display与空值；不拿r2输出当预期 |
 | `debug/forecastDebugContract.test.ts`（新） | 新下一根所选参照/条件/未决区间及六字段参照；近有解A未调用，近失效不等于总体消失；旧entry/等待/20步/CONFIRMED/ZERO_RESET格式全部拒绝 |
 | `xxm-forecast/useXxmForecast.test.tsx`（新） | disabled/生产无请求/监听/刷新；技术面激活、四周期按能力、同模式重试、模式变化取消、历史不刷新、迟到不覆盖、研究日期不进入预测 |
-| `pages/index-detail/IndexDetailDailyWave.test.tsx` | 默认普通URL不再期待波段按钮；debug URL进入后手动点击才请求；保持原日期隔离/1000/不匹配/超时/迟到全部case；退出debug恢复普通数据及清图层 |
-| `pages/index-detail/IndexDetailPage.test.tsx` | 生产完整技术面没有r4悬停/卡片/占位/请求；普通行情还可用；本地简要悬停无编号/参照；debug包含原依据；仅debug未开波段切换不重建图表 |
+| `pages/index-detail/IndexDetailDailyWave.test.tsx`及新`debug/IndexRecognitionDebug.test.tsx` | P3将原4个依赖普通URL按钮的行为样本迁至真实控制组件+真实工作区的测试内Harness，完整保留手动start/retry、日期隔离/1000/不匹配/超时/迟到/研究退出覆盖；页面文件P3验证普通URL无研究入口/请求，P4再加真实debug动态挂载/退出场景，不skip或整文件排除 |
+| `pages/index-detail/IndexDetailPage.test.tsx` | P3验纯资格、普通新参数/简要悬停及生产前端无请求/卡片，P4验实际动态模块和生产preview；不能用P3模拟替代P4真实构建/浏览器 |
 | 现daily-wave所有单测 | 人工数值、适配、几何、共享三角、开放尾段、无起点说明、键盘、空间不足及44px全部保留；新增enabled=false误调用start/retry仍无请求 |
 | NineTurnLayerStatus及共享回归 | 指数普通hide诊断但真实错源/权限/错误可见；debug显示数量；股票默认不变；指数/股票日/分钟共享图无缩放拖动退化 |
+
+P3还须在IndexChartWorkspace.test.tsx中将旧review prop样本迁为唯一debugExtension；真实两个renderer分别放debug/XxmDebugDetails.test.tsx、debug/ForecastDebugDetails.test.tsx覆盖。测试内Harness只负责将真实控制组件onChange返回值交给真实工作区，不新增产品中转组件；网络/来源可明确mock，但控制组件、扩展、解码、renderer和工作区必须真实。P3迁移前列原节点→新节点映射，原逻辑输入和独立预期保留；禁止删除覆盖、skip、空壳组件或整文件排除来凑全量Wealth通过。P4页面节点是新动态集成证据，不能替代P3保留下来的独立行为覆盖。
 
 生产构建不能只靠jsdom模拟DEV=false验收。P4必须完成真实生产构建/preview，在不部署、不改共享服务下确认无r4 DOM、相关请求或debug模块预载；本地开发真实路由另验功能正常。记录normal/debug Network、控制台及图层/图表创建次数；build chunk检查仅辅助，不能代替浏览器请求证据。后端生产路由禁用由本文另验，不以此处浏览器通过替代。
 
@@ -1440,7 +1503,7 @@ NineTurnLayerStatus新增showAlignmentDiagnostics默认true。指数普通模式
 
 ## 11. 后续开发顺序、前置条件与上下游交接
 
-新规则并入重新安排后的P3，先修识别，再预测，再HTTP与必要前端，P3整批独立验收后才进入P4。普通/debug、生产禁用和最终旧代码清退的既定范围不变。本次三项修正尚未开发，§15—17均只记录此前基线。先依§18修核心/内部及预测，限定验收后按专项迁工具、受控对比并review，再继续P3第3步，不用旧成绩代替当前验收。
+P3第1、2步、三项修补及一次专项对比已按§19验收；当前只从§20.2继续第3—5步，先公开查询/API，再必要前端，整批独立验收后才进入P4。普通/debug、生产禁用及最终清退范围不变。§15—17是修改前历史，§18是本次已执行的设计交接，不作为再次开发或重放指令。不得用旧成绩代替本批新增公开/前端验收。
 
 ### 11.1 保留能力的明确落点
 
@@ -1587,7 +1650,7 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 | `reports/xxm_forecast_range_implementation_20261014/http_acceptance.py` | 同上，旧forecast build替换随文件清退 |
 | `reports/xxm_minute_reader_optimization_20261014/http_precheck.py` | 同上，旧build包装随文件清退 |
 
-`query_service.py`内部_response/历史投影互调与SeriesEntry聚合在同一实现中一起更新。`tests/web/test_xxm_shared_loads.py`保留并发/取消/共享来源，受影响字段按P3第3步同步。Wealth直接调用为`xxm/apiClient.ts→adapter.ts→useIndexXxmLayer.ts→日/分钟工作区`及`xxm-forecast/apiClient.ts→adapter.ts→useXxmForecast.ts→页面/右栏`；P3第4步必须整条迁移，不能把新外层返回结构留到P4处理。daily-wave原合同/算法不变，仅P4调整环境/debug生命周期。
+`query_service.py`内部_response/历史投影互调与SeriesEntry聚合在同一实现中一起更新。`tests/web/test_xxm_shared_loads.py`保留并发/取消/共享来源，受影响字段按P3第3步同步。Wealth直接调用为`xxm/apiClient.ts→adapter.ts→useIndexXxmLayer.ts→日/分钟工作区`及`xxm-forecast/apiClient.ts→adapter.ts→useXxmForecast.ts→页面/右栏`；P3第4步必须整条迁移，不能把新外层返回结构留到P4处理。daily-wave原合同/算法不变；P3移走普通入口的运行时依赖并在真实控制组件保留独立行为测试，P4再接页面动态生命周期和真实来源。
 
 ### 11.3 P3开工前置检查
 
@@ -1600,9 +1663,9 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 
 #### 当前代码依据
 
-1. 当前SeriesEntry保存points/events/structure_records，calculator_at通过有界检查点还原一次真实前缀；本次新计数/跟踪极值、单根起点重置和asOf投影尚未实施，按§4及§18同步。不能继续声称§17.4旧成绩已经验收这些修正。
-2. 当前识别v0.3-r4、预测v0.5-r4，首两步修改前实现已存在；本次目标v0.4/v0.6，先修首两步再继续下表第3步。公开API仍待一次校验/编码迁移，TS仍消费旧合同；已完成的内部基线不等于整批可发布。
-3. 内部真实来源、共享读取、原MACD/1%/EMA和预算保持；前三项修补的源码/测试文件见§18.3，图上显隐留第3—4步实施。
+1. 当前SeriesEntry保存points/events/structure_records，calculator_at有界还原真实前缀；新计数/跟踪极值、单根起点重置和asOf投影已完成本次限定验收，见§19.1。§17.4仍只为旧成绩，不代替本次证据。
+2. 当前识别v0.4-r4、预测v0.6-r4，核心/预测提交50b0f22bb，专项工具及结果提交ec37c69ea，管理员已验收该范围。公开API仍待完整模型/投影/一次编码迁移，TS仍消费旧合同；下一批从下表第3步开始，不把内部通过当整批可发布。
+3. 内部真实来源、共享读取、原MACD/1%/EMA和预算保持；本次修补文件及执行证据分别见§18.3、§19，公开显隐仍留第3—4步实施。
 
 #### P3实施步骤、前置与停点
 
@@ -1610,8 +1673,8 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 |---|---|---|---|
 | 1 新识别核心及内部结果 | §3代码顺序、§4恢复格式、§5内部记录和§14用例已经review；目标文件引用清单已核 | 原位置替换首次C/D、逐参照曾击穿、同根B→A、顶底1%回转、首次反色起比价、单根跳过及首个有效段结束；同步`types/snapshot_validation/spec`、统一`XxmStructureRecord`、`XxmStep.structures`、`SeriesEntry/_load_series/calculator_at`及完整内部模型；清理底部WAIT及旧无限跨段撤销，落实§3.7有限价格途径。完整Spec确定后生成`xxm-direction-v0.4-r4`的新detector hash | 全部识别case逐根通过；连续/增量/历史前缀/复制/恢复相同；已有正确安全检查不退化。此时仅证明内部识别，不能把旧预测或公开DTO不兼容当作新规则错误，更不能称页面可用 |
 | 2 下一根预测内核 | 第1步新识别状态、结构首次反色记录、参照资格和clone已经稳定；§6数学及失败语义固定 | 撤销20根与全浮点细分、横盘前缀/中点代表；按§6先前提后边界，先B有解即停止，确无解再A。已有DULL和尚未首次反色STRUCTURE各自求下一根结果；首次反色后同时处理新循环和仍有效的旧结构有限跟踪。严格按§6.1/6.7的函数、内部类型和逐文件去向实施，包括forecast_next.py、单根核验/表达式及纯文字；移除正式旧多步/全float路径，不保留备用入口 | 独立数学/业务边界、零柱、来源精度、整数及取消/超时测试通过，记录数学部分耗时；完整400ms含校准/模型/query/编码须在第3/5步接齐后验收，P4另验真实来源。不能用数学样本提前声称完整预算通过 |
-| 3 Python模型、投影、query/API和身份 | 前两步修正、独立回归及§17专项对比review已通过；内部事实、下一根结果字段及双Spec内容已固定 | 完整内部/普通/debug模型和`response_projection.py`；query共享一次读取结果，迁缓存/forecastId/display/日历下一端点；三个识别/预测API接受既定debug参数并发送一次编码bytes；移除等待字段与旧多根表达式字段；同步直接Python DTO消费者及新合同人工fixture | 普通/debug公共字段、标签ID、预测文本相等；旧/混配身份拒绝，窗口外关联带齐、asOf不泄漏未来首次反色；4秒/400ms/1MiB/32KiB预算包括校验编码；未完成这一项之前，不用旧web通过结论证明新HTTP |
-| 4 前端必要合同调用 | 第3步实际双hash和完整正常/debug合同已产生 | 纯TS类型→两个纯debug decoder→普通decoder/adapter→两个apiClient返回`{response,deadline}`→两个Hook读取和最终显示检查→普通悬停与日/分钟工作区调用；同次改受影响fixture。普通路径不静态加载辅助实现 | 类型检查、定向合同/API client/Hook/UI回归、Wealth测试和build；普通无debug字段也可展示。debug模块ready联动、正式本地/生产资格、辅助renderer及研究工具仍留P4，不用固定true或假decoder代替未接入功能 |
+| 3 Python模型、投影、query/API和身份 | 前两步修正、独立回归及本次§19.3/§20.1专项对比review已通过；内部事实、下一根结果字段及双Spec内容已固定 | 完整内部/普通/debug模型和`response_projection.py`；query共享一次读取结果，迁缓存/forecastId/display/日历下一端点；三个识别/预测API接受既定debug参数并发送一次编码bytes；移除等待字段与旧多根表达式字段；同步直接Python DTO消费者及新合同人工fixture | 普通/debug公共字段、标签ID、预测文本相等；旧/混配身份拒绝，窗口外关联带齐、asOf不泄漏未来首次反色；4秒/400ms/1MiB/32KiB预算包括校验编码；未完成这一项之前，不用旧web通过结论证明新HTTP |
+| 4 前端必要合同调用 | 第3步实际双hash和完整正常/debug合同已产生 | 纯TS类型→两个纯debug decoder→普通decoder/adapter→两个apiClient返回`{response,deadline}`→两个Hook读取和最终显示检查→普通悬停与日/分钟工作区调用；同次改受影响fixture。P3完成纯资格/页面及工作区必需参数、真实辅助renderer/研究控制组件提取及静态依赖拆分；普通请求用debug=0 | 类型检查、真实decoder/组件/扩展定向回归、全量Wealth和build；普通无debug字段可展示，研究旧样本迁独立测试保留。P4只接App环境装配、动态模块ready及真实页面/来源，不用固定true或假decoder |
 | 5 P3整批独立验收并停止 | 前四步全部完成，所有直接消费者同一合同 | 按新§14逐项对账、预测下一根用例、API模型/一次编码/共享读取/输入恢复/前端必要调用/架构及文档检查；记录真实实现hash、数量、耗时和未覆盖内容 | M1—M5/PF01—34及识别独立用例全部对账。未执行P4真实来源/浏览器和保留工具、P5清退的部分逐项列明，不宣称整体产品完成。停止等独立验收，不自动进P4 |
 
 第1—4项“按顺序实施”不允许阶段结束仍保留另一个可运行旧r4策略。开发中间状态不作为可发布产品，不给普通请求添加过渡开关。第3项需要的公开模型草稿必须在第1步修改内部字段之前已经写入本文，不能等编码时自由选字段。若执行中发现新业务边界或§6数学预算无法成立，先停止并说明，不依赖旧模型吞错或原20根路径兜底。
@@ -1621,8 +1684,8 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 | 步骤 | 动作与前置 | 结束证据 |
 |---|---|---|
 | 1 本地/生产装配 | 用既有显式dev/local策略装配三条r4与daily-wave路由，分钟另受原reader可用性；前端资格同步，不把日线绑到分钟Lake | 缺环境/生产/未知值相关API不进入source和算法，显式本地无分钟Lake仍可日线；生产debug不能绕过 |
-| 2 页面请求模式 | 在P3纯类型/decoder/client之上接`enabled/effectiveDebug`、动态模块ready和失败；普通路径不import研究执行代码；debug模块失败仍普通请求 | 模块加载中/失败/重试/关闭/切周期/离开和迟到结果反例；普通/debug缓存和序号隔离且同源公共结果相同 |
-| 3 辅助详情与核对图 | 按§8接首次反色/考核依据、参照和编号；波段核对仍手动开启、独立日期/九转/趋势、四种三角及44px留白 | 默认无研究请求和图层；原数据与右栏日期不被研究时间覆盖；不把故障一起藏进debug |
+| 2 页面请求模式 | 在P3已经存在的资格/props/decoder/client/控制组件之上，只接动态模块和effectiveDebug ready/失败/挂载；idle/loading/error沿同一普通debug=0分支 | 模块加载中/失败/重试/关闭/切周期/离开和迟到结果反例；普通/debug缓存和序号隔离且同源公共结果相同 |
+| 3 辅助详情与核对图 | 动态提供P3已完成的真实renderer、控制组件及extension，接页面实际可用数据；不重写关联、图表交接或研究算法；仍手动核对及独立日期/九转/趋势/既定三角留白 | 默认无研究请求和图层；原数据与右栏日期不被研究时间覆盖；不把故障一起藏进debug |
 | 4 保留工具成套迁移 | 首次运行前按§10—11清单迁`daily_window_precheck`、页面请求与预测显示工具，正常/debug、bytes、原deadline、明确周期/asOf/samples、纯内存、finally释放全部一次完成 | 缺旧运行器仍可用；无candidate/源码SHA/结果落盘；失败、取消、Node异常清理；不只改版本后运行旧报告入口 |
 | 5 真实来源与预算 | 先获所需只读范围授权，使用既有隔离App/原路由鉴权；日线及实际可用60/90/120分别验源字段/时间/连续性/根数、普通/debug字节和冷/热耗时。仅在已声明20次性能验收时使用samples=20 | 4秒/400ms/研究8秒整链10秒、原字节上限；正常日线1000和20次K线P95预算；不足/缺周期如实未验收。不得复用旧日线922根替代分钟 |
 | 6 页面与独立验收 | 用户完成浏览器review；自动验收保留当前1600/1440/1280、45/180根、拖过301根等既定场景及生产构建反例 | 本地普通/debug、生产无功能、正常行情/右栏/同步和研究图均通过。必要分钟证据未齐不能进入P5，除非管理员另行改变范围 |
@@ -1657,7 +1720,7 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 | `test_xxm_r4_observation.py` | §7真实执行观察及默认关闭；True/False完整业务结果一致 | 未查A不当失败、原事件参照不改、before/after不混、翻色旧事件方向正确、重复选择和对象共享 |
 | `test_xxm_p3_forecast_math.py`及`test_xxm_key_point_forecast.py` | §5.4.4 M1—M5和§6.10 PF01—34；独立Fraction/手算，不由forecast helper生成expected | 合法零/整数边界、近有解A零调用、无解与未决区分、已成结构继续考核、首次反色后有限跟踪与新轮并行、失败无半结果及400ms |
 | `tests/web/test_wealth_index_detail_xxm_api.py`、`test_wealth_index_detail_xxm_forecast_api.py`、`test_xxm_shared_loads.py` | RC73/93/104/107及§14.16全部窄窗口子样本、新普通/debug字面合同、同时间多事件、一次编码/同次来源只读一次、真实query调用/缓存/取消及身份 | 拒旧JSON而非改hash；历史point引用终态record合法；旧asOf不泄未来；不重复读、不二次编码、不吞错EMPTY |
-| Wealth现识别/预测`types/adapter/apiClient/Hook`测试、工作区/页面测试 | §8合同/迟到/截止时间、普通无debug可展示、同源公共值相同；P3先验必要调用，P4再验动态模式/生产资格 | 不静态加载辅助、不以false诊断隐藏真错、关闭清理、研究日期不影响右栏/预测、生产任何debug不请求r4 |
+| Wealth现识别/预测`types/adapter/apiClient/Hook`测试、工作区/页面测试 | §8合同/迟到/截止时间、普通无debug可展示、同源公共值相同；P3验纯资格/必要props、真实辅助组件及依赖拆分，P4验动态页面和真实生产构建/preview | 不静态加载辅助、不以false诊断隐藏真错、关闭清理、研究日期不影响右栏/预测、生产任何debug不请求r4 |
 | 依赖边界/清退/工具 | 根三份架构、Biz不导入research/App/QTF、§10逐文件清退及§11保留工具 | 无旧算法/父类/动态副本/源码SHA保护；保留工具在旧模块缺席时正常人工输入可运行 |
 
 全部字段/分支到case对账见§14.12。人工来源样本只证明对应规则，真实来源核验按下一节；不拿设计数量、mock或旧成绩冒充已执行。M1/M2的175.5/24.5合法零必须纳入回归；不得仅改max_future_bars、扩大时限或删复杂路径来冒充数学正确。
@@ -1725,7 +1788,7 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 
 ## 14. r4识别规则测试case设计及实施覆盖
 
-本节是本次目标识别及配套用例目录。RC01—96修改前成绩仅证明当时版本，历史证据见§15—17；本次调整相关预期并新增RC97—110，全部须按新规则重新验收，不能声称调整后的预期已经执行通过。公开HTTP/前端分属P3后续步骤，真实来源及页面仍依P4。本轮不运行行情、对比或测试代码；PF21—28已修订，PF29—34新增，同样待重新实施验收。
+本节是当前识别及配套用例目录。RC01—110及PF01—34的核心/恢复/内部查询/预测部分已按§19限定验收，具体文件、选择范围和成绩以§19为准；不把整个目录都标成未执行，也不把内部成绩扩大为公开验收。RC73/RC93的公开投影和前端、PF28完整请求子样本以及本批新增HTTP/TS边界，须在P3第3—5步验证；真实来源和页面仍依P4。§15—17只证明修改前版本。本轮只修文档，不运行行情、对比或业务测试。
 
 ### 14.1 人工输入、结果和覆盖方式
 
@@ -1868,7 +1931,7 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 | RC-70 输入拒绝与正常反例 | 对`T`的t5分别给completed=false、重复/逆序时间、C0/负数、C/D/DEA/H为NaN/Infinity、bool冒充数值、缺失字段；另给正常有限微小数值及合法相等DIF | 非法根在更新前拒绝，原对象、之前返回事件和首次反色事实不变；正常小值/相等值不误拦。日期校验与真实日历完整性分属输入和源接入，不能用周末人工根证明交易日完整。 首次反色后的错误输入另以RC-55或RC-61为前缀逐项重复，核对已有形成/首次反色时间与原参照不变，不能仅在T尚无首次反色记录时作空断言。 |
 | RC-71 连续与恢复一致 | 用RC-49和RC-63分别在首次钝化、尚未首次反色结构、首次反色根前后分割；在新独立实例恢复合法内存副本继续；另分别破坏参照身份、首次反色先后关系、NaN、记录关联 | 连续与恢复的每根业务事实、参照、时间一致，实例不共享可变对象；错误副本全部验证完之前不替换旧对象，失败不污染原状态。恢复后必须按本次首次反色起比价、跳过单根段及首个有效段结束的完整范围判断，不能提前停也不能延长；失效参照记忆在恢复后仍存在。无磁盘恢复文件。 失效记忆必须使用真实含击穿的人工前缀验证：RC-16/17在t3严格突破后切开恢复，再输入t4/t5恢复一侧的DIF，仍不得钝化；RC-66在t7远参照也突破后恢复，再输入t8仍NONE，不能恢复后丢失B/A本轮失效事实。 |
 | RC-72 前缀与历史查看无未来信息 | 用RC-55、RC-61、RC-63分别截至形成根、首次反色前一根、首次反色根、新轮钝化根查看；再追加未来输入；窗口左边裁去旧参照，但保持同一完整前缀来源 | 形成时不能预知未来首次反色；历史截至首次反色前仍呈尚未首次反色，首次反色后事实不变。已返回旧结果不被追加原地修改；历史查看用该前缀状态，不能读末尾首次反色信息。页面窗口起点不改事件、参照或编号。 |
-| RC-73 新事实合同与显示一致 | 用RC49/50/55和RC74/77/80/88的独立字面事实走后续真实序列化/解码/显示，旧WAIT和错误身份作反例 | 普通CANCEL与debug旧结构id正确关联；同根旧消失与新事件都显示，事件数组按time允许同时间不同id，唯一性只按id检查，正常FINISHED不显示消失；保留首次反色时间。前端不以当前NONE或相反方向丢事件，不重算条件。 |
+| RC-73 新事实合同与显示一致 | 用RC49/50/55和RC74/77/80/88的独立字面事实走后续真实序列化/解码/显示，旧WAIT和错误身份作反例 | 普通CANCEL与debug旧结构id正确关联；同根完整计算事件均保留；仅同根同方向旧价格消失加首次DULL/activation时只画新钝化，异方向、dif_return或单独消失不得误藏。事件数组按time允许同时间不同id，唯一性只按id检查，正常FINISHED不显示消失；保留首次反色时间。前端不以当前NONE或相反方向丢事件，不重算条件。 |
 
 ### 14.10 规则到case的对账表
 
@@ -1942,9 +2005,9 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 
 ### 14.14 本轮交付边界
 
-§15—16仅保留修改前两步成绩。本次先按当前三项修正修P3第1步及内部配套，再同步第2步旧结构预测，按RC01—110/PF01—34分层验收；当前三项尚未实施，§17.4仅记录修改前基线。RC73及RC93的公开HTTP/前端和完整请求验收仍依后续步骤，不自动进入第3步或部署。
+§15—17仅保留修改前成绩。三项核心/内部配套和第2步预测已按§19验收；本批继续P3第3—5步公开查询、接口和前端，按RC01—110/PF01—34的实际归属保留已有证据、补新增路径，不重做内核或专项重放。RC73及RC93的公开HTTP/前端和完整请求验收仍依后续步骤，不自动进入第3步或部署。
 
-### 14.15 旧结构跟踪及同根显示的修订用例（RC74—96，修改后待重新验收）
+### 14.15 旧结构跟踪及同根显示的修订用例（RC74—96，当前内部已限定验收，公开部分按P3第3—5步验收）
 
 沿§14.2从空状态输入T/B/TS/BS，不用待测函数生成expected。TF=`TS;(90,98,-2)`，BF=`BS;(110,-98,2)`：t6首次反色，旧TOP/BOTTOM为FOLLOWING，originWave价格103/97，当前startNone/count0，trackingPriceExtreme为90/110、日期t6。TN=`TF;(102,97,2);(103,96,2)`，BN=`BF;(98,-97,-2);(97,-96,-2)`：t7/t8当前同色段count1/2、start=t7，均未严格突破原价格，跟踪极值103/97首次于t8。
 
@@ -1991,7 +2054,7 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 
 PF21—23等是隔离人工EMA/源选项数学，不声称价格来自同一完整市场EMA史；四周期分别走原精度和核验流程。修订预期不得引用修改前已通过数量，新增PF29—34见§14.17。
 
-### 14.16 恢复、聚合、窗口和显示的明确子样本（修订后待实施）
+### 14.16 恢复、聚合、窗口和显示的明确子样本（内核已验收，公开交接按P3第3—5步实施）
 
 | 父case | 独立操作与预期 |
 |---|---|
@@ -2259,7 +2322,7 @@ MAIN_SPEC已实现v0.3-r4，FORECAST_SPEC已实现v0.5-r4；真实hash由完整S
 
 提交交接：管理员本轮已明确批准提交这次整体修复。开发阶段“不自动提交”的停止条件至此解除，仅限本批26个文件；其他未提交工作保留。实际版本以本次Git提交为准，下一次专项须登记该真实提交后再适配记录解析和开展受控对比。本轮只提交并提出后续顺序供review，不读取行情、不运行历史对比、不推进公开接口/页面、清退或部署。
 
-## 18. 三项截图修正的执行交接与文档独立审计（2026-10-31）
+## 18. 历史设计交接：三项截图修正及文档独立审计（2026-10-31）
 
 ### 18.1 已确认要求、代码点和验收对应
 
@@ -2278,9 +2341,9 @@ MAIN_SPEC已实现v0.3-r4，FORECAST_SPEC已实现v0.5-r4；真实hash由完整S
 1. **核心及内部配套批次**：先冻结完整MAIN_SPEC与新结构字段，改唯一推进/首次反色当根及共享校验，再改内部schema/聚合/asOf和对应字面测试。先内部模型，不提前迁公开HTTP。失败原对象/候选entry不发布。完成限定审计后停止交付，不假称页面已改。
 2. **单根预测配套批次**：只在新核心与恢复通过后改新计数路径、Draft和原核验、新FORECAST_SPEC及PF用例；普通近远调度/原数学不动。400ms不放宽，校验/取消/finally均计入。不读真实行情，不先接旧公开DTO。
 3. **修补后专项对比**：在实际修补提交固定、工具按其真实身份和字段迁完后，另按专项方案/LLD受控执行922根。只复用原有来源方法及预算，不虚构未来提交/hash。完整事件与应显示标签分列，旧报告保留。未经本轮后续授权不自动重放。
-4. **继续原P3第3—4步**：对比review通过后，迁完整公开模型、显示标志、query一次编码、API及直接消费者；再TS类型/decoder/adapter/普通详情与必要debug renderer。普通/debug同一标志，保留完整事件，不发布混配版本。P3整批验收后才进P4/P5。
+4. **继续原P3第3—4步**：对比review通过后，迁完整公开模型、显示标志、query一次编码、API及直接消费者；再TS类型/decoder/adapter/普通详情及纯debug类型/解码、真实辅助renderer及控制组件提取；只把动态装配/ready联动和真实页面留P4。普通/debug同一标志，保留完整事件，不发布混配版本。P3整批验收后才进P4/P5。
 
-本轮只设计，不包含上述任何一步的开发或执行授权。现有来源、鉴权、环境、1000根、三角画法、debug按需加载、预算、保留工具和清退边界保持。
+上述为当时设计及批准顺序的历史记录，执行结果见§19；当前剩余步骤唯一以§20.2为准。来源、鉴权、环境、1000根、三角画法、debug按需加载、预算、保留工具和清退边界保持。
 
 ### 18.3 后续测试文件必须怎样改
 
@@ -2353,3 +2416,70 @@ MAIN_SPEC已实现v0.3-r4，FORECAST_SPEC已实现v0.5-r4；真实hash由完整S
 只运行一次922根2023-01-03—2026-10-27本地DG Silver上证日线，SSE日历1394/922，3组各922次step，旧56/56通过。完整调用2.794937秒，保守父子峰350126080字节，全部结果18491201字节，全部进程回收，预算未放宽。当前DULL29/STRUCTURE16/CANCEL21，显示CANCEL19；相对历史r2、历史r4完整事件差11日、应显示标签均差9日，普通状态差2日。9次价格消失、2次同根计算双事件/显示单标签及10月17日单根跳过均只读同次结果独立审阅，无二次step或读取。
 
 完整人工可读报告、全部差异日期、各组参照/DIF日期、数量/资源及限制见[专项方案§32](../../../../docs/product/wealth-r4-historical-comparison-plan-v1.md)，工具验收见[专项LLD§29—30](../../../../docs/product/wealth-r4-historical-comparison-low-level-design-v1.md)。工程及日期/标签对齐不代表已逐值复现原软件。公开显示投影/必要前端/P3整链400ms/P5均尚未推进，本轮完成即停，不部署。
+
+## 20. 已验收范围、P3剩余步骤及后续依赖（2026-10-31）
+
+### 20.1 已验收范围及固定证据
+
+管理员已明确确认本轮验收通过。识别核心、记录/恢复、历史查询、下一根预测配套和工具适配/唯一一次922根真实对比据此收尾；内部代码提交50b0f22bb，工具/测试/报告提交ec37c69ea。§19与[专项方案§32—33](../../../../docs/product/wealth-r4-historical-comparison-plan-v1.md)保留实际证据，不重新查询、回放或改写成绩。
+
+本轮验收不等于P3整批或整个产品验收：公开模型/API及TS尚未迁完，普通/debug显示投影、完整请求400ms、本地四周期真实来源和页面、P5清退均未被本轮成绩覆盖。不能用922根日线重放代替这些验收，也不重新打开已经确认的三项规则。P1/P2既有正确基础不重复开发；其旧WAIT/多步响应夹具按§10.4.1迁为独立新正例或明确拒旧材料，不以“已验收基础”为由保留旧字段成功路径。
+
+### 20.2 下一批：完成P3第3—5步
+
+本批是下一个整体交付，唯一内部顺序为：A1复核→A2内部/公开模型与纯投影→查询/单日历端点/缓存候选→API及直接Python消费者→后端定向验收→A3纯资格/类型/两个debug解码器→正常adapter/client→Hook→页面与两工作区/右栏参数→真实renderer/研究控制组件和静态依赖拆分→前端全部本批测试/typecheck/build→A4整批独立审计。后一步必须使用前一步已验收真实产物，不发布前后端混合版本。开始前仍按§11.3核合同、实际调用方、dirty边界和独立测试预期；本轮仅写计划，未获得新的编码执行指令。
+
+| 顺序 | 工作内容及真实代码位置 | 必须交付及验收 |
+|---|---|---|
+| A1 开工核对 | §11.3、三份既定合同和§11.2.6调用方；固定MAIN_SPEC/FORECAST_SPEC真实身份；核当前forecast_query_service仍引用旧inactive_result/历史等待字段，API仍直接返回旧DTO，TS client仍直接返回response.json | 列清本批文件/硬口径/正反测试映射。上述旧查询/API属于本批已计划迁移范围，不能回添已删除旧函数兜底。出现文档未覆盖且影响行为的冲突先停下说明 |
+| A2 P3第3步：Python模型、投影、查询/API | §5完整内部/普通/debug模型，response_projection.py；query_service.py和forecast_query_service.py；三个识别/预测API；缓存和forecastId；§11.2.6所有本批直接Python消费者 | 同一次来源结果复用，不重新读或重算识别；统一新结构/单根预测合同，日历只求下一端点；完整关联先校验，再按模式投影并只编码一次。两种模式公共标签/编号/预测文字相同；同根显隐由后端displayOnChart给出，完整计算事件不删；拒旧/混配身份，历史asOf不泄未来 |
+| A3 P3第4步：前端必要迁移 | §8和§11.4：TS类型、纯debug decoder、普通decoder/adapter、两个apiClient、两个Hook，再普通悬停及日/分钟工作区必要调用 | 按{response,deadline}传递同一截止时间，迟到/关闭/重试不残留；普通没有debug字段也可展示，不静态加载辅助实现。严格使用后端displayOnChart；纯debug解码和真实renderer保留完整事件；P3完成控制组件提取和普通静态依赖拆分，P4才动态挂载。完成定向/完整Wealth测试、typecheck和build，不自行重算规则 |
+| A4 P3第5步：整批独立审计与交付 | 依§12和§14对规则/分支/内部和公开合同、API、全部本批消费者、一次读取/一次编码、缓存/asOf/取消和架构逐项对账 | 已有定向成绩只复用其适用部分，补新公开与前端证据；按原口径验识别4秒、预测400ms及1MiB/32KiB响应上限，最终校验/编码不得漏算。明确P4真实来源/页面和P5尚未覆盖。交管理员验收后才进入下一批 |
+
+本批不重新设计取价、选峰、1%或近远规则，不恢复两位/多步/中点预测，不读远程或重跑922根专项，不提前清退旧执行器、不改生产开放范围、不部署。普通/debug新模型必须同时迁移全部本批消费者，不增加过渡开关或旧模型兼容层。公开接口失败、取消、错误和精度未决语义均沿§1/§5—6，不能吞成EMPTY。
+
+### 20.3 再下一批：P4产品装配、保留工具与真实页面
+
+仅在P3整批验收后按§11.4的原6步实施，顺序不变：
+
+1. 本地/生产同时装配。沿既有显式dev/local策略；本地日线不以分钟Lake可用为前提；生产的日线/分钟r4、预判及核对路由均关闭，debug不能绕过；正常生产日线不受影响。
+2. 复用P3既有enabled资格及全部props，只接effectiveDebug随真实模块变化和动态生命周期。普通不下载辅助模块；URL debug=1才加载辅助信息，关闭/切换/离开及迟到请求正确清理，辅助加载失败仍保留普通能力与错误提示。
+3. 动态挂载P3已真实提取的辅助详情和手动波段核对图，不重新实现组件或图表交接。保持1000根、四种三角、留白、独立研究日期/九转/趋势；进入debug不自动运行三年核对。
+4. 保留核验工具在首次使用前按§10—11整体迁移到新bytes/普通-debug/原截止时间和纯内存结果，先补正确反例及finally清理；不运行旧工具再修它。
+5. 按已有授权和明确的有界周期/日期做真实只读验收。复用既有隔离App、原路由/鉴权，不重启共享服务。日线和实际可用60/90/120分别登记来源、完成根、连续性、普通/debug字节与冷/热耗时；K线按原20次P95口径验，不拿922日线代替分钟，也不增加全局数据读取。
+6. 页面与独立验收。自动检查原1600/1440/1280宽度、45/180根、拖过301根等场景；页面由管理员review，独立审计后交付，验收通过再进入P5。缺数据/周期如实登记，预算失败先停，不放宽限额。
+
+P4不修改识别规则，不清退P5文件，不新增下载、后台任务、结果/恢复文件、浏览器持久缓存或用户算法开关。
+
+### 20.4 最后批次：P5旧实现清退与总交付
+
+1. 依据§10逐文件重查引用，有用的读取/数学/核验能力必须先具备唯一r4下的实际落点；不能仅按名字含r2或snapshot批量删除。
+2. 按已批准清单删除旧r2执行实现、旧研究识别副本/比较运行器、专属测试与对应生成缓存；保留历史文档、原始材料、图片和报告，以及已批准最低成本保留的独立两位取数函数/算术测试。
+3. 在旧模块确实缺席的情况下做引用清零、r4及保留工具回归、API/前端/架构和必要本地核验，证明没有动态回退、别名或磁盘源码副本依赖。
+4. 完成文档索引、运行命令、唯一版本及保留/清退逐项对账，给出全部测试和未覆盖限制，交管理员做最终验收。提交、推送、部署仍按各自明确指令。
+
+### 20.5 执行节奏与本轮停点
+
+依次为P3剩余整批→独立审计/管理员验收→P4整批→独立审计/管理员验收→P5整批→最终验收。每批内的步骤是依赖顺序，不允许跳过或把未完成的上游留给后续自由发挥；每批开工前按对应原方案/LLD复核，不重复造方案。遇到未定义行为、文档冲突或真实预算无法满足时，先停下说明上下文和建议。
+
+本轮仅补齐P3第3—5步文档并审计；不开始编码、业务测试、行情重放或清退，不自动提交。文档通过不等于实现或性能通过，后续仍须按§20.2逐步编码、独立验收并交管理员review。
+
+
+### 20.6 本次开工前文档补齐与独立审计
+
+本次只补文档，不改业务/测试代码，不读取行情、重放对比、运行HTTP或提交。四项已批准的补齐位置及后续验收如下；不另开一套实施路线，编码顺序唯一沿§20.2。
+
+| 已补齐事项 | 唯一细节位置 | 编码后必须证明 |
+|---|---|---|
+| 当前身份及已验收范围 | §0.2、§6.9—6.12、§11、§14及§19—20；产品§2/7、技术方案§1/5/10同步 | 复用v0.4/v0.6和已验收内核；公开查询/API/TS及完整预算单独验，不能以旧成绩代替，也不重放专项 |
+| P3真实资格和全部必要参数 | §8.3.0—8.3.1/8.3.4、§11.4 | 本地上证普通模式按真实资格传debug=0，生产/其他标的无请求、卡片或图层；P4只扩展真实模块ready模式 |
+| P3真实辅助组件及测试 | §8.2—8.4/8.8、§11.4 | 两个真实renderer、研究控制组件及五项导出独立通过；原研究行为测试迁移保留，不用假组件、skip或删断言换通过 |
+| P3普通路径去除辅助静态依赖 | §8.3.0/8.3.3、§8.6/8.8 | Page/两工作区没有辅助运行时依赖；扩展含整组图表数据、日期、图层和重试，回调稳定且清理不污染新owner；P4加载同一已有模块，不重写交接 |
+
+配套后端先后关系已明确：必填编号和显示内容先生成，随后完整内部校验、公开投影及一次编码；退出共享读取并通过其出口检查之后，才可在同一截止时间内发布预测缓存，发布后只返回已准备正文。失败不得删除旧有效内容。单个下一端点、同次日历身份、静态/校准失败/实际求解结果及对应PF28完整请求反例均见§6.8.1—6.10。三个成功响应显式no-store，原错误处理和路由参数规范化边界保持，配套三合同已同步。
+
+独立复核覆盖后端顺序/预算、前端P3到P4交接、三合同及原方案一致性；已清除活动章节中要求重修内核、将P3组件及参数延后P4、把修改前专项作为本批前置、将内部和公开验收混为一谈的过时指令。历史§15—18只留当时真实成绩和设计交接，当前剩余顺序以§20.2为准。
+
+本轮文档完整性检查、git diff --check均通过，六份文档相关章节18处本地链接均存在。后端、前端和接口合同三项独立复核已完成；该检查不替代后续业务测试。
+
+文档层面没有剩余待拍板或待补充的P3第3—5步口径，可据此制定文件级执行清单并开工。§3.9两项研究TODO继续保持现行规则，不作为本批前置。该结论不代表公开代码、接口或400ms预算已通过；编码后必须完成§20.2的定向验收和整批独立审计，P4真实来源/页面及P5清退仍未执行。

@@ -2,9 +2,11 @@
 
 > 2026-10-30：§10为本次r4日线识别的唯一目标合同入口，字段与代码顺序统一由[顶底识别LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)登记；本轮仅同步文书，未修改运行接口。§1—9的page-init/kline/weights及其debugInfo规则不变。
 
-> 合同版本：`1.3.1`
+> 2026-10-20 修订：工作区实现为 `1.3.2`，仅调整成分行情缺失的状态和异常触发，不增删响应字段。代码、隔离回归、本机真实只读 API 与页面已验证；未提交或部署，不表示生产已生效。§4.3、§6.3 的规则及[LLD §25](./index-detail-low-level-design-v1.md#index-constituent-missing-quote-20261020)记录本次实现与验收边界。
+
+> 合同版本：`1.3.2`（工作区已实现，未部署）
 >
-> 冻结日期：2026-08-17
+> 冻结日期：2026-10-20；`1.3.1` 历史冻结日期为 2026-08-17
 >
 > 状态：M1～M5-B 与 S7/M5 已实现；S7/M5 仅升级 page-init 九转 capability，不扩展股票详情或主要指数卡片 DTO。
 
@@ -220,7 +222,7 @@ interface IndexDetailPageInitResponseDto {
 7. A 股成分的涨跌分类按以下优先级解析：同日 `equity_daily_bar.pct_chg` 非空时按 `> 0 / = 0 / < 0` 分类；同日行情为空但 `equity_suspend_d` 存在 `suspend_type=S` 时按 `pct_chg=0` 计入 FLAT；两者都不存在时才计入 missing。日线有值时不得被停牌记录覆盖。
 8. `matchedCount` 表示已完成涨跌分类的 A 股成分数，包括有同日涨跌幅的成员和已确认停牌并按 FLAT 处理的成员。`upCount + flatCount + downCount = matchedCount`；`matchedCount + missingCount = totalConstituentCount`。
 9. 无权重批次时 breadth 为 null；不是三项 0。
-10. 同日 factor 行或其 `vol/amount` 缺失、dailyBasic 缺行/缺字段、breadth 为 null 或真实 A 股 `missingCount>0` 时 page-init 为 PARTIAL，并在 debug 分别登记 `ID_FACTOR_PARTIAL`、`ID_BASIC_DAILY_PARTIAL`、`ID_WEIGHT_EMPTY` 或 `ID_BASIC_BREADTH_PARTIAL`。B 股被排除和已确认停牌都不是数据缺失。
+10. 同日 factor 行或其 `vol/amount` 缺失、dailyBasic 缺行/缺字段、breadth 为 null 时 page-init 仍为 PARTIAL，并在 debug 分别登记 `ID_FACTOR_PARTIAL`、`ID_BASIC_DAILY_PARTIAL` 或 `ID_WEIGHT_EMPTY`。有效批次中的 A 股 `missingCount>0` 只记录覆盖事实，不单独令 breadth 或 page-init 为 PARTIAL，不再产生 `ID_BASIC_BREADTH_PARTIAL`；其它数据正常时 breadth 为 READY，page-init 按观测日决定 READY/DELAYED。缺失成分不计入 flat，数量恒等式不变。
 11. 无 partial 原因且 observed 早于 expected 时为 DELAYED。
 12. `supportsTrendChannel=true` 只允许 `000001.SH`；其余 9 个 code 为 false 且 overlays 不含 `TREND_CHANNEL`。
 13. 生产和 local flag=false：periods 只有 `day`，minuteFrequencies 为空。
@@ -393,7 +395,7 @@ interface IndexDetailWeightsResponseDto {
 9. 内部使用 `Decimal(str(value))`，不归一化权重、不按指数实际涨跌点缩放。排除 B 股后仍保留 A 股官方原始 weight，不把 A 股子集重新归一到 100%。
 10. 输出值按 `0.0001 + ROUND_HALF_UP` 舍入后转 JSON number；UI 独立格式化 2 位和正负号。
 11. `changePct` 优先取成分同日行情；同日行情为空但同日 `suspend_type=S` 时返回 `0`，`direction=FLAT`、`contributionPoint=0`，并计入 contributionAvailableCount。行情和停牌依据都不存在时才返回 null/UNKNOWN，贡献为 null。
-12. 真实 A 股贡献缺失大于 0 时状态 PARTIAL，并登记 `ID_WEIGHT_CONTRIBUTION_PARTIAL`；B 股排除和已确认停牌不得触发该异常。
+12. 指数昨收存在时，仅 A 股成分同日行情及停牌依据缺失不再触发 weights PARTIAL 或 `ID_WEIGHT_CONTRIBUTION_PARTIAL`；无其它问题时按观测日返回 READY/DELAYED。保留完整 rows、null/UNKNOWN、贡献缺失数及 debug 模块 missingCount，前端贡献显示 `--`。指数昨收缺失时仍为 PARTIAL 并登记 `ID_WEIGHT_CONTRIBUTION_PARTIAL`。null 权重或重复成分继续报错，无批次继续 EMPTY，不将它们当成正常成分行情缺失。
 
 ## 7. 错误响应
 
@@ -434,6 +436,7 @@ interface IndexDetailErrorResponseDto {
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| `1.3.2` | 2026-10-20 | 仅成分缺行情不再触发 breadth/page-init/weights PARTIAL 或两处提示；保留完整名单、null 与缺失计数，指数昨收缺失等原错误继续提示。工作区开发与本地技术验收完成，未部署 |
 | `1.3.1` | 2026-08-17 | 权重股贡献列表改为按四位小数 `contributionPoint` 数值降序，缺失值置底；同贡献点按 `weight DESC, conCode ASC` 保持确定性；DTO 字段结构不变 |
 | `1.3.0` | 2026-08-15 | S7/M5 升级指数 page-init 九转 capability：生产仅开放日线，local/dev 在同一 router capability 就绪时开放 5/15/30/60/90/120 分钟；指数 1 分钟永不开放，九转数据仍由独立接口提供 |
 | `1.2.0` | 2026-08-12 | 成分范围统一收敛为 Security 事实字段识别的 A 股；B 股不进入 rows/coverage/missing；同日无行情但确认停牌的 A 股按 0%/FLAT 参与 breadth 与贡献；DTO 字段结构不变，提升版本以冻结语义变更 |
@@ -450,7 +453,7 @@ interface IndexDetailErrorResponseDto {
 
 ### 10.1 路由、环境与请求
 
-`GET /api/v1/wealth/market/index-detail/xxm-signals`，沿原鉴权及no-store。
+`GET /api/v1/wealth/market/index-detail/xxm-signals`，鉴权保持；成功200按本目标显式设置Cache-Control:no-store，错误沿原处理器不新增header；不误称当前xxm处理器已经有该响应头。
 
 | 参数 | 规则 |
 |---|---|

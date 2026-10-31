@@ -208,7 +208,7 @@ uv run python -m src.scripts.audit_index_minute_gold --runs 10 --full-alignment 
 
 ### 8.1 请求及环境
 
-`GET /api/v1/wealth/market/index-detail/minute-xxm-signals`，原鉴权及no-store保持。
+`GET /api/v1/wealth/market/index-detail/minute-xxm-signals`，鉴权保持；成功200按本目标显式设置Cache-Control:no-store，错误沿原处理器，不新增header。
 
 | 参数 | 规则 |
 |---|---|
@@ -230,10 +230,10 @@ uv run python -m src.scripts.audit_index_minute_gold --runs 10 --full-alignment 
 
 ### 8.3 预算、错误与交接
 
-识别总4秒、并发2、≤2000根/1MiB、缓存64MiB/16系列，完整/公开校验及一次编码均计入；不是行情接口5秒/5MB限额。query返回已校验bytes，API发送同一正文；普通/debug复用内部计算、分别投影，模式不改变编号。
+识别总4秒、并发2、≤2000根/1MiB、缓存64MiB/16系列，完整/公开校验及一次编码均计入；不是行情接口5秒/5MB限额。query返回已校验bytes，API发送同一正文并显式设置成功Cache-Control:no-store，错误header保持现处理器；普通/debug复用内部计算、分别投影，模式不改变编号。
 
 HTTP沿已登记XXM错误、原code/message/request_id及鉴权。直接query缺分钟reader的现有503例外保持，正常HTTP装配先保证分钟能力；生产未注册由框架404，不伪造EMPTY。
 
-新核心、内部类型/恢复/聚合先按LLD§11完成，再迁公开模型/API和TS客户端/Hook/悬停；完整新身份及消费者必须同一P3完成，不保留旧字段兼容或发布混配版本。P4再验环境、真实分钟来源/预算和页面；内部测试通过不能代替它们。当前开工以本次已同步目标合同及LLD为依据，不重做旧捕获或旧算法等价核验。
+新核心、内部类型/恢复/聚合先按LLD§11完成，再迁公开模型/API和TS客户端/Hook/悬停；完整新身份及消费者必须同一P3完成，不保留旧字段兼容或发布混配版本。P3第4步完成必要参数/真实辅助组件和静态拆分，P4再验App环境、动态挂载、真实分钟来源/预算和页面；内部测试通过不能代替它们。当前开工以本次已同步目标合同及LLD为依据，不重做旧捕获或旧算法等价核验。
 
 本节r4目标配套修订（2026-10-31，待实施）：同日线detector v0.4-r4，使用LLD§2.3新完整结构字段。首次反色起逐根比价，单根同色段结束继续，首个至少两根同色段完整结束正常停止；保留全部计算事件，同根同向旧价格CANCEL+新activation仅前者displayOnChart=False。公开普通/debug根events均有该必填严格bool，图上一致、debug仍可核完整事实；不把分钟时间截成日期来决定同根。原分钟行情/来源/生产禁用及预算不变，接口/Python/TS消费者按原阶段同批迁移，不加兼容开关。
