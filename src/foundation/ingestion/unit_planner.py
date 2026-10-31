@@ -2067,7 +2067,7 @@ def _build_stock_weekly_adj_units(planner, request, definition):
         context = request.execution_context or {}
         if 'business_plan' not in context:
             raise WeeklyAdjContractError('周线单元必须使用 resolver 已解析的冻结业务计划')
-        return list(restore_units(context['business_plan'], definition))
+        return list(restore_units(context['business_plan'], definition, session=planner.session))
     except WeeklyAdjContractError as exc:
         raise IngestionPlanningError(StructuredError(error_code=exc.code, error_type='planning',
             phase='planner', message=str(exc), retryable=False)) from exc

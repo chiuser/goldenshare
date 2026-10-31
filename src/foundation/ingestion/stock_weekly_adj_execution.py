@@ -164,20 +164,24 @@ def run_weekly_adj(
     policy = definition.planning.weekly_adj_policy
     context = request.execution_context or {}
     payload = context.get("business_plan")
-    if (
-        weekly_definition_issues(definition)
-        or not isinstance(payload, dict)
-        or tuple(units) != restore_units(payload, definition)
-    ):
-        raise IngestionWriteError(
-            StructuredError(
-                error_code="weekly_adj.delivery_contract_mismatch",
-                error_type="write",
-                phase="weekly_adj",
-                message="周线执行必须使用 resolver 冻结的完整计划",
-                retryable=False,
+    try:
+        if (
+            weekly_definition_issues(definition)
+            or not isinstance(payload, dict)
+            or tuple(units) != restore_units(payload, definition, session=executor.session)
+        ):
+            raise IngestionWriteError(
+                StructuredError(
+                    error_code="weekly_adj.delivery_contract_mismatch",
+                    error_type="write",
+                    phase="weekly_adj",
+                    message="周线执行必须使用 resolver 冻结的完整计划",
+                    retryable=False,
+                )
             )
-        )
+    except WeeklyAdjContractError as exc:
+        raise IngestionWriteError(StructuredError(error_code=exc.code, error_type="write",
+            phase="weekly_adj", message=str(exc), retryable=False)) from exc
     closeout = bool(payload["metadata"].get("bootstrap_parent_batch"))
     engine = executor.session.get_bind()
     totals, done, last_emit, current = Counter(), 0, 0.0, {}
@@ -259,6 +263,8 @@ def run_weekly_adj(
     try:
         with publisher_lock(engine, policy):
             with Session(engine, expire_on_commit=False) as business:
+                if tuple(units) != restore_units(payload, definition, session=business):
+                    raise WeeklyAdjContractError("取得发布锁前更正记录变化，请重新提交")
                 dao = StockWeeklyAdjDeliveryDAO(business)
                 check(True)
                 old = dao.get_record(

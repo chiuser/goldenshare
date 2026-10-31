@@ -17,6 +17,7 @@ from src.cli_parts.shared import (
 )
 from src.cli_parts.ingestion_handlers import (
     run_ingestion_snapshot as _run_ingestion_snapshot_impl,
+    run_weekly_adj_plan_correction as _run_weekly_adj_plan_correction_impl,
 )
 from src.cli_parts.ops_handlers import (
     run_ops_audit_schedule_automation_capability as _run_ops_audit_schedule_automation_capability_impl,
@@ -307,6 +308,20 @@ def repair_stock_st_missing_dates(
 def list_resources() -> None:
     for resource in DATASET_RUNTIME_REGISTRY:
         typer.echo(resource)
+
+
+@app.command("weekly-adj-plan-correction")
+def weekly_adj_plan_correction(
+    task_run_id: int = typer.Option(..., "--task-run-id", min=1),
+    output: Path | None = typer.Option(None, "--output", help="只读审核清单输出路径"),
+    apply: bool = typer.Option(False, "--apply", help="显式追加已批准更正；不续跑行情"),
+    approved_plan: Path | None = typer.Option(None, "--approved-plan"),
+    expected_digest: str | None = typer.Option(None, "--expected-digest"),
+    approval_ref: str | None = typer.Option(None, "--approval-ref"),
+) -> None:
+    _run_weekly_adj_plan_correction_impl(session_local=SessionLocal, task_run_id=task_run_id,
+        output=output, apply=apply, approved_plan=approved_plan, expected_digest=expected_digest,
+        approval_ref=approval_ref, echo_fn=typer.echo)
 
 
 @app.command("ingestion-lint-definitions")

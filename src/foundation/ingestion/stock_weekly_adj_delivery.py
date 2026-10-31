@@ -3,7 +3,7 @@
 from datetime import timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
-from sqlalchemy import literal, select, tuple_, union_all
+from sqlalchemy import select, tuple_
 
 from src.foundation.dao.stock_weekly_adj_delivery_dao import StockWeeklyAdjDeliveryDAO
 from src.foundation.datasets.stock_weekly_adj_contracts import (
@@ -29,7 +29,6 @@ from src.foundation.ingestion.stock_weekly_adj_reconciliation import (
 from src.foundation.models.core_serving.equity_adj_factor import (
     EquityAdjFactor as Factor,
 )
-from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar as Daily
 from src.foundation.models.core_serving.stk_period_bar_adj import (
     StkPeriodBarAdj as Serving,
 )
@@ -79,33 +78,18 @@ def validate_source_scope(unit, rows):
 
 def _load_basis_inputs(session, candidates, required_targets, target_day):
     """Indexed last-date lookups in bounded SQL batches, never full history rows."""
+    from .stock_weekly_adj_basis import load_daily_basis_dates
+
     dates, factors = {}, {}
     for start in range(0, len(candidates), 128):
-        chunk = candidates[start : start + 128]
+        chunk = candidates[start:start + 128]
         lookups = []
         for row in chunk:
             code, week = row["ts_code"], parse_day(row["trade_date"])
-            scopes = [("week", week - timedelta(days=4), week)]
+            lookups.append((code, "week", week - timedelta(days=4), week))
             if code in required_targets:
-                scopes.append(("target", None, target_day))
-            for role, begin, end in scopes:
-                query = select(Daily.trade_date).where(
-                    Daily.ts_code == code,
-                    Daily.source == "tushare",
-                    Daily.trade_date <= end,
-                )
-                if begin:
-                    query = query.where(Daily.trade_date >= begin)
-                last = query.order_by(Daily.trade_date.desc()).limit(1)
-                lookups.append(
-                    select(
-                        literal(code).label("code"),
-                        literal(role).label("role"),
-                        last.scalar_subquery().label("trade_date"),
-                    )
-                )
-        for code, role, day in session.execute(union_all(*lookups)):
-            dates[(code, role)] = day
+                lookups.append((code, "target", None, target_day))
+        dates.update(load_daily_basis_dates(session, lookups))
         keys = set()
         for row in chunk:
             code = row["ts_code"]
@@ -336,6 +320,8 @@ def publish_unit(writer, *, definition, unit, batch, context, check):
         [{n: row[n] for n in SOURCE_FIELDS} for row in batch.rows_normalized], policy
     )
     validate_source_scope(unit, incoming)
+    if unit.progress_context.get("plan_correction_revision") and not incoming:
+        fail("更正目标的源历史变为空，需重新审核", "weekly_adj.source_not_ready")
     session = writer.session
     metadata = context["business_plan"]["metadata"]
     existing = set(
@@ -491,6 +477,14 @@ def publish_unit(writer, *, definition, unit, batch, context, check):
         {"ts_code": c, "trade_date": d.strftime("%Y%m%d")} for c, d in sorted(missing)
     ]
     reason["basis_audit"] = audit
+    for name in ("plan_correction_revision", "plan_correction_digest"):
+        if name in unit.progress_context:
+            reason[name] = unit.progress_context[name]
+    if unit.progress_context.get("factor_target"):
+        from .stock_weekly_adj_basis import load_weekly_factor_targets
+        day, _ = load_weekly_factor_targets(session, [unit.request_params["ts_code"]],
+            floor or unit.trade_date or parse_day(unit.request_params["end_date"]))[unit.request_params["ts_code"]]
+        reason["factor_target_date"] = day.isoformat()
     if metadata["bootstrap"]:
         reconcile_scope(session, filters_by_model, payload["summary"], policy, check)
     check()
@@ -531,6 +525,8 @@ def publish_closed_batch(session, *, definition, units, context, check):
             fail(
                 "冻结单元缺少已提交的业务结果", "weekly_adj.delivery_contract_mismatch"
             )
+        from .stock_weekly_adj_plan_correction import validate_corrected_receipt
+        validate_corrected_receipt(unit, receipt)
         if receipt.payload_digest != digest(receipt.payload):
             fail("单元载荷摘要不一致", "weekly_adj.delivery_contract_mismatch")
         if receipt.intent["bootstrap"]:

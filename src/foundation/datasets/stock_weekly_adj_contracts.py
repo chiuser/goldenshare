@@ -8,6 +8,7 @@ from decimal import Decimal, InvalidOperation
 import hashlib
 import json
 from typing import Any
+from uuid import UUID
 from zoneinfo import ZoneInfo
 
 DATASET_KEY = "stk_period_bar_adj_week"
@@ -304,3 +305,149 @@ def weekly_definition_issues(definition) -> list[tuple[str, str]]:
             )
         ]
     )
+
+
+def validate_correction_plan(plan, policy):
+    """Pure format validation. Database binding is checked separately on every use."""
+    fields = {
+        "correction_version",
+        "batch_id",
+        "cutoff_week",
+        "original_plan_revision",
+        "original_plan_digest",
+        "scope_digest",
+        "contract_digest",
+        "unit_ids_digest",
+        "source_task_run_id",
+        "units",
+        "committed_units",
+        "target_checks",
+        "changes",
+        "source_evidence",
+    }
+    try:
+        if (
+            not isinstance(plan, dict)
+            or set(plan) != fields
+            or type(plan["correction_version"]) is not int
+            or plan["correction_version"] != 1
+        ):
+            raise ValueError
+        UUID(plan["batch_id"])
+        date.fromisoformat(plan["cutoff_week"])
+        if any(
+            type(plan[k]) is not int or plan[k] < 1
+            for k in ("original_plan_revision", "source_task_run_id")
+        ):
+            raise ValueError
+        for name in (
+            "original_plan_digest",
+            "scope_digest",
+            "contract_digest",
+            "unit_ids_digest",
+        ):
+            if (
+                not isinstance(plan[name], str)
+                or len(plan[name]) != 64
+                or any(c not in "0123456789abcdef" for c in plan[name])
+            ):
+                raise ValueError
+        units, headers, checks, changes = (
+            plan[k] for k in ("units", "committed_units", "target_checks", "changes")
+        )
+        if (
+            any(
+                not isinstance(v, list) or len(v) > policy.max_units
+                for v in (units, headers, checks)
+            )
+            or not isinstance(changes, list)
+            or len(changes) != 1
+        ):
+            raise ValueError
+        ids = [u["unit_id"] for u in units]
+        if len(set(ids)) != len(ids) or plan["unit_ids_digest"] != digest(ids):
+            raise ValueError
+        for h in headers:
+            if (
+                set(h) != {"revision", "unit_id", "payload_digest", "rows_written"}
+                or h["unit_id"] not in ids
+                or type(h["revision"]) is not int
+                or h["revision"] < 1
+                or type(h["rows_written"]) is not int
+                or h["rows_written"] < 0
+                or len(h["payload_digest"]) != 64
+            ):
+                raise ValueError
+        if len({h["unit_id"] for h in headers}) != len(headers):
+            raise ValueError
+        for c in checks:
+            if (
+                set(c)
+                != {
+                    "unit_id",
+                    "ts_code",
+                    "old_factor_target",
+                    "new_factor_target",
+                    "factor_target_date",
+                }
+                or c["unit_id"] not in ids
+            ):
+                raise ValueError
+            if date.fromisoformat(c["factor_target_date"]) > date.fromisoformat(
+                plan["cutoff_week"]
+            ):
+                raise ValueError
+            for name in ("old_factor_target", "new_factor_target"):
+                value = Decimal(c[name])
+                if (
+                    not value.is_finite()
+                    or value <= 0
+                    or format(value, ".8f") != c[name]
+                ):
+                    raise ValueError
+        expected_targets = {
+            u["unit_id"]: u
+            for u in units
+            if u["progress"].get("factor_target") is not None
+        }
+        if {c["unit_id"] for c in checks} != set(expected_targets):
+            raise ValueError
+        for c in checks:
+            u = expected_targets[c["unit_id"]]
+            if (
+                c["ts_code"] != u["params"]["ts_code"]
+                or c["old_factor_target"] != u["progress"]["factor_target"]
+            ):
+                raise ValueError
+        if len({c["unit_id"] for c in checks}) != len(checks) or changes != [
+            c for c in checks if c["old_factor_target"] != c["new_factor_target"]
+        ]:
+            raise ValueError
+        if canonical_json_size(plan) + 2048 > policy.max_plan_bytes:
+            raise ValueError
+    except (ValueError, TypeError, KeyError, AttributeError, InvalidOperation):
+        raise WeeklyAdjContractError("更正审核清单格式、单位或预算不符合合同") from None
+
+
+def validate_correction_payload(payload, policy):
+    if (
+        not isinstance(payload, dict)
+        or set(payload)
+        != {
+            "correction_version",
+            "approved_plan",
+            "approved_plan_digest",
+            "approval_ref",
+        }
+        or type(payload["correction_version"]) is not int
+        or payload["correction_version"] != 1
+        or not isinstance(payload["approval_ref"], str)
+        or not 1 <= len(payload["approval_ref"]) <= 200
+    ):
+        raise WeeklyAdjContractError("更正记录缺少有效批准内容")
+    validate_correction_plan(payload["approved_plan"], policy)
+    if (
+        payload["approved_plan_digest"] != digest(payload["approved_plan"])
+        or canonical_json_size(payload) > policy.max_plan_bytes
+    ):
+        raise WeeklyAdjContractError("更正批准摘要或大小不同")

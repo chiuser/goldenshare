@@ -162,7 +162,7 @@ def bootstrap_factor_scope(session, policy, *, today=None, history_cutoff=None):
             "首次收尾代码库存超过预算", "weekly_adj.row_budget_exceeded"
         )
     changed = {
-        code: (start, value) for code, start, _, value, change, _ in rows if change
+        code: (start, value, day) for code, start, day, value, change, _ in rows if change
     }
     unverified = [code for code, _, _, _, _, count in rows if count]
     if len(changed) > policy.max_units:
@@ -226,7 +226,7 @@ def plan_bootstrap_catchup(session, request, definition, parent, cutoff, *, toda
             )
         )
         week += timedelta(days=7)
-    for code, (start, target) in changes.items():
+    for code, (start, target, target_date) in changes.items():
         unit = build_weekly_adj_requested_units(
             replace(
                 request,
@@ -242,6 +242,7 @@ def plan_bootstrap_catchup(session, request, definition, parent, cutoff, *, toda
                 progress_context={
                     **unit.progress_context,
                     "factor_target": format(target, ".8f"),
+                    "factor_target_date": target_date.isoformat(),
                 },
             )
         )
@@ -340,7 +341,7 @@ def publish_bootstrap_boundary(session, *, definition, context, check):
         session, policy, history_cutoff=parent.cutoff_week
     )
     unavailable = []
-    for code, (_, target) in changes.items():
+    for code, (_, target, _) in changes.items():
         check()
         unit = next(
             (

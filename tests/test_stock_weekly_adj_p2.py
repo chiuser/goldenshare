@@ -251,7 +251,7 @@ def test_daily_union_two_changes_new_listing_and_one_grouped_min(db):
         changes, start, end, first = load_changed_codes(
             s, WEEK, weekly_definition().planning.weekly_adj_policy
         )
-        assert changes == {CODE: (OLD, Decimal("1.00000000"))}
+        assert changes == {CODE: (OLD, Decimal("1.00000000"), WEEK)}
         assert (start, end, first) == (date(2026, 10, 5), WEEK, 1)
         s.delete(s.get(Factor, (CODE, date(2026, 10, 7))))
         s.commit()
@@ -726,6 +726,8 @@ def test_factor_changes_during_suspension_are_not_lost(db):
         halted = "600018.SH"
         s.add(Raw(**row(code=halted)))
         s.add(Daily(ts_code=halted, trade_date=OLD, source="tushare"))
+        # LLD 11.2 requires the factor on the last actual trading date.
+        s.add(Factor(ts_code=halted, trade_date=OLD, adj_factor=Decimal("1")))
         for day in (date(2026, 10, 2), *(date(2026, 10, n) for n in range(5, 10))):
             s.add(
                 Factor(

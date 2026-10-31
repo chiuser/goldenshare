@@ -490,6 +490,9 @@
 - `observation_dao_name` / `observation_table`：需要从独立观测表发布 current serving 时填写，否则显式为 `None`。
 - `stage_dao_name` / `stage_table`：只有当前 write path 明确支持 staged stream 时填写，否则显式为 `None`。
 - `delivery_dao_name` / `delivery_table`：专用业务交接合同才声明，其他数据集默认None。复权周线P2已实现并注册`raw_core_upsert_with_delivery`发布器，要求具名weekly_adj_policy；Raw/Serving及交接同单元事务，其他路径不启用。正式使用前须完成专用表/索引迁移和真实PG验收。
+  - 复权周线目标因子按原截止日以内该股最后实际日线的日期精确取同日因子；计划和执行共用查询，依据日期不作为源请求参数或运营可选输入。
+  - 原冻结plan及已提交unit不可改写。因子目标更正只通过经批准的`plan_correction`不可变追加记录，严格绑定原计划、单位清单、前后值和已提交结果；只允许更正未提交历史单元，不改变请求范围、单位ID、意图或预算。更正不计入行情完成数、单位清单或闭合水位。
+  - 运营更正CLI默认数据库只读生成有界审核清单；显式APPLY及批准文件/摘要/引用才允许追加更正，追加后沿原TaskRun重新提交继续同一业务批次。更正、行情单元和Ops观测分别保持现有事务边界；重复执行、取消、退出、正常进度增长及观测失败均需正反向测试和隔离PG验收。具体合同及17596的生产恢复授权边界见[周线LLD第11节](../datasets/stock-weekly-adj-refresh-low-level-design-v1.md#last-trading-day-factor-17596)。
 - `raw_conflict_columns`：
 - `conflict_columns`：
 - `write_path`：

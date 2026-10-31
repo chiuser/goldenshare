@@ -21,6 +21,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.schema import conv
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.foundation.models.base import Base
@@ -36,8 +37,8 @@ class StockWeeklyAdjDelivery(Base):
         ),
         CheckConstraint("contract_version = 1", name="weekly_adj_delivery_version"),
         CheckConstraint(
-            "record_kind IN ('plan','unit','batch_closed','bootstrap_closed')",
-            name="weekly_adj_delivery_kind",
+            "record_kind IN ('plan','unit','batch_closed','bootstrap_closed','plan_correction')",
+            name=conv("ck_weekly_adj_delivery_kind_v2"),
         ),
         CheckConstraint(
             "outcome IN ('published','source_empty_preserved','partial_source_preserved','no_trading_week')",
@@ -50,6 +51,10 @@ class StockWeeklyAdjDelivery(Base):
         CheckConstraint(
             "octet_length(payload::text) <= CASE WHEN record_kind = 'plan' THEN 1048576 ELSE 8388608 END",
             name="weekly_adj_delivery_payload_bytes",
+        ).ddl_if(dialect="postgresql"),
+        CheckConstraint(
+            "CASE WHEN record_kind = 'plan_correction' THEN octet_length(payload::text) <= 1048576 ELSE TRUE END",
+            name=conv("ck_weekly_adj_correction_bytes"),
         ).ddl_if(dialect="postgresql"),
         Index("idx_weekly_adj_delivery_kind_revision", "record_kind", "revision"),
         {"schema": "core"},

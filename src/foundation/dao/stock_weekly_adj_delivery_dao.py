@@ -19,6 +19,7 @@ from src.foundation.datasets.stock_weekly_adj_contracts import (
     canonical_json_size,
     canonical_source_rows,
     digest,
+    validate_correction_payload,
 )
 from src.foundation.models.core.stock_weekly_adj_delivery import StockWeeklyAdjDelivery
 
@@ -71,6 +72,7 @@ class StockWeeklyAdjDeliveryDAO:
             raise WeeklyAdjContractError("交接版本错误")
         if values["record_kind"] not in {
             "plan",
+            "plan_correction",
             "unit",
             "batch_closed",
             "bootstrap_closed",
@@ -111,13 +113,23 @@ class StockWeeklyAdjDeliveryDAO:
             raise WeeklyAdjContractError("交接意图缺失或无效")
         limit = (
             policy.max_plan_bytes
-            if values["record_kind"] == "plan"
+            if values["record_kind"] in {"plan", "plan_correction"}
             else policy.max_payload_bytes
         )
         if canonical_json_size(payload) > limit:
             raise WeeklyAdjContractError(
                 "交接载荷超预算", "weekly_adj.row_budget_exceeded"
             )
+        if values["record_kind"] == "plan_correction":
+            validate_correction_payload(payload, policy)
+            approved = payload["approved_plan"]
+            if (values["unit_id"] != "plan_correction" or any(counts)
+                    or values["outcome"] != "published"
+                    or str(values["batch_id"]) != approved["batch_id"]
+                    or values["scope_digest"] != approved["scope_digest"]
+                    or values["cutoff_week"].isoformat() != approved["cutoff_week"]
+                    or any(values[k] is not None for k in ("ts_code", "start_date", "end_date", "factor_target", "basis_date", "unit_kind"))):
+                raise WeeklyAdjContractError("更正记录头与批准清单不一致")
         if values["record_kind"] == "plan" and (
             not isinstance(payload.get("units"), list)
             or len(payload["units"]) > policy.max_units

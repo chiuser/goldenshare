@@ -163,12 +163,12 @@ def load_changed_codes(session, cutoff, policy):
         if changed
         else {}
     )
-    missing_targets = [code for code in earliest if (days[-1], code) not in factors]
-    if missing_targets:
-        fail(f"变化股票缺少周末目标因子：{missing_targets[:20]}")
+    from .stock_weekly_adj_basis import load_weekly_factor_targets
+
+    targets = load_weekly_factor_targets(session, earliest, cutoff)
     return (
         {
-            code: (earliest[code], factors[(days[-1], code)])
+            code: (earliest[code], targets[code][1], targets[code][0])
             for code in sorted(earliest)
         },
         days[1],
@@ -228,12 +228,12 @@ def serialize_unit(unit):
     }
 
 
-def restore_units(payload, definition):
+def restore_units(payload, definition, *, session=None):
     units = payload["units"]
     policy = definition.planning.weekly_adj_policy
     if not isinstance(units, list) or len(units) > policy.max_units:
         fail("冻结计划单元无效", "weekly_adj.delivery_contract_mismatch")
-    return tuple(
+    restored = tuple(
         PlanUnitSnapshot(
             unit_id=u["unit_id"],
             dataset_key=definition.dataset_key,
@@ -247,6 +247,10 @@ def restore_units(payload, definition):
         )
         for u in units
     )
+    if session is not None:
+        from .stock_weekly_adj_plan_correction import corrected_units
+        return corrected_units(session, payload, definition, restored)
+    return restored
 
 
 def resolve_weekly_adj_units(session, request, definition, *, now=None):
@@ -290,7 +294,7 @@ def resolve_weekly_adj_units(session, request, definition, *, now=None):
             end_date=parse_day(scope["end_date"]) if scope["end_date"] else None,
         )
         return replace(request, execution_context=restored), restore_units(
-            old.payload, definition
+            old.payload, definition, session=session
         )
 
     cutoff_limit = latest_completed_calendar_week(now or datetime.now(UTC))
@@ -343,7 +347,7 @@ def resolve_weekly_adj_units(session, request, definition, *, now=None):
                 factor_scan_end=end.isoformat() if end else None,
                 first_seen_codes=first,
             )
-            for code, (start, target) in changes.items():
+            for code, (start, target, target_date) in changes.items():
                 historical = replace(
                     request,
                     run_profile="range_rebuild",
@@ -359,6 +363,7 @@ def resolve_weekly_adj_units(session, request, definition, *, now=None):
                         progress_context={
                             **unit.progress_context,
                             "factor_target": format(target, ".8f"),
+                            "factor_target_date": target_date.isoformat(),
                         },
                     )
                 )
