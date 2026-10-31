@@ -1,0 +1,148 @@
+{
+  "status": "step1_step2_complete",
+  "completed": [
+    {
+      "group": "contracts_execution",
+      "nodeids": [
+        "tests/test_stock_daily_kline_service.py::test_request_and_fixed_calculations",
+        "tests/test_stock_daily_kline_service.py::test_input_is_detached_and_immutable",
+        "tests/foundation/technical_indicators/test_configuration.py::test_all_confirmed_defaults_and_existing_lake_root_are_copied",
+        "tests/app/technical_indicators/test_stock_daily_integration.py::test_single_work_and_existing_entries"
+      ],
+      "exit_code": 0,
+      "seconds": 1.7346166670322418,
+      "costs": {
+        "fake_controls": 6,
+        "real_controls": 0,
+        "calculate_stub_calls": 3,
+        "input_rows": 0,
+        "sql_logical_rows": 0
+      },
+      "cases": [
+        {
+          "name": "test_request_and_fixed_calculations",
+          "passed": true
+        },
+        {
+          "name": "test_input_is_detached_and_immutable",
+          "passed": true
+        },
+        {
+          "name": "test_all_confirmed_defaults_and_existing_lake_root_are_copied",
+          "passed": true
+        },
+        {
+          "name": "test_single_work_and_existing_entries",
+          "passed": true
+        }
+      ],
+      "log": "contracts_execution.txt",
+      "junit": "contracts_execution.xml"
+    },
+    {
+      "group": "cancel_order",
+      "nodeids": [
+        "tests/app/technical_indicators/test_d4_repairs.py::test_external_cancel_preserves_main_error_after_worker_feedback",
+        "tests/app/technical_indicators/test_d4_repairs.py::test_original_worker_failure_precedes_later_cancel"
+      ],
+      "exit_code": 0,
+      "seconds": 1.343800624832511,
+      "costs": {
+        "fake_controls": 3,
+        "real_controls": 0,
+        "calculate_stub_calls": 0,
+        "input_rows": 0,
+        "sql_logical_rows": 0
+      },
+      "cases": [
+        {
+          "name": "test_external_cancel_preserves_main_error_after_worker_feedback",
+          "passed": true
+        },
+        {
+          "name": "test_original_worker_failure_precedes_later_cancel",
+          "passed": true
+        }
+      ],
+      "log": "cancel_order.txt",
+      "junit": "cancel_order.xml"
+    },
+    {
+      "group": "dependencies",
+      "nodeids": [
+        "tests/architecture/test_subsystem_dependency_matrix.py::test_subsystem_dependency_matrix",
+        "tests/architecture/test_platform_legacy_guardrails.py::test_no_runtime_imports_from_platform_legacy_package",
+        "tests/architecture/test_operations_legacy_guardrails.py::test_no_legacy_operations_services_imports",
+        "tests/architecture/test_technical_indicator_dependencies.py::test_indicator_dependency_boundaries"
+      ],
+      "exit_code": 0,
+      "seconds": 6.9929164997302,
+      "costs": {
+        "fake_controls": 0,
+        "real_controls": 0,
+        "calculate_stub_calls": 0,
+        "input_rows": 0,
+        "sql_logical_rows": 0
+      },
+      "cases": [
+        {
+          "name": "test_subsystem_dependency_matrix",
+          "passed": true
+        },
+        {
+          "name": "test_no_runtime_imports_from_platform_legacy_package",
+          "passed": true
+        },
+        {
+          "name": "test_no_legacy_operations_services_imports",
+          "passed": true
+        },
+        {
+          "name": "test_indicator_dependency_boundaries",
+          "passed": true
+        }
+      ],
+      "log": "dependencies.txt",
+      "junit": "dependencies.xml"
+    }
+  ],
+  "failed": [
+    {
+      "group": "final_document_structure_check",
+      "record": "document_structure_failure.json",
+      "root_cause": "preexisting 13 unescaped HTML placeholders",
+      "remaining_tests": [],
+      "automatic_retry": false
+    }
+  ],
+  "fake_controls": 9,
+  "real_controls": 0,
+  "input_rows": 0,
+  "sql_logical_rows": 0,
+  "pytest_seconds": 10.071333791594952,
+  "static_preflight": {
+    "ast": "passed",
+    "exact_test_functions": 10,
+    "protected_sources_unchanged": true,
+    "fixture_reviewed": true
+  },
+  "calculate_stub_calls": 3,
+  "resolved_failures": [
+    {
+      "group": "final_document_structure_check",
+      "original_record": "document_structure_failure.json",
+      "fix_result": "document_fix_result_02.json",
+      "validation": "document_checks_02.json"
+    }
+  ],
+  "unresolved_failures": [],
+  "document_closeout": {
+    "status": "passed",
+    "new_pytest_calls": 0,
+    "new_fake_controls": 0,
+    "new_real_controls": 0,
+    "new_input_rows": 0,
+    "new_sql_logical_rows": 0,
+    "checks_seconds": 0.06770612532272935
+  }
+}

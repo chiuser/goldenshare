@@ -1,0 +1,36 @@
+{
+  "status": "passed",
+  "documents": {
+    "technical-indicator-kernel-stock-daily-api-integration-plan-v1.html": {
+      "ids": 11,
+      "local_links": 46,
+      "sha256": "caa03e88f1afab852d146b6a89ef539366866f9f8759541de2811a7164be4485"
+    },
+    "technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html": {
+      "ids": 19,
+      "local_links": 46,
+      "sha256": "e4ac1954c65eba824a917cd324c0c4a312d33fc5eefa4d7f5a5f4064d21199a7"
+    },
+    "technical-indicator-kernel-component-design-v1.html": {
+      "ids": 146,
+      "local_links": 150,
+      "sha256": "9d8d66362ef5797b7fe1f24f671b6e3384750016136af97d23d3664022a0d556"
+    },
+    "technical-indicator-kernel-low-level-design-v1.html": {
+      "ids": 85,
+      "local_links": 81,
+      "sha256": "b8741fe8167abdf22845499a082e714b0695ef7b7a888f5e3860a4660b85e4e4"
+    }
+  },
+  "parseable_python_examples": 7,
+  "lld_anchors": 19,
+  "current_file_default": 10000,
+  "implementation_files_unchanged": 9,
+  "protected_files_unchanged": 65,
+  "first_failure_and_test_artifacts_preserved": true,
+  "pytest_rerun": false,
+  "new_controls": 0,
+  "new_input_rows": 0,
+  "new_sql_logical_rows": 0,
+  "seconds": 0.05303170811384916
+}

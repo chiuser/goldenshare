@@ -25,7 +25,7 @@ EXPECTED_DEFAULTS = {
     "cleanup_reserve_ms": 2000,
     "frontend_expire_ms": 10000,
     "max_input_rows": 1500000,
-    "max_source_files": 5000,
+    "max_source_files": 10000,
     "max_output_rows": 10000,
     "max_output_bytes": 5000000,
     "max_indicator_instances": 16,

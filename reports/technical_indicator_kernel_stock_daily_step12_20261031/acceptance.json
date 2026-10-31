@@ -1,0 +1,167 @@
+{
+  "status": "step1_step2_complete",
+  "implemented_stages": [
+    "A: contracts and existing configuration",
+    "B: common D4 execution"
+  ],
+  "not_implemented": [
+    "C: stock API migration and Web middleware/lifespan",
+    "P01 real PG probe",
+    "R01-R05 integration/browser acceptance"
+  ],
+  "tests": [
+    {
+      "group": "contracts_execution",
+      "nodeids": [
+        "tests/test_stock_daily_kline_service.py::test_request_and_fixed_calculations",
+        "tests/test_stock_daily_kline_service.py::test_input_is_detached_and_immutable",
+        "tests/foundation/technical_indicators/test_configuration.py::test_all_confirmed_defaults_and_existing_lake_root_are_copied",
+        "tests/app/technical_indicators/test_stock_daily_integration.py::test_single_work_and_existing_entries"
+      ],
+      "exit_code": 0,
+      "seconds": 1.7346166670322418,
+      "costs": {
+        "fake_controls": 6,
+        "real_controls": 0,
+        "calculate_stub_calls": 3,
+        "input_rows": 0,
+        "sql_logical_rows": 0
+      },
+      "cases": [
+        {
+          "name": "test_request_and_fixed_calculations",
+          "passed": true
+        },
+        {
+          "name": "test_input_is_detached_and_immutable",
+          "passed": true
+        },
+        {
+          "name": "test_all_confirmed_defaults_and_existing_lake_root_are_copied",
+          "passed": true
+        },
+        {
+          "name": "test_single_work_and_existing_entries",
+          "passed": true
+        }
+      ],
+      "log": "contracts_execution.txt",
+      "junit": "contracts_execution.xml"
+    },
+    {
+      "group": "cancel_order",
+      "nodeids": [
+        "tests/app/technical_indicators/test_d4_repairs.py::test_external_cancel_preserves_main_error_after_worker_feedback",
+        "tests/app/technical_indicators/test_d4_repairs.py::test_original_worker_failure_precedes_later_cancel"
+      ],
+      "exit_code": 0,
+      "seconds": 1.343800624832511,
+      "costs": {
+        "fake_controls": 3,
+        "real_controls": 0,
+        "calculate_stub_calls": 0,
+        "input_rows": 0,
+        "sql_logical_rows": 0
+      },
+      "cases": [
+        {
+          "name": "test_external_cancel_preserves_main_error_after_worker_feedback",
+          "passed": true
+        },
+        {
+          "name": "test_original_worker_failure_precedes_later_cancel",
+          "passed": true
+        }
+      ],
+      "log": "cancel_order.txt",
+      "junit": "cancel_order.xml"
+    },
+    {
+      "group": "dependencies",
+      "nodeids": [
+        "tests/architecture/test_subsystem_dependency_matrix.py::test_subsystem_dependency_matrix",
+        "tests/architecture/test_platform_legacy_guardrails.py::test_no_runtime_imports_from_platform_legacy_package",
+        "tests/architecture/test_operations_legacy_guardrails.py::test_no_legacy_operations_services_imports",
+        "tests/architecture/test_technical_indicator_dependencies.py::test_indicator_dependency_boundaries"
+      ],
+      "exit_code": 0,
+      "seconds": 6.9929164997302,
+      "costs": {
+        "fake_controls": 0,
+        "real_controls": 0,
+        "calculate_stub_calls": 0,
+        "input_rows": 0,
+        "sql_logical_rows": 0
+      },
+      "cases": [
+        {
+          "name": "test_subsystem_dependency_matrix",
+          "passed": true
+        },
+        {
+          "name": "test_no_runtime_imports_from_platform_legacy_package",
+          "passed": true
+        },
+        {
+          "name": "test_no_legacy_operations_services_imports",
+          "passed": true
+        },
+        {
+          "name": "test_indicator_dependency_boundaries",
+          "passed": true
+        }
+      ],
+      "log": "dependencies.txt",
+      "junit": "dependencies.xml"
+    }
+  ],
+  "test_function_count": 10,
+  "fake_controls": 9,
+  "real_controls": 0,
+  "real_calculate_calls": 0,
+  "input_rows": 0,
+  "locator_rows": 0,
+  "sql_logical_rows": 0,
+  "calculate_stub_calls": {
+    "new_entry_function": 3,
+    "existing_cancel_order_regressions": 3,
+    "total": 6,
+    "note": "plan controlled_calculate_calls=3 refers to the new-entry function, as specified in LLD 16.2; existing two error-order regressions use the other 3 planned FakeControls; no real calculation or resource budget increased"
+  },
+  "pytest_seconds": 10.071333791594952,
+  "ordinary_fake_control_budget_used": 9,
+  "ordinary_fake_control_budget_remaining": 63,
+  "protected_files_unchanged": 65,
+  "d4_lifecycle_ast": "same _execute lifecycle except approved signature, validate/work dispatch and content type forwarding",
+  "codegraph": "sync and status completed; root index reused",
+  "historical_reports_changed": false,
+  "old_stock_api_unchanged": true,
+  "formal_data_access": false,
+  "dependency_changes": false,
+  "implementation_sha256": {
+    "src/app/runtime/technical_indicators/execution.py": "f1b60f81b9f2c02571ff5612f6d832274556db89154cd5fce1278d4d817393f2",
+    "src/app/runtime/technical_indicators/response.py": "9fa712001e054f7aa27aba5fcb5f06b42455380c6744a746f92f43fe409e0563",
+    "src/biz/api/wealth/market/stock_detail_dependencies.py": "e0bf26040f8ba4f2237e5d3c86df8c5eb6644352b4b2c0c3df430e6c0a5d65df",
+    "src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py": "b4f2cb8b1c1481029f2bbaa953a64339868e6e11c9b1958e6808eb971decaa8d",
+    "src/biz/services/wealth/market/stock_detail/stock_daily_kline_contracts.py": "4e59666096643120e56e327a46a945d934390595f627932c5b1c89e14b75a48b",
+    "src/foundation/config/settings.py": "7d9f69088a1c27e08da2c8d31125acfa5580965ba448d55d522277ce375f648f",
+    "tests/app/technical_indicators/test_stock_daily_integration.py": "204f8110f5c224089d61ac90db713494a099f3e8144dfb6f2bef08a2ad62ecf6",
+    "tests/foundation/technical_indicators/test_configuration.py": "1d53983409c2d3ffc3c546e52f67fcb3c6ab91c00ca7faa19d8b14de4e3ff3d1",
+    "tests/test_stock_daily_kline_service.py": "448ac6d8d68d3474cdf35603adaa5b8cc070790e242bca6f89759547c4fdd173"
+  },
+  "final_document_check": {
+    "passed": true,
+    "first_failure_record": "document_structure_failure.json",
+    "authorized_fix_scope": "document_fix_scope_02.json",
+    "fix_result": "document_fix_result_02.json",
+    "current_checks": "document_checks_02.json",
+    "pytest_rerun": false,
+    "implementation_changed_since_tests": false
+  },
+  "repository_docs_integrity": "passed",
+  "scoped_git_diff_check": "passed",
+  "commit_authorized": true,
+  "commit_delivery": "included with this scoped commit; see Git for commit id",
+  "pushed": false,
+  "deployment": false
+}

@@ -26,7 +26,7 @@
   <p class="meta">技术指标计算内核 · 第一个正式消费者</p>
   <h1>股票详情页日线技术指标<br>正式接入方案 v1</h1>
   <p>页面继续调用原来的日线接口。后端把原来读取已保存指标的部分，替换成调用计算内核；所有现有指标仍在一次响应中返回。</p>
-  <p class="meta">2026-10-31 · 方向按管理员要求形成配套代码级LLD，尚未开发或执行接入验收；正式来源事实门禁单列，不能把文档成稿当作已经可上线。</p>
+  <p class="meta">2026-10-31 · 步骤1＋2基础合同、共用执行及文档修复收尾已完成；股票API尚未切换或执行P/R接入验收；正式来源事实门禁单列，不能把文档成稿当作已经可上线。</p>
 </header>
 <nav aria-label="文档目录">
   <a href="#scope">01 范围</a><a href="#current">02 当前链路</a><a href="#request">03 请求合同</a><a href="#fields">04 返回字段</a><a href="#calculation">05 计算及取数</a><a href="#layers">06 分层与位置</a><a href="#lifecycle">07 生命周期</a><a href="#consumers">08 消费者</a><a href="#acceptance">09 验收</a><a href="#lld">10 LLD要求</a><a href="#review">11 审计与推进</a>
@@ -34,7 +34,7 @@
 
 <section id="scope">
   <h2>01 · 本阶段只替换股票日线技术指标</h2>
-  <div class="note"><strong>2026-10-31修订状态：</strong>管理员已将唯一来源文件上限改定为10000。数据库部分初始化/清理及旧入口迁移顺序已按要求补全到LLD；SQLite仅沿用现有隔离测试，PG业务读取与DuckDB计算的职责、独立预期及测试替换位置已写明。见<a href="../../reports/technical_indicator_kernel_stock_daily_lld_20261031/lld_revision_04.md">本轮修订记录</a>。三位价格对照标准保持；本轮修改文档，未把后续代码修改或验收标为已完成。</div>
+  <div class="note"><strong>2026-10-31修订状态：</strong>管理员已将唯一来源文件上限改定为10000。数据库部分初始化/清理及旧入口迁移顺序已按要求补全到LLD；SQLite仅沿用现有隔离测试，PG业务读取与DuckDB计算的职责、独立预期及测试替换位置已写明。见<a href="../../reports/technical_indicator_kernel_stock_daily_lld_20261031/lld_revision_04.md">本轮修订记录</a>。三位价格对照标准保持；本轮只完成A/B基础合同、既有配置默认值及D4共用执行，10个限定函数通过，未将股票API接入或P/R验收标为已完成。</div>
   <p>配套<a href="technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html">股票日线接入代码级LLD v1</a>已明确文件、对象、签名、查询与字段映射、D4执行/实际发送、关闭、错误、配置及固定验收。当前来源门禁与只读核验结果见其第02节，未通过前不进入开发。</p>
   <div class="note"><strong>已确认的方向：</strong>先做股票详情页日线；API协议和下游保持不变；无论某项指标是否正在显示，均一次返回七条MA、BOLL、MACD、KDJ。切换MA、BOLL继续只改变画图，不重新请求。</div>
   <ul>
@@ -167,7 +167,7 @@
       <tr><td>150万输入、10000来源文件、16项计算、10000输出位置</td><td>只有唯一来源文件数由管理员从5000改为10000，其他初值不变。后续同次更新Settings既有字段和配置字面预期；旧API仍限limit≤2000，不新增参数或放宽其他资源保护。</td></tr>
     </tbody></table></div>
   <p>配置唯一来源为<a href="../../src/foundation/config/settings.py">Settings</a>及<a href="../../src/foundation/technical_indicators/configuration/settings.py">KernelConfig</a>。本方案不新增配置项。内存先按实际选中列、输入量、结果和并发估算，不恢复已暂停的系统RSS采样要求，不声称本阶段已有性能实测。</p>
-  <p>文件数仍统一计入定位、价格、因子与基准的唯一物理文件，不把最新基准排除计数，也不通过减预热或拆成多次calculate规避限制。当前代码默认仍5000，已批准目标10000在正式接入开发中落地；环境显式覆盖及重启生效规则不变。配置来源、消费者、依赖、最小检查与旧证据边界见专项LLD第13.1节。</p>
+  <p>文件数仍统一计入定位、价格、因子与基准的唯一物理文件，不把最新基准排除计数，也不通过减预热或拆成多次calculate规避限制。步骤1已将既有Settings和配置字面预期改为10000，并通过限定默认值检查；环境显式覆盖及重启生效规则不变。配置来源、消费者、依赖、最小检查与旧证据边界见专项LLD第13.1节。</p>
   <p>数据库资源采用一个contextmanager，完整定义尚未创建、仅有Session、已有Connection和已尝试登记监听器四种状态；移除/关闭失败仍继续清理，原错误优先，正常清理失败不能成功。具体代码级流程见LLD第10节，不另造资源框架或重试。生产业务读取继续使用既有PG；SQLite只是现有临时测试库，内核始终由DuckDB计算，详LLD第14.0节。</p>
 </section>
 
@@ -226,6 +226,7 @@
   <p><strong>已明确且不能跑偏：</strong>只替换股票日线16个指标值；十项计算一次提交；原URL和公开DTO不变；现有页面300根及API范围不变；切换MA/BOLL不请求；其他行情来源、page-init和独立图层不变；不推进分钟线、指数、XXM或DG退出。</p>
   <p><strong>事实核验状态：</strong>数据库两股各21行已强制只读保存；旧BOLL20/2及四个窗口支持的总体标准差口径已记录。获准的Lake单节点续做已完成，来源/复权口径检查通过，五位保存精度差异单列，不声称原生DOUBLE逐位相等；首次SQL错误和原证据保留。当前Web的Lake根尚未配置，短历史BOLL的前端null转0问题仍按范围外限制保留。详情及接入条件见配套LLD第02节。</p>
   <p><strong>推进顺序：</strong>来源核验已完成，后续价格对照按三位小数；本次按管理员决定补齐文件上限、清理和迁移步骤，先review修订后的LLD。开发先准备合同/配置，再改纯D4共用执行；随后把业务查询/映射/后台、原路由及App装配作为同一迁移单元，全部接上后才删除旧调用并验API，不留下“路由仍调用已删除方法”的阶段版本。不保留旧指标回退，不中途发布半套变更。固定P/R清单与预算保持，阶段间冲突仍先报告。</p>
+  <p><strong>2026-10-31步骤1＋2执行范围及结果：</strong>管理员已批准先做独立合同/配置和纯D4共用执行。新增三个不可变数据对象、固定十项指标、Biz后台协议；文件上限只改为既定10000；原库/HTTP入口接入一份内部validate/work，并保留取消、发送和清理语义。原股票路由、查询、mapper、App正式装配及页面不变，不提前进入C。有限检查使用专项LLD第16.2节的10个精确函数，最多9个控制替身，无行情/SQL/真实Control，不重跑旧整组。具体文件、边界、预算、失败停止与证据记录见<a href="technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html#step12">LLD第16.2节</a>，不增加产品规则或P/R额度。当前A/B代码及10个限定函数通过；首次文档检查发现的13处旧占位符转义已获准修复并完成收尾，原失败记录保留、测试未重跑；使用9个控制替身、0真实Control、0行情读取和0 SQL；原API/查询/页面未改。接下来仍按C完整迁移，不提前删除旧方法；本轮证据见<a href="../../reports/technical_indicator_kernel_stock_daily_step12_20261031/acceptance.json">完成记录</a>。</p>
   <h3>设计原则对照</h3>
   <div class="table-wrap"><table>
     <thead><tr><th>原则</th><th>本方案落点</th></tr></thead><tbody>
@@ -235,7 +236,7 @@
       <tr><td>性能、异常及验收</td><td>第07、09、10节：复用D4生命周期，最终旧DTO计量，有限执行和独立预期。</td></tr>
       <tr><td>用户可见结果</td><td>第02、08、09节：原页面与图表保留，真实响应驱动原页面验证；不新做视觉设计。</td></tr>
     </tbody></table></div>
-  <p class="muted">方案首稿于本日形成，本轮按管理员要求编写专项LLD并同步设计落实和有界核验状态；不修改业务代码或指标SQL，不执行接入测试、不提交或部署。</p>
+  <p class="muted">方案首稿于本日形成，本轮在已提交设计上仅完成步骤1＋2、限定检查及获准的文档格式修复收尾；原API/查询/页面和指标算法SQL不变，不执行P/R接入验收。按管理员本次要求提交相关代码、文档与证据，不推送或部署。</p>
 </section>
 <footer>依据：2026-10-31管理员确认的股票日线优先范围、当前API/schema/query/mapper及前端消费者、内核与D4实现。方案和配套LLD不等于接入已实施，来源核验与开发验收分别记录。</footer>
 </main></body></html>

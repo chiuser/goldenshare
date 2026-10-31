@@ -101,7 +101,7 @@ class Settings(BaseSettings):
         default=1500000, alias="TECHNICAL_INDICATOR_MAX_INPUT_ROWS",
     )
     technical_indicator_max_source_files: int = Field(
-        default=5000, alias="TECHNICAL_INDICATOR_MAX_SOURCE_FILES",
+        default=10000, alias="TECHNICAL_INDICATOR_MAX_SOURCE_FILES",
     )
     technical_indicator_max_output_rows: int = Field(
         default=10000, alias="TECHNICAL_INDICATOR_MAX_OUTPUT_ROWS",

@@ -1,0 +1,47 @@
+{
+  "status": "authorized_document_fix_and_closeout",
+  "authorization": "User approved fixing the 13 HTML placeholders, completing step 1+2 closeout and committing this round",
+  "head_before": "4a5a5e17b54e299429186313cd68e84aad7925cf",
+  "file": "docs/architecture/technical-indicator-kernel-low-level-design-v1.html",
+  "before_sha256": "5f460d4a28363743548db4e4de8fda5c8717ac92be6e585fa0ac6266a43d728f",
+  "replacement": {
+    "old": "<node>",
+    "new": "&lt;node&gt;",
+    "count": 13
+  },
+  "checks": [
+    "same decoded text for the 13 replacements",
+    "four design HTML documents structure and local references",
+    "7 embedded complete Python examples syntax",
+    "unchanged 9 implementation/test SHA and 65 protected source SHA",
+    "existing repository docs integrity and scoped Git diff check",
+    "exact commit whitelist and README hunk-only staging"
+  ],
+  "not_executed": [
+    "pytest rerun",
+    "real Control",
+    "calculation SQL",
+    "database or Lake access",
+    "stage C migration",
+    "push or deployment"
+  ],
+  "new_fake_controls": 0,
+  "new_real_controls": 0,
+  "new_input_rows": 0,
+  "new_sql_logical_rows": 0,
+  "preserve_sha256": {
+    "plan.json": "a583e52578eb187dbd9dc4892ed3c95cf866e95a3e795dc10b3aff62a8018353",
+    "document_structure_failure.json": "77139341f20415763bda3e1afbbb9a9f99241af873bc5e59b3f31a9c2f5d7edc",
+    "contracts_execution.xml": "7d3ccc8a039943b7445059204731379e31b3b7fd0d8a24145dc388cd513f8e53",
+    "contracts_execution.txt": "b581a02041d01fd8d053c07750c7113ce7f949fb2eac720f9fcb97206810211b",
+    "cancel_order.xml": "400f7a79070ef128c410a94491b2c96181896f3654f21a9805a7e8412e624292",
+    "cancel_order.txt": "a19de940ee1161f7b864e19072a57cfe4e83c15e9f50ca486c06e286dff9165b",
+    "dependencies.xml": "25c778d71608bc9d358800086e471fe7d8553b5d6bd1a07d302b8bdb063af4cd",
+    "dependencies.txt": "2af4445a7773211203d0da4e34ca9773977bd181f76f73845b4813ca02ea1982"
+  },
+  "snapshots": [
+    "acceptance_before_document_fix.json",
+    "progress_before_document_fix.json"
+  ],
+  "stop_condition": "Any further unexpected check failure stops; no implementation changes or automatic extra tests"
+}

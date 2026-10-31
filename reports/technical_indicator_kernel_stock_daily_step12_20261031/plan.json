@@ -1,0 +1,206 @@
+{
+  "status": "preimplementation_scope_fixed",
+  "head": "4a5a5e17b54e299429186313cd68e84aad7925cf",
+  "branch": "dev-interface",
+  "authority": [
+    "technical-indicator-kernel-stock-daily-api-integration-plan-v1.html",
+    "technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html sections 4,5,6,8,13.1,14.1,16.2"
+  ],
+  "production_files": [
+    "src/biz/services/wealth/market/stock_detail/stock_daily_kline_contracts.py",
+    "src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py",
+    "src/biz/api/wealth/market/stock_detail_dependencies.py",
+    "src/foundation/config/settings.py",
+    "src/app/runtime/technical_indicators/execution.py",
+    "src/app/runtime/technical_indicators/response.py"
+  ],
+  "allowed_python_edits": [
+    "src/app/runtime/technical_indicators/execution.py",
+    "src/app/runtime/technical_indicators/response.py",
+    "src/biz/api/wealth/market/stock_detail_dependencies.py",
+    "src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py",
+    "src/biz/services/wealth/market/stock_detail/stock_daily_kline_contracts.py",
+    "src/foundation/config/settings.py",
+    "tests/app/technical_indicators/test_stock_daily_integration.py",
+    "tests/foundation/technical_indicators/test_configuration.py",
+    "tests/test_stock_daily_kline_service.py"
+  ],
+  "test_functions": [
+    "tests/test_stock_daily_kline_service.py::test_request_and_fixed_calculations",
+    "tests/test_stock_daily_kline_service.py::test_input_is_detached_and_immutable",
+    "tests/foundation/technical_indicators/test_configuration.py::test_all_confirmed_defaults_and_existing_lake_root_are_copied",
+    "tests/app/technical_indicators/test_stock_daily_integration.py::test_single_work_and_existing_entries",
+    "tests/app/technical_indicators/test_d4_repairs.py::test_external_cancel_preserves_main_error_after_worker_feedback",
+    "tests/app/technical_indicators/test_d4_repairs.py::test_original_worker_failure_precedes_later_cancel",
+    "tests/architecture/test_subsystem_dependency_matrix.py::test_subsystem_dependency_matrix",
+    "tests/architecture/test_platform_legacy_guardrails.py::test_no_runtime_imports_from_platform_legacy_package",
+    "tests/architecture/test_operations_legacy_guardrails.py::test_no_legacy_operations_services_imports",
+    "tests/architecture/test_technical_indicator_dependencies.py::test_indicator_dependency_boundaries"
+  ],
+  "fixtures_reviewed": [
+    "none in ancestor conftest",
+    "configuration.isolated_configuration",
+    "D4 FakeControl/light_case/runtime/literal_result/install_control",
+    "new function-scoped metrics with JUnit only"
+  ],
+  "limits": {
+    "real_controls": 0,
+    "fake_controls": 9,
+    "real_calculate_calls": 0,
+    "controlled_calculate_calls": 3,
+    "input_rows": 0,
+    "locator_rows": 0,
+    "sql_logical_rows": 0,
+    "single_program_seconds": 30,
+    "pytest_total_seconds": 60
+  },
+  "failure": "first unexpected error stops remaining nodes; safely clean; retain result; no automatic retry",
+  "stage3": "not authorized in this turn; original route, queries, mapper and Web wiring remain unchanged",
+  "protected_sha256": {
+    "src/app/runtime/technical_indicators/admission.py": "e9d0c4aa73d0c385cdb2cf8f7a6c58cc80797a48269ac4c4ad6bd2e0be5b8c40",
+    "src/app/runtime/technical_indicators/composition.py": "60f9afe5f18d769a7fb899c2122447ccfafd9313fb6f4d817e135fca69807958",
+    "src/app/web/app.py": "e1852dc32c50b442575456867a8e7b3c156f38e06de692b36d24bedb183a3215",
+    "src/app/web/lifespan.py": "85cc7e98b0ff33ef7c1b21c1d3bea365394ba80bd67db4e1ceafe108ec5986f0",
+    "src/app/web/middleware/access_log.py": "96deb97debdf4fdcc2ad2fe5f578f81e5065f30ace7b31ea953fc34a31710a53",
+    "src/app/web/middleware/request_id.py": "e7fbb4c1d64b2245675466c365f06acc293fd3584d687a5954104933946cbcf4",
+    "src/biz/api/wealth/market/stock_detail.py": "89acfe2cad0d0a94bc53a0c31b10b2ae5e883902c313733c38e5c3448a0fb449",
+    "src/biz/queries/wealth/market/stock_detail/stock_detail_query.py": "53f0c7213d61f6f1a3d3b7331ca2f07a7d386114973d76d02b637bb38ef8d7a4",
+    "src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py": "f15d78cb2e40909bbf94044814c9f7f1b3cee4c4e493166f903d638b7a6f4c9d",
+    "src/biz/schemas/wealth/market/stock_detail.py": "32162bc5c5ff057e8543eaa82fdaff3525bc5b60c14f9ea1043c054649014fc3",
+    "src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py": "2d2cd58342d27148ce3186361f24225238a1bac4b9eecddaab508860fca07cc7",
+    "src/foundation/technical_indicators/__init__.py": "19784cebdc6a2fa3ddc7d3955a710ed3e4a9b2cdba5d6af58476312fd5ca4918",
+    "src/foundation/technical_indicators/calculation/__init__.py": "2e36c4e4d19307b41d826f8713f530d5481cf2394f36e0a1ad454fa234baf054",
+    "src/foundation/technical_indicators/calculation/calculation.py": "1354380dc3083313de8a53848fae4172916ec84f1ce895546667c12edbaad0f9",
+    "src/foundation/technical_indicators/calculation/dependencies.py": "d0d788fe5183e4f873c8349de8f57ba9efbce6febe9eb0d36848588a4202167e",
+    "src/foundation/technical_indicators/calculation/engine.py": "cbf0044956bf9075b49679ccfe2b7148877ce018f0f93a51a73d8d0b63711262",
+    "src/foundation/technical_indicators/calculation/history.py": "b89f23294ba4cffba79a20b6408fcf64e1bf14f162923b63eae1200b901650ab",
+    "src/foundation/technical_indicators/calculation/indicators/__init__.py": "c4baaa463bd7163ff9e480127142cda7f1319d08b1dbf36040700ff24fda8cb1",
+    "src/foundation/technical_indicators/calculation/indicators/bollinger_bands.py": "c3fdd7c03b55bd949f575c5ce1149a2861b1a5972e26db14b0516c9e03091a11",
+    "src/foundation/technical_indicators/calculation/indicators/kdj.py": "62803f91b815502e585f3b8381486c2c2673799bda3289d8173ec1952ab361ee",
+    "src/foundation/technical_indicators/calculation/indicators/macd.py": "f07308677ee1d56937603d2e575ab8e63c19a16ca50cce0a0e699e9356aca670",
+    "src/foundation/technical_indicators/calculation/indicators/moving_average.py": "a1dbbe4a6243f8d85718b407a75c76f7d54a76e9908fcbc373b0400613ca567f",
+    "src/foundation/technical_indicators/calculation/indicators/price.py": "0cb337dcd6c966f3a7f1246061e27554eaf9cc098622252a414d909dff68370a",
+    "src/foundation/technical_indicators/calculation/registry.py": "aba963003df3768f6b134aee388b63ec0d54480cc3d12edea14a9f3f76a25540",
+    "src/foundation/technical_indicators/calculation/sql/bollinger_bands.sql": "ce44baf05606bc2f4ff2d13675aa807ceb263263d5898a689849c15741d4f386",
+    "src/foundation/technical_indicators/calculation/sql/kdj_segment.sql": "ebfa34c148d9eb07d0db9e85f2e2c00512629b8ec883eee385018d2cc39b8702",
+    "src/foundation/technical_indicators/calculation/sql/kdj_warmup.sql": "eb8b8f23a0e1abf8309b8bc95309ea53ff79671fa2fd469e4407abaa0bf597ca",
+    "src/foundation/technical_indicators/calculation/sql/kdj_window.sql": "85d384a5651bc27a03209d3bb09b09f2b10d30a23407bce928823a94fb63836f",
+    "src/foundation/technical_indicators/calculation/sql/macd_first.sql": "837336003f2a2600e393ecc8cdb6d0819adea750c652d7638beadc1f87125aa2",
+    "src/foundation/technical_indicators/calculation/sql/macd_segment.sql": "1cdbece5b6aab9aa5d25711fefa2f05d8d6f58a5bf6c8fa14740d4adcda34a82",
+    "src/foundation/technical_indicators/calculation/sql/macd_warmup.sql": "9190a6767df12afb3ae7b400ec2cf1ccac8ed1deb1d6873b5763377cac6a0180",
+    "src/foundation/technical_indicators/calculation/sql/rolling_mean.sql": "84be6ca2b8b4f5e6df67c02189a8161454d01f201f61a507b91ccb0d77aa9597",
+    "src/foundation/technical_indicators/calculation/sql/smoothing_parameters.sql": "6577c291803ba3fd34e6b9ddda4cb5b5ce25c252807433d8ecc9e61da88331f3",
+    "src/foundation/technical_indicators/calculation/sql_templates.py": "ddb4968a3b7f0c2c706c068b0a61cf804bc4429fe0ef391ecadeeda523643535",
+    "src/foundation/technical_indicators/configuration/__init__.py": "614884ae640f93698ac2fb4833772f9193041ec05ae486da6844ebf0f1054c2e",
+    "src/foundation/technical_indicators/configuration/settings.py": "a1000d2465c2ba8b8e5155f299787dd6f32a171663287cb0f48b0f13384178c2",
+    "src/foundation/technical_indicators/contracts.py": "c76737b121ffb59c0f1284793856771c2d716e5e0efb0e8ba8d327991c65c188",
+    "src/foundation/technical_indicators/discovery/__init__.py": "d682ccdeb32a773e5c62b47c663ac444891a4d8b4b1d91dbbed4f95a162a6a36",
+    "src/foundation/technical_indicators/discovery/catalog.py": "4f443dec93c0988efdfdab25c7ac3dd6ffe6ff5b41241f46c203aca04bb8d64e",
+    "src/foundation/technical_indicators/errors.py": "7fea5eeef130189b559a4574ba17b1574b6ca550c0b1d37412fd7165fc78ff7a",
+    "src/foundation/technical_indicators/execution_control.py": "ebc68c68e09810273a261723d3086eb5230d70ac6d21a8e6541ccc300f40cc2b",
+    "src/foundation/technical_indicators/executor.py": "dc2dd8a4d8b0193858da8531fcb5b80d77f22669a6031ea935486d08c631fa7c",
+    "src/foundation/technical_indicators/output/__init__.py": "ed80bb2e0ba75c3a6142567a437068637aca2beb72b68160d945fa0866bc1a13",
+    "src/foundation/technical_indicators/output/collector.py": "2d32dc386c927d5ba03b35a180b22b8eff5d2574f8438c3ca07c27ecdccdc798",
+    "src/foundation/technical_indicators/output/contracts.py": "84d88b1f28c863f460a9712d9a523301ea45ba1fe7bdefbfca7b3b5f0571d516",
+    "src/foundation/technical_indicators/output/encoding.py": "13390ef668b035326598478a8177a18ba722575327104132135d934e23069b8d",
+    "src/foundation/technical_indicators/output/result.py": "e08830eaaa1b0d329d064581bcd7acfa645130a76e21e27caca3d57c51cb9e4f",
+    "src/foundation/technical_indicators/output/sql/merge_batch.sql": "22dfcffb2a3ae0c1a1d823619a6437d36c67606e758e7456ee95b45a359f6442",
+    "src/foundation/technical_indicators/output/sql/retain_tail.sql": "3427639e758eb1246e9dbc02b63e876797626ae0c5b4812a005321207cd18fcd",
+    "src/foundation/technical_indicators/output/sql/select_result.sql": "a2e61ba9870e4291ccbeb514701926338c73cad3038f68d9dd9a7c67c1958a1d",
+    "src/foundation/technical_indicators/service.py": "df05d0fc806885c5a6ebf9fa8dc5a639aff040ca1223c1df78d27796e2d3ffcc",
+    "src/foundation/technical_indicators/sources/__init__.py": "0aaf618992ae01599de715a6d790d7c0d1fb75af33c0db7ded891d7eb4ba895e",
+    "src/foundation/technical_indicators/sources/contracts.py": "4f20b8b0570eb643fa3f090c1137b63da589dcf5c464f1bd6d6edc4601e4151b",
+    "src/foundation/technical_indicators/sources/price_adjustment.py": "f136ae0cd3efe8f8bae9026c42281b04c45b57b58a7fb16beb633beb1a5e3111",
+    "src/foundation/technical_indicators/sources/read_context.py": "6a9de608c08f6e3e22667a71fab008f79371c47512ecd88c9ac6d41026260027",
+    "src/foundation/technical_indicators/sources/session.py": "1d2e91cef747148ae4314e9796787592b9cd725abfe7fad408f7670d174e4897",
+    "src/foundation/technical_indicators/sources/sql/adjust_price.sql": "06e0c37ed6c84f2411c745f77449a8e73ff901c2e7e975d4ac7d60cd3fc72929",
+    "src/foundation/technical_indicators/sources/sql/retain_history.sql": "a0036335421cc74ed7750d8d970f706a324b28dee7d7eb7464bfc611c5d7214e",
+    "src/foundation/technical_indicators/sources/sql/stage_input.sql": "5d9b2766318e2df33f9f3b8b83bbb25f8ea9cc5fd573a288de6729e699bfa47e",
+    "src/foundation/technical_indicators/time_range.py": "1bca550c874ee9b188c8efd31b29648c7cdabd546bb012f851d34e95a9e18ddd",
+    "tests/app/technical_indicators/test_admission.py": "8e9a5a58654d49d1037f518dec72a9892250f3860c9a93c00f602165bfcf00aa",
+    "tests/app/technical_indicators/test_d4_repairs.py": "a0f981af8b8661c075857f0f3a5904680bf37057fda1b58f6dc75fa2816f944e",
+    "tests/app/technical_indicators/test_execution_cancellation.py": "577e86bee011b2874b1e218f6981d92fb36351923db9a43c5d54b657ec12779c",
+    "wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.ts": "3e92d5a387fd0b5851bb469a74153070761c49b9202695ec865368c584e3821f",
+    "wealth/src/pages/stock-detail/StockDetailPage.tsx": "69df7c1ab72bdac84a3929ce529a37487d7b93a2f336f5f6a649f3c6706b6924"
+  },
+  "before_sha256": {
+    "src/app/runtime/technical_indicators/execution.py": "b0103f62471639d51348dadea969d3145e3b1b7b8b3766df8d514ba9f89eb54b",
+    "src/app/runtime/technical_indicators/response.py": "b3d9e68a5df628538a2a7a20a65f00c886b1f2dba219c8e01f3af2ce170ccaf0",
+    "src/biz/api/wealth/market/stock_detail_dependencies.py": null,
+    "src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py": null,
+    "src/biz/services/wealth/market/stock_detail/stock_daily_kline_contracts.py": null,
+    "src/foundation/config/settings.py": "c2184c066157039fa360d56f43e4a9d8a8a66e23d6205a8b3ebe2de590ca4b4e",
+    "tests/app/technical_indicators/test_stock_daily_integration.py": null,
+    "tests/foundation/technical_indicators/test_configuration.py": "7a4bd7dfa159c30343ce735539d74d03de2334d962c87863713cfc1f983d1005",
+    "tests/test_stock_daily_kline_service.py": null
+  },
+  "constraints": [
+    {
+      "rule": "immutable request/rows/source and copied tuple",
+      "implementation": "src/biz/services/wealth/market/stock_detail/stock_daily_kline_contracts.py",
+      "test": "tests/test_stock_daily_kline_service.py::test_input_is_detached_and_immutable"
+    },
+    {
+      "rule": "fixed 10 indicators and versions; original parameter rules",
+      "implementation": "src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py",
+      "test": "tests/test_stock_daily_kline_service.py::test_request_and_fixed_calculations"
+    },
+    {
+      "rule": "internal source dates select output; no extra row/warmup constant",
+      "implementation": "src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py",
+      "test": "tests/test_stock_daily_kline_service.py::test_request_and_fixed_calculations"
+    },
+    {
+      "rule": "uninstalled backend raises, no App import or fallback",
+      "implementation": "src/biz/api/wealth/market/stock_detail_dependencies.py",
+      "test": "tests/test_stock_daily_kline_service.py::test_input_is_detached_and_immutable"
+    },
+    {
+      "rule": "only max_source_files default 10000; config precedence unchanged",
+      "implementation": "src/foundation/config/settings.py",
+      "test": "tests/foundation/technical_indicators/test_configuration.py::test_all_confirmed_defaults_and_existing_lake_root_are_copied"
+    },
+    {
+      "rule": "one _execute; old signatures, normal return and default headers unchanged",
+      "implementation": [
+        "src/app/runtime/technical_indicators/execution.py",
+        "src/app/runtime/technical_indicators/response.py"
+      ],
+      "test": "tests/app/technical_indicators/test_stock_daily_integration.py::test_single_work_and_existing_entries"
+    },
+    {
+      "rule": "prewait failure, returned type, exception-group frame cleanup",
+      "implementation": "src/app/runtime/technical_indicators/execution.py",
+      "test": "tests/app/technical_indicators/test_stock_daily_integration.py::test_single_work_and_existing_entries"
+    },
+    {
+      "rule": "original cancellation vs worker error ordering",
+      "implementation": "src/app/runtime/technical_indicators/execution.py",
+      "test": [
+        "tests/app/technical_indicators/test_d4_repairs.py::test_external_cancel_preserves_main_error_after_worker_feedback",
+        "tests/app/technical_indicators/test_d4_repairs.py::test_original_worker_failure_precedes_later_cancel"
+      ]
+    },
+    {
+      "rule": "no upper-layer dependency or extra D4 file",
+      "implementation": [
+        "src/biz/services/wealth/market/stock_detail/stock_daily_kline_contracts.py",
+        "src/biz/services/wealth/market/stock_detail/stock_daily_kline_calculations.py",
+        "src/biz/api/wealth/market/stock_detail_dependencies.py",
+        "src/foundation/config/settings.py",
+        "src/app/runtime/technical_indicators/execution.py",
+        "src/app/runtime/technical_indicators/response.py"
+      ],
+      "test": [
+        "tests/architecture/test_subsystem_dependency_matrix.py::test_subsystem_dependency_matrix",
+        "tests/architecture/test_platform_legacy_guardrails.py::test_no_runtime_imports_from_platform_legacy_package",
+        "tests/architecture/test_operations_legacy_guardrails.py::test_no_legacy_operations_services_imports",
+        "tests/architecture/test_technical_indicator_dependencies.py::test_indicator_dependency_boundaries"
+      ]
+    }
+  ],
+  "codegraph": [
+    "explore of D4 execution, response and callers; current source manually verified where same-name search unrelated"
+  ],
+  "library_evidence": "Context7 AnyIO run_sync abandon_on_cancel=False; no dependency change"
+}

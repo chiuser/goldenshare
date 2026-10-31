@@ -21,7 +21,7 @@
   <p class="meta">技术指标计算内核 · 股票日线消费者</p>
   <h1>股票详情页日线技术指标<br>正式接入代码级LLD v1</h1>
   <p>原日线API、页面和其他行情字段不变。十项指标一次调用内核，按原字段返回；数据库读取、指标计算、响应编码、实际发送及清理使用同一次请求的时限和计算名额。</p>
-  <p class="meta">2026-10-31 · 文档设计；未开发、未执行接入测试或部署。来源核验状态见第02节，未通过的事实检查不能被文档完整性检查代替。</p>
+  <p class="meta">2026-10-31 · 步骤1＋2已完成；10个限定函数通过，原文档格式修复及收尾检查通过。股票API尚未切换，未执行P/R接入验收或部署。来源核验状态见第02节，未通过的事实检查不能被文档完整性检查代替。</p>
 </header>
 <nav aria-label="文档目录">
   <a href="#basis">01 依据与约束</a><a href="#preflight">02 核验门禁</a><a href="#files">03 文件与依赖</a><a href="#contracts">04 内部对象</a><a href="#query">05 数据库查询</a><a href="#indicators">06 固定指标</a><a href="#mapping">07 响应映射</a><a href="#execution">08 通用执行</a><a href="#http">09 路由与发送</a><a href="#database">10 数据库时限</a><a href="#lifecycle">11 生命周期</a><a href="#errors">12 异常</a><a href="#configuration">13 配置</a><a href="#tests">14 验收清单</a><a href="#budget">15 预算与续跑</a><a href="#stages">16 编码顺序</a><a href="#reconciliation">17 逐条对账</a><a href="#sources">18 资料与状态</a>
@@ -29,14 +29,14 @@
 
 <section id="basis">
   <h2>01 · 依据、范围及不变项</h2>
-  <div class="note"><strong>2026-10-31审计修订：</strong>管理员已将唯一来源文件上限确定为10000；第10节补全数据库资源清理，第16节改为按依赖准备、同一单元切换旧入口与新调用方。第14节解释现有SQLite隔离测试及独立预期，并给出明确装配位置，不增加生产数据库支持。此前4项问题的设计处理见<a href="../../reports/technical_indicator_kernel_stock_daily_lld_20261031/lld_revision_04.md">本轮修订记录</a>；旧复审报告保留为历史。本轮修改文档，当前代码默认值仍为5000，须在正式接入开发时按本LLD统一改为10000，未宣称已经实现。</div>
+  <div class="note"><strong>2026-10-31审计修订：</strong>管理员已将唯一来源文件上限确定为10000；第10节补全数据库资源清理，第16节改为按依赖准备、同一单元切换旧入口与新调用方。第14节解释现有SQLite隔离测试及独立预期，并给出明确装配位置，不增加生产数据库支持。此前4项问题的设计处理见<a href="../../reports/technical_indicator_kernel_stock_daily_lld_20261031/lld_revision_04.md">本轮修订记录</a>；旧复审报告保留为历史。设计修订已提交；本轮步骤1已将Settings及配置字面预期统一为10000，步骤2已实现共用执行；股票API尚未切换，进度与证据见第16.2节。</div>
   <p>直接依据为<a href="technical-indicator-kernel-stock-daily-api-integration-plan-v1.html">股票日线接入方案v1</a>第01～11节。计算、读取、复权、预热、SQL和原D4行为引用<a href="technical-indicator-kernel-low-level-design-v1.html">内核LLD</a>及当前实现，不在本专项重新定义数学算法。</p>
   <ul>
     <li>唯一目标为<code>GET /api/v1/wealth/market/stock-detail/kline</code>；方法、URL、查询参数、鉴权、公开DTO和OpenAPI业务模型不变。</li>
     <li>固定七条MA、BOLL、MACD、KDJ，共10项计算、16个公开数值字段，一次提交；正在显示哪项指标不影响返回内容。</li>
     <li>页面显式请求300根，API默认300、允许1～2000；不加指标选择、参数编辑、分页或1000根默认，不增加探测历史的请求。</li>
     <li>股票身份、日期上下文和全部非指标字段保留原数据库来源。page-init、九转、趋势通道、分钟、指数及其消费者不迁移。</li>
-    <li>不更改内核算法、固定SQL、数据生产规则或依赖版本；Settings仅将既有technical_indicator_max_source_files默认值从5000改为管理员确认的10000，其他初值不变。不安装、不写正式数据库/Lake，不启停DG，不清理旧数据。本轮只完成文档，默认值代码修改列入后续开发。</li>
+    <li>不更改内核算法、固定SQL、数据生产规则或依赖版本；Settings仅将既有technical_indicator_max_source_files默认值从5000改为管理员确认的10000，其他初值不变。不安装、不写正式数据库/Lake，不启停DG，不清理旧数据。本轮只实施第16.2节A/B基础，默认值修改已完成；C及正式接入验收尚未执行。</li>
     <li>不新增对外计算API；内部接口在本次范围内整体迁移，不保留旧指标回退或双轨分支。业务请求不能传SQL、模板、表名或表达式。</li>
   </ul>
   <p>本LLD明确内部落点，两个必要细节同步回原方案：D4目录保持不依赖Biz，股票专用装配放App依赖目录；本日线请求在两个现有Web中间件中采用直接ASGI收发，其他请求保留原分支。两者服务于已确认的依赖边界和实际发送要求，不增加产品能力。</p>
@@ -85,7 +85,7 @@
       <tr><td><code>src/biz/api/wealth/market/stock_detail_dependencies.py</code></td><td>新增：StockDailyKlineBackend协议、get_stock_daily_kline_backend提供者。</td><td>只有response(request, *, arrived_at)→Response；未安装时明确失败，不自行构造旧实现。</td></tr>
       <tr><td><a href="../../src/biz/api/wealth/market/stock_detail.py">原路由</a></td><td>只改get_stock_detail_kline，保留路由函数名和response_model。</td><td>保持公开参数默认、鉴权；移除该路径的get_db_session依赖，改取后端提供者。page-init不改。</td></tr>
       <tr><td><a href="../../src/biz/queries/wealth/market/stock_detail/stock_detail_query.py">原查询</a></td><td>新增KLINE_COLUMNS并使load_kline_rows只选非指标列。</td><td>FACTOR_COLUMNS及load_latest_factor_row保留原语义；不改模型、表或page-init。</td></tr>
-      <tr><td><a href="../../src/foundation/config/settings.py">Settings</a>、<code>tests/foundation/technical_indicators/test_configuration.py</code></td><td>后续开发将唯一来源文件默认值及独立字面预期5000→10000。</td><td>只改既有字段，不新增配置；其他默认、显式覆盖及唯一计数语义不变，审计见第13.1节。</td></tr>
+      <tr><td><a href="../../src/foundation/config/settings.py">Settings</a>、<code>tests/foundation/technical_indicators/test_configuration.py</code></td><td>步骤1已将唯一来源文件默认值及独立字面预期5000→10000，限定默认值检查通过。</td><td>只改既有字段，不新增配置；其他默认、显式覆盖及唯一计数语义不变，审计见第13.1节。</td></tr>
       <tr><td><a href="../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">原query service</a></td><td>删除旧build_kline；新增prepare_kline_input(session, request)→StockDailyKlineInput。</td><td>复用原日期与证券查询顺序；不再自行读取或填充已保存指标。原build_page_init保留。</td></tr>
       <tr><td><a href="../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">原mapper</a></td><td>build_kline_bar改为接收StockDailyKlineRow和显式factors；抽出build_page_context。</td><td>to_float、amplitude、volume和quote语义不变；原page-init和新assemble共同调用该纯函数，移除旧_to_context_dto，不留重复实现。</td></tr>
       <tr><td><code>src/app/dependencies/stock_daily_technical_indicators.py</code></td><td>新增：安装方法、lifespan、后端、StockDailyKlineResponse和数据库读取资源。</td><td>唯一股票专用装配；可依赖Biz和Foundation。这里不写公式，不创建第二套Admission或执行状态机。</td></tr>
@@ -96,7 +96,7 @@
       <tr><td><a href="../../src/app/web/app.py">app.py</a>、<a href="../../src/app/web/lifespan.py">lifespan.py</a></td><td>安装后端提供者并加入技术指标runtime生命周期。</td><td>导入时不创建runtime；不提前读行情、连计算库或修改其他服务开关。</td></tr>
       <tr><td><code>tests/...</code>及<code>scripts/diagnostics/technical_indicator_stock_daily.py</code></td><td>按第14、15节新增/迁移必要验证。</td><td>测试不读写历史验收状态；诊断脚本只执行固定节点，普通pytest不重复执行真实组合。</td></tr>
     </tbody></table></div>
-  <p>D4目录的原五个文件边界保持：不依赖Biz、Ops、QTF、DG。股票专用文件放App依赖目录，因此<a href="../../tests/architecture/test_technical_indicator_dependencies.py">既有依赖检查</a>无需放宽。Foundation算法、SQL、注册表、结果合同和价格来源不改；唯一配置调整为第13节已经确认的max_source_files=10000。此表中的新增文件是后续开发落点，本轮不创建这些Python文件。</p>
+  <p>D4目录的原五个文件边界保持：不依赖Biz、Ops、QTF、DG。股票专用文件放App依赖目录，因此<a href="../../tests/architecture/test_technical_indicator_dependencies.py">既有依赖检查</a>无需放宽。Foundation算法、SQL、注册表、结果合同和价格来源不改；唯一配置调整为第13节已经确认的max_source_files=10000。此表中的contracts、calculations及后台协议已于步骤1创建；D4共用执行于步骤2完成。其余业务service、App股票后台及Web装配留在C，不把基础准备写成API已经接通。</p>
   <p>已核当前直接迁移点：旧build_kline仅由原股票路由调用；旧股票build_kline_bar仅由该query service调用。CodeGraph存在同名指数/Quote方法，须以完整路径限定，不能修改同名消费者。两个D4公开入口还被诊断脚本和本内核测试使用，签名及默认返回保持不变。</p>
 </section>
 
@@ -618,14 +618,14 @@ async def stock_daily_technical_indicators_lifespan(
     </tbody></table></div>
   <p>没有新增env、配置文件、数据库配置或前端常量。运行中的runtime不热改参数；通过既有运营流程更新配置并重启生效。配置单项及直接关系校验继续原逻辑，不遍历组合。HTTP 1～2000来自原业务合同，不改为可运营配置项。</p>
   <h3>13.1 唯一文件上限调整的配置审计</h3>
-  <p>现有字段<strong>Settings.technical_indicator_max_source_files</strong>、环境别名<strong>TECHNICAL_INDICATOR_MAX_SOURCE_FILES</strong>、KernelConfig字段<strong>max_source_files</strong>全部保留；目标默认值10000，当前代码为5000。后续开发只改src/foundation/config/settings.py该Field默认值及tests/foundation/technical_indicators/test_configuration.py中对应EXPECTED_DEFAULTS字面值；KernelConfig继续复制已解析配置，不能再另设默认值。已存在的显式环境覆盖仍按原优先级生效，不能静默忽略运营值。</p>
+  <p>现有字段<strong>Settings.technical_indicator_max_source_files</strong>、环境别名<strong>TECHNICAL_INDICATOR_MAX_SOURCE_FILES</strong>、KernelConfig字段<strong>max_source_files</strong>全部保留；当前代码默认10000。本轮仅修改src/foundation/config/settings.py该Field默认值及tests/foundation/technical_indicators/test_configuration.py中对应EXPECTED_DEFAULTS字面值，并通过限定检查；KernelConfig继续复制已解析配置，不能再另设默认值。已存在的显式环境覆盖仍按原优先级生效，不能静默忽略运营值。</p>
   <p>消费者为create_runtime→KernelConfig→SourceReadContext.record_file；来源locator及price_source在首次元数据/数据访问时登记同一请求的价格/因子/基准唯一文件。旧D2诊断和source_contracts/price_adjustment测试中的小上限覆盖仍保留原用途，不把其中的2/3等边界样本全改成10000。运行值可由Settings/KernelConfig及既有source_files统计核对，不新增运营页面、日志字段或配置文件；修改后需重启创建新runtime，旧请求固定原配置。</p>
   <p>10000能容纳正常历史2000根＋500预热所需的5001文件，并给定位留出余量；不承诺所有停牌/退市范围必成功。时限、输入根数、行组与内存限制仍独立有效，不能因为文件上限提高而扩大P/R验收样本。默认值检查只执行现有test_all_confirmed_defaults_and_existing_lake_root_are_copied；唯一文件计数复用已有小上限正反例，不创建或读取10000份测试文件，不展开配置组合矩阵。</p>
 </section>
 
 <section id="tests">
   <h2>14 · 固定的有限验收清单</h2>
-  <p>只验本专项增加或改变的边界。原D2/D3/第四批/D4的算法、预热、8192合批、中断、FIFO及资源证据继续复用；不重跑整组，不构造参数矩阵。下面函数在后续开发创建，本轮未运行。</p>
+  <p>只验本专项增加或改变的边界。原D2/D3/第四批/D4的算法、预热、8192合批、中断、FIFO及资源证据继续复用；不重跑整组，不构造参数矩阵。步骤1＋2已完成第16.2节10个精确函数；本表的prepare/assemble、数据库/中间件及真实P/R边界尚未验证，后续只补相应内容，不重跑已通过A/B样本。</p>
   <h3>14.0 三种数据库的职责及测试替换位置</h3>
   <p>正式股票API的证券、日期和原K线查询使用现有PostgreSQL；自动测试沿用仓库已有的临时SQLite，只放少量合同数据并复用原查询语句；指标计算无论线上还是R01～R04都由DuckDB读取临时Lake/计算。SQLite不进入生产配置，不是内核的新数据源，也不验证PG驱动的只读/超时能力，后者只由既定P01验证。</p>
   <p>测试内部的open_sqlite_test_session(factory, control)是同签名contextmanager：进入时control.check_active，创建本worker独立Session，yield前后检查control，finally关闭；不设置PG专属选项、不写正式数据。仅用测试monkeypatch在src.app.dependencies.stock_daily_technical_indicators模块替换open_stock_daily_read_session；每个测试退出自动恢复。生产函数不增加SQLite分支或备用实现。P01不使用该替换。</p>
@@ -700,8 +700,8 @@ async def stock_daily_technical_indicators_lifespan(
   <h2>16 · 编码和验收顺序</h2>
   <p>先完成本LLD review与明确开发授权，复用已通过的来源样本，不再重跑；冻结唯一执行表和指纹，审查具体测试/fixture/conftest副作用。以下A～E是工作依赖与完成条件，不是允许留下缺方法的API中间版本。</p>
   <div class="table-wrap"><table><thead><tr><th>顺序</th><th>交付与依赖</th><th>本步完成条件</th></tr></thead><tbody>
-    <tr><td>A：独立合同与配置</td><td>新增不可变contracts、十项固定calculations、Biz API提供者协议；Settings既有文件上限及配置字面预期改为10000。原路由、旧query service和mapper暂不改变。</td><td>新合同可单独导入，默认值检查明确；不访问来源、不删除旧方法，不引入新旧回退分支。</td></tr>
-    <tr><td>B：共用执行</td><td>先完成纯D4的内部validate/work入口和content_type；仍只依赖Foundation，不引入业务对象。依赖A的配置定义，不依赖股票装配。</td><td>原execute_library/execute_http签名和原语义保持；新业务入口尚不注册，受控入口检查可执行。</td></tr>
+    <tr><td>A：独立合同与配置（本轮完成）</td><td>新增不可变contracts、十项固定calculations、Biz API提供者协议；Settings既有文件上限及配置字面预期改为10000。原路由、旧query service和mapper暂不改变。</td><td>新合同可单独导入，默认值检查明确；不访问来源、不删除旧方法，不引入新旧回退分支。</td></tr>
+    <tr><td>B：共用执行（本轮完成）</td><td>先完成纯D4的内部validate/work入口和content_type；仍只依赖Foundation，不引入业务对象。依赖A的配置定义，不依赖股票装配。</td><td>原execute_library/execute_http签名和原语义保持；新业务入口尚不注册，受控入口检查可执行。</td></tr>
     <tr><td>C：同一迁移单元</td><td>完成KLINE_COLUMNS、prepare_kline_input、mapper新签名、业务service、App后台/Response/第10节数据库资源、两个中间件目标分支、原kline路由、提供者安装和lifespan；同步对应测试依赖。按下列无环依赖顺序编辑，全部完成后再删除旧build_kline及旧mapper调用。</td><td>这批文件共同完成才验API：原路由已调用新后台、page-init全部调用方已迁移，旧股票build_kline无调用且删除；不存在删除后仍被调用的阶段完成状态，不提交/发布半套迁移，不留兼容或回退代码。</td></tr>
     <tr><td>D：有限小例与固定验收</td><td>C全部完成后，执行原定12项小例及本次配置默认值一个既有函数；再P01→一次准备→R01～R05。A/B已经通过的小例不重复执行；所有节点按原计量记录。</td><td>资源与错误、依赖、真实send及原API合同对账；不运行整组tests/web，不扩参数矩阵、行情或计算预算。</td></tr>
     <tr><td>E：收尾</td><td>逐条填第17节代码/证据；核前端生产文件、算法SQL和范围外消费者不变，Settings只改已确认的文件上限。</td><td>更新原方案/LLD和报告实际状态，再由管理员决定提交/部署；来源样本、隔离/PG/浏览器证据分别记录。</td></tr>
@@ -718,6 +718,16 @@ App股票后台 → 业务service、Biz依赖协议、纯D4、现有数据库工
 lifespan → 既有两个上下文，然后进入本专项上下文</pre>
   <p>C内可以先写依赖文件再写调用方，但不能把“query service已删旧方法、路由还没改”宣布为完成或拿来验旧API。_to_context_dto的抽取、新build_page_context及page-init调用方同时完成，原load_latest_factor_row和page-init行情来源保持。两个旧D4入口的全部调用方保留原合同；同名指数/Quote方法不在迁移范围。</p>
   <p>相关护栏：test_subsystem_dependency_matrix、test_platform_legacy_guardrails、test_operations_legacy_guardrails以及本内核test_indicator_dependency_boundaries。先检查测试函数/fixture再按明确函数执行；它们只验证源码依赖，不代替正式API或浏览器验收。</p>
+  <h3 id="step12">16.2 本轮步骤1＋2：编码、检查及完成记录</h3>
+  <p><strong>获准的文档修复与收尾：</strong>管理员已明确同意只将原内核LLD中13个显示用表名占位符转义为&lt;node&gt;对应的HTML实体，保持解码后的文字、表名规则及所有代码/SQL不变；随后只复核文档和既有代码指纹，不重跑10个通过函数，不创建新控制对象或读取行情。首次失败及通过样本保持原样，修复前进度/验收另存快照；范围、检查和提交流程见<a href="../../reports/technical_indicator_kernel_stock_daily_step12_20261031/document_fix_scope_02.json">本次获准范围</a>。本次提交仅限步骤1＋2、相关文档与证据，不进入C、不推送或部署；若出现新的非预期失败，继续按原规则停止。</p>
+  <p><strong>首次收尾停止记录（历史）：</strong>最终严格HTML检查在原内核LLD第880等行发现13处此前已有、未转义的&lt;node&gt;表名占位符，当时按要求停止，详<a href="../../reports/technical_indicator_kernel_stock_daily_step12_20261031/document_structure_failure.json">首次失败记录</a>。管理员随后批准最小转义修复，13处已修复并通过严格HTML检查，解码后文字及代码/SQL未变，详<a href="../../reports/technical_indicator_kernel_stock_daily_step12_20261031/document_fix_result_02.json">修复结果</a>；原10个通过样本未重跑。</p>
+  <p><strong>完成状态：</strong>步骤1＋2代码、限定测试及本次文档修复收尾已完成。10个精确函数一次通过，使用9个控制替身，真实Control/行情读取/SQL均为0，pytest累计约10.07秒。原API及65项受保护源码指纹未变；证据见<a href="../../reports/technical_indicator_kernel_stock_daily_step12_20261031/acceptance.json">本轮验收范围</a>及<a href="../../reports/technical_indicator_kernel_stock_daily_step12_20261031/audit.md">逐项对账</a>。未进入C；按管理员本次要求随本次提交交付，提交号以Git记录为准，不推送或部署。</p>
+  <p>管理员已授权仅实施A、B，C及P01/R01～R05不进入本轮。新增contracts、calculations及Biz后台协议三个文件；只修改Settings文件上限及其默认值预期、D4 execution.py和response.py。原股票路由、query/query service、mapper、Web中间件/lifespan、前端、Foundation算法及SQL保持原样。旧API继续读取旧实现，不提前安装新后台，也不删除旧方法。</p>
+  <p>三个数据对象只接受声明的不可变标量；bars在构造时复制为tuple并检查行类型。错误的内部对象类型抛TypeError，不补列或接受字典行；业务period/adjustment/limit/start-end仍只在validate_stock_daily_request中按第05.1节原顺序抛ValueError。这里只约束内部容器和类型，不添加价格有限性、OHLC关系、交易日或缺口审计。后续prepare把数据库数值复制为声明的Python数值，不提前舍入。后台协议未安装时按第04.1节直接失败，不导入App或旧query service。</p>
+  <p>D4保留一份_execute；已有两个入口各用固定校验和固定计算方法调用它，股票入口待C接入。send_encoded_body新增content_type默认字节值保持原样，_execute透传内部response_content_type。execute_library在返回处检查CalculationResult；不符抛既有OutputContractError，reason=type_mismatch、stage=library_return，诊断只含actual_type，并在finally清除本地result引用。_clear_error_frames增加BaseExceptionGroup子错误遍历，仍保留cause/context和原错误对象；不改变名额、截止时间、工作线程、观察任务或唯一归还顺序。</p>
+  <p>本轮使用第14.1节既定test_request_and_fixed_calculations、test_input_is_detached_and_immutable、test_single_work_and_existing_entries三个函数，后两个只验A/B已实现边界，不预填C的prepare或真实中间件验收。第一个核固定十项/版本、原五类非法参数、正常参数变化、实际日期构造及空输入；第二个核冻结、列表复制、错误内部类型和未安装协议；第三个以6个控制替身核旧库/HTTP、内部结构化响应、队前拒绝、错误库返回类型和异常组引用清理。计算替身最多调用3次，不启动真实calculate、Control、SQL或行情读取。上述3次只统计新入口函数；两个既有错误顺序回归另有3次计算替身调用，分别记录，不冒充真实计算。</p>
+  <p>另外只运行既有配置默认值函数、D4两个原错误顺序函数（external_cancel_preserves_main_error_after_worker_feedback及original_worker_failure_precedes_later_cancel），以及四个实际依赖检查：test_subsystem_dependency_matrix、test_no_runtime_imports_from_platform_legacy_package、test_no_legacy_operations_services_imports、test_indicator_dependency_boundaries。先逐一读函数、fixture及祖先conftest；这些路径没有祖先conftest，现有受控helper不读写历史验收状态。本轮不运行整组D4、配置参数矩阵或Web数据库测试。</p>
+  <p>执行清单与指纹存reports/technical_indicator_kernel_stock_daily_step12_20261031/plan.json，结果由JUnit交给外部汇总；普通测试不写reports。合计最多9个FakeControl，计入专项累计72个的普通检查额度；真实Control、SQL、行情输入、定位键均为0，不使用P/R额度。单程序30秒，选中pytest累计60秒；静态审查及最后文档检查另记。首次非预期失败即停止后续函数，保存错误及清理结果，不自动重跑；续跑须另获授权，旧通过证据不覆盖。上轮开发未自行提交；本次管理员已明确授权修复收尾及提交，仍不推送或部署。</p>
 </section>
 
 <section id="reconciliation">
@@ -747,7 +757,7 @@ lifespan → 既有两个上下文，然后进入本专项上下文</pre>
     <li>经Context7核对的官方说明：<a href="https://fastapi.tiangolo.com/advanced/custom-response/">FastAPI自定义响应</a>（Response会绕过自动序列化，必须自行构造DTO）；<a href="https://docs.sqlalchemy.org/en/20/orm/session_basics.html">SQLAlchemy Session</a>（每线程一份）；<a href="https://docs.sqlalchemy.org/en/20/core/events.html">Connection事件</a>（只绑定本Connection）；<a href="https://github.com/agronholm/anyio/blob/4.13.0/src/anyio/to_thread.py">AnyIO工作线程</a>（不遗弃取消中的工作）；Starlette的转接行为另以本地1.2.1源码核对，未拿新版行为代替当前实现。</li>
     <li>来源字段依据doc_id=328及现有Lake日线合同；正式数据核验严格限定两股各21行，执行和失败记录见第02节，不据此声称全市场数据完整或所有历史指标一致。</li>
   </ul>
-  <div class="note"><strong>当前交付：</strong>代码级对象、文件、函数、字段、查询、执行/发送、关闭、错误、配置、固定测试与预算已落成文档；本次来源样本核验通过，五位保存精度差异已明确。尚未开发或执行本专项R节点；BOLL短历史既有展示限制及部署配置要求仍保留，不能将来源或文档检查通过写成已完成接入或具备无条件上线资格。</div>
+  <div class="note"><strong>当前交付：</strong>代码级对象、文件、函数、字段、查询、执行/发送、关闭、错误、配置、固定测试与预算已落成文档；本次来源样本核验通过，五位保存精度差异已明确。已完成A/B基础及限定检查，未实施C或执行本专项P/R节点；BOLL短历史既有展示限制及部署配置要求仍保留，不能将来源或文档检查通过写成已完成接入或具备无条件上线资格。</div>
 </section>
 <footer>股票详情页日线技术指标正式接入 · LLD v1 · 本文与原方案共同使用。源核验、代码实现、隔离验收、正式API/页面验收及部署分别记录，不互相代替。</footer>
 </main></body></html>

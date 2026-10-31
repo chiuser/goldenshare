@@ -1,0 +1,47 @@
+{
+  "status": "stopped_before_document_closeout",
+  "stage": "final_document_structure_check",
+  "error_type": "AssertionError",
+  "error": "unbalanced closing td: open stack ends with tr, td, node",
+  "file": "docs/architecture/technical-indicator-kernel-low-level-design-v1.html",
+  "locations": [
+    {
+      "line": 880,
+      "occurrences": 1,
+      "text": "<td>output→ti_mean_<node>，本批</td>",
+      "present_before_this_stage": true
+    },
+    {
+      "line": 884,
+      "occurrences": 1,
+      "text": "<td>output→ti_range_<node>，本批</td>",
+      "present_before_this_stage": true
+    },
+    {
+      "line": 888,
+      "occurrences": 1,
+      "text": "<td>output→ti_boll_output_<node>，本批</td>",
+      "present_before_this_stage": true
+    },
+    {
+      "line": 892,
+      "occurrences": 5,
+      "text": "<td>parameters→ti_macd_parameters_<node>、warmup→ti_macd_warmup_<node>、state→ti_macd_state_<node>，本请求；work→ti_macd_work_<node>、output→ti_macd_output_<node>，本批</td>",
+      "present_before_this_stage": true
+    },
+    {
+      "line": 896,
+      "occurrences": 5,
+      "text": "<td>parameters→ti_kdj_parameters_<node>、warmup→ti_kdj_warmup_<node>、state→ti_kdj_state_<node>，本请求；work→ti_kdj_work_<node>、output→ti_kdj_output_<node>，本批</td>",
+      "present_before_this_stage": true
+    }
+  ],
+  "implementation_or_test_failure": false,
+  "pytest_already_passed": 10,
+  "new_calculation_or_control_cost": 0,
+  "static_check_seconds": "not separately measured",
+  "root_cause": "literal <node> placeholders in the original HTML were not escaped; strict parser treats them as start tags",
+  "minimal_recommendation": "escape only these 13 placeholders as &lt;node&gt;; preserve rendered placeholder text and all code/SQL/math rules; then rerun only the final document check",
+  "automatic_fix_or_retry": false,
+  "cleanup": "all bounded test workers and leases were already released; no DB, Lake or real Control resources created"
+}

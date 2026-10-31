@@ -4,6 +4,7 @@ The Foundation library stays synchronous. Only the owning worker touches its
 connection; the event-loop task observes cancellation and waits for real exit.
 """
 
+from collections.abc import Callable
 import traceback
 
 import anyio
@@ -13,7 +14,7 @@ from src.foundation.technical_indicators.contracts import (
     CalculationRequest, CalculationResult, normalize_request_and_validate_all_instances,
 )
 from src.foundation.technical_indicators.errors import (
-    CalculationCancelledError, CalculationUnsupportedError,
+    CalculationCancelledError, CalculationUnsupportedError, OutputContractError,
 )
 from src.foundation.technical_indicators.execution_control import ExecutionControl
 from src.foundation.technical_indicators.output.encoding import encode_response_utf8
@@ -46,18 +47,23 @@ def _clear_error_frames(error: BaseException) -> None:
             pending.append(current.__cause__)
         if current.__context__ is not None:
             pending.append(current.__context__)
+        if isinstance(current, BaseExceptionGroup):
+            pending.extend(current.exceptions)
         if current.__traceback__ is not None:
             traceback.clear_frames(current.__traceback__)
 
 
 async def _execute(
-    runtime: TechnicalIndicatorRuntime, request: CalculationRequest, *, arrived_at: float,
+    runtime: TechnicalIndicatorRuntime, *, arrived_at: float,
+    validate_before_wait: Callable[[], object],
+    work: Callable[[object, ExecutionControl], object],
     receive: Receive | None = None, send: Send | None = None,
-) -> CalculationResult | None:
+    response_content_type: bytes = b"application/json; charset=utf-8",
+) -> object | None:
     cancelled_type = anyio.get_cancelled_exc_class()
     control = ExecutionControl(arrived_at=arrived_at, config=runtime.config)
     control.check_active()
-    normalized = _validate_request_before_wait(runtime, request)
+    normalized = validate_before_wait()
     handoff = {"result": None, "body": None, "error": None}
     done = anyio.Event()
     lease = primary_error = return_result = result = body = None
@@ -80,10 +86,7 @@ async def _execute(
         result = body = None
         try:
             control.check_active()
-            result = TechnicalIndicatorService(
-                source=runtime.source, registry=runtime.registry,
-                config=runtime.config, control=control,
-            ).calculate(normalized)
+            result = work(normalized, control)
             control.check_active()
             if send is None:
                 handoff["result"] = result
@@ -153,7 +156,9 @@ async def _execute(
                     else:
                         body = handoff["body"]
                         handoff["body"] = None
-                        await send_encoded_body(body, send=send, control=control)
+                        await send_encoded_body(
+                            body, send=send, control=control, content_type=response_content_type,
+                        )
                         body = None
                     request_finished = True
             except BaseException as error:
@@ -193,14 +198,40 @@ async def _execute(
     return return_result
 
 
+def _calculate_request(runtime, request, control) -> CalculationResult:
+    return TechnicalIndicatorService(
+        source=runtime.source, registry=runtime.registry,
+        config=runtime.config, control=control,
+    ).calculate(request)
+
+
 async def execute_library(
     runtime: TechnicalIndicatorRuntime, request: CalculationRequest, *, arrived_at: float,
 ) -> CalculationResult:
-    return await _execute(runtime, request, arrived_at=arrived_at)
+    result = None
+    try:
+        result = await _execute(
+            runtime, arrived_at=arrived_at,
+            validate_before_wait=lambda: _validate_request_before_wait(runtime, request),
+            work=lambda normalized, control: _calculate_request(runtime, normalized, control),
+        )
+        if not isinstance(result, CalculationResult):
+            raise OutputContractError(
+                "Library entry requires CalculationResult", reason="type_mismatch",
+                stage="library_return", actual_type=type(result).__name__,
+            )
+        return result
+    finally:
+        result = None
 
 
 async def execute_http(
     runtime: TechnicalIndicatorRuntime, request: CalculationRequest, *, arrived_at: float,
     receive: Receive, send: Send,
 ) -> None:
-    await _execute(runtime, request, arrived_at=arrived_at, receive=receive, send=send)
+    await _execute(
+        runtime, arrived_at=arrived_at,
+        validate_before_wait=lambda: _validate_request_before_wait(runtime, request),
+        work=lambda normalized, control: _calculate_request(runtime, normalized, control),
+        receive=receive, send=send,
+    )

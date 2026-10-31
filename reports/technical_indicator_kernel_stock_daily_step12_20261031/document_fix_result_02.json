@@ -1,0 +1,12 @@
+{
+  "status": "13_placeholders_escaped",
+  "file": "docs/architecture/technical-indicator-kernel-low-level-design-v1.html",
+  "count": 13,
+  "before_sha256": "5f460d4a28363743548db4e4de8fda5c8717ac92be6e585fa0ac6266a43d728f",
+  "after_sha256": "b8741fe8167abdf22845499a082e714b0695ef7b7a888f5e3860a4660b85e4e4",
+  "decoded_document_text_unchanged": true,
+  "code_or_sql_changed": false,
+  "additional_test_calls": 0,
+  "strict_html_check": "passed",
+  "strict_html_seconds": 0.014674417208880186
+}
