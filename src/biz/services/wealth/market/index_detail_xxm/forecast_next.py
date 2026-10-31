@@ -13,7 +13,7 @@ _RELATIONSHIPS = frozenset(('DULL_FORMED', 'DULL_HELD', 'STRUCTURE_FORMED',
                             'STRUCTURE_FORMED_AND_FOLLOWING'))
 OUTCOME_ORDER = ('DULL_FORMED', 'DULL_HELD', 'STRUCTURE_FORMED', 'STRUCTURE_HELD',
                  'RETURNED_TO_DULL', 'STRUCTURE_FORMED_AND_FOLLOWING', 'STRUCTURE_FOLLOWING',
-                 'SIGNAL_DISAPPEARED', 'REFERENCE_INVALIDATED')
+                 'STRUCTURE_PRICE_DISAPPEARED', 'SIGNAL_DISAPPEARED', 'REFERENCE_INVALIDATED')
 
 
 def _empty_reference():
@@ -180,8 +180,12 @@ def solve_active_reference(c, projection, endpoint, reference, role, check):
         if not math.isfinite(gate):
             raise ValueError('Non-finite original one-percent gate')
         delta = _against(d, P, s)
+        origin_price_delta = _against(price, c.wave.price, s)
+        price_valid = _compare(origin_price_delta, 'le')
+        price_broken = _compare(origin_price_delta, 'gt')
         if c.state == 'DULL':
-            definitions = [('STRUCTURE_FORMED_AND_FOLLOWING', (opposite, valid))]
+            definitions = [('STRUCTURE_FORMED_AND_FOLLOWING', (opposite, valid, price_valid)),
+                           ('STRUCTURE_PRICE_DISAPPEARED', (opposite, valid, price_broken))]
             if P != 0:
                 definitions.append(('STRUCTURE_FORMED',
                                     (same, valid, _compare(delta, 'lt'),
@@ -196,7 +200,8 @@ def solve_active_reference(c, projection, endpoint, reference, role, check):
                 definitions.append(('SIGNAL_DISAPPEARED', (broken,)))
         else:
             definitions = [('SIGNAL_DISAPPEARED', (broken,)),
-                           ('STRUCTURE_FOLLOWING', (opposite, valid))]
+                           ('STRUCTURE_FOLLOWING', (opposite, valid, price_valid)),
+                           ('STRUCTURE_PRICE_DISAPPEARED', (opposite, valid, price_broken))]
             if P != 0:
                 definitions.append(('RETURNED_TO_DULL',
                                     (same, valid, _compare(delta, 'gt'), _compare(delta, 'ge', gate))))
@@ -218,8 +223,9 @@ def solve_followed_structure(c, projection, endpoint, record, check):
     before = c.snapshot()
     sign = 1 if record['direction'] == 'TOP' else -1
     _, h, price = _nodes(c, projection)
-    predicates = (_compare(scaled(h, sign), 'ge' if record['nextSameColorStart'] else 'gt'),
-                  _compare(_against(price, record['originWave']['price'], sign), 'gt'))
+    predicates = (_compare(_against(price, record['originWave']['price'], sign), 'gt'),)
+    if record['nextSameColorCount'] >= c.spec.structure_follow_min_bars:
+        predicates = (_compare(scaled(h, sign), 'ge'), *predicates)
     with evaluation_scope():
         certificate = solve_predicates(predicates, projection=projection, period=c.period, check=check)
         candidates = set(candidate_prices(predicates, projection=projection, period=c.period, check=check))
@@ -259,7 +265,7 @@ def solve_followed_structure(c, projection, endpoint, record, check):
             check()
             return None
         result = StructureFollowConditionDraft('SIGNAL_DISAPPEARED', record['id'], record['direction'],
-            deepcopy(record['originWave']), record['nextSameColorStart'], tuple(deepcopy(ranges)),
+            deepcopy(record['originWave']), record['nextSameColorStart'], record['nextSameColorCount'], tuple(deepcopy(ranges)),
             deepcopy(precision), tuple(deepcopy(predicates)))
         check()
         return result

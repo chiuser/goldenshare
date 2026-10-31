@@ -172,13 +172,18 @@ class InternalXxmStructureDto(InternalXxmDto):
     originWave: InternalXxmWaveDto | None
     firstOppositeAt: str | None
     nextSameColorStart: str | None
+    nextSameColorCount: StrictInt = Field(ge=0)
+    trackingPriceExtreme: float | None
+    trackingPriceExtremeAt: str | None
     trackingEndedAt: str | None
     disappearedAt: str | None
     disappearanceReason: Literal["dif_return", "reference_dif_break", "structure_price_break"] | None
 
-    @field_validator("priceExtreme", mode="before")
+    @field_validator("priceExtreme", "trackingPriceExtreme", mode="before")
     @classmethod
-    def original_number(cls, value):
+    def original_number(cls, value, info):
+        if value is None and info.field_name == "trackingPriceExtreme":
+            return value
         if type(value) not in (int, float):
             raise ValueError("XXM price must be an original number")
         return value
@@ -189,7 +194,7 @@ class InternalXxmStructureDto(InternalXxmDto):
 
         raw = self.model_dump()
         upper = max(value for value in (self.formedAt, self.firstOppositeAt,
-                    self.nextSameColorStart, self.trackingEndedAt, self.disappearedAt) if value is not None)
+                    self.nextSameColorStart, self.trackingPriceExtremeAt, self.trackingEndedAt, self.disappearedAt) if value is not None)
         # Only the full response knows algorithm/source identity. It validates
         # IDs below; this shared guard checks the same native lifecycle facts.
         validate_structure_facts(raw, period="day" if len(self.formedAt) == 10 else "m60", upper=upper)
@@ -256,15 +261,19 @@ class InternalXxmResponseDto(InternalXxmDto):
         event_times = [event.time for event in self.events]
         if event_times != sorted(event_times) or any(stamp not in times for stamp in event_times):
             raise ValueError("XXM events must be ordered and visible")
-        ordinary_times = set()
+        ordinary_times, ranks = set(), {}
         for event in self.events:
             if event.route == "structure_price_break":
-                if event.time in ordinary_times:
-                    raise ValueError("Old structure events must precede the current ordinary event")
-            elif event.time in ordinary_times:
-                raise ValueError("Multiple ordinary events on one bar")
+                record = records.get(event.relatedStructureId)
+                rank = 2 if record is not None and record.firstOppositeAt == event.time else 0
             else:
+                if event.time in ordinary_times:
+                    raise ValueError("Multiple ordinary events on one bar")
                 ordinary_times.add(event.time)
+                rank = 1
+            if rank < ranks.get(event.time, -1):
+                raise ValueError("XXM events violate old/current/first-opposite order")
+            ranks[event.time] = rank
         through, start = self.source.computedThrough, self.source.startTime
         if self.dataStatus.asOf != through:
             raise ValueError("XXM asOf mismatch")
@@ -292,7 +301,8 @@ class InternalXxmResponseDto(InternalXxmDto):
         stamp(through)
         for record in self.structures:
             for value in (record.formedAt, record.originSegmentStart, record.priceExtremeAt,
-                          record.firstOppositeAt, record.nextSameColorStart, record.trackingEndedAt, record.disappearedAt):
+                          record.firstOppositeAt, record.nextSameColorStart, record.trackingPriceExtremeAt,
+                          record.trackingEndedAt, record.disappearedAt):
                 if value is not None:
                     stamp(value)
             if record.originWave is not None:
@@ -360,6 +370,11 @@ class InternalXxmResponseDto(InternalXxmDto):
             event = events.get(record.structureEventId)
             if record.formedAt in times and (event is None or event.relatedStructureId != record.id):
                 raise ValueError("XXM visible structure has no formation event")
+            if record.disappearedAt in times:
+                endings = [item for item in self.events if item.relatedStructureId == record.id
+                           and item.time == record.disappearedAt and item.type != "STRUCTURE"]
+                if len(endings) != 1:
+                    raise ValueError("XXM visible disappearance must have its complete event")
         following_directions = [record.direction for record in self.structures if record.status == "FOLLOWING"]
         if len(set(following_directions)) != len(following_directions):
             raise ValueError("Multiple followed structures for one direction")

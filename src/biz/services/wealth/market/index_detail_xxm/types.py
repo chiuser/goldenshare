@@ -72,6 +72,9 @@ class XxmStructureRecord(TypedDict):
     originWave: XxmWaveFacts | None
     firstOppositeAt: str | None
     nextSameColorStart: str | None
+    nextSameColorCount: int
+    trackingPriceExtreme: float | None
+    trackingPriceExtremeAt: str | None
     trackingEndedAt: str | None
     disappearedAt: str | None
     disappearanceReason: Literal["dif_return", "reference_dif_break", "structure_price_break"] | None
@@ -137,9 +140,11 @@ class XxmStructureFollowCheck(TypedDict):
     firstOppositeAt: str
     nextSameColorStartBefore: str | None
     nextSameColorStartAfter: str | None
+    nextSameColorCountBefore: int
+    nextSameColorCountAfter: int
     checked: bool
     pricePassed: bool | None
-    action: Literal["KEEP", "START", "DISAPPEAR", "FINISH"]
+    action: Literal["KEEP", "START", "SKIP_SINGLE", "DISAPPEAR", "FINISH"]
     reason: str
 
 
@@ -209,6 +214,7 @@ class StructureFollowConditionDraft:
     direction: Literal["TOP", "BOTTOM"]
     origin_wave: XxmWaveFacts
     next_same_color_start: str | None
+    next_same_color_count: int
     price_ranges: tuple[dict[str, Any], ...]
     precision_ranges: tuple[dict[str, Any], ...]
     predicates: tuple[dict[str, Any], ...]

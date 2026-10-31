@@ -10,7 +10,7 @@ from src.biz.services.wealth.market.index_detail_xxm.forecast_detector import ev
 from src.biz.services.wealth.market.index_detail_xxm.forecast_next import solve_followed_structure
 from src.biz.services.wealth.market.index_detail_xxm.forecast_text import make_display
 from src.biz.services.wealth.market.index_detail_xxm.projection import ProjectionState
-from scripts.research.index_market.tests.test_xxm_r4_following import TS, TF, TN, bars, run, values
+from scripts.research.index_market.tests.test_xxm_r4_following import T, TS, TF, TN, MULTI_SINGLE, bars, run, values
 
 
 def target(c):
@@ -31,11 +31,11 @@ def test_pf21_22_23_literal_old_structure_color_and_strict_price_boundaries(peri
     projection=ProjectionState(198,100,99) if sign==1 else ProjectionState(200,298,-99)
     record=next(r for r in c.followed_structures.values() if r)
     out=solve_followed_structure(c,projection,target(c),record,lambda:None)
-    for C,wanted in ([(301,False),(302,True),(103,False)] if sign==1 else [(97,False),(96,True),(98,False)]):
+    for C,wanted in ([(301,True),(104,True),(103,False)] if sign==1 else [(97,False),(96,True),(96.75,True),(98,False)]):
         assert evaluate_structure_follow_at_price(c,projection,C,target(c),record['id'],lambda:None) is wanted
         assert any(interval_has(r,C) for r in out.price_ranges) is wanted
     if sign==1:
-        assert min(r['displayLower'] for r in out.price_ranges if r['displayLower'] is not None)==302
+        assert min(r['displayLower'] for r in out.price_ranges if r['displayLower'] is not None)==104
         c,_=run(TN,period);record=c.followed_structures['TOP'];projection=ProjectionState(196,100,95)
         # H=0 at 7633/28. 104 ends the segment normally, 273 can cancel.
         assert evaluate_structure_follow_at_price(c,projection,104,target(c),record['id'],lambda:None) is False
@@ -81,7 +81,7 @@ def test_pf26_static_ordinary_no_candidate_does_not_suppress_old_conditions(sign
     result=forecast(c,projection,target(c),lambda:None,prepared=p)
     assert result.status=='READY' and result.selected_reference is None
     assert result.conditions==() and result.structure_follow_conditions
-    C=112 if sign==1 else 89
+    C=104 if sign==1 else 96
     assert any(interval_has(r,C) for r in result.structure_follow_conditions[0].price_ranges)
     display=make_display(result,prepared=p,period=period,through=c.previous.time,mode='LATEST',check=lambda:None)
     assert len(display)==4 and '旧结构消失' in display['conditionsText']
@@ -117,12 +117,12 @@ def test_pf27_28_target_identity_cancellation_and_real_progress_isolation():
 
 
 @pytest.mark.parametrize('period',['day','m60','m90','m120'])
-def test_pf23_exact_zero_keeps_begun_following_but_does_not_start_it(period):
+def test_pf23_zero_checks_price_without_starting_or_ending_a_color_segment(period):
     # C351: EMA12=11+54=65, EMA26=34+26=60, D=5,
     # DEA=.8*5+.2*5=5 and H=0, using exact original operations.
     projection=ProjectionState(13,36.72,5)
     assert projection.advance(351)[1]==(5.,5.,0.)
-    for rows,wanted in [(TF,False),(TN,True)]:
+    for rows,wanted in [(TF,True),(TN,True)]:
         c,_=run(rows,period);record=c.followed_structures['TOP']
         assert evaluate_structure_follow_at_price(c,projection,351,target(c),record['id'],lambda:None) is wanted
 
@@ -137,7 +137,7 @@ def test_pf26_handwritten_drafts_only_test_status_composition(kind,expected):
     pending={'priceRange':dict(lower=105. if kind=='overlap' else 100.2,upper=106. if kind=='overlap' else 100.3,
                               lowerInclusive=False,upperInclusive=False),'reason':'ROUNDING_BOUNDARY'}
     old=None if kind=='none' else StructureFollowConditionDraft('SIGNAL_DISAPPEARED',record['id'],record['direction'],
-        deepcopy(record['originWave']),record['nextSameColorStart'],(),(pending,),())
+        deepcopy(record['originWave']),record['nextSameColorStart'],record['nextSameColorCount'],(),(pending,),())
     literal=ForecastKernelResult('READY' if ordinary else 'NO_CANDIDATE',None,target(c),1,deepcopy(p.references),
                                 'NEAR' if ordinary else None,{'status':'NOT_EVALUATED','reason':None},False,ordinary,(),())
     with patch.object(module,'_forecast_ordinary',return_value=literal),patch.object(module,'solve_followed_structure',return_value=old):
@@ -207,3 +207,119 @@ def test_pf28_deadline_after_final_construction_still_rejects_and_releases_memor
             else:
                 solve_followed_structure(c,ProjectionState(196,100,95),target(c),c.followed_structures['TOP'],check)
     assert c.snapshot()==before and detector._EVALUATIONS.get() is None
+
+
+@pytest.mark.parametrize('period',['day','m60','m90','m120'])
+@pytest.mark.parametrize('sign',[1,-1])
+def test_pf29_single_segment_ending_still_has_price_break_range(period,sign):
+    c,_=run(values(TF+[(102,97,2)],sign),period)
+    projection=ProjectionState(197,100,96) if sign==1 else ProjectionState(100,197,-96)
+    record=next(r for r in c.followed_structures.values() if r)
+    assert record['nextSameColorCount']==1
+    out=solve_followed_structure(c,projection,target(c),record,lambda:None)
+    C=104 if sign==1 else 96
+    assert evaluate_structure_follow_at_price(c,projection,C,target(c),record['id'],lambda:None) is True
+    assert any(interval_has(r,C) for r in out.price_ranges)
+    assert out.next_same_color_count==1 and len(out.predicates)==1
+    boundary='displayLower' if sign==1 else 'displayUpper'
+    assert {r[boundary] for r in out.price_ranges}=={C}
+    # Same close, count2: opposite bar normally finishes the old tracking.
+    effective,_=run(values(TN,sign),period)
+    effective_projection=ProjectionState(196,100,95) if sign==1 else ProjectionState(100,196,-95)
+    r=next(r for r in effective.followed_structures.values() if r)
+    assert evaluate_structure_follow_at_price(effective,effective_projection,C,target(effective),r['id'],lambda:None) is False
+
+
+@pytest.mark.parametrize('period',['day','m60','m90','m120'])
+@pytest.mark.parametrize('sign',[1,-1])
+def test_pf30_exact_zero_separator_still_checks_price_without_starting_segment(period,sign):
+    rows=TF+[(90,98,0)]
+    c,_=run(values(rows,sign),period)
+    projection=ProjectionState(198,100,98) if sign==1 else ProjectionState(100,198,-98)
+    C=289 if sign==1 else 9
+    # Independent arithmetic: 212-114=98 or 86-184=-98; DEA unchanged, H exactly0.
+    assert projection.advance(C)[1]==(98.*sign,98.*sign,0.)
+    record=next(r for r in c.followed_structures.values() if r)
+    before=c.snapshot()
+    assert evaluate_structure_follow_at_price(c,projection,C,target(c),record['id'],lambda:None) is True
+    assert c.snapshot()==before and record['nextSameColorStart'] is None
+
+
+@pytest.mark.parametrize('period',['day','m60','m90','m120'])
+@pytest.mark.parametrize('sign',[1,-1])
+def test_pf31_effective_bottom_and_top_end_vs_same_color_price_failure(period,sign):
+    c,_=run(values(TN,sign),period)
+    p=ProjectionState(196,100,95) if sign==1 else ProjectionState(100,196,-95)
+    r=next(v for v in c.followed_structures.values() if v)
+    out=solve_followed_structure(c,p,target(c),r,lambda:None)
+    safe_end=104 if sign==1 else 96
+    same_color_break=273 if sign==1 else 23
+    assert evaluate_structure_follow_at_price(c,p,safe_end,target(c),r['id'],lambda:None) is False
+    assert evaluate_structure_follow_at_price(c,p,same_color_break,target(c),r['id'],lambda:None) is True
+    assert out.next_same_color_count==2 and len(out.predicates)==2
+    assert any(interval_has(x,same_color_break) for x in out.price_ranges)
+    assert not any(interval_has(x,safe_end) for x in out.price_ranges)
+    field='displayLower' if sign==1 else 'displayUpper'
+    assert {x[field] for x in out.price_ranges if x[field] is not None}=={same_color_break}
+    # A proved narrow float interval can have no legal integer; it must stay present.
+
+
+@pytest.mark.parametrize('period',['day','m60','m90','m120'])
+@pytest.mark.parametrize('sign',[1,-1])
+@pytest.mark.parametrize('rows,top_ema,bottom_ema',[
+    (TF+[(102,97,2),(102,96,-2)],(196,100,97),(100,196,-97)),
+    (MULTI_SINGLE[:12],(192,100,93),(100,192,-93)),
+])
+def test_pf32_skipped_single_restore_has_same_range_and_no_history_pool_requirement(period,sign,rows,top_ema,bottom_ema):
+    c,_=run(values(rows,sign),period)
+    clone=type(c)(period=period,source_identity=c.source_identity);clone.restore(c.snapshot())
+    projection=ProjectionState(*(top_ema if sign==1 else bottom_ema))
+    r=next(v for v in c.followed_structures.values() if v)
+    assert r['nextSameColorStart'] is None and r['nextSameColorCount']==0
+    a=solve_followed_structure(c,projection,target(c),r,lambda:None)
+    b=solve_followed_structure(clone,projection,target(clone),clone.followed_structures[r['direction']],lambda:None)
+    assert a==b and any(interval_has(x,104 if sign==1 else 96) for x in a.price_ranges)
+
+
+@pytest.mark.parametrize('period',['day','m60','m90','m120'])
+@pytest.mark.parametrize('rows,ema,price,safe,expected_safe',[
+    (T,(200,100,99),103,101,'STRUCTURE_FORMED_AND_FOLLOWING'),
+    (TS,(199,100,98),104,102,'STRUCTURE_FOLLOWING'),
+    (values(T,-1),(100,200,-99),97,99,'STRUCTURE_FORMED_AND_FOLLOWING'),
+    (values(TS,-1),(100,199,-98),96,98,'STRUCTURE_FOLLOWING'),
+])
+def test_pf13_first_opposite_current_structure_price_failure_is_not_following(period,rows,ema,price,safe,expected_safe):
+    from src.biz.services.wealth.market.index_detail_xxm.forecast_next import solve_active_reference
+    c,_=run(rows,period);before=c.snapshot();projection=ProjectionState(*ema)
+    actual=evaluate_next_at_price(c,projection,price,target(c),'NEAR',lambda:None)
+    assert actual['outcome']=='STRUCTURE_PRICE_DISAPPEARED'
+    assert evaluate_next_at_price(c,projection,safe,target(c),'NEAR',lambda:None)['outcome']==expected_safe
+    solved=solve_active_reference(c,projection,target(c),c.reference,'NEAR',lambda:None)
+    assert any(condition.outcome=='STRUCTURE_PRICE_DISAPPEARED' and any(interval_has(r,price) for r in condition.price_ranges)
+               for condition in solved.conditions)
+    assert not any(r.contains(price) for r in solved.relationship_ranges)
+    assert c.snapshot()==before
+
+
+def test_pf33_full_computation_keeps_old_cancel_plus_new_activation_and_both_forecast_conditions():
+    c,_=run(TN);prepared=precheck_next_bar(c,lambda:None);projection=ProjectionState(196,100,95)
+    result=forecast(c,projection,target(c),lambda:None,prepared=prepared)
+    assert any(condition.outcome=='DULL_FORMED' and any(interval_has(r,273) for r in condition.price_ranges)
+               for condition in result.conditions)
+    assert any(interval_has(r,273) for r in result.structure_follow_conditions[0].price_ranges)
+    _,(dif,dea,hist)=projection.advance(273)
+    child=type(c)(period=c.period,source_identity=c.source_identity);child.restore(c.snapshot())
+    step=child.step(type(c.previous)(target(c),273,dif,dea,hist))
+    assert [e['route'] for e in step.events]==['structure_price_break','activation']
+    assert len(step.events)==2 and step.structures[0]['status']=='DISAPPEARED'
+
+
+def test_pf34_display_rejects_wrong_or_boolean_count_and_keeps_real_input_unchanged():
+    c,_=run(TN);prepared=precheck_next_bar(c,lambda:None)
+    result=forecast(c,ProjectionState(196,100,95),target(c),lambda:None,prepared=prepared)
+    before=c.snapshot();condition=result.structure_follow_conditions[0]
+    for bad_count in (True,-1,0,1,'2'):
+        bad=replace(result,structure_follow_conditions=(replace(condition,next_same_color_count=bad_count),))
+        with pytest.raises(ValueError,match='prepared'):
+            make_display(bad,prepared=prepared,period='day',through=c.previous.time,mode='LATEST',check=lambda:None)
+    assert c.snapshot()==before

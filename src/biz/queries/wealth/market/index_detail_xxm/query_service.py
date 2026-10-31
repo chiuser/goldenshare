@@ -4,7 +4,7 @@ from bisect import bisect_right
 from collections import OrderedDict
 from contextlib import contextmanager
 from copy import deepcopy
-from dataclasses import dataclass, fields, is_dataclass, replace
+from dataclasses import asdict, dataclass, fields, is_dataclass, replace
 from datetime import date, datetime
 import hashlib
 from pathlib import Path
@@ -23,7 +23,7 @@ from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalcul
 from src.biz.services.wealth.market.index_detail_xxm.runtime import BUDGET
 from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.snapshot_validation import validate_structure_record
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar, XxmPeriod
+from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar, XxmPeriod, XxmStep
 from .source import (CN_ZONE, INDICATOR_VERSION, XxmSourceError, assert_continuous, calendar_dates,
                      expected_through, minute_reader, minute_request, read_daily, read_minutes)
 from .shared_loads import SharedLoads
@@ -245,7 +245,7 @@ class IndexDetailXxmQueryService:
                 remaining()
             bar = processed[index]
             step = entry.calculator.step(bar)
-            self._merge_structure_updates(entry, step.structures, through=bar.time)
+            self._merge_structure_updates(entry, step, bar=bar)
             if (index + 1) % BUDGET.source_batch_rows == 0:
                 entry.checkpoints[index + 1] = entry.calculator.snapshot()
             entry.points.append(deepcopy(step.point))
@@ -288,51 +288,92 @@ class IndexDetailXxmQueryService:
                                       id_factory=entry.calculator._id)
 
     @staticmethod
-    def _merge_structure_updates(entry: SeriesEntry, updates, *, through: str) -> None:
+    def _merge_structure_updates(entry: SeriesEntry, step: XxmStep, *, bar: XxmBar) -> None:
         seen = set()
-        for incoming in updates:
-            record = validate_structure_record(incoming, period=entry.calculator.period, upper=through,
+        for incoming in step.structures:
+            record = validate_structure_record(incoming, period=entry.calculator.period, upper=bar.time,
                                                id_factory=entry.calculator._id)
             identity = record["id"]
             if identity in seen:
                 raise ValueError("Duplicate structure update in one bar")
             seen.add(identity)
             previous = entry.structure_records.get(identity)
+            if previous is not None and previous["status"] in ("FINISHED", "DISAPPEARED"):
+                raise ValueError("A terminal structure cannot be overwritten or reopened")
+            price_events = [event for event in step.events if event["route"] == "structure_price_break"
+                            and event["relatedStructureId"] == identity]
+            is_price_end = record["disappearanceReason"] == "structure_price_break"
+            if len(price_events) != int(is_price_end):
+                raise ValueError("Structure price ending and full events disagree")
+            if price_events:
+                event = price_events[0]
+                if (event["time"] != bar.time or event["direction"] != record["direction"]
+                        or event["eventReference"] != record["originalReference"]
+                        or event["id"] != entry.calculator._id(bar.time, "CANCEL", "structure_price_break", identity)):
+                    raise ValueError("Invalid structure price event association")
             if previous is None:
-                if record["status"] not in ("ASSESSING", "FOLLOWING") or record["formedAt"] != through:
+                formations = [event for event in step.events if event["id"] == record["structureEventId"]
+                              and event["type"] == "STRUCTURE" and event["relatedStructureId"] == identity]
+                if (record["formedAt"] != bar.time or len(formations) != 1
+                        or record["status"] == "FINISHED"
+                        or record["status"] == "DISAPPEARED" and not is_price_end):
                     raise ValueError("A new structure must be formed by this bar")
             else:
                 allowed = {"ASSESSING": {"FOLLOWING", "DISAPPEARED"},
                            "FOLLOWING": {"FOLLOWING", "FINISHED", "DISAPPEARED"}}
                 if record["status"] not in allowed.get(previous["status"], set()):
                     raise ValueError("A terminal structure cannot be overwritten or reopened")
-                changes = {"status", "originWave", "firstOppositeAt", "nextSameColorStart",
-                           "trackingEndedAt", "disappearedAt", "disappearanceReason"}
-                if any(record[field] != value for field, value in previous.items() if field not in changes):
+                mutable = {"status", "originWave", "firstOppositeAt", "nextSameColorStart", "nextSameColorCount",
+                           "trackingPriceExtreme", "trackingPriceExtremeAt", "trackingEndedAt", "disappearedAt", "disappearanceReason"}
+                if any(record[field] != value for field, value in previous.items() if field not in mutable):
                     raise ValueError("Structure formation facts are immutable")
-                for field in changes - {"status"}:
+                for field in ("originWave", "firstOppositeAt"):
                     if previous[field] is not None and record[field] != previous[field]:
-                        raise ValueError("Known structure facts cannot be rewritten")
-                changed_times = [record[field] for field in ("firstOppositeAt", "nextSameColorStart", "trackingEndedAt")
-                                 if record[field] != previous[field]]
-                if not changed_times or any(stamp != through for stamp in changed_times):
-                    raise ValueError("A structure update must occur on this bar")
+                        raise ValueError("Known origin facts cannot be rewritten")
+                if record == previous:
+                    raise ValueError("Redundant structure update")
+            if record["firstOppositeAt"] == bar.time:
+                sign = 1 if record["direction"] == "TOP" else -1
+                history = entry.calculator.history[sign]
+                if not history or record["originWave"] != asdict(history[-1]):
+                    raise ValueError("New closed origin differs from the actual completed Wave")
+                if (record["nextSameColorStart"] is not None or record["nextSameColorCount"] != 0
+                        or record["trackingPriceExtreme"] != bar.close
+                        or record["trackingPriceExtremeAt"] != bar.time):
+                    raise ValueError("First-opposite tracking must start on this bar")
+            elif previous is not None and previous["status"] == "FOLLOWING":
+                sign = 1 if record["direction"] == "TOP" else -1
+                raw_sign = (bar.hist > 0) - (bar.hist < 0)
+                count, start = previous["nextSameColorCount"], previous["nextSameColorStart"]
+                expected = deepcopy(previous)
+                if count >= MAIN_SPEC.structure_follow_min_bars and raw_sign == -sign:
+                    expected.update(status="FINISHED", trackingEndedAt=bar.time)
+                else:
+                    if raw_sign == sign:
+                        expected.update(nextSameColorStart=start or bar.time, nextSameColorCount=count + 1)
+                    elif raw_sign == -sign and count == 1:
+                        expected.update(nextSameColorStart=None, nextSameColorCount=0)
+                    if sign * (bar.close - previous["trackingPriceExtreme"]) > 0:
+                        expected.update(trackingPriceExtreme=bar.close, trackingPriceExtremeAt=bar.time)
+                    if sign * (bar.close - previous["originWave"]["price"]) > 0:
+                        expected.update(status="DISAPPEARED", trackingEndedAt=bar.time,
+                                        disappearedAt=bar.time, disappearanceReason="structure_price_break")
+                if record != expected:
+                    raise ValueError("Structure update differs from actual count/price advancement")
+            elif previous is not None and record["trackingEndedAt"] != bar.time:
+                raise ValueError("Assessment finalization must occur on this bar")
             entry.structure_records[identity] = record
 
     @staticmethod
-    def _project_structure(record: dict, *, through: str) -> dict | None:
+    def _project_structure(record: dict, *, through: str, prefix_records: dict[str, dict]) -> dict | None:
         if record["formedAt"] > through:
             return None
-        result = deepcopy(record)
-        if result["trackingEndedAt"] is not None and result["trackingEndedAt"] > through:
-            result.update(status="FOLLOWING" if result["firstOppositeAt"] is not None
-                          and result["firstOppositeAt"] <= through else "ASSESSING",
-                          trackingEndedAt=None, disappearedAt=None, disappearanceReason=None)
-        if result["nextSameColorStart"] is not None and result["nextSameColorStart"] > through:
-            result["nextSameColorStart"] = None
-        if result["firstOppositeAt"] is not None and result["firstOppositeAt"] > through:
-            result.update(status="ASSESSING", originWave=None, firstOppositeAt=None, nextSameColorStart=None)
-        return result
+        if record["trackingEndedAt"] is None or record["trackingEndedAt"] > through:
+            current = prefix_records.get(record["id"])
+            if current is None:
+                raise ValueError("A live projected structure is missing from the actual prefix")
+            return deepcopy(current)
+        return deepcopy(record)
 
     @staticmethod
     def _response(entry: SeriesEntry, *, period: XxmPeriod, expected: str | None,
@@ -346,15 +387,30 @@ class IndexDetailXxmQueryService:
         events = deepcopy([event for event in entry.events if first is not None and first <= event["time"] <= last])
         related = {point["activeStructureId"] for point in points if point["activeStructureId"] is not None}
         related.update(event["relatedStructureId"] for event in events if event["relatedStructureId"] is not None)
+        current = entry.calculator_at(end_index, check)
+        prefix_records = {record["id"]: record for record in (
+            current.active_structure, *current.followed_structures.values()) if record is not None}
+        latest_records = {record["id"]: record for record in (
+            entry.calculator.active_structure, *entry.calculator.followed_structures.values()) if record is not None}
+        seen_latest = set()
         structures = []
         assessing = []
         following = {"TOP": None, "BOTTOM": None}
-        for index, record in enumerate(entry.structure_records.values()):
+        for index, (identity, record) in enumerate(entry.structure_records.items()):
             if index % BUDGET.source_batch_rows == 0:
                 check()
-            projected = IndexDetailXxmQueryService._project_structure(record, through=through) if through else None
+            if not entry.processed or identity != record["id"]:
+                raise ValueError("XXM structure outside its real prefix")
+            validate_structure_record(record, period=period, upper=entry.processed[-1].time,
+                                      id_factory=entry.calculator._id)
+            if record["status"] in ("ASSESSING", "FOLLOWING"):
+                if record != latest_records.get(record["id"]):
+                    raise ValueError("Latest structure differs from the actual calculator progress")
+                seen_latest.add(record["id"])
+            projected = IndexDetailXxmQueryService._project_structure(record, through=through, prefix_records=prefix_records) if through else None
             if projected is None:
                 continue
+            validate_structure_record(projected, period=period, upper=through, id_factory=current._id)
             if projected["status"] == "ASSESSING":
                 assessing.append(projected)
             if projected["status"] == "FOLLOWING":
@@ -369,7 +425,8 @@ class IndexDetailXxmQueryService:
                          or projected["formedAt"] <= last and (projected["trackingEndedAt"] is None
                                                                 or projected["trackingEndedAt"] >= first))):
                 structures.append(projected)
-        current = entry.calculator_at(end_index, check)
+        if seen_latest != set(latest_records):
+            raise ValueError("Latest structure aggregation omitted live calculator records")
         if assessing != ([current.active_structure] if current.active_structure is not None else []):
             raise ValueError("Projected structure differs from the actual prefix calculator")
         if following != current.followed_structures:

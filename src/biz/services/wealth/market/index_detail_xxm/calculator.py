@@ -89,7 +89,8 @@ class XxmCalculator:
             "status": "FOLLOWING" if route == "color_flip" else "ASSESSING",
             "originWave": asdict(origin_wave) if route == "color_flip" else None,
             "firstOppositeAt": bar.time if route == "color_flip" else None,
-            "nextSameColorStart": None, "trackingEndedAt": None,
+            "nextSameColorStart": None, "nextSameColorCount": 0,
+            "trackingPriceExtreme": None, "trackingPriceExtremeAt": None, "trackingEndedAt": None,
             "disappearedAt": None, "disappearanceReason": None,
         }
         return self._event(bar, "STRUCTURE", route, origin_wave.sign, ref, "DULL", structure_id), record
@@ -107,48 +108,69 @@ class XxmCalculator:
             result.update(originWave=asdict(self.wave), firstOppositeAt=bar.time)
         return result
 
+    def _advance_followed_structure(self, bar: XxmBar, old: XxmStructureRecord, *, observe: bool = False):
+        """Advance one immutable following record; never change ordinary progress."""
+        if old["status"] != "FOLLOWING":
+            raise ValueError("Only a live followed structure can advance")
+        record = deepcopy(old)
+        sign = 1 if record["direction"] == "TOP" else -1
+        raw_sign = (bar.hist > 0) - (bar.hist < 0)
+        count = old["nextSameColorCount"]
+        event = None
+        checked, passed, action, reason = False, None, "KEEP", "跟踪期间逐根检查收盘"
+        if count >= self.spec.structure_follow_min_bars and raw_sign == -sign:
+            record.update(status="FINISHED", trackingEndedAt=bar.time)
+            action, reason = "FINISH", "首个有效同色段结束，正常停止；结束根不检查价格"
+        else:
+            if raw_sign == sign:
+                if record["nextSameColorStart"] is None:
+                    record.update(nextSameColorStart=bar.time, nextSameColorCount=1)
+                    action = "START"
+                else:
+                    record["nextSameColorCount"] += 1
+            elif raw_sign == -sign and count == 1:
+                record.update(nextSameColorStart=None, nextSameColorCount=0)
+                action, reason = "SKIP_SINGLE", "单根同色段结束，继续跟踪并检查当根价格"
+            extreme = record["trackingPriceExtreme"]
+            if extreme is None or sign * (bar.close - extreme) > 0:
+                record.update(trackingPriceExtreme=bar.close, trackingPriceExtremeAt=bar.time)
+            checked = True
+            passed = sign * (bar.close - record["originWave"]["price"]) > 0
+            if passed:
+                record.update(status="DISAPPEARED", trackingEndedAt=bar.time,
+                              disappearedAt=bar.time, disappearanceReason="structure_price_break")
+                action, reason = "DISAPPEAR", "收盘严格突破原完整色段极值"
+                event = {"id": self._id(bar.time, "CANCEL", "structure_price_break", record["id"]),
+                         "time": bar.time, "direction": record["direction"], "type": "CANCEL",
+                         "route": "structure_price_break", "fromState": "STRUCTURE",
+                         "eventReference": deepcopy(record["originalReference"]),
+                         "relatedStructureId": record["id"]}
+        observation = {
+            "relatedStructureId": old["id"], "direction": old["direction"],
+            "originWave": {"price": old["originWave"]["price"], "price_at": old["originWave"]["price_at"]},
+            "firstOppositeAt": old["firstOppositeAt"],
+            "nextSameColorStartBefore": old["nextSameColorStart"],
+            "nextSameColorStartAfter": record["nextSameColorStart"],
+            "nextSameColorCountBefore": count, "nextSameColorCountAfter": record["nextSameColorCount"],
+            "checked": checked, "pricePassed": passed, "action": action, "reason": reason} if observe else None
+        return record, event, observation
+
     def _advance_followed_structures(self, bar: XxmBar, work: ParsedXxmSnapshot, *,
                                     observe: bool = False) -> tuple[list[dict[str, Any]], list[XxmStructureRecord]]:
-        """Advance only old structures, using root-before progress. Never select a reference."""
-        raw_sign = (bar.hist > 0) - (bar.hist < 0)
+        """Advance root-before slots only; shared with the independent forecast."""
         events, updates = [], []
         for direction in ("TOP", "BOTTOM"):
             old = work.followed_structures[direction]
             if old is None:
                 continue
-            record = deepcopy(old)
-            sign = 1 if direction == "TOP" else -1
-            same = record["nextSameColorStart"]
-            checked, passed, action, reason = False, None, "KEEP", "仍在分隔反色段"
-            if same is None and raw_sign == sign:
-                record["nextSameColorStart"] = bar.time
-                action, reason = "START", "下一同色段开始，当根即可检查价格"
-            elif same is not None and raw_sign == -sign:
-                record.update(status="FINISHED", trackingEndedAt=bar.time)
-                action, reason = "FINISH", "下一同色段已结束，正常停止，不报消失"
-            if record["nextSameColorStart"] is not None and record["status"] == "FOLLOWING":
-                checked = True
-                passed = sign * (bar.close - record["originWave"]["price"]) > 0
-                if passed:
-                    record.update(status="DISAPPEARED", trackingEndedAt=bar.time,
-                                  disappearedAt=bar.time, disappearanceReason="structure_price_break")
-                    action, reason = "DISAPPEAR", "收盘严格突破原完整色段极值"
-                    events.append({"id": self._id(bar.time, "CANCEL", "structure_price_break", record["id"]),
-                        "time": bar.time, "direction": direction, "type": "CANCEL", "route": "structure_price_break",
-                        "fromState": "STRUCTURE", "eventReference": deepcopy(record["originalReference"]),
-                        "relatedStructureId": record["id"]})
-                elif action == "KEEP":
-                    reason = "下一同色段内收盘未严格突破原段极值"
+            record, event, observation = self._advance_followed_structure(bar, old, observe=observe and self._decision_context is not None)
             work.followed_structures[direction] = record if record["status"] == "FOLLOWING" else None
+            if event is not None:
+                events.append(event)
             if record != old:
-                updates.append(deepcopy(record))
+                updates.append(record)
             if observe and self._decision_context is not None:
-                self._decision_context["structureFollowChecks"].append({
-                    "relatedStructureId": old["id"], "direction": direction,
-                    "originWave": {"price": old["originWave"]["price"], "price_at": old["originWave"]["price_at"]},
-                    "firstOppositeAt": old["firstOppositeAt"], "nextSameColorStartBefore": same,
-                    "nextSameColorStartAfter": record["nextSameColorStart"], "checked": checked,
-                    "pricePassed": passed, "action": action, "reason": reason})
+                self._decision_context["structureFollowChecks"].append(observation)
         return events, updates
 
     @staticmethod
@@ -300,6 +322,9 @@ class XxmCalculator:
             raise ValueError("Invalid complete XXM step")
         for record in result.structures:
             validate_structure_record(record, period=self.period, upper=bar.time, id_factory=self._id)
+        event_fields = {"id", "time", "direction", "type", "route", "fromState", "eventReference", "relatedStructureId"}
+        if any(type(event) is not dict or set(event) != event_fields or event["time"] != bar.time for event in result.events):
+            raise ValueError("Invalid complete XXM event fields")
         complete_result = result
         prior = deepcopy(self._progress())
         expected_old_events, expected_old_updates = self._advance_followed_structures(bar, prior)
@@ -309,15 +334,10 @@ class XxmCalculator:
             raise ValueError("Old structure events/updates differ from the actual finite tracking step")
         expected_slots = prior.followed_structures
         result = replace(result, events=result.events[n_events:], structures=result.structures[n_records:])
-        if len(result.events) > 1 or len(result.structures) > 1:
-            raise ValueError("Invalid ordinary step multiplicity")
-        for record in result.structures:
-            if record["status"] == "FOLLOWING":
-                if expected_slots[record["direction"]] is not None:
-                    raise ValueError("A new followed structure cannot overwrite an old live slot")
-                expected_slots[record["direction"]] = record
-        if not _same_facts(expected_slots, work.followed_structures):
-            raise ValueError("Followed progress differs from complete step updates")
+        ordinary = tuple(event for event in result.events if event["route"] != "structure_price_break")
+        prices = tuple(event for event in result.events if event["route"] == "structure_price_break")
+        if len(ordinary) > 1 or len(prices) > 1 or len(result.structures) > 1 or result.events != ordinary + prices:
+            raise ValueError("Invalid current relationship event order or multiplicity")
         true_flip = self.wave is not None and (bar.hist > 0) - (bar.hist < 0) == -self.wave.sign
         if true_flip:
             broken = self.reference is not None and self.wave.sign * (bar.dif - self.reference.dif) > 0
@@ -326,34 +346,47 @@ class XxmCalculator:
             expected_event = {("NONE", "DULL"): "DULL", ("DULL", "STRUCTURE"): "STRUCTURE",
                               ("STRUCTURE", "DULL"): "DULL", ("DULL", "NONE"): "CANCEL",
                               ("STRUCTURE", "NONE"): "CANCEL"}.get((self.state, work.state))
-        if tuple(event["type"] for event in result.events) != ((expected_event,) if expected_event else ()):
+        if tuple(event["type"] for event in ordinary) != ((expected_event,) if expected_event else ()):
             raise ValueError("XXM step omitted or invented its state transition event")
         changed_structure = self.active_structure != work.active_structure or expected_event == "STRUCTURE"
         if len(result.structures) != int(changed_structure):
             raise ValueError("XXM step omitted or invented its structure change")
+        expected_price = None
         for record in result.structures:
-            validate_structure_record(record, period=self.period, upper=bar.time, id_factory=self._id)
+            if self.active_structure is not None:
+                original = self.active_structure
+                if ordinary:
+                    reason = "dif_return" if ordinary[0]["route"] == "dif_return" else "reference_dif_break"
+                    expected_record = self._finish_structure(original, bar, "DISAPPEARED", reason)
+                elif true_flip and self.reference is not None:
+                    expected_record = self._finish_structure(original, bar, "FOLLOWING", None)
+                    expected_record, expected_price, _ = self._advance_followed_structure(bar, expected_record)
+                else:
+                    raise ValueError("Invalid active structure finalization")
+            elif ordinary and ordinary[0]["type"] == "STRUCTURE":
+                origin = self.wave if true_flip else work.wave
+                if origin is None or self.reference is None:
+                    raise ValueError("Missing formation facts")
+                _, expected_record = self._start_structure(bar, origin, self.reference, ordinary[0]["route"])
+                if true_flip:
+                    expected_record, expected_price, _ = self._advance_followed_structure(bar, expected_record)
+            else:
+                raise ValueError("Invalid newly formed structure")
+            if not _same_facts(record, expected_record):
+                raise ValueError("Structure finalization differs from its actual transition")
             if record["status"] == "ASSESSING" and not _same_facts(record, work.active_structure):
                 raise ValueError("Structure creation differs from active progress")
             if record["status"] != "ASSESSING" and work.active_structure is not None:
                 raise ValueError("A non-assessing structure cannot remain active")
-            if self.active_structure is not None:
-                changed = {"status", "originWave", "firstOppositeAt", "nextSameColorStart", "trackingEndedAt", "disappearedAt", "disappearanceReason"}
-                if any(not _same_facts(record[key], self.active_structure[key]) for key in record if key not in changed):
-                    raise ValueError("A structure finalization rewrote its original facts")
-                if result.events:
-                    event = result.events[0]
-                    reason = "dif_return" if event["route"] == "dif_return" else "reference_dif_break"
-                    if (record["status"] != "DISAPPEARED" or record["disappearedAt"] != bar.time
-                            or record["disappearanceReason"] != reason):
-                        raise ValueError("Structure finalization differs from the actual event")
-                elif (record["status"] != "FOLLOWING" or record["firstOppositeAt"] != bar.time
-                      or self.wave is None or (bar.hist > 0) - (bar.hist < 0) != -self.wave.sign):
-                    raise ValueError("A structure can start following only on the actual first opposite bar")
-            elif (not result.events or result.events[0]["type"] != "STRUCTURE"
-                  or record["formedAt"] != bar.time
-                  or record["status"] != ("FOLLOWING" if record["formationRoute"] == "color_flip" else "ASSESSING")):
-                raise ValueError("Invalid newly formed structure")
+            if record["status"] == "FOLLOWING":
+                if expected_slots[record["direction"]] is not None:
+                    raise ValueError("A new followed structure cannot overwrite an old live slot")
+                expected_slots[record["direction"]] = record
+        if not _same_facts(prices, (expected_price,) if expected_price is not None else ()):
+            raise ValueError("Current first-opposite price cancellation differs from actual facts")
+        if not _same_facts(expected_slots, work.followed_structures):
+            raise ValueError("Followed progress differs from complete step updates")
+        result = replace(result, events=ordinary)
         routes = {"activation": ("DULL", "NONE"), "dif_turn": ("STRUCTURE", "DULL"),
                   "dif_return": ("DULL", "STRUCTURE"), "color_flip": ("STRUCTURE", "DULL")}
         event_fields = {"id", "time", "direction", "type", "route", "fromState", "eventReference", "relatedStructureId"}
@@ -496,11 +529,18 @@ class XxmCalculator:
                     if candidate is not None:
                         work.reference, work.state = deepcopy(candidate), "DULL"
                         events.append(self._event(bar, "DULL", "activation", sign, candidate, "NONE", None))
-            for record in structures:
+            for index, record in enumerate(structures):
                 if record["status"] == "FOLLOWING" and record["firstOppositeAt"] == bar.time:
                     if work.followed_structures[record["direction"]] is not None:
                         raise ValueError("Followed structure slot was not cleared at the actual color transition")
-                    work.followed_structures[record["direction"]] = deepcopy(record)
+                    final, price_event, observation = self._advance_followed_structure(bar, record, observe=self._decision_context is not None)
+                    structures[index] = final
+                    if price_event is not None:
+                        events.append(price_event)
+                    if self._decision_context is not None:
+                        self._decision_context["structureFollowChecks"].append(observation)
+                    if final["status"] == "FOLLOWING":
+                        work.followed_structures[record["direction"]] = deepcopy(final)
             work.previous, work.processed = bar, self.processed + 1
             result = deepcopy(self._finish_step(XxmStep(self._point(bar, work), tuple(events), tuple(structures)), work))
             self._validate_step(result, work, bar)

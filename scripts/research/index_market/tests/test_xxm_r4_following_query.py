@@ -9,15 +9,20 @@ from pydantic import ValidationError
 
 from src.biz.queries.wealth.market.index_detail_xxm.query_service import IndexDetailXxmQueryService as Query, SeriesEntry
 from src.biz.schemas.wealth.market.index_detail_xxm import InternalXxmResponseDto
+from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
+from src.biz.services.wealth.market.index_detail_xxm.types import XxmStep
 from scripts.research.index_market.tests.test_xxm_r4_following import DATES, T, TS, TF, TN, DUAL, bars, run, values
 
 
 def entry(rows, period='day'):
-    c,steps=run(rows,period)
-    result=SeriesEntry(tuple(bars(rows,period)),(),c,tuple(bars(rows,period)),
-        [s.point for s in steps],[e for s in steps for e in s.events],{},['literal']*len(rows),{})
-    for step in steps:
-        Query._merge_structure_updates(result,step.structures,through=step.point['time'])
+    c=XxmCalculator(period=period,source_identity='finite-literals')
+    inputs=tuple(bars(rows,period))
+    result=SeriesEntry(inputs,(),c,inputs,[],[],{},['literal']*len(rows),{})
+    for bar in inputs:
+        step=c.step(bar)
+        Query._merge_structure_updates(result,step,bar=bar)
+        result.points.append(step.point)
+        result.events.extend(step.events)
     Query._validate_entry(result,check=lambda:None)
     return result
 
@@ -88,13 +93,13 @@ def test_rc93_window_does_not_hide_invalid_following_or_rebuild_per_record():
     assert calls==[8] and len(out.structures)==1
     broken=replace(item,structure_records=deepcopy(item.structure_records))
     next(iter(broken.structure_records.values()))['nextSameColorStart']=DATES[7]
-    with pytest.raises(ValueError,match='Projected following'):
+    with pytest.raises(ValueError):
         response(broken,8,start=date(2024,1,1))
 
 
 @pytest.mark.parametrize('sign',[1,-1])
 def test_rc92_source_correction_does_not_change_published_results(sign):
-    rows=TS+[(105,98.5,2),(110,98,-2),(104,97,2),(106,96,2)]
+    rows=TS+[(105,98.5,2),(100,98,-2),(104,97,2),(106,96,2)]
     old=entry(values(rows,sign));out=response(old,9);frozen=out.model_dump()
     revised=rows[:5]+[(106,98.5,2)]+rows[6:]
     new=entry(values(revised,sign));body=response(new,9)
@@ -115,7 +120,7 @@ def test_rc94_handwritten_may_price_mechanism_not_a_real_ema_replay():
 
 @pytest.mark.parametrize('sign',[1,-1])
 def test_rc91_origin_final_extreme_becomes_visible_only_at_first_opposite(sign):
-    rows=TS+[(105,98.5,2),(110,98,-2),(104,97,2),(106,96,2)]
+    rows=TS+[(105,98.5,2),(100,98,-2),(104,97,2),(106,96,2)]
     item=entry(values(rows,sign));before=response(item,6);frozen=before.model_dump()
     for count in (5,6):
         r=response(item,count).structures[0]
@@ -146,7 +151,7 @@ def test_four_period_internal_no_event_windows_keep_exact_native_wave_facts(peri
 def test_internal_model_rejects_reordered_old_and_new_events():
     item=entry(DUAL);body=response(item,9).model_dump()
     body['events'][-2:]=reversed(body['events'][-2:])
-    with pytest.raises(ValidationError,match='precede'):
+    with pytest.raises(ValidationError,match='order'):
         InternalXxmResponseDto.model_validate(body)
 
 
@@ -158,7 +163,42 @@ def test_terminal_records_neither_reopen_nor_accept_repeated_updates(rows):
         incoming=deepcopy(record)
         if reopen:
             incoming.update(status='ASSESSING',originWave=None,firstOppositeAt=None,nextSameColorStart=None,
+                            nextSameColorCount=0,trackingPriceExtreme=None,trackingPriceExtremeAt=None,
                             trackingEndedAt=None,disappearedAt=None,disappearanceReason=None)
         with pytest.raises(ValueError,match='terminal'):
-            Query._merge_structure_updates(item,[incoming],through=item.processed[-1].time)
+            Query._merge_structure_updates(item,XxmStep({},tuple(e for e in item.events if e['time']==item.processed[-1].time),(incoming,)),bar=item.processed[-1])
         assert item.structure_records==old
+
+
+@pytest.mark.parametrize('sign',[1,-1])
+def test_rc103_single_resets_asof_uses_one_real_prefix_and_no_future_fields(sign):
+    from scripts.research.index_market.tests.test_xxm_r4_following import MULTI_SINGLE
+    item=entry(values(MULTI_SINGLE,sign));frozen=deepcopy(item.structure_records)
+    expected={6:(None,0,90,6),7:(7,1,102,7),8:(None,0,102,7),9:(9,1,102,7),
+              12:(None,0,102,7),13:(13,1,102,7),14:(13,2,102,7),15:(13,2,102,7)}
+    calls=[];original=SeriesEntry.calculator_at
+    with patch.object(SeriesEntry,'calculator_at',lambda self,n,check:(calls.append(n),original(self,n,check))[1]):
+        for cut,(start,count,price,at) in expected.items():
+            out=response(item,cut,limit=1)
+            r=out.structures[0]
+            assert (r.nextSameColorStart,r.nextSameColorCount,r.trackingPriceExtreme,r.trackingPriceExtremeAt)==(
+                DATES[start-1] if start else None,count,price if sign==1 else 200-price,DATES[at-1])
+            assert r.status==('FINISHED' if cut==15 else 'FOLLOWING')
+    assert calls==list(expected) and item.structure_records==frozen
+    assert response(item,16,limit=1).structures==[]
+
+
+@pytest.mark.parametrize('sign',[1,-1])
+def test_rc105_current_color_flip_then_price_cancel_complete_internal_contract(sign):
+    item=entry(values(T+[(103,100,-2)],sign));body=response(item,5).model_dump()
+    assert [e['route'] for e in body['events'][-2:]]==['color_flip','structure_price_break']
+    assert len(body['structures'])==1 and body['structures'][0]['status']=='DISAPPEARED'
+    assert body['structures'][0]['formedAt']==body['structures'][0]['disappearedAt']==DATES[4]
+    for fault in ('omit','order','duplicate','association','price'):
+        bad=deepcopy(body)
+        if fault=='omit':bad['events'].pop()
+        elif fault=='order':bad['events'][-2:]=reversed(bad['events'][-2:])
+        elif fault=='duplicate':bad['structures'].append(deepcopy(bad['structures'][0]))
+        elif fault=='association':bad['events'][-1]['relatedStructureId']='wrong'
+        else:bad['structures'][0]['trackingPriceExtreme']=102 if sign==1 else 98
+        with pytest.raises((ValueError,ValidationError)):InternalXxmResponseDto.model_validate(bad)

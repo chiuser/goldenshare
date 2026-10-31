@@ -51,7 +51,8 @@ def structure(sign, formed_at, origin, ref, price, price_at):
     return dict(id=ident("structure", event), direction="TOP" if sign == 1 else "BOTTOM",
                 structureEventId=event, formedAt=formed_at, formationRoute="dif_turn",
                 originSegmentStart=origin, originalReference=reference(ref), priceExtreme=price,
-                priceExtremeAt=price_at, status="ASSESSING", originWave=None, firstOppositeAt=None, nextSameColorStart=None, trackingEndedAt=None,
+                priceExtremeAt=price_at, status="ASSESSING", originWave=None, firstOppositeAt=None, nextSameColorStart=None, nextSameColorCount=0,
+                trackingPriceExtreme=None, trackingPriceExtremeAt=None, trackingEndedAt=None,
                 disappearedAt=None, disappearanceReason=None)
 
 
@@ -139,8 +140,8 @@ def test_bottom_return_restores_dull_directly_without_a_waiting_contract():
     assert resumed.state == "DULL" and resumed.active_structure is None
 
 
-def test_structures_are_locked_on_flip_and_not_retained_as_active_progress():
-    for raw, item in [(top_structure_snapshot(), XxmBar(D[6], 104, 9.7, 10.7, -2)),
+def test_safe_flip_starts_following_without_retaining_active_progress():
+    for raw, item in [(top_structure_snapshot(), XxmBar(D[6], 102, 9.7, 10.7, -2)),
                       (bottom_structure_snapshot(), XxmBar(D[5], 102, -5.8, -6.8, 2))]:
         calc = calculator()
         calc.restore(raw)

@@ -17,14 +17,14 @@ from src.biz.queries.wealth.market.index_detail_xxm import query_service
 from src.biz.queries.wealth.market.index_detail_xxm.query_service import IndexDetailXxmQueryService, XxmCache
 from src.biz.queries.wealth.market.index_detail_xxm.source import CN_ZONE
 from src.biz.schemas.wealth.market.index_detail_xxm import InternalXxmResponseDto
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar, XxmStep
 from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
 
 
 DATES = ("2023-01-03", "2023-01-04", "2023-01-05", "2023-01-06", "2023-01-09",
          "2023-01-10", "2023-01-11", "2023-01-12", "2023-01-13", "2023-01-16")
-TOP = ((100, 200, 2), (90, 0, -2), (101, 100, 2), (102, 100, 2), (103, 99, 2), (104, 98, -2))
-BOTTOM = ((100, -200, -2), (110, 0, 2), (99, -100, -2), (98, -100, -2), (97, -99, -2), (96, -98, 2))
+TOP = ((100, 200, 2), (90, 0, -2), (101, 100, 2), (102, 100, 2), (103, 99, 2), (90, 98, -2))
+BOTTOM = ((100, -200, -2), (110, 0, 2), (99, -100, -2), (98, -100, -2), (97, -99, -2), (110, -98, 2))
 
 
 def source(monkeypatch, values):
@@ -166,7 +166,7 @@ def test_rc71_terminal_structure_cannot_be_reopened_or_overwritten(monkeypatch, 
     else:
         bad[fault] = DATES[3]
     with pytest.raises(ValueError):
-        IndexDetailXxmQueryService._merge_structure_updates(entry, (bad,), through=DATES[5])
+        IndexDetailXxmQueryService._merge_structure_updates(entry, XxmStep({},(),(bad,)), bar=entry.processed[5])
     assert entry.structure_records == original
 
 
@@ -179,12 +179,12 @@ def test_rc72_post_step_failure_discards_candidate_preserves_published_cache(mon
     candidates = []
     real_merge = service._merge_structure_updates
 
-    def merge(candidate, updates, *, through):
+    def merge(candidate, step, *, bar):
         candidates.append(candidate)
         assert candidate.calculator.processed == 6
         if failure == "aggregation":
             raise ValueError("intentional post-step aggregation failure")
-        real_merge(candidate, updates, through=through)
+        real_merge(candidate, step, bar=bar)
 
     with monkeypatch.context() as local:
         local.setattr(service, "_merge_structure_updates", merge)

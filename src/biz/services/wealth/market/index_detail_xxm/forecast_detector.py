@@ -167,6 +167,36 @@ def _actual_outcome(c, child, step):
     events = tuple(event for event in step.events if event['route'] != 'structure_price_break')
     records = tuple(record for record in step.structures if record['id'] not in followed_ids)
     old_id = c.active_structure['id'] if c.active_structure is not None else None
+    current_price_events = tuple(event for event in step.events if event['route'] == 'structure_price_break'
+                                 and event['relatedStructureId'] not in followed_ids)
+    if current_price_events:
+        if len(current_price_events) != 1 or len(records) != 1 or c.state not in ('DULL', 'STRUCTURE'):
+            raise ValueError('Invalid current first-opposite price disappearance')
+        event, record = current_price_events[0], records[0]
+        direction = 'TOP' if c.wave.sign > 0 else 'BOTTOM'
+        if (event['type'] != 'CANCEL' or event['fromState'] != 'STRUCTURE'
+                or event['direction'] != direction or record['direction'] != direction
+                or event['id'] != c._id(step.point['time'], 'CANCEL', 'structure_price_break', record['id'])
+                or c.wave.sign * (step.point['close'] - c.wave.price) <= 0
+                or c.wave.sign * step.point['hist'] >= 0
+                or c.wave.sign * (step.point['dif'] - c.reference.dif) > 0
+                or child.state != 'NONE' or record['status'] != 'DISAPPEARED'
+                or record['firstOppositeAt'] != step.point['time']
+                or record['disappearedAt'] != event['time'] or event['time'] != step.point['time']
+                or record['disappearanceReason'] != 'structure_price_break'
+                or record['id'] != event['relatedStructureId']
+                or record['originalReference'] != c.reference.reference()
+                or event['eventReference'] != record['originalReference']):
+            raise ValueError('Current first-opposite disappearance association differs')
+        if c.state == 'STRUCTURE':
+            if records[0]['id'] != old_id or events:
+                raise ValueError('An existing first-opposite structure cannot be re-formed')
+        elif (len(events) != 1 or events[0]['route'] != 'color_flip' or events[0]['type'] != 'STRUCTURE'
+              or events[0]['id'] != record['structureEventId'] or events[0]['relatedStructureId'] != record['id']
+              or record['formedAt'] != event['time']):
+            raise ValueError('Same-bar price ending lacks its current color-flip formation')
+        return {'outcome': 'STRUCTURE_PRICE_DISAPPEARED', 'reference': c.reference.reference()}
+
     if events:
         if len(events) != 1:
             raise ValueError('One bar invented multiple ordinary events')

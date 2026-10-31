@@ -9,7 +9,8 @@ from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalcul
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
 
 DATES = ('2023-01-03','2023-01-04','2023-01-05','2023-01-06','2023-01-09','2023-01-10',
-         '2023-01-11','2023-01-12','2023-01-13','2023-01-16','2023-01-17','2023-01-18')
+         '2023-01-11','2023-01-12','2023-01-13','2023-01-16','2023-01-17','2023-01-18',
+         '2023-01-19','2023-01-20','2023-01-30','2023-01-31')
 T = [(100,200,2),(90,0,-2),(101,100,2),(102,100,2)]
 TS = T+[(103,99,2)]
 TF = TS+[(90,98,-2)]
@@ -33,23 +34,23 @@ def run(rows, period='day', observe=False):
 # Expected old-record changes are handwritten row/status pairs. No calculator supplies expected.
 CASES = [
  ('74',TF+[(104,97,2)],[(5,'ASSESSING'),(6,'FOLLOWING'),(7,'DISAPPEARED')],[7]),
- ('75',TF+[(104,97,-2)],[(5,'ASSESSING'),(6,'FOLLOWING')],[]),
- ('76',TF+[(103,97,2),(103,96,2),(104,95,2)],[(5,'ASSESSING'),(6,'FOLLOWING'),(7,'FOLLOWING'),(9,'DISAPPEARED')],[9]),
+ ('75',TF+[(104,97,-2)],[(5,'ASSESSING'),(6,'FOLLOWING'),(7,'DISAPPEARED')],[7]),
+ ('76',TF+[(103,97,2),(103,96,2),(104,95,2)],[(5,'ASSESSING'),(6,'FOLLOWING'),(7,'FOLLOWING'),(8,'FOLLOWING'),(9,'DISAPPEARED')],[9]),
  ('77',TF+[(102,97,2),(104,96,2)],[(5,'ASSESSING'),(6,'FOLLOWING'),(7,'FOLLOWING'),(8,'DISAPPEARED')],[8]),
- ('78',TS+[(105,98.5,2),(110,98,-2),(104,97,2),(106,96,2)],
+ ('78',TS+[(105,98.5,2),(100,98,-2),(104,97,2),(106,96,2)],
   [(5,'ASSESSING'),(7,'FOLLOWING'),(8,'FOLLOWING'),(9,'DISAPPEARED')],[9]),
- ('78zero',TS+[(105,98.5,0),(110,98,-2),(104,97,2),(106,96,2)],
+ ('78zero',TS+[(105,98.5,0),(100,98,-2),(104,97,2),(106,96,2)],
   [(5,'ASSESSING'),(7,'FOLLOWING'),(8,'FOLLOWING'),(9,'DISAPPEARED')],[9]),
- ('80',TN+[(120,95,-2),(121,94,2)],[(5,'ASSESSING'),(6,'FOLLOWING'),(7,'FOLLOWING'),(9,'FINISHED')],[]),
- ('81',TN+[(102,98,2),(104,97,2)],[(5,'ASSESSING'),(6,'FOLLOWING'),(7,'FOLLOWING'),(10,'DISAPPEARED')],[10]),
- ('82',TF+[(110,97,0),(104,96,2)],[(5,'ASSESSING'),(6,'FOLLOWING'),(8,'DISAPPEARED')],[8]),
+ ('80',TN+[(120,95,-2),(121,94,2)],[(5,'ASSESSING'),(6,'FOLLOWING'),(7,'FOLLOWING'),(8,'FOLLOWING'),(9,'FINISHED')],[]),
+ ('81',TN+[(102,98,2),(104,97,2)],[(5,'ASSESSING'),(6,'FOLLOWING'),(7,'FOLLOWING'),(8,'FOLLOWING'),(9,'FOLLOWING'),(10,'DISAPPEARED')],[10]),
+ ('82',TF+[(110,97,0),(104,96,2)],[(5,'ASSESSING'),(6,'FOLLOWING'),(7,'DISAPPEARED')],[7]),
  ('83',TF+[(102,97,2),(104,96,0)],[(5,'ASSESSING'),(6,'FOLLOWING'),(7,'FOLLOWING'),(8,'DISAPPEARED')],[8]),
- ('84',TN+[(102,95,0),(102,94,2)],[(5,'ASSESSING'),(6,'FOLLOWING'),(7,'FOLLOWING')],[]),
+ ('84',TN+[(102,95,0),(102,94,2)],[(5,'ASSESSING'),(6,'FOLLOWING'),(7,'FOLLOWING'),(8,'FOLLOWING'),(10,'FOLLOWING')],[]),
  ('85',TF+[(104,97,2),(102,96,2),(104,95,2)],[(5,'ASSESSING'),(6,'FOLLOWING'),(7,'DISAPPEARED')],[7]),
  ('87',TN+[(102,95,-2),(103,98,2),(104,99,2)],
-  [(5,'ASSESSING'),(6,'FOLLOWING'),(7,'FOLLOWING'),(9,'FINISHED')],[]),
+  [(5,'ASSESSING'),(6,'FOLLOWING'),(7,'FOLLOWING'),(8,'FOLLOWING'),(9,'FINISHED')],[]),
  ('flip-lifecycle',T+[(90,100,-2),(101,99,2),(102,98,2),(120,97,-2),(121,96,2)],
-  [(5,'FOLLOWING'),(6,'FOLLOWING'),(8,'FINISHED')],[]),
+  [(5,'FOLLOWING'),(6,'FOLLOWING'),(7,'FOLLOWING'),(8,'FINISHED')],[]),
 ]
 
 
@@ -104,7 +105,8 @@ def test_rc88_old_cancel_and_new_other_direction_structure_both_survive(sign):
     assert [r['status'] for r in s[-1].structures]==['DISAPPEARED','FOLLOWING']
     assert s[-1].point['ordinaryState']=='NONE'
     assert s[-1].decision['branch']=='color_flip'
-    assert len(s[-1].decision['structureFollowChecks'])==1
+    assert len(s[-1].decision['structureFollowChecks'])==2
+    assert all(check['checked'] for check in s[-1].decision['structureFollowChecks'])
 
 
 @pytest.mark.parametrize('sign',[1,-1])
@@ -122,12 +124,13 @@ def test_rc96_two_slots_finish_and_disappear_independently(sign):
 def test_rc89_past_price_breach_cannot_be_forged_back_to_following(sign,zero):
     rows=TF+([(102,97,2),(104,96,0),(102,95,2)] if zero else [(104,97,2),(102,96,2)])
     c,s=run(values(rows,sign));raw=c.snapshot();frozen=deepcopy(raw)
-    fake=deepcopy(s[5].structures[0]);fake['nextSameColorStart']=s[6].point['time']
+    fake=deepcopy(s[5].structures[0]);fake.update(nextSameColorStart=s[6].point['time'],nextSameColorCount=c.wave.count,
+        trackingPriceExtreme=104 if sign==1 else 96,trackingPriceExtremeAt=s[7 if zero else 6].point['time'])
     raw['followedStructures'][fake['direction']]=fake
     with pytest.raises(ValueError,match='already broken'):
         c.restore(raw)
     assert c.snapshot()==frozen
-    # Valid empty slot, separator crossing, and equality all remain accepted.
+    # Valid terminal empty slot and equality remain accepted; separator crossing is now terminal.
     for positive in [rows,TF+[(104,97,-2)],TF+[(103,97,2)]]:
         other,_=run(values(positive,sign));other.restore(other.snapshot())
 
@@ -142,7 +145,8 @@ def test_rc90_every_cut_restore_and_observation_preserve_complete_business(perio
         assert [(s.point,s.events,s.structures) for s in expected]==[(s.point,s.events,s.structures) for s in observations]
         assert plain.snapshot()==observed.snapshot()
         for observed_step in observations:
-            assert len(observed_step.decision['structureFollowChecks'])<=2
+            assert len(observed_step.decision['structureFollowChecks'])<=3
+            assert len({v['relatedStructureId'] for v in observed_step.decision['structureFollowChecks']})==len(observed_step.decision['structureFollowChecks'])
             for check in observed_step.decision['structureFollowChecks']:
                 assert check['relatedStructureId']
                 assert set(check['originWave'])=={'price','price_at'}
@@ -240,3 +244,100 @@ def test_rc89_original_far_reference_may_be_pruned_but_closed_origin_must_remain
     assert c.snapshot()==old
     child=XxmCalculator(period=period,source_identity='finite-literals');child.restore(old)
     assert child.followed_structures==c.followed_structures
+
+# LLD RC97–106: handwritten EVERY-row state/start/count/extreme/date.
+# Tuple: status, same-color starting row or None, colored count, TOP extreme, extreme row.
+A = ('ASSESSING',None,0,None,None)
+F = ('FOLLOWING',None,0,90,6)
+F7 = ('FOLLOWING',7,1,102,7)
+MULTI_SINGLE = TF+[(102,97,2),(102,96,-2),(102,95,2),(102,94,-2),(102,93,2),
+                   (102,92,-2),(102,91,2),(102,90,2),(104,89,-2),(105,88,2)]
+NEW_CASES = [
+ ('97',TS+[(104,98,-2)],[A,('DISAPPEARED',None,0,104,6)],[6]),
+ ('98',TF+[(102,97,2),(102,96,-2),(104,95,-2)],
+  [A,F,F7,('FOLLOWING',None,0,102,7),('DISAPPEARED',None,0,104,9)],[9]),
+ ('99',TF+[(102,97,2),(103,96,0),(102,95,0),(102,94,-2),(104,93,2)],
+  [A,F,F7,('FOLLOWING',7,1,103,8),('FOLLOWING',7,1,103,8),
+   ('FOLLOWING',None,0,103,8),('DISAPPEARED',11,1,104,11)],[11]),
+ ('100',TN+[(104,95,-2),(105,94,2)],
+  [A,F,F7,('FOLLOWING',7,2,103,8),('FINISHED',7,2,103,8),('FINISHED',7,2,103,8)],[]),
+ ('101',MULTI_SINGLE,[A,F,F7,('FOLLOWING',None,0,102,7),('FOLLOWING',9,1,102,7),
+  ('FOLLOWING',None,0,102,7),('FOLLOWING',11,1,102,7),('FOLLOWING',None,0,102,7),
+  ('FOLLOWING',13,1,102,7),('FOLLOWING',13,2,102,7),('FINISHED',13,2,102,7),('FINISHED',13,2,102,7)],[]),
+ ('105',T+[(103,100,-2)],[('DISAPPEARED',None,0,103,5)],[5]),
+ ('106',TS+[(104,201,-2)],[A,('DISAPPEARED',None,0,None,None)],[]),
+]
+
+
+@pytest.mark.parametrize('period',['day','m60','m90','m120'])
+@pytest.mark.parametrize('sign',[1,-1])
+@pytest.mark.parametrize('case,rows,expected,cancel_rows',NEW_CASES,ids=[x[0] for x in NEW_CASES])
+def test_new_following_literal_all_fields_and_every_restore_cut(period,sign,case,rows,expected,cancel_rows):
+    c=XxmCalculator(period=period,source_identity='finite-literals',record_decisions=True)
+    inputs=bars(values(rows,sign),period)
+    steps=[];old_id=None;latest=None
+    for row,bar in enumerate(inputs,1):
+        step=c.step(bar);steps.append(step)
+        if row<5: continue
+        if old_id is None:old_id=step.structures[0]['id']
+        changes=[r for r in step.structures if r['id']==old_id]
+        if changes:latest=changes[0]
+        status,start,count,extreme,extreme_row=expected[row-5]
+        assert (latest['status'],latest['nextSameColorStart'],latest['nextSameColorCount'],
+                latest['trackingPriceExtreme'],latest['trackingPriceExtremeAt']) == (
+            status, inputs[start-1].time if start else None,count,
+            extreme if extreme is None or sign==1 else 200-extreme,
+            inputs[extreme_row-1].time if extreme_row else None)
+        assert len([r for r in step.structures if r['id']==old_id])<=1
+        if row==5 and case=='105':
+            assert [e['route'] for e in step.events]==['color_flip','structure_price_break']
+            assert latest['formedAt']==latest['firstOppositeAt']==latest['disappearedAt']==bar.time
+        if case=='101' and row==12:
+            assert all(w.start!=latest['originSegmentStart'] for w in c.history[sign])
+    assert [i for i,step in enumerate(steps,1) for e in step.events
+            if e['route']=='structure_price_break' and e['relatedStructureId']==old_id]==cancel_rows
+    for cut in range(len(inputs)+1):
+        prefix=XxmCalculator(period=period,source_identity='finite-literals',record_decisions=True)
+        for bar in inputs[:cut]:prefix.step(bar)
+        saved=prefix.snapshot();frozen=deepcopy(saved)
+        restored=XxmCalculator(period=period,source_identity='finite-literals',record_decisions=True)
+        restored.restore(saved)
+        assert [restored.step(bar) for bar in inputs[cut:]]==steps[cut:]
+        assert restored.snapshot()==c.snapshot() and saved==frozen
+
+
+@pytest.mark.parametrize('sign',[1,-1])
+@pytest.mark.parametrize('bad_value',[True,-1,None,1.5,'1'])
+def test_rc109_bad_new_counts_rejected_atomically(sign,bad_value):
+    c,_=run(values(TF+[(102,97,2)],sign));before=c.snapshot();bad=deepcopy(before)
+    direction='TOP' if sign==1 else 'BOTTOM'
+    bad['followedStructures'][direction]['nextSameColorCount']=bad_value
+    copy=deepcopy(bad)
+    with pytest.raises(ValueError):c.restore(bad)
+    assert c.snapshot()==before and bad==copy
+    c.restore(before)
+
+
+@pytest.mark.parametrize('sign',[1,-1])
+@pytest.mark.parametrize('hist',[-2,0])
+def test_rc102_separator_and_zero_prior_break_cannot_be_restored_live(sign,hist):
+    rows=TF+[(104,97,hist),(102,96,hist)]
+    c,steps=run(values(rows,sign));before=c.snapshot();bad=deepcopy(before)
+    ended=next(r for r in steps[6].structures if r['disappearanceReason']=='structure_price_break')
+    fake=deepcopy(ended);fake.update(status='FOLLOWING',trackingEndedAt=None,disappearedAt=None,disappearanceReason=None)
+    bad['followedStructures'][fake['direction']]=fake
+    with pytest.raises(ValueError,match='already broken'):c.restore(bad)
+    assert c.snapshot()==before
+
+
+@pytest.mark.parametrize('period',['day','m60','m90','m120'])
+@pytest.mark.parametrize('sign',[1,-1])
+def test_rc108_far_dif_does_not_bypass_near_price_gate(period,sign):
+    rows=([(4165.287,60.557,2),(4100,0,-2),(4182.5909,30,2),(4100,0,-2),
+           (4170,47.343,2),(4170,47.343,2),(4225.0207,47.343,2)] if sign==1 else
+          [(100,-300,-2),(110,0,2),(80,-200,-2),(90,0,2),(90,-250,-2),(90,-250,-2),(70,-250,-2)])
+    c,steps=run(rows,period)
+    assert all(step.point['ordinaryState']=='NONE' for step in steps[:6])
+    assert steps[5].events==()
+    assert steps[6].point['ordinaryState']=='DULL'
+    assert steps[6].events[0]['eventReference']['startTime']==steps[0].point['time']

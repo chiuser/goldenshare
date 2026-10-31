@@ -9,10 +9,10 @@ from .types import ForecastKernelResult, ForecastPrecheck
 
 _OUTCOME_ORDER = {
     "NONE": ("DULL_FORMED",),
-    "DULL": ("STRUCTURE_FORMED", "STRUCTURE_FORMED_AND_FOLLOWING",
+    "DULL": ("STRUCTURE_FORMED", "STRUCTURE_FORMED_AND_FOLLOWING", "STRUCTURE_PRICE_DISAPPEARED",
              "SIGNAL_DISAPPEARED", "REFERENCE_INVALIDATED", "DULL_HELD"),
     "STRUCTURE": ("SIGNAL_DISAPPEARED", "RETURNED_TO_DULL",
-                  "STRUCTURE_FOLLOWING", "STRUCTURE_HELD"),
+                  "STRUCTURE_FOLLOWING", "STRUCTURE_PRICE_DISAPPEARED", "STRUCTURE_HELD"),
 }
 _RANGE_FIELDS = {"lower", "upper", "lowerInclusive", "upperInclusive",
                  "displayLower", "displayUpper"}
@@ -96,6 +96,8 @@ def _outcome_text(outcome: str, state: str, direction: str, rescue: bool) -> str
         "STRUCTURE_HELD": f"保持{name}结构",
         "RETURNED_TO_DULL": f"{name}结构消失，退回{side}钝化",
         "STRUCTURE_FOLLOWING": f"{name}结构开始后续有限跟踪",
+        "STRUCTURE_PRICE_DISAPPEARED": (f"{name}结构首次反色当根因价格突破消失" if state == "STRUCTURE"
+                                        else f"{name}结构当根形成后因价格突破消失"),
         "SIGNAL_DISAPPEARED": f"{name}结构直接消失" if state == "STRUCTURE" else f"{side}钝化消失",
         "REFERENCE_INVALIDATED": "近参照失效，远参照本次未计算，真实收盘按r4同根规则检查",
     }[outcome]
@@ -186,12 +188,14 @@ def make_display(result, *, prepared, period, through, mode, check):
         record = known.get(condition.related_structure_id)
         if (record is None or condition.outcome != "SIGNAL_DISAPPEARED"
                 or condition.direction != record["direction"] or condition.origin_wave != record["originWave"]
-                or condition.next_same_color_start != record["nextSameColorStart"]):
+                or condition.next_same_color_start != record["nextSameColorStart"]
+                or type(condition.next_same_color_count) is not int
+                or condition.next_same_color_count != record["nextSameColorCount"]):
             raise ValueError("Old structure display differs from prepared progress")
         side_text = "顶部" if condition.direction == "TOP" else "底部"
-        scope = "下一根仍属正在考核的同色段（含零柱）" if record["nextSameColorStart"] else "下一根开始新的同色段"
+        scope = "下一根仍属有效同色段（含零柱），" if record["nextSameColorCount"] >= 2 else "下一根"
         for price_range in condition.price_ranges:
-            lines.append(f"{scope}且{_range_text(price_range)}：{side_text}旧结构消失。")
+            lines.append(f"{scope}{_range_text(price_range)}：{side_text}旧结构消失。")
         if condition.precision_ranges:
             lines.append(f"{side_text}旧结构另有临界范围待核验，未当作无解。")
     if result.structure_follow_conditions and not result.conditions and result.status == "READY":
@@ -199,7 +203,7 @@ def make_display(result, *, prepared, period, through, mode, check):
     if result.precision_ranges:
         lines.append("另有临界价格范围尚不能确定，未并入以上条件；新完成收盘后重新计算。")
     if state == "STRUCTURE":
-        lines.append("首次真实反色且结构仍有效时，转入后续有限跟踪；只在下一同色段考核旧结构消失。")
+        lines.append("首次真实反色时原参照未破则转入后续跟踪，并当根检查价格；首个至少两根有色柱的同色段结束后停止。")
     if result.target_endpoint is not None:
         target = f"{_time_text(result.target_endpoint, period)} · 下一根条件"
     else:

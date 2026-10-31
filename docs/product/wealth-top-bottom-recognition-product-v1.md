@@ -1,6 +1,6 @@
 # 财势乾坤顶底识别产品文档 v1
 
-更新：2026-10-31。状态：截图核对后的三项修正及测试设计已同步，待开发。当前代码仍为识别v0.3-r4、预测v0.5-r4；本次目标为识别v0.4-r4、预测v0.6-r4。此前实现与验收只证明修改前基线，不证明本次已落地。公开HTTP/页面尚未迁移；本轮只改文档，不运行行情、测试代码或提交部署。
+更新：2026-10-31。状态：本次核心、记录、恢复和历史查询已完成限定验收，预测也已完成限定验收，专项对比按LLD§19推进中。当前识别v0.4-r4、预测v0.6-r4。公开HTTP/页面尚未迁移；没有部署或实际行情对比成绩。
 
 配套：[技术方案](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-technical-design-v1.md)、[编码LLD](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md)。规则、实施步骤和验收仅以这组三份当前文档为准。
 

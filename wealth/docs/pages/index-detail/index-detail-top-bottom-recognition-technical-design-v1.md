@@ -1,6 +1,6 @@
 # 财势乾坤顶底识别技术方案 v1
 
-更新：2026-10-31。状态：三项截图核对修正及识别/预测/显示配套设计已同步，待开发。当前实现为识别v0.3-r4、预测v0.5-r4；本次目标为v0.4-r4/v0.6-r4。本文和LLD的活动章节描述新目标，此前实施记录仅为历史，未改业务代码或执行回测。
+更新：2026-10-31。状态：三项截图核对修正设计已同步，管理员已授权按LLD§19依次推进核心、预测和专项对比。当前核心/内部配套及单根预测均已完成限定验收，识别v0.4-r4、预测v0.6-r4；本次目标为v0.4-r4/v0.6-r4。本文和LLD的活动章节描述新目标，此前实施记录仅为历史，本轮实现及未执行边界见LLD§19，尚未执行实际回测。
 
 对应[产品文档](../../../../docs/product/wealth-top-bottom-recognition-product-v1.md)、[编码LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)。编码前必须通过LLD§11.3，按§11.4实施和验收；不得引用其他旧方案重建已撤销的算法或执行流程。
 
@@ -14,11 +14,11 @@
 
 | 位置 | 当前事实 | 必须实施的变化 |
 |---|---|---|
-| 产品calculator.py及spec.py | 当前为v0.3-r4；首次当根、1%及有限后续跟踪已实现并完成限定回归 | 按§4/LLD修正价格检查启动及单根段结束；原正确规则保留，重验后再对比/迁公开消费者，不复制识别器 |
+| 产品calculator.py及spec.py | 当前为v0.4-r4；核心三项配套修正和限定回归见LLD§19.1 | 按§4/LLD修正价格检查启动及单根段结束；原正确规则保留，重验后再对比/迁公开消费者，不复制识别器 |
 | types.py/snapshot_validation.py | 统一结构记录、activeStructure及followedStructures进度和恢复校验已实现 | 更新有界跟踪根数、跟踪价格极值及生命周期校验；拒旧身份，合法单根跳过不误拒 |
-| query_service.py:SeriesEntry/_load_series/calculator_at | 结构聚合、FOLLOWING/有限结束/asOf、增量/检查点及源修订从空重建已实现 | 聚合支持单根候选起点重置及跟踪极值推进；历史asOf先取同次真实前缀进度，再投影，禁止回填未来 |
+| query_service.py:SeriesEntry/_load_series/calculator_at | 新计数/极值聚合、单根起点重置及真实前缀asOf已按LLD§19.1实现并限定验收 | 聚合支持单根候选起点重置及跟踪极值推进；历史asOf先取同次真实前缀进度，再投影，禁止回填未来 |
 | forecast_detector.py:clone | 新建同一个产品类并恢复进度 | 继续唯一r4；不得复制完整历史结构到每次预测 |
-| forecast.py/entry/next/math/expression及FORECAST_SPEC | 单根及独立旧结构条件已完成，Spec为v0.5-r4；当前成绩见LLD§17.4，§16仅是旧基线 | 按新有界跟踪进度修正价格条件并迁v0.6；第3步接完整请求并验400ms，不发布混合版本或加旧入口兼容 |
+| forecast.py/entry/next/math/expression及FORECAST_SPEC | 单根与旧结构新范围已按LLD§19.2限定验收，Spec为v0.6-r4；§16/§17均为修改前基线 | 按新有界跟踪进度修正价格条件并迁v0.6；第3步接完整请求并验400ms，不发布混合版本或加旧入口兼容 |
 | projection.py/forecast_expression.py | 原EMA、源精度及运算误差能力 | 复用正确部分并收敛一步表达式；不可用理想展开式替代实际计算 |
 | schemas、三个API、TS client/decoder/Hook | 尚未完成新正常/debug合同迁移 | 完整内部校验→投影→一次编码；客户端/Hook同批接新结果 |
 | App router与Wealth页面/工作区 | 环境资格和辅助加载尚未完成目标迁移 | P4仅本地、生产禁用；debug动态加载，普通信息和辅助信息分开 |

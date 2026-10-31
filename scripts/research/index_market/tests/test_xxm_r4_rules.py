@@ -184,20 +184,20 @@ case(52, "top-zero-turn-and-return", extend(T, [(103,99,0),(99,100,0)], "SD", [3
 case(52, "bottom-zero-turn-and-return", extend(B, [(97,-99,0),(101,-100,0)], "SD", [-3,-3], [2,2], [1,1], "TR"))
 case(53, "top-flip-create-following", extend(T, [(90,100,-2)], "N", [-5], [1], [0], "F"))
 case(54, "bottom-flip-create-following", extend(B, [(110,-100,2)], "N", [5], [1], [0], "F"))
-TOP_FOLLOWING = case(55, "top-existing-following", extend(TS, [(104,98,-2)], "N", [-6], [1]))
-BOTTOM_FOLLOWING = case(56, "bottom-existing-following", extend(BS, [(96,-98,2)], "N", [6], [1]))
-case(55, "top-flip-before-return", extend(TS, [(104,100,-2)], "N", [-6], [1]))
-case(56, "bottom-flip-before-return", extend(BS, [(96,-100,2)], "N", [6], [1]))
+TOP_FOLLOWING = case(55, "top-existing-following", extend(TS, [(90,98,-2)], "N", [-6], [1]))
+BOTTOM_FOLLOWING = case(56, "bottom-existing-following", extend(BS, [(110,-98,2)], "N", [6], [1]))
+case(55, "top-flip-before-return", extend(TS, [(90,100,-2)], "N", [-6], [1]))
+case(56, "bottom-flip-before-return", extend(BS, [(110,-100,2)], "N", [6], [1]))
 case(57, "top-flip-break-no-lock", extend(TS, [(104,201,-2)], "N", [-6], [1], [0], "X"))
 case(57, "bottom-flip-break-no-lock", extend(BS, [(96,-201,2)], "N", [6], [1], [0], "X"))
 case(58, "top-zero-no-lock", extend(TS, [(104,99,0),(105,99,0)], "SS", [3,3], [3,3], [1,1]))
 case(58, "bottom-zero-no-lock", extend(BS, [(96,-99,0),(95,-99,0)], "SS", [-3,-3], [3,3], [1,1]))
 case(59, "top-price-alone-no-withdrawal", extend(TS, [(104,98.5,2)], "S", [3], [4], [1]))
 case(60, "bottom-price-alone-no-withdrawal", extend(BS, [(96,-98.5,-2)], "S", [-3], [4], [1]))
-case(61, "top-separator-price-break", extend(TOP_FOLLOWING, [(105,97,-2)], "N", [-6], [2]))
-case(61, "bottom-separator-price-break", extend(BOTTOM_FOLLOWING, [(95,-97,2)], "N", [6], [2]))
-case(62, "top-separator-reference-break", extend(TOP_FOLLOWING, [(150,201,-2)], "N", [-6], [2]))
-case(62, "bottom-separator-reference-break", extend(BOTTOM_FOLLOWING, [(50,-201,2)], "N", [6], [2]))
+case(61, "top-separator-price-break", extend(TOP_FOLLOWING, [(104,97,-2)], "N", [-6], [2]))
+case(61, "bottom-separator-price-break", extend(BOTTOM_FOLLOWING, [(96,-97,2)], "N", [6], [2]))
+case(62, "top-separator-reference-break", extend(TOP_FOLLOWING, [(100,201,-2)], "N", [-6], [2]))
+case(62, "bottom-separator-reference-break", extend(BOTTOM_FOLLOWING, [(100,-201,2)], "N", [6], [2]))
 case(63, "top-two-cycles", extend(TS, [(90,0,-2),(110,95,2),(111,96,2),(112,95,2),(100,94,-2)], "NNDSN", [-6,7,7,7,-10], [1,1,2,3,1], [0,0,3,3,0], "--AT-"))
 case(63, "bottom-two-cycles", extend(BS, [(110,0,2),(90,-95,-2),(89,-96,-2),(88,-95,-2),(100,-94,2)], "NNDSN", [6,-7,-7,-7,10], [1,1,2,3,1], [0,0,3,3,0], "--AT-"))
 case(64, "top-dead-never-revives-new-cycle", extend(TS, [(104,100,2),(105,201,2),(90,100,-2),(106,100,2),(107,99,2)], "DNNND", [3,3,-8,9,9], [4,5,1,1,2], [1,0,0,0,3], "RC--A"))
@@ -280,24 +280,26 @@ def test_lld_rc_rule_sequence(period, number, data):
             event_ref = _reference_for_row(data, period, row - 1)
         expected_updates = []
         expected_events = []
-        for identity, previous_record in list(expected_ledger.items()):
-            if previous_record['status'] != 'FOLLOWING':
-                continue
-            record = deepcopy(previous_record)
-            original_sign = 1 if record['direction'] == 'TOP' else -1
-            root_sign = (hist > 0) - (hist < 0)
-            same = record['nextSameColorStart']
-            if same is None and root_sign == original_sign:
-                record['nextSameColorStart'] = bar.time
-            elif same is not None and root_sign == -original_sign:
-                record.update(status='FINISHED', trackingEndedAt=bar.time)
-            if record['status']=='FOLLOWING' and record['nextSameColorStart'] is not None and original_sign*(close-record['originWave']['price'])>0:
-                record.update(status='DISAPPEARED',trackingEndedAt=bar.time,disappearedAt=bar.time,disappearanceReason='structure_price_break')
-                expected_events.append(dict(id=_identity(period,bar.time,'CANCEL','structure_price_break',identity),time=bar.time,
-                    direction=record['direction'],type='CANCEL',route='structure_price_break',fromState='STRUCTURE',
-                    eventReference=deepcopy(record['originalReference']),relatedStructureId=identity))
-            if record!=previous_record:
-                expected_updates.append(record)
+        # RC61/62/63 have explicit old-record facts on row7. No shadow state machine.
+        if number in (61, 62, 63) and row == 7:
+            previous_record = next(v for v in expected_ledger.values() if v["formedAt"] == _time(period,5))
+            top = previous_record["direction"] == "TOP"
+            fields = {
+                61: dict(status="DISAPPEARED", nextSameColorStart=None, nextSameColorCount=0,
+                         trackingPriceExtreme=104 if top else 96, trackingPriceExtremeAt=bar.time,
+                         trackingEndedAt=bar.time, disappearedAt=bar.time, disappearanceReason="structure_price_break"),
+                62: dict(trackingPriceExtreme=100, trackingPriceExtremeAt=bar.time),
+                63: dict(status="DISAPPEARED", nextSameColorStart=bar.time, nextSameColorCount=1,
+                         trackingPriceExtreme=110 if top else 90, trackingPriceExtremeAt=bar.time,
+                         trackingEndedAt=bar.time, disappearedAt=bar.time, disappearanceReason="structure_price_break"),
+            }[number]
+            record = dict(previous_record, **fields)
+            expected_updates.append(record)
+            if number in (61,63):
+                identity = record["id"]
+                expected_events.append(dict(id=_identity(period,bar.time,"CANCEL","structure_price_break",identity),
+                    time=bar.time,direction=record["direction"],type="CANCEL",route="structure_price_break",
+                    fromState="STRUCTURE",eventReference=deepcopy(record["originalReference"]),relatedStructureId=identity))
         if code != "-":
             event_type, route = EVENTS[code]
             event_id = _identity(period, bar.time, event_type, expected_sign, event_ref["startTime"])
@@ -316,7 +318,9 @@ def test_lld_rc_rule_sequence(period, number, data):
                           "status": "FOLLOWING" if code == "F" else "ASSESSING",
                           "firstOppositeAt": bar.time if code == "F" else None,
                           "originWave": _expected_wave(data, period, origin_start, extreme_end, data.counts[extreme_end-1]) if code=='F' else None,
-                          "nextSameColorStart": None, "trackingEndedAt": None,
+                          "nextSameColorStart": None, "nextSameColorCount": 0,
+                          "trackingPriceExtreme": close if code == "F" else None,
+                          "trackingPriceExtremeAt": bar.time if code == "F" else None, "trackingEndedAt": None,
                           "disappearedAt": None, "disappearanceReason": None}
                 expected_updates.append(record)
                 if code == "T":
@@ -334,7 +338,8 @@ def test_lld_rc_rule_sequence(period, number, data):
         elif flipped and before_state == "STRUCTURE":
             assert expected_active is not None
             expected_updates.append(dict(expected_active, status="FOLLOWING", firstOppositeAt=bar.time,
-                originWave=_expected_wave(data,period,abs(before_segment),row-1,data.counts[row-2])))
+                originWave=_expected_wave(data,period,abs(before_segment),row-1,data.counts[row-2]),
+                trackingPriceExtreme=close,trackingPriceExtremeAt=bar.time))
             expected_active = None
         result = calc.step(bar)
         message = (f"RC-{number:02d} row={row} C/D/H={data.values[row-1]} "

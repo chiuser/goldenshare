@@ -128,8 +128,8 @@ def test_structure_return_ignores_price_and_direct_break_has_priority(sign):
 def test_color_flip_freezes_origin_and_keeps_following_in_separator(sign):
     prefix=TOP if sign==1 else BOTTOM
     formed=(103 if sign==1 else 97,sign*99,sign*2)
-    opposite=(104 if sign==1 else 96,sign*98,-sign*2)
-    values=prefix+[formed,opposite]+[(105 if sign==1 else 95,sign*97,-sign*2)]*150
+    opposite=(102 if sign==1 else 98,sign*98,-sign*2)
+    values=prefix+[formed,opposite]+[(102 if sign==1 else 98,sign*97,-sign*2)]*150
     calc,steps=run(values)
     creation=steps[4].structures[0]
     locked=steps[5].structures[0]
@@ -144,7 +144,7 @@ def test_color_flip_freezes_origin_and_keeps_following_in_separator(sign):
 
 @pytest.mark.parametrize("period",["day","m60","m90","m120"])
 def test_snapshot_clone_restore_and_failed_restore_are_isolated(period):
-    values=TOP+[(103,99,2),(104,98,-2),(105,97,-2)]
+    values=TOP+[(103,99,2),(102,98,-2),(105,97,-2)]
     inputs=bars(values,period)
     full,expected=run(values,period=period)
     first=XxmCalculator(period=period,source_identity="synthetic")
@@ -166,7 +166,7 @@ def test_snapshot_clone_restore_and_failed_restore_are_isolated(period):
     first.restore(before)  # Valid rewind before the first opposite bar.
     assert first.snapshot() == before and first.active_structure["status"] == "ASSESSING"
     assert first.step(inputs[5]).structures[0]["status"] == "FOLLOWING"
-    assert first.spec.algorithm_version == "xxm-direction-v0.3-r4"
+    assert first.spec.algorithm_version == "xxm-direction-v0.4-r4"
     assert first.spec.spec_hash == MAIN_SPEC.spec_hash
     for rejected in [replace(inputs[-1], completed=False),replace(inputs[-1], dif=float("nan"))]:
         current=first.snapshot()
@@ -180,7 +180,9 @@ def test_snapshot_clone_restore_and_failed_restore_are_isolated(period):
 
 @pytest.mark.parametrize("override",[{"dif_turn_pct":.75},{"max_refs":3},{"min_bars":1},
                                       {"min_bars":True},{"historical_min_bars":2},
-                                      {"top_activation_requires_positive_dif":False}])
+                                      {"top_activation_requires_positive_dif":False},
+                                      {"structure_follow_min_bars":1},{"structure_follow_min_bars":True},
+                                      {"structure_follow_policy":"next_same_color_close_break"}])
 def test_fixed_formal_rule_identity_rejects_policy_changes(override):
     with pytest.raises(ValueError):
         XxmSpec(**override)

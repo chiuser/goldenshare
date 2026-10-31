@@ -113,14 +113,23 @@ def validate_structure_facts(value: Any, *, period: XxmPeriod, upper: str) -> Xx
         raise ValueError("Invalid structure chronology")
     sign = 1 if raw["direction"] == "TOP" else -1
     first, same, end = (raw[key] for key in ("firstOppositeAt", "nextSameColorStart", "trackingEndedAt"))
-    for stamp in (first, same, end, raw["disappearedAt"]):
+    _integer(raw["nextSameColorCount"], minimum=0)
+    count = raw["nextSameColorCount"]
+    extreme, extreme_at = raw["trackingPriceExtreme"], raw["trackingPriceExtremeAt"]
+    if (same is None) != (count == 0):
+        raise ValueError("Invalid followed same-color count")
+    for stamp in (first, same, end, raw["disappearedAt"], extreme_at):
         if stamp is not None:
             _time(stamp, period, upper)
     if first is None:
-        if (raw["originWave"] is not None or same is not None or raw["formationRoute"] != "dif_turn"
+        if (raw["originWave"] is not None or same is not None or extreme is not None or extreme_at is not None
+                or raw["formationRoute"] != "dif_turn"
                 or raw["status"] not in ("ASSESSING", "DISAPPEARED")):
             raise ValueError("Invalid pre-opposite structure")
     else:
+        _number(extreme, positive=True)
+        if extreme_at is None or not first <= extreme_at <= upper:
+            raise ValueError("Invalid followed price extreme date")
         origin = _wave(raw["originWave"], period=period, processed=None, upper=upper)
         if (origin.sign != sign or origin.start != raw["originSegmentStart"]
                 or not raw["priceExtremeAt"] <= origin.end < first
@@ -137,14 +146,21 @@ def validate_structure_facts(value: Any, *, period: XxmPeriod, upper: str) -> Xx
         if any(value is not None for value in (end, raw["disappearedAt"], raw["disappearanceReason"])):
             raise ValueError("Live structure contains terminal facts")
     elif raw["status"] == "FINISHED":
-        if (same is None or end is None or end <= same
+        if (same is None or count < MAIN_SPEC.structure_follow_min_bars or end is None or end <= same
+                or extreme_at is None or extreme_at >= end
                 or raw["disappearedAt"] is not None or raw["disappearanceReason"] is not None):
             raise ValueError("Invalid normally finished structure")
-    elif (end is None or end != raw["disappearedAt"] or end <= raw["formedAt"]
+    elif (end is None or end != raw["disappearedAt"] or end < raw["formedAt"]
+          or (end == raw["formedAt"] and not (raw["formationRoute"] == "color_flip" and first == end))
           or (first is None and raw["disappearanceReason"] not in ("dif_return", "reference_dif_break"))
-          or (first is not None and (same is None or end < same
+          or (first is not None and (end < first or same is not None and end < same
+                                    or extreme_at != end
                                     or raw["disappearanceReason"] != "structure_price_break"))):
         raise ValueError("Invalid disappeared structure")
+    if first is not None:
+        crossed = sign * (extreme - origin.price) > 0
+        if crossed != (raw["status"] == "DISAPPEARED"):
+            raise ValueError("Live or finished structure has an already broken followed price")
     if raw["formationRoute"] == "color_flip" and raw["priceExtremeAt"] >= raw["formedAt"]:
         raise ValueError("Opposite-color input cannot change the old segment price extreme")
     return deepcopy(raw)
@@ -220,21 +236,33 @@ def validate_xxm_progress(parsed: ParsedXxmSnapshot, *, period: XxmPeriod,
         sign = 1 if direction == "TOP" else -1
         if (record["direction"] != direction or record["status"] != "FOLLOWING"
                 or record["id"] in followed_ids
-                or (parsed.active_structure is not None and record["id"] == parsed.active_structure["id"])
-                or not parsed.history[sign]
-                or record["originWave"] != asdict(parsed.history[sign][-1])):
+                or (parsed.active_structure is not None and record["id"] == parsed.active_structure["id"])):
             raise ValueError("Invalid followed structure slot or closed origin")
         followed_ids.add(record["id"])
-        same = record["nextSameColorStart"]
+        origin = record["originWave"]
+        first, same = record["firstOppositeAt"], record["nextSameColorStart"]
+        count = record["nextSameColorCount"]
+        for item in parsed.history[sign]:
+            if item.start == origin["start"] and asdict(item) != origin:
+                raise ValueError("Frozen origin contradicts retained historical Wave")
+            if item.start > origin["end"] and item.count >= MAIN_SPEC.structure_follow_min_bars:
+                raise ValueError("An effective same-color segment has already ended")
+        opposite = [item for item in (*parsed.history[-sign], wave) if item.sign == -sign and item.start > origin["end"]]
+        for item in opposite:
+            if item.start <= first <= item.end and item.start != first:
+                raise ValueError("First opposite date is inside an existing separator")
+        if any(item.start == origin["start"] for item in parsed.history[sign]):
+            if not opposite or min(item.start for item in opposite) != first:
+                raise ValueError("First opposite differs from the retained original separator")
         if same is None:
-            if wave.sign != -sign or wave.start != record["firstOppositeAt"]:
+            if wave.sign != -sign:
                 raise ValueError("Invalid separator progress")
-        else:
-            separator = parsed.history[-sign][-1] if parsed.history[-sign] else None
-            if (wave.sign != sign or same != wave.start or separator is None
-                    or separator.start != record["firstOppositeAt"] or separator.end >= same
-                    or sign * (wave.price - record["originWave"]["price"]) > 0):
-                raise ValueError("Invalid next-same progress or an already broken followed price")
+        elif wave.sign != sign or same != wave.start or count != wave.count:
+            raise ValueError("Invalid next-same progress")
+        extreme, at = record["trackingPriceExtreme"], record["trackingPriceExtremeAt"]
+        if (sign * (parsed.previous.close - extreme) > 0
+                or at == parsed.previous.time and extreme != parsed.previous.close):
+            raise ValueError("Followed price extreme contradicts the previous input")
     if parsed.state == "NONE":
         if parsed.reference is not None or parsed.active_structure is not None:
             raise ValueError("NONE snapshot carries an active relationship")

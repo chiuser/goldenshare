@@ -353,7 +353,7 @@ def test_pf18_source_disagreement_stays_uncertain(monkeypatch):
 
 
 def test_pf20_fixed_spec_literal_contract_and_hash():
-    expected={'forecast_version':'xxm-key-point-forecast-v0.5-r4','scenario_policy':'next_completed_bar',
+    expected={'forecast_version':'xxm-key-point-forecast-v0.6-r4','scenario_policy':'next_completed_bar',
         'target_selection':'near_range_before_far','max_future_bars':1,'calibration_tail_bars':250,
         'daily_calibration_abs_tol':0.0005,'minute_calibration_abs_tol':1e-8,'daily_rounding_guard':1e-10,
         'display_policy':'valid_integer_boundaries','structure_text_places':0,
