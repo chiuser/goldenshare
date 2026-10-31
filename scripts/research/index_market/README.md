@@ -11,7 +11,7 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -
 
 临时Parquet测试单独进程运行，避免PyArrow的测试宿主累计峰值影响原进程预算测试，不放宽断言。
 
-当前专项设计已按[方案§22—23](../../../docs/product/wealth-r4-historical-comparison-plan-v1.md#22-第一项适配最新r4的历史对比工具2026-10-31设计)及[LLD§22—23](../../../docs/product/wealth-r4-historical-comparison-low-level-design-v1.md#22-第一项工具适配的编码设计2026-10-31)补齐：先适配a183d6753/v0.3-r4的字段、有限跟踪、同根多事件与逐日比较，人工验收通过后，再获指令执行一次原922根真实对比。现有工具仍固定c6a845fe3/v0.2-r4，适配和新对比均未开始；不能只改提交号后直接运行。1GiB/100MiB、原20秒、唯一本地DG读取和结果只RAM不变；本轮只更新设计并提交此前专项额度及文档改动，不编码、不读取行情。§21保留c6a845fe3时已完成的旧报告（普通标签/状态差2天、旧历史撤销另7天），不是新核心成绩；失败历史仍在§13/17/19。下列旧研究记录仅保留历史含义。
+当前三项修补后的工具适配及一次922根比较均已完成，CURRENT=50b0f22bb/v0.4-r4，完整报告见[方案§32](../../../docs/product/wealth-r4-historical-comparison-plan-v1.md)，工具验收见[LLD§29—30](../../../docs/product/wealth-r4-historical-comparison-low-level-design-v1.md)。专项人工330项、架构16项及真实旧基准56/56通过；同源日线三组各922根，SCHEMA/MARKET/CALENDAR各1次，完整调用2.794937秒、保守父子合计333.906250MiB、全部结果17.634583MiB。完整事件差11日、应显示标签差9日、普通状态差2日；完整计算事件不因显示遮住而删除。未接公开API/页面或整链400ms验收，工具、测试与报告纳入本次提交，不部署或自动重放。原§27及以下旧研究条目保留历史含义，不能当本次成绩。
 
 2026-10-28当前r4研究v2：[方案§15](../../../docs/product/xxm-r4-implementation-plan-v0.1.md)、[LLD§15](../../../wealth/docs/pages/index-detail/index-detail-xxm-r4-low-level-design-v0.1.md)。近B失效而远A价格/DIF全合格时，当根切A延续钝化，不新增消失或再次钝化；仅已有DULL同段，原1%/结构/等待/真实翻色规则不扩大。实现、人工验收及独立代码审计已完成；相关七文件398项、原r2人工62项、架构16项通过。旧v1副本不接受；无新产品开关、读取入口或结果落盘。开发交付时真实922根v2对照尚未运行，页面继续r2；随后管理员已授权按方案/LLD§16先提交本轮再重跑，结果待执行。
 

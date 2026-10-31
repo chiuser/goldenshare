@@ -194,7 +194,7 @@ def test_fixed_sources_literal_states_and_events(sources, bundle):
         assert result["rows"][6]["structures"][0]["status"] == "ASSESSING"
         groups = (result["rows"],)
         assert set(result) == {"identity", "rows"}
-        assert result["identity"]["algorithmVersion"] == "xxm-direction-v0.2-r4"
+        assert result["identity"]["algorithmVersion"] == "xxm-direction-v0.4-r4"
     else:
         groups = ([row["r2"] for row in result["rows"]], [row["r4"] for row in result["rows"]])
         assert set(result) == {"metadata", "rows", "summary"}
@@ -211,8 +211,8 @@ def test_fixed_sources_literal_states_and_events(sources, bundle):
         for index, row in enumerate(rows):
             assert [row["point"][name] for name in ("time", "close", "dif", "dea", "hist")] == value["rows"][index][:5]
     if bundle == "CURRENT":
-        assert result["rows"][7]["structures"][0]["status"] == "LOCKED"
-        assert result["rows"][7]["structures"][0]["lockedAt"] == "2023-01-10"
+        assert result["rows"][7]["structures"][0]["status"] == "FOLLOWING"
+        assert result["rows"][7]["structures"][0]["firstOppositeAt"] == "2023-01-10"
         assert result["rows"][7]["point"]["ordinaryState"] == "NONE"
 
 
@@ -274,7 +274,7 @@ def test_extra_business_module_never_falls_back_to_worktree(sources):
 def test_wrong_rule_version_fails_after_loading(sources):
     value = request(sources)
     module = value["modules"][1]
-    module["source"] = module["source"].replace('"xxm-direction-v0.2-r4"', '"not-the-fixed-version"')
+    module["source"] = module["source"].replace('"xxm-direction-v0.4-r4"', '"not-the-fixed-version"')
     code, messages = run_request(value)
     assert code == 1 and messages[-1]["kind"] == "ERROR"
     assert not any(item["kind"] in ("DONE", "RESULT") for item in messages)
@@ -414,3 +414,174 @@ def test_import_only_uses_standard_library():
                for node in ast.walk(tree) if isinstance(node, (ast.Import, ast.ImportFrom))
                for alias in (node.names if isinstance(node, ast.Import) else [None])]
     assert all(name.split(".")[0] in sys.stdlib_module_names or name == "__future__" for name in imports)
+
+
+T = [(100., 200., 2.), (90., -200., -2.), (101., 100., 2.), (102., 100., 2.), (103., 99., 2.)]
+TF = T + [(90., 98., -2.)]
+MECHANISMS = {
+    "first": (TF + [(104., 97., 2.)], [(3, "DULL"), (4, "STRUCTURE"), (6, "CANCEL")],
+              [(4, "ASSESSING"), (5, "FOLLOWING"), (6, "DISAPPEARED")]),
+    "separator": (TF + [(104., 97., -2.)], [(3, "DULL"), (4, "STRUCTURE"), (6, "CANCEL")],
+                  [(4, "ASSESSING"), (5, "FOLLOWING"), (6, "DISAPPEARED")]),
+    "zero": (TF + [(103., 97., 2.), (103., 96., 0.), (104., 95., 0.)],
+             [(3, "DULL"), (4, "STRUCTURE"), (8, "CANCEL")], [(4, "ASSESSING"), (5, "FOLLOWING"), (6, "FOLLOWING"), (8, "DISAPPEARED")]),
+    "two": (TF + [(102., 97., 2.), (104., 96., 2.)],
+            [(3, "DULL"), (4, "STRUCTURE"), (7, "CANCEL"), (7, "DULL")],
+            [(4, "ASSESSING"), (5, "FOLLOWING"), (6, "FOLLOWING"), (7, "DISAPPEARED")]),
+    "finish": (TF + [(102., 97., 2.), (103., 96., 2.), (104., 95., -2.), (104., 94., 2.)],
+               [(3, "DULL"), (4, "STRUCTURE")], [(4, "ASSESSING"), (5, "FOLLOWING"), (6, "FOLLOWING"), (7, "FOLLOWING"), (8, "FINISHED")]),
+    "final_price": (T + [(105., 98.5, 2.), (110., 98., -2.), (104., 97., 2.), (106., 96., 2.)],
+                    [(3, "DULL"), (4, "STRUCTURE"), (6, "CANCEL"), (8, "DULL")],
+                    [(4, "ASSESSING"), (6, "DISAPPEARED")]),
+    "final_zero": (T + [(105., 98.5, 0.), (110., 98., -2.), (104., 97., 2.), (106., 96., 2.)],
+                   [(3, "DULL"), (4, "STRUCTURE"), (6, "CANCEL"), (8, "DULL")],
+                   [(4, "ASSESSING"), (6, "DISAPPEARED")]),
+    "return": (T + [(104., 100.1, 2.), (105., 201., 2.)],
+               [(3, "DULL"), (4, "STRUCTURE"), (5, "DULL"), (6, "CANCEL")],
+               [(4, "ASSESSING"), (5, "DISAPPEARED")]),
+    "direct_break": (T + [(104., 201., 2.)], [(3, "DULL"), (4, "STRUCTURE"), (5, "CANCEL")],
+                     [(4, "ASSESSING"), (5, "DISAPPEARED")]),
+    "color_flip": (T[:4] + [(90., 99., -2.), (103., 98., 2.)],
+                   [(3, "DULL"), (4, "STRUCTURE"), (5, "CANCEL")], [(4, "FOLLOWING"), (5, "DISAPPEARED")]),
+    "color_finish": (T[:4] + [(90., 99., -2.), (101., 98., 2.), (102., 97., 2.), (110., 96., -2.)],
+                     [(3, "DULL"), (4, "STRUCTURE")], [(4, "FOLLOWING"), (5, "FOLLOWING"), (6, "FOLLOWING"), (7, "FINISHED")]),
+    "opposite_event": (T + [(89., -100., -2.), (88., -100., -2.), (87., -101., -2.), (104., 90., 2.)],
+                       [(3, "DULL"), (4, "STRUCTURE"), (6, "DULL"), (8, "CANCEL"), (8, "STRUCTURE")],
+                       [(4, "ASSESSING"), (5, "FOLLOWING"), (8, "DISAPPEARED"), (8, "FOLLOWING")]),
+    "two_slots": (T + [(89., -100., -2.), (88., -100., -2.), (87., -101., -2.), (102., 90., 2.),
+                       (102., 91., 2.), (86., -90., -2.)],
+                  [(3, "DULL"), (4, "STRUCTURE"), (6, "DULL"), (8, "STRUCTURE"), (10, "CANCEL")],
+                  [(4, "ASSESSING"), (5, "FOLLOWING"), (8, "FOLLOWING"), (8, "FOLLOWING"), (9, "FOLLOWING"), (10, "FINISHED"), (10, "DISAPPEARED")]),
+    "remote_closed": (TF + [(102., 97., 2.), (103., 96., 2.), (102., 95., -2.), (103., 98., 2.), (104., 99., 2.)],
+                      [(3, "DULL"), (4, "STRUCTURE"), (10, "DULL")],
+                      [(4, "ASSESSING"), (5, "FOLLOWING"), (6, "FOLLOWING"), (7, "FOLLOWING"), (8, "FINISHED")]),
+    "may": ([(3285.6705, 41.186, 2.), (3200., 0., -2.), (3393.3312, 28.215, 2.),
+             (3380., 28.215, 2.), (3301.2575, 22.901, 2.), (3275.413, 16.415, -2.),
+             (3395.0036, 14.006, 2.), (3357.6707, 15.217, 2.), (3319.1506, 12.920, 2.)],
+            [(3, "DULL"), (4, "STRUCTURE"), (6, "CANCEL")], [(4, "ASSESSING"), (5, "FOLLOWING"), (6, "DISAPPEARED")]),
+}
+
+
+@pytest.mark.parametrize("bottom", [False, True])
+@pytest.mark.parametrize("name", list(MECHANISMS))
+def test_hc29_41_fixed_source_mechanisms_match_independent_literals(sources, name, bottom):
+    values, expected_events, expected_records = MECHANISMS[name]
+    if bottom:
+        # Approved TOP/BOTTOM mirror, preserving positive close even for May points.
+        values = [(10000. - c, -d, -h) for c, d, h in values]
+        if name == "two_slots":
+            # The implementation's documented order remains TOP then BOTTOM,
+            # so the mirrored two independent terminal updates reverse order.
+            expected_records = expected_records[:-2] + [(10, "DISAPPEARED"), (10, "FINISHED")]
+    rows = [[(date(2023, 1, 3) + timedelta(days=n)).isoformat(), c, d, d-h/2, h, True]
+            for n, (c, d, h) in enumerate(values)]
+    code, messages = run_request(request(sources, rows=rows))
+    assert code == 0
+    payload = next(m["payload"] for m in messages if m["kind"] == "RESULT")
+    assert [(n, e["type"]) for n, row in enumerate(payload["rows"]) for e in row["events"]] == expected_events
+    assert [(n, s["status"]) for n, row in enumerate(payload["rows"]) for s in row["structures"]] == expected_records
+    from scripts.research.index_market.xxm import r4_history_records
+    index = r4_history_records._index_group(payload["rows"], "currentR4", {r[0]: tuple(r) for r in rows},
+                                            lambda: None, current=True, identity=payload["identity"])
+    assert index.kinds and payload["identity"]["specHash"] == worker.CURRENT_SPEC_HASH
+    if name in ("final_price", "final_zero"):
+        record = payload["rows"][6]["structures"][0]
+        assert record["priceExtreme"] == (9897. if bottom else 103.)
+        assert record["originWave"]["price"] == (9895. if bottom else 105.)
+        assert record["originWave"]["count"] == (3 if name == "final_zero" else 4)
+    if name == "opposite_event":
+        events = payload["rows"][8]["events"]
+        assert events[0]["direction"] != events[1]["direction"]
+    if name == "two_slots":
+        assert len(payload["rows"][9]["decision"]["structureFollowChecks"]) == 2
+        assert not index.followed
+    if name == "remote_closed":
+        final_event = payload["rows"][10]["events"][0]
+        assert final_event["eventReference"]["startTime"] == rows[2][0]
+        assert not any(e["type"] == "CANCEL" for row in payload["rows"] for e in row["events"])
+    if name == "may":
+        assert not payload["rows"][7]["events"] and not payload["rows"][8]["events"]
+
+
+
+def test_hc38_40_complete_literal_process_comparison_keeps_price_cancel_and_report(sources):
+    # First new red root has count1: no new ordinary DULL can end the
+    # legacy pending history before its historical-price check (old core L120-125).
+    values = MECHANISMS["first"][0]
+    rows = [[(date(2023, 1, 3) + timedelta(days=n)).isoformat(), c, d, d-h/2, h, True]
+            for n, (c, d, h) in enumerate(values)]
+    results = {}
+    for bundle in ("OLD_PAIR", "CURRENT"):
+        code, messages = run_request(request(sources, bundle, rows))
+        assert code == 0
+        results[bundle] = next(x["payload"] for x in messages if x["kind"] == "RESULT")
+    from scripts.research.index_market.xxm import r4_history_records as records
+    compared = records.compare_fact_groups(results["OLD_PAIR"], results["CURRENT"], input_rows=rows, check=lambda: None)
+    assert compared["summary"]["categories"]["labels"]["dates"] == [rows[6][0]]
+    assert compared["summary"]["eventCounts"]["currentR4"] == {"DULL": 1, "STRUCTURE": 1, "CANCEL": 1}
+    assert compared["summary"]["eventCounts"]["r2"]["RESEARCH_HISTORICAL_WITHDRAWAL"] == 1
+    report = records.format_report({"metadata": {}, **compared}, check=lambda: None)
+    assert "两组单独比较" in report and "旧结构实际检查" in report and "关联旧结构截至本根" in report
+    assert "structure_price_break" in report and "RESEARCH_HISTORICAL_WITHDRAWAL" in report
+    # The early prefix must not acquire the terminal record of a later date.
+    early = report.split("\n" + rows[6][0] + "：")[0]
+    assert "disappearanceReason': 'structure_price_break'" not in early
+
+
+@pytest.mark.parametrize("bottom", [False, True])
+@pytest.mark.parametrize("case", ["first_opposite", "zero_before_start", "formed_and_ended", "skip_singles"])
+def test_hc45_fixed_core_new_lifecycles_have_literal_checks(sources, case, bottom):
+    # RC97--109, from literal price threshold103 (102 for color_flip).
+    values = {
+        "first_opposite": T + [(104., 98., -2.)],
+        "zero_before_start": T + [(90., 98., -2.), (104., 97., 0.)],
+        "formed_and_ended": T[:4] + [(104., 99., -2.)],
+        "skip_singles": T + [(90., 98., -2.), (102., 97., 2.), (90., 96., -2.),
+                              (102., 95., 2.), (90., 94., -2.), (102., 93., 2.),
+                              (103., 92., 2.), (110., 91., -2.)],
+    }[case]
+    if bottom:
+        values = [(10000. - c, -d, -h) for c, d, h in values]
+    rows = [[(date(2023, 1, 3) + timedelta(days=n)).isoformat(), c, d, d-h/2, h, True]
+            for n, (c, d, h) in enumerate(values)]
+    code, messages = run_request(request(sources, rows=rows))
+    assert code == 0
+    payload = next(m["payload"] for m in messages if m["kind"] == "RESULT")
+    from scripts.research.index_market.xxm import r4_history_records as records
+    index = records._index_group(payload["rows"], "currentR4", {r[0]: tuple(r) for r in rows},
+                                lambda: None, current=True, identity=payload["identity"])
+    sid = payload["rows"][4]["structures"][0]["id"]
+    final = index.records[sid]
+    if case == "skip_singles":
+        for n in (7, 9):
+            check = next(c for c in payload["rows"][n]["decision"]["structureFollowChecks"] if c["relatedStructureId"] == sid)
+            assert (check["action"], check["nextSameColorCountBefore"], check["nextSameColorCountAfter"],
+                    check["nextSameColorStartAfter"], check["checked"], check["pricePassed"]) == ("SKIP_SINGLE", 1, 0, None, True, False)
+        assert (final["status"], final["trackingEndedAt"], final["nextSameColorStart"], final["nextSameColorCount"]) == (
+            "FINISHED", rows[12][0], rows[10][0], 2)
+        assert (final["trackingPriceExtreme"], final["trackingPriceExtremeAt"]) == (9897. if bottom else 103., rows[11][0])
+        assert not any(e["route"] == "structure_price_break" and e["relatedStructureId"] == sid
+                       for row in payload["rows"] for e in row["events"])
+    else:
+        n = {"first_opposite": 5, "zero_before_start": 6, "formed_and_ended": 4}[case]
+        assert (final["status"], final["disappearedAt"], final["nextSameColorStart"], final["nextSameColorCount"]) == (
+            "DISAPPEARED", rows[n][0], None, 0)
+        assert (final["trackingPriceExtreme"], final["trackingPriceExtremeAt"]) == (9896. if bottom else 104., rows[n][0])
+        if case == "formed_and_ended":
+            events = payload["rows"][n]["events"]
+            assert [(e["type"], e["route"], e["relatedStructureId"]) for e in events] == [
+                ("STRUCTURE", "color_flip", sid), ("CANCEL", "structure_price_break", sid)]
+        # Wrong count/bool/price/date or silently dropped same-bar event must fail.
+        for field, value in (("nextSameColorCount", True), ("nextSameColorCount", 1),
+                             ("trackingPriceExtreme", 123.), ("trackingPriceExtremeAt", rows[0][0])):
+            invalid = deepcopy(payload)
+            invalid["rows"][n]["structures"][0][field] = value
+            with pytest.raises(ValueError):
+                records._index_group(invalid["rows"], "currentR4", {r[0]: tuple(r) for r in rows},
+                                     lambda: None, current=True, identity=invalid["identity"])
+        if case == "formed_and_ended":
+            invalid = deepcopy(payload)
+            invalid["rows"][n]["events"].reverse()
+            with pytest.raises(ValueError):
+                records._index_group(invalid["rows"], "currentR4", {r[0]: tuple(r) for r in rows},
+                                     lambda: None, current=True, identity=invalid["identity"])

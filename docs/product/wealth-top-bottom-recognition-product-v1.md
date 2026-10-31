@@ -1,6 +1,6 @@
 # 财势乾坤顶底识别产品文档 v1
 
-更新：2026-10-31。状态：本次核心、记录、恢复和历史查询已完成限定验收，预测也已完成限定验收，专项对比按LLD§19推进中。当前识别v0.4-r4、预测v0.6-r4。公开HTTP/页面尚未迁移；没有部署或实际行情对比成绩。
+更新：2026-10-31。状态：本次核心、记录、恢复和历史查询已完成限定验收，预测也已完成限定验收，专项工具及一次922根对比也已完成，见LLD§19.3。当前识别v0.4-r4、预测v0.6-r4。公开HTTP/页面尚未迁移；没有部署；本次应显示标签相对历史r2、历史r4均差9日，完整报告见[专项方案§32](wealth-r4-historical-comparison-plan-v1.md)，不是页面验收。
 
 配套：[技术方案](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-technical-design-v1.md)、[编码LLD](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md)。规则、实施步骤和验收仅以这组三份当前文档为准。
 

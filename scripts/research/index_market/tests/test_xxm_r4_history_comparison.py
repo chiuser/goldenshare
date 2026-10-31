@@ -32,7 +32,7 @@ def frame(value):
 
 def request(**changes):
     result = {"kind": "REQUEST", "protocolVersion": 1, "bundle": "CURRENT",
-              "commit": "c6a845fe3e8f13258b3c12f3ecfa843bce544f85", "tsCode": "000001.SH", "period": "day",
+              "commit": m.SPEC.current_commit, "tsCode": "000001.SH", "period": "day",
               "inputIdentity": "literal", "inputCount": 1, "rows": [["2023-01-03", 100.0, -0.0, -0.0, 0.0, True]],
               "startDate": "2023-01-03", "endDate": "2026-10-27", "modules": [],
               "workDeadline": time.monotonic() + 10, "maxWorkerMemoryBytes": 128 * 1024 * 1024,
@@ -43,7 +43,7 @@ def request(**changes):
 
 def message(kind, *, pid=123, **fields):
     return {"kind": kind, "protocolVersion": 1, "bundle": "CURRENT",
-            "commit": "c6a845fe3e8f13258b3c12f3ecfa843bce544f85", "pid": pid, **fields}
+            "commit": m.SPEC.current_commit, "pid": pid, **fields}
 
 
 @pytest.mark.parametrize("changes", [{"total_seconds": 30.0}, {"input_count": True},
@@ -223,8 +223,10 @@ def test_hc01_19_fixed_git_source_read_to_ram_only():
     sources = m.read_git_sources(budget)
     assert facts["branch"] == "dev-interface"
     assert len(sources["OLD_PAIR"]) == 8 and len(sources["CURRENT"]) == 4
+    assert budget.source_bytes == sum(len(item['source'].encode()) for group in sources.values() for item in group)
+    assert 0 < budget.source_bytes <= 1024 * 1024
     assert sources["OLD_PAIR"][0]["path"].endswith("/types.py")
-    assert 'algorithm_version: str = "xxm-direction-v0.2-r4"' in sources["CURRENT"][1]["source"]
+    assert 'algorithm_version: str = "xxm-direction-v0.4-r4"' in sources["CURRENT"][1]["source"]
     # LLD§3 explicitly permits git config exit 1 with empty output (unset).
     assert budget.active is None and all(p.returncode in (0, 1) for p in budget.processes)
     assert budget.processes[-1].returncode == 0
@@ -367,7 +369,7 @@ def peer_code(extra="", *, padding=0, hang=False):
     return f'''
 import sys, os, json, time
 def send(kind, **fields):
-    msg={{"kind":kind,"protocolVersion":1,"bundle":"CURRENT","commit":"c6a845fe3e8f13258b3c12f3ecfa843bce544f85","pid":os.getpid(),**fields}}
+    msg={{"kind":kind,"protocolVersion":1,"bundle":"CURRENT","commit":"{m.SPEC.current_commit}","pid":os.getpid(),**fields}}
     raw=json.dumps(msg,separators=(",",":")).encode()
     sys.stdout.buffer.write(len(raw).to_bytes(8,"big")+raw);sys.stdout.buffer.flush()
 send("HELLO",peakMemoryBytes=1)
@@ -500,7 +502,8 @@ def test_hc19_dependency_and_real_entry_are_separate():
     assert not any(p.name.startswith("r4_history") for p in m.REPO_ROOT.glob("*.json"))
 
 
-def test_hc18_fresh_parent_922_synthetic_full_path_without_real_entry():
+@pytest.mark.parametrize("active_structures", [False, True])
+def test_hc18_fresh_parent_922_synthetic_full_path_without_real_entry(active_structures):
     # Run in a new parent so pytest's accumulated peaks are not called a real
     # combined-memory measurement. No market or calendar query is performed.
     code = f'''
@@ -512,7 +515,13 @@ from scripts.research.index_market.xxm.r4_history_records import compare_fact_gr
 m.run_historical_comparison=lambda **kw: (_ for _ in ()).throw(AssertionError("REAL ENTRY FORBIDDEN"))
 b=m.ResearchBudget()
 sources=m.read_git_sources(b)
-rows=tuple(((date(2023,1,3)+timedelta(days=i)).isoformat(),100.0,0.0,0.0,0.0,True) for i in range(922))
+pattern=((100.,200.,2.),(90.,-200.,-2.),(101.,100.,2.),(102.,100.,2.),(103.,99.,2.),(90.,98.,-2.),(102.,97.,2.),(104.,96.,2.),(90.,95.,-2.))
+values=[]
+for i in range(922):
+    c,d,h=pattern[i%9] if {active_structures!r} else (100.,0.,0.)
+    c += (i//9)*10 if {active_structures!r} else 0
+    values.append((c,d,d-h/2,h))
+rows=tuple(((date(2023,1,3)+timedelta(days=i)).isoformat(),*v,True) for i,v in enumerate(values))
 old=m.run_worker("OLD_PAIR",rows,sources["OLD_PAIR"],b)
 current=m.run_worker("CURRENT",rows,sources["CURRENT"],b)
 compared=compare_fact_groups(old,current,input_rows=rows,check=b.check)
@@ -520,9 +529,15 @@ source={{"rows":rows,"actualStart":rows[0][0],"actualEnd":rows[-1][0],"calendarC
 result=m._finish_result(source,old,current,{{"passed":False,"checks":[],"note":"synthetic, real baseline not executed"}},compared,b)
 assert result["metrics"]["stepCounts"] == {{"r2":922,"historyR4":922,"currentR4":922}}
 assert result["metrics"]["elapsedSeconds"] < 20
+assert 0 < result['metrics']['sourceBytes'] <= 1024*1024
+assert len(result['metrics']['workerRequestBytes']) == 2
+assert all(0 < n <= 2*1024*1024 for n in result['metrics']['workerRequestBytes'])
 assert result["metrics"]["combinedPeakUpper"] <= 1024*1024*1024
 assert sum(result["metrics"]["workerResultBytes"])+result["metrics"]["finalResultBytes"] <= 100*1024*1024
 assert all(p.returncode == 0 for p in b.processes) and b.active is None
+if {active_structures!r}:
+    assert sum(len(row['decision']['structureFollowChecks']) for row in current['rows']) > 100
+    assert result['summary']['eventCounts']['currentR4']['CANCEL'] > 50
 print(json.dumps(result["metrics"]))
 '''
     environment = {name: os.environ[name] for name in ("HOME", "TMPDIR", "PATH") if name in os.environ}
@@ -600,21 +615,27 @@ def test_hc01_identity_rejects_bool_count_even_for_one_literal_bar():
     req = request()
     identity = {k: req[k] for k in ("bundle", "commit", "tsCode", "period", "inputIdentity", "inputCount")}
     identity.update(requestedStartDate="2023-01-03", requestedEndDate="2026-10-27",
-                    algorithmVersion="xxm-direction-v0.2-r4")
+                    algorithmVersion="xxm-direction-v0.4-r4")
     # A literal identity fixture, independent of the product Spec constructor.
-    identity["spec"] = {"algorithm_version": "xxm-direction-v0.2-r4", "dif_turn_pct": 1.0,
+    identity["spec"] = {"algorithm_version": "xxm-direction-v0.4-r4", "dif_turn_pct": 1.0,
                         "max_refs": 2, "min_bars": 2, "reference_policy": "nearest_then_farther_two",
                         "active_reference_policy": "same_bar_near_to_far_on_dull_break",
                         "zero_policy": "neutral_real_opposite", "allow_zero_activation": True,
                         "activation_policy": "current_close_and_current_dif",
                         "reference_break_policy": "strict_break_within_current_segment",
                         "structure_return_policy": "adjacent_one_percent_to_dull",
-                        "structure_lock_policy": "first_valid_opposite_color", "historical_min_bars": 1,
+                        "structure_follow_policy": "price_until_first_valid_same_color_end", "structure_follow_min_bars": 2,
+                        "structure_follow_price_policy": "closed_origin_wave_extreme", "historical_min_bars": 1,
                         "top_activation_requires_positive_dif": True, "macd_parameters": [12, 26, 9],
                         "histogram_multiplier": 2, "color_flip": True, "flip_requires_turn": False}
     identity["specHash"] = hashlib.sha256(json.dumps(identity["spec"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
     payload = {"identity": identity, "rows": [{}]}
     m._check_identity(payload, req)
+    alien = deepcopy(payload)
+    alien["identity"]["spec"]["max_refs"] = 3
+    alien["identity"]["specHash"] = hashlib.sha256(json.dumps(alien["identity"]["spec"], sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    with pytest.raises(ValueError, match="登记的新CURRENT"):
+        m._check_identity(alien, req)
     identity["inputCount"] = True
     with pytest.raises(ValueError): m._check_identity(payload, req)
     identity["inputCount"] = 1
@@ -939,3 +960,38 @@ def test_hc26_unfinished_source_day_is_still_rejected(monkeypatch):
     monkeypatch.setattr(m, 'datetime', BeforeClose)
     with pytest.raises(ValueError, match='未完成日线收盘'):
         m._validate_local_input(source_payload(), m.ResearchBudget(), time.monotonic() + 8)
+
+
+
+@pytest.mark.parametrize("baseline_passes", [False, True])
+def test_hc42_baseline_must_finish_before_current_and_read_occurs_once(monkeypatch, baseline_passes):
+    from scripts.research.index_market.xxm import r4_history_records as records
+    calls = []
+    # Only orchestrator order is under test: no actual processes/data/source reads.
+    monkeypatch.setattr(m.resource, "getrusage", lambda who: SimpleNamespace(ru_maxrss=0))
+    monkeypatch.setattr(m, "_preflight_git", lambda budget: {"branch": "dev-interface", "staged": ""})
+    monkeypatch.setattr(m, "_protection_facts", lambda budget: {"branch": "dev-interface", "staged": ""})
+    monkeypatch.setattr(m, "read_git_sources", lambda budget: {"OLD_PAIR": (), "CURRENT": ()})
+    def read(budget):
+        calls.append("READ")
+        return {"rows": ("literal-input",)}
+    def run(bundle, rows, sources, budget):
+        calls.append(bundle)
+        assert rows == ("literal-input",)
+        return {"fixture": bundle}
+    def baseline(*args, **kw):
+        calls.append("BASELINE")
+        if not baseline_passes: raise ValueError("independent baseline failure")
+        return {"passed": True}
+    monkeypatch.setattr(m, "read_input", read)
+    monkeypatch.setattr(m, "run_worker", run)
+    monkeypatch.setattr(records, "validate_baseline", baseline)
+    monkeypatch.setattr(records, "compare_fact_groups", lambda *a, **kw: {})
+    monkeypatch.setattr(m, "_finish_result", lambda *a: {"accepted": True})
+    if baseline_passes:
+        assert m.run_historical_comparison() == {"accepted": True}
+        assert calls == ["READ", "OLD_PAIR", "BASELINE", "CURRENT"]
+    else:
+        with pytest.raises(ValueError, match="baseline failure"):
+            m.run_historical_comparison()
+        assert calls == ["READ", "OLD_PAIR", "BASELINE"]

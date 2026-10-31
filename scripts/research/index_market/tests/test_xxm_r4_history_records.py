@@ -4,10 +4,50 @@ No calculator output is used as expected. A/B prices, DIF and dates below can
 be checked directly against the twelve literal input rows.
 """
 from copy import deepcopy
+import hashlib
 
 import pytest
 
 from scripts.research.index_market.xxm import r4_history_records as module
+
+
+# Fixed rule identity and independent ID arithmetic from approved LLD §2/22.5.
+IDENTITY = {"algorithmVersion": "xxm-direction-v0.4-r4",
+            "specHash": "db435b39a3d198c126bfff567dfbe66faf74ff9299005578ec6b49bf065fd110",
+            "tsCode": "000001.SH", "period": "day"}
+
+
+def literal_id(*parts):
+    return hashlib.sha256("|".join(map(str, [*IDENTITY.values(), *parts])).encode()).hexdigest()[:24]
+
+
+def current_ids(result):
+    # Re-express the manually named fixture links as the actual contract's IDs.
+    # Does not scan prices, select peaks, or compute any state/expected label.
+    mapping = {}
+    for row in result["rows"]:
+        for e in row["events"]:
+            sign = 1 if e["direction"] == "TOP" else -1
+            mapping[e["id"]] = literal_id(e["time"], e["type"], sign, e["eventReference"]["startTime"])
+    for row in result["rows"]:
+        for record in row["structures"]:
+            mapping[record["id"]] = literal_id("structure", mapping[record["structureEventId"]])
+    def replace(value):
+        if type(value) is str:
+            return mapping.get(value, value)
+        if type(value) is dict:
+            return {k: replace(v) for k, v in value.items()}
+        if type(value) is list:
+            return [replace(v) for v in value]
+        return value
+    result["rows"] = replace(result["rows"])
+    for n, row in enumerate(result["rows"]):
+        previous = result["rows"][n-1]["point"] if n else None
+        row["decision"]["before"].update(state=previous["ordinaryState"] if previous else "NONE",
+            reference=deepcopy(previous["activeReference"]) if previous else None,
+            activeStructureId=previous["activeStructureId"] if previous else None,
+            previousDif=previous["dif"] if previous else None)
+    return result
 
 
 DAYS = ("2025-01-02", "2025-01-03", "2025-01-06", "2025-01-07", "2025-01-08", "2025-01-09",
@@ -74,14 +114,14 @@ def group(n, name, *, current=False, state="NONE", ref="B", events=(), structure
                 referenceBroken=None, checked=False, reason="未检查")
     decision = dict(before=before, rawSign=(point["hist"] > 0) - (point["hist"] < 0),
                     wave=deepcopy(WAVES[n]), referenceChecks=checks, turn=turn,
-                    branch="activation" if events and events[0]["route"] == "activation" else "no_activation",
+                    branch=events[-1]["route"] if events else "no_activation",
                     reason="人工逐根记录")
     if current:
         point["activeStructureId"] = active
         before.update(previousDif=INPUT[n-1][2] if n else None, activeStructureId=None)
         decision.update(time=stamp, referenceAfter=point["activeReference"], selectionCalls=[], switched=False,
                         structureId=structures[-1]["id"] if structures else None,
-                        structureStatus=structures[-1]["status"] if structures else None)
+                        structureStatus=structures[-1]["status"] if structures else None, structureFollowChecks=[])
         return dict(time=stamp, point=point, events=list(events), structures=list(structures), decision=decision)
     point.update(pendingTopHistoryId=active, pendingBottomHistoryId=None, pendingRearmId=None)
     before.update(previous=dict(zip(("time", "close", "dif", "dea", "hist", "completed"), INPUT[n-1])) if n else None,
@@ -106,7 +146,7 @@ def ledgers(*, length=12, dull=False, reference_by_group=None):
             else:
                 old[name] = g
         old_rows.append(old)
-    return dict(metadata={}, rows=old_rows, summary={}), dict(identity={}, rows=new_rows)
+    return dict(metadata={}, rows=old_rows, summary={}), current_ids(dict(identity=dict(IDENTITY), rows=new_rows))
 
 
 def compare(old, new, length=12, check=lambda: None):
@@ -159,6 +199,16 @@ def test_hc13_no_event_reference_switch_is_a_reference_change():
     assert result["summary"]["categories"]["references"]["dates"] == [DAYS[9]]
 
 
+def literal_follow_check(record, *, before=None, count_before=0, action="KEEP", checked=True, passed=False):
+    # Serialize independently supplied literal facts; never call a detector/helper.
+    return dict(relatedStructureId=record["id"], direction=record["direction"],
+                originWave={k: record["originWave"][k] for k in ("price", "price_at")},
+                firstOppositeAt=record["firstOppositeAt"], nextSameColorStartBefore=before,
+                nextSameColorStartAfter=record["nextSameColorStart"], nextSameColorCountBefore=count_before,
+                nextSameColorCountAfter=record["nextSameColorCount"], checked=checked,
+                pricePassed=passed, action=action, reason="独立字面检查")
+
+
 def structure_ledgers(*, lock_same_day=False):
     old, new = ledgers(length=12, dull=True)
     for name in ("r2", "r4"):
@@ -175,16 +225,22 @@ def structure_ledgers(*, lock_same_day=False):
     route = "color_flip" if lock_same_day else "dif_turn"
     record = dict(id="new-structure", direction="TOP", structureEventId="new-event", formedAt=DAYS[n],
                   formationRoute=route, originSegmentStart=DAYS[8], originalReference=reference(current=True),
-                  priceExtreme=106.0, priceExtremeAt=DAYS[10], status="LOCKED" if lock_same_day else "ASSESSING",
-                  lockedAt=DAYS[n] if lock_same_day else None, disappearedAt=None, disappearanceReason=None)
+                  priceExtreme=106.0, priceExtremeAt=DAYS[10], status="FOLLOWING" if lock_same_day else "ASSESSING",
+                  originWave=deepcopy(WAVES[10]) if lock_same_day else None,
+                  firstOppositeAt=DAYS[n] if lock_same_day else None, nextSameColorStart=None, nextSameColorCount=0,
+                  trackingPriceExtreme=104.0 if lock_same_day else None, trackingPriceExtremeAt=DAYS[n] if lock_same_day else None,
+                  trackingEndedAt=None, disappearedAt=None, disappearanceReason=None)
     e = event("new-event", n, "STRUCTURE", current=True, route=route, related="new-structure")
     new["rows"][n] = group(n, "currentR4", current=True, state="NONE" if lock_same_day else "STRUCTURE",
                             events=[e], structures=[record], active=None if lock_same_day else "new-structure")
+    if lock_same_day:
+        new["rows"][n]["decision"]["structureFollowChecks"] = [literal_follow_check(record)]
     if not lock_same_day:
         locked = deepcopy(record)
-        locked.update(status="LOCKED", lockedAt=DAYS[11])
+        locked.update(status="FOLLOWING", originWave=deepcopy(WAVES[10]), firstOppositeAt=DAYS[11], trackingPriceExtreme=104.0, trackingPriceExtremeAt=DAYS[11])
         new["rows"][11] = group(11, "currentR4", current=True, structures=[locked])
-    return old, new
+        new["rows"][11]["decision"]["structureFollowChecks"] = [literal_follow_check(locked)]
+    return old, current_ids(new)
 
 
 def test_hc15_old_history_and_new_lock_stay_native_and_do_not_erase_formation():
@@ -192,7 +248,7 @@ def test_hc15_old_history_and_new_lock_stay_native_and_do_not_erase_formation():
     result = compare(old, new)
     day = next(d for d in result["differenceDays"] if d["time"] == DAYS[11])
     assert day["groups"]["historyR4"]["histories"][0]["status"] == "PENDING"
-    assert day["groups"]["currentR4"]["structures"][0]["status"] == "LOCKED"
+    assert day["groups"]["currentR4"]["structures"][0]["status"] == "FOLLOWING"
     formed = next(d for d in result["differenceDays"] if d["time"] == DAYS[10])
     assert formed["groups"]["currentR4"]["structures"][0]["status"] == "ASSESSING"
 
@@ -203,7 +259,7 @@ def test_hc13_formed_and_locked_with_none_point_is_still_a_structure_event():
     day = next(d for d in result["differenceDays"] if d["time"] == DAYS[11])
     assert day["groups"]["currentR4"]["point"]["ordinaryState"] == "NONE"
     assert day["groups"]["currentR4"]["events"][0]["type"] == "STRUCTURE"
-    assert day["groups"]["currentR4"]["structures"][0]["lockedAt"] == DAYS[11]
+    assert day["groups"]["currentR4"]["structures"][0]["firstOppositeAt"] == DAYS[11]
     assert result["summary"]["categories"]["labels"]["dates"] == [DAYS[10], DAYS[11]]
 
 
@@ -325,7 +381,9 @@ def bottom_wait_ledgers():
                     r = dict(id="new-bottom", direction="BOTTOM", structureEventId="currentR4-structure",
                              formedAt=DAYS[8], formationRoute="dif_turn", originSegmentStart=DAYS[6],
                              originalReference=deepcopy(new_ref), priceExtreme=96.0, priceExtremeAt=DAYS[6],
-                             status="ASSESSING" if n == 8 else "DISAPPEARED", lockedAt=None,
+                             status="ASSESSING" if n == 8 else "DISAPPEARED", originWave=None,
+                             firstOppositeAt=None, nextSameColorStart=None, nextSameColorCount=0,
+                             trackingPriceExtreme=None, trackingPriceExtremeAt=None, trackingEndedAt=None if n == 8 else DAYS[9],
                              disappearedAt=None if n == 8 else DAYS[9], disappearanceReason=None if n == 8 else "dif_return")
                     g["structures"] = [r]
                     g["point"]["activeStructureId"] = "new-bottom" if n == 8 else None
@@ -344,7 +402,7 @@ def bottom_wait_ledgers():
                                        referenceWave=deepcopy(WAVES[3]), disappearedAt=DAYS[9], observedThrough=DAYS[9], status="WAITING", endedAt=None, endReason=None)
                         g["rearmRecords"] = [waiting]
                         g["point"]["pendingRearmId"] = waiting["id"]
-    return old, new, tuple(source)
+    return old, current_ids(new), tuple(source)
 
 
 def test_hc15_old_waiting_remains_waiting_and_new_return_is_dull():
@@ -392,7 +450,7 @@ def test_hc16_no_cross_date_event_pairing_and_report_has_complete_dates():
     text = module.format_report({"metadata": {"period": "day"}, **result}, check=lambda: None)
     assert DAYS[10] in text and DAYS[11] in text
     assert "DIF极值15.0（2025-01-09）" in text
-    assert "LOCKED" in text and "PENDING" in text
+    assert "FOLLOWING" in text and "PENDING" in text
 
 
 def test_hc17_real_baseline_rejects_short_artificial_input():
@@ -459,12 +517,310 @@ def test_actual_fixed_workers_literal_input_links_and_dates():
                     if e["type"] != "RESEARCH_HISTORICAL_WITHDRAWAL"]
         assert ordinary == [(DAYS[5], "DULL"), (DAYS[6], "STRUCTURE"), (DAYS[9], "DULL"), (DAYS[10], "STRUCTURE")]
     assert [(r["time"], e["type"]) for r in new["rows"] for e in r["events"]] == [
-        (DAYS[5], "DULL"), (DAYS[6], "STRUCTURE"), (DAYS[9], "DULL"), (DAYS[10], "STRUCTURE")]
+        (DAYS[5], "DULL"), (DAYS[6], "STRUCTURE"), (DAYS[8], "CANCEL"),
+        (DAYS[9], "DULL"), (DAYS[10], "STRUCTURE")]
+    # Original closed red segment ends at close103. New red first close104
+    # strictly exceeds it on d8: official LLD RC74, not two-bar activation.
+    assert new["rows"][8]["events"][0]["route"] == "structure_price_break"
     assert [(r["time"], s["status"]) for r in new["rows"] for s in r["structures"]] == [
-        (DAYS[6], "LOCKED"), (DAYS[10], "ASSESSING"), (DAYS[11], "LOCKED")]
-    assert result["summary"]["categories"]["labels"]["dateCount"] == 0
+        (DAYS[6], "FOLLOWING"), (DAYS[7], "FOLLOWING"), (DAYS[8], "DISAPPEARED"), (DAYS[10], "ASSESSING"), (DAYS[11], "FOLLOWING")]
+    assert result["summary"]["categories"]["labels"]["dates"] == [DAYS[8]]
     assert any(day["time"] == DAYS[9] for day in result["differenceDays"])
     day = next(day for day in result["differenceDays"] if day["time"] == DAYS[9])
     assert day["groups"]["r2"]["references"]["active"]["difAt"] == DAYS[1]
     assert day["groups"]["historyR4"]["references"]["active"]["difAt"] == DAYS[5]
     assert day["groups"]["currentR4"]["references"]["active"]["difAt"] == DAYS[5]
+
+
+# HC28--41: independent complete structure ledgers. The extrema indices,
+# actions, event roots and states below are literal LLD RC74--96 examples.
+# No production calculator, scanner or validator builds these expected facts.
+def manual_follow(kind="first", *, bottom=False):
+    base = [(100., 200., 2.), (90., -200., -2.), (101., 100., 2.),
+            (102., 100., 2.), (103., 99., 2.), (90., 98., -2.)]
+    specs = [(1, 0, 0, 1, 100., 200., 0, 0), (-1, 1, 1, 1, 90., -200., 1, 1),
+             (1, 2, 2, 1, 101., 100., 2, 2), (1, 2, 3, 2, 102., 100., 3, 2),
+             (1, 2, 4, 3, 103., 100., 4, 2), (-1, 5, 5, 1, 90., 98., 5, 5)]
+    tails = {
+        "first": ([(104., 97., 2.)], [(1, 6, 6, 1, 104., 97., 6, 6)],
+                  [("DISAPPEAR", True, True, 6)], 6, None),
+        "separator": ([(103., 97., -2.)], [(-1, 5, 6, 2, 90., 97., 5, 6)],
+                      [("KEEP", True, False, None)], None, None),
+        "zero": ([(103., 97., 2.), (103., 96., 0.), (104., 95., 0.)],
+                 [(1, 6, 6, 1, 103., 97., 6, 6), (1, 6, 7, 1, 103., 97., 6, 6),
+                  (1, 6, 8, 1, 104., 97., 8, 6)],
+                 [("START", True, False, 6), ("KEEP", True, False, 6), ("DISAPPEAR", True, True, 6)], 8, None),
+        "two": ([(102., 97., 2.), (104., 96., 2.)],
+                [(1, 6, 6, 1, 102., 97., 6, 6), (1, 6, 7, 2, 104., 97., 7, 6)],
+                [("START", True, False, 6), ("DISAPPEAR", True, True, 6)], 7, 7),
+        "finish": ([(102., 97., 2.), (103., 96., 2.), (104., 95., -2.), (104., 94., 2.)],
+                   [(1, 6, 6, 1, 102., 97., 6, 6), (1, 6, 7, 2, 103., 97., 7, 6),
+                    (-1, 8, 8, 1, 104., 95., 8, 8), (1, 9, 9, 1, 104., 94., 9, 9)],
+                   [("START", True, False, 6), ("KEEP", True, False, 6), ("FINISH", False, None, 6)], None, None),
+    }
+    tail, extra_waves, actions, cancelled, new_dull = tails[kind]
+    values = base + tail
+    specs += extra_waves
+    if bottom:
+        values = [(200. - c, -d, -h) for c, d, h in values]
+        specs = [(-sign, start, end, count, 200. - c, -d, ca, da)
+                 for sign, start, end, count, c, d, ca, da in specs]
+    source = tuple((DAYS[n], c, d, d - h / 2, h, True) for n, (c, d, h) in enumerate(values))
+    waves = [wave(*item) for item in specs]
+    direction, sign = ("BOTTOM", -1) if bottom else ("TOP", 1)
+    ref = dict(startTime=DAYS[0], endTime=DAYS[0], price=100., dif=-200. if bottom else 200.,
+               priceAt=DAYS[0], difAt=DAYS[0])
+    next_ref = dict(startTime=DAYS[2], endTime=DAYS[4], price=97. if bottom else 103.,
+                    dif=-100. if bottom else 100., priceAt=DAYS[4], difAt=DAYS[2])
+    formation = literal_id(DAYS[4], "STRUCTURE", sign, DAYS[0])
+    sid = literal_id("structure", formation)
+    initial = dict(id=sid, direction=direction, structureEventId=formation, formedAt=DAYS[4],
+                   formationRoute="dif_turn", originSegmentStart=DAYS[2], originalReference=ref,
+                   priceExtreme=97. if bottom else 103., priceExtremeAt=DAYS[4], status="ASSESSING",
+                   originWave=None, firstOppositeAt=None, nextSameColorStart=None, nextSameColorCount=0,
+                   trackingPriceExtreme=None, trackingPriceExtremeAt=None, trackingEndedAt=None,
+                   disappearedAt=None, disappearanceReason=None)
+    following = {**initial, "status": "FOLLOWING", "originWave": deepcopy(waves[4]), "firstOppositeAt": DAYS[5],
+                 "trackingPriceExtreme": source[5][1], "trackingPriceExtremeAt": DAYS[5]}
+    # Literal count/extreme/date transitions, approved RC97--109.
+    transitions = {
+        "first": [(1, 104., 6)], "separator": [(0, 103., 6)],
+        "zero": [(1, 103., 6), (1, 103., 6), (1, 104., 8)],
+        "two": [(1, 102., 6), (2, 104., 7)],
+        "finish": [(1, 102., 6), (2, 103., 7), (2, 103., 7)],
+    }[kind]
+    if bottom:
+        transitions = [(count, 200. - price, n) for count, price, n in transitions]
+    rows, same, prior_count = [], None, 0
+    for n, row in enumerate(source):
+        events, records, checks = [], [], []
+        state = "DULL" if n == 3 or n == new_dull else "STRUCTURE" if n == 4 else "NONE"
+        selected = next_ref if n == new_dull else ref
+        point = dict(zip(("time", "close", "dif", "dea", "hist"), row[:5]))
+        point.update(ordinaryState=state, ordinaryDirection=direction if state != "NONE" else None,
+                     activeReference=deepcopy(selected) if state != "NONE" else None,
+                     activeStructureId=sid if n == 4 else None)
+        if n in (3, 4) or n == new_dull:
+            etype, route = ("STRUCTURE", "dif_turn") if n == 4 else ("DULL", "activation")
+            events.append(dict(id=literal_id(DAYS[n], etype, sign, selected["startTime"]), time=DAYS[n],
+                               direction=direction, type=etype, route=route, fromState="DULL" if n == 4 else "NONE",
+                               eventReference=deepcopy(selected), relatedStructureId=sid if n == 4 else None))
+        if n == 4:
+            records = [deepcopy(initial)]
+        elif n == 5:
+            records = [deepcopy(following)]
+            checks = [literal_follow_check(following)]
+        elif 6 <= n < 6 + len(actions):
+            action, checked, passed, start = actions[n - 6]
+            count, extreme, extreme_n = transitions[n - 6]
+            updated = {**following, "nextSameColorStart": DAYS[start] if start is not None else None,
+                       "nextSameColorCount": count, "trackingPriceExtreme": extreme,
+                       "trackingPriceExtremeAt": DAYS[extreme_n]}
+            if action in ("FINISH", "DISAPPEAR"):
+                updated.update(status="FINISHED" if action == "FINISH" else "DISAPPEARED", trackingEndedAt=DAYS[n])
+            if action == "DISAPPEAR":
+                updated.update(disappearedAt=DAYS[n], disappearanceReason="structure_price_break")
+            checks = [literal_follow_check(updated, before=same, count_before=prior_count,
+                                            action=action, checked=checked, passed=passed)]
+            if updated != following:
+                records = [deepcopy(updated)]
+            following = updated
+            same, prior_count = DAYS[start] if start is not None else None, count
+        if n == cancelled:
+            events.insert(0, dict(id=literal_id(DAYS[n], "CANCEL", "structure_price_break", sid), time=DAYS[n],
+                                  direction=direction, type="CANCEL", route="structure_price_break", fromState="STRUCTURE",
+                                  eventReference=deepcopy(ref), relatedStructureId=sid))
+        previous = rows[-1]["point"] if rows else None
+        before = dict(state=previous["ordinaryState"] if previous else "NONE",
+                      reference=deepcopy(previous["activeReference"]) if previous else None,
+                      wave=deepcopy(waves[n-1]) if n else None, previousDif=source[n-1][2] if n else None,
+                      activeStructureId=previous["activeStructureId"] if previous else None)
+        decision = dict(time=DAYS[n], rawSign=(row[4] > 0) - (row[4] < 0), before=before, wave=deepcopy(waves[n]),
+                        referenceAfter=point["activeReference"], referenceChecks=[], selectionCalls=[], switched=False,
+                        turn=dict(previousDif=source[n-1][2] if n else None, currentDif=row[2], threshold=None,
+                                  referenceBroken=None, checked=False, reason="未检查"),
+                        structureId=records[-1]["id"] if records else None,
+                        structureStatus=records[-1]["status"] if records else None,
+                        structureFollowChecks=checks, branch=events[-1]["route"] if events and events[-1]["route"] != "structure_price_break" else "no_activation",
+                        reason="独立字面记录")
+        rows.append(dict(time=DAYS[n], point=point, events=events, structures=records, decision=decision))
+    return dict(identity=dict(IDENTITY), rows=rows), source
+
+
+def index_manual(result, source):
+    return module._index_group(result["rows"], "currentR4", {r[0]: r for r in source}, lambda: None,
+                               current=True, identity=result["identity"])
+
+
+@pytest.mark.parametrize("bottom", [False, True])
+@pytest.mark.parametrize("kind", ["first", "separator", "zero", "two", "finish"])
+def test_hc29_34_literal_following_lifecycle_and_mirror(kind, bottom):
+    result, source = manual_follow(kind, bottom=bottom)
+    frozen = deepcopy(result)
+    index = index_manual(result, source)
+    sid = result["rows"][4]["structures"][0]["id"]
+    assert index.records[sid]["status"] == {"first": "DISAPPEARED", "zero": "DISAPPEARED",
+                                           "two": "DISAPPEARED", "finish": "FINISHED", "separator": "FOLLOWING"}[kind]
+    assert result == frozen
+    if kind == "two":
+        assert [e["type"] for e in result["rows"][-1]["events"]] == ["CANCEL", "DULL"]
+    if kind == "finish":
+        assert not result["rows"][-2]["events"] and not result["rows"][-1]["decision"]["structureFollowChecks"]
+
+
+@pytest.mark.parametrize("mutation", ["missing_follow", "locked", "extra_field", "full_observation", "short_wave",
+                                       "missing_event", "missing_record", "missing_check", "wrong_reference", "wrong_direction",
+                                       "from_none", "order", "wrong_id", "rewrite_price", "future", "terminal",
+                                       "unchecked_false", "wrong_count", "wrong_extreme", "wrong_first", "wrong_status"])
+def test_hc28_35_37_each_bad_follow_fact_is_rejected(mutation):
+    result, source = manual_follow("two")
+    last = result["rows"][-1]
+    if mutation == "missing_follow": del last["decision"]["structureFollowChecks"]
+    elif mutation == "locked": last["structures"][0]["status"] = "LOCKED"
+    elif mutation == "extra_field": last["structures"][0]["lockedAt"] = DAYS[5]
+    elif mutation == "full_observation": last["decision"]["structureFollowChecks"][0]["originWave"] = deepcopy(result["rows"][5]["structures"][0]["originWave"])
+    elif mutation == "short_wave": result["rows"][5]["structures"][0]["originWave"] = {"price": 103., "price_at": DAYS[4]}
+    elif mutation == "missing_event": last["events"].pop(0)
+    elif mutation == "missing_record": last["structures"] = []; last["decision"].update(structureId=None, structureStatus=None)
+    elif mutation == "missing_check": last["decision"]["structureFollowChecks"] = []
+    elif mutation == "wrong_reference": last["events"][0]["eventReference"] = deepcopy(last["events"][1]["eventReference"])
+    elif mutation == "wrong_direction": last["events"][0]["direction"] = "BOTTOM"
+    elif mutation == "from_none": last["events"][0]["fromState"] = "NONE"
+    elif mutation == "order": last["events"].reverse()
+    elif mutation == "wrong_id": last["events"][0]["id"] = "x" * 24
+    elif mutation == "rewrite_price": last["structures"][0]["priceExtreme"] = 104.
+    elif mutation == "future": result["rows"][4]["structures"][0]["firstOppositeAt"] = DAYS[5]
+    elif mutation == "terminal": last["structures"][0].update(status="FINISHED", disappearedAt=None, disappearanceReason=None)
+    elif mutation == "unchecked_false": last["decision"]["structureFollowChecks"][0].update(checked=False, pricePassed=False)
+    elif mutation == "wrong_count": last["decision"]["wave"]["count"] += 1
+    elif mutation == "wrong_extreme": last["decision"]["wave"].update(price=102., price_at=DAYS[6])
+    elif mutation == "wrong_first": last["structures"][0]["firstOppositeAt"] = DAYS[6]
+    else: result["rows"][5]["structures"][0]["status"] = "ASSESSING"
+    with pytest.raises(ValueError):
+        index_manual(result, source)
+
+
+def test_hc36_prefixes_are_independent_and_keep_has_no_update():
+    result, source = manual_follow("zero")
+    early = deepcopy(result["rows"][4])
+    for count in range(1, len(source) + 1):
+        index_manual({"identity": result["identity"], "rows": result["rows"][:count]}, source[:count])
+    assert result["rows"][4] == early and early["structures"][0]["originWave"] is None
+    assert result["rows"][7]["structures"] == []
+    assert result["rows"][7]["decision"]["structureFollowChecks"][0]["action"] == "KEEP"
+
+
+def test_hc39_pair_counts_and_union_do_not_mix_three_pairs():
+    old, new = ledgers(length=10, dull=True, reference_by_group={"r2": "A"})
+    result = compare(old, new, 10)
+    pairs = result["summary"]["pairComparisons"]
+    assert [p["comparedGroups"] for p in pairs] == [["historyR4", "currentR4"], ["r2", "currentR4"], ["r2", "historyR4"]]
+    assert [p["categories"]["references"]["dates"] for p in pairs] == [[], [DAYS[9]], [DAYS[9]]]
+    assert all(p["categories"]["labels"] == {"dateCount": 0, "dates": [], "firstDifference": None} for p in pairs)
+    old, new = ledgers(length=1)
+    pairs = compare(old, new, 1)["summary"]["pairComparisons"]
+    assert all((p["differenceDateCount"], p["differenceDates"], p["firstDifference"]) == (0, [], None) for p in pairs)
+
+
+def test_hc40_report_folds_only_past_records_and_keeps_all_checks(monkeypatch):
+    result, source = manual_follow("two")
+    index_manual(result, source)
+    # Reporting takes the existing indexed facts, not another calculator/reader.
+    old, new = structure_ledgers()
+    compared = compare(old, new)
+    text = module.format_report({"metadata": {}, **compared}, check=lambda: None)
+    assert "两组单独比较" in text and "典型差异日期" in text
+    assert "FOLLOWING" in text and "ASSESSING" in text and DAYS[11] in text
+
+
+def test_hc27_identity_mismatch_rejected_even_without_events():
+    old, new = ledgers(length=1)
+    new["identity"]["algorithmVersion"] = "xxm-direction-v0.2-r4"
+    with pytest.raises(ValueError, match="登记版本"):
+        compare(old, new, 1)
+
+
+
+def test_hc39_three_literal_view_dates_have_independent_pair_unions(monkeypatch):
+    # Isolate aggregation only; full producer/group validation is covered by
+    # the independent ledgers and actual fixed-source tests above.
+    from types import SimpleNamespace
+    source = {DAYS[n]: () for n in range(3)}
+    indexes = {name: SimpleNamespace(name=name) for name in ("r2", "r4", "currentR4")}
+    monkeypatch.setattr(module, "_validate_groups", lambda *a: (source, indexes))
+    def views(group, index, stamp):
+        value = {"labels": [], "states": ("NONE", None), "references": {"active": None, "events": []},
+                 "structures": None, "decisions": {}, "displayLabels": []}
+        if index.name == "r2" and stamp == DAYS[0]: value["labels"] = [("DULL", "TOP", "activation")]
+        if index.name == "currentR4" and stamp == DAYS[1]: value["labels"] = [("STRUCTURE", "TOP", "dif_turn")]
+        if index.name == "currentR4" and stamp == DAYS[2]: value["decisions"] = {"actual-check": True}
+        return value
+    monkeypatch.setattr(module, "_views", views)
+    old = {"rows": [{"r2": {"events": []}, "r4": {"events": []}} for _ in source]}
+    new = {"rows": [{"events": []} for _ in source]}
+    summary = module.compare_fact_groups(old, new, input_rows=(), check=lambda: None)["summary"]
+    assert summary["differenceDates"] == list(DAYS[:3])
+    assert [p["differenceDates"] for p in summary["pairComparisons"]] == [list(DAYS[1:3]), list(DAYS[:3]), [DAYS[0]]]
+    assert summary["categories"]["labels"]["dates"] == list(DAYS[:2])
+    assert summary["categories"]["decisions"]["dates"] == [DAYS[2]]
+
+
+
+@pytest.mark.parametrize("mutation", ["missing_transition", "wrong_before", "broken_type", "unknown_stage"])
+def test_hc28_36_assessment_exit_before_and_reference_contracts(mutation):
+    result, source = manual_follow("first")
+    if mutation == "missing_transition":
+        result["rows"][5]["structures"] = []
+        result["rows"][5]["decision"].update(structureId=None, structureStatus=None)
+    elif mutation == "wrong_before":
+        result["rows"][5]["decision"]["before"]["previousDif"] = 98.999
+    else:
+        # Source-accurate old reference wave, with just the invalid typed field.
+        observed = {"stage": "not_entered", "candidate": "B", "wave": deepcopy(result["rows"][0]["decision"]["wave"]),
+                    "checked": False, "pricePassed": None, "difPassed": None, "referenceBroken": None, "reason": "未检查"}
+        observed["referenceBroken" if mutation == "broken_type" else "stage"] = "invalid"
+        result["rows"][4]["decision"]["referenceChecks"] = [observed]
+    with pytest.raises(ValueError):
+        index_manual(result, source)
+
+
+@pytest.mark.parametrize("variant", ["same", "alone", "opposite", "later", "dif_return", "formed"])
+def test_hc46_report_display_filters_only_same_bar_direction_activation(variant):
+    # Literal events, not generated from detector or from the display function.
+    old = dict(time=DAYS[9], direction="TOP", type="CANCEL", route="structure_price_break")
+    new = dict(time=DAYS[9], direction="TOP", type="DULL", route="activation")
+    if variant == "opposite": new["direction"] = "BOTTOM"
+    if variant == "later": new["time"] = DAYS[10]
+    if variant == "dif_return": new["route"] = "dif_return"
+    if variant == "formed": new.update(type="STRUCTURE", route="color_flip")
+    events = [old] if variant == "alone" else [old, new]
+    saved = deepcopy(events)
+    labels = module._display_labels(events)
+    assert labels == ([('DULL', 'TOP', 'activation')] if variant == "same" else
+                      [('CANCEL', 'TOP', 'structure_price_break')] if variant == "alone" else
+                      [('CANCEL', 'TOP', 'structure_price_break'),
+                       (new['type'], new['direction'], new['route'])])
+    assert events == saved
+
+
+def test_hc46_full_event_counts_and_display_counts_are_separate():
+    result, source = manual_follow("two")
+    index_manual(result, source)
+    # Only isolate the old-group input validation. Current data above remains
+    # independently checked, and all aggregation/report code runs unchanged.
+    from types import SimpleNamespace
+    source_map = {r[0]: r for r in source}
+    indexes = {name: SimpleNamespace(name=name) for name in ("r2", "r4", "currentR4")}
+    from unittest.mock import patch
+    def views(group, index, stamp):
+        return dict(labels=[(e['type'], e['direction'], e['route']) for e in group['events']],
+                    displayLabels=module._display_labels(group['events']), states=('NONE', None),
+                    references=dict(active=None, events=[]), structures=None, decisions={})
+    old = {"rows": [{"r2": {"events": []}, "r4": {"events": []}} for _ in source]}
+    with patch.object(module, '_validate_groups', return_value=(source_map, indexes)), patch.object(module, '_views', side_effect=views):
+        compared = module.compare_fact_groups(old, result, input_rows=source, check=lambda: None)
+    assert compared['summary']['eventCounts']['currentR4'] == {'DULL': 2, 'STRUCTURE': 1, 'CANCEL': 1}
+    assert compared['summary']['displayLabels']['eventCounts']['currentR4'] == {'DULL': 2, 'STRUCTURE': 1}
+    day = compared['differenceDays'][-1]
+    assert [e['type'] for e in day['groups']['currentR4']['events']] == ['CANCEL', 'DULL']
+    assert day['groups']['currentR4']['displayLabels'] == [('DULL', 'TOP', 'activation')]

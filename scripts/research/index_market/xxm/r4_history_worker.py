@@ -21,7 +21,9 @@ from types import ModuleType
 
 
 OLD_COMMIT = "da4a97eeffd4840191fcb9f95283d6be97bb8d28"
-CURRENT_COMMIT = "c6a845fe3e8f13258b3c12f3ecfa843bce544f85"
+CURRENT_COMMIT = "50b0f22bbeadcc5f4cf4f79d6cb2191f05b33418"
+CURRENT_ALGORITHM_VERSION = "xxm-direction-v0.4-r4"
+CURRENT_SPEC_HASH = "db435b39a3d198c126bfff567dfbe66faf74ff9299005578ec6b49bf065fd110"
 PRODUCT_PACKAGE = "src.biz.services.wealth.market.index_detail_xxm"
 RESEARCH_PACKAGE = "scripts.research.index_market.xxm"
 PRODUCT_MODULES = tuple(
@@ -361,9 +363,11 @@ def _observe_old_memory(module, runtime):
 def _calculate(request, runtime, modules):
     product_spec = modules[f"{PRODUCT_PACKAGE}.spec"].MAIN_SPEC
     types = modules[f"{PRODUCT_PACKAGE}.types"]
-    expected_version = "xxm-direction-v0.1-r2" if request["bundle"] == "OLD_PAIR" else "xxm-direction-v0.2-r4"
+    expected_version = "xxm-direction-v0.1-r2" if request["bundle"] == "OLD_PAIR" else CURRENT_ALGORITHM_VERSION
     if product_spec.algorithm_version != expected_version:
         raise ValueError("Fixed product rule version mismatch")
+    if request["bundle"] == "CURRENT" and product_spec.spec_hash != CURRENT_SPEC_HASH:
+        raise ValueError("Fixed current Spec mismatch")
     bars = tuple(types.XxmBar(*row) for row in request["rows"])
     runtime.check(force=True)
     if request["bundle"] == "OLD_PAIR":

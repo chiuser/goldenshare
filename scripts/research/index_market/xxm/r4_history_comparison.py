@@ -90,6 +90,8 @@ class ResearchBudget:
         self.process_deadline = self.work_deadline
         self.process_cleanup_deadline = self.deadline
         self.result_sizes = []
+        self.source_bytes = 0
+        self.worker_request_bytes = []
         self.schema_reads = self.market_reads = self.calendar_reads = 0
         self.check()
 
@@ -573,6 +575,7 @@ def read_git_sources(budget):
     body = _git(["cat-file", "--batch"], budget, request=request)
     budget.check()
     modules = _parse_git_blobs(body, expected)
+    budget.source_bytes = sum(len(module["source"].encode("utf-8")) for module in modules)
     del body
     budget.check()
     return {"OLD_PAIR": modules[:8], "CURRENT": modules[8:]}
@@ -716,7 +719,7 @@ def _check_identity(payload, request):
         if identity.get(output) != request[source]:
             raise ValueError("worker实际计算区间错误")
     versions = {"r2AlgorithmVersion": "xxm-direction-v0.1-r2", "r4ResearchVersion": "xxm-research-r4-v2"} if old else {
-        "algorithmVersion": "xxm-direction-v0.2-r4"}
+        "algorithmVersion": wire.CURRENT_ALGORITHM_VERSION}
     if any(identity.get(k) != v for k, v in versions.items()):
         raise ValueError("worker规则版本错误")
     for key in (("r2SpecHash", "r4ResearchHash") if old else ("specHash",)):
@@ -724,7 +727,7 @@ def _check_identity(payload, request):
             raise ValueError("worker缺少真实规则身份")
     rule_specs = (("r2Spec", "r2SpecHash", "algorithm_version", "xxm-direction-v0.1-r2"),
                   ("r4Spec", "r4ResearchHash", "research_version", "xxm-research-r4-v2")) if old else (
-                      ("spec", "specHash", "algorithm_version", "xxm-direction-v0.2-r4"),)
+                      ("spec", "specHash", "algorithm_version", wire.CURRENT_ALGORITHM_VERSION),)
     for spec_key, hash_key, version_key, version in rule_specs:
         actual_spec = identity.get(spec_key)
         if type(actual_spec) is not dict or actual_spec.get(version_key) != version:
@@ -734,6 +737,8 @@ def _check_identity(payload, request):
         expected_hash = hashlib.sha256(json.dumps(hashed, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
         if identity[hash_key] != expected_hash:
             raise ValueError("worker实际Spec与规则身份不一致")
+    if not old and identity["specHash"] != wire.CURRENT_SPEC_HASH:
+        raise ValueError("worker实际Spec不是登记的新CURRENT")
     if type(payload["rows"]) is not list or len(payload["rows"]) != request["inputCount"]:
         raise ValueError("worker返回根数错误")
 
@@ -768,6 +773,7 @@ def run_worker(bundle, rows, sources, budget):
     del decoded
     budget.check()
     path = Path(__file__).with_name("r4_history_worker.py").resolve()
+    budget.worker_request_bytes.append(len(body))
     proc = _spawn([sys.executable, "-I", "-S", "-B", str(path)], budget)
     response = _pump_process(proc, len(body).to_bytes(8, "big") + body, protocol="WORKER", budget=budget)
     payload = response["payload"]
@@ -813,6 +819,8 @@ def _finish_result(source, old, current, baseline, compared, budget):
                               "historyR4": len(source["rows"]), "currentR4": len(source["rows"])},
                              "marketReads": budget.market_reads, "calendarReads": budget.calendar_reads,
                              "workerResultBytes": list(budget.result_sizes),
+                             "sourceBytes": budget.source_bytes,
+                             "workerRequestBytes": list(budget.worker_request_bytes),
                              "finalResultBytes": final_size, "allChildrenReaped": True}
         encoded = _encoded(result)
         size = len(encoded)
