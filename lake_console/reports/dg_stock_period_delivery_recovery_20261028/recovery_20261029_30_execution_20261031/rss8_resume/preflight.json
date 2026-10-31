@@ -1,0 +1,204 @@
+{
+  "at": "2026-10-31T10:31:11.592401+08:00",
+  "read_only": true,
+  "label": "preflight",
+  "runs": [
+    {
+      "run_id": "488ae87d-d27d-47d0-90ff-69089416121b",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "FAILURE",
+      "start": "2026-10-31T10:19:28.478523+08:00",
+      "end": "2026-10-31T10:20:01.062914+08:00",
+      "parent": "4d3edf1d-9958-44b0-bde1-8a9f0cce1965",
+      "root": "4d3edf1d-9958-44b0-bde1-8a9f0cce1965",
+      "config": {
+        "ops": {
+          "raw_tushare_stk_period_bar_adj_month": {
+            "config": {
+              "automatic_intent_date": "2026-10-29",
+              "intent": "daily",
+              "request_id": null,
+              "stock_codes": []
+            }
+          }
+        }
+      },
+      "partition": "2026-10",
+      "runtime_rss_tag": null,
+      "existing_children": [],
+      "last_events": [
+        {
+          "type": "ENGINE_EVENT",
+          "message": "Process for run exited (pid: 76657)."
+        },
+        {
+          "type": "PIPELINE_FAILURE",
+          "message": "Execution of run for \"raw_stk_period_bar_adj_month_update_job\" failed. Steps failed: ['raw_tushare_stk_period_bar_adj_month']."
+        },
+        {
+          "type": "ENGINE_EVENT",
+          "message": "Finished steps in process (pid: 76657) in 32.51s"
+        }
+      ],
+      "failure": [
+        "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"raw_tushare_stk_period_bar_adj_month\":\n",
+        "ValueError: period_process_memory_exceeded\n"
+      ]
+    },
+    {
+      "run_id": "99f738d8-badd-49e7-81e9-931d4f45b979",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "FAILURE",
+      "start": "2026-10-30T19:31:07.379923+08:00",
+      "end": "2026-10-30T19:31:07.661996+08:00",
+      "parent": null,
+      "root": null,
+      "config": {
+        "ops": {
+          "raw_tushare_stk_period_bar_adj_month": {
+            "config": {
+              "automatic_intent_date": "2026-10-30",
+              "intent": "daily",
+              "request_id": null,
+              "stock_codes": []
+            }
+          }
+        }
+      },
+      "partition": "2026-10",
+      "runtime_rss_tag": null,
+      "existing_children": [],
+      "last_events": [
+        {
+          "type": "ENGINE_EVENT",
+          "message": "Process for run exited (pid: 3929)."
+        },
+        {
+          "type": "PIPELINE_FAILURE",
+          "message": "Execution of run for \"raw_stk_period_bar_adj_month_update_job\" failed. Steps failed: ['raw_tushare_stk_period_bar_adj_month']."
+        },
+        {
+          "type": "ENGINE_EVENT",
+          "message": "Finished steps in process (pid: 3929) in 206ms"
+        }
+      ],
+      "failure": [
+        "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"raw_tushare_stk_period_bar_adj_month\":\n",
+        "ValueError: period_original_run_required:job=raw_stk_period_bar_adj_month_update_job:asof=2026-10-29:execution=2742186f0ce0d15bc231ccc76afc566a71b6e4f500576a4e061afb8a6af297f3\n"
+      ]
+    },
+    {
+      "run_id": "ba86b78f-be13-4bd9-8a6d-b3ab25f148b8",
+      "job": "raw_stk_period_bar_adj_week_update_job",
+      "status": "FAILURE",
+      "start": "2026-10-30T19:30:46.648856+08:00",
+      "end": "2026-10-30T19:30:46.974411+08:00",
+      "parent": null,
+      "root": null,
+      "config": {
+        "ops": {
+          "raw_tushare_stk_period_bar_adj_week": {
+            "config": {
+              "automatic_intent_date": "2026-10-30",
+              "intent": "daily",
+              "request_id": null,
+              "stock_codes": []
+            }
+          }
+        }
+      },
+      "partition": "2026-10-30",
+      "runtime_rss_tag": null,
+      "existing_children": [],
+      "last_events": [
+        {
+          "type": "ENGINE_EVENT",
+          "message": "Process for run exited (pid: 3380)."
+        },
+        {
+          "type": "PIPELINE_FAILURE",
+          "message": "Execution of run for \"raw_stk_period_bar_adj_week_update_job\" failed. Steps failed: ['raw_tushare_stk_period_bar_adj_week']."
+        },
+        {
+          "type": "ENGINE_EVENT",
+          "message": "Finished steps in process (pid: 3380) in 222ms"
+        }
+      ],
+      "failure": [
+        "dagster._core.errors.DagsterExecutionStepExecutionError: Error occurred while executing op \"raw_tushare_stk_period_bar_adj_week\":\n",
+        "ValueError: period_original_run_required:job=raw_stk_period_bar_adj_month_update_job:asof=2026-10-29:execution=2742186f0ce0d15bc231ccc76afc566a71b6e4f500576a4e061afb8a6af297f3\n"
+      ]
+    }
+  ],
+  "global_active": [],
+  "queued_count": 0,
+  "sensors": {
+    "raw_stock_monthly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 0, \"decision\": \"request_runs\", \"details\": {\"asset_family\": \"stock_period\", \"blocked_component\": \"none\", \"evidence\": {\"daily_intent_date\": \"2026-10-30\", \"pending_periods\": [\"2026-10\"]}, \"job_name\": \"raw_stk_period_bar_adj_month_update_job\", \"next_action\": \"等待源交付及文件检查。\", \"partition_set\": \"cn_a_stock_months\", \"reason_code\": \"direct_source_request\", \"runtime_state\": {\"direct_completed_through\": \"2026-09\", \"examined_through\": \"2026-09\", \"policy_version\": \"completed-month-v1\", \"source_policy\": \"stock-period-source-v2\", \"verified_through\": \"2026-09\"}, \"sensor_name\": \"raw_stock_monthly_update_job_sensor\", \"summary\": \"先补欠账，再更新当前周期。\"}, \"evaluated_at\": \"2026-10-30T23:59:16.430549+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 1, \"target_date\": \"2026-10\"}"
+    },
+    "raw_stock_weekly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 0, \"decision\": \"request_runs\", \"details\": {\"asset_family\": \"stock_period\", \"blocked_component\": \"none\", \"evidence\": {\"daily_intent_date\": \"2026-10-30\", \"pending_periods\": [\"2026-10-30\"]}, \"job_name\": \"raw_stk_period_bar_adj_week_update_job\", \"next_action\": \"等待源交付及文件检查。\", \"partition_set\": \"cn_a_stock_week_ends\", \"reason_code\": \"direct_source_request\", \"runtime_state\": {\"adjusted_delivery_revision\": 1785, \"direct_completed_through\": \"2026-10-23\", \"examined_through\": \"2026-10-09\", \"policy_version\": \"completed-week-v1\", \"source_policy\": \"stock-period-source-v2\", \"verified_through\": \"2026-10-09\"}, \"sensor_name\": \"raw_stock_weekly_update_job_sensor\", \"summary\": \"先补欠账，再更新当前周期。\"}, \"evaluated_at\": \"2026-10-30T23:59:55.591688+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 1, \"target_date\": \"2026-10-30\"}"
+    },
+    "silver_stock_monthly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"schema_version\":1,\"after\":7778142,\"decision\":\"silver_no_completion\",\"evaluated_at\":\"2026-10-31T10:31:07.037335+08:00\"}"
+    },
+    "silver_stock_weekly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"schema_version\":1,\"after\":7778143,\"decision\":\"silver_no_completion\",\"evaluated_at\":\"2026-10-31T10:30:58.076027+08:00\"}"
+    }
+  },
+  "control": {
+    "last_refresh": {
+      "month": "2026-10-28",
+      "week": "2026-10-27"
+    },
+    "last_source_asof": {
+      "month": "20261028",
+      "week": "20261027"
+    },
+    "factor_through": "2026-10-28",
+    "completed_through": {
+      "month": "2026-09",
+      "week": "2026-10-23"
+    }
+  },
+  "pending": [
+    {
+      "execution": "2742186f0ce0d15bc231ccc76afc566a71b6e4f500576a4e061afb8a6af297f3",
+      "consumed": false,
+      "intent": {
+        "asof": "2026-10-29",
+        "codes": [
+          "000878.SZ",
+          "688563.SH",
+          "920306.BJ"
+        ],
+        "frequencies": [
+          "week",
+          "month"
+        ],
+        "mode": "upsert",
+        "period_cutoffs": {
+          "month": {
+            "2026-10": "20261029"
+          }
+        },
+        "periods": {
+          "month": [
+            "2026-10"
+          ]
+        },
+        "request_id": "4f59f2bf8a554d6c36459ea024b3249754343260867bcfa1913daf64430dd887",
+        "retired_codes": [],
+        "superseded_codes": [],
+        "version": "stock-period-source-v2"
+      },
+      "phase": "download"
+    }
+  ],
+  "source_hashes_match": true,
+  "free_bytes": 2899143561216
+}

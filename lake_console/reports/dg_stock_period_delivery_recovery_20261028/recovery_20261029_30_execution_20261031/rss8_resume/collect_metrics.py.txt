@@ -1,0 +1,28 @@
+"""Existing execution metrics and source receipt metadata only; no prices or state writes."""
+import ast,json,os
+from pathlib import Path
+from contextlib import closing
+import psycopg2,yaml
+from dagster._serdes import deserialize_value
+B=Path('/private/tmp/dg-period-2930-rss8-20261031');S=Path('/Volumes/datasource/data_lake_staging/stock_period/runs');final=json.loads((B/'final-verified.json').read_text());out={'raw':[],'silver':[],'control_runs':[]}
+cfg=yaml.safe_load(Path('/Users/congming/.goldenshare/dagster_home/dagster.yaml').read_text());u=cfg['storage']['postgres']['postgres_url'];u=os.environ[u['env']] if isinstance(u,dict) else u
+with closing(psycopg2.connect(u,connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn,conn.cursor() as c:
+ conn.set_session(readonly=True)
+ for r in final['raw']:
+  c.execute('SELECT event FROM event_logs WHERE run_id=%s AND dagster_event_type IS NULL AND event LIKE %s ORDER BY id DESC LIMIT 2',(r['native_run'],'%process_memory%'));memory=[]
+  for (ev,) in c.fetchall():
+   message=deserialize_value(ev).message;d=ast.literal_eval(message)
+   if d.get('stage')=='process_memory':memory.append(d)
+  units=[]
+  for p in (S/r['execution']/'source').glob('*/identity.json'):
+   unit=p.parent
+   if (unit/'active_chain.json').exists():unit=unit/'chains'/json.loads((unit/'active_chain.json').read_text())['chain']
+   complete=json.loads((unit/'complete.json').read_text());identity=complete['identity']
+   units.append({'freq':identity['freq'],'code':identity['code'],'period':identity['period'],'rows':complete['rows'],'maximum_asof':complete['maximum_asof'],'pages':len(complete['pages']),'wire_bytes':sum(x['bytes'] for x in complete['pages']),'csv_bytes':sum(x['csv_version'][2] for x in complete['pages'])})
+  out['raw'].append({'native_run':r['native_run'],'memory_samples':memory,'source_units':units,'source_unit_count':len(units),'source_pages':sum(x['pages'] for x in units)})
+ for r in final['silver']:
+  c.execute('SELECT event FROM event_logs WHERE run_id=%s AND dagster_event_type IS NULL AND event LIKE %s ORDER BY id DESC LIMIT 1',(r['native_run'],'%output_bytes%'));row=c.fetchone();assert row
+  stats=json.loads(deserialize_value(row[0]).message);assert stats['stage']=='files_complete';out['silver'].append({'native_run':r['native_run'],'metrics':stats})
+ c.execute("SELECT run_id,status,start_time,end_time FROM runs WHERE pipeline_name='stock_period_event_report' AND id>(SELECT id FROM runs WHERE run_id=%s) ORDER BY id LIMIT 8",(final['raw'][0]['native_run'],));out['control_runs']=[dict(zip(['run_id','status','start_time','end_time'],x)) for x in c.fetchall()]
+(B/'existing-metrics.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({'raw':[{'run':r['native_run'],'units':r['source_unit_count'],'pages':r['source_pages'],'memory':r['memory_samples']} for r in out['raw']],'silver':[{'run':r['native_run'],'output_bytes':r['metrics']['output_bytes'],'rss':r['metrics']['process_peak_rss_bytes'],'elapsed_seconds':r['metrics']['elapsed_seconds']} for r in out['silver']],'control_runs':out['control_runs']},ensure_ascii=False))

@@ -1,0 +1,44 @@
+{
+  "at": "2026-10-31T10:55:36.386295+08:00",
+  "status": "complete",
+  "dates": [
+    "2026-10-29",
+    "2026-10-30"
+  ],
+  "datasets": [
+    "raw_tushare_stk_period_bar_adj_week",
+    "raw_tushare_stk_period_bar_adj_month",
+    "silver_stock_weekly",
+    "silver_stock_monthly"
+  ],
+  "data_jobs_success": 8,
+  "raw_writes": 3589,
+  "silver_writes": 1594,
+  "raw_unique_current_files": 1841,
+  "silver_unique_current_files": 812,
+  "original_checks": 15549,
+  "pending": 0,
+  "sensors_running": 4,
+  "current_count_query_runs": 1,
+  "extra_historical_ohlc_audit_reads": 0,
+  "raw_output_bytes": 725404679,
+  "silver_output_bytes": 338088943,
+  "business_output_bytes": 1063493622,
+  "output_bytes_are_not_total_disk_io": true,
+  "raw_sample_peak_rss_GiB": [
+    1.892822265625,
+    4.4702911376953125,
+    null
+  ],
+  "resource_overrides_only": [
+    "29 monthly Raw resume=8GiB",
+    "30 weekly Raw resume=8GiB"
+  ],
+  "default_configuration_unchanged": true,
+  "control_writer_busy_attempts": 2,
+  "control_closeouts_success": 3,
+  "code_changes": 0,
+  "packages_installed": 0,
+  "business_staging_preserved": true,
+  "git_committed_this_turn": false
+}

@@ -1,0 +1,30 @@
+"""Compare tested/committed files and meaningful sensor state after restart; no market rows."""
+import hashlib,json,subprocess
+from pathlib import Path
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from shutil import disk_usage
+root=Path('/Users/congming/github/goldenshare'); out=Path('/private/tmp/dg_period_restart_budget_20261031')
+evidence=json.loads((root/'lake_console/reports/dg_stock_period_delivery_recovery_20261028/cross_day_source_asof_fix_20261031/source-reconciliation.json').read_text())
+files=[]
+for key,val in evidence.items():
+ relative=val['path'] if key=='new_test' else key
+ path=root/relative
+ current=hashlib.sha256(path.read_bytes()).hexdigest(); committed=hashlib.sha256(subprocess.check_output(['git','show','4a5a5e17b:'+relative],cwd=root)).hexdigest()
+ assert current==committed==val['sha256']
+ assert path.stat().st_mtime<datetime(2026,10,31,9,50,2,tzinfo=ZoneInfo('Asia/Shanghai')).timestamp()
+ files.append({'path':relative,'sha256':current,'mtime':datetime.fromtimestamp(path.stat().st_mtime,ZoneInfo('Asia/Shanghai')).isoformat(),'matches_commit_and_463_test_evidence':True})
+before=json.loads((out/'before.json').read_text()); after=json.loads((out/'final.json').read_text())
+comparison={k:before[k]==after[k] for k in ('pending','control')}
+sensors={}
+for name,b in before['sensors'].items():
+ a=after['sensors'][name];bc=json.loads(b['cursor']) if b['cursor'] else None;ac=json.loads(a['cursor']) if a['cursor'] else None
+ timestamps={'before':bc.get('evaluated_at') if bc else None,'after':ac.get('evaluated_at') if ac else None}
+ if bc:bc.pop('evaluated_at',None)
+ if ac:ac.pop('evaluated_at',None)
+ sensors[name]={'status_unchanged':b['status']==a['status']=='RUNNING','business_cursor_unchanged':bc==ac,'natural_evaluation_timestamps':timestamps}
+comparison['sensors_business_state']=all(x['status_unchanged'] and x['business_cursor_unchanged'] for x in sensors.values())
+assert all(comparison.values()); assert len(after['active'])==after['queued_count']==0
+result={'at':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'commit':'4a5a5e17b','files':files,'before_final_equal':comparison,'sensors':sensors,'byte_cursor_equality':before['sensors']==after['sensors'],'byte_cursor_difference_reason':'Only the two Silver evaluated_at timestamps advanced under normal daemon evaluation; status, after, decision and pending unchanged','verification_first_attempt':'Raw byte equality assertion rejected expected evaluated_at movement before writing results; no state or data changed. Current comparison explicitly preserves all business fields.','active':len(after['active']),'queued':after['queued_count'],'new_code_process_started_at':'2026-10-31T09:50:02+08:00','new_code_process_pid':30834,'repository_query':{'observed_at':'2026-10-31T09:50:30+08:00','query':'{version repositoriesOrError {__typename ... on RepositoryConnection {nodes {name location {name}}}}}','version':'1.13.26','location':'orchestrator','repository':'__repository__','source':'prior successful dagster-graphql read-only command; not repeated'},'filesystem_free':{p:disk_usage(p).free for p in ('/Volumes/datasource/data_lake','/Volumes/datasource/data_lake_staging')},'manual_jobs_submitted':0,'formal_backfill_executed':False}
+(out/'code-and-state-verification.json').write_text(json.dumps(result,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({k:v for k,v in result.items() if k not in ('files','sensors')},ensure_ascii=False))

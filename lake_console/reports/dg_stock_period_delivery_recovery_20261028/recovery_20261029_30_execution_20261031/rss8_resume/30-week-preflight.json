@@ -1,0 +1,21 @@
+{
+  "at": "2026-10-31T10:41:36.795085+08:00",
+  "stage": "30-week",
+  "parent": "ba86b78f-be13-4bd9-8a6d-b3ab25f148b8",
+  "factor_through": "2026-10-29",
+  "pending_count": 0,
+  "children": [],
+  "chain_active": [],
+  "original_config": {
+    "ops": {
+      "raw_tushare_stk_period_bar_adj_week": {
+        "config": {
+          "automatic_intent_date": "2026-10-30",
+          "intent": "daily",
+          "request_id": null,
+          "stock_codes": []
+        }
+      }
+    }
+  }
+}

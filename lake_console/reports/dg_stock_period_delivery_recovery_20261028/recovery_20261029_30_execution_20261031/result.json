@@ -1,0 +1,28 @@
+{
+  "status": "stopped_on_new_error",
+  "raw_29_child": "488ae87d-d27d-47d0-90ff-69089416121b",
+  "error": "period_process_memory_exceeded",
+  "configured_process_rss_GiB": 4,
+  "actual_peak_not_recorded": true,
+  "formal_raw_files_stat_checked": 1747,
+  "formal_raw_changed": 0,
+  "committed": 0,
+  "silver_runs_started": 0,
+  "day30_runs_submitted": 0,
+  "source_new_stock_week_rows": 1,
+  "source_new_stock_week_asof": "20261030",
+  "all_business_staging_preserved": true,
+  "code_changes": 0,
+  "config_changes": 0,
+  "retry_after_failure": false,
+  "proposed_resource_change_applied": false,
+  "proposed_8GiB_scope": [
+    "29 original monthly Raw next recovery",
+    "30 original weekly Raw recovery"
+  ],
+  "historical_budget_unchanged": {
+    "read_GiB": 12,
+    "write_GiB": 8,
+    "additional_space_GiB": 24
+  }
+}

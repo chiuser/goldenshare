@@ -1,0 +1,60 @@
+"""Read-only bounded control/run monitor for approved29/30 recovery. No pipeline execution."""
+import ast,hashlib,json,os,shutil,sys
+from contextlib import closing
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+import psycopg2,yaml
+from dagster._core.scheduler.instigation import InstigatorState
+from dagster._serdes import deserialize_value
+BASE=Path('/private/tmp/dg-period-2930-rss8-20261031');ROOT=Path('/Users/congming/github/goldenshare');S=Path('/Volumes/datasource/data_lake_staging/stock_period');ZONE=ZoneInfo('Asia/Shanghai')
+label=sys.argv[1];preflight=label=='preflight';ids={n:json.loads((BASE/(n+'-variables.json')).read_text())['params']['parentRunId'] for n in ('29-month','30-week','30-month')}
+jobs=['raw_stk_period_bar_adj_week_update_job','raw_stk_period_bar_adj_month_update_job','silver_stock_weekly_update_job','silver_stock_monthly_update_job']
+out={'at':datetime.now(ZONE).isoformat(),'read_only':True,'label':label,'runs':[]}
+cfg=yaml.safe_load(Path('/Users/congming/.goldenshare/dagster_home/dagster.yaml').read_text());url=cfg['storage']['postgres']['postgres_url'];url=os.environ[url['env']] if isinstance(url,dict) else url
+anchor=None
+for p in sorted(BASE.glob('*-launch.json')):
+ d=json.loads(p.read_text());node=d.get('data',{}).get('launchRunReexecution',{});run=node.get('run',{}).get('runId')
+ if run and anchor is None:anchor=run
+with closing(psycopg2.connect(url,connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn,conn.cursor() as c:
+ conn.set_session(readonly=True);c.execute('SHOW transaction_read_only');assert c.fetchone()[0]=='on'
+ c.execute('SELECT run_id,pipeline_name,status FROM runs WHERE status=ANY(%s) ORDER BY id DESC LIMIT 12',(['STARTING','STARTED','CANCELING'],));out['global_active']=[dict(zip(['run_id','job','status'],r)) for r in c.fetchall()]
+ c.execute("SELECT count(*) FROM runs WHERE status='QUEUED'");out['queued_count']=c.fetchone()[0]
+ if preflight:
+  c.execute('SELECT run_id,pipeline_name,status,start_time,end_time,run_body FROM runs WHERE run_id=ANY(%s)',(list(ids.values()),))
+ else:
+  assert anchor
+  c.execute('SELECT run_id,pipeline_name,status,start_time,end_time,run_body FROM runs WHERE pipeline_name=ANY(%s) AND id>=(SELECT id FROM runs WHERE run_id=%s) ORDER BY id LIMIT 20',(jobs,anchor))
+ records=c.fetchall()
+ for rid,job,status,start,end,body in records:
+  run=deserialize_value(body);entry={'run_id':rid,'job':job,'status':status,'start':datetime.fromtimestamp(start,ZONE).isoformat() if start else None,'end':datetime.fromtimestamp(end,ZONE).isoformat() if end else None,'parent':run.parent_run_id,'root':run.root_run_id,'config':run.run_config,'partition':run.tags.get('dagster/partition'),'runtime_rss_tag':run.tags.get('goldenshare/stock_period_rss_limit_gib')}
+  if preflight:
+   config=next(iter(run.run_config['ops'].values()))['config'];day='2026-10-29' if rid==ids['29-month'] else '2026-10-30';assert status=='FAILURE' and config['automatic_intent_date']==day and config['intent']=='daily' and config['stock_codes']==[]
+   c.execute("SELECT r.run_id,r.status FROM runs r JOIN run_tags t ON r.run_id=t.run_id WHERE t.key='dagster/parent_run_id' AND t.value=%s ORDER BY r.id DESC LIMIT 5",(rid,));entry['existing_children']=c.fetchall();assert not entry['existing_children']
+  c.execute('SELECT dagster_event_type,event FROM event_logs WHERE run_id=%s ORDER BY id DESC LIMIT 3',(rid,));entry['last_events']=[]
+  for kind,ev in c.fetchall():
+   e=deserialize_value(ev);entry['last_events'].append({'type':kind,'message':e.message[:1400], 'partition':getattr(getattr(e.dagster_event,'event_specific_data',None),'partition',None), 'passed':getattr(getattr(e.dagster_event,'event_specific_data',None),'passed',None)})
+  c.execute("SELECT event FROM event_logs WHERE run_id=%s AND dagster_event_type='STEP_FAILURE' ORDER BY id DESC LIMIT 1",(rid,));failure=c.fetchone()
+  if failure:
+   e=deserialize_value(failure[0]).dagster_event.event_specific_data.error;entry['failure']=[]
+   while e is not None and len(entry['failure'])<4:entry['failure'].append(e.message);e=getattr(e,'cause',None)
+  out['runs'].append(entry)
+ c.execute("SELECT status,job_body FROM jobs WHERE job_type='SENSOR' AND job_body LIKE ANY(%s)",(['%'+x+'%' for x in ['raw_stock_weekly_update_job_sensor','raw_stock_monthly_update_job_sensor','silver_stock_weekly_update_job_sensor','silver_stock_monthly_update_job_sensor']],));out['sensors']={}
+ for status,body in c.fetchall():
+  state=deserialize_value(body,InstigatorState);out['sensors'][state.name]={'status':status,'cursor':state.instigator_data.cursor}
+daily=json.loads((S/'daily.json').read_text());out['control']={k:daily.get(k) for k in ('last_refresh','last_source_asof','factor_through','completed_through')};out['pending']=[]
+for ex,w in daily.get('pending_work',{}).items():
+ p=S/'runs'/ex/'manifest.json';manifest=json.loads(p.read_text()) if p.exists() else {}
+ out['pending'].append({'execution':ex,'consumed':w.get('consumed'),'intent':w['intent'],'phase':manifest.get('phase')})
+if preflight:
+ assert len(out['runs'])==3;assert not any(r['job'] in jobs for r in out['global_active'])
+ assert len(out['pending'])==1 and out['pending'][0]['intent']['asof']=='2026-10-29' and out['pending'][0]['phase']=='download'
+ assert out['pending'][0]['intent']['codes']==['000878.SZ','688563.SH','920306.BJ']
+ current=ROOT/'lake_console/reports/dg_stock_period_delivery_recovery_20261028/cross_day_source_asof_fix_20261031/source-reconciliation.json'
+ sources=json.loads(current.read_text());out['source_hashes_match']=True
+ for key,val in sources.items():
+  path=ROOT/(val['path'] if key=='new_test' else key);assert hashlib.sha256(path.read_bytes()).hexdigest()==val['sha256']
+ out['free_bytes']=shutil.disk_usage(S).free;assert out['free_bytes']>24*1024**3
+ assert len(out['sensors'])==4 and all(x['status']=='RUNNING' for x in out['sensors'].values())
+(BASE/(label+'.json')).write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({**{k:out[k] for k in ('at','label','global_active','queued_count','control','pending')},'runs':[{k:v for k,v in r.items() if k not in ('config','failure')} for r in out['runs']],'failure':[{k:r[k] for k in ('run_id','failure')} for r in out['runs'] if 'failure' in r] if not preflight else []},ensure_ascii=False))

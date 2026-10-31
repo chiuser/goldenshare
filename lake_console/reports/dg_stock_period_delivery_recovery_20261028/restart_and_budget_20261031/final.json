@@ -1,0 +1,80 @@
+{
+  "at": "2026-10-31T09:59:07.946127+08:00",
+  "stage": "final",
+  "read_only": true,
+  "active": [],
+  "queued_count": 0,
+  "sensors": {
+    "raw_stock_monthly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 0, \"decision\": \"request_runs\", \"details\": {\"asset_family\": \"stock_period\", \"blocked_component\": \"none\", \"evidence\": {\"daily_intent_date\": \"2026-10-30\", \"pending_periods\": [\"2026-10\"]}, \"job_name\": \"raw_stk_period_bar_adj_month_update_job\", \"next_action\": \"等待源交付及文件检查。\", \"partition_set\": \"cn_a_stock_months\", \"reason_code\": \"direct_source_request\", \"runtime_state\": {\"direct_completed_through\": \"2026-09\", \"examined_through\": \"2026-09\", \"policy_version\": \"completed-month-v1\", \"source_policy\": \"stock-period-source-v2\", \"verified_through\": \"2026-09\"}, \"sensor_name\": \"raw_stock_monthly_update_job_sensor\", \"summary\": \"先补欠账，再更新当前周期。\"}, \"evaluated_at\": \"2026-10-30T23:59:16.430549+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 1, \"target_date\": \"2026-10\"}"
+    },
+    "raw_stock_weekly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 0, \"decision\": \"request_runs\", \"details\": {\"asset_family\": \"stock_period\", \"blocked_component\": \"none\", \"evidence\": {\"daily_intent_date\": \"2026-10-30\", \"pending_periods\": [\"2026-10-30\"]}, \"job_name\": \"raw_stk_period_bar_adj_week_update_job\", \"next_action\": \"等待源交付及文件检查。\", \"partition_set\": \"cn_a_stock_week_ends\", \"reason_code\": \"direct_source_request\", \"runtime_state\": {\"adjusted_delivery_revision\": 1785, \"direct_completed_through\": \"2026-10-23\", \"examined_through\": \"2026-10-09\", \"policy_version\": \"completed-week-v1\", \"source_policy\": \"stock-period-source-v2\", \"verified_through\": \"2026-10-09\"}, \"sensor_name\": \"raw_stock_weekly_update_job_sensor\", \"summary\": \"先补欠账，再更新当前周期。\"}, \"evaluated_at\": \"2026-10-30T23:59:55.591688+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 1, \"target_date\": \"2026-10-30\"}"
+    },
+    "silver_stock_monthly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"schema_version\":1,\"after\":7778142,\"decision\":\"silver_no_completion\",\"evaluated_at\":\"2026-10-31T09:58:56.894148+08:00\"}"
+    },
+    "silver_stock_weekly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"schema_version\":1,\"after\":7778143,\"decision\":\"silver_no_completion\",\"evaluated_at\":\"2026-10-31T09:58:44.864576+08:00\"}"
+    }
+  },
+  "control": {
+    "last_refresh": {
+      "month": "2026-10-28",
+      "week": "2026-10-27"
+    },
+    "last_source_asof": {
+      "month": "20261028",
+      "week": "20261027"
+    },
+    "factor_through": "2026-10-28",
+    "completed_through": {
+      "month": "2026-09",
+      "week": "2026-10-23"
+    }
+  },
+  "pending": [
+    {
+      "execution": "2742186f0ce0d15bc231ccc76afc566a71b6e4f500576a4e061afb8a6af297f3",
+      "consumed": false,
+      "frequency": "month",
+      "intent": {
+        "asof": "2026-10-29",
+        "codes": [
+          "000878.SZ",
+          "688563.SH",
+          "920306.BJ"
+        ],
+        "frequencies": [
+          "week",
+          "month"
+        ],
+        "mode": "upsert",
+        "period_cutoffs": {
+          "month": {
+            "2026-10": "20261029"
+          }
+        },
+        "periods": {
+          "month": [
+            "2026-10"
+          ]
+        },
+        "request_id": "4f59f2bf8a554d6c36459ea024b3249754343260867bcfa1913daf64430dd887",
+        "retired_codes": [],
+        "superseded_codes": [],
+        "version": "stock-period-source-v2"
+      }
+    }
+  ],
+  "processes": [
+    "30797     1 30797 Sat Oct 31 09:49:59 2026     /Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/bin/python /Users/congming/github/goldenshare/lake_console/orchestrator/.venv/bin/dg dev --host 127.0.0.1 --port 3000 --db-pool-max-overflow 80 --live-data-poll-rate 10000",
+    "30834 30831 30797 Sat Oct 31 09:50:02 2026     /Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/bin/python -m dagster api grpc --lazy-load-user-code --socket /var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpke3vd1z9 --heartbeat --heartbeat-timeout 30 --log-level warning --inject-env-vars-from-instance [location=orchestrator module=orchestrator.definitions]",
+    "30848 30797 30797 Sat Oct 31 09:50:04 2026     /Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/bin/python -m dagster_webserver --port 3000 --host 127.0.0.1 --dagster-log-level info --log-format colored --live-data-poll-rate 10000 --db-pool-max-overflow 80 --shutdown-pipe 9",
+    "30849 30797 30797 Sat Oct 31 09:50:04 2026     /Users/congming/github/goldenshare/lake_console/orchestrator/venv.bak/dg-1.13.26/bin/python -m dagster._daemon run --log-level info --log-format colored --shutdown-pipe 7"
+  ]
+}

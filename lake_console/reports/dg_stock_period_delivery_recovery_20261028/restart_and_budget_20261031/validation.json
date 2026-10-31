@@ -1,0 +1,79 @@
+{
+  "at": "2026-10-31T10:07:04.437854+08:00",
+  "docs_integrity": true,
+  "scoped_diff_check": true,
+  "new_section_links_checked": 12,
+  "credential_pattern_check": true,
+  "required_budget_numbers_consistent": true,
+  "new_tests_this_turn": 0,
+  "historical_OHLC_reads_this_turn": 0,
+  "factor_queries_count_only": 2,
+  "budget_inventory_method": "trusted range metadata and stat; compressed JSON archives preserve exact evidence",
+  "manual_jobs_submitted": 0,
+  "formal_backfill_executed": false,
+  "removed_own_temporary_files": [
+    {
+      "path": "/private/tmp/dg_period_restart_readonly_20261031.py",
+      "bytes": 3244,
+      "sha256": "c6b061b3f1f3445421cb2e370eda24012db11aa093ebe7cc97849f64882b6aa5"
+    },
+    {
+      "path": "/private/tmp/dg_period_restart_execute_20261031.py",
+      "bytes": 2866,
+      "sha256": "5012686450eb5d8b10faf01d192b5e5d1700f6f090c3873dde5882677eba33a8"
+    },
+    {
+      "path": "/private/tmp/dg_period_budget_20261031.py",
+      "bytes": 6808,
+      "sha256": "7bdf694bd7b3e289590419ccc49f5cd890a2b65830610b701cba004c68ee8fae"
+    },
+    {
+      "path": "/private/tmp/dg_period_budget30_scope_20261031.py",
+      "bytes": 4120,
+      "sha256": "7864c8a4041cd6afced5339f8e14f7ad7fc6abfb1f41548eea43d3616a9234b8"
+    },
+    {
+      "path": "/private/tmp/dg_period_restart_verify_20261031.py",
+      "bytes": 3464,
+      "sha256": "97cbe6205648c7e61b8b71dc3d3a57a760cc53629e2a29c8147299be8dbbc37c"
+    },
+    {
+      "path": "/private/tmp/dg_period_restart_budget_20261031/before.json",
+      "bytes": 5097,
+      "sha256": "76efdc3e256e0a9c41aa5622130dc941bfaca9d626058216d30ca4e4ec913257"
+    },
+    {
+      "path": "/private/tmp/dg_period_restart_budget_20261031/after.json",
+      "bytes": 5097,
+      "sha256": "0609d47d5bd7172d17f7c852d039eb1ae5231452a83104c96123350c5dbe9e8d"
+    },
+    {
+      "path": "/private/tmp/dg_period_restart_budget_20261031/final.json",
+      "bytes": 5097,
+      "sha256": "6b3a502a26255bda7dfd2929bb40dbb0b3dcf4ccd9c99642e5d8a1c47f478616"
+    },
+    {
+      "path": "/private/tmp/dg_period_restart_budget_20261031/restart-action.json",
+      "bytes": 577,
+      "sha256": "7a63dff1a2f64bf3168e5c76f62faada8cfc8cb164140649952a419b5fa4167d"
+    },
+    {
+      "path": "/private/tmp/dg_period_restart_budget_20261031/code-and-state-verification.json",
+      "bytes": 4491,
+      "sha256": "10adb2ffa884f0dbcaa1d24dfcf6d710861ae7d0cfcb94e3d1e24e8f84741aad"
+    },
+    {
+      "path": "/private/tmp/dg_period_restart_budget_20261031/scope-stat.json",
+      "bytes": 892608,
+      "sha256": "5ee224c98c366ab579c57cd177ddf20e3d1b8bc6fcc0c768c8ac16fac1d5acd6"
+    },
+    {
+      "path": "/private/tmp/dg_period_restart_budget_20261031/scope30-stat.json",
+      "bytes": 1018965,
+      "sha256": "7a4587f4ba72efd1821dea8504ed475252f8e2d7ca7bd7c2f24f060b9cb15b3e"
+    }
+  ],
+  "active_runtime_log_retained": "/private/tmp/dg_period_restart_budget_20261031/dg-restarted.stdout.txt",
+  "unrelated_changes_preserved": true,
+  "operation_records_committed": false
+}

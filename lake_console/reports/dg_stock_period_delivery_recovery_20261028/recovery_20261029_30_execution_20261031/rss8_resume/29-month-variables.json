@@ -1,0 +1,13 @@
+{
+  "params": {
+    "parentRunId": "488ae87d-d27d-47d0-90ff-69089416121b",
+    "strategy": "FROM_FAILURE",
+    "useParentRunTags": true,
+    "extraTags": [
+      {
+        "key": "goldenshare/stock_period_rss_limit_gib",
+        "value": "8"
+      }
+    ]
+  }
+}

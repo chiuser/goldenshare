@@ -1,0 +1,108 @@
+{
+  "at": "2026-10-31T10:02:07.535406+08:00",
+  "commit": "4a5a5e17b",
+  "files": [
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/io/stock_period_raw.py",
+      "sha256": "59f18ec06a50a6be20c54576d05971bcb5d4506a2e00edb190a67ec27f82b285",
+      "mtime": "2026-10-31T09:23:11.850975+08:00",
+      "matches_commit_and_463_test_evidence": true
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/stock_period_silver.py",
+      "sha256": "c758d62ec816fb690d95eb13cd9c0ffa66b9a4a103d1005ac21697c6bc6be48b",
+      "mtime": "2026-10-31T09:23:11.880355+08:00",
+      "matches_commit_and_463_test_evidence": true
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/stock_period_source.py",
+      "sha256": "c399f72c47e8942328a0c32284a16d02995849a5165b9059467d7a3db328e22a",
+      "mtime": "2026-10-16T11:21:30.964344+08:00",
+      "matches_commit_and_463_test_evidence": true
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/stock_period_update.py",
+      "sha256": "e1539d6dd3bd5b8d342ce362c1411dfc4806abb52c0d06a24b30fce1070d4efc",
+      "mtime": "2026-10-29T07:53:43.135708+08:00",
+      "matches_commit_and_463_test_evidence": true
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/run_contracts/stock_period_silver.py",
+      "sha256": "bec17a3d87f18eee19640c68eebf19925ed1659b1e16213df4c9fccf7797b953",
+      "mtime": "2026-10-28T08:15:40.203905+08:00",
+      "matches_commit_and_463_test_evidence": true
+    },
+    {
+      "path": "lake_console/orchestrator/src/orchestrator/defs/checks/stock_period_silver_checks.py",
+      "sha256": "12a734df362ab2d5cb62885a89a8f0a03c5a394980e404ecae94b2732f5b6392",
+      "mtime": "2026-10-28T08:03:59.242674+08:00",
+      "matches_commit_and_463_test_evidence": true
+    },
+    {
+      "path": "lake_console/orchestrator/tests/test_stock_period_cross_day_asof.py",
+      "sha256": "e58d5a5e8937af4d2eb5792009087e629991244f2ec006bb57e69b9eb136c4d7",
+      "mtime": "2026-10-31T09:29:39.653413+08:00",
+      "matches_commit_and_463_test_evidence": true
+    }
+  ],
+  "before_final_equal": {
+    "pending": true,
+    "control": true,
+    "sensors_business_state": true
+  },
+  "sensors": {
+    "raw_stock_monthly_update_job_sensor": {
+      "status_unchanged": true,
+      "business_cursor_unchanged": true,
+      "natural_evaluation_timestamps": {
+        "before": "2026-10-30T23:59:16.430549+08:00",
+        "after": "2026-10-30T23:59:16.430549+08:00"
+      }
+    },
+    "raw_stock_weekly_update_job_sensor": {
+      "status_unchanged": true,
+      "business_cursor_unchanged": true,
+      "natural_evaluation_timestamps": {
+        "before": "2026-10-30T23:59:55.591688+08:00",
+        "after": "2026-10-30T23:59:55.591688+08:00"
+      }
+    },
+    "silver_stock_monthly_update_job_sensor": {
+      "status_unchanged": true,
+      "business_cursor_unchanged": true,
+      "natural_evaluation_timestamps": {
+        "before": "2026-10-31T09:47:31.873807+08:00",
+        "after": "2026-10-31T09:58:56.894148+08:00"
+      }
+    },
+    "silver_stock_weekly_update_job_sensor": {
+      "status_unchanged": true,
+      "business_cursor_unchanged": true,
+      "natural_evaluation_timestamps": {
+        "before": "2026-10-31T09:47:05.495660+08:00",
+        "after": "2026-10-31T09:58:44.864576+08:00"
+      }
+    }
+  },
+  "byte_cursor_equality": false,
+  "byte_cursor_difference_reason": "Only the two Silver evaluated_at timestamps advanced under normal daemon evaluation; status, after, decision and pending unchanged",
+  "verification_first_attempt": "Raw byte equality assertion rejected expected evaluated_at movement before writing results; no state or data changed. Current comparison explicitly preserves all business fields.",
+  "active": 0,
+  "queued": 0,
+  "new_code_process_started_at": "2026-10-31T09:50:02+08:00",
+  "new_code_process_pid": 30834,
+  "repository_query": {
+    "observed_at": "2026-10-31T09:50:30+08:00",
+    "query": "{version repositoriesOrError {__typename ... on RepositoryConnection {nodes {name location {name}}}}}",
+    "version": "1.13.26",
+    "location": "orchestrator",
+    "repository": "__repository__",
+    "source": "prior successful dagster-graphql read-only command; not repeated"
+  },
+  "filesystem_free": {
+    "/Volumes/datasource/data_lake": 2899782406144,
+    "/Volumes/datasource/data_lake_staging": 2899782406144
+  },
+  "manual_jobs_submitted": 0,
+  "formal_backfill_executed": false
+}

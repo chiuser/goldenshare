@@ -1,0 +1,27 @@
+"""Read-only stage order and duplicate-run check before an approved original run submission."""
+import json,os,sys
+from pathlib import Path
+from contextlib import closing
+from datetime import datetime
+from zoneinfo import ZoneInfo
+import psycopg2,yaml
+from dagster._serdes import deserialize_value
+from dagster._core.scheduler.instigation import InstigatorState
+base=Path('/private/tmp/dg-period-2930-rss8-20261031');stage=sys.argv[1];assert stage in ('30-week','30-month')
+parent=json.loads((base/(stage+'-variables.json')).read_text())['params']['parentRunId']
+daily=json.loads(Path('/Volumes/datasource/data_lake_staging/stock_period/daily.json').read_text());assert not daily['pending_work'];assert daily['factor_through']==('2026-10-29' if stage=='30-week' else '2026-10-30')
+cfg=yaml.safe_load(Path('/Users/congming/.goldenshare/dagster_home/dagster.yaml').read_text());url=cfg['storage']['postgres']['postgres_url'];url=os.environ[url['env']] if isinstance(url,dict) else url
+out={'at':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'stage':stage,'parent':parent,'factor_through':daily['factor_through'],'pending_count':0}
+with closing(psycopg2.connect(url,connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn,conn.cursor() as c:
+ conn.set_session(readonly=True);c.execute('SELECT status,run_body FROM runs WHERE run_id=%s',(parent,));status,body=c.fetchone();run=deserialize_value(body);assert status=='FAILURE'
+ want='raw_stk_period_bar_adj_'+('week' if stage=='30-week' else 'month')+'_update_job';assert run.job_name==want
+ config=next(iter(run.run_config['ops'].values()))['config'];assert config['automatic_intent_date']=='2026-10-30' and config['intent']=='daily' and config['stock_codes']==[]
+ c.execute("SELECT run_id,status FROM runs WHERE run_id IN (SELECT run_id FROM run_tags WHERE key='dagster/parent_run_id' AND value=%s) LIMIT 5",(parent,));out['children']=c.fetchall();assert not out['children']
+ c.execute('SELECT run_id,pipeline_name,status FROM runs WHERE pipeline_name=ANY(%s) AND status=ANY(%s) LIMIT 10',(['raw_stk_period_bar_adj_week_update_job','raw_stk_period_bar_adj_month_update_job','silver_stock_weekly_update_job','silver_stock_monthly_update_job'],['QUEUED','STARTING','STARTED','CANCELING']));out['chain_active']=c.fetchall();assert not out['chain_active'];out['original_config']=run.run_config
+ if stage=='30-month':
+  previous=Path('/Volumes/datasource/data_lake_staging/stock_period/runs/652694347a40c614a141791274fbddccce4bb601d8002f8d24d3187e76655701')
+  c.execute("SELECT status,job_body FROM jobs WHERE job_type='SENSOR' AND job_body LIKE ANY(%s)",(['%silver_stock_weekly_update_job_sensor%','%silver_stock_monthly_update_job_sensor%'],))
+  out['confirmed_silver_notices']={}
+  for status,body in c.fetchall():
+   sensor=deserialize_value(body,InstigatorState);cursor=json.loads(sensor.instigator_data.cursor);freq='week' if sensor.name=='silver_stock_weekly_update_job_sensor' else 'month';notice=json.loads((previous/'events/completion'/(freq+'.json')).read_text());assert status=='RUNNING' and not cursor.get('pending') and cursor['after']>=notice['observation_id'];out['confirmed_silver_notices'][freq]=cursor['after']
+(base/(stage+'-preflight.json')).write_text(json.dumps(out,indent=2)+'\n');print(json.dumps(out))

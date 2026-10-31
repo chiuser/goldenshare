@@ -1,0 +1,19 @@
+{
+  "authorized_parent": 89797,
+  "at": "2026-10-31T09:49:57.887565+08:00",
+  "signal": "SIGINT",
+  "active_and_queued_before": 0,
+  "old_pids": [
+    89797,
+    89842,
+    89843,
+    4138
+  ],
+  "new_job_submissions": 0,
+  "old_parent_web_daemon_code_exited": true,
+  "stopped_at": "2026-10-31T09:49:59.445169+08:00",
+  "new_parent_pid": 30797,
+  "launch_command": "bash /Users/congming/github/goldenshare/lake_console/bin/lake-dg-start",
+  "log": "/private/tmp/dg_period_restart_budget_20261031/dg-restarted.stdout.txt",
+  "launched_at": "2026-10-31T09:49:59.446558+08:00"
+}

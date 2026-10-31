@@ -1,0 +1,37 @@
+"""Failure boundary only: metadata/stat and exact failed event, no market rows or writes."""
+import gzip,json,os
+from pathlib import Path
+from contextlib import closing
+from datetime import datetime
+from zoneinfo import ZoneInfo
+import psycopg2,yaml
+from dagster._serdes import deserialize_value
+B=Path('/private/tmp/dg-period-2930-execution-20261031');R=Path('/Users/congming/github/goldenshare');S=Path('/Volumes/datasource/data_lake_staging/stock_period/runs/2742186f0ce0d15bc231ccc76afc566a71b6e4f500576a4e061afb8a6af297f3')
+manifest=json.loads((S/'manifest.json').read_text());out={'at':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'run_id':'488ae87d-d27d-47d0-90ff-69089416121b','phase':manifest['phase'],'frozen_rss_bytes':manifest['identity']['policy']['rss_bytes'],'root_complete_exists':(S/'complete.json').exists(),'candidate_manifest_files':[p.name for p in (S/'candidates').glob('*.json')] if (S/'candidates').exists() else [],'committed_files':len(list((S/'committed').rglob('*.json'))) if (S/'committed').exists() else 0,'build':{},'source':[]}
+for f in ('week','month'):
+ p=S/'build'/f;files=[x for x in p.rglob('*') if x.is_file()] if p.exists() else []
+ out['build'][f]={'exists':p.exists(),'copy_exists':(p/'copy.json').exists(),'file_count':len(files),'bytes':sum(x.stat().st_size for x in files),'merged_files':len(list((p/'merged').glob('*.parquet'))) if (p/'merged').exists() else 0,'validation_proofs':len(list((p/'validated').glob('*.json'))) if (p/'validated').exists() else 0}
+ if (p/'copy.json').exists():
+  copy=json.loads((p/'copy.json').read_text());out['build'][f].update(periods=len(copy['periods']),expected_rows=sum(copy['expected_rows'].values()))
+for p in sorted((S/'source').glob('*/identity.json')):
+ identity=json.loads(p.read_text());cp=p.parent/'complete.json';entry={'code':identity['code'],'freq':identity['freq'],'complete':cp.exists()}
+ if cp.exists():
+  data=json.loads(cp.read_text());entry.update(rows=data['rows'],maximum_asof=data['maximum_asof'],complete_mtime=datetime.fromtimestamp(cp.stat().st_mtime,ZoneInfo('Asia/Shanghai')).isoformat())
+ out['source'].append(entry)
+old=json.loads(gzip.decompress((R/'lake_console/reports/dg_stock_period_delivery_recovery_20261028/restart_and_budget_20261031/scope-stat.json.gz').read_bytes()))
+changes=[];n=0
+for data in old['day29'].values():
+ for item in data['raw_files']:
+  p=Path(item['path']);s=p.stat();version=[s.st_dev,s.st_ino,s.st_size,s.st_mtime_ns,s.st_ctime_ns];n+=1
+  if version!=item['version']:changes.append({'path':str(p),'old':item['version'],'current':version})
+out['formal_raw_versions']={'checked':n,'changed':changes,'body_reads':0}
+cfg=yaml.safe_load(Path('/Users/congming/.goldenshare/dagster_home/dagster.yaml').read_text());url=cfg['storage']['postgres']['postgres_url'];url=os.environ[url['env']] if isinstance(url,dict) else url
+with closing(psycopg2.connect(url,connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn,conn.cursor() as c:
+ conn.set_session(readonly=True)
+ c.execute("SELECT event FROM event_logs WHERE run_id=%s AND dagster_event_type='STEP_FAILURE' ORDER BY id DESC LIMIT 1",(out['run_id'],));e=deserialize_value(c.fetchone()[0]);err=e.dagster_event.event_specific_data.error;out['exception_chain']=[]
+ while err is not None and len(out['exception_chain'])<4:
+  out['exception_chain'].append({'message':err.message,'stack':list(err.stack)});err=getattr(err,'cause',None)
+ c.execute("SELECT event FROM event_logs WHERE run_id=%s AND dagster_event_type IS NULL ORDER BY id DESC LIMIT 6",(out['run_id'],));out['last_progress']=[deserialize_value(x[0]).message for x in c.fetchall()]
+ c.execute("SELECT dagster_event_type,count(*) FROM event_logs WHERE run_id=%s AND dagster_event_type IN ('ASSET_MATERIALIZATION','ASSET_CHECK_EVALUATION') GROUP BY dagster_event_type",(out['run_id'],));out['data_events']=dict(c.fetchall())
+(B/'failure-state.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps(out,ensure_ascii=False))

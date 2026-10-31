@@ -1,0 +1,125 @@
+{
+  "at": "2026-10-31T10:35:43.336590+08:00",
+  "read_only": true,
+  "label": "watch-05",
+  "runs": [
+    {
+      "run_id": "1f8507d5-f477-4ee7-82e4-06e750462397",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "STARTED",
+      "start": "2026-10-31T10:31:52.052176+08:00",
+      "end": null,
+      "parent": "488ae87d-d27d-47d0-90ff-69089416121b",
+      "root": "4d3edf1d-9958-44b0-bde1-8a9f0cce1965",
+      "config": {
+        "ops": {
+          "raw_tushare_stk_period_bar_adj_month": {
+            "config": {
+              "automatic_intent_date": "2026-10-29",
+              "intent": "daily",
+              "request_id": null,
+              "stock_codes": []
+            }
+          }
+        }
+      },
+      "partition": "2026-10",
+      "runtime_rss_tag": "8",
+      "last_events": [
+        {
+          "type": "ASSET_CHECK_EVALUATION",
+          "message": "",
+          "partition": "2005-05",
+          "passed": true
+        },
+        {
+          "type": "ASSET_CHECK_EVALUATION",
+          "message": "",
+          "partition": "2005-04",
+          "passed": true
+        },
+        {
+          "type": "ASSET_CHECK_EVALUATION",
+          "message": "",
+          "partition": "2005-04",
+          "passed": true
+        }
+      ]
+    }
+  ],
+  "global_active": [
+    {
+      "run_id": "1f8507d5-f477-4ee7-82e4-06e750462397",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "STARTED"
+    }
+  ],
+  "queued_count": 0,
+  "sensors": {
+    "raw_stock_monthly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 0, \"decision\": \"request_runs\", \"details\": {\"asset_family\": \"stock_period\", \"blocked_component\": \"none\", \"evidence\": {\"daily_intent_date\": \"2026-10-30\", \"pending_periods\": [\"2026-10\"]}, \"job_name\": \"raw_stk_period_bar_adj_month_update_job\", \"next_action\": \"等待源交付及文件检查。\", \"partition_set\": \"cn_a_stock_months\", \"reason_code\": \"direct_source_request\", \"runtime_state\": {\"direct_completed_through\": \"2026-09\", \"examined_through\": \"2026-09\", \"policy_version\": \"completed-month-v1\", \"source_policy\": \"stock-period-source-v2\", \"verified_through\": \"2026-09\"}, \"sensor_name\": \"raw_stock_monthly_update_job_sensor\", \"summary\": \"先补欠账，再更新当前周期。\"}, \"evaluated_at\": \"2026-10-30T23:59:16.430549+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 1, \"target_date\": \"2026-10\"}"
+    },
+    "raw_stock_weekly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 0, \"decision\": \"request_runs\", \"details\": {\"asset_family\": \"stock_period\", \"blocked_component\": \"none\", \"evidence\": {\"daily_intent_date\": \"2026-10-30\", \"pending_periods\": [\"2026-10-30\"]}, \"job_name\": \"raw_stk_period_bar_adj_week_update_job\", \"next_action\": \"等待源交付及文件检查。\", \"partition_set\": \"cn_a_stock_week_ends\", \"reason_code\": \"direct_source_request\", \"runtime_state\": {\"adjusted_delivery_revision\": 1785, \"direct_completed_through\": \"2026-10-23\", \"examined_through\": \"2026-10-09\", \"policy_version\": \"completed-week-v1\", \"source_policy\": \"stock-period-source-v2\", \"verified_through\": \"2026-10-09\"}, \"sensor_name\": \"raw_stock_weekly_update_job_sensor\", \"summary\": \"先补欠账，再更新当前周期。\"}, \"evaluated_at\": \"2026-10-30T23:59:55.591688+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 1, \"target_date\": \"2026-10-30\"}"
+    },
+    "silver_stock_monthly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"schema_version\":1,\"after\":7778142,\"decision\":\"silver_run_active\",\"evaluated_at\":\"2026-10-31T10:35:12.318985+08:00\"}"
+    },
+    "silver_stock_weekly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"schema_version\":1,\"after\":7778143,\"decision\":\"silver_run_active\",\"evaluated_at\":\"2026-10-31T10:35:07.147510+08:00\"}"
+    }
+  },
+  "control": {
+    "last_refresh": {
+      "month": "2026-10-29",
+      "week": "2026-10-27"
+    },
+    "last_source_asof": {
+      "month": "20261030",
+      "week": "20261027"
+    },
+    "factor_through": "2026-10-29",
+    "completed_through": {
+      "month": "2026-09",
+      "week": "2026-10-23"
+    }
+  },
+  "pending": [
+    {
+      "execution": "2742186f0ce0d15bc231ccc76afc566a71b6e4f500576a4e061afb8a6af297f3",
+      "consumed": true,
+      "intent": {
+        "asof": "2026-10-29",
+        "codes": [
+          "000878.SZ",
+          "688563.SH",
+          "920306.BJ"
+        ],
+        "frequencies": [
+          "week",
+          "month"
+        ],
+        "mode": "upsert",
+        "period_cutoffs": {
+          "month": {
+            "2026-10": "20261029"
+          }
+        },
+        "periods": {
+          "month": [
+            "2026-10"
+          ]
+        },
+        "request_id": "4f59f2bf8a554d6c36459ea024b3249754343260867bcfa1913daf64430dd887",
+        "retired_codes": [],
+        "superseded_codes": [],
+        "version": "stock-period-source-v2"
+      },
+      "phase": "files_complete"
+    }
+  ]
+}

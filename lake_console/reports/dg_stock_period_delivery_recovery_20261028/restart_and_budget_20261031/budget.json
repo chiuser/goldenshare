@@ -1,0 +1,150 @@
+{
+  "at": "2026-10-31T10:03:04.896503+08:00",
+  "status": "proposal_for_specific_historical_scope_not_executed",
+  "commit": "4a5a5e17b",
+  "scope": {
+    "2026-10-29": {
+      "week": {
+        "raw_existing_files": 1410,
+        "raw_first": "1998-06-05",
+        "raw_last": "2026-10-30",
+        "raw_existing_bytes": 287976822,
+        "raw_existing_rows": 3483991,
+        "silver_files": 631,
+        "silver_first": "2014-01-03",
+        "silver_last": "2026-10-30",
+        "silver_raw_bytes": 204938508,
+        "silver_existing_bytes": 134391296
+      },
+      "month": {
+        "raw_existing_files": 337,
+        "raw_first": "1998-06",
+        "raw_last": "2026-10",
+        "raw_existing_bytes": 69923114,
+        "raw_existing_rows": 839725,
+        "silver_files": 150,
+        "silver_first": "2014-01",
+        "silver_last": "2026-10",
+        "silver_raw_bytes": 49612177,
+        "silver_existing_bytes": 32605761
+      },
+      "totals": {
+        "raw_distinct_files": 1747,
+        "raw_bytes": 357899936,
+        "silver_distinct_files": 781,
+        "silver_raw_input_bytes": 254550685,
+        "old_silver_bytes": 166997057,
+        "reference_scale_read_bytes_formula": "R + 3*(1.25*R) + Q + 1.25*S; source/reference/control and DuckDB temporary IO separate",
+        "reference_scale_read_bytes": 2163321702,
+        "reference_scale_write_bytes": 1103496161,
+        "candidate_size_estimate_multiplier": 1.25
+      }
+    },
+    "2026-10-30": {
+      "week": {
+        "raw_existing_files": 1488,
+        "raw_first": "1997-06-20",
+        "raw_last": "2026-10-30",
+        "raw_existing_bytes": 295699086,
+        "silver_files": 658,
+        "silver_first": "2014-01-03",
+        "silver_last": "2026-10-30",
+        "silver_raw_bytes": 210008763,
+        "silver_existing_bytes": 137658201
+      },
+      "month": {
+        "raw_existing_files": 353,
+        "raw_first": "1997-06",
+        "raw_last": "2026-10",
+        "raw_existing_bytes": 71295876,
+        "silver_files": 154,
+        "silver_first": "2014-01",
+        "silver_last": "2026-10",
+        "silver_raw_bytes": 50375136,
+        "silver_existing_bytes": 33101716
+      },
+      "totals": {
+        "raw_distinct_files": 1841,
+        "raw_bytes": 366994962,
+        "silver_distinct_files": 812,
+        "silver_raw_input_bytes": 260383899,
+        "old_silver_bytes": 170759917,
+        "reference_scale_read_bytes_formula": "R + 3*(1.25*R) + Q + 1.25*S; source/reference/control and DuckDB temporary IO separate",
+        "reference_scale_read_bytes": 2217059865,
+        "reference_scale_write_bytes": 1130937301,
+        "candidate_size_estimate_multiplier": 1.25,
+        "additional_current_month_raw_write": 1,
+        "additional_current_month_silver_write": 1,
+        "expected_raw_writes_in_two_daily_jobs": 1842,
+        "expected_silver_writes_in_two_daily_jobs": 813
+      }
+    }
+  },
+  "day30_counts": {
+    "factor_changed": 11,
+    "new_listed_since_frozen29": 0,
+    "no_longer_in_current_pool": 0,
+    "current_pool_count": 5577,
+    "unresolved_delist_count": 0,
+    "execution_codes_not_exported": true,
+    "original_job_must_generate_execution_list": true
+  },
+  "source_requests": {
+    "2026-10-29": {
+      "original_total_units": 7,
+      "completed_units_reused": 2,
+      "remaining_units": 5,
+      "normal_remaining_pages": 5
+    },
+    "2026-10-30": {
+      "expected_history_units": 22,
+      "current_period_units": 2,
+      "normal_pages": 24
+    },
+    "qualification": "Forecast based on current original metadata and page_limit=6000, not a newly imposed source cap. Original job must create the real work list; existing transport retries unchanged."
+  },
+  "budget_GiB": {
+    "normal_business": {
+      "read": 5,
+      "write": 2.5
+    },
+    "one_interruption_unfinished_only": {
+      "read": 2,
+      "write": 1
+    },
+    "final_original_checks_and_metadata": {
+      "read": 0.5,
+      "write": 0.5
+    },
+    "optional_duckdb_temporary_io_reserve": {
+      "read": 4,
+      "write": 4
+    },
+    "total_estimate_rounded": {
+      "read": 12,
+      "write": 8,
+      "additional_space": 24
+    }
+  },
+  "scope_notes": [
+    "The one extra30 current-month partition is included; distinct file count is not sum of both job writes.",
+    "Old Silver content is not read for merging; its sizes estimate new output.",
+    "Per-file candidate checks and Raw SHA are existing write acceptance, not added global audits.",
+    "One interrupted continuation reuses committed units and completed source pages; no blanket repeat approved.",
+    "24GiB disk reserve includes existing Raw16GiB spill allowance and candidate/control retention; it is not24GiB expected writes or a new runtime setting.",
+    "Raw original shared-file read is required to preserve other stocks; Silver reads selected Raw21columns and required lifecycle/identity.",
+    "No volume measurement or performance run; compressed bytes are stat evidence and IO is an estimate.",
+    "No formal jobs submitted this turn. Specific historical scope approval is still required."
+  ],
+  "source_inventory_archives": {
+    "scope-stat.json.gz": "5ee224c98c366ab579c57cd177ddf20e3d1b8bc6fcc0c768c8ac16fac1d5acd6",
+    "scope30-stat.json.gz": "7a4587f4ba72efd1821dea8504ed475252f8e2d7ca7bd7c2f24f060b9cb15b3e"
+  },
+  "execution_order": [
+    "29 original month Raw FROM_FAILURE and original events closeout",
+    "29 original week/month Silver deliveries and confirmation",
+    "30 original weekly daily job including original generated11-code factor history in both frequencies; finish both Silver deliveries",
+    "30 original monthly daily job current month; finish monthly Silver",
+    "One metadata/receipt/current-anchor closeout; no full-history audit"
+  ]
+}

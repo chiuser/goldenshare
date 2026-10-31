@@ -1,0 +1,52 @@
+"""Read-only restart preflight; does not initialize a Dagster instance or read market rows."""
+import json
+import os
+import subprocess
+import sys
+from contextlib import closing
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import psycopg2
+import yaml
+from dagster._core.scheduler.instigation import InstigatorState
+from dagster._serdes import deserialize_value
+
+OUT = Path('/private/tmp/dg_period_restart_budget_20261031')
+OUT.mkdir(exist_ok=True)
+stage = sys.argv[1]
+assert stage in ('before', 'after', 'final')
+zone = ZoneInfo('Asia/Shanghai')
+cfg = yaml.safe_load(Path('/Users/congming/.goldenshare/dagster_home/dagster.yaml').read_text())
+url = cfg['storage']['postgres']['postgres_url']
+if isinstance(url, dict):
+    url = os.environ[url['env']]
+out = {'at':datetime.now(zone).isoformat(), 'stage':stage, 'read_only':True}
+with closing(psycopg2.connect(url,connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn, conn.cursor() as c:
+    conn.set_session(readonly=True)
+    c.execute('SHOW transaction_read_only')
+    assert c.fetchone()[0] == 'on'
+    c.execute('SELECT run_id,pipeline_name,status,start_time FROM runs WHERE status=ANY(%s) ORDER BY id DESC LIMIT 20', (['STARTING','STARTED','CANCELING'],))
+    out['active'] = [{'run_id':r,'job':j,'status':s,'start':datetime.fromtimestamp(t,zone).isoformat() if t else None} for r,j,s,t in c.fetchall()]
+    c.execute("SELECT count(*) FROM runs WHERE status='QUEUED'")
+    out['queued_count'] = c.fetchone()[0]
+    c.execute("SELECT status,job_body FROM jobs WHERE job_type='SENSOR' AND job_body LIKE ANY(%s)", ([f'%{s}%' for s in ['raw_stock_weekly_update_job_sensor','raw_stock_monthly_update_job_sensor','silver_stock_weekly_update_job_sensor','silver_stock_monthly_update_job_sensor']],))
+    out['sensors'] = {}
+    for status, body in c.fetchall():
+        state=deserialize_value(body,InstigatorState)
+        out['sensors'][state.name]={'status':status,'cursor':state.instigator_data.cursor}
+daily = json.loads(Path('/Volumes/datasource/data_lake_staging/stock_period/daily.json').read_text())
+out['control'] = {k:daily.get(k) for k in ['last_refresh','last_source_asof','factor_through','completed_through']}
+out['pending'] = [{'execution':key,'consumed':w.get('consumed'),'frequency':w.get('frequency'),'intent':w.get('intent')} for key,w in daily.get('pending_work',{}).items()]
+raw = subprocess.check_output(['ps','-axo','pid,ppid,pgid,lstart,args'],text=True)
+processes = []
+for line in raw.splitlines():
+    if 'dg dev --host 127.0.0.1 --port 3000' in line or ' -m dagster_webserver ' in line or ' -m dagster._daemon run ' in line or ' -m dagster api grpc ' in line:
+        # Do not retain instance-ref payloads or credentials from process arguments.
+        safe=line.split(' --instance-ref ',1)[0]
+        if '--location-name orchestrator' in line:safe += ' [location=orchestrator module=orchestrator.definitions]'
+        processes.append(safe.strip())
+out['processes']=processes
+(OUT/(stage+'.json')).write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({k:out[k] for k in ['at','active','queued_count','control','pending','processes']},ensure_ascii=False))

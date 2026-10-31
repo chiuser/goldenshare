@@ -1,0 +1,69 @@
+Traceback (most recent call last):
+  File "<frozen runpy>", line 198, in _run_module_as_main
+  File "<frozen runpy>", line 88, in _run_code
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history_cli.py", line 272, in <module>
+    raise SystemExit(main())
+                     ~~~~^^
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history_cli.py", line 197, in main
+    result = _run_reporting(instance, operation)
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history_cli.py", line 32, in _run_reporting
+    result = reporting.execute_in_process(instance=instance)
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/definitions/job_definition.py", line 821, in execute_in_process
+    return core_execute_in_process(
+        job=wrapped_job,
+    ...<13 lines>...
+        asset_selection=frozenset(asset_selection),
+    )
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/execution/execute_in_process.py", line 157, in core_execute_in_process
+    event_list = list(execute_run_iterable)
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/execution/api.py", line 873, in __iter__
+    yield from self.iterator(
+    ...<2 lines>...
+    )
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/execution/api.py", line 742, in job_execution_iterator
+    for event in job_context.executor.execute(job_context, execution_plan):
+                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/executor/in_process.py", line 71, in execute
+    yield from iter(
+    ...<15 lines>...
+    )
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/execution/api.py", line 873, in __iter__
+    yield from self.iterator(
+    ...<2 lines>...
+    )
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/executor/in_process.py", line 28, in inprocess_execution_iterator
+    yield from inner_plan_execution_iterator(
+    ...<3 lines>...
+    )
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py", line 85, in inner_plan_execution_iterator
+    for step_event in check.generator(dagster_event_sequence_for_step(step_context)):
+                      ~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/execution/plan/execute_plan.py", line 316, in dagster_event_sequence_for_step
+    raise dagster_user_error.user_exception
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/execution/plan/utils.py", line 57, in op_execution_error_boundary
+    yield
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_utils/__init__.py", line 394, in iterate_with_context
+    next_output = next(iterator)
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py", line 136, in _coerce_op_compute_fn_to_iterator
+    result = invoke_compute_fn(
+        fn, context, kwargs, context_arg_provided, config_arg_class, resource_arg_mapping
+    )
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/.venv/lib/python3.13/site-packages/dagster/_core/execution/plan/compute_generator.py", line 116, in invoke_compute_fn
+    return fn(context, **args_to_pass) if context_arg_provided else fn(**args_to_pass)
+           ~~^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history_cli.py", line 26, in report
+    return operation(context)
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history_cli.py", line 160, in operation
+    return replay_events(
+        staging / "stock_period/runs" / args.run_id,
+    ...<9 lines>...
+        cancel=lambda: interrupted,
+    )
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py", line 655, in replay_events
+    with writer(staging):
+         ~~~~~~^^^^^^^^^
+  File "/Users/congming/miniconda3/lib/python3.13/contextlib.py", line 141, in __enter__
+    return next(self.gen)
+  File "/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py", line 104, in writer
+    raise ValueError("period_writer_busy") from None
+ValueError: period_writer_busy

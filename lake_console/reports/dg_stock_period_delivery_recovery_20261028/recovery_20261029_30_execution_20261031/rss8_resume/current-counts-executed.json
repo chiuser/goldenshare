@@ -1,0 +1,41 @@
+{
+  "rows": [
+    [
+      "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_adj_month/month=2026-10/data.parquet",
+      5576,
+      5576,
+      "20261012",
+      "20261030",
+      5571,
+      1
+    ],
+    [
+      "/Volumes/datasource/data_lake/silver/quote/stock_weekly/week_end=2026-10-30/part-000.parquet",
+      5572,
+      5572,
+      "20261028",
+      "20261030",
+      5571,
+      1
+    ],
+    [
+      "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_adj_week/week_end=2026-10-30/part-000.parquet",
+      5572,
+      5572,
+      "20261028",
+      "20261030",
+      5571,
+      1
+    ],
+    [
+      "/Volumes/datasource/data_lake/silver/quote/stock_monthly/month=2026-10/part-000.parquet",
+      5576,
+      5576,
+      "20261012",
+      "20261030",
+      5571,
+      1
+    ]
+  ],
+  "sql": "SELECT filename,count(*),count(DISTINCT ts_code),min(end_date),max(end_date),count(*) FILTER(WHERE end_date='20261030'),count(*) FILTER(WHERE ts_code='920306.BJ') FROM read_parquet(?,hive_partitioning=false,filename=true) GROUP BY filename"
+}

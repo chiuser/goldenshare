@@ -1,0 +1,78 @@
+"""Budget only: trusted control/range metadata, selected file stat, count-only factor query."""
+import json
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+from orchestrator.defs.duckdb_connection import DuckDBConnectionSettings, connect_configured_duckdb
+from orchestrator.defs.io.stock_period_raw import _old_range_paths, file_version, range_index_valid
+from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, DEFAULT_LAKE_STAGING_ROOT, silver_adj_factor_path, silver_stock_basic_path, silver_stock_identity_map_path, silver_stock_lifecycle_path, silver_trade_calendar_path
+from orchestrator.defs.run_contracts.stock_period import next_period
+from orchestrator.defs.run_contracts.stock_period_silver import raw_path, target_path
+from orchestrator.defs.stock_daily_qfq import build_stock_daily_qfq_factor_changed_codes_sql
+
+ROOT=Path(DEFAULT_LAKE_ROOT)
+STAGING=Path(DEFAULT_LAKE_STAGING_ROOT)/'stock_period'
+OUT=Path('/private/tmp/dg_period_restart_budget_20261031')
+daily_path=STAGING/'daily.json'
+baseline_path=STAGING/'baseline.json'
+control_versions={str(p):file_version(p) for p in (daily_path,baseline_path)}
+daily=json.loads(daily_path.read_text())
+baseline=json.loads(baseline_path.read_text())
+assert range_index_valid(baseline),'Use the original range proof, never scan market history for scope'
+pending=daily['pending_work']
+assert len(pending)==1
+execution,work=next(iter(pending.items()))
+assert work['intent']['asof']=='2026-10-29' and work['intent']['codes']==['000878.SZ','688563.SH','920306.BJ']
+registered={(i['freq'],i['period']):i for i in baseline['files']}
+out={'at':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'commit':'4a5a5e17b','raw_execution':execution,'source_scope_codes':work['intent']['codes'],'frozen_intent':work['intent'],'control_versions':control_versions,'range_index_valid':True,'day29':{},'references':{},'market_rows_read':False,'count_only_queries':[]}
+for freq in ('week','month'):
+    existing=dict((period,Path(path)) for path,period in _old_range_paths(ROOT,freq,set(work['intent']['codes'])|set(work['intent'].get('retired_codes',[])),baseline))
+    for period in work['intent'].get('periods',{}).get(freq,[]):
+        existing.setdefault(period,raw_path(ROOT,freq,period))
+    raw_files=[];silver_files=[]
+    for period,path in sorted(existing.items()):
+        stat=file_version(path)
+        assert stat==registered[(freq,period)]['version'],(freq,period,'registered version changed')
+        raw_files.append({'period':period,'path':str(path),'bytes':stat[2],'rows':registered[(freq,period)]['rows'],'version':stat})
+        if period>=('2014-01-03' if freq=='week' else '2014-01'):
+            target=target_path(ROOT,freq,period)
+            target_stat=file_version(target) if target.exists() else None
+            silver_files.append({'period':period,'raw_bytes':stat[2],'target':str(target),'silver_bytes':target_stat[2] if target_stat else 0,'exists':target_stat is not None})
+    out['day29'][freq]={'raw_existing_files':len(raw_files),'raw_first':raw_files[0]['period'],'raw_last':raw_files[-1]['period'],'raw_existing_bytes':sum(i['bytes'] for i in raw_files),'raw_existing_rows':sum(i['rows'] for i in raw_files),'silver_files':len(silver_files),'silver_first':silver_files[0]['period'],'silver_last':silver_files[-1]['period'],'silver_raw_bytes':sum(i['raw_bytes'] for i in silver_files),'silver_existing_bytes':sum(i['silver_bytes'] for i in silver_files),'raw_files':raw_files,'silver_inventory':silver_files}
+for name,path in [('basic',silver_stock_basic_path(ROOT)),('identity',silver_stock_identity_map_path(ROOT)),('lifecycle',silver_stock_lifecycle_path(ROOT)),('calendar',silver_trade_calendar_path(ROOT)),('factor29',silver_adj_factor_path(ROOT,'2026-10-29')),('factor30',silver_adj_factor_path(ROOT,'2026-10-30'))]:
+    out['references'][name]={'path':str(path),'exists':path.exists(),'bytes':path.stat().st_size if path.exists() else 0}
+source=[]
+run=STAGING/'runs'/execution
+for path in sorted((run/'source').glob('*/identity.json')):
+    identity=json.loads(path.read_text())
+    p=path.parent/'complete.json'
+    item={'code':identity['code'],'freq':identity['freq'],'complete':p.exists()}
+    if p.exists():
+        complete=json.loads(p.read_text())
+        item.update(rows=complete['rows'],maximum_asof=complete['maximum_asof'],wire_bytes=sum(x['bytes'] for x in complete['pages']),csv_bytes=sum(x['csv_version'][2] for x in complete['pages']))
+    source.append(item)
+out['source_completed_units']=source
+
+if out['references']['factor29']['exists'] and out['references']['factor30']['exists']:
+    changes=build_stock_daily_qfq_factor_changed_codes_sql(current_adj_factor_path=silver_adj_factor_path(ROOT,'2026-10-30'),previous_adj_factor_path=silver_adj_factor_path(ROOT,'2026-10-29'),silver_stock_lifecycle_path=silver_stock_lifecycle_path(ROOT),trade_date='2026-10-30')
+    sql=f'''WITH changes AS ({changes}),
+    pool AS (SELECT ts_code FROM read_parquet(?,hive_partitioning=false) WHERE list_status='L' AND curr_type='CNY'),
+    prior_pool AS (SELECT unnest(?) AS ts_code)
+    SELECT
+      (SELECT count(*) FROM changes INNER JOIN pool USING(ts_code) WHERE change_reason='factor_changed'),
+      (SELECT count(*) FROM pool WHERE ts_code NOT IN (SELECT ts_code FROM prior_pool)),
+      (SELECT count(*) FROM prior_pool WHERE ts_code NOT IN (SELECT ts_code FROM pool)),
+      (SELECT count(*) FROM pool),
+      (SELECT count(*) FROM changes WHERE change_reason='unresolved_delist_date')'''
+    with connect_configured_duckdb(DuckDBConnectionSettings(temp_directory=Path('/private/tmp')),temp_policy='existing_no_spill') as con:
+        changed,new,removed,pool,unresolved=con.execute(sql,[str(silver_stock_basic_path(ROOT)),work['listed']]).fetchone()
+    out['day30_count_only']={'factor_changed':changed,'new_listed_since_frozen29':new,'no_longer_in_current_pool':removed,'current_pool_count':pool,'unresolved_delist_count':unresolved,'execution_codes_not_exported':True,'original_job_must_generate_execution_list':True}
+    out['count_only_queries'].append({'purpose':'Budget30 only; no code list exported, no planner called','sql':sql,'parameters':[str(silver_stock_basic_path(ROOT)),{'frozen_29_pool_count':len(work['listed'])}]})
+else:
+    out['day30_count_only']={'blocked':'Required adjacent factor file is absent; no data query attempted'}
+for path,version in control_versions.items():assert file_version(path)==version
+(OUT/'scope-stat.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+summary={k:v for k,v in out.items() if k not in ('count_only_queries','day29')}
+summary['day29']={freq:{k:v for k,v in item.items() if k not in ('raw_files','silver_inventory')} for freq,item in out['day29'].items()}
+print(json.dumps(summary,ensure_ascii=False))

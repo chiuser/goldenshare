@@ -1,0 +1,59 @@
+"""Authorized graceful restart of the one existing DG parent, after readonly idle check."""
+import json
+import os
+import signal
+import socket
+import subprocess
+import time
+from contextlib import closing
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import psycopg2
+import yaml
+
+BASE=Path('/private/tmp/dg_period_restart_budget_20261031')
+ROOT=Path('/Users/congming/github/goldenshare/lake_console/orchestrator')
+zone=ZoneInfo('Asia/Shanghai')
+config=yaml.safe_load(Path('/Users/congming/.goldenshare/dagster_home/dagster.yaml').read_text())
+url=config['storage']['postgres']['postgres_url']
+if isinstance(url,dict):url=os.environ[url['env']]
+with closing(psycopg2.connect(url,connect_timeout=3,options='-c default_transaction_read_only=on -c statement_timeout=10000')) as conn,conn.cursor() as cur:
+    conn.set_session(readonly=True)
+    cur.execute('SELECT count(*) FROM runs WHERE status=ANY(%s)',(['STARTING','STARTED','CANCELING','QUEUED'],))
+    assert cur.fetchone()[0]==0,'DG became busy; do not interrupt it'
+parent=89797
+command=subprocess.check_output(['ps','-p',str(parent),'-o','args='],text=True).strip()
+assert '/lake_console/orchestrator/.venv/bin/dg dev --host 127.0.0.1 --port 3000' in command
+before=json.loads((BASE/'before.json').read_text())
+old=[parent,89842,89843,4138]
+result={'authorized_parent':parent,'at':datetime.now(zone).isoformat(),'signal':'SIGINT','active_and_queued_before':0,'old_pids':old,'new_job_submissions':0}
+(BASE/'restart-action.json').write_text(json.dumps(result,indent=2)+'\n')
+os.kill(parent,signal.SIGINT)
+
+def alive(pid):
+    p=subprocess.run(['ps','-p',str(pid),'-o','stat='],capture_output=True,text=True)
+    return p.returncode==0 and p.stdout.strip() and not p.stdout.strip().startswith('Z')
+
+def listening():
+    try:
+        with socket.create_connection(('127.0.0.1',3000),timeout=1):return True
+    except ConnectionRefusedError:return False
+
+for _ in range(60):
+    if not any(alive(pid) for pid in old) and not listening():break
+    time.sleep(0.5)
+else:
+    raise RuntimeError('DG did not shut down cleanly; no force kill or second instance started')
+result['old_parent_web_daemon_code_exited']=True
+result['stopped_at']=datetime.now(zone).isoformat()
+log=BASE/'dg-restarted.stdout.txt'
+with log.open('ab',buffering=0) as output:
+    process=subprocess.Popen(['bash','/Users/congming/github/goldenshare/lake_console/bin/lake-dg-start'],cwd=ROOT,stdin=subprocess.DEVNULL,stdout=output,stderr=subprocess.STDOUT,start_new_session=True)
+result['new_parent_pid']=process.pid
+result['launch_command']='bash /Users/congming/github/goldenshare/lake_console/bin/lake-dg-start'
+result['log']=str(log)
+result['launched_at']=datetime.now(zone).isoformat()
+(BASE/'restart-action.json').write_text(json.dumps(result,indent=2)+'\n')
+print(json.dumps(result,ensure_ascii=False))

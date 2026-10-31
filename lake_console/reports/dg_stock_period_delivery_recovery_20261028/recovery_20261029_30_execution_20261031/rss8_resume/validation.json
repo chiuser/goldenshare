@@ -1,0 +1,378 @@
+{
+  "at": "2026-10-31T11:04:15.979890+08:00",
+  "status": "passed",
+  "docs_integrity_passed": true,
+  "scoped_diff_check_passed": true,
+  "new_report_links_checked": 5,
+  "source_hashes_match_463_test_version": 7,
+  "new_code_changes": 0,
+  "new_tests_or_performance_runs": 0,
+  "final_current_count_queries": 1,
+  "extra_historical_ohlc_audit_reads": 0,
+  "original_data_jobs_success": 8,
+  "raw_pending": 0,
+  "silver_pending": 0,
+  "sensors_running": 4,
+  "resource_changes_only_as_approved": true,
+  "credential_pattern_check": true,
+  "auxiliary_python_scripts_archived": 4,
+  "temporary_files_removed": [
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/29-event-progress.json",
+      "bytes": 37,
+      "sha256": "bb1ed1754e6e5ee4bf82e40cb6c31fa835fe5daa7e2b74ca9e4ab998e32f2806",
+      "archive_or_duplicate": "29-event-progress.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/29-events-after-both-silver.err",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archive_or_duplicate": "29-events-after-both-silver.err"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/29-events-after-both-silver.out",
+      "bytes": 119,
+      "sha256": "3fba9c0fb4a0246f8a0817ea5e612c1aa66d6ca0402a90d981db5d7cc7b57d92",
+      "archive_or_duplicate": "29-events-after-both-silver.out"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/29-events-after-silver.err",
+      "bytes": 5211,
+      "sha256": "641001d7c49c4276aa97f97c67dc58f5cbe3db85471561362f1e537ab83a4556",
+      "archive_or_duplicate": "29-events-after-silver.err"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/29-events-after-silver.out",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archive_or_duplicate": "29-events-after-silver.out"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/29-events.err",
+      "bytes": 5211,
+      "sha256": "641001d7c49c4276aa97f97c67dc58f5cbe3db85471561362f1e537ab83a4556",
+      "archive_or_duplicate": "29-events.err"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/29-events.out",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archive_or_duplicate": "29-events.out"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/29-month-launch.json",
+      "bytes": 203,
+      "sha256": "667d9859ce4924e507202e4ff5e410a018dad71c62fafb97aa58219eff506f8e",
+      "archive_or_duplicate": "29-month-launch.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/29-month-launch.literal",
+      "bytes": 149,
+      "sha256": "bad294a2686f974a2e20ec3595c7ec5c4f21c44344dfb5f1622b8e1207e35f95",
+      "archive_or_duplicate": "29-month-launch.literal"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/29-month-variables.json",
+      "bytes": 262,
+      "sha256": "77d838e6dfa9b0e87d10e6a136f437d65f77037905c17f3e9bbc15f8cd2ec225",
+      "archive_or_duplicate": "29-month-variables.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/29-stage-complete.json",
+      "bytes": 1513,
+      "sha256": "8ed5dc3b0e58877c4c3e70137f4013167be53a5f237de6241a3ef6e0fc774250",
+      "archive_or_duplicate": "29-stage-complete.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/30-month-events.err",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archive_or_duplicate": "30-month-events.err"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/30-month-events.out",
+      "bytes": 116,
+      "sha256": "2482a5f1119e410bfb9d224916b078e9a6f4f5c54cc29c9a5e2bd8b9c7ad7971",
+      "archive_or_duplicate": "30-month-events.out"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/30-month-launch.json",
+      "bytes": 203,
+      "sha256": "a0d198572c3a1b47188352177f2b57f071e7b4ed1358535ca37fd1dc5ad53f0a",
+      "archive_or_duplicate": "30-month-launch.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/30-month-launch.literal",
+      "bytes": 149,
+      "sha256": "1195632d5c8a2ab58ec273c3867058e90a3a53af6b86b0c00f5814f880e3f8b3",
+      "archive_or_duplicate": "30-month-launch.literal"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/30-month-preflight.json",
+      "bytes": 566,
+      "sha256": "a63c3b1ec3ffeb6175db432f503bd870e777a0d0a4ad3538d88991c1e574702b",
+      "archive_or_duplicate": "30-month-preflight.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/30-month-variables.json",
+      "bytes": 142,
+      "sha256": "c6c3b4ea6b6ee73b3b313ba70125966da3612eae98b351155b7b364ce76ed42f",
+      "archive_or_duplicate": "30-month-variables.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/30-week-events.err",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archive_or_duplicate": "30-week-events.err"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/30-week-events.out",
+      "bytes": 119,
+      "sha256": "7bd97224cfb4d9d79e99f9f80ac961b0acbdfc0e8e97280a51a8c949dd928b84",
+      "archive_or_duplicate": "30-week-events.out"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/30-week-launch.json",
+      "bytes": 203,
+      "sha256": "d17e279b5b144c00bf293b8d7d6ec7e64a5e356a668e43d77315f0cbd0143794",
+      "archive_or_duplicate": "30-week-launch.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/30-week-launch.literal",
+      "bytes": 149,
+      "sha256": "2e790e68909372ea9ca5f9056a0883661d681635ccfe427853825b234f0e4e20",
+      "archive_or_duplicate": "30-week-launch.literal"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/30-week-preflight.json",
+      "bytes": 485,
+      "sha256": "a80694a20eccf8dd536f4d80a4bc705665687290bb11d8a920d9e9f74b77a275",
+      "archive_or_duplicate": "30-week-preflight.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/30-week-variables.json",
+      "bytes": 262,
+      "sha256": "6c4ba11980b6ab6626f8e4b5a37f394ff349550c219ec568367f7f967ed6a29d",
+      "archive_or_duplicate": "30-week-variables.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/candidate-preflight.json",
+      "bytes": 159,
+      "sha256": "f3404c8757d8600db36602961d120b7eff9c8387b92198b7e162ef30d65eb424",
+      "archive_or_duplicate": "candidate-preflight.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/check_next.py",
+      "bytes": 3321,
+      "sha256": "a43ce5e38e2ab4f2aed070ef0c24a70faa1031acd43324fd12870e9fb323f5c7",
+      "archive_or_duplicate": "check_next.py.txt"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/collect_metrics.py",
+      "bytes": 3176,
+      "sha256": "3d17f87133dd71f08ff76e650f83317daf5103d10c8dc731057670b7b03c9247",
+      "archive_or_duplicate": "collect_metrics.py.txt"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/current-counts-executed.json",
+      "bytes": 1057,
+      "sha256": "4949f700df8da982a58dd5333d4927b53d5031acf9537eee01028e7eefc5425e",
+      "archive_or_duplicate": "current-counts-executed.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/existing-metrics.json",
+      "bytes": 15759,
+      "sha256": "0e7ec893153b9c0a28b4d4692116a0699fb6d9e1b868c218077747c5071d1b93",
+      "archive_or_duplicate": "existing-metrics.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/final-verified.json",
+      "bytes": 11483,
+      "sha256": "b158ada52dd3e9c839af342a7cda703c00c1542d03849b4dc6515849c125acf7",
+      "archive_or_duplicate": "final-verified.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/final-verify.err",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "archive_or_duplicate": "final-verify.err"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/final-verify.out",
+      "bytes": 6040,
+      "sha256": "d4a9a7be2a52465cbeac843d0d76f0f7be330d7bb0e59dca9851b455ef074fe6",
+      "archive_or_duplicate": "semantic duplicate of final-verified.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/final_verify.py",
+      "bytes": 12100,
+      "sha256": "f8b69ed259ba751e16373c85094f4a5ae59d43dc5514666f8c03354ad8351f91",
+      "archive_or_duplicate": "final_verify.py.txt.gz"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/preflight.json",
+      "bytes": 8461,
+      "sha256": "5c3586ab106dac9949dd1fc7d6d8719b0d3f0a66e05092d96e1f8fd4ad3c46e9",
+      "archive_or_duplicate": "preflight.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/read_state.py",
+      "bytes": 6375,
+      "sha256": "dd8393ce45ea38d346f556d8a19b7234fcc2ddaa76657cff7d3ac2820a95f4d0",
+      "archive_or_duplicate": "read_state.py.txt"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/reexecution.graphql",
+      "bytes": 202,
+      "sha256": "1852725b905e53c1ec5e0d4fb9237c9ae14d2cd552916e96385119ee55e16bea",
+      "archive_or_duplicate": "reexecution.graphql"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-01.json",
+      "bytes": 5273,
+      "sha256": "6b19fb144faaf268173dc569dd382894b4e279c4baf646de1f26df7d98969895",
+      "archive_or_duplicate": "watch-01.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-02.json",
+      "bytes": 5003,
+      "sha256": "c9a4c20b50640e60e89b7b0cec6cfa42bcb4c2bcc03f822ef95835e3aaf5a06c",
+      "archive_or_duplicate": "watch-02.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-03.json",
+      "bytes": 5003,
+      "sha256": "f37c8c0825ef7607ad1cefbe74cdb128d5d34b8de1484334a78a22ec02150891",
+      "archive_or_duplicate": "watch-03.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-04.json",
+      "bytes": 5003,
+      "sha256": "1b6ed755bdfcb5dce08899260f3c4ae09d35a9c3b71a8262eabc31a9d2bc84b6",
+      "archive_or_duplicate": "watch-04.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-05.json",
+      "bytes": 5183,
+      "sha256": "3446d3fe736cbf67afabdb1c403a02cbf004350bdd49e7d61f095de152393cb2",
+      "archive_or_duplicate": "watch-05.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-06.json",
+      "bytes": 7229,
+      "sha256": "710f2388990eb5c61f38bc7c622123fdba9a09ac3a4181abbb3704e927f26660",
+      "archive_or_duplicate": "watch-06.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-07.json",
+      "bytes": 7966,
+      "sha256": "a5895889e40a60460a5db6042a0b6dd2d64f6adc35060cf6b2087a489187e421",
+      "archive_or_duplicate": "watch-07.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-08.json",
+      "bytes": 7126,
+      "sha256": "d3c0cf6699c5cdde7ae2bd7697f1258187bd6cd31df0d2a8a1bdd3e66ac8f262",
+      "archive_or_duplicate": "watch-08.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-09.json",
+      "bytes": 8644,
+      "sha256": "07c326a310d4c53aacc627b3d135b9de8326dad44414883293c86a973471a518",
+      "archive_or_duplicate": "watch-09.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-10.json",
+      "bytes": 7410,
+      "sha256": "c13ec1262f7b20aadc9bc14da06bb3f27920e9845aef1c2a7bbcac81e5e61b46",
+      "archive_or_duplicate": "watch-10.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-11.json",
+      "bytes": 9971,
+      "sha256": "6e9fabb64b234622299ab0457beb6a65bd365a7a282f829179d2d18ea8e6b03d",
+      "archive_or_duplicate": "watch-11.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-12.json",
+      "bytes": 9729,
+      "sha256": "39d1162b520823ac6cc60fe31c2d4767c82677c596c8c20e0eddc5ef92402e25",
+      "archive_or_duplicate": "watch-12.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-13.json",
+      "bytes": 9729,
+      "sha256": "952839fa897bcb8c99bc9fdd7976f03d10806f3f98f321d54e92f89e7893bed4",
+      "archive_or_duplicate": "watch-13.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-14.json",
+      "bytes": 9729,
+      "sha256": "5a953d0d7eaf0897c781a22217ccde909c7497f6dd976b0437b8724d2be9ad4f",
+      "archive_or_duplicate": "watch-14.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-15.json",
+      "bytes": 9720,
+      "sha256": "0425cb9da2858583b548d56260879e602c13385909d185f1e29fc1877bca4dc3",
+      "archive_or_duplicate": "watch-15.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-16.json",
+      "bytes": 11643,
+      "sha256": "da287c0c5177933caf99fcb1f46b66793353bb5d150836a34a677b931601e06a",
+      "archive_or_duplicate": "watch-16.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-17.json",
+      "bytes": 11679,
+      "sha256": "0b2bea20bbaf79eb73f7c32f0235078fc5a927129be699c74958baf78b4cd792",
+      "archive_or_duplicate": "watch-17.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-18.json",
+      "bytes": 13161,
+      "sha256": "0c3b661a58d4914db9ae8b57f88d7cd47e5ccfa2acaa7ce722a43d03d0e94cbf",
+      "archive_or_duplicate": "watch-18.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-19.json",
+      "bytes": 12746,
+      "sha256": "f3327f2cc58f027bc56ed1eb8e4ac76d142801b6517005fdd8855875b1bc30e0",
+      "archive_or_duplicate": "watch-19.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-20.json",
+      "bytes": 13786,
+      "sha256": "ec21e3b733229659866a4375480b17a1d164835508d2fc8957800c1239faf7fc",
+      "archive_or_duplicate": "watch-20.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-21.json",
+      "bytes": 15732,
+      "sha256": "f7994ee336af2c9c9639dd393d8ad54c8c631cbc2306f3eae034402e856fe099",
+      "archive_or_duplicate": "watch-21.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-22.json",
+      "bytes": 14595,
+      "sha256": "6b543e4a3e6a11a365c49b6acd56d9bf09b03b14bdcbf5010ff741e4bde1cd21",
+      "archive_or_duplicate": "watch-22.json"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-rss8-20261031/watch-22.stdout",
+      "bytes": 6075,
+      "sha256": "38b6340b71f24f112f18eafeda1429fc04d8155ebf1254247669747143299227",
+      "archive_or_duplicate": "semantic duplicate of watch-22.json"
+    }
+  ],
+  "temporary_regular_files": 58,
+  "temporary_bytes_removed": 295367,
+  "business_staging_preserved": true,
+  "live_dg_stdout_preserved": true,
+  "dagster_left_running": true,
+  "unrelated_worktree_changes_preserved": true,
+  "git_committed_this_turn": false,
+  "original_control_failures_preserved": 2,
+  "evidence_whitespace": "One executed helper archived as gzip preserving exact bytes; original source not edited."
+}

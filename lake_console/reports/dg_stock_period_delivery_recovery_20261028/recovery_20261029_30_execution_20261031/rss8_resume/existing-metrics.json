@@ -1,0 +1,576 @@
+{
+  "raw": [
+    {
+      "native_run": "1f8507d5-f477-4ee7-82e4-06e750462397",
+      "memory_samples": [
+        {
+          "stage": "process_memory",
+          "status": "finished",
+          "frozen_rss_limit_bytes": 4294967296,
+          "rss_limit_bytes": 8589934592,
+          "last_observed_rss_bytes": 1481228288,
+          "observed_peak_rss_bytes": 2032402432
+        },
+        {
+          "stage": "process_memory",
+          "status": "started",
+          "frozen_rss_limit_bytes": 4294967296,
+          "rss_limit_bytes": 8589934592,
+          "last_observed_rss_bytes": 292470784,
+          "observed_peak_rss_bytes": 292470784
+        }
+      ],
+      "source_units": [
+        {
+          "freq": "week",
+          "code": "000878.SZ",
+          "period": null,
+          "rows": 1409,
+          "maximum_asof": "20261029",
+          "pages": 1,
+          "wire_bytes": 206631,
+          "csv_bytes": 193766
+        },
+        {
+          "freq": "week",
+          "code": "920306.BJ",
+          "period": null,
+          "rows": 1,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 486,
+          "csv_bytes": 293
+        },
+        {
+          "freq": "month",
+          "code": "920306.BJ",
+          "period": null,
+          "rows": 1,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 487,
+          "csv_bytes": 294
+        },
+        {
+          "freq": "month",
+          "code": "000878.SZ",
+          "period": null,
+          "rows": 338,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 50655,
+          "csv_bytes": 47429
+        },
+        {
+          "freq": "week",
+          "code": "688563.SH",
+          "period": null,
+          "rows": 169,
+          "maximum_asof": "20261029",
+          "pages": 1,
+          "wire_bytes": 25540,
+          "csv_bytes": 23835
+        },
+        {
+          "freq": "month",
+          "code": "688563.SH",
+          "period": null,
+          "rows": 40,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 6387,
+          "csv_bytes": 5843
+        },
+        {
+          "freq": "month",
+          "code": null,
+          "period": "2026-10",
+          "rows": 5576,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 842145,
+          "csv_bytes": 791634
+        }
+      ],
+      "source_unit_count": 7,
+      "source_pages": 7
+    },
+    {
+      "native_run": "cd5212a1-a373-426e-9d70-896e8ffacfa5",
+      "memory_samples": [
+        {
+          "stage": "process_memory",
+          "status": "finished",
+          "frozen_rss_limit_bytes": 4294967296,
+          "rss_limit_bytes": 8589934592,
+          "last_observed_rss_bytes": 2262876160,
+          "observed_peak_rss_bytes": 4799938560
+        },
+        {
+          "stage": "process_memory",
+          "status": "started",
+          "frozen_rss_limit_bytes": 4294967296,
+          "rss_limit_bytes": 8589934592,
+          "last_observed_rss_bytes": 305004544,
+          "observed_peak_rss_bytes": 305004544
+        }
+      ],
+      "source_units": [
+        {
+          "freq": "week",
+          "code": "601878.SH",
+          "period": null,
+          "rows": 478,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 71164,
+          "csv_bytes": 66678
+        },
+        {
+          "freq": "week",
+          "code": "300604.SZ",
+          "period": null,
+          "rows": 486,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 74887,
+          "csv_bytes": 70329
+        },
+        {
+          "freq": "month",
+          "code": "002249.SZ",
+          "period": null,
+          "rows": 220,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 32618,
+          "csv_bytes": 30454
+        },
+        {
+          "freq": "week",
+          "code": "002249.SZ",
+          "period": null,
+          "rows": 920,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 132901,
+          "csv_bytes": 124437
+        },
+        {
+          "freq": "month",
+          "code": "300788.SZ",
+          "period": null,
+          "rows": 89,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 13857,
+          "csv_bytes": 12872
+        },
+        {
+          "freq": "month",
+          "code": "000728.SZ",
+          "period": null,
+          "rows": 344,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 50045,
+          "csv_bytes": 46765
+        },
+        {
+          "freq": "week",
+          "code": "000728.SZ",
+          "period": null,
+          "rows": 1434,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 203903,
+          "csv_bytes": 190813
+        },
+        {
+          "freq": "month",
+          "code": "603630.SH",
+          "period": null,
+          "rows": 117,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 18142,
+          "csv_bytes": 16905
+        },
+        {
+          "freq": "week",
+          "code": null,
+          "period": "2026-10-30",
+          "rows": 5572,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 825844,
+          "csv_bytes": 775375
+        },
+        {
+          "freq": "week",
+          "code": "002941.SZ",
+          "period": null,
+          "rows": 406,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 61175,
+          "csv_bytes": 57337
+        },
+        {
+          "freq": "month",
+          "code": "000807.SZ",
+          "period": null,
+          "rows": 342,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 50261,
+          "csv_bytes": 46999
+        },
+        {
+          "freq": "month",
+          "code": "601878.SH",
+          "period": null,
+          "rows": 114,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 17504,
+          "csv_bytes": 16294
+        },
+        {
+          "freq": "week",
+          "code": "000807.SZ",
+          "period": null,
+          "rows": 1423,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 204658,
+          "csv_bytes": 191667
+        },
+        {
+          "freq": "month",
+          "code": "002941.SZ",
+          "period": null,
+          "rows": 97,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 15164,
+          "csv_bytes": 14107
+        },
+        {
+          "freq": "month",
+          "code": "000958.SZ",
+          "period": null,
+          "rows": 321,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 46493,
+          "csv_bytes": 43420
+        },
+        {
+          "freq": "week",
+          "code": "603630.SH",
+          "period": null,
+          "rows": 493,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 74016,
+          "csv_bytes": 69395
+        },
+        {
+          "freq": "month",
+          "code": "301003.SZ",
+          "period": null,
+          "rows": 65,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 10198,
+          "csv_bytes": 9429
+        },
+        {
+          "freq": "week",
+          "code": "301003.SZ",
+          "period": null,
+          "rows": 277,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 41634,
+          "csv_bytes": 38957
+        },
+        {
+          "freq": "month",
+          "code": "300604.SZ",
+          "period": null,
+          "rows": 116,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 18479,
+          "csv_bytes": 17251
+        },
+        {
+          "freq": "month",
+          "code": "688409.SH",
+          "period": null,
+          "rows": 49,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 8033,
+          "csv_bytes": 7408
+        },
+        {
+          "freq": "week",
+          "code": "000958.SZ",
+          "period": null,
+          "rows": 1335,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 188763,
+          "csv_bytes": 176564
+        },
+        {
+          "freq": "week",
+          "code": "688409.SH",
+          "period": null,
+          "rows": 208,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 32303,
+          "csv_bytes": 30247
+        },
+        {
+          "freq": "week",
+          "code": "300788.SZ",
+          "period": null,
+          "rows": 376,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 56461,
+          "csv_bytes": 52893
+        }
+      ],
+      "source_unit_count": 23,
+      "source_pages": 23
+    },
+    {
+      "native_run": "d9b455aa-de9a-4311-b3e8-74dcc6b82329",
+      "memory_samples": [],
+      "source_units": [
+        {
+          "freq": "month",
+          "code": null,
+          "period": "2026-10",
+          "rows": 5576,
+          "maximum_asof": "20261030",
+          "pages": 1,
+          "wire_bytes": 842145,
+          "csv_bytes": 791634
+        }
+      ],
+      "source_unit_count": 1,
+      "source_pages": 1
+    }
+  ],
+  "silver": [
+    {
+      "native_run": "22cbbcc2-be67-4e48-b4a1-96e85215eb93",
+      "metrics": {
+        "stage": "files_complete",
+        "run_id": "ce8580f1-a5cb-58dc-a886-b206379cd36b",
+        "totals": {
+          "week": {
+            "files": 631,
+            "rows": 2460539
+          },
+          "month": {
+            "files": 0,
+            "rows": 0
+          }
+        },
+        "elapsed_seconds": 46.49630333390087,
+        "settings": {
+          "temp_directory": "/Volumes/datasource/data_lake_staging/stock_period_silver/run_id=ce8580f1-a5cb-58dc-a886-b206379cd36b/spill",
+          "max_temp_directory_size": "512GB",
+          "memory_limit": "16GB",
+          "threads": "4",
+          "preserve_insertion_order": "false"
+        },
+        "source_requests": 0,
+        "process_peak_rss_bytes": 959479808,
+        "output_bytes": 134396204,
+        "stage_seconds": {
+          "select_seconds": 16.519588890485466,
+          "copy_seconds": 3.2001739805564284,
+          "validation_seconds": 8.9893809533678,
+          "publish_seconds": 0.9144603754393756
+        }
+      }
+    },
+    {
+      "native_run": "d9d595e1-db39-4b1c-8b06-55ef5d9da6ba",
+      "metrics": {
+        "stage": "files_complete",
+        "run_id": "da4314fb-cdf7-5c5d-998a-2328ac21bf47",
+        "totals": {
+          "week": {
+            "files": 0,
+            "rows": 0
+          },
+          "month": {
+            "files": 150,
+            "rows": 586365
+          }
+        },
+        "elapsed_seconds": 11.20595212513581,
+        "settings": {
+          "temp_directory": "/Volumes/datasource/data_lake_staging/stock_period_silver/run_id=da4314fb-cdf7-5c5d-998a-2328ac21bf47/spill",
+          "max_temp_directory_size": "512GB",
+          "memory_limit": "16GB",
+          "threads": "4",
+          "preserve_insertion_order": "false"
+        },
+        "source_requests": 0,
+        "process_peak_rss_bytes": 707067904,
+        "output_bytes": 32606403,
+        "stage_seconds": {
+          "select_seconds": 3.9500722526572645,
+          "copy_seconds": 0.7328480798751116,
+          "validation_seconds": 1.9827580801211298,
+          "publish_seconds": 0.21590770920738578
+        }
+      }
+    },
+    {
+      "native_run": "50300d14-1abe-4671-aa8b-b48089774741",
+      "metrics": {
+        "stage": "files_complete",
+        "run_id": "6b6d5695-1fad-5ba5-a585-ec8b3d5d493d",
+        "totals": {
+          "week": {
+            "files": 658,
+            "rows": 2519600
+          },
+          "month": {
+            "files": 0,
+            "rows": 0
+          }
+        },
+        "elapsed_seconds": 48.164429041557014,
+        "settings": {
+          "temp_directory": "/Volumes/datasource/data_lake_staging/stock_period_silver/run_id=6b6d5695-1fad-5ba5-a585-ec8b3d5d493d/spill",
+          "max_temp_directory_size": "512GB",
+          "memory_limit": "16GB",
+          "threads": "4",
+          "preserve_insertion_order": "false"
+        },
+        "source_requests": 0,
+        "process_peak_rss_bytes": 1044021248,
+        "output_bytes": 137672989,
+        "stage_seconds": {
+          "select_seconds": 17.191678962204605,
+          "copy_seconds": 3.2241805233061314,
+          "validation_seconds": 9.174049508292228,
+          "publish_seconds": 0.9955876432359219
+        }
+      }
+    },
+    {
+      "native_run": "fdb4f5c3-75cd-4d00-8902-84654dd508ff",
+      "metrics": {
+        "stage": "files_complete",
+        "run_id": "a85df4ca-26ce-5286-b5d7-6c1cc8542d0a",
+        "totals": {
+          "week": {
+            "files": 0,
+            "rows": 0
+          },
+          "month": {
+            "files": 154,
+            "rows": 595229
+          }
+        },
+        "elapsed_seconds": 11.312027958221734,
+        "settings": {
+          "temp_directory": "/Volumes/datasource/data_lake_staging/stock_period_silver/run_id=a85df4ca-26ce-5286-b5d7-6c1cc8542d0a/spill",
+          "max_temp_directory_size": "512GB",
+          "memory_limit": "16GB",
+          "threads": "4",
+          "preserve_insertion_order": "false"
+        },
+        "source_requests": 0,
+        "process_peak_rss_bytes": 744636416,
+        "output_bytes": 33102501,
+        "stage_seconds": {
+          "select_seconds": 4.042303793132305,
+          "copy_seconds": 0.7404681998305023,
+          "validation_seconds": 2.036923705134541,
+          "publish_seconds": 0.21692596189677715
+        }
+      }
+    },
+    {
+      "native_run": "3b5c9e66-1ec4-4a0e-9aef-ed2b32b60a44",
+      "metrics": {
+        "stage": "files_complete",
+        "run_id": "565ce258-975a-57a7-8da4-d341d5207673",
+        "totals": {
+          "week": {
+            "files": 0,
+            "rows": 0
+          },
+          "month": {
+            "files": 1,
+            "rows": 5576
+          }
+        },
+        "elapsed_seconds": 0.13056112499907613,
+        "settings": {
+          "temp_directory": "/Volumes/datasource/data_lake_staging/stock_period_silver/run_id=565ce258-975a-57a7-8da4-d341d5207673/spill",
+          "max_temp_directory_size": "512GB",
+          "memory_limit": "16GB",
+          "threads": "4",
+          "preserve_insertion_order": "false"
+        },
+        "source_requests": 0,
+        "process_peak_rss_bytes": 362496000,
+        "output_bytes": 310846,
+        "stage_seconds": {
+          "select_seconds": 0.038931041955947876,
+          "copy_seconds": 0.00834583304822445,
+          "validation_seconds": 0.016700875014066696,
+          "publish_seconds": 0.001781875267624855
+        }
+      }
+    }
+  ],
+  "control_runs": [
+    {
+      "run_id": "731345d9-0ca9-48e7-b87e-11e779c2d428",
+      "status": "FAILURE",
+      "start_time": 1793414245.494967,
+      "end_time": 1793414245.601151
+    },
+    {
+      "run_id": "c6ad9f77-1de3-4f93-9660-0c6792950cc4",
+      "status": "FAILURE",
+      "start_time": 1793414371.107842,
+      "end_time": 1793414371.21073
+    },
+    {
+      "run_id": "6ac6e33c-d9f0-45fd-bb23-b2ac806c70fb",
+      "status": "SUCCESS",
+      "start_time": 1793414428.551738,
+      "end_time": 1793414434.220393
+    },
+    {
+      "run_id": "95aa05cb-7604-4245-a83d-c9660e4325fa",
+      "status": "SUCCESS",
+      "start_time": 1793415099.250931,
+      "end_time": 1793415104.469465
+    },
+    {
+      "run_id": "a93d818a-c608-42e9-9a65-c72555c65274",
+      "status": "SUCCESS",
+      "start_time": 1793415267.409224,
+      "end_time": 1793415267.538168
+    }
+  ]
+}

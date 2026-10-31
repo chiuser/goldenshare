@@ -1,0 +1,25 @@
+{
+  "at": "2026-10-31T10:52:07.588537+08:00",
+  "stage": "30-month",
+  "parent": "99f738d8-badd-49e7-81e9-931d4f45b979",
+  "factor_through": "2026-10-30",
+  "pending_count": 0,
+  "children": [],
+  "chain_active": [],
+  "original_config": {
+    "ops": {
+      "raw_tushare_stk_period_bar_adj_month": {
+        "config": {
+          "automatic_intent_date": "2026-10-30",
+          "intent": "daily",
+          "request_id": null,
+          "stock_codes": []
+        }
+      }
+    }
+  },
+  "confirmed_silver_notices": {
+    "week": 7829519,
+    "month": 7829518
+  }
+}

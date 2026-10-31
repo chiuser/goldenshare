@@ -1,0 +1,44 @@
+"""Count selected history periods; never exports changed codes or reads historical bars."""
+import json
+from pathlib import Path
+from datetime import datetime
+from zoneinfo import ZoneInfo
+from orchestrator.defs.io.stock_period_raw import file_version, range_index_valid
+from orchestrator.defs.duckdb_connection import DuckDBConnectionSettings, connect_configured_duckdb
+from orchestrator.defs.paths import DEFAULT_LAKE_ROOT,DEFAULT_LAKE_STAGING_ROOT,silver_adj_factor_path,silver_stock_basic_path,silver_stock_lifecycle_path
+from orchestrator.defs.run_contracts.stock_period_silver import target_path
+from orchestrator.defs.stock_daily_qfq import build_stock_daily_qfq_factor_changed_codes_sql
+root=Path(DEFAULT_LAKE_ROOT)
+p=Path(DEFAULT_LAKE_STAGING_ROOT)/'stock_period/baseline.json'
+v=file_version(p); baseline=json.loads(p.read_text()); assert range_index_valid(baseline)
+changes=build_stock_daily_qfq_factor_changed_codes_sql(current_adj_factor_path=silver_adj_factor_path(root,'2026-10-30'),previous_adj_factor_path=silver_adj_factor_path(root,'2026-10-29'),silver_stock_lifecycle_path=silver_stock_lifecycle_path(root),trade_date='2026-10-30')
+sql=f'''WITH changes AS ({changes}),
+pool AS (SELECT ts_code FROM read_parquet(?,hive_partitioning=false) WHERE list_status='L' AND curr_type='CNY')
+SELECT f.freq,f.period,count(DISTINCT c.ts_code) AS changed_code_count
+FROM budget_files f JOIN budget_ranges r ON r.freq=f.freq AND f.period BETWEEN r.first_period AND r.last_period
+JOIN changes c ON c.ts_code=r.ts_code JOIN pool p ON p.ts_code=c.ts_code
+WHERE c.change_reason='factor_changed'
+GROUP BY f.freq,f.period ORDER BY f.freq,f.period'''
+with connect_configured_duckdb(DuckDBConnectionSettings(temp_directory=Path('/private/tmp')),temp_policy='existing_no_spill') as con:
+ con.execute('CREATE TEMP TABLE budget_ranges(ts_code VARCHAR,freq VARCHAR,first_period VARCHAR,last_period VARCHAR)')
+ con.executemany('INSERT INTO budget_ranges VALUES (?,?,?,?)',[(code,freq,a,b) for freq,ranges in baseline['stock_ranges'].items() for code,intervals in ranges.items() for a,b in intervals])
+ con.execute('CREATE TEMP TABLE budget_files(freq VARCHAR,period VARCHAR)')
+ con.executemany('INSERT INTO budget_files VALUES (?,?)',[(i['freq'],i['period']) for i in baseline['files']])
+ rows=con.execute(sql,[str(silver_stock_basic_path(root))]).fetchall()
+counts={(f,period):n for f,period,n in rows}
+for f,period in [('week','2026-10-30'),('month','2026-10')]: counts.setdefault((f,period),0)
+registered={(i['freq'],i['period']):i for i in baseline['files']}
+out={'at':datetime.now(ZoneInfo('Asia/Shanghai')).isoformat(),'basis':'count-only selection from adjacent factor query joined to trusted metadata; no execution list exported','sql':sql,'day30':{}}
+for freq in ('week','month'):
+ raw=[];silver=[]
+ for f,period in sorted(counts):
+  if f!=freq:continue
+  item=registered[f,period]; path=Path(item['target']); stat=file_version(path); assert stat==item['version']
+  raw.append({'period':period,'path':str(path),'bytes':stat[2],'registered_rows':item['rows'],'changed_code_count':counts[f,period],'version':stat})
+  if period>=('2014-01-03' if f=='week' else '2014-01'):
+   target=target_path(root,f,period); sv=file_version(target) if target.exists() else None
+   silver.append({'period':period,'raw_bytes':stat[2],'target':str(target),'silver_bytes':sv[2] if sv else 0,'exists':sv is not None})
+ out['day30'][freq]={'raw_existing_files':len(raw),'raw_first':raw[0]['period'],'raw_last':raw[-1]['period'],'raw_existing_bytes':sum(i['bytes'] for i in raw),'silver_files':len(silver),'silver_first':silver[0]['period'],'silver_last':silver[-1]['period'],'silver_raw_bytes':sum(i['raw_bytes'] for i in silver),'silver_existing_bytes':sum(i['silver_bytes'] for i in silver),'raw_files':raw,'silver_inventory':silver}
+assert file_version(p)==v
+Path('/private/tmp/dg_period_restart_budget_20261031/scope30-stat.json').write_text(json.dumps(out,ensure_ascii=False,indent=2)+'\n')
+print(json.dumps({f:{k:v for k,v in d.items() if k not in ('raw_files','silver_inventory')} for f,d in out['day30'].items()},ensure_ascii=False))

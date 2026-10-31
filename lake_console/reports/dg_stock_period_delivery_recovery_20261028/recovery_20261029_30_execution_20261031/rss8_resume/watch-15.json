@@ -1,0 +1,268 @@
+{
+  "at": "2026-10-31T10:46:22.852825+08:00",
+  "read_only": true,
+  "label": "watch-15",
+  "runs": [
+    {
+      "run_id": "1f8507d5-f477-4ee7-82e4-06e750462397",
+      "job": "raw_stk_period_bar_adj_month_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-31T10:31:52.052176+08:00",
+      "end": "2026-10-31T10:36:13.970586+08:00",
+      "parent": "488ae87d-d27d-47d0-90ff-69089416121b",
+      "root": "4d3edf1d-9958-44b0-bde1-8a9f0cce1965",
+      "config": {
+        "ops": {
+          "raw_tushare_stk_period_bar_adj_month": {
+            "config": {
+              "automatic_intent_date": "2026-10-29",
+              "intent": "daily",
+              "request_id": null,
+              "stock_codes": []
+            }
+          }
+        }
+      },
+      "partition": "2026-10",
+      "runtime_rss_tag": "8",
+      "last_events": [
+        {
+          "type": "ENGINE_EVENT",
+          "message": "Process for run exited (pid: 99436).",
+          "partition": null,
+          "passed": null
+        },
+        {
+          "type": "PIPELINE_SUCCESS",
+          "message": "Finished execution of run for \"raw_stk_period_bar_adj_month_update_job\".",
+          "partition": null,
+          "passed": null
+        },
+        {
+          "type": "ENGINE_EVENT",
+          "message": "Finished steps in process (pid: 99436) in 4m21s",
+          "partition": null,
+          "passed": null
+        }
+      ]
+    },
+    {
+      "run_id": "22cbbcc2-be67-4e48-b4a1-96e85215eb93",
+      "job": "silver_stock_weekly_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-31T10:37:18.147107+08:00",
+      "end": "2026-10-31T10:38:54.136122+08:00",
+      "parent": null,
+      "root": null,
+      "config": {
+        "ops": {
+          "silver_stock_weekly": {
+            "config": {
+              "execution_id": "ce8580f1-a5cb-58dc-a886-b206379cd36b",
+              "intent": "update",
+              "source_completion": {
+                "file_receipt_hash": "426dc4c60a094bb80492181d854ee8091ba1d0701ffaf255a665e5a86de230b8",
+                "raw_execution_id": "2742186f0ce0d15bc231ccc76afc566a71b6e4f500576a4e061afb8a6af297f3",
+                "upstream_batch_id": "stock_period_raw:week:808a38b1b039"
+              }
+            }
+          }
+        }
+      },
+      "partition": "2026-10-30",
+      "runtime_rss_tag": null,
+      "last_events": [
+        {
+          "type": "ENGINE_EVENT",
+          "message": "Process for run exited (pid: 42895).",
+          "partition": null,
+          "passed": null
+        },
+        {
+          "type": "PIPELINE_SUCCESS",
+          "message": "Finished execution of run for \"silver_stock_weekly_update_job\".",
+          "partition": null,
+          "passed": null
+        },
+        {
+          "type": "ENGINE_EVENT",
+          "message": "Finished steps in process (pid: 42895) in 1m35s",
+          "partition": null,
+          "passed": null
+        }
+      ]
+    },
+    {
+      "run_id": "d9d595e1-db39-4b1c-8b06-55ef5d9da6ba",
+      "job": "silver_stock_monthly_update_job",
+      "status": "SUCCESS",
+      "start": "2026-10-31T10:39:30.643220+08:00",
+      "end": "2026-10-31T10:39:56.500948+08:00",
+      "parent": null,
+      "root": null,
+      "config": {
+        "ops": {
+          "silver_stock_monthly": {
+            "config": {
+              "execution_id": "da4314fb-cdf7-5c5d-998a-2328ac21bf47",
+              "intent": "update",
+              "source_completion": {
+                "file_receipt_hash": "426dc4c60a094bb80492181d854ee8091ba1d0701ffaf255a665e5a86de230b8",
+                "raw_execution_id": "2742186f0ce0d15bc231ccc76afc566a71b6e4f500576a4e061afb8a6af297f3",
+                "upstream_batch_id": "stock_period_raw:month:808a38b1b039"
+              }
+            }
+          }
+        }
+      },
+      "partition": "2026-10",
+      "runtime_rss_tag": null,
+      "last_events": [
+        {
+          "type": "ENGINE_EVENT",
+          "message": "Process for run exited (pid: 58111).",
+          "partition": null,
+          "passed": null
+        },
+        {
+          "type": "PIPELINE_SUCCESS",
+          "message": "Finished execution of run for \"silver_stock_monthly_update_job\".",
+          "partition": null,
+          "passed": null
+        },
+        {
+          "type": "ENGINE_EVENT",
+          "message": "Finished steps in process (pid: 58111) in 25.76s",
+          "partition": null,
+          "passed": null
+        }
+      ]
+    },
+    {
+      "run_id": "cd5212a1-a373-426e-9d70-896e8ffacfa5",
+      "job": "raw_stk_period_bar_adj_week_update_job",
+      "status": "STARTED",
+      "start": "2026-10-31T10:41:49.090799+08:00",
+      "end": null,
+      "parent": "ba86b78f-be13-4bd9-8a6d-b3ab25f148b8",
+      "root": "ba86b78f-be13-4bd9-8a6d-b3ab25f148b8",
+      "config": {
+        "ops": {
+          "raw_tushare_stk_period_bar_adj_week": {
+            "config": {
+              "automatic_intent_date": "2026-10-30",
+              "intent": "daily",
+              "request_id": null,
+              "stock_codes": []
+            }
+          }
+        }
+      },
+      "partition": "2026-10-30",
+      "runtime_rss_tag": "8",
+      "last_events": [
+        {
+          "type": "ASSET_CHECK_EVALUATION",
+          "message": "",
+          "partition": "2001-05",
+          "passed": true
+        },
+        {
+          "type": "ASSET_CHECK_EVALUATION",
+          "message": "",
+          "partition": "2001-04",
+          "passed": true
+        },
+        {
+          "type": "ASSET_CHECK_EVALUATION",
+          "message": "",
+          "partition": "2001-04",
+          "passed": true
+        }
+      ]
+    }
+  ],
+  "global_active": [
+    {
+      "run_id": "cd5212a1-a373-426e-9d70-896e8ffacfa5",
+      "job": "raw_stk_period_bar_adj_week_update_job",
+      "status": "STARTED"
+    }
+  ],
+  "queued_count": 0,
+  "sensors": {
+    "raw_stock_monthly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 0, \"decision\": \"request_runs\", \"details\": {\"asset_family\": \"stock_period\", \"blocked_component\": \"none\", \"evidence\": {\"daily_intent_date\": \"2026-10-30\", \"pending_periods\": [\"2026-10\"]}, \"job_name\": \"raw_stk_period_bar_adj_month_update_job\", \"next_action\": \"等待源交付及文件检查。\", \"partition_set\": \"cn_a_stock_months\", \"reason_code\": \"direct_source_request\", \"runtime_state\": {\"direct_completed_through\": \"2026-09\", \"examined_through\": \"2026-09\", \"policy_version\": \"completed-month-v1\", \"source_policy\": \"stock-period-source-v2\", \"verified_through\": \"2026-09\"}, \"sensor_name\": \"raw_stock_monthly_update_job_sensor\", \"summary\": \"先补欠账，再更新当前周期。\"}, \"evaluated_at\": \"2026-10-30T23:59:16.430549+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 1, \"target_date\": \"2026-10\"}"
+    },
+    "silver_stock_weekly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"schema_version\":1,\"after\":7808961,\"decision\":\"silver_run_active\",\"evaluated_at\":\"2026-10-31T10:45:30.424342+08:00\"}"
+    },
+    "silver_stock_monthly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"schema_version\":1,\"after\":7808960,\"decision\":\"silver_run_active\",\"evaluated_at\":\"2026-10-31T10:45:47.256726+08:00\"}"
+    },
+    "raw_stock_weekly_update_job_sensor": {
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 0, \"decision\": \"request_runs\", \"details\": {\"asset_family\": \"stock_period\", \"blocked_component\": \"none\", \"evidence\": {\"daily_intent_date\": \"2026-10-30\", \"pending_periods\": [\"2026-10-30\"]}, \"job_name\": \"raw_stk_period_bar_adj_week_update_job\", \"next_action\": \"等待源交付及文件检查。\", \"partition_set\": \"cn_a_stock_week_ends\", \"reason_code\": \"direct_source_request\", \"runtime_state\": {\"adjusted_delivery_revision\": 1785, \"direct_completed_through\": \"2026-10-23\", \"examined_through\": \"2026-10-09\", \"policy_version\": \"completed-week-v1\", \"source_policy\": \"stock-period-source-v2\", \"verified_through\": \"2026-10-09\"}, \"sensor_name\": \"raw_stock_weekly_update_job_sensor\", \"summary\": \"先补欠账，再更新当前周期。\"}, \"evaluated_at\": \"2026-10-30T23:59:55.591688+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 1, \"target_date\": \"2026-10-30\"}"
+    }
+  },
+  "control": {
+    "last_refresh": {
+      "month": "2026-10-29",
+      "week": "2026-10-30"
+    },
+    "last_source_asof": {
+      "month": "20261030",
+      "week": "20261030"
+    },
+    "factor_through": "2026-10-30",
+    "completed_through": {
+      "month": "2026-09",
+      "week": "2026-10-30"
+    }
+  },
+  "pending": [
+    {
+      "execution": "652694347a40c614a141791274fbddccce4bb601d8002f8d24d3187e76655701",
+      "consumed": true,
+      "intent": {
+        "asof": "2026-10-30",
+        "codes": [
+          "000728.SZ",
+          "000807.SZ",
+          "000958.SZ",
+          "002249.SZ",
+          "002941.SZ",
+          "300604.SZ",
+          "300788.SZ",
+          "301003.SZ",
+          "601878.SH",
+          "603630.SH",
+          "688409.SH"
+        ],
+        "frequencies": [
+          "week",
+          "month"
+        ],
+        "mode": "upsert",
+        "period_cutoffs": {
+          "week": {
+            "2026-10-30": "20261030"
+          }
+        },
+        "periods": {
+          "week": [
+            "2026-10-30"
+          ]
+        },
+        "request_id": "3719fff3280058ef41814574deb25a31afda835de285403ca3fae8e6f82e7055",
+        "retired_codes": [],
+        "superseded_codes": [],
+        "version": "stock-period-source-v2"
+      },
+      "phase": "files_complete"
+    }
+  ]
+}

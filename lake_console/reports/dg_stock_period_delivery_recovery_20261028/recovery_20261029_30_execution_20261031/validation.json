@@ -1,0 +1,83 @@
+{
+  "at": "2026-10-31T10:24:25.222551+08:00",
+  "docs_integrity_passed": true,
+  "scoped_diff_check_passed": true,
+  "new_report_links_checked": 3,
+  "auxiliary_scripts_archived_exactly": true,
+  "temporary_files_removed": [
+    {
+      "path": "/private/tmp/dg-period-2930-execution-20261031/29-month-launch.json",
+      "bytes": 203,
+      "sha256": "cdd4e5ac09ff34d333a87521e6e428d4113569e43ddd70e2edae7d7e4a77d143"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-execution-20261031/29-month-launch.literal",
+      "bytes": 149,
+      "sha256": "8980ed86e2db1c2cc9d16cb1abcc962aed28e7892def30df5314cb412a5fdbc3"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-execution-20261031/29-month-variables.json",
+      "bytes": 142,
+      "sha256": "33902eb44b676039ec7e327322a75e59447978df0ac2b684fba25476e7775394"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-execution-20261031/30-month-variables.json",
+      "bytes": 142,
+      "sha256": "c6c3b4ea6b6ee73b3b313ba70125966da3612eae98b351155b7b364ce76ed42f"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-execution-20261031/30-week-variables.json",
+      "bytes": 142,
+      "sha256": "425bf1c027b0a13baf8022499a2b6799c9ad9b2803b5d967575962418ad83ee9"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-execution-20261031/failure-state.json",
+      "bytes": 9561,
+      "sha256": "354dff3a748e513dca802263a52b8c36c2f44a03a82d2b4b4f1c03ee62dc0492"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-execution-20261031/failure_state.py",
+      "bytes": 4042,
+      "sha256": "6dc2313a3bb8d8664e94be7661b6ca80270eb0440d1de14d0d8ccf71c7512007"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-execution-20261031/preflight.json",
+      "bytes": 8381,
+      "sha256": "f1072b9443996842c8ebe24047b69324a03460a9ba8436aca417c3cfdc149b8a"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-execution-20261031/read_state.py",
+      "bytes": 6202,
+      "sha256": "e45d36cd2105ebf73d5894f3c929f3ea874de9c60ef6766c7d6499172c11877a"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-execution-20261031/reexecution.graphql",
+      "bytes": 202,
+      "sha256": "1852725b905e53c1ec5e0d4fb9237c9ae14d2cd552916e96385119ee55e16bea"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-execution-20261031/source-completion-metadata.json",
+      "bytes": 4587,
+      "sha256": "534168c048c49a060011d0cdac89dc0686595099fa39188d42d82eb7ab2b760b"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-execution-20261031/watch-01.json",
+      "bytes": 5073,
+      "sha256": "e5c99a2efd6809edd3549e1c5246d84d9e9d2b4f9819eb079a1bd89bd6ee95a5"
+    },
+    {
+      "path": "/private/tmp/dg-period-2930-execution-20261031/watch-02.json",
+      "bytes": 5291,
+      "sha256": "d2b22efc375898a8118fa0c873f48606b3b16843ff2353007d57c3ca3b148bbb"
+    }
+  ],
+  "formal_business_staging_retained": true,
+  "formal_raw_replacements": 0,
+  "new_resource_tag_applied": false,
+  "new_resource_proposal_status": "awaiting_confirmation",
+  "no_retry_after_new_error": true,
+  "new_code_developed": false,
+  "formal_history_OHLC_audit_performed": false,
+  "dagster_left_running": true,
+  "git_commit_this_turn": false
+}
