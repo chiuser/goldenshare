@@ -1,14 +1,14 @@
 # 财势乾坤顶底识别低层设计 v1
 
-更新：2026-10-31。状态：P3第3—5步提交bebe6f403后的两类审计问题已按LLD§20.8补齐设计、修复并完成定向验收和独立复审，待管理员review；本轮按管理员指令提交，未部署。识别v0.4-r4、预测v0.6-r4的取价/选峰/1%/EMA及价格解规则不变。P4/P5与真实来源/浏览器验收未推进。
+更新：2026-11-01。状态：P3及其审计修复已提交（bebe6f403、11271531c）；P4整体设计已在产品§10、技术方案§15和本文§21细化，六处审计修正已补齐并独立复核，供管理员review；尚未开始P4开发、真实来源或页面验收。识别v0.4-r4、预测v0.6-r4的取价/选峰/1%/EMA及价格解规则不变。P5未推进，未部署。
 
 依据：[产品文档](../../../../docs/product/wealth-top-bottom-recognition-product-v1.md)、[技术方案](index-detail-top-bottom-recognition-technical-design-v1.md)。本文件只规定当前目标、代码迁移位置、开发顺序和验收，不包含已废弃的开发流程。实施必须使用本文规则和独立用例，不得从旧实验或旧输出推导当前预期。
 
 ## 0. 本轮产物、后续实施范围和硬要求
 
-本轮依据专项回测方案§29及管理员最新确认，只细化三项修正：旧结构从首次反色起逐根检查价格；排除单根同色段引发的提前停止；同根旧价格消失及新同向首次钝化均保留计算事实但只画钝化。三项业务方向已经确定，不再列为待拍板；原软件内部怎样保存事件仍未被证实，不影响本产品采用该口径。
+本文规定r4识别、单根预测及产品接入。三项截图修正、核心/恢复/预测及专项对比已完成并由管理员验收；公开API、必要前端及提交后修复已完成限定工程验收，代码为bebe6f403、11271531c，实际证据见§19—20。原软件内部怎样保存事件仍未被证实，不影响本产品已定规则。
 
-当前三项已按顺序完成，核心、预测、专项对比证据分别见§19.1—19.3。管理员已验收通过；本轮按§20收尾并提出P3剩余步骤计划，等待review后才开工。不得从本文设计完成推出开发或回测已通过；§15—17旧成绩不能替代本次。
+本轮仅补齐P4六处审计问题，当前编码目标与顺序统一见§21。P3既有实现直接复用，不重复开发或重跑专项；P4真实来源/页面和P5清退均未执行。设计及文档检查不能代替实现、性能或真实验收；§15—17修改前成绩只保留历史用途。
 
 只在当前dev-interface工作区保留清单外修改，不创建分支/worktree、安装依赖或恢复旧算法。输入、进度和结果仅内存，无数据库/Lake写入、结果/恢复文件、后台任务、用户算法开关或浏览器持久缓存。原1%、近远选择、首次资格、原EMA、预算及正式来源精度保持；P3完整400ms含最终校验和编码，不因三项修正放宽。
 
@@ -242,7 +242,7 @@ DULL仍在同一逻辑色段时：若原参照是B且本根严格突破B，取�
 
 实现时须按引用清单成套清理等待专属类型、字段、snapshot解析、查询投影、预测条件、TS解码/说明及旧测试，不能只隐藏页面。只移除旧无限跨段historical_price_break途径；以§3.7有限范围的structure_price_break替代。原色段考核期仍不按价格单独撤销，禁止同时保留两套历史撤销政策；不删除通用恢复安全检查、完整原始数字校验、历史设计、原图和旧运行记录。
 
-目标字段及身份已在§2、§4—7确定，后续按§11同批迁移正式类型、计算进度、查询/DTO/前端消费者、Spec/hash和缓存；禁止编码时另起同义字段。旧等待快照/旧规则缓存不能按新规则恢复，也不能加新旧双策略兼容。此前P3第1步仅完成修改前的识别及内部结果；本次有限跟踪和配套仍须落实。公开合同和消费者尚未迁完，不表示产品可上线。
+目标字段及身份已在§2、§4—7确定，正式类型、计算进度、查询/DTO/前端消费者、Spec/hash和缓存已按§19—20完成迁移及限定验收；P4直接复用，不另起同义字段。旧等待快照/旧规则缓存不能按新规则恢复，也不能加新旧双策略兼容。环境装配、动态挂载和真实来源/页面验收仍属§21，不能据P3工程成绩宣称产品可上线。
 
 ### 3.9 保留规则、TODO与测试入口
 
@@ -426,7 +426,7 @@ project_xxm_response将该结果作为每项普通event的displayOnChart；debug
 
 ### 5.4 下一根预测公开目标合同（P3第3步实施）
 
-§6内核已限定验收；本节完整公开模型/投影在P3第3步实施，TS在第4步迁移。沿既有预测URL、标的/周期/asOf/鉴权和debug请求规则，不新增预测入口。目标只下一根；旧20步、等待和结构形成即停算格式不兼容。以下明确的是待实现目标，不是当前运行响应。
+§6内核及本节完整公开模型/投影已在P3第3步实施，TS已在第4步迁移，并完成§20.8修复。P4沿既有预测URL、标的/周期/asOf/鉴权和debug请求规则，不新增预测入口。目标只下一根；旧20步、等待和结构形成即停算格式不兼容。以下为现行目标合同，真实来源与页面仍待P4验收。
 
 `InternalForecastResponseDto`完整根为下文全部普通根字段，加sourceInputId/calendarInputId/precisionPolicy/references/selectedReference/nearestDecision/farEvaluated/conditions/precisionRanges/structureFollowConditions十项内部事实；内部不加debug嵌套。`project_forecast_response`先校验此完整集合，普通显式复制公共字段，debug再把这十项组为debug对象；只复用组装阶段已经生成的display和forecastId，投影不得重新生成。缓存保存这个完整内部对象，不保存普通删减结果。
 
@@ -545,7 +545,7 @@ EMPTY识别points/events为空、meta.count=0及首末None；debug对应数组�
 
 旧格式拒绝、新格式正常接收、合法int数值、显式None、事件多种真实route、日期不同但数值相同、结构终态时间晚于查询截止等均须正反测试。普通/debug对同一内部结果的全部公共字段和字节解码值相同，只有debug部分不同；debug失败不得退回普通成功。真实HTTP分别验普通和debug，不拿内部模型通过替代API验收。
 
-## 6. 下一根预测编码设计（内核已验收，公开查询交接待实施）
+## 6. 下一根预测编码设计（内核及公开合同已实现，真实来源待P4验收）
 
 本节规定最新识别规则对应的单根预测；必须先完成§2—4的本次修正，再实施本节，不引入第二个识别器。本次三项修正后的纯内核已按§19.2限定验收，P3第3—5步接公开查询及完整预算；不读取真实行情。§16—17是修改前成绩，不证明本节新条件或完整请求性能已经通过。
 
@@ -870,7 +870,7 @@ anchor固定为through按现源时区确定的业务日期；calendarInputId沿d
 
 ### 6.10 预测测试设计与识别规则对应
 
-§16—17只为修改前基线，本次内核及PF21—34内部部分的实际成绩见§19.2；第3—5步的完整请求/合同/预算和P4真实来源部分尚未执行，不得拿P3第1步成绩代替。新数学测试放现主题`test_xxm_p3_forecast_math.py`及必要`test_xxm_key_point_forecast.py`，不创建新研究项目。业务expected来自§14字面事实，数学expected来自M1—M5/Fraction或明确原运算，不能由待测forecast生成。
+§16—17只为修改前基线，本次内核及PF21—34内部成绩见§19.2；P3第3—5步完整请求/合同/限定预算验收及后续修复见§20.7—20.8。P4四周期真实来源和页面尚未验收，不得用人工或旧成绩代替。新数学测试放现主题`test_xxm_p3_forecast_math.py`及必要`test_xxm_key_point_forecast.py`，不创建新研究项目。业务expected来自§14字面事实，数学expected来自M1—M5/Fraction或明确原运算，不能由待测forecast生成。
 
 | 编号 | 独立样本/明确操作 | 必须证明 |
 |---|---|---|
@@ -913,11 +913,11 @@ anchor固定为through按现源时区确定的业务日期；calendarInputId沿d
 | 三条xxm成功响应和错误分支 | 成功返回同一已编码bytes且Cache-Control:no-store；请求400/标的404/源或查询500/预算503及原鉴权正文/header保持；daily-waves策略不变 |
 | tsCode规范串、大小写/空格、其他合法代码 | 日/分钟识别保留trim+upper，预测保持原串严格校验；不因共同debug解析扩大预测容错 |
 
-### 6.11 本轮文档核对与开工条件
+### 6.11 预测配套的验收范围与后续边界
 
-核心/结构进度/恢复/内部聚合及§6.12旧条件配合已按§19完成限定验收；不重复开发内核或重放专项。P3第3—5步复核固定身份/字段、独立用例的适用范围，接完整查询、公开模型和预算。M1—M5/PF01—34中已验收的正确数学与安全目的保留；公开HTTP/TS及PF28完整请求子样本按本批新增路径验收，不拿§16旧成绩代替。未经新发现及确认，不回改已验收规则。
+核心/结构进度/恢复/内部聚合及§6.12旧条件配合已按§19完成限定验收；完整查询、公开模型、HTTP/TS及PF28完整请求子样本已按§20完成。M1—M5/PF01—34中已验收的数学与安全目的保持；不拿§16旧成绩代替新证据。P4只补真实来源/页面与性能证据，不重复开发内核或重放专项。未经新发现及确认，不回改已验收规则。
 
-完整Spec、同次projection复用及两类核验入口、旧新条件字段、精度及status/display必须同次明确；不新增源读取、额外下一根端点、普通卡片或超过400ms的办法。若实际编码需要变更用户已定规则/公开字段集合/源表示/预算，按原要求先停报，不临时改算法。
+完整Spec、同次projection复用、两类核验入口、精度及status/display均沿本章已实现合同；不得新增源读取、额外下一根端点、普通卡片或超过400ms的办法。若P4编码需要变更用户已定规则/公开字段集合/源表示/预算，按原要求先停报，不临时改算法。
 
 ### 6.12 旧结构下一根消失条件（本次三项修正配套）
 
@@ -989,7 +989,7 @@ XxmDecision的structureFollowChecks按实际顺序记录根前旧槽及本根新
 | `features/index-detail/debug/forecastDebugContract.ts`（新） | P3迁入现预判公式/区间/参照转换/历史关联纯校验，并按r4迁移；不调用预判求解器；P3由模块真实导出，P4动态注入，普通路径不静态导入 |
 | `features/index-detail/debug/ForecastDebugDetails.tsx`（新） | P3实现并独立测试真实预测详情renderer；P4动态注入，正常卡不静态导入或求价 |
 | `features/index-detail/debug/XxmDebugDetails.tsx`（新） | P3实现并以RC93/104独立测试真实关联/显示；P4动态注入，依据debug事实不推测原因 |
-| `features/index-detail/chart/indexChartPointAdapter.ts`（新） | 原日线toDetailChartPoint原样迁出为纯函数，普通图与debug图共用；不改值、不格式化后比较 |
+| `features/index-detail/chart/indexChartPointAdapter.ts`（P4新增） | 原P3规划的提取实际尚未完成；按§21.4将工作区内toDetailChartPoint原样迁出，普通图与debug图直接共用，不留旧导出转发；不改值、不格式化后比较 |
 | `features/index-detail/chart/IndexChartWorkspace.tsx` | P3改普通悬停、传真实资格和模式，移除daily-wave运行时import/hooks/primitive创建并接好类型化可选扩展及renderer；保持同一组件位置；P4仅动态提供已有扩展和renderer；本地r4正常识别继续存在 |
 | `features/index-detail/chart/IndexMinuteChartWorkspace.tsx` | P3接正常悬停、新recognition参数及可选decoder/renderer；P4从已加载模块提供同一参数，不再改Hook签名；不加分钟波段功能 |
 | `features/index-detail/xxm/{types,adapter,apiClient,useIndexXxmLayer,XxmLayerUi}.ts[x]` | P3完成r4身份、正常/debug DTO、纯解码、客户端返回和原截止时间的Hook交接、普通字段view model/绘图及XxmSignalDetails；P3接页面真实资格和普通模式，P4只接模块ready模式变化及动态注入，XxmLayerUi不静态导入辅助详情 |
@@ -1011,7 +1011,7 @@ P3页面是正式普通请求模式：依据真实DEV/标的算recognitionEnable
 
 P3第4步必须建立IndexRecognitionDebug.tsx的5个真实命名导出：IndexRecognitionDebug、decodeXxmDebug、decodeForecastDebug、renderXxmDetails、renderForecastDetails；它们实际满足§8.3.4模块类型。两个renderer无Hook，由真实辅助组件渲染；研究hooks只在真实控制组件内调用。P3独立测试直接import该模块属于测试入口，不得反向把它引入普通页面的运行时依赖。
 
-P4只新增useIndexDebugModule及页面ready挂载/模式选择：动态import同一模块、传同一组已存在props，将已有普通debug=0分支扩展为§8.3.1的effectiveDebug；不再改公共协议、Hook签名、控制组件或图表数据交接，也不重写另一套renderer。正常/辅助切换反例在P3用真实解码器/组件独立验证，真实页面动态流程在P4验收。
+P4新增useIndexDebugModule及页面ready挂载/模式选择：动态import同一模块、传同一组已存在props，将已有普通debug=0分支扩展为§8.3.1的effectiveDebug；不再改公共协议、Hook签名、控制组件或图表数据交接，也不重写另一套renderer。另按§21.4将实际仍在工作区内的toDetailChartPoint原样迁到已规划的纯adapter，完成提取收尾，不改任何转换值。正常/辅助切换反例在P3用真实解码器/组件独立验证，真实页面动态流程在P4验收。
 
 #### 8.3.1 页面内唯一能力计算
 
@@ -1211,7 +1211,7 @@ NineTurnLayerStatus新增showAlignmentDiagnostics默认true。指数普通模式
 
 所有新合同样本手写并按本文后端DTO核验，不能把旧r2 JSON改hash后作r4真值。允许读取原报告作历史证据，当前有效测试改为r4独立字面样本。
 
-本表列最终交付要求，不把P4条件提前算成P3已实现：P3执行§11.4第4步的身份/普通及debug纯解析/客户端返回/同一deadline/普通悬停及必要调用测试；本表纯DEV资格/必要参数、真实辅助renderer/控制组件、扩展交接及静态依赖拆分在P3独立实施验收；URL动态模块加载/ready注入、页面生命周期及真实生产preview在P4实施验收。同一测试文件含两类节点时逐节点登记归属，不用整文件排除掩盖P3应通过的用例。
+本表列最终交付要求，不把P4条件提前算成P3已实现：P3执行§11.4第4步的身份/普通及debug纯解析/客户端返回/同一deadline/普通悬停及必要调用测试；本表纯DEV资格/必要参数、真实辅助renderer/控制组件、扩展交接及静态依赖拆分在P3独立实施验收；URL动态模块加载/ready注入、页面生命周期及真实生产构建/本机静态页面在P4实施验收。同一测试文件含两类节点时逐节点登记归属，不用整文件排除掩盖P3应通过的用例。
 
 | 测试位置/新增组 | 必须断言 |
 |---|---|
@@ -1226,13 +1226,13 @@ NineTurnLayerStatus新增showAlignmentDiagnostics默认true。指数普通模式
 | `debug/forecastDebugContract.test.ts`（新） | 新下一根所选参照/条件/未决区间及六字段参照；近有解A未调用，近失效不等于总体消失；旧entry/等待/20步/CONFIRMED/ZERO_RESET格式全部拒绝 |
 | `xxm-forecast/useXxmForecast.test.tsx`（新） | disabled/生产无请求/监听/刷新；技术面激活、四周期按能力、同模式重试、模式变化取消、历史不刷新、迟到不覆盖、研究日期不进入预测 |
 | `pages/index-detail/IndexDetailDailyWave.test.tsx`及新`debug/IndexRecognitionDebug.test.tsx` | P3将原4个依赖普通URL按钮的行为样本迁至真实控制组件+真实工作区的测试内Harness，完整保留手动start/retry、日期隔离/1000/不匹配/超时/迟到/研究退出覆盖；页面文件P3验证普通URL无研究入口/请求，P4再加真实debug动态挂载/退出场景，不skip或整文件排除 |
-| `pages/index-detail/IndexDetailPage.test.tsx` | P3验纯资格、普通新参数/简要悬停及生产前端无请求/卡片，P4验实际动态模块和生产preview；不能用P3模拟替代P4真实构建/浏览器 |
+| `pages/index-detail/IndexDetailPage.test.tsx` | P3验纯资格、普通新参数/简要悬停及生产前端无请求/卡片，P4验实际动态模块和生产本机静态页面；不能用P3模拟替代P4真实构建/浏览器 |
 | 现daily-wave所有单测 | 人工数值、适配、几何、共享三角、开放尾段、无起点说明、键盘、空间不足及44px全部保留；新增enabled=false误调用start/retry仍无请求 |
 | NineTurnLayerStatus及共享回归 | 指数普通hide诊断但真实错源/权限/错误可见；debug显示数量；股票默认不变；指数/股票日/分钟共享图无缩放拖动退化 |
 
 P3还须在IndexChartWorkspace.test.tsx中将旧review prop样本迁为唯一debugExtension；真实两个renderer分别放debug/XxmDebugDetails.test.tsx、debug/ForecastDebugDetails.test.tsx覆盖。测试内Harness只负责将真实控制组件onChange返回值交给真实工作区，不新增产品中转组件；网络/来源可明确mock，但控制组件、扩展、解码、renderer和工作区必须真实。P3迁移前列原节点→新节点映射，原逻辑输入和独立预期保留；禁止删除覆盖、skip、空壳组件或整文件排除来凑全量Wealth通过。P4页面节点是新动态集成证据，不能替代P3保留下来的独立行为覆盖。
 
-生产构建不能只靠jsdom模拟DEV=false验收。P4必须完成真实生产构建/preview，在不部署、不改共享服务下确认无r4 DOM、相关请求或debug模块预载；本地开发真实路由另验功能正常。记录normal/debug Network、控制台及图层/图表创建次数；build chunk检查仅辅助，不能代替浏览器请求证据。后端生产路由禁用由本文另验，不以此处浏览器通过替代。
+生产构建不能只靠jsdom模拟DEV=false验收。P4必须完成真实生产构建/本机静态页面，在不部署、不改共享服务下确认无r4 DOM、相关请求或debug模块预载；本地开发真实路由另验功能正常。记录normal/debug Network、控制台及图层/图表创建次数；build chunk检查仅辅助，不能代替浏览器请求证据。后端生产路由禁用由本文另验，不以此处浏览器通过替代。
 
 真实页面沿1600/1440/1280宽、45/180根、拖到301根以后、日线及现可用60/90/120分钟；普通和debug对同一固定输入公共标签/预判文本一致。生产分钟仍不开放。需现有环境的Wealth定向测试、全量test、typecheck和build，每组超过60秒先查因，不安装依赖。未运行项显式列未验收，不能只报测试数量。
 
@@ -1327,7 +1327,7 @@ P3还须在IndexChartWorkspace.test.tsx中将旧review prop样本迁为唯一deb
 | 完整路径 | 处理 |
 |---|---|
 | `scripts/research/index_market/xxm_forecast_display_audit.py` | 改为§11.2.4原路由RAM核验；删除--candidate/--output及旧动态算法/源码SHA和所有响应写入，复用同一正式环境装配及只读App。 |
-| `scripts/research/index_market/xxm_page_request_audit.py` | 原文件提isolated_app(settings)供两个Python工具复用；保留原鉴权/只读/临时server清理，删除--output和完整响应保存，按§11.2.4迁正式装配和合同。它当前尚不是RAM验收工具，不原样复用。 |
+| `scripts/research/index_market/xxm_page_request_audit.py` | 原文件提isolated_app(settings, *, group)供两个Python工具在本组子进程内复用；保留原鉴权/只读/临时server清理，删除--output和完整响应保存，按§11.2.4迁正式装配和合同。它当前尚不是RAM验收工具，不原样复用。 |
 | `scripts/research/index_market/xxm_page_request_audit.mjs` | 保留真实客户端HTTP请求核验，去output/writeFile/persist，使用实际1000常量及新normal/debug合同，仅RAM；Node脚本不冒称浏览器验收，见§11.2.4。 |
 | `scripts/research/index_market/xxm_history_projection_audit.py` | 仅源行情投影核对能力，未发现r2识别实现；保留。不因文件名xxm删除。 |
 | `scripts/research/index_market/README.md` | 清理活动旧CLI/旧candidate/旧两位命令，保留已注明历史的事实记录；当前入口只指新LLD。不得把历史命令成功作为当前结果。 |
@@ -1587,7 +1587,7 @@ Notebook组装测试检查返回字典、未执行的代码单元和当前导入
 `isolated_client(bars, calendar, now)`继续是人工/已明确输入的隔离合同测试，不冒充正式PostgreSQL性能或原鉴权验收：
 
 1. 原SQLite内存表、真实字段、只读开关、冻结时钟和缓存隔离保持；不写正式数据库。
-2. 在原文件内建立最小`FastAPI`，安装现异常处理，调用正式本地r4路由装配函数；不再调用待删`b.app_for`。装配和分钟能力统一用传入的同一Settings，不重新从全局env猜一次。
+2. 在原文件内建立最小`FastAPI`，安装现异常处理，调用正式本地r4路由装配函数；不再调用待删`b.app_for`。该人工客户端内部创建一份显式local且分钟关闭的测试Settings并传入装配，不继承机器分钟开启配置，也不重新从全局env猜一次。
 3. 用显式本地Settings建立测试装配；依赖替换仅限该临时App的会话及原用例明确声明的鉴权替身，不改全局配置/环境。
 4. 原`get_db_session`替换为内存会话；测试自身声明替代了存储/鉴权，真实r4读取转换、计算、DTO和投影仍实际执行。
 5. `finally`恢复时钟/查询包装及原缓存并释放SQLite；新的普通/debug响应按bytes及目标DTO解析，不再按旧对象取字段。
@@ -1597,35 +1597,21 @@ Notebook组装测试检查返回字典、未执行的代码单元和当前导入
 
 #### 11.2.4 三个原路由核验入口改为仅内存
 
-`scripts/research/index_market/xxm_page_request_audit.py`目前已自带只读会话、原鉴权、隔离App、临时server和清理，且不导入待删研究模块；可在原文件迁移，不另建框架。
-将现App构造部分提为`isolated_app(settings)`上下文管理器供本脚本及`xxm_forecast_display_audit.py`复用：
+三个原文件xxm_page_request_audit.py/.mjs及xxm_forecast_display_audit.py原地迁移；§21.5为本批参数、分组、返回结构、观测位置、父子进程及退出的唯一细化，不再沿用旧入口的输出目录、candidate、固定全周期/160次或200ms断言。
 
-- 使用原`get_db_session`与`SET TRANSACTION READ ONLY`，原`require_quote_access`、异常处理及正式本地路由装配；不能直接include r4路由绕过环境判断。
-- 普通日线/分钟/九转仍用原路由和原reader；仅当前隔离进程注入受批准来源，`lifespan='off'`，不启动后台任务。
-- 保留原私有`/__audit__/context/reset/metrics`用途，不新增HTTP路径；正常/debug按同一正式合同请求。
-- 最终恢复修改过的reader/service/calendar/build包装及原缓存；请求失败、Node失败和中断均关闭临时server/socket/会话。
-- 两个Python入口移除`--output`、创建目录及完整HTTP/行情/视图写入，正文只在RAM核对；终端仅输出数量、字节、日期、时限、状态及验收摘要。
+- isolated_app(settings, *, group)放原页面工具，仅在本组子进程内创建原路由/原鉴权/只读会话，两个Python入口共用。正式App装配仍调用_include_local_xxm_routers(target_router, settings)，不能直接build_router绕环境。
+- main只解析既定--periods/--as-of/--mode/--samples，生成§21.5.1封闭任务清单并监督本组子进程；不新增worker CLI参数、运行器、配置或后台任务。
+- 无--output、完整HTTP/VM保存、动态candidate源码、结果目录或恢复文件。正文仅本组RAM，跨组只留同源比较摘要。mjs复用现客户端/解码器/scheduler和唯一INDEX_DAILY_HISTORY_LIMIT；日线1000、分钟500，禁止硬编码300或引入React研究模块。
+- 普通与debug根字段按当前合同分别校验；旧rearmContext/bottomHistories/pendingRearmId两模式都拒绝。client必须拆response/deadline，最终显示仍同一时限。
+- 每组只处理选定period/mode/scenario，私有context/reset/metrics及逐请求字段按§21.5.3；source修订/截止变化不能强配。缺周期如实未验收，不增默认周期、不自动重试。
+- 父进程从创建本组子进程前开始计满60秒；工作50秒，收尾期间先等真实活动请求结束再恢复。卡住线程按§21.5.6终止整个本组，不留活线程同时恢复包装，不进入下一组。Node工具不冒称浏览器验收。
+- 自动组只使用临时端口并按期关闭。管理员真实页面由§21.7固定本地开发服务/8000及本机静态生产入口承担，不延长采样组等待review，不自动重启现有服务。
 
-`xxm_forecast_display_audit.py`在原文件删除`--candidate`、动态源码加载/源码SHA、候选display/recover包装及旧候选身份；不保留算法选择。
-其`request`必须验证HTTP状态、真实目标DTO、字节与时限，区分normal/debug；只按本次已声明的有限周期和asOf核验，不自动跑全部日期或周期。
-20次性能采样、冷热及并发检查仍遵守原预算；只运行本轮已明确授权的范围，不由一次入口默认展开所有历史窗口。
-
-两个Python入口的执行参数在本轮固定为：`--periods`必须显式给出day/m60/m90/m120的非空去重子集；`--as-of`可省略表示latest，非空仅接受YYYY-MM-DD，日线用该日，分钟映射该日15:00:00+08:00且必须已完成；`--mode`为normal/debug/both，默认normal；`--samples`为1或20，默认1，20仅在获准性能验收时显式使用。--candidate/--output均不再接受；README和所有调用同次迁移，不留忽略参数的兼容壳。mjs由父进程传base及相同周期/模式/时点，不接output位置参数，也不偷偷补默认全周期。
-
-单周期/单模式采样为一个≤60秒的有界组，超时即停止报告，finally含关闭server/socket和恢复patch，不在后台继续下一组。latest记录实际完成截止，不把所有分钟末根强断为当日15点；显式asOf非法仍按原API错误处理。原鉴权、真实源和原请求预算均不放宽。
-
-`xxm_page_request_audit.mjs`固定要求：
-
-1. 删除`output`参数、`writeFile/resolve/persist`及所有完整response/VM保存；requests/rounds只在内存，错误body不写文件。
-2. 继续现Node/esbuild、`bundle:true/write:false`及内存data-URL模块，不安装依赖；显式采用本地开发客户端所需的编译环境；只导入pure decoder/客户端，不把React图层及CSS带进Node执行。该工具不替代真实production build。
-3. 编译入口导入现`INDEX_DAILY_HISTORY_LIMIT`供日线K线/九转使用，不再硬编码300；分钟500不变。
-4. 普通请求没有debug对象；debug只允许新structures/参照/单步条件集合并由动态decoder核验。旧rearmContext/bottomHistories/pendingRearmId在普通和debug两种模式均拒绝，不能以“辅助字段”继续接收旧格式。
-5. 两种模式公共字段/标签ID/显示文本在同一固定输入下相等；来源变更/日期切换时按原规则终止本次比较，不硬配。
-6. 指定周期不可用时如实报告；不得丢掉失败周期后说四周期通过。该Node客户端工具不是实际浏览器或生产构建验收。
+显示工具的request仍必须校验实际HTTP状态、完整目标DTO、字节和原时限；原auth、参数、SQL/Reader及数据精度保持。原始材料的来源/SHA核验仍保留；只移除旧算法源码保护及结果保存，不拿清退顺便放宽源校验。
 
 #### 11.2.5 身份与测试交付的当前要求
 
-新P3的完整Spec、模型、普通/debug字段已在§2—6确定；按§11.3先同步原合同文书，再按§11.4第1—4步迁内部与公开消费者。测试hash显式来自对应完整Spec，不预填r2、旧r4或占位身份；业务expected独立手写，不随实现结果重生成。
+完整Spec、模型、普通/debug字段已在§2—6确定；P3已按§11.3—11.4同步合同及全部本批消费者，实际证据见§19—20，P4直接复用。测试hash显式来自对应完整Spec，不预填r2、旧r4或占位身份；业务expected独立手写，不随实现结果重生成。
 
 P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同一deadline的Hook交接、普通悬停及其日分钟调用和受影响fixture；P4接动态模块和完整页面。P4保留工具及其尚未迁移的专属执行测试在P3不运行、不计通过；P5旧runner保持既定清退归属。按节点列清未执行原因，不删除/改低预期、不以skip/xfail或整文件过滤掩盖本属P3的失败；通用核心/恢复/输入/源精度及P3消费者测试仍须通过。
 清退后测试收集须覆盖新数学、纯窗口、离线观察、普通/debug HTTP、工具RAM及异常清理；静态检查不能替代真实入口执行。
@@ -1636,7 +1622,7 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 
 ### 11.2.6 直接调用方的确定迁移清单
 
-下表是实施时必须逐一迁移的真实调用位置，不是可选范围。P3迁运行时/本批测试，P4工具在首次使用前整体迁移，P5删除明确旧执行器；不得只改API而漏掉直接调用query的Python消费者。
+下表登记必须覆盖的真实调用位置及阶段归属，不是可选范围。P3运行时/本批测试已按§20.7—20.8完成，不重复开发；P4工具在首次使用前整体迁移，P5删除明确旧执行器。后续仍须核验这些消费者不被新改动破坏。
 
 | 当前文件/调用 | 处理要求 |
 |---|---|
@@ -1660,12 +1646,12 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 
 `query_service.py`内部_response/历史投影互调与SeriesEntry聚合在同一实现中一起更新。`tests/web/test_xxm_shared_loads.py`保留并发/取消/共享来源，受影响字段按P3第3步同步。Wealth直接调用为`xxm/apiClient.ts→adapter.ts→useIndexXxmLayer.ts→日/分钟工作区`及`xxm-forecast/apiClient.ts→adapter.ts→useXxmForecast.ts→页面/右栏`；P3第4步必须整条迁移，不能把新外层返回结构留到P4处理。daily-wave原合同/算法不变；P3移走普通入口的运行时依赖并在真实控制组件保留独立行为测试，P4再接页面动态生命周期和真实来源。
 
-### 11.3 P3开工前置检查
+### 11.3 各批开工前置检查
 
 1. 核对日线合同§10、分钟合同§8和预测方案§36的目标入口与本文§2—7一致。本轮已同步这些文书；实施日必须重新核验没有字段/版本/空值分歧。发现分歧必须先修文档，禁止边编码边选择口径。
 2. 核实施当日calculator/types/snapshot/query/预测/schema/API/客户端/decoder/Hook/工作区/离线工具的全量引用与dirty文件边界；本轮CodeGraph及源码依据在§0.2，不代替实施时引用清单。
 3. 依§14及§6.10先确认独立预期和测试落点；旧正确安全检查保留，旧底部等待、跨根借价首次及无限跨段撤销预期不再是验收答案；首次反色/分隔/零柱价格失效、单根跳过/有效段结束及同根显示均须覆盖。新身份、解析与恢复拒旧必须有正常变化的反例证明不过度拦截。
-4. 必须获得对应P3执行授权；按下一节顺序实施，中间只验对应内部能力、不发布混合版本，不擅自进入P4/P5。此前通过结论不能替代本次新规则验收。
+4. 必须获得对应批次执行授权；P3已完成，当前P4按§21六步实施，不发布混合版本，不擅自进入P5。既有通过结论只在原适用范围内复用，不能代替本批实际实现及验收。
 
 ### 11.4 P3五步及P4/P5交接
 
@@ -1673,7 +1659,7 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 
 1. 当前SeriesEntry保存points/events/structure_records，calculator_at有界还原真实前缀；新计数/跟踪极值、单根起点重置和asOf投影已完成本次限定验收，见§19.1。§17.4仍只为旧成绩，不代替本次证据。
 2. 当前识别v0.4-r4、预测v0.6-r4，核心/预测提交50b0f22bb，专项工具及结果提交ec37c69ea，管理员已验收该范围。公开API完整模型/投影/一次编码及TS消费者已按下表第3—5步完成，工程证据见§20.7；P4真实装配/来源/浏览器未通过前仍不可宣称产品可发布。
-3. 内部真实来源、共享读取、原MACD/1%/EMA和预算保持；本次修补文件及执行证据分别见§18.3、§19，公开显隐仍留第3—4步实施。
+3. 内部真实来源、共享读取、原MACD/1%/EMA和预算保持；修补文件及内部证据分别见§18.3、§19，公开显隐和全部P3消费者已按§20.7—20.8完成。当前P4只补本批环境、动态挂载和真实证据。
 
 #### P3实施步骤、前置与停点
 
@@ -1688,6 +1674,8 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 第1—4项“按顺序实施”不允许阶段结束仍保留另一个可运行旧r4策略。开发中间状态不作为可发布产品，不给普通请求添加过渡开关。第3项需要的公开模型草稿必须在第1步修改内部字段之前已经写入本文，不能等编码时自由选字段。若执行中发现新业务边界或§6数学预算无法成立，先停止并说明，不依赖旧模型吞错或原20根路径兜底。
 
 #### P4六步（P3整批通过后）
+
+逐步编码、文件清单、配置交接、失败释放、性能测量和独立测试统一细化于§21；下表只保留顺序。现成的§1/§8/§9/§11.2要求继续适用，不能仅按本表六行编码。
 
 | 步骤 | 动作与前置 | 结束证据 |
 |---|---|---|
@@ -1728,7 +1716,7 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 | `test_xxm_r4_observation.py` | §7真实执行观察及默认关闭；True/False完整业务结果一致 | 未查A不当失败、原事件参照不改、before/after不混、翻色旧事件方向正确、重复选择和对象共享 |
 | `test_xxm_p3_forecast_math.py`及`test_xxm_key_point_forecast.py` | §5.4.4 M1—M5和§6.10 PF01—34；独立Fraction/手算，不由forecast helper生成expected | 合法零/整数边界、近有解A零调用、无解与未决区分、已成结构继续考核、首次反色后有限跟踪与新轮并行、失败无半结果及400ms |
 | `tests/web/test_wealth_index_detail_xxm_api.py`、`test_wealth_index_detail_xxm_forecast_api.py`、`test_xxm_shared_loads.py` | RC73/93/104/107及§14.16全部窄窗口子样本、新普通/debug字面合同、同时间多事件、一次编码/同次来源只读一次、真实query调用/缓存/取消及身份 | 拒旧JSON而非改hash；历史point引用终态record合法；旧asOf不泄未来；不重复读、不二次编码、不吞错EMPTY |
-| Wealth现识别/预测`types/adapter/apiClient/Hook`测试、工作区/页面测试 | §8合同/迟到/截止时间、普通无debug可展示、同源公共值相同；P3验纯资格/必要props、真实辅助组件及依赖拆分，P4验动态页面和真实生产构建/preview | 不静态加载辅助、不以false诊断隐藏真错、关闭清理、研究日期不影响右栏/预测、生产任何debug不请求r4 |
+| Wealth现识别/预测`types/adapter/apiClient/Hook`测试、工作区/页面测试 | §8合同/迟到/截止时间、普通无debug可展示、同源公共值相同；P3验纯资格/必要props、真实辅助组件及依赖拆分，P4验动态页面和真实生产构建/本机静态页面 | 不静态加载辅助、不以false诊断隐藏真错、关闭清理、研究日期不影响右栏/预测、生产任何debug不请求r4 |
 | 依赖边界/清退/工具 | 根三份架构、Biz不导入research/App/QTF、§10逐文件清退及§11保留工具 | 无旧算法/父类/动态副本/源码SHA保护；保留工具在旧模块缺席时正常人工输入可运行 |
 
 全部字段/分支到case对账见§14.12。人工来源样本只证明对应规则，真实来源核验按下一节；不拿设计数量、mock或旧成绩冒充已执行。M1/M2的175.5/24.5合法零必须纳入回归；不得仅改max_future_bars、扩大时限或删复杂路径来冒充数学正确。
@@ -1739,7 +1727,7 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 - 先选择单上证有限日期/已有可用分钟的各周期，记录真实源字段/时区、读取范围、实际根数、响应字节、冷/热/历史/增量耗时及source ID，不补缺值或计算实际MACD。若正式服务需要更长历史，事先注明有界上限和来源，不把报告区间当计算起点。
 - 新规则用§14、M1—M5及PF01—34独立预期；不再捕获旧v2或重建双组产品。真实来源另按唯一新r4及有界源字段/日期核验，不把人工测试冒充真实来源证据。
 - 本地普通/debug对同固定前缀公共结果一致；分钟不可用时单列未验收，不能拿日线922根或人工替身抵充。
-- 真实生产构建仅在本机preview验证，无r4 DOM/请求/辅助chunk预载；后端以生产设置构建隔离路由验无源调用。本项不部署到生产。
+- 真实生产构建仅在本机既有App的/wealth静态入口验证，无r4 DOM/请求/辅助chunk预载；后端以生产设置构建隔离路由验无源调用。本项不部署到生产。
 - 浏览器1600/1440/1280宽、45/180根、拖至301根以后，记录普通/debug的请求、控制台及图层/图表创建次数；退出研究恢复普通日期，标签/条件与真实API一致。页面最终交用户review。
 - 每个测试组超过60秒停止查因；性能不满足400ms/4秒/8秒/10秒或字节限额时报告实际输入、路径数和耗时，先补方案，不放宽上限或退r2。
 
@@ -1749,7 +1737,7 @@ P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同
 
 - `.venv/bin/python -m pytest`选本模块人工/恢复/预测/投影及web路径；不得整组触发旧冻结数据回放或未授权真实读取。
 - 根三份架构：`tests/architecture/test_subsystem_dependency_matrix.py`、`test_platform_legacy_guardrails.py`、`test_operations_legacy_guardrails.py`，另核Biz不导入research/App/QTF。
-- Wealth定向/全量`npm --prefix wealth run test`、`typecheck`、`build`；真实preview单独登记。每组有界，不用skip/吞错过关。
+- Wealth定向/全量`npm --prefix wealth run test`、`typecheck`、`build`；真实本机静态页面单独登记。每组有界，不用skip/吞错过关。
 - `python3 scripts/check_docs_integrity.py`和本组相对链接/标题/字段覆盖检查；它们只能证明文档完整性，不能证明新算法或接口已经通过。
 
 每批交付按R01—R22、RC01—110及实际执行的PF01—34逐条记录“代码点/测试/真实证据/未覆盖”，不是只报测试数量。最终完成还须P5删后验证、全部消费者同合同、用户页面review；未完成来源或性能不得宣称整体产品已验收。
@@ -2423,9 +2411,9 @@ MAIN_SPEC已实现v0.3-r4，FORECAST_SPEC已实现v0.5-r4；真实hash由完整S
 
 只运行一次922根2023-01-03—2026-10-27本地DG Silver上证日线，SSE日历1394/922，3组各922次step，旧56/56通过。完整调用2.794937秒，保守父子峰350126080字节，全部结果18491201字节，全部进程回收，预算未放宽。当前DULL29/STRUCTURE16/CANCEL21，显示CANCEL19；相对历史r2、历史r4完整事件差11日、应显示标签均差9日，普通状态差2日。9次价格消失、2次同根计算双事件/显示单标签及10月17日单根跳过均只读同次结果独立审阅，无二次step或读取。
 
-完整人工可读报告、全部差异日期、各组参照/DIF日期、数量/资源及限制见[专项方案§32](../../../../docs/product/wealth-r4-historical-comparison-plan-v1.md)，工具验收见[专项LLD§29—30](../../../../docs/product/wealth-r4-historical-comparison-low-level-design-v1.md)。工程及日期/标签对齐不代表已逐值复现原软件。公开显示投影/必要前端/P3整链400ms/P5均尚未推进，本轮完成即停，不部署。
+完整人工可读报告、全部差异日期、各组参照/DIF日期、数量/资源及限制见[专项方案§32](../../../../docs/product/wealth-r4-historical-comparison-plan-v1.md)，工具验收见[专项LLD§29—30](../../../../docs/product/wealth-r4-historical-comparison-low-level-design-v1.md)。工程及日期/标签对齐不代表已逐值复现原软件。该次专项不包含公开投影/必要前端/P3整链400ms或P5；随后P3的实现及限定验收见§20.7—20.8，P4真实来源与P5仍未执行。
 
-## 20. 已验收范围、P3剩余步骤及后续依赖（2026-10-31）
+## 20. 已验收范围、P3交付证据及后续依赖（2026-10-31）
 
 ### 20.1 已验收范围及固定证据
 
@@ -2435,18 +2423,18 @@ MAIN_SPEC已实现v0.3-r4，FORECAST_SPEC已实现v0.5-r4；真实hash由完整S
 
 ### 20.2 P3第3—5步实施范围（已完成开发与限定验收，见§20.7）
 
-本批是下一个整体交付，唯一内部顺序为：A1复核→A2内部/公开模型与纯投影→查询/单日历端点/缓存候选→API及直接Python消费者→后端定向验收→A3纯资格/类型/两个debug解码器→正常adapter/client→Hook→页面与两工作区/右栏参数→真实renderer/研究控制组件和静态依赖拆分→前端全部本批测试/typecheck/build→A4整批独立审计。后一步必须使用前一步已验收真实产物，不发布前后端混合版本。开始前仍按§11.3核合同、实际调用方、dirty边界和独立测试预期；本轮仅写计划，未获得新的编码执行指令。
+本节登记P3已完成范围及当时的实施顺序：A1复核→A2内部/公开模型与纯投影→查询/单日历端点/缓存候选→API及直接Python消费者→后端定向验收→A3纯资格/类型/两个debug解码器→正常adapter/client→Hook→页面与两工作区/右栏参数→真实renderer/研究控制组件和静态依赖拆分→前端全部本批测试/typecheck/build→A4整批独立审计。实际代码及证据见§20.7—20.8；不重新开工或发布前后端混合版本。当前P4执行顺序唯一见§21。
 
 | 顺序 | 工作内容及真实代码位置 | 必须交付及验收 |
 |---|---|---|
-| A1 开工核对 | §11.3、三份既定合同和§11.2.6调用方；固定MAIN_SPEC/FORECAST_SPEC真实身份；核当前forecast_query_service仍引用旧inactive_result/历史等待字段，API仍直接返回旧DTO，TS client仍直接返回response.json | 列清本批文件/硬口径/正反测试映射。上述旧查询/API属于本批已计划迁移范围，不能回添已删除旧函数兜底。出现文档未覆盖且影响行为的冲突先停下说明 |
+| A1 开工核对 | §11.3、三份既定合同和§11.2.6调用方；固定MAIN_SPEC/FORECAST_SPEC真实身份，列清文件、硬口径及独立测试映射 | 当时发现的旧查询/API/TS返回方式已在A2/A3迁完；P4不得恢复旧函数或旧DTO兜底 |
 | A2 P3第3步：Python模型、投影、查询/API | §5完整内部/普通/debug模型，response_projection.py；query_service.py和forecast_query_service.py；三个识别/预测API；缓存和forecastId；§11.2.6所有本批直接Python消费者 | 同一次来源结果复用，不重新读或重算识别；统一新结构/单根预测合同，日历只求下一端点；完整关联先校验，再按模式投影并只编码一次。两种模式公共标签/编号/预测文字相同；同根显隐由后端displayOnChart给出，完整计算事件不删；拒旧/混配身份，历史asOf不泄未来 |
 | A3 P3第4步：前端必要迁移 | §8和§11.4：TS类型、纯debug decoder、普通decoder/adapter、两个apiClient、两个Hook，再普通悬停及日/分钟工作区必要调用 | 按{response,deadline}传递同一截止时间，迟到/关闭/重试不残留；普通没有debug字段也可展示，不静态加载辅助实现。严格使用后端displayOnChart；纯debug解码和真实renderer保留完整事件；P3完成控制组件提取和普通静态依赖拆分，P4才动态挂载。完成定向/完整Wealth测试、typecheck和build，不自行重算规则 |
 | A4 P3第5步：整批独立审计与交付 | 依§12和§14对规则/分支/内部和公开合同、API、全部本批消费者、一次读取/一次编码、缓存/asOf/取消和架构逐项对账 | 已有定向成绩只复用其适用部分，补新公开与前端证据；按原口径验识别4秒、预测400ms及1MiB/32KiB响应上限，最终校验/编码不得漏算。明确P4真实来源/页面和P5尚未覆盖。交管理员验收后才进入下一批 |
 
 本批不重新设计取价、选峰、1%或近远规则，不恢复两位/多步/中点预测，不读远程或重跑922根专项，不提前清退旧执行器、不改生产开放范围、不部署。普通/debug新模型必须同时迁移全部本批消费者，不增加过渡开关或旧模型兼容层。公开接口失败、取消、错误和精度未决语义均沿§1/§5—6，不能吞成EMPTY。
 
-### 20.3 再下一批：P4产品装配、保留工具与真实页面
+### 20.3 P4产品装配、保留工具与真实页面
 
 仅在P3整批验收后按§11.4的原6步实施，顺序不变：
 
@@ -2468,12 +2456,12 @@ P4不修改识别规则，不清退P5文件，不新增下载、后台任务、�
 
 ### 20.5 执行节奏与本轮停点
 
-依次为P3剩余整批→独立审计/管理员验收→P4整批→独立审计/管理员验收→P5整批→最终验收。每批内的步骤是依赖顺序，不允许跳过或把未完成的上游留给后续自由发挥；每批开工前按对应原方案/LLD复核，不重复造方案。遇到未定义行为、文档冲突或真实预算无法满足时，先停下说明上下文和建议。
+P3开发及修复已提交，后续依次为P4设计review→P4整批实施→独立审计/管理员验收→P5整批→最终验收。每批内的步骤是依赖顺序，不允许跳过或把未完成的上游留给后续自由发挥；每批开工前按对应原方案/LLD复核，不重复造方案。遇到未定义行为、文档冲突或真实预算无法满足时，先停下说明上下文和建议。
 
-本轮仅补齐P3第3—5步文档并审计；不开始编码、业务测试、行情重放或清退，不自动提交。文档通过不等于实现或性能通过，后续仍须按§20.2逐步编码、独立验收并交管理员review。
+P3第3—5步及提交后修复已完成，证据见§20.7—20.8。本轮只按§21细化P4整体设计，不开始编码、业务测试、行情读取或清退，不自动提交。P4文档通过不等于实现或性能通过，后续仍须逐步编码、独立验收并交管理员review。
 
 
-### 20.6 本次开工前文档补齐与独立审计
+### 20.6 P3开工前文档补齐与独立审计记录
 
 本次只补文档，不改业务/测试代码，不读取行情、重放对比、运行HTTP或提交。四项已批准的补齐位置及后续验收如下；不另开一套实施路线，编码顺序唯一沿§20.2。
 
@@ -2486,11 +2474,11 @@ P4不修改识别规则，不清退P5文件，不新增下载、后台任务、�
 
 配套后端先后关系已明确：必填编号和显示内容先生成，随后完整内部校验、公开投影及一次编码；退出共享读取并通过其出口检查之后，才可在同一截止时间内发布预测缓存，发布后只返回已准备正文。失败不得删除旧有效内容。单个下一端点、同次日历身份、静态/校准失败/实际求解结果及对应PF28完整请求反例均见§6.8.1—6.10。三个成功响应显式no-store，原错误处理和路由参数规范化边界保持，配套三合同已同步。
 
-独立复核覆盖后端顺序/预算、前端P3到P4交接、三合同及原方案一致性；已清除活动章节中要求重修内核、将P3组件及参数延后P4、把修改前专项作为本批前置、将内部和公开验收混为一谈的过时指令。历史§15—18只留当时真实成绩和设计交接，当前剩余顺序以§20.2为准。
+该次独立复核覆盖后端顺序/预算、前端P3到P4交接、三合同及原方案一致性；当时的开发已按§20.2完成，实际证据见§20.7—20.8。历史§15—18只留当时真实成绩和设计交接，当前P4顺序以§21为准。
 
 本轮文档完整性检查、git diff --check均通过，六份文档相关章节18处本地链接均存在。后端、前端和接口合同三项独立复核已完成；该检查不替代后续业务测试。
 
-文档层面没有剩余待拍板或待补充的P3第3—5步口径，可据此制定文件级执行清单并开工。§3.9两项研究TODO继续保持现行规则，不作为本批前置。该结论不代表公开代码、接口或400ms预算已通过；编码后必须完成§20.2的定向验收和整批独立审计，P4真实来源/页面及P5清退仍未执行。
+该次P3开工前结论已由§20.7—20.8的开发和限定验收承接，不再作为当前开工指令。§3.9两项研究TODO继续保持现行规则，不作为P4前置；P4真实来源/页面及P5清退仍未执行。
 
 ### 20.7 P3第3—5步执行登记（2026-10-31）
 
@@ -2564,3 +2552,308 @@ P1/P2中与本批直接合同冲突的web/Wealth等待、多步和旧身份正�
 - 隔离临时来源的人工290根完整请求：冷66.52ms、热5.75ms、debug正文8926bytes；包含真实reader、校准、求解、模型/身份复核和编码。仍在原400ms/32KiB内，不代表P4真实四周期性能已验收。
 
 独立复审重新核对：完整模型校验先于普通/debug分流；原生与公开Wave合法性相同；编号生成与复核字段/数值规范同源；缓存命中不重算/改号；with正常退出及最终check后才发布；所有错误路径保留旧缓存，取消/锁释放正确；错误处理不掩盖原因；前端不生成编号。本次复审另补齐编号尾随换行检查，未发现本修复范围内其他未处理阻碍。P3可重新交管理员review；P4环境/动态模块/真实来源/浏览器及P5清退仍未执行，不能视为产品可发布。
+
+
+## 21. P4整体编码设计、执行顺序与验收（待review，尚未开发）
+
+本节把§11.4六步落实到编码及验收。产品§10和技术方案§15为范围依据；本节引用§1/§8/§9/§11.2的已定合同，不另设算法或配置。只有管理员批准实施后才执行；本轮仅文档，不读数据库/Lake、不启动App、Node核验或浏览器、不运行行情计算，不提交或部署。
+
+### 21.1 编码起点、硬边界及文件清单
+
+代码起点为P3提交bebe6f403及审计修复11271531c。现唯一识别v0.4-r4/预判v0.6-r4及真实Spec hash保持。F01—F08修复必须继续生效：原始类型严格校验、原生/公开Wave一致、完整预测编号复核、取消原样传递、异常退出不覆盖原错误、不发布半份缓存。
+
+本次已用CodeGraph codegraph_explore核对Page→工作区→useIndexXxmLayer、Page→useXxmForecast→client、query.load_entry→_load_series→read_minutes→read_complete_history_pair，以及本地分钟配置；直接补核App路由、Settings、辅助组件、工具和测试。CodeGraph查到的无关同名符号不作证据。当前真实差距见技术方案§15.1；尚未迁出的转换函数按下表收尾，不能称已存在的独立adapter。
+
+| 步骤 | 允许修改/新增的实现位置 | 固定职责 |
+|---|---|---|
+| 1 | src/app/api/v1/router.py | §1两私有装配函数、Settings/root交接、移除旧注册及两处旧root函数 |
+| 2 | wealth/src/features/index-detail/debug/useIndexDebugModule.ts（新增）；pages/index-detail/IndexDetailPage.tsx | 模块加载及页面编排；沿现纯资格函数，不重写资格或解码器 |
+| 2—3 | pages/index-detail/index-detail-page.css | 只给稳定左图容器/辅助加载错误状态定位置，不改右栏/原三角/图表尺寸规则 |
+| 3 | features/index-detail/chart/indexChartPointAdapter.ts（新增）、IndexChartWorkspace.tsx、debug/IndexRecognitionDebug.tsx | 原样迁toDetailChartPoint并清零旧导入/导出；现真实工作区/控制器挂载，最小必要接线 |
+| 3 | chart/IndexMinuteChartWorkspace.tsx、sidebar/IndexInfoRail.tsx/IndexTechnicalTab.tsx、xxm-forecast/XxmForecastCard.tsx | 现props已具备，原则上不需再改；只核既有参数完整传递，不能重做合同或增加字段 |
+| 4 | scripts/research/index_market/xxm/daily_window_precheck.py、xxm_page_request_audit.py/.mjs、xxm_forecast_display_audit.py及主题README | §11.2.3—4成套迁移；原路径保留，不新增替代运行器 |
+| 5—6 | 本三份文档的P4执行登记 | 只登记源范围、数量、字节、计时和结论；无行情/完整结果/恢复文件 |
+
+测试文件另见§21.8。禁止改calculator、snapshot_validation、Spec、forecast求界/EMA、实际源SQL/Reader、数据库结构、已有共享配置默认值、鉴权及P5专属清退文件；本表明确安排P4迁移的工具和旧函数删除按§11.2实施，不扩大为P5模块清退。若实际编码必须超此清单，先说明具体代码证据并修原文档，不借“配套”自行扩大。不新增依赖、分支/worktree、后台任务、生产开关或另一份r4。应用内展示不使用工具统计拼装识别事实。
+
+### 21.2 第1步：正式App与隔离工具共用环境装配
+
+按§1实现_xxm_local_environment_enabled(settings)、_include_local_xxm_routers(target_router, settings)，不复制为第二处判断。正式router在现聚合层取得get_settings()的最终对象并调用后者；函数只有路由/依赖接线，无业务计算。
+
+固定顺序：
+
+1. 先判断app_env是否显式设置且规范后为dev/local；false立即return，不调用分钟capability、不构造Biz service、不读取会话或Lake。
+2. true时日线识别、预测、daily-waves可注册；resolve_index_minute_capability只对传入的同一Settings解析一次，捕获可用lake_root或None供分钟相关闭包使用。该闭包不再调用get_settings。
+3. 将xxm-signals、xxm-key-point-forecast、daily-waves的原无条件include移到此函数；minute-xxm-signals只在同次capability可用时include。从原_include_local_minute_router移除minute-xxm重复include，其余普通分钟/九转策略不改。四路径实际URL仍为/api/v1/wealth/market/index-detail/对应后缀，各只注册一次。
+4. 删除旧_index_xxm_lake_root、_forecast_lake_root前查实际调用，全部迁到同次捕获闭包后删除；不得留下再取全局配置的旧入口。
+5. 日线识别/预测不调用lake_dependency获取分钟root。分钟未启用或来源未就绪时，日线仍正常；分钟预测沿现XXMF_NOT_SUPPORTED/404，分钟识别未注册。明确开启却根非法/依赖不具备时保留现LocalMinuteCapabilityError，不吞错伪装可用。
+6. 正式路由保留原get_db_session、require_quote_access、WebAppError及daily_wave_session_factory。辅助参数不承担环境权限；生产/缺环境/未知值直接路径404，OpenAPI无对应项，不返回假EMPTY或回退r2。
+
+配置仍为§1.2已登记来源。测试APP_ENV显式dev/local、含空白大小写、缺失/空串/未知/prod，以及现env文件优先于同名进程变量；不改变全局默认dev或优先级。配置改变按原App启动时生效，实施不自动重启共享服务。既有web测试APP_ENV=test不能为方便全局改成dev；新增隔离App只为本用例传明确Settings，测试后恢复。
+
+第1步结束交付：装配真实路由的正反例通过，普通生产日线仍可访问；工具可在后续复用同函数。单独build_router测试只能证明Biz合同，不能代替生产不注册的验收。
+
+### 21.3 第2步：动态模块与页面请求模式
+
+useIndexDebugModule(enabled)固定返回phase（idle/loading/ready/error）、module（ready时五项真实导出，否则null）、errorMessage、稳定retry。仅动态import('./IndexRecognitionDebug')，禁止静态运行时import、全局预加载或从普通桶文件再导出辅助实现。返回模块类型用现debug/types.ts，不改五项导出或伪造decoder。
+
+- false：对外同步呈现idle/null，无import和错误DOM；清理使当前加载序号失效。
+- true及一次有效加载尝试：loading/null/error清空；effect捕获本次序号及已清理标志。then/catch均先检查未清理、enabled仍有效及同序号，再提交ready或error。ready不是依赖module存在的猜测状态。
+- retry只在enabled且error时开始新尝试；清旧模块、使旧序号失效，不自动重试，不触发daily-waves。卸载/关闭后失败也不得弹出旧错误。
+- effect清理不虚称取消import网络；旧Promise即使成功也不重新挂载。开发StrictMode的setup→cleanup→setup必须无残留监听/结果，重复的语言级import可由模块缓存处理，不人为改变React规则。无浏览器持久缓存。
+- 官方异步清理依据：React useEffect文档 https://react.dev/reference/react/useEffect 及 https://react.dev/learn/synchronizing-with-effects；已用Context7核对迟到结果的清理原则，具体仍按本模块序号/owner实现。
+
+IndexDetailPage在所有loading/error/empty早返回之前始终调用加载Hook。复用resolveIndexRecognitionAvailability，调用useIndexDebugModule(debugEnabled)。只定义一次effectiveDebug = debugEnabled && phase为ready ? 1 : 0，及可空readyModule；工作区、forecast、renderer必须用这一份值。
+
+| URL/模块 | 请求及显示 | 禁止 |
+|---|---|---|
+| 无debug、其他标的、生产 | 普通有效本地上证请求0；其他/生产enabled=false；无辅助模块/DOM | 不能因URL带1绕过标的/环境 |
+| 本地上证debug，loading/error | r4正式识别/预判仍0；只有辅助加载状态/重试 | 不因无decoder停普通功能，不先请求1 |
+| 同上且ready | 新请求1，传同模块decoder/renderer；旧0结果不能填新1身份 | 不另跑第二套计算或另造请求通道 |
+| 去掉debug/模块重试 | 当次渲染立即0，renderer及扩展无效；Hook取消旧1、清辅助 | 不从旧1对象删字段充当0缓存 |
+| 合法1请求但响应合同坏 | 本次识别/预判报错，K线保留 | 不偷偷当普通成功 |
+
+识别工作区传现IndexRecognitionProps；forecast传现enabled/debug/decodeDebug；右栏经现renderDebugDetails链透传renderForecastDetails。预判active仍为recognitionEnabled && technical页签 && hasData；minutes仍取现本地分钟能力。卡片保持原四行、刷新60秒、历史不刷新、只重试选中行和页面scheduler优先级，不能把主图activePeriod当预判行筛选器。生产/其他标的关闭整项；本地上证主图切到m5/m15/m30等非识别周期时，仅停止该图识别，技术面四行仍按各自资格请求；debug模块仍可为这些合法预判行提供依据，不得按P4-10误关。
+
+模块加载状态放在左图区域，不塞右栏或裁剪的指标标签内：Page在有行情时使用始终存在的index-detail-chart-region容器包住原日/分钟工作区；normal/debug切换不换该容器或原工作区位置/key。容器min-width/min-height为0、position:relative、占原单一网格列。仅debug loading/error在其右下、底部指标栏上方显示index-debug-module-status（absolute，right:12px，bottom:42px，宽度受左图区限制，中文可换行）；文案“核验工具加载中”或“核验工具加载失败 · 重试”，按钮type=button、键盘可达。ready或无debug无此DOM，不占高度、不挤右栏；已有行情/识别错误提示仍各自显示。该状态只是原已定失败反馈，不增加调试开关。
+
+### 21.4 第3步：复用辅助组件并完成图表交接
+
+先将IndexChartWorkspace.tsx内toDetailChartPoint原样迁入chart/indexChartPointAdapter.ts。新文件只用类型导入，无React/组件/图层运行时依赖。工作区和IndexRecognitionDebug直接import该纯函数；仓库查所有直接消费者同次迁移，不保留旧导出/转发。所有字段、overlays、null及原数字不改，以独立字面IndexCandlePoint对输出关键字段和原对象不变作断言。
+
+随后接现模块：
+
+1. ownerKey恰按现约定由normalizedTsCode、activePeriod、普通viewModel.asOfTradeDate组成；无普通可用行情不挂控制组件。ready组件作为工作区兄弟控制器，使用现IndexRecognitionDebugProps，不能用debug条件替换整棵普通工作区。
+2. Page用稳定useCallback接onChange。接收及渲染两处都要求当前debug ready且owner一致；旧owner的extension/null不得覆盖新owner。退出、切周期/标的/普通日期或离开立即停止使用旧扩展，组件卸载释放请求/监听；不等远程请求返回才清图。
+3. 日线控制器只复用现DailyWaveController/useDailyWaveReview/useDailyWaveCompanionLayers。未点按钮只有closed状态和按钮，daily-waves调用为0。点击后沿既有10秒链；empty不请求K线，失败不画三角，真实K线不匹配仅留已过合同的事实说明。
+4. ready研究图的K线/dataKey/九转/趋势/重试/primitive/44px留白整组使用chartOverride；关闭恢复普通整组。普通controller、右栏、forecast日期始终不被research覆盖；研究重试只用研究实际日期，普通重试仍用普通日期。
+5. 日/分钟识别详情使用模块renderXxmDetails；预判卡使用renderForecastDetails，均只消费已校验的debug对象，不再求价/选峰。分钟即使模块ready，也不挂日线波段控制器或三角，不发daily-waves。
+6. 保留四种三角、共享位置、说明列表、8×6px/原侧避让40px/最高240px列表等§8现合同。未开研究时debug进入/退出不重建普通图；开启/关闭研究允许现dataKey所需重建。primitive内容更新不得因避让反复重建图。
+7. r4简要状态和真正加载错误始终普通可见；九转“无对应K线”的辅助对齐诊断按debug显示，但请求失败/超时不随之隐藏。不改股票或普通分钟九转默认。
+
+第2—3步不改公开字段、客户端返回类型、Hook签名或renderer合同；异常是缺陷应追到真实已有逻辑，不新增兼容字段。仅上述纯转换迁出及明确页面布局接线属于P3提取收尾；不得复制一份核对算法来“更方便挂载”。
+
+### 21.5 第4步：工具迁移、逐请求记录及有界退出
+
+先按§11.2.3—4迁完工具及测试，随后才能以其验收。旧DTO/对象返回、candidate/rearm路径、200ms断言和全部新结果落盘同次移除；不只换版本或预算数字。所有新增私有函数、数据类型、进程管理和观测代码都放原xxm_page_request_audit.py，显示工具复用；mjs只保留客户端执行，不新增文件、CLI入口、配置、公开HTTP合同或通用执行框架。
+
+daily_window_precheck仍只留validate_window/read_window/isolated_client，无CLI。read_window保持原2020起有限窗口的独立核验用途，不替换正式源，本批不自动读取。isolated_client使用显式本地Settings和正式装配，临时SQLite/鉴权替身只证明其声明的隔离合同，不算正式来源或生产鉴权通过。
+
+#### 21.5.1 参数与分组职责
+
+两Python入口沿既定四项参数：--periods必填、非空、去重且只day/m60/m90/m120；--as-of省略表示latest，非空严格YYYY-MM-DD，分钟映射该日15:00:00+08:00；--mode为normal/debug/both默认normal；--samples只1或20默认1。格式/集合/重复/旧candidate或output在启动App/读源前拒绝；开市及端点完成性仍交正式API。只遍历显式周期，both顺序拆为normal/debug组，不形成四周期的笛卡尔组合，不自动重试。
+
+main按下表产生封闭的任务清单，再逐组执行。组内period/mode/请求种类固定；计数不包括已列明的私有context/reset/metrics调用，后者单独登记。samples没有“重复整套页面20遍”的含义：
+
+| 入口/参数 | 本周期本模式内执行内容 | 业务请求次数及缓存 |
+|---|---|---|
+| xxm_forecast_display_audit，samples=1 | 只该周期forecast一次 | 共1次冷请求；不据此宣称热缓存验收完成 |
+| 同入口，samples=20 | 只该周期forecast连续20次 | 共20次：第1次冷、后19次热；不追加并发/其他周期 |
+| xxm_page_request_audit，samples=1，单tab组 | 该周期图数据、该周期九转、该周期识别及该周期forecast各1轮，沿该tab真实scheduler | day共4次；分钟价格/指标各1加九转/识别/forecast，共5次；组首空缓存 |
+| 同入口同参数，双tab组 | 两个独立客户端realm同时执行上行选定周期组合各1轮 | day共8次、分钟共10次；两个tab各有scheduler，服务端共用本组缓存；不附加热轮或放大为20轮 |
+| xxm_page_request_audit，samples=20且day | 只fetchIndexDetailKline的1000根日线接口20次 | 不混入九转/识别/forecast；第1次为本组首次请求，19次重复请求；不得宣称清掉了数据库/OS缓存 |
+| 同入口samples=20且分钟 | 价格接口20次、指标接口20次，分成两个独立组 | 每组20次、limit仍500；仅报告各接口耗时，不套用日线800ms验收线 |
+
+两个samples=1的页面组均为必做，顺序为单tab组→双tab组，各自≤60秒、各自新Python子进程和空产品缓存。两个tab只是被选周期的真实客户端组合核验，不能冒称覆盖页面完整四周期预判；完整四行由§21.7页面review及P4-18/31证明。以原indexDetailRequests调度，不能为方便共享加载跳过scheduler。九转仅所选周期，不自动请求15/30等未选周期。预测显示工具不再附加旧160次或固定其他日期/并发矩阵。
+
+每组依次GET context、GET reset，然后执行表中业务请求并等待全部完成，最后GET metrics；私有请求恰3次。reset只能在无活动请求时执行。samples=20逐样本记录，不能每样本清空缓存。HTTP及计算的单次预算逐次判断，不能用P95掩盖一次失败。20值排序第19项为P95；1冷/19热只是产品缓存口径，不伪造数据库磁盘冷启动。samples=1只完成对应单轮，冷热证据须来自明确samples=20的产品请求组；不能额外暗加一次热请求。
+
+latest请求仍不传asOf，普通/debug若中途出现不同完成根则对照无效，不偷偷补成历史请求。明确asOf则各组使用同一端点。both比较以请求实际截止和§21.5.3身份为准；组末只保留有界摘要/公共值摘要供下一组核对，不跨组保留完整响应、SeriesEntry或恢复副本。
+
+#### 21.5.2 同一正式装配、明确返回和执行位置
+
+同文件isolated_app(settings, *, group)仅由本次组子进程调用；group是下面固定AuditGroupSpec。正式_include_local_xxm_routers仍只有(target_router, settings)，不增加公共可选参数。临时App创建APIRouter(prefix='/api/v1')，调用正式本地装配后挂到该App；普通K线/分钟/九转沿原路由。依赖覆盖只把get_db_session替为原只读会话，保留require_quote_access、原异常处理及正式daily_wave_session_factory。lifespan关闭，仅绑定127.0.0.1:0，不启动后台。子进程在建App前核自身最终Settings的app_env显式性、分钟配置/root及database_url与父进程传入值相同，比较不输出凭据；不一致即失败，不静默覆写配置。新Python子进程不继承父数据库池；本组所有get_db_session和daily_wave_session_factory仍使用该已核同源配置。管理员的现有服务不受任何patch。
+
+上下文yield本文件私有AuditApp对象，字段固定app、baseUrl、collector、stopRequested；baseUrl是真实绑定地址，collector仅为本组记录器，stopRequested只停止本组新任务，不修改产品计算器。退出规则见§21.5.6。原本地Settings使用最终配置，不硬编码dev绕环境；日线group不手动调用研究session_factory，daily-waves真实操作留管理员页面review。
+
+mjs接收baseUrl及groupId、period、mode、asOf、samples、scenario这些父进程已经校验的值，不再接受输出目录或自行增加周期。scenario只是原CLI参数导出的内部任务种类，不是新增用户参数。只用既有esbuild/write:false/内存模块与pure client/decoder及唯一1000常量，不import React控制器、CSS或图层。debug参数只对signals/forecast按本组模式传入；K线/指标/九转没有debug参数，记录该字段为None，不能为模式一致给它们新增参数。client返回按{response,deadline}拆取；buildXxmViewModel显式传同一deadline的check，适配前后和提交摘要前检查，所有产品请求继续原deadline/取消检查。
+
+#### 21.5.3 逐请求记录、共享加载和同源证明
+
+记录只属于隔离工具，不加到产品API、页面DTO或正式日志。请求头复用已有X-Request-ID：mjs在各自realm的fetch包装中，为白名单业务请求构造groupId:scenario:round:tabId:sequence，组内唯一；保留原URL、其他header、认证及取消signal，不改产品client签名。服务端原样回传。缺失/重复/不属本组的编号只在隔离核验路由拒绝；私有context/reset/metrics不混进业务记录。
+
+本文件私有纯ASGI观测中间件把已校验requestId写入ContextVar，finally reset；原requestId中间件仍保留。同步endpoint进入AnyIO线程时ContextVar会复制，记录器使用锁保护的dict[requestId]，不能用一个全局“最后请求”变量。此传播已按AnyIO官方threads文档核对；测试还须走实际ASGI→同步endpoint，不能仅直接调用包装函数证明关联。
+
+AuditRequestRecord字段固定如下，None不等于0，不从HTTP 200猜测已做计算：
+
+| 字段 | 真实来源/约束 |
+|---|---|
+| groupId/requestId/tabId/sequence/round | 本组任务及现请求头；预测连续采样首个cold、后续warm，混合组合及K线/指标采样为sample，不能声称其中每个请求都冷；重复编号拒绝 |
+| endpointKind/period/debug/requestedAsOf | 当前真实URL参数及本组白名单；endpointKind仅kline/indicators/nineTurn/signals/forecast；debug在signals/forecast是0或1，其他接口为None。requestedAsOf取forecast的asOf或其他接口的endDate原值，latest未传则None，不伪造已传参数 |
+| startedMs/finishedMs/httpStatus/bodyBytes | 服务端纯ASGI开始至最后body发送的单调钟偏移、真实状态与完整body字节；不混用Node的performance.now起点 |
+| clientSeconds | Node按同一requestId记录真实client及本次适配/最终check完成的耗时；原5秒含解码/提交检查，不能用只收到header的时间代替 |
+| computedThrough/dataStatus/responseRows | signals取source.computedThrough、dataStatus.status、meta.count；forecast取computedThrough、dataStatus字符串，responseRows=None（不是K线数组）。其他数据接口取实际已解码的最后时点/行数，未提供dataStatus则None。失败尚无结果时None，不借另一请求补齐 |
+| sourceInputId/calendarInputId/indicatorVersion | signals公开投影前的internal.source.inputId、forecast投影前的internal.sourceInputId/calendarInputId及原指标版本；非适用接口为None |
+| prefixRows/windowStart/windowEnd | signals前缀根数由entry和实际computedThrough定位，窗口取meta.responseStart/responseEnd；forecast同次真实前缀根数及其首末时点，不把下一目标端点算入。非r4接口无算法前缀，prefixRows=None，窗口取实际返回首末。空窗口为None，不重读行情/重新step |
+| computeSeconds/publicDigest | 仅本次真实400ms段；已校验公共DTO的规范JSON摘要，普通/debug比较时debug对象不参与 |
+| loadIds/errorCode/terminal | 实际关联的加载编号、现业务错误码；terminal仅success/error/cancelled，未结束不能输出成功 |
+
+观察点固定：项目内部project_xxm_response的入参以及forecast_query_service持有的project_forecast_response入参，取得真实内层身份；包装必须原样调用原函数一次并返回原结果，不删除错误或改字段。signals的query在调用处现为局部import，patch真实response_projection模块的该符号；forecast已import到query命名空间，patch其实际持有符号，不能只改未被调用的另一处。prefixRows使用本次load_entry实际yield的entry，仅在原with期间关联到requestId；包装仍在原with内yield、原出口检查照常执行，退出即释放引用，不追加calculator_at或step。普通客户端不具备源ID不构成缺陷，不为工具改变公开合同。
+
+LoadRecord以loadId为键，字段固定flightKeyDigest、period、startedMs、finishedMs、terminal、pairCalls、barsCalls、indicatorCalls、signatureChecks；flightKeyDigest仅对现共享加载key做摘要，不输出其中路径、连接对象或凭据。包装现SharedLoads.load的loader：仅真正执行loader时生成loadId；对返回同一对象的订阅者关联同一loadId，已结束加载不能当后续请求的TTL命中，不改SharedLoads本身。外层包装用锁记录每个key尚未返回的调用数；结果对象与loadId的关联保留真实对象引用，最后一个调用退出即释放该key的关联，不只保存可能被复用的裸id，不跨20个顺序样本积累来源对象。loader失败时同样以实际异常对象关联收到同一异常的调用；等待超时且未取得结果/异常关联时，记本请求失败和loadIds为空，不能猜给最后一次加载。失败记录不被后续成功覆盖。
+
+分钟pair内部的两个标准ThreadPoolExecutor线程不会自动继承上述请求ContextVar。pair观测包装在调用前登记(id(reader),freq,start,end)→loadId，锁保护；两个_read_complete_history包装依此关联bars/indicators计数，结束后finally移除；若同键出现重叠归属或无归属即本组核验失败，不能猜给最近请求。原pair函数仍只调用一次，绝不为传播上下文改Reader、另包一层执行器或重复读取。指纹stat计signatureChecks，不计明细重读。
+
+现私有接口的返回形状在本轮固定：
+
+- context：groupId、period、mode、requestedAsOf、businessDate、generatedAt、实际detector/forecast版本及hash。
+- reset：只在本组无活动请求时允许，清本组缓存/计数后返回groupId和ok；有活动请求必须拒绝，不清他人缓存。
+- metrics：groupId、requests（按requestId排序的上述记录）、loads（按loadId排序）、activeRequests、cacheBytes/cacheEntries、cleanupStatus。服务器不掌握clientSeconds及普通数据接口的客户端解码统计，这些字段在metrics为None；mjs收到metrics后按requestId与本地已校验记录一一合并为最终摘要，不追加HTTP，不把缺记录猜成0。此时App尚在运行，cleanupStatus固定pending；完成清理后result摘要才可改为cleaned，失败为failed，不能从activeRequests=0推断整个进程已清理。无完整响应、输入数组、SQL、源码路径、认证信息。
+
+客户端按requestId一一配对，缺记录/重号/周期或模式不符即失败。normal/debug的r4对照只针对signals/forecast，且只有同endpoint、同period、同requestedAsOf、同computedThrough、同实际sourceInputId（forecast还须同calendarInputId）以及同可比窗口时比较publicDigest。指标版本也相同。不同模式不能用“最后一条记录”对齐；并发两个tab都必须保留。来源在未用到的未来区间改变而本次前缀ID相同，不误判本次结果变化；已用前缀改变则对照无效，原样报告，不强配或重跑。
+
+一次并发组未实际重叠加载时，只能登记“本次未证明共享”，不能强断重复读取或填通过；共享实现的确定性反例沿现Event门控人工测试。真实并发只观测不人为延迟源来凑重叠；缺实际证据按既定未验收处理。日线顺序独立请求的必要来源核对仍允许，不能把所有HTTP总SQL数统一断言为1。
+
+#### 21.5.4 计时及结果内存边界
+
+400ms起点仍为forecast_query_service.build创建deadline的那一次真实perf_counter返回值，终点为build最后返回，包含复制/预检/校准/日历/求界或缓存复核/身份/投影/编码/发布。隔离进程只包装forecast_query_service.time模块引用和build，时钟原值转发；不修改标准库时钟、不改check，不从recover_projection或future_calendar之后才计。用threading.local区分请求时钟，再以ContextVar requestId归档；未建立计算deadline的路径记computeSeconds=None及原因，不报0或通过。
+
+HTTP从发出到完整body计时，按接口分别核原4秒/5秒等预算；scope内观测本身的开销保留在实际计时内，不从结果中扣掉。逐请求校验之后才产生publicDigest，不调用同一业务函数生成expected。
+
+业务响应只在子进程本组内保留到校验/摘要完成；samples循环不累积20份正文。父进程只接收context、记录表、摘要和退出状态；通信摘要总字节复用BUDGET.max_response_bytes上限，超限整组失败，不截断记录。单组业务请求数严格由§21.5.1表给出，私有控制请求单列；记录数也不得超过实际发出的白名单请求数。不落盘、无浏览器持久缓存、无恢复文件；跨组只保留同源比较所需有界摘要。
+
+#### 21.5.5 外层监督与仅内存通信
+
+两个CLI的main只解析参数/读取既有最终Settings、生成任务清单、监督本组子进程并收摘要；不创建App、不patch产品对象、不读行情。run_audit_group(group, settings)及无参数_run_audit_group_worker放原xxm_page_request_audit.py，显示工具复用。父进程用subprocess.Popen，shell=False、start_new_session=True、close_fds=True；命令固定为当前sys.executable以-B/-c正常import该模块并调用这一私有worker函数，不从参数选择模块/版本、不读源码SHA，不新增用户CLI参数或独立运行器。
+
+AuditGroupSpec恰含groupId、tool、scenario、period、mode、requestedAsOf、samples、startedAt、workDeadline、deadline；后两者恰为组开始+50秒、+60秒，包括Popen/导入/启动及清理，不在子进程重新计60秒。scenario仅表中mixed_single/mixed_two/forecast_series/kline_series/indicator_series。子进程一次只执行这一组，不领取后续组。
+
+父进程只经stdin发送一份有界JSON，恰为group及settingsIdentity；后者是父最终配置中app_env的值/显式性、分钟flag/root、database_url的规范摘要，仅作本地一致核对，不输出凭据或配置原文。子进程用原get_settings及现优先级取得自身配置，先验证摘要再创建App，不一致即失败；不通过stdin覆盖全局配置。输入限4096字节，无行情、缓存或恢复对象。父进程以非阻塞stdin写入并关闭，子进程读至EOF且限同样大小，写入过程也受原截止约束。
+
+stdout只传三种JSON行：started（groupId、pid、processGroupId）、result（groupId及有界摘要）、failed（groupId、阶段、错误类型/现错误码、cleanupStatus）。started恰一次且在终态消息前，必须pid=processGroupId=父进程创建的child.pid，因为start_new_session已在执行Python前建立本组；result/failed二选一且恰一次。导入或配置检查失败可能来不及发started，父进程仍按自己持有的child.pid清理并报告失败。收到result不表示成功；必须等正常清理、子进程退出0、通信正常结束及所有记录检查通过。子进程不传异常原文、完整HTTP/body/源行；Node stdout也不直接转印。Node保持在本组进程组，不另建session或后台脱离。
+
+父进程用selectors与非阻塞stdin/stdout/stderr，每次按剩余期限读取有限块，逐次检查总字节及50/58/59/60秒时间。stdout与stderr累计缓冲合计不得超过原BUDGET.max_response_bytes；半行、超大行、子进程不结束、管道出错都不能让读取阻塞或无限积累，不能用无界readline/recv或先join等退出再收满管道。完整行经字段/类型/组号校验后处理，EOF有未结束JSON即失败。stderr只累计受限字节数供失败定位，不在终端打印可能含连接信息的原文；不能仅有一般警告就篡改业务结论。超过大小限额立即走失败退出。父进程自己的输出只给已验证的数量/日期/字节/耗时及结论，不透传worker原文。全程无临时结果文件。
+
+#### 21.5.6 失败、卡住线程与最终退出
+
+组业务阶段最多到50秒，父进程在该点向本组进程组发SIGINT，触发worker既定BaseException清理及Node退出；子进程自身也按workDeadline停止新请求/采样，不依赖信号回调才检查。所有正常失败、Node失败、取消及BaseException进入同一清理：
+
+1. 停止客户端及采样，取消其HTTP，停止Node并有界回收；server.should_exit，停止接受新请求。
+2. 等本组活动HTTP和服务线程实际结束，关闭本次socket/会话，并释放子进程本次建立的数据库engine；不调用会吞掉错误的清理包装来伪造通过。只有确认activeRequests=0、服务线程/Node均结束，才逆序恢复观测包装、时钟引用、临时覆盖及原_CACHE；每项patch后立即登记清理，支持初始化中途失败。
+3. 业务线程未结束时禁止先恢复包装、清缓存或进入下一组。子进程记录失败阶段并继续在清理期限内等退出，不打印PASS。若到组开始+58秒仍未完成，父进程向由Popen创建且已知等于child.pid的本组进程组发送SIGTERM，不能拿worker消息中的任意pid当目标。到+59秒仍存活则对同组SIGKILL并回收直接子进程，最终不得超过+60秒继续工作。直接子进程退出后仍须检查本组是否有遗留成员（只检查已知进程组的存活）；Node残留也走同一终止期限，不能只看child.returncode为0就放行。只操作本次创建的进程/组，不按端口或名称杀现有服务。
+4. 被强制结束的子进程不要求继续运行Python finally去“恢复”自身已销毁的内存；父进程从未装这些包装，现有服务不受影响。不得把强制退出写成优雅清理成功；该组为失败，停止整个CLI剩余任务。
+5. 正常清理失败、残留进程、管道坏消息或收到摘要后子进程非零同样失败。若内核异常导致SIGKILL后仍不可回收，最多等到原60秒即记录清理失败并停止，不宣称无残留或重复杀其他进程，交管理员处理；不得静默留后台任务继续验收。
+
+Ctrl-C沿同一停止及回收过程；不恢复执行、不自动重试。下一次获准重跑是全新组及新缓存，不从磁盘恢复。人工故障测试须造真正不退出的服务线程/Node，证明父进程能结束整个本组；不能用空清理函数或仅mock join成功代替。
+
+
+### 21.6 第5步：真实来源与性能验收范围
+
+此处定义执行方法，不把尚未读取的物理数据登记成“齐备”。实施前先复核当前正式配置和已有证据，登记不含凭据的来源工程/连接目标或正式Lake根、单上证、周期、截止、实际计算前缀、字段投影及原上限。日线仍正式IndexFactorPro的close/macd_dif_bfq/macd_dea_bfq/macd_bfq及SSE日历；分钟仍正式/Volumes/datasource/data_lake下当前bars/indicators，禁止退役根、临时报告输入或另行采样重算实际指标。
+
+不修改SQL/reader来硬裁计算历史。正式识别可能需要主图之前的前缀：先说明实际范围及现20000根/5000分区等上限，再按已有授权有界执行；若会扩为某数据集全局明细读取，必须依根规则说明开销并取得额外批准，不能把本节当全局读取授权。本机/本地功能也不意味着可以擅自切远程库；真实目标与原方案不同先停下确认来源。日线窗口工具和已保存历史样本不作正式接口真实来源替身。
+
+| 周期 | 完成端点（上海时间） | 核验目标 |
+|---|---|---|
+| day | 开市日15:00后完成 | 主图请求1000、识别同真实日线窗口、下一根日线预判 |
+| m60 | 10:30/11:30/14:00/15:00 | 原500根分钟图、60分钟标签和下一端点 |
+| m90 | 11:00/14:00/15:00 | 原500根分钟图、90分钟标签和下一端点 |
+| m120 | 11:30/15:00 | 原500根分钟图、120分钟标签和下一端点 |
+
+以source.ENDPOINTS为唯一代码表，不在实现或工具复制第二份时刻常量。日线1000/分钟500仅页面窗口，不能截断算法前缀。明确asOf严格使用完成根；latest白天记录各周期各自实际截止，不能断言四周期都已到当天15点。日线不足1000如实记录实际根数。
+
+每周期至少包括：正常/辅助同源字段一致；真实主图close/DIF/DEA/柱逐时点严格相等；已完成根/日历连续性和元数据；冷/热请求及字节；历史asOf不含未来记录；模式/周期切换及一次相同前缀并发共享读取。source修订/取消等危险反例用隔离人工来源验证，不改真实数据制造故障。
+
+沿§9上限：识别4秒/1MiB，预判总4秒且计算及缓存处理400ms/32KiB，页面识别/预判5秒；研究业务8秒/2MiB、前端链10秒；K线20次P95≤800ms。缓存64MiB/16系列、源数量/并发/研究内存等原上限均不变。记录实际参数、完成根数、前缀根数、响应字节、冷/热及取消清理耗时；任一超限停止说明输入与阶段，不裁掉引用、提高预算或回退旧版本。
+
+四周期真实证据必须逐行有状态和原因：通过/失败/未验收。某分钟周期不可用时，其他周期可继续已授权有界核验，但整批不得通过或进入P5；不能删该行、填人工结果或拿922日线代替。需要改变范围则先由管理员拍板并同步本三文档。
+
+### 21.7 第6步：自动核验与管理员页面review的明确交接
+
+第5步临时App仅用于自动有界读取/客户端验收，组结束必须关闭；绝不把该临时端口交管理员长期看页面。第6步的真实页面使用管理员维护的本地开发服务，与采样组是两个独立生命周期，但必须核对同一产品版本和来源。人工review不是一个持续HTTP请求，不受“自动采样组60秒”限制；每次页面实际业务请求仍受原4秒/400ms/5秒及研究8秒/10秒限制。
+
+固定交接：
+
+1. Codex完成代码和自动测试后，列本轮实际提交或未提交文件状态、正式算法/预测身份、工具实际源范围/截止及配置要求，交管理员。Codex不重启/替换现有服务、不抢占8000端口。
+2. 管理员负责将本批代码加载到现本地后端127.0.0.1:8000，显式APP_ENV=dev/local，分钟沿既有配置，并启动/更新本地Wealth开发服务器。前端按当前wealth/vite.config.ts把/api转到8000；前端实际端口按其启动输出记录，不猜5173，不新增proxy环境变量或改配置去追临时端口。
+3. 页面入口使用当前buildIndexDetailPath('000001.SH')产生的真实路由，分别无debug及debug=1；登记完整浏览器origin和实际/api目标。浏览器请求必须确实到8000这批后端，普通/辅助响应身份及完成截止须与同次核验一致。若代码/配置未加载、端口不符或来源不同，页面review记未执行，不能沿旧页面验收，也不能静默改为别的端口。
+4. 自动采样结束到人工review间市场可能新增完成K线；不要求几天后的latest与旧摘要机械相等。用同一明确历史tradeDate重核可比公共结果（分钟沿该日完成端点）；看latest时另记当前完成截止，保持同一规则/来源合同，不能拿时间更新当算法差异。需要重做有界采样时另列范围，不自动扩跑。
+5. 真实页面API响应→标签/悬停/卡片的展示检查由管理员浏览器review完成并登记。自动组件测试是其独立部分，Node真实客户端只证明请求/解码/数值，不能替代DOM/布局/网络和控制台。管理员确认的页面结果是进入P5的前置。
+6. 生产前端构建由管理员从既有App的/wealth静态入口查看，须先确认WEALTH_DIST_DIR指向本批构建产物，记录实际URL；静态页面与正常/API同源使用本机8000，不新增临时proxy配置；即使后端为local，前端production仍不得显示/请求r4或下载辅助chunk。服务端生产/缺环境门禁另用正式完整/api→/v1聚合链的隔离App测试404/OpenAPI缺席/零源调用，不能用本地后端可调用代替生产关闭证明。构建及本机静态页面核验均不部署生产。
+
+管理员操作清单必须包含：
+
+- 1600/1440/1280宽，45/180根可视，拖到301根之后；真实r4标记/同根显隐/悬停与同窗口API对应。
+- 日线及可用60/90/120分钟各自识别；主图切到5分钟等不支持识别周期时，该图无r4标签/识别请求，但技术面四行合法预判仍按原active及分钟能力工作。
+- 无debug无辅助下载/DOM；debug加载中/失败仍有普通功能；未开波段零daily-waves请求、无三角、不重建原图。
+- 手动研究、关闭、切周期/标的/日期、离开和迟到：研究日期/图层/九转/趋势/重试整组恢复；右栏和forecast不倒退；说明面板240px和键盘行为保持。
+- 原行情、九转、趋势真错误仍可见；只有辅助对齐诊断受debug控制。
+- 生产构建普通/debug两URL均无r4 DOM/请求/辅助预载，原日线K线/九转/趋势正常。
+
+P4四周期真实证据齐备而管理员页面尚未review，只能写“自动工程及真实客户端核验完成，待真实页面review”；不能写整批验收通过或推进P5。服务由管理员维护，采样工具仅清理自己创建的进程，不接管人工review服务。
+
+
+### 21.8 独立用例设计与测试落点
+
+预期来自本节及§1/8/9和独立字面合同；不得让工具/页面自己生成expected证明自己。沿P3手写r4夹具和实际API，不改旧输出的hash当新样本。故障注入要进入真实检查分支；正常正例必须证明不会误拦。下表是P4新增/扩展覆盖，RC/PF/F系列继续回归但不重跑实际双组行情。
+
+| 用例 | 独立输入/动作 | 必须断言 | 位置 |
+|---|---|---|---|
+| P4-01 | 显式dev/local；缺app_env、prod/test/未知/空串 | 本地三基础能力及可用分钟各仅注册一次；其他四路径404且OpenAPI缺席、源/算法零调用 | 新tests/web/test_wealth_index_detail_xxm_local_routes.py |
+| P4-02 | 同一Settings分钟off/未就绪/合法on；明确on非法root | 无分钟时日线真实query成功、分钟不支持；合法on分钟可用；非法配置保留现错，不绕过 | 同上及原test_local_minute_capability.py |
+| P4-03 | env文件/进程冲突及未显式默认dev | 按现优先级，不能缺配置误开启；临时env和get_settings缓存复原 | 同上，使用临时文件而非真实.env |
+| P4-04 | 本地未授权/403，生产debug=1；正常生产日线 | 原鉴权保留；生产r4不可达但正常日线仍按原合同成功 | 同上及现日线API集成 |
+| P4-05 | loader false/true→ready | false零import；true五项真实导出，只有ready返回module | 新debug/useIndexDebugModule.test.tsx |
+| P4-06 | true加载后关闭/卸载/再次打开；旧Promise晚成功或晚失败 | 旧序号不显示模块/错误，不挂旧控制器 | 同上 |
+| P4-07 | import失败→手动retry；StrictMode清理重建 | 独立错误、重试仅enabled/error有效，无自动研究或残留监听/循环 | 同上 |
+| P4-08 | Page普通、debug loading/error/ready/关闭 | effectiveDebug依次0/0/0/1/0；真实decoder/renderer只在ready；普通功能不断 | 现IndexDetailPage.test.tsx及availability测试 |
+| P4-09 | 模块切换时0/1响应逆序，HTTP4990ms后解码跨5000ms；正常未超时 | 无串模式/迟到ready；沿同deadline拒超时，正常通过 | 现xxm/useIndexXxmLayer及forecast/client测试 |
+| P4-10 | 前端production或其他指数，误传enabled；四周期识别Hook收到非法period | production/其他指数整项关闭r4；非法period只拒该图识别，不产生其primitive/请求。不能据主图不支持就停右栏，另验P4-31 | 页面/日分钟工作区及真实生产build/静态页面检查 |
+| P4-11 | debug1根字段错/编号错/悬挂关系；普通合法 | debug整份报错不降级；普通合法仍展示；P3 F系列不退化 | 现decoder及r1Contract测试 |
+| P4-12 | 独立字面CandlePoint及overlays、null、原小数 | 转换字段逐项正确、不改输入；消费者不再从组件导入纯函数 | 新chart/indexChartPointAdapter.test.ts及导入检查 |
+| P4-13 | owner A扩展→B后A晚null；退出debug | 旧扩展和清理不清B；渲染时owner与ready双检查，无旧研究图 | 现Page及IndexRecognitionDebug.test.tsx |
+| P4-14 | debug日线刚ready、分钟ready；未点击/手动点击/empty | 未点零daily-waves；分钟始终零日线研究；empty不取研究K线 | 现debug及daily-wave请求测试 |
+| P4-15 | 普通日期晚于研究，普通/研究各自重试，研究关闭 | 两组日期/九转/趋势/重试/primitive完整对应，右栏和forecast不倒退 | 页面/工作区/companion原测试 |
+| P4-16 | 无研究的debug进入退出；研究ready后关闭；同数据重发扩展 | 普通图实例不因debug重建；研究按dataKey切换，扩展稳定无渲染循环 | 工作区及debug组件测试 |
+| P4-17 | 四三角/共享位置/开放尾段/空间不足、1001行、原股票/分钟 | 原画法/说明/1000截取及诊断不变，股票300/分钟500不变；真错误可见 | 原daily-wave/九转/工作区测试 |
+| P4-18 | 技术页签四行、图周期切换、单行retry、历史日期、visibility | 原四行和active策略不改；next目标各自周期；单行重试/历史无刷新/退出取消 | 现forecast及Page测试 |
+| P4-19 | 两CLI帮助/非法period/重复/缺period/samples非法、旧candidate/output | 在任何App/源调用前拒绝；合法单period参数正常；README同参数 | 新主题tests/test_xxm_p4_audit_tools.py |
+| P4-20 | daily_window人工输入、缺交易日/DEA、正常有限窗口 | 真实字段严格校验；隔离App走正式装配/当前bytes，不借旧acceptance和writer | 现test_xxm_daily_window_precheck.py |
+| P4-21 | Node当前真实client，手写普通/debug HTTP及错误状态/超时 | 正确拆response/deadline；拒旧字段，失败非零；无结果文件/全body输出 | P4工具测试及Node隔离入口 |
+| P4-22 | 400ms完整计时，令calculator_at/precheck/校准/编码/缓存命中分别变慢；未建立deadline的失败；正常例 | 每段都入计时，冷热不计0；无计算段记None，不伪报通过；真实时间/check/错误/取消身份保持且时钟引用复原 | P4工具测试+原forecast API/F06—08 |
+| P4-23 | 两tab同前缀冷并发、热缓存及签名修订 | 每loader一次、pair一次、每dataset一次；热签名不变0pair；修订不误用旧结果 | 原test_xxm_shared_loads.py及工具计数测试 |
+| P4-24 | Node失败/启动失败/请求错/取消/清理期间超时，在第一个patch后抛错 | 活动请求结束后才恢复包装；正常退出资源释放。任何失败停止该次CLI后续组，不自动恢复；另一次显式合法运行不受污染。卡住路径另验P4-35 | P4工具测试 |
+| P4-25 | 禁止结果write/mkdir/candidate加载；正常只读及临时SQLite | 旧结果落盘和动态源码路径不可执行；纯RAM正常通过；源校验保留 | P4工具测试+静态依赖检查 |
+| P4-26 | 固定asOf normal/debug同源；新完成根/源修订夹在两组之间 | 相同公共字段/标签ID/display；变化明确本组无效，不能硬配 | 工具独立样本及真实有界场景 |
+| P4-27 | samples1/20、业务50秒截止、58/59秒终止、P95手写20值 | 严格按21.5.1业务/私有请求次数；20不含隐藏预热或混合重复；父时限含创建子进程/退出≤60秒，失败不PASS，P95取19项 | P4工具测试 |
+| P4-28 | 四周期真实只读及实际API/窗口/历史/bytes/预算 | 分周期真实证据，不补缺；400ms/4秒/5秒，K线20次P95≤800ms | 适配后原工具，非mock |
+| P4-29 | 研究真实start→K线匹配→图，关闭/错误；生产build/本机静态入口 | 原8秒/10秒与2MiB保持；默认无研究，生产无功能及相关下载/请求 | 真实API驱动页面和管理员浏览器review |
+| P4-30 | 缺某周期、预算失败、页面review未完成、P5旧模块仍在 | 对账标失败/未验收，不能宣称P4通过、自动清退或部署 | 本三文档交付对账 |
+| P4-31 | 本地上证technical激活，主图day→m5→m90，分别debug0/1及分钟能力off | m5无图上识别；合法四行按原资格继续请求/显示，minute off只禁分钟行，day不受影响；切回m90恢复该图识别 | Page、日分钟工作区和forecast测试 |
+| P4-32 | 两CLI、四周期、两模式、samples1/20及内部scenario手写请求清单 | 每接口次数/顺序与21.5.1逐项相等；独立组无缓存串入，不跑未选周期/旧矩阵；错误参数启动前拒绝 | 主题P4工具测试及Node隔离入口 |
+| P4-33 | 两tab同周期响应逆序/重号/缺记录；真实ASGI同步线程和分钟pair子线程 | requestId唯一关联；每请求时间/源/摘要不串；pair子线程按显式loadId归属；重复或无归属拒绝，不用最后一条记录兜底 | 工具ASGI集成及原shared_loads测试 |
+| P4-34 | 临时采样端口已关闭；人工开发页/API8000；静态生产页；旧服务或错误端口 | 人工地址不指向临时App，不改Vite代理；版本/来源未确认不得验收；生产静态页无r4请求。用户review未完成维持未验收 | 静态调用检查、真实页面交接及管理员review |
+| P4-35 | 真实卡住的服务线程或Node、started缺失/重号/错pid、result后不退出或子进程已退出但Node残留、半行/超量stdout或stderr、管道断开、Ctrl-C | 线程未完不能恢复包装；消息次序/终态唯一，清理前不报cleaned；父进程仅终止本组，58/59秒升级，60秒内停止并报告失败，无后续组/PASS；主服务和父进程包装从未被改 | 工具进程集成，人工阻塞不读真实源 |
+| P4-36 | normal/debug同前缀；已用前缀变更；只在未用未来区间变化；窗口不同 | 同源同窗口公共摘要相等；已用前缀或日历变更对照无效；未来无关变化不误拦；窗口不同不能强配，不重算来造一致 | 工具独立字面样本及受控ASGI集成 |
+
+
+新增测试路径以表为准，先核目录存在后创建在对应域；研究工具测试不散落根tests。现web模块测试继续保留，不为环境门禁改掉所有fixture。生产反例必须走正式App装配及前端production构建；只mock development=false不足以证明构建无辅助加载。无结果落盘测试拦的是本轮工具writer，不能拦模块导入/原材料读取后把无读取误当通过。
+
+### 21.9 执行、独立审计及交付停点
+
+执行顺序固定：第1步路由→第2步加载/请求→第3步组件/纯转换→第4步工具→第5步真实源/预算→第6步页面/独立审计。每步先做对应定向正反例；完整Wealth、typecheck/build、相关web与共享加载、根三架构及文档/链接检查在交付前执行。不整目录重跑旧研究或实际双组回测；各测试/验收组含退出开销≤60秒，现环境缺依赖先说明，不安装。
+
+开发后独立从当前代码重查以下顺序，不只核测试数量：Settings→唯一路由注册→页面资格→模块ready→effectiveDebug→同一客户端/截止时间→公开合同/图表→研究整组交接→工具实际计时/读取→finally清理。用实际源码/测试和真实范围填写：
+
+| 步骤 | 实际代码/测试 | 真实证据与未覆盖 |
+|---|---|---|
+| 1—4 | 开发后登记，不预填通过 | 当前未开发、无执行结果 |
+| 5 day/m60/m90/m120 | 分周期登记source范围、完成/前缀/响应根数、字段/日期/bytes、冷热、读取/计算次数 | 当前均未执行；缺证据保留原因 |
+| 6 | 实际API驱动、build/本机静态页面及管理员review | 当前未执行，不能用Node代浏览器 |
+
+#### 本轮六项修正后的独立文档审计（2026-11-01）
+
+重新从现代码沿App装配→页面资格/四行预判→动态模块→真实组件→两个工具→来源/计时→退出→人工页面交接逐项核对；使用CodeGraph codegraph_explore核入口和调用关系，并直接核对query的投影/计时位置、SharedLoads、分钟pair线程、Vite代理及App静态入口。没有以文档自身或测试数量替代当前代码事实。
+
+| 原六项问题 | 复核结果与覆盖 |
+|---|---|
+| 主图周期与预判资格混用 | §21.3保留四行原资格；P4-10/18/31区分不支持的主图与整项禁用，未改变P3合同 |
+| 1/20次的执行范围不清 | §21.5.1给出逐接口次数及私有3次，分组不暗加预热；P4-27/32逐项验证 |
+| 并发记录及来源身份不清 | §21.5.3按真实请求/加载关联，明确两类线程及客户端统计合并；P4-23/26/33/36覆盖并发、源修订及正常无关变化 |
+| 临时服务不能交付人工页面 | §21.7明确自动组关闭与管理员8000开发/静态页面、版本/来源和责任；P4-29/34覆盖错误端口和未review |
+| 卡住时恢复/退出顺序不清 | §21.5.5—6从进程创建到60秒统一计时，收包不阻塞；活动未清不恢复，残留Node同组结束；P4-24/35覆盖失败和正常退出 |
+| 当前章节仍安排已完成P3 | 产品§2/6/7/9、技术方案§1/10—15及本文§0/3.8/6.11/11/20统一为P3已完成、P4当前设计；历史真实成绩保留，旧开工结论不再指导当前批次 |
+
+本轮仓库文档完整性检查、三文件git diff --check及14处本地文档链接检查通过；P4-01—36编号连续、无重复，36项均为测试设计，未执行测试代码或真实源/页面验收。只修改这组三份文档，不修改代码、配置或其他工作区内容，不提交或部署。
+
+结论：六项问题已补齐，未发现本轮P4范围内剩余待拍板、上下游缺项或方案/LLD矛盾，具备进入P4开发的文档条件。本轮停在文档交付；四周期真实数据/预算及页面review仍须实施后逐项验收，P5只能在P4验收后推进。
