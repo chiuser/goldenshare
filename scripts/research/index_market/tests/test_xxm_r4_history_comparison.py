@@ -47,11 +47,14 @@ def message(kind, *, pid=123, **fields):
 
 
 @pytest.mark.parametrize("changes", [{"total_seconds": 30.0}, {"input_count": True},
-                                      {"max_memory_bytes": 1}, {"old_commit": "HEAD"}])
+                                      {"max_memory_bytes": 1}, {"max_result_bytes": 16 * 1024 * 1024},
+                                      {"old_commit": "HEAD"}])
 def test_hc01_fixed_spec_has_no_parameter_override(changes):
     with pytest.raises(ValueError):
         m.HistoryComparisonSpec(**changes)
     assert m.SPEC.total_seconds == 20.0 and m.SPEC.input_count == 922
+    assert m.SPEC.max_memory_bytes == 1024 * 1024 * 1024
+    assert m.SPEC.max_result_bytes == 104_857_600
 
 
 def synthetic_source():
@@ -279,6 +282,22 @@ def test_hc05_normal_split_frame_and_resource_order(monkeypatch):
         p.feed(frame(message("RESOURCE", phase="CURRENT", peakMemoryBytes=13)))
 
 
+def test_hc05_one_hundred_mib_frame_header_and_one_byte_over(monkeypatch):
+    p, _ = parser(monkeypatch)
+    p.request["maxResultBytes"] = 104_857_600
+    p.feed(frame(message("HELLO", peakMemoryBytes=1)))
+    p.feed((104_857_600).to_bytes(8, "big"))
+    assert p.expected == 104_857_600 and not p.buffer and p.payload is None
+    with pytest.raises(ValueError):
+        p.finish()  # A valid size header alone is still an incomplete result.
+    p, _ = parser(monkeypatch)
+    p.request["maxResultBytes"] = 104_857_600
+    p.feed(frame(message("HELLO", peakMemoryBytes=1)))
+    with pytest.raises(OverflowError):
+        p.feed((104_857_601).to_bytes(8, "big"))
+    assert not p.buffer and p.payload is None
+
+
 @pytest.mark.parametrize("bad", [message("HELLO", peakMemoryBytes=True), message("HELLO", pid=999, peakMemoryBytes=1),
                                  message("HELLO", peakMemoryBytes=-1), message("HELLO", peakMemoryBytes=1, extra=0),
                                  message("RESULT", payload={}), message("UNKNOWN"),
@@ -307,17 +326,29 @@ def test_hc07_serial_children_take_highest_with_parent_peak(monkeypatch):
     assert budget.measure() == 170 * 1024 * 1024
     budget.reported_peak = 90 * 1024 * 1024
     assert budget.measure() == 180 * 1024 * 1024
-    p, _ = parser(monkeypatch, parent=150)
+    p, budget = parser(monkeypatch, parent=700)
+    p.feed(frame(message("HELLO", peakMemoryBytes=300 * 1024 * 1024)))
+    assert budget.measure() == 1000 * 1024 * 1024
+    p, _ = parser(monkeypatch, parent=700)
     with pytest.raises(MemoryError):
-        p.feed(frame(message("HELLO", peakMemoryBytes=120 * 1024 * 1024)))
+        p.feed(frame(message("HELLO", peakMemoryBytes=400 * 1024 * 1024)))
+
+
+def test_hc07_one_gib_exact_boundary_is_allowed_but_one_extra_byte_fails(monkeypatch):
+    _, budget = parser(monkeypatch, parent=724)
+    budget.reported_peak = 300 * 1024 * 1024
+    assert budget.measure() == 1024 * 1024 * 1024
+    budget.reported_peak += 1
+    with pytest.raises(MemoryError):
+        budget.measure()
 
 
 def test_hc08_waited_peak_including_git_can_reject_final_result(monkeypatch):
-    _, budget = parser(monkeypatch, parent=150)
+    _, budget = parser(monkeypatch, parent=700)
     proc = SimpleNamespace(returncode=0)
     budget.register(proc, git=True)
     monkeypatch.setattr(m.resource, "getrusage", lambda who: SimpleNamespace(
-        ru_maxrss=(150 if who == m.resource.RUSAGE_SELF else 120) * 1024 * 1024))
+        ru_maxrss=(700 if who == m.resource.RUSAGE_SELF else 400) * 1024 * 1024))
     with pytest.raises(MemoryError): budget.collected(proc)
     assert budget.active is None
 
@@ -409,6 +440,26 @@ def minimal_finish_args():
         "summary": {}, "differenceDays": []}
 
 
+def test_hc12_one_hundred_mib_remaining_and_aggregate_limit():
+    budget = m.ResearchBudget()
+    budget.result_sizes = [104_857_599]
+    assert budget.result_remaining == 1
+    budget.result_sizes.append(1)
+    with pytest.raises(OverflowError):
+        _ = budget.result_remaining
+
+
+def test_hc12_seventeen_mib_final_report_is_no_longer_rejected(monkeypatch):
+    from scripts.research.index_market.xxm import r4_history_records
+    literal = "x" * (17 * 1024 * 1024)
+    monkeypatch.setattr(r4_history_records, "format_report", lambda result, *, check: literal)
+    budget = m.ResearchBudget()
+    result = m._finish_result(*minimal_finish_args(), budget)
+    assert result["reportText"] == literal
+    assert 17 * 1024 * 1024 < result["metrics"]["finalResultBytes"] <= 104_857_600
+    assert len(m._encoded(result)) == result["metrics"]["finalResultBytes"]
+
+
 def test_hc10_12_final_encoding_checked_before_return(monkeypatch):
     from scripts.research.index_market.xxm import r4_history_records
     monkeypatch.setattr(r4_history_records, "format_report", lambda result, *, check: "literal report")
@@ -469,8 +520,8 @@ source={{"rows":rows,"actualStart":rows[0][0],"actualEnd":rows[-1][0],"calendarC
 result=m._finish_result(source,old,current,{{"passed":False,"checks":[],"note":"synthetic, real baseline not executed"}},compared,b)
 assert result["metrics"]["stepCounts"] == {{"r2":922,"historyR4":922,"currentR4":922}}
 assert result["metrics"]["elapsedSeconds"] < 20
-assert result["metrics"]["combinedPeakUpper"] <= 256*1024*1024
-assert sum(result["metrics"]["workerResultBytes"])+result["metrics"]["finalResultBytes"] <= 16*1024*1024
+assert result["metrics"]["combinedPeakUpper"] <= 1024*1024*1024
+assert sum(result["metrics"]["workerResultBytes"])+result["metrics"]["finalResultBytes"] <= 100*1024*1024
 assert all(p.returncode == 0 for p in b.processes) and b.active is None
 print(json.dumps(result["metrics"]))
 '''

@@ -794,7 +794,7 @@ def _finish_result(source, old, current, baseline, compared, budget):
     result["reportText"] = format_report(result, check=budget.check)
     prepared = _encoded(result)
     if sum(budget.result_sizes) + len(prepared) > SPEC.max_result_bytes:
-        raise OverflowError("全部事实与最终报告合计超过16MiB")
+        raise OverflowError(f"全部事实与最终报告合计超过{SPEC.max_result_bytes // (1024 * 1024)}MiB")
     del prepared
     budget.check()
     stages = dict(budget.stage_seconds)
@@ -819,7 +819,7 @@ def _finish_result(source, old, current, baseline, compared, budget):
         del encoded
         budget.check()
         if sum(budget.result_sizes) + size > SPEC.max_result_bytes:
-            raise OverflowError("全部事实与最终报告合计超过16MiB")
+            raise OverflowError(f"全部事实与最终报告合计超过{SPEC.max_result_bytes // (1024 * 1024)}MiB")
         latest_combined = budget.measure()
         latest = {"parentPeak": budget.parent_peak,
                   "highestChildPeak": max(budget.waited_peak, budget.reported_peak),

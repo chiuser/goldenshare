@@ -1,6 +1,6 @@
 # 指数大势研究：统一代码入口
 
-2026-10-30修订后r4历史对比专项：[专项方案](../../../docs/product/wealth-r4-historical-comparison-plan-v1.md)、[专项LLD](../../../docs/product/wealth-r4-historical-comparison-low-level-design-v1.md)。本专项由`xxm/r4_history_comparison.py`、`r4_history_lake.py`、`r4_history_worker.py`、`r4_history_records.py`和四份对应测试组成。当前读取已改为本地DG正式Silver：固定000001.SH日线2023-01-03—2026-10-27及SSE日历，不调用PG/Settings/App，不读远程、不回退其他来源。一次短期读取进程关闭并回收后，才允许顺序运行两计算进程；历史源码仍仅从固定Git对象进入内存，正式r4识别/预测/API/页面不改。
+2026-10-31修订后r4历史对比专项：[专项方案](../../../docs/product/wealth-r4-historical-comparison-plan-v1.md)、[专项LLD](../../../docs/product/wealth-r4-historical-comparison-low-level-design-v1.md)。本专项由`xxm/r4_history_comparison.py`、`r4_history_lake.py`、`r4_history_worker.py`、`r4_history_records.py`和四份对应测试组成。当前读取已改为本地DG正式Silver：固定000001.SH日线2023-01-03—2026-10-27及SSE日历，不调用PG/Settings/App，不读远程、不回退其他来源。一次短期读取进程关闭并回收后，才允许顺序运行两计算进程；历史源码仍仅从固定Git对象进入内存，正式r4识别/预测/API/页面不改。
 
 限定人工测试命令（临时Parquet、手写源、小字面计算及922根合成规模，不读取真实Lake）：
 
@@ -11,7 +11,7 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -
 
 临时Parquet测试单独进程运行，避免PyArrow的测试宿主累计峰值影响原进程预算测试，不放宽断言。
 
-当前本轮仅修改读取及做一次`read_input`真实读取验收，不调用`run_historical_comparison`或重跑三组；下一次完整比较另按管理员指令执行。没有新增CLI/用户参数，行情、源码、完整账本不落盘。首次第二批PG超时保留在专项§13，新本地读取设计及验收见§14。下列旧研究记录保留历史含义，不作为本次验收证据。
+当前专项设计已按[方案§22—23](../../../docs/product/wealth-r4-historical-comparison-plan-v1.md#22-第一项适配最新r4的历史对比工具2026-10-31设计)及[LLD§22—23](../../../docs/product/wealth-r4-historical-comparison-low-level-design-v1.md#22-第一项工具适配的编码设计2026-10-31)补齐：先适配a183d6753/v0.3-r4的字段、有限跟踪、同根多事件与逐日比较，人工验收通过后，再获指令执行一次原922根真实对比。现有工具仍固定c6a845fe3/v0.2-r4，适配和新对比均未开始；不能只改提交号后直接运行。1GiB/100MiB、原20秒、唯一本地DG读取和结果只RAM不变；本轮只更新设计并提交此前专项额度及文档改动，不编码、不读取行情。§21保留c6a845fe3时已完成的旧报告（普通标签/状态差2天、旧历史撤销另7天），不是新核心成绩；失败历史仍在§13/17/19。下列旧研究记录仅保留历史含义。
 
 2026-10-28当前r4研究v2：[方案§15](../../../docs/product/xxm-r4-implementation-plan-v0.1.md)、[LLD§15](../../../wealth/docs/pages/index-detail/index-detail-xxm-r4-low-level-design-v0.1.md)。近B失效而远A价格/DIF全合格时，当根切A延续钝化，不新增消失或再次钝化；仅已有DULL同段，原1%/结构/等待/真实翻色规则不扩大。实现、人工验收及独立代码审计已完成；相关七文件398项、原r2人工62项、架构16项通过。旧v1副本不接受；无新产品开关、读取入口或结果落盘。开发交付时真实922根v2对照尚未运行，页面继续r2；随后管理员已授权按方案/LLD§16先提交本轮再重跑，结果待执行。
 

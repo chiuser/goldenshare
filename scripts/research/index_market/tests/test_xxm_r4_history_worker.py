@@ -75,6 +75,28 @@ def independent_frame(value):
     return len(body).to_bytes(8, "big") + body
 
 
+def test_hc01_authorized_one_gib_request_and_over_limit_rejection(sources):
+    value = request(sources)
+    value["maxWorkerMemoryBytes"] = 1024 * 1024 * 1024
+    assert worker.MAX_MEMORY_BYTES == 1024 * 1024 * 1024
+    assert worker.validate_request(value) is value
+    for invalid in (1024 * 1024 * 1024 + 1, True):
+        value["maxWorkerMemoryBytes"] = invalid
+        with pytest.raises(ValueError, match="memory allowance"):
+            worker.validate_request(value)
+
+
+def test_hc01_authorized_one_hundred_mib_result_and_over_limit_rejection(sources):
+    value = request(sources)
+    value["maxResultBytes"] = 104_857_600
+    assert worker.MAX_RESULT_BYTES == 104_857_600
+    assert worker.validate_request(value) is value
+    for invalid in (104_857_601, True):
+        value["maxResultBytes"] = invalid
+        with pytest.raises(ValueError, match="result allowance"):
+            worker.validate_request(value)
+
+
 def independent_messages(raw):
     output, offset = [], 0
     while offset < len(raw):

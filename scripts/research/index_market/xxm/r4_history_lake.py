@@ -256,7 +256,7 @@ def _read_request():
             or request["kind"] != "READ_INPUT" or type(request["protocolVersion"]) is not int or request["protocolVersion"] != 1
             or request["source"] != SPEC.source
             or type(request["readDeadline"]) not in (int, float) or not math.isfinite(request["readDeadline"])
-            or type(request["maxWorkerMemoryBytes"]) is not int or not 0 < request["maxWorkerMemoryBytes"] <= 256 * 1024 * 1024):
+            or type(request["maxWorkerMemoryBytes"]) is not int or not 0 < request["maxWorkerMemoryBytes"] <= 1024 * 1024 * 1024):
         raise ValueError("本地读取请求身份或字段错误")
     return request
 

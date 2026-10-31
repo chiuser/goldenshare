@@ -343,6 +343,11 @@ def test_hc23_reader_complete_frame_sequence_and_closed_result(monkeypatch, lake
     assert all(type(x['peakMemoryBytes']) is int for x in messages if 'peakMemoryBytes' in x)
 
 
+def test_hc23_authorized_one_gib_request_is_accepted_before_read(monkeypatch):
+    _install_request_pipe(monkeypatch, {'maxWorkerMemoryBytes': 1024 * 1024 * 1024})
+    assert m._read_request()['maxWorkerMemoryBytes'] == 1024 * 1024 * 1024
+
+
 def test_hc23_reader_failure_has_no_result_or_original_exception_text(monkeypatch):
     output = _install_request_pipe(monkeypatch, {})
     def failure(**kw):
@@ -357,7 +362,8 @@ def test_hc23_reader_failure_has_no_result_or_original_exception_text(monkeypatc
 
 @pytest.mark.parametrize('changes', [{'protocolVersion': True}, {'source': 'remote'}, {'path': '/tmp'},
                                     {'readDeadline': True}, {'maxWorkerMemoryBytes': True},
-                                    {'maxWorkerMemoryBytes': 0}])
+                                    {'maxWorkerMemoryBytes': 0},
+                                    {'maxWorkerMemoryBytes': 1024 * 1024 * 1024 + 1}])
 def test_hc23_request_rejects_extra_or_bad_fields_before_read(monkeypatch, changes):
     output = _install_request_pipe(monkeypatch, changes)
     monkeypatch.setattr(m, 'read_tables', lambda **kw: (_ for _ in ()).throw(AssertionError('must not read')))
