@@ -1,0 +1,53 @@
+{
+  "retained_serving_flows_except_error_sanitization": [
+    "_audit_prod_postgres_serving",
+    "_audit_clickhouse_serving",
+    "_audit_serving_entries"
+  ],
+  "function_lines": {
+    "_date": 78,
+    "_parse_args": 84,
+    "_load_catalog": 111,
+    "_value": 124,
+    "_error_text": 128,
+    "_lake_path_from_template": 133,
+    "_validate_root": 149,
+    "_validate_output_dir": 160,
+    "_file_identity": 184,
+    "_file_metadata": 194,
+    "_require_schema": 213,
+    "_direct_summary": 226,
+    "_annual_family_files": 246,
+    "_stock_year_summary": 287,
+    "_is_trade_date_serving": 320,
+    "_serving_backend": 328,
+    "_postgres_table_from_template": 341,
+    "_audit_prod_postgres_serving": 352,
+    "_required_env": 405,
+    "_clickhouse_client": 412,
+    "_clickhouse_partition_summary": 432,
+    "_audit_clickhouse_serving": 450,
+    "_audit_serving_entries": 492,
+    "_build_audit_plan": 526,
+    "_window_dates": 646,
+    "_load_calendar_windows": 653,
+    "_period_dates": 683,
+    "_empty_period_stats": 698,
+    "_period_summary": 706,
+    "_period_result": 792,
+    "_announcement_summary": 861,
+    "_normalize_report": 912,
+    "_audit_dates": 1025,
+    "_audit_trade_date": 1120,
+    "_publish_report": 1127,
+    "main": 1155
+  },
+  "formal_data_access": false,
+  "regression_evidence_source_sha256": "a397faddb9ece7c17b3691977fa42f1be2b6603311e705ee5c03bcaf53386add",
+  "current_source_sha256": "b40ef1fb03a015ec6107b85f38242208153d54adbeff9514d6594a06496bc714",
+  "regression_functions_unchanged_after_final_path_review": [
+    "_clickhouse_partition_summary",
+    "_normalize_report"
+  ],
+  "unique_asset_count_preserved": true
+}

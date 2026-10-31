@@ -1,0 +1,24 @@
+{
+  "regressions": {
+    "clickhouse_count_only": {
+      "baseline": "fails: unnecessary statistics in SQL",
+      "current": "passes"
+    },
+    "unreadable_file": {
+      "baseline": "incorrectly counts as physical missing",
+      "current": "separate unverified or zero-row result"
+    },
+    "present_zero_rows": {
+      "baseline": "incorrectly counts as physical missing",
+      "current": "separate unverified or zero-row result"
+    }
+  },
+  "unchanged_ast_functions": [
+    "_clickhouse_client",
+    "_postgres_table_from_template",
+    "_serving_backend",
+    "_is_trade_date_serving"
+  ],
+  "production_data_read": false,
+  "source_sha256": "a397faddb9ece7c17b3691977fa42f1be2b6603311e705ee5c03bcaf53386add"
+}

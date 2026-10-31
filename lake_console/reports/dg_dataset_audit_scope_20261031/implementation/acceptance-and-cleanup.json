@@ -1,0 +1,19 @@
+{
+  "isolated_tests": 95,
+  "failures": 0,
+  "errors": 0,
+  "seconds": 2.488,
+  "removed_fixture_files": 118,
+  "removed_fixture_bytes": 126454,
+  "previous_recorded_cleanup": {
+    "files": 118,
+    "bytes": 126454
+  },
+  "fixtures_remaining": false,
+  "drafts_remaining": false,
+  "formal_data_access": false,
+  "source_hashes": {
+    "audit_datasets.py": "b40ef1fb03a015ec6107b85f38242208153d54adbeff9514d6594a06496bc714",
+    "test_audit_datasets.py": "6d2be2918738968fb92146a718c11c9512cdae62abfe8938cc111f875a8c6327"
+  }
+}

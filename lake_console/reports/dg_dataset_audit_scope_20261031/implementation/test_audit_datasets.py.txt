@@ -1,0 +1,1134 @@
+"""P1-P10 isolated acceptance; no production data or network access.
+
+Fixtures use catalog column schemas (the real producers' contracts), not SQL
+inferred from the consumer. Expected dates/counts below are independent literals.
+All Parquet files are a few artificial rows under pytest's dedicated temp root.
+Serving clients are substitutes: these tests do not certify a live DB connection.
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import json
+import os
+import socket
+from contextlib import contextmanager
+from dataclasses import replace
+from datetime import date, datetime, timedelta
+from pathlib import Path
+from types import SimpleNamespace
+
+import duckdb
+import pytest
+
+SCRIPT = Path(__file__).with_name("audit_datasets.py")
+REPO = Path("/Users/congming/github/goldenshare")
+spec = importlib.util.spec_from_file_location("audit_datasets_acceptance", SCRIPT)
+audit = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(audit)
+CATALOG = audit._load_catalog(REPO)
+ENTRIES = {str(e.asset_key): e for e in CATALOG}
+from orchestrator.defs import duckdb_connection, resources
+from orchestrator.defs.catalog.lake_assets import PARTITION_MODEL_DEFINITIONS
+
+PERIOD_KEYS = (
+    "raw_tushare_stk_period_bar_adj_week",
+    "raw_tushare_stk_period_bar_adj_month",
+    "silver_stock_weekly",
+    "silver_stock_monthly",
+)
+OBSERVED = datetime(2026, 10, 31, 8, tzinfo=audit.CN_A_TIMEZONE)
+
+
+@pytest.fixture(autouse=True)
+def forbid_production(monkeypatch):
+    forbidden = ("/Volumes/datasource", "/Users/congming/.goldenshare/dagster_home")
+    violations = []
+
+    def check(path):
+        if isinstance(path, (str, bytes, os.PathLike)):
+            value = os.fsdecode(path)
+            allowed = not any(
+                value == p or value.startswith(p + "/") for p in forbidden
+            )
+            if not allowed:
+                violations.append(value)
+                raise AssertionError(value)
+
+    for name in ("stat", "lstat", "mkdir", "open", "scandir", "unlink", "replace"):
+        original = getattr(os, name)
+
+        def guarded(*args, _original=original, **kwargs):
+            if args:
+                check(args[0])
+            return _original(*args, **kwargs)
+
+        monkeypatch.setattr(os, name, guarded)
+
+    def blocked(*args, **kwargs):
+        violations.append("network or production side effect")
+        raise AssertionError("No network or production side effects in acceptance.")
+
+    monkeypatch.setattr(socket.socket, "connect", blocked)
+    monkeypatch.setattr(socket, "create_connection", blocked)
+    monkeypatch.setattr(resources.LakeRootResource, "ensure_available_for_run", blocked)
+    import dagster
+
+    monkeypatch.setattr(dagster.DagsterInstance, "get", blocked)
+    monkeypatch.setattr(dagster, "materialize", blocked)
+    yield
+    assert violations == [], (
+        "Forbidden access must not be swallowed as an unverified result."
+    )
+
+
+@pytest.fixture
+def recording(monkeypatch):
+    state = SimpleNamespace(queries=[], closed=0, opened=0, after=None, violations=[])
+    original = duckdb_connection.connect_configured_duckdb
+
+    class Connection:
+        def __init__(self, connection):
+            self.connection = connection
+
+        def execute(self, sql, params=None):
+            if (
+                not sql.lstrip().upper().startswith(("SELECT", "WITH", "DESCRIBE"))
+                or "/Volumes/datasource" in sql
+                or "/Volumes/datasource" in str(params)
+                or "/Users/congming/.goldenshare/dagster_home" in str(params)
+            ):
+                state.violations.append("nonisolated SQL")
+                raise AssertionError("SQL must use isolated read-only inputs.")
+            state.queries.append((sql, params))
+            result = (
+                self.connection.execute(sql, params)
+                if params is not None
+                else self.connection.execute(sql)
+            )
+            if state.after:
+                state.after(sql, params)
+            return result
+
+    @contextmanager
+    def configured(*args, **kwargs):
+        assert kwargs == {"temp_policy": "existing_no_spill"}
+        assert args[0].temp_directory == Path("/private/tmp")
+        state.opened += 1
+        with original(*args, **kwargs) as connection:
+            try:
+                yield Connection(connection)
+            finally:
+                state.closed += 1
+
+    monkeypatch.setattr(duckdb_connection, "connect_configured_duckdb", configured)
+    yield state
+    assert state.violations == [], "Forbidden native reads must not be swallowed."
+
+
+@pytest.fixture
+def lake(tmp_path):
+    root = tmp_path / "lake"
+    root.mkdir()
+    return root
+
+
+def target(root, key, coordinate=None):
+    template = ENTRIES[key].path_template.removeprefix("data_lake/")
+    return root / template.format(
+        **({"partition_key": coordinate} if coordinate is not None else {})
+    )
+
+
+def write_parquet(path, schema, rows):
+    """Real typed Parquet. Producer schema was checked independently in intake."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with duckdb.connect() as connection:
+        columns = ",".join(f'"{c.name}" {c.type}' for c in schema)
+        connection.execute(f"CREATE TABLE fixture ({columns})")
+        for row in rows:
+            names = list(row)
+            column_sql = ",".join(f'"{n}"' for n in names)
+            values = ",".join("?" for _ in names)
+            connection.execute(
+                f"INSERT INTO fixture ({column_sql}) VALUES ({values})",
+                [row[n] for n in names],
+            )
+        connection.execute("COPY fixture TO ? (FORMAT PARQUET)", [str(path)])
+
+
+def write_calendar(
+    root,
+    *,
+    opened=("2026-10-29",),
+    start="2026-10-01",
+    end="2026-10-31",
+    omit=(),
+    duplicate=(),
+    null=(),
+):
+    first, last = date.fromisoformat(start), date.fromisoformat(end)
+    rows = []
+    for index in range((last - first).days + 1):
+        day = first + timedelta(days=index)
+        key = day.isoformat()
+        if key in omit:
+            continue
+        row = {
+            "exchange": "SSE",
+            "trade_date": day,
+            "is_open": None if key in null else key in opened,
+        }
+        rows.append(row)
+        if key in duplicate:
+            rows.append(dict(row))
+    path = target(root, "silver_trade_calendar")
+    write_parquet(path, ENTRIES["silver_trade_calendar"].column_schema, rows)
+    return path
+
+
+def write_period(
+    root, key, dates=("20261029",), *, coordinate=None, bar=None, freq=None
+):
+    weekly = key in (PERIOD_KEYS[0], PERIOD_KEYS[2])
+    coordinate = coordinate or ("2026-10-30" if weekly else "2026-10")
+    bar = bar or ("20261030" if weekly else "20261031")
+    frequency = freq or ("week" if weekly else "month")
+    rows = [
+        {
+            "ts_code": f"{i + 1:06d}.SZ",
+            "trade_date": bar,
+            "end_date": d,
+            "freq": frequency,
+        }
+        for i, d in enumerate(dates)
+    ]
+    path = target(root, key, coordinate)
+    write_parquet(path, ENTRIES[key].column_schema, rows)
+    return path
+
+
+def write_announcement(root, day="2026-10-29", rows=None):
+    key = "raw_tushare_anns_d"
+    path = target(root, key, day)
+    if rows is None:
+        rows = [
+            {
+                "ann_date": day.replace("-", ""),
+                "ts_code": "000001.SZ",
+                "name": None,
+                "title": "公告",
+                "url": None,
+                "rec_time": None,
+            }
+        ]
+    write_parquet(path, ENTRIES[key].column_schema, rows)
+    return path
+
+
+def reports(root, keys, days=("2026-10-29",), observed=OBSERVED):
+    entries = tuple(ENTRIES[key] for key in keys)
+    return list(
+        audit._audit_dates(
+            catalog=entries, lake_root=root, trade_dates=days, observed_at=observed
+        )
+    )
+
+
+def period_report(root, key, **kwargs):
+    return reports(root, [key, "silver_trade_calendar"], **kwargs)[0][
+        "period_partition_assets"
+    ][key]
+
+
+def test_current_catalog_classification_and_file_plan(lake, monkeypatch):
+    monkeypatch.setattr(
+        audit, "_file_metadata", lambda *a: pytest.fail("planning must not read files")
+    )
+    plan = audit._build_audit_plan(
+        catalog=CATALOG,
+        lake_root=lake,
+        trade_dates=("2026-10-23", "2026-10-26", "2026-10-27"),
+    )
+    assert plan["catalog_count"] == 180
+    assert len(plan["excluded"]) == 16
+    assert not plan["issues"]
+    groups = plan["by_date"]["2026-10-23"]
+    assert sum(map(len, groups.values())) == 164
+    assert set(groups["period_partition_assets"]) == set(PERIOD_KEYS)
+    assert set(groups["natural_date_partition_assets"]) == {"raw_tushare_anns_d"}
+    assert (
+        plan["excluded"]["raw_tushare_trade_calendar"] == "calendar_excluded_by_scope"
+    )
+    paths = {
+        str(t["path"])
+        for g in plan["by_date"].values()
+        for name in ("period_partition_assets", "natural_date_partition_assets")
+        for t in g[name].values()
+    }
+    assert len(paths) + 1 == 10
+    assert (
+        groups["period_partition_assets"][PERIOD_KEYS[1]]["path"].name == "data.parquet"
+    )
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "unknown",
+        "new_full_model",
+        "bad_template",
+        "absolute_template",
+        "traversal",
+        "duplicate",
+        "wrong_layout",
+    ],
+)
+def test_unknown_or_conflicting_catalog_does_not_disappear(lake, kind):
+    base = ENTRIES["raw_tushare_anns_d"]
+    fields = {name: getattr(base, name) for name in base.__dataclass_fields__}
+    fields["asset_key"] = "unknown_asset"
+    models = list(PARTITION_MODEL_DEFINITIONS)
+    if kind == "unknown":
+        fields["partition_model"] = "not_registered"
+    elif kind == "new_full_model":
+        source = next(m for m in models if m.model.value == "full_file_raw_stock_basic")
+        models.append(replace(source, model="new_full_file"))
+        fields["partition_model"] = "new_full_file"
+    elif kind == "bad_template":
+        fields["path_template"] = "data_lake/raw/{other}/file.parquet"
+    elif kind == "absolute_template":
+        fields["path_template"] = (
+            "data_lake//outside/ann_date={partition_key}/file.parquet"
+        )
+    elif kind == "traversal":
+        fields["path_template"] = (
+            "data_lake/../outside/ann_date={partition_key}/file.parquet"
+        )
+    elif kind == "wrong_layout":
+        source = next(m for m in models if m.model == base.partition_model)
+        models[models.index(source)] = replace(source, physical_layout="single_file")
+    entry = SimpleNamespace(**fields)
+    catalog = (entry, entry) if kind == "duplicate" else (entry,)
+    plan = audit._build_audit_plan(
+        catalog=catalog, lake_root=lake, trade_dates=("2026-10-29",), models=models
+    )
+    assert "unknown_asset" in plan["unclassified"]
+    assert "unknown_asset" not in plan["excluded"]
+    assert plan["catalog_count"] == 1 and plan["issues"]
+
+
+@pytest.mark.parametrize("key", PERIOD_KEYS)
+@pytest.mark.parametrize(
+    "source_dates,expected,maximum",
+    [
+        (("20261029", "20261028", None), "satisfied", "2026-10-29"),
+        (("20261028", None), "gap", "2026-10-28"),
+        ((None, None), "unverified", None),
+    ],
+)
+def test_period_dates_and_legal_nulls(
+    lake, recording, key, source_dates, expected, maximum
+):
+    write_calendar(lake)
+    write_period(lake, key, source_dates)
+    result = period_report(lake, key)
+    assert result["assessment_status"] == expected
+    assert result["expected_source_date"] == "2026-10-29"
+    assert result["max_source_date"] == maximum
+    assert result["row_count"] == len(source_dates)
+    assert result["null_end_date_count"] == source_dates.count(None)
+    assert result["invalid_end_date_count"] == 0
+    assert recording.closed == 1
+
+
+@pytest.mark.parametrize(
+    "kind,status,row_count",
+    [
+        ("missing", "missing_file", None),
+        ("zero_bytes", "empty_file", None),
+        ("zero_rows", "present_zero_rows", 0),
+    ],
+)
+@pytest.mark.parametrize("hour,assessment", [(19, "pending"), (20, "gap")])
+def test_period_missing_empty_exact_contract(
+    lake, recording, kind, status, row_count, hour, assessment
+):
+    key = PERIOD_KEYS[0]
+    write_calendar(lake)
+    if kind == "zero_rows":
+        write_period(lake, key, ())
+    elif kind == "zero_bytes":
+        path = target(lake, key, "2026-10-30")
+        path.parent.mkdir(parents=True)
+        path.touch()
+    report = reports(
+        lake,
+        [key, "silver_trade_calendar"],
+        observed=datetime(2026, 10, 29, hour, 0, tzinfo=audit.CN_A_TIMEZONE),
+    )[0]
+    result = report["period_partition_assets"][key]
+    assert (
+        result["status"],
+        result["row_count"],
+        result["max_source_date"],
+        result["update_status"],
+        result["assessment_status"],
+    ) == (status, row_count, None, "unverified", assessment)
+    assert result["rows_at_or_after_expected"] == (0 if kind == "zero_rows" else None)
+    assert result["null_end_date_count"] == (0 if kind == "zero_rows" else None)
+    assert report["unverified_asset_keys"] == []
+    assert report["update_behind_asset_keys"] == []
+    assert report["physical_missing_asset_count"] == (0 if kind == "zero_rows" else 1)
+    assert report["data_gap_asset_count"] == (0 if hour == 19 else 1)
+
+
+@pytest.mark.parametrize(
+    "kind",
+    [
+        "bad_date",
+        "null_trade_date",
+        "wrong_period",
+        "bad_freq",
+        "null_freq",
+        "missing_column",
+        "wrong_type",
+        "broken",
+    ],
+)
+def test_period_bad_values_versus_unreadable_schema(lake, recording, kind):
+    key = PERIOD_KEYS[0]
+    write_calendar(lake)
+    if kind in {"missing_column", "wrong_type"}:
+        schema = [c for c in ENTRIES[key].column_schema if c.name != "end_date"]
+        if kind == "wrong_type":
+            schema = list(ENTRIES[key].column_schema)
+            schema = [
+                replace(c, type="DATE") if c.name == "end_date" else c for c in schema
+            ]
+        path = target(lake, key, "2026-10-30")
+        write_parquet(path, schema, [])
+    elif kind == "broken":
+        path = target(lake, key, "2026-10-30")
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"not parquet")
+    else:
+        dates = ("20260230",) if kind == "bad_date" else ("20261029",)
+        bar = "20261023" if kind == "wrong_period" else "20261030"
+        path = write_period(
+            lake, key, dates, bar=bar, freq="month" if kind == "bad_freq" else None
+        )
+        if kind in {"null_trade_date", "null_freq"}:
+            # Explicit invalid producer input for the regression's negative branch.
+            field = "trade_date" if kind == "null_trade_date" else "freq"
+            row = {
+                "ts_code": "000001.SZ",
+                "trade_date": "20261030",
+                "end_date": "20261029",
+                "freq": "week",
+                field: None,
+            }
+            path.unlink()
+            write_parquet(path, ENTRIES[key].column_schema, [row])
+    result = period_report(lake, key)
+    unreadable = kind in {"missing_column", "wrong_type", "broken"}
+    assert result["assessment_status"] == ("unverified" if unreadable else "gap")
+    assert result["status"] == ("unreadable_file" if unreadable else "invalid_data")
+    assert result["update_status"] == "unverified"
+    if unreadable:
+        assert result["row_count"] is None
+
+
+@pytest.mark.parametrize("kind", ["omit", "duplicate", "null"])
+def test_calendar_is_only_a_bounded_dependency(lake, recording, kind):
+    key = PERIOD_KEYS[0]
+    write_calendar(lake, **{kind: ("2026-10-27",)})
+    write_period(lake, key)
+    result = reports(
+        lake, [key, "raw_tushare_trade_calendar", "silver_trade_calendar"]
+    )[0]
+    assert result["period_partition_assets"][key]["assessment_status"] == "unverified"
+    assert result["excluded_asset_count"] == 2
+    assert result["audited_asset_count"] == 1
+    assert "reference_date_assets" not in result
+    assert not any("WITH source_rows" in sql for sql, _ in recording.queries)
+    assert not any("raw/tushare/trade_calendar" in str(p) for _, p in recording.queries)
+
+
+def test_closed_period_not_due_no_price_file_read(lake, recording):
+    write_calendar(lake, opened=())
+    key = PERIOD_KEYS[1]
+    path = write_period(lake, key)
+    result = period_report(lake, key)
+    assert (result["status"], result["assessment_status"], result["row_count"]) == (
+        "not_checked_not_due",
+        "not_due",
+        None,
+    )
+    assert not any(str(path) in str(params) for _, params in recording.queries)
+
+
+@pytest.mark.parametrize(
+    "day,source_day,coordinate",
+    [
+        ("2026-10-31", "20261030", "2026-10-30"),
+        ("2026-11-01", "20261030", "2026-10-30"),
+        ("2027-01-01", "20261231", "2027-01-01"),
+    ],
+)
+def test_weekend_and_cross_year_use_correct_week(
+    lake, recording, day, source_day, coordinate
+):
+    source_iso = f"{source_day[:4]}-{source_day[4:6]}-{source_day[6:]}"
+    start = "2026-12-28" if day.startswith("2027") else "2026-10-26"
+    write_calendar(lake, opened=(source_iso,), start=start, end=day)
+    key = PERIOD_KEYS[0]
+    write_period(
+        lake, key, (source_day,), coordinate=coordinate, bar=coordinate.replace("-", "")
+    )
+    result = period_report(
+        lake, key, days=(day,), observed=datetime.fromisoformat(day + "T10:00:00+08:00")
+    )
+    assert result["period_key"] == coordinate
+    assert result["expected_source_date"] == source_iso
+    assert result["assessment_status"] == "satisfied"
+
+
+@pytest.mark.parametrize("bar", ["20200228", "20200229"])
+def test_both_legal_february_month_dates(lake, recording, bar):
+    write_calendar(lake, opened=("2020-02-28",), start="2020-02-01", end="2020-02-29")
+    key = PERIOD_KEYS[1]
+    write_period(lake, key, ("20200228",), coordinate="2020-02", bar=bar)
+    result = period_report(lake, key, days=("2020-02-29",))
+    assert result["assessment_status"] == "satisfied"
+    assert result["invalid_trade_date_count"] == 0
+
+
+@pytest.mark.parametrize(
+    "hour,minute,expected",
+    [(19, 29, "pending"), (19, 30, "pending"), (19, 59, "pending"), (20, 0, "gap")],
+)
+def test_source_window_not_a_silver_timeout(lake, recording, hour, minute, expected):
+    write_calendar(lake)
+    write_period(lake, PERIOD_KEYS[0], ("20261028",))
+    result = period_report(
+        lake,
+        PERIOD_KEYS[0],
+        observed=datetime(2026, 10, 29, hour, minute, tzinfo=audit.CN_A_TIMEZONE),
+    )
+    assert result["assessment_status"] == expected
+    assert result["update_status"] == "behind"
+
+
+def test_multidate_period_reads_once_and_no_final_reread(lake, recording):
+    write_calendar(lake, opened=("2026-10-26", "2026-10-27"))
+    write_period(lake, PERIOD_KEYS[0], ("20261027",))
+    result = reports(
+        lake,
+        [PERIOD_KEYS[0], "silver_trade_calendar"],
+        days=("2026-10-26", "2026-10-27", "2026-10-27"),
+    )
+    assert len(result) == 2
+    assert [
+        r["period_partition_assets"][PERIOD_KEYS[0]]["expected_source_date"]
+        for r in result
+    ] == ["2026-10-26", "2026-10-27"]
+    assert sum("WITH source_rows" in sql for sql, _ in recording.queries) == 1
+    assert sum("bool_or(is_open)" in sql for sql, _ in recording.queries) == 1
+    assert recording.opened == recording.closed == 1
+
+
+def test_changed_period_invalidates_all_cached_dates_without_retry(lake, recording):
+    write_calendar(lake, opened=("2026-10-26", "2026-10-27"))
+    path = write_period(lake, PERIOD_KEYS[0], ("20261027",))
+
+    def change(sql, params):
+        if "WITH source_rows" in sql:
+            current = path.stat()
+            os.utime(path, ns=(current.st_atime_ns, current.st_mtime_ns + 1000000000))
+
+    recording.after = change
+    result = reports(
+        lake,
+        [PERIOD_KEYS[0], "silver_trade_calendar"],
+        days=("2026-10-26", "2026-10-27"),
+    )
+    assert all(
+        r["period_partition_assets"][PERIOD_KEYS[0]]["assessment_status"]
+        == "unverified"
+        for r in result
+    )
+    assert all(
+        r["period_partition_assets"][PERIOD_KEYS[0]]["row_count"] is None
+        for r in result
+    )
+    assert sum("WITH source_rows" in sql for sql, _ in recording.queries) == 1
+
+
+@pytest.mark.parametrize(
+    "kind,expected",
+    [
+        ("positive", "satisfied"),
+        ("empty", "satisfied"),
+        ("wrong_date", "gap"),
+        ("null_date", "gap"),
+        ("bad_schema", "unverified"),
+        ("broken", "unverified"),
+        ("zero_bytes", "gap"),
+        ("missing", "gap"),
+    ],
+)
+def test_announcement_contract_and_allowed_empty(lake, recording, kind, expected):
+    day = "2026-10-29"
+    path = target(lake, "raw_tushare_anns_d", day)
+    if kind in {"positive", "empty", "wrong_date", "null_date"}:
+        rows = (
+            []
+            if kind == "empty"
+            else [
+                {
+                    "ann_date": None
+                    if kind == "null_date"
+                    else "20261028"
+                    if kind == "wrong_date"
+                    else "20261029",
+                    "url": None,
+                    "rec_time": None,
+                }
+            ]
+        )
+        write_announcement(lake, day, rows)
+    elif kind in {"broken", "zero_bytes"}:
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"bad" if kind == "broken" else b"")
+    elif kind == "bad_schema":
+        write_parquet(path, ENTRIES["raw_tushare_anns_d"].column_schema[:-1], [])
+    report = reports(lake, ["raw_tushare_anns_d"])[0]
+    result = report["natural_date_partition_assets"]["raw_tushare_anns_d"]
+    assert result["assessment_status"] == expected
+    assert result["source_delivery_status"] == "not_checked"
+    if kind == "empty":
+        assert result["status"] == "allowed_zero_rows"
+        assert report["physical_missing_asset_count"] == 0
+        assert report["allowed_zero_row_asset_count"] == 1
+        assert report["audit_passed"] is True
+
+
+@pytest.mark.parametrize("covered", [True, False])
+def test_future_period_needs_date_reference(lake, recording, covered):
+    if covered:
+        write_calendar(
+            lake, opened=("2026-11-02",), start="2026-11-01", end="2026-11-02"
+        )
+    key = PERIOD_KEYS[1]
+    result = period_report(lake, key, days=("2026-11-02",))
+    assert result["assessment_status"] == ("pending" if covered else "unverified")
+
+
+def test_future_announcement_missing_waits_but_bad_data_does_not(lake, recording):
+    day = "2026-11-01"
+    before = reports(lake, ["raw_tushare_anns_d"], days=(day,))[0]
+    assert before["pending_asset_count"] == 1
+    write_announcement(lake, day, [{"ann_date": "20261030"}])
+    after = reports(lake, ["raw_tushare_anns_d"], days=(day,))[0]
+    assert after["data_gap_asset_count"] == 1
+
+
+@pytest.mark.parametrize(
+    "kind,status",
+    [
+        ("positive", "present"),
+        ("zero", "present_zero_rows"),
+        ("missing", "missing_file"),
+        ("bytes", "empty_file"),
+        ("broken", "unreadable_file"),
+    ],
+)
+def test_original_direct_count_and_error_classes(lake, recording, kind, status):
+    key = "raw_tushare_daily_basic"
+    path = target(lake, key, "2026-10-29")
+    if kind in {"positive", "zero"}:
+        write_parquet(
+            path,
+            ENTRIES[key].column_schema,
+            [{"ts_code": "000001.SZ"}] if kind == "positive" else [],
+        )
+    elif kind in {"bytes", "broken"}:
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"bad" if kind == "broken" else b"")
+    report = reports(lake, [key])[0]
+    assert report["direct_partition_assets"][key]["status"] == status
+    assert report["physical_missing_asset_count"] == (
+        1 if kind in {"missing", "bytes"} else 0
+    )
+    assert report["unverified_asset_count"] == (1 if kind in {"zero", "broken"} else 0)
+
+
+def test_one_bad_file_does_not_stop_normal_items(lake, recording):
+    first = "raw_tushare_daily_basic"
+    second = "raw_tushare_anns_d"
+    path = target(lake, first, "2026-10-29")
+    path.parent.mkdir(parents=True)
+    path.write_bytes(b"corrupt")
+    write_announcement(lake)
+    report = reports(lake, [first, second])[0]
+    assert report["unverified_asset_keys"] == [first]
+    assert report["satisfied_asset_keys"] == [second]
+
+
+def test_annual_only_requested_year_and_grouped_date_counts(lake, recording):
+    key = "gold_stk_mins_qfq_1m"
+    entry = ENTRIES[key]
+    template = entry.path_template.removeprefix("data_lake/")
+    path = lake / template.format(ts_code="000001.SZ", year="2026")
+    # Genuine producer schema; independent date rows, all other fields unused.
+    write_parquet(
+        path,
+        entry.column_schema,
+        [
+            {
+                "ts_code": "000001.SZ",
+                "freq": 1,
+                "trade_date": day,
+                "trade_time": datetime.combine(day, datetime.min.time()),
+                "exchange": "SZ",
+            }
+            for day in (date(2026, 10, 28), date(2026, 10, 29), date(2026, 10, 29))
+        ],
+    )
+    forbidden = lake / template.format(ts_code="000001.SZ", year="2025")
+    forbidden.parent.mkdir(parents=True)
+    forbidden.write_bytes(b"must never be read")
+    result = reports(lake, [key], days=("2026-10-28", "2026-10-29"))
+    assert [r["stock_year_partition_assets"][key]["row_count"] for r in result] == [
+        1,
+        2,
+    ]
+    statements = [
+        (sql, p) for sql, p in recording.queries if "GROUP BY trade_date" in sql
+    ]
+    assert len(statements) == 1
+    sql, params = statements[0]
+    assert "ts_code" not in sql and "trade_time" not in sql
+    assert "2025" not in str(params)
+    assert "code_count" not in result[0]["stock_year_partition_assets"][key]
+
+
+@pytest.mark.parametrize("broken", [False, True])
+def test_annual_absence_is_not_query_failure(lake, recording, broken):
+    key = "gold_stk_mins_qfq_1m"
+    if broken:
+        template = ENTRIES[key].path_template.removeprefix("data_lake/")
+        path = lake / template.format(ts_code="000001.SZ", year="2026")
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"broken")
+    report = reports(lake, [key])[0]
+    result = report["stock_year_partition_assets"][key]
+    assert result["status"] == ("unreadable_file" if broken else "missing_date_rows")
+    assert report["physical_missing_asset_count"] == (0 if broken else 1)
+
+
+@pytest.mark.parametrize(
+    "table", ["share_fact_market_breadth_daily", "board_fact_technical_daily"]
+)
+@pytest.mark.parametrize("count", [0, 3])
+def test_clickhouse_count_contract_and_whitelist(table, count):
+    calls = []
+    client = SimpleNamespace(
+        execute=lambda sql, params: calls.append((sql, params)) or [(count,)]
+    )
+    result = audit._clickhouse_partition_summary(
+        client, table_name=table, trade_date="2026-10-29"
+    )
+    assert result == {
+        "status": "present" if count else "missing_rows",
+        "table": table,
+        "row_count": count,
+    }
+    assert calls == [
+        (
+            f"SELECT count() FROM {table} WHERE trade_date = %(trade_date)s LIMIT 1",
+            {"trade_date": "2026-10-29"},
+        )
+    ]
+    with pytest.raises(ValueError):
+        audit._clickhouse_partition_summary(
+            client, table_name="unapproved", trade_date="2026-10-29"
+        )
+
+
+def test_serving_failures_remain_unverified_without_credential_text(
+    lake, recording, monkeypatch
+):
+    serving = next(e for e in CATALOG if audit._serving_backend(e) == "prod_clickhouse")
+
+    def fail(prefix):
+        raise RuntimeError(
+            "postgresql://user:secret@host password=secret token=private"
+        )
+
+    monkeypatch.setattr(audit, "_clickhouse_client", fail)
+    report = reports(lake, [str(serving.asset_key)])[0]
+    assert report["unverified_asset_count"] == 1
+    assert report["physical_missing_asset_count"] == 0
+    assert "secret" not in json.dumps(report)
+    assert "private" not in json.dumps(report)
+
+
+@pytest.mark.parametrize("value", ["2026-02-30", "2026-1-01", "2026-10-32", "20261029"])
+def test_invalid_cli_date_stops_before_io(value):
+    with pytest.raises(SystemExit) as result:
+        audit._parse_args(["--date", value])
+    assert result.value.code == 2
+
+
+def test_cli_duplicate_future_dates_and_no_old_lake_env(monkeypatch):
+    monkeypatch.setenv(
+        "GOLDENSHARE_LAKE_ROOT", "/Volumes/datasource/goldenshare-tushare-lake"
+    )
+    args = audit._parse_args(
+        ["--date", "2026-11-01", "--date", "2026-11-01", "--date", "2026-10-29"]
+    )
+    assert args.trade_dates == ["2026-11-01", "2026-10-29"]
+    assert args.lake_root is None
+
+
+def test_root_failure_never_opens_backend(tmp_path, monkeypatch):
+    def fail(*args, **kwargs):
+        pytest.fail("backend must not open before root succeeds")
+
+    monkeypatch.setattr(duckdb_connection, "connect_configured_duckdb", fail)
+    monkeypatch.setattr(audit, "_audit_serving_entries", fail)
+    with pytest.raises(FileNotFoundError):
+        list(
+            audit._audit_dates(
+                catalog=(), lake_root=tmp_path / "missing", trade_dates=("2026-10-29",)
+            )
+        )
+    with pytest.raises(ValueError):
+        audit._validate_root(audit.RETIRED_LAKE_ROOT)
+
+
+def test_connection_init_failure_no_partial_report_or_serving(
+    lake, tmp_path, monkeypatch, capsys
+):
+    @contextmanager
+    def broken(*args, **kwargs):
+        raise RuntimeError("password=secret")
+        yield
+
+    monkeypatch.setattr(duckdb_connection, "connect_configured_duckdb", broken)
+    monkeypatch.setattr(audit, "_load_catalog", lambda repo: ())
+    monkeypatch.setattr(
+        audit,
+        "_audit_serving_entries",
+        lambda *a: pytest.fail("no serving after init failure"),
+    )
+    output = tmp_path / "reports"
+    with pytest.raises(SystemExit) as code:
+        audit.main(
+            [
+                "--date",
+                "2026-10-29",
+                "--lake-root",
+                str(lake),
+                "--output-dir",
+                str(output),
+            ]
+        )
+    assert code.value.code == 1
+    assert not output.exists()
+    assert "secret" not in capsys.readouterr().err
+
+
+def test_unreadable_root_does_not_get_reported_as_missing(lake, recording, monkeypatch):
+    original = os.scandir
+
+    def denied(path):
+        if Path(path) == lake:
+            raise PermissionError("denied")
+        return original(path)
+
+    monkeypatch.setattr(os, "scandir", denied)
+    with pytest.raises(PermissionError):
+        reports(lake, [])
+    assert recording.opened == 0
+
+
+def test_report_publish_unique_and_failed_publish_cleans_only_own_temp(
+    tmp_path, monkeypatch
+):
+    output = tmp_path / "reports"
+    output.mkdir()
+    previous = output / "historical.json"
+    previous.write_text('{"historical":true}')
+    report = {"trade_date": "2026-10-29", "audit_passed": False}
+    first = audit._publish_report(report, output)
+    second = audit._publish_report(report, output)
+    assert first != second
+    assert json.loads(first.read_text()) == report
+
+    def fail(*args, **kwargs):
+        raise PermissionError("denied")
+
+    monkeypatch.setattr(os, "link", fail)
+    with pytest.raises(PermissionError):
+        audit._publish_report(report, output)
+    assert not list(output.glob("*.tmp"))
+    assert previous.read_text() == '{"historical":true}'
+    assert first.exists() and second.exists()
+    for forbidden in (
+        audit.FORMAL_LAKE_ROOT,
+        audit.FORMAL_STAGING_ROOT,
+        audit.FORMAL_DAGSTER_HOME,
+    ):
+        with pytest.raises(ValueError):
+            audit._validate_output_dir(forbidden)
+
+
+def test_cli_missing_data_still_generates_report_with_exit_zero(
+    lake, recording, tmp_path, monkeypatch, capsys
+):
+    key = "raw_tushare_daily_basic"
+    monkeypatch.setattr(audit, "_load_catalog", lambda repo: (ENTRIES[key],))
+    audit.main(
+        [
+            "--date",
+            "2026-10-29",
+            "--lake-root",
+            str(lake),
+            "--output-dir",
+            str(tmp_path / "reports"),
+        ]
+    )
+    summary = json.loads(capsys.readouterr().out)
+    report = json.loads(Path(summary["report"]).read_text())
+    assert summary["report_schema_version"] == 2
+    assert summary["audit_passed"] is False
+    assert report["physical_missing_asset_count"] == 1
+    assert recording.closed == 1
+
+
+def test_interrupt_preserves_finished_report_and_closes_connection(
+    lake, recording, tmp_path, monkeypatch
+):
+    monkeypatch.setattr(audit, "_load_catalog", lambda repo: ())
+
+    def serving(entries, day):
+        if day == "2026-10-30":
+            raise KeyboardInterrupt()
+        return {}
+
+    monkeypatch.setattr(audit, "_audit_serving_entries", serving)
+    output = tmp_path / "reports"
+    with pytest.raises(KeyboardInterrupt):
+        audit.main(
+            [
+                "--date",
+                "2026-10-29",
+                "--date",
+                "2026-10-30",
+                "--lake-root",
+                str(lake),
+                "--output-dir",
+                str(output),
+            ]
+        )
+    assert len(list(output.glob("*.json"))) == 1
+    assert not list(output.glob("*.tmp"))
+    assert recording.closed == 1
+
+
+def test_postgres_keeps_forced_readonly_resource_and_date_count(
+    lake, recording, monkeypatch
+):
+    entries = [
+        e
+        for e in CATALOG
+        if e.layer.value == "serving"
+        and audit._serving_backend(e) == "prod_postgres"
+        and audit._is_trade_date_serving(e)
+    ]
+    calls = []
+
+    class Cursor:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            pass
+
+        def execute(self, sql, params):
+            calls.append((str(sql), params))
+
+        def fetchone(self):
+            return (4,)
+
+    class Connection:
+        def cursor(self):
+            return Cursor()
+
+    @contextmanager
+    def readonly(self):
+        calls.append("readonly_resource")
+        yield Connection()
+
+    monkeypatch.setattr(
+        resources.ProdPostgresWriteResource, "connect_readonly", readonly
+    )
+    monkeypatch.setattr(
+        resources.ProdPostgresWriteResource,
+        "connect",
+        lambda *a: pytest.fail("write connection forbidden"),
+    )
+    result = audit._audit_prod_postgres_serving(entries, "2026-10-29")
+    assert calls[0] == "readonly_resource"
+    assert len(calls) == len(entries) + 1
+    assert all(
+        "SELECT count(*) FROM" in sql
+        and "WHERE trade_date = %s" in sql
+        and params == ("2026-10-29",)
+        for sql, params in calls[1:]
+    )
+    assert all(
+        r["row_count"] == 4 and r["backend"] == "prod_postgres" for r in result.values()
+    )
+
+
+def test_clickhouse_clients_keep_resource_settings(monkeypatch):
+    calls = []
+    import clickhouse_driver
+
+    monkeypatch.setattr(
+        clickhouse_driver,
+        "Client",
+        lambda **kwargs: calls.append(kwargs) or SimpleNamespace(),
+    )
+    for prefix in ("CLICKHOUSE", "PROD_CLICKHOUSE"):
+        for suffix, value in {
+            "HOST": "isolated-host",
+            "PORT": "9000",
+            "USER": "isolated",
+            "PASSWORD": "hidden",
+            "DATABASE": "isolated",
+        }.items():
+            monkeypatch.setenv(prefix + "_" + suffix, value)
+        audit._clickhouse_client(prefix)
+    assert len(calls) == 2
+    assert all(
+        c["settings"]
+        == {
+            "readonly": 2,
+            "max_execution_time": 10,
+            "max_rows_to_read": 1000000,
+            "max_result_rows": 100,
+        }
+        for c in calls
+    )
+    assert all(
+        c["connect_timeout"] == 5 and c["send_receive_timeout"] == 10 for c in calls
+    )
+
+
+@pytest.mark.parametrize("valid", [True, False])
+def test_no_raw_calendar_read_or_fallback(lake, recording, monkeypatch, valid):
+    raw = target(lake, "raw_tushare_trade_calendar")
+    raw.parent.mkdir(parents=True)
+    raw.write_bytes(b"Raw must not be read")
+    silver = write_calendar(lake)
+    if not valid:
+        silver.unlink()
+        wrong = [
+            replace(c, type="INTEGER") if c.name == "is_open" else c
+            for c in ENTRIES["silver_trade_calendar"].column_schema
+        ]
+        write_parquet(silver, wrong, [])
+    write_period(lake, PERIOD_KEYS[0])
+    original = audit._file_metadata
+
+    def metadata(path):
+        assert path != raw
+        return original(path)
+
+    monkeypatch.setattr(audit, "_file_metadata", metadata)
+    report = reports(
+        lake, [PERIOD_KEYS[0], "raw_tushare_trade_calendar", "silver_trade_calendar"]
+    )[0]
+    assert report["period_partition_assets"][PERIOD_KEYS[0]]["assessment_status"] == (
+        "satisfied" if valid else "unverified"
+    )
+    assert report["audited_asset_count"] == 1 and report["excluded_asset_count"] == 2
+
+
+def test_sparse_dates_do_not_expand_calendar_or_read_intermediate_month(
+    lake, recording
+):
+    write_calendar(
+        lake, opened=("2026-09-29", "2026-11-02"), start="2026-09-01", end="2026-11-02"
+    )
+    reports(
+        lake,
+        [PERIOD_KEYS[1], "silver_trade_calendar"],
+        days=("2026-09-29", "2026-11-02"),
+    )
+    calls = [params for sql, params in recording.queries if "bool_or(is_open)" in sql]
+    assert len(calls) == 1
+    assert all(day.month in {9, 11} for day in calls[0][1:])
+    assert len(calls[0][1:]) == 31
+
+
+@pytest.mark.parametrize(
+    "end_date,observed,expected",
+    [
+        (
+            "20261029",
+            datetime(2026, 10, 29, 19, 0, tzinfo=audit.CN_A_TIMEZONE),
+            "satisfied",
+        ),
+        ("20261028", datetime(2026, 10, 31, 8, 0, tzinfo=audit.CN_A_TIMEZONE), "gap"),
+        ("20261102", OBSERVED, "unverified"),
+    ],
+)
+def test_reached_date_does_not_wait_and_future_source_is_unverified(
+    lake, recording, end_date, observed, expected
+):
+    write_calendar(lake, opened=("2026-10-29", "2026-10-30"))
+    write_period(lake, PERIOD_KEYS[0], (end_date,))
+    day = (
+        "2026-10-31" if observed.day == 31 and end_date == "20261028" else "2026-10-29"
+    )
+    result = period_report(lake, PERIOD_KEYS[0], days=(day,), observed=observed)
+    assert result["assessment_status"] == expected
+
+
+def test_report_name_collision_retries_name_only(tmp_path, monkeypatch):
+    output = tmp_path / "reports"
+    output.mkdir()
+    report = {"trade_date": "2026-10-29"}
+    first = audit._publish_report(report, output)
+    original = os.link
+    attempts = []
+
+    def collision(source, destination):
+        attempts.append(destination)
+        if len(attempts) == 1:
+            # Real existing destination: native link must refuse to overwrite.
+            original(source, first)
+        return original(source, destination)
+
+    monkeypatch.setattr(os, "link", collision)
+    second = audit._publish_report(report, output)
+    assert len(attempts) == 2
+    assert first != second and json.loads(first.read_text()) == report
+    assert not list(output.glob("*.tmp"))
+
+
+def test_normalizer_rejects_duplicate_or_overlapping_assets():
+    plan = {"excluded": {}, "unclassified": {}, "issues": [], "catalog_count": 1}
+    groups = {group: {} for group in audit.GROUPS}
+    groups["direct_partition_assets"]["same"] = {"status": "present", "row_count": 1}
+    groups["serving_partition_assets"]["same"] = {"status": "present", "row_count": 1}
+    with pytest.raises(RuntimeError):
+        audit._normalize_report(
+            groups=groups, day="2026-10-29", plan=plan, observed_at=OBSERVED
+        )

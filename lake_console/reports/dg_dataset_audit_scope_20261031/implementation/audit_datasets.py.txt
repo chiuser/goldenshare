@@ -1,0 +1,1203 @@
+#!/usr/bin/env python3
+"""Read-only, date-scoped physical DG audit. Does not execute pipeline jobs."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import stat
+import sys
+import tempfile
+from collections import Counter, defaultdict
+from contextlib import closing
+from datetime import UTC, date, datetime, time, timedelta
+from pathlib import Path
+from string import Formatter
+from typing import Any
+from urllib.parse import urlparse
+from uuid import uuid4
+from zoneinfo import ZoneInfo
+
+ISO_DATE = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
+SQL_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+DEFAULT_REPO_ROOT = Path("/Users/congming/github/goldenshare")
+DEFAULT_OUTPUT_DIR = Path("/private/tmp")
+FORMAL_LAKE_ROOT = Path("/Volumes/datasource/data_lake")
+RETIRED_LAKE_ROOT = Path("/Volumes/datasource/goldenshare-tushare-lake")
+FORMAL_STAGING_ROOT = Path("/Volumes/datasource/data_lake_staging")
+FORMAL_DAGSTER_HOME = Path("/Users/congming/.goldenshare/dagster_home")
+CN_A_TIMEZONE = ZoneInfo("Asia/Shanghai")
+SOURCE_WINDOW_END = time(20)
+CLICKHOUSE_TABLE_BY_PARTITION_MODEL = {
+    "serving_table_serving_market_breadth": "share_fact_market_breadth_daily",
+    "serving_table_serving_dc_daily_technical": "board_fact_technical_daily",
+}
+PERIOD_MODELS = {
+    "week_end_partition_raw_stk_period_bar_adj_week": "week",
+    "month_partition_raw_stk_period_bar_adj_month": "month",
+    "week_end_partition_silver_stock_weekly": "week",
+    "month_partition_silver_stock_monthly": "month",
+}
+SNAPSHOT_MODELS = frozenset(
+    {
+        "full_file_raw_stock_basic",
+        "full_file_silver_stock_basic",
+        "full_file_silver_stock_lifecycle",
+        "full_file_raw_namechange",
+        "full_file_silver_namechange",
+        "full_file_silver_stock_identity_map",
+        "full_file_raw_index_basic",
+        "full_file_silver_index_basic",
+        "full_file_raw_etf_basic_versioned",
+        "full_file_silver_etf_basic_versioned",
+        "full_file_silver_dc_industry_hierarchy",
+        "full_file_silver_stock_suspend_confirmed",
+        "serving_table_prod_wealth_sector_hierarchy",
+    }
+)
+CALENDAR_MODELS = frozenset(
+    {"full_file_raw_trade_calendar", "full_file_silver_trade_calendar"}
+)
+GROUPS = (
+    "direct_partition_assets",
+    "stock_year_partition_assets",
+    "serving_partition_assets",
+    "period_partition_assets",
+    "natural_date_partition_assets",
+)
+PERIOD_COUNTS = (
+    "null_end_date_count",
+    "invalid_end_date_count",
+    "invalid_trade_date_count",
+    "invalid_freq_count",
+)
+
+
+def _date(value: str) -> date:
+    if not ISO_DATE.fullmatch(value):
+        raise ValueError("日期必须为YYYY-MM-DD。")
+    return date.fromisoformat(value)
+
+
+def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Read-only DG physical and required-date audit."
+    )
+    parser.add_argument("--date", dest="trade_dates", action="append", required=True)
+    parser.add_argument(
+        "--repo-root",
+        type=Path,
+        default=Path(os.environ.get("GOLDENSHARE_REPO_ROOT", DEFAULT_REPO_ROOT)),
+    )
+    parser.add_argument(
+        "--lake-root",
+        type=Path,
+        default=None,
+        help="Default: defs.paths.DEFAULT_LAKE_ROOT",
+    )
+    parser.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT_DIR)
+    args = parser.parse_args(argv)
+    try:
+        for value in args.trade_dates:
+            _date(value)
+    except ValueError:
+        parser.error("--date必须为真实存在的YYYY-MM-DD日期。")
+    args.trade_dates = list(dict.fromkeys(args.trade_dates))
+    return args
+
+
+def _load_catalog(repo_root: Path):
+    orchestrator_src = repo_root / "lake_console/orchestrator/src"
+    if not orchestrator_src.is_dir():
+        raise FileNotFoundError(
+            f"Missing orchestrator source directory: {orchestrator_src}"
+        )
+    if str(orchestrator_src) not in sys.path:
+        sys.path.insert(0, str(orchestrator_src))
+    from orchestrator.defs.catalog.lake_assets import LAKE_ASSET_CATALOG
+
+    return LAKE_ASSET_CATALOG
+
+
+def _value(value: Any) -> str:
+    return str(getattr(value, "value", value))
+
+
+def _error_text(error: Exception) -> str:
+    # Exception messages from remote clients can contain credentials or SQL.
+    return f"{type(error).__name__}: 无法完成本项只读检查。"
+
+
+def _lake_path_from_template(lake_root: Path, template: str, **values: str) -> Path:
+    if not template.startswith("data_lake/"):
+        raise ValueError("Not a Lake path template.")
+    relative = template.removeprefix("data_lake/")
+    fields = {
+        field for _, field, _, _ in Formatter().parse(relative) if field is not None
+    }
+    if (
+        fields != set(values)
+        or Path(relative).is_absolute()
+        or ".." in Path(relative).parts
+    ):
+        raise ValueError("Unsupported Lake path template.")
+    return lake_root / relative.format(**values)
+
+
+def _validate_root(lake_root: Path) -> None:
+    if lake_root.absolute().is_relative_to(
+        RETIRED_LAKE_ROOT
+    ) or lake_root.resolve().is_relative_to(RETIRED_LAKE_ROOT):
+        raise ValueError("禁止使用退役Lake。")
+    if not stat.S_ISDIR(lake_root.stat().st_mode):
+        raise NotADirectoryError("Lake根不是目录。")
+    with os.scandir(lake_root):
+        pass
+
+
+def _validate_output_dir(output_dir: Path) -> None:
+    for forbidden in (
+        FORMAL_LAKE_ROOT,
+        FORMAL_STAGING_ROOT,
+        FORMAL_DAGSTER_HOME,
+        RETIRED_LAKE_ROOT,
+    ):
+        if output_dir.absolute().is_relative_to(forbidden):
+            raise ValueError(
+                "报告目录不能位于正式Lake、staging、Dagster home或退役Lake内。"
+            )
+    resolved = output_dir.resolve()
+    if any(
+        resolved.is_relative_to(p)
+        for p in (
+            FORMAL_LAKE_ROOT,
+            FORMAL_STAGING_ROOT,
+            FORMAL_DAGSTER_HOME,
+            RETIRED_LAKE_ROOT,
+        )
+    ):
+        raise ValueError("报告目录不能指向正式数据目录。")
+
+
+def _file_identity(path: Path) -> tuple[int, ...]:
+    for parent in reversed(path.parents):
+        if parent.is_symlink():
+            raise ValueError("输入路径包含符号链接。")
+    info = path.lstat()
+    if not stat.S_ISREG(info.st_mode):
+        raise ValueError("输入不是普通文件。")
+    return (info.st_dev, info.st_ino, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
+
+
+def _file_metadata(path: Path) -> tuple[dict[str, Any], tuple[int, ...] | None]:
+    result: dict[str, Any] = {"path": str(path), "row_count": None}
+    try:
+        identity = _file_identity(path)
+    except FileNotFoundError:
+        return {**result, "status": "missing_file"}, None
+    except Exception as error:  # noqa: BLE001 - retain explicit per-item or tool failure
+        return {
+            **result,
+            "status": "unreadable_file",
+            "error": _error_text(error),
+        }, None
+    result["bytes"] = identity[2]
+    return {
+        **result,
+        "status": "empty_file" if identity[2] == 0 else "unverified",
+    }, identity
+
+
+def _require_schema(
+    connection, path: Path, required: dict[str, str], *, exact=False
+) -> None:
+    rows = connection.execute(
+        "DESCRIBE SELECT * FROM read_parquet(?, hive_partitioning=false)", [str(path)]
+    ).fetchall()
+    observed = {row[0]: row[1] for row in rows}
+    if any(observed.get(name) != kind for name, kind in required.items()):
+        raise ValueError("必要字段缺失或类型不符。")
+    if exact and [(r[0], r[1]) for r in rows] != list(required.items()):
+        raise ValueError("文件字段合同不符。")
+
+
+def _direct_summary(connection, path: Path) -> dict[str, Any]:
+    result, identity = _file_metadata(path)
+    if identity is None or not identity[2]:
+        return result
+    try:
+        count = int(
+            connection.execute(
+                "SELECT count(*) FROM read_parquet(?, hive_partitioning=false)",
+                [str(path)],
+            ).fetchone()[0]
+        )
+        return {
+            **result,
+            "status": "present" if count else "present_zero_rows",
+            "row_count": count,
+        }
+    except Exception as error:  # noqa: BLE001 - retain explicit per-item or tool failure
+        return {**result, "status": "unreadable_file", "error": _error_text(error)}
+
+
+def _annual_family_files(pattern: str) -> list[str]:
+    parts = Path(pattern).parts
+    if (
+        parts.count("ts_code=*") != 1
+        or sum("*" in p for p in parts) != 1
+        or any("?" in p or "[" in p for p in parts)
+    ):
+        raise ValueError("Unsupported annual file pattern.")
+    split = parts.index("ts_code=*")
+    if (
+        len(parts[split + 1 :]) != 2
+        or not re.fullmatch(r"year=[0-9]{4}", parts[split + 1])
+        or parts[-1] != "part-000.parquet"
+    ):
+        raise ValueError("Unsupported annual file layout.")
+    parent = Path(*parts[:split])
+    if any(p.is_symlink() for p in (parent, *parent.parents)):
+        raise ValueError("Annual source contains a symlink.")
+    files = []
+    try:
+        with os.scandir(parent) as entries:
+            for entry in entries:
+                if not entry.name.startswith("ts_code="):
+                    continue
+                if entry.is_symlink() or not entry.is_dir(follow_symlinks=False):
+                    raise ValueError("Annual source is not a regular code directory.")
+                year_path = Path(entry.path) / parts[-2]
+                try:
+                    if not stat.S_ISDIR(year_path.lstat().st_mode):
+                        raise ValueError("Annual year directory is invalid.")
+                    target = year_path / parts[-1]
+                    if not stat.S_ISREG(target.lstat().st_mode):
+                        raise ValueError("Annual input is not a regular file.")
+                except FileNotFoundError:
+                    continue
+                files.append(str(target))
+    except FileNotFoundError:
+        return []
+    return sorted(files)
+
+
+def _stock_year_summary(
+    connection, pattern: str, trade_dates: tuple[str, ...]
+) -> dict[str, dict[str, Any]]:
+    try:
+        files = _annual_family_files(pattern)
+        rows = []
+        if files:
+            placeholders = ",".join("CAST(? AS DATE)" for _ in trade_dates)
+            rows = connection.execute(
+                f"SELECT trade_date,count(*) FROM read_parquet(?, hive_partitioning=false) WHERE trade_date IN ({placeholders}) GROUP BY trade_date",
+                [files, *trade_dates],
+            ).fetchall()
+        counts = {day.isoformat(): int(count) for day, count in rows}
+        return {
+            day: {
+                "status": "present" if counts.get(day, 0) else "missing_date_rows",
+                "pattern": pattern,
+                "row_count": counts.get(day, 0),
+            }
+            for day in trade_dates
+        }
+    except Exception as error:  # noqa: BLE001 - retain explicit per-item or tool failure
+        return {
+            day: {
+                "status": "unreadable_file",
+                "pattern": pattern,
+                "row_count": None,
+                "error": _error_text(error),
+            }
+            for day in trade_dates
+        }
+
+
+def _is_trade_date_serving(entry: Any) -> bool:
+    if entry.layer.value != "serving":
+        return False
+    template = entry.path_template or ""
+    batch_grain = entry.performance_contract.batch_grain.lower()
+    return "{partition_key}" in template or "trade_date" in batch_grain
+
+
+def _serving_backend(entry: Any) -> str:
+    write_policy = entry.write_policy.value
+    if write_policy == "postgres_table_sync":
+        return "prod_postgres"
+    if write_policy == "clickhouse_table_sync":
+        return (
+            "prod_clickhouse"
+            if str(entry.asset_key).startswith("prod_")
+            else "clickhouse"
+        )
+    return "unsupported"
+
+
+def _postgres_table_from_template(template: str) -> tuple[str, str]:
+    parsed = urlparse(template)
+    if parsed.scheme != "postgresql" or parsed.hostname != "prod":
+        raise ValueError(f"Unsupported prod Postgres serving template: {template}")
+    qualified_name = parsed.path.removeprefix("/")
+    parts = qualified_name.split(".")
+    if len(parts) != 2 or not all(SQL_IDENTIFIER.fullmatch(part) for part in parts):
+        raise ValueError(f"Invalid serving table identifier: {qualified_name}")
+    return parts[0], parts[1]
+
+
+def _audit_prod_postgres_serving(
+    entries: list[Any], trade_date: str
+) -> dict[str, dict[str, Any]]:
+    if not entries:
+        return {}
+
+    from orchestrator.defs.resources import ProdPostgresWriteResource
+
+    results: dict[str, dict[str, Any]] = {}
+    try:
+        from psycopg2 import sql
+
+        with ProdPostgresWriteResource().connect_readonly() as connection:  # noqa: SIM117 - preserve the existing read-only transaction flow
+            with connection.cursor() as cursor:
+                for entry in entries:
+                    asset_key = str(entry.asset_key)
+                    try:
+                        schema_name, table_name = _postgres_table_from_template(
+                            str(entry.path_template)
+                        )
+                        cursor.execute(
+                            sql.SQL(
+                                "SELECT count(*) FROM {}.{} WHERE trade_date = %s"
+                            ).format(
+                                sql.Identifier(schema_name), sql.Identifier(table_name)
+                            ),
+                            (trade_date,),
+                        )
+                        row_count = int(cursor.fetchone()[0])
+                        results[asset_key] = {
+                            "status": "present" if row_count else "missing_rows",
+                            "backend": "prod_postgres",
+                            "table": f"{schema_name}.{table_name}",
+                            "row_count": row_count,
+                        }
+                    except Exception as error:  # noqa: BLE001 - retain explicit per-item or tool failure
+                        connection.rollback()
+                        connection.set_session(readonly=True, autocommit=False)
+                        results[asset_key] = {
+                            "status": "audit_error",
+                            "backend": "prod_postgres",
+                            "error": _error_text(error),
+                        }
+    except Exception as error:  # noqa: BLE001 - retain explicit per-item or tool failure
+        for entry in entries:
+            results[str(entry.asset_key)] = {
+                "status": "backend_unavailable",
+                "backend": "prod_postgres",
+                "error": _error_text(error),
+            }
+    return results
+
+
+def _required_env(name: str) -> str:
+    value = os.environ.get(name)
+    if value is None:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
+def _clickhouse_client(prefix: str):
+    from clickhouse_driver import Client
+
+    return Client(
+        host=_required_env(f"{prefix}_HOST"),
+        port=int(_required_env(f"{prefix}_PORT")),
+        user=_required_env(f"{prefix}_USER"),
+        password=os.environ.get(f"{prefix}_PASSWORD", ""),
+        database=_required_env(f"{prefix}_DATABASE"),
+        connect_timeout=5,
+        send_receive_timeout=10,
+        settings={
+            "readonly": 2,
+            "max_execution_time": 10,
+            "max_rows_to_read": 1_000_000,
+            "max_result_rows": 100,
+        },
+    )
+
+
+def _clickhouse_partition_summary(
+    client: Any, *, table_name: str, trade_date: str
+) -> dict[str, Any]:
+    if table_name not in CLICKHOUSE_TABLE_BY_PARTITION_MODEL.values():
+        raise ValueError("Unsupported ClickHouse serving table.")
+    count = int(
+        client.execute(
+            f"SELECT count() FROM {table_name} WHERE trade_date = %(trade_date)s LIMIT 1",
+            {"trade_date": trade_date},
+        )[0][0]
+    )
+    return {
+        "status": "present" if count else "missing_rows",
+        "table": table_name,
+        "row_count": count,
+    }
+
+
+def _audit_clickhouse_serving(
+    entries: list[Any], trade_date: str, *, backend: str
+) -> dict[str, dict[str, Any]]:
+    if not entries:
+        return {}
+    prefix = "PROD_CLICKHOUSE" if backend == "prod_clickhouse" else "CLICKHOUSE"
+    results: dict[str, dict[str, Any]] = {}
+    client = None
+    try:
+        client = _clickhouse_client(prefix)
+        for entry in entries:
+            asset_key = str(entry.asset_key)
+            try:
+                table_name = CLICKHOUSE_TABLE_BY_PARTITION_MODEL[
+                    entry.partition_model.value
+                ]
+                result = _clickhouse_partition_summary(
+                    client,
+                    table_name=table_name,
+                    trade_date=trade_date,
+                )
+                result["backend"] = backend
+                results[asset_key] = result
+            except Exception as error:  # noqa: BLE001 - retain explicit per-item or tool failure
+                results[asset_key] = {
+                    "status": "audit_error",
+                    "backend": backend,
+                    "error": _error_text(error),
+                }
+    except Exception as error:  # noqa: BLE001 - retain explicit per-item or tool failure
+        for entry in entries:
+            results[str(entry.asset_key)] = {
+                "status": "backend_unavailable",
+                "backend": backend,
+                "error": _error_text(error),
+            }
+    finally:
+        if client is not None:
+            client.disconnect()
+    return results
+
+
+def _audit_serving_entries(
+    entries: list[Any], trade_date: str
+) -> dict[str, dict[str, Any]]:
+    by_backend: dict[str, list[Any]] = {
+        "prod_postgres": [],
+        "clickhouse": [],
+        "prod_clickhouse": [],
+        "unsupported": [],
+    }
+    for entry in entries:
+        by_backend[_serving_backend(entry)].append(entry)
+
+    results = _audit_prod_postgres_serving(by_backend["prod_postgres"], trade_date)
+    results.update(
+        _audit_clickhouse_serving(
+            by_backend["clickhouse"], trade_date, backend="clickhouse"
+        )
+    )
+    results.update(
+        _audit_clickhouse_serving(
+            by_backend["prod_clickhouse"],
+            trade_date,
+            backend="prod_clickhouse",
+        )
+    )
+    for entry in by_backend["unsupported"]:
+        results[str(entry.asset_key)] = {
+            "status": "unsupported_serving_backend",
+            "backend": "unsupported",
+            "write_policy": entry.write_policy.value,
+        }
+    return results
+
+
+def _build_audit_plan(*, catalog, lake_root: Path, trade_dates, models=None):
+    from orchestrator.defs.catalog.lake_assets import PARTITION_MODEL_DEFINITIONS
+    from orchestrator.defs.run_contracts.stock_period import period_for
+
+    days = tuple(dict.fromkeys(trade_dates))
+    for day in days:
+        _date(day)
+    model_list = tuple(PARTITION_MODEL_DEFINITIONS if models is None else models)
+    model_counts = Counter(_value(m.model) for m in model_list)
+    model_map = {_value(m.model): m for m in model_list}
+    key_counts = Counter(str(e.asset_key) for e in catalog)
+    excluded, unclassified, issues = {}, {}, []
+    by_date = {day: {group: {} for group in GROUPS} for day in days}
+    calendar_path = None
+    for entry in catalog:
+        key, model_name = str(entry.asset_key), _value(entry.partition_model)
+        try:
+            if key_counts[key] != 1 or model_counts[model_name] != 1:
+                raise ValueError("重复资产或未知/重复分区模型。")
+            model = model_map[model_name]
+            family, layout = _value(model.family), _value(model.physical_layout)
+            if _value(entry.layer) != _value(model.layer):
+                raise ValueError("资产层与分区模型不符。")
+            if model_name in CALENDAR_MODELS:
+                if family != "full_file" or layout != "single_file":
+                    raise ValueError("日历模型布局不符。")
+                excluded[key] = "calendar_excluded_by_scope"
+                if key == "silver_trade_calendar":
+                    calendar_path = _lake_path_from_template(
+                        lake_root, entry.path_template
+                    )
+                continue
+            if model_name in SNAPSHOT_MODELS:
+                expected = (
+                    ("serving_table", "postgres_table")
+                    if model_name == "serving_table_prod_wealth_sector_hierarchy"
+                    else ("full_file", "single_file")
+                )
+                if (family, layout) != expected:
+                    raise ValueError("快照模型布局不符。")
+                excluded[key] = "full_snapshot_not_daily_completeness"
+                continue
+            if model_name == "non_partitioned_platform_lake_root_health":
+                if (family, layout) != ("non_partitioned", "no_data_file"):
+                    raise ValueError("健康模型布局不符。")
+                excluded[key] = "platform_health_not_daily_completeness"
+                continue
+            if family == "serving_table" and _is_trade_date_serving(entry):
+                if _serving_backend(entry) == "unsupported" or layout not in {
+                    "serving_table",
+                    "postgres_table",
+                }:
+                    raise ValueError("不支持的Serving来源。")
+                group = "serving_partition_assets"
+            elif family == "trade_date_partition" and layout in {
+                "partition_file",
+                "stock_year_file",
+            }:
+                group = (
+                    "direct_partition_assets"
+                    if layout == "partition_file"
+                    else "stock_year_partition_assets"
+                )
+            elif model_name in PERIOD_MODELS:
+                freq = PERIOD_MODELS[model_name]
+                if (
+                    family
+                    != (
+                        "natural_week_partition"
+                        if freq == "week"
+                        else "natural_month_partition"
+                    )
+                    or layout != "partition_file"
+                ):
+                    raise ValueError("周月模型布局不符。")
+                group = "period_partition_assets"
+            elif (
+                model_name == "ann_date_partition_raw_anns_d"
+                and family == "natural_date_partition"
+                and layout == "partition_file"
+            ):
+                group = "natural_date_partition_assets"
+            else:
+                raise ValueError("没有已定义的审计策略。")
+            targets = {}
+            for day in days:
+                target = {"entry": entry}
+                if group == "stock_year_partition_assets":
+                    target["path"] = _lake_path_from_template(
+                        lake_root, entry.path_template, ts_code="*", year=day[:4]
+                    )
+                elif group == "period_partition_assets":
+                    target.update(freq=freq, period_key=period_for(_date(day), freq))
+                    target["path"] = _lake_path_from_template(
+                        lake_root,
+                        entry.path_template,
+                        partition_key=target["period_key"],
+                    )
+                elif group != "serving_partition_assets":
+                    target["path"] = _lake_path_from_template(
+                        lake_root, entry.path_template, partition_key=day
+                    )
+                targets[day] = target
+            for day, target in targets.items():
+                by_date[day][group][key] = target
+        except (ValueError, KeyError, AttributeError, TypeError):
+            unclassified[key] = "资产、模型或路径没有可用审计策略。"
+            issues.append(key)
+            excluded.pop(key, None)
+    return {
+        "dates": days,
+        "by_date": by_date,
+        "excluded": excluded,
+        "unclassified": unclassified,
+        "issues": sorted(set(issues)),
+        "catalog_count": len(key_counts),
+        "calendar_path": calendar_path,
+    }
+
+
+def _window_dates(day: date, freq: str) -> tuple[date, ...]:
+    first = (
+        day - timedelta(days=day.weekday()) if freq == "week" else day.replace(day=1)
+    )
+    return tuple(first + timedelta(days=i) for i in range((day - first).days + 1))
+
+
+def _load_calendar_windows(connection, path: Path | None, needed: set[date]):
+    if not needed:
+        return {}, None
+    if path is None:
+        return {}, "没有Silver日历日期依据。"
+    _, identity = _file_metadata(path)
+    if identity is None or not identity[2]:
+        return {}, "Silver日历日期依据不可读取。"
+    try:
+        _require_schema(
+            connection,
+            path,
+            {"exchange": "VARCHAR", "trade_date": "DATE", "is_open": "BOOLEAN"},
+        )
+        days = sorted(needed)
+        placeholders = ",".join("CAST(? AS DATE)" for _ in days)
+        rows = connection.execute(
+            f"SELECT trade_date,count(*),count(is_open),bool_or(is_open) FROM read_parquet(?, hive_partitioning=false) WHERE exchange='SSE' AND trade_date IN ({placeholders}) GROUP BY trade_date",
+            [str(path), *days],
+        ).fetchall()
+        if _file_identity(path) != identity:
+            return {}, "Silver日历读取期间改变。"
+        return {
+            day: flag if total == 1 and valid == 1 else None
+            for day, total, valid, flag in rows
+        }, None
+    except Exception as error:  # noqa: BLE001 - retain explicit per-item or tool failure
+        return {}, _error_text(error)
+
+
+def _period_dates(day: str, freq: str, calendar, calendar_error):
+    window = _window_dates(_date(day), freq)
+    if calendar_error or any(calendar.get(d) is None for d in window):
+        return {
+            "expected_source_date": None,
+            "not_due": False,
+            "reason": calendar_error or "所需Silver日期依据不完整。",
+        }
+    opened = [d for d in window if calendar[d]]
+    return {
+        "expected_source_date": max(opened).isoformat() if opened else None,
+        "not_due": not opened,
+    }
+
+
+def _empty_period_stats():
+    return {
+        "max_source_date": None,
+        **dict.fromkeys(PERIOD_COUNTS),
+        "counts_by_date": {},
+    }
+
+
+def _period_summary(
+    connection, path: Path, freq: str, period_key: str, thresholds: tuple[str, ...]
+):
+    result, identity = _file_metadata(path)
+    result.update(_empty_period_stats())
+    if identity is None or not identity[2]:
+        return result
+    try:
+        _require_schema(
+            connection,
+            path,
+            {"trade_date": "VARCHAR", "end_date": "VARCHAR", "freq": "VARCHAR"},
+        )
+        anchor = (
+            _date(period_key) - timedelta(days=4)
+            if freq == "week"
+            else _date(period_key + "-01")
+        )
+        date_unit = "week" if freq == "week" else "month"
+        extra = ",".join(
+            "count(*) FILTER (WHERE valid_end AND source_date>=CAST(? AS DATE)),count(*) FILTER (WHERE valid_end AND source_date<CAST(? AS DATE))"
+            for _ in thresholds
+        )
+        sql = f"""
+        WITH source_rows AS (
+          SELECT trade_date,end_date,freq,
+            try_strptime(trade_date,'%Y%m%d')::DATE AS bar_date,
+            try_strptime(end_date,'%Y%m%d')::DATE AS source_date
+          FROM read_parquet(?, hive_partitioning=false)
+        ), validated AS (
+          SELECT *,
+            COALESCE(regexp_full_match(trade_date,'[0-9]{{8}}') AND bar_date IS NOT NULL
+              AND strftime(bar_date,'%Y%m%d')=trade_date
+              AND date_trunc('{date_unit}',bar_date)::DATE=CAST(? AS DATE),false) AS valid_trade,
+            COALESCE(regexp_full_match(end_date,'[0-9]{{8}}') AND source_date IS NOT NULL
+              AND strftime(source_date,'%Y%m%d')=end_date,false) AS valid_end
+          FROM source_rows
+        )
+        SELECT count(*),count(*) FILTER (WHERE end_date IS NULL),
+          count(*) FILTER (WHERE end_date IS NOT NULL AND NOT valid_end),
+          count(*) FILTER (WHERE NOT valid_trade),
+          count(*) FILTER (WHERE NOT COALESCE(freq=?,false)),
+          max(source_date) FILTER (WHERE valid_end),{extra}
+        FROM validated
+        """
+        params = [
+            str(path),
+            anchor,
+            freq,
+            *(d for day in thresholds for d in (day, day)),
+        ]
+        row = connection.execute(sql, params).fetchone()
+        if _file_identity(path) != identity:
+            raise ValueError("文件读取期间改变。")
+        (
+            count,
+            nulls,
+            invalid_end,
+            invalid_trade,
+            invalid_freq,
+            maximum,
+            *threshold_counts,
+        ) = row
+        return {
+            **result,
+            "status": "present" if count else "present_zero_rows",
+            "row_count": int(count),
+            "null_end_date_count": int(nulls),
+            "invalid_end_date_count": int(invalid_end),
+            "invalid_trade_date_count": int(invalid_trade),
+            "invalid_freq_count": int(invalid_freq),
+            "max_source_date": maximum.isoformat() if maximum else None,
+            "counts_by_date": {
+                d: (int(threshold_counts[2 * i]), int(threshold_counts[2 * i + 1]))
+                for i, d in enumerate(thresholds)
+            },
+        }
+    except Exception as error:  # noqa: BLE001 - retain explicit per-item or tool failure
+        return {
+            **result,
+            "status": "unreadable_file",
+            "row_count": None,
+            "error": _error_text(error),
+        }
+
+
+def _period_result(facts, context, period_key: str, observed_at: datetime):
+    result = {k: v for k, v in facts.items() if k != "counts_by_date"}
+    expected = context["expected_source_date"]
+    result.update(
+        period_key=period_key,
+        expected_source_date=expected,
+        update_status="unverified",
+        rows_at_or_after_expected=None,
+        rows_before_expected=None,
+    )
+    if context.get("reason"):
+        result.update(
+            status="unverified",
+            assessment_status="unverified",
+            source_window_status="unverified",
+            reason=context["reason"],
+        )
+        return result
+    if context["not_due"]:
+        result.update(
+            status="not_checked_not_due",
+            row_count=None,
+            assessment_status="not_due",
+            update_status="not_due",
+            source_window_status="not_due",
+        )
+        return result
+    deadline = datetime.combine(
+        _date(expected), SOURCE_WINDOW_END, tzinfo=CN_A_TIMEZONE
+    )
+    pending = observed_at < deadline
+    result["source_window_status"] = "pending" if pending else "elapsed"
+    status = result["status"]
+    if status == "unreadable_file":
+        result["assessment_status"] = "unverified"
+    elif status in {"missing_file", "empty_file"}:
+        result["assessment_status"] = "pending" if pending else "gap"
+    else:
+        result["rows_at_or_after_expected"], result["rows_before_expected"] = facts[
+            "counts_by_date"
+        ][expected]
+        if any(result[name] for name in PERIOD_COUNTS[1:]):
+            result.update(status="invalid_data", assessment_status="gap")
+        elif (
+            result["max_source_date"]
+            and result["max_source_date"]
+            > observed_at.astimezone(CN_A_TIMEZONE).date().isoformat()
+        ):
+            result.update(
+                assessment_status="unverified",
+                reason="观察到晚于当前观察日的源截至日期。",
+            )
+        elif result["max_source_date"]:
+            reached = result["max_source_date"] >= expected
+            result.update(
+                update_status="date_observed" if reached else "behind",
+                assessment_status="satisfied"
+                if reached
+                else "pending"
+                if pending
+                else "gap",
+            )
+        elif result["row_count"]:
+            result["assessment_status"] = "unverified"
+        else:
+            result["assessment_status"] = "pending" if pending else "gap"
+    return result
+
+
+def _announcement_summary(
+    connection, path: Path, day: str, schema, observed_at: datetime
+):
+    result, identity = _file_metadata(path)
+    result["source_delivery_status"] = "not_checked"
+    if identity is None or not identity[2]:
+        status = result["status"]
+        result["assessment_status"] = (
+            "unverified"
+            if status == "unreadable_file"
+            else "pending"
+            if status == "missing_file"
+            and _date(day) > observed_at.astimezone(CN_A_TIMEZONE).date()
+            else "gap"
+        )
+        return result
+    try:
+        _require_schema(
+            connection,
+            path,
+            {column.name: column.type for column in schema},
+            exact=True,
+        )
+        count, invalid = connection.execute(
+            """SELECT count(*),count(*) FILTER (WHERE NOT COALESCE(
+               regexp_full_match(ann_date,'[0-9]{8}') AND
+               try_strptime(ann_date,'%Y%m%d') IS NOT NULL AND ann_date=?,false))
+               FROM read_parquet(?, hive_partitioning=false)""",
+            [day.replace("-", ""), str(path)],
+        ).fetchone()
+        if _file_identity(path) != identity:
+            raise ValueError("文件读取期间改变。")
+        result.update(row_count=int(count))
+        result.update(
+            status="invalid_data"
+            if invalid
+            else "present"
+            if count
+            else "allowed_zero_rows",
+            assessment_status="gap" if invalid else "satisfied",
+        )
+    except Exception as error:  # noqa: BLE001 - retain explicit per-item or tool failure
+        result.update(
+            status="unreadable_file",
+            assessment_status="unverified",
+            row_count=None,
+            error=_error_text(error),
+        )
+    return result
+
+
+def _normalize_report(*, groups, day, plan, observed_at):
+    report = {
+        "report_schema_version": 2,
+        "audit_kind": "physical_dataset_presence_including_serving",
+        "trade_date": day,
+        "observed_at": observed_at.isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
+        "declared_scope": "物理数据与必要日期覆盖；不代表全市场对象、全部质量检查或历史任务成功。",
+        **groups,
+        "excluded_assets": dict(plan["excluded"]),
+        "unclassified_asset_keys": sorted(plan["unclassified"]),
+        "classification_issues": plan["issues"],
+    }
+    leaf_keys = [key for group in groups.values() for key in group]
+    if len(set(leaf_keys)) != len(leaf_keys) or set(leaf_keys) & (
+        set(plan["excluded"]) | set(plan["unclassified"])
+    ):
+        raise RuntimeError("内部资产分类计数冲突。")
+    leaves = {key: result for group in groups.values() for key, result in group.items()}
+    defaults = {
+        "present": "satisfied",
+        "missing_file": "gap",
+        "empty_file": "gap",
+        "missing_date_rows": "gap",
+        "missing_rows": "gap",
+    }
+    for result in leaves.values():
+        result.setdefault("row_count", None)
+        result.setdefault(
+            "assessment_status", defaults.get(result["status"], "unverified")
+        )
+    for assessment, prefix in (
+        ("satisfied", "satisfied"),
+        ("gap", "data_gap"),
+        ("pending", "pending"),
+        ("not_due", "not_due"),
+        ("unverified", "unverified"),
+    ):
+        keys = sorted(
+            k for k, r in leaves.items() if r["assessment_status"] == assessment
+        )
+        report[prefix + "_asset_keys"] = keys
+        report[prefix + "_asset_count"] = len(keys)
+    if sum(
+        report[p + "_asset_count"]
+        for p in ("satisfied", "data_gap", "pending", "not_due", "unverified")
+    ) != len(leaves):
+        raise RuntimeError("内部结果计数冲突。")
+    missing = {
+        k
+        for k, r in leaves.items()
+        if r["status"]
+        in {"missing_file", "empty_file", "missing_date_rows", "missing_rows"}
+    }
+    report.update(
+        missing_file_asset_keys=sorted(
+            k
+            for k, r in leaves.items()
+            if r["status"] in {"missing_file", "empty_file"}
+        ),
+        missing_date_rows_asset_keys=sorted(
+            k for k, r in leaves.items() if r["status"] == "missing_date_rows"
+        ),
+        missing_serving_asset_keys=sorted(
+            k for k, r in leaves.items() if r["status"] == "missing_rows"
+        ),
+        present_zero_row_asset_keys=sorted(
+            k
+            for k, r in leaves.items()
+            if r["status"] in {"present_zero_rows", "allowed_zero_rows"}
+        ),
+        allowed_zero_row_asset_keys=sorted(
+            k for k, r in leaves.items() if r["status"] == "allowed_zero_rows"
+        ),
+        update_behind_asset_keys=sorted(
+            k for k, r in leaves.items() if r.get("update_status") == "behind"
+        ),
+        unverified_serving_asset_keys=sorted(
+            set(report["unverified_asset_keys"])
+            & set(groups["serving_partition_assets"])
+        ),
+        unverified_lake_asset_keys=sorted(
+            set(report["unverified_asset_keys"])
+            - set(groups["serving_partition_assets"])
+        ),
+        catalog_asset_count=plan["catalog_count"],
+        audited_asset_count=len(leaves),
+        excluded_asset_count=len(plan["excluded"]),
+        present_asset_count=sum(r["status"] == "present" for r in leaves.values()),
+        physical_missing_asset_count=len(missing),
+    )
+    for prefix in ("present_zero_row", "allowed_zero_row", "update_behind"):
+        report[prefix + "_asset_count"] = len(report[prefix + "_asset_keys"])
+    count = len(leaves) + len(plan["excluded"]) + len(plan["unclassified"])
+    report["catalog_classification_complete"] = (
+        not plan["issues"]
+        and not plan["unclassified"]
+        and count == plan["catalog_count"]
+    )
+    report["audit_evidence_complete"] = (
+        not report["unverified_asset_keys"]
+        and not plan["unclassified"]
+        and not plan["issues"]
+    )
+    report["audit_passed"] = (
+        report["catalog_classification_complete"]
+        and report["audit_evidence_complete"]
+        and not report["data_gap_asset_keys"]
+        and not report["pending_asset_keys"]
+    )
+    return report
+
+
+def _audit_dates(
+    *, catalog, lake_root: Path, trade_dates, observed_at=None, models=None
+):
+    from orchestrator.defs.duckdb_connection import (
+        DuckDBConnectionSettings,
+        connect_configured_duckdb,
+    )
+
+    observed_at = observed_at or datetime.now(UTC)
+    if observed_at.tzinfo is None:
+        raise ValueError("观察时间必须带时区。")
+    plan = _build_audit_plan(
+        catalog=catalog, lake_root=lake_root, trade_dates=trade_dates, models=models
+    )
+    _validate_root(lake_root)
+    with connect_configured_duckdb(
+        DuckDBConnectionSettings(temp_directory=Path("/private/tmp")),
+        temp_policy="existing_no_spill",
+    ) as connection:
+        needed = {
+            d
+            for day, groups in plan["by_date"].items()
+            for target in groups["period_partition_assets"].values()
+            for d in _window_dates(_date(day), target["freq"])
+        }
+        calendar, calendar_error = _load_calendar_windows(
+            connection, plan["calendar_path"], needed
+        )
+        contexts, thresholds, annual_dates = {}, defaultdict(set), defaultdict(set)
+        for day, groups in plan["by_date"].items():
+            for key, target in groups["period_partition_assets"].items():
+                context = _period_dates(day, target["freq"], calendar, calendar_error)
+                contexts[day, key] = context
+                if context["expected_source_date"]:
+                    thresholds[target["path"]].add(context["expected_source_date"])
+            for target in groups["stock_year_partition_assets"].values():
+                annual_dates[str(target["path"])].add(day)
+        cache = {}
+        for day, targets in plan["by_date"].items():
+            groups = {group: {} for group in GROUPS}
+            for group, entries in targets.items():
+                if group == "serving_partition_assets":
+                    groups[group] = _audit_serving_entries(
+                        [t["entry"] for t in entries.values()], day
+                    )
+                    continue
+                for key, target in entries.items():
+                    path = target["path"]
+                    cache_key = (group, str(path))
+                    if group == "period_partition_assets":
+                        context = contexts[day, key]
+                        if not context["expected_source_date"]:
+                            facts, _ = _file_metadata(path)
+                            facts.update(_empty_period_stats())
+                        else:
+                            if cache_key not in cache:
+                                cache[cache_key] = _period_summary(
+                                    connection,
+                                    path,
+                                    target["freq"],
+                                    target["period_key"],
+                                    tuple(sorted(thresholds[path])),
+                                )
+                            facts = cache[cache_key]
+                        result = _period_result(
+                            facts, context, target["period_key"], observed_at
+                        )
+                    elif group == "stock_year_partition_assets":
+                        if cache_key not in cache:
+                            cache[cache_key] = _stock_year_summary(
+                                connection,
+                                str(path),
+                                tuple(sorted(annual_dates[str(path)])),
+                            )
+                        result = dict(cache[cache_key][day])
+                    else:
+                        if cache_key not in cache:
+                            cache[cache_key] = (
+                                _direct_summary(connection, path)
+                                if group == "direct_partition_assets"
+                                else _announcement_summary(
+                                    connection,
+                                    path,
+                                    day,
+                                    target["entry"].column_schema,
+                                    observed_at,
+                                )
+                            )
+                        result = dict(cache[cache_key])
+                    groups[group][key] = result
+            yield _normalize_report(
+                groups=groups, day=day, plan=plan, observed_at=observed_at
+            )
+
+
+def _audit_trade_date(*, catalog, lake_root: Path, trade_date: str) -> dict[str, Any]:
+    with closing(
+        _audit_dates(catalog=catalog, lake_root=lake_root, trade_dates=(trade_date,))
+    ) as reports:
+        return next(reports)
+
+
+def _publish_report(report, output_dir: Path) -> Path:
+    _validate_output_dir(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    descriptor, name = tempfile.mkstemp(
+        prefix=".dg_audit_", suffix=".tmp", dir=output_dir
+    )
+    temporary = Path(name)
+    try:
+        with os.fdopen(descriptor, "w", encoding="utf-8") as stream:
+            json.dump(report, stream, ensure_ascii=False, indent=2)
+            stream.write("\n")
+            stream.flush()
+            os.fsync(stream.fileno())
+        while True:
+            timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
+            output = (
+                output_dir
+                / f"dg_dataset_audit_{report['trade_date'].replace('-', '')}_{timestamp}_{uuid4().hex}.json"
+            )
+            try:
+                os.link(temporary, output)
+                return output
+            except FileExistsError:
+                continue
+    finally:
+        temporary.unlink(missing_ok=True)
+
+
+def main(argv: list[str] | None = None) -> None:
+    args = _parse_args(argv)
+    try:
+        catalog = _load_catalog(args.repo_root.resolve())
+        from orchestrator.defs.paths import DEFAULT_LAKE_ROOT
+
+        lake_root = (args.lake_root or Path(DEFAULT_LAKE_ROOT)).absolute()
+        _validate_output_dir(args.output_dir)
+        with closing(
+            _audit_dates(
+                catalog=catalog, lake_root=lake_root, trade_dates=args.trade_dates
+            )
+        ) as reports:
+            for report in reports:
+                output = _publish_report(report, args.output_dir)
+                keys = (
+                    "report_schema_version",
+                    "trade_date",
+                    "catalog_asset_count",
+                    "audited_asset_count",
+                    "excluded_asset_count",
+                    "present_asset_count",
+                    "physical_missing_asset_count",
+                    "present_zero_row_asset_count",
+                    "allowed_zero_row_asset_count",
+                    "update_behind_asset_count",
+                    "pending_asset_count",
+                    "unverified_asset_count",
+                    "catalog_classification_complete",
+                    "audit_passed",
+                    "missing_file_asset_keys",
+                    "missing_date_rows_asset_keys",
+                    "missing_serving_asset_keys",
+                    "unverified_serving_asset_keys",
+                    "present_zero_row_asset_keys",
+                )
+                print(
+                    json.dumps(
+                        {"report": str(output), **{key: report[key] for key in keys}},
+                        ensure_ascii=False,
+                    )
+                )
+    except Exception as error:  # noqa: BLE001 - retain explicit per-item or tool failure
+        print(f"审计工具无法完成：{_error_text(error)}", file=sys.stderr)
+        raise SystemExit(1) from None
+
+
+if __name__ == "__main__":
+    main()

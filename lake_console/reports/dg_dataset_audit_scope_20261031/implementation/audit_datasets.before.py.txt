@@ -1,0 +1,552 @@
+#!/usr/bin/env python3
+"""Read-only physical completeness audit for date-driven DG datasets."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import re
+import sys
+from datetime import UTC, datetime
+from pathlib import Path
+from typing import Any
+from urllib.parse import urlparse
+
+import duckdb
+
+
+ISO_DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
+SQL_IDENTIFIER = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+DEFAULT_REPO_ROOT = Path("/Users/congming/github/goldenshare")
+DEFAULT_LAKE_ROOT = Path("/Volumes/datasource/data_lake")
+DEFAULT_OUTPUT_DIR = Path("/private/tmp")
+
+CLICKHOUSE_TABLE_BY_PARTITION_MODEL = {
+    "serving_table_serving_market_breadth": "share_fact_market_breadth_daily",
+    "serving_table_serving_dc_daily_technical": "board_fact_technical_daily",
+}
+
+
+def _parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description=(
+            "Read-only physical completeness audit for specified DG trade dates, "
+            "including Lake Parquet and date-driven serving tables."
+        )
+    )
+    parser.add_argument(
+        "--date",
+        dest="trade_dates",
+        action="append",
+        required=True,
+        help="ISO trade date to audit; repeat for multiple dates.",
+    )
+    parser.add_argument(
+        "--repo-root",
+        type=Path,
+        default=Path(os.environ.get("GOLDENSHARE_REPO_ROOT", DEFAULT_REPO_ROOT)),
+        help="Goldenshare repository root used to load the active catalog.",
+    )
+    parser.add_argument(
+        "--lake-root",
+        type=Path,
+        default=Path(os.environ.get("GOLDENSHARE_LAKE_ROOT", DEFAULT_LAKE_ROOT)),
+        help="Read-only Lake root.",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=DEFAULT_OUTPUT_DIR,
+        help="Directory for JSON audit reports.",
+    )
+    args = parser.parse_args()
+    invalid = [value for value in args.trade_dates if not ISO_DATE.fullmatch(value)]
+    if invalid:
+        parser.error(f"--date must be ISO YYYY-MM-DD: {', '.join(invalid)}")
+    return args
+
+
+def _load_catalog(repo_root: Path):
+    orchestrator_src = repo_root / "lake_console/orchestrator/src"
+    if not orchestrator_src.is_dir():
+        raise FileNotFoundError(f"Missing orchestrator source directory: {orchestrator_src}")
+    sys.path.insert(0, str(orchestrator_src))
+    from orchestrator.defs.catalog.lake_assets import LAKE_ASSET_CATALOG
+
+    return LAKE_ASSET_CATALOG
+
+
+def _lake_path_from_template(lake_root: Path, template: str, **values: str) -> Path:
+    if not template.startswith("data_lake/"):
+        raise ValueError(f"Not a Lake path template: {template}")
+    return lake_root / template.removeprefix("data_lake/").format(**values)
+
+
+def _direct_summary(connection: duckdb.DuckDBPyConnection, path: Path) -> dict[str, Any]:
+    if not path.exists():
+        return {"status": "missing_file", "path": str(path)}
+    byte_count = path.stat().st_size
+    if byte_count == 0:
+        return {"status": "empty_file", "path": str(path), "bytes": 0}
+    try:
+        row_count = int(
+            connection.execute(
+                "SELECT count(*) FROM read_parquet(?)", [str(path)]
+            ).fetchone()[0]
+        )
+    except Exception as error:
+        return {
+            "status": "unreadable_file",
+            "path": str(path),
+            "bytes": byte_count,
+            "error": str(error)[:500],
+        }
+    return {
+        "status": "present" if row_count else "present_zero_rows",
+        "path": str(path),
+        "bytes": byte_count,
+        "row_count": row_count,
+    }
+
+
+def _stock_year_summary(
+    connection: duckdb.DuckDBPyConnection, pattern: str, trade_date: str
+) -> dict[str, Any]:
+    try:
+        row_count, code_count, min_time, max_time = connection.execute(
+            """
+            SELECT count(*), count(DISTINCT ts_code), min(trade_time), max(trade_time)
+            FROM read_parquet(?, hive_partitioning=false)
+            WHERE trade_date = CAST(? AS DATE)
+            """,
+            [pattern, trade_date],
+        ).fetchone()
+    except duckdb.IOException:
+        return {"status": "missing_date_rows", "pattern": pattern}
+    except Exception as error:
+        return {
+            "status": "unreadable_file",
+            "pattern": pattern,
+            "error": str(error)[:500],
+        }
+    return {
+        "status": "present" if row_count else "missing_date_rows",
+        "pattern": pattern,
+        "row_count": int(row_count),
+        "code_count": int(code_count),
+        "min_trade_time": min_time.isoformat() if min_time else None,
+        "max_trade_time": max_time.isoformat() if max_time else None,
+    }
+
+
+def _is_trade_date_serving(entry: Any) -> bool:
+    if entry.layer.value != "serving":
+        return False
+    template = entry.path_template or ""
+    batch_grain = entry.performance_contract.batch_grain.lower()
+    return "{partition_key}" in template or "trade_date" in batch_grain
+
+
+def _serving_backend(entry: Any) -> str:
+    write_policy = entry.write_policy.value
+    if write_policy == "postgres_table_sync":
+        return "prod_postgres"
+    if write_policy == "clickhouse_table_sync":
+        return "prod_clickhouse" if str(entry.asset_key).startswith("prod_") else "clickhouse"
+    return "unsupported"
+
+
+def _postgres_table_from_template(template: str) -> tuple[str, str]:
+    parsed = urlparse(template)
+    if parsed.scheme != "postgresql" or parsed.hostname != "prod":
+        raise ValueError(f"Unsupported prod Postgres serving template: {template}")
+    qualified_name = parsed.path.removeprefix("/")
+    parts = qualified_name.split(".")
+    if len(parts) != 2 or not all(SQL_IDENTIFIER.fullmatch(part) for part in parts):
+        raise ValueError(f"Invalid serving table identifier: {qualified_name}")
+    return parts[0], parts[1]
+
+
+def _audit_prod_postgres_serving(
+    entries: list[Any], trade_date: str
+) -> dict[str, dict[str, Any]]:
+    if not entries:
+        return {}
+
+    from orchestrator.defs.resources import ProdPostgresWriteResource
+
+    results: dict[str, dict[str, Any]] = {}
+    try:
+        from psycopg2 import sql
+
+        with ProdPostgresWriteResource().connect_readonly() as connection:
+            with connection.cursor() as cursor:
+                for entry in entries:
+                    asset_key = str(entry.asset_key)
+                    try:
+                        schema_name, table_name = _postgres_table_from_template(
+                            str(entry.path_template)
+                        )
+                        cursor.execute(
+                            sql.SQL(
+                                "SELECT count(*) FROM {}.{} WHERE trade_date = %s"
+                            ).format(
+                                sql.Identifier(schema_name), sql.Identifier(table_name)
+                            ),
+                            (trade_date,),
+                        )
+                        row_count = int(cursor.fetchone()[0])
+                        results[asset_key] = {
+                            "status": "present" if row_count else "missing_rows",
+                            "backend": "prod_postgres",
+                            "table": f"{schema_name}.{table_name}",
+                            "row_count": row_count,
+                        }
+                    except Exception as error:
+                        connection.rollback()
+                        connection.set_session(readonly=True, autocommit=False)
+                        results[asset_key] = {
+                            "status": "audit_error",
+                            "backend": "prod_postgres",
+                            "error": str(error)[:500],
+                        }
+    except Exception as error:
+        for entry in entries:
+            results[str(entry.asset_key)] = {
+                "status": "backend_unavailable",
+                "backend": "prod_postgres",
+                "error": str(error)[:500],
+            }
+    return results
+
+
+def _required_env(name: str) -> str:
+    value = os.environ.get(name)
+    if value is None:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
+def _clickhouse_client(prefix: str):
+    from clickhouse_driver import Client
+
+    return Client(
+        host=_required_env(f"{prefix}_HOST"),
+        port=int(_required_env(f"{prefix}_PORT")),
+        user=_required_env(f"{prefix}_USER"),
+        password=os.environ.get(f"{prefix}_PASSWORD", ""),
+        database=_required_env(f"{prefix}_DATABASE"),
+        connect_timeout=5,
+        send_receive_timeout=10,
+        settings={
+            "readonly": 2,
+            "max_execution_time": 10,
+            "max_rows_to_read": 1_000_000,
+            "max_result_rows": 100,
+        },
+    )
+
+
+def _clickhouse_partition_summary(
+    client: Any, *, table_name: str, trade_date: str
+) -> dict[str, Any]:
+    if table_name == "share_fact_market_breadth_daily":
+        row = client.execute(
+            """
+            SELECT count(), uniqExact(trade_date)
+            FROM share_fact_market_breadth_daily
+            WHERE trade_date = %(trade_date)s
+            """,
+            {"trade_date": trade_date},
+        )[0]
+        row_count, unique_key_count = (int(value or 0) for value in row)
+        return {
+            "status": "present" if row_count else "missing_rows",
+            "table": table_name,
+            "row_count": row_count,
+            "unique_key_count": unique_key_count,
+        }
+    if table_name == "board_fact_technical_daily":
+        row = client.execute(
+            """
+            SELECT
+              count(),
+              uniqExact(tuple(ts_code, trade_date, category)),
+              countIf(trim(ts_code) = ''),
+              countIf(trim(category) = '')
+            FROM board_fact_technical_daily
+            WHERE trade_date = %(trade_date)s
+            """,
+            {"trade_date": trade_date},
+        )[0]
+        (
+            row_count,
+            unique_key_count,
+            invalid_code_count,
+            invalid_category_count,
+        ) = (int(value or 0) for value in row)
+        return {
+            "status": "present" if row_count else "missing_rows",
+            "table": table_name,
+            "row_count": row_count,
+            "unique_key_count": unique_key_count,
+            "invalid_code_count": invalid_code_count,
+            "invalid_category_count": invalid_category_count,
+        }
+    raise ValueError(f"Unsupported ClickHouse serving table: {table_name}")
+
+
+def _audit_clickhouse_serving(
+    entries: list[Any], trade_date: str, *, backend: str
+) -> dict[str, dict[str, Any]]:
+    if not entries:
+        return {}
+    prefix = "PROD_CLICKHOUSE" if backend == "prod_clickhouse" else "CLICKHOUSE"
+    results: dict[str, dict[str, Any]] = {}
+    client = None
+    try:
+        client = _clickhouse_client(prefix)
+        for entry in entries:
+            asset_key = str(entry.asset_key)
+            try:
+                table_name = CLICKHOUSE_TABLE_BY_PARTITION_MODEL[
+                    entry.partition_model.value
+                ]
+                result = _clickhouse_partition_summary(
+                    client,
+                    table_name=table_name,
+                    trade_date=trade_date,
+                )
+                result["backend"] = backend
+                results[asset_key] = result
+            except Exception as error:
+                results[asset_key] = {
+                    "status": "audit_error",
+                    "backend": backend,
+                    "error": str(error)[:500],
+                }
+    except Exception as error:
+        for entry in entries:
+            results[str(entry.asset_key)] = {
+                "status": "backend_unavailable",
+                "backend": backend,
+                "error": str(error)[:500],
+            }
+    finally:
+        if client is not None:
+            client.disconnect()
+    return results
+
+
+def _audit_serving_entries(
+    entries: list[Any], trade_date: str
+) -> dict[str, dict[str, Any]]:
+    by_backend: dict[str, list[Any]] = {
+        "prod_postgres": [],
+        "clickhouse": [],
+        "prod_clickhouse": [],
+        "unsupported": [],
+    }
+    for entry in entries:
+        by_backend[_serving_backend(entry)].append(entry)
+
+    results = _audit_prod_postgres_serving(
+        by_backend["prod_postgres"], trade_date
+    )
+    results.update(
+        _audit_clickhouse_serving(
+            by_backend["clickhouse"], trade_date, backend="clickhouse"
+        )
+    )
+    results.update(
+        _audit_clickhouse_serving(
+            by_backend["prod_clickhouse"],
+            trade_date,
+            backend="prod_clickhouse",
+        )
+    )
+    for entry in by_backend["unsupported"]:
+        results[str(entry.asset_key)] = {
+            "status": "unsupported_serving_backend",
+            "backend": "unsupported",
+            "write_policy": entry.write_policy.value,
+        }
+    return results
+
+
+def _audit_trade_date(
+    *, catalog: tuple[Any, ...], lake_root: Path, trade_date: str
+) -> dict[str, Any]:
+    direct: dict[str, dict[str, Any]] = {}
+    stock_year: dict[str, dict[str, Any]] = {}
+    excluded: dict[str, str] = {}
+    serving_entries: list[Any] = []
+    classified_asset_keys: set[str] = set()
+    connection = duckdb.connect()
+    try:
+        for entry in catalog:
+            asset_key = str(entry.asset_key)
+            template = entry.path_template
+            if _is_trade_date_serving(entry):
+                serving_entries.append(entry)
+                classified_asset_keys.add(asset_key)
+            elif not entry.partition_model.value.startswith("trade_date_partition"):
+                excluded[asset_key] = "not_a_trade_date_dataset"
+                classified_asset_keys.add(asset_key)
+            elif template is None:
+                excluded[asset_key] = "no_physical_location"
+                classified_asset_keys.add(asset_key)
+            elif "{partition_key}" in template:
+                direct[asset_key] = _direct_summary(
+                    connection,
+                    _lake_path_from_template(
+                        lake_root, template, partition_key=trade_date
+                    ),
+                )
+                classified_asset_keys.add(asset_key)
+            elif "{ts_code}" in template and "{year}" in template:
+                stock_year[asset_key] = _stock_year_summary(
+                    connection,
+                    str(
+                        _lake_path_from_template(
+                            lake_root,
+                            template,
+                            ts_code="*",
+                            year=trade_date[:4],
+                        )
+                    ),
+                    trade_date,
+                )
+                classified_asset_keys.add(asset_key)
+            else:
+                excluded[asset_key] = f"unsupported_path_template:{template}"
+                classified_asset_keys.add(asset_key)
+    finally:
+        connection.close()
+
+    serving = _audit_serving_entries(serving_entries, trade_date)
+    catalog_asset_keys = {str(entry.asset_key) for entry in catalog}
+    unclassified_asset_keys = sorted(catalog_asset_keys - classified_asset_keys)
+
+    missing_file_asset_keys = sorted(
+        asset_key
+        for asset_key, result in direct.items()
+        if result["status"] in {
+            "missing_file",
+            "empty_file",
+            "unreadable_file",
+        }
+    )
+    missing_date_rows_asset_keys = sorted(
+        asset_key
+        for asset_key, result in stock_year.items()
+        if result["status"] in {"missing_date_rows", "unreadable_file"}
+    )
+    present_zero_row_asset_keys = sorted(
+        asset_key
+        for asset_key, result in direct.items()
+        if result["status"] == "present_zero_rows"
+    )
+    missing_serving_asset_keys = sorted(
+        asset_key
+        for asset_key, result in serving.items()
+        if result["status"] == "missing_rows"
+    )
+    unverified_serving_asset_keys = sorted(
+        asset_key
+        for asset_key, result in serving.items()
+        if result["status"]
+        in {
+            "backend_unavailable",
+            "audit_error",
+            "unsupported_serving_backend",
+        }
+    )
+    audited_asset_count = len(direct) + len(stock_year) + len(serving)
+    present_asset_count = sum(
+        result["status"] == "present"
+        for group in (direct, stock_year, serving)
+        for result in group.values()
+    )
+    physical_missing_asset_count = (
+        len(missing_file_asset_keys)
+        + len(missing_date_rows_asset_keys)
+        + len(missing_serving_asset_keys)
+        + len(present_zero_row_asset_keys)
+    )
+    return {
+        "audit_kind": "physical_dataset_presence_including_serving",
+        "trade_date": trade_date,
+        "generated_at": datetime.now(UTC).isoformat(),
+        "direct_partition_assets": direct,
+        "stock_year_partition_assets": stock_year,
+        "serving_partition_assets": serving,
+        "excluded_assets": excluded,
+        "missing_file_asset_keys": missing_file_asset_keys,
+        "missing_date_rows_asset_keys": missing_date_rows_asset_keys,
+        "missing_serving_asset_keys": missing_serving_asset_keys,
+        "unverified_serving_asset_keys": unverified_serving_asset_keys,
+        "present_zero_row_asset_keys": present_zero_row_asset_keys,
+        "catalog_asset_count": len(catalog_asset_keys),
+        "audited_asset_count": audited_asset_count,
+        "excluded_asset_count": len(excluded),
+        "present_asset_count": present_asset_count,
+        "physical_missing_asset_count": physical_missing_asset_count,
+        "unclassified_asset_keys": unclassified_asset_keys,
+        "catalog_classification_complete": (
+            not unclassified_asset_keys
+            and audited_asset_count + len(excluded) == len(catalog_asset_keys)
+        ),
+    }
+
+
+def main() -> None:
+    args = _parse_args()
+    catalog = _load_catalog(args.repo_root.resolve())
+    output_dir = args.output_dir.resolve()
+    output_dir.mkdir(parents=True, exist_ok=True)
+    for trade_date in args.trade_dates:
+        report = _audit_trade_date(
+            catalog=catalog,
+            lake_root=args.lake_root.resolve(),
+            trade_date=trade_date,
+        )
+        timestamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        output = output_dir / (
+            f"dg_dataset_audit_{trade_date.replace('-', '')}_{timestamp}.json"
+        )
+        output.write_text(json.dumps(report, ensure_ascii=False, indent=2) + "\n")
+        print(
+            json.dumps(
+                {
+                    "report": str(output),
+                    "trade_date": trade_date,
+                    "catalog_asset_count": report["catalog_asset_count"],
+                    "audited_asset_count": report["audited_asset_count"],
+                    "excluded_asset_count": report["excluded_asset_count"],
+                    "present_asset_count": report["present_asset_count"],
+                    "missing_file_asset_keys": report["missing_file_asset_keys"],
+                    "missing_date_rows_asset_keys": report[
+                        "missing_date_rows_asset_keys"
+                    ],
+                    "missing_serving_asset_keys": report[
+                        "missing_serving_asset_keys"
+                    ],
+                    "unverified_serving_asset_keys": report[
+                        "unverified_serving_asset_keys"
+                    ],
+                    "present_zero_row_asset_keys": report[
+                        "present_zero_row_asset_keys"
+                    ],
+                    "catalog_classification_complete": report[
+                        "catalog_classification_complete"
+                    ],
+                },
+                ensure_ascii=False,
+            )
+        )
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,22 @@
+{
+  "documentation_commit": "b684397fb",
+  "committed_scope_verified": true,
+  "tests_passed": 95,
+  "canonical_and_archive_match": true,
+  "manual_only_section2_changed": true,
+  "original_manual_commands_preserved": true,
+  "checked_links": 36,
+  "fixture_trees_remaining": false,
+  "temporary_parquet_or_reports_remaining": false,
+  "unrelated_worktree_changes_detected_during_task": 35,
+  "unrelated_paths_not_staged_by_this_task": true,
+  "index_empty": true,
+  "formal_data_reads": 0,
+  "formal_data_writes": 0,
+  "network_requests": 0,
+  "new_code_git_committed": false,
+  "runtime_sources": {
+    "audit_datasets.py": "b40ef1fb03a015ec6107b85f38242208153d54adbeff9514d6594a06496bc714",
+    "test_audit_datasets.py": "6d2be2918738968fb92146a718c11c9512cdae62abfe8938cc111f875a8c6327"
+  }
+}

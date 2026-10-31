@@ -1,0 +1,35 @@
+{
+  "goal": "Implement the approved five-asset audit extension in the original entrypoint",
+  "basis": "scope-and-low-level-design.md P1-P10",
+  "allowed_runtime_files": [
+    "scripts/audit_datasets.py",
+    "scripts/test_audit_datasets.py"
+  ],
+  "constraints": {
+    "P1": "model/catalog classification; 164 audited and 16 excluded from current catalog; unknown stays unclassified",
+    "P2": "period/date observations and exact missing/zero/schema state table",
+    "P3": "six-column announcement contract; natural day; legal zero allowed; no source delivery claim",
+    "P4": "bounded Silver SSE date reference only; no Raw calendar read or calendar audit",
+    "P5": "20:00 expected open day; no retry; failed file remains unverified",
+    "P6": "13 known snapshots + 2 calendars + health excluded with explicit reasons",
+    "P7": "original daily/serving resources preserved; annual and CH date count only; error and zero distinct",
+    "P8": "one aggregate per physical file; requested years only; multi-date reuse; no final reread",
+    "P9": "isolated resources only; no production Lake/DB/network/jobs/installation; temporary fixtures cleaned",
+    "P10": "V2 explicit scope, mutually exclusive outcomes, safe report creation, exit0 means report generated"
+  },
+  "budget": {
+    "formal_data_reads": 0,
+    "formal_writes": 0,
+    "network_requests": 0,
+    "isolated_space_estimate": "<=256MiB",
+    "new_runtime_limits": false
+  },
+  "sequence": [
+    "commit reviewed docs",
+    "implement original script and isolated tests",
+    "isolated acceptance and cleanup",
+    "P1-P10 reconciliation",
+    "update skill and manual section2",
+    "report progress"
+  ]
+}

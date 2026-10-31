@@ -1,0 +1,39 @@
+--- a/lake_console/docs/architecture/dagster-local-operations-cheatsheet.md
++++ b/lake_console/docs/architecture/dagster-local-operations-cheatsheet.md
+@@ -55,0 +56,2 @@
++本节于2026-10-31对齐审计脚本版本2；下方9月报告路径仅保留为当时的文件名示例，不代表当前版本的数据验收结果。
++
+@@ -94 +96 @@
+-**例子：**想一次检查9月14日和15日，直接执行上面的命令，得到两份报告，而不是一个日期区间的合并报告。还要检查16日，就追加 `--date 2026-09-16`。不写数据、不补跑任务；每多一天都会增加一次该日审计的读取工作。
++**例子：**想一次检查9月14日和15日，直接执行上面的命令，得到两份报告，而不是一个日期区间的合并报告。还要检查16日，就追加 `--date 2026-09-16`。不写数据、不补跑任务；同周/月文件共用一次统计，同一年度文件族按所请求日期一次分组计数。重复的相同日期只处理一次。
+@@ -98 +100,3 @@
+-脚本从当前 `LAKE_ASSET_CATALOG` 获取资产，不维护另一份数据集名单。读取指定日 Parquet、股票年度文件内的指定日期行、本机/prod ClickHouse和prod PostgreSQL serving。不需要启动DG网页，不读取Dagster instance，不写正式数据。
++脚本从当前 `LAKE_ASSET_CATALOG` 和分区模型获取审计范围。原日表、股票年度文件及本机/prod ClickHouse、prod PostgreSQL均做指定日期计数；新增股票周/月Raw和Silver四项及自然日公告Raw一项。周/月文件检查实际观察到的更新截至日期，公告允许合法零行。按当前目录，180项中164项纳入、16项明确排除，实际数量以本次报告为准。
++
++两项交易日历不作为独立审计项；只读取周/月判断需要的Silver SSE日期依据，Raw日历不读取。其余排除项为13项全量快照和1项湖健康，排除不代表已废弃或已经验收。脚本不需要启动DG网页，不读取Dagster instance，不写正式数据，也不触发原job或检查。
+@@ -101,0 +106 @@
++| `report_schema_version` | 当前为2；历史报告不改写 |
+@@ -103,2 +108,3 @@
+-| `missing_file_asset_keys` | 缺Parquet、零字节或不可读；具体原因看该资产status |
+-| `missing_date_rows_asset_keys` | 年度文件没有该日行，或读取失败；看逐资产详情区分 |
++| `audit_passed` | 本次声明范围内，无缺口、等待、未核实或分类问题；不代表全市场代码覆盖、全部质量检查或历史任务成功 |
++| `missing_file_asset_keys` | 已确认缺Parquet或零字节；不可读单列未核实 |
++| `missing_date_rows_asset_keys` | 年度文件族不存在，或成功计数确认该日0行；读取失败不进入此清单 |
+@@ -105,0 +112 @@
++| `allowed_zero_row_asset_keys` | 公告合同允许的可读0行；未检查源交付是否完成 |
+@@ -107,2 +114,6 @@
+-| `unverified_serving_asset_keys` | 数据库未核验成功，不等于缺数据 |
+-| `excluded_assets` | 全量快照、健康资产等非按交易日交付项，不应算缺失 |
++| `update_behind_asset_keys` | 周/月文件有合法旧日期，但未达到本次应更新日；缺文件、零行、全NULL不混入 |
++| `data_gap_asset_keys`、`pending_asset_keys` | 已确认缺口、源窗口尚未结束的等待项 |
++| `unverified_asset_keys`、`unverified_serving_asset_keys` | 无法完成核验的全部项及其中Serving项，不等于已确认缺失 |
++| `period_partition_assets` | 四项周/月结果，分别给出周期、应更新日期、实际最大截至日期及最终判断 |
++| `natural_date_partition_assets` | 指定自然日公告结果；`source_delivery_status=not_checked` |
++| `excluded_assets` | 按本次明确范围排除的日历、快照和湖健康项，不等同于无用或通过 |
+@@ -110 +121,5 @@
+-注意：进程退出码0只表示脚本跑完，不能据此宣称全齐；必须看以上字段。当前脚本可能将连接失败记录为逐资产 `audit_error`，同样应归入“后端不可用/未核验”，不是missing。物理有数据不证明代码覆盖完整、公式正确或check通过。未到更新窗口的当天数据也不能直接判事故。
++进程退出码0只表示报告生成成功，数据结论看`audit_passed`及相应清单。Lake根或共享DuckDB连接初始化失败会报错、非0退出；开始后的单项读取失败列未核实，其它正常项继续，不自动重试。
++
++周/月更新状态和最终判断分开：缺文件时没有可观察的更新日期，但在源窗口结束后可以明确判为缺口，不能仅凭`update_status=unverified`把整项也算作未核实。源窗口按应更新开市日20点解释，不能当成Silver任务超时，也不能在周六继续等周六20点来掩盖周五缺口。更新到更晚日期只能说明当前文件已覆盖，不能证明历史当天任务成功。
++
++开发验收使用隔离小样本，不执行正式目录审计。后续只在明确日期审计任务下判断必要范围、复用适用证据；收尾只汇总已取得的结果，不为新增五项重扫原159项，不做额外全局明细读取或重复全局审计。
