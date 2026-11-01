@@ -1,0 +1,5 @@
+BEGIN
+SET
+SET
+{"data": [{"con_code": "002553.SZ", "assignments": 1, "industry_level": 1}, {"con_code": "002553.SZ", "assignments": 1, "industry_level": 2}, {"con_code": "002843.SZ", "assignments": 1, "industry_level": 1}, {"con_code": "002843.SZ", "assignments": 1, "industry_level": 2}, {"con_code": "688059.SH", "assignments": 1, "industry_level": 1}, {"con_code": "688059.SH", "assignments": 1, "industry_level": 2}, {"con_code": "920238.BJ", "assignments": 1, "industry_level": 1}, {"con_code": "920238.BJ", "assignments": 1, "industry_level": 2}], "as_of": "2026-11-01T10:22:03.588867+08:00", "section": "four_leaf_gaps_upper_levels"}
+COMMIT

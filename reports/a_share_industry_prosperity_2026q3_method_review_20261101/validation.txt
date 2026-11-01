@@ -1,0 +1,12 @@
+2026-11-01 method-document revision checks
+PASS python3 scripts/check_docs_integrity.py: dead-absolute-links, ds-store-noise, tushare-index-consistency
+PASS git diff --check
+PASS current-document local links: 33 checked across 3 documents
+PASS fenced blocks paired
+PASS before_revision.json: 2 archived originals match SHA256
+PASS scope/status: proposed, pending review, no trial
+NOT RUN production reads, source requests, financial calculations, forecasts, scores, ranking, runtime performance or investment validation
+Document checks do not prove financial or analytical correctness.
+PASS final revision: document hashes, trailing whitespace/newlines, scope terms and excluded field projections
+PASS final python3 scripts/check_docs_integrity.py: all 3 groups
+NOTE local year-pattern check initially matched substring 2016 inside stock code 920165; corrected to standalone-year matching, passed. No document change was needed.

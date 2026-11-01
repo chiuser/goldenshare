@@ -1,0 +1,143 @@
+{
+  "date": "2026-10-31",
+  "timezone": "Asia/Shanghai",
+  "production_writes": false,
+  "source_requests": false,
+  "section_count": 33,
+  "partial_failure": {
+    "file": "05_gaps_and_semantics.sql",
+    "completed_sections": 5,
+    "failed": "calendar_dates syntax error",
+    "remaining_recovered_in": "06_remaining_and_direct_q4.sql"
+  },
+  "files": [
+    {
+      "path": "01_metadata.json",
+      "bytes": 129921,
+      "sha256": "6c912247fd12576c73bbac4b8a452706146557e2bae589f10e86215fecd155a3"
+    },
+    {
+      "path": "01_metadata.jsonl",
+      "bytes": 69661,
+      "sha256": "da56292b8f9e2c942f8558e42d4ed3f7507723e159db38cfdb1b57c6434a9528"
+    },
+    {
+      "path": "01_metadata.psql.txt",
+      "bytes": 76709,
+      "sha256": "0acc9d5e373e56d85bdb13dd2771e055f69b58824f1c08db24141ff31e7ac058"
+    },
+    {
+      "path": "01_metadata.sql",
+      "bytes": 2547,
+      "sha256": "0acdd80084f9026bd9af9124f565ec110ef50e9ab3c0dd4cd1bdab44ac3b2f5b"
+    },
+    {
+      "path": "02_financial_periods.jsonl",
+      "bytes": 34523,
+      "sha256": "0234fdc34f33aaf03eb990ed1a93d6b4770bbca1a8d0c32b513a2ed0bd7f4141"
+    },
+    {
+      "path": "02_financial_periods.psql.txt",
+      "bytes": 37384,
+      "sha256": "2164e95021e162a6e1bf744c4760452dcf23770fc4e9b62778ba4d80724429fe"
+    },
+    {
+      "path": "02_financial_periods.sql",
+      "bytes": 7267,
+      "sha256": "3bd219980ca9221223e58f735eacb53b6ac5e85a7bf068e6e507b5dbd0b33a5f"
+    },
+    {
+      "path": "03_valuation_industry.jsonl",
+      "bytes": 14371,
+      "sha256": "892342091d52785cf9edcf6d7da1d7a4c5b5258511af0da7ccc63a78a95994e2"
+    },
+    {
+      "path": "03_valuation_industry.psql.txt",
+      "bytes": 15790,
+      "sha256": "54916a14a38446c5b23ed401ce565ecdb3521b89dd77beb9ad05afe860c6d9f8"
+    },
+    {
+      "path": "03_valuation_industry.sql",
+      "bytes": 4063,
+      "sha256": "2a5f8e0638974205a0dceaea5b8a30149f03ca3a5f13853016a651e7f4031c98"
+    },
+    {
+      "path": "04_prediction_pairs.jsonl",
+      "bytes": 4490,
+      "sha256": "aed7e9d2a12b02aa5bfc5258b36fbbf5fd5b21d1f0f1967671328a06f761745b"
+    },
+    {
+      "path": "04_prediction_pairs.psql.txt",
+      "bytes": 5149,
+      "sha256": "7a49ec2d8a7184ed965e58a7bca07213a3aaf9b797d08af7228be6c61918a9de"
+    },
+    {
+      "path": "04_prediction_pairs.sql",
+      "bytes": 6623,
+      "sha256": "eca794822740b41e862f133e48cfb869c179845911be293723e98dab07280647"
+    },
+    {
+      "path": "05_gaps_and_semantics.jsonl",
+      "bytes": 8076,
+      "sha256": "fc9e86bcf7031648a3a8f4730bc5f1f836d6d0b988a016f1ec57b07d12cf7b3c"
+    },
+    {
+      "path": "05_gaps_and_semantics.psql.txt",
+      "bytes": 8945,
+      "sha256": "cf866fe80442acf49a8b4d17b8d668883c62c72739a793104b79b926ba39b5c6"
+    },
+    {
+      "path": "05_gaps_and_semantics.sql",
+      "bytes": 7219,
+      "sha256": "b31b06fcb56d8dfaed2fb0e4a51b1ee4bc2d3923862c44f32b399ffc90f43a09"
+    },
+    {
+      "path": "06_remaining_and_direct_q4.jsonl",
+      "bytes": 7789,
+      "sha256": "f04b3c497a98e73dbc4971bb466796e1ac2baa2e0e76f98f5f8aa772da66281e"
+    },
+    {
+      "path": "06_remaining_and_direct_q4.psql.txt",
+      "bytes": 8747,
+      "sha256": "cd0135f912b1ebceffb5eed45cbc8491ef71f1836baaa6beee236234e3e3a73d"
+    },
+    {
+      "path": "06_remaining_and_direct_q4.sql",
+      "bytes": 6013,
+      "sha256": "fbd9b8ab721f5608ac4453da39351c0a5c943a8d3cb5f729f76aab971cccae25"
+    },
+    {
+      "path": "07_adjusted_history_candidates.jsonl",
+      "bytes": 727,
+      "sha256": "00858033cd84b2db06f54b02f7c38199fbbd800651fa850957c33a135834a38b"
+    },
+    {
+      "path": "07_adjusted_history_candidates.psql.txt",
+      "bytes": 862,
+      "sha256": "bde9e8eaf3a4f22283e36fcf317497378c77bb34db303180fb123a2ad87f29a9"
+    },
+    {
+      "path": "07_adjusted_history_candidates.sql",
+      "bytes": 4417,
+      "sha256": "ade5195c48f89528539d78b4be9f9e4dfa3b8f7784e69419e4e8276272cd532e"
+    },
+    {
+      "path": "README.md",
+      "bytes": 20014,
+      "sha256": "14ba85ec6b52824aba983d2c3f9d0373645db2e9753d5b74deaebc69de5c0cee"
+    },
+    {
+      "path": "summary.json",
+      "bytes": 4174,
+      "sha256": "a2bb19f1d8fd79a864480452b89812d86cdfd0a85660e8f39298d636a54a0788"
+    },
+    {
+      "path": "validation.txt",
+      "bytes": 606,
+      "sha256": "5b827cbcc300bbc9b8649ef19d586f49d612556967606a62e5e2d92f5d4e3b09"
+    }
+  ],
+  "validation": "validation.txt",
+  "checks_passed": true,
+  "scope_addendum": "scope-2024-manifest.json"
+}

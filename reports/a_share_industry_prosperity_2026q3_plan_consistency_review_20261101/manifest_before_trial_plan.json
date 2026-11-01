@@ -1,0 +1,64 @@
+{
+  "date": "2026-11-01",
+  "status": "document_consistency_review_no_trial",
+  "confirmed_scope": "three_method_choices_and_nine_quadrant_charts",
+  "files": [
+    {
+      "path": "docs/product/a-share-industry-prosperity-2026q3-research-plan-v1.md",
+      "sha256": "d01d4ccda4de1d38014e9eaf98ad868772b2114cdf714054da39fa7b724b502e"
+    },
+    {
+      "path": "docs/product/a-share-industry-prosperity-2026q3-calculation-methodology-v1.md",
+      "sha256": "70ad77b0b32e0580acaeaba13d2682a852b3a84613551bbb4ac75ddcf5626cc1"
+    },
+    {
+      "path": "reports/a_share_industry_prosperity_2026q3_plan_consistency_review_20261101/README.md",
+      "sha256": "b71e4fdd96b0fd336d010b335d51b3a192d1cc4775d4bc36e578070bec1dd4bc"
+    }
+  ],
+  "source_basis": [
+    {
+      "path": "src/foundation/datasets/income_contracts.py",
+      "sha256": "6bea68cb1666ba57fdf53652b13ac08043636ec730a6fd206d620a4d4c0e7e56"
+    },
+    {
+      "path": "src/foundation/datasets/balancesheet_contracts.py",
+      "sha256": "56954b2139f6c37888b715a859fb5429bb7364dae9df0b2bb0ada5c98ac397f9"
+    },
+    {
+      "path": "src/foundation/datasets/cashflow_contracts.py",
+      "sha256": "dc5aef4df35cfb9d715b9c0eff6ac016515c5b01c633918e86dc36c6c387fcf4"
+    },
+    {
+      "path": "src/foundation/datasets/fina_indicator_contracts.py",
+      "sha256": "a9c0a94c7fe8907c3d645bb154d852490e43e9bdf6a4c9a0c25f2f0f2f40fae5"
+    },
+    {
+      "path": "src/foundation/models/raw/raw_fina_indicator.py",
+      "sha256": "8c968492a8b29b63eecff8e7673ec1a30ffcaebeeead080ec95ee9d54a02d6d9"
+    },
+    {
+      "path": "src/foundation/models/core_serving/wealth_sector_hierarchy.py",
+      "sha256": "d99ef55f864b2db96eafe9a171d7cd7da7ab9ddffb226e128e84b1e23c3ebc04"
+    },
+    {
+      "path": "alembic/versions/20260830_000163_add_income_dataset.py",
+      "sha256": "c384ac2bc980fe6e5837c6ebe7bafd8354cb9c86a474fa097cd5e81df9df24e5"
+    },
+    {
+      "path": "alembic/versions/20260830_000164_add_balancesheet_dataset.py",
+      "sha256": "0bd00ca5c8f69c0a50a77cbb17a293bc04fd6a34fe75e148d053b44be5d25c23"
+    },
+    {
+      "path": "alembic/versions/20260830_000165_add_cashflow_dataset.py",
+      "sha256": "90c44a17de3f1ae792ee759e65e98014ede415e67e7af7f77217f5d5658d4424"
+    },
+    {
+      "path": "alembic/versions/20260829_000160_add_fina_indicator_dataset.py",
+      "sha256": "e8c909c480d508edb552928d2cd58dd15ad326df435e551c94dab95af0de1c03"
+    }
+  ],
+  "production_data_refreshed": false,
+  "financial_calculation_or_trial_executed": false,
+  "runtime_or_source_contract_changed": false
+}

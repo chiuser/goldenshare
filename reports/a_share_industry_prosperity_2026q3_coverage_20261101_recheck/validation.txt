@@ -1,0 +1,8 @@
+PASS current scope, exclusions and 5571-code count
+PASS latest valid deducted increased 5380 to 5566, missing 191 to 5
+PASS 3 formerly absent sample records now present
+PASS four successful empty source samples and one nonempty positive control
+PASS 8 database JSON sections and read-only SQL guards
+PASS cancelled columns excluded from statistical SQL
+PASS changed document references and whitespace
+NO prod writes, data repair, formal analysis or forecasting

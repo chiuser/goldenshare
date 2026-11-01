@@ -1,0 +1,16 @@
+2026-11-01 research plan consistency review
+PASS python3 scripts/check_docs_integrity.py: dead-absolute-links, ds-store-noise, tushare-index-consistency
+PASS git diff --check
+PASS 3 current documents: 32 local links/anchors, whitespace, newline, fenced blocks
+PASS all forecast formula blocks identical to pre-revision documents
+PASS seven score metric/weight rows unchanged
+PASS nine quadrant chart axis definitions unchanged
+PASS field projection unchanged; canceled metrics not reintroduced
+PASS three before-revision archives match SHA256
+PASS confirmed and pending choices distinguished; no trial authorization inferred
+NOT RUN Prod/Tushare access, financial detailed extraction, forecast/scoring, chart rendering, performance or investment validation
+NOTE an exploratory shell glob found no proposed research script directory; no script was created or executed.
+SUBMISSION REVIEW: trial execution sequence/scopes/outputs/stops added in 10.4; no trial run
+PASS final current-document links/anchors: 33; original forecast formulas and seven weight rows unchanged
+PASS two research before-revision archives match SHA256; mixed-task README snapshot excluded from commit and retained locally
+PASS final docs integrity (3 groups) and git diff --check

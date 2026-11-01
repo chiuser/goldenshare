@@ -1,0 +1,188 @@
+{
+  "as_of_start": "2026-10-31T20:14:16.451884+08:00",
+  "as_of_end": "2026-10-31T20:19:53.788699+08:00",
+  "cohort": {
+    "dv_nonnull": 3736,
+    "pb_nonnull": 5503,
+    "pe_nonnull": 3859,
+    "cohort_codes": 5572,
+    "income_records": 5565,
+    "cashflow_records": 5565,
+    "deducted_nonnull": 5379,
+    "indicator_records": 5417,
+    "missing_valuation": 10,
+    "valuation_records": 5562,
+    "forecast_pe_inputs": 5557,
+    "balancesheet_records": 5565,
+    "basic_valuation_valid": 5562,
+    "three_statements_and_deducted": 5379,
+    "three_statements_and_valuation": 5557
+  },
+  "q4_years": [
+    {
+      "y": 2019,
+      "cohort_codes": 5572,
+      "ocf_q4_codes": 0,
+      "revenue_q4_codes": 0,
+      "deducted_q4_codes": 0,
+      "parent_profit_q4_codes": 0,
+      "three_metrics_q4_codes": 0
+    },
+    {
+      "y": 2020,
+      "cohort_codes": 5572,
+      "ocf_q4_codes": 37,
+      "revenue_q4_codes": 50,
+      "deducted_q4_codes": 0,
+      "parent_profit_q4_codes": 50,
+      "three_metrics_q4_codes": 35
+    },
+    {
+      "y": 2021,
+      "cohort_codes": 5572,
+      "ocf_q4_codes": 380,
+      "revenue_q4_codes": 405,
+      "deducted_q4_codes": 0,
+      "parent_profit_q4_codes": 407,
+      "three_metrics_q4_codes": 374
+    },
+    {
+      "y": 2022,
+      "cohort_codes": 5572,
+      "ocf_q4_codes": 4987,
+      "revenue_q4_codes": 5025,
+      "deducted_q4_codes": 1,
+      "parent_profit_q4_codes": 5029,
+      "three_metrics_q4_codes": 4971
+    },
+    {
+      "y": 2023,
+      "cohort_codes": 5572,
+      "ocf_q4_codes": 5297,
+      "revenue_q4_codes": 5319,
+      "deducted_q4_codes": 6,
+      "parent_profit_q4_codes": 5321,
+      "three_metrics_q4_codes": 5292
+    },
+    {
+      "y": 2024,
+      "cohort_codes": 5572,
+      "ocf_q4_codes": 5400,
+      "revenue_q4_codes": 5411,
+      "deducted_q4_codes": 63,
+      "parent_profit_q4_codes": 5412,
+      "three_metrics_q4_codes": 5398
+    },
+    {
+      "y": 2025,
+      "cohort_codes": 5572,
+      "ocf_q4_codes": 5557,
+      "revenue_q4_codes": 5558,
+      "deducted_q4_codes": 5516,
+      "parent_profit_q4_codes": 5560,
+      "three_metrics_q4_codes": 5555
+    }
+  ],
+  "base_q4_history_thresholds": {
+    "r_years": {
+      "1": 5563,
+      "2": 5417,
+      "3": 5324,
+      "4": 5033,
+      "5": 383,
+      "7": 0
+    },
+    "p_years": {
+      "1": 5565,
+      "2": 5418,
+      "3": 5326,
+      "4": 5037,
+      "5": 385,
+      "7": 0
+    },
+    "c_years": {
+      "1": 5562,
+      "2": 5404,
+      "3": 5298,
+      "4": 4983,
+      "5": 375,
+      "7": 0
+    },
+    "d_years": {
+      "1": 5517,
+      "2": 62,
+      "3": 6,
+      "4": 1,
+      "5": 0,
+      "7": 0
+    }
+  },
+  "direct_q4_years": [
+    {
+      "y": 2019,
+      "either_codes": 1,
+      "overlap_codes": 0,
+      "direct_q4_codes": 1,
+      "cumulative_pair_codes": 0,
+      "overlap_equal_within_1yuan": 0
+    },
+    {
+      "y": 2020,
+      "either_codes": 2,
+      "overlap_codes": 0,
+      "direct_q4_codes": 2,
+      "cumulative_pair_codes": 0,
+      "overlap_equal_within_1yuan": 0
+    },
+    {
+      "y": 2021,
+      "either_codes": 13,
+      "overlap_codes": 0,
+      "direct_q4_codes": 13,
+      "cumulative_pair_codes": 0,
+      "overlap_equal_within_1yuan": 0
+    },
+    {
+      "y": 2022,
+      "either_codes": 30,
+      "overlap_codes": 1,
+      "direct_q4_codes": 30,
+      "cumulative_pair_codes": 1,
+      "overlap_equal_within_1yuan": 0
+    },
+    {
+      "y": 2023,
+      "either_codes": 72,
+      "overlap_codes": 6,
+      "direct_q4_codes": 72,
+      "cumulative_pair_codes": 6,
+      "overlap_equal_within_1yuan": 5
+    },
+    {
+      "y": 2024,
+      "either_codes": 5459,
+      "overlap_codes": 62,
+      "direct_q4_codes": 5458,
+      "cumulative_pair_codes": 63,
+      "overlap_equal_within_1yuan": 60
+    },
+    {
+      "y": 2025,
+      "either_codes": 5543,
+      "overlap_codes": 5508,
+      "direct_q4_codes": 5535,
+      "cumulative_pair_codes": 5516,
+      "overlap_equal_within_1yuan": 5497
+    }
+  ],
+  "direct_or_difference_history_thresholds": {
+    "1": 5545,
+    "2": 5469,
+    "3": 73,
+    "4": 22,
+    "5": 10,
+    "7": 0
+  },
+  "recent3_all_metrics": 5285,
+  "query_sections": 33
+}

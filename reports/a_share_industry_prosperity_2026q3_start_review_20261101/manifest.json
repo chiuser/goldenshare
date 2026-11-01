@@ -1,0 +1,19 @@
+{
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 11033,
+      "sha256": "62cb1f0e200ba6d159dde37d9c4c7712c8f571ede81a2186ad0b149d3fbf2f5f"
+    },
+    {
+      "path": "checks.json",
+      "bytes": 839,
+      "sha256": "5bccad00c8c30561c184599275ce0bf48943e4ab39aa5f52af5090bc81d13e4d"
+    },
+    {
+      "path": "validation.txt",
+      "bytes": 328,
+      "sha256": "3ff3c51c77ae5fc9ef5eba5e1c4ea1a31df98216fe15a70a0cd7ccd70929feac"
+    }
+  ]
+}

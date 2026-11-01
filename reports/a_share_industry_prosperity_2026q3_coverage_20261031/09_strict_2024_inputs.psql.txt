@@ -1,0 +1,12 @@
+BEGIN
+SET
+SET
+SET
+SET
+{"as_of": "2026-10-31T20:54:20.380853+08:00", "section": "strict_2024_2025_q4_inputs", "cohort_codes": 5572, "both_years_ocf": 5398, "reference_cohort": "2026-09-30 industry members filtered by stock_basic A-share eligibility; not final classification decision", "both_years_revenue": 5409, "both_years_all_three": 5396, "both_years_parent_profit": 5410, "both_years_direct_q4_deducted": 5454}
+COMMIT
+BEGIN
+SET
+SET
+{"data": [{"codes": 5349, "pb_nonnull": 5314, "pe_nonnull": 3934, "trade_date": "2024-10-31", "basic_valid": 5349, "dividend_nonnull": 3945}, {"codes": 5370, "pb_nonnull": 5336, "pe_nonnull": 3960, "trade_date": "2024-12-31", "basic_valid": 5370, "dividend_nonnull": 3968}, {"codes": 5432, "pb_nonnull": 5388, "pe_nonnull": 3895, "trade_date": "2025-10-31", "basic_valid": 5432, "dividend_nonnull": 3759}, {"codes": 5458, "pb_nonnull": 5416, "pe_nonnull": 3920, "trade_date": "2025-12-31", "basic_valid": 5458, "dividend_nonnull": 3760}, {"codes": 5571, "pb_nonnull": 5512, "pe_nonnull": 3867, "trade_date": "2026-10-30", "basic_valid": 5571, "dividend_nonnull": 3736}], "as_of": "2026-10-31T20:54:21.201159+08:00", "section": "valuation_2024_scope_refresh"}
+COMMIT

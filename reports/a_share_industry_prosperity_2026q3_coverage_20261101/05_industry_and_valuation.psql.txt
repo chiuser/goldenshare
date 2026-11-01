@@ -1,0 +1,18 @@
+BEGIN
+SET
+SET
+SET
+{"data": [{"nodes": 31, "industry_level": 1, "baseline_version": "eastmoney_dc_industry_hierarchy.cn_a.v1"}, {"nodes": 128, "industry_level": 2, "baseline_version": "eastmoney_dc_industry_hierarchy.cn_a.v1"}, {"nodes": 337, "industry_level": 3, "baseline_version": "eastmoney_dc_industry_hierarchy.cn_a.v1"}], "as_of": "2026-11-01T10:19:18.339088+08:00", "section": "fixed_hierarchy"}
+COMMIT
+BEGIN
+SET
+SET
+SET
+{"as_of": "2026-11-01T10:19:18.408223+08:00", "section": "retained_scope_members", "direct_level_counts": [{"trade_date": "2026-10-29", "mapped_codes": 5571, "eligible_codes": 5571, "industry_level": 1}, {"trade_date": "2026-10-29", "mapped_codes": 5571, "eligible_codes": 5571, "industry_level": 2}, {"trade_date": "2026-10-29", "mapped_codes": 5571, "eligible_codes": 5571, "industry_level": 3}, {"trade_date": "2026-10-30", "mapped_codes": 5555, "eligible_codes": 5571, "industry_level": 1}, {"trade_date": "2026-10-30", "mapped_codes": 5554, "eligible_codes": 5571, "industry_level": 2}, {"trade_date": "2026-10-30", "mapped_codes": 5567, "eligible_codes": 5571, "industry_level": 3}], "leaf_ancestor_counts": {"codes": 5571, "leaf_mapped": 5567, "unique_root_and_parent": 5567, "conflicting_leaf_ancestors": 0}, "missing_leaf_samples": [{"name": "南方精工", "ts_code": "002553.SZ"}, {"name": "泰嘉股份", "ts_code": "002843.SZ"}, {"name": "华锐精密", "ts_code": "688059.SH"}, {"name": "长鹰硬科", "ts_code": "920238.BJ"}]}
+COMMIT
+BEGIN
+SET
+SET
+SET
+{"data": {"dv_nonnull": 3736, "pb_nonnull": 5512, "pe_nonnull": 3867, "ps_nonnull": 5568, "quote_codes": 5571, "eligible_codes": 5571, "valid_basic_inputs": 5571}, "as_of": "2026-11-01T10:19:36.675176+08:00", "section": "retained_scope_valuation"}
+COMMIT

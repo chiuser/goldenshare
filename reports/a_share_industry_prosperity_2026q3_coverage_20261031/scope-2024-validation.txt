@@ -1,0 +1,5 @@
+PASS documentation integrity
+PASS local links and whitespace
+PASS 3 read-only SQL guards; 8 JSON sections
+PASS scoped financial queries restricted to 2024 onward
+NO production writes, source requests, bulk organization or formal calculations

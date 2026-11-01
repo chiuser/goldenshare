@@ -1,0 +1,72 @@
+{
+  "as_of_start": "2026-11-01T13:16:02.079079+08:00",
+  "as_of_end": "2026-11-01T13:16:20.820883+08:00",
+  "eligible_codes": 5571,
+  "previous_valid_deducted": 5380,
+  "current_valid_deducted": 5566,
+  "previous_missing_deducted": 191,
+  "current_missing_deducted": 5,
+  "newly_valid_deducted": 186,
+  "current_missing_samples": [
+    {
+      "name": "萃华退",
+      "reason": "indicator_record_absent",
+      "ts_code": "002731.SZ"
+    },
+    {
+      "name": "百济神州",
+      "reason": "indicator_record_absent",
+      "ts_code": "688235.SH"
+    },
+    {
+      "name": "华虹宏力",
+      "reason": "indicator_record_absent",
+      "ts_code": "688347.SH"
+    },
+    {
+      "name": "奥精医疗",
+      "reason": "indicator_record_absent",
+      "ts_code": "688613.SH"
+    },
+    {
+      "name": "中芯国际",
+      "reason": "indicator_record_absent",
+      "ts_code": "688981.SH"
+    }
+  ],
+  "source_empty_samples": 4,
+  "source_positive_controls": 1,
+  "needs_priority_bulk_data_supplement": false,
+  "q4_inputs": {
+    "as_of": "2026-11-01T13:16:19.933002+08:00",
+    "section": "both_2024_2025_q4_inputs",
+    "eligible_codes": 5571,
+    "ocf_both_years": 5388,
+    "revenue_both_years": 5399,
+    "all_four_both_years": 5376,
+    "parent_profit_both_years": 5400,
+    "deducted_difference_both_years": 5418
+  },
+  "q4_consistency": [
+    {
+      "y": 2024,
+      "cohort_codes": 5571,
+      "overlap_codes": 5420,
+      "conflict_codes": 10,
+      "direct_q4_valid": 5449,
+      "cumulative_q4_valid": 5425,
+      "agreement_within_1yuan": 5410
+    },
+    {
+      "y": 2025,
+      "cohort_codes": 5571,
+      "overlap_codes": 5506,
+      "conflict_codes": 13,
+      "direct_q4_valid": 5526,
+      "cumulative_q4_valid": 5507,
+      "agreement_within_1yuan": 5493
+    }
+  ],
+  "database_sections": 8,
+  "prod_writes": false
+}

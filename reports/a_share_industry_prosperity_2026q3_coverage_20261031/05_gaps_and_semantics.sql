@@ -1,0 +1,35 @@
+BEGIN READ ONLY;
+SET LOCAL statement_timeout='30s'; SET LOCAL lock_timeout='3s'; SET LOCAL jit=off; SET LOCAL enable_nestloop=off;
+WITH q AS(SELECT end_date,count(*) codes,count(cip) cip_nonnull,count(cip_total) cip_total_nonnull,count(*) FILTER(WHERE cip IS NOT NULL OR cip_total IS NOT NULL) either_cip_nonnull,count(*) FILTER(WHERE cip IS NOT NULL AND cip_total IS NOT NULL AND cip<>cip_total) both_different,count(fix_assets) fix_assets_nonnull,count(fix_assets_total) fix_assets_total_nonnull FROM core_serving.equity_balancesheet WHERE end_date IN(DATE '2024-09-30',DATE '2024-12-31',DATE '2025-09-30',DATE '2025-12-31',DATE '2026-06-30',DATE '2026-09-30') GROUP BY end_date)
+SELECT jsonb_build_object('section','asset_field_variants','as_of',current_timestamp,'data',jsonb_agg(to_jsonb(q) ORDER BY end_date)) FROM q;
+COMMIT;
+BEGIN READ ONLY;
+SET LOCAL statement_timeout='30s'; SET LOCAL lock_timeout='3s'; SET LOCAL jit=off; SET LOCAL enable_nestloop=off;
+WITH members AS MATERIALIZED(SELECT DISTINCT m.con_code AS ts_code FROM core_serving.dc_member m JOIN core_serving.dc_index i ON i.trade_date=m.trade_date AND i.ts_code=m.ts_code WHERE m.trade_date=DATE '2026-09-30' AND i.idx_type='行业板块' AND i.level='东财一级行业'),base AS MATERIALIZED(SELECT s.ts_code,s.name,s.list_date,s.delist_date,s.list_status FROM members m JOIN raw_tushare.stock_basic s ON s.ts_code=m.ts_code WHERE s.ts_code !~ '^(200|900)' AND s.list_date<=DATE '2026-09-30' AND (s.delist_date IS NULL OR s.delist_date>DATE '2026-09-30')),q AS(SELECT a.ts_code,a.name,a.list_date,a.delist_date,a.list_status FROM base a LEFT JOIN core_serving.equity_daily_basic v ON v.ts_code=a.ts_code AND v.trade_date=DATE '2026-10-30' WHERE v.ts_code IS NULL ORDER BY a.ts_code LIMIT 20)
+SELECT jsonb_build_object('section','missing_valuation_samples','as_of',current_timestamp,'data',jsonb_agg(to_jsonb(q))) FROM q;
+COMMIT;
+BEGIN READ ONLY;
+SET LOCAL statement_timeout='30s'; SET LOCAL lock_timeout='3s'; SET LOCAL jit=off; SET LOCAL enable_nestloop=off;
+WITH members AS MATERIALIZED(SELECT DISTINCT m.con_code AS ts_code FROM core_serving.dc_member m JOIN core_serving.dc_index i ON i.trade_date=m.trade_date AND i.ts_code=m.ts_code WHERE m.trade_date=DATE '2026-09-30' AND i.idx_type='行业板块' AND i.level='东财一级行业'),base AS MATERIALIZED(SELECT s.ts_code,s.name,s.list_date,s.delist_date,s.list_status FROM members m JOIN raw_tushare.stock_basic s ON s.ts_code=m.ts_code WHERE s.ts_code !~ '^(200|900)' AND s.list_date<=DATE '2026-09-30' AND (s.delist_date IS NULL OR s.delist_date>DATE '2026-09-30')),i AS MATERIALIZED(SELECT ts_code FROM core_serving.equity_income WHERE end_date=DATE '2026-09-30'),q AS(SELECT a.ts_code,a.name,a.list_status,a.delist_date FROM base a LEFT JOIN i ON i.ts_code=a.ts_code WHERE i.ts_code IS NULL ORDER BY a.ts_code LIMIT 20)
+SELECT jsonb_build_object('section','missing_income_samples','as_of',current_timestamp,'data',jsonb_agg(to_jsonb(q))) FROM q;
+COMMIT;
+BEGIN READ ONLY;
+SET LOCAL statement_timeout='30s'; SET LOCAL lock_timeout='3s'; SET LOCAL jit=off; SET LOCAL enable_nestloop=off;
+WITH members AS MATERIALIZED(SELECT DISTINCT m.con_code AS ts_code FROM core_serving.dc_member m JOIN core_serving.dc_index i ON i.trade_date=m.trade_date AND i.ts_code=m.ts_code WHERE m.trade_date=DATE '2026-09-30' AND i.idx_type='行业板块' AND i.level='东财一级行业'),base AS MATERIALIZED(SELECT s.ts_code,s.name,s.list_date,s.delist_date,s.list_status FROM members m JOIN raw_tushare.stock_basic s ON s.ts_code=m.ts_code WHERE s.ts_code !~ '^(200|900)' AND s.list_date<=DATE '2026-09-30' AND (s.delist_date IS NULL OR s.delist_date>DATE '2026-09-30')),f AS MATERIALIZED(SELECT DISTINCT ON(ts_code) ts_code,profit_dedt FROM raw_tushare.fina_indicator WHERE end_date=DATE '2026-09-30' ORDER BY ts_code,CASE update_flag WHEN '1' THEN 0 ELSE 1 END,ann_date DESC,fetched_at DESC,source_content_hash DESC),q AS(SELECT a.ts_code,a.name,CASE WHEN f.ts_code IS NULL THEN 'no_indicator_record' ELSE 'profit_dedt_null' END reason FROM base a LEFT JOIN f ON f.ts_code=a.ts_code WHERE f.profit_dedt IS NULL ORDER BY a.ts_code LIMIT 20)
+SELECT jsonb_build_object('section','missing_deducted_samples','as_of',current_timestamp,'data',jsonb_agg(to_jsonb(q))) FROM q;
+COMMIT;
+BEGIN READ ONLY;
+SET LOCAL statement_timeout='30s'; SET LOCAL lock_timeout='3s'; SET LOCAL jit=off; SET LOCAL enable_nestloop=off;
+WITH members AS MATERIALIZED(SELECT DISTINCT m.con_code AS ts_code FROM core_serving.dc_member m JOIN core_serving.dc_index i ON i.trade_date=m.trade_date AND i.ts_code=m.ts_code WHERE m.trade_date=DATE '2026-09-30' AND i.idx_type='行业板块' AND i.level='东财一级行业'),base AS MATERIALIZED(SELECT s.ts_code,s.name,s.list_date,s.delist_date,s.list_status FROM members m JOIN raw_tushare.stock_basic s ON s.ts_code=m.ts_code WHERE s.ts_code !~ '^(200|900)' AND s.list_date<=DATE '2026-09-30' AND (s.delist_date IS NULL OR s.delist_date>DATE '2026-09-30')),f AS MATERIALIZED(SELECT DISTINCT ON(ts_code) ts_code,profit_dedt FROM raw_tushare.fina_indicator WHERE end_date=DATE '2026-09-30' ORDER BY ts_code,CASE update_flag WHEN '1' THEN 0 ELSE 1 END,ann_date DESC,fetched_at DESC,source_content_hash DESC),i AS(SELECT ts_code,name FROM core_serving.dc_index WHERE trade_date=DATE '2026-09-30' AND idx_type='行业板块' AND level='东财一级行业'),q AS(SELECT i.ts_code,i.name,count(*) expected_codes,count(f.ts_code) indicator_codes,count(f.profit_dedt) deducted_codes FROM base a JOIN core_serving.dc_member m ON m.con_code=a.ts_code AND m.trade_date=DATE '2026-09-30' JOIN i ON i.ts_code=m.ts_code LEFT JOIN f ON f.ts_code=a.ts_code GROUP BY i.ts_code,i.name)
+SELECT jsonb_build_object('section','industry_deducted_coverage','as_of',current_timestamp,'data',jsonb_agg(to_jsonb(q) ORDER BY ts_code)) FROM q;
+COMMIT;
+BEGIN READ ONLY;
+SET LOCAL statement_timeout='30s'; SET LOCAL lock_timeout='3s'; SET LOCAL jit=off; SET LOCAL enable_nestloop=off;
+WITH q AS(SELECT trade_date,is_open FROM core_serving.trade_calendar WHERE exchange='SSE' AND trade_date IN(DATE '2019-10-31',DATE '2019-12-31',DATE '2020-10-30',DATE '2020-12-31',DATE '2021-10-29',DATE '2021-12-31',DATE '2022-10-31',DATE '2022-12-30',DATE '2023-10-31',DATE '2023-12-29',DATE '2024-10-31',DATE '2024-12-31',DATE '2025-10-31',DATE '2025-12-31',DATE '2026-10-30',DATE '2026-10-31')))
+SELECT jsonb_build_object('section','calendar_dates','data',jsonb_agg(to_jsonb(q) ORDER BY trade_date)) FROM q;
+COMMIT;
+BEGIN READ ONLY;
+SET LOCAL statement_timeout='30s'; SET LOCAL lock_timeout='3s'; SET LOCAL jit=off; SET LOCAL enable_nestloop=off;
+WITH q AS(SELECT ts_code,end_date,count(*) versions,count(DISTINCT ann_date) announcement_dates FROM raw_tushare.income WHERE report_type='1' AND end_date IN(DATE '2024-09-30',DATE '2025-09-30',DATE '2026-09-30') GROUP BY ts_code,end_date),r AS(SELECT end_date,count(*) code_periods,count(*) FILTER(WHERE versions>1) multiple_version_keys,count(*) FILTER(WHERE announcement_dates>1) multiple_announcement_keys FROM q GROUP BY end_date)
+SELECT jsonb_build_object('section','income_version_counts','as_of',current_timestamp,'data',jsonb_agg(to_jsonb(r) ORDER BY end_date)) FROM r;
+COMMIT;

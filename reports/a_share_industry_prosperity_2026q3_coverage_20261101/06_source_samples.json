@@ -1,0 +1,80 @@
+[
+  {
+    "request": {
+      "ts_code": "000100.SZ",
+      "period": "20260930",
+      "fields": [
+        "ts_code",
+        "ann_date",
+        "end_date",
+        "profit_dedt",
+        "q_dtprofit",
+        "update_flag"
+      ]
+    },
+    "result": {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"000100.SZ\", \"ann_date\": \"20261031\", \"end_date\": \"20260930\", \"profit_dedt\": 4152447182.0, \"q_dtprofit\": 1012564865.0, \"update_flag\": \"0\"}]"
+          }
+        ],
+        "isError": false
+      }
+    }
+  },
+  {
+    "request": {
+      "ts_code": "000725.SZ",
+      "period": "20260930",
+      "fields": [
+        "ts_code",
+        "ann_date",
+        "end_date",
+        "profit_dedt",
+        "q_dtprofit",
+        "update_flag"
+      ]
+    },
+    "result": {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"000725.SZ\", \"ann_date\": \"20261031\", \"end_date\": \"20260930\", \"profit_dedt\": 3040311631.0, \"q_dtprofit\": 32059775.0, \"update_flag\": \"0\"}]"
+          }
+        ],
+        "isError": false
+      }
+    }
+  },
+  {
+    "request": {
+      "ts_code": "600519.SH",
+      "period": "20260930",
+      "fields": [
+        "ts_code",
+        "ann_date",
+        "end_date",
+        "profit_dedt",
+        "q_dtprofit",
+        "update_flag"
+      ]
+    },
+    "result": {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[{\"ts_code\": \"600519.SH\", \"ann_date\": \"20261031\", \"end_date\": \"20260930\", \"profit_dedt\": 64324824599.18, \"q_dtprofit\": 19860616953.17, \"update_flag\": \"0\"}]"
+          }
+        ],
+        "isError": false
+      }
+    }
+  }
+]

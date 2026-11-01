@@ -1,0 +1,11 @@
+BEGIN
+SET
+SET
+{"data": [{"nodes": 31, "industry_level": 1, "baseline_version": "eastmoney_dc_industry_hierarchy.cn_a.v1"}, {"nodes": 128, "industry_level": 2, "baseline_version": "eastmoney_dc_industry_hierarchy.cn_a.v1"}, {"nodes": 337, "industry_level": 3, "baseline_version": "eastmoney_dc_industry_hierarchy.cn_a.v1"}], "as_of": "2026-10-31T21:09:09.871532+08:00", "section": "published_fixed_hierarchy"}
+COMMIT
+BEGIN
+SET
+SET
+SET
+{"data": [{"trade_date": "2026-10-29", "mapped_codes": 5577, "eligible_codes": 5577, "industry_level": 1}, {"trade_date": "2026-10-29", "mapped_codes": 5577, "eligible_codes": 5577, "industry_level": 2}, {"trade_date": "2026-10-29", "mapped_codes": 5577, "eligible_codes": 5577, "industry_level": 3}, {"trade_date": "2026-10-30", "mapped_codes": 5561, "eligible_codes": 5577, "industry_level": 1}, {"trade_date": "2026-10-30", "mapped_codes": 5560, "eligible_codes": 5577, "industry_level": 2}, {"trade_date": "2026-10-30", "mapped_codes": 5573, "eligible_codes": 5577, "industry_level": 3}], "as_of": "2026-10-31T21:09:09.933331+08:00", "section": "fixed_hierarchy_member_coverage"}
+COMMIT

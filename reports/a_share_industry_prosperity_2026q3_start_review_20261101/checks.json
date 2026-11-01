@@ -1,0 +1,25 @@
+{
+  "review_type": "data_and_method_readiness_audit",
+  "production_writes": false,
+  "new_database_reads": false,
+  "new_source_requests": false,
+  "formal_computation_started": false,
+  "data_snapshot_as_of": "2026-11-01T13:16:20.820883+08:00",
+  "evidence_files_hash_checked": 15,
+  "evidence_hash_mismatches": [],
+  "local_links_checked": 4,
+  "data_ready": true,
+  "final_prediction_method_frozen": false,
+  "final_investment_scoring_frozen": false,
+  "report_execution_design_complete": false,
+  "needs_new_bulk_data_supplement": false,
+  "original_plans_changed_this_turn": false,
+  "docs_integrity": "PASS",
+  "findings": [
+    "forecast_method_not_unique",
+    "investment_score_incomplete",
+    "current_vs_historical_scope_mixed",
+    "formal_execution_design_missing",
+    "bounded_semantic_and_version_checks_remaining"
+  ]
+}

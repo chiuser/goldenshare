@@ -1,0 +1,22 @@
+{
+  "status": "methodology_proposed_pending_review_no_trial",
+  "date": "2026-11-01",
+  "files": [
+    {
+      "path": "docs/product/a-share-industry-prosperity-2026q3-research-plan-v1.md",
+      "sha256": "5980247d099a197924e3d079e13f4b7e13c9c49d8bda8faf5f241d9e01ec865b"
+    },
+    {
+      "path": "docs/product/a-share-industry-prosperity-2026q3-calculation-methodology-v1.md",
+      "sha256": "2c09222724642ec4813a006327f36c8fe6f18d580189a6adfea236ea98f5c1c5"
+    },
+    {
+      "path": "reports/a_share_industry_prosperity_2026q3_method_review_20261101/README.md",
+      "sha256": "04135f150f93a7a9d6fa95e7eab591ed88e9fface1d77cf0201d4c6d324bcd90"
+    }
+  ],
+  "database_read_this_revision": false,
+  "source_requests_this_revision": false,
+  "calculation_implementation_created": false,
+  "trial_executed": false
+}

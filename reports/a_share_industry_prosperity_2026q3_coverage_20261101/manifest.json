@@ -1,0 +1,144 @@
+{
+  "date": "2026-11-01",
+  "timezone": "Asia/Shanghai",
+  "scope": "2024Q1-2026Q3 retained indicators only",
+  "as_of_start": "2026-11-01T10:16:23.783924+08:00",
+  "as_of_end": "2026-11-01T10:22:03.588867+08:00",
+  "sql_files": 7,
+  "database_result_sections": 18,
+  "source_requests": 3,
+  "production_writes": false,
+  "checks_passed": true,
+  "files": [
+    {
+      "path": "00_scope.md",
+      "bytes": 2078,
+      "sha256": "29316605daafbf10465439f7fce9ba36e9f49ff063fb8b6bbe08738f8d3841d8"
+    },
+    {
+      "path": "01_metadata.jsonl",
+      "bytes": 16547,
+      "sha256": "e88624cb39557406fcf81d39c8980b55dcc20a634ad02d628bd69d6b697d5cc5"
+    },
+    {
+      "path": "01_metadata.psql.txt",
+      "bytes": 16771,
+      "sha256": "68817a909ab0bd38eac0bd396c759f282291eed2e2f845d8634d3a8c63b6c707"
+    },
+    {
+      "path": "01_metadata.sql",
+      "bytes": 1377,
+      "sha256": "fd16992f8c77e7e51a2922c92a285703fb2e10f73b50bd6de37ad29982ba21d7"
+    },
+    {
+      "path": "02_fina_indicator_periods.jsonl",
+      "bytes": 3472,
+      "sha256": "324554c816d2fd492446823f1b61357f838e3bfb2b06a443ef2bf57539d4cbb3"
+    },
+    {
+      "path": "02_fina_indicator_periods.psql.txt",
+      "bytes": 3743,
+      "sha256": "638fd9844d7cf496f13b9f511a74c061e50f64371cdbbf340da0ecf35d044b36"
+    },
+    {
+      "path": "02_fina_indicator_periods.sql",
+      "bytes": 1912,
+      "sha256": "e8903ffa9c1c3b6d3ada422004028b813fdcbfc35fabfa20766949537c45fd61"
+    },
+    {
+      "path": "03_retained_datasets_coverage.jsonl",
+      "bytes": 8432,
+      "sha256": "93bd746c59243e4c702bef9706ce30412960f16a017a6f6b2a865853fd921438"
+    },
+    {
+      "path": "03_retained_datasets_coverage.psql.txt",
+      "bytes": 9177,
+      "sha256": "44dc34a62cd94f434ebe3ba29cf066ca5cde40fe52bc5268dab68df4e970e418"
+    },
+    {
+      "path": "03_retained_datasets_coverage.sql",
+      "bytes": 6410,
+      "sha256": "69a1ae25bac8452837bfa90c2b7afc52877cc9d9b46667cc09b5ec19a32e362e"
+    },
+    {
+      "path": "04_q4_and_versions.jsonl",
+      "bytes": 3024,
+      "sha256": "fd30e67a8ce49c2e2d56b49d4c184de33b62d9f743034b498bb45c25f87ecd08"
+    },
+    {
+      "path": "04_q4_and_versions.psql.txt",
+      "bytes": 3421,
+      "sha256": "ade4ee8b5b5388bfddba0677b53e9d11e309dfa9f6892d330f4e37df5605584a"
+    },
+    {
+      "path": "04_q4_and_versions.sql",
+      "bytes": 5932,
+      "sha256": "ecd4c73d930b04df6fb755dfcab50eea87a5119b5857e95ff9a1615aedafcfd9"
+    },
+    {
+      "path": "05_industry_and_valuation.jsonl",
+      "bytes": 1558,
+      "sha256": "89e52e6e9315bad50af6c08389ee9c94a7c90f8451ff0c72952c49445ca4fa25"
+    },
+    {
+      "path": "05_industry_and_valuation.psql.txt",
+      "bytes": 1751,
+      "sha256": "c4f2c8304a892068b36f6fff3ec95d67f83929376033db46b53dae777a2149ac"
+    },
+    {
+      "path": "05_industry_and_valuation.sql",
+      "bytes": 3440,
+      "sha256": "1c549ecb4bbb99dc2290f09ec1e8b183441bb0a7cfa6153a3beac34bb1555814"
+    },
+    {
+      "path": "06_source_samples.json",
+      "bytes": 1871,
+      "sha256": "a70320a5c651a63c455769d01739abefab6c4a0a767e4a29d9489c40dee7d211"
+    },
+    {
+      "path": "07_mapping_and_fixed_assets.jsonl",
+      "bytes": 1280,
+      "sha256": "597cfa4f45e580e0fcf195155578a0f41fb1c56de29ccc6ea7d63ab662506b7f"
+    },
+    {
+      "path": "07_mapping_and_fixed_assets.psql.txt",
+      "bytes": 1438,
+      "sha256": "b72c3f1d92c58e76c5914889600f092221d0142fdcd08f6e137ffe382ae17c0e"
+    },
+    {
+      "path": "07_mapping_and_fixed_assets.sql",
+      "bytes": 2223,
+      "sha256": "ae7148dfd9fe9b447d47fe7d8559ecbf0dadd6226272217b980ee85684e94927"
+    },
+    {
+      "path": "08_four_leaf_gaps_upper_levels.jsonl",
+      "bytes": 574,
+      "sha256": "6dc83ac7bf8adacdd7978ee7ad4dff4bc5ca52d7123dc81ed03e20726ae0ec1f"
+    },
+    {
+      "path": "08_four_leaf_gaps_upper_levels.psql.txt",
+      "bytes": 647,
+      "sha256": "1ea6297b2294a129fae7eb0bae6a338678703a8e794b6b033e55446a184f5248"
+    },
+    {
+      "path": "08_four_leaf_gaps_upper_levels.sql",
+      "bytes": 583,
+      "sha256": "7b96c665dcd2cb43e76da14e602c45449d337a77a2e53df92e770e03bd84c105"
+    },
+    {
+      "path": "README.md",
+      "bytes": 11664,
+      "sha256": "ab0906f6033607f8f9538b4cf185007e53cbd65261e80c1e1d5fc7718cfff841"
+    },
+    {
+      "path": "summary.json",
+      "bytes": 6212,
+      "sha256": "f3d710e4efcd5fe494d5647563b911691301f2ba391b3a4650e0ceab71b7f8ff"
+    },
+    {
+      "path": "validation.txt",
+      "bytes": 522,
+      "sha256": "dd525f2cc9a187e5e693d27a61280334d9d947baa54f138392471ff3cf7dc53a"
+    }
+  ]
+}

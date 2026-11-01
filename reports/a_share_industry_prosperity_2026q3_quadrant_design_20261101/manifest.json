@@ -1,0 +1,22 @@
+{
+  "status": "three_method_choices_confirmed_quadrant_design_pending_no_trial",
+  "date": "2026-11-01",
+  "files": [
+    {
+      "path": "docs/product/a-share-industry-prosperity-2026q3-research-plan-v1.md",
+      "sha256": "61bed3109af8842073d4f9abcc62fe77b502eedcb5acb7543c5e075abbd95ac0"
+    },
+    {
+      "path": "docs/product/a-share-industry-prosperity-2026q3-calculation-methodology-v1.md",
+      "sha256": "41c367abdb5f7f3b36c5644cb58847195382a041f0b22fd8ec2a5bd58efafb04"
+    },
+    {
+      "path": "reports/a_share_industry_prosperity_2026q3_quadrant_design_20261101/README.md",
+      "sha256": "327a96ee354e1f2b2394c6e3c3769229344f1cf7feb1b6c2128beecca7f176c7"
+    }
+  ],
+  "new_database_reads": false,
+  "new_source_requests": false,
+  "calculation_or_chart_implementation": false,
+  "trial_or_chart_data_computed": false
+}

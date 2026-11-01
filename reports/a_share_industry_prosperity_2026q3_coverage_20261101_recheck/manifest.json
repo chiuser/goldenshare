@@ -1,0 +1,87 @@
+{
+  "date": "2026-11-01",
+  "timezone": "Asia/Shanghai",
+  "summary": "summary.json",
+  "sql_files": 3,
+  "database_result_sections": 8,
+  "source_requests": 5,
+  "production_writes": false,
+  "checks_passed": true,
+  "files": [
+    {
+      "path": "00_scope.md",
+      "bytes": 1117,
+      "sha256": "5ac32a4ac57a00ba7a4709c7d5994922c99f6dbcd9c4d3d79ee6a7bfb87db94c"
+    },
+    {
+      "path": "02_fina_indicator_periods.jsonl",
+      "bytes": 3474,
+      "sha256": "65c494cfc0dc3ffdb358c7248b0ab07a4f9e89e940210a0617af649d11b2f57a"
+    },
+    {
+      "path": "02_fina_indicator_periods.psql.txt",
+      "bytes": 3745,
+      "sha256": "21904325c1b96888e701e3a48eb834cd2fcce3d97503aeff63cacf3f9de46a1e"
+    },
+    {
+      "path": "02_fina_indicator_periods.sql",
+      "bytes": 1912,
+      "sha256": "e8903ffa9c1c3b6d3ada422004028b813fdcbfc35fabfa20766949537c45fd61"
+    },
+    {
+      "path": "03_retained_datasets_coverage.jsonl",
+      "bytes": 7254,
+      "sha256": "2a88dc892f16660c90c9157f6ec9d08140d99bc87222309407fcfd2d09d8e33c"
+    },
+    {
+      "path": "03_retained_datasets_coverage.psql.txt",
+      "bytes": 7909,
+      "sha256": "23925e2d893f6a493ab238efe6b657fec1a7c9c036781376170c661b00f0be71"
+    },
+    {
+      "path": "03_retained_datasets_coverage.sql",
+      "bytes": 6410,
+      "sha256": "69a1ae25bac8452837bfa90c2b7afc52877cc9d9b46667cc09b5ec19a32e362e"
+    },
+    {
+      "path": "04_q4_and_versions.jsonl",
+      "bytes": 3603,
+      "sha256": "0b2e3fc78cc40e85dffe7c702ce7eb17916ff7474ebed0d8d68f9394a47c722b"
+    },
+    {
+      "path": "04_q4_and_versions.psql.txt",
+      "bytes": 4041,
+      "sha256": "8f28188440422d56fcd63a18a4b7fc61a9d553a46c70a657ace1fbac18e16614"
+    },
+    {
+      "path": "04_q4_and_versions.sql",
+      "bytes": 5932,
+      "sha256": "ecd4c73d930b04df6fb755dfcab50eea87a5119b5857e95ff9a1615aedafcfd9"
+    },
+    {
+      "path": "05_remaining_source_samples.json",
+      "bytes": 1815,
+      "sha256": "0cf16401ddac658210616237a5ebcf17cdf87fee627c71f27fdd05861c22bf59"
+    },
+    {
+      "path": "06_source_positive_control.json",
+      "bytes": 511,
+      "sha256": "842fd8d80aba799cf16dfd78ca6203a04d97bb37612ac92d06efa888e46de8c7"
+    },
+    {
+      "path": "README.md",
+      "bytes": 6126,
+      "sha256": "e8c4e800e77e8cee1d6dabe08ccbd4a371bf98c82d45b200d7bd5e3a9468d735"
+    },
+    {
+      "path": "summary.json",
+      "bytes": 1847,
+      "sha256": "4dcabb013a5713d9c3543fc936abc50c9368eb60c41b1291be25183d97bae942"
+    },
+    {
+      "path": "validation.txt",
+      "bytes": 461,
+      "sha256": "d228c4890636255e1bfd56a64a9decce46c20552427c286748a8f312b40aab7c"
+    }
+  ]
+}

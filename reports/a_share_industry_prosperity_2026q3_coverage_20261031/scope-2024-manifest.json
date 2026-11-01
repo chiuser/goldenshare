@@ -1,0 +1,67 @@
+{
+  "scope": "2024Q1-2026Q3; 2025 year-end Eastmoney taxonomy with latest usable membership",
+  "source_request": false,
+  "production_writes": false,
+  "bulk_organization": false,
+  "sections": 8,
+  "last_audit_at": "2026-10-31T20:56:02.366326+08:00",
+  "files": [
+    {
+      "path": "08_scope_2024_refresh.jsonl",
+      "bytes": 16037,
+      "sha256": "86766dd6f59d78f9dcd2ef08711307641dd650a5dae57e1cd5b0d35b4aa35dd1"
+    },
+    {
+      "path": "08_scope_2024_refresh.psql.txt",
+      "bytes": 17420,
+      "sha256": "b450a3eacd5e4e61d4f48c0804adbb6ea3e6cdc93bfda566177d04db757915a7"
+    },
+    {
+      "path": "08_scope_2024_refresh.sql",
+      "bytes": 6257,
+      "sha256": "0f9ae23d2f3d687669984e2b40e6c9480f969dc5a049bf05c911e65d3e189bb2"
+    },
+    {
+      "path": "09_strict_2024_inputs.jsonl",
+      "bytes": 1072,
+      "sha256": "6e32239355000daed9fc87c3e08d856bd74f72f72d8c0e7db75c14007b3364f6"
+    },
+    {
+      "path": "09_strict_2024_inputs.psql.txt",
+      "bytes": 1203,
+      "sha256": "28ce1644b96bc418f63c816d79f74ace538435f07d95d9b17785fcec145c0530"
+    },
+    {
+      "path": "09_strict_2024_inputs.sql",
+      "bytes": 3353,
+      "sha256": "f2d3b614ee741905feb08209070fda5f6f6245149ad68c2603c7dbd77c0e9491"
+    },
+    {
+      "path": "10_latest_member_alignment.jsonl",
+      "bytes": 1244,
+      "sha256": "7f07e27ea66176e21749f6e3c6c465b1ea6e62e40160df9dc748be081c8dc93a"
+    },
+    {
+      "path": "10_latest_member_alignment.psql.txt",
+      "bytes": 1374,
+      "sha256": "9ffbf33e9598a1d010667d5137f455bfe1c5e7262433ed60a42d8814ac5c86a9"
+    },
+    {
+      "path": "10_latest_member_alignment.sql",
+      "bytes": 1424,
+      "sha256": "7a558a53c5182bcc6974383c53667cc21cce3322d272e835e3e9f7db882c16dd"
+    },
+    {
+      "path": "scope-2024-and-workload.md",
+      "bytes": 9321,
+      "sha256": "540d6b144a643a8dfcc800177bda26b34ffb58a27d8bffcd759f408a0830b9e0"
+    },
+    {
+      "path": "scope-2024-validation.txt",
+      "bytes": 242,
+      "sha256": "6e8f48c74733d357d9fcf142a32fe7fcca3b0b4849c8be407fbc089156e34214"
+    }
+  ],
+  "fixed_hierarchy_followup": "11_fixed_hierarchy_check.jsonl",
+  "accepted_exclusions_and_removed_metrics": "calculation-methodology-v1 section 13"
+}

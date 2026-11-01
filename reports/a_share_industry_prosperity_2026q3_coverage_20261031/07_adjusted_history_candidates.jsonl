@@ -1,0 +1,3 @@
+{"data":{"type1_codes":414,"type4_codes":4950,"type1_or4_codes":4982,"only_type4_codes":4568,"only_type4_metric_nonnull":4568,"type4_after_historical_cutoff":4950},"as_of":"2026-10-31T20:19:53.296475+08:00","section":"income_2021_adjusted_candidate"}
+{"data":{"type1_codes":382,"type4_codes":4862,"type1_or4_codes":4939,"only_type4_codes":4557,"only_type4_metric_nonnull":4557,"type4_after_historical_cutoff":4862},"as_of":"2026-10-31T20:19:53.549691+08:00","section":"cashflow_2021_adjusted_candidate"}
+{"data":{"member_codes":5572,"non_cny_codes":0,"currency_missing":0,"fullname_missing":0,"distinct_fullnames":5572,"subsequently_delisted":4},"as_of":"2026-10-31T20:19:53.788699+08:00","section":"cohort_identity_metadata"}

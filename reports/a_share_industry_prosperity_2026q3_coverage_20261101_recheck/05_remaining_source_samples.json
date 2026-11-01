@@ -1,0 +1,106 @@
+[
+  {
+    "request": {
+      "ts_code": "002731.SZ",
+      "period": "20260930",
+      "fields": [
+        "ts_code",
+        "ann_date",
+        "end_date",
+        "profit_dedt",
+        "q_dtprofit",
+        "update_flag"
+      ]
+    },
+    "result": {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[]"
+          }
+        ],
+        "isError": false
+      }
+    }
+  },
+  {
+    "request": {
+      "ts_code": "688235.SH",
+      "period": "20260930",
+      "fields": [
+        "ts_code",
+        "ann_date",
+        "end_date",
+        "profit_dedt",
+        "q_dtprofit",
+        "update_flag"
+      ]
+    },
+    "result": {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[]"
+          }
+        ],
+        "isError": false
+      }
+    }
+  },
+  {
+    "request": {
+      "ts_code": "688347.SH",
+      "period": "20260930",
+      "fields": [
+        "ts_code",
+        "ann_date",
+        "end_date",
+        "profit_dedt",
+        "q_dtprofit",
+        "update_flag"
+      ]
+    },
+    "result": {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[]"
+          }
+        ],
+        "isError": false
+      }
+    }
+  },
+  {
+    "request": {
+      "ts_code": "688613.SH",
+      "period": "20260930",
+      "fields": [
+        "ts_code",
+        "ann_date",
+        "end_date",
+        "profit_dedt",
+        "q_dtprofit",
+        "update_flag"
+      ]
+    },
+    "result": {
+      "status": "fulfilled",
+      "value": {
+        "content": [
+          {
+            "type": "text",
+            "text": "[]"
+          }
+        ],
+        "isError": false
+      }
+    }
+  }
+]

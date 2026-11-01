@@ -1,0 +1,9 @@
+2026-10-31 本轮校验
+PASS python3 scripts/check_docs_integrity.py (3 groups)
+PASS git diff --check -- 本轮路径；新增未跟踪文件另做空白检查
+PASS 新增3份Markdown的本地引用存在检查
+PASS 7个SQL文本无写语句，事务声明为READ ONLY并配置超时（05原语法错误保留，06补完）
+PASS 33段JSON结果可解析；样本/历史直方图/行业分组/缺口计数对账
+NOT RUN 预测模型、投资排名、全市场金额计算、上游请求、生产或Lake写入
+LIMIT 文档/计数校验不证明源数据真实、字段会计语义一致或历史版本完整
+SUBMISSION FORMAT: stripped console trailing whitespace; 6 decoded JSON objects unchanged; original gzip bytes round-trip SHA256 verified; pre-format manifest preserved
