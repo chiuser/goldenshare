@@ -1,6 +1,6 @@
 # 财势乾坤顶底识别低层设计 v1
 
-更新：2026-11-01。状态：P3及其审计修复已提交（bebe6f403、11271531c）；P4整体设计已在产品§10、技术方案§15和本文§21细化，六处审计修正已补齐并独立复核，供管理员review；尚未开始P4开发、真实来源或页面验收。识别v0.4-r4、预测v0.6-r4的取价/选峰/1%/EMA及价格解规则不变。P5未推进，未部署。
+更新：2026-11-01。状态：P3及其审计修复已提交（bebe6f403、11271531c）；P4整体设计已在产品§10、技术方案§15和本文§21细化，前六项及提交后四项工具审计问题已细化，独立复核结果见LLD§21.9，供管理员review；尚未开始P4开发、真实来源或页面验收。识别v0.4-r4、预测v0.6-r4的取价/选峰/1%/EMA及价格解规则不变。P5未推进，未部署。
 
 依据：[产品文档](../../../../docs/product/wealth-top-bottom-recognition-product-v1.md)、[技术方案](index-detail-top-bottom-recognition-technical-design-v1.md)。本文件只规定当前目标、代码迁移位置、开发顺序和验收，不包含已废弃的开发流程。实施必须使用本文规则和独立用例，不得从旧实验或旧输出推导当前预期。
 
@@ -8,7 +8,7 @@
 
 本文规定r4识别、单根预测及产品接入。三项截图修正、核心/恢复/预测及专项对比已完成并由管理员验收；公开API、必要前端及提交后修复已完成限定工程验收，代码为bebe6f403、11271531c，实际证据见§19—20。原软件内部怎样保存事件仍未被证实，不影响本产品已定规则。
 
-本轮仅补齐P4六处审计问题，当前编码目标与顺序统一见§21。P3既有实现直接复用，不重复开发或重跑专项；P4真实来源/页面和P5清退均未执行。设计及文档检查不能代替实现、性能或真实验收；§15—17修改前成绩只保留历史用途。
+本轮补齐e2844c6f7提交后四项工具审计问题，前六项修正继续生效；当前编码目标与顺序统一见§21。P3既有实现直接复用，不重复开发或重跑专项；P4真实来源/页面和P5清退均未执行。设计及文档检查不能代替实现、性能或真实验收；§15—17修改前成绩只保留历史用途。
 
 只在当前dev-interface工作区保留清单外修改，不创建分支/worktree、安装依赖或恢复旧算法。输入、进度和结果仅内存，无数据库/Lake写入、结果/恢复文件、后台任务、用户算法开关或浏览器持久缓存。原1%、近远选择、首次资格、原EMA、预算及正式来源精度保持；P3完整400ms含最终校验和编码，不因三项修正放宽。
 
@@ -2648,7 +2648,7 @@ main按下表产生封闭的任务清单，再逐组执行。组内period/mode/�
 | 入口/参数 | 本周期本模式内执行内容 | 业务请求次数及缓存 |
 |---|---|---|
 | xxm_forecast_display_audit，samples=1 | 只该周期forecast一次 | 共1次冷请求；不据此宣称热缓存验收完成 |
-| 同入口，samples=20 | 只该周期forecast连续20次 | 共20次：第1次冷、后19次热；不追加并发/其他周期 |
+| 同入口，samples=20 | 只该周期forecast连续20次 | 共20次，第1次从空产品缓存开始，后19次为重复请求；实际行情/预测缓存访问按§21.5.3记录，不按轮次假定命中；不追加并发/其他周期 |
 | xxm_page_request_audit，samples=1，单tab组 | 该周期图数据、该周期九转、该周期识别及该周期forecast各1轮，沿该tab真实scheduler | day共4次；分钟价格/指标各1加九转/识别/forecast，共5次；组首空缓存 |
 | 同入口同参数，双tab组 | 两个独立客户端realm同时执行上行选定周期组合各1轮 | day共8次、分钟共10次；两个tab各有scheduler，服务端共用本组缓存；不附加热轮或放大为20轮 |
 | xxm_page_request_audit，samples=20且day | 只fetchIndexDetailKline的1000根日线接口20次 | 不混入九转/识别/forecast；第1次为本组首次请求，19次重复请求；不得宣称清掉了数据库/OS缓存 |
@@ -2656,9 +2656,20 @@ main按下表产生封闭的任务清单，再逐组执行。组内period/mode/�
 
 两个samples=1的页面组均为必做，顺序为单tab组→双tab组，各自≤60秒、各自新Python子进程和空产品缓存。两个tab只是被选周期的真实客户端组合核验，不能冒称覆盖页面完整四周期预判；完整四行由§21.7页面review及P4-18/31证明。以原indexDetailRequests调度，不能为方便共享加载跳过scheduler。九转仅所选周期，不自动请求15/30等未选周期。预测显示工具不再附加旧160次或固定其他日期/并发矩阵。
 
-每组依次GET context、GET reset，然后执行表中业务请求并等待全部完成，最后GET metrics；私有请求恰3次。reset只能在无活动请求时执行。samples=20逐样本记录，不能每样本清空缓存。HTTP及计算的单次预算逐次判断，不能用P95掩盖一次失败。20值排序第19项为P95；1冷/19热只是产品缓存口径，不伪造数据库磁盘冷启动。samples=1只完成对应单轮，冷热证据须来自明确samples=20的产品请求组；不能额外暗加一次热请求。
+成功组依次GET context、GET reset，然后执行表中业务请求并等待全部完成，最后GET metrics；私有请求恰3次。表中业务次数也只约束完整成功组。失败/取消组只记录已实际发出的请求及阶段，停止新请求并按§21.5.6清理，不为凑满业务或私有次数继续执行。reset只能在无活动请求时执行。samples=20逐样本记录，不每样本清空缓存；“首次/重复”与“缓存是否命中”分开，不能按第2—20次直接标热命中，也不伪造数据库磁盘冷启动。缺真实预测命中时只登记该路径未验收，不改日期、额外预热、重跑或强制写缓存。
+
+HTTP及计算的单次预算逐次判断，不能用P95掩盖一次失败。只有20次该接口真实成功样本齐全时才计算排序第19项的P95；中途失败/缺样本仅报告实际数量和原因，不补值、不沿旧样本拼凑，不输出通过结论。samples=1不声称完成20次性能或预测缓存命中验收。
 
 latest请求仍不传asOf，普通/debug若中途出现不同完成根则对照无效，不偷偷补成历史请求。明确asOf则各组使用同一端点。both比较以请求实际截止和§21.5.3身份为准；组末只保留有界摘要/公共值摘要供下一组核对，不跨组保留完整响应、SeriesEntry或恢复副本。
+
+**混合单/双tab组的取参及依赖顺序固定如下，不能沿用旧mjs先发识别、再等K线的写法：**
+
+1. 每个tab只有自己的原indexDetailRequests实例。该tab在同一轮先登记该周期forecast、该周期九转及图数据任务；保留调度器原优先级，不直接调用底层HTTP绕过排队。日线K线显式经过一次run('chart',...)；分钟价格/指标client、九转loader、fetchForecast、fetchXxm本身已入队，外层不再重复run，以免互相等待。
+2. 图数据endDate取明确--as-of日期，否则取本组context.businessDate；不传固定startDate，limit日线为唯一1000常量、分钟500，传本tab取消signal。分钟价格和指标分别1次，先共同返回并通过真实buildIndexMinuteChartViewModel的身份/时间对应检查，不能只等价格。日线从真实bars取tradeDate、close、factors.macd的dif/dea/macd；分钟取上述真实view model的time/fullDate、close/dif/dea/macd及indicatorVersion。仅构造核对需要的原值，不生成整页模型、不补值或格式化数值。
+3. 得到非空、升序唯一且原close/DIF/DEA/MACD均有限的实际图点后，才调用一次fetchXxm。startDate=首点fullDate.slice(0,10)，endDate=末点fullDate.slice(0,10)，limit=实际points.length；分钟period与indicatorVersion取当前图，取参方式与现useIndexXxmLayer一致。不能用1990-01-01、context日期、请求的1000/500或下一预测端点替代实际首末/根数；图不足1000/500时原数使用。
+4. 日线/分钟图滞后但有合法原值时，识别沿实际图日期核对，不虚报图已更新；记录请求日期和实际窗口的差异，该组不能因此宣称最新行情齐备。九转仍用第2条页面日期和原限制，forecast仍用原明确asOf或latest，不把它们改成识别的滞后日期；不要求图、预判机械拥有相同截止。
+5. 空图、非法close/指标、日分钟身份错或分钟价格/指标不匹配时，不发该图识别；取消本tab及本组尚未完成任务，记录实际请求数及未验收/失败原因，停止该次CLI剩余组。HTTP成功但无有效图不作四周期验收通过，不能构造假图点来凑4/5次。真实合同允许的空值仍由原client处理，本工具不改产品的EMPTY/DELAYED含义。
+6. fetchXxm一返回就沿其原deadline完成buildXxmViewModel及最终check；forecast同样立即完成自身最后check和摘要。不等其他请求全部完成才处理它们，否则会把无关等待算到已返回请求。之后才收齐本组摘要和metrics。正常完成时单tab day4次/分钟5次，双tab分别8/10次；异步依赖不增加请求或重新取K线。
 
 #### 21.5.2 同一正式装配、明确返回和执行位置
 
@@ -2666,7 +2677,9 @@ latest请求仍不传asOf，普通/debug若中途出现不同完成根则对照�
 
 上下文yield本文件私有AuditApp对象，字段固定app、baseUrl、collector、stopRequested；baseUrl是真实绑定地址，collector仅为本组记录器，stopRequested只停止本组新任务，不修改产品计算器。退出规则见§21.5.6。原本地Settings使用最终配置，不硬编码dev绕环境；日线group不手动调用研究session_factory，daily-waves真实操作留管理员页面review。
 
-mjs接收baseUrl及groupId、period、mode、asOf、samples、scenario这些父进程已经校验的值，不再接受输出目录或自行增加周期。scenario只是原CLI参数导出的内部任务种类，不是新增用户参数。只用既有esbuild/write:false/内存模块与pure client/decoder及唯一1000常量，不import React控制器、CSS或图层。debug参数只对signals/forecast按本组模式传入；K线/指标/九转没有debug参数，记录该字段为None，不能为模式一致给它们新增参数。client返回按{response,deadline}拆取；buildXxmViewModel显式传同一deadline的check，适配前后和提交摘要前检查，所有产品请求继续原deadline/取消检查。
+mjs接收baseUrl及groupId、period、mode、asOf、samples、scenario这些父进程已经校验的值，不再接受输出目录或自行增加周期。scenario只是原CLI参数导出的内部任务种类，不是新增用户参数。只用既有esbuild/write:false/内存模块与pure client/decoder及唯一1000常量，不import React控制器、CSS或图层。client返回按{response,deadline}拆取；buildXxmViewModel显式传同一deadline的check，适配前后和立即提交本请求摘要给组汇总前检查，所有产品请求继续原deadline/取消检查。已按期完成的请求不因后来等待其他请求/metrics被重新开启或延长5秒。
+
+参数事实以现生产者/消费者为准：get_index_detail_kline和fetchIndexDetailKline已经接受可选debug，服务端省略等价0、显式0/1仍合法。本次工具对K线固定省略，不随normal/debug切换；分钟价格、分钟指标和九转也不传debug。仅signals/forecast按本组模式传入1或省略为0。不得删除K线既有参数、修改TS签名/解析器、把K线debug=1改判非法，或给其他接口新增参数。逐请求debug字段记录的是实际URL中是否传入；省略为None，不伪造为本组模式，r4有效模式由group.mode及解码选项核对。
 
 #### 21.5.3 逐请求记录、共享加载和同源证明
 
@@ -2678,19 +2691,30 @@ AuditRequestRecord字段固定如下，None不等于0，不从HTTP 200猜测已�
 
 | 字段 | 真实来源/约束 |
 |---|---|
-| groupId/requestId/tabId/sequence/round | 本组任务及现请求头；预测连续采样首个cold、后续warm，混合组合及K线/指标采样为sample，不能声称其中每个请求都冷；重复编号拒绝 |
-| endpointKind/period/debug/requestedAsOf | 当前真实URL参数及本组白名单；endpointKind仅kline/indicators/nineTurn/signals/forecast；debug在signals/forecast是0或1，其他接口为None。requestedAsOf取forecast的asOf或其他接口的endDate原值，latest未传则None，不伪造已传参数 |
+| groupId/requestId/tabId/sequence/round | 本组任务及现请求头；round为严格正整数，连续采样1—samples，混合组恰1，各tab各自sequence唯一。round只表达第几次，不表达冷热或命中；重复编号拒绝 |
+| endpointKind/period/debug/requestedAsOf | 当前真实URL参数及本组白名单；endpointKind仅kline/indicators/nineTurn/signals/forecast；debug实际传0/1记该整数、省略为None。本次K线/指标/九转固定None，normal的r4也省略，debug的r4传1；模式校验把r4省略解释为有效0，不把其他接口None改成模式1。requestedAsOf取forecast的asOf或其他接口的endDate原值，未传则None，不伪造已传参数 |
 | startedMs/finishedMs/httpStatus/bodyBytes | 服务端纯ASGI开始至最后body发送的单调钟偏移、真实状态与完整body字节；不混用Node的performance.now起点 |
-| clientSeconds | Node按同一requestId记录真实client及本次适配/最终check完成的耗时；原5秒含解码/提交检查，不能用只收到header的时间代替 |
+| httpSeconds | Node由实际nativeFetch发出至完整arrayBuffer接收的单调钟差，单位秒；不是服务器ASGI耗时，也不包含后续JSON解码/适配。未完整收正文时None并保留失败，不用收到header或失败时长代替完整传输 |
+| clientSeconds | 仅r4成功返回{response,deadline}时，从deadline−XXM_TIMEOUT_MS至本次适配/最终check完成，单位秒，包含HTTP/解码/适配、不含原scheduler排队。普通数据接口及未取得deadline的失败记None，不能冒充适用5秒合同或记0通过；原check仍按相同绝对deadline执行 |
 | computedThrough/dataStatus/responseRows | signals取source.computedThrough、dataStatus.status、meta.count；forecast取computedThrough、dataStatus字符串，responseRows=None（不是K线数组）。其他数据接口取实际已解码的最后时点/行数，未提供dataStatus则None。失败尚无结果时None，不借另一请求补齐 |
 | sourceInputId/calendarInputId/indicatorVersion | signals公开投影前的internal.source.inputId、forecast投影前的internal.sourceInputId/calendarInputId及原指标版本；非适用接口为None |
 | prefixRows/windowStart/windowEnd | signals前缀根数由entry和实际computedThrough定位，窗口取meta.responseStart/responseEnd；forecast同次真实前缀根数及其首末时点，不把下一目标端点算入。非r4接口无算法前缀，prefixRows=None，窗口取实际返回首末。空窗口为None，不重读行情/重新step |
 | computeSeconds/publicDigest | 仅本次真实400ms段；已校验公共DTO的规范JSON摘要，普通/debug比较时debug对象不参与 |
+| forecastCacheRead/forecastCacheReadCalls | forecast初始not_called/0；原get_forecast返回None记miss，返回对象记hit，抛错记error，调用前计数+1。非forecast固定not_applicable/0；不能从第几次请求或内存条目数推断 |
+| forecastCacheWrite/forecastCacheWriteCalls | forecast初始not_called/0；原put_forecast正常返回记stored，抛错记error，调用前计数+1。非forecast固定not_applicable/0；只在原发布真正完成后记stored |
 | loadIds/errorCode/terminal | 实际关联的加载编号、现业务错误码；terminal仅success/error/cancelled，未结束不能输出成功 |
 
 观察点固定：项目内部project_xxm_response的入参以及forecast_query_service持有的project_forecast_response入参，取得真实内层身份；包装必须原样调用原函数一次并返回原结果，不删除错误或改字段。signals的query在调用处现为局部import，patch真实response_projection模块的该符号；forecast已import到query命名空间，patch其实际持有符号，不能只改未被调用的另一处。prefixRows使用本次load_entry实际yield的entry，仅在原with期间关联到requestId；包装仍在原with内yield、原出口检查照常执行，退出即释放引用，不追加calculator_at或step。普通客户端不具备源ID不构成缺陷，不为工具改变公开合同。
 
-LoadRecord以loadId为键，字段固定flightKeyDigest、period、startedMs、finishedMs、terminal、pairCalls、barsCalls、indicatorCalls、signatureChecks；flightKeyDigest仅对现共享加载key做摘要，不输出其中路径、连接对象或凭据。包装现SharedLoads.load的loader：仅真正执行loader时生成loadId；对返回同一对象的订阅者关联同一loadId，已结束加载不能当后续请求的TTL命中，不改SharedLoads本身。外层包装用锁记录每个key尚未返回的调用数；结果对象与loadId的关联保留真实对象引用，最后一个调用退出即释放该key的关联，不只保存可能被复用的裸id，不跨20个顺序样本积累来源对象。loader失败时同样以实际异常对象关联收到同一异常的调用；等待超时且未取得结果/异常关联时，记本请求失败和loadIds为空，不能猜给最后一次加载。失败记录不被后续成功覆盖。
+LoadRecord以loadId为键，字段固定flightKeyDigest、period、startedMs、finishedMs、terminal、pairCalls、barsCalls、indicatorCalls、signatureChecks、seriesCacheRead、seriesCacheReadCalls；flightKeyDigest仅对现共享加载key做摘要，不输出其中路径、连接对象或凭据。seriesCacheRead初始not_called，观察本load原XxmCache.get：返回None为miss、返回对象为hit、抛错为error，调用前计数+1。这里hit只表示找到旧SeriesEntry，不表示源验证通过、不表示零重读；仍核pair/明细读取和来源修订事实。
+
+包装现SharedLoads.load的loader：仅真正执行loader时生成loadId；对返回同一对象的订阅者关联同一loadId，已结束加载不能当后续请求的TTL命中，不改SharedLoads本身。外层包装用锁记录每个key尚未返回的调用数；结果对象与loadId的关联保留真实对象引用，最后一个调用退出即释放该key的关联，不只保存可能被复用的裸id，不跨20个顺序样本积累来源对象。loader失败时同样以实际异常对象关联收到同一异常的调用；等待超时且未取得结果/异常关联时，记本请求失败和loadIds为空，不能猜给最后一次加载。失败记录不被后续成功覆盖。
+
+缓存观察只在隔离子进程包装上述三个真实方法及原loader；wrapped loader进入时设置本loadId上下文、finally恢复，XxmCache.get据此登记到本LoadRecord；get_forecast/put_forecast按当前requestId登记。仅观察本组q._CACHE实例，其他实例或无本组上下文的调用原样透传、不归到最后一条记录。原函数恰调用一次、原结果/异常/check原样转发，不读取entries补判断，不提前查缓存、不加缓存、不改get/put或求解策略。每个正常forecast原本最多get_forecast一次、put_forecast一次，每个正常load最多get一次；实际超出时保留真实计数并使工具核验失败，不能截断为1。共享等待者只引用同一loadId的行情查找事实，不复制为自己的再次查找；预测缓存事实仍逐请求独立。
+
+以下分支必须原样保留并解释：SOURCE_EMPTY/DELAYED、静态NO_CANDIDATE及CALIBRATION_FAILED路径的预测缓存均为not_called；静态结果虽然dataStatus可为READY，也不能当cache miss或命中。实际到get_forecast后返回None才是miss；之后求解有target且原发布正常完成才记stored。get返回hit但后续完整校验/编码失败仍是本次失败，不能声称命中路径验收通过。
+
+报告逐次列轮次、实际行情查找及预测缓存状态/次数、来源身份和耗时。先按真实事实划分“未访问/未命中/命中”，再在有成功样本时分别统计耗时；20次接口P95仍按全部20个成功样本计算，不只挑命中样本。需要预测缓存命中证据却没有实际hit时，记录“该路径未验收”，不能宣称完整冷热验收通过；若请求/合同/预算均成功，可继续原清单内已授权的其他独立组，但不另选日期或增加请求。单轮samples=1本来不要求命中，不因没有hit将合法单轮误报失败；不能把它提升为完整冷热验收。任何真实请求、合同或预算失败仍按§21.5.6停止整个CLI。
 
 分钟pair内部的两个标准ThreadPoolExecutor线程不会自动继承上述请求ContextVar。pair观测包装在调用前登记(id(reader),freq,start,end)→loadId，锁保护；两个_read_complete_history包装依此关联bars/indicators计数，结束后finally移除；若同键出现重叠归属或无归属即本组核验失败，不能猜给最近请求。原pair函数仍只调用一次，绝不为传播上下文改Reader、另包一层执行器或重复读取。指纹stat计signatureChecks，不计明细重读。
 
@@ -2698,9 +2722,11 @@ LoadRecord以loadId为键，字段固定flightKeyDigest、period、startedMs、f
 
 - context：groupId、period、mode、requestedAsOf、businessDate、generatedAt、实际detector/forecast版本及hash。
 - reset：只在本组无活动请求时允许，清本组缓存/计数后返回groupId和ok；有活动请求必须拒绝，不清他人缓存。
-- metrics：groupId、requests（按requestId排序的上述记录）、loads（按loadId排序）、activeRequests、cacheBytes/cacheEntries、cleanupStatus。服务器不掌握clientSeconds及普通数据接口的客户端解码统计，这些字段在metrics为None；mjs收到metrics后按requestId与本地已校验记录一一合并为最终摘要，不追加HTTP，不把缺记录猜成0。此时App尚在运行，cleanupStatus固定pending；完成清理后result摘要才可改为cleaned，失败为failed，不能从activeRequests=0推断整个进程已清理。无完整响应、输入数组、SQL、源码路径、认证信息。
+- metrics：groupId、requests（按requestId排序的上述记录）、loads（按loadId排序）、activeRequests、cacheBytes/cacheEntries、cleanupStatus。服务器不掌握httpSeconds/clientSeconds及普通数据接口的客户端解码统计，这些字段在metrics为None；mjs收到metrics后按requestId与本地已校验记录一一合并为最终摘要，不追加HTTP，不把缺记录猜成0。正常成功传输必须有httpSeconds，r4成功返回必须有clientSeconds，不能因服务端原为None就漏掉合并。此时App尚在运行，cleanupStatus固定pending；完成清理后result摘要才可改为cleaned，失败为failed，不能从activeRequests=0推断整个进程已清理。无完整响应、输入数组、SQL、源码路径、认证信息。
 
 客户端按requestId一一配对，缺记录/重号/周期或模式不符即失败。normal/debug的r4对照只针对signals/forecast，且只有同endpoint、同period、同requestedAsOf、同computedThrough、同实际sourceInputId（forecast还须同calendarInputId）以及同可比窗口时比较publicDigest。指标版本也相同。不同模式不能用“最后一条记录”对齐；并发两个tab都必须保留。来源在未用到的未来区间改变而本次前缀ID相同，不误判本次结果变化；已用前缀改变则对照无效，原样报告，不强配或重跑。
+
+合并时保留服务器真实httpStatus/字节/ASGI时间及缓存事实；最终terminal只有服务器和客户端均通过才为success。HTTP200但Node解码、适配或最后check失败时仍为error，取消为cancelled，publicDigest不作为成功证据；不能拿服务器success覆盖客户端失败。没有产品错误码的客户端错误记errorCode=None并按工具失败阶段说明，不新增业务错误码。失败请求仍参加已发生请求的对账，但不计入成功P95或成功命中覆盖。
 
 一次并发组未实际重叠加载时，只能登记“本次未证明共享”，不能强断重复读取或填通过；共享实现的确定性反例沿现Event门控人工测试。真实并发只观测不人为延迟源来凑重叠；缺实际证据按既定未验收处理。日线顺序独立请求的必要来源核对仍允许，不能把所有HTTP总SQL数统一断言为1。
 
@@ -2708,7 +2734,23 @@ LoadRecord以loadId为键，字段固定flightKeyDigest、period、startedMs、f
 
 400ms起点仍为forecast_query_service.build创建deadline的那一次真实perf_counter返回值，终点为build最后返回，包含复制/预检/校准/日历/求界或缓存复核/身份/投影/编码/发布。隔离进程只包装forecast_query_service.time模块引用和build，时钟原值转发；不修改标准库时钟、不改check，不从recover_projection或future_calendar之后才计。用threading.local区分请求时钟，再以ContextVar requestId归档；未建立计算deadline的路径记computeSeconds=None及原因，不报0或通过。
 
-HTTP从发出到完整body计时，按接口分别核原4秒/5秒等预算；scope内观测本身的开销保留在实际计时内，不从结果中扣掉。逐请求校验之后才产生publicDigest，不调用同一业务函数生成expected。
+计时点和验收指标逐项固定，不能在编码时选择更好看的一个：
+
+| 记录/预算 | 起止与实际验证 |
+|---|---|
+| httpSeconds；日线K线20次P95≤0.8秒 | 复用原mjs的fetch包装：t0=调用nativeFetch前的performance.now()，t1=完整response.arrayBuffer()返回后，同一Node时钟差/1000。日线K线只用此值求P95，含传输、不含后来JSON解码；不拿ASGI时间或clientSeconds代替 |
+| httpSeconds；r4工具原HTTP≤4秒 | signals/forecast逐次按上述正文收全耗时核4秒，不改原工具口径。服务端query原4秒截止同时保持，由其原remaining/check执行，工具不重置或绕过。两者是不同观察范围，不能用服务器快来抵消网络超时 |
+| clientSeconds；r4原客户端5秒 | 正常取得{response,deadline}后，起点恰deadline−XXM_TIMEOUT_MS（原5000ms），终点为本请求适配和最后check通过后。原check在now>=deadline时拒绝，不能因测量舍入而允许恰5秒；不把排队计入原5秒，也不在取到正文后再开5秒 |
+| computeSeconds；预测计算/缓存≤400ms | 沿上文真实后台计算deadline起点直到build返回，含完整处理/缓存及编码。未创建计算deadline时None且标不适用，不能记0通过；真实截止仍由原check执行，测量不能减少实际时间 |
+| startedMs/finishedMs；服务器ASGI拆解 | 两者只在Python单调钟内相减，含服务器实际处理直到最后body发送。用于说明时间花在哪里，不替代客户端HTTP、5秒或预测400ms，也不与Node的绝对时间相减 |
+| 分钟图/指标/九转及普通K线单次 | 全部记录真实httpSeconds/字节和成功状态；保持各自现接口/Reader与组期限，不额外套日线800ms、r4客户端5秒或预测400ms。K线样本中任何真实失败仍不作P95成功样本 |
+| 研究8秒/10秒；本组50秒/60秒 | daily-waves不在工具业务清单，原预算由页面验；组50秒工作、60秒含退出覆盖原scheduler排队/启动/运行/清理，不能拿组时限延长单请求预算 |
+
+fetch包装只收正文一次，并用同一buffer及原status/statusText/headers构造Response交给原client.json()解码；不额外fetch、clone后再读或第二次解析来生成统计。保留原AbortSignal，headers先到但正文未完时不能填httpSeconds；失败/取消保留httpStatus和实际已知字节，未收全记None及原错误，不填耗时0或通过。各接口的完整body字节仍与原响应上限核对，错误正文不在摘要透传。
+
+signals一返回立即用同一deadline给buildXxmViewModel/check，forecast一返回立即完成最后check，不等本组其他请求。生成本请求的有界摘要后再作原check并记录终点、clientSeconds，交给组汇总；该段全部在原5秒，不能只把摘要前的较短时间报作最终耗时。后续等待其他请求/metrics、合并服务器统计不重新检验这根已按期完成的客户端deadline，也不能修改已记录耗时。若client在返回deadline前就失败，clientSeconds=None、terminal=error/cancelled，沿原HTTP/预算异常，不猜起点或生成新deadline。普通K线/指标/九转没有统一5秒客户端返回合同，其clientSeconds为None，不因此少记httpSeconds。服务器metrics中的两个Node耗时字段由客户端最终一一合并，不能被None覆盖。
+
+观测本身的开销保留在实际计时内，不扣除、不把httpSeconds与clientSeconds相减后验收。P95先用完整未舍入的秒数排序/比较，显示时才格式化；没有20个该接口成功样本不生成P95通过。逐请求校验之后才产生publicDigest，不调用同一业务函数生成expected。
 
 业务响应只在子进程本组内保留到校验/摘要完成；samples循环不累积20份正文。父进程只接收context、记录表、摘要和退出状态；通信摘要总字节复用BUDGET.max_response_bytes上限，超限整组失败，不截断记录。单组业务请求数严格由§21.5.1表给出，私有控制请求单列；记录数也不得超过实际发出的白名单请求数。不落盘、无浏览器持久缓存、无恢复文件；跨组只保留同源比较所需有界摘要。
 
@@ -2820,14 +2862,27 @@ P4四周期真实证据齐备而管理员页面尚未review，只能写“自动
 | P4-29 | 研究真实start→K线匹配→图，关闭/错误；生产build/本机静态入口 | 原8秒/10秒与2MiB保持；默认无研究，生产无功能及相关下载/请求 | 真实API驱动页面和管理员浏览器review |
 | P4-30 | 缺某周期、预算失败、页面review未完成、P5旧模块仍在 | 对账标失败/未验收，不能宣称P4通过、自动清退或部署 | 本三文档交付对账 |
 | P4-31 | 本地上证technical激活，主图day→m5→m90，分别debug0/1及分钟能力off | m5无图上识别；合法四行按原资格继续请求/显示，minute off只禁分钟行，day不受影响；切回m90恢复该图识别 | Page、日分钟工作区和forecast测试 |
-| P4-32 | 两CLI、四周期、两模式、samples1/20及内部scenario手写请求清单 | 每接口次数/顺序与21.5.1逐项相等；独立组无缓存串入，不跑未选周期/旧矩阵；错误参数启动前拒绝 | 主题P4工具测试及Node隔离入口 |
+| P4-32 | 两CLI、四周期、两模式、samples1/20及内部scenario手写请求清单 | 成功组次数及K线→实际取参→识别顺序与21.5.1相等；失败组记录实际数、不补请求；独立组无缓存串入，不跑未选周期/旧矩阵；错误参数启动前拒绝 | 主题P4工具测试及Node隔离入口 |
 | P4-33 | 两tab同周期响应逆序/重号/缺记录；真实ASGI同步线程和分钟pair子线程 | requestId唯一关联；每请求时间/源/摘要不串；pair子线程按显式loadId归属；重复或无归属拒绝，不用最后一条记录兜底 | 工具ASGI集成及原shared_loads测试 |
 | P4-34 | 临时采样端口已关闭；人工开发页/API8000；静态生产页；旧服务或错误端口 | 人工地址不指向临时App，不改Vite代理；版本/来源未确认不得验收；生产静态页无r4请求。用户review未完成维持未验收 | 静态调用检查、真实页面交接及管理员review |
 | P4-35 | 真实卡住的服务线程或Node、started缺失/重号/错pid、result后不退出或子进程已退出但Node残留、半行/超量stdout或stderr、管道断开、Ctrl-C | 线程未完不能恢复包装；消息次序/终态唯一，清理前不报cleaned；父进程仅终止本组，58/59秒升级，60秒内停止并报告失败，无后续组/PASS；主服务和父进程包装从未被改 | 工具进程集成，人工阻塞不读真实源 |
 | P4-36 | normal/debug同前缀；已用前缀变更；只在未用未来区间变化；窗口不同 | 同源同窗口公共摘要相等；已用前缀或日历变更对照无效；未来无关变化不误拦；窗口不同不能强配，不重算来造一致 | 工具独立字面样本及受控ASGI集成 |
+| P4-37 | K线延迟返回、滞后/不足/空数据，分钟指标更晚或错位；每tab独立 | 图未合法返回前识别0次；实际首末日期/根数/版本入参准确，不代用请求数量或context；右栏日期不被改；空/坏图取消且不凑请求 | P4工具测试及Node独立字面HTTP |
+| P4-38 | r4 normal/debug两组；日线K线既有debug省略/0/1；非法值 | 工具只让r4按模式切换，K线等固定省略；原K线0/1合法和非法值拒绝均保持；记录实际参数None/1而非虚构传0，匹配有效模式正确 | P4工具测试及既有日线API参数测试 |
+| P4-39 | 行情查到但预测未访问、真实miss/store/hit、source修订及坏缓存；共享等待者 | 状态/次数来自原方法一次调用；不按round猜命中、不额外get/put；正常不访问不误拦，失败命中不算验收；缺hit覆盖如实未验收，无额外运行 | P4工具测试+现forecast API/SharedLoads人工样本 |
+| P4-40 | 独立HTTP/客户端/后台时钟，完整正文晚到、解码/适配跨限；20次及不足样本 | httpSeconds/clientSeconds/computeSeconds各用真实起止，800ms/4秒/5秒/400ms逐项对应；不混时钟、不重开/相减、无完整值不记0；P95准确且无补样本 | P4工具测试、Node隔离入口及原P4-09/22/27扩展 |
 
 
 新增测试路径以表为准，先核目录存在后创建在对应域；研究工具测试不散落根tests。现web模块测试继续保留，不为环境门禁改掉所有fixture。生产反例必须走正式App装配及前端production构建；只mock development=false不足以证明构建无辅助加载。无结果落盘测试拦的是本轮工具writer，不能拦模块导入/原材料读取后把无读取误当通过。
+
+#### 21.8.1 四项补齐的独立字面预期
+
+以下只设计测试，不在文档轮执行或编写测试代码。HTTP夹具沿已核的K线生产者字段及P3合法r4字面DTO构造；错误样本明确故意用于反向测试，不用待测工具/算法输出生成expected。
+
+- **P4-37取参和顺序：**context日期2023-01-05，日线实际仅2023-01-03、01-04两根合法K线；请求limit1000。应在K线返回后恰发一次识别，startDate=2023-01-03、endDate=2023-01-04、limit=2；forecast latest仍无asOf、九转仍endDate=2023-01-05。明确历史asOf则forecast仍使用该请求日而非图上较早末日。另用分钟两根同日10:30/11:30合法价格/指标、请求500：指标Promise未完成时识别0次，完成后limit=2且版本取真实返回。指标缺一根、时间错位、DIF非有限、空bars分别不发识别且取消剩余任务，不能按成功组硬补4/5次；合法不足根数和合法滞后均不能误当合同错误。两个tab分别从自身返回值取参，不借另一tab窗口。
+- **P4-38参数：**对同一组合法输入分别执行normal/debug，工具K线URL均无debug，signals/forecast分别省略或传1；记录debug相应为None/1，有效普通模式仍按0解码。另在原真实K线路由参数测试中验证省略、0、1继续成功，2/重复键仍拒绝；该测试不追加到真实采样组。不能通过删除K线debug签名来满足“工具不传”。
+- **P4-39缓存：**借用现静态ZERO_WAVE和CALIBRATION_FAILED独立样本，行情已有条目且其验证合法；预测get/put均0、状态not_called，轮次即使20也不是预测hit。正常可缓存样本首根read=miss/1且write=stored/1，下一相同输入read=hit/1、write=not_called/0；值和原异常相同，观察不能再查一次。源修订后旧行情get可为hit，但分钟pair按原流程重读、预测新身份为miss，不能凭行情hit断言零重读。共享两请求只有一个真实load和一次行情get，两个request引用同loadId，不能算两次行情get。坏预测缓存虽get返回对象而记hit，后续完整校验必须失败且不求解兜底；报告不得计为成功命中验收。没有任何hit的20次合法静态组应保留合法响应及预算结果、将命中覆盖标未验收，而非误判接口错或偷偷加第21次。
+- **P4-40计时：**手写20个HTTP0.70秒，JSON/适配合计加0.20秒；K线P95应仍0.70，不用0.90验800ms。另18个0.70、2个0.81，第19项0.81使P95不通过，19个样本不输出P95通过。r4正文4.01秒即使服务器只1秒也不通过HTTP4秒；headers先到不算正文已完。返回deadline=6000ms、原客户端起点1000ms，最终5999ms正常，6000ms必须由原check拒绝；不能从收到正文时重新计5秒。计算段390ms正常、410ms失败；Node和Python绝对时钟起点故意不同，仍只各自做差。正文取消、未返回deadline、未建立计算段分别为对应None和实际状态，不能填0通过。HTTP200但解码失败最终必须error，不能按服务器success计样本。某请求已完成摘要后另一个请求较晚结束，不重新将前者判超时；前者自身适配超限仍必须拒绝。
 
 ### 21.9 执行、独立审计及交付停点
 
@@ -2841,19 +2896,21 @@ P4四周期真实证据齐备而管理员页面尚未review，只能写“自动
 | 5 day/m60/m90/m120 | 分周期登记source范围、完成/前缀/响应根数、字段/日期/bytes、冷热、读取/计算次数 | 当前均未执行；缺证据保留原因 |
 | 6 | 实际API驱动、build/本机静态页面及管理员review | 当前未执行，不能用Node代浏览器 |
 
-#### 本轮六项修正后的独立文档审计（2026-11-01）
+#### 本轮四项补齐及独立文档审计（2026-11-01）
 
-重新从现代码沿App装配→页面资格/四行预判→动态模块→真实组件→两个工具→来源/计时→退出→人工页面交接逐项核对；使用CodeGraph codegraph_explore核入口和调用关系，并直接核对query的投影/计时位置、SharedLoads、分钟pair线程、Vite代理及App静态入口。没有以文档自身或测试数量替代当前代码事实。
+本轮依据e2844c6f7后的审计，只补工具取参/请求顺序、K线既有debug合同、缓存真实使用记录及计时指标；前六项环境/页面/分组/来源/清理修正继续保持。原开工判断由本次整体复核替代，不保留与当前设计不一致的执行指令。
 
-| 原六项问题 | 复核结果与覆盖 |
-|---|---|
-| 主图周期与预判资格混用 | §21.3保留四行原资格；P4-10/18/31区分不支持的主图与整项禁用，未改变P3合同 |
-| 1/20次的执行范围不清 | §21.5.1给出逐接口次数及私有3次，分组不暗加预热；P4-27/32逐项验证 |
-| 并发记录及来源身份不清 | §21.5.3按真实请求/加载关联，明确两类线程及客户端统计合并；P4-23/26/33/36覆盖并发、源修订及正常无关变化 |
-| 临时服务不能交付人工页面 | §21.7明确自动组关闭与管理员8000开发/静态页面、版本/来源和责任；P4-29/34覆盖错误端口和未review |
-| 卡住时恢复/退出顺序不清 | §21.5.5—6从进程创建到60秒统一计时，收包不阻塞；活动未清不恢复，残留Node同组结束；P4-24/35覆盖失败和正常退出 |
-| 当前章节仍安排已完成P3 | 产品§2/6/7/9、技术方案§1/10—15及本文§0/3.8/6.11/11/20统一为P3已完成、P4当前设计；历史真实成绩保留，旧开工结论不再指导当前批次 |
+| 四项问题 | 本次唯一要求 | 设计覆盖 |
+|---|---|---|
+| 取参和顺序不完整 | §21.5.1先合法图点、再真实首末/根数识别；分钟先匹配价格/指标，失败不凑次数；预判/九转日期保持 | P4-32/37 |
+| K线debug合同事实错误 | §21.5.2保留K线原0/1能力；工具仅省略，不按r4模式改变；记录实际URL及有效模式各自含义 | P4-38及原参数测试 |
+| 按轮次假设热命中 | §21.5.3真实观察原get/get_forecast/put_forecast，不额外查询；正常不访问、源修订、坏命中与共享者各自明确 | P4-23/39 |
+| 计时指标不对应 | §21.5.3—4分开HTTP/客户端/后台/ASGI时间；实际正文和原deadline各自计时，固定预算表及失败None | P4-09/22/27/40 |
 
-本轮仓库文档完整性检查、三文件git diff --check及14处本地文档链接检查通过；P4-01—36编号连续、无重复，36项均为测试设计，未执行测试代码或真实源/页面验收。只修改这组三份文档，不修改代码、配置或其他工作区内容，不提交或部署。
+独立复核重新从当前代码核对：useIndexXxmLayer实际首末日期及根数、分钟图价格/指标匹配、K线真实路由与TS参数、客户端和scheduler的deadline开始点、预测静态/校准/缓存分支、XxmCache三个真实方法及原mjs正文接收计时。CodeGraph codegraph_explore核相关入口/消费者/缓存影响；同名API方法不代替缓存实现证据。再按本节正反场景检查数据滞后/不足/空值、共享/源修订、合法不访问预测缓存、错误命中、不同计时和组退出的上下游配合。
 
-结论：六项问题已补齐，未发现本轮P4范围内剩余待拍板、上下游缺项或方案/LLD矛盾，具备进入P4开发的文档条件。本轮停在文档交付；四周期真实数据/预算及页面review仍须实施后逐项验收，P5只能在P4验收后推进。
+复核中同步消除了成功组次数对失败组的误约束、轮次与缓存状态混用、实际参数None与有效模式0混用、已完成请求被其他请求等待重新判超时，以及HTTP200掩盖客户端失败的歧义。P4六步顺序、原四周期/普通-debug合同、只读/纯内存/60秒退出、r4算法及所有既定预算保持；不增加产品参数或另起执行入口。
+
+仓库文档完整性、三文件git diff --check及14处本地链接检查通过；P4-01—40编号连续无重复，新增四项均有独立正反例和代码落点。仅另核对文档中P95字面算例，不执行产品测试或实际采样。40项设计不代表40项测试已经执行；未修改代码、配置，未读行情、运行工具、提交或部署。
+
+结论：本轮四项补齐及与前六项的衔接已完成，当前审计范围内未发现仍未处理的方案/LLD冲突、需新增拍板的口径或缺失交接，具备进入P4开发的文档条件。本轮停在文档交付；真实四周期、性能、管理员页面review仍须实施后逐项验收，P5继续以P4验收通过为前置。
