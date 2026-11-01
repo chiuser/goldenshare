@@ -83,11 +83,13 @@ def read_minutes(reader: MajorIndexMinsLakeReader, *, freq: int, end: date, dead
     request = minute_request(freq, end, start)
     bars, indicators = reader.read_complete_history_pair(request, timeout_seconds=deadline(),
         bar_value_columns=("close",), indicator_value_columns=("macd_dif", "macd_dea", "macd"))
-    key = lambda row: (row["ts_code"], row["freq"], row["trade_date"], row["trade_time"])
-    if tuple(map(key, bars.rows)) != tuple(map(key, indicators.rows)):
+    if len(bars.rows) != len(indicators.rows):
         raise XxmSourceError("分钟价格与指标的完整时间集合不一致。")
     result = []
     for price, indicator in zip(bars.rows, indicators.rows, strict=True):
+        if ((price["ts_code"], price["freq"], price["trade_date"], price["trade_time"])
+                != (indicator["ts_code"], indicator["freq"], indicator["trade_date"], indicator["trade_time"])):
+            raise XxmSourceError("分钟价格与指标的完整时间集合不一致。")
         stamp = price["trade_time"]
         if stamp.tzinfo is not None:
             raise XxmSourceError("正式分钟时间应为上海本地无时区时间。")
@@ -105,8 +107,6 @@ def assert_continuous(values: tuple[XxmBar, ...], *, period: XxmPeriod, open_dat
     if not values:
         return
     actual = tuple(bar.time for bar in values)
-    if actual != tuple(sorted(set(actual))):
-        raise XxmSourceError("输入时间重复或乱序。")
     first_date, last_date = date.fromisoformat(actual[0][:10]), date.fromisoformat(actual[-1][:10])
     days = [day for day in open_dates if first_date <= day <= last_date]
     if period == "day":

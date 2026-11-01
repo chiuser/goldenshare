@@ -356,3 +356,115 @@ def test_real_http_normal_debug_same_facts_and_no_store(source_db,monkeypatch):
     assert encoded==[normal.content,debug.content]
     assert normal.json()=={k:v for k,v in debug.json().items() if k!='debug'}
     assert 'inputId' not in normal.json()['source']
+
+
+@pytest.mark.parametrize('mismatch',['none','length','time','code','freq','date','left_empty','right_empty','both_empty'])
+def test_p4_batch2_two_streams_match_in_one_pass(mismatch):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from src.biz.queries.wealth.market.index_detail_xxm.source import read_minutes
+    price=[dict(ts_code='000001.SH',freq=60,trade_date=date(2020,1,1),trade_time=datetime(2020,1,1,h,m),close=100+i)
+        for i,(h,m) in enumerate(((10,30),(11,30),(14,0)))]
+    indicators=[{k:v for k,v in row.items() if k!='close'}|dict(macd_dif=0.,macd_dea=0.,macd=0.) for row in price]
+    if mismatch=='length': indicators.pop()
+    elif mismatch=='time': indicators[1]['trade_time']=datetime(2020,1,1,11,29)
+    elif mismatch=='code': indicators[1]['ts_code']='399001.SZ'
+    elif mismatch=='freq': indicators[1]['freq']=90
+    elif mismatch=='date': indicators[1]['trade_date']=date(2020,1,2)
+    elif mismatch in ('left_empty','both_empty'): price=[]
+    if mismatch in ('right_empty','both_empty'): indicators=[]
+    reader=Mock()
+    reader.read_complete_history_pair.return_value=(SimpleNamespace(rows=tuple(price)),SimpleNamespace(rows=tuple(indicators)))
+    if mismatch in ('none','both_empty'):
+        result=read_minutes(reader,freq=60,end=date(2020,1,1),deadline=lambda:3.)
+        assert [bar.close for bar in result]==([100,101,102] if mismatch=='none' else [])
+        assert all((bar.dif,bar.dea,bar.hist)==(0.,0.,0.) for bar in result)
+    else:
+        with pytest.raises(XxmSourceError): read_minutes(reader,freq=60,end=date(2020,1,1),deadline=lambda:3.)
+    args=reader.read_complete_history_pair.call_args
+    assert reader.read_complete_history_pair.call_count==1
+    assert args.kwargs==dict(timeout_seconds=3.,bar_value_columns=('close',),indicator_value_columns=('macd_dif','macd_dea','macd'))
+
+
+@pytest.mark.parametrize('field',['close','macd_dif','macd_dea','macd'])
+@pytest.mark.parametrize('bad',[None,float('nan'),float('inf')])
+def test_p4_batch2_bar_validation_still_rejects_required_values(field,bad):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from src.biz.queries.wealth.market.index_detail_xxm.source import read_minutes
+    price=dict(ts_code='000001.SH',freq=60,trade_date=date(2020,1,1),trade_time=datetime(2020,1,1,10,30),close=100.)
+    indicator={k:v for k,v in price.items() if k!='close'}|dict(macd_dif=0.,macd_dea=0.,macd=0.)
+    (price if field=='close' else indicator)[field]=bad
+    reader=Mock();reader.read_complete_history_pair.return_value=(SimpleNamespace(rows=(price,)),SimpleNamespace(rows=(indicator,)))
+    with pytest.raises(XxmSourceError): read_minutes(reader,freq=60,end=date(2020,1,1),deadline=lambda:3.)
+
+
+@pytest.mark.parametrize('period,endpoints',[
+    ('day',None),('m60',('10:30:00','11:30:00','14:00:00','15:00:00')),
+    ('m90',('11:00:00','14:00:00','15:00:00')),('m120',('11:30:00','15:00:00'))])
+@pytest.mark.parametrize('kind',['valid','duplicate','reverse','missing_day','missing_middle'])
+def test_p4_batch2_calendar_still_rejects_gaps_duplicates_and_order(period,endpoints,kind):
+    # Literal endpoint table, independent of source.ENDPOINTS; weekend isn't a missing day.
+    days=(date(2026,8,7),date(2026,8,10),date(2026,8,11))
+    times=[d.isoformat() for d in days] if period=='day' else [f'{d}T{t}+08:00' for d in days for t in endpoints]
+    if kind=='duplicate': times.insert(1,times[0])
+    elif kind=='reverse': times.reverse()
+    elif kind=='missing_day': times=[t for t in times if not t.startswith('2026-08-10')]
+    elif kind=='missing_middle': times.pop(1)
+    values=tuple(XxmBar(t,100.,0.,0.,0.) for t in times)
+    if kind=='valid': assert_continuous(values,period=period,open_dates=days)
+    else:
+        with pytest.raises(XxmSourceError): assert_continuous(values,period=period,open_dates=days)
+
+
+def _batch2_real_xxm_gold(root,freq,change):
+    import duckdb
+    from src.foundation.clients.local_lake.major_index_mins_contract import GOLD_BAR_COLUMN_SPECS,GOLD_INDICATOR_COLUMN_SPECS,GOLD_PARAMS_KEY
+    # Producers' fixed Gold schemas; independent literal end times and business values.
+    endpoints={60:('10:30:00','11:30:00','14:00:00','15:00:00'),90:('11:00:00','14:00:00','15:00:00'),120:('11:30:00','15:00:00')}[freq]
+    with duckdb.connect(':memory:') as con:
+        for dataset,specs,folder in (('bars',GOLD_BAR_COLUMN_SPECS,'quote/major_index_mins'),('indicators',GOLD_INDICATOR_COLUMN_SPECS,'indicator/major_index_mins_technical')):
+            con.execute(f'CREATE TABLE {dataset} ('+','.join(f'{n} {t}' for n,t in specs)+')')
+            for i,clock in enumerate(endpoints):
+                row={n:1. for n,_ in specs}
+                row.update(ts_code='000001.SH',freq=freq,trade_date=date(2020,1,1),trade_time='2020-01-01 '+clock,
+                    close=100+i,exchange='SSE',macd_dif=.1,macd_dea=.2,macd=-.2,observation_count=1,params_key=GOLD_PARAMS_KEY,indicator_version=1)
+                con.execute(f'INSERT INTO {dataset} VALUES ('+','.join('?' for _ in specs)+')',[row[n] for n,_ in specs])
+            if change=='unused_bad':
+                con.execute(f'UPDATE {dataset} SET '+("open='NaN'::DOUBLE" if dataset=='bars' else 'observation_count=0'))
+            if dataset=='indicators':
+                if change=='misaligned': con.execute("UPDATE indicators SET trade_time=trade_time+INTERVAL '1 minute' WHERE trade_time=(SELECT min(trade_time) FROM indicators)")
+                elif change=='bad_version': con.execute('UPDATE indicators SET indicator_version=0')
+                elif change=='bad_macd': con.execute("UPDATE indicators SET macd_dif='NaN'::DOUBLE")
+                elif change=='duplicate': con.execute('INSERT INTO indicators SELECT * FROM indicators LIMIT 1')
+            projection='* EXCLUDE (open)' if change=='unused_missing' and dataset=='bars' else '* EXCLUDE (ma_5)' if change=='unused_missing' else '*'
+            path=root/f'gold/{folder}/freq={freq}/trade_date=2020-01-01/part-000.parquet';path.parent.mkdir(parents=True,exist_ok=True)
+            con.execute(f'COPY (SELECT {projection} FROM {dataset}) TO ? (FORMAT PARQUET)',[str(path)])
+    return endpoints
+
+
+@pytest.mark.parametrize('freq',[60,90,120])
+@pytest.mark.parametrize('change',['valid','unused_bad','unused_missing','misaligned','bad_version','bad_macd','duplicate','empty'])
+def test_p4_batch2_real_xxm_partial_reader_and_http(source_db,tmp_path,freq,change):
+    if change!='empty': endpoints=_batch2_real_xxm_gold(tmp_path,freq,change)
+    def session():
+        with Session(source_db) as s: yield s
+    app=FastAPI();install_exception_handlers(app)
+    app.include_router(build_minute_router(db_dependency=session,auth_dependency=lambda:None,lake_dependency=lambda:tmp_path,error_factory=WebAppError),prefix='/api/v1')
+    with TestClient(app) as api:
+        path='/api/v1/wealth/market/index-detail/minute-xxm-signals'
+        response=api.get(path,params={'tsCode':'000001.SH','freq':freq,'endDate':'2020-01-01','debug':'1'})
+        if change in ('valid','unused_bad','unused_missing','empty'):
+            normal=api.get(path,params={'tsCode':'000001.SH','freq':freq,'endDate':'2020-01-01'})
+            assert normal.status_code==200
+            assert normal.json()=={k:v for k,v in response.json().items() if k!='debug'}
+            assert normal.headers['cache-control']==response.headers['cache-control']=='no-store'
+    if change in ('misaligned','bad_version','bad_macd','duplicate'):
+        assert response.status_code==500 and response.json()['code']=='XXM_SOURCE_CONTRACT_INVALID'
+        assert not query_service._CACHE.entries
+    else:
+        assert response.status_code==200
+        data=response.json()
+        assert data['meta']['count']==(0 if change=='empty' else len(endpoints))
+        assert [p['close'] for p in data['points']]==([] if change=='empty' else list(range(100,100+len(endpoints))))
+        assert '_source_filename' not in response.text and '_partition_date' not in response.text

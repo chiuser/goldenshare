@@ -188,7 +188,6 @@ class MajorIndexMinsLakeReader:
         timer.daemon = True
         timer.start()
         try:
-            _validate_combined_schema(connection, tuple(part.path for part in parts), dataset=dataset)
             query_request = IndexMinuteReadRequest(normalized.ts_code, normalized.freq, normalized.start_date,
                                                   normalized.end_date, max_rows, None)
             rows = _query_rows(connection, partitions=parts, dataset=dataset, request=query_request,
@@ -239,8 +238,6 @@ class MajorIndexMinsLakeReader:
         try:
             while True:
                 selected = partitions[:selected_count]
-                paths = tuple(item.path for item in selected)
-                _validate_combined_schema(connection, paths, dataset=dataset)
                 rows = _query_rows(
                     connection,
                     partitions=selected,
@@ -419,31 +416,6 @@ def _initial_partition_count(request: IndexMinuteReadRequest) -> int:
     return max(1, estimated)
 
 
-def _validate_combined_schema(
-    connection: Any,
-    paths: Sequence[Path],
-    *,
-    dataset: IndexMinuteDataset,
-) -> None:
-    expected = (
-        GOLD_BAR_COLUMN_SPECS if dataset == "bars" else GOLD_INDICATOR_COLUMN_SPECS
-    )
-    try:
-        description = connection.execute(
-            "DESCRIBE SELECT * FROM read_parquet(?, hive_partitioning=false)",
-            [list(map(str, paths))],
-        ).fetchall()
-    except Exception as exc:
-        raise IndexMinuteSourceContractError(
-            "指数分钟 Parquet schema 不符合合同。"
-        ) from exc
-    actual = tuple((str(row[0]), _normalize_duckdb_type(row[1])) for row in description)
-    if actual != expected:
-        raise IndexMinuteSourceContractError(
-            "指数分钟 Parquet 列名、顺序或类型不符合合同。"
-        )
-
-
 def _normalize_duckdb_type(value: Any) -> str:
     normalized = str(value).upper()
     if normalized.startswith("TIMESTAMP"):
@@ -475,150 +447,104 @@ def _query_rows(
     decoded_cursor: dict[str, Any] | None,
     columns: tuple[str, ...] | None = None,
 ) -> list[dict[str, Any]]:
-    paths = list(map(str, (item.path for item in partitions)))
-    if dataset == "bars":
-        projection = """
-            ts_code, freq, trade_date,
-            trade_time, open, high, low, close, vol, amount, exchange
-        """
-        contract_predicate = """
-            freq = ?
-            AND regexp_full_match(ts_code, '^[0-9]{6}\\.(SH|SZ|BJ)$')
-            AND trade_date = CAST(
-              regexp_extract(filename, 'trade_date=([0-9]{4}-[0-9]{2}-[0-9]{2})', 1) AS DATE
-            )
-            AND CAST(trade_time AS DATE) = trade_date
-            AND strftime(trade_time, '%H:%M:%S') <= '15:00:00'
-            AND (
-              freq = 1
-              OR strftime(trade_time, '%H:%M:%S') <> '09:30:00'
-            )
-            AND isfinite(open)
-            AND isfinite(high)
-            AND isfinite(low)
-            AND isfinite(close)
-            AND isfinite(vol)
-            AND isfinite(amount)
-            AND exchange <> ''
-        """
-        identity_predicate = "ts_code = ? AND freq = ?"
-        parameters: list[Any] = [paths, request.freq, request.ts_code, request.freq]
-    else:
-        projection = """
-            ts_code, freq, trade_date, trade_time,
-            ma_5, ma_10, ma_20, ma_30, ma_60, ma_90, ma_250,
-            boll_mid, boll_upper, boll_lower,
-            macd_dif, macd_dea, macd, kdj_k, kdj_d, kdj_j,
-            observation_count, params_key, indicator_version
-        """
-        contract_predicate = """
-            freq = ?
-            AND regexp_full_match(ts_code, '^[0-9]{6}\\.(SH|SZ|BJ)$')
-            AND trade_date = CAST(
-              regexp_extract(filename, 'trade_date=([0-9]{4}-[0-9]{2}-[0-9]{2})', 1) AS DATE
-            )
-            AND CAST(trade_time AS DATE) = trade_date
-            AND strftime(trade_time, '%H:%M:%S') <= '15:00:00'
-            AND (
-              freq = 1
-              OR strftime(trade_time, '%H:%M:%S') <> '09:30:00'
-            )
-            AND params_key = ?
-            AND indicator_version = ?
-            AND observation_count >= 1
-        """
-        identity_predicate = "ts_code = ? AND freq = ?"
-        parameters = [
-            paths,
-            request.freq,
-            GOLD_PARAMS_KEY,
-            GOLD_INDICATOR_VERSION,
-            request.ts_code,
-            request.freq,
-        ]
+    import duckdb
 
-    if columns is not None:
-        projection = ", ".join(columns)
-    filters = [identity_predicate]
-    if request.start_date is not None:
-        filters.append("trade_date >= ?")
-        parameters.append(request.start_date)
-    if request.end_date is not None:
-        filters.append("trade_date <= ?")
-        parameters.append(request.end_date)
+    specs = GOLD_BAR_COLUMN_SPECS[:-1] if dataset == "bars" else GOLD_INDICATOR_COLUMN_SPECS
+    output_columns = columns if columns is not None else tuple(name for name, _ in specs)
+    extra = ("params_key", "indicator_version") if dataset == "indicators" else ()
+    read_columns = (*output_columns, *(name for name in extra if name not in output_columns))
+    projection = ", ".join(read_columns)
+    paths = [str(part.path) for part in partitions]
+    partition_dates = {str(part.path): part.trade_date for part in partitions}
+    parameters: list[Any] = [paths, request.ts_code]
+    cursor_where = ""
     if decoded_cursor is not None:
-        filters.append(
-            "(trade_date < CAST(? AS DATE) OR "
-            "(trade_date = CAST(? AS DATE) AND trade_time < CAST(? AS TIMESTAMP)))"
-        )
         before_date = decoded_cursor["beforeTradeDate"]
-        parameters.extend(
-            [
-                before_date,
-                before_date,
-                f"{before_date} {decoded_cursor['beforeTradeTime']}",
-            ]
-        )
-
-    sql = f"""
-        WITH source AS MATERIALIZED (
-          SELECT *, filename
-          FROM read_parquet(?, filename=true, hive_partitioning=false)
-        ),
-        contract AS (
-          SELECT count(*) FILTER (WHERE NOT COALESCE(({contract_predicate}), FALSE)) AS invalid_count
-          FROM source
-        ),
-        target AS (
-          SELECT {projection}
-          FROM source
-          WHERE {" AND ".join(filters)}
-        ),
-        integrity AS (
-          SELECT
-            count(*) AS target_count,
-            count(*) - count(DISTINCT (trade_date, trade_time)) AS duplicate_count
-          FROM target
-        ),
-        paged AS (
-          SELECT * FROM target
-          ORDER BY trade_date DESC, trade_time DESC
-          LIMIT ?
-        )
-        SELECT
-          paged.*,
-          contract.invalid_count,
-          integrity.duplicate_count,
-          integrity.target_count
-        FROM contract CROSS JOIN integrity LEFT JOIN paged ON TRUE
-    """
+        before_stamp = f"{before_date} {decoded_cursor['beforeTradeTime']}"
+        cursor_where = """
+            WHERE _partition_date < CAST(? AS DATE)
+               OR (_partition_date = CAST(? AS DATE) AND (
+                   trade_time < CAST(? AS TIMESTAMP)
+                   OR trade_time IS NULL
+                   OR CAST(trade_time AS DATE) <> _partition_date
+               ))
+        """
+        parameters.extend([before_date, before_date, before_stamp])
     parameters.append(request.limit + 1)
+    partition_pattern = "trade_date=([0-9]{4}-[0-9]{2}-[0-9]{2})"
+    sql = f"""
+        WITH target AS (
+            SELECT {projection}, filename AS _source_filename,
+                   CAST(regexp_extract(filename, '{partition_pattern}', 1) AS DATE) AS _partition_date
+            FROM read_parquet(?, filename=true, hive_partitioning=false)
+            WHERE ts_code = ?
+        )
+        SELECT {projection}, _source_filename FROM target
+        {cursor_where}
+        ORDER BY _partition_date DESC, trade_time DESC NULLS FIRST
+        LIMIT ?
+    """
     try:
         cursor = connection.execute(sql, parameters)
+        expected_types = dict(specs)
+        expected = tuple((name, expected_types[name]) for name in read_columns) + (("_source_filename", "VARCHAR"),)
+        actual = tuple((item[0], _normalize_duckdb_type(item[1])) for item in cursor.description)
+        if actual != expected:
+            raise IndexMinuteSourceContractError("指数分钟所用列的名称、顺序或类型不符合合同。")
         names = [item[0] for item in cursor.description]
-        fetched = [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
+        rows = [dict(zip(names, row, strict=True)) for row in cursor.fetchall()]
     except IndexMinuteReaderError:
         raise
+    except (duckdb.BinderException, duckdb.ConversionException, duckdb.IOException) as exc:
+        raise IndexMinuteSourceContractError("指数分钟所用列或 Parquet 文件不符合合同。") from exc
+    except duckdb.InvalidInputException as exc:
+        message = str(exc).lower()
+        if (("schema mismatch" in message and "column" in message)
+                or ("parquet" in message and ("too small" in message or "magic" in message))):
+            raise IndexMinuteSourceContractError("指数分钟所用列或 Parquet 文件不符合合同。") from exc
+        raise IndexMinuteQueryError("指数分钟 Lake 查询失败。") from exc
     except Exception as exc:
         raise IndexMinuteQueryError("指数分钟 Lake 查询失败。") from exc
+    return _validate_target_rows(rows, dataset=dataset, request=request,
+                                 output_columns=output_columns, partition_dates=partition_dates)
 
-    if fetched:
-        invalid_count = int(fetched[0].pop("invalid_count"))
-        duplicate_count = int(fetched[0].pop("duplicate_count"))
-        target_count = int(fetched[0].pop("target_count"))
-        for row in fetched[1:]:
-            row.pop("invalid_count")
-            row.pop("duplicate_count")
-            row.pop("target_count")
-        if invalid_count:
-            raise IndexMinuteSourceContractError(
-                "指数分钟文件存在频率、日期、身份或版本合同错误。"
-            )
-        if duplicate_count:
-            raise IndexMinuteSourceContractError("指数分钟文件存在重复时间键。")
-        if target_count == 0:
-            return []
-    return fetched
+
+def _validate_target_rows(
+    rows: list[dict[str, Any]], *, dataset: IndexMinuteDataset,
+    request: IndexMinuteReadRequest, output_columns: tuple[str, ...],
+    partition_dates: dict[str, date],
+) -> list[dict[str, Any]]:
+    previous = None
+    for row in rows:
+        day, stamp = row["trade_date"], row["trade_time"]
+        filename = row["_source_filename"]
+        if (row["ts_code"] != request.ts_code or row["freq"] != request.freq
+                or day is None or stamp is None or filename is None
+                or filename not in partition_dates or day != partition_dates[filename]
+                or stamp.date() != day or stamp.strftime("%H:%M:%S") > "15:00:00"
+                or (request.freq != 1 and stamp.strftime("%H:%M:%S") == "09:30:00")):
+            raise IndexMinuteSourceContractError("指数分钟目标行的身份、频率、日期或时间不符合合同。")
+        if dataset == "bars":
+            for name in ("open", "high", "low", "close", "vol", "amount"):
+                if name in output_columns and (row[name] is None or not math.isfinite(row[name])):
+                    raise IndexMinuteSourceContractError("指数分钟目标行的行情数值不符合合同。")
+            if "exchange" in output_columns and row["exchange"] in (None, ""):
+                raise IndexMinuteSourceContractError("指数分钟目标行缺少交易所。")
+        else:
+            if row["params_key"] != GOLD_PARAMS_KEY or row["indicator_version"] != GOLD_INDICATOR_VERSION:
+                raise IndexMinuteSourceContractError("指数分钟目标行的指标参数或版本不符合合同。")
+            if "observation_count" in output_columns and (row["observation_count"] is None or row["observation_count"] < 1):
+                raise IndexMinuteSourceContractError("指数分钟目标行的指标计数不符合合同。")
+        current = (day, stamp)
+        if previous is not None and not current < previous:
+            raise IndexMinuteSourceContractError("指数分钟目标行的时间重复或乱序。")
+        previous = current
+        row.pop("_source_filename")
+        if dataset == "indicators":
+            for name in ("params_key", "indicator_version"):
+                if name not in output_columns:
+                    row.pop(name)
+    return rows
 
 
 def _encode_cursor(

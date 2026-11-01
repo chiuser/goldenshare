@@ -364,3 +364,45 @@ def test_index_minute_response_size_guard_rejects_payload_above_5mb() -> None:
 
     with pytest.raises(IndexMinuteRequestError, match="5MB"):
         enforce_index_minute_response_size(response)
+
+
+def _batch2_api_rewrite(path, projection):
+    candidate=path.with_suffix('.fixture.parquet')
+    with duckdb.connect(':memory:') as con:
+        con.execute(f'COPY ({projection}) TO $output (FORMAT PARQUET)',{'source':str(path),'output':str(candidate)})
+    candidate.replace(path)
+
+
+@pytest.mark.parametrize('freq',FROZEN_MINUTE_FREQUENCIES)
+@pytest.mark.parametrize('kind',['unused_schema','bad_target','missing_required','empty_target'])
+def test_p4_batch2_real_minute_api_contract(tmp_path,monkeypatch,freq,kind):
+    _write_gold_bars(tmp_path,freq=freq)
+    _write_gold(tmp_path,freq=freq)
+    paths=[tmp_path/f'gold/{folder}/freq={freq}/trade_date=2026-08-11/part-000.parquet'
+        for folder in ('quote/major_index_mins','indicator/major_index_mins_technical')]
+    for i,path in enumerate(paths):
+        if kind=='unused_schema':
+            projection='SELECT * EXCLUDE (vwap), 42 AS unused' if i==0 else 'SELECT *, 42 AS unused'
+        elif kind=='bad_target':
+            projection="SELECT * REPLACE ('NaN'::DOUBLE AS close)" if i==0 else 'SELECT * REPLACE (0 AS indicator_version)'
+        elif kind=='missing_required':
+            projection='SELECT * EXCLUDE (close)' if i==0 else 'SELECT * EXCLUDE (macd_dif)'
+        else:
+            projection="SELECT * REPLACE ('399001.SZ' AS ts_code)"
+        _batch2_api_rewrite(path,projection+' FROM read_parquet($source,hive_partitioning=false)')
+    with _client(monkeypatch,tmp_path) as api:
+        for route,field in (('minutes','bars'),('minute-indicators','items')):
+            response=api.get('/wealth/market/index-detail/'+route,params={'tsCode':'000001.SH','freq':freq,'endDate':'2026-08-11'})
+            if kind in ('bad_target','missing_required'):
+                assert response.status_code==500
+                assert response.json()['code']=='IM_SOURCE_CONTRACT_INVALID'
+            else:
+                assert response.status_code==200
+                data=response.json()
+                assert len(data[field])==(0 if kind=='empty_target' else 2 if field=='bars' else 1)
+                assert data['meta']['count']==len(data[field])
+                assert '_source_filename' not in response.text and '_partition_date' not in response.text
+                if kind=='unused_schema':
+                    assert [r['tradeTime'] for r in data[field]]==(['2026-08-11T09:35:00+08:00','2026-08-11T09:40:00+08:00'] if field=='bars' else ['2026-08-11T09:35:00+08:00'])
+                    if field=='bars': assert [r['close'] for r in data[field]]==[1.1,1.2]
+                    else: assert data[field][0]['ma250'] is None
