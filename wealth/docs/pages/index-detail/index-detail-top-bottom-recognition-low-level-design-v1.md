@@ -1,16 +1,16 @@
 # 财势乾坤顶底识别低层设计 v1
 
-更新：2026-11-01。状态：P3及其审计修复已提交（bebe6f403、11271531c）；P4第1—4步代码及定向测试已完成，执行证据和未覆盖范围见§21.10。前端无上界校验修复已提交7bf8eb823，历史日线及预测冷热真实回归通过；第5步续验在首个60分钟识别请求4秒超时后停止，90/120分钟未执行，实际结果见LLD§21.13.4，第6步仍由管理员执行。完整Wealth回归的1项范围外月初日期测试失败已按管理员决定暂记TODO，不阻挡P4第5步；保留原失败记录，未修改或跳过。识别v0.4-r4、预测v0.6-r4的取价/选峰/1%/EMA及价格解规则不变。未部署，P5未推进。本次耗时优化第1批已获管理员明确提交授权，具体交付状态见下文。
+更新：2026-11-01。状态：P3及其审计修复已提交（bebe6f403、11271531c）；P4第1—4步代码及定向测试已完成，执行证据和未覆盖范围见§21.10。前端无上界校验修复已提交7bf8eb823，历史日线及预测冷热真实回归通过；第5步续验在首个60分钟识别请求4秒超时后停止，90/120分钟未执行，实际结果见LLD§21.13.4，第6步仍由管理员执行。完整Wealth回归的1项范围外月初日期测试失败已按管理员决定暂记TODO，不阻挡P4第5步；保留原失败记录，未修改或跳过。识别v0.4-r4、预测v0.6-r4的取价/选峰/1%/EMA及价格解规则不变。未部署，P5未推进。耗时优化第1批已提交5084ef939；本轮第二批详细设计及两批文档审计完成，尚未编码，具体状态见下文。
 
 依据：[产品文档](../../../../docs/product/wealth-top-bottom-recognition-product-v1.md)、[技术方案](index-detail-top-bottom-recognition-technical-design-v1.md)。本文件只规定当前目标、代码迁移位置、开发顺序和验收，不包含已废弃的开发流程。实施必须使用本文规则和独立用例，不得从旧实验或旧输出推导当前预期。
 
-P4耗时优化专项的静态调查、8方向修改计划和缓存测量方案见[专项方案](../../../../docs/product/wealth-top-bottom-recognition-p4-performance-optimization-plan-v1.md)。管理员已确定先完成容易、明确的精简，再做测量和复杂改造，编码及交接顺序见§0.3。第1批已完成开发、定向回归及独立审计，证据见§0.4.7，停在第2批之前；未测量。其余批次仍须先补齐对应编码细节、替换相冲突的现行工程条款，再实施。不得先把测量准备列作局部精简的前置。原4秒失败及历史验收事实保持，简单结构复算先不改，不重启P4采样。
+P4耗时优化专项的静态调查、8方向修改计划和缓存测量方案见[专项方案](../../../../docs/product/wealth-top-bottom-recognition-p4-performance-optimization-plan-v1.md)。管理员已确定先完成容易、明确的精简，再做测量和复杂改造，编码及交接顺序见§0.3。第1批已提交5084ef939，证据见§0.4.7；第2批编码设计及两批文档联合审计见§0.5，当前未编码、未运行业务测试或测量。其余批次仍须先补齐对应编码细节、替换相冲突的现行工程条款，再实施。不得先把测量准备列作局部精简的前置。原4秒失败及历史验收事实保持，简单结构复算先不改，不重启P4采样。
 
 ## 0. 本轮产物、后续实施范围和硬要求
 
 本文规定r4识别、单根预测及产品接入。三项截图修正、核心/恢复/预测及专项对比已完成并由管理员验收；公开API、必要前端及提交后修复已完成限定工程验收，代码为bebe6f403、11271531c，实际证据见§19—20。原软件内部怎样保存事件仍未被证实，不影响本产品已定规则。
 
-P4第1—4步代码及定向工程验证已完成，e2844c6f7后的工具审计修正继续生效，证据见§21.10。第5步已完成部分真实日线及预测冷热核验，60分钟首个识别请求超时后停止；90/120分钟未执行，第6步页面仍由管理员验收，P5清退未执行，实际结果见§21.13.4。耗时优化第1批已按§0.4完成开发及定向回归，交付待管理员review；整批顺序以§0.3及专项§6为准。§21保留原P4实现及后续正式续验要求，不作为重新开发第1—4步或立即恢复采样的指令。P3既有实现直接复用，不重复开发或重跑专项。设计及文档检查不能代替实现、性能或真实验收；§15—17修改前成绩只保留历史用途。
+P4第1—4步代码及定向工程验证已完成，e2844c6f7后的工具审计修正继续生效，证据见§21.10。第5步已完成部分真实日线及预测冷热核验，60分钟首个识别请求超时后停止；90/120分钟未执行，第6步页面仍由管理员验收，P5清退未执行，实际结果见§21.13.4。耗时优化第1批已提交5084ef939，第二批详细设计见§0.5、待管理员review，尚未编码；整批顺序以§0.3及专项§6为准。§21保留原P4实现及后续正式续验要求，不作为重新开发第1—4步或立即恢复采样的指令。P3既有实现直接复用，不重复开发或重跑专项。设计及文档检查不能代替实现、性能或真实验收；§15—17修改前成绩只保留历史用途。
 
 只在当前dev-interface工作区保留清单外修改，不创建分支/worktree、安装依赖或恢复旧算法。输入、进度和结果仅内存，无数据库/Lake写入、结果/恢复文件、后台任务、用户算法开关或浏览器持久缓存。原1%、近远选择、首次资格、原EMA、预算及正式来源精度保持；P3完整400ms含最终校验和编码，不因三项修正放宽。
 
@@ -51,7 +51,7 @@ Biz仍只依赖自身及允许Foundation；App组合，Wealth消费HTTP；研究
 
 ### 0.3 P4耗时优化专项的执行顺序（先完成明确精简）
 
-本节约定后续批次的依赖及验收要求。第1批已按管理员授权完成开发、定向回归及独立审计，交付证据见§0.4.7，停在第2批之前；其余批次仍按专项§4及本文要求逐批补齐、替换对应旧工程条款后再编码，不能把全部批次当成已具备开工条件。当前不开发测量工具或启动真实采样。
+本节约定后续批次的依赖及验收要求。第1批已提交5084ef939，交付证据见§0.4.7；第2批详细编码设计已补齐至§0.5，待管理员review，尚未编码。第3批以后仍按专项§4及本文要求逐批补齐、替换对应旧工程条款后再编码，不能把全部批次当成已具备开工条件。当前不开发测量工具或启动真实采样。
 
 | 批次 | 实现范围和先后关系 | 完成要求及后续交接 |
 |---|---|---|
@@ -68,9 +68,9 @@ Biz仍只依赖自身及允许Foundation；App组合，Wealth消费HTTP；研究
 
 上述顺序只授权按批次推进。第1批之外的工程实现描述，在对应批次尚未细化及实施前仍是现状依据，不能因本节排定顺序就宣称已经完成迁移；后续不得同时保留互相冲突的编码要求。
 
-### 0.4 耗时优化第1批：局部精简的具体编码设计
+### 0.4 耗时优化第1批：已完成的编码设计与交付记录
 
-本节依据专项§4.2的2A、§4.5及§6第1批，只落实两项已确定精简。fd96c8d1b已提交上一轮顺序和审计修正；2026-11-01按管理员授权完成本节开发、定向回归及独立审计，结果见§0.4.7。未测量或恢复正式P4验收，停在第2批之前，本轮按管理员明确指令提交。
+本节依据专项§4.2的2A、§4.5及§6第1批，只落实两项已确定精简。第一批已提交5084ef939，2026-11-01开发、定向回归及独立审计结果见§0.4.7。以下“本批保留/不改SQL/schema”等要求只限定已完成的第一批，第二批共享读取正式按§0.5迁移，不要求永远保留旧整表检查。其他第一批保障继续有效；未测量或恢复正式P4验收。
 
 #### 0.4.1 目标、改动清单和边界
 
@@ -208,6 +208,200 @@ reader的`read_complete_history`及`read_complete_history_pair`都走同一`_rea
 文档完整性三组检查通过，四文档31处本地Markdown链接目标存在，限定diff空白检查通过；CodeGraph sync/status完成，索引状态为最新。这些检查不代替上述业务回归。
 
 本批仅证明局部精简及上述正确性回归。未访问正式数据库/Lake、未运行研究CLI、全量回测、Wealth全量或页面采样；未测量加速幅度，不能宣布60分钟满足4秒或P4第5步通过。开发结束时停在第2批之前，未自动提交、部署或推进后续批次。管理员随后明确授权提交本批10个文件（2个生产文件、4个测试文件、4份配套文档）；其他工作区修改保留，不推送或部署。第二批本轮只作只读梳理，不编码。
+
+### 0.5 耗时优化第2批：目标读取和必要检查的具体编码设计
+
+本节承接已提交的第1批`5084ef939`，对应专项§4.6—4.8及§10。当前只完成编码设计与文档审计，未实施本批代码或业务测试。**三个方向在同一批完整迁移：删除整表检查、只读取目标、补齐必要检查及其调用方，不能分开交付。**第1批§0.4是该批交付记录，其中“保留原SQL/schema”限定第一批；第二批正式以本节迁移共享读取。第1批的投影、缓存完整验证、首次文件检查、prepared一次消费及资源释放继续生效。
+
+#### 0.5.1 目标、文件与不得扩大范围
+
+| 文件 | 本批具体修改 | 原样保留 |
+|---|---|---|
+| `src/foundation/clients/local_lake/major_index_mins_reader.py` | 两读取入口删除`_validate_combined_schema`调用并删除其唯一实现；重写同一个`_query_rows`，增加本文件私有`_validate_target_rows`；用已执行查询的列元数据检查所用列 | 公共方法签名、请求/page/cursor、字段常量、数量限制、文件发现/signature/prepared、DuckDB资源、Timer/finally及并发等待 |
+| `src/biz/queries/wealth/market/index_detail_xxm/source.py` | `read_minutes`在一次循环中对应两源并构造bar；`assert_continuous`删除单独的`sorted(set(actual))`检查 | `read_daily`、日历SQL及参数、`expected_through`、ENDPOINTS、原生bar验证、源范围、完成时点和数据来源 |
+| `tests/test_major_index_mins_reader.py` | 增加本节用例；迁移“其他指数坏行必须失败”的旧测试；补必需字段和不同读取用途的成对样本 | 第一批prepared/链接/失败再调用，原分页、原子替换、资源及数量回归 |
+| `tests/web/test_index_detail_minutes_api.py` | 用真实临时Gold验证主图、完整指标及原错误码、空结果和返回字段 | 鉴权、环境挂载、支持标的、七种频率及5MiB响应限制 |
+| `tests/web/test_wealth_index_detail_xxm_api.py` | 增加两源对应、日历完整性、实际r4少字段链路及日线回归 | 四周期、普通/debug、标签/事件/编号及第一批投影保障 |
+
+生产改动仅上表两个文件，测试仅上表三个现有文件，不新增生产文件、通用解析框架、配置、参数或开关。不要修改计算器、Spec、快照、预测公式、query缓存/发布、公开DTO/TS、前端、股票分钟、九转或成交额独立读取器。`GOLD_*_COLUMN_SPECS`、源指标版本和params_key常量仍是原完整合同，不删除/修改；本批只改变请求中使用哪些字段及如何检查。没有正式数据库/Lake写入、结果落盘、安装、部署或新后台任务。
+
+已核对真实交接：`/minutes`和`/minute-indicators`→`IndexDetailMinutesQueryService`→reader分页；r4识别及下一根预测共用query加载→`source.read_minutes`→reader双源完整历史。`xxm_history_projection_audit.py`和P4观察工具消费原入口/行结构，不改签名或增加字段；本批不运行历史CLI或真实采样。CodeGraph的同名股票/成交额函数不能当作本模块调用方；本批无需让这些独立读取器一起迁移。
+
+#### 0.5.2 输出列、额外列及值检查的逐项约定
+
+`_history_columns`继续验证value_columns白名单、唯一性和四个键，保留原返回顺序。`_query_rows(columns=None)`仍表示该数据集原全部输出列：bars为`GOLD_BAR_COLUMN_SPECS`去掉vwap的11列，indicators为原23列；非None使用现有已检查的columns。不向原入口增加第二种请求模式。
+
+查询内部计算`output_columns`与`read_columns`两个tuple：前者是原调用方应收到的列；后者在前者后按顺序追加尚未存在的必要检查列。indicators始终需要`params_key/indicator_version`，bars不额外读取其他价格列；另读取`filename AS _source_filename`定位行。用原顺序去重，不对字段排序，不SELECT源文件全部列，不用CAST把实际业务列转换成“正确类型”。这些都是本函数局部变量，不能变成分散配置。少字段入口虽允许其他value_columns组合，本批不新增组合或参数；相同字段规则按dataset及实际output_columns应用，不写只认r4四个值的特例。
+
+| 字段/用途 | 查询元数据类型 | NULL和值的具体要求及负责位置 |
+|---|---|---|
+| 四个键：ts_code/freq/trade_date/trade_time | VARCHAR；bars INTEGER/indicators SMALLINT；DATE；TIMESTAMP（沿原`_normalize_duckdb_type`归一化） | reader目标循环要求非空，代码严格等于已归一化请求，freq严格等于请求；date必须对应所选文件，timestamp日期必须等于date。保留现有时分秒上限15:00:00、非1分钟不接受09:30:00，不新增早盘下限、午休或其他整点限制 |
+| bars实际读取的open/high/low/close/vol/amount | DOUBLE | reader仅对output_columns中出现的这些列检查非空及有限；不新增高低价相对关系、涨跌幅或成交量正值要求。r4只读close，不能为了检查未使用open而额外读取它 |
+| bars实际读取的exchange | VARCHAR | 仅在output_columns含它时要求非空且不等于空串；不增加交易所枚举或strip规则 |
+| indicators的params_key/indicator_version | VARCHAR/INTEGER | 非空，严格等于原`GOLD_PARAMS_KEY/GOLD_INDICATOR_VERSION`；少字段读取也检查，之后若非原输出字段则删除 |
+| 完整指标API的observation_count | INTEGER | 原非空且至少1；仅本接口/显式投影需要它时读取检查，不为r4额外读取 |
+| MA/BOLL/MACD/KDJ数值列 | DOUBLE | 完整指标API保留原float或None合同及暖机NULL，不在本批新增原接口没有的取值范围限制。r4用到的DIF/DEA/柱值仍由source中的`XxmBar.validate`拒绝None、非有限值，close还必须大于0；不得因精简删此检查 |
+| 内部_source_filename | VARCHAR | 非空且能在本次`{str(part.path): part.trade_date}`映射中找到；仅字符串查表，不新增resolve/stat/is_symlink。不进入返回行、DTO、sourceInputId或缓存身份 |
+
+元数据只检查read_columns及内部filename的实际输出名称、顺序、逻辑类型，类型依据原合同逐字段取出；不比整张源表的列顺序。`_normalize_duckdb_type(str(description[i][1]))`复用原实现，不另造类型映射。TIMESTAMP归一化沿旧函数；本批不增加全局时区政策，r4原有“源timestamp无时区、构造后+08:00”的检查保留。DOUBLE类型检查不靠float(value)弥补错类型，DECIMAL/VARCHAR/BOOLEAN等不能静默转为DOUBLE。
+
+当前环境DuckDB 1.5.5；已用Context7核对[Python结果列元数据实现](https://github.com/duckdb/duckdb-python/blob/main/src/pyresult.cpp)及[Parquet选列与多文件说明](https://duckdb.org/docs/current/data/parquet/overview.html)。description在空结果时仍用于检查本次实际查询列。它表达本次查询的逻辑类型，不承诺逐个物理文件全schema已验收；不能为这种额外承诺恢复DESCRIBE或逐文件预读。
+
+#### 0.5.3 同一个_query_rows的SQL、参数与错误处理
+
+保留原函数签名。在原读取入口已完成请求/字段/分区准备后，按以下顺序执行：构造output_columns/read_columns及本次文件日期映射→一次参数化目标查询→检查description→fetch结果并转成原dict→一次`_validate_target_rows`→返回。空文件清单仍在原入口直接返回，不连接DuckDB。存在文件但目标无行，仍检查实际投影元数据，再返回真正的[]；不得返回一行NULL占位。
+
+SQL固定采用以下结构；花括号内容仅由原字段白名单生成，代码、路径、游标及数量全部作为参数：
+
+```sql
+WITH target AS (
+    SELECT {read_columns}, filename AS _source_filename,
+           CAST(regexp_extract(filename,
+               'trade_date=([0-9]{4}-[0-9]{2}-[0-9]{2})', 1) AS DATE) AS _partition_date
+    FROM read_parquet(?, filename=true, hive_partitioning=false)
+    WHERE ts_code = ?
+)
+SELECT {read_columns}, _source_filename
+FROM target
+{optional_cursor_where}
+ORDER BY _partition_date DESC, trade_time DESC NULLS FIRST
+LIMIT ?
+```
+
+1. `paths`仅来自原枚举选中的文件；不能扩大日期/代码/频率范围。start/end已经限定文件日期，不再按行中可能写错的trade_date执行WHERE过滤，否则会把本应报错的目标行藏掉。_partition_date只由已发现路径取出，用于排序及游标，不作为替换真实trade_date的值；真实行的date由目标循环对照文件映射检查。正常数据的排序与返回范围和原实现一致。
+2. 无cursor时optional_cursor_where为空，参数精确为`[paths, request.ts_code, request.limit + 1]`。有cursor时使用下式，参数精确为`[paths, request.ts_code, before_date, before_date, before_stamp, request.limit + 1]`，before值来自原_decode_cursor及原归一化校验，不新增cursor版本或字段。
+
+```sql
+WHERE _partition_date < CAST(? AS DATE)
+   OR (_partition_date = CAST(? AS DATE) AND (
+       trade_time < CAST(? AS TIMESTAMP)
+       OR trade_time IS NULL
+       OR CAST(trade_time AS DATE) <> _partition_date
+   ))
+```
+
+3. cursor仍严格排除游标当根。NULL或日期与所属文件不一致的timestamp不能借比较结果被丢掉，交给目标循环报错；最后两项只防游标掩盖这些定位错误，不做额外统计或第二轮校验。不属于本次cursor窗口的正常行不再全文件验收；错freq、错版本、坏价格不能放入WHERE先过滤。无cursor时NULLS FIRST保证NULL时间行不会因默认排序沉到探测范围外。
+4. 输出列显式列出read_columns及_source_filename；_partition_date不进入输出。regex文本应单独放入普通字符串后插入SQL，或正确转义Python f-string花括号，不得误把`{4}`当格式表达式。保持read_parquet原默认union_by_name=false，不开启会为缺列填NULL的模式，不引入TRY_CAST、补列、补值、UNION或DISTINCT。
+5. 去掉原source全量MATERIALIZED、contract全指数invalid_count、integrity的count/count DISTINCT、交叉连接及NULL占位处理。一次正常读取只执行这一条业务SELECT，description来自同一cursor，不另执行schema SQL。分页按原规则扩大分区时允许重新执行新范围的SELECT，每份返回只检查一次，不能承诺分页永远只有一次SQL。
+
+代码过滤的含义必须一致：ts_code值为其他代码、NULL或无法匹配请求的行，不视为本次目标，不能为了检查它们写`OR ts_code IS NULL`。但ts_code这列缺失/类型不符属于本次共同必需列错误，仍拒绝。下文“目标NULL键”指已经按代码匹配的行里freq/date/time为NULL，不要求读取器猜一个无代码行原来属于哪个指数。
+
+执行及fetch异常继续在本函数翻译成原Reader异常，必须按具体类型区分：
+
+| 异常 | 固定处理 |
+|---|---|
+| 已有IndexMinuteReaderError | 原样抛出 |
+| DuckDB BinderException、ConversionException、IOException | 抛IndexMinuteSourceContractError，保留cause；必需列缺失、读到错误类型/不能解析的源文件不能变成空结果 |
+| DuckDB InvalidInputException | 仅消息含`schema mismatch`且含`column`，或含`parquet`且含`too small`/`magic`时按来源合同错误；这是当前1.5.5缺列/坏文件的实际错误形态。其他InvalidInputException继续IndexMinuteQueryError，不能把错误参数数量/内部调用错误全部说成来源坏数据 |
+| 其他普通查询异常，包括未到时限的中断错误 | 保留原IndexMinuteQueryError及cause，不按字符串一概归来源错误 |
+
+description不符和目标行检查失败都为IndexMinuteSourceContractError。完整历史外层仍根据原elapsed/timeout把到期Reader错误转为IndexMinuteHistoryBudgetError，并执行原finally；不修改超时优先级、异常吞吐或增加重试。分页HTTP仍由现有_raise_http_error映射IM_SOURCE_CONTRACT_INVALID/IM_QUERY_FAILED；r4仍由load_entry映射XXM_SOURCE_CONTRACT_INVALID/XXM_QUERY_FAILED。无需修改API或错误码注册。
+
+#### 0.5.4 一次目标行循环及两个读取入口
+
+新增本文件私有函数：
+
+```python
+def _validate_target_rows(rows: list[dict[str, Any]], *, dataset: IndexMinuteDataset,
+                          request: IndexMinuteReadRequest,
+                          output_columns: tuple[str, ...],
+                          partition_dates: dict[str, date]) -> list[dict[str, Any]]:
+    ...
+```
+
+输入为本次SQL原顺序dict列表，不由这个函数再查询或检查文件。初始化previous=None，逐行依次：
+
+1. 按§0.5.2验证真实四键和文件定位；timestamp的时分秒判断沿原SQL的`%H:%M:%S`口径，不自行增加毫秒截止规则。文件日期只查本次映射，不重新从磁盘取信息，不用行内date代替文件日期。
+2. 按dataset及output_columns检查当前用途的值；indicators的额外参数/版本始终检查，计数仅在实际需要时检查。原SQL没有的行情逻辑判断不能自行新增。
+3. `current=(row['trade_date'], row['trade_time'])`，previous存在时必须`current < previous`，相等或上升立即拒绝；不得排序修正、去重、过滤错行或再造整份key集合。SQL的文件日期排序在合法行上与此真实键一致；非法date已在第1项拒绝。
+4. 删除_source_filename及非output_columns的额外参数/版本，保留原输出字段及顺序；不得修改来自已发布缓存的对象，这里只处理本次新查询的dict。整份循环成功才返回rows，失败不返回前半份结果。
+
+`_read`与`_read_complete_history`同时删除原DESCRIBE调用；引用清零后删除本文件的_validate_combined_schema，保留仍用于元数据的_normalize_duckdb_type。不能删除同名的股票、成交额或其他模块函数。
+
+分页保持原分区扩展、limit+1、has_more、本页切片、`page_rows.reverse()`及以本页最早时间生成next_cursor；完整历史保持max_rows+1探测、超限拒绝而非截取、`rows.reverse()`。**SQL内部检查降序，两入口向调用方均交升序。**探测的额外一根同样检查，分页边界上的重复不能漏掉；正常窗口以外更老数据不为了本请求额外全量扫描。count/observedStart/End/scanned_file_count的原含义保持。
+
+第1批的key/pop、空prepared不枚举/不连接、无prepared发现一次、失败不放回清单/不自动重试保持。删除DESCRIBE不是绕过首次链接检查；调用方既不重做第二轮链接检查，也不能新增“严格模式”恢复旧整表查询。
+
+#### 0.5.5 两源对应、日历完整性与后续批次交接
+
+`read_minutes`仍调用一次read_complete_history_pair，value_columns固定close及DIF/DEA/柱；不拆成两次签名/两次加载。先用两rows的len作O(1)比较，长度不同立即XxmSourceError。然后一个zip(strict=True)循环，对当前两行的`(ts_code,freq,trade_date,trade_time)`逐个对应，错位立即同类错误，再按原方法构造XxmBar并调用bar.validate。不再提前为两源各生成整份key tuple；不重做reader已完成的全段排序/去重或字段类型扫描。原无时区检查、+08:00构造、价格为正/指标有限、原错误处理保留。
+
+`assert_continuous`只删单独的`actual != tuple(sorted(set(actual)))`及对应raise；保留actual原顺序、首末日期、同一份SSE日历/ENDPOINTS生成expected和`expected != actual`拒绝。这个逐项相等本身仍会拒绝缺根、重复和乱序，日线也必须有这些正常/错误对照，不能因为分钟reader已查顺序就让日线漏检。函数签名、日历SQL范围、完成时点和query调用顺序均不改；缩日历是第3批，不在本批提前实施。
+
+query仍在源通过、完成根筛选、日历核对和完整计算校验之后才发布entry。预测继续复用该entry，保留第一批的缓存深复制/完整重验/一次投影。r4标签、编号、输入指纹和下一根条件在同一正常输入下应与第1批基线完全相同；不因隐藏字段多读了版本而把它们传入bar或指纹。后续第3批接收的仍是同样的升序XxmBar，不能要求它先开发才能完成本批。
+
+已有合法entry被原缓存策略复用时，可以不进入reader，也就没有本次SQL/description/行循环；不能为了证明检查发生而强制再读。下文SQL次数只针对实际进入reader的读取，不把合法缓存零SQL判成漏检，不新增cache复用检查或签名字段。
+
+#### 0.5.6 独立样本和旧测试迁移
+
+新节点使用`test_p4_batch2_`，只落§0.5.1三文件。临时Parquet依据现Gold合同与`_write_gold_bars/_write_gold`构造；不能调用reader生成expected。默认bars字面预期仍为2026-08-11的09:35/09:40/09:45及close 10.2/10.4/10.6；指标默认0.1/0.2/−0.2、ma_250=None。这些helper的指标内部日期固定，跨日期/频率边界须显式生成独立合法记录，不能只改路径或照抄消费者假设。
+
+旧`test_complete_history_checks_contract_of_other_indices`必须迁移并改成表中成对预期，不再要求其他指数坏行使上证失败：其他代码的坏OHLC/金额/版本/计数/时间等既有13种参数×60/90/120均核对。其原“目标不存在也应因别人错误失败”断言改为真实空结果；其他指数共享文件不可解析或缺共同必需列并不在这种忽略范围。旧test_reader_rejects_invalid_schema_and_request仍保留请求错误/必需列缺失的拒绝，不能只删除它或让Binder错误变成通用500。第一批prepared和输出投影测试不改成相反预期。
+
+| 用例 | 独立输入与成对预期 | 落点 |
+|---|---|---|
+| 1 无多余SQL | 合法单次分页/完整历史各包原execute与目标循环；只有一次SELECT，无DESCRIBE、全指数contract/count DISTINCT；双源两SELECT。强制原分页分区扩展时两次SQL允许，但每次结果只进目标循环一次 | reader |
+| 2 列顺序/增减 | 原文件、列倒序、新增未消费列、去掉未消费MA/open四类；两文件不同排列、缺未消费列时，交换路径先后均按字面结果成功；完整API所需列缺失则失败 | reader及分钟API |
+| 3 必需列/类型 | 分别缺四键/close/MACD、指标参数版本；INTEGER/BOOLEAN/VARCHAR/DECIMAL代替实际必需类型均拒绝，不能CAST补救；合法DOUBLE/DATE/TIMESTAMP作对照 | reader |
+| 4 错误翻译 | 首个文件缺列→BinderException、后续文件缺所需列→InvalidInputException、过小/错误magic的Parquet、数值转换错误分别按§0.5.3验证来源错误；另注入非schema InvalidInputException和普通异常仍为查询错误；正常输入配对。未知形式的文件解析异常也必须失败，不吞成空结果，不超出错误分类表强行认作来源错误 | reader及两个API错误码 |
+| 5 真实空结果 | 无文件不连接；有合法文件但无目标/零行→真实[]且完成列元数据核对；无目标但别人坏值仍空；共同必需列缺失仍失败。不能用提前空返回绕过真实绑定 | reader、分钟/r4API |
+| 6 其他指数错误 | 上述13类旧错误只在399001.SZ时，上证bars/indicators的完整与少字段均与字面输入一致；换为上证实际用到字段错误必须失败。含坏值的一方不影响另一份独立数据集读取 | reader、分钟API |
+| 7 用途不同 | 上证open=NaN或缺open，close正常：r4少字段成功、分钟主图拒绝；缺MA或observation_count=0：r4指标少字段不读不查，完整指标API拒绝。两者正常输入均成功 | reader、实际r4两源、分钟API |
+| 8 NULL归属 | 暖机MA/BOLL/MACD/KDJ的合法NULL按完整API原合同交付；计数/版本为空拒绝。r4的close/DIF/DEA/柱为None/NaN/Inf时由原bar检查拒绝，合法0指标及正close通过；不新增指标值域政策 | reader、分钟/r4API |
+| 9 定位错误 | 已匹配代码的目标错freq、trade_date与文件日不符、timestamp日不符、freq/date/time为空、15:01及非1分钟09:30仍拒绝；原1分钟09:30和原合法时点通过。分别放文件首尾及start=end日期边界，不能因WHERE被藏掉；ts_code值为NULL的行不匹配目标，不据此阻断已有合法上证行 | reader |
+| 10 cursor不掩盖错误 | 先取得合法cursor；游标当日文件放NULL时间、错误timestamp日期或错误行date，按§0.5.3进入检查并拒绝；当根及更新的正常行排除，跨代码/频率/dataset/范围cursor原拒绝保持 | reader |
+| 11 严格顺序 | 单源重复、只一源重复、首尾/limit与limit+1处重复均拒绝；直接给目标循环乱序dict亦拒绝而非修正。合法三根按原SQL降序检查，交付仍升序 | reader |
+| 12 分页范围 | 09:35/40/45三根limit=2→返回09:40/45、has_more=True、cursor=09:40；下一页只09:35。正常窗口更老坏值不做额外全文件验收；探测额外根若坏必须拒绝。扩大分区、空页及不足limit不补齐 | reader及分钟API |
+| 13 完整历史限额 | 三根max_rows=2必须拒绝，不截成两根；max_rows=3升序全部返回。错误/重复分别放max_rows+1与日期边界，不能借LIMIT回避；不为测试实际生成20000根或采样 | reader |
+| 14 两源逐根对应 | 合法三根；长度不同；长度相同但中间时点/代码/freq/date一项不同；一边空；两边空。对等空返回()，其他错位XxmSourceError；用真实reader的两源错位样本补充替身单元例 | r4API文件 |
+| 15 完整性/完成时点 | m60/m90/m120独立原端点表，缺中间端点/缺交易日拒绝，周末空档合法；未完成尾部按原completed筛掉。日线重复、逆序、缺日拒绝且正常连续通过；原asOf/空来源语义保持 | r4API文件 |
+| 16 隐藏字段 | 少字段返回恰四键+所需值；主图11列/完整指标23列保持，无_source_filename/_partition_date或非输出检查列；sourceInputId/普通debug与合法独立例一致 | reader、分钟/r4API |
+| 17 第一批保障 | 原prepared两数据集、空清单、四种key、首次根内/外链接、原子替换、失败pop后无自动重试且下一调用重新枚举全部保留；缓存坏对象/输出次数及事件显示原用例保持 | 第一批既有节点 |
+| 18 失败与退出 | 新字段/行检查分别在真实读取函数中失败，Timer取消、连接关闭各一次；双源一边失败仍等待另一边清理，原超时错误优先级和取消传播不改。临时错误后新调用成功、不复用失败清单或发布半个entry | reader、r4API及既有工具 |
+| 19 公开接入 | 真实临时Gold→原reader→原QueryService→原HTTP路由，主图/指标七频率、r4三分钟周期的正常与新来源错误均核对字段/行数/日期/错误码；生产挂载及不支持标的原行为保持 | 分钟API、r4API |
+
+用例3/4/5必须实际调用DuckDB，不能用伪造description替代“缺列被拒绝”的主要证据；用例11的直接乱序列表只验证私有循环，不冒充真实SQL排序验收。用例14可用替身专门造两份合法键集合错位，但至少用临时Gold完成一次真实两源错误链；用例18不能只替换整个读取函数。观察SQL次数和字段时包装原方法，不跳过执行，也不以旧实现生成expected。用例17的旧“schema保留”仅是第一批历史成绩，第二批该边界已由本表2—10取代，不恢复已删除函数来让旧文字成立。
+
+#### 0.5.7 编码顺序、预算及失败边界
+
+1. 先核对5084ef939及本批路径、调用方、已安装DuckDB/原字段合同，保留其他工作区修改；把本表用例1—10先落测试，使旧全表/其他指数政策及重复SQL能被独立样本抓住，不改预期迎合旧行为。
+2. 在reader同批完成SQL、元数据、目标循环及两入口迁移；清零本文件_validate_combined_schema引用并删除，不保留旧严格/新快速双轨。此步必须连同必要检查全部完成后才作为可交付实现，不只提交删除检查。
+3. 接着修改source的两源对应和assert_continuous；day/m60/m90/m120共同回归，保持日历范围及加载顺序。预测query和计算核心不改。
+4. 完成用例11—19与旧政策测试迁移，再分组回归、独立对照本节及第一批审计；实际完成后更新原四份文档，停在第3批之前，不自动提交、测量或恢复正式P4验收。
+
+原读取上限不变：分页1—10000根、完整历史≤20000根、分区≤5000；一次SQL最多取limit+1或max_rows+1。原单读512MB/2线程，双源各256MB/1线程；两源仍共享原截止时间而非各重新给足时限，线程退出仍等待finally完成。原识别4秒、预测总4秒/处理400ms、客户端5秒及原响应/缓存上限不变。列检查、行循环、编码、失败清理和最终验收开销都在原处理时限内，不挪起点、不新增预热或延长时限。
+
+失败不返回部分行，不跳过坏目标、不回退旧SQL、不额外重新读取或自动重试，不发布失败entry/预测。取消和已知异常沿原finally/锁/线程清理，下一次获准请求从新调用开始，已消费prepared不恢复。仅人工fixture/cache可用于复测，无业务结果/恢复文件。发现库行为或真实合同与本节冲突时停止并说明，不安装新版或添加隐式补值兼容。
+
+#### 0.5.8 后续开发验收的有界分组
+
+均使用现有`.venv/bin/python -B -m pytest -q`；每组超过60秒停止查因，不安装依赖。开发时按此明确选择，交付登记完整实际节点和参数，不用-k通过数冒充全量：
+
+1. `tests/test_major_index_mins_reader.py`整文件，含新19组相关参数和迁移后的旧测试。
+2. `tests/web/test_index_detail_minutes_api.py`整文件，只用其临时Gold及独立人工合同；不启动正式App服务。
+3. `tests/web/test_wealth_index_detail_xxm_api.py`整文件，覆盖现日线/三分钟周期、缺口/完成时点、普通debug、第一批投影及新增两源用例；这些均是人工SQLite/Parquet，不读取正式源。
+4. `tests/web/test_wealth_index_detail_xxm_forecast_validation.py`整文件；forecast_api仅第一批§0.4.7的26例原选择（含两模式缓存重验、F06/F07及退出/编码），不整文件触发290根计时样本。source交接变化不能使预测回退或绕过坏来源。
+5. following_query的第一批RC93三个节点及P4工具的original_cache_methods/shared_actual_result/partial_observation_setup三个节点，参数同§0.4.7；根目录三份架构测试，另静态核两个生产文件无新增反向依赖。
+6. 文档完整性、本轮四文档链接、限定diff、旧函数引用清零及SQL语句检查。新SQL不可含整表DESCRIBE/contract聚合/count DISTINCT，Source不得保留两整份key tuple或sorted(set(actual))；常量/请求白名单、必要bar.validate不能跟着删除。
+
+分组2/3须包含真实生产读取器和HTTP的最小隔离链路，核对请求参数、实际行数和错误码；仅mock不能作为接入证据。本批不读正式Gold/Prod、冻结行情CSV，不跑Wealth全量、回测CLI、P4真实采样或毫秒收益对照。临时人工SQL接入通过不能宣称正式来源或4秒性能已验收；这些仍留第8批。
+
+#### 0.5.9 第一批与第二批的独立文档审计（2026-11-01）
+
+| 交接项 | 核对及最终口径 |
+|---|---|
+| 第一批已完成，第二批尚未开发 | 第一批提交5084ef939、226例成绩保留；本节只设计，不能借其成绩宣称新SQL或字段检查通过 |
+| 第一批保留旧SQL与第二批删除旧检查 | §0.4明确为第一批记录；第二批统一由本节接管reader/schema检查，既不要求永远保留旧检查，也不删除首次发现/缓存完整验证 |
+| 输出重建与读取行检查 | 两project及query缓存重验保持第一批实现；新目标行检查只针对本次源行，不把整份内部结果再重建一遍 |
+| 字段减少与完整API | r4只读所需值及指标版本；主图/完整指标仍检查各自字段，类型/NULL和计数职责按§0.5.2，不共用r4少字段规则放过主图错误 |
+| SQL过滤与坏数据 | 只提前限定目标代码及枚举的文件范围；真实date/freq/版本不作为消除错行的WHERE，cursor定位错误明确保留到检查，不恢复全指数验收 |
+| 顺序、分页与源交付 | 每份SQL结果一次严格降序检查，分页/完整历史均升序；两源一次对应，日历仍负责缺根，日线的逐项完整性对照保留 |
+| prepared及错误清理 | 复用第一批清单，无第二轮链接检查；删除schema SQL后Timer/finally仍包住目标查询及循环，失败不补清单/不重试，第二次独立调用重新发现 |
+| 先后依赖及后续边界 | reader的删除/必要检查同批；然后source交接；最后真实临时API及回归。不依赖第3批日历或第4批测量，预算不放宽，源/算法/前端不扩大 |
+
+审计依据为当前reader/source、分钟QueryService及DTO、API错误映射、旧测试及动态工具调用，CodeGraph explore/impact与源码补核共同完成；同名独立读取器不作本模块证据。已通过Context7核对所用DuckDB API，并用自动删除的临时人工identity/value表核验1.5.5的元数据、交换多文件顺序、未消费列缺失/改序及必需列缺失的两种异常；另核过小Parquet的实际异常类型，并直接取本文SQL在临时人工表核对无cursor/有cursor的3/6个参数、NULL时间保留及排序。此为文档可实现性的库行为核验，没有业务代码/测试文件改动、真实行情读取或性能测量，不替代§0.5.6—8开发验收。
+
+本轮已处理审计中发现的旧当前状态、schema阶段交接、字段职责、cursor隐藏错误以及仅认BinderException会漏掉后续文件缺列的问题。方案§10与技术方案§17同步本节；截至本轮审计，没有剩余需管理员拍板的业务规则或未定义的第二批交接。文档完整性三个检查组、四文档32处本地Markdown链接、第二批9个小节/19组用例、表格列数及限定diff检查均通过；业务代码和测试文件未修改，没有执行第二批业务回归。第二批具备提交管理员review的编码设计条件；本轮仍停在文档，不自动编码、提交或推进后续批次。
 
 ## 1. 环境、路由及配置生效
 
