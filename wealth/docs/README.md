@@ -158,6 +158,7 @@ docs/
 - [财势乾坤顶底识别产品文档 v1（当前规则、仅本地、普通/debug；新规则待开发）](../../docs/product/wealth-top-bottom-recognition-product-v1.md)
 - [财势乾坤顶底识别技术方案 v1（当前实施依据、识别/预测/合同和开发顺序）](./pages/index-detail/index-detail-top-bottom-recognition-technical-design-v1.md)
 - [财势乾坤顶底识别LLD v1（当前编码要求、逐根规则与测试、开工检查）](./pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md)
+- [财势乾坤顶底识别P4耗时优化专项方案 v1（8方向调查与修改/测量设计；待review，未开发或测量）](../../docs/product/wealth-top-bottom-recognition-p4-performance-optimization-plan-v1.md)
 - [上证徐小明研究指标 V0.1 页面展示基准（10 月 14 日 Figma 标记视觉已批准并同步四周期；本地技术验收通过，等用户复看）](./pages/index-detail/index-detail-xxm-benchmark-requirement-v0.1.md)
 - [上证徐小明研究指标 V0.1 实施方案与 LLD（来源、算法、API／页面技术验收已完成；等用户验收，未部署）](./pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md)
 - [上证关键高低点条件预测第一步方案 V0.1（统一日期／调度／共享加载及读取优化已完成，四周期178＋4预算与306次混合／双标签页全过；页面待用户验收、未提交或部署）](./pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md)
