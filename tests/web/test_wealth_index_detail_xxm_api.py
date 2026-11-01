@@ -250,6 +250,68 @@ def test_current_public_window_full_events_and_no_future_structure(period, sign)
     assert earlier.debug.structures[0].firstOppositeAt is None
 
 
+@pytest.mark.parametrize('debug,expected_validations', [(False, 0), (True, 1)])
+def test_p4_batch1_signal_projection_validates_only_public_result(debug, expected_validations):
+    from unittest.mock import patch
+    from src.biz.schemas.wealth.market.index_detail_xxm import InternalXxmResponseDto
+    from src.biz.services.wealth.market.index_detail_xxm.response_projection import project_xxm_response
+    from scripts.research.index_market.tests.test_xxm_r4_following_query import entry, response
+    from scripts.research.index_market.tests.test_xxm_r4_following import TN
+
+    internal = response(entry(TN), 8)
+    before = internal.model_dump()
+    with patch.object(InternalXxmResponseDto, 'model_validate', wraps=InternalXxmResponseDto.model_validate) as validate:
+        public = project_xxm_response(internal, debug=debug)
+    # The public debug validator still verifies reconstructed associations.
+    assert validate.call_count == expected_validations
+    assert public.points[-1].time == '2023-01-12'
+    assert internal.model_dump() == before
+
+
+@pytest.mark.parametrize('debug', [False, True])
+def test_p4_batch1_signal_projection_requires_internal_model_and_strict_debug(debug):
+    from src.biz.services.wealth.market.index_detail_xxm.response_projection import project_xxm_response
+    from scripts.research.index_market.tests.test_xxm_r4_following_query import entry, response
+    from scripts.research.index_market.tests.test_xxm_r4_following import TN
+
+    internal = response(entry(TN), 8)
+    ordinary = project_xxm_response(internal, debug=False)
+    detailed = project_xxm_response(internal, debug=True)
+    assert ordinary.model_dump() == {k: v for k, v in detailed.model_dump().items() if k != 'debug'}
+    for bad in (internal.model_dump(), ordinary, detailed, None, object()):
+        with pytest.raises(ValueError, match='InternalXxmResponseDto'):
+            project_xxm_response(bad, debug=debug)
+    for bad_debug in (0, 1, None, 'true'):
+        with pytest.raises(ValueError, match='Debug must be a boolean'):
+            project_xxm_response(internal, debug=bad_debug)
+        # Debug is checked before the input model, including when both are bad.
+        with pytest.raises(ValueError, match='Debug must be a boolean'):
+            project_xxm_response({}, debug=bad_debug)
+
+
+@pytest.mark.parametrize('debug', [False, True])
+def test_p4_batch1_signal_projection_keeps_dynamic_audit_wrapper(debug):
+    from scripts.research.index_market import xxm_page_request_audit as audit
+    from scripts.research.index_market.tests.test_xxm_p4_audit_tools import group
+    from scripts.research.index_market.tests.test_xxm_r4_following_query import entry, response
+    from scripts.research.index_market.tests.test_xxm_r4_following import TF
+    from src.biz.services.wealth.market.index_detail_xxm import response_projection as projection
+
+    internal = response(entry(TF + [(102, 97, 2), (104, 96, 2)]), 8, limit=1)
+    before = internal.model_dump()
+    original = projection.project_xxm_response
+    collector = audit.AuditCollector(group())
+    assert audit._REQUEST_ID.get() is None
+    with audit._observe(collector):
+        assert projection.project_xxm_response is not original
+        public = projection.project_xxm_response(internal, debug=debug)
+        assert [event.type for event in public.events] == ['CANCEL', 'DULL']
+        assert [event.displayOnChart for event in public.events] == [False, True]
+        assert public.meta.responseStart == '2023-01-12'
+    assert projection.project_xxm_response is original
+    assert internal.model_dump() == before and collector.requests == {}
+
+
 def test_public_and_debug_contracts_reject_legacy_bad_types_and_links():
     from copy import deepcopy
     from src.biz.schemas.wealth.market.index_detail_xxm import XxmResponseDto, XxmDebugResponseDto

@@ -274,7 +274,8 @@ def test_actual_source_calibration_solver_models_and_encoding_share_budget(sourc
 
 
 @pytest.mark.parametrize("fault",["numeric","result_id","condition_id"])
-def test_bad_cached_full_model_is_refused_without_solving_again(m1,source_db,monkeypatch,fault):
+@pytest.mark.parametrize('debug', [False, True])
+def test_bad_cached_full_model_is_refused_without_solving_again(m1,source_db,monkeypatch,fault,debug):
     service,_=m1
     with Session(source_db) as s:
         read(service,s)
@@ -282,9 +283,30 @@ def test_bad_cached_full_model_is_refused_without_solving_again(m1,source_db,mon
         if fault=='numeric':cached.references.nearest.price=float('nan')
         elif fault=='result_id':cached.forecastId='f'*64
         else:cached.conditions[0].id='f'*64
+        old_members = dict(service.source.cache.entries)
         monkeypatch.setattr(query,'forecast',lambda *a,**k:pytest.fail('invalid cache was silently solved again'))
-        with pytest.raises(XxmQueryError) as error:read(service,s,debug=True)
+        monkeypatch.setattr(query,'project_forecast_response',lambda *a,**k:pytest.fail('invalid cache reached projection'))
+        monkeypatch.setattr(service.source.cache,'put_forecast',lambda *a,**k:pytest.fail('invalid cache was republished'))
+        with pytest.raises(XxmQueryError) as error:read(service,s,debug=debug)
         assert error.value.code=='XXM_SOURCE_CONTRACT_INVALID'
+        assert set(service.source.cache.entries) == set(old_members)
+        assert all(service.source.cache.entries[k][0] is old_members[k][0] and service.source.cache.entries[k][1] == old_members[k][1] for k in old_members)
+
+
+@pytest.mark.parametrize('debug', [False, True])
+def test_p4_batch1_actual_forecast_cache_hit_validates_once(m1, source_db, monkeypatch, debug):
+    service, _ = m1
+    with Session(source_db) as session:
+        first = read(service, session, debug=debug)
+        before = [(k, v[0].model_dump(), v[1]) for k, v in service.source.cache.entries.items()]
+        monkeypatch.setattr(query, 'forecast', lambda *a, **kw: pytest.fail('cache hit ran solver'))
+        monkeypatch.setattr(service.source.cache, 'put_forecast', lambda *a, **kw: pytest.fail('cache hit was republished'))
+        with patch.object(InternalForecastResponseDto, 'model_validate', wraps=InternalForecastResponseDto.model_validate) as validate:
+            with patch.object(ForecastResponseDto, 'model_dump_json', autospec=True, side_effect=ForecastResponseDto.model_dump_json) as encode:
+                second = read(service, session, debug=debug)
+        assert validate.call_count == 1 and encode.call_count == 1
+    assert second == first and second['targetEndpoint'] == '2023-01-11'
+    assert [(k, v[0].model_dump(), v[1]) for k, v in service.source.cache.entries.items()] == before
 
 
 def test_final_json_encoding_cannot_exceed_original_budget_or_publish(m1,source_db,monkeypatch):

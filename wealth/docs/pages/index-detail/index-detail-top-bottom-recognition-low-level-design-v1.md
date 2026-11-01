@@ -1,16 +1,16 @@
 # 财势乾坤顶底识别低层设计 v1
 
-更新：2026-11-01。状态：P3及其审计修复已提交（bebe6f403、11271531c）；P4第1—4步代码及定向测试已完成，执行证据和未覆盖范围见§21.10。前端无上界校验修复已提交7bf8eb823，历史日线及预测冷热真实回归通过；第5步续验在首个60分钟识别请求4秒超时后停止，90/120分钟未执行，实际结果见LLD§21.13.4，第6步仍由管理员执行。完整Wealth回归的1项范围外月初日期测试失败已按管理员决定暂记TODO，不阻挡P4第5步；保留原失败记录，未修改或跳过。识别v0.4-r4、预测v0.6-r4的取价/选峰/1%/EMA及价格解规则不变。本批代码和文档已获准提交；未部署，P5未推进。
+更新：2026-11-01。状态：P3及其审计修复已提交（bebe6f403、11271531c）；P4第1—4步代码及定向测试已完成，执行证据和未覆盖范围见§21.10。前端无上界校验修复已提交7bf8eb823，历史日线及预测冷热真实回归通过；第5步续验在首个60分钟识别请求4秒超时后停止，90/120分钟未执行，实际结果见LLD§21.13.4，第6步仍由管理员执行。完整Wealth回归的1项范围外月初日期测试失败已按管理员决定暂记TODO，不阻挡P4第5步；保留原失败记录，未修改或跳过。识别v0.4-r4、预测v0.6-r4的取价/选峰/1%/EMA及价格解规则不变。未部署，P5未推进。本次耗时优化第1批已获管理员明确提交授权，具体交付状态见下文。
 
 依据：[产品文档](../../../../docs/product/wealth-top-bottom-recognition-product-v1.md)、[技术方案](index-detail-top-bottom-recognition-technical-design-v1.md)。本文件只规定当前目标、代码迁移位置、开发顺序和验收，不包含已废弃的开发流程。实施必须使用本文规则和独立用例，不得从旧实验或旧输出推导当前预期。
 
-P4耗时优化专项的静态调查、8方向修改计划和缓存测量方案见[专项方案](../../../../docs/product/wealth-top-bottom-recognition-p4-performance-optimization-plan-v1.md)。管理员已确定先完成容易、明确的精简，再做测量和复杂改造，编码及交接顺序见§0.3。当前只调整文档，未测量或改代码；每批仍须先补齐对应编码细节、替换相冲突的现行工程条款，再实施。不得先把测量准备列作局部精简的前置。原4秒失败及历史验收事实保持，简单结构复算先不改，不重启P4采样。
+P4耗时优化专项的静态调查、8方向修改计划和缓存测量方案见[专项方案](../../../../docs/product/wealth-top-bottom-recognition-p4-performance-optimization-plan-v1.md)。管理员已确定先完成容易、明确的精简，再做测量和复杂改造，编码及交接顺序见§0.3。第1批已完成开发、定向回归及独立审计，证据见§0.4.7，停在第2批之前；未测量。其余批次仍须先补齐对应编码细节、替换相冲突的现行工程条款，再实施。不得先把测量准备列作局部精简的前置。原4秒失败及历史验收事实保持，简单结构复算先不改，不重启P4采样。
 
 ## 0. 本轮产物、后续实施范围和硬要求
 
 本文规定r4识别、单根预测及产品接入。三项截图修正、核心/恢复/预测及专项对比已完成并由管理员验收；公开API、必要前端及提交后修复已完成限定工程验收，代码为bebe6f403、11271531c，实际证据见§19—20。原软件内部怎样保存事件仍未被证实，不影响本产品已定规则。
 
-P4第1—4步代码及定向工程验证已完成，e2844c6f7后的工具审计修正继续生效，证据见§21.10。第5步已完成部分真实日线及预测冷热核验，60分钟首个识别请求超时后停止；90/120分钟未执行，第6步页面仍由管理员验收，P5清退未执行，实际结果见§21.13.4。当前下一步是按§0.3补齐耗时优化第1批的编码设计，整批顺序以§0.3及专项§6为准；§21保留原P4实现及后续正式续验要求，不作为重新开发第1—4步或立即恢复采样的指令。P3既有实现直接复用，不重复开发或重跑专项。设计及文档检查不能代替实现、性能或真实验收；§15—17修改前成绩只保留历史用途。
+P4第1—4步代码及定向工程验证已完成，e2844c6f7后的工具审计修正继续生效，证据见§21.10。第5步已完成部分真实日线及预测冷热核验，60分钟首个识别请求超时后停止；90/120分钟未执行，第6步页面仍由管理员验收，P5清退未执行，实际结果见§21.13.4。耗时优化第1批已按§0.4完成开发及定向回归，交付待管理员review；整批顺序以§0.3及专项§6为准。§21保留原P4实现及后续正式续验要求，不作为重新开发第1—4步或立即恢复采样的指令。P3既有实现直接复用，不重复开发或重跑专项。设计及文档检查不能代替实现、性能或真实验收；§15—17修改前成绩只保留历史用途。
 
 只在当前dev-interface工作区保留清单外修改，不创建分支/worktree、安装依赖或恢复旧算法。输入、进度和结果仅内存，无数据库/Lake写入、结果/恢复文件、后台任务、用户算法开关或浏览器持久缓存。原1%、近远选择、首次资格、原EMA、预算及正式来源精度保持；P3完整400ms含最终校验和编码，不因三项修正放宽。
 
@@ -51,7 +51,7 @@ Biz仍只依赖自身及允许Foundation；App组合，Wealth消费HTTP；研究
 
 ### 0.3 P4耗时优化专项的执行顺序（先完成明确精简）
 
-本节只约定后续批次的依赖及验收要求，不代表全部编码细节已经补齐。专项§4保留各方向具体依据和拟改函数；每批开工前仍须在本LLD补齐该批的全部调用方、实现步骤和必要回归，并同步替换对应旧工程条款。当前下一步是第1批局部精简的编码设计及review，不是开发测量工具或启动真实采样。
+本节约定后续批次的依赖及验收要求。第1批已按管理员授权完成开发、定向回归及独立审计，交付证据见§0.4.7，停在第2批之前；其余批次仍按专项§4及本文要求逐批补齐、替换对应旧工程条款后再编码，不能把全部批次当成已具备开工条件。当前不开发测量工具或启动真实采样。
 
 | 批次 | 实现范围和先后关系 | 完成要求及后续交接 |
 |---|---|---|
@@ -66,7 +66,148 @@ Biz仍只依赖自身及允许Foundation；App组合，Wealth消费HTTP；研究
 
 第1—3批的收益依据是已核实的多余操作被去掉，不要求再专门开发性能测试或提供前后毫秒对照才允许完成。必要的正确性回归及原有调用次数断言用于证明输入、输出、公开合同及合法/错误处理未跑偏，不得误删。不得借此扩成全历史重放或先行真实性能采样；只报告已删工作和已验证行为，不声称未经测量的加速幅度。正式P4最终预算仍须通过第8批验证，不能以局部精简代替整体验收。
 
-本轮仅同步上述顺序，无源码、测试、配置或来源改动。原先工程实现描述在对应批次尚未细化及实施前仍是现状依据，不能因本节排定顺序就宣称已经完成迁移；后续不得同时保留互相冲突的编码要求。
+上述顺序只授权按批次推进。第1批之外的工程实现描述，在对应批次尚未细化及实施前仍是现状依据，不能因本节排定顺序就宣称已经完成迁移；后续不得同时保留互相冲突的编码要求。
+
+### 0.4 耗时优化第1批：局部精简的具体编码设计
+
+本节依据专项§4.2的2A、§4.5及§6第1批，只落实两项已确定精简。fd96c8d1b已提交上一轮顺序和审计修正；2026-11-01按管理员授权完成本节开发、定向回归及独立审计，结果见§0.4.7。未测量或恢复正式P4验收，停在第2批之前，本轮按管理员明确指令提交。
+
+#### 0.4.1 目标、改动清单和边界
+
+| 文件/当前位置 | 本批动作 | 明确保留 |
+|---|---|---|
+| `src/biz/services/wealth/market/index_detail_xxm/response_projection.py`：两个project函数 | 各删一处对同次内部结果的`model_dump → Internal*Dto.model_validate`重建；增加相应内部模型的轻量类型检查，输入约定写入函数说明 | 原签名、严格bool debug、字段投影、事件显示、编号/display、公开模型验证、返回类型 |
+| `src/foundation/clients/local_lake/major_index_mins_reader.py:_read_complete_history` | 只删除取得prepared清单后的第二轮链接检查elif及其异常分支 | 原key/pop、首次枚举检查、参数/数量限制、SQL/schema、升序交付、超时中断及finally关闭 |
+| `tests/web/test_wealth_index_detail_xxm_api.py` | 增加识别投影不直接重建内部模型及输入类型反例，复用原合法窗口/事件样本 | 当前普通/debug、同根事件和历史窗口的独立预期 |
+| `tests/web/test_wealth_index_detail_xxm_forecast_validation.py` | 增加预测投影不重建和输入类型反例；迁移原F04被修改嵌套对象的检查位置 | 原编号/Wave/范围及四周期合法样本 |
+| `tests/web/test_wealth_index_detail_xxm_forecast_api.py` | 扩展实际缓存读取后拒坏对象、两模式及完整验证次数的定向样本 | 原400ms、一次编码、退出检查后发布及异常传播 |
+| `tests/test_major_index_mins_reader.py` | 用清单复用的正常/空/不同key用例替换第二轮链接政策用例；补首次检查及消费后重枚举 | 原字段合同、原SQL错误处理、分页/预算及并发读取回归 |
+
+`query_service.py`、`forecast_query_service.py`和两份schema本批不需要修改：当前`_response`已通过构造器验证识别完整模型，`_assemble`已验证预测新模型，预测build命中分支已对缓存副本完整验证。不能为“保留一次验证”再新增一次。`_load_series`的完整历史`_response`属于2B，不能在本批删除。
+
+无新生产文件、helper、配置、参数、开关或依赖；不改r4/Spec、快照、历史查询、价格解、SQL/完整schema验收、日历、数据来源、缓存策略和公开HTTP/TS合同。第二批才改的“其他指数坏行使本次失败”等测试，本批保持原预期。两处精简不改变Biz/Foundation依赖方向，不直接改主图、指标、九转、股票或Wealth代码。
+
+#### 0.4.2 完整验证在哪一步完成
+
+| 路径 | 已有完整验证的位置 | 然后怎样交付 |
+|---|---|---|
+| 识别普通/debug | `_response`末尾构造`InternalXxmResponseDto(...)` | build原样交project；不在二者之间修改字段，project只投影并验证公开模型 |
+| 预测未命中，包括EMPTY/DELAYED/静态结果 | `_assemble`生成全部id/display后`InternalForecastResponseDto.model_validate(payload)` | 原check后交project，不重算id/文字或重复验证内部对象 |
+| 预测命中 | `get_forecast`先深复制；build原有`InternalForecastResponseDto.model_validate(cached.model_dump())`完整重验 | 保留这行及其前后check；未通过不得进入project、重新求解或发布替代缓存 |
+
+两个project入口均先保留`type(debug) is bool`检查，再用`isinstance(internal, 对应Internal*ResponseDto)`拒绝dict、公开模型及其他类型，抛ValueError；函数签名不加trusted/skip_validation之类参数。类型检查只核输入种类，不证明嵌套值正确。合法调用方必须在上表位置完成完整验证，不使用`model_construct`、带未经验证update的`model_copy`或修改完的旧模型来伪装验证结果；不另写通用解析入口，也不通过标志关闭校验。
+
+实际删除仅为project函数中直接执行的以下两行，各自删一行，其余公开构造逻辑保持：
+
+```python
+internal = InternalXxmResponseDto.model_validate(internal.model_dump())
+internal = InternalForecastResponseDto.model_validate(internal.model_dump())
+```
+
+**不得把这项改动扩大为删除公开debug验证。**当前`XxmDebugResponseDto.complete_debug`会把公开字段和debug字段还原后调用`InternalXxmResponseDto.model_validate(raw)`，用于验证公开返回的关联；这个调用仍保留。预测公开debug的`_validate_details`同样保留。因此测试只能断言两处project直接重建被移除，不能要求整条debug请求从此只验证一次。
+
+固定计数口径：在合法内部对象已构造好之后，仅包住一次project调用，识别普通对`InternalXxmResponseDto.model_validate`调用0次，识别debug仍1次（来自公开debug校验）；预测两模式对`InternalForecastResponseDto.model_validate`均0次。另对实际预测query的缓存命中路径单独计数：完整内部model_validate恰1次，不能用project计数替代。测试用包装原方法的调用计数，不禁用真实公开验证、不增加生产计时器。
+
+当前环境为Pydantic 2.13.4，已用Context7核对[该版本模型文档](https://github.com/pydantic/pydantic/blob/v2.13.4/docs/concepts/models.md)：传入既有实例默认不能证明全部嵌套字段已重新验证，`model_construct`不验证。缓存路径保留dump成dict后的完整重验，不能改成`model_validate(cached)`或仅检查类型；不改全局revalidate_instances/validate_assignment配置。普通输出不含debug字段，不能指望普通公开验证发现被隐藏的坏原始Wave。
+
+#### 0.4.3 文件清单的具体修改
+
+`history_source_signature`已经调用`_enumerate_partitions(..., file_stats=...)`，复用同次非跟随链接的stat结果生成签名，并按`(dataset, freq, start_date, end_date)`保存至多两份prepared清单；这些均不重写。`_read_complete_history`保持：
+
+```python
+parts = self._prepared_history_partitions.pop(prepared_key, None)
+if parts is None:
+    parts = _enumerate_partitions(...)  # 仍走当前唯一枚举实现
+# 后续数量检查、空结果、DuckDB、SQL和资源释放原样保留
+```
+
+仅删现`elif parts and (_contains_symlink(...) or any(...is_symlink...))`及对应raise。空清单`()`是有效的已准备结果，不能用`if not parts`或`parts or enumerate`触发第二次发现。`_contains_symlink`仍被首次枚举使用，不能删函数、放宽首次链接检查或改固定根。直接调用没有prepared时仍枚举一次。dataset/freq/起止范围不同不得复用；原pop只消费一次，下一次无准备的调用重新枚举，不能新增跨请求可信清单缓存。
+
+首次枚举拒绝指向根外或根内其他位置的链接，合法普通文件和正常原子替换仍允许。两次API动作之间若外部替换成链接，不再承诺由第二轮检查专门识别；这是已确定的保证变化，不新增读后检查或备用安全读取补回来。不可读文件、原字段/SQL错误继续按现异常失败，不静默跳过。已pop清单后读取失败，不补回清单、不重试；下一次获准调用重新枚举。计时起点、Timer/interrupt、线程池等待和连接释放顺序不变。
+
+#### 0.4.4 调用方及两条旧测试的迁移
+
+CodeGraph explore/callers/impact与源码核对：正式调用方只有识别query.build和预测query.build；直接投影测试见0.4.1。`xxm_page_request_audit.py:_observe`还动态包装project函数，是静态调用图之外的消费者；保留名称/签名/返回模型/输入不变，现包装读取事实后返回同一个公开结果，本批不改工具。
+
+reader的`read_complete_history`及`read_complete_history_pair`都走同一`_read_complete_history`；source.read_minutes依赖pair，研究`xxm_history_projection_audit.py`依赖完整历史入口。主图/指标分页仍走原`_read`，本批不改其SQL或发现流程；九转独立读取器不改。历史研究CLI只做引用审计，不实际运行。
+
+1. 原`test_f04_identity_recheck_does_not_trust_mutated_nested_model_instances`不能继续要求project接收已被外部改坏的对象并负责重验；把这一保障迁到实际预测缓存交接。用合法`following_payload`构造并保存完整缓存，再把缓存内`originWave.count`改为0，分别请求普通/debug，断言build在project前以`XXM_SOURCE_CONTRACT_INVALID`拒绝、无求解/替代发布。原F04其他合法编号和事实测试保留；迁移后删除旧函数的过时投影断言，不skip、不把坏值改合法来迎合实现。
+2. 原`test_prepared_history_rechecks_file_links_before_parquet_read`整条测试专门要求第二轮拦截，随保证变更替换为prepared复用测试，不保留制造第二轮链接替换的旧预期。首次枚举拒链接的两条既有测试继续保留，并为完整历史有prepared/无prepared的首次发现路径补正常及拒绝对照。
+
+#### 0.4.5 规则、实现和必要回归逐项对应
+
+以下为本批回归设计，已按§0.4.7实现及执行。新节点统一使用`test_p4_batch1_`前缀，落在0.4.1的现有测试文件，不新建测试框架；预期来自原RC77/93、F02/F04、M1及现Gold字段合同和人工Parquet样本，不由被测函数生成。
+
+| 用例 | 人工输入及检查位置 | 独立预期/实现对应 |
+|---|---|---|
+| 1 只去直接重建 | 既有合法识别窗口、M1完整预测模型，分别调用两project的普通/debug并包装原Internal.model_validate | 严格按0.4.2的0/1次数；公开验证实际运行，原函数修正前会多一次，不能以mock直接返回成功 |
+| 2 输入约定和字段保持 | 两project传dict、错误模型、非bool debug；合法样本配对 | 错类型ValueError；合法普通字段与debug剔除debug后的字段逐项相等，源对象dump前后相等；不新增字段/改值或重新生成编号 |
+| 3 隐藏事件与历史 | 原`test_current_public_window_full_events_and_no_future_structure`及公开模型反例 | 同根CANCEL/DULL两事件保留，显隐仍False/True，旧结构及更早asOf无未来终态；损坏公开关联仍被公开debug拒绝 |
+| 4 缓存只重验一次 | 先正常M1请求生成合法缓存，再正常命中，两模式各单独用新cache构造场景 | 命中时完整内部model_validate一次，project不再多一次；forecast不再次调用，单次编码及forecastId不变 |
+| 5 缓存改坏仍拒绝 | 原numeric/result_id/condition_id坏缓存扩为两模式，另用合法following缓存后改Wave.count=0 | query完整重验拒绝，不走project/求解，不覆盖或删旧条目；业务内容及计量不因失败重写，原LRU策略保持；相应未损坏样本正常命中 |
+| 6 原退出及预算 | 原with退出失败、最终JSON超预算、复制/发布失败和取消样本 | 原check/异常优先级和退出后发布保持；不因移除重建提前发布或吞异常。用既有人工时钟故障，不测真实耗时 |
+| 7 同次prepared只消费一次 | `tmp_path`内`_write_gold_bars/_write_gold`合法文件；先signature再完整读取，包原枚举/链接检查 | 首次只发现一次；复用阶段不再枚举、调用额外_contains_symlink或逐Path.is_symlink；返回与字面输入一致且升序。旧实现因第二轮调用失败，新实现应通过 |
+| 8 空清单和不同key | 空目录先signature；另分别改变dataset/freq/start/end，使用合同合法fixture | 空prepared不重新枚举且不建DuckDB连接；不同key走首次枚举；不能用一次枚举结果包办不同请求 |
+| 9 成功或失败后再调用 | 两个独立场景：同一reader成功消费prepared后再次直接读取；另用合法临时文件先signature，在实际_read_complete_history已pop并打开连接后，令第一次_query_rows抛指定IndexMinuteSourceContractError，再恢复该函数并再次直接读取，不补做signature；合法原子替换仍单列正常对照 | 两场景的第二次调用均重新枚举。失败场景按下段固定断言验证无重试、清单不补回及资源关闭，再验证下一次正常读取；替换正常，原signature更新和忽略staging保持。计数只包原方法，不为计数另读文件 |
+| 10 首次链接仍拒绝 | 临时fixture在首次发现前已是指向根内/根外的文件或分区目录链接，分别从signature/无prepared完整入口进入 | 仍为来源合同错误；合法普通路径对照成功。全部造错只在tmp_path，不触碰正式Lake |
+| 11 原reader合同不变 | 原完整历史投影/超限、分页游标、双源资源和失败等待用例 | max_rows超限拒绝、原字段/NULL/顺序保持；其他指数坏行仍按旧政策拒绝到第2批，不提前改预期；超时仍关闭连接 |
+| 12 工具包装仍可用 | 在现投影测试文件新增batch1节点：用合法内部模型进入原`_observe`，分别经其包装后的projection模块识别函数和forecast_query_service模块预测函数调用两模式；另跑原工具缓存方法一次、共享加载及部分包装失败清理节点 | 真实project结果字段与独立原样本一致，退出恢复原函数；该人工样本无请求身份，不冒充真实采样/collector配对验收。三个原工具节点验证各自缓存/共享/清理保障，不能用它们代替新增的project包装调用；不启动页面采样或Node全组 |
+
+文件夹具沿`major_index_mins_contract.py`的GOLD_*_COLUMN_SPECS及现`_write_gold_bars/_write_gold`生产临时Parquet。常量用来核对字段合同；结果独立断言bars三个时点及收盘10.2/10.4/10.6、指标默认时点和DIF0.1/DEA0.2/柱−0.2、合法MA空值，不调用reader生成expected。仅在原默认合法日期使用这些helper，不能因helper有日期参数就假定内部所有日期已随之变化。
+
+用例9的失败场景必须实际进入`_read_complete_history`，不能像现有双源错误等待测试那样替换整个方法。先用合法fixture调用signature并记录枚举次数；仅在_query_rows注入第一次来源合同错误，保留真实连接、schema检查和finally路径。该次读取应原样抛出指定异常，_query_rows只调用1次，pop掉的prepared_key仍不存在，且该次Timer.cancel和connection.close各执行1次；用调用原方法的包装记录，不跳过真实关闭。本次错误之后函数已经返回，测试再显式发起独立的第二次调用，这不是程序内部自动重试。恢复_query_rows正常实现、保持同一reader且不再调用signature，枚举次数必须比上次失败后增加1，返回仍与字面fixture一致、升序；第二次调用自己的Timer/连接也正常释放。signature、失败读取和再次读取的次数分别记录，不把准备时的枚举算成失败时重新发现；所有对象/文件仅在临时fixture内，不改正式来源或在生产代码新增恢复逻辑。
+
+#### 0.4.6 编码顺序、验收和失败处理
+
+1. 先限定工作区和本批文件，保留其他修改；核对上述当前调用方仍成立。先补用例1和7，分别证明原代码存在额外内部重建/第二轮链接检查；这只是必要回归，不新增性能实验。
+2. 先改两project及其调用方约定/迁移F04测试，验证合法输出和坏缓存；不动已正确的两个query或公开schema。若新增调用方不能证明已验证输入，停止说明，不能把重验挪到所有调用方制造另一轮重复。
+3. 再删reader指定elif，迁移旧第二轮测试，完成prepared/直接/空/key/首次链接，以及用例9真实读取失败退出后再次调用的原合同回归。无SQL/日历或其他方向的顺带修改。
+4. 最后做交接及架构复核，逐条用0.4.5对账，原方案/专项和本LLD登记已实现、未覆盖范围；未经管理员review不推进第2批，不自动提交或部署。
+
+后续测试使用现有`.venv/bin/python -B -m pytest -q`，分以下有界组：①预测validation文件和新增投影节点；②reader文件（迁移上述旧测试后完整运行，均为临时文件）；③识别API只选新增batch1、current_public_window、public_and_debug_contracts节点，预测API只选新增batch1、full_m1、bad_cached_full_model、with_exit_failure、final_encoding_and_copy、final_json_encoding及F06/F07节点；④following_query的RC93相关人工节点、P4工具的original_cache_methods/shared_actual_result/partial_observation_setup三个节点；⑤根目录三份架构测试。不要整文件运行含290根计时样本的预测API测试，不跑Wealth全量、真实路由采样、研究CLI、正式数据库或Lake。每组超过60秒停止查因，不无限等待或安装依赖。具体执行节点与参数须在交付记录中逐项列明，不能只给-k通过数冒充全部验证。
+
+本批不新增性能门槛或真实测量，原4秒识别/总预测、400ms预测处理、5秒客户端、64MiB/16条缓存及源20000根/5000分区等预算不变；没有改计时起点，必要校验、编码和退出继续算入原时限。正常/异常/取消沿原finally及锁/连接/线程清理，无结果落盘或中断恢复文件。开发或测试失败保留工作区供排查，不交付半套成功；重新测试从新的临时fixture/cache开始，不续用失败候选，不改预算或旧有效数据。
+
+文档完整性、相对链接、限定diff和引用检查最后执行。此批只能证明减少明确多余操作且相关正确性不退化，不能宣布60分钟已满足4秒或P4第5步通过；正式来源及性能仍留第8批。
+
+开发前文档复审已补齐用例9的失败退出及新调用链路，动态包装入口统一为实际_observe，删除成功响应头未实现的旧描述，并同步专项§9及技术方案§16。开发后的独立审计与实际执行证据如下，设计复审本身不替代这些成绩。
+
+#### 0.4.7 第1批开发交付与独立审计（2026-11-01）
+
+生产改动仅§0.4.1的两个文件：两project删除直接重建、增加内部模型类型检查及函数说明；reader仅删除prepared分支的三行第二轮链接检查。两query、schema、计算器、Spec、SQL、日历、签名生成及缓存策略未改。测试改动仅原定四文件；F04迁到实际缓存交接，旧第二轮链接测试替换为清单复用测试，首次发现链接仍拒绝。
+
+先加入用例1和7再运行原生产代码，共6个参数化样本均因预期问题失败：识别普通/debug内部model_validate分别为1/2次，预测两模式各1次；bars及indicators均再次调用链接检查。修改后这6个样本全部通过。这里验证的是多余操作确已消除，不是性能采样。
+
+| §0.4.5用例 | 实际测试与独立审计结果 |
+|---|---|
+| 1 只去直接重建 | `test_p4_batch1_signal_projection_validates_only_public_result`普通/debug为0/1次；`test_p4_batch1_forecast_projection_does_not_rebuild_internal`两模式均0次，包装原验证函数实际执行 |
+| 2 输入/字段保持 | 两文件的`test_p4_batch1_*_projection_requires_internal_model_and_strict_debug`：dict、公开模型、其他类型均拒绝；0/1/None/文本debug拒绝且先检查debug；合法公共字段相同。用例1和12另核内部对象前后不变 |
+| 3 隐藏事件/历史 | `test_current_public_window_full_events_and_no_future_structure`四周期×两方向、`test_public_and_debug_contracts_reject_legacy_bad_types_and_links`及RC93节点通过；同根两事件、False/True显示和历史无未来信息保持 |
+| 4 缓存一次完整重验 | `test_p4_batch1_actual_forecast_cache_hit_validates_once`两模式：内部完整验证1次、最终编码1次、不重新求解或发布，结果及缓存事实/计量不变 |
+| 5 坏缓存拒绝 | `test_bad_cached_full_model_is_refused_without_solving_again`的numeric/result_id/condition_id×两模式；`test_p4_batch1_f04_cached_nested_model_is_revalidated`的合法/坏Wave×两模式通过；坏值在project前拒绝，未调用solver/put_forecast，条目对象和计量不重写 |
+| 6 原退出/预算 | 下表预测组所列退出、编码、F06/F07节点通过，保留人工时钟、取消和错误优先级验证；没有真实计时实验 |
+| 7 清单一次消费 | `test_p4_batch1_prepared_history_skips_second_discovery_and_link_checks`的bars/indicators通过：首次枚举1次，读取无第二轮枚举或链接检查；字面时点、收盘及DIF/DEA/柱/NULL均匹配 |
+| 8 空清单/不同key | `test_p4_batch1_empty_prepared_history_does_not_rediscover_or_connect`两数据集、`test_p4_batch1_prepared_history_is_bound_to_original_key`的dataset/freq/start_date/end_date通过；空prepared不连接，不同key重新枚举且不消费原key |
+| 9 再次调用 | `test_p4_batch1_prepared_history_success_is_consumed_once`及`test_p4_batch1_prepared_history_failure_cleans_up_and_next_call_rediscovers`通过；失败进入真实连接/schema/finally，仅_query_rows抛错，无内部重试，Timer.cancel/connection.close各1次；下一次显式调用无signature仍重新枚举、升序返回且再次正常关闭。原子替换及signature更新既有节点通过 |
+| 10 首次链接 | `test_p4_batch1_first_history_discovery_still_rejects_links`的signature/direct×inside/outside×file/partition共8例通过，分别配合法普通文件；原两条分页首次链接测试保持 |
+| 11 原reader合同 | reader整文件通过：原SQL/schema、其他指数坏行拒绝、游标、数量/预算、原子替换、双源资源及错误等待不变；本批没有提前采用第2批政策 |
+| 12 动态工具 | 两个`test_p4_batch1_*_projection_keeps_dynamic_audit_wrapper`×两模式通过：真实_observe包装调用原project、结果正确且退出恢复函数；无请求身份，不声称collector配对或真实采样通过。另三条原工具节点通过 |
+
+实际执行使用现有`.venv/bin/python -B -m pytest -q`，各组均低于60秒；以下最终组共226例通过，没有skip，没有新安装：
+
+| 组/文件 | 精确选择及参数 | 成绩 |
+|---|---|---|
+| 投影/合同 | `test_wealth_index_detail_xxm_forecast_validation.py`整文件；`test_wealth_index_detail_xxm_api.py`的`test_p4_batch1_signal_projection_validates_only_public_result`（False/0、True/1）、`test_p4_batch1_signal_projection_requires_internal_model_and_strict_debug`及`test_p4_batch1_signal_projection_keeps_dynamic_audit_wrapper`（各False/True）、`test_current_public_window_full_events_and_no_future_structure`（day/m60/m90/m120×1/−1）、`test_public_and_debug_contracts_reject_legacy_bad_types_and_links` | 62通过，2.90秒 |
+| reader | `tests/test_major_index_mins_reader.py`整文件，包括所有原有及上述新增参数 | 111通过，3.51秒 |
+| 预测API | `test_wealth_index_detail_xxm_forecast_api.py`：`test_full_m1_normal_debug_cache_and_exact_single_target`；`test_bad_cached_full_model_is_refused_without_solving_again`（numeric/result_id/condition_id×False/True）；`test_p4_batch1_actual_forecast_cache_hit_validates_once`（False/True）；`test_with_exit_failure_never_publishes_forecast`；`test_final_encoding_and_copy_share_original_budget`；`test_final_json_encoding_cannot_exceed_original_budget_or_publish`；`test_f06_unexpected_failure_returns_forecast_error_and_keeps_old_cache`（inside/exit/publish）；`test_f07_final_publication_preserves_known_timeout_and_cancel_errors`（timeout/async_cancel/future_cancel/known）；`test_f06_actual_cache_candidate_failure_releases_lock_and_keeps_members`；`test_f07_real_load_exit_does_not_replace_original_error_with_a_later_timeout`（query/source/async_cancel/future_cancel）；`test_f07_cancellation_inside_cache_lock_is_atomic_and_unlocks`（async_cancel/future_cancel） | 26通过，1.82秒；未选择其余26例，未运行290根计时样本 |
+| 历史及工具 | `test_xxm_r4_following_query.py`的`test_rc91_93_all_phases_projection_windows_no_future_fields`（sign±1×flip False/True）、`test_rc93_full_internal_model_preserves_multiple_events_and_original_refs`（sign±1）、`test_rc93_window_does_not_hide_invalid_following_or_rebuild_per_record`；`test_xxm_p4_audit_tools.py`的`test_original_cache_methods_once_and_no_context_passthrough`、`test_shared_actual_result_or_exception_keeps_one_load_and_cache_lookup`（fail False/True）、`test_partial_observation_setup_restores_already_registered_patches` | 11通过，0.35秒 |
+| 架构 | `tests/architecture/test_subsystem_dependency_matrix.py`、`test_platform_legacy_guardrails.py`、`test_operations_legacy_guardrails.py`整文件 | 16通过，12.94秒 |
+
+独立审计重新阅读两处生产diff及真实调用方，逐条核对本节12项。CodeGraph explore/callers/impact覆盖query、两project、reader、测试；再用源码补核静态图未完整列出的query导入调用、_observe动态包装及source.read_minutes→pair、历史研究工具消费者。没有新增运行依赖、配置或公开合同变化；首次枚举和缓存交接的完整验证、公开debug关联校验、原check/finally均保留。未发现本批未落地项或需新增拍板的问题。
+
+文档完整性三组检查通过，四文档31处本地Markdown链接目标存在，限定diff空白检查通过；CodeGraph sync/status完成，索引状态为最新。这些检查不代替上述业务回归。
+
+本批仅证明局部精简及上述正确性回归。未访问正式数据库/Lake、未运行研究CLI、全量回测、Wealth全量或页面采样；未测量加速幅度，不能宣布60分钟满足4秒或P4第5步通过。开发结束时停在第2批之前，未自动提交、部署或推进后续批次。管理员随后明确授权提交本批10个文件（2个生产文件、4个测试文件、4份配套文档）；其他工作区修改保留，不推送或部署。第二批本轮只作只读梳理，不编码。
 
 ## 1. 环境、路由及配置生效
 
@@ -385,11 +526,11 @@ barsAhead在字段解析前只接受None或type(value) is int且值恰1；拒绝
 
 识别query `build(session, *, period, start_date, end_date, limit, debug=False, now=None) -> bytes`；预判query `build`保留现业务参数，新增同样`debug=False`，也返回bytes。按§11第3—4步同步运行时直接调用方、直接读取DTO字段的消费者及本批API/验收测试，接口发送bytes，测试按新公开模型解析；不留旧DTO返回兼容。§11.2.6列明的P4保留工具在P3不运行、不作为通过依据，P4使用前按§11.2.3—4整体迁移；P5待删旧运行器不因本次返回变化提前修改或清退。流程固定，识别与预测不能颠倒“生成必填字段”和“校验完整模型”的顺序：
 
-1. 识别取得同次完整内部结果，使用InternalXxmResponseDto验证全部记录/关联；预测先验证prepared/KernelResult及原来源事实，不能把尚无forecastId/条件id/display的候选送进完整InternalForecastResponseDto。
+1. 识别由query._response构造InternalXxmResponseDto时验证全部记录/关联，再交project；project不再直接dump后重建同次内部对象，具体边界见§0.4。预测先验证prepared/KernelResult及原来源事实，不能把尚无forecastId/条件id/display的候选送进完整InternalForecastResponseDto。
 2. 预测未命中缓存时，先按§6.8.1生成forecastId、条件id和同次display/必要说明，再验证完整InternalForecastResponseDto。命中则独立复制已完整的内部对象并重新验证全部字段/关联，不重新生成id或文字。
-3. 显式逐字段新建公开dict→对应公开模型校验；普通请求不复制、序列化辅助数组。debug错误整份失败。
+3. 显式逐字段新建公开dict→对应公开模型校验；普通投影不为输出debug而复制或格式化辅助数组、不生成debug字段，这不包括上游必要的完整事实/缓存验证及普通事件显隐计算，不能据此删除其检查。两个project只接受调用方已验证的相应内部模型，不重复直接重建；公开debug为了验证输出关联而进行的事实检查仍保留，不按“整条请求只许一次验证”删减。debug错误整份失败。
 4. 一次model_dump_json().encode('utf-8')，检查最终字节及同一截止；预测仍先按§6.8.2退出load_entry并检查，再发布缓存，最后返回已准备bytes。
-5. 三条API保持公开联合response_model供文书，实际返回Response(content=body, media_type='application/json', headers={'Cache-Control':'no-store'})，不再返回DTO或调用JSONResponse重编正文。直接Response不会替开发者做模型校验，必须以第1—4项为前置。成功200的no-store是本目标明确要求；三个现行xxm成功处理器尚未设置，不再误称“原策略已存在”。错误响应保持现error_factory/处理器的状态、正文及header，不因本次另改全局错误处理；daily-waves既有成功/错误no-store不变。
+5. 三条API保持公开联合response_model供文书，实际返回Response(content=body, media_type='application/json', headers={'Cache-Control':'no-store'})，不再返回DTO或调用JSONResponse重编正文。直接Response不会替开发者做模型校验，必须以第1—4项为前置。日线识别、分钟识别及预测三个成功处理器已经设置no-store，本批保留现有响应头和发送行为，不新增API修改。错误响应保持现error_factory/处理器的状态、正文及header，不因本次另改全局错误处理；daily-waves既有成功/错误no-store不变。
 
 直接Response的框架行为已用Context7核对[FastAPI自定义响应](https://fastapi.tiangolo.com/advanced/custom-response/)及[响应头](https://fastapi.tiangolo.com/advanced/response-headers/)：返回Response时不会替本批执行响应模型校验/序列化。因此第1—4项不能省略，OpenAPI仍显式描述公开模型，HTTP测试须核同一bytes和成功header。
 
@@ -449,7 +590,7 @@ project_xxm_response将该结果作为每项普通event的displayOnChart；debug
 
 §6内核及本节完整公开模型/投影已在P3第3步实施，TS已在第4步迁移，并完成§20.8修复。P4沿既有预测URL、标的/周期/asOf/鉴权和debug请求规则，不新增预测入口。目标只下一根；旧20步、等待和结构形成即停算格式不兼容。以下为现行目标合同，真实来源与页面仍待P4验收。
 
-`InternalForecastResponseDto`完整根为下文全部普通根字段，加sourceInputId/calendarInputId/precisionPolicy/references/selectedReference/nearestDecision/farEvaluated/conditions/precisionRanges/structureFollowConditions十项内部事实；内部不加debug嵌套。`project_forecast_response`先校验此完整集合，普通显式复制公共字段，debug再把这十项组为debug对象；只复用组装阶段已经生成的display和forecastId，投影不得重新生成。缓存保存这个完整内部对象，不保存普通删减结果。
+`InternalForecastResponseDto`完整根为下文全部普通根字段，加sourceInputId/calendarInputId/precisionPolicy/references/selectedReference/nearestDecision/farEvaluated/conditions/precisionRanges/structureFollowConditions十项内部事实；内部不加debug嵌套。完整集合由query在_assemble或缓存命中交接处先验证，随后`project_forecast_response`仅做相应模型类型检查及公开字段整理，不再直接dump后重建同次内部对象，见§0.4。普通显式复制公共字段，debug再把这十项组为debug对象；对应公开模型的完整检查保留，只复用组装阶段已经生成的display和forecastId，投影不得重新生成。缓存保存这个完整内部对象，不保存普通删减结果。
 
 #### 5.4.1 普通响应完整字段
 
@@ -2559,7 +2700,7 @@ P1/P2中与本批直接合同冲突的web/Wealth等待、多步和旧身份正�
 | F01解析前严格整数 | ForecastResponseDto.original_bar_count；True/False/1.0/字符串/0/2拒绝，合法1及原空目标正例通过。不再依赖Literal转换后的无效类型检查 |
 | F02原生与公开Wave同一检查 | index_detail_xxm.py:_validate_wave_facts同时被两个Wave模型调用；正根数、方向、正有限价格/DIF及段内发生时间一致。测试以匹配编号的非法Wave证明拒绝源于事实错误，合法单根、顶底及四周期保持 |
 | F03—F05编号事实一致 | 新forecast_identity.py纯函数；query生成、完整内部/公开debug复核共用；标准库SHA对独立字面JSON验证、101与101.0/±0/键顺序/中文、真实事实变化及显示内容不入号。篡改64位有效外形的编号、关系或原事实均拒绝。普通与TS只核恰64位小写十六进制，不在前端生成编号；尾随换行反例也拒绝 |
-| F04坏缓存不兜底 | 已有预测API测试扩展为非有限数、错误结果id和错误条件id；命中后重验拒绝，不调用求解、不静默改号；model_copy不是校验，投影仍按完整dict重新验证 |
+| F04坏缓存不兜底 | 已有预测API测试扩展为非有限数、错误结果id和错误条件id；命中后重验拒绝，不调用求解、不静默改号；model_copy不是校验。此保障继续保留，耗时优化第1批的具体检查位置及原嵌套对象测试迁移见§0.4 |
 | F06一般失败的接口一致性 | forecast_query_service外层包含退出后通用Exception到XXM_QUERY_FAILED；真实API及异常处理器验证内部/退出/发布500/XXMF_QUERY_FAILED和中文，不泄故障注入文本；实际缓存候选copy失败后，旧字典对象/条目保持，另一线程能重新拿锁 |
 | F07取消、错误优先级与释放 | 预测和load_entry原样传播两种CancelledError；一般错误处理不重新调用remaining。已过预算同时出现真实错误时保留其原因；正常超限仍拒绝。实际锁内取消后原缓存不变、锁释放、下一次正常发布成功；源共享加载无残留且后续正常请求可用 |
 | F08旧行为/资源边界 | 原字面业务、恢复/asOf、HTTP单次编码、普通/debug缓存、静态/校准失败、目标下一端点及前端请求/组件回归保留；不重复跑实际行情对比 |

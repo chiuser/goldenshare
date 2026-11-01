@@ -177,9 +177,6 @@ class MajorIndexMinsLakeReader:
         if parts is None:
             parts = _enumerate_partitions(self._lake_root, dataset=dataset, freq=normalized.freq,
                                           start_date=normalized.start_date, end_date=normalized.end_date, cursor=None)
-        elif parts and (_contains_symlink(parts[0].path.parent.parent, stop=self._lake_root)
-                        or any(part.path.is_symlink() or part.path.parent.is_symlink() for part in parts)):
-            raise IndexMinuteSourceContractError("指数分钟分区不得使用符号链接。")
         if len(parts) > MAX_INDEX_MINUTE_PARTITION_FILES:
             raise IndexMinuteHistoryBudgetError("完整历史超过分区预算。")
         if not parts:

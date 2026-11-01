@@ -463,17 +463,188 @@ def test_history_signature_checks_each_file_once_and_refreshes_next_request(tmp_
     assert calls == [False, False] and before != after
 
 
-def test_prepared_history_rechecks_file_links_before_parquet_read(tmp_path):
-    target = _write_gold_bars(tmp_path)
+@pytest.mark.parametrize('dataset', ['bars', 'indicators'])
+def test_p4_batch1_prepared_history_skips_second_discovery_and_link_checks(tmp_path, dataset):
+    from src.foundation.clients.local_lake import major_index_mins_reader as module
+    from unittest.mock import patch
+
+    (_write_gold_bars if dataset == 'bars' else _write_gold)(tmp_path)
     reader = MajorIndexMinsLakeReader(tmp_path)
     request = IndexMinuteReadRequest('000001.SH', 5, None, None, 1000, None)
+    with patch.object(module, '_enumerate_partitions', wraps=module._enumerate_partitions) as enumerate_parts:
+        reader.history_source_signature(request, dataset=dataset)
+        assert enumerate_parts.call_count == 1
+        with patch.object(module, '_contains_symlink', wraps=module._contains_symlink) as contains_link:
+            with patch.object(Path, 'is_symlink', autospec=True, side_effect=Path.is_symlink) as path_link:
+                page = reader.read_complete_history(request, dataset=dataset, timeout_seconds=5)
+        assert enumerate_parts.call_count == 1
+        assert contains_link.call_count == path_link.call_count == 0
+    assert [row['trade_time'].isoformat() for row in page.rows] == (
+        ['2026-08-11T09:35:00', '2026-08-11T09:40:00', '2026-08-11T09:45:00']
+        if dataset == 'bars' else ['2026-08-11T09:35:00'])
+    if dataset == 'bars':
+        assert [row['close'] for row in page.rows] == [10.2, 10.4, 10.6]
+    else:
+        assert [(r['macd_dif'], r['macd_dea'], r['macd'], r['ma_250']) for r in page.rows] == [(0.1, 0.2, -0.2, None)]
+
+
+@pytest.mark.parametrize('dataset', ['bars', 'indicators'])
+def test_p4_batch1_empty_prepared_history_does_not_rediscover_or_connect(tmp_path, monkeypatch, dataset):
+    from unittest.mock import patch
+    from src.foundation.clients.local_lake import major_index_mins_reader as module
+
+    reader = MajorIndexMinsLakeReader(tmp_path)
+    request = IndexMinuteReadRequest('000001.SH', 5, None, None, 1000, None)
+    with patch.object(module, '_enumerate_partitions', wraps=module._enumerate_partitions) as enumerate_parts:
+        assert reader.history_source_signature(request, dataset=dataset) == ()
+        assert enumerate_parts.call_count == 1
+        monkeypatch.setattr(duckdb, 'connect', lambda *a, **kw: pytest.fail('empty prepared list opened DuckDB'))
+        page = reader.read_complete_history(request, dataset=dataset, timeout_seconds=5)
+        assert enumerate_parts.call_count == 1
+    assert page.rows == () and page.count == page.scanned_file_count == 0
+    assert not page.has_more and page.next_cursor is None
+    assert reader._prepared_history_partitions == {}
+
+
+@pytest.mark.parametrize('changed', ['dataset', 'freq', 'start_date', 'end_date'])
+def test_p4_batch1_prepared_history_is_bound_to_original_key(tmp_path, changed):
+    from unittest.mock import patch
+    from src.foundation.clients.local_lake import major_index_mins_reader as module
+
+    _write_gold_bars(tmp_path)
+    _write_gold(tmp_path)
+    reader = MajorIndexMinsLakeReader(tmp_path)
+    request = IndexMinuteReadRequest('000001.SH', 5, None, None, 1000, None)
+    original_key = ('bars', 5, None, None)
     reader.history_source_signature(request, dataset='bars')
-    replacement = target.with_suffix('.candidate')
-    replacement.write_bytes(target.read_bytes())
-    target.unlink()  # isolated tmp_path fixture only
-    target.symlink_to(replacement)
+    dataset = 'indicators' if changed == 'dataset' else 'bars'
+    if changed == 'freq':
+        request = replace(request, freq=15)  # This frequency has no files.
+    elif changed == 'start_date':
+        request = replace(request, start_date=date(2026, 8, 11))
+    elif changed == 'end_date':
+        request = replace(request, end_date=date(2026, 8, 11))
+    with patch.object(module, '_enumerate_partitions', wraps=module._enumerate_partitions) as enumerate_parts:
+        page = reader.read_complete_history(request, dataset=dataset, timeout_seconds=5)
+        assert enumerate_parts.call_count == 1
+        assert enumerate_parts.call_args.kwargs == dict(dataset=dataset, freq=request.freq,
+            start_date=request.start_date, end_date=request.end_date, cursor=None)
+    assert original_key in reader._prepared_history_partitions
+    if changed == 'freq':
+        assert page.rows == ()
+    elif changed == 'dataset':
+        assert [r['macd_dif'] for r in page.rows] == [0.1]
+    else:
+        assert [r['close'] for r in page.rows] == [10.2, 10.4, 10.6]
+
+
+def test_p4_batch1_prepared_history_success_is_consumed_once(tmp_path):
+    from unittest.mock import patch
+    from src.foundation.clients.local_lake import major_index_mins_reader as module
+
+    _write_gold_bars(tmp_path)
+    reader = MajorIndexMinsLakeReader(tmp_path)
+    request = IndexMinuteReadRequest('000001.SH', 5, None, None, 1000, None)
+    with patch.object(module, '_enumerate_partitions', wraps=module._enumerate_partitions) as enumerate_parts:
+        reader.history_source_signature(request, dataset='bars')
+        first = reader.read_complete_history(request, dataset='bars', timeout_seconds=5)
+        assert enumerate_parts.call_count == 1 and reader._prepared_history_partitions == {}
+        second = reader.read_complete_history(request, dataset='bars', timeout_seconds=5)
+        assert enumerate_parts.call_count == 2
+    assert first.rows == second.rows
+    assert [r['close'] for r in second.rows] == [10.2, 10.4, 10.6]
+
+
+def test_p4_batch1_prepared_history_failure_cleans_up_and_next_call_rediscovers(tmp_path, monkeypatch):
+    from unittest.mock import Mock, patch
+    from src.foundation.clients.local_lake import major_index_mins_reader as module
+
+    _write_gold_bars(tmp_path)
+    reader = MajorIndexMinsLakeReader(tmp_path)
+    request = IndexMinuteReadRequest('000001.SH', 5, None, None, 1000, None)
+    key = ('bars', 5, None, None)
+    marker = IndexMinuteSourceContractError('injected first query error')
+    real_connect, real_timer, real_query = duckdb.connect, module.Timer, module._query_rows
+    connections, timers, queries = [], [], []
+
+    class ObservedConnection:
+        def __init__(self, connection):
+            self.connection = connection
+            self.closes = 0
+
+        def __getattr__(self, name):
+            return getattr(self.connection, name)
+
+        def close(self):
+            self.closes += 1
+            return self.connection.close()
+
+    def connect(*args, **kwargs):
+        connection = ObservedConnection(real_connect(*args, **kwargs))
+        connections.append(connection)
+        return connection
+
+    def timer(*args, **kwargs):
+        value = real_timer(*args, **kwargs)
+        value.cancel = cancel_wrapper = Mock(wraps=value.cancel)
+        timers.append((value, cancel_wrapper))
+        return value
+
+    def fail_first_query(*args, **kwargs):
+        assert key not in reader._prepared_history_partitions
+        assert len(connections) == 1  # The actual method has opened its connection.
+        queries.append(1)
+        raise marker
+
+    monkeypatch.setattr(duckdb, 'connect', connect)
+    monkeypatch.setattr(module, 'Timer', timer)
+    with patch.object(module, '_enumerate_partitions', wraps=module._enumerate_partitions) as enumerate_parts:
+        reader.history_source_signature(request, dataset='bars')
+        assert enumerate_parts.call_count == 1
+        monkeypatch.setattr(module, '_query_rows', fail_first_query)
+        with pytest.raises(IndexMinuteSourceContractError) as error:
+            reader.read_complete_history(request, dataset='bars', timeout_seconds=5)
+        assert error.value is marker and queries == [1]
+        assert enumerate_parts.call_count == 1 and key not in reader._prepared_history_partitions
+        assert connections[0].closes == timers[0][1].call_count == 1
+        monkeypatch.setattr(module, '_query_rows', real_query)
+        # Explicit new request after the failed call has exited; no new signature.
+        page = reader.read_complete_history(request, dataset='bars', timeout_seconds=5)
+        assert enumerate_parts.call_count == 2
+    assert len(connections) == len(timers) == 2
+    assert connections[1].closes == timers[1][1].call_count == 1
+    assert all(not value.is_alive() or value.finished.is_set() for value, _ in timers)
+    assert reader._prepared_history_partitions == {}
+    assert [r['close'] for r in page.rows] == [10.2, 10.4, 10.6]
+    assert [r['trade_time'].isoformat() for r in page.rows] == [
+        '2026-08-11T09:35:00', '2026-08-11T09:40:00', '2026-08-11T09:45:00']
+
+
+@pytest.mark.parametrize('entrypoint', ['signature', 'direct'])
+@pytest.mark.parametrize('location', ['inside', 'outside'])
+@pytest.mark.parametrize('link_kind', ['file', 'partition'])
+def test_p4_batch1_first_history_discovery_still_rejects_links(tmp_path, entrypoint, location, link_kind):
+    root = tmp_path / 'lake'
+    target = _write_gold_bars(root)
+    request = IndexMinuteReadRequest('000001.SH', 5, None, None, 1000, None)
+
+    def invoke(reader):
+        if entrypoint == 'signature':
+            return reader.history_source_signature(request, dataset='bars')
+        return reader.read_complete_history(request, dataset='bars', timeout_seconds=5)
+
+    legal = invoke(MajorIndexMinsLakeReader(root))
+    if entrypoint == 'signature':
+        assert len(legal) == 1
+    else:
+        assert [r['close'] for r in legal.rows] == [10.2, 10.4, 10.6]
+    moved = (root if location == 'inside' else tmp_path / 'outside') / 'moved'
+    moved.parent.mkdir(parents=True, exist_ok=True)
+    link = target if link_kind == 'file' else target.parent
+    link.rename(moved)
+    link.symlink_to(moved, target_is_directory=link_kind == 'partition')
     with pytest.raises(IndexMinuteSourceContractError, match='符号链接'):
-        reader.read_complete_history(request, dataset='bars', timeout_seconds=5)
+        invoke(MajorIndexMinsLakeReader(root))
 
 
 def _rewrite_fixture_with_foreign_row(path: Path, replacement: str) -> None:

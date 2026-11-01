@@ -146,11 +146,89 @@ def test_f03_result_hash_matches_independent_empty_literal():
     assert raw==original
 
 
-def test_f04_identity_recheck_does_not_trust_mutated_nested_model_instances(full_payload):
-    value=InternalForecastResponseDto.model_validate(following_payload(full_payload))
-    value.structureFollowConditions[0].originWave.count=0
-    for debug in (False,True):
-        with pytest.raises(ValueError):project_forecast_response(value,debug=debug)
+@pytest.mark.parametrize('debug', [False, True])
+def test_p4_batch1_forecast_projection_does_not_rebuild_internal(full_payload, debug):
+    from unittest.mock import patch
+
+    internal = InternalForecastResponseDto.model_validate(following_payload(full_payload))
+    before = internal.model_dump()
+    with patch.object(InternalForecastResponseDto, 'model_validate', wraps=InternalForecastResponseDto.model_validate) as validate:
+        public = project_forecast_response(internal, debug=debug)
+    assert validate.call_count == 0
+    assert public.ordinaryState == 'DULL' and public.direction == 'BOTTOM'
+    assert public.targetEndpoint == '2023-01-11' and public.barsAhead == 1
+    assert internal.model_dump() == before
+
+
+@pytest.mark.parametrize('debug', [False, True])
+@pytest.mark.parametrize('damaged', [False, True])
+def test_p4_batch1_f04_cached_nested_model_is_revalidated(full_payload, m1, source_db, monkeypatch, debug, damaged):
+    # F04's guard belongs to the real cache -> query boundary, before projection.
+    from src.biz.queries.wealth.market.index_detail_xxm import forecast_query_service as query
+    from src.biz.queries.wealth.market.index_detail_xxm.query_service import XxmQueryError
+
+    service, _ = m1
+    cache = service.source.cache
+    key = next(k for k in cache.entries if k[0] == 'forecast')
+    value = InternalForecastResponseDto.model_validate(following_payload(full_payload))
+    cache.put(key, value)
+    if damaged:
+        value.structureFollowConditions[0].originWave.count = 0
+    old_members = dict(cache.entries)
+    monkeypatch.setattr(query, 'forecast', lambda *a, **kw: pytest.fail('cache must not be solved again'))
+    monkeypatch.setattr(cache, 'put_forecast', lambda *a, **kw: pytest.fail('cache hit must not publish a substitute'))
+    if damaged:
+        monkeypatch.setattr(query, 'project_forecast_response', lambda *a, **kw: pytest.fail('bad cache reached projection'))
+    with Session(source_db) as session:
+        if damaged:
+            with pytest.raises(XxmQueryError) as error:
+                read(service, session, debug=debug)
+            assert error.value.code == 'XXM_SOURCE_CONTRACT_INVALID'
+        else:
+            public = read(service, session, debug=debug)
+            assert public['forecastId'] == value.forecastId and public['ordinaryState'] == 'DULL'
+            if debug:
+                assert public['debug']['structureFollowConditions'][0]['originWave']['count'] == 1
+    assert set(cache.entries) == set(old_members)
+    assert all(cache.entries[k][0] is old_members[k][0] and cache.entries[k][1] == old_members[k][1] for k in old_members)
+    assert value.structureFollowConditions[0].originWave.count == (0 if damaged else 1)
+
+
+@pytest.mark.parametrize('debug', [False, True])
+def test_p4_batch1_forecast_projection_requires_internal_model_and_strict_debug(full_payload, debug):
+    internal = InternalForecastResponseDto.model_validate(full_payload)
+    ordinary = project_forecast_response(internal, debug=False)
+    detailed = project_forecast_response(internal, debug=True)
+    assert ordinary.model_dump() == {k: v for k, v in detailed.model_dump().items() if k != 'debug'}
+    for bad in (internal.model_dump(), ordinary, detailed, None, object()):
+        with pytest.raises(ValueError, match='InternalForecastResponseDto'):
+            project_forecast_response(bad, debug=debug)
+    for bad_debug in (0, 1, None, 'true'):
+        with pytest.raises(ValueError, match='Debug must be a boolean'):
+            project_forecast_response(internal, debug=bad_debug)
+        with pytest.raises(ValueError, match='Debug must be a boolean'):
+            project_forecast_response({}, debug=bad_debug)
+
+
+@pytest.mark.parametrize('debug', [False, True])
+def test_p4_batch1_forecast_projection_keeps_dynamic_audit_wrapper(full_payload, debug):
+    from scripts.research.index_market import xxm_page_request_audit as audit
+    from scripts.research.index_market.tests.test_xxm_p4_audit_tools import group
+    from src.biz.queries.wealth.market.index_detail_xxm import forecast_query_service as query
+
+    internal = InternalForecastResponseDto.model_validate(following_payload(full_payload))
+    before = internal.model_dump()
+    original = query.project_forecast_response
+    collector = audit.AuditCollector(group())
+    assert audit._REQUEST_ID.get() is None
+    with audit._observe(collector):
+        assert query.project_forecast_response is not original
+        public = query.project_forecast_response(internal, debug=debug)
+        assert public.targetEndpoint == '2023-01-11' and public.ordinaryState == 'DULL'
+        if debug:
+            assert public.debug.structureFollowConditions[0].originWave.count == 1
+    assert query.project_forecast_response is original
+    assert internal.model_dump() == before and collector.requests == {}
 
 
 def test_f05_normal_identity_format_is_closed_but_does_not_require_debug(full_payload):

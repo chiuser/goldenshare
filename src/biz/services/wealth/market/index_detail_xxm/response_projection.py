@@ -19,9 +19,11 @@ def _wave(wave):
 
 
 def project_xxm_response(internal: InternalXxmResponseDto, *, debug: bool):
+    """Project an upstream-validated internal model, unchanged since validation."""
     if type(debug) is not bool:
         raise ValueError('Debug must be a boolean')
-    internal = InternalXxmResponseDto.model_validate(internal.model_dump())
+    if not isinstance(internal, InternalXxmResponseDto):
+        raise ValueError('Expected a validated InternalXxmResponseDto')
     flags=event_display_flags([e.model_dump() for e in internal.events])
     source={k:getattr(internal.source,k) for k in ('kind','startTime','computedThrough','initialHistoryIncomplete','indicatorVersion')}
     payload=dict(tsCode=internal.tsCode,period=internal.period,algorithmVersion=internal.algorithmVersion,
@@ -41,9 +43,11 @@ def project_xxm_response(internal: InternalXxmResponseDto, *, debug: bool):
 
 
 def project_forecast_response(internal: InternalForecastResponseDto, *, debug: bool):
+    """Project an upstream-validated internal model, unchanged since validation."""
     if type(debug) is not bool:
         raise ValueError('Debug must be a boolean')
-    internal=InternalForecastResponseDto.model_validate(internal.model_dump())
+    if not isinstance(internal, InternalForecastResponseDto):
+        raise ValueError('Expected a validated InternalForecastResponseDto')
     # Only public fields are traversed for an ordinary response.
     payload={k:getattr(internal,k) for k in ForecastResponseDto.model_fields}
     payload['display']=internal.display.model_dump()
