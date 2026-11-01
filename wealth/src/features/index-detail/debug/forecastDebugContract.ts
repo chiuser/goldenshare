@@ -51,8 +51,8 @@ function range(raw: unknown, display: boolean): asserts raw is ForecastPriceRang
         if (lo === raw.lower && !raw.lowerInclusive)
             lo++;
         let hi = raw.upper === null ? null : Math.floor(raw.upper as number);
-        if (hi === raw.upper && !raw.upperInclusive)
-            hi!--;
+        if (hi !== null && hi === raw.upper && !raw.upperInclusive)
+            hi -= 1;
         if (hi !== null && lo > hi)
             assert(raw.displayLower === null && raw.displayUpper === null);
         else

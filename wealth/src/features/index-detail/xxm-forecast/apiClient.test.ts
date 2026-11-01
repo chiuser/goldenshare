@@ -19,3 +19,14 @@ it("normal requests omit debug and retain source errors",async()=>{
   vi.mocked(wealthFetch).mockResolvedValueOnce(new Response(JSON.stringify({message:"来源不完整"}),{status:503}));
   await expect(fetchForecast("day",undefined,new AbortController().signal)).rejects.toThrow("来源不完整");
 });
+
+it.each(["day","m60","m90","m120"] as const)("preserves an unbounded debug range through the actual %s client",async period=>{
+  // LLD 21.13, real 2026-10-27 boundary; only HTTP is replaced.
+  const raw=forecastDebugFixture(period);
+  raw.debug.conditions[0]!.priceRanges=[{lower:3779.307688860061,upper:null,lowerInclusive:true,upperInclusive:false,displayLower:3780,displayUpper:null}];
+  vi.mocked(wealthFetch).mockResolvedValueOnce(new Response(JSON.stringify(raw)));
+  const result=await fetchForecast(period,undefined,new AbortController().signal,{debug:1,decodeDebug:decodeForecastDebug});
+  expect(result.response).toHaveProperty("debug.conditions.0.priceRanges.0",{lower:3779.307688860061,upper:null,lowerInclusive:true,upperInclusive:false,displayLower:3780,displayUpper:null});
+  expect(result.deadline).toBeGreaterThan(performance.now());
+  expect(vi.mocked(wealthFetch)).toHaveBeenCalledTimes(1);
+});
