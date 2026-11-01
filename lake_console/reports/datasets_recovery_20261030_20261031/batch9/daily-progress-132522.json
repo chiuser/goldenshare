@@ -1,0 +1,86 @@
+{
+  "observed_at": "2026-10-31T13:25:22.721897+08:00",
+  "response": {
+    "data": {
+      "runOrError": {
+        "__typename": "Run",
+        "runId": "df08f87b-2316-4368-a9f1-6771bd9c17fd",
+        "status": "STARTED",
+        "stepStats": [
+          {
+            "stepKey": "gold_stk_mins_qfq_120m",
+            "status": "FAILURE",
+            "startTime": 1793423492.728211,
+            "endTime": 1793423492.965248
+          },
+          {
+            "stepKey": "gold_stk_mins_qfq_15m",
+            "status": "SUCCESS",
+            "startTime": 1793423492.98797,
+            "endTime": 1793423559.997646
+          },
+          {
+            "stepKey": "gold_stk_mins_qfq_1m",
+            "status": "SUCCESS",
+            "startTime": 1793423560.0029461,
+            "endTime": 1793423778.5672152
+          },
+          {
+            "stepKey": "gold_stk_mins_qfq_30m",
+            "status": "SUCCESS",
+            "startTime": 1793423778.573452,
+            "endTime": 1793423843.086282
+          },
+          {
+            "stepKey": "gold_stk_mins_qfq_5m",
+            "status": "SUCCESS",
+            "startTime": 1793423843.101859,
+            "endTime": 1793423938.615417
+          },
+          {
+            "stepKey": "gold_stk_mins_qfq_60m",
+            "status": "SUCCESS",
+            "startTime": 1793423938.624331,
+            "endTime": 1793423998.579638
+          },
+          {
+            "stepKey": "gold_stk_mins_qfq_90m",
+            "status": "SUCCESS",
+            "startTime": 1793423998.59889,
+            "endTime": 1793424056.664274
+          },
+          {
+            "stepKey": "gold_stk_mins_qfq_15m_blocking_checks",
+            "status": "SUCCESS",
+            "startTime": 1793424056.6689348,
+            "endTime": 1793424087.154917
+          },
+          {
+            "stepKey": "gold_stk_mins_qfq_1m_blocking_checks",
+            "status": "SUCCESS",
+            "startTime": 1793424087.1598709,
+            "endTime": 1793424236.184097
+          },
+          {
+            "stepKey": "gold_stk_mins_qfq_30m_blocking_checks",
+            "status": "SUCCESS",
+            "startTime": 1793424236.193732,
+            "endTime": 1793424268.3911529
+          },
+          {
+            "stepKey": "gold_stk_mins_qfq_5m_blocking_checks",
+            "status": "SUCCESS",
+            "startTime": 1793424268.400546,
+            "endTime": 1793424314.405259
+          },
+          {
+            "stepKey": "gold_stk_mins_qfq_60m_blocking_checks",
+            "status": "IN_PROGRESS",
+            "startTime": 1793424314.416266,
+            "endTime": null
+          }
+        ]
+      }
+    }
+  }
+}

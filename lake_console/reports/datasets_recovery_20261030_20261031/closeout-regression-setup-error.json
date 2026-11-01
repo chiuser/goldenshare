@@ -1,0 +1,8 @@
+{
+  "stage": "isolated test setup, not business code",
+  "tests": 32,
+  "passed": 18,
+  "errors": 14,
+  "reason": "指定pytest basetemp的父目录尚未建立，FileNotFoundError；14项未进入测试，未修改实现或预期",
+  "correction": "只建立本轮专属临时父目录，重新执行同一32项；正式数据和服务未访问"
+}

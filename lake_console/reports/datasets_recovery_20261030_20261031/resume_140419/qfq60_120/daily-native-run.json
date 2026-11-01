@@ -1,0 +1,115 @@
+{
+  "stage": "qfq60_120",
+  "date": "2026-10-30",
+  "trade_date": "2026-10-30",
+  "submitted_at": "2026-10-31T14:47:05.374476+08:00",
+  "request": {
+    "selector": {
+      "repositoryLocationName": "orchestrator",
+      "repositoryName": "__repository__",
+      "jobName": "stock_mins_qfq_daily_update_job",
+      "assetSelection": [
+        {
+          "path": [
+            "gold_stk_mins_qfq_60m"
+          ]
+        },
+        {
+          "path": [
+            "gold_stk_mins_qfq_120m"
+          ]
+        }
+      ],
+      "assetCheckSelection": [
+        {
+          "assetKey": {
+            "path": [
+              "gold_stk_mins_qfq_60m"
+            ]
+          },
+          "name": "gold_stk_mins_qfq_contract_check"
+        },
+        {
+          "assetKey": {
+            "path": [
+              "gold_stk_mins_qfq_60m"
+            ]
+          },
+          "name": "gold_stk_mins_qfq_key_integrity_check"
+        },
+        {
+          "assetKey": {
+            "path": [
+              "gold_stk_mins_qfq_60m"
+            ]
+          },
+          "name": "gold_stk_mins_qfq_value_domain_check"
+        },
+        {
+          "assetKey": {
+            "path": [
+              "gold_stk_mins_qfq_60m"
+            ]
+          },
+          "name": "gold_stk_mins_qfq_source_coverage_check"
+        },
+        {
+          "assetKey": {
+            "path": [
+              "gold_stk_mins_qfq_120m"
+            ]
+          },
+          "name": "gold_stk_mins_qfq_derived_source_coverage_check"
+        },
+        {
+          "assetKey": {
+            "path": [
+              "gold_stk_mins_qfq_120m"
+            ]
+          },
+          "name": "gold_stk_mins_qfq_contract_check"
+        },
+        {
+          "assetKey": {
+            "path": [
+              "gold_stk_mins_qfq_120m"
+            ]
+          },
+          "name": "gold_stk_mins_qfq_key_integrity_check"
+        },
+        {
+          "assetKey": {
+            "path": [
+              "gold_stk_mins_qfq_120m"
+            ]
+          },
+          "name": "gold_stk_mins_qfq_value_domain_check"
+        }
+      ]
+    },
+    "runConfigData": {},
+    "executionMetadata": {
+      "tags": [
+        {
+          "key": "goldenshare/recovery",
+          "value": "stock_mins_20261030_resume_20261031"
+        },
+        {
+          "key": "dagster/partition",
+          "value": "2026-10-30"
+        }
+      ]
+    }
+  },
+  "observer_business_writes": false,
+  "launch_response": {
+    "__typename": "LaunchRunSuccess",
+    "run": {
+      "runId": "500eac06-3717-442f-9bc0-559f322d0b21",
+      "status": "QUEUED"
+    }
+  },
+  "run_id": "500eac06-3717-442f-9bc0-559f322d0b21",
+  "status": "SUCCESS",
+  "last_observed_at": "2026-10-31T14:49:45.698567+08:00"
+}

@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-30",
+  "closed_at": "2026-11-01T21:08:45.113951+08:00",
+  "isolated_regression_passed": 32,
+  "source_test_files": [
+    "test_stk_mins_replace_existing.py",
+    "test_run_contract_configs.py",
+    "test_stk_mins_prod_price_precision.py"
+  ],
+  "previous_54_tests_evidence": "resume_140419/isolation-tests.xml",
+  "previous_3_literal_cases": "resume_140419/final-result.json#literal_event_reader_cases_passed",
+  "counts_not_added_across_repeated_runs": true,
+  "initial_setup_error": "closeout-regression-setup-error.json",
+  "docs_integrity": "passed",
+  "fatal_ruff": "passed",
+  "new_module_and_test_full_ruff": "passed",
+  "two_existing_files_full_ruff": "18既有问题沿原记录保留；本次不改代码或放宽规则",
+  "code_files_newly_edited_during_closeout": 0,
+  "new_formal_data_reads": 0,
+  "new_formal_data_writes": 0,
+  "new_job_launches": 0,
+  "sensor_operations": 0,
+  "temporary_test_directory_deleted": true,
+  "staged_file_whitelist_verified": true,
+  "staged_files": 167,
+  "staged_name_status_checked": true,
+  "diff_cached_check": "passed",
+  "older_lld_edits_excluded": true,
+  "execution_metadata_and_source_archives_roundtrip_verified": true,
+  "no_embedded_credentials_detected_in_text_reports": true
+}

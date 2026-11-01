@@ -1,0 +1,226 @@
+{
+  "date": "2026-10-30",
+  "mode": "daily",
+  "job": "stock_mins_raw_update_from_prod_job",
+  "status": "SUCCESS",
+  "run_id": "cb411608-38ea-471f-85e1-9ba50db8dcf2",
+  "root_run_id": "cb411608-38ea-471f-85e1-9ba50db8dcf2",
+  "materializations": [
+    {
+      "asset": "raw_stk_mins_60m",
+      "partition": "2026-10-30",
+      "storage_id": 7836709,
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+        "dagster/row_count": 27885,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_time",
+          "open",
+          "close",
+          "high",
+          "low",
+          "vol",
+          "amount",
+          "exchange",
+          "vwap"
+        ],
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/freq": 60,
+        "goldenshare/source_method": "prod_db_raw_tushare",
+        "goldenshare/write_mode": "replace_existing",
+        "goldenshare/stock_code_count": 5577,
+        "goldenshare/returned_stock_code_count": 5577,
+        "goldenshare/empty_stock_code_count": 0,
+        "goldenshare/page_count": 0,
+        "goldenshare/query_count": 1,
+        "goldenshare/limit": 8000,
+        "goldenshare/summary": "已写入股票 60min 分钟 raw 源镜像：交易日 2026-10-30，27885 行。",
+        "goldenshare/next_action": "等待 raw blocking checks 全部通过；通过后对应频度的 silver_stk_mins 才能消费。",
+        "goldenshare/result_status": "written",
+        "goldenshare/diagnostic_ref": "完整诊断看 raw_stk_mins checks metadata 和本次 run stdout。",
+        "goldenshare/input_summary": {
+          "empty_stock_code_count": 0,
+          "page_count": 0,
+          "query_count": 1,
+          "returned_stock_code_count": 5577,
+          "source_method": "prod_db_raw_tushare",
+          "stock_code_count": 5577,
+          "write_mode": "replace_existing"
+        },
+        "goldenshare/filter_summary": {
+          "output_row_count": 27885,
+          "repair_appended_row_count": 0,
+          "repair_replaced_row_count": 0,
+          "repair_returned_row_count": 0,
+          "repair_stock_code_count": 0
+        },
+        "goldenshare/prod_completion_task_run_id": 17542,
+        "goldenshare/prod_completion_ended_at": "2026-10-30T18:25:19.194235+08:00",
+        "goldenshare/prod_completion_expected_code_count": 5577,
+        "goldenshare/prod_completion_reference_fingerprint": "e47633aab92e8244e384eed67bc53bf19d32eb5125852276acd4e94d8502db44",
+        "goldenshare/prod_completion_frequency_present_code_count": 5577
+      },
+      "stat": [
+        16777244,
+        30375795,
+        1021856,
+        1793429098819118437,
+        1793429098851239783
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "asset": "raw_stk_mins_60m",
+      "name": "raw_stk_mins_contract_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "storage_id": 7836713,
+      "target_storage_id": 7836709,
+      "target_run_id": "cb411608-38ea-471f-85e1-9ba50db8dcf2",
+      "metadata": {
+        "goldenshare/check_scope": "schema",
+        "goldenshare/checked_row_count": 27885,
+        "goldenshare/expected_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "BIGINT",
+          "vwap": "DOUBLE"
+        },
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 60,
+        "goldenshare/freq_failed_row_count": 0,
+        "goldenshare/missing_columns": [],
+        "goldenshare/next_action": "无需处理；等待 raw 下游或 silver 标准化消费。",
+        "goldenshare/observed_schema": {
+          "amount": "DOUBLE",
+          "close": "DOUBLE",
+          "exchange": "VARCHAR",
+          "freq": "INTEGER",
+          "high": "DOUBLE",
+          "low": "DOUBLE",
+          "open": "DOUBLE",
+          "trade_time": "TIMESTAMP",
+          "ts_code": "VARCHAR",
+          "vol": "BIGINT",
+          "vwap": "DOUBLE"
+        },
+        "goldenshare/partition_date_failed_row_count": 0,
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "raw_stk_mins_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "raw_stk_mins_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "raw_stk_mins_freq_matches_asset"
+          },
+          {
+            "passed": true,
+            "rule_name": "raw_stk_mins_partition_date_matches"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 60 分钟 raw 契约 的 4 条质量规则全部通过。",
+        "goldenshare/type_mismatches": {}
+      }
+    },
+    {
+      "asset": "raw_stk_mins_60m",
+      "name": "raw_stk_mins_key_integrity_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "storage_id": 7836717,
+      "target_storage_id": 7836709,
+      "target_run_id": "cb411608-38ea-471f-85e1-9ba50db8dcf2",
+      "metadata": {
+        "goldenshare/check_scope": "key_uniqueness",
+        "goldenshare/checked_row_count": 27885,
+        "goldenshare/duplicate_group_count": 0,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 60,
+        "goldenshare/is_registered": true,
+        "goldenshare/next_action": "无需处理；等待 raw 下游或 silver 标准化消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/partition_set": "cn_a_stock_mins_trade_days",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "raw_stk_mins_unique_ts_code_trade_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "raw_stk_mins_stock_mins_partition_key_registered"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 60 分钟 raw 主键 的 2 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "raw_stk_mins_60m",
+      "name": "raw_stk_mins_value_domain_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "storage_id": 7836721,
+      "target_storage_id": 7836709,
+      "target_run_id": "cb411608-38ea-471f-85e1-9ba50db8dcf2",
+      "metadata": {
+        "goldenshare/check_scope": "value_sanity",
+        "goldenshare/checked_row_count": 27885,
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 60,
+        "goldenshare/next_action": "无需处理；等待 raw 下游或 silver 标准化消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/raw_sanity_policy": "Raw stk_mins preserves existing promoted partition facts. This check only blocks null values, negative numeric values, and empty stock codes.",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "raw_stk_mins_price_volume_sanity"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 60 分钟 raw 取值 的 1 条质量规则全部通过。"
+      }
+    }
+  ],
+  "verified": true,
+  "stage_acceptance_complete": true,
+  "accepted_at": "2026-10-31T14:46:21.281118+08:00",
+  "elapsed_seconds": 2.8837850093841553,
+  "formal_writes_by_readback": 0,
+  "extra_price_reads": 0,
+  "publication": {
+    "receipt": "/Volumes/datasource/data_lake_staging/minute_partitions/raw_stk_mins/target=40ea84a8d3144f0ad38cf3e5c79bb10f4667a624affc1e33ee377b39d69fba9d/run_id=ef533ad537a781cadd788a96a625a54323b91287172bf2650ab804b60c76b528/receipt.json",
+    "status": "promoted",
+    "target_stat": [
+      16777244,
+      30375795,
+      1021856,
+      1793429098819118437,
+      1793429098851239783
+    ]
+  }
+}

@@ -1,0 +1,116 @@
+"""Submit one approved original job once. No direct business-data writes."""
+import argparse
+import json
+import time
+from pathlib import Path
+
+from common import BASE, DAY, OUT, gql, load, no_conflict, now, require, save
+
+STAGES = {
+    "raw60": ("stock_mins_raw_update_from_prod_job", "daily", ["raw_stk_mins_60m"]),
+    "silver60": ("stock_mins_silver_update_job", "daily", ["silver_stk_mins_60m"]),
+    "qfq60_120": ("stock_mins_qfq_daily_update_job", "daily", ["gold_stk_mins_qfq_60m", "gold_stk_mins_qfq_120m"]),
+    "turnover": ("gold_wealth_market_turnover_update_job", "daily", None),
+    "factor": ("stock_mins_qfq_factor_repair_job", "factor", None),
+    "macd_daily": ("gold_stk_mins_qfq_macd_kdj_daily_update_job", "daily", None),
+    "macd_repair": ("gold_stk_mins_qfq_macd_kdj_repair_job", "repair", None),
+    "nineturn": ("gold_stk_mins_qfq_nineturn_update_job", "daily", None),
+}
+DIRS = {"macd_daily": "macd_kdj", "macd_repair": "macd_kdj"}
+
+
+def accepted(stage, mode="daily"):
+    result = load(OUT / DIRS.get(stage, stage) / f"{mode}-run-verified.json")
+    require(result["verified"] and result["stage_acceptance_complete"]
+            and result["date"] == DAY and result["status"] == "SUCCESS", "Prerequisite not accepted")
+    return result
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("stage", choices=STAGES)
+    stage = parser.parse_args().stage
+    job, mode, assets = STAGES[stage]
+    directory = OUT / DIRS.get(stage, stage)
+    require(load(OUT / "design-and-resume-approval.json")["user_reply"] == "批准修正、验证后继续补齐", "Missing specific approval")
+    pre = load(directory / "preflight.json")
+    require(pre["safe_to_launch"] and pre["date"] == DAY, "Preflight not ready")
+    config = load(directory / ("repair-run-config.json" if stage == "macd_repair" else "run-config.json"))
+    if stage in {"silver60"}:
+        accepted("raw60")
+    if stage in {"qfq60_120", "turnover"}:
+        accepted("silver60")
+    if stage == "factor":
+        require(load(OUT / "qfq-current-seven-accepted.json")["verified"], "Seven QFQ current results not accepted")
+    if stage == "macd_daily":
+        accepted("factor", "factor")
+    if stage == "macd_repair":
+        accepted("factor", "factor")
+        accepted("macd_daily")
+        decision = load(directory / "repair-decision.json")
+        require(decision["repair_to_launch"] and decision["run_config"] == config,
+                "Repair config differs from the original decision/config builder")
+    if stage == "nineturn":
+        accepted("factor", "factor")
+        require(pre["factor_gate_ready"] and pre["macd_gate_ready"]
+                and pre["seed_and_candidate_scope_verified"], "Nine-turn prerequisites incomplete")
+    intent = directory / f"{mode}-launch-intent.json"
+    require(not intent.exists(), "Existing launch intent: inspect, never resubmit automatically")
+    control = no_conflict()
+    save(directory / "control-before-launch.json", control)
+    selector = {"repositoryLocationName": "orchestrator", "repositoryName": "__repository__", "jobName": job}
+    if assets is not None:
+        from orchestrator.defs.catalog.lake_assets import LAKE_ASSET_CATALOG
+        cat = {str(x.asset_key): x for x in LAKE_ASSET_CATALOG}
+        selector["assetSelection"] = [{"path": [key]} for key in assets]
+        selector["assetCheckSelection"] = [
+            {"assetKey": {"path": [key]}, "name": name}
+            for key in assets for name in cat[key].blocking_check_names]
+    pipeline = {**selector, "pipelineName": selector["jobName"]}
+    del pipeline["jobName"]
+    plan = gql('query P($p:PipelineSelector!,$c:RunConfigData!){executionPlanOrError(pipeline:$p,mode:"default",runConfigData:$c){__typename ... on ExecutionPlan{assetKeys{path} steps{key}} ... on PythonError{message}}}', {"p": pipeline, "c": config})["executionPlanOrError"]
+    save(directory / "execution-plan.json", plan)
+    require(plan["__typename"] == "ExecutionPlan", str(plan))
+    if assets is not None:
+        require({"/".join(x["path"]) for x in plan["assetKeys"]} == set(assets), "Formal service selection differs from approved subset")
+    tags = [{"key": "goldenshare/recovery", "value": "stock_mins_20261030_resume_20261031"}]
+    if stage not in {"factor", "macd_repair"}:
+        tags.append({"key": "dagster/partition", "value": DAY})
+    params = {"selector": selector, "runConfigData": config, "executionMetadata": {"tags": tags}}
+    state = {"stage": stage, "date": DAY, "trade_date": DAY, "submitted_at": now(),
+             "request": params, "observer_business_writes": False}
+    save(intent, state)
+    response = gql('mutation L($p:ExecutionParams!){launchRun(executionParams:$p){__typename ... on LaunchRunSuccess{run{runId status}} ... on RunConfigValidationInvalid{errors{message reason}} ... on PythonError{message}}}', {"p": params})["launchRun"]
+    state["launch_response"] = response
+    save(intent, state)
+    require(response["__typename"] == "LaunchRunSuccess", str(response))
+    rid = response["run"]["runId"]
+    state["run_id"] = rid
+    save(intent, state)
+    last_status = last_progress = None
+    while True:
+        run = gql('query R($id:ID!){runOrError(runId:$id){__typename ... on Run{runId status}}}', {"id": rid})["runOrError"]
+        require(run["__typename"] == "Run", str(run))
+        state.update(status=run["status"], last_observed_at=now())
+        save(directory / f"{mode}-native-run.json", state)
+        if run["status"] != last_status:
+            print(json.dumps({"stage": stage, "run_id": rid, "status": run["status"], "at": now()}), flush=True)
+            last_status = run["status"]
+        logs = sorted((Path('/Users/congming/.goldenshare/dagster_logs') / rid / "compute_logs").glob("*.out"), key=lambda x: x.stat().st_mtime_ns)
+        if logs:
+            with logs[-1].open("rb") as stream:
+                stream.seek(max(0, logs[-1].stat().st_size - 8192))
+                lines = stream.read().decode(errors="replace").splitlines()
+            progress = next((x for x in reversed(lines) if "progress" in x or "completed" in x or "source" in x), None)
+            if progress and progress != last_progress:
+                print(json.dumps({"stage": stage, "progress": progress[-1200:]}), flush=True)
+                last_progress = progress
+        if run["status"] in {"SUCCESS", "FAILURE", "CANCELED"}:
+            break
+        time.sleep(10)
+    require(state["status"] == "SUCCESS", "Original job failed: stop, preserve formal results and staging")
+    print(json.dumps({"stage": stage, "run_id": rid, "terminal": "SUCCESS", "next": "exact acceptance before downstream"}), flush=True)
+
+
+if __name__ == "__main__":
+    main()

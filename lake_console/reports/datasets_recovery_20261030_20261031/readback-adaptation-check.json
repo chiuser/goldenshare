@@ -1,0 +1,22 @@
+{
+  "date": "2026-10-30",
+  "checks": [
+    {
+      "source": "qfq_factor_readback_20261028.py.txt",
+      "prepared": "qfq_factor_readback_20261030.py",
+      "all_business_acceptance_functions_byte_identical": true,
+      "business_function_count": 16,
+      "cli_difference": "Only QFQ report-scope error wording28→30, same path guard. Full first comparison correctly identified this known display-string difference."
+    },
+    {
+      "source": "macd_readback_20261028.py.txt",
+      "prepared": "macd_readback_20261030.py",
+      "all_business_acceptance_functions_byte_identical": true,
+      "business_function_count": 17,
+      "cli_difference": "none"
+    }
+  ],
+  "globals_day_and_output_paths_changed": true,
+  "business_source_modified": false,
+  "formal_data_read_by_this_validation": false
+}

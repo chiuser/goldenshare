@@ -1,0 +1,40 @@
+"""Read exact native run/checks and target stat; no price reads or business writes."""
+import argparse,json,os
+from pathlib import Path
+from datetime import datetime
+from zoneinfo import ZoneInfo
+import dagster as dg,yaml
+from dagster_postgres import PostgresRunStorage,PostgresEventLogStorage
+from orchestrator.defs.catalog.lake_assets import LAKE_ASSET_CATALOG
+DAY='2026-10-30'
+OUT=Path('/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261030_20261031')
+ROOT=Path('/Volumes/datasource/data_lake')
+STAGES={'raw':('batch1','stock_mins_raw_update_from_prod_job',{f'raw_stk_mins_{f}m' for f in [1,5,15,30,60]},15),'silver':('batch2','stock_mins_silver_update_job',{f'silver_stk_mins_{f}m' for f in [1,5,15,30,60]},20),'turnover':('turnover','gold_wealth_market_turnover_update_job',{'gold_wealth_market_turnover','prod_core_wealth_market_turnover'},1)}
+def require(ok,msg):
+ if not ok:raise ValueError(msg)
+def md(v):return {k:getattr(x,'value',str(x)) for k,x in v.items() if k!='dagster/column_schema'}
+def main():
+ a=argparse.ArgumentParser();a.add_argument('--stage',choices=STAGES,required=True);x=a.parse_args();directory,job,assets,nchecks=STAGES[x.stage];d=OUT/directory;native=json.loads((d/'daily-native-run.json').read_text());rid=native['run_id'];require(native['status']=='SUCCESS','Native job not successful')
+ os.environ['PGOPTIONS']='-c default_transaction_read_only=on -c statement_timeout=30000'
+ cfg=yaml.safe_load(Path('/Users/congming/.goldenshare/dagster_home/dagster.yaml').read_text());url=cfg['storage']['postgres']['postgres_url'];url=os.environ[url['env']] if isinstance(url,dict) else url
+ rs=PostgresRunStorage(url,should_autocreate_tables=False);es=PostgresEventLogStorage(url,should_autocreate_tables=False);cat={str(e.asset_key):e for e in LAKE_ASSET_CATALOG};result={'date':DAY,'mode':'daily','run_id':rid,'job':job,'verified':False,'stage_acceptance_complete':False,'formal_writes':0,'extra_price_reads':0}
+ try:
+  found=rs.get_run_records(dg.RunsFilter(run_ids=[rid]),limit=1);require(len(found)==1,'Exact run not found');record=found[0];r=record.dagster_run;require(r.job_name==job and r.status==dg.DagsterRunStatus.SUCCESS and r.tags.get('dagster/partition')==DAY,'Run identity/status/date mismatch')
+  logs=es.get_records_for_run(rid,of_type={dg.DagsterEventType.ASSET_MATERIALIZATION,dg.DagsterEventType.ASSET_CHECK_EVALUATION,dg.DagsterEventType.STEP_FAILURE,dg.DagsterEventType.PIPELINE_FAILURE},limit=300);require(not logs.has_more,'Unexpected event scope overflow');mats=[];checks=[];fail=[]
+  for rec in logs.records:
+   ev=rec.event_log_entry.dagster_event
+   if ev.event_type==dg.DagsterEventType.ASSET_MATERIALIZATION:
+    m=rec.asset_materialization;key=m.asset_key.to_user_string();require(key in assets and m.partition==DAY,'Materialization outside stage/day');item={'asset':key,'storage_id':rec.storage_id,'partition':m.partition,'metadata':md(m.metadata)};entry=cat[key]
+    if entry.path_template and entry.path_template.startswith('data_lake/'):
+     p=ROOT/entry.path_template.removeprefix('data_lake/').format(partition_key=DAY);st=p.stat();item.update(path=str(p),stat=[st.st_dev,st.st_ino,st.st_size,st.st_mtime_ns,st.st_ctime_ns]);require(st.st_size>0,'Empty physical target')
+    mats.append(item)
+   elif ev.event_type==dg.DagsterEventType.ASSET_CHECK_EVALUATION:
+    c=ev.event_specific_data;t=c.target_materialization_data;checks.append({'asset':c.asset_key.to_user_string(),'name':c.check_name,'passed':c.passed,'blocking':c.blocking,'partition':c.partition,'target_storage_id':t.storage_id if t else None,'metadata':md(c.metadata)})
+   else:fail.append(str(ev.event_specific_data))
+  require(not fail and {m['asset'] for m in mats}==assets and len(mats)==len(assets),'Materials/failure mismatch');ids={m['asset']:m['storage_id'] for m in mats};expected={(key,name) for key in assets if not key.startswith('prod_') for name in cat[key].blocking_check_names};require(len(checks)==nchecks and len(expected)==nchecks and {(c['asset'],c['name']) for c in checks}==expected,'Native check set mismatch')
+  require(all(c['passed'] and c['blocking'] and c['target_storage_id']==ids[c['asset']] and c['partition'] in (None,DAY) for c in checks),'Failed/unbound/wrong-date check')
+  result.update(status='SUCCESS',materializations=mats,checks=checks,failures=fail,elapsed_seconds=record.end_time-record.start_time,verified=True,stage_acceptance_complete=True,accepted_at=datetime.now(ZoneInfo('Asia/Shanghai')).isoformat())
+ finally:
+  rs.dispose();es.dispose();(d/'daily-run-verified.json').write_text(json.dumps(result,ensure_ascii=False,indent=2,default=str)+'\n')
+ print(json.dumps({'stage':x.stage,'run_id':rid,'verified':result['verified'],'materials':len(result.get('materializations',[])),'checks':len(result.get('checks',[])),'elapsed_seconds':result.get('elapsed_seconds')},ensure_ascii=False))
+if __name__=='__main__':main()

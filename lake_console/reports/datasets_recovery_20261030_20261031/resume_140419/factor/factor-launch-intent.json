@@ -1,0 +1,39 @@
+{
+  "stage": "factor",
+  "date": "2026-10-30",
+  "trade_date": "2026-10-30",
+  "submitted_at": "2026-10-31T14:52:03.980699+08:00",
+  "request": {
+    "selector": {
+      "repositoryLocationName": "orchestrator",
+      "repositoryName": "__repository__",
+      "jobName": "stock_mins_qfq_factor_repair_job"
+    },
+    "runConfigData": {
+      "ops": {
+        "stock_mins_qfq_factor_repair_op": {
+          "config": {
+            "trade_date": "2026-10-30"
+          }
+        }
+      }
+    },
+    "executionMetadata": {
+      "tags": [
+        {
+          "key": "goldenshare/recovery",
+          "value": "stock_mins_20261030_resume_20261031"
+        }
+      ]
+    }
+  },
+  "observer_business_writes": false,
+  "launch_response": {
+    "__typename": "LaunchRunSuccess",
+    "run": {
+      "runId": "ec3436f3-6a4d-42ab-b696-7db9972563ab",
+      "status": "QUEUED"
+    }
+  },
+  "run_id": "ec3436f3-6a4d-42ab-b696-7db9972563ab"
+}

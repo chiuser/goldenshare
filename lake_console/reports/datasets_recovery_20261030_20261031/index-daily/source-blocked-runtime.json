@@ -1,0 +1,1829 @@
+{
+  "observed_at": "2026-10-31T17:47:24.101546+08:00",
+  "data": {
+    "s0": {
+      "__typename": "Sensor",
+      "name": "raw_index_daily_update_job_sensor",
+      "sensorState": {
+        "id": "412460001a09a7d402394657fdebe84d12d62faf::808d8092177b4e541cdc7ed5143e636cd24cb823",
+        "status": "RUNNING",
+        "typeSpecificData": {
+          "lastCursor": "{\"blocked_count\": 1, \"decision\": \"skip\", \"details\": {\"asset_family\": \"index_daily\", \"blocked_component\": \"prod_core_db\", \"evidence\": {\"max_run_requests_per_tick\": 1, \"registered_code_count\": 820, \"registered_trade_day_count\": 6499, \"source_mode\": \"prod_core_db\"}, \"frontier\": {\"actionable_registered_count\": 10, \"batch_elapsed_ms\": 128, \"expected_count\": 10, \"expected_end_date\": \"2026-10-30\", \"expected_start_date\": \"2026-10-19\", \"first_not_ready_trade_date\": \"2026-10-30\", \"last_registered_expected_date\": \"2026-10-30\", \"ready_through_trade_date\": \"2026-10-29\", \"registered_count\": 10, \"registration_gap_class\": \"none\", \"scanned_file_count\": 9, \"selected_trade_date\": \"2026-10-30\", \"trailing_unregistered_count\": 0}, \"gate_statuses\": {\"prod_core_db\": {\"date_mismatch_count\": 0, \"duplicate_key_count\": 0, \"elapsed_ms\": 363, \"expected_code_count\": 820, \"expected_code_set_hash\": \"1129cb88459d4bc7235f78fac8d08c62\", \"extra_code_count\": 0, \"missing_code_count\": 2, \"missing_code_samples\": [\"931772.CSI\", \"931834.CSI\"], \"null_key_count\": 0, \"ready\": false, \"reason\": \"code_coverage\", \"returned_code_count\": 818, \"source_row_count\": 818, \"trade_date\": \"2026-10-30\"}, \"raw_lake\": {\"checks_passed\": false, \"materialized\": false, \"missing_check_names\": [\"raw_index_daily_file_contract_check\"], \"missing_file_path_count\": 1, \"ready\": false, \"reason\": \"missing_raw_index_daily_file\", \"trade_date\": \"2026-10-30\"}}, \"job_name\": \"raw_index_daily_update_job\", \"next_action\": \"按阻断组件修复上游状态，或等待下一次 sensor tick。\", \"partition_set\": \"cn_a_index_trade_days\", \"performance_ms\": {\"raw_batch_elapsed_ms\": 128, \"source_probe_elapsed_ms\": 363}, \"reason_code\": \"code_coverage\", \"sensor_name\": \"raw_index_daily_update_job_sensor\", \"summary\": \"prod core DB 指数日线 source readiness 未满足，暂不提交 raw 更新。\"}, \"evaluated_at\": \"2026-10-31T17:38:04.942588+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": \"2026-10-30\"}",
+          "lastRunKey": "raw_index_daily:2026-10-29"
+        },
+        "ticks": [
+          {
+            "timestamp": 1793439484.801483,
+            "endTimestamp": 1793439485.515198,
+            "status": "SKIPPED",
+            "skipReason": "prod core DB 指数日线 source readiness 未满足，暂不提交 raw 更新。",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793438879.883981,
+            "endTimestamp": 1793438880.836565,
+            "status": "SKIPPED",
+            "skipReason": "prod core DB 指数日线 source readiness 未满足，暂不提交 raw 更新。",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793438276.233578,
+            "endTimestamp": 1793438277.1393652,
+            "status": "SKIPPED",
+            "skipReason": "prod core DB 指数日线 source readiness 未满足，暂不提交 raw 更新。",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793437671.404295,
+            "endTimestamp": 1793437672.173515,
+            "status": "SKIPPED",
+            "skipReason": "prod core DB 指数日线 source readiness 未满足，暂不提交 raw 更新。",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793437068.70915,
+            "endTimestamp": 1793437069.611516,
+            "status": "SKIPPED",
+            "skipReason": "prod core DB 指数日线 source readiness 未满足，暂不提交 raw 更新。",
+            "runIds": [],
+            "error": null
+          }
+        ]
+      }
+    },
+    "s1": {
+      "__typename": "Sensor",
+      "name": "silver_index_daily_sensor",
+      "sensorState": {
+        "id": "cfa53aaf70de311f8f79e4aa4596e3b165024e34::08b1b7835383278d6fd4dcfaec970169f074c5c3",
+        "status": "RUNNING",
+        "typeSpecificData": {
+          "lastCursor": "{\"blocked_count\": 1, \"decision\": \"skip\", \"details\": {\"asset_family\": \"index_daily\", \"blocked_component\": \"raw_index_daily\", \"evidence\": {\"max_run_requests_per_tick\": 1, \"registered_code_count\": 820, \"registered_trade_day_count\": 6499}, \"frontier\": {\"continuity\": {\"actionable_registered_count\": 10, \"elapsed_ms\": 133, \"expected_count\": 10, \"expected_end_date\": \"2026-10-30\", \"expected_start_date\": \"2026-10-19\", \"first_not_ready_date\": \"2026-10-30\", \"internal_missing_registered_count\": 0, \"last_registered_expected_date\": \"2026-10-30\", \"ready_through_date\": \"2026-10-29\", \"registered_count\": 10, \"registration_gap_class\": \"none\", \"scanned_file_count\": 9, \"selected_date\": \"2026-10-30\", \"trailing_unregistered_count\": 0}, \"raw\": {\"elapsed_ms\": 133, \"expected_count\": 10, \"expected_end_date\": \"2026-10-30\", \"expected_start_date\": \"2026-10-19\", \"first_not_ready_date\": \"2026-10-30\", \"first_not_ready_reason\": \"missing_raw_index_daily_file\", \"ready_through_date\": \"2026-10-29\", \"scanned_file_count\": 9}}, \"gate_statuses\": {\"raw_index_daily\": {\"checks_passed\": false, \"failed_check_count\": 0, \"materialized\": false, \"missing_check_count\": 1, \"missing_check_names\": [\"raw_index_daily_file_contract_check\"], \"missing_file_count\": 1, \"ready\": false, \"reason_code\": \"missing_raw_index_daily_file\", \"trade_date\": \"2026-10-30\"}}, \"job_name\": \"silver_index_daily_update_job\", \"next_action\": \"先修复 raw_index_daily 文件或 blocking checks，再等待下一次 sensor tick。\", \"partition_set\": \"cn_a_index_trade_days\", \"reason_code\": \"missing_raw_index_daily_file\", \"sensor_name\": \"silver_index_daily_sensor\", \"summary\": \"未触发：2026-10-30 的 raw_index_daily 还没有 ready，silver 不能继续。\"}, \"evaluated_at\": \"2026-10-31T17:38:35.652541+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": \"2026-10-30\"}",
+          "lastRunKey": "silver_index_daily:2026-10-29"
+        },
+        "ticks": [
+          {
+            "timestamp": 1793439515.512738,
+            "endTimestamp": 1793439515.865247,
+            "status": "SKIPPED",
+            "skipReason": "指数日线 silver 等待 raw_index_daily by-date readiness。",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793438914.916372,
+            "endTimestamp": 1793438915.382826,
+            "status": "SKIPPED",
+            "skipReason": "指数日线 silver 等待 raw_index_daily by-date readiness。",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793438314.581035,
+            "endTimestamp": 1793438315.003762,
+            "status": "SKIPPED",
+            "skipReason": "指数日线 silver 等待 raw_index_daily by-date readiness。",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793437711.669224,
+            "endTimestamp": 1793437712.162347,
+            "status": "SKIPPED",
+            "skipReason": "指数日线 silver 等待 raw_index_daily by-date readiness。",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793437108.048083,
+            "endTimestamp": 1793437108.498121,
+            "status": "SKIPPED",
+            "skipReason": "指数日线 silver 等待 raw_index_daily by-date readiness。",
+            "runIds": [],
+            "error": null
+          }
+        ]
+      }
+    },
+    "s2": {
+      "__typename": "Sensor",
+      "name": "market_major_indices_daily_sensor",
+      "sensorState": {
+        "id": "6055916751f4d484743494438dc784d7bab03bdc::327945f0c88dd0e47848b239475b37ad8565ab91",
+        "status": "RUNNING",
+        "typeSpecificData": {
+          "lastCursor": "{\"blocked_count\": 1, \"decision\": \"skip\", \"details\": {\"asset_family\": \"market_major_indices_daily\", \"blocked_component\": \"gold_market_major_indices_daily\", \"evidence\": {\"registered_code_count\": 820, \"registered_trade_day_count\": 6499}, \"frontier\": {\"continuity\": {\"actionable_registered_count\": 10, \"elapsed_ms\": 21, \"expected_count\": 10, \"expected_end_date\": \"2026-10-30\", \"expected_start_date\": \"2026-10-19\", \"first_not_ready_date\": \"2026-10-30\", \"internal_missing_registered_count\": 0, \"last_registered_expected_date\": \"2026-10-30\", \"ready_through_date\": \"2026-10-29\", \"registered_count\": 10, \"registration_gap_class\": \"none\", \"scanned_file_count\": 9, \"selected_date\": \"2026-10-30\", \"trailing_unregistered_count\": 0}, \"gold\": {\"elapsed_ms\": 21, \"expected_count\": 10, \"expected_end_date\": \"2026-10-30\", \"expected_start_date\": \"2026-10-19\", \"first_not_ready_date\": \"2026-10-30\", \"first_not_ready_reason\": \"missing_gold_file\", \"ready_through_date\": \"2026-10-29\", \"scanned_file_count\": 9}}, \"gate_statuses\": {\"gold_market_major_indices_daily\": {\"checks_passed\": false, \"failed_check_count\": 0, \"materialized\": false, \"missing_check_count\": 1, \"missing_check_names\": [\"gold_market_major_indices_daily_contract_check\"], \"missing_file_count\": 1, \"ready\": false, \"reason_code\": \"missing_gold_file\", \"trade_date\": \"2026-10-30\"}, \"silver_index_daily\": {\"checks_passed\": false, \"failed_check_count\": 0, \"materialized\": false, \"missing_check_count\": 1, \"missing_check_names\": [\"silver_index_daily_contract_check\"], \"missing_file_count\": 1, \"ready\": false, \"reason_code\": \"missing_silver_index_daily_file\", \"trade_date\": \"2026-10-30\"}}, \"job_name\": \"market_major_indices_daily_update_job\", \"next_action\": \"先查看 gold_market_major_indices_daily checks 的失败项，确认后再修复或重跑。\", \"partition_set\": \"cn_a_index_trade_days\", \"reason_code\": \"missing_gold_file\", \"sensor_name\": \"market_major_indices_daily_sensor\", \"summary\": \"跳过：2026-10-30 的主要指数 gold 状态需要人工确认。\"}, \"evaluated_at\": \"2026-10-31T17:41:42.287408+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": \"2026-10-30\"}",
+          "lastRunKey": "market_major_indices_daily:2026-10-29"
+        },
+        "ticks": [
+          {
+            "timestamp": 1793439702.094153,
+            "endTimestamp": 1793439702.3938181,
+            "status": "SKIPPED",
+            "skipReason": "主要指数日线等待 selected date 的 silver_index_daily lake readiness。",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793439099.139528,
+            "endTimestamp": 1793439099.484113,
+            "status": "SKIPPED",
+            "skipReason": "主要指数日线等待 selected date 的 silver_index_daily lake readiness。",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793438497.11739,
+            "endTimestamp": 1793438497.3881521,
+            "status": "SKIPPED",
+            "skipReason": "主要指数日线等待 selected date 的 silver_index_daily lake readiness。",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793437892.011774,
+            "endTimestamp": 1793437892.225814,
+            "status": "SKIPPED",
+            "skipReason": "主要指数日线等待 selected date 的 silver_index_daily lake readiness。",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793437290.339304,
+            "endTimestamp": 1793437290.668292,
+            "status": "SKIPPED",
+            "skipReason": "主要指数日线等待 selected date 的 silver_index_daily lake readiness。",
+            "runIds": [],
+            "error": null
+          }
+        ]
+      }
+    },
+    "s3": {
+      "__typename": "Sensor",
+      "name": "gold_major_index_daily_nineturn_update_job_sensor",
+      "sensorState": {
+        "id": "85221bc9edeb29565dddec152db8dc10242b4df2::84e335f931d07087fb917bd4e6306c2e927ff665",
+        "status": "RUNNING",
+        "typeSpecificData": {
+          "lastCursor": "{\"blocked_count\": 1, \"decision\": \"skip\", \"details\": {\"asset_family\": \"major_index_nineturn\", \"blocked_component\": \"upstream_not_ready\", \"evidence\": {\"actionable_registered_count\": 10, \"max_run_requests_per_tick\": 1, \"minute_frequencies\": [5, 15, 30, 60, 90, 120], \"registration_gap_class\": \"none\"}, \"job_name\": \"gold_major_index_daily_nineturn_update_job\", \"next_action\": \"wait for the gate to clear\", \"partition_set\": \"cn_a_index_trade_days\", \"reason_code\": \"upstream_not_ready\", \"sensor_name\": \"gold_major_index_daily_nineturn_update_job_sensor\", \"summary\": \"major-index nine-turn sensor: upstream_not_ready\"}, \"evaluated_at\": \"2026-10-31T17:38:36.190957+08:00\", \"sample_keys\": [\"2026-10-30\"], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": \"2026-10-30\"}",
+          "lastRunKey": "gold_major_index_daily_nineturn_update:2026-10-29"
+        },
+        "ticks": [
+          {
+            "timestamp": 1793439516.031988,
+            "endTimestamp": 1793439516.321077,
+            "status": "SKIPPED",
+            "skipReason": "同分区主要指数 Gold 上游或 blocking check 尚未就绪。",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793438913.858656,
+            "endTimestamp": 1793438914.198067,
+            "status": "SKIPPED",
+            "skipReason": "同分区主要指数 Gold 上游或 blocking check 尚未就绪。",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793438310.594099,
+            "endTimestamp": 1793438310.8913422,
+            "status": "SKIPPED",
+            "skipReason": "同分区主要指数 Gold 上游或 blocking check 尚未就绪。",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793437706.710852,
+            "endTimestamp": 1793437707.085498,
+            "status": "SKIPPED",
+            "skipReason": "同分区主要指数 Gold 上游或 blocking check 尚未就绪。",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793437103.470097,
+            "endTimestamp": 1793437103.892421,
+            "status": "SKIPPED",
+            "skipReason": "同分区主要指数 Gold 上游或 blocking check 尚未就绪。",
+            "runIds": [],
+            "error": null
+          }
+        ]
+      }
+    },
+    "s4": {
+      "__typename": "Sensor",
+      "name": "prod_core_index_daily_nineturn_sync_job_sensor",
+      "sensorState": {
+        "id": "9602cf5abd0a4bdf9a186c208f5b711248c170da::b3bffb4b79e938596cac13ae74abfcd83e33bf05",
+        "status": "RUNNING",
+        "typeSpecificData": {
+          "lastCursor": "{\"__class__\": \"RunStatusSensorCursor\", \"record_id\": 7837207, \"record_timestamp\": \"2026-10-31T08:20:33.680146+00:00\", \"update_timestamp\": null}",
+          "lastRunKey": "prod_core_index_daily_nineturn_sync:gold_major_index_daily_nineturn_update:2026-10-29:4e90eb4ac7eb"
+        },
+        "ticks": [
+          {
+            "timestamp": 1793440028.288052,
+            "endTimestamp": 1793440028.5391538,
+            "status": "SKIPPED",
+            "skipReason": "Sensor function returned an empty result",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793439998.253241,
+            "endTimestamp": 1793439998.457812,
+            "status": "SKIPPED",
+            "skipReason": "Sensor function returned an empty result",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793439968.160693,
+            "endTimestamp": 1793439968.385037,
+            "status": "SKIPPED",
+            "skipReason": "Sensor function returned an empty result",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793439933.440195,
+            "endTimestamp": 1793439933.6774342,
+            "status": "SKIPPED",
+            "skipReason": "Sensor function returned an empty result",
+            "runIds": [],
+            "error": null
+          },
+          {
+            "timestamp": 1793439902.989541,
+            "endTimestamp": 1793439903.244134,
+            "status": "SKIPPED",
+            "skipReason": "Sensor function returned an empty result",
+            "runIds": [],
+            "error": null
+          }
+        ]
+      }
+    },
+    "r0": {
+      "__typename": "Runs",
+      "results": [
+        {
+          "runId": "6b981908-590c-4261-8253-a15f6db94a73",
+          "jobName": "raw_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1793322516.685387,
+          "startTime": 1793322533.52033,
+          "endTime": 1793322538.975239,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-29"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "raw_index_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "raw_index_daily:2026-10-29"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "raw_index_daily_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2994289"
+            }
+          ]
+        },
+        {
+          "runId": "434068ea-f15a-49c3-bbdf-abfcd6b4dfe6",
+          "jobName": "raw_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1793235722.444388,
+          "startTime": 1793235730.21697,
+          "endTime": 1793235735.784453,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-28"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "raw_index_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "raw_index_daily:2026-10-28"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "raw_index_daily_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2944954"
+            }
+          ]
+        },
+        {
+          "runId": "d0bf19ad-0dba-44f6-ae8c-cd0d3b10b1e6",
+          "jobName": "raw_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1793094465.403175,
+          "startTime": 1793094470.971604,
+          "endTime": 1793094477.021994,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-27"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "raw_index_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "raw_index_daily:2026-10-27"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "raw_index_daily_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2883329"
+            }
+          ]
+        },
+        {
+          "runId": "9ddb4879-ce77-4ea7-95c3-f78147637443",
+          "jobName": "raw_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1793008040.632693,
+          "startTime": 1793008136.889623,
+          "endTime": 1793008142.347706,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-26"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "raw_index_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "raw_index_daily:2026-10-26"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "raw_index_daily_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2856807"
+            }
+          ]
+        },
+        {
+          "runId": "f0f08606-26e3-440d-9ec5-5b439b34adae",
+          "jobName": "raw_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792978268.937118,
+          "startTime": 1792978269.076097,
+          "endTime": 1792978275.23282,
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-23"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "raw_index_daily_update_job_partition_set"
+            }
+          ]
+        },
+        {
+          "runId": "dad9c21f-00dd-49ab-bb19-fd68e268e499",
+          "jobName": "raw_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792843007.09907,
+          "startTime": 1792843007.221576,
+          "endTime": 1792843012.983099,
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-22"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "raw_index_daily_update_job_partition_set"
+            }
+          ]
+        },
+        {
+          "runId": "381736e9-29a0-409d-8814-0e7171de5da7",
+          "jobName": "raw_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792576017.826208,
+          "startTime": 1792576024.540792,
+          "endTime": 1792576029.544638,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-21"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "raw_index_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "raw_index_daily:2026-10-21"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "raw_index_daily_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2750264"
+            }
+          ]
+        },
+        {
+          "runId": "15acc7f0-ca90-49a0-8867-58d08e2f62bc",
+          "jobName": "raw_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792501742.375374,
+          "startTime": 1792501758.517782,
+          "endTime": 1792501763.837592,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-20"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "raw_index_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "raw_index_daily:2026-10-20"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "raw_index_daily_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2707668"
+            }
+          ]
+        },
+        {
+          "runId": "d41eff42-84a2-4067-b347-efc01db004e2",
+          "jobName": "raw_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792402838.029561,
+          "startTime": 1792402849.682766,
+          "endTime": 1792402855.164931,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-19"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "raw_index_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "raw_index_daily:2026-10-19"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "raw_index_daily_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2670372"
+            }
+          ]
+        },
+        {
+          "runId": "2866d3f5-782d-4264-8052-44bacf6329b7",
+          "jobName": "raw_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792143895.570951,
+          "startTime": 1792144010.399371,
+          "endTime": 1792144015.772442,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-16"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "raw_index_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "raw_index_daily:2026-10-16"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "raw_index_daily_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2549636"
+            }
+          ]
+        }
+      ]
+    },
+    "r1": {
+      "__typename": "Runs",
+      "results": [
+        {
+          "runId": "4aaa2cc5-f37a-46b1-bbbd-bea94945e991",
+          "jobName": "silver_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1793322554.406,
+          "startTime": 1793322558.496337,
+          "endTime": 1793322564.134916,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-29"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "silver_index_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "silver_index_daily:2026-10-29"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "silver_index_daily_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2994310"
+            }
+          ]
+        },
+        {
+          "runId": "e19ee0f8-9520-47fa-a3d0-ddfe9233c27d",
+          "jobName": "silver_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1793235752.549934,
+          "startTime": 1793235755.860033,
+          "endTime": 1793235761.073701,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-28"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "silver_index_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "silver_index_daily:2026-10-28"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "silver_index_daily_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2944969"
+            }
+          ]
+        },
+        {
+          "runId": "ff5d38b3-1977-456c-98c9-4dd803d1f27d",
+          "jobName": "silver_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1793095070.670347,
+          "startTime": 1793095154.702822,
+          "endTime": 1793095160.271438,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-27"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "silver_index_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "silver_index_daily:2026-10-27"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "silver_index_daily_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2883683"
+            }
+          ]
+        },
+        {
+          "runId": "a66e6160-651e-488f-99af-19bd80fcf196",
+          "jobName": "silver_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1793008638.905225,
+          "startTime": 1793008720.348352,
+          "endTime": 1793008725.77956,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-26"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "silver_index_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "silver_index_daily:2026-10-26"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "silver_index_daily_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2857109"
+            }
+          ]
+        },
+        {
+          "runId": "6ca3bf56-8c1e-4eda-aaed-51a78fbf669b",
+          "jobName": "silver_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792978375.113409,
+          "startTime": 1792978375.289941,
+          "endTime": 1792978381.454105,
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-23"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "silver_index_daily_update_job_partition_set"
+            }
+          ]
+        },
+        {
+          "runId": "d19d59a7-51ac-4103-ad3c-6ecad2c40d98",
+          "jobName": "silver_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792843069.737206,
+          "startTime": 1792843069.883547,
+          "endTime": 1792843075.951529,
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-22"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "silver_index_daily_update_job_partition_set"
+            }
+          ]
+        },
+        {
+          "runId": "078156b1-97ef-4071-a020-fa58bb3670b1",
+          "jobName": "silver_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792576114.375862,
+          "startTime": 1792576137.730737,
+          "endTime": 1792576142.816254,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-21"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "silver_index_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "silver_index_daily:2026-10-21"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "silver_index_daily_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2750326"
+            }
+          ]
+        },
+        {
+          "runId": "1992da78-5852-451d-97f1-4d9225e9ab6f",
+          "jobName": "silver_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792501767.312194,
+          "startTime": 1792501799.954749,
+          "endTime": 1792501805.335717,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-20"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "silver_index_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "silver_index_daily:2026-10-20"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "silver_index_daily_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2707720"
+            }
+          ]
+        },
+        {
+          "runId": "c91a102d-e7cb-4759-8b25-340f0106ae5a",
+          "jobName": "silver_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792402880.595867,
+          "startTime": 1792402885.459352,
+          "endTime": 1792402890.693288,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-19"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "silver_index_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "silver_index_daily:2026-10-19"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "silver_index_daily_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2670412"
+            }
+          ]
+        },
+        {
+          "runId": "59ca3808-681d-4837-bbe8-d0daceaa382a",
+          "jobName": "silver_index_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792144056.252475,
+          "startTime": 1792144062.994586,
+          "endTime": 1792144068.158982,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-16"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "silver_index_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "silver_index_daily:2026-10-16"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "silver_index_daily_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2549729"
+            }
+          ]
+        }
+      ]
+    },
+    "r2": {
+      "__typename": "Runs",
+      "results": [
+        {
+          "runId": "140070cc-3768-47b6-b4cb-2313195a70d5",
+          "jobName": "market_major_indices_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1793322720.027276,
+          "startTime": 1793322723.160471,
+          "endTime": 1793322728.724251,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-29"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "market_major_indices_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "market_major_indices_daily:2026-10-29"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "market_major_indices_daily_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2994442"
+            }
+          ]
+        },
+        {
+          "runId": "324843d1-5c83-4d4a-a447-7e2befcbde40",
+          "jobName": "market_major_indices_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1793235931.571853,
+          "startTime": 1793235935.372876,
+          "endTime": 1793235940.799362,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-28"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "market_major_indices_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "market_major_indices_daily:2026-10-28"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "market_major_indices_daily_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2945104"
+            }
+          ]
+        },
+        {
+          "runId": "b369fda0-4017-4909-bc88-88eb0f0fc658",
+          "jobName": "market_major_indices_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1793095679.568071,
+          "startTime": 1793095685.389369,
+          "endTime": 1793095691.086119,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-27"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "market_major_indices_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "market_major_indices_daily:2026-10-27"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "market_major_indices_daily_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2884048"
+            }
+          ]
+        },
+        {
+          "runId": "a729b19d-f35f-4044-a9bf-209f669db95d",
+          "jobName": "market_major_indices_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1793009183.361676,
+          "startTime": 1793009208.0701,
+          "endTime": 1793009213.51483,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-26"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "market_major_indices_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "market_major_indices_daily:2026-10-26"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "market_major_indices_daily_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2857368"
+            }
+          ]
+        },
+        {
+          "runId": "dbd35fc9-49e9-4939-af01-219e2566676d",
+          "jobName": "market_major_indices_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792978568.537266,
+          "startTime": 1792978568.712323,
+          "endTime": 1792978574.806766,
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-23"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "market_major_indices_daily_update_job_partition_set"
+            }
+          ]
+        },
+        {
+          "runId": "56d6ecc1-2910-4180-9c0b-d4a256412d58",
+          "jobName": "market_major_indices_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792843130.855453,
+          "startTime": 1792843131.000927,
+          "endTime": 1792843136.945815,
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-22"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "market_major_indices_daily_update_job_partition_set"
+            }
+          ]
+        },
+        {
+          "runId": "f77ee77c-672e-415f-9a5e-9c25e9decd56",
+          "jobName": "market_major_indices_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792576659.908258,
+          "startTime": 1792576667.539347,
+          "endTime": 1792576672.697824,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-21"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "market_major_indices_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "market_major_indices_daily:2026-10-21"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "market_major_indices_daily_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2750631"
+            }
+          ]
+        },
+        {
+          "runId": "8cae2855-4cd3-460c-aa51-2b24df9aa794",
+          "jobName": "market_major_indices_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792502374.193738,
+          "startTime": 1792502396.167045,
+          "endTime": 1792502401.35313,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-20"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "market_major_indices_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "market_major_indices_daily:2026-10-20"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "market_major_indices_daily_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2708052"
+            }
+          ]
+        },
+        {
+          "runId": "a0fb9181-4ea4-4cc9-842b-b857c9016d61",
+          "jobName": "market_major_indices_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792403446.780428,
+          "startTime": 1792403533.314338,
+          "endTime": 1792403538.687983,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-19"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "market_major_indices_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "market_major_indices_daily:2026-10-19"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "market_major_indices_daily_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2670719"
+            }
+          ]
+        },
+        {
+          "runId": "8ea155d2-76d5-4767-bffa-c5b98622b73b",
+          "jobName": "market_major_indices_daily_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792144581.771617,
+          "startTime": 1792144588.206392,
+          "endTime": 1792144593.437188,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-16"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "market_major_indices_daily_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "market_major_indices_daily:2026-10-16"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "market_major_indices_daily_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2549990"
+            }
+          ]
+        }
+      ]
+    },
+    "r3": {
+      "__typename": "Runs",
+      "results": [
+        {
+          "runId": "566dbcc9-59a5-421b-8b1a-c1ef224e8871",
+          "jobName": "gold_major_index_daily_nineturn_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1793345504.862881,
+          "startTime": 1793345510.551764,
+          "endTime": 1793345515.546108,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-29"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "gold_major_index_daily_nineturn_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "gold_major_index_daily_nineturn_update:2026-10-29"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "gold_major_index_daily_nineturn_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "3007441"
+            }
+          ]
+        },
+        {
+          "runId": "d4c794f5-4939-482e-a93c-4ba70d3eadd7",
+          "jobName": "gold_major_index_daily_nineturn_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1793247726.567838,
+          "startTime": 1793247731.408914,
+          "endTime": 1793247736.254001,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-28"
+            },
+            {
+              "key": "goldenshare/recovery",
+              "value": "index_nineturn_20261028_20261029"
+            }
+          ]
+        },
+        {
+          "runId": "187f7026-3189-4090-9ebf-a87f54cf9771",
+          "jobName": "gold_major_index_daily_nineturn_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1793096279.412284,
+          "startTime": 1793096286.25318,
+          "endTime": 1793096291.316143,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-27"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "gold_major_index_daily_nineturn_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "gold_major_index_daily_nineturn_update:2026-10-27"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "gold_major_index_daily_nineturn_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2884379"
+            }
+          ]
+        },
+        {
+          "runId": "bb8dc82e-6818-4ea7-953e-14c45212bc0e",
+          "jobName": "gold_major_index_daily_nineturn_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1793009755.99229,
+          "startTime": 1793009763.670193,
+          "endTime": 1793009768.988703,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-26"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "gold_major_index_daily_nineturn_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "gold_major_index_daily_nineturn_update:2026-10-26"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "gold_major_index_daily_nineturn_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2857657"
+            }
+          ]
+        },
+        {
+          "runId": "2020720f-7080-4833-8535-cfc2c25a42bc",
+          "jobName": "gold_major_index_daily_nineturn_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792978632.237795,
+          "startTime": 1792978632.353015,
+          "endTime": 1792978637.999331,
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-23"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "gold_major_index_daily_nineturn_update_job_partition_set"
+            }
+          ]
+        },
+        {
+          "runId": "c4abbc90-5899-4fd2-992a-52058c3868f6",
+          "jobName": "gold_major_index_daily_nineturn_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792843188.796743,
+          "startTime": 1792843188.898705,
+          "endTime": 1792843194.141435,
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-22"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "gold_major_index_daily_nineturn_update_job_partition_set"
+            }
+          ]
+        },
+        {
+          "runId": "57682472-a489-42f3-a79a-3b3b9a62bf31",
+          "jobName": "gold_major_index_daily_nineturn_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792576738.169836,
+          "startTime": 1792576744.318923,
+          "endTime": 1792576749.146813,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-21"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "gold_major_index_daily_nineturn_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "gold_major_index_daily_nineturn_update:2026-10-21"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "gold_major_index_daily_nineturn_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2750712"
+            }
+          ]
+        },
+        {
+          "runId": "c0851f8f-f4cf-4ca9-922d-e99b043fd8b6",
+          "jobName": "gold_major_index_daily_nineturn_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792502977.552795,
+          "startTime": 1792502993.718006,
+          "endTime": 1792502998.820596,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-20"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "gold_major_index_daily_nineturn_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "gold_major_index_daily_nineturn_update:2026-10-20"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "gold_major_index_daily_nineturn_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2708385"
+            }
+          ]
+        },
+        {
+          "runId": "33d18223-3f18-4f65-8b8c-e9ced672f90b",
+          "jobName": "gold_major_index_daily_nineturn_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792403582.148412,
+          "startTime": 1792403589.498392,
+          "endTime": 1792403594.55238,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-19"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "gold_major_index_daily_nineturn_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "gold_major_index_daily_nineturn_update:2026-10-19"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "gold_major_index_daily_nineturn_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2670836"
+            }
+          ]
+        },
+        {
+          "runId": "0e479a05-cb07-460b-848d-7d964e9298f7",
+          "jobName": "gold_major_index_daily_nineturn_update_job",
+          "status": "SUCCESS",
+          "creationTime": 1792144667.520065,
+          "startTime": 1792144670.459201,
+          "endTime": 1792144675.425797,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-16"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "gold_major_index_daily_nineturn_update_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "gold_major_index_daily_nineturn_update:2026-10-16"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "gold_major_index_daily_nineturn_update_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2550046"
+            }
+          ]
+        }
+      ]
+    },
+    "r4": {
+      "__typename": "Runs",
+      "results": [
+        {
+          "runId": "a0cddfca-3222-4357-859b-8af6197fc9c5",
+          "jobName": "prod_core_index_daily_nineturn_sync_job",
+          "status": "SUCCESS",
+          "creationTime": 1793345531.160467,
+          "startTime": 1793345536.053513,
+          "endTime": 1793345541.612798,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-29"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "prod_core_index_daily_nineturn_sync_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "prod_core_index_daily_nineturn_sync:gold_major_index_daily_nineturn_update:2026-10-29:4e90eb4ac7eb"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "prod_core_index_daily_nineturn_sync_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "3007458"
+            }
+          ]
+        },
+        {
+          "runId": "22dbd172-3a3c-4c51-bb1f-075eb31256bf",
+          "jobName": "prod_core_index_daily_nineturn_sync_job",
+          "status": "SUCCESS",
+          "creationTime": 1793247761.219312,
+          "startTime": 1793247767.329466,
+          "endTime": 1793247772.698479,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-28"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "prod_core_index_daily_nineturn_sync_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "prod_core_index_daily_nineturn_sync:gold_major_index_daily_nineturn_update:2026-10-28:f5bd8c6a84d5"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "prod_core_index_daily_nineturn_sync_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2951503"
+            }
+          ]
+        },
+        {
+          "runId": "b74c8ebd-2b00-4e94-ba0b-d296636fa2dc",
+          "jobName": "prod_core_index_daily_nineturn_sync_job",
+          "status": "SUCCESS",
+          "creationTime": 1793096309.373469,
+          "startTime": 1793096316.678386,
+          "endTime": 1793096322.025872,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-27"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "prod_core_index_daily_nineturn_sync_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "prod_core_index_daily_nineturn_sync:gold_major_index_daily_nineturn_update:2026-10-27:4cefd628b46c"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "prod_core_index_daily_nineturn_sync_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2884422"
+            }
+          ]
+        },
+        {
+          "runId": "95ffa73b-4885-44f0-aac3-3026bd5d811f",
+          "jobName": "prod_core_index_daily_nineturn_sync_job",
+          "status": "SUCCESS",
+          "creationTime": 1793009797.298837,
+          "startTime": 1793009803.9222,
+          "endTime": 1793009809.620179,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-26"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "prod_core_index_daily_nineturn_sync_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "prod_core_index_daily_nineturn_sync:gold_major_index_daily_nineturn_update:2026-10-26:4bb302814faa"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "prod_core_index_daily_nineturn_sync_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2857703"
+            }
+          ]
+        },
+        {
+          "runId": "98bcf93f-c925-40d2-b090-f14e0f9ccd00",
+          "jobName": "prod_core_index_daily_nineturn_sync_job",
+          "status": "SUCCESS",
+          "creationTime": 1792978724.190127,
+          "startTime": 1792978724.275625,
+          "endTime": 1792978730.312524,
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-23"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "prod_core_index_daily_nineturn_sync_job_partition_set"
+            }
+          ]
+        },
+        {
+          "runId": "c0642486-dfd3-4a91-b939-c1f0311df307",
+          "jobName": "prod_core_index_daily_nineturn_sync_job",
+          "status": "SUCCESS",
+          "creationTime": 1792843389.090433,
+          "startTime": 1792843389.193987,
+          "endTime": 1792843395.022161,
+          "tags": [
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-22"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "prod_core_index_daily_nineturn_sync_job_partition_set"
+            }
+          ]
+        },
+        {
+          "runId": "263c9c02-3d5a-46bb-8094-dc8907e4d269",
+          "jobName": "prod_core_index_daily_nineturn_sync_job",
+          "status": "SUCCESS",
+          "creationTime": 1792576776.313567,
+          "startTime": 1792576780.482774,
+          "endTime": 1792576785.601916,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-21"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "prod_core_index_daily_nineturn_sync_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "prod_core_index_daily_nineturn_sync:gold_major_index_daily_nineturn_update:2026-10-21:4048a3286c8d"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "prod_core_index_daily_nineturn_sync_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2750737"
+            }
+          ]
+        },
+        {
+          "runId": "a69ff7fc-defb-431a-a8d0-939572a4793b",
+          "jobName": "prod_core_index_daily_nineturn_sync_job",
+          "status": "SUCCESS",
+          "creationTime": 1792503036.175455,
+          "startTime": 1792503040.442223,
+          "endTime": 1792503045.774898,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-20"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "prod_core_index_daily_nineturn_sync_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "prod_core_index_daily_nineturn_sync:gold_major_index_daily_nineturn_update:2026-10-20:91686651d355"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "prod_core_index_daily_nineturn_sync_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2708465"
+            }
+          ]
+        },
+        {
+          "runId": "7951fc27-3a57-4358-a2a8-6ddda37ba270",
+          "jobName": "prod_core_index_daily_nineturn_sync_job",
+          "status": "SUCCESS",
+          "creationTime": 1792403622.66538,
+          "startTime": 1792403625.141806,
+          "endTime": 1792403630.618769,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-19"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "prod_core_index_daily_nineturn_sync_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "prod_core_index_daily_nineturn_sync:gold_major_index_daily_nineturn_update:2026-10-19:4a6aaf85c417"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "prod_core_index_daily_nineturn_sync_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2670859"
+            }
+          ]
+        },
+        {
+          "runId": "4eadd119-0ee2-419a-b9a2-ec18455ac635",
+          "jobName": "prod_core_index_daily_nineturn_sync_job",
+          "status": "SUCCESS",
+          "creationTime": 1792144692.401023,
+          "startTime": 1792144696.04486,
+          "endTime": 1792144701.117887,
+          "tags": [
+            {
+              "key": "dagster/code_location",
+              "value": "orchestrator"
+            },
+            {
+              "key": "dagster/partition",
+              "value": "2026-10-16"
+            },
+            {
+              "key": "dagster/partition_set",
+              "value": "prod_core_index_daily_nineturn_sync_job_partition_set"
+            },
+            {
+              "key": "dagster/run_key",
+              "value": "prod_core_index_daily_nineturn_sync:gold_major_index_daily_nineturn_update:2026-10-16:5e595991084b"
+            },
+            {
+              "key": "dagster/sensor_name",
+              "value": "prod_core_index_daily_nineturn_sync_job_sensor"
+            },
+            {
+              "key": "dagster/tick",
+              "value": "2550058"
+            }
+          ]
+        }
+      ]
+    }
+  },
+  "formal_writes": 0
+}

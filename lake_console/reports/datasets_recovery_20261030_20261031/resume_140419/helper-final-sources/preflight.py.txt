@@ -1,0 +1,45 @@
+import argparse
+import json
+from dataclasses import asdict
+
+from common import DAY, OUT, ROOT, gql, load, no_conflict, now, require, save
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("mode", choices=["reload", "raw"])
+    mode = parser.parse_args().mode
+    control = no_conflict()
+    save(OUT / f"{mode}-control-preflight.json", control)
+    if mode == "reload":
+        query = 'mutation ReloadApprovedCode{reloadRepositoryLocation(repositoryLocationName:"orchestrator"){__typename ... on WorkspaceLocationEntry{name loadStatus updatedTimestamp versionKey locationOrLoadError{__typename ... on RepositoryLocation{name} ... on PythonError{message}}} ... on PythonError{message} ... on ReloadNotSupported{message} ... on RepositoryLocationNotFound{message}}}'
+        result = gql(query)["reloadRepositoryLocation"]
+        save(OUT / "reload-response.json", result)
+        require(result["__typename"] == "WorkspaceLocationEntry" and result["loadStatus"] == "LOADED"
+                and result["locationOrLoadError"]["__typename"] == "RepositoryLocation", str(result))
+        print(json.dumps({"reloaded": result["name"], "status": result["loadStatus"]}))
+        return
+    from orchestrator.defs.asset_guards.stk_mins_prod_readiness import stk_mins_prod_source_ready_for_trade_date
+    from orchestrator.defs.asset_guards.stk_mins_stock_universe import load_current_listed_stock_codes_for_stk_mins
+    from orchestrator.defs.resources import DuckDBResource, ProdPostgresResource
+    from orchestrator.defs.run_contracts.configs import build_stock_mins_raw_update_job_run_config
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    codes = load_current_listed_stock_codes_for_stk_mins(lake_root=ROOT, duckdb=DuckDBResource(), partition_key=DAY)
+    require(len(codes) == 5577, "Universe changed; scope must be reviewed")
+    gate = stk_mins_prod_source_ready_for_trade_date(prod_postgres=ProdPostgresResource(), trade_date=DAY,
+                stock_codes=codes, observed_at=datetime.now(ZoneInfo("Asia/Shanghai")))
+    require(gate.ready and gate.completion_reference is not None, "Current native source gate not ready")
+    full = build_stock_mins_raw_update_job_run_config(source="prod_db", prod_completion_reference=gate.completion_reference)
+    config = {"ops": {"raw_stk_mins_60m": full["ops"]["raw_stk_mins_60m"]}}
+    config["ops"]["raw_stk_mins_60m"]["config"]["write_mode"] = {"replace_existing": {}}
+    directory = OUT / "raw60"
+    save(directory / "run-config.json", config)
+    save(directory / "preflight.json", {"date": DAY, "safe_to_launch": True, "observed_at": now(),
+          "prod_gate": asdict(gate), "code_count": len(codes), "prior_source_time_audit": load(OUT / "prod60-count-time-audit.json"),
+          "control_preflight": control, "formal_writes": 0})
+    print(json.dumps({"raw60_ready": True, "codes": len(codes), "task_run_id": gate.completion_reference.task_run_id}))
+
+
+if __name__ == "__main__":
+    main()

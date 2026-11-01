@@ -1,0 +1,57 @@
+"""Read real completion events by their approved producer runs, never scan time windows."""
+import dagster as dg
+
+from common import OUT, load, require, save
+
+
+def producer_ids():
+    result = [load(OUT/'factor/factor-native-run.json')['run_id']]
+    path = OUT/'macd_kdj/repair-native-run.json'
+    if path.exists():
+        value=load(path)
+        require(value['status']=='SUCCESS','Repair producer is not successful')
+        result.append(value['run_id'])
+    return result
+
+
+def select(records, event_filter, limit, ascending=False):
+    require(event_filter.event_type==dg.DagsterEventType.ASSET_CHECK_EVALUATION
+            and event_filter.after_timestamp is not None and event_filter.before_timestamp is not None,
+            'Only the original bounded completion-event lookup is supported')
+    found=[r for r in records if event_filter.after_timestamp<r.event_log_entry.timestamp<event_filter.before_timestamp
+           and r.event_log_entry.dagster_event.event_type==event_filter.event_type]
+    found.sort(key=lambda r:r.storage_id,reverse=not ascending)
+    return found[:limit] if limit is not None else found
+
+
+class CompletionEventReader:
+    def __init__(self, native):
+        self.native=native
+        self.records=None
+
+    def __getattr__(self,name):
+        return getattr(self.native,name)
+
+    def get_event_records(self,event_records_filter,limit=None,ascending=False):
+        if self.records is None:
+            self.records=[]
+            for rid in producer_ids():
+                result=self.native.get_records_for_run(rid,
+                    of_type={dg.DagsterEventType.ASSET_CHECK_EVALUATION},limit=100)
+                require(not result.has_more,'Producer event response truncated')
+                self.records.extend(result.records)
+            expected=set(load(OUT/'factor/factor-run-verified.json')['factor_gate']['qfq_factor_repair_event_storage_ids'])
+            ids={r.storage_id for r in self.records}
+            require(expected<=ids,'Actual factor event IDs differ from accepted native records')
+            accepted=OUT/'macd_kdj/repair-run-verified.json'
+            if accepted.exists():
+                value=load(accepted)
+                require(value['verified'],'Repair acceptance is not complete')
+                expected.update(c['storage_id'] for c in value['checks'])
+                require(ids==expected,'Exact producer events differ from accepted factor/repair IDs')
+                proof=OUT/'bounded-event-reader-native-proof.json'
+                if not proof.exists():save(proof,{'producer_run_ids':producer_ids(),
+                    'native_event_ids':sorted(ids),'event_count':len(ids),
+                    'matches_independently_accepted_native_ids':True,
+                    'global_time_window_queries':0,'formal_writes':0})
+        return select(self.records,event_records_filter,limit,ascending)

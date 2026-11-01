@@ -1,0 +1,15 @@
+{
+  "source": "lake_console/reports/datasets_recovery_20261028_20261029/nineturn_readback_20261028.py.txt",
+  "destination": "/private/tmp/dg_minute_resume_20261030_20261031/nineturn_readback.py",
+  "function_count": 34,
+  "changed_functions": [
+    "approved_history",
+    "controls",
+    "run_metadata",
+    "run_prepare",
+    "run_before"
+  ],
+  "changes": "Only approved date globals, report/acceptance paths, prior29 exact run and diagnostic date wording. No query, formula, row scope, publication or guard removal.",
+  "next_stat_day": "2026-10-31",
+  "formal_reads_during_preparation": 0
+}

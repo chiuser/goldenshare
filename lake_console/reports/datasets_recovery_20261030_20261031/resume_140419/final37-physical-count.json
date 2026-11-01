@@ -1,0 +1,430 @@
+{
+  "date": "2026-10-30",
+  "started_at": "2026-10-31T15:37:38.351603+08:00",
+  "scope": "37 approved minute-chain assets only",
+  "count_only": true,
+  "annual_year": 2026,
+  "rows": [
+    {
+      "asset": "gold_stk_mins_qfq_120m",
+      "row_count": 11142,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=*/year=2026/part-000.parquet",
+      "date_filter": "2026-10-30"
+    },
+    {
+      "asset": "gold_stk_mins_qfq_15m",
+      "row_count": 89136,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=*/year=2026/part-000.parquet",
+      "date_filter": "2026-10-30"
+    },
+    {
+      "asset": "gold_stk_mins_qfq_1m",
+      "row_count": 1342611,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=*/year=2026/part-000.parquet",
+      "date_filter": "2026-10-30"
+    },
+    {
+      "asset": "gold_stk_mins_qfq_30m",
+      "row_count": 44568,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=*/year=2026/part-000.parquet",
+      "date_filter": "2026-10-30"
+    },
+    {
+      "asset": "gold_stk_mins_qfq_5m",
+      "row_count": 267408,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=*/year=2026/part-000.parquet",
+      "date_filter": "2026-10-30"
+    },
+    {
+      "asset": "gold_stk_mins_qfq_60m",
+      "row_count": 22284,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=*/year=2026/part-000.parquet",
+      "date_filter": "2026-10-30"
+    },
+    {
+      "asset": "gold_stk_mins_qfq_90m",
+      "row_count": 16713,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=*/year=2026/part-000.parquet",
+      "date_filter": "2026-10-30"
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_120m",
+      "row_count": 11142,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=*/year=2026/part-000.parquet",
+      "date_filter": "2026-10-30"
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_15m",
+      "row_count": 89136,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=*/year=2026/part-000.parquet",
+      "date_filter": "2026-10-30"
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_1m",
+      "row_count": 1342611,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=*/year=2026/part-000.parquet",
+      "date_filter": "2026-10-30"
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_30m",
+      "row_count": 44568,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=*/year=2026/part-000.parquet",
+      "date_filter": "2026-10-30"
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_5m",
+      "row_count": 267408,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=*/year=2026/part-000.parquet",
+      "date_filter": "2026-10-30"
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_60m",
+      "row_count": 22284,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=*/year=2026/part-000.parquet",
+      "date_filter": "2026-10-30"
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_90m",
+      "row_count": 16713,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=*/year=2026/part-000.parquet",
+      "date_filter": "2026-10-30"
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_120m",
+      "row_count": 5595,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=120/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_15m",
+      "row_count": 5595,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=15/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_1m",
+      "row_count": 5595,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=1/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_30m",
+      "row_count": 5595,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_5m",
+      "row_count": 5595,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=5/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_60m",
+      "row_count": 5595,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "gold_stk_mins_qfq_macd_kdj_state_90m",
+      "row_count": 5595,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=90/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "gold_stk_mins_qfq_nineturn_120m",
+      "row_count": 11142,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=120/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "gold_stk_mins_qfq_nineturn_30m",
+      "row_count": 44568,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "gold_stk_mins_qfq_nineturn_60m",
+      "row_count": 22284,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "gold_stk_mins_qfq_nineturn_90m",
+      "row_count": 16713,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=90/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "gold_wealth_market_turnover",
+      "row_count": 5,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/gold/wealth/market_turnover/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "prod_core_wealth_market_turnover",
+      "row_count": 5,
+      "status": "present",
+      "evidence": "original Prod job exact-date write/readback count; no redundant DB query",
+      "run_id": "19e4687b-43d6-49cf-a1ce-b3b2d5eee2dc"
+    },
+    {
+      "asset": "raw_stk_mins_15m",
+      "row_count": 94809,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=15/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "raw_stk_mins_1m",
+      "row_count": 1344057,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "raw_stk_mins_30m",
+      "row_count": 50193,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "raw_stk_mins_5m",
+      "row_count": 273273,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=5/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "raw_stk_mins_60m",
+      "row_count": 27885,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "silver_stk_mins_15m",
+      "row_count": 94707,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=15/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "silver_stk_mins_1m",
+      "row_count": 1342611,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "silver_stk_mins_30m",
+      "row_count": 50139,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "silver_stk_mins_5m",
+      "row_count": 272979,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    },
+    {
+      "asset": "silver_stk_mins_60m",
+      "row_count": 27855,
+      "status": "present",
+      "path_or_pattern": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "date_filter": null
+    }
+  ],
+  "passed": true,
+  "factor_macd_full_gate": {
+    "ready": true,
+    "trade_date": "2026-10-30",
+    "reason": "qfq factor repair and required MACD/KDJ repair completion are ready.",
+    "requires_macd_kdj_repair": true,
+    "qfq_factor_repair_event_storage_ids": [
+      7836846,
+      7836847,
+      7836848,
+      7836849,
+      7836850,
+      7836851,
+      7836852
+    ],
+    "upstream_batch_id": "qfq_factor_repair:2026-10-30:d01e76998642",
+    "missing_qfq_asset_keys": [],
+    "failed_qfq_asset_keys": [],
+    "repair_start_trade_date": "2014-01-02",
+    "repair_end_trade_date": "2026-10-30",
+    "selected_partition_count": 3117,
+    "repair_required_code_count": 11,
+    "repair_required_codes": [
+      "000728.SZ",
+      "000807.SZ",
+      "000958.SZ",
+      "002249.SZ",
+      "002941.SZ",
+      "300604.SZ",
+      "300788.SZ",
+      "301003.SZ",
+      "601878.SH",
+      "603630.SH",
+      "688409.SH"
+    ],
+    "repair_required_codes_hash": "1d05f99eb0d788ce2f3ec667f488378148f4b01312d936285ec13e0d9dab4e06",
+    "repair_required_codes_truncated": false,
+    "automatic_macd_kdj_repair_allowed": true,
+    "macd_kdj_repair_status": {
+      "ready": true,
+      "reason": "MACD/KDJ repair completion check covers qfq repair scope.",
+      "event_storage_ids": [
+        7837083,
+        7837084,
+        7837085,
+        7837086,
+        7837087,
+        7837088,
+        7837089,
+        7837090,
+        7837091,
+        7837092,
+        7837093,
+        7837094,
+        7837095,
+        7837096
+      ],
+      "missing_asset_keys": [],
+      "failed_asset_keys": [],
+      "covered_start_trade_date": "2014-01-02",
+      "covered_end_trade_date": "2026-10-30",
+      "stock_code_scope": "explicit",
+      "stock_code_count": 11,
+      "repair_required_code_count": 11,
+      "repair_required_codes_hash": "1d05f99eb0d788ce2f3ec667f488378148f4b01312d936285ec13e0d9dab4e06",
+      "source_upstream_batch_id": "qfq_factor_repair:2026-10-30:d01e76998642",
+      "freqs": [
+        1,
+        5,
+        15,
+        30,
+        60,
+        90,
+        120
+      ]
+    }
+  },
+  "controls_before": {
+    "observed_at": "2026-10-31T15:37:38.337051+08:00",
+    "sensors": [
+      {
+        "__typename": "Sensor",
+        "name": "stock_mins_qfq_daily_sensor",
+        "sensorState": {
+          "id": "0d26182e833dbe4fc79aee2b0bfa9d9564b5c535::3ab800ed537bd69b153d69fb1e3a6259b8ae3777",
+          "status": "STOPPED",
+          "typeSpecificData": {
+            "lastCursor": "{\"blocked_count\": 0, \"decision\": \"skip\", \"details\": {\"asset_family\": \"stock_mins_qfq\", \"blocked_component\": \"run_window\", \"evidence\": {\"run_window_started\": false}, \"job_name\": \"stock_mins_qfq_daily_update_job\", \"next_action\": \"等待 19:30 后由下一次 sensor tick 自动重试。\", \"partition_set\": \"cn_a_stock_mins_silver_trade_days\", \"reason_code\": \"run_window_not_started\", \"sensor_name\": \"stock_mins_qfq_daily_update_job_sensor\", \"summary\": \"股票分钟线 gold qfq 日常更新窗口尚未到 19:30，暂不触发。\"}, \"evaluated_at\": \"2026-10-31T13:03:54.341601+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": null}",
+            "lastRunKey": "stock_mins_qfq_daily_update:2026-10-29"
+          }
+        }
+      },
+      {
+        "__typename": "Sensor",
+        "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+        "sensorState": {
+          "id": "48b83117c18ae7132887a622875eff56012430d8::99d31a375eebcb8cd66c62866edc623c35dcbd7d",
+          "status": "STOPPED",
+          "typeSpecificData": {
+            "lastCursor": "{\"blocked_count\": 1, \"decision\": \"skip\", \"details\": {\"asset_family\": \"stk_mins_qfq_nineturn\", \"blocked_component\": \"cn_a_stock_mins_silver_trade_days\", \"evidence\": {\"registered_count\": 3116}, \"frontier\": {\"target\": {\"dataset\": \"gold_stk_mins_qfq_nineturn\", \"elapsed_ms\": 2993.311833124608, \"expected_count\": 4, \"expected_end_date\": \"2026-10-29\", \"expected_start_date\": \"2026-10-26\", \"freq_count\": 4}}, \"job_name\": \"gold_stk_mins_qfq_nineturn_update_job\", \"next_action\": \"无需修复；等待新的已注册交易日。\", \"partition_set\": \"cn_a_stock_mins_silver_trade_days\", \"performance_ms\": {\"target_readiness\": 2993.311833124608}, \"reason_code\": \"pending_registered_partition_tail\", \"sensor_name\": \"gold_stk_mins_qfq_nineturn_update_job_sensor\", \"summary\": \"未触发：已注册的分钟前复权九转分区均已 ready，等待尾部分区注册。\"}, \"evaluated_at\": \"2026-10-31T13:05:03.581332+08:00\", \"sample_keys\": [\"2026-10-30\"], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": \"2026-10-30\"}",
+            "lastRunKey": "gold_stk_mins_qfq_nineturn_update:2026-10-29"
+          }
+        }
+      },
+      {
+        "__typename": "Sensor",
+        "name": "stock_mins_qfq_factor_repair_sensor",
+        "sensorState": {
+          "id": "a891bed1d6185e5f36dba3ec9bc988f9c8991d13::41dc5e4a579d10becf079e7a18e18f4f086e008f",
+          "status": "STOPPED",
+          "typeSpecificData": {
+            "lastCursor": "{\"blocked_count\": 0, \"decision\": \"skip\", \"details\": {\"asset_family\": \"stock_mins_qfq_factor_repair\", \"blocked_component\": \"run_window\", \"evidence\": {\"run_window_started\": false}, \"job_name\": \"stock_mins_qfq_factor_repair_job\", \"next_action\": \"等待 19:40 后由下一次 sensor tick 自动重试。\", \"partition_set\": \"cn_a_stock_mins_silver_trade_days\", \"reason_code\": \"run_window_not_started\", \"sensor_name\": \"stock_mins_qfq_factor_repair_sensor\", \"summary\": \"股票分钟线 gold qfq factor repair 窗口尚未到 19:40，暂不触发。\"}, \"evaluated_at\": \"2026-10-31T13:04:14.017713+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": null}",
+            "lastRunKey": "stock_mins_qfq_factor_repair:2026-10-29"
+          }
+        }
+      },
+      {
+        "__typename": "Sensor",
+        "name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+        "sensorState": {
+          "id": "a67f3ab45ac8841a399432c03c982d49734ab525::e739480038f6d0807e2989cd23d199d18f0715e7",
+          "status": "STOPPED",
+          "typeSpecificData": {
+            "lastCursor": "{\"__class__\": \"RunStatusSensorCursor\", \"record_id\": 7836231, \"record_timestamp\": \"2026-10-31T04:00:10.398922+00:00\", \"update_timestamp\": null}",
+            "lastRunKey": "gold_stk_mins_qfq_macd_kdj_repair:qfq_factor_repair:2026-10-27:0c1eafc93793"
+          }
+        }
+      },
+      {
+        "__typename": "Sensor",
+        "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+        "sensorState": {
+          "id": "772281db6caf1b865496e2a2916e74059bc56604::f7097a5f811f8e1260f1b32b7d128afbec5d53bb",
+          "status": "STOPPED",
+          "typeSpecificData": {
+            "lastCursor": "{\"__class__\": \"RunStatusSensorCursor\", \"record_id\": 7836231, \"record_timestamp\": \"2026-10-31T04:00:10.398922+00:00\", \"update_timestamp\": null}",
+            "lastRunKey": "gold_stk_mins_qfq_macd_kdj_daily_update:2026-10-29"
+          }
+        }
+      }
+    ],
+    "conflicting_runs": [],
+    "other_active_count": 0
+  },
+  "global_catalog_audit": false,
+  "native_check_coverage": {
+    "total": 117,
+    "by_stage": {
+      "raw": 15,
+      "silver": 20,
+      "qfq": 28,
+      "factor": 7,
+      "macd_daily": 28,
+      "macd_repair": 14,
+      "turnover": 1,
+      "nineturn": 4
+    }
+  },
+  "complete_asset_count": 37,
+  "missing_asset_count": 0,
+  "current_native_check_coverage": 117,
+  "completed_at": "2026-10-31T15:37:50.524145+08:00"
+}

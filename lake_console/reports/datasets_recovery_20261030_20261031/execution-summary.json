@@ -1,0 +1,69 @@
+{
+  "date": "2026-10-30",
+  "status": "STOPPED_SOURCE60_INTRADAY_GAPS",
+  "complete": false,
+  "native_jobs_submitted": 4,
+  "native_jobs_successful": 3,
+  "native_jobs_failed": 1,
+  "native_jobs_reexecuted": 0,
+  "stages": [
+    {
+      "stage": "Raw",
+      "run_id": "53c3aace-d999-490b-9370-973191cb885d",
+      "status": "SUCCESS",
+      "materializations": 5,
+      "native_checks_passed": 15
+    },
+    {
+      "stage": "Silver",
+      "run_id": "ae0067a5-e040-449d-a6ac-0f32b943788f",
+      "status": "SUCCESS",
+      "materializations": 5,
+      "native_checks_passed": 20
+    },
+    {
+      "stage": "turnover Gold/Prod",
+      "run_id": "e0e9c922-6f01-4dff-8357-9130f846c347",
+      "status": "SUCCESS",
+      "materializations": 2,
+      "native_checks_passed": 1
+    },
+    {
+      "stage": "QFQ daily",
+      "run_id": "df08f87b-2316-4368-a9f1-6771bd9c17fd",
+      "status": "FAILURE",
+      "materializations": 6,
+      "native_checks_passed": 24,
+      "failed_frequency": 120,
+      "elapsed_seconds": 865.6864340305328
+    }
+  ],
+  "physical_outputs_written": 18,
+  "physical_outputs_written_is_not_completeness": true,
+  "native_checks_passed": 60,
+  "source_60_short_code_count": 28,
+  "source_60_short_row_count": 74,
+  "expected_120_windows": 11142,
+  "generated_120_windows": 11097,
+  "missing_120_windows": 45,
+  "prod_raw_silver_short_counts_agree": true,
+  "fully_missing_original_two_codes_resolved": true,
+  "factor_repair_launched": false,
+  "macd_daily_launched": false,
+  "macd_repair_launched": false,
+  "nineturn_launched": false,
+  "source_affected_outputs": [
+    "raw_stk_mins_60m",
+    "silver_stk_mins_60m",
+    "gold_stk_mins_qfq_60m",
+    "gold_wealth_market_turnover and prod counterpart60m row/points"
+  ],
+  "active_runs_at_closeout": [],
+  "downstream_sensors_held_stopped": 5,
+  "cursor_resets": 0,
+  "global_catalog_audit_repeated": false,
+  "final37_count_not_run": "Prerequisite delivery incomplete; no misleading final audit",
+  "business_code_changed": false,
+  "formal_results_and_staging": "Preserved; no rollback or deletion",
+  "next_action": "Complete the28 specific Prod60-minute stock/day records first. Then audit the current supported controlled recovery entrypoints and the smallest affected Raw/Silver/QFQ60/120/turnover range before any further job submission; original reuse_existing raw mode will not fetch existing files again."
+}

@@ -1,0 +1,42 @@
+{
+  "format": "gzip",
+  "content": "Run-scoped identity/stat metadata and exact executed helper source; no prices recomputed",
+  "archives": [
+    {
+      "original": "resume_140419/macd_kdj/daily-target-identities.json",
+      "archive": "resume_140419/macd_kdj/daily-target-identities.json.gz",
+      "original_bytes": 37090916,
+      "archive_bytes": 1995699,
+      "original_sha256": "340987098452f5cd5422bbf3a523934942836cbdcb30d8e1701bbba7af157d5d",
+      "roundtrip_verified": true
+    },
+    {
+      "original": "resume_140419/macd_kdj/repair-target-identities.json",
+      "archive": "resume_140419/macd_kdj/repair-target-identities.json.gz",
+      "original_bytes": 21407262,
+      "archive_bytes": 1349701,
+      "original_sha256": "beba60603d4e661dea797bcc594b163126e2199612f48dd6f96329a9ad0c9ed7",
+      "roundtrip_verified": true
+    },
+    {
+      "original": "resume_140419/nineturn/metadata-preflight.json",
+      "archive": "resume_140419/nineturn/metadata-preflight.json.gz",
+      "original_bytes": 10524997,
+      "archive_bytes": 1118973,
+      "original_sha256": "1fa61e91a6002bf18b9ee8827b5bbe5f2d5605e1326adf4fc2bd41703fecf496",
+      "roundtrip_verified": true
+    },
+    {
+      "original": "resume_140419/helper-final-sources/nineturn_readback.py.txt",
+      "archive": "resume_140419/helper-final-sources/nineturn_readback.py.txt.gz",
+      "original_bytes": 50201,
+      "archive_bytes": 11911,
+      "original_sha256": "3cabcf8ae714fb1079a0e23fe1b9244833d63a30b018d76a61328dbda1f6fd26",
+      "roundtrip_verified": true,
+      "reason": "保留已执行源码原始字节，不修改其末尾空行"
+    }
+  ],
+  "original_bytes": 69073376,
+  "archive_bytes": 4476284,
+  "formal_lake_or_staging_changes": 0
+}

@@ -1,0 +1,9 @@
+{
+  "scope": "read-only preflight helper only",
+  "error": "PostgresRunStorage has no get_run_by_id",
+  "original_job_launched_before_correction": false,
+  "correction": "Use existing get_run_records(RunsFilter(run_ids=[rid]),limit=1), then read dagster_run.status. This exact pattern is already used by the approved native verifiers.",
+  "business_source_changed": false,
+  "completed_jobs_reexecuted": false,
+  "authorization_scope_changed": false
+}

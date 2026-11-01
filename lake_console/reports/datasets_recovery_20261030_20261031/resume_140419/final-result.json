@@ -1,0 +1,122 @@
+{
+  "date": "2026-10-30",
+  "status": "COMPLETE_APPROVED_MINUTE_CHAIN",
+  "complete": true,
+  "completed_at": "2026-10-31T15:45:15.488508+08:00",
+  "asset_count": 37,
+  "missing_asset_count": 0,
+  "logical_original_check_coverage": 117,
+  "native_current_attempt_job_runs": [
+    {
+      "stage": "Raw60",
+      "run_id": "cb411608-38ea-471f-85e1-9ba50db8dcf2",
+      "status": "SUCCESS",
+      "checks": 3,
+      "elapsed_seconds": 2.8837850093841553
+    },
+    {
+      "stage": "Silver60",
+      "run_id": "31570610-c418-4eb6-bc8d-7e24d058e284",
+      "status": "SUCCESS",
+      "checks": 4,
+      "elapsed_seconds": 2.9693169593811035
+    },
+    {
+      "stage": "QFQ60/120",
+      "run_id": "500eac06-3717-442f-9bc0-559f322d0b21",
+      "status": "SUCCESS",
+      "checks": 8,
+      "elapsed_seconds": 150.05200099945068
+    },
+    {
+      "stage": "成交额Gold/Prod",
+      "run_id": "19e4687b-43d6-49cf-a1ce-b3b2d5eee2dc",
+      "status": "SUCCESS",
+      "checks": 1,
+      "elapsed_seconds": 1.668308973312378
+    },
+    {
+      "stage": "因子repair",
+      "run_id": "ec3436f3-6a4d-42ab-b696-7db9972563ab",
+      "status": "SUCCESS",
+      "checks": 7,
+      "elapsed_seconds": 80.07045292854309
+    },
+    {
+      "stage": "MACD/KDJ日更/state",
+      "run_id": "c92dc571-0be1-42ce-a000-50efe526d4b9",
+      "status": "SUCCESS",
+      "checks": 28,
+      "elapsed_seconds": 857.2341339588165
+    },
+    {
+      "stage": "MACD/KDJ repair",
+      "run_id": "390bc1d3-4db8-4f23-ba9b-bf6058b0a14c",
+      "status": "SUCCESS",
+      "checks": 14,
+      "elapsed_seconds": 382.7356321811676
+    },
+    {
+      "stage": "四频九转",
+      "run_id": "00a689cb-d7e2-4ac6-b4b7-3700edf9f221",
+      "status": "SUCCESS",
+      "checks": 4,
+      "elapsed_seconds": 70.39159202575684
+    }
+  ],
+  "current_attempt_job_count": 8,
+  "current_attempt_failed_jobs": 0,
+  "formal_writes_via_original_jobs_only": true,
+  "kept_original_qfq_frequencies": [
+    1,
+    5,
+    15,
+    30,
+    90
+  ],
+  "replaced_raw_silver_frequencies": [
+    60
+  ],
+  "updated_qfq_frequencies": [
+    60,
+    120
+  ],
+  "factor_repair_scope": {
+    "codes": [
+      "000728.SZ",
+      "000807.SZ",
+      "000958.SZ",
+      "002249.SZ",
+      "002941.SZ",
+      "300604.SZ",
+      "300788.SZ",
+      "301003.SZ",
+      "601878.SH",
+      "603630.SH",
+      "688409.SH"
+    ],
+    "stock_code_count": 11,
+    "start": "2014-01-02",
+    "end": "2026-10-30",
+    "trade_date_count": 3117
+  },
+  "macd_repair_scope_generated_by_original_job": true,
+  "sensors_restored": 5,
+  "cursor_mutations": 0,
+  "final_active_minute_chain_runs": 0,
+  "isolation_regression_tests_passed": 54,
+  "literal_event_reader_cases_passed": 3,
+  "temporary_cleanup_passed": true,
+  "global_catalog_audits": 0,
+  "final_scoped_count_runs": 1,
+  "read_write_budget_is_not_actual_device_io": true,
+  "committed_this_turn": false,
+  "control_query_todo": "The formal completion-ID fallback still queries event_logs repeatedly by a two-second window; this round changed only bounded observation, not the production guard/sensors/index. Source and IO-wait evidence are retained for separate optimization.",
+  "current_attempt_automatic_retries": 0,
+  "approved_selected_rework": [
+    "Raw60",
+    "Silver60",
+    "QFQ60/120",
+    "turnover"
+  ]
+}

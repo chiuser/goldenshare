@@ -1,0 +1,26 @@
+{
+  "__typename": "ExecutionPlan",
+  "assetKeys": [
+    {
+      "path": [
+        "gold_wealth_market_turnover"
+      ]
+    },
+    {
+      "path": [
+        "prod_core_wealth_market_turnover"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "key": "prod_core_wealth_market_turnover"
+    },
+    {
+      "key": "gold_wealth_market_turnover"
+    },
+    {
+      "key": "gold_wealth_market_turnover_gold_wealth_market_turnover_integrity_check"
+    }
+  ]
+}

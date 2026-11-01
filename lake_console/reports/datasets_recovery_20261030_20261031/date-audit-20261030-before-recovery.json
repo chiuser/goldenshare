@@ -1,0 +1,1431 @@
+{
+  "report_schema_version": 2,
+  "audit_kind": "physical_dataset_presence_including_serving",
+  "trade_date": "2026-10-30",
+  "observed_at": "2026-10-31T04:26:39.110863+00:00",
+  "generated_at": "2026-10-31T04:26:52.367907+00:00",
+  "declared_scope": "物理数据与必要日期覆盖；不代表全市场对象、全部质量检查或历史任务成功。",
+  "direct_partition_assets": {
+    "raw_tushare_moneyflow": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 5577,
+      "bytes": 547599,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_moneyflow": {
+      "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 5577,
+      "bytes": 547575,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_tushare_moneyflow_ths": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ths/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 4857,
+      "bytes": 312471,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_moneyflow_ths": {
+      "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ths/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 4857,
+      "bytes": 312447,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_tushare_moneyflow_dc": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_dc/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 5667,
+      "bytes": 365315,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_moneyflow_dc": {
+      "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_dc/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 5667,
+      "bytes": 365291,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_tushare_moneyflow_ind_dc": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_dc/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 1043,
+      "bytes": 96074,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_moneyflow_ind_dc": {
+      "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_dc/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 1043,
+      "bytes": 96050,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_tushare_moneyflow_cnt_ths": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_cnt_ths/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 386,
+      "bytes": 24355,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_moneyflow_cnt_ths": {
+      "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_cnt_ths/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 386,
+      "bytes": 24331,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_tushare_moneyflow_ind_ths": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ind_ths/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 90,
+      "bytes": 8535,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_moneyflow_ind_ths": {
+      "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ind_ths/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 90,
+      "bytes": 8511,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_tushare_moneyflow_mkt_dc": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_mkt_dc/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 1,
+      "bytes": 2612,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_moneyflow_mkt_dc": {
+      "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_mkt_dc/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 1,
+      "bytes": 2588,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_tushare_daily_basic": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/daily_basic/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 5571,
+      "bytes": 290587,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_tushare_suspend_d": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/suspend_d/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 7,
+      "bytes": 713,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_stock_suspend_daily": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_suspend_daily/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 7,
+      "bytes": 706,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_tushare_stock_daily": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stock_daily/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 5571,
+      "bytes": 264912,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_tushare_stk_nineturn": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_nineturn/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 5570,
+      "bytes": 200429,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_stock_nineturn_daily": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_nineturn_daily/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 5570,
+      "bytes": 193527,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_stock_daily": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 5571,
+      "bytes": 267245,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_tushare_adj_factor": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 5581,
+      "bytes": 55606,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_adj_factor": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/adj_factor/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 5581,
+      "bytes": 55582,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_stock_daily_qfq": {
+      "path": "/Volumes/datasource/data_lake/gold/quote/stock_daily_qfq/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 5571,
+      "bytes": 289656,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_stock_daily_trend_channel": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stock_daily_trend_channel/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 5571,
+      "bytes": 266462,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_stock_daily_trend_channel_state": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stock_daily_trend_channel_state/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 5577,
+      "bytes": 209024,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_stock_daily_qfq_nineturn": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stock_daily_qfq_nineturn/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 5571,
+      "bytes": 31886,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_dc_daily_technical": {
+      "path": "/Volumes/datasource/data_lake/gold/board/dc_daily_technical/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 1043,
+      "bytes": 150610,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_stk_mins_1m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "raw_stk_mins_5m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=5/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "raw_stk_mins_15m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=15/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "raw_stk_mins_30m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "raw_stk_mins_60m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "silver_stk_mins_1m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "silver_stk_mins_5m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "silver_stk_mins_15m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=15/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "silver_stk_mins_30m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "silver_stk_mins_60m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_nineturn_30m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_nineturn_60m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_nineturn_90m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=90/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_nineturn_120m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=120/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_macd_kdj_state_1m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=1/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_macd_kdj_state_5m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=5/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_macd_kdj_state_15m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=15/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_macd_kdj_state_30m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_macd_kdj_state_60m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_macd_kdj_state_90m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=90/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_macd_kdj_state_120m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=120/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "raw_index_daily": {
+      "path": "/Volumes/datasource/data_lake/raw/index_daily/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "silver_index_daily": {
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "raw_index_global": {
+      "path": "/Volumes/datasource/data_lake/raw/index_global/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 10,
+      "bytes": 2422,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_index_global": {
+      "path": "/Volumes/datasource/data_lake/silver/index_global/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 10,
+      "bytes": 2412,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_index_mins_1m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/index_mins/freq=1min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 127730,
+      "bytes": 5609619,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_index_mins_5m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/index_mins/freq=5min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 25970,
+      "bytes": 1204302,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_index_mins_15m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/index_mins/freq=15min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 9010,
+      "bytes": 435940,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_index_mins_30m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/index_mins/freq=30min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 4770,
+      "bytes": 225942,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_index_mins_60m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/index_mins/freq=60min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 2650,
+      "bytes": 132520,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_index_mins_1m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/index_mins/freq=1min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 127730,
+      "bytes": 5609619,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_index_mins_5m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/index_mins/freq=5min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 25970,
+      "bytes": 1204302,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_index_mins_15m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/index_mins/freq=15min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 9010,
+      "bytes": 435940,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_index_mins_30m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/index_mins/freq=30min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 4770,
+      "bytes": 225942,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_index_mins_60m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/index_mins/freq=60min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 2650,
+      "bytes": 132520,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_index_mins_90m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/index_mins/freq=90min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 1590,
+      "bytes": 74526,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_index_mins_120m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/index_mins/freq=120min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 1060,
+      "bytes": 50538,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_index_mins_1m": {
+      "path": "/Volumes/datasource/data_lake/gold/quote/index_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 127730,
+      "bytes": 5609989,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_index_mins_5m": {
+      "path": "/Volumes/datasource/data_lake/gold/quote/index_mins/freq=5/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 25440,
+      "bytes": 1005667,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_index_mins_15m": {
+      "path": "/Volumes/datasource/data_lake/gold/quote/index_mins/freq=15/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 8480,
+      "bytes": 343375,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_index_mins_30m": {
+      "path": "/Volumes/datasource/data_lake/gold/quote/index_mins/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 4240,
+      "bytes": 176264,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_index_mins_60m": {
+      "path": "/Volumes/datasource/data_lake/gold/quote/index_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 2120,
+      "bytes": 94487,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_index_mins_90m": {
+      "path": "/Volumes/datasource/data_lake/gold/quote/index_mins/freq=90/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 1590,
+      "bytes": 74625,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_index_mins_120m": {
+      "path": "/Volumes/datasource/data_lake/gold/quote/index_mins/freq=120/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 1060,
+      "bytes": 50819,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_major_index_mins_1m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/major_index_mins/freq=1min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 2410,
+      "bytes": 113119,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_major_index_mins_5m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/major_index_mins/freq=5min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 490,
+      "bytes": 27946,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_major_index_mins_15m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/major_index_mins/freq=15min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 170,
+      "bytes": 11374,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_major_index_mins_30m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/major_index_mins/freq=30min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 90,
+      "bytes": 6914,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_major_index_mins_60m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/major_index_mins/freq=60min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 50,
+      "bytes": 4657,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_major_index_mins_1m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/major_index_mins/freq=1min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 2410,
+      "bytes": 113119,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_major_index_mins_5m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/major_index_mins/freq=5min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 490,
+      "bytes": 27946,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_major_index_mins_15m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/major_index_mins/freq=15min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 170,
+      "bytes": 11374,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_major_index_mins_30m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/major_index_mins/freq=30min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 90,
+      "bytes": 6914,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_major_index_mins_60m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/major_index_mins/freq=60min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 50,
+      "bytes": 4657,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_major_index_mins_90m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/major_index_mins/freq=90min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 30,
+      "bytes": 3178,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_major_index_mins_120m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/major_index_mins/freq=120min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 20,
+      "bytes": 2705,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_1m": {
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 2410,
+      "bytes": 113310,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_5m": {
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=5/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 480,
+      "bytes": 24293,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_15m": {
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=15/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 160,
+      "bytes": 9580,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_30m": {
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 80,
+      "bytes": 5853,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_60m": {
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 40,
+      "bytes": 3838,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_90m": {
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 30,
+      "bytes": 3359,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_120m": {
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=120/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 20,
+      "bytes": 2881,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_daily_nineturn": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "gold_major_index_mins_nineturn_5m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_nineturn/freq=5/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 480,
+      "bytes": 6260,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_nineturn_15m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_nineturn/freq=15/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 160,
+      "bytes": 3331,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_nineturn_30m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_nineturn/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 80,
+      "bytes": 2509,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_nineturn_60m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_nineturn/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 40,
+      "bytes": 2004,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_nineturn_90m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_nineturn/freq=90/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 30,
+      "bytes": 1975,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_nineturn_120m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_nineturn/freq=120/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 20,
+      "bytes": 1729,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_tushare_dc_index": {
+      "path": "/Volumes/datasource/data_lake/raw/board/dc_index/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 1043,
+      "bytes": 51854,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_tushare_dc_member": {
+      "path": "/Volumes/datasource/data_lake/raw/board/dc_member/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 100429,
+      "bytes": 444293,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_tushare_dc_daily": {
+      "path": "/Volumes/datasource/data_lake/raw/board/dc_daily/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 1043,
+      "bytes": 58934,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_dc_index": {
+      "path": "/Volumes/datasource/data_lake/silver/board/dc_index/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 1043,
+      "bytes": 52132,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_dc_member": {
+      "path": "/Volumes/datasource/data_lake/silver/board/dc_member/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 100429,
+      "bytes": 440209,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_dc_daily": {
+      "path": "/Volumes/datasource/data_lake/silver/board/dc_daily/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 1043,
+      "bytes": 58910,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_market_major_indices_daily": {
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "gold_market_breadth_daily": {
+      "path": "/Volumes/datasource/data_lake/gold/breadth/market_breadth_daily/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 1,
+      "bytes": 878,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_stock_return_distribution": {
+      "path": "/Volumes/datasource/data_lake/gold/breadth/stock_return_distribution/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 1,
+      "bytes": 1905,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_wealth_market_turnover": {
+      "path": "/Volumes/datasource/data_lake/gold/wealth/market_turnover/trade_date=2026-10-30/part-000.parquet",
+      "row_count": null,
+      "status": "missing_file",
+      "assessment_status": "gap"
+    },
+    "raw_tushare_idx_factor_pro": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/idx_factor_pro/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 11,
+      "bytes": 19156,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_index_factor_pro": {
+      "path": "/Volumes/datasource/data_lake/silver/index/index_factor_pro/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 11,
+      "bytes": 19699,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_technical_1m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=1/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 2410,
+      "bytes": 295657,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_technical_5m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=5/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 480,
+      "bytes": 62851,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_technical_15m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=15/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 160,
+      "bytes": 24148,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_technical_30m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 80,
+      "bytes": 14463,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_technical_60m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 40,
+      "bytes": 9075,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_technical_90m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 30,
+      "bytes": 7751,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_technical_120m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=120/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 20,
+      "bytes": 6455,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_technical_state_1m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical_state/freq=1/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 10,
+      "bytes": 2706,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_technical_state_5m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical_state/freq=5/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 10,
+      "bytes": 2706,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_technical_state_15m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical_state/freq=15/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 10,
+      "bytes": 2706,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_technical_state_30m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical_state/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 10,
+      "bytes": 2706,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_technical_state_60m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical_state/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 10,
+      "bytes": 2706,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_technical_state_90m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical_state/freq=90/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 10,
+      "bytes": 2706,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "gold_major_index_mins_technical_state_120m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical_state/freq=120/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 10,
+      "bytes": 2706,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_etf_mins_1m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/etf_mins/freq=1min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 413315,
+      "bytes": 5188961,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_etf_mins_5m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/etf_mins/freq=5min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 84035,
+      "bytes": 1611205,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_etf_mins_15m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/etf_mins/freq=15min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 29155,
+      "bytes": 663494,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_etf_mins_30m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/etf_mins/freq=30min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 15435,
+      "bytes": 388574,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_etf_mins_60m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/etf_mins/freq=60min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 8575,
+      "bytes": 262528,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_etf_mins_1m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/etf_mins/freq=1min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 413315,
+      "bytes": 5188961,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_etf_mins_5m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/etf_mins/freq=5min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 84035,
+      "bytes": 1611205,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_etf_mins_15m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/etf_mins/freq=15min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 29155,
+      "bytes": 663494,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_etf_mins_30m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/etf_mins/freq=30min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 15435,
+      "bytes": 388574,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_etf_mins_60m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/etf_mins/freq=60min/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 8575,
+      "bytes": 262528,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_tushare_fund_daily": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/fund_daily/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 2184,
+      "bytes": 68521,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "raw_tushare_fund_adj": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/fund_adj/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 2210,
+      "bytes": 18455,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_etf_daily": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/etf_daily/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 1715,
+      "bytes": 54854,
+      "status": "present",
+      "assessment_status": "satisfied"
+    },
+    "silver_etf_adj_factor": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/etf_adj_factor/trade_date=2026-10-30/part-000.parquet",
+      "row_count": 1715,
+      "bytes": 14025,
+      "status": "present",
+      "assessment_status": "satisfied"
+    }
+  },
+  "stock_year_partition_assets": {
+    "gold_stk_mins_qfq_1m": {
+      "status": "missing_date_rows",
+      "pattern": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code=*/year=2026/part-000.parquet",
+      "row_count": 0,
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_5m": {
+      "status": "missing_date_rows",
+      "pattern": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=*/year=2026/part-000.parquet",
+      "row_count": 0,
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_15m": {
+      "status": "missing_date_rows",
+      "pattern": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code=*/year=2026/part-000.parquet",
+      "row_count": 0,
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_30m": {
+      "status": "missing_date_rows",
+      "pattern": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code=*/year=2026/part-000.parquet",
+      "row_count": 0,
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_60m": {
+      "status": "missing_date_rows",
+      "pattern": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code=*/year=2026/part-000.parquet",
+      "row_count": 0,
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_90m": {
+      "status": "missing_date_rows",
+      "pattern": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code=*/year=2026/part-000.parquet",
+      "row_count": 0,
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_120m": {
+      "status": "missing_date_rows",
+      "pattern": "/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code=*/year=2026/part-000.parquet",
+      "row_count": 0,
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_macd_kdj_1m": {
+      "status": "missing_date_rows",
+      "pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=1/ts_code=*/year=2026/part-000.parquet",
+      "row_count": 0,
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_macd_kdj_5m": {
+      "status": "missing_date_rows",
+      "pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=5/ts_code=*/year=2026/part-000.parquet",
+      "row_count": 0,
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_macd_kdj_15m": {
+      "status": "missing_date_rows",
+      "pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=15/ts_code=*/year=2026/part-000.parquet",
+      "row_count": 0,
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_macd_kdj_30m": {
+      "status": "missing_date_rows",
+      "pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=30/ts_code=*/year=2026/part-000.parquet",
+      "row_count": 0,
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_macd_kdj_60m": {
+      "status": "missing_date_rows",
+      "pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=60/ts_code=*/year=2026/part-000.parquet",
+      "row_count": 0,
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_macd_kdj_90m": {
+      "status": "missing_date_rows",
+      "pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=90/ts_code=*/year=2026/part-000.parquet",
+      "row_count": 0,
+      "assessment_status": "gap"
+    },
+    "gold_stk_mins_qfq_macd_kdj_120m": {
+      "status": "missing_date_rows",
+      "pattern": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj/freq=120/ts_code=*/year=2026/part-000.parquet",
+      "row_count": 0,
+      "assessment_status": "gap"
+    }
+  },
+  "serving_partition_assets": {
+    "prod_core_wealth_market_turnover": {
+      "status": "missing_rows",
+      "backend": "prod_postgres",
+      "table": "core_serving.wealth_market_turnover_snapshot",
+      "row_count": 0,
+      "assessment_status": "gap"
+    },
+    "prod_core_stock_daily_qfq_nineturn": {
+      "status": "present",
+      "backend": "prod_postgres",
+      "table": "core_serving.equity_qfq_nineturn_daily",
+      "row_count": 5571,
+      "assessment_status": "satisfied"
+    },
+    "prod_core_index_daily_nineturn": {
+      "status": "missing_rows",
+      "backend": "prod_postgres",
+      "table": "core_serving.index_nineturn_daily",
+      "row_count": 0,
+      "assessment_status": "gap"
+    },
+    "ch_share_fact_market_breadth_daily": {
+      "status": "present",
+      "table": "share_fact_market_breadth_daily",
+      "row_count": 1,
+      "backend": "clickhouse",
+      "assessment_status": "satisfied"
+    },
+    "ch_dc_daily_technical": {
+      "status": "present",
+      "table": "board_fact_technical_daily",
+      "row_count": 1043,
+      "backend": "clickhouse",
+      "assessment_status": "satisfied"
+    },
+    "prod_ch_share_fact_market_breadth_daily": {
+      "status": "present",
+      "table": "share_fact_market_breadth_daily",
+      "row_count": 1,
+      "backend": "prod_clickhouse",
+      "assessment_status": "satisfied"
+    },
+    "prod_ch_dc_daily_technical": {
+      "status": "present",
+      "table": "board_fact_technical_daily",
+      "row_count": 1043,
+      "backend": "prod_clickhouse",
+      "assessment_status": "satisfied"
+    }
+  },
+  "period_partition_assets": {
+    "raw_tushare_stk_period_bar_adj_week": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_adj_week/week_end=2026-10-30/part-000.parquet",
+      "row_count": 5572,
+      "bytes": 455182,
+      "status": "present",
+      "max_source_date": "2026-10-30",
+      "null_end_date_count": 0,
+      "invalid_end_date_count": 0,
+      "invalid_trade_date_count": 0,
+      "invalid_freq_count": 0,
+      "period_key": "2026-10-30",
+      "expected_source_date": "2026-10-30",
+      "update_status": "date_observed",
+      "rows_at_or_after_expected": 5571,
+      "rows_before_expected": 1,
+      "source_window_status": "elapsed",
+      "assessment_status": "satisfied"
+    },
+    "raw_tushare_stk_period_bar_adj_month": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_period_bar_adj_month/month=2026-10/data.parquet",
+      "row_count": 5576,
+      "bytes": 462663,
+      "status": "present",
+      "max_source_date": "2026-10-30",
+      "null_end_date_count": 0,
+      "invalid_end_date_count": 0,
+      "invalid_trade_date_count": 0,
+      "invalid_freq_count": 0,
+      "period_key": "2026-10",
+      "expected_source_date": "2026-10-30",
+      "update_status": "date_observed",
+      "rows_at_or_after_expected": 5571,
+      "rows_before_expected": 5,
+      "source_window_status": "elapsed",
+      "assessment_status": "satisfied"
+    },
+    "silver_stock_weekly": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_weekly/week_end=2026-10-30/part-000.parquet",
+      "row_count": 5572,
+      "bytes": 306212,
+      "status": "present",
+      "max_source_date": "2026-10-30",
+      "null_end_date_count": 0,
+      "invalid_end_date_count": 0,
+      "invalid_trade_date_count": 0,
+      "invalid_freq_count": 0,
+      "period_key": "2026-10-30",
+      "expected_source_date": "2026-10-30",
+      "update_status": "date_observed",
+      "rows_at_or_after_expected": 5571,
+      "rows_before_expected": 1,
+      "source_window_status": "elapsed",
+      "assessment_status": "satisfied"
+    },
+    "silver_stock_monthly": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stock_monthly/month=2026-10/part-000.parquet",
+      "row_count": 5576,
+      "bytes": 310846,
+      "status": "present",
+      "max_source_date": "2026-10-30",
+      "null_end_date_count": 0,
+      "invalid_end_date_count": 0,
+      "invalid_trade_date_count": 0,
+      "invalid_freq_count": 0,
+      "period_key": "2026-10",
+      "expected_source_date": "2026-10-30",
+      "update_status": "date_observed",
+      "rows_at_or_after_expected": 5571,
+      "rows_before_expected": 5,
+      "source_window_status": "elapsed",
+      "assessment_status": "satisfied"
+    }
+  },
+  "natural_date_partition_assets": {
+    "raw_tushare_anns_d": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/anns_d/ann_date=2026-10-30/part-000.parquet",
+      "row_count": 5575,
+      "bytes": 106051,
+      "status": "present",
+      "source_delivery_status": "not_checked",
+      "assessment_status": "satisfied"
+    }
+  },
+  "excluded_assets": {
+    "raw_tushare_trade_calendar": "calendar_excluded_by_scope",
+    "silver_trade_calendar": "calendar_excluded_by_scope",
+    "raw_tushare_stock_basic": "full_snapshot_not_daily_completeness",
+    "silver_stock_basic": "full_snapshot_not_daily_completeness",
+    "silver_stock_lifecycle": "full_snapshot_not_daily_completeness",
+    "raw_tushare_namechange": "full_snapshot_not_daily_completeness",
+    "silver_namechange": "full_snapshot_not_daily_completeness",
+    "silver_stock_identity_map": "full_snapshot_not_daily_completeness",
+    "silver_dc_industry_hierarchy": "full_snapshot_not_daily_completeness",
+    "silver_stock_suspend_confirmed": "full_snapshot_not_daily_completeness",
+    "raw_tushare_index_basic": "full_snapshot_not_daily_completeness",
+    "silver_index_basic": "full_snapshot_not_daily_completeness",
+    "prod_core_wealth_sector_hierarchy": "full_snapshot_not_daily_completeness",
+    "lake_root_health": "platform_health_not_daily_completeness",
+    "raw_tushare_etf_basic": "full_snapshot_not_daily_completeness",
+    "silver_etf_basic": "full_snapshot_not_daily_completeness"
+  },
+  "unclassified_asset_keys": [],
+  "classification_issues": [],
+  "satisfied_asset_keys": [
+    "ch_dc_daily_technical",
+    "ch_share_fact_market_breadth_daily",
+    "gold_dc_daily_technical",
+    "gold_index_mins_120m",
+    "gold_index_mins_15m",
+    "gold_index_mins_1m",
+    "gold_index_mins_30m",
+    "gold_index_mins_5m",
+    "gold_index_mins_60m",
+    "gold_index_mins_90m",
+    "gold_major_index_mins_120m",
+    "gold_major_index_mins_15m",
+    "gold_major_index_mins_1m",
+    "gold_major_index_mins_30m",
+    "gold_major_index_mins_5m",
+    "gold_major_index_mins_60m",
+    "gold_major_index_mins_90m",
+    "gold_major_index_mins_nineturn_120m",
+    "gold_major_index_mins_nineturn_15m",
+    "gold_major_index_mins_nineturn_30m",
+    "gold_major_index_mins_nineturn_5m",
+    "gold_major_index_mins_nineturn_60m",
+    "gold_major_index_mins_nineturn_90m",
+    "gold_major_index_mins_technical_120m",
+    "gold_major_index_mins_technical_15m",
+    "gold_major_index_mins_technical_1m",
+    "gold_major_index_mins_technical_30m",
+    "gold_major_index_mins_technical_5m",
+    "gold_major_index_mins_technical_60m",
+    "gold_major_index_mins_technical_90m",
+    "gold_major_index_mins_technical_state_120m",
+    "gold_major_index_mins_technical_state_15m",
+    "gold_major_index_mins_technical_state_1m",
+    "gold_major_index_mins_technical_state_30m",
+    "gold_major_index_mins_technical_state_5m",
+    "gold_major_index_mins_technical_state_60m",
+    "gold_major_index_mins_technical_state_90m",
+    "gold_market_breadth_daily",
+    "gold_stock_daily_qfq",
+    "gold_stock_daily_qfq_nineturn",
+    "gold_stock_daily_trend_channel",
+    "gold_stock_daily_trend_channel_state",
+    "gold_stock_return_distribution",
+    "prod_ch_dc_daily_technical",
+    "prod_ch_share_fact_market_breadth_daily",
+    "prod_core_stock_daily_qfq_nineturn",
+    "raw_etf_mins_15m",
+    "raw_etf_mins_1m",
+    "raw_etf_mins_30m",
+    "raw_etf_mins_5m",
+    "raw_etf_mins_60m",
+    "raw_index_global",
+    "raw_index_mins_15m",
+    "raw_index_mins_1m",
+    "raw_index_mins_30m",
+    "raw_index_mins_5m",
+    "raw_index_mins_60m",
+    "raw_major_index_mins_15m",
+    "raw_major_index_mins_1m",
+    "raw_major_index_mins_30m",
+    "raw_major_index_mins_5m",
+    "raw_major_index_mins_60m",
+    "raw_tushare_adj_factor",
+    "raw_tushare_anns_d",
+    "raw_tushare_daily_basic",
+    "raw_tushare_dc_daily",
+    "raw_tushare_dc_index",
+    "raw_tushare_dc_member",
+    "raw_tushare_fund_adj",
+    "raw_tushare_fund_daily",
+    "raw_tushare_idx_factor_pro",
+    "raw_tushare_moneyflow",
+    "raw_tushare_moneyflow_cnt_ths",
+    "raw_tushare_moneyflow_dc",
+    "raw_tushare_moneyflow_ind_dc",
+    "raw_tushare_moneyflow_ind_ths",
+    "raw_tushare_moneyflow_mkt_dc",
+    "raw_tushare_moneyflow_ths",
+    "raw_tushare_stk_nineturn",
+    "raw_tushare_stk_period_bar_adj_month",
+    "raw_tushare_stk_period_bar_adj_week",
+    "raw_tushare_stock_daily",
+    "raw_tushare_suspend_d",
+    "silver_adj_factor",
+    "silver_dc_daily",
+    "silver_dc_index",
+    "silver_dc_member",
+    "silver_etf_adj_factor",
+    "silver_etf_daily",
+    "silver_etf_mins_15m",
+    "silver_etf_mins_1m",
+    "silver_etf_mins_30m",
+    "silver_etf_mins_5m",
+    "silver_etf_mins_60m",
+    "silver_index_factor_pro",
+    "silver_index_global",
+    "silver_index_mins_120m",
+    "silver_index_mins_15m",
+    "silver_index_mins_1m",
+    "silver_index_mins_30m",
+    "silver_index_mins_5m",
+    "silver_index_mins_60m",
+    "silver_index_mins_90m",
+    "silver_major_index_mins_120m",
+    "silver_major_index_mins_15m",
+    "silver_major_index_mins_1m",
+    "silver_major_index_mins_30m",
+    "silver_major_index_mins_5m",
+    "silver_major_index_mins_60m",
+    "silver_major_index_mins_90m",
+    "silver_moneyflow",
+    "silver_moneyflow_cnt_ths",
+    "silver_moneyflow_dc",
+    "silver_moneyflow_ind_dc",
+    "silver_moneyflow_ind_ths",
+    "silver_moneyflow_mkt_dc",
+    "silver_moneyflow_ths",
+    "silver_stock_daily",
+    "silver_stock_monthly",
+    "silver_stock_nineturn_daily",
+    "silver_stock_suspend_daily",
+    "silver_stock_weekly"
+  ],
+  "satisfied_asset_count": 122,
+  "data_gap_asset_keys": [
+    "gold_major_index_daily_nineturn",
+    "gold_market_major_indices_daily",
+    "gold_stk_mins_qfq_120m",
+    "gold_stk_mins_qfq_15m",
+    "gold_stk_mins_qfq_1m",
+    "gold_stk_mins_qfq_30m",
+    "gold_stk_mins_qfq_5m",
+    "gold_stk_mins_qfq_60m",
+    "gold_stk_mins_qfq_90m",
+    "gold_stk_mins_qfq_macd_kdj_120m",
+    "gold_stk_mins_qfq_macd_kdj_15m",
+    "gold_stk_mins_qfq_macd_kdj_1m",
+    "gold_stk_mins_qfq_macd_kdj_30m",
+    "gold_stk_mins_qfq_macd_kdj_5m",
+    "gold_stk_mins_qfq_macd_kdj_60m",
+    "gold_stk_mins_qfq_macd_kdj_90m",
+    "gold_stk_mins_qfq_macd_kdj_state_120m",
+    "gold_stk_mins_qfq_macd_kdj_state_15m",
+    "gold_stk_mins_qfq_macd_kdj_state_1m",
+    "gold_stk_mins_qfq_macd_kdj_state_30m",
+    "gold_stk_mins_qfq_macd_kdj_state_5m",
+    "gold_stk_mins_qfq_macd_kdj_state_60m",
+    "gold_stk_mins_qfq_macd_kdj_state_90m",
+    "gold_stk_mins_qfq_nineturn_120m",
+    "gold_stk_mins_qfq_nineturn_30m",
+    "gold_stk_mins_qfq_nineturn_60m",
+    "gold_stk_mins_qfq_nineturn_90m",
+    "gold_wealth_market_turnover",
+    "prod_core_index_daily_nineturn",
+    "prod_core_wealth_market_turnover",
+    "raw_index_daily",
+    "raw_stk_mins_15m",
+    "raw_stk_mins_1m",
+    "raw_stk_mins_30m",
+    "raw_stk_mins_5m",
+    "raw_stk_mins_60m",
+    "silver_index_daily",
+    "silver_stk_mins_15m",
+    "silver_stk_mins_1m",
+    "silver_stk_mins_30m",
+    "silver_stk_mins_5m",
+    "silver_stk_mins_60m"
+  ],
+  "data_gap_asset_count": 42,
+  "pending_asset_keys": [],
+  "pending_asset_count": 0,
+  "not_due_asset_keys": [],
+  "not_due_asset_count": 0,
+  "unverified_asset_keys": [],
+  "unverified_asset_count": 0,
+  "missing_file_asset_keys": [
+    "gold_major_index_daily_nineturn",
+    "gold_market_major_indices_daily",
+    "gold_stk_mins_qfq_macd_kdj_state_120m",
+    "gold_stk_mins_qfq_macd_kdj_state_15m",
+    "gold_stk_mins_qfq_macd_kdj_state_1m",
+    "gold_stk_mins_qfq_macd_kdj_state_30m",
+    "gold_stk_mins_qfq_macd_kdj_state_5m",
+    "gold_stk_mins_qfq_macd_kdj_state_60m",
+    "gold_stk_mins_qfq_macd_kdj_state_90m",
+    "gold_stk_mins_qfq_nineturn_120m",
+    "gold_stk_mins_qfq_nineturn_30m",
+    "gold_stk_mins_qfq_nineturn_60m",
+    "gold_stk_mins_qfq_nineturn_90m",
+    "gold_wealth_market_turnover",
+    "raw_index_daily",
+    "raw_stk_mins_15m",
+    "raw_stk_mins_1m",
+    "raw_stk_mins_30m",
+    "raw_stk_mins_5m",
+    "raw_stk_mins_60m",
+    "silver_index_daily",
+    "silver_stk_mins_15m",
+    "silver_stk_mins_1m",
+    "silver_stk_mins_30m",
+    "silver_stk_mins_5m",
+    "silver_stk_mins_60m"
+  ],
+  "missing_date_rows_asset_keys": [
+    "gold_stk_mins_qfq_120m",
+    "gold_stk_mins_qfq_15m",
+    "gold_stk_mins_qfq_1m",
+    "gold_stk_mins_qfq_30m",
+    "gold_stk_mins_qfq_5m",
+    "gold_stk_mins_qfq_60m",
+    "gold_stk_mins_qfq_90m",
+    "gold_stk_mins_qfq_macd_kdj_120m",
+    "gold_stk_mins_qfq_macd_kdj_15m",
+    "gold_stk_mins_qfq_macd_kdj_1m",
+    "gold_stk_mins_qfq_macd_kdj_30m",
+    "gold_stk_mins_qfq_macd_kdj_5m",
+    "gold_stk_mins_qfq_macd_kdj_60m",
+    "gold_stk_mins_qfq_macd_kdj_90m"
+  ],
+  "missing_serving_asset_keys": [
+    "prod_core_index_daily_nineturn",
+    "prod_core_wealth_market_turnover"
+  ],
+  "present_zero_row_asset_keys": [],
+  "allowed_zero_row_asset_keys": [],
+  "update_behind_asset_keys": [],
+  "unverified_serving_asset_keys": [],
+  "unverified_lake_asset_keys": [],
+  "catalog_asset_count": 180,
+  "audited_asset_count": 164,
+  "excluded_asset_count": 16,
+  "present_asset_count": 122,
+  "physical_missing_asset_count": 42,
+  "present_zero_row_asset_count": 0,
+  "allowed_zero_row_asset_count": 0,
+  "update_behind_asset_count": 0,
+  "catalog_classification_complete": true,
+  "audit_evidence_complete": true,
+  "audit_passed": false
+}

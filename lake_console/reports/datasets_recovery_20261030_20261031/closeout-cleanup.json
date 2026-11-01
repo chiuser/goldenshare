@@ -1,0 +1,142 @@
+{
+  "closed_at": "2026-11-01T21:05:49.317032+08:00",
+  "trade_date": "2026-10-30",
+  "archive_identity_checks_passed": true,
+  "archived_evidence": [
+    {
+      "path": "/private/tmp/dg_dataset_audit_20261030_20261031T042652369790Z_0632dbf7ff2b45d4aeef68dccb44f077.json",
+      "archive": "date-audit-20261030-before-recovery.json",
+      "bytes": 55215,
+      "sha256": "c09d6eedecce8204a1cff137151545df47e2870a75c6624829abb87a585ab8df"
+    },
+    {
+      "path": "/private/tmp/dg_dataset_audit_20261030_20261031T141815863466Z_0ff0219752d14215ba0e50007b04927f.json",
+      "archive": "date-audit-20261030-final.json",
+      "bytes": 54430,
+      "sha256": "ca8f239cb9321b99d65c6dfb506d44d9e258ebc4156d681dfe71381abca5ddcc"
+    },
+    {
+      "path": "/private/tmp/dg_index_daily_20261030_cause_history.json",
+      "archive": "index-daily/source-blocked-history.json",
+      "bytes": 15361,
+      "sha256": "2d9a2f93288b88562512e6af81076887ad445ec2444af3e71110dc112c09bbcc"
+    },
+    {
+      "path": "/private/tmp/dg_index_daily_20261030_cause_runtime.json",
+      "archive": "index-daily/source-blocked-runtime.json",
+      "bytes": 66022,
+      "sha256": "1bba565759e09adb3a83ebf2530e317dfd72cc2c9400bfdfcf5ae640e31bb6cd"
+    },
+    {
+      "path": "/private/tmp/dg_index_daily_recovery_20261030_final.json",
+      "archive": "index-daily/final-verification.json",
+      "bytes": 20994,
+      "sha256": "6faf3442e37f56e3dcba05ac6bd491e3411e25c27f103f3d78ccba67b7ce901f"
+    },
+    {
+      "path": "/private/tmp/dg_index_daily_recovery_20261030_runtime_before.json",
+      "archive": "index-daily/original-jobs-after-source-update.json",
+      "bytes": 7060,
+      "sha256": "fc31ac84e9bb51fe5ffa94bdecad561ee1c784f7737129e84f90e68e0a74c368"
+    },
+    {
+      "path": "/private/tmp/dg_index_daily_two_codes_20261030_current.json",
+      "archive": "index-daily/two-codes-before-source-update.json",
+      "bytes": 480,
+      "sha256": "0cba314c333b81947ae0253634a14448b78f6ecaf72927219a3d6dced3ff9eb1"
+    },
+    {
+      "path": "/private/tmp/dg_remaining_20261030_after_minute_recovery.json",
+      "archive": "index-daily/five-gaps-before-source-update.json",
+      "bytes": 1226,
+      "sha256": "4367070bdad53e32aa10997be43aa1ade5b029e50367a94e9af9856d1b299b35"
+    }
+  ],
+  "deleted_files": [
+    {
+      "path": "/private/tmp/dg_index_daily_20261030_cause_runtime.json",
+      "archive": "index-daily/source-blocked-runtime.json",
+      "bytes": 66022,
+      "sha256": "1bba565759e09adb3a83ebf2530e317dfd72cc2c9400bfdfcf5ae640e31bb6cd",
+      "reason": "本轮已结束，原样归档并校验摘要后删除重复临时副本"
+    },
+    {
+      "path": "/private/tmp/dg_index_daily_recovery_20261030_runtime_before.json",
+      "archive": "index-daily/original-jobs-after-source-update.json",
+      "bytes": 7060,
+      "sha256": "fc31ac84e9bb51fe5ffa94bdecad561ee1c784f7737129e84f90e68e0a74c368",
+      "reason": "本轮已结束，原样归档并校验摘要后删除重复临时副本"
+    },
+    {
+      "path": "/private/tmp/dg_index_daily_two_codes_20261030_current.json",
+      "archive": "index-daily/two-codes-before-source-update.json",
+      "bytes": 480,
+      "sha256": "0cba314c333b81947ae0253634a14448b78f6ecaf72927219a3d6dced3ff9eb1",
+      "reason": "本轮已结束，原样归档并校验摘要后删除重复临时副本"
+    },
+    {
+      "path": "/private/tmp/dg_remaining_20261030_after_minute_recovery.json",
+      "archive": "index-daily/five-gaps-before-source-update.json",
+      "bytes": 1226,
+      "sha256": "4367070bdad53e32aa10997be43aa1ade5b029e50367a94e9af9856d1b299b35",
+      "reason": "本轮已结束，原样归档并校验摘要后删除重复临时副本"
+    },
+    {
+      "path": "/private/tmp/dg_index_daily_recovery_20261030_checks.json",
+      "archive": "index-daily/final-verification.json#runs",
+      "bytes": 17640,
+      "sha256": "58b320c9d33af85bfab057b1b7b6c1fb76761669de2074e581c1f0370d92b295",
+      "reason": "检查数组已完整包含在最终核验runs中，逐项相等后删除重复JSON"
+    }
+  ],
+  "deleted_file_count": 5,
+  "deleted_bytes": 92428,
+  "previously_cleaned_directories_confirmed_absent": [
+    "/private/tmp/dg_minute_recovery_20261030_20261031",
+    "/private/tmp/dg_minute_resume_20261030_20261031",
+    "/private/tmp/dg_replace_existing_tests_20261031",
+    "/private/tmp/dg_replace_existing_tests_20261031_r2",
+    "/private/tmp/dg_replace_existing_tests_20261031_final"
+  ],
+  "formal_lake_deleted": 0,
+  "formal_staging_deleted": 0,
+  "native_logs_deleted": 0,
+  "historical_linked_reports_preserved": true,
+  "new_formal_data_audits": 0,
+  "new_jobs_or_sensor_operations": 0,
+  "commit_scope": "configs.py, stk_mins.py, required minute_partition_writer.py, replacement tests, Oct30 plan/LLD hunks and this report directory only",
+  "scope_is_not_all_dirty_worktree": true,
+  "additional_test_cleanup": {
+    "path": "/private/tmp/dg_closeout_20261030_20261101",
+    "files": 54,
+    "bytes": 72809,
+    "removed": true,
+    "test_result": "closeout-regression.xml",
+    "tests_passed": 32,
+    "initial_setup_error_record": "closeout-regression-setup-error.json"
+  },
+  "docs_integrity_passed": true,
+  "fatal_ruff_passed": true,
+  "new_module_and_test_full_ruff_passed": true,
+  "large_execution_metadata_archives": "closeout-metadata-archives.json",
+  "uncompressed_metadata_removed_bytes": 69073376,
+  "metadata_archive_bytes": 4476284,
+  "metadata_archives_roundtrip_verified": true,
+  "report_csv_line_endings_only": {
+    "path": "source60-missing-rows.csv",
+    "all_cells_equal": true,
+    "old_sha256": "d37a5c43a9c25b3cd09cc1b3bf5dc58d98cbd2263ba4a6a7ef012f87421e3185",
+    "new_sha256": "004e63cc904c697391b2025b5cc7bb5c3292916de4e419e0a1bcb56394da1b33"
+  },
+  "executed_helper_archived_without_byte_changes": "resume_140419/helper-final-sources/nineturn_readback.py.txt.gz",
+  "commit_document_temporary_files_removed": [
+    {
+      "path": "/private/tmp/dg_20261030_closeout_doc_scope.patch",
+      "bytes": 2512
+    },
+    {
+      "path": "/private/tmp/dg_20261030_expected_lld.txt",
+      "bytes": 271213
+    }
+  ]
+}

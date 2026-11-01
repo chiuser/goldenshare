@@ -1,0 +1,33 @@
+{
+  "producer_run_ids": [
+    "ec3436f3-6a4d-42ab-b696-7db9972563ab",
+    "390bc1d3-4db8-4f23-ba9b-bf6058b0a14c"
+  ],
+  "native_event_ids": [
+    7836846,
+    7836847,
+    7836848,
+    7836849,
+    7836850,
+    7836851,
+    7836852,
+    7837083,
+    7837084,
+    7837085,
+    7837086,
+    7837087,
+    7837088,
+    7837089,
+    7837090,
+    7837091,
+    7837092,
+    7837093,
+    7837094,
+    7837095,
+    7837096
+  ],
+  "event_count": 21,
+  "matches_independently_accepted_native_ids": true,
+  "global_time_window_queries": 0,
+  "formal_writes": 0
+}

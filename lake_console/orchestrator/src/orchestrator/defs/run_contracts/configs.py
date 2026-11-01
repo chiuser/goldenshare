@@ -138,8 +138,8 @@ class GoldStockDailyTrendChannelRepairConfig(dg.Config):
 
 
 StockMinsRawSource = Literal["tushare", "prod_db"]
-StockMinsRawWriteMode = Literal["reuse_existing", "merge_repair"]
-StockMinsSilverWriteMode = Literal["write_new", "reuse_existing"]
+StockMinsRawWriteMode = Literal["reuse_existing", "merge_repair", "replace_existing"]
+StockMinsSilverWriteMode = Literal["write_new", "reuse_existing", "replace_existing"]
 StockDailyRawWriteMode = Literal["full_day", "missing_code_repair"]
 MAX_STOCK_DAILY_MISSING_CODE_REPAIR_COUNT = 100
 
@@ -173,9 +173,11 @@ class ParsedStockMinsRawConfig:
                     "merge_repair.start_time must not be later than end_time."
                 )
             return self
+        if self.write_mode == "replace_existing" and self.source != "prod_db":
+            raise ValueError("replace_existing write_mode only supports source=prod_db.")
         if self.source == "prod_db" and self.prod_completion_reference is None:
             raise ValueError(
-                "source=prod_db reuse_existing requires prod_completion_reference."
+                f"source=prod_db {self.write_mode} requires prod_completion_reference."
             )
         if self.source != "prod_db" and self.prod_completion_reference is not None:
             raise ValueError(
@@ -270,6 +272,13 @@ STOCK_MINS_RAW_CONFIG_SCHEMA = dg.Shape(
                         is_required=False,
                         description="日常安全模式：已有合格 raw 文件直接复用。",
                     ),
+                    "replace_existing": dg.Field(
+                        dg.Shape({}),
+                        description=(
+                            "人工显式替换同日同频 raw 分区；仅支持 prod_db，"
+                            "仍须携带真实完成依据并通过原检查。"
+                        ),
+                    ),
                     "merge_repair": dg.Field(
                         dg.Shape(
                             {
@@ -293,7 +302,7 @@ STOCK_MINS_RAW_CONFIG_SCHEMA = dg.Shape(
             ),
             default_value={"reuse_existing": {}},
             is_required=False,
-            description="股票分钟线 raw 写入模式；reuse_existing 与 merge_repair 互斥。",
+            description="股票分钟线 raw 写入模式；必须且只能选择一个分支。",
         ),
         "prod_completion_reference": dg.Field(
             dg.Shape(
@@ -340,6 +349,13 @@ STOCK_MINS_SILVER_CONFIG_SCHEMA = dg.Shape(
                         default_value={},
                         is_required=False,
                         description="默认安全模式：目标文件已存在时拒绝覆盖。",
+                    ),
+                    "replace_existing": dg.Field(
+                        dg.Shape({}),
+                        description=(
+                            "人工显式重新生成同日同频 Silver 分区，"
+                            "候选完整校验后逐文件原子替换。"
+                        ),
                     ),
                     "reuse_existing": dg.Field(
                         dg.Shape({}),
@@ -721,16 +737,18 @@ def parse_stock_mins_raw_config(
         raise ValueError("write_mode must be a selector mapping.")
 
     selected_modes = [
-        mode for mode in ("reuse_existing", "merge_repair") if mode in write_mode_config
+        mode
+        for mode in ("reuse_existing", "merge_repair", "replace_existing")
+        if mode in write_mode_config
     ]
     if len(selected_modes) != 1:
         raise ValueError("write_mode must select exactly one branch.")
 
     write_mode = selected_modes[0]
-    if write_mode == "reuse_existing":
+    if write_mode in {"reuse_existing", "replace_existing"}:
         return ParsedStockMinsRawConfig(
             source=source,
-            write_mode="reuse_existing",
+            write_mode=write_mode,
             prod_completion_reference=prod_completion_reference,
         ).validate()
 
@@ -767,7 +785,9 @@ def parse_stock_mins_silver_config(
         raise ValueError("write_mode must be a selector mapping.")
 
     selected_modes = [
-        mode for mode in ("write_new", "reuse_existing") if mode in write_mode_config
+        mode
+        for mode in ("write_new", "reuse_existing", "replace_existing")
+        if mode in write_mode_config
     ]
     if len(selected_modes) != 1:
         raise ValueError("write_mode must select exactly one branch.")

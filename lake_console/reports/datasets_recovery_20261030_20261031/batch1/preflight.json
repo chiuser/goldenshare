@@ -1,0 +1,111 @@
+{
+  "date": "2026-10-30",
+  "safe_to_launch": true,
+  "observed_at": "2026-10-31T13:07:15.866080+08:00",
+  "job": "stock_mins_raw_update_from_prod_job",
+  "expected_stock_codes": 5577,
+  "prod_gate": {
+    "ready": true,
+    "reason_code": "prod_source_ready",
+    "task_run_status": {
+      "ready": true,
+      "reason_code": "prod_ops_task_run_ready",
+      "task_run": {
+        "task_run_id": 17542,
+        "trade_date": "2026-10-30",
+        "ended_at": "2026-10-30T18:25:19.194235+08:00",
+        "unit_total": 29610,
+        "unit_done": 29610,
+        "unit_failed": 0,
+        "progress_percent": 100.0,
+        "rows_fetched": 1790133,
+        "rows_saved": 1790133,
+        "rows_rejected": 0
+      },
+      "candidate_task_run_id": 17542,
+      "candidate_status": "success",
+      "candidate_reason_code": null,
+      "elapsed_ms": 125,
+      "error_type": null
+    },
+    "coverage_status": {
+      "ready": true,
+      "reason_code": "prod_source_code_coverage_ready",
+      "frequency_coverages": [
+        {
+          "freq": 1,
+          "expected_code_count": 5577,
+          "present_code_count": 5577,
+          "missing_code_count": 0,
+          "missing_code_samples": []
+        },
+        {
+          "freq": 5,
+          "expected_code_count": 5577,
+          "present_code_count": 5577,
+          "missing_code_count": 0,
+          "missing_code_samples": []
+        },
+        {
+          "freq": 15,
+          "expected_code_count": 5577,
+          "present_code_count": 5577,
+          "missing_code_count": 0,
+          "missing_code_samples": []
+        },
+        {
+          "freq": 30,
+          "expected_code_count": 5577,
+          "present_code_count": 5577,
+          "missing_code_count": 0,
+          "missing_code_samples": []
+        },
+        {
+          "freq": 60,
+          "expected_code_count": 5577,
+          "present_code_count": 5577,
+          "missing_code_count": 0,
+          "missing_code_samples": []
+        }
+      ],
+      "first_missing_freq": null,
+      "elapsed_ms": 679,
+      "error_type": null
+    },
+    "completion_reference": {
+      "task_run_id": 17542,
+      "trade_date": "2026-10-30",
+      "ended_at": "2026-10-30T18:25:19.194235+08:00",
+      "full_market": true,
+      "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+      "expected_code_count": 5577,
+      "expected_code_hash": "a55f9b75dc7c603e2b7581cca56aa4a9",
+      "frequency_code_counts": [
+        [
+          1,
+          5577
+        ],
+        [
+          5,
+          5577
+        ],
+        [
+          15,
+          5577
+        ],
+        [
+          30,
+          5577
+        ],
+        [
+          60,
+          5577
+        ]
+      ],
+      "coverage_observed_at": "2026-10-31T13:07:15.058970+08:00",
+      "reference_fingerprint": "39eef731847f75967fb794ef251af9c5f7467efced189c84a4a0048e6ded964a"
+    }
+  },
+  "raw_targets_absent": true,
+  "downstream_sensors_paused": true
+}

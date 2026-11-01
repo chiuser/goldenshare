@@ -1,0 +1,55 @@
+{
+  "scope": "2026-10-30 stock minute chain; source recheck and replacement-entry design only",
+  "source_evidence": "prod60-count-time-audit.json",
+  "source60_passed": true,
+  "source60_code_count": 5577,
+  "source60_row_count": 27885,
+  "original28_ready_count": 28,
+  "formal_writes": 0,
+  "native_jobs_launched": 0,
+  "business_code_changed": false,
+  "tests_run": false,
+  "tests_not_run_reason": "Design confirmation required before the new opt-in run mode is developed or tested.",
+  "codegraph_tools_used": [
+    "codegraph_explore",
+    "codegraph_callers",
+    "codegraph_impact"
+  ],
+  "audited_consumers": [
+    "stock minute Raw/Silver config parsers and materializers",
+    "Raw/Silver job definitions",
+    "Raw config builder and Raw/Silver sensor call sites",
+    "minute per-file publication",
+    "QFQ physical readiness and factor repair op",
+    "current contract tests",
+    "legacy Raw/Silver replacement entrypoints"
+  ],
+  "independent_review_findings": [
+    "Original Raw job reuses an existing file; original Silver job refuses overwrite. Re-triggering them cannot refresh the affected partitions.",
+    "Legacy Silver replacement stages and backs up within formal Lake. It must not be used.",
+    "Original QFQ failed run can supply only the five unaffected successful frequencies; new60/120 require a new root and checks bound to their actual materializations.",
+    "Raw/Silver result metadata must classify explicit replacement as a write, preserving normal and reuse descriptions.",
+    "Freeze preservation remains active; the three frozen Silver codes do not overlap the original28.",
+    "The original unstarted historical stages retain their approved scope; the new rework budget is separate, and previous actual IO cannot be assumed zero."
+  ],
+  "plan_sections": [
+    "indicator plan17.13",
+    "staging write LLD20.9-20.12"
+  ],
+  "remaining_budget_gib": {
+    "read": 382,
+    "write": 67,
+    "extra_space": 128
+  },
+  "new_rework_budget_gib": {
+    "read": 10,
+    "write": 3,
+    "extra_space": 6
+  },
+  "validation": {
+    "docs_integrity": "passed",
+    "changed_document_local_links": "passed",
+    "git_diff_check_selected_docs": "passed"
+  },
+  "status": "WAITING_REPLACE_MODE_DESIGN_APPROVAL"
+}

@@ -1,0 +1,11 @@
+{
+  "ops": {
+    "silver_stk_mins_60m": {
+      "config": {
+        "write_mode": {
+          "replace_existing": {}
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "__typename": "WorkspaceLocationEntry",
+  "name": "orchestrator",
+  "loadStatus": "LOADED",
+  "updatedTimestamp": 1793429007.626156,
+  "versionKey": "[\"35bd30f8-a770-4cb8-a449-c9fe57b5ae68\", null]",
+  "locationOrLoadError": {
+    "__typename": "RepositoryLocation",
+    "name": "orchestrator"
+  }
+}

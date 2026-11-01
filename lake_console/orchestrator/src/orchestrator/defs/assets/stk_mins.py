@@ -1,7 +1,8 @@
+import hashlib
 import math
 import os
 import time
-from dataclasses import dataclass, replace
+from dataclasses import asdict, dataclass, replace
 from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Mapping, Sequence
@@ -28,6 +29,7 @@ from orchestrator.defs.duckdb_sql import (
     duckdb_string,
     read_parquet,
 )
+from orchestrator.defs.io.minute_partition_writer import MinutePartitionPublication
 from orchestrator.defs.io.stk_mins_qfq_publication import StkMinsQfqPublication
 from orchestrator.defs.partitions import (
     cn_a_stock_mins_silver_trade_days,
@@ -107,6 +109,7 @@ from orchestrator.defs.stk_mins_qfq import (
     write_prepared_gold_stk_mins_qfq_rows_to_year_files,
 )
 from orchestrator.seeds.quote.stk_mins_price_corrections import (
+    STK_MINS_PRICE_CORRECTIONS_SEED_PATH,
     STK_MINS_PRICE_CORRECTIONS_SEED_VERSION,
     has_stk_mins_price_corrections,
     load_stk_mins_price_correction_catalog,
@@ -284,7 +287,7 @@ class SilverStkMinsWriteResult:
             "stock_daily_file_path": str(self.stock_daily_file_path),
             "suspend_file_path": str(self.suspend_file_path),
         }
-        if self.write_mode == "write_new":
+        if self.write_mode in {"write_new", "replace_existing"}:
             metadata.update(
                 {
                     "source_row_count": self.source_row_count,
@@ -330,7 +333,7 @@ def _silver_stk_mins_human_metadata(
         "stock_daily_asset": "silver_stock_daily",
         "suspend_asset": "silver_stock_suspend_daily",
     }
-    if write_result.write_mode == "write_new":
+    if write_result.write_mode in {"write_new", "replace_existing"}:
         input_summary.update(
             {
                 "source_row_count": write_result.source_row_count,
@@ -618,10 +621,12 @@ def write_raw_stk_mins_partition_from_prod_db(
     freq: int | str,
     partition_key: str,
     stock_codes: Sequence[str],
+    publication_id: str | None = None,
+    overwrite: bool = False,
 ) -> StkMinsRawWriteResult:
     normalized_freq = normalize_stk_mins_freq(freq)
     target_path = raw_stk_mins_path(lake_root, normalized_freq, partition_key)
-    if target_path.exists():
+    if target_path.exists() and not overwrite:
         return _reuse_existing_raw_stk_mins_partition(
             duckdb=duckdb,
             raw_path=target_path,
@@ -649,6 +654,7 @@ def write_raw_stk_mins_partition_from_prod_db(
         freq=normalized_freq,
         partition_key=partition_key,
         load_postgres_extension=True,
+        publication_id=publication_id,
     )
     columns, row_count = _raw_file_columns_and_count(duckdb, target_path)
     return StkMinsRawWriteResult(
@@ -920,6 +926,33 @@ def _parse_stk_mins_trade_time(value: object) -> datetime:
 
 
 def _write_raw_stk_mins_rows_from_prod_db_source(
+    *, duckdb: DuckDBResource, postgres_connection_string: str | None = None,
+    source_sql: str, target_path: Path, stock_codes: Sequence[str], freq: int,
+    partition_key: str, load_postgres_extension: bool, publication_id: str | None = None,
+) -> dict[str, int]:
+    publication = MinutePartitionPublication(
+        dataset="raw_stk_mins", target=target_path, day=partition_key, freq=int(freq),
+        publication_id=publication_id, overwrite=True, source_identity=(tuple(stock_codes),
+            hashlib.sha256(source_sql.encode()).hexdigest(),
+            hashlib.sha256(Path(__file__).read_bytes()).hexdigest()))
+
+    def build(candidate):
+        stats = _build_raw_stk_mins_rows_from_prod_db_source(
+            duckdb=duckdb, postgres_connection_string=postgres_connection_string,
+            source_sql=source_sql, target_path=candidate, stock_codes=stock_codes,
+            freq=freq, partition_key=partition_key, load_postgres_extension=load_postgres_extension)
+        with connect_configured_duckdb() as connection:
+            stats["row_count"] = int(connection.execute(count_parquet_query(candidate, hive_partitioning=False)).fetchone()[0])
+        return stats
+
+    stats = publication.run(build)
+    stats.pop("row_count")
+    if publication.reused:
+        stats["query_count"] = 0
+    return stats
+
+
+def _build_raw_stk_mins_rows_from_prod_db_source(
     *,
     duckdb: DuckDBResource,
     postgres_connection_string: str | None = None,
@@ -937,80 +970,70 @@ def _write_raw_stk_mins_rows_from_prod_db_source(
         raise RuntimeError("No current listed stock codes available for stk_mins raw.")
 
     target_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path = target_path.with_name(f"{target_path.name}.tmp")
-    if temporary_path.exists():
-        temporary_path.unlink()
 
     requested_codes_sql = ", ".join(
         duckdb_string(stock_code) for stock_code in requested_stock_codes
     )
     partition_date_sql = duckdb_string(partition_key)
-    try:
-        with connect_configured_duckdb() as connection:
-            if load_postgres_extension:
-                _load_duckdb_postgres_extension(connection)
-                if postgres_connection_string is None:
-                    raise RuntimeError(
-                        "Prod DB DuckDB extraction requires a Postgres connection string."
-                    )
-                _attach_prod_postgres_database(
-                    connection,
-                    postgres_connection_string=postgres_connection_string,
+    with connect_configured_duckdb() as connection:
+        if load_postgres_extension:
+            _load_duckdb_postgres_extension(connection)
+            if postgres_connection_string is None:
+                raise RuntimeError(
+                    "Prod DB DuckDB extraction requires a Postgres connection string."
                 )
+            _attach_prod_postgres_database(
+                connection,
+                postgres_connection_string=postgres_connection_string,
+            )
+        connection.execute(
+            "CREATE TEMP TABLE prod_stk_mins_source AS "
+            "SELECT "
+            + ", ".join(PROD_STK_MINS_SOURCE_COLUMNS)
+            + f" FROM ({source_sql}) AS source_rows"
+        )
+        source_row_count = int(
+            connection.execute("SELECT count(*) FROM prod_stk_mins_source").fetchone()[
+                0
+            ]
+        )
+        if source_row_count == 0:
+            raise RuntimeError(
+                "Prod DB stk_mins returned 0 rows for "
+                f"freq={freq}, partition={partition_key}."
+            )
+
+        invalid_scope_count = int(
             connection.execute(
-                "CREATE TEMP TABLE prod_stk_mins_source AS "
-                "SELECT "
-                + ", ".join(PROD_STK_MINS_SOURCE_COLUMNS)
-                + f" FROM ({source_sql}) AS source_rows"
+                f"""
+                SELECT count(*)
+                FROM prod_stk_mins_source
+                WHERE CAST(freq AS INTEGER) != {int(freq)}
+                   OR CAST(trade_time AS DATE) != CAST({partition_date_sql} AS DATE)
+                   OR CAST(ts_code AS VARCHAR) NOT IN ({requested_codes_sql})
+                """
+            ).fetchone()[0]
+        )
+        if invalid_scope_count:
+            raise RuntimeError(
+                "Prod DB stk_mins returned rows outside the requested stock/date/freq "
+                f"scope: invalid_row_count={invalid_scope_count}."
             )
-            source_row_count = int(
-                connection.execute("SELECT count(*) FROM prod_stk_mins_source").fetchone()[
-                    0
-                ]
-            )
-            if source_row_count == 0:
-                raise RuntimeError(
-                    "Prod DB stk_mins returned 0 rows for "
-                    f"freq={freq}, partition={partition_key}."
-                )
 
-            invalid_scope_count = int(
-                connection.execute(
-                    f"""
-                    SELECT count(*)
-                    FROM prod_stk_mins_source
-                    WHERE CAST(freq AS INTEGER) != {int(freq)}
-                       OR CAST(trade_time AS DATE) != CAST({partition_date_sql} AS DATE)
-                       OR CAST(ts_code AS VARCHAR) NOT IN ({requested_codes_sql})
-                    """
-                ).fetchone()[0]
+        returned_stock_code_count = int(
+            connection.execute(
+                "SELECT count(DISTINCT CAST(ts_code AS VARCHAR)) "
+                "FROM prod_stk_mins_source"
+            ).fetchone()[0]
+        )
+        if returned_stock_code_count != len(requested_stock_codes):
+            raise RuntimeError(
+                "Prod DB stk_mins source coverage is incomplete before raw promote: "
+                f"expected_stock_code_count={len(requested_stock_codes)}, "
+                f"returned_stock_code_count={returned_stock_code_count}."
             )
-            if invalid_scope_count:
-                raise RuntimeError(
-                    "Prod DB stk_mins returned rows outside the requested stock/date/freq "
-                    f"scope: invalid_row_count={invalid_scope_count}."
-                )
-
-            returned_stock_code_count = int(
-                connection.execute(
-                    "SELECT count(DISTINCT CAST(ts_code AS VARCHAR)) "
-                    "FROM prod_stk_mins_source"
-                ).fetchone()[0]
-            )
-            if returned_stock_code_count != len(requested_stock_codes):
-                raise RuntimeError(
-                    "Prod DB stk_mins source coverage is incomplete before raw promote: "
-                    f"expected_stock_code_count={len(requested_stock_codes)}, "
-                    f"returned_stock_code_count={returned_stock_code_count}."
-                )
-            output_sql = _prod_db_raw_stk_mins_output_sql(freq=int(freq))
-            connection.execute(copy_query_to_parquet(output_sql, temporary_path))
-
-        os.replace(temporary_path, target_path)
-    except Exception:
-        if temporary_path.exists():
-            temporary_path.unlink()
-        raise
+        output_sql = _prod_db_raw_stk_mins_output_sql(freq=int(freq))
+        connection.execute(copy_query_to_parquet(output_sql, target_path))
     return {
         "query_count": 1,
         "returned_stock_code_count": returned_stock_code_count,
@@ -2047,9 +2070,6 @@ def _write_distinct_silver_stk_mins_rows(
         f'CAST("{column}" AS {STK_MINS_SILVER_COLUMN_TYPES[column]}) AS "{column}"'
         for column in STK_MINS_SILVER_COLUMNS
     )
-    temporary_path = target_path.with_name(f"{target_path.name}.tmp")
-    if temporary_path.exists():
-        temporary_path.unlink()
     target_path.parent.mkdir(parents=True, exist_ok=True)
     connection.execute(
         copy_query_to_parquet(
@@ -2058,10 +2078,9 @@ def _write_distinct_silver_stk_mins_rows(
             FROM silver_distinct_rows
             ORDER BY ts_code, trade_time
             """,
-            temporary_path,
+            target_path,
         )
     )
-    os.replace(temporary_path, target_path)
     columns = tuple(
         row[0]
         for row in connection.execute(
@@ -2072,6 +2091,47 @@ def _write_distinct_silver_stk_mins_rows(
 
 
 def write_silver_stk_mins_partition(
+    *, lake_root: Path, duckdb: DuckDBResource, freq: int | str, partition_key: str,
+    overwrite: bool = False, output_path_override: Path | None = None,
+    publication_id: str | None = None,
+) -> SilverStkMinsWriteResult:
+    normalized = normalize_stk_mins_freq(freq)
+    canonical = silver_stk_mins_path(lake_root, normalized, partition_key)
+    target = output_path_override or canonical
+    sources = [raw_stk_mins_path(lake_root, normalized, partition_key),
+               silver_stock_identity_map_path(lake_root), silver_stock_daily_path(lake_root, partition_key),
+               silver_stock_suspend_daily_path(lake_root, partition_key)]
+    if normalized != 1:
+        sources.append(raw_stk_mins_path(lake_root, 1, partition_key))
+    if canonical != target:
+        sources.append(canonical)
+    if has_stk_mins_price_corrections(partition_key):
+        sources.append(STK_MINS_PRICE_CORRECTIONS_SEED_PATH)
+    publication = MinutePartitionPublication(
+        dataset="silver_stk_mins", target=target, day=partition_key, freq=normalized,
+        publication_id=publication_id, source_paths=sources,
+        source_identity=(hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                         SILVER_STK_MINS_FREEZE_POLICY_VERSION, SILVER_STK_MINS_FROZEN_CODES),
+        overwrite=overwrite)
+    if target.exists() and not overwrite and not (publication.directory / "receipt.json").exists():
+        raise FileExistsError(f"Silver stk_mins file already exists: {target}")
+
+    def build(candidate):
+        result = _build_silver_stk_mins_partition(
+            lake_root=lake_root, duckdb=duckdb, freq=normalized, partition_key=partition_key,
+            overwrite=False, output_path_override=candidate)
+        return asdict(replace(result, silver_file_path=target))
+
+    data = publication.run(build)
+    for key in ("raw_file_path", "one_minute_raw_file_path", "identity_map_file_path",
+                "stock_daily_file_path", "suspend_file_path", "silver_file_path"):
+        if data[key] is not None:
+            data[key] = Path(data[key])
+    data["observed_columns"] = tuple(data["observed_columns"])
+    return SilverStkMinsWriteResult(**data)
+
+
+def _build_silver_stk_mins_partition(
     *,
     lake_root: Path,
     duckdb: DuckDBResource,
@@ -2718,9 +2778,13 @@ def _materialize_raw_stk_mins_partition(
             freq=freq,
             partition_key=partition_key,
             stock_codes=stock_codes,
+            publication_id=context.run.root_run_id or context.run.run_id,
+            overwrite=config.write_mode == "replace_existing",
         )
     else:
         raise AssertionError(f"Unhandled stk_mins raw config: {config}")
+    if config.write_mode == "replace_existing":
+        write_result = replace(write_result, write_mode="replace_existing")
     if config.write_mode == "merge_repair":
         log.stdout(
             "raw_stk_mins_repair_completed",
@@ -3026,14 +3090,18 @@ def _materialize_silver_stk_mins_partition(
             duckdb=duckdb,
             freq=freq,
             partition_key=partition_key,
+            publication_id=context.run.root_run_id or context.run.run_id,
+            overwrite=config.write_mode == "replace_existing",
         )
+        if config.write_mode == "replace_existing":
+            write_result = replace(write_result, write_mode="replace_existing")
     completion_fields: dict[str, object] = {
         "partition_key": partition_key,
         "freq": freq,
         "row_count": write_result.row_count,
         "write_mode": write_result.write_mode,
     }
-    if write_result.write_mode == "write_new":
+    if write_result.write_mode in {"write_new", "replace_existing"}:
         completion_fields.update(
             {
                 "source_row_count": write_result.source_row_count,

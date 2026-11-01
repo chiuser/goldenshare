@@ -1,0 +1,800 @@
+{
+  "observed_at": "2026-10-31T12:55:04.225984+08:00",
+  "date": "2026-10-30",
+  "active_runs": [],
+  "recent_runs": [
+    {
+      "run_id": "02c39f7b-0e20-4515-9a40-047c9d799aed",
+      "job": "stock_mins_raw_update_from_prod_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp3mibxzgb\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-29",
+        "dagster/partition_set": "stock_mins_raw_update_from_prod_job_partition_set",
+        "dagster/run_key": "stock_mins_raw_update_from_prod:2026-10-29",
+        "dagster/sensor_name": "stock_mins_raw_sensor",
+        "dagster/tick": "2965889"
+      },
+      "config": {
+        "ops": {
+          "raw_stk_mins_15m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-29T19:18:07.063214+08:00",
+                "ended_at": "2026-10-29T18:38:51.529802+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "a55f9b75dc7c603e2b7581cca56aa4a9",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "44247656b977f9d23047bec0001799a96e42627359ebecf523d87a9dd0ba339d",
+                "task_run_id": 17404,
+                "trade_date": "2026-10-29"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_1m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-29T19:18:07.063214+08:00",
+                "ended_at": "2026-10-29T18:38:51.529802+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "a55f9b75dc7c603e2b7581cca56aa4a9",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "44247656b977f9d23047bec0001799a96e42627359ebecf523d87a9dd0ba339d",
+                "task_run_id": 17404,
+                "trade_date": "2026-10-29"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_30m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-29T19:18:07.063214+08:00",
+                "ended_at": "2026-10-29T18:38:51.529802+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "a55f9b75dc7c603e2b7581cca56aa4a9",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "44247656b977f9d23047bec0001799a96e42627359ebecf523d87a9dd0ba339d",
+                "task_run_id": 17404,
+                "trade_date": "2026-10-29"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_5m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-29T19:18:07.063214+08:00",
+                "ended_at": "2026-10-29T18:38:51.529802+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "a55f9b75dc7c603e2b7581cca56aa4a9",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "44247656b977f9d23047bec0001799a96e42627359ebecf523d87a9dd0ba339d",
+                "task_run_id": 17404,
+                "trade_date": "2026-10-29"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_60m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-29T19:18:07.063214+08:00",
+                "ended_at": "2026-10-29T18:38:51.529802+08:00",
+                "expected_code_count": 5577,
+                "expected_code_hash": "a55f9b75dc7c603e2b7581cca56aa4a9",
+                "frequency_code_counts": {
+                  "1": 5577,
+                  "15": 5577,
+                  "30": 5577,
+                  "5": 5577,
+                  "60": 5577
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "44247656b977f9d23047bec0001799a96e42627359ebecf523d87a9dd0ba339d",
+                "task_run_id": 17404,
+                "trade_date": "2026-10-29"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          }
+        }
+      },
+      "start_time": 1793272700.327369,
+      "end_time": 1793272787.277981
+    },
+    {
+      "run_id": "a64e909f-cf02-4771-9504-6439d50c5584",
+      "job": "stock_mins_raw_update_from_prod_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmpunh3ke6k\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-28",
+        "dagster/partition_set": "stock_mins_raw_update_from_prod_job_partition_set",
+        "dagster/run_key": "stock_mins_raw_update_from_prod:2026-10-28",
+        "dagster/sensor_name": "stock_mins_raw_sensor",
+        "dagster/tick": "2917016"
+      },
+      "config": {
+        "ops": {
+          "raw_stk_mins_15m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-28T19:12:45.634620+08:00",
+                "ended_at": "2026-10-28T18:27:28.542825+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "14960769fbf14dc0e717ab7e81b98e60",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "fab4a1b0dc2813285e155f29f1e7176f006c05a7ca28a76103bf9226e7e70d37",
+                "task_run_id": 17269,
+                "trade_date": "2026-10-28"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_1m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-28T19:12:45.634620+08:00",
+                "ended_at": "2026-10-28T18:27:28.542825+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "14960769fbf14dc0e717ab7e81b98e60",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "fab4a1b0dc2813285e155f29f1e7176f006c05a7ca28a76103bf9226e7e70d37",
+                "task_run_id": 17269,
+                "trade_date": "2026-10-28"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_30m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-28T19:12:45.634620+08:00",
+                "ended_at": "2026-10-28T18:27:28.542825+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "14960769fbf14dc0e717ab7e81b98e60",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "fab4a1b0dc2813285e155f29f1e7176f006c05a7ca28a76103bf9226e7e70d37",
+                "task_run_id": 17269,
+                "trade_date": "2026-10-28"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_5m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-28T19:12:45.634620+08:00",
+                "ended_at": "2026-10-28T18:27:28.542825+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "14960769fbf14dc0e717ab7e81b98e60",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "fab4a1b0dc2813285e155f29f1e7176f006c05a7ca28a76103bf9226e7e70d37",
+                "task_run_id": 17269,
+                "trade_date": "2026-10-28"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          },
+          "raw_stk_mins_60m": {
+            "config": {
+              "prod_completion_reference": {
+                "coverage_observed_at": "2026-10-28T19:12:45.634620+08:00",
+                "ended_at": "2026-10-28T18:27:28.542825+08:00",
+                "expected_code_count": 5576,
+                "expected_code_hash": "14960769fbf14dc0e717ab7e81b98e60",
+                "frequency_code_counts": {
+                  "1": 5576,
+                  "15": 5576,
+                  "30": 5576,
+                  "5": 5576,
+                  "60": 5576
+                },
+                "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+                "full_market": true,
+                "reference_fingerprint": "fab4a1b0dc2813285e155f29f1e7176f006c05a7ca28a76103bf9226e7e70d37",
+                "task_run_id": 17269,
+                "trade_date": "2026-10-28"
+              },
+              "source": "prod_db",
+              "write_mode": {
+                "reuse_existing": {}
+              }
+            }
+          }
+        }
+      },
+      "start_time": 1793186272.246482,
+      "end_time": 1793186370.122049
+    },
+    {
+      "run_id": "e73878eb-c1d0-421b-ae0f-826ece14070f",
+      "job": "stock_mins_silver_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp3mibxzgb\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-29",
+        "dagster/partition_set": "stock_mins_silver_update_job_partition_set",
+        "dagster/run_key": "stock_mins_silver_update:2026-10-29",
+        "dagster/sensor_name": "stock_mins_silver_sensor",
+        "dagster/tick": "2966398"
+      },
+      "config": {},
+      "start_time": 1793273630.276161,
+      "end_time": 1793273644.490166
+    },
+    {
+      "run_id": "ab9d6a45-3693-4729-9b31-edda681da85f",
+      "job": "stock_mins_silver_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp3mibxzgb\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-28",
+        "dagster/partition_set": "stock_mins_silver_update_job_partition_set",
+        "dagster/run_key": "stock_mins_silver_update:2026-10-28",
+        "dagster/sensor_name": "stock_mins_silver_sensor",
+        "dagster/tick": "2917814"
+      },
+      "config": {},
+      "start_time": 1793200327.81464,
+      "end_time": 1793200342.564591
+    },
+    {
+      "run_id": "3a06b775-5c37-44a5-84d0-8ca5cfbfa40e",
+      "job": "stock_mins_qfq_daily_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp3mibxzgb\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-29",
+        "dagster/partition_set": "stock_mins_qfq_daily_update_job_partition_set",
+        "dagster/run_key": "stock_mins_qfq_daily_update:2026-10-29",
+        "dagster/sensor_name": "stock_mins_qfq_daily_sensor",
+        "dagster/tick": "2966726"
+      },
+      "config": {},
+      "start_time": 1793274221.232119,
+      "end_time": 1793275143.176912
+    },
+    {
+      "run_id": "94384f7b-0b77-4317-998c-32da2a5e88dd",
+      "job": "stock_mins_qfq_daily_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp3mibxzgb\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-28",
+        "goldenshare/recovery": "stock_mins_20261028_20261029"
+      },
+      "config": {},
+      "start_time": 1793237856.970233,
+      "end_time": 1793238734.953584
+    },
+    {
+      "run_id": "536c3220-7817-483a-9b6e-b69a05beb5fe",
+      "job": "stock_mins_qfq_factor_repair_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp3mibxzgb\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/run_key": "stock_mins_qfq_factor_repair:2026-10-29",
+        "dagster/sensor_name": "stock_mins_qfq_factor_repair_sensor",
+        "dagster/tick": "2967066"
+      },
+      "config": {
+        "ops": {
+          "stock_mins_qfq_factor_repair_op": {
+            "config": {
+              "trade_date": "2026-10-29"
+            }
+          }
+        }
+      },
+      "start_time": 1793275149.069658,
+      "end_time": 1793275178.484554
+    },
+    {
+      "run_id": "816a0d01-a56f-4f06-bdb3-1a7e0c05a793",
+      "job": "stock_mins_qfq_factor_repair_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp3mibxzgb\"}",
+        "dagster/code_location": "orchestrator",
+        "goldenshare/recovery": "stock_mins_20261028_20261029"
+      },
+      "config": {
+        "ops": {
+          "stock_mins_qfq_factor_repair_op": {
+            "config": {
+              "trade_date": "2026-10-28"
+            }
+          }
+        }
+      },
+      "start_time": 1793238887.604836,
+      "end_time": 1793238947.827255
+    },
+    {
+      "run_id": "63c25bed-bdc8-4fee-9af8-0321b5b13ac7",
+      "job": "gold_stk_mins_qfq_macd_kdj_daily_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp3mibxzgb\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/is_resume_retry": "true",
+        "dagster/parent_run_id": "98f3d25c-1380-47da-b079-b15701bdbbce",
+        "dagster/partition": "2026-10-29",
+        "dagster/partition_set": "gold_stk_mins_qfq_macd_kdj_daily_update_job_partition_set",
+        "dagster/root_run_id": "98f3d25c-1380-47da-b079-b15701bdbbce",
+        "dagster/run_key": "gold_stk_mins_qfq_macd_kdj_daily_update:2026-10-29",
+        "dagster/sensor_name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+        "dagster/tick": "2967299"
+      },
+      "config": {},
+      "start_time": 1793322374.256243,
+      "end_time": 1793322528.984675
+    },
+    {
+      "run_id": "98f3d25c-1380-47da-b079-b15701bdbbce",
+      "job": "gold_stk_mins_qfq_macd_kdj_daily_update_job",
+      "status": "FAILURE",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp3mibxzgb\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/failure_reason": "STEP_FAILURE",
+        "dagster/partition": "2026-10-29",
+        "dagster/partition_set": "gold_stk_mins_qfq_macd_kdj_daily_update_job_partition_set",
+        "dagster/run_key": "gold_stk_mins_qfq_macd_kdj_daily_update:2026-10-29",
+        "dagster/sensor_name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+        "dagster/tick": "2967299"
+      },
+      "config": {},
+      "start_time": 1793275199.415791,
+      "end_time": 1793275771.546407
+    },
+    {
+      "run_id": "86d8b492-c056-412d-b9cc-551462e3188e",
+      "job": "gold_stk_mins_qfq_macd_kdj_repair_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp3mibxzgb\"}",
+        "dagster/code_location": "orchestrator"
+      },
+      "config": {
+        "ops": {
+          "gold_stk_mins_qfq_macd_kdj_repair_op": {
+            "config": {
+              "freqs": [
+                1,
+                5,
+                15,
+                30,
+                60,
+                90,
+                120
+              ],
+              "qfq_factor_repair_trade_date": "2026-10-29",
+              "reason": "qfq_factor_repair:2026-10-29",
+              "repair_required_codes_hash": "e53fc5c69277b27eb383eb4bc5eacae92b02dfe39bd779947d7779b5874af198",
+              "start_trade_date": "2014-01-02",
+              "stock_codes": [
+                "000878.SZ",
+                "688563.SH"
+              ],
+              "upstream_batch_id": "qfq_factor_repair:2026-10-29:633a5dece517"
+            }
+          }
+        }
+      },
+      "start_time": 1793324355.610584,
+      "end_time": 1793324636.795943
+    },
+    {
+      "run_id": "44caf58c-a1d9-4e37-b525-b82cda3179b3",
+      "job": "gold_stk_mins_qfq_macd_kdj_repair_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp3mibxzgb\"}",
+        "dagster/code_location": "orchestrator",
+        "goldenshare/recovery": "stock_mins_20261028_20261029"
+      },
+      "config": {
+        "ops": {
+          "gold_stk_mins_qfq_macd_kdj_repair_op": {
+            "config": {
+              "freqs": [
+                1,
+                5,
+                15,
+                30,
+                60,
+                90,
+                120
+              ],
+              "qfq_factor_repair_trade_date": "2026-10-28",
+              "reason": "qfq_factor_repair:2026-10-28",
+              "repair_required_codes_hash": "c4a301285eb06a998bb596c4113580fb329a0f1b38f1d9fffa3119efa9824a91",
+              "start_trade_date": "2014-01-02",
+              "stock_codes": [
+                "300601.SZ",
+                "601298.SH",
+                "601991.SH",
+                "603689.SH",
+                "688087.SH",
+                "920047.BJ",
+                "920145.BJ",
+                "920199.BJ",
+                "920227.BJ",
+                "920242.BJ",
+                "920339.BJ",
+                "920427.BJ",
+                "920656.BJ",
+                "920751.BJ",
+                "920892.BJ",
+                "920957.BJ"
+              ],
+              "upstream_batch_id": "qfq_factor_repair:2026-10-28:3afb0b0b08f6"
+            }
+          }
+        }
+      },
+      "start_time": 1793240423.061442,
+      "end_time": 1793240723.733188
+    },
+    {
+      "run_id": "16afcd16-273b-4ef4-9199-936ff0b859eb",
+      "job": "gold_stk_mins_qfq_nineturn_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp3mibxzgb\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-29",
+        "dagster/partition_set": "gold_stk_mins_qfq_nineturn_update_job_partition_set",
+        "dagster/run_key": "gold_stk_mins_qfq_nineturn_update:2026-10-29",
+        "dagster/sensor_name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+        "dagster/tick": "2967408"
+      },
+      "config": {},
+      "start_time": 1793275788.689758,
+      "end_time": 1793275858.962947
+    },
+    {
+      "run_id": "a9f7bedc-5041-48ab-8171-20c388bff5ea",
+      "job": "gold_stk_mins_qfq_nineturn_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp3mibxzgb\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-28",
+        "goldenshare/recovery": "stock_mins_20261028_20261029"
+      },
+      "config": {},
+      "start_time": 1793241186.119585,
+      "end_time": 1793241254.320662
+    },
+    {
+      "run_id": "d1260be8-6ffe-4ba0-88b5-4e99f74ef7c1",
+      "job": "gold_wealth_market_turnover_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp3mibxzgb\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-29",
+        "dagster/partition_set": "gold_wealth_market_turnover_update_job_partition_set",
+        "dagster/run_key": "gold_wealth_market_turnover:2026-10-29",
+        "dagster/sensor_name": "gold_wealth_market_turnover_update_job_sensor",
+        "dagster/tick": "2967181"
+      },
+      "config": {},
+      "start_time": 1793275184.156303,
+      "end_time": 1793275185.559088
+    },
+    {
+      "run_id": "706043b5-948a-413c-806c-cc52ddeb8cc7",
+      "job": "gold_wealth_market_turnover_update_job",
+      "status": "SUCCESS",
+      "tags": {
+        ".dagster/grpc_info": "{\"host\": \"localhost\", \"socket\": \"/var/folders/0x/12zkmckd1hb2vfp3w4vb7w480000gn/T/tmp3mibxzgb\"}",
+        "dagster/code_location": "orchestrator",
+        "dagster/partition": "2026-10-28",
+        "dagster/partition_set": "gold_wealth_market_turnover_update_job_partition_set",
+        "dagster/run_key": "gold_wealth_market_turnover:2026-10-28",
+        "dagster/sensor_name": "gold_wealth_market_turnover_update_job_sensor",
+        "dagster/tick": "2925341"
+      },
+      "config": {},
+      "start_time": 1793201012.027045,
+      "end_time": 1793201014.181903
+    }
+  ],
+  "sensors": [
+    {
+      "name": "stock_mins_qfq_daily_sensor",
+      "selector_id": "3ab800ed537bd69b153d69fb1e3a6259b8ae3777",
+      "origin_id": "0d26182e833dbe4fc79aee2b0bfa9d9564b5c535",
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 0, \"decision\": \"skip\", \"details\": {\"asset_family\": \"stock_mins_qfq\", \"blocked_component\": \"run_window\", \"evidence\": {\"run_window_started\": false}, \"job_name\": \"stock_mins_qfq_daily_update_job\", \"next_action\": \"等待 19:30 后由下一次 sensor tick 自动重试。\", \"partition_set\": \"cn_a_stock_mins_silver_trade_days\", \"reason_code\": \"run_window_not_started\", \"sensor_name\": \"stock_mins_qfq_daily_update_job_sensor\", \"summary\": \"股票分钟线 gold qfq 日常更新窗口尚未到 19:30，暂不触发。\"}, \"evaluated_at\": \"2026-10-31T12:53:49.517274+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": null}",
+      "last_run_key": "stock_mins_qfq_daily_update:2026-10-29"
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "selector_id": "99d31a375eebcb8cd66c62866edc623c35dcbd7d",
+      "origin_id": "48b83117c18ae7132887a622875eff56012430d8",
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 1, \"decision\": \"skip\", \"details\": {\"asset_family\": \"stk_mins_qfq_nineturn\", \"blocked_component\": \"cn_a_stock_mins_silver_trade_days\", \"evidence\": {\"registered_count\": 3116}, \"frontier\": {\"target\": {\"dataset\": \"gold_stk_mins_qfq_nineturn\", \"elapsed_ms\": 2810.4300000704825, \"expected_count\": 4, \"expected_end_date\": \"2026-10-29\", \"expected_start_date\": \"2026-10-26\", \"freq_count\": 4}}, \"job_name\": \"gold_stk_mins_qfq_nineturn_update_job\", \"next_action\": \"无需修复；等待新的已注册交易日。\", \"partition_set\": \"cn_a_stock_mins_silver_trade_days\", \"performance_ms\": {\"target_readiness\": 2810.4300000704825}, \"reason_code\": \"pending_registered_partition_tail\", \"sensor_name\": \"gold_stk_mins_qfq_nineturn_update_job_sensor\", \"summary\": \"未触发：已注册的分钟前复权九转分区均已 ready，等待尾部分区注册。\"}, \"evaluated_at\": \"2026-10-31T12:44:58.244425+08:00\", \"sample_keys\": [\"2026-10-30\"], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": \"2026-10-30\"}",
+      "last_run_key": "gold_stk_mins_qfq_nineturn_update:2026-10-29"
+    },
+    {
+      "name": "stock_mins_qfq_factor_repair_sensor",
+      "selector_id": "41dc5e4a579d10becf079e7a18e18f4f086e008f",
+      "origin_id": "a891bed1d6185e5f36dba3ec9bc988f9c8991d13",
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 0, \"decision\": \"skip\", \"details\": {\"asset_family\": \"stock_mins_qfq_factor_repair\", \"blocked_component\": \"run_window\", \"evidence\": {\"run_window_started\": false}, \"job_name\": \"stock_mins_qfq_factor_repair_job\", \"next_action\": \"等待 19:40 后由下一次 sensor tick 自动重试。\", \"partition_set\": \"cn_a_stock_mins_silver_trade_days\", \"reason_code\": \"run_window_not_started\", \"sensor_name\": \"stock_mins_qfq_factor_repair_sensor\", \"summary\": \"股票分钟线 gold qfq factor repair 窗口尚未到 19:40，暂不触发。\"}, \"evaluated_at\": \"2026-10-31T12:54:09.787815+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": null}",
+      "last_run_key": "stock_mins_qfq_factor_repair:2026-10-29"
+    },
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+      "selector_id": "e739480038f6d0807e2989cd23d199d18f0715e7",
+      "origin_id": "a67f3ab45ac8841a399432c03c982d49734ab525",
+      "status": "RUNNING",
+      "cursor": "{\"__class__\": \"RunStatusSensorCursor\", \"record_id\": 7836231, \"record_timestamp\": \"2026-10-31T04:00:10.398922+00:00\", \"update_timestamp\": null}",
+      "last_run_key": "gold_stk_mins_qfq_macd_kdj_repair:qfq_factor_repair:2026-10-27:0c1eafc93793"
+    },
+    {
+      "name": "stock_mins_silver_trade_day_sensor",
+      "selector_id": "02f1ec67ed9b2c022c1c0c4e6bc1b80253574e73",
+      "origin_id": "6ca265a4b5451111d73de06a6f8a35f47a98f7bc",
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 2, \"decision\": \"skip\", \"details\": {\"asset_family\": \"stock_mins_silver_trade_day_partitions\", \"blocked_component\": \"cn_a_stock_mins_silver_trade_days\", \"evidence\": {\"already_registered\": false, \"raw_partition_set\": \"cn_a_stock_mins_trade_days\", \"raw_registered_trade_day_count\": 4328, \"register_window_started\": false, \"selected_count\": 0, \"silver_registered_trade_day_count\": 3116}, \"frontier\": {\"raw\": {\"expected_count\": 10, \"expected_end_date\": \"2026-10-30\", \"expected_start_date\": \"2026-10-19\", \"partition_set_name\": \"cn_a_stock_mins_trade_days\", \"ready_count\": 10, \"ready_through_date\": \"2026-10-30\", \"registered_count\": 10, \"selected_date\": \"2026-10-30\"}, \"raw_lake\": {\"dataset\": \"raw_stk_mins\", \"elapsed_ms\": 1561.0673343762755, \"expected_count\": 10, \"expected_end_date\": \"2026-10-30\", \"expected_start_date\": \"2026-10-19\", \"freq_count\": 5}, \"silver\": {\"blocked_reason\": \"missing_registered_partition\", \"expected_count\": 10, \"expected_end_date\": \"2026-10-30\", \"expected_start_date\": \"2026-10-19\", \"first_missing_registered_date\": \"2026-10-30\", \"next_actionable_date\": \"2026-10-30\", \"partition_set_name\": \"cn_a_stock_mins_silver_trade_days\", \"ready_count\": 9, \"ready_through_date\": \"2026-10-29\", \"registered_count\": 9, \"selected_date\": \"2026-10-30\"}}, \"gate_statuses\": {\"raw_stk_mins\": {\"checked_row_count\": 0, \"checks_passed\": false, \"existing_file_count\": 0, \"expected_file_count\": 5, \"failed_check_count\": 1, \"failed_check_names\": [\"raw_stk_mins_contract_check\"], \"failed_row_count\": 0, \"materialized\": false, \"missing_check_count\": 0, \"missing_file_count\": 5, \"ready\": false, \"reason_code\": \"raw_stk_mins_files_are_missing_for_2026_10_30\", \"trade_date\": \"2026-10-30\"}}, \"job_name\": null, \"next_action\": \"按阻断组件修复上游状态，或等待下一次 sensor tick。\", \"partition_set\": \"cn_a_stock_mins_silver_trade_days\", \"reason_code\": \"silver_missing_registered_partition\", \"sensor_name\": \"stock_mins_silver_trade_day_sensor\", \"summary\": \"股票分钟线 raw continuity 窗口存在未 ready 日期，最早日期为 2026-10-30，暂不注册后续 silver 交易日分区。\"}, \"evaluated_at\": \"2026-10-31T12:47:29.517537+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": \"2026-10-30\"}",
+      "last_run_key": null
+    },
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "selector_id": "f7097a5f811f8e1260f1b32b7d128afbec5d53bb",
+      "origin_id": "772281db6caf1b865496e2a2916e74059bc56604",
+      "status": "RUNNING",
+      "cursor": "{\"__class__\": \"RunStatusSensorCursor\", \"record_id\": 7836231, \"record_timestamp\": \"2026-10-31T04:00:10.398922+00:00\", \"update_timestamp\": null}",
+      "last_run_key": "gold_stk_mins_qfq_macd_kdj_daily_update:2026-10-29"
+    },
+    {
+      "name": "gold_wealth_market_turnover_update_job_sensor",
+      "selector_id": "c4f68383d96b0b2f5cad5f8f360b7649c965d491",
+      "origin_id": "8154180b5bc90bcdc57b9357c3e05ca394b0a0bf",
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 1, \"decision\": \"skip\", \"details\": {\"asset_family\": \"wealth_market_turnover\", \"blocked_component\": \"none\", \"evidence\": {\"freq_count\": 5, \"registered_trade_day_count\": 0, \"run_start_time\": \"19:50:00\", \"run_window_started\": false, \"stock_daily_registered_trade_day_count\": 0}, \"job_name\": \"gold_wealth_market_turnover_update_job\", \"next_action\": \"等待 stock mins silver 计划时间再延后 10 分钟；到点后 sensor 会重新检查五频度 silver。\", \"partition_set\": \"cn_a_stock_mins_silver_trade_days\", \"reason_code\": \"run_window_not_started\", \"sensor_name\": \"gold_wealth_market_turnover_update_job_sensor\", \"summary\": \"跳过：财富成交额日更窗口还没到。\"}, \"evaluated_at\": \"2026-10-31T12:47:59.843960+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": null}",
+      "last_run_key": "gold_wealth_market_turnover:2026-10-29"
+    },
+    {
+      "name": "stock_mins_raw_sensor",
+      "selector_id": "edb76d64397ff5df185ef7fea6dc8fe2ce9ef725",
+      "origin_id": "f397b03e8ee56bd428630516c4d6a4703e7935ba",
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 1, \"decision\": \"skip\", \"details\": {\"asset_family\": \"stock_mins_raw\", \"blocked_component\": \"historical_raw_recovery\", \"evidence\": {\"registered_trade_day_count\": 4328, \"source\": \"prod_db\", \"source_window_started\": false, \"stock_basic_freshness_required\": true}, \"frontier\": {\"continuity\": {\"expected_count\": 10, \"expected_end_date\": \"2026-10-30\", \"expected_start_date\": \"2026-10-19\", \"first_not_ready_date\": \"2026-10-30\", \"first_not_ready_reason\": \"raw stk mins files are missing for 2026-10-30\", \"next_actionable_date\": \"2026-10-30\", \"partition_set_name\": \"cn_a_stock_mins_trade_days\", \"ready_count\": 9, \"ready_through_date\": \"2026-10-29\", \"registered_count\": 10}, \"raw\": {\"dataset\": \"raw_stk_mins\", \"elapsed_ms\": 1415.0732504203916, \"expected_count\": 10, \"expected_end_date\": \"2026-10-30\", \"expected_start_date\": \"2026-10-19\", \"freq_count\": 5}}, \"gate_statuses\": {\"raw_stk_mins\": {\"checked_row_count\": 0, \"checks_passed\": false, \"existing_file_count\": 0, \"expected_file_count\": 5, \"failed_check_count\": 1, \"failed_check_names\": [\"raw_stk_mins_contract_check\"], \"failed_row_count\": 0, \"materialized\": false, \"missing_check_count\": 0, \"missing_file_count\": 5, \"ready\": false, \"reason_code\": \"raw_stk_mins_files_are_missing_for_2026_10_30\", \"trade_date\": \"2026-10-30\"}}, \"job_name\": \"stock_mins_raw_update_from_prod_job\", \"next_action\": \"不要自动补跑；请使用受控 stk_mins raw recovery 流程处理历史缺口。\", \"partition_set\": \"cn_a_stock_mins_trade_days\", \"reason_code\": \"historical_raw_recovery_required\", \"sensor_name\": \"stock_mins_raw_sensor\", \"summary\": \"未触发：股票分钟线 raw 的 2026-10-30 已错过当日自动窗口。\"}, \"evaluated_at\": \"2026-10-31T12:40:17.643365+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": \"2026-10-30\"}",
+      "last_run_key": "stock_mins_raw_update_from_prod:2026-10-29"
+    },
+    {
+      "name": "stock_mins_silver_sensor",
+      "selector_id": "ee2611ca5857ccb3e56b454915490e1df72e3b65",
+      "origin_id": "3a00352b1c1276ad68dae6fb0eb53dabe522c075",
+      "status": "RUNNING",
+      "cursor": "{\"blocked_count\": 1, \"decision\": \"skip\", \"details\": {\"asset_family\": \"stock_mins_silver\", \"blocked_component\": \"cn_a_stock_mins_silver_trade_days\", \"evidence\": {\"raw_partition_set\": \"cn_a_stock_mins_trade_days\", \"raw_registered_trade_day_count\": 4328, \"registered_trade_day_count\": 3116, \"run_window_started\": false}, \"frontier\": {\"silver\": {\"blocked_reason\": \"missing_registered_partition\", \"expected_count\": 10, \"expected_end_date\": \"2026-10-30\", \"expected_start_date\": \"2026-10-19\", \"first_missing_registered_date\": \"2026-10-30\", \"partition_set_name\": \"cn_a_stock_mins_silver_trade_days\", \"ready_count\": 0, \"registered_count\": 9}}, \"job_name\": \"stock_mins_silver_update_job\", \"next_action\": \"先补齐 cn_a_stock_mins_silver_trade_days 动态分区，再等待下一次 tick。\", \"partition_set\": \"cn_a_stock_mins_silver_trade_days\", \"reason_code\": \"missing_registered_partition\", \"sensor_name\": \"stock_mins_silver_sensor\", \"summary\": \"未触发：股票分钟线 silver 交易日分区存在缺口，目标停在 2026-10-30。\"}, \"evaluated_at\": \"2026-10-31T12:45:58.407460+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": \"2026-10-30\"}",
+      "last_run_key": "stock_mins_silver_update:2026-10-29"
+    }
+  ],
+  "partitions": {
+    "cn_a_stock_mins_trade_days": true,
+    "cn_a_stock_mins_silver_trade_days": false,
+    "gold_stk_mins_qfq_nineturn_trade_days": false
+  },
+  "direct_targets": {
+    "raw_stk_mins_1m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "raw_stk_mins_5m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=5/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "raw_stk_mins_15m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=15/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "raw_stk_mins_30m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "raw_stk_mins_60m": {
+      "path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "silver_stk_mins_1m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "silver_stk_mins_5m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "silver_stk_mins_15m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=15/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "silver_stk_mins_30m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "silver_stk_mins_60m": {
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "gold_stk_mins_qfq_nineturn_30m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "gold_stk_mins_qfq_nineturn_60m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "gold_stk_mins_qfq_nineturn_90m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=90/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "gold_stk_mins_qfq_nineturn_120m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=120/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "gold_stk_mins_qfq_macd_kdj_state_1m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=1/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "gold_stk_mins_qfq_macd_kdj_state_5m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=5/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "gold_stk_mins_qfq_macd_kdj_state_15m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=15/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "gold_stk_mins_qfq_macd_kdj_state_30m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "gold_stk_mins_qfq_macd_kdj_state_60m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "gold_stk_mins_qfq_macd_kdj_state_90m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=90/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "gold_stk_mins_qfq_macd_kdj_state_120m": {
+      "path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_macd_kdj_state/freq=120/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    "gold_wealth_market_turnover": {
+      "path": "/Volumes/datasource/data_lake/gold/wealth/market_turnover/trade_date=2026-10-30/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    }
+  },
+  "free_staging_GiB": 2699.9402503967285
+}

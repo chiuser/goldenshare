@@ -1,5 +1,7 @@
 # M12: Gold stk_mins qfq MACD/KDJ 指标资产设计方案
 
+> 2026-11-01收尾：30日股票分钟链37项及两次repair已完成，五条本轮暂停sensor已恢复。随后普通指数日线5项经原sensor/job自动补齐；10月31日22:18按指定skill审计当前180项目录，其中164项通过、16项按规则排除，缺失/更新滞后/未核实均为0。此次只归档已有证据、清理已归档的临时副本并提交30日相关修改，不重跑补数或审计。详见[本轮执行记录](../../reports/datasets_recovery_20261030_20261031/README.md)和[LLD20.15](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2015-30日全部补齐后的记录清理和限定范围提交2026-11-01)。下方29日和更早记录保留当时口径。
+
 > 2026-10-30最新状态：方案及实现分别以`4a4a689e`、`5a0b13401`提交，315项测试及23项子测试通过。原job只恢复29日1m的run`63c25bed-bdc8-4fee-9af8-0321b5b13ac7`SUCCESS，两物化/四检查通过，154.728秒；其他六频日更未重跑。随后原2股七频历史repair run`86d8b492-c056-412d-b9cc-551462e3188e`SUCCESS，14项completion范围/hash/batch一致，281.185秒，sensor已恢复RUNNING并保留原光标，无重复repair。开发验收见[LLD19.12](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#1912-开发隔离测试与实现对账2026-10-30)，日更/repair正式结果见[19.14](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#1914-29日1分钟恢复执行记录)及[19.16](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#1916-29日2股repair执行与sensor恢复记录)。原4GB报错的日更准备阶段本次实际通过；历史repair计算组织未另行优化，本轮没有再改代码或重刷其他股票指标。
 
 > 2026-10-24 写入安全修正已获授权，细节见[方案和LLD](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md)。本次包括年度指标和state候选的staging、逐文件提升与继续执行，保持本文公式、上一交易日state、repair范围及正式checks不变。历史执行结果仍是当时事实，不代表旧的目标旁临时文件写法满足现行规则。
@@ -1152,3 +1154,38 @@ MACD repair sensor在批准前为RUNNING；29日原因子repair产物已有2股�
 批准后保持repair sensor暂停，通过原job仅启动一次；原op从最新产物复核完整scope，七频全部完成后写14项completion。本次不补普通日更物化、不重跑日更和原因子任务，不追加历史行情审计。成功后恢复原sensor为RUNNING、保留原cursor/lastRunKey；原sensor用同batch完成检查去重，不会因为手工job没有sensor run key而重复修复。失败停止，保留完成频率及现场；现成repair每频独立operation，不能照搬日更root的自动续跑承诺。执行事实和提交结果随后按真实结果记录，不预填成功。
 
 实际结果：原repair仅运行一次，run`86d8b492-c056-412d-b9cc-551462e3188e`在09:39:15—09:43:56 SUCCESS，281.185秒，14项completion逐行scope核对通过。重算2股指标1,209,754行、写119份年度文件；21,812份共享state合并写回85,301,874行，后者包含保留的其他股票，不是全市场指标重算。七频21,931个目标/完成记录齐备、候选0；必要冻结输入及receipt保留。原sensor恢复RUNNING，返回时id/cursor/lastRunKey与暂停前完全相同，后续cursor正常推进，最新tick跳过且无新run，同batch仅本次一条成功。独立收尾复核通过，结果见[repair最终对账](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/final-verified.json)。本轮闭合29日七频日更及原2股repair，不宣称其他数据集或其他日期全部齐备。
+
+
+### 17.12 2026-10-30分钟链及成交额恢复（2026-10-31准备）
+
+管理员已要求补齐30日股票分钟链及下游。首次执行方案仅复用原job，不改代码/公式/合同，不重跑29日或已完成周月等对象；此次失败后的入口差距及待确认修正另见17.13，不能继续用首次“不改代码”的判断证明已有文件可以被原job更新。范围为Raw/Silver10、QFQ7、MACD/KDJ与state14、九转4、成交额Gold/Prod2，共37项；两次repair为必经依赖，不另计数据集。Prod任务成功与代码齐备是两个独立判断，执行前仍由原DG门禁冻结真实reference。
+
+具体执行卡统一见[原写入LLD20节](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#20-2026-10-30股票分钟链及成交额恢复方案与执行lld2026-10-31)。顺序是Raw→Silver→QFQ日更→因子repair→MACD/KDJ日更/state→原因子产物对应的MACD repair→九转；成交额在Silver后由原Gold/Prod组合job独立接续。仅在必要时补登记Silver30日一个分区，暂停并最终恢复原五条股票下游sensor，保留cursor。repair正式名单、日期/hash/batch均由原job及原decision/config生成，不把预算预估11股手填成执行参数。
+
+本次新日期具体读取范围随后已获管理员明确批准，批准记录见LLD20.6；准备时在取得批准前没有触发job或切换sensor。必要年度/历史读取、当日Prod九列及小型基础参考、原检查和收尾预算为读420GiB、写80GiB、额外空间128GiB；分项、来源及一次中断后成本说明以LLD20.3和报告budget-model.json为同一依据，不沿用28/29日旧批准。2013只做无文件metadata确认，不授权读2013行情；九转更早候选仍限原有界查询2014—2026且≤1GiB。失败停止不自动重跑，不新增运行限制或性能试跑，不重复全目录审计。实际执行已在120分钟QFQ步骤因60分钟源日内缺根而停止，详见下段及LLD20.8。
+
+
+本轮实际结果：Raw/Silver及成交额三个原run成功；QFQ原run失败，120频应有11,142窗口、实际11,097。只读核实Prod/Raw/Silver均是另外28股60分钟日内短74根，原两只已各5根；代码覆盖通过不能代表日内K线完整。其他6频QFQ已写并有24检查通过，其中60频来源仍不完整；成交额60频行/points也受影响，不能把已发布当作数据完整。因子repair、MACD日更/state、MACD repair、九转均未启动，不重跑已完成频度、不执行额外全局审计；五条下游sensor继续保留暂停和恢复TODO。先补源，再核定现成受控恢复入口及最小续跑范围，原Raw的reuse_existing不会自动更新已有文件；不能直接重触整个job或放宽检查。实际4run/18输出/60项原检查与“37项目标未完成”同时记录，正式文件/staging保留，未修改业务代码。
+
+### 17.13 30日Prod补源后的最小恢复修正（2026-10-31，已批准开发及验证后继续）
+
+管理员再次完成Prod下载后要求核验并继续补齐。14:04的单日聚合确认：60分钟5,577股、27,885行，每股现行合同要求的09:30、10:30、11:30、14:00、15:00均齐备，异常代码数及额外时间行数均为0，原28股全部通过。本次只核代码/时间覆盖，没有读取价格明细或历史行情，也没有再写DG；证据见[单日源核验](../../reports/datasets_recovery_20261030_20261031/resume_140419/prod60-count-time-audit.json)。这说明原74根缺口已补齐，不代表已替换DG中的旧文件。
+
+当前原Raw job遇到已有文件直接复用，原Silver job默认拒绝覆盖，因此重复启动不能完成此次替换。既有Raw离线替换入口固定处理五频；旧Silver离线替换工具仍在正式Lake内建staging并移动旧文件作备份，违反现行路径及写入规则，本次不运行、不修补该旧工具，也不删除或移走正式文件来逼原job重建。
+
+拟在股票分钟线Raw/Silver原`write_mode`中各增加显式`replace_existing`选项。Raw只允许`source=prod_db`且继续核验真实完成reference；Silver复用已有writer的`overwrite=True`和原转换。默认仍分别为`reuse_existing`和`write_new`，所有sensor及自动config builder维持默认；没有新job、资产、环境变量、公式或schema。保留完整原候选校验、逐文件原子替换、checkpoint、原检查及续跑规则。配置、metadata、测试和实施细节统一见[原写入LLD20.9—20.12](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#209-prod补源通过但原job不能替换已有分区显式替换修正)。本入口扩展先按orchestrator AGENTS“设计确认先于代码修改门禁”完成审文及确认，随后开发和隔离验证已在LLD20.13取得证据；不把最初待确认阶段写成已实现。
+
+验证通过并加载新代码后，只用原job选择Raw60→Silver60→QFQ60/120及相应原检查，重新生成受影响的30日数据；QFQ合并2026年度，保留其他日期。此前五个未受影响QFQ频度复用原成功步骤及20项检查，不重跑；旧失败run不改标SUCCESS，新旧两run按实际资产、分区、物化ID分别对账。再刷新原成交额Gold/Prod组合job的30日五行，推进此前未启动的原因子repair→MACD日更/state→原MACD repair→九转，最后一次37项限定收尾并恢复原五条sensor。repair仍由原job产生名单及范围，本次不人工干预；原获准repair正常改写其范围不等于重跑其他日更。
+
+历史来源、日期、对象生成和原检查沿20.3既有批准；本次受影响分区重做另预留读10GiB、写3GiB、额外空间6GiB，不含重跑全部七频。后续尚未启动的原历史阶段预算读372GiB、写64GiB；这次继续合计预留读382GiB、写67GiB、额外空间128GiB，均包含原检查/临时工作及一次最终收尾，不作为运行配额。此前已发生I/O不记为0，也不声称上述合计等于整轮累计；失败或中断停止，不自动动用第二轮预算。提出方案时未越过设计确认直接补数；随后批准、实现与执行分开留证。
+
+随后管理员已对上述具体方案回复“批准修正、验证后继续补齐”。该批准撤销本节等待确认停点；先按LLD开发、隔离测试及实现对账，再推进同日期限定恢复，不能把批准表述为已经执行完成。
+
+
+### 17.14 30日分钟链恢复完成（2026-10-31）
+
+按17.13明确批准完成显式替换模式、54项隔离/回归和实现对账后，8个原job run全部SUCCESS。30日股票分钟线及下游37项一次限定计数全部有数据、缺失0，117项逻辑原检查覆盖通过；两次repair各执行一次，原job名单为11股，范围2014-01-02至2026-10-30、3,117日。MACD repair完成该名单年度指标及共享state合并后才执行九转，四频检查通过。只重做Raw/Silver60和QFQ60/120及成交额；其他已成功日更不重跑，原获准历史repair按真实名单执行，保留其他股票。
+
+五条原sensor恢复RUNNING且cursor未重置，当前无活动分钟链run；本轮测试/调用临时目录已清，必要正式结果、staging/冻结输入/回执及原日志保留。未改公式、schema、自动触发默认值、业务源门禁或资源限制，没有重复全局审计。新增模式与正式执行已完成，旧失败run仍作为历史保留，不伪造SUCCESS。详细run、具体计数、检查和清理见[写入LLD20.14](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2014-30日实际恢复两次repair与收尾结果2026-10-31)及[最终报告](../../reports/datasets_recovery_20261030_20261031/README.md)。
+
+控制库完成事件编号查询重复扫描时间窗的耗时已留TODO；本轮观察改为复用真实run的检查记录，正式guard/sensor/索引未扩改。后续单独审计，不据本项重跑已完成数据。本轮代码、文档与报告随20.15限定范围收尾提交归档；此前阶段的“尚未提交”只描述当时状态。

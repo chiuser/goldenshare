@@ -1,0 +1,1021 @@
+{
+  "date": "2026-10-30",
+  "mode": "daily",
+  "run_id": "ae0067a5-e040-449d-a6ac-0f32b943788f",
+  "job": "stock_mins_silver_update_job",
+  "verified": true,
+  "stage_acceptance_complete": true,
+  "formal_writes": 0,
+  "extra_price_reads": 0,
+  "status": "SUCCESS",
+  "materializations": [
+    {
+      "asset": "silver_stk_mins_15m",
+      "storage_id": 7836379,
+      "partition": "2026-10-30",
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=15/trade_date=2026-10-30/part-000.parquet",
+        "dagster/row_count": 94707,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/freq": 15,
+        "goldenshare/write_mode": "write_new",
+        "goldenshare/silver_freeze_policy_version": "2026-09-12",
+        "goldenshare/raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=15/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/identity_map_file_path": "/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet",
+        "goldenshare/stock_daily_file_path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/suspend_file_path": "/Volumes/datasource/data_lake/silver/quote/stock_suspend_daily/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/source_row_count": 94809,
+        "goldenshare/post_close_filtered_row_count": 0,
+        "goldenshare/frozen_source_row_count": 0,
+        "goldenshare/frozen_one_minute_source_row_count": 0,
+        "goldenshare/frozen_preserved_row_count": 0,
+        "goldenshare/mapped_row_count": 94809,
+        "goldenshare/duplicate_removed_count": 0,
+        "goldenshare/full_day_suspend_deleted_row_count": 102,
+        "goldenshare/price_correction_row_count": 0,
+        "goldenshare/price_correction_seed_version": "stk_mins_price_corrections.cn_a.v1",
+        "goldenshare/recomputed_row_count": 0,
+        "goldenshare/missing_source_fallback_row_count": 0,
+        "goldenshare/vol_amount_normalized_row_count": 33,
+        "goldenshare/one_minute_raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/summary": "已写入股票 15min 分钟 silver 标准事实：交易日 2026-10-30，94707 行。",
+        "goldenshare/next_action": "等待 silver blocking checks 全部通过；通过后 qfq、财富成交额等下游可以消费。",
+        "goldenshare/result_status": "written",
+        "goldenshare/diagnostic_ref": "完整诊断看 silver_stk_mins checks metadata 和本次 run stdout。",
+        "goldenshare/input_summary": {
+          "identity_map_asset": "silver_stock_identity_map",
+          "mapped_row_count": 94809,
+          "one_minute_raw_source_asset": "raw_stk_mins_1m",
+          "source_asset": "raw_stk_mins_15m",
+          "source_row_count": 94809,
+          "stock_daily_asset": "silver_stock_daily",
+          "suspend_asset": "silver_stock_suspend_daily"
+        },
+        "goldenshare/filter_summary": {
+          "duplicate_removed_count": 0,
+          "full_day_suspend_deleted_row_count": 102,
+          "missing_source_fallback_row_count": 0,
+          "output_row_count": 94707,
+          "post_close_filtered_row_count": 0,
+          "price_correction_row_count": 0,
+          "recomputed_row_count": 0,
+          "reused_existing_partition": false,
+          "vol_amount_normalized_row_count": 33,
+          "write_mode": "write_new"
+        }
+      },
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=15/trade_date=2026-10-30/part-000.parquet",
+      "stat": [
+        16777244,
+        29973610,
+        1995094,
+        1793423367792349142,
+        1793423367858443113
+      ]
+    },
+    {
+      "asset": "silver_stk_mins_1m",
+      "storage_id": 7836383,
+      "partition": "2026-10-30",
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+        "dagster/row_count": 1342611,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/freq": 1,
+        "goldenshare/write_mode": "write_new",
+        "goldenshare/silver_freeze_policy_version": "2026-09-12",
+        "goldenshare/raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/identity_map_file_path": "/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet",
+        "goldenshare/stock_daily_file_path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/suspend_file_path": "/Volumes/datasource/data_lake/silver/quote/stock_suspend_daily/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/source_row_count": 1344057,
+        "goldenshare/post_close_filtered_row_count": 0,
+        "goldenshare/frozen_source_row_count": 0,
+        "goldenshare/frozen_one_minute_source_row_count": 0,
+        "goldenshare/frozen_preserved_row_count": 0,
+        "goldenshare/mapped_row_count": 1344057,
+        "goldenshare/duplicate_removed_count": 0,
+        "goldenshare/full_day_suspend_deleted_row_count": 1446,
+        "goldenshare/price_correction_row_count": 0,
+        "goldenshare/price_correction_seed_version": "stk_mins_price_corrections.cn_a.v1",
+        "goldenshare/recomputed_row_count": 0,
+        "goldenshare/missing_source_fallback_row_count": 0,
+        "goldenshare/vol_amount_normalized_row_count": 50802,
+        "goldenshare/summary": "已写入股票 1min 分钟 silver 标准事实：交易日 2026-10-30，1342611 行。",
+        "goldenshare/next_action": "等待 silver blocking checks 全部通过；通过后 qfq、财富成交额等下游可以消费。",
+        "goldenshare/result_status": "written",
+        "goldenshare/diagnostic_ref": "完整诊断看 silver_stk_mins checks metadata 和本次 run stdout。",
+        "goldenshare/input_summary": {
+          "identity_map_asset": "silver_stock_identity_map",
+          "mapped_row_count": 1344057,
+          "source_asset": "raw_stk_mins_1m",
+          "source_row_count": 1344057,
+          "stock_daily_asset": "silver_stock_daily",
+          "suspend_asset": "silver_stock_suspend_daily"
+        },
+        "goldenshare/filter_summary": {
+          "duplicate_removed_count": 0,
+          "full_day_suspend_deleted_row_count": 1446,
+          "missing_source_fallback_row_count": 0,
+          "output_row_count": 1342611,
+          "post_close_filtered_row_count": 0,
+          "price_correction_row_count": 0,
+          "recomputed_row_count": 0,
+          "reused_existing_partition": false,
+          "vol_amount_normalized_row_count": 50802,
+          "write_mode": "write_new"
+        }
+      },
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+      "stat": [
+        16777244,
+        29973621,
+        21791988,
+        1793423370161369213,
+        1793423370271611346
+      ]
+    },
+    {
+      "asset": "silver_stk_mins_30m",
+      "storage_id": 7836387,
+      "partition": "2026-10-30",
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-30/part-000.parquet",
+        "dagster/row_count": 50139,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/freq": 30,
+        "goldenshare/write_mode": "write_new",
+        "goldenshare/silver_freeze_policy_version": "2026-09-12",
+        "goldenshare/raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=30/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/identity_map_file_path": "/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet",
+        "goldenshare/stock_daily_file_path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/suspend_file_path": "/Volumes/datasource/data_lake/silver/quote/stock_suspend_daily/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/source_row_count": 50193,
+        "goldenshare/post_close_filtered_row_count": 0,
+        "goldenshare/frozen_source_row_count": 0,
+        "goldenshare/frozen_one_minute_source_row_count": 0,
+        "goldenshare/frozen_preserved_row_count": 0,
+        "goldenshare/mapped_row_count": 50193,
+        "goldenshare/duplicate_removed_count": 0,
+        "goldenshare/full_day_suspend_deleted_row_count": 54,
+        "goldenshare/price_correction_row_count": 0,
+        "goldenshare/price_correction_seed_version": "stk_mins_price_corrections.cn_a.v1",
+        "goldenshare/recomputed_row_count": 0,
+        "goldenshare/missing_source_fallback_row_count": 0,
+        "goldenshare/vol_amount_normalized_row_count": 20,
+        "goldenshare/one_minute_raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/summary": "已写入股票 30min 分钟 silver 标准事实：交易日 2026-10-30，50139 行。",
+        "goldenshare/next_action": "等待 silver blocking checks 全部通过；通过后 qfq、财富成交额等下游可以消费。",
+        "goldenshare/result_status": "written",
+        "goldenshare/diagnostic_ref": "完整诊断看 silver_stk_mins checks metadata 和本次 run stdout。",
+        "goldenshare/input_summary": {
+          "identity_map_asset": "silver_stock_identity_map",
+          "mapped_row_count": 50193,
+          "one_minute_raw_source_asset": "raw_stk_mins_1m",
+          "source_asset": "raw_stk_mins_30m",
+          "source_row_count": 50193,
+          "stock_daily_asset": "silver_stock_daily",
+          "suspend_asset": "silver_stock_suspend_daily"
+        },
+        "goldenshare/filter_summary": {
+          "duplicate_removed_count": 0,
+          "full_day_suspend_deleted_row_count": 54,
+          "missing_source_fallback_row_count": 0,
+          "output_row_count": 50139,
+          "post_close_filtered_row_count": 0,
+          "price_correction_row_count": 0,
+          "recomputed_row_count": 0,
+          "reused_existing_partition": false,
+          "vol_amount_normalized_row_count": 20,
+          "write_mode": "write_new"
+        }
+      },
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-30/part-000.parquet",
+      "stat": [
+        16777244,
+        29973632,
+        1150092,
+        1793423372725784913,
+        1793423372789234352
+      ]
+    },
+    {
+      "asset": "silver_stk_mins_5m",
+      "storage_id": 7836391,
+      "partition": "2026-10-30",
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-30/part-000.parquet",
+        "dagster/row_count": 272979,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/freq": 5,
+        "goldenshare/write_mode": "write_new",
+        "goldenshare/silver_freeze_policy_version": "2026-09-12",
+        "goldenshare/raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=5/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/identity_map_file_path": "/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet",
+        "goldenshare/stock_daily_file_path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/suspend_file_path": "/Volumes/datasource/data_lake/silver/quote/stock_suspend_daily/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/source_row_count": 273273,
+        "goldenshare/post_close_filtered_row_count": 0,
+        "goldenshare/frozen_source_row_count": 0,
+        "goldenshare/frozen_one_minute_source_row_count": 0,
+        "goldenshare/frozen_preserved_row_count": 0,
+        "goldenshare/mapped_row_count": 273273,
+        "goldenshare/duplicate_removed_count": 0,
+        "goldenshare/full_day_suspend_deleted_row_count": 294,
+        "goldenshare/price_correction_row_count": 0,
+        "goldenshare/price_correction_seed_version": "stk_mins_price_corrections.cn_a.v1",
+        "goldenshare/recomputed_row_count": 0,
+        "goldenshare/missing_source_fallback_row_count": 0,
+        "goldenshare/vol_amount_normalized_row_count": 754,
+        "goldenshare/one_minute_raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/summary": "已写入股票 5min 分钟 silver 标准事实：交易日 2026-10-30，272979 行。",
+        "goldenshare/next_action": "等待 silver blocking checks 全部通过；通过后 qfq、财富成交额等下游可以消费。",
+        "goldenshare/result_status": "written",
+        "goldenshare/diagnostic_ref": "完整诊断看 silver_stk_mins checks metadata 和本次 run stdout。",
+        "goldenshare/input_summary": {
+          "identity_map_asset": "silver_stock_identity_map",
+          "mapped_row_count": 273273,
+          "one_minute_raw_source_asset": "raw_stk_mins_1m",
+          "source_asset": "raw_stk_mins_5m",
+          "source_row_count": 273273,
+          "stock_daily_asset": "silver_stock_daily",
+          "suspend_asset": "silver_stock_suspend_daily"
+        },
+        "goldenshare/filter_summary": {
+          "duplicate_removed_count": 0,
+          "full_day_suspend_deleted_row_count": 294,
+          "missing_source_fallback_row_count": 0,
+          "output_row_count": 272979,
+          "post_close_filtered_row_count": 0,
+          "price_correction_row_count": 0,
+          "recomputed_row_count": 0,
+          "reused_existing_partition": false,
+          "vol_amount_normalized_row_count": 754,
+          "write_mode": "write_new"
+        }
+      },
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-30/part-000.parquet",
+      "stat": [
+        16777244,
+        29973646,
+        5440466,
+        1793423375704270940,
+        1793423375791158748
+      ]
+    },
+    {
+      "asset": "silver_stk_mins_60m",
+      "storage_id": 7836395,
+      "partition": "2026-10-30",
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+        "dagster/row_count": 27781,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "open",
+          "high",
+          "low",
+          "close",
+          "vol",
+          "amount",
+          "exchange"
+        ],
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/freq": 60,
+        "goldenshare/write_mode": "write_new",
+        "goldenshare/silver_freeze_policy_version": "2026-09-12",
+        "goldenshare/raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/identity_map_file_path": "/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet",
+        "goldenshare/stock_daily_file_path": "/Volumes/datasource/data_lake/silver/quote/stock_daily/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/suspend_file_path": "/Volumes/datasource/data_lake/silver/quote/stock_suspend_daily/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/source_row_count": 27811,
+        "goldenshare/post_close_filtered_row_count": 0,
+        "goldenshare/frozen_source_row_count": 0,
+        "goldenshare/frozen_one_minute_source_row_count": 0,
+        "goldenshare/frozen_preserved_row_count": 0,
+        "goldenshare/mapped_row_count": 27811,
+        "goldenshare/duplicate_removed_count": 0,
+        "goldenshare/full_day_suspend_deleted_row_count": 30,
+        "goldenshare/price_correction_row_count": 0,
+        "goldenshare/price_correction_seed_version": "stk_mins_price_corrections.cn_a.v1",
+        "goldenshare/recomputed_row_count": 0,
+        "goldenshare/missing_source_fallback_row_count": 0,
+        "goldenshare/vol_amount_normalized_row_count": 20,
+        "goldenshare/one_minute_raw_file_path": "/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/summary": "已写入股票 60min 分钟 silver 标准事实：交易日 2026-10-30，27781 行。",
+        "goldenshare/next_action": "等待 silver blocking checks 全部通过；通过后 qfq、财富成交额等下游可以消费。",
+        "goldenshare/result_status": "written",
+        "goldenshare/diagnostic_ref": "完整诊断看 silver_stk_mins checks metadata 和本次 run stdout。",
+        "goldenshare/input_summary": {
+          "identity_map_asset": "silver_stock_identity_map",
+          "mapped_row_count": 27811,
+          "one_minute_raw_source_asset": "raw_stk_mins_1m",
+          "source_asset": "raw_stk_mins_60m",
+          "source_row_count": 27811,
+          "stock_daily_asset": "silver_stock_daily",
+          "suspend_asset": "silver_stock_suspend_daily"
+        },
+        "goldenshare/filter_summary": {
+          "duplicate_removed_count": 0,
+          "full_day_suspend_deleted_row_count": 30,
+          "missing_source_fallback_row_count": 0,
+          "output_row_count": 27781,
+          "post_close_filtered_row_count": 0,
+          "price_correction_row_count": 0,
+          "recomputed_row_count": 0,
+          "reused_existing_partition": false,
+          "vol_amount_normalized_row_count": 20,
+          "write_mode": "write_new"
+        }
+      },
+      "path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+      "stat": [
+        16777244,
+        29973658,
+        791951,
+        1793423378073763060,
+        1793423378127556422
+      ]
+    }
+  ],
+  "checks": [
+    {
+      "asset": "silver_stk_mins_15m",
+      "name": "silver_stk_mins_contract_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836379,
+      "metadata": {
+        "goldenshare/check_scope": "schema",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=15/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 15,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_freq_and_partition_match"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 15 分钟 silver 文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_15m",
+      "name": "silver_stk_mins_key_integrity_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836379,
+      "metadata": {
+        "goldenshare/check_scope": "key_uniqueness",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=15/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 15,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_unique_ts_code_trade_time"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 15 分钟 silver 主键 的 1 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_15m",
+      "name": "silver_stk_mins_reference_coverage_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836379,
+      "metadata": {
+        "goldenshare/check_scope": "referential_integrity",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=15/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 15,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_codes_exist_in_stock_daily"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_no_full_day_suspend_structural_rows"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_name_timeline_covered"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 15 分钟 silver 引用覆盖 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_15m",
+      "name": "silver_stk_mins_value_domain_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836379,
+      "metadata": {
+        "goldenshare/check_scope": "value_sanity",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=15/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 15,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_regular_session_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_volume_amount_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_exchange_matches_suffix"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 15 分钟 silver 取值 的 4 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_1m",
+      "name": "silver_stk_mins_contract_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836383,
+      "metadata": {
+        "goldenshare/check_scope": "schema",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 1,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_freq_and_partition_match"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 1 分钟 silver 文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_1m",
+      "name": "silver_stk_mins_key_integrity_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836383,
+      "metadata": {
+        "goldenshare/check_scope": "key_uniqueness",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 1,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_unique_ts_code_trade_time"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 1 分钟 silver 主键 的 1 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_1m",
+      "name": "silver_stk_mins_reference_coverage_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836383,
+      "metadata": {
+        "goldenshare/check_scope": "referential_integrity",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 1,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_codes_exist_in_stock_daily"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_no_full_day_suspend_structural_rows"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_name_timeline_covered"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 1 分钟 silver 引用覆盖 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_1m",
+      "name": "silver_stk_mins_value_domain_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836383,
+      "metadata": {
+        "goldenshare/check_scope": "value_sanity",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=1/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 1,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_regular_session_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_volume_amount_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_exchange_matches_suffix"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 1 分钟 silver 取值 的 4 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_30m",
+      "name": "silver_stk_mins_contract_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836387,
+      "metadata": {
+        "goldenshare/check_scope": "schema",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 30,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_freq_and_partition_match"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 30 分钟 silver 文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_30m",
+      "name": "silver_stk_mins_key_integrity_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836387,
+      "metadata": {
+        "goldenshare/check_scope": "key_uniqueness",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 30,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_unique_ts_code_trade_time"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 30 分钟 silver 主键 的 1 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_30m",
+      "name": "silver_stk_mins_reference_coverage_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836387,
+      "metadata": {
+        "goldenshare/check_scope": "referential_integrity",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 30,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_codes_exist_in_stock_daily"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_no_full_day_suspend_structural_rows"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_name_timeline_covered"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 30 分钟 silver 引用覆盖 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_30m",
+      "name": "silver_stk_mins_value_domain_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836387,
+      "metadata": {
+        "goldenshare/check_scope": "value_sanity",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 30,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_regular_session_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_volume_amount_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_exchange_matches_suffix"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 30 分钟 silver 取值 的 4 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_5m",
+      "name": "silver_stk_mins_contract_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836391,
+      "metadata": {
+        "goldenshare/check_scope": "schema",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 5,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_freq_and_partition_match"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 5 分钟 silver 文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_5m",
+      "name": "silver_stk_mins_key_integrity_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836391,
+      "metadata": {
+        "goldenshare/check_scope": "key_uniqueness",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 5,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_unique_ts_code_trade_time"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 5 分钟 silver 主键 的 1 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_5m",
+      "name": "silver_stk_mins_reference_coverage_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836391,
+      "metadata": {
+        "goldenshare/check_scope": "referential_integrity",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 5,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_codes_exist_in_stock_daily"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_no_full_day_suspend_structural_rows"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_name_timeline_covered"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 5 分钟 silver 引用覆盖 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_5m",
+      "name": "silver_stk_mins_value_domain_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836391,
+      "metadata": {
+        "goldenshare/check_scope": "value_sanity",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=5/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 5,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_regular_session_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_volume_amount_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_exchange_matches_suffix"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 5 分钟 silver 取值 的 4 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_60m",
+      "name": "silver_stk_mins_contract_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836395,
+      "metadata": {
+        "goldenshare/check_scope": "schema",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 60,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_file_exists_and_row_count_positive"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_schema_matches_contract"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_freq_and_partition_match"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 60 分钟 silver 文件契约 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_60m",
+      "name": "silver_stk_mins_key_integrity_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836395,
+      "metadata": {
+        "goldenshare/check_scope": "key_uniqueness",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 60,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_unique_ts_code_trade_time"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 60 分钟 silver 主键 的 1 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_60m",
+      "name": "silver_stk_mins_reference_coverage_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836395,
+      "metadata": {
+        "goldenshare/check_scope": "referential_integrity",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 60,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_codes_exist_in_stock_daily"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_no_full_day_suspend_structural_rows"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_name_timeline_covered"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 60 分钟 silver 引用覆盖 的 3 条质量规则全部通过。"
+      }
+    },
+    {
+      "asset": "silver_stk_mins_60m",
+      "name": "silver_stk_mins_value_domain_check",
+      "passed": true,
+      "blocking": true,
+      "partition": null,
+      "target_storage_id": 7836395,
+      "metadata": {
+        "goldenshare/check_scope": "value_sanity",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/silver/quote/stk_mins/freq=60/trade_date=2026-10-30/part-000.parquet",
+        "goldenshare/freq": 60,
+        "goldenshare/next_action": "无需处理；等待 qfq、财富成交额等下游消费。",
+        "goldenshare/partition_key": "2026-10-30",
+        "goldenshare/rule_summary": [
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_regular_session_time"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_price_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_volume_amount_sanity"
+          },
+          {
+            "passed": true,
+            "rule_name": "silver_stk_mins_exchange_matches_suffix"
+          }
+        ],
+        "goldenshare/summary": "通过：股票 60 分钟 silver 取值 的 4 条质量规则全部通过。"
+      }
+    }
+  ],
+  "failures": [],
+  "elapsed_seconds": 15.368354082107544,
+  "accepted_at": "2026-10-31T13:10:11.183996+08:00"
+}

@@ -1,0 +1,46 @@
+{
+  "observed_at": "2026-10-31T12:56:30.528545+08:00",
+  "day": "2026-10-30",
+  "anticipated_codes": [
+    "000728.SZ",
+    "000807.SZ",
+    "000958.SZ",
+    "002249.SZ",
+    "002941.SZ",
+    "300604.SZ",
+    "300788.SZ",
+    "301003.SZ",
+    "601878.SH",
+    "603630.SH",
+    "688409.SH"
+  ],
+  "anticipated_code_count": 11,
+  "status": "budget-only estimate from existing original detection SQL; not repair execution input or official list",
+  "historical_file_stat_only": {
+    "qfq_2013_2013": {
+      "files": 0,
+      "bytes": 0,
+      "GiB": 0.0,
+      "absent_candidate_paths": 77
+    },
+    "qfq_2014_2026": {
+      "files": 770,
+      "bytes": 186939981,
+      "GiB": 0.17410142440348864,
+      "absent_candidate_paths": 231
+    },
+    "macd_2013_2013": {
+      "files": 0,
+      "bytes": 0,
+      "GiB": 0.0,
+      "absent_candidate_paths": 77
+    },
+    "macd_2014_2026": {
+      "files": 770,
+      "bytes": 437610520,
+      "GiB": 0.40755655616521835,
+      "absent_candidate_paths": 231
+    }
+  },
+  "annual_content_reads": 0
+}

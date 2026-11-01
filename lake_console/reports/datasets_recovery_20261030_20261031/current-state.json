@@ -1,0 +1,167 @@
+{
+  "date": "2026-10-30",
+  "observed_at": "2026-10-31T22:11:24.174669+08:00",
+  "status": "COMPLETE_20261030_RECOVERY",
+  "complete": true,
+  "source60_audit": "resume_140419/prod60-count-time-audit.json",
+  "source60_audit_observed_at": "2026-10-31T14:04:19.567955+08:00",
+  "source60_coverage_passed": true,
+  "original28_source_gaps_resolved": true,
+  "native_jobs_submitted_this_resume": 8,
+  "formal_writes_this_resume": "Eight successful original-job runs; scoped minute chain complete",
+  "business_code_changed_this_resume": true,
+  "proposal_plan": "dagster-stk-mins-qfq-macd-kdj-indicators-plan.md 17.13",
+  "proposal_lld": "dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md 20.9-20.12",
+  "remaining_read_budget_gib": 382,
+  "remaining_write_budget_gib": 67,
+  "extra_space_budget_gib": 128,
+  "new_rework_read_budget_gib": 10,
+  "new_rework_write_budget_gib": 3,
+  "new_rework_extra_space_budget_gib": 6,
+  "budget_is_not_measured_cumulative_io": true,
+  "next_action": "30日补数收尾并限定范围提交；控制库查询性能仍为单独TODO，不重新审计或补数。",
+  "previous_attempt": {
+    "date": "2026-10-30",
+    "status": "STOPPED_SOURCE60_INTRADAY_GAPS",
+    "complete": false,
+    "native_jobs_submitted": 4,
+    "native_jobs_successful": 3,
+    "native_jobs_failed": 1,
+    "native_jobs_reexecuted": 0,
+    "stages": [
+      {
+        "stage": "Raw",
+        "run_id": "53c3aace-d999-490b-9370-973191cb885d",
+        "status": "SUCCESS",
+        "materializations": 5,
+        "native_checks_passed": 15
+      },
+      {
+        "stage": "Silver",
+        "run_id": "ae0067a5-e040-449d-a6ac-0f32b943788f",
+        "status": "SUCCESS",
+        "materializations": 5,
+        "native_checks_passed": 20
+      },
+      {
+        "stage": "turnover Gold/Prod",
+        "run_id": "e0e9c922-6f01-4dff-8357-9130f846c347",
+        "status": "SUCCESS",
+        "materializations": 2,
+        "native_checks_passed": 1
+      },
+      {
+        "stage": "QFQ daily",
+        "run_id": "df08f87b-2316-4368-a9f1-6771bd9c17fd",
+        "status": "FAILURE",
+        "materializations": 6,
+        "native_checks_passed": 24,
+        "failed_frequency": 120,
+        "elapsed_seconds": 865.6864340305328
+      }
+    ],
+    "physical_outputs_written": 18,
+    "physical_outputs_written_is_not_completeness": true,
+    "native_checks_passed": 60,
+    "source_60_short_code_count": 28,
+    "source_60_short_row_count": 74,
+    "expected_120_windows": 11142,
+    "generated_120_windows": 11097,
+    "missing_120_windows": 45,
+    "prod_raw_silver_short_counts_agree": true,
+    "fully_missing_original_two_codes_resolved": true,
+    "factor_repair_launched": false,
+    "macd_daily_launched": false,
+    "macd_repair_launched": false,
+    "nineturn_launched": false,
+    "source_affected_outputs": [
+      "raw_stk_mins_60m",
+      "silver_stk_mins_60m",
+      "gold_stk_mins_qfq_60m",
+      "gold_wealth_market_turnover and prod counterpart60m row/points"
+    ],
+    "active_runs_at_closeout": [],
+    "downstream_sensors_held_stopped": 5,
+    "cursor_resets": 0,
+    "global_catalog_audit_repeated": false,
+    "final37_count_not_run": "Prerequisite delivery incomplete; no misleading final audit",
+    "business_code_changed": false,
+    "formal_results_and_staging": "Preserved; no rollback or deletion",
+    "next_action": "Complete the28 specific Prod60-minute stock/day records first. Then audit the current supported controlled recovery entrypoints and the smallest affected Raw/Silver/QFQ60/120/turnover range before any further job submission; original reuse_existing raw mode will not fetch existing files again."
+  },
+  "design_approved": true,
+  "isolation_tests_passed": 54,
+  "current_attempt": [
+    {
+      "stage": "Raw60",
+      "run_id": "cb411608-38ea-471f-85e1-9ba50db8dcf2",
+      "status": "SUCCESS",
+      "checks": 3,
+      "elapsed_seconds": 2.8837850093841553
+    },
+    {
+      "stage": "Silver60",
+      "run_id": "31570610-c418-4eb6-bc8d-7e24d058e284",
+      "status": "SUCCESS",
+      "checks": 4,
+      "elapsed_seconds": 2.9693169593811035
+    },
+    {
+      "stage": "QFQ60/120",
+      "run_id": "500eac06-3717-442f-9bc0-559f322d0b21",
+      "status": "SUCCESS",
+      "checks": 8,
+      "elapsed_seconds": 150.05200099945068
+    },
+    {
+      "stage": "成交额Gold/Prod",
+      "run_id": "19e4687b-43d6-49cf-a1ce-b3b2d5eee2dc",
+      "status": "SUCCESS",
+      "checks": 1,
+      "elapsed_seconds": 1.668308973312378
+    },
+    {
+      "stage": "因子repair",
+      "run_id": "ec3436f3-6a4d-42ab-b696-7db9972563ab",
+      "status": "SUCCESS",
+      "checks": 7,
+      "elapsed_seconds": 80.07045292854309
+    },
+    {
+      "stage": "MACD/KDJ日更/state",
+      "run_id": "c92dc571-0be1-42ce-a000-50efe526d4b9",
+      "status": "SUCCESS",
+      "checks": 28,
+      "elapsed_seconds": 857.2341339588165
+    },
+    {
+      "stage": "MACD/KDJ repair",
+      "run_id": "390bc1d3-4db8-4f23-ba9b-bf6058b0a14c",
+      "status": "SUCCESS",
+      "checks": 14,
+      "elapsed_seconds": 382.7356321811676
+    },
+    {
+      "stage": "四频九转",
+      "run_id": "00a689cb-d7e2-4ac6-b4b7-3700edf9f221",
+      "status": "SUCCESS",
+      "checks": 4,
+      "elapsed_seconds": 70.39159202575684
+    }
+  ],
+  "final_result": "resume_140419/final-result.json",
+  "minute_chain_observed_at": "2026-10-31T15:45:15.488508+08:00",
+  "date_audit": {
+    "path": "date-audit-20261030-final.json",
+    "observed_at": "2026-10-31T22:18:03.908663+08:00",
+    "catalog_assets": 180,
+    "audited_assets": 164,
+    "excluded_assets": 16,
+    "missing_assets": 0,
+    "update_behind_assets": 0,
+    "unverified_assets": 0,
+    "audit_passed": true
+  },
+  "index_daily_final_verification": "index-daily/final-verification.json",
+  "closeout_cleanup": "closeout-cleanup.json"
+}

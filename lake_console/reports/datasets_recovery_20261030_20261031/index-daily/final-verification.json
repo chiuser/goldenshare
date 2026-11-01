@@ -1,0 +1,578 @@
+{
+  "trade_date": "2026-10-30",
+  "observed_at": "2026-10-31T22:11:24.174669+08:00",
+  "formal_writes_by_this_audit": 0,
+  "launched_by_this_audit": 0,
+  "runs": [
+    {
+      "run_id": "61780f35-f0ee-41df-b554-8e1732a39644",
+      "job_name": "raw_index_daily_update_job",
+      "has_more": false,
+      "checks": [
+        {
+          "asset_key": "raw_index_daily",
+          "check_name": "raw_index_daily_file_contract_check",
+          "passed": true,
+          "partition": null,
+          "metadata": {
+            "goldenshare/check_scope": "schema",
+            "goldenshare/contract_summary": {
+              "date_mismatch_count": 0,
+              "duplicate_key_count": 0,
+              "failed_partition_count": 0,
+              "missing_file_count": 0,
+              "null_key_count": 0,
+              "partition_count": 1,
+              "row_count": 820
+            },
+            "goldenshare/failed_partitions": [],
+            "goldenshare/missing_file_paths": [],
+            "goldenshare/next_action": "无需处理；等待下游按 readiness 消费指数日线分区。",
+            "goldenshare/partition_keys": [
+              "2026-10-30"
+            ],
+            "goldenshare/results": {
+              "2026-10-30": {
+                "column_types": {
+                  "amount": "DOUBLE",
+                  "change": "DOUBLE",
+                  "close": "DOUBLE",
+                  "high": "DOUBLE",
+                  "low": "DOUBLE",
+                  "open": "DOUBLE",
+                  "pct_chg": "DOUBLE",
+                  "pre_close": "DOUBLE",
+                  "trade_date": "VARCHAR",
+                  "ts_code": "VARCHAR",
+                  "vol": "DOUBLE"
+                },
+                "date_mismatch_count": 0,
+                "duplicate_key_count": 0,
+                "duplicate_samples": [],
+                "missing_columns": [],
+                "null_key_count": 0,
+                "observed_columns": [
+                  "ts_code",
+                  "trade_date",
+                  "open",
+                  "high",
+                  "low",
+                  "close",
+                  "pre_close",
+                  "change",
+                  "pct_chg",
+                  "vol",
+                  "amount"
+                ],
+                "required_columns": [
+                  "ts_code",
+                  "trade_date",
+                  "open",
+                  "high",
+                  "low",
+                  "close",
+                  "pre_close",
+                  "change",
+                  "pct_chg",
+                  "vol",
+                  "amount"
+                ],
+                "row_count": 820,
+                "type_mismatches": {},
+                "unexpected_columns": []
+              }
+            },
+            "goldenshare/rule_summary": [
+              {
+                "passed": true,
+                "rule_name": "raw_index_daily_file_exists"
+              },
+              {
+                "passed": true,
+                "rule_name": "raw_index_daily_row_count_positive"
+              },
+              {
+                "passed": true,
+                "rule_name": "raw_index_daily_required_columns_and_types"
+              },
+              {
+                "passed": true,
+                "rule_name": "raw_index_daily_key_not_null"
+              },
+              {
+                "passed": true,
+                "rule_name": "raw_index_daily_partition_date_matches"
+              },
+              {
+                "passed": true,
+                "rule_name": "raw_index_daily_unique_ts_code_trade_date"
+              }
+            ],
+            "goldenshare/summary": "通过：1 个 raw_index_daily by-date 文件契约全部通过。"
+          }
+        },
+        {
+          "asset_key": "raw_index_daily",
+          "check_name": "raw_index_daily_code_coverage_check",
+          "passed": true,
+          "partition": null,
+          "metadata": {
+            "goldenshare/check_scope": "value_sanity",
+            "goldenshare/coverage_results": {
+              "2026-10-30": {
+                "coverage_rate": 100.0,
+                "expected_code_count": 820,
+                "extra_code_count": 0,
+                "extra_code_samples": [],
+                "missing_code_count": 0,
+                "missing_code_samples": [],
+                "observed_code_count": 820
+              }
+            },
+            "goldenshare/coverage_summary": {
+              "expected_code_count": 820,
+              "extra_code_count": 0,
+              "failed_partition_count": 0,
+              "missing_code_count": 0,
+              "missing_file_count": 0,
+              "missing_raw_present_count": 0,
+              "partition_count": 1
+            },
+            "goldenshare/expected_code_count": 820,
+            "goldenshare/failed_partitions": [],
+            "goldenshare/missing_file_paths": [],
+            "goldenshare/next_action": "无需处理；等待下游按 readiness 消费指数日线分区。",
+            "goldenshare/partition_keys": [
+              "2026-10-30"
+            ],
+            "goldenshare/rule_summary": [
+              {
+                "passed": true,
+                "rule_name": "raw_index_daily_file_exists"
+              },
+              {
+                "passed": true,
+                "rule_name": "raw_index_daily_code_set_matches_dg_partitions"
+              }
+            ],
+            "goldenshare/summary": "通过：raw_index_daily 覆盖 DG 管理的 820 个指数代码。"
+          }
+        }
+      ],
+      "materializations": [
+        {
+          "asset_key": "raw_index_daily",
+          "partition": "2026-10-30",
+          "metadata": {}
+        }
+      ],
+      "status": "SUCCESS",
+      "ended_at": "2026-10-31T21:39:33.178681+08:00"
+    },
+    {
+      "run_id": "96855e38-34ac-4493-afc9-b56561627f6c",
+      "job_name": "silver_index_daily_update_job",
+      "has_more": false,
+      "checks": [
+        {
+          "asset_key": "silver_index_daily",
+          "check_name": "silver_index_daily_key_integrity_check",
+          "passed": true,
+          "partition": null,
+          "metadata": {
+            "goldenshare/check_scope": "key_uniqueness",
+            "goldenshare/failed_rule_names": [],
+            "goldenshare/next_action": "无需处理；等待下游按 readiness 消费指数日线 silver 分区。",
+            "goldenshare/partition_keys": [
+              "2026-10-30"
+            ],
+            "goldenshare/rule_passed": {
+              "silver_index_daily_conflicting_duplicate_absent": true,
+              "silver_index_daily_unique_ts_code_trade_date": true
+            },
+            "goldenshare/rule_summary": [
+              {
+                "passed": true,
+                "rule_name": "silver_index_daily_unique_ts_code_trade_date"
+              },
+              {
+                "passed": true,
+                "rule_name": "silver_index_daily_conflicting_duplicate_absent"
+              }
+            ],
+            "goldenshare/summary": "通过：1 个指数日线 silver 分区的 2 条聚合规则全部通过。"
+          }
+        },
+        {
+          "asset_key": "silver_index_daily",
+          "check_name": "silver_index_daily_contract_check",
+          "passed": true,
+          "partition": null,
+          "metadata": {
+            "goldenshare/check_scope": "schema",
+            "goldenshare/failed_rule_names": [],
+            "goldenshare/next_action": "无需处理；等待下游按 readiness 消费指数日线 silver 分区。",
+            "goldenshare/partition_keys": [
+              "2026-10-30"
+            ],
+            "goldenshare/rule_passed": {
+              "silver_index_daily_partition_date_matches": true,
+              "silver_index_daily_required_columns_and_types": true,
+              "silver_index_daily_row_count_positive": true
+            },
+            "goldenshare/rule_summary": [
+              {
+                "passed": true,
+                "rule_name": "silver_index_daily_row_count_positive"
+              },
+              {
+                "passed": true,
+                "rule_name": "silver_index_daily_required_columns_and_types"
+              },
+              {
+                "passed": true,
+                "rule_name": "silver_index_daily_partition_date_matches"
+              }
+            ],
+            "goldenshare/summary": "通过：1 个指数日线 silver 分区的 3 条聚合规则全部通过。"
+          }
+        },
+        {
+          "asset_key": "silver_index_daily",
+          "check_name": "silver_index_daily_registered_code_coverage_check",
+          "passed": true,
+          "partition": null,
+          "metadata": {
+            "goldenshare/check_scope": "value_sanity",
+            "goldenshare/coverage_results": {
+              "2026-10-30": {
+                "coverage_rate": 100.0,
+                "extra_count": 0,
+                "extra_samples": [],
+                "missing_raw_present_count": 0,
+                "missing_raw_present_samples": [],
+                "raw_file_path": "/Volumes/datasource/data_lake/raw/index_daily/trade_date=2026-10-30/part-000.parquet",
+                "raw_present_code_count": 820,
+                "silver_row_count": 820
+              }
+            },
+            "goldenshare/coverage_summary": {
+              "extra_code_count": 0,
+              "failed_partition_count": 0,
+              "missing_code_count": 0,
+              "missing_file_count": 0,
+              "missing_raw_present_count": 0,
+              "partition_count": 1
+            },
+            "goldenshare/missing_file_paths": [],
+            "goldenshare/next_action": "无需处理；等待下游按 readiness 消费指数日线分区。",
+            "goldenshare/partition_keys": [
+              "2026-10-30"
+            ],
+            "goldenshare/rule_summary": [
+              {
+                "passed": true,
+                "rule_name": "index_daily_raw_and_silver_files_exist"
+              },
+              {
+                "passed": true,
+                "rule_name": "silver_index_daily_code_set_matches_raw"
+              }
+            ],
+            "goldenshare/summary": "通过：silver_index_daily code set 与同日 raw_index_daily 完全一致。"
+          }
+        },
+        {
+          "asset_key": "silver_index_daily",
+          "check_name": "silver_index_daily_value_domain_check",
+          "passed": true,
+          "partition": null,
+          "metadata": {
+            "goldenshare/check_scope": "partition_alignment",
+            "goldenshare/failed_partitions": [],
+            "goldenshare/invalid_counts": {
+              "2026-10-30": 0
+            },
+            "goldenshare/invalid_samples": {
+              "2026-10-30": []
+            },
+            "goldenshare/missing_file_paths": [],
+            "goldenshare/partition_keys": [
+              "2026-10-30"
+            ]
+          }
+        }
+      ],
+      "materializations": [
+        {
+          "asset_key": "silver_index_daily",
+          "partition": "2026-10-30",
+          "metadata": {}
+        }
+      ],
+      "status": "SUCCESS",
+      "ended_at": "2026-10-31T21:40:03.294114+08:00"
+    },
+    {
+      "run_id": "6bc0db4b-18c3-4bbb-93f4-e1b0c507cd1d",
+      "job_name": "market_major_indices_daily_update_job",
+      "has_more": false,
+      "checks": [
+        {
+          "asset_key": "gold_market_major_indices_daily",
+          "check_name": "gold_market_major_indices_daily_value_domain_check",
+          "passed": true,
+          "partition": null,
+          "metadata": {
+            "goldenshare/check_scope": "partition_alignment",
+            "goldenshare/failed_partitions": [],
+            "goldenshare/invalid_counts": {
+              "2026-10-30": 0
+            },
+            "goldenshare/invalid_samples": {
+              "2026-10-30": []
+            },
+            "goldenshare/missing_file_paths": [],
+            "goldenshare/next_action": "等待下游消费。",
+            "goldenshare/rule_summary": {
+              "failed_partition_count": 0,
+              "missing_file_count": 0,
+              "partition_count": 1
+            },
+            "goldenshare/summary": "主要指数 gold 价格域检查通过。"
+          }
+        },
+        {
+          "asset_key": "gold_market_major_indices_daily",
+          "check_name": "gold_market_major_indices_daily_seed_coverage_check",
+          "passed": true,
+          "partition": null,
+          "metadata": {
+            "goldenshare/check_scope": "referential_integrity",
+            "goldenshare/failed_rule_names": [],
+            "goldenshare/next_action": "等待下游 serving 或前端展示链路消费。",
+            "goldenshare/partition_keys": [
+              "2026-10-30"
+            ],
+            "goldenshare/rule_passed": {
+              "gold_market_major_indices_daily_seed_codes_present": true,
+              "gold_market_major_indices_seed_codes_exist_in_index_basic": true,
+              "gold_market_major_indices_seed_codes_exist_in_registered_index_ts_codes": true
+            },
+            "goldenshare/rule_summary": {
+              "failed_rule_count": 0,
+              "failed_rule_names": [],
+              "partition_count": 1,
+              "rule_count": 3
+            },
+            "goldenshare/summary": "主要指数 gold 聚合检查通过。"
+          }
+        },
+        {
+          "asset_key": "gold_market_major_indices_daily",
+          "check_name": "gold_market_major_indices_daily_ranking_consistency_check",
+          "passed": true,
+          "partition": null,
+          "metadata": {
+            "goldenshare/check_scope": "partition_alignment",
+            "goldenshare/failed_rule_names": [],
+            "goldenshare/next_action": "等待下游 serving 或前端展示链路消费。",
+            "goldenshare/partition_keys": [
+              "2026-10-30"
+            ],
+            "goldenshare/rule_passed": {
+              "gold_market_major_indices_daily_rank_matches_active_seed_order": true,
+              "gold_market_major_indices_daily_unique_ts_code": true
+            },
+            "goldenshare/rule_summary": {
+              "failed_rule_count": 0,
+              "failed_rule_names": [],
+              "partition_count": 1,
+              "rule_count": 2
+            },
+            "goldenshare/summary": "主要指数 gold 聚合检查通过。"
+          }
+        },
+        {
+          "asset_key": "gold_market_major_indices_daily",
+          "check_name": "gold_market_major_indices_daily_contract_check",
+          "passed": true,
+          "partition": null,
+          "metadata": {
+            "goldenshare/check_scope": "schema",
+            "goldenshare/failed_rule_names": [],
+            "goldenshare/next_action": "等待下游 serving 或前端展示链路消费。",
+            "goldenshare/partition_keys": [
+              "2026-10-30"
+            ],
+            "goldenshare/rule_passed": {
+              "gold_market_major_indices_daily_file_exists": true,
+              "gold_market_major_indices_daily_partition_date_matches": true,
+              "gold_market_major_indices_daily_required_columns_and_types": true,
+              "gold_market_major_indices_daily_row_count_matches_seed": true
+            },
+            "goldenshare/rule_summary": {
+              "failed_rule_count": 0,
+              "failed_rule_names": [],
+              "partition_count": 1,
+              "rule_count": 4
+            },
+            "goldenshare/summary": "主要指数 gold 聚合检查通过。"
+          }
+        }
+      ],
+      "materializations": [
+        {
+          "asset_key": "gold_market_major_indices_daily",
+          "partition": "2026-10-30",
+          "metadata": {}
+        }
+      ],
+      "status": "SUCCESS",
+      "ended_at": "2026-10-31T21:42:58.707866+08:00"
+    },
+    {
+      "run_id": "01ed9f1a-dd15-4bd6-800e-4e3e6b9c68be",
+      "job_name": "gold_major_index_daily_nineturn_update_job",
+      "has_more": false,
+      "checks": [
+        {
+          "asset_key": "gold_major_index_daily_nineturn",
+          "check_name": "gold_major_index_daily_nineturn_integrity_check",
+          "passed": true,
+          "partition": "2026-10-30",
+          "metadata": {
+            "goldenshare/check_scope": "reconciliation",
+            "goldenshare/checked_row_count": 11,
+            "goldenshare/duplicate_key_count": 0,
+            "goldenshare/extra_output_key_count": 0,
+            "goldenshare/failed_row_count": 0,
+            "goldenshare/failed_rule_names": [],
+            "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-30/part-000.parquet",
+            "goldenshare/formula_version": 1,
+            "goldenshare/invalid_value_count": 0,
+            "goldenshare/missing_source_key_count": 0,
+            "goldenshare/next_action": "无需处理。",
+            "goldenshare/null_key_count": 0,
+            "goldenshare/rules": [
+              "file_contract",
+              "partition_alignment",
+              "key_integrity",
+              "value_domain",
+              "source_key_coverage",
+              "source_value_consistency"
+            ],
+            "goldenshare/source_row_count": 11,
+            "goldenshare/source_value_mismatch_count": 0,
+            "goldenshare/summary": "主要指数九转分区完整性检查通过。"
+          }
+        }
+      ],
+      "materializations": [
+        {
+          "asset_key": "gold_major_index_daily_nineturn",
+          "partition": "2026-10-30",
+          "metadata": {}
+        }
+      ],
+      "status": "SUCCESS",
+      "ended_at": "2026-10-31T21:49:54.599182+08:00"
+    },
+    {
+      "run_id": "b28dfc97-4dd2-43fa-8ebe-de47309814fa",
+      "job_name": "prod_core_index_daily_nineturn_sync_job",
+      "has_more": false,
+      "checks": [
+        {
+          "asset_key": "prod_core_index_daily_nineturn",
+          "check_name": "prod_core_index_daily_nineturn_partition_check",
+          "passed": true,
+          "partition": "2026-10-30",
+          "metadata": {
+            "goldenshare/check_scope": "reconciliation",
+            "goldenshare/checked_row_count": 11,
+            "goldenshare/expected_content_hash": "bdde28f3fe9212dc95caceb17cd6279232bed8009ed4e170d5a2bd315a9be3a0",
+            "goldenshare/expected_row_count": 11,
+            "goldenshare/failed_row_count": 0,
+            "goldenshare/failed_rule_names": [],
+            "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-30/part-000.parquet",
+            "goldenshare/observed_content_hash": "bdde28f3fe9212dc95caceb17cd6279232bed8009ed4e170d5a2bd315a9be3a0",
+            "goldenshare/partition_key": "2026-10-30",
+            "goldenshare/read_back_row_count": 11,
+            "goldenshare/reason_code": "ready"
+          }
+        }
+      ],
+      "materializations": [
+        {
+          "asset_key": "prod_core_index_daily_nineturn",
+          "partition": "2026-10-30",
+          "metadata": {}
+        }
+      ],
+      "status": "SUCCESS",
+      "ended_at": "2026-10-31T21:50:20.192608+08:00"
+    }
+  ],
+  "expected_index_codes": 820,
+  "prod_source_coverage": {
+    "expected_code_count": 820,
+    "source_row_count": 820,
+    "returned_code_count": 820,
+    "missing_code_count": 0
+  },
+  "two_code_field_counts": [
+    {
+      "ts_code": "931772.CSI",
+      "row_count": 1,
+      "open_nonnull": 0,
+      "high_nonnull": 0,
+      "low_nonnull": 0,
+      "close_nonnull": 1,
+      "pre_close_nonnull": 1
+    },
+    {
+      "ts_code": "931834.CSI",
+      "row_count": 1,
+      "open_nonnull": 0,
+      "high_nonnull": 0,
+      "low_nonnull": 0,
+      "close_nonnull": 1,
+      "pre_close_nonnull": 1
+    }
+  ],
+  "physical_counts": [
+    {
+      "asset_key": "raw_index_daily",
+      "row_count": 820,
+      "path": "/Volumes/datasource/data_lake/raw/index_daily/trade_date=2026-10-30/part-000.parquet",
+      "size_bytes": 62239
+    },
+    {
+      "asset_key": "silver_index_daily",
+      "row_count": 820,
+      "path": "/Volumes/datasource/data_lake/silver/index_daily/trade_date=2026-10-30/part-000.parquet",
+      "size_bytes": 62229
+    },
+    {
+      "asset_key": "gold_market_major_indices_daily",
+      "row_count": 11,
+      "path": "/Volumes/datasource/data_lake/gold/market/major_indices_daily/trade_date=2026-10-30/part-000.parquet",
+      "size_bytes": 2625
+    },
+    {
+      "asset_key": "gold_major_index_daily_nineturn",
+      "row_count": 11,
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_daily_nineturn/trade_date=2026-10-30/part-000.parquet",
+      "size_bytes": 1214
+    },
+    {
+      "asset_key": "prod_core_index_daily_nineturn",
+      "row_count": 11,
+      "table": "core_serving.index_nineturn_daily"
+    }
+  ],
+  "total_checks": 12,
+  "result": "COMPLETE_FIVE_PREVIOUS_GAPS",
+  "observed_end_at": "2026-10-31T22:11:25.125525+08:00"
+}

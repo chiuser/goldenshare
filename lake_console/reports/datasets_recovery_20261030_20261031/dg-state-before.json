@@ -1,0 +1,157 @@
+{
+  "observed_at": "2026-10-31T12:50:16.448805+08:00",
+  "sensors": {
+    "stock_mins_silver_trade_day_sensor": {
+      "status": "RUNNING",
+      "cursor": {
+        "blocked_count": 2,
+        "decision": "skip",
+        "details": {
+          "asset_family": "stock_mins_silver_trade_day_partitions",
+          "blocked_component": "cn_a_stock_mins_silver_trade_days",
+          "evidence": {
+            "already_registered": false,
+            "raw_partition_set": "cn_a_stock_mins_trade_days",
+            "raw_registered_trade_day_count": 4328,
+            "register_window_started": false,
+            "selected_count": 0,
+            "silver_registered_trade_day_count": 3116
+          },
+          "frontier": {
+            "raw": {
+              "expected_count": 10,
+              "expected_end_date": "2026-10-30",
+              "expected_start_date": "2026-10-19",
+              "partition_set_name": "cn_a_stock_mins_trade_days",
+              "ready_count": 10,
+              "ready_through_date": "2026-10-30",
+              "registered_count": 10,
+              "selected_date": "2026-10-30"
+            },
+            "raw_lake": {
+              "dataset": "raw_stk_mins",
+              "elapsed_ms": 1561.0673343762755,
+              "expected_count": 10,
+              "expected_end_date": "2026-10-30",
+              "expected_start_date": "2026-10-19",
+              "freq_count": 5
+            },
+            "silver": {
+              "blocked_reason": "missing_registered_partition",
+              "expected_count": 10,
+              "expected_end_date": "2026-10-30",
+              "expected_start_date": "2026-10-19",
+              "first_missing_registered_date": "2026-10-30",
+              "next_actionable_date": "2026-10-30",
+              "partition_set_name": "cn_a_stock_mins_silver_trade_days",
+              "ready_count": 9,
+              "ready_through_date": "2026-10-29",
+              "registered_count": 9,
+              "selected_date": "2026-10-30"
+            }
+          },
+          "gate_statuses": {
+            "raw_stk_mins": {
+              "checked_row_count": 0,
+              "checks_passed": false,
+              "existing_file_count": 0,
+              "expected_file_count": 5,
+              "failed_check_count": 1,
+              "failed_check_names": [
+                "raw_stk_mins_contract_check"
+              ],
+              "failed_row_count": 0,
+              "materialized": false,
+              "missing_check_count": 0,
+              "missing_file_count": 5,
+              "ready": false,
+              "reason_code": "raw_stk_mins_files_are_missing_for_2026_10_30",
+              "trade_date": "2026-10-30"
+            }
+          },
+          "job_name": null,
+          "next_action": "按阻断组件修复上游状态，或等待下一次 sensor tick。",
+          "partition_set": "cn_a_stock_mins_silver_trade_days",
+          "reason_code": "silver_missing_registered_partition",
+          "sensor_name": "stock_mins_silver_trade_day_sensor",
+          "summary": "股票分钟线 raw continuity 窗口存在未 ready 日期，最早日期为 2026-10-30，暂不注册后续 silver 交易日分区。"
+        },
+        "evaluated_at": "2026-10-31T12:47:29.517537+08:00",
+        "sample_keys": [],
+        "schema_version": 1,
+        "selected_count": 0,
+        "target_date": "2026-10-30"
+      }
+    },
+    "stock_mins_raw_sensor": {
+      "status": "RUNNING",
+      "cursor": {
+        "blocked_count": 1,
+        "decision": "skip",
+        "details": {
+          "asset_family": "stock_mins_raw",
+          "blocked_component": "historical_raw_recovery",
+          "evidence": {
+            "registered_trade_day_count": 4328,
+            "source": "prod_db",
+            "source_window_started": false,
+            "stock_basic_freshness_required": true
+          },
+          "frontier": {
+            "continuity": {
+              "expected_count": 10,
+              "expected_end_date": "2026-10-30",
+              "expected_start_date": "2026-10-19",
+              "first_not_ready_date": "2026-10-30",
+              "first_not_ready_reason": "raw stk mins files are missing for 2026-10-30",
+              "next_actionable_date": "2026-10-30",
+              "partition_set_name": "cn_a_stock_mins_trade_days",
+              "ready_count": 9,
+              "ready_through_date": "2026-10-29",
+              "registered_count": 10
+            },
+            "raw": {
+              "dataset": "raw_stk_mins",
+              "elapsed_ms": 1415.0732504203916,
+              "expected_count": 10,
+              "expected_end_date": "2026-10-30",
+              "expected_start_date": "2026-10-19",
+              "freq_count": 5
+            }
+          },
+          "gate_statuses": {
+            "raw_stk_mins": {
+              "checked_row_count": 0,
+              "checks_passed": false,
+              "existing_file_count": 0,
+              "expected_file_count": 5,
+              "failed_check_count": 1,
+              "failed_check_names": [
+                "raw_stk_mins_contract_check"
+              ],
+              "failed_row_count": 0,
+              "materialized": false,
+              "missing_check_count": 0,
+              "missing_file_count": 5,
+              "ready": false,
+              "reason_code": "raw_stk_mins_files_are_missing_for_2026_10_30",
+              "trade_date": "2026-10-30"
+            }
+          },
+          "job_name": "stock_mins_raw_update_from_prod_job",
+          "next_action": "不要自动补跑；请使用受控 stk_mins raw recovery 流程处理历史缺口。",
+          "partition_set": "cn_a_stock_mins_trade_days",
+          "reason_code": "historical_raw_recovery_required",
+          "sensor_name": "stock_mins_raw_sensor",
+          "summary": "未触发：股票分钟线 raw 的 2026-10-30 已错过当日自动窗口。"
+        },
+        "evaluated_at": "2026-10-31T12:40:17.643365+08:00",
+        "sample_keys": [],
+        "schema_version": 1,
+        "selected_count": 0,
+        "target_date": "2026-10-30"
+      }
+    }
+  },
+  "raw_silver_runs_for_30": []
+}

@@ -1,0 +1,29 @@
+{
+  "__typename": "ExecutionPlan",
+  "assetKeys": [
+    {
+      "path": [
+        "gold_stk_mins_qfq_60m"
+      ]
+    },
+    {
+      "path": [
+        "gold_stk_mins_qfq_120m"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "key": "gold_stk_mins_qfq_120m"
+    },
+    {
+      "key": "gold_stk_mins_qfq_60m"
+    },
+    {
+      "key": "gold_stk_mins_qfq_120m_blocking_checks"
+    },
+    {
+      "key": "gold_stk_mins_qfq_60m_blocking_checks"
+    }
+  ]
+}

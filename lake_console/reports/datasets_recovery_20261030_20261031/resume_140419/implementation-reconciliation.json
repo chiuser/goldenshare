@@ -1,0 +1,19 @@
+{
+  "default_builders_unchanged": [
+    "build_stock_mins_raw_update_job_run_config",
+    "build_stock_mins_silver_reuse_existing_run_config"
+  ],
+  "new_mode_tests": 14,
+  "necessary_regression_tests_total": 54,
+  "junit": "isolation-tests.xml",
+  "full_fatal_ruff": "passed",
+  "new_test_full_ruff": "passed",
+  "production_full_ruff": "18 findings on pre-existing statements; saved separately, no rules suppressed",
+  "test_corrections": [
+    "Use actual JobDefinition.asset_check_selection property; initial test introspection used a nonexistent AssetLayer property.",
+    "Use existing goldenshare metadata prefix; initial test assertions used unprefixed keys."
+  ],
+  "business_calculation_changed": false,
+  "formal_tests_run": false,
+  "approved_for_next_step": "original-job selected recovery after code-location reload and fresh preflight"
+}

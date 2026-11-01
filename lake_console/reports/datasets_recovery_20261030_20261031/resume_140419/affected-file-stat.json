@@ -1,0 +1,26 @@
+{
+  "qfq60_2026": {
+    "files": 5595,
+    "bytes": 188195128
+  },
+  "qfq120_2026": {
+    "files": 5595,
+    "bytes": 107778041
+  },
+  "raw1": {
+    "exists": true,
+    "bytes": 31712927
+  },
+  "raw60": {
+    "exists": true,
+    "bytes": 1005189
+  },
+  "silver1": {
+    "exists": true,
+    "bytes": 21791988
+  },
+  "silver60": {
+    "exists": true,
+    "bytes": 791951
+  }
+}

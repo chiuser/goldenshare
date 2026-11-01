@@ -1,0 +1,134 @@
+{
+  "ops": {
+    "raw_stk_mins_1m": {
+      "config": {
+        "source": "prod_db",
+        "write_mode": {
+          "reuse_existing": {}
+        },
+        "prod_completion_reference": {
+          "task_run_id": 17542,
+          "trade_date": "2026-10-30",
+          "ended_at": "2026-10-30T18:25:19.194235+08:00",
+          "full_market": true,
+          "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+          "expected_code_count": 5577,
+          "expected_code_hash": "a55f9b75dc7c603e2b7581cca56aa4a9",
+          "frequency_code_counts": {
+            "1": 5577,
+            "5": 5577,
+            "15": 5577,
+            "30": 5577,
+            "60": 5577
+          },
+          "coverage_observed_at": "2026-10-31T13:07:15.058970+08:00",
+          "reference_fingerprint": "39eef731847f75967fb794ef251af9c5f7467efced189c84a4a0048e6ded964a"
+        }
+      }
+    },
+    "raw_stk_mins_5m": {
+      "config": {
+        "source": "prod_db",
+        "write_mode": {
+          "reuse_existing": {}
+        },
+        "prod_completion_reference": {
+          "task_run_id": 17542,
+          "trade_date": "2026-10-30",
+          "ended_at": "2026-10-30T18:25:19.194235+08:00",
+          "full_market": true,
+          "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+          "expected_code_count": 5577,
+          "expected_code_hash": "a55f9b75dc7c603e2b7581cca56aa4a9",
+          "frequency_code_counts": {
+            "1": 5577,
+            "5": 5577,
+            "15": 5577,
+            "30": 5577,
+            "60": 5577
+          },
+          "coverage_observed_at": "2026-10-31T13:07:15.058970+08:00",
+          "reference_fingerprint": "39eef731847f75967fb794ef251af9c5f7467efced189c84a4a0048e6ded964a"
+        }
+      }
+    },
+    "raw_stk_mins_15m": {
+      "config": {
+        "source": "prod_db",
+        "write_mode": {
+          "reuse_existing": {}
+        },
+        "prod_completion_reference": {
+          "task_run_id": 17542,
+          "trade_date": "2026-10-30",
+          "ended_at": "2026-10-30T18:25:19.194235+08:00",
+          "full_market": true,
+          "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+          "expected_code_count": 5577,
+          "expected_code_hash": "a55f9b75dc7c603e2b7581cca56aa4a9",
+          "frequency_code_counts": {
+            "1": 5577,
+            "5": 5577,
+            "15": 5577,
+            "30": 5577,
+            "60": 5577
+          },
+          "coverage_observed_at": "2026-10-31T13:07:15.058970+08:00",
+          "reference_fingerprint": "39eef731847f75967fb794ef251af9c5f7467efced189c84a4a0048e6ded964a"
+        }
+      }
+    },
+    "raw_stk_mins_30m": {
+      "config": {
+        "source": "prod_db",
+        "write_mode": {
+          "reuse_existing": {}
+        },
+        "prod_completion_reference": {
+          "task_run_id": 17542,
+          "trade_date": "2026-10-30",
+          "ended_at": "2026-10-30T18:25:19.194235+08:00",
+          "full_market": true,
+          "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+          "expected_code_count": 5577,
+          "expected_code_hash": "a55f9b75dc7c603e2b7581cca56aa4a9",
+          "frequency_code_counts": {
+            "1": 5577,
+            "5": 5577,
+            "15": 5577,
+            "30": 5577,
+            "60": 5577
+          },
+          "coverage_observed_at": "2026-10-31T13:07:15.058970+08:00",
+          "reference_fingerprint": "39eef731847f75967fb794ef251af9c5f7467efced189c84a4a0048e6ded964a"
+        }
+      }
+    },
+    "raw_stk_mins_60m": {
+      "config": {
+        "source": "prod_db",
+        "write_mode": {
+          "reuse_existing": {}
+        },
+        "prod_completion_reference": {
+          "task_run_id": 17542,
+          "trade_date": "2026-10-30",
+          "ended_at": "2026-10-30T18:25:19.194235+08:00",
+          "full_market": true,
+          "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+          "expected_code_count": 5577,
+          "expected_code_hash": "a55f9b75dc7c603e2b7581cca56aa4a9",
+          "frequency_code_counts": {
+            "1": 5577,
+            "5": 5577,
+            "15": 5577,
+            "30": 5577,
+            "60": 5577
+          },
+          "coverage_observed_at": "2026-10-31T13:07:15.058970+08:00",
+          "reference_fingerprint": "39eef731847f75967fb794ef251af9c5f7467efced189c84a4a0048e6ded964a"
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,35 @@
+{
+  "ops": {
+    "gold_stk_mins_qfq_macd_kdj_repair_op": {
+      "config": {
+        "qfq_factor_repair_trade_date": "2026-10-30",
+        "start_trade_date": "2014-01-02",
+        "freqs": [
+          1,
+          5,
+          15,
+          30,
+          60,
+          90,
+          120
+        ],
+        "stock_codes": [
+          "000728.SZ",
+          "000807.SZ",
+          "000958.SZ",
+          "002249.SZ",
+          "002941.SZ",
+          "300604.SZ",
+          "300788.SZ",
+          "301003.SZ",
+          "601878.SH",
+          "603630.SH",
+          "688409.SH"
+        ],
+        "reason": "qfq_factor_repair:2026-10-30",
+        "repair_required_codes_hash": "1d05f99eb0d788ce2f3ec667f488378148f4b01312d936285ec13e0d9dab4e06",
+        "upstream_batch_id": "qfq_factor_repair:2026-10-30:d01e76998642"
+      }
+    }
+  }
+}

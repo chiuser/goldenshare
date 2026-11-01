@@ -1,0 +1,21 @@
+{
+  "scope_generated_by_original_factor_job": true,
+  "actual_scope_matches_budget_only_list": true,
+  "additional_dataset_reads": 0,
+  "Q_gib_from_factor_receipts": 0.17584842629730701,
+  "I_gib_from_baseline_plus_daily_delta": 0.40773549769073725,
+  "S_gib_from_baseline_plus_daily_delta": 3.5851237075403333,
+  "candidate_estimate_gib": 5,
+  "frozen_estimate_gib": 0.25,
+  "footer_reserve_gib": 1,
+  "engine_work_reserve_gib": 8,
+  "read_estimate_gib": 23.826443129219115,
+  "write_estimate_gib": 14.25,
+  "extra_space_estimate_gib": 17.099999999999998,
+  "approved_read_write_space_gib": [
+    40,
+    20,
+    24
+  ],
+  "source_is_not_execution_list": "Original decision/config builder still supplies the list; this compares metadata only."
+}

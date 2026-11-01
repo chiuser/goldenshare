@@ -1,0 +1,161 @@
+"""Thin original-job control and exact-run readback; no business calculations."""
+import json
+import os
+from contextlib import contextmanager
+from datetime import datetime
+from pathlib import Path
+from zoneinfo import ZoneInfo
+
+import dagster as dg
+import requests
+import yaml
+from dagster_postgres import PostgresEventLogStorage, PostgresRunStorage
+
+DAY = "2026-10-30"
+ROOT = Path("/Volumes/datasource/data_lake")
+HOME = Path("/Users/congming/.goldenshare/dagster_home")
+BASE = Path("/Users/congming/github/goldenshare/lake_console/reports/datasets_recovery_20261030_20261031")
+OUT = BASE / "resume_140419"
+URL = "http://127.0.0.1:3000/graphql"
+SENSORS = [x["name"] for x in json.loads((BASE / "sensor-hold-after-failure.json").read_text())["sensors"]]
+JOBS = {"stock_mins_raw_update_from_prod_job", "stock_mins_raw_update_job",
+        "stock_mins_silver_update_job", "stock_mins_qfq_daily_update_job",
+        "stock_mins_qfq_factor_repair_job", "gold_stk_mins_qfq_macd_kdj_daily_update_job",
+        "gold_stk_mins_qfq_macd_kdj_repair_job", "gold_stk_mins_qfq_nineturn_update_job",
+        "gold_wealth_market_turnover_update_job"}
+
+
+def now():
+    return datetime.now(ZoneInfo("Asia/Shanghai")).isoformat()
+
+
+def require(value, message):
+    if not value:
+        raise ValueError(message)
+
+
+def save(path, value):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, ensure_ascii=False, indent=2, default=str) + "\n")
+
+
+def load(path):
+    return json.loads(path.read_text())
+
+
+def gql(query, variables=None):
+    response = requests.post(URL, json={"query": query, "variables": variables or {}}, timeout=30)
+    response.raise_for_status()
+    body = response.json()
+    require(not body.get("errors"), str(body.get("errors")))
+    return body["data"]
+
+
+def controls():
+    parts = []
+    for i, name in enumerate(SENSORS):
+        selector = '{repositoryLocationName:"orchestrator",repositoryName:"__repository__",sensorName:' + json.dumps(name) + '}'
+        parts.append(f's{i}:sensorOrError(sensorSelector:{selector})' + '{__typename ... on Sensor{name sensorState{id status typeSpecificData{... on SensorData{lastCursor lastRunKey}}}} ... on PythonError{message}}')
+    parts.append('active:runsOrError(filter:{statuses:[NOT_STARTED,QUEUED,STARTING,STARTED,CANCELING]},limit:50){__typename ... on Runs{results{runId jobName status}} ... on PythonError{message}}')
+    data = gql("query C{" + " ".join(parts) + "}")
+    sensors = []
+    for i, name in enumerate(SENSORS):
+        item = data[f"s{i}"]
+        require(item["__typename"] == "Sensor" and item["name"] == name, str(item))
+        sensors.append(item)
+    active = data["active"]
+    require(active["__typename"] == "Runs" and len(active["results"]) < 50, "Active query overflow/error")
+    conflicting = [item for item in active["results"] if item["jobName"] in JOBS]
+    return {"observed_at": now(), "sensors": sensors, "conflicting_runs": conflicting,
+            "other_active_count": len(active["results"]) - len(conflicting)}
+
+
+def no_conflict():
+    value = controls()
+    require(not value["conflicting_runs"], "Existing relevant active job; stop rather than duplicate")
+    old = {x["name"]: x for x in load(BASE / "sensor-hold-after-failure.json")["sensors"]}
+    for item in value["sensors"]:
+        state = item["sensorState"]
+        original = old[item["name"]]
+        require(state["status"] == "STOPPED", "Protected sensor no longer paused")
+        detail = state["typeSpecificData"]
+        require(detail["lastCursor"] == original["cursor"] and detail["lastRunKey"] == original["last_run_key"], "Protected sensor cursor/key changed")
+    return value
+
+
+@contextmanager
+def stores():
+    config = yaml.safe_load((HOME / "dagster.yaml").read_text())
+    value = config["storage"]["postgres"]["postgres_url"]
+    url = os.environ[value["env"]] if isinstance(value, dict) else value
+    os.environ["PGOPTIONS"] = "-c default_transaction_read_only=on -c statement_timeout=30000"
+    rs = PostgresRunStorage(url, should_autocreate_tables=False)
+    es = PostgresEventLogStorage(url, should_autocreate_tables=False)
+    try:
+        yield rs, es
+    finally:
+        es.dispose()
+        rs.dispose()
+
+
+def metadata(values):
+    return {k: getattr(v, "value", str(v)) for k, v in values.items()
+            if k != "dagster/column_schema"}
+
+
+def exact_accept(directory, assets, check_count, *, mode="daily"):
+    from orchestrator.defs.catalog.lake_assets import LAKE_ASSET_CATALOG
+    native = load(directory / f"{mode}-native-run.json")
+    rid = native["run_id"]
+    with stores() as (rs, es):
+        found = rs.get_run_records(dg.RunsFilter(run_ids=[rid]), limit=1)
+        require(len(found) == 1, "Missing exact run")
+        record = found[0]
+        run = record.dagster_run
+        require(run.status == dg.DagsterRunStatus.SUCCESS, "Run did not succeed")
+        require(run.job_name == native["request"]["selector"]["jobName"] and run.tags.get("dagster/partition") == DAY, "Run job/partition mismatch")
+        events = es.get_records_for_run(rid, of_type={dg.DagsterEventType.ASSET_MATERIALIZATION, dg.DagsterEventType.ASSET_CHECK_EVALUATION, dg.DagsterEventType.STEP_FAILURE, dg.DagsterEventType.PIPELINE_FAILURE}, limit=200)
+        require(not events.has_more, "Exact event query truncated")
+        mats, checks = [], []
+        for item in events.records:
+            event = item.event_log_entry.dagster_event
+            if event.event_type == dg.DagsterEventType.ASSET_MATERIALIZATION:
+                mat = item.asset_materialization
+                require(mat.partition == DAY, "Wrong materialization partition")
+                mats.append({"asset": mat.asset_key.to_user_string(), "partition": mat.partition,
+                             "storage_id": item.storage_id, "metadata": metadata(mat.metadata)})
+            elif event.event_type == dg.DagsterEventType.ASSET_CHECK_EVALUATION:
+                check = event.event_specific_data
+                target = check.target_materialization_data
+                checks.append({"asset": check.asset_key.to_user_string(), "name": check.check_name,
+                               "passed": check.passed, "blocking": check.blocking,
+                               "partition": check.partition, "storage_id": item.storage_id,
+                               "target_storage_id": target.storage_id if target else None,
+                               "target_run_id": target.run_id if target else None,
+                               "metadata": metadata(check.metadata)})
+            else:
+                raise ValueError("Failure in exact run")
+        require(len(mats) == len(assets) and {x["asset"] for x in mats} == set(assets), "Unexpected materializations")
+        cat = {str(x.asset_key): x for x in LAKE_ASSET_CATALOG}
+        expected = {(key, name) for key in assets if not key.startswith("prod_")
+                    for name in cat[key].blocking_check_names}
+        ids = {x["asset"]: x["storage_id"] for x in mats}
+        require(len(checks) == check_count and len(expected) == check_count
+                and {(x["asset"], x["name"]) for x in checks} == expected, "Unexpected check set")
+        require(all(x["passed"] and x["blocking"] and x["partition"] in (None, DAY)
+                    and x["target_storage_id"] == ids[x["asset"]] and x["target_run_id"] == rid
+                    for x in checks), "Failed/unbound check")
+        for item in mats:
+            uri = item["metadata"].get("dagster/uri", "")
+            if uri.startswith(str(ROOT)):
+                path = Path(uri)
+                require(path.exists(), "Materialized physical path missing")
+                stat = path.stat()
+                item["stat"] = [stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns]
+        result = {"date": DAY, "mode": mode, "job": run.job_name, "status": "SUCCESS",
+                  "run_id": rid, "root_run_id": run.root_run_id or rid,
+                  "materializations": mats, "checks": checks, "verified": True,
+                  "stage_acceptance_complete": True, "accepted_at": now(),
+                  "elapsed_seconds": record.end_time - record.start_time,
+                  "formal_writes_by_readback": 0, "extra_price_reads": 0}
+        return result

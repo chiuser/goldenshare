@@ -1,0 +1,172 @@
+{
+  "as_of": "2026-10-31T15:34:06.576719+08:00",
+  "date": "2026-10-30",
+  "job": "gold_stk_mins_qfq_nineturn_update_job",
+  "safe_to_launch": true,
+  "factor_gate_ready": true,
+  "macd_gate_ready": true,
+  "seed_and_candidate_scope_verified": true,
+  "control": {
+    "factor_status": {
+      "ready": true,
+      "trade_date": "2026-10-30",
+      "reason": "qfq factor repair rewrote history; reconciliation is required.",
+      "repair_required": true,
+      "rewrote_history": true,
+      "qfq_factor_repair_event_storage_ids": [
+        7836846,
+        7836847,
+        7836848,
+        7836849,
+        7836850,
+        7836851,
+        7836852
+      ],
+      "producer_run_id": "ec3436f3-6a4d-42ab-b696-7db9972563ab",
+      "upstream_batch_id": "qfq_factor_repair:2026-10-30:d01e76998642",
+      "missing_qfq_asset_keys": [],
+      "failed_qfq_asset_keys": [],
+      "repair_start_trade_date": "2014-01-02",
+      "repair_end_trade_date": "2026-10-30",
+      "selected_partition_count": 3117,
+      "repair_required_code_count": 11,
+      "repair_required_codes": [
+        "000728.SZ",
+        "000807.SZ",
+        "000958.SZ",
+        "002249.SZ",
+        "002941.SZ",
+        "300604.SZ",
+        "300788.SZ",
+        "301003.SZ",
+        "601878.SH",
+        "603630.SH",
+        "688409.SH"
+      ],
+      "repair_required_codes_hash": "1d05f99eb0d788ce2f3ec667f488378148f4b01312d936285ec13e0d9dab4e06",
+      "repair_required_codes_truncated": false,
+      "rewritten_file_count": 550,
+      "rewritten_row_count": 7948141,
+      "derived_rewrite_required": true,
+      "derived_rewritten_file_count": 220,
+      "derived_rewritten_row_count": 125365,
+      "requires_derived_reconciliation": true
+    },
+    "macd_complete_gate": {
+      "ready": true,
+      "trade_date": "2026-10-30",
+      "reason": "qfq factor repair and required MACD/KDJ repair completion are ready.",
+      "requires_macd_kdj_repair": true,
+      "qfq_factor_repair_event_storage_ids": [
+        7836846,
+        7836847,
+        7836848,
+        7836849,
+        7836850,
+        7836851,
+        7836852
+      ],
+      "upstream_batch_id": "qfq_factor_repair:2026-10-30:d01e76998642",
+      "missing_qfq_asset_keys": [],
+      "failed_qfq_asset_keys": [],
+      "repair_start_trade_date": "2014-01-02",
+      "repair_end_trade_date": "2026-10-30",
+      "selected_partition_count": 3117,
+      "repair_required_code_count": 11,
+      "repair_required_codes": [
+        "000728.SZ",
+        "000807.SZ",
+        "000958.SZ",
+        "002249.SZ",
+        "002941.SZ",
+        "300604.SZ",
+        "300788.SZ",
+        "301003.SZ",
+        "601878.SH",
+        "603630.SH",
+        "688409.SH"
+      ],
+      "repair_required_codes_hash": "1d05f99eb0d788ce2f3ec667f488378148f4b01312d936285ec13e0d9dab4e06",
+      "repair_required_codes_truncated": false,
+      "automatic_macd_kdj_repair_allowed": true,
+      "macd_kdj_repair_status": {
+        "ready": true,
+        "reason": "MACD/KDJ repair completion check covers qfq repair scope.",
+        "event_storage_ids": [
+          7837083,
+          7837084,
+          7837085,
+          7837086,
+          7837087,
+          7837088,
+          7837089,
+          7837090,
+          7837091,
+          7837092,
+          7837093,
+          7837094,
+          7837095,
+          7837096
+        ],
+        "missing_asset_keys": [],
+        "failed_asset_keys": [],
+        "covered_start_trade_date": "2014-01-02",
+        "covered_end_trade_date": "2026-10-30",
+        "stock_code_scope": "explicit",
+        "stock_code_count": 11,
+        "repair_required_code_count": 11,
+        "repair_required_codes_hash": "1d05f99eb0d788ce2f3ec667f488378148f4b01312d936285ec13e0d9dab4e06",
+        "source_upstream_batch_id": "qfq_factor_repair:2026-10-30:d01e76998642",
+        "freqs": [
+          1,
+          5,
+          15,
+          30,
+          60,
+          90,
+          120
+        ]
+      }
+    },
+    "previous_registered_day": "2026-10-29",
+    "factor_run_id": "ec3436f3-6a4d-42ab-b696-7db9972563ab",
+    "macd_daily_run_id": "c92dc571-0be1-42ce-a000-50efe526d4b9",
+    "macd_repair_run_id": "390bc1d3-4db8-4f23-ba9b-bf6058b0a14c",
+    "sensors": [
+      {
+        "name": "stock_mins_qfq_daily_sensor",
+        "status": "STOPPED"
+      },
+      {
+        "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+        "status": "STOPPED"
+      },
+      {
+        "name": "stock_mins_qfq_factor_repair_sensor",
+        "status": "STOPPED"
+      },
+      {
+        "name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+        "status": "STOPPED"
+      },
+      {
+        "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+        "status": "STOPPED"
+      }
+    ],
+    "pool": {
+      "limit": 1,
+      "active": 0,
+      "pending": 0
+    }
+  },
+  "input_identity_acceptance": {
+    "normal_and_candidate_stat_unchanged": true,
+    "seed_stat_unchanged": true,
+    "factor_history_stat_unchanged": true,
+    "parquet_content_reads": 0,
+    "sha_body_reads": 0
+  },
+  "metadata_preflight": "metadata-preflight.json",
+  "candidate_scope": "candidate-scope.json"
+}

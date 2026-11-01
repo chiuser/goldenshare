@@ -1,0 +1,9 @@
+{
+  "__typename": "ExecutionPlan",
+  "assetKeys": [],
+  "steps": [
+    {
+      "key": "gold_stk_mins_qfq_macd_kdj_repair_op"
+    }
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "__typename": "ExecutionPlan",
+  "assetKeys": [
+    {
+      "path": [
+        "gold_stk_mins_qfq_nineturn_60m"
+      ]
+    },
+    {
+      "path": [
+        "gold_stk_mins_qfq_nineturn_120m"
+      ]
+    },
+    {
+      "path": [
+        "gold_stk_mins_qfq_nineturn_90m"
+      ]
+    },
+    {
+      "path": [
+        "gold_stk_mins_qfq_nineturn_30m"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "key": "gold_stk_mins_qfq_nineturn_60m_gold_stk_mins_qfq_nineturn_60m_integrity_check"
+    },
+    {
+      "key": "gold_stk_mins_qfq_nineturn_120m"
+    },
+    {
+      "key": "gold_stk_mins_qfq_nineturn_30m_gold_stk_mins_qfq_nineturn_30m_integrity_check"
+    },
+    {
+      "key": "gold_stk_mins_qfq_nineturn_30m"
+    },
+    {
+      "key": "gold_stk_mins_qfq_nineturn_90m"
+    },
+    {
+      "key": "gold_stk_mins_qfq_nineturn_60m"
+    },
+    {
+      "key": "gold_stk_mins_qfq_nineturn_120m_gold_stk_mins_qfq_nineturn_120m_integrity_check"
+    },
+    {
+      "key": "gold_stk_mins_qfq_nineturn_90m_gold_stk_mins_qfq_nineturn_90m_integrity_check"
+    }
+  ]
+}

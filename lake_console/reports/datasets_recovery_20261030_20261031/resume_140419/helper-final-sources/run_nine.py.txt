@@ -1,0 +1,28 @@
+"""Existing nine-turn preparation/readback with bounded real completion events."""
+import argparse
+import importlib.util
+import os
+from pathlib import Path
+
+from bounded_events import CompletionEventReader
+from common import HOME, OUT, save
+
+
+def main():
+    p=argparse.ArgumentParser();p.add_argument('mode',choices=['metadata','prepare','before','verify']);p.add_argument('--run-id')
+    args=p.parse_args()
+    source=Path(__file__).with_name('nineturn_readback.py')
+    spec=importlib.util.spec_from_file_location('approved_existing_nine_readback',source)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    native=module.PostgresEventLogStorage
+    module.PostgresEventLogStorage=lambda *a,**k: CompletionEventReader(native(*a,**k))
+    os.environ['DAGSTER_HOME']=str(HOME)
+    if args.mode=='metadata':module.run_metadata()
+    elif args.mode=='prepare':module.run_prepare()
+    elif args.mode=='before':
+        module.run_before()
+        save(OUT/'nineturn/run-config.json',{})
+    else:module.run_verify(args.run_id)
+
+
+if __name__=='__main__':main()

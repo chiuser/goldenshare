@@ -1,0 +1,15 @@
+{
+  "approved": true,
+  "trade_date": "2026-10-30",
+  "recorded_at": "2026-10-31T13:06:35.906176+08:00",
+  "source": "user reply to request_user_input_async call_1ab7daeb3c90451c83f89e8e5d843c2b",
+  "answer": "批准，按原job和repair顺序执行",
+  "read_GiB": 420,
+  "write_GiB": 80,
+  "extra_space_GiB": 128,
+  "history_start": "2014-01-02",
+  "history_end": "2026-10-30",
+  "expected_factor_scope_count": 11,
+  "automatic_retry": false,
+  "scope_reference": "original writing LLD section20, including 37 assets, raw/native references and both original repair jobs"
+}

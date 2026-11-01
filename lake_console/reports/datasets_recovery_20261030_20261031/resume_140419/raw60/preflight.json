@@ -1,0 +1,196 @@
+{
+  "date": "2026-10-30",
+  "safe_to_launch": true,
+  "observed_at": "2026-10-31T14:43:41.706333+08:00",
+  "prod_gate": {
+    "ready": true,
+    "reason_code": "prod_source_ready",
+    "task_run_status": {
+      "ready": true,
+      "reason_code": "prod_ops_task_run_ready",
+      "task_run": {
+        "task_run_id": 17542,
+        "trade_date": "2026-10-30",
+        "ended_at": "2026-10-30T18:25:19.194235+08:00",
+        "unit_total": 29610,
+        "unit_done": 29610,
+        "unit_failed": 0,
+        "progress_percent": 100.0,
+        "rows_fetched": 1790133,
+        "rows_saved": 1790133,
+        "rows_rejected": 0
+      },
+      "candidate_task_run_id": 17542,
+      "candidate_status": "success",
+      "candidate_reason_code": null,
+      "elapsed_ms": 153,
+      "error_type": null
+    },
+    "coverage_status": {
+      "ready": true,
+      "reason_code": "prod_source_code_coverage_ready",
+      "frequency_coverages": [
+        {
+          "freq": 1,
+          "expected_code_count": 5577,
+          "present_code_count": 5577,
+          "missing_code_count": 0,
+          "missing_code_samples": []
+        },
+        {
+          "freq": 5,
+          "expected_code_count": 5577,
+          "present_code_count": 5577,
+          "missing_code_count": 0,
+          "missing_code_samples": []
+        },
+        {
+          "freq": 15,
+          "expected_code_count": 5577,
+          "present_code_count": 5577,
+          "missing_code_count": 0,
+          "missing_code_samples": []
+        },
+        {
+          "freq": 30,
+          "expected_code_count": 5577,
+          "present_code_count": 5577,
+          "missing_code_count": 0,
+          "missing_code_samples": []
+        },
+        {
+          "freq": 60,
+          "expected_code_count": 5577,
+          "present_code_count": 5577,
+          "missing_code_count": 0,
+          "missing_code_samples": []
+        }
+      ],
+      "first_missing_freq": null,
+      "elapsed_ms": 791,
+      "error_type": null
+    },
+    "completion_reference": {
+      "task_run_id": 17542,
+      "trade_date": "2026-10-30",
+      "ended_at": "2026-10-30T18:25:19.194235+08:00",
+      "full_market": true,
+      "frequency_set_hash": "cc6595b17cf39ab4e1b331b9b35c1041d0d3c8d5a6e9107448b98653bcedc0e2",
+      "expected_code_count": 5577,
+      "expected_code_hash": "a55f9b75dc7c603e2b7581cca56aa4a9",
+      "frequency_code_counts": [
+        [
+          1,
+          5577
+        ],
+        [
+          5,
+          5577
+        ],
+        [
+          15,
+          5577
+        ],
+        [
+          30,
+          5577
+        ],
+        [
+          60,
+          5577
+        ]
+      ],
+      "coverage_observed_at": "2026-10-31T14:43:40.758216+08:00",
+      "reference_fingerprint": "e47633aab92e8244e384eed67bc53bf19d32eb5125852276acd4e94d8502db44"
+    }
+  },
+  "code_count": 5577,
+  "prior_source_time_audit": {
+    "observed_at": "2026-10-31T14:04:19.567955+08:00",
+    "date": "2026-10-30",
+    "freq": 60,
+    "expected_times_from_existing120_contract": [
+      "09:30:00",
+      "10:30:00",
+      "11:30:00",
+      "14:00:00",
+      "15:00:00"
+    ],
+    "code_count": 5577,
+    "row_count": 27885,
+    "bad_code_count": 0,
+    "unexpected_time_rows": 0,
+    "original28_ready_count": 28,
+    "passed": true,
+    "read_scope": "single-date counts of60m code/time presence; no OHLC or full-history read",
+    "formal_writes": 0
+  },
+  "control_preflight": {
+    "observed_at": "2026-10-31T14:43:40.602007+08:00",
+    "sensors": [
+      {
+        "__typename": "Sensor",
+        "name": "stock_mins_qfq_daily_sensor",
+        "sensorState": {
+          "id": "0d26182e833dbe4fc79aee2b0bfa9d9564b5c535::3ab800ed537bd69b153d69fb1e3a6259b8ae3777",
+          "status": "STOPPED",
+          "typeSpecificData": {
+            "lastCursor": "{\"blocked_count\": 0, \"decision\": \"skip\", \"details\": {\"asset_family\": \"stock_mins_qfq\", \"blocked_component\": \"run_window\", \"evidence\": {\"run_window_started\": false}, \"job_name\": \"stock_mins_qfq_daily_update_job\", \"next_action\": \"等待 19:30 后由下一次 sensor tick 自动重试。\", \"partition_set\": \"cn_a_stock_mins_silver_trade_days\", \"reason_code\": \"run_window_not_started\", \"sensor_name\": \"stock_mins_qfq_daily_update_job_sensor\", \"summary\": \"股票分钟线 gold qfq 日常更新窗口尚未到 19:30，暂不触发。\"}, \"evaluated_at\": \"2026-10-31T13:03:54.341601+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": null}",
+            "lastRunKey": "stock_mins_qfq_daily_update:2026-10-29"
+          }
+        }
+      },
+      {
+        "__typename": "Sensor",
+        "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+        "sensorState": {
+          "id": "48b83117c18ae7132887a622875eff56012430d8::99d31a375eebcb8cd66c62866edc623c35dcbd7d",
+          "status": "STOPPED",
+          "typeSpecificData": {
+            "lastCursor": "{\"blocked_count\": 1, \"decision\": \"skip\", \"details\": {\"asset_family\": \"stk_mins_qfq_nineturn\", \"blocked_component\": \"cn_a_stock_mins_silver_trade_days\", \"evidence\": {\"registered_count\": 3116}, \"frontier\": {\"target\": {\"dataset\": \"gold_stk_mins_qfq_nineturn\", \"elapsed_ms\": 2993.311833124608, \"expected_count\": 4, \"expected_end_date\": \"2026-10-29\", \"expected_start_date\": \"2026-10-26\", \"freq_count\": 4}}, \"job_name\": \"gold_stk_mins_qfq_nineturn_update_job\", \"next_action\": \"无需修复；等待新的已注册交易日。\", \"partition_set\": \"cn_a_stock_mins_silver_trade_days\", \"performance_ms\": {\"target_readiness\": 2993.311833124608}, \"reason_code\": \"pending_registered_partition_tail\", \"sensor_name\": \"gold_stk_mins_qfq_nineturn_update_job_sensor\", \"summary\": \"未触发：已注册的分钟前复权九转分区均已 ready，等待尾部分区注册。\"}, \"evaluated_at\": \"2026-10-31T13:05:03.581332+08:00\", \"sample_keys\": [\"2026-10-30\"], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": \"2026-10-30\"}",
+            "lastRunKey": "gold_stk_mins_qfq_nineturn_update:2026-10-29"
+          }
+        }
+      },
+      {
+        "__typename": "Sensor",
+        "name": "stock_mins_qfq_factor_repair_sensor",
+        "sensorState": {
+          "id": "a891bed1d6185e5f36dba3ec9bc988f9c8991d13::41dc5e4a579d10becf079e7a18e18f4f086e008f",
+          "status": "STOPPED",
+          "typeSpecificData": {
+            "lastCursor": "{\"blocked_count\": 0, \"decision\": \"skip\", \"details\": {\"asset_family\": \"stock_mins_qfq_factor_repair\", \"blocked_component\": \"run_window\", \"evidence\": {\"run_window_started\": false}, \"job_name\": \"stock_mins_qfq_factor_repair_job\", \"next_action\": \"等待 19:40 后由下一次 sensor tick 自动重试。\", \"partition_set\": \"cn_a_stock_mins_silver_trade_days\", \"reason_code\": \"run_window_not_started\", \"sensor_name\": \"stock_mins_qfq_factor_repair_sensor\", \"summary\": \"股票分钟线 gold qfq factor repair 窗口尚未到 19:40，暂不触发。\"}, \"evaluated_at\": \"2026-10-31T13:04:14.017713+08:00\", \"sample_keys\": [], \"schema_version\": 1, \"selected_count\": 0, \"target_date\": null}",
+            "lastRunKey": "stock_mins_qfq_factor_repair:2026-10-29"
+          }
+        }
+      },
+      {
+        "__typename": "Sensor",
+        "name": "gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
+        "sensorState": {
+          "id": "a67f3ab45ac8841a399432c03c982d49734ab525::e739480038f6d0807e2989cd23d199d18f0715e7",
+          "status": "STOPPED",
+          "typeSpecificData": {
+            "lastCursor": "{\"__class__\": \"RunStatusSensorCursor\", \"record_id\": 7836231, \"record_timestamp\": \"2026-10-31T04:00:10.398922+00:00\", \"update_timestamp\": null}",
+            "lastRunKey": "gold_stk_mins_qfq_macd_kdj_repair:qfq_factor_repair:2026-10-27:0c1eafc93793"
+          }
+        }
+      },
+      {
+        "__typename": "Sensor",
+        "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+        "sensorState": {
+          "id": "772281db6caf1b865496e2a2916e74059bc56604::f7097a5f811f8e1260f1b32b7d128afbec5d53bb",
+          "status": "STOPPED",
+          "typeSpecificData": {
+            "lastCursor": "{\"__class__\": \"RunStatusSensorCursor\", \"record_id\": 7836231, \"record_timestamp\": \"2026-10-31T04:00:10.398922+00:00\", \"update_timestamp\": null}",
+            "lastRunKey": "gold_stk_mins_qfq_macd_kdj_daily_update:2026-10-29"
+          }
+        }
+      }
+    ],
+    "conflicting_runs": [],
+    "other_active_count": 0
+  },
+  "formal_writes": 0
+}

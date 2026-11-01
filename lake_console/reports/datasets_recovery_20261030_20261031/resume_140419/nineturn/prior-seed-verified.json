@@ -1,0 +1,398 @@
+{
+  "as_of": "2026-10-31T15:31:54.126052+08:00",
+  "date": "2026-10-29",
+  "passed": true,
+  "evidence_only": true,
+  "parquet_content_reads": 0,
+  "sha_body_reads": 0,
+  "formal_writes": 0,
+  "run_id": "16afcd16-273b-4ef4-9199-936ff0b859eb",
+  "root_run_id": "16afcd16-273b-4ef4-9199-936ff0b859eb",
+  "job": "gold_stk_mins_qfq_nineturn_update_job",
+  "status": "SUCCESS",
+  "elapsed_seconds": 70.273188829422,
+  "materializations": [
+    {
+      "asset": "gold_stk_mins_qfq_nineturn_120m",
+      "storage_id": 7789432,
+      "partition": "2026-10-29",
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=120/trade_date=2026-10-29/part-000.parquet",
+        "dagster/row_count": 11140,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "up_count",
+          "down_count",
+          "nine_up_turn",
+          "nine_down_turn"
+        ],
+        "goldenshare/summary": "已生成股票120 分钟前复权九转分区。",
+        "goldenshare/next_action": "等待聚合完整性检查通过后供每日扫描和多周期研究消费。",
+        "goldenshare/result_status": "written",
+        "goldenshare/input_summary": {
+          "freq": 120,
+          "partition_key": "2026-10-29",
+          "source_file_count": 11058,
+          "source_row_count": 11140
+        },
+        "goldenshare/filter_summary": {
+          "fallback_recomputed_code_count": 0,
+          "output_row_count": 11140,
+          "stock_code_count": 5570
+        },
+        "goldenshare/diagnostic_ref": "完整诊断看对应 integrity check 和 run stdout。",
+        "goldenshare/source_fingerprint": "c28ba55826749f6a658ee8271d86895d894d141008f2b46f35f4ad2d143b0410",
+        "goldenshare/source_row_count": 11140,
+        "goldenshare/stock_code_count": 5570,
+        "goldenshare/fallback_recomputed_code_count": 0,
+        "goldenshare/formula_version": 1
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_nineturn_30m",
+      "storage_id": 7789436,
+      "partition": "2026-10-29",
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=30/trade_date=2026-10-29/part-000.parquet",
+        "dagster/row_count": 44560,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "up_count",
+          "down_count",
+          "nine_up_turn",
+          "nine_down_turn"
+        ],
+        "goldenshare/summary": "已生成股票30 分钟前复权九转分区。",
+        "goldenshare/next_action": "等待聚合完整性检查通过后供每日扫描和多周期研究消费。",
+        "goldenshare/result_status": "written",
+        "goldenshare/input_summary": {
+          "freq": 30,
+          "partition_key": "2026-10-29",
+          "source_file_count": 11058,
+          "source_row_count": 44560
+        },
+        "goldenshare/filter_summary": {
+          "fallback_recomputed_code_count": 0,
+          "output_row_count": 44560,
+          "stock_code_count": 5570
+        },
+        "goldenshare/diagnostic_ref": "完整诊断看对应 integrity check 和 run stdout。",
+        "goldenshare/source_fingerprint": "f20aab11469f6bf5634a6e082d5d779f57e4757c891f0f21959bddb23138d4fc",
+        "goldenshare/source_row_count": 44560,
+        "goldenshare/stock_code_count": 5570,
+        "goldenshare/fallback_recomputed_code_count": 0,
+        "goldenshare/formula_version": 1
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_nineturn_60m",
+      "storage_id": 7789440,
+      "partition": "2026-10-29",
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=60/trade_date=2026-10-29/part-000.parquet",
+        "dagster/row_count": 22280,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "up_count",
+          "down_count",
+          "nine_up_turn",
+          "nine_down_turn"
+        ],
+        "goldenshare/summary": "已生成股票60 分钟前复权九转分区。",
+        "goldenshare/next_action": "等待聚合完整性检查通过后供每日扫描和多周期研究消费。",
+        "goldenshare/result_status": "written",
+        "goldenshare/input_summary": {
+          "freq": 60,
+          "partition_key": "2026-10-29",
+          "source_file_count": 11058,
+          "source_row_count": 22280
+        },
+        "goldenshare/filter_summary": {
+          "fallback_recomputed_code_count": 0,
+          "output_row_count": 22280,
+          "stock_code_count": 5570
+        },
+        "goldenshare/diagnostic_ref": "完整诊断看对应 integrity check 和 run stdout。",
+        "goldenshare/source_fingerprint": "49178ccb12d9e23c0c7ec4d14cc5d506504781566c6f5cdee9ccfda8900686b0",
+        "goldenshare/source_row_count": 22280,
+        "goldenshare/stock_code_count": 5570,
+        "goldenshare/fallback_recomputed_code_count": 0,
+        "goldenshare/formula_version": 1
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_nineturn_90m",
+      "storage_id": 7789444,
+      "partition": "2026-10-29",
+      "metadata": {
+        "dagster/uri": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=90/trade_date=2026-10-29/part-000.parquet",
+        "dagster/row_count": 16710,
+        "goldenshare/observed_columns": [
+          "ts_code",
+          "freq",
+          "trade_date",
+          "trade_time",
+          "up_count",
+          "down_count",
+          "nine_up_turn",
+          "nine_down_turn"
+        ],
+        "goldenshare/summary": "已生成股票90 分钟前复权九转分区。",
+        "goldenshare/next_action": "等待聚合完整性检查通过后供每日扫描和多周期研究消费。",
+        "goldenshare/result_status": "written",
+        "goldenshare/input_summary": {
+          "freq": 90,
+          "partition_key": "2026-10-29",
+          "source_file_count": 11058,
+          "source_row_count": 16710
+        },
+        "goldenshare/filter_summary": {
+          "fallback_recomputed_code_count": 0,
+          "output_row_count": 16710,
+          "stock_code_count": 5570
+        },
+        "goldenshare/diagnostic_ref": "完整诊断看对应 integrity check 和 run stdout。",
+        "goldenshare/source_fingerprint": "ba9c1e63fda6e8f7ea81a233c0330018a28278e049bfc4ea41625cecd990bbcc",
+        "goldenshare/source_row_count": 16710,
+        "goldenshare/stock_code_count": 5570,
+        "goldenshare/fallback_recomputed_code_count": 0,
+        "goldenshare/formula_version": 1
+      }
+    }
+  ],
+  "checks": [
+    {
+      "asset": "gold_stk_mins_qfq_nineturn_120m",
+      "name": "gold_stk_mins_qfq_nineturn_120m_integrity_check",
+      "storage_id": 7789448,
+      "passed": true,
+      "blocking": true,
+      "partition": "2026-10-29",
+      "target_storage_id": 7789432,
+      "target_run_id": "16afcd16-273b-4ef4-9199-936ff0b859eb",
+      "metadata": {
+        "goldenshare/check_scope": "reconciliation",
+        "goldenshare/checked_row_count": 11140,
+        "goldenshare/diagnostic_ref": "完整诊断看本 check metadata 和对应 run stdout。",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=120/trade_date=2026-10-29/part-000.parquet",
+        "goldenshare/next_action": "无需处理，等待下游每日扫描。",
+        "goldenshare/rule_summary": {
+          "checked_row_count": 11140,
+          "duplicate_key_count": 0,
+          "extra_output_key_count": 0,
+          "invalid_value_count": 0,
+          "missing_source_key_count": 0,
+          "null_key_count": 0,
+          "rules": [
+            "file_contract",
+            "partition_alignment",
+            "key_integrity",
+            "value_domain",
+            "source_key_coverage"
+          ],
+          "source_duplicate_key_count": 0,
+          "source_row_count": 11140
+        },
+        "goldenshare/summary": "前复权九转分区完整性检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_nineturn_30m",
+      "name": "gold_stk_mins_qfq_nineturn_30m_integrity_check",
+      "storage_id": 7789452,
+      "passed": true,
+      "blocking": true,
+      "partition": "2026-10-29",
+      "target_storage_id": 7789436,
+      "target_run_id": "16afcd16-273b-4ef4-9199-936ff0b859eb",
+      "metadata": {
+        "goldenshare/check_scope": "reconciliation",
+        "goldenshare/checked_row_count": 44560,
+        "goldenshare/diagnostic_ref": "完整诊断看本 check metadata 和对应 run stdout。",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=30/trade_date=2026-10-29/part-000.parquet",
+        "goldenshare/next_action": "无需处理，等待下游每日扫描。",
+        "goldenshare/rule_summary": {
+          "checked_row_count": 44560,
+          "duplicate_key_count": 0,
+          "extra_output_key_count": 0,
+          "invalid_value_count": 0,
+          "missing_source_key_count": 0,
+          "null_key_count": 0,
+          "rules": [
+            "file_contract",
+            "partition_alignment",
+            "key_integrity",
+            "value_domain",
+            "source_key_coverage"
+          ],
+          "source_duplicate_key_count": 0,
+          "source_row_count": 44560
+        },
+        "goldenshare/summary": "前复权九转分区完整性检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_nineturn_60m",
+      "name": "gold_stk_mins_qfq_nineturn_60m_integrity_check",
+      "storage_id": 7789456,
+      "passed": true,
+      "blocking": true,
+      "partition": "2026-10-29",
+      "target_storage_id": 7789440,
+      "target_run_id": "16afcd16-273b-4ef4-9199-936ff0b859eb",
+      "metadata": {
+        "goldenshare/check_scope": "reconciliation",
+        "goldenshare/checked_row_count": 22280,
+        "goldenshare/diagnostic_ref": "完整诊断看本 check metadata 和对应 run stdout。",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=60/trade_date=2026-10-29/part-000.parquet",
+        "goldenshare/next_action": "无需处理，等待下游每日扫描。",
+        "goldenshare/rule_summary": {
+          "checked_row_count": 22280,
+          "duplicate_key_count": 0,
+          "extra_output_key_count": 0,
+          "invalid_value_count": 0,
+          "missing_source_key_count": 0,
+          "null_key_count": 0,
+          "rules": [
+            "file_contract",
+            "partition_alignment",
+            "key_integrity",
+            "value_domain",
+            "source_key_coverage"
+          ],
+          "source_duplicate_key_count": 0,
+          "source_row_count": 22280
+        },
+        "goldenshare/summary": "前复权九转分区完整性检查通过。"
+      }
+    },
+    {
+      "asset": "gold_stk_mins_qfq_nineturn_90m",
+      "name": "gold_stk_mins_qfq_nineturn_90m_integrity_check",
+      "storage_id": 7789460,
+      "passed": true,
+      "blocking": true,
+      "partition": "2026-10-29",
+      "target_storage_id": 7789444,
+      "target_run_id": "16afcd16-273b-4ef4-9199-936ff0b859eb",
+      "metadata": {
+        "goldenshare/check_scope": "reconciliation",
+        "goldenshare/checked_row_count": 16710,
+        "goldenshare/diagnostic_ref": "完整诊断看本 check metadata 和对应 run stdout。",
+        "goldenshare/failed_row_count": 0,
+        "goldenshare/failed_rule_names": [],
+        "goldenshare/failure_samples": [],
+        "goldenshare/file_path": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=90/trade_date=2026-10-29/part-000.parquet",
+        "goldenshare/next_action": "无需处理，等待下游每日扫描。",
+        "goldenshare/rule_summary": {
+          "checked_row_count": 16710,
+          "duplicate_key_count": 0,
+          "extra_output_key_count": 0,
+          "invalid_value_count": 0,
+          "missing_source_key_count": 0,
+          "null_key_count": 0,
+          "rules": [
+            "file_contract",
+            "partition_alignment",
+            "key_integrity",
+            "value_domain",
+            "source_key_coverage"
+          ],
+          "source_duplicate_key_count": 0,
+          "source_row_count": 16710
+        },
+        "goldenshare/summary": "前复权九转分区完整性检查通过。"
+      }
+    }
+  ],
+  "materializations_verified": 4,
+  "blocking_checks_passed": 4,
+  "publications": [
+    {
+      "freq": 30,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/nineturn/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=30/run_id=4704d0c217af93bbcb5777f87699c63f6cf603e36e35fb6161201624248f93d2/scope=9103fe928caf6ae754cab52020e7ceb3ee70b79203c58568e391e9bbe2831a0e",
+      "target": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=30/trade_date=2026-10-29/part-000.parquet",
+      "row_count": 44560,
+      "bytes": 83517,
+      "status": "promoted",
+      "formal_identity": [
+        16777244,
+        29590760,
+        83517,
+        1793275819755517997,
+        1793275822267854276
+      ],
+      "recorded_sha256": "8c65125ee9b98feceb8dcf7343c18383f44401565d8b2cd6ecbaacea1395bf36",
+      "new_data_sha_reads": 0
+    },
+    {
+      "freq": 60,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/nineturn/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=60/run_id=4704d0c217af93bbcb5777f87699c63f6cf603e36e35fb6161201624248f93d2/scope=a903025b066045c60c7e42bacea53df9ae9119da1c4b9e78b5df1ba4b561fe48",
+      "target": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=60/trade_date=2026-10-29/part-000.parquet",
+      "row_count": 22280,
+      "bytes": 53929,
+      "status": "promoted",
+      "formal_identity": [
+        16777244,
+        29590801,
+        53929,
+        1793275835421072096,
+        1793275837990953151
+      ],
+      "recorded_sha256": "284c5b39d2788166fb5be80ab7468485da255bc05b1167394ea9aa8a995dac5b",
+      "new_data_sha_reads": 0
+    },
+    {
+      "freq": 90,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/nineturn/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=90/run_id=4704d0c217af93bbcb5777f87699c63f6cf603e36e35fb6161201624248f93d2/scope=d9e357efbba0634283689cd6946f85d2415bae95e6e43a6d706449a51b7d54c8",
+      "target": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=90/trade_date=2026-10-29/part-000.parquet",
+      "row_count": 16710,
+      "bytes": 54576,
+      "status": "promoted",
+      "formal_identity": [
+        16777244,
+        29590828,
+        54576,
+        1793275852048619320,
+        1793275854669590863
+      ],
+      "recorded_sha256": "e0c533c48db855fda4cd7cdaf2b0673ba186272cb0da44d2e1586401cbb3cf49",
+      "new_data_sha_reads": 0
+    },
+    {
+      "freq": 120,
+      "directory": "/Volumes/datasource/data_lake_staging/stk_mins_qfq/nineturn/root=ebace65aec34d87e774384f2892361ed75ad038401a161807e9291a0a4f7a790/freq=120/run_id=4704d0c217af93bbcb5777f87699c63f6cf603e36e35fb6161201624248f93d2/scope=a18ceee8e58d816371b729096fd0906e61db25b47fbdab81574cc73f55201065",
+      "target": "/Volumes/datasource/data_lake/gold/indicator/stk_mins_qfq_nineturn/freq=120/trade_date=2026-10-29/part-000.parquet",
+      "row_count": 11140,
+      "bytes": 47718,
+      "status": "promoted",
+      "formal_identity": [
+        16777244,
+        29590735,
+        47718,
+        1793275802923619152,
+        1793275805332764976
+      ],
+      "recorded_sha256": "a06a071480ff571bc126f4f3d00476f980242a2c22e748a958867373889fdb59",
+      "new_data_sha_reads": 0
+    }
+  ]
+}
