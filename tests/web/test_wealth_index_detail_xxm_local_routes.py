@@ -1,0 +1,132 @@
+"""P4-01..04: original App assembly; storage fixture follows read_daily's ORM projection."""
+import importlib
+from pathlib import Path
+
+from fastapi import APIRouter, FastAPI
+from fastapi.testclient import TestClient
+import pytest
+
+from src.app.auth.dependencies import require_quote_access
+from src.app.dependencies import get_db_session
+from src.app.exceptions import WebAppError, install_exception_handlers
+from src.foundation.config.settings import Settings, get_settings
+from src.foundation.config.local_minute_capability import LocalMinuteCapability, LocalMinuteCapabilityError
+from tests.web.test_wealth_index_detail_xxm_api import source_db  # noqa: F401
+from sqlalchemy.orm import Session
+
+PATH = '/api/v1/wealth/market/index-detail/'
+NAMES = ('xxm-signals', 'xxm-key-point-forecast', 'daily-waves', 'minute-xxm-signals')
+
+
+def settings(**kwargs):
+    return Settings(_env_file=None, WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED=False, **kwargs)
+
+
+@pytest.mark.parametrize('value', [None, '', 'prod', 'test', 'unknown', 'DEV ', ' local', 'dev', 'local'])
+def test_explicit_environment_and_once_only_registration(monkeypatch, value):
+    assembly = importlib.import_module("src.app.api.v1.router")
+    # None must genuinely omit the env even in configured_web_env's test process.
+    monkeypatch.delenv('APP_ENV', raising=False)
+    supplied = settings(**({} if value is None else {'APP_ENV': value}))
+    calls = []
+    def capability(actual):
+        assert actual is supplied
+        calls.append(actual)
+        return LocalMinuteCapability(True, Path('/Volumes/datasource/data_lake'), None)
+    monkeypatch.setattr(assembly, 'resolve_index_minute_capability', capability)
+    target = APIRouter(prefix='/api/v1')
+    assembly._include_local_xxm_routers(target, supplied)
+    enabled = value is not None and value.strip().lower() in ('dev', 'local')
+    paths = [r.path for r in target.routes]
+    for name in NAMES:
+        assert paths.count(PATH+name) == int(enabled)
+    assert len(calls) == int(enabled)
+
+
+def test_unconfigured_minutes_do_not_block_real_daily_query_or_auth(monkeypatch, source_db):
+    assembly = importlib.import_module("src.app.api.v1.router")
+    supplied = settings(APP_ENV='local')
+    monkeypatch.setattr(assembly, 'resolve_index_minute_capability', lambda s: LocalMinuteCapability(False, None, None))
+    app = FastAPI(); install_exception_handlers(app)
+    target = APIRouter(prefix='/api/v1'); assembly._include_local_xxm_routers(target, supplied)
+    app.include_router(target)
+    def session():
+        with Session(source_db) as value: yield value
+    app.dependency_overrides[get_db_session] = session
+    import src.app.auth.dependencies as auth
+    from types import SimpleNamespace
+    monkeypatch.setattr(auth, 'get_web_settings', lambda: SimpleNamespace(quote_api_auth_required=True))
+    with TestClient(app) as client:
+        assert client.get(PATH+'xxm-signals?tsCode=000001.SH').status_code == 401
+        app.dependency_overrides[require_quote_access] = lambda: None
+        result = client.get(PATH+'xxm-signals?tsCode=000001.SH&endDate=2020-01-08&limit=8')
+        assert result.status_code == 200
+        assert result.json()['meta']['count'] == 8
+        assert client.get(PATH+'minute-xxm-signals?tsCode=000001.SH&freq=60').status_code == 404
+        forecast = client.get(PATH+'xxm-key-point-forecast?tsCode=000001.SH&period=m60')
+        assert forecast.status_code == 404 and forecast.json()['code'] == 'XXMF_NOT_SUPPORTED'
+        def denied(): raise WebAppError(status_code=403, code='FORBIDDEN', message='denied')
+        app.dependency_overrides[require_quote_access] = denied
+        assert client.get(PATH+'xxm-signals?tsCode=000001.SH').status_code == 403
+
+
+def test_invalid_enabled_root_is_not_hidden(monkeypatch):
+    assembly = importlib.import_module("src.app.api.v1.router")
+    def invalid(s): raise LocalMinuteCapabilityError(code='SM_LOCAL_LAKE_NOT_CONFIGURED', message='invalid')
+    monkeypatch.setattr(assembly, 'resolve_index_minute_capability', invalid)
+    with pytest.raises(LocalMinuteCapabilityError):
+        assembly._include_local_xxm_routers(APIRouter(), settings(APP_ENV='dev'))
+
+
+def test_production_full_api_aggregation_has_no_r4_routes_or_source_calls(monkeypatch):
+    import src.foundation.config.settings as config
+    v1 = importlib.import_module("src.app.api.v1.router")
+    api = importlib.import_module("src.app.api.router")
+    original = config.get_settings
+    # Full /api -> /v1 includes; no lifespan or production IO.
+    try:
+        monkeypatch.setattr(config, 'get_settings', lambda: settings(APP_ENV='prod'))
+        importlib.reload(v1); importlib.reload(api)
+        app = FastAPI(); app.include_router(api.router)
+        def forbidden(): raise AssertionError('production r4 reached database')
+        app.dependency_overrides[get_db_session] = forbidden
+        app.dependency_overrides[require_quote_access] = forbidden
+        with TestClient(app) as client:
+            for name in NAMES:
+                assert client.get(PATH+name+'?tsCode=000001.SH&debug=1').status_code == 404
+            schema = client.get('/openapi.json').json()
+            assert all(PATH+name not in schema['paths'] for name in NAMES)
+            assert PATH+'kline' in schema['paths']
+    finally:
+        monkeypatch.setattr(config, 'get_settings', original)
+        importlib.reload(v1); importlib.reload(api)
+
+
+def test_existing_file_priority_and_missing_default_do_not_enable(monkeypatch, tmp_path):
+    from src.app.api.v1.router import _xxm_local_environment_enabled
+    env = tmp_path/'config.env'; env.write_text('APP_ENV=prod\n')
+    monkeypatch.setenv('GOLDENSHARE_ENV_FILE', str(env)); monkeypatch.setenv('APP_ENV', 'local')
+    get_settings.cache_clear()
+    try:
+        assert not _xxm_local_environment_enabled(get_settings())
+        env.write_text('APP_ENV=local\n'); get_settings.cache_clear()
+        assert _xxm_local_environment_enabled(get_settings())
+        env.write_text(''); monkeypatch.delenv('APP_ENV'); get_settings.cache_clear()
+        supplied = get_settings()
+        assert supplied.app_env == 'dev' and not _xxm_local_environment_enabled(supplied)
+    finally: get_settings.cache_clear()
+
+
+def test_existing_kline_debug_contract_is_preserved(app_client, db_session):
+    # Real ordinary producer/ORM fixture; r4 assembly must not change its query contract.
+    from tests.web.test_wealth_index_detail_api import _seed_full_data
+    _seed_full_data(db_session)
+    params = {'tsCode':'000001.SH','endDate':'2026-08-10','limit':'300'}
+    for debug in (None,'0','1'):
+        response = app_client.get(PATH+'kline',params={**params,**({'debug':debug} if debug is not None else {})})
+        assert response.status_code == 200
+        assert [bar['tradeDate'] for bar in response.json()['bars']] == ['2026-08-07','2026-08-10']
+        assert response.json()['bars'][-1]['close'] == 105.0
+    for extra in ('debug=2','debug=0&debug=1'):
+        response = app_client.get(PATH+'kline?tsCode=000001.SH&'+extra)
+        assert response.status_code == 400 and response.json()['code'] == 'ID_REQUEST_INVALID'

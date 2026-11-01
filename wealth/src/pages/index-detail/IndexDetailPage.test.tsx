@@ -3,10 +3,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { IndexDetailWeightsResponseDto } from "../../features/index-detail/api/indexDetailApiTypes";
 import { makeKline, makePageInit, makeTrendPayload } from "../../features/index-detail/testing/indexDetailTestFixtures";
+import * as debugLoader from "../../features/index-detail/debug/useIndexDebugModule";
+import * as forecastHook from "../../features/index-detail/xxm-forecast/useXxmForecast";
+import type { IndexRecognitionProps, IndexRecognitionDebugExtension, IndexRecognitionDebugModule, IndexRecognitionDebugProps } from "../../features/index-detail/debug/types";
 import { IndexDetailPage } from "./IndexDetailPage";
 
+const p4View = vi.hoisted(() => ({ recognition: null as IndexRecognitionProps | null, extension: undefined as IndexRecognitionDebugExtension | undefined }));
+
 vi.mock("../../features/index-detail/chart/IndexChartWorkspace", () => ({
-  IndexChartWorkspace: ({ nineTurnLayer }: { nineTurnLayer: { phase: string } }) => <div aria-label="指数日线图表区" data-nine-turn-phase={nineTurnLayer.phase} />,
+  IndexChartWorkspace: ({ nineTurnLayer, recognition, debugExtension }: { nineTurnLayer: { phase: string }; recognition: IndexRecognitionProps; debugExtension?: IndexRecognitionDebugExtension }) => { p4View.recognition=recognition; p4View.extension=debugExtension; return <div aria-label="指数日线图表区" data-nine-turn-phase={nineTurnLayer.phase} />; },
 }));
 
 vi.mock("../../features/index-detail/chart/IndexMinuteChartWorkspace", () => ({
@@ -545,3 +550,84 @@ function metricValue(key: string): string | null | undefined {
 }
 
 function response(payload: unknown, status = 200) { return new Response(JSON.stringify(payload), { status, headers: { "Content-Type": "application/json" } }); }
+
+
+describe("P4 page uses one effective mode and matching debug owner",()=>{
+  afterEach(()=>{vi.restoreAllMocks();vi.unstubAllEnvs();vi.unstubAllGlobals();});
+  function setup(){
+    let props: IndexRecognitionDebugProps | null=null;
+    const module: IndexRecognitionDebugModule={IndexRecognitionDebug:p=>{props=p;return null;},
+      decodeXxmDebug:vi.fn(),decodeForecastDebug:vi.fn(),renderXxmDetails:()=>null,renderForecastDetails:()=>null};
+    const state:{phase:"idle"|"loading"|"ready"|"error";module:IndexRecognitionDebugModule|null;errorMessage:string;retry:()=>void}=
+      {phase:"loading",module:null,errorMessage:"",retry:vi.fn()};
+    const loader=vi.spyOn(debugLoader,"useIndexDebugModule").mockImplementation(()=>state);
+    const forecast=vi.spyOn(forecastHook,"useXxmForecast").mockReturnValue({rows:{day:{phase:"idle",response:null,error:""},m60:{phase:"unsupported",response:null,error:""},m90:{phase:"unsupported",response:null,error:""},m120:{phase:"unsupported",response:null,error:""}},retry:vi.fn()});
+    return {state,module,loader,forecast,props:()=>props};
+  }
+  it("keeps ordinary requests during loading/error, switches only ready, and immediately clears on exit",async()=>{
+    const h=setup();const fetcher=mockFetch("000001.SH");
+    const {rerender}=render(<IndexDetailPage tsCode="000001.SH" search="?debug=1"/>);
+    await screen.findByLabelText("指数日线图表区");
+    expect(p4View.recognition?.debug).toBe(0);expect(h.forecast.mock.lastCall?.[0].debug).toBe(0);
+    expect(screen.getByText("核验工具加载中")).toBeInTheDocument();
+    const graph=screen.getByLabelText("指数日线图表区");
+    h.state.phase="error";h.state.errorMessage="核验工具加载失败";
+    rerender(<IndexDetailPage tsCode="000001.SH" search="?debug=1"/>);
+    expect(p4View.recognition?.debug).toBe(0);fireEvent.click(screen.getByRole("button",{name:"重试"}));
+    expect(h.state.retry).toHaveBeenCalledTimes(1);
+    h.state.phase="ready";h.state.module=h.module;
+    rerender(<IndexDetailPage tsCode="000001.SH" search="?debug=1"/>);
+    expect(p4View.recognition).toMatchObject({debug:1,decodeXxmDebug:h.module.decodeXxmDebug,renderXxmDetails:h.module.renderXxmDetails});
+    expect(h.forecast.mock.lastCall?.[0]).toMatchObject({debug:1,decodeDebug:h.module.decodeForecastDebug});
+    expect(screen.getByLabelText("指数日线图表区")).toBe(graph);
+    const owner=h.props()!;const extension:IndexRecognitionDebugExtension={ownerKey:owner.ownerKey,reviewPhase:"closed",chartOverride:null,controls:null,legend:null,renderWaveDetails:()=>null};
+    act(()=>owner.onChange(owner.ownerKey,extension));expect(p4View.extension).toBe(extension);
+    act(()=>owner.onChange("old-owner",null));expect(p4View.extension).toBe(extension);
+    fireEvent.click(screen.getByRole("tab",{name:"技术面"}));
+    rerender(<IndexDetailPage tsCode="000001.SH" search=""/>);
+    expect(screen.getByLabelText("正在加载指数行情")).toBeInTheDocument();
+    expect(screen.queryByLabelText("指数日线图表区")).not.toBeInTheDocument();
+    expect(h.forecast.mock.lastCall?.[0]).toMatchObject({debug:0,active:false});
+    act(()=>owner.onChange(owner.ownerKey,extension));
+    const reloaded=await screen.findByLabelText("指数日线图表区");
+    expect(reloaded).not.toBe(graph);
+    expect(p4View.recognition?.debug).toBe(0);expect(p4View.extension).toBeUndefined();
+    expect(screen.getByRole("tab",{name:"基本行情"})).toHaveAttribute("aria-selected","true");
+    expect(h.loader.mock.lastCall?.[0]).toBe(false);
+    for(const endpoint of ["/page-init","/kline","/trend-channel"])
+      expect(fetcher.mock.calls.filter(([url])=>String(url).includes(endpoint))).toHaveLength(2);
+    const klines=fetcher.mock.calls.map(([url])=>new URL(String(url))).filter(url=>url.pathname.endsWith("/kline"));
+    expect(klines.map(url=>url.searchParams.get("debug"))).toEqual(["1",null]);
+    expect(fetcher.mock.calls.some(([url])=>String(url).includes("daily-waves"))).toBe(false);
+  });
+  it.each(["production","other-index"])("keeps all recognition/debug disabled for %s even when loader returns a module",async mode=>{
+    const h=setup();h.state.phase="ready";h.state.module=h.module;
+    if(mode==="production")vi.stubEnv("DEV",false);
+    const code=mode==="production"?"000001.SH":"399001.SZ";
+    mockFetch(code);render(<IndexDetailPage tsCode={code} search="?debug=1"/>);
+    await screen.findByLabelText("指数日线图表区");
+    expect(h.loader.mock.lastCall?.[0]).toBe(false);expect(p4View.recognition).toMatchObject({recognitionEnabled:false,debug:0});
+    expect(h.forecast.mock.lastCall?.[0]).toMatchObject({enabled:false,active:false,debug:0});
+    expect(h.props()).toBeNull();
+  });
+  it.each([false,true])("keeps forecast eligibility when the main chart changes to m5 and m90, debug=%s",async debug=>{
+    const h=setup();
+    if(debug){h.state.phase="ready";h.state.module=h.module;}
+    const local=makePageInit("000001.SH");
+    local.capabilities.supportsMinute=true;
+    local.capabilities.minuteFrequencies=[5,90];
+    local.capabilities.nineTurnPeriods=["day","5","90"];
+    local.chartDefaults.availablePeriods=["day","m5","m90"];
+    mockFetch("000001.SH",{pageInit:()=>response(local),
+      minutes:url=>response(makeMinuteResponse(Number(url.searchParams.get("freq")))),
+      minuteIndicators:url=>response(makeMinuteIndicatorResponse(Number(url.searchParams.get("freq"))))});
+    render(<IndexDetailPage tsCode="000001.SH" search={debug?"?debug=1":""}/>);
+    await screen.findByLabelText("指数日线图表区");
+    fireEvent.click(screen.getByRole("tab",{name:"技术面"}));
+    for(const label of ["5分","90分"]){
+      fireEvent.click(screen.getByRole("button",{name:label}));
+      await waitFor(()=>expect(screen.getByLabelText("指数分钟图表区")).toHaveAttribute("data-phase","ready"));
+      expect(h.forecast.mock.lastCall?.[0]).toMatchObject({active:true,enabled:true,minutes:true,debug:debug?1:0});
+    }
+  });
+});

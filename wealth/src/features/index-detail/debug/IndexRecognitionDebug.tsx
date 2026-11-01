@@ -5,7 +5,7 @@ import { DailyWavePrimitive } from "../daily-wave/DailyWavePrimitive";
 import { DailyWaveLayerUi, DailyWaveLegend, DailyWaveResearchDetails } from "../daily-wave/DailyWaveLayerUi";
 import { buildDailyWavePresentation } from "../daily-wave/presentation";
 import type { DailyWaveMarkerIssue } from "../daily-wave/markerGeometry";
-import { toDetailChartPoint } from "../chart/IndexChartWorkspace";
+import { toDetailChartPoint } from "../chart/indexChartPointAdapter";
 import { buildNineTurnRenderMarkers } from "../../nine-turn/model/nineTurnChartAdapter";
 import { TrendChannelPanePrimitive } from "../../../shared/charts/trend-channel/TrendChannelPanePrimitive";
 import { buildTrendChannelLines } from "../../../shared/charts/trend-channel/trendChannelGeometry";

@@ -1,5 +1,20 @@
 # 指数大势研究：统一代码入口
 
+## P4当前核验入口（2026-11-01）
+
+本批按[正式LLD§21](../../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md)推进。下方带日期的旧研究命令属于历史；本次页面／预测核验不使用旧`--output`、`--candidate`、固定矩阵或旧日线采集入口。仅使用以下两个原工具，结果只在内存和终端，不生成行情、结果或恢复文件：
+
+```bash
+.venv/bin/python -B -m scripts.research.index_market.xxm_page_request_audit --periods day --mode both --samples 1
+.venv/bin/python -B -m scripts.research.index_market.xxm_forecast_display_audit --periods day --mode both --samples 20
+```
+
+支持周期仅day/m60/m90/m120，`--periods`必填且不能重复；可选`--as-of YYYY-MM-DD`，默认latest；`--mode normal|debug|both`默认normal；`--samples 1|20`默认1。页面samples1分别做单页和双页选定周期组合；samples20只采对应图数据接口，分钟价格与指标分组；预测工具只采选定预测接口，不额外预热。20次不保证预测缓存命中；缺实际命中或共享证据如实记未验收。每组50秒工作、60秒含清理，真实失败停止后续组，不自动重试。
+
+运行前确认当前最终Settings的明确本地环境、获准数据库目标、原分钟配置和正式Lake根；不得为通过验收擅自切源、改预算或补值。`xxm/daily_window_precheck.py`现只保留validate_window/read_window/isolated_client供有限人工核验，不再提供采集、回放或结果写入CLI，不读取历史算法。
+
+本批代码及工具仍在验收中；第5步真实来源需使用已确认配置，第6步实际页面由管理员验收，尚未获准清退P5。以下历史报告和结果不因本次整理改写。
+
 2026-10-31修订后r4历史对比专项：[专项方案](../../../docs/product/wealth-r4-historical-comparison-plan-v1.md)、[专项LLD](../../../docs/product/wealth-r4-historical-comparison-low-level-design-v1.md)。本专项由`xxm/r4_history_comparison.py`、`r4_history_lake.py`、`r4_history_worker.py`、`r4_history_records.py`和四份对应测试组成。当前读取已改为本地DG正式Silver：固定000001.SH日线2023-01-03—2026-10-27及SSE日历，不调用PG/Settings/App，不读远程、不回退其他来源。一次短期读取进程关闭并回收后，才允许顺序运行两计算进程；历史源码仍仅从固定Git对象进入内存，正式r4识别/预测/API/页面不改。
 
 限定人工测试命令（临时Parquet、手写源、小字面计算及922根合成规模，不读取真实Lake）：
@@ -114,10 +129,9 @@ PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -
 ```sh
 .venv/bin/python -B -m scripts.research.index_market.xxm.reference_rescue_acceptance --mode frozen --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_r2_frozen_NEW
 .venv/bin/python -B -m scripts.research.index_market.xxm.reference_rescue_acceptance --mode api --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_r2_api_NEW
-.venv/bin/python -B -m scripts.research.index_market.xxm.daily_window_precheck --source reports/xxm_reference_rescue_r1_implementation_20261017/daily_2020_source_01 --output reports/xxm_r2_day_2020_NEW
 ```
 
-这些模式仅读现有封存源／日历和隔离SQLite，拒绝覆盖输出；日线源的旧采集身份只在原SHA／文件／范围全部校验后复用，当前计算身份仍r2。完成单元分别保存及核SHA，内部读回拒绝不同代码／来源／预期；CLI仍不接受已存在的目录，不新增resume参数。正式`--mode budget|replay-budget --formal-source`、显式分钟periods和page audit参数未变，但仍须按原方案完成本次正式只读验收授权／范围核对；本轮未执行。page audit核双Spec并运行实际TS adapter，不能用本地夹具成绩充当正式页面成绩。
+以上是当时r2封存核验的历史运行方式，来源、结果及结论不作本次新成绩。页面／预测当前仅使用本文开头P4四参数入口；日线预检采集CLI已移除。正式只读来源仍须先确认目标和范围，人工夹具与隔离测试不能充当正式页面或真实性能成绩。
 
 目录整理日期：2026-09-09。规则见[研究目录 AGENTS](/Users/congming/github/goldenshare/scripts/research/AGENTS.md)。这里是离线研究，不接入产品或生产运行时。
 
@@ -152,7 +166,7 @@ index_market/
 
 2026-10-13 徐小明方向识别：[研究主文档](../../../docs/product/xxm-macd-structure-research-v1.md)当前进展为 §8.49。用户已批准 [V0.1 算法方案](../../../docs/product/xxm-direction-algorithm-plan-v0.1.md)、Figma、完整历史扫描调整及仅指数详情页的响应式修正；上证日线和 60／90／120 分钟开发态已实现并完成技术验收，等用户验收，未部署。内核在 biz；本目录只放冻结来源加载与验收入口，生产模块不依赖旧报告脚本。旧 3161 根分钟在三组门槛下回归通过，新完整源共 39747 根，2615 次事件／生命周期前缀重放及已有 26＋1 个读数对账见[实施报告](../../../reports/xxm_implementation_20261013/README.md)。未确认的软件公式、数值偏差与长历史寿命保留；原报告和失败版本不改写。
 
-2026-10-15 近期关键条件展示：规则与参数统一见[预测方案§18](../../../wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#18-近期关键条件的简明展示2026-10-15)，当前证据见[实施报告](../../../reports/xxm_forecast_display_implementation_20261015/README.md)。四周期只读HTTP预算入口：`.venv/bin/python -m scripts.research.index_market.xxm_forecast_display_audit --output reports/xxm_display_audit_NEW`；product模式使用正常产品代码，每次拒绝覆盖输出目录。`--candidate <本机文件>`仅用于已授权的候选预检，不被产品导入；读取正常只读DB／正式Gold并使用临时端口，无应用后台任务、页面自动化或正式数据写入。语义测试位于`tests/test_xxm_forecast_display.py`；用户自行页面验收，评分后置。
+2026-10-15 近期关键条件展示：规则与参数统一见[预测方案§18](../../../wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#18-近期关键条件的简明展示2026-10-15)，当前证据见[实施报告](../../../reports/xxm_forecast_display_implementation_20261015/README.md)。当时的HTTP预算工具及候选预检已由上述P4入口替代，不再使用output/candidate参数；读取正常只读DB／正式Gold并使用临时端口，无应用后台任务、页面自动化或正式数据写入。语义测试位于`tests/test_xxm_forecast_display.py`；用户自行页面验收，评分后置。
 
 2026-09-14 P0市值来源追加核验：[方案34.12](../../../docs/product/stock-chan-share-position-backtest-plan-v1.md#3412-p0追加历史市值来源已找到停牌口径待确认2026-09-14)。Tushare基准日市值覆盖4276/4279股，另外3股均有全天停牌证据，未排除或填充。未入旧案例名单的4037股中4034股当日有市值；12层容量示意最小107股，但尚未冻结层边界或抽样。新reports仅一份查询证据JSON；复算：`.venv/bin/python -B -m scripts.research.index_market.chan.stock_market_cap_source_audit reports/stock_market_cap_source_20260914/evidence.json`，纯离线，不访问API/Lake。市值补充来源、停牌取值规则及扩大样本复核定位待确认，仍不进入P1；下文34.10的DG缺口为当轮历史事实，本轮未补写DG或计算新收益。本轮变更未提交。
 
@@ -434,16 +448,11 @@ XXM 初版历史验收入口（非r2验收入口；原命令记录保留）：
 
 旧复算入口可能写回原报告，不应为本轮验收直接重跑。新入口会校验原 CSV／图片哈希，使用产品同一内核及来源身份，输出连续基线、软件末端读数、前缀与恢复检查和真实 API 对照。
 
-2026-10-15 请求调度、共享加载与读取投影：唯一设计见[预测方案§20](../../../wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#20-整页请求调度与共享加载2026-10-15已授权实施)，执行／历史失败见[报告](../../../reports/xxm_request_reuse_20261015/README.md)。四周期原预算沿用上述`xxm_forecast_display_audit`入口；整页混合与单／双标签页使用`.venv/bin/python -m scripts.research.index_market.xxm_page_request_audit --output <新报告目录>`，运行实际TS客户端／调度器与原只读HTTP链，不自动操作页面。完整历史、投影及配对读取对照使用`.venv/bin/python -m scripts.research.index_market.xxm_history_projection_audit --through 2026-10-14 --output <新报告目录>`；只读正式Gold、拒绝覆盖旧结果，不是产品预计算或正式数据发布。
+2026-10-15 请求调度、共享加载与读取投影：唯一设计见[预测方案§20](../../../wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#20-整页请求调度与共享加载2026-10-15已授权实施)，执行／历史失败见[报告](../../../reports/xxm_request_reuse_20261015/README.md)。四周期原预算沿用上述`xxm_forecast_display_audit`入口；整页混合与单／双标签页的当前命令见上述P4入口，运行实际TS客户端／调度器与原只读HTTP链，不自动操作页面。完整历史、投影及配对读取对照使用`.venv/bin/python -m scripts.research.index_market.xxm_history_projection_audit --through 2026-10-14 --output <新报告目录>`；只读正式Gold、拒绝覆盖旧结果，不是产品预计算或正式数据发布。
 
 2026-10-17 日线下载期间的R1分钟分验：当前`xxm.reference_rescue_acceptance`（或其共用入口`xxm.bottom_history_acceptance`）的`--mode budget --formal-source`以及上述page audit均支持显式`--periods m60 m90 m120`，默认仍四周期、不裁剪产品历史。`--mode replay-budget --formal-source`重验已保存的路由历史场景，沿用同样周期选择；只读原鉴权／正式来源，不冒充软件真值。严格20真冷／20真暖、13历史场景和12组混合通过，命令及全部新旧记录见[分钟验收](../../../reports/xxm_reference_rescue_r1_implementation_20261017/minutes_acceptance.md)。日线及完整四周期整页待用户通知，页面仍由用户验收。
 
-2026-10-17 用户选择先做2020起日线隔离预检：新增`xxm.daily_window_precheck`，只在研究输入中固定2020下界，不改产品全历史读取。显式采集阶段使用只读一致快照和真实ORM字段投影；检查阶段完全本地，临时SQLite／固定采集时钟／鉴权替身，仍走原路由／唯一内核／DTO及数据保护。必须使用新目录：
-
-```sh
-.venv/bin/python -B -m scripts.research.index_market.xxm.daily_window_precheck --capture-source --output reports/xxm_daily_2020_source_NEW
-.venv/bin/python -B -m scripts.research.index_market.xxm.daily_window_precheck --source reports/xxm_daily_2020_source_NEW --output reports/xxm_daily_2020_check_NEW
-```
+2026-10-17 日线隔离预检历史：当时使用2020起有限窗口、只读ORM字段及隔离SQLite核验。该采集、结果写入CLI现已移除；保留的三个有限核验函数及当前运行边界见本文P4入口，不执行旧采集命令。
 
 1643端点、97前缀／恢复、四截图事件及20冷暖隔离通过，保留442份校准保护；[结果与边界](../../../reports/xxm_reference_rescue_r1_implementation_20261017/daily_2020_precheck.md)。原通用预算工具另纠正日线暖核验：日线允许完整SQL投影核源，但不得内核重算；分钟暖仍不得完整读源。更早历史及全历史正式接口／四周期整页见[延期记录](../../../reports/xxm_reference_rescue_r1_implementation_20261017/before_2020_pending.md)，等用户通知后再做，隔离计时不能代替正式PG／网络／页面成绩。
 
@@ -468,7 +477,6 @@ XXM 初版历史验收入口（非r2验收入口；原命令记录保留）：
 .venv/bin/python -m scripts.research.index_market.xxm.same_segment_acceptance --mode frozen --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_same_segment_a1_frozen_<新批次>
 .venv/bin/python -m scripts.research.index_market.xxm.same_segment_acceptance --mode api --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_same_segment_a1_api_<新批次>
 .venv/bin/python -m scripts.research.index_market.xxm.same_segment_acceptance --mode budget --formal-source --source reports/xxm_source_audit_20261013_213852 --output reports/xxm_same_segment_a1_budget_<新批次>
-.venv/bin/python -m scripts.research.index_market.xxm_page_request_audit --output reports/xxm_same_segment_a1_page_<新批次>
 ```
 
 frozen校验来源SHA与封存源码，对照完整39747根×三门槛、研究逐事件／参照账本、14次同段消失／7次重入、93条底部历史绿、45个前缀恢复和369组预测，保留五处B组软件观察。api使用隔离SQLite／冻结字段fixture，调用真实三路由／query／DTO并覆盖拒绝鉴权，不冒充正式服务。budget仅显式formal-source时通过应用正常依赖及READ ONLY事务读取白名单日历／上证因子与正式Lake；160轮预测和配对识别，另4次LATEST及四周期识别／预测两并发。mixed仍用实际TS客户端／调度器的306请求、统一业务日期及真实图表原值adapter，不操作浏览器。完整来源／原4秒／200ms及缓存预算保持；页面由用户验收，脚本不安装依赖或修改鉴权。

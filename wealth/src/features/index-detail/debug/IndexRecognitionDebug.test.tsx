@@ -13,7 +13,7 @@ import { loadIndexNineTurnSeries } from "../api/indexNineTurnLoader";
 import { IndexInfoRail } from "../sidebar/IndexInfoRail";
 import type { IndexTechnicalNineTurnSummary } from "../model/indexTechnicalNineTurnSummary";
 const DAILY=["day"] as const;
-function Harness(){
+function Harness({debug=true}:{debug?:boolean}){
   const controller=useIndexDetailController("000001.SH","");
   const vm=controller.viewModel;
   const [extension,setExtension]=useState<IndexRecognitionDebugExtension|null>(null);
@@ -22,8 +22,8 @@ function Harness(){
   const nine=useNineTurnSeriesRegistry({tsCode:"000001.SH",subjectType:"index",dailyLimit:1000,endDate:vm?.asOfTradeDate??null,load:loadIndexNineTurnSeries,supportedPeriods:DAILY,supportsNineTurn:vm?.capabilities.supportsNineTurn??false});
   useEffect(()=>{if(vm)void nine.ensure("day");},[!!vm,nine.ensure]);
   if(!vm)return null;
-  return <><IndexRecognitionDebug ownerKey={owner} tsCode="000001.SH" activePeriod="day" ordinaryAsOfDate={vm.asOfTradeDate} supportsNineTurn={vm.capabilities.supportsNineTurn} supportsTrend={vm.capabilities.supportsTrendChannel} onChange={onChange}/>
-    <IndexChartWorkspace recognition={{recognitionEnabled:true,debug:1}} debugExtension={extension??undefined} nineTurnLayer={nine.stateFor("day")} onNineTurnRetry={()=>{void nine.retry("day");}} trend={controller.trend} trendPhase={controller.trendPhase} onTrendRetry={controller.retryTrend} viewModel={vm}/>
+  return <>{debug ? <IndexRecognitionDebug ownerKey={owner} tsCode="000001.SH" activePeriod="day" ordinaryAsOfDate={vm.asOfTradeDate} supportsNineTurn={vm.capabilities.supportsNineTurn} supportsTrend={vm.capabilities.supportsTrendChannel} onChange={onChange}/> : null}
+    <IndexChartWorkspace recognition={{recognitionEnabled:true,debug:debug?1:0}} debugExtension={extension??undefined} nineTurnLayer={nine.stateFor("day")} onNineTurnRetry={()=>{void nine.retry("day");}} trend={controller.trend} trendPhase={controller.trendPhase} onTrendRetry={controller.retryTrend} viewModel={vm}/>
     <IndexInfoRail activeTab="basic" nineTurnSummary={{} as IndexTechnicalNineTurnSummary} onAction={()=>{}} onNineTurnRetry={()=>{}} onTrendRetry={controller.retryTrend} onTabChange={()=>{}} pagePhase="ready" partialReasons={[]} trend={controller.trend} trendPhase={controller.trendPhase} viewModel={vm} weights={{data:null,errorMessage:"",phase:"idle",retry:()=>{}}}/></>;
 }
 
@@ -166,6 +166,28 @@ describe("real extracted research controller/workspace keeps ordinary dates inde
     expect(chart.props?.dataKey).toBe("index:000001.SH:day");
     expect(screen.queryByRole("button", { name: "查看说明" })).not.toBeInTheDocument();
   });
+});
+
+it("refresh/unmount cancels the pending study, and returning to debug does not restart it",async()=>{
+  const original=installSource();
+  let finish!: (response:Response)=>void;let signal:AbortSignal|undefined;
+  const fetcher=vi.fn((input:RequestInfo|URL,init?:RequestInit)=>{
+    if(String(input).includes("/daily-waves")){
+      signal=init?.signal??undefined;return new Promise<Response>(resolve=>{finish=resolve;});
+    }
+    return original(input);
+  });
+  vi.stubGlobal("fetch",fetcher);
+  const {rerender}=render(<Harness/>);
+  fireEvent.click(await screen.findByRole("button",{name:"波段核对"}));
+  await screen.findByText("正在计算波段划分…");
+  rerender(<Harness debug={false}/>);expect(signal?.aborted).toBe(true);
+  await act(async()=>finish(json(dailyWaveReadyFixture())));
+  expect(chart.props?.dataKey).toBe("index:000001.SH:day");
+  rerender(<Harness debug/>);
+  await screen.findByRole("button",{name:"波段核对"});
+  expect(screen.queryByRole("button",{name:"查看说明"})).not.toBeInTheDocument();
+  expect(fetcher.mock.calls.filter(([url])=>String(url).includes("/daily-waves"))).toHaveLength(1);
 });
 
 function nineTurn(endDate: string, limit: number) {

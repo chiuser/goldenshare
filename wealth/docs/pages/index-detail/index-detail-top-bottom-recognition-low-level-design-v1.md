@@ -1,6 +1,6 @@
 # 财势乾坤顶底识别低层设计 v1
 
-更新：2026-11-01。状态：P3及其审计修复已提交（bebe6f403、11271531c）；P4整体设计已在产品§10、技术方案§15和本文§21细化，前六项及提交后四项工具审计问题已细化，独立复核结果见LLD§21.9，供管理员review；尚未开始P4开发、真实来源或页面验收。识别v0.4-r4、预测v0.6-r4的取价/选峰/1%/EMA及价格解规则不变。P5未推进，未部署。
+更新：2026-11-01。状态：P3及其审计修复已提交（bebe6f403、11271531c）；P4第1—4步代码及定向测试已完成，执行证据和未覆盖范围见§21.10。第5步真实来源配置待确认，尚未读取正式行情或验收真实性能；第6步由管理员执行。完整Wealth回归有1项范围外月初日期测试失败，未修改或跳过。识别v0.4-r4、预测v0.6-r4的取价/选峰/1%/EMA及价格解规则不变。本批代码和文档已获准提交；未部署，P5未推进。
 
 依据：[产品文档](../../../../docs/product/wealth-top-bottom-recognition-product-v1.md)、[技术方案](index-detail-top-bottom-recognition-technical-design-v1.md)。本文件只规定当前目标、代码迁移位置、开发顺序和验收，不包含已废弃的开发流程。实施必须使用本文规则和独立用例，不得从旧实验或旧输出推导当前预期。
 
@@ -989,7 +989,7 @@ XxmDecision的structureFollowChecks按实际顺序记录根前旧槽及本根新
 | `features/index-detail/debug/forecastDebugContract.ts`（新） | P3迁入现预判公式/区间/参照转换/历史关联纯校验，并按r4迁移；不调用预判求解器；P3由模块真实导出，P4动态注入，普通路径不静态导入 |
 | `features/index-detail/debug/ForecastDebugDetails.tsx`（新） | P3实现并独立测试真实预测详情renderer；P4动态注入，正常卡不静态导入或求价 |
 | `features/index-detail/debug/XxmDebugDetails.tsx`（新） | P3实现并以RC93/104独立测试真实关联/显示；P4动态注入，依据debug事实不推测原因 |
-| `features/index-detail/chart/indexChartPointAdapter.ts`（P4新增） | 原P3规划的提取实际尚未完成；按§21.4将工作区内toDetailChartPoint原样迁出，普通图与debug图直接共用，不留旧导出转发；不改值、不格式化后比较 |
+| `features/index-detail/chart/indexChartPointAdapter.ts`（P4新增） | 已按§21.4将工作区内toDetailChartPoint原样迁出，普通图与debug图直接共用，不留旧导出转发；字段、overlay、空值和原小数的字面测试通过 |
 | `features/index-detail/chart/IndexChartWorkspace.tsx` | P3改普通悬停、传真实资格和模式，移除daily-wave运行时import/hooks/primitive创建并接好类型化可选扩展及renderer；保持同一组件位置；P4仅动态提供已有扩展和renderer；本地r4正常识别继续存在 |
 | `features/index-detail/chart/IndexMinuteChartWorkspace.tsx` | P3接正常悬停、新recognition参数及可选decoder/renderer；P4从已加载模块提供同一参数，不再改Hook签名；不加分钟波段功能 |
 | `features/index-detail/xxm/{types,adapter,apiClient,useIndexXxmLayer,XxmLayerUi}.ts[x]` | P3完成r4身份、正常/debug DTO、纯解码、客户端返回和原截止时间的Hook交接、普通字段view model/绘图及XxmSignalDetails；P3接页面真实资格和普通模式，P4只接模块ready模式变化及动态注入，XxmLayerUi不静态导入辅助详情 |
@@ -1060,7 +1060,7 @@ P3必须先完成资格、普通请求及以下props交接。P4接动态模块�
 
 controller通过effect发布useMemo稳定的extension；所有函数useCallback稳定。useDailyWaveReview返回的外层对象和useDailyWaveCompanionLayers返回的外层对象不作为memo依赖；显式依赖实际阶段/数据/owner和稳定callback。现retryNineTurn等新建箭头须在提取时改为useCallback，相同业务数据/owner不重复发布，避免onChange更新父组件后形成循环。页面只接收ownerKey等于当前owner的扩展，且渲染时再检查debugEnabled及owner一致。旧控制器清理回调也携带ownerKey，不得清掉新实例的结果。扩展为null时普通工作区立即只消费普通数据。ownerKey始终取普通asOf；普通Page/controller/右栏/forecast的日期和数据不受研究覆盖。工作区只在owner匹配且chartOverride非空时，整组使用该override的candles/dataKey/九转/趋势/状态/两种重试/primitive/padding，不得只换K线而保留普通九转/趋势。清空override立即恢复普通整组。
 
-开启debug但波段未开启：chartOverride=null，普通dataKey/points/趋势/九转primitive数组保持原身份，进入/退出debug不重建图表。波段ready后允许切换现研究dataKey；关闭波段或退出debug按原生命周期恢复普通dataKey，允许必要重建，不留旧研究实例。
+开启debug但波段未开启：chartOverride=null。URL debug变化沿现useIndexDetailController的search身份重请求，短暂显示加载状态，允许重建普通图、重置缩放/拖动位置和右栏回到基本行情。URL未变化时模块loading/error/ready及同数据扩展更新不主动请求普通行情，现points/dataKey及primitive按原生命周期保持稳定。波段ready后允许切换现研究dataKey；关闭波段或退出debug按原生命周期恢复普通dataKey，允许必要重建，不留旧研究实例。
 
 #### 8.3.4 P3固定导出/props与P4动态使用
 
@@ -1147,7 +1147,7 @@ interface IndexRecognitionProps {
 
 fetchXxm保留现scheduler的xxm通道、5秒和外部abort，截止时间交接及返回结果严格按§8.3.5；finally清timer和abort listener；params加debug?:1，普通省略、debug显式1；路径、日期、limit不改。模式变化等于新一次请求，不自动重试。所有apply/catch必须匹配请求序号、key且未abort。
 
-primitive只有资格成立时创建，按标的/周期稳定；结果更新调用setMarkers，失败/关闭清空；正常的debug显隐不重建图。label布局/颜色/圆点规则不修改。
+primitive只有资格成立时创建，按标的/周期稳定；结果更新调用setMarkers，失败/关闭清空；URL debug变化允许随普通行情重载重建；同一批数据的辅助模块状态变化和setMarkers不单独重建图。label布局/颜色/圆点规则不修改。
 
 ### 8.5. 关键高低点预判
 
@@ -1205,7 +1205,7 @@ NineTurnLayerStatus新增showAlignmentDiagnostics默认true。指数普通模式
 
 1000常量继续用于普通K线/趋势/九转、研究K线/趋势/九转；请求、缓存编号和清理使用同数。主图真实首末日期和根数传识别；不得因拆debug恢复旧300。股票300、分钟500不变。普通K线不以研究response生成整页模型；普通右栏日期不倒退。
 
-共享DetailChartWorkspace不新增r4/debug知识。通过现mainPrimitives/macdPrimitives/renderTooltip/renderPanelHeader/mainPriceScalePaddingPx扩展即可。正常mainPrimitives引用需稳定；没有波段覆盖时debug显隐不进入重建依赖。共享缩放、拖动、四窗同步、九转绘制和高度变化规则不改。
+共享DetailChartWorkspace不新增r4/debug知识。通过现mainPrimitives/macdPrimitives/renderTooltip/renderPanelHeader/mainPriceScalePaddingPx扩展即可。正常mainPrimitives引用需稳定；不将模块phase或扩展对象直接加入重建依赖；URL debug变化导致原行情重载时允许按现生命周期重建。共享缩放、拖动、四窗同步、九转绘制和高度变化规则不改。
 
 ### 8.8. 自动测试与验收清单
 
@@ -2554,9 +2554,9 @@ P1/P2中与本批直接合同冲突的web/Wealth等待、多步和旧身份正�
 独立复审重新核对：完整模型校验先于普通/debug分流；原生与公开Wave合法性相同；编号生成与复核字段/数值规范同源；缓存命中不重算/改号；with正常退出及最终check后才发布；所有错误路径保留旧缓存，取消/锁释放正确；错误处理不掩盖原因；前端不生成编号。本次复审另补齐编号尾随换行检查，未发现本修复范围内其他未处理阻碍。P3可重新交管理员review；P4环境/动态模块/真实来源/浏览器及P5清退仍未执行，不能视为产品可发布。
 
 
-## 21. P4整体编码设计、执行顺序与验收（待review，尚未开发）
+## 21. P4整体编码设计、执行顺序与验收
 
-本节把§11.4六步落实到编码及验收。产品§10和技术方案§15为范围依据；本节引用§1/§8/§9/§11.2的已定合同，不另设算法或配置。只有管理员批准实施后才执行；本轮仅文档，不读数据库/Lake、不启动App、Node核验或浏览器、不运行行情计算，不提交或部署。
+本节把§11.4六步落实到编码及验收。产品§10和技术方案§15为范围依据；本节引用§1/§8/§9/§11.2的已定合同，不另设算法或配置。管理员已批准实施第1—5步；实际进度和工程测试见§21.10，第5步正式来源仍待确认，第6步浏览器由管理员验收。不提交、不部署、不进入P5。
 
 ### 21.1 编码起点、硬边界及文件清单
 
@@ -2615,7 +2615,7 @@ IndexDetailPage在所有loading/error/empty早返回之前始终调用加载Hook
 
 识别工作区传现IndexRecognitionProps；forecast传现enabled/debug/decodeDebug；右栏经现renderDebugDetails链透传renderForecastDetails。预判active仍为recognitionEnabled && technical页签 && hasData；minutes仍取现本地分钟能力。卡片保持原四行、刷新60秒、历史不刷新、只重试选中行和页面scheduler优先级，不能把主图activePeriod当预判行筛选器。生产/其他标的关闭整项；本地上证主图切到m5/m15/m30等非识别周期时，仅停止该图识别，技术面四行仍按各自资格请求；debug模块仍可为这些合法预判行提供依据，不得按P4-10误关。
 
-模块加载状态放在左图区域，不塞右栏或裁剪的指标标签内：Page在有行情时使用始终存在的index-detail-chart-region容器包住原日/分钟工作区；normal/debug切换不换该容器或原工作区位置/key。容器min-width/min-height为0、position:relative、占原单一网格列。仅debug loading/error在其右下、底部指标栏上方显示index-debug-module-status（absolute，right:12px，bottom:42px，宽度受左图区限制，中文可换行）；文案“核验工具加载中”或“核验工具加载失败 · 重试”，按钮type=button、键盘可达。ready或无debug无此DOM，不占高度、不挤右栏；已有行情/识别错误提示仍各自显示。该状态只是原已定失败反馈，不增加调试开关。
+模块加载状态放在左图区域，不塞右栏或裁剪的指标标签内：Page在有行情时使用始终存在的index-detail-chart-region容器包住原日/分钟工作区；在普通行情已加载时保持容器和工作区的位置，不人为用debug给组件追加key；URL debug切换仍沿普通加载器进入loading并卸载图表，加载后重建，不为保留原图另存旧行情。容器min-width/min-height为0、position:relative、占原单一网格列。仅debug loading/error在其右下、底部指标栏上方显示index-debug-module-status（absolute，right:12px，bottom:42px，宽度受左图区限制，中文可换行）；文案“核验工具加载中”或“核验工具加载失败 · 重试”，按钮type=button、键盘可达。ready或无debug无此DOM，不占高度、不挤右栏；已有行情/识别错误提示仍各自显示。该状态只是原已定失败反馈，不增加调试开关。
 
 ### 21.4 第3步：复用辅助组件并完成图表交接
 
@@ -2628,7 +2628,7 @@ IndexDetailPage在所有loading/error/empty早返回之前始终调用加载Hook
 3. 日线控制器只复用现DailyWaveController/useDailyWaveReview/useDailyWaveCompanionLayers。未点按钮只有closed状态和按钮，daily-waves调用为0。点击后沿既有10秒链；empty不请求K线，失败不画三角，真实K线不匹配仅留已过合同的事实说明。
 4. ready研究图的K线/dataKey/九转/趋势/重试/primitive/44px留白整组使用chartOverride；关闭恢复普通整组。普通controller、右栏、forecast日期始终不被research覆盖；研究重试只用研究实际日期，普通重试仍用普通日期。
 5. 日/分钟识别详情使用模块renderXxmDetails；预判卡使用renderForecastDetails，均只消费已校验的debug对象，不再求价/选峰。分钟即使模块ready，也不挂日线波段控制器或三角，不发daily-waves。
-6. 保留四种三角、共享位置、说明列表、8×6px/原侧避让40px/最高240px列表等§8现合同。未开研究时debug进入/退出不重建普通图；开启/关闭研究允许现dataKey所需重建。primitive内容更新不得因避让反复重建图。
+6. 保留四种三角、共享位置、说明列表、8×6px/原侧避让40px/最高240px列表等§8现合同。URL debug切换允许现普通行情重请求及图表重建；已开的研究关闭且须重新手动开启；URL不变时模块phase/扩展更新不另行重刷；开启/关闭研究允许现dataKey所需重建。primitive内容更新不得因避让反复重建图。
 7. r4简要状态和真正加载错误始终普通可见；九转“无对应K线”的辅助对齐诊断按debug显示，但请求失败/超时不随之隐藏。不改股票或普通分钟九转默认。
 
 第2—3步不改公开字段、客户端返回类型、Hook签名或renderer合同；异常是缺陷应追到真实已有逻辑，不新增兼容字段。仅上述纯转换迁出及明确页面布局接线属于P3提取收尾；不得复制一份核对算法来“更方便挂载”。
@@ -2685,6 +2685,8 @@ mjs接收baseUrl及groupId、period、mode、asOf、samples、scenario这些父�
 
 记录只属于隔离工具，不加到产品API、页面DTO或正式日志。请求头复用已有X-Request-ID：mjs在各自realm的fetch包装中，为白名单业务请求构造groupId:scenario:round:tabId:sequence，组内唯一；保留原URL、其他header、认证及取消signal，不改产品client签名。服务端原样回传。缺失/重复/不属本组的编号只在隔离核验路由拒绝；私有context/reset/metrics不混进业务记录。
 
+mjs每个客户端realm仍只用原indexDetailRequests。该调度器保存work回调后统一执行，不能假定AsyncLocalStorage自动保留每个任务的归属；工具只在该realm的run入口捕获本次store，将传给原run的work包装为context.run(store, work)。原run恰调用一次，kind/signal/优先级/并发/执行体和返回Promise保持，不加第二次入队、不改产品调度器。真实客户端混合单/双tab必须证明识别、图数据、九转、预判各自编号不串。
+
 本文件私有纯ASGI观测中间件把已校验requestId写入ContextVar，finally reset；原requestId中间件仍保留。同步endpoint进入AnyIO线程时ContextVar会复制，记录器使用锁保护的dict[requestId]，不能用一个全局“最后请求”变量。此传播已按AnyIO官方threads文档核对；测试还须走实际ASGI→同步endpoint，不能仅直接调用包装函数证明关联。
 
 AuditRequestRecord字段固定如下，None不等于0，不从HTTP 200猜测已做计算：
@@ -2722,7 +2724,7 @@ LoadRecord以loadId为键，字段固定flightKeyDigest、period、startedMs、f
 
 - context：groupId、period、mode、requestedAsOf、businessDate、generatedAt、实际detector/forecast版本及hash。
 - reset：只在本组无活动请求时允许，清本组缓存/计数后返回groupId和ok；有活动请求必须拒绝，不清他人缓存。
-- metrics：groupId、requests（按requestId排序的上述记录）、loads（按loadId排序）、activeRequests、cacheBytes/cacheEntries、cleanupStatus。服务器不掌握httpSeconds/clientSeconds及普通数据接口的客户端解码统计，这些字段在metrics为None；mjs收到metrics后按requestId与本地已校验记录一一合并为最终摘要，不追加HTTP，不把缺记录猜成0。正常成功传输必须有httpSeconds，r4成功返回必须有clientSeconds，不能因服务端原为None就漏掉合并。此时App尚在运行，cleanupStatus固定pending；完成清理后result摘要才可改为cleaned，失败为failed，不能从activeRequests=0推断整个进程已清理。无完整响应、输入数组、SQL、源码路径、认证信息。
+- metrics：groupId、requests（按requestId排序的上述记录）、loads（按loadId排序）、activeRequests、cacheBytes/cacheEntries、cleanupStatus。只调用一次；正文已经送达但服务端依赖清理尚未结束时，该调用在原workDeadline内等待本组activeRequests/workers归零，再取记录，不额外轮询HTTP、不另开时限。服务器不掌握httpSeconds/clientSeconds及普通数据接口的客户端解码统计，这些字段在metrics为None；mjs收到metrics后按requestId与本地已校验记录一一合并为最终摘要，不追加HTTP，不把缺记录猜成0。正常成功传输必须有httpSeconds，r4成功返回必须有clientSeconds，不能因服务端原为None就漏掉合并。此时App尚在运行，cleanupStatus固定pending；完成清理后result摘要才可改为cleaned，失败为failed，不能从activeRequests=0推断整个进程已清理。无完整响应、输入数组、SQL、源码路径、认证信息。
 
 客户端按requestId一一配对，缺记录/重号/周期或模式不符即失败。normal/debug的r4对照只针对signals/forecast，且只有同endpoint、同period、同requestedAsOf、同computedThrough、同实际sourceInputId（forecast还须同calendarInputId）以及同可比窗口时比较publicDigest。指标版本也相同。不同模式不能用“最后一条记录”对齐；并发两个tab都必须保留。来源在未用到的未来区间改变而本次前缀ID相同，不误判本次结果变化；已用前缀改变则对照无效，原样报告，不强配或重跑。
 
@@ -2762,7 +2764,7 @@ AuditGroupSpec恰含groupId、tool、scenario、period、mode、requestedAsOf、
 
 父进程只经stdin发送一份有界JSON，恰为group及settingsIdentity；后者是父最终配置中app_env的值/显式性、分钟flag/root、database_url的规范摘要，仅作本地一致核对，不输出凭据或配置原文。子进程用原get_settings及现优先级取得自身配置，先验证摘要再创建App，不一致即失败；不通过stdin覆盖全局配置。输入限4096字节，无行情、缓存或恢复对象。父进程以非阻塞stdin写入并关闭，子进程读至EOF且限同样大小，写入过程也受原截止约束。
 
-stdout只传三种JSON行：started（groupId、pid、processGroupId）、result（groupId及有界摘要）、failed（groupId、阶段、错误类型/现错误码、cleanupStatus）。started恰一次且在终态消息前，必须pid=processGroupId=父进程创建的child.pid，因为start_new_session已在执行Python前建立本组；result/failed二选一且恰一次。导入或配置检查失败可能来不及发started，父进程仍按自己持有的child.pid清理并报告失败。收到result不表示成功；必须等正常清理、子进程退出0、通信正常结束及所有记录检查通过。子进程不传异常原文、完整HTTP/body/源行；Node stdout也不直接转印。Node保持在本组进程组，不另建session或后台脱离。
+stdout只传三种JSON行：started（groupId、pid、processGroupId）、result（groupId及有界摘要）、failed（groupId、stage、errorType、errorCode、cleanupStatus、summary）。failed的summary仅含已实际发生的请求/加载有界记录与计数，尚未取得的客户端耗时为None，不含正文或异常原文，不生成成功P95；初始化失败尚无App时为None。Node错误stderr仅含stage/errorType/sentRequests/requests，requests只保留同一fetch/execute已记录的requestId、httpSeconds/clientSeconds、terminal、httpStatus/bodyBytes、computedThrough/responseRows/windowStart/windowEnd；取消后未完成的请求标cancelled，已经失败的保留error。Python严格检查字段、编号、有限数值和数量，再按requestId与本组服务端事实合并；解码失败的HTTP200必须保留error，已知耗时不能在失败时丢失。类型/数量不合法则记工具通信失败，不透传原文。若Node已成功返回而最终预算检查失败，使用同一已返回摘要合并，不丢弃其客户端事实、不重新请求metrics。正常失败先按原期限清理，再取得本组记录；父进程验证失败摘要组号、数量不超过所选成功组上限、只含固定字段后才能输出，随后停止剩余组。通信破损或仍有进程时不得信任已收到的failed摘要，仍按清理失败退出。started恰一次且在终态消息前，必须pid=processGroupId=父进程创建的child.pid，因为start_new_session已在执行Python前建立本组；result/failed二选一且恰一次。导入或配置检查失败可能来不及发started，父进程仍按自己持有的child.pid清理并报告失败。收到result不表示成功；必须等正常清理、子进程退出0、通信正常结束及所有记录检查通过。子进程不传异常原文、完整HTTP/body/源行；Node stdout也不直接转印。Node保持在本组进程组，不另建session或后台脱离。
 
 父进程用selectors与非阻塞stdin/stdout/stderr，每次按剩余期限读取有限块，逐次检查总字节及50/58/59/60秒时间。stdout与stderr累计缓冲合计不得超过原BUDGET.max_response_bytes；半行、超大行、子进程不结束、管道出错都不能让读取阻塞或无限积累，不能用无界readline/recv或先join等退出再收满管道。完整行经字段/类型/组号校验后处理，EOF有未结束JSON即失败。stderr只累计受限字节数供失败定位，不在终端打印可能含连接信息的原文；不能仅有一般警告就篡改业务结论。超过大小限额立即走失败退出。父进程自己的输出只给已验证的数量/日期/字节/耗时及结论，不透传worker原文。全程无临时结果文件。
 
@@ -2774,7 +2776,7 @@ stdout只传三种JSON行：started（groupId、pid、processGroupId）、result
 2. 等本组活动HTTP和服务线程实际结束，关闭本次socket/会话，并释放子进程本次建立的数据库engine；不调用会吞掉错误的清理包装来伪造通过。只有确认activeRequests=0、服务线程/Node均结束，才逆序恢复观测包装、时钟引用、临时覆盖及原_CACHE；每项patch后立即登记清理，支持初始化中途失败。
 3. 业务线程未结束时禁止先恢复包装、清缓存或进入下一组。子进程记录失败阶段并继续在清理期限内等退出，不打印PASS。若到组开始+58秒仍未完成，父进程向由Popen创建且已知等于child.pid的本组进程组发送SIGTERM，不能拿worker消息中的任意pid当目标。到+59秒仍存活则对同组SIGKILL并回收直接子进程，最终不得超过+60秒继续工作。直接子进程退出后仍须检查本组是否有遗留成员（只检查已知进程组的存活）；Node残留也走同一终止期限，不能只看child.returncode为0就放行。只操作本次创建的进程/组，不按端口或名称杀现有服务。
 4. 被强制结束的子进程不要求继续运行Python finally去“恢复”自身已销毁的内存；父进程从未装这些包装，现有服务不受影响。不得把强制退出写成优雅清理成功；该组为失败，停止整个CLI剩余任务。
-5. 正常清理失败、残留进程、管道坏消息或收到摘要后子进程非零同样失败。若内核异常导致SIGKILL后仍不可回收，最多等到原60秒即记录清理失败并停止，不宣称无残留或重复杀其他进程，交管理员处理；不得静默留后台任务继续验收。
+5. 正常清理失败、残留进程、管道坏消息或收到成功摘要后子进程非零同样失败。收到合法failed表示业务已失败、子进程正在结束，不立即再发SIGINT；仍收完管道、等退出并检查本组残留，原50/58/59/60秒监督继续有效。failed后还有半行或坏消息仍是通信失败，不能被此前failed标记盖掉。进程查询或发信号返回权限错误不能当作“已无进程”；视为尚不能证明清理完成，仍受原期限约束并记录失败。若内核异常导致SIGKILL后仍不可回收，最多等到原60秒即记录清理失败并停止，不宣称无残留或重复杀其他进程，交管理员处理；不得静默留后台任务继续验收。
 
 Ctrl-C沿同一停止及回收过程；不恢复执行、不自动重试。下一次获准重跑是全新组及新缓存，不从磁盘恢复。人工故障测试须造真正不退出的服务线程/Node，证明父进程能结束整个本组；不能用空清理函数或仅mock join成功代替。
 
@@ -2817,7 +2819,7 @@ Ctrl-C沿同一停止及回收过程；不恢复执行、不自动重试。下�
 
 - 1600/1440/1280宽，45/180根可视，拖到301根之后；真实r4标记/同根显隐/悬停与同窗口API对应。
 - 日线及可用60/90/120分钟各自识别；主图切到5分钟等不支持识别周期时，该图无r4标签/识别请求，但技术面四行合法预判仍按原active及分钟能力工作。
-- 无debug无辅助下载/DOM；debug加载中/失败仍有普通功能；未开波段零daily-waves请求、无三角、不重建原图。
+- 无debug无辅助下载/DOM；debug加载中/失败仍有普通功能；未开波段零daily-waves请求、无三角；URL debug切换允许重刷及图表重建，只有模块phase变化不得另行重刷。
 - 手动研究、关闭、切周期/标的/日期、离开和迟到：研究日期/图层/九转/趋势/重试整组恢复；右栏和forecast不倒退；说明面板240px和键盘行为保持。
 - 原行情、九转、趋势真错误仍可见；只有辅助对齐诊断受debug控制。
 - 生产构建普通/debug两URL均无r4 DOM/请求/辅助预载，原日线K线/九转/趋势正常。
@@ -2846,7 +2848,7 @@ P4四周期真实证据齐备而管理员页面尚未review，只能写“自动
 | P4-13 | owner A扩展→B后A晚null；退出debug | 旧扩展和清理不清B；渲染时owner与ready双检查，无旧研究图 | 现Page及IndexRecognitionDebug.test.tsx |
 | P4-14 | debug日线刚ready、分钟ready；未点击/手动点击/empty | 未点零daily-waves；分钟始终零日线研究；empty不取研究K线 | 现debug及daily-wave请求测试 |
 | P4-15 | 普通日期晚于研究，普通/研究各自重试，研究关闭 | 两组日期/九转/趋势/重试/primitive完整对应，右栏和forecast不倒退 | 页面/工作区/companion原测试 |
-| P4-16 | 无研究的debug进入退出；研究ready后关闭；同数据重发扩展 | 普通图实例不因debug重建；研究按dataKey切换，扩展稳定无渲染循环 | 工作区及debug组件测试 |
+| P4-16 | 无研究的debug进入退出；研究ready后关闭；同数据重发扩展 | URL debug变化重请求/加载/重建，旧请求取消且迟到不覆盖，右栏回基本行情、研究关闭不自动重算；URL不变仅模块phase/扩展变化不主动重刷，扩展无渲染循环；研究仍按dataKey切换 | 工作区及debug组件测试 |
 | P4-17 | 四三角/共享位置/开放尾段/空间不足、1001行、原股票/分钟 | 原画法/说明/1000截取及诊断不变，股票300/分钟500不变；真错误可见 | 原daily-wave/九转/工作区测试 |
 | P4-18 | 技术页签四行、图周期切换、单行retry、历史日期、visibility | 原四行和active策略不改；next目标各自周期；单行重试/历史无刷新/退出取消 | 现forecast及Page测试 |
 | P4-19 | 两CLI帮助/非法period/重复/缺period/samples非法、旧candidate/output | 在任何App/源调用前拒绝；合法单period参数正常；README同参数 | 新主题tests/test_xxm_p4_audit_tools.py |
@@ -2892,11 +2894,11 @@ P4四周期真实证据齐备而管理员页面尚未review，只能写“自动
 
 | 步骤 | 实际代码/测试 | 真实证据与未覆盖 |
 |---|---|---|
-| 1—4 | 开发后登记，不预填通过 | 当前未开发、无执行结果 |
+| 1—4 | 已完成代码、定向回归及独立代码审计，详见§21.10 | 人工HTTP、SQLite和受控故障只证明对应工程边界，不代替真实来源；完整Wealth有范围外失败 |
 | 5 day/m60/m90/m120 | 分周期登记source范围、完成/前缀/响应根数、字段/日期/bytes、冷热、读取/计算次数 | 当前均未执行；缺证据保留原因 |
 | 6 | 实际API驱动、build/本机静态页面及管理员review | 当前未执行，不能用Node代浏览器 |
 
-#### 本轮四项补齐及独立文档审计（2026-11-01）
+#### 开工前四项补齐及独立文档审计记录（2026-11-01）
 
 本轮依据e2844c6f7后的审计，只补工具取参/请求顺序、K线既有debug合同、缓存真实使用记录及计时指标；前六项环境/页面/分组/来源/清理修正继续保持。原开工判断由本次整体复核替代，不保留与当前设计不一致的执行指令。
 
@@ -2914,3 +2916,37 @@ P4四周期真实证据齐备而管理员页面尚未review，只能写“自动
 仓库文档完整性、三文件git diff --check及14处本地链接检查通过；P4-01—40编号连续无重复，新增四项均有独立正反例和代码落点。仅另核对文档中P95字面算例，不执行产品测试或实际采样。40项设计不代表40项测试已经执行；未修改代码、配置，未读行情、运行工具、提交或部署。
 
 结论：本轮四项补齐及与前六项的衔接已完成，当前审计范围内未发现仍未处理的方案/LLD冲突、需新增拍板的口径或缺失交接，具备进入P4开发的文档条件。本轮停在文档交付；真实四周期、性能、管理员页面review仍须实施后逐项验收，P5继续以P4验收通过为前置。
+
+本轮执行登记（2026-11-01）：管理员已授权按LLD§21顺序实施P4第1—5步；第1—4步代码及定向工程测试已完成，详见§21.10；第5步仍待来源确认，第6步由管理员执行。本轮不提交、不部署、不进入P5。
+
+P4继续实施口径（2026-11-01，管理员已确认）：保留现有debug切换引起的普通行情重请求，不修改useIndexDetailController，不从普通行情参数中删除debug。允许短暂加载、图表重建及缩放/拖动位置重置、右栏回到基本行情。旧研究控制器卸载时取消请求、清定时器和内存；重新进入debug仅恢复手动入口，不自动重新计算波段。仅辅助模块加载成功/失败/手动重试或同数据扩展更新、不改变URL时，不额外触发普通行情加载。
+此调整只改变P4第2—3步及对应测试/第6步页面预期；第1步环境隔离、第4步工具封闭请求组、第5步各次HTTP/计算预算及正常/debug同源一致性均不放宽。工具不新增模拟URL切换或整页重刷轮次；同次请求仍不得重复读取、旧回包不得覆盖新状态。模块加载中/失败时，有行情且资格成立的r4请求使用普通0模式；整个页面正处于原加载状态时不为凑普通请求额外发送识别或预测。模块ready后才可发送1。
+第4步工具定向回归已完成；第5步真实来源配置尚待确认，不擅自连接当前远程日线库或开启分钟配置。已找到的.env.web.local虽已开启分钟能力，其日线仍指向远程库，不能当作另一个本地日线源。第6步由管理员执行，P5未推进；本轮不提交、不部署。
+
+### 21.10 P4开发及限定工程验证记录（2026-11-01）
+
+本节登记本次实际工作。第1—4步工程结果不能扩大为第5步真实来源或第6步页面验收通过。工作区其他既有修改保留，未提交、推送、部署、安装、重启服务或进入P5。
+
+| 约定/用例 | 实际实现及测试 | 结果与证据范围 |
+|---|---|---|
+| 第1步，P4-01—04/38 | src/app/api/v1/router.py的_xxm_local_environment_enabled/_include_local_xxm_routers；tests/web/test_wealth_index_detail_xxm_local_routes.py | 显式dev/local才注册四项能力；同一Settings解析分钟root、无重复注册。正式/api→/v1聚合生产404/OpenAPI无能力且零源调用；分钟关闭时真实日线query仍可用，原401/403和普通K线debug省略/0/1及非法/重复参数保持。SQLite是按真实ORM的人工来源，不是正式行情 |
+| 第2步，P4-05—11/16 | debug/useIndexDebugModule.ts及测试，Page/现client、Hook/decoder测试 | 仅资格成立时动态import，loading/error保持0，ready统一1；序号/卸载/StrictMode及重试防迟到。URL debug切换保留普通行情重请求、加载及图表重建，右栏回基本行情；同URL仅模块状态变化不另重刷。合同错不降级 |
+| 第3步，P4-12—18/31 | chart/indexChartPointAdapter.ts及字面测试、IndexDetailPage.tsx及测试、IndexRecognitionDebug.test.tsx、dependencyBoundary.test.ts | 纯转换唯一；研究owner匹配、普通日期独立；离开debug取消旧研究，重新打开仍须手动。主图m5/m90不改变合法四行预判资格。原四种三角、1000根及图表/九转回归继续执行；布局与浏览器网络留第6步 |
+| 第4步，P4-19—27/32—40 | 原xxm_page_request_audit.py/.mjs及xxm_forecast_display_audit.py，主题test_xxm_p4_audit_tools.py；daily_window_precheck.py及原测试 | CLI只四参数；真实TS client/decoder/adapter和原scheduler，用人工运输层验证四周期、两模式、单/双页与20次计数；实际ASGI→同步线程、SharedLoads、原缓存方法和分钟pair子线程验证编号/一次调用。无旧candidate/output/采集CLI，无业务结果写盘 |
+| 工具计时和失败退出，P4-22/24/27/33—35/39—40 | 同一主题工具测试、既有forecast API和SharedLoads测试 | 真实400ms起点观察保持原check；失败保留已知耗时、HTTP200解码错仍error、无成功P95。started/终态/EOF/超限/错编号反例；真实临时HTTP服务线程和Node卡住，由外层原50/58/59/60秒规则结束自己的进程组，测试加速监督时钟但不mock清理成功；部分初始化失败恢复已登记包装。权限错误不当作无残留 |
+| 第5步，P4-26/28/39真实部分 | 尚未运行正式来源工具 | day/m60/m90/m120均未验收；未取得正式输入范围、实际根数、bytes、冷热/P95成绩，不填人工数值冒充。现有.env.web.local分钟已配置但日线仍为远程152.136.106.251:5432，已请求管理员确认是否使用，或提供已有本地日线配置；未连接该库或擅自换源 |
+| 第6步，P4-29/30 | 由管理员更新既有服务并按§21.7检查 | 待管理员浏览器验收；生产build通过不等于静态页面网络已核验。未调用浏览器代验，未把临时端口当交付服务 |
+
+本次执行命令与结果：
+
+- `.venv/bin/python -m pytest scripts/research/index_market/tests/test_xxm_p4_audit_tools.py scripts/research/index_market/tests/test_xxm_daily_window_precheck.py -q --disable-warnings`：121通过。人工来源、真实TS客户端及受控本地HTTP/线程/进程；不读正式DB/Lake、不重跑历史对比。
+- `.venv/bin/python -m pytest tests/web/test_wealth_index_detail_xxm_local_routes.py tests/web/test_wealth_index_detail_xxm_api.py tests/web/test_wealth_index_detail_xxm_forecast_api.py tests/web/test_wealth_index_detail_api.py::test_kline_1000_limit_returns_latest_ordered_rows_preserves_overlap_and_default tests/web/test_wealth_index_detail_api.py::test_all_index_detail_request_errors_use_frozen_400_code tests/web/test_index_detail_minutes_api.py tests/web/test_wealth_index_minute_nine_turn_api.py -q --disable-warnings`：初轮133通过；新增K线debug合同节点后单独重跑test_wealth_index_detail_xxm_local_routes.py，14通过。真实API装配及人工ORM/分钟来源，不是正式来源时延成绩。
+- `npm --prefix wealth run test -- --reporter=dot`：185文件，1405通过、1失败；失败为trading-assistant/model/useRecords.test.ts:35。2026-11-01默认筛选的开始/结束均为11月1日，测试把开始改为结束仍是同一筛选，却要求清页码；该文件及模块不属本批且无本批改动。已单独复现，未改预期、未skip、未算全绿；P4页面及相关定向测试通过。
+- `npm --prefix wealth run typecheck`、`npm --prefix wealth run build`通过；生产构建未生成IndexRecognitionDebug独立块。真实生产静态页是否无DOM/请求仍由第6步验证。
+- `.venv/bin/python -m pytest tests/architecture/test_subsystem_dependency_matrix.py tests/architecture/test_platform_legacy_guardrails.py tests/architecture/test_operations_legacy_guardrails.py -q`：16通过；原test_xxm_shared_loads.py定向3通过。本次修复未改变业务层/来源模块，未重复扩跑。check_docs_integrity三项、限定改动git diff --check及四份文档146处本地文件链接检查通过；CodeGraph sync/status确认索引已更新。不运行旧研究整目录，不安装依赖。
+
+独立代码审计已沿Settings→正式注册→页面资格→模块ready/effectiveDebug→原client/deadline→普通/研究日期与owner→工具真实观察→退出逐项重查；CodeGraph codegraph_explore用于页面加载/预测/控制器、App路由及相关消费者，并直接读当前实现补足图谱未索引的测试。未改变识别/预测规则、源SQL、Reader、公开合同或普通行情controller。监督发现的退出竞争和失败记录遗漏在同一LLD约定下修复并补回归；未以删检查或改预算消除失败。
+
+结论：第1—4步代码及限定工程验证完成；第5步来源未确认、完整前端回归仍有范围外失败、第6步未执行，故P4整批尚未验收通过，不能进入P5。真实来源获准后继续本节既定工具和预算，不新增执行入口或自动重放。
+
+提交交接（2026-11-01）：管理员已授权提交本轮P4第1—4步代码、测试及配套文档。仅提交本轮明确内容，同文件中既有的其他未提交改动保留；不推送、部署或进入P5。第5步来源确认、第6步管理员页面验收及范围外前端测试失败的状态不因提交而改变。

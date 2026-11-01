@@ -44,7 +44,7 @@ from src.foundation.config.local_minute_capability import (
     resolve_local_minute_capability,
     resolve_stock_nine_turn_minute_capability,
 )
-from src.foundation.config.settings import get_settings
+from src.foundation.config.settings import Settings, get_settings
 from src.foundation.config.stock_daily_trend_channel_capability import (
     resolve_stock_daily_trend_channel_capability,
 )
@@ -63,13 +63,6 @@ router.include_router(biz_market.router)
 router.include_router(biz_realtime.router)
 router.include_router(wealth_market_context.router)
 router.include_router(wealth_market_index_detail.router)
-router.include_router(index_detail_daily_wave.build_router(
-    session_factory=daily_wave_session_factory, auth_dependency=require_quote_access,
-    error_factory=WebAppError,
-))
-router.include_router(index_detail_xxm.build_router(
-    db_dependency=get_db_session, auth_dependency=require_quote_access, error_factory=WebAppError,
-))
 router.include_router(wealth_market_index_detail_nine_turn.router)
 router.include_router(wealth_market_summary.router)
 router.include_router(wealth_market_major_indices.router)
@@ -94,22 +87,43 @@ router.include_router(wealth_market_news_communications.router)
 router.include_router(wealth_market_news_item.router)
 
 
-def _index_xxm_lake_root():
-    capability = resolve_index_minute_capability(get_settings())
-    if not capability.enabled or capability.lake_root is None:
-        raise WebAppError(status_code=503, code="SM_LOCAL_LAKE_NOT_CONFIGURED", message="本地指数分钟数据能力未启用。")
-    return capability.lake_root
+def _xxm_local_environment_enabled(settings: Settings) -> bool:
+    return (
+        "app_env" in settings.model_fields_set
+        and settings.app_env.strip().lower() in {"dev", "local"}
+    )
 
 
-def _forecast_lake_root():
-    capability = resolve_index_minute_capability(get_settings())
-    return capability.lake_root if capability.enabled else None
+def _include_local_xxm_routers(target_router: APIRouter, settings: Settings) -> None:
+    if not _xxm_local_environment_enabled(settings):
+        return
+    capability = resolve_index_minute_capability(settings)
+    root = capability.lake_root if capability.enabled else None
+
+    def lake_root():
+        return root
+
+    target_router.include_router(index_detail_daily_wave.build_router(
+        session_factory=daily_wave_session_factory, auth_dependency=require_quote_access,
+        error_factory=WebAppError,
+    ))
+    target_router.include_router(index_detail_xxm.build_router(
+        db_dependency=get_db_session, auth_dependency=require_quote_access, error_factory=WebAppError,
+    ))
+    target_router.include_router(index_detail_xxm_forecast.build_router(
+        db_dependency=get_db_session, auth_dependency=require_quote_access,
+        lake_dependency=lake_root, error_factory=WebAppError,
+    ))
+    if root is not None:
+        from src.biz.api.wealth.market import index_detail_minute_xxm
+
+        target_router.include_router(index_detail_minute_xxm.build_router(
+            db_dependency=get_db_session, auth_dependency=require_quote_access,
+            lake_dependency=lake_root, error_factory=WebAppError,
+        ))
 
 
-router.include_router(index_detail_xxm_forecast.build_router(
-    db_dependency=get_db_session, auth_dependency=require_quote_access,
-    lake_dependency=_forecast_lake_root, error_factory=WebAppError,
-))
+_include_local_xxm_routers(router, get_settings())
 
 
 def _include_local_minute_router(target_router: APIRouter) -> None:
@@ -131,15 +145,10 @@ def _include_local_minute_router(target_router: APIRouter) -> None:
     if index_capability.enabled:
         from src.biz.api.wealth.market import (
             index_detail_minutes,
-            index_detail_minute_xxm,
             index_turnover_insight,
         )
 
         target_router.include_router(index_detail_minutes.router)
-        target_router.include_router(index_detail_minute_xxm.build_router(
-            db_dependency=get_db_session, auth_dependency=require_quote_access,
-            lake_dependency=_index_xxm_lake_root, error_factory=WebAppError,
-        ))
         target_router.include_router(index_turnover_insight.router)
 
     index_nine_turn_capability = resolve_index_nine_turn_minute_capability(

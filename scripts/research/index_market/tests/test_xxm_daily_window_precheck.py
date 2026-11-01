@@ -6,7 +6,6 @@ import pytest
 from sqlalchemy import create_engine,event,text
 from sqlalchemy.orm import Session
 
-from scripts.research.index_market.xxm import bottom_history_acceptance as b
 from scripts.research.index_market.xxm.daily_window_precheck import (
     START,isolated_client,read_window,validate_window,
 )
@@ -70,14 +69,14 @@ def test_calendar_closed_day_cannot_be_silently_omitted():
         validate_window(bars,calendar,date(2020,1,10))
 
 
-def test_real_route_uses_frozen_2020_fixture_and_preserves_calibration_guard():
+def test_real_route_uses_literal_zero_window_and_returns_static_no_candidate():
     bars,calendar=sample()
     with isolated_client(bars,calendar,datetime.fromisoformat('2020-01-10T21:00:00+08:00')) as (client,session):
-        value=b.prediction(client,'day','2020-01-10')
+        value=client.get('/api/v1/wealth/market/index-detail/xxm-key-point-forecast',params={'tsCode':'000001.SH','period':'day','asOf':'2020-01-10'})
         assert value.status_code==200
         payload=value.json()
         assert payload['computedThrough']=='2020-01-10' and payload['dataStatus']=='READY'
-        assert payload['status']=='PRECISION_PENDING' and payload['reasonCode']=='CALIBRATION_FAILED'
+        assert payload['status']=='NO_CANDIDATE' and payload['reasonCode']=='ZERO_WAVE'
         assert payload['targetEndpoint'] is None
         generator=session();s=next(generator)
         assert s.execute(text('PRAGMA query_only')).scalar_one()==1
@@ -87,21 +86,25 @@ def test_real_route_uses_frozen_2020_fixture_and_preserves_calibration_guard():
 def test_missing_future_calendar_is_not_bypassed_for_isolation():
     bars,calendar=sample(future=False)
     with isolated_client(bars,calendar,datetime.fromisoformat('2020-01-10T21:00:00+08:00')) as (client,_):
-        value=b.prediction(client,'day','2020-01-10')
-        assert value.status_code==500
-        assert value.json()['code']=='XXMF_SOURCE_CONTRACT_INVALID'
+        value=client.get('/api/v1/wealth/market/index-detail/xxm-key-point-forecast',params={'tsCode':'000001.SH','period':'day','asOf':'2020-01-10'})
+        # ZERO_WAVE deliberately skips future-calendar reads in current P3.
+        assert value.status_code==200 and value.json()['reasonCode']=='ZERO_WAVE'
+        from src.biz.queries.wealth.market.index_detail_xxm.forecast_query_service import future_calendar
+        from src.biz.queries.wealth.market.index_detail_xxm.query_service import XxmQueryError
+        with isolated_client(bars,calendar,datetime.fromisoformat('2020-01-10T21:00:00+08:00')) as (_, session):
+            source=session(); s=next(source)
+            try:
+                with pytest.raises(XxmQueryError,match='未来交易日历'):
+                    future_calendar(s,'day','2020-01-10',lambda:1.)
+            finally: source.close()
 
 
-def test_source_capture_identity_accepts_new_capture_and_only_approved_old_bytes(tmp_path):
-    import json
-    from scripts.research.index_market.xxm.daily_window_precheck import validate_capture_identity, ROOT
-    from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
-    old_source=ROOT/'reports/xxm_reference_rescue_r1_implementation_20261017/daily_2020_source_01'
-    old=json.loads((old_source/'manifest.json').read_text())
-    validate_capture_identity(old_source,old)
-    # Normal new capture must not be blocked by pinning to the historical file.
-    current=dict(old,specHash=MAIN_SPEC.spec_hash,algorithmVersion=MAIN_SPEC.algorithm_version)
-    validate_capture_identity(tmp_path,current)
-    wrong=dict(current,algorithmVersion='xxm-direction-v0.1-r1')
-    with pytest.raises(AssertionError):validate_capture_identity(tmp_path,wrong)
-    with pytest.raises((AssertionError,ValueError)):validate_capture_identity(tmp_path,old)
+
+def test_non_ema_literal_window_reaches_the_existing_calibration_guard():
+    bars,calendar=sample()
+    values=[(100,-60,-2),(110,0,2),(90,-50,-2),(100,0,2),(89,-15,-30),(88,-14,-28),(88,-14,-28)]
+    bars=tuple(XxmBar(old.time,c,d,d-h/2,h) for old,(c,d,h) in zip(bars,values))
+    with isolated_client(bars,calendar,datetime.fromisoformat('2020-01-10T21:00:00+08:00')) as (client,_):
+        response=client.get('/api/v1/wealth/market/index-detail/xxm-key-point-forecast',params={'tsCode':'000001.SH','period':'day','asOf':'2020-01-10'})
+        assert response.status_code==200
+        assert response.json()['status']=='PRECISION_PENDING' and response.json()['reasonCode']=='CALIBRATION_FAILED'

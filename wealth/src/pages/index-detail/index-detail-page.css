@@ -255,3 +255,20 @@ body:has(.index-detail-app) {
   .index-detail-periods { gap: 3px; }
   .index-detail-chart-toolbar button { padding: 0 6px; }
 }
+.index-detail-chart-region {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+}
+.index-detail-chart-region > .detail-chart-workspace { flex: 1; }
+.index-debug-module-status {
+  position: absolute;
+  right: 12px;
+  bottom: 42px;
+  max-width: calc(100% - 24px);
+  overflow-wrap: anywhere;
+  z-index: 20;
+  color: var(--cs-color-text-secondary);
+  background: var(--cs-color-surface-panel);
+}

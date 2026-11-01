@@ -1,6 +1,8 @@
 import { useXxmForecast } from "../../features/index-detail/xxm-forecast/useXxmForecast";
 import { loadIndexNineTurnSeries } from "../../features/index-detail/api/indexNineTurnLoader";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useIndexDebugModule } from "../../features/index-detail/debug/useIndexDebugModule";
+import type { IndexRecognitionDebugExtension } from "../../features/index-detail/debug/types";
 
 import {
   buildIndexDetailPath,
@@ -67,10 +69,25 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
     supportsNineTurn: viewModel?.capabilities.supportsNineTurn ?? false,
     tsCode: normalizedTsCode,
   });
-  const { recognitionEnabled } = resolveIndexRecognitionAvailability({ development: import.meta.env.DEV, tsCode: normalizedTsCode, search });
+  const { recognitionEnabled, debugEnabled } = resolveIndexRecognitionAvailability({ development: import.meta.env.DEV, tsCode: normalizedTsCode, search });
+  const debugModule = useIndexDebugModule(debugEnabled);
+  const readyModule = debugEnabled && debugModule.phase === "ready" ? debugModule.module : null;
+  const effectiveDebug = readyModule ? 1 as const : 0 as const;
+  const ownerKey = `${normalizedTsCode}|${activePeriod}|${viewModel?.asOfTradeDate ?? ""}`;
+  const debugOwner = useRef<string | null>(null);
+  debugOwner.current = readyModule && hasData ? ownerKey : null;
+  const [debugExtension, setDebugExtension] = useState<IndexRecognitionDebugExtension | null>(null);
+  const onDebugChange = useCallback((owner: string, extension: IndexRecognitionDebugExtension | null) => {
+    if (debugOwner.current === owner) setDebugExtension(extension);
+  }, []);
+  useEffect(() => { if (!readyModule || !hasData) setDebugExtension(null); }, [readyModule, hasData]);
+  const extension = readyModule && debugExtension?.ownerKey === ownerKey ? debugExtension : undefined;
+  const DebugController = readyModule?.IndexRecognitionDebug;
+  const recognition = { recognitionEnabled, debug: effectiveDebug,
+    decodeXxmDebug: readyModule?.decodeXxmDebug, renderXxmDetails: readyModule?.renderXxmDetails };
   const forecast = useXxmForecast({
     active: recognitionEnabled && activeTab === "technical" && hasData,
-    enabled: recognitionEnabled, debug: 0,
+    enabled: recognitionEnabled, debug: effectiveDebug, decodeDebug: readyModule?.decodeForecastDebug,
     tsCode: normalizedTsCode,
     historicalDate: new URLSearchParams(search).has("tradeDate") ? viewModel?.asOfTradeDate ?? undefined : undefined,
     minutes: import.meta.env.DEV && (viewModel?.capabilities.supportsMinute ?? false),
@@ -203,9 +220,11 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
             variant="empty"
           />
         ) : (
-          activePeriod === "day" ? (
+          <div className="index-detail-chart-region">
+          {activePeriod === "day" ? (
             <IndexChartWorkspace
-              recognition={{ recognitionEnabled, debug: 0 }}
+              recognition={recognition}
+              debugExtension={extension}
               nineTurnLayer={nineTurnLayer}
               onNineTurnRetry={() => {
                 if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
@@ -217,7 +236,7 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
             />
           ) : (
             <IndexMinuteChartWorkspace
-              recognition={{ recognitionEnabled, debug: 0 }}
+              recognition={recognition}
               data={minute.data}
               errorMessage={minute.errorMessage}
               nineTurnLayer={nineTurnLayer}
@@ -227,10 +246,19 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
               onRetry={minute.retry}
               phase={minute.phase}
             />
-          )
+          )}
+          {DebugController ? <DebugController ownerKey={ownerKey} tsCode={normalizedTsCode}
+            activePeriod={activePeriod} ordinaryAsOfDate={viewModel.asOfTradeDate}
+            supportsNineTurn={viewModel.capabilities.supportsNineTurn}
+            supportsTrend={viewModel.capabilities.supportsTrendChannel} onChange={onDebugChange} /> : null}
+          {debugEnabled && (debugModule.phase === "loading" || debugModule.phase === "error") ?
+            <div className="index-debug-module-status" role="status">
+              {debugModule.phase === "loading" ? "核验工具加载中" : <>{debugModule.errorMessage} · <button type="button" onClick={debugModule.retry}>重试</button></>}
+            </div> : null}
+          </div>
         )}
         <IndexInfoRail
-          forecast={recognitionEnabled ? forecast : undefined}
+          forecast={recognitionEnabled ? { ...forecast, renderDebugDetails: readyModule?.renderForecastDetails } : undefined}
           activeTab={activeTab}
           onAction={showToast}
           onTabChange={setActiveTab}

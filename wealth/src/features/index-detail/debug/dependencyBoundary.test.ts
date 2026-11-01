@@ -15,10 +15,19 @@ it("ordinary entry files have no runtime imports of the research or debug implem
     const imports = [...source.matchAll(/import\s+[^;]*?\s+from\s+["'][^"']+["'];/g)].map(m => m[0]);
     for (const statement of imports) {
       if (statement.includes("/debug/") || statement.includes("/daily-wave/")) {
+        if (path === "pages/index-detail/IndexDetailPage.tsx" && statement ===
+          'import { useIndexDebugModule } from "../../features/index-detail/debug/useIndexDebugModule";') continue;
         expect(statement, path).toMatch(/^import\s+type\s/);
         expect(statement, path).toContain("/debug/types");
       }
     }
     expect(source, path).not.toMatch(/import\s*\([^)]*(daily-wave|\/debug\/)/);
   }
+  const loader = readFileSync(resolve(root, "features/index-detail/debug/useIndexDebugModule.ts"), "utf8");
+  const runtimeImports = [...loader.matchAll(/import\s+[^;]*?\s+from\s+["'][^"']+["'];/g)]
+    .map(m => m[0]).filter(statement => !/^import\s+type\s/.test(statement));
+  expect(runtimeImports).toHaveLength(1);
+  expect(runtimeImports[0]).toContain('from "react"');
+  expect([...loader.matchAll(/import\s*\(["']([^"']+)["']\)/g)].map(m => m[1]))
+    .toEqual(["./IndexRecognitionDebug"]);
 });
