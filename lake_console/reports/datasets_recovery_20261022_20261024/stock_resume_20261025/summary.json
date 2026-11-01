@@ -1,0 +1,44 @@
+{
+  "as_of": "2026-10-25T16:36:17.772258+08:00",
+  "date": "2026-10-22",
+  "commit": "2405c620a",
+  "commit_files": 4,
+  "pushed": false,
+  "deployed": false,
+  "restored_this_turn": 12,
+  "original_missing_count": 109,
+  "cumulative_restored_count": 81,
+  "remaining_count": 28,
+  "production_checks_passed_this_turn": 36,
+  "new_lake_files": 11,
+  "prod_turnover_committed_rows": 5,
+  "prod_turnover_all_14_fields_match": true,
+  "added_silver_partition_keys": [
+    "2026-10-22"
+  ],
+  "runs": [
+    {
+      "job": "stock_mins_raw_update_from_prod_job",
+      "run_id": "ea31d235-8eee-4962-a006-9f114e87d18e",
+      "status": "SUCCESS",
+      "elapsed_seconds": 91.58260917663574
+    },
+    {
+      "job": "stock_mins_silver_update_job",
+      "run_id": "b761abc1-e060-4184-b11f-7b09c6f350b8",
+      "status": "SUCCESS",
+      "elapsed_seconds": 16.083863973617554
+    },
+    {
+      "job": "gold_wealth_market_turnover_update_job",
+      "run_id": "02867f13-7a55-4fcf-9d1d-3bdfa8ed92d3",
+      "status": "SUCCESS",
+      "elapsed_seconds": 2.9304380416870117
+    }
+  ],
+  "neighbors_unchanged": true,
+  "global_audit_repeated": false,
+  "annual_content_reads_started": false,
+  "qfq_annual_read_approval": "pending",
+  "remaining_assets_file": "remaining-assets.json"
+}

@@ -1,12 +1,22 @@
 # 2026-10-28股票分钟链补齐与DG完整性审计
 
+## 报告附件清理（2026-11-01）
+
+管理员已明确要求删除无用过程材料。本目录由100个文件精简为4个，删除96个；只保留本文及下列最终审计/必要结果。过程附件、重复状态/配置、旧脚本、测试输出和逐文件清单已删除，不另打包保存。本文原章节及当时操作结论保留；已删除附件的链接转到本节，不能再据旧裸路径要求恢复文件或重新补数。此次没有读取行情或数据库、触发任务、更改sensor或删除正式Lake/staging记录。
+
+- [execution-summary.json](execution-summary.json)
+- [final-physical-audit.json](final-physical-audit.json)
+- [index-daily-nineturn/final.json](index-daily-nineturn/final.json)
+
+全部五个目录的范围与执行规则见[原LLD20.16](../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2016-五个恢复报告目录的精简2026-11-01)。
+
 28日股票分钟链已完成：五个原job依次成功，25个当日数据集、两次必要repair及81项原检查均通过。原五个sensor已恢复RUNNING，未清cursor。10:40的唯一一次全目录物理计数为157/159项有数据；管理员随后批准先补齐主要指数日线九转Gold及Prod两项，现已补齐并各核实11行。按原计数加这两项收尾证据，28日159项按日数据集均有数据，没有重跑全目录审计。23/26/27日THS历史缺口仍单独保留，不包含在28日结论中。
 
 方案与逐步操作依据为[原分钟链方案/LLD §17](../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#17-2026-10-28股票分钟链补齐方案和执行lld2026-10-29)。前序因子修正已于`876cc6a8`提交；本轮未修改业务代码，未重跑已完成的Raw/Silver，未执行额外性能测试或修改运行限制。
 
 ## 1. 批准范围与执行顺序
 
-管理员已批准本轮28日具体年度/历史范围，见[批准原文](history-approval.json)。正常各必要job一次，批准预算估读428GiB、写123GiB、额外空间128GiB，包含原检查、临时读写及收尾。预算和文件stat不是实测设备I/O；本轮没有为了测量I/O增加测试。失败停止、不自动重跑，本次五个业务job均成功，无业务重跑。
+管理员已批准本轮28日具体年度/历史范围，见[批准原文（附件已清理）](README.md#报告附件清理2026-11-01)。正常各必要job一次，批准预算估读428GiB、写123GiB、额外空间128GiB，包含原检查、临时读写及收尾。预算和文件stat不是实测设备I/O；本轮没有为了测量I/O增加测试。失败停止、不自动重跑，本次五个业务job均成功，无业务重跑。
 
 只通过原job及现成repair配置函数执行：QFQ日更 → 因子repair → MACD/KDJ日更及state → MACD/KDJ repair → 九转。完成全链后才恢复原五个sensor，最后执行一次物理计数。九转sensor原代码不等待MACD repair，本轮通过逐job等待和暂缓恢复开关保证先后顺序。
 
@@ -14,17 +24,17 @@
 
 | 步骤 | 原job / run | 结果 | 原检查 | 验收证据 |
 | --- | --- | --- | ---: | --- |
-| 七频前复权日更 | `stock_mins_qfq_daily_update_job` / `94384f7b` | SUCCESS，7物化 | 28 | [QFQ验收](batch9/daily-run-verified.json) |
-| 七频因子repair | `stock_mins_qfq_factor_repair_job` / `816a0d01` | SUCCESS，原guard ready | 7 | [因子repair验收](batch9/factor-run-verified.json) |
-| 七频MACD/KDJ及state | `gold_stk_mins_qfq_macd_kdj_daily_update_job` / `13e1b027` | SUCCESS，14物化 | 28 | [指标日更验收](batch10/daily-run-verified.json) |
-| 七频MACD/KDJ repair | `gold_stk_mins_qfq_macd_kdj_repair_job` / `44caf58c` | SUCCESS，完整gate ready | 14 | [指标repair验收](batch10/repair-run-verified.json) |
-| 四频九转 | `gold_stk_mins_qfq_nineturn_update_job` / `a9f7bedc` | SUCCESS，4物化 | 4 | [九转验收](batch11/final-verified.json) |
+| 七频前复权日更 | `stock_mins_qfq_daily_update_job` / `94384f7b` | SUCCESS，7物化 | 28 | [QFQ验收（附件已清理）](README.md#报告附件清理2026-11-01) |
+| 七频因子repair | `stock_mins_qfq_factor_repair_job` / `816a0d01` | SUCCESS，原guard ready | 7 | [因子repair验收（附件已清理）](README.md#报告附件清理2026-11-01) |
+| 七频MACD/KDJ及state | `gold_stk_mins_qfq_macd_kdj_daily_update_job` / `13e1b027` | SUCCESS，14物化 | 28 | [指标日更验收（附件已清理）](README.md#报告附件清理2026-11-01) |
+| 七频MACD/KDJ repair | `gold_stk_mins_qfq_macd_kdj_repair_job` / `44caf58c` | SUCCESS，完整gate ready | 14 | [指标repair验收（附件已清理）](README.md#报告附件清理2026-11-01) |
+| 四频九转 | `gold_stk_mins_qfq_nineturn_update_job` / `a9f7bedc` | SUCCESS，4物化 | 4 | [九转验收（附件已清理）](README.md#报告附件清理2026-11-01) |
 
 合计25个当日资产：前复权7项、MACD/KDJ指标7项、state7项、九转4项；repair的21条完成检查不作为新增数据集。各阶段核对本次真实run、28日物化、检查通过且绑定正确；repair另核实际范围、批次、名单hash及原guard。逐频复用原publication回执和正式目标stat，不追加价格正文或数据摘要遍历。[汇总及25项物理计数](execution-summary.json)。
 
 因子repair实际名单由原job自动生成：16股，2014-01-02至2026-10-28、3,115个交易日、七频；批次`qfq_factor_repair:2026-10-28:3afb0b0b08f6`。指标repair使用原decision/config函数承接同批名单及28日daily readiness，没有手工干预名单。MACD repair完成723份指标年度文件及21,805份共享state的原写入与验收；共享state合并保留其他股票，不把这次操作说成全市场指标重算，也没有额外全量明细比对。
 
-九转先核实际16股四频共64组27日末根计数，全部匹配，差异0；实际候选及seed所需2014—2026文件按路径去重468份、17,922,588B，包含2025/2026，处于批准1GiB范围内。没有重写27日seed或重跑27日。28日四频九转合94,690行、241,902B。[候选范围](batch11/candidate-scope.json)、[seed核对](batch11/prior-seed-verified.json)。
+九转先核实际16股四频共64组27日末根计数，全部匹配，差异0；实际候选及seed所需2014—2026文件按路径去重468份、17,922,588B，包含2025/2026，处于批准1GiB范围内。没有重写27日seed或重跑27日。28日四频九转合94,690行、241,902B。[候选范围（附件已清理）](README.md#报告附件清理2026-11-01)、[seed核对（附件已清理）](README.md#报告附件清理2026-11-01)。
 
 ## 3. 最后一次28日物理计数
 
@@ -57,9 +67,9 @@
 - `gold_stk_mins_qfq_macd_kdj_repair_job_sensor`
 - `gold_stk_mins_qfq_nineturn_update_job_sensor`
 
-未清cursor、未改并发、调度参数或其他开关，没有重启daemon。恢复请求及只读确认见[sensor记录](sensor-restoration.json)。恢复后原sensor可继续正常调度，不以本轮之外的指数缺口继续关闭股票分钟链。
+未清cursor、未改并发、调度参数或其他开关，没有重启daemon。恢复请求及只读确认见[sensor记录（附件已清理）](README.md#报告附件清理2026-11-01)。恢复后原sensor可继续正常调度，不以本轮之外的指数缺口继续关闭股票分钟链。
 
-DuckDB共享工作目录在MACD前为空，五步结束后再次只做目录/stat检查仍为空，无需删除共享工作文件：[前置](batch10/duckdb-workfiles-before.json)、[结束](duckdb-workfiles-after.json)。本轮临时编排、验收和隔离夹具按§17.8逐字节归档后精确清理；正式Lake结果和staging中的publication、receipt及恢复记录保留。[清理记录](cleanup-manifest.json)。
+DuckDB共享工作目录在MACD前为空，五步结束后再次只做目录/stat检查仍为空，无需删除共享工作文件：[前置（附件已清理）](README.md#报告附件清理2026-11-01)、[结束（附件已清理）](README.md#报告附件清理2026-11-01)。本轮临时编排、验收和隔离夹具按§17.8逐字节归档后精确清理；正式Lake结果和staging中的publication、receipt及恢复记录保留。[清理记录（附件已清理）](README.md#报告附件清理2026-11-01)。
 
 ## 5. 证据与验收边界
 
@@ -67,9 +77,9 @@ DuckDB共享工作目录在MACD前为空，五步结束后再次只做目录/sta
 
 准备时纠正了观察入口额外要求旧check原生partition非空/因子每条check日期metadata齐全的错误假设，在业务启动前恢复原验收口径。现有部分旧check原生partition仍为空；本轮按真实物化的日期、run和storage id核准，有实际日期信息时不得冲突，没有补造检查事件，也不宣称已修复该存量事件字段问题。
 
-08:58完整年度metadata结果从原exec session追回并归档，没有重复扫描年度目录；后续只据真实publication差额更新预算。[年度基线](annual-baseline-current.json)、[追回的原证据](recovered-metadata-stat.json)、[必要历史来源stat](history-stat-consumer.json)、[运行预检](runtime-preflight.json)。
+08:58完整年度metadata结果从原exec session追回并归档，没有重复扫描年度目录；后续只据真实publication差额更新预算。[年度基线（附件已清理）](README.md#报告附件清理2026-11-01)、[追回的原证据（附件已清理）](README.md#报告附件清理2026-11-01)、[必要历史来源stat（附件已清理）](README.md#报告附件清理2026-11-01)、[运行预检（附件已清理）](README.md#报告附件清理2026-11-01)。
 
-最后的独立复核只查看当前代码和已有执行证据，不请求正式服务、不重跑job、不再读行情明细：[独立复核](execution-independent-review.md)。本轮方案、LLD及执行材料按管理员本次指令提交；其他工作区改动不纳入，不推送。
+最后的独立复核只查看当前代码和已有执行证据，不请求正式服务、不重跑job、不再读行情明细：[独立复核（附件已清理）](README.md#报告附件清理2026-11-01)。本轮方案、LLD及执行材料按管理员本次指令提交；其他工作区改动不纳入，不推送。
 
 ## 6. 后续授权：先补齐28日指数九转两项
 
@@ -88,8 +98,8 @@ DuckDB共享工作目录在MACD前为空，五步结束后再次只做目录/sta
 
 最终只核这两项：Gold文件11行、Prod同日11行，原检查全部通过；21份必要来源、27/29日Gold目标stat及Prod邻日计数不变。两sensor状态保持RUNNING，没有修改开关、cursor、资源、并发或业务代码。依据原10:40物理计数157项加本次恢复2项，28日按日审计范围为159/159项有数据、剩余缺失0；这是已有计数与本次两项收尾的合并结论，未重复全目录审计，也不代表所有字段质量都重新审计。
 
-23/26/27日THS Raw/Silver历史六分区仍缺，本次没有补这些日期。原10:40审计JSON以及分钟链完成记录保持原样，后续补齐事实分别保存：[执行前核验](index-daily-nineturn/preflight.json)、[Gold验收](index-daily-nineturn/gold-verified.json)、[自动Prod记录](index-daily-nineturn/prod-observation.json)、[Prod验收](index-daily-nineturn/prod-verified.json)、[两项最终收尾](index-daily-nineturn/final.json)。
+23/26/27日THS Raw/Silver历史六分区仍缺，本次没有补这些日期。原10:40审计JSON以及分钟链完成记录保持原样，后续补齐事实分别保存：[执行前核验（附件已清理）](README.md#报告附件清理2026-11-01)、[Gold验收（附件已清理）](README.md#报告附件清理2026-11-01)、[自动Prod记录（附件已清理）](README.md#报告附件清理2026-11-01)、[Prod验收（附件已清理）](README.md#报告附件清理2026-11-01)、[两项最终收尾](index-daily-nineturn/final.json)。
 
-本步只读观察入口、GraphQL和变量文件归档后精确删除本轮临时目录；正式Gold及staging保持。Prod变量只是预备材料，从未手工执行。[清理记录](index-daily-nineturn/cleanup.json)。原方案和LLD执行结果见§18.6；本步与分钟链材料一并提交，不推送。
+本步只读观察入口、GraphQL和变量文件归档后精确删除本轮临时目录；正式Gold及staging保持。Prod变量只是预备材料，从未手工执行。[清理记录（附件已清理）](README.md#报告附件清理2026-11-01)。原方案和LLD执行结果见§18.6；本步与分钟链材料一并提交，不推送。
 
-两项执行证据已完成[独立对账](index-daily-nineturn/independent-review.md)，未发现阻断；对账仅使用当前代码及已有材料，没有新增正式读取。
+两项执行证据已完成[独立对账（附件已清理）](README.md#报告附件清理2026-11-01)，未发现阻断；对账仅使用当前代码及已有材料，没有新增正式读取。

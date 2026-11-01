@@ -1,9 +1,0 @@
-{
-  "__typename": "ExecutionPlan",
-  "assetKeys": [],
-  "steps": [
-    {
-      "key": "stock_mins_qfq_factor_repair_op"
-    }
-  ]
-}

@@ -1,0 +1,107 @@
+{
+  "date_of_execution": "2026-10-30",
+  "approved_dates": [
+    "2026-10-23",
+    "2026-10-26",
+    "2026-10-27"
+  ],
+  "execution_method": "original Dagster jobs, Raw then Silver per date; CLI remote submission",
+  "submitted_steps": 5,
+  "passed_steps": 4,
+  "failed_step": {
+    "date": "2026-10-27",
+    "layer": "raw",
+    "run_id": "2cfc3cb5-e9f0-4a85-878c-86832182d120",
+    "status": "FAILURE",
+    "reason_code": "source_numeric_contract:[('20261027', '600109.SH', 'net_d5_amount', 'NaN'), ('20261027', '300396.SZ', 'net_d5_amount', 'NaN'), ('20261027', '688301.SH', 'buy_lg_amount_rate', 'NaN')]",
+    "retryable": false,
+    "displayed_field_error_samples": [
+      [
+        "20261027",
+        "600109.SH",
+        "net_d5_amount",
+        "NaN"
+      ],
+      [
+        "20261027",
+        "300396.SZ",
+        "net_d5_amount",
+        "NaN"
+      ],
+      [
+        "20261027",
+        "688301.SH",
+        "buy_lg_amount_rate",
+        "NaN"
+      ]
+    ],
+    "sample_limit_is_not_total_failure_count": true,
+    "start_time_shanghai": "2026-10-30T17:44:47.576294+08:00",
+    "end_time_shanghai": "2026-10-30T17:44:51.934313+08:00",
+    "materializations": 0,
+    "check_events": 0
+  },
+  "unsubmitted_steps": [
+    {
+      "date": "2026-10-27",
+      "layer": "silver"
+    }
+  ],
+  "successful_targets": [
+    {
+      "date": "2026-10-23",
+      "layer": "raw",
+      "submitted": true,
+      "run_id": "3a1a3f22-1f85-4aef-8e92-084d138ad659",
+      "verification": "passed",
+      "status": "SUCCESS",
+      "row_count": 5218,
+      "target_binding_verified": true,
+      "checks_passed": 1
+    },
+    {
+      "date": "2026-10-23",
+      "layer": "silver",
+      "submitted": true,
+      "run_id": "edc2eab7-e038-4d92-893c-05c666921be0",
+      "verification": "passed",
+      "status": "SUCCESS",
+      "row_count": 5218,
+      "target_binding_verified": true,
+      "checks_passed": 1
+    },
+    {
+      "date": "2026-10-26",
+      "layer": "raw",
+      "submitted": true,
+      "run_id": "d8bc85f3-523e-49f4-b853-2a2208564c3e",
+      "verification": "passed",
+      "status": "SUCCESS",
+      "row_count": 5218,
+      "target_binding_verified": true,
+      "checks_passed": 1
+    },
+    {
+      "date": "2026-10-26",
+      "layer": "silver",
+      "submitted": true,
+      "run_id": "0f505b49-306b-4245-aa1c-09b8e71ae92d",
+      "verification": "passed",
+      "status": "SUCCESS",
+      "row_count": 5218,
+      "target_binding_verified": true,
+      "checks_passed": 1
+    }
+  ],
+  "failed_date_formal_targets_written": 0,
+  "neighbor_28_29_stats_unchanged": true,
+  "production_code_changes": 0,
+  "sensor_switch_changes": 0,
+  "runless_events": 0,
+  "global_audits_repeated": 0,
+  "additional_source_queries_after_failure": 0,
+  "failed_job_automatic_or_manual_retries": 0,
+  "stopped_on_new_problem": true,
+  "business_staging_preserved": true,
+  "final_evidence": "final-state.json"
+}

@@ -1,0 +1,163 @@
+{
+  "as_of": "2026-10-30T17:47:46.289482+08:00",
+  "approved_dates": [
+    "2026-10-23",
+    "2026-10-26",
+    "2026-10-27"
+  ],
+  "submitted_steps": 5,
+  "passed_steps": 4,
+  "all_six_passed": false,
+  "steps": [
+    {
+      "date": "2026-10-23",
+      "layer": "raw",
+      "submitted": true,
+      "run_id": "3a1a3f22-1f85-4aef-8e92-084d138ad659",
+      "verification": "passed",
+      "status": "SUCCESS",
+      "row_count": 5218,
+      "target_binding_verified": true,
+      "checks_passed": 1
+    },
+    {
+      "date": "2026-10-23",
+      "layer": "silver",
+      "submitted": true,
+      "run_id": "edc2eab7-e038-4d92-893c-05c666921be0",
+      "verification": "passed",
+      "status": "SUCCESS",
+      "row_count": 5218,
+      "target_binding_verified": true,
+      "checks_passed": 1
+    },
+    {
+      "date": "2026-10-26",
+      "layer": "raw",
+      "submitted": true,
+      "run_id": "d8bc85f3-523e-49f4-b853-2a2208564c3e",
+      "verification": "passed",
+      "status": "SUCCESS",
+      "row_count": 5218,
+      "target_binding_verified": true,
+      "checks_passed": 1
+    },
+    {
+      "date": "2026-10-26",
+      "layer": "silver",
+      "submitted": true,
+      "run_id": "0f505b49-306b-4245-aa1c-09b8e71ae92d",
+      "verification": "passed",
+      "status": "SUCCESS",
+      "row_count": 5218,
+      "target_binding_verified": true,
+      "checks_passed": 1
+    },
+    {
+      "date": "2026-10-27",
+      "layer": "raw",
+      "submitted": true,
+      "run_id": "2cfc3cb5-e9f0-4a85-878c-86832182d120",
+      "verification": "failed",
+      "status": "FAILURE",
+      "row_count": null,
+      "target_binding_verified": null,
+      "checks_passed": null
+    },
+    {
+      "date": "2026-10-27",
+      "layer": "silver",
+      "submitted": false
+    }
+  ],
+  "native_run_states": {
+    "0f505b49-306b-4245-aa1c-09b8e71ae92d": {
+      "job": "silver_moneyflow_ths_update_job",
+      "status": "SUCCESS"
+    },
+    "2cfc3cb5-e9f0-4a85-878c-86832182d120": {
+      "job": "raw_tushare_moneyflow_ths_update_job",
+      "status": "FAILURE"
+    },
+    "3a1a3f22-1f85-4aef-8e92-084d138ad659": {
+      "job": "raw_tushare_moneyflow_ths_update_job",
+      "status": "SUCCESS"
+    },
+    "d8bc85f3-523e-49f4-b853-2a2208564c3e": {
+      "job": "raw_tushare_moneyflow_ths_update_job",
+      "status": "SUCCESS"
+    },
+    "edc2eab7-e038-4d92-893c-05c666921be0": {
+      "job": "silver_moneyflow_ths_update_job",
+      "status": "SUCCESS"
+    }
+  },
+  "native_event_counts": {
+    "3a1a3f22-1f85-4aef-8e92-084d138ad659": {
+      "ASSET_CHECK_EVALUATION": 1,
+      "ASSET_MATERIALIZATION": 1
+    },
+    "edc2eab7-e038-4d92-893c-05c666921be0": {
+      "ASSET_CHECK_EVALUATION": 1,
+      "ASSET_MATERIALIZATION": 1
+    },
+    "d8bc85f3-523e-49f4-b853-2a2208564c3e": {
+      "ASSET_CHECK_EVALUATION": 1,
+      "ASSET_MATERIALIZATION": 1
+    },
+    "0f505b49-306b-4245-aa1c-09b8e71ae92d": {
+      "ASSET_CHECK_EVALUATION": 1,
+      "ASSET_MATERIALIZATION": 1
+    },
+    "2cfc3cb5-e9f0-4a85-878c-86832182d120": {}
+  },
+  "target_files": [
+    {
+      "date": "2026-10-23",
+      "layer": "raw",
+      "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ths/trade_date=2026-10-23/part-000.parquet",
+      "exists": true,
+      "bytes": 332489
+    },
+    {
+      "date": "2026-10-23",
+      "layer": "silver",
+      "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ths/trade_date=2026-10-23/part-000.parquet",
+      "exists": true,
+      "bytes": 332465
+    },
+    {
+      "date": "2026-10-26",
+      "layer": "raw",
+      "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ths/trade_date=2026-10-26/part-000.parquet",
+      "exists": true,
+      "bytes": 335938
+    },
+    {
+      "date": "2026-10-26",
+      "layer": "silver",
+      "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ths/trade_date=2026-10-26/part-000.parquet",
+      "exists": true,
+      "bytes": 335914
+    },
+    {
+      "date": "2026-10-27",
+      "layer": "raw",
+      "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ths/trade_date=2026-10-27/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    },
+    {
+      "date": "2026-10-27",
+      "layer": "silver",
+      "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ths/trade_date=2026-10-27/part-000.parquet",
+      "exists": false,
+      "bytes": null
+    }
+  ],
+  "neighbor_stats_unchanged": true,
+  "global_audits_repeated": 0,
+  "extra_parquet_detail_or_sha_reads": 0,
+  "manual_data_writes": 0,
+  "production_code_changes": 0
+}

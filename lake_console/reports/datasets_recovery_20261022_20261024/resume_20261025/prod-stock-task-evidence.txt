@@ -1,0 +1,8 @@
+BEGIN
+SET
+  id   |   task_type    | resource_key |  action  | status  |           ended_at            | unit_total | unit_done | unit_failed | progress_percent | rows_fetched | rows_saved | rows_rejected |                             time_input_json                             |                     filters_json
+-------+----------------+--------------+----------+---------+-------------------------------+------------+-----------+-------------+------------------+--------------+------------+---------------+-------------------------------------------------------------------------+-------------------------------------------------------
+ 16729 | dataset_action | stk_mins     | maintain | success | 2026-10-25 01:16:41.811462+08 |      29605 |     29605 |           0 |              100 |      3594514 |    3594514 |             0 | {"mode": "range", "start_date": "2026-10-22", "end_date": "2026-10-23"} | {"freq": ["1min", "5min", "15min", "30min", "60min"]}
+(1 row)
+
+ROLLBACK

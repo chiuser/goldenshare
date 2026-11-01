@@ -1,8 +1,0 @@
-{
-  "literal_cases_passed": 3,
-  "excluded_open_boundaries": true,
-  "excluded_other_event_types": true,
-  "native_ids_validated_on_first_use": true,
-  "production_guard_changed": false,
-  "jobs_reexecuted": 0
-}

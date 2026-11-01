@@ -1,0 +1,24 @@
+{
+  "observed_at_utc": "2026-10-27T04:21:11.200486+00:00",
+  "operation": "restore_only_two_sensors_previously_stopped_for_backfill",
+  "sensors": [
+    {
+      "name": "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
+      "before": "STOPPED",
+      "after": "RUNNING",
+      "identity_preserved": true,
+      "cursor_and_last_run_key_preserved_by_start_response": true
+    },
+    {
+      "name": "gold_stk_mins_qfq_nineturn_update_job_sensor",
+      "before": "STOPPED",
+      "after": "RUNNING",
+      "identity_preserved": true,
+      "cursor_and_last_run_key_preserved_by_start_response": true
+    }
+  ],
+  "manual_job_launches": 0,
+  "cursor_resets": 0,
+  "other_switch_changes": 0,
+  "note": "daemon may normally advance cursor after enabling; no old cursor was written back"
+}

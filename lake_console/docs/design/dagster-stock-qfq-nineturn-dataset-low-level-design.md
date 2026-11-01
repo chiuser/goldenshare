@@ -1,5 +1,7 @@
 # 股票前复权九转资产族低层设计
 
+> 2026-11-01附件精简：本页所引恢复过程附件已按管理员指令删除，相关链接转到对应README的清理说明；原数量、操作和历史结论保留，旧裸路径不表示文件仍存在。
+
 状态更新（2026-10-26）：分钟写入修正已开发，189项定向测试通过；具体范围经两次确认后，22日四项由原job一次成功补齐，四条原检查及发布/文件对账通过，详见22.12。21/23日与来源身份保持，两sensor仍停用；23日全部补齐后再启用的TODO保留。
 
 历史结果：P0至P7R和分钟去价格S0至S5在2026-08-15均已完成，12,272个分钟分区切为八列，并完成当时event、check、Reader/readiness和sensor恢复。2026-08-14旧九列重建只保留为历史，不代表现行合同；日线后续独立修正的六列合同以当前代码为准，本轮不修改日线。
@@ -1315,7 +1317,7 @@ write_gold_stk_mins_qfq_nineturn_partition(
 
 ### 22.6 正常、前检、续跑及收尾开销
 
-已有证据来自[MACD预检](../../reports/datasets_recovery_20261022_20261024/macd_recovery_20261025/preflight.json)、[最终来源身份核验](../../reports/datasets_recovery_20261022_20261024/macd_recovery_20261025/final-control-status.json)及[QFQ完成汇总](../../reports/datasets_recovery_20261022_20261024/qfq_recovery_20261025/summary.json)，本轮未新扫正式文件。
+已有证据来自[MACD预检（附件已清理）](../../reports/datasets_recovery_20261022_20261024/README.md#报告附件清理2026-11-01)、[最终来源身份核验（附件已清理）](../../reports/datasets_recovery_20261022_20261024/README.md#报告附件清理2026-11-01)及[QFQ完成汇总](../../reports/datasets_recovery_20261022_20261024/qfq_recovery_20261025/summary.json)，本轮未新扫正式文件。
 
 四频两年44,224文件大小记为R=1,654,696,422B（1.541056GiB）；其中2026年Y=753,265,659B（0.701533GiB）。22日总输出94,690行。P=21日四份九转大小；Hc=实际候选代码所有年份的历史文件大小（含与R重合的路径）；Hf=最终fallback计算文件大小，Hf≤Hc；C=四份新候选大小；M=输入说明及小记录大小；B/W分别为DuckDB临时工作文件实际读/写量。这些符号仅用于预算，不是代码配置或新字段。
 
@@ -1376,7 +1378,7 @@ write_gold_stk_mins_qfq_nineturn_partition(
 
 ### 22.9 代码落地及隔离验证结果（2026-10-26）
 
-以下为开发验收阶段记录：代码已按22.3至22.7完成，当时未提交；后续22.10已登记正式提交，未推送。新增/修改五个源文件和四个测试文件；`paths.py`已有其他任务的修改，本轮只删除旧分钟staging函数，未混入或回退其余改动。完整代码SHA、测试分组、首次失败与重跑、清理边界见[验证汇总](../../reports/datasets_recovery_20261022_20261024/nineturn_write_fix_20261026/summary.json)。
+以下为开发验收阶段记录：代码已按22.3至22.7完成，当时未提交；后续22.10已登记正式提交，未推送。新增/修改五个源文件和四个测试文件；`paths.py`已有其他任务的修改，本轮只删除旧分钟staging函数，未混入或回退其余改动。完整代码SHA、测试分组、首次失败与重跑、清理边界见[验证汇总（附件已清理）](../../reports/datasets_recovery_20261022_20261024/README.md#报告附件清理2026-11-01)。
 
 | 约束 | 实际落点 | 验证结果 |
 | --- | --- | --- |
@@ -1450,4 +1452,4 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
 
 本次DuckDB直接工作文件无遗留；共享工作目录中的`index_daily_p3`子目录保留，不误删其他任务目录。一次收尾脚本最初把共享父目录也要求全空，发现该目录后修正为本任务工作文件范围，未因此重跑job/check或重读数据正文。9个本任务临时脚本/日志归档为报告文本后已从/private/tmp移除；正式/staging删除0，全部输入说明、operation/receipt留存。
 
-按原109项缺失清单，现累计109/109、剩0；原136项检查目标已销账为136/136。没有重新做全局数据集审计，此结论不扩展到新增数据集或23日。证据：[汇总](../../reports/datasets_recovery_20261022_20261024/nineturn_recovery_20261026/summary.json)、[本run精确验收](../../reports/datasets_recovery_20261022_20261024/nineturn_recovery_20261026/final-verified.json)、[附加来源stat](../../reports/datasets_recovery_20261022_20261024/nineturn_recovery_20261026/final-source-stats.json)、[最终控制状态](../../reports/datasets_recovery_20261022_20261024/nineturn_recovery_20261026/controls-final.json)。
+按原109项缺失清单，现累计109/109、剩0；原136项检查目标已销账为136/136。没有重新做全局数据集审计，此结论不扩展到新增数据集或23日。证据：[汇总](../../reports/datasets_recovery_20261022_20261024/nineturn_recovery_20261026/summary.json)、[本run精确验收（附件已清理）](../../reports/datasets_recovery_20261022_20261024/README.md#报告附件清理2026-11-01)、[附加来源stat（附件已清理）](../../reports/datasets_recovery_20261022_20261024/README.md#报告附件清理2026-11-01)、[最终控制状态（附件已清理）](../../reports/datasets_recovery_20261022_20261024/README.md#报告附件清理2026-11-01)。

@@ -1,0 +1,14 @@
+{
+  "run_id": "2cfc3cb5-e9f0-4a85-878c-86832182d120",
+  "day": "2026-10-27",
+  "layer": "raw",
+  "observed_at_utc": "2026-10-30T09:47:16.565967+00:00",
+  "status": "FAILURE",
+  "start_time": 1793353487.576294,
+  "end_time": 1793353491.934313,
+  "verification": "failed",
+  "failure_metadata": {
+    "goldenshare/reason_code": "source_numeric_contract:[('20261027', '600109.SH', 'net_d5_amount', 'NaN'), ('20261027', '300396.SZ', 'net_d5_amount', 'NaN'), ('20261027', '688301.SH', 'buy_lg_amount_rate', 'NaN')]",
+    "goldenshare/retryable": false
+  }
+}

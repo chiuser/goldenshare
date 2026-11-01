@@ -1,0 +1,2688 @@
+{
+  "as_of": "2026-10-24T12:00:52.341000+08:00",
+  "target_date": "2026-10-21",
+  "new_files": 40,
+  "reused_files": 1,
+  "missing": 0,
+  "successful_jobs": 7,
+  "materializations": 41,
+  "check_executions": 97,
+  "unique_check_targets": 97,
+  "existing_1m_unchanged": true,
+  "adjacent_files_unchanged": true,
+  "elapsed_seconds": 0.726,
+  "files": [
+    {
+      "asset": "raw_major_index_mins_1m",
+      "path": "/Volumes/datasource/data_lake/raw/tushare/major_index_mins/freq=1min/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 108492,
+      "mtime_ns": 1792574088533957162,
+      "row_count": 2410,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "VARCHAR"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "f4f5a768190ddfe0f1d50df4a5c9f594c2bfcd3cc23ede678d31f5d01f9d8c03",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "raw_major_index_mins_5m",
+      "path": "/Volumes/datasource/data_lake/raw/tushare/major_index_mins/freq=5min/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 27051,
+      "mtime_ns": 1792814115551608284,
+      "row_count": 490,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "VARCHAR"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "d1600d283b4cc5c17897b290f71e27bf466717d91b4d04a7403f5203ba741b13",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "raw_major_index_mins_15m",
+      "path": "/Volumes/datasource/data_lake/raw/tushare/major_index_mins/freq=15min/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 11180,
+      "mtime_ns": 1792814111455265594,
+      "row_count": 170,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "VARCHAR"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "fbf95ee23efd6391c71a70e0179e4b1820b07a9e4049d4ca6dbcb5b0a3bf4a33",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "raw_major_index_mins_30m",
+      "path": "/Volumes/datasource/data_lake/raw/tushare/major_index_mins/freq=30min/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 6847,
+      "mtime_ns": 1792814113826822605,
+      "row_count": 90,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "VARCHAR"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "7416a7b1be58b781bd6259871ba5ea2892bf10d61f6b573a2bc987c9e0900bd3",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "raw_major_index_mins_60m",
+      "path": "/Volumes/datasource/data_lake/raw/tushare/major_index_mins/freq=60min/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 4634,
+      "mtime_ns": 1792814118027531356,
+      "row_count": 50,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "VARCHAR"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "148234bd2eca6e6cf01e3d6ec962c55b152b855f2639ccde151bffc20769ae62",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "silver_major_index_mins_1m",
+      "path": "/Volumes/datasource/data_lake/silver/quote/major_index_mins/freq=1min/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 108492,
+      "mtime_ns": 1792814147139368353,
+      "row_count": 2410,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "VARCHAR"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "f4f5a768190ddfe0f1d50df4a5c9f594c2bfcd3cc23ede678d31f5d01f9d8c03",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "silver_major_index_mins_5m",
+      "path": "/Volumes/datasource/data_lake/silver/quote/major_index_mins/freq=5min/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 27051,
+      "mtime_ns": 1792814147873559583,
+      "row_count": 490,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "VARCHAR"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "d1600d283b4cc5c17897b290f71e27bf466717d91b4d04a7403f5203ba741b13",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "silver_major_index_mins_15m",
+      "path": "/Volumes/datasource/data_lake/silver/quote/major_index_mins/freq=15min/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 11180,
+      "mtime_ns": 1792814146119475616,
+      "row_count": 170,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "VARCHAR"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "fbf95ee23efd6391c71a70e0179e4b1820b07a9e4049d4ca6dbcb5b0a3bf4a33",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "silver_major_index_mins_30m",
+      "path": "/Volumes/datasource/data_lake/silver/quote/major_index_mins/freq=30min/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 6847,
+      "mtime_ns": 1792814147436340384,
+      "row_count": 90,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "VARCHAR"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "7416a7b1be58b781bd6259871ba5ea2892bf10d61f6b573a2bc987c9e0900bd3",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "silver_major_index_mins_60m",
+      "path": "/Volumes/datasource/data_lake/silver/quote/major_index_mins/freq=60min/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 4634,
+      "mtime_ns": 1792814148153784706,
+      "row_count": 50,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "VARCHAR"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "148234bd2eca6e6cf01e3d6ec962c55b152b855f2639ccde151bffc20769ae62",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "silver_major_index_mins_90m",
+      "path": "/Volumes/datasource/data_lake/silver/quote/major_index_mins/freq=90min/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 3149,
+      "mtime_ns": 1792814149737294699,
+      "row_count": 30,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "VARCHAR"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "6e0142ea61d847eb67fa53d329428a9ae138c093fab92aa1ef02f5eb760ed42a",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "silver_major_index_mins_120m",
+      "path": "/Volumes/datasource/data_lake/silver/quote/major_index_mins/freq=120min/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 2690,
+      "mtime_ns": 1792814150065650012,
+      "row_count": 20,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "VARCHAR"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "8aff22d921f9d09ae2d2fa114182fe04721604dcd26442e1b47e3ad8c7d4473b",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_1m",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=1/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 108683,
+      "mtime_ns": 1792814178362886167,
+      "row_count": 2410,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "INTEGER"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "0a1885b887e58f65f25ea6b7659a6774bbfa84fe40b989aac6144caa4e0b204f",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_5m",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=5/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 23093,
+      "mtime_ns": 1792814178816122679,
+      "row_count": 480,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "INTEGER"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "2c58c6e81e633cbdbc152463558e37ecbdc3b00b690e1a3caeb9577f3b118aa3",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_15m",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=15/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 9535,
+      "mtime_ns": 1792814178133745202,
+      "row_count": 160,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "INTEGER"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "e3d9df4bdf3bc8cb2de29f4dde98796a4b263d8d0c266f6e01d62f7a359eaa41",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_30m",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=30/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 5800,
+      "mtime_ns": 1792814178585567023,
+      "row_count": 80,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "INTEGER"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "9e861e8c08848e15810d53d1d0165c79396d18e7fcd1e84e4d45c0b4cc27169e",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_60m",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=60/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 3801,
+      "mtime_ns": 1792814179036263492,
+      "row_count": 40,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "INTEGER"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "632b85c2be8de46b57c528e1d19c5582af9fdf2344d35f34d1353a5e79c2932b",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_90m",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=90/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 3330,
+      "mtime_ns": 1792814179256315970,
+      "row_count": 30,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "INTEGER"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "9c16e48fdc907826ae55eebe1908fe8c45fd3c8df353f6bde01d4b1785071f47",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_120m",
+      "path": "/Volumes/datasource/data_lake/gold/quote/major_index_mins/freq=120/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 2866,
+      "mtime_ns": 1792814177897082901,
+      "row_count": 20,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "INTEGER"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "open",
+          "DOUBLE"
+        ],
+        [
+          "high",
+          "DOUBLE"
+        ],
+        [
+          "low",
+          "DOUBLE"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "vol",
+          "DOUBLE"
+        ],
+        [
+          "amount",
+          "DOUBLE"
+        ],
+        [
+          "exchange",
+          "VARCHAR"
+        ],
+        [
+          "vwap",
+          "DOUBLE"
+        ]
+      ],
+      "sha256": "bd1dfcab3ac75588fccbb31172e6a4a3ad47301374f7c6421e9eb25c97c5397a",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_nineturn_120m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_nineturn/freq=120/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 1860,
+      "mtime_ns": 1792814217597358867,
+      "row_count": 20,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "INTEGER"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "up_count",
+          "INTEGER"
+        ],
+        [
+          "down_count",
+          "INTEGER"
+        ],
+        [
+          "nine_up_turn",
+          "VARCHAR"
+        ],
+        [
+          "nine_down_turn",
+          "VARCHAR"
+        ]
+      ],
+      "sha256": "180f4ca8c3f28dbc6fa9c8eba1908a9419c9ba23125ee17edabc4bebb9ed0244",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_nineturn_15m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_nineturn/freq=15/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 3391,
+      "mtime_ns": 1792814217593405801,
+      "row_count": 160,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "INTEGER"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "up_count",
+          "INTEGER"
+        ],
+        [
+          "down_count",
+          "INTEGER"
+        ],
+        [
+          "nine_up_turn",
+          "VARCHAR"
+        ],
+        [
+          "nine_down_turn",
+          "VARCHAR"
+        ]
+      ],
+      "sha256": "de30cc0a2a4b69ccaecc33655ddaba27f4d93652f7b5efad4c9650ac716dab15",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_nineturn_30m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_nineturn/freq=30/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 2506,
+      "mtime_ns": 1792814217596180222,
+      "row_count": 80,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "INTEGER"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "up_count",
+          "INTEGER"
+        ],
+        [
+          "down_count",
+          "INTEGER"
+        ],
+        [
+          "nine_up_turn",
+          "VARCHAR"
+        ],
+        [
+          "nine_down_turn",
+          "VARCHAR"
+        ]
+      ],
+      "sha256": "11c66894e415ec142378beba73c45c2c174c8176358274e1aa76b217aae31ea2",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_nineturn_5m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_nineturn/freq=5/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 6643,
+      "mtime_ns": 1792814217597586038,
+      "row_count": 480,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "INTEGER"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "up_count",
+          "INTEGER"
+        ],
+        [
+          "down_count",
+          "INTEGER"
+        ],
+        [
+          "nine_up_turn",
+          "VARCHAR"
+        ],
+        [
+          "nine_down_turn",
+          "VARCHAR"
+        ]
+      ],
+      "sha256": "9119f14680787ac795d6350ce3fc2fe9bff979e3f8c9d7a4875241593f8b90cf",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_nineturn_60m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_nineturn/freq=60/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 2056,
+      "mtime_ns": 1792814217594122271,
+      "row_count": 40,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "INTEGER"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "up_count",
+          "INTEGER"
+        ],
+        [
+          "down_count",
+          "INTEGER"
+        ],
+        [
+          "nine_up_turn",
+          "VARCHAR"
+        ],
+        [
+          "nine_down_turn",
+          "VARCHAR"
+        ]
+      ],
+      "sha256": "a90b001666da4550fa222c2ba09ce466056c8ce316e395d26a6ba6f139c1396c",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_nineturn_90m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_nineturn/freq=90/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 1930,
+      "mtime_ns": 1792814217594016602,
+      "row_count": 30,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "INTEGER"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "close",
+          "DOUBLE"
+        ],
+        [
+          "up_count",
+          "INTEGER"
+        ],
+        [
+          "down_count",
+          "INTEGER"
+        ],
+        [
+          "nine_up_turn",
+          "VARCHAR"
+        ],
+        [
+          "nine_down_turn",
+          "VARCHAR"
+        ]
+      ],
+      "sha256": "07786a20cd9b2448f085351ddb05d7252a66cce93f74bd3aa00a4d4284677732",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_technical_120m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=120/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 6455,
+      "mtime_ns": 1792814248440022665,
+      "row_count": 20,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "SMALLINT"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "ma_5",
+          "DOUBLE"
+        ],
+        [
+          "ma_10",
+          "DOUBLE"
+        ],
+        [
+          "ma_20",
+          "DOUBLE"
+        ],
+        [
+          "ma_30",
+          "DOUBLE"
+        ],
+        [
+          "ma_60",
+          "DOUBLE"
+        ],
+        [
+          "ma_90",
+          "DOUBLE"
+        ],
+        [
+          "ma_250",
+          "DOUBLE"
+        ],
+        [
+          "boll_mid",
+          "DOUBLE"
+        ],
+        [
+          "boll_upper",
+          "DOUBLE"
+        ],
+        [
+          "boll_lower",
+          "DOUBLE"
+        ],
+        [
+          "macd_dif",
+          "DOUBLE"
+        ],
+        [
+          "macd_dea",
+          "DOUBLE"
+        ],
+        [
+          "macd",
+          "DOUBLE"
+        ],
+        [
+          "kdj_k",
+          "DOUBLE"
+        ],
+        [
+          "kdj_d",
+          "DOUBLE"
+        ],
+        [
+          "kdj_j",
+          "DOUBLE"
+        ],
+        [
+          "observation_count",
+          "INTEGER"
+        ],
+        [
+          "params_key",
+          "VARCHAR"
+        ],
+        [
+          "indicator_version",
+          "INTEGER"
+        ]
+      ],
+      "sha256": "5176eb60787fc85708d4bb722dd0c5a180e0aa3cb41d7dc5341c70aa423ca53f",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_technical_15m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=15/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 24110,
+      "mtime_ns": 1792814248750284685,
+      "row_count": 160,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "SMALLINT"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "ma_5",
+          "DOUBLE"
+        ],
+        [
+          "ma_10",
+          "DOUBLE"
+        ],
+        [
+          "ma_20",
+          "DOUBLE"
+        ],
+        [
+          "ma_30",
+          "DOUBLE"
+        ],
+        [
+          "ma_60",
+          "DOUBLE"
+        ],
+        [
+          "ma_90",
+          "DOUBLE"
+        ],
+        [
+          "ma_250",
+          "DOUBLE"
+        ],
+        [
+          "boll_mid",
+          "DOUBLE"
+        ],
+        [
+          "boll_upper",
+          "DOUBLE"
+        ],
+        [
+          "boll_lower",
+          "DOUBLE"
+        ],
+        [
+          "macd_dif",
+          "DOUBLE"
+        ],
+        [
+          "macd_dea",
+          "DOUBLE"
+        ],
+        [
+          "macd",
+          "DOUBLE"
+        ],
+        [
+          "kdj_k",
+          "DOUBLE"
+        ],
+        [
+          "kdj_d",
+          "DOUBLE"
+        ],
+        [
+          "kdj_j",
+          "DOUBLE"
+        ],
+        [
+          "observation_count",
+          "INTEGER"
+        ],
+        [
+          "params_key",
+          "VARCHAR"
+        ],
+        [
+          "indicator_version",
+          "INTEGER"
+        ]
+      ],
+      "sha256": "7b2af2e160925ac116fa8794050c0870e5119d32b6137a6267122e8513b66cca",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_technical_1m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=1/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 294487,
+      "mtime_ns": 1792814249032775698,
+      "row_count": 2410,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "SMALLINT"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "ma_5",
+          "DOUBLE"
+        ],
+        [
+          "ma_10",
+          "DOUBLE"
+        ],
+        [
+          "ma_20",
+          "DOUBLE"
+        ],
+        [
+          "ma_30",
+          "DOUBLE"
+        ],
+        [
+          "ma_60",
+          "DOUBLE"
+        ],
+        [
+          "ma_90",
+          "DOUBLE"
+        ],
+        [
+          "ma_250",
+          "DOUBLE"
+        ],
+        [
+          "boll_mid",
+          "DOUBLE"
+        ],
+        [
+          "boll_upper",
+          "DOUBLE"
+        ],
+        [
+          "boll_lower",
+          "DOUBLE"
+        ],
+        [
+          "macd_dif",
+          "DOUBLE"
+        ],
+        [
+          "macd_dea",
+          "DOUBLE"
+        ],
+        [
+          "macd",
+          "DOUBLE"
+        ],
+        [
+          "kdj_k",
+          "DOUBLE"
+        ],
+        [
+          "kdj_d",
+          "DOUBLE"
+        ],
+        [
+          "kdj_j",
+          "DOUBLE"
+        ],
+        [
+          "observation_count",
+          "INTEGER"
+        ],
+        [
+          "params_key",
+          "VARCHAR"
+        ],
+        [
+          "indicator_version",
+          "INTEGER"
+        ]
+      ],
+      "sha256": "088b53fc2f3d896f6b9ef35e07536f49afeeaec4ff44af7d5048cbe00c1eb6e7",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_technical_30m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=30/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 14450,
+      "mtime_ns": 1792814249313749435,
+      "row_count": 80,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "SMALLINT"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "ma_5",
+          "DOUBLE"
+        ],
+        [
+          "ma_10",
+          "DOUBLE"
+        ],
+        [
+          "ma_20",
+          "DOUBLE"
+        ],
+        [
+          "ma_30",
+          "DOUBLE"
+        ],
+        [
+          "ma_60",
+          "DOUBLE"
+        ],
+        [
+          "ma_90",
+          "DOUBLE"
+        ],
+        [
+          "ma_250",
+          "DOUBLE"
+        ],
+        [
+          "boll_mid",
+          "DOUBLE"
+        ],
+        [
+          "boll_upper",
+          "DOUBLE"
+        ],
+        [
+          "boll_lower",
+          "DOUBLE"
+        ],
+        [
+          "macd_dif",
+          "DOUBLE"
+        ],
+        [
+          "macd_dea",
+          "DOUBLE"
+        ],
+        [
+          "macd",
+          "DOUBLE"
+        ],
+        [
+          "kdj_k",
+          "DOUBLE"
+        ],
+        [
+          "kdj_d",
+          "DOUBLE"
+        ],
+        [
+          "kdj_j",
+          "DOUBLE"
+        ],
+        [
+          "observation_count",
+          "INTEGER"
+        ],
+        [
+          "params_key",
+          "VARCHAR"
+        ],
+        [
+          "indicator_version",
+          "INTEGER"
+        ]
+      ],
+      "sha256": "5f93bf97650f928fa4a5e7e551945513fdbaa24a6d75a15c7c7434b386862f14",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_technical_5m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=5/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 62702,
+      "mtime_ns": 1792814249568402358,
+      "row_count": 480,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "SMALLINT"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "ma_5",
+          "DOUBLE"
+        ],
+        [
+          "ma_10",
+          "DOUBLE"
+        ],
+        [
+          "ma_20",
+          "DOUBLE"
+        ],
+        [
+          "ma_30",
+          "DOUBLE"
+        ],
+        [
+          "ma_60",
+          "DOUBLE"
+        ],
+        [
+          "ma_90",
+          "DOUBLE"
+        ],
+        [
+          "ma_250",
+          "DOUBLE"
+        ],
+        [
+          "boll_mid",
+          "DOUBLE"
+        ],
+        [
+          "boll_upper",
+          "DOUBLE"
+        ],
+        [
+          "boll_lower",
+          "DOUBLE"
+        ],
+        [
+          "macd_dif",
+          "DOUBLE"
+        ],
+        [
+          "macd_dea",
+          "DOUBLE"
+        ],
+        [
+          "macd",
+          "DOUBLE"
+        ],
+        [
+          "kdj_k",
+          "DOUBLE"
+        ],
+        [
+          "kdj_d",
+          "DOUBLE"
+        ],
+        [
+          "kdj_j",
+          "DOUBLE"
+        ],
+        [
+          "observation_count",
+          "INTEGER"
+        ],
+        [
+          "params_key",
+          "VARCHAR"
+        ],
+        [
+          "indicator_version",
+          "INTEGER"
+        ]
+      ],
+      "sha256": "6beaef9c6a973f219ddf45d447336ce1457b886ccbdf6665d189bd20ace975c2",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_technical_60m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=60/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 9075,
+      "mtime_ns": 1792814249848458392,
+      "row_count": 40,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "SMALLINT"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "ma_5",
+          "DOUBLE"
+        ],
+        [
+          "ma_10",
+          "DOUBLE"
+        ],
+        [
+          "ma_20",
+          "DOUBLE"
+        ],
+        [
+          "ma_30",
+          "DOUBLE"
+        ],
+        [
+          "ma_60",
+          "DOUBLE"
+        ],
+        [
+          "ma_90",
+          "DOUBLE"
+        ],
+        [
+          "ma_250",
+          "DOUBLE"
+        ],
+        [
+          "boll_mid",
+          "DOUBLE"
+        ],
+        [
+          "boll_upper",
+          "DOUBLE"
+        ],
+        [
+          "boll_lower",
+          "DOUBLE"
+        ],
+        [
+          "macd_dif",
+          "DOUBLE"
+        ],
+        [
+          "macd_dea",
+          "DOUBLE"
+        ],
+        [
+          "macd",
+          "DOUBLE"
+        ],
+        [
+          "kdj_k",
+          "DOUBLE"
+        ],
+        [
+          "kdj_d",
+          "DOUBLE"
+        ],
+        [
+          "kdj_j",
+          "DOUBLE"
+        ],
+        [
+          "observation_count",
+          "INTEGER"
+        ],
+        [
+          "params_key",
+          "VARCHAR"
+        ],
+        [
+          "indicator_version",
+          "INTEGER"
+        ]
+      ],
+      "sha256": "dcc1e43b377309bdf729790eb9dd259c05b8120b0cf1de9be0df96b0ba075750",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_technical_90m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical/freq=90/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 7754,
+      "mtime_ns": 1792814250153209369,
+      "row_count": 30,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "SMALLINT"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "ma_5",
+          "DOUBLE"
+        ],
+        [
+          "ma_10",
+          "DOUBLE"
+        ],
+        [
+          "ma_20",
+          "DOUBLE"
+        ],
+        [
+          "ma_30",
+          "DOUBLE"
+        ],
+        [
+          "ma_60",
+          "DOUBLE"
+        ],
+        [
+          "ma_90",
+          "DOUBLE"
+        ],
+        [
+          "ma_250",
+          "DOUBLE"
+        ],
+        [
+          "boll_mid",
+          "DOUBLE"
+        ],
+        [
+          "boll_upper",
+          "DOUBLE"
+        ],
+        [
+          "boll_lower",
+          "DOUBLE"
+        ],
+        [
+          "macd_dif",
+          "DOUBLE"
+        ],
+        [
+          "macd_dea",
+          "DOUBLE"
+        ],
+        [
+          "macd",
+          "DOUBLE"
+        ],
+        [
+          "kdj_k",
+          "DOUBLE"
+        ],
+        [
+          "kdj_d",
+          "DOUBLE"
+        ],
+        [
+          "kdj_j",
+          "DOUBLE"
+        ],
+        [
+          "observation_count",
+          "INTEGER"
+        ],
+        [
+          "params_key",
+          "VARCHAR"
+        ],
+        [
+          "indicator_version",
+          "INTEGER"
+        ]
+      ],
+      "sha256": "800a27131ff527c94990a0cc9805a108cf986d3050cf3a56c76c1bd6851b3fee",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_technical_state_120m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical_state/freq=120/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 2706,
+      "mtime_ns": 1792814248440811263,
+      "row_count": 10,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "SMALLINT"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "last_trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "macd_ema_fast",
+          "DOUBLE"
+        ],
+        [
+          "macd_ema_slow",
+          "DOUBLE"
+        ],
+        [
+          "macd_dea",
+          "DOUBLE"
+        ],
+        [
+          "kdj_k",
+          "DOUBLE"
+        ],
+        [
+          "kdj_d",
+          "DOUBLE"
+        ],
+        [
+          "params_key",
+          "VARCHAR"
+        ],
+        [
+          "indicator_version",
+          "INTEGER"
+        ]
+      ],
+      "sha256": "829211cdad05b971bd161ed596f8db8fac6f29440616c33d37c246a74dba9237",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_technical_state_15m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical_state/freq=15/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 2706,
+      "mtime_ns": 1792814248751071282,
+      "row_count": 10,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "SMALLINT"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "last_trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "macd_ema_fast",
+          "DOUBLE"
+        ],
+        [
+          "macd_ema_slow",
+          "DOUBLE"
+        ],
+        [
+          "macd_dea",
+          "DOUBLE"
+        ],
+        [
+          "kdj_k",
+          "DOUBLE"
+        ],
+        [
+          "kdj_d",
+          "DOUBLE"
+        ],
+        [
+          "params_key",
+          "VARCHAR"
+        ],
+        [
+          "indicator_version",
+          "INTEGER"
+        ]
+      ],
+      "sha256": "5bd0fea2159804de6ff8e8d32dc6615eae45c8ab212039cff7446d2d36193788",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_technical_state_1m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical_state/freq=1/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 2706,
+      "mtime_ns": 1792814249034037263,
+      "row_count": 10,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "SMALLINT"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "last_trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "macd_ema_fast",
+          "DOUBLE"
+        ],
+        [
+          "macd_ema_slow",
+          "DOUBLE"
+        ],
+        [
+          "macd_dea",
+          "DOUBLE"
+        ],
+        [
+          "kdj_k",
+          "DOUBLE"
+        ],
+        [
+          "kdj_d",
+          "DOUBLE"
+        ],
+        [
+          "params_key",
+          "VARCHAR"
+        ],
+        [
+          "indicator_version",
+          "INTEGER"
+        ]
+      ],
+      "sha256": "060b8d329d1b78fa7d553fef8e7574295dff9c6541b4751557ab01f71cab619e",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_technical_state_30m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical_state/freq=30/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 2706,
+      "mtime_ns": 1792814249314432030,
+      "row_count": 10,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "SMALLINT"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "last_trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "macd_ema_fast",
+          "DOUBLE"
+        ],
+        [
+          "macd_ema_slow",
+          "DOUBLE"
+        ],
+        [
+          "macd_dea",
+          "DOUBLE"
+        ],
+        [
+          "kdj_k",
+          "DOUBLE"
+        ],
+        [
+          "kdj_d",
+          "DOUBLE"
+        ],
+        [
+          "params_key",
+          "VARCHAR"
+        ],
+        [
+          "indicator_version",
+          "INTEGER"
+        ]
+      ],
+      "sha256": "20940d43e616a4b9185c2fbbd60950cb4d3c73792563e7c7145a6fe3d589d046",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_technical_state_5m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical_state/freq=5/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 2706,
+      "mtime_ns": 1792814249569536712,
+      "row_count": 10,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "SMALLINT"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "last_trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "macd_ema_fast",
+          "DOUBLE"
+        ],
+        [
+          "macd_ema_slow",
+          "DOUBLE"
+        ],
+        [
+          "macd_dea",
+          "DOUBLE"
+        ],
+        [
+          "kdj_k",
+          "DOUBLE"
+        ],
+        [
+          "kdj_d",
+          "DOUBLE"
+        ],
+        [
+          "params_key",
+          "VARCHAR"
+        ],
+        [
+          "indicator_version",
+          "INTEGER"
+        ]
+      ],
+      "sha256": "801c8488db56671aae9b6ff16dc5dcd6e40a421a655f85839031f6c45f7a0137",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_technical_state_60m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical_state/freq=60/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 2706,
+      "mtime_ns": 1792814249849126820,
+      "row_count": 10,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "SMALLINT"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "last_trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "macd_ema_fast",
+          "DOUBLE"
+        ],
+        [
+          "macd_ema_slow",
+          "DOUBLE"
+        ],
+        [
+          "macd_dea",
+          "DOUBLE"
+        ],
+        [
+          "kdj_k",
+          "DOUBLE"
+        ],
+        [
+          "kdj_d",
+          "DOUBLE"
+        ],
+        [
+          "params_key",
+          "VARCHAR"
+        ],
+        [
+          "indicator_version",
+          "INTEGER"
+        ]
+      ],
+      "sha256": "4de0685fe6cc57ac3d37b88128611da1a43ab9f106d3777da4bac2fd78f2dc1a",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "gold_major_index_mins_technical_state_90m",
+      "path": "/Volumes/datasource/data_lake/gold/indicator/major_index_mins_technical_state/freq=90/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 2706,
+      "mtime_ns": 1792814250153847923,
+      "row_count": 10,
+      "schema": [
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "freq",
+          "SMALLINT"
+        ],
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "last_trade_time",
+          "TIMESTAMP"
+        ],
+        [
+          "macd_ema_fast",
+          "DOUBLE"
+        ],
+        [
+          "macd_ema_slow",
+          "DOUBLE"
+        ],
+        [
+          "macd_dea",
+          "DOUBLE"
+        ],
+        [
+          "kdj_k",
+          "DOUBLE"
+        ],
+        [
+          "kdj_d",
+          "DOUBLE"
+        ],
+        [
+          "params_key",
+          "VARCHAR"
+        ],
+        [
+          "indicator_version",
+          "INTEGER"
+        ]
+      ],
+      "sha256": "c5e44b3c1b91e9aa1d1b3b1ff501c99529c2a790dee51b0f549eee308874affe",
+      "recorded_file_sha256_matches": null
+    },
+    {
+      "asset": "raw_tushare_moneyflow_ths",
+      "path": "/Volumes/datasource/data_lake/raw/tushare/moneyflow_ths/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 331588,
+      "mtime_ns": 1792814299591808502,
+      "row_count": 5218,
+      "schema": [
+        [
+          "trade_date",
+          "VARCHAR"
+        ],
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "name",
+          "VARCHAR"
+        ],
+        [
+          "pct_change",
+          "DECIMAL(10,4)"
+        ],
+        [
+          "latest",
+          "DECIMAL(18,4)"
+        ],
+        [
+          "net_amount",
+          "DECIMAL(24,4)"
+        ],
+        [
+          "net_d5_amount",
+          "DECIMAL(24,4)"
+        ],
+        [
+          "buy_lg_amount",
+          "DECIMAL(24,4)"
+        ],
+        [
+          "buy_lg_amount_rate",
+          "DECIMAL(10,4)"
+        ],
+        [
+          "buy_md_amount",
+          "DECIMAL(24,4)"
+        ],
+        [
+          "buy_md_amount_rate",
+          "DECIMAL(10,4)"
+        ],
+        [
+          "buy_sm_amount",
+          "DECIMAL(24,4)"
+        ],
+        [
+          "buy_sm_amount_rate",
+          "DECIMAL(10,4)"
+        ]
+      ],
+      "sha256": "4148a9ddfba2fa53448a6408cc15f1a52379fb5f79055859caaf6564bec6a71e",
+      "recorded_file_sha256_matches": true
+    },
+    {
+      "asset": "silver_moneyflow_ths",
+      "path": "/Volumes/datasource/data_lake/silver/moneyflow/moneyflow_ths/trade_date=2026-10-21/part-000.parquet",
+      "exists": true,
+      "bytes": 331564,
+      "mtime_ns": 1792814404864347876,
+      "row_count": 5218,
+      "schema": [
+        [
+          "trade_date",
+          "DATE"
+        ],
+        [
+          "ts_code",
+          "VARCHAR"
+        ],
+        [
+          "name",
+          "VARCHAR"
+        ],
+        [
+          "pct_change",
+          "DECIMAL(10,4)"
+        ],
+        [
+          "latest",
+          "DECIMAL(18,4)"
+        ],
+        [
+          "net_amount",
+          "DECIMAL(24,4)"
+        ],
+        [
+          "net_d5_amount",
+          "DECIMAL(24,4)"
+        ],
+        [
+          "buy_lg_amount",
+          "DECIMAL(24,4)"
+        ],
+        [
+          "buy_lg_amount_rate",
+          "DECIMAL(10,4)"
+        ],
+        [
+          "buy_md_amount",
+          "DECIMAL(24,4)"
+        ],
+        [
+          "buy_md_amount_rate",
+          "DECIMAL(10,4)"
+        ],
+        [
+          "buy_sm_amount",
+          "DECIMAL(24,4)"
+        ],
+        [
+          "buy_sm_amount_rate",
+          "DECIMAL(10,4)"
+        ]
+      ],
+      "sha256": "0bf40a0695c89063412ec61df179c2e74df8d94b4bb42a90ff2aa436357d9af5",
+      "recorded_file_sha256_matches": true
+    }
+  ],
+  "runs": [
+    {
+      "job": "raw_major_index_mins_update_job",
+      "run_id": "577aa308-cf0d-423c-ad24-d3ce3e6faab4",
+      "status": "SUCCESS",
+      "elapsed_seconds": 9.749372959136963
+    },
+    {
+      "job": "silver_major_index_mins_update_job",
+      "run_id": "c56f057b-fa80-4698-b254-2bc372213615",
+      "status": "SUCCESS",
+      "elapsed_seconds": 4.815507888793945
+    },
+    {
+      "job": "gold_major_index_mins_update_job",
+      "run_id": "c3144419-17f4-4868-83a3-a01cd4eeeb0c",
+      "status": "SUCCESS",
+      "elapsed_seconds": 2.837829113006592
+    },
+    {
+      "job": "gold_major_index_mins_nineturn_update_job",
+      "run_id": "553559fe-7703-4a2f-9fae-654adee79a23",
+      "status": "SUCCESS",
+      "elapsed_seconds": 7.284022092819214
+    },
+    {
+      "job": "gold_major_index_mins_technical_daily_update_job",
+      "run_id": "bcb58714-7ee0-43f5-8d0b-2214d70cd7f8",
+      "status": "SUCCESS",
+      "elapsed_seconds": 10.180239915847778
+    },
+    {
+      "job": "raw_tushare_moneyflow_ths_update_job",
+      "run_id": "8e8c5892-7581-4bad-9ab1-1353d0363ff3",
+      "status": "SUCCESS",
+      "elapsed_seconds": 76.40103507041931
+    },
+    {
+      "job": "silver_moneyflow_ths_update_job",
+      "run_id": "b9a3a75e-71cd-410c-9be3-d8a16bf12ea2",
+      "status": "SUCCESS",
+      "elapsed_seconds": 5.739526987075806
+    }
+  ]
+}

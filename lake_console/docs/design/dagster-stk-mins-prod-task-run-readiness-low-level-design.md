@@ -1,5 +1,7 @@
 # Dagster 股票分钟线 Prod TaskRun 完成门禁 LLD
 
+> 2026-11-01附件精简：本页所引恢复过程附件已按管理员指令删除，相关链接转到对应README的清理说明；原数量、操作和历史结论保留，旧裸路径不表示文件仍存在。
+
 > M5 清退边界（2026-09-05）：本文 2026-07-27 Raw 恢复的 109,973ms、行数与 quarantine 路径是历史记录。当前 Raw 恢复以清退 LLD M4 为准：独立 staging、完整候选校验、逐文件 checkpoint/原子提升/续跑，不再移动旧文件到 quarantine；不改本文独立 Silver 替换工具的契约。历史遗留目录是否删除另按 M8 确认。
 
 **状态：2026-07-27 的 R2 raw、R3A Silver、R3B 下游重建与 R4 最终验收均已完成；未来日常的 TaskRun + prod 覆盖双门禁代码与本地验证已完成，待正式只读演练和启用决策**
@@ -557,7 +559,7 @@ SQL验证不能只检查FakeCursor字符串：通过现行psql-remote入口执�
 
 两份生产实现已按C节完成：共用固定日期SQL与绑定参数，两个入口同步替换原单日条件；row parser新增严格单日/区间判断，其余成功/五频/全市场/完成计数逻辑未改。按ID复核沿用同一parser，reference结构、分钟覆盖、Raw/Silver writer、其他数据集与Prod实现没有修改。CodeGraph explore/impact覆盖共享候选、按ID、离线选择及其消费者，开发后已执行sync/status；未新增跨工程依赖或待人工确认的代码边界。
 
-验证证据统一放在[本轮报告目录](../../reports/datasets_recovery_20261022_20261024/task_date_fix_20261025/)：
+验证证据统一放在[本轮报告目录（附件已清理）](../../reports/datasets_recovery_20261022_20261024/README.md#报告附件清理2026-11-01)：
 
 - `before-fix.json`：修改前用已保存的16729字面记录复现，22/23都被旧parser拒绝，无数据库或分钟读取。
 - `pytest-current.txt`：新日期用例145项及原TaskRun隔离用例7项通过。输入来自独立保存的Prod记录；预期为人工可核对的日期及任务条件，没有调用待测函数生成expected。

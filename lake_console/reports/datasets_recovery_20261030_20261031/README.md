@@ -1,5 +1,17 @@
 # 2026-10-30数据集补齐与收尾记录
 
+## 报告附件清理（2026-11-01）
+
+管理员已明确要求删除无用过程材料。本目录由161个文件精简为6个，删除155个；只保留本文及下列最终审计/必要结果。过程附件、重复状态/配置、旧脚本、测试输出和逐文件清单已删除，不另打包保存。本文原章节及当时操作结论保留；已删除附件的链接转到本节，不能再据旧裸路径要求恢复文件或重新补数。此次没有读取行情或数据库、触发任务、更改sensor或删除正式Lake/staging记录。
+
+- [date-audit-20261030-final.json](date-audit-20261030-final.json)
+- [resume_140419/final-result.json](resume_140419/final-result.json)
+- [resume_140419/final37-physical-count.json](resume_140419/final37-physical-count.json)
+- [index-daily/final-verification.json](index-daily/final-verification.json)
+- [closeout-validation.json](closeout-validation.json)
+
+全部五个目录的范围与执行规则见[原LLD20.16](../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2016-五个恢复报告目录的精简2026-11-01)。
+
 ## 10月30日补数收尾（2026-11-01）
 
 **10月31日22:18完成的指定日期审计通过：当前目录180项，审计164项全部满足本次物理完整性和更新日期要求，16项按既定规则排除；缺失、零行、更新滞后、等待及未核实均为0。** 本次收尾复用保存的[完整审计](date-audit-20261030-final.json)，不再次读取行情或数据库，不重跑原job或检查。164项通过不等于16项排除对象也已验收，不替代逐代码字段质量审计。
@@ -18,7 +30,7 @@
 
 本轮提交范围、依赖和清理顺序已先落入[原LLD20.15](../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2015-30日全部补齐后的记录清理和限定范围提交2026-11-01)。Git基线中尚缺实际使用的分钟候选写入模块，因此将其及股票接入作为显式替换的必要依赖一并提交；其他指数/ETF等数据集接入不纳入。LLD旧23日开关段落保持未提交，不夹带进入30日收尾。此前阶段JSON中的`committed_this_turn=false`、暂停、失败、未执行或“没有全目录审计”均为当时记录，不覆写成后来状态。
 
-只清理已归档且不再使用的本轮临时副本，正式结果、staging恢复依据和原生日志保留。已删除5份重复临时JSON，共92,428字节；本次32项隔离回归通过后，另清理专属测试目录54个文件、72,809字节。原5处已清理调用/测试目录确认仍不存在，历史聊天已链接报告保留。首次回归因测试父目录未建立，14项未进入测试；补建后同一32项全部通过，没有修改实现或预期，也不把两次通过数量相加。文档完整性、致命Ruff基线及新增模块/测试完整Ruff通过，见[收尾验证](closeout-validation.json)和[清理清单](closeout-cleanup.json)。另将三份已完成的逐文件身份/stat清单由69,023,175字节压缩为4,464,373字节，逐份解压核对原字节摘要和大小一致后删除未压缩副本；[归档映射](closeout-metadata-archives.json)保留完整依据。另保留一份已执行源码的原字节gzip，未改其内容；CSV仅规范换行并核对各单元格相等。控制库时间窗查询性能TODO仍留待单独处理，不借收尾扩大开发。
+只清理已归档且不再使用的本轮临时副本，正式结果、staging恢复依据和原生日志保留。已删除5份重复临时JSON，共92,428字节；本次32项隔离回归通过后，另清理专属测试目录54个文件、72,809字节。原5处已清理调用/测试目录确认仍不存在，历史聊天已链接报告保留。首次回归因测试父目录未建立，14项未进入测试；补建后同一32项全部通过，没有修改实现或预期，也不把两次通过数量相加。文档完整性、致命Ruff基线及新增模块/测试完整Ruff通过，见[收尾验证](closeout-validation.json)和[清理清单（附件已清理）](README.md#报告附件清理2026-11-01)。另将三份已完成的逐文件身份/stat清单由69,023,175字节压缩为4,464,373字节，逐份解压核对原字节摘要和大小一致后删除未压缩副本；[归档映射（附件已清理）](README.md#报告附件清理2026-11-01)保留完整依据。另保留一份已执行源码的原字节gzip，未改其内容；CSV仅规范换行并核对各单元格相等。控制库时间窗查询性能TODO仍留待单独处理，不借收尾扩大开发。
 
 ## 本次恢复已完成（2026-10-31T15:45:15.488508+08:00）
 
@@ -45,7 +57,7 @@
 
 **控制库查询TODO。** 验收慢查询证据证明`asset_check_record_event_storage_id`重复按两秒时间窗查询event_logs，等待IO；MACD repair sensor仍调用该原路径，后续单独审计优化。本轮未扩改正式guard、sensor或数据库索引。旧repair观察在切换前已经验收成功，因此没有终止或重跑它；九转及最终gate改为有界复用真实producer事件，21条真实编号与既有验收逐项吻合，不跳过任何原判断。
 
-证据：[最终结果](resume_140419/final-result.json)、[37项计数](resume_140419/final37-physical-count.json)、[开关恢复](resume_140419/sensor-restoration.json)、[最终运行状态](resume_140419/final-control.json)、[清理](resume_140419/temporary-cleanup.json)。382/67/128GiB为批准预算，不写成实测累计设备I/O。两个修改的既有文件完整Ruff保留18项既有语句问题，未放宽规则；全致命基线、新测试文件完整Ruff及54项回归通过，详见实现对账。
+证据：[最终结果](resume_140419/final-result.json)、[37项计数](resume_140419/final37-physical-count.json)、[开关恢复（附件已清理）](README.md#报告附件清理2026-11-01)、[最终运行状态（附件已清理）](README.md#报告附件清理2026-11-01)、[清理（附件已清理）](README.md#报告附件清理2026-11-01)。382/67/128GiB为批准预算，不写成实测累计设备I/O。两个修改的既有文件完整Ruff保留18项既有语句问题，未放宽规则；全致命基线、新测试文件完整Ruff及54项回归通过，详见实现对账。
 
 ## 首次执行与停止时记录（历史）
 
@@ -68,19 +80,19 @@
 
 ## 源补齐清单与后续
 
-- [28只60分钟代码及实际根数CSV](source60-missing-rows.csv)
-- [纯代码列表](source60-codes-to-complete.txt)
-- [Prod限定28股只读确认](batch9/prod60-short-counts-confirmed.json)
-- [Raw/Silver日内缺根计数](batch9/source60-short-counts.json)
-- [原失败异常及时间](batch9/daily-failure-observation.json)
-- [原run部分结果和24项通过检查](batch9/daily-partial-result.json)
-- [汇总](execution-summary.json)、[保留暂停及恢复TODO](sensor-hold-after-failure.json)
+- [28只60分钟代码及实际根数CSV（附件已清理）](README.md#报告附件清理2026-11-01)
+- [纯代码列表（附件已清理）](README.md#报告附件清理2026-11-01)
+- [Prod限定28股只读确认（附件已清理）](README.md#报告附件清理2026-11-01)
+- [Raw/Silver日内缺根计数（附件已清理）](README.md#报告附件清理2026-11-01)
+- [原失败异常及时间（附件已清理）](README.md#报告附件清理2026-11-01)
+- [原run部分结果和24项通过检查（附件已清理）](README.md#报告附件清理2026-11-01)
+- [汇总（附件已清理）](README.md#报告附件清理2026-11-01)、[保留暂停及恢复TODO（附件已清理）](README.md#报告附件清理2026-11-01)
 
 Prod补源及必要时间核验现已完成。现成入口审计确认旧Silver离线工具的正式湖内staging/备份方式不能执行；不移动或删除旧正式文件逼原job重建。拟在原Raw/Silver job加显式replace_existing（默认不变），隔离验证后仅处理受影响的Raw/Silver60、QFQ60/120和成交额，再按原次序推进两次repair及其余下游。QFQ保留旧run五个未受影响成功频度，其他四频Raw/Silver同样保留，不重跑整个七频或整条链，不绕过原120分钟检查。此次继续预算382GiB读/67GiB写/128GiB空间，新增重做部分为10/3/6GiB；原先未启动历史步骤372/64GiB仍在原批准范围，不能把此前已发生I/O算成0。当前修正待设计确认，尚无新的恢复执行或业务代码修改。
 
 ## 方案、批准与准备证据
 
-[原方案17.12](../../docs/design/dagster-stk-mins-qfq-macd-kdj-indicators-plan.md#1712-2026-10-30分钟链及成交额恢复2026-10-31准备)、[原写入LLD20节](../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#20-2026-10-30股票分钟链及成交额恢复方案与执行lld2026-10-31)及[本次批准](history-approval.json)。批准的目标是37项及两次repair，预算读420/写80/空间128GiB，原生job正常各一次、失败停止、不自动重跑。该预算不是实际已发生I/O；本次没有执行2014—2026历史repair。
+[原方案17.12](../../docs/design/dagster-stk-mins-qfq-macd-kdj-indicators-plan.md#1712-2026-10-30分钟链及成交额恢复2026-10-31准备)、[原写入LLD20节](../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#20-2026-10-30股票分钟链及成交额恢复方案与执行lld2026-10-31)及[本次批准（附件已清理）](README.md#报告附件清理2026-11-01)。批准的目标是37项及两次repair，预算读420/写80/空间128GiB，原生job正常各一次、失败停止、不自动重跑。该预算不是实际已发生I/O；本次没有执行2014—2026历史repair。
 
 准备只做必要代码核验、年度/历史文件stat、原因子检测小聚合和本轮原门禁，没有重复目录审计。最终37项计数因前置未完成而未执行。只读QFQ预检曾误用RunStorage没有的方法，纠正后才首次启动QFQ原job；这与120分钟真实业务失败不同，见`prepare-qfq-query-correction.json`。
 
