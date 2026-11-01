@@ -243,7 +243,9 @@ reader的`read_complete_history`及`read_complete_history_pair`都走同一`_rea
 | MA/BOLL/MACD/KDJ数值列 | DOUBLE | 完整指标API保留原float或None合同及暖机NULL，不在本批新增原接口没有的取值范围限制。r4用到的DIF/DEA/柱值仍由source中的`XxmBar.validate`拒绝None、非有限值，close还必须大于0；不得因精简删此检查 |
 | 内部_source_filename | VARCHAR | 非空且能在本次`{str(part.path): part.trade_date}`映射中找到；仅字符串查表，不新增resolve/stat/is_symlink。不进入返回行、DTO、sourceInputId或缓存身份 |
 
-元数据只检查read_columns及内部filename的实际输出名称、顺序、逻辑类型，类型依据原合同逐字段取出；不比整张源表的列顺序。`_normalize_duckdb_type(str(description[i][1]))`复用原实现，不另造类型映射。TIMESTAMP归一化沿旧函数；本批不增加全局时区政策，r4原有“源timestamp无时区、构造后+08:00”的检查保留。DOUBLE类型检查不靠float(value)弥补错类型，DECIMAL/VARCHAR/BOOLEAN等不能静默转为DOUBLE。
+元数据只检查read_columns及内部filename的实际输出名称、顺序、逻辑类型，期望类型依据原合同逐字段取出；不比整张源表的列顺序。**类型保证仅针对本次查询输出，不保证每个原文件的物理列类型都相同。**`_normalize_duckdb_type(str(description[i][1]))`复用原实现，不另造类型映射。TIMESTAMP归一化沿旧函数；本批不增加全局时区政策，r4原有“源timestamp无时区、构造后+08:00”的检查保留。若本次查询实际报告DECIMAL/VARCHAR/BOOLEAN/INTEGER，而该字段期望DOUBLE，必须拒绝；应用层不得先CAST或float(value)把结果转换成DOUBLE后再通过类型检查。
+
+多文件的合并与类型转换由现有DuckDB及输入路径顺序决定。DuckDB若已把后续文件的文本、Decimal或布尔值转换为DOUBLE，cursor.description只会报告DOUBLE，读取器按这个实际输出类型及后续值规则检查，不再猜测原始类型。不能据此宣布逐文件源合同已经通过，也不能为追溯原类型新增文件头/逐文件schema读取、DESCRIBE、额外查询或改用union_by_name。本批不调整原路径顺序来选择有利类型，不新增类型统一/修复步骤；不能转换的源值仍按原错误分类失败。后续source的float构造发生在查询结果类型通过之后，仅沿用原XxmBar输入构造，不得拿它弥补未通过的类型检查。
 
 当前环境DuckDB 1.5.5；已用Context7核对[Python结果列元数据实现](https://github.com/duckdb/duckdb-python/blob/main/src/pyresult.cpp)及[Parquet选列与多文件说明](https://duckdb.org/docs/current/data/parquet/overview.html)。description在空结果时仍用于检查本次实际查询列。它表达本次查询的逻辑类型，不承诺逐个物理文件全schema已验收；不能为这种额外承诺恢复DESCRIBE或逐文件预读。
 
@@ -270,6 +272,15 @@ LIMIT ?
 
 1. `paths`仅来自原枚举选中的文件；不能扩大日期/代码/频率范围。start/end已经限定文件日期，不再按行中可能写错的trade_date执行WHERE过滤，否则会把本应报错的目标行藏掉。_partition_date只由已发现路径取出，用于排序及游标，不作为替换真实trade_date的值；真实行的date由目标循环对照文件映射检查。正常数据的排序与返回范围和原实现一致。
 2. 无cursor时optional_cursor_where为空，参数精确为`[paths, request.ts_code, request.limit + 1]`。有cursor时使用下式，参数精确为`[paths, request.ts_code, before_date, before_date, before_stamp, request.limit + 1]`，before值来自原_decode_cursor及原归一化校验，不新增cursor版本或字段。
+
+仅在decoded_cursor非None且已通过原归一化校验后，精确沿用现代码构造两个变量：
+
+```python
+before_date = decoded_cursor["beforeTradeDate"]
+before_stamp = f"{before_date} {decoded_cursor['beforeTradeTime']}"
+```
+
+before_date是游标保存的日期文本，before_stamp是日期、一个空格及游标原时间文本；不是只有时分秒，也不使用当前日期。保留原时间文本中的秒和微秒，不截断、不重新格式化或添加/转换时区。SQL仍按已有CAST绑定日期及完整时间，不更改cursor编码/解码和身份范围校验。没有cursor时不读取这些字段，也不添加其参数。
 
 ```sql
 WHERE _partition_date < CAST(? AS DATE)
@@ -342,14 +353,14 @@ query仍在源通过、完成根筛选、日历核对和完整计算校验之后
 |---|---|---|
 | 1 无多余SQL | 合法单次分页/完整历史各包原execute与目标循环；只有一次SELECT，无DESCRIBE、全指数contract/count DISTINCT；双源两SELECT。强制原分页分区扩展时两次SQL允许，但每次结果只进目标循环一次 | reader |
 | 2 列顺序/增减 | 原文件、列倒序、新增未消费列、去掉未消费MA/open四类；两文件不同排列、缺未消费列时，交换路径先后均按字面结果成功；完整API所需列缺失则失败 | reader及分钟API |
-| 3 必需列/类型 | 分别缺四键/close/MACD、指标参数版本；INTEGER/BOOLEAN/VARCHAR/DECIMAL代替实际必需类型均拒绝，不能CAST补救；合法DOUBLE/DATE/TIMESTAMP作对照 | reader |
+| 3 必需列/类型 | 分别缺四键/close/MACD、指标参数版本必须拒绝；单文件查询实际报告INTEGER/BOOLEAN/VARCHAR/DECIMAL而字段期望DOUBLE时拒绝，不能应用层CAST补救；合法DOUBLE/DATE/TIMESTAMP作对照。多文件同一列混合类型按下表逐项核实际输出类型及值，不再断言仅凭description拒绝所有原始错类型文件 | reader |
 | 4 错误翻译 | 首个文件缺列→BinderException、后续文件缺所需列→InvalidInputException、过小/错误magic的Parquet、数值转换错误分别按§0.5.3验证来源错误；另注入非schema InvalidInputException和普通异常仍为查询错误；正常输入配对。未知形式的文件解析异常也必须失败，不吞成空结果，不超出错误分类表强行认作来源错误 | reader及两个API错误码 |
 | 5 真实空结果 | 无文件不连接；有合法文件但无目标/零行→真实[]且完成列元数据核对；无目标但别人坏值仍空；共同必需列缺失仍失败。不能用提前空返回绕过真实绑定 | reader、分钟/r4API |
 | 6 其他指数错误 | 上述13类旧错误只在399001.SZ时，上证bars/indicators的完整与少字段均与字面输入一致；换为上证实际用到字段错误必须失败。含坏值的一方不影响另一份独立数据集读取 | reader、分钟API |
 | 7 用途不同 | 上证open=NaN或缺open，close正常：r4少字段成功、分钟主图拒绝；缺MA或observation_count=0：r4指标少字段不读不查，完整指标API拒绝。两者正常输入均成功 | reader、实际r4两源、分钟API |
 | 8 NULL归属 | 暖机MA/BOLL/MACD/KDJ的合法NULL按完整API原合同交付；计数/版本为空拒绝。r4的close/DIF/DEA/柱为None/NaN/Inf时由原bar检查拒绝，合法0指标及正close通过；不新增指标值域政策 | reader、分钟/r4API |
 | 9 定位错误 | 已匹配代码的目标错freq、trade_date与文件日不符、timestamp日不符、freq/date/time为空、15:01及非1分钟09:30仍拒绝；原1分钟09:30和原合法时点通过。分别放文件首尾及start=end日期边界，不能因WHERE被藏掉；ts_code值为NULL的行不匹配目标，不据此阻断已有合法上证行 | reader |
-| 10 cursor不掩盖错误 | 先取得合法cursor；游标当日文件放NULL时间、错误timestamp日期或错误行date，按§0.5.3进入检查并拒绝；当根及更新的正常行排除，跨代码/频率/dataset/范围cursor原拒绝保持 | reader |
+| 10 cursor不掩盖错误 | 先取得合法cursor；游标当日文件放NULL时间、错误timestamp日期或错误行date，按§0.5.3进入检查并拒绝；当根及更新的正常行排除，跨代码/频率/dataset/范围cursor原拒绝保持。另按下段核游标日期/完整timestamp、微秒及无cursor参数，不允许开发者自选拼接/截断规则 | reader |
 | 11 严格顺序 | 单源重复、只一源重复、首尾/limit与limit+1处重复均拒绝；直接给目标循环乱序dict亦拒绝而非修正。合法三根按原SQL降序检查，交付仍升序 | reader |
 | 12 分页范围 | 09:35/40/45三根limit=2→返回09:40/45、has_more=True、cursor=09:40；下一页只09:35。正常窗口更老坏值不做额外全文件验收；探测额外根若坏必须拒绝。扩大分区、空页及不足limit不补齐 | reader及分钟API |
 | 13 完整历史限额 | 三根max_rows=2必须拒绝，不截成两根；max_rows=3升序全部返回。错误/重复分别放max_rows+1与日期边界，不能借LIMIT回避；不为测试实际生成20000根或采样 | reader |
@@ -359,6 +370,21 @@ query仍在源通过、完成根筛选、日历核对和完整计算校验之后
 | 17 第一批保障 | 原prepared两数据集、空清单、四种key、首次根内/外链接、原子替换、失败pop后无自动重试且下一调用重新枚举全部保留；缓存坏对象/输出次数及事件显示原用例保持 | 第一批既有节点 |
 | 18 失败与退出 | 新字段/行检查分别在真实读取函数中失败，Timer取消、连接关闭各一次；双源一边失败仍等待另一边清理，原超时错误优先级和取消传播不改。临时错误后新调用成功、不复用失败清单或发布半个entry | reader、r4API及既有工具 |
 | 19 公开接入 | 真实临时Gold→原reader→原QueryService→原HTTP路由，主图/指标七频率、r4三分钟周期的正常与新来源错误均核对字段/行数/日期/错误码；生产挂载及不支持标的原行为保持 | 分钟API、r4API |
+
+用例3的多文件补充必须使用同一实际所需数值列，其余身份/日期字段合法；分别构造以下文件顺序。表中数值是类型样本的值集合，行交付顺序仍按各自日期升序独立断言。预期为当前DuckDB 1.5.5已核实行为，不调用待测reader或类型helper生成expected：
+
+| 传入read_parquet的先后顺序 | 查询实际输出类型与值 | 字段期望DOUBLE时的预期 |
+|---|---|---|
+| DOUBLE 10.2 → VARCHAR文本10.4 | DOUBLE，数值10.2及10.4 | 类型通过，再按原有限值/身份等规则检查 |
+| VARCHAR文本10.4 → DOUBLE 10.2 | VARCHAR，文本10.4及10.2 | 类型拒绝，不转成数值重试 |
+| DOUBLE 10.2 → DECIMAL(10,2) 10.6 | DOUBLE，数值10.2及10.6 | 类型通过，再检查实际值 |
+| DECIMAL(10,2) 10.6 → DOUBLE 10.2 | DECIMAL(10,2)，Decimal值10.6及10.2 | 类型拒绝，不转成DOUBLE |
+| DOUBLE 10.2 → BOOLEAN true | DOUBLE，数值10.2及1.0 | 类型通过，再检查实际值，不把通过解释为原文件BOOLEAN合同合格 |
+| BOOLEAN true → DOUBLE 10.2 | BOOLEAN，两个true | 类型拒绝，不在应用层转换 |
+
+reader测试通过不同日期文件的物理类型安排，覆盖原枚举先后；不得为了得到上表某一结果修改生产的文件排序。再补DOUBLE文件之后文本`not-a-number`的样本，实际转换失败仍为来源合同错误，没有“结果必然可转换”的兜底。原第一批读入的合法同类型Gold预期、r4取值和算法不变。
+
+用例10的独立字面预期：cursor保存`beforeTradeDate='2026-08-11'`、`beforeTradeTime='09:40:00.123456'`，应绑定两次日期文本及完整`before_stamp='2026-08-11 09:40:00.123456'`，总参数仍6个。合法同日记录的时间分别为09:39:59.999999、09:40:00.123456、09:40:00.123457时，下一页只保留第一根；等于游标和更新的两根排除。另核普通无微秒游标沿原格式成功、跨日期沿原门槛，以及无cursor仍只有paths/ts_code/limit+1三个参数。用包装原execute的方式断言绑定值并实际执行，不能只比较自行拼出的字符串。
 
 用例3/4/5必须实际调用DuckDB，不能用伪造description替代“缺列被拒绝”的主要证据；用例11的直接乱序列表只验证私有循环，不冒充真实SQL排序验收。用例14可用替身专门造两份合法键集合错位，但至少用临时Gold完成一次真实两源错误链；用例18不能只替换整个读取函数。观察SQL次数和字段时包装原方法，不跳过执行，也不以旧实现生成expected。用例17的旧“schema保留”仅是第一批历史成绩，第二批该边界已由本表2—10取代，不恢复已删除函数来让旧文字成立。
 
@@ -394,14 +420,20 @@ query仍在源通过、完成根筛选、日历核对和完整计算校验之后
 | 第一批保留旧SQL与第二批删除旧检查 | §0.4明确为第一批记录；第二批统一由本节接管reader/schema检查，既不要求永远保留旧检查，也不删除首次发现/缓存完整验证 |
 | 输出重建与读取行检查 | 两project及query缓存重验保持第一批实现；新目标行检查只针对本次源行，不把整份内部结果再重建一遍 |
 | 字段减少与完整API | r4只读所需值及指标版本；主图/完整指标仍检查各自字段，类型/NULL和计数职责按§0.5.2，不共用r4少字段规则放过主图错误 |
+| 类型检查能力 | 按本次查询实际输出类型和值验收；多文件由DuckDB发生的转换不等于应用层CAST补救，也不能据description宣称逐文件原类型已通过。混合类型及交换先后有独立预期，不恢复逐文件检查 |
 | SQL过滤与坏数据 | 只提前限定目标代码及枚举的文件范围；真实date/freq/版本不作为消除错行的WHERE，cursor定位错误明确保留到检查，不恢复全指数验收 |
+| 游标参数 | 日期和原时间精确拼成完整timestamp，原秒/微秒及编码保持；有cursor六个参数、无cursor三个，不能只绑定时分秒或自行改变时区 |
 | 顺序、分页与源交付 | 每份SQL结果一次严格降序检查，分页/完整历史均升序；两源一次对应，日历仍负责缺根，日线的逐项完整性对照保留 |
 | prepared及错误清理 | 复用第一批清单，无第二轮链接检查；删除schema SQL后Timer/finally仍包住目标查询及循环，失败不补清单/不重试，第二次独立调用重新发现 |
 | 先后依赖及后续边界 | reader的删除/必要检查同批；然后source交接；最后真实临时API及回归。不依赖第3批日历或第4批测量，预算不放宽，源/算法/前端不扩大 |
 
 审计依据为当前reader/source、分钟QueryService及DTO、API错误映射、旧测试及动态工具调用，CodeGraph explore/impact与源码补核共同完成；同名独立读取器不作本模块证据。已通过Context7核对所用DuckDB API，并用自动删除的临时人工identity/value表核验1.5.5的元数据、交换多文件顺序、未消费列缺失/改序及必需列缺失的两种异常；另核过小Parquet的实际异常类型，并直接取本文SQL在临时人工表核对无cursor/有cursor的3/6个参数、NULL时间保留及排序。此为文档可实现性的库行为核验，没有业务代码/测试文件改动、真实行情读取或性能测量，不替代§0.5.6—8开发验收。
 
-本轮已处理审计中发现的旧当前状态、schema阶段交接、字段职责、cursor隐藏错误以及仅认BinderException会漏掉后续文件缺列的问题。方案§10与技术方案§17同步本节；截至本轮审计，没有剩余需管理员拍板的业务规则或未定义的第二批交接。文档完整性三个检查组、四文档32处本地Markdown链接、第二批9个小节/19组用例、表格列数及限定diff检查均通过；业务代码和测试文件未修改，没有执行第二批业务回归。第二批具备提交管理员review的编码设计条件；本轮仍停在文档，不自动编码、提交或推进后续批次。
+提交1867e883e后的独立审计另发现两处需补齐：类型检查不能兑现拒绝所有原始错类型文件的承诺，以及before_stamp缺少精确构造。管理员已批准按建议修正，本轮已直接统一§0.5.2/3与用例3/10，并同步专项§4.6/§10、技术方案§17及产品说明；没有恢复整表/逐文件检查，没有改变cursor或算法。前轮其余交接设计及19组用例保持。当前两项已落实为明确的编码要求和独立预期，没有未决口径；检查成绩以本轮文档校验和限定库行为核验为准，不把第一批成绩当成第二批实现验收。
+
+本轮限定核验使用自动删除的临时人工文件：六种混合类型先后顺序、不可转换文本、带/不带微秒的完整cursor及无cursor绑定均与修正后的字面预期相符。该核验只确认DuckDB行为和本文SQL/参数，不是第二批reader/API已经开发或回归通过。
+
+本轮仅修正文档并按管理员指令提交；未改业务代码或测试文件，未运行第二批业务回归、真实行情或性能测量，未推进开发。后续编码仍须按本节完成全部分组验收，不自动进入第三批或部署。
 
 ## 1. 环境、路由及配置生效
 
