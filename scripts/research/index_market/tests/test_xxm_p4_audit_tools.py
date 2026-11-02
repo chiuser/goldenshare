@@ -571,3 +571,247 @@ def test_partial_observation_setup_restores_already_registered_patches(monkeypat
     with pytest.raises(RuntimeError,match='setup failure'):
         with audit._observe(audit.AuditCollector(group())):pytest.fail('must not yield')
     assert q._CACHE is cache and q.IndexDetailXxmQueryService.build is build
+
+
+@pytest.mark.parametrize('period', ['m60', 'm90', 'm120'])
+@pytest.mark.parametrize('kind', ['signals', 'forecast'])
+def test_p4_r02_minute_prefix_1501_rejected_in_complete_summary(period, kind):
+    # LLD 21.14.2: the real collector records processed prefix rows, while
+    # this independent literal boundary is 500 requested + 1000 extra.
+    g = group('mixed_single' if kind == 'signals' else 'forecast_series', period=period)
+    values = (_p4_minute_mixed(g, prefixRows=1501) if kind == 'signals'
+              else [_p4_minute_record(g, prefixRows=1501)])
+    with pytest.raises(ValueError, match='prefix'):
+        audit.validate_summary(g, summary(g, values))
+
+
+def _p4_minute_scope(g, n, kind):
+    # Producers: xxm/apiClient.ts, indexDetailApiClient.ts and
+    # nine-turn/api/nineTurnApiClient.ts use these paths with freq, not day.
+    value = scope(g, n, 'forecast' if kind == 'forecast' else 'kline')
+    endpoint = {'kline': 'minutes', 'indicators': 'minute-indicators',
+                'nineTurn': 'minute-nine-turn', 'signals': 'minute-xxm-signals',
+                'forecast': 'xxm-key-point-forecast'}[kind]
+    value['path'] = '/api/v1/wealth/market/index-detail/' + endpoint
+    query = 'tsCode=000001.SH&' + ('period=' + g.period if kind == 'forecast' else 'freq=' + g.period[1:])
+    if g.mode == 'debug' and kind in ('signals', 'forecast'):
+        query += '&debug=1'
+    value['query_string'] = query.encode()
+    return value
+
+
+def _p4_minute_record(g, n=1, kind='forecast', **changes):
+    """Handwritten collector fields, not a fabricated production response.
+
+    LLD 21.14 / runtime: requested 500 + extra 1000. Times are completed SSE
+    endpoints shared by these literal samples; validation does not read sources.
+    """
+    c = audit.AuditCollector(g)
+    identity = c.start(_p4_minute_scope(g, n, kind))
+    values = dict(httpStatus=200, bodyBytes=100, httpSeconds=.01, terminal='success',
+                  sourceInputId='source-a', calendarInputId=None, publicDigest='public-a',
+                  dataStatus='READY', prefixRows=1500,
+                  computedThrough='2026-10-27T15:00:00+08:00',
+                  windowStart='2026-10-26T15:00:00+08:00',
+                  windowEnd='2026-10-27T15:00:00+08:00',
+                  clientSeconds=.02 if kind in ('signals', 'forecast') else None,
+                  computeSeconds=.02 if kind == 'forecast' else None,
+                  responseRows=500 if kind == 'signals' else None)
+    values.update(changes)
+    c.requests[identity].update(values)
+    return c.requests[identity]
+
+
+def _p4_minute_mixed(g, **signal_changes):
+    # The actual Node mixed page has these five kinds; only r4 has prefix data.
+    values = [_p4_minute_record(g, i, kind, prefixRows=None, sourceInputId=None,
+                               dataStatus=None) for i, kind in ((1, 'kline'), (2, 'indicators'), (3, 'nineTurn'))]
+    values += [_p4_minute_record(g, 4, 'signals', **signal_changes), _p4_minute_record(g, 5)]
+    return values
+
+
+@pytest.mark.parametrize('period', ['m60', 'm90', 'm120'])
+@pytest.mark.parametrize('mode', ['normal', 'debug'])
+def test_p4_r01_complete_minute_groups_accept_literal_limits(period, mode):
+    g = group(period=period, mode=mode)
+    values = _p4_minute_mixed(g)
+    values[-1]['computeSeconds'] = .4
+    result = audit.validate_summary(g, summary(g, values))
+    assert len(result['requests']) == 5 and result['p95HttpSeconds'] is None
+    assert result['requests'][3]['prefixRows'] == 1500
+    assert result['requests'][3]['responseRows'] == 500
+
+
+@pytest.mark.parametrize('prefix,count', [(400, 400), (1001, 1), (1500, 1), (1, 1)])
+def test_p4_r03_short_source_does_not_require_1500_or_derive_limit_from_output(prefix, count):
+    g = group(period='m60')
+    values = _p4_minute_mixed(g, prefixRows=prefix, responseRows=count)
+    assert audit.validate_summary(g, summary(g, values))['requests'][3]['prefixRows'] == prefix
+
+
+@pytest.mark.parametrize('value', [None, True, 0, -1, 1500.0, '1500', 1501])
+@pytest.mark.parametrize('kind', ['signals', 'forecast'])
+def test_p4_r04_bad_prefix_rejected_in_full_group(value, kind):
+    g = group(period='m60')
+    values = _p4_minute_mixed(g)
+    values[3 if kind == 'signals' else 4]['prefixRows'] = value
+    with pytest.raises(ValueError, match='prefix'):
+        audit.validate_summary(g, summary(g, values))
+
+
+@pytest.mark.parametrize('field', ['sourceInputId', 'computedThrough'])
+@pytest.mark.parametrize('value', [None, ''])
+@pytest.mark.parametrize('kind', ['signals', 'forecast'])
+def test_p4_r05_minute_identity_is_required_without_source_lookup(field, value, kind):
+    g = group(period='m60')
+    values = _p4_minute_mixed(g)
+    values[3 if kind == 'signals' else 4][field] = value
+    with pytest.raises(ValueError, match='identity'):
+        audit.validate_summary(g, summary(g, values))
+
+
+@pytest.mark.parametrize('count,prefix', [(501, 1500), (0, 1500), (None, 1500),
+                                         (True, 1500), (500.0, 1500), (500, 400)])
+def test_p4_r06_signal_count_is_positive_bounded_and_not_more_than_prefix(count, prefix):
+    g = group(period='m60')
+    with pytest.raises(ValueError, match='response rows'):
+        audit.validate_summary(g, summary(g, _p4_minute_mixed(g, responseRows=count, prefixRows=prefix)))
+
+
+@pytest.mark.parametrize('status', ['EMPTY', 'DELAYED'])
+@pytest.mark.parametrize('kind', ['signals', 'forecast'])
+def test_p4_r07_valid_product_nonready_status_is_not_performance_acceptance(status, kind):
+    g = group(period='m60')
+    values = _p4_minute_mixed(g)
+    values[3 if kind == 'signals' else 4]['dataStatus'] = status
+    with pytest.raises(ValueError, match='READY'):
+        audit.validate_summary(g, summary(g, values))
+
+
+@pytest.mark.parametrize('duration', [None, True, float('nan'), float('inf'), -.01, .400001])
+def test_p4_r09_ready_minute_forecast_requires_finite_original_compute_time(duration):
+    g = group('forecast_series', period='m60')
+    with pytest.raises(ValueError, match='compute'):
+        audit.validate_summary(g, summary(g, [_p4_minute_record(g, computeSeconds=duration)]))
+
+
+@pytest.mark.parametrize('duration', [0, .4])
+def test_p4_r09_exact_compute_boundaries_are_accepted(duration):
+    g = group('forecast_series', period='m60')
+    assert audit.validate_summary(g, summary(g, [_p4_minute_record(g, computeSeconds=duration)]))
+
+
+def test_p4_r10_day_and_ordinary_minutes_keep_original_contracts():
+    g = group('forecast_series')
+    assert audit.validate_summary(g, summary(g, [row(g, prefixRows=4084, computeSeconds=None)]))
+    for period in ('m60', 'm90', 'm120'):
+        m = group(period=period)
+        result = audit.validate_summary(m, summary(m, _p4_minute_mixed(m)))
+        assert [r['prefixRows'] for r in result['requests'][:3]] == [None, None, None]
+        chart = group('kline_series', period=period, samples=20)
+        ordinary = [row(chart, i, 'kline', round=i, prefixRows=None, httpSeconds=1.) for i in range(1, 21)]
+        assert audit.validate_summary(chart, summary(chart, ordinary))['p95HttpSeconds'] == 1.
+
+
+@pytest.mark.parametrize('size', [4, 6])
+def test_p4_r11_minute_mixed_count_does_not_change(size):
+    g = group(period='m60')
+    values = _p4_minute_mixed(g)
+    values = values[:size] if size == 4 else values + [_p4_minute_record(g, 6)]
+    with pytest.raises(ValueError, match='count'):
+        audit.validate_summary(g, summary(g, values))
+
+
+def _p4_projected_minute(g, kind, status='NO_CANDIDATE'):
+    """Isolate only the DTO layer: real collector and prefix calculation run.
+
+    Two literal completed bars and one returned signal prove the prefix/window
+    distinction. This is not a source/API integration or EMA performance test.
+    """
+    c = audit.AuditCollector(g)
+    identity = c.start(_p4_minute_scope(g, 4 if kind == 'signals' else 1, kind))
+    before, through = '2026-10-26T15:00:00+08:00', '2026-10-27T15:00:00+08:00'
+    entry = SimpleNamespace(processed=[SimpleNamespace(time=before), SimpleNamespace(time=through)],
+                            calculator=SimpleNamespace(source_identity='literal|1'))
+    c._entries[identity] = entry
+    if kind == 'signals':
+        internal = SimpleNamespace(source=SimpleNamespace(computedThrough=through, inputId='literal-source', indicatorVersion=1),
+                                   dataStatus=SimpleNamespace(status='READY'),
+                                   meta=SimpleNamespace(count=1, responseStart=through, responseEnd=through))
+        payload = dict(meta=dict(count=1), debug=dict(mode=g.mode))
+    else:
+        internal = SimpleNamespace(period=g.period, computedThrough=through, sourceInputId='literal-source',
+                                   calendarInputId=None, dataStatus='READY')
+        payload = dict(status=status, targetEndpoint=None, calendarInputId=None,
+                       conditions=[], structureFollowConditions=[], debug=dict(mode=g.mode))
+    public = SimpleNamespace(model_dump=lambda **kw: {k: v for k, v in payload.items() if k not in kw.get('exclude', set())})
+    token = audit._REQUEST_ID.set(identity)
+    try:
+        c.projected(internal, public, kind)
+    finally:
+        audit._REQUEST_ID.reset(token)
+    result = dict(c.requests[identity], httpStatus=200, bodyBytes=100, httpSeconds=.01,
+                  clientSeconds=.02, computeSeconds=.02 if kind == 'forecast' else None, terminal='success')
+    return result, payload
+
+
+@pytest.mark.parametrize('status', ['NO_CANDIDATE', 'PRECISION_PENDING'])
+def test_p4_r08_collector_keeps_legitimate_forecast_null_target(status):
+    g = group('forecast_series', period='m60')
+    recorded, payload = _p4_projected_minute(g, 'forecast', status)
+    assert payload['targetEndpoint'] is None and payload['calendarInputId'] is None
+    assert recorded['responseRows'] is None and recorded['prefixRows'] == 2
+    assert audit.validate_summary(g, summary(g, [recorded]))
+
+
+@pytest.mark.parametrize('kind', ['signals', 'forecast'])
+def test_p4_r12_real_collector_distinguishes_prefix_from_window_and_modes(kind):
+    groups = [group('forecast_series' if kind == 'forecast' else 'mixed_single', period='m60', mode=m)
+              for m in ('normal', 'debug')]
+    summaries = []
+    for g in groups:
+        recorded, _ = _p4_projected_minute(g, kind)
+        assert recorded['prefixRows'] == 2
+        if kind == 'signals':
+            assert recorded['responseRows'] == 1
+            assert recorded['windowStart'] == '2026-10-27T15:00:00+08:00'
+            values = _p4_minute_mixed(g)
+            values[3] = recorded
+        else:
+            assert recorded['windowStart'] == '2026-10-26T15:00:00+08:00'
+            values = [recorded]
+        summaries.append(audit.validate_summary(g, summary(g, values)))
+    assert all(p['status'] == 'equal' for p in audit.compare_modes(*summaries))
+    changed = summaries[1]['requests'][0 if kind == 'forecast' else 3]
+    changed['publicDigest'] = 'different'
+    with pytest.raises(ValueError, match='public'):
+        audit.compare_modes(*summaries)
+
+
+def test_p4_r14_prefix_failure_keeps_actual_value_in_worker_failed_summary(monkeypatch):
+    from io import BytesIO
+    from src.foundation.config import settings as settings_module
+    from src.biz.queries.wealth.market.index_detail_xxm import query_service as q
+    g = group('forecast_series', period='m60')
+    c = audit.AuditCollector(g)
+    recorded = _p4_minute_record(g, prefixRows=1501)
+    c.requests[recorded['requestId']] = recorded
+    messages = []
+    @contextmanager
+    def fake_app(settings, *, group):
+        yield audit.AuditApp(None, 'http://fixture.invalid', c, threading.Event())
+    payload = dict(group=asdict(g), settingsIdentity={'fixture': True})
+    monkeypatch.setattr(audit.sys, 'stdin', SimpleNamespace(buffer=BytesIO(json.dumps(payload).encode())))
+    monkeypatch.setattr(settings_module, 'get_settings', lambda: object())
+    monkeypatch.setattr(audit, '_settings_identity', lambda _: {'fixture': True})
+    monkeypatch.setattr(audit, 'isolated_app', fake_app)
+    monkeypatch.setattr(audit, '_run_node', lambda *args: summary(g, [recorded]))
+    monkeypatch.setattr(q, '_CACHE', SimpleNamespace(lock=threading.RLock(), entries={}))
+    monkeypatch.setattr(audit, '_send_message', messages.append)
+    with pytest.raises(SystemExit) as caught:
+        audit._run_audit_group_worker()
+    assert caught.value.code == 1 and [m['type'] for m in messages] == ['started', 'failed']
+    failed = messages[-1]
+    assert failed['errorType'] == 'ValueError' and failed['summary']['cleanupStatus'] == 'failed'
+    assert failed['summary']['requests'][0]['prefixRows'] == 1501
+    audit._validate_failure(g, failed)  # Failure evidence is not filtered by success gates.

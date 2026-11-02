@@ -528,6 +528,26 @@ def isolated_app(settings, *, group):
         stack.close()
 
 
+def _validate_minute_r4_prefix(row):
+    if row['period'] not in ('m60', 'm90', 'm120') or row['endpointKind'] not in ('signals', 'forecast'):
+        return
+    if row['dataStatus'] != 'READY':
+        raise ValueError('Minute source is not READY')
+    prefix = row['prefixRows']
+    if type(prefix) is not int or not 0 < prefix <= BUDGET.response_default_minute + BUDGET.source_extra_rows:
+        raise ValueError('Minute prefix rows exceeded or invalid')
+    if any(not isinstance(row[key], str) or not row[key] for key in ('sourceInputId', 'computedThrough')):
+        raise ValueError('Missing minute source identity or completed endpoint')
+    if row['endpointKind'] == 'signals':
+        count = row['responseRows']
+        if type(count) is not int or not 0 < count <= min(BUDGET.response_default_minute, prefix):
+            raise ValueError('Minute response rows exceeded or invalid')
+    else:
+        duration = row['computeSeconds']
+        if type(duration) not in (int, float) or not math.isfinite(duration) or not 0 <= duration <= .4:
+            raise ValueError('Missing or invalid minute forecast compute time')
+
+
 def validate_summary(group, summary):
     if not isinstance(summary, dict) or summary.get('groupId') != group.groupId or summary.get('cleanupStatus') != 'cleaned':
         raise ValueError('Missing completed cleanup')
@@ -548,6 +568,7 @@ def validate_summary(group, summary):
                 raise ValueError('HTTP/client budget exceeded')
             if row['bodyBytes'] > (32768 if row['endpointKind'] == 'forecast' else BUDGET.max_response_bytes):
                 raise ValueError('Response bytes exceeded')
+        _validate_minute_r4_prefix(row)
         if row['computeSeconds'] is not None and not 0 <= row['computeSeconds'] <= .4:
             raise ValueError('Compute budget exceeded')
         if row['forecastCacheReadCalls'] > 1 or row['forecastCacheWriteCalls'] > 1:
