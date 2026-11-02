@@ -153,6 +153,69 @@ def _write_gold(
     return target
 
 
+# LLD 0.9.4/0.9.7: real isolated Gold schema above, literal intraday bounds.
+@pytest.mark.parametrize('entrypoint', ['single', 'pair'])
+def test_p4_bounded_history_filters_time_before_limit_without_changing_paging(tmp_path, entrypoint):
+    from datetime import datetime
+    from src.foundation.clients.local_lake.major_index_mins_reader import IndexMinuteHistoryBudgetError
+    day = date(2026, 8, 11)
+    rows = [('000001.SH', '60min', f'{day} {slot}:00', 10., 10.+i, 14., 9., 1., 1., 'SSE', 10.)
+            for i, slot in enumerate(('10:30', '11:30', '14:00', '15:00'))]
+    _write_gold_bars(tmp_path, trade_date=day, freq=60, rows=rows)
+    path = _write_gold(tmp_path, freq=60)
+    _batch2_rewrite(path, "SELECT * REPLACE (TIMESTAMP '2026-08-11 11:30:00' AS trade_time) FROM read_parquet(?, hive_partitioning=false)")
+    reader = MajorIndexMinsLakeReader(tmp_path)
+    request = IndexMinuteReadRequest('000001.SH', 60, day, day, 1, None)
+    bounds = (datetime(2026,8,11,11,30), datetime(2026,8,11,11,30))
+    if entrypoint == 'single':
+        page = reader.read_complete_history(request, dataset='bars', max_rows=1, timeout_seconds=4,
+                                            value_columns=('close',), time_window=bounds)
+    else:
+        page, indicators = reader.read_complete_history_pair(request, max_rows=1, timeout_seconds=4,
+            bar_value_columns=('close',), indicator_value_columns=('macd_dif','macd_dea','macd'), time_window=bounds)
+        assert indicators.count == 1 and indicators.rows[0]['trade_time'] == bounds[0]
+    assert page.count == 1 and page.rows[0]['close'] == 11.
+    assert page.rows[0]['trade_time'] == bounds[0] and not page.has_more
+    with pytest.raises(IndexMinuteHistoryBudgetError):
+        reader.read_complete_history(request, dataset='bars', max_rows=1, timeout_seconds=4,
+            value_columns=('close',), time_window=(bounds[0], datetime(2026,8,11,15)))
+    # Original non-window complete read and public pagination still see all rows.
+    assert reader.read_complete_history(request, dataset='bars', timeout_seconds=4).count == 4
+    paged = reader.read_bars(request)
+    assert paged.count == 1 and paged.has_more and paged.rows[0]['close'] == 13.
+
+
+@pytest.mark.parametrize('bad', ['null_time', 'wrong_date', 'duplicate', 'bad_close'])
+def test_p4_bounded_history_does_not_hide_target_errors(tmp_path, bad):
+    from datetime import datetime
+    path = _write_gold_bars(tmp_path, freq=60)
+    replacements = {'null_time':'CAST(NULL AS TIMESTAMP)', 'wrong_date':"TIMESTAMP '2026-08-12 09:40:00'"}
+    if bad in replacements:
+        _batch2_rewrite(path, f'SELECT * REPLACE ({replacements[bad]} AS trade_time) FROM read_parquet(?, hive_partitioning=false)')
+    elif bad == 'duplicate':
+        _batch2_rewrite(path, "SELECT * REPLACE (TIMESTAMP '2026-08-11 09:40:00' AS trade_time) FROM read_parquet(?, hive_partitioning=false)")
+    else:
+        _batch2_rewrite(path, "SELECT * REPLACE (CAST('NaN' AS DOUBLE) AS close) FROM read_parquet(?, hive_partitioning=false)")
+    request = IndexMinuteReadRequest('000001.SH',60,date(2026,8,11),date(2026,8,11),10,None)
+    with pytest.raises(IndexMinuteSourceContractError):
+        MajorIndexMinsLakeReader(tmp_path).read_complete_history(request,dataset='bars',timeout_seconds=4,
+            value_columns=('close',), time_window=(datetime(2026,8,11,9,40),datetime(2026,8,11,9,40)))
+
+
+@pytest.mark.parametrize('bad', ['aware','reversed','one','outside','missing_dates'])
+def test_p4_bounded_history_rejects_invalid_time_window_even_without_files(tmp_path, bad):
+    from datetime import datetime, timezone
+    bounds = (datetime(2026,8,11,11,30),datetime(2026,8,11,15))
+    request = IndexMinuteReadRequest('000001.SH',60,date(2026,8,11),date(2026,8,11),10,None)
+    if bad=='aware': bounds=tuple(stamp.replace(tzinfo=timezone.utc) for stamp in bounds)
+    elif bad=='reversed': bounds=bounds[::-1]
+    elif bad=='one': bounds=bounds[:1]
+    elif bad=='outside': bounds=(datetime(2026,8,10,15),bounds[1])
+    else: request=replace(request,start_date=None)
+    with pytest.raises(IndexMinuteRequestError):
+        MajorIndexMinsLakeReader(tmp_path).read_complete_history(request,dataset='bars',timeout_seconds=4,time_window=bounds)
+
+
 def test_reader_reads_gold_bar_schema_and_partition_date(tmp_path: Path) -> None:
     _write_gold_bars(tmp_path)
     page = MajorIndexMinsLakeReader(tmp_path).read_bars(

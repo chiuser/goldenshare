@@ -1,6 +1,6 @@
 # 财势乾坤顶底识别低层设计 v1
 
-更新：2026-11-02。状态：P3及其审计修复已提交（bebe6f403、11271531c）；P4第1—4步代码及定向测试已完成，执行证据和未覆盖范围见§21.10。前端无上界校验修复已提交7bf8eb823，历史日线及预测冷热真实回归通过；第5步续验在首个60分钟识别请求4秒超时后停止，90/120分钟未执行，实际结果见LLD§21.13.4，第6步仍由管理员执行。完整Wealth回归的1项范围外月初日期测试失败已按管理员决定暂记TODO，不阻挡P4第5步；保留原失败记录，未修改或跳过。识别v0.4-r4、预测v0.6-r4的取价/选峰/1%/EMA及价格解规则不变。未部署，P5未推进。耗时优化第1批已提交5084ef939；第2批已提交70659f763，438例限定回归及审计见LLD§0.5.10；第3批已按LLD§0.6完成开发及610例限定回归，逐项对账和独立审计见LLD§0.6.10；第三批生产/测试代码尚未提交，设计文档已提交04ff91ad8。第三批测试轮首个m60识别请求HTTP503/XXM_BUDGET_EXCEEDED，完整错误响应4.839965秒，按首错停止，余3次未发；证据见LLD§0.7.9。未恢复正式P4验收，未推进第4批。第三批测试轮安排已补至§0.7，位于第三批开发与第四批之间，已执行并按首错停止。 随后另获准完成单次首次耗时诊断：HTTP200/READY，完整HTTP7.031356秒（17312根计算/500根返回），仅临时进程放宽时限，正式4秒仍未通过；证据见LLD§0.8.1/专项§13。 当前新增“第三轮优化读取轮”设计见§0.9：分钟返回N根额外读1000根，默认最多1500；尚未开发，排在第四批前。
+更新：2026-11-02。状态：P3及其审计修复已提交（bebe6f403、11271531c）；P4第1—4步代码及定向测试已完成，执行证据和未覆盖范围见§21.10。前端无上界校验修复已提交7bf8eb823，历史日线及预测冷热真实回归通过；第5步续验在首个60分钟识别请求4秒超时后停止，90/120分钟未执行，实际结果见LLD§21.13.4，第6步仍由管理员执行。完整Wealth回归的1项范围外月初日期测试失败已按管理员决定暂记TODO，不阻挡P4第5步；保留原失败记录，未修改或跳过。识别v0.4-r4、预测v0.6-r4的取价/选峰/1%/EMA及价格解规则不变。未部署，P5未推进。耗时优化第1批已提交5084ef939；第2批已提交70659f763，438例限定回归及审计见LLD§0.5.10；第3批已按LLD§0.6完成开发及610例限定回归，逐项对账和独立审计见LLD§0.6.10；第三批生产/测试代码尚未提交，设计文档已提交04ff91ad8。第三批测试轮首个m60识别请求HTTP503/XXM_BUDGET_EXCEEDED，完整错误响应4.839965秒，按首错停止，余3次未发；证据见LLD§0.7.9。未恢复正式P4验收，未推进第4批。第三批测试轮安排已补至§0.7，位于第三批开发与第四批之间，已执行并按首错停止。 随后另获准完成单次首次耗时诊断：HTTP200/READY，完整HTTP7.031356秒（17312根计算/500根返回），仅临时进程放宽时限，正式4秒仍未通过；证据见LLD§0.8.1/专项§13。 当前“第三轮优化读取轮”实施见§0.9：分钟返回N根额外读1000根，默认最多1500；开发、限定测试及独立审计已完成，证据见LLD§0.9.10，当前停在review，未提交或真实复测，未推进第四批。
 
 依据：[产品文档](../../../../docs/product/wealth-top-bottom-recognition-product-v1.md)、[技术方案](index-detail-top-bottom-recognition-technical-design-v1.md)。本文件只规定当前目标、代码迁移位置、开发顺序和验收，不包含已废弃的开发流程。实施必须使用本文规则和独立用例，不得从旧实验或旧输出推导当前预期。
 
@@ -59,7 +59,7 @@ Biz仍只依赖自身及允许Foundation；App组合，Wealth消费HTTP；研究
 | 2 目标读取和检查统一 | 方向6/7/8共享`_query_rows`及目标行处理一次完整迁移，删除完整DESCRIBE、其他指数验收和重复SQL聚合；目标实际必需字段/身份/顺序检查在同批完成 | 每次SQL结果按降序检查，分页及完整历史交给调用方时均保持升序，分页limit+1及最早时间游标不变。r4少字段和分钟主图/指标完整字段的全部实际消费者同批回归；不得交付“旧检查已删、必要目标检查未实现”的半套状态。不依赖缓存策略实验 |
 | 3 分钟日历缩范围 | 方向3在第2批目标输入上安排日历范围，先取得实际分钟输入再查询适用日期；这是已完成第三批的历史执行顺序 | 保留当时实际前缀、空输入/完成端点、缺行情/休市及早期asOf语义；日线此批不改。测试及诊断之后先按§0.9完成第三轮优化读取轮及review，再决定第四批 |
 | 第三批测试轮 | 插在第三批开发和第四批之间；只复用已有隔离App/计时，普通latest的上证60分钟识别首次/再次及预测首次/再次，最多4次HTTP | 两组各自新App/空产品缓存，首错停止整轮。不得套用旧混合CLI或20次入口。精确调用、观测和退出按§0.7；本轮结果交管理员review后再决定第四批，不自动推进 |
-| 第三轮优化读取轮 | 接§0.7—8结果，按§0.9将分钟请求改为N+1000，默认1500，识别/预测/文件/SQL/缓存及历史截止一并迁移 | 当前仅设计；开发及限定回归、独立审计后交管理员review，不自动进入第四批；原第四至第八批编号保持 |
+| 第三轮优化读取轮 | 接§0.7—8结果，按§0.9将分钟请求改为N+1000，默认1500，识别/预测/文件/SQL/缓存及历史截止一并迁移 | 开发、限定回归及独立审计已完成，实际证据见§0.9.10；停在管理员review，不自动进入第四批或真实复测；原第四至第八批编号保持 |
 | 4 测量准备 | 在包含第三轮优化读取轮的同一实现上补计时位置、通信和退出合同，并实现测量专用观察与人工样本 | 观察不得额外读行情、重复step或恢复已删检查；原预算、进程回收及有界输出要求生效。此批不直接运行真实测量 |
 | 5 有界测量 | m60剩余阶段、方向4两层缓存A/B、方向2B完整历史包装成本；以执行时正式查询实际加载的最新业务日期/完成端点为范围，原2026-10-30只作故障记录 | 两侧共用前三批及第三轮优化读取轮完成后的实现；区分实际计算窗口和返回窗口/asOf范围，同组参数、实际输入/完成端点一致，预测层还核同一目标及日历身份，不为核对另读源。第4批先补原路由及参数，不改N+1000范围或冻结业务时钟。按专项次数执行，首次性能/来源/合同/退出错误停止；只产出结论，不自动修改缓存策略 |
 | 6 复杂改造设计 | 仅对实测证实值得改的方向2B/4补齐最终方案、编码及必要回归；刷新窗口/修订生效策略改变先review | 只有确认同源重算更快才设计取消相应缓存层；差异与波动相当则保持当前策略、不自动取消或扩测。不为完成清单强改缓存或完整事实校验；无须复杂改造时说明依据后跳过第7批 |
@@ -983,9 +983,9 @@ forecast结果合法NO_CANDIDATE/PRECISION_PENDING按原状态报告，同时将
 
 结论：本次空产品缓存首次完整识别约需7.03秒；4.84秒旧值是前一轮错误响应，不是成功完成时间。本次仅为单样本诊断；当前正式4秒线仍未通过，未证明稳定耗时、冷热净收益、预测400ms或完整P4。执行后独立核对临时时限唯一差异、原来源/范围/Spec、一次收取/一次metrics和原缓存/关联检查、原退出后还原、1次上限均符合§0.8；仓库业务/工具/测试/配置未改，未安装、写库/写湖、保存完整正文或自动推进第四批。结果只回填原文档。
 
-### 0.9 第三轮优化读取轮：请求返回根数额外加1000（设计，未开发）
+### 0.9 第三轮优化读取轮：请求返回根数额外加1000（开发及限定测试完成，未真实复测）
 
-本节依据专项§14及管理员最新决定，是下一步的独立范围修正，排在§0.7—8实际测试之后、第四批之前。仅上证r4分钟识别60/90/120及其共用分钟预测；日线及普通图/指标/九转、独立研究/DG数据写入不改。当前只编写原文档和静态审计，未编码、改临时片段、读取行情或测试性能。§0.6是已交付第三批日历改动的记录；本轮分钟执行顺序及请求范围以本节为准，不要求继续从数据最早年份构建进度。
+本节依据专项§14及管理员最新决定，文档补齐已提交944ab8088，管理员于2026-11-02授权后已按本节完成开发、限定测试和独立审计，逐项证据见§0.9.10。排在§0.7—8实际测试之后、第四批之前；仅上证r4分钟识别60/90/120及共用分钟预测，日线及普通图/指标/九转、独立研究/DG数据写入不改。当前停在管理员review，未真实复测、推进第四批、提交或部署。§0.6保留第三批日历改动的历史记录；本轮分钟顺序及范围以本节为准，不再从数据最早年份构建进度。
 
 #### 0.9.1 固定根数、配置登记和边界
 
@@ -998,9 +998,9 @@ forecast结果合法NO_CANDIDATE/PRECISION_PENDING按原状态报告，同时将
 
 公开DTO/参数、r4核心、恢复校验、EMA公式/容差及所有正式预算不改。source.startTime及指纹必须记录实际选中窗口；source.initialHistoryIncomplete沿原True，不声称窗口之前历史已计算。事件/结构编号继续基于实际事实生成，不以窗口序号重编号。不能将旧全量进度/EMA状态偷渡进新空窗口以制造表面一致。
 
-#### 0.9.2 当前代码依据、修改清单及消费者
+#### 0.9.2 开工依据、修改清单及消费者
 
-CodeGraph codegraph_explore已核Reader的signature/pair及source→query→forecast影响面，补核当前API、load_entry显式调用、原观察包装、schema及普通分钟消费者。当前read_minutes默认start=None，Reader完整读取按日期枚举至业务日；_load_series从空遍历全部raw，_response最后才裁limit，造成17312根计算/500根返回。
+CodeGraph codegraph_explore已核Reader的signature/pair及source→query→forecast影响面，补核API、load_entry显式调用、原观察包装、schema及普通分钟消费者。开工时read_minutes默认start=None，Reader按日期枚举至业务日，_load_series从空遍历全部raw，_response最后才裁limit，这是17312根计算/500根返回的原因；本轮已按下表改为显式有界窗口，实际结果见§0.9.10，不再保留该全量r4分钟调用。
 
 | 原文件/入口 | 本轮修改 | 明确保留 |
 |---|---|---|
@@ -1083,7 +1083,7 @@ _validate_entry、完整内部_response、cache.put/_deep_size和请求窗口_re
 
 本轮完工及独立审计后先交管理员review，不自动开始第四批/真实复测。原第四/第五批的A/B均以本轮之后相同N/截止/范围为共同基线，不能把“缩范围”混入某一个缓存变体；同源比较分别记录计算窗口和返回窗口。§0.7—8的17312根/失败/7.03秒继续是当时真实记录，不当成新范围的当前性能；§0.8临时40/45秒诊断授权已经结束，本轮正式仍4秒/400ms/5秒。
 
-#### 0.9.7 对应测试设计（尚未编写或运行）
+#### 0.9.7 对应测试设计（限定实现及成绩见§0.9.10）
 
 新增用例只放现有相关测试文件，输入/预期由固定口径、独立字面样本或独立数学依据给定，不用待测范围helper生成expected。临时SQLite表/Gold schema沿当前真实生产者和第二批已核字段；所有业务函数/读取器尽量使用真实实现，计数包装必须调用原函数。范围外坏文件用于证明不访问，不能先替换Reader绕过范围选择。
 
@@ -1115,11 +1115,11 @@ _validate_entry、完整内部_response、cache.put/_deep_size和请求窗口_re
 1. 先实现runtime固定字段与source范围计划及字面用例，随后原Reader时间边界和单次双源读取；不要先删原全量加载而留下不能读的中间交付。
 2. 同批迁query的N/截止/缓存/flight/起点滑动和source明确窗口，再迁分钟forecast/历史资格及全部调用/观察消费者；不交付识别已缩范围、预测仍读17年的半套结果。
 3. 按上表分组运行必要本地回归，每组超过60秒停止查因；随后根架构三项、研究依赖及文档检查。无正式源、安装、配置或真实测量副作用。独立审计逐条对照本节/专项§14，并与前三批文件/检查/日历及原P3规则联合核验。
-4. 交管理员review并停止；本轮文档授权不等于开工或真实读取授权。后续最小m60真实复测沿原工具/只读来源/4秒首错停止，必须在执行前明确请求安排，不自行复用§0.8的放宽时限或再拉旧17年基线。
+4. 交管理员review并停止；本轮开发授权不包含真实复测。后续最小m60真实复测沿原工具/只读来源/4秒首错停止，必须在执行前明确请求安排，不自行复用§0.8的放宽时限或再拉旧17年基线。
 
 正式4秒包含范围日历、文件选择/签名、SQL/转换、最多R根step及检查/编码/发布和最后退出检查；预测同一400ms及客户端5秒保持。原源20000根/5000分区是外层保护，不是本轮可读满的目标；本轮实际R≤3000，response/缓存/双源内存、并发及原组50/60秒退出保持。错误不重试、不扩大1000、不保存恢复文件；进程退出只丢该内存，下次按同一有界入口重新算。性能改善只在实测后登记，不从91.34%根数下降推断毫秒成绩。
 
-#### 0.9.9 补齐后的独立审计（2026-11-02，仅静态）
+#### 0.9.9 开发前文档审计记录（2026-11-02，仅静态；开发结果见§0.9.10）
 
 首次文档提交3e97077a6之后的独立审计发现缓存归一化、跨窗口增量、短来源预测状态、早期EMPTY四处缺失及产品旧口径。本次按批准建议补齐，并重新对照原方案§14、产品说明、技术方案§20及当前source/query/forecast/Reader/runtime、SharedLoads、context和前端实际调用者。以下是补齐后的静态结论，不把尚未开发的目标当作代码已具备的能力。
 
@@ -1132,9 +1132,56 @@ _validate_entry、完整内部_response、cache.put/_deep_size和请求窗口_re
 | 历史和失败顺序 | 识别早于1990返回EMPTY且不查该范围日历；预测早于1990在load_entry前400。支持日期内缺日历仍来源错误；合法日历无行情才EMPTY；休市识别与预测各守原语义，共享loader不混入单个调用者资格 |
 | 识别/预测完整性 | 核心/Spec不动，额外部分保留关联，实际不足1000也不先丢弃。预测先precheck，只有需要时才校准；NO_CANDIDATE、PRECISION_PENDING、EMPTY/DELAYED逐层区分，旧结构跟踪不会因普通无候选而漏算 |
 | 前三批/第四批 | 第三批全raw后日历仅作交付记录，当前工程范围要求已改；第一、二批去重/目标字段/升序与prepared仍保持。第四批A/B共同基线包含新轮，不恢复旧全量或原多余检查 |
-| 测试/开工界限 | 18组设计已补实际页面参数、三类早期边界、跨/同计划增量对照、短来源各预测分支及实际不足1000的输出；其余SQL/文件数量、全部消费者及正反退出保持。尚未编写或执行测试，不宣称1500根性能/真实逐根一致 |
+| 当时测试/开工界限 | 开发前18组设计已补实际页面参数、三类早期边界、跨/同计划增量对照、短来源分支及实际不足1000的输出，当时尚未执行。之后的实际测试见§0.9.10，仍不宣称1500根性能/真实逐根一致 |
 
 本轮还核对并补清容易漏掉的交接：归一化不另查context/日历；datetime先于date判断，planner的None不重新解释为latest；源completed/validated_through跟随实际计划末端，不能把历史11:30扩成15:00；共享源entry不合并LATEST/REPLAY响应；无业务完成端点返回空计划；未来识别endDate与未来预测asOf不混用拒绝规则；实际不足R不先删1000；time_window不进入公共分页游标。专项缓存测量的追加/重建分组及阶段表也已同步到新窗口，未遗留“完成端点变了仍跨key增量”的要求。未发现尚需管理员拍板的规则或未处理的本轮文档阻塞。后续只能在取得开发授权后按§0.9.8开工；1000是否覆盖真实案例仍须限定验收，差异按本节停下报告。文档检查仅证明完整性与静态对账，不代表代码、性能或来源验收通过。
+
+#### 0.9.10 实施对账、限定测试与开发后独立审计（2026-11-02）
+
+依据944ab8088及管理员明确开发授权，实际仅修改5个生产文件：`runtime.py`、`source.py`、`query_service.py`、`forecast_query_service.py`、`major_index_mins_reader.py`；测试落在既有Reader、识别API、预测API、snapshot_consumers和p3_forecast_math五份文件。既有第三批及其他工作区改动保留，不恢复旧实现、不新增测量入口，不提交或部署。
+
+下表的序号对应§0.9.7。`API测试`为`tests/web/test_wealth_index_detail_xxm_api.py`，`预测测试`为同目录`test_wealth_index_detail_xxm_forecast_api.py`；`Reader测试`为`tests/test_major_index_mins_reader.py`，研究测试均在既有主题目录。函数名列出可直接定位的节点，不把手写输入当真实行情。
+
+| 序号 | 实际编码与测试证据 |
+|---|---|
+| 1 | runtime唯一`source_extra_rows=1000`；query严格N/source计划R。API的`bounded_plan_uses_one_limited_sql_and_fixed_extra`和`bounded_plan_rejects_bad_count_without_query`验证N=1/500/2000、1001/1500/3000及0/负数/布尔/小数/超限拒绝 |
+| 2 | source的normalize先判datetime；旧三周期完成、20点切换/周末节点保留，`bounded_normalization_keeps_intraday_cutoff_without_sql`、`bounded_history_intraday_and_early_empty`验证11:30不变成15:00及None空上界；大范围N=1用例验证首日只选中15:00这一根 |
+| 3 | plan在shared loader内执行1条带最近开市日LIMIT的CTE；API计划测试明确376/501/751/252及日期绑定；`bounded_calendar_errors_are_not_empty`拒绝缺日、NULL、重复和缺截止。未恢复1990至今查询 |
+| 4 | build/load传原截止；分钟completed/validated_through采用计划末端。API历史/早期EMPTY测试、预测`bounded_early_and_future_forecast_refused_before_source`及原qualification/early_asof测试验证历史、1990、休市/未来、合法空源和来源错误分别处理 |
+| 5 | Reader枚举先按日期筛，SQL用time_window再LIMIT；API的`bounded_real_gold_limits_files_sql_steps_and_output`用5组实际临时Gold核N=1/500/2000和三周期，断言1001/1500/3000根raw/processed/step、2次双源SQL、paths/参数首尾及返回1/500/2000。1999范围外坏文件不得stat/进入SQL |
+| 6 | `bounded_raw_bounds_and_original_completion`覆盖空/首日不齐/滞后/未完成；`bounded_short_real_source_returns_last_n_without_dropping_extra`实际400根返回400、1000根返回500，不先扣1000、不重试补量 |
+| 7 | Reader的`bounded_history_filters_time_before_limit_without_changing_paging`与`bounded_history_does_not_hide_target_errors`验证首尾时间、正常外部行不消费、NULL/错日期不被WHERE隐藏、重复/坏close、R+1拒绝；无文件时非法时间范围也拒绝 |
+| 8 | 原`two_streams_match_in_one_pass`、必需值和真实Gold双源HTTP反例已迁新参数，完整四键/缺根/坏版本/非有限值/目标过滤仍验；原第二批Reader反例继续通过，不验其他指数 |
+| 9 | API的`bounded_visible_event_keeps_structure_from_extra_prefix`以RC47/52七根字面数据验证输出一根时仍保留前置形成的结构及回转关联；原r4_rules/following/following_query/internal_results共1007例验证零柱、当根换远和单根段等规则不变 |
+| 10 | 预测测试的`bounded_real_page_enddate_and_forecasts_share_source_keep_modes`经真实临时HTTP/SQLite/Gold验证页面显式start/end、normal/debug、无asOf及显式asOf四请求仅1次pair，4次正常范围计划；LATEST/REPLAY、requestedAsOf和forecastId分别保留 |
+| 11 | `bounded_counts_and_historical_endpoints_have_separate_entries`验证500→2000→500及历史key；预测`bounded_overlapping_signal_forecast_use_same_flight`验证重叠识别/预测只有1次pair，休市预测400不污染合法识别，共享pending最终清空 |
+| 12 | 实际源key含N/R/首尾；`bounded_changed_plan_rebuilds_even_with_same_actual_first`验证未满R但截止变化时重读并完整重建12根，不restore旧窗口至新主计算器；原append_revision测试验证同计划迟到追加才增量、来源修订重建、旧对象不变。范围外文件变化不在新签名paths内 |
+| 13 | 原完整_validate_entry/_response/cache.put保留，只处理本窗口；API的`bounded_window_does_not_hide_corrupt_cached_old_structure`实际验证公开窗口不含旧结构时，旧缓存记录的NaN仍被拒绝，未被过滤隐藏且原合法对象不变；r4内部结果/RC93及snapshot进一步验证关联和恢复隔离，计划/来源失败不发布半份 |
+| 14 | `test_xxm_p3_forecast_math.py`新增`bounded_projection_recovers_1500_from_independent_decimal_history`：独立70位Decimal EMA先生成1524根，再取1500根交原recover_projection；末端状态按独立预期吻合。249根及末DIF增加2e-8均原CALIBRATION_FAILED；未调用被测advance生成expected，不改1e-8 |
+| 15 | 预测`bounded_short_source_precheck_precedes_real_calibration`以真实短Gold分别验证NO_CANDIDATE/0次校准、有候选/1次校准、仅旧结构跟踪/1次校准；后两者原PRECISION_PENDING。`bounded_nonready_source_does_not_calibrate`确认EMPTY/DELAYED不校准；原非零M1 READY/缓存测试仍通过，M1替代校准与Decimal实际恢复分开登记 |
+| 16 | 新load/source参数直接消费者与替身已迁移；原_observe的*a/**kw无需改实现，flight基础项仍保留period在原位置。P4工具110例通过，1/20、完整请求计数、真实包装一次、取消/回收及有界通信规则未改 |
+| 17 | Reader的None路径、公共分页/游标和普通分钟/九转原行为通过；日线分支/key原样，原day/qualification/快照和API回归通过。无前端、产品API参数、日线来源或DG配置改动 |
+| 18 | 识别`bounded_deadline_stops_at_each_stage`及signature_error验证计划/签名前后/读取超时即停止；预测`bounded_plan_failure_keeps_published_source_and_priority`覆盖timeout/source/query/两类取消，验证原错误优先和旧结果不变；原Reader pair Timer/连接、SharedLoads及P4工具退出测试继续通过 |
+
+旧测试迁移依据：第三批原先要求“raw→日历”、首日由raw决定，及早期asOf另查一次单日日历；本轮明确改成“范围日历→文件→双源”，所以原调用次序、范围参数和单日查询计数按新规则更新。窗口变更不再跨key增量；同计划补到行情仍验证增量。没有删除缺行情、坏值、来源错误、取消、旧缓存保护或非零求界覆盖，没有skip或放宽预算。snapshot的隔离替身同步提供显式计划/范围内bars，仅用于恢复验证，不冒充SQL接入。
+
+限定测试分组（每组均少于60秒，未运行真实复测）：
+
+| 测试组 | 实际结果 |
+|---|---|
+| Reader、预测API、snapshot_consumers、p3_forecast_math | 393例通过（195+117+81）；后续snapshot/math再核81例通过 |
+| 完整识别API文件，含5组1001/1500/3000根真实临时Gold范围验证 | 187例通过，最后一组执行23.10秒；是自动测试整组耗时，不是正式请求性能成绩 |
+| 普通分钟主图/指标、分钟九转、SharedLoads | 61例通过 |
+| 原P4观察/通信/退出工具 | 110例通过 |
+| 原r4_rules、following、following_query、internal_results | 1007例通过 |
+| 根三份架构护栏 | 16例通过 |
+| 研究组织/入口检查 | 14例通过；另对Biz/Foundation当前源码AST核查，无scripts.research导入 |
+
+上述不重复计数共1788例。使用现有SQLAlchemy 2.0.50/DuckDB 1.5.5；Context7已核[SQLAlchemy CTE/标量子查询](https://docs.sqlalchemy.org/en/20/core/selectable.html)及[DuckDB参数绑定](https://duckdb.org/docs/current/guides/python/execute_sql.html)，未安装依赖。临时Gold使用现合同及既有生产者夹具，SQLite代替prod日历；没有访问prod、正式Lake、DG或真实行情，没有重放旧17年基线，不能据此声称真实逐根结论或4秒/400ms性能已验收。
+
+开发后独立审计再次按§0.9.1—8、专项§14及前三批检查：N/R贯穿日历、文件、SQL、计算和缓存；真实页面参数归一化与历史日内截止一致；数据不足不先删1000；仅同计划增量，原始asOf资格与共享源分开；预测保留precheck/校准/跟踪/退出的原先后顺序；公开字段/预算/Spec及业务核心不改。CodeGraph explore/impact核调用方，修改后sync/status确认索引最新；正式Reader源码及消费者单独核实，不依赖同名研究函数的误匹配。逐文件与开工时文本对照确认calculator、Spec、恢复校验、projection等核心未变；无运行时源码SHA保护。
+
+当前未发现本轮LLD偏离、与前三批冲突或尚待处理的落地问题。**开发及限定测试已完成，停在管理员review；真实来源、耗时和真实500根业务事实一致性未验收，不进入第四批、不自动提交或部署。**1000根依赖是否覆盖实际案例仍按§0.9.6的后续限定验收处理，不临时扩量或改规则。
 
 ## 1. 环境、路由及配置生效
 

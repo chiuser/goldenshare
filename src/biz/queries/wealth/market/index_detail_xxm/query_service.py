@@ -27,7 +27,8 @@ from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.snapshot_validation import validate_structure_record
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar, XxmPeriod, XxmStep
 from .source import (CN_ZONE, INDICATOR_VERSION, XxmSourceError, assert_continuous, calendar_dates,
-                     expected_through, minute_reader, minute_request, read_daily, read_minutes)
+                     expected_through, minute_reader, minute_request, normalize_minute_end,
+                     plan_minute_window, read_daily, read_minutes)
 from .shared_loads import SharedLoads
 
 
@@ -172,7 +173,8 @@ class IndexDetailXxmQueryService:
               limit: int, debug: bool = False, now: datetime | None = None) -> bytes:
         if period not in _PERIODS or not 1 <= limit <= BUDGET.max_response_rows or (start_date and end_date and start_date > end_date):
             raise XxmQueryError("XXM_REQUEST_INVALID", "研究指标请求参数不合法。", 400)
-        with self.load_entry(session, period=period, now=now) as (entry, context, open_dates, remaining):
+        window = {} if period == "day" else dict(window_rows=limit, requested_end=end_date)
+        with self.load_entry(session, period=period, now=now, **window) as (entry, context, open_dates, remaining):
             upper = min(end_date or context.trade_date, context.trade_date)
             expected = expected_through(period, open_dates, context.generated_at, upper)
             response = self._response(entry, period=period, expected=expected, start_date=start_date, limit=limit, check=remaining)
@@ -186,7 +188,8 @@ class IndexDetailXxmQueryService:
             return body
 
     @contextmanager
-    def load_entry(self, session: Session, *, period: XxmPeriod, now: datetime | None = None):
+    def load_entry(self, session: Session, *, period: XxmPeriod, now: datetime | None = None,
+                   window_rows: int | None = None, requested_end: date | datetime | None = None):
         """Publish a validated real prefix; consumers never hold a source slot."""
         if period not in _PERIODS:
             raise XxmQueryError("XXM_REQUEST_INVALID", "研究指标周期不合法。", 400)
@@ -211,12 +214,26 @@ class IndexDetailXxmQueryService:
             # join the same flight, even when their latest physical bar matches.
             completed_hint = expected_through(period, (context.trade_date,), now, context.trade_date)
             flight_key = (*key, context.trade_date, now.date(), completed_hint)
+            window = {}
+            if period != "day":
+                output_rows = BUDGET.response_default_minute if window_rows is None else window_rows
+                if type(output_rows) is not int or not 1 <= output_rows <= BUDGET.max_response_rows:
+                    raise XxmQueryError("XXM_REQUEST_INVALID", "分钟返回根数不合法。", 400)
+                # Only forecasts pass a datetime; signals pass a date or None.
+                if requested_end is not None and type(requested_end) is not date:
+                    if (requested_end.tzinfo is None or completed_hint is None
+                            or requested_end > datetime.fromisoformat(completed_hint)):
+                        raise XxmQueryError("XXM_REQUEST_INVALID", "asOf 必须是已完成的开市端点。", 400)
+                normalized_end = normalize_minute_end(period=period, requested_end=requested_end,
+                                                       context=context, now=now)
+                flight_key = (*key, output_rows, normalized_end, context.trade_date, now.date(), completed_hint)
+                window = dict(window_rows=output_rows, requested_end=normalized_end, context=context)
             def load():
                 if not _REQUEST_SLOTS.acquire(timeout=remaining()):
                     raise XxmQueryError("XXM_BUDGET_EXCEEDED", "研究指标查询超时。", 503)
                 try:
                     return self._load_series(session, key=key, period=period, now=now,
-                                             business_date=context.trade_date, remaining=remaining)
+                                             business_date=context.trade_date, remaining=remaining, **window)
                 finally:
                     _REQUEST_SLOTS.release()
             entry, open_dates = self.cache.loads.load(flight_key, load, remaining)
@@ -236,21 +253,42 @@ class IndexDetailXxmQueryService:
         except Exception as exc:
             raise XxmQueryError("XXM_QUERY_FAILED", "研究指标查询失败，请重试。") from exc
 
-    def _load_series(self, session, *, key, period, now, business_date, remaining):
-        open_dates = calendar_dates(session, end=now.date())
-        completed = expected_through(period, open_dates, now, business_date)
-        previous_entry = self.cache.get(key)
+    def _load_series(self, session, *, key, period, now, business_date, remaining,
+                      window_rows: int | None = None, requested_end: datetime | None = None, context=None):
+        remaining()
         if period == "day":
+            open_dates = calendar_dates(session, start=date(1990, 1, 1), end=now.date())
+            remaining()
+            completed = expected_through(period, open_dates, now, business_date)
+            previous_entry = self.cache.get(key)
             raw = read_daily(session, completed=completed, check=remaining)
             signature = ()
         else:
             assert self.reader is not None
-            freq = int(period[1:])
-            request = minute_request(freq, business_date)
-            signature = tuple(self.reader.history_source_signature(request, dataset=dataset) for dataset in ("bars", "indicators"))
+            window = plan_minute_window(session, period=period,
+                output_rows=BUDGET.response_default_minute if window_rows is None else window_rows,
+                requested_end=requested_end, context=context, now=now, check=remaining)
             remaining()
-            raw = previous_entry.raw if previous_entry is not None and signature == previous_entry.signature else read_minutes(
-                self.reader, freq=freq, end=business_date, deadline=remaining)
+            open_dates = window.open_dates
+            completed = window.end_time.isoformat() if window.end_time is not None else None
+            key = (*key, window.output_rows, window.read_rows, window.start_time, window.end_time)
+            previous_entry = self.cache.get(key)
+            freq = int(period[1:])
+            signatures = []
+            if window.start_time is not None:
+                request = minute_request(freq, window)
+                for dataset in ("bars", "indicators"):
+                    remaining()
+                    signatures.append(self.reader.history_source_signature(request, dataset=dataset))
+                    remaining()
+            signature = tuple(signatures)
+            if window.start_time is None:
+                raw = ()
+            elif previous_entry is not None and signature == previous_entry.signature:
+                raw = previous_entry.raw
+            else:
+                raw = read_minutes(self.reader, freq=freq, window=window, deadline=remaining)
+            remaining()
         remaining()
         if (previous_entry is not None and signature == previous_entry.signature and raw == previous_entry.raw
                 and completed == previous_entry.validated_through and open_dates == previous_entry.open_dates):

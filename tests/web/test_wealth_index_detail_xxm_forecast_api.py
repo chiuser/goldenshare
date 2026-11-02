@@ -22,11 +22,15 @@ from sqlalchemy.pool import StaticPool
 from src.app.exceptions import WebAppError, install_exception_handlers
 from src.biz.api.wealth.market.index_detail_xxm_forecast import build_router
 from src.biz.queries.wealth.market.index_detail_xxm import forecast_query_service as query
+from src.biz.queries.wealth.market.index_detail_xxm import source as source_data
 from src.biz.queries.wealth.market.index_detail_xxm.query_service import XxmCache, XxmQueryError
 from src.biz.queries.wealth.market.index_detail_xxm.source import CN_ZONE
 from src.biz.schemas.wealth.market.index_detail_xxm_forecast import InternalForecastResponseDto, ForecastResponseDto, ForecastDebugResponseDto
 from src.biz.services.wealth.market.index_detail_xxm.projection import ProjectionState,ProjectionPrecisionError
 from scripts.research.index_market.tests.test_xxm_r4_following_query import entry
+from tests.web.test_wealth_index_detail_xxm_api import (  # shared temporary producers, no source replacement
+    batch3_db_factory, _batch3_gold, BATCH3_NOW, BATCH3_SLOTS,
+)
 
 PATH='/api/v1/wealth/market/index-detail/xxm-key-point-forecast'
 M1=[(100,-60,-2),(110,0,2),(90,-50,-2),(100,0,2),(89,-15,-30),(88,-14,-28)]
@@ -52,12 +56,12 @@ def source_db():
     engine.dispose()
 
 
-def api(engine,denied=None):
+def api(engine,denied=None,*,lake_root=None):
     app=FastAPI();install_exception_handlers(app)
     def session():
         with Session(engine) as s: yield s
     app.include_router(build_router(db_dependency=session,auth_dependency=denied or (lambda:None),
-        lake_dependency=lambda:None,error_factory=WebAppError),prefix='/api/v1')
+        lake_dependency=lambda:lake_root,error_factory=WebAppError),prefix='/api/v1')
     return TestClient(app)
 
 
@@ -432,3 +436,327 @@ def test_f07_cancellation_inside_cache_lock_is_atomic_and_unlocks(m1,source_db,k
     with ThreadPoolExecutor(max_workers=1) as worker:assert worker.submit(can_lock).result(timeout=1)
     cache.put_forecast(('new identity',),prepared,100,check=lambda:1.)
     assert ('forecast','new identity') in cache.entries
+
+
+@pytest.mark.parametrize('freq',[60,90,120])
+def test_p4_bounded_early_open_asof_uses_range_calendar_and_empty(batch3_db_factory,tmp_path,monkeypatch,freq):
+    from src.biz.queries.wealth.market.index_detail_xxm import source
+    _batch3_gold(tmp_path,freq,[(f'2023-01-10T{slot}:00',100.,0.,0.,0.) for slot in BATCH3_SLOTS[freq]])
+    engine=batch3_db_factory()
+    service=query.IndexDetailXxmForecastQueryService(lake_root=tmp_path,cache=XxmCache())
+    calls=[]
+    original_open=source.is_open_date
+    def opened(session,day):
+        calls.append(day)
+        return original_open(session,day)
+    monkeypatch.setattr(source_data,'is_open_date',opened)
+    for name in ('recover_projection','future_calendar','forecast'):
+        monkeypatch.setattr(query,name,lambda *a,**k:pytest.fail('EMPTY must not forecast'))
+    monkeypatch.setattr(service.source.cache,'get_forecast',lambda *a,**k:pytest.fail('EMPTY cache read'))
+    monkeypatch.setattr(service.source.cache,'put_forecast',lambda *a,**k:pytest.fail('EMPTY cache publish'))
+    with Session(engine) as session:
+        result=json.loads(service.build(session,period=f'm{freq}',as_of=f'2023-01-06T{BATCH3_SLOTS[freq][-1]}:00+08:00',debug=True,now=BATCH3_NOW))
+    assert calls==[]  # The one range calendar already contains this day.
+    assert result['status']=='EMPTY' and result['targetEndpoint'] is None
+    assert result['debug']['sourceInputId'] is None and result['debug']['calendarInputId'] is None
+    assert result['debug']['conditions']==[]
+
+
+@pytest.mark.parametrize('day,opened',[(6,True),(7,False)])
+def test_p4_batch3_single_day_real_sql_contract(batch3_db_factory,day,opened):
+    from src.biz.queries.wealth.market.index_detail_xxm.source import is_open_date
+    with Session(batch3_db_factory()) as session,patch.object(session,'execute',wraps=session.execute) as execute:
+        assert is_open_date(session,date(2023,1,day)) is opened
+        assert execute.call_count==1
+        statement=execute.call_args.args[0]
+        assert list(statement.selected_columns.keys())==['trade_date','is_open']
+        assert list(statement.compile().params.values())==['SSE',date(2023,1,day)]
+
+
+@pytest.mark.parametrize('kind',['absent','null','duplicate','wrong_day','wrong_bool','other_exchange'])
+def test_p4_batch3_single_day_rejects_invalid_facts(batch3_db_factory,kind):
+    from src.biz.queries.wealth.market.index_detail_xxm.source import is_open_date,XxmSourceError
+    day=date(2023,1,6);engine=batch3_db_factory()
+    if kind in ('wrong_day','wrong_bool'):
+        rows=[(date(2023,1,5),True)] if kind=='wrong_day' else [(day,1)]
+        session=SimpleNamespace(execute=lambda statement:SimpleNamespace(all=lambda:rows))
+        with pytest.raises(XxmSourceError):is_open_date(session,day)
+        return
+    with engine.begin() as connection:
+        if kind in ('absent','other_exchange'):
+            connection.execute(text("DELETE FROM core_serving.trade_calendar WHERE trade_date='2023-01-06'"))
+        if kind=='other_exchange':connection.execute(text("INSERT INTO core_serving.trade_calendar VALUES('SZSE','2023-01-06',1,NULL)"))
+        if kind=='null':connection.execute(text("UPDATE core_serving.trade_calendar SET is_open=NULL WHERE trade_date='2023-01-06'"))
+        if kind=='duplicate':connection.execute(text("INSERT INTO core_serving.trade_calendar VALUES('SSE','2023-01-06',1,NULL)"))
+    with Session(engine) as session,pytest.raises(XxmSourceError):is_open_date(session,day)
+
+
+def _batch3_fixed_clock(monkeypatch,now=BATCH3_NOW):
+    from src.biz.queries.wealth.market.index_detail_xxm import query_service as source_query
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls,tz=None):return now.astimezone(tz) if tz is not None else now.replace(tzinfo=None)
+    monkeypatch.setattr(source_query,'datetime',FixedDateTime)
+    cache=XxmCache();monkeypatch.setattr(source_query,'_CACHE',cache)
+    return cache
+
+
+@pytest.mark.parametrize('freq',[60,90,120])
+@pytest.mark.parametrize('kind,status',[('closed',400),('absent',500),('null',500),('open',200)])
+def test_p4_batch3_early_asof_http_contract(batch3_db_factory,tmp_path,monkeypatch,freq,kind,status):
+    _batch3_gold(tmp_path,freq,[(f'2023-01-10T{slot}:00',100.,0.,0.,0.) for slot in BATCH3_SLOTS[freq]])
+    engine=batch3_db_factory();cache=_batch3_fixed_clock(monkeypatch)
+    if kind in ('absent','null'):
+        with engine.begin() as connection:
+            connection.execute(text("DELETE FROM core_serving.trade_calendar WHERE trade_date='2023-01-06'") if kind=='absent' else text("UPDATE core_serving.trade_calendar SET is_open=NULL WHERE trade_date='2023-01-06'"))
+    day='2023-01-07' if kind=='closed' else '2023-01-06'
+    with patch.object(source_data,'is_open_date',wraps=source_data.is_open_date) as lookup,api(engine,lake_root=tmp_path) as client:
+        response=client.get(PATH,params=dict(tsCode='000001.SH',period=f'm{freq}',asOf=day+'T15:00:00+08:00',debug=1))
+        assert response.status_code==status,response.text
+        assert lookup.call_count==0
+        if status==200:
+            normal=client.get(PATH,params=dict(tsCode='000001.SH',period=f'm{freq}',asOf=day+'T15:00:00+08:00'))
+            assert normal.status_code==200 and normal.json()=={k:v for k,v in response.json().items() if k!='debug'}
+            assert lookup.call_count==0
+    assert bool(cache.entries)==(kind not in ('absent','null'))
+    assert not any(key[0]=='forecast' for key in cache.entries)
+    if status==200:assert response.json()['status']=='EMPTY'
+    else:assert response.json()['code']==('XXMF_REQUEST_INVALID' if status==400 else 'XXMF_SOURCE_CONTRACT_INVALID')
+
+
+@pytest.mark.parametrize('freq',[60,90,120])
+@pytest.mark.parametrize('case',['empty_early','empty_current','inside','closed_inside','before_1990','future','future_endpoint'])
+def test_p4_batch3_qualification_bounds_and_empty(batch3_db_factory,tmp_path,monkeypatch,freq,case):
+    engine=batch3_db_factory()
+    if case not in ('empty_early','empty_current'):_batch3_gold(tmp_path,freq)
+    if case=='before_1990':
+        with engine.begin() as connection:connection.execute(text("INSERT INTO core_serving.trade_calendar VALUES('SSE','1989-12-29',1,NULL)"))
+    service=query.IndexDetailXxmForecastQueryService(lake_root=tmp_path,cache=XxmCache())
+    day='1989-12-29' if case=='before_1990' else '2023-01-11' if case=='future' else '2023-01-07' if case=='closed_inside' else '2023-01-10' if case in ('empty_current','future_endpoint') else '2023-01-06'
+    slot=BATCH3_SLOTS[freq][0] if case=='future_endpoint' else '15:00'
+    stamp=day+'T'+slot+':00+08:00'
+    now=BATCH3_NOW.replace(hour=10) if case=='future_endpoint' else BATCH3_NOW
+    with Session(engine) as session,patch.object(source_data,'is_open_date',wraps=source_data.is_open_date) as lookup:
+        if case in ('closed_inside','before_1990','future','future_endpoint'):
+            with pytest.raises(XxmQueryError) as error:service.build(session,period=f'm{freq}',as_of=stamp,now=now)
+            assert error.value.status==400
+        else:
+            result=json.loads(service.build(session,period=f'm{freq}',as_of=stamp,debug=True,now=now))
+            assert result['status']==('EMPTY' if case.startswith('empty') else 'NO_CANDIDATE')
+        assert lookup.call_count==0
+
+
+@pytest.mark.parametrize('freq',[60,90,120])
+def test_p4_batch3_real_minute_ready_cache_identity_and_next_endpoint(batch3_db_factory,tmp_path,monkeypatch,freq):
+    from dataclasses import replace
+    from unittest.mock import Mock
+    from src.biz.queries.wealth.market.index_detail_xxm import query_service as source_query
+    from src.foundation.clients.local_lake.major_index_mins_reader import MajorIndexMinsLakeReader
+    # Literal LLD 0.6.6. Only calibration is isolated; source and solver are real.
+    times={60:('01-09T14:00','01-09T15:00','01-10T10:30','01-10T11:30','01-10T14:00','01-10T15:00'),
+           90:('01-09T11:00','01-09T14:00','01-09T15:00','01-10T11:00','01-10T14:00','01-10T15:00'),
+           120:('01-06T11:30','01-06T15:00','01-09T11:30','01-09T15:00','01-10T11:30','01-10T15:00')}[freq]
+    values=((100.,-60.,-59.,-2.),(110.,0.,-1.,2.),(90.,-50.,-49.,-2.),(100.,0.,-1.,2.),(89.,-15.,0.,-30.),(88.,-14.,0.,-28.))
+    rows=[('2023-'+stamp+':00',*value) for stamp,value in zip(times,values,strict=True)]
+    _batch3_gold(tmp_path,freq,rows)
+    engine=batch3_db_factory(end=date(2023,1,11));cache=_batch3_fixed_clock(monkeypatch)
+    lookup=Mock(side_effect=AssertionError('latest must not check an out-of-range day'))
+    monkeypatch.setattr(source_data,'is_open_date',lookup)
+    calibration=Mock(return_value=ProjectionState(13,27,0));monkeypatch.setattr(query,'recover_projection',calibration)
+    signatures=[];pairs=[];original_signature=MajorIndexMinsLakeReader.history_source_signature;original_pair=MajorIndexMinsLakeReader.read_complete_history_pair
+    def signature(reader,*a,**k):signatures.append(k['dataset']);return original_signature(reader,*a,**k)
+    def pair(reader,*a,**k):pairs.append(1);return original_pair(reader,*a,**k)
+    monkeypatch.setattr(MajorIndexMinsLakeReader,'history_source_signature',signature)
+    monkeypatch.setattr(MajorIndexMinsLakeReader,'read_complete_history_pair',pair)
+    with patch.object(source_query,'plan_minute_window',wraps=source_query.plan_minute_window) as calendar,patch.object(query,'future_calendar',wraps=query.future_calendar) as future,patch.object(query,'forecast',wraps=query.forecast) as solve,patch.object(cache,'get_forecast',wraps=cache.get_forecast) as get,patch.object(cache,'put_forecast',wraps=cache.put_forecast) as put,api(engine,lake_root=tmp_path) as client:
+        params=dict(tsCode='000001.SH',period=f'm{freq}')
+        cold=client.get(PATH,params=params)
+        assert cold.status_code==200,cold.text
+        normal=cold.json()
+        stored=next(value[0] for key,value in cache.entries.items() if key[0]=='forecast')
+        assert isinstance(stored,InternalForecastResponseDto)
+        source_key=next(key for key in cache.entries if key[0]!='forecast');source_entry=cache.entries[source_key][0]
+        assert len(source_entry.raw)==6 and source_entry.points[-1]['ordinaryState']=='DULL'
+        # A legitimate old entry with a longer calendar must keep every id.
+        old=replace(source_entry,open_dates=(date(2023,1,2),*source_entry.open_dates))
+        cache.put(source_key,old,check=lambda:4.)
+        with patch.object(source_query.XxmCalculator,'step',side_effect=AssertionError('calendar normalization replay')):
+            warm=client.get(PATH,params={**params,'debug':1})
+        assert warm.status_code==200,warm.text
+        debug=warm.json();details=debug['debug']
+        assert normal=={k:v for k,v in debug.items() if k!='debug'}
+        assert normal['status']=='READY' and normal['ordinaryState']=='DULL' and normal['direction']=='BOTTOM'
+        assert normal['targetEndpoint']==f'2023-01-11T{BATCH3_SLOTS[freq][0]}:00+08:00' and normal['barsAhead']==1
+        assert details['selectedReference']=='NEAR' and details['farEvaluated'] is False and details['conditions']
+        assert any(condition['outcome']=='STRUCTURE_FORMED' for condition in details['conditions'])
+        assert normal['forecastId']==stored.forecastId
+        assert details['sourceInputId']==stored.sourceInputId and details['calendarInputId']==stored.calendarInputId
+        assert [c['id'] for c in details['conditions']]==[c.id for c in stored.conditions]
+        assert signatures==['bars','indicators','bars','indicators'] and pairs==[1]
+        assert calendar.call_count==2 and calibration.call_count==future.call_count==get.call_count==2
+        assert solve.call_count==put.call_count==1
+        assert all(call.kwargs['requested_end']==datetime(2023,1,10,15,tzinfo=CN_ZONE) for call in calendar.call_args_list)
+        assert old.open_dates[0]==date(2023,1,2) and cache.entries[source_key][0] is not old
+        assert cold.headers['cache-control']==warm.headers['cache-control']=='no-store'
+
+
+@pytest.mark.parametrize('kind',['timeout','source','query','async_cancel','future_cancel'])
+def test_p4_bounded_plan_failure_keeps_published_source_and_priority(batch3_db_factory,tmp_path,monkeypatch,kind):
+    from asyncio import CancelledError as AsyncCancelled
+    from concurrent.futures import CancelledError as FutureCancelled
+    from src.biz.queries.wealth.market.index_detail_xxm.source import XxmSourceError
+    _batch3_gold(tmp_path,60,[(f'2023-01-10T{slot}:00',100.,0.,0.,0.) for slot in BATCH3_SLOTS[60]])
+    service=query.IndexDetailXxmForecastQueryService(lake_root=tmp_path,cache=XxmCache())
+    clock=[0.];monkeypatch.setattr(query.time,'perf_counter',lambda:clock[0])
+    from src.biz.queries.wealth.market.index_detail_xxm import query_service as source_query
+    original=source_query.plan_minute_window;calls=[]
+    failure={'source':XxmSourceError('bad source'),'query':RuntimeError('database error'),
+             'async_cancel':AsyncCancelled(),'future_cancel':FutureCancelled()}.get(kind)
+    def planned(*a,**k):
+        result=original(*a,**k);calls.append(1);clock[0]=4.1
+        if failure is not None:raise failure
+        return result
+    with Session(batch3_db_factory()) as session,patch.object(service.source.cache,'put_forecast',side_effect=AssertionError('failed forecast published')):
+        with service.source.load_entry(session,period='m60',now=BATCH3_NOW):pass
+        monkeypatch.setattr(source_query,'plan_minute_window',planned)
+        with pytest.raises(type(failure) if kind.endswith('cancel') else XxmQueryError) as error:
+            service.build(session,period='m60',as_of='2023-01-06T15:00:00+08:00',now=BATCH3_NOW)
+        assert calls==[1]
+        if kind.endswith('cancel'):assert error.value is failure
+        else:assert error.value.code=={'timeout':'XXM_BUDGET_EXCEEDED','source':'XXM_SOURCE_CONTRACT_INVALID','query':'XXM_QUERY_FAILED'}[kind]
+        entries=[value[0] for key,value in service.source.cache.entries.items() if key[0]!='forecast']
+        assert len(entries)==1 and len(entries[0].processed)==4
+        assert not any(key[0]=='forecast' for key in service.source.cache.entries)
+        snapshot=entries[0].calculator.snapshot()
+        monkeypatch.setattr(source_query,'plan_minute_window',original);clock[0]=0.
+        result=json.loads(service.build(session,period='m60',as_of='2023-01-06T15:00:00+08:00',now=BATCH3_NOW))
+        assert result['status']=='EMPTY' and entries[0].calculator.snapshot()==snapshot
+
+
+def test_p4_batch3_day_and_latest_do_not_use_single_day(m1,source_db,monkeypatch):
+    monkeypatch.setattr(source_data,'is_open_date',lambda *a:pytest.fail('day lookup'))
+    service,_=m1
+    with Session(source_db) as session:
+        assert read(service,session)['status']=='READY'
+        assert read(service,session,as_of='2023-01-10')['status']=='READY'
+
+
+@pytest.mark.parametrize('period,stamp',[('m60','2023-01-10T10:30:00'),('m90','2023-01-10T11:30:00+08:00'),('m120','2023-01-10T11:30:00+00:00')])
+def test_p4_batch3_invalid_endpoint_rejected_before_source(batch3_db_factory,tmp_path,monkeypatch,period,stamp):
+    monkeypatch.setattr(query.IndexDetailXxmForecastQueryService,'build',lambda *a,**k:pytest.fail('invalid endpoint loaded source'))
+    with api(batch3_db_factory(),lake_root=tmp_path) as client:
+        response=client.get(PATH,params=dict(tsCode='000001.SH',period=period,asOf=stamp))
+    assert response.status_code==400 and response.json()['code']=='XXMF_REQUEST_INVALID'
+
+
+@pytest.mark.parametrize('case,expected,calls',[('none','NO_CANDIDATE',0),
+    ('candidate','PRECISION_PENDING',1),('only_following','PRECISION_PENDING',1)])
+def test_p4_bounded_short_source_precheck_precedes_real_calibration(batch3_db_factory,tmp_path,case,expected,calls):
+    # Literal M1 and RC74/75 prefixes. They are intentionally not 250-bar
+    # calibrated series; test the actual short-source status, without EMA mocks.
+    values = ((100.,0.,0.),)*6 if case=='none' else M1 if case=='candidate' else (
+        (100.,200.,2.),(90.,0.,-2.),(101.,100.,2.),(102.,100.,2.),(103.,99.,2.),(90.,98.,-2.))
+    stamps=('2023-01-09T14:00:00','2023-01-09T15:00:00','2023-01-10T10:30:00',
+            '2023-01-10T11:30:00','2023-01-10T14:00:00','2023-01-10T15:00:00')
+    rows=[(stamp,float(c),float(d),float(d-h/2),float(h)) for stamp,(c,d,h) in zip(stamps,values,strict=True)]
+    _batch3_gold(tmp_path,60,rows)
+    service=query.IndexDetailXxmForecastQueryService(lake_root=tmp_path,cache=XxmCache())
+    with Session(batch3_db_factory()) as session,patch.object(query,'recover_projection',wraps=query.recover_projection) as calibration,\
+         patch.object(query,'future_calendar',side_effect=AssertionError('no future calendar before calibration')),\
+         patch.object(query,'precheck_next_bar',wraps=query.precheck_next_bar) as precheck:
+        result=json.loads(service.build(session,period='m60',debug=True,now=BATCH3_NOW))
+    assert result['status']==expected and result['dataStatus']=='READY'
+    assert calibration.call_count==calls and precheck.call_count==1
+    if case=='only_following':
+        saved=next(iter(service.source.cache.entries.values()))[0]
+        assert saved.calculator.state=='NONE' and saved.calculator.followed_structures['TOP'] is not None
+    assert not any(key[0]=='forecast' for key in service.source.cache.entries)
+
+
+@pytest.mark.parametrize('case',['empty','delayed'])
+def test_p4_bounded_nonready_source_does_not_calibrate(batch3_db_factory,tmp_path,case):
+    if case=='delayed':_batch3_gold(tmp_path,60,[('2023-01-10T14:00:00',100.,0.,0.,0.)])
+    service=query.IndexDetailXxmForecastQueryService(lake_root=tmp_path,cache=XxmCache())
+    with Session(batch3_db_factory()) as session,patch.object(query,'recover_projection',side_effect=AssertionError('nonready calibration')):
+        result=json.loads(service.build(session,period='m60',now=BATCH3_NOW))
+    assert result['status']==case.upper()
+
+
+def test_p4_bounded_real_page_enddate_and_forecasts_share_source_keep_modes(batch3_db_factory,tmp_path,monkeypatch):
+    from src.biz.api.wealth.market.index_detail_minute_xxm import build_router as signals_router
+    from src.biz.queries.wealth.market.index_detail_xxm import query_service as source_query
+    from src.foundation.clients.local_lake.major_index_mins_reader import MajorIndexMinsLakeReader
+    _batch3_gold(tmp_path,60);engine=batch3_db_factory();cache=_batch3_fixed_clock(monkeypatch)
+    def session():
+        with Session(engine) as value:yield value
+    test_client=api(engine,lake_root=tmp_path)
+    test_client.app.include_router(signals_router(db_dependency=session,auth_dependency=lambda:None,
+        lake_dependency=lambda:tmp_path,error_factory=WebAppError),prefix='/api/v1')
+    with patch.object(source_query,'plan_minute_window',wraps=source_query.plan_minute_window) as plans,\
+         patch.object(MajorIndexMinsLakeReader,'read_complete_history_pair',autospec=True,
+                      side_effect=MajorIndexMinsLakeReader.read_complete_history_pair) as pair, test_client as client:
+        params=dict(tsCode='000001.SH',freq=60,startDate='2023-01-06',endDate='2023-01-10',limit=500)
+        normal=client.get('/api/v1/wealth/market/index-detail/minute-xxm-signals',params=params)
+        debug=client.get('/api/v1/wealth/market/index-detail/minute-xxm-signals',params={**params,'debug':1})
+        latest=client.get(PATH,params=dict(tsCode='000001.SH',period='m60'))
+        replay=client.get(PATH,params=dict(tsCode='000001.SH',period='m60',asOf='2023-01-10T15:00:00+08:00'))
+    assert all(r.status_code==200 for r in (normal,debug,latest,replay))
+    assert normal.json()=={k:v for k,v in debug.json().items() if k!='debug'}
+    assert latest.json()['mode']=='LATEST' and latest.json()['requestedAsOf'] is None
+    assert replay.json()['mode']=='REPLAY' and replay.json()['requestedAsOf']=='2023-01-10T15:00:00+08:00'
+    assert replay.json()['forecastId']!=latest.json()['forecastId']
+    assert pair.call_count==1 and plans.call_count==4
+    assert len([k for k in cache.entries if k[0]!='forecast'])==1
+
+
+@pytest.mark.parametrize('holiday',[False,True])
+def test_p4_bounded_overlapping_signal_forecast_use_same_flight(batch3_db_factory,tmp_path,monkeypatch,holiday):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from src.biz.queries.wealth.market.index_detail_xxm import query_service as source_query
+    from src.foundation.clients.local_lake.major_index_mins_reader import MajorIndexMinsLakeReader
+    _batch3_gold(tmp_path,60);engine=batch3_db_factory();cache=XxmCache()
+    signals=source_query.IndexDetailXxmQueryService(lake_root=tmp_path,cache=cache)
+    forecasts=query.IndexDetailXxmForecastQueryService(lake_root=tmp_path,cache=cache)
+    entered,joined,release=Event(),Event(),Event();keys=[]
+    original_plan=source_query.plan_minute_window;original_shared=cache.loads.load
+    end=date(2023,1,7) if holiday else date(2023,1,10)
+    def plan(*a,**k):
+        entered.set();assert release.wait(3)
+        return original_plan(*a,**k)
+    def shared(key,loader,remaining):
+        keys.append(key);follower=len(keys)==2
+        def wait_budget():
+            if follower:joined.set()
+            return remaining()
+        return original_shared(key,loader,wait_budget)
+    monkeypatch.setattr(source_query,'plan_minute_window',plan);monkeypatch.setattr(cache.loads,'load',shared)
+    def signal():
+        with Session(engine) as session:return json.loads(signals.build(session,period='m60',start_date=None,end_date=end,limit=500,now=BATCH3_NOW))
+    def forecast():
+        with Session(engine) as session:return json.loads(forecasts.build(session,period='m60',
+            as_of=end.isoformat()+'T15:00:00+08:00' if holiday else None,now=BATCH3_NOW))
+    with patch.object(MajorIndexMinsLakeReader,'read_complete_history_pair',autospec=True,
+                      side_effect=MajorIndexMinsLakeReader.read_complete_history_pair) as pair,ThreadPoolExecutor(max_workers=2) as pool:
+        first=pool.submit(signal);assert entered.wait(2)
+        second=pool.submit(forecast)
+        try:assert joined.wait(2)
+        finally:release.set()
+        assert first.result(timeout=3)['dataStatus']['status']=='READY'
+        if holiday:
+            with pytest.raises(XxmQueryError) as failure:second.result(timeout=3)
+            assert failure.value.status==400
+        else:assert second.result(timeout=3)['status']=='NO_CANDIDATE'
+    assert keys[0]==keys[1] and pair.call_count==1 and not cache.loads._pending
+
+
+def test_p4_bounded_early_and_future_forecast_refused_before_source(batch3_db_factory,tmp_path):
+    service=query.IndexDetailXxmForecastQueryService(lake_root=tmp_path,cache=XxmCache())
+    with Session(batch3_db_factory()) as session,patch.object(service.source,'load_entry',side_effect=AssertionError('early load')):
+        with pytest.raises(XxmQueryError) as error:
+            service.build(session,period='m60',as_of='1989-12-29T15:00:00+08:00',now=BATCH3_NOW)
+        assert error.value.status==400
+    with Session(batch3_db_factory()) as session,patch.object(service.source,'_load_series',side_effect=AssertionError('future source')):
+        with pytest.raises(XxmQueryError) as error:
+            service.build(session,period='m60',as_of='2023-01-11T15:00:00+08:00',now=BATCH3_NOW)
+        assert error.value.status==400 and not service.source.cache.entries

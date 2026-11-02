@@ -7,6 +7,7 @@ from src.foundation.clients.local_lake.major_index_mins_reader import MAX_INDEX_
 @dataclass(frozen=True, slots=True)
 class XxmRuntimeBudget:
     source_batch_rows: int = 1000
+    source_extra_rows: int = 1000
     max_source_rows: int = MAX_INDEX_MINUTE_HISTORY_ROWS
     max_source_partitions: int = MAX_INDEX_MINUTE_PARTITION_FILES
     response_default_day: int = 300

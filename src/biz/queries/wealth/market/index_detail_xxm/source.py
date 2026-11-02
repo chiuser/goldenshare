@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from datetime import date, datetime, time
+from dataclasses import dataclass
+from datetime import date, datetime, time, timedelta
 from pathlib import Path
 from typing import Callable
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.foundation.clients.local_lake.major_index_mins_contract import GOLD_INDICATOR_VERSION
@@ -25,13 +26,90 @@ class XxmSourceError(ValueError):
     pass
 
 
-def calendar_dates(session: Session, *, end: date) -> tuple[date, ...]:
+@dataclass(frozen=True, slots=True)
+class MinuteSourceWindow:
+    output_rows: int
+    read_rows: int
+    start_time: datetime | None
+    end_time: datetime | None
+    open_dates: tuple[date, ...]
+
+
+def normalize_minute_end(*, period: XxmPeriod, requested_end: date | datetime | None,
+                         context, now: datetime) -> datetime | None:
+    completed = expected_through(period, (context.trade_date,), now, context.trade_date)
+    if completed is None:
+        return None
+    upper = datetime.fromisoformat(completed)
+    if isinstance(requested_end, datetime):
+        return min(requested_end.astimezone(CN_ZONE), upper)
+    if requested_end is not None:
+        return min(datetime.combine(requested_end, ENDPOINTS[int(period[1:])][-1], CN_ZONE), upper)
+    return upper
+
+
+def plan_minute_window(session: Session, *, period: XxmPeriod, output_rows: int,
+                       requested_end: datetime | None, context, now: datetime,
+                       check: Callable[[], object]) -> MinuteSourceWindow:
+    """Plan completed endpoints before discovering any minute files (LLD 0.9)."""
+    if type(output_rows) is not int or not 1 <= output_rows <= BUDGET.max_response_rows:
+        raise ValueError("分钟返回根数不合法。")
+    read_rows = output_rows + BUDGET.source_extra_rows
+    check()
+    if requested_end is None or requested_end.date() < date(1990, 1, 1):
+        return MinuteSourceWindow(output_rows, read_rows, None, None, ())
+    end = requested_end.date()
+    slots = ENDPOINTS[int(period[1:])]
+    open_day_count = (read_rows + len(slots) - 1) // len(slots) + 1
+    recent = (select(TradeCalendar.trade_date).where(
+        TradeCalendar.exchange == "SSE", TradeCalendar.is_open.is_(True), TradeCalendar.trade_date <= end)
+        .order_by(TradeCalendar.trade_date.desc()).limit(open_day_count).cte("xxm_recent_open_dates"))
+    first = select(func.min(recent.c.trade_date)).scalar_subquery()
     rows = session.execute(select(TradeCalendar.trade_date, TradeCalendar.is_open).where(
-        TradeCalendar.exchange == "SSE", TradeCalendar.trade_date >= date(1990, 1, 1),
+        TradeCalendar.exchange == "SSE", TradeCalendar.trade_date >= func.coalesce(first, end),
+        TradeCalendar.trade_date <= end).order_by(TradeCalendar.trade_date)).all()
+    check()
+    if not rows or rows[-1][0] != end:
+        raise XxmSourceError("SSE 交易日历未覆盖计算日期。")
+    open_dates = []
+    previous = None
+    for day, opened in rows:
+        check()
+        if (type(day) is not date or type(opened) is not bool
+                or previous is not None and day != previous + timedelta(days=1)):
+            raise XxmSourceError("SSE 交易日历存在缺口或字段异常。")
+        previous = day
+        if opened:
+            open_dates.append(day)
+    endpoints = []
+    for day in open_dates:
+        check()
+        for slot in slots:
+            stamp = datetime.combine(day, slot, CN_ZONE)
+            if stamp <= requested_end and stamp <= now:
+                endpoints.append(stamp)
+    selected = endpoints[-read_rows:]
+    return MinuteSourceWindow(output_rows, read_rows, selected[0] if selected else None,
+                              selected[-1] if selected else None, tuple(open_dates))
+
+
+def calendar_dates(session: Session, *, start: date, end: date) -> tuple[date, ...]:
+    if start > end:
+        raise XxmSourceError("SSE 交易日历查询起止日期不合法。")
+    rows = session.execute(select(TradeCalendar.trade_date, TradeCalendar.is_open).where(
+        TradeCalendar.exchange == "SSE", TradeCalendar.trade_date >= start,
         TradeCalendar.trade_date <= end).order_by(TradeCalendar.trade_date)).all()
     if not rows or rows[-1][0] != end:
         raise XxmSourceError("SSE 交易日历未覆盖计算日期。")
     return tuple(row[0] for row in rows if row[1])
+
+
+def is_open_date(session: Session, day: date) -> bool:
+    rows = session.execute(select(TradeCalendar.trade_date, TradeCalendar.is_open).where(
+        TradeCalendar.exchange == "SSE", TradeCalendar.trade_date == day)).all()
+    if len(rows) != 1 or rows[0][0] != day or type(rows[0][1]) is not bool:
+        raise XxmSourceError("SSE 交易日历未覆盖请求日期或字段异常。")
+    return rows[0][1]
 
 
 def expected_through(period: XxmPeriod, open_dates: tuple[date, ...], now: datetime, end: date | None) -> str | None:
@@ -74,14 +152,19 @@ def read_daily(session: Session, *, completed: str | None, check: Callable[[], N
     return tuple(values)
 
 
-def minute_request(freq: int, end: date, start: date | None = None) -> IndexMinuteReadRequest:
-    return IndexMinuteReadRequest("000001.SH", freq, start, end, BUDGET.source_batch_rows, None)
+def minute_request(freq: int, window: MinuteSourceWindow) -> IndexMinuteReadRequest:
+    if window.start_time is None or window.end_time is None:
+        raise ValueError("空分钟范围不能读取文件。")
+    return IndexMinuteReadRequest("000001.SH", freq, window.start_time.date(), window.end_time.date(),
+                                  window.read_rows, None)
 
 
-def read_minutes(reader: MajorIndexMinsLakeReader, *, freq: int, end: date, deadline: Callable[[], float],
-                 start: date | None = None) -> tuple[XxmBar, ...]:
-    request = minute_request(freq, end, start)
+def read_minutes(reader: MajorIndexMinsLakeReader, *, freq: int, window: MinuteSourceWindow,
+                 deadline: Callable[[], float]) -> tuple[XxmBar, ...]:
+    request = minute_request(freq, window)
     bars, indicators = reader.read_complete_history_pair(request, timeout_seconds=deadline(),
+        max_rows=window.read_rows,
+        time_window=(window.start_time.replace(tzinfo=None), window.end_time.replace(tzinfo=None)),
         bar_value_columns=("close",), indicator_value_columns=("macd_dif", "macd_dea", "macd"))
     if len(bars.rows) != len(indicators.rows):
         raise XxmSourceError("分钟价格与指标的完整时间集合不一致。")

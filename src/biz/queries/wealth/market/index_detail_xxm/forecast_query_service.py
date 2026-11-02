@@ -15,6 +15,7 @@ from src.biz.services.wealth.market.index_detail_xxm.forecast_text import make_d
 from src.biz.services.wealth.market.index_detail_xxm.projection import recover_projection, ProjectionPrecisionError
 from src.biz.services.wealth.market.index_detail_xxm.response_projection import project_forecast_response
 from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
+from src.biz.services.wealth.market.index_detail_xxm.runtime import BUDGET
 from src.biz.services.wealth.market.index_detail_xxm.types import ForecastKernelResult
 from src.biz.services.wealth.market.index_detail_xxm.forecast_identity import (
     digest, forecast_result_id, forecast_condition_id,
@@ -98,11 +99,18 @@ class IndexDetailXxmForecastQueryService:
     def build(self, session, *, period, as_of=None, debug=False, now=None) -> bytes:
         candidate=None
         try:
-            with self.source.load_entry(session,period=period,now=now) as (entry,context,open_dates,remaining):
+            window = {}
+            if period != 'day':
+                requested_end = datetime.fromisoformat(as_of) if as_of is not None else None
+                if requested_end is not None and requested_end.date() < date(1990,1,1):
+                    raise XxmQueryError('XXM_REQUEST_INVALID','asOf 必须是已完成的开市端点。',400)
+                window = dict(window_rows=BUDGET.response_default_minute, requested_end=requested_end)
+            with self.source.load_entry(session,period=period,now=now,**window) as (entry,context,open_dates,remaining):
                 upper=min(date.fromisoformat(as_of[:10]) if as_of else context.trade_date,context.trade_date)
-                expected=expected_through(period,open_dates,context.generated_at,upper)
+                request_open_dates=open_dates
+                expected=expected_through(period,request_open_dates,context.generated_at,upper)
                 if as_of is not None:
-                    if expected is None or as_of>expected or upper not in open_dates:
+                    if expected is None or as_of>expected or upper not in request_open_dates:
                         raise XxmQueryError('XXM_REQUEST_INVALID','asOf 必须是已完成的开市端点。',400)
                     expected=as_of
                 n=bisect_right([b.time for b in entry.processed],expected) if expected else 0

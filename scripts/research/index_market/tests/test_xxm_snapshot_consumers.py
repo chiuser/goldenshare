@@ -36,9 +36,9 @@ REFERENCE = {"startTime": "2025-03-03", "endTime": "2025-03-04", "price": 101, "
 @pytest.fixture
 def source_boundary(monkeypatch):
     reads = []
-    def calendar(session, *, end):
+    def calendar(session, *, start, end):
         assert session is None
-        return tuple(date.fromisoformat(s) for s in DATES if date.fromisoformat(s) <= end)
+        return tuple(date.fromisoformat(s) for s in DATES if start <= date.fromisoformat(s) <= end)
     def reader(session, *, completed, check):
         assert session is None and completed in DATES
         check()
@@ -155,8 +155,8 @@ def daily_source(monkeypatch, bars):
     days = tuple(date.fromisoformat(bar.time) for bar in bars)
     source = {"bars": bars, "reads": []}
 
-    def calendar(session, *, end):
-        return tuple(day for day in days if day <= end)
+    def calendar(session, *, start, end):
+        return tuple(day for day in days if start <= day <= end)
 
     def reader(session, *, completed, check):
         check()
@@ -422,9 +422,15 @@ def test_historical_prefix_and_zero_return_to_dull_clone_in_every_period(monkeyp
                        for day in days for endpoint in ENDPOINTS[int(period[1:])])[:7]
     bars = tuple(XxmBar(stamp, *value) for stamp, value in zip(stamps, values, strict=True))
     monkeypatch.setattr(query_service, "calendar_dates",
-                        lambda session, *, end: tuple(day for day in days if day <= end))
+                        lambda session, *, start, end: tuple(day for day in days if start <= day <= end))
     monkeypatch.setattr(query_service, "read_daily", lambda session, *, completed, check: bars)
-    monkeypatch.setattr(query_service, "read_minutes", lambda *a, **k: bars)
+    monkeypatch.setattr(query_service, "read_minutes", lambda *a, window, **k: tuple(
+        bar for bar in bars if window.start_time.isoformat() <= bar.time <= window.end_time.isoformat()))
+    from src.biz.queries.wealth.market.index_detail_xxm.source import MinuteSourceWindow
+    # Isolate only the range planner in this snapshot test (no DB). Actual
+    # planner/SQL/Gold boundaries are covered by the bounded web tests.
+    monkeypatch.setattr(query_service, "plan_minute_window", lambda *a,**k:MinuteSourceWindow(
+        500,1500,datetime.fromisoformat(stamps[0]),k['requested_end'],days))
     service = IndexDetailXxmQueryService(cache=XxmCache())
     service.reader = SimpleNamespace(history_source_signature=lambda request, *, dataset: ("artificial", dataset))
 
@@ -432,8 +438,9 @@ def test_historical_prefix_and_zero_return_to_dull_clone_in_every_period(monkeyp
         stamp = stamps[count - 1]
         now = (datetime.combine(date.fromisoformat(stamp), datetime.min.time(), CN_ZONE).replace(hour=16)
                if period == "day" else datetime.fromisoformat(stamp) + timedelta(minutes=1))
+        window={} if period=='day' else dict(window_rows=500,requested_end=datetime.fromisoformat(stamp))
         return service._load_series(None, key=("four-period-prefix", period, MAIN_SPEC.spec_hash),
-            period=period, now=now, business_date=now.date(), remaining=lambda: None)[0]
+            period=period, now=now, business_date=now.date(), remaining=lambda: None,**window)[0]
 
     old = load(6)
     before = entry_facts(old)

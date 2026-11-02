@@ -11,6 +11,35 @@ import sys
 
 import pytest
 
+
+def test_p4_bounded_projection_recovers_1500_from_independent_decimal_history():
+    """LLD 0.9.7(14): Decimal EMA is independent of ProjectionState.advance."""
+    from decimal import Decimal, localcontext
+    from dataclasses import replace
+    from datetime import datetime, timedelta
+    from src.biz.services.wealth.market.index_detail_xxm.projection import recover_projection, ProjectionPrecisionError
+    from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+    with localcontext() as context:
+        context.prec=70
+        fast=slow=Decimal('100');signal=Decimal(0);bars=[]
+        for i in range(1524):
+            close=Decimal(100)+Decimal(i%31)/10
+            fast=fast*Decimal(11)/13+close*Decimal(2)/13
+            slow=slow*Decimal(25)/27+close*Decimal(2)/27
+            dif=fast-slow;signal=signal*Decimal('0.8')+dif*Decimal('0.2')
+            # Timestamp validity is tested by source/reader; no source is read here.
+            stamp=(datetime(2020,1,1)+timedelta(days=i)).isoformat()+'+08:00'
+            bars.append(XxmBar(stamp,float(close),float(dif),float(signal),float(2*(dif-signal))))
+        expected=tuple(float(value) for value in (fast,slow,signal))
+    selected=tuple(bars[-1500:])
+    result=recover_projection(selected,'m60',lambda:None)
+    assert (result.e12,result.e26,result.dea)==pytest.approx(expected,rel=0,abs=1e-10)
+    changed=list(selected);changed[-1]=replace(changed[-1],dif=changed[-1].dif+2e-8)
+    with pytest.raises(ProjectionPrecisionError,match='CALIBRATION_FAILED'):
+        recover_projection(tuple(changed),'m60',lambda:None)
+    with pytest.raises(ProjectionPrecisionError,match='CALIBRATION_FAILED'):
+        recover_projection(selected[-249:],'m60',lambda:None)
+
 from src.biz.services.wealth.market.index_detail_xxm.forecast_expression import (
     _expression_envelope, literal,
 )

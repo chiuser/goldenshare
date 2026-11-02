@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 from datetime import date, datetime, timedelta
+import json
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -17,12 +18,19 @@ from src.biz.api.wealth.market.index_detail_xxm import build_router
 from src.biz.api.wealth.market.index_detail_minute_xxm import build_router as build_minute_router
 from src.biz.queries.wealth.market.index_detail_xxm import query_service
 from src.biz.queries.wealth.market.index_detail_xxm.query_service import IndexDetailXxmQueryService, XxmCache, XxmQueryError
-from src.biz.queries.wealth.market.index_detail_xxm.source import assert_continuous, XxmSourceError
+from src.biz.queries.wealth.market.index_detail_xxm.source import (
+    assert_continuous, XxmSourceError, MinuteSourceWindow, normalize_minute_end, plan_minute_window,
+)
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
 
 
 VALUES = [(100, 10, 2), (101, 12, 2), (99, 9, -2), (100, 9, 2), (102, 10, 2), (103, 9.8, 2), (104, 10, 2), (105, 9.7, 2)]
 ZONE = ZoneInfo("Asia/Shanghai")
+
+
+def _literal_minute_window():
+    return MinuteSourceWindow(500, 1500, datetime(2020,1,1,10,30,tzinfo=ZONE),
+                              datetime(2020,1,1,15,tzinfo=ZONE), (date(2020,1,1),))
 
 
 @pytest.fixture
@@ -376,14 +384,16 @@ def test_p4_batch2_two_streams_match_in_one_pass(mismatch):
     reader=Mock()
     reader.read_complete_history_pair.return_value=(SimpleNamespace(rows=tuple(price)),SimpleNamespace(rows=tuple(indicators)))
     if mismatch in ('none','both_empty'):
-        result=read_minutes(reader,freq=60,end=date(2020,1,1),deadline=lambda:3.)
+        result=read_minutes(reader,freq=60,window=_literal_minute_window(),deadline=lambda:3.)
         assert [bar.close for bar in result]==([100,101,102] if mismatch=='none' else [])
         assert all((bar.dif,bar.dea,bar.hist)==(0.,0.,0.) for bar in result)
     else:
-        with pytest.raises(XxmSourceError): read_minutes(reader,freq=60,end=date(2020,1,1),deadline=lambda:3.)
+        with pytest.raises(XxmSourceError): read_minutes(reader,freq=60,window=_literal_minute_window(),deadline=lambda:3.)
     args=reader.read_complete_history_pair.call_args
     assert reader.read_complete_history_pair.call_count==1
-    assert args.kwargs==dict(timeout_seconds=3.,bar_value_columns=('close',),indicator_value_columns=('macd_dif','macd_dea','macd'))
+    assert args.kwargs==dict(timeout_seconds=3., max_rows=1500,
+        time_window=(datetime(2020,1,1,10,30),datetime(2020,1,1,15)),
+        bar_value_columns=('close',),indicator_value_columns=('macd_dif','macd_dea','macd'))
 
 
 @pytest.mark.parametrize('field',['close','macd_dif','macd_dea','macd'])
@@ -396,7 +406,7 @@ def test_p4_batch2_bar_validation_still_rejects_required_values(field,bad):
     indicator={k:v for k,v in price.items() if k!='close'}|dict(macd_dif=0.,macd_dea=0.,macd=0.)
     (price if field=='close' else indicator)[field]=bad
     reader=Mock();reader.read_complete_history_pair.return_value=(SimpleNamespace(rows=(price,)),SimpleNamespace(rows=(indicator,)))
-    with pytest.raises(XxmSourceError): read_minutes(reader,freq=60,end=date(2020,1,1),deadline=lambda:3.)
+    with pytest.raises(XxmSourceError): read_minutes(reader,freq=60,window=_literal_minute_window(),deadline=lambda:3.)
 
 
 @pytest.mark.parametrize('period,endpoints',[
@@ -468,3 +478,584 @@ def test_p4_batch2_real_xxm_partial_reader_and_http(source_db,tmp_path,freq,chan
         assert data['meta']['count']==(0 if change=='empty' else len(endpoints))
         assert [p['close'] for p in data['points']]==([] if change=='empty' else list(range(100,100+len(endpoints))))
         assert '_source_filename' not in response.text and '_partition_date' not in response.text
+
+
+# P4 batch 3: literal LLD 0.6.6 samples. These are temporary Gold/SQLite
+# producers, never the formal Lake. Expected times do not come from ENDPOINTS.
+BATCH3_NOW = datetime(2023, 1, 10, 20, tzinfo=ZONE)
+BATCH3_SLOTS = {60: ('10:30', '11:30', '14:00', '15:00'),
+                90: ('11:00', '14:00', '15:00'), 120: ('11:30', '15:00')}
+
+
+@pytest.fixture
+def batch3_db_factory():
+    engines = []
+
+    def create(*, begin=date(2023, 1, 3), end=date(2023, 1, 10)):
+        engine = create_engine('sqlite://', poolclass=StaticPool, connect_args={'check_same_thread': False})
+        engines.append(engine)
+
+        @event.listens_for(engine, 'connect')
+        def attach(connection, _record):
+            connection.execute("ATTACH DATABASE ':memory:' AS core_serving")
+
+        with engine.begin() as connection:
+            # Names/types follow TradeCalendar and IndexFactorPro. Nullable and
+            # duplicate rows are allowed here only for explicitly invalid cases.
+            connection.execute(text('CREATE TABLE core_serving.trade_calendar(exchange TEXT,trade_date DATE,is_open BOOLEAN,pretrade_date DATE)'))
+            connection.execute(text('CREATE TABLE core_serving.index_factor_pro(ts_code TEXT,trade_date DATE,close FLOAT,macd_dif_bfq FLOAT,macd_dea_bfq FLOAT,macd_bfq FLOAT)'))
+            days = [begin + timedelta(days=i) for i in range((end - begin).days + 1)]
+            connection.execute(text("INSERT INTO core_serving.trade_calendar VALUES('SSE',:day,:opened,NULL)"),
+                               [dict(day=day.isoformat(), opened=day.weekday() < 5) for day in days])
+        return engine
+
+    yield create
+    for engine in engines:
+        engine.dispose()
+
+
+def _batch3_gold(root, freq, rows=None):
+    import duckdb
+    from src.foundation.clients.local_lake.major_index_mins_contract import (
+        GOLD_BAR_COLUMN_SPECS, GOLD_INDICATOR_COLUMN_SPECS, GOLD_PARAMS_KEY,
+    )
+    if rows is None:
+        rows = [(f'2023-01-{day:02d}T{slot}:00', 100., 0., 0., 0.)
+                for day in (6, 9, 10) for slot in BATCH3_SLOTS[freq]]
+    if not rows:
+        return
+    with duckdb.connect(':memory:') as connection:
+        for dataset, specs, folder in (
+            ('bars', GOLD_BAR_COLUMN_SPECS, 'quote/major_index_mins'),
+            ('indicators', GOLD_INDICATOR_COLUMN_SPECS, 'indicator/major_index_mins_technical'),
+        ):
+            connection.execute(f'CREATE TABLE {dataset} (' + ','.join(f'{n} {t}' for n, t in specs) + ')')
+            for stamp, close, dif, dea, hist in rows:
+                value = {name: None for name, _ in specs}
+                value.update(ts_code='000001.SH', freq=freq, trade_date=date.fromisoformat(stamp[:10]),
+                             trade_time=datetime.fromisoformat(stamp), open=close, high=close, low=close,
+                             close=close, vol=1., amount=close, exchange='SSE', vwap=close,
+                             macd_dif=dif, macd_dea=dea, macd=hist, observation_count=1,
+                             params_key=GOLD_PARAMS_KEY, indicator_version=1)
+                connection.execute(f'INSERT INTO {dataset} VALUES (' + ','.join('?' for _ in specs) + ')',
+                                   [value[name] for name, _ in specs])
+            for day in sorted({stamp[:10] for stamp, *_ in rows}):
+                target = root / f'gold/{folder}/freq={freq}/trade_date={day}/part-000.parquet'
+                target.parent.mkdir(parents=True, exist_ok=True)
+                chunk = f'{dataset}_{day.replace("-", "")}'
+                connection.execute(f'CREATE TEMP TABLE {chunk} AS SELECT * FROM {dataset} WHERE trade_date=?', [day])
+                connection.execute(f'COPY {chunk} TO ? (FORMAT PARQUET)', [str(target)])
+
+
+def test_p4_batch3_calendar_range_sql_and_errors(batch3_db_factory):
+    from unittest.mock import patch
+    from src.biz.queries.wealth.market.index_detail_xxm.source import calendar_dates
+    engine = batch3_db_factory()
+    with Session(engine) as session, patch.object(session, 'execute', wraps=session.execute) as execute:
+        assert calendar_dates(session, start=date(2023, 1, 6), end=date(2023, 1, 10)) == (
+            date(2023, 1, 6), date(2023, 1, 9), date(2023, 1, 10))
+        assert execute.call_count == 1
+        statement = execute.call_args.args[0]
+        assert list(statement.selected_columns.keys()) == ['trade_date', 'is_open']
+        assert list(statement.compile().params.values()) == ['SSE', date(2023, 1, 6), date(2023, 1, 10)]
+        execute.reset_mock()
+        assert calendar_dates(session, start=date(2023, 1, 10), end=date(2023, 1, 10)) == (date(2023, 1, 10),)
+        execute.reset_mock()
+        with pytest.raises(XxmSourceError):
+            calendar_dates(session, start=date(2023, 1, 10), end=date(2023, 1, 6))
+        assert execute.call_count == 0
+        for start, end in ((date(2023, 1, 11), date(2023, 1, 11)), (date(2023, 1, 6), date(2023, 1, 11))):
+            with pytest.raises(XxmSourceError):
+                calendar_dates(session, start=start, end=end)
+
+
+@pytest.mark.parametrize('freq,count', [(60, 12), (90, 9), (120, 6)])
+def test_p4_bounded_real_minute_cold_order_range_and_hot_reuse(batch3_db_factory, tmp_path, monkeypatch, freq, count):
+    from unittest.mock import patch
+    _batch3_gold(tmp_path, freq)
+    service = IndexDetailXxmQueryService(lake_root=tmp_path, cache=XxmCache())
+    engine = batch3_db_factory()
+    order = []
+    original_calendar = query_service.plan_minute_window
+
+    def calendar(*args, **kwargs):
+        order.append('calendar')
+        assert kwargs['output_rows']==500 and kwargs['requested_end']==datetime(2023,1,10,15,tzinfo=ZONE)
+        return original_calendar(*args, **kwargs)
+
+    original_signature = service.reader.history_source_signature
+    def signature(*args, **kwargs):
+        order.append(kwargs['dataset'])
+        assert args[0].start_date == date(2023,1,3) and args[0].end_date == date(2023,1,10)
+        assert args[0].limit==1500
+        return original_signature(*args, **kwargs)
+
+    original_pair = service.reader.read_complete_history_pair
+    def pair(*args, **kwargs):
+        order.append('pair')
+        return original_pair(*args, **kwargs)
+
+    monkeypatch.setattr(query_service, 'plan_minute_window', calendar)
+    monkeypatch.setattr(service.reader, 'history_source_signature', signature)
+    monkeypatch.setattr(service.reader, 'read_complete_history_pair', pair)
+    with Session(engine) as session:
+        with service.load_entry(session, period=f'm{freq}', now=BATCH3_NOW) as loaded:
+            first = loaded[0]
+        assert order == ['calendar', 'bars', 'indicators', 'pair']
+        assert len(first.raw) == len(first.processed) == count
+        assert first.processed[-1].time == '2023-01-10T15:00:00+08:00'
+        assert first.events == [] and all(point['ordinaryState'] == 'NONE' for point in first.points)
+        saved = first.calculator.snapshot()
+        order.clear()
+        with patch.object(query_service.XxmCalculator, 'step', side_effect=AssertionError('hot request stepped')):
+            with service.load_entry(session, period=f'm{freq}', now=BATCH3_NOW) as loaded:
+                assert loaded[0] is first
+        assert order == ['calendar', 'bars', 'indicators']
+        assert first.calculator.snapshot() == saved
+
+
+@pytest.mark.parametrize('freq',[60,90,120])
+def test_p4_bounded_calendar_metadata_change_is_not_revision(batch3_db_factory,tmp_path,monkeypatch,freq):
+    from unittest.mock import patch
+    _batch3_gold(tmp_path,freq)
+    service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
+    key=('batch3-narrow',freq)
+    with Session(batch3_db_factory()) as session:
+        kwargs=dict(key=key,period=f'm{freq}',now=BATCH3_NOW,business_date=BATCH3_NOW.date(),remaining=lambda:4.,
+                    requested_end=datetime(2023,1,10,15,tzinfo=ZONE),window_rows=500)
+        old,_=service._load_series(session,**kwargs)
+        stored_key=next(iter(service.cache.entries))
+        old=replace(old,open_dates=(date(2023,1,2),*old.open_dates))
+        service.cache.put(stored_key,old,check=lambda:4.)
+        facts=(old.calculator.snapshot(),list(old.fingerprints),list(old.points),old.open_dates)
+        with patch.object(query_service.XxmCalculator,'step',side_effect=AssertionError('calendar change replayed source')):
+            new,days=service._load_series(session,**kwargs)
+            again,_=service._load_series(session,**kwargs)
+        assert new is not old and again is new
+        assert days==tuple(date(2023,1,d) for d in (3,4,5,6,9,10))
+        assert new.calculator.snapshot()==facts[0] and new.fingerprints==facts[1] and new.points==facts[2]
+        assert (old.calculator.snapshot(),old.fingerprints,old.points,old.open_dates)==facts
+
+
+@pytest.mark.parametrize('freq',[60,90,120])
+@pytest.mark.parametrize('case',['empty','single','partial_first','missing_tail','not_completed'])
+def test_p4_bounded_raw_bounds_and_original_completion(batch3_db_factory,tmp_path,monkeypatch,freq,case):
+    from unittest.mock import patch
+    slots=BATCH3_SLOTS[freq]
+    chosen=() if case=='empty' else slots[-1:] if case=='single' else slots[len(slots)//2:] if case=='partial_first' else slots[:-1] if case=='missing_tail' else slots
+    rows=[(f'2023-01-10T{slot}:00',100.,0.,0.,0.) for slot in chosen]
+    _batch3_gold(tmp_path,freq,rows)
+    service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
+    now=BATCH3_NOW.replace(hour=10) if case=='not_completed' else BATCH3_NOW
+    with Session(batch3_db_factory()) as session,patch.object(query_service,'plan_minute_window',wraps=query_service.plan_minute_window) as calendar:
+        with service.load_entry(session,period=f'm{freq}',now=now) as (entry,_,days,_): pass
+    target_day=9 if case=='not_completed' else 10
+    assert calendar.call_count==1 and calendar.call_args.kwargs['requested_end']==datetime(2023,1,target_day,15,tzinfo=ZONE)
+    assert len(entry.raw)==len(entry.processed)==(0 if case=='not_completed' else len(rows))
+    assert entry.validated_through==f'2023-01-{target_day:02d}T15:00:00+08:00'
+    assert days==tuple(date(2023,1,d) for d in ((3,4,5,6,9) if target_day==9 else (3,4,5,6,9,10)))
+
+
+@pytest.mark.parametrize('clock,business_day,end',[(BATCH3_NOW.replace(hour=19,minute=59),9,10),(BATCH3_NOW,10,10),(BATCH3_NOW.replace(day=15),13,15)])
+def test_p4_batch3_real_context_cutover_and_weekend(batch3_db_factory,tmp_path,clock,business_day,end):
+    from unittest.mock import patch
+    _batch3_gold(tmp_path,60)
+    service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
+    with Session(batch3_db_factory(end=date(2023,1,end))) as session,patch.object(query_service,'plan_minute_window',wraps=query_service.plan_minute_window) as calendar:
+        with service.load_entry(session,period='m60',now=clock) as (entry,context,days,remaining):
+            assert context.trade_date==date(2023,1,business_day)
+            assert calendar.call_args.kwargs['requested_end']==datetime(2023,1,business_day,15,tzinfo=ZONE)
+            assert entry.processed[-1].time==('2023-01-09T15:00:00+08:00' if business_day==9 else '2023-01-10T15:00:00+08:00')
+
+
+@pytest.mark.parametrize('freq',[60,90,120])
+@pytest.mark.parametrize('kind',['missing_day','missing_middle'])
+def test_p4_batch3_real_range_still_rejects_gaps(batch3_db_factory,tmp_path,freq,kind):
+    rows=[(f'2023-01-{day:02d}T{slot}:00',100.,0.,0.,0.) for day in (6,9,10) for slot in BATCH3_SLOTS[freq]]
+    rows=[row for row in rows if not row[0].startswith('2023-01-09')] if kind=='missing_day' else rows[:1]+rows[2:]
+    _batch3_gold(tmp_path,freq,rows)
+    service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
+    with Session(batch3_db_factory()) as session,pytest.raises(XxmQueryError) as failure:
+        with service.load_entry(session,period=f'm{freq}',now=BATCH3_NOW):pass
+    assert failure.value.code=='XXM_SOURCE_CONTRACT_INVALID' and not service.cache.entries
+
+
+@pytest.mark.parametrize('stage,names',[('before',[]),('calendar',[]),('bars',['bars']),('indicators',['bars','indicators']),('raw',['bars','indicators'])])
+def test_p4_bounded_deadline_stops_at_each_stage(tmp_path,monkeypatch,stage,names):
+    from unittest.mock import Mock
+    service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
+    calls=[];expired=[stage=='before']
+    def remaining():
+        if expired[0]:raise XxmQueryError('XXM_BUDGET_EXCEEDED','deadline',503)
+        return 4.
+    def signature(*a,dataset):
+        calls.append(dataset)
+        if stage==dataset:expired[0]=True
+        return dataset
+    def raw(*a,**k):
+        calls.append('raw')
+        if stage=='raw':expired[0]=True
+        return ()
+    def calendar(*a,**k):
+        calls.append('calendar')
+        if stage=='calendar': expired[0]=True
+        return MinuteSourceWindow(500,1500,datetime(2023,1,10,10,30,tzinfo=ZONE),datetime(2023,1,10,15,tzinfo=ZONE),(date(2023,1,10),))
+    monkeypatch.setattr(service.reader,'history_source_signature',signature)
+    monkeypatch.setattr(query_service,'read_minutes',raw)
+    monkeypatch.setattr(query_service,'plan_minute_window',calendar)
+    put=Mock(side_effect=AssertionError('partial publish'));monkeypatch.setattr(service.cache,'put',put)
+    with pytest.raises(XxmQueryError) as failure:
+        service._load_series(None,key=('deadline',),period='m60',now=BATCH3_NOW,business_date=BATCH3_NOW.date(),remaining=remaining)
+    assert failure.value.code=='XXM_BUDGET_EXCEEDED'
+    assert [name for name in calls if name in ('bars','indicators')]==names
+    assert ('raw' in calls)==(stage=='raw')
+    assert ('calendar' in calls)==(stage!='before') and put.call_count==0
+
+
+@pytest.mark.parametrize('kind',['source','async_cancel','future_cancel'])
+def test_p4_batch3_signature_error_preserves_priority(tmp_path,monkeypatch,kind):
+    from asyncio import CancelledError as AsyncCancelled
+    from concurrent.futures import CancelledError as FutureCancelled
+    service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
+    failure=XxmSourceError('source') if kind=='source' else AsyncCancelled() if kind=='async_cancel' else FutureCancelled()
+    expired=[False];calls=[]
+    def remaining():
+        if expired[0]:raise TimeoutError('must not replace original')
+        return 4.
+    def signature(*a,dataset):
+        calls.append(dataset);expired[0]=True;raise failure
+    monkeypatch.setattr(service.reader,'history_source_signature',signature)
+    monkeypatch.setattr(query_service,'plan_minute_window',lambda *a,**k:MinuteSourceWindow(
+        500,1500,datetime(2023,1,10,10,30,tzinfo=ZONE),datetime(2023,1,10,15,tzinfo=ZONE),(date(2023,1,10),)))
+    with pytest.raises(type(failure)) as error:
+        service._load_series(None,key=('failure',),period='m60',now=BATCH3_NOW,business_date=BATCH3_NOW.date(),remaining=remaining)
+    assert error.value is failure and calls==['bars'] and not service.cache.entries
+
+
+def test_p4_batch3_day_keeps_original_range_order_and_values(batch3_db_factory,monkeypatch):
+    from unittest.mock import patch
+    engine=batch3_db_factory()
+    with engine.begin() as connection:
+        connection.execute(text("INSERT INTO core_serving.index_factor_pro VALUES('000001.SH','2023-01-10',100,0,0,0)"))
+    service=IndexDetailXxmQueryService(cache=XxmCache());order=[]
+    old_calendar=query_service.calendar_dates;old_read=query_service.read_daily;old_get=service.cache.get
+    def calendar(*a,**k):order.append('calendar');assert k==dict(start=date(1990,1,1),end=date(2023,1,10));return old_calendar(*a,**k)
+    def read(*a,**k):order.append('read');return old_read(*a,**k)
+    def get(*a,**k):order.append('cache');return old_get(*a,**k)
+    monkeypatch.setattr(query_service,'calendar_dates',calendar);monkeypatch.setattr(query_service,'read_daily',read);monkeypatch.setattr(service.cache,'get',get)
+    with Session(engine) as session:
+        value=json.loads(service.build(session,period='day',start_date=None,end_date=None,limit=500,now=BATCH3_NOW))
+    assert order==['calendar','cache','read'] and value['points'][0]['close']==100.
+    assert value['dataStatus']['status']=='READY'
+
+
+@pytest.mark.parametrize('freq',[60,90,120])
+def test_p4_batch3_append_revision_and_calendar_failure_keep_old_facts(batch3_db_factory,tmp_path,monkeypatch,freq):
+    from copy import deepcopy
+    rows=[(f'2023-01-{day:02d}T{slot}:00',100.,0.,0.,0.) for day in (6,9,10) for slot in BATCH3_SLOTS[freq]]
+    size=len(BATCH3_SLOTS[freq]);engine=batch3_db_factory()
+    _batch3_gold(tmp_path,freq,rows[:size])
+    service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache());key=('revision',freq)
+    steps=[];original=query_service.XxmCalculator.step
+    def step(calculator,bar):steps.append(bar.time);return original(calculator,bar)
+    monkeypatch.setattr(query_service.XxmCalculator,'step',step)
+    def load():
+        with Session(engine) as session:
+            return service._load_series(session,key=key,period=f'm{freq}',now=BATCH3_NOW,business_date=BATCH3_NOW.date(),remaining=lambda:4.,
+                                       requested_end=datetime(2023,1,10,15,tzinfo=ZONE),window_rows=500)[0]
+    first=load();first_facts=deepcopy(first)
+    _batch3_gold(tmp_path,freq,rows[:2*size]);steps.clear()
+    second=load()
+    assert steps==[r[0]+'+08:00' for r in rows[size:2*size]]
+    assert first.calculator.snapshot()==first_facts.calculator.snapshot() and first.points==first_facts.points
+    changed=[(rows[0][0],101.,0.,0.,0.),*rows[1:2*size]]
+    _batch3_gold(tmp_path,freq,changed);steps.clear()
+    revised=load()
+    assert len(steps)==2*size and revised.fingerprints!=second.fingerprints
+    assert second.points[0]['close']==100. and revised.points[0]['close']==101.
+    with engine.begin() as connection:
+        connection.execute(text("UPDATE core_serving.trade_calendar SET is_open=0 WHERE trade_date='2023-01-04'"))
+    steps.clear()
+    calendar_changed=load()
+    assert calendar_changed.calculator.snapshot()==revised.calculator.snapshot() and steps==[]
+    assert calendar_changed.fingerprints==revised.fingerprints
+    revised=calendar_changed
+    old_facts=deepcopy(revised)
+    with engine.begin() as connection:
+        connection.execute(text("UPDATE core_serving.trade_calendar SET is_open=0 WHERE trade_date='2023-01-09'"))
+    with pytest.raises(XxmSourceError):load()
+    assert next(iter(service.cache.entries.values()))[0] is revised and revised.points==old_facts.points
+    assert revised.calculator.snapshot()==old_facts.calculator.snapshot()
+
+
+@pytest.mark.parametrize('fail',[False,True])
+def test_p4_batch3_overlapping_loads_share_actual_range_and_recover(batch3_db_factory,tmp_path,monkeypatch,fail):
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Event
+    from unittest.mock import patch
+    _batch3_gold(tmp_path,60)
+    engine=batch3_db_factory();service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
+    entered=Event();joined=Event();release=Event();calls=[];old_calendar=query_service.plan_minute_window
+    def calendar(*a,**k):
+        calls.append(k);entered.set();assert release.wait(2)
+        if fail:raise XxmSourceError('shared source failure')
+        return old_calendar(*a,**k)
+    monkeypatch.setattr(query_service,'plan_minute_window',calendar)
+    def leader():
+        with Session(engine) as session:
+            return service._load_series(session,key=('shared',),period='m60',now=BATCH3_NOW,business_date=BATCH3_NOW.date(),remaining=lambda:4.,
+                                       requested_end=datetime(2023,1,10,15,tzinfo=ZONE),window_rows=500)
+    def waiter_remaining():joined.set();return 4.
+    with patch.object(service.reader,'read_complete_history_pair',wraps=service.reader.read_complete_history_pair) as pair:
+        with ThreadPoolExecutor(max_workers=2) as pool:
+            first=pool.submit(service.cache.loads.load,('flight',),leader,lambda:4.)
+            assert entered.wait(2)
+            second=pool.submit(service.cache.loads.load,('flight',),lambda:pytest.fail('second source load'),waiter_remaining)
+            try:assert joined.wait(2)
+            finally:release.set()
+            if fail:
+                with pytest.raises(XxmSourceError) as a:first.result(timeout=2)
+                with pytest.raises(XxmSourceError) as b:second.result(timeout=2)
+                assert a.value is b.value and not service.cache.entries
+            else:assert first.result(timeout=2) is second.result(timeout=2)
+        assert pair.call_count==(0 if fail else 1) and len(calls)==1
+        assert calls[0]['requested_end']==datetime(2023,1,10,15,tzinfo=ZONE)
+    monkeypatch.setattr(query_service,'plan_minute_window',old_calendar)
+    assert service.cache.loads.load(('flight',),leader,lambda:4.)[0].processed
+
+
+def test_p4_batch3_signal_http_window_never_cuts_loaded_prefix(batch3_db_factory,tmp_path,monkeypatch):
+    _batch3_gold(tmp_path,60);engine=batch3_db_factory();cache=XxmCache()
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls,tz=None):return BATCH3_NOW.astimezone(tz) if tz else BATCH3_NOW.replace(tzinfo=None)
+    monkeypatch.setattr(query_service,'datetime',FixedDateTime);monkeypatch.setattr(query_service,'_CACHE',cache)
+    def session():
+        with Session(engine) as value:yield value
+    app=FastAPI();install_exception_handlers(app)
+    app.include_router(build_minute_router(db_dependency=session,auth_dependency=lambda:None,lake_dependency=lambda:tmp_path,error_factory=WebAppError),prefix='/api/v1')
+    with TestClient(app) as api:
+        path='/api/v1/wealth/market/index-detail/minute-xxm-signals'
+        empty=api.get(path,params=dict(tsCode='000001.SH',freq=60,endDate='2023-01-03'))
+        assert empty.status_code==200 and empty.json()['dataStatus']['status']=='EMPTY' and empty.json()['points']==[]
+        normal=api.get(path,params=dict(tsCode='000001.SH',freq=60,limit=2))
+        debug=api.get(path,params=dict(tsCode='000001.SH',freq=60,limit=2,debug=1))
+        assert normal.status_code==debug.status_code==200
+        assert normal.json()=={k:v for k,v in debug.json().items() if k!='debug'}
+        assert normal.json()['meta']['count']==2 and normal.json()['dataStatus']['status']=='READY'
+    stored=max((value[0] for value in cache.entries.values()),key=lambda entry:len(entry.processed))
+    assert len(stored.raw)==len(stored.processed)==12 and stored.raw[0].time=='2023-01-06T10:30:00+08:00'
+
+
+# LLD 0.9: independent calendar dates/endpoint literals; never formal data.
+@pytest.mark.parametrize('freq,n,read_rows,day_limit',[(60,1,1001,252),(60,500,1500,376),
+    (90,500,1500,501),(120,500,1500,751),(60,2000,3000,751)])
+def test_p4_bounded_plan_uses_one_limited_sql_and_fixed_extra(batch3_db_factory,freq,n,read_rows,day_limit):
+    from types import SimpleNamespace
+    from unittest.mock import patch
+    with Session(batch3_db_factory()) as session,patch.object(session,'execute',wraps=session.execute) as execute:
+        plan=plan_minute_window(session,period=f'm{freq}',output_rows=n,
+            requested_end=datetime(2023,1,10,15,tzinfo=ZONE),context=SimpleNamespace(trade_date=date(2023,1,10)),
+            now=BATCH3_NOW,check=lambda:4.)
+        assert (plan.output_rows,plan.read_rows)==(n,read_rows)
+        assert plan.start_time==datetime(2023,1,3,*map(int,BATCH3_SLOTS[freq][0].split(':')),tzinfo=ZONE)
+        assert plan.end_time==datetime(2023,1,10,15,tzinfo=ZONE)
+        assert execute.call_count==1
+        sql=str(execute.call_args.args[0]);params=execute.call_args.args[0].compile().params
+        assert 'xxm_recent_open_dates' in sql and 'LIMIT' in sql and 'min(' in sql
+        assert day_limit in params.values() and date(1990,1,1) not in params.values()
+
+
+@pytest.mark.parametrize('n',[0,-1,2001,True,1.5])
+def test_p4_bounded_plan_rejects_bad_count_without_query(n):
+    from unittest.mock import Mock
+    session=Mock()
+    with pytest.raises(ValueError):
+        plan_minute_window(session,period='m60',output_rows=n,requested_end=BATCH3_NOW,
+                           context=None,now=BATCH3_NOW,check=lambda:4.)
+    session.execute.assert_not_called()
+
+
+@pytest.mark.parametrize('requested,expected',[(None,datetime(2023,1,10,15,tzinfo=ZONE)),
+    (date(2023,1,10),datetime(2023,1,10,15,tzinfo=ZONE)),
+    (date(2023,1,11),datetime(2023,1,10,15,tzinfo=ZONE)),
+    (datetime(2023,1,6,11,30,tzinfo=ZONE),datetime(2023,1,6,11,30,tzinfo=ZONE))])
+def test_p4_bounded_normalization_keeps_intraday_cutoff_without_sql(requested,expected):
+    from types import SimpleNamespace
+    context=SimpleNamespace(trade_date=date(2023,1,10))
+    assert normalize_minute_end(period='m60',requested_end=requested,context=context,now=BATCH3_NOW)==expected
+    assert normalize_minute_end(period='m60',requested_end=None,context=context,now=BATCH3_NOW.replace(hour=10)) is None
+
+
+@pytest.mark.parametrize('end',[None,datetime(1989,12,29,15,tzinfo=ZONE)])
+def test_p4_bounded_empty_plan_has_no_calendar_or_files(end):
+    from unittest.mock import Mock
+    session=Mock()
+    plan=plan_minute_window(session,period='m60',output_rows=500,requested_end=end,context=None,
+                           now=BATCH3_NOW,check=lambda:4.)
+    assert plan==MinuteSourceWindow(500,1500,None,None,())
+    session.execute.assert_not_called()
+
+
+@pytest.mark.parametrize('kind',['absent','middle_gap','null','duplicate'])
+def test_p4_bounded_calendar_errors_are_not_empty(batch3_db_factory,kind):
+    engine=batch3_db_factory()
+    with engine.begin() as c:
+        if kind=='absent': c.execute(text("DELETE FROM core_serving.trade_calendar WHERE trade_date='2023-01-10'"))
+        elif kind=='middle_gap': c.execute(text("DELETE FROM core_serving.trade_calendar WHERE trade_date='2023-01-04'"))
+        elif kind=='null': c.execute(text("UPDATE core_serving.trade_calendar SET is_open=NULL WHERE trade_date='2023-01-06'"))
+        else:c.execute(text("INSERT INTO core_serving.trade_calendar VALUES('SSE','2023-01-06',1,NULL)"))
+    with Session(engine) as session,pytest.raises(XxmSourceError):
+        plan_minute_window(session,period='m60',output_rows=500,requested_end=datetime(2023,1,10,15,tzinfo=ZONE),
+                           context=None,now=BATCH3_NOW,check=lambda:4.)
+
+
+@pytest.mark.parametrize('freq,n,read_rows,input_rows',[(60,1,1001,1044),(60,500,1500,1524),
+    (60,2000,3000,3024),(90,500,1500,1524),(120,500,1500,1524)])
+def test_p4_bounded_real_gold_limits_files_sql_steps_and_output(batch3_db_factory,tmp_path,monkeypatch,freq,n,read_rows,input_rows):
+    import os
+    from src.foundation.clients.local_lake import major_index_mins_reader as reader_module
+    begin=date(2020,1,2)
+    days=[begin+timedelta(days=i) for i in range(2400) if (begin+timedelta(days=i)).weekday()<5]
+    # Fixed input calendar and endpoint literals, not the planner's own output.
+    rows=[(day.isoformat()+'T'+slot+':00',100.,0.,0.,0.) for day in days for slot in BATCH3_SLOTS[freq]][:input_rows]
+    last=date.fromisoformat(rows[-1][0][:10]);now=datetime.combine(last,datetime.min.time(),ZONE).replace(hour=20)
+    engine=batch3_db_factory(begin=begin,end=last)
+    _batch3_gold(tmp_path,freq,rows)
+    old=tmp_path/f'gold/quote/major_index_mins/freq={freq}/trade_date=1999-01-04/part-000.parquet'
+    old.parent.mkdir(parents=True);old.write_text('out-of-range broken fixture must never be opened')
+    real_stat=os.stat
+    def stat(path,*a,**k):
+        assert os.fspath(path)!=str(old),'out-of-window file metadata read'
+        return real_stat(path,*a,**k)
+    monkeypatch.setattr(reader_module.os,'stat',stat)
+    queries=[];original_query=reader_module._query_rows
+    def query(*a,**k):
+        queries.append(k)
+        return original_query(*a,**k)
+    monkeypatch.setattr(reader_module,'_query_rows',query)
+    steps=[];original_step=query_service.XxmCalculator.step
+    def step(calculator,bar):steps.append(bar.time);return original_step(calculator,bar)
+    monkeypatch.setattr(query_service.XxmCalculator,'step',step)
+    service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
+    with Session(engine) as session:
+        value=build_debug(service,session,period=f'm{freq}',start_date=None,end_date=last,limit=n,now=now)
+    stored=next(iter(service.cache.entries.values()))[0]
+    assert len(stored.raw)==len(stored.processed)==len(steps)==read_rows
+    assert len(value.points)==n and value.meta.count==n
+    assert value.source.startTime==rows[-read_rows][0]+'+08:00'
+    assert value.points[0].time==rows[-n][0]+'+08:00' and value.source.computedThrough==rows[-1][0]+'+08:00'
+    assert value.dataStatus.status=='READY' and len(queries)==2
+    bounds=(datetime.fromisoformat(rows[-read_rows][0]),datetime.fromisoformat(rows[-1][0]))
+    assert all(q['time_window']==bounds and q['request'].limit==read_rows for q in queries)
+    assert all(bounds[0].date()<=p.trade_date<=bounds[1].date() for q in queries for p in q['partitions'])
+    assert all(str(p.path)!=str(old) for q in queries for p in q['partitions'])
+    old.write_text('outside file was revised; selected source signature must not change')
+    with Session(engine) as session:
+        warm=build_debug(service,session,period=f'm{freq}',start_date=None,end_date=last,limit=n,now=now)
+        assert warm.model_dump()==value.model_dump() and len(queries)==2 and len(steps)==read_rows
+        assert next(iter(service.cache.entries.values()))[0] is stored
+        # The requested old day is earlier than the current 1500/3000 window.
+        historical=build_debug(service,session,period=f'm{freq}',start_date=None,end_date=begin,limit=n,now=now)
+    assert historical.dataStatus.status=='READY' and len(historical.points)==min(n,len(BATCH3_SLOTS[freq]))
+    assert historical.source.computedThrough==begin.isoformat()+'T15:00:00+08:00'
+    assert historical.source.computedThrough<value.source.startTime and len(queries)==4
+
+
+@pytest.mark.parametrize('freq',[60,90,120])
+def test_p4_bounded_history_intraday_and_early_empty(batch3_db_factory,tmp_path,freq):
+    from unittest.mock import patch
+    _batch3_gold(tmp_path,freq)
+    service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
+    first_slot=BATCH3_SLOTS[freq][0]
+    end=datetime.fromisoformat('2023-01-09T'+first_slot+':00+08:00')
+    with Session(batch3_db_factory()) as session:
+        with service.load_entry(session,period=f'm{freq}',requested_end=end,now=BATCH3_NOW) as (entry,_,_,_):
+            assert entry.validated_through==entry.processed[-1].time==end.isoformat()
+            assert all(bar.time<=end.isoformat() for bar in entry.raw)
+        with patch.object(service.reader,'history_source_signature',side_effect=AssertionError('early signature')),\
+             patch.object(service.reader,'read_complete_history_pair',side_effect=AssertionError('early data')):
+            result=json.loads(service.build(session,period=f'm{freq}',start_date=None,end_date=date(1989,12,29),limit=500,now=BATCH3_NOW))
+        assert result['dataStatus']['status']=='EMPTY' and result['points']==[]
+
+
+@pytest.mark.parametrize('initial_end',['2023-01-06T15:00:00+08:00','2023-01-10T11:30:00+08:00'])
+def test_p4_bounded_changed_plan_rebuilds_even_with_same_actual_first(batch3_db_factory,tmp_path,monkeypatch,initial_end):
+    from unittest.mock import patch
+    _batch3_gold(tmp_path,60)
+    service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
+    with Session(batch3_db_factory()) as session:
+        with service.load_entry(session,period='m60',requested_end=datetime.fromisoformat(initial_end),now=BATCH3_NOW) as (old,_,_,_):pass
+        before=old.calculator.snapshot();steps=[];restores=[];original=query_service.XxmCalculator.step
+        original_restore=query_service.XxmCalculator.restore
+        def step(calculator,bar):steps.append(bar.time);return original(calculator,bar)
+        def restore(calculator,snapshot):restores.append(calculator);return original_restore(calculator,snapshot)
+        monkeypatch.setattr(query_service.XxmCalculator,'step',step)
+        monkeypatch.setattr(query_service.XxmCalculator,'restore',restore)
+        with patch.object(service.reader,'read_complete_history_pair',wraps=service.reader.read_complete_history_pair) as pair:
+            with service.load_entry(session,period='m60',now=BATCH3_NOW) as (new,_,_,_):pass
+        assert pair.call_count==1 and len(steps)==12 and len(service.cache.entries)==2
+        assert old.raw[0].time==new.raw[0].time and old.calculator.snapshot()==before
+        assert all(calculator is not new.calculator for calculator in restores)
+
+
+def test_p4_bounded_counts_and_historical_endpoints_have_separate_entries(batch3_db_factory,tmp_path):
+    _batch3_gold(tmp_path,60);service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
+    with Session(batch3_db_factory()) as session:
+        entries=[]
+        for n,end in ((500,None),(2000,None),(500,None),(500,date(2023,1,6))):
+            with service.load_entry(session,period='m60',window_rows=n,requested_end=end,now=BATCH3_NOW) as (entry,_,_,_):entries.append(entry)
+    assert entries[0] is entries[2] and entries[0] is not entries[1] and entries[0] is not entries[3]
+    assert len(service.cache.entries)==3
+    assert entries[3].validated_through=='2023-01-06T15:00:00+08:00'
+
+
+def test_p4_bounded_visible_event_keeps_structure_from_extra_prefix(batch3_db_factory,tmp_path):
+    # RC47/52 seven-bar literal sequence: structure at bar6, zero return at7.
+    values=((100,-10,-2),(99,-11,-2),(105,-5,2),(98,-9,-2),(97,-9.2,-2),(98,-8.8,-2),(100,-9,0))
+    stamps=('2023-01-09T10:30:00','2023-01-09T11:30:00','2023-01-09T14:00:00','2023-01-09T15:00:00',
+            '2023-01-10T10:30:00','2023-01-10T11:30:00','2023-01-10T14:00:00')
+    rows=[(stamp,float(c),float(d),float(d-h/2),float(h)) for stamp,(c,d,h) in zip(stamps,values,strict=True)]
+    _batch3_gold(tmp_path,60,rows);service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
+    with Session(batch3_db_factory()) as session:
+        result=build_debug(service,session,period='m60',start_date=None,end_date=date(2023,1,10),limit=1,now=BATCH3_NOW)
+    assert len(result.points)==1 and result.points[0].ordinaryState=='DULL'
+    assert [(event.type,detail.route) for event,detail in zip(result.events,result.debug.events,strict=True)]==[('DULL','dif_return')]
+    record=result.debug.structures[0]
+    assert record.formedAt=='2023-01-10T11:30:00+08:00' and record.status=='DISAPPEARED'
+    assert result.debug.events[0].relatedStructureId==record.id
+
+
+@pytest.mark.parametrize('size,count',[(400,400),(1000,500)])
+def test_p4_bounded_short_real_source_returns_last_n_without_dropping_extra(batch3_db_factory,tmp_path,size,count):
+    begin=date(2023,1,3)
+    days=[begin+timedelta(days=i) for i in range(400) if (begin+timedelta(days=i)).weekday()<5]
+    rows=[(day.isoformat()+'T'+slot+':00',100.,0.,0.,0.) for day in days for slot in BATCH3_SLOTS[60]][:size]
+    _batch3_gold(tmp_path,60,rows)
+    end=date.fromisoformat(rows[-1][0][:10]);now=datetime.combine(end,datetime.min.time(),ZONE).replace(hour=20)
+    service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
+    with Session(batch3_db_factory(end=end)) as session:
+        result=build_debug(service,session,period='m60',start_date=None,end_date=end,limit=500,now=now)
+    assert result.meta.count==len(result.points)==count and result.dataStatus.status=='READY'
+    assert result.points[0].time==rows[-count][0]+'+08:00'
+    assert len(next(iter(service.cache.entries.values()))[0].processed)==size
+
+
+def test_p4_bounded_window_does_not_hide_corrupt_cached_old_structure(batch3_db_factory,tmp_path):
+    from copy import deepcopy
+    values=((100,-10,-2),(99,-11,-2),(105,-5,2),(98,-9,-2),(97,-9.2,-2),(98,-8.8,-2),(100,-9,0),(99,-9,0))
+    stamps=[f'2023-01-{day:02d}T{slot}:00' for day in (9,10) for slot in BATCH3_SLOTS[60]]
+    _batch3_gold(tmp_path,60,[(stamp,float(c),float(d),float(d-h/2),float(h)) for stamp,(c,d,h) in zip(stamps,values,strict=True)])
+    service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache());kwargs=dict(
+        period='m60',start_date=None,end_date=date(2023,1,10),limit=1,now=BATCH3_NOW)
+    with Session(batch3_db_factory()) as session:
+        result=build_debug(service,session,**kwargs)
+        assert result.debug.structures==[]  # This old record is outside the output window.
+        key,(valid,_)=next(iter(service.cache.entries.items()))
+        before=deepcopy(valid.structure_records)
+        poisoned=replace(valid,structure_records=deepcopy(valid.structure_records))
+        next(iter(poisoned.structure_records.values()))['priceExtreme']=float('nan')
+        service.cache.put(key,poisoned,check=lambda:4.)
+        with pytest.raises(XxmQueryError) as error:build_debug(service,session,**kwargs)
+        assert error.value.code=='XXM_SOURCE_CONTRACT_INVALID'
+        assert valid.structure_records==before and service.cache.get(key) is poisoned

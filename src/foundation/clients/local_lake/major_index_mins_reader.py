@@ -124,17 +124,19 @@ class MajorIndexMinsLakeReader:
         self, request: IndexMinuteReadRequest, *, dataset: IndexMinuteDataset,
         max_rows: int = MAX_INDEX_MINUTE_HISTORY_ROWS, timeout_seconds: float,
         value_columns: Sequence[str] | None = None,
+        time_window: tuple[datetime, datetime] | None = None,
     ) -> IndexMinuteReadPage:
         """Read one bounded prefix without changing the public paging contract."""
         return self._read_complete_history(request, dataset=dataset, max_rows=max_rows,
             timeout_seconds=timeout_seconds, value_columns=value_columns,
-            duckdb_config=INDEX_MINUTE_HISTORY_DUCKDB_CONFIG)
+            duckdb_config=INDEX_MINUTE_HISTORY_DUCKDB_CONFIG, time_window=time_window)
 
     def read_complete_history_pair(
         self, request: IndexMinuteReadRequest, *, timeout_seconds: float,
         max_rows: int = MAX_INDEX_MINUTE_HISTORY_ROWS,
         bar_value_columns: Sequence[str] | None = None,
         indicator_value_columns: Sequence[str] | None = None,
+        time_window: tuple[datetime, datetime] | None = None,
     ) -> tuple[IndexMinuteReadPage, IndexMinuteReadPage]:
         """Read bars and indicators with one deadline and the single-read total budget."""
         started = time.perf_counter()
@@ -148,7 +150,7 @@ class MajorIndexMinsLakeReader:
                 raise IndexMinuteHistoryBudgetError("完整历史读取超时。")
             return self._read_complete_history(request, dataset=dataset, max_rows=max_rows,
                 timeout_seconds=remaining, value_columns=values,
-                duckdb_config=INDEX_MINUTE_HISTORY_PAIR_DUCKDB_CONFIG)
+                duckdb_config=INDEX_MINUTE_HISTORY_PAIR_DUCKDB_CONFIG, time_window=time_window)
 
         with ThreadPoolExecutor(max_workers=len(selections)) as pool:
             pending = [pool.submit(read, dataset, values) for dataset, values in selections]
@@ -164,12 +166,21 @@ class MajorIndexMinsLakeReader:
         self, request: IndexMinuteReadRequest, *, dataset: IndexMinuteDataset,
         max_rows: int, timeout_seconds: float, value_columns: Sequence[str] | None,
         duckdb_config: dict[str, str],
+        time_window: tuple[datetime, datetime] | None = None,
     ) -> IndexMinuteReadPage:
         started = time.perf_counter()
         normalized, _ = _normalize_request(request, dataset=dataset)
         columns = _history_columns(dataset, value_columns)
         if normalized.cursor is not None:
             raise IndexMinuteRequestError("完整历史读取不接受 cursor。")
+        if time_window is not None:
+            if (not isinstance(time_window, tuple) or len(time_window) != 2
+                    or any(type(stamp) is not datetime or stamp.tzinfo is not None for stamp in time_window)
+                    or time_window[0] > time_window[1]
+                    or normalized.start_date is None or normalized.end_date is None
+                    or time_window[0].date() < normalized.start_date
+                    or time_window[1].date() > normalized.end_date):
+                raise IndexMinuteRequestError("完整历史时间范围须为请求日期内的上海本地首尾时间。")
         if isinstance(max_rows, bool) or not 1 <= max_rows <= MAX_INDEX_MINUTE_HISTORY_ROWS or timeout_seconds <= 0:
             raise IndexMinuteHistoryBudgetError("完整历史读取预算无效。")
         prepared_key = (dataset, normalized.freq, normalized.start_date, normalized.end_date)
@@ -191,7 +202,7 @@ class MajorIndexMinsLakeReader:
             query_request = IndexMinuteReadRequest(normalized.ts_code, normalized.freq, normalized.start_date,
                                                   normalized.end_date, max_rows, None)
             rows = _query_rows(connection, partitions=parts, dataset=dataset, request=query_request,
-                               decoded_cursor=None, columns=columns)
+                               decoded_cursor=None, columns=columns, time_window=time_window)
             if len(rows) > max_rows:
                 raise IndexMinuteHistoryBudgetError("完整历史超过行数预算，不能截取后计算。")
             rows.reverse()
@@ -446,6 +457,7 @@ def _query_rows(
     request: IndexMinuteReadRequest,
     decoded_cursor: dict[str, Any] | None,
     columns: tuple[str, ...] | None = None,
+    time_window: tuple[datetime, datetime] | None = None,
 ) -> list[dict[str, Any]]:
     import duckdb
 
@@ -458,6 +470,15 @@ def _query_rows(
     partition_dates = {str(part.path): part.trade_date for part in partitions}
     parameters: list[Any] = [paths, request.ts_code]
     cursor_where = ""
+    if time_window is not None:
+        if decoded_cursor is not None:
+            raise IndexMinuteRequestError("完整历史时间范围不能与分页游标混用。")
+        cursor_where = """
+            WHERE trade_time BETWEEN CAST(? AS TIMESTAMP) AND CAST(? AS TIMESTAMP)
+               OR trade_time IS NULL
+               OR CAST(trade_time AS DATE) <> _partition_date
+        """
+        parameters.extend(time_window)
     if decoded_cursor is not None:
         before_date = decoded_cursor["beforeTradeDate"]
         before_stamp = f"{before_date} {decoded_cursor['beforeTradeTime']}"
