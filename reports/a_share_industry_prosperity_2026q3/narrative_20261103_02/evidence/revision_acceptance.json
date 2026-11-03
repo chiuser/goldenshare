@@ -1,0 +1,11 @@
+{
+  "old_queries_unchanged_except_company_names": true,
+  "peak_python_bytes": 281509888,
+  "previous_run": "narrative_20261103_01",
+  "primary_receivable_rows": 29,
+  "receivable_parent_child_amounts_and_counts_equal": true,
+  "recomputed_old_metrics": false,
+  "secondary_receivable_rows": 124,
+  "seconds": 0.3288921662606299,
+  "source_connections": 0
+}

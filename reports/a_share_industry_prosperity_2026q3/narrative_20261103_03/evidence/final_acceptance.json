@@ -1,0 +1,31 @@
+{
+  "codegraph_scope": "Book/PublicationRun and this offline report only",
+  "codegraph_tools": [
+    "codegraph_explore",
+    "codegraph_impact",
+    "codegraph sync",
+    "codegraph status"
+  ],
+  "committed_or_published": false,
+  "complete": true,
+  "core_12_unchanged": true,
+  "final_report_sha256": "faebf19ea888109cd08ee2ec218a2e05121d6aa9ed1b71c42f86931b943e98b2",
+  "final_source_code_hashes": {
+    "scripts/research/industry_financial/history_publication.py": "7ee159e4e1688affd8e072e530902d9b6ee7360757b170190b92e521744ebb81",
+    "scripts/research/industry_financial/publication.py": "62124e4fe6831de4864f94ca7f1e94ce6cb60dd8c67282f390bfc05b81ba304b",
+    "scripts/research/industry_financial/report_app/HistoryChapters.jsx": "a6fe0944042c828daf4cde7a51e8a6fa45ecc15d3d4ea0883b3191fe51cfc10e",
+    "scripts/research/industry_financial/report_app/ReportContent.jsx": "8851b2bc2e095d427fee9c33791acc7a0632d4d7387c0e44acbc59f2043f2483",
+    "scripts/research/industry_financial/report_app/report.css": "93af12f48f6b78bec554a10bda2439a6dcad73f0b3487995ad9313d7311bb2ba",
+    "scripts/research/industry_financial/tests/test_history_publication.py": "f18678be314361cc53eb3ef44125cdec8bdb1bee714bc5e0b6294589b9921aca"
+  },
+  "forecast_or_score_executed": false,
+  "frozen_source_files_unchanged": 72,
+  "old_queries_equal": true,
+  "previous_files_unchanged": 4,
+  "source_connections": 0,
+  "stage": "history",
+  "tests_passed": 60,
+  "third_batch_started": false,
+  "units_hashes_valid": 31,
+  "validation_seconds": 0.10144095914438367
+}

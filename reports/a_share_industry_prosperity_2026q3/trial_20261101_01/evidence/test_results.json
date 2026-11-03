@@ -1,0 +1,11 @@
+{
+  "command": ".venv/bin/python -m pytest scripts/research/industry_financial/tests -q",
+  "network": "none",
+  "observed_result": "22 passed in 0.10s",
+  "source_read_acceptance": "separately recorded actual 72 units and three issuer announcements",
+  "test_file_hashes": {
+    "scripts/research/industry_financial/tests/test_boundaries.py": "3b2859c95a9f89c02ef5d2de82c770d1de3fb7f6fdca926ab05e8633210b7701",
+    "scripts/research/industry_financial/tests/test_calculations.py": "cb51f508f19372586cb8b1459423fc227aabe3fd3f6279fc485ebaf444f852d8"
+  },
+  "uses_source_mocks_only_where_explicit": true
+}

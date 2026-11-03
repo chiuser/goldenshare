@@ -1,0 +1,25 @@
+{
+  "args": {
+    "ts_code": "600734.SH",
+    "start_date": "20250101",
+    "end_date": "20251231",
+    "fields": [
+      "ts_code",
+      "ann_date",
+      "end_date",
+      "profit_dedt",
+      "q_dtprofit",
+      "update_flag"
+    ]
+  },
+  "at": "2026-11-01T12:57:31.303Z",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "[{\"ts_code\": \"600734.SH\", \"ann_date\": \"20260429\", \"end_date\": \"20251231\", \"profit_dedt\": -135883497.31, \"q_dtprofit\": -61261994.74, \"update_flag\": \"1\"}, {\"ts_code\": \"600734.SH\", \"ann_date\": \"20261029\", \"end_date\": \"20250930\", \"profit_dedt\": -70460643.32, \"q_dtprofit\": -22912578.77, \"update_flag\": \"1\"}, {\"ts_code\": \"600734.SH\", \"ann_date\": \"20250830\", \"end_date\": \"20250630\", \"profit_dedt\": -51708923.8, \"q_dtprofit\": -32074367.17, \"update_flag\": \"1\"}, {\"ts_code\": \"600734.SH\", \"ann_date\": \"20260827\", \"end_date\": \"20250331\", \"profit_dedt\": -18193002.85, \"q_dtprofit\": -19634556.63, \"update_flag\": \"1\"}]"
+      }
+    ],
+    "isError": false
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "approved_quadrant_equal": true,
+  "finance_records": 240,
+  "forecast_or_score_executed": false,
+  "heat_groups": 9,
+  "historical_calculations_executed": false,
+  "parent_child_reconciliation": true,
+  "peak_python_bytes": 261226496,
+  "primary_points": 29,
+  "secondary_financial": 4,
+  "secondary_nonfinancial": 124,
+  "seconds": 0.3071932918392122,
+  "source_connections": 0,
+  "technical_fields_in_reader_rows": false
+}

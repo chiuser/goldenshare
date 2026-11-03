@@ -1,0 +1,10 @@
+{
+  "artifact": "inputs/sample.jsonl",
+  "fingerprint": {
+    "content": "308c678843ad39f5227525d490240402",
+    "n": 100
+  },
+  "rows": 100,
+  "sha256": "7edc32a065c993f9a5859286e03acee702e5d505672abde6c94a4dfaf8718585",
+  "spec_hash": "52b3e026e61cfa41f7d80c9cc1363bc28355d72dfacdabc7ba07dcd4bc2a5563"
+}

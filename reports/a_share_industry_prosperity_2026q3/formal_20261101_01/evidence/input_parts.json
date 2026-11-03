@@ -1,0 +1,246 @@
+{
+  "balancesheet_2024-03-31": [
+    "balancesheet_2024-03-31_b00",
+    "balancesheet_2024-03-31_b01",
+    "balancesheet_2024-03-31_b02"
+  ],
+  "balancesheet_2024-06-30": [
+    "balancesheet_2024-06-30_b00",
+    "balancesheet_2024-06-30_b01",
+    "balancesheet_2024-06-30_b02"
+  ],
+  "balancesheet_2024-09-30": [
+    "balancesheet_2024-09-30_b00",
+    "balancesheet_2024-09-30_b01",
+    "balancesheet_2024-09-30_b02"
+  ],
+  "balancesheet_2024-12-31": [
+    "balancesheet_2024-12-31_b00",
+    "balancesheet_2024-12-31_b01",
+    "balancesheet_2024-12-31_b02"
+  ],
+  "balancesheet_2025-03-31": [
+    "balancesheet_2025-03-31_b00",
+    "balancesheet_2025-03-31_b01",
+    "balancesheet_2025-03-31_b02"
+  ],
+  "balancesheet_2025-06-30": [
+    "balancesheet_2025-06-30_b00",
+    "balancesheet_2025-06-30_b01",
+    "balancesheet_2025-06-30_b02"
+  ],
+  "balancesheet_2025-09-30": [
+    "balancesheet_2025-09-30_b00",
+    "balancesheet_2025-09-30_b01",
+    "balancesheet_2025-09-30_b02"
+  ],
+  "balancesheet_2025-12-31": [
+    "balancesheet_2025-12-31_b00",
+    "balancesheet_2025-12-31_b01",
+    "balancesheet_2025-12-31_b02"
+  ],
+  "balancesheet_2026-03-31": [
+    "balancesheet_2026-03-31_b00",
+    "balancesheet_2026-03-31_b01",
+    "balancesheet_2026-03-31_b02"
+  ],
+  "balancesheet_2026-06-30": [
+    "balancesheet_2026-06-30_b00",
+    "balancesheet_2026-06-30_b01",
+    "balancesheet_2026-06-30_b02"
+  ],
+  "balancesheet_2026-09-30": [
+    "balancesheet_2026-09-30_b00",
+    "balancesheet_2026-09-30_b01",
+    "balancesheet_2026-09-30_b02"
+  ],
+  "cashflow_2024-03-31": [
+    "cashflow_2024-03-31_b00",
+    "cashflow_2024-03-31_b01",
+    "cashflow_2024-03-31_b02"
+  ],
+  "cashflow_2024-06-30": [
+    "cashflow_2024-06-30_b00",
+    "cashflow_2024-06-30_b01",
+    "cashflow_2024-06-30_b02"
+  ],
+  "cashflow_2024-09-30": [
+    "cashflow_2024-09-30_b00",
+    "cashflow_2024-09-30_b01",
+    "cashflow_2024-09-30_b02"
+  ],
+  "cashflow_2024-12-31": [
+    "cashflow_2024-12-31_b00",
+    "cashflow_2024-12-31_b01",
+    "cashflow_2024-12-31_b02"
+  ],
+  "cashflow_2025-03-31": [
+    "cashflow_2025-03-31_b00",
+    "cashflow_2025-03-31_b01",
+    "cashflow_2025-03-31_b02"
+  ],
+  "cashflow_2025-06-30": [
+    "cashflow_2025-06-30_b00",
+    "cashflow_2025-06-30_b01",
+    "cashflow_2025-06-30_b02"
+  ],
+  "cashflow_2025-09-30": [
+    "cashflow_2025-09-30_b00",
+    "cashflow_2025-09-30_b01",
+    "cashflow_2025-09-30_b02"
+  ],
+  "cashflow_2025-12-31": [
+    "cashflow_2025-12-31_b00",
+    "cashflow_2025-12-31_b01",
+    "cashflow_2025-12-31_b02"
+  ],
+  "cashflow_2026-03-31": [
+    "cashflow_2026-03-31_b00",
+    "cashflow_2026-03-31_b01",
+    "cashflow_2026-03-31_b02"
+  ],
+  "cashflow_2026-06-30": [
+    "cashflow_2026-06-30_b00",
+    "cashflow_2026-06-30_b01",
+    "cashflow_2026-06-30_b02"
+  ],
+  "cashflow_2026-09-30": [
+    "cashflow_2026-09-30_b00",
+    "cashflow_2026-09-30_b01",
+    "cashflow_2026-09-30_b02"
+  ],
+  "fina_indicator_2024-03-31": [
+    "fina_indicator_2024-03-31_b00",
+    "fina_indicator_2024-03-31_b01",
+    "fina_indicator_2024-03-31_b02"
+  ],
+  "fina_indicator_2024-06-30": [
+    "fina_indicator_2024-06-30_b00",
+    "fina_indicator_2024-06-30_b01",
+    "fina_indicator_2024-06-30_b02"
+  ],
+  "fina_indicator_2024-09-30": [
+    "fina_indicator_2024-09-30_b00",
+    "fina_indicator_2024-09-30_b01",
+    "fina_indicator_2024-09-30_b02"
+  ],
+  "fina_indicator_2024-12-31": [
+    "fina_indicator_2024-12-31_b00",
+    "fina_indicator_2024-12-31_b01",
+    "fina_indicator_2024-12-31_b02"
+  ],
+  "fina_indicator_2025-03-31": [
+    "fina_indicator_2025-03-31_b00",
+    "fina_indicator_2025-03-31_b01",
+    "fina_indicator_2025-03-31_b02"
+  ],
+  "fina_indicator_2025-06-30": [
+    "fina_indicator_2025-06-30_b00",
+    "fina_indicator_2025-06-30_b01",
+    "fina_indicator_2025-06-30_b02"
+  ],
+  "fina_indicator_2025-09-30": [
+    "fina_indicator_2025-09-30_b00",
+    "fina_indicator_2025-09-30_b01",
+    "fina_indicator_2025-09-30_b02"
+  ],
+  "fina_indicator_2025-12-31": [
+    "fina_indicator_2025-12-31_b00",
+    "fina_indicator_2025-12-31_b01",
+    "fina_indicator_2025-12-31_b02"
+  ],
+  "fina_indicator_2026-03-31": [
+    "fina_indicator_2026-03-31_b00",
+    "fina_indicator_2026-03-31_b01",
+    "fina_indicator_2026-03-31_b02"
+  ],
+  "fina_indicator_2026-06-30": [
+    "fina_indicator_2026-06-30_b00",
+    "fina_indicator_2026-06-30_b01",
+    "fina_indicator_2026-06-30_b02"
+  ],
+  "fina_indicator_2026-09-30": [
+    "fina_indicator_2026-09-30_b00",
+    "fina_indicator_2026-09-30_b01",
+    "fina_indicator_2026-09-30_b02"
+  ],
+  "income_2024-03-31": [
+    "income_2024-03-31_b00",
+    "income_2024-03-31_b01",
+    "income_2024-03-31_b02"
+  ],
+  "income_2024-06-30": [
+    "income_2024-06-30_b00",
+    "income_2024-06-30_b01",
+    "income_2024-06-30_b02"
+  ],
+  "income_2024-09-30": [
+    "income_2024-09-30_b00",
+    "income_2024-09-30_b01",
+    "income_2024-09-30_b02"
+  ],
+  "income_2024-12-31": [
+    "income_2024-12-31_b00",
+    "income_2024-12-31_b01",
+    "income_2024-12-31_b02"
+  ],
+  "income_2025-03-31": [
+    "income_2025-03-31_b00",
+    "income_2025-03-31_b01",
+    "income_2025-03-31_b02"
+  ],
+  "income_2025-06-30": [
+    "income_2025-06-30_b00",
+    "income_2025-06-30_b01",
+    "income_2025-06-30_b02"
+  ],
+  "income_2025-09-30": [
+    "income_2025-09-30_b00",
+    "income_2025-09-30_b01",
+    "income_2025-09-30_b02"
+  ],
+  "income_2025-12-31": [
+    "income_2025-12-31_b00",
+    "income_2025-12-31_b01",
+    "income_2025-12-31_b02"
+  ],
+  "income_2026-03-31": [
+    "income_2026-03-31_b00",
+    "income_2026-03-31_b01",
+    "income_2026-03-31_b02"
+  ],
+  "income_2026-06-30": [
+    "income_2026-06-30_b00",
+    "income_2026-06-30_b01",
+    "income_2026-06-30_b02"
+  ],
+  "income_2026-09-30": [
+    "income_2026-09-30_b00",
+    "income_2026-09-30_b01",
+    "income_2026-09-30_b02"
+  ],
+  "mapping": [
+    "mapping_b00",
+    "mapping_b01",
+    "mapping_b02",
+    "mapping_b03",
+    "mapping_b04",
+    "mapping_b05",
+    "mapping_b06",
+    "mapping_b07",
+    "mapping_b08",
+    "mapping_b09",
+    "mapping_b10",
+    "mapping_b11"
+  ],
+  "sample": [
+    "identity_p00",
+    "identity_p01",
+    "identity_p02"
+  ],
+  "valuation": [
+    "valuation_b00",
+    "valuation_b01",
+    "valuation_b02"
+  ]
+}

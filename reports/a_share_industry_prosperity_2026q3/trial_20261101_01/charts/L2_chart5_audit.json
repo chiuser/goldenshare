@@ -1,0 +1,170 @@
+{
+  "not_formal_industry_ranking": true,
+  "not_plotted": [
+    {
+      "failures": [
+        "fewer_than_5_companies"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK1279.DC"
+    },
+    {
+      "failures": [
+        "fewer_than_5_companies"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK1281.DC"
+    },
+    {
+      "failures": [
+        "fewer_than_5_companies"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK1282.DC"
+    },
+    {
+      "failures": [
+        "fewer_than_5_companies",
+        "coverage_current_below_90pct_or_unknown",
+        "coverage_previous_below_90pct_or_unknown"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK0459.DC"
+    },
+    {
+      "failures": [
+        "fewer_than_5_companies"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK1036.DC"
+    },
+    {
+      "failures": [
+        "fewer_than_5_companies"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK1037.DC"
+    },
+    {
+      "failures": [
+        "fewer_than_5_companies"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK1223.DC"
+    },
+    {
+      "failures": [
+        "fewer_than_5_companies",
+        "nonpositive_forecast_deducted_profit",
+        "incomplete_metric"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK0454.DC"
+    },
+    {
+      "failures": [
+        "fewer_than_5_companies",
+        "nonpositive_forecast_deducted_profit",
+        "incomplete_metric"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK0471.DC"
+    },
+    {
+      "failures": [
+        "fewer_than_5_companies",
+        "nonpositive_forecast_deducted_profit",
+        "incomplete_metric"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK0538.DC"
+    },
+    {
+      "failures": [
+        "coverage_current_below_90pct_or_unknown",
+        "coverage_previous_below_90pct_or_unknown"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK0731.DC"
+    },
+    {
+      "failures": [
+        "nonpositive_forecast_deducted_profit",
+        "incomplete_metric"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK1019.DC"
+    },
+    {
+      "failures": [
+        "fewer_than_5_companies"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK0725.DC"
+    },
+    {
+      "failures": [
+        "fewer_than_5_companies"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK0726.DC"
+    },
+    {
+      "failures": [
+        "fewer_than_5_companies"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK1246.DC"
+    },
+    {
+      "failures": [
+        "fewer_than_5_companies"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK0465.DC"
+    },
+    {
+      "failures": [
+        "fewer_than_5_companies",
+        "nonpositive_forecast_deducted_profit",
+        "incomplete_metric"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK0727.DC"
+    },
+    {
+      "failures": [
+        "fewer_than_5_companies",
+        "nonpositive_forecast_deducted_profit",
+        "incomplete_metric"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK1042.DC"
+    },
+    {
+      "failures": [
+        "fewer_than_5_companies"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK1044.DC"
+    }
+  ],
+  "plotted": 6,
+  "quadrant_counts": {
+    "右上": 2,
+    "右下": 0,
+    "左上": 1,
+    "左下": 1,
+    "边界": 2
+  },
+  "reference_set": [
+    "BK1277.DC",
+    "BK1280.DC",
+    "BK1038.DC",
+    "BK1247.DC",
+    "BK1248.DC",
+    "BK1040.DC"
+  ],
+  "reference_x": "50",
+  "reference_y": "50"
+}

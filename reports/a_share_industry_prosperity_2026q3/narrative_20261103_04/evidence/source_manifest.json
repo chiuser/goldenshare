@@ -1,0 +1,18 @@
+{
+  "aggregate_bytes": 33589912,
+  "files": {
+    "calculations/groups.json": "9211d701fe436cfb91abbf70cc83720feb80d3dac6981864c784ddc36e8879b1",
+    "calculations/ranking.json": "bd4ddc9e52175398ad59c145533a36ac0b308c3ad5c9f7c728b1ec69f33b0235",
+    "calculations/sensitivity.json": "b2a0c52d09db688f66316e5ee2607527be00d2e0dac037f01e53cae4a7523faa",
+    "evidence/artifact_manifest.json": "6be2897438d1e17b57ca98c59d0229fa005acb15587aea3977813034fc4f2086"
+  },
+  "income_physical_bytes": 0,
+  "previous_files": {
+    "data.json": "6d3c28f7498c82d98e55be41a6c15c961b12bbb7b68c7b47fc692ea18bd72514",
+    "evidence/artifact_manifest.json": "ffc0f66142f8ae7a4a86fbf717954e886ef0a9f80d2c79c2e51afbaf3d934978",
+    "evidence/environment.json": "90a2484eb1562faf8dc4a7f52dfb3503c2de54bceb38a8daf05d5c315876d7fb",
+    "report.html": "faebf19ea888109cd08ee2ec218a2e05121d6aa9ed1b71c42f86931b943e98b2"
+  },
+  "previous_run": "narrative_20261103_03",
+  "source_connections": 0
+}

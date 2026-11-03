@@ -1,0 +1,25 @@
+{
+  "aggregate_bytes": 31276839,
+  "files": {
+    "calculations/groups.json": "9211d701fe436cfb91abbf70cc83720feb80d3dac6981864c784ddc36e8879b1",
+    "calculations/sample.json": "e8bcf31e8e18ebf93c473c0d66c96f3dcfa4f65ed7e91d5b96589dcfb3af1656",
+    "evidence/artifact_manifest.json": "6be2897438d1e17b57ca98c59d0229fa005acb15587aea3977813034fc4f2086",
+    "evidence/income_2025-09-30_b00.receipt.json": "c56a4f339f09a7c0bb3f5e65c6fa731de6981c45cc7a506eb845b3b1d12992eb",
+    "evidence/income_2025-09-30_b01.receipt.json": "f347863a405f132c3fc247d144b26bf7dd743c13837cc5b469e5e85e315260eb",
+    "evidence/income_2025-09-30_b02.receipt.json": "af4e4e5dbba99c92c2c636543e2370903e1b25e287f7576591b292aa870c5e4b",
+    "evidence/income_2026-09-30_b00.receipt.json": "66035a854115f5cfca6d2d5ccf30d9cc40337c0105e4c71df740b05d05bf20ac",
+    "evidence/income_2026-09-30_b01.receipt.json": "136584647d0ee960937a928287bec415e45601074bc46ee33578e1f2c8f56290",
+    "evidence/income_2026-09-30_b02.receipt.json": "bfc99ce2fe4f4957a39bd791d8b01324fc99d03ffe6397e6cb35143811654ade",
+    "evidence/input_parts.json": "1ae5e4bf0971c3a0970b001a9a5774584ae0ff466baa7a066fbb4819a8586238",
+    "evidence/quality.json": "1bdb64c00427e160fd48073db66f1eeffb1c61f33f1ccd2593af3274e8172ac3",
+    "inputs/income_2025-09-30_b00.jsonl": "451a89e17f0ec741ca8c5e778cb71b2e34d6835c3ff21db82d407ce0f5f6e55b",
+    "inputs/income_2025-09-30_b01.jsonl": "7e3b7510091d0430eccb52ce71d51c3ad95ac4d205a4732f92e30f652784ea4c",
+    "inputs/income_2025-09-30_b02.jsonl": "a74455f85fca6441cec9752b392476234f150742b66b4321480c2ee4afb48b5c",
+    "inputs/income_2026-09-30_b00.jsonl": "11002427664b71bc58b66416b2463c61bf7623f226ee9e12a1fb57ec1ad87774",
+    "inputs/income_2026-09-30_b01.jsonl": "4b19395dffd7891c19f191498ccc36919c6b99d4ef964e6414577b2bde09e031",
+    "inputs/income_2026-09-30_b02.jsonl": "d399c9d586cc1fc2b7d48096dd9ea1ba8dee1fc243110cca82c1b710aec76dcb"
+  },
+  "financial_projection_rows": 240,
+  "income_physical_bytes": 5167452,
+  "source_connections": 0
+}

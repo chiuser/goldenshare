@@ -1,0 +1,6 @@
+{
+  "completed_before_cancel": 4,
+  "completed_after_resume": 31,
+  "committed_unit_hashes_preserved": true,
+  "no_rewrite_of_committed_units": true
+}

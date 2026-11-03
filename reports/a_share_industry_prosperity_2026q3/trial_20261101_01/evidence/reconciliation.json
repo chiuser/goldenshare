@@ -1,0 +1,157 @@
+{
+  "all_pass": true,
+  "basis": "raw input sum and annual identity, with residuals preserved",
+  "checks": [
+    {
+      "actual_9m_difference": "0.00",
+      "actual_9m_matches_independent_sum": true,
+      "full_year_difference": "-1E-17",
+      "full_year_identity": true,
+      "kind": "P",
+      "range_contains_base": true,
+      "root": "BK0438.DC",
+      "unique_codes": true
+    },
+    {
+      "actual_9m_difference": "0.00",
+      "actual_9m_matches_independent_sum": true,
+      "full_year_difference": "1E-17",
+      "full_year_identity": true,
+      "kind": "D",
+      "range_contains_base": true,
+      "root": "BK0438.DC",
+      "unique_codes": true
+    },
+    {
+      "actual_9m_difference": "0.00",
+      "actual_9m_matches_independent_sum": true,
+      "full_year_difference": "0E-17",
+      "full_year_identity": true,
+      "kind": "C",
+      "range_contains_base": true,
+      "root": "BK0438.DC",
+      "unique_codes": true
+    },
+    {
+      "actual_9m_difference": "0.00",
+      "actual_9m_matches_independent_sum": true,
+      "full_year_difference": "1E-17",
+      "full_year_identity": true,
+      "kind": "P",
+      "range_contains_base": true,
+      "root": "BK1201.DC",
+      "unique_codes": true
+    },
+    {
+      "actual_9m_difference": "0.00",
+      "actual_9m_matches_independent_sum": true,
+      "full_year_difference": "0E-17",
+      "full_year_identity": true,
+      "kind": "D",
+      "range_contains_base": true,
+      "root": "BK1201.DC",
+      "unique_codes": true
+    },
+    {
+      "actual_9m_difference": "0.00",
+      "actual_9m_matches_independent_sum": true,
+      "full_year_difference": "-1E-17",
+      "full_year_identity": true,
+      "kind": "C",
+      "range_contains_base": true,
+      "root": "BK1201.DC",
+      "unique_codes": true
+    },
+    {
+      "actual_9m_difference": "0.00",
+      "actual_9m_matches_independent_sum": true,
+      "full_year_difference": "1E-17",
+      "full_year_identity": true,
+      "kind": "P",
+      "range_contains_base": true,
+      "root": "BK1206.DC",
+      "unique_codes": true
+    },
+    {
+      "actual_9m_difference": "0.00",
+      "actual_9m_matches_independent_sum": true,
+      "full_year_difference": "-1E-17",
+      "full_year_identity": true,
+      "kind": "D",
+      "range_contains_base": true,
+      "root": "BK1206.DC",
+      "unique_codes": true
+    },
+    {
+      "actual_9m_difference": "0.00",
+      "actual_9m_matches_independent_sum": true,
+      "full_year_difference": "-1E-17",
+      "full_year_identity": true,
+      "kind": "C",
+      "range_contains_base": true,
+      "root": "BK1206.DC",
+      "unique_codes": true
+    },
+    {
+      "actual_9m_difference": "0.00",
+      "actual_9m_matches_independent_sum": true,
+      "full_year_difference": "0E-18",
+      "full_year_identity": true,
+      "kind": "P",
+      "range_contains_base": true,
+      "root": "BK1209.DC",
+      "unique_codes": true
+    },
+    {
+      "actual_9m_difference": "0.00",
+      "actual_9m_matches_independent_sum": true,
+      "full_year_difference": "0E-18",
+      "full_year_identity": true,
+      "kind": "D",
+      "range_contains_base": true,
+      "root": "BK1209.DC",
+      "unique_codes": true
+    },
+    {
+      "actual_9m_difference": "0.00",
+      "actual_9m_matches_independent_sum": true,
+      "full_year_difference": "0E-17",
+      "full_year_identity": true,
+      "kind": "C",
+      "range_contains_base": true,
+      "root": "BK1209.DC",
+      "unique_codes": true
+    },
+    {
+      "actual_9m_difference": "0.00",
+      "actual_9m_matches_independent_sum": true,
+      "full_year_difference": "0E-17",
+      "full_year_identity": true,
+      "kind": "P",
+      "range_contains_base": true,
+      "root": "BK1216.DC",
+      "unique_codes": true
+    },
+    {
+      "actual_9m_difference": "0.00",
+      "actual_9m_matches_independent_sum": true,
+      "full_year_difference": "-1E-17",
+      "full_year_identity": true,
+      "kind": "D",
+      "range_contains_base": true,
+      "root": "BK1216.DC",
+      "unique_codes": true
+    },
+    {
+      "actual_9m_difference": "0.00",
+      "actual_9m_matches_independent_sum": true,
+      "full_year_difference": "1E-17",
+      "full_year_identity": true,
+      "kind": "C",
+      "range_contains_base": true,
+      "root": "BK1216.DC",
+      "unique_codes": true
+    }
+  ],
+  "tolerance_yuan": "1"
+}

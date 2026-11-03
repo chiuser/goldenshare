@@ -1,0 +1,66 @@
+{
+  "builds": 3,
+  "calculation_seconds": "2.059929291717708",
+  "completed": 31,
+  "source": {
+    "history_implementation": "7ee159e4e1688affd8e072e530902d9b6ee7360757b170190b92e521744ebb81",
+    "previous_data": "299b2137a697ae90aa6242c2cb602d0d7304f58c5647c0130e6257f2ee08b1ef",
+    "previous_manifest": "2c0c77dd249709d7b8ae052b476771a56c16a799592fc35caed476f25a5dc19a",
+    "publication": "62124e4fe6831de4864f94ca7f1e94ce6cb60dd8c67282f390bfc05b81ba304b",
+    "source_manifest": "6be2897438d1e17b57ca98c59d0229fa005acb15587aea3977813034fc4f2086"
+  },
+  "spec": {
+    "aggregate_bytes": 52428800,
+    "blue": "#3276b5",
+    "build_seconds": 45,
+    "calculation_seconds": 600,
+    "income_bytes": 157286400,
+    "max_builds": 3,
+    "max_cases": 6,
+    "max_heat_rows": 16,
+    "max_records": 61281,
+    "memory_bytes": 536870912,
+    "nine_month_periods": [
+      "2024-09-30",
+      "2025-09-30",
+      "2026-09-30"
+    ],
+    "output_bytes": 104857600,
+    "periods": [
+      "2024-03-31",
+      "2024-06-30",
+      "2024-09-30",
+      "2024-12-31",
+      "2025-03-31",
+      "2025-06-30",
+      "2025-09-30",
+      "2025-12-31",
+      "2026-03-31",
+      "2026-06-30",
+      "2026-09-30"
+    ],
+    "preparation_run": "preparation_20261102_01",
+    "sample_run": "chapter_samples_20261102_01",
+    "source_run": "formal_20261101_01",
+    "stage": "history",
+    "teal": "#0f9185",
+    "unit_seconds": 30,
+    "year_colors": [
+      [
+        "2024",
+        "#94a3b8"
+      ],
+      [
+        "2025",
+        "#4f78ac"
+      ],
+      [
+        "2026",
+        "#0f9185"
+      ]
+    ]
+  },
+  "stage": "history",
+  "status": "HISTORY_PROJECTED",
+  "total": 31
+}

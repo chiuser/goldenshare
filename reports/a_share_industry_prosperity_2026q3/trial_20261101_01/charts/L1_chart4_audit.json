@@ -1,0 +1,21 @@
+{
+  "not_formal_industry_ranking": true,
+  "not_plotted": [],
+  "plotted": 5,
+  "quadrant_counts": {
+    "右上": 1,
+    "右下": 1,
+    "左上": 0,
+    "左下": 2,
+    "边界": 1
+  },
+  "reference_set": [
+    "BK0438.DC",
+    "BK1201.DC",
+    "BK1206.DC",
+    "BK1209.DC",
+    "BK1216.DC"
+  ],
+  "reference_x": "0",
+  "reference_y": "50"
+}

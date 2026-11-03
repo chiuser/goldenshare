@@ -1,0 +1,25 @@
+{
+  "limits": "only three issuer announcements checked; restatement risk not exhaustively cleared",
+  "noncomparable_codes": {
+    "000422.SZ": {
+      "boundary": "2025-01-01",
+      "disclosed_adjusted_2024_parent_profit": "1067484892.73",
+      "disclosed_adjusted_2024_revenue": "25394172300.46",
+      "prod_2024_parent_profit": "652544554.42",
+      "prod_2024_revenue": "16963593887.39",
+      "reason": "同控合并：2024原口径及2025Q1未重述；2025H1/9M累计R/P/D/C已与年报分季表加总一致，避免无依据整家公司跨期全删",
+      "scope": "cross_2024_2025_or_comparisons_using_unrestated_2025Q1",
+      "source_pages": [
+        8,
+        9,
+        10
+      ],
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-25/1225183616.PDF",
+      "unrestated_periods": [
+        "2025-03-31"
+      ]
+    }
+  },
+  "policy": "no source writes, no replacement samples, no patched financial values",
+  "semantic_pass": true
+}

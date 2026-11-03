@@ -1,0 +1,10 @@
+{
+  "artifact": "inputs/balancesheet_2025-06-30_b00.jsonl",
+  "fingerprint": {
+    "fetched_at": "2026-08-30T15:03:35.611991+08:00",
+    "n": 1999
+  },
+  "rows": 1999,
+  "sha256": "4a63f0fbe5df69109a28aa73e45778b174babe913c0a7ffb3c7b68ebda9878f0",
+  "spec_hash": "345473966649b23c1f6b52b4b0facb100fb8f5e8384d936c8a14a87ade7da497"
+}

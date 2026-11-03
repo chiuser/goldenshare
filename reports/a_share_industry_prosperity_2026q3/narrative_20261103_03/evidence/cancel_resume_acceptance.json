@@ -1,0 +1,12 @@
+{
+  "cancelled_returncode": 1,
+  "committed_before_cancel": 4,
+  "committed_file_hashes": {
+    "units/BK0427.DC.json": "8bfc5f7e6090d0192fd9a1a9356c02ebe95d67760f8f9dbd8d8eae20d558faf6",
+    "units/BK0433.DC.json": "7c0e66816d181061c1103aa5a367c2b168d9177836ec803e065ae096be816e09",
+    "units/BK0436.DC.json": "bb91c57ca8039a0bd8344e39f793408a8f7b42fc8bcea5b24f6191b385860a8b",
+    "units/BK0437.DC.json": "65af627ee16c209dbb531bcbb67f667580708742f6c9c300de0afb4c76e2597f"
+  },
+  "completed_after_resume": 31,
+  "unchanged_on_resume": true
+}

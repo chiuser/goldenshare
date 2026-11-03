@@ -1,0 +1,42 @@
+{
+  "commit_created": false,
+  "files": {
+    "README.md": "b8036f461a717c6a910b148e518aeffa7b0a8693eaa87533b6639786b1855481",
+    "data.json": "7952412aa12b409a8a54a1e0f464dea8d23665d3f5ccfc2b574fb6a3bd6107ad",
+    "evidence/browser_qa.json": "bbe51906ae7dad4dfd52714ac1fb6c88a061dd84e869b3e513a355da52ba4534",
+    "evidence/build_receipt.json": "feb1510ac38c19ed504bf7c54780fbdefc3f8cff0115320b4d9b74262e590852",
+    "evidence/build_stdout.txt": "1e6fabfec2e230e3c3292eb169d5bcd00744a3c9a3831323a30b0495725c2e1e",
+    "evidence/calculation_receipt.json": "fea033fabcda807a99988538cbb782636eee51953a77ea8d374bcce35144417e",
+    "evidence/data_acceptance.json": "f87142b99c93e7dd4b4d0601d29f24b37cb0402cb2c7dd5fc4d0227212057ae1",
+    "evidence/desktop_history.png": "0233d8693138d8cefa5f760ae95ec1bcacd978a1bd475e47e6a4dcf56c961cc8",
+    "evidence/desktop_quadrant.png": "a0e745501334a9a6d4bc40b3a2387d8be5f629c46c91dbcf1dd780571f112548",
+    "evidence/environment.json": "90a2484eb1562faf8dc4a7f52dfb3503c2de54bceb38a8daf05d5c315876d7fb",
+    "evidence/input_manifest.json": "73a43bb3ae839913a208e651824fc7fd10335eb673af5dd358bf10f600b3d57b",
+    "evidence/original_report_integrity.json": "07bf615317d41078fac9dde4e8294893bc2a140eac50a7aa5b4e5e6e10b600a0",
+    "evidence/phone_history.png": "eaedbc15ec489cd72839cc4a56f0b4e4c46dcf2536fd8328f30514af2f48933b",
+    "evidence/phone_quadrant.png": "f539cda48fec81f52f70b5f836f5a0319261e61762768aa40eaefe741ab68488",
+    "evidence/pre_presentation_revision_manifest.json": "26f27c8586b81fca10f7342bfd493cb571d55dd9c98fc1460174e5b9eb997ca7",
+    "evidence/prepare_receipt.json": "5705e2d0fa135b0521a3b78edb5b67b7009921ea2205bff30a2e709c84c965e5",
+    "evidence/presentation_revision_before.json": "4c7c5982f8e13fde28769aa05b8404422a3b992126a0f4784042dbb841549c18",
+    "evidence/presentation_revision_browser_qa.json": "8ae0d74b1fd166b0cf36cd0d5c6caa2b049c5887ac8090b30254c31805cd2fb1",
+    "evidence/presentation_revision_receipt.json": "b2d30984b6d952f5f8a9a56567f336f454d46bdc24c1bf86a431977e357336a5",
+    "evidence/quadrant_exact.json": "9c188cc3a59df22b43cc6c62303889dbd5efdbdf63536843954c984f4247da90",
+    "evidence/revision_desktop_history.png": "a11eb34bd7587d6df351fd6696708e0940d78a2e8fa3d072b309abc111af4143",
+    "evidence/revision_desktop_quadrant.png": "59a7a1564ac9ece3f73355d6ba007193d7131b7ebbf0c54963e8f85dfd31b3b2",
+    "evidence/revision_phone_history.png": "b8129d06e6f5fd97ef5767fe74bde9bf146946c004d986ca91637e8ba3b42887",
+    "evidence/revision_quadrant_card.png": "cdfd6cab877a2185c844d00df3cbb4c7da6613208e592156735e7966228dbc4e",
+    "evidence/spec_revision.json": "cf289fb3a75ac5ff38825311d19863fc80e8bfb9a4601197449163dde3857ac9",
+    "evidence/tests.txt": "f93b15404fb60cdbb4e259ef2d6ffb1be990da59f8db0a0a654aa06fa17c0f10",
+    "report.html": "4ea52b21ffac1f750bdc0a99b028ec9311d15ac2dd5111d56efacda3325e7674"
+  },
+  "maintained_code": {
+    "scripts/research/industry_financial/sample_chapters.py": "3d777792e8d47eda0539ee4b73c72b28a23e1c04d81d7f8ab1c26e111bde0ab0",
+    "scripts/research/industry_financial/sample_report_app/ReportContent.jsx": "a13d71c987764d5ed7192c1ccbbb6862c573eceb7fb96e50e2e5b6ef2f5c9680",
+    "scripts/research/industry_financial/sample_report_app/report.css": "8130e2b28af5d0f1bb1edb81dd7ccc42088ec877b67b1085962c5da8ca1f0534",
+    "scripts/research/industry_financial/tests/test_sample_chapters.py": "ffddbe24f69430cc4e08711e6bde1bddf1218c4b1e1e7ef7359ff1010c191974"
+  },
+  "production_writes": false,
+  "scope": "two sample chapters awaiting reader review",
+  "source_connections": 0,
+  "presentation_revision": "2026-11-02：删除下拉和重复展示、删除旁白、补图例；数据及app ID不变"
+}

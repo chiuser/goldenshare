@@ -1,0 +1,10 @@
+{
+  "artifact": "inputs/mapping_b06.jsonl",
+  "fingerprint": {
+    "content": "ceea93b322ab06212a985eee76904a27",
+    "n": 1493
+  },
+  "rows": 1493,
+  "sha256": "cf3ec89b392b7f59e558280dc04d9c61ffbb80ee981f01ec85219e3a75800d90",
+  "spec_hash": "345473966649b23c1f6b52b4b0facb100fb8f5e8384d936c8a14a87ade7da497"
+}

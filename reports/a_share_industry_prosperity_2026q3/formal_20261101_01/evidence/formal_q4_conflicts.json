@@ -1,0 +1,145 @@
+{
+  "companies": 21,
+  "company_years": 23,
+  "conflicts": [
+    {
+      "code": "600735.SH",
+      "period": "2024-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK0436.DC"
+    },
+    {
+      "code": "920339.BJ",
+      "period": "2025-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK0456.DC"
+    },
+    {
+      "code": "300152.SZ",
+      "period": "2024-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK0728.DC"
+    },
+    {
+      "code": "300152.SZ",
+      "period": "2025-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK0728.DC"
+    },
+    {
+      "code": "301265.SZ",
+      "period": "2025-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK0728.DC"
+    },
+    {
+      "code": "920165.BJ",
+      "period": "2025-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1035.DC"
+    },
+    {
+      "code": "301487.SZ",
+      "period": "2024-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1200.DC"
+    },
+    {
+      "code": "603398.SH",
+      "period": "2025-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1200.DC"
+    },
+    {
+      "code": "301326.SZ",
+      "period": "2024-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1201.DC"
+    },
+    {
+      "code": "920138.BJ",
+      "period": "2024-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1201.DC"
+    },
+    {
+      "code": "000926.SZ",
+      "period": "2025-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1202.DC"
+    },
+    {
+      "code": "300600.SZ",
+      "period": "2024-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1204.DC"
+    },
+    {
+      "code": "300600.SZ",
+      "period": "2025-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1204.DC"
+    },
+    {
+      "code": "920158.BJ",
+      "period": "2025-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1205.DC"
+    },
+    {
+      "code": "920405.BJ",
+      "period": "2025-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1205.DC"
+    },
+    {
+      "code": "603879.SH",
+      "period": "2024-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1206.DC"
+    },
+    {
+      "code": "002360.SZ",
+      "period": "2025-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1206.DC"
+    },
+    {
+      "code": "300449.SZ",
+      "period": "2024-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1207.DC"
+    },
+    {
+      "code": "301117.SZ",
+      "period": "2024-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1207.DC"
+    },
+    {
+      "code": "600734.SH",
+      "period": "2025-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1207.DC"
+    },
+    {
+      "code": "000980.SZ",
+      "period": "2024-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1211.DC"
+    },
+    {
+      "code": "301667.SZ",
+      "period": "2025-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1211.DC"
+    },
+    {
+      "code": "920160.BJ",
+      "period": "2025-12-31",
+      "reason": "direct_q4_differs_from_cumulative",
+      "root": "BK1214.DC"
+    }
+  ],
+  "rule": "direct Q4 differs from cumulative difference by more than 1 yuan; no automatic release"
+}

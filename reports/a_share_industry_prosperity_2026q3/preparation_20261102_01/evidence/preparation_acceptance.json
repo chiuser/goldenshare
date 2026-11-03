@@ -1,0 +1,62 @@
+{
+  "phase": "preparation_complete_only",
+  "date": "2026-11-02",
+  "chart_groups": 24,
+  "documents": [
+    "docs/product/a-share-industry-prosperity-2026q3-research-plan-v1.md",
+    "docs/product/a-share-industry-prosperity-2026q3-calculation-methodology-v1.md"
+  ],
+  "local_links_and_anchors_checked": 44,
+  "source_metadata_unchanged": [
+    "reports/a_share_industry_prosperity_2026q3/formal_20261101_01/evidence/artifact_manifest.json",
+    "reports/a_share_industry_prosperity_2026q3/formal_20261101_01/evidence/input_parts.json",
+    "reports/a_share_industry_prosperity_2026q3/formal_20261101_01/evidence/formal_acceptance.json",
+    "reports/a_share_industry_prosperity_2026q3/formal_20261101_01/calculations/three_year_common_panel.json"
+  ],
+  "frozen_reports_verified": {
+    "formal_20261101_01/report.html": true,
+    "chapter_samples_20261102_01/report.html": true,
+    "chapter_samples_20261102_01/data.json": true
+  },
+  "formal_research_code_unchanged": [
+    "scripts/research/industry_financial/analysis.py",
+    "scripts/research/industry_financial/charts.py",
+    "scripts/research/industry_financial/extract.py",
+    "scripts/research/industry_financial/forecast.py",
+    "scripts/research/industry_financial/formal.py",
+    "scripts/research/industry_financial/metrics.py",
+    "scripts/research/industry_financial/ranking.py",
+    "scripts/research/industry_financial/report.py",
+    "scripts/research/industry_financial/run.py",
+    "scripts/research/industry_financial/spec.py",
+    "scripts/research/industry_financial/storage.py",
+    "scripts/research/industry_financial/validation.py"
+  ],
+  "production_connections": 0,
+  "financial_aggregations_executed": false,
+  "chapter_builds_executed": 0,
+  "local_calculations_deferred": [
+    "同公司单季收入和归母趋势",
+    "二级三年前三季同公司对比",
+    "金融营业总收入同期/三年对比"
+  ],
+  "field_sample_receipt": "financial_income_field_audit.json",
+  "not_claimed": [
+    "全金融数据覆盖通过",
+    "新季度/三年补算通过",
+    "第一批章节已制作",
+    "预测有效性或投资收益已验证"
+  ],
+  "boundary_changes": false,
+  "result_sha256": {
+    "docs/product/a-share-industry-prosperity-2026q3-research-plan-v1.md": "5a020b3018a3478238a41efdeb4f9af23d89ae8cdf3cce8a17a6f4c24df91ed9",
+    "docs/product/a-share-industry-prosperity-2026q3-calculation-methodology-v1.md": "97d6a1595d5d0ef52c423e96a6ba9f198a9f172c82271d0f551be2f01b8fd89c",
+    "reports/a_share_industry_prosperity_2026q3/preparation_20261102_01/README.md": "f9210c199dd516de8b407464d08a026c82ffbb562f4151bedd0a3661485f95fb"
+  },
+  "checks": {
+    "docs_integrity": "PASS: dead-absolute-links, ds-store-noise, tushare-index-consistency",
+    "scoped_git_diff_whitespace": "PASS",
+    "readme_links_and_document_anchors": "PASS",
+    "financial_tests_not_rerun": "documentation-only preparation; no calculation code changed"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "artifact": "inputs/exception_000926.SZ_2025.jsonl",
+  "fingerprint": {
+    "fetched_at": "2026-11-01T10:28:59.655549+08:00",
+    "n": 2
+  },
+  "rows": 2,
+  "sha256": "8de590e27db9ae7f185ae8589c140327841a1676ff16f06beea19ee894402d62",
+  "spec_hash": "52b3e026e61cfa41f7d80c9cc1363bc28355d72dfacdabc7ba07dcd4bc2a5563"
+}

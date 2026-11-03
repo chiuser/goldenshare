@@ -1,0 +1,25 @@
+{
+  "eligible_primary": 24,
+  "eligible_secondary": 89,
+  "income_or_valuation_scanned": false,
+  "model_identities_and_parent_sums_valid": true,
+  "models_or_scores_recomputed": false,
+  "old_queries_unchanged": true,
+  "peak_python_bytes": 299941888,
+  "projection_seconds": 0.3387789586558938,
+  "query_rows": {
+    "forecast_1": 87,
+    "forecast_2": 372,
+    "head_companies_1": 24,
+    "head_companies_2": 89,
+    "model_weights_1": 24,
+    "model_weights_2": 89,
+    "summary_growth": 4,
+    "value_1": 31,
+    "value_2": 128,
+    "weights_1": 24,
+    "weights_2": 89
+  },
+  "source_connections": 0,
+  "weight_combinations": 85
+}

@@ -1,0 +1,150 @@
+{
+  "all_pass": true,
+  "checks": [
+    {
+      "actual": "6892693021.03",
+      "code": "000568.SZ",
+      "date": "2024-12-31",
+      "difference": "0.00",
+      "expected": "6892693021.03",
+      "field": [
+        "income",
+        "revenue"
+      ],
+      "page": 2,
+      "pass": true,
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-04-28/1223330076.PDF"
+    },
+    {
+      "actual": "1835111684.27",
+      "code": "000568.SZ",
+      "date": "2024-12-31",
+      "difference": "0.00",
+      "expected": "1835111684.27",
+      "field": [
+        "fina_indicator",
+        "profit_dedt"
+      ],
+      "page": 2,
+      "pass": true,
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-04-28/1223330076.PDF"
+    },
+    {
+      "actual": "6717053567.54",
+      "code": "000568.SZ",
+      "date": "2024-12-31",
+      "difference": "0.00",
+      "expected": "6717053567.54",
+      "field": [
+        "cashflow",
+        "n_cashflow_act"
+      ],
+      "page": 2,
+      "pass": true,
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-04-28/1223330076.PDF"
+    },
+    {
+      "actual": "3975480893.35",
+      "code": "000021.SZ",
+      "date": "2024-12-31",
+      "difference": "0.00",
+      "expected": "3975480893.35",
+      "field": [
+        "income",
+        "revenue"
+      ],
+      "page": 3,
+      "pass": true,
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-04-25/1223270318.PDF"
+    },
+    {
+      "actual": "283517764.68",
+      "code": "000021.SZ",
+      "date": "2024-12-31",
+      "difference": "0.00",
+      "expected": "283517764.68",
+      "field": [
+        "fina_indicator",
+        "profit_dedt"
+      ],
+      "page": 3,
+      "pass": true,
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-04-25/1223270318.PDF"
+    },
+    {
+      "actual": "510904424.78",
+      "code": "000021.SZ",
+      "date": "2024-12-31",
+      "difference": "0.00",
+      "expected": "510904424.78",
+      "field": [
+        "cashflow",
+        "n_cashflow_act"
+      ],
+      "page": 3,
+      "pass": true,
+      "source_url": "https://static.cninfo.com.cn/finalpage/2025-04-25/1223270318.PDF"
+    },
+    {
+      "actual": "6486099289.91",
+      "code": "000422.SZ",
+      "date": "2025-12-31",
+      "difference": "0.00",
+      "expected": "6486099289.91",
+      "field": [
+        "income",
+        "revenue"
+      ],
+      "page": 10,
+      "pass": true,
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-25/1225183616.PDF"
+    },
+    {
+      "actual": "-13937945.37",
+      "code": "000422.SZ",
+      "date": "2025-12-31",
+      "difference": "0.00",
+      "expected": "-13937945.37",
+      "field": [
+        "fina_indicator",
+        "profit_dedt"
+      ],
+      "page": 10,
+      "pass": true,
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-25/1225183616.PDF"
+    },
+    {
+      "actual": "488882335.43",
+      "code": "000422.SZ",
+      "date": "2025-12-31",
+      "difference": "0.00",
+      "expected": "488882335.43",
+      "field": [
+        "cashflow",
+        "n_cashflow_act"
+      ],
+      "page": 10,
+      "pass": true,
+      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-25/1225183616.PDF"
+    },
+    {
+      "actual": "40699779056.0000",
+      "basis": "frozen source quote in 万元/万股; four decimal places shifted",
+      "code": "000021.SZ",
+      "date": "2026-10-30",
+      "expected": "40699779056",
+      "field": "total_mv",
+      "pass": true
+    },
+    {
+      "actual": "1584882362.0000",
+      "basis": "frozen source quote in 万元/万股; four decimal places shifted",
+      "code": "000021.SZ",
+      "date": "2026-10-30",
+      "expected": "1584882362",
+      "field": "total_share",
+      "pass": true
+    }
+  ],
+  "tolerance_yuan": "1"
+}

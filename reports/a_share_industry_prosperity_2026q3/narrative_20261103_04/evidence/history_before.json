@@ -1,0 +1,19 @@
+{
+  "reports/a_share_industry_prosperity_2026q3/chapter_samples_20261102_01/data.json": "7952412aa12b409a8a54a1e0f464dea8d23665d3f5ccfc2b574fb6a3bd6107ad",
+  "reports/a_share_industry_prosperity_2026q3/chapter_samples_20261102_01/evidence/artifact_manifest.json": "00c37c3d0edc6f41330c4769e8b7f76d56408a9092864389ef273ab65bbaf24c",
+  "reports/a_share_industry_prosperity_2026q3/chapter_samples_20261102_01/report.html": "4ea52b21ffac1f750bdc0a99b028ec9311d15ac2dd5111d56efacda3325e7674",
+  "reports/a_share_industry_prosperity_2026q3/formal_20261101_01/evidence/artifact_manifest.json": "6be2897438d1e17b57ca98c59d0229fa005acb15587aea3977813034fc4f2086",
+  "reports/a_share_industry_prosperity_2026q3/formal_20261101_01/report.html": "3f8134e1e6435331bb9f6d656a46cabbf5eaf3804ccbd02c0d21de7d057461cf",
+  "scripts/research/industry_financial/analysis.py": "2da63c2eef2357e4e8d552d5b9d37cdee56c856b350f5650362bddbda74c42f1",
+  "scripts/research/industry_financial/charts.py": "faa252d55d5da256ba6efd54780b46ba363c65daa8e1b4ea17a24eff4abc7e3f",
+  "scripts/research/industry_financial/extract.py": "9d6675c048f07fe56424325ad307d6893147737dc65a8551baaad8f45e9a6f18",
+  "scripts/research/industry_financial/forecast.py": "cc519201747b98db6ad88131ee62736f02b62ec7ac7947ffe88ac96fcb063ed4",
+  "scripts/research/industry_financial/formal.py": "e806c422d15d07c59f669b5e44baad8903a4be53d09e3f950a6872c416bf927e",
+  "scripts/research/industry_financial/metrics.py": "481546b67b72e2db77df1632da6a76f17e59e904876330f005efaa8f4d6e72eb",
+  "scripts/research/industry_financial/ranking.py": "83f6713c1288b52bb45709eed23ff8ad1d13591094a12ec69a02c9b3c39499c7",
+  "scripts/research/industry_financial/report.py": "8237ca751ec8a8e34d5ea864068885b74222fe385211bb64f8afefbfa0074184",
+  "scripts/research/industry_financial/run.py": "83051498b72d6fd7f74edcc67cd90cc5542c92bfe05dfeb9c5f080c5fba44dc1",
+  "scripts/research/industry_financial/spec.py": "20a058ea62f58f57e2a15890ab1828090739e37b6e8a3c094c256f66559b4d6f",
+  "scripts/research/industry_financial/storage.py": "ef1e25a55a12bd8013e2b57abcd244dfe2eb99f6810281bfbb07bfe3104145e3",
+  "scripts/research/industry_financial/validation.py": "561c9e42e418efa5a1432b76da2af98f2f35039731d074d21c101391d032be89"
+}

@@ -1,0 +1,54 @@
+{
+  "not_formal_industry_ranking": false,
+  "not_plotted": [
+    {
+      "reason": "financial_industry_observation_only",
+      "sector_code": "BK1203.DC"
+    },
+    {
+      "reason": "financial_industry_observation_only",
+      "sector_code": "BK1283.DC"
+    }
+  ],
+  "plotted": 29,
+  "quadrant_counts": {
+    "右上": 19,
+    "右下": 2,
+    "左上": 5,
+    "左下": 3,
+    "边界": 0
+  },
+  "reference_set": [
+    "BK0427.DC",
+    "BK0433.DC",
+    "BK0436.DC",
+    "BK0437.DC",
+    "BK0438.DC",
+    "BK0456.DC",
+    "BK0464.DC",
+    "BK0478.DC",
+    "BK0479.DC",
+    "BK0486.DC",
+    "BK0728.DC",
+    "BK1035.DC",
+    "BK1200.DC",
+    "BK1201.DC",
+    "BK1202.DC",
+    "BK1204.DC",
+    "BK1205.DC",
+    "BK1206.DC",
+    "BK1207.DC",
+    "BK1208.DC",
+    "BK1209.DC",
+    "BK1210.DC",
+    "BK1211.DC",
+    "BK1212.DC",
+    "BK1213.DC",
+    "BK1214.DC",
+    "BK1215.DC",
+    "BK1216.DC",
+    "BK1217.DC"
+  ],
+  "reference_x": "0",
+  "reference_y": "0"
+}

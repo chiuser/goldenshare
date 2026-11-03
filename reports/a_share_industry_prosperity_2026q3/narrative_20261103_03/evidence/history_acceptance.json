@@ -1,0 +1,20 @@
+{
+  "accepted_queries_unchanged": true,
+  "forecast_or_score_executed": false,
+  "old_panel_amounts_and_company_sets_equal": true,
+  "peak_python_bytes": 320618496,
+  "quarter_companies": 5192,
+  "quarter_parent_child_and_cumulative_equal": true,
+  "query_rows": {
+    "history_comparison": 90,
+    "history_financial": 18,
+    "history_primary": 87,
+    "history_quarter_overall": 11,
+    "history_quarter_primary": 319,
+    "history_quarter_secondary": 1364,
+    "history_secondary": 372
+  },
+  "seconds": 1.7429371252655983,
+  "source_connections": 0,
+  "three_year_companies": 5275
+}

@@ -1,0 +1,34 @@
+{
+  "approved_date": "2026-11-01",
+  "db_activity_seconds_limit": 900,
+  "input_bytes_limit": 157286400,
+  "methodology": "docs/product/a-share-industry-prosperity-2026q3-calculation-methodology-v1.md sections 10.7-10.8",
+  "periods": [
+    "2024-03-31",
+    "2024-06-30",
+    "2024-09-30",
+    "2024-12-31",
+    "2025-03-31",
+    "2025-06-30",
+    "2025-09-30",
+    "2025-12-31",
+    "2026-03-31",
+    "2026-06-30",
+    "2026-09-30"
+  ],
+  "scope": {
+    "batch_rows": 2000,
+    "db_seconds": 900,
+    "max_codes": 5571,
+    "max_member_rows": 25000,
+    "max_rows": 245124,
+    "max_tree_rows": 496,
+    "member_batch_codes": 500,
+    "name": "formal"
+  },
+  "scope_hash": "345473966649b23c1f6b52b4b0facb100fb8f5e8384d936c8a14a87ade7da497",
+  "source": "current chat explicit reply to the full-range read approval question",
+  "source_writes": false,
+  "user_reply": "批准按上述范围只读提取并计算",
+  "valuation_membership_date": "2026-10-30"
+}

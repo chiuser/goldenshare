@@ -1,0 +1,318 @@
+{
+  "browser_render_checked": true,
+  "charts": [
+    {
+      "level": 1,
+      "missing": 2,
+      "number": 1,
+      "rows": 29
+    },
+    {
+      "level": 1,
+      "missing": 2,
+      "number": 2,
+      "rows": 29
+    },
+    {
+      "level": 1,
+      "missing": 2,
+      "number": 3,
+      "rows": 29
+    },
+    {
+      "level": 1,
+      "missing": 2,
+      "number": 4,
+      "rows": 29
+    },
+    {
+      "level": 1,
+      "missing": 7,
+      "number": 5,
+      "rows": 24
+    },
+    {
+      "level": 1,
+      "missing": 7,
+      "number": 6,
+      "rows": 24
+    },
+    {
+      "level": 1,
+      "missing": 2,
+      "number": 7,
+      "rows": 29
+    },
+    {
+      "level": 1,
+      "missing": 2,
+      "number": 8,
+      "rows": 29
+    },
+    {
+      "level": 1,
+      "missing": 2,
+      "number": 9,
+      "rows": 29
+    },
+    {
+      "level": 2,
+      "missing": 4,
+      "number": 1,
+      "rows": 124
+    },
+    {
+      "level": 2,
+      "missing": 4,
+      "number": 2,
+      "rows": 124
+    },
+    {
+      "level": 2,
+      "missing": 4,
+      "number": 3,
+      "rows": 124
+    },
+    {
+      "level": 2,
+      "missing": 4,
+      "number": 4,
+      "rows": 124
+    },
+    {
+      "level": 2,
+      "missing": 39,
+      "number": 5,
+      "rows": 89
+    },
+    {
+      "level": 2,
+      "missing": 34,
+      "number": 6,
+      "rows": 94
+    },
+    {
+      "level": 2,
+      "missing": 4,
+      "number": 7,
+      "rows": 124
+    },
+    {
+      "level": 2,
+      "missing": 4,
+      "number": 8,
+      "rows": 124
+    },
+    {
+      "level": 2,
+      "missing": 4,
+      "number": 9,
+      "rows": 124
+    }
+  ],
+  "formal_report_sha256": "3f8134e1e6435331bb9f6d656a46cabbf5eaf3804ccbd02c0d21de7d057461cf",
+  "payload_validation": true,
+  "qa_file": "evidence/browser_qa.json",
+  "receipts": [
+    {
+      "bytes": 19104,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L1_chart1.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 一级 · 事实：收入与归母利润",
+      "validation": "payload-checked"
+    },
+    {
+      "bytes": 24612,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L1_chart2.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 一级 · 事实：单季增长与变化方向",
+      "validation": "payload-checked"
+    },
+    {
+      "bytes": 29601,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L1_chart3.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 一级 · 事实：盈利与现金",
+      "validation": "payload-checked"
+    },
+    {
+      "bytes": 22903,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L1_chart4.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 一级 · 事实：行业合计与改善范围",
+      "validation": "payload-checked"
+    },
+    {
+      "bytes": 23452,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L1_chart5.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 一级 · 预测：盈利前景与估值",
+      "validation": "payload-checked"
+    },
+    {
+      "bytes": 20740,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L1_chart6.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 一级 · 预测：利润率改善与模型内下行幅度",
+      "validation": "payload-checked"
+    },
+    {
+      "bytes": 25964,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L1_chart7.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 一级 · 事实：收入与应收",
+      "validation": "payload-checked"
+    },
+    {
+      "bytes": 25921,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L1_chart8.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 一级 · 事实：收入与存货",
+      "validation": "payload-checked"
+    },
+    {
+      "bytes": 19682,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L1_chart9.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 一级 · 事实：收入与固定资产",
+      "validation": "payload-checked"
+    },
+    {
+      "bytes": 71436,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L2_chart1.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 二级 · 事实：收入与归母利润",
+      "validation": "payload-checked"
+    },
+    {
+      "bytes": 93909,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L2_chart2.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 二级 · 事实：单季增长与变化方向",
+      "validation": "payload-checked"
+    },
+    {
+      "bytes": 115261,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L2_chart3.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 二级 · 事实：盈利与现金",
+      "validation": "payload-checked"
+    },
+    {
+      "bytes": 85961,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L2_chart4.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 二级 · 事实：行业合计与改善范围",
+      "validation": "payload-checked"
+    },
+    {
+      "bytes": 77677,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L2_chart5.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 二级 · 预测：盈利前景与估值",
+      "validation": "payload-checked"
+    },
+    {
+      "bytes": 71157,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L2_chart6.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 二级 · 预测：利润率改善与模型内下行幅度",
+      "validation": "payload-checked"
+    },
+    {
+      "bytes": 99082,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L2_chart7.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 二级 · 事实：收入与应收",
+      "validation": "payload-checked"
+    },
+    {
+      "bytes": 99338,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L2_chart8.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 二级 · 事实：收入与存货",
+      "validation": "payload-checked"
+    },
+    {
+      "bytes": 72780,
+      "chartVersion": "1.2.1",
+      "charts": 1,
+      "offline": false,
+      "path": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01/charts/L2_chart9.html",
+      "rendering": "not-checked",
+      "surface": "html",
+      "title": "行业研究 · 二级 · 事实：收入与固定资产",
+      "validation": "payload-checked"
+    }
+  ],
+  "renderer": "/Users/congming/.codex/plugins/cache/openai-curated-remote/data-analytics/1.1.1-exp-components.2/assets/visualize-data/scripts/runtime/render-chart.mjs",
+  "renderer_sha256": "72602010962309ad5ae2711503cc43e7cebe28e48b6fdc93f0b91e2615b371de"
+}

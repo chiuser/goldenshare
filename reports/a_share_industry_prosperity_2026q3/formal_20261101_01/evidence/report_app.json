@@ -1,0 +1,11 @@
+{
+  "app": "/private/tmp/industry_financial_formal_20261101_01",
+  "authored_source": [
+    "/Users/congming/github/goldenshare/scripts/research/industry_financial/report_app/ReportContent.jsx",
+    "/Users/congming/github/goldenshare/scripts/research/industry_financial/report_app/report.css"
+  ],
+  "complete": true,
+  "id": "report:f7c4283b-3272-4743-847f-e3b87c323182",
+  "no_packages_installed": true,
+  "report_sha256": "3f8134e1e6435331bb9f6d656a46cabbf5eaf3804ccbd02c0d21de7d057461cf"
+}

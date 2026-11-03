@@ -1,0 +1,12 @@
+{
+  "phase": "preparation only",
+  "financial_calculations_executed": false,
+  "files": {
+    "README.md": "f9210c199dd516de8b407464d08a026c82ffbb562f4151bedd0a3661485f95fb",
+    "evidence/before_a-share-industry-prosperity-2026q3-calculation-methodology-v1.md": "8acddebb0ada772a2eeb0f48757ec10dbc2c798146e908b26a0a2cf4be19115b",
+    "evidence/before_a-share-industry-prosperity-2026q3-research-plan-v1.md": "9d018b0d2f19b306e1bebabf9db662978201b6e296efc0f517d031d348965692",
+    "evidence/financial_income_field_audit.json": "af1407995f02c4ba4d8ab8c49618afa0948655bc696af93a3510166bb0946272",
+    "evidence/preparation_acceptance.json": "a966ed4b6bbff9ad8bdf9165a652e1138981a95b38fb9523ee252d333fb713e7",
+    "evidence/preparation_baseline.json": "3ecaa5a072b04947114089eb8f297abb7195ac1abd490f131eaa2b5944a835b8"
+  }
+}

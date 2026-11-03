@@ -1,0 +1,13 @@
+{
+  "user_instruction": "按方案推进试算吧。不要跑偏",
+  "plan_commit": "7edffc0ef",
+  "scope": "limited_trial_only",
+  "production_writes": false,
+  "global_financial_export": false,
+  "max_companies": 100,
+  "max_canonical_financial_rows": 4400,
+  "max_exception_rows": 260,
+  "date_start": "2024-03-31",
+  "date_end": "2026-09-30",
+  "classification_and_valuation_date": "2026-10-30"
+}

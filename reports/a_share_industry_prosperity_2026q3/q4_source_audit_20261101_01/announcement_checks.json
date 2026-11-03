@@ -1,0 +1,146 @@
+{
+  "companies": 4,
+  "company_years": 6,
+  "explained_company_years": 5,
+  "partial_company_years": 1,
+  "all_literal_equations_checked": true,
+  "cases": [
+    {
+      "code": "000926.SZ",
+      "year": "2025",
+      "name": "福星股份",
+      "status": "explained",
+      "cause": "published_quarter_table_corrected_but_source_direct_q4_stale",
+      "old_or_original_annual": "-3309573012.45",
+      "old_or_original_9m": "-768009240.83",
+      "old_difference": "-2541563771.62",
+      "nine_month_deducted": "-768009240.83",
+      "annual_deducted": "-3309573012.45",
+      "q4_direct": "-2526700180.96",
+      "q4_by_difference": "-2541563771.62",
+      "source_difference": "14863590.66",
+      "sources": {
+        "fuxing_correction": "https://static.cninfo.com.cn/finalpage/2026-06-13/1225367349.PDF"
+      },
+      "announced_corrected_q4": "-2541563771.62",
+      "announced_original_q4": "-2526700180.96"
+    },
+    {
+      "code": "300600.SZ",
+      "year": "2024",
+      "name": "国瑞科技",
+      "status": "explained",
+      "cause": "cumulative_restatement_but_direct_q4_matches_old_figures",
+      "old_or_original_annual": "-31560405.49",
+      "old_or_original_9m": "-22983531.55",
+      "old_difference": "-8576873.94",
+      "nine_month_deducted": "-23151963.54",
+      "annual_deducted": "-37449769.28",
+      "q4_direct": "-8576873.94",
+      "q4_by_difference": "-14297805.74",
+      "source_difference": "5720931.80",
+      "sources": {
+        "guorui_2024_9m": "https://static.cninfo.com.cn/finalpage/2024-10-24/1221490298.PDF",
+        "guorui_original": "https://static.cninfo.com.cn/finalpage/2026-04-03/1225076070.PDF",
+        "guorui_correction": "https://static.cninfo.com.cn/finalpage/2026-10-30/1225645726.PDF",
+        "guorui_restatements": "https://static.cninfo.com.cn/finalpage/2026-10-30/1225645727.PDF"
+      }
+    },
+    {
+      "code": "300600.SZ",
+      "year": "2025",
+      "name": "国瑞科技",
+      "status": "explained",
+      "cause": "cumulative_restatement_but_direct_q4_matches_old_figures",
+      "old_or_original_annual": "-69712196.07",
+      "old_or_original_9m": "-43215219.69",
+      "old_difference": "-26496976.38",
+      "nine_month_deducted": "-36221975.31",
+      "annual_deducted": "-70758771.91",
+      "q4_direct": "-26496976.38",
+      "q4_by_difference": "-34536796.60",
+      "source_difference": "8039820.22",
+      "sources": {
+        "guorui_2025_9m": "https://static.cninfo.com.cn/finalpage/2025-10-22/1224722841.PDF",
+        "guorui_original": "https://static.cninfo.com.cn/finalpage/2026-04-03/1225076070.PDF",
+        "guorui_correction": "https://static.cninfo.com.cn/finalpage/2026-10-30/1225645726.PDF",
+        "guorui_restatements": "https://static.cninfo.com.cn/finalpage/2026-10-30/1225645727.PDF"
+      }
+    },
+    {
+      "code": "300152.SZ",
+      "year": "2025",
+      "name": "新动力",
+      "status": "explained",
+      "cause": "cumulative_restatement_but_direct_q4_matches_old_figures",
+      "old_or_original_annual": "-34152740.55",
+      "old_or_original_9m": "-12287678.39",
+      "old_difference": "-21865062.16",
+      "nine_month_deducted": "-12287678.39",
+      "annual_deducted": "-27193094.25",
+      "q4_direct": "-21865062.16",
+      "q4_by_difference": "-14905415.86",
+      "source_difference": "-6959646.30",
+      "sources": {
+        "power_2025_original": "https://static.cninfo.com.cn/finalpage/2026-04-29/1225251875.PDF",
+        "power_correction": "https://static.cninfo.com.cn/finalpage/2026-08-28/1225518583.PDF"
+      }
+    },
+    {
+      "code": "301667.SZ",
+      "year": "2025",
+      "name": "纳百川",
+      "status": "explained",
+      "cause": "disclosure_precision_yuan_vs_0_01_ten_thousand_yuan",
+      "annual_quarter_literals": [
+        "13913770.97",
+        "17369072.07",
+        "20816377.51",
+        "36477174.60"
+      ],
+      "precise_9m_from_annual_quarters": "52099220.55",
+      "prospectus_9m_ten_thousand_yuan": "5209.92",
+      "nine_month_deducted": "52099200.0",
+      "annual_deducted": "88576395.15",
+      "q4_direct": "36477174.6",
+      "q4_by_difference": "36477195.15",
+      "source_difference": "-20.55",
+      "sources": {
+        "nbc_original": "https://static.cninfo.com.cn/finalpage/2026-04-23/1225154508.PDF",
+        "nbc_prospectus": "https://disc.static.szse.cn/disc/disk03/finalpage/2025-12-12/8de2f384-f765-44e3-b8b5-fd6b9d736568.PDF"
+      },
+      "conclusion": "20.55 yuan is fully reproduced by precision conversion; not evidence of a business-scope restatement"
+    },
+    {
+      "code": "300152.SZ",
+      "year": "2024",
+      "name": "新动力",
+      "status": "partially_explained_not_safe_to_choose_a_final_quarter",
+      "cause": "original_annual_quarter_table_does_not_sum_to_annual_plus_later_restatement",
+      "original_annual_deducted": "-47733912.15",
+      "original_four_quarter_literals": [
+        "-15909765.00",
+        "8964538.27",
+        "5235907.02",
+        "-20558063.47"
+      ],
+      "original_quarter_sum": "-22267383.18",
+      "original_annual_minus_quarter_sum": "-25466528.97",
+      "gap_decomposition_components": [
+        "25466528.97",
+        "-109148.26",
+        "1991449.10"
+      ],
+      "nine_month_deducted": "-1818467.97",
+      "annual_deducted": "-49725361.25",
+      "q4_direct": "-20558063.47",
+      "q4_by_difference": "-47906893.28",
+      "source_difference": "27348829.81",
+      "sources": {
+        "power_2024_original": "https://static.cninfo.com.cn/finalpage/2025-04-29/1223390256.PDF",
+        "power_correction": "https://static.cninfo.com.cn/finalpage/2026-08-28/1225518583.PDF"
+      },
+      "limitation": "original annual quarterly table itself fails annual reconciliation; no comparable quarterly series approved"
+    }
+  ]
+}

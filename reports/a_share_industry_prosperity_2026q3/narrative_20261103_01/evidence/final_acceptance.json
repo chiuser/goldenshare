@@ -1,0 +1,25 @@
+{
+  "stage": "current_batch_complete",
+  "full_report_complete": false,
+  "actual_source_files_reverified": 17,
+  "protected_history_equal": true,
+  "source_connections": 0,
+  "core_calculation_files_unchanged": true,
+  "approved_quadrant_equal": true,
+  "tests": {
+    "scope": "scripts/research/industry_financial/tests",
+    "passed": 41
+  },
+  "browser_qa": "evidence/browser_qa.json",
+  "output_bytes_before_manifest": 6349069,
+  "final_check_seconds": 0.04719316586852074,
+  "code_hashes": {
+    "scripts/research/industry_financial/publication.py": "339ea2949c407b11d8059467491ecdd244faa7626d17868eb0885f174d196d0b",
+    "scripts/research/industry_financial/report_app/ReportContent.jsx": "ab2290d4f7e41e549fcaf802efa5df6f5b76bcac72c4caaf1be6338c335ea4a0",
+    "scripts/research/industry_financial/report_app/report.css": "849af618fd913746695fb8cf88537522d792ca63b66b08c33e87c21b48caa17e",
+    "scripts/research/industry_financial/tests/test_publication.py": "7a46b2bf6338f1c367d06f19dbcf41d47683ede4936196bff3cb53112c1fc56a"
+  },
+  "projection_code_fingerprint_preserved": "e7be5391eaceed61d70ae17ef61859d5e8c2c98818cfeb5adc1421acd382b839",
+  "post_projection_changes": "build-stage source definition binding and authored presentation only; no projection recalculation",
+  "historical_or_forecast_jobs_executed": false
+}

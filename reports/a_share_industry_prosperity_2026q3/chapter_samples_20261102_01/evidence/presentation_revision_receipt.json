@@ -1,0 +1,11 @@
+{
+  "scope": "仅两个样章呈现修订",
+  "original_app_id_preserved": true,
+  "query_definitions_and_rows_unchanged": true,
+  "study_and_calculations_unchanged": true,
+  "new_source_reads": 0,
+  "production_writes": 0,
+  "build_complete": true,
+  "browser_qa": "presentation_revision_browser_qa.json",
+  "no_new_tests": "纯呈现调整；用真实渲染验收，保留原计算测试证据"
+}

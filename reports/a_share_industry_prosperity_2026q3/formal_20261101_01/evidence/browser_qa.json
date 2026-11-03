@@ -1,0 +1,120 @@
+{
+  "all_18_views_painted": true,
+  "bank_empty_view_zero_marks": true,
+  "charts": [
+    {
+      "level": 1,
+      "marks": 29,
+      "number": 1
+    },
+    {
+      "level": 1,
+      "marks": 29,
+      "number": 2
+    },
+    {
+      "level": 1,
+      "marks": 29,
+      "number": 3
+    },
+    {
+      "level": 1,
+      "marks": 29,
+      "number": 4
+    },
+    {
+      "level": 1,
+      "marks": 24,
+      "number": 5
+    },
+    {
+      "level": 1,
+      "marks": 24,
+      "number": 6
+    },
+    {
+      "level": 1,
+      "marks": 29,
+      "number": 7
+    },
+    {
+      "level": 1,
+      "marks": 29,
+      "number": 8
+    },
+    {
+      "level": 1,
+      "marks": 29,
+      "number": 9
+    },
+    {
+      "level": 2,
+      "marks": 124,
+      "number": 1
+    },
+    {
+      "level": 2,
+      "marks": 124,
+      "number": 2
+    },
+    {
+      "level": 2,
+      "marks": 124,
+      "number": 3
+    },
+    {
+      "level": 2,
+      "marks": 124,
+      "number": 4
+    },
+    {
+      "level": 2,
+      "marks": 89,
+      "number": 5
+    },
+    {
+      "level": 2,
+      "marks": 94,
+      "number": 6
+    },
+    {
+      "level": 2,
+      "marks": 124,
+      "number": 7
+    },
+    {
+      "level": 2,
+      "marks": 124,
+      "number": 8
+    },
+    {
+      "level": 2,
+      "marks": 124,
+      "number": 9
+    }
+  ],
+  "complete_progress_cleared": true,
+  "console_errors": [],
+  "desktop_screenshot": "evidence/report_desktop.png",
+  "filtered_graph6_kept_reference_spec": true,
+  "level2_root_filter_checked": true,
+  "phone_plot_width": 324,
+  "phone_screenshot": "evidence/report_phone.png",
+  "phone_width": 390,
+  "point_counts_reconciled": true,
+  "publication": false,
+  "rank_level_switch_checked": true,
+  "report_sha256": "3f8134e1e6435331bb9f6d656a46cabbf5eaf3804ccbd02c0d21de7d057461cf",
+  "snapshot_sha256": "8391d37a77d61725996e453a0e7f9f4ab473c88976238d30258e9db7316192e2",
+  "source_inspector_checked": true,
+  "tooltip_checked": {
+    "candidate": 139,
+    "company": "公用事业",
+    "current_coverage": "100%",
+    "n": 139,
+    "prior_coverage": "100%",
+    "raw_amounts_visible": true,
+    "sample_id": "1941ad5e11823f60",
+    "view": "L1_chart1"
+  }
+}

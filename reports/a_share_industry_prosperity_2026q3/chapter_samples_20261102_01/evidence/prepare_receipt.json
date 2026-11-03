@@ -1,0 +1,17 @@
+{
+  "built": false,
+  "documentation": {
+    "entryPoint": "/Users/congming/.codex/plugins/cache/openai-curated-remote/data-analytics/1.1.1-exp-components.2/output_formats/html/docs/app-components.md",
+    "referenceRoot": "/Users/congming/.codex/plugins/cache/openai-curated-remote/data-analytics/1.1.1-exp-components.2/output_formats/html/docs/components",
+    "source": "installed-plugin"
+  },
+  "example": null,
+  "finishScript": "/Users/congming/.codex/plugins/cache/openai-curated-remote/data-analytics/1.1.1-exp-components.2/output_formats/html/finish-report.mjs",
+  "id": "report:72f7d54a-2eeb-49c4-ad5f-cad6fc23dbab",
+  "needsAdaptation": true,
+  "output": "/private/tmp/industry_financial_chapter_samples_20261102_01",
+  "referenceOptions": [],
+  "starter": "base",
+  "status": "authored",
+  "surface": "report"
+}

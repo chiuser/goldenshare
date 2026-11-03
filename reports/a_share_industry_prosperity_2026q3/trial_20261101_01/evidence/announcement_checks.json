@@ -1,0 +1,116 @@
+{
+  "attribution": "attributable_to_parent_after_nonrecurring",
+  "currency_unit": "CNY yuan",
+  "scope": "3 issuer samples, not verification of all 100 filings",
+  "semantic_pass": true,
+  "sources": [
+    {
+      "C": "19181768363.65",
+      "D": "13399514669.49",
+      "P": "13472986476.01",
+      "R": "31196248208.33",
+      "code": "000568.SZ",
+      "comparisons": {
+        "C": {
+          "difference": "0.00",
+          "prod": "19181768363.65",
+          "source": "19181768363.65"
+        },
+        "D": {
+          "difference": "0.00",
+          "prod": "13399514669.49",
+          "source": "13399514669.49"
+        },
+        "P": {
+          "difference": "0.00",
+          "prod": "13472986476.01",
+          "source": "13472986476.01"
+        },
+        "R": {
+          "difference": "0.00",
+          "prod": "31196248208.33",
+          "source": "31196248208.33"
+        }
+      },
+      "date": "2024-12-31",
+      "equal_within_1_yuan": true,
+      "minority_profit": "24792094.88",
+      "name": "泸州老窖",
+      "page": 2,
+      "parent_less_deducted": "73471806.52",
+      "url": "https://static.cninfo.com.cn/finalpage/2025-04-28/1223330076.PDF"
+    },
+    {
+      "C": "2428401907.74",
+      "D": "900577554.08",
+      "P": "930345572.18",
+      "R": "14827166508.53",
+      "code": "000021.SZ",
+      "comparisons": {
+        "C": {
+          "difference": "0.00",
+          "prod": "2428401907.74",
+          "source": "2428401907.74"
+        },
+        "D": {
+          "difference": "0.00",
+          "prod": "900577554.08",
+          "source": "900577554.08"
+        },
+        "P": {
+          "difference": "0.00",
+          "prod": "930345572.18",
+          "source": "930345572.18"
+        },
+        "R": {
+          "difference": "0.00",
+          "prod": "14827166508.53",
+          "source": "14827166508.53"
+        }
+      },
+      "date": "2024-12-31",
+      "equal_within_1_yuan": true,
+      "minority_profit": "157158814.03",
+      "name": "深科技",
+      "page": 3,
+      "parent_less_deducted": "29768018.10",
+      "url": "https://static.cninfo.com.cn/finalpage/2025-04-25/1223270318.PDF"
+    },
+    {
+      "C": "3606060151.55",
+      "D": "502490485.47",
+      "P": "808587873.83",
+      "R": "25652882508.52",
+      "code": "000422.SZ",
+      "comparisons": {
+        "C": {
+          "difference": "0.00",
+          "prod": "3606060151.55",
+          "source": "3606060151.55"
+        },
+        "D": {
+          "difference": "0.00",
+          "prod": "502490485.47",
+          "source": "502490485.47"
+        },
+        "P": {
+          "difference": "0.00",
+          "prod": "808587873.83",
+          "source": "808587873.83"
+        },
+        "R": {
+          "difference": "0.00",
+          "prod": "25652882508.52",
+          "source": "25652882508.52"
+        }
+      },
+      "date": "2025-12-31",
+      "equal_within_1_yuan": true,
+      "minority_profit": "635951615.35",
+      "name": "湖北宜化",
+      "page": 8,
+      "parent_less_deducted": "306097388.36",
+      "url": "https://static.cninfo.com.cn/finalpage/2026-04-25/1225183616.PDF"
+    }
+  ]
+}

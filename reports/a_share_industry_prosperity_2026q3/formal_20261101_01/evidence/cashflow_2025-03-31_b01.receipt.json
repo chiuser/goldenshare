@@ -1,0 +1,10 @@
+{
+  "artifact": "inputs/cashflow_2025-03-31_b01.jsonl",
+  "fingerprint": {
+    "fetched_at": "2026-08-30T15:58:15.254677+08:00",
+    "n": 1971
+  },
+  "rows": 1971,
+  "sha256": "c7ed7e9bac59234c59c673c7b97eb417fff33f9feb6a8b45e0cd98e24013afb3",
+  "spec_hash": "345473966649b23c1f6b52b4b0facb100fb8f5e8384d936c8a14a87ade7da497"
+}

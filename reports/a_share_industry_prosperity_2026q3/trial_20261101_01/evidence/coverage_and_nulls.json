@@ -1,0 +1,298 @@
+{
+  "missing_record_count": 24,
+  "missing_records": [
+    {
+      "dataset": "income",
+      "missing_codes": [
+        "001232.SZ",
+        "001396.SZ"
+      ],
+      "period": "2024-03-31"
+    },
+    {
+      "dataset": "income",
+      "missing_codes": [
+        "001396.SZ"
+      ],
+      "period": "2024-06-30"
+    },
+    {
+      "dataset": "income",
+      "missing_codes": [
+        "001232.SZ",
+        "001396.SZ"
+      ],
+      "period": "2024-09-30"
+    },
+    {
+      "dataset": "income",
+      "missing_codes": [],
+      "period": "2024-12-31"
+    },
+    {
+      "dataset": "income",
+      "missing_codes": [
+        "001396.SZ"
+      ],
+      "period": "2025-03-31"
+    },
+    {
+      "dataset": "income",
+      "missing_codes": [],
+      "period": "2025-06-30"
+    },
+    {
+      "dataset": "income",
+      "missing_codes": [],
+      "period": "2025-09-30"
+    },
+    {
+      "dataset": "income",
+      "missing_codes": [],
+      "period": "2025-12-31"
+    },
+    {
+      "dataset": "income",
+      "missing_codes": [],
+      "period": "2026-03-31"
+    },
+    {
+      "dataset": "income",
+      "missing_codes": [],
+      "period": "2026-06-30"
+    },
+    {
+      "dataset": "income",
+      "missing_codes": [],
+      "period": "2026-09-30"
+    },
+    {
+      "dataset": "balancesheet",
+      "missing_codes": [
+        "001232.SZ",
+        "001396.SZ"
+      ],
+      "period": "2024-03-31"
+    },
+    {
+      "dataset": "balancesheet",
+      "missing_codes": [
+        "001396.SZ"
+      ],
+      "period": "2024-06-30"
+    },
+    {
+      "dataset": "balancesheet",
+      "missing_codes": [
+        "001232.SZ",
+        "001396.SZ"
+      ],
+      "period": "2024-09-30"
+    },
+    {
+      "dataset": "balancesheet",
+      "missing_codes": [],
+      "period": "2024-12-31"
+    },
+    {
+      "dataset": "balancesheet",
+      "missing_codes": [
+        "001232.SZ",
+        "001396.SZ"
+      ],
+      "period": "2025-03-31"
+    },
+    {
+      "dataset": "balancesheet",
+      "missing_codes": [],
+      "period": "2025-06-30"
+    },
+    {
+      "dataset": "balancesheet",
+      "missing_codes": [
+        "001232.SZ"
+      ],
+      "period": "2025-09-30"
+    },
+    {
+      "dataset": "balancesheet",
+      "missing_codes": [],
+      "period": "2025-12-31"
+    },
+    {
+      "dataset": "balancesheet",
+      "missing_codes": [],
+      "period": "2026-03-31"
+    },
+    {
+      "dataset": "balancesheet",
+      "missing_codes": [],
+      "period": "2026-06-30"
+    },
+    {
+      "dataset": "balancesheet",
+      "missing_codes": [],
+      "period": "2026-09-30"
+    },
+    {
+      "dataset": "cashflow",
+      "missing_codes": [
+        "001232.SZ",
+        "001396.SZ"
+      ],
+      "period": "2024-03-31"
+    },
+    {
+      "dataset": "cashflow",
+      "missing_codes": [
+        "001396.SZ"
+      ],
+      "period": "2024-06-30"
+    },
+    {
+      "dataset": "cashflow",
+      "missing_codes": [
+        "001232.SZ",
+        "001396.SZ"
+      ],
+      "period": "2024-09-30"
+    },
+    {
+      "dataset": "cashflow",
+      "missing_codes": [],
+      "period": "2024-12-31"
+    },
+    {
+      "dataset": "cashflow",
+      "missing_codes": [
+        "001396.SZ"
+      ],
+      "period": "2025-03-31"
+    },
+    {
+      "dataset": "cashflow",
+      "missing_codes": [],
+      "period": "2025-06-30"
+    },
+    {
+      "dataset": "cashflow",
+      "missing_codes": [],
+      "period": "2025-09-30"
+    },
+    {
+      "dataset": "cashflow",
+      "missing_codes": [],
+      "period": "2025-12-31"
+    },
+    {
+      "dataset": "cashflow",
+      "missing_codes": [],
+      "period": "2026-03-31"
+    },
+    {
+      "dataset": "cashflow",
+      "missing_codes": [],
+      "period": "2026-06-30"
+    },
+    {
+      "dataset": "cashflow",
+      "missing_codes": [],
+      "period": "2026-09-30"
+    },
+    {
+      "dataset": "fina_indicator",
+      "missing_codes": [
+        "001232.SZ",
+        "001396.SZ"
+      ],
+      "period": "2024-03-31"
+    },
+    {
+      "dataset": "fina_indicator",
+      "missing_codes": [
+        "001396.SZ"
+      ],
+      "period": "2024-06-30"
+    },
+    {
+      "dataset": "fina_indicator",
+      "missing_codes": [
+        "001232.SZ"
+      ],
+      "period": "2024-09-30"
+    },
+    {
+      "dataset": "fina_indicator",
+      "missing_codes": [],
+      "period": "2024-12-31"
+    },
+    {
+      "dataset": "fina_indicator",
+      "missing_codes": [],
+      "period": "2025-03-31"
+    },
+    {
+      "dataset": "fina_indicator",
+      "missing_codes": [],
+      "period": "2025-06-30"
+    },
+    {
+      "dataset": "fina_indicator",
+      "missing_codes": [],
+      "period": "2025-09-30"
+    },
+    {
+      "dataset": "fina_indicator",
+      "missing_codes": [],
+      "period": "2025-12-31"
+    },
+    {
+      "dataset": "fina_indicator",
+      "missing_codes": [],
+      "period": "2026-03-31"
+    },
+    {
+      "dataset": "fina_indicator",
+      "missing_codes": [],
+      "period": "2026-06-30"
+    },
+    {
+      "dataset": "fina_indicator",
+      "missing_codes": [],
+      "period": "2026-09-30"
+    }
+  ],
+  "null_field_counts": {
+    "balancesheet": {
+      "accounts_pay": 2,
+      "accounts_receiv": 7,
+      "contract_assets": 740,
+      "contract_liab": 13,
+      "fix_assets_total": 2,
+      "inventories": 5,
+      "total_assets": 0,
+      "total_hldr_eqy_exc_min_int": 0,
+      "total_hldr_eqy_inc_min_int": 0,
+      "total_liab": 0
+    },
+    "cashflow": {
+      "c_fr_sale_sg": 0,
+      "c_pay_acq_const_fiolta": 10,
+      "n_cashflow_act": 0
+    },
+    "fina_indicator": {
+      "profit_dedt": 2,
+      "q_dtprofit": 7
+    },
+    "income": {
+      "n_income": 0,
+      "n_income_attr_p": 0,
+      "oper_cost": 0,
+      "operate_profit": 0,
+      "revenue": 0,
+      "total_revenue": 0
+    }
+  },
+  "universe": "100 frozen codes only",
+  "zero_distinct_from_null": true
+}

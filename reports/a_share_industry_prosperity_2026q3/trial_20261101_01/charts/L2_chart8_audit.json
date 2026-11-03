@@ -1,0 +1,41 @@
+{
+  "not_formal_industry_ranking": true,
+  "not_plotted": [],
+  "plotted": 25,
+  "quadrant_counts": {
+    "右上": 4,
+    "右下": 12,
+    "左上": 6,
+    "左下": 3,
+    "边界": 0
+  },
+  "reference_set": [
+    "BK1277.DC",
+    "BK1279.DC",
+    "BK1280.DC",
+    "BK1281.DC",
+    "BK1282.DC",
+    "BK0459.DC",
+    "BK1036.DC",
+    "BK1037.DC",
+    "BK1038.DC",
+    "BK1223.DC",
+    "BK0454.DC",
+    "BK0471.DC",
+    "BK0538.DC",
+    "BK0731.DC",
+    "BK1019.DC",
+    "BK0725.DC",
+    "BK0726.DC",
+    "BK1246.DC",
+    "BK1247.DC",
+    "BK1248.DC",
+    "BK0465.DC",
+    "BK0727.DC",
+    "BK1040.DC",
+    "BK1042.DC",
+    "BK1044.DC"
+  ],
+  "reference_x": "0",
+  "reference_y": "0"
+}

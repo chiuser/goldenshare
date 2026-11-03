@@ -1,0 +1,70 @@
+{
+  "point_count": 29,
+  "filter_checks": [
+    {
+      "state": 0,
+      "marks": 11,
+      "refs": [
+        "收入持平收入持平",
+        "利润率持平利润率持平"
+      ]
+    },
+    {
+      "state": 1,
+      "marks": 10,
+      "refs": [
+        "收入持平收入持平",
+        "利润率持平利润率持平"
+      ]
+    },
+    {
+      "state": 2,
+      "marks": 2,
+      "refs": [
+        "收入持平收入持平",
+        "利润率持平利润率持平"
+      ]
+    },
+    {
+      "state": 3,
+      "marks": 6,
+      "refs": [
+        "收入持平收入持平",
+        "利润率持平利润率持平"
+      ]
+    }
+  ],
+  "chart_count": 7,
+  "bar_count": 18,
+  "tables_in_body": 0,
+  "desktop_two_column_widths": [
+    516,
+    516
+  ],
+  "phone_width": 390,
+  "phone_plot_width": 324,
+  "tooltip_checked": {
+    "industry": "食品饮料",
+    "revenue_growth": "1.14%",
+    "margin_change": "-1.6个百分点",
+    "profit_per_100_revenue": "19.03元 → 17.43元",
+    "comparable_companies": 128,
+    "income_coverage": "99.83%",
+    "internal_ids": false
+  },
+  "history_selector_checked": [
+    "非金融整体",
+    "农林牧渔"
+  ],
+  "industry_link_checked": true,
+  "negative_profit_shown": true,
+  "source_inspector_opened": false,
+  "progress_cleared": true,
+  "console": [],
+  "screenshots": [
+    "desktop_quadrant.png",
+    "desktop_history.png",
+    "phone_quadrant.png",
+    "phone_history.png"
+  ]
+}

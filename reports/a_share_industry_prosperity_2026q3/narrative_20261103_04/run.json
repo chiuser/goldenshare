@@ -1,0 +1,56 @@
+{
+  "builds": 3,
+  "calculation_seconds": "0.16946445731446147",
+  "completed": 31,
+  "source": {
+    "calculations/groups.json": "9211d701fe436cfb91abbf70cc83720feb80d3dac6981864c784ddc36e8879b1",
+    "calculations/ranking.json": "bd4ddc9e52175398ad59c145533a36ac0b308c3ad5c9f7c728b1ec69f33b0235",
+    "calculations/sensitivity.json": "b2a0c52d09db688f66316e5ee2607527be00d2e0dac037f01e53cae4a7523faa",
+    "evidence/artifact_manifest.json": "6be2897438d1e17b57ca98c59d0229fa005acb15587aea3977813034fc4f2086",
+    "forecast_projection_implementation": "9d34f85da7038cbfb8281cf3e1dd31aa9dcf8af5ad6b1505984bd8998f3495ff",
+    "previous_data": "6d3c28f7498c82d98e55be41a6c15c961b12bbb7b68c7b47fc692ea18bd72514",
+    "previous_manifest": "ffc0f66142f8ae7a4a86fbf717954e886ef0a9f80d2c79c2e51afbaf3d934978",
+    "publication_implementation": "977522c3da5f77bd1e40dd186d76b7ee2c5bda1951d317b87cee4eb0dad90c61"
+  },
+  "spec": {
+    "aggregate_bytes": 52428800,
+    "blue": "#3276b5",
+    "build_seconds": 45,
+    "calculation_seconds": 300,
+    "max_builds": 3,
+    "max_cases": 6,
+    "max_heat_rows": 16,
+    "memory_bytes": 536870912,
+    "output_bytes": 104857600,
+    "periods": [
+      "2025-09-30",
+      "2026-09-30"
+    ],
+    "prediction_color": "#d2933b",
+    "preparation_run": "preparation_20261102_01",
+    "primary_top": 10,
+    "sample_run": "chapter_samples_20261102_01",
+    "secondary_top": 15,
+    "source_run": "formal_20261101_01",
+    "stage": "forecast",
+    "teal": "#0f9185",
+    "unit_seconds": 30,
+    "year_colors": [
+      [
+        "2024",
+        "#94a3b8"
+      ],
+      [
+        "2025",
+        "#4f78ac"
+      ],
+      [
+        "2026",
+        "#0f9185"
+      ]
+    ]
+  },
+  "stage": "forecast",
+  "status": "FORECAST_PROJECTED",
+  "total": 31
+}

@@ -1,0 +1,177 @@
+{
+  "console_error_status": "One MutationObserver error was recorded during browser lifecycle/reloads; the log has no source URL. All 18 final chart counts, filter and reset were subsequently verified. Cause not established; not claimed console-clean.",
+  "console_errors": [
+    "Uncaught TypeError: Failed to execute 'observe' on 'MutationObserver': parameter 1 is not of type 'Node'."
+  ],
+  "filter_reference": "same saved full-peer referenceLines, scores and row IDs; only row subset changes",
+  "filtered_electronics": [
+    {
+      "chart": 1,
+      "points": 5
+    },
+    {
+      "chart": 2,
+      "points": 5
+    },
+    {
+      "chart": 3,
+      "points": 5
+    },
+    {
+      "chart": 4,
+      "points": 5
+    },
+    {
+      "chart": 5,
+      "points": 1
+    },
+    {
+      "chart": 6,
+      "points": 5
+    },
+    {
+      "chart": 7,
+      "points": 5
+    },
+    {
+      "chart": 8,
+      "points": 5
+    },
+    {
+      "chart": 9,
+      "points": 5
+    }
+  ],
+  "l1": [
+    {
+      "chart": 1,
+      "points": 5
+    },
+    {
+      "chart": 2,
+      "points": 5
+    },
+    {
+      "chart": 3,
+      "points": 5
+    },
+    {
+      "chart": 4,
+      "points": 5
+    },
+    {
+      "chart": 5,
+      "points": 0
+    },
+    {
+      "chart": 6,
+      "points": 5
+    },
+    {
+      "chart": 7,
+      "points": 5
+    },
+    {
+      "chart": 8,
+      "points": 5
+    },
+    {
+      "chart": 9,
+      "points": 5
+    }
+  ],
+  "l2": [
+    {
+      "chart": 1,
+      "points": 25,
+      "svg": 1
+    },
+    {
+      "chart": 2,
+      "points": 25,
+      "svg": 1
+    },
+    {
+      "chart": 3,
+      "points": 25,
+      "svg": 1
+    },
+    {
+      "chart": 4,
+      "points": 25,
+      "svg": 1
+    },
+    {
+      "chart": 5,
+      "points": 6,
+      "svg": 1
+    },
+    {
+      "chart": 6,
+      "points": 19,
+      "svg": 1
+    },
+    {
+      "chart": 7,
+      "points": 25,
+      "svg": 1
+    },
+    {
+      "chart": 8,
+      "points": 25,
+      "svg": 1
+    },
+    {
+      "chart": 9,
+      "points": 25,
+      "svg": 1
+    }
+  ],
+  "limitations": "desktop one viewport; point counts and representative render checked; no mobile or offline CDN test",
+  "pass": true,
+  "report_sha256": "d71759ba1d2d81393d8000ecf7d81fdca2092eba1e123b1213db645bad3825e4",
+  "reset": [
+    {
+      "chart": 1,
+      "points": 25
+    },
+    {
+      "chart": 2,
+      "points": 25
+    },
+    {
+      "chart": 3,
+      "points": 25
+    },
+    {
+      "chart": 4,
+      "points": 25
+    },
+    {
+      "chart": 5,
+      "points": 6
+    },
+    {
+      "chart": 6,
+      "points": 19
+    },
+    {
+      "chart": 7,
+      "points": 25
+    },
+    {
+      "chart": 8,
+      "points": 25
+    },
+    {
+      "chart": 9,
+      "points": 25
+    }
+  ],
+  "reset_matches_initial": true,
+  "screenshots": [
+    "evidence/browser-filtered.png",
+    "evidence/browser-overview.png"
+  ],
+  "surface": "IAB local HTTP preview"
+}

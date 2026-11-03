@@ -1,0 +1,4 @@
+# Preserve the exact bytes of this study's frozen generated exports.
+A股行业研究报告_2026年前三季度.html binary
+a_share_industry_prosperity_2026q3/**/*.html binary
+a_share_industry_prosperity_2026q3/**/*.csv -text whitespace=cr-at-eol

@@ -1,0 +1,25 @@
+{
+  "args": {
+    "ts_code": "000980.SZ",
+    "start_date": "20240101",
+    "end_date": "20241231",
+    "fields": [
+      "ts_code",
+      "ann_date",
+      "end_date",
+      "profit_dedt",
+      "q_dtprofit",
+      "update_flag"
+    ]
+  },
+  "at": "2026-11-01T12:55:59.861Z",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "[{\"ts_code\": \"000980.SZ\", \"ann_date\": \"20250428\", \"end_date\": \"20241231\", \"profit_dedt\": -1469551585.97, \"q_dtprofit\": -1100744133.46, \"update_flag\": \"1\"}, {\"ts_code\": \"000980.SZ\", \"ann_date\": \"20241030\", \"end_date\": \"20240930\", \"profit_dedt\": -375761150.56, \"q_dtprofit\": -82384847.94, \"update_flag\": \"1\"}, {\"ts_code\": \"000980.SZ\", \"ann_date\": \"20241030\", \"end_date\": \"20240930\", \"profit_dedt\": -368807452.52, \"q_dtprofit\": -75431149.9, \"update_flag\": \"0\"}, {\"ts_code\": \"000980.SZ\", \"ann_date\": \"20240829\", \"end_date\": \"20240630\", \"profit_dedt\": -293376302.62, \"q_dtprofit\": -168470061.71, \"update_flag\": \"1\"}, {\"ts_code\": \"000980.SZ\", \"ann_date\": \"20240430\", \"end_date\": \"20240331\", \"profit_dedt\": -124906240.91, \"q_dtprofit\": -124906240.91, \"update_flag\": \"1\"}]"
+      }
+    ],
+    "isError": false
+  }
+}

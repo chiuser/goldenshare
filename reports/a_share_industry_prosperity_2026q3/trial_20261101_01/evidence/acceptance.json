@@ -1,0 +1,325 @@
+{
+  "all_receipt_hashes_valid": true,
+  "browser_qa": {
+    "console_error_status": "One MutationObserver error was recorded during browser lifecycle/reloads; the log has no source URL. All 18 final chart counts, filter and reset were subsequently verified. Cause not established; not claimed console-clean.",
+    "console_errors": [
+      "Uncaught TypeError: Failed to execute 'observe' on 'MutationObserver': parameter 1 is not of type 'Node'."
+    ],
+    "filter_reference": "same saved full-peer referenceLines, scores and row IDs; only row subset changes",
+    "filtered_electronics": [
+      {
+        "chart": 1,
+        "points": 5
+      },
+      {
+        "chart": 2,
+        "points": 5
+      },
+      {
+        "chart": 3,
+        "points": 5
+      },
+      {
+        "chart": 4,
+        "points": 5
+      },
+      {
+        "chart": 5,
+        "points": 1
+      },
+      {
+        "chart": 6,
+        "points": 5
+      },
+      {
+        "chart": 7,
+        "points": 5
+      },
+      {
+        "chart": 8,
+        "points": 5
+      },
+      {
+        "chart": 9,
+        "points": 5
+      }
+    ],
+    "l1": [
+      {
+        "chart": 1,
+        "points": 5
+      },
+      {
+        "chart": 2,
+        "points": 5
+      },
+      {
+        "chart": 3,
+        "points": 5
+      },
+      {
+        "chart": 4,
+        "points": 5
+      },
+      {
+        "chart": 5,
+        "points": 0
+      },
+      {
+        "chart": 6,
+        "points": 5
+      },
+      {
+        "chart": 7,
+        "points": 5
+      },
+      {
+        "chart": 8,
+        "points": 5
+      },
+      {
+        "chart": 9,
+        "points": 5
+      }
+    ],
+    "l2": [
+      {
+        "chart": 1,
+        "points": 25,
+        "svg": 1
+      },
+      {
+        "chart": 2,
+        "points": 25,
+        "svg": 1
+      },
+      {
+        "chart": 3,
+        "points": 25,
+        "svg": 1
+      },
+      {
+        "chart": 4,
+        "points": 25,
+        "svg": 1
+      },
+      {
+        "chart": 5,
+        "points": 6,
+        "svg": 1
+      },
+      {
+        "chart": 6,
+        "points": 19,
+        "svg": 1
+      },
+      {
+        "chart": 7,
+        "points": 25,
+        "svg": 1
+      },
+      {
+        "chart": 8,
+        "points": 25,
+        "svg": 1
+      },
+      {
+        "chart": 9,
+        "points": 25,
+        "svg": 1
+      }
+    ],
+    "limitations": "desktop one viewport; point counts and representative render checked; no mobile or offline CDN test",
+    "pass": true,
+    "report_sha256": "d71759ba1d2d81393d8000ecf7d81fdca2092eba1e123b1213db645bad3825e4",
+    "reset": [
+      {
+        "chart": 1,
+        "points": 25
+      },
+      {
+        "chart": 2,
+        "points": 25
+      },
+      {
+        "chart": 3,
+        "points": 25
+      },
+      {
+        "chart": 4,
+        "points": 25
+      },
+      {
+        "chart": 5,
+        "points": 6
+      },
+      {
+        "chart": 6,
+        "points": 19
+      },
+      {
+        "chart": 7,
+        "points": 25
+      },
+      {
+        "chart": 8,
+        "points": 25
+      },
+      {
+        "chart": 9,
+        "points": 25
+      }
+    ],
+    "reset_matches_initial": true,
+    "screenshots": [
+      "evidence/browser-filtered.png",
+      "evidence/browser-overview.png"
+    ],
+    "surface": "IAB local HTTP preview"
+  },
+  "chart_payloads": [
+    {
+      "chart": "L1_chart1",
+      "missing": 0,
+      "pass": true,
+      "points": 5
+    },
+    {
+      "chart": "L1_chart2",
+      "missing": 0,
+      "pass": true,
+      "points": 5
+    },
+    {
+      "chart": "L1_chart3",
+      "missing": 0,
+      "pass": true,
+      "points": 5
+    },
+    {
+      "chart": "L1_chart4",
+      "missing": 0,
+      "pass": true,
+      "points": 5
+    },
+    {
+      "chart": "L1_chart5",
+      "missing": 5,
+      "pass": true,
+      "points": 0
+    },
+    {
+      "chart": "L1_chart6",
+      "missing": 0,
+      "pass": true,
+      "points": 5
+    },
+    {
+      "chart": "L1_chart7",
+      "missing": 0,
+      "pass": true,
+      "points": 5
+    },
+    {
+      "chart": "L1_chart8",
+      "missing": 0,
+      "pass": true,
+      "points": 5
+    },
+    {
+      "chart": "L1_chart9",
+      "missing": 0,
+      "pass": true,
+      "points": 5
+    },
+    {
+      "chart": "L2_chart1",
+      "missing": 0,
+      "pass": true,
+      "points": 25
+    },
+    {
+      "chart": "L2_chart2",
+      "missing": 0,
+      "pass": true,
+      "points": 25
+    },
+    {
+      "chart": "L2_chart3",
+      "missing": 0,
+      "pass": true,
+      "points": 25
+    },
+    {
+      "chart": "L2_chart4",
+      "missing": 0,
+      "pass": true,
+      "points": 25
+    },
+    {
+      "chart": "L2_chart5",
+      "missing": 19,
+      "pass": true,
+      "points": 6
+    },
+    {
+      "chart": "L2_chart6",
+      "missing": 6,
+      "pass": true,
+      "points": 19
+    },
+    {
+      "chart": "L2_chart7",
+      "missing": 0,
+      "pass": true,
+      "points": 25
+    },
+    {
+      "chart": "L2_chart8",
+      "missing": 0,
+      "pass": true,
+      "points": 25
+    },
+    {
+      "chart": "L2_chart9",
+      "missing": 0,
+      "pass": true,
+      "points": 25
+    }
+  ],
+  "code_hashes": {
+    "analysis.py": "e75b3d04d7729f38ad55a37d9233b60d2e843f7f433a461bc7081e1ad9195b25",
+    "charts.py": "4d4207576d0ac128438e9714a383d89728252e5980075551efe2140ebe5fa981",
+    "extract.py": "5d11223557efd3d333bf5c238a597195a34724cb0144fbf11e75ec6be42022b6",
+    "forecast.py": "91523f0984b3dec46eff2003c42e346e12081565fa89a3b5b68ee79de7dd03b2",
+    "metrics.py": "d9584fc8d713e7abafc31a0930914ef91d9a970c89b9e470ae54cbc84634237f",
+    "ranking.py": "c4a258ea0a0801dcc89eadec9614dbe5ffc3f8bb53f9347f8628e0f4a63cebc2",
+    "run.py": "252a5d2094609e5d3357c8bce9a05ba93128a0da842e23bf1e0be19aa520de86",
+    "spec.py": "f3ddfd2dd84b5927a96b9d239cb55e190adf1b534a6797a1f7ac95f7c68a7c77",
+    "storage.py": "a2303eb7dc38814b2a9373d564841bad9a53f47a3d2bf81acd031fb2615ce071",
+    "validation.py": "3f0dc3d96742cd66e243c25cee2c28b2795848e19797a8537e736834b6a314d0"
+  },
+  "exception_rows": 67,
+  "exception_units": 25,
+  "financial_rows": 4376,
+  "full_market_report_ready": false,
+  "known_limitations": [
+    "sample not representative of whole industries",
+    "issuer semantics checked for only 3 companies",
+    "22 historical conflict candidates remain different; current global conflict list incomplete",
+    "restatement adjustment not written back or patched",
+    "provisional gates/scenarios are not formal parameter approval"
+  ],
+  "ledger_pass": true,
+  "manual_checks_pass": true,
+  "primary_units": 47,
+  "ranked_groups": {
+    "1": 0,
+    "2": 6
+  },
+  "scope": "bounded engineering trial only",
+  "second_level_groups": 25,
+  "selected_companies": 100,
+  "selected_roots": 5,
+  "spec_hash": "52b3e026e61cfa41f7d80c9cc1363bc28355d72dfacdabc7ba07dcd4bc2a5563"
+}

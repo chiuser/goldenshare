@@ -1,0 +1,25 @@
+{
+  "args": {
+    "ts_code": "301667.SZ",
+    "start_date": "20250101",
+    "end_date": "20251231",
+    "fields": [
+      "ts_code",
+      "ann_date",
+      "end_date",
+      "profit_dedt",
+      "q_dtprofit",
+      "update_flag"
+    ]
+  },
+  "at": "2026-11-01T12:57:01.453Z",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "[{\"ts_code\": \"301667.SZ\", \"ann_date\": \"20260423\", \"end_date\": \"20251231\", \"profit_dedt\": 88576395.15, \"q_dtprofit\": 36477174.6, \"update_flag\": \"1\"}, {\"ts_code\": \"301667.SZ\", \"ann_date\": \"20251127\", \"end_date\": \"20250930\", \"profit_dedt\": 52099200.0, \"q_dtprofit\": null, \"update_flag\": \"1\"}, {\"ts_code\": \"301667.SZ\", \"ann_date\": \"20251127\", \"end_date\": \"20250331\", \"profit_dedt\": 13913770.97, \"q_dtprofit\": 13913770.97, \"update_flag\": \"1\"}]"
+      }
+    ],
+    "isError": false
+  }
+}

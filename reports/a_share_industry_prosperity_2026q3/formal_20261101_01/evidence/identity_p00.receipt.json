@@ -1,0 +1,10 @@
+{
+  "artifact": "inputs/identity_p00.jsonl",
+  "fingerprint": {
+    "content": "6d095b93b34746a8fa9d7303e66129d6",
+    "n": 2000
+  },
+  "rows": 2000,
+  "sha256": "b3c0c3f06555cd713b9f7ccd288f66dcfded922284d80c4cfd58f41ece81d5d5",
+  "spec_hash": "345473966649b23c1f6b52b4b0facb100fb8f5e8384d936c8a14a87ade7da497"
+}

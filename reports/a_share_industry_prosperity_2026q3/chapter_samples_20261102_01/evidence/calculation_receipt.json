@@ -1,0 +1,16 @@
+{
+  "counts": {
+    "持平边界": 0,
+    "收入下降、利润率下降": 6,
+    "收入下降、利润率提高": 2,
+    "收入增长、利润率下降": 10,
+    "收入增长、利润率提高": 11
+  },
+  "history_rows": 90,
+  "input_mib": 27.60917377471924,
+  "peak_python_bytes": 231014400,
+  "points": 29,
+  "seconds": 0.15600712457671762,
+  "source_connections": 0,
+  "source_reads": "local frozen aggregates only"
+}

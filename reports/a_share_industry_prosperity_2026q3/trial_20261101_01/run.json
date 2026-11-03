@@ -1,0 +1,102 @@
+{
+  "completed": 72,
+  "db_seconds": "48.434504913166165",
+  "elapsed_seconds": 61.79931737296283,
+  "engineering_acceptance": true,
+  "full_market_report_ready": false,
+  "overall_data_quality_acceptance": "partial",
+  "processed_units": 47,
+  "reused_units": 4,
+  "source_verification": "passed",
+  "spec": {
+    "confirmed": [
+      "scope",
+      "revenue_50_50",
+      "margin_seasonal_formula",
+      "seven_metric_weights",
+      "nine_quadrants"
+    ],
+    "coverage_denominator": "selected_trial_codes_only",
+    "formal_investment_ranking": false,
+    "mode": "bounded_engineering_trial",
+    "provisional": [
+      "coverage_and_company_gates",
+      "trend_tags",
+      "cashflow_and_scenario",
+      "percentile_and_sensitivity",
+      "financial_comparison"
+    ],
+    "values": {
+      "amount_tolerance": "1",
+      "baseline": "eastmoney_dc_industry_hierarchy.cn_a.v1",
+      "batch_rows": 2000,
+      "dates": [
+        "2024-03-31",
+        "2024-06-30",
+        "2024-09-30",
+        "2024-12-31",
+        "2025-03-31",
+        "2025-06-30",
+        "2025-09-30",
+        "2025-12-31",
+        "2026-03-31",
+        "2026-06-30",
+        "2026-09-30"
+      ],
+      "day_year": 360,
+      "db_seconds": 180,
+      "dimension_weights": [
+        "0.25",
+        "0.25",
+        "0.25",
+        "0.25"
+      ],
+      "disk_bytes": 157286400,
+      "excluded": [
+        "002717.SZ",
+        "002827.SZ",
+        "601326.SH",
+        "605258.SH",
+        "688121.SH",
+        "688496.SH"
+      ],
+      "max_codes": 100,
+      "max_exception_rows": 260,
+      "max_member_rows": 300,
+      "max_rows": 4400,
+      "max_tree_rows": 305,
+      "memory_bytes": 536870912,
+      "min_companies": 5,
+      "min_coverage": "0.90",
+      "min_peers": 5,
+      "model_weights": [
+        "0.25",
+        "0.5",
+        "0.75"
+      ],
+      "near_zero_profit": "0.001",
+      "per_root": 20,
+      "revenue_season_weight": "0.5",
+      "roots": [
+        "BK0438.DC",
+        "BK1201.DC",
+        "BK1206.DC",
+        "BK1209.DC",
+        "BK1216.DC"
+      ],
+      "sensitivity_weights": [
+        "0.15",
+        "0.20",
+        "0.25",
+        "0.30",
+        "0.35"
+      ],
+      "snapshot": "2026-10-30",
+      "total_seconds": 1800,
+      "unit_seconds": 30
+    }
+  },
+  "spec_hash": "52b3e026e61cfa41f7d80c9cc1363bc28355d72dfacdabc7ba07dcd4bc2a5563",
+  "status": "BOUNDED_TRIAL_COMPLETED_WITH_UNRESOLVED_DATA_QUALITY",
+  "total_units": 72
+}

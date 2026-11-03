@@ -1,0 +1,51 @@
+{
+  "builds": 3,
+  "calculation_seconds": "0.1371364169754088",
+  "completed": 31,
+  "source": {
+    "calculations/groups.json": "9211d701fe436cfb91abbf70cc83720feb80d3dac6981864c784ddc36e8879b1",
+    "calculations/sample.json": "e8bcf31e8e18ebf93c473c0d66c96f3dcfa4f65ed7e91d5b96589dcfb3af1656",
+    "evidence/artifact_manifest.json": "6be2897438d1e17b57ca98c59d0229fa005acb15587aea3977813034fc4f2086",
+    "previous_data": "f4f29a662ce85d66aa5aae5dd3a9fe3a60d01cf4ff2f4be0658bb68ee70e4683",
+    "previous_manifest": "7b40a5a80392fd2e911106416ae1775e5a50296097e9441da3c727b641d47520",
+    "projection_implementation": "affaf0c39652be2e6026c13c1c283952782e6ce4f800d77c7662ab9022a3516f"
+  },
+  "spec": {
+    "aggregate_bytes": 52428800,
+    "blue": "#3276b5",
+    "build_seconds": 45,
+    "calculation_seconds": 300,
+    "max_builds": 3,
+    "max_cases": 6,
+    "max_heat_rows": 16,
+    "memory_bytes": 536870912,
+    "output_bytes": 104857600,
+    "periods": [
+      "2025-09-30",
+      "2026-09-30"
+    ],
+    "preparation_run": "preparation_20261102_01",
+    "sample_run": "chapter_samples_20261102_01",
+    "source_run": "formal_20261101_01",
+    "stage": "current",
+    "teal": "#0f9185",
+    "unit_seconds": 30,
+    "year_colors": [
+      [
+        "2024",
+        "#94a3b8"
+      ],
+      [
+        "2025",
+        "#4f78ac"
+      ],
+      [
+        "2026",
+        "#0f9185"
+      ]
+    ]
+  },
+  "stage": "current",
+  "status": "CURRENT_REVISION_COMPLETE",
+  "total": 31
+}

@@ -1,0 +1,69 @@
+{
+  "not_formal_industry_ranking": false,
+  "not_plotted": [
+    {
+      "reason": "no_positive_base_deducted_forecast",
+      "sector_code": "BK0433.DC"
+    },
+    {
+      "reason": "no_positive_base_deducted_forecast",
+      "sector_code": "BK0479.DC"
+    },
+    {
+      "reason": "no_positive_base_deducted_forecast",
+      "sector_code": "BK1202.DC"
+    },
+    {
+      "reason": "financial_industry_observation_only",
+      "sector_code": "BK1203.DC"
+    },
+    {
+      "reason": "no_positive_base_deducted_forecast",
+      "sector_code": "BK1208.DC"
+    },
+    {
+      "reason": "no_positive_base_deducted_forecast",
+      "sector_code": "BK1217.DC"
+    },
+    {
+      "reason": "financial_industry_observation_only",
+      "sector_code": "BK1283.DC"
+    }
+  ],
+  "plotted": 24,
+  "quadrant_counts": {
+    "右上": 4,
+    "右下": 7,
+    "左上": 8,
+    "左下": 5,
+    "边界": 0
+  },
+  "reference_set": [
+    "BK0427.DC",
+    "BK0436.DC",
+    "BK0437.DC",
+    "BK0438.DC",
+    "BK0456.DC",
+    "BK0464.DC",
+    "BK0478.DC",
+    "BK0486.DC",
+    "BK0728.DC",
+    "BK1035.DC",
+    "BK1200.DC",
+    "BK1201.DC",
+    "BK1204.DC",
+    "BK1205.DC",
+    "BK1206.DC",
+    "BK1207.DC",
+    "BK1209.DC",
+    "BK1210.DC",
+    "BK1211.DC",
+    "BK1212.DC",
+    "BK1213.DC",
+    "BK1214.DC",
+    "BK1215.DC",
+    "BK1216.DC"
+  ],
+  "reference_x": "0",
+  "reference_y": "5.86875991435317597933914160"
+}

@@ -1,0 +1,44 @@
+{
+  "not_formal_industry_ranking": true,
+  "not_plotted": [
+    {
+      "failures": [],
+      "reason": "fewer_than_5_qualified_industries",
+      "sector_code": "BK0438.DC"
+    },
+    {
+      "failures": [],
+      "reason": "fewer_than_5_qualified_industries",
+      "sector_code": "BK1201.DC"
+    },
+    {
+      "failures": [
+        "coverage_current_below_90pct_or_unknown",
+        "coverage_previous_below_90pct_or_unknown"
+      ],
+      "reason": "qualification_failed",
+      "sector_code": "BK1206.DC"
+    },
+    {
+      "failures": [],
+      "reason": "fewer_than_5_qualified_industries",
+      "sector_code": "BK1209.DC"
+    },
+    {
+      "failures": [],
+      "reason": "fewer_than_5_qualified_industries",
+      "sector_code": "BK1216.DC"
+    }
+  ],
+  "plotted": 0,
+  "quadrant_counts": {
+    "右上": 0,
+    "右下": 0,
+    "左上": 0,
+    "左下": 0,
+    "边界": 0
+  },
+  "reference_set": [],
+  "reference_x": "50",
+  "reference_y": "50"
+}

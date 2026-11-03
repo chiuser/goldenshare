@@ -1,0 +1,874 @@
+{
+  "complete_global_conflict_list": false,
+  "findings": [
+    {
+      "code": "000926.SZ",
+      "dates": [
+        "2025-09-30",
+        "2025-12-31"
+      ],
+      "difference": "14863590.66",
+      "name": "exception_000926.SZ_2025",
+      "resolved_as_equivalent": false,
+      "rows": 2,
+      "selected": [
+        {
+          "ann_date": "2025-10-31",
+          "available_versions": 2,
+          "end_date": "2025-09-30",
+          "fetched_at": "2026-08-29T21:10:57.851797+08:00",
+          "profit_dedt": "-768009240.83",
+          "q_dtprofit": "-138867989.12",
+          "source_content_hash": "c4717051df3751d8ccf9b2f389597d3aaee3d7959504f83d94b0a5f59c5c13e6",
+          "ts_code": "000926.SZ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-04-29",
+          "available_versions": 2,
+          "end_date": "2025-12-31",
+          "fetched_at": "2026-11-01T10:28:59.655549+08:00",
+          "profit_dedt": "-3309573012.45",
+          "q_dtprofit": "-2526700180.96",
+          "source_content_hash": "f3d4e2b2a9b3bce327d44be546013f96681654a259406fe4f82aac34d155b407",
+          "ts_code": "000926.SZ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "000980.SZ",
+      "dates": [
+        "2024-09-30",
+        "2024-12-31"
+      ],
+      "difference": "-6953698.05",
+      "name": "exception_000980.SZ_2024",
+      "resolved_as_equivalent": false,
+      "rows": 3,
+      "selected": [
+        {
+          "ann_date": "2024-10-30",
+          "available_versions": 3,
+          "end_date": "2024-09-30",
+          "fetched_at": "2026-10-31T21:35:47.600011+08:00",
+          "profit_dedt": "-375761150.56",
+          "q_dtprofit": "-82384847.94",
+          "source_content_hash": "bc179ca3d3e000efd2d1da48e5303ed75410a5e7014cdb5abd45f1a361c65070",
+          "ts_code": "000980.SZ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2025-04-28",
+          "available_versions": 3,
+          "end_date": "2024-12-31",
+          "fetched_at": "2026-08-29T21:08:10.253663+08:00",
+          "profit_dedt": "-1469551585.97",
+          "q_dtprofit": "-1100744133.46",
+          "source_content_hash": "4a285739cddc6e0c8e696063e8f8309221c0401007d450e1d424eb29ba2b01a9",
+          "ts_code": "000980.SZ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "002360.SZ",
+      "dates": [
+        "2025-09-30",
+        "2025-12-31"
+      ],
+      "difference": "23419203.02",
+      "name": "exception_002360.SZ_2025",
+      "resolved_as_equivalent": false,
+      "rows": 3,
+      "selected": [
+        {
+          "ann_date": "2025-10-28",
+          "available_versions": 3,
+          "end_date": "2025-09-30",
+          "fetched_at": "2026-08-29T21:10:33.350343+08:00",
+          "profit_dedt": "-24467307.07",
+          "q_dtprofit": "-29480368.43",
+          "source_content_hash": "1c16268bd6cc79104b6853ace404e8ef138ade6e62501a5631e2beef6b416189",
+          "ts_code": "002360.SZ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-04-28",
+          "available_versions": 3,
+          "end_date": "2025-12-31",
+          "fetched_at": "2026-11-01T10:28:47.141637+08:00",
+          "profit_dedt": "-1114114695.4",
+          "q_dtprofit": "-1066228185.31",
+          "source_content_hash": "1d32b42d61421d809ccd25b061da3a8aa4a94f94fc0b3c74c794a9715502d24f",
+          "ts_code": "002360.SZ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "300152.SZ",
+      "dates": [
+        "2024-09-30",
+        "2024-12-31"
+      ],
+      "difference": "27348829.81",
+      "name": "exception_300152.SZ_2024",
+      "resolved_as_equivalent": false,
+      "rows": 2,
+      "selected": [
+        {
+          "ann_date": "2024-10-30",
+          "available_versions": 2,
+          "end_date": "2024-09-30",
+          "fetched_at": "2026-10-31T21:35:47.600011+08:00",
+          "profit_dedt": "-1818467.97",
+          "q_dtprofit": "7756073.55",
+          "source_content_hash": "edabc5cbeb989c53ff8d943604816370722ee25727e31a09bb9ea5ca06d57d03",
+          "ts_code": "300152.SZ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-08-28",
+          "available_versions": 2,
+          "end_date": "2024-12-31",
+          "fetched_at": "2026-11-01T10:30:36.813415+08:00",
+          "profit_dedt": "-49725361.25",
+          "q_dtprofit": "-20558063.47",
+          "source_content_hash": "ac5b0fc29290413c5af537a1aa1ae1d8780b1bc22ec80533f421b86577c9ed76",
+          "ts_code": "300152.SZ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "300152.SZ",
+      "dates": [
+        "2025-09-30",
+        "2025-12-31"
+      ],
+      "difference": "-6959646.30",
+      "name": "exception_300152.SZ_2025",
+      "resolved_as_equivalent": false,
+      "rows": 2,
+      "selected": [
+        {
+          "ann_date": "2025-10-28",
+          "available_versions": 2,
+          "end_date": "2025-09-30",
+          "fetched_at": "2026-08-29T21:10:33.350343+08:00",
+          "profit_dedt": "-12287678.39",
+          "q_dtprofit": "-300922.09",
+          "source_content_hash": "ebb94022fd20b1c2ae7a9cf852df892de7e61e102b91b902658d246a80ed6bff",
+          "ts_code": "300152.SZ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-08-28",
+          "available_versions": 2,
+          "end_date": "2025-12-31",
+          "fetched_at": "2026-11-01T10:30:36.813415+08:00",
+          "profit_dedt": "-27193094.25",
+          "q_dtprofit": "-21865062.16",
+          "source_content_hash": "f6172ed08f678630aa8e039a50732df365d3bebc20bfe083b2dc547112f8e606",
+          "ts_code": "300152.SZ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "300449.SZ",
+      "dates": [
+        "2024-09-30",
+        "2024-12-31"
+      ],
+      "difference": "-311045.28",
+      "name": "exception_300449.SZ_2024",
+      "resolved_as_equivalent": false,
+      "rows": 2,
+      "selected": [
+        {
+          "ann_date": "2024-10-30",
+          "available_versions": 2,
+          "end_date": "2024-09-30",
+          "fetched_at": "2026-10-31T21:35:47.600011+08:00",
+          "profit_dedt": "-29340368.96",
+          "q_dtprofit": "-20062763.42",
+          "source_content_hash": "0972bd3a3f0e93503702da70ceedf82b9fc488e4692b636bd2595bddd47218f7",
+          "ts_code": "300449.SZ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2025-04-24",
+          "available_versions": 2,
+          "end_date": "2024-12-31",
+          "fetched_at": "2026-08-29T21:07:43.230431+08:00",
+          "profit_dedt": "-76946379.35",
+          "q_dtprofit": "-47917055.67",
+          "source_content_hash": "277316c1e5dfd0dbfab78d1935addb37936fd887907ada623ce4043d6b88ab8f",
+          "ts_code": "300449.SZ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "300600.SZ",
+      "dates": [
+        "2024-09-30",
+        "2024-12-31"
+      ],
+      "difference": "5720931.80",
+      "name": "exception_300600.SZ_2024",
+      "resolved_as_equivalent": false,
+      "rows": 3,
+      "selected": [
+        {
+          "ann_date": "2026-10-30",
+          "available_versions": 3,
+          "end_date": "2024-09-30",
+          "fetched_at": "2026-11-01T10:31:39.544619+08:00",
+          "profit_dedt": "-23151963.54",
+          "q_dtprofit": "-12980908.85",
+          "source_content_hash": "173885ee5f6b4919c496b8e02255a70678bc1a53e8bff74787978cd1571ebe8b",
+          "ts_code": "300600.SZ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-10-30",
+          "available_versions": 3,
+          "end_date": "2024-12-31",
+          "fetched_at": "2026-11-01T10:31:39.544619+08:00",
+          "profit_dedt": "-37449769.28",
+          "q_dtprofit": "-8576873.94",
+          "source_content_hash": "fe0eae05a61cc78ad17c6a6da658592db62b3447bea082b61a2528c5a4d95d35",
+          "ts_code": "300600.SZ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "300600.SZ",
+      "dates": [
+        "2025-09-30",
+        "2025-12-31"
+      ],
+      "difference": "8039820.22",
+      "name": "exception_300600.SZ_2025",
+      "resolved_as_equivalent": false,
+      "rows": 4,
+      "selected": [
+        {
+          "ann_date": "2026-10-30",
+          "available_versions": 4,
+          "end_date": "2025-09-30",
+          "fetched_at": "2026-11-01T10:31:39.544619+08:00",
+          "profit_dedt": "-36221975.31",
+          "q_dtprofit": "-15010196.8",
+          "source_content_hash": "6f739fe74bf95ee8175c5f0f021ce9a4802eb82a87cd26b8d4c44ba914511a1c",
+          "ts_code": "300600.SZ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-10-30",
+          "available_versions": 4,
+          "end_date": "2025-12-31",
+          "fetched_at": "2026-11-01T10:31:39.544619+08:00",
+          "profit_dedt": "-70758771.91",
+          "q_dtprofit": "-26496976.38",
+          "source_content_hash": "4c416fa94826ec7919e289bcd5cc53087f11ce219112d2d9a9ebc583d9b93b2f",
+          "ts_code": "300600.SZ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "301117.SZ",
+      "dates": [
+        "2024-09-30",
+        "2024-12-31"
+      ],
+      "difference": "-600282.26",
+      "name": "exception_301117.SZ_2024",
+      "resolved_as_equivalent": false,
+      "rows": 3,
+      "selected": [
+        {
+          "ann_date": "2024-10-28",
+          "available_versions": 3,
+          "end_date": "2024-09-30",
+          "fetched_at": "2026-10-31T21:35:38.013417+08:00",
+          "profit_dedt": "-24583220.64",
+          "q_dtprofit": "-27051801.41",
+          "source_content_hash": "834ee939a8f977910817dacfe287a560f23a49aad4847f326c4d50d9f11d4251",
+          "ts_code": "301117.SZ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-10-17",
+          "available_versions": 3,
+          "end_date": "2024-12-31",
+          "fetched_at": "2026-11-01T10:31:08.681929+08:00",
+          "profit_dedt": "3904007.89",
+          "q_dtprofit": "27886946.27",
+          "source_content_hash": "8cb18f845cf3bfa36664af0767f4a77093b4882412a167093fff17d7fa7319db",
+          "ts_code": "301117.SZ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "301265.SZ",
+      "dates": [
+        "2025-09-30",
+        "2025-12-31"
+      ],
+      "difference": "-59971.95",
+      "name": "exception_301265.SZ_2025",
+      "resolved_as_equivalent": false,
+      "rows": 2,
+      "selected": [
+        {
+          "ann_date": "2025-10-27",
+          "available_versions": 2,
+          "end_date": "2025-09-30",
+          "fetched_at": "2026-08-29T21:10:31.730959+08:00",
+          "profit_dedt": "48473676.4",
+          "q_dtprofit": "13515108.31",
+          "source_content_hash": "6336e7f73551ad4100f07980afb7be53e0dad5ad720e319ee839c8e80197bb8b",
+          "ts_code": "301265.SZ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-04-23",
+          "available_versions": 2,
+          "end_date": "2025-12-31",
+          "fetched_at": "2026-11-01T10:28:24.048615+08:00",
+          "profit_dedt": "55503701.35",
+          "q_dtprofit": "6970053.0",
+          "source_content_hash": "69da7ded37eb29b0d0ff02545ffb410cd4c516c3846aeca50db0239ce2192b4b",
+          "ts_code": "301265.SZ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "301326.SZ",
+      "dates": [
+        "2024-09-30",
+        "2024-12-31"
+      ],
+      "difference": "-1657710.83",
+      "name": "exception_301326.SZ_2024",
+      "resolved_as_equivalent": false,
+      "rows": 2,
+      "selected": [
+        {
+          "ann_date": "2024-10-30",
+          "available_versions": 2,
+          "end_date": "2024-09-30",
+          "fetched_at": "2026-10-31T21:35:47.600011+08:00",
+          "profit_dedt": "-11945772.07",
+          "q_dtprofit": "2503835.95",
+          "source_content_hash": "44a790ebaf992bde9ad12d7173c4e69628d84d8c223cb45564c1514761888a98",
+          "ts_code": "301326.SZ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2025-04-25",
+          "available_versions": 2,
+          "end_date": "2024-12-31",
+          "fetched_at": "2026-08-29T21:07:48.178911+08:00",
+          "profit_dedt": "-33129566.38",
+          "q_dtprofit": "-22841505.14",
+          "source_content_hash": "967120b61a70d89508a0dc986ddd1f2b305a939dbf14fb666b77688c50e928bf",
+          "ts_code": "301326.SZ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "301487.SZ",
+      "dates": [
+        "2024-09-30",
+        "2024-12-31"
+      ],
+      "difference": "-364823.09",
+      "name": "exception_301487.SZ_2024",
+      "resolved_as_equivalent": false,
+      "rows": 2,
+      "selected": [
+        {
+          "ann_date": "2024-10-28",
+          "available_versions": 2,
+          "end_date": "2024-09-30",
+          "fetched_at": "2026-10-31T21:35:38.013417+08:00",
+          "profit_dedt": "5965293.07",
+          "q_dtprofit": "-282896.18",
+          "source_content_hash": "fa738be5b64d7e3a4cb6cc5ac4f1052126b8b34b729e7e1ea61382bf0a2fa362",
+          "ts_code": "301487.SZ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-01-21",
+          "available_versions": 2,
+          "end_date": "2024-12-31",
+          "fetched_at": "2026-11-01T10:27:46.205569+08:00",
+          "profit_dedt": "-85478165.52",
+          "q_dtprofit": "-91808281.68",
+          "source_content_hash": "b82163c8a48a685ff24f5fce30f3f8225c38530e84c062eb1199259fb15dc4e2",
+          "ts_code": "301487.SZ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "301667.SZ",
+      "dates": [
+        "2025-09-30",
+        "2025-12-31"
+      ],
+      "difference": "-20.55",
+      "name": "exception_301667.SZ_2025",
+      "resolved_as_equivalent": false,
+      "rows": 2,
+      "selected": [
+        {
+          "ann_date": "2025-11-27",
+          "available_versions": 2,
+          "end_date": "2025-09-30",
+          "fetched_at": "2026-08-29T21:11:12.339817+08:00",
+          "profit_dedt": "52099200.0",
+          "q_dtprofit": "20816377.51",
+          "source_content_hash": "ea23d6d350ddde12f61fa0d0e98edbba3e0972b7a2b37c5a2596722e9cd468a2",
+          "ts_code": "301667.SZ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-04-23",
+          "available_versions": 2,
+          "end_date": "2025-12-31",
+          "fetched_at": "2026-11-01T10:28:24.048615+08:00",
+          "profit_dedt": "88576395.15",
+          "q_dtprofit": "36477174.6",
+          "source_content_hash": "6e3273ecb110b20503bba08c50ed011ca42da86c362719c1d6dbef8acb18b776",
+          "ts_code": "301667.SZ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "600734.SH",
+      "dates": [
+        "2025-09-30",
+        "2025-12-31"
+      ],
+      "difference": "4160859.25",
+      "name": "exception_600734.SH_2025",
+      "resolved_as_equivalent": false,
+      "rows": 3,
+      "selected": [
+        {
+          "ann_date": "2026-10-29",
+          "available_versions": 3,
+          "end_date": "2025-09-30",
+          "fetched_at": "2026-11-01T10:31:30.511699+08:00",
+          "profit_dedt": "-70460643.32",
+          "q_dtprofit": "-22912578.77",
+          "source_content_hash": "3f6059156c8e08cafd24d9fd161849eec2b68897d8a1de4f73c2294ca626833e",
+          "ts_code": "600734.SH",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-04-29",
+          "available_versions": 3,
+          "end_date": "2025-12-31",
+          "fetched_at": "2026-11-01T10:28:59.655549+08:00",
+          "profit_dedt": "-135883497.31",
+          "q_dtprofit": "-61261994.74",
+          "source_content_hash": "6ac281e5f9ed8e33e115ab372b3e7e4d61aabea9543e09453bc0b8eac8c2f515",
+          "ts_code": "600734.SH",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "600735.SH",
+      "dates": [
+        "2024-09-30",
+        "2024-12-31"
+      ],
+      "difference": "-3656404.20",
+      "name": "exception_600735.SH_2024",
+      "resolved_as_equivalent": false,
+      "rows": 3,
+      "selected": [
+        {
+          "ann_date": "2026-10-20",
+          "available_versions": 3,
+          "end_date": "2024-09-30",
+          "fetched_at": "2026-11-01T10:31:09.302772+08:00",
+          "profit_dedt": "36519900.34",
+          "q_dtprofit": "20059355.26",
+          "source_content_hash": "732368965d423048813e04e1f596a7b353aaeba0aedab03245e6bc2ed92e1708",
+          "ts_code": "600735.SH",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2025-04-30",
+          "available_versions": 3,
+          "end_date": "2024-12-31",
+          "fetched_at": "2026-08-29T21:08:40.001735+08:00",
+          "profit_dedt": "-141183187.68",
+          "q_dtprofit": "-181359492.22",
+          "source_content_hash": "55669232c603bbfcca5029383105f1d7700ddc2cf64cd2a1b1f9b339f28a1426",
+          "ts_code": "600735.SH",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "603398.SH",
+      "dates": [
+        "2025-09-30",
+        "2025-12-31"
+      ],
+      "difference": "-27146.07",
+      "name": "exception_603398.SH_2025",
+      "resolved_as_equivalent": false,
+      "rows": 2,
+      "selected": [
+        {
+          "ann_date": "2025-10-30",
+          "available_versions": 2,
+          "end_date": "2025-09-30",
+          "fetched_at": "2026-08-29T21:10:48.87879+08:00",
+          "profit_dedt": "-310361061.64",
+          "q_dtprofit": "-101356738.34",
+          "source_content_hash": "ce58dec77ba89529db487fd25c70d34eddb39f26ca9376f1088f75e53e768a6e",
+          "ts_code": "603398.SH",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-04-30",
+          "available_versions": 2,
+          "end_date": "2025-12-31",
+          "fetched_at": "2026-11-01T10:29:15.101791+08:00",
+          "profit_dedt": "-661398423.23",
+          "q_dtprofit": "-351064507.66",
+          "source_content_hash": "1fd254415bfda9290da1f1b23495757d19128d5a5156404421a728aab3e9d916",
+          "ts_code": "603398.SH",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "603879.SH",
+      "dates": [
+        "2024-09-30",
+        "2024-12-31"
+      ],
+      "difference": "-4951449.54",
+      "name": "exception_603879.SH_2024",
+      "resolved_as_equivalent": false,
+      "rows": 2,
+      "selected": [
+        {
+          "ann_date": "2024-10-30",
+          "available_versions": 2,
+          "end_date": "2024-09-30",
+          "fetched_at": "2026-10-31T21:35:47.600011+08:00",
+          "profit_dedt": "-34454768.33",
+          "q_dtprofit": "-9006384.04",
+          "source_content_hash": "45c5224d46f1fca0986933f8311d4493a58243b8d75efe05dcf9cfe029290b9d",
+          "ts_code": "603879.SH",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-04-21",
+          "available_versions": 2,
+          "end_date": "2024-12-31",
+          "fetched_at": "2026-11-01T10:28:19.282499+08:00",
+          "profit_dedt": "-145838842.62",
+          "q_dtprofit": "-116335523.83",
+          "source_content_hash": "5db7db0201f1d38a94626d878b8177ea93f2cd8afb0afa88130f5ac86311a0be",
+          "ts_code": "603879.SH",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "920138.BJ",
+      "dates": [
+        "2024-09-30",
+        "2024-12-31"
+      ],
+      "difference": "3.91",
+      "name": "exception_920138.BJ_2024",
+      "resolved_as_equivalent": false,
+      "rows": 3,
+      "selected": [
+        {
+          "ann_date": "2024-11-12",
+          "available_versions": 3,
+          "end_date": "2024-09-30",
+          "fetched_at": "2026-10-31T21:36:11.316152+08:00",
+          "profit_dedt": "568272535.32",
+          "q_dtprofit": "206106709.37",
+          "source_content_hash": "e344a9bba24b37393fcef1f80e8fb87df19e7f506f110f7f88578c5e34cecb69",
+          "ts_code": "920138.BJ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-07-30",
+          "available_versions": 3,
+          "end_date": "2024-12-31",
+          "fetched_at": "2026-11-01T10:29:47.299078+08:00",
+          "profit_dedt": "734314688.65",
+          "q_dtprofit": "166042157.24",
+          "source_content_hash": "8c542daf94a278c0574d8f8a240d998baffaa05611faa2a783c5a7c21d624abd",
+          "ts_code": "920138.BJ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "920158.BJ",
+      "dates": [
+        "2025-09-30",
+        "2025-12-31"
+      ],
+      "difference": "-140923.23",
+      "name": "exception_920158.BJ_2025",
+      "resolved_as_equivalent": false,
+      "rows": 5,
+      "selected": [
+        {
+          "ann_date": "2026-10-28",
+          "available_versions": 5,
+          "end_date": "2025-09-30",
+          "fetched_at": "2026-11-01T10:31:23.245319+08:00",
+          "profit_dedt": "32380880.87",
+          "q_dtprofit": "14721524.52",
+          "source_content_hash": "858da679592033de22c23e10a68c147b75b0c48421ad030f378d75f3b2da5f8a",
+          "ts_code": "920158.BJ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-04-11",
+          "available_versions": 5,
+          "end_date": "2025-12-31",
+          "fetched_at": "2026-08-29T20:13:56.775477+08:00",
+          "profit_dedt": "51318777.33",
+          "q_dtprofit": "18796973.23",
+          "source_content_hash": "dc34b7454e76777a4faf87b513e1cdc3181876ab71cab94fd1f7adcaac705f28",
+          "ts_code": "920158.BJ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "920160.BJ",
+      "dates": [
+        "2025-09-30",
+        "2025-12-31"
+      ],
+      "difference": "-340398.98",
+      "name": "exception_920160.BJ_2025",
+      "resolved_as_equivalent": false,
+      "rows": 4,
+      "selected": [
+        {
+          "ann_date": "2026-10-28",
+          "available_versions": 4,
+          "end_date": "2025-09-30",
+          "fetched_at": "2026-11-01T10:31:23.245319+08:00",
+          "profit_dedt": "62295135.65",
+          "q_dtprofit": "25869495.84",
+          "source_content_hash": "5c041dd86dfb9f95d6d64fa2a0bbd04d5db575afe7eef438b74c8e188a8537b3",
+          "ts_code": "920160.BJ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-04-03",
+          "available_versions": 4,
+          "end_date": "2025-12-31",
+          "fetched_at": "2026-11-01T10:28:08.64584+08:00",
+          "profit_dedt": "75609653.65",
+          "q_dtprofit": "12974119.02",
+          "source_content_hash": "846fa0dc899bfc1cc98a059a51debb0013de3d68aa7ee30fed4961eafe99c8ec",
+          "ts_code": "920160.BJ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "920165.BJ",
+      "dates": [
+        "2025-09-30",
+        "2025-12-31"
+      ],
+      "difference": "48.98",
+      "name": "exception_920165.BJ_2025",
+      "resolved_as_equivalent": false,
+      "rows": 3,
+      "selected": [
+        {
+          "ann_date": "2025-11-11",
+          "available_versions": 3,
+          "end_date": "2025-09-30",
+          "fetched_at": "2026-08-29T21:11:08.659801+08:00",
+          "profit_dedt": "44272861.86",
+          "q_dtprofit": "18221723.93",
+          "source_content_hash": "2173e31a75ba093010934bd37cc62e4951fd969a059d3fe2180f7d829690632f",
+          "ts_code": "920165.BJ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-07-27",
+          "available_versions": 3,
+          "end_date": "2025-12-31",
+          "fetched_at": "2026-11-01T10:29:46.605708+08:00",
+          "profit_dedt": "62062040.74",
+          "q_dtprofit": "17789227.86",
+          "source_content_hash": "f5b161fab7272c17a12ee413b57af448fd2220c1be9ee3e32a3066f345520252",
+          "ts_code": "920165.BJ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "code": "920339.BJ",
+      "dates": [
+        "2025-09-30",
+        "2025-12-31"
+      ],
+      "difference": "-76385.31",
+      "name": "exception_920339.BJ_2025",
+      "resolved_as_equivalent": false,
+      "rows": 4,
+      "selected": [
+        {
+          "ann_date": "2026-10-28",
+          "available_versions": 4,
+          "end_date": "2025-09-30",
+          "fetched_at": "2026-11-01T10:31:23.245319+08:00",
+          "profit_dedt": "40485040.4",
+          "q_dtprofit": "23351277.63",
+          "source_content_hash": "01453699122c8cb198d3f7b493a4d2aa3a7fd98b90651f8a9efe74ba02a61a96",
+          "ts_code": "920339.BJ",
+          "update_flag": "1"
+        },
+        {
+          "ann_date": "2026-10-28",
+          "available_versions": 4,
+          "end_date": "2025-12-31",
+          "fetched_at": "2026-11-01T10:31:23.245319+08:00",
+          "profit_dedt": "37903452.27",
+          "q_dtprofit": "-2657973.44",
+          "source_content_hash": "8f23dcefde24885014740bc5491ca901230450e2c8ae816b38f904afaf66e237",
+          "ts_code": "920339.BJ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "alternate_nonnull": true,
+      "code": "920038.BJ",
+      "dates": [
+        "2024-06-30"
+      ],
+      "name": "exception_920038_2024H1",
+      "preferred_is_null": true,
+      "rows": 2,
+      "selected": [
+        {
+          "ann_date": "2025-08-21",
+          "available_versions": 2,
+          "end_date": "2024-06-30",
+          "fetched_at": "2026-08-29T21:09:25.021747+08:00",
+          "profit_dedt": null,
+          "q_dtprofit": null,
+          "source_content_hash": "8c6b8f4bfb5a928714f19294a66d1eb0ab9125c1e96ce37a2b67188914ffd663",
+          "ts_code": "920038.BJ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "alternate_nonnull": true,
+      "code": "920165.BJ",
+      "dates": [
+        "2024-06-30"
+      ],
+      "name": "exception_920165_2024H1",
+      "preferred_is_null": true,
+      "rows": 2,
+      "selected": [
+        {
+          "ann_date": "2025-08-27",
+          "available_versions": 2,
+          "end_date": "2024-06-30",
+          "fetched_at": "2026-08-29T21:09:39.429127+08:00",
+          "profit_dedt": null,
+          "q_dtprofit": null,
+          "source_content_hash": "3d42d9832133df1effe5052bcf430d822eb9f816fb2ec0002ef162cd44f21350",
+          "ts_code": "920165.BJ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    },
+    {
+      "alternate_nonnull": true,
+      "code": "920165.BJ",
+      "dates": [
+        "2024-09-30"
+      ],
+      "name": "exception_920165_2024Q3",
+      "preferred_is_null": true,
+      "rows": 2,
+      "selected": [
+        {
+          "ann_date": "2025-11-11",
+          "available_versions": 2,
+          "end_date": "2024-09-30",
+          "fetched_at": "2026-08-29T21:11:08.659801+08:00",
+          "profit_dedt": null,
+          "q_dtprofit": null,
+          "source_content_hash": "cdf06fe23f79565b4f3e61aa5c6409a6705030f42af4a80fbbc19a0afd397706",
+          "ts_code": "920165.BJ",
+          "update_flag": "1"
+        }
+      ],
+      "truncated": false
+    }
+  ],
+  "global_rescan_performed": false,
+  "historical_conflict_total": 23,
+  "historical_unique_candidate_pairs": 22,
+  "rows": 67,
+  "units": 25
+}

@@ -1,0 +1,10 @@
+{
+  "artifact": "inputs/cashflow_2026-06-30.jsonl",
+  "fingerprint": {
+    "fetched_at": "2026-08-30T21:29:12.128677+08:00",
+    "n": 100
+  },
+  "rows": 100,
+  "sha256": "203b516357007fa619fecad276052ff6b916984dda6bed8413c1e9932907ee92",
+  "spec_hash": "52b3e026e61cfa41f7d80c9cc1363bc28355d72dfacdabc7ba07dcd4bc2a5563"
+}

@@ -1,0 +1,10 @@
+{
+  "artifact": "inputs/tree.jsonl",
+  "fingerprint": {
+    "content": "77aae14a0f19f26e166de86fb8ee187e",
+    "n": 496
+  },
+  "rows": 496,
+  "sha256": "e4d32f7ba232785dfbe831fcfe41c56c187243516c6ccf56415b723172967efb",
+  "spec_hash": "345473966649b23c1f6b52b4b0facb100fb8f5e8384d936c8a14a87ade7da497"
+}

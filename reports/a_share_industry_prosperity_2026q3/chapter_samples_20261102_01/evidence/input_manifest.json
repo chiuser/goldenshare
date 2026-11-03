@@ -1,0 +1,42 @@
+{
+  "hashes": {
+    "calculations/groups.json": "9211d701fe436cfb91abbf70cc83720feb80d3dac6981864c784ddc36e8879b1",
+    "calculations/three_year_common_panel.json": "967f6eb2afa7af8c425b9f5d76ad014084d0919d2d328d61a28ed0d92a158c73"
+  },
+  "source": "/Users/congming/github/goldenshare/reports/a_share_industry_prosperity_2026q3/formal_20261101_01",
+  "source_manifest_sha256": "6be2897438d1e17b57ca98c59d0229fa005acb15587aea3977813034fc4f2086",
+  "spec": {
+    "annotation_names": [
+      "电子",
+      "有色金属",
+      "煤炭",
+      "通信",
+      "食品饮料",
+      "房地产",
+      "农林牧渔",
+      "纺织服饰"
+    ],
+    "calculation_seconds": 60,
+    "default_industry": "非金融整体",
+    "featured_names": [
+      "电子",
+      "煤炭",
+      "食品饮料",
+      "农林牧渔"
+    ],
+    "financial_names": [
+      "银行",
+      "非银金融"
+    ],
+    "input_bytes": 52428800,
+    "memory_bytes": 268435456,
+    "money_tolerance_yuan": "1",
+    "near_zero_profit": "0.001",
+    "periods": [
+      "2024-09-30",
+      "2025-09-30",
+      "2026-09-30"
+    ],
+    "source_run": "formal_20261101_01"
+  }
+}

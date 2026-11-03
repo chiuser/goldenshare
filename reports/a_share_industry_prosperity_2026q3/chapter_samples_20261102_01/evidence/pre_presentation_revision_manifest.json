@@ -1,0 +1,33 @@
+{
+  "commit_created": false,
+  "files": {
+    "README.md": "20e1c291b582a85e435fec55386e029d4e238326e739d9f74ace8603f17e0216",
+    "data.json": "7952412aa12b409a8a54a1e0f464dea8d23665d3f5ccfc2b574fb6a3bd6107ad",
+    "evidence/browser_qa.json": "bbe51906ae7dad4dfd52714ac1fb6c88a061dd84e869b3e513a355da52ba4534",
+    "evidence/build_receipt.json": "e5d2f04cdee94bf6aaab4bc80a917c5649558e12f570f0fad2755a3181c3307f",
+    "evidence/build_stdout.txt": "8c64acd9ab2432fba758cccad8c23c292bce7a87379fff66256ae827eb6f462b",
+    "evidence/calculation_receipt.json": "fea033fabcda807a99988538cbb782636eee51953a77ea8d374bcce35144417e",
+    "evidence/data_acceptance.json": "f87142b99c93e7dd4b4d0601d29f24b37cb0402cb2c7dd5fc4d0227212057ae1",
+    "evidence/desktop_history.png": "0233d8693138d8cefa5f760ae95ec1bcacd978a1bd475e47e6a4dcf56c961cc8",
+    "evidence/desktop_quadrant.png": "a0e745501334a9a6d4bc40b3a2387d8be5f629c46c91dbcf1dd780571f112548",
+    "evidence/environment.json": "90a2484eb1562faf8dc4a7f52dfb3503c2de54bceb38a8daf05d5c315876d7fb",
+    "evidence/input_manifest.json": "73a43bb3ae839913a208e651824fc7fd10335eb673af5dd358bf10f600b3d57b",
+    "evidence/original_report_integrity.json": "07bf615317d41078fac9dde4e8294893bc2a140eac50a7aa5b4e5e6e10b600a0",
+    "evidence/phone_history.png": "eaedbc15ec489cd72839cc4a56f0b4e4c46dcf2536fd8328f30514af2f48933b",
+    "evidence/phone_quadrant.png": "f539cda48fec81f52f70b5f836f5a0319261e61762768aa40eaefe741ab68488",
+    "evidence/prepare_receipt.json": "5705e2d0fa135b0521a3b78edb5b67b7009921ea2205bff30a2e709c84c965e5",
+    "evidence/quadrant_exact.json": "9c188cc3a59df22b43cc6c62303889dbd5efdbdf63536843954c984f4247da90",
+    "evidence/spec_revision.json": "cf289fb3a75ac5ff38825311d19863fc80e8bfb9a4601197449163dde3857ac9",
+    "evidence/tests.txt": "f93b15404fb60cdbb4e259ef2d6ffb1be990da59f8db0a0a654aa06fa17c0f10",
+    "report.html": "e5b77eee2b53fbe732527af1cf32e50cba35d49ccd91fec968c8aab249bc16be"
+  },
+  "maintained_code": {
+    "scripts/research/industry_financial/sample_chapters.py": "3d777792e8d47eda0539ee4b73c72b28a23e1c04d81d7f8ab1c26e111bde0ab0",
+    "scripts/research/industry_financial/sample_report_app/ReportContent.jsx": "a13d71c987764d5ed7192c1ccbbb6862c573eceb7fb96e50e2e5b6ef2f5c9680",
+    "scripts/research/industry_financial/sample_report_app/report.css": "8130e2b28af5d0f1bb1edb81dd7ccc42088ec877b67b1085962c5da8ca1f0534",
+    "scripts/research/industry_financial/tests/test_sample_chapters.py": "ffddbe24f69430cc4e08711e6bde1bddf1218c4b1e1e7ef7359ff1010c191974"
+  },
+  "production_writes": false,
+  "scope": "two sample chapters awaiting reader review",
+  "source_connections": 0
+}

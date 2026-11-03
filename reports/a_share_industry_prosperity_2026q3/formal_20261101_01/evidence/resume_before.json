@@ -1,0 +1,133 @@
+{
+  "completed_hashes": {
+    "identity_p00": "b3c0c3f06555cd713b9f7ccd288f66dcfded922284d80c4cfd58f41ece81d5d5",
+    "identity_p01": "2bd3be2c8707757e12f12d605b828d94d179036e06851eb19009acf8c4574e3f",
+    "identity_p02": "7a4ca254a5d18b0e8ed66c748bde07774f807bb99a12fb774361d0d680f97e5b",
+    "income_2024-03-31_b00": "f8b35f57ce42eddb92d06f24f5be0182cc72ab5515fa435462c9893d76b3a982",
+    "mapping_b00": "3b885b736e235a1792d9fcfc39b6d3f2ccf459eb8e049fe90d170c2df37dc7b7",
+    "mapping_b01": "cc57403b9da4a8ac68ac8167240fe50409b395c67733593cd284eb6a07473c40",
+    "mapping_b02": "64532d3d10ce67926f8e10a4512809316e0e0fd9b2f9186651940476f06b71d5",
+    "mapping_b03": "24e25563a6d2f2aa569bc6db53acfd99580b8c70f179a63250a5faaabe515c4c",
+    "mapping_b04": "347f1c1c283ddd256437ac13122d3f39c14e6c9d425c7d3a1e5a24b52ad67e07",
+    "mapping_b05": "84e258acb7bd14db6aebc9130c6a975fa629a389df3f1592be263e1292146c08",
+    "mapping_b06": "cf3ec89b392b7f59e558280dc04d9c61ffbb80ee981f01ec85219e3a75800d90",
+    "mapping_b07": "deb65dd95bbba681e993a412f719bd36a832fd744aedc21e62d9a3ab355eb05a",
+    "mapping_b08": "8ae130cd43447609fcd6f960fc6c24d88163c0012c73aa2aa9cc5a192c188ad9",
+    "mapping_b09": "58823611aaaca4b9edfbbc7a1c4f61902e1d1d3bb737d8377dca3bdf42b27eea",
+    "mapping_b10": "45b7cafd2322504aa9331200c7ff7ed589eaa3cbae58c50e77d7d404ab8f78a0",
+    "mapping_b11": "9475edfe7de75d2bf9343bef5fdd7cb8b74bcf24de592bb3714d015ce2eb17a0",
+    "tree": "e4d32f7ba232785dfbe831fcfe41c56c187243516c6ccf56415b723172967efb",
+    "valuation_b00": "5c90c8da7d549023c023fde10bf564afe10fefa5c815b369934a90c4c2fecfeb",
+    "valuation_b01": "b7c31695c0eda2705fe2e4012d66444e803c05cf4f27cd92d509123792ed8dc7",
+    "valuation_b02": "343f562b84619cc8fa30de5206033f59883259dee69ed6a955de07177602130c"
+  },
+  "controlled_stop_after": 20,
+  "includes_first_real_financial_batch": true,
+  "terminal_state": {
+    "completed": 20,
+    "db_seconds": "17.105082621332258",
+    "elapsed_seconds": 20.657893167808652,
+    "execution_scope": {
+      "batch_rows": 2000,
+      "db_seconds": 900,
+      "max_codes": 5571,
+      "max_member_rows": 25000,
+      "max_rows": 245124,
+      "max_tree_rows": 496,
+      "member_batch_codes": 500,
+      "name": "formal"
+    },
+    "reason": "Controlled formal resume acceptance stop",
+    "spec": {
+      "confirmed": [
+        "scope",
+        "revenue_50_50",
+        "margin_seasonal_formula",
+        "seven_metric_weights",
+        "nine_quadrants"
+      ],
+      "coverage_denominator": "current_candidate_industry_known_revenue",
+      "formal_investment_ranking": false,
+      "mode": "current_company_formal_study",
+      "provisional": [
+        "coverage_and_company_gates",
+        "trend_tags",
+        "cashflow_and_scenario",
+        "percentile_and_sensitivity",
+        "financial_comparison"
+      ],
+      "values": {
+        "amount_tolerance": "1",
+        "baseline": "eastmoney_dc_industry_hierarchy.cn_a.v1",
+        "batch_rows": 2000,
+        "dates": [
+          "2024-03-31",
+          "2024-06-30",
+          "2024-09-30",
+          "2024-12-31",
+          "2025-03-31",
+          "2025-06-30",
+          "2025-09-30",
+          "2025-12-31",
+          "2026-03-31",
+          "2026-06-30",
+          "2026-09-30"
+        ],
+        "day_year": 360,
+        "db_seconds": 180,
+        "dimension_weights": [
+          "0.25",
+          "0.25",
+          "0.25",
+          "0.25"
+        ],
+        "disk_bytes": 157286400,
+        "excluded": [
+          "002717.SZ",
+          "002827.SZ",
+          "601326.SH",
+          "605258.SH",
+          "688121.SH",
+          "688496.SH"
+        ],
+        "max_codes": 100,
+        "max_exception_rows": 260,
+        "max_member_rows": 300,
+        "max_rows": 4400,
+        "max_tree_rows": 305,
+        "memory_bytes": 536870912,
+        "min_companies": 5,
+        "min_coverage": "0.90",
+        "min_peers": 5,
+        "model_weights": [
+          "0.25",
+          "0.5",
+          "0.75"
+        ],
+        "near_zero_profit": "0.001",
+        "per_root": 20,
+        "revenue_season_weight": "0.5",
+        "roots": [
+          "BK0438.DC",
+          "BK1201.DC",
+          "BK1206.DC",
+          "BK1209.DC",
+          "BK1216.DC"
+        ],
+        "sensitivity_weights": [
+          "0.15",
+          "0.20",
+          "0.25",
+          "0.30",
+          "0.35"
+        ],
+        "snapshot": "2026-10-30",
+        "total_seconds": 1800,
+        "unit_seconds": 30
+      }
+    },
+    "spec_hash": "345473966649b23c1f6b52b4b0facb100fb8f5e8384d936c8a14a87ade7da497",
+    "status": "CANCELLED",
+    "total_units": 151
+  }
+}

@@ -1,0 +1,26 @@
+[
+  {
+    "code": "301667.SZ",
+    "year": "2025",
+    "period": "20250930",
+    "field": "q_dtprofit",
+    "frozen_prod": "20816377.51",
+    "fresh_source": null
+  },
+  {
+    "code": "920158.BJ",
+    "year": "2025",
+    "period": "20251231",
+    "field": "ann_date",
+    "frozen_prod": "2026-04-11",
+    "fresh_source": "20260410"
+  },
+  {
+    "code": "920165.BJ",
+    "year": "2025",
+    "period": "20250930",
+    "field": "ann_date",
+    "frozen_prod": "2025-11-11",
+    "fresh_source": "20251110"
+  }
+]

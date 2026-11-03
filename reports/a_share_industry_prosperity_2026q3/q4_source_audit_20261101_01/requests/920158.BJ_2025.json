@@ -1,0 +1,25 @@
+{
+  "args": {
+    "ts_code": "920158.BJ",
+    "start_date": "20250101",
+    "end_date": "20251231",
+    "fields": [
+      "ts_code",
+      "ann_date",
+      "end_date",
+      "profit_dedt",
+      "q_dtprofit",
+      "update_flag"
+    ]
+  },
+  "at": "2026-11-01T12:57:42.843Z",
+  "result": {
+    "content": [
+      {
+        "type": "text",
+        "text": "[{\"ts_code\": \"920158.BJ\", \"ann_date\": \"20260410\", \"end_date\": \"20251231\", \"profit_dedt\": 51318777.33, \"q_dtprofit\": 18796973.23, \"update_flag\": \"1\"}, {\"ts_code\": \"920158.BJ\", \"ann_date\": \"20261028\", \"end_date\": \"20250930\", \"profit_dedt\": 32380880.87, \"q_dtprofit\": 14721524.52, \"update_flag\": \"1\"}, {\"ts_code\": \"920158.BJ\", \"ann_date\": \"20251030\", \"end_date\": \"20250930\", \"profit_dedt\": 32521804.1, \"q_dtprofit\": 14721524.52, \"update_flag\": \"0\"}, {\"ts_code\": \"920158.BJ\", \"ann_date\": \"20250808\", \"end_date\": \"20250630\", \"profit_dedt\": 17800279.58, \"q_dtprofit\": 23265311.78, \"update_flag\": \"1\"}, {\"ts_code\": \"920158.BJ\", \"ann_date\": \"20250708\", \"end_date\": \"20250331\", \"profit_dedt\": -5465032.2, \"q_dtprofit\": -5465032.2, \"update_flag\": \"1\"}]"
+      }
+    ],
+    "isError": false
+  }
+}

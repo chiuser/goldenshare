@@ -1,0 +1,44 @@
+{
+  "charts": 300,
+  "codegraph_scope": "local industry-report entry, projection, owned content and tests only",
+  "codegraph_tools": [
+    "codegraph_explore",
+    "codegraph_impact",
+    "codegraph sync",
+    "codegraph status"
+  ],
+  "committed_or_published": false,
+  "complete": true,
+  "core_12_unchanged": true,
+  "desktop_and_mobile_verified": true,
+  "earlier_queries_unchanged": 24,
+  "eligible_primary": 24,
+  "eligible_secondary": 89,
+  "final_report_sha256": "9ee84c5d0299b0da503bdfc00dd868fb6baad19499fa42a2e319e175f63c52d8",
+  "final_source_code_hashes": {
+    "scripts/research/industry_financial/forecast_publication.py": "9d34f85da7038cbfb8281cf3e1dd31aa9dcf8af5ad6b1505984bd8998f3495ff",
+    "scripts/research/industry_financial/publication.py": "977522c3da5f77bd1e40dd186d76b7ee2c5bda1951d317b87cee4eb0dad90c61",
+    "scripts/research/industry_financial/report_app/ForecastChapters.jsx": "4e1ab37f07477593db5630a6bf6d58e08f9797e13c25a39afde7d28a2dd1bf63",
+    "scripts/research/industry_financial/report_app/HistoryChapters.jsx": "01ae6a6e0ddce38a58e974289a26ba66a9a356cdf56ea799b201b7459c0d55e7",
+    "scripts/research/industry_financial/report_app/ReportContent.jsx": "e04fe626178d52352c952f0ba18d0455f07f5fbf4e3f000b836dc101c538c169",
+    "scripts/research/industry_financial/report_app/report.css": "19891869f878879f6ca703a39696e5b8aebe553f07047a411f7c52f2e6d628aa",
+    "scripts/research/industry_financial/tests/test_forecast_publication.py": "0879310128ad2a87f9c88981670ef300f0a246d8fafd4f25c059cf3f2555734e"
+  },
+  "frozen_source_files_unchanged": 4,
+  "limits_retained": [
+    "historical_deducted_profit_versions_unresolved",
+    "two_year_seasonal_forecast_not_empirically_validated"
+  ],
+  "model_weight_alternatives_same_score_companies": true,
+  "models_or_scores_recomputed": false,
+  "new_charts": 107,
+  "old_charts": 193,
+  "original_scores_ranks_and_raws_equal": true,
+  "original_ties_preserved": true,
+  "previous_files_unchanged": 4,
+  "source_connections": 0,
+  "stage": "forecast",
+  "tests_passed": 74,
+  "unit_hashes_valid": 31,
+  "validation_seconds": 0.08990612486377358
+}

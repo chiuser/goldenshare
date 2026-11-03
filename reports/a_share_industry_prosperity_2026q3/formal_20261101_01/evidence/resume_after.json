@@ -1,0 +1,12 @@
+{
+  "all_units": 151,
+  "old_hashes_unchanged": true,
+  "remaining_units": 131,
+  "reused_prior_units": 20,
+  "source_fingerprint_checks": {
+    "all_fingerprints_equal": true,
+    "limitation": "counts/latest timestamp are not atomic multi-table snapshots",
+    "units": 151
+  },
+  "status": "FORMAL_INPUTS_FROZEN"
+}

@@ -1,0 +1,26 @@
+{
+  "args": {
+    "ts_code": "300600.SZ",
+    "period": "20251231",
+    "fields": [
+      "ts_code",
+      "ann_date",
+      "end_date",
+      "profit_dedt",
+      "q_dtprofit",
+      "update_flag"
+    ]
+  },
+  "result": {
+    "status": "fulfilled",
+    "value": {
+      "content": [
+        {
+          "type": "text",
+          "text": "[{\"ts_code\": \"300600.SZ\", \"ann_date\": \"20261030\", \"end_date\": \"20251231\", \"profit_dedt\": -70758771.91, \"q_dtprofit\": -26496976.38, \"update_flag\": \"1\"}]"
+        }
+      ],
+      "isError": false
+    }
+  }
+}

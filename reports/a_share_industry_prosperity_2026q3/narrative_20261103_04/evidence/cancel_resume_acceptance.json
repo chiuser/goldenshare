@@ -1,0 +1,12 @@
+{
+  "cancelled_returncode": 1,
+  "committed_before_cancel": 4,
+  "committed_hashes": {
+    "units/BK0427.DC.json": "dde31235c2c04cfba559c42a66ac7b588100e61efa663e126b4dac44e44fcabd",
+    "units/BK0433.DC.json": "f847f9dd0838fb368ef9b443792aaa0f528f5bbf4308b4ae7a39e6a6373cc99c",
+    "units/BK0436.DC.json": "5cf2b9ae562d1a164ecbb365a4e813fd3d7b147eaf645c084b110ccd620d6fa4",
+    "units/BK0437.DC.json": "10c8d2fb03add5f2b0e5339ce33f964440cd6615f47f277d8e3766acde716ea6"
+  },
+  "completed_after_resume": 31,
+  "unchanged_on_resume": true
+}

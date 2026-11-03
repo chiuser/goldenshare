@@ -1,0 +1,10 @@
+{
+  "completed_units": 4,
+  "unit_hashes": {
+    "units/BK0433.DC.json": "b489a683b1970fc670e8365bfbebf8f8a552d4e35fea626b9d61b31aebbda7d5",
+    "units/BK0436.DC.json": "ebda311d56bbbbcfb03c434d60a06a8c42ed19c292fc31ddf9542c1a8b2455f7",
+    "units/BK0437.DC.json": "8f627a45d343ae46fd74f0cb83381dbff239b652357c1f67a592e22401996176",
+    "units/BK0427.DC.json": "f68b2c3f9fc397b2c128b53c48019859b0ec316827f0eb5dcb812429eb820759"
+  },
+  "cancelled_exit": 1
+}

@@ -1,0 +1,99 @@
+{
+  "chart_views": [
+    {
+      "id": "L1_chart1",
+      "rows": 29,
+      "same_coordinates_references": true
+    },
+    {
+      "id": "L1_chart2",
+      "rows": 29,
+      "same_coordinates_references": true
+    },
+    {
+      "id": "L1_chart3",
+      "rows": 29,
+      "same_coordinates_references": true
+    },
+    {
+      "id": "L1_chart4",
+      "rows": 29,
+      "same_coordinates_references": true
+    },
+    {
+      "id": "L1_chart5",
+      "rows": 24,
+      "same_coordinates_references": true
+    },
+    {
+      "id": "L1_chart6",
+      "rows": 24,
+      "same_coordinates_references": true
+    },
+    {
+      "id": "L1_chart7",
+      "rows": 29,
+      "same_coordinates_references": true
+    },
+    {
+      "id": "L1_chart8",
+      "rows": 29,
+      "same_coordinates_references": true
+    },
+    {
+      "id": "L1_chart9",
+      "rows": 29,
+      "same_coordinates_references": true
+    },
+    {
+      "id": "L2_chart1",
+      "rows": 124,
+      "same_coordinates_references": true
+    },
+    {
+      "id": "L2_chart2",
+      "rows": 124,
+      "same_coordinates_references": true
+    },
+    {
+      "id": "L2_chart3",
+      "rows": 124,
+      "same_coordinates_references": true
+    },
+    {
+      "id": "L2_chart4",
+      "rows": 124,
+      "same_coordinates_references": true
+    },
+    {
+      "id": "L2_chart5",
+      "rows": 89,
+      "same_coordinates_references": true
+    },
+    {
+      "id": "L2_chart6",
+      "rows": 94,
+      "same_coordinates_references": true
+    },
+    {
+      "id": "L2_chart7",
+      "rows": 124,
+      "same_coordinates_references": true
+    },
+    {
+      "id": "L2_chart8",
+      "rows": 124,
+      "same_coordinates_references": true
+    },
+    {
+      "id": "L2_chart9",
+      "rows": 124,
+      "same_coordinates_references": true
+    }
+  ],
+  "financial_observation_rows": 18,
+  "fixed_panel_display_pass": true,
+  "history_rows": 2552,
+  "ranking_and_forecast_display_pass": true,
+  "snapshot_sha256": "8391d37a77d61725996e453a0e7f9f4ab473c88976238d30258e9db7316192e2"
+}

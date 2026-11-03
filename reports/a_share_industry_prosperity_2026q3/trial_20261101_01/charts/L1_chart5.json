@@ -1,0 +1,39 @@
+{
+  "description": "固定100家代码顺序样本，非全行业结论；财报最新修订、价格/归属2026-10-30。",
+  "height": 400,
+  "id": "L1_chart5",
+  "rows": [],
+  "spec": {
+    "referenceLines": [
+      {
+        "axis": "x",
+        "label": "50分",
+        "value": 50.0
+      },
+      {
+        "axis": "y",
+        "label": "50分",
+        "value": 50.0
+      }
+    ],
+    "rowId": "row_id",
+    "type": "scatter",
+    "valueFormat": {
+      "maximumFractionDigits": 3,
+      "style": "decimal"
+    },
+    "x": "x",
+    "xDomain": [
+      0,
+      100
+    ],
+    "xLabel": "盈利前景G（分）",
+    "y": "y",
+    "yDomain": [
+      0,
+      100
+    ],
+    "yLabel": "估值吸引力V（分）"
+  },
+  "title": "试算样本 · 一级 · 预测：盈利前景与估值"
+}

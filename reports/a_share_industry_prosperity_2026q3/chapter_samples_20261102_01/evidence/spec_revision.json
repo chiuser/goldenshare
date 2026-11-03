@@ -1,0 +1,36 @@
+{
+  "previous": {
+    "annotation_names": [
+      "电子",
+      "有色金属",
+      "煤炭",
+      "通信",
+      "食品饮料",
+      "房地产",
+      "农林牧渔",
+      "纺织服饰"
+    ],
+    "calculation_seconds": 60,
+    "default_industry": "非金融整体",
+    "featured_names": [
+      "电子",
+      "煤炭",
+      "食品饮料",
+      "农林牧渔"
+    ],
+    "financial_names": [
+      "银行",
+      "非银金融"
+    ],
+    "input_bytes": 52428800,
+    "memory_bytes": 268435456,
+    "money_tolerance_yuan": "1",
+    "periods": [
+      "2024-09-30",
+      "2025-09-30",
+      "2026-09-30"
+    ],
+    "source_run": "formal_20261101_01"
+  },
+  "reason": "explicitly retain original research near-zero profit guard in display; source unchanged; draft before user review"
+}

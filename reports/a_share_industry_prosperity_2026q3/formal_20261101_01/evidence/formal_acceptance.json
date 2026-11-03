@@ -1,0 +1,3171 @@
+{
+  "child_sum_checks": [
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0427.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK0433.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK0436.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0437.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0438.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0456.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK0464.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0478.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-18",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-18",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0479.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK0486.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK0728.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-18",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-18",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-18",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1035.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1200.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1201.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1202.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1204.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1205.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1206.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1207.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-18",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-18",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1208.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1209.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1210.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1211.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-18",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-18",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-18",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1212.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-17",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-18",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-19",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-17",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1213.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-18",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-18",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-18",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1214.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1215.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-15",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-15",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-15",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1216.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1217.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "P",
+      "residual": "0.00",
+      "root": "BK1217.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "P",
+      "residual": "0E-16",
+      "root": "BK1217.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK1217.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK1217.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "P",
+      "residual": "0E-18",
+      "root": "BK1217.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1217.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "D",
+      "residual": "0.00",
+      "root": "BK1217.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "D",
+      "residual": "0E-16",
+      "root": "BK1217.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "D",
+      "residual": "0E-18",
+      "root": "BK1217.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "D",
+      "residual": "0E-18",
+      "root": "BK1217.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "D",
+      "residual": "0E-18",
+      "root": "BK1217.DC"
+    },
+    {
+      "field": "R9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1217.DC"
+    },
+    {
+      "field": "X9",
+      "kind": "C",
+      "residual": "0.00",
+      "root": "BK1217.DC"
+    },
+    {
+      "field": "R_base",
+      "kind": "C",
+      "residual": "0E-16",
+      "root": "BK1217.DC"
+    },
+    {
+      "field": "X_base",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1217.DC"
+    },
+    {
+      "field": "X_low",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1217.DC"
+    },
+    {
+      "field": "X_high",
+      "kind": "C",
+      "residual": "0E-17",
+      "root": "BK1217.DC"
+    }
+  ],
+  "children": 128,
+  "companies": 5571,
+  "data_quality": "known gaps retained; not a complete restatement audit",
+  "financial_rows": 242165,
+  "input_hashes_valid": true,
+  "input_units": 151,
+  "ledger_pass": true,
+  "manual_checks_pass": true,
+  "q4_conflict_company_years": 23,
+  "roots": 31,
+  "scope": "approved current-company full industry study",
+  "score_available": {
+    "1": 24,
+    "2": 89
+  },
+  "source_check": {
+    "all_fingerprints_equal": true,
+    "limitation": "counts/latest timestamp are not atomic multi-table snapshots",
+    "units": 151
+  },
+  "source_code_hashes": {
+    "/Users/congming/github/goldenshare/scripts/research/industry_financial/analysis.py": "2da63c2eef2357e4e8d552d5b9d37cdee56c856b350f5650362bddbda74c42f1",
+    "/Users/congming/github/goldenshare/scripts/research/industry_financial/charts.py": "faa252d55d5da256ba6efd54780b46ba363c65daa8e1b4ea17a24eff4abc7e3f",
+    "/Users/congming/github/goldenshare/scripts/research/industry_financial/extract.py": "9d6675c048f07fe56424325ad307d6893147737dc65a8551baaad8f45e9a6f18",
+    "/Users/congming/github/goldenshare/scripts/research/industry_financial/forecast.py": "cc519201747b98db6ad88131ee62736f02b62ec7ac7947ffe88ac96fcb063ed4",
+    "/Users/congming/github/goldenshare/scripts/research/industry_financial/formal.py": "e806c422d15d07c59f669b5e44baad8903a4be53d09e3f950a6872c416bf927e",
+    "/Users/congming/github/goldenshare/scripts/research/industry_financial/metrics.py": "481546b67b72e2db77df1632da6a76f17e59e904876330f005efaa8f4d6e72eb",
+    "/Users/congming/github/goldenshare/scripts/research/industry_financial/ranking.py": "83f6713c1288b52bb45709eed23ff8ad1d13591094a12ec69a02c9b3c39499c7",
+    "/Users/congming/github/goldenshare/scripts/research/industry_financial/report.py": "8237ca751ec8a8e34d5ea864068885b74222fe385211bb64f8afefbfa0074184",
+    "/Users/congming/github/goldenshare/scripts/research/industry_financial/run.py": "83051498b72d6fd7f74edcc67cd90cc5542c92bfe05dfeb9c5f080c5fba44dc1",
+    "/Users/congming/github/goldenshare/scripts/research/industry_financial/spec.py": "20a058ea62f58f57e2a15890ab1828090739e37b6e8a3c094c256f66559b4d6f",
+    "/Users/congming/github/goldenshare/scripts/research/industry_financial/storage.py": "ef1e25a55a12bd8013e2b57abcd244dfe2eb99f6810281bfbb07bfe3104145e3",
+    "/Users/congming/github/goldenshare/scripts/research/industry_financial/validation.py": "561c9e42e418efa5a1432b76da2af98f2f35039731d074d21c101391d032be89"
+  },
+  "spec_hash": "345473966649b23c1f6b52b4b0facb100fb8f5e8384d936c8a14a87ade7da497"
+}

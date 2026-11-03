@@ -1,0 +1,20 @@
+{
+  "stage": "current_revision_complete",
+  "full_report_complete": false,
+  "tests_passed": 44,
+  "all_existing_query_values_unchanged": true,
+  "old_report_and_frozen_sources_unchanged": true,
+  "source_connections": 0,
+  "receivable_parent_child_display_amounts_within_one_yuan": true,
+  "receivable_companies": 5364,
+  "receivable_current_billion_yuan": "112893.0152949824",
+  "receivable_previous_billion_yuan": "103920.5571174908",
+  "receivable_change_billion_yuan": "8972.4581774916",
+  "seconds": 0.04095720872282982,
+  "code_hashes": {
+    "scripts/research/industry_financial/publication.py": "affaf0c39652be2e6026c13c1c283952782e6ce4f800d77c7662ab9022a3516f",
+    "scripts/research/industry_financial/report_app/ReportContent.jsx": "44e8db4558ae2bd3c8c861eb868d513f48da8fd5afb28e82e7accc1582b1d887",
+    "scripts/research/industry_financial/report_app/report.css": "00df6c337a263bd5e98635acd51472a6fb4d924a66cc24a822b6c0b2639360bc",
+    "scripts/research/industry_financial/tests/test_publication.py": "48c0a338ffe045027bea1bc44c081acc4c22b0cbe8bf1c3e1ea873c8fd421962"
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "desktop": {
+    "bars": 18,
+    "height": 720,
+    "overflow": false,
+    "quadrantLegend": "一级行业零线：收入或利润率同比持平",
+    "removedAside": true,
+    "removedHistoryControl": true,
+    "removedIntro": true,
+    "removedReadingBlock": true,
+    "scatter": 29,
+    "updating": false,
+    "visibleSelectors": 0,
+    "width": 1280,
+    "yearLegends": 6
+  },
+  "phone": {
+    "barPanelWidths": [
+      350,
+      350
+    ],
+    "bars": 18,
+    "legends": 6,
+    "overflow": false,
+    "scatter": 29,
+    "visibleSelectors": 0,
+    "width": 390
+  },
+  "console": [],
+  "scope": "presentation only; shared edit/export/publish not rechecked"
+}

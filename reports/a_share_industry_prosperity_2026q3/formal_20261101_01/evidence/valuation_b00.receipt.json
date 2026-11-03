@@ -1,0 +1,10 @@
+{
+  "artifact": "inputs/valuation_b00.jsonl",
+  "fingerprint": {
+    "fetched_at": "2026-10-30T21:02:38.221793+08:00",
+    "n": 2000
+  },
+  "rows": 2000,
+  "sha256": "5c90c8da7d549023c023fde10bf564afe10fefa5c815b369934a90c4c2fecfeb",
+  "spec_hash": "345473966649b23c1f6b52b4b0facb100fb8f5e8384d936c8a14a87ade7da497"
+}

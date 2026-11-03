@@ -1,0 +1,10 @@
+{
+  "artifact": "inputs/fina_indicator_2025-06-30.jsonl",
+  "fingerprint": {
+    "fetched_at": "2026-08-29T21:11:20.333977+08:00",
+    "n": 100
+  },
+  "rows": 100,
+  "sha256": "3eb892230e82a353990ab3411b802b2fc9b6e005e1b39f8d29fc3e7e6b2635ce",
+  "spec_hash": "52b3e026e61cfa41f7d80c9cc1363bc28355d72dfacdabc7ba07dcd4bc2a5563"
+}

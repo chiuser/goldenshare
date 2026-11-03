@@ -1,0 +1,10 @@
+{
+  "initial_state_not_a_full_event_log": true,
+  "interpretation": "controlled stop after 4 reads, successful resume, exact-equality ledger check later corrected to the already approved 1-yuan tolerance",
+  "observed_previous_state": {
+    "error": "Ledger reconciliation failed",
+    "processed_units": 47,
+    "reason": "Planned stop for real resume acceptance",
+    "reused_units": 4
+  }
+}

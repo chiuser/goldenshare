@@ -1,0 +1,173 @@
+{
+  "scope": "3 named financial codes, 2 nine-month periods; schema and NULL audit only",
+  "rows": [
+    {
+      "ts_code": "600030.SH",
+      "period": "2025-09-30",
+      "report_type": "1",
+      "fields": {
+        "revenue": {
+          "present": true,
+          "non_null": true
+        },
+        "total_revenue": {
+          "present": true,
+          "non_null": true
+        },
+        "n_income_attr_p": {
+          "present": true,
+          "non_null": true
+        }
+      }
+    },
+    {
+      "ts_code": "601318.SH",
+      "period": "2025-09-30",
+      "report_type": "1",
+      "fields": {
+        "revenue": {
+          "present": true,
+          "non_null": true
+        },
+        "total_revenue": {
+          "present": true,
+          "non_null": true
+        },
+        "n_income_attr_p": {
+          "present": true,
+          "non_null": true
+        }
+      }
+    },
+    {
+      "ts_code": "601398.SH",
+      "period": "2025-09-30",
+      "report_type": "1",
+      "fields": {
+        "revenue": {
+          "present": true,
+          "non_null": true
+        },
+        "total_revenue": {
+          "present": true,
+          "non_null": true
+        },
+        "n_income_attr_p": {
+          "present": true,
+          "non_null": true
+        }
+      }
+    },
+    {
+      "ts_code": "600030.SH",
+      "period": "2026-09-30",
+      "report_type": "1",
+      "fields": {
+        "revenue": {
+          "present": true,
+          "non_null": true
+        },
+        "total_revenue": {
+          "present": true,
+          "non_null": true
+        },
+        "n_income_attr_p": {
+          "present": true,
+          "non_null": true
+        }
+      }
+    },
+    {
+      "ts_code": "601318.SH",
+      "period": "2026-09-30",
+      "report_type": "1",
+      "fields": {
+        "revenue": {
+          "present": true,
+          "non_null": true
+        },
+        "total_revenue": {
+          "present": true,
+          "non_null": true
+        },
+        "n_income_attr_p": {
+          "present": true,
+          "non_null": true
+        }
+      }
+    },
+    {
+      "ts_code": "601398.SH",
+      "period": "2026-09-30",
+      "report_type": "1",
+      "fields": {
+        "revenue": {
+          "present": true,
+          "non_null": true
+        },
+        "total_revenue": {
+          "present": true,
+          "non_null": true
+        },
+        "n_income_attr_p": {
+          "present": true,
+          "non_null": true
+        }
+      }
+    }
+  ],
+  "selected_matches": {
+    "2025-09-30": [
+      "600030.SH",
+      "601318.SH",
+      "601398.SH"
+    ],
+    "2026-09-30": [
+      "600030.SH",
+      "601318.SH",
+      "601398.SH"
+    ]
+  },
+  "read_file_checks": [
+    {
+      "artifact": "inputs/income_2025-09-30_b00.jsonl",
+      "hash_matches_receipt": true,
+      "matched_codes": []
+    },
+    {
+      "artifact": "inputs/income_2025-09-30_b01.jsonl",
+      "hash_matches_receipt": true,
+      "matched_codes": [
+        "600030.SH",
+        "601318.SH",
+        "601398.SH"
+      ]
+    },
+    {
+      "artifact": "inputs/income_2025-09-30_b02.jsonl",
+      "hash_matches_receipt": true,
+      "matched_codes": []
+    },
+    {
+      "artifact": "inputs/income_2026-09-30_b00.jsonl",
+      "hash_matches_receipt": true,
+      "matched_codes": []
+    },
+    {
+      "artifact": "inputs/income_2026-09-30_b01.jsonl",
+      "hash_matches_receipt": true,
+      "matched_codes": [
+        "600030.SH",
+        "601318.SH",
+        "601398.SH"
+      ]
+    },
+    {
+      "artifact": "inputs/income_2026-09-30_b02.jsonl",
+      "hash_matches_receipt": true,
+      "matched_codes": []
+    }
+  ],
+  "source_connections": 0,
+  "aggregations_executed": false
+}

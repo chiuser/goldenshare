@@ -1,0 +1,10 @@
+{
+  "artifact": "inputs/mapping.jsonl",
+  "fingerprint": {
+    "content": "d332b6e5ebb69ae01873a7a6305e439d",
+    "n": 299
+  },
+  "rows": 299,
+  "sha256": "89a51db8f542314c749ec9226ec12fc8a487ef58bb8c67414f971a53f9f281ac",
+  "spec_hash": "52b3e026e61cfa41f7d80c9cc1363bc28355d72dfacdabc7ba07dcd4bc2a5563"
+}

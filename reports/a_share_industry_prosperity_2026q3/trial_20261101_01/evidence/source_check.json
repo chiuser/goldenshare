@@ -1,0 +1,5 @@
+{
+  "all_fingerprints_equal": true,
+  "limitation": "counts/latest timestamp are not atomic multi-table snapshots",
+  "units": 72
+}

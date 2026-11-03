@@ -1,0 +1,4352 @@
+{
+  "1": {
+    "model_sensitivity": {
+      "0.25": {
+        "comparable_ranking": false,
+        "failed_original_candidates": [],
+        "original_metrics": [
+          {
+            "R25": "212688853644.68",
+            "R4_base": "35220557305.85039096098043445",
+            "R4_high": "40473998980.78368785231588724",
+            "R4_low": "33469410080.87262533053528352",
+            "R9": "153306514887.32",
+            "R9_previous": "171390033938.95",
+            "R_base": "188527072193.1703909609804344",
+            "R_high": "193780513868.1036878523158872",
+            "R_low": "186775924968.1926253305352836",
+            "X25": "31426623281.86",
+            "X4_base": "-387587633.1554602445460260727",
+            "X4_high": "1065881580.144608121915067507",
+            "X4_low": "-2143906489.641071413538428620",
+            "X9": "25584321669.34",
+            "X_base": "25196734036.18453975545397393",
+            "X_high": "26650203249.48460812191506751",
+            "X_low": "23440415179.69892858646157138",
+            "available": true,
+            "average_parent_equity": "324142207152.415",
+            "candidate_n": 20,
+            "child_count": 5,
+            "codes": [
+              "000529.SZ",
+              "000568.SZ",
+              "000596.SZ",
+              "000639.SZ",
+              "000716.SZ",
+              "000729.SZ",
+              "000752.SZ",
+              "000799.SZ",
+              "000848.SZ",
+              "000858.SZ",
+              "000860.SZ",
+              "000869.SZ",
+              "000895.SZ",
+              "000929.SZ",
+              "000995.SZ",
+              "001215.SZ",
+              "001219.SZ",
+              "001318.SZ",
+              "002216.SZ",
+              "002304.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "coverage_previous": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "deducted_ttm": "25493567165.28",
+            "eligible": true,
+            "income_method_A": "40473998980.78368785231588724",
+            "income_method_B": "33469410080.87262533053528352",
+            "kind": "D",
+            "level": 1,
+            "low_high_meaning": "simultaneous_child_model_bounds_not_probability",
+            "market_value_yuan": "697871603686.0000",
+            "n": 20,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "raw": [
+              "0.03610511432633322282865460435",
+              "-0.1136015406424377483367818905",
+              "-0.0141081935486770611786113719",
+              "0.09523295295878879732799562812",
+              "0.07864932922262932110699472107",
+              "0.2893822818873671292917787517",
+              "0.06970422650663359044231489382"
+            ],
+            "root": "BK0438.DC",
+            "sample_id": "dfaa234b66884a93",
+            "sample_losses": [],
+            "scope": "trial_child_amounts_sum",
+            "sector_code": "BK0438.DC",
+            "sector_name": "食品饮料"
+          },
+          {
+            "R25": "647177973534.58",
+            "R4_base": "237081226284.6239762685238787",
+            "R4_high": "249803611213.3323055734340562",
+            "R4_low": "214570247959.0578392576225871",
+            "R9": "605995421878.06",
+            "R9_previous": "473577381720.59",
+            "R_base": "843076648162.6839762685238787",
+            "R_high": "855799033091.3923055734340563",
+            "R_low": "820565669837.1178392576225871",
+            "X25": "8244781030.84",
+            "X4_base": "5790387712.941657896567480862",
+            "X4_high": "9159566532.556208981790748254",
+            "X4_low": "2333836397.888805514269231287",
+            "X9": "17422768190.84",
+            "X_base": "23213155903.78165789656748086",
+            "X_high": "26582334723.39620898179074825",
+            "X_low": "19756604588.72880551426923128",
+            "available": true,
+            "average_parent_equity": "294110578076.10",
+            "candidate_n": 20,
+            "child_count": 5,
+            "codes": [
+              "000020.SZ",
+              "000021.SZ",
+              "000045.SZ",
+              "000050.SZ",
+              "000062.SZ",
+              "000100.SZ",
+              "000509.SZ",
+              "000536.SZ",
+              "000636.SZ",
+              "000670.SZ",
+              "000725.SZ",
+              "000727.SZ",
+              "000823.SZ",
+              "001287.SZ",
+              "001298.SZ",
+              "001308.SZ",
+              "001309.SZ",
+              "001314.SZ",
+              "001373.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.9805858668312636434627962445"
+            },
+            "coverage_previous": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.9849291300100129621284817039"
+            },
+            "deducted_ttm": "19614358518.67",
+            "eligible": true,
+            "income_method_A": "222398336189.3372647095372076",
+            "income_method_B": "241975522983.0528801215194358",
+            "kind": "D",
+            "level": 1,
+            "low_high_meaning": "simultaneous_child_model_bounds_not_probability",
+            "market_value_yuan": "524819796081.0000",
+            "n": 19,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "raw": [
+              "0.04423071705206594344118478991",
+              "0.302696758293855503669613619",
+              "0.01479427334305305818876508288",
+              "0.04517404848317240830911432771",
+              "0.06669042183717329234649667192",
+              "0.6144177647327290103628724787",
+              "0.1489048421240192166306356582"
+            ],
+            "root": "BK1201.DC",
+            "sample_id": "26853d63d40ac358",
+            "sample_losses": [
+              {
+                "code": "001232.SZ",
+                "details": [
+                  {
+                    "code": "001232.SZ",
+                    "comparability": null,
+                    "missing": [
+                      {
+                        "basis": "reported",
+                        "dataset": "income",
+                        "field": "revenue",
+                        "period": "2024-09-30"
+                      },
+                      {
+                        "basis": "reported",
+                        "dataset": "fina_indicator",
+                        "field": "profit_dedt",
+                        "period": "2024-09-30"
+                      },
+                      {
+                        "basis": "reported",
+                        "dataset": "fina_indicator",
+                        "field": "profit_dedt",
+                        "period": "2025-09-30"
+                      },
+                      {
+                        "basis": "reported",
+                        "dataset": "balancesheet",
+                        "field": "total_hldr_eqy_exc_min_int",
+                        "period": "2025-09-30"
+                      }
+                    ],
+                    "reason": "missing_or_invalid_inputs"
+                  }
+                ],
+                "reason": "excluded_or_invalid_child_model"
+              }
+            ],
+            "scope": "trial_child_amounts_sum",
+            "sector_code": "BK1201.DC",
+            "sector_name": "电子"
+          },
+          {
+            "R25": "124041285843.99",
+            "R4_base": "34413137183.26384242892931817",
+            "R4_high": "36017605915.39955298188256119",
+            "R4_low": "33607289672.66262562695383289",
+            "R9": "99949735833.50",
+            "R9_previous": "91880164713.35",
+            "R_base": "134362873016.7638424289293182",
+            "R_high": "135967341748.8995529818825612",
+            "R_low": "133557025506.1626256269538329",
+            "X25": "9107811145.05",
+            "X4_base": "2923432461.167910615484879655",
+            "X4_high": "5125863392.803265256091564065",
+            "X4_low": "1197841672.072172470200590091",
+            "X9": "14798606631.10",
+            "X_base": "17722039092.26791061548487965",
+            "X_high": "19924470023.90326525609156407",
+            "X_low": "15996448303.17217247020059009",
+            "available": true,
+            "average_parent_equity": "142203806053.91",
+            "candidate_n": 20,
+            "child_count": 5,
+            "codes": [
+              "000408.SZ",
+              "000420.SZ",
+              "000510.SZ",
+              "000525.SZ",
+              "000545.SZ",
+              "000553.SZ",
+              "000565.SZ",
+              "000635.SZ",
+              "000677.SZ",
+              "000683.SZ",
+              "000691.SZ",
+              "000707.SZ",
+              "000731.SZ",
+              "000782.SZ",
+              "000792.SZ",
+              "000818.SZ",
+              "000822.SZ",
+              "000830.SZ",
+              "000859.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.8359774662186175053026252849"
+            },
+            "coverage_previous": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.8273992795339701454873962740"
+            },
+            "deducted_ttm": "16673135907.68",
+            "eligible": false,
+            "income_method_A": "35611069015.56558305539595476",
+            "income_method_B": "34013826572.49659555344043931",
+            "kind": "D",
+            "level": 1,
+            "low_high_meaning": "simultaneous_child_model_bounds_not_probability",
+            "market_value_yuan": "333175646351.0000",
+            "n": 19,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown"
+            ],
+            "raw": [
+              "0.05319127999408987815861947009",
+              "0.083210901132995147395423578",
+              "0.05847120263280587720227535236",
+              "0.1540493547362568077577189248",
+              "0.1172481691619361524014344737",
+              "0.4198260110500188948530341654",
+              "0.09736976541534714675271327732"
+            ],
+            "root": "BK1206.DC",
+            "sample_id": "67812f2c4c18b6ae",
+            "sample_losses": [
+              {
+                "code": "000422.SZ",
+                "details": [
+                  {
+                    "code": "000422.SZ",
+                    "comparability": {
+                      "boundary": "2025-01-01",
+                      "disclosed_adjusted_2024_parent_profit": "1067484892.73",
+                      "disclosed_adjusted_2024_revenue": "25394172300.46",
+                      "prod_2024_parent_profit": "652544554.42",
+                      "prod_2024_revenue": "16963593887.39",
+                      "reason": "同控合并：2024原口径及2025Q1未重述；2025H1/9M累计R/P/D/C已与年报分季表加总一致，避免无依据整家公司跨期全删",
+                      "scope": "cross_2024_2025_or_comparisons_using_unrestated_2025Q1",
+                      "source_pages": [
+                        8,
+                        9,
+                        10
+                      ],
+                      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-25/1225183616.PDF",
+                      "unrestated_periods": [
+                        "2025-03-31"
+                      ]
+                    },
+                    "missing": [],
+                    "reason": "known_comparability_boundary"
+                  }
+                ],
+                "reason": "excluded_or_invalid_child_model"
+              }
+            ],
+            "scope": "trial_child_amounts_sum",
+            "sector_code": "BK1206.DC",
+            "sector_name": "基础化工"
+          },
+          {
+            "R25": "345178928413.43",
+            "R4_base": "112872224525.9061349497121127",
+            "R4_high": "121570692267.0492411297187250",
+            "R4_low": "102026082391.8456070544456325",
+            "R9": "211926313655.89",
+            "R9_previous": "227029596783.08",
+            "R_base": "324798538181.7961349497121127",
+            "R_high": "333497005922.9392411297187249",
+            "R_low": "313952396047.7356070544456326",
+            "X25": "5895739781.39",
+            "X4_base": "1726695086.372156165116775311",
+            "X4_high": "2415511432.228425230207835792",
+            "X4_low": "992152077.8686227463866580528",
+            "X9": "3398902447.65",
+            "X_base": "5125597534.022156165116775311",
+            "X_high": "5814413879.878425230207835792",
+            "X_low": "4391054525.518622746386658053",
+            "available": true,
+            "average_parent_equity": "139087068130.07",
+            "candidate_n": 20,
+            "child_count": 5,
+            "codes": [
+              "000010.SZ",
+              "000032.SZ",
+              "000065.SZ",
+              "000498.SZ",
+              "000628.SZ",
+              "000779.SZ",
+              "000928.SZ",
+              "002047.SZ",
+              "002051.SZ",
+              "002060.SZ",
+              "002061.SZ",
+              "002062.SZ",
+              "002081.SZ",
+              "002116.SZ",
+              "002135.SZ",
+              "002140.SZ",
+              "002163.SZ",
+              "002200.SZ",
+              "002307.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.9975218180626305186588614831"
+            },
+            "coverage_previous": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.9977957765647553425004190069"
+            },
+            "deducted_ttm": "5211437349.55",
+            "eligible": true,
+            "income_method_A": "109650712936.5300023768223109",
+            "income_method_B": "113946061722.3648458073420466",
+            "kind": "D",
+            "level": 1,
+            "low_high_meaning": "simultaneous_child_model_bounds_not_probability",
+            "market_value_yuan": "141518959114.0000",
+            "n": 19,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "raw": [
+              "0.03621845133762786308106745556",
+              "-0.0590429732350977363997764955",
+              "-0.00129939082736237210280403016",
+              "-0.03357616186564681656090959071",
+              "0.03746888491945507211731919440",
+              "0.7618117179608029437922753603",
+              "0.1433087564187122629164712204"
+            ],
+            "root": "BK1209.DC",
+            "sample_id": "bdf2a4349c016d6f",
+            "sample_losses": [
+              {
+                "code": "001396.SZ",
+                "details": [
+                  {
+                    "code": "001396.SZ",
+                    "comparability": null,
+                    "missing": [
+                      {
+                        "basis": "reported",
+                        "dataset": "income",
+                        "field": "revenue",
+                        "period": "2024-06-30"
+                      },
+                      {
+                        "basis": "reported",
+                        "dataset": "income",
+                        "field": "revenue",
+                        "period": "2024-09-30"
+                      },
+                      {
+                        "basis": "reported",
+                        "dataset": "fina_indicator",
+                        "field": "profit_dedt",
+                        "period": "2024-06-30"
+                      }
+                    ],
+                    "reason": "missing_or_invalid_inputs"
+                  }
+                ],
+                "reason": "excluded_or_invalid_child_model"
+              }
+            ],
+            "scope": "trial_child_amounts_sum",
+            "sector_code": "BK1209.DC",
+            "sector_name": "建筑装饰"
+          },
+          {
+            "R25": "235690547749.89",
+            "R4_base": "55399678277.90532633097355213",
+            "R4_high": "55914730726.29815383013063040",
+            "R4_low": "54073322643.12558226254952425",
+            "R9": "170345329945.99",
+            "R9_previous": "178281808138.72",
+            "R_base": "225745008223.8953263309735522",
+            "R_high": "226260060672.2881538301306305",
+            "R_low": "224418652589.1155822625495242",
+            "X25": "12033842988.44",
+            "X4_base": "-991681248.5667822648754727494",
+            "X4_high": "410988219.3588737336331783797",
+            "X4_low": "-2433132667.303479199167819494",
+            "X9": "11675050781.71",
+            "X_base": "10683369533.14321773512452725",
+            "X_high": "12086039001.06887373363317837",
+            "X_low": "9241918114.406520800832180506",
+            "available": true,
+            "average_parent_equity": "174628140674.18",
+            "candidate_n": 20,
+            "child_count": 5,
+            "codes": [
+              "000028.SZ",
+              "000078.SZ",
+              "000153.SZ",
+              "000403.SZ",
+              "000411.SZ",
+              "000423.SZ",
+              "000504.SZ",
+              "000513.SZ",
+              "000516.SZ",
+              "000518.SZ",
+              "000534.SZ",
+              "000538.SZ",
+              "000566.SZ",
+              "000590.SZ",
+              "000597.SZ",
+              "000623.SZ",
+              "000650.SZ",
+              "000661.SZ",
+              "000705.SZ",
+              "000710.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "coverage_previous": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "deducted_ttm": "11550438386.36",
+            "eligible": true,
+            "income_method_A": "54182723498.32495147707312770",
+            "income_method_B": "55805329871.09878461560702695",
+            "kind": "D",
+            "level": 1,
+            "low_high_meaning": "simultaneous_child_model_bounds_not_probability",
+            "market_value_yuan": "282667362664.0000",
+            "n": 20,
+            "negative_equity_companies": 1,
+            "qualification_failures": [],
+            "raw": [
+              "0.03779484632558123132354625948",
+              "-0.0421974475469787497587782048",
+              "-0.00373286658089793054606547342",
+              "0.06161801476106206713882301467",
+              "0.06614305312859471813514140921",
+              "0.4040656416466915030045906091",
+              "0.1349247926194872464757638605"
+            ],
+            "root": "BK1216.DC",
+            "sample_id": "3c792bdca7b75980",
+            "sample_losses": [],
+            "scope": "trial_child_amounts_sum",
+            "sector_code": "BK1216.DC",
+            "sector_name": "医药生物"
+          }
+        ],
+        "reason": "original_peer_group_not_complete_or_small"
+      },
+      "0.75": {
+        "comparable_ranking": false,
+        "failed_original_candidates": [],
+        "original_metrics": [
+          {
+            "R25": "212688853644.68",
+            "R4_base": "38722851755.80592222187073629",
+            "R4_high": "40473998980.78368785231588724",
+            "R4_low": "33469410080.87262533053528352",
+            "R9": "153306514887.32",
+            "R9_previous": "171390033938.95",
+            "R_base": "192029366643.1259222218707363",
+            "R_high": "193780513868.1036878523158872",
+            "R_low": "186775924968.1926253305352836",
+            "X25": "31426623281.86",
+            "X4_base": "-487403948.5564438180571204880",
+            "X4_high": "1065881580.144608121915067507",
+            "X4_low": "-2143906489.641071413538428620",
+            "X9": "25584321669.34",
+            "X_base": "25096917720.78355618194287952",
+            "X_high": "26650203249.48460812191506751",
+            "X_low": "23440415179.69892858646157138",
+            "available": true,
+            "average_parent_equity": "324142207152.415",
+            "candidate_n": 20,
+            "child_count": 5,
+            "codes": [
+              "000529.SZ",
+              "000568.SZ",
+              "000596.SZ",
+              "000639.SZ",
+              "000716.SZ",
+              "000729.SZ",
+              "000752.SZ",
+              "000799.SZ",
+              "000848.SZ",
+              "000858.SZ",
+              "000860.SZ",
+              "000869.SZ",
+              "000895.SZ",
+              "000929.SZ",
+              "000995.SZ",
+              "001215.SZ",
+              "001219.SZ",
+              "001318.SZ",
+              "002216.SZ",
+              "002304.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "coverage_previous": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "deducted_ttm": "25493567165.28",
+            "eligible": true,
+            "income_method_A": "40473998980.78368785231588724",
+            "income_method_B": "33469410080.87262533053528352",
+            "kind": "D",
+            "level": 1,
+            "low_high_meaning": "simultaneous_child_model_bounds_not_probability",
+            "market_value_yuan": "697871603686.0000",
+            "n": 20,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "raw": [
+              "0.03596208469900095086463666759",
+              "-0.0971347893767296857947659808",
+              "-0.0170655519260311699164673953",
+              "0.09523295295878879732799562812",
+              "0.07864932922262932110699472107",
+              "0.2893822818873671292917787517",
+              "0.06600422249114779258693908009"
+            ],
+            "root": "BK0438.DC",
+            "sample_id": "dfaa234b66884a93",
+            "sample_losses": [],
+            "scope": "trial_child_amounts_sum",
+            "sector_code": "BK0438.DC",
+            "sector_name": "食品饮料"
+          },
+          {
+            "R25": "647177973534.58",
+            "R4_base": "227292632887.7661685625327646",
+            "R4_high": "249803611213.3323055734340562",
+            "R4_low": "214570247959.0578392576225871",
+            "R9": "605995421878.06",
+            "R9_previous": "473577381720.59",
+            "R_base": "833288054765.8261685625327646",
+            "R_high": "855799033091.3923055734340563",
+            "R_low": "820565669837.1178392576225871",
+            "X25": "8244781030.84",
+            "X4_base": "4949020323.082330892423432786",
+            "X4_high": "9159566532.556208981790748254",
+            "X4_low": "2333836397.888805514269231287",
+            "X9": "17422768190.84",
+            "X_base": "22371788513.92233089242343278",
+            "X_high": "26582334723.39620898179074825",
+            "X_low": "19756604588.72880551426923128",
+            "available": true,
+            "average_parent_equity": "294110578076.10",
+            "candidate_n": 20,
+            "child_count": 5,
+            "codes": [
+              "000020.SZ",
+              "000021.SZ",
+              "000045.SZ",
+              "000050.SZ",
+              "000062.SZ",
+              "000100.SZ",
+              "000509.SZ",
+              "000536.SZ",
+              "000636.SZ",
+              "000670.SZ",
+              "000725.SZ",
+              "000727.SZ",
+              "000823.SZ",
+              "001287.SZ",
+              "001298.SZ",
+              "001308.SZ",
+              "001309.SZ",
+              "001314.SZ",
+              "001373.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.9805858668312636434627962445"
+            },
+            "coverage_previous": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.9849291300100129621284817039"
+            },
+            "deducted_ttm": "19614358518.67",
+            "eligible": true,
+            "income_method_A": "222398336189.3372647095372076",
+            "income_method_B": "241975522983.0528801215194358",
+            "kind": "D",
+            "level": 1,
+            "low_high_meaning": "simultaneous_child_model_bounds_not_probability",
+            "market_value_yuan": "524819796081.0000",
+            "n": 19,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "raw": [
+              "0.04262756222417627393053815865",
+              "0.287571717273999496800238153",
+              "0.01410801652112882449659133568",
+              "0.04517404848317240830911432771",
+              "0.06669042183717329234649667192",
+              "0.6144177647327290103628724787",
+              "0.1168965066680320856847666244"
+            ],
+            "root": "BK1201.DC",
+            "sample_id": "26853d63d40ac358",
+            "sample_losses": [
+              {
+                "code": "001232.SZ",
+                "details": [
+                  {
+                    "code": "001232.SZ",
+                    "comparability": null,
+                    "missing": [
+                      {
+                        "basis": "reported",
+                        "dataset": "income",
+                        "field": "revenue",
+                        "period": "2024-09-30"
+                      },
+                      {
+                        "basis": "reported",
+                        "dataset": "fina_indicator",
+                        "field": "profit_dedt",
+                        "period": "2024-09-30"
+                      },
+                      {
+                        "basis": "reported",
+                        "dataset": "fina_indicator",
+                        "field": "profit_dedt",
+                        "period": "2025-09-30"
+                      },
+                      {
+                        "basis": "reported",
+                        "dataset": "balancesheet",
+                        "field": "total_hldr_eqy_exc_min_int",
+                        "period": "2025-09-30"
+                      }
+                    ],
+                    "reason": "missing_or_invalid_inputs"
+                  }
+                ],
+                "reason": "excluded_or_invalid_child_model"
+              }
+            ],
+            "scope": "trial_child_amounts_sum",
+            "sector_code": "BK1201.DC",
+            "sector_name": "电子"
+          },
+          {
+            "R25": "124041285843.99",
+            "R4_base": "35211758404.79833617990707590",
+            "R4_high": "36017605915.39955298188256119",
+            "R4_low": "33607289672.66262562695383289",
+            "R9": "99949735833.50",
+            "R9_previous": "91880164713.35",
+            "R_base": "135161494238.2983361799070759",
+            "R_high": "135967341748.8995529818825612",
+            "R_low": "133557025506.1626256269538329",
+            "X25": "9107811145.05",
+            "X4_base": "3260051395.932524137733411279",
+            "X4_high": "5125863392.803265256091564065",
+            "X4_low": "1197841672.072172470200590091",
+            "X9": "14798606631.10",
+            "X_base": "18058658027.03252413773341127",
+            "X_high": "19924470023.90326525609156407",
+            "X_low": "15996448303.17217247020059009",
+            "available": true,
+            "average_parent_equity": "142203806053.91",
+            "candidate_n": 20,
+            "child_count": 5,
+            "codes": [
+              "000408.SZ",
+              "000420.SZ",
+              "000510.SZ",
+              "000525.SZ",
+              "000545.SZ",
+              "000553.SZ",
+              "000565.SZ",
+              "000635.SZ",
+              "000677.SZ",
+              "000683.SZ",
+              "000691.SZ",
+              "000707.SZ",
+              "000731.SZ",
+              "000782.SZ",
+              "000792.SZ",
+              "000818.SZ",
+              "000822.SZ",
+              "000830.SZ",
+              "000859.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.8359774662186175053026252849"
+            },
+            "coverage_previous": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.8273992795339701454873962740"
+            },
+            "deducted_ttm": "16673135907.68",
+            "eligible": false,
+            "income_method_A": "35611069015.56558305539595476",
+            "income_method_B": "34013826572.49659555344043931",
+            "kind": "D",
+            "level": 1,
+            "low_high_meaning": "simultaneous_child_model_bounds_not_probability",
+            "market_value_yuan": "333175646351.0000",
+            "n": 19,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown"
+            ],
+            "raw": [
+              "0.05420161474829933206186488708",
+              "0.089649251204107282959480548",
+              "0.06018236538861438712849049456",
+              "0.1540493547362568077577189248",
+              "0.1172481691619361524014344737",
+              "0.4198260110500188948530341654",
+              "0.1141950703520367167832307138"
+            ],
+            "root": "BK1206.DC",
+            "sample_id": "67812f2c4c18b6ae",
+            "sample_losses": [
+              {
+                "code": "000422.SZ",
+                "details": [
+                  {
+                    "code": "000422.SZ",
+                    "comparability": {
+                      "boundary": "2025-01-01",
+                      "disclosed_adjusted_2024_parent_profit": "1067484892.73",
+                      "disclosed_adjusted_2024_revenue": "25394172300.46",
+                      "prod_2024_parent_profit": "652544554.42",
+                      "prod_2024_revenue": "16963593887.39",
+                      "reason": "同控合并：2024原口径及2025Q1未重述；2025H1/9M累计R/P/D/C已与年报分季表加总一致，避免无依据整家公司跨期全删",
+                      "scope": "cross_2024_2025_or_comparisons_using_unrestated_2025Q1",
+                      "source_pages": [
+                        8,
+                        9,
+                        10
+                      ],
+                      "source_url": "https://static.cninfo.com.cn/finalpage/2026-04-25/1225183616.PDF",
+                      "unrestated_periods": [
+                        "2025-03-31"
+                      ]
+                    },
+                    "missing": [],
+                    "reason": "known_comparability_boundary"
+                  }
+                ],
+                "reason": "excluded_or_invalid_child_model"
+              }
+            ],
+            "scope": "trial_child_amounts_sum",
+            "sector_code": "BK1206.DC",
+            "sector_name": "基础化工"
+          },
+          {
+            "R25": "345178928413.43",
+            "R4_base": "110724550132.9887132344522448",
+            "R4_high": "121570692267.0492411297187250",
+            "R4_low": "102026082391.8456070544456325",
+            "R9": "211926313655.89",
+            "R9_previous": "227029596783.08",
+            "R_base": "322650863788.8787132344522449",
+            "R_high": "333497005922.9392411297187249",
+            "R_low": "313952396047.7356070544456326",
+            "X25": "5895739781.39",
+            "X4_base": "1626414435.084266765086175437",
+            "X4_high": "2415511432.228425230207835792",
+            "X4_low": "992152077.8686227463866580528",
+            "X9": "3398902447.65",
+            "X_base": "5025316882.734266765086175437",
+            "X_high": "5814413879.878425230207835792",
+            "X_low": "4391054525.518622746386658053",
+            "available": true,
+            "average_parent_equity": "139087068130.07",
+            "candidate_n": 20,
+            "child_count": 5,
+            "codes": [
+              "000010.SZ",
+              "000032.SZ",
+              "000065.SZ",
+              "000498.SZ",
+              "000628.SZ",
+              "000779.SZ",
+              "000928.SZ",
+              "002047.SZ",
+              "002051.SZ",
+              "002060.SZ",
+              "002061.SZ",
+              "002062.SZ",
+              "002081.SZ",
+              "002116.SZ",
+              "002135.SZ",
+              "002140.SZ",
+              "002163.SZ",
+              "002200.SZ",
+              "002307.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.9975218180626305186588614831"
+            },
+            "coverage_previous": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.9977957765647553425004190069"
+            },
+            "deducted_ttm": "5211437349.55",
+            "eligible": true,
+            "income_method_A": "109650712936.5300023768223109",
+            "income_method_B": "113946061722.3648458073420466",
+            "kind": "D",
+            "level": 1,
+            "low_high_meaning": "simultaneous_child_model_bounds_not_probability",
+            "market_value_yuan": "141518959114.0000",
+            "n": 19,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "raw": [
+              "0.03550984909863662838165450186",
+              "-0.0652648895113574936847455140",
+              "-0.00150515045127345204078976470",
+              "-0.03357616186564681656090959071",
+              "0.03746888491945507211731919440",
+              "0.7618117179608029437922753603",
+              "0.1262134054460945553108910710"
+            ],
+            "root": "BK1209.DC",
+            "sample_id": "bdf2a4349c016d6f",
+            "sample_losses": [
+              {
+                "code": "001396.SZ",
+                "details": [
+                  {
+                    "code": "001396.SZ",
+                    "comparability": null,
+                    "missing": [
+                      {
+                        "basis": "reported",
+                        "dataset": "income",
+                        "field": "revenue",
+                        "period": "2024-06-30"
+                      },
+                      {
+                        "basis": "reported",
+                        "dataset": "income",
+                        "field": "revenue",
+                        "period": "2024-09-30"
+                      },
+                      {
+                        "basis": "reported",
+                        "dataset": "fina_indicator",
+                        "field": "profit_dedt",
+                        "period": "2024-06-30"
+                      }
+                    ],
+                    "reason": "missing_or_invalid_inputs"
+                  }
+                ],
+                "reason": "excluded_or_invalid_child_model"
+              }
+            ],
+            "scope": "trial_child_amounts_sum",
+            "sector_code": "BK1209.DC",
+            "sector_name": "建筑装饰"
+          },
+          {
+            "R25": "235690547749.89",
+            "R4_base": "54588375091.51840976170660252",
+            "R4_high": "55914730726.29815383013063040",
+            "R4_low": "54073322643.12558226254952425",
+            "R9": "170345329945.99",
+            "R9_previous": "178281808138.72",
+            "R_base": "224933705037.5084097617066025",
+            "R_high": "226260060672.2881538301306305",
+            "R_low": "224418652589.1155822625495242",
+            "X25": "12033842988.44",
+            "X4_base": "-993267295.6335148501990938406",
+            "X4_high": "410988219.3588737336331783797",
+            "X4_low": "-2433132667.303479199167819494",
+            "X9": "11675050781.71",
+            "X_base": "10681783486.07648514980090616",
+            "X_high": "12086039001.06887373363317837",
+            "X_low": "9241918114.406520800832180506",
+            "available": true,
+            "average_parent_equity": "174628140674.18",
+            "candidate_n": 20,
+            "child_count": 5,
+            "codes": [
+              "000028.SZ",
+              "000078.SZ",
+              "000153.SZ",
+              "000403.SZ",
+              "000411.SZ",
+              "000423.SZ",
+              "000504.SZ",
+              "000513.SZ",
+              "000516.SZ",
+              "000518.SZ",
+              "000534.SZ",
+              "000538.SZ",
+              "000566.SZ",
+              "000590.SZ",
+              "000597.SZ",
+              "000623.SZ",
+              "000650.SZ",
+              "000661.SZ",
+              "000705.SZ",
+              "000710.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "coverage_previous": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "deducted_ttm": "11550438386.36",
+            "eligible": true,
+            "income_method_A": "54182723498.32495147707312770",
+            "income_method_B": "55805329871.09878461560702695",
+            "kind": "D",
+            "level": 1,
+            "low_high_meaning": "simultaneous_child_model_bounds_not_probability",
+            "market_value_yuan": "282667362664.0000",
+            "n": 20,
+            "negative_equity_companies": 1,
+            "qualification_failures": [],
+            "raw": [
+              "0.03778923532383067591219582455",
+              "-0.0456396865087544038083273557",
+              "-0.00356922356630219159550267881",
+              "0.06161801476106206713882301467",
+              "0.06614305312859471813514140921",
+              "0.4040656416466915030045906091",
+              "0.1347963449686846077616875213"
+            ],
+            "root": "BK1216.DC",
+            "sample_id": "3c792bdca7b75980",
+            "sample_losses": [],
+            "scope": "trial_child_amounts_sum",
+            "sector_code": "BK1216.DC",
+            "sector_name": "医药生物"
+          }
+        ],
+        "reason": "original_peer_group_not_complete_or_small"
+      },
+      "exclude_top3": {
+        "comparable_ranking": false,
+        "failed_original_candidates": [
+          "BK0438.DC",
+          "BK1201.DC",
+          "BK1209.DC",
+          "BK1216.DC"
+        ],
+        "original_metrics": [
+          {
+            "R25": "87155287751.81",
+            "R4_base": "12623903049.31658266493694689",
+            "R4_high": "13142363307.96619063700824204",
+            "R4_low": "12105442790.66697469286565174",
+            "R9": "62969933405.38",
+            "R9_previous": "73101456152.03",
+            "R_base": "75593836454.69658266493694689",
+            "R_high": "76112296713.34619063700824204",
+            "R_low": "75075376196.04697469286565175",
+            "X25": "6911571577.95",
+            "X4_base": "-2732613570.204712298226202040",
+            "X4_high": "-1913867711.876575909088353108",
+            "X4_low": "-3619715455.178160255730673238",
+            "X9": "6858321897.13",
+            "X_base": "4125708326.925287701773797961",
+            "X_high": "4944454185.253424090911646892",
+            "X_low": "3238606441.951839744269326762",
+            "available": true,
+            "average_parent_equity": "131596279420.135",
+            "candidate_n": 20,
+            "child_count": 5,
+            "codes": [
+              "000529.SZ",
+              "000596.SZ",
+              "000639.SZ",
+              "000716.SZ",
+              "000729.SZ",
+              "000752.SZ",
+              "000799.SZ",
+              "000848.SZ",
+              "000860.SZ",
+              "000869.SZ",
+              "000929.SZ",
+              "000995.SZ",
+              "001215.SZ",
+              "001219.SZ",
+              "001318.SZ",
+              "002216.SZ",
+              "002304.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.4107453192818503673942291324"
+            },
+            "coverage_previous": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.4265210436802241938797776715"
+            },
+            "deducted_ttm": "3267105037.65",
+            "eligible": false,
+            "income_method_A": "13142363307.96619063700824204",
+            "income_method_B": "12105442790.66697469286565174",
+            "kind": "D",
+            "level": 1,
+            "low_high_meaning": "simultaneous_child_model_bounds_not_probability",
+            "market_value_yuan": "209869018684.0000",
+            "n": 17,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown"
+            ],
+            "raw": [
+              "0.01965849153341385288665486864",
+              "-0.1326534694032183326185303992",
+              "-0.02472449328988710025520796694",
+              "0.1063080423394264338258595933",
+              "0.02482672802032208390316249960",
+              "0.2666722163087058477278577715",
+              "0.2150180804551849388298904049"
+            ],
+            "root": "BK0438.DC",
+            "sample_id": "b37724cfc7d01c2b",
+            "sample_losses": [
+              {
+                "code": "000568.SZ",
+                "details": [],
+                "reason": "excluded_or_invalid_child_model"
+              },
+              {
+                "code": "000858.SZ",
+                "details": [],
+                "reason": "excluded_or_invalid_child_model"
+              },
+              {
+                "code": "000895.SZ",
+                "details": [],
+                "reason": "excluded_or_invalid_child_model"
+              }
+            ],
+            "scope": "trial_child_amounts_sum",
+            "sector_code": "BK0438.DC",
+            "sector_name": "食品饮料"
+          },
+          {
+            "R25": "192999602092.78",
+            "R4_base": "76124776985.71862106210157093",
+            "R4_high": "80368213943.31008185528626274",
+            "R4_low": "71881340028.12716026891687910",
+            "R9": "184633291061.92",
+            "R9_previous": "138335930693.79",
+            "R_base": "260758068047.6386210621015710",
+            "R_high": "265001505005.2300818552862627",
+            "R_low": "256514631090.0471602689168791",
+            "X25": "789233862.87",
+            "X4_base": "3786911581.912192556694848721",
+            "X4_high": "7282177758.616218923587594898",
+            "X4_low": "987506058.4950635685192528488",
+            "X9": "9059861583.59",
+            "X_base": "12846773165.50219255669484871",
+            "X_high": "16342039342.20621892358759489",
+            "X_low": "10047367642.08506356851925284",
+            "available": true,
+            "average_parent_equity": "90561130797.05",
+            "candidate_n": 20,
+            "child_count": 5,
+            "codes": [
+              "000020.SZ",
+              "000021.SZ",
+              "000045.SZ",
+              "000050.SZ",
+              "000062.SZ",
+              "000509.SZ",
+              "000536.SZ",
+              "000636.SZ",
+              "000670.SZ",
+              "000727.SZ",
+              "000823.SZ",
+              "001298.SZ",
+              "001308.SZ",
+              "001309.SZ",
+              "001314.SZ",
+              "001373.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.2987626460951926830236455932"
+            },
+            "coverage_previous": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.2877060711226026982642334235"
+            },
+            "deducted_ttm": "9647545491.71",
+            "eligible": false,
+            "income_method_A": "71881340028.12716026891687910",
+            "income_method_B": "80368213943.31008185528626274",
+            "kind": "D",
+            "level": 1,
+            "low_high_meaning": "simultaneous_child_model_bounds_not_probability",
+            "market_value_yuan": "245462842727.0000",
+            "n": 16,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown"
+            ],
+            "raw": [
+              "0.05233693630685348237601016215",
+              "0.351080858302937531595298455",
+              "0.04517771775522529902842290042",
+              "-0.09418137490637205435393253319",
+              "0.1065307533905513658018736503",
+              "0.6171403241733043544047938692",
+              "0.2179072898192405788600865412"
+            ],
+            "root": "BK1201.DC",
+            "sample_id": "8d6509f36deaccba",
+            "sample_losses": [
+              {
+                "code": "000100.SZ",
+                "details": [],
+                "reason": "excluded_or_invalid_child_model"
+              },
+              {
+                "code": "000725.SZ",
+                "details": [],
+                "reason": "excluded_or_invalid_child_model"
+              },
+              {
+                "code": "001232.SZ",
+                "details": [
+                  {
+                    "code": "001232.SZ",
+                    "comparability": null,
+                    "missing": [
+                      {
+                        "basis": "reported",
+                        "dataset": "income",
+                        "field": "revenue",
+                        "period": "2024-09-30"
+                      },
+                      {
+                        "basis": "reported",
+                        "dataset": "fina_indicator",
+                        "field": "profit_dedt",
+                        "period": "2024-09-30"
+                      },
+                      {
+                        "basis": "reported",
+                        "dataset": "fina_indicator",
+                        "field": "profit_dedt",
+                        "period": "2025-09-30"
+                      },
+                      {
+                        "basis": "reported",
+                        "dataset": "balancesheet",
+                        "field": "total_hldr_eqy_exc_min_int",
+                        "period": "2025-09-30"
+                      }
+                    ],
+                    "reason": "missing_or_invalid_inputs"
+                  }
+                ],
+                "reason": "excluded_or_invalid_child_model"
+              },
+              {
+                "code": "001287.SZ",
+                "details": [],
+                "reason": "excluded_or_invalid_child_model"
+              }
+            ],
+            "scope": "trial_child_amounts_sum",
+            "sector_code": "BK1201.DC",
+            "sector_name": "电子"
+          },
+          {
+            "R25": "65953238620.81",
+            "R4_base": "20438022979.20491011006878878",
+            "R4_high": "21791365840.95558749778742900",
+            "R4_low": "19084680117.45423272235014854",
+            "R9": "56837316918.33",
+            "R9_previous": "48283679559.31",
+            "R_base": "77275339897.53491011006878878",
+            "R_high": "78628682759.28558749778742899",
+            "R_low": "75921997035.78423272235014855",
+            "X25": "9732715528.99",
+            "X4_base": "4490464513.264971464647802870",
+            "X4_high": "7385319919.877192455123677943",
+            "X4_low": "1913506857.159297305986869670",
+            "X9": "14465011672.20",
+            "X_base": "18955476185.46497146464780287",
+            "X_high": "21850331592.07719245512367794",
+            "X_low": "16378518529.35929730598686967",
+            "available": true,
+            "average_parent_equity": "105335989424.20",
+            "candidate_n": 20,
+            "child_count": 5,
+            "codes": [
+              "000408.SZ",
+              "000420.SZ",
+              "000510.SZ",
+              "000525.SZ",
+              "000545.SZ",
+              "000565.SZ",
+              "000635.SZ",
+              "000677.SZ",
+              "000683.SZ",
+              "000691.SZ",
+              "000707.SZ",
+              "000731.SZ",
+              "000782.SZ",
+              "000792.SZ",
+              "000818.SZ",
+              "000822.SZ",
+              "000859.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.4753861107067042399914518889"
+            },
+            "coverage_previous": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.4348042018128591691808309569"
+            },
+            "deducted_ttm": "17366856601.80",
+            "eligible": false,
+            "income_method_A": "20769785082.38261398443486038",
+            "income_method_B": "20106260876.02720623570271716",
+            "kind": "D",
+            "level": 1,
+            "low_high_meaning": "simultaneous_child_model_bounds_not_probability",
+            "market_value_yuan": "303041152621.0000",
+            "n": 17,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown"
+            ],
+            "raw": [
+              "0.06255083186398692438019745526",
+              "0.171668617242891332181589338",
+              "0.0977279278177041139622904379",
+              "0.2118678824629116458953541759",
+              "0.1648710635057662472875624484",
+              "0.3668516566902909287939109581",
+              "0.1359479250688347850030994794"
+            ],
+            "root": "BK1206.DC",
+            "sample_id": "2f84836bf3689d1d",
+            "sample_losses": [
+              {
+                "code": "000422.SZ",
+                "details": [],
+                "reason": "excluded_or_invalid_child_model"
+              },
+              {
+                "code": "000553.SZ",
+                "details": [],
+                "reason": "excluded_or_invalid_child_model"
+              },
+              {
+                "code": "000830.SZ",
+                "details": [],
+                "reason": "excluded_or_invalid_child_model"
+              }
+            ],
+            "scope": "trial_child_amounts_sum",
+            "sector_code": "BK1206.DC",
+            "sector_name": "基础化工"
+          },
+          {
+            "R25": "158520768347.07",
+            "R4_base": "44957628066.25784423646445259",
+            "R4_high": "49907109056.11901422835719387",
+            "R4_low": "40008147076.39667424457171131",
+            "R9": "99141035957.23",
+            "R9_previous": "109269575449.30",
+            "R_base": "144098664023.4878442364644526",
+            "R_high": "149048145013.3490142283571939",
+            "R_low": "139149183033.6266742445717113",
+            "X25": "3146650304.80",
+            "X4_base": "448809751.5824880591467442441",
+            "X4_high": "1072090761.482543769898849521",
+            "X4_low": "-205740940.4669244420090690824",
+            "X9": "2634756872.07",
+            "X_base": "3083566623.652488059146744244",
+            "X_high": "3706847633.552543769898849521",
+            "X_low": "2429015931.603075557990930917",
+            "available": true,
+            "average_parent_equity": "92025666926.24",
+            "candidate_n": 20,
+            "child_count": 5,
+            "codes": [
+              "000010.SZ",
+              "000065.SZ",
+              "000628.SZ",
+              "000779.SZ",
+              "000928.SZ",
+              "002047.SZ",
+              "002051.SZ",
+              "002061.SZ",
+              "002062.SZ",
+              "002081.SZ",
+              "002116.SZ",
+              "002135.SZ",
+              "002140.SZ",
+              "002163.SZ",
+              "002200.SZ",
+              "002307.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.4666496799130263535909450549"
+            },
+            "coverage_previous": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.4802401203861939885252846464"
+            },
+            "deducted_ttm": "3139809998.91",
+            "eligible": false,
+            "income_method_A": "44858598451.33367219450904892",
+            "income_method_B": "45056657681.18201627841985626",
+            "kind": "D",
+            "level": 1,
+            "low_high_meaning": "simultaneous_child_model_bounds_not_probability",
+            "market_value_yuan": "107666775961.0000",
+            "n": 16,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown"
+            ],
+            "raw": [
+              "0.02863990860810622298993040286",
+              "-0.0909792734035074782338942928",
+              "0.00154891288375676248026126930",
+              "0.001494073321302608901041871125",
+              "0.03411885079221003021291235877",
+              "0.6874498316737411614390228802",
+              "0.2122706501713578953249963558"
+            ],
+            "root": "BK1209.DC",
+            "sample_id": "14d8f2d016e27cf2",
+            "sample_losses": [
+              {
+                "code": "000032.SZ",
+                "details": [],
+                "reason": "excluded_or_invalid_child_model"
+              },
+              {
+                "code": "000498.SZ",
+                "details": [],
+                "reason": "excluded_or_invalid_child_model"
+              },
+              {
+                "code": "001396.SZ",
+                "details": [
+                  {
+                    "code": "001396.SZ",
+                    "comparability": null,
+                    "missing": [
+                      {
+                        "basis": "reported",
+                        "dataset": "income",
+                        "field": "revenue",
+                        "period": "2024-06-30"
+                      },
+                      {
+                        "basis": "reported",
+                        "dataset": "income",
+                        "field": "revenue",
+                        "period": "2024-09-30"
+                      },
+                      {
+                        "basis": "reported",
+                        "dataset": "fina_indicator",
+                        "field": "profit_dedt",
+                        "period": "2024-06-30"
+                      }
+                    ],
+                    "reason": "missing_or_invalid_inputs"
+                  }
+                ],
+                "reason": "excluded_or_invalid_child_model"
+              },
+              {
+                "code": "002060.SZ",
+                "details": [],
+                "reason": "excluded_or_invalid_child_model"
+              }
+            ],
+            "scope": "trial_child_amounts_sum",
+            "sector_code": "BK1209.DC",
+            "sector_name": "建筑装饰"
+          },
+          {
+            "R25": "87408583015.30",
+            "R4_base": "16812458330.08243158930416248",
+            "R4_high": "17279734917.08627215358389274",
+            "R4_low": "16345181743.07859102502443221",
+            "R9": "57048931232.20",
+            "R9_previous": "67540600645.24",
+            "R_base": "73861389562.28243158930416249",
+            "R_high": "74328666149.28627215358389275",
+            "R_low": "73394112975.27859102502443221",
+            "X25": "5575422558.14",
+            "X4_base": "-1004920655.442542528152561353",
+            "X4_high": "-47213034.6453699056189125621",
+            "X4_low": "-2007798155.974101639359256111",
+            "X9": "5790265498.86",
+            "X_base": "4785344843.417457471847438647",
+            "X_high": "5743052464.214630094381087438",
+            "X_low": "3782467342.885898360640743889",
+            "available": true,
+            "average_parent_equity": "110708468626.79",
+            "candidate_n": 20,
+            "child_count": 5,
+            "codes": [
+              "000078.SZ",
+              "000153.SZ",
+              "000403.SZ",
+              "000423.SZ",
+              "000504.SZ",
+              "000513.SZ",
+              "000516.SZ",
+              "000518.SZ",
+              "000534.SZ",
+              "000566.SZ",
+              "000590.SZ",
+              "000597.SZ",
+              "000623.SZ",
+              "000650.SZ",
+              "000661.SZ",
+              "000705.SZ",
+              "000710.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.3349016450893490173829581382"
+            },
+            "coverage_previous": {
+              "candidate_companies": 20,
+              "known_companies": 20,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.3788417974350308689926036528"
+            },
+            "deducted_ttm": "4997241574.08",
+            "eligible": false,
+            "income_method_A": "16834977840.77594907160819480",
+            "income_method_B": "16789938819.38891410700013017",
+            "kind": "D",
+            "level": 1,
+            "low_high_meaning": "simultaneous_child_model_bounds_not_probability",
+            "market_value_yuan": "168345471841.0000",
+            "n": 17,
+            "negative_equity_companies": 1,
+            "qualification_failures": [
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown"
+            ],
+            "raw": [
+              "0.02842574137032417687913211453",
+              "-0.1549869931039411474752489461",
+              "0.00100242174275676603136499068",
+              "0.1279039012210538026816191703",
+              "0.04513874716238946298205398793",
+              "0.3822750967949862033088295300",
+              "0.2095726710084603685058163513"
+            ],
+            "root": "BK1216.DC",
+            "sample_id": "48598e238fec4d39",
+            "sample_losses": [
+              {
+                "code": "000028.SZ",
+                "details": [],
+                "reason": "excluded_or_invalid_child_model"
+              },
+              {
+                "code": "000411.SZ",
+                "details": [],
+                "reason": "excluded_or_invalid_child_model"
+              },
+              {
+                "code": "000538.SZ",
+                "details": [],
+                "reason": "excluded_or_invalid_child_model"
+              }
+            ],
+            "scope": "trial_child_amounts_sum",
+            "sector_code": "BK1216.DC",
+            "sector_name": "医药生物"
+          }
+        ],
+        "reason": "original_peer_group_not_complete_or_small"
+      }
+    },
+    "weight_sensitivity": {
+      "available": false,
+      "reason": "small_complete_peer_group"
+    }
+  },
+  "2": {
+    "model_sensitivity": {
+      "0.25": {
+        "comparable_ranking": true,
+        "peer_set_unchanged": true,
+        "rows": [
+          {
+            "R25": "54096759759.53",
+            "R4_base": "14821326238.38115166690425187",
+            "R4_high": "14966977711.26454172113802807",
+            "R4_low": "14384371819.73098150420292328",
+            "R9": "41752348104.76",
+            "R9_previous": "40119166882.32",
+            "R_base": "56573674343.14115166690425187",
+            "R_high": "56719325816.02454172113802807",
+            "R_low": "56136719924.49098150420292328",
+            "X25": "8889864934.26",
+            "X4_base": "1043550707.822658628911481304",
+            "X4_high": "1282147943.207106356360004213",
+            "X4_low": "793331667.6596435801144814815",
+            "X9": "9160001687.60",
+            "X_base": "10203552395.42265862891148130",
+            "X_high": "10442149630.80710635636000421",
+            "X_low": "9953333355.259643580114481482",
+            "available": true,
+            "average_parent_equity": "88440162453.15",
+            "candidate_n": 5,
+            "codes": [
+              "000423.SZ",
+              "000538.SZ",
+              "000590.SZ",
+              "000623.SZ",
+              "000650.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 5,
+              "known_companies": 5,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "coverage_previous": {
+              "candidate_companies": 5,
+              "known_companies": 5,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "deducted_ttm": "10098206524.24",
+            "dimensions": [
+              "100",
+              "90",
+              "80",
+              "100"
+            ],
+            "eligible": true,
+            "income_method_A": "14384371819.73098150420292328",
+            "income_method_B": "14966977711.26454172113802807",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "155533717540.0000",
+            "metric_percentiles": [
+              "100",
+              "80",
+              "100",
+              "80",
+              "80",
+              "100",
+              "100"
+            ],
+            "n": 5,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "quarter_margin_base": "0.0704087266576921174833191145",
+            "quarter_margin_paths": [
+              "0.08566512010251261595177968780",
+              "0.0551523332128716190148585411",
+              "0.0704087266576921174833191145"
+            ],
+            "rank": 1,
+            "raw": [
+              "0.06560347529016349536752338917",
+              "0.045786745724170734276795659",
+              "0.0160259959499235549255819499",
+              "0.1403182243973503672687719389",
+              "0.1141812299314736177954166354",
+              "0.1932785752068769403351161077",
+              "0.02452273781386803983334028011"
+            ],
+            "root": "BK1216.DC",
+            "sample_id": "f0abb5a8c7d9a60c",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "score_available": true,
+            "season_weight": "0.25",
+            "sector_code": "BK1040.DC",
+            "sector_name": "中药Ⅱ",
+            "total_score": "92.50"
+          },
+          {
+            "R25": "74308745203.39",
+            "R4_base": "16890225784.99504763304432160",
+            "R4_high": "18009098306.40528248499854112",
+            "R4_low": "16517268277.85830268239291509",
+            "R9": "54070600687.93",
+            "R9_previous": "56096912066.63",
+            "R_base": "70960826472.92504763304432160",
+            "R_high": "72079698994.33528248499854112",
+            "R_low": "70587868965.78830268239291509",
+            "X25": "4132421984.95",
+            "X4_base": "243506382.1456359100034911692",
+            "X4_high": "721314276.3468074183638209575",
+            "X4_low": "-202039942.1702101453235916706",
+            "X9": "3842662430.40",
+            "X_base": "4086168812.545635910003491169",
+            "X_high": "4563976706.746807418363820958",
+            "X_low": "3640622488.229789854676408329",
+            "available": true,
+            "average_parent_equity": "33063223257.97",
+            "candidate_n": 5,
+            "codes": [
+              "000529.SZ",
+              "000639.SZ",
+              "000895.SZ",
+              "001215.SZ",
+              "002216.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 5,
+              "known_companies": 5,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "coverage_previous": {
+              "candidate_companies": 5,
+              "known_companies": 5,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "deducted_ttm": "3780192107.98",
+            "dimensions": [
+              "40",
+              "50",
+              "70",
+              "50"
+            ],
+            "eligible": true,
+            "income_method_A": "18009098306.40528248499854112",
+            "income_method_B": "16517268277.85830268239291509",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "102151641950.0000",
+            "metric_percentiles": [
+              "40",
+              "40",
+              "60",
+              "40",
+              "100",
+              "60",
+              "40"
+            ],
+            "n": 5,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "quarter_margin_base": "0.01441699982258154924226861325",
+            "quarter_margin_paths": [
+              "0.04005277022060888583156235575",
+              "-0.01121877057544578734702512922",
+              "0.01441699982258154924226861325"
+            ],
+            "rank": 2,
+            "raw": [
+              "0.04000100962200574701583140993",
+              "-0.0450541685410160678584791111",
+              "0.00197192833205745201254916594",
+              "0.06538932806694801875519135090",
+              "0.1143322318724255691548998694",
+              "0.4576550308749438024311161297",
+              "0.1090376694540615047232307344"
+            ],
+            "root": "BK0438.DC",
+            "sample_id": "d5b4ec25ebb7e494",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "score_available": true,
+            "season_weight": "0.25",
+            "sector_code": "BK1280.DC",
+            "sector_name": "食品加工",
+            "total_score": "52.50"
+          },
+          {
+            "R25": "114566239607.76",
+            "R4_base": "43708798184.83477347579649369",
+            "R4_high": "46551528924.41990919708383858",
+            "R4_low": "35180605966.07936631193445899",
+            "R9": "80898511895.31",
+            "R9_previous": "77062639664.77",
+            "R_base": "124607310080.1447734757964937",
+            "R_high": "127450040819.7299091970838386",
+            "R_low": "116079117861.3893663119344590",
+            "X25": "1843795496.19",
+            "X4_base": "1117195151.001867932188271333",
+            "X4_high": "1313556871.636975855442110181",
+            "X4_low": "805729276.5871856011591613651",
+            "X9": "1409657850.67",
+            "X_base": "2526853001.671867932188271333",
+            "X_high": "2723214722.306975855442110181",
+            "X_low": "2215387127.257185601159161365",
+            "available": true,
+            "average_parent_equity": "51412693479.695",
+            "candidate_n": 7,
+            "codes": [
+              "000032.SZ",
+              "000065.SZ",
+              "000928.SZ",
+              "002051.SZ",
+              "002116.SZ",
+              "002135.SZ",
+              "002140.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 7,
+              "known_companies": 7,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "coverage_previous": {
+              "candidate_companies": 7,
+              "known_companies": 7,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "deducted_ttm": "1961082223.44",
+            "dimensions": [
+              "60",
+              "90",
+              "20",
+              "10"
+            ],
+            "eligible": true,
+            "income_method_A": "35180605966.07936631193445899",
+            "income_method_B": "46551528924.41990919708383858",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "56514592078.0000",
+            "metric_percentiles": [
+              "60",
+              "100",
+              "80",
+              "20",
+              "20",
+              "20",
+              "0"
+            ],
+            "n": 7,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "quarter_margin_base": "0.02555996040608342605256529633",
+            "quarter_margin_paths": [
+              "0.02821726594135370671712323158",
+              "0.02290265487081314538800736109",
+              "0.02555996040608342605256529633"
+            ],
+            "rank": 3,
+            "raw": [
+              "0.04471151447371981033213733768",
+              "0.087644235393972503302266605",
+              "0.00418482237245995920503864157",
+              "0.02016747093075497521809472040",
+              "0.03814393082156865629558878424",
+              "0.6819268749799555622799751360",
+              "0.1232623639794653418485852509"
+            ],
+            "root": "BK1209.DC",
+            "sample_id": "eef10698645be18d",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "score_available": true,
+            "season_weight": "0.25",
+            "sector_code": "BK1248.DC",
+            "sector_name": "专业工程",
+            "total_score": "45.00"
+          },
+          {
+            "R25": "500418609177.56",
+            "R4_base": "126056399710.1559054379505657",
+            "R4_high": "131927465882.8654745268865311",
+            "R4_low": "124099377652.5860490749719106",
+            "R9": "373326223202.59",
+            "R9_previous": "372028937305.09",
+            "R_base": "499382622912.7459054379505657",
+            "R_high": "505253689085.4554745268865311",
+            "R_low": "497425600855.1760490749719106",
+            "X25": "5307965715.04",
+            "X4_base": "-333670408.7464505991982371773",
+            "X4_high": "-183554341.4579014866448774400",
+            "X4_low": "-503289359.0690047043832129683",
+            "X9": "4811166979.62",
+            "X_base": "4477496570.873549400801762823",
+            "X_high": "4627612638.162098513355122560",
+            "X_low": "4307877620.550995295616787032",
+            "available": true,
+            "average_parent_equity": "238981200659.38",
+            "candidate_n": 10,
+            "codes": [
+              "000020.SZ",
+              "000045.SZ",
+              "000050.SZ",
+              "000100.SZ",
+              "000509.SZ",
+              "000536.SZ",
+              "000725.SZ",
+              "000727.SZ",
+              "001308.SZ",
+              "001373.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 10,
+              "known_companies": 10,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "coverage_previous": {
+              "candidate_companies": 10,
+              "known_companies": 10,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "deducted_ttm": "5589083298.51",
+            "dimensions": [
+              "0",
+              "50",
+              "50",
+              "60"
+            ],
+            "eligible": true,
+            "income_method_A": "131927465882.8654745268865311",
+            "income_method_B": "124099377652.5860490749719106",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "318994699239.0000",
+            "metric_percentiles": [
+              "0",
+              "60",
+              "40",
+              "100",
+              "0",
+              "40",
+              "80"
+            ],
+            "n": 10,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "quarter_margin_base": "-0.002646993008793412243599204050",
+            "quarter_margin_paths": [
+              "-0.001479091554929135321876081823",
+              "-0.003814894462657689165322326277",
+              "-0.002646993008793412243599204050"
+            ],
+            "rank": 4,
+            "raw": [
+              "0.01403627264514160543656218915",
+              "-0.0020702392872973732161845179",
+              "-0.001640986985545810894580497266",
+              "0.1530545114715734461572337380",
+              "0.02338712536002412440856139666",
+              "0.6060622692737938376864263901",
+              "0.03788254164747731646569952730"
+            ],
+            "root": "BK1201.DC",
+            "sample_id": "09fc234df60c2454",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "score_available": true,
+            "season_weight": "0.25",
+            "sector_code": "BK1038.DC",
+            "sector_name": "光学光电子",
+            "total_score": "40.00"
+          },
+          {
+            "R25": "112803997341.99",
+            "R4_base": "12900871513.48100826933448986",
+            "R4_high": "16805297481.34490134276339054",
+            "R4_low": "11599396190.85971057819152296",
+            "R9": "77715727922.06",
+            "R9_previous": "94995662586.07",
+            "R_base": "90616599435.54100826933448986",
+            "R_high": "94521025403.40490134276339054",
+            "R_low": "89315124112.91971057819152296",
+            "X25": "25037167495.32",
+            "X4_base": "-548549860.8997475751257781899",
+            "X4_high": "350793244.3990985410761167320",
+            "X4_low": "-1779928258.438659113439418443",
+            "X9": "18882229422.40",
+            "X_base": "18333679561.50025242487422181",
+            "X_high": "19233022666.79909854107611673",
+            "X_low": "17102301163.96134088656058156",
+            "available": true,
+            "average_parent_equity": "254646905126.185",
+            "candidate_n": 7,
+            "codes": [
+              "000568.SZ",
+              "000596.SZ",
+              "000799.SZ",
+              "000858.SZ",
+              "000860.SZ",
+              "000995.SZ",
+              "002304.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 7,
+              "known_companies": 7,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "coverage_previous": {
+              "candidate_companies": 7,
+              "known_companies": 7,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "deducted_ttm": "18988703566.15",
+            "dimensions": [
+              "20",
+              "0",
+              "60",
+              "70"
+            ],
+            "eligible": true,
+            "income_method_A": "16805297481.34490134276339054",
+            "income_method_B": "11599396190.85971057819152296",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "532156496182.0000",
+            "metric_percentiles": [
+              "20",
+              "0",
+              "0",
+              "60",
+              "60",
+              "80",
+              "60"
+            ],
+            "n": 7,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "quarter_margin_base": "-0.0425203723893017679720644559",
+            "quarter_margin_paths": [
+              "0.0208739681513227883235663178",
+              "-0.1059147129299263242676952296",
+              "-0.0425203723893017679720644559"
+            ],
+            "rank": 5,
+            "raw": [
+              "0.03445166918573150074460631723",
+              "-0.1966898197692679299987355125",
+              "-0.0196314139209969423260486614",
+              "0.07603776978897223709147389263",
+              "0.07456875848045567728829730077",
+              "0.2625502685450045705967583123",
+              "0.06716482599187237814104560223"
+            ],
+            "root": "BK0438.DC",
+            "sample_id": "4ab604f25862f382",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "score_available": true,
+            "season_weight": "0.25",
+            "sector_code": "BK1277.DC",
+            "sector_name": "白酒Ⅱ",
+            "total_score": "37.50"
+          },
+          {
+            "R25": "202108387714.57",
+            "R4_base": "62550872902.98729828117004526",
+            "R4_high": "68269345811.50059477295255405",
+            "R4_low": "60644715266.81619945057587567",
+            "R9": "112740354327.17",
+            "R9_previous": "128740509459.25",
+            "R_base": "175291227230.1572982811700453",
+            "R_high": "181009700138.6705947729525540",
+            "R_low": "173385069593.9861994505758757",
+            "X25": "4023656739.42",
+            "X4_base": "691005771.6174717271067627491",
+            "X4_high": "1024465957.576138942283622565",
+            "X4_low": "429847566.3194535951294418175",
+            "X9": "1684669646.57",
+            "X_base": "2375675418.187471727106762749",
+            "X_high": "2709135604.146138942283622565",
+            "X_low": "2114517212.889453595129441818",
+            "available": true,
+            "average_parent_equity": "67103147539.495",
+            "candidate_n": 8,
+            "codes": [
+              "000010.SZ",
+              "000498.SZ",
+              "002060.SZ",
+              "002061.SZ",
+              "002062.SZ",
+              "002200.SZ",
+              "002307.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 8,
+              "known_companies": 8,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.9953517140067422809554472170"
+            },
+            "coverage_previous": {
+              "candidate_companies": 8,
+              "known_companies": 8,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.9961194558292417155333684490"
+            },
+            "deducted_ttm": "3067069642.83",
+            "dimensions": [
+              "80",
+              "20",
+              "20",
+              "10"
+            ],
+            "eligible": true,
+            "income_method_A": "68269345811.50059477295255405",
+            "income_method_B": "60644715266.81619945057587567",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "48769250394.0000",
+            "metric_percentiles": [
+              "80",
+              "20",
+              "20",
+              "0",
+              "40",
+              "0",
+              "20"
+            ],
+            "n": 7,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "quarter_margin_base": "0.01104710037682736707482707881",
+            "quarter_margin_paths": [
+              "0.00708796412726599415712171046",
+              "0.01500623662638873999253244716",
+              "0.01104710037682736707482707881"
+            ],
+            "rank": 6,
+            "raw": [
+              "0.04871256783720725660630630256",
+              "-0.1326870239659996643456739603",
+              "-0.00635567621165288209710220757",
+              "-0.06579272294572176732608280957",
+              "0.04570679253197192022847764348",
+              "0.8093585296604657289075471001",
+              "0.1099300869549214440349465276"
+            ],
+            "root": "BK1209.DC",
+            "sample_id": "0960078e4d508734",
+            "sample_losses": [
+              {
+                "code": "001396.SZ",
+                "comparability": null,
+                "missing": [
+                  {
+                    "basis": "reported",
+                    "dataset": "income",
+                    "field": "revenue",
+                    "period": "2024-06-30"
+                  },
+                  {
+                    "basis": "reported",
+                    "dataset": "income",
+                    "field": "revenue",
+                    "period": "2024-09-30"
+                  },
+                  {
+                    "basis": "reported",
+                    "dataset": "fina_indicator",
+                    "field": "profit_dedt",
+                    "period": "2024-06-30"
+                  }
+                ],
+                "reason": "missing_or_invalid_inputs"
+              }
+            ],
+            "scope": "trial_sample_forecast",
+            "score_available": true,
+            "season_weight": "0.25",
+            "sector_code": "BK1247.DC",
+            "sector_name": "基础建设",
+            "total_score": "32.50"
+          }
+        ]
+      },
+      "0.75": {
+        "comparable_ranking": true,
+        "peer_set_unchanged": true,
+        "rows": [
+          {
+            "R25": "54096759759.53",
+            "R4_base": "14530023292.61437155843669948",
+            "R4_high": "14966977711.26454172113802807",
+            "R4_low": "14384371819.73098150420292328",
+            "R9": "41752348104.76",
+            "R9_previous": "40119166882.32",
+            "R_base": "56282371397.37437155843669948",
+            "R_high": "56719325816.02454172113802807",
+            "R_low": "56136719924.49098150420292328",
+            "X25": "8889864934.26",
+            "X4_base": "1023040438.339584897121657048",
+            "X4_high": "1282147943.207106356360004213",
+            "X4_low": "793331667.6596435801144814815",
+            "X9": "9160001687.60",
+            "X_base": "10183042125.93958489712165705",
+            "X_high": "10442149630.80710635636000421",
+            "X_low": "9953333355.259643580114481482",
+            "available": true,
+            "average_parent_equity": "88440162453.15",
+            "candidate_n": 5,
+            "codes": [
+              "000423.SZ",
+              "000538.SZ",
+              "000590.SZ",
+              "000623.SZ",
+              "000650.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 5,
+              "known_companies": 5,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "coverage_previous": {
+              "candidate_companies": 5,
+              "known_companies": 5,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "deducted_ttm": "10098206524.24",
+            "dimensions": [
+              "100",
+              "100",
+              "80",
+              "100"
+            ],
+            "eligible": true,
+            "income_method_A": "14384371819.73098150420292328",
+            "income_method_B": "14966977711.26454172113802807",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "155533717540.0000",
+            "metric_percentiles": [
+              "100",
+              "100",
+              "100",
+              "80",
+              "80",
+              "100",
+              "100"
+            ],
+            "n": 5,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "quarter_margin_base": "0.0704087266576921174833191145",
+            "quarter_margin_paths": [
+              "0.08566512010251261595177968780",
+              "0.0551523332128716190148585411",
+              "0.0704087266576921174833191145"
+            ],
+            "rank": 1,
+            "raw": [
+              "0.06547160504487215574543681064",
+              "0.040401895558251832149088366",
+              "0.0165950682938391535260553447",
+              "0.1403182243973503672687719389",
+              "0.1141812299314736177954166354",
+              "0.1932785752068769403351161077",
+              "0.02255797116804583463195424192"
+            ],
+            "root": "BK1216.DC",
+            "sample_id": "f0abb5a8c7d9a60c",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "score_available": true,
+            "season_weight": "0.75",
+            "sector_code": "BK1040.DC",
+            "sector_name": "中药Ⅱ",
+            "total_score": "95.00"
+          },
+          {
+            "R25": "74308745203.39",
+            "R4_base": "17636140799.26853753434713461",
+            "R4_high": "18009098306.40528248499854112",
+            "R4_low": "16517268277.85830268239291509",
+            "R9": "54070600687.93",
+            "R9_previous": "56096912066.63",
+            "R_base": "71706741487.19853753434713461",
+            "R_high": "72079698994.33528248499854112",
+            "R_low": "70587868965.78830268239291509",
+            "X25": "4132421984.95",
+            "X4_base": "254260238.7740777276812401518",
+            "X4_high": "721314276.3468074183638209575",
+            "X4_low": "-202039942.1702101453235916706",
+            "X9": "3842662430.40",
+            "X_base": "4096922669.174077727681240152",
+            "X_high": "4563976706.746807418363820958",
+            "X_low": "3640622488.229789854676408329",
+            "available": true,
+            "average_parent_equity": "33063223257.97",
+            "candidate_n": 5,
+            "codes": [
+              "000529.SZ",
+              "000639.SZ",
+              "000895.SZ",
+              "001215.SZ",
+              "002216.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 5,
+              "known_companies": 5,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "coverage_previous": {
+              "candidate_companies": 5,
+              "known_companies": 5,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "deducted_ttm": "3780192107.98",
+            "dimensions": [
+              "40",
+              "50",
+              "70",
+              "40"
+            ],
+            "eligible": true,
+            "income_method_A": "18009098306.40528248499854112",
+            "income_method_B": "16517268277.85830268239291509",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "102151641950.0000",
+            "metric_percentiles": [
+              "40",
+              "40",
+              "60",
+              "40",
+              "100",
+              "60",
+              "20"
+            ],
+            "n": 5,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "quarter_margin_base": "0.01441699982258154924226861325",
+            "quarter_margin_paths": [
+              "0.04005277022060888583156235575",
+              "-0.01121877057544578734702512922",
+              "0.01441699982258154924226861325"
+            ],
+            "rank": 2,
+            "raw": [
+              "0.04010628308039719891826212738",
+              "-0.0350161170003548630642421668",
+              "0.00152289803830259018025394718",
+              "0.06538932806694801875519135090",
+              "0.1143322318724255691548998694",
+              "0.4576550308749438024311161297",
+              "0.1113763226183314947617186681"
+            ],
+            "root": "BK0438.DC",
+            "sample_id": "d5b4ec25ebb7e494",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "score_available": true,
+            "season_weight": "0.75",
+            "sector_code": "BK1280.DC",
+            "sector_name": "食品加工",
+            "total_score": "50.00"
+          },
+          {
+            "R25": "114566239607.76",
+            "R4_base": "38023336705.66450203322180388",
+            "R4_high": "46551528924.41990919708383858",
+            "R4_low": "35180605966.07936631193445899",
+            "R9": "80898511895.31",
+            "R9_previous": "77062639664.77",
+            "R_base": "118921848600.9745020332218039",
+            "R_high": "127450040819.7299091970838386",
+            "R_low": "116079117861.3893663119344590",
+            "X25": "1843795496.19",
+            "X4_base": "971874980.7039632847755705319",
+            "X4_high": "1313556871.636975855442110181",
+            "X4_low": "805729276.5871856011591613651",
+            "X9": "1409657850.67",
+            "X_base": "2381532831.373963284775570532",
+            "X_high": "2723214722.306975855442110181",
+            "X_low": "2215387127.257185601159161365",
+            "available": true,
+            "average_parent_equity": "51412693479.695",
+            "candidate_n": 7,
+            "codes": [
+              "000032.SZ",
+              "000065.SZ",
+              "000928.SZ",
+              "002051.SZ",
+              "002116.SZ",
+              "002135.SZ",
+              "002140.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 7,
+              "known_companies": 7,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "coverage_previous": {
+              "candidate_companies": 7,
+              "known_companies": 7,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "deducted_ttm": "1961082223.44",
+            "dimensions": [
+              "60",
+              "80",
+              "20",
+              "30"
+            ],
+            "eligible": true,
+            "income_method_A": "35180605966.07936631193445899",
+            "income_method_B": "46551528924.41990919708383858",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "56514592078.0000",
+            "metric_percentiles": [
+              "60",
+              "80",
+              "80",
+              "20",
+              "20",
+              "20",
+              "40"
+            ],
+            "n": 7,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "quarter_margin_base": "0.02555996040608342605256529633",
+            "quarter_margin_paths": [
+              "0.02821726594135370671712323158",
+              "0.02290265487081314538800736109",
+              "0.02555996040608342605256529633"
+            ],
+            "rank": 3,
+            "raw": [
+              "0.04214014016215550759222398597",
+              "0.038018259202071954378903482",
+              "0.00393232568779936484099849700",
+              "0.02016747093075497521809472040",
+              "0.03814393082156865629558878424",
+              "0.6819268749799555622799751360",
+              "0.06976418797507160577185048716"
+            ],
+            "root": "BK1209.DC",
+            "sample_id": "eef10698645be18d",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "score_available": true,
+            "season_weight": "0.75",
+            "sector_code": "BK1248.DC",
+            "sector_name": "专业工程",
+            "total_score": "47.50"
+          },
+          {
+            "R25": "500418609177.56",
+            "R4_base": "129970443825.2956181639078760",
+            "R4_high": "131927465882.8654745268865311",
+            "R4_low": "124099377652.5860490749719106",
+            "R9": "373326223202.59",
+            "R9_previous": "372028937305.09",
+            "R_base": "503296667027.8856181639078760",
+            "R_high": "505253689085.4554745268865311",
+            "R_low": "497425600855.1760490749719106",
+            "X25": "5307965715.04",
+            "X4_base": "-344030856.1553344162499140586",
+            "X4_high": "-183554341.4579014866448774400",
+            "X4_low": "-503289359.0690047043832129683",
+            "X9": "4811166979.62",
+            "X_base": "4467136123.464665583750085941",
+            "X_high": "4627612638.162098513355122560",
+            "X_low": "4307877620.550995295616787032",
+            "available": true,
+            "average_parent_equity": "238981200659.38",
+            "candidate_n": 10,
+            "codes": [
+              "000020.SZ",
+              "000045.SZ",
+              "000050.SZ",
+              "000100.SZ",
+              "000509.SZ",
+              "000536.SZ",
+              "000725.SZ",
+              "000727.SZ",
+              "001308.SZ",
+              "001373.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 10,
+              "known_companies": 10,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "coverage_previous": {
+              "candidate_companies": 10,
+              "known_companies": 10,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "deducted_ttm": "5589083298.51",
+            "dimensions": [
+              "0",
+              "50",
+              "50",
+              "60"
+            ],
+            "eligible": true,
+            "income_method_A": "131927465882.8654745268865311",
+            "income_method_B": "124099377652.5860490749719106",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "318994699239.0000",
+            "metric_percentiles": [
+              "0",
+              "60",
+              "40",
+              "100",
+              "0",
+              "40",
+              "80"
+            ],
+            "n": 10,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "quarter_margin_base": "-0.002646993008793412243599204050",
+            "quarter_margin_paths": [
+              "-0.001479091554929135321876081823",
+              "-0.003814894462657689165322326277",
+              "-0.002646993008793412243599204050"
+            ],
+            "rank": 4,
+            "raw": [
+              "0.01400379421388992663677584647",
+              "0.005751300606217897920474468",
+              "-0.001731299559672524967877526553",
+              "0.1530545114715734461572337380",
+              "0.02338712536002412440856139666",
+              "0.6060622692737938376864263901",
+              "0.03565114169615923959738623951"
+            ],
+            "root": "BK1201.DC",
+            "sample_id": "09fc234df60c2454",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "score_available": true,
+            "season_weight": "0.75",
+            "sector_code": "BK1038.DC",
+            "sector_name": "光学光电子",
+            "total_score": "40.00"
+          },
+          {
+            "R25": "112803997341.99",
+            "R4_base": "15503822158.72360365162042364",
+            "R4_high": "16805297481.34490134276339054",
+            "R4_low": "11599396190.85971057819152296",
+            "R9": "77715727922.06",
+            "R9_previous": "94995662586.07",
+            "R_base": "93219550080.78360365162042364",
+            "R_high": "94521025403.40490134276339054",
+            "R_low": "89315124112.91971057819152296",
+            "X25": "25037167495.32",
+            "X4_base": "-659228291.6464360491630266332",
+            "X4_high": "350793244.3990985410761167320",
+            "X4_low": "-1779928258.438659113439418443",
+            "X9": "18882229422.40",
+            "X_base": "18223001130.75356395083697337",
+            "X_high": "19233022666.79909854107611673",
+            "X_low": "17102301163.96134088656058156",
+            "available": true,
+            "average_parent_equity": "254646905126.185",
+            "candidate_n": 7,
+            "codes": [
+              "000568.SZ",
+              "000596.SZ",
+              "000799.SZ",
+              "000858.SZ",
+              "000860.SZ",
+              "000995.SZ",
+              "002304.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 7,
+              "known_companies": 7,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "coverage_previous": {
+              "candidate_companies": 7,
+              "known_companies": 7,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "1"
+            },
+            "deducted_ttm": "18988703566.15",
+            "dimensions": [
+              "20",
+              "0",
+              "60",
+              "70"
+            ],
+            "eligible": true,
+            "income_method_A": "16805297481.34490134276339054",
+            "income_method_B": "11599396190.85971057819152296",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "532156496182.0000",
+            "metric_percentiles": [
+              "20",
+              "0",
+              "0",
+              "60",
+              "60",
+              "80",
+              "60"
+            ],
+            "n": 7,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "quarter_margin_base": "-0.0425203723893017679720644559",
+            "quarter_margin_paths": [
+              "0.0208739681513227883235663178",
+              "-0.1059147129299263242676952296",
+              "-0.0425203723893017679720644559"
+            ],
+            "rank": 5,
+            "raw": [
+              "0.03424368820355659568569782705",
+              "-0.1736148338948650844763476432",
+              "-0.0264680819262735329885665654",
+              "0.07603776978897223709147389263",
+              "0.07456875848045567728829730077",
+              "0.2625502685450045705967583123",
+              "0.06149919866387449898368823888"
+            ],
+            "root": "BK0438.DC",
+            "sample_id": "4ab604f25862f382",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "score_available": true,
+            "season_weight": "0.75",
+            "sector_code": "BK1277.DC",
+            "sector_name": "白酒Ⅱ",
+            "total_score": "37.50"
+          },
+          {
+            "R25": "202108387714.57",
+            "R4_base": "66363188175.32949594235838446",
+            "R4_high": "68269345811.50059477295255405",
+            "R4_low": "60644715266.81619945057587567",
+            "R9": "112740354327.17",
+            "R9_previous": "128740509459.25",
+            "R_base": "179103542502.4994959423583845",
+            "R_high": "181009700138.6705947729525540",
+            "R_low": "173385069593.9861994505758757",
+            "X25": "4023656739.42",
+            "X4_base": "733120801.0991479454255391340",
+            "X4_high": "1024465957.576138942283622565",
+            "X4_low": "429847566.3194535951294418175",
+            "X9": "1684669646.57",
+            "X_base": "2417790447.669147945425539134",
+            "X_high": "2709135604.146138942283622565",
+            "X_low": "2114517212.889453595129441818",
+            "available": true,
+            "average_parent_equity": "67103147539.495",
+            "candidate_n": 8,
+            "codes": [
+              "000010.SZ",
+              "000498.SZ",
+              "002060.SZ",
+              "002061.SZ",
+              "002062.SZ",
+              "002200.SZ",
+              "002307.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 8,
+              "known_companies": 8,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.9953517140067422809554472170"
+            },
+            "coverage_previous": {
+              "candidate_companies": 8,
+              "known_companies": 8,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.9961194558292417155333684490"
+            },
+            "deducted_ttm": "3067069642.83",
+            "dimensions": [
+              "80",
+              "20",
+              "20",
+              "0"
+            ],
+            "eligible": true,
+            "income_method_A": "68269345811.50059477295255405",
+            "income_method_B": "60644715266.81619945057587567",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "48769250394.0000",
+            "metric_percentiles": [
+              "80",
+              "20",
+              "20",
+              "0",
+              "40",
+              "0",
+              "0"
+            ],
+            "n": 7,
+            "negative_equity_companies": 0,
+            "qualification_failures": [],
+            "quarter_margin_base": "0.01104710037682736707482707881",
+            "quarter_margin_paths": [
+              "0.00708796412726599415712171046",
+              "0.01500623662638873999253244716",
+              "0.01104710037682736707482707881"
+            ],
+            "rank": 6,
+            "raw": [
+              "0.04957612487655960967333007833",
+              "-0.1138242973100125524668402103",
+              "-0.00640900997674937097553524633",
+              "-0.06579272294572176732608280957",
+              "0.04570679253197192022847764348",
+              "0.8093585296604657289075471001",
+              "0.1254340445724163360812755442"
+            ],
+            "root": "BK1209.DC",
+            "sample_id": "0960078e4d508734",
+            "sample_losses": [
+              {
+                "code": "001396.SZ",
+                "comparability": null,
+                "missing": [
+                  {
+                    "basis": "reported",
+                    "dataset": "income",
+                    "field": "revenue",
+                    "period": "2024-06-30"
+                  },
+                  {
+                    "basis": "reported",
+                    "dataset": "income",
+                    "field": "revenue",
+                    "period": "2024-09-30"
+                  },
+                  {
+                    "basis": "reported",
+                    "dataset": "fina_indicator",
+                    "field": "profit_dedt",
+                    "period": "2024-06-30"
+                  }
+                ],
+                "reason": "missing_or_invalid_inputs"
+              }
+            ],
+            "scope": "trial_sample_forecast",
+            "score_available": true,
+            "season_weight": "0.75",
+            "sector_code": "BK1247.DC",
+            "sector_name": "基础建设",
+            "total_score": "30.00"
+          }
+        ]
+      },
+      "exclude_top3": {
+        "comparable_ranking": false,
+        "failed_original_candidates": [
+          "BK1038.DC",
+          "BK1040.DC",
+          "BK1247.DC",
+          "BK1248.DC",
+          "BK1277.DC",
+          "BK1280.DC"
+        ],
+        "original_metrics": [
+          {
+            "R25": "27333419311.39",
+            "R4_base": "3923848168.579944747493675453",
+            "R4_high": "3991348947.348791290404747770",
+            "R4_low": "3856347389.811098204582603135",
+            "R9": "18367785452.97",
+            "R9_previous": "23140319374.40",
+            "R_base": "22291633621.54994474749367545",
+            "R_high": "22359134400.31879129040474777",
+            "R_low": "22224132842.78109820458260314",
+            "X25": "3326763351.99",
+            "X4_base": "-664465742.4880287502460343373",
+            "X4_high": "-391493506.7187021521549892166",
+            "X4_low": "-946593929.2293768088322754299",
+            "X9": "2023312105.17",
+            "X_base": "1358846362.681971249753965663",
+            "X_high": "1631818598.451297847845010783",
+            "X_low": "1076718175.940623191167724570",
+            "available": true,
+            "average_parent_equity": "35846429747.04",
+            "candidate_n": 7,
+            "codes": [
+              "000596.SZ",
+              "000799.SZ",
+              "000860.SZ",
+              "000995.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 7,
+              "known_companies": 7,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.2363457943981531153564186365"
+            },
+            "coverage_previous": {
+              "candidate_companies": 7,
+              "known_companies": 7,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.2435934309467436305148540411"
+            },
+            "deducted_ttm": "1376101776.62",
+            "eligible": false,
+            "income_method_A": "3856347389.811098204582603135",
+            "income_method_B": "3991348947.348791290404747770",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "72962211180.0000",
+            "n": 4,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "fewer_than_5_companies",
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown"
+            ],
+            "quarter_margin_base": "-0.1693403296816404022257569778",
+            "quarter_margin_paths": [
+              "-0.1015192531028381551838223998",
+              "-0.2371614062604426492676915557",
+              "-0.1693403296816404022257569778"
+            ],
+            "raw": [
+              "0.01862397453018050445759483441",
+              "-0.1844549938082248229013427463",
+              "-0.06075278729263093727535547899",
+              "0.07086491343895413407533602380",
+              "0.03838880988513593539284068782",
+              "0.3203064730050101240588978924",
+              "0.2076233152543517107375302033"
+            ],
+            "root": "BK0438.DC",
+            "sample_id": "d5c168d5eab954be",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "season_weight": "0.5",
+            "sector_code": "BK1277.DC",
+            "sector_name": "白酒Ⅱ"
+          },
+          {
+            "R25": "369007945.68",
+            "R4_base": "104153947.9306638311998016232",
+            "R4_high": "110686907.4806759923815711410",
+            "R4_low": "97620988.38065167001803210547",
+            "R9": "255957393.17",
+            "R9_previous": "219446400.41",
+            "R_base": "360111341.1006638311998016232",
+            "R_high": "366644300.6506759923815711410",
+            "R_low": "353578381.5506516700180321055",
+            "X25": "-129492386.79",
+            "X4_base": "-105984012.9110068017671322138",
+            "X4_high": "-47930527.05736304014497450998",
+            "X4_low": "-170917814.3033680991898574013",
+            "X9": "-25334538.94",
+            "X_base": "-131318551.8510068017671322138",
+            "X_high": "-73265065.99736304014497450998",
+            "X_low": "-196252353.2433680991898574013",
+            "available": true,
+            "average_parent_equity": "398917534.955",
+            "candidate_n": 4,
+            "codes": [
+              "000929.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 4,
+              "known_companies": 4,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.01520392523167078501911137518"
+            },
+            "coverage_previous": {
+              "candidate_companies": 4,
+              "known_companies": 4,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.01363582484245367460315256267"
+            },
+            "deducted_ttm": "-116852662.19",
+            "eligible": false,
+            "income_method_A": "110686907.4806759923815711410",
+            "income_method_B": "97620988.38065167001803210547",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "1346803500.0000",
+            "n": 1,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "fewer_than_5_companies",
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown",
+              "nonpositive_forecast_deducted_profit",
+              "incomplete_metric"
+            ],
+            "quarter_margin_base": "-1.017570769199850786131705457",
+            "quarter_margin_paths": [
+              "-1.544155656649883138735263342",
+              "-0.4909858817498184335281475727",
+              "-1.017570769199850786131705457"
+            ],
+            "raw": [
+              "-0.09750386886506220229389975137",
+              "-0.0241095203598981993611752756",
+              "-0.0137406513820094679899018552",
+              "-0.6962633831078097629775137626",
+              "-0.2929243564166252958490484463",
+              "0.3792578969446307535383281637",
+              null
+            ],
+            "root": "BK0438.DC",
+            "sample_id": "05429e0e0de86391",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "season_weight": "0.5",
+            "sector_code": "BK1279.DC",
+            "sector_name": "非白酒"
+          },
+          {
+            "R25": "3963290270.39",
+            "R4_base": "902614135.2804531126042048542",
+            "R4_high": "915638195.3516712652562098365",
+            "R4_low": "889590075.2092349599521998719",
+            "R9": "3116006413.94",
+            "R9_previous": "3066266167.35",
+            "R_base": "4018620549.220453112604204854",
+            "R_high": "4031644609.291671265256209836",
+            "R_low": "4005596489.149234959952199872",
+            "X25": "51211170.49",
+            "X4_base": "-59518321.50638248576267918541",
+            "X4_high": "-29708570.11505751683415057318",
+            "X4_low": "-90175786.61635627081626592180",
+            "X9": "-61993551.85",
+            "X_base": "-121511873.3563824857626791854",
+            "X_high": "-91702121.96505751683415057318",
+            "X_low": "-152169338.4663562708162659218",
+            "available": true,
+            "average_parent_equity": "5033107521.35",
+            "candidate_n": 5,
+            "codes": [
+              "000529.SZ",
+              "001215.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 5,
+              "known_companies": 5,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.05762847784740027361334865478"
+            },
+            "coverage_previous": {
+              "candidate_companies": 5,
+              "known_companies": 5,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.05466015961284987603231730046"
+            },
+            "deducted_ttm": "-112582353.42",
+            "eligible": false,
+            "income_method_A": "915638195.3516712652562098365",
+            "income_method_B": "889590075.2092349599521998719",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "5634138060.0000",
+            "n": 2,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "fewer_than_5_companies",
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown",
+              "nonpositive_forecast_deducted_profit",
+              "incomplete_metric"
+            ],
+            "quarter_margin_base": "-0.06593993953782855890503209634",
+            "quarter_margin_paths": [
+              "-0.03339579761843672599077186530",
+              "-0.09848408145722039181929232738",
+              "-0.06593993953782855890503209634"
+            ],
+            "raw": [
+              "-0.02156707415799152173468024413",
+              "0.013960693024134324212592298",
+              "-0.04315858766776179577476988770",
+              "0.001754713907371720459636481104",
+              "-0.02236835850266173451852001334",
+              "0.4587177002815250117630431164",
+              null
+            ],
+            "root": "BK0438.DC",
+            "sample_id": "780d9e56cdaba939",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "season_weight": "0.5",
+            "sector_code": "BK1280.DC",
+            "sector_name": "食品加工"
+          },
+          {
+            "available": false,
+            "candidate_n": 0,
+            "codes": [],
+            "coverage_current": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "coverage_previous": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "eligible": false,
+            "kind": "D",
+            "level": 2,
+            "n": 0,
+            "qualification_failures": [
+              "incomplete_model_history"
+            ],
+            "raw": null,
+            "reason": "incomplete_model_history",
+            "root": "BK0438.DC",
+            "sample_id": "e3b0c44298fc1c14",
+            "sector_code": "BK1281.DC",
+            "sector_name": "休闲食品"
+          },
+          {
+            "available": false,
+            "candidate_n": 0,
+            "codes": [],
+            "coverage_current": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "coverage_previous": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "eligible": false,
+            "kind": "D",
+            "level": 2,
+            "n": 0,
+            "qualification_failures": [
+              "incomplete_model_history"
+            ],
+            "raw": null,
+            "reason": "incomplete_model_history",
+            "root": "BK0438.DC",
+            "sample_id": "e3b0c44298fc1c14",
+            "sector_code": "BK1282.DC",
+            "sector_name": "饮料乳品"
+          },
+          {
+            "available": false,
+            "candidate_n": 0,
+            "codes": [],
+            "coverage_current": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "coverage_previous": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "eligible": false,
+            "kind": "D",
+            "level": 2,
+            "n": 0,
+            "qualification_failures": [
+              "incomplete_model_history"
+            ],
+            "raw": null,
+            "reason": "incomplete_model_history",
+            "root": "BK1201.DC",
+            "sample_id": "e3b0c44298fc1c14",
+            "sector_code": "BK0459.DC",
+            "sector_name": "元件"
+          },
+          {
+            "available": false,
+            "candidate_n": 0,
+            "codes": [],
+            "coverage_current": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "coverage_previous": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "eligible": false,
+            "kind": "D",
+            "level": 2,
+            "n": 0,
+            "qualification_failures": [
+              "incomplete_model_history"
+            ],
+            "raw": null,
+            "reason": "incomplete_model_history",
+            "root": "BK1201.DC",
+            "sample_id": "e3b0c44298fc1c14",
+            "sector_code": "BK1036.DC",
+            "sector_name": "半导体"
+          },
+          {
+            "available": false,
+            "candidate_n": 0,
+            "codes": [],
+            "coverage_current": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "coverage_previous": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "eligible": false,
+            "kind": "D",
+            "level": 2,
+            "n": 0,
+            "qualification_failures": [
+              "incomplete_model_history"
+            ],
+            "raw": null,
+            "reason": "incomplete_model_history",
+            "root": "BK1201.DC",
+            "sample_id": "e3b0c44298fc1c14",
+            "sector_code": "BK1037.DC",
+            "sector_name": "消费电子"
+          },
+          {
+            "R25": "57506047482.95",
+            "R4_base": "14865206396.77409903357235069",
+            "R4_high": "15099284654.39805746382981182",
+            "R4_low": "14631128139.15014060331488956",
+            "R9": "41496924391.29",
+            "R9_previous": "42643230547.86",
+            "R_base": "56362130788.06409903357235069",
+            "R_high": "56596209045.68805746382981182",
+            "R_low": "56128052530.44014060331488956",
+            "X25": "-1143802791.01",
+            "X4_base": "-1132155854.592091797042602695",
+            "X4_high": "-1100464124.949387774917397935",
+            "X4_low": "-1164291194.318104724991677658",
+            "X9": "-1673077561.74",
+            "X_base": "-2805233416.332091797042602695",
+            "X_high": "-2773541686.689387774917397935",
+            "X_low": "-2837368756.058104724991677658",
+            "available": true,
+            "average_parent_equity": "39492095397.85",
+            "candidate_n": 10,
+            "codes": [
+              "000020.SZ",
+              "000045.SZ",
+              "000050.SZ",
+              "000509.SZ",
+              "000536.SZ",
+              "001308.SZ",
+              "001373.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 10,
+              "known_companies": 10,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.1111545929865505081512978330"
+            },
+            "coverage_previous": {
+              "candidate_companies": 10,
+              "known_companies": 10,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.1146234238034272576807980341"
+            },
+            "deducted_ttm": "-2272756002.59",
+            "eligible": false,
+            "income_method_A": "15099284654.39805746382981182",
+            "income_method_B": "14631128139.15014060331488956",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "46140172589.0000",
+            "n": 7,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown",
+              "nonpositive_forecast_deducted_profit",
+              "incomplete_metric"
+            ],
+            "quarter_margin_base": "-0.07616146216696870966094153294",
+            "quarter_margin_paths": [
+              "-0.07710903006116748582539522269",
+              "-0.07521389427276993349648784320",
+              "-0.07616146216696870966094153294"
+            ],
+            "raw": [
+              "-0.06079806942466597016401122797",
+              "-0.0198921112640381250942259480",
+              "-0.02988146924462341869451828100",
+              "0.09215821506455302632530175801",
+              "-0.05754964328162064890219738493",
+              "0.5926905988190636720624514750",
+              null
+            ],
+            "root": "BK1201.DC",
+            "sample_id": "a9d357e55a6e83cf",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "season_weight": "0.5",
+            "sector_code": "BK1038.DC",
+            "sector_name": "光学光电子"
+          },
+          {
+            "R25": "4748021291.37",
+            "R4_base": "2063785548.341187775749350876",
+            "R4_high": "2178571122.664698932924058620",
+            "R4_low": "1948999974.017676618574643132",
+            "R9": "5039300522.78",
+            "R9_previous": "3442674016.46",
+            "R_base": "7103086071.121187775749350876",
+            "R_high": "7217871645.444698932924058620",
+            "R_low": "6988300496.797676618574643132",
+            "X25": "-83092130.96",
+            "X4_base": "-24057015.90766681884929352305",
+            "X4_high": "-9505344.202930851304178454688",
+            "X4_low": "-40165112.39429835969122688545",
+            "X9": "-4400246.56",
+            "X_base": "-28457262.46766681884929352305",
+            "X_high": "-13905590.76293085130417845469",
+            "X_low": "-44565358.95429835969122688545",
+            "available": true,
+            "average_parent_equity": "37020182.66",
+            "candidate_n": 4,
+            "codes": [
+              "000670.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 4,
+              "known_companies": 4,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.02875554355381680593836425542"
+            },
+            "coverage_previous": {
+              "candidate_companies": 4,
+              "known_companies": 4,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.04782911057834570602106959177"
+            },
+            "deducted_ttm": "-44055425.49",
+            "eligible": false,
+            "income_method_A": "1948999974.017676618574643132",
+            "income_method_B": "2178571122.664698932924058620",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "5079304176.0000",
+            "n": 1,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "fewer_than_5_companies",
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown",
+              "nonpositive_forecast_deducted_profit",
+              "incomplete_metric"
+            ],
+            "quarter_margin_base": "-0.01165674211014955752381681117",
+            "quarter_margin_paths": [
+              "-0.004877036598074701558954311750",
+              "-0.01843644762222441348867931060",
+              "-0.01165674211014955752381681117"
+            ],
+            "raw": [
+              "-0.005602590725345608608672843351",
+              "0.496009734419631138510429092",
+              "0.01349404657953618619693012359",
+              "-0.2080719992646042554422612942",
+              "-1.190038036673479773694882142",
+              "0.8568732348692651502407466081",
+              null
+            ],
+            "root": "BK1201.DC",
+            "sample_id": "57746c175f1fb564",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "season_weight": "0.5",
+            "sector_code": "BK1223.DC",
+            "sector_name": "其他电子Ⅱ"
+          },
+          {
+            "available": false,
+            "candidate_n": 0,
+            "codes": [],
+            "coverage_current": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "coverage_previous": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "eligible": false,
+            "kind": "D",
+            "level": 2,
+            "n": 0,
+            "qualification_failures": [
+              "incomplete_model_history"
+            ],
+            "raw": null,
+            "reason": "incomplete_model_history",
+            "root": "BK1206.DC",
+            "sample_id": "e3b0c44298fc1c14",
+            "sector_code": "BK0454.DC",
+            "sector_name": "塑料"
+          },
+          {
+            "available": false,
+            "candidate_n": 0,
+            "codes": [],
+            "coverage_current": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "coverage_previous": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "eligible": false,
+            "kind": "D",
+            "level": 2,
+            "n": 0,
+            "qualification_failures": [
+              "incomplete_model_history"
+            ],
+            "raw": null,
+            "reason": "incomplete_model_history",
+            "root": "BK1206.DC",
+            "sample_id": "e3b0c44298fc1c14",
+            "sector_code": "BK0471.DC",
+            "sector_name": "化学纤维"
+          },
+          {
+            "available": false,
+            "candidate_n": 0,
+            "codes": [],
+            "coverage_current": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "coverage_previous": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "eligible": false,
+            "kind": "D",
+            "level": 2,
+            "n": 0,
+            "qualification_failures": [
+              "incomplete_model_history"
+            ],
+            "raw": null,
+            "reason": "incomplete_model_history",
+            "root": "BK1206.DC",
+            "sample_id": "e3b0c44298fc1c14",
+            "sector_code": "BK0538.DC",
+            "sector_name": "化学制品"
+          },
+          {
+            "R25": "10371570023.90",
+            "R4_base": "3212560975.890962958534824131",
+            "R4_high": "3276283746.018796192906256123",
+            "R4_low": "3148838205.763129724163392138",
+            "R9": "8260516900.90",
+            "R9_previous": "7446296274.34",
+            "R_base": "11473077876.79096295853482413",
+            "R_high": "11536800646.91879619290625612",
+            "R_low": "11409355106.66312972416339214",
+            "X25": "3404198825.04",
+            "X4_base": "2223617634.493488704322826879",
+            "X4_high": "2853808666.043734498949631480",
+            "X4_low": "1616224948.704897554130879457",
+            "X9": "5988430219.76",
+            "X_base": "8212047854.253488704322826879",
+            "X_high": "8842238885.803734498949631480",
+            "X_low": "7604655168.464897554130879457",
+            "available": true,
+            "average_parent_equity": "23073551928.865",
+            "candidate_n": 6,
+            "codes": [
+              "000408.SZ",
+              "000525.SZ",
+              "000731.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 6,
+              "known_companies": 6,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.1225235455609795317386307912"
+            },
+            "coverage_previous": {
+              "candidate_companies": 6,
+              "known_companies": 6,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.1253540978623843047625385364"
+            },
+            "deducted_ttm": "6995146924.72",
+            "eligible": false,
+            "income_method_A": "3148838205.763129724163392138",
+            "income_method_B": "3276283746.018796192906256123",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "115990125739.0000",
+            "n": 3,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "fewer_than_5_companies",
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown"
+            ],
+            "quarter_margin_base": "0.6921635577288292911354809690",
+            "quarter_margin_paths": [
+              "0.5132765938074614185135834742",
+              "0.8710505216501971637573784638",
+              "0.6921635577288292911354809690"
+            ],
+            "raw": [
+              "0.07079954265014048985522694174",
+              "0.106204542837070413132133443",
+              "0.3875427062399808407172101139",
+              "0.2109794523754462015400148166",
+              "0.3031673210213064456157696920",
+              "0.1885621878198364963171832330",
+              "0.07396360768574768842459370312"
+            ],
+            "root": "BK1206.DC",
+            "sample_id": "e16becebb6479dfe",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "season_weight": "0.5",
+            "sector_code": "BK0731.DC",
+            "sector_name": "农化制品"
+          },
+          {
+            "R25": "11663461830.38",
+            "R4_base": "2444445890.614784625267511961",
+            "R4_high": "2517723788.420888805095430599",
+            "R4_low": "2371167992.808680445439593322",
+            "R9": "7773145339.23",
+            "R9_previous": "8969891110.47",
+            "R_base": "10217591229.84478462526751196",
+            "R_high": "10290869127.65088880509543060",
+            "R_low": "10144313332.03868044543959332",
+            "X25": "-1612284795.31",
+            "X4_base": "-1200602377.498487449775987247",
+            "X4_high": "-922080545.6484866170826803728",
+            "X4_low": "-1494114427.306001410818883288",
+            "X9": "-732941649.51",
+            "X_base": "-1933544027.008487449775987247",
+            "X_high": "-1655022195.158486617082680373",
+            "X_low": "-2227056076.816001410818883288",
+            "available": true,
+            "average_parent_equity": "8219589951.80",
+            "candidate_n": 9,
+            "codes": [
+              "000510.SZ",
+              "000545.SZ",
+              "000635.SZ",
+              "000691.SZ",
+              "000707.SZ",
+              "000818.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 9,
+              "known_companies": 9,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.1816959085032984932686880821"
+            },
+            "coverage_previous": {
+              "candidate_companies": 9,
+              "known_companies": 9,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.2080822270009362011938510180"
+            },
+            "deducted_ttm": "-1672907116.66",
+            "eligible": false,
+            "income_method_A": "2371167992.808680445439593322",
+            "income_method_B": "2517723788.420888805095430599",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "23196262359.0000",
+            "n": 6,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown",
+              "nonpositive_forecast_deducted_profit",
+              "incomplete_metric"
+            ],
+            "quarter_margin_base": "-0.4911552274926947829856488649",
+            "quarter_margin_paths": [
+              "-0.5934385789964303091406250146",
+              "-0.3888718759889592568306727152",
+              "-0.4911552274926947829856488649"
+            ],
+            "raw": [
+              "-0.08335584401847760846736969117",
+              "-0.1239658192020771900992021944",
+              "-0.0510029639484864559319066945",
+              "0.04371237104433950101647545108",
+              "-0.2035268336340369022251205580",
+              "0.5770036623193910741894536131",
+              null
+            ],
+            "root": "BK1206.DC",
+            "sample_id": "5cf68afac45310a4",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "season_weight": "0.5",
+            "sector_code": "BK1019.DC",
+            "sector_name": "化学原料"
+          },
+          {
+            "available": false,
+            "candidate_n": 0,
+            "codes": [],
+            "coverage_current": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "coverage_previous": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "eligible": false,
+            "kind": "D",
+            "level": 2,
+            "n": 0,
+            "qualification_failures": [
+              "incomplete_model_history"
+            ],
+            "raw": null,
+            "reason": "incomplete_model_history",
+            "root": "BK1209.DC",
+            "sample_id": "e3b0c44298fc1c14",
+            "sector_code": "BK0725.DC",
+            "sector_name": "装修装饰Ⅱ"
+          },
+          {
+            "available": false,
+            "candidate_n": 0,
+            "codes": [],
+            "coverage_current": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "coverage_previous": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "eligible": false,
+            "kind": "D",
+            "level": 2,
+            "n": 0,
+            "qualification_failures": [
+              "incomplete_model_history"
+            ],
+            "raw": null,
+            "reason": "incomplete_model_history",
+            "root": "BK1209.DC",
+            "sample_id": "e3b0c44298fc1c14",
+            "sector_code": "BK0726.DC",
+            "sector_name": "工程咨询服务Ⅱ"
+          },
+          {
+            "available": false,
+            "candidate_n": 0,
+            "codes": [],
+            "coverage_current": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "coverage_previous": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "eligible": false,
+            "kind": "D",
+            "level": 2,
+            "n": 0,
+            "qualification_failures": [
+              "incomplete_model_history"
+            ],
+            "raw": null,
+            "reason": "incomplete_model_history",
+            "root": "BK1209.DC",
+            "sample_id": "e3b0c44298fc1c14",
+            "sector_code": "BK1246.DC",
+            "sector_name": "房屋建设Ⅱ"
+          },
+          {
+            "R25": "18211063559.95",
+            "R4_base": "5033782371.721752653606768414",
+            "R4_high": "6057708925.83977369693238032",
+            "R4_low": "4009855817.603731610281156507",
+            "R9": "10612212664.98",
+            "R9_previous": "12580925593.09",
+            "R_base": "15645995036.70175265360676841",
+            "R_high": "16669921590.81977369693238032",
+            "R_low": "14622068482.58373161028115651",
+            "X25": "-19975037.17",
+            "X4_base": "-255046732.9932252931993547272",
+            "X4_high": "-94783106.14729049971874035350",
+            "X4_low": "-470662767.4906440778610098068",
+            "X9": "-116774692.75",
+            "X_base": "-371821425.7432252931993547272",
+            "X_high": "-211557798.8972904997187403535",
+            "X_low": "-587437460.2406440778610098068",
+            "available": true,
+            "average_parent_equity": "10742127539.475",
+            "candidate_n": 8,
+            "codes": [
+              "000010.SZ",
+              "002062.SZ",
+              "002200.SZ",
+              "002307.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 8,
+              "known_companies": 8,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.09369213116750233674975431510"
+            },
+            "coverage_previous": {
+              "candidate_companies": 8,
+              "known_companies": 8,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.09734391147165496715881454883"
+            },
+            "deducted_ttm": "-187139247.59",
+            "eligible": false,
+            "income_method_A": "6057708925.83977369693238032",
+            "income_method_B": "4009855817.603731610281156507",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "19086821702.0000",
+            "n": 4,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "fewer_than_5_companies",
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown",
+              "nonpositive_forecast_deducted_profit",
+              "incomplete_metric"
+            ],
+            "quarter_margin_base": "-0.05066701620356090674625979170",
+            "quarter_margin_paths": [
+              "-0.07769649767802215798396735212",
+              "-0.02363753472909965550855223130",
+              "-0.05066701620356090674625979170"
+            ],
+            "raw": [
+              "-0.01948053120359290781199936035",
+              "-0.1408522085930982252210033197",
+              "-0.02266777637621652709760137082",
+              "-0.02683479053805191490767783613",
+              "-0.01742105992526188685158382420",
+              "0.8168223648264694089305893673",
+              null
+            ],
+            "root": "BK1209.DC",
+            "sample_id": "28af33e5f4ec5418",
+            "sample_losses": [
+              {
+                "code": "001396.SZ",
+                "comparability": null,
+                "missing": [
+                  {
+                    "basis": "reported",
+                    "dataset": "income",
+                    "field": "revenue",
+                    "period": "2024-06-30"
+                  },
+                  {
+                    "basis": "reported",
+                    "dataset": "income",
+                    "field": "revenue",
+                    "period": "2024-09-30"
+                  },
+                  {
+                    "basis": "reported",
+                    "dataset": "fina_indicator",
+                    "field": "profit_dedt",
+                    "period": "2024-06-30"
+                  }
+                ],
+                "reason": "missing_or_invalid_inputs"
+              }
+            ],
+            "scope": "trial_sample_forecast",
+            "season_weight": "0.5",
+            "sector_code": "BK1247.DC",
+            "sector_name": "基础建设"
+          },
+          {
+            "R25": "37927637632.23",
+            "R4_base": "12352163280.63990183889436753",
+            "R4_high": "13831259580.64868311659205324",
+            "R4_low": "10873066980.63112056119668182",
+            "R9": "24255687537.66",
+            "R9_previous": "24954088535.97",
+            "R_base": "36607850818.29990183889436753",
+            "R_high": "38086947118.30868311659205324",
+            "R_low": "35128754518.29112056119668182",
+            "X25": "967874261.87",
+            "X4_base": "372351575.3378205957817043139",
+            "X4_high": "419427265.3413783523719864928",
+            "X4_low": "325808195.4456428979137753149",
+            "X9": "805501770.02",
+            "X_base": "1177853345.357820595781704314",
+            "X_high": "1224929035.361378352371986493",
+            "X_low": "1131309965.465642897913775315",
+            "available": true,
+            "average_parent_equity": "25551568299.23",
+            "candidate_n": 7,
+            "codes": [
+              "002051.SZ",
+              "002116.SZ",
+              "002135.SZ",
+              "002140.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 7,
+              "known_companies": 7,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.2998285996786820516595067161"
+            },
+            "coverage_previous": {
+              "candidate_companies": 7,
+              "known_companies": 7,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.3238156471738149562755439963"
+            },
+            "deducted_ttm": "1059529725.87",
+            "eligible": false,
+            "income_method_A": "10873066980.63112056119668182",
+            "income_method_B": "13831259580.64868311659205324",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "25142655498.0000",
+            "n": 4,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "fewer_than_5_companies",
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown"
+            ],
+            "quarter_margin_base": "0.03014464485920647432564382748",
+            "quarter_margin_paths": [
+              "0.02996470048662677872389644173",
+              "0.03032458923178616992739121324",
+              "0.03014464485920647432564382748"
+            ],
+            "raw": [
+              "0.04684681558204996393264045804",
+              "-0.0347974958716799927755422949",
+              "0.00665591338122872483684592803",
+              "0.1289375582359482309802263746",
+              "0.04146632854242176097573097914",
+              "0.5886361422315857595611791229",
+              "0.03951542870393449842137833963"
+            ],
+            "root": "BK1209.DC",
+            "sample_id": "3919367569cda471",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "season_weight": "0.5",
+            "sector_code": "BK1248.DC",
+            "sector_name": "专业工程"
+          },
+          {
+            "R25": "831182097.08",
+            "R4_base": "144751756.6688510703435101248",
+            "R4_high": "161837973.8962237841344681148",
+            "R4_low": "127665539.4414783565525521349",
+            "R9": "481333431.04",
+            "R9_previous": "639683832.92",
+            "R_base": "626085187.7088510703435101248",
+            "R_high": "643171404.9362237841344681148",
+            "R_low": "608998970.4814783565525521349",
+            "X25": "-470241853.58",
+            "X4_base": "-499274671.1939430740350612626",
+            "X4_high": "-180608157.2754867390550202218",
+            "X4_low": "-887464349.3445318493369926099",
+            "X9": "-391001908.4",
+            "X_base": "-890276579.5939430740350612626",
+            "X_high": "-571610065.6754867390550202218",
+            "X_low": "-1278466257.744531849336992610",
+            "available": true,
+            "average_parent_equity": "6473085.495",
+            "candidate_n": 4,
+            "codes": [
+              "000566.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 4,
+              "known_companies": 4,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.03191944976661678447715829527"
+            },
+            "coverage_previous": {
+              "candidate_companies": 4,
+              "known_companies": 4,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.03484338953847213248057006815"
+            },
+            "deducted_ttm": "-588852606.84",
+            "eligible": false,
+            "income_method_A": "127665539.4414783565525521349",
+            "income_method_B": "161837973.8962237841344681148",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "5072697541.0000",
+            "n": 1,
+            "negative_equity_companies": 1,
+            "qualification_failures": [
+              "fewer_than_5_companies",
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown",
+              "nonpositive_forecast_deducted_profit",
+              "nonpositive_or_missing_denominator",
+              "incomplete_metric"
+            ],
+            "quarter_margin_base": "-3.449178667559350578323813531",
+            "quarter_margin_paths": [
+              "-5.483659539099304872660140675",
+              "-1.414697796019396283987486387",
+              "-3.449178667559350578323813531"
+            ],
+            "raw": [
+              "-0.1755035801756947436411449280",
+              "-0.2467532807692423952617334629",
+              "-0.8562228537965446223997667880",
+              "-0.06740519381730580905216153091",
+              "-90.96938504749349058304072346",
+              "1.045519367776933665152987916",
+              null
+            ],
+            "root": "BK1216.DC",
+            "sample_id": "af086af59b059c69",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "season_weight": "0.5",
+            "sector_code": "BK0465.DC",
+            "sector_name": "化学制药"
+          },
+          {
+            "available": false,
+            "candidate_n": 0,
+            "codes": [],
+            "coverage_current": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "coverage_previous": {
+              "candidate_companies": 0,
+              "known_companies": 0,
+              "scope": "trial_selected_codes_only",
+              "valid": false,
+              "value": null
+            },
+            "eligible": false,
+            "kind": "D",
+            "level": 2,
+            "n": 0,
+            "qualification_failures": [
+              "incomplete_model_history"
+            ],
+            "raw": null,
+            "reason": "incomplete_model_history",
+            "root": "BK1216.DC",
+            "sample_id": "e3b0c44298fc1c14",
+            "sector_code": "BK0727.DC",
+            "sector_name": "医疗服务"
+          },
+          {
+            "R25": "2672864470.3",
+            "R4_base": "767789652.3222530342438503866",
+            "R4_high": "810296820.4027003708536999569",
+            "R4_low": "725282484.2418056976340008165",
+            "R9": "1763385371.59",
+            "R9_previous": "1865130269.48",
+            "R_base": "2531175023.912253034243850387",
+            "R_high": "2573682191.992700370853699957",
+            "R_low": "2488667855.831805697634000816",
+            "X25": "2137927089.20",
+            "X4_base": "349254271.9793244530105592073",
+            "X4_high": "682473127.9947895406301127095",
+            "X4_low": "48967251.38856622706850519741",
+            "X9": "2954692136.75",
+            "X_base": "3303946408.729324453010559207",
+            "X_high": "3637165264.744789540630112710",
+            "X_low": "3003659388.138566227068505197",
+            "available": true,
+            "average_parent_equity": "32213932600.00",
+            "candidate_n": 5,
+            "codes": [
+              "000590.SZ",
+              "000623.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 5,
+              "known_companies": 5,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.04223440001902466069709364717"
+            },
+            "coverage_previous": {
+              "candidate_companies": 5,
+              "known_companies": 5,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.04648975575566946485521951700"
+            },
+            "deducted_ttm": "3123020043.66",
+            "eligible": false,
+            "income_method_A": "725282484.2418056976340008165",
+            "income_method_B": "810296820.4027003708536999569",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "21992385624.0000",
+            "n": 2,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "fewer_than_5_companies",
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown"
+            ],
+            "quarter_margin_base": "0.454882754570827564533142889",
+            "quarter_margin_paths": [
+              "0.8422507787400854413814220756",
+              "0.067514730401569687684863702",
+              "0.454882754570827564533142889"
+            ],
+            "raw": [
+              "0.1502313784969181046500259933",
+              "-0.0530103370231277999101882158",
+              "0.5054378077266622465529679966",
+              "0.09456016072065367336815358707",
+              "0.09694625249386658243644552730",
+              "0.1054622624750151891803828202",
+              "0.09088737631983764305720045121"
+            ],
+            "root": "BK1216.DC",
+            "sample_id": "0c845e5783b22d2d",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "season_weight": "0.5",
+            "sector_code": "BK1040.DC",
+            "sector_name": "中药Ⅱ"
+          },
+          {
+            "R25": "2275611149.2",
+            "R4_base": "404062628.0004054853623956225",
+            "R4_high": "425124057.6533140718820471483",
+            "R4_low": "383001198.3474968988427440966",
+            "R9": "1297269080.76",
+            "R9_previous": "1779630832.41",
+            "R_base": "1701331708.760405485362395622",
+            "R_high": "1722393138.413314071882047148",
+            "R_low": "1680270279.107496898842744097",
+            "X25": "-9469100.69",
+            "X4_base": "-45913052.77491676930355566522",
+            "X4_high": "-31177120.41534800747603012541",
+            "X4_low": "-62006453.54585215109228149125",
+            "X9": "-50689860.54",
+            "X_base": "-96602913.31491676930355566522",
+            "X_high": "-81866980.95534800747603012541",
+            "X_low": "-112696314.0858521510922814912",
+            "available": true,
+            "average_parent_equity": "1961652210.005",
+            "candidate_n": 4,
+            "codes": [
+              "000705.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 4,
+              "known_companies": 4,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.01316919181307343013914651175"
+            },
+            "coverage_previous": {
+              "candidate_companies": 4,
+              "known_companies": 4,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.01721453547076583951918312362"
+            },
+            "deducted_ttm": "-88754945.34",
+            "eligible": false,
+            "income_method_A": "383001198.3474968988427440966",
+            "income_method_B": "425124057.6533140718820471483",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "2024787198.0000",
+            "n": 1,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "fewer_than_5_companies",
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown",
+              "nonpositive_forecast_deducted_profit",
+              "incomplete_metric"
+            ],
+            "quarter_margin_base": "-0.1136285555586464546469426921",
+            "quarter_margin_paths": [
+              "-0.08140214847855649088751713312",
+              "-0.1458549626387364184063682512",
+              "-0.1136285555586464546469426921"
+            ],
+            "raw": [
+              "-0.04771015611434973587953101293",
+              "-0.2523627293008670211860659915",
+              "-0.05261963922620175496433690769",
+              "0.1241468964215568590593531969",
+              "-0.04524499546215369901002442808",
+              "0.3352398046775217201710119510",
+              null
+            ],
+            "root": "BK1216.DC",
+            "sample_id": "fe3886062fcebf3a",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "season_weight": "0.5",
+            "sector_code": "BK1042.DC",
+            "sector_name": "医药商业"
+          },
+          {
+            "R25": "344383390.72",
+            "R4_base": "55111017.45072617612177561022",
+            "R4_high": "55484942.3421296386961301786",
+            "R4_low": "54737092.55932271354742104184",
+            "R9": "233853098.44",
+            "R9_previous": "294374160.07",
+            "R_base": "288964115.8907261761217756102",
+            "R_high": "289338040.7821296386961301786",
+            "R_low": "288590190.9993227135474210418",
+            "X25": "-41348409.7",
+            "X4_base": "-58065717.85487413324005947495",
+            "X4_high": "-37871807.55982742679404416259",
+            "X4_low": "-78530146.34145988970356647691",
+            "X9": "-50861930.86",
+            "X_base": "-108927648.7148741332400594750",
+            "X_high": "-88733738.41982742679404416259",
+            "X_low": "-129392077.2014598897035664769",
+            "available": true,
+            "average_parent_equity": "322563482.655",
+            "candidate_n": 4,
+            "codes": [
+              "000518.SZ"
+            ],
+            "coverage_current": {
+              "candidate_companies": 4,
+              "known_companies": 4,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.02158982186882572346375989219"
+            },
+            "coverage_previous": {
+              "candidate_companies": 4,
+              "known_companies": 4,
+              "scope": "trial_selected_codes_only",
+              "valid": true,
+              "value": "0.02325278949696098933614962659"
+            },
+            "deducted_ttm": "-77479127.69",
+            "eligible": false,
+            "income_method_A": "55484942.3421296386961301786",
+            "income_method_B": "54737092.55932271354742104184",
+            "kind": "D",
+            "level": 2,
+            "market_value_yuan": "3171033096.0000",
+            "n": 1,
+            "negative_equity_companies": 0,
+            "qualification_failures": [
+              "fewer_than_5_companies",
+              "coverage_current_below_90pct_or_unknown",
+              "coverage_previous_below_90pct_or_unknown",
+              "nonpositive_forecast_deducted_profit",
+              "incomplete_metric"
+            ],
+            "quarter_margin_base": "-1.053613606513247637336655104",
+            "quarter_margin_paths": [
+              "-1.415341586862064016554995540",
+              "-0.6918856261644312581183146684",
+              "-1.053613606513247637336655104"
+            ],
+            "raw": [
+              "-0.03435083943219561188712975672",
+              "-0.1609231929374094521901581381",
+              "-0.2568940330111925698224153039",
+              "-0.1034195693849451995313062400",
+              "-0.2401980752820316488593376171",
+              "0.5343494624981108732075664125",
+              null
+            ],
+            "root": "BK1216.DC",
+            "sample_id": "a86e8e43b7d4307a",
+            "sample_losses": [],
+            "scope": "trial_sample_forecast",
+            "season_weight": "0.5",
+            "sector_code": "BK1044.DC",
+            "sector_name": "生物制品"
+          }
+        ],
+        "reason": "original_peer_group_not_complete_or_small"
+      }
+    },
+    "weight_sensitivity": {
+      "available": true,
+      "combinations": 85,
+      "rows": [
+        {
+          "max_rank": 1,
+          "min_rank": 1,
+          "sector_code": "BK1040.DC",
+          "top20_combinations": 85,
+          "top20_fraction": "1"
+        },
+        {
+          "max_rank": 5,
+          "min_rank": 2,
+          "sector_code": "BK1248.DC",
+          "top20_combinations": 44,
+          "top20_fraction": "0.5176470588235294117647058824"
+        },
+        {
+          "max_rank": 3,
+          "min_rank": 2,
+          "sector_code": "BK1280.DC",
+          "top20_combinations": 44,
+          "top20_fraction": "0.5176470588235294117647058824"
+        },
+        {
+          "max_rank": 6,
+          "min_rank": 3,
+          "sector_code": "BK1038.DC",
+          "top20_combinations": 0,
+          "top20_fraction": "0"
+        },
+        {
+          "max_rank": 6,
+          "min_rank": 3,
+          "sector_code": "BK1277.DC",
+          "top20_combinations": 0,
+          "top20_fraction": "0"
+        },
+        {
+          "max_rank": 6,
+          "min_rank": 4,
+          "sector_code": "BK1247.DC",
+          "top20_combinations": 0,
+          "top20_fraction": "0"
+        }
+      ],
+      "top20_boundary_ties": "all included"
+    }
+  }
+}

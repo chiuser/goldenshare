@@ -1,0 +1,10 @@
+{
+  "artifact": "inputs/income_2024-06-30_b00.jsonl",
+  "fingerprint": {
+    "fetched_at": "2026-10-30T02:10:26.809791+08:00",
+    "n": 1977
+  },
+  "rows": 1977,
+  "sha256": "9936664fa2e999e1e7a2b3e47cb9e6d760708c60ea3c84224c69243241f2f580",
+  "spec_hash": "345473966649b23c1f6b52b4b0facb100fb8f5e8384d936c8a14a87ade7da497"
+}

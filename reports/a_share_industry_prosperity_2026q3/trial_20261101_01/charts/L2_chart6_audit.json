@@ -1,0 +1,60 @@
+{
+  "not_formal_industry_ranking": true,
+  "not_plotted": [
+    {
+      "reason": "no_positive_base_deducted_forecast",
+      "sector_code": "BK0454.DC"
+    },
+    {
+      "reason": "no_positive_base_deducted_forecast",
+      "sector_code": "BK0471.DC"
+    },
+    {
+      "reason": "no_positive_base_deducted_forecast",
+      "sector_code": "BK0538.DC"
+    },
+    {
+      "reason": "no_positive_base_deducted_forecast",
+      "sector_code": "BK1019.DC"
+    },
+    {
+      "reason": "no_positive_base_deducted_forecast",
+      "sector_code": "BK0727.DC"
+    },
+    {
+      "reason": "no_positive_base_deducted_forecast",
+      "sector_code": "BK1042.DC"
+    }
+  ],
+  "plotted": 19,
+  "quadrant_counts": {
+    "右上": 6,
+    "右下": 5,
+    "左上": 3,
+    "左下": 4,
+    "边界": 1
+  },
+  "reference_set": [
+    "BK1277.DC",
+    "BK1279.DC",
+    "BK1280.DC",
+    "BK1281.DC",
+    "BK1282.DC",
+    "BK0459.DC",
+    "BK1036.DC",
+    "BK1037.DC",
+    "BK1038.DC",
+    "BK1223.DC",
+    "BK0731.DC",
+    "BK0725.DC",
+    "BK0726.DC",
+    "BK1246.DC",
+    "BK1247.DC",
+    "BK1248.DC",
+    "BK0465.DC",
+    "BK1040.DC",
+    "BK1044.DC"
+  ],
+  "reference_x": "0",
+  "reference_y": "7.789358584148350498291413470"
+}

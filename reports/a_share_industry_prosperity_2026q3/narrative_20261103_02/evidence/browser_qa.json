@@ -1,0 +1,28 @@
+{
+  "desktop": {
+    "bars": 620,
+    "cashTitles": 9,
+    "charts": 59,
+    "heat": 372,
+    "mainPoints": 29,
+    "marginTitles": 9,
+    "percentLabelVerified": true,
+    "questionHeadings": 0,
+    "scrollWidth": 1280,
+    "updating": false,
+    "visibleSelects": 0,
+    "width": 1280
+  },
+  "phone": {
+    "bars": 620,
+    "charts": 59,
+    "heat": 372,
+    "scrollWidth": 390,
+    "width": 390
+  },
+  "top3_tooltip_verified": "电子：工业富联、立讯精密、京东方A",
+  "mobile_label_gap_pixels": 12.67813110351562,
+  "viewport_reset": true,
+  "title_only_unit_change_verified": true,
+  "source_values_preserved": true
+}

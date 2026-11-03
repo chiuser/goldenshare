@@ -1,0 +1,53 @@
+{
+  "as_of": "2026-11-01",
+  "source": "tushareMCP live responses vs prior frozen Prod, not a new Prod DB snapshot",
+  "company_years": 22,
+  "distinct_companies": 20,
+  "financial_range_requests": 22,
+  "financial_range_rows": 105,
+  "additional_fina_indicator_probes": 2,
+  "additional_vip_point_probes": 3,
+  "all_66_q4_relevant_amounts_match_frozen_prod": true,
+  "all_22_gaps_reproduced": true,
+  "no_report_or_query_hit_100_row_cap": true,
+  "announcement_companies": 4,
+  "explained_company_years": 5,
+  "partial_company_years": 1,
+  "not_individually_announcement_verified": 16,
+  "source_or_prod_writes": false,
+  "calculation_or_version_rule_changes": false,
+  "original_trial_outputs_changed": false,
+  "production_code_changed": false,
+  "metadata_or_other_field_differences": [
+    {
+      "code": "301667.SZ",
+      "year": "2025",
+      "period": "20250930",
+      "field": "q_dtprofit",
+      "frozen_prod": "20816377.51",
+      "fresh_source": null
+    },
+    {
+      "code": "920158.BJ",
+      "year": "2025",
+      "period": "20251231",
+      "field": "ann_date",
+      "frozen_prod": "2026-04-11",
+      "fresh_source": "20260410"
+    },
+    {
+      "code": "920165.BJ",
+      "year": "2025",
+      "period": "20250930",
+      "field": "ann_date",
+      "frozen_prod": "2025-11-11",
+      "fresh_source": "20251110"
+    }
+  ],
+  "limitations": [
+    "cannot generalize four companies to remaining sixteen cases",
+    "small gap alone does not prove rounding",
+    "update_flag=1 does not guarantee all fields share one revision",
+    "source ingestion internals not available; stale direct field is observed, internal cause not confirmed"
+  ]
+}

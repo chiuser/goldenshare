@@ -1,0 +1,121 @@
+{
+  "completed": 151,
+  "db_seconds": "164.8359622019343",
+  "elapsed_seconds": 358.43187920656055,
+  "execution_scope": {
+    "batch_rows": 2000,
+    "db_seconds": 900,
+    "max_codes": 5571,
+    "max_member_rows": 25000,
+    "max_rows": 245124,
+    "max_tree_rows": 496,
+    "member_batch_codes": 500,
+    "name": "formal"
+  },
+  "financial_rows": 242165,
+  "formal_industry_report_ready": true,
+  "full_market_report_ready": true,
+  "historical_stops": [
+    {
+      "meaning": "controlled extraction resume acceptance only; resolved",
+      "reason": "Controlled formal resume acceptance stop"
+    }
+  ],
+  "new_commit": false,
+  "processed_units": 151,
+  "published": false,
+  "scope_caveat": "current 5571 approved candidates, not historical point-in-time whole market",
+  "source_data_modified": false,
+  "source_verification": "passed_final_metadata_check",
+  "spec": {
+    "confirmed": [
+      "scope",
+      "revenue_50_50",
+      "margin_seasonal_formula",
+      "seven_metric_weights",
+      "nine_quadrants"
+    ],
+    "coverage_denominator": "current_candidate_industry_known_revenue",
+    "formal_investment_ranking": false,
+    "mode": "current_company_formal_study",
+    "provisional": [
+      "coverage_and_company_gates",
+      "trend_tags",
+      "cashflow_and_scenario",
+      "percentile_and_sensitivity",
+      "financial_comparison"
+    ],
+    "values": {
+      "amount_tolerance": "1",
+      "baseline": "eastmoney_dc_industry_hierarchy.cn_a.v1",
+      "batch_rows": 2000,
+      "dates": [
+        "2024-03-31",
+        "2024-06-30",
+        "2024-09-30",
+        "2024-12-31",
+        "2025-03-31",
+        "2025-06-30",
+        "2025-09-30",
+        "2025-12-31",
+        "2026-03-31",
+        "2026-06-30",
+        "2026-09-30"
+      ],
+      "day_year": 360,
+      "db_seconds": 180,
+      "dimension_weights": [
+        "0.25",
+        "0.25",
+        "0.25",
+        "0.25"
+      ],
+      "disk_bytes": 157286400,
+      "excluded": [
+        "002717.SZ",
+        "002827.SZ",
+        "601326.SH",
+        "605258.SH",
+        "688121.SH",
+        "688496.SH"
+      ],
+      "max_codes": 100,
+      "max_exception_rows": 260,
+      "max_member_rows": 300,
+      "max_rows": 4400,
+      "max_tree_rows": 305,
+      "memory_bytes": 536870912,
+      "min_companies": 5,
+      "min_coverage": "0.90",
+      "min_peers": 5,
+      "model_weights": [
+        "0.25",
+        "0.5",
+        "0.75"
+      ],
+      "near_zero_profit": "0.001",
+      "per_root": 20,
+      "revenue_season_weight": "0.5",
+      "roots": [
+        "BK0438.DC",
+        "BK1201.DC",
+        "BK1206.DC",
+        "BK1209.DC",
+        "BK1216.DC"
+      ],
+      "sensitivity_weights": [
+        "0.15",
+        "0.20",
+        "0.25",
+        "0.30",
+        "0.35"
+      ],
+      "snapshot": "2026-10-30",
+      "total_seconds": 1800,
+      "unit_seconds": 30
+    }
+  },
+  "spec_hash": "345473966649b23c1f6b52b4b0facb100fb8f5e8384d936c8a14a87ade7da497",
+  "status": "COMPLETE_REVIEWED",
+  "total_units": 151
+}
