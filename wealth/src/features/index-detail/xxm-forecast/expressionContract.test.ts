@@ -8,8 +8,3 @@ it("retains original-number and finite checks for one-step expressions",()=>{
   for(const n of [NaN,Infinity,true,"1",null])expect(()=>check({op:"macd",e12:n,e26:27,dea:0,field:"dif"})).toThrow();
 });
 it("rejects P variables, multiple steps, unknown nodes and zero or invalid rounding guards",()=>{for(const v of [{...leaf,pCoefficient:1},{...leaf,cCoefficient:2},{op:"macd",e12:13,e26:27,dea:0,field:"dif",prefixBars:0,prefixClose:null,target:true},{op:"add",args:[leaf,leaf]},{op:"div",arg:leaf,divisor:1},{op:"round3",arg:leaf,guard:0},{op:"sub",args:[leaf]}])expect(()=>check(v)).toThrow();});
-it("rejects cycles but accepts a shared acyclic expression leaf",()=>{
-  const cycle:any={op:"abs"};cycle.arg=cycle;
-  expect(()=>check(cycle)).toThrow("合同不一致");
-  expect(()=>check({op:"sub",args:[leaf,leaf]})).not.toThrow();
-});

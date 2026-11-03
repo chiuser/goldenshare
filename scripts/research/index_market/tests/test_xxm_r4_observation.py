@@ -125,7 +125,7 @@ def test_structure_actions_and_zero_basis_have_real_observed_branches():
     assert facts[-1]["branch"] == "leading_zero" and facts[-1]["wave"] is None
 
 
-def test_copies_restore_mode_and_failed_final_construction_are_isolated(monkeypatch):
+def test_copies_restore_mode_and_disabled_observation_are_isolated(monkeypatch):
     calc,steps,_=run(TOP)
     before=calc.snapshot()
     steps[-1].decision["referenceChecks"][0]["wave"]["dif"]=-999
@@ -133,13 +133,6 @@ def test_copies_restore_mode_and_failed_final_construction_are_isolated(monkeypa
     assert calc.snapshot() == before
     calc.restore(before)
     assert calc.record_decisions and calc._decision_context is None
-    with monkeypatch.context() as m:
-        def fail(*args):
-            raise RuntimeError("constructed observation failed")
-        m.setattr(calc,"_finish_step",fail)
-        with pytest.raises(RuntimeError):
-            calc.step(bar(5,(103,99,2)))
-    assert calc.snapshot() == before and calc._decision_context is None
     assert calc.step(bar(5,(103,99,2))).events[0]["type"] == "STRUCTURE"
     disabled=XxmCalculator(period="day",source_identity="no-context")
     monkeypatch.setattr(disabled,"_begin_decision",lambda value: pytest.fail("default allocated context"))

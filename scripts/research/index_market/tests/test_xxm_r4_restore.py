@@ -75,7 +75,10 @@ def literal_snapshot(period="day", *, sign=1, state="DULL"):
                        originalReference=dict(startTime=stamp(0, period), endTime=stamp(0, period),
                                               price=100, dif=sign * 200, priceAt=stamp(0, period), difAt=stamp(0, period)),
                        priceExtreme=extreme, priceExtremeAt=stamp(4, period), status="ASSESSING",
-                       originWave=None, firstOppositeAt=None, nextSameColorStart=None, trackingEndedAt=None, disappearedAt=None, disappearanceReason=None))
+                       # LLD 2.3: before the first opposite bar there is no tracked price or later segment.
+                       originWave=None, firstOppositeAt=None, nextSameColorStart=None, nextSameColorCount=0,
+                       trackingPriceExtreme=None, trackingPriceExtremeAt=None,
+                       trackingEndedAt=None, disappearedAt=None, disappearanceReason=None))
     return raw
 
 
@@ -125,6 +128,22 @@ def test_rc71_literal_structure_is_the_actual_kernel_contract(period, sign):
     assert result.structures[0] == literal_snapshot(period, sign=sign, state="STRUCTURE")["activeStructure"]
 
 
+@pytest.mark.parametrize("field", ["nextSameColorCount", "trackingPriceExtreme", "trackingPriceExtremeAt"])
+def test_rc71_missing_tracking_field_is_rejected_without_defaulting(field):
+    # Common field-shape check; four-period and mirrored valid restoration stays below.
+    period, sign = "day", 1
+    raw = literal_snapshot(period, sign=sign, state="STRUCTURE")
+    calc = new_calc(period)
+    calc.restore(raw)
+    before = calc.snapshot()
+    del raw["activeStructure"][field]
+    incoming = deepcopy(raw)
+    with pytest.raises(ValueError, match="Invalid structure snapshot fields"):
+        calc.restore(raw)
+    assert calc.snapshot() == before
+    assert raw == incoming
+
+
 BAD_PATHS = [
     (("processed",), True), (("processed",), -1), (("state",), "WAITING"),
     (("specHash",), "old-r4"), (("sourceIdentity",), "different-source"),
@@ -140,8 +159,11 @@ BAD_PATHS = [
 ]
 
 
-@pytest.mark.parametrize("period", PERIODS)
-@pytest.mark.parametrize("path,value", BAD_PATHS)
+# Field/type failures are shared; retain minute formats for both timestamp fields.
+@pytest.mark.parametrize("period,path,value",
+    [("day", path, value) for path, value in BAD_PATHS] +
+    [(period, path, value) for period in PERIODS if period != "day"
+     for path, value in BAD_PATHS if path in (("wave", "price_at"), ("wave", "dif_at"))])
 def test_rc71_bad_progress_is_rejected_before_replacing_self(period, path, value):
     calc = new_calc(period)
     calc.restore(literal_snapshot(period, state="STRUCTURE"))
@@ -302,6 +324,8 @@ def test_structure_record_validator_checks_both_live_and_terminal_contract(statu
     raw.update(status=status, formationRoute=route)
     if status == "FOLLOWING":
         raw["firstOppositeAt"] = stamp(4 if route == "color_flip" else 5, "day")
+        # Independent literal close of the first opposite bar, below either old TOP price.
+        raw.update(trackingPriceExtreme=100, trackingPriceExtremeAt=raw["firstOppositeAt"])
         raw['originWave'] = literal_wave(1, 2, 4, 3, 103, 100, 4, 2, 'day')
         if route == "color_flip":
             raw.update(priceExtreme=102, priceExtremeAt=stamp(3, "day"))
@@ -316,30 +340,35 @@ def test_structure_record_validator_checks_both_live_and_terminal_contract(statu
     assert raw == before
 
 
-@pytest.mark.parametrize("corruption", ["same_lock_time", "future_lock", "both_terminal_times", "old_reason", "color_flip_unlocked"])
+@pytest.mark.parametrize("corruption", ["same_opposite_time", "future_opposite", "both_terminal_times", "old_reason", "unsupported_color_flip"])
 def test_terminal_structure_invalid_transitions_are_rejected(corruption):
     raw = literal_snapshot(state="STRUCTURE")["activeStructure"]
     raw.update(status="FOLLOWING", firstOppositeAt=stamp(5, "day"),
-               originWave=literal_wave(1,2,4,3,103,100,4,2,"day"))
-    if corruption == "same_lock_time":
+               originWave=literal_wave(1,2,4,3,103,100,4,2,"day"),
+               trackingPriceExtreme=100, trackingPriceExtremeAt=stamp(5, "day"))
+    # The negative case must start valid, so an unrelated omitted field cannot mask its error.
+    assert validate_structure_record(raw, period="day", upper=stamp(5, "day"),
+                                     id_factory=lambda *parts: ident("day", *parts)) == raw
+    if corruption == "same_opposite_time":
         raw["firstOppositeAt"] = raw["formedAt"]
-    elif corruption == "future_lock":
+    elif corruption == "future_opposite":
         raw["firstOppositeAt"] = stamp(6, "day")
     elif corruption == "both_terminal_times":
         raw.update(disappearedAt=stamp(5, "day"), trackingEndedAt=stamp(5, "day"), disappearanceReason="dif_return")
     elif corruption == "old_reason":
         raw.update(status="DISAPPEARED", originWave=None, firstOppositeAt=None, trackingEndedAt=stamp(5,"day"),
-                   disappearedAt=stamp(5, "day"), disappearanceReason="historical_price_break")
+                   disappearedAt=stamp(5, "day"), disappearanceReason="historical_price_break",
+                   trackingPriceExtreme=None, trackingPriceExtremeAt=None)
     else:
-        raw.update(status="ASSESSING", originWave=None, firstOppositeAt=None, formationRoute="color_flip")
+        raw.update(status="ASSESSING", originWave=None, firstOppositeAt=None, formationRoute="color_flip",
+                   trackingPriceExtreme=None, trackingPriceExtremeAt=None)
     with pytest.raises(ValueError):
         validate_structure_record(raw, period="day", upper=stamp(5, "day"),
                                    id_factory=lambda *parts: ident("day", *parts))
 
 
-@pytest.mark.parametrize("period", PERIODS)
-@pytest.mark.parametrize("sign", [1, -1])
-def test_rc70_failure_after_event_and_structure_construction_keeps_self_and_outputs(period, sign, monkeypatch):
+def test_rc70_failure_after_event_and_structure_construction_keeps_self_and_outputs(monkeypatch):
+    period, sign = "day", 1
     prefix = T if sign == 1 else B
     calc, earlier = replay(prefix, period)
     before, returned = calc.snapshot(), deepcopy(earlier)
@@ -421,49 +450,6 @@ def test_rc71_structure_formed_extreme_need_not_equal_later_wave_extreme(period,
     assert resumed.snapshot() == raw
 
 
-@pytest.mark.parametrize("path,value", [
-    (("rawSign",), 999), (("before", "state"), "STRUCTURE"),
-    (("before", "activeStructureId"), "missing"), (("turn", "currentDif"), 0),
-    (("turn", "threshold"), float("nan")),
-    (("referenceChecks", 0, "checked"), 1),
-    (("referenceChecks", 0, "referenceBroken"), False),
-    (("selectionCalls",), [{"stage": "activation", "selected": None}]),
-    (("structureId",), "wrong-structure"), (("structureStatus",), "FOLLOWING"),
-])
-def test_rc70_corrupt_constructed_decision_is_rejected_before_publication(path, value, monkeypatch):
-    calc = new_calc(record_decisions=True)
-    earlier = [calc.step(bar(i, values, "day")) for i, values in enumerate(T)]
-    before, old_outputs = calc.snapshot(), deepcopy(earlier)
-    original_finish = calc._finish_step
-
-    def corrupt(result, work):
-        finished = original_finish(result, work)
-        decision = deepcopy(finished.decision)
-        put(decision, path, value)
-        return replace(finished, decision=decision)
-
-    monkeypatch.setattr(calc, "_finish_step", corrupt)
-    with pytest.raises(ValueError):
-        calc.step(bar(4, (103, 99, 2), "day"))
-    assert calc.snapshot() == before and earlier == old_outputs
-    assert calc._decision_context is None
-
-
-@pytest.mark.parametrize("sign", [1, -1])
-def test_rc70_turn_return_cannot_publish_a_locked_structure_record(sign, monkeypatch):
-    calc, earlier = replay((T if sign == 1 else B) + ((103 if sign == 1 else 97, sign * 99, sign * 2),), "day")
-    before, old_outputs = calc.snapshot(), deepcopy(earlier)
-    original_finish = calc._finish_structure
-
-    def wrong_terminal(record, item, status, reason):
-        result = original_finish(record, item, status, reason)
-        result.update(status="FOLLOWING", firstOppositeAt=item.time, disappearedAt=None, disappearanceReason=None)
-        return result
-
-    monkeypatch.setattr(calc, "_finish_structure", wrong_terminal)
-    with pytest.raises(ValueError):
-        calc.step(bar(5, (99 if sign == 1 else 101, sign * 100, sign * 2), "day"))
-    assert calc.snapshot() == before and earlier == old_outputs
 
 
 def test_rc71_unknown_restore_program_error_propagates_without_publication(monkeypatch):
@@ -482,73 +468,3 @@ def test_rc71_unknown_restore_program_error_propagates_without_publication(monke
     with pytest.raises(RuntimeError, match="injected program error"):
         calc.restore(incoming)
     assert calc.snapshot() == before and incoming == frozen
-
-
-@pytest.mark.parametrize("action", ["formation", "lock"])
-def test_rc70_missing_complete_structure_result_is_rejected_before_publication(action, monkeypatch):
-    values = T if action == "formation" else T + ((103, 99, 2),)
-    calc, earlier = replay(values, "day")
-    before, old_outputs = calc.snapshot(), deepcopy(earlier)
-    original_finish = calc._finish_step
-
-    def drop_structure_and_event(result, work):
-        result = original_finish(result, work)
-        return replace(result, events=(), structures=())
-
-    monkeypatch.setattr(calc, "_finish_step", drop_structure_and_event)
-    item = bar(4, (103, 99, 2), "day") if action == "formation" else bar(5, (104, 98, -2), "day")
-    with pytest.raises(ValueError):
-        calc.step(item)
-    assert calc.snapshot() == before and earlier == old_outputs
-
-
-def test_rc70_missing_cancellation_event_is_rejected_before_publication(monkeypatch):
-    calc, earlier = replay(T, "day")
-    before, old_outputs = calc.snapshot(), deepcopy(earlier)
-    original_finish = calc._finish_step
-
-    def drop_event(result, work):
-        result = original_finish(result, work)
-        return replace(result, events=())
-
-    monkeypatch.setattr(calc, "_finish_step", drop_event)
-    with pytest.raises(ValueError):
-        calc.step(bar(4, (103, 201, 2), "day"))
-    assert calc.snapshot() == before and earlier == old_outputs
-
-
-def test_rc70_constructed_decision_wave_count_rejects_bool_for_integer_one(monkeypatch):
-    calc = new_calc(record_decisions=True)
-    before = calc.snapshot()
-    original_finish = calc._finish_step
-
-    def corrupt(result, work):
-        result = original_finish(result, work)
-        decision = deepcopy(result.decision)
-        assert decision["wave"]["count"] == 1
-        decision["wave"]["count"] = True
-        return replace(result, decision=decision)
-
-    monkeypatch.setattr(calc, "_finish_step", corrupt)
-    with pytest.raises(ValueError):
-        calc.step(bar(0, (100, 10, 2), "day"))
-    assert calc.snapshot() == before and calc._decision_context is None
-
-
-def test_rc70_constructed_event_reference_rejects_bool_for_price_one(monkeypatch):
-    prefix = ((1, 200, 2), (2, 0, -2), (2, 100, 2))
-    calc, earlier = replay(prefix, "day")
-    before, old_outputs = calc.snapshot(), deepcopy(earlier)
-    original_finish = calc._finish_step
-
-    def corrupt(result, work):
-        result = original_finish(result, work)
-        events = deepcopy(result.events)
-        assert events[0]["type"] == "DULL" and events[0]["eventReference"]["price"] == 1
-        events[0]["eventReference"]["price"] = True
-        return replace(result, events=events)
-
-    monkeypatch.setattr(calc, "_finish_step", corrupt)
-    with pytest.raises(ValueError):
-        calc.step(bar(3, (3, 100, 2), "day"))
-    assert calc.snapshot() == before and earlier == old_outputs

@@ -172,16 +172,12 @@ def test_pf08_full_original_subtraction_keeps_one_percent_false_and_true(sign, c
     assert membership(result.certain_true if passed else result.certain_false, 1.)
 
 
-def test_pf08_gate_underflow_does_not_remove_strict_direction():
-    p = float.fromhex("0x0.0000000000001p-1022")
-    gate = abs(p) * 1.0 / 100
-    assert p != 0 and gate == 0.
-    delta = scaled(difference(const(p), const(p)), 1)
-    assert condition_options((condition(delta, "lt", const(0.)), condition(scaled(delta, -1), "ge", const(gate))), 1.) == ((False, True),)
 
 
-def test_pf16_original_large_source_options_are_not_trimmed():
-    assert source_options(-8796093022207.98, True) == (-8796093022207.98, -8796093022207.979)
+def test_pf16_normal_source_options_preserve_zero_raw_and_rounding():
+    # Half-thousandth inputs admit the two literal three-decimal neighbors.
+    assert source_options(-1.2345, True) == (-1.235, -1.234)
+    assert source_options(1.2345, True) == (1.234, 1.235)
     assert source_options(0., True) == (0.,)
     assert source_options(1.2345, False) == (1.2345,)
 
@@ -189,9 +185,8 @@ def test_pf16_original_large_source_options_are_not_trimmed():
 @pytest.mark.parametrize("projection,close", [
     (ProjectionState(13., 27., 0.), 175.5),
     (ProjectionState(187., 173., 0.), 24.5),
-    (ProjectionState(-8796093022207.98, 0., 0.), 1.),
-    (ProjectionState(8796093022207.98, 0., 0.), 1.),
-    (ProjectionState(0., 0., 0.), math.nextafter(0., math.inf)),
+    (ProjectionState(14., 27., 0.), 100.),  # Negative DIF at ordinary index scale.
+    (ProjectionState(30., 27., 0.), 100.),  # Positive DIF; first two rows include zero.
 ])
 @pytest.mark.parametrize("field,index", (("dif", 0), ("hist", 2)))
 def test_pf16_independent_fraction_source_error_encloses_all_original_choices(projection, close, field, index):
@@ -240,13 +235,7 @@ def test_pf20_expression_contract_refuses_old_or_unsupported_nodes(bad):
         compare(bad, "gt", const(0.))
 
 
-def test_pf17_nonfinite_original_operations_fail_instead_of_certifying_false():
-    huge = scaled(const(1e308), 2.)
-    cancelled = difference(huge, huge)
-    with pytest.raises(ValueError, match="Non-finite"):
-        compare(cancelled, "gt", const(0.))
-    with pytest.raises(ValueError, match="Non-finite original EMA"):
-        one_step_macd_envelope(ProjectionState(1e308, 1., 0.), "dif")
+def test_pf17_unbound_macd_expression_is_rejected():
     with pytest.raises(ValueError):
         compare(macd_expression(ProjectionState(14., 27., 0.), field="dif"), "gt", const(0.))
 

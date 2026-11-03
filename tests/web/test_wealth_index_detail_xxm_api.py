@@ -33,8 +33,21 @@ def _literal_minute_window():
                               datetime(2020,1,1,15,tzinfo=ZONE), (date(2020,1,1),))
 
 
+def _source_clock(monkeypatch, scenario_now):
+    """Only supply the existing default-now argument; keep real SQL and checks."""
+    original = IndexDetailXxmQueryService.load_entry
+
+    def load_entry(self, session, **kwargs):
+        if kwargs.get("now") is None:
+            kwargs["now"] = scenario_now
+        return original(self, session, **kwargs)
+
+    monkeypatch.setattr(IndexDetailXxmQueryService, "load_entry", load_entry)
+
+
 @pytest.fixture
 def source_db(monkeypatch, request):
+    _source_clock(monkeypatch, datetime(2020, 1, 10, 20, tzinfo=ZONE))
     engine = create_engine("sqlite://", poolclass=StaticPool, connect_args={"check_same_thread": False})
 
     @event.listens_for(engine, "connect")
@@ -45,9 +58,10 @@ def source_db(monkeypatch, request):
         conn.execute(text("CREATE TABLE core_serving.index_factor_pro (ts_code TEXT,trade_date DATE,close FLOAT,macd_dif_bfq FLOAT,macd_dea_bfq FLOAT,macd_bfq FLOAT)"))
         conn.execute(text("CREATE TABLE core_serving.trade_calendar (exchange TEXT,trade_date DATE,is_open BOOLEAN,pretrade_date DATE)"))
         begin = date(2020, 1, 1)
-        now = datetime.now(ZONE).date()
+        # All source_db requests use Jan1-Jan10, including the appended Jan9 row.
+        end = date(2020, 1, 10)
         conn.execute(text("INSERT INTO core_serving.trade_calendar (exchange,trade_date,is_open) VALUES (:exchange,:date,:open)"),
-                     [{"exchange": "SSE", "date": (begin + timedelta(days=i)).isoformat(), "open": True} for i in range((now - begin).days + 1)])
+                     [{"exchange": "SSE", "date": (begin + timedelta(days=i)).isoformat(), "open": True} for i in range((end - begin).days + 1)])
         conn.execute(text("INSERT INTO core_serving.index_factor_pro VALUES (:code,:date,:close,:dif,:dea,:hist)"),
                      [{"code": "000001.SH", "date": (begin + timedelta(days=i)).isoformat(), "close": c,
                        "dif": d, "dea": d - h / 2, "hist": h} for i, (c, d, h) in enumerate(VALUES)

@@ -32,9 +32,9 @@ def source(monkeypatch, values):
             for stamp, (close, dif, hist) in zip(DATES, values)]
     reads = []
 
-    def calendar(session, *, end):
+    def calendar(session, *, start, end):
         assert session is None
-        return tuple(date.fromisoformat(stamp) for stamp in DATES if date.fromisoformat(stamp) <= end)
+        return tuple(date.fromisoformat(stamp) for stamp in DATES if start <= date.fromisoformat(stamp) <= end)
 
     def read(session, *, completed, check):
         assert session is None
@@ -72,8 +72,8 @@ def test_rc72_append_preserves_earlier_assessing_result(monkeypatch, values, dir
         direction, "ASSESSING", DATES[4], extreme)
     assert record.firstOppositeAt is None
     new = load(6)
-    locked = response(new, 6).structures[0]
-    assert locked.id == record.id and locked.status == "FOLLOWING" and locked.firstOppositeAt == DATES[5]
+    following = response(new, 6).structures[0]
+    assert following.id == record.id and following.status == "FOLLOWING" and following.firstOppositeAt == DATES[5]
     assert [(event.type, event.route) for event in response(new, 6).events] == [
         ("DULL", "activation"), ("STRUCTURE", "dif_turn")]
     assert new.points[-1]["ordinaryState"] == "NONE" and new.points[-1]["activeStructureId"] is None
@@ -212,7 +212,7 @@ def test_internal_model_rejects_invalid_original_numbers(monkeypatch, bad):
         InternalXxmResponseDto.model_validate(body)
 
 
-@pytest.mark.parametrize("fault", ["old_wait", "missing_reference_date", "dangling", "duplicate_formation", "future_lock"])
+@pytest.mark.parametrize("fault", ["old_wait", "missing_reference_date", "dangling", "duplicate_formation", "future_opposite"])
 def test_internal_model_rejects_legacy_or_broken_structure_associations(monkeypatch, fault):
     _, _, _, _, load = source(monkeypatch, TOP)
     body = response(load(6), 6).model_dump()

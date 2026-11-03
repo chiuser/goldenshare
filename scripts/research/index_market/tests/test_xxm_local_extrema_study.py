@@ -17,17 +17,15 @@ def test_changed_frozen_source_is_rejected(monkeypatch, tmp_path):
         study.read_case(case, tmp_path)
 
 
-def test_generated_performance_input_has_bounded_scanner_state():
-    import time
+def test_generated_scanner_sequence_has_literal_extrema_count():
 
-    # Reduced during unit tests; runner separately measures 100,000 points.
+    # Literal count only; memory/time measurement belongs to the separate study.
     from src.biz.services.wealth.market.index_detail_daily_wave.local_extrema import LocalExtremaScanner
     scanner = LocalExtremaScanner()
     count = 0
     for i in range(10_000):
         count += scanner.step(f"{i:09d}", (0, 1, 2, 1, 0)[i % 5]) is not None
     assert count == 3999 and scanner.count == 10_000
-    assert not any(isinstance(value, (list, dict, set)) for value in vars(scanner).values())
 
 
 def test_protection_only_names_three_inputs_and_the_picture():

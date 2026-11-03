@@ -53,13 +53,14 @@ for (const period of ["day", "m60", "m90", "m120"] as const) {
   for (const path of ["conditions", "structureFollowConditions"] as const) {
     describe(`${period} ${path} display integers`, () => {
       const options = { period, debug: 1 as const, decodeDebug: decodeForecastDebug, check: () => {} };
-      it.each(validRanges)("accepts $name", ({ value }) => {
+      // All 18 shapes on day; minutes check both entry paths without repeating the matrix.
+      it.each(period === "day" ? validRanges : validRanges.slice(0, 1))("accepts $name", ({ value }) => {
         const input = fixture(period, path, value);
         const before = structuredClone(input);
         expect(() => adaptForecast(input, options)).not.toThrow();
         expect(input).toEqual(before);
       });
-      it.each(invalidRanges)("rejects $name", ({ value }) => {
+      it.each(period === "day" ? invalidRanges : invalidRanges.slice(0, 1))("rejects $name", ({ value }) => {
         expect(() => adaptForecast(fixture(period, path, value), options)).toThrow("顶底识别数据与合同不一致");
       });
     });

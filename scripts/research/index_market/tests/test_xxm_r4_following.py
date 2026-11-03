@@ -160,9 +160,9 @@ def test_rc90_every_cut_restore_and_observation_preserve_complete_business(perio
             assert restored.snapshot()==plain.snapshot()
 
 
-@pytest.mark.parametrize('sign',[1,-1])
 @pytest.mark.parametrize('prefix',[TF,TF+[(102,97,2)]])
-def test_rc95_failure_after_old_updates_leaves_all_inputs_and_outputs_unchanged(sign,prefix):
+def test_rc95_failure_after_old_updates_leaves_all_inputs_and_outputs_unchanged(prefix):
+    sign=1  # Failure publication is shared; retain both pre/post-following-start prefixes.
     c,previous=run(values(prefix,sign),observe=True);before=c.snapshot();copies=deepcopy(previous)
     with patch.object(c,'_validate_step',side_effect=ValueError('injected final failure')):
         with pytest.raises(ValueError): c.step(bars(values(prefix+[(104,96,2)],sign))[-1])

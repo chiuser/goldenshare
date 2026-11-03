@@ -29,7 +29,7 @@ from src.biz.schemas.wealth.market.index_detail_xxm_forecast import InternalFore
 from src.biz.services.wealth.market.index_detail_xxm.projection import ProjectionState,ProjectionPrecisionError
 from scripts.research.index_market.tests.test_xxm_r4_following_query import entry
 from tests.web.test_wealth_index_detail_xxm_api import (  # shared temporary producers, no source replacement
-    batch3_db_factory, _batch3_gold, BATCH3_NOW, BATCH3_SLOTS,
+    batch3_db_factory, _batch3_gold, BATCH3_NOW, BATCH3_SLOTS, _source_clock,
 )
 
 PATH='/api/v1/wealth/market/index-detail/xxm-key-point-forecast'
@@ -38,7 +38,8 @@ NOW=datetime(2023,1,10,20,tzinfo=CN_ZONE)
 
 
 @pytest.fixture
-def source_db():
+def source_db(monkeypatch):
+    _source_clock(monkeypatch, NOW)
     engine=create_engine('sqlite://',poolclass=StaticPool,connect_args={'check_same_thread':False})
     @event.listens_for(engine,'connect')
     def attach(c,_): c.execute("ATTACH DATABASE ':memory:' AS core_serving")
@@ -46,7 +47,8 @@ def source_db():
         c.execute(text('CREATE TABLE core_serving.trade_calendar(exchange TEXT,trade_date DATE,is_open BOOLEAN,pretrade_date DATE)'))
         c.execute(text('CREATE TABLE core_serving.index_factor_pro(ts_code TEXT,trade_date DATE,close FLOAT,macd_dif_bfq FLOAT,macd_dea_bfq FLOAT,macd_bfq FLOAT)'))
         begin=date(2023,1,3)
-        end=max(begin+timedelta(days=120),datetime.now(CN_ZONE).date())
+        # Literal NOW/asOf requests and their next trading days stay in January.
+        end=date(2023,1,31)
         days=[begin+timedelta(days=i) for i in range((end-begin).days+1)]
         c.execute(text("INSERT INTO core_serving.trade_calendar(exchange,trade_date,is_open) VALUES('SSE',:day,:opened)"),
                   [dict(day=d.isoformat(),opened=d.weekday()<5) for d in days])
@@ -226,7 +228,8 @@ def test_single_calendar_endpoint_and_used_prefix_identity(source_db,period,thro
     with Session(source_db) as s:
         endpoint,identity=query.future_calendar(s,period,through,lambda:1.)
         assert endpoint==target and type(endpoint) is str
-        s.execute(text("UPDATE core_serving.trade_calendar SET is_open=0 WHERE trade_date='2023-04-01'"))
+        changed=s.execute(text("UPDATE core_serving.trade_calendar SET is_open=0 WHERE trade_date='2023-01-31' AND is_open=1"))
+        assert changed.rowcount==1  # A real later-calendar change, beyond every target above.
         assert query.future_calendar(s,period,through,lambda:1.)==(endpoint,identity)
         s.rollback()
 
@@ -257,6 +260,14 @@ def test_actual_source_calibration_solver_models_and_encoding_share_budget(sourc
     with source_db.begin() as c:
         c.execute(text('DELETE FROM core_serving.index_factor_pro'))
         c.execute(text("INSERT INTO core_serving.index_factor_pro VALUES('000001.SH',:day,:close,:dif,:dea,:hist)"),rows)
+        # Only this calibration example needs its long prefix and next open day.
+        next_day=days[-1]+timedelta(days=1)
+        while next_day.weekday()>=5:
+            next_day+=timedelta(days=1)
+        begin=date(2023,2,1)
+        calendar=[begin+timedelta(days=i) for i in range((next_day-begin).days+1)]
+        c.execute(text("INSERT INTO core_serving.trade_calendar(exchange,trade_date,is_open) VALUES('SSE',:day,:opened)"),
+                  [dict(day=d.isoformat(),opened=d.weekday()<5) for d in calendar])
     now=datetime.combine(days[-1],datetime.min.time().replace(hour=20),CN_ZONE)
     with Session(source_db) as s,patch.object(query,'recover_projection',wraps=query.recover_projection) as calibration,patch.object(query,'forecast',wraps=query.forecast) as solve:
         service=query.IndexDetailXxmForecastQueryService(cache=XxmCache())

@@ -1,6 +1,7 @@
 """P5-03 approved input values, not old business expectations or an oracle."""
 from dataclasses import FrozenInstanceError, fields
 import ast
+import sys
 from pathlib import Path
 import pytest
 from scripts.research.index_market.tests.xxm_product_v1_cases import CASES, DATES, PERIODS
@@ -79,10 +80,38 @@ def test_unsupported_period_is_rejected(period):
     with pytest.raises(ValueError): CASES[0].inputs(period)
 
 
-def test_input_material_only_imports_its_dataclass():
-    tree = ast.parse(Path(__file__).with_name("xxm_product_v1_cases.py").read_text())
-    imports = [n for n in ast.walk(tree) if isinstance(n, (ast.Import, ast.ImportFrom))]
-    assert len(imports) == 1 and imports[0].module == "dataclasses"
-    assert [a.name for a in imports[0].names] == ["dataclass"]
+def assert_independent_material(source):
+    tree = ast.parse(source)
+    for item in ast.walk(tree):
+        if isinstance(item, ast.ImportFrom):
+            assert item.level == 0  # No relative research/product dependencies.
+            modules = [item.module]
+        elif isinstance(item, ast.Import):
+            modules = [alias.name for alias in item.names]
+        else:
+            continue
+        assert all(module.split(".")[0] in sys.stdlib_module_names for module in modules)
     assert not any(isinstance(n, ast.Call) and isinstance(n.func, ast.Name)
                    and n.func.id in {"open", "exec", "eval", "__import__"} for n in ast.walk(tree))
+
+
+def test_input_material_does_not_depend_on_product_or_research_code():
+    assert_independent_material(Path(__file__).with_name("xxm_product_v1_cases.py").read_text())
+
+
+@pytest.mark.parametrize("source", [
+    "from dataclasses import dataclass\nfrom typing import Optional",
+    "import typing\nfrom fractions import Fraction",
+    "from __future__ import annotations\nimport dataclasses",
+])
+def test_independent_material_allows_normal_standard_library_imports(source):
+    assert_independent_material(source)
+
+
+@pytest.mark.parametrize("source", [
+    "from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC",
+    "from scripts.research.index_market.tests.xxm_product_v1_cases import CASES",
+])
+def test_material_rejects_product_and_research_dependencies(source):
+    with pytest.raises(AssertionError):
+        assert_independent_material(source)

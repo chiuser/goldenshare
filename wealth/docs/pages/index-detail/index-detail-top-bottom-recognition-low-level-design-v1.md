@@ -1,8 +1,10 @@
 # 财势乾坤顶底识别低层设计 v1
 
-更新：2026-11-03（Asia/Shanghai）。**P4已完成并验收收尾。**管理员明确确认“页面验收通过了”，第6步据此登记通过；第1—5步沿用已完成的工程及真实只读证据，不重新采样。工具/测试及验收记录已提交c7c606e81；最终对账见LLD§21.14.14，详细自动结果见§21.14.13。P5第一步静态审计、编码设计及两项审计修正见§22；P5第二步现已按授权完成：先交接后清退，61个代码/测试文件及3282份无用产物已删，221份资料已收敛；879项定向交接通过，删后14个保留模块/工具导入及3583项主题收集通过。完整删后回归留P5第三步，详见LLD§22.9；本轮未提交、部署或开放生产r4。
+**当前停点（2026-11-03）：F01—F14用例清理与独立复核完成。**本轮仅测试和文档：Python2740、前端74项限定验证及Wealth类型/构建通过。P5第三步整批仍未恢复，原1570通过/1失败仅历史；逐项结果见测试用例清理记录及LLD§22.15.4。
 
-P4六步现已全部完成：本地/生产装配、debug动态加载、辅助详情及手动波段核对、保留工具迁移、真实来源/性能验收、管理员页面验收。60/90/120分钟固定清单42组、540业务及126私有请求，96对普通/debug公共结果一致；日线复用原适用证据。204项限定测试是P4已提交证据；本轮P5新增交接结果独立登记§22.9，没有新增真实请求。性能优化第4—7批及交易助手日期问题继续作为TODO，不转入P5。
+更新：2026-11-03（Asia/Shanghai）。**P4已完成并验收收尾。**管理员明确确认“页面验收通过了”，第6步据此登记通过；第1—5步沿用已完成的工程及真实只读证据，不重新采样。工具/测试及验收记录已提交c7c606e81；最终对账见LLD§21.14.14，详细自动结果见§21.14.13。P5第一步静态审计、编码设计及两项审计修正见§22；P5第二步现已按授权完成：先交接后清退，61个代码/测试文件及3282份无用产物已删，221份资料已收敛；879项定向交接通过，删后14个保留模块/工具导入及3583项主题收集通过。第二步已提交f057cefaa；第三步已删除批准的两个造错用例，恢复/内部结果通过，续做在旧规则预期测试处首错停止；当时1570项通过、1项失败，整批尚未完成，详见§22.13.1。本轮不部署或开放生产r4。
+
+P4六步现已全部完成：本地/生产装配、debug动态加载、辅助详情及手动波段核对、保留工具迁移、真实来源/性能验收、管理员页面验收。60/90/120分钟固定清单42组、540业务及126私有请求，96对普通/debug公共结果一致；日线复用原适用证据。204项限定测试是P4已提交证据；P5第二步交接结果独立登记§22.9，没有新增真实请求。性能优化第4—7批及交易助手日期问题继续作为TODO，不转入P5。
 依据：[产品文档](../../../../docs/product/wealth-top-bottom-recognition-product-v1.md)、[技术方案](index-detail-top-bottom-recognition-technical-design-v1.md)。本文件只规定当前目标、代码迁移位置、开发顺序和验收，不包含已废弃的开发流程。实施必须使用本文规则和独立用例，不得从旧实验或旧输出推导当前预期。
 
 此前优化批次和阶段停点的历史记录如下；其中“未执行/待验收/本轮”仅描述当时，不覆盖上述最终收尾状态。当前P5范围见产品§11、技术方案§8及LLD§20.4；原失败记录和未覆盖范围仍据实保留。
@@ -2041,7 +2043,7 @@ e_source = e + k*(abs(a)+e)
 f_source = f + k*(abs(b)+f) + t
 ```
 
-系数全程Fraction，再继续按原sub/scale/abs比较构造误差线并反根。正常量级保留约0.001源值附近的临界未决带；大数时绝对值项会变宽，不能漏掉PF16的额外返回选项后认证为False。分钟不套日线源误差，只使用原float运算包络。该专用证明以当前binary64环境为前提，实施测试核对环境事实，不新增环境配置、识别容差或安装项。
+系数全程Fraction，再继续按原sub/scale/abs比较构造误差线并反根。正常量级保留约0.001源值附近的临界未决带；绝对值误差项须随原值变化，不能把原source_options允许的选项遗漏后认证为False。PF16以正常量级独立Fraction验证此证明，不要求机器极值样本。分钟不套日线源误差，只使用原float运算包络。该专用证明以当前binary64环境为前提，实施测试核对环境事实，不新增环境配置、识别容差或安装项。
 
 此保守实现不要求找到每个真实round台阶的精确前像，也不把未决当无解。若未来需要缩窄未决带，另有独立证明及评审，不能在本步临时改源取数或用抽样认证。
 
@@ -2181,7 +2183,7 @@ anchor固定为through按现源时区确定的业务日期；calendarInputId沿d
 | PF05 | B关系只有未决；另组B有宽确定范围+窄未决；B有非空窄范围但无整数；B关系确定为空、仅失效分类未决且A尚可能 | 前组PRECISION_PENDING/A零调用；有关系范围组READY、保留未决/无整数说明且不启A；最后一组按relationship_precision_ranges为空继续审A，不被全部precision_ranges误拦；最终未决不混近远 |
 | PF06 | RC26新增A已破/B有效 | B正常求范围，A失效不连带B；来源/波段日期不同但数值相同不误认同一参照 |
 | PF07 | M3及RC25；下一根首次同时出现相邻1%反向转折 | 仅DULL_FORMED，不同根结构、不推19根；当前一根有色+下一根零仍不足，两根有色后零可首次 |
-| PF08 | P=±99到±98.01/±98.009形成边界、到±99.99/±99.991回转边界；P=0及P为最小正/负subnormal使g=0 | 原delta/g次序、严格方向和等号；形成/保持/回转谓词与唯一step相同，不累计、不跳零、不D±g改判 |
+| PF08 | P=±99到±98.01/±98.009形成边界、到±99.99/±99.991回转边界；P=0 | 原delta/g次序、严格方向和等号；形成/保持/回转谓词与唯一step相同，不累计、不跳零、不D±g改判 |
 | PF09 | DULL/B正常有解且某C破B、真实r4本可救A；令A资格及求解被调用就失败 | 只核REFERENCE_INVALIDATED原语，不完整step顺带救远；普通不能写必然消失，farEvaluated=False |
 | PF10 | 当前活动A，B在某C又合格；活动A仅有确定消失条件 | 始终沿A、B不重求；nearestDecision=NOT_EVALUATED，实际A求解才farEvaluated=True；不套B→A救援限定，有确定消失范围仍READY |
 | PF11 | M5顶底三个整数；RC47价101回DULL及结构保持/回转/直接破 | 新记录的ASSESSING→DISAPPEARED关联正确，无WAIT，无CONFIRMED早停，无重复首次价 |
@@ -2189,10 +2191,10 @@ anchor固定为through按现源时区确定的业务日期；calendarInputId沿d
 | PF13 | RC53—58/65及RC97/105/106；DULL翻色、STRUCTURE翻色及同根原参照破；H=0 | 读完整events+structures辨别同根形成首次反色、首次反色价格消失STRUCTURE_PRICE_DISAPPEARED及原ref直接消失；安全未破价才FOLLOWING，新段NONE不等于取消；零不构成首次反色 |
 | PF14 | RC63两轮；从首次反色根后的calculator_at进度开始 | 按新wave/count/history判断新轮，并按snapshot中最多两份旧结构求其有限失效条件；不读取完整历史、不复开已结束记录 |
 | PF15 | 开4135.78/4136、开上界4140/4140.2、闭整数、单点、无整数窄段；Fraction根落相邻float之间及相邻float开区间；开下界9007199254740992的候选整数9007199254740993、闭下界9007199254740992和正常整数4136；故意让已证实点/整数核验不符 | 定向转换及开闭正确，无可表示C的区间必须为空、合法闭单点保留；整数候选先转实际有限float，变值者在原核验前拒绝，另两项不误拦并继续核验；合法整数与原点一致，不扩大单点/跨未知合并；不一致整次失败且无候选缓存，不挪价/降级掩盖 |
-| PF16 | 正/负/0/subnormal及原大数−8796093022207.98；Fraction独立算Ef/Er及源输出误差；M1/M3正常整数 | 包络覆盖全部原source_options选项，含大数额外值；_expression_envelope通用round3仍拒认证；普通正常范围不得全未知 |
-| PF17 | 非有限state/C/原中间结果/源乘1000、非法反根/坏prepared/错误活动结构；纯计算时文件及网络入口一调用即失败 | 明确失败不当无解或ROUNDING_BOUNDARY；输入/既有结果不变，check原异常不吞；正常人工求解不触发读取或写入，数据库边界另用依赖检查验证 |
+| PF16 | 正常量级正/负/0及三位源值；Fraction独立算Ef/Er及源输出误差；M1/M3正常整数 | 包络覆盖正常量级的原source_options选项；_expression_envelope通用round3仍拒认证；普通正常范围不得全未知 |
+| PF17 | 非有限或错类型state/C、非法反根/坏prepared/错误活动结构；纯计算时文件及网络入口一调用即失败；不为浮点溢出另造1e308或10**400行情 | 明确失败不当无解或ROUNDING_BOUNDARY；输入/既有结果不变，check原异常不吞；正常人工求解不触发读取或写入，数据库边界另用依赖检查验证 |
 | PF18 | 同C有2×2源组合：源值不同但语义相同/语义或参照不同；失败/开关debug/缓存命中 | 一次advance、组合各自独立clone和一次step、同源谓词绑定；一致可确认，分歧未决；失败不污染源进度。第3步再验普通/debug同ID/同display及同截止 |
-| PF19 | M1/M2四周期数学计时及等数量门槛的价格尺度变化；第3/5步含完整前缀校准/日历/模型/编码/缓存复制与锁等待 | 记录调用数及数学耗时；完整400ms分层验收，发布前最后check、冷/热/异常不重复读或返回半成功。真实源留P4 |
+| PF19 | M1/M2四周期结果独立性及等数量门槛的价格尺度变化；单元可记录数学计时但不用实机400ms断言；正式验收含完整前缀校准/日历/模型/编码/缓存复制与锁等待 | 记录调用数及数学耗时；完整400ms分层验收，发布前最后check、冷/热/异常不重复读或返回半成功。真实源留P4 |
 | PF20 | 旧20步/P变量/WAIT/prefix字段/旧版本fixture；新单endpoint及内部Draft→完整模型/id；BOTTOM但DIF为正、空条件及错误period/through的文字输入 | 第2步内核拒旧收新、不回退旧求解；文字只读显式prepared，不猜状态方向，错进度拒绝；第3/4步再验HTTP/TS完整合同，不能用换hash或空旧字段兼容 |
 
 #### PF28完整请求子样本的固定归属（P3第3—5步）
@@ -2683,7 +2685,7 @@ P3还须在IndexChartWorkspace.test.tsx中将旧review prop样本迁为唯一deb
 
 当前`tests/web/test_wealth_index_detail_xxm_api.py`、forecast_api、`test_xxm_shared_loads.py`及Wealth的`xxm/xxm-forecast/debug`fixtures/合同/Hook均已是P3/P4当前实现，本次静态核对未读取待删旧API报告作成功基线。保留它们，不再按旧文档第239/268等行号重复迁移。`r1Contract.test.tsx`、`rearmContract.test.tsx`当前名称不能作为删除理由，必须保留其中当前合同或拒旧断言。
 
-`test_xxm_forecast_expression_contract.py`验证的是当前仍接受的表达式联合，其测试中出现legacy/1—20不是正在执行旧多步预测；保留其公共合同断言，本次不改schema或缩窄API。普通/debug字段与开关、客户端deadline、生产禁用、daily-wave四种三角/1000根均保持。
+`test_xxm_forecast_expression_contract.py`只验证当前六类单根表达式；不接受add/div或prefixBars/prefixClose/target。旧多步仅作少量明确拒绝输入，不能作为合法样本；测试清理按§22.15，不改schema或API。普通/debug字段与开关、客户端deadline、生产禁用、daily-wave四种三角/1000根均保持。
 
 ### 10.5. 删后验收与禁止误删
 
@@ -2703,7 +2705,7 @@ P5只做单组当前r4回归，不重开双组对比。新增/迁移用例按§2
 
 ## 11. 开发顺序、前置条件与上下游交接
 
-P3和P4均已完成，P4最终收尾见§21.14.14；不再从§20.2重新开发公开接口或页面。当前P5第一步只审计、补齐方案/LLD，后续按§20.4和§22先迁有用能力及资料，再删旧代码/无用报告，再删后回归和交付。下列是尚未实施的编码要求，不能登记已开发。
+P3/P4及P5第一、二步均已完成，第二步提交f057cefaa，结果见§22.9；不再从§20.2重做产品集成，也不再迁移或删除一次。§11.1—11.2保留的是已实施设计，供第三步核对功能/依赖使用。当前用例清理及限定验证已完成，整批回归仍暂停，按§22.15.4交接；恢复后须先更新实际收集数量，不能直接沿§22.10旧数字执行，更不能提前交第四步。
 
 ### 11.1 保留能力的唯一落点
 
@@ -2743,7 +2745,7 @@ P3和P4均已完成，P4最终收尾见§21.14.14；不再从§20.2重新开发�
 
 当前文件114行已仅有`validate_window/read_window/isolated_client`，已使用正式本地装配和当前bytes合同。原LLD曾要求删除的capture/replay_checks/validate_capture_identity及旧b/MATH_KEYS/semantic导入实际已经不存在；不再重复实施，也不恢复它们供旧load_bars使用。
 
-保留现START/MAX_ROWS/MAX_CALENDAR、真实字段/SSE连续性和finally恢复内存缓存/时钟/SQLite；不接新配置，不改日期范围或完整性规则。该SQLite工具只用于隔离合同验证，不能冒称正式源或性能通过。唯一尚需改的旧`test_xxm_confirmed_cases`读取交接见§22.5，不修改此已验收工具补旧接口。
+保留现START/MAX_ROWS/MAX_CALENDAR、真实字段/SSE连续性和finally恢复内存缓存/时钟/SQLite；不接新配置，不改日期范围或完整性规则。该SQLite工具只用于隔离合同验证，不能冒称正式源或性能通过。`test_xxm_confirmed_cases`读取交接已在第二步完成，见§22.9；第三步只按§22.10.6运行迁后文件，不恢复旧load_bars或修改此已验收工具补旧接口。
 
 #### 11.2.4 P4三个路由核验入口及投影工具
 
@@ -2753,7 +2755,7 @@ page_request.py/.mjs及forecast_display.py现已符合§21.5/§21.14：正式装
 
 #### 11.2.5 当前测试与身份
 
-正式Spec仍为§2及§19已验收身份，前后端类型/解码器/bytes/共享加载均按当前合同保留。旧version/hash仅可用于明确拒绝输入或历史事实，不恢复旧版本成功模式。r1Contract/rearmContract及表达式联合中“legacy”字段已经核当前消费者，不能据名字清退。
+正式Spec仍为§2及§19已验收身份，前后端类型/解码器/bytes/共享加载均按当前合同保留。旧version/hash仅可用于明确拒绝输入或历史事实，不恢复旧版本成功模式。r1Contract/rearmContract中的旧字段用于明确拒旧，继续保留；表达式只接受当前六种单根节点，不能把旧多步字段作为成功样本。
 
 旧业务expected与有用原始输入分开：37组人工输入按§22.3保留，旧等待、旧寿命、多步条件预期删除。现RC01—110/PF01—34及其内部/公开分工不降级。删除r4_history及P1一次性迁移通信suite只撤销旧执行协议测试，现正式工具的预算、取消、通信和清理回归原样保留。
 
@@ -2771,7 +2773,7 @@ page_request.py/.mjs及forecast_display.py现已符合§21.5/§21.14：正式装
 1. 核对日线合同§10、分钟合同§8和预测方案§36的目标入口与本文§2—7一致。本轮已同步这些文书；实施日必须重新核验没有字段/版本/空值分歧。发现分歧必须先修文档，禁止边编码边选择口径。
 2. 核实施当日calculator/types/snapshot/query/预测/schema/API/客户端/decoder/Hook/工作区/离线工具的全量引用与dirty文件边界；本轮CodeGraph及源码依据在§0.2，不代替实施时引用清单。
 3. 依§14及§6.10先确认独立预期和测试落点；旧正确安全检查保留，旧底部等待、跨根借价首次及无限跨段撤销预期不再是验收答案；首次反色/分隔/零柱价格失效、单根跳过/有效段结束及同根显示均须覆盖。新身份、解析与恢复拒旧必须有正常变化的反例证明不过度拦截。
-4. 必须获得对应批次执行授权；P3、P4均已完成，P4最终验收见§21.14.14。P5第一步审计设计已完成，下一步只按§20.4、§22先迁有效能力及资料、验证后再清退；本轮仅补文档、提交和开工条件审计，不执行第二步。既有通过结论只在原适用范围内复用，不能代替P5删后回归。
+4. 必须获得对应批次执行授权；P3、P4均已完成，P4最终验收见§21.14.14。P5第一、二步已完成，第三步的用例清理和限定验证已按§22.15完成；当前整批暂停。后续按§22.15.4先登记实际清单/数量及复用依据，再在获准范围执行，不沿旧3298/3320硬断言启动。既有通过结论只在原适用范围内复用，不能代替P5删后回归。
 
 ### 11.4 P3五步及P4/P5交接
 
@@ -3112,7 +3114,7 @@ page_request.py/.mjs及forecast_display.py现已符合§21.5/§21.14：正式装
 
 以下作为RC70—73的明确子样本，不改变原编号或声称新增测试已执行：
 
-- RC70：输入拒绝必须发生在修改任何本根进度前；分别从空、DULL、STRUCTURE及已存在首次反色历史的结果开始验证。不能只测空对象“未变化”。再在本根事件/结构已构造后、step发布前故意触发内部校验失败，必须证明整个self进度、根前记录及此前输出未变化，不能只验证输入早拒。
+- RC70：输入拒绝必须发生在修改任何本根进度前；分别从空、DULL、STRUCTURE及已存在首次反色历史的结果开始验证。不能只测空对象“未变化”。再在本根事件/结构已构造后、step发布前故意触发内部校验失败，必须证明整个self进度、根前记录及此前输出未变化，不能只验证输入早拒；按§22.15仅保留不同发布位置的代表样本，不逐字段篡改自产结果来扩展故障矩阵。
 - RC71：在RC16/17首次前已破、RC19/20首次仅相等后再严格背离、RC66远处也破之后分别snapshot→restore→追加表中恢复价/D；应分别保持本轮失效、允许合法严格背离、两个均不可回用。另从RC45的t5等号保持状态恢复，追加其t6严格突破根必须CANCEL，不能误判“恢复背离”。快照旧pending/WAIT或lockedAt额外字段、history缺键/含"0"或"2"/使用整数键、缺六字段参照日期、FOLLOWING/DISAPPEARED伪装activeStructure、错形成事件/id/参照/时点均拒绝。合法历史单根/零日/当前收盘已回历史价内侧、更早前缀仍可恢复，不误拦。
 - RC71连续/恢复完整结果：保留分割前已取得steps及结构聚合，恢复后追加steps，和从空连续算逐项一致；不要求有界snapshot凭空重建全部旧事件。主动把同id FINISHED/DISAPPEARED改回ASSESSING、改其形成/首次反色时间或原参照必须在聚合层失败。
 - RC72：分别以RC55/56首次反色根前后和RC47回转根前后为asOf，早根投影为ASSESSING且无未来终态时间，晚根应按对应时点为FOLLOWING或DISAPPEARED，不能把FOLLOWING当终态。此前已经返回的对象不变；最新缓存不能改变较早calculator_at。RC63两轮结构均保留，不能仅存最后一条。另固定RC55/56的来源修订反例：顶仅把t5收盘103改104，DIF99/H2不变，新结构priceExtreme必须104、旧返回记录仍103；底仅把t5收盘97改96，DIF−99/H−2不变，新极值96、旧仍97。标签及形成/首次反色时间不变，新entry必须从空重建，不受旧终态限制、不混用旧结构记录，旧entry和已返回对象保持不变。再在候选calculator成功step之后故意让结构聚合/完整校验失败，必须丢弃候选entry、缓存仍指旧entry且无半份返回；不得错误要求已丢弃的局部calculator回滚。
@@ -4732,7 +4734,7 @@ P5-17/18是已有三例离线材料的当前单组回归，非新双组回测；
 
 ### 22.6 实施顺序、测试分组、失败与完成条件
 
-本轮到“准备完成，待review”，不进行下面开发/测试：
+本节规定P5第一步确定的整体实施与验收边界；第1、2项已由第二步完成（§22.9），不再执行迁移/删除。第3项的第三步精确顺序、文件及退出要求为§22.10；本轮已获授权执行，在3.4首错停止，当前实际结果及未完成范围见§22.11。
 
 1. 第一阶段开发先精简保留工具和人工材料、迁221份有用资料及其路径/字段消费者，补本节对应独立测试；正式r4/App/API/前端/Reader/Spec不动。旧执行链此时尚未删除，工具必须已解除其依赖，不能靠旧导入碰巧通过。
 2. 迁出能力的定向测试合格后，按两份附件删除旧执行代码/专属tests/3282无用产物、ZIP及明确pyc，清活动命令和相关空目录；不得删其他主题或未登记内容。
@@ -4823,3 +4825,493 @@ P5-17/18是已有三例离线材料的当前单组回归，非新双组回测；
 **第二步完成，停在第三步整批删后回归之前。**第三步继续按§22.6各分组验证完整核心/恢复/预测/Web/前端及架构，复用P4有效真实证据；本轮仅已完成的必要导入/收集/静态文档检查不替代该步骤。当前未发现必须改正式业务或重新拍板的阻塞。最终链接/文档/diff检查另在本节据实补记。
 
 最终静态检查：103代码和3503原文件逐项执行结果与当前目录一致；221精确资料目标加1导航README共222文件，保留资料155556796字节（148.351MiB，不含导航README），原112目录共744135468字节（709.663MiB）。54个已知生成文件和61旧代码路径均不存在；17个保留数学/读取/扫描定义及全部现calculator测试/helpers的AST与开工基线一致。根文档完整性3项、本批28文档的971处本地链接/163锚点及限定diff检查通过。暂存区为空；没有提交或推进第三步。文档/引用/收集的通过不扩展为整批业务、真实来源或性能验收。
+
+
+### 22.10 P5第三步整批删后回归执行设计（2026-11-03，执行结果见§22.11）
+
+#### 22.10.1 目标、授权与固定顺序
+
+本节落实产品§11.3及技术方案§24.2，不新增算法/接口/配置。目标是：在旧代码和原无用产物物理缺席的条件下，独立验证唯一正式r4的识别、结构有限跟踪、记录/恢复、历史asOf、下一根预测、普通/debug合同、前端和保留核验能力仍完整可用。前一轮只完成本文设计和3298项准备收集，未正式执行；本轮已获授权按下列清单执行，实际停点见§22.11。准备收集不能写成通过；第二步879项交接也不能代替本步删后结果。
+
+| 顺序 | 目标 | 固定范围 | 完成本步的判断 |
+|---|---|---|---|
+| 1 | 确认基线、引用和收集 | 记录实际HEAD及相关已有差异，确认61旧代码缺席、221材料可定位；核保留模块/动态入口、收集全部主题而只执行本清单 | 明确测试针对的代码状态和完整清单；不运行其他研究 |
+| 2 | 纯工具与保留资料 | 8个文件，独立取数/区间/峰谷/量图/取窗、37组输入、27摘录及来源摘要 | 保留能力正常可用，坏输入仍拒绝，旧执行链不再是前提 |
+| 3 | 识别核心、记录、恢复和观察 | 10个文件，四周期RC规则、有限结构跟踪、历史前缀、关联/终态/复制及37×4恢复 | 唯一正式r4可独立工作；现规则和正确安全检查未丢失 |
+| 4 | 下一根预测与文本 | 5个文件，先前提后边界、近处有解停止、原EMA精度、表达式和整数文本 | 单根预判及其错误/无解语义保持，未恢复中点或多步预测 |
+| 5 | 原图三例 | 1个文件，原日期/价格/当前事件字段及有限离线前缀 | 删后仍满足原13项事实检查，不改作者确认或扩展为新回测 |
+| 6 | API、共享加载和P4工具 | 2个主题文件和5个Web文件，临时SQLite/Gold、实际路由/客户端及自有子进程 | 普通/debug、鉴权、生产关闭、1500根/预算和退出边界保持 |
+| 7 | 前端定向、类型和构建 | 28个完整文件逐个执行，再单独typecheck、build | 识别/预判/debug/波段及页面接线可用；不宣称全前端测试通过 |
+| 8 | 架构、文档和独立审计 | 3份架构测试、1个组织节点、活动引用/资料/链接/结果对账 | 本需求必需回归无失败/遗漏，其他修改保留，交第四步最终交付review |
+
+第三步只按以上顺序；全部通过并完成第8项审计才能登记本步完成。发现错误按§22.10.4停止，不将后续组作为“顺手继续”的动作。第4步P5最终交付及管理员验收仍另行交接；提交、推送、部署和生产开放不包含在本节。
+
+#### 22.10.2 执行时登记实际代码状态，保留已有修改
+
+- 第二步提交为f057cefaa；正式执行必须记**实际HEAD、当前dev-interface及相关已有未提交差异**。本轮文档若先提交，HEAD正常改变不代表代码异常；重新登记即可，不增加源码SHA/mtime保护或临时分支/worktree。
+- 依据当前源码，`query_service._load_series`日线调用`calendar_dates(session, start=date(1990,1,1), end=now.date())`。现`test_xxm_r4_internal_results.source`的日历替身已接受`start,end`并按两端筛选；这项适配在P5开工前已存在、尚未提交，不是本轮新增规则。保留该适配执行，记录39项对应的工作区状态；禁止改回只收end、修改正式调用迁就旧替身或将其暗算作P5本轮修复。
+- 以下是当前已核的相关差异，执行时再以实际文件和消费者补齐。归属仍是此前工作，**本步不提交/回退/重写它们**，也不要求清空工作区：
+
+| 已有差异 | 当前核对到的位置 | 本步处理 |
+|---|---|---|
+| 日历测试替身 | `scripts/research/index_market/tests/test_xxm_r4_internal_results.py` | 上述start/end适配，作为明确测试基线，不改预期/数值 |
+| 默认测试发现范围 | `pyproject.toml`增加`industry_financial/tests` | 只读核对，不改testpaths；禁止无路径默认测试带入行业研究 |
+| 共享Web装配/隔离fixture | `src/app/web/app.py`、`lifespan.py`、`middleware/access_log.py`、`middleware/request_id.py`、`tests/web/conftest.py`；新stock_daily依赖/middleware及其stock_detail API/query/service消费者 | 保留现状。现Web fixture只用临时SQLite，替换交易助手和股票指标lifespan；执行前再确认不会启动正式数据任务/连接真实源。关联导入或隔离出错即停，不扩大修复其他需求 |
+| 指数页面已有变更 | `wealth/src/features/index-detail/model/indexDetailState.ts`、`sidebar/IndexInfoRail.tsx`、`state/IndexDetailState.test.tsx`、`wealth/src/pages/index-detail/IndexDetailPage.test.tsx`、`index-detail-page.css` | 保留现状，纳入当前页面/构建结果的基线说明；不为P5改变其他需求文案或样本。未列入本步的state测试不被默默扩大为必跑 |
+
+当前正式calculator/types/snapshot/query/forecast/schema、分钟Reader/合同及4个保留主题工具相对第二步提交未改，是本次准备审计事实，不保证未来永久不变。执行前发现本需求文件/共享消费者新增变化，先读当前差异确认范围和隔离；未确认则停止受影响步骤，不强行用旧准备成绩代替。报告只能写“实际HEAD加所列已有差异的工作区回归”，不能声称仅f057cefaa提交独立通过，也不能把其他任务的问题当作P5改坏。
+
+本节使用当前原源码和CodeGraph核对查询/来源、普通识别Hook、页面debug加载及图表消费者；索引中TS测试关联缺边已由现测试正文核对。既有修改文件只读取，不新增跨工程依赖。
+
+#### 22.10.3 范围、来源、临时产物和命令
+
+**唯一实际测试清单是§22.10.5—9。**后端26主题文件、5Web文件、3架构文件及1组织节点共35单元；前端28完整文件，另2个类型/构建单元。每行一个新进程、顺序执行；不把多个文件拼成大组，不以`-k`/行号/skip缩减整文件。只有组织检查明确只选一个节点。
+
+步骤1先复核两个附件及当前活动引用：61旧代码/专属tests路径不在，原报告路径不再被当加载地址，221指定目标与资料索引可定位；允许历史文档/原素材字符串保存出处。核正式src/wealth的导入/动态导入没有研究运行时依赖，11保留模块及3个Python根工具能导入，不存在旧类/step、别名、Git blob执行或旧源码ZIP/文本运行副本。旧pyc只核61待退路径所对应的明确缓存和旧报告目录；**不清产品/业务缓存或共享环境，不因合法新文件/正常文档提交而误判。**新出现的资料/他人修改只列明归属，本步不再删除报告。
+
+收集使用现`.venv/bin/python -B -m pytest --collect-only -q -p no:cacheprovider`，并设置`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1`、`PYTHONDONTWRITEBYTECODE=1`。显式传入`scripts/research/index_market/tests`主题整目录和表中5个Web、3个架构完整路径；同命令不要再重复添加已包含的主题文件或组织节点。全主题只做收集，其中其他统计/缠论测试不执行。将实际节点按本节35单元归属，先前准备收集的选定3298项只作核对参考；总主题节点可因其他研究正常增减，不能凑数或据此删除/skip。若本需求出现新增/缺失节点，先看具体差异并更新登记，不能静默减少覆盖。收集失败或导入触发真实源/执行旧算法，立即停止。
+
+正式收集的完整单条命令如下，环境和60秒监督同其他单元；本轮实际收集结果见§22.11：
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -m pytest --collect-only -q -p no:cacheprovider \
+  scripts/research/index_market/tests \
+  tests/web/test_wealth_index_detail_xxm_api.py \
+  tests/web/test_wealth_index_detail_xxm_forecast_api.py \
+  tests/web/test_wealth_index_detail_xxm_forecast_validation.py \
+  tests/web/test_wealth_index_detail_xxm_local_routes.py \
+  tests/web/test_xxm_shared_loads.py \
+  tests/architecture/test_subsystem_dependency_matrix.py \
+  tests/architecture/test_platform_legacy_guardrails.py \
+  tests/architecture/test_operations_legacy_guardrails.py
+```
+
+每个Python测试单元在仓库根、现环境执行。下面完整命令对应步骤2第一行；后续仅将末尾替换为表中当前这一行的完整文件路径（组织检查用已列的完整节点），其他参数保持：
+
+```bash
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -m pytest -q -x -p no:cacheprovider scripts/research/index_market/tests/test_xxm_acceptance_scope.py
+```
+
+输入只允许：现独立人工值、测试自己创建的临时SQLite/Gold/文件和既有被明确保留的本地材料。测试可验证真实路由/ASGI、原Reader/query/schema和实际TS客户端，但源/鉴权替换到现隔离夹具；**不连接Prod/DG/Lake正式数据，不调用采集/完整比较/投影工具的合法真实入口。**不启停或重配管理员8000服务、Wealth开发服务、DG/数据库，不改.env/Settings/鉴权。P4工具测试自己的临时loopback端口/子进程属于隔离测试，按工具权限运行；结束后关闭，不能冒称真实来源或生产性能验收。
+
+不安装/升级依赖，不自动下载浏览器或执行npm install/npx下载。现Python、Node、npm、vitest/tsc/vite/esbuild/Pillow/PyArrow等由既有环境供给；执行前核可用，缺失即报缺项，不能让`if node`分支悄悄少执行。保留材料只由实际消费者按既有边界读取，不再次扫155MiB全部资料或重跑benchmark。Notebook只检查结构/导入/无执行输出，不运行单元。
+
+临时夹具仅用测试原tmp_path/隔离SQLite；允许既有前端测试缓存及`wealth/dist`、`wealth/tsconfig.tsbuildinfo`等被忽略的构建产物，不改构建配置，也不把这些提交。测试摘要优先终端/原三文档；如需临时监督片段或诊断日志，仅放`/private/tmp`或系统tmp，限本次测试进程/退出和必要错误信息，**不保存市场响应、旧源码副本、业务恢复文件或新reports目录**。上一轮只编写执行设计，未创建这些脚本/日志；本轮临时监督和结果位置登记§22.11。
+
+#### 22.10.4 每单元60秒、首次失败、中断和清理
+
+1. 所有收集、Python整文件/明确节点、前端整文件、typecheck、build以及最后静态检查都分别作为单元。父进程在启动前记录monotonic；启动、import、收集、测试、模型/退出及摘要均计时。正常工作最多55秒，退出/清理/摘要共最多5秒，**60秒硬上限不扩大**；总轮次耗时是实际各单元之和，不能当4秒HTTP或400ms预测成绩。
+2. 沿用前批临时监督方式，不新增长期runner/配置。需要的临时片段必须满足：`Popen(start_new_session=True)`；只启动当前表一行；原测试参数/fixture/内置超时保持；记录测试父PID及本次拥有的进程组。Python用`-x`，前端用`--bail=1`，收到首次失败/非零退出立即进入清理，不再领取后续行。无测试、意外skip/xfail或执行了清单外文件均不能报通过，不用passWithNoTests/retry/watch/only或更新快照绕过。
+3. **不能只终止pytest/npm父进程。**P4工具会另开进程组，Vitest/Node也有后代。临时监督必须在父进程仍在时以PID/PPID/PGID建立本次后代关系并保留已见的自有组；临时监督以不超过50ms间隔维护本次PID/PPID/PGID关系，包含另开会话的子组；若自有进程树无法完整确认，不能靠只杀父进程继续本轮。55秒到期或收到取消/失败先停止调度，对本次拥有的全部存活组发TERM，最多等3秒；仍在的发KILL并最多等1秒，剩余不超过1秒完成wait/reap及摘要。祖先已知但退出后重挂的自有组仍属于清理范围；不得用进程名/全系统pkill、共享端口或无关PGID扩张目标。只观察本次pid后代，不巡查/清理别的任务。
+4. 子进程返回0后仍需在同一60秒内确认本次拥有的组/自有临时服务已退出、临时连接/fixture已释放，且结果数量与选定文件一致。tmp_path物理文件沿pytest原保留/清理方式，不要求结束时目录立即消失，也不额外清共享临时目录。仅父进程结束不算干净退出。60秒内仍无法回收或权限不足以确认时，单元失败并停止，报告精确自有PID/PGID和原因，不将未验证当成功，不延长预算或恢复后续组。
+5. 监督片段的独立分组/所有权来自本次Popen和其实际后代，不替换P4工具原50秒工作/60秒清理合同、虚拟时钟或产品预算；测试里故意模拟失败/超时并被正确断言的是正常用例，不把它当整轮外层失败。外层只根据测试进程退出、统计、截止和自有资源状态判定。
+6. 发现失败或超时只先读错误/当前实现定位，明确是P5清退、先前未提交适配、其他需求、环境限制还是尚不确定。保留首次失败，不自动重跑或继续后续文件，不放宽阈值、不补缺数据、不改作者事实/独立expected或增加兼容。若需修改正式业务/测试/配置，先按真实原因补原方案/LLD和对应验收，涉及本步范围变化或不明确处停止讨论，不能借回归扩大开发。
+7. 中断后只登记已完成行、实际代码状态、未完成/失败行及退出情况，不创建业务checkpoint/恢复文件。后续获准继续时先比对相关实际差异：代码/输入未变且证据仍适用的已通过行可复用，从未完成行继续；失败修复后只补受影响行和必要关联。若不能证明适用，明确受影响集合再决定，不默认从头整轮重跑、不跳过失败。
+
+#### 22.10.5 步骤2—4的后端逐文件顺序
+
+下表主题文件前缀统一是`scripts/research/index_market/tests/`；每行必须用完整前缀执行。准备数量来自2026-11-03上一轮`--collect-only`，不是本轮运行结果或强制凑齐的expected。当前26主题文件全部在表中，没有使用通配符自动扩大执行；38/1等旧失败也不累加成绩。
+
+##### 步骤2：纯工具与保留资料
+
+| 顺序 | 主题测试文件 | 准备收集项数 | 目标/独立依据与边界 |
+|---|---|---:|---|
+| 2.1 | `test_xxm_acceptance_scope.py` | 16 | 原CSV/manifest真实字段与DEA、27摘录独立返回、混合来源摘要的根/嵌套白名单；不读旧源码保护链 |
+| 2.2 | `test_xxm_near_first_review.py` | 24 | 纯两位算术：正负、0、数量级、相等、非法数及两类反例；不构造策略 |
+| 2.3 | `test_xxm_top_activation_real_math.py` | 12 | pair/daily_options与meet/minus/interval：分数、三位来源精度、开闭及单点；无旧多步oracle |
+| 2.4 | `test_xxm_reference_window_review.py` | 9 | 原始峰谷、平台、未闭合窗口、零柱及价格/时间；不输出参照选择或资格 |
+| 2.5 | `test_xxm_product_v1_cases.py` | 11 | 37组222根原字面输入、时间适配、不可变和独立返回；旧业务预期不恢复 |
+| 2.6 | `test_xxm_local_extrema.py` | 47 | 扫描器、确认/尾部、原三个小窗口和量图字面边界；不执行benchmark |
+| 2.7 | `test_xxm_local_extrema_study.py` | 6 | 原字段/时间/数值、4份数据/图片身份、8单元Notebook结构及纯返回；不执行Notebook |
+| 2.8 | `test_xxm_saved_minute_window.py` | 41 | 原90分钟临时CSV的列、字节/行/定位、顺序、SHA及数值边界 |
+
+##### 步骤3：识别核心、记录、恢复和观察
+
+| 顺序 | 主题测试文件 | 准备收集项数 | 目标/独立依据与边界 |
+|---|---|---:|---|
+| 3.1 | `test_xxm_calculator.py` | 22 | 保留7函数/22参数当前核心：首次当根价、B→A、1%、零、突破优先及复制/恢复 |
+| 3.2 | `test_xxm_r4_rules.py` | 504 | 当前RC规则全序列及顶底镜像、四周期、近远选择、曾击穿、结构与消失优先级 |
+| 3.3 | `test_xxm_r4_following.py` | 437 | 首次反色起逐根比价、零/分隔/单根段、首个有效段结束、当根新钝化遮旧消失 |
+| 3.4 | `test_xxm_r4_restore.py` | 285 | 当前结构/跟踪/终态全字段、连续与恢复、拒旧及坏副本不污染原对象；285为首轮准备数，补样本及24个缺字段反例后的续做数量见§22.12 |
+| 3.5 | `test_xxm_r4_internal_results.py` | 39 | 内部结构聚合/历史前缀/窗口关联/拒坏结果；采用已登记start/end日历替身 |
+| 3.6 | `test_xxm_input_validation.py` | 101 | 真实类型、有限数值、完成根、时间/周期及合法正常变化不误拦 |
+| 3.7 | `test_xxm_snapshot_validation.py` | 249 | 当前快照字段/身份/引用；全部37×4人工输入的每截断点恢复继续 |
+| 3.8 | `test_xxm_snapshot_consumers.py` | 21 | clone/查询/预测等真实恢复消费者和失败隔离；不造旧兼容入口 |
+| 3.9 | `test_xxm_r4_observation.py` | 515 | 正式record_decisions分支及有/无观察业务相同、1000/1001根、20秒/256MiB/16MiB和独立复制 |
+| 3.10 | `test_xxm_r4_following_query.py` | 27 | 跟踪与历史asOf、普通/debug引用及窗口；为后续预测/API提供同一事实 |
+
+##### 步骤4：下一根预测与文本
+
+| 顺序 | 主题测试文件 | 准备收集项数 | 目标/独立依据与边界 |
+|---|---|---:|---|
+| 4.1 | `test_xxm_key_point_forecast.py` | 95 | 当前单根前提、近处有解停止/无解再远、边界极值、校准与无解语义 |
+| 4.2 | `test_xxm_p3_forecast_math.py` | 60 | 原EMA逐步运算及有限边界、精度/严格等号/无界；不使用中点或全float遍历 |
+| 4.3 | `test_xxm_r4_following_forecast.py` | 93 | 考核期/首次反色后有限跟踪的下一根变化、价格门槛及单根段情况 |
+| 4.4 | `test_xxm_forecast_expression_contract.py` | 86 | 现闭合六类单根表达式、类型/非有限/缺键拒绝；旧多步只作拒绝反例，清理见§22.15 |
+| 4.5 | `test_xxm_forecast_display.py` | 15 | 当前_range_text的整数范围、单点、无上界/无整数及坏字段；不重新求价 |
+
+#### 22.10.6 步骤5：三例原图事实与既有离线源边界
+
+只执行主题整文件`test_xxm_confirmed_cases.py`（准备收集13项），保留其9项原文件字节检查、1项抽取事实及3个已确认案例。路径全部为`reports/xxm/`收敛后的现目标，由现测试中的DAILY/MINUTES/PINNED_FILES明确给出，不恢复旧目录或Git算法。
+
+| 周期/源 | 原CSV根数/其他范围 | 只保留的观察窗口与停止端点 | 必须保持的独立事实 |
+|---|---|---|---|
+| day，`sources/xxm_reference_rescue_r1_implementation_20261017/daily_2020_source_01/` | daily_source.csv1643根；manifest、calendar.json2571行及其原数据身份 | 原首根空状态推进，到2023-04-21停止，只存2023-03-07—04-21窗口 | 3/7结构原价3328.3927/参照DIF41.186；4/14钝化；17/18无可见旧消失；4/21新结构与旧ID不同 |
+| m120，`sources/xxm_source_audit_20261013_213852/` | minute_120_source.csv8630根及原manifest | 原首根推进，到2024-03-11 15:00停止，只存3/6 15:00—3/11 15:00 | 3/11上午11:30出现原顶部结构价格消失；3052.2827>3051.3457，DIF仍较前根下降；原图不是证明唯一软件公式 |
+| m90，同上述MINUTES目录 | minute_90_source.csv12945根及原manifest | 原首根推进，到2025-06-12 15:00停止，只存6/12 11:00—15:00 | 新结构在14:00、收盘3401.2473，15:00不重复；沿管理员原时间更正 |
+
+现case_windows的六个源/manifest/日历文件合计8MiB上限和每根标准校验/升序唯一保持；测试原内部60秒guard不改，外层仍先按55秒停止工作、清理到60秒。只是既有单组事实回归，不做新策略结果对比；CSV全读取及其有限前缀计算是已批准测试的原做法，不新增第二组/新日期或保存全历史结果。
+
+这三例离线输入与普通分钟接口1500根是不同入口。保留案例既有前史，不能把它随意裁成1500使事实变化，也不能据案例允许产品接口恢复上万根读取。原MACD/DEA/柱值直接使用，禁止补算缺DEA、改图证/日期或用当前算法生成expected。字节检查只核原材料身份，不核产品源码SHA。11条其他历史原图缺失限制继续如实保留，不扩成找图任务。
+
+#### 22.10.7 步骤6：原窗口、P4工具和API
+
+##### 步骤6前半：原窗口和P4核验工具
+
+| 顺序 | 主题测试文件 | 准备收集项数 | 目标/独立依据与边界 |
+|---|---|---:|---|
+| 6.1 | `test_xxm_daily_window_precheck.py` | 11 | 纯窗口/SSE/原DEA和隔离客户端的正常/错误路径及finally恢复 |
+| 6.2 | `test_xxm_p4_audit_tools.py` | 174 | 原工具完整人工合同、1500根/计数/缓存/客户端、真实本机隔离通信及子进程退出；不调用正式CLI |
+
+步骤6后半按下表顺序，每行整文件，前缀为`tests/web/`。原Web共享conftest会创建其临时SQLite表和隔离lifespan，不能删autouse fixture或导入替身来躲开真实请求路径。临时Gold按现生产者字段合同，不能按消费者猜列；不把临时数据通过当正式Lake接入新验收。
+
+| 顺序 | Web测试文件 | 准备收集项数 | 目标/边界 |
+|---|---|---:|---|
+| 6.3 | `test_wealth_index_detail_xxm_api.py` | 187 | 真实路由/query/普通和debug、鉴权/拒参、窗口/时间/引用、临时两源与读取界限 |
+| 6.4 | `test_wealth_index_detail_xxm_forecast_api.py` | 117 | 完整单根普通/debug、原EMA/范围/预算/缓存、临时SQLite/Gold及错误退出 |
+| 6.5 | `test_wealth_index_detail_xxm_forecast_validation.py` | 47 | 完整响应模型、身份、表达式、引用与非法/正常变化 |
+| 6.6 | `test_wealth_index_detail_xxm_local_routes.py` | 14 | 显式本地/生产/缺配置注册、缺分钟时日线/鉴权、原K线debug合同；生产反例禁止源调用 |
+| 6.7 | `test_xxm_shared_loads.py` | 3 | 共享一次加载、取消/失败不污染其他请求，不把完成加载误当长期TTL |
+
+步骤3保留RC01—110业务规则覆盖，37×4恢复每个截断点不缩减；内部造错和公共检查的重复矩阵按§22.15清理。步骤4只验单根预测；旧多步表达式不再作为接受合同，r1Contract等明确拒旧用例保留，不能仅按名字删除。步骤6保留P4真实客户端/ASGI/通信/取消/清理正反例，但不重复P4真实来源请求；自然并发未重叠的历史not_verified不改成新阻塞。
+
+#### 22.10.8 步骤7：28个前端文件、类型检查和构建
+
+工作目录仍仓库根；npm使用现`wealth/package.json`（test=`vitest run`，typecheck=`tsc --noEmit`，build=`tsc -b && vite build`）。当前安装Vitest3.2.4，文件过滤使用包含匹配，因此下表传`src/`起的完整唯一文件路径，执行前核没有第二个路径包含该完整文本，输出必须正好选中这一文件。每行独立进程，沿§22.10.4截止/清理；不合并目录跑默认全Wealth，不添加`.only`、更新快照或隐藏不适用合同。
+
+```bash
+npm --prefix wealth run test -- src/features/index-detail/xxm/apiClient.test.ts --bail=1
+```
+
+`vitest run`禁watch，`--bail=1`首次失败停止；不使用retry/passWithNoTests。CLI过滤/非watch按Vitest3.2.4官方文档及已安装CLI定义核对（Context7库`/vitest-dev/vitest/v3_2_4`，[官方过滤说明](https://github.com/vitest-dev/vitest/blob/v3.2.4/docs/guide/filtering.md)、本地`node_modules/vitest/dist/chunks/cac.*.js`的bail定义），不安装新版本或引入新配置。
+
+以上完整命令对应下表第一行；后续仅替换为当前这一行文件。下表所有路径均从`wealth/`开始，相应命令参数去掉最前面的`wealth/`，即保留`src/...`。顺序跨五类连续：
+
+| 顺序 | 类别 | 完整前端文件 |
+|---|---|---|
+| 7.1 | 识别 | `wealth/src/features/index-detail/xxm/apiClient.test.ts` |
+| 7.2 | 识别 | `wealth/src/features/index-detail/xxm/adapter.test.tsx` |
+| 7.3 | 识别 | `wealth/src/features/index-detail/xxm/rearmContract.test.tsx` |
+| 7.4 | 识别 | `wealth/src/features/index-detail/xxm/markerGeometry.test.ts` |
+| 7.5 | 识别 | `wealth/src/features/index-detail/xxm/useIndexXxmLayer.test.tsx` |
+| 7.6 | 预测 | `wealth/src/features/index-detail/xxm-forecast/apiClient.test.ts` |
+| 7.7 | 预测 | `wealth/src/features/index-detail/xxm-forecast/expressionContract.test.ts` |
+| 7.8 | 预测 | `wealth/src/features/index-detail/xxm-forecast/identity.test.tsx` |
+| 7.9 | 预测 | `wealth/src/features/index-detail/xxm-forecast/r1Contract.test.tsx` |
+| 7.10 | 预测 | `wealth/src/features/index-detail/xxm-forecast/forecast.test.tsx` |
+| 7.11 | debug | `wealth/src/features/index-detail/debug/dependencyBoundary.test.ts` |
+| 7.12 | debug | `wealth/src/features/index-detail/debug/useIndexDebugModule.test.tsx` |
+| 7.13 | debug | `wealth/src/features/index-detail/debug/xxmDebugContract.test.ts` |
+| 7.14 | debug | `wealth/src/features/index-detail/debug/forecastDebugContract.test.ts` |
+| 7.15 | debug | `wealth/src/features/index-detail/debug/IndexRecognitionDebug.test.tsx` |
+| 7.16 | 独立波段 | `wealth/src/features/index-detail/daily-wave/apiClient.test.ts` |
+| 7.17 | 独立波段 | `wealth/src/features/index-detail/daily-wave/adapter.test.ts` |
+| 7.18 | 独立波段 | `wealth/src/features/index-detail/daily-wave/markerGeometry.test.ts` |
+| 7.19 | 独立波段 | `wealth/src/features/index-detail/daily-wave/presentation.test.ts` |
+| 7.20 | 独立波段 | `wealth/src/features/index-detail/daily-wave/DailyWavePrimitive.test.ts` |
+| 7.21 | 独立波段 | `wealth/src/features/index-detail/daily-wave/DailyWaveLayerUi.test.tsx` |
+| 7.22 | 独立波段 | `wealth/src/features/index-detail/daily-wave/useDailyWaveReview.test.tsx` |
+| 7.23 | 页面与图表接线 | `wealth/src/features/index-detail/model/indexRecognitionAvailability.test.ts` |
+| 7.24 | 页面与图表接线 | `wealth/src/features/index-detail/api/indexDetailRequestScheduler.test.ts` |
+| 7.25 | 页面与图表接线 | `wealth/src/features/index-detail/chart/IndexChartWorkspace.test.tsx` |
+| 7.26 | 页面与图表接线 | `wealth/src/features/index-detail/chart/IndexMinuteChartWorkspace.test.tsx` |
+| 7.27 | 页面与图表接线 | `wealth/src/pages/index-detail/IndexDetailDailyWave.test.tsx` |
+| 7.28 | 页面与图表接线 | `wealth/src/pages/index-detail/IndexDetailPage.test.tsx` |
+
+识别/预测合同及Hook文件验证实际解码/请求/状态；debug组验证普通入口不加载辅助实现、URL切换允许既有重请求、模块ready不额外重刷、手动波段/取消/迟到；波段组验证原峰谷/层展示。图表接线两文件现使用共享图表/识别Hook替身，覆盖props/原曲线稳定，不把它们单独称真实图表或完整识别端到端；由真实Hook/适配器和页面文件共同覆盖。页面整文件含其当前其他需求样本，保留原样，失败说明归属，不为P5改成分缺行情或无关日期。
+
+28文件通过后依次执行两个独立单元，每个仍完整60秒预算。下列两行分别启动，第一行通过且清理成功才允许启动第二行；不得放进同一个未检查首条退出码的shell脚本连续执行：
+
+```bash
+npm --prefix wealth run typecheck
+npm --prefix wealth run build
+```
+
+typecheck/build按现tsconfig检查整个Wealth源码并生成现构建产物，这是既有编译边界，不等于执行全Wealth测试。若无关代码导致类型/构建失败，同样停止并报告具体文件/原因，不能忽略、回退他人修改或宣称本步完成。构建原有大包提示只记录，不启动打包优化。交易助手日期TODO不修、不skip，不对外声称“全部前端测试通过”。本轮页面行为不改，复用P4管理员页面验收，不重启浏览器或服务强行增加人工轮次；若发现清退确实影响页面，先补受影响方案再决定最小复验。
+
+#### 22.10.9 步骤8：架构、组织、文档及执行结果对账
+
+以下4行分别执行，命令形式沿§22.10.3；组织只选明确节点，不执行其同文件旧历史归档/回测测试。
+
+| 顺序 | 完整测试文件/节点 | 准备收集项数 | 目标 |
+|---|---|---:|---|
+| 8.1 | `tests/architecture/test_subsystem_dependency_matrix.py` | 4 | 当前依赖方向/研究依赖约束及QTF边界 |
+| 8.2 | `tests/architecture/test_platform_legacy_guardrails.py` | 3 | 防止旧platform包/主实现回流 |
+| 8.3 | `tests/architecture/test_operations_legacy_guardrails.py` | 9 | 防止旧operations运行链/规格/状态实现回流 |
+| 8.4 | `scripts/research/index_market/tests/test_research_layout.py::test_single_location_roots_and_pytest_discovery` | 1 | 只运行该节点：主题唯一位置/迁移清单/现testpaths；不运行同文件旧归档/其他研究验证 |
+
+之后把如下静态检查分别作为≤60秒单元，不混入其他业务测试：
+
+1. 再核正式src/wealth、11保留模块、CLI/动态入口/Notebook/研究README及实际消费者；不新增或恢复旧r2/研究r4/完整两位算法。真实数据检查/峰谷工具与正式识别依赖仍分开，不用源码SHA作保护。两CSV的103代码结果/3503原文件处置和221目标全部能解释，其他主题不处理。
+2. 复用第二步迁前207件逐字节/7件逐字段交接事实；本步核221指定目标和实际消费者所需数据身份/字段，不再次全读155MiB所有原件。7个抽取件按附件批准根键及两个摘要的嵌套白名单检查，现独立字面tests继续核保留值；不恢复原混合模型解释当expected。6历史说明只保留历史事实，新Notebook8单元未执行；52观察只指定一份、27数值/11缺图限制不变，不把材料数量相加当独立样本。
+3. 执行现`.venv/bin/python -B scripts/check_docs_integrity.py`，核原三文档及实际改动的资料/导航本地链接和锚点、限定diff。全仓其他需求diff不作为本步修改；遇到本任务外文档问题列归属，不能随手修。历史原件自带EOF空行不格式化，保持数据字节身份；本步新写的方案/LLD/摘要按正常空白检查。
+4. 复核本次所有测试自有进程/临时服务退出、既有共享服务未操作、原材料/业务/测试/配置未被本轮修改、暂存区不夹带其他工作。代码或输入已变的成绩标明失效/需复验集合，不能把变化前后成绩拼成同一基线的“全过”。
+
+报告至少包含：实际分支/HEAD和相关已有差异；35后端行和28前端行、typecheck/build的实际选择/数量/pass/fail/skip/耗时/退出；静态检查；P5-01—22覆盖与未覆盖；中断/失败/续做明细；证据类型和复用范围。所有参数化节点必须完整执行，准备3298和前端文件数只用于找漏，不替代逐项业务结论。先前收集3583/3298和第二步879均单列，不能累加为本步新增通过。
+
+**全部明确单元通过、没有未解释的失败/意外跳过/退出残留、独立审计与实际范围一致**时才登记“P5第三步回归完成”；否则保留已通过行并明确未完成。第三步只向P5第四步交付这些结果，P5整体最终验收、提交/部署/生产开放均不自动完成。真实来源/性能/页面继续沿P4已验收边界，不声称本步再次实测或新增全部视频一致性。
+
+#### 22.10.10 前一轮文档交付及独立审计
+
+本轮仅补原产品/技术方案/LLD，清除P5当前章节仍要求“先做第二步/confirmed读取尚未迁”的残留，保留有日期的真实历史记录。当前第三步清单/工作区基线/数据与子进程界限已明确，未改任何业务/测试/配置或材料，没有运行上述回归/新收集、安装、读真实源、重放、执行Notebook、提交或部署。前一轮35项路径收集3298用例、第二步13图证/879交接与3583主题收集仅作准备/历史证据；本次不将其提升为正式回归通过。
+
+逐条对照产品8步、本文逐文件清单、当前代码/fixture/前端消费者和测试发现；完整文件存在/唯一、26主题无遗漏、35后端准备数量之和3298、28前端及两编译单元互不重复。当前唯一r4/单根/原EMA/1%/来源和预算不变，原材料9字节身份+抽取事实+3例的13项及有限前缀保持，P4工具隔离退出与实际工作区归属已区分；没有新的业务规则需要拍板。本节交管理员review，之后获准才执行；实际文档检查在下面据实登记。
+
+本次独立文档检查结果：原三文档的8步目标表逐行一致；LLD的10个子节及实际步骤5→6→7→8的正文顺序一致；35后端单元路径/节点存在且无重复，包含全部26个现XXM主题文件，准备数量相加3298；28前端文件路径存在且按Vitest包含过滤均唯一，另列typecheck/build两个单元；所选文件未发现skip/xfail/only/todo标记。根文档完整性3项、同需求28文档971处本地链接及163锚点、原三文档限定diff检查通过。上述只验证文档、实际落点和执行安排，不执行测试或升级既有成绩；本轮仅三份原文档有本任务新增改动，待管理员review。
+
+
+### 22.11 P5第三步执行登记（2026-11-03，首错停止、未完成）
+
+管理员本次已明确授权按第三步方案/LLD完成回归。§22.10.10记录上一轮准备时点，本次执行结果以下文为准。当前分支dev-interface，实际开工HEAD=ea9fa3fd6（行业研究提交），第二步P5提交仍f057cefaa；当前正式r4/预测/Reader/4个主题工具相对第二步未改。日历测试start/end适配及共享Web、页面等此前未提交差异沿§22.10.2单列，既有三份方案/LLD准备修改保留；本轮不清空工作区或代提交其他需求。
+
+执行约束逐项对账：35后端单元/28前端文件/类型检查及构建，严格按步骤1—8顺序；每行新进程、55秒工作+5秒清理/摘要，首次失败或超时停止；真实路由/客户端只使用原隔离SQLite/临时Gold或明确原材料，三例沿原根数/8MiB/终点；不读正式源、不回测、不改规则/独立预期、不执行Notebook/benchmark、不安装、不提交/部署。临时监督仅按§22.10.4掌握本次PID/PPID/PGID及后代，清理自有组、不影响共享服务。
+
+本次已核当前引用/61旧代码缺席/221目标、环境、原隔离fixture及正式代码相对第二步无变更；实际收集和逐文件结果如下。前一轮3298项收集、第二步879交接及P4真实证据不累加为本轮通过。原三文档在首次正式单元前同步本次授权和停点，不预先写成功。
+
+#### 22.11.1 步骤1实际核对与收集
+
+- 对正式src及保留代码/测试共1390份Python文本核静态引用，61个待退源码/测试及其对应旧pyc均缺席；221指定资料目标存在，7件抽取根键及嵌套白名单保持。14个保留模块/工具在新进程导入成功。该静态/导入单元2.541秒，不是1390项测试通过，也没有执行Notebook、量图benchmark或真实行情工具入口。
+- CodeGraph已sync，返回Already up to date；explore核`IndexDetailXxmQueryService/_load_series/calendar_dates/useIndexXxmLayer/useIndexDebugModule`的来源与页面消费者，TS测试缺边沿当前正文补核。正式核心/预测/Reader及4个根工具相对f057cefaa无diff，不用源码SHA作保护。
+- 按§22.10.3完整命令正式收集3967项，归入35个实际Python单元的仍为3298项；2.156398秒，退出0、无自有残留。其余669项仅收集，不执行，不加入通过数。当前Web fixture使用临时SQLite，交易助手/股票指标lifespan已被隔离，尚未进入Web执行。
+
+#### 22.11.2 逐文件实际结果与首错停点
+
+以下秒数是各新进程从启动到退出/检查完成的完整耗时，包含导入/收集；不是产品4秒识别或400ms预测的性能结果。文件均位于`scripts/research/index_market/tests/`，原参数`-q -x -p no:cacheprovider`及插件/字节码关闭不变。
+
+| 单元 | 测试文件 | 本轮通过 | 本轮失败 | 完整耗时（秒） | 退出/自有资源 |
+|---|---|---:|---:|---:|---|
+| 2.1 | `test_xxm_acceptance_scope.py` | 16 | 0 | 0.267126 | 0，已退出 |
+| 2.2 | `test_xxm_near_first_review.py` | 24 | 0 | 0.212206 | 0，已退出 |
+| 2.3 | `test_xxm_top_activation_real_math.py` | 12 | 0 | 0.214313 | 0，已退出 |
+| 2.4 | `test_xxm_reference_window_review.py` | 9 | 0 | 0.216562 | 0，已退出 |
+| 2.5 | `test_xxm_product_v1_cases.py` | 11 | 0 | 0.217227 | 0，已退出 |
+| 2.6 | `test_xxm_local_extrema.py` | 47 | 0 | 0.296119 | 0，已退出 |
+| 2.7 | `test_xxm_local_extrema_study.py` | 6 | 0 | 0.246702 | 0，已退出 |
+| 2.8 | `test_xxm_saved_minute_window.py` | 41 | 0 | 0.253547 | 0，已退出 |
+| 3.1 | `test_xxm_calculator.py` | 22 | 0 | 0.374979 | 0，已退出 |
+| 3.2 | `test_xxm_r4_rules.py` | 504 | 0 | 0.904975 | 0，已退出 |
+| 3.3 | `test_xxm_r4_following.py` | 437 | 0 | 6.261496 | 0，已退出 |
+| 3.4 | `test_xxm_r4_restore.py`（未跑完） | 16 | 1 | 0.263352 | 1，首错停止，已退出 |
+
+步骤2共166项；步骤3前三文件共963项，恢复文件先通过16项再失败。**实际合计1145 passed、1 failed、0 skip/xfail/xpass；11个文件完整通过，1个文件部分执行。**失败文件准备285项，本次仅执行17项，余268项未运行。其后53个测试/编译单元均未启动；Python选定总数中仍有2152项未运行，不把收集或前批成绩当本轮通过。
+
+首错为`test_xxm_r4_restore.py::test_rc71_literal_progress_restores_exactly[1-STRUCTURE-day]`。pytest原摘要为`1 failed, 16 passed in 0.07s`，恢复调用抛`ValueError: Invalid structure snapshot fields`；该0.07秒为pytest自身统计，与上表完整进程耗时分别保留。本次临时监督位于`/private/tmp/p5_step3_run.py`，实际结果为`/private/tmp/p5-step3-20261103-_59q13t7/results.json`，状态failed、failedUnit=3.4；只保存进程/错误摘要，不含行情响应或旧源码。所有已启动单元均clean=true、residualGroups为空；失败组PGID=3346已退出，没有继续调度或操作共享服务。
+
+#### 22.11.3 只读原因定位及修复边界
+
+已使用CodeGraph explore核`literal_snapshot/validate_structure_facts/_STRUCTURE_FIELDS`，并读当前实际生产者、类型及手写样本：
+
+| 当前依据 | 已核事实 |
+|---|---|
+| `src/biz/services/wealth/market/index_detail_xxm/types.py::XxmStructureRecord`、本文§2.3 | 统一结构记录19个字段，含后续同色柱根数和跟踪价格极值/日期 |
+| 同目录`calculator.py::_start_structure` | 本例尚未首次反色，实际生产者初始化`nextSameColorCount=0`、`trackingPriceExtreme=None`、`trackingPriceExtremeAt=None` |
+| 同目录`snapshot_validation.py::validate_structure_facts` | 按上述19字段精确检查，不接收缺字段旧记录；已有§2.3明确不补缺省兼容旧副本 |
+| `test_xxm_r4_restore.py::literal_snapshot`的STRUCTURE分支 | 只有16个字段，无多余字段，恰缺上述3个；在进入业务恢复前就被字段检查拒绝 |
+
+通俗地说：测试手工写了一份“已经形成结构的计算进度”，但漏写了后续同色柱数量、跟踪中的价格及发生日期三个栏目。正式程序本来就会填写这些栏目，恢复检查要求它们齐全，缺栏目的测试样本因此失败。本例尚未进入后续跟踪，这三个值应为0、空、空，不需要猜价格或改识别规则。
+
+该手写测试最后修改为a183d6753，正式类型最后修改为50b0f22bb；当前测试/类型/恢复/计算器相对P5第二步f057cefaa均无diff。因此首个失败属于先前测试样本未跟随正式字段更新，不是本轮清退改了恢复行为。这里只解释已发生的首个错误，不能推断补3字段后其余268项或其他测试一定通过。
+
+本轮按§22.10.4只定位并记录，**没有修改业务代码、测试样本、expected、恢复校验或Spec；没有重跑或跳过失败。**后续修复须先在原方案/LLD落实对该手写样本及其实际消费者的检查和验收安排，按正式生产者/§2.3独立补齐字面字段，不能把计算器输出直接当expected，也不能给恢复检查增加缺省兜底。获准修复后复验受影响完整文件及必要关联，再按实际差异决定复用已通过行、接续未执行行；不擅自整轮重跑。
+
+#### 22.11.4 P5-01—22覆盖、未覆盖及独立审计结论
+
+| 设计项 | 本轮证据与限制 |
+|---|---|
+| P5-01 | 当前静态/动态入口和14导入完成；正式/研究运行时不依赖已退代码。完整API/前端仍未运行 |
+| P5-02、03、05、06、09、10、11、12、13 | 步骤2对应8文件166项通过；独立数值、37组材料、原输入读取/摘录、峰谷、Notebook静态、量图及纯算术按原样本检查。没有执行Notebook或新回测 |
+| P5-04 | 恢复文件首错，37×4每截断恢复所在文件尚未运行，不能报恢复整体验收通过 |
+| P5-07、08、21 | 指定221目标/抽取键及身份定位完成，迁前逐字节/叶值复用第二步适用证据；52观察去重和资料处置不再重做，也不升级为本轮全部测试通过 |
+| P5-14 | 22核心及504规则/437跟踪用例通过；RC恢复部分仍受首错阻塞，不把整批RC或结构恢复写成全过 |
+| P5-15、16 | 正式观察及预测文本文件均未执行 |
+| P5-17、18 | 原图三例13项及其离线读取本轮未执行；第二步13项仅历史证据 |
+| P5-19 | 记录/恢复/查询/Web拒错覆盖未完成，不用旧suite或先前成绩替代 |
+| P5-20 | 四工具代码及消费者静态核对完成，实际工具/API/前端合同均未执行 |
+| P5-22 | 本次首次失败立即停止、保留已完成结果和实际基线、自有进程退出已验证；修复后的续做尚未发生 |
+
+本轮独立对账：执行清单沿原设计，步骤1→2→3.4顺序未倒置；没有少选失败节点、继续下一组、提高预算、补值或改标签预期。步骤3.5—3.10、步骤4—8所有测试及前端编译尚未执行；本次收尾只核本文结果和本任务文档差异，不冒充第8步整批审计完成。其他工作区修改保留，未重新读正式源、对照r2、执行Notebook/benchmark、安装、提交、推送或部署。
+
+**结论：P5第三步未完成，停在3.4首个失败；P5第四步及整体收尾不得提前开始。**产品§11.7、技术方案§24.2及本文当前停点同步。文档静态核对只验证这份执行登记，不替代未执行的业务回归。
+
+本次执行登记的收尾静态核对：原三文档8步目标表一致，LLD§22.10的35后端/28前端及两个编译单元完整且唯一、依赖顺序保持；根文档完整性3项、同需求28文档971本地链接/163锚点及原三文档限定diff空白检查通过。该核对没有执行更多测试、收集或重试，不计入1145项通过数。本轮仅原三份方案/LLD有本任务新增改动；先前准备改动及其他工作区修改继续保留，暂存区为空。
+
+### 22.12 P5第三步样本修复与续做设计（2026-11-03，实际结果见§22.12.3）
+
+管理员已明确要求“先补齐测试样本，然后续跑剩余回归”。本节先于测试修改和续做落实，只修`test_xxm_r4_restore.py`手写记录缺项及同文件相关样本，继续§22.10固定顺序/范围/预算/首错退出；不改正式识别、恢复检查、预测、API/前端、Spec、来源或配置，不启动P5第四步。§22.11保留首次失败原事实，本次修复和续做独立登记，不覆盖首错或把其已过16项重复加进新合计。
+
+#### 22.12.1 当前代码依据和具体改动
+
+当前dev-interface/HEAD仍ea9fa3fd6，正式XXM目录及该恢复测试相对f057cefaa尚无diff；原三份文档和其他工作区差异保持。CodeGraph explore核parse/validate及正式schema消费者，当前§2.3、`types.XxmStructureRecord`的19字段和`calculator._start_structure`一致。`literal_snapshot`只在本文件使用；不修改正式校验来接收16字段。逐项改动如下：
+
+1. `literal_snapshot`的STRUCTURE分支补独立字面`nextSameColorCount=0`、`trackingPriceExtreme=None`、`trackingPriceExtremeAt=None`。本例尚未首次反色，无后续同色段，不存在跟踪价格；顶底及日/60/90/120分钟共用该准确含义，不调用计算器/校验器生成expected。
+2. `test_structure_record_validator_checks_both_live_and_terminal_contract`中的FOLLOWING样本已首次反色，跟踪价格不能仍None。明确反色根收盘100，`trackingPriceExtreme=100`、`trackingPriceExtremeAt=firstOppositeAt`；dif_turn为t5、原段高点103，color_flip为t4、原段高点102。两者尚无后续同色段，count=0；ASSESSING及首次反色前的DISAPPEARED仍沿None。保持原四种status/route及全部已有断言。
+3. `test_terminal_structure_invalid_transitions_are_rejected`的共同合法FOLLOWING前置样本同样填t5收盘100/日期t5，并在注入各项错误之前先用当前validator确认原样本合法，防止“本来缺字段”掩盖待测转换错误。故意退回首次反色前的old_reason/color_flip_unlocked反例同时把跟踪极值/日期还原None，使失败来自其旧原因/错误route，不被无关残留跟踪事实抢先拒绝。其他故意坏样本不自动补值。
+4. 同文件新增缺三字段的反向恢复用例：3字段×2方向×4周期=24项。先用完整字面样本恢复并留存现对象；只删除当前待测字段，要求`ValueError`且原对象和输入仍原样。这样合法样本可接受、缺项仍拒绝都有独立依据，不仅修一个成功路径；不得弱化旧断言、加skip、换快照或接受缺省。
+
+测试输入/预期值的修正依据是当前真实生产者、正式类型及§2.3，不是根据失败输出来猜值。原`test_rc71_literal_structure_is_the_actual_kernel_contract`继续走真实step并与手写记录逐字段相等，原clone/拒错/每截断/深复制检查保持。285旧准备项保留且只新增24项，本次3.4预期收集309项；35后端单元、28前端文件和两个编译单元不变，后端选定总数相应为3322。3298/285及首次1145 passed、1 failed均仅原轮次事实，不能改写。
+
+#### 22.12.2 修复验收和续做顺序
+
+1. 先对本节与产品/技术方案作独立静态核对，再改上述唯一测试文件。当前只有该文件需要修复；其他正式代码/测试的新增问题不随本节获得修复授权。
+2. 只收集改变的恢复整文件，沿原环境和独立60秒单元，命令为`PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 PYTHONDONTWRITEBYTECODE=1 .venv/bin/python -B -m pytest --collect-only -q -p no:cacheprovider scripts/research/index_market/tests/test_xxm_r4_restore.py`；应为309项。未改的其余34单元沿用首轮逐节点收集记录，不再次收集整个主题/其他研究。
+3. 正式从3.4完整文件309项重跑，不能只跑前次失败节点或略去其已过16项；之后按3.5—3.10→4→5→6→7→8逐行推进。上一轮2.1—2.8及3.1—3.3共11完整文件1129项，在正式实现、输入和这些测试均未变且没有import本次literal helper的条件下复用，不重跑。当前39项日历适配及Web/页面差异仍单列；本次只改恢复文件，不能冒称提交本身无其他修改。
+4. 临时监督沿用`/private/tmp/p5_step3_run.py`的55秒工作+5秒退出/摘要、实际后代进程组识别和首次失败停止。只为本次明确授权加入续做分支：保留旧results原样，另建临时结果目录，明确记录前次11行复用与新的执行行；已失败行不复用成功、收集只更新该文件数量；调度3.x跳过的只能是已核可复用完整通过行。没有业务恢复文件、长期runner、自动重试、后台续做或新配置。
+5. 全部完成后按§22.10.9完成静态、引用/材料、文档及独立审计；最终统计1129复用+本次新通过项，恢复文件旧16项不重复计数，前端另记文件/测试数。若再次失败，立即清理并停止整批，只读定位原因、更新原三文档和未执行范围，不能自行修改别的样本/业务规则或继续下一行。
+
+读写/失败/中断、隔离fixture和材料身份继续完整遵守§22.10.2—4；不连接正式DB/Lake、不做新回测/Notebook/benchmark、不安装、不操作共享服务、不提交/推送/部署。单元完整60秒包含启动、运行、停止与摘要；最后静态审计也按原独立60秒单元。复用证据只作原范围交接，不把本轮隔离测试升级为新的真实来源/性能/视频或页面验收。
+
+#### 22.12.3 本轮实际修复、续做及第二次停止
+
+本节设计先于编码写入原三文档，随后仅修改`test_xxm_r4_restore.py`：补齐STRUCTURE三字段、FOLLOWING正反例的真实跟踪事实和错误注入前合法检查，新增24个缺字段拒绝恢复用例。CodeGraph explore及当前源码核对了正式类型/恢复/schema消费者；正式XXM目录相对f057cefaa仍无diff，未改规则、校验、Spec、业务输入或API。未发现其他测试import该文件的helper，故原11完整文件1129项继续适用。其他工作区修改保持，未提交。
+
+| 本轮单元 | 范围/选择 | 实际结果 | 完整耗时（秒） | 退出与自有进程 |
+|---|---|---|---:|---|
+| 局部收集 | 只收集改变的恢复整文件 | 309项，与原285+新增24一致；其他收集记录复用 | 0.290070 | 0，PGID52574已退出 |
+| 3.4 | 完整恢复文件，`-x`首错停止 | 301 passed、1 failed，余7项未执行；24个新反例均已通过 | 0.912522 | 1，PGID53358已退出，无残留 |
+
+pytest自身摘要为`1 failed, 301 passed in 0.65s`，与完整单元耗时分别保留。新结果目录`/private/tmp/p5-step3-resume-20261103-_y4u4z4d/results.json`明确保存previousRun、1129复用及新执行行，status=failed、failedUnit=3.4；原首轮失败结果原样保留。没有重跑前11完整文件，原失败文件的16项不重复计数。当前证据合计**1129复用+301本次=1430 passed、1 failed**；选定后端3322项尚有1891项未执行（含本文件7项），后续53个测试/编译单元未启动。零skip/xfail/xpass、零超时，已启动资源全部退出；仍不能登记第三步完成。
+
+新首错节点为`test_rc70_turn_return_cannot_publish_a_locked_structure_record[1]`。它不是已修复的缺字段样本；原失败的字面恢复、真实step逐字段核对、clone和新增缺项拒绝已在本轮到达该节点前通过。当前故意错误测试替换`_finish_structure`：实际DIF回转本应生成DISAPPEARED，它却改成FOLLOWING并填firstOppositeAt，原originWave仍None。当前step会先把本根新FOLLOWING交给`_advance_followed_structure`检查当根价格，随后才调用`_finish_step→_validate_step→_publish`；因此在取`originWave['price']`时先抛`TypeError: 'NoneType' object is not subscriptable`，未到测试预期的最终`ValueError`校验，断言也未继续验证原对象/旧输出。
+
+只读判断：本例的造错位置仍按旧推进顺序设置，和当前“首次反色立即检查价格”的顺序不匹配。不能把本次错误当作真实K线的结构标签算错，也不能据此直接修改正式推进/给原Wave补值。该状态来自替换内部函数，正常K线不会产生；管理员现已批准删除，当前按§22.13执行，不移动造错位置或增加产品防御。原失败仅作历史事实，删除不等于该例通过。
+
+**本轮按再次首错停止：没有修改此新失败测试或正式代码、没有重跑3.4、没有执行3.5及以后单元。**此前§22.11保留原轮次1145/1记录，当前状态以本节1430/1为准。P5-04/14/19的完整恢复/拒错仍未完成，P5-15—18/20及前端/编译/架构未执行范围保持；P5-22仅证实本次授权续做的复用、局部收集、从失败整文件重跑及再次退出，不代表全部回归完成。原三文档同步此停点，P5第四步不进入。
+
+本轮修复独立审计：§22.12.1四项均只落在指定恢复测试，原输入/业务断言保留；正常完整记录、真实step对应、跟踪样本及24缺项反例已在301项中通过。此次新失败仍原样保留，未为通过而改异常断言或正式实现。收尾静态检查：原三文档8步表、35/28/2文件范围及原3298准备记录一致，当前局部309与选定3322另按续做记录核对；根文档完整性3项、28文档971本地链接/163锚点、限定diff空白检查通过。没有继续业务测试/重试，不把这些静态检查或旧16项加入通过数。当前本任务仅修改一个测试文件及原三文档，其他工作区修改保留，暂存区为空；第三步仍未完成。
+
+### 22.13 删除无现实依据用例并续做第三步（2026-11-03，已获授权）
+
+管理员已明确批准删除上述case并续跑；本节先于删除/正式执行写入。当前dev-interface/HEAD509f796a9，较前次ea9fa3fd6仅新增Lake文档/历史产物清理提交，本需求src/主题/Wealth/tests/config无提交差异；原三份文档、恢复测试修复、日历start/end及共享Web/页面已有未提交修改仍保留。CodeGraph已sync并explore正式_start/_finish/step及跟踪调用；正式FOLLOWING总是同时携带原Wave，回转消失不进入FOLLOWING，外部恢复缺原Wave也被原检查拒绝。
+
+1. **唯一代码修改：**删除`test_xxm_r4_restore.py::test_rc70_turn_return_cannot_publish_a_locked_structure_record`完整函数及其sign参数装饰器，恰2项；不加skip/xfail、不捕获或放宽异常、不换造错位置、不加替代测试或生产防御。原24缺字段反例、字面恢复/跟踪样本、其他函数和断言不变。
+2. **真实覆盖保留：**`test_xxm_r4_rules.py::test_lld_rc_rule_sequence`的R/dif_return及镜像四周期、`test_xxm_r4_following.py::test_rc86_new_color_flip_id_is_the_only_future_target`等真实step序列仍验证回转退钝化、旧结构消失和后续新结构/引用；当前正式原Wave/恢复合同不变。删除依据为真实不可达的内部篡改组合缺少本需求价值，不是让现实失败变绿；不将其原失败改记成功。
+3. **执行清单/数量：**唯一变化是3.4由309减2为307，后端选定3322减2为3320；§22.10的285/3298、§22.12的309/3322均各自当时事实。先用§22.12.2原局部收集命令核307，再整文件3.4→3.5—3.10→4→5→6→7→8，不按-k/节点绕开其他用例；35后端、28前端及两个编译单元保持。
+4. **复用/退出：**未改的原11完整文件1129项和其他34文件收集记录复用，原失败文件301项不作完整通过、不重复加总。临时监督沿原脚本另建本次结果目录，从previous.reusedResults和本次已完整通过行中取可复用记录；保留旧失败，登记实际新HEAD及无执行代码提交变化，不因正常文档提交要求源码SHA保护。仅将局部收集预期改307，顺序调度、55秒工作+5秒退出/摘要、≤50ms后代识别及首次失败停止不变；再次失败只读定位，不自动修复或再执行。
+5. **最终验收/边界：**所有明确单元及§22.10.9静态核对完成后，按3320后端唯一节点、前端逐文件/测试数、typecheck/build分别记结果与耗时，独立审计P5-01—22和材料/引用边界；旧失败/删除2项/复用1129单列。不把本轮隔离回归当新真实源/性能/视频验收；P4证据只原范围复用。仅测试与原三文档可改，正式代码/配置/数据及其他工作区差异不动；不读正式DB/Lake、不回测/执行Notebook/benchmark、不安装、不操作共享服务、不提交/推送/部署，不进入P5第四步。
+
+开工前独立核对：用户授权、真实生产者/恢复及现业务序列与删除范围一致；该函数只有本地pytest发现，无其他代码消费者。删去的两个节点不是输入边界或真实业务序列，其他已有测试不变。当前执行范围、预算、失败/续做及已有差异已明确，按本节实施；执行结果随后据实登记。
+
+#### 22.13.1 实际删除、续做及输入规则预期停点
+
+已按本节删除指定函数及2个参数用例，未移动造错位置、增加其他测试、放宽断言或修改产品代码。局部收集307项，说明仅原309中减少批准的2项；此前样本修复及24缺字段反例保留。当前真实回转/镜像四周期及结构跟踪序列仍在原文件；CodeGraph与git当前差异核正式XXM/Spec相对f057cefaa未改。本次11完整文件1129项复用，实际代码状态为509f796a9加已登记工作区差异。
+
+| 本轮单元 | 实际结果 | 完整耗时（秒） | 退出/自有资源 |
+|---|---|---:|---|
+| 局部收集恢复整文件 | 307 collected | 0.308704 | 0，PGID28222已退出 |
+| 3.4 `test_xxm_r4_restore.py` | 307 passed，完整通过 | 0.840420 | 0，PGID28561已退出 |
+| 3.5 `test_xxm_r4_internal_results.py` | 39 passed，完整通过；原start/end适配保留 | 0.767867 | 0，PGID28589已退出 |
+| 3.6 `test_xxm_input_validation.py` | 95 passed、1 failed、余5项未执行，首错停止 | 0.250479 | 1，PGID28614已退出 |
+
+本次新通过441项（307+39+95），复用1129，当前**1570 passed、1 failed**；13个文件完整通过，1个部分执行。两个删除项独立登记，不报它们通过；原失败文件旧301/16项不累加。选定后端3320项中1749项未执行，后续51个测试/编译单元未启动，无skip/xfail/xpass或超时，自有组全部clean=true/residualGroups=[]。实际临时结果为`/private/tmp/p5-step3-resume-20261103-yrnaxyux/results.json`，status=failed、failedUnit=3.6，原两轮失败证据不覆盖。
+
+当前失败节点`test_formal_spec_contains_every_approved_rule_and_hashes_canonical_content`；pytest原摘要`1 failed, 95 passed in 0.06s`，与完整耗时分别记录。只读对照发现，该测试声称按LLD§2.2手写的expected仍为旧规则：
+
+| 字段 | 测试旧预期 | 当前已批准LLD§2.2及正式Spec |
+|---|---|---|
+| algorithm_version | xxm-direction-v0.3-r4 | xxm-direction-v0.4-r4 |
+| structure_follow_policy | next_same_color_close_break | price_until_first_valid_same_color_end |
+| structure_follow_min_bars | 缺字段 | 严格整数2 |
+
+其余17项相同。产品当前已验收身份及当前`spec.py`与LLD§2.2一致；本轮未修改该测试或Spec。因此此失败是先前测试的规则字典未同步正式v0.4，不是此次删除两个用例改变算法，也不是另一条应删除的不可达内部造错样本。规则身份/完整字段的独立检查应保留，后续只按已批准文档同步上述三处字面预期，不用asdict(MAIN_SPEC)生成expected、不把旧规则改回正式实现、不放宽完整相等/规则hash或拒旧检查。
+
+本次限定搜索同类旧字符串，另一个`next_same_color_close_break`出现在`test_xxm_calculator`明确要求拒绝旧规则的反例，属于有用覆盖，必须保留；不能据字符串批删测试。未执行部分的其他正确性不由该搜索推断。
+
+本轮首错后只读定位和补执行登记，**未修复3.6或重跑、未执行3.7—8、不进入P5第四步**。已有样本修复和本次批准删除均通过完整3.4验证；P5-04的37×4每截断测试及P5-15—20相关预测/图证/API/前端仍未完成。后续需先明确/同步这处旧测试预期的修复安排，再从受影响完整文件接续，按实际代码/输入决定复用13个完整通过文件1475项，不默认从头重跑，不把3.6部分通过95项再加一遍。
+
+本轮独立审计及收尾静态检查：删除仅限管理员明确批准的2项，恢复/内部结果完整文件通过，原真实业务序列和正式实现未变；旧规则预期失败保留，不更改错误结论或继续后续组。实际3320选定节点、1570通过/1失败/1749未执行与临时原摘要独立核算一致。原三文档8步/35后端/28前端/两编译单元清单及原准备记录一致；根文档完整性3项、28文档971本地链接/163锚点和限定diff空白检查通过。静态检查不加入通过数、不代替第8步尚未执行的整批审计。当前本任务仍只改一个测试文件和原三文档，其他工作区差异保留，暂存为空，未提交/部署。
+
+
+## 22.14 测试用例审计与暂停交接（2026-11-03，仅审计）
+
+本轮按管理员要求，只读审计原35个Python单元和28个前端文件及直接相关生产者/消费者，形成[待清理记录](index-detail-top-bottom-recognition-p5-test-case-audit-v1.md)及其63项检查清单。登记F01—F14，其中F01是未同步v0.4的独立Spec预期，F02是旧多步表达式测试与本LLD保护旧合同的错误；其余涉及内部造错、极值、重复矩阵、实现细节约束、过期说明与覆盖不足，逐项列出依据及必须保留的边界。没有问题编号的文件不因此宣布正确。
+
+本轮未修改业务/测试/配置代码，也未收集、运行或重试测试，未实施删除或合并，未访问正式数据源、回测、提交或部署。原执行成绩和三次停点保留为历史事实，不能把删除建议记为通过。原续做安排当前暂停；尤其不得按§22.10所保护的旧多步测试恢复旧产品能力。
+
+后续先由管理员review待清理记录，再把确定的处理范围同步到原方案和LLD，明确每项保留、修改、删除或合并，以及受影响的证据/数量和恢复回归条件；本轮记录不自动授权实施或进入P5第四步。有效r4规则、真实输入/恢复/取消/缓存边界及架构隔离仍须保留。
+
+
+## 22.15 按待清理记录修改测试（2026-11-03，已获授权）
+
+### 22.15.1 目标、范围及硬约束
+
+管理员已要求按F01—F14清理并独立复核。本轮只改下列测试及这组三份原文档、审计记录/CSV和两处索引；不改src生产代码、Wealth运行代码、schema/Spec、配置、数据或正式工具。P5整批回归继续暂停，本轮只跑受影响的完整测试文件和必要关联验证，不能顺势续做剩余单元或宣布P5第三步完成。已批准删除的两个不可达用例不恢复；既有工作区修改按原样保留。
+
+已用CodeGraph query核ForecastExpression、validateExpression和useXxmForecast的位置/消费者，结合当前生产者、schema、原literal fixture及Hook正文核对；更早explore提供的恢复/查询上下游仍沿当前源码复核。未改变架构、依赖方向或产品合同。测试新增TypeScript AST读取只用现有typescript依赖，查其5.9声明；不安装包，不在运行模块增加解析器。
+
+所有预期保持独立字面依据；合法样本先符合当前合同，再分别构造反例。不得用待测Spec/算法生成expected，不skip/xfail/吞错误；不能把删掉的用例记为通过。字段缺失、类型/NaN/inf、真实日期/周期、真实1%边界、近远切换、逐根比价、单根段、有效段结束、历史关联和37×4截断恢复均保留。没有更改来源/预算/读写边界，400ms正式预测预算不变。
+
+### 22.15.2 逐项编码和保留覆盖
+
+| 项 | 实现文件/动作 | 明确保留/验收 |
+|---|---|---|
+| F01 | input_validation的独立字典仅改v0.4、跟踪policy和min_bars=2三处 | 全字段相等、独立hash、类型及拒旧；不动MAIN_SPEC |
+| F02 | forecast_expression_contract以六种节点和MACD五字段重写；删除旧多步接受、add/div能力/20步体积和prefix数值矩阵 | 六类正例/合法嵌套JSON往返；sub两个参数；每个MACD数值/field/必需键、affine变量限制、round3正guard、额外字段拒绝；旧op/旧prefix只作少量拒绝 |
+| F03 | r4_restore删除审计列出的五个强改_finish_step输出函数，共15个原变体 | 不删真实K线/事件/结构/历史及对外坏副本恢复；正式内部检查不改 |
+| F04 | r4_restore的构造后失败8项收为day/TOP代表1项，空对象零柱失败独立保留；r4_following保留跟踪前/已开始两种prefix，去无关sign交叉；observation删重复_finish_step抛错段，保留副本/restore模式/默认关闭 | internal_results的聚合与模型失败、snapshot_consumers的推进后缓存失败属不同发布位置，原样保留；取消/时间和旧输出不变仍验 |
+| F05 | key_point_forecast删除8个极小DIF和4个极大DIF变体、10**400状态；p3_forecast_math删除下溢/大数选项/溢出测试，Fraction源包络只留正常正负/零状态 | 正常量级1%原运算、真实三位精度、开闭/相邻可表示数、非有限/布尔拒绝仍保留；不改数学函数或输入合同 |
+| F06 | 后端旧循环函数随F02退出；前端expressionContract删除自引用/共享对象身份用例 | 新六类JSON正例和真正可传入的坏嵌套、缺键及错类型仍验；不删正式循环保护 |
+| F07 | r4_restore三缺字段24项收为day/TOP三项；BAD_PATHS的公共字段只在day逐项，两个日期字段另保留三个分钟周期，24+6=30 | 每种坏字段不丢；四周期/镜像合法恢复与时间测试、37×4截断不缩减。snapshot_validation直接parser检查和restore对象不变分别留在各自边界，不重复机械扩展 |
+| F08 | forecastDebugContract的18类范围在day的两种入口全部保留；每个分钟周期/两入口只留一个合法无上界及一个非法范围，144收为48 | 真实2026-10-27 upper=null及HTTP客户端回归不动；不减少两种入口或周期接入验证 |
+| F09 | product_v1_cases静态校验改为禁止产品/研究等非标准库导入，允许typing等标准库，不限数量；保留open/exec/eval/__import__禁用。前端dependencyBoundary用TS AST读取静态/动态及type-only导入，按路径判断辅助依赖；只允许页面静态引入debug loader，loader须动态引入IndexRecognitionDebug，不能静态引入辅助实现 | 加正常typing/多行/单引号/纯helper正例和真实违规依赖反例，证明不误拦。无源码SHA/固定完整import语句/固定react导入个数 |
+| F10 | local_extrema_study去vars类型禁令及无用time导入，改准测试名 | 10,000输入、3999极值及processed计数保留；不声称已测内存有界，不运行benchmark |
+| F11 | 两个Web source_db仅生成固定需求日历：识别2020-01-01至01-10；预测2023-01-03至01-31。共享测试helper包装原load_entry，仅在调用没有now时分别传场景2020-01-10 20:00和原NOW=2023-01-10 20:00；显式now原样传递，仍返回原load_entry的context manager | 读取模块要求日历覆盖now.date，固定场景时间与临时数据一致；不替换读取/校验/预算。既有latest、下一交易日、休市/缺日及SQL/Gold链路保持；不改生产时钟/正式读取 |
+| F12 | key_point_forecast的PF19保留计时记录、重复结果/副本独立性，去elapsed<.4 | 正式P4性能证据及可控预算/取消不变；不以本轮测试宣称性能达标，不提高阈值 |
+| F13 | key_point_forecast的首次反色/后续新轮、snapshot_validation的进度副本、internal_results跟踪变量、restore非法首次反色参数改准名称/说明 | 只把结构语境的lock改following/first_opposite，线程锁不改；PF14补原TOP已因104突破103消失及原因/关联字面断言；副本测试覆盖followed_structures独立性 |
+| F14 | forecast Hook测试将生产/禁用拆为两个独立前提；改准停用/最新轮询标题，历史场景推进60秒且保留手动重试；补实际换指数和debug模式的旧请求取消/迟到不写入 | 同一Hook/真实effects，替身只替HTTP客户端；新debug请求完成前保持空，旧返回不污染；不修改Hook/页面，不开浏览器复验 |
+
+当前预计只改13个Python文件和4个前端测试文件。最终文件/删除/参数数以相对本轮开始的实际差异和限定收集为准，不凑旧3320节点。原历史成绩不重算；既有helper调用方的传参及fixture对外名称保持；forecast source_db仅增加monkeypatch这个测试依赖参数，r4_restore的literal_snapshot不改，前轮样本修复保留。
+
+### 22.15.3 验证顺序、失败及退出
+
+1. 文档和当前生产者核对完成后，再改测试。逐项记录F01—F14的旧用例/新用例或保留理由，确认删除函数无外部import消费者。
+2. 修改后仅收集13个改变的Python完整文件，记录实际数量、不含全研究目录；不以旧数量作强制expected。先跑这13个文件，再跑必要关联：calculator、r4_rules、snapshot_consumers、r4_following_forecast。前端跑4个改变文件，另跑真实apiClient和r1拒旧文件；这不是原P5步骤3—8的续跑。
+3. 前端typecheck和build按现有工程执行；依赖检查跑原8.4指定节点及根三份架构检查。测试本地人工/已有冻结材料/临时SQLite和Gold，禁止正式数据库/Lake/网络/全历史重放、Notebook或benchmark，不启停共享服务或安装依赖。只有构建写原ignored产物。
+4. 复用已验临时监督的execute/进程组回收，不使用其旧3298/307收集断言、续做分组或总数。新调用清单明确路径；每文件仍55秒工作+5秒回收/记录，含准备/取消/最后验收，整单元上限60秒，首次失败停止后续。取消后不领新单元，结束只清本次自有进程/临时输出，不操作他人进程。临时记录只存摘要/数量/错误，不存行情响应。
+5. 发现测试错误先对照本节/真实合同，不能临时改产品/放宽断言。若需超出本节处理，保留首错并报告；不同执行阶段不得将部分通过与旧成绩混加。已完成单元仅在代码/输入未再变且明确无依赖影响时复用，补改后只重验受影响单元。
+6. 最后独立逐项复核：删除/参数调整均可映射F项，未批准节点/原字面输入/真实预期未动，六种表达式可接受及旧字段拒绝都确有相应断言；坏样本从合法基础只改目标字段。当前125业务变体/37×4及关键关联测试仍在；63清单仅登记本轮实际处置，不把未重跑者登记通过。核CodeGraph sync/status、文档链接及差异，报告通过/失败/未执行和遗留风险后停止，不提交/部署或恢复整批回归。
+
+
+#### 22.15.3.1 定向验证的F11夹具纠正
+
+首次13文件限定收集2083项；前11文件1779项完整通过。第12文件识别API首例失败（HTTP500），按首错停下，第13及其他验证未执行，自有资源退出。只读代码定位：query_service.load_entry默认取真实今天，日线_load_series调用calendar_dates(end=now.date)，该函数要求末行正好覆盖end。仅截短日历使固定2020样本缺真实今天，不是识别规则故障。
+
+先同步F11设计，再在识别测试文件加共享_source_clock：保留原load_entry，在now为空时补传场景时间，显式now不改；预测source_db复用此helper并用原NOW。生产方法/SQL/期望/覆盖均不改，不靠增加远处假日历行过关。原失败结果保留于本轮verification/results.json；只有这两份Web测试再变动，前11文件及其依赖未变，1779项可复用，不再次累加。另建verification-2目录，收集并完整重验两Web文件，再接本节其余必要验证；任何新失败仍按原首错边界处理。本次不恢复整批P5。
+
+
+#### 22.15.3.2 长校准样本与后续日历变更的明确范围
+
+F11补充直接消费者核对：识别API187完整通过；预测文件28通过后，带250根预热的完整校准例在日历覆盖处首错，原verification-2证据保留，不算整文件通过。这一例自己构造290根跨年行情并显式传末日now，故只在该例临时SQLite中补2023-02-01至末根之后首个周一至周五日期的日历行；普通source_db仍截止01-31，不把跨年数据生成扩散到其他116个用例。原校准/价格/DIF/解/预算预期都不改，next target仍通过真实future_calendar查询。
+
+同文件test_single_calendar_endpoint_and_used_prefix_identity原UPDATE的是2023-04-01（周六，原来已经is_open=0），即使有该行也没有实际改变值。改为本fixture中确定存在、尚未被各参数的target使用的2023-01-31：只UPDATE is_open=1的行到0，断言rowcount=1，再验证原endpoint/identity不变。这是修正F11范围关联及原无效变化，不新增产品规则或放宽断言。已查本fixture其他日期调用，未再发现跨01-31需求；其他独立batch3 fixture不改。
+
+本次只再改变预测API一个文件；识别API与前11文件的代码/输入/依赖未变，1966项完整通过可复用。另建verification-3记录，只完整收集/执行预测API117项后接必要关联及前端；原部分28项不重复计数。其余退出/首错/60秒要求不变。
+
+
+#### 22.15.3.3 F09测试辅助函数的包名处理
+
+前端首个文件在loader正例处停止：新AST辅助函数把react当相对路径，解析成debug/react，发生误拦。仅修本测试target函数：以点开头的模块才相对当前文件解析；bare包名保持包名，绝对路径保持绝对路径，再判断是否位于本地debug/daily-wave目录。原正常React/helper/type-only/引号格式正例及违规本地依赖反例全部保留，loader仍要求动态引入IndexRecognitionDebug，不放宽真正的静态辅助依赖限制。
+
+原verification-3保存该首错（1通过、1失败，另2未执行），不计作完整文件通过。Python21文件/节点共2740项代码/依赖未变，可复用；另建verification-4只从受影响前端完整文件开始，沿既定6文件→类型/构建验证。没有新产品改动或预算变化。
+
+
+### 22.15.4 清理完成、独立复核及后续交接
+
+本轮已按F01—F14完成13个Python/4个前端测试文件的修改，未改r4/预测/读取/schema/配置或其他运行代码。独立复核确认仅5个指定内部造错函数被删除，原业务字面值、37×4截断恢复、顶底/周期及不同发布/恢复边界保留；过时表达式接受口径及PF08/16/17/19测试设计已同步纠正。详细逐项处置、63清单及证据见[测试用例清理记录](index-detail-top-bottom-recognition-p5-test-case-audit-v1.md)§7—8。
+
+有效定向验证去重：13改变文件2083 Python项、8关联文件/节点657项，共2740；前端4改变文件64项加2合同/客户端10项，共74；Wealth类型检查/构建通过。根架构16和研究节点1已在上述657内，不重复计数。单元最长20.357719秒，所有自有进程清理完成，无skip/xfail或超时。F11两次夹具首错及F09测试辅助函数首错保留，均先核依据/补LLD再仅修测试，完整受影响文件已通过，旧部分成绩不相加。
+
+本轮清理交付完成，P5整批回归仍暂停，未自动进入第四步、提交或部署。当前保留35个Python选择单元及28前端文件边界，但旧3298/3320只作当时收集事实，不可再作当前硬断言。下次获准恢复时先根据当前文件收集/登记实际数量，按实际依赖复用有效完整通过行，补其余未覆盖单元；本轮限定结果不能替代整批、真实源或浏览器验收。
+
+103份代码/测试审计CSV的原symbols/post_move_symbols及execution_result记录的是P5第二步迁移/清退时的事实，不覆盖本轮测试函数清理；这些历史列不作为当前节点执行命令。当前处理和验证以本轮63项测试清单及本节结果为准，其他资料清退历史不重写。
+
+本轮最终静态检查：文档完整性3项、6份Markdown的446本地链接/22锚点、63清单路径/状态、限定差异/新文件空白均通过；CodeGraph sync/status为最新。末尾空行整理的AST完全不变，已有运行证据仍适用；没有新增测试数或产品结论。

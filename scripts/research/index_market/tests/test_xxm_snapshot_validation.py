@@ -155,13 +155,15 @@ def test_safe_flip_starts_following_without_retaining_active_progress():
         assert child.snapshot() == calc.snapshot()
 
 
-def test_parse_returns_seven_independent_progress_fields():
+def test_parse_returns_independent_progress_and_followed_structures():
     raw = top_structure_snapshot()
     parsed = parse_xxm_snapshot(raw, expected_identity=(MAIN_SPEC.spec_hash, "000001.SH", "day", SOURCE),
                                 period="day", max_refs=2)
     assert parsed.processed == 6 and parsed.state == "STRUCTURE"
     assert parsed.wave.price == 103 and parsed.reference.dif == 12
     assert parsed.active_structure["priceExtreme"] == 103
+    assert parsed.followed_structures == {"TOP": None, "BOTTOM": None}
+    assert parsed.followed_structures is not raw["followedStructures"]
     parsed.history[1][0].price = -10
     parsed.wave.price = -11
     parsed.active_structure["originalReference"]["dif"] = -12
