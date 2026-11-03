@@ -1,12 +1,17 @@
 # 股票复权周/月交付恢复：开发与隔离验收
 
+<a id="report-attachment-cleanup-20261103"></a>
+
+> 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
+
+
 **2026-10-31最新进展：** 日期交接修复4a5a5e17b已加载；获准29/30日范围及两次8GiB运行选项后，三批原Raw及五次原通知Silver全部SUCCESS，pending=0，四sensor仍RUNNING。当前2026-10-30周Raw/Silver各5572行、2026-10月各5576行，原检查/来源/版本及通知确认完成，详见[最终报告](recovery_20261029_30_execution_20261031/rss8_resume/README.md)。此前4GiB失败及控制锁占用记录保留，不覆盖历史；未重跑28日、改代码/默认配置或做额外全局审计。以下27/28日记录仅作各自批次追溯。
 
-**本轮开发收尾：** 已核7份验收源码/测试指纹未变，清理13个私人临时文件350239B及2个空目录，必要证据、业务staging和仍在使用的DG日志保留。原方案/LLD及两组操作报告随本次限定提交保存，未推送；历史验收JSON不改成事后状态。详见[收尾清单和检查](commit_closeout_20261031.json)。
+**本轮开发收尾：** 已核7份验收源码/测试指纹未变，清理13个私人临时文件350239B及2个空目录，必要证据、业务staging和仍在使用的DG日志保留。原方案/LLD及两组操作报告随本次限定提交保存，未推送；历史验收JSON不改成事后状态。详见[收尾清单和检查（附件已清理）](README.md#report-attachment-cleanup-20261103)。
 
 **正式恢复完成（2026-10-28 11:50）：** 本次原27日股票复权周/月Raw及Silver四项均完成；23日周欠账已补，30日当前周及10月已更新到27日。8GiB续跑成功、原83页完整复用；全部实际通知/检查已确认，pending=0，四sensor保持RUNNING。本轮修改及证据随本次提交保存，未推送。完整结果见[正式恢复记录](formal_execution_20261028.md)及共享LLD§12.12.6。
 
-**最新进展（2026-10-28）：** 管理员已批准按原LLD修复审计1—5项，开发、独立复核及隔离验收完成。最终固定版本528通过、0失败，2项既有PG实验未启用；136.39秒，生产/测试指纹未变化，指定临时业务目录已清理。三份原文档已统一；详见[五项修复及逐项对账](followup_1_5.md)、[总结果及指纹](followup_fixed_version.json)和[最终XML](followup-final-regression.xml)。本轮修改及证据随本次提交保存，提交号以Git记录为准；未推送、未部署或执行正式状态修复/补数。
+**最新进展（2026-10-28）：** 管理员已批准按原LLD修复审计1—5项，开发、独立复核及隔离验收完成。最终固定版本528通过、0失败，2项既有PG实验未启用；136.39秒，生产/测试指纹未变化，指定临时业务目录已清理。三份原文档已统一；详见[五项修复及逐项对账](followup_1_5.md)、[总结果及指纹（附件已清理）](README.md#report-attachment-cleanup-20261103)和[最终XML（附件已清理）](README.md#report-attachment-cleanup-20261103)。本轮修改及证据随本次提交保存，提交号以Git记录为准；未推送、未部署或执行正式状态修复/补数。
 
 以下411项、首次独立审计及“只补3—5文档”的记录均为88de377ca及随后文档阶段历史，继续保留原失败/通过证据；当前五项状态以上方新报告为准。
 
@@ -54,7 +59,7 @@
 | Raw实际补报负例 | 3项通过；3.588秒 | 实际SDK job证明FAILED、晚绑旧Mat、非blocking均失败，新增业务Mat/check为0；只读路径也不完成 |
 | 多文件/连续后继补证 | 3项通过；2.966秒 | 两频中一频缺检查/通知不能关整批；两个连续合法后继仍准确确认旧交付且当前文件不回写 |
 
-[results.json](results.json)记录轮次、源文件指纹和生产代码在完整回归开始前已冻结的mtime证据。[最新用例集合](latest-results.xml)按每个用例的最后一次实际执行合并；保留[原完整轮次](pytest.xml)、[memory复验](memory-contract-recheck.xml)、[Raw补报负例](raw-report-recheck.xml)、[多文件复验](multi-delivery-recheck.xml)，未删失败记录或用skip隐藏失败。所有生产代码在完整回归后未修改。
+[results.json（附件已清理）](README.md#report-attachment-cleanup-20261103)记录轮次、源文件指纹和生产代码在完整回归开始前已冻结的mtime证据。[最新用例集合（附件已清理）](README.md#report-attachment-cleanup-20261103)按每个用例的最后一次实际执行合并；保留[原完整轮次（附件已清理）](README.md#report-attachment-cleanup-20261103)、[memory复验（附件已清理）](README.md#report-attachment-cleanup-20261103)、[Raw补报负例（附件已清理）](README.md#report-attachment-cleanup-20261103)、[多文件复验（附件已清理）](README.md#report-attachment-cleanup-20261103)，未删失败记录或用skip隐藏失败。所有生产代码在完整回归后未修改。
 
 首次隔离HTTP调用因沙箱不允许监听回环端口未进入业务；改用工具规定的本机权限运行同一隔离测试后通过。PG验证准备阶段纠正了测试repository未完整登记资产/check、临时队列未配执行器的夹具问题；未修改正式配置。未安装依赖。
 

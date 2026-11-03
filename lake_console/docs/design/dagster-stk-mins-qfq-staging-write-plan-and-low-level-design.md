@@ -1,5 +1,10 @@
 # 股票分钟前复权与MACD/KDJ写入修正方案和LLD
 
+<a id="report-attachment-cleanup-20261103"></a>
+
+> 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
+
+
 > 2026-11-01附件精简：本页所引恢复过程附件已按管理员指令删除，相关链接转到对应README的清理说明；原数量、操作和历史结论保留，旧裸路径不表示文件仍存在。
 
 > 2026-11-01报告精简：按管理员明确指令，五个恢复报告目录仅留必要最终结果和说明，过程附件删除，不再压缩另存。历史附件路径描述当时执行，已删除附件的链接改为对应README的清理说明。具体保留范围和验收见20.16；不因附件删除重跑补数、检查或审计。
@@ -1311,7 +1316,7 @@ CodeGraph `explore/impact`已覆盖主writer与wrapper，并按源码补查其�
 
 收尾一次原生读回证明两物化与四checks均绑定本恢复run和29日分区；repair sensor仍STOPPED且身份/cursor/lastRunKey与保存值一致，无新MACD历史repair run、无活动run，原pool仍limit=1/active=0/pending=0。**TODO仍待后续处理：2股2014-01-02至2026-10-29的原MACD repair按实际产物核定历史读写范围、另获批准后用原job推进，再恢复本次暂缓的repair sensor并读回RUNNING。** 本轮不自动启动该历史任务，也不把七频日更齐备表述为repair已完成。
 
-最终证据：[结果对账](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_1m/final-verified.json)、[原生输出/检查/开关读回](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_1m/final-response.json)、[publication元数据](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_1m/publication-final-metadata.json)。本阶段仅更新原方案、LLD和执行证据，没有再改实现或重跑测试，尚未提交这些收尾文档。
+最终证据：[结果对账](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_1m/final-verified.json)、[原生输出/检查/开关读回（附件已清理）](../../reports/macd_kdj_daily_read_20261030/README.md#report-attachment-cleanup-20261103)、[publication元数据（附件已清理）](../../reports/macd_kdj_daily_read_20261030/README.md#report-attachment-cleanup-20261103)。本阶段仅更新原方案、LLD和执行证据，没有再改实现或重跑测试，尚未提交这些收尾文档。
 
 本节描述1m结束时点，随后已随`78a5ad31d`提交。该时点尚待的2股repair和sensor恢复TODO，现已按19.15新批准在19.16完成；当前sensor为RUNNING，不再按本节旧停点保持暂停。
 
@@ -1344,7 +1349,7 @@ CodeGraph `explore/impact`已覆盖主writer与wrapper，并按源码补查其�
 - 原job的14项completion是末尾原生检查事件，不是14轮全历史审计，也不是14个新数据集/普通物化；不补普通历史materialization/check事件，不重跑29日日更或已完成原因子repair。
 - 正式Lake及staging根、原16GB/4线程等连接设置、writer pool和原publication不变；不加超时、内存或临时目录限制。现场文件和逐文件记录沿原staging保留，不备份、不Kopia、不删除正式数据。
 
-**metadata基线和预算。** 09:25只对精确2股候选年及目标七频state做一次stat，未读Parquet内容，见[metadata](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/metadata-budget-inputs.json)及[预算模型](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/budget-model.json)。Q=119份28,812,168B（0.0268GiB），I=119份65,863,089B（0.0613GiB），S=21,812份3,847,741,455B（3.5835GiB）。2013没有实际文件；当前无活动run、pool=1空闲，repair sensor仍STOPPED，没有同批次近期repair run。
+**metadata基线和预算。** 09:25只对精确2股候选年及目标七频state做一次stat，未读Parquet内容，见[metadata（附件已清理）](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/README.md#report-attachment-cleanup-20261103)及[预算模型（附件已清理）](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/README.md#report-attachment-cleanup-20261103)。Q=119份28,812,168B（0.0268GiB），I=119份65,863,089B（0.0613GiB），S=21,812份3,847,741,455B（3.5835GiB）。2013没有实际文件；当前无活动run、pool=1空闲，repair sensor仍STOPPED，没有同批次近期repair run。
 
 ```text
 Q：2股七频QFQ来源；V：必要起点前state，本次预计0
@@ -1399,7 +1404,7 @@ Fr/Fw：footer、manifest、receipt、日志等留量；Tr/Tw：原DuckDB临时�
 
 14项scope验收后，原生startSensor恢复原`gold_stk_mins_qfq_macd_kdj_repair_job_sensor`为RUNNING；响应id、完整cursor及lastRunKey与1m暂停前保存值严格相同。随后只读收尾确认同batch仅本次一条SUCCESS、没有活动run、pool仍limit=1/active=0/pending=0；最新恢复后tick为SKIPPED、runIds为空，cursor随后正常推进，不误报成光标丢失。**19.13—19.14中暂缓该sensor的TODO已完成**，其他开关未改，不留暂停等待项。
 
-独立审查仅使用本次原生结果、完成记录和恢复响应逐项对账通过，没有新增网络/Lake读取。证据：[最终对账](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/final-verified.json)、[原14completion](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/final-response.json)、[开关恢复响应](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/start-repair-sensor-response.json)、[运行/去重收尾](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/closeout-response.json)、[publication收尾](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/publication-final-metadata.json)。本轮仅提交这些执行记录及原方案/LLD状态，没有业务代码修改，不push、不混入其他工作区改动。
+独立审查仅使用本次原生结果、完成记录和恢复响应逐项对账通过，没有新增网络/Lake读取。证据：[最终对账](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/final-verified.json)、[原14completion（附件已清理）](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/README.md#report-attachment-cleanup-20261103)、[开关恢复响应（附件已清理）](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/README.md#report-attachment-cleanup-20261103)、[运行/去重收尾（附件已清理）](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/README.md#report-attachment-cleanup-20261103)、[publication收尾（附件已清理）](../../reports/macd_kdj_daily_read_20261030/recovery_20261029_repair/README.md#report-attachment-cleanup-20261103)。本轮仅提交这些执行记录及原方案/LLD状态，没有业务代码修改，不push、不混入其他工作区改动。
 
 
 ## 20. 2026-10-30股票分钟链及成交额恢复：方案与执行LLD（2026-10-31）
@@ -1646,3 +1651,35 @@ CodeGraph已查两项parse函数的调用方均为`assets/stk_mins.py`相应mate
 **后续限定范围提交。** 管理员随后明确要求只提交本次报告清理与引用修正。提交仅包含五个报告目录的删减和必要保留文件、已跟踪文档中的本次清理说明/引用改动；报告22日README、任务日期LLD和本LLD的其他旧改动留在工作区，不整文件带入。`dagster-index-daily-staging-write-plan-and-low-level-design.md`、`dagster-minute-raw-silver-staging-write-plan-and-low-level-design.md`原本未跟踪，无法只提交其中引用改动而不带入整份旧方案，因此两份文件留在工作区，不新增到本次提交。提交前核对逐文件名称与状态、文档逐段差异、保留文件及引用目标；当前`dev-interface`提交，不推送，不改代码或正式资源。上段“暂存区为空、没有提交”保留为清理完成时的历史状态。
 
 提交格式检查发现所保留的真实任务样本文本第3行表头末尾有空格；只去掉这一处尾空格，任务数据行及JSON保持原样，不修改夹具值或测试预期。前述24份原字节一致为删除完成时的核对结果；此处另记提交前的格式整理，不以此声称重新核验了Prod。
+
+### 20.17 其余恢复过程附件的清理（2026-11-03）
+
+**目标、授权与范围。** 管理员明确指`lake_console/reports`并要求将上述recovery临时文件清理。本步承接20.16，只处理当前该目录中路径含`recovery`的605份文件、14,249,238字节，覆盖18个目录或单文件名称；不是删除整个reports，也不处理根`reports`。按准确清单删除539份过程附件、12,969,561字节；保留66份说明/最终结果及测试来源。被保留的原JSON和样本不改正文；历史README/分析说明保留，补充附件已清理的说明，避免把旧路径当成再次执行要求。未跟踪或ignored过程附件同属授权范围，不假定它们都能从Git恢复。
+
+**代码和影响面依据。** 逐项搜索这些名称在正式src、orchestrator、scripts、tests及配置中的引用，未发现固定读取这些目录的正式调度依赖。`moneyflow_continuation/submission.py::validate_new_output`只允许运营显式指定reports作为输出位置，不固定消费本轮旧文件；正式控制记录另存，不在删除清单。`tests/test_stk_mins_task_run_dates.py`说明引用22日报告里的TaskRun 16729真实来源，故保留该样本。通用审计工具的其他默认报告目录不属于本轮。业务代码、测试、配置、安装环境、Git暂存区及其他已有工作区修改均不改；不连接数据库、DG、Lake或源接口，不触发job/check/sensor，不改正式staging、冻结输入、receipt或日志。
+
+**精确保留规则。** 下表路径相对`lake_console/reports`；除表列保留项外，仅删除本步冻结的605份清单内文件，不按新出现的名称自动扩张。保留的Markdown以冻结清单为准，不保留脚本`.py.txt`、请求/响应、轮询、日志/XML、旧计划/预检、逐文件stat或压缩包副本。
+
+| 范围 | 保留内容 | 数量 |
+| --- | --- | ---: |
+| 20.16五个`datasets_recovery_*`目录 | 20.16已列的29份，包括TaskRun来源样本，本次不再次删减 | 29 |
+| `anns_d_recovery_20261027` | README、execution-summary.json、nine-native-events-verified.json | 3 |
+| `etf_mins_recovery_20261024` | README、final-verified.json、execution-summary.json | 3 |
+| `index_global_recovery_20261026` | README、raw-run-verified.json、final-state-readback.json | 3 |
+| `index_nineturn_recovery_20261029_20261030` | 原有两份Markdown；final.json、gold-verified.json、prod-verified.json | 5 |
+| `dg_stock_period_delivery_recovery_20261028` | 原有13份Markdown；`recovery_20261029_30_execution_20261031/rss8_resume/final-verified.json` | 14 |
+| `macd_kdj_daily_read_20261030` | repair目录原有两份Markdown、final-verified.json、completion-verified.json；另保留`recovery_20261029_1m/final-verified.json`。父目录其他非recovery文件不属于本轮 | 5 |
+| `moneyflow_p4_continuation_recovery_20261017` | formal_recovery/49-final-acceptance.json、formal_recovery/closeout.json | 2 |
+| DC根目录结果 | dc_recovery_online_acceptance_20261011.json、dc_recovery_implementation_reconciliation_20261011.json | 2 |
+
+根目录三份DC预检/开发准备JSON及`moneyflow_p4_environment_recovery_market_sample_evidence_20261017.json`属于旧阶段过程材料，删除；当时结论已在各自原方案/LLD中保留，不据此撤回后续完成事实。
+
+**引用修正与历史证据。** 删除前核对Markdown/HTML中的直接链接：被删附件及删除后空目录的活动链接转到所属现存README的清理说明，并明确标注附件已清理；没有README的资金流/DC单文件则转到各自原LLD的清理说明。保留文件链接不改。历史命令、裸路径和JSON内部的原始时间/路径保留为历史记录，不修改成可以重放旧任务的入口；说明这些过程文件已删除，不得据旧路径要求恢复附件或再次补数。只修改准确清单中的说明及直接引用它们的文档，不修其他历史死链或改写业务方案。文档原有未提交段落保留。
+
+**执行顺序、中断和预算。** 先完成本节与原方案对齐、引用/依赖审计，再以临时清单中的准确路径、原大小/mtime核对删除，路径必须是reports内普通文件，遇符号链接或文件变化停止核对；不使用整个reports的递归删除。剩余非Markdown保留文件逐份SHA-256对比，不能因修链接改动原JSON/真实样本。只删除本轮导致的空子目录，保留report根和其他文件。中断后依同一清单跳过已删除项，只处理未完成项，不重建旧过程文件，不自动补数；无法恢复的未跟踪临时文件不另建副本。文本/元数据处理保守预算含正常、一次中断继续及收尾：读256MiB、写8MiB、额外空间16MiB，正式行情I/O为0。不新增报告目录、备份包或压缩归档；临时清单只在`/private/tmp`，验收后删除。
+
+**验收和交付。** 核对539个删除目标无残留、66个保留目标均存在、非Markdown字节摘要不变，新增/其他文件未删；复查直接链接不存在指向本轮已删附件的活动引用。运行既有`scripts/check_docs_integrity.py`及本轮差异检查，确认代码、测试、正式数据和暂存区未改，不为报告清理执行业务回归或正式审计。本次未要求提交Git，故不自动暂存、提交或推送。最终数量及检查结果写回本节，不再生成一批清理报告。
+
+**实际结果。** 已按准确清单删除539份文件、12,969,561B及9个空子目录；本轮相关文件由605份变为66份、1,293,694B（包括清理说明文字），保留的41份非Markdown结果/真实样本SHA-256全部与清理前一致。29份直接关联文档修正157处附件链接，另在原方案补入本次清理状态，共涉及30份说明/设计文档。157处新链接均指向实际存在的清理说明，未残留指向本轮已删附件的活动链接；文档完整性和本轮`git diff --check`均通过，其他已有状态与暂存区保持不变。只处理报告及引用，无代码/测试/配置改动，没有访问正式服务、读写正式数据或重新审计/补数，没有新增备份包、Git提交或推送。临时清单与辅助脚本在完成上述核对后清理，不在reports新增另一套清理附件。
+
+**随后批准的提交范围。** 管理员随后要求提交。本次仅提交准确路径内已跟踪过程附件的删除、清理说明和必要引用修正；公告/ETF/国际指数保留的9份原未跟踪说明与最终结果一并纳入，以免新增清理链接指向未入Git的文件。两个范围外旧文档仍留工作区，相关报告的两处链接改为历史文字，不将整份旧方案或其他过程材料带入。对混有旧改动的方案/LLD只暂存本步段落及HEAD已有内容中的附件链接修正；此前补数、11月2日执行记录和未提交源码不混入。提交前校验准确白名单、暂存差异及文档链接，不推送或部署，保留其他原有工作区改动。

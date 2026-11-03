@@ -1,0 +1,183 @@
+{
+  "dataset": "raw_tushare_anns_d",
+  "status": "SUCCESS",
+  "runs": [
+    {
+      "run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "days": [
+        "2026-10-20",
+        "2026-10-21",
+        "2026-10-22",
+        "2026-10-23",
+        "2026-10-24",
+        "2026-10-25",
+        "2026-10-26",
+        "2026-10-27",
+        "2026-10-28"
+      ],
+      "materializations": 9,
+      "checks_passed": 18,
+      "requests": 11,
+      "automatic": true
+    },
+    {
+      "run_id": "92977ebb-04ac-4c87-a510-25ceb8b4d5e6",
+      "days": [
+        "2026-09-29"
+      ],
+      "materializations": 1,
+      "checks_passed": 2,
+      "requests": 1,
+      "automatic": false
+    },
+    {
+      "run_id": "2fee56ec-ca16-4916-b699-86281cf85667",
+      "days": [
+        "2026-10-10"
+      ],
+      "materializations": 1,
+      "checks_passed": 2,
+      "requests": 1,
+      "automatic": false
+    },
+    {
+      "run_id": "9f892b86-3cbc-4e6b-8e44-264a2b44a4ed",
+      "days": [
+        "2026-10-17"
+      ],
+      "materializations": 1,
+      "checks_passed": 2,
+      "requests": 1,
+      "automatic": false
+    },
+    {
+      "run_id": "c09b7ac1-8be3-4e19-9572-1b84fac82f06",
+      "days": [
+        "2026-10-18"
+      ],
+      "materializations": 1,
+      "checks_passed": 2,
+      "requests": 1,
+      "automatic": false
+    },
+    {
+      "run_id": "1326b639-a4be-4bc5-b8d5-04ea0eb02223",
+      "days": [
+        "2026-10-19"
+      ],
+      "materializations": 1,
+      "checks_passed": 2,
+      "requests": 1,
+      "automatic": false
+    }
+  ],
+  "files": [
+    {
+      "day": "2026-09-29",
+      "row_count": 3604,
+      "size_bytes": 61394,
+      "run_id": "92977ebb-04ac-4c87-a510-25ceb8b4d5e6",
+      "checks_passed": 2
+    },
+    {
+      "day": "2026-10-10",
+      "row_count": 2264,
+      "size_bytes": 40417,
+      "run_id": "2fee56ec-ca16-4916-b699-86281cf85667",
+      "checks_passed": 2
+    },
+    {
+      "day": "2026-10-17",
+      "row_count": 1184,
+      "size_bytes": 34029,
+      "run_id": "9f892b86-3cbc-4e6b-8e44-264a2b44a4ed",
+      "checks_passed": 2
+    },
+    {
+      "day": "2026-10-18",
+      "row_count": 2,
+      "size_bytes": 1718,
+      "run_id": "c09b7ac1-8be3-4e19-9572-1b84fac82f06",
+      "checks_passed": 2
+    },
+    {
+      "day": "2026-10-19",
+      "row_count": 299,
+      "size_bytes": 12082,
+      "run_id": "1326b639-a4be-4bc5-b8d5-04ea0eb02223",
+      "checks_passed": 2
+    },
+    {
+      "day": "2026-10-20",
+      "row_count": 1213,
+      "size_bytes": 35224,
+      "run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "checks_passed": 2
+    },
+    {
+      "day": "2026-10-21",
+      "row_count": 1200,
+      "size_bytes": 34604,
+      "run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "checks_passed": 2
+    },
+    {
+      "day": "2026-10-22",
+      "row_count": 1133,
+      "size_bytes": 31530,
+      "run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "checks_passed": 2
+    },
+    {
+      "day": "2026-10-23",
+      "row_count": 1784,
+      "size_bytes": 42918,
+      "run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "checks_passed": 2
+    },
+    {
+      "day": "2026-10-24",
+      "row_count": 2044,
+      "size_bytes": 45738,
+      "run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "checks_passed": 2
+    },
+    {
+      "day": "2026-10-25",
+      "row_count": 19,
+      "size_bytes": 2285,
+      "run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "checks_passed": 2
+    },
+    {
+      "day": "2026-10-26",
+      "row_count": 1141,
+      "size_bytes": 26692,
+      "run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "checks_passed": 2
+    },
+    {
+      "day": "2026-10-27",
+      "row_count": 3150,
+      "size_bytes": 59657,
+      "run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "checks_passed": 2
+    },
+    {
+      "day": "2026-10-28",
+      "row_count": 0,
+      "size_bytes": 192,
+      "run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "checks_passed": 2
+    }
+  ],
+  "materializations": 14,
+  "checks_passed": 28,
+  "source_requests": 16,
+  "formal_rows": 19037,
+  "formal_file_bytes": 428480,
+  "formal_byte_growth": 151517,
+  "reexecutions": 0,
+  "future_empty_prefetch": "2026-10-28",
+  "data_read_boundary": "Only original jobs read 14 bounded days; closeout used run/event metadata, small original JSON and stat, no additional Parquet/SHA/source scans."
+}

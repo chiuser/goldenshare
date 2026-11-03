@@ -1,5 +1,10 @@
 # 上市公司公告接入 DG 代码级 LLD v1
 
+<a id="report-attachment-cleanup-20261103"></a>
+
+> 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
+
+
 状态：2026-10-27 第三项原生中断分类及两项隔离验收待办已按第17节完成，最终613项及40项子用例通过，结果见17.7。前两项历史585项通过保留在16.6。正式重载、真实源/正式PostgreSQL事件验收、任务及补数均未执行，不将隔离完成等同于正式上线验收。
 
 对应[技术方案](dagster-anns-d-onboarding-plan-v1.md)，约束编号R01—R10以方案第10节为准。遵守[编码规范](../../orchestrator/CODING_STANDARDS.md)、[性能治理](dagster-data-pipeline-performance-governance.md)、[schema contract](dagster-asset-schema-contract-design.md)及[接入模板7A](../templates/dagster-dataset-onboarding-template.html#source-contract-budget)。

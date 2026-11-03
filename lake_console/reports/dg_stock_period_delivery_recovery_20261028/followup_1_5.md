@@ -1,5 +1,10 @@
 # 五项独立审计问题的修复与验收
 
+<a id="report-attachment-cleanup-20261103"></a>
+
+> 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
+
+
 2026-10-28，dev-interface。开发基线88de377ca，原审计和失败证据继续保留；本文件记录后续修正，不覆盖原411项结果。
 
 ## 授权与文档审计
@@ -22,7 +27,7 @@
 | 4 | 允许频率完整可补其原回执，局部不关闭整批/删除待办 | confirm.allowed_events_complete、replay、ack证明核验及周线op | week-only不访问month，混合历史/当前只补合法当前缺项，局部后全频仍核month；空范围/伪造整批/CP漂移/晚失败拒绝。补全历史链、截点、绑定、原始JSON及版本内容核验；单/多后继、closed及中断正常 |
 | 5 | 旧行情读取前先核明确目标；索引不可信停止，不自动扫描全频 | raw._old_range_paths/assemble、run_period缓存及_record_ranges | 坏hash/缺登记/区间中间缺口/未知选中目标均0定位SQL/旧行读取/COPY；有效索引下旧-only、新上市、换码清旧及未选股保持。2/100元数据样本无未选路径glob/stat；纯period不把坏索引重新标可信 |
 
-直接新增回归集中在test_stock_period_followup_history.py、test_stock_period_followup_silver.py、test_stock_period_partial_delivery.py；原Raw/Silver集成、交付与恢复、两个Raw sensor及月线definitions共同验证入口，未只测新helper。生产文件10份和直接修改/新增测试15份的固定指纹见[版本及总结果](followup_fixed_version.json)。
+直接新增回归集中在test_stock_period_followup_history.py、test_stock_period_followup_silver.py、test_stock_period_partial_delivery.py；原Raw/Silver集成、交付与恢复、两个Raw sensor及月线definitions共同验证入口，未只测新helper。生产文件10份和直接修改/新增测试15份的固定指纹见[版本及总结果（附件已清理）](README.md#report-attachment-cleanup-20261103)。
 
 ## 文档与独立复核
 
@@ -40,11 +45,11 @@ CodeGraph status/impact辅助核本链入口、调用方、直接测试；动态
 
 | 本轮 | 实际结果与依据 |
 | --- | --- |
-| 第一次固定版本合并回归 | 520项：505通过、13失败、2个PG opt-in跳过，128.97秒；[原红XML压缩归档](followup-fixed-regression.xml.gz)保留原始字节，生产10文件指纹与运行前完全相同 |
-| 13项诊断/夹具校准 | [13项通过、0跳过](followup-fixture-recheck.xml)，2.86秒。原输入缺双频/factor交接事实、未走真实bootstrap确认/handoff或直接history assemble缺可信range；补足真实合同及独立字面事实，未放宽生产规则，原业务预期保持；[详细依据](followup-fixture-corrections.json) |
-| 第4项证明完整性补验 | [修复前7失败](followup-proof-before.xml)；固定修复后[19项通过](followup-proof-after.xml)，16.91秒，加[3项通过](followup-proof-controls.xml)，2.73秒；这是22个不同定向例的两轮，非一次pytest |
-| 第3项定向收尾 | [70项通过、0跳过](followup-silver-recheck.xml)，7.31秒；范围及原始轮次见[记录](followup-silver-results.json) |
-| 最终固定版本合并回归 | [530项：528通过、0失败、2个PG opt-in跳过](followup-final-regression.xml)，136.39秒；生产10份/直接测试15份指纹均与运行前一致，不合并以上重叠次数作为最终通过数 |
+| 第一次固定版本合并回归 | 520项：505通过、13失败、2个PG opt-in跳过，128.97秒；[原红XML压缩归档（附件已清理）](README.md#report-attachment-cleanup-20261103)保留原始字节，生产10文件指纹与运行前完全相同 |
+| 13项诊断/夹具校准 | [13项通过、0跳过（附件已清理）](README.md#report-attachment-cleanup-20261103)，2.86秒。原输入缺双频/factor交接事实、未走真实bootstrap确认/handoff或直接history assemble缺可信range；补足真实合同及独立字面事实，未放宽生产规则，原业务预期保持；[详细依据（附件已清理）](README.md#report-attachment-cleanup-20261103) |
+| 第4项证明完整性补验 | [修复前7失败（附件已清理）](README.md#report-attachment-cleanup-20261103)；固定修复后[19项通过（附件已清理）](README.md#report-attachment-cleanup-20261103)，16.91秒，加[3项通过（附件已清理）](README.md#report-attachment-cleanup-20261103)，2.73秒；这是22个不同定向例的两轮，非一次pytest |
+| 第3项定向收尾 | [70项通过、0跳过（附件已清理）](README.md#report-attachment-cleanup-20261103)，7.31秒；范围及原始轮次见[记录（附件已清理）](README.md#report-attachment-cleanup-20261103) |
+| 最终固定版本合并回归 | [530项：528通过、0失败、2个PG opt-in跳过（附件已清理）](README.md#report-attachment-cleanup-20261103)，136.39秒；生产10份/直接测试15份指纹均与运行前一致，不合并以上重叠次数作为最终通过数 |
 
 最终回归使用全部test_stock_period_*.py、两个Raw sensor测试及月线definitions。DG_PERIOD_PG_VERIFY未启用，现有两个隔离PG实验明确未执行；本轮不重复原PG18.4证明，不把SQLite验收称为本轮PG验收。原SQL排序与SDK重执行接口没有修改，原411项及其PG证据继续作为对应旧范围历史记录。
 
@@ -59,7 +64,7 @@ CodeGraph status/impact辅助核本链入口、调用方、直接测试；动态
 - 第5项不再通过全频旧键扫描定位。坏索引或未知目标在旧行情SQL/COPY前拒绝；正常只读本次明确目标。候选缓存保持原数据/哈希/归属验证，不重算、不重建坏索引。
 - 上述是隔离计数/代码约束，未将临时文件保留字节当作实际读取量或RSS/峰值，也未拿小样本推算正式全市场预算。未做新性能实验。
 
-正式资源操作为0；本轮未读取Tushare/Prod或正式行情、未加载code location、未运行正式job/check/传感器、未改正式状态。指定测试临时Lake/staging/SQLite及工作文件结束按精确路径清理，小型结果及失败证据保留，见[清理记录](followup_temp_cleanup.json)。本轮修改及证据随本次提交保存，提交号以Git记录为准；未推送。
+正式资源操作为0；本轮未读取Tushare/Prod或正式行情、未加载code location、未运行正式job/check/传感器、未改正式状态。指定测试临时Lake/staging/SQLite及工作文件结束按精确路径清理，小型结果及失败证据保留，见[清理记录（附件已清理）](README.md#report-attachment-cleanup-20261103)。本轮修改及证据随本次提交保存，提交号以Git记录为准；未推送。
 
 本轮交付停在代码/隔离验收及文档对账，不执行§12.11正式旧待办收尾或§12.12补数。后续真正恢复仍须先核明确原ID/控制事实及实际历史读写范围，沿既有job/原日期继续，不重置cursor、不删除pending或重做bootstrap。
 

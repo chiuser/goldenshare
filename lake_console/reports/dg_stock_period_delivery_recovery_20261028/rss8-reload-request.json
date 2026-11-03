@@ -1,3 +1,0 @@
-{
-  "query": "mutation { reloadRepositoryLocation(repositoryLocationName: \"orchestrator\") { __typename ... on WorkspaceLocationEntry { name loadStatus } ... on PythonError { message stack } } }"
-}

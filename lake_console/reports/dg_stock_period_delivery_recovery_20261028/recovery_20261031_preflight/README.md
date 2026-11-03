@@ -1,5 +1,10 @@
 # 周/月四项恢复准入：跨日日期冲突，停在触发job之前
 
+<a id="report-attachment-cleanup-20261103"></a>
+
+> 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](../../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
+
+
 观察时间：2026-10-31 09:03:47，Asia/Shanghai。管理员已批准按“定点审计→核清跨日恢复→旧批次→30日更新→一次收尾”顺序推进，并要求遇到无法推进的问题停止说明。本次完成定点只读核验，发现当前代码不能正确承接本次跨日来源，未进入正式恢复。
 
 ## 四项实际文件
@@ -13,14 +18,14 @@ Silver SSE日历只作本次日期依据，10月30日为应覆盖的最近交易
 | raw_tushare_stk_period_bar_adj_month | 2026-10 | 5,575 | 20261012／20261028 | 0 | 0 |
 | silver_stock_monthly | 2026-10 | 5,575 | 20261012／20261028 | 0 | 0 |
 
-四文件存在，读取前后版本未变；缺的是后续更新，不是四文件全无。最大日期28日不能解释为每只股票都更新到28日。四文件磁盘合计1,523,109字节，不冒称实际总IO。完整路径、版本及计数见[只读证据](preflight.json)。23日及28日既有完成证据复用，没有重扫其历史。
+四文件存在，读取前后版本未变；缺的是后续更新，不是四文件全无。最大日期28日不能解释为每只股票都更新到28日。四文件磁盘合计1,523,109字节，不冒称实际总IO。完整路径、版本及计数见[只读证据（附件已清理）](README.md#report-attachment-cleanup-20261103)。23日及28日既有完成证据复用，没有重扫其历史。
 
 ## 前因后果及当前阻断
 
 1. 29日19:30:10的原月Raw run `4d3edf1d-9958-44b0-bde1-8a9f0cce1965`，在刷新920306.BJ的周线时收到0行，按现有规则报`period_source_empty`。
 2. 原业务执行`2742186f0ce0d15bc231ccc76afc566a71b6e4f500576a4e061afb8a6af297f3`仍冻结asof=29日、phase=download、consumed=false。原job选出的000878.SZ、688563.SH、920306.BJ两频范围没有人工修改。前两股周线单元已完成（1409／169行，截至29日），新股单元未完成；无build/candidates/complete/committed记录，原批次未正式发布。
 3. 后续29日周Raw和30日周/月Raw均被原待办阻断，实际错误仍为`period_original_run_required`。本轮观察无四项链路活动run，四sensor均RUNNING，不是sensor被关闭。
-4. 本轮只通过Tushare MCP查询920306.BJ的2026年10月周、月各一次，按真实完整21字段：各返回1行，end_date都为20261030。周坐标为20261030、月坐标为20261031。证明这只股票当前不再空源，不证明全源所有股票齐备；[源请求与结果](source-mcp.json)保留原样。
+4. 本轮只通过Tushare MCP查询920306.BJ的2026年10月周、月各一次，按真实完整21字段：各返回1行，end_date都为20261030。周坐标为20261030、月坐标为20261031。证明这只股票当前不再空源，不证明全源所有股票齐备；[源请求与结果（附件已清理）](README.md#report-attachment-cleanup-20261103)保留原样。
 5. 当前`stock_period_silver.read_completion`仍以冻结`intent.asof=29日`作为Silver上限；`select_period`明确拒绝`source_asof > asof`。因此接入上述30日源行后，现有Silver日期规则会拒绝该行。此为当前代码和真实小样本共同确认的冲突，尚未通过正式job制造一次失败。
 
 原下载模块已经支持跨日重新请求未完成单元，已完成单元仍复用；不需要再开发另一套重下载流程。真正需要先解决的是旧任务日期与后来取得的源日期如何交接。当前daily控制进度仍为week.last_refresh=27日、month.last_refresh=28日、factor_through=28日；这是控制状态，与上表物理最大日期分别记录。
@@ -38,4 +43,4 @@ Silver SSE日历只作本次日期依据，10月30日为应覆盖的最近交易
 
 复用现有orchestrator `.venv`和既有只读连接方式；PostgreSQL强制只读并核验transaction_read_only=on，未初始化Dagster instance。当前四文件各一次计数/日期查询，日历仅限2026-10-01—30的SSE日期依据，源仅两次单股查询。无安装、性能测试或生产试跑。
 
-首次只读辅助脚本因遗漏`InstigatorState`类型导入，在解析sensor元数据时退出，尚未读取四个行情文件；按已有只读脚本的真实用法补齐导入后完成。没有把该辅助脚本错误当作数据问题或正式job失败，没有正式写入。最终辅助源码保留为[非执行归档](preflight.py.txt)，原/private/tmp下可执行副本已删除；JSON及[当前代码依据](code-evidence.json)保留，不清理任何业务源、staging或既有证据。
+首次只读辅助脚本因遗漏`InstigatorState`类型导入，在解析sensor元数据时退出，尚未读取四个行情文件；按已有只读脚本的真实用法补齐导入后完成。没有把该辅助脚本错误当作数据问题或正式job失败，没有正式写入。最终辅助源码保留为[非执行归档（附件已清理）](README.md#report-attachment-cleanup-20261103)，原/private/tmp下可执行副本已删除；JSON及[当前代码依据（附件已清理）](README.md#report-attachment-cleanup-20261103)保留，不清理任何业务源、staging或既有证据。

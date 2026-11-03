@@ -1,5 +1,10 @@
 # 31日提交、重启及29—30日周月线预算核定
 
+<a id="report-attachment-cleanup-20261103"></a>
+
+> 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](../../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
+
+
 2026-10-31，本目录记录提交跨日日期修正、重启DG确认加载、核定历史范围的阶段。**修复已提交 `4a5a5e17b`，未推送；该预算阶段DG已重启、尚未提交补数job。** 后续获准恢复的最终结果见[完成报告](../recovery_20261029_30_execution_20261031/rss8_resume/README.md)。本目录的操作记录随本次收尾提交保存，验收JSON保留各阶段当时状态。依据为原方案§10.14、共享LLD§12.23；未重新运行开发测试或28日完成批次。
 
 ## 实际重启及代码核验
@@ -12,13 +17,13 @@
 
 最初的比较把自然推进的evaluated_at也要求相同，因此断言退出，尚未写结果；核清差异仅此两处后改为明确比较全部业务字段，保存原前后JSON和差异说明。该只读核验问题未修改任何正式状态或数据。
 
-证据：[重启操作](restart-action.json)、[前](before.json)/[后](after.json)/[最终状态](final.json)、[源码及业务状态核验](code-and-state-verification.json)、[启动日志摘录](startup-excerpt.txt)。持续运行的DG stdout仍在原启动时打开的 `/private/tmp/dg_period_restart_budget_20261031/dg-restarted.stdout.txt`，不得作为废弃临时文件删除。
+证据：[重启操作（附件已清理）](README.md#report-attachment-cleanup-20261103)、[前（附件已清理）](README.md#report-attachment-cleanup-20261103)/[后（附件已清理）](README.md#report-attachment-cleanup-20261103)/[最终状态（附件已清理）](README.md#report-attachment-cleanup-20261103)、[源码及业务状态核验（附件已清理）](README.md#report-attachment-cleanup-20261103)、[启动日志摘录（附件已清理）](README.md#report-attachment-cleanup-20261103)。持续运行的DG stdout仍在原启动时打开的 `/private/tmp/dg_period_restart_budget_20261031/dg-restarted.stdout.txt`，不得作为废弃临时文件删除。
 
 ## 核定方法及必要性
 
 不读取历史OHLC。本轮只读原daily/baseline、已冻结请求、已完成source单元的identity/page/complete元数据；先验证原范围索引hash，再按原 `_old_range_paths` 对选中Raw/Silver文件stat，核当前Raw版本等于登记版本。没有运行会写pending的planner。
 
-30日只使用原相邻因子SQL做统计：29→30日合资格变化11股、相对29日冻结名单新增0、退出0、当前名单5577、退市日期未解释0。另一次不同目的的计数查询，将这些变化与已有股票范围/文件索引连接，统计每个历史周期的涉及股数；只输出周期及count，不导出股票名单或价格。第一次用于确认变化数量，第二次用于核定历史文件数量，没有重复做全局完整性审计。SQL、文件版本及选择结果完整保存在 [29日核定元数据](scope-stat.json.gz) 和 [30日核定元数据](scope30-stat.json.gz)，解压后是原JSON，SHA256见 [budget.json](budget.json)。这两个gzip仅压缩审计元数据，不是Lake备份。
+30日只使用原相邻因子SQL做统计：29→30日合资格变化11股、相对29日冻结名单新增0、退出0、当前名单5577、退市日期未解释0。另一次不同目的的计数查询，将这些变化与已有股票范围/文件索引连接，统计每个历史周期的涉及股数；只输出周期及count，不导出股票名单或价格。第一次用于确认变化数量，第二次用于核定历史文件数量，没有重复做全局完整性审计。SQL、文件版本及选择结果完整保存在 [29日核定元数据（附件已清理）](README.md#report-attachment-cleanup-20261103) 和 [30日核定元数据（附件已清理）](README.md#report-attachment-cleanup-20261103)，解压后是原JSON，SHA256见 [budget.json（附件已清理）](README.md#report-attachment-cleanup-20261103)。这两个gzip仅压缩审计元数据，不是Lake备份。
 
 为什么少数股票需要改许多文件：现行Raw每周/月一个文件，文件内有该周期多只股票。因子变化时，原job取得受影响股票的复权周/月历史，必须读入它们所在的旧周期文件，替换这些股票、保留其他股票。Silver再从本批实际交付的Raw生成相应周期。不能只写3/11只股票并丢掉文件中的其他股票，也不能因源截至30日就跳过29日任务身份或30日因子处理。
 
@@ -71,4 +76,4 @@
 
 ## 本轮收尾
 
-原文档完整性、限定差异空白检查及本轮12个文档链接通过；方案/LLD/报告预算和文件数一致。相关源码保持提交/验收指纹，未重复测试或审计历史行情。5个辅助程序已按原字节归档为.py.txt，7份只读JSON证据按原字节或无损gzip归档后，删除12个本轮临时副本，合计1,952,434B。正在使用的DG stdout日志保留，正式数据、业务源/候选/checkpoint及无关工作区改动未清理。详情见[validation.json](validation.json)。
+原文档完整性、限定差异空白检查及本轮12个文档链接通过；方案/LLD/报告预算和文件数一致。相关源码保持提交/验收指纹，未重复测试或审计历史行情。5个辅助程序已按原字节归档为.py.txt，7份只读JSON证据按原字节或无损gzip归档后，删除12个本轮临时副本，合计1,952,434B。正在使用的DG stdout日志保留，正式数据、业务源/候选/checkpoint及无关工作区改动未清理。详情见[validation.json（附件已清理）](README.md#report-attachment-cleanup-20261103)。

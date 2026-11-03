@@ -1,5 +1,10 @@
 # 股票与主要指数详情页九转接入低层设计（LLD）v1
 
+<a id="report-attachment-cleanup-20261103"></a>
+
+> 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](../../../lake_console/docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
+
+
 > 历史交付状态（2026-08-27）：M0～M6 已全部完成。2026-08-22 M6-D 最终只读验收基于生产 `dev-interface@57ece8a38c0222a5b7f49c3d20bb38954bf4e573`：十指数日线九转 50 次真实服务请求全部 HTTP 200/READY、300 根完全对齐，P95 12.795ms；`000680.SH` 为 404，生产分钟路由保持 404。生产版本已包含 `673161cf` 固定 day/15/30/60/90/120 六周期摘要；用户完成生产页面视觉复核并批准收口。M3-C-Minute、股票分钟去价格 S0～S5 和股票日线去价格 D0～D6 均已完成。
 >
 > 上游方案：[股票与主要指数详情页九转接入总方案 v1](./detail-page-nine-turn-integration-implementation-design-v1.md)
@@ -573,12 +578,12 @@ runner 只执行下面四个既定测试文件，按现有隔离启动器设置 
 | 真实窗口仍为日线 10/分钟 5，注册时间规则不变 | 两个原入口、window_limit、`same_day_register_start=None` 与注册器不变 | `real_silver_calendar_preserves_window_and_registration_before_and_after_1600`、`real_calendar_year_boundary_and_closed_days_do_not_create_fake_targets`：12 个临时四列日历案例，真实窗口/helper，字面预期；后续行情 readiness 和实例状态仍为替身 |
 | 公式、原数据与下游不变 | 生产代码只有 `_evaluate`、`_cursor` 两个函数的 AST 变化；两个 sensor 入口与装饰器、分钟来源列表 AST 均与开发基线一致 | 原 M4-B 与 Prod publisher/check 定向回归保留，未增加正式计算、发布或历史重刷；CodeGraph 与当前调用链静态复核 |
 
-1. **旧代码反例先行**：源 SHA-256 为 `4e1ea308a89d792b3f10a6bb92ccb02f59fac32a8cd913de31cf1540cdef21f2` 时，仅运行新增缺陷用例，结果为 `2 failed, 18 deselected`。日线、分钟都因尾日未注册得到零请求，而预期为只请求 29 日；因此反例确实抓住原错误。原[失败日志](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/validation/major_index_nineturn_tail_old_code_failure.txt)和[源指纹证据](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/validation/major_index_nineturn_tail_old_code_evidence.json)已归入恢复报告，内容未改写。
+1. **旧代码反例先行**：源 SHA-256 为 `4e1ea308a89d792b3f10a6bb92ccb02f59fac32a8cd913de31cf1540cdef21f2` 时，仅运行新增缺陷用例，结果为 `2 failed, 18 deselected`。日线、分钟都因尾日未注册得到零请求，而预期为只请求 29 日；因此反例确实抓住原错误。原[失败日志（附件已清理）](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/README.md#report-attachment-cleanup-20261103)和[源指纹证据（附件已清理）](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/README.md#report-attachment-cleanup-20261103)已归入恢复报告，内容未改写。
 2. **完整隔离回归**：按第 6.5.5 节保护方式运行四个既定文件，`test_major_index_nineturn_sensors.py` 62、`test_bounded_continuity.py` 13、`test_major_index_nineturn_m4b.py` 18、`test_index_daily_nineturn_prod_core.py` 6，合计 **99 passed，0 skipped/deselected，4.76 秒**。runner 记录 39 次配置连接，只有临时目录替换；正式根和网络被系统策略拒绝。另有 32 条既有依赖弃用/预览警告，不影响测试结果，未修改依赖来消除警告。
 3. **测试范围修正**：首次完整 runner 在 pytest 收集目录阶段被系统策略拒绝访问正式用户目录，未执行任何用例；缺少既有隔离启动器使用的收集范围参数。先补本 LLD 的 `rootdir/confcutdir/import-mode/noconftest` 约束，再修正临时 runner，仅重做同四文件；未解除目录/网络保护、未跳过用例、未触及正式实例。这不是正式数据 job 的失败或重跑。
 4. **真实性和范围**：人工日历按当前四列 Silver 生产合同创建，并独立断言 schema；真实窗口、注册分类和 selector 参与测试。行情完整性、Dagster 状态与 Prod 交互的替身只用于隔离，不能证明 29 日正式数据已补齐。公式与发布实现未改，本次不另跑行情性能测试或前端/API 测试。
 5. **静态与独立复核**：受影响源文件和测试的 Ruff、四文件 whitespace 检查、函数 AST 范围核对通过。独立复核已只读审查方案/LLD、完整源差异、测试输入与断言、旧失败和新通过记录、隔离 runner，未发现实现错误或关键遗漏；未替代正式验收。新源 SHA-256 为 `dbf59a02cf4d69bbcfdc74325761204d02a9991d646eb8f026b4903e563e9fdd`。
-6. **临时资源收尾**：仅删除本轮三个独占测试目录，含 runner、系统策略文件、临时日历/Parquet、DuckDB 目录和临时实例；删除前剩余普通文件共 243 个、241,252 字节，这只是收尾存量，不能当作峰值或累计 I/O 实测。旧代码反例证据保留；最终[99 项结果、源指纹和清理清单](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/validation/major_index_nineturn_validation_20261030.json)及[测试输出](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/validation/major_index_nineturn_validation_20261030.log)现已归档；同目录 `-collection-error.log` 与 `-collection-error-summary.json` 保留首次零用例收集失败记录。没有清理正式 staging、其他任务临时文件或现有依赖。
+6. **临时资源收尾**：仅删除本轮三个独占测试目录，含 runner、系统策略文件、临时日历/Parquet、DuckDB 目录和临时实例；删除前剩余普通文件共 243 个、241,252 字节，这只是收尾存量，不能当作峰值或累计 I/O 实测。旧代码反例证据保留；最终[99 项结果、源指纹和清理清单（附件已清理）](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/README.md#report-attachment-cleanup-20261103)及[测试输出（附件已清理）](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/README.md#report-attachment-cleanup-20261103)现已归档；同目录 `-collection-error.log` 与 `-collection-error-summary.json` 保留首次零用例收集失败记录。没有清理正式 staging、其他任务临时文件或现有依赖。
 
 上述开发阶段没有读取正式 Lake/Prod/实例，没有 reload、触发 job、切 sensor、改 cursor、注册分区或写 runless event；不重刷已完成历史，不新增 repair。后续正式动作经另行批准才按第 6.5.11 节执行，不将两阶段证据混写。
 
@@ -612,7 +617,7 @@ Prod 原生读回内容 hash 为 `f95a12d40bfee2e3e5eeeb72b35cdca59b231cbf0c3557
 
 复制前核对来源是本任务普通文件、原路径与数量准确；复制后核对字节量及 SHA-256，生成 `cleanup-manifest.json`。只有全部目标核验通过且来源仍与原摘要一致，才逐份删除上述临时文件；原因审计目录为空后才移除，不递归删除未知文件。失败即保留剩余来源和已验证副本，按清单继续核实，不扩大删除范围。纯本任务小文件预算读写各 1MiB、额外空间 1MiB，含摘要核对和收尾；没有数据集读取、正式 Lake/staging 或服务状态写入。
 
-最后更新原两文与恢复报告的引用，校验文档链接、内容摘要及相关文件 Git 状态；仅提交本次明确清单，保留无关工作区改动。不重跑测试、补数或全局审计，复用已经保存并独立验收的结果。实际结果：14 份证据共 64,736 字节，归档内容逐份 SHA-256 相同，原临时副本均已删除、原因审计目录已空后移除；[逐份清单](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/cleanup-manifest.json)记录原路径、归档路径和摘要。文档遗留“当前阶段待执行”已修正，本轮没有追加开发或正式数据动作。两份 `.log` 命中既有忽略规则，提交时只按这两个完整路径强制加入；原始失败日志含 pytest 输出的行末空白，为保持摘要一致不改写该证据。其余文件用默认 whitespace 检查，此原始日志单独允许原有行末空白并核内容摘要，不修改仓库配置。
+最后更新原两文与恢复报告的引用，校验文档链接、内容摘要及相关文件 Git 状态；仅提交本次明确清单，保留无关工作区改动。不重跑测试、补数或全局审计，复用已经保存并独立验收的结果。实际结果：14 份证据共 64,736 字节，归档内容逐份 SHA-256 相同，原临时副本均已删除、原因审计目录已空后移除；[逐份清单（附件已清理）](../../../lake_console/reports/index_nineturn_recovery_20261029_20261030/README.md#report-attachment-cleanup-20261103)记录原路径、归档路径和摘要。文档遗留“当前阶段待执行”已修正，本轮没有追加开发或正式数据动作。两份 `.log` 命中既有忽略规则，提交时只按这两个完整路径强制加入；原始失败日志含 pytest 输出的行末空白，为保持摘要一致不改写该证据。其余文件用默认 whitespace 检查，此原始日志单独允许原有行末空白并核内容摘要，不修改仓库配置。
 
 ## 7. 日线 PostgreSQL serving
 

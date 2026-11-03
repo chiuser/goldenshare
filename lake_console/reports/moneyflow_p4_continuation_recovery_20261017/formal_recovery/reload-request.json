@@ -1,6 +1,0 @@
-{
-  "query": "mutation($location:String!){reloadRepositoryLocation(repositoryLocationName:$location){__typename ... on WorkspaceLocationEntry {name} ... on PythonError {message}}}",
-  "variables": {
-    "location": "orchestrator"
-  }
-}

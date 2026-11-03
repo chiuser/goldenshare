@@ -1,6 +1,11 @@
 # 周/月链路正式恢复记录（2026-10-28）
 
-**最终结果（2026-10-28 11:50）：本轮27日股票复权周/月Raw和Silver四项已全部补齐并确认。** Raw不同2170文件（提交2171次），Silver不同812周期/3115094行；三个通知全部消费，pending0、因子和两频刷新27日、四sensor RUNNING。最终依据[rss8-final-verified.json](rss8-final-verified.json)，11:31库存是收尾前快照。月恢复窗口通过现有原job完成，恢复待执行时的sensor确认时机/提示另留TODO。本轮修改及证据随本次提交保存，未推送。
+<a id="report-attachment-cleanup-20261103"></a>
+
+> 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
+
+
+**最终结果（2026-10-28 11:50）：本轮27日股票复权周/月Raw和Silver四项已全部补齐并确认。** Raw不同2170文件（提交2171次），Silver不同812周期/3115094行；三个通知全部消费，pending0、因子和两频刷新27日、四sensor RUNNING。最终依据[rss8-final-verified.json（附件已清理）](README.md#report-attachment-cleanup-20261103)，11:31库存是收尾前快照。月恢复窗口通过现有原job完成，恢复待执行时的sensor确认时机/提示另留TODO。本轮修改及证据随本次提交保存，未推送。
 
 管理员要求按原LLD及“新代码生效→旧回执收尾→实际补数→Silver验收”顺序推进。本文件记录实际执行，不替代原方案或LLD；实施依据为共享LLD§12.11—12.12、§12.16.10。
 
@@ -37,7 +42,7 @@
 
 ## 旧20原events正式执行：成功
 
-按LLD§12.11完整原命令执行一次，退出0，输出原执行ID、files=1、events_reported=true。控制报告run **0b36ac11-c60d-4dc5-8dc7-a27d23666819** 为SUCCESS；stdout/stderr保存在old20-events.out/old20-events.err。09:33只读验收全部通过，见[old20-verified.json](old20-verified.json)：
+按LLD§12.11完整原命令执行一次，退出0，输出原执行ID、files=1、events_reported=true。控制报告run **0b36ac11-c60d-4dc5-8dc7-a27d23666819** 为SUCCESS；stdout/stderr保存在old20-events.out/old20-events.err。09:33只读验收全部通过，见[old20-verified.json（附件已清理）](README.md#report-attachment-cleanup-20261103)：
 
 - phase由files_complete变events_complete；补成events/week/2026-10-23.json，内容精确等于原version/sha256。
 - manifest除预期phase外全部一致；daily仅删除原已消费pending，pending数从1到0，其余水位/键完全一致。
@@ -47,9 +52,9 @@
 
 ## 27日补数前的必要范围核定
 
-已完成两次tushareMCP单股有界样本，周标签20261030和月标签20261031的end_date均20261027，未触及跨日日期冲突；只取四个身份/日期字段，未扩读价格/历史，见[source-asof-samples.json](source-asof-samples.json)。单股样本不代替正式全部输入检查。
+已完成两次tushareMCP单股有界样本，周标签20261030和月标签20261031的end_date均20261027，未触及跨日日期冲突；只取四个身份/日期字段，未扩读价格/历史，见[source-asof-samples.json（附件已清理）](README.md#report-attachment-cleanup-20261103)。单股样本不代替正式全部输入检查。
 
-随后仅有界SSE窗口、COUNT当前L/CNY和文件stat：当前上市5577、baseline上市5576；21→22、22→23、23→26、26→27四组相邻日，五因子文件全部存在。未读取因子明细，未计算变更股票。参考文件与8次因子投影的整文件大小基数1,058,375字节（约1.01MiB）；精确路径/版本及元数据库存见[reference-scope-stat.json](reference-scope-stat.json)。其中Raw库存1820周/431月、登记大小298272360/72658415字节只是已存登记事实，不是本次全文件物理核验或全频读取批准。
+随后仅有界SSE窗口、COUNT当前L/CNY和文件stat：当前上市5577、baseline上市5576；21→22、22→23、23→26、26→27四组相邻日，五因子文件全部存在。未读取因子明细，未计算变更股票。参考文件与8次因子投影的整文件大小基数1,058,375字节（约1.01MiB）；精确路径/版本及元数据库存见[reference-scope-stat.json（附件已清理）](README.md#report-attachment-cleanup-20261103)。其中Raw库存1820周/431月、登记大小298272360/72658415字节只是已存登记事实，不是本次全文件物理核验或全频读取批准。
 
 已将最小参考/因子读取方案与预算落原LLD§12.12.1，并单独申请：读取当前basic/identity必要列、SSE日历两列、21/22/23/26/27因子两列，复用原函数形成预算证据；正常读≤8MiB，含一次明确必要续读及收尾≤16MiB，临时写≤2MiB、额外空间≤64MiB。实际正式job仍由原配置和函数生成股票名单，不手填stock_codes；正式历史读取及源请求范围在拿到真实集合后另核。
 

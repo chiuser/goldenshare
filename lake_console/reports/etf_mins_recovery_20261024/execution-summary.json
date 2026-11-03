@@ -1,0 +1,127 @@
+{
+  "all_passed": true,
+  "completed_at": "2026-10-24T10:17:05.197996+08:00",
+  "days": [
+    {
+      "date": "2026-10-15",
+      "code_count_each_frequency": 1701,
+      "raw_rows": 546021,
+      "silver_rows": 546021,
+      "raw_run": "6ed5d87b-0b5c-4a78-a7e3-44c026f09aea",
+      "silver_run": "c0209101-5fc4-49b2-ba35-5023eba02d12",
+      "raw_seconds": 48.78930401802063,
+      "silver_seconds": 5.26816201210022,
+      "zero_volume_warning_codes": []
+    },
+    {
+      "date": "2026-10-16",
+      "code_count_each_frequency": 1705,
+      "raw_rows": 547305,
+      "silver_rows": 547305,
+      "raw_run": "a605e7fc-dae0-4728-97e5-55aea629a6f5",
+      "silver_run": "e1e041b8-1167-4eec-9479-d927cb462894",
+      "raw_seconds": 43.28610610961914,
+      "silver_seconds": 6.527615785598755,
+      "zero_volume_warning_codes": []
+    },
+    {
+      "date": "2026-10-19",
+      "code_count_each_frequency": 1708,
+      "raw_rows": 548268,
+      "silver_rows": 548268,
+      "raw_run": "23b29cb1-f4bd-46ca-91a6-7d4b52390d6e",
+      "silver_run": "ea695c98-d39a-4748-b71a-afb2b4d4cf16",
+      "raw_seconds": 44.20595717430115,
+      "silver_seconds": 6.09194803237915,
+      "zero_volume_warning_codes": [
+        "159291.SZ"
+      ]
+    },
+    {
+      "date": "2026-10-20",
+      "code_count_each_frequency": 1709,
+      "raw_rows": 548589,
+      "silver_rows": 548589,
+      "raw_run": "0583de78-076b-4399-9492-282e3206993f",
+      "silver_run": "dad558db-4d86-4596-9b64-7e60b3911292",
+      "raw_seconds": 44.69975304603577,
+      "silver_seconds": 5.962932825088501,
+      "zero_volume_warning_codes": []
+    },
+    {
+      "date": "2026-10-21",
+      "code_count_each_frequency": 1711,
+      "raw_rows": 549231,
+      "silver_rows": 549231,
+      "raw_run": "fae4d54a-51d8-4793-ac98-5d81b3e251b7",
+      "silver_run": "19d68a08-a1d4-4dd8-9630-490f1b60cb15",
+      "raw_seconds": 43.32982802391052,
+      "silver_seconds": 6.064249038696289,
+      "zero_volume_warning_codes": [
+        "511770.SH",
+        "511820.SH"
+      ]
+    },
+    {
+      "date": "2026-10-22",
+      "code_count_each_frequency": 1712,
+      "raw_rows": 549552,
+      "silver_rows": 549552,
+      "raw_run": "765dd70a-888f-48e8-8f87-1216979bdae6",
+      "silver_run": "b789eb26-9b2e-4e0c-ab9a-737a146b4939",
+      "raw_seconds": 46.90755605697632,
+      "silver_seconds": 6.240867853164673,
+      "zero_volume_warning_codes": [
+        "159642.SZ"
+      ]
+    },
+    {
+      "date": "2026-10-23",
+      "code_count_each_frequency": 1713,
+      "raw_rows": 549873,
+      "silver_rows": 549873,
+      "raw_run": "28e7e96e-ee85-4afa-b15f-ef5f2d702bba",
+      "silver_run": "7924b8d8-f9b4-47d8-9091-6d40a1574d50",
+      "raw_seconds": 46.546168088912964,
+      "silver_seconds": 5.910715103149414,
+      "zero_volume_warning_codes": []
+    }
+  ],
+  "basic_runs": [
+    {
+      "job": "raw_etf_basic_update_job",
+      "run_id": "f3ac990d-4c8c-4aa5-bc86-2ba35da3a2f8",
+      "status": "SUCCESS",
+      "rows": 1908,
+      "elapsed_seconds": 6.122420072555542
+    },
+    {
+      "job": "silver_etf_basic_update_job",
+      "run_id": "4157a49b-e610-45cd-b63b-d08d1680f387",
+      "status": "SUCCESS",
+      "rows": 1901,
+      "elapsed_seconds": 6.200210094451904
+    }
+  ],
+  "minute_run_count": 14,
+  "total_run_count": 16,
+  "all_runs_successful": true,
+  "business_job_retries": 0,
+  "coverage_business_queries": 7,
+  "detail_business_queries": 35,
+  "prod_rows_exported": 3838839,
+  "minute_check_evaluations": 280,
+  "distinct_minute_check_targets": 175,
+  "basic_check_evaluations": 6,
+  "equivalence_check_count": 35,
+  "formal_file_bytes": 107962396,
+  "raw_job_seconds": 317.7646725177765,
+  "silver_job_seconds": 42.066490650177,
+  "final_audit_seconds": 1.748077,
+  "final_audit_initial_attempt": "helper used nonexistent storage method; stopped before file validation, corrected to get_run_records, no business run repeated",
+  "source_python_files_changed": false,
+  "prod_writes": false,
+  "daemon_or_sensor_changes": false,
+  "dynamic_partition_changes": false,
+  "runless_events": false
+}

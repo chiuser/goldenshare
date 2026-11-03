@@ -1,0 +1,2739 @@
+{
+  "as_of": "2026-10-26T17:17:42.337995+08:00",
+  "restored_sensor_states": [
+    {
+      "selector_id": "10ee415435deca6d8f6c0e987efce0da60235360",
+      "status": "RUNNING"
+    },
+    {
+      "selector_id": "9eb6d91e12cd8661051e8593e1c2a71ee67cb360",
+      "status": "RUNNING"
+    },
+    {
+      "selector_id": "5a3fc6272487bdf2685845958b7ce4e549429145",
+      "status": "RUNNING"
+    },
+    {
+      "selector_id": "0c5e33527edc0ea1394d6bbfe17e7e6906d9e8e7",
+      "status": "RUNNING"
+    },
+    {
+      "selector_id": "5442cfe419ee344742717c1e6a694ba3e43fa307",
+      "status": "RUNNING"
+    }
+  ],
+  "recent_runs": [
+    {
+      "run_id": "d687a558-6aaf-42d8-9861-1de73dbf6da0",
+      "pipeline_name": "raw_index_global_update_job",
+      "partition": "2026-10-23",
+      "status": "SUCCESS",
+      "start_time": 1793000214.746267,
+      "end_time": 1793000220.089446,
+      "config": {
+        "ops": {
+          "raw_index_global": {
+            "config": {
+              "attempt": 0,
+              "slot_key": "2026-10-23:americas",
+              "trade_date": "2026-10-23",
+              "probe_phase": "americas",
+              "late_empty_attempt": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "dfd8767c-66e8-439d-b343-8169d4b92370",
+      "pipeline_name": "raw_index_global_update_job",
+      "partition": "2026-10-24",
+      "status": "SUCCESS",
+      "start_time": 1793001327.283884,
+      "end_time": 1793001332.573553,
+      "config": {
+        "ops": {
+          "raw_index_global": {
+            "config": {
+              "attempt": 0,
+              "slot_key": "2026-10-24:late_empty",
+              "trade_date": "2026-10-24",
+              "probe_phase": "late_empty",
+              "late_empty_attempt": 2
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "10bb6b4c-dca8-4b47-8daa-c0feed5bd28b",
+      "pipeline_name": "raw_index_global_update_job",
+      "partition": "2026-10-25",
+      "status": "SUCCESS",
+      "start_time": 1793002540.06092,
+      "end_time": 1793002545.508838,
+      "config": {
+        "ops": {
+          "raw_index_global": {
+            "config": {
+              "attempt": 0,
+              "slot_key": "2026-10-25:late_empty",
+              "trade_date": "2026-10-25",
+              "probe_phase": "late_empty",
+              "late_empty_attempt": 2
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "1a5119cb-0df0-4b06-abff-e6324b82ea00",
+      "pipeline_name": "raw_index_global_update_job",
+      "partition": "2026-10-26",
+      "status": "SUCCESS",
+      "start_time": 1793002820.207107,
+      "end_time": 1793002825.053418,
+      "config": {
+        "ops": {
+          "raw_index_global": {
+            "config": {
+              "attempt": 0,
+              "slot_key": "2026-10-26:asia_2",
+              "trade_date": "2026-10-26",
+              "probe_phase": "asia_2",
+              "late_empty_attempt": 0
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "042300db-86fd-4044-8c26-47a582fe97ca",
+      "pipeline_name": "silver_index_global_update_job",
+      "partition": "2026-10-23",
+      "status": "SUCCESS",
+      "start_time": 1793000276.651329,
+      "end_time": 1793000281.719598,
+      "config": {
+        "ops": {
+          "silver_index_global": {
+            "config": {
+              "attempt": 0,
+              "trade_date": "2026-10-23"
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "61d1d9ec-a328-4742-a0c3-6d117ca47c77",
+      "pipeline_name": "silver_index_global_update_job",
+      "partition": "2026-10-24",
+      "status": "SUCCESS",
+      "start_time": 1793000542.695453,
+      "end_time": 1793000547.680321,
+      "config": {
+        "ops": {
+          "silver_index_global": {
+            "config": {
+              "attempt": 0,
+              "trade_date": "2026-10-24"
+            }
+          }
+        }
+      }
+    },
+    {
+      "run_id": "03fce680-030e-4cca-8fd3-01d49c62284c",
+      "pipeline_name": "silver_index_global_update_job",
+      "partition": "2026-10-25",
+      "status": "SUCCESS",
+      "start_time": 1793000835.319925,
+      "end_time": 1793000840.205776,
+      "config": {
+        "ops": {
+          "silver_index_global": {
+            "config": {
+              "attempt": 0,
+              "trade_date": "2026-10-25"
+            }
+          }
+        }
+      }
+    }
+  ],
+  "americas_runs": [
+    {
+      "run_id": "d687a558-6aaf-42d8-9861-1de73dbf6da0",
+      "partition": "2026-10-23",
+      "status": "SUCCESS"
+    },
+    {
+      "run_id": "5f8d11eb-f301-43bd-bfc6-9d82b03221e5",
+      "partition": "2026-10-24",
+      "status": "SUCCESS"
+    },
+    {
+      "run_id": "203708de-5f71-4acb-87e0-e67ecf5b75d8",
+      "partition": "2026-10-25",
+      "status": "SUCCESS"
+    }
+  ],
+  "recent_events": [
+    {
+      "id": 7729522,
+      "run_id": "d687a558-6aaf-42d8-9861-1de73dbf6da0",
+      "dagster_event_type": "ASSET_MATERIALIZATION",
+      "event": {
+        "__class__": "EventLogEntry",
+        "dagster_event": {
+          "__class__": "DagsterEvent",
+          "event_specific_data": {
+            "__class__": "StepMaterializationData",
+            "asset_lineage": [],
+            "materialization": {
+              "__class__": "AssetMaterialization",
+              "asset_key": {
+                "__class__": "AssetKey",
+                "path": [
+                  "raw_index_global"
+                ]
+              },
+              "description": null,
+              "metadata_entries": [
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "/Volumes/datasource/data_lake/raw/index_global/trade_date=2026-10-23/part-000.parquet"
+                  },
+                  "label": "dagster/uri"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 20
+                  },
+                  "label": "dagster/row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "JsonMetadataEntryData",
+                    "data": [
+                      "ts_code",
+                      "trade_date",
+                      "open",
+                      "close",
+                      "high",
+                      "low",
+                      "pre_close",
+                      "change",
+                      "pct_chg",
+                      "swing",
+                      "vol",
+                      "amount"
+                    ]
+                  },
+                  "label": "goldenshare/observed_columns"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "2026-10-23"
+                  },
+                  "label": "goldenshare/trade_date"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "americas"
+                  },
+                  "label": "goldenshare/probe_phase"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "2026-10-23:americas"
+                  },
+                  "label": "goldenshare/slot_key"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/attempt"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/late_empty_attempt"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "tushare_index_global"
+                  },
+                  "label": "goldenshare/source_method"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 20
+                  },
+                  "label": "goldenshare/source_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 20
+                  },
+                  "label": "goldenshare/merged_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/replaced_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 1
+                  },
+                  "label": "goldenshare/request_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 1
+                  },
+                  "label": "goldenshare/page_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/retry_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "FloatMetadataEntryData",
+                    "value": 159.691
+                  },
+                  "label": "goldenshare/elapsed_ms"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "/Volumes/datasource/data_lake/raw/index_global/trade_date=2026-10-23/part-000.parquet"
+                  },
+                  "label": "goldenshare/target_path"
+                }
+              ],
+              "partition": "2026-10-23",
+              "tags": {
+                "dagster/code_version": "d687a558-6aaf-42d8-9861-1de73dbf6da0",
+                "dagster/data_version": "0dc6a24445498d362930c78884fc3599603a8ca805e74deefccdcec3f6bc095f"
+              }
+            }
+          },
+          "event_type_value": "ASSET_MATERIALIZATION",
+          "logging_tags": {
+            "job_name": "raw_index_global_update_job",
+            "op_name": "raw_index_global",
+            "resource_fn_name": "None",
+            "resource_name": "None",
+            "run_id": "d687a558-6aaf-42d8-9861-1de73dbf6da0",
+            "step_key": "raw_index_global"
+          },
+          "message": "Materialized value raw_index_global.",
+          "pid": 48628,
+          "pipeline_name": "raw_index_global_update_job",
+          "solid_handle": {
+            "__class__": "SolidHandle",
+            "name": "raw_index_global",
+            "parent": null
+          },
+          "step_handle": {
+            "__class__": "StepHandle",
+            "key": "raw_index_global",
+            "solid_handle": {
+              "__class__": "SolidHandle",
+              "name": "raw_index_global",
+              "parent": null
+            }
+          },
+          "step_key": "raw_index_global",
+          "step_kind_value": "COMPUTE"
+        },
+        "error_info": null,
+        "level": 10,
+        "message": "",
+        "pipeline_name": "raw_index_global_update_job",
+        "run_id": "d687a558-6aaf-42d8-9861-1de73dbf6da0",
+        "step_key": "raw_index_global",
+        "timestamp": 1793000217.265677,
+        "user_message": "Materialized value raw_index_global."
+      }
+    },
+    {
+      "id": 7729531,
+      "run_id": "d687a558-6aaf-42d8-9861-1de73dbf6da0",
+      "dagster_event_type": "ASSET_CHECK_EVALUATION",
+      "event": {
+        "__class__": "EventLogEntry",
+        "dagster_event": {
+          "__class__": "DagsterEvent",
+          "event_specific_data": {
+            "__class__": "AssetCheckEvaluation",
+            "asset_key": {
+              "__class__": "AssetKey",
+              "path": [
+                "raw_index_global"
+              ]
+            },
+            "blocking": true,
+            "check_name": "raw_index_global_core_check",
+            "description": null,
+            "metadata": {
+              "goldenshare/check_scope": {
+                "__class__": "TextMetadataEntryData",
+                "text": "schema"
+              },
+              "goldenshare/checked_row_count": {
+                "__class__": "IntMetadataEntryData",
+                "value": 20
+              },
+              "goldenshare/expected_columns": {
+                "__class__": "JsonMetadataEntryData",
+                "data": [
+                  "ts_code",
+                  "trade_date",
+                  "open",
+                  "close",
+                  "high",
+                  "low",
+                  "pre_close",
+                  "change",
+                  "pct_chg",
+                  "swing",
+                  "vol",
+                  "amount"
+                ]
+              },
+              "goldenshare/failed_row_count": {
+                "__class__": "IntMetadataEntryData",
+                "value": 0
+              },
+              "goldenshare/failed_rule_names": {
+                "__class__": "JsonMetadataEntryData",
+                "data": []
+              },
+              "goldenshare/failure_samples": {
+                "__class__": "JsonMetadataEntryData",
+                "data": []
+              },
+              "goldenshare/file_path": {
+                "__class__": "TextMetadataEntryData",
+                "text": "/Volumes/datasource/data_lake/raw/index_global/trade_date=2026-10-23/part-000.parquet"
+              },
+              "goldenshare/observed_columns": {
+                "__class__": "JsonMetadataEntryData",
+                "data": [
+                  "ts_code",
+                  "trade_date",
+                  "open",
+                  "close",
+                  "high",
+                  "low",
+                  "pre_close",
+                  "change",
+                  "pct_chg",
+                  "swing",
+                  "vol",
+                  "amount"
+                ]
+              },
+              "goldenshare/partition_key": {
+                "__class__": "TextMetadataEntryData",
+                "text": "2026-10-23"
+              },
+              "goldenshare/reason_code": {
+                "__class__": "TextMetadataEntryData",
+                "text": "ok"
+              },
+              "goldenshare/rule_results": {
+                "__class__": "JsonMetadataEntryData",
+                "data": {
+                  "duplicate_key_count": 0,
+                  "numeric_not_finite_count": 0,
+                  "numeric_values_finite": true,
+                  "partition_trade_date_match": true,
+                  "partition_trade_date_mismatch_count": 0,
+                  "schema_exact": true,
+                  "ts_code_non_null_and_known": true,
+                  "ts_code_non_null_and_known_count": 0,
+                  "unique_ts_code_trade_date": true
+                }
+              }
+            },
+            "partition": "2026-10-23",
+            "severity": {
+              "__enum__": "AssetCheckSeverity.ERROR"
+            },
+            "success": true,
+            "target_materialization_data": {
+              "__class__": "AssetCheckEvaluationTargetMaterializationData",
+              "run_id": "d687a558-6aaf-42d8-9861-1de73dbf6da0",
+              "storage_id": 7729522,
+              "timestamp": 1793000217.265677
+            }
+          },
+          "event_type_value": "ASSET_CHECK_EVALUATION",
+          "logging_tags": {
+            "job_name": "raw_index_global_update_job",
+            "op_name": "raw_index_global_raw_index_global_core_check",
+            "resource_fn_name": "None",
+            "resource_name": "None",
+            "run_id": "d687a558-6aaf-42d8-9861-1de73dbf6da0",
+            "step_key": "raw_index_global_raw_index_global_core_check"
+          },
+          "message": "Asset check 'raw_index_global_core_check' on 'raw_index_global' passed.",
+          "pid": 49077,
+          "pipeline_name": "raw_index_global_update_job",
+          "solid_handle": {
+            "__class__": "SolidHandle",
+            "name": "raw_index_global_raw_index_global_core_check",
+            "parent": null
+          },
+          "step_handle": {
+            "__class__": "StepHandle",
+            "key": "raw_index_global_raw_index_global_core_check",
+            "solid_handle": {
+              "__class__": "SolidHandle",
+              "name": "raw_index_global_raw_index_global_core_check",
+              "parent": null
+            }
+          },
+          "step_key": "raw_index_global_raw_index_global_core_check",
+          "step_kind_value": "COMPUTE"
+        },
+        "error_info": null,
+        "level": 10,
+        "message": "",
+        "pipeline_name": "raw_index_global_update_job",
+        "run_id": "d687a558-6aaf-42d8-9861-1de73dbf6da0",
+        "step_key": "raw_index_global_raw_index_global_core_check",
+        "timestamp": 1793000219.7197409,
+        "user_message": "Asset check 'raw_index_global_core_check' on 'raw_index_global' passed."
+      }
+    },
+    {
+      "id": 7729578,
+      "run_id": "042300db-86fd-4044-8c26-47a582fe97ca",
+      "dagster_event_type": "ASSET_MATERIALIZATION",
+      "event": {
+        "__class__": "EventLogEntry",
+        "dagster_event": {
+          "__class__": "DagsterEvent",
+          "event_specific_data": {
+            "__class__": "StepMaterializationData",
+            "asset_lineage": [],
+            "materialization": {
+              "__class__": "AssetMaterialization",
+              "asset_key": {
+                "__class__": "AssetKey",
+                "path": [
+                  "silver_index_global"
+                ]
+              },
+              "description": null,
+              "metadata_entries": [
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "/Volumes/datasource/data_lake/silver/index_global/trade_date=2026-10-23/part-000.parquet"
+                  },
+                  "label": "dagster/uri"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 20
+                  },
+                  "label": "dagster/row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "JsonMetadataEntryData",
+                    "data": [
+                      "ts_code",
+                      "trade_date",
+                      "open",
+                      "high",
+                      "low",
+                      "close",
+                      "pre_close",
+                      "change_amount",
+                      "pct_chg",
+                      "swing",
+                      "vol",
+                      "amount"
+                    ]
+                  },
+                  "label": "goldenshare/observed_columns"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "2026-10-23"
+                  },
+                  "label": "goldenshare/partition_key"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/attempt"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "/Volumes/datasource/data_lake/raw/index_global/trade_date=2026-10-23/part-000.parquet"
+                  },
+                  "label": "goldenshare/source_file_path"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 20
+                  },
+                  "label": "goldenshare/source_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/duplicate_removed_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/rejected_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "JsonMetadataEntryData",
+                    "data": {}
+                  },
+                  "label": "goldenshare/reject_reason_counts"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "FloatMetadataEntryData",
+                    "value": 16.977
+                  },
+                  "label": "goldenshare/elapsed_ms"
+                }
+              ],
+              "partition": "2026-10-23",
+              "tags": {
+                "dagster/code_version": "042300db-86fd-4044-8c26-47a582fe97ca",
+                "dagster/data_version": "5c746bd7a4f2363f8b67e9f341abbbf26728e58ab1e601c86d99a560f8a8ed02",
+                "dagster/input_data_version/raw_index_global": "4922c86b87804ad6606103b90efa0e3b3a3697c215e03d5cee54c418166ff824",
+                "dagster/input_event_pointer/raw_index_global": "7729550"
+              }
+            }
+          },
+          "event_type_value": "ASSET_MATERIALIZATION",
+          "logging_tags": {
+            "job_name": "silver_index_global_update_job",
+            "op_name": "silver_index_global",
+            "resource_fn_name": "None",
+            "resource_name": "None",
+            "run_id": "042300db-86fd-4044-8c26-47a582fe97ca",
+            "step_key": "silver_index_global"
+          },
+          "message": "Materialized value silver_index_global.",
+          "pid": 50691,
+          "pipeline_name": "silver_index_global_update_job",
+          "solid_handle": {
+            "__class__": "SolidHandle",
+            "name": "silver_index_global",
+            "parent": null
+          },
+          "step_handle": {
+            "__class__": "StepHandle",
+            "key": "silver_index_global",
+            "solid_handle": {
+              "__class__": "SolidHandle",
+              "name": "silver_index_global",
+              "parent": null
+            }
+          },
+          "step_key": "silver_index_global",
+          "step_kind_value": "COMPUTE"
+        },
+        "error_info": null,
+        "level": 10,
+        "message": "",
+        "pipeline_name": "silver_index_global_update_job",
+        "run_id": "042300db-86fd-4044-8c26-47a582fe97ca",
+        "step_key": "silver_index_global",
+        "timestamp": 1793000278.8145761,
+        "user_message": "Materialized value silver_index_global."
+      }
+    },
+    {
+      "id": 7729587,
+      "run_id": "042300db-86fd-4044-8c26-47a582fe97ca",
+      "dagster_event_type": "ASSET_CHECK_EVALUATION",
+      "event": {
+        "__class__": "EventLogEntry",
+        "dagster_event": {
+          "__class__": "DagsterEvent",
+          "event_specific_data": {
+            "__class__": "AssetCheckEvaluation",
+            "asset_key": {
+              "__class__": "AssetKey",
+              "path": [
+                "silver_index_global"
+              ]
+            },
+            "blocking": true,
+            "check_name": "silver_index_global_core_check",
+            "description": null,
+            "metadata": {
+              "goldenshare/check_scope": {
+                "__class__": "TextMetadataEntryData",
+                "text": "schema"
+              },
+              "goldenshare/checked_row_count": {
+                "__class__": "IntMetadataEntryData",
+                "value": 20
+              },
+              "goldenshare/expected_columns": {
+                "__class__": "JsonMetadataEntryData",
+                "data": [
+                  "ts_code",
+                  "trade_date",
+                  "open",
+                  "high",
+                  "low",
+                  "close",
+                  "pre_close",
+                  "change_amount",
+                  "pct_chg",
+                  "swing",
+                  "vol",
+                  "amount"
+                ]
+              },
+              "goldenshare/failed_row_count": {
+                "__class__": "IntMetadataEntryData",
+                "value": 0
+              },
+              "goldenshare/failed_rule_names": {
+                "__class__": "JsonMetadataEntryData",
+                "data": []
+              },
+              "goldenshare/failure_samples": {
+                "__class__": "JsonMetadataEntryData",
+                "data": []
+              },
+              "goldenshare/file_path": {
+                "__class__": "TextMetadataEntryData",
+                "text": "/Volumes/datasource/data_lake/silver/index_global/trade_date=2026-10-23/part-000.parquet"
+              },
+              "goldenshare/observed_columns": {
+                "__class__": "JsonMetadataEntryData",
+                "data": [
+                  "ts_code",
+                  "trade_date",
+                  "open",
+                  "high",
+                  "low",
+                  "close",
+                  "pre_close",
+                  "change_amount",
+                  "pct_chg",
+                  "swing",
+                  "vol",
+                  "amount"
+                ]
+              },
+              "goldenshare/partition_key": {
+                "__class__": "TextMetadataEntryData",
+                "text": "2026-10-23"
+              },
+              "goldenshare/reason_code": {
+                "__class__": "TextMetadataEntryData",
+                "text": "ok"
+              },
+              "goldenshare/rule_results": {
+                "__class__": "JsonMetadataEntryData",
+                "data": {
+                  "duplicate_key_count": 0,
+                  "numeric_not_finite_count": 0,
+                  "numeric_values_finite": true,
+                  "partition_trade_date_match": true,
+                  "partition_trade_date_mismatch_count": 0,
+                  "schema_exact": true,
+                  "ts_code_non_null_and_known": true,
+                  "ts_code_non_null_and_known_count": 0,
+                  "unique_ts_code_trade_date": true
+                }
+              }
+            },
+            "partition": "2026-10-23",
+            "severity": {
+              "__enum__": "AssetCheckSeverity.ERROR"
+            },
+            "success": true,
+            "target_materialization_data": {
+              "__class__": "AssetCheckEvaluationTargetMaterializationData",
+              "run_id": "042300db-86fd-4044-8c26-47a582fe97ca",
+              "storage_id": 7729578,
+              "timestamp": 1793000278.8145761
+            }
+          },
+          "event_type_value": "ASSET_CHECK_EVALUATION",
+          "logging_tags": {
+            "job_name": "silver_index_global_update_job",
+            "op_name": "silver_index_global_silver_index_global_core_check",
+            "resource_fn_name": "None",
+            "resource_name": "None",
+            "run_id": "042300db-86fd-4044-8c26-47a582fe97ca",
+            "step_key": "silver_index_global_silver_index_global_core_check"
+          },
+          "message": "Asset check 'silver_index_global_core_check' on 'silver_index_global' passed.",
+          "pid": 51220,
+          "pipeline_name": "silver_index_global_update_job",
+          "solid_handle": {
+            "__class__": "SolidHandle",
+            "name": "silver_index_global_silver_index_global_core_check",
+            "parent": null
+          },
+          "step_handle": {
+            "__class__": "StepHandle",
+            "key": "silver_index_global_silver_index_global_core_check",
+            "solid_handle": {
+              "__class__": "SolidHandle",
+              "name": "silver_index_global_silver_index_global_core_check",
+              "parent": null
+            }
+          },
+          "step_key": "silver_index_global_silver_index_global_core_check",
+          "step_kind_value": "COMPUTE"
+        },
+        "error_info": null,
+        "level": 10,
+        "message": "",
+        "pipeline_name": "silver_index_global_update_job",
+        "run_id": "042300db-86fd-4044-8c26-47a582fe97ca",
+        "step_key": "silver_index_global_silver_index_global_core_check",
+        "timestamp": 1793000281.226495,
+        "user_message": "Asset check 'silver_index_global_core_check' on 'silver_index_global' passed."
+      }
+    },
+    {
+      "id": 7729718,
+      "run_id": "61d1d9ec-a328-4742-a0c3-6d117ca47c77",
+      "dagster_event_type": "ASSET_MATERIALIZATION",
+      "event": {
+        "__class__": "EventLogEntry",
+        "dagster_event": {
+          "__class__": "DagsterEvent",
+          "event_specific_data": {
+            "__class__": "StepMaterializationData",
+            "asset_lineage": [],
+            "materialization": {
+              "__class__": "AssetMaterialization",
+              "asset_key": {
+                "__class__": "AssetKey",
+                "path": [
+                  "silver_index_global"
+                ]
+              },
+              "description": null,
+              "metadata_entries": [
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "/Volumes/datasource/data_lake/silver/index_global/trade_date=2026-10-24/part-000.parquet"
+                  },
+                  "label": "dagster/uri"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "dagster/row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "JsonMetadataEntryData",
+                    "data": [
+                      "ts_code",
+                      "trade_date",
+                      "open",
+                      "high",
+                      "low",
+                      "close",
+                      "pre_close",
+                      "change_amount",
+                      "pct_chg",
+                      "swing",
+                      "vol",
+                      "amount"
+                    ]
+                  },
+                  "label": "goldenshare/observed_columns"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "2026-10-24"
+                  },
+                  "label": "goldenshare/partition_key"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/attempt"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "/Volumes/datasource/data_lake/raw/index_global/trade_date=2026-10-24/part-000.parquet"
+                  },
+                  "label": "goldenshare/source_file_path"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/source_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/duplicate_removed_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/rejected_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "JsonMetadataEntryData",
+                    "data": {}
+                  },
+                  "label": "goldenshare/reject_reason_counts"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "FloatMetadataEntryData",
+                    "value": 19.61
+                  },
+                  "label": "goldenshare/elapsed_ms"
+                }
+              ],
+              "partition": "2026-10-24",
+              "tags": {
+                "dagster/code_version": "61d1d9ec-a328-4742-a0c3-6d117ca47c77",
+                "dagster/data_version": "c47f14d4efad620de4fd2b41b2edbaff2f6ba44e00bbf86801a966afbabbab12",
+                "dagster/input_data_version/raw_index_global": "2b1485379a75fe218079f41f1ee058473a8eae4ad759e64f699b006f5623f3b3",
+                "dagster/input_event_pointer/raw_index_global": "7729690"
+              }
+            }
+          },
+          "event_type_value": "ASSET_MATERIALIZATION",
+          "logging_tags": {
+            "job_name": "silver_index_global_update_job",
+            "op_name": "silver_index_global",
+            "resource_fn_name": "None",
+            "resource_name": "None",
+            "run_id": "61d1d9ec-a328-4742-a0c3-6d117ca47c77",
+            "step_key": "silver_index_global"
+          },
+          "message": "Materialized value silver_index_global.",
+          "pid": 58174,
+          "pipeline_name": "silver_index_global_update_job",
+          "solid_handle": {
+            "__class__": "SolidHandle",
+            "name": "silver_index_global",
+            "parent": null
+          },
+          "step_handle": {
+            "__class__": "StepHandle",
+            "key": "silver_index_global",
+            "solid_handle": {
+              "__class__": "SolidHandle",
+              "name": "silver_index_global",
+              "parent": null
+            }
+          },
+          "step_key": "silver_index_global",
+          "step_kind_value": "COMPUTE"
+        },
+        "error_info": null,
+        "level": 10,
+        "message": "",
+        "pipeline_name": "silver_index_global_update_job",
+        "run_id": "61d1d9ec-a328-4742-a0c3-6d117ca47c77",
+        "step_key": "silver_index_global",
+        "timestamp": 1793000544.80363,
+        "user_message": "Materialized value silver_index_global."
+      }
+    },
+    {
+      "id": 7729727,
+      "run_id": "61d1d9ec-a328-4742-a0c3-6d117ca47c77",
+      "dagster_event_type": "ASSET_CHECK_EVALUATION",
+      "event": {
+        "__class__": "EventLogEntry",
+        "dagster_event": {
+          "__class__": "DagsterEvent",
+          "event_specific_data": {
+            "__class__": "AssetCheckEvaluation",
+            "asset_key": {
+              "__class__": "AssetKey",
+              "path": [
+                "silver_index_global"
+              ]
+            },
+            "blocking": true,
+            "check_name": "silver_index_global_core_check",
+            "description": null,
+            "metadata": {
+              "goldenshare/check_scope": {
+                "__class__": "TextMetadataEntryData",
+                "text": "schema"
+              },
+              "goldenshare/checked_row_count": {
+                "__class__": "IntMetadataEntryData",
+                "value": 0
+              },
+              "goldenshare/expected_columns": {
+                "__class__": "JsonMetadataEntryData",
+                "data": [
+                  "ts_code",
+                  "trade_date",
+                  "open",
+                  "high",
+                  "low",
+                  "close",
+                  "pre_close",
+                  "change_amount",
+                  "pct_chg",
+                  "swing",
+                  "vol",
+                  "amount"
+                ]
+              },
+              "goldenshare/failed_row_count": {
+                "__class__": "IntMetadataEntryData",
+                "value": 0
+              },
+              "goldenshare/failed_rule_names": {
+                "__class__": "JsonMetadataEntryData",
+                "data": []
+              },
+              "goldenshare/failure_samples": {
+                "__class__": "JsonMetadataEntryData",
+                "data": []
+              },
+              "goldenshare/file_path": {
+                "__class__": "TextMetadataEntryData",
+                "text": "/Volumes/datasource/data_lake/silver/index_global/trade_date=2026-10-24/part-000.parquet"
+              },
+              "goldenshare/observed_columns": {
+                "__class__": "JsonMetadataEntryData",
+                "data": [
+                  "ts_code",
+                  "trade_date",
+                  "open",
+                  "high",
+                  "low",
+                  "close",
+                  "pre_close",
+                  "change_amount",
+                  "pct_chg",
+                  "swing",
+                  "vol",
+                  "amount"
+                ]
+              },
+              "goldenshare/partition_key": {
+                "__class__": "TextMetadataEntryData",
+                "text": "2026-10-24"
+              },
+              "goldenshare/reason_code": {
+                "__class__": "TextMetadataEntryData",
+                "text": "ok"
+              },
+              "goldenshare/rule_results": {
+                "__class__": "JsonMetadataEntryData",
+                "data": {
+                  "duplicate_key_count": 0,
+                  "numeric_not_finite_count": 0,
+                  "numeric_values_finite": true,
+                  "partition_trade_date_match": true,
+                  "partition_trade_date_mismatch_count": 0,
+                  "schema_exact": true,
+                  "ts_code_non_null_and_known": true,
+                  "ts_code_non_null_and_known_count": 0,
+                  "unique_ts_code_trade_date": true
+                }
+              }
+            },
+            "partition": "2026-10-24",
+            "severity": {
+              "__enum__": "AssetCheckSeverity.ERROR"
+            },
+            "success": true,
+            "target_materialization_data": {
+              "__class__": "AssetCheckEvaluationTargetMaterializationData",
+              "run_id": "61d1d9ec-a328-4742-a0c3-6d117ca47c77",
+              "storage_id": 7729718,
+              "timestamp": 1793000544.80363
+            }
+          },
+          "event_type_value": "ASSET_CHECK_EVALUATION",
+          "logging_tags": {
+            "job_name": "silver_index_global_update_job",
+            "op_name": "silver_index_global_silver_index_global_core_check",
+            "resource_fn_name": "None",
+            "resource_name": "None",
+            "run_id": "61d1d9ec-a328-4742-a0c3-6d117ca47c77",
+            "step_key": "silver_index_global_silver_index_global_core_check"
+          },
+          "message": "Asset check 'silver_index_global_core_check' on 'silver_index_global' passed.",
+          "pid": 58226,
+          "pipeline_name": "silver_index_global_update_job",
+          "solid_handle": {
+            "__class__": "SolidHandle",
+            "name": "silver_index_global_silver_index_global_core_check",
+            "parent": null
+          },
+          "step_handle": {
+            "__class__": "StepHandle",
+            "key": "silver_index_global_silver_index_global_core_check",
+            "solid_handle": {
+              "__class__": "SolidHandle",
+              "name": "silver_index_global_silver_index_global_core_check",
+              "parent": null
+            }
+          },
+          "step_key": "silver_index_global_silver_index_global_core_check",
+          "step_kind_value": "COMPUTE"
+        },
+        "error_info": null,
+        "level": 10,
+        "message": "",
+        "pipeline_name": "silver_index_global_update_job",
+        "run_id": "61d1d9ec-a328-4742-a0c3-6d117ca47c77",
+        "step_key": "silver_index_global_silver_index_global_core_check",
+        "timestamp": 1793000547.29182,
+        "user_message": "Asset check 'silver_index_global_core_check' on 'silver_index_global' passed."
+      }
+    },
+    {
+      "id": 7729914,
+      "run_id": "03fce680-030e-4cca-8fd3-01d49c62284c",
+      "dagster_event_type": "ASSET_MATERIALIZATION",
+      "event": {
+        "__class__": "EventLogEntry",
+        "dagster_event": {
+          "__class__": "DagsterEvent",
+          "event_specific_data": {
+            "__class__": "StepMaterializationData",
+            "asset_lineage": [],
+            "materialization": {
+              "__class__": "AssetMaterialization",
+              "asset_key": {
+                "__class__": "AssetKey",
+                "path": [
+                  "silver_index_global"
+                ]
+              },
+              "description": null,
+              "metadata_entries": [
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "/Volumes/datasource/data_lake/silver/index_global/trade_date=2026-10-25/part-000.parquet"
+                  },
+                  "label": "dagster/uri"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "dagster/row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "JsonMetadataEntryData",
+                    "data": [
+                      "ts_code",
+                      "trade_date",
+                      "open",
+                      "high",
+                      "low",
+                      "close",
+                      "pre_close",
+                      "change_amount",
+                      "pct_chg",
+                      "swing",
+                      "vol",
+                      "amount"
+                    ]
+                  },
+                  "label": "goldenshare/observed_columns"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "2026-10-25"
+                  },
+                  "label": "goldenshare/partition_key"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/attempt"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "/Volumes/datasource/data_lake/raw/index_global/trade_date=2026-10-25/part-000.parquet"
+                  },
+                  "label": "goldenshare/source_file_path"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/source_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/duplicate_removed_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/rejected_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "JsonMetadataEntryData",
+                    "data": {}
+                  },
+                  "label": "goldenshare/reject_reason_counts"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "FloatMetadataEntryData",
+                    "value": 13.965
+                  },
+                  "label": "goldenshare/elapsed_ms"
+                }
+              ],
+              "partition": "2026-10-25",
+              "tags": {
+                "dagster/code_version": "03fce680-030e-4cca-8fd3-01d49c62284c",
+                "dagster/data_version": "8f2eb10d8e7fd1221b8e1d7dfb100cecf48684bfca3ea43017a0366f1e0f2b3e",
+                "dagster/input_data_version/raw_index_global": "930ad32f9a2828a70f8bfc990c4bbce79a7021ea4a61d8f2583810281e01c8be",
+                "dagster/input_event_pointer/raw_index_global": "7729886"
+              }
+            }
+          },
+          "event_type_value": "ASSET_MATERIALIZATION",
+          "logging_tags": {
+            "job_name": "silver_index_global_update_job",
+            "op_name": "silver_index_global",
+            "resource_fn_name": "None",
+            "resource_name": "None",
+            "run_id": "03fce680-030e-4cca-8fd3-01d49c62284c",
+            "step_key": "silver_index_global"
+          },
+          "message": "Materialized value silver_index_global.",
+          "pid": 68608,
+          "pipeline_name": "silver_index_global_update_job",
+          "solid_handle": {
+            "__class__": "SolidHandle",
+            "name": "silver_index_global",
+            "parent": null
+          },
+          "step_handle": {
+            "__class__": "StepHandle",
+            "key": "silver_index_global",
+            "solid_handle": {
+              "__class__": "SolidHandle",
+              "name": "silver_index_global",
+              "parent": null
+            }
+          },
+          "step_key": "silver_index_global",
+          "step_kind_value": "COMPUTE"
+        },
+        "error_info": null,
+        "level": 10,
+        "message": "",
+        "pipeline_name": "silver_index_global_update_job",
+        "run_id": "03fce680-030e-4cca-8fd3-01d49c62284c",
+        "step_key": "silver_index_global",
+        "timestamp": 1793000837.5287402,
+        "user_message": "Materialized value silver_index_global."
+      }
+    },
+    {
+      "id": 7729923,
+      "run_id": "03fce680-030e-4cca-8fd3-01d49c62284c",
+      "dagster_event_type": "ASSET_CHECK_EVALUATION",
+      "event": {
+        "__class__": "EventLogEntry",
+        "dagster_event": {
+          "__class__": "DagsterEvent",
+          "event_specific_data": {
+            "__class__": "AssetCheckEvaluation",
+            "asset_key": {
+              "__class__": "AssetKey",
+              "path": [
+                "silver_index_global"
+              ]
+            },
+            "blocking": true,
+            "check_name": "silver_index_global_core_check",
+            "description": null,
+            "metadata": {
+              "goldenshare/check_scope": {
+                "__class__": "TextMetadataEntryData",
+                "text": "schema"
+              },
+              "goldenshare/checked_row_count": {
+                "__class__": "IntMetadataEntryData",
+                "value": 0
+              },
+              "goldenshare/expected_columns": {
+                "__class__": "JsonMetadataEntryData",
+                "data": [
+                  "ts_code",
+                  "trade_date",
+                  "open",
+                  "high",
+                  "low",
+                  "close",
+                  "pre_close",
+                  "change_amount",
+                  "pct_chg",
+                  "swing",
+                  "vol",
+                  "amount"
+                ]
+              },
+              "goldenshare/failed_row_count": {
+                "__class__": "IntMetadataEntryData",
+                "value": 0
+              },
+              "goldenshare/failed_rule_names": {
+                "__class__": "JsonMetadataEntryData",
+                "data": []
+              },
+              "goldenshare/failure_samples": {
+                "__class__": "JsonMetadataEntryData",
+                "data": []
+              },
+              "goldenshare/file_path": {
+                "__class__": "TextMetadataEntryData",
+                "text": "/Volumes/datasource/data_lake/silver/index_global/trade_date=2026-10-25/part-000.parquet"
+              },
+              "goldenshare/observed_columns": {
+                "__class__": "JsonMetadataEntryData",
+                "data": [
+                  "ts_code",
+                  "trade_date",
+                  "open",
+                  "high",
+                  "low",
+                  "close",
+                  "pre_close",
+                  "change_amount",
+                  "pct_chg",
+                  "swing",
+                  "vol",
+                  "amount"
+                ]
+              },
+              "goldenshare/partition_key": {
+                "__class__": "TextMetadataEntryData",
+                "text": "2026-10-25"
+              },
+              "goldenshare/reason_code": {
+                "__class__": "TextMetadataEntryData",
+                "text": "ok"
+              },
+              "goldenshare/rule_results": {
+                "__class__": "JsonMetadataEntryData",
+                "data": {
+                  "duplicate_key_count": 0,
+                  "numeric_not_finite_count": 0,
+                  "numeric_values_finite": true,
+                  "partition_trade_date_match": true,
+                  "partition_trade_date_mismatch_count": 0,
+                  "schema_exact": true,
+                  "ts_code_non_null_and_known": true,
+                  "ts_code_non_null_and_known_count": 0,
+                  "unique_ts_code_trade_date": true
+                }
+              }
+            },
+            "partition": "2026-10-25",
+            "severity": {
+              "__enum__": "AssetCheckSeverity.ERROR"
+            },
+            "success": true,
+            "target_materialization_data": {
+              "__class__": "AssetCheckEvaluationTargetMaterializationData",
+              "run_id": "03fce680-030e-4cca-8fd3-01d49c62284c",
+              "storage_id": 7729914,
+              "timestamp": 1793000837.5287402
+            }
+          },
+          "event_type_value": "ASSET_CHECK_EVALUATION",
+          "logging_tags": {
+            "job_name": "silver_index_global_update_job",
+            "op_name": "silver_index_global_silver_index_global_core_check",
+            "resource_fn_name": "None",
+            "resource_name": "None",
+            "run_id": "03fce680-030e-4cca-8fd3-01d49c62284c",
+            "step_key": "silver_index_global_silver_index_global_core_check"
+          },
+          "message": "Asset check 'silver_index_global_core_check' on 'silver_index_global' passed.",
+          "pid": 68657,
+          "pipeline_name": "silver_index_global_update_job",
+          "solid_handle": {
+            "__class__": "SolidHandle",
+            "name": "silver_index_global_silver_index_global_core_check",
+            "parent": null
+          },
+          "step_handle": {
+            "__class__": "StepHandle",
+            "key": "silver_index_global_silver_index_global_core_check",
+            "solid_handle": {
+              "__class__": "SolidHandle",
+              "name": "silver_index_global_silver_index_global_core_check",
+              "parent": null
+            }
+          },
+          "step_key": "silver_index_global_silver_index_global_core_check",
+          "step_kind_value": "COMPUTE"
+        },
+        "error_info": null,
+        "level": 10,
+        "message": "",
+        "pipeline_name": "silver_index_global_update_job",
+        "run_id": "03fce680-030e-4cca-8fd3-01d49c62284c",
+        "step_key": "silver_index_global_silver_index_global_core_check",
+        "timestamp": 1793000839.851706,
+        "user_message": "Asset check 'silver_index_global_core_check' on 'silver_index_global' passed."
+      }
+    },
+    {
+      "id": 7729970,
+      "run_id": "dfd8767c-66e8-439d-b343-8169d4b92370",
+      "dagster_event_type": "ASSET_MATERIALIZATION",
+      "event": {
+        "__class__": "EventLogEntry",
+        "dagster_event": {
+          "__class__": "DagsterEvent",
+          "event_specific_data": {
+            "__class__": "StepMaterializationData",
+            "asset_lineage": [],
+            "materialization": {
+              "__class__": "AssetMaterialization",
+              "asset_key": {
+                "__class__": "AssetKey",
+                "path": [
+                  "raw_index_global"
+                ]
+              },
+              "description": null,
+              "metadata_entries": [
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "/Volumes/datasource/data_lake/raw/index_global/trade_date=2026-10-24/part-000.parquet"
+                  },
+                  "label": "dagster/uri"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "dagster/row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "JsonMetadataEntryData",
+                    "data": [
+                      "ts_code",
+                      "trade_date",
+                      "open",
+                      "close",
+                      "high",
+                      "low",
+                      "pre_close",
+                      "change",
+                      "pct_chg",
+                      "swing",
+                      "vol",
+                      "amount"
+                    ]
+                  },
+                  "label": "goldenshare/observed_columns"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "2026-10-24"
+                  },
+                  "label": "goldenshare/trade_date"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "late_empty"
+                  },
+                  "label": "goldenshare/probe_phase"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "2026-10-24:late_empty"
+                  },
+                  "label": "goldenshare/slot_key"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/attempt"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 2
+                  },
+                  "label": "goldenshare/late_empty_attempt"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "tushare_index_global"
+                  },
+                  "label": "goldenshare/source_method"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/source_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/merged_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/replaced_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 1
+                  },
+                  "label": "goldenshare/request_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 1
+                  },
+                  "label": "goldenshare/page_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/retry_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "FloatMetadataEntryData",
+                    "value": 100.013
+                  },
+                  "label": "goldenshare/elapsed_ms"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "/Volumes/datasource/data_lake/raw/index_global/trade_date=2026-10-24/part-000.parquet"
+                  },
+                  "label": "goldenshare/target_path"
+                }
+              ],
+              "partition": "2026-10-24",
+              "tags": {
+                "dagster/code_version": "dfd8767c-66e8-439d-b343-8169d4b92370",
+                "dagster/data_version": "259e759318ee03f38e877f4658154e268ab238f548b1bd4edc80d494f47198ed"
+              }
+            }
+          },
+          "event_type_value": "ASSET_MATERIALIZATION",
+          "logging_tags": {
+            "job_name": "raw_index_global_update_job",
+            "op_name": "raw_index_global",
+            "resource_fn_name": "None",
+            "resource_name": "None",
+            "run_id": "dfd8767c-66e8-439d-b343-8169d4b92370",
+            "step_key": "raw_index_global"
+          },
+          "message": "Materialized value raw_index_global.",
+          "pid": 79042,
+          "pipeline_name": "raw_index_global_update_job",
+          "solid_handle": {
+            "__class__": "SolidHandle",
+            "name": "raw_index_global",
+            "parent": null
+          },
+          "step_handle": {
+            "__class__": "StepHandle",
+            "key": "raw_index_global",
+            "solid_handle": {
+              "__class__": "SolidHandle",
+              "name": "raw_index_global",
+              "parent": null
+            }
+          },
+          "step_key": "raw_index_global",
+          "step_kind_value": "COMPUTE"
+        },
+        "error_info": null,
+        "level": 10,
+        "message": "",
+        "pipeline_name": "raw_index_global_update_job",
+        "run_id": "dfd8767c-66e8-439d-b343-8169d4b92370",
+        "step_key": "raw_index_global",
+        "timestamp": 1793001329.5462432,
+        "user_message": "Materialized value raw_index_global."
+      }
+    },
+    {
+      "id": 7729979,
+      "run_id": "dfd8767c-66e8-439d-b343-8169d4b92370",
+      "dagster_event_type": "ASSET_CHECK_EVALUATION",
+      "event": {
+        "__class__": "EventLogEntry",
+        "dagster_event": {
+          "__class__": "DagsterEvent",
+          "event_specific_data": {
+            "__class__": "AssetCheckEvaluation",
+            "asset_key": {
+              "__class__": "AssetKey",
+              "path": [
+                "raw_index_global"
+              ]
+            },
+            "blocking": true,
+            "check_name": "raw_index_global_core_check",
+            "description": null,
+            "metadata": {
+              "goldenshare/check_scope": {
+                "__class__": "TextMetadataEntryData",
+                "text": "schema"
+              },
+              "goldenshare/checked_row_count": {
+                "__class__": "IntMetadataEntryData",
+                "value": 0
+              },
+              "goldenshare/expected_columns": {
+                "__class__": "JsonMetadataEntryData",
+                "data": [
+                  "ts_code",
+                  "trade_date",
+                  "open",
+                  "close",
+                  "high",
+                  "low",
+                  "pre_close",
+                  "change",
+                  "pct_chg",
+                  "swing",
+                  "vol",
+                  "amount"
+                ]
+              },
+              "goldenshare/failed_row_count": {
+                "__class__": "IntMetadataEntryData",
+                "value": 0
+              },
+              "goldenshare/failed_rule_names": {
+                "__class__": "JsonMetadataEntryData",
+                "data": []
+              },
+              "goldenshare/failure_samples": {
+                "__class__": "JsonMetadataEntryData",
+                "data": []
+              },
+              "goldenshare/file_path": {
+                "__class__": "TextMetadataEntryData",
+                "text": "/Volumes/datasource/data_lake/raw/index_global/trade_date=2026-10-24/part-000.parquet"
+              },
+              "goldenshare/observed_columns": {
+                "__class__": "JsonMetadataEntryData",
+                "data": [
+                  "ts_code",
+                  "trade_date",
+                  "open",
+                  "close",
+                  "high",
+                  "low",
+                  "pre_close",
+                  "change",
+                  "pct_chg",
+                  "swing",
+                  "vol",
+                  "amount"
+                ]
+              },
+              "goldenshare/partition_key": {
+                "__class__": "TextMetadataEntryData",
+                "text": "2026-10-24"
+              },
+              "goldenshare/reason_code": {
+                "__class__": "TextMetadataEntryData",
+                "text": "ok"
+              },
+              "goldenshare/rule_results": {
+                "__class__": "JsonMetadataEntryData",
+                "data": {
+                  "duplicate_key_count": 0,
+                  "numeric_not_finite_count": 0,
+                  "numeric_values_finite": true,
+                  "partition_trade_date_match": true,
+                  "partition_trade_date_mismatch_count": 0,
+                  "schema_exact": true,
+                  "ts_code_non_null_and_known": true,
+                  "ts_code_non_null_and_known_count": 0,
+                  "unique_ts_code_trade_date": true
+                }
+              }
+            },
+            "partition": "2026-10-24",
+            "severity": {
+              "__enum__": "AssetCheckSeverity.ERROR"
+            },
+            "success": true,
+            "target_materialization_data": {
+              "__class__": "AssetCheckEvaluationTargetMaterializationData",
+              "run_id": "dfd8767c-66e8-439d-b343-8169d4b92370",
+              "storage_id": 7729970,
+              "timestamp": 1793001329.5462432
+            }
+          },
+          "event_type_value": "ASSET_CHECK_EVALUATION",
+          "logging_tags": {
+            "job_name": "raw_index_global_update_job",
+            "op_name": "raw_index_global_raw_index_global_core_check",
+            "resource_fn_name": "None",
+            "resource_name": "None",
+            "run_id": "dfd8767c-66e8-439d-b343-8169d4b92370",
+            "step_key": "raw_index_global_raw_index_global_core_check"
+          },
+          "message": "Asset check 'raw_index_global_core_check' on 'raw_index_global' passed.",
+          "pid": 79250,
+          "pipeline_name": "raw_index_global_update_job",
+          "solid_handle": {
+            "__class__": "SolidHandle",
+            "name": "raw_index_global_raw_index_global_core_check",
+            "parent": null
+          },
+          "step_handle": {
+            "__class__": "StepHandle",
+            "key": "raw_index_global_raw_index_global_core_check",
+            "solid_handle": {
+              "__class__": "SolidHandle",
+              "name": "raw_index_global_raw_index_global_core_check",
+              "parent": null
+            }
+          },
+          "step_key": "raw_index_global_raw_index_global_core_check",
+          "step_kind_value": "COMPUTE"
+        },
+        "error_info": null,
+        "level": 10,
+        "message": "",
+        "pipeline_name": "raw_index_global_update_job",
+        "run_id": "dfd8767c-66e8-439d-b343-8169d4b92370",
+        "step_key": "raw_index_global_raw_index_global_core_check",
+        "timestamp": 1793001332.083883,
+        "user_message": "Asset check 'raw_index_global_core_check' on 'raw_index_global' passed."
+      }
+    },
+    {
+      "id": 7730054,
+      "run_id": "10bb6b4c-dca8-4b47-8daa-c0feed5bd28b",
+      "dagster_event_type": "ASSET_MATERIALIZATION",
+      "event": {
+        "__class__": "EventLogEntry",
+        "dagster_event": {
+          "__class__": "DagsterEvent",
+          "event_specific_data": {
+            "__class__": "StepMaterializationData",
+            "asset_lineage": [],
+            "materialization": {
+              "__class__": "AssetMaterialization",
+              "asset_key": {
+                "__class__": "AssetKey",
+                "path": [
+                  "raw_index_global"
+                ]
+              },
+              "description": null,
+              "metadata_entries": [
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "/Volumes/datasource/data_lake/raw/index_global/trade_date=2026-10-25/part-000.parquet"
+                  },
+                  "label": "dagster/uri"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "dagster/row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "JsonMetadataEntryData",
+                    "data": [
+                      "ts_code",
+                      "trade_date",
+                      "open",
+                      "close",
+                      "high",
+                      "low",
+                      "pre_close",
+                      "change",
+                      "pct_chg",
+                      "swing",
+                      "vol",
+                      "amount"
+                    ]
+                  },
+                  "label": "goldenshare/observed_columns"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "2026-10-25"
+                  },
+                  "label": "goldenshare/trade_date"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "late_empty"
+                  },
+                  "label": "goldenshare/probe_phase"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "2026-10-25:late_empty"
+                  },
+                  "label": "goldenshare/slot_key"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/attempt"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 2
+                  },
+                  "label": "goldenshare/late_empty_attempt"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "tushare_index_global"
+                  },
+                  "label": "goldenshare/source_method"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/source_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/merged_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/replaced_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 1
+                  },
+                  "label": "goldenshare/request_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 1
+                  },
+                  "label": "goldenshare/page_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/retry_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "FloatMetadataEntryData",
+                    "value": 107.328
+                  },
+                  "label": "goldenshare/elapsed_ms"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "/Volumes/datasource/data_lake/raw/index_global/trade_date=2026-10-25/part-000.parquet"
+                  },
+                  "label": "goldenshare/target_path"
+                }
+              ],
+              "partition": "2026-10-25",
+              "tags": {
+                "dagster/code_version": "10bb6b4c-dca8-4b47-8daa-c0feed5bd28b",
+                "dagster/data_version": "0feb684bdeb4866c46d431330d1fdec9cf052dcf1e69e5879804bd5080a9d645"
+              }
+            }
+          },
+          "event_type_value": "ASSET_MATERIALIZATION",
+          "logging_tags": {
+            "job_name": "raw_index_global_update_job",
+            "op_name": "raw_index_global",
+            "resource_fn_name": "None",
+            "resource_name": "None",
+            "run_id": "10bb6b4c-dca8-4b47-8daa-c0feed5bd28b",
+            "step_key": "raw_index_global"
+          },
+          "message": "Materialized value raw_index_global.",
+          "pid": 12994,
+          "pipeline_name": "raw_index_global_update_job",
+          "solid_handle": {
+            "__class__": "SolidHandle",
+            "name": "raw_index_global",
+            "parent": null
+          },
+          "step_handle": {
+            "__class__": "StepHandle",
+            "key": "raw_index_global",
+            "solid_handle": {
+              "__class__": "SolidHandle",
+              "name": "raw_index_global",
+              "parent": null
+            }
+          },
+          "step_key": "raw_index_global",
+          "step_kind_value": "COMPUTE"
+        },
+        "error_info": null,
+        "level": 10,
+        "message": "",
+        "pipeline_name": "raw_index_global_update_job",
+        "run_id": "10bb6b4c-dca8-4b47-8daa-c0feed5bd28b",
+        "step_key": "raw_index_global",
+        "timestamp": 1793002542.361655,
+        "user_message": "Materialized value raw_index_global."
+      }
+    },
+    {
+      "id": 7730063,
+      "run_id": "10bb6b4c-dca8-4b47-8daa-c0feed5bd28b",
+      "dagster_event_type": "ASSET_CHECK_EVALUATION",
+      "event": {
+        "__class__": "EventLogEntry",
+        "dagster_event": {
+          "__class__": "DagsterEvent",
+          "event_specific_data": {
+            "__class__": "AssetCheckEvaluation",
+            "asset_key": {
+              "__class__": "AssetKey",
+              "path": [
+                "raw_index_global"
+              ]
+            },
+            "blocking": true,
+            "check_name": "raw_index_global_core_check",
+            "description": null,
+            "metadata": {
+              "goldenshare/check_scope": {
+                "__class__": "TextMetadataEntryData",
+                "text": "schema"
+              },
+              "goldenshare/checked_row_count": {
+                "__class__": "IntMetadataEntryData",
+                "value": 0
+              },
+              "goldenshare/expected_columns": {
+                "__class__": "JsonMetadataEntryData",
+                "data": [
+                  "ts_code",
+                  "trade_date",
+                  "open",
+                  "close",
+                  "high",
+                  "low",
+                  "pre_close",
+                  "change",
+                  "pct_chg",
+                  "swing",
+                  "vol",
+                  "amount"
+                ]
+              },
+              "goldenshare/failed_row_count": {
+                "__class__": "IntMetadataEntryData",
+                "value": 0
+              },
+              "goldenshare/failed_rule_names": {
+                "__class__": "JsonMetadataEntryData",
+                "data": []
+              },
+              "goldenshare/failure_samples": {
+                "__class__": "JsonMetadataEntryData",
+                "data": []
+              },
+              "goldenshare/file_path": {
+                "__class__": "TextMetadataEntryData",
+                "text": "/Volumes/datasource/data_lake/raw/index_global/trade_date=2026-10-25/part-000.parquet"
+              },
+              "goldenshare/observed_columns": {
+                "__class__": "JsonMetadataEntryData",
+                "data": [
+                  "ts_code",
+                  "trade_date",
+                  "open",
+                  "close",
+                  "high",
+                  "low",
+                  "pre_close",
+                  "change",
+                  "pct_chg",
+                  "swing",
+                  "vol",
+                  "amount"
+                ]
+              },
+              "goldenshare/partition_key": {
+                "__class__": "TextMetadataEntryData",
+                "text": "2026-10-25"
+              },
+              "goldenshare/reason_code": {
+                "__class__": "TextMetadataEntryData",
+                "text": "ok"
+              },
+              "goldenshare/rule_results": {
+                "__class__": "JsonMetadataEntryData",
+                "data": {
+                  "duplicate_key_count": 0,
+                  "numeric_not_finite_count": 0,
+                  "numeric_values_finite": true,
+                  "partition_trade_date_match": true,
+                  "partition_trade_date_mismatch_count": 0,
+                  "schema_exact": true,
+                  "ts_code_non_null_and_known": true,
+                  "ts_code_non_null_and_known_count": 0,
+                  "unique_ts_code_trade_date": true
+                }
+              }
+            },
+            "partition": "2026-10-25",
+            "severity": {
+              "__enum__": "AssetCheckSeverity.ERROR"
+            },
+            "success": true,
+            "target_materialization_data": {
+              "__class__": "AssetCheckEvaluationTargetMaterializationData",
+              "run_id": "10bb6b4c-dca8-4b47-8daa-c0feed5bd28b",
+              "storage_id": 7730054,
+              "timestamp": 1793002542.361655
+            }
+          },
+          "event_type_value": "ASSET_CHECK_EVALUATION",
+          "logging_tags": {
+            "job_name": "raw_index_global_update_job",
+            "op_name": "raw_index_global_raw_index_global_core_check",
+            "resource_fn_name": "None",
+            "resource_name": "None",
+            "run_id": "10bb6b4c-dca8-4b47-8daa-c0feed5bd28b",
+            "step_key": "raw_index_global_raw_index_global_core_check"
+          },
+          "message": "Asset check 'raw_index_global_core_check' on 'raw_index_global' passed.",
+          "pid": 13268,
+          "pipeline_name": "raw_index_global_update_job",
+          "solid_handle": {
+            "__class__": "SolidHandle",
+            "name": "raw_index_global_raw_index_global_core_check",
+            "parent": null
+          },
+          "step_handle": {
+            "__class__": "StepHandle",
+            "key": "raw_index_global_raw_index_global_core_check",
+            "solid_handle": {
+              "__class__": "SolidHandle",
+              "name": "raw_index_global_raw_index_global_core_check",
+              "parent": null
+            }
+          },
+          "step_key": "raw_index_global_raw_index_global_core_check",
+          "step_kind_value": "COMPUTE"
+        },
+        "error_info": null,
+        "level": 10,
+        "message": "",
+        "pipeline_name": "raw_index_global_update_job",
+        "run_id": "10bb6b4c-dca8-4b47-8daa-c0feed5bd28b",
+        "step_key": "raw_index_global_raw_index_global_core_check",
+        "timestamp": 1793002545.0831602,
+        "user_message": "Asset check 'raw_index_global_core_check' on 'raw_index_global' passed."
+      }
+    },
+    {
+      "id": 7730082,
+      "run_id": "1a5119cb-0df0-4b06-abff-e6324b82ea00",
+      "dagster_event_type": "ASSET_MATERIALIZATION",
+      "event": {
+        "__class__": "EventLogEntry",
+        "dagster_event": {
+          "__class__": "DagsterEvent",
+          "event_specific_data": {
+            "__class__": "StepMaterializationData",
+            "asset_lineage": [],
+            "materialization": {
+              "__class__": "AssetMaterialization",
+              "asset_key": {
+                "__class__": "AssetKey",
+                "path": [
+                  "raw_index_global"
+                ]
+              },
+              "description": null,
+              "metadata_entries": [
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "/Volumes/datasource/data_lake/raw/index_global/trade_date=2026-10-26/part-000.parquet"
+                  },
+                  "label": "dagster/uri"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "dagster/row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "JsonMetadataEntryData",
+                    "data": [
+                      "ts_code",
+                      "trade_date",
+                      "open",
+                      "close",
+                      "high",
+                      "low",
+                      "pre_close",
+                      "change",
+                      "pct_chg",
+                      "swing",
+                      "vol",
+                      "amount"
+                    ]
+                  },
+                  "label": "goldenshare/observed_columns"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "2026-10-26"
+                  },
+                  "label": "goldenshare/trade_date"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "asia_2"
+                  },
+                  "label": "goldenshare/probe_phase"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "2026-10-26:asia_2"
+                  },
+                  "label": "goldenshare/slot_key"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/attempt"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/late_empty_attempt"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "tushare_index_global"
+                  },
+                  "label": "goldenshare/source_method"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/source_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/merged_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/replaced_row_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 1
+                  },
+                  "label": "goldenshare/request_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 1
+                  },
+                  "label": "goldenshare/page_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "IntMetadataEntryData",
+                    "value": 0
+                  },
+                  "label": "goldenshare/retry_count"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "FloatMetadataEntryData",
+                    "value": 105.209
+                  },
+                  "label": "goldenshare/elapsed_ms"
+                },
+                {
+                  "__class__": "EventMetadataEntry",
+                  "description": null,
+                  "entry_data": {
+                    "__class__": "TextMetadataEntryData",
+                    "text": "/Volumes/datasource/data_lake/raw/index_global/trade_date=2026-10-26/part-000.parquet"
+                  },
+                  "label": "goldenshare/target_path"
+                }
+              ],
+              "partition": "2026-10-26",
+              "tags": {
+                "dagster/code_version": "1a5119cb-0df0-4b06-abff-e6324b82ea00",
+                "dagster/data_version": "60a457ead914a9d00ce26683e664ce22f93f78f41cc8c2ed71199bcbfc135d80"
+              }
+            }
+          },
+          "event_type_value": "ASSET_MATERIALIZATION",
+          "logging_tags": {
+            "job_name": "raw_index_global_update_job",
+            "op_name": "raw_index_global",
+            "resource_fn_name": "None",
+            "resource_name": "None",
+            "run_id": "1a5119cb-0df0-4b06-abff-e6324b82ea00",
+            "step_key": "raw_index_global"
+          },
+          "message": "Materialized value raw_index_global.",
+          "pid": 23312,
+          "pipeline_name": "raw_index_global_update_job",
+          "solid_handle": {
+            "__class__": "SolidHandle",
+            "name": "raw_index_global",
+            "parent": null
+          },
+          "step_handle": {
+            "__class__": "StepHandle",
+            "key": "raw_index_global",
+            "solid_handle": {
+              "__class__": "SolidHandle",
+              "name": "raw_index_global",
+              "parent": null
+            }
+          },
+          "step_key": "raw_index_global",
+          "step_kind_value": "COMPUTE"
+        },
+        "error_info": null,
+        "level": 10,
+        "message": "",
+        "pipeline_name": "raw_index_global_update_job",
+        "run_id": "1a5119cb-0df0-4b06-abff-e6324b82ea00",
+        "step_key": "raw_index_global",
+        "timestamp": 1793002822.346535,
+        "user_message": "Materialized value raw_index_global."
+      }
+    },
+    {
+      "id": 7730091,
+      "run_id": "1a5119cb-0df0-4b06-abff-e6324b82ea00",
+      "dagster_event_type": "ASSET_CHECK_EVALUATION",
+      "event": {
+        "__class__": "EventLogEntry",
+        "dagster_event": {
+          "__class__": "DagsterEvent",
+          "event_specific_data": {
+            "__class__": "AssetCheckEvaluation",
+            "asset_key": {
+              "__class__": "AssetKey",
+              "path": [
+                "raw_index_global"
+              ]
+            },
+            "blocking": true,
+            "check_name": "raw_index_global_core_check",
+            "description": null,
+            "metadata": {
+              "goldenshare/check_scope": {
+                "__class__": "TextMetadataEntryData",
+                "text": "schema"
+              },
+              "goldenshare/checked_row_count": {
+                "__class__": "IntMetadataEntryData",
+                "value": 0
+              },
+              "goldenshare/expected_columns": {
+                "__class__": "JsonMetadataEntryData",
+                "data": [
+                  "ts_code",
+                  "trade_date",
+                  "open",
+                  "close",
+                  "high",
+                  "low",
+                  "pre_close",
+                  "change",
+                  "pct_chg",
+                  "swing",
+                  "vol",
+                  "amount"
+                ]
+              },
+              "goldenshare/failed_row_count": {
+                "__class__": "IntMetadataEntryData",
+                "value": 0
+              },
+              "goldenshare/failed_rule_names": {
+                "__class__": "JsonMetadataEntryData",
+                "data": []
+              },
+              "goldenshare/failure_samples": {
+                "__class__": "JsonMetadataEntryData",
+                "data": []
+              },
+              "goldenshare/file_path": {
+                "__class__": "TextMetadataEntryData",
+                "text": "/Volumes/datasource/data_lake/raw/index_global/trade_date=2026-10-26/part-000.parquet"
+              },
+              "goldenshare/observed_columns": {
+                "__class__": "JsonMetadataEntryData",
+                "data": [
+                  "ts_code",
+                  "trade_date",
+                  "open",
+                  "close",
+                  "high",
+                  "low",
+                  "pre_close",
+                  "change",
+                  "pct_chg",
+                  "swing",
+                  "vol",
+                  "amount"
+                ]
+              },
+              "goldenshare/partition_key": {
+                "__class__": "TextMetadataEntryData",
+                "text": "2026-10-26"
+              },
+              "goldenshare/reason_code": {
+                "__class__": "TextMetadataEntryData",
+                "text": "ok"
+              },
+              "goldenshare/rule_results": {
+                "__class__": "JsonMetadataEntryData",
+                "data": {
+                  "duplicate_key_count": 0,
+                  "numeric_not_finite_count": 0,
+                  "numeric_values_finite": true,
+                  "partition_trade_date_match": true,
+                  "partition_trade_date_mismatch_count": 0,
+                  "schema_exact": true,
+                  "ts_code_non_null_and_known": true,
+                  "ts_code_non_null_and_known_count": 0,
+                  "unique_ts_code_trade_date": true
+                }
+              }
+            },
+            "partition": "2026-10-26",
+            "severity": {
+              "__enum__": "AssetCheckSeverity.ERROR"
+            },
+            "success": true,
+            "target_materialization_data": {
+              "__class__": "AssetCheckEvaluationTargetMaterializationData",
+              "run_id": "1a5119cb-0df0-4b06-abff-e6324b82ea00",
+              "storage_id": 7730082,
+              "timestamp": 1793002822.346535
+            }
+          },
+          "event_type_value": "ASSET_CHECK_EVALUATION",
+          "logging_tags": {
+            "job_name": "raw_index_global_update_job",
+            "op_name": "raw_index_global_raw_index_global_core_check",
+            "resource_fn_name": "None",
+            "resource_name": "None",
+            "run_id": "1a5119cb-0df0-4b06-abff-e6324b82ea00",
+            "step_key": "raw_index_global_raw_index_global_core_check"
+          },
+          "message": "Asset check 'raw_index_global_core_check' on 'raw_index_global' passed.",
+          "pid": 23352,
+          "pipeline_name": "raw_index_global_update_job",
+          "solid_handle": {
+            "__class__": "SolidHandle",
+            "name": "raw_index_global_raw_index_global_core_check",
+            "parent": null
+          },
+          "step_handle": {
+            "__class__": "StepHandle",
+            "key": "raw_index_global_raw_index_global_core_check",
+            "solid_handle": {
+              "__class__": "SolidHandle",
+              "name": "raw_index_global_raw_index_global_core_check",
+              "parent": null
+            }
+          },
+          "step_key": "raw_index_global_raw_index_global_core_check",
+          "step_kind_value": "COMPUTE"
+        },
+        "error_info": null,
+        "level": 10,
+        "message": "",
+        "pipeline_name": "raw_index_global_update_job",
+        "run_id": "1a5119cb-0df0-4b06-abff-e6324b82ea00",
+        "step_key": "raw_index_global_raw_index_global_core_check",
+        "timestamp": 1793002824.5962188,
+        "user_message": "Asset check 'raw_index_global_core_check' on 'raw_index_global' passed."
+      }
+    }
+  ],
+  "oct4_latest_event": [
+    {
+      "id": 7730230,
+      "run_id": "0465cb4b-0af1-4d6e-81d5-ed4c75c5d6f3",
+      "dagster_event_type": "ASSET_MATERIALIZATION"
+    }
+  ],
+  "manual_reexecution_count": 1,
+  "scope": "Only requested dates 23-26 and exact Oct4 repair; no data re-audit or new runs"
+}

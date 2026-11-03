@@ -1,5 +1,10 @@
 # 29—30日股票周月线恢复执行
 
+<a id="report-attachment-cleanup-20261103"></a>
+
+> 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](../../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
+
+
 **后续8GiB恢复已完成：** 管理员批准资源选项后，29日原月批次、30日原周批次、30日原月批次及五次原通知Silver均SUCCESS，pending=0；最终验收及清理见[完成报告](rss8_resume/README.md)。以下4GiB失败和待确认描述是首次执行快照，不是最终状态；旧失败记录保留，没有修改成成功。
 
 管理员已批准原方案§10.14、共享LLD§12.23.1/2的具体历史范围及总读12GiB/写8GiB/额外空间24GiB预算。本轮仅通过原job及原events控制收尾执行，不开发、不新增运行限制、不重跑28日或做全局审计。
@@ -16,4 +21,4 @@
 
 原copy.json存在，后续原job会核identity/源版本并继续候选验收，复用已完成周COPY/merged/源，不必重读旧周行情。无需改代码。建议复用现有8GiB运行tag，仅用于29日月Raw下一恢复（parent改本次失败子run）及后续同规模30日周Raw；30日单独当前月和Silver保持原配置。历史名单、日期及读12GiB/写8GiB/空间24GiB预算不变。具体参数和口径见原LLD§12.23.3；该资源调整尚待确认，未执行。
 
-[失败现场](failure-state.json)保留原堆栈、阶段、候选stat及正式版本检查；[源完成回执元数据](source-completion-metadata.json)含原链与跨日新链；[结果](result.json)明确未完成范围。监控脚本曾在不包含chains的首层source元数据中看见老空链无complete，已按当前生产者active_chain合同核清，不能把旧空链误报为本轮下载仍失败。所有正式成果、业务源/候选/CP/pending保留，不清业务staging。
+[失败现场（附件已清理）](README.md#report-attachment-cleanup-20261103)保留原堆栈、阶段、候选stat及正式版本检查；[源完成回执元数据（附件已清理）](README.md#report-attachment-cleanup-20261103)含原链与跨日新链；[结果（附件已清理）](README.md#report-attachment-cleanup-20261103)明确未完成范围。监控脚本曾在不包含chains的首层source元数据中看见老空链无complete，已按当前生产者active_chain合同核清，不能把旧空链误报为本轮下载仍失败。所有正式成果、业务源/候选/CP/pending保留，不清业务staging。

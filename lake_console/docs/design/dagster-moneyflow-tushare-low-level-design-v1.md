@@ -1,5 +1,12 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
+<a id="report-attachment-cleanup-20261103"></a>
+
+> 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
+
+保留资金流最终结果：[49项最终验收](../../reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/49-final-acceptance.json)、[正式收尾](../../reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/closeout.json)。
+
+
 > 当前状态（2026-10-18）：P0～P4开发、历史登记和49项接续完成，12类异常证据已整理，原7项补缺已验收并提交`cd89b4b04`。尚待P5至少3个不同真实交易日的自动采集验收（已验收0/3）及最终交付。本机后台DG已按管理员要求停止，等待管理员手动启动；持久化sensor开关未改变。当前剩余事项及真实交易日验收安排见§74/原方案§79；代码清退已按§73.19完成并提交`b9c91390`。09:02只读检查DG未运行，等待管理员手动启动。
 
 日期：2026-10-06；最近整理：2026-10-18。§1的影响面描述和§2～71的设计、实现与执行结果保留各阶段记录；其中“未实现”“待后续”“尚未提交”等均有当时的时间边界，不能越过后续验收当作当前状态。P4最终结果见§70.27.7/70.28，异常证据见§70.29.6，7项补缺结果见§71.16，当前收尾见§72。
@@ -3796,7 +3803,7 @@ Raw身份使用现有build_repair_attempt_run_key，固定目标日、观察日2
 
 当前工作区只增加两份报告并更新原方案与LLD，临时执行脚本位于/private/tmp；没有修改正式Python、配置、API/CLI、依赖矩阵或安装包，没有提交/推送。本轮隔离Definitions加载、临时脚本8项测试、147份请求输入校验、正式单日样本及最终原生/物理对账分别形成证据；不把既有1742项测试冒充本轮复跑，也不把成熟历史日样本等同未来当天22点的源最终性验证。
 
-[恢复与正式样本验收报告](../../reports/moneyflow_p4_environment_recovery_market_sample_evidence_20261017.json)，SHA256=62ca1015abf602ec9debe5cd8c4071791f8459b13faefabc166861dc246a6ac2，496002B。报告保留当前计划摘要、三次准确mutation请求/原生返回、两层来源/文件/检查证据以及首尾七表只读事实。DG最初停止工作的触发原因仍未确认，本轮确认的是原入口恢复和后续持续正常工作，不声称已修复底层软件缺陷。
+[恢复与正式样本验收报告（附件已清理）](dagster-moneyflow-tushare-low-level-design-v1.md#report-attachment-cleanup-20261103)，SHA256=62ca1015abf602ec9debe5cd8c4071791f8459b13faefabc166861dc246a6ac2，496002B。报告保留当前计划摘要、三次准确mutation请求/原生返回、两层来源/文件/检查证据以及首尾七表只读事实。DG最初停止工作的触发原因仍未确认，本轮确认的是原入口恢复和后续持续正常工作，不声称已修复底层软件缺陷。
 
 本轮按首样本验收边界停止。下一阶段是大盘剩余6天及其他六表各7天，共48个数据集日期/96个完整任务，沿原七表顺序推进；执行前须按当时实际缺口和日期更新清单，不能跨日沿用本清单。之后仍有自动更新启用及P5真实日更验收，须遵守原有阶段边界，本轮未开启。
 
@@ -4204,13 +4211,13 @@ consumer用于真实全量定义导入/AST审计，当前还必须读取5个已�
 
 §70.21执行前实测（2026-10-17 19:11）：恢复代码覆盖plan/CLI、Journal、NativeBackend与apply/inspect，42项新恢复测试通过；完整旧109项加首批41项恢复测试共150项通过，补充原生reconcile绑定测试1项随后通过，合计151项不同用例。临时HTTP端口及受保护启动器子进程使用工具规定的提权执行；没有以正式资源做测试。原受保护目录治理及113项静态门禁通过，项目Ruff致命基线、本次文件默认规则和文档检查通过。当前隔离Definitions加载通过，114份依赖、740份源码清单加载期间稳定，84份已验收资金流生产文件及共享moneyflow AST均保持；当前正式服务身份未变、14资产合同一致、21sensor停止，无须reload。
 
-本轮精确四段命令见[恢复及余下执行清单](../../reports/moneyflow_p4_continuation_recovery_20261017/execution_manifest.json)。工作目录仍为orchestrator，正式DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home，CLI只读PG并通过原生GraphQL提交，写入只限原已批准Raw/Silver目标及其run staging/事件和同一控制根。第一段仅THS个股10-14 Silver，plan SHA256=e014216c4b972eeb4463cfba3ef364689b922591b9129bf9cf7e0003ebc0d603；完整命令为 `.venv/bin/python3 -B -m orchestrator.moneyflow_continuation_cli apply --plan /Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/01-ths-oct14-silver-plan.json --expect-plan-sha256 e014216c4b972eeb4463cfba3ef364689b922591b9129bf9cf7e0003ebc0d603`。当前只读plan已验证原失败全部10条事件、worker退出、5215行Raw原摘要及无Silver/候选；没有提前POST。中断仍只读接回原恢复任务，响应不明不重发；成功读回后继续其余三段，不启用sensor。
+本轮精确四段命令见[恢复及余下执行清单（附件已清理）](dagster-moneyflow-tushare-low-level-design-v1.md#report-attachment-cleanup-20261103)。工作目录仍为orchestrator，正式DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home，CLI只读PG并通过原生GraphQL提交，写入只限原已批准Raw/Silver目标及其run staging/事件和同一控制根。第一段仅THS个股10-14 Silver，plan SHA256=e014216c4b972eeb4463cfba3ef364689b922591b9129bf9cf7e0003ebc0d603；完整命令为 `.venv/bin/python3 -B -m orchestrator.moneyflow_continuation_cli apply --plan /Users/congming/github/goldenshare/lake_console/reports/moneyflow_p4_continuation_recovery_20261017/01-ths-oct14-silver-plan.json --expect-plan-sha256 e014216c4b972eeb4463cfba3ef364689b922591b9129bf9cf7e0003ebc0d603`。当前只读plan已验证原失败全部10条事件、worker退出、5215行Raw原摘要及无Silver/候选；没有提前POST。中断仍只读接回原恢复任务，响应不明不重发；成功读回后继续其余三段，不启用sensor。
 
 
 §70.21恢复结果及源码核对刷新：10-14 Silver新run 3a5b03dc-c6c1-4284-b6c0-e981e26576ea已SUCCESS；独立读回确认5215行13列、两层全字段转换/摘要和真实blocking检查target正确，原失败run仍FAILURE；本次恢复新增来源请求0。当前40/49、剩9。CLI在成功后的源码检查因catalog摘要变化退出3，未继续任何下一日期；不是恢复任务失败，不能再提交第二个恢复任务。对比当前代码及已验收commit的AST，catalog变更仅周/月线Raw/Silver的3处notes说明，资金流35节点及84份生产文件保持；不涉及资金流数据合同或调用。按§70.9重新做当前隔离加载及源码证明，生成原47项同根新只读清单和3段剩余执行清单（THS两日、moneyflow首日、其余六日）；保留本节一次恢复描述，旧清单/记录/预算不改、不启用sensor，不因无关说明文字变更重跑数据。刷新仅更新当前核验依据，执行日期、完整job、预算及一次恢复上限均保持。
 
 
-源码核对刷新已完成：114份当前依赖及740份源码加载期间稳定，正式服务serverId保持、21sensor停止。新的同范围总清单SHA256=b4b01f914d89e56068e47605ac8e466f4c8f7b8650a8670b844ac23de0a46cc7；三段剩余命令见[刷新后的执行清单](../../reports/moneyflow_p4_continuation_recovery_20261017/refresh/execution_manifest.json)。先执行THS 10-15/16，清单SHA256=d8f58632ef3335855c5e3d123c2be043a0587a7385cf0fea4f495f7f99d61b9e；其后moneyflow首日及六日摘要分别为77c87df9ece4751ec14529d6f01612b08c6102625c69ff0af601c577ed004d48、89d4d1cd865e2b26b170555582f7de37773ea699d828676a29969f08d0d71681。旧执行退出及恢复成功分别记录；本次不新增恢复任务或重写旧请求。
+源码核对刷新已完成：114份当前依赖及740份源码加载期间稳定，正式服务serverId保持、21sensor停止。新的同范围总清单SHA256=b4b01f914d89e56068e47605ac8e466f4c8f7b8650a8670b844ac23de0a46cc7；三段剩余命令见[刷新后的执行清单（附件已清理）](dagster-moneyflow-tushare-low-level-design-v1.md#report-attachment-cleanup-20261103)。先执行THS 10-15/16，清单SHA256=d8f58632ef3335855c5e3d123c2be043a0587a7385cf0fea4f495f7f99d61b9e；其后moneyflow首日及六日摘要分别为77c87df9ece4751ec14529d6f01612b08c6102625c69ff0af601c577ed004d48、89d4d1cd865e2b26b170555582f7de37773ea699d828676a29969f08d0d71681。旧执行退出及恢复成功分别记录；本次不新增恢复任务或重写旧请求。
 
 
 ### 70.22 最终汇总前去除重复任务查询
@@ -4224,10 +4231,10 @@ consumer用于真实全量定义导入/AST审计，当前还必须读取5个已�
 
 §70.22开发复验已通过：旧代码次数断言实际4次、预期2次而失败，4个身份反例原本通过；修正后5项全部通过，全156项隔离回归（含原七表真实job/检查/Parquet和42项恢复测试）、原受保护113项静态、Ruff致命基线及本次默认规则均通过。当前114依赖、740源码隔离加载稳定；仍无正式Definitions、源参数、配置或业务文件合同变更。
 
-当前THS两日已结束并独立验收，各5215行，两层共4任务/4物化/4实际绿检、来源请求12，reject0。当前总42/49，剩moneyflow7日。更新当前核对依据后的精确命令见[最终剩余执行清单](../../reports/moneyflow_p4_continuation_recovery_20261017/final/execution_manifest.json)，同根47项SHA256=3566965e64feed34092a4f32c614eacf057159f884dd9bd686a9172c1a989b70，moneyflow10-08首日SHA256=a3ee1a2fc9185f213c47a0fb194b03f12430be67ccddedfa6a842ceb3e47bb1a，余六日SHA256=73cf2c14ce03bfb6323228898b517e44381e1aec3d75f8471516108e2e36c2c9。沿原CLI按manifest执行，Python加-u只确保进度日志即时可读，不改变业务参数；正式home、路径、停止/续跑及原预算不变。首日独立读回后才继续六日。
+当前THS两日已结束并独立验收，各5215行，两层共4任务/4物化/4实际绿检、来源请求12，reject0。当前总42/49，剩moneyflow7日。更新当前核对依据后的精确命令见[最终剩余执行清单（附件已清理）](dagster-moneyflow-tushare-low-level-design-v1.md#report-attachment-cleanup-20261103)，同根47项SHA256=3566965e64feed34092a4f32c614eacf057159f884dd9bd686a9172c1a989b70，moneyflow10-08首日SHA256=a3ee1a2fc9185f213c47a0fb194b03f12430be67ccddedfa6a842ceb3e47bb1a，余六日SHA256=73cf2c14ce03bfb6323228898b517e44381e1aec3d75f8471516108e2e36c2c9。沿原CLI按manifest执行，Python加-u只确保进度日志即时可读，不改变业务参数；正式home、路径、停止/续跑及原预算不变。首日独立读回后才继续六日。
 
 
-moneyflow10-08首日独立验收已通过（19:21）：两层各5572行20列、原始与规范化全字段转换正确，来源两轮6请求、retry0、reject0，准确绿检及物化均绑定成功run。证据见[首日验收](../../reports/moneyflow_p4_continuation_recovery_20261017/03-moneyflow-first-acceptance.json)。当前43/49，依原命令清单继续10-09、12～16六日，SHA256=73cf2c14ce03bfb6323228898b517e44381e1aec3d75f8471516108e2e36c2c9；无新增范围和源码修改。
+moneyflow10-08首日独立验收已通过（19:21）：两层各5572行20列、原始与规范化全字段转换正确，来源两轮6请求、retry0、reject0，准确绿检及物化均绑定成功run。证据见[首日验收（附件已清理）](dagster-moneyflow-tushare-low-level-design-v1.md#report-attachment-cleanup-20261103)。当前43/49，依原命令清单继续10-09、12～16六日，SHA256=73cf2c14ce03bfb6323228898b517e44381e1aec3d75f8471516108e2e36c2c9；无新增范围和源码修改。
 
 
 ### 70.23 新发现：60秒等待边界错误及待确认的单日Raw恢复
@@ -4249,7 +4256,7 @@ moneyflow10-08首日独立验收已通过（19:21）：两层各5572行20列、�
 **测试及验收。** 独立时钟夹具必须模拟在循环判断、guard、计算remaining之间自然跨过60秒，先证明旧代码对六表及大盘都能传负数失败；修正后断言每次sleep严格为正、第二轮请求前真实间隔≥60秒、时间未满不提前、取消/超时仍拒绝。不得让测试时钟只有sleep才走时。复跑7表采集/真实job/check/Parquet回归、156项控制回归及受影响保护/静态/Ruff/加载。恢复新增反例覆盖未授权/错父/错候选/实际业务成功或正式文件/非该错误/额外子run/部分选择/响应丢失/旧记录预算保持/失败不再重试/重复0新增。修复及加载通过后先只执行10-13完整Raw＋Silver并独立读回，成功再继续三日；全49项独立验收须同时保留2失败与2条计划但未评估的check记录，原47项重放0新增。完成前不得把45/49写成第一步完成。
 
 
-§70.23只读收尾补充：独立核对已完成45项、每层105996行，共90份正式文件、90次成功任务、90条真实物化及90条准确通过检查，核验311读、原400上限保持。另保留THS10-14启动失败和moneyflow10-13等待失败，整个49项范围当前92次任务（90成功＋2失败），无活动资金流任务，21sensor仍STOPPED。详见[45项独立验收与剩余状态](../../reports/moneyflow_p4_continuation_recovery_20261017/45-partial-acceptance.json)。失败Raw首轮5574行20列、3个持久化成功分页，collecting收据无最终request/retry计数；完整成功来源收据证明200次请求，失败任务额外请求下界3、原策略上界64，整个范围当前来源请求只能报告203～264，不能伪称精确总数203。证据见[失败现场](../../reports/moneyflow_p4_continuation_recovery_20261017/moneyflow-oct13-failure.json)。此首轮未提升，既有45项不重采；新恢复问题已向管理员明确提出，尚未收到答复前不修改采集器、加载或提交新Raw。
+§70.23只读收尾补充：独立核对已完成45项、每层105996行，共90份正式文件、90次成功任务、90条真实物化及90条准确通过检查，核验311读、原400上限保持。另保留THS10-14启动失败和moneyflow10-13等待失败，整个49项范围当前92次任务（90成功＋2失败），无活动资金流任务，21sensor仍STOPPED。详见[45项独立验收与剩余状态（附件已清理）](dagster-moneyflow-tushare-low-level-design-v1.md#report-attachment-cleanup-20261103)。失败Raw首轮5574行20列、3个持久化成功分页，collecting收据无最终request/retry计数；完整成功来源收据证明200次请求，失败任务额外请求下界3、原策略上界64，整个范围当前来源请求只能报告203～264，不能伪称精确总数203。证据见[失败现场（附件已清理）](dagster-moneyflow-tushare-low-level-design-v1.md#report-attachment-cleanup-20261103)。此首轮未提升，既有45项不重采；新恢复问题已向管理员明确提出，尚未收到答复前不修改采集器、加载或提交新Raw。
 
 
 ### 70.24 剩余四日前置风险审计（先审计，不开发或重试）
@@ -4259,7 +4266,7 @@ moneyflow10-08首日独立验收已通过（19:21）：两层各5572行20列、�
 审计单位为4日/8个预期成功job、原2个保留失败和全49项验收。正式审计每命令≤400读取/300秒、只读事件每失败≤60条、同日运行≤3条；只枚举指定4日和现有47项控制根，不扫描7804日历史。文件只校验指定候选/基线及已完成45项摘要；隔离风险实验内存≤768MiB、每用例≤20秒，最多12类场景，不联网、不用真实凭据。失败实验记录当前真实结果及独立预期，不修改实现或期待值来造通过；结论必须区分确定缺陷、尚未实现的恢复要求、已有保护、外部残余风险和未知项。结束时将每项对应到代码/实验/现网只读证据及修复验收条件，回填原方案和本LLD。若实测发现§70.23恢复设计还不完整，先补齐该设计，不直接编码。审计报告使用原本轮reports目录，原证据不覆盖；工作中断可从保存的报告接续，不触发业务任务。
 
 
-**§70.24审计结论：目前不具备继续正式执行的条件。** 2026-10-17 20:40只读复核仍为45/49，90份文件的摘要/行数及成功交付全部保持。四日均为成熟交易日；moneyflow10-13只有原失败Raw，14～16无任务及正式文件。资金流任务无活动者，池容量1且空闲，21sensor均STOPPED；日历和instance配置保持，挂载及同设备正常，剩余空间约2.66TiB，超过64GiB要求。读取288次、约5.85秒、正式写入0、Tushare请求0。完整证据见[剩余风险审计报告](../../reports/moneyflow_p4_continuation_recovery_20261017/remaining_risk_audit_20261017.json)。
+**§70.24审计结论：目前不具备继续正式执行的条件。** 2026-10-17 20:40只读复核仍为45/49，90份文件的摘要/行数及成功交付全部保持。四日均为成熟交易日；moneyflow10-13只有原失败Raw，14～16无任务及正式文件。资金流任务无活动者，池容量1且空闲，21sensor均STOPPED；日历和instance配置保持，挂载及同设备正常，剩余空间约2.66TiB，超过64GiB要求。读取288次、约5.85秒、正式写入0、Tushare请求0。完整证据见[剩余风险审计报告（附件已清理）](dagster-moneyflow-tushare-low-level-design-v1.md#report-attachment-cleanup-20261103)。
 
 | 项目 | 核对到的真实问题 | 修复或继续前要求 |
 | --- | --- | --- |
@@ -4272,7 +4279,7 @@ moneyflow10-08首日独立验收已通过（19:21）：两层各5572行20列、�
 
 **测试及证据边界。** 新增审计实验未改生产代码或仓库tests：两种采集器的时间边界均复现；一项已完成+一项失败的进度错误复现；inspect失败丢逐项事实复现；丢HTTP响应的独立替代原生边界实测仍只有一次POST及一个原run。另用现有独立真实5572行公开夹具、跨页/尾页、同量内容变化、取消/预算、hash和逐文件提升/接回等37项针对性隔离回归全部通过。它们证明现有保护，不证明尚未实现的Raw原生父子恢复。特别是原test_exit_after_replace_resumes_without_source_or_rebuild保持operation_id=resume直接调用helper，不能据此声称更换Dagster run ID后的整条链已验收。
 
-R4的官方依据为[Requests超时文档](https://requests.readthedocs.io/en/latest/user/quickstart/#timeouts)，本机Tushare1.4.29/Requests2.34.2源码也已核对。HTTP实验仅127.0.0.1、无效测试token、单次假请求，未访问Tushare或正式资源。隔离实验见[边界结果](../../reports/moneyflow_p4_continuation_recovery_20261017/remaining_risk_isolated_probes_20261017.json)及[慢响应结果](../../reports/moneyflow_p4_continuation_recovery_20261017/remaining_risk_http_timeout_20261017.json)。测试失败场景按现行代码原样记录，没有改预期或实现凑通过。
+R4的官方依据为[Requests超时文档](https://requests.readthedocs.io/en/latest/user/quickstart/#timeouts)，本机Tushare1.4.29/Requests2.34.2源码也已核对。HTTP实验仅127.0.0.1、无效测试token、单次假请求，未访问Tushare或正式资源。隔离实验见[边界结果（附件已清理）](dagster-moneyflow-tushare-low-level-design-v1.md#report-attachment-cleanup-20261103)及[慢响应结果（附件已清理）](dagster-moneyflow-tushare-low-level-design-v1.md#report-attachment-cleanup-20261103)。测试失败场景按现行代码原样记录，没有改预期或实现凑通过。
 
 **本轮修复应合在一次完整交付中。** 复用已有原生重执行、Journal及受控提交能力，不再复制第二套正式执行器/临时writer。配置继续沿现行来源；若总截止时间设计需要新增或改变参数，必须先补默认、持久化来源、全部消费者、生效范围及测试，不得散落脚本和常量。R3只改变观测完整性，绝不能放开任何失败后的写入。R6不可只改报表，须与真实父子/文件/check合同同迁移。上述实现均需沿原方案确认后开展；本轮没有编码或提交正式任务。
 
@@ -4454,7 +4461,7 @@ audit --plan <当前有效完整47项清单> --expect-plan-sha256 <实际SHA> --
 
 #### 70.26.1 授权、目标及改动对账
 
-本轮指令为“提交修改，然后按照方案和LLD来推进修复和隔离演练”，并要求尽可能小成本。已先提交`61650e27`（两份设计及四份风险报告），再按§70.25开发。下列是实际实现，不是新执行授权。全部43份本任务Python路径、SHA、原始日志/XML、命令和覆盖边界记录在[验收报告](../../reports/moneyflow_p4_continuation_recovery_20261017/repair_isolated_acceptance_20261017.json)及同目录`repair_isolated/`，新实现尚未提交。
+本轮指令为“提交修改，然后按照方案和LLD来推进修复和隔离演练”，并要求尽可能小成本。已先提交`61650e27`（两份设计及四份风险报告），再按§70.25开发。下列是实际实现，不是新执行授权。全部43份本任务Python路径、SHA、原始日志/XML、命令和覆盖边界记录在[验收报告（附件已清理）](dagster-moneyflow-tushare-low-level-design-v1.md#report-attachment-cleanup-20261103)及同目录`repair_isolated/`，新实现尚未提交。
 
 路径以下相对`lake_console/orchestrator/`。CodeGraph使用`codegraph_explore`审计入口/调用/恢复影响面，完成后`codegraph sync/status`确认仓库根索引最新（4210文件）；动态SDK与原生Dagster事件补读现行代码、安装类型和生产者。正式加载、共享服务活动和真实来源行为仍需下阶段核验，未声称CodeGraph代替运行证明。无Foundation/Ops/Biz/QTF、前端或主体依赖矩阵变化。
 
@@ -4498,7 +4505,7 @@ audit --plan <当前有效完整47项清单> --expect-plan-sha256 <实际SHA> --
 
 管理员本轮已批准提交修复并按计划推进正式审核、数据恢复及验收，覆盖§70.25.7步骤2～6。修复提交`db67e7d8`，本轮不再要求重复批准。仍仅moneyflow10-13～16，严格先13日Raw唯一原生child→普通Silver→读回，再14～16。21sensor保持关闭，其他45项、历史7804项及P5不进入写入范围。
 
-当前正式审核见[preflight.json](../../reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/preflight.json)：2026-10-17 22:47，45/49、90文件摘要不变、原两次失败与剩四日动作准确，无活动或排队任务；14资产、21停止、专用并发容量1且空闲、同盘及空间门禁通过。117依赖/744源码与已通过的隔离Definitions逐份一致；审核NativeBackend计数272读，另4条只读池SQL，合276读/5.76秒，0正式变更/0源请求。因本次变更真实采集器、截止点传递及请求worker，必须加载当前代码一次，不能只凭资产名称相同视为代码已更新。
+当前正式审核见[preflight.json（附件已清理）](dagster-moneyflow-tushare-low-level-design-v1.md#report-attachment-cleanup-20261103)：2026-10-17 22:47，45/49、90文件摘要不变、原两次失败与剩四日动作准确，无活动或排队任务；14资产、21停止、专用并发容量1且空闲、同盘及空间门禁通过。117依赖/744源码与已通过的隔离Definitions逐份一致；审核NativeBackend计数272读，另4条只读池SQL，合276读/5.76秒，0正式变更/0源请求。因本次变更真实采集器、截止点传递及请求worker，必须加载当前代码一次，不能只凭资产名称相同视为代码已更新。
 
 #### 70.27.2 原生代码加载的精确操作
 
@@ -4516,7 +4523,7 @@ audit --plan <当前有效完整47项清单> --expect-plan-sha256 <实际SHA> --
 
 原生加载已成功且仅一次，serverId由`1dee22e1-cff8-4af2-8195-f70354f9c35a`变为`622f590d-45b0-47b3-99dd-fc54145f0c32`；14资产及21STOPPED读回通过。新verification SHA256=`4beeea0907a53d55f99d61403520bfeb6a97bd5db3bcf808b73addc94f662ce5`，依赖/库存与加载前一致，未提交任何数据任务。
 
-[精确执行清单](../../reports/moneyflow_p4_continuation_recovery_20261017/formal_recovery/execution_manifest.json)已生成并逐份只读核对，包含完整argv、绝对路径及SHA。完整47项SHA=`b036e672b870ad7e9a4368befb85c9e889456d1b4d1290e0d6f212e7de89bf42`，root仍`79c34e4ed75be094554311d6b46d29f5be11ae2d1310303a85f5f32dc39628d0`，有效期至2026-10-18 00:00上海时间。
+[精确执行清单（附件已清理）](dagster-moneyflow-tushare-low-level-design-v1.md#report-attachment-cleanup-20261103)已生成并逐份只读核对，包含完整argv、绝对路径及SHA。完整47项SHA=`b036e672b870ad7e9a4368befb85c9e889456d1b4d1290e0d6f212e7de89bf42`，root仍`79c34e4ed75be094554311d6b46d29f5be11ae2d1310303a85f5f32dc39628d0`，有效期至2026-10-18 00:00上海时间。
 
 | 执行顺序 | 单日清单（均在formal_recovery/） | SHA256 |
 | --- | --- | --- |

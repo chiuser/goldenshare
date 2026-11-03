@@ -1,5 +1,10 @@
 # 10月28日原月线任务恢复完成
 
+<a id="report-attachment-cleanup-20261103"></a>
+
+> 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](../../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
+
+
 本轮在10月29日执行，业务日期保持10月28日。管理员已明确批准原任务收尾及154个月/658周Silver、必要参考读取，含中断余项和收尾预算读2GiB、写1GiB、额外空间1GiB；未增加运行限制或改代码。
 
 | 步骤 | 实际run | 结果 |
@@ -15,4 +20,4 @@
 
 Raw原检查在asset返回后才完成，因此原通知Silver自然启动与随后原events控制收尾可相邻发生；后者只确认原检查/补回执，不重算数据。四sensor状态仍RUNNING，未重置游标、调并发、加资源标签或重启服务。最终验收复用原生产者/原检查回执及逐文件stat，不读历史Parquet正文；只对当前月两小文件做一次收尾计数/日期统计。没有性能测试、包安装或全局审计。预算为设计/批准值，未把磁盘文件体积说成实测总IO。
 
-独立只读复核通过。三份本轮辅助脚本已逐字归档为.py.txt后精确删除，正式文件、源、CP、receipt及业务staging保留。最终证据：[执行汇总](execution-result.json)、[完整回执对账](final-verified.json)、[当前月最终核验](current-month-final.json)、[原job最终状态](watch-05.json)、[精确清理](cleanup-result.json)。
+独立只读复核通过。三份本轮辅助脚本已逐字归档为.py.txt后精确删除，正式文件、源、CP、receipt及业务staging保留。最终证据：[执行汇总（附件已清理）](README.md#report-attachment-cleanup-20261103)、[完整回执对账（附件已清理）](README.md#report-attachment-cleanup-20261103)、[当前月最终核验（附件已清理）](README.md#report-attachment-cleanup-20261103)、[原job最终状态（附件已清理）](README.md#report-attachment-cleanup-20261103)、[精确清理（附件已清理）](README.md#report-attachment-cleanup-20261103)。

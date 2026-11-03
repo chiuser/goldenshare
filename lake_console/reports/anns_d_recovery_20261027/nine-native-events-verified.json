@@ -1,0 +1,207 @@
+{
+  "run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+  "status": "SUCCESS",
+  "materializations": [
+    {
+      "day": "2026-10-20",
+      "event_id": 7734270,
+      "timestamp": 1793066746.698299,
+      "row_count": 1213
+    },
+    {
+      "day": "2026-10-21",
+      "event_id": 7734271,
+      "timestamp": 1793066746.721062,
+      "row_count": 1200
+    },
+    {
+      "day": "2026-10-22",
+      "event_id": 7734272,
+      "timestamp": 1793066746.733588,
+      "row_count": 1133
+    },
+    {
+      "day": "2026-10-23",
+      "event_id": 7734273,
+      "timestamp": 1793066746.7440572,
+      "row_count": 1784
+    },
+    {
+      "day": "2026-10-24",
+      "event_id": 7734274,
+      "timestamp": 1793066746.754997,
+      "row_count": 2044
+    },
+    {
+      "day": "2026-10-25",
+      "event_id": 7734275,
+      "timestamp": 1793066746.7669718,
+      "row_count": 19
+    },
+    {
+      "day": "2026-10-26",
+      "event_id": 7734276,
+      "timestamp": 1793066746.777205,
+      "row_count": 1141
+    },
+    {
+      "day": "2026-10-27",
+      "event_id": 7734277,
+      "timestamp": 1793066746.7875872,
+      "row_count": 3150
+    },
+    {
+      "day": "2026-10-28",
+      "event_id": 7734278,
+      "timestamp": 1793066746.798972,
+      "row_count": 0
+    }
+  ],
+  "checks": [
+    {
+      "day": "2026-10-20",
+      "name": "raw_tushare_anns_d_file_contract_check",
+      "passed": true,
+      "target_event_id": 7734270,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.698299
+    },
+    {
+      "day": "2026-10-20",
+      "name": "raw_tushare_anns_d_delivery_reconciliation_check",
+      "passed": true,
+      "target_event_id": 7734270,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.698299
+    },
+    {
+      "day": "2026-10-21",
+      "name": "raw_tushare_anns_d_file_contract_check",
+      "passed": true,
+      "target_event_id": 7734271,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.721062
+    },
+    {
+      "day": "2026-10-21",
+      "name": "raw_tushare_anns_d_delivery_reconciliation_check",
+      "passed": true,
+      "target_event_id": 7734271,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.721062
+    },
+    {
+      "day": "2026-10-22",
+      "name": "raw_tushare_anns_d_file_contract_check",
+      "passed": true,
+      "target_event_id": 7734272,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.733588
+    },
+    {
+      "day": "2026-10-23",
+      "name": "raw_tushare_anns_d_file_contract_check",
+      "passed": true,
+      "target_event_id": 7734273,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.7440572
+    },
+    {
+      "day": "2026-10-22",
+      "name": "raw_tushare_anns_d_delivery_reconciliation_check",
+      "passed": true,
+      "target_event_id": 7734272,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.733588
+    },
+    {
+      "day": "2026-10-24",
+      "name": "raw_tushare_anns_d_file_contract_check",
+      "passed": true,
+      "target_event_id": 7734274,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.754997
+    },
+    {
+      "day": "2026-10-23",
+      "name": "raw_tushare_anns_d_delivery_reconciliation_check",
+      "passed": true,
+      "target_event_id": 7734273,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.7440572
+    },
+    {
+      "day": "2026-10-25",
+      "name": "raw_tushare_anns_d_file_contract_check",
+      "passed": true,
+      "target_event_id": 7734275,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.7669718
+    },
+    {
+      "day": "2026-10-26",
+      "name": "raw_tushare_anns_d_file_contract_check",
+      "passed": true,
+      "target_event_id": 7734276,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.777205
+    },
+    {
+      "day": "2026-10-24",
+      "name": "raw_tushare_anns_d_delivery_reconciliation_check",
+      "passed": true,
+      "target_event_id": 7734274,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.754997
+    },
+    {
+      "day": "2026-10-27",
+      "name": "raw_tushare_anns_d_file_contract_check",
+      "passed": true,
+      "target_event_id": 7734277,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.7875872
+    },
+    {
+      "day": "2026-10-25",
+      "name": "raw_tushare_anns_d_delivery_reconciliation_check",
+      "passed": true,
+      "target_event_id": 7734275,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.7669718
+    },
+    {
+      "day": "2026-10-28",
+      "name": "raw_tushare_anns_d_file_contract_check",
+      "passed": true,
+      "target_event_id": 7734278,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.798972
+    },
+    {
+      "day": "2026-10-26",
+      "name": "raw_tushare_anns_d_delivery_reconciliation_check",
+      "passed": true,
+      "target_event_id": 7734276,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.777205
+    },
+    {
+      "day": "2026-10-27",
+      "name": "raw_tushare_anns_d_delivery_reconciliation_check",
+      "passed": true,
+      "target_event_id": 7734277,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.7875872
+    },
+    {
+      "day": "2026-10-28",
+      "name": "raw_tushare_anns_d_delivery_reconciliation_check",
+      "passed": true,
+      "target_event_id": 7734278,
+      "target_run_id": "49b08e12-041b-49ec-b8fa-f9a26baf116f",
+      "target_timestamp": 1793066746.798972
+    }
+  ],
+  "passed": true
+}

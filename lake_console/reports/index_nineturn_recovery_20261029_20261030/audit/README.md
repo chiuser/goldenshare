@@ -1,5 +1,10 @@
 # 2026-10-29主要指数日线九转缺失原因审计
 
+<a id="report-attachment-cleanup-20261103"></a>
+
+> 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](../../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
+
+
 只读审计；不触发job、sensor evaluation或状态写入，不额外读取Parquet行情。
 
 ## 结论
@@ -18,10 +23,10 @@ Gold九转sensor将当日2026-10-30包含在最近10交易日窗口，并在发�
 
 ## 证据
 
-- [验证摘要](verified-summary.json)
-- [sensor、29日和近期job记录](preflight-response.json)
-- [注册规则运行记录、最近分区与28日检查](gate-response.json)
-- [29日上游四项检查及物化关联](upstream-check-response.json)
+- [验证摘要（附件已清理）](README.md#report-attachment-cleanup-20261103)
+- [sensor、29日和近期job记录（附件已清理）](README.md#report-attachment-cleanup-20261103)
+- [注册规则运行记录、最近分区与28日检查（附件已清理）](README.md#report-attachment-cleanup-20261103)
+- [29日上游四项检查及物化关联（附件已清理）](README.md#report-attachment-cleanup-20261103)
 
 ## 建议方向（未实施）
 

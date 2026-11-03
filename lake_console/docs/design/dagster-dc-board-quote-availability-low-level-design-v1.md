@@ -1,5 +1,12 @@
 # DC 板块暂未形成行情的处理 LLD v1
 
+<a id="report-attachment-cleanup-20261103"></a>
+
+> 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
+
+保留DC最终结果：[实现对账](../../reports/dc_recovery_implementation_reconciliation_20261011.json)、[上线验收](../../reports/dc_recovery_online_acceptance_20261011.json)。
+
+
 > 状态：2026-10-13。原条件覆盖模型已实施（§8.1）；10 月 8、9 日数据恢复后的物理审计及 10 月 9 日 member 正式恢复见 §10.5。自动恢复次数、冷却与分类设计已按管理员指令写入 §10；§10.8 历史审计发现的身份载体冲突已按管理员确认在 §10.9 解决，§10.10 保留开发前复审，§10.11 保留开发、逐项对账与测试记录；代码已提交为 `8ecea622`，管理员重启 DG 后已上线，2026-10-11 19:13 正常运行只读检查通过。真实自动恢复链路待自然失败时验证，最小核验方式见 §10.12；10 月 12 日正常首次自动运行核验通过，未发生自然失败或自动恢复，结果见 §10.13。§8.1、§8.2 保留各自日期的历史记录，不代表当前发布阻断或新增机制验收。
 > 本文是 [板块接入方案](./dagster-dc-board-data-onboarding-plan.md) 和 [原 LLD](./dagster-dc-board-data-onboarding-low-level-design.md) 的实施补充；本文条件覆盖口径已进入当前工作区代码，原文档中的旧集合门禁仅保留为历史阶段记录。
 
@@ -372,7 +379,7 @@ Tushare MCP另以完整显式daily字段核对BK1754：10月8日为空，10月9�
 
 剩余发布门禁是加载范围：正式code location最后加载时间为2026-10-08 22:06:44，查询到的index配置仍是旧5字段模型，cursor仍报 `prod_completion_not_closed`。当前工作区还存在其他任务未提交的orchestrator改动；刷新整个location会一并加载，不能擅自将DC部署授权扩展到它们。需先由管理员/相应任务明确发布范围，再批准正式加载和限定两日恢复。所有DC链sensor目前RUNNING，加载后可能自行提交任务，因此reload属于正式执行阶段，不能当作只读操作。
 
-建议按日期先恢复8日，再9日；各日期按Raw → Silver → Gold → local CH → Prod CH执行并读回既有核心check metadata及物理计数。三类Raw需在真正执行时重新取得各自有效证明；本次预检不是可跨事实变化重放的通行证。不修改Prod core、不补零、不重置cursor、不删除run key、不注册重复日期、不全历史重写。完整脱敏摘要见[限定恢复预检报告](../../reports/dc_board_quote_recovery_preflight_20261009.json)。本轮没有reload、sensor evaluation、job、materialize、事件补录、Lake/DB写入。
+建议按日期先恢复8日，再9日；各日期按Raw → Silver → Gold → local CH → Prod CH执行并读回既有核心check metadata及物理计数。三类Raw需在真正执行时重新取得各自有效证明；本次预检不是可跨事实变化重放的通行证。不修改Prod core、不补零、不重置cursor、不删除run key、不注册重复日期、不全历史重写。完整脱敏摘要见[限定恢复预检报告（附件已清理）](dagster-dc-board-quote-availability-low-level-design-v1.md#report-attachment-cleanup-20261103)。本轮没有reload、sensor evaluation、job、materialize、事件补录、Lake/DB写入。
 
 ## 9. 推进边界（设计修订阶段历史）
 
@@ -501,7 +508,7 @@ cursor/skip 展示至少包含目标日期、`active_run` / `retry_cooldown` / `
 
 ### 10.8 开发前补齐与审计（历史结论；2026-10-11，保留配置核验于 16:27）
 
-本节保留typed config方向确认前的审计记录，载体阻断已在§10.9/§10.10解除；保留核验事实仍适用。本次按管理员要求只同步 run key 治理文档、核实记录保留并审计开工条件。没有开发、测试故障注入、加载定义、运行 job、修改 sensor/cursor、改配置或删除记录。完整有界结果归档为 [开发前审计证据](../../reports/dc_recovery_development_readiness_20261011.json)。时间是本次保留配置核验时点，不代表未来服务状态。
+本节保留typed config方向确认前的审计记录，载体阻断已在§10.9/§10.10解除；保留核验事实仍适用。本次按管理员要求只同步 run key 治理文档、核实记录保留并审计开工条件。没有开发、测试故障注入、加载定义、运行 job、修改 sensor/cursor、改配置或删除记录。完整有界结果归档为 [开发前审计证据（附件已清理）](dagster-dc-board-quote-availability-low-level-design-v1.md#report-attachment-cleanup-20261103)。时间是本次保留配置核验时点，不代表未来服务状态。
 
 **治理同步已完成。** [run key 治理方案 §13](./dagster-run-key-governance-optimization-plan.md#13-dc-日更有限恢复增量2026-10-11已上线) 与 [治理 LLD §17](./dagster-run-key-governance-low-level-design.md#17-dc-raw-有限恢复身份2026-10-11已上线) 已同步三个 Raw subject、首次固定 key、恢复编号 2/3、无自然日 scope、三次总额度、人工运行边界及旧记录处理。通用 builder 不改签名，不改变其他数据集 key，原 M1-M9 完成状态不包含新增 DC 恢复。
 
@@ -599,7 +606,7 @@ sensor在生成请求前使用最多21条同job/partition记录核验额度、�
 
 开发启动仍需要管理员后续明确指令。开发时在当前`dev-interface`工作区按上述范围推进，保留无关脏文件；不自行提交、建分支、安装或正式运行。先落配置/异常/记录读取契约与隔离测试，再迁移三个Raw sensor/asset和其他消费者，最后逐条对账、definitions与静态门禁验证。所有新增配置、旧flat执行口径和自定义tags方案须在同批清零。
 
-本轮只做文档修改和静态代码消费者审计；文档完整性、相对链接与diff检查不证明Python实现或DG生产执行正确。原报告保留“当时阻断”的历史结论，本次另归档 [typed config确认后复审证据](../../reports/dc_recovery_development_readiness_typed_config_20261011.json)，不改写历史报告。正式失败—冷却—恢复验收和有限日期写入另获授权，不执行全历史重验/重写。
+本轮只做文档修改和静态代码消费者审计；文档完整性、相对链接与diff检查不证明Python实现或DG生产执行正确。原报告保留“当时阻断”的历史结论，本次另归档 [typed config确认后复审证据（附件已清理）](dagster-dc-board-quote-availability-low-level-design-v1.md#report-attachment-cleanup-20261103)，不改写历史报告。正式失败—冷却—恢复验收和有限日期写入另获授权，不执行全历史重验/重写。
 
 ### 10.11 开发完成与逐项对账（2026-10-11，开发阶段历史记录）
 

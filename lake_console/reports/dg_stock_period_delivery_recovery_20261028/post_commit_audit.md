@@ -1,5 +1,10 @@
 # 股票周/月交付恢复：提交后独立审计
 
+<a id="report-attachment-cleanup-20261103"></a>
+
+> 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
+
+
 **后续处理（2026-10-28）：** 下方是88de377ca原审计，位置/行号及“未修复”结论按当时版本保留。管理员随后批准五项开发，现已完成方案/LLD统一、代码修复、独立复核及隔离验收；最终528通过、0失败，2项既有PG实验未启用，详见[五项修复报告](followup_1_5.md)。原红证据没有删除，未部署、修正式状态或补数；本轮修复及证据随本次提交保存，提交号以Git记录为准；未推送。
 
 2026-10-28。审计提交 **88de377ca**，分支 dev-interface，未推送。设计基线为 befd282e0。
@@ -24,7 +29,7 @@
 
 修正方向：先在原方案/LLD说明如何证明“本次候选已经成为目标”，保留原有精确版本和摘要核验，再补run_period实际入口的中断反例。不能简单放开未知版本。
 
-证据：[复现脚本](audit_evidence/reproduce_replace_before_checkpoint.py)、[原输出](audit_evidence/reproduce_replace_before_checkpoint.out)。
+证据：[复现脚本（附件已清理）](README.md#report-attachment-cleanup-20261103)、[原输出（附件已清理）](README.md#report-attachment-cleanup-20261103)。
 
 ## 2. P1：主动history没有进入共享待办，后续新写可越过未确认交付
 
@@ -40,7 +45,7 @@
 
 修正方向：在原设计中补清主动history的登记、完成和恢复方式，使真实入口产生的未完成交付能被共同守卫发现；不要通过扫描整个runs目录、手工删记录或新增另一套状态绕过。
 
-证据：[复现脚本](audit_evidence/reproduce_manual_history_untracked.py)、[原输出](audit_evidence/reproduce_manual_history_untracked.out)。
+证据：[复现脚本（附件已清理）](README.md#report-attachment-cleanup-20261103)、[原输出（附件已清理）](README.md#report-attachment-cleanup-20261103)。
 
 ## 3. P2：Silver补报可给真实检查会拒绝的物化写入三项通过
 
@@ -61,7 +66,7 @@
 
 修正方向：补报准入与原生检查共享必要的日期、范围及绑定规则；补缺不能绕过这些规则。须同时覆盖缺失和非法asof的拒绝，以及合法前像不会被误拦。
 
-证据：[复现脚本](audit_evidence/silver_missing_asof.py)、[两频原结果](audit_evidence/silver_missing_asof.json)。
+证据：[复现脚本（附件已清理）](README.md#report-attachment-cleanup-20261103)、[两频原结果（附件已清理）](README.md#report-attachment-cleanup-20261103)。
 
 ## 4. P2：周线限定补报不能补记已证明完成的局部历史
 
@@ -73,7 +78,7 @@ LLD§12.5明确要求周线限定op只读/补记week的单文件和通知，mont
 
 影响限局部历史补记；全频events仍可恢复，旧20日仅1个周文件的全频收尾不受这一组合阻断。修正应明确分开“允许频率的回执可补”和“整批不能关闭”，不能顺便补月线或提前移除pending。
 
-证据：[复现脚本](audit_evidence/partial_week_history.py)、[正确启动方式的结果](audit_evidence/partial-week-history.json)。本次无源请求、无新业务事件，phase、pending、complete和当前文件保持。
+证据：[复现脚本（附件已清理）](README.md#report-attachment-cleanup-20261103)、[正确启动方式的结果（附件已清理）](README.md#report-attachment-cleanup-20261103)。本次无源请求、无新业务事件，phase、pending、complete和当前文件保持。
 
 ## 5. P2：旧行情读取的拒绝顺序未达到LLD要求
 
@@ -83,14 +88,14 @@ LLD§12.6要求未知选中目标在“读取旧行情及COPY之前”拒绝。�
 
 这不表示发生了全列行情读取或正式数据变更；说明读取边界不等于原承诺的“0旧行情读取”。实现报告虽然说明保留原定位查询，不能据此自行收窄LLD硬口径。需要先对齐范围定位与归属核验的顺序/必要读取，再按原文档约束开发或明确请求设计调整。现有反例只断言无COPY，漏了这项读取断言。
 
-证据：[复现脚本](audit_evidence/reproduce_guard_after_old_read.py)、[SQL阶段计数](audit_evidence/reproduce_guard_after_old_read.out)。
+证据：[复现脚本（附件已清理）](README.md#report-attachment-cleanup-20261103)、[SQL阶段计数（附件已清理）](README.md#report-attachment-cleanup-20261103)。
 
 ## 6. 已核范围、证据边界与下一步
 
 - 按当前源码重新核对三个检查选择入口、历史确认/后继链/ack、daily/history/CLI/handoff/周线op、原生日期/分区和测试落点。使用CodeGraph status/explore/search/callers/impact辅助，动态回调由源码补核；Context7和本地Dagster1.13.26 SDK用于检查/重执行合同。
 - 实际evaluation事件排序、NULL/重复异常、双LEFT JOIN、已经存在的FAILED/非blocking/晚错绑拒绝、已消费旧批确认及多后继链，在此次审查范围内未发现其他确证问题。这不是全仓无缺陷保证。
 - 原411项去重通过记录及原失败轮次保留。独立核对4份XML的最后一次逐用例结果，确为411项通过；当前8个生产文件与results.json指纹一致。但新增组合未被原套件覆盖，因此撤回“全部要求已通过、无已知阻塞项”的总体结论。
-- 只补必要隔离复现和10个既有定向用例；正确启动轮次10通过/0失败/0跳过，6.47秒。使用本工程既有.venv/bin/python3 -B，不安装依赖，不重复整套回归。原10例及一次局部复现设置PYTHONPATH，违反启动规则，已明确撤回并保留为无效启动记录；去掉PYTHONPATH后重跑同范围，结果相同。见[有效定向记录](audit_evidence/receipt-targeted-checks-correct-launcher.json)。
+- 只补必要隔离复现和10个既有定向用例；正确启动轮次10通过/0失败/0跳过，6.47秒。使用本工程既有.venv/bin/python3 -B，不安装依赖，不重复整套回归。原10例及一次局部复现设置PYTHONPATH，违反启动规则，已明确撤回并保留为无效启动记录；去掉PYTHONPATH后重跑同范围，结果相同。见[有效定向记录（附件已清理）](README.md#report-attachment-cleanup-20261103)。
 - 所有业务文件、Lake/staging及SQLite实例均为临时隔离资源，已清理；没有访问正式DG、Lake、Tushare或Prod，没有启动正式job/sensor，没有改生产代码。只保留小脚本、JSON及必要输出。没有再次运行隔离PG或性能实验。
 
 建议先补清前两项的真实恢复/登记方案，再按同一LLD补齐其余三项和正反测试，最后重新逐项对账。本轮停在审计，所有问题均未修复；正式旧待办收尾和补数继续不执行。此次审计及状态回写在开发提交之后形成，尚未另行提交。

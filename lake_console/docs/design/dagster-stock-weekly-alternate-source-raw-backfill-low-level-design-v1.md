@@ -1,5 +1,10 @@
 # DG 周/月Raw更新、完整性审计与Silver生成共享 LLD v1
 
+<a id="report-attachment-cleanup-20261103"></a>
+
+> 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
+
+
 **2026-10-31跨日日期修正已完成开发和隔离验收：** 当前实现规则及463项不重复用例结果见§12.22，新增28项；原任务身份保留，Silver使用逐文件实际来源范围，下载、水位、21列及原检查不改。本轮修改随本次提交保存，未正式补数；28日各项结果保留为历史，不表示29/30日已经补齐。
 
 **本轮补修完成（2026-10-28，开发、隔离验收及独立审计完成，随本次提交保存）：** 已修正来源未变时原ID被旧FAILURE/CANCELED挡住、未完成误入recover的两项遗漏。最终305项普通case及另518个subtest通过，两名非作者分别核对代码/消费者与逐case证据，无阻断；完整对账见§12.18.6。来源变化继续原恢复流程及其既有成本，不能将本轮等待分支的0预算扩展到全部tick。27日已完成补数保持原状，未部署、未操作正式资源。
@@ -1822,7 +1827,7 @@ SQLite先跑上述受影响测试；PG18.4仅放少量计划/完成/原生job记
 
 隔离证据包括实际Raw小producer/临时Parquet、完整CLI/localhost HTTP worker/取消/交接/实际Raw job/check，以及Raw→通知→两Silver sensor/job/check；PG18.4实际共享SQL和真实GraphQL/sensor重执行另外验证。PG job为独立最小业务夹具，证明SDK保持原日期/分区/config/root/parent/key且asset只运行一次、子run仅恢复失败check；不将此夹具冒称正式319业务链已执行。容量100项明确为metadata/stat替身测试，实际SQL与失败拒绝真实执行，不等于100份行情审计。
 
-全部A1—D4要求的实现函数、独立正反用例、证据边界及逐项结果见[本轮实现及验收报告](../../reports/dg_stock_period_delivery_recovery_20261028/README.md)；[results.json](../../reports/dg_stock_period_delivery_recovery_20261028/results.json)保留轮次和固定生产代码指纹。Ruff本次所有Python文件默认规则、src/tests致命错误基线、CodeGraph sync/status、文档/新增链接及diff检查通过；当轮已关闭集合读取、共享清单、线性stat、ack根/设备、日期/分区项；提交后独立审计另发现5项未关闭问题，以本文开头链接的审计结论为准，不再认定无已知阻塞项。
+全部A1—D4要求的实现函数、独立正反用例、证据边界及逐项结果见[本轮实现及验收报告](../../reports/dg_stock_period_delivery_recovery_20261028/README.md)；[results.json（附件已清理）](../../reports/dg_stock_period_delivery_recovery_20261028/README.md#report-attachment-cleanup-20261103)保留轮次和固定生产代码指纹。Ruff本次所有Python文件默认规则、src/tests致命错误基线、CodeGraph sync/status、文档/新增链接及diff检查通过；当轮已关闭集合读取、共享清单、线性stat、ack根/设备、日期/分区项；提交后独立审计另发现5项未关闭问题，以本文开头链接的审计结论为准，不再认定无已知阻塞项。
 
 隔离PG均按原datadir停止后删除；本轮临时目录/旧函数稿/已应用补丁按精确路径清理，记录见报告cleanup.json。未安装依赖、未操作正式数据。正式§12.11收尾、§12.12补数及自然运行验收全部保持未执行；下一步先由管理员review本次开发结果。
 
@@ -2010,7 +2015,7 @@ ordered_pending_work按原asof/冻结started_at顺序，manifest存在时核登�
 
 #### 12.16.9 五项开发、独立复核及隔离验收结果
 
-2026-10-28，dev-interface、开发基线88de377ca。第1—5项已落实，当前代码/测试与本节要求对账见[五项修复报告](../../reports/dg_stock_period_delivery_recovery_20261028/followup_1_5.md)。最终固定版本回归单次530项，**528通过、0失败，2项既有PG opt-in未启用**，136.39秒；10份生产代码、15份直接修改/新增测试运行前后SHA一致，见[指纹和总结果](../../reports/dg_stock_period_delivery_recovery_20261028/followup_fixed_version.json)及[最终XML](../../reports/dg_stock_period_delivery_recovery_20261028/followup-final-regression.xml)。未将多个重叠定向轮次相加为通过数。
+2026-10-28，dev-interface、开发基线88de377ca。第1—5项已落实，当前代码/测试与本节要求对账见[五项修复报告](../../reports/dg_stock_period_delivery_recovery_20261028/followup_1_5.md)。最终固定版本回归单次530项，**528通过、0失败，2项既有PG opt-in未启用**，136.39秒；10份生产代码、15份直接修改/新增测试运行前后SHA一致，见[指纹和总结果（附件已清理）](../../reports/dg_stock_period_delivery_recovery_20261028/README.md#report-attachment-cleanup-20261103)及[最终XML（附件已清理）](../../reports/dg_stock_period_delivery_recovery_20261028/README.md#report-attachment-cleanup-20261103)。未将多个重叠定向轮次相加为通过数。
 
 | 项 | 已落实现及验收 |
 | --- | --- |
@@ -2024,7 +2029,7 @@ ordered_pending_work按原asof/冻结started_at顺序，manifest存在时核登�
 
 开发后的独立审查补齐files_complete/ranges_recorded窗口的登记顺序和ack证明完整性，明确回写本节后实施；再复核未见五项仍待处理或待拍板的问题。全文旧扫描回退、局部频率、最新检查、history状态表、每频SQL及sensor历史状态表述已同步，不仅依靠“新节覆盖旧节”。CodeGraph sync/status、全src/tests致命Ruff、本次25文件默认Ruff、文档/链接与差异检查通过。
 
-读取/写入与原预算对账见报告：新增元数据准入0行情读；历史ack不新增DG查询，真实两频共享后继manifest读1次、complete读0次、committed各1次；2/100容量仍为明确metadata/stat样本，不能冒称全市场行情审计。指定临时Lake/staging/SQLite/工作文件已删除，小型失败及验证证据保留，见[清理记录](../../reports/dg_stock_period_delivery_recovery_20261028/followup_temp_cleanup.json)。
+读取/写入与原预算对账见报告：新增元数据准入0行情读；历史ack不新增DG查询，真实两频共享后继manifest读1次、complete读0次、committed各1次；2/100容量仍为明确metadata/stat样本，不能冒称全市场行情审计。指定临时Lake/staging/SQLite/工作文件已删除，小型失败及验证证据保留，见[清理记录（附件已清理）](../../reports/dg_stock_period_delivery_recovery_20261028/README.md#report-attachment-cleanup-20261103)。
 
 本轮修复、测试及文档证据随本次提交保存，提交号以Git记录为准；未推送、未部署/加载定义、未访问正式行情/Tushare/Prod、未执行正式状态修复/补数/sensor或cursor操作。§12.11—12.12正式步骤保持未执行；本节隔离通过不代替其授权、精确预核和实际数据范围批准。
 
@@ -2044,7 +2049,7 @@ ordered_pending_work按原asof/冻结started_at顺序，manifest存在时核登�
 
 本次正式范围仍为旧20原events、后续原27日任务及其Silver；该执行授权不代替未来具体历史全局读取范围的单独批准。CLI直接加载本工作区已验源码；原生job须确认其实际code location/进程使用同一版本，不能为此顺带发布其他脏文件。操作命令、当前前置、读写范围、失败/续跑和结果继续记入原报告及本节，未执行项不得预填成功。
 
-**本项开发结果：** 两份源码最小修正及新路径测试已完成，开发后独立复核无阻塞。修复前2/100项metadata两反例均在raw父目录lstat哨兵失败；修复后新21例及必要既有91例分别通过（3.110秒、21.122秒），Ruff/diff通过，指定测试临时目录已删除；未重复528项全组。证据及冻结源码SHA见[路径修正结果](../../reports/dg_stock_period_delivery_recovery_20261028/receipt-path-results.json)。该开发记录尚不代表正式events已执行；实际操作沿§12.11继续。
+**本项开发结果：** 两份源码最小修正及新路径测试已完成，开发后独立复核无阻塞。修复前2/100项metadata两反例均在raw父目录lstat哨兵失败；修复后新21例及必要既有91例分别通过（3.110秒、21.122秒），Ruff/diff通过，指定测试临时目录已删除；未重复528项全组。证据及冻结源码SHA见[路径修正结果（附件已清理）](../../reports/dg_stock_period_delivery_recovery_20261028/README.md#report-attachment-cleanup-20261103)。该开发记录尚不代表正式events已执行；实际操作沿§12.11继续。
 
 
 <a id="period-silver-recovery-progress-lld"></a>
@@ -2191,7 +2196,7 @@ helper和confirm内部共用现有read_recovery_evidence，在已有recovery_evi
 
 #### 12.18.6 实际实现、隔离验收及独立审计（2026-10-28完成，随本次提交保存）
 
-先落原三文档并审计后编码。生产代码只改evaluate_update_sensor分支，18行新增、21行删除：已有execution统一判断，failed_original仅用于hint前缀；来源未变直接progress，完整后沿原检查、confirm、coverage及ack。recover、progress、计算/写文件算法、definitions、job、CLI及其他数据集未改，原62项测试未改。固定源码SHA256为f86af1fbe2f830acf6ed71237c8dbcf6121af08049144e2fbdaec18ec8a3e0e6；新test_stock_period_silver_original_recovery.py为c2f1fd3b87e431eece30a604dff6886a83e8222e8e5725b44e239b57257ddd56，与已保留[逐case证据](../../reports/dg_stock_period_delivery_recovery_20261028/original_silver_recovery_results.json)一致。
+先落原三文档并审计后编码。生产代码只改evaluate_update_sensor分支，18行新增、21行删除：已有execution统一判断，failed_original仅用于hint前缀；来源未变直接progress，完整后沿原检查、confirm、coverage及ack。recover、progress、计算/写文件算法、definitions、job、CLI及其他数据集未改，原62项测试未改。固定源码SHA256为f86af1fbe2f830acf6ed71237c8dbcf6121af08049144e2fbdaec18ec8a3e0e6；新test_stock_period_silver_original_recovery.py为c2f1fd3b87e431eece30a604dff6886a83e8222e8e5725b44e239b57257ddd56，与已保留[逐case证据（附件已清理）](../../reports/dg_stock_period_delivery_recovery_20261028/README.md#report-attachment-cleanup-20261103)一致。
 
 | 约束 | 实现及实际隔离证据 |
 | --- | --- |
@@ -2251,7 +2256,7 @@ mutation CloseLostRun($runId: String!) {
 
 月Raw原files_complete、1015周/239月文件及续跑依据保留，本步未完成其事件确认、原生检查和Silver交接，不能销掉该数据待办。后续若需恢复此链，仍按原断点和本次具体范围核定；不因队列恢复就自动重跑。当前月Raw交付未完成与其他已有队列任务继续执行分开记录。
 
-请求、响应、执行前/后run及队列快照、只读辅助源码和结果存[本轮执行证据](../../reports/dg_stock_period_delivery_recovery_20261028/queue_release_104911a4_20261028/result.json)。本次只读预算内的元数据核验和一次状态事件写入，无Parquet正文读取、无历史重算。独立复核确认请求精确、状态和队列恢复证据一致，取消中事件归属已明确；文档验证另记同目录validation.json。未提交或部署代码。
+请求、响应、执行前/后run及队列快照、只读辅助源码和结果存[本轮执行证据（附件已清理）](../../reports/dg_stock_period_delivery_recovery_20261028/README.md#report-attachment-cleanup-20261103)。本次只读预算内的元数据核验和一次状态事件写入，无Parquet正文读取、无历史重算。独立复核确认请求精确、状态和队列恢复证据一致，取消中事件归属已明确；文档验证另记同目录validation.json。未提交或部署代码。
 
 
 #### 12.19.2 仅只读追因：旧执行退出后未被新服务收尾
@@ -2267,7 +2272,7 @@ mutation CloseLostRun($runId: String!) {
 
 ### 12.20 恢复28日原月Raw及两频Silver：操作细节（具体历史范围已获准）
 
-对应总方案§10.11。目标授权来自管理员“推进，把今天的这个数据集补完整”；日期冻结2026-10-28，跨到29日不变。本节无开发、无新配置/资源限额。统计依据仅原complete.json、相关源控制回执和选中目标stat，见[精确范围](../../reports/dg_stock_period_delivery_recovery_20261028/recovery_20261028_after_interrupt/dg28_silver_scope_stat.json)。本次具体历史读取未经批准前，不提交会产生两频Silver通知的Raw恢复。
+对应总方案§10.11。目标授权来自管理员“推进，把今天的这个数据集补完整”；日期冻结2026-10-28，跨到29日不变。本节无开发、无新配置/资源限额。统计依据仅原complete.json、相关源控制回执和选中目标stat，见[精确范围（附件已清理）](../../reports/dg_stock_period_delivery_recovery_20261028/recovery_20261028_after_interrupt/README.md#report-attachment-cleanup-20261103)。本次具体历史读取未经批准前，不提交会产生两频Silver通知的Raw恢复。
 
 **当前实现及恢复准入。** 安装Dagster1.13.26的KnownExecutionState.build_resume_retry_reexecution接受FAILURE/CANCELED，仅STEP_START而无终态视为interrupted；原月job选择asset及三blocking checks，FROM_FAILURE恢复中断asset和未完成checks。原run104911a4已CANCELED，原配置automatic_intent_date=2026-10-28、intent=daily、stock_codes=[]；不重新选股票或业务ID。当前stock_period_update的files_complete/consumed路径恢复原交付，不调用_daily_work、factor_changes、源请求、历史COPY或Raw替换；load_scope仍读股票基础及身份映射，原当前月native checks仍需实际验证。replay_events给已验文件注入版本缓存后补缺事件，未完成真实原生check仍须原job，禁止手填通过。
 
@@ -2520,4 +2525,4 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python3 -B -m o
 
 正常及一次中断/响应不确定后的复核只读本地小文件、XML、Git历史和指定日志句柄，预算读32MiB/写8MiB/临时空间8MiB，不含任何数据集读取。验收为副本/覆盖依据、清理读回、源码指纹、报告数字与实际8成功run的既有证据对账、文档完整性/新链接及限定diff检查；不重复463项测试或运行补数。提交保存本步结果，最终哈希以Git为准。
 
-**实际清理完成。** 上表12份文件348131B逐项依据复核通过，新增临时清单2108B也纳入本步记录后删除，共13个普通文件350239B；两个目录均确认空后rmdir，目标不存在的读回检查通过。临时旧指纹与最终证据的差异仅为最终文件新增new_test项，其余6项完全相同；原测试失败XML仍在既有gzip证据中，0失败的中间XML用例全部被最终XML覆盖，未清除失败证据。7份相关源码/测试指纹保持，无新代码/测试或正式DG操作。实际清单、Git边界及检查记录在[收尾记录](../../reports/dg_stock_period_delivery_recovery_20261028/commit_closeout_20261031.json)，随本次收尾提交保存；JSON中的历史提交前状态不改。
+**实际清理完成。** 上表12份文件348131B逐项依据复核通过，新增临时清单2108B也纳入本步记录后删除，共13个普通文件350239B；两个目录均确认空后rmdir，目标不存在的读回检查通过。临时旧指纹与最终证据的差异仅为最终文件新增new_test项，其余6项完全相同；原测试失败XML仍在既有gzip证据中，0失败的中间XML用例全部被最终XML覆盖，未清除失败证据。7份相关源码/测试指纹保持，无新代码/测试或正式DG操作。实际清单、Git边界及检查记录在[收尾记录（附件已清理）](../../reports/dg_stock_period_delivery_recovery_20261028/README.md#report-attachment-cleanup-20261103)，随本次收尾提交保存；JSON中的历史提交前状态不改。

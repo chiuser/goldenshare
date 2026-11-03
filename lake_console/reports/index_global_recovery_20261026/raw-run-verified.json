@@ -1,0 +1,56 @@
+{
+  "as_of": "2026-10-26T17:12:48.322072+08:00",
+  "run_id": "0465cb4b-0af1-4d6e-81d5-ed4c75c5d6f3",
+  "status": "SUCCESS",
+  "elapsed_seconds": 5.09241795539856,
+  "materialization_id": 7730230,
+  "check_id": 7730239,
+  "check_success": true,
+  "check_targets_this_materialization": true,
+  "source_rows": 0,
+  "output_rows": 0,
+  "source_requests": 1,
+  "source_retries": 0,
+  "operation_directory": "/Volumes/datasource/data_lake_staging/index_global/raw_index_global/trade_date=2026-10-04/operation=c8a8b9f5-7cd7-49c2-8492-04fcc41d12df/phase=late_empty",
+  "operation_status": "reused",
+  "formal_files": {
+    "raw": {
+      "path": "/Volumes/datasource/data_lake/raw/index_global/trade_date=2026-10-04/part-000.parquet",
+      "identity": [
+        16777244,
+        20053089,
+        278,
+        1791165703564453158,
+        1791165703566977259
+      ],
+      "sha256": "956c9cd15ce9e67fdd95415f9631a0b4ff9b96f3c3e82e6b9d3a7e8d805b9c09",
+      "unchanged": true
+    },
+    "silver": {
+      "path": "/Volumes/datasource/data_lake/silver/index_global/trade_date=2026-10-04/part-000.parquet",
+      "identity": [
+        16777244,
+        20053101,
+        285,
+        1791165958344450922,
+        1791165958346228393
+      ],
+      "sha256": "03373d77bf84056b36dad0672e4603759749376e100b7d04630b3bba73c5f60c",
+      "unchanged": true
+    }
+  },
+  "bounded_final_count": [
+    [
+      "raw",
+      0
+    ],
+    [
+      "silver",
+      0
+    ]
+  ],
+  "silver_schema_matches": true,
+  "silver_job_started": false,
+  "silver_skip_reason": "Raw retained same zero-row file; Silver same zero-row file, schema valid, earlier successful check retained",
+  "formal_parquet_replaced": 0
+}

@@ -4,6 +4,8 @@
 
 > 2026-11-01报告精简：管理员已要求删除无用恢复材料。范围仅为21、22、23、28、30日五个`datasets_recovery_*`目录；保留各次说明、最终审计和少量必要结果，过程日志、探测、脚本与逐文件清单删除，不另打包。保留清单、引用处理和执行规则见[LLD20.16](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2016-五个恢复报告目录的精简2026-11-01)。历史操作和验收结论不改，不操作正式数据或DG状态。
 
+> 2026-11-03追加清理已完成：管理员明确要求清理`lake_console/reports`下其余recovery临时文件。本次从605份中删除539份过程附件，保留66份历史说明、最终结果及必要测试来源；释放12,969,561B，修正157处附件链接，保留的41份非Markdown结果/样本字节未变，文档与引用核验通过。范围、保留清单和实际结果见[LLD20.17](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。未操作正式数据、DG或其他工作区改动，未新增备份包或Git提交，不将旧报告时间更新为当前数据结论。
+
 > 2026-11-01收尾：30日股票分钟链37项及两次repair已完成，五条本轮暂停sensor已恢复。随后普通指数日线5项经原sensor/job自动补齐；10月31日22:18按指定skill审计当前180项目录，其中164项通过、16项按规则排除，缺失/更新滞后/未核实均为0。此次只归档已有证据、清理已归档的临时副本并提交30日相关修改，不重跑补数或审计。详见[本轮执行记录](../../reports/datasets_recovery_20261030_20261031/README.md)和[LLD20.15](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2015-30日全部补齐后的记录清理和限定范围提交2026-11-01)。下方29日和更早记录保留当时口径。
 
 > 2026-10-30最新状态：方案及实现分别以`4a4a689e`、`5a0b13401`提交，315项测试及23项子测试通过。原job只恢复29日1m的run`63c25bed-bdc8-4fee-9af8-0321b5b13ac7`SUCCESS，两物化/四检查通过，154.728秒；其他六频日更未重跑。随后原2股七频历史repair run`86d8b492-c056-412d-b9cc-551462e3188e`SUCCESS，14项completion范围/hash/batch一致，281.185秒，sensor已恢复RUNNING并保留原光标，无重复repair。开发验收见[LLD19.12](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#1912-开发隔离测试与实现对账2026-10-30)，日更/repair正式结果见[19.14](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#1914-29日1分钟恢复执行记录)及[19.16](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#1916-29日2股repair执行与sensor恢复记录)。原4GB报错的日更准备阶段本次实际通过；历史repair计算组织未另行优化，本轮没有再改代码或重刷其他股票指标。

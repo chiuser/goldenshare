@@ -1,5 +1,10 @@
 # 2026-10-29主要指数日线九转恢复记录
 
+<a id="report-attachment-cleanup-20261103"></a>
+
+> 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
+
+
 依据原方案第6.4节及LLD第6.5节，先提交并加载修复，随后仅跟踪原sensor自动执行Gold→Prod。管理员已明确批准。未手工发job、未手工evaluation、未改sensor开关/cursor/run key，不重跑股票链或分钟九转，不做全目录审计。
 
 ## 执行前与加载
@@ -34,8 +39,8 @@ Prod发布和原检查expected/observed内容hash均为`f95a12d40bfee2e3e5eeeb72
 - [Gold原任务与检查验收](gold-verified.json)
 - [Prod原任务、检查与内容读回](prod-verified.json)
 - [唯一最终两目标计数](final.json)
-- [最终开关与加载状态](final-state-response.json)
-- [执行边界摘要](execution-summary.json)
+- [最终开关与加载状态（附件已清理）](README.md#report-attachment-cleanup-20261103)
+- [执行边界摘要（附件已清理）](README.md#report-attachment-cleanup-20261103)
 
 独立只读复核上述已保存响应和验收报告通过，没有再次查询正式数据。没有重复全局审计、历史重算、手工job/evaluation、sensor开关/cursor变更或runless事件；本次只完成29日两项，不把30日或其他历史算入。
 
@@ -52,9 +57,9 @@ Prod发布和原检查expected/observed内容hash均为`f95a12d40bfee2e3e5eeeb72
 本轮临时目录内14份必要审计/测试证据共64,736字节，已原样移入本报告的`audit/`、`validation/`。逐份SHA-256一致后，删除了原临时副本和空的原因审计目录；原始JSON/日志内的旧路径保留为执行时事实，不作为新操作入口。
 
 - [原因审计原始记录](audit/README.md)：描述修复前事实，其中“当前/未实施”均指当时状态。
-- [99项测试、源指纹和隔离资源清理结果](validation/major_index_nineturn_validation_20261030.json)
-- [旧代码失败证据](validation/major_index_nineturn_tail_old_code_evidence.json)
-- [归档校验及临时清理清单](cleanup-manifest.json)
+- [99项测试、源指纹和隔离资源清理结果（附件已清理）](README.md#report-attachment-cleanup-20261103)
+- [旧代码失败证据（附件已清理）](README.md#report-attachment-cleanup-20261103)
+- [归档校验及临时清理清单（附件已清理）](README.md#report-attachment-cleanup-20261103)
 
 本次收尾没有查询正式实例或行情、触发job/evaluation、操作sensor、重跑审计或修改正式Lake/staging；既有正式结果和无关工作区文件保持现状。仅保留本次有用证据，没有新增测试资源。
 
