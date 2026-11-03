@@ -1,6 +1,8 @@
 # 修订后r4历史识别对比专项LLD v1
 
-更新：2026-10-31。三项修补后的工具适配及唯一一次922根真实比较已完成，CURRENT=50b0f22bb/v0.4-r4。330项专项人工、16项架构通过，旧56项真实基准全部通过；完整调用2.794937秒。完整计算事件差11日，应显示标签差9日，普通状态差2日。完整报告见[方案§32](wealth-r4-historical-comparison-plan-v1.md)，本次开发与独立审计见§29—30。工具、测试及本次报告纳入本次提交，不部署，不推进公开HTTP/页面。
+> P5整理说明（2026-11-03）：本文保留原设计、开发及验收记录的历史含义，不是当前开工或运行入口。旧执行代码和过程产物已按清单清退；原路径文字仅作出处。现行规则与阶段见[产品文档](wealth-top-bottom-recognition-product-v1.md)，有效原材料见[资料索引](../../reports/xxm/README.md)。
+
+更新：2026-10-31。三项修补后的工具适配及唯一一次922根真实比较已完成，CURRENT=50b0f22bb/v0.4-r4。330项专项人工、16项架构通过，旧56项真实基准全部通过；完整调用2.794937秒。完整计算事件差11日，应显示标签差9日，普通状态差2日。完整报告见[方案§32](wealth-r4-historical-comparison-plan-v1.md)，本次开发与独立审计见§29—30。工具、测试和报告已提交ec37c69ea，管理员已验收通过，本专项结束；后续转正式LLD§20计划，未开始公开HTTP/页面开发，不部署。
 
 §22—27保留修补前v0.3设计及运行事实，不作为v0.4验收依据。本次工具合同见§28，正式识别/预测/显示字段和独立预期继续由正式产品LLD§2—6/§14/§18规定。
 
@@ -308,15 +310,15 @@ metrics记录唯一t0后的各阶段耗时、parentPeak、最高子峰值、最�
 
 | 要求 | 实际代码 | 对应测试证据 |
 |---|---|---|
-| 固定Spec、12段Git源码只在RAM、正式核心保护、先拒绝partial再取对象 | [comparison](../../scripts/research/index_market/xxm/r4_history_comparison.py)的HistoryComparisonSpec、_preflight_git、read_git_sources | comparison测试HC01，缺模块/错范围/不安全仓库正常与反例；worker真实固定模块字面样本 |
+| 固定Spec、12段Git源码只在RAM、正式核心保护、先拒绝partial再取对象 | comparison（原记录：`scripts/research/index_market/xxm/r4_history_comparison.py`）的HistoryComparisonSpec、_preflight_git、read_git_sources | comparison测试HC01，缺模块/错范围/不安全仓库正常与反例；worker真实固定模块字面样本 |
 | 六列/三列真实查询合同、原float、922/1394/922、只读关闭、外层及原8秒 | comparison._read_input_async/read_input，复用原Query/Session/normalizer/_points | HC02/03以真实SQL投影及人工行检查各查询一次、正向原值、类型/日期/缺日/超限/H关系拒绝，错误时关闭 |
-| 完整消息、并行读写三管道、先回收旧组、身份/Spec及自身规则hash核对 | comparison._pump_process/_WorkerFrames/run_worker，[worker](../../scripts/research/index_market/xxm/r4_history_worker.py)的validate_request/_Runtime | HC04/05/06；大于管道容量的独立测试进程、半包/错误消息/错PID/RESULT后取消；两实际worker人工联调 |
+| 完整消息、并行读写三管道、先回收旧组、身份/Spec及自身规则hash核对 | comparison._pump_process/_WorkerFrames/run_worker，worker（原记录：`scripts/research/index_market/xxm/r4_history_worker.py`）的validate_request/_Runtime | HC04/05/06；大于管道容量的独立测试进程、半包/错误消息/错PID/RESULT后取消；两实际worker人工联调 |
 | 单一20秒、合计峰值、16MiB及最终核验；取消不打断清理 | ResearchBudget/_cleanup_process/_finish_result及worker资源报告 | HC07—12/18，分别低于256但合计超限、回收后更高峰、编码后过期、控制/结果超限、重复取消、close抛错、0秒清理反例 |
 | 原算法不改，CURRENT单只逐根；旧资源观察原值及finally恢复 | worker._calculate/_observe_old_memory，固定源码原文装载 | HC09；开关包装业务事实不变、成功/失败原函数恢复；独立手写状态和事件预期 |
-| 组内关联、旧Wave日期、新旧结构含义、日期差异和依据 | [records](../../scripts/research/index_market/xxm/r4_history_records.py)的validate_baseline/compare_fact_groups/format_report | HC13—17，旧WAITING、新回钝化、形成并锁死、同标签异参照、旧池移除仍查日期、同日多候选/跨日不强配、悬挂/未来/终态回退拒绝 |
+| 组内关联、旧Wave日期、新旧结构含义、日期差异和依据 | records（原记录：`scripts/research/index_market/xxm/r4_history_records.py`）的validate_baseline/compare_fact_groups/format_report | HC13—17，旧WAITING、新回钝化、形成并锁死、同标签异参照、旧池移除仍查日期、同日多候选/跨日不强配、悬挂/未来/终态回退拒绝 |
 | 无读取/算法/产品副作用，不落盘、不恢复旧文件、无新CLI | worker仅stdlib和固定模块；读取器惰性导入；入口无自动执行 | HC19源码/实际进程检查；测试探针对仓库内外文件读、写、socket、子进程、数据库使用不同拒绝类型，正常固定模块仍通过 |
 
-测试只新增[test_xxm_r4_history_comparison.py](../../scripts/research/index_market/tests/test_xxm_r4_history_comparison.py)、[test_xxm_r4_history_worker.py](../../scripts/research/index_market/tests/test_xxm_r4_history_worker.py)、[test_xxm_r4_history_records.py](../../scripts/research/index_market/tests/test_xxm_r4_history_records.py)，没有修改既有测试预期。
+测试只新增test_xxm_r4_history_comparison.py（原记录：`scripts/research/index_market/tests/test_xxm_r4_history_comparison.py`）、test_xxm_r4_history_worker.py（原记录：`scripts/research/index_market/tests/test_xxm_r4_history_worker.py`）、test_xxm_r4_history_records.py（原记录：`scripts/research/index_market/tests/test_xxm_r4_history_records.py`），没有修改既有测试预期。
 
 ### 11.2 实际执行与结果
 
@@ -866,3 +868,7 @@ worker固定50b0f22bb/v0.4及登记Spec；records接收新增计数、跟踪极�
 | 边界 | 公开HTTP/页面及整链400ms验收未做，P3第3—4步/P5不推进；无完整账本/行情/源码/恢复文件落盘，无部署、自动重跑。仅人工可读统计/日期/事件和参照写原文档 |
 
 结论：本轮核心修补→下一根预测配套→工具适配及一次对比三步均完成。7个原旧撤销观察日的价格消失均回到同日；已提供软件截图按日期和标签对应，原软件所有数值/内部实现尚未逐值证实。本轮交管理员review；不把工程通过或任意记录字段差异等同于软件复现或规则优劣。
+
+## 31. 验收通过后的停止与交接（2026-10-31）
+
+管理员已明确验收本轮通过。本专项按方案§33收尾，§30及方案§32事实不改；代码/报告分别固定于50b0f22bb、ec37c69ea。停止专项重放，不自动补日期、扩大标的/周期、添加视频规则或重读已有材料。后续实施顺序及本轮计划停点统一见[正式LLD§20](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md)。该验收不替代P3剩余HTTP/前端/整链验收、P4来源/页面或P5删后回归。

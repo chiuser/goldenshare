@@ -1,0 +1,71 @@
+{
+  "research_date": "2026-10-12",
+  "sources": [
+    {
+      "id": "author_20260612_live",
+      "url": "https://blog.sina.com.cn/s/blog_4d89b834010302bq.html",
+      "title": "徐小明：6月12日盘中即时直播",
+      "page_publication": "2026-06-11 15:08:47",
+      "event_date": "2026-06-12",
+      "retrieval": "FULL_PAGE_TEXT_FETCHED",
+      "paraphrases": [
+        {
+          "time": "09:46",
+          "claim": "作者记录90分钟已有红柱，60分钟红柱增多。"
+        },
+        {
+          "time": "10:01",
+          "claim": "作者把先出红柱作为本次底部钝化构筑的条件。"
+        },
+        {
+          "time": "10:19",
+          "claim": "作者记录120分钟盘中也已有红柱。"
+        },
+        {
+          "time": "11:02-11:10",
+          "claim": "作者把随后钝化能否形成结构与下跌速度及是否加速联系起来。"
+        },
+        {
+          "time": "14:23",
+          "claim": "作者仍等待收盘。"
+        }
+      ]
+    },
+    {
+      "id": "author_20260615_strategy",
+      "url": "https://blog.sina.com.cn/s/blog_4d89b834010302bx.html",
+      "title": "徐小明：周二操作策略",
+      "page_publication": "2026-06-15 16:43:34",
+      "event_date": "2026-06-15",
+      "retrieval": "FULL_PAGE_TEXT_FETCHED_EARLIER_IN_TURN; later refresh unavailable, no further retry",
+      "paraphrases": [
+        {
+          "claim": "作者讨论此前个股风险释放，并转向进攻背景。"
+        },
+        {
+          "claim": "长期看涨的解释涉及货币、居民存款、GDP及市值等宏观背景。"
+        }
+      ]
+    },
+    {
+      "id": "author_20260615_live_index",
+      "url": "https://blog.sina.com.cn/s/blog_4d89b834010302bt.html",
+      "title": "徐小明：6月15日盘中即时直播",
+      "page_publication": "2026-06-12 16:23:01",
+      "event_date": "2026-06-15",
+      "retrieval": "SEARCH_INDEX_EXCERPT_NOT_FULL_PAGE_FETCH; full open cache miss",
+      "paraphrases": [
+        {
+          "time": "14:47",
+          "claim": "索引摘录中作者预计长期趋势可能通过，对短期趋势仍不确定。"
+        }
+      ]
+    }
+  ],
+  "source_limits": [
+    "Author blog is lecture context, not software numerical truth.",
+    "No video transcript obtained this turn; exhausted MCP not retried.",
+    "Do not turn author probability statements into measured statistical facts.",
+    "No new trading instruction or formal algorithm change."
+  ]
+}

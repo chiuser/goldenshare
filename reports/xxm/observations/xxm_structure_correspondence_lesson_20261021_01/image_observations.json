@@ -1,0 +1,21 @@
+{
+  "images": [
+    {
+      "file": "01_upward_unmarked.png",
+      "observed": "黑色折线逐次抬高的峰与谷，无红色结构标注，无指标数值。"
+    },
+    {
+      "file": "02_upward_marked.png",
+      "observed": "上升折线的峰谷有红圈，左侧首峰上方手写日、首谷下方手写120；后续峰谷有圈但未给更多周期数值。",
+      "supports": "配合讲稿日线顶部对应120分钟底部示例。"
+    },
+    {
+      "file": "03_downward_marked.png",
+      "observed": "黑色折线逐次降低的峰与谷，红圈标峰谷，左侧谷下有三角形手绘符号；没有可读DIF或明确周期数值。",
+      "limits": "不把三角符号猜成60/日线等周期标签。"
+    }
+  ],
+  "picturesAreTeachingDiagrams": true,
+  "noLiteralSoftwareLabelsAdded": true,
+  "playerTimesAreSeparateFromTranscriptTimes": true
+}

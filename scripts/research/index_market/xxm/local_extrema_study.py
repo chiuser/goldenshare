@@ -1,31 +1,21 @@
-"""Bounded offline experiment; algorithm plan 12.92 / LLD 70.
-
-No source fetch, production calculator, strategy event or peak filter is used.
-Run from the repository root with --output reports/xxm_local_extrema_trial_<new>.
-"""
+"""Independent local peaks, raw windows and an unexecuted review notebook."""
 from __future__ import annotations
 
-import argparse
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 import hashlib
-import io
 import json
-import os
 from pathlib import Path
-import resource
-import sys
 import time
-from contextlib import redirect_stdout
 
-from src.biz.services.wealth.market.index_detail_daily_wave.local_extrema import LocalExtremaScanner, number, scan_values
-from .peak_image_measurement import measure_original
+from src.biz.services.wealth.market.index_detail_daily_wave.local_extrema import LocalExtremaScanner, number
 
 ROOT = Path(__file__).resolve().parents[4]
-PREVIOUS = ROOT / "reports/xxm_peak_annotation_confirmation_20261021_01"
 PARAMS = "ma_5_10_20_30_60_90_250__boll_20_2__macd_12_26_9__kdj_9_3_3"
+IMAGE_PATH = 'reports/xxm/sources/xxm_peak_comparison_images_20261021_01/02_near_and_skipped_peak.png'
+IMAGE_SHA256 = '95ceb53a91a850666319bd8948297f8ce12c03fe30536f1a159cfdd723b01e7a'
 
 
 @dataclass(frozen=True)
@@ -38,11 +28,11 @@ class SavedCase:
 
 
 CASES = (
-    SavedCase("m120_2023", "reports/xxm_m120_reference_trace_20261020_01/source_window.json",
+    SavedCase("m120_2023", "reports/xxm/sources/xxm_m120_reference_trace_20261020_01/source_window.json",
               "044f3b22b341f8b408bc0da430bbf4fe141e21d2aba92d8406020cf076754e18", 72, "120"),
-    SavedCase("m90_2023", "reports/xxm_same_day_m90_m120_20230301_20261020_01/m90_source_window.json",
+    SavedCase("m90_2023", "reports/xxm/sources/xxm_same_day_m90_m120_20230301_20261020_01/m90_source_window.json",
               "95d09af15e5305383a4f88ecdad3d9a3a28135e090b5ed2cea55bc143ccd4797", 63, "90"),
-    SavedCase("m90_2026", "reports/xxm_feb25_m90_reference_evidence_20261021_01/source_projection.json",
+    SavedCase("m90_2026", "reports/xxm/sources/xxm_feb25_m90_reference_evidence_20261021_01/source_projection.json",
               "82729d85e277215b54a425d721a1dc393253a3af27c0b46754d1332047917938", 63, "90"),
 )
 
@@ -196,131 +186,81 @@ def benchmark(deadline: float) -> list[dict]:
     return result
 
 
-def save_new(out: Path, name: str, value) -> None:
-    path = out / name
-    if path.exists():
-        raise ValueError("Refusing to overwrite experiment unit")
-    payload = json.dumps(value, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
-    if len(payload.encode()) > 4_000_000:
-        raise ValueError("Oversized experiment unit")
-    partial = path.with_suffix(path.suffix + ".partial")
-    partial.write_text(payload)
-    os.replace(partial, path)
-    if sum(p.stat().st_size for p in out.iterdir() if p.is_file()) > 16_000_000:
-        raise ValueError("Experiment exceeds output budget")
-
-
 def protected_files() -> dict[str, str]:
-    previous = json.loads((PREVIOUS / "run.json").read_text())["protected"]
-    for path in PREVIOUS.iterdir():
-        if path.is_file():
-            previous[str(path.relative_to(ROOT))] = sha(path)
-    return previous
+    """Only the three saved windows and original picture have data identities."""
+    return {**{case.path: case.sha256 for case in CASES}, IMAGE_PATH: IMAGE_SHA256}
 
 
 def assert_protected(files: dict[str, str]) -> None:
-    changed = [name for name, digest in files.items() if sha(ROOT / name) != digest]
+    expected = protected_files()
+    if files != expected:
+        raise ValueError("Only the four original evidence files are accepted")
+    changed = [name for name, digest in expected.items() if sha(ROOT / name) != digest]
     if changed:
         raise ValueError("Changed protected evidence: " + ", ".join(changed))
 
 
-def notebook(out: Path) -> None:
-    """Small reader-facing companion; implementation stays in the theme modules."""
-    cells = [
-        ("markdown", "## tl;dr\n本文件顺序复查字面示例、三个真实小窗口和图像测量边界。只读，不生成结构信号。"),
-        ("markdown", "## Context & Methods\n无过滤的局部转折；后续已完成点确认此前峰。图像像素不是原始指标。\n### Key Assumptions\n原三个JSON及图片SHA不变；时间为上海交易时间。"),
-        ("code", f"from pathlib import Path\nimport json, sys\nroot = Path({str(ROOT)!r})\nsys.path.insert(0, str(root))\nfrom src.biz.services.wealth.market.index_detail_daily_wave.local_extrema import scan_values\nfrom scripts.research.index_market.xxm.local_extrema_study import CASES, read_case, summarize_case\nexample = scan_values([2,5,8,6,3,4,6,4])\nassert [(p.kind, str(p.value)) for p in example] == [('MAX','8'),('MIN','3'),('MAX','6')]\nprint([(p.kind, str(p.value), p.first_index, p.confirmed_index) for p in example])"),
-        ("markdown", "## Data\n三个既存窗口共198行；各自路径与SHA在CASES和执行manifest中，未读取正式源。"),
-        ("code", "recomputed = []\nfor case in CASES:\n    rows, quality = read_case(case)\n    result = summarize_case(rows, case, quality)\n    recomputed.append(result)\n    print(case.name, quality['rows'], result['count'], result['independentPrefixChecks'])"),
-        ("markdown", "## Results\n以下输出与完成的试验文件比对；不会将单元测试通过解释为作者一致性通过。"),
-        ("code", f"report = Path({str(out)!r})\nfor result in recomputed:\n    saved = json.loads((report / (result['case'] + '.json')).read_text())\n    assert result == saved\nimage = json.loads((report / 'image_measurement.json').read_text())\nprint('图片独立三峰数值验证:', image['independentThreePeakValidation'])\nfor variant in image['variants']:\n    print(variant['spec']['name'], '柱组', len(variant['bars']), '遮挡', variant['censored_bars'], '断点', len(variant['gaps']))"),
-        ("markdown", "## Takeaways\n基础数学行为与三个小窗口可复查；额外转折全部保留。盘口原图遮挡及未知原始柱值限制作者一致性判断；下一步不能只凭程序运行成功就迁移产品。"),
-    ]
-    context, rendered, count = {}, [], 0
-    for index, (kind, source) in enumerate(cells):
+def notebook(out: Path) -> dict:
+    """Return the original eight cells with current paths, without running them."""
+    sources = [('markdown', '## tl;dr\n本文件顺序复查字面示例、三个真实小窗口和图像测量边界。只读，不生成结构信号。'),
+     ('markdown',
+      '## Context & Methods\n'
+      '无过滤的局部转折；后续已完成点确认此前峰。图像像素不是原始指标。\n'
+      '### Key Assumptions\n'
+      '原三个JSON及图片SHA不变；时间为上海交易时间。'),
+     ('code',
+      'from pathlib import Path\n'
+      'import json, sys\n'
+      "root = Path('/Users/congming/github/goldenshare')\n"
+      'sys.path.insert(0, str(root))\n'
+      'from src.biz.services.wealth.market.index_detail_daily_wave.local_extrema import scan_values\n'
+      'from scripts.research.index_market.xxm.local_extrema_study import CASES, read_case, '
+      'summarize_case\n'
+      'example = scan_values([2,5,8,6,3,4,6,4])\n'
+      "assert [(p.kind, str(p.value)) for p in example] == [('MAX','8'),('MIN','3'),('MAX','6')]\n"
+      'print([(p.kind, str(p.value), p.first_index, p.confirmed_index) for p in example])'),
+     ('markdown', '## Data\n三个既存窗口共198行；各自路径与SHA在CASES中，旧/新路径在下面的比较单元逐项对应；未读取正式源。'),
+     ('code',
+      'recomputed = []\n'
+      'for case in CASES:\n'
+      '    rows, quality = read_case(case)\n'
+      '    result = summarize_case(rows, case, quality)\n'
+      '    recomputed.append(result)\n'
+      "    print(case.name, quality['rows'], result['count'], result['independentPrefixChecks'])"),
+     ('markdown', '## Results\n以下输出与完成的试验文件比对；不会将单元测试通过解释为作者一致性通过。'),
+     ('code', ''),
+     ('markdown',
+      '## Takeaways\n基础数学行为与三个小窗口可复查；额外转折全部保留。盘口原图遮挡及未知原始柱值限制作者一致性判断；下一步不能只凭程序运行成功就迁移产品。')]
+    sources[6] = ("code", f"report = Path({str(out)!r})\n" + ("source_paths = {'m120_2023': "
+     "('reports/xxm_m120_reference_trace_20261020_01/source_window.json',\n"
+     '               '
+     "'reports/xxm/sources/xxm_m120_reference_trace_20261020_01/source_window.json'),\n"
+     " 'm90_2023': ('reports/xxm_same_day_m90_m120_20230301_20261020_01/m90_source_window.json',\n"
+     '              '
+     "'reports/xxm/sources/xxm_same_day_m90_m120_20230301_20261020_01/m90_source_window.json'),\n"
+     " 'm90_2026': ('reports/xxm_feb25_m90_reference_evidence_20261021_01/source_projection.json',\n"
+     '              '
+     "'reports/xxm/sources/xxm_feb25_m90_reference_evidence_20261021_01/source_projection.json')}\n"
+     'for result in recomputed:\n'
+     "    saved = json.loads((report / (result['case'] + '.json')).read_text())\n"
+     "    old_path, new_path = source_paths[result['case']]\n"
+     "    assert saved['source'] == old_path\n"
+     "    assert result['source'] == new_path\n"
+     '    saved_values, current_values = dict(saved), dict(result)\n'
+     "    del saved_values['source']\n"
+     "    del current_values['source']\n"
+     '    assert saved_values == current_values\n'
+     "image = json.loads((report / 'image_measurement.json').read_text())\n"
+     "print('图片独立三峰数值验证:', image['independentThreePeakValidation'])\n"
+     "for variant in image['variants']:\n"
+     "    print(variant['spec']['name'], '柱组', len(variant['bars']), '遮挡', variant['censored_bars'], "
+     "'断点', len(variant['gaps']))"))
+    cells = []
+    for index, (kind, source) in enumerate(sources):
         cell = dict(cell_type=kind, id=f"local-turn-{index}", metadata={}, source=source)
         if kind == "code":
-            count += 1
-            stream = io.StringIO()
-            with redirect_stdout(stream):
-                exec(compile(source, f"local_extrema_review.ipynb:cell-{index}", "exec"), context)
-            cell.update(execution_count=count, outputs=[dict(output_type="stream", name="stdout", text=stream.getvalue())])
-        rendered.append(cell)
-    value = dict(cells=rendered, nbformat=4, nbformat_minor=5,
-                 metadata=dict(language_info=dict(name="python", version="3"),
-                               execution_method="Sequential Python cells; no Jupyter kernel installed or claimed"))
-    save_new(out, "review.ipynb", value)
-
-
-def main(argv=None) -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--output", required=True)
-    args = parser.parse_args(argv)
-    out = Path(args.output).resolve()
-    if out.parent != ROOT / "reports" or not out.name.startswith("xxm_local_extrema_trial_"):
-        raise ValueError("Use a new reports/xxm_local_extrema_trial_<batch> directory")
-    if out.exists():
-        raise ValueError("Refusing existing output directory")
-    protected = protected_files()
-    assert_protected(protected)
-    started, deadline = time.perf_counter(), time.perf_counter() + 60
-    out.mkdir()
-    code_paths = (
-        "src/biz/services/wealth/market/index_detail_daily_wave/local_extrema.py",
-        "scripts/research/index_market/xxm/local_extrema_study.py",
-        "scripts/research/index_market/xxm/peak_image_measurement.py",
-        "scripts/research/index_market/tests/test_xxm_local_extrema.py",
-        "scripts/research/index_market/tests/test_xxm_local_extrema_study.py",
-    )
-    save_new(out, "run.json", dict(status="RUNNING", protected=protected,
-                                  authorization="管理员按12.91方法推进并完成试验后报告", protectedCount=len(protected),
-                                  sources=[dict(name=c.name, path=c.path, sha256=c.sha256, rows=c.rows) for c in CASES],
-                                  codeSha256={p: sha(ROOT / p) for p in code_paths},
-                                  codeGraphReview=dict(tool="codegraph_explore", calls=2,
-                                      symbols=["XxmCalculator", "TopCurrentCloseCalculator", "PriceBeforeSelectionCalculator", "NearFirstCalculator", "ReturnReferenceCalculator"],
-                                      conclusion="Existing whole-period runners are not reused; new pure scanner has only new research/test consumers. No API or frontend changes.")))
-    results = []
-    for case in CASES:
-        if time.perf_counter() > deadline:
-            raise TimeoutError("Study deadline exceeded")
-        rows, quality = read_case(case)
-        result = summarize_case(rows, case, quality)
-        save_new(out, case.name + ".json", result)
-        results.append(result)
-    anchors = literal_anchor_checks(results)
-    image_path = ROOT / "reports/xxm_peak_comparison_images_20261021_01/02_near_and_skipped_peak.png"
-    if str(image_path.relative_to(ROOT)) not in protected or sha(image_path) != protected[str(image_path.relative_to(ROOT))]:
-        raise ValueError("Unprotected original image")
-    image = measure_original(image_path)
-    image.update(source=str(image_path.relative_to(ROOT)), sourceSha256=sha(image_path))
-    save_new(out, "image_measurement.json", image)
-    timings = benchmark(deadline)
-    save_new(out, "benchmark.json", timings)
-    rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-    if sys.platform != "darwin":
-        rss *= 1024
-    if rss > 256 * 1024 * 1024:
-        raise MemoryError("Study exceeds 256MiB resident memory")
-    summary = dict(
-        status="ANALYSIS_COMPUTED_AUTHOR_VALIDATION_LIMITS", date="2026-10-21", rows=sum(c.rows for c in CASES),
-        cases=[dict(case=r["case"], **r["count"]) for r in results],
-        independentPrefixChecks=sum(r["independentPrefixChecks"] for r in results),
-        realLiteralAnchorChecks=anchors, codeBehaviorValidated=True, authorRuleFullyValidated=False,
-        imageRawIndicatorValuesAvailable=False, imageIndependentThreePeakValidation=False,
-        noNewFiltering=True, noProductionCodeChanged=True, noNewSoftwareLabels=True,
-        seconds=time.perf_counter() - started, peakRssBytes=rss,
-    )
-    save_new(out, "summary.json", summary)
-    notebook(out)
-    assert_protected(protected)
-    if time.perf_counter() > deadline:
-        raise TimeoutError("Final verification exceeded study budget")
-    save_new(out, "completion.json", dict(status="COMPLETED_WITH_AUTHOR_VALIDATION_LIMITS", allProtectedUnchanged=True,
-                                          protectedFiles=len(protected), seconds=time.perf_counter() - started,
-                                          notebookCellsExecutedSequentially=True))
-    print(json.dumps(summary, ensure_ascii=False))
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+            cell.update(execution_count=None, outputs=[])
+        cells.append(cell)
+    return dict(cells=cells, nbformat=4, nbformat_minor=5,
+                metadata=dict(language_info=dict(name="python", version="3"),
+                              execution_method="Unexecuted review; no cells run by the builder"))

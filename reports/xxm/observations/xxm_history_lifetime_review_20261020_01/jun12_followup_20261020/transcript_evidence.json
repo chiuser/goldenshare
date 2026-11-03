@@ -1,0 +1,158 @@
+{
+  "source": "sources/transcript_20250612_user.txt",
+  "sha256": "3436299a4c70ad25eb8301a810b84f7dac25a0bbea6b98de556dc50fbc9271c5",
+  "lineCount": 159,
+  "sourceType": "User supplied full transcript; transcribed words unchanged; no independent audio or video verification",
+  "groups": [
+    {
+      "topic": "120分钟钝化级别、按速度估算消失",
+      "lines": [
+        {
+          "line": 26,
+          "text": "4:224分钟22秒钟好啊好 我讲一下啊 我简单的讲一下吧 好这个值啊"
+        },
+        {
+          "line": 27,
+          "text": "4:344分钟34秒钟这个值 我们先找到m a C d的最高值 你把十字光标运行到这 你能够找到啊 这个值是26.11"
+        },
+        {
+          "line": 28,
+          "text": "4:434分钟43秒钟DF值啊左边DF 我用这个绿绿色啊 看左边DF26.11"
+        },
+        {
+          "line": 29,
+          "text": "4:574分钟57秒钟26.11啊 然后目前的这个值 120分钟现在这个值 11.88"
+        },
+        {
+          "line": 30,
+          "text": "5:085分钟8秒钟啊就这个值啊 11.88 那么也代表了 11.88 如果涨到26"
+        },
+        {
+          "line": 31,
+          "text": "5:165分钟16秒钟这个动画就消失了 11.88 如果涨到26啊 动画就消失了 那么我们要看最近的这个"
+        },
+        {
+          "line": 32,
+          "text": "5:265分钟26秒钟就类似于本周期到上一个周期 它运行了多少 那么上一个周期呢 由于是11.85是吧"
+        },
+        {
+          "line": 33,
+          "text": "5:355分钟35秒钟涨了0.83 这个数有点太小了 我们再往上看 一个周期是11.443 就这个值啊"
+        },
+        {
+          "line": 34,
+          "text": "5:445分钟44秒钟11.88是对应的是这个周期 然后上一个周期呢 是对应的今天中午这个收盘再 上一个周期呢 是对应昨天下午这个收盘"
+        },
+        {
+          "line": 35,
+          "text": "5:545分钟54秒钟那么每天运行 嗯从11.4运行到11.8 我们我们假如说我们判断它是运行0.4"
+        },
+        {
+          "line": 36,
+          "text": "6:026分钟2秒钟是吧运行0.4 那么用26减去11 就减去12"
+        },
+        {
+          "line": 37,
+          "text": "6:096分钟9秒钟等于14是吧 现在是11.8嘛 26减去12等于1414"
+        },
+        {
+          "line": 38,
+          "text": "6:176分钟17秒钟再除以0.4 14/0.4"
+        },
+        {
+          "line": 39,
+          "text": "6:256分钟25秒钟那差不多30个周期是吧 30个周期 如果用目前的每天上涨0.4的这个速度"
+        },
+        {
+          "line": 40,
+          "text": "6:356分钟35秒钟需要30个周期 14/0.4 而大家再看这第一次的这个钝化"
+        },
+        {
+          "line": 41,
+          "text": "6:426分钟42秒钟出了钝化第二个第二天就消失了 就只用了一个周期 这是一个周期 目前是30个 这是一个"
+        },
+        {
+          "line": 42,
+          "text": "6:506分钟50秒钟所以我们说 从钝化到消失所需要的周期数越大 钝化的级别就越大"
+        },
+        {
+          "line": 43,
+          "text": "6:596分钟59秒钟那么前面只用了一个周期 所以它的级别小 后面30个周期大 能理解的打一"
+        }
+      ],
+      "directSupport": "Author compares DIF reference around26.11 and current11.88, assumes about0.4 speed, calls estimate roughly30 cycles; discusses larger/smaller dullness.",
+      "literalArithmeticCheck": {
+        "14_divided_by_0_4": "35",
+        "status": "Author calls it approximately30; speed/units vary in wording; do not normalize into a precise rule."
+      },
+      "doesNotProve": "A fixed expiry of old structures after30 bars,30 days or any elapsed age."
+    },
+    {
+      "topic": "90分钟当天再次形成结构",
+      "lines": [
+        {
+          "line": 78,
+          "text": "12:5612分钟56秒钟90分钟啊 看90分钟 90分钟呢 它形成了一次动画 又形成结构了"
+        },
+        {
+          "line": 79,
+          "text": "13:0613分钟6秒钟RS结构这也很正常 是吧RS结构也很正常 这我这一顿输出"
+        },
+        {
+          "line": 82,
+          "text": "13:3213分钟32秒钟60分钟为啥没有动画 请问再看60分钟 60分钟为啥没有动画 六十分钟"
+        },
+        {
+          "line": 83,
+          "text": "13:4113分钟41秒钟跟假摔谈不上啊 90分钟它就是二次动画 二次结构嘛 60分钟因为它在过3404点的时候"
+        },
+        {
+          "line": 84,
+          "text": "13:5313分钟53秒钟m a C d是负值 也就是它在绿角线上出 现的我们看它在红角线上的值 是没有超过3404"
+        },
+        {
+          "line": 85,
+          "text": "14:0014分钟当红角线的时候出现3404才会出现钝化 好吧这是60分钟的问题啊 我们就不多讲 好我们再再讲讲"
+        }
+      ],
+      "directSupport": "90分钟 again dull/structure, called 二次钝化/二次结构; nearby60-minute discussion separate.",
+      "doesNotProve": "Exact14:00 vs15:00 bar, original software reference, or relationship to6/24 green."
+    },
+    {
+      "topic": "再次结构、纠错及周期选择",
+      "lines": [
+        {
+          "line": 101,
+          "text": "16:3416分钟34秒钟有问题可以问 二次结构对行情有什么影响"
+        },
+        {
+          "line": 102,
+          "text": "16:4616分钟46秒钟没啥影响 就是你你你 管他二次结构还是三次结构 还是四次结构还是五次结构呢 第一次结构形成就应该操作"
+        },
+        {
+          "line": 103,
+          "text": "16:5416分钟54秒钟这个咱们之前讲过很多次了 对吧第一次顶部结构形成的时候 我们就应该操作"
+        },
+        {
+          "line": 104,
+          "text": "17:0617分钟6秒钟然后呢就是动画消失纠错嘛 你不到纠错的标准 你就保持现有的这个操作就完了 好不好"
+        },
+        {
+          "line": 109,
+          "text": "17:5117分钟51秒钟是以120分钟动画消失纠错 不是你用哪个周期操作的 就是用哪个周期操这个纠错 当然如果90分钟动画消失了"
+        },
+        {
+          "line": 110,
+          "text": "18:0018分钟可是120分钟动画还在 我们要判断到时候 届时要再进行新的判断 但是暂定是以90分钟 你用90分钟操作的就是90分钟动画消失"
+        },
+        {
+          "line": 111,
+          "text": "18:0918分钟9秒钟9错好吧 日线为什么不一定 日线现在啥也没有啊"
+        }
+      ],
+      "directSupport": "General explanation of repeated structures and using the operated period for correction; 90分钟 provisionally discussed with120分钟 considered later.",
+      "doesNotProve": "Any fixed expiry or executable portfolio/product rule; no new product function inferred."
+    }
+  ],
+  "finding": "Text supports that the second90-minute structure existed by6/12 close. It does not resolve exact14:00/15:00 or prove software state survived22/23 bars."
+}

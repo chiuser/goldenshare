@@ -1,0 +1,98 @@
+{
+  "excerpts": [
+    {
+      "source": "transcript_20240117_user.txt",
+      "line": 5,
+      "videoTimeStart": "00:32",
+      "videoTimeEnd": "00:41",
+      "originalLine": "0:3232秒钟但你看这个护城300 这个指就被取缔了 这护城300的日线 动画的级别肯定不会太大 这个我们也说了 基本上在这里出现 这个低点呢",
+      "interpretation": "明确提到沪深300的日线，后文也有日线结构语境",
+      "limit": "本段不直接命名上证90分钟"
+    },
+    {
+      "source": "transcript_20240117_user.txt",
+      "line": 10,
+      "videoTimeStart": "01:14",
+      "videoTimeEnd": "01:22",
+      "originalLine": "1:141分钟14秒钟好吧结构呢如 果在这形成呢 但是我其实考虑到结构 可能等不到下手 是吧在这形成也正常 但昨天这个结构形成呢 就有点不太正常 有学员问这不太正常在哪",
+      "interpretation": "1/17回顾昨天的结构形成，即1/16",
+      "limit": "没有90分钟或分钟时点"
+    },
+    {
+      "source": "transcript_20240117_user.txt",
+      "line": 11,
+      "videoTimeStart": "01:22",
+      "videoTimeEnd": "01:30",
+      "originalLine": "1:221分钟22秒钟他结构应该是级别缓解形成结构 现在它是一个缓慢的上升 4根牙线或4根看起来像牙线的牙线 它形成的结构一小碎牙 形成结构",
+      "interpretation": "描述四根较小阳线/缓慢上升形成的结构力度不强",
+      "limit": "自动字幕有牙线等错字；不据此新增四阳线过滤条件"
+    },
+    {
+      "source": "transcript_20240117_user.txt",
+      "line": 12,
+      "videoTimeStart": "01:30",
+      "videoTimeEnd": "01:38",
+      "originalLine": "1:301分钟30秒钟这个力度就不强 问题在这了 所以昨天我们也说了 这一点点就不再是再次动化 这个结构就变成假结构 所以昨天结构今天就动钢 就这样",
+      "interpretation": "语义支持结构形成后又重新钝化",
+      "limit": "末句动钢等是ASR错字，保留原文，解释不当作精确音频校对"
+    },
+    {
+      "source": "transcript_20240117_user.txt",
+      "line": 15,
+      "videoTimeStart": "01:53",
+      "videoTimeEnd": "02:01",
+      "originalLine": "1:531分钟53秒钟从交易的标准的角度来讲 结构买入是动画消失 进行纠错 目前没有动画消失 所以并且的近期很难出现的话 要是所以依旧是失误 今天为啥解了",
+      "interpretation": "明确区分结构买入标准与钝化消失的纠错标准，称目前没有钝化消失",
+      "limit": "不能把这里的没有钝化消失等同所有周期都没有历史结构消失"
+    },
+    {
+      "source": "transcript_20240118_user.txt",
+      "line": 3,
+      "videoTimeStart": "00:18",
+      "videoTimeEnd": "00:26",
+      "originalLine": "0:1818秒钟基本上就是一天半动画 还能扛一天半 周五其实是没事的 但是如果周五不涨 假如说周五时间变的话",
+      "interpretation": "按盘中行情估计还能维持一天半",
+      "limit": "是条件估计，不是固定结构寿命"
+    },
+    {
+      "source": "transcript_20240118_user.txt",
+      "line": 11,
+      "videoTimeStart": "01:23",
+      "videoTimeEnd": "01:32",
+      "originalLine": "1:231分钟23秒钟对吧最低这个价还能维持一天半 在最低点的时候 当然给市的时候收回来了 涨了一点点 虽然说涨的不多 但是他动画能够维持的时间就增加了",
+      "interpretation": "最低点时估计一天半，后来收回，钝化可维持时间增加",
+      "limit": "不是在同一价格路径下的固定到期；无分钟命名"
+    },
+    {
+      "source": "transcript_20240118_user.txt",
+      "line": 12,
+      "videoTimeStart": "01:32",
+      "videoTimeEnd": "01:40",
+      "originalLine": "1:321分钟32秒钟目前来看呢 能4点左右 4点左右啊 等到下周的周中 就我们继续观察 继续观察 还是等着就好 申请指一样",
+      "interpretation": "继续估计到下周周中并观察",
+      "limit": "原字幕为4点左右，无法仅凭文本改成精确4天"
+    },
+    {
+      "source": "transcript_20240118_user.txt",
+      "line": 14,
+      "videoTimeStart": "01:49",
+      "videoTimeEnd": "01:57",
+      "originalLine": "1:491分钟49秒钟如果出现申请指 或上上证指数钝化消失 我是会减藏 那些希望不要减藏的那些人 你们可能不太了解 我们尊重规则的决心",
+      "interpretation": "提到上证及深成指的钝化消失条件",
+      "limit": "没有指向1/16的90分钟旧结构绿色"
+    }
+  ],
+  "explicitMinuteNames": {
+    "transcript_20240117_user.txt": {
+      "90分钟": 0,
+      "120分钟": 0
+    },
+    "transcript_20240118_user.txt": {
+      "90分钟": 0,
+      "120分钟": 0
+    }
+  },
+  "asrVerbatimPreserved": true,
+  "audioChecked": false,
+  "m90Jan16HistoricalWithdrawalConfirmedByTheseTranscripts": false
+}

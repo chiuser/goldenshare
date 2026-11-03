@@ -1,5 +1,7 @@
 # 上证徐小明研究指标 V0.1 页面展示基准
 
+> P5整理说明（2026-11-03）：本文保留原设计、开发及验收记录的历史含义，不是当前开工或运行入口。旧执行代码和过程产物已按清单清退；原路径文字仅作出处。现行规则与阶段见[产品文档](../../../../docs/product/wealth-top-bottom-recognition-product-v1.md)，有效原材料见[资料索引](../../../../reports/xxm/README.md)。
+
 日期：2026-10-14。状态：**10 月 14 日标记视觉 Figma 已获用户确认；上证日线及 60／90／120 分钟本地页面已同步并通过技术验收，等用户复看；未部署。**
 
 本轮圆点、字体、短文案及左侧布局按第 9 节已批准修订执行；计算规则和详情中的顶底方向继续保留。
@@ -33,7 +35,7 @@
 
 [交互原型入口](https://www.figma.com/proto/RADlZzREU4lPVviYfkLy6x/Goldenshare-web?node-id=1987-999&starting-point-node-id=1987%3A999&scaling=contain)：四周期按钮、绿色标记悬停、离开工作台关闭及局部重试均已连线；37 处连线及其目标已读回核验，尚未做真实播放验收。结构核查覆盖 10 个交付根节点，均是可编辑文字／图形／组件，仅有复用的 36px 品牌图片，没有整页截图填充。字体使用既有 Noto Sans SC / SF Pro / Roboto Mono；事件文字、碰撞及 placeholder 检查通过，并已检查导出图。
 
-证据：[节点及检查 manifest](/Users/congming/github/goldenshare/reports/xxm_figma_design_20261013/design_manifest.json)、[同柱多事件预览](/Users/congming/github/goldenshare/reports/xxm_figma_design_20261013/multiple_events_preview.png)、[状态与生命周期预览](/Users/congming/github/goldenshare/reports/xxm_figma_design_20261013/states_preview.png)。本轮没有真实算法、源数据读数或页面端到端验收成绩。
+证据：节点及检查 manifest（原记录：`reports/xxm_figma_design_20261013/design_manifest.json`）、同柱多事件预览（原记录：`reports/xxm_figma_design_20261013/multiple_events_preview.png`）、状态与生命周期预览（原记录：`reports/xxm_figma_design_20261013/states_preview.png`）。本轮没有真实算法、源数据读数或页面端到端验收成绩。
 
 第一轮在现有财势乾坤开发环境验收四个周期。当前生产只开放指数日线，本地 capability 开放分钟；本设计不把本地分钟显示完成写成生产分钟已开放。上线前另核定发布范围。
 
@@ -41,7 +43,7 @@
 
 保持现有 K 线、MACD、成交量、KDJ 四窗格、右侧信息栏、底部时间轴及缩放合同。在 MACD 副图叠加事件文字，横向位置固定到事件发生柱，纵向锚点取该柱真实 DIF。文字仅做像素避让，不能移动事件时间或修改 DIF。
 
-MACD 标题继续显示已有 MACD、DIF、DEA 读数，增加紧凑的“徐小明 V0.1 · 研究”身份标识。来源路径、内部 reason code、哈希和配置参数不进入正式页面文案。方法说明放在悬停详情，不常驻图下。
+MACD 标题继续显示已有 MACD、DIF、DEA 读数。2026-10-27按管理员要求隐藏标题旁常驻的“徐小明 V0.1 · 研究”身份文案；日线和分钟共用此要求，加载、空数据、延迟、失败和重试提示继续显示，悬停详情标题保留。来源路径、内部 reason code、哈希和配置参数不进入正式页面文案。方法说明放在悬停详情，不常驻图下。
 
 | 后端事件 | 图上文案 | 建议颜色 | 用户应理解的含义 |
 | --- | --- | --- | --- |
@@ -131,11 +133,11 @@ MACD 标题继续显示已有 MACD、DIF、DEA 读数，增加紧凑的“徐小
 
 结构读回核验了 82 个图表标记：8px 圆点、12px Bold、无图上顶底前缀、左侧间距均通过，样例没有横向裁切或标记之间重叠。已有事件点中心未变化，37 处原型连线仍保留。已检查局部预览及 1280／1440px 窄屏导出图；这些是 Figma 情景验证，不是新视觉的浏览器验收，也不用于算法评分。
 
-设计证据：[局部预览](/Users/congming/github/goldenshare/reports/xxm_figma_revision_20261014/marker_visual_preview.png)、[窄屏预览](/Users/congming/github/goldenshare/reports/xxm_figma_revision_20261014/responsive_preview.png)、[节点与检查记录](/Users/congming/github/goldenshare/reports/xxm_figma_revision_20261014/design_manifest.json)。这些文件保留设计交付当时的待评审状态；当前批准来自后续用户明确回复。页面实施只调整标签格式与像素布局，API、算法及架构依赖不变，实施与验收继续记录到专项 LLD。
+设计证据：局部预览（原记录：`reports/xxm_figma_revision_20261014/marker_visual_preview.png`）、窄屏预览（原记录：`reports/xxm_figma_revision_20261014/responsive_preview.png`）、节点与检查记录（原记录：`reports/xxm_figma_revision_20261014/design_manifest.json`）。这些文件保留设计交付当时的待评审状态；当前批准来自后续用户明确回复。页面实施只调整标签格式与像素布局，API、算法及架构依赖不变，实施与验收继续记录到专项 LLD。
 
 页面已同步：同一个 marker style 和 primitive 覆盖日线及三个分钟周期。Wealth 完整套件以两个 worker 运行，162 个文件、1156 项测试通过，typecheck／build 通过；四周期真实 XXM 请求均为 HTTP 200。10 个实际绘制样例覆盖四周期、1600／1440／1280px、缩放和同柱密集事件，圆点半径、字体、左侧间距、无文字裁切／重叠／覆盖圆点均通过。2025-03-14 11:00 的 90 分钟同柱底部结构与顶部历史消失，图上用短标签，详情仍完整显示“底结构 / 顶结构消失”。
 
-最新证据见[本轮页面验收记录](/Users/congming/github/goldenshare/reports/xxm_ui_revision_20261014/README.md)及[实际 MACD 预览](/Users/congming/github/goldenshare/reports/xxm_ui_revision_20261014/macd_day_preview.png)。临时绘制测量已移除，浏览器测试尺寸已恢复；当前本地页供用户复看。没有提交、推送或部署，不将本轮视觉验收写成算法准确率或用户最终验收。
+最新证据见本轮页面验收记录（原记录：`reports/xxm_ui_revision_20261014/README.md`）及实际 MACD 预览（原记录：`reports/xxm_ui_revision_20261014/macd_day_preview.png`）。临时绘制测量已移除，浏览器测试尺寸已恢复；当前本地页供用户复看。没有提交、推送或部署，不将本轮视觉验收写成算法准确率或用户最终验收。
 
 ## 10 密集标注与节点对应修复（2026-10-16）
 

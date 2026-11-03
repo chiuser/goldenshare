@@ -1,0 +1,22 @@
+{
+  "date": "2025-12-19",
+  "period": "90",
+  "video_position": "03:17",
+  "red_annotations_by_author_confirmed_by_user": true,
+  "new_purple_structure_after_16": true,
+  "exact_software_event_time": null,
+  "software_reference": null,
+  "old_four_label_chain_retained": true,
+  "screen": {
+    "close": "3890.45",
+    "dif": "-0.873",
+    "dea": "-6.080",
+    "histogram": "10.414"
+  },
+  "transcript_future_scope": [
+    "02:01-02:44",
+    "04:07-04:40"
+  ],
+  "image_sha": "f34529892ffbc62576e4700f0f0abe30a063dedd277663b9876555d7f0d7c90a",
+  "transcript_sha": "6c9da4232e4808001e3ec5f33b9e30c29f81608b4da786085634e61ba16cb095"
+}

@@ -1,0 +1,44 @@
+{
+  "date": "2025-08-07",
+  "instrument": "000001.SH",
+  "period": "m120",
+  "periodSelectionVisible": true,
+  "rightYellowDullVisible": true,
+  "rightNearbyGreenVisible": true,
+  "greenExactTimeOrLinkageConfirmed": false,
+  "softwareInitialReferenceConfirmed": false,
+  "displayVsLocalLastBar": [
+    {
+      "field": "close",
+      "screen": "3639.67",
+      "local": 3639.6665,
+      "roundedLocal": "3639.67",
+      "compatibleWithinDisplayPrecision": true
+    },
+    {
+      "field": "dif",
+      "screen": "20.934",
+      "local": 20.93400623202706,
+      "roundedLocal": "20.934",
+      "compatibleWithinDisplayPrecision": true
+    },
+    {
+      "field": "dea",
+      "screen": "18.539",
+      "local": 18.539127267447487,
+      "roundedLocal": "18.539",
+      "compatibleWithinDisplayPrecision": true
+    },
+    {
+      "field": "hist",
+      "screen": "4.790",
+      "local": 4.789757929159144,
+      "roundedLocal": "4.790",
+      "compatibleWithinDisplayPrecision": true
+    }
+  ],
+  "exactScreenshotTimeProved": false,
+  "highLabelOnChart": "3645.12",
+  "highValueNotUsedAsClose": true,
+  "confidence": "Direct image reading; new user did not separately confirm word anchors."
+}

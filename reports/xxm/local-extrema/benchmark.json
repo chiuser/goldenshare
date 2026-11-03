@@ -1,0 +1,23 @@
+[
+  {
+    "samples": 1000,
+    "turns": 399,
+    "seconds": 0.0006832093931734562,
+    "retainedScannerFields": 8,
+    "generatedNotMarketData": true
+  },
+  {
+    "samples": 10000,
+    "turns": 3999,
+    "seconds": 0.006858500186353922,
+    "retainedScannerFields": 8,
+    "generatedNotMarketData": true
+  },
+  {
+    "samples": 100000,
+    "turns": 39999,
+    "seconds": 0.06619912479072809,
+    "retainedScannerFields": 8,
+    "generatedNotMarketData": true
+  }
+]

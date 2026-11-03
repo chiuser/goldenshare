@@ -1,0 +1,1063 @@
+{
+  "source": "reports/xxm_source_audit_20261013_213852/daily_source.csv",
+  "source_sha256": "be56f2af173a40767fa52e47e2593dcac6ce524c1e1eda01074a23bc263a8b3a",
+  "header": [
+    "ts_code",
+    "trade_date",
+    "close",
+    "macd_dif_bfq",
+    "macd_dea_bfq",
+    "macd_bfq"
+  ],
+  "raw_rows": [
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-05",
+      "close": "4023.4167",
+      "macd_dif_bfq": "20.92",
+      "macd_dea_bfq": "7.701",
+      "macd_bfq": "26.439"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-06",
+      "close": "4083.6672",
+      "macd_dif_bfq": "30.034",
+      "macd_dea_bfq": "12.167",
+      "macd_bfq": "35.733"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-07",
+      "close": "4085.7723",
+      "macd_dif_bfq": "37.0",
+      "macd_dea_bfq": "17.134",
+      "macd_bfq": "39.732"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-08",
+      "close": "4082.9788",
+      "macd_dif_bfq": "41.813",
+      "macd_dea_bfq": "22.07",
+      "macd_bfq": "39.487"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-09",
+      "close": "4120.426",
+      "macd_dif_bfq": "48.095",
+      "macd_dea_bfq": "27.275",
+      "macd_bfq": "41.641"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-12",
+      "close": "4165.287",
+      "macd_dif_bfq": "56.047",
+      "macd_dea_bfq": "33.029",
+      "macd_bfq": "46.036"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-13",
+      "close": "4138.7585",
+      "macd_dif_bfq": "59.523",
+      "macd_dea_bfq": "38.328",
+      "macd_bfq": "42.39"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-14",
+      "close": "4126.0932",
+      "macd_dif_bfq": "60.557",
+      "macd_dea_bfq": "42.774",
+      "macd_bfq": "35.567"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-15",
+      "close": "4112.6012",
+      "macd_dif_bfq": "59.601",
+      "macd_dea_bfq": "46.139",
+      "macd_bfq": "26.924"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-16",
+      "close": "4101.9127",
+      "macd_dif_bfq": "57.32",
+      "macd_dea_bfq": "48.375",
+      "macd_bfq": "17.889"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-19",
+      "close": "4114.0001",
+      "macd_dif_bfq": "55.844",
+      "macd_dea_bfq": "49.869",
+      "macd_bfq": "11.95"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-20",
+      "close": "4113.649",
+      "macd_dif_bfq": "54.023",
+      "macd_dea_bfq": "50.7",
+      "macd_bfq": "6.647"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-21",
+      "close": "4116.94",
+      "macd_dif_bfq": "52.244",
+      "macd_dea_bfq": "51.009",
+      "macd_bfq": "2.47"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-22",
+      "close": "4122.576",
+      "macd_dif_bfq": "50.703",
+      "macd_dea_bfq": "50.948",
+      "macd_bfq": "-0.488"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-23",
+      "close": "4136.1642",
+      "macd_dif_bfq": "50.003",
+      "macd_dea_bfq": "50.759",
+      "macd_bfq": "-1.512"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-26",
+      "close": "4132.6052",
+      "macd_dif_bfq": "48.6",
+      "macd_dea_bfq": "50.327",
+      "macd_bfq": "-3.453"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-27",
+      "close": "4139.9041",
+      "macd_dif_bfq": "47.53",
+      "macd_dea_bfq": "49.768",
+      "macd_bfq": "-4.475"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-28",
+      "close": "4151.2378",
+      "macd_dif_bfq": "47.054",
+      "macd_dea_bfq": "49.225",
+      "macd_bfq": "-4.342"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-29",
+      "close": "4157.9845",
+      "macd_dif_bfq": "46.682",
+      "macd_dea_bfq": "48.716",
+      "macd_bfq": "-4.068"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-01-30",
+      "close": "4117.9476",
+      "macd_dif_bfq": "42.666",
+      "macd_dea_bfq": "47.506",
+      "macd_bfq": "-9.681"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-02-02",
+      "close": "4015.7464",
+      "macd_dif_bfq": "30.88",
+      "macd_dea_bfq": "44.181",
+      "macd_bfq": "-26.602"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-02-03",
+      "close": "4067.7379",
+      "macd_dif_bfq": "25.441",
+      "macd_dea_bfq": "40.433",
+      "macd_bfq": "-29.983"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-02-04",
+      "close": "4102.202",
+      "macd_dif_bfq": "23.64",
+      "macd_dea_bfq": "37.074",
+      "macd_bfq": "-26.869"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-02-05",
+      "close": "4075.9167",
+      "macd_dif_bfq": "19.862",
+      "macd_dea_bfq": "33.632",
+      "macd_bfq": "-27.539"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-02-06",
+      "close": "4065.5834",
+      "macd_dif_bfq": "15.852",
+      "macd_dea_bfq": "30.076",
+      "macd_bfq": "-28.448"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-02-09",
+      "close": "4123.0897",
+      "macd_dif_bfq": "17.117",
+      "macd_dea_bfq": "27.484",
+      "macd_bfq": "-20.735"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-02-10",
+      "close": "4128.3731",
+      "macd_dif_bfq": "18.334",
+      "macd_dea_bfq": "25.654",
+      "macd_bfq": "-14.64"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-02-11",
+      "close": "4131.985",
+      "macd_dif_bfq": "19.367",
+      "macd_dea_bfq": "24.397",
+      "macd_bfq": "-10.06"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-02-12",
+      "close": "4134.0178",
+      "macd_dif_bfq": "20.117",
+      "macd_dea_bfq": "23.541",
+      "macd_bfq": "-6.847"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-02-13",
+      "close": "4082.0726",
+      "macd_dif_bfq": "16.333",
+      "macd_dea_bfq": "22.099",
+      "macd_bfq": "-11.533"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-02-24",
+      "close": "4117.4089",
+      "macd_dif_bfq": "16.0",
+      "macd_dea_bfq": "20.879",
+      "macd_bfq": "-9.759"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-02-25",
+      "close": "4147.2305",
+      "macd_dif_bfq": "17.936",
+      "macd_dea_bfq": "20.291",
+      "macd_bfq": "-4.709"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-02-26",
+      "close": "4146.6311",
+      "macd_dif_bfq": "19.2",
+      "macd_dea_bfq": "20.073",
+      "macd_bfq": "-1.744"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-02-27",
+      "close": "4162.8815",
+      "macd_dif_bfq": "21.269",
+      "macd_dea_bfq": "20.312",
+      "macd_bfq": "1.914"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-02",
+      "close": "4182.5909",
+      "macd_dif_bfq": "24.219",
+      "macd_dea_bfq": "21.093",
+      "macd_bfq": "6.252"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-03",
+      "close": "4122.676",
+      "macd_dif_bfq": "21.475",
+      "macd_dea_bfq": "21.17",
+      "macd_bfq": "0.611"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-04",
+      "close": "4082.474",
+      "macd_dif_bfq": "15.874",
+      "macd_dea_bfq": "20.11",
+      "macd_bfq": "-8.474"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-05",
+      "close": "4108.567",
+      "macd_dif_bfq": "13.385",
+      "macd_dea_bfq": "18.765",
+      "macd_bfq": "-10.76"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-06",
+      "close": "4124.194",
+      "macd_dif_bfq": "12.53",
+      "macd_dea_bfq": "17.518",
+      "macd_bfq": "-9.977"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-09",
+      "close": "4096.6023",
+      "macd_dif_bfq": "9.516",
+      "macd_dea_bfq": "15.918",
+      "macd_bfq": "-12.804"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-10",
+      "close": "4123.138",
+      "macd_dif_bfq": "9.163",
+      "macd_dea_bfq": "14.567",
+      "macd_bfq": "-10.808"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-11",
+      "close": "4133.4331",
+      "macd_dif_bfq": "9.603",
+      "macd_dea_bfq": "13.574",
+      "macd_bfq": "-7.942"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-12",
+      "close": "4129.1026",
+      "macd_dif_bfq": "9.493",
+      "macd_dea_bfq": "12.758",
+      "macd_bfq": "-6.529"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-13",
+      "close": "4095.4485",
+      "macd_dif_bfq": "6.614",
+      "macd_dea_bfq": "11.529",
+      "macd_bfq": "-9.83"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-16",
+      "close": "4084.7858",
+      "macd_dif_bfq": "3.433",
+      "macd_dea_bfq": "9.91",
+      "macd_bfq": "-12.954"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-17",
+      "close": "4049.9073",
+      "macd_dif_bfq": "-1.881",
+      "macd_dea_bfq": "7.552",
+      "macd_bfq": "-18.866"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-18",
+      "close": "4062.9844",
+      "macd_dif_bfq": "-4.98",
+      "macd_dea_bfq": "5.045",
+      "macd_bfq": "-20.051"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-19",
+      "close": "4006.5523",
+      "macd_dif_bfq": "-11.853",
+      "macd_dea_bfq": "1.666",
+      "macd_bfq": "-27.037"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-20",
+      "close": "3957.0527",
+      "macd_dif_bfq": "-21.051",
+      "macd_dea_bfq": "-2.878",
+      "macd_bfq": "-36.347"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-23",
+      "close": "3813.2829",
+      "macd_dif_bfq": "-39.487",
+      "macd_dea_bfq": "-10.2",
+      "macd_bfq": "-58.575"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-24",
+      "close": "3881.2797",
+      "macd_dif_bfq": "-48.057",
+      "macd_dea_bfq": "-17.771",
+      "macd_bfq": "-60.571"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-25",
+      "close": "3931.8375",
+      "macd_dif_bfq": "-50.19",
+      "macd_dea_bfq": "-24.255",
+      "macd_bfq": "-51.87"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-26",
+      "close": "3889.0835",
+      "macd_dif_bfq": "-54.7",
+      "macd_dea_bfq": "-30.344",
+      "macd_bfq": "-48.712"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-27",
+      "close": "3913.7238",
+      "macd_dif_bfq": "-55.644",
+      "macd_dea_bfq": "-35.404",
+      "macd_bfq": "-40.481"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-30",
+      "close": "3923.2869",
+      "macd_dif_bfq": "-54.987",
+      "macd_dea_bfq": "-39.321",
+      "macd_bfq": "-31.334"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-03-31",
+      "close": "3891.8605",
+      "macd_dif_bfq": "-56.353",
+      "macd_dea_bfq": "-42.727",
+      "macd_bfq": "-27.252"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-01",
+      "close": "3948.5521",
+      "macd_dif_bfq": "-52.258",
+      "macd_dea_bfq": "-44.633",
+      "macd_bfq": "-15.25"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-02",
+      "close": "3919.2852",
+      "macd_dif_bfq": "-50.789",
+      "macd_dea_bfq": "-45.864",
+      "macd_bfq": "-9.85"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-03",
+      "close": "3880.0967",
+      "macd_dif_bfq": "-52.186",
+      "macd_dea_bfq": "-47.129",
+      "macd_bfq": "-10.114"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-07",
+      "close": "3890.1645",
+      "macd_dif_bfq": "-51.882",
+      "macd_dea_bfq": "-48.079",
+      "macd_bfq": "-7.605"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-08",
+      "close": "3994.9975",
+      "macd_dif_bfq": "-42.69",
+      "macd_dea_bfq": "-47.002",
+      "macd_bfq": "8.623"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-09",
+      "close": "3966.1712",
+      "macd_dif_bfq": "-37.301",
+      "macd_dea_bfq": "-45.061",
+      "macd_bfq": "15.52"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-10",
+      "close": "3986.2247",
+      "macd_dif_bfq": "-31.055",
+      "macd_dea_bfq": "-42.26",
+      "macd_bfq": "22.411"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-13",
+      "close": "3988.558",
+      "macd_dif_bfq": "-25.621",
+      "macd_dea_bfq": "-38.932",
+      "macd_bfq": "26.623"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-14",
+      "close": "4026.6256",
+      "macd_dif_bfq": "-18.034",
+      "macd_dea_bfq": "-34.753",
+      "macd_bfq": "33.437"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-15",
+      "close": "4027.2095",
+      "macd_dif_bfq": "-11.839",
+      "macd_dea_bfq": "-30.17",
+      "macd_bfq": "36.662"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-16",
+      "close": "4055.5468",
+      "macd_dif_bfq": "-4.589",
+      "macd_dea_bfq": "-25.054",
+      "macd_bfq": "40.929"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-17",
+      "close": "4051.4254",
+      "macd_dif_bfq": "0.814",
+      "macd_dea_bfq": "-19.88",
+      "macd_bfq": "41.389"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-20",
+      "close": "4082.1271",
+      "macd_dif_bfq": "7.488",
+      "macd_dea_bfq": "-14.406",
+      "macd_bfq": "43.789"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-21",
+      "close": "4085.0766",
+      "macd_dif_bfq": "12.866",
+      "macd_dea_bfq": "-8.952",
+      "macd_bfq": "43.636"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-22",
+      "close": "4106.2581",
+      "macd_dif_bfq": "18.623",
+      "macd_dea_bfq": "-3.437",
+      "macd_bfq": "44.12"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-23",
+      "close": "4093.2501",
+      "macd_dif_bfq": "21.883",
+      "macd_dea_bfq": "1.627",
+      "macd_bfq": "40.513"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-24",
+      "close": "4079.9004",
+      "macd_dif_bfq": "23.124",
+      "macd_dea_bfq": "5.926",
+      "macd_bfq": "34.394"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-27",
+      "close": "4086.3442",
+      "macd_dif_bfq": "24.346",
+      "macd_dea_bfq": "9.61",
+      "macd_bfq": "29.471"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-28",
+      "close": "4078.6374",
+      "macd_dif_bfq": "24.411",
+      "macd_dea_bfq": "12.57",
+      "macd_bfq": "23.681"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-29",
+      "close": "4107.5144",
+      "macd_dif_bfq": "26.488",
+      "macd_dea_bfq": "15.354",
+      "macd_bfq": "22.268"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-04-30",
+      "close": "4112.1593",
+      "macd_dif_bfq": "28.183",
+      "macd_dea_bfq": "17.92",
+      "macd_bfq": "20.527"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-06",
+      "close": "4160.1737",
+      "macd_dif_bfq": "33.021",
+      "macd_dea_bfq": "20.94",
+      "macd_bfq": "24.162"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-07",
+      "close": "4180.0922",
+      "macd_dif_bfq": "38.023",
+      "macd_dea_bfq": "24.357",
+      "macd_bfq": "27.334"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-08",
+      "close": "4179.9524",
+      "macd_dif_bfq": "41.499",
+      "macd_dea_bfq": "27.785",
+      "macd_bfq": "27.427"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-11",
+      "close": "4225.0207",
+      "macd_dif_bfq": "47.343",
+      "macd_dea_bfq": "31.697",
+      "macd_bfq": "31.293"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-12",
+      "close": "4214.4891",
+      "macd_dif_bfq": "50.543",
+      "macd_dea_bfq": "35.466",
+      "macd_bfq": "30.154"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-13",
+      "close": "4242.572",
+      "macd_dif_bfq": "54.714",
+      "macd_dea_bfq": "39.316",
+      "macd_bfq": "30.797"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-14",
+      "close": "4177.9175",
+      "macd_dif_bfq": "52.201",
+      "macd_dea_bfq": "41.893",
+      "macd_bfq": "20.617"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-15",
+      "close": "4135.3894",
+      "macd_dif_bfq": "46.244",
+      "macd_dea_bfq": "42.763",
+      "macd_bfq": "6.963"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-18",
+      "close": "4131.5276",
+      "macd_dif_bfq": "40.743",
+      "macd_dea_bfq": "42.359",
+      "macd_bfq": "-3.233"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-19",
+      "close": "4169.5378",
+      "macd_dif_bfq": "39.0",
+      "macd_dea_bfq": "41.687",
+      "macd_bfq": "-5.374"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-20",
+      "close": "4162.1845",
+      "macd_dif_bfq": "36.604",
+      "macd_dea_bfq": "40.67",
+      "macd_bfq": "-8.134"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-21",
+      "close": "4077.2765",
+      "macd_dif_bfq": "27.536",
+      "macd_dea_bfq": "38.044",
+      "macd_bfq": "-21.016"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-22",
+      "close": "4112.8996",
+      "macd_dif_bfq": "22.959",
+      "macd_dea_bfq": "35.027",
+      "macd_bfq": "-24.135"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-25",
+      "close": "4152.5686",
+      "macd_dif_bfq": "22.276",
+      "macd_dea_bfq": "32.477",
+      "macd_bfq": "-20.401"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-26",
+      "close": "4145.373",
+      "macd_dif_bfq": "20.913",
+      "macd_dea_bfq": "30.164",
+      "macd_bfq": "-18.501"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-27",
+      "close": "4093.7266",
+      "macd_dif_bfq": "15.487",
+      "macd_dea_bfq": "27.229",
+      "macd_bfq": "-23.482"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-28",
+      "close": "4098.6358",
+      "macd_dif_bfq": "11.451",
+      "macd_dea_bfq": "24.073",
+      "macd_bfq": "-25.244"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-05-29",
+      "close": "4068.5691",
+      "macd_dif_bfq": "5.76",
+      "macd_dea_bfq": "20.411",
+      "macd_bfq": "-29.301"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-01",
+      "close": "4057.74",
+      "macd_dif_bfq": "0.372",
+      "macd_dea_bfq": "16.403",
+      "macd_bfq": "-32.062"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-02",
+      "close": "4075.1016",
+      "macd_dif_bfq": "-2.469",
+      "macd_dea_bfq": "12.629",
+      "macd_bfq": "-30.195"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-03",
+      "close": "4083.974",
+      "macd_dif_bfq": "-3.959",
+      "macd_dea_bfq": "9.311",
+      "macd_bfq": "-26.54"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-04",
+      "close": "4057.7811",
+      "macd_dif_bfq": "-7.17",
+      "macd_dea_bfq": "6.015",
+      "macd_bfq": "-26.37"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-05",
+      "close": "4027.7362",
+      "macd_dif_bfq": "-12.002",
+      "macd_dea_bfq": "2.411",
+      "macd_bfq": "-28.826"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-08",
+      "close": "3959.3378",
+      "macd_dif_bfq": "-21.106",
+      "macd_dea_bfq": "-2.292",
+      "macd_bfq": "-37.629"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-09",
+      "close": "4010.0307",
+      "macd_dif_bfq": "-23.955",
+      "macd_dea_bfq": "-6.625",
+      "macd_bfq": "-34.661"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-10",
+      "close": "3993.2258",
+      "macd_dif_bfq": "-27.255",
+      "macd_dea_bfq": "-10.751",
+      "macd_bfq": "-33.008"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-11",
+      "close": "3987.0147",
+      "macd_dif_bfq": "-30.025",
+      "macd_dea_bfq": "-14.606",
+      "macd_bfq": "-30.839"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-12",
+      "close": "4031.5129",
+      "macd_dif_bfq": "-28.303",
+      "macd_dea_bfq": "-17.345",
+      "macd_bfq": "-21.916"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-15",
+      "close": "4096.4717",
+      "macd_dif_bfq": "-21.45",
+      "macd_dea_bfq": "-18.166",
+      "macd_bfq": "-6.568"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-16",
+      "close": "4091.8917",
+      "macd_dif_bfq": "-16.202",
+      "macd_dea_bfq": "-17.773",
+      "macd_bfq": "3.143"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-17",
+      "close": "4108.0762",
+      "macd_dif_bfq": "-10.614",
+      "macd_dea_bfq": "-16.341",
+      "macd_bfq": "11.455"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-18",
+      "close": "4090.4813",
+      "macd_dif_bfq": "-7.519",
+      "macd_dea_bfq": "-14.577",
+      "macd_bfq": "14.116"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-22",
+      "close": "4163.0965",
+      "macd_dif_bfq": "0.785",
+      "macd_dea_bfq": "-11.504",
+      "macd_bfq": "24.579"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-23",
+      "close": "4106.2517",
+      "macd_dif_bfq": "2.747",
+      "macd_dea_bfq": "-8.654",
+      "macd_bfq": "22.802"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-24",
+      "close": "4110.8134",
+      "macd_dif_bfq": "4.617",
+      "macd_dea_bfq": "-6.0",
+      "macd_bfq": "21.233"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-25",
+      "close": "4120.2806",
+      "macd_dif_bfq": "6.784",
+      "macd_dea_bfq": "-3.443",
+      "macd_bfq": "20.455"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-26",
+      "close": "4027.2648",
+      "macd_dif_bfq": "0.985",
+      "macd_dea_bfq": "-2.558",
+      "macd_bfq": "7.085"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-29",
+      "close": "4073.9017",
+      "macd_dif_bfq": "0.15",
+      "macd_dea_bfq": "-2.016",
+      "macd_bfq": "4.333"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-06-30",
+      "close": "4094.3972",
+      "macd_dif_bfq": "1.13",
+      "macd_dea_bfq": "-1.387",
+      "macd_bfq": "5.033"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-07-01",
+      "close": "4112.4453",
+      "macd_dif_bfq": "3.324",
+      "macd_dea_bfq": "-0.445",
+      "macd_bfq": "7.538"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-07-02",
+      "close": "4028.9038",
+      "macd_dif_bfq": "-1.659",
+      "macd_dea_bfq": "-0.687",
+      "macd_bfq": "-1.943"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-07-03",
+      "close": "4043.6432",
+      "macd_dif_bfq": "-4.368",
+      "macd_dea_bfq": "-1.424",
+      "macd_bfq": "-5.889"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-07-06",
+      "close": "4041.2382",
+      "macd_dif_bfq": "-6.633",
+      "macd_dea_bfq": "-2.466",
+      "macd_bfq": "-8.335"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-07-07",
+      "close": "3990.2353",
+      "macd_dif_bfq": "-12.4",
+      "macd_dea_bfq": "-4.453",
+      "macd_bfq": "-15.896"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-07-08",
+      "close": "3970.8797",
+      "macd_dif_bfq": "-18.322",
+      "macd_dea_bfq": "-7.226",
+      "macd_bfq": "-22.191"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-07-09",
+      "close": "4036.5879",
+      "macd_dif_bfq": "-17.511",
+      "macd_dea_bfq": "-9.283",
+      "macd_bfq": "-16.455"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-07-10",
+      "close": "3996.1616",
+      "macd_dif_bfq": "-19.9",
+      "macd_dea_bfq": "-11.407",
+      "macd_bfq": "-16.987"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-07-13",
+      "close": "3913.794",
+      "macd_dif_bfq": "-28.116",
+      "macd_dea_bfq": "-14.749",
+      "macd_bfq": "-26.736"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-07-14",
+      "close": "3967.1262",
+      "macd_dif_bfq": "-29.979",
+      "macd_dea_bfq": "-17.795",
+      "macd_bfq": "-24.368"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-07-15",
+      "close": "3955.5781",
+      "macd_dif_bfq": "-32.017",
+      "macd_dea_bfq": "-20.639",
+      "macd_bfq": "-22.757"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-07-16",
+      "close": "3882.4126",
+      "macd_dif_bfq": "-39.086",
+      "macd_dea_bfq": "-24.329",
+      "macd_bfq": "-29.516"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-07-17",
+      "close": "3764.1547",
+      "macd_dif_bfq": "-53.613",
+      "macd_dea_bfq": "-30.186",
+      "macd_bfq": "-46.855"
+    },
+    {
+      "ts_code": "000001.SH",
+      "trade_date": "2026-07-20",
+      "close": "3796.2814",
+      "macd_dif_bfq": "-61.82",
+      "macd_dea_bfq": "-36.513",
+      "macd_bfq": "-50.616"
+    }
+  ],
+  "metrics": {
+    "probe_rows": 32,
+    "probe_bytes": 1331,
+    "window_rows": 130,
+    "window_bytes": 6892
+  },
+  "max_histogram_identity_error": "0.002",
+  "mapping": "trade_date->trade_time; *_bfq source decimals unchanged",
+  "sorting_provenance": "Frozen source audit; only selected window and positioning neighbours rechecked"
+}

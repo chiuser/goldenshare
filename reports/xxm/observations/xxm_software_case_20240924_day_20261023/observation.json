@@ -1,0 +1,21 @@
+{
+  "date": "2024-09-24",
+  "ts_code": "000001.SH",
+  "period": "day",
+  "source": "user_supplied_same_day_image",
+  "image": "20240924_day_original.png",
+  "image_sha256": "bc032c1620de37be24dadf7f20e127bb42fbda2d947e875d167af30fc27f175e",
+  "image_bytes": 2065511,
+  "software_readout": {
+    "close": "2863.13",
+    "dif": "-26.795",
+    "dea": "-37.117",
+    "hist": "20.645"
+  },
+  "visible_new_labels_at_terminal": [],
+  "internal_state": null,
+  "whole_day_event_log": null,
+  "numerical_crosscheck_source": "reports/xxm_top_daily_ambiguity_20261017_01/followup_trace.json",
+  "numerical_crosscheck": "日期、周期、对象以及收盘两位、指标三位显示相符；不是整个历史序列或内部参照已核相同。",
+  "limitation": "不能推导软件内部NONE、全天未曾出现标记、具体过滤条件或新算法已经相容。"
+}

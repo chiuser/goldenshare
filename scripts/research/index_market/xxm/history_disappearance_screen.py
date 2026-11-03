@@ -1,4 +1,4 @@
-"""P2 pure in-memory observation of the unique formal r4 calculator."""
+"""Bounded observation of formal r4; no source reads or writes."""
 from __future__ import annotations
 
 from copy import deepcopy
@@ -11,12 +11,8 @@ import time
 from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar, XxmStep
 
-
 def observe_rows(bars, *, period, source_identity, check) -> tuple[XxmStep, ...]:
-    """P2 single formal r4 observation; no source reads or result persistence.
-
-    This function executes only the formal calculator.
-    """
+    """Observe the single formal r4 calculator; bounded in-memory results."""
     deadline = time.perf_counter() + 20.0
 
     def guard():

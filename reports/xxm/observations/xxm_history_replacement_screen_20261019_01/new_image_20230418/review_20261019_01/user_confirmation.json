@@ -1,0 +1,19 @@
+{
+  "recordedLocalDate": "2026-10-20",
+  "source": "Direct administrator reply in this chat to the 4/18 label-position question",
+  "verbatim": "应该是4月14日出的钝化，我给你发4月14日的截图。你再看看。另外4月17，18附近没有消失两个字。",
+  "yellowDateStatement": {
+    "date": "2023-04-14",
+    "certainty": "TENTATIVE_WORDING_SHOULD_BE",
+    "supplementaryScreenshotProvided": true
+  },
+  "explicitObservation": {
+    "dates": [
+      "2023-04-17",
+      "2023-04-18"
+    ],
+    "text": "没有消失两个字",
+    "scope": "In the provided 4/18 static frame near those bars; not a statement that the software never displayed an event earlier"
+  },
+  "doesNotConfirm": "No universal lifetime, all directions, original software reference or complete formula"
+}

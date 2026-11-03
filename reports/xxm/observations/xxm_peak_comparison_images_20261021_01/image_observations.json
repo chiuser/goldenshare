@@ -1,0 +1,33 @@
+{
+  "image1": {
+    "visibleTitle": "大盘盘口的综合应用",
+    "visibleInstrument": "深证成指",
+    "visibleSubtitle": "但是只能隔一个",
+    "columnColorInterpretation": "第一课09:01—09:37说明反色。图中零轴上方浅蓝柱、下方粉色柱须按讲课的同向/异向理解，绿色手绘不属于指标柱。",
+    "observation": "右侧被绿色手绘覆盖的浅蓝柱区有收短后再放大外观，未清楚显示其中有独立粉色柱分隔；结合35:37—36:24，作者讨论的是两次上升仍属单峰。",
+    "limit": "不以该屏证明已明确标出三个独立同色峰，亦不由字幕单独推导MACD软件内部参照数量。"
+  },
+  "image2": {
+    "visibleTitle": "大盘盘口的结构",
+    "visibleInstrument": "上证指数",
+    "visibleSubtitle": "他是形成背离的",
+    "columnColorInterpretation": "图中零轴上方橙红柱、下方绿色柱；粗绿色箭头和横线为手绘覆盖，不能参与柱峰计算。",
+    "tentativeLocations": {
+      "current": "右侧最低价附近正上方、柱底画绿色短横线的一组较深绿柱。",
+      "nearest": "其左侧、柱底也画短横线的一组较短绿柱。",
+      "skipped": "再往左、紧靠中间竖线且被绿色手绘覆盖的一组深绿柱。"
+    },
+    "locationsConfirmedByUser": false,
+    "conditionalObservation": "若上述位置正确，当前价线低于近峰所对应的价线，但当前绿柱比近峰更长，支持近对失败与柱峰未收缩有关；不是价格未新低。",
+    "unreadable": "隔峰旧柱的极值受手绘遮挡，不能独立确认其精确长度，也不据像素给精确数值/时刻；远对成立目前来自讲稿明确说明。",
+    "noClaimOfAutomaticSoftwareLabel": true
+  },
+  "notProven": [
+    "本屏三处峰身份尚待管理员确认。",
+    "同色段内价格取值/指标极值是否同根，未由本屏规定。",
+    "现代软件内部固定两个参照、唯一优先顺序或永久锁峰未证。",
+    "两位DIF截取仍属前课数值模型，不直接用于未知公式的盘口柱。"
+  ],
+  "newNumericalModelExecuted": false,
+  "newLabelsAdded": false
+}

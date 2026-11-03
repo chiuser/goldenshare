@@ -1,6 +1,48 @@
 # 徐小明 MACD 钝化与结构算法研究记录
 
-2026-10-19最新进展见§8.100：**首次顶部修订r2已开发并通过冻结／隔离验证。旧预测分类漏掉18项当根底部确认，已获准更正并保留全部原件；尚未做本版正式数据库／网络／整页验收。下方较早“最新进展”是历史导航，不作为本轮完成结论。**
+> P5整理说明（2026-11-03）：本文保留原设计、开发及验收记录的历史含义，不是当前开工或运行入口。旧执行代码和过程产物已按清单清退；原路径文字仅作出处。现行规则与阶段见[产品文档](wealth-top-bottom-recognition-product-v1.md)，有效原材料见[资料索引](../../reports/xxm/README.md)。
+
+2026-10-21接续见§8.153：最高定义已确认是DIF，课堂图证（原记录：`reports/xxm_dif_peak_confirmation_20261021_01/README.md`）已归档。先近后远12点结果保持；全部同色3峰以上取DIF极值的宽松对照使32对变16对，仍排除3对，未确认排除正确；完整结构回测未完成。最新报告（原记录：`reports/xxm_near_first_review_20261021_04/README.md`）。
+
+2026-10-21最新进展见§8.152：先近后远的6月12点条件回放相容，新增反向峰上限会排除6/32对。21段可见同色柱中7段超过2峰，最高DIF与最长柱定义待确认；未执行合并及完整结构回测。报告见本轮回放（原记录：`reports/xxm_near_first_review_20261021_02/README.md`）。
+
+2026-10-21局部找峰已完成离线实现与试验，见§8.151：52项测试、3,280组数学对照及198根真实窗口的402次前缀重放通过。原图三种读取口径都找到三圈对应峰、蓝>红>橙，基础方法有正面证据；完整柱数/作者峰序仍未证。原值微小起伏、DIF与柱峰时点不同、价格低点不必同根是下一步需核的具体问题。仅研究模块/测试和报告，未改产品或旧标签。
+
+2026-10-21初步识别思路见§8.150：先从已完成柱的“变长→变短”找局部峰，未换色的再次放大同样保留，不必先完整划分价格浪形。平台合并、峰位置/确认时间分开；不新增幅度过滤，下一先核是否对应三圈及额外峰，再查价格取值。仅提出候选，未自动识别原图、实算或改产品。
+
+2026-10-21讨论澄清见§8.149.1：目前没有反例证明同色柱内已经辨认出的两次下跌不能分别供后续比较。先保留并逐对判断，撤回额外假设还需一道“比较资格”的提法；尚需研究的是程序怎样辨认这两次下跌，而不是先证明能否拿来比较。原课堂对异色分隔及比较范围的要求保持，无代码或模型变化。
+
+2026-10-21三峰已由管理员圈图确认，见文末§8.149。红圈当前、橙圈近峰、蓝圈隔峰；蓝橙无红柱分隔仍可分别看待，但当前与两旧峰之间实际有红柱。修正的是“三个峰都须分属独立色段”的概括，不是取消比较两端的异色条件。当前对近峰不背离、对隔峰背离已对应原稿；同色段内哪些位置可分别计峰仍待研究，不凭本例改DIF分段。此前位置请求结束，暂不再索图。无代码/模型或测试变化。
+
+2026-10-21两张盘口课图已收到，见文末§8.148：第一图字幕与“只能隔一个”原话相符；第二图暂辨三个比较位置，若对应正确，近对失败是价格更低但绿柱更长。具体位置待管理员核，隔峰旧柱极值被手绘遮挡，不造精确数值。原两张截图请求已结束，本次只核已有第二图，不再索图/DIF；无模型、测试或产品变化。此前§8.147的“待两图”保留为到图前记录。
+
+2026-10-21新增盘口两课，见文末§8.147：“可以隔一个、但只能隔一个”及近峰不背离/隔峰背离的实例，为比较范围提供新依据。共同原理整理为允许范围内逐对比较，最近一对不成立不直接否定另一对。盘口柱与DIF数值分别保存；形态成立、级别和作者是否报出分开。只待两课36:31—36:50及23:25—23:57的原图核三峰位置，未改产品/标签或运行模型。
+
+2026-10-21新增课程“结构对应关系”：见文末§8.146。上升时较大周期顶可对应一半周期底，下降时较大周期底可对应一半周期顶，震荡按同周期对应理解；须先有环境条件。这补充跨周期对应关系，未解决同周期DIF选峰。三张图为教学示意，不新增软件标签或修改产品；此前两项核心成果仍见§8.145。
+
+2026-10-21学习成果整理：**文末§8.145统一整理两段课程及两图得到的两项成果：判别与纠错标准、DIF前两位的比较方式。核心量化标准已有原课和截图支持，选峰及完整软件边界仍待核。管理员继续找选峰资料，本轮只整理文档，不开展新实验或改产品。下方较早“最新”导航保留为当时记录。**
+
+2026-10-20最新见§8.116：**管理员复看原图后改为6/12 14:00，取代此前15:00确认，与原模型时间一致；“模型早一根”结论撤回。本例至6/24 11/14/15为23/24/25根，不据讲稿22/24凑时点，不引入固定周期规则。代码、参数、原件和模型结果保持。**
+
+2026-10-20接续见§8.110：**4/14补图末端已显示新黄色钝化，旧紫仍在；管理员明确4/18图中4/17—18附近无“消失”。本组对现行新钝化后结束旧比较增加局部支持，产品保持，不证明永久/全方向公式。末端小数差和显示规则未知保留，本组无需重复索图。**
+
+2026-10-19继续研究见§8.109：**4/18图已开始核对，旧紫/新黄可见，末端收盘/DIF/DEA显示一致、柱差0.001。现仅请管理员辨认最右黄色首字是否在4/14，以及后两根是否同样未见绿色；确认前不登记准确新标签或软件永久结束规则。产品不改。**
+
+2026-10-19交接状态见[本线程交接文档](xxm-research-handoff-20261019.md)及§8.108：**用户已补2023/4/18上证日线，原件已入库；待核旧结构、新钝化和4/17—4/18标记，不再重复索图。本轮按用户要求先整理交接，没有继续完成新图结论。下方“等待图”保留为到图前状态。**
+
+2026-10-19最新研究见§8.107：**新钝化当根不补旧绿色与永久结束旧比较已分开；仅跳过当根会在后续产生明确分歧。四周期当前事件保持，现有更晚图片不足独立确认软件通用规则，需2023/4/17上证日线，研究停在取证处。**
+
+2026-10-19最新材料更正见§8.106：**管理员重新确认1/8收盘2887.54，与本地按显示精度一致；此前2869.34及未绑定末根的指标差值不作为当日计算误差依据，不再追查收盘差异。下方§8.103/8.104保留当时判断。下一项建议聚焦新钝化出现后旧结构是否继续比较，尚未执行或改内核。**
+
+2026-10-19新分钟证据见§8.105：**3/11上证120分钟绿色由管理员确认为上午11:30，讲稿明确区分结构消失/钝化消失，末端四项读数对齐；支持保留价格主规则，不追加DIF回升门槛。历史精确值与唯一公式仍待核，产品不变。**
+
+2026-10-19讲稿补证见§8.104：**1/8完整用户稿已取得；支持旧结构与后续新钝化分开，未直接说明旧绿色触发或解释报价差异。下方新稿0是此前阶段记录，产品不变。**
+
+2026-10-19新增图证见§8.103：**两张事前日线候选图已取得，黄紫绿顺序及末端消失相容；1/8收盘经用户确认2869.34，与本地源有18.1979点差，不能算数值完整复现。讲稿尚未取得，产品不变。**
+
+2026-10-19本轮研究见§8.102：**固定r2核对四周期已有结果，筛出四组新图证建议；计算核对完成，尚未取得新图，不算新增软件验证。**
+
+2026-10-19最新进展见§8.101：**首次顶部修订r2已开发，真实数据接口正确性与性能两项现已通过（368业务请求）；实际页面／整页和远端服务网络未验。旧预测分类漏掉18项当根底部确认，已获准更正并保留全部原件；下方较早“最新进展”是历史导航，不作为本轮完成结论。**
 
 更新日期：2026 年 10 月 17 日。状态：候选规则研究及已有样本回放，尚未还原原软件公式。研究对象：上证指数 `000001.SH`。选图周期按具体行情、待检验问题与素材可取得性确定，不统一排除 60 分钟及以下。
 
@@ -32,7 +74,7 @@
 
 **历史撤销的工作候选**是：普通检测保持原义；顶部结构确认时记录时间、原 DIF 目标及确认前正柱段收盘峰；当前柱段清空时保留该历史上下文；先处理普通取消、原目标突破截尾与新的顶部钝化／结构，再在没有竞争事件的后续柱检查收盘是否严格突破保存价格峰。目标突破截尾不补造普通 CANCEL；新结构建立自己的记录。详见 §8.43 的五步定义，不额外加入负柱必要性、24 柱到期或新的过滤参数。
 
-这一工作候选目前保存在研究定义与 [执行顺序结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/historical_withdrawal_order_20261013.json)中；普通基线代码仍是 [replay_color_flip.py](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/replay_color_flip.py)，调用时显式指定 `reference_policy="strongest_eligible"`、`max_refs=2` 及原门槛。该函数默认选峰仍为 `nearest_qualifying`，直接按默认值运行不等于最新研究基线；它切段后重置当前状态，尚未实现上述历史撤销层。
+这一工作候选目前保存在研究定义与 执行顺序结果（原记录：`reports/xxm_macd_structure_20261011/historical_withdrawal_order_20261013.json`）中；普通基线代码仍是 replay_color_flip.py（原记录：`reports/xxm_macd_structure_20261011/replay_color_flip.py`），调用时显式指定 `reference_policy="strongest_eligible"`、`max_refs=2` 及原门槛。该函数默认选峰仍为 `nearest_qualifying`，直接按默认值运行不等于最新研究基线；它切段后重置当前状态，尚未实现上述历史撤销层。
 
 ### 0.3 相关文件怎样使用
 
@@ -44,14 +86,14 @@
 | [V0.1 算法方案](/Users/congming/github/goldenshare/docs/product/xxm-direction-algorithm-plan-v0.1.md) | 四项取舍已确认；上证四周期算法、读数对账及页面已实现并通过技术验收；待用户验收，未部署 |
 | [页面展示基准](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-benchmark-requirement-v0.1.md)、[实施方案与 LLD](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md) | 新增 MACD 图层、来源/API、单一内核及编码门禁；待评审，不把方案写成已接入 |
 | [趋势计算器](/Users/congming/github/goldenshare/src/biz/services/quote_trend_channel_calculator.py)、[股票日线趋势合同](/Users/congming/github/goldenshare/src/foundation/clients/local_lake/stock_daily_trend_channel_contract.py) | 现有趋势方向实现与合同；不是钝化／结构公式 |
-| [replay_frozen_25_points.py](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/replay_frozen_25_points.py)、[replay.py](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/replay.py) | 首轮冻结候选与早期回放；保留失败路径，不作为最新工作候选入口 |
-| [replay_color_flip.py](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/replay_color_flip.py)、[validate_stage2.py](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/validate_stage2.py) | 第二阶段普通检测及该阶段验证；验证脚本自己的样本和配置不自动代表后续全部研究 |
-| [active_reference_candidate.py](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/active_reference_candidate.py)、[reference_retirement_candidate.py](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_retirement_candidate.py) | 隔离比较活动参照重选及额外淘汰，不把备选实现混为已经确认的规则 |
-| [门槛约束结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/threshold_constraint_audit.json)、[扩展筛选记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/discrimination_screen_20261012/screen.json) | 标签置信度、参数区间、状态链依赖及扩展输入的分歧筛选 |
-| [淘汰冗余核查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/dif_retirement_redundancy_20261013.json)、[范围与选峰联合核查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_range_selector_joint_20261013.json) | §8.37—§8.38 的逻辑前提、六组组合及证据等级 |
-| [固定基线后续核查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/baseline_followup_semantics_20261013.json)、[绿色标记联合复核](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/existing_green_marker_crosscheck_20261013.json) | 普通事件与历史撤销的覆盖差异，分别保存模型值和软件观察 |
-| [重叠历史图对照](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/july120_overlap_marker_review_20261013.json)、[历史撤销次序结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/historical_withdrawal_order_20261013.json) | §8.42—§8.43 的标记保留、文字重叠及同柱竞争事件顺序 |
-| [全部保存分钟输入的撤销筛查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/historical_withdrawal_full_timeline_20261013.json) | §8.44 的冻结定义、各频度覆盖、全部研究锚点及撤销／截尾账本、竞争解释、图证等级与验证；不是完整软件真值账本 |
+| replay_frozen_25_points.py（原记录：`reports/xxm_macd_structure_20261011/replay_frozen_25_points.py`）、replay.py（原记录：`reports/xxm_macd_structure_20261011/replay.py`） | 首轮冻结候选与早期回放；保留失败路径，不作为最新工作候选入口 |
+| replay_color_flip.py（原记录：`reports/xxm_macd_structure_20261011/replay_color_flip.py`）、validate_stage2.py（原记录：`reports/xxm_macd_structure_20261011/validate_stage2.py`） | 第二阶段普通检测及该阶段验证；验证脚本自己的样本和配置不自动代表后续全部研究 |
+| active_reference_candidate.py（原记录：`reports/xxm_macd_structure_20261011/active_reference_candidate.py`）、reference_retirement_candidate.py（原记录：`reports/xxm_macd_structure_20261011/reference_retirement_candidate.py`） | 隔离比较活动参照重选及额外淘汰，不把备选实现混为已经确认的规则 |
+| 门槛约束结果（原记录：`reports/xxm_macd_structure_20261011/threshold_constraint_audit.json`）、扩展筛选记录（原记录：`reports/xxm_macd_structure_20261011/discrimination_screen_20261012/screen.json`） | 标签置信度、参数区间、状态链依赖及扩展输入的分歧筛选 |
+| 淘汰冗余核查（原记录：`reports/xxm_macd_structure_20261011/dif_retirement_redundancy_20261013.json`）、范围与选峰联合核查（原记录：`reports/xxm_macd_structure_20261011/reference_range_selector_joint_20261013.json`） | §8.37—§8.38 的逻辑前提、六组组合及证据等级 |
+| 固定基线后续核查（原记录：`reports/xxm_macd_structure_20261011/baseline_followup_semantics_20261013.json`）、绿色标记联合复核（原记录：`reports/xxm_macd_structure_20261011/existing_green_marker_crosscheck_20261013.json`） | 普通事件与历史撤销的覆盖差异，分别保存模型值和软件观察 |
+| 重叠历史图对照（原记录：`reports/xxm_macd_structure_20261011/july120_overlap_marker_review_20261013.json`）、历史撤销次序结果（原记录：`reports/xxm_macd_structure_20261011/historical_withdrawal_order_20261013.json`） | §8.42—§8.43 的标记保留、文字重叠及同柱竞争事件顺序 |
+| 全部保存分钟输入的撤销筛查（原记录：`reports/xxm_macd_structure_20261011/historical_withdrawal_full_timeline_20261013.json`） | §8.44 的冻结定义、各频度覆盖、全部研究锚点及撤销／截尾账本、竞争解释、图证等级与验证；不是完整软件真值账本 |
 | `inputs/`、`discrimination_screen_20261012/`、`sources/` 与各 manifest | 分别保存 DG 导出、离线推导、原图／原文和来源校验。推导值不等于软件历史真值；早期外部原图路径仍见 §2 |
 
 §5.5 的命令属于各阶段历史复算说明，部分脚本会直接写回原报告目录；本次没有执行这些命令。下一轮实验须另行准备明确的新输出和冻结定义，不能覆盖已有结果或把旧脚本默认配置当成最新候选。
@@ -221,7 +263,7 @@
 | 10 月 27 日剪贴板图，已保存为 20251027_120.png | 2025-10-27 120 分钟 | 历史文字映射支持 24 日上午钝化、下午消失；27 日末端无新事件；用户已纠正最初的 25 日说法 |
 | 20251016_daily、20251016_120 | 2025-10-16 日线、120 分钟 | 检验事先记录的价格参照分歧；历史紫色标记检查柱线变色确认路径；文字稿补充参照范围与周期选择语义 |
 
-前 24 张原图位于 `/Users/congming/Downloads/IMG_编号.PNG`，未复制到仓库，应保留这些文件。新增 10 月 16 日两张剪贴板图及文字稿已逐字节保存到报告目录的 `sources/`，避免依赖临时附件路径。文件标识及 SHA256 见 [截图清单](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/screenshot_manifest.json)及[新增来源清单](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/source_manifest_20251016.json)。清单不能替代原始来源本身。
+前 24 张原图位于 `/Users/congming/Downloads/IMG_编号.PNG`，未复制到仓库，应保留这些文件。新增 10 月 16 日两张剪贴板图及文字稿已逐字节保存到报告目录的 `sources/`，避免依赖临时附件路径。文件标识及 SHA256 见 [截图清单](/Users/congming/github/goldenshare/reports/xxm/observations/xxm_macd_structure_20261011/screenshot_manifest.json)及新增来源清单（原记录：`reports/xxm_macd_structure_20261011/source_manifest_20251016.json`）。清单不能替代原始来源本身。
 
 标记时间分成两档：`direct` 表示截图末端事件或末端没有新事件较清晰；`mapped` 表示根据历史标记横坐标映射到 K 线时间。后一类仍可能存在一根柱的定位误差。首轮 25 个核对点包含 9 个 direct、16 个 mapped；IMG_0366 的一个及 IMG_0369、0370 的两个末端 direct 核对点分别保存，不混入首轮校准表。两张 1 月 13 日图较早的文字仅作为区域观察，不新增精确时点标签。IMG_0374 的一个末端 direct 与两个历史 mapped 点另存；mapped 定位仍须保留一根柱的误差可能。
 
@@ -410,26 +452,26 @@
 
 证据目录为 `/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011`。
 
-- [候选回放脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/replay.py)：仅使用 Python 标准库和已保存 CSV，输出到同一报告目录，没有数据库或 Lake 写入。
-- [回放汇总与输入校验值](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/replay_summary.json)：门槛对照、规则对照、边界数值、输入行数和 SHA256。
-- [逐点标记对照](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/label_comparison.csv)：250 行，包含十组门槛各自的 25 个核对点。
-- [1% 候选的全部回放事件](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/events_r1.csv)：也包含没有截图核对的历史事件；不能把其中未核对的事件称为软件实测结果。
-- [截图来源清单](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/screenshot_manifest.json)：26 张原图的文件标识。
-- [初筛分歧时点](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/candidate_queue.csv)：15 行，其中 14 行软件标记尚未确认；4 月 7 日末端已记录为 `NONE`，但原候选的钝化前提受质疑，不能简单计为门槛验证。
-- [首轮冻结脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/replay_frozen_25_points.py)：收到 IMG_0366 之前的候选版本，保留失败路径；不作为正式指标实现。
-- [新图审查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_0366.py)及[审查结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/holdout_0366.json)：软件观察、参照数值、冻结候选失败及两种参照修正对照。
-- [1 月 13 日两图审查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_0369_0370.py)及[结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/holdout_0369_0370.json)：两个末端标签、三种参照与三种门槛的对照，未修改候选规则。
-- [90 分钟只读导出脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/export_90_jan13.py)及[来源记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/export_90_jan13.json)：459 行 CSV、正式源文件清单及 SHA256。仅导出研究副本，不修改正式 Lake；依赖既有 orchestrator 环境中的 DuckDB。
-- [60 分钟参照分歧队列](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_disagreement_60.csv)：12 个未经软件确认的时点；用于选择下一张图，不作为算法验证结果。
-- [8 月 6 日 90 分钟审查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_0374.py)及[结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/holdout_0374.json)：保留末端无新事件与历史钝化位置的不同置信度，未修改候选规则。
-- [可取得周期的选图结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/available_period_candidate_search.json)：取得新图前的预测快照，保留当时的 `NOT_CONFIRMED`；实际观察另存，不回写成事先已知。
-- [10 月 16 日审查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_20251016.py)及[结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/holdout_20251016.json)：两个末端 direct、六个历史 mapped 核对点，参照候选比较、柱线变色漏报及文字稿时间定位。
-- [10 月 16 日文字稿原文](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251016_transcript.txt)：原始自动转写，未经改写；图片与文字稿校验值见 [来源清单](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/source_manifest_20251016.json)。
-- [第二阶段候选](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/replay_color_flip.py)与[验证脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/validate_stage2.py)：切段前确认、不同参照资格、已有证据及反例检查，独立于旧回放文件。
-- [第二阶段假设与输入冻结记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/validation_stage2_frozen.json)、[结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/validation_stage2.json)及[逐点对照](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/stage2_label_comparison.csv)：保留失败候选，不把重复比较计为独立样本。
-- [新增变色事件](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/stage2_new_events.csv)、[参照事件分歧](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/stage2_reference_disagreements.csv)及[同事件不同参照](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/stage2_reference_choices.csv)：包含重叠输入及未核实节点，`NOT_CONFIRMED` 不代表软件实测。
-- [下一补图预测快照](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/stage2_next_screenshot.json)：8 月 18 日 120 分钟首选、6 月 25 日同周期备选；收到新图前已保存预测及脚本／输入 SHA256。
-- [YouTube 字幕实测记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/youtube_transcript_probe.json)及[MCP 原始返回](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251016_vidiq_transcript.json)：视频身份、语言、来源、全文、校验值及和用户文字稿的对照限制。
+- 候选回放脚本（原记录：`reports/xxm_macd_structure_20261011/replay.py`）：仅使用 Python 标准库和已保存 CSV，输出到同一报告目录，没有数据库或 Lake 写入。
+- 回放汇总与输入校验值（原记录：`reports/xxm_macd_structure_20261011/replay_summary.json`）：门槛对照、规则对照、边界数值、输入行数和 SHA256。
+- 逐点标记对照（原记录：`reports/xxm_macd_structure_20261011/label_comparison.csv`）：250 行，包含十组门槛各自的 25 个核对点。
+- 1% 候选的全部回放事件（原记录：`reports/xxm_macd_structure_20261011/events_r1.csv`）：也包含没有截图核对的历史事件；不能把其中未核对的事件称为软件实测结果。
+- [截图来源清单](/Users/congming/github/goldenshare/reports/xxm/observations/xxm_macd_structure_20261011/screenshot_manifest.json)：26 张原图的文件标识。
+- 初筛分歧时点（原记录：`reports/xxm_macd_structure_20261011/candidate_queue.csv`）：15 行，其中 14 行软件标记尚未确认；4 月 7 日末端已记录为 `NONE`，但原候选的钝化前提受质疑，不能简单计为门槛验证。
+- 首轮冻结脚本（原记录：`reports/xxm_macd_structure_20261011/replay_frozen_25_points.py`）：收到 IMG_0366 之前的候选版本，保留失败路径；不作为正式指标实现。
+- 新图审查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_0366.py`）及审查结果（原记录：`reports/xxm_macd_structure_20261011/holdout_0366.json`）：软件观察、参照数值、冻结候选失败及两种参照修正对照。
+- 1 月 13 日两图审查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_0369_0370.py`）及结果（原记录：`reports/xxm_macd_structure_20261011/holdout_0369_0370.json`）：两个末端标签、三种参照与三种门槛的对照，未修改候选规则。
+- 90 分钟只读导出脚本（原记录：`reports/xxm_macd_structure_20261011/export_90_jan13.py`）及来源记录（原记录：`reports/xxm_macd_structure_20261011/export_90_jan13.json`）：459 行 CSV、正式源文件清单及 SHA256。仅导出研究副本，不修改正式 Lake；依赖既有 orchestrator 环境中的 DuckDB。
+- 60 分钟参照分歧队列（原记录：`reports/xxm_macd_structure_20261011/reference_disagreement_60.csv`）：12 个未经软件确认的时点；用于选择下一张图，不作为算法验证结果。
+- 8 月 6 日 90 分钟审查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_0374.py`）及结果（原记录：`reports/xxm_macd_structure_20261011/holdout_0374.json`）：保留末端无新事件与历史钝化位置的不同置信度，未修改候选规则。
+- 可取得周期的选图结果（原记录：`reports/xxm_macd_structure_20261011/available_period_candidate_search.json`）：取得新图前的预测快照，保留当时的 `NOT_CONFIRMED`；实际观察另存，不回写成事先已知。
+- 10 月 16 日审查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_20251016.py`）及结果（原记录：`reports/xxm_macd_structure_20261011/holdout_20251016.json`）：两个末端 direct、六个历史 mapped 核对点，参照候选比较、柱线变色漏报及文字稿时间定位。
+- [10 月 16 日文字稿原文](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251016_transcript.txt)：原始自动转写，未经改写；图片与文字稿校验值见 来源清单（原记录：`reports/xxm_macd_structure_20261011/source_manifest_20251016.json`）。
+- 第二阶段候选（原记录：`reports/xxm_macd_structure_20261011/replay_color_flip.py`）与验证脚本（原记录：`reports/xxm_macd_structure_20261011/validate_stage2.py`）：切段前确认、不同参照资格、已有证据及反例检查，独立于旧回放文件。
+- 第二阶段假设与输入冻结记录（原记录：`reports/xxm_macd_structure_20261011/validation_stage2_frozen.json`）、结果（原记录：`reports/xxm_macd_structure_20261011/validation_stage2.json`）及逐点对照（原记录：`reports/xxm_macd_structure_20261011/stage2_label_comparison.csv`）：保留失败候选，不把重复比较计为独立样本。
+- 新增变色事件（原记录：`reports/xxm_macd_structure_20261011/stage2_new_events.csv`）、参照事件分歧（原记录：`reports/xxm_macd_structure_20261011/stage2_reference_disagreements.csv`）及同事件不同参照（原记录：`reports/xxm_macd_structure_20261011/stage2_reference_choices.csv`）：包含重叠输入及未核实节点，`NOT_CONFIRMED` 不代表软件实测。
+- 下一补图预测快照（原记录：`reports/xxm_macd_structure_20261011/stage2_next_screenshot.json`）：8 月 18 日 120 分钟首选、6 月 25 日同周期备选；收到新图前已保存预测及脚本／输入 SHA256。
+- YouTube 字幕实测记录（原记录：`reports/xxm_macd_structure_20261011/youtube_transcript_probe.json`）及[MCP 原始返回](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251016_vidiq_transcript.json)：视频身份、语言、来源、全文、校验值及和用户文字稿的对照限制。
 
 复算命令：
 
@@ -645,7 +687,7 @@ IMG_0374 的软件末端显示收盘价 3633.99、DIF 12.244、DEA 7.817、柱�
 
 从截图频道线索找到 A股财经【徐小明高级课】，按频道限定搜索取得[2025 年 8 月 15 日视频](https://www.youtube.com/watch?v=WqGqhpLhLPk)和[8 月 18 日视频](https://www.youtube.com/watch?v=_mIgN_lnoc0)。搜索日期、标题与讲解日期一致；18 日开头的自动字幕先错写 2028，随后立即更正为 2025，不能按第一个数字定年。这里使用的是该频道转载的讲解字幕，没有声称是作者本人运营的频道。此前不限定频道的搜索混入同名演员及错年份视频，均未用于算法证据。
 
-原始全文分别为 5052、5617 字符，保存为[15 日字幕](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250815_vidiq_transcript.json)及[18 日字幕](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250818_vidiq_transcript.json)。[数值审查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_narrated_thresholds.py)与[审查结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_narrated_thresholds.json)保存输入、字幕和原冻结预测的 SHA256。原候选、39 点核对表及 §5.11 预测未修改。
+原始全文分别为 5052、5617 字符，保存为[15 日字幕](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20250815_vidiq_transcript.json)及[18 日字幕](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20250818_vidiq_transcript.json)。数值审查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_narrated_thresholds.py`）与审查结果（原记录：`reports/xxm_macd_structure_20261011/audit_narrated_thresholds.json`）保存输入、字幕和原冻结预测的 SHA256。原候选、39 点核对表及 §5.11 预测未修改。
 
 15 日讲解反复说明：日线下一柱约 3699 点钝化消失；120 分钟约 3750 点钝化消失，约 3689 点结构形成。这里把反复一致的数字视为近似口述门槛，不视为精确软件公式；字幕中个别“钝化形成／消失”的混淆须按上下文核查，不逐字转成事件标签。
 
@@ -669,7 +711,7 @@ IMG_0374 的软件末端显示收盘价 3633.99、DIF 12.244、DEA 7.817、柱�
 
 ### 5.14 8 月 18 日新截图验证，以及 6 月 25 日旧峰讲解
 
-用户提供的剪贴板图已逐字节保存为[8 月 18 日 120 分钟截图](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250818_120.png)，加入截图清单。图中最后一根青色柱为 18 日下午，左侧前一根红色柱为当天上午；末端绿色“消失”附在最后一根柱对应位置。上午位置未见绿色文字，这个历史无标记观察记为 mapped，保留一根柱定位误差；下午末端有标记且选中数值一致，记为 direct。
+用户提供的剪贴板图已逐字节保存为[8 月 18 日 120 分钟截图](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20250818_120.png)，加入截图清单。图中最后一根青色柱为 18 日下午，左侧前一根红色柱为当天上午；末端绿色“消失”附在最后一根柱对应位置。上午位置未见绿色文字，这个历史无标记观察记为 mapped，保留一根柱定位误差；下午末端有标记且选中数值一致，记为 direct。
 
 | 末端数值 | 软件显示 | DG 保存值 |
 | --- | ---: | ---: |
@@ -678,26 +720,26 @@ IMG_0374 的软件末端显示收盘价 3633.99、DIF 12.244、DEA 7.817、柱�
 | DEA | 28.511 | 28.511477 |
 | 柱值 | 9.358 | 9.357878 |
 
-对照[收到图前冻结的预测](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/stage2_next_screenshot.json)：
+对照收到图前冻结的预测（原记录：`reports/xxm_macd_structure_20261011/stage2_next_screenshot.json`）：
 
 | 时间 | 截图观察 | 最近旧峰候选 | 更早、更强的合资格旧峰候选 |
 | --- | --- | --- | --- |
 | 8 月 18 日上午 | 未见新消失文字，mapped | 消失，不匹配 | 无新事件，继续钝化，相容 |
 | 8 月 18 日下午 | 末端绿色消失，direct | 上午已消失，下午无新事件，不匹配 | DIF 超过 32.468749，消失，匹配 |
 
-三种门槛 0.75%、1%、1.2% 得到相同分歧，每种候选共对照六次（两时点乘三门槛），不是六个独立样本。候选脚本、CSV 输入及冻结预测 SHA256 均未改变；逐前缀回放与冻结条目相同。[新图核对记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/holdout_20250818.json)保存原图 SHA256、显示数值、标签置信度、两种候选的成功和失败。此前 39 点校准表保持不变，新图增加一个 direct 和一个 mapped；不能把旧校准与这个案例合成准确率。
+三种门槛 0.75%、1%、1.2% 得到相同分歧，每种候选共对照六次（两时点乘三门槛），不是六个独立样本。候选脚本、CSV 输入及冻结预测 SHA256 均未改变；逐前缀回放与冻结条目相同。新图核对记录（原记录：`reports/xxm_macd_structure_20261011/holdout_20250818.json`）保存原图 SHA256、显示数值、标签置信度、两种候选的成功和失败。此前 39 点校准表保持不变，新图增加一个 direct 和一个 mapped；不能把旧校准与这个案例合成准确率。
 
 该图是在候选及分歧冻结之后取得，属于新图检验；但 8 月 15 日字幕在新图前已经支持更强旧峰，不能描述为完全没有先验提示的盲选模型实验。结论是该案例的最近旧峰选择不符，保留更早高峰的候选得到视觉支持，仍不证明普遍固定取最近两段最大 DIF。
 
 8 月 18 日字幕此前已通过 vidIQ 取得，本次复用保存的 5617 字符全文，不重复请求。讲解确认 120 分钟收盘钝化消失，并提到下午低点时暂时没有消失；这与完成柱和盘中未完成柱的区别相容。后者没有逐笔数据验证，不把盘中反复变化写入收盘事件标签。
 
-另通过同频道搜索与 MCP 读取[2025 年 6 月 25 日视频](https://www.youtube.com/watch?v=5SBg6oU2c4c)，保存[5794 字符字幕全文](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250625_vidiq_transcript.json)。讲解在 120 分钟段明确比较：当前 DIF 约 12、上一柱约 7，旧峰约 26，距消失仍有空间。DG 当天下午为 12.048531、上午 7.619560；更早合资格段峰为 26.114903，最近段峰为 11.886273。数值及周期相符，支持旧峰 26 的保留；最近峰候选则已经预测当日下午消失。该日也在原冻结补图队列中，[字幕审查结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_narrated_20250625.json)单独保存，未新增软件标记标签。
+另通过同频道搜索与 MCP 读取[2025 年 6 月 25 日视频](https://www.youtube.com/watch?v=5SBg6oU2c4c)，保存[5794 字符字幕全文](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20250625_vidiq_transcript.json)。讲解在 120 分钟段明确比较：当前 DIF 约 12、上一柱约 7，旧峰约 26，距消失仍有空间。DG 当天下午为 12.048531、上午 7.619560；更早合资格段峰为 26.114903，最近段峰为 11.886273。数值及周期相符，支持旧峰 26 的保留；最近峰候选则已经预测当日下午消失。该日也在原冻结补图队列中，字幕审查结果（原记录：`reports/xxm_macd_structure_20261011/audit_narrated_20250625.json`）单独保存，未新增软件标记标签。
 
 两组行情分别支持更早高峰，但旧峰如何取得资格、能跨过几段、何时被红绿切换淘汰，仍有其他可行解释。结构转向门槛、零柱处理及跨段后的参照失效继续未定。本阶段原计划补取 6 月 25 日上证 120 分钟图，核对约 26 的峰及当天钝化；现已收到，核对结果见 §5.15。无需用户另贴文字稿，MCP 已取得全文。
 
 ### 5.15 6 月 25 日新图：数值对齐，末端标记仍待定位
 
-用户新图已逐字节保存为[6 月 25 日 120 分钟截图](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250625_120.png)，加入第 28 条截图账本。顶部为 2025 年 6 月 25 日、120 分钟，末端数值与保存的 DG 导出相符：
+用户新图已逐字节保存为[6 月 25 日 120 分钟截图](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20250625_120.png)，加入第 28 条截图账本。顶部为 2025 年 6 月 25 日、120 分钟，末端数值与保存的 DG 导出相符：
 
 | 末端数值 | 软件显示 | DG 保存值 |
 | --- | ---: | ---: |
@@ -717,7 +759,7 @@ IMG_0374 的软件末端显示收盘价 3633.99、DIF 12.244、DEA 7.817、柱�
 
 但图最右侧能看到黄色“钝化”和绿色“消失”，两者挤在上升线附近。绿色文字究竟对应哪个时点、哪一个参照，目前不能可靠定位。它可能是较早事件，也可能涉及另一个参照的失效；这些仅是待检验的解释。不能把视频所讲的旧峰钝化仍有效，直接等同于软件最后一柱完全没有任何消失事件，也不能把所有绿色文字都判成当前旧峰已失效。
 
-对照收到图前的原冻结预测：最近峰候选在 6 月 25 日下午报消失，旧高峰候选继续钝化、无新事件。两者各在三种门槛、两个时点回放，12 次计算均与原冻结条目及逐前缀计算一致；原候选、输入和 18 个早期冻结文件均未改变。由于软件事件定位不清，本图新增的评分标签数为零，不加入通过率。[本轮核对记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/holdout_20250625.json)保存数值、原图 SHA256、两种候选及视觉疑点。
+对照收到图前的原冻结预测：最近峰候选在 6 月 25 日下午报消失，旧高峰候选继续钝化、无新事件。两者各在三种门槛、两个时点回放，12 次计算均与原冻结条目及逐前缀计算一致；原候选、输入和 18 个早期冻结文件均未改变。由于软件事件定位不清，本图新增的评分标签数为零，不加入通过率。本轮核对记录（原记录：`reports/xxm_macd_structure_20261011/holdout_20250625.json`）保存数值、原图 SHA256、两种候选及视觉疑点。
 
 继续检查发现，最近峰候选并不会永远停留在“已消失”：它在 6 月 26 日上午重新选中 26.114903 的旧峰，报一次新的钝化；旧高峰候选则延续 24 日下午的钝化。两者到 26 日收盘都处于钝化状态。仅检查某日有无钝化，会漏掉这种路径差别。
 
@@ -727,13 +769,13 @@ IMG_0374 的软件末端显示收盘价 3633.99、DIF 12.244、DEA 7.817、柱�
 | 6 月 26 日上午 | 新钝化，改用 26.114903 | 无新事件，延续旧峰钝化 | 是否新增黄色标记 |
 | 6 月 26 日下午 | 无新事件，保持钝化 | 无新事件，保持钝化 | 单看末端状态无法区分 |
 
-先保存[6 月 26 日冻结预测](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/stage2_next_20250626.json)，再在同频道检索并调用 MCP 取得[6 月 26 日视频](https://www.youtube.com/watch?v=jv_ZGcDSV10)的[5511 字符字幕](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250626_vidiq_transcript.json)。标题及字幕开场日期相符。讲解确认当日 120 分钟仍有钝化，配合序列 8，尚在观察次日是否形成结构或消失；没有明确说明它是延续还是当日重新触发。两种候选的收盘状态都与这段讲解相容，[字幕核对记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_narrated_20250626.json)不新增软件事件标签。序列 8 不属于当前 MACD 回放公式。
+先保存6 月 26 日冻结预测（原记录：`reports/xxm_macd_structure_20261011/stage2_next_20250626.json`），再在同频道检索并调用 MCP 取得[6 月 26 日视频](https://www.youtube.com/watch?v=jv_ZGcDSV10)的[5511 字符字幕](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20250626_vidiq_transcript.json)。标题及字幕开场日期相符。讲解确认当日 120 分钟仍有钝化，配合序列 8，尚在观察次日是否形成结构或消失；没有明确说明它是延续还是当日重新触发。两种候选的收盘状态都与这段讲解相容，字幕核对记录（原记录：`reports/xxm_macd_structure_20261011/audit_narrated_20250626.json`）不新增软件事件标签。序列 8 不属于当前 MACD 回放公式。
 
 **该阶段计划下一张为 2025 年 6 月 26 日上证 120 分钟，现已收到，见 §5.16。** 原补图要求优先放大的 6 月 24—26 日末端；若文字仍重叠，就保留未确认状态，不要求用户反复找同类图。这个分歧的成立以软件文字标记确实表示事件发生位置为前提；若软件会挪动或重绘文字，需要先校准显示口径。还不能排除同时跟踪多个参照的实现，不能把单参照候选当作已查明的源码。
 
 ### 5.16 6 月 26 日新图：延续钝化的证据与柱值缩短的反例
 
-用户提供的[6 月 26 日 120 分钟图](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250626_120.png)已逐字节保存，截图账本增至 29 条。原图观察、保存数据、候选预测分开记录；本轮仅更新研究材料。
+用户提供的[6 月 26 日 120 分钟图](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20250626_120.png)已逐字节保存，截图账本增至 29 条。原图观察、保存数据、候选预测分开记录；本轮仅更新研究材料。
 
 | 末端数值 | 软件显示 | DG 保存值 |
 | --- | ---: | ---: |
@@ -755,9 +797,9 @@ IMG_0374 的软件末端显示收盘价 3633.99、DIF 12.244、DEA 7.817、柱�
 
 这里的事件比较以文字锚点稳定、软件会对每次新事件留下独立标记为条件。上午没有新的黄色文字，增加了“24 日钝化延续至 26 日”的证据权重；它仍是历史位置映射，不能据此排除隐藏的参照切换、多参照跟踪或重绘。该图增加两个观察点，其中一个 direct、一个 mapped；三组门槛是重复计算，不是三个新案例。不要将它与旧校准合并成准确率。
 
-原候选及输入 SHA256 未变，12 次计算与原冻结预测、逐前缀回放相同，18 个早期冻结文件仍相同。[本轮核对记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/holdout_20250626.json)同时保留最近峰候选的上午不匹配、两种候选的下午相容，以及未评分的历史绿色文字。此前字幕已取得，复用保存全文，不重复调用 MCP。
+原候选及输入 SHA256 未变，12 次计算与原冻结预测、逐前缀回放相同，18 个早期冻结文件仍相同。本轮核对记录（原记录：`reports/xxm_macd_structure_20261011/holdout_20250626.json`）同时保留最近峰候选的上午不匹配、两种候选的下午相容，以及未评分的历史绿色文字。此前字幕已取得，复用保存全文，不重复调用 MCP。
 
-为继续审查参照形成过程，另在同频道找到并经 MCP 取得[6 月 24 日视频](https://www.youtube.com/watch?v=0pRHKjTiHGM)的[原始字幕](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250624_vidiq_transcript.json)。开场日期相符；讲解已说明 120 分钟、90 分钟有钝化，并可采用非相邻峰比较。自动字幕分别写成“格峰”“隔风”，此处结合上下文解释为“隔峰”，保留原字幕，不静默纠错。这支持 24 日已在采用更早峰的解释；精确旧峰约 26 的数值来自 25 日讲解，不能冒称 24 日明确报出该值。按未修改候选，24 日下午两者均触发钝化，但最近峰参照是 11.886273，旧高峰参照是 26.114903。[24 日字幕审查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_narrated_20250624.json)不新增软件事件标签，也没有解释绿色文字的归属。
+为继续审查参照形成过程，另在同频道找到并经 MCP 取得[6 月 24 日视频](https://www.youtube.com/watch?v=0pRHKjTiHGM)的[原始字幕](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20250624_vidiq_transcript.json)。开场日期相符；讲解已说明 120 分钟、90 分钟有钝化，并可采用非相邻峰比较。自动字幕分别写成“格峰”“隔风”，此处结合上下文解释为“隔峰”，保留原字幕，不静默纠错。这支持 24 日已在采用更早峰的解释；精确旧峰约 26 的数值来自 25 日讲解，不能冒称 24 日明确报出该值。按未修改候选，24 日下午两者均触发钝化，但最近峰参照是 11.886273，旧高峰参照是 26.114903。24 日字幕审查（原记录：`reports/xxm_macd_structure_20261011/audit_narrated_20250624.json`）不新增软件事件标签，也没有解释绿色文字的归属。
 
 该图还提供一个清楚的机制对照。DG 相邻完成柱如下：
 
@@ -772,7 +814,7 @@ IMG_0374 的软件末端显示收盘价 3633.99、DIF 12.244、DEA 7.817、柱�
 
 ### 5.17 旧参照保留与失效：有限窗口的证据及 10 月 24 日新分歧
 
-本轮只读取保存的 CSV、旧候选及证据标签，新增独立[生命周期审查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_reference_lifecycle.py)。原 `replay.py`、`replay_color_flip.py`、原标签及输入不改写。审查前保存了[21 个文件的哈希清单](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_lifecycle_frozen.json)，包括原脚本、12 份输入及此前冻结记录；运行后均相同。CodeGraph 两次上下文查询未准确覆盖未跟踪的研究文件，因而直接核读目标源码；本轮不改正式消费者、合同、架构边界或依赖矩阵。
+本轮只读取保存的 CSV、旧候选及证据标签，新增独立生命周期审查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_reference_lifecycle.py`）。原 `replay.py`、`replay_color_flip.py`、原标签及输入不改写。审查前保存了21 个文件的哈希清单（原记录：`reports/xxm_macd_structure_20261011/reference_lifecycle_frozen.json`），包括原脚本、12 份输入及此前冻结记录；运行后均相同。CodeGraph 两次上下文查询未准确覆盖未跟踪的研究文件，因而直接核读目标源码；本轮不改正式消费者、合同、架构边界或依赖矩阵。
 
 **先区分三种生命周期。** 当前候选的实际行为如下，不冒称原软件源码：
 
@@ -797,11 +839,11 @@ IMG_0374 的软件末端显示收盘价 3633.99、DIF 12.244、DEA 7.817、柱�
 | 5 | 0 | 0 | 0 |
 | 输入中全部历史段 | 1 | 1 | 1 |
 
-每格核对相同的 43 个观察点，包含原 39 点、8 月 18 日两点及 6 月 26 日两点；17 点 direct、26 点 mapped。它们有共享行情及标签锚点条件，不是 43 个独立盲测案例。774 次逐前缀检查全部相同，证明这些指定时点的计算没有依赖后续输入，不证明软件公式正确。[完整审查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_lifecycle_audit.json)和[逐点对照](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_window_comparison.csv)保留所有失败。
+每格核对相同的 43 个观察点，包含原 39 点、8 月 18 日两点及 6 月 26 日两点；17 点 direct、26 点 mapped。它们有共享行情及标签锚点条件，不是 43 个独立盲测案例。774 次逐前缀检查全部相同，证明这些指定时点的计算没有依赖后续输入，不证明软件公式正确。完整审查（原记录：`reports/xxm_macd_structure_20261011/reference_lifecycle_audit.json`）和逐点对照（原记录：`reports/xxm_macd_structure_20261011/reference_window_comparison.csv`）保留所有失败。
 
 只保留一段漏掉 6—7 月的多次钝化／结构，并把 8 月 18 日消失提前到上午。这里“窗口一段”不同于此前“最近合资格峰、最多搜索两段”的策略：后者仍能跳过最近段查更早段。保留输入内全部历史段，则在 2026 年 1 月 13 日 90 分钟末端多报结构，使用的是 2025 年 8 月 15 日开始的段峰 52.465540；当前 DIF 为 45.360789。软件截图末端未见结构。该周期 DG 与软件数值已有差异，因此这是有数据对齐条件的反例，不能只凭它认定确切淘汰机制。
 
-**先冻结新的区分点，再读取字幕。** 2 段与 3 段在上述旧标签上相同，但完整回放出现 8 处事件差异，其中 2025 年 10 月 24、27 日上证 120 分钟可区分旧峰能否继续入选。本轮先保存[新预测](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_next_20251024_27.json)，之后才检索并读取两天的字幕；冻结文件未被新证据覆盖。三组门槛给出相同分歧：
+**先冻结新的区分点，再读取字幕。** 2 段与 3 段在上述旧标签上相同，但完整回放出现 8 处事件差异，其中 2025 年 10 月 24、27 日上证 120 分钟可区分旧峰能否继续入选。本轮先保存新预测（原记录：`reports/xxm_macd_structure_20261011/reference_next_20251024_27.json`），之后才检索并读取两天的字幕；冻结文件未被新证据覆盖。三组门槛给出相同分歧：
 
 | 完成柱 | DG DIF | 两段窗口 | 三段窗口 |
 | --- | ---: | --- | --- |
@@ -810,9 +852,9 @@ IMG_0374 的软件末端显示收盘价 3633.99、DIF 12.244、DEA 7.817、柱�
 
 两段窗口可搜索的是 10 月 22 日开始的一根红柱段，以及 10 月 16 日开始的两根红柱段；三段窗口额外保留 9 月 30 日段，因其峰更高而选择它。段数统计是候选按柱值正负切段的口径，不是根据上涨天数或肉眼大波浪计数。
 
-通过 vidIQ 取得[10 月 24 日视频](https://www.youtube.com/watch?v=iflE76iVGO8)的[5416 字符原字幕](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251024_vidiq_transcript.json)及[10 月 27 日视频](https://www.youtube.com/watch?v=Tt49X3Y-K9E)的[8976 字符原字幕](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251027_vidiq_transcript.json)。标题与开场日期相符；频道为既有公开转载来源，没有据此宣称已认证原作者账号。两份仍为自动字幕，“动画”“红角线”等识别错误保留原文。
+通过 vidIQ 取得[10 月 24 日视频](https://www.youtube.com/watch?v=iflE76iVGO8)的[5416 字符原字幕](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251024_vidiq_transcript.json)及[10 月 27 日视频](https://www.youtube.com/watch?v=Tt49X3Y-K9E)的[8976 字符原字幕](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251027_vidiq_transcript.json)。标题与开场日期相符；频道为既有公开转载来源，没有据此宣称已认证原作者账号。两份仍为自动字幕，“动画”“红角线”等识别错误保留原文。
 
-24 日讲解明确讨论上证 120 分钟：上午一个周期钝化，下午第二个周期消失；并解释反复红绿柱穿插后，更早的高峰不能再纳入比较。两段候选的完成柱顺序相容，三段候选到 27 日才消失则不符。27 日讲解说 120、90 分钟已经消失；该日收盘状态不能单独区分消失是在 24 日还是 27 日上午，因此主要区分证据是 24 日讲解。字幕没有对应图的精确坐标或指标数值，暂不新增软件标记标签，仍维持 43 点账本。[字幕审查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_narrated_20251024_27.json)将叙述约束与图片标签分开。
+24 日讲解明确讨论上证 120 分钟：上午一个周期钝化，下午第二个周期消失；并解释反复红绿柱穿插后，更早的高峰不能再纳入比较。两段候选的完成柱顺序相容，三段候选到 27 日才消失则不符。27 日讲解说 120、90 分钟已经消失；该日收盘状态不能单独区分消失是在 24 日还是 27 日上午，因此主要区分证据是 24 日讲解。字幕没有对应图的精确坐标或指标数值，暂不新增软件标记标签，仍维持 43 点账本。字幕审查（原记录：`reports/xxm_macd_structure_20261011/audit_narrated_20251024_27.json`）将叙述约束与图片标签分开。
 
 取得字幕后另查 4、5 段及全历史窗口：4 段仍延迟至 27 日上午，5 段及全历史会持续引用 8 月高峰 61.800335，27 日收盘仍有钝化，也不符合两天讲解。这些额外计算是读过字幕后的诊断，不冒充预先冻结的盲测。
 
@@ -822,7 +864,7 @@ IMG_0374 的软件末端显示收盘价 3633.99、DIF 12.244、DEA 7.817、柱�
 
 ### 5.18 10 月 27 日新图：24 日消失位置与旧峰退出的范围约束
 
-用户新图已逐字节保存为[10 月 27 日上证 120 分钟图](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251027_120.png)，成为第 30 条截图来源。图顶部日期为 `2025/10/27`；用户随后明确纠正此前所说的 25 日为 27 日。本轮曾按同频道检索 25 日但没有找到结果，日期澄清后直接复用此前经 MCP 获取的 24、27 日字幕，没有重新请求或声称已取得 25 日全文。
+用户新图已逐字节保存为[10 月 27 日上证 120 分钟图](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251027_120.png)，成为第 30 条截图来源。图顶部日期为 `2025/10/27`；用户随后明确纠正此前所说的 25 日为 27 日。本轮曾按同频道检索 25 日但没有找到结果，日期澄清后直接复用此前经 MCP 获取的 24、27 日字幕，没有重新请求或声称已取得 25 日全文。
 
 **历史标记定位。** 末端黄色钝化在 24 日第一根柱附近，绿色消失在第二根柱附近，位于 27 日两根柱的左侧；27 日两根柱下方未见新的独立事件文字。按每个交易日两根 120 分钟完成柱映射，与 24 日讲解上午钝化、下午消失相容。水印和文字宽度仍影响精确锚点，所以 24 日两点、27 日上午均按 mapped 记录；选中末端无新事件按 direct 记录，不把用户对先后顺序的说明当作独立第二份证据。
 
@@ -833,7 +875,7 @@ IMG_0374 的软件末端显示收盘价 3633.99、DIF 12.244、DEA 7.817、柱�
 | 27 日上午 | 未见新消失文字 | 无新事件，相容 | 消失，不符 | mapped；事先冻结的区分点 |
 | 27 日下午 | 末端无新事件 | 无新事件 | 无新事件 | direct；未作为单独时点提前冻结，复算未修改候选 |
 
-本图新增四个共享同一行情的观察点，其中一个 direct、三个 mapped；与原 43 点合计 47 点时，为 18 个 direct、29 个 mapped。原 43 点审查文件保留，不改写为 47 点或把它们合成独立盲测准确率。两种窗口、三组门槛、四个时点共 24 次逐前缀检查通过；其中 12 次与原冻结文件的两目标逐项相同。上午钝化及 27 日末端是原候选的补充复算，不能冒充此前专门冻结的目标。三组门槛没有生成三个独立案例。[本轮核对记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/holdout_20251027.json)保存不匹配及来源条件。
+本图新增四个共享同一行情的观察点，其中一个 direct、三个 mapped；与原 43 点合计 47 点时，为 18 个 direct、29 个 mapped。原 43 点审查文件保留，不改写为 47 点或把它们合成独立盲测准确率。两种窗口、三组门槛、四个时点共 24 次逐前缀检查通过；其中 12 次与原冻结文件的两目标逐项相同。上午钝化及 27 日末端是原候选的补充复算，不能冒充此前专门冻结的目标。三组门槛没有生成三个独立案例。本轮核对记录（原记录：`reports/xxm_macd_structure_20261011/holdout_20251027.json`）保存不匹配及来源条件。
 
 **末端数值核对。**
 
@@ -860,7 +902,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 ### 5.19 参照淘汰筛选与结构后续失效的补图节点
 
-本轮先沿用 §5.18 的 47 个观察点筛选参照淘汰机制，再决定补图日期。新增研究脚本只读取原有 CSV 和标签；原候选、旧预测、旧评分及截图均保持不变。新增文件见 [筛选脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/screen_reference_retirement.py)、[资格对照候选](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_retirement_candidate.py) 和 [筛选记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_retirement_screen.json)。这不是正式指标实现。
+本轮先沿用 §5.18 的 47 个观察点筛选参照淘汰机制，再决定补图日期。新增研究脚本只读取原有 CSV 和标签；原候选、旧预测、旧评分及截图均保持不变。新增文件见 筛选脚本（原记录：`reports/xxm_macd_structure_20261011/screen_reference_retirement.py`）、资格对照候选（原记录：`reports/xxm_macd_structure_20261011/reference_retirement_candidate.py`） 和 筛选记录（原记录：`reports/xxm_macd_structure_20261011/reference_retirement_screen.json`）。这不是正式指标实现。
 
 只改变历史参照资格，保留最近价格突破、当前段至少两根、锁定活动参照及结构转向等其他假设。新增淘汰条件是待检验假设，不能视作已查得的软件公式：
 
@@ -877,7 +919,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 因此本轮没有给这些等效机制强行指定“验证日期”，而是从 §5.17 已记录的另一项缺口选取节点：**旧结构已经确认，变色后当前状态已清空，随后 DIF 首次突破该结构参照。** 原候选仅处理当前段活动参照；一个另设的诊断假设将已确认结构参照保留到 DIF 首次严格突破，此时预计出现旧结构失效。诊断没有固定过期天数，也不改变原候选输出。是否如此保留正是待查问题，不能把诊断预报当成软件标记。
 
-候选池去掉同时间重复来源，要求原候选当根无事件、DIF 超过旧峰的余量大于 0.05；优先 90 分钟，其后 60 分钟，再按时间排列选前三个。0.05 只是避免极小数值余量的选图条件，不是钝化或失效公式，也不能保证跨来源精度。当前保存的 120 分钟及日线没有符合这组筛选条件的节点。前三个已于 **2026-10-11T11:19:21.883606+00:00** 写入 [冻结预测](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_retirement_targets_frozen.json)，之后才取得对应日期字幕。冻结文件 SHA256 为 `d6e20d5f39c9dd07b31d2958f87f3fdcf5759d434f3a9d6e56a0da00a66ec9a0`。
+候选池去掉同时间重复来源，要求原候选当根无事件、DIF 超过旧峰的余量大于 0.05；优先 90 分钟，其后 60 分钟，再按时间排列选前三个。0.05 只是避免极小数值余量的选图条件，不是钝化或失效公式，也不能保证跨来源精度。当前保存的 120 分钟及日线没有符合这组筛选条件的节点。前三个已于 **2026-10-11T11:19:21.883606+00:00** 写入 冻结预测（原记录：`reports/xxm_macd_structure_20261011/reference_retirement_targets_frozen.json`），之后才取得对应日期字幕。冻结文件 SHA256 为 `d6e20d5f39c9dd07b31d2958f87f3fdcf5759d434f3a9d6e56a0da00a66ec9a0`。
 
 以下表格保留当时筛选记录；用户反馈后的素材状态及当前补图安排以 §5.20 为准，不能继续将缺失周期视作待用户反复寻找的任务。
 
@@ -889,7 +931,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 三组门槛在以上三个节点的条件预报一致，九次目标截断回放与原候选完整回放的对应当根一致。这里的时点均来自 DG 分桶，尤其 90 分钟尚未与软件完全对齐；只要求用户找**日期和周期**，不要求视频必须截出这些精确时分。若原图没有该周期，其他周期不能代替评分。绿色文字还必须确定是在说钝化消失，还是旧结构失效；缺少原结构来源的负例，也不能单独排除持续跟踪。
 
-字幕后审查另存 [来源与补图条件](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_retirement_caption_review.json)，新增三个公开转发视频全文，现累计 11 份 vidIQ 字幕；截图仍是 30 张，观察点仍是 47 个：
+字幕后审查另存 来源与补图条件（原记录：`reports/xxm_macd_structure_20261011/reference_retirement_caption_review.json`），新增三个公开转发视频全文，现累计 11 份 vidIQ 字幕；截图仍是 30 张，观察点仍是 47 个：
 
 - [2025 年 7 月 11 日视频](https://www.youtube.com/watch?v=BlSH7x0QElk)：开场日期核对一致。讲解明确提到 120 分钟上午消失，并将 90 分钟、120 分钟、日线描述为钝化消失；随后讨论顶部结构减仓后，以钝化消失纠错。这使 90 分钟的旧结构失效核查优先，但字幕没有报 19.282 的旧峰或 90 分钟确切失效柱，尚不评分。用户已提供的该日 120 分钟图不是本次 90 分钟验证。
 - [2026 年 1 月 6 日视频](https://www.youtube.com/watch?v=Inqg55eiSso)：日期核对一致。讲解昨日 60、90 分钟小级别钝化容易消失，重点转向当日日线；没有明确讲旧 10 月结构的单独失效。仍可用图查证，但比 7 月节点优先级低；当前段小钝化和旧结构参照要分开。
@@ -901,7 +943,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 用户指出先前已报告缺少对应周期的图，本研究仍重复提出缺图节点，给寻找素材增加了无效工作。此处撤下 7 月 11 日缺失周期的补图请求，并暂停 7 月 23 日 60 分钟请求。用户本次明确说 7 月 11 日没有 60 分钟图；这不能写成已经证实 90 分钟也没有图，但当前不再要求查找。用户找到并提供的是 **2025 年 7 月 23 日上证 120 分钟图**，随后补充 **7 月 11 日 120 分钟图**。后者对应已提供的 IMG_0309 同一行情，是更清楚的补充证据；不用更换周期去冒充 §5.19 的 90／60 分钟目标验证。
 
-两张原图已保存，截图账本只追加条目，原 30 个条目完整保留，现共 32 张。核对另存 [7 月联合核对记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/holdout_20250723_120.json)。该文件名沿用研究目录命名方式，内容明确是新图的回顾核对：此前已取得字幕，并非新盲测，也不是 §5.19 明确冻结的目标。原候选及 53 个已有研究脚本、JSON、输入文件哈希核对未变；截图账本的追加单独记录，不宣称其整个文件哈希不变。
+两张原图已保存，截图账本只追加条目，原 30 个条目完整保留，现共 32 张。核对另存 7 月联合核对记录（原记录：`reports/xxm_macd_structure_20261011/holdout_20250723_120.json`）。该文件名沿用研究目录命名方式，内容明确是新图的回顾核对：此前已取得字幕，并非新盲测，也不是 §5.19 明确冻结的目标。原候选及 53 个已有研究脚本、JSON、输入文件哈希核对未变；截图账本的追加单独记录，不宣称其整个文件哈希不变。
 
 | 日期、周期 | 图与已有字幕 | 未修改候选的 DG 回放 | 本轮计点 |
 | --- | --- | --- | --- |
@@ -913,7 +955,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 **支持的解释与仍有歧义的部分：** 7 月 11 日上午消失后，下午 DIF 虽回落约 3.09%，但钝化已经取消，而且 DIF 仍高于旧参照，因此本例未重新产生结构。7 月 23 日下午价格由 3608.5757 降至 3582.298、柱值由 12.429262 缩至 10.562407，DIF 却增加约 0.386873；阴线和红柱缩短仍不能独立认定结构。两张图与两日已保存讲解相容。
 
-候选将 7 月 11 日上午形成的 DIF 新峰 27.208301，用作下一正柱段的参照，可以解释 21 日钝化、23 日消失；这说明“某次钝化取消”与“该段极值能否成为下一次参照”需要分别研究，但没有直接证明软件也选择了这个新峰。在锁定参照、DIF 严格突破才取消、22 日无消失标记表示原钝化延续的条件下，23 日有效参照约应落在 **[25.966959, 29.566354)**。较早的 26.114903 和较新的 27.208301 都在范围内，因此不能仅凭这次消失唯一确定参照，更不能据此宣布固定两段窗口已还原。
+候选将 7 月 11 日上午形成的 DIF 新峰 27.208301，用作下一正柱段的参照，可以解释 21 日钝化、23 日消失；这说明“某次钝化取消”与“该段极值能否成为下一次参照”需要分别研究，但没有直接证明软件也选择了这个新峰。在锁定参照、DIF 严格突破才取消、22 日无消失标记表示原钝化延续的条件下，23 日有效参照约应落在 **25.966959, 29.566354)**。较早的 26.114903 和较新的 27.208301 都在范围内，因此不能仅凭这次消失唯一确定参照，更不能据此宣布固定两段窗口已还原。
 
 数值对账保留软件与 DG 分别记录：7 月 11 日软件 DIF／DEA／MACD 为 26.367／23.778／5.178，DG 为 26.367634／23.778708／5.177851；7 月 23 日软件为 29.954／24.672／10.563，DG 为 29.953227／24.672024／10.562407。两图部分差值超过三位小数通常四舍五入的余量，尚未核清截断、内部计算及显示规则，不写成逐数值完全一致；这些差异不足以改变本例明显的 DIF 突破方向。
 
@@ -921,7 +963,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 ### 5.21 同色柱内转向过滤：单根、累计与取整的隔离比较
 
-本轮依据已保存数据、截图标签、§3.4 的数值约束和当前切段前确认候选，只改变同色柱内的 DIF 转向过滤。最近价格突破、历史两段中按资格选最强 DIF、活动参照锁定、第二根确认、原始 DIF 严格突破取消，以及变色时先检查旧状态，全部保持一致。原候选文件及已有评分结果不修改。新建 [比较候选](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/turn_filter_candidate.py)、[核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_turn_filters.py)及[结果记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/turn_filter_audit.json)。
+本轮依据已保存数据、截图标签、§3.4 的数值约束和当前切段前确认候选，只改变同色柱内的 DIF 转向过滤。最近价格突破、历史两段中按资格选最强 DIF、活动参照锁定、第二根确认、原始 DIF 严格突破取消，以及变色时先检查旧状态，全部保持一致。原候选文件及已有评分结果不修改。新建 [比较候选（原记录：`reports/xxm_macd_structure_20261011/turn_filter_candidate.py`）、核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_turn_filters.py`）及结果记录（原记录：`reports/xxm_macd_structure_20261011/turn_filter_audit.json`）。
 
 | 同色柱内的过滤方式 | 明确定义 | 50 个已有观察点的结果 |
 | --- | --- | --- |
@@ -946,7 +988,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 ### 5.22 单根异色柱、历史短段与首次钝化柱数
 
-本轮使用既有 50 点、保存 CSV、10 月 24 日文字稿、10 月 27 日 120 分钟图及 IMG_0311 的 11 月 11 日日线。两张图重新查看，未修改标签位置或增加观察点。另建 [柱段比较候选](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/wave_boundary_candidate.py)、[核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_wave_boundaries.py)和[核查结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/wave_boundary_audit.json)，原候选及既有报告保留不变。
+本轮使用既有 50 点、保存 CSV、10 月 24 日文字稿、10 月 27 日 120 分钟图及 IMG_0311 的 11 月 11 日日线。两张图重新查看，未修改标签位置或增加观察点。另建 柱段比较候选（原记录：`reports/xxm_macd_structure_20261011/wave_boundary_candidate.py`）、核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_wave_boundaries.py`）和核查结果（原记录：`reports/xxm_macd_structure_20261011/wave_boundary_audit.json`），原候选及既有报告保留不变。
 
 **先把“两根”分别定义。** 原候选每次柱值变号就切段，新段至少两根才允许首次钝化，但历史单根段仍计入同向段窗口。替代候选将第一根异色柱暂存：若下一根回到原颜色，则忽略暂存柱，不更新原段极值及柱数；若连续两根异色，则在第二根确认新段，两根已观察到的柱共同构成新段，此前输出不回填。柱值严格为零仍按原规则结束一段，未与变色确认合并修改。
 
@@ -987,7 +1029,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 ### 5.23 历史整段极值与最近局部转折：标记和新字幕分别核查
 
-本轮只替换已经结束的历史同向柱段的参照极值。当前段累计极值、最近价格突破资格、最近两段中选合资格最强 DIF、活动参照锁定、首次两根门槛、三组转向门槛及变色前确认均保持不变。另建 [比较候选](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_extrema_candidate.py)、[核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_reference_extrema.py)及[核查结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_extrema_audit.json)，旧候选和旧报告不改动。
+本轮只替换已经结束的历史同向柱段的参照极值。当前段累计极值、最近价格突破资格、最近两段中选合资格最强 DIF、活动参照锁定、首次两根门槛、三组转向门槛及变色前确认均保持不变。另建 比较候选（原记录：`reports/xxm_macd_structure_20261011/reference_extrema_candidate.py`）、核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_reference_extrema.py`）及核查结果（原记录：`reports/xxm_macd_structure_20261011/reference_extrema_audit.json`），旧候选和旧报告不改动。
 
 **局部转折定义先固定。** 顶部取价格或 DIF 曾上升、随后下降所确认的最近局部峰；底部镜像取最近局部谷。相等值延续此前方向，不独立确认转折。段内版只使用段内已观察到的反向柱；边界版还允许第一根段外柱确认上一段最后的值，但不把段外值纳入旧段。没有合格转折时回退到整段极值。参照在柱段结束后进入历史池，确认时点有记录，过去输出不回填。两种定义不能代表所有分形、波浪或带幅度过滤的转折算法。
 
@@ -1010,7 +1052,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 在读取新字幕前，已经把 **7 月 22 日收盘到 23 日上午**的两种门槛写入核查结果。按保存的 MACD(12,26,9) 相邻 DIF 和收盘恢复 EMA 状态，下一柱 DIF 与收盘为线性关系；用真实下一柱复核，残差绝对值低于 1e-8。两种等值边界分别为 **3579.015822、3571.678903**，按当前候选严格突破才取消。这是候选的下一柱收盘边界，不代表盘中信号不会被回撤。
 
-随后在既有公开转载频道检索，使用 vidIQ MCP 取得 [2025 年 7 月 22 日视频](https://www.youtube.com/watch?v=nfiZ-e-zy1E)中文全文，共 7863 字符，保存在 [来源文件](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250722_vidiq_transcript.json)。开头明确讨论上证 90／120 分钟仍有钝化；后面的 120 分钟模拟 K 线讲解说，平开可以消失，下跌约三点至 3578 点则仍有钝化。其余数值概括在 3578—3579 附近，有约数和 ASR 误差，不规范化为精确的 3579.000 阈值。
+随后在既有公开转载频道检索，使用 vidIQ MCP 取得 [2025 年 7 月 22 日视频](https://www.youtube.com/watch?v=nfiZ-e-zy1E)中文全文，共 7863 字符，保存在 [来源文件](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20250722_vidiq_transcript.json)。开头明确讨论上证 90／120 分钟仍有钝化；后面的 120 分钟模拟 K 线讲解说，平开可以消失，下跌约三点至 3578 点则仍有钝化。其余数值概括在 3578—3579 附近，有约数和 ASR 误差，不规范化为精确的 3579.000 阈值。
 
 | 以 7 月 22 日收盘为计算起点 | 整段 DIF 峰 | 最近局部 DIF 峰，两种确认定义相同 |
 | --- | --- | --- |
@@ -1020,7 +1062,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 | 模拟平收于 3581.861 | 取消钝化 | 取消钝化 |
 | 与“3578 附近仍有钝化”的具体模拟讲解 | 相容 | 不相容 |
 
-新增数值证据支持继续采用整段 DIF 峰，比再次观察 23 日上午消失更有区分价值。[字幕核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_reference_extrema_captions.py)及[字幕核查结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_extrema_caption_review.json)单独保存，引用读取前预测文件的哈希。模拟柱不是新的真实完成柱，未加入 50 点账本。软件与 DG 的初始化、显示精度仍未完全对齐，转载及 ASR 数字也有误差；因此只排除本轮两种未加幅度过滤的最近局部 DIF 方案，不能宣布整段极值在所有行情均已证明。
+新增数值证据支持继续采用整段 DIF 峰，比再次观察 23 日上午消失更有区分价值。字幕核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_reference_extrema_captions.py`）及字幕核查结果（原记录：`reports/xxm_macd_structure_20261011/reference_extrema_caption_review.json`）单独保存，引用读取前预测文件的哈希。模拟柱不是新的真实完成柱，未加入 50 点账本。软件与 DG 的初始化、显示精度仍未完全对齐，转载及 ASR 数字也有误差；因此只排除本轮两种未加幅度过滤的最近局部 DIF 方案，不能宣布整段极值在所有行情均已证明。
 
 完成 21 组方案／门槛对 50 点的 **1050 次逐前缀检查**；12 份输入默认模式与原候选 **36 次、17343 行逐字段一致**；216 组替代方案全输入比较仅筛选分歧。构造序列另有 126 次前缀及顶底镜像核对，覆盖多峰、平台、段外确认和不同取消路径，仅证明比较实现按定义运行。94 个既有研究文件哈希不变，50 点仍为 19 direct、31 mapped。文档完整性检查不替代规则验证。
 
@@ -1028,7 +1070,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 ### 5.24 活动参照锁定、动态重选与取消顺序
 
-本轮使用保存的 12 份输入及既有 50 点，只改变活动参照的选择时机。新建 [比较候选](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/active_reference_candidate.py)、[核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_active_references.py)及[冻结结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/active_reference_audit.json)。历史窗口、整段价格／DIF 极值、资格条件、首次柱数、转向门槛和变色前确认均保持一致。跨变色后的已确认结构独立失效仍未加入模型。
+本轮使用保存的 12 份输入及既有 50 点，只改变活动参照的选择时机。新建 比较候选（原记录：`reports/xxm_macd_structure_20261011/active_reference_candidate.py`）、核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_active_references.py`）及冻结结果（原记录：`reports/xxm_macd_structure_20261011/active_reference_audit.json`）。历史窗口、整段价格／DIF 极值、资格条件、首次柱数、转向门槛和变色前确认均保持一致。跨变色后的已确认结构独立失效仍未加入模型。
 
 **先明确动态重选的含义。** 当前同色柱段仍有钝化或结构时，从原有历史池按相同价格、DIF 资格选择参照；若没有合格替代，保留原参照，由原突破规则判断取消，不静默删除状态。重选本身不额外输出黄色／紫色事件；只有既定状态变化才输出事件。新候选不把这一约定当作软件事实，也不涵盖重选本身另发标记的其他实现。
 
@@ -1052,11 +1094,11 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 同一根柱同时发生两件事：旧活动参照应取消，较早低峰刚成为合格替代。固定或先取消方案先输出消失，下一根才允许新的钝化；先重选方案用 -39.363871 替代 -7.239400，便避开这次消失。16 日末端两条路径均为钝化，并且均使用较早低峰；因此只看末端状态或参照数值仍不足以区分，关键是历史标记是否保留了中间的消失与新钝化。
 
-随后经 vidIQ MCP 新取得 [2025 年 12 月 16 日视频](https://www.youtube.com/watch?v=MXHvcQgdfHk)中文全文，共 5974 字符，保存到 [来源文件](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251216_vidiq_transcript.json)。讲解明确切到 90 分钟图，讨论旧结构没有创新低、新的钝化具备价格创新低前提，并说明 60／90／120 分钟收盘都有钝化。它确认了该日 90 分钟图有素材可找，但“新的钝化”可能指创新低之后的形态，并没有明确定位当天消失和再触发的柱。结构形成主要按后续条件讨论，不据此追加已形成结构的标签。
+随后经 vidIQ MCP 新取得 [2025 年 12 月 16 日视频](https://www.youtube.com/watch?v=MXHvcQgdfHk)中文全文，共 5974 字符，保存到 [来源文件](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251216_vidiq_transcript.json)。讲解明确切到 90 分钟图，讨论旧结构没有创新低、新的钝化具备价格创新低前提，并说明 60／90／120 分钟收盘都有钝化。它确认了该日 90 分钟图有素材可找，但“新的钝化”可能指创新低之后的形态，并没有明确定位当天消失和再触发的柱。结构形成主要按后续条件讨论，不据此追加已形成结构的标签。
 
-[字幕核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_active_reference_captions.py)及[核查结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/active_reference_caption_review.json)引用读取字幕前的冻结文件哈希；四种方案在该日收盘均为钝化，故这条字幕未完成锁定规则识别。90 分钟的上述时刻暂时只是 DG 标签，不能直接当作软件事件锚点。
+字幕核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_active_reference_captions.py`）及核查结果（原记录：`reports/xxm_macd_structure_20261011/active_reference_caption_review.json`）引用读取字幕前的冻结文件哈希；四种方案在该日收盘均为钝化，故这条字幕未完成锁定规则识别。90 分钟的上述时刻暂时只是 DG 标签，不能直接当作软件事件锚点。
 
-6 月 5 日公开视频也已检索到，但请求字幕时工具返回额度不足、不要重试，未取得全文，未新增结论。工具给出的额度刷新时间为 11 月 11 日，只记录为当时返回的信息，不作持续监控或账户变更。[来源核验记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/active_reference_source_probe.json)保留成功与失败状态；不把未取到字幕扩大成该日没有 30 分钟图。
+6 月 5 日公开视频也已检索到，但请求字幕时工具返回额度不足、不要重试，未取得全文，未新增结论。工具给出的额度刷新时间为 11 月 11 日，只记录为当时返回的信息，不作持续监控或账户变更。来源核验记录（原记录：`reports/xxm_macd_structure_20261011/active_reference_source_probe.json`）保留成功与失败状态；不把未取到字幕扩大成该日没有 30 分钟图。
 
 验证完成 **600 次既有标签前缀核对**、**24 次实际换参照／事件分歧柱的前缀核对**；默认方案与原候选 **36 次、17343 行逐字段一致**；108 组全输入比较用于筛选。四个构造情景有 320 次前缀及顶底镜像核对，证明“先取消”“先换参照”、结构期间是否允许重选、无替代时保留取消路径能够分别运行；构造数据不代表真实 EMA 序列或软件对称性。100 个既有研究文件哈希不变，50 点仍为 19 direct、31 mapped。
 
@@ -1064,7 +1106,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 ### 5.25 用户补充的 6 月 5 日文字稿与 12 月 16 日三周期图
 
-本轮只保存新来源、核对已有研究候选并更新本记录，不改正式指标或候选参数。[用户文字稿原文](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260605_user_transcript.txt)共 5463 字符，保留原始转写，不把其中仓位、交易等表述当作用户对本系统的操作授权。[来源账本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260605_user_transcript_manifest.json)记录原文件及哈希；日期与此前检索视频一致，但尚未把用户全文与该视频音频逐句匹配，也没有可用的字幕时间轴。
+本轮只保存新来源、核对已有研究候选并更新本记录，不改正式指标或候选参数。[用户文字稿原文](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20260605_user_transcript.txt)共 5463 字符，保留原始转写，不把其中仓位、交易等表述当作用户对本系统的操作授权。[来源账本](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20260605_user_transcript_manifest.json)记录原文件及哈希；日期与此前检索视频一致，但尚未把用户全文与该视频音频逐句匹配，也没有可用的字幕时间轴。
 
 **字幕支持什么、不支持什么。** 原文中的“动画”“绿角线”等保留为转写噪声，结合 MACD 语境解释，未在全文自动替换。
 
@@ -1081,7 +1123,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 作为事后数值检查，保存数据中次一交易日 6 月 8 日 10:30 为第二根绿柱，候选触发底部钝化；11:30 DIF 降到约 -21.469826，跌破参照 -18.280048，候选取消。四种参照方案在三组门槛下均如此。这只说明已有数据上的候选路径与“可能钝化、加速则可能消失”的叙述相容；没有 8 日软件标记，不是新增盲测，也不证明本次活动参照必须锁定。
 
-**12 月 16 日三张图另行核对。** 已保存 [120 分钟图](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251216_120.png)、[日线图](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251216_daily.png)与 [60 分钟图](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251216_60.png)，原图字节未变；三图末端收盘均为 3824.81。两张分钟图近期可见黄色钝化，日线末端未见新的钝化或结构文字。黄色位置未精确锚定到某柱，不把近期标记强制记作最后一柱事件。
+**12 月 16 日三张图另行核对。** 已保存 [120 分钟图](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251216_120.png)、[日线图](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251216_daily.png)与 [60 分钟图](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251216_60.png)，原图字节未变；三图末端收盘均为 3824.81。两张分钟图近期可见黄色钝化，日线末端未见新的钝化或结构文字。黄色位置未精确锚定到某柱，不把近期标记强制记作最后一柱事件。
 
 | 周期 | 软件 DIF | 软件 DEA | 软件柱值 | 数值回放状态 |
 | --- | ---: | ---: | ---: | --- |
@@ -1093,13 +1135,13 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 这三张图均不是 90 分钟，不能完成 §5.24 的 90 分钟活动参照分歧验证。6 月 5 日的 30 分钟分歧也没有取得同周期来源；四种方案仍未区分，既有 50 个条件性观察点不增加。
 
-[核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_20260605_user_captions.py)和 [结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/caption_20260605_user_review.json)保存原始片段及行号、输入覆盖范围、同周期数值差异和各候选输出。完成 144 次所选节点前缀核对，未使用未来数据决定当根结果。107 个既有研究文件哈希不变；截图账本只追加三项，原 32 项完整保留。旧核查报告不重写，其中“字幕未取得”的文字仍代表当时状态；此次用户来源另行入账。
+核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_20260605_user_captions.py`）和 结果（原记录：`reports/xxm_macd_structure_20261011/caption_20260605_user_review.json`）保存原始片段及行号、输入覆盖范围、同周期数值差异和各候选输出。完成 144 次所选节点前缀核对，未使用未来数据决定当根结果。107 个既有研究文件哈希不变；截图账本只追加三项，原 32 项完整保留。旧核查报告不重写，其中“字幕未取得”的文字仍代表当时状态；此次用户来源另行入账。
 
 **下一步先核对 12 月 16 日 90 分钟的行情分桶及指标口径，再定位其历史消失／新钝化标记。** 目前不追加字幕日期，也不重复索取已明确找不到的周期。若关键 90 分钟来源不可取得，活动参照锁定继续保留为未确认，转向其他可对齐材料，不能通过调整参数制造已识别结论。
 
 ### 5.26 90 分钟端点、EMA 复算与差异来源的排查
 
-本轮目标是判断 §5.24 的 12 月 16 日分歧是否建立在可靠数值上。使用三个已保存 CSV、四张既有 90 分钟图及当前纯计算合同，不访问 Lake／数据库，不运行 Dagster 资产或任务。脚本及结果为 [数值核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_90_numeric_semantics.py)、[审计结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/numeric_90_semantics_audit.json)；输入与当前代码均记录哈希，历史报告、候选参数和标签账本不变。
+本轮目标是判断 §5.24 的 12 月 16 日分歧是否建立在可靠数值上。使用三个已保存 CSV、四张既有 90 分钟图及当前纯计算合同，不访问 Lake／数据库，不运行 Dagster 资产或任务。脚本及结果为 数值核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_90_numeric_semantics.py`）、审计结果（原记录：`reports/xxm_macd_structure_20261011/numeric_90_semantics_audit.json`）；输入与当前代码均记录哈希，历史报告、候选参数和标签账本不变。
 
 **DG 的端点与递推一致。** 当前 [公共分钟窗口合同](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/run_contracts/cn_a_derived_minute_bars.py)（第 99 行）将 30 分钟正式交易柱按 3、3、2 根组合，90 分钟端点为 11:00、14:00、15:00，中间组跨过午休，最后一组实际为 60 分钟；首组另带 09:30 拍卖锚点。保存的研究 CSV 不含拍卖锚点或 30 分钟 OHLC，本轮只核验端点及收盘，不宣称完成全字段重建。
 
@@ -1132,7 +1174,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 本轮日期为 2026 年 10 月 12 日。目标是继续核对同周期历史数值，而不是用 DG 拟合图形后冒充原软件历史。把已收到的分钟图按周期、日期、末柱端点去重，集中记录 19 个读数：120 分钟 11 个、90 分钟 4 个、60 分钟 4 个。7 月 11 日两张同日同周期图只保留一个数值样本；4 月 20 日 60 分钟柱值被遮挡，留空，不由显示的 DIF／DEA 反推。日线使用不同来源精度，本轮未混入分钟精度对照。
 
-脚本为 [同周期数值核查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_software_numeric_history.py)，完整数值为 [19 点对账表](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/software_numeric_history.csv)，输入哈希、原图哈希、精度对照及限制见 [本轮结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/software_numeric_history_audit.json)。新脚本只读既有 CSV 和图片，不访问网络、Lake 或数据库，不调用资产，不修改候选规则。
+脚本为 同周期数值核查（原记录：`reports/xxm_macd_structure_20261011/audit_software_numeric_history.py`），完整数值为 19 点对账表（原记录：`reports/xxm_macd_structure_20261011/software_numeric_history.csv`），输入哈希、原图哈希、精度对照及限制见 本轮结果（原记录：`reports/xxm_macd_structure_20261011/software_numeric_history_audit.json`）。新脚本只读既有 CSV 和图片，不访问网络、Lake 或数据库，不调用资产，不修改候选规则。
 
 **各周期的差异不可合并修正。** 19 个截图末端收盘均与 DG 在两位小数显示精度内一致；指标差异如下。“小于一个显示单位”只是兼容性筛查，不代表已经证明软件内部精度或计算相同。
 
@@ -1163,7 +1205,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 本轮日期为 2026 年 10 月 12 日。用户先提供的图片实际高亮 60 分钟，随后补图确实高亮 90 分钟；两张均为 2026 年 1 月 5 日，分别归档，不混用周期。图片可见 60 分钟末端区域仍有黄色“钝化”，90 分钟末端区域先有黄色“钝化”、最后有绿色“消失”。没有读取新的字幕，也不由这两图推断原作者当日完整讲解。
 
-原图为 [60 分钟](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260105_60.png) 与 [90 分钟](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260105_90.png)，脚本为 [本轮核查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_20260105_pair.py)，逐根回放、来源哈希、数值对照及限制见 [本轮结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/holdout_20260105_pair.json)。使用已保存 CSV，只读复用已有数值核查函数，不修改候选或前序结果。
+原图为 [60 分钟](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20260105_60.png) 与 [90 分钟](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20260105_90.png)，脚本为 本轮核查（原记录：`reports/xxm_macd_structure_20261011/audit_20260105_pair.py`），逐根回放、来源哈希、数值对照及限制见 本轮结果（原记录：`reports/xxm_macd_structure_20261011/holdout_20260105_pair.json`）。使用已保存 CSV，只读复用已有数值核查函数，不修改候选或前序结果。
 
 **末端数值仍未完全对齐。** 两图末柱显示相同收盘 4023.42，DG 收盘为 4023.4167，显示精度相容。但两个周期的 DIF 差异均超出三位小数显示误差，不能据此反推软件实际参照峰。
 
@@ -1200,7 +1242,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 ### 5.29 数值来源差异对候选事件的敏感性
 
-本轮日期为 2026 年 10 月 12 日。目标是检查软件与 DG 的数值差异是否可能改变事件结论，使用 §5.27、§5.28 的 21 个末端读数及未调整的活动参照候选。新增 [敏感性核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_source_sensitivity.py) 和 [结果文件](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/source_sensitivity_audit.json)，仅读已有研究文件。以下分开记录实际显示值的局部替换、连续计算对照与假设扰动，三者不混记为原软件历史。
+本轮日期为 2026 年 10 月 12 日。目标是检查软件与 DG 的数值差异是否可能改变事件结论，使用 §5.27、§5.28 的 21 个末端读数及未调整的活动参照候选。新增 敏感性核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_source_sensitivity.py`） 和 结果文件（原记录：`reports/xxm_macd_structure_20261011/source_sensitivity_audit.json`），仅读已有研究文件。以下分开记录实际显示值的局部替换、连续计算对照与假设扰动，三者不混记为原软件历史。
 
 **第一层：实际末端值的局部影响。** 每个读数均保留此前 DG 历史，只把末柱收盘、DIF、柱值换成图片显示值；4 月 20 日 60 分钟柱值不可读，继续保留 DG 柱值并明确标注。21 个末端、四种活动参照策略、三组门槛合计 252 次比较，末柱事件、状态、事件路径及参照起点均未变化。这说明已观察到的末端数值差异没有推翻这些局部判断，**不证明此前的软件历史状态、参照峰或逐根事件相同**。
 
@@ -1240,7 +1282,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 本轮日期为 2026 年 10 月 12 日。优化对象是研究验证的方法，不改识别候选。此前只比较 0.75%、1%、1.2% 三组门槛，本轮在固定单根相对变化定义、参照资格、两段窗口、两根确认及切段前确认的条件下，检查 `0% < r <= 5%` 内的全部判定区间。四种活动参照策略分别检查，结果一致；该一致性不证明原软件采用哪一种策略。
 
-新增 [门槛约束核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_threshold_constraints.py) 与 [结果文件](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/threshold_constraint_audit.json)，仅读已有 CSV、标签及结果。所有数据仍为 DG 序列，软件历史数值未因此补齐。
+新增 门槛约束核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_threshold_constraints.py`） 与 结果文件（原记录：`reports/xxm_macd_structure_20261011/threshold_constraint_audit.json`），仅读已有 CSV、标签及结果。所有数据仍为 DG 序列，软件历史数值未因此补齐。
 
 **把抽查参数改为完整的候选判定区间核查。** 当前单根比例候选的参数比较使用相邻两柱 DIF，临界值由 `变化幅度 >= |前柱 DIF| × r / 100` 决定；其他价格、参照突破及柱色条件不依赖这个参数。保存输入的标签前缀在 0—5% 内产生 596 个判定区间。脚本按候选实际浮点比较求出每个比较仍成立的最大门槛，分别检查区间内部及包含的右端点，并核对标签的事件、状态及参照起点一致。四种策略合计完成 2384 次区间端点对照，又单独验证允许区间边界及其相邻浮点数。这提高的是当前有限模型的参数覆盖，不是对软件所有规则的穷尽验证；累计回撤或按周期分别设门槛不在本轮范围内。
 
@@ -1272,7 +1314,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 ### 5.31 扩展历史后的分歧节点筛选
 
-本轮目标是寻找能区分候选的新节点，不是继续调参匹配旧图。既有候选、52 个条件性标签及原报告保持不变。筛选脚本为 [screen_discriminating_nodes.py](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/screen_discriminating_nodes.py)，冻结预测与来源记录见 [screen.json](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/discrimination_screen_20261012/screen.json)。没有新的原软件观察，不能把本轮回放当作盲测。
+本轮目标是寻找能区分候选的新节点，不是继续调参匹配旧图。既有候选、52 个条件性标签及原报告保持不变。筛选脚本为 screen_discriminating_nodes.py（原记录：`reports/xxm_macd_structure_20261011/screen_discriminating_nodes.py`），冻结预测与来源记录见 screen.json（原记录：`reports/xxm_macd_structure_20261011/discrimination_screen_20261012/screen.json`）。没有新的原软件观察，不能把本轮回放当作盲测。
 
 **先扩大研究输入，再验证重叠数值。** 120 分钟使用保存的 60 分钟收盘在 11:30、15:00 的端点；90 分钟使用保存的 30 分钟收盘在 11:00、14:00、15:00 的端点。根据既有同周期导出的前两根 DIF 和首根 MACD，恢复 12／26／9 EMA 初态，连续递推后续端点，不从每个新窗口重新初始化。
 
@@ -1384,7 +1426,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 | 趋势距离；10 月 16 日 | 作者将接近趋势与较易穿越联系起来。抽象：距现有趋势通道的距离可作为背景变量，阈值尚无依据 | 明确上下沿、收盘、归一化方式及方向，再用独立日期核验；不先按结果挑“近”的阈值 |
 | 波段阶段；8 月 15 日、12 月 16 日 | 主升阶段中的序列、调整中不同腿的时间与速度有不同解释。抽象：单一高低 9 不足以替代钝化、结构及阶段信息 | 阶段须用当时可见信息标注；不能用后来的完整走势反推当时已经知道某一浪 |
 
-来源为已保存的 [6 月 5 日文字稿](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260605_user_transcript.txt)、[10 月 16 日文字稿](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251016_transcript.txt)、[8 月 15 日字幕](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250815_vidiq_transcript.json)及 [12 月 16 日字幕](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251216_vidiq_transcript.json)。字幕中的“动画”等转写误差须结合图和上下文核对；没有逐句时间戳的全文不能伪造视频定位。
+来源为已保存的 [6 月 5 日文字稿](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20260605_user_transcript.txt)、[10 月 16 日文字稿](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251016_transcript.txt)、[8 月 15 日字幕](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20250815_vidiq_transcript.json)及 [12 月 16 日字幕](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251216_vidiq_transcript.json)。字幕中的“动画”等转写误差须结合图和上下文核对；没有逐句时间戳的全文不能伪造视频定位。
 
 ### 8.3 新增 6 月 8—9 日文字对照
 
@@ -1394,11 +1436,11 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 我们的抽象：**价格出现反弹、序列提示可能止跌、有效底部证据得到确认，分别记账。** 验证目标包括能否及时描述状态，而非只看后来涨跌来决定当时判断是否正确。若以后作者在同样无有效结构的背景明确确认筑底，应查其是否增加了趋势、速度或其他条件；不能通过悄悄补条件保住原假设。
 
-新来源摘要、日期区别与限制保存于 [证据记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/context_experience_20261012.json)。这两篇公开文字不计入视频字幕数量，也不证明结构事件日期、原软件数值或获利概率。
+新来源摘要、日期区别与限制保存于 [证据记录](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/context_experience_20261012.json)。这两篇公开文字不计入视频字幕数量，也不证明结构事件日期、原软件数值或获利概率。
 
 ### 8.4 已取得两日全文：保存方式及判断顺序
 
-用户已补齐本节上一轮请求的 **2026 年 6 月 8、9 日**全文，日期以用户说明及文字开头为依据。原文逐字节保存为 [6 月 8 日全文](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260608_user_transcript.txt)与 [6 月 9 日全文](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260609_user_transcript.txt)，各有保存路径、SHA-256、字符数及限制的 manifest。前者 600 行、后者 673 行；行号定位的是用户文字，不是视频时间戳。未取得视频链接或核听音频，不改写原文中的“动画”“绿角线”“只跌”等转写。讲解中的交易指令属于研究材料，不是用户指示本系统执行交易。
+用户已补齐本节上一轮请求的 **2026 年 6 月 8、9 日**全文，日期以用户说明及文字开头为依据。原文逐字节保存为 [6 月 8 日全文](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20260608_user_transcript.txt)与 [6 月 9 日全文](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20260609_user_transcript.txt)，各有保存路径、SHA-256、字符数及限制的 manifest。前者 600 行、后者 673 行；行号定位的是用户文字，不是视频时间戳。未取得视频链接或核听音频，不改写原文中的“动画”“绿角线”“只跌”等转写。讲解中的交易指令属于研究材料，不是用户指示本系统执行交易。
 
 | 当时信息 | 作者判断 | 对研究的意义 |
 | --- | --- | --- |
@@ -1426,7 +1468,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 ### 8.6 与已有同周期数值的事后对照
 
-保留此前候选和全部标签不变，仅用既有数据回放 6 月 5—9 日，见 [核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_june_context.py)与 [数值结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/june_context_20261012.json)。60 分钟用保存的 DG 序列；90、120 分钟用 §5.31 已保存的推导序列，不是假称新增软件历史。原文在回放前已经读过，本轮属于事后解释核对，不是盲测。
+保留此前候选和全部标签不变，仅用既有数据回放 6 月 5—9 日，见 核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_june_context.py`）与 数值结果（原记录：`reports/xxm_macd_structure_20261011/june_context_20261012.json`）。60 分钟用保存的 DG 序列；90、120 分钟用 §5.31 已保存的推导序列，不是假称新增软件历史。原文在回放前已经读过，本轮属于事后解释核对，不是盲测。
 
 | 周期 | 固定候选在 DG／推导输入上的结果 | 与全文的对应及限制 |
 | --- | --- | --- |
@@ -1446,7 +1488,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 ### 8.7 反弹后的路径预测与后续讲解核查
 
-本轮在读取后续作者文字之前，先保存 [定义与固定窗口](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/post_june9_definitions_20261012.json)，再运行 [核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/freeze_post_june9.py)，保存 [预测结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/post_june9_predictions_20261012.json)。讲解截止日为 2026 年 6 月 9 日，后续窗口固定为 6 月 10 日至 7 月 9 日。使用既有历史输入、未修改的候选及现有趋势计算器；这是读取后续讲解前冻结的历史数值预测，不是当时作出的市场预测，也没有新的软件事件真值可用于盲测评分。
+本轮在读取后续作者文字之前，先保存 定义与固定窗口（原记录：`reports/xxm_macd_structure_20261011/post_june9_definitions_20261012.json`），再运行 核查脚本（原记录：`reports/xxm_macd_structure_20261011/freeze_post_june9.py`），保存 预测结果（原记录：`reports/xxm_macd_structure_20261011/post_june9_predictions_20261012.json`）。讲解截止日为 2026 年 6 月 9 日，后续窗口固定为 6 月 10 日至 7 月 9 日。使用既有历史输入、未修改的候选及现有趋势计算器；这是读取后续讲解前冻结的历史数值预测，不是当时作出的市场预测，也没有新的软件事件真值可用于盲测评分。
 
 **转红、再次转绿与底结构分别定位。** 柱段按连续严格正负号划分，零柱结束原段；60 分钟使用保存的 DG 数据，90、120 分钟使用既有推导序列。下表时间均为这些输入上的完整柱端点；底结构一列是原候选在固定窗口内的首次结果，不是原软件已确认日期。
 
@@ -1476,7 +1518,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 **后续作者文字支持过程划分，但不能补出执行规则。** [6 月 12 日直播](https://blog.sina.com.cn/s/blog_4d89b834010302bq.html)在 9:46 记录 90 分钟已有红柱、60 分钟红柱增加；10:01 将红柱作为这次底钝化构筑的条件；10:19 记录 120 分钟盘中也转红；随后把结构形成与跌速联系起来。这里与冻结预测的阶段相容，但 10:19 是正在形成的 120 分钟柱，不能与完整柱 11:30 直接判为冲突或同根命中。该直播页提前发布于 6 月 11 日，事件日为 12 日。
 
-[6 月 15 日收盘后的策略文章](https://blog.sina.com.cn/s/blog_4d89b834010302bx.html)标题为“周二操作策略”，发布时间为 15 日 16:43。其长期看涨解释采用货币、居民存款、GDP及市值等宏观背景，支持将这种长期观点与 90 周期通道状态分别保存；文章没有明确确认采用哪条趋势、如何执行。另取得 15 日直播的搜索索引摘录：14:47 对长期通过较有把握、短期尚不确定；完整页面获取失败，摘录仅作待核线索。盘中预期与日线收盘值也不能直接评分为矛盾。来源、摘要、获取限制及冻结结果哈希保存于 [后续讲解核查记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/post_june9_author_check_20261012.json)。本轮未取得新视频字幕，没有重试耗尽配额的 MCP。
+[6 月 15 日收盘后的策略文章](https://blog.sina.com.cn/s/blog_4d89b834010302bx.html)标题为“周二操作策略”，发布时间为 15 日 16:43。其长期看涨解释采用货币、居民存款、GDP及市值等宏观背景，支持将这种长期观点与 90 周期通道状态分别保存；文章没有明确确认采用哪条趋势、如何执行。另取得 15 日直播的搜索索引摘录：14:47 对长期通过较有把握、短期尚不确定；完整页面获取失败，摘录仅作待核线索。盘中预期与日线收盘值也不能直接评分为矛盾。来源、摘要、获取限制及冻结结果哈希保存于 [后续讲解核查记录](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/post_june9_author_check_20261012.json)。本轮未取得新视频字幕，没有重试耗尽配额的 MCP。
 
 **下一项取证只请求 2026 年 6 月 15 日收盘视频全文。** 重点核对采用短期还是长期趋势、确认通道位置与收盘时点、确认后执行顺序，以及是否另需结构。若视频展示当日带长短期通道的日线，可再用图核对数值；不要求补找已反馈缺失的分钟周期。6 月 12 日只保留为区分通道回归与突破的备用节点，当前不同时要求两日材料。
 
@@ -1484,7 +1526,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 ### 8.8 6 月 15 日全文补出的趋势确认与执行顺序
 
-用户已提供上一节请求的收盘视频全文。原文逐字节保存为 [6 月 15 日文字稿](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260615_user_transcript.txt)，709 行；[manifest](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260615_user_transcript_manifest.json)记录附件来源与 SHA-256。[对照结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/june15_lecture_comparison_20261012.json)引用上一节冻结结果的哈希，未修改候选、输入或预测。此前已读过同日博客线索，本次全文核查不是完全盲测；全文也不是成交记录或逐柱软件数值。
+用户已提供上一节请求的收盘视频全文。原文逐字节保存为 [6 月 15 日文字稿](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20260615_user_transcript.txt)，709 行；[manifest](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20260615_user_transcript_manifest.json)记录附件来源与 SHA-256。对照结果（原记录：`reports/xxm_macd_structure_20261011/june15_lecture_comparison_20261012.json`）引用上一节冻结结果的哈希，未修改候选、输入或预测。此前已读过同日博客线索，本次全文核查不是完全盲测；全文也不是成交记录或逐柱软件数值。
 
 **这里长短期趋势分别参与，确认时点决定执行先后。** 第 87—101 行明确说收盘突破短期和长期趋势，并解释：长期在尾盘能确定，短期临近收盘尚不能确定；最后十分钟若仍定不下来，以最终收盘价格确认，次日早盘再处理。第 240—246 行重复说明当天收盘前增加两成，次日开盘增加四成；第 454—455 行明确为开盘后。以上是作者在这一历史仓位情境下陈述的应执行计划，不证明实际成交，也不自动推广为任意账户的统一仓位公式。
 
@@ -1514,7 +1556,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 ### 8.9 实际纠错案例筛选：决策依据与当前柱段分开
 
-本轮先核读已有 7 月 11 日、10 月 16、24、27 日及 12 月 16 日字幕，分别查找趋势纠错、结构纠错和条件性预测；没有将原材料重新计为新样本。来源中的正文实际位于 JSON 的 `response.transcription`，全文没有可靠逐句时间戳，不能把字段缺失或搜索不到顶层 `transcript` 误判为没有讲解。新建 [取证定义](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/correction_definitions_20261012.json)、[离线诊断脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_correction_lifecycle.py)、[数值诊断](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/correction_lifecycle_20261012.json)及 [讲解对照](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/correction_context_20261012.json)。原候选、字幕、标签和上一节冻结预测均保留。
+本轮先核读已有 7 月 11 日、10 月 16、24、27 日及 12 月 16 日字幕，分别查找趋势纠错、结构纠错和条件性预测；没有将原材料重新计为新样本。来源中的正文实际位于 JSON 的 `response.transcription`，全文没有可靠逐句时间戳，不能把字段缺失或搜索不到顶层 `transcript` 误判为没有讲解。新建 取证定义（原记录：`reports/xxm_macd_structure_20261011/correction_definitions_20261012.json`）、离线诊断脚本（原记录：`reports/xxm_macd_structure_20261011/audit_correction_lifecycle.py`）、数值诊断（原记录：`reports/xxm_macd_structure_20261011/correction_lifecycle_20261012.json`）及 [讲解对照](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/correction_context_20261012.json)。原候选、字幕、标签和上一节冻结预测均保留。
 
 **10 月案例明确解释了结构纠错的对象。** 已有 16 日全文要求此前用于减仓的 90、120 分钟钝化都消失，日线新钝化不追加为本次买回条件。24 日全文则明确说当日的消失属于结构消失，90 分钟只形成过一次结构、120 分钟多次形成结构；下午应按规则买回，临近收盘或下一交易日开盘操作均被允许。该段比 6 月 15 日混在一起的纠错问答清楚，但仍没有报告此前结构参照的精确数值。具体片段保存字段位置与字符偏移，不猜视频分钟数。
 
@@ -1547,9 +1589,9 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 ### 8.10 6 月 26 日全文：实际双趋势破位与分步处理
 
-用户补齐上一节请求的 2026 年 6 月 26 日收盘文字。全文从本次消息保存为 [原文](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260626_user_transcript.txt)，共 444 行；[manifest](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260626_user_transcript_manifest.json)记录保存方式、日期及 SHA-256。这次是消息内粘贴，没有原始附件文件可作字节对照，未核听音频；保留“中微指数”“中一间”等转写，行号不是视频时间戳。讲解动作仍为历史研究材料，不是交易授权。
+用户补齐上一节请求的 2026 年 6 月 26 日收盘文字。全文从本次消息保存为 [原文](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20260626_user_transcript.txt)，共 444 行；[manifest](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20260626_user_transcript_manifest.json)记录保存方式、日期及 SHA-256。这次是消息内粘贴，没有原始附件文件可作字节对照，未核听音频；保留“中微指数”“中一间”等转写，行号不是视频时间戳。讲解动作仍为历史研究材料，不是交易授权。
 
-本轮只将全文与 §8.7 的冻结结果、§8.9 的两个区分节点对照，见 [核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_june26_lecture.py)及 [对照记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/june26_lecture_comparison_20261012.json)。此前已经读过 28 日周末回顾，本次不是完全盲测；未重新取数、改参数或改原候选。
+本轮只将全文与 §8.7 的冻结结果、§8.9 的两个区分节点对照，见 核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_june26_lecture.py`）及 对照记录（原记录：`reports/xxm_macd_structure_20261011/june26_lecture_comparison_20261012.json`）。此前已经读过 28 日周末回顾，本次不是完全盲测；未重新取数、改参数或改原候选。
 
 **短期与长期分别提供依据，收盘不确定性决定先后。** 第 5—18 行明确：14:50 已能确定短期跌穿，但长期还不能确定；当天建议减四成，最终收盘长期也跌穿，下周一早盘再减两成。这里“以今天的收盘价格”结合“下周一早盘”理解为用 26 日收盘确认信号，不能声称 29 日一定按 26 日收盘价成交。29 日为周一，但尚未核对当天讲解或成交记录。
 
@@ -1586,7 +1628,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 ### 8.11 6 月 18 日全文：回到通道内与趋势破位的区分
 
-用户已回答上一节的材料请求，提供 2026 年 6 月 18 日收盘全文，保存为 [原文](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260618_user_transcript.txt)，547 行；[manifest](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260618_user_transcript_manifest.json)记录消息回复的保存方式及哈希。这是消息内原文转存，未作原始附件字节对照或核听音频，保留转写错字及非研究段落。[对照记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/june18_lecture_comparison_20261012.json)引用此前冻结预测和取证定义的 SHA-256，未修改原数值、候选或标签。
+用户已回答上一节的材料请求，提供 2026 年 6 月 18 日收盘全文，保存为 [原文](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20260618_user_transcript.txt)，547 行；[manifest](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20260618_user_transcript_manifest.json)记录消息回复的保存方式及哈希。这是消息内原文转存，未作原始附件字节对照或核听音频，保留转写错字及非研究段落。对照记录（原记录：`reports/xxm_macd_structure_20261011/june18_lecture_comparison_20261012.json`）引用此前冻结预测和取证定义的 SHA-256，未修改原数值、候选或标签。
 
 **本日明确报告满仓，将破位减仓放在未来条件中。** 第 265—270 行直接回答“现在是几成仓”，称满仓，并说明刚突破趋势才恢复。第 59—68 行说明目前日线离趋势不远，若下周阴线破趋势则再卖；可能出现的 120 分钟底部结构是后续机会，不取消前面的破位条件。这里不是仅凭没有听到“减仓”推断继续持有，而是明确的当前状态回答与条件性动作相互支持。不过它仍是作者陈述的规则持仓，不是账户成交或所有学员实际持仓。
 
@@ -1615,7 +1657,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 ### 8.12 10 月旧参照：窗口资格、消失事件与决策条件分别核对
 
-本轮回到已保存的 10 月 16、24、27 日讲解，追踪 9 月 18 日至 10 月 27 日的 90、120 分钟候选；没有重新取数或改原候选。新增 [取证定义](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/october_reference_membership_definitions_20261012.json)、[离线核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_october_reference_membership.py)及 [结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/october_reference_membership_20261012.json)。结果保存原输入、候选及三份字幕的哈希，9 个正文定位用字符偏移，不充当视频时间。10 月结论已经读过，本次属于回顾诊断，不是盲测。
+本轮回到已保存的 10 月 16、24、27 日讲解，追踪 9 月 18 日至 10 月 27 日的 90、120 分钟候选；没有重新取数或改原候选。新增 取证定义（原记录：`reports/xxm_macd_structure_20261011/october_reference_membership_definitions_20261012.json`）、离线核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_october_reference_membership.py`）及 结果（原记录：`reports/xxm_macd_structure_20261011/october_reference_membership_20261012.json`）。结果保存原输入、候选及三份字幕的哈希，9 个正文定位用字符偏移，不充当视频时间。10 月结论已经读过，本次属于回顾诊断，不是盲测。
 
 **移出新选峰窗口，不自动等于解除旧结构的决策依据。** 单独保留每次结构确认时的参照，记录它何时移出最近两段／三段已完成同向柱段；不让窗口变化生成 CANCEL，也不改原事件。切换柱色时，原段会加入已完成历史，活动状态随后清空，因此某个已锁定参照可以在确认当根已经不属于新的两段选峰窗口。不能因此回删刚确认的历史事件。
 
@@ -1657,9 +1699,9 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 ### 8.13 11 月 11 日全文：新的防守依据与结构的趋势用途
 
-用户在本轮回复上一节的日期请求，提供 **2025 年 11 月 11 日**收盘全文。保存为 [原文](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251111_user_transcript.txt)，121 行；[manifest](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251111_user_transcript_manifest.json)保留日期、来源方式和 SHA-256。逐行保留原有 `0:1515秒钟`、`1:071分钟7秒钟` 等重复前缀及转写错字，未删除或擅自校正文意；没有原附件作字节对照或核听音频。下文用行号与原前缀定位，不把重复数字直接解释为视频时长。
+用户在本轮回复上一节的日期请求，提供 **2025 年 11 月 11 日**收盘全文。保存为 [原文](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251111_user_transcript.txt)，121 行；[manifest](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251111_user_transcript_manifest.json)保留日期、来源方式和 SHA-256。逐行保留原有 `0:1515秒钟`、`1:071分钟7秒钟` 等重复前缀及转写错字，未删除或擅自校正文意；没有原附件作字节对照或核听音频。下文用行号与原前缀定位，不把重复数字直接解释为视频时长。
 
-[核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_nov11_lecture.py)与 [对照结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/nov11_lecture_comparison_20261012.json)引用上一节结果的哈希，保留此前提出的节点，不改原筛选。上一节筛选在收到这份新讲解前完成，但日线图与部分数值早已见过，不称为完全盲测。原候选两种选峰策略、三组门槛均给出相同的下表事件。
+核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_nov11_lecture.py`）与 对照结果（原记录：`reports/xxm_macd_structure_20261011/nov11_lecture_comparison_20261012.json`）引用上一节结果的哈希，保留此前提出的节点，不改原筛选。上一节筛选在收到这份新讲解前完成，但日线图与部分数值早已见过，不称为完全盲测。原候选两种选峰策略、三组门槛均给出相同的下表事件。
 
 | 周期 | 作者本日陈述，第 3—14 行 | 保存输入的候选结果 | 证据边界 |
 | --- | --- | --- | --- |
@@ -1694,7 +1736,7 @@ DG 从 24 日下午到 27 日上午、再到下午，DIF 为 `16.181185 → 21.4
 
 ### 8.14 情境反例对照：周期选择、协调性与经验判断的适用边界
 
-本轮继续 §8.13 的方向，使用已经保存的讲解，核查能否把作者的经验抽象成可验证的条件。21 份字幕文件对应 20 个不同日期，10 月 16 日来源重复；本轮针对性对照其中 10 个日期，形成 28 个正文定位。没有新增字幕、软件图或真值标签，也没有宣称这 20 日都完成了同等深度的分析。新增 [取证定义](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/context_contrast_definitions_20261012.json)、[核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_context_contrasts.py)及 [证据对照](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/context_contrasts_20261012.json)，保存来源、输入及候选哈希。
+本轮继续 §8.13 的方向，使用已经保存的讲解，核查能否把作者的经验抽象成可验证的条件。21 份字幕文件对应 20 个不同日期，10 月 16 日来源重复；本轮针对性对照其中 10 个日期，形成 28 个正文定位。没有新增字幕、软件图或真值标签，也没有宣称这 20 日都完成了同等深度的分析。新增 取证定义（原记录：`reports/xxm_macd_structure_20261011/context_contrast_definitions_20261012.json`）、核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_context_contrasts.py`）及 证据对照（原记录：`reports/xxm_macd_structure_20261011/context_contrasts_20261012.json`），保存来源、输入及候选哈希。
 
 JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当作已核实的视频时间；解释由本轮人工阅读形成。定位校验只证明原文存在，不自动证明解释正确。作者说已发生的事件、声称的持仓或操作建议、未来条件计划、经验预测分别记录，操作建议与持仓陈述均不是账户成交证据。
 
@@ -1734,7 +1776,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.15 11 月防守的后续筛选：先区分新依据，暂不能识别消失集合
 
-本轮围绕 11 月 11 日原 90 分钟／日线防守，筛选 **2025 年 11 月 12 日至 12 月 16 日**，不沿用 10 月的 90／120 集合。新增 [取证定义](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/november_followup_definitions_20261012.json)、[离线脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_november_followup.py)与 [结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/november_followup_20261012.json)。先声明窗口、原参与周期及诊断条件，再计算本轮结果；已有数值和 12 月 16 日讲解此前已读，不称盲测。窗口内保存的讲解只有 12 月 16 日，不能据数值补造其他日期的作者操作。
+本轮围绕 11 月 11 日原 90 分钟／日线防守，筛选 **2025 年 11 月 12 日至 12 月 16 日**，不沿用 10 月的 90／120 集合。新增 取证定义（原记录：`reports/xxm_macd_structure_20261011/november_followup_definitions_20261012.json`）、离线脚本（原记录：`reports/xxm_macd_structure_20261011/audit_november_followup.py`）与 结果（原记录：`reports/xxm_macd_structure_20261011/november_followup_20261012.json`）。先声明窗口、原参与周期及诊断条件，再计算本轮结果；已有数值和 12 月 16 日讲解此前已读，不称盲测。窗口内保存的讲解只有 12 月 16 日，不能据数值补造其他日期的作者操作。
 
 **日线历史的衔接单独标记为推算。** 原日线 CSV 只到 11 月 11 日，DIF、DEA、柱值保留三位小数，不能像全精度分钟种子那样声称原始 EMA 状态被精确恢复。本轮保留全部 207 根旧输入不变，用已保存日线 fixture 的收盘价延伸 25 根；同时比较从 fixture 首日收盘初始化的 EMA，以及改用 60 分钟每日 15:00 收盘作为后段价格。两种初始化乘两种后段价格，共四套日线推算；没有覆盖原 CSV，也没有将推算值填入软件真值表。
 
@@ -1770,9 +1812,9 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.16 11 月 14 日全文：结构消失与钝化消失分开，第二次结构不自动累加
 
-用户回答上一节的请求，提供 **2025 年 11 月 14 日收盘全文**。保存为 [原文](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251114_user_transcript.txt)，129 行、6709 字符；[manifest](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251114_user_transcript_manifest.json)记录 SHA-256 与保存方式。原有重复时间前缀、转写错字及非研究讨论均保留，未核听音频，也无原附件进行字节对照；正文行号与字面前缀不充当已核实的视频时间。
+用户回答上一节的请求，提供 **2025 年 11 月 14 日收盘全文**。保存为 [原文](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251114_user_transcript.txt)，129 行、6709 字符；[manifest](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251114_user_transcript_manifest.json)记录 SHA-256 与保存方式。原有重复时间前缀、转写错字及非研究讨论均保留，未核听音频，也无原附件进行字节对照；正文行号与字面前缀不充当已核实的视频时间。
 
-[核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_nov14_lecture.py)与 [对照结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/nov14_lecture_comparison_20261012.json)引用上一节冻结筛选的哈希，没有重写此前预测、标签或候选。新讲解可核对筛选日期的事件描述；此前图与数据已有部分接触，仍不称为软件公式的完整盲测。
+核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_nov14_lecture.py`）与 对照结果（原记录：`reports/xxm_macd_structure_20261011/nov14_lecture_comparison_20261012.json`）引用上一节冻结筛选的哈希，没有重写此前预测、标签或候选。新讲解可核对筛选日期的事件描述；此前图与数据已有部分接触，仍不称为软件公式的完整盲测。
 
 **三个分钟事件及本轮次数得到讲解支持，精确柱时仍待图。** 第 51—59 行明确：120 分钟是近期首次顶结构，60 分钟亦是本轮首次，90 分钟是第二次。这与冻结的 24 组组合一致：90 分钟 11 日一次、14 日又一次；60／120 在这段筛选中此前没有顶结构，14 日首次。作者此段没有逐一给出 14:00、15:00 确认时点，因此这里只增加本轮日期及次数的原文断言，不增加软件逐柱真值。
 
@@ -1819,7 +1861,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.17 11 月 14 日日线图：结构消失映射到 13 日，原候选状态清空不等于该标记
 
-用户补齐上一节指定的日线图。[原图副本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251114_daily.png)与用户附件逐字节相同，尺寸 2818 × 1088，截图 manifest 从 37 项追加为 38 项。[核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_nov14_daily_disappearance.py)与 [结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/nov14_daily_disappearance_20261012.json)保存手工读图、位置映射及旧候选对照；此前讲解审计与冻结筛选均未覆盖。
+用户补齐上一节指定的日线图。[原图副本](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251114_daily.png)与用户附件逐字节相同，尺寸 2818 × 1088，截图 manifest 从 37 项追加为 38 项。核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_nov14_daily_disappearance.py`）与 结果（原记录：`reports/xxm_macd_structure_20261011/nov14_daily_disappearance_20261012.json`）保存手工读图、位置映射及旧候选对照；此前讲解审计与冻结筛选均未覆盖。
 
 **图上可以定位，但不是光标直接读出的日期。** 顶部日期为 2025/11/14，选中日线；最右 K 线为该日带长上影的阴线，标高 4034.08，与保存 OHLC 相符。此前一根为 13 日上涨阳线，再此前一根为 12 日近十字线，这些形状与保存数据逐日顺序相容。按原图约 96 像素的柱间距倒推，10、11、12、13、14 日中心约为 x=1444、1540、1636、1732、1828。
 
@@ -1847,7 +1889,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.18 撤销分歧筛选：单看 DIF 或柱色不够，价格资格须独立验证
 
-本轮按上一节方向，先冻结 [诊断定义](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/structure_withdrawal_definitions_20261012.json)，再执行 [筛选脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/screen_structure_withdrawal.py)，保存 [结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/structure_withdrawal_screen_20261012.json)。只使用已有 60、90、120 分钟输入及保存日线；日线尾段沿用四种显式递推对照，止于 fixture 可覆盖的 2026 年 8 月 7 日，共 387 行，不声称软件连续历史已经恢复。
+本轮按上一节方向，先冻结 诊断定义（原记录：`reports/xxm_macd_structure_20261011/structure_withdrawal_definitions_20261012.json`），再执行 筛选脚本（原记录：`reports/xxm_macd_structure_20261011/screen_structure_withdrawal.py`），保存 结果（原记录：`reports/xxm_macd_structure_20261011/structure_withdrawal_screen_20261012.json`）。只使用已有 60、90、120 分钟输入及保存日线；日线尾段沿用四种显式递推对照，止于 fixture 可覆盖的 2026 年 8 月 7 日，共 387 行，不声称软件连续历史已经恢复。
 
 **先定义比较对象，避免又把状态返回当成软件消失。** 每个候选顶结构独立作为诊断锚点，分别观察：首次达到原三组比例门槛的 DIF 回升；观察过负柱后首次达到该回升条件；观察过负柱后首次转正柱。诊断保留结构锚点跨过柱色切换，截到下一次同向结构之前或输入末端，同时记录旧 DIF 参照突破、新钝化两个竞争事件。这只是比较窗口，不是查明的软件参照寿命、结构到期或纠错集合。没有把 24 柱经验改造成到期规则，也没有对底部套用镜像结论。
 
@@ -1866,13 +1908,13 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 11 月样本不同：形成结构前本轮收盘高点为 10 日的 4018.5972，13 日收盘 4029.5012 已突破，且 DIF 回升、柱线转红同时发生。因此“价格是否重新突破本轮收盘峰”是一个可解释两段差异的资格线索；这个本轮峰不是跨段的旧 DIF 参照，不能混为一物。也不能因两段相容，就把价格条件写成原软件必要或充分公式。
 
-**价格资格比较在旧图复核后另行冻结，明确属于事后提出。** [新增定义](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/structure_withdrawal_price_definitions_20261012.json)、[比较脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_withdrawal_price_context.py)与 [结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/structure_withdrawal_price_context_20261012.json)比较四种资格：只突破价格；突破价格且当根 DIF 回升达门槛；突破价格且当前正柱；三项同根满足。价格基准固定为确认前本轮正柱段的最高收盘；确认在转负柱当根发生时取紧前正柱段，不把后续新高反填到原基准。这是研究定义，不替代原软件分段。
+**价格资格比较在旧图复核后另行冻结，明确属于事后提出。** 新增定义（原记录：`reports/xxm_macd_structure_20261011/structure_withdrawal_price_definitions_20261012.json`）、比较脚本（原记录：`reports/xxm_macd_structure_20261011/audit_withdrawal_price_context.py`）与 结果（原记录：`reports/xxm_macd_structure_20261011/structure_withdrawal_price_context_20261012.json`）比较四种资格：只突破价格；突破价格且当根 DIF 回升达门槛；突破价格且当前正柱；三项同根满足。价格基准固定为确认前本轮正柱段的最高收盘；确认在转负柱当根发生时取紧前正柱段，不把后续新高反填到原基准。这是研究定义，不替代原软件分段。
 
 四种资格在上述日线对照中都不在 10 月 15、16 日触发，并都在 11 月 13 日触发，故仍无法区分。它们在 10 月旧锚点上首次满足为 24 日，这只是保存输入的预测，没有新增日线消失真值。全部比较得到 5 个跨参数稳定的分歧组；286 项端点逐前缀核查通过。
 
 其中 6 月 27 日 120 分钟锚点给出 7 月 3／4 日价格与 DIF 资格的分歧，但已有 7 月 11 日图覆盖这些位置且未见新的绿色标记，候选此前又已返回 DULL，并没有跨负柱阶段。它不能冒充 11 月案例的同类结构撤销。故单列同色段状态返回歧义，**不重新索取该区间，也不请求已经明确缺少的 7 月 11 日 60 分钟图**。保留这个不相容观察，而不为它另调价格锚点或门槛。
 
-**下一份只请求 11 月 13 日收盘全文，先核对事件身份。** [请求冻结记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/structure_withdrawal_next_source_20261012.json)保存理由及三种时点：90 分钟单看 DIF 反升为 11:00；价格突破且 DIF 达门槛为 14:00；再要求正柱为 15:00。后一对在两参照、三门槛下时点不变，14 日新结构及原 DIF 参照突破未在这些预测之前介入。
+**下一份只请求 11 月 13 日收盘全文，先核对事件身份。** 请求冻结记录（原记录：`reports/xxm_macd_structure_20261011/structure_withdrawal_next_source_20261012.json`）保存理由及三种时点：90 分钟单看 DIF 反升为 11:00；价格突破且 DIF 达门槛为 14:00；再要求正柱为 15:00。后一对在两参照、三门槛下时点不变，14 日新结构及原 DIF 参照突破未在这些预测之前介入。
 
 14 点保存收盘 4019.9592 超过此前 4018.5972，DIF 约 10.19226，比前柱回升约 9.868%，但柱值约 -0.06254；15 点柱值约 +2.12954。这是有分歧的输入，而不是已证实软件亦在 14 点负柱：90 分钟的历史数值差异尚未解决，14 点又靠近零轴，必须保留软件提前变色的可能。新全文先核对作者是否明确说 90 分钟的结构消失、钝化消失或仍在，以及是否给出 14 点／收盘时点；若只有泛称“消失”，或未明确周期与时点，不能评分。取得讲解后再决定是否需要一张图，当前不同时索取多个周期。
 
@@ -1880,7 +1922,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.19 11 月 13 日全文：首次钝化资格得到讲解支持，90 分钟撤销时点仍待图
 
-用户提供上一节指定的 **2025 年 11 月 13 日收盘全文**，保存为 [原文](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251113_user_transcript.txt)，96 行、4982 字符；[manifest](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251113_user_transcript_manifest.json)记录保存方式及哈希。重复时间前缀、转写错字与非研究讨论全部保留，未核听音频，也没有原附件进行字节对照，故前缀不充当已核实的视频时间。[核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_nov13_lecture.py)与 [结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/nov13_lecture_comparison_20261012.json)引用此前冻结请求、筛选及候选的哈希，不覆盖预测或另调参照、门槛。
+用户提供上一节指定的 **2025 年 11 月 13 日收盘全文**，保存为 [原文](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251113_user_transcript.txt)，96 行、4982 字符；[manifest](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251113_user_transcript_manifest.json)记录保存方式及哈希。重复时间前缀、转写错字与非研究讨论全部保留，未核听音频，也没有原附件进行字节对照，故前缀不充当已核实的视频时间。核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_nov13_lecture.py`）与 结果（原记录：`reports/xxm_macd_structure_20261011/nov13_lecture_comparison_20261012.json`）引用此前冻结请求、筛选及候选的哈希，不覆盖预测或另调参照、门槛。
 
 **新稿明确当日日线发生结构消失，却没有定位 90 分钟消失。** 第 1—4 行在日线画面中说“今天的消失是结构消失”，支持 §8.17 从 14 日历史图映射到 13 日的判断，不另计一个软件标签。第 49 行把买回标准表述为分钟线钝化消失，第 52—53 行强调消失前文是结构还是钝化，就按对应含义理解。这进一步支持把历史结构确认撤销、钝化解除、整次防守纠错分开；不能从一个绿色“消失”字样自动推导持仓恢复，也不能将读图说明编成“永远匹配最近历史标签”的软件实现。
 
@@ -1912,7 +1954,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.20 13／17 日图稿合查：90 分钟消失映射到 14 点，价格资格仍非唯一公式
 
-用户找不到 13 日当日的 90 分钟图，提供了当日 [60 分钟图](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251113_60.png)、[120 分钟图](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251113_120.png)以及包含该日柱的 [17 日 90 分钟历史图](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251117_90.png)。三份副本与原附件逐字节一致，保留原始尺寸及哈希；截图 manifest 从 38 项追加到 41 项，旧条目不改。随后取得指定的 [17 日全文](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251117_user_transcript.txt)，133 行、6694 字符，重复前缀、转写错字及其他讨论原样保存；没有音频核验或原文件字节比较。[核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_nov13_17_charts.py)及 [结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/nov13_17_charts_comparison_20261012.json)引用原候选、冻结请求和价格筛选，不覆盖原预测。
+用户找不到 13 日当日的 90 分钟图，提供了当日 [60 分钟图](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251113_60.png)、[120 分钟图](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251113_120.png)以及包含该日柱的 [17 日 90 分钟历史图](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251117_90.png)。三份副本与原附件逐字节一致，保留原始尺寸及哈希；截图 manifest 从 38 项追加到 41 项，旧条目不改。随后取得指定的 [17 日全文](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251117_user_transcript.txt)，133 行、6694 字符，重复前缀、转写错字及其他讨论原样保存；没有音频核验或原文件字节比较。核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_nov13_17_charts.py`）及 结果（原记录：`reports/xxm_macd_structure_20261011/nov13_17_charts_comparison_20261012.json`）引用原候选、冻结请求和价格筛选，不覆盖原预测。
 
 **历史图把时点收窄到 13 日第二根 90 分钟柱，但身份仍有条件。** 按末端 17 日收盘柱倒数、每交易日三根柱以及软件文字左沿锚点映射，绿色“消失”落在 13 日 14:00。原图末柱中心约 x=1948、柱间距约 65.3 像素，绿色文字左沿约 x=1493，对应末端之前第七根柱；相邻标记复核如下：
 
@@ -1961,7 +2003,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.21 撤销筛选复核：价格与 DIF 条件在已有干净区间无法区分，转查正柱资格
 
-本轮目标是检查上一轮筛选是否因为要求四种机制都有有限预测，而遗漏价格条件已经触发、DIF 条件尚未触发的有效节点。先保存 [诊断定义](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/withdrawal_recensor_definitions_20261012.json)，再运行 [新筛选脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/screen_withdrawal_recensor.py)，保存 [结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/withdrawal_recensor_screen_20261012.json)。沿用原 738 根 120 分钟及 459 根 90 分钟输入、两种参照策略和 0.75／1／1.2% 三组门槛；未延长历史、改计算初态或调参。
+本轮目标是检查上一轮筛选是否因为要求四种机制都有有限预测，而遗漏价格条件已经触发、DIF 条件尚未触发的有效节点。先保存 诊断定义（原记录：`reports/xxm_macd_structure_20261011/withdrawal_recensor_definitions_20261012.json`），再运行 新筛选脚本（原记录：`reports/xxm_macd_structure_20261011/screen_withdrawal_recensor.py`），保存 结果（原记录：`reports/xxm_macd_structure_20261011/withdrawal_recensor_screen_20261012.json`）。沿用原 738 根 120 分钟及 459 根 90 分钟输入、两种参照策略和 0.75／1／1.2% 三组门槛；未延长历史、改计算初态或调参。
 
 **筛选方法变化不等于软件生命周期变化。** 仍从候选顶结构独立开始，价格基准仍为确认前本轮正柱段的最高收盘。比较区间改为到下一次同向钝化、旧 DIF 参照严格突破、下一次顶结构或输入末端，以先到者为止，竞争事件当根不计入撤销比较。这样避免把新钝化后的触发冒充旧结构撤销。没有触发的机制保留为截尾，不赋予无限未来都不会触发的结论。这是研究诊断边界，不能写成已查明的软件消失、到期或参照淘汰规则；竞争事件与历史排序也不充当实时特征。
 
@@ -1983,13 +2025,13 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 **下一处有价值的分叉是正柱资格。** 前次冻结筛选中的 7 月 2 日 90 分钟候选锚点，在本轮边界下仍有可比较区间：价格单独及价格加 DIF 都预测 3 日 14:00，另外要求当前正柱的两个机制都预测 4 日 14:00；新钝化在 4 日 15:00，旧 DIF 参照突破未在此前介入。3 日 14 点保存柱值约 -1.104700，收盘仍约 -1.121056，距离零比 11 月 13 日的 -0.062536 更大，减少贴近零导致的判色歧义，但不证明软件也同色或其数值偏差有固定上限。
 
-读取新资料前保存 [下一来源冻结记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/withdrawal_next_source_july3_20261012.json)，只请求 **2025 年 7 月 3 日收盘全文**，暂不同时要求图片。先检查作者是否明确谈到此前 90 分钟顶结构、当天结构是否消失或仍保留。这里前次结构只是候选锚点，尚无相应软件观察，必须先核实；即使稿件明确说某个周期钝化消失或整体买回，也不能擅自移作本次 90 分钟历史结构撤销。若稿件没有指定周期与事件身份，就保持未观察，不临时改规则、补标或追索多个日期。此节点区分的是是否另需正柱，**不能区分价格单独与价格加 DIF**。
+读取新资料前保存 下一来源冻结记录（原记录：`reports/xxm_macd_structure_20261011/withdrawal_next_source_july3_20261012.json`），只请求 **2025 年 7 月 3 日收盘全文**，暂不同时要求图片。先检查作者是否明确谈到此前 90 分钟顶结构、当天结构是否消失或仍保留。这里前次结构只是候选锚点，尚无相应软件观察，必须先核实；即使稿件明确说某个周期钝化消失或整体买回，也不能擅自移作本次 90 分钟历史结构撤销。若稿件没有指定周期与事件身份，就保持未观察，不临时改规则、补标或追索多个日期。此节点区分的是是否另需正柱，**不能区分价格单独与价格加 DIF**。
 
 验证与边界：120 项逐前缀检查通过；此前 195 个研究文件哈希全部不变。新增诊断定义、筛选脚本、结果及单一来源冻结记录，更新原研究文档；文档完整性及差异空白检查通过，含对新增未跟踪源码的单独空白核查。没有新增软件图、字幕或标签，既有 41 图、24 份字幕、23 个不同日期、24 个分钟末端读数、52 个原标签及两个单列条件性消失观察均不变。原候选、参数、正式指标、API、配置、数据集、架构边界与依赖矩阵不变；没有网络取数、安装、数据库／Lake 写入、提交或交易操作。本轮收敛的是取证方向和可识别性，未恢复完整撤销公式。
 
 ### 8.22 7 月 3 日全文：90 分钟撤销仍待图，120 分钟未来价格条件与多组门槛相容
 
-用户提供指定的 [2025 年 7 月 3 日全文](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250703_user_transcript.txt)，150 行、6489 字符；[manifest](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250703_user_transcript_manifest.json)保存哈希与来源。错字、重复时间前缀和其他讨论全部保留；未核听音频，没有原文件字节比较，时间前缀不作为已验证的视频时间。[核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_july3_lecture.py)和 [结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/july3_lecture_comparison_20261012.json)核对上一节冻结预测及新稿断言，不修改旧候选。
+用户提供指定的 [2025 年 7 月 3 日全文](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20250703_user_transcript.txt)，150 行、6489 字符；[manifest](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20250703_user_transcript_manifest.json)保存哈希与来源。错字、重复时间前缀和其他讨论全部保留；未核听音频，没有原文件字节比较，时间前缀不作为已验证的视频时间。核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_july3_lecture.py`）和 结果（原记录：`reports/xxm_macd_structure_20261011/july3_lecture_comparison_20261012.json`）核对上一节冻结预测及新稿断言，不修改旧候选。
 
 **作者展示过 90 分钟结构，不等于明确说它在本日撤销或保留。** 第 54—56 行转到 90 分钟，说“结构形成在这是吧”，指向图中的历史位置，未给日期、逐柱时间或“结构消失”的直接说明。它确认讲解涉及该周期的历史结构，但不能直接确认候选 7 月 2 日 14 点的锚点。第 23—26 行的“钝化没有消失”“钝化还在”尚未指定周期；第 80—81 行说截至本日没有整体纠错，也不证明每个周期的结构均仍有效。
 
@@ -2011,13 +2053,13 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 **经验与数值合并到研究解释，尚不转成执行参数。** 第一，价格只变化约一点，DIF 仍可能因 EMA 递推产生足以确认结构的转向；判断脆弱性应看距离确认条件有多远，不能只看 K 线涨跌幅。第二，价格小幅上涨本身不是撤销原减仓的标准，原有钝化、可能再确认的其他周期结构与整体纠错应分别观察。第三，结构交易有依据不保证随后下跌，判断当时执行是否合规与评价后续收益分开；这不是宣称规则永不出错或能保证盈利。第四，稿中低点需要时间、阳线时才有序列小高点的说明属于经验条件，未增加固定底部等待天数、序列自动卖出或永久看多规则。
 
-**全文请求已满足，下一张只查同日 90 分钟。** 因作者确实在“然后看一下90分钟”之后展示该周期，保存 [单张图请求记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/july3_next_chart_request_20261012.json)。请保留 2—3 日附近 K 线、结构／钝化／消失文字和末端 DIF／DEA／柱值；先定位旧结构及有无撤销标记，再与冻结预测比较。仅索取这一周期这一日期，不同时要求 120 分钟或新日期。历史图位置不证明盘中首次显示时间，缺少绿色文字只作为受可见性限制的负观察；若该图也不可取得，保留未确认，不重复索取。无需再提供 3 日文字稿。
+**全文请求已满足，下一张只查同日 90 分钟。** 因作者确实在“然后看一下90分钟”之后展示该周期，保存 单张图请求记录（原记录：`reports/xxm_macd_structure_20261011/july3_next_chart_request_20261012.json`）。请保留 2—3 日附近 K 线、结构／钝化／消失文字和末端 DIF／DEA／柱值；先定位旧结构及有无撤销标记，再与冻结预测比较。仅索取这一周期这一日期，不同时要求 120 分钟或新日期。历史图位置不证明盘中首次显示时间，缺少绿色文字只作为受可见性限制的负观察；若该图也不可取得，保留未确认，不重复索取。无需再提供 3 日文字稿。
 
 验证与边界：12 项原文定位、24 项下一柱场景及边界双侧核查通过；此前 199 个研究文件哈希不变。新增全文及 manifest、核查脚本与结果、单张图请求记录，更新原研究文档；文档完整性、差异及新增源码空白检查通过。字幕增加为 25 份（13 份 MCP、12 份用户稿）、24 个不同日期；41 张图、原 52 个标签、两个单列条件性消失观察、24 个分钟末端读数及一个日线末端读数不变。没有改变正式代码、指标、参照、参数、API、配置、数据集、架构边界或依赖矩阵；没有网络取数、额度受限 MCP 重试、安装、数据库／Lake 写入、提交或交易操作。本轮得到的是 120 分钟预测的相容性及经验解释，正柱资格仍未查明。
 
 ### 8.23 7 月 3 日 90 分钟图：负柱阶段的历史消失，约束正柱必要性
 
-用户补充指定的 [90 分钟原图](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20250703_90.png)，2824×1140 像素，已按字节保存并追加截图 manifest。沿用读图前的 [全文来源冻结](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/withdrawal_next_source_july3_20261012.json)和 [单图请求记录](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/july3_next_chart_request_20261012.json)，运行 [核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_july3_chart.py)，保存 [结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/july3_chart_comparison_20261012.json)。未更换价格基准、参照、门槛或撤销定义。
+用户补充指定的 [90 分钟原图](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20250703_90.png)，2824×1140 像素，已按字节保存并追加截图 manifest。沿用读图前的 全文来源冻结（原记录：`reports/xxm_macd_structure_20261011/withdrawal_next_source_july3_20261012.json`）和 单图请求记录（原记录：`reports/xxm_macd_structure_20261011/july3_next_chart_request_20261012.json`），运行 核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_july3_chart.py`），保存 结果（原记录：`reports/xxm_macd_structure_20261011/july3_chart_comparison_20261012.json`）。未更换价格基准、参照、门槛或撤销定义。
 
 **先定位结构，再比较冻结预测。** 原图选中 90 分钟，末端为 3 日收盘；以末柱中心约 x=1882、柱间距约 75.2 像素，从末端倒推每天三根柱，并按软件文字左边缘定位：
 
@@ -2053,7 +2095,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.24 参照历史与状态清空追查：先丢失钝化资格，不是 27 日转向不足
 
-本轮沿 [当前研究候选](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/active_reference_candidate.py)逐项追查上一节发现的 90 分钟旧结构漏报，同时对照三处已有历史消失。先保存 [诊断定义](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/lifecycle_trace_definitions_20261012.json)，再运行 [核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_lifecycle_trace.py)，产出 [结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/lifecycle_trace_audit_20261012.json)。图及讲解均为已见资料，本轮是原因核查，不包装成新的独立验证集。
+本轮沿 当前研究候选（原记录：`reports/xxm_macd_structure_20261011/active_reference_candidate.py`）逐项追查上一节发现的 90 分钟旧结构漏报，同时对照三处已有历史消失。先保存 诊断定义（原记录：`reports/xxm_macd_structure_20261011/lifecycle_trace_definitions_20261012.json`），再运行 核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_lifecycle_trace.py`），产出 结果（原记录：`reports/xxm_macd_structure_20261011/lifecycle_trace_audit_20261012.json`）。图及讲解均为已见资料，本轮是原因核查，不包装成新的独立验证集。
 
 **输入质量满足这次局部回放，但不足以证明参照历史完整。** 90 分钟保存序列为 2025 年 6 月 3 日 11 点至 2026 年 1 月 13 日 15 点，共 459 根、459 个唯一时间键；收盘、DIF、柱值均为有限数值，每个保存日期有 11／14／15 点三根，收盘均为正。没有据此宣布整个交易日历完整。首根已经处于正柱阶段，无法判断它是否真正的波段起点；先前波段及该首段在 3 日以前的部分均未保存。不能把文件第一根当成软件第一次有历史，也不能用其他周期的峰补作 90 分钟参照。
 
@@ -2092,7 +2134,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 本轮检验上一节的两类历史缺失解释。使用已有环境只读查询正式 Lake 的 `gold/quote/major_index_mins/freq=90` 与 `gold/indicator/major_index_mins_technical/freq=90`，限定上证指数及 2025 年 4 月 1 日至 7 月 3 日。共 63 个日期、126 个源文件、189 根数值，其中 120 根早于原输入起点；重叠的 69 根逐字段数值完全相同。DIF、DEA、柱值直接读取已有指标，不重算 EMA、不拼接其他周期、不构造虚拟峰。真实软件与 DG 指标之间的既有精度差异仍存在，这次读数是 DG 历史事实，不冒充软件真值。
 
-保留的必要证据为 [只读核查脚本](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/audit_90_history_prefix.py)、[同周期历史输入](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/inputs/90_20250401_20250703.csv)及 [核查结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/history_prefix_audit_20261012.json)。源文件路径和哈希在结果内保存，没有制作笔记、网页或额外展示附件。
+保留的必要证据为 只读核查脚本（原记录：`reports/xxm_macd_structure_20261011/audit_90_history_prefix.py`）、同周期历史输入（原记录：`reports/xxm_macd_structure_20261011/inputs/90_20250401_20250703.csv`）及 核查结果（原记录：`reports/xxm_macd_structure_20261011/history_prefix_audit_20261012.json`）。源文件路径和哈希在结果内保存，没有制作笔记、网页或额外展示附件。
 
 **缺的是另一段旧参照，原首段的峰值没有被截小。** 两个关键正柱段均在本次输入内观察到前后负柱边界：
 
@@ -2122,7 +2164,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.26 选峰与切换次序分开核查：状态图不足以识别内部参照
 
-本轮按照 §8.25 后的计划复查 6 月 24—26 日已有字幕及 7 月 3 日历史图，同时复用未改动的候选和 579 根保存输入。未新增公式：把代码中已有的四种活动参照策略与两种选峰策略、三组原门槛组合，共 24 组；最近两段、两根资格及柱线变色处理均保持原值。计算只读本地 CSV，临时执行脚本置于 `/private/tmp`，必要结果保存在 [参照路径与证据核查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_path_evidence_20261012.json)，不新增长期维护的展示附件。
+本轮按照 §8.25 后的计划复查 6 月 24—26 日已有字幕及 7 月 3 日历史图，同时复用未改动的候选和 579 根保存输入。未新增公式：把代码中已有的四种活动参照策略与两种选峰策略、三组原门槛组合，共 24 组；最近两段、两根资格及柱线变色处理均保持原值。计算只读本地 CSV，临时执行脚本置于 `/private/tmp`，必要结果保存在 参照路径与证据核查（原记录：`reports/xxm_macd_structure_20261011/reference_path_evidence_20261012.json`），不新增长期维护的展示附件。
 
 **纠正二选一的范围。** 上一节的六组比较明确限定 `active_policy=locked`，没有覆盖最近峰被突破时先重选合格旧峰的已有设置。三类内部路径如下，三组门槛在各类中不改变时点：
 
@@ -2156,7 +2198,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.27 历史结构撤销的取材节点：4 月 21 日价格突破，DIF 仍下降
 
-本轮独立推进 §8.26 留下的历史结构撤销问题，不因选峰证据暂缺而停在普通状态图比较。复用未修改的 [筛选函数](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/screen_withdrawal_recensor.py)及候选，在内存中接入已保存的真实 90 分钟前缀，并把同样的诊断应用于已保存的 60 分钟序列。没有重新取数、重算指标或调整门槛。执行脚本放在 `/private/tmp`，只保留一份必要的 [筛选与冻结预测结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/withdrawal_discrimination_apr21_20261012.json)，不增加展示附件或笔记。
+本轮独立推进 §8.26 留下的历史结构撤销问题，不因选峰证据暂缺而停在普通状态图比较。复用未修改的 筛选函数（原记录：`reports/xxm_macd_structure_20261011/screen_withdrawal_recensor.py`）及候选，在内存中接入已保存的真实 90 分钟前缀，并把同样的诊断应用于已保存的 60 分钟序列。没有重新取数、重算指标或调整门槛。执行脚本放在 `/private/tmp`，只保留一份必要的 筛选与冻结预测结果（原记录：`reports/xxm_macd_structure_20261011/withdrawal_discrimination_apr21_20261012.json`），不增加展示附件或笔记。
 
 **这次的筛选范围与结果明确。** 90 分钟共 579 根，覆盖 2025 年 4 月 1 日至 2026 年 1 月 13 日；60 分钟共 1316 根，覆盖 2025 年 6 月 3 日至 2026 年 10 月 9 日。时间键唯一且有序，价格为正，指标为有限数值；没有据此宣布交易日历或此前历史完整。先按两种原参照策略、三组原门槛及锁定参照回放，每个结构区间最多六组，再对选中节点扩展四种原活动参照策略：
 
@@ -2194,7 +2236,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.28 两次结构的存在、历史消失与交易采用分别核实
 
-本轮先读用户提供的 2026 年 4 月 21 日全文，随后收到 23 日全文及 [23 日 60 分钟原图](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260423_60.png)，两份讲解和图合并分析。有关原文段落、来源范围、原图哈希、几何映射与数值核查合并保存于 [本轮核查结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/apr21_23_source_comparison_20261012.json)。只保存本轮有关的逐字段落，不宣称该结果是全文副本；未核听音频，不静默修正“动画”等转写。执行及局部看图文件均在 `/private/tmp`，不新增展示附件或长期维护脚本。
+本轮先读用户提供的 2026 年 4 月 21 日全文，随后收到 23 日全文及 [23 日 60 分钟原图](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20260423_60.png)，两份讲解和图合并分析。有关原文段落、来源范围、原图哈希、几何映射与数值核查合并保存于 本轮核查结果（原记录：`reports/xxm_macd_structure_20261011/apr21_23_source_comparison_20261012.json`）。只保存本轮有关的逐字段落，不宣称该结果是全文副本；未核听音频，不静默修正“动画”等转写。执行及局部看图文件均在 `/private/tmp`，不新增展示附件或长期维护脚本。
 
 **讲解先解决身份，历史图再检验冻结预测。** 21 日稿明确说这次 60 分钟钝化不采用，原因是缺少明显中间回调；单凭该稿并不能证明旧结构到收盘仍保留或已经撤销。23 日稿随后明确指向“第一次形成结构”及“今天这个阴线”的第二次结构；软件图也有两个紫色标记。原图为 2814×1100，末端选中 60 分钟、日期 23 日，含 21、22 日 K 线。按末根柱中心约 x=2013.5、等距约 18.4 像素，以及每日期四根柱的历史映射：
 
@@ -2233,7 +2275,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.29 操作采用的经验对照：排除单项简化，仍不拟固定过滤阈值
 
-本轮按 §8.28 的计划复看已有 2025 年 11 月 11／14 日全文及 2026 年 4 月 21／23 日讲解，分别检查连接回调、日线趋势距离和钝化级别。只用保存的 60 分钟 CSV、未改候选及已有日线通道测试 fixture；不重新取数。临时计算脚本位于 `/private/tmp`，必要结果保存在 [操作背景对照结果](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/operational_context_comparison_20261013.json)。结果保存来源定位与计算口径，不新增展示附件、笔记或长期维护脚本。
+本轮按 §8.28 的计划复看已有 2025 年 11 月 11／14 日全文及 2026 年 4 月 21／23 日讲解，分别检查连接回调、日线趋势距离和钝化级别。只用保存的 60 分钟 CSV、未改候选及已有日线通道测试 fixture；不重新取数。临时计算脚本位于 `/private/tmp`，必要结果保存在 操作背景对照结果（原记录：`reports/xxm_macd_structure_20261011/operational_context_comparison_20261013.json`）。结果保存来源定位与计算口径，不新增展示附件、笔记或长期维护脚本。
 
 **级别小不构成独立的普遍否决条件。** 11 月 11 日作者说价格到趋势近，60 分钟及以上形成结构都好用，并明确说日线结构“级别不大”；当日实际结构是 90 分钟和日线，建议减四成。60／120 分钟当日没有结构，不能写成两个周期触发了操作。4 月两个 60 分钟结构则明确因回调不足、离趋势远、钝化小而不采用。因此“小就忽略”的统一过滤不成立；这也不证明小结构单独出现一定操作，或趋势近一定能覆盖非常规形态。11 月另有敏感时间及多周期背景，三项独立权重和 AND／OR 尚未识别。
 
@@ -2269,7 +2311,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.30 历史 DIF 峰与级别口径：消失时间、空间均依赖参照与运行速度
 
-本轮完成 §8.29 的下一步：检索现有 25 份完整源文件，覆盖 24 个不同日期，重点复看并定位 12 段讲解；其中 10 月 16 日有两份源文件，不能算成两个日期。4 月 21／23 日此前保存的研究相关原文段落另行参考，不冒充完整文字稿。没有重新请求字幕或图片，没有网络取数。必要核查结果保存在 [历史峰与级别口径核查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/historical_peak_level_scope_20261013.json)，计算脚本只置于 `/private/tmp`。
+本轮完成 §8.29 的下一步：检索现有 25 份完整源文件，覆盖 24 个不同日期，重点复看并定位 12 段讲解；其中 10 月 16 日有两份源文件，不能算成两个日期。4 月 21／23 日此前保存的研究相关原文段落另行参考，不冒充完整文字稿。没有重新请求字幕或图片，没有网络取数。必要核查结果保存在 历史峰与级别口径核查（原记录：`reports/xxm_macd_structure_20261011/historical_peak_level_scope_20261013.json`），计算脚本只置于 `/private/tmp`。
 
 **作者公开的时间估算方法已有明确依据，顶部与底部均有例子。** 6 月 25 日讲 120 分钟：当前 DIF 约 12，上周期约 7，历史高值约 26；按每周期运行约 4.5，剩余约 14，估算差不多四个周期、两天。12 月 16 日讲 120 分钟底部：当前值的幅度约 15，上一周期约 12，旧低值的幅度约 34，按每周期约 3，估算约六根、三天。它们都在描述继续按当时速度运行，离钝化消失还需多久。
 
@@ -2307,7 +2349,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.31 时间与价格空间应用于 11 月、4 月：部分相容，参照和大小阈值仍未识别
 
-本轮完成 §8.30 的下一步，在已有来源中定位八项讲解依据，检查十个收盘起点；每个起点的时间和价格计算使用同一个历史 DIF 目标。必要结果保存在 [时间与价格空间案例对照](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/time_price_case_comparison_20261013.json)。使用原 60／90 分钟 DG 导出、已有离线推导的 120 分钟序列及三位小数日线导出，候选与参数不变；这些数值仍不是作者软件的完整历史真值。
+本轮完成 §8.30 的下一步，在已有来源中定位八项讲解依据，检查十个收盘起点；每个起点的时间和价格计算使用同一个历史 DIF 目标。必要结果保存在 时间与价格空间案例对照（原记录：`reports/xxm_macd_structure_20261011/time_price_case_comparison_20261013.json`）。使用原 60／90 分钟 DG 导出、已有离线推导的 120 分钟序列及三位小数日线导出，候选与参数不变；这些数值仍不是作者软件的完整历史真值。
 
 时间继续按 `剩余 DIF 距离 ÷ 最近朝目标运行的 DIF 增量` 作条件性恒速外推，只在目标尚未达到、增量为正时计算。表中小数不强行取整；不同周期的根数不能直接比较日历时间。价格列是下一根收盘使 DIF 等于同一旧峰所需的上涨点数与百分比，严格越过该边界才对应假设中的旧峰突破。它不表示历史结构撤销、整次防守纠错或实际买回。
 
@@ -2344,9 +2386,9 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.32 11 月历史峰身份核查：120 分钟较早峰区仍参与分析，90 分钟活动目标未确认
 
-本轮完成 §8.31 的下一步，只复看现有两张原图、13／14／17 日全文相关段落及保存数值。必要结果保存在 [11 月历史参照身份核查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/november_reference_identity_20261013.json)。素材覆盖须准确说明：120 分钟是 13 日当天图；90 分钟是 17 日历史图，包含 13／14 日。现有 manifest 没有 14 日当天的 120 分钟原图，也没有 13／14 日当天的 90 分钟原图，本轮未把历史回看图写成同期截图。
+本轮完成 §8.31 的下一步，只复看现有两张原图、13／14／17 日全文相关段落及保存数值。必要结果保存在 11 月历史参照身份核查（原记录：`reports/xxm_macd_structure_20261011/november_reference_identity_20261013.json`）。素材覆盖须准确说明：120 分钟是 13 日当天图；90 分钟是 17 日历史图，包含 13／14 日。现有 manifest 没有 14 日当天的 120 分钟原图，也没有 13／14 日当天的 90 分钟原图，本轮未把历史回看图写成同期截图。
 
-**120 分钟有一项新的参照定位依据。** [13 日原图](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251113_120.png)中，作者圈出横轴标注 10 月 28—29 日附近的较高 DIF 区域；另有长红色线从 30 日前后的区域向当前 DIF 位置延伸。最近的 11 月 10／11 日附近另一个圈注位于价格 K 线区域。13 日全文 01:32 说 120 分钟明天可能钝化，因为要“跟这个值做对比”，01:42 接着判断“不算大……也不算小，够用”。将同周期圈注与这段指示语配对，**支持作者在判断这次预期钝化规模时，仍参考 10 月底较早的高峰区域，而不只是看最近的小峰。**
+**120 分钟有一项新的参照定位依据。** [13 日原图](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251113_120.png)中，作者圈出横轴标注 10 月 28—29 日附近的较高 DIF 区域；另有长红色线从 30 日前后的区域向当前 DIF 位置延伸。最近的 11 月 10／11 日附近另一个圈注位于价格 K 线区域。13 日全文 01:32 说 120 分钟明天可能钝化，因为要“跟这个值做对比”，01:42 接着判断“不算大……也不算小，够用”。将同周期圈注与这段指示语配对，**支持作者在判断这次预期钝化规模时，仍参考 10 月底较早的高峰区域，而不只是看最近的小峰。**
 
 这里圈的是高峰区域，不是带时间和数值的历史游标。红线、静态截图和全文之间没有逐帧指针记录，因此上述归属是有图文依据的推断，不是精确峰值的直接报数。也不能据此认定软件检测使用唯一的最强峰、价格与 DIF 必须取同一历史段，或作者的经验规模比较等同软件活动参照。
 
@@ -2363,7 +2405,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 在软件实际活动目标这一层，13 日末端 120／90 分钟均只有一根正柱，原候选尚未激活。14 日上午形成钝化时，最近峰与较强旧峰各对应十二组既有设置，但两组给出相同事件与状态；随后 120 分钟首次结构、90 分钟第二次结构也都相同。故 **14 日结构形成不能反过来证明选用了较早峰**。13 日的规模比较也不能自动升级为 14 日软件沿用同一峰的确认。
 
-**90 分钟仍有明确的可见范围缺口。** [17 日历史图](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20251117_90.png)从 11 月 4 日开始，10 月底 DIF 高峰不在画面内。它显示两组钝化、结构及 13 日附近绿色消失，与此前记录的顺序相容，却没有连线或游标指出第二次钝化的历史目标。不能把旧峰没显示解释成已经退出，也不能把绿色历史结构消失自动解释成旧 DIF 比较峰失效；120 分钟的圈注结论同样不能跨周期套给 90 分钟。
+**90 分钟仍有明确的可见范围缺口。** [17 日历史图](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20251117_90.png)从 11 月 4 日开始，10 月底 DIF 高峰不在画面内。它显示两组钝化、结构及 13 日附近绿色消失，与此前记录的顺序相容，却没有连线或游标指出第二次钝化的历史目标。不能把旧峰没显示解释成已经退出，也不能把绿色历史结构消失自动解释成旧 DIF 比较峰失效；120 分钟的圈注结论同样不能跨周期套给 90 分钟。
 
 14 日 07:14 所说两次结构“空间其实相差不大”，上下文是在展示第一次、第二次结构的位置，没有给出消失价或所比 DIF 数字，不能改写成两次钝化的消失预算相同。其“纠错难度挺大”也没有列出逐周期选峰和买回条件；16:10 进一步说接近纠错时才会说明标准。17 日仍说三个分钟周期结构有效，只能支持结构作用仍在，不能确认旧峰的精确保留规则。
 
@@ -2376,7 +2418,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.33 旧峰退出的联合约束：完成的同向柱段数有解释力，固定两段仍未证实
 
-本轮完成 §8.32 的下一步，复核已有 10 月 16 日、11 月 13 日原图和讲解，再用 10 月 24／27 日原有消失证据检查机制。必要数值、来源定位和候选对照保存在 [旧峰退出联合核对](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/peak_retirement_contrast_20261013.json)。不取得新字幕，不增加软件标签，不修改候选或拟合新门槛。
+本轮完成 §8.32 的下一步，复核已有 10 月 16 日、11 月 13 日原图和讲解，再用 10 月 24／27 日原有消失证据检查机制。必要数值、来源定位和候选对照保存在 旧峰退出联合核对（原记录：`reports/xxm_macd_structure_20261011/peak_retirement_contrast_20261013.json`）。不取得新字幕，不增加软件标签，不修改候选或拟合新门槛。
 
 **先保留峰身份与证据层的区别。** 10 月 16 日全文 05:15—05:31 明确说，画面没截到前面的最高峰，多次红绿柱交替把它“度过去了”，现在钝化级别较小。图从 9 月 18 日前后开始，没有给出被排除峰的日期或数值。在保存的 4 月起 120 分钟序列里，此前完整正柱段的最高 DIF 为 8 月 27 日 11:30 的约 61.800335，可作为这段讲解的待核对应，不能写成作者直接报出 61.800335。11 月 13 日旧高峰区域参与规模比较，则沿用 §8.32 的图文推断；也不升级为软件唯一活动参照。
 
@@ -2405,7 +2447,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.34 隔峰案例与计数顺序：不合本次比较的峰，未必不占历史范围
 
-本轮执行 §8.33 的下一步，复核已有 6 月 24／25 日、8 月 15／18 日全文及原图，再用已有 10 月 24 日事件区分计数顺序。必要结果见 [历史峰资格与计数顺序核查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/peak_history_qualification_20261013.json)。暂时不需要用户提供材料，未请求新字幕或截图。
+本轮执行 §8.33 的下一步，复核已有 6 月 24／25 日、8 月 15／18 日全文及原图，再用已有 10 月 24 日事件区分计数顺序。必要结果见 历史峰资格与计数顺序核查（原记录：`reports/xxm_macd_structure_20261011/peak_history_qualification_20261013.json`）。暂时不需要用户提供材料，未请求新字幕或截图。
 
 **这里先把“合资格”限定清楚。** 以下比较资格只指当前正柱段的最高收盘价严格高于历史段价格峰，同时当前段 DIF 峰严格低于历史段 DIF 峰，沿用既有候选的两个数值条件。它不是作者已确认的历史峰定义，也不是结构形态是否常规、是否值得操作的过滤条件。比较的是两个顺序：先取最近两个已完成正柱段，再检查资格；或者先在全部正柱历史中检查资格，再取最近两个通过者。两者都暂沿用取最强参照并在激活后锁定的假设。
 
@@ -2436,7 +2478,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.35 至少两根的中间段对照：已有 1 月 5 日 90 分钟图可区分计数顺序
 
-本轮完成 §8.34 的筛选计划。先查保存的 120 分钟序列，再扩至已有 90／60 分钟导出，找到不依赖单根短段的分歧，并用已有原图及讲解核对。必要结果见 [多根历史段的计数顺序筛选](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/peak_history_long_segment_screen_20261013.json)。**当前不需要用户补材料。** 没有取得新字幕、截图或软件标签。
+本轮完成 §8.34 的筛选计划。先查保存的 120 分钟序列，再扩至已有 90／60 分钟导出，找到不依赖单根短段的分歧，并用已有原图及讲解核对。必要结果见 多根历史段的计数顺序筛选（原记录：`reports/xxm_macd_structure_20261011/peak_history_long_segment_screen_20261013.json`）。**当前不需要用户补材料。** 没有取得新字幕、截图或软件标签。
 
 筛选仍沿用 §8.34 的两种顺序、当前价格／DIF 严格比较条件、最强选峰及激活后锁定假设。额外要求：被筛掉的原始最近段至少两根，从过滤后选中旧段到当前段之间的全部已完成正柱段也至少两根。只把原候选首次激活的节点列为主要候选，不把活动中或取消后的假想重新选峰当作新信号。本轮仅筛顶部正柱方向，未泛化到底部。
 
@@ -2452,7 +2494,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 从这个较早峰所在段到当前段之间，共五个完成正柱段，长度分别为九、三、二十一、九、二十五根，**没有单根段**。所以此次分歧不能归因于“是否忽略仅一根的短段”。
 
-[用户已提供的当天原图](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/sources/20260105_90.png)末端显示绿色“消失”，顶部数值为 DIF 23.658；保存导出的同柱 DIF 约 23.672999。两者都已超过 23.132935，却都未达到 31.391809。因此在上述最强、锁定及严格 DIF 突破消失的假设下，原始段先计数的解释相容，先过滤再计数的较强旧目标不符。这复用了已有末端直接消失标签；14 点钝化标签仍保留可能一柱的映射误差，未提高置信度。终值约 0.014999 的数值差不改变这次两目标间的判断，但不能据此宣称历史目标已与软件精确校准。
+[用户已提供的当天原图](/Users/congming/github/goldenshare/reports/xxm/sources/xxm_macd_structure_20261011/sources/20260105_90.png)末端显示绿色“消失”，顶部数值为 DIF 23.658；保存导出的同柱 DIF 约 23.672999。两者都已超过 23.132935，却都未达到 31.391809。因此在上述最强、锁定及严格 DIF 突破消失的假设下，原始段先计数的解释相容，先过滤再计数的较强旧目标不符。这复用了已有末端直接消失标签；14 点钝化标签仍保留可能一柱的映射误差，未提高置信度。终值约 0.014999 的数值差不改变这次两目标间的判断，但不能据此宣称历史目标已与软件精确校准。
 
 **10 月 24 日的 90 分钟提供另一项日级约束。** 当时中间已完成正柱段分别四根、五根；五根段峰约 7.514439，低于当日上午当前 DIF，因而被资格过滤。两个顺序分别选择约 11.886701 与 21.939396。当天收盘保存 DIF 约 14.430569，只越过前者。已有 24 日字幕明确说“90分钟今天钝化也消失”，支持前一种解释；它没有给出精确消失柱，本轮不把候选 14 点取消写成新增软件真值。该日与此前 120 分钟例子属于同一行情，新增的是跨周期和多根段约束，不是完全独立的行情样本。
 
@@ -2466,7 +2508,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.36 六种旧峰退出候选的跨周期核查：三种仍相容，其中两种逻辑等价
 
-本轮完成 §8.35 的下一步，沿用六种已有候选、三组已有门槛以及最强选峰、激活后锁定规则，用 90 分钟的 10 月 24 日讲解和 1 月 5 日原图核查，再复算已有 120 分钟结果。必要记录见 [旧峰退出候选跨周期对照](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_retirement_cross_period_20261013.json)。没有新增候选、门槛、来源或软件标签，当前不需要补材料。
+本轮完成 §8.35 的下一步，沿用六种已有候选、三组已有门槛以及最强选峰、激活后锁定规则，用 90 分钟的 10 月 24 日讲解和 1 月 5 日原图核查，再复算已有 120 分钟结果。必要记录见 旧峰退出候选跨周期对照（原记录：`reports/xxm_macd_structure_20261011/reference_retirement_cross_period_20261013.json`）。没有新增候选、门槛、来源或软件标签，当前不需要补材料。
 
 **必须按来源本身的时间精度核查。** 90 分钟 10 月 24 日只检查原有字幕所说当日“钝化也消失”，不增加精确 14 点软件标签。1 月 5 日沿用原有 14 点映射钝化、15 点末端直接消失，前者仍可能偏一根柱。120 分钟沿用 24 日上午／下午及 27 日两根柱的四个原标签，置信度不变。下表“不符”均指这些特定候选在现有选峰、锁定和来源映射假设下不符，不泛化为所有可能的历史峰机制。
 
@@ -2495,7 +2537,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.37 永久 DIF 突破淘汰的冗余核查：三种保留写法归并为一个行为族
 
-本轮完成 §8.36 的下一步，核验 `crossed2` 是否在 `fixed2` 之外增加行为，先证明逻辑关系，再验证保存序列的指标前提与边界。必要结果见 [永久 DIF 淘汰冗余核查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/dif_retirement_redundancy_20261013.json)。**结论是在当前候选定义和一致 MACD 序列前提下，它属于重复条件。** 上轮仍相容的 `fixed2`、`crossed2`、`dominated2` 可归并为一个行为族；不再为区分这三种等价写法索取材料。没有修改原候选文件或历史结果。
+本轮完成 §8.36 的下一步，核验 `crossed2` 是否在 `fixed2` 之外增加行为，先证明逻辑关系，再验证保存序列的指标前提与边界。必要结果见 永久 DIF 淘汰冗余核查（原记录：`reports/xxm_macd_structure_20261011/dif_retirement_redundancy_20261013.json`）。**结论是在当前候选定义和一致 MACD 序列前提下，它属于重复条件。** 上轮仍相容的 `fixed2`、`crossed2`、`dominated2` 可归并为一个行为族；不再为区分这三种等价写法索取材料。没有修改原候选文件或历史结果。
 
 **第一步，确认 DIF 突破会被同方向段记录。** 沿用标准 MACD(12,26,9)，DEA 递推为 `E_t = 0.8 E_(t-1) + 0.2 D_t`，柱线为 DIF 与 DEA 差的正倍数。对顶部讨论，一个已完成正柱段的 DIF 峰为 M，段末 DEA 不会超过 M。在下一段正柱出现前，负柱或零柱意味着当前 DIF 不高于当前 DEA；由递推式可得当前 DIF 不高于上一柱 DEA，DEA 也不增加。因此这一期间 DIF 不能首次越过 M。首次严格突破一定出现在新的正柱段，并被那一段的最高 DIF 记录。底部用方向符号反转后同理；零柱及等值不会破坏这条界限，等值也不算严格突破。
 
@@ -2533,7 +2575,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.38 历史范围与选峰的联合约束：六组既有组合中，两段原始历史加最强合格峰相容
 
-本轮完成 §8.37 的下一步，分别组合已有 1／2／3 个原始同向历史段范围与最近合格／最强合格选峰，沿用三组既有门槛、最近价格前置条件、整段 DIF 比较及激活后锁定规则。必要记录见 [历史范围与选峰联合核查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/reference_range_selector_joint_20261013.json)。**在这六组明确限定的组合中，只有“两段原始历史＋最强合格峰”与全部本轮约束相容。** 它成为后续复核的研究基线，未升级为软件全周期公式，没有修改正式代码、候选定义或门槛，当前不需要补材料。
+本轮完成 §8.37 的下一步，分别组合已有 1／2／3 个原始同向历史段范围与最近合格／最强合格选峰，沿用三组既有门槛、最近价格前置条件、整段 DIF 比较及激活后锁定规则。必要记录见 历史范围与选峰联合核查（原记录：`reports/xxm_macd_structure_20261011/reference_range_selector_joint_20261013.json`）。**在这六组明确限定的组合中，只有“两段原始历史＋最强合格峰”与全部本轮约束相容。** 它成为后续复核的研究基线，未升级为软件全周期公式，没有修改正式代码、候选定义或门槛，当前不需要补材料。
 
 **材料各自约束不同问题，不能混为同一个标签。**
 
@@ -2568,7 +2610,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.39 固定基线复核 11 月与 4 月：普通事件相容，缺口集中在历史结构撤销
 
-本轮执行 §8.38 的下一步，固定“两段原始历史＋最强合格峰＋活动目标锁定”研究基线，只复核已有 11 月 13／14 日相关 90／120 分钟图文及 4 月 21／23 日 60 分钟资料。必要结果见 [固定基线的后续语义核查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/baseline_followup_semantics_20261013.json)。素材此前均已读过，本轮没有取得新材料，不称盲测或独立样本外验证；不修改选峰、门槛或标签。
+本轮执行 §8.38 的下一步，固定“两段原始历史＋最强合格峰＋活动目标锁定”研究基线，只复核已有 11 月 13／14 日相关 90／120 分钟图文及 4 月 21／23 日 60 分钟资料。必要结果见 固定基线的后续语义核查（原记录：`reports/xxm_macd_structure_20261011/baseline_followup_semantics_20261013.json`）。素材此前均已读过，本轮没有取得新材料，不称盲测或独立样本外验证；不修改选峰、门槛或标签。
 
 **普通检测事件能继续解释。** 11 月 17 日 90 分钟历史图包含 10 日钝化、11 日首次结构、14 日第二次钝化及结构；4 月 23 日 60 分钟历史图包含 20 日钝化、21 日首次结构、23 日再次钝化及结构。八个已有 mapped 普通事件在三组原门槛下均相容，原定位置信度不提高。11 月 13 日 120 分钟只有一根红柱，当前候选尚无新钝化；14 日上午钝化、下午首次结构，与作者的日期／次数说明相容。后者属于文字时序约束，不另造 14 日软件精确柱标签。
 
@@ -2609,7 +2651,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.41 已有绿色标记的联合复核：价格与 DIF 条件仍待区分，正柱不能统一作为必要条件
 
-本轮执行 §8.40 的筛查，固定“两段原始历史＋最强合格峰＋活动目标锁定”，把此前分别研究的三处历史绿色标记放到同一基线下，沿用四种既有撤销诊断，不新增门槛或软件标签。必要数值结果见 [已有绿色标记联合复核](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/existing_green_marker_crosscheck_20261013.json)。这是已见材料的交叉复核，不是新取得的独立验证。
+本轮执行 §8.40 的筛查，固定“两段原始历史＋最强合格峰＋活动目标锁定”，把此前分别研究的三处历史绿色标记放到同一基线下，沿用四种既有撤销诊断，不新增门槛或软件标签。必要数值结果见 已有绿色标记联合复核（原记录：`reports/xxm_macd_structure_20261011/existing_green_marker_crosscheck_20261013.json`）。这是已见材料的交叉复核，不是新取得的独立验证。
 
 下表使用保存数据的原 1% 门槛；另两组 0.75%／1.2% 不改变 7 月、11 月结果，4 月附加 DIF 的首次满足时间在 22 日 11:30／15 点之间变化。历史标记仍保留条件性日期映射，不提升为软件游标真值。
 
@@ -2633,7 +2675,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.42 两张 120 分钟历史图的显示对照：标记保留，价格无阶段条件会多预测撤销位置
 
-本轮完成 §8.41 的下一步，只读用户已提供的 **2025 年 7 月 11 日、23 日** 120 分钟原图及保存输入。必要对照见 [7 月 120 分钟历史标记核查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/july120_overlap_marker_review_20261013.json)。没有获取新截图、字幕或软件游标值，没有改价格锚点、选峰口径及三组原门槛。
+本轮完成 §8.41 的下一步，只读用户已提供的 **2025 年 7 月 11 日、23 日** 120 分钟原图及保存输入。必要对照见 7 月 120 分钟历史标记核查（原记录：`reports/xxm_macd_structure_20261011/july120_overlap_marker_review_20261013.json`）。没有获取新截图、字幕或软件游标值，没有改价格锚点、选峰口径及三组原门槛。
 
 **共同历史标记保留，未观察到本组标记改到别的日期。** 五处可直接辨认的对应标记为 6 月 27 日结构、6 月 30 日再钝化、7 月 7 日结构、7 月 8 日再钝化、7 月 11 日绿色消失。两图视窗和柱宽不同，必须按各自 K 线柱位置对齐；不能直接拿横坐标像素比日期。五处文字左缘在各图与既有映射柱的差都小于 0.05 根柱宽，位置相容。其中 11 日绿色在 23 日图中仍显示，说明这一标记没有在这两张截图之间被删掉或移走；不能因此证明全部标记永远保留。
 
@@ -2659,7 +2701,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.43 历史记录与执行次序收敛：当前状态清空不等于历史结构消失
 
-本轮完成 §8.42 的逐柱对照，继续固定两段原始历史、最强合格峰、活动目标锁定及 0.75%／1%／1.2% 三组原门槛。必要结果见 [历史结构撤销执行顺序核查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/historical_withdrawal_order_20261013.json)。只在临时研究诊断中比较执行次序，不修改正式指标。六个案例均已参与前文分析，不称独立验证。
+本轮完成 §8.42 的逐柱对照，继续固定两段原始历史、最强合格峰、活动目标锁定及 0.75%／1%／1.2% 三组原门槛。必要结果见 历史结构撤销执行顺序核查（原记录：`reports/xxm_macd_structure_20261011/historical_withdrawal_order_20261013.json`）。只在临时研究诊断中比较执行次序，不修改正式指标。六个案例均已参与前文分析，不称独立验证。
 
 **三处历史绿色都没有被已有截尾次序挡住。** 下表日期是既有图上条件性映射，柱色与当前状态是保存数据的候选结果；软件精确历史数值没有因此补齐。
 
@@ -2701,7 +2743,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.44 初版方案前的全保存分钟输入核查：额外预测、同柱竞争与历史寿命已列清
 
-用户同意先完成 §8.43 这项有明确区分价值的前期准备，再编写 V0.1。本轮冻结两段原始同向历史、最强合格峰、活动目标锁定、历史上下文保留、新顶部事件优先及价格严格突破规则；保留 0.75%／1%／1.2% 三组原门槛，以原“价格＋DIF 回升”作竞争解释。**没有新增负柱必要性、到期规则或调参。** 必要结果见 [全保存分钟输入撤销核查](/Users/congming/github/goldenshare/reports/xxm_macd_structure_20261011/historical_withdrawal_full_timeline_20261013.json)，包含先于扫描保存的完整定义、原诊断函数、输入哈希、锚点和撤销／截尾账本、图证限制及验证。
+用户同意先完成 §8.43 这项有明确区分价值的前期准备，再编写 V0.1。本轮冻结两段原始同向历史、最强合格峰、活动目标锁定、历史上下文保留、新顶部事件优先及价格严格突破规则；保留 0.75%／1%／1.2% 三组原门槛，以原“价格＋DIF 回升”作竞争解释。**没有新增负柱必要性、到期规则或调参。** 必要结果见 全保存分钟输入撤销核查（原记录：`reports/xxm_macd_structure_20261011/historical_withdrawal_full_timeline_20261013.json`），包含先于扫描保存的完整定义、原诊断函数、输入哈希、锚点和撤销／截尾账本、图证限制及验证。
 
 **覆盖的是全部已有分钟输入的数值时间线，不是原软件的完整事件时间线。** 同周期重叠部分去重，已有 DG 导出优先；缺少的后续时点仅用此前保存的 EMA 推导补齐。11 份输入的重叠收盘全部一致，DIF／柱值差均小于原核对口径 `1e-8`，不覆盖旧文件，也不重新初始化指标。90 分钟的 1107 根由较早真实历史、后续 DG 导出和已有推导延长合并；不把推导值当软件真值。首段可能不完整及 60／90 分钟的软件数值差异继续保留。
 
@@ -2770,7 +2812,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 交互原型的周期切换、绿色标记悬停、离开关闭及局部重试连线已建立并读回。结构核查覆盖十个交付根节点，字体、标记文案、碰撞及 placeholder 检查通过；图表和文字可编辑，只有既有 36px 品牌图片，没有整页截图填充。已按导出图修正文字继承、分钟标题拥挤、密集标记及状态表达。原型未做真实播放验收，浏览器原生截图接口返回空白，未把现场 AX/CSS 核查写成像素验收。
 
-节点及证据见[展示基准 §1.1](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-benchmark-requirement-v0.1.md)、[设计 manifest](/Users/congming/github/goldenshare/reports/xxm_figma_design_20261013/design_manifest.json)及其两份预览图。图中行情、时间和事件是设计情景，不是新算法输出或软件观察；日历 fixture 只用于设计时间标签对齐，不形成新的来源验证成绩。
+节点及证据见[展示基准 §1.1](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-xxm-benchmark-requirement-v0.1.md)、设计 manifest（原记录：`reports/xxm_figma_design_20261013/design_manifest.json`）及其两份预览图。图中行情、时间和事件是设计情景，不是新算法输出或软件观察；日历 fixture 只用于设计时间标签对齐，不形成新的来源验证成绩。
 
 本轮完成的是 Figma 设计交付，稿件待用户审阅。未改算法、页面或 API 代码，未读写正式库／湖，未安装依赖、部署或提交；既有研究基线不变。后续仍须关闭真实来源及接口样例门禁，再实现算法、已有视频读数对照和真实页面验收。
 
@@ -2778,7 +2820,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 用户审阅设计后明确：“顶取消改为顶消失。其他的都通过了。”据此记录四周期完整页面、悬停详情、状态、生命周期和响应式设计通过用户评审。
 
-只修改顶部普通 CANCEL 的显示文字。Figma 组件 `1984:91` 的文字节点 `1984:93` 已改为“顶消失”，本专项页 12 处组件与实例文案同步；读回核验“顶取消”剩余为零。“底取消”、历史“顶结构消失”、事件类型及算法判定规则不变。两份导出预览与[设计 manifest](/Users/congming/github/goldenshare/reports/xxm_figma_design_20261013/design_manifest.json)已同步。
+只修改顶部普通 CANCEL 的显示文字。Figma 组件 `1984:91` 的文字节点 `1984:93` 已改为“顶消失”，本专项页 12 处组件与实例文案同步；读回核验“顶取消”剩余为零。“底取消”、历史“顶结构消失”、事件类型及算法判定规则不变。两份导出预览与设计 manifest（原记录：`reports/xxm_figma_design_20261013/design_manifest.json`）已同步。
 
 视觉评审门禁已关闭；正式来源、具体 API 及真实样例、性能等后续门禁继续按专项 LLD 推进。本次确认不作为算法或真实页面验收成绩，未改代码、研究基线或正式数据。
 
@@ -2788,7 +2830,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 现有日线及三周期 bars／indicators 接口实际请求共 7 次，均 HTTP 200，21 行响应与正式源值、时间和版本逐项匹配。已冻结本次来源输入、清单、哈希及响应；这不是新算法、新 XXM 接口或页面验收成绩。
 
-发现完整历史读取的性能冲突：按 LLD 每次 1000 行反复分页，60 分钟读源 4.028 秒后两路均未读完，尚未开始算法。一次组织完整扫描的临时可行性测量约 1.94～2.32 秒；建议保留原公开分页行为，另增完整历史读取入口，再按 1000 根推进计算。调整已向用户请求确认，尚未改产品代码或将建议写成已批准规则。证据与拟议边界见[核验报告](/Users/congming/github/goldenshare/reports/xxm_source_audit_20261013_213852/README.md)及专项 LLD §12；根 AGENTS 要求遇到方案与实测冲突先确认。
+发现完整历史读取的性能冲突：按 LLD 每次 1000 行反复分页，60 分钟读源 4.028 秒后两路均未读完，尚未开始算法。一次组织完整扫描的临时可行性测量约 1.94～2.32 秒；建议保留原公开分页行为，另增完整历史读取入口，再按 1000 根推进计算。调整已向用户请求确认，尚未改产品代码或将建议写成已批准规则。证据与拟议边界见[核验报告](/Users/congming/github/goldenshare/reports/xxm/conclusions/xxm_source_audit_20261013_213852/README.md)及专项 LLD §12；根 AGENTS 要求遇到方案与实测冲突先确认。
 
 旧研究及冻结输入保持字节不变。未写正式库／湖、执行 DG、安装、部署或提交；软件公式及完整软件时间线、算法与旧视频读数对照仍待验证。
 
@@ -2797,7 +2839,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 用户同意“一次扫描完整历史、按 1000 根分批计算”后，按已批准方案实现单一内核及独立日线／分钟 API，并接到财势乾坤真实图表。规则仍为原始两段池、最近价格前置、最强合格参照、目标锁定、1% 主门槛；历史顶部记录按原目标突破／新顶部事件优先、后续价格严格突破跟踪，不加负柱门禁、到期或交易指令。顶部普通 CANCEL 显示“顶消失”，历史事件显示“顶结构消失”。
 
-[实施与验收报告](/Users/congming/github/goldenshare/reports/xxm_implementation_20261013/README.md)保存新证据，不回写原研究脚本、输入、冻结 JSON 或素材。日线连续范围为 2023-01-03—2026-10-13 共 912 根；60／90／120 分钟从 2009-01-05 起共 17260／12945／8630 根。分别产生研究历史消失 3／63／50／27 次；这些是更长正式前缀的新候选账本，不替代 §8.44 的 13 次预测，也不视作新增软件观察。当前待跟踪顶部记录分别为 1／1／1／0 份。
+[实施与验收报告](/Users/congming/github/goldenshare/reports/xxm/conclusions/xxm_implementation_20261013/README.md)保存新证据，不回写原研究脚本、输入、冻结 JSON 或素材。日线连续范围为 2023-01-03—2026-10-13 共 912 根；60／90／120 分钟从 2009-01-05 起共 17260／12945／8630 根。分别产生研究历史消失 3／63／50／27 次；这些是更长正式前缀的新候选账本，不替代 §8.44 的 13 次预测，也不视作新增软件观察。当前待跟踪顶部记录分别为 1／1／1／0 份。
 
 在所有普通事件、历史创建／结束及输入末端独立重放前缀，共 2615 项一致；15 处前缀与 snapshot 恢复续接一致。三组门槛的原 3161 根分钟候选逐柱回归通过；正式 API 的 1800 个逐柱对象、事件和关联历史与同来源的离线内核相等。日线自己完成连续基线，不借用分钟成绩。
 
@@ -2809,7 +2851,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.50 2024-08-22 日线原图及讲解确认底部结构消失身份（2026 年 10 月 15 日）
 
-用户提供当日上证日线及完整讲解稿。原图、原稿和哈希保存于[新案例核查](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20240822_semantics_20261015.md)，ASR 字词和重复时间格式不改；没有视频链接或音频，不宣称独立核听。讲解中的操作、其他指数判断均为历史研究材料，不是本系统执行指令。
+用户提供当日上证日线及完整讲解稿。原图、原稿和哈希保存于新案例核查（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20240822_semantics_20261015.md`），ASR 字词和重复时间格式不改；没有视频链接或音频，不宣称独立核听。讲解中的操作、其他指数判断均为历史研究材料，不是本系统执行指令。
 
 **事件身份得到明确说明，触发公式没有一并确定。** 开头至 0:30 直接说明上证图中结构后的绿色为“结构消失”，两次强调不属于钝化消失；后面若再下可有新钝化，是否形成第五次结构未知。因此 8/22 不再只是由 9/30 图中历史文字推测的普通取消／历史消失二选一。1:11—1:41 换到深成指，单根红柱引起的非常规钝化消失不能直接套到上证。
 
@@ -2825,7 +2867,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.51 2026-08-03 日线及 120 分钟新增历史事件对照（2026 年 10 月 15 日）
 
-用户补充当日日线、120 分钟及完整讲解，未找到 60 分钟。两张原图及讲解逐字节保存，ASR 不改；[案例核查](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20260803_events_20261015.md)附来源哈希、当前内核版本、完整前缀回放和定位限制。本轮沿用已核验正式源快照，不重新读库／湖、不重算指标，不用 120 分钟替代未取得的 60 分钟，也不再重复请求此前未找到的 1/20—2/6 区间。
+用户补充当日日线、120 分钟及完整讲解，未找到 60 分钟。两张原图及讲解逐字节保存，ASR 不改；案例核查（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20260803_events_20261015.md`）附来源哈希、当前内核版本、完整前缀回放和定位限制。本轮沿用已核验正式源快照，不重新读库／湖、不重算指标，不用 120 分钟替代未取得的 60 分钟，也不再重复请求此前未找到的 1/20—2/6 区间。
 
 **日线普通事件对应，120 分钟缺一处绿色消失。** 日线从 2023-01-03 起回放 867 根，图中 7/13 钝化、7/15 消失、7/17 钝化、7/20 消失，分别对应激活和 DIF 跌破参照；未见这两组之间的紫色结构，不把它们误记成底部历史消失。120 分钟从 2009-01-05 起回放 8540 根，7/9 11:30 钝化、15:00 结构及 7/14 11:30 消失对应；7/10 15:00 的绿色“消失”在当前账本中没有对应事件，仅有 STRUCTURE → DULL 的再次钝化。
 
@@ -2839,7 +2881,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.52 7/10 当日讲解明确结构消失及重新钝化条件（2026 年 10 月 15 日）
 
-用户补充 2026-07-10 上证 120 分钟原图及聊天内讲解全文，并说明先结构消失、随后新钝化、最后再次消失的关系。[新案例](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20260710_structure_disappearance_20261015.md)保存原图、从聊天逐行摘录的相关讲解及机器可核验数据。节选不是全文，不修改 ASR 字样，不宣称独立核听；旧材料、冻结 JSON 和 52 标签保留。
+用户补充 2026-07-10 上证 120 分钟原图及聊天内讲解全文，并说明先结构消失、随后新钝化、最后再次消失的关系。新案例（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20260710_structure_disappearance_20261015.md`）保存原图、从聊天逐行摘录的相关讲解及机器可核验数据。节选不是全文，不修改 ASR 字样，不宣称独立核听；旧材料、冻结 JSON 和 52 标签保留。
 
 **上一节的两项保留已解决。** 作者明确说 7/10 下午绿色是结构消失，不是钝化消失；随后说下周一到 3959 后才重新出现钝化、当时“钝化还没有”。因此不再保留“7/10 已经同柱再次钝化”的解释。当前算法不仅漏绿色，还提前报了再次钝化。这次明确到同一负柱段内的结构失效，不应再笼统归因为只缺底部历史跟踪；跨柱色历史消失仍须另核。
 
@@ -2853,7 +2895,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.53 2024-08-05当日图及全文缩小原漏报的事件语义（2026年10月15日）
 
-用户新增当日日线图及完整讲解稿，原件逐字节保存，ASR不改、未独立核听。[案例核查](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20240805_semantics_20261015.md)保存哈希、四周期完整前缀和对原三漏的影响。软件图末端绿色仍缺输出；本轮没有修复算法或批准待审同段候选。
+用户新增当日日线图及完整讲解稿，原件逐字节保存，ASR不改、未独立核听。案例核查（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20240805_semantics_20261015.md`）保存哈希、四周期完整前缀和对原三漏的影响。软件图末端绿色仍缺输出；本轮没有修复算法或批准待审同段候选。
 
 作者2:42说当天是首根新绿柱，下一天大概率新钝化；4:20又说明尚无钝化消失。3:46曾说日线按结构消失纠错，但5:10—5:36明确改口为钝化消失并承认口误。必须连同纠正阅读，不能将3:46取作绿色标签的直接命名，也不能将图上绿色自动等同于作者退出条件。图文结合支持结构层消失解释，证据等级仍不同于8/22及7/10直接说明绿色身份。
 
@@ -2865,7 +2907,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.54 2024-08-06三周期图文及下一份材料收敛（2026年10月15日）
 
-用户提供日线、90／120分钟原图及完整讲解，原件按字节保存，未改ASR或独立核听。[本轮核查及选材](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20240806_semantics_and_next_nodes_20261015.md)保存来源、四周期回放、映射扰动和后续分歧预登记。日线／60／90／120分钟前缀386／15156／11367／7578根，末端均DULL；有图文的三周期当前底钝化对应，60没有新图，不计软件验证。
+用户提供日线、90／120分钟原图及完整讲解，原件按字节保存，未改ASR或独立核听。本轮核查及选材（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20240806_semantics_and_next_nodes_20261015.md`）保存来源、四周期回放、映射扰动和后续分歧预登记。日线／60／90／120分钟前缀386／15156／11367／7578根，末端均DULL；有图文的三周期当前底钝化对应，60没有新图，不计软件验证。
 
 日线8/6新钝化、120分钟当前钝化均由新材料补为软件观察，不再只靠8/5时的事后源回放。90分钟作者明确钝化加9，本轮只核钝化状态，不验序列或精确激活时点。120分钟原图旧紫色／绿色位置映射7/31上午／8/5下午，18次几何扰动稳定；当前缺少该绿色输出，旁边新钝化不替代旧结构事件。原三漏及这处新增分钟缺项仍未修复。
 
@@ -2877,7 +2919,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.55 2024-09-02／03日线及真正钝化消失的对照（2026年10月15日）
 
-用户提供两天讲稿及两张原图，实际均为日线，所述9/3的90分钟原图本条未收到。原件逐字节保存，[图文与当前内核核对](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20240902_03_semantics_20261015.md)记录四周期完整前缀。9/2日线405根为NONE，9/3的406根新DULL，与图文对应；9/3讲稿1:08—1:25、4:17—4:35明确90分钟钝化已消失、120分钟仍钝化。模型90分钟在9/3 14:00取消，收盘NONE；120分钟继续DULL。分钟只证当日结果及消失身份，未证软件精确时刻、参照或完整公式，60本轮没有软件观察。
+用户提供两天讲稿及两张原图，实际均为日线，所述9/3的90分钟原图本条未收到。原件逐字节保存，图文与当前内核核对（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20240902_03_semantics_20261015.md`）记录四周期完整前缀。9/2日线405根为NONE，9/3的406根新DULL，与图文对应；9/3讲稿1:08—1:25、4:17—4:35明确90分钟钝化已消失、120分钟仍钝化。模型90分钟在9/3 14:00取消，收盘NONE；120分钟继续DULL。分钟只证当日结果及消失身份，未证软件精确时刻、参照或完整公式，60本轮没有软件观察。
 
 当前90分钟参照DIF -11.479697，9/3 14:00实际源DIF -12.195118已严格突破；120分钟参照-17.230149，收盘-16.153677尚未突破。两者分别取参照，与讲解状态相容，不把模型数值冒充软件游标。90分钟的单根历史参照也不能单独证明软件单根段资格，更不能据此裁定9/24／25的顶部疑报。
 
@@ -2887,7 +2929,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.56 9/3的90分钟原图补齐（2026年10月15日）
 
-用户文字为“9月30日”，但原图日期2024/09/03、周期90分钟、收盘2802.98，按图日期记账，补齐§8.55缺图，不作为9/30样本。[本轮图证核对](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20240903_m90_image_20261015.md)将紫色结构、黄色钝化、绿色消失分别映射8/30 11:00、9/2 15:00、9/3 14:00，均对应当前事件；中心±2px、柱距±0.1px、文字起点偏移-3～14px的27次检查稳定。时刻是几何映射，不是软件游标读数。9/3讲稿已明确绿色为钝化消失，此次升级为图文共同观察。
+用户文字为“9月30日”，但原图日期2024/09/03、周期90分钟、收盘2802.98，按图日期记账，补齐§8.55缺图，不作为9/30样本。本轮图证核对（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20240903_m90_image_20261015.md`）将紫色结构、黄色钝化、绿色消失分别映射8/30 11:00、9/2 15:00、9/3 14:00，均对应当前事件；中心±2px、柱距±0.1px、文字起点偏移-3～14px的27次检查稳定。时刻是几何映射，不是软件游标读数。9/3讲稿已明确绿色为钝化消失，此次升级为图文共同观察。
 
 完整源前缀11427根及三个事件独立前缀一致；末端软件DIF／DEA／柱值-13.021／-9.746／-6.549，保存源显示-13.050／-9.768／-6.563，差异保留，不调取数、MACD或门槛。三处选定标签对应不代表整幅图的误报／漏报均已验收，也不证明软件取峰公式。
 
@@ -2895,7 +2937,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.57 9/4的120分钟图：分歧区间已补齐，新增历史绿色缺输出（2026年10月15日）
 
-用户提供覆盖7月至9/4的120分钟原图及完整讲稿，[本次核查](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20240904_m120_semantics_20261015.md)保留原件、四周期完整前缀和冻结解释重跑。所需9/2上午图已取得，不再索取同一区间；该处未见独立绿色，只取得静态负证据，不升级为确定无事件。图中六次结构映射7/9、7/31、8/8、8/13、8/26、8/30，均对应当前STRUCTURE；9/2下午DULL、9/4上午CANCEL也对应。作者2:31—2:47说六次结构后直到今天才真正钝化失效，支持与早先旧绿色分层；11:25盘中提醒不冒充已完成11:30柱的精确软件游标。
+用户提供覆盖7月至9/4的120分钟原图及完整讲稿，本次核查（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20240904_m120_semantics_20261015.md`）保留原件、四周期完整前缀和冻结解释重跑。所需9/2上午图已取得，不再索取同一区间；该处未见独立绿色，只取得静态负证据，不升级为确定无事件。图中六次结构映射7/9、7/31、8/8、8/13、8/26、8/30，均对应当前STRUCTURE；9/2下午DULL、9/4上午CANCEL也对应。作者2:31—2:47说六次结构后直到今天才真正钝化失效，支持与早先旧绿色分层；11:25盘中提醒不冒充已完成11:30柱的精确软件游标。
 
 图中8/5下午旧绿色再次对应已知分钟缺项，约8/14下午旧绿色新增缺输出：源收2850.6538低于原结构段低点2856.0903，DIF回落约1.56%但仍高于原参照，柱值正0.029987。与原三处日线一样，清空普通状态后没有底部历史跟踪；仍不能补成普通DIF突破取消。十处标签在本图几何假设下90次映射稳定，时刻不等于软件游标或保留机制真值。
 
@@ -2905,7 +2947,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.58 7/10模拟前后图：3959.16重新钝化正样本（2026年10月16日）
 
-用户明确图1模拟后、图2模拟前。[本轮核查](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20260710_simulation_pair_20261016.md)保存两份原件及哈希：模拟输入日期7/13、开高3996.16、低3946.16、收3959.16，一组一柱；旧绿色后新增黄色钝化。7/13是7/10视频内的假设柱，不是真实后来行情，11:30为端点／讲稿推定而非软件游标。
+用户明确图1模拟后、图2模拟前。本轮核查（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20260710_simulation_pair_20261016.md`）保存两份原件及哈希：模拟输入日期7/13、开高3996.16、低3946.16、收3959.16，一组一柱；旧绿色后新增黄色钝化。7/13是7/10视频内的假设柱，不是真实后来行情，11:30为端点／讲稿推定而非软件游标。
 
 这将同负柱段结构消失后重新钝化从讲解补成软件正样本，支持原参照仍可用及再次检查新价格；7/10不能自动进入DULL。真实8508根前缀恢复原投影通过，投影收3959.16得DIF -22.388242、柱值-8.760735，与模型价格／背离候选相容。原内核已提前DULL，因此模拟柱没有新事件，生命周期错误仍在；条件谓词通过不是新内核已实现。模拟后的指标栏被弹窗遮挡，模型投影不冒充软件读数。
 
@@ -2913,7 +2955,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.59 7/13三周期真实钝化及90／120分钟下一周期模拟（2026年10月16日）
 
-用户提供五图及聊天全文，[本轮核对](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20260713_multi_period_simulations_20261016.md)原字节保存图片，另摘录识别相关原ASR且注明不是全文，无时间码、未核听。7/13日线／90／120均为真实DULL，与末端状态对应；120分钟旧结构后再次钝化已补成实盘证据，但当前7/10提前DULL导致7/13没有新的激活事件，不能以末端相同宣称周期已修复。90分钟源7/13 14:00新DULL，图片仅证当日状态，不将该时刻当软件游标。
+用户提供五图及聊天全文，本轮核对（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20260713_multi_period_simulations_20261016.md`）原字节保存图片，另摘录识别相关原ASR且注明不是全文，无时间码、未核听。7/13日线／90／120均为真实DULL，与末端状态对应；120分钟旧结构后再次钝化已补成实盘证据，但当前7/10提前DULL导致7/13没有新的激活事件，不能以末端相同宣称周期已修复。90分钟源7/13 14:00新DULL，图片仅证当日状态，不将该时刻当软件游标。
 
 下一周期120分钟模拟开高3913.79、低3890.79、收3892.79出现末端绿色；90分钟模拟开低3913.79、高3946.79、收3944.79保留黄色且无新绿色。两组与原EMA投影及DIF参照突破判定对应，90分钟是未失效对照，不能误记为取消。模型原始DIF交界分别3893.7212及3943.8887，不把讲稿整数、模拟小数和模型根合为精确阈值。日线口述约3966、真实开3966.02，无日线模拟；模型未取整根3966.5474，3966.02／3966仍取消、3967.02保持，仅定性相容，未声明精确复现。
 
@@ -2929,9 +2971,9 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 **文档核查发现与处理。** G1：方案四周期验收表未纳入7/13的90分钟实盘／模拟补证，现已修正，仍保留缺少7/10当日90分钟及读数差异；无需用户补交已取得图。G1：原报告把3893.79／3943.79邻价图列为可补材料，现根据用户说明及1点步长退役该请求，不把“精确小数未夹出”当作必须继续找图。G2：修正流程、原三漏及疑报混在一组待核项中，现收拢成A组同段循环与预测、B组跨柱色历史漏项、C组顶部疑报／来源差异；只有A组已有可评审流程，B／C不随其通过而关闭。A组实施范围和工作假设仍待用户确认，不将本次文档授权当实现批准。
 
-**步长计算。** 重新按完整7/13前缀及原保护恢复90／120分钟投影，复现原模型根3943.888681917911／3893.7212446634903。已有软件输入3944.79保持、3892.79取消均对应；模型邻价3943.79取消、3893.79保持仍无软件帧。两个原模拟框步长均为1，输入相对3913.79恰为+31／-21；若逐点调价，这组模型切换与操作相容，完整逐点过程未观察。约0.90／0.93点是模拟输入与模型数学根之差，不是已经证明的算法误差。结果见[只读复核](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/revision_boundary_step_check_20261016.json)，原案例[新增澄清](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20260713_multi_period_simulations_20261016.md)保留原记录并注明邻价请求不再继续。1点不是新增在线参数，90分钟真实指标读数差异也未因此解决。
+**步长计算。** 重新按完整7/13前缀及原保护恢复90／120分钟投影，复现原模型根3943.888681917911／3893.7212446634903。已有软件输入3944.79保持、3892.79取消均对应；模型邻价3943.79取消、3893.79保持仍无软件帧。两个原模拟框步长均为1，输入相对3913.79恰为+31／-21；若逐点调价，这组模型切换与操作相容，完整逐点过程未观察。约0.90／0.93点是模拟输入与模型数学根之差，不是已经证明的算法误差。结果见只读复核（原记录：`reports/xxm_software_indicator_crosscheck_20261015/revision_boundary_step_check_20261016.json`），原案例新增澄清（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20260713_multi_period_simulations_20261016.md`）保留原记录并注明邻价请求不再继续。1点不是新增在线参数，90分钟真实指标读数差异也未因此解决。
 
-**已有图的用户确认。** 重新查看9/4的120分钟原分辨率图后，就紫色结构／黄色钝化附近的重叠向用户求证。用户明确：“绿色的消失两个字，在最右边，在钝化的右侧下方，不在结构形成与钝化之间，它俩之间是没有消失两个字的。”[原答及范围](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/sources/20240904_m120_user_visual_confirmation_20261016.txt)、[原案例追加说明](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20240904_m120_semantics_20261015.md)关闭可见文字位置歧义；没有把用户回答扩成软件历史文字永不删除、软件9/2上午绝无事件或价格单独公式已证。原图和原JSON保持，不再请求该图。
+**已有图的用户确认。** 重新查看9/4的120分钟原分辨率图后，就紫色结构／黄色钝化附近的重叠向用户求证。用户明确：“绿色的消失两个字，在最右边，在钝化的右侧下方，不在结构形成与钝化之间，它俩之间是没有消失两个字的。”原答及范围（原记录：`reports/xxm_software_indicator_crosscheck_20261015/sources/20240904_m120_user_visual_confirmation_20261016.txt`）、原案例追加说明（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20240904_m120_semantics_20261015.md`）关闭可见文字位置歧义；没有把用户回答扩成软件历史文字永不删除、软件9/2上午绝无事件或价格单独公式已证。原图和原JSON保持，不再请求该图。
 
 **接下来材料与残余风险。** 唯一清单见算法方案§12.8的R1—R5：R1已确认；优先7/23日线当日“结构消失”的判定短讲解（或已有8/22开头确有模拟时的完整操作），重点要规则而非重复显示消失的图；精确比例、OHLC依赖及少数次序需要公式或有区分力的演示，普通历史图在既有输入上无法唯一识别；顶部疑点先补9/24或9/25任一天当日日线；90分钟及历史日线精度先由开发侧核已有来源，再决定是否确需用户已有的软件导出。没有新的明确日期分歧时，不伪造日期去要求用户大范围搜视频。
 
@@ -2939,7 +2981,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.61 7/23完整讲稿已取得，未给出历史消失公式（2026年10月16日）
 
-用户提供2024-07-23完整讲稿，[原件与核查](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20240723_transcript_semantics_20261016.md)保存原字节、ASR时间码、SHA和四周期回放，未独立核听、未新增图。1:49—2:12讲继续向下后可能新日线钝化；9:37回顾此前90／120分钟和日线有过结构；10:48—11:45是假设分钟钝化失效而日线还有钝化，强调各自条件分开。后者不能截取“日线还有钝化”为当天软件DULL，也不能截取问句开头为当天分钟已取消。定性钝化大小、波浪、其他指数及仓位不进入本专项规则。
+用户提供2024-07-23完整讲稿，原件与核查（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20240723_transcript_semantics_20261016.md`）保存原字节、ASR时间码、SHA和四周期回放，未独立核听、未新增图。1:49—2:12讲继续向下后可能新日线钝化；9:37回顾此前90／120分钟和日线有过结构；10:48—11:45是假设分钟钝化失效而日线还有钝化，强调各自条件分开。后者不能截取“日线还有钝化”为当天软件DULL，也不能截取问句开头为当天分钟已取消。定性钝化大小、波浪、其他指数及仓位不进入本专项规则。
 
 本份文字稿未直接命名7/23日线绿色，也没有说明旧结构消失用哪个价格／DIF、门槛或寿命；这是对所提供ASR的结论，不声称原音绝无遗漏。因此R2由“缺7/23稿”改为“稿已取得、判定依据未说明”，不再重复索取同日讲稿，也不换一个普通日期无差别找图。原三漏仍未修复，A组同段候选与B组跨柱色缺口继续分开。
 
@@ -2949,17 +2991,17 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 ### 8.62 取证能力与优先级修正：先只处理7/23（2026年10月16日）
 
-用户明确“一个问题一个问题的解决”，随后回答只能从视频找材料。当前覆盖上一节的取材建议：暂停9/24／25顶部疑点，不要求原软件操作或模拟；[7/23专项记录§5](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20240723_transcript_semantics_20261016.md)集中保存最小候选、逐根验证和证据限制，不再换一个普通日期盲找。
+用户明确“一个问题一个问题的解决”，随后回答只能从视频找材料。当前覆盖上一节的取材建议：暂停9/24／25顶部疑点，不要求原软件操作或模拟；7/23专项记录§5（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20240723_transcript_semantics_20261016.md`）集中保存最小候选、逐根验证和证据限制，不再换一个普通日期盲找。
 
 本轮从原完整日线前缀恢复7/9底部结构及原负柱段，确认其最低收盘2922.4498来自7/8。若旧结构历史记录没有因7/11变红丢失，7/10—7/22均未破该低点，7/23收2915.3685首次严格跌破；期间原DIF参照未被突破，也无新底部事件接替。因此“保留原结构、在记录未结束时按收盘破旧低点标历史消失”是能复现7/23的最小案例候选。它属于B组研究，不是A组等待记录跨红柱保留，也未成为正式规则或获准实现。
 
-价格单独、价格加DIF下降、价格加DIF下降至少1%在本段仍不可区分；更长历史零差异也依赖原诊断生命周期，不证明所有可能输入等价。不能把附加1%说成必要，不能把补中一个位置说成完整公式已确定。新[只读复核](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20240723_video_only_focus_20261016.json)保存原段、逐根条件与“只能视频”的取证边界，原证据及内核不改。
+价格单独、价格加DIF下降、价格加DIF下降至少1%在本段仍不可区分；更长历史零差异也依赖原诊断生命周期，不证明所有可能输入等价。不能把附加1%说成必要，不能把补中一个位置说成完整公式已确定。新只读复核（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20240723_video_only_focus_20261016.json`）保存原段、逐根条件与“只能视频”的取证边界，原证据及内核不改。
 
 仅同步取证优先级和案例候选说明；验证包括原来源SHA、既有代码／原件保护哈希、文档完整性／引用及V0.1末行C7检查。未执行新内核、API、预算或页面验收，无产品代码、参数、配置、合同、正式数据、依赖矩阵、安装、提交或部署变更。后续只有明确证明材料能区分候选，才向用户请求；若无法取得，应交付标明假设和验收边界的修订建议，而非无限索图。
 
 ### 8.63 只攻7/23：参照、开始时机与DIF门槛的联动核查（2026年10月16日）
 
-[本轮专项记录](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20240723_counterexample_audit_20261016.md)保留完整逐根、不同参照及结束策略的诊断和本人同期公开博文来源。当前内核再次核对：变色清普通参照，只有顶部建立历史记录；底部历史缺口仍在。若原图映射的7/23绿色关联7/9结构，判定上下文必须跨7/11红柱、保持到第10根。原DIF参照未破且期间无新底部事件，不能把绿色解释成原参照已被DIF突破；不因此规定通用TTL或存储方法。
+本轮专项记录（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20240723_counterexample_audit_20261016.md`）保留完整逐根、不同参照及结束策略的诊断和本人同期公开博文来源。当前内核再次核对：变色清普通参照，只有顶部建立历史记录；底部历史缺口仍在。若原图映射的7/23绿色关联7/9结构，判定上下文必须跨7/11红柱、保持到第10根。原DIF参照未破且期间无新底部事件，不能把绿色解释成原参照已被DIF突破；不因此规定通用TTL或存储方法。
 
 7/10DIF已回落0.558%，但尚未破原段低点；7/23首次收破2922.4498，DIF同时相对前根下降22.98%。因此原段价格破低、价格加DIF下降、仅DIF下降0.75%／1%／1.2%均能解释7/23，后者不能证明价格必要或精确比例。若改为变色后才开始检查，旧参照价格2945.8524或确认收盘2959.3724也同日命中；若次根即检查则7/10命中。图片旧文字可能相互遮挡，不将未见独立绿色当7/10确定无软件事件。原段低点仍是有证据的工作参照，不是已唯一反推的软件字段。
 
@@ -2977,7 +3019,7 @@ JSON 字幕用转写正文的零起字符偏移，用户稿用行号，均不当
 
 E1普通新钝化／结构接替与E2忽略dif_return、两种开始仍不能由现有五处唯一识别，E2＋立即检查还会增加其他输出，未取独立软件真值不能判误报。不把A组已知dif_return缺陷当作B结束规则证明，不追加这些普通日期的找图要求。建议B组工作方向集中保存旧结构原段低点、价格破位主线及普通状态独立，DIF附加门槛和结束细节继续明示，未批准实现或增加合同。
 
-原源截至9/4完整前缀407／15240／11430／7620根；16组旧冻结诊断与1008次前缀因果对照通过。13个XXM文件及61份原件／JSON哈希保持，不改正式数据或预测容差，不把研究脚本运行当产品预算。研究、原V0.1§12.9及LLD§15.9同步；原三漏仍未修复，A组C1—C7范围不扩张。完整定义、所有失败预测和限制见[候选矩阵专项](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20240723_candidate_matrix_20261016.md)。
+原源截至9/4完整前缀407／15240／11430／7620根；16组旧冻结诊断与1008次前缀因果对照通过。13个XXM文件及61份原件／JSON哈希保持，不改正式数据或预测容差，不把研究脚本运行当产品预算。研究、原V0.1§12.9及LLD§15.9同步；原三漏仍未修复，A组C1—C7范围不扩张。完整定义、所有失败预测和限制见候选矩阵专项（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20240723_candidate_matrix_20261016.md`）。
 
 ### 8.65 形成可拍板的B组主方案：H1—S2—E1，先历史跟踪再处理同段循环（2026年10月16日）
 
@@ -2989,7 +3031,7 @@ E1普通新钝化／结构接替与E2忽略dif_return、两种开始仍不能由
 
 预测方案§22明确B组不改普通状态、预测范围或文案合同，detectorSpecHash及缓存身份更新，forecastVersion／数学保持；旧低点不当新预测门槛，不新增rearmContext、评分或历史消失预测。新预测数值若改变须回评审，原历史校准失败保护保持。V0.1最后对照表新增B1—B7推荐行，C1—C7保留为早期A组草案并仍以C7结尾，避免把A与B视作同一授权。
 
-本轮未执行新模型、真实API、页面或4秒预算；46个产品相关文件、64份既有JSON／原件作哈希保护。文档及引用检查不证明实现完成，原三漏仍未修复。用户确认后先B1只读预检，7/23优先，再其余四处及四周期完整差异，达标后才落码。完整评审记录见[本轮方案审计](/Users/congming/github/goldenshare/reports/xxm_software_indicator_crosscheck_20261015/case_20240723_recommended_proposal_review_20261016.md)。
+本轮未执行新模型、真实API、页面或4秒预算；46个产品相关文件、64份既有JSON／原件作哈希保护。文档及引用检查不证明实现完成，原三漏仍未修复。用户确认后先B1只读预检，7/23优先，再其余四处及四周期完整差异，达标后才落码。完整评审记录见本轮方案审计（原记录：`reports/xxm_software_indicator_crosscheck_20261015/case_20240723_recommended_proposal_review_20261016.md`）。
 
 ### 8.66 用户确认B组后完成独立候选只读预检（2026年10月16日）
 
@@ -2999,7 +3041,7 @@ E1普通新钝化／结构接替与E2忽略dif_return、两种开始仍不能由
 
 356组预测数学、日期、范围及display全文一致，候选模型最大93.196ms；18个日线校准失败保护保持，不放宽容差。正常数据库配置的只读事务及正式Lake四周期完整输入，与冻结来源逐值一致；每周期20冷＋20暖共160次单请求研究包络通过4秒，冷最大1.188／3.895／3.524／2.759秒。60分钟首冷余量约105ms，后续正式接口重点复测。包络包含当前真实加载加候选重放，不等于新HTTP／严格DTO／共享LRU或混合双标签验收。
 
-算法方案§12.10.6、识别LLD§16.10、预测方案§22同步批准状态及本轮证据；核心修改表仍位于V0.1文末。无产品／前端代码、依赖矩阵、数据库／Lake写入或部署变化。B2及B3未开展，原页面三漏未修复；不要求用户继续随机找图，不把本轮通过升级为原软件唯一公式。完整输出及复现脚本见[本轮B1报告](/Users/congming/github/goldenshare/reports/xxm_bottom_history_precheck_20261016/README.md)，保护哈希与文档检查另记录。
+算法方案§12.10.6、识别LLD§16.10、预测方案§22同步批准状态及本轮证据；核心修改表仍位于V0.1文末。无产品／前端代码、依赖矩阵、数据库／Lake写入或部署变化。B2及B3未开展，原页面三漏未修复；不要求用户继续随机找图，不把本轮通过升级为原软件唯一公式。完整输出及复现脚本见本轮B1报告（原记录：`reports/xxm_bottom_history_precheck_20261016/README.md`），保护哈希与文档检查另记录。
 
 ### 8.67 B组代码级LLD审计与落档（2026年10月16日）
 
@@ -3009,7 +3051,7 @@ E1普通新钝化／结构接替与E2忽略dif_return、两种开始仍不能由
 
 审计特别记录：当前前端只接TOP历史且详情标签直接删前缀会产生“部结构消失”；原全冻结测试将全部历史事件与TOP manifest比较；预测adapter只校验detectorSpecHash格式；实际xxm_page_request_audit使用真实源／客户端／调度器，但mjs硬编码2026/10/14且未验证新增底部adapter。新LLD分别规定方向关联、专用标签、旧TOP统计与新BOTTOM基线分开、正常新hash的API断言、从统一上下文取审计日期及真实图表输入校验。只作为待Review设计，不声称这些生产问题已经修复。
 
-本轮另对328份B1底部记录核对拟定快照的“原参照结束早于原段开始”不变量，全部相容；不是重跑B1算法或预算。文档完整性、引用／代码保护另记于[本轮审计报告](/Users/congming/github/goldenshare/reports/xxm_bottom_history_code_lld_audit_20261016/README.md)。不新增主文档或依赖／配置，不改写原130份证据与来源，核心修改表仍为V0.1文末。
+本轮另对328份B1底部记录核对拟定快照的“原参照结束早于原段开始”不变量，全部相容；不是重跑B1算法或预算。文档完整性、引用／代码保护另记于本轮审计报告（原记录：`reports/xxm_bottom_history_code_lld_audit_20261016/README.md`）。不新增主文档或依赖／配置，不改写原130份证据与来源，核心修改表仍为V0.1文末。
 
 
 ### 8.68 按已确认代码级LLD完成B组唯一内核升级（2026年10月16日）
@@ -3022,7 +3064,7 @@ E1普通新钝化／结构接替与E2忽略dif_return、两种开始仍不能由
 
 新增dev-only验收入口以新OUT保存；api_01路径错误、page_01必填日期漏传是脚本失败，均保留并修脚本后完整重跑，不计通过，不放宽产品合同。CodeGraph explore／impact及变更后sync／status核边界；Biz→Foundation、Wealth→HTTP不变，无新配置、依赖、DB／Lake写入、浏览器代验、提交或部署。旧130份证据／源保护不变。
 
-[完整实施与对账报告](/Users/congming/github/goldenshare/reports/xxm_bottom_history_h1_implementation_20261016/README.md)与V0.1§12.10.7、LLD§18、预测方案§23同步。95条只有5条软件正观察，其余90条待独立核验；精确附加DIF、零柱／OHLC和寿命不由本轮证明。下一步由用户看页面，A组另行评审。
+完整实施与对账报告（原记录：`reports/xxm_bottom_history_h1_implementation_20261016/README.md`）与V0.1§12.10.7、LLD§18、预测方案§23同步。95条只有5条软件正观察，其余90条待独立核验；精确附加DIF、零柱／OHLC和寿命不由本轮证明。下一步由用户看页面，A组另行评审。
 
 ### 8.69 真正钝化取消后的重启：统一先红后绿门禁不成立（2026年10月16日）
 
@@ -3032,7 +3074,7 @@ A组随后已按V0.1§12.12—12.13及识别LLD§21—22迁入唯一a1内核并�
 
 最关键的独立观察来自用户已经给的8/3日线图：7/13黄、7/15绿、7/17黄、7/20绿，两组间没有红柱／紫色结构，支持原钝化消失后仍可同段再钝化。当前模型解释为先比较-30.025，失效后另等3813.2829价格资格，7/17以-56.353作参照再激活；软件隐藏参照未读到，日期仍受无游标的柱位定位限制。8/6讲稿不宜升级为全局重启禁令，当日模型四周期确已选池内最低DIF，若再失效则全池失效。
 
-本项建议保持现有内核，不新加冷却锁；技术面也不能把旧参照失效解释为所有未来新钝化禁止。四周期事件与上轮a1冻结账本完全一致，26份源／产品／旧证据SHA保持；10项人工字面样本测试验证工具与代码路径，分钟15次尚非软件真值。优先补证可缩至2025-12-16的90分钟11:00—14:00，不要求立即补图。报告、账本和界限见[第一项研究](/Users/congming/github/goldenshare/reports/xxm_cancellation_restart_20261016_01/README.md)，产品规则、页面及正式源不改，未提交或部署。
+本项建议保持现有内核，不新加冷却锁；技术面也不能把旧参照失效解释为所有未来新钝化禁止。四周期事件与上轮a1冻结账本完全一致，26份源／产品／旧证据SHA保持；10项人工字面样本测试验证工具与代码路径，分钟15次尚非软件真值。优先补证可缩至2025-12-16的90分钟11:00—14:00，不要求立即补图。报告、账本和界限见第一项研究（原记录：`reports/xxm_cancellation_restart_20261016_01/README.md`），产品规则、页面及正式源不改，未提交或部署。
 
 ### 8.70 参照切换续查：同根竞争与普通激活用价分开（2026年10月16日）
 
@@ -3040,13 +3082,13 @@ A组随后已按V0.1§12.12—12.13及识别LLD§21—22迁入唯一a1内核并�
 
 同例14:00本根close3826.3425已高于另一参照价3823.2960，仅段低收盘3821.7300合格。16例仅此一例可区分普通首次激活的本根／段低价口径，不能把A组已确认本根价重入自动移到普通首次选择。精确值来自本系统，不冒充软件参照；本例分桶／指标也需先核齐。
 
-新读作者12/16盘中、午评、盘后原文，盘后明确三分钟周期均有底钝化，盘中和午评没有定时到90分钟11:00的绿色／14:00黄色；13:55实时说法不能当作已完成柱。12/17、12/18直播等正文不可读只登记缺失，未取得新软件图。来源、可观察分歧及限制见[第二轮报告](/Users/congming/github/goldenshare/reports/xxm_cancellation_restart_20261016_02/README.md)。新增软件事件观察为0，不因网上找到文字就算完成识别。
+新读作者12/16盘中、午评、盘后原文，盘后明确三分钟周期均有底钝化，盘中和午评没有定时到90分钟11:00的绿色／14:00黄色；13:55实时说法不能当作已完成柱。12/17、12/18直播等正文不可读只登记缺失，未取得新软件图。来源、可观察分歧及限制见第二轮报告（原记录：`reports/xxm_cancellation_restart_20261016_02/README.md`）。新增软件事件观察为0，不因网上找到文字就算完成识别。
 
 来源审计重读§5.24、5.31后确认，12/16的90分钟早已暂停取证。上一节把它列回优先时未带出这条边界，本轮恢复暂停，不再让用户重复找图。整体不加先红后绿门禁的判断保留；精确时序／普通用价仍未定式，不能靠更多自我回放补外部真值。四周期39747根事件与当前a1冻结账本一致，32份源／产品／旧证据SHA保持，新增9项加原回归共87项通过；产品、合同、页面及正式资源无改动。
 
 ### 8.71 12/16的90分钟原图收到：软件四标记尚未对应模型六步（2026年10月16日）
 
-用户新给2025/12/16上证90分钟原图，明确辨认12日至16日附近顺序为钝化、结构形成、消失、钝化，一共四条。原件逐字节归档，记录原话及SHA，见[新图核查](/Users/congming/github/goldenshare/reports/xxm_software_case_20251216_m90_20261016/README.md)。当前不再缺该日图，前节暂停取证只保留其历史状态。
+用户新给2025/12/16上证90分钟原图，明确辨认12日至16日附近顺序为钝化、结构形成、消失、钝化，一共四条。原件逐字节归档，记录原话及SHA，见新图核查（原记录：`reports/xxm_software_case_20251216_m90_20261016/README.md`）。当前不再缺该日图，前节暂停取证只保留其历史状态。
 
 MAIN_SPEC从2009/1/5起完整12357根至12/16末柱，当前对应链为12/11末DULL、12/12 14:00结构、12/15 14:00结构消失、15:00重入、12/16 11:00真正取消、14:00换参照新DULL。首次模型激活在12/11，不写成软件12号；12/12—16模型还有五个后续事件。软件四标记与模型六步尚未一一对齐，不能将新图直接计作CANCEL／重选顺序验证通过，也不能先假设软件删除了额外历史标记。
 
@@ -3060,7 +3102,7 @@ MAIN_SPEC从2009/1/5起完整12357根至12/16末柱，当前对应链为12/11末
 
 **后续更正：** 新收到12/15收盘图确认当日已重新钝化；本节H2b不能作为该次重入必要条件，撤下这一解释及继续补15日图的请求。当前结论见§8.73，保留以下历史研究。
 
-用户说明没有更详细讲稿，沿现有源／图继续核查，见[辨别报告](../../reports/xxm_rearm_discrimination_20261016_01/README.md)。12/15末根已破原结构最低收盘，新增该收盘门槛无助；7/10模拟只加一根3959.16就重新钝化，且收盘高于原段最低，不支持多等两根或统一再破原最低收盘。其他OHLC影响仍未知。
+用户说明没有更详细讲稿，沿现有源／图继续核查，见辨别报告（原记录：`reports/xxm_rearm_discrimination_20261016_01/README.md`）。12/15末根已破原结构最低收盘，新增该收盘门槛无助；7/10模拟只加一根3959.16就重新钝化，且收盘高于原段最低，不支持多等两根或统一再破原最低收盘。其他OHLC影响仍未知。
 
 新事后假设H2b是“当根DIF高于此前结构对应的段底”，不是“累计段最低DIF变高”：累计最小值不可能回升，run_01这项无辨别力的定义和源码已保留，run_02明确改查当根。12/15的90分钟当根比原段底低0.376525，7/13首根120分钟高2.242956，7/10模拟高4.190991、8/14日线高0.479。这条条件能区分现有关键样本，尚无直接软件公式／负例；7月两个观察点属于同段行情，不包装成独立验证，也不将“级别更大”当必要条件。
 
@@ -3070,7 +3112,7 @@ MAIN_SPEC从2009/1/5起完整12357根至12/16末柱，当前对应链为12/11末
 
 ### 8.73 12/15已重新钝化：H2b撤下，分歧转到16日（2026年10月17日）
 
-用户提供所需较早截止图，并明确15日已出现“消失→钝化”。[原件及核查](../../reports/xxm_software_case_20251215_m90_20261016/README.md)保存日期、90分钟选择、指标读数和原话。当前内核完整12354根至15日输出同一四步链，A组重入日期／顺序获支持；不擅自把模型14／15点或最早12/11末根改写为软件精确时点。
+用户提供所需较早截止图，并明确15日已出现“消失→钝化”。原件及核查（原记录：`reports/xxm_software_case_20251215_m90_20261016/README.md`）保存日期、90分钟选择、指标读数和原话。当前内核完整12354根至15日输出同一四步链，A组重入日期／顺序获支持；不擅自把模型14／15点或最早12/11末根改写为软件精确时点。
 
 H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续作为本例必要条件或编码方向；撤下而不改写旧研究。新图末端DIF -5.130、DEA -3.151、MACD -3.958与源仍有差异，不靠它外推全部历史参照。更早图的末黄已存在，故16日图的四条不能再误配成16日新一轮。
 
@@ -3078,9 +3120,9 @@ H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续
 
 ### 8.74 R1最小候选完成四周期解释检验，预测迁移另待设计（2026年10月17日）
 
-用户授权后，先冻结[口径](../../reports/xxm_reference_rescue_20261017_01/protocol.md)，再新增研究子类R1，只有旧参照即将突破的BOTTOM DULL同绿段才尝试按原池资格救回，其他全部调用当前产品step。没有源码字符串注入、monkeypatch或在线注册，生产Spec与1%不变；不是所有活动状态都动态换峰。
+用户授权后，先冻结口径（原记录：`reports/xxm_reference_rescue_20261017_01/protocol.md`），再新增研究子类R1，只有旧参照即将突破的BOTTOM DULL同绿段才尝试按原池资格救回，其他全部调用当前产品step。没有源码字符串注入、monkeypatch或在线注册，生产Spec与1%不变；不是所有活动状态都动态换峰。
 
-39747根主参数中9次切换（日线0／60分钟5／90分钟3／120分钟1），8组取消后再钝化往返不再出现，另1次取消延后一根，18个改变端点均可追溯。12/15四步保持、12/16额外一轮消失，与已确认两图相容；日线7/15／7/20真取消、7/17后来新钝化、五处B绿、8/14—15及原三个软件模拟保持。TOP、分段／池、底部历史及A事件在本次真实范围不变；45前缀／恢复、120项测试与38份SHA保护通过，详见[报告](../../reports/xxm_reference_rescue_20261017_01/README.md)。
+39747根主参数中9次切换（日线0／60分钟5／90分钟3／120分钟1），8组取消后再钝化往返不再出现，另1次取消延后一根，18个改变端点均可追溯。12/15四步保持、12/16额外一轮消失，与已确认两图相容；日线7/15／7/20真取消、7/17后来新钝化、五处B绿、8/14—15及原三个软件模拟保持。TOP、分段／池、底部历史及A事件在本次真实范围不变；45前缀／恢复、120项测试与38份SHA保护通过，详见报告（原记录：`reports/xxm_reference_rescue_20261017_01/README.md`）。
 
 9次中其余8次没有新软件观察，不能当成9个成功验证。60分钟2023/9/20切换后仅保持一根，次日DIF再破新参照才取消；原“取消后又钝化”16例筛选没有包含它。另有构造例可提前结构，证明R1不是纯文字去重，真实全量未出现不等于以后不会发生。本轮没有让用户找更早年份素材。
 
@@ -3090,7 +3132,7 @@ H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续
 
 用户要求细化预测与代码级LLD，并愿意查找其余八处。当前产品源码及CodeGraph影响面已复核；[预测方案§30](../../wealth/docs/pages/index-detail/index-detail-xxm-key-point-forecast-implementation-plan-v0.1.md#30-r1预测修订方案2026-10-17待确认未开发)及[LLD§24](../../wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.1.md#24-r1预测与唯一内核迁移代码级lld2026-10-17待确认)落明：有限参照路径、完整P—C域、单一最近结构时点、下一根非单调失效／延续域、初始与最终ref合同、全部消费者及预算门禁。原A等待期间仍不换ref；重入后的后续DULL才适用R1。设计可review，不等于产品已实现或新完整预测已通过。
 
-从既有冻结账本导出[八处清单](../../reports/xxm_reference_rescue_20261017_01/screenshot-verification-guide.md)，集中六个日期，精确时刻标明为本模型分歧而非原软件真值。优先2023/9/20—21上证60分钟，候选将真取消延后一根；其次2023/5/24上证60分钟。其余为2022/8/2、10/28的60分钟，2018/12/19的60／90分钟，2015/8/24的90／120分钟。无需重复寻找12/15—16已确认图，也不再索取指定模拟价格。
+从既有冻结账本导出八处清单（原记录：`reports/xxm_reference_rescue_20261017_01/screenshot-verification-guide.md`），集中六个日期，精确时刻标明为本模型分歧而非原软件真值。优先2023/9/20—21上证60分钟，候选将真取消延后一根；其次2023/5/24上证60分钟。其余为2022/8/2、10/28的60分钟，2018/12/19的60／90分钟，2015/8/24的90／120分钟。无需重复寻找12/15—16已确认图，也不再索取指定模拟价格。
 
 本轮只写设计并整理已有证据，未新跑预测／参数实验、未修改产品／研究算法、Figma或页面。新资料若否定候选延后或省去的一轮，须记录冲突后修订规则；不以原120测试、单例相容或旧a1正式预算替代R1产品验收。
 
@@ -3100,19 +3142,19 @@ H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续
 
 正式日线来源起点扩至2020，但历史仍不连续；完整性校验在进入预测前拒绝。两次有界观察行数1183→1191，最新仍缺452个交易日，故正式四周期及整页门禁未完成。三个分钟源完整至10/16只是读取层证据，不是HTTP预算通过。按根规则暂停后续交付、等待验收安排确认，未擅自修复正式数据、改变起点／校验或预算。
 
-完整映射见[本轮报告](../../reports/xxm_reference_rescue_r1_implementation_20261017/README.md)、算法§12.21与识别LLD§25。工作区保留，尚未提交／部署；原型清退、Figma与正式验收仍待收尾。旧研究原件已封存在baseline_source.zip，原失败记录／输入不覆盖。
+完整映射见[本轮报告](../../reports/xxm/conclusions/xxm_reference_rescue_r1_implementation_20261017/README.md)、算法§12.21与识别LLD§25。工作区保留，尚未提交／部署；原型清退、Figma与正式验收仍待收尾。旧研究原件已封存在baseline_source.zip，原失败记录／输入不覆盖。
 
 ### 8.77 R1分钟技术验收通过，日线等下载完成（2026年10月17日）
 
 用户确认历史日线仍在下载，要求先验收分钟。正式只读源三个分钟周期完整至10/16，M0重叠逐值相同；各20真冷＋20真暖、识别配对、LATEST及两并发249请求，13个既有分钟历史场景26请求，实际TS客户端12组混合／双标签216请求全部通过。完整预测／display与冻结语义相同，54份混合预测与同批LATEST逐字段相同；最大HTTP3.291秒、模型包络34.861ms，响应／缓存均在原预算内。工具分组与只读会话注入两处问题均有保留记录，修正工具后使用新批次，不修改产品来凑通过。
 
-这是分钟范围技术门禁，不是新增软件真值，也不是完整四周期页面验收。日线仍待用户通知，Figma文字同步、研究原型清退及日线／整页门禁保留，页面由用户验收。[分钟报告](../../reports/xxm_reference_rescue_r1_implementation_20261017/minutes_acceptance.md)及LLD§25.1—25.2、预测§31.1—31.2为当前安排；本轮只改验收工具、测试和文档，不改产品算法／依赖，不写正式数据，未提交／部署。
+这是分钟范围技术门禁，不是新增软件真值，也不是完整四周期页面验收。日线仍待用户通知，Figma文字同步、研究原型清退及日线／整页门禁保留，页面由用户验收。分钟报告（原记录：`reports/xxm_reference_rescue_r1_implementation_20261017/minutes_acceptance.md`）及LLD§25.1—25.2、预测§31.1—31.2为当前安排；本轮只改验收工具、测试和文档，不改产品算法／依赖，不写正式数据，未提交／部署。
 
 ### 8.78 2020段日线完整，正式来源扩到2017片段仍被拒绝（2026年10月17日）
 
 用户通知下载完成后，2020-01-02至2026-10-16共1643个开市日预检通过，日期无缺、必需字段无NULL。但正式读取没有2020下界，实际首日已扩至2017-01-03，13:39一致快照仍缺2017—2019年626个开市日（139／243／244）；13:36的650缺口另存，源仍有补入。日期连续性保护在预测前拒绝，不是内核计算或超时失败。
 
-本轮没有取得日线预测／预算成绩，也未运行完整四周期整页；既有分钟成绩和30份未变源码身份保留。等待用户选择更早历史补齐后验收，或先做2020起隔离预检，不擅自裁剪正式来源。完整日期、异常链和命令见[日线恢复报告](../../reports/xxm_reference_rescue_r1_implementation_20261017/daily_resume_acceptance.md)，本轮只读与状态文档，不改算法／预算／正式数据，未提交／部署。
+本轮没有取得日线预测／预算成绩，也未运行完整四周期整页；既有分钟成绩和30份未变源码身份保留。等待用户选择更早历史补齐后验收，或先做2020起隔离预检，不擅自裁剪正式来源。完整日期、异常链和命令见日线恢复报告（原记录：`reports/xxm_reference_rescue_r1_implementation_20261017/daily_resume_acceptance.md`），本轮只读与状态文档，不改算法／预算／正式数据，未提交／部署。
 
 ### 8.79 用户选择2020起隔离预检，计算和保护通过（2026年10月17日）
 
@@ -3120,7 +3162,7 @@ H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续
 
 新增2020前缀使旧三个日线场景的250根校准回到0.0005内，独立50位Decimal核算已解释，未放宽门槛；8/15、10/13完整数学／display不变。隔离替代SQLite、时钟及鉴权，不能作为正式PG／网络／完整页面验收。25份产品／前端消费者SHA未变，只增加研究工具并修正日线暖SQL核源的工具断言，24项测试通过。
 
-[预检报告](../../reports/xxm_reference_rescue_r1_implementation_20261017/daily_2020_precheck.md)接续上一节，原失败／快照不覆盖。更早历史14:13仍缺2018年52、2019年244日，共296，已[逐日记录为待办](../../reports/xxm_reference_rescue_r1_implementation_20261017/before_2020_pending.md)，收到补齐通知后再验全历史正式日线及四周期16组混合／双标签；页面由用户验收。原软件其余八处R1真值、池宽／精确边界等未知不因本轮预检变成已确认；Figma及原型清退仍待整体收尾。
+预检报告（原记录：`reports/xxm_reference_rescue_r1_implementation_20261017/daily_2020_precheck.md`）接续上一节，原失败／快照不覆盖。更早历史14:13仍缺2018年52、2019年244日，共296，已逐日记录为待办（原记录：`reports/xxm_reference_rescue_r1_implementation_20261017/before_2020_pending.md`），收到补齐通知后再验全历史正式日线及四周期16组混合／双标签；页面由用户验收。原软件其余八处R1真值、池宽／精确边界等未知不因本轮预检变成已确认；Figma及原型清退仍待整体收尾。
 
 ### 8.80 重启9/24—25顶部疑点，优先核首次激活的DIF零轴资格（2026年10月17日）
 
@@ -3132,11 +3174,11 @@ H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续
 
 3/17—19的已有日线图仍保留钝化／消失，不支持全部普通取消都会删除旧文字的笼统解释；条件性隐藏／覆盖和输入／参照差异仍未知。主疑点的两条转换不靠1%门槛，显示取整也不足改变同输入同参照的比较；本轮不修改算法来贴图。ZC还有30个事件差异端点并改变旧TOP历史接替，不能当成两条字的显示修复。
 
-[完整进展与候选边界](../../reports/xxm_top_daily_ambiguity_20261017_01/README.md)、[机器汇总](../../reports/xxm_top_daily_ambiguity_20261017_01/summary.json)。结论为有优先假设、尚不能迁产品；下一条有区分力的信息优先4/8当时60分钟状态或首次顶钝化DIF零轴的明确讲解。没有新外部材料，没有重写旧52锚点或声称准确率；2020前TODO、产品／预测／API／页面／正式源均不变，未提交或部署。
+完整进展与候选边界（原记录：`reports/xxm_top_daily_ambiguity_20261017_01/README.md`）、机器汇总（原记录：`reports/xxm_top_daily_ambiguity_20261017_01/summary.json`）。结论为有优先假设、尚不能迁产品；下一条有区分力的信息优先4/8当时60分钟状态或首次顶钝化DIF零轴的明确讲解。没有新外部材料，没有重写旧52锚点或声称准确率；2020前TODO、产品／预测／API／页面／正式源均不变，未提交或部署。
 
 ### 8.81 1/6当日日线阳性确认：T2也不适合作直接修法（2026年10月18日）
 
-用户未找到4/8及附近60分钟后，改取1/6日线；现已收到原图及当日完整讲稿。[原件及核查](../../reports/xxm_software_case_20260106_day_20261018/README.md)保存字节SHA、人工字面读数及1457根旧前缀。最右黄色“钝化”和讲稿0:58、1:49—1:57明确当天已有，收盘4083.67、DIF30.034、DEA12.167、MACD35.733四项显示对应。因此新增的是直接当日阳性，不是后续静态缺字推NONE。
+用户未找到4/8及附近60分钟后，改取1/6日线；现已收到原图及当日完整讲稿。原件及核查（原记录：`reports/xxm_software_case_20260106_day_20261018/README.md`）保存字节SHA、人工字面读数及1457根旧前缀。最右黄色“钝化”和讲稿0:58、1:49—1:57明确当天已有，收盘4083.67、DIF30.034、DEA12.167、MACD35.733四项显示对应。因此新增的是直接当日阳性，不是后续静态缺字推NONE。
 
 当前唯一内核及原四候选与旧1/6锚点相同；现版、ZC、ZR有顶钝化，T2／S2无信号。T2“顶部历史参照至少两根”在冻结当前输入、分段、池及其他规则时会漏本例，不能作为去掉9/24—25的直接修法；S2保持此前12/15反证。软件内部参照仍未知，不将模型11/13单根参照当软件事实。ZC／ZR两个零轴候选仍相容，本图不唯一确认公式。
 
@@ -3146,7 +3188,7 @@ H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续
 
 ### 8.82 零轴剩余分歧已定位，现稿不能裁定6/24首根（2026年10月18日）
 
-用户要求继续利用现有材料。算法§12.29及LLD§25.10先行后，本轮只核当前选择器和旧ZC／ZR8份结果，不新增候选或完整回放。[报告及机器对照](../../reports/xxm_top_zero_axis_discrimination_20261018_01/README.md)说明：首次TOP时`当根DIF≤段最高DIF<参照DIF`，故ZC蕴含ZR；普通正DIF阳性不能区分它们。该关系只属现模型，不是软件公式定理。
+用户要求继续利用现有材料。算法§12.29及LLD§25.10先行后，本轮只核当前选择器和旧ZC／ZR8份结果，不新增候选或完整回放。报告及机器对照（原记录：`reports/xxm_top_zero_axis_discrimination_20261018_01/README.md`）说明：首次TOP时`当根DIF≤段最高DIF<参照DIF`，故ZC蕴含ZR；普通正DIF阳性不能区分它们。该关系只属现模型，不是软件公式定理。
 
 四周期事件差异时点为0／6／5／2，point差异0／3／21／20，含首次差异的后续结构／历史传播，不计作独立误报。2023后仅2025/6/24、2026/4/8的60分钟有事件分歧；4/8已暂停取证。6/24 10:30本系统DIF -0.075073、柱+7.733491，ZR首次钝化而ZC没有；11:30当根DIF+2.996017才在ZC激活，此后二者状态相同，次日取消同点。因此需要首根身份及软件当根DIF符号，收盘“有钝化”不够。
 
@@ -3156,7 +3198,7 @@ H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续
 
 ### 8.83 6/24补到90分钟图，所需60分钟停止重复索取（2026年10月18日）
 
-用户说明未找到60分钟，提供90分钟原图。[原件和核对记录](../../reports/xxm_software_case_20250624_m90_20261018/README.md)保存末端黄色钝化、前面的绿色消失及人工读数。当前算法当天也报顶钝化，支持这一项对应；模型11:00旧结构消失、14:00新钝化，不强行写成软件精确发生时间，也未确认软件绿色的身份。
+用户说明未找到60分钟，提供90分钟原图。原件和核对记录（原记录：`reports/xxm_software_case_20250624_m90_20261018/README.md`）保存末端黄色钝化、前面的绿色消失及人工读数。当前算法当天也报顶钝化，支持这一项对应；模型11:00旧结构消失、14:00新钝化，不强行写成软件精确发生时间，也未确认软件绿色的身份。
 
 软件DIF5.585／DEA-0.078／MACD11.326，与同刻本系统5.607457／-0.047738／11.310390有小差别，收盘按两位相同。两种待核规则在这个90分钟日期结果一样，因此新图不能决定首次顶钝化是否要求当根DIF>0，也不能替代60分钟10:30／11:30的比较。只摘取6/23—24六根旧记录，相关6份代码／数据／结果未变，不改参数、算法、配置、接口、预测、页面或依赖。
 
@@ -3164,7 +3206,7 @@ H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续
 
 ### 8.84 查找作者原文及交易师官方说明（2026年10月18日）
 
-按原方案§12.31和识别LLD§25.12继续查资料。[结果、来源及检索记录](../../reports/xxm_public_rule_search_20261018_01/README.md)已保存；未找到直接回答“当根DIF≤0能否首次出现顶部钝化”的文字。2014年作者概括定义没有写这个条件，不按省略推断；2015年穿轴判断4浪使用5、34、5参数，不能套入本次12、26、9；2018年0.082与4.888说的是MACD值，正文未能打开，只有搜索摘要，不改写为DIF。
+按原方案§12.31和识别LLD§25.12继续查资料。结果、来源及检索记录（原记录：`reports/xxm_public_rule_search_20261018_01/README.md`）已保存；未找到直接回答“当根DIF≤0能否首次出现顶部钝化”的文字。2014年作者概括定义没有写这个条件，不按省略推断；2015年穿轴判断4浪使用5、34、5参数，不能套入本次12、26、9；2018年0.082与4.888说的是MACD值，正文未能打开，只有搜索摘要，不改写为DIF。
 
 新找到官网2017-01-06 V1.0.9“去除重复钝化”的更新记录，确认算法曾修改，但具体去重方法及当前版本未明，不能用来解释9/24—25缺字或删12/15的新黄字。官网2016-09-19 V2.0.5还说明选股取结构当根、预警取下一根；用户图中指标窗的字不能按这个说明平移。旧文章、官方更新说明与当前软件的具体公式分别看待，不因找到出处就补出它没有写的条件。
 
@@ -3172,7 +3214,7 @@ H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续
 
 ### 8.85 补到9/24、25日当日日线图（2026年10月18日）
 
-按原方案§12.32和识别LLD§25.13核对两张原件，附件第一张为9/25、第二张为9/24。[原图、读数和比较](../../reports/xxm_software_case_20240924_25_day_20261018/README.md)分别保存：9/24末端未见顶钝化，9/25未见对应消失或前日顶钝化，而当前算法有这两个事件。问题已从9/30等后续图的历史缺字推进为当日图显示差异，不再只以“也许后来删了历史文字”解释；但不将未见字填成软件内部NONE，也不推断盘中从未出现。
+按原方案§12.32和识别LLD§25.13核对两张原件，附件第一张为9/25、第二张为9/24。原图、读数和比较（原记录：`reports/xxm_software_case_20240924_25_day_20261018/README.md`）分别保存：9/24末端未见顶钝化，9/25未见对应消失或前日顶钝化，而当前算法有这两个事件。问题已从9/30等后续图的历史缺字推进为当日图显示差异，不再只以“也许后来删了历史文字”解释；但不将未见字填成软件内部NONE，也不推断盘中从未出现。
 
 9/24软件DIF-26.795、DEA-37.117、柱20.645与本系统记录相同；9/25软件DIF-14.514与记录-14.515差0.001，保留差别，不按模型补写柱值的模糊末位。9/24末端数值相同仍不证明软件历史参照相同。现代码两条事件共用8/30负DIF参照，先报钝化再因DIF突破而取消，故修订需研究首次钝化资格，而非隐藏25日的文字或改1%结构转向。
 
@@ -3180,7 +3222,7 @@ H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续
 
 ### 8.86 两个深市指数交叉研究的数据检查（2026年10月18日）
 
-用户明确视频最早2022/9/13，建议2022年9月至2024年9月前研究创业板指与深成指。原方案§12.33及识别LLD§25.14先补齐本步范围、有界读取、旧代码复用、身份限制、失败保留、恢复及最后检查预算，再做只读源合同检查。[本步记录](../../reports/xxm_cross_index_daily_20261018_01/README.md)保留真实列和四行样本；生产中两个指数2020/1/2—2024/8/30各1132行、必需指标空值0，早期数据仅用于参照，候选视频日期仍从2022/9/13开始。
+用户明确视频最早2022/9/13，建议2022年9月至2024年9月前研究创业板指与深成指。原方案§12.33及识别LLD§25.14先补齐本步范围、有界读取、旧代码复用、身份限制、失败保留、恢复及最后检查预算，再做只读源合同检查。本步记录（原记录：`reports/xxm_cross_index_daily_20261018_01/README.md`）保留真实列和四行样本；生产中两个指数2020/1/2—2024/8/30各1132行、必需指标空值0，早期数据仅用于参照，候选视频日期仍从2022/9/13开始。
 
 指定SZSE日历在库中为0行，完整性检查未满足，不能把相同行数当作没有缺日。已按仓库要求提出只读获取Tushare指定区间深交所日历的调整，等待用户确认；不擅自换SSE、不补库，不写新执行脚本或运行新比较。原选择器12项字面测试通过，CodeGraph及源码审计已完成，当前无新增候选日期；未改内核、API、预测、页面、依赖或旧软件标签，更早日线验收TODO保留。
 
@@ -3190,11 +3232,11 @@ H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续
 
 原规则、首次当根DIF>0、历史参照DIF>0三组的全部状态及事件在本范围没有差异。首次顶部钝化为创业板2023/1/6、深成指2023/1/10及2024/5/6，全部当根和所用历史DIF均正，无法用阳性截图区分剩余两解释。三日的模型后续分别为1/9取消、1/16取消、5/13结构形成；这些是模型输出，未经软件图证，不作为软件标签。没有能区分两条件的新日期，也没有本范围“原规则有、两条件都无”的首次多报候选。
 
-2020与2021起结果相同，原规则与产品数值逐根相同，分段及历史池未变，前缀／恢复与同来源检查通过；只证明程序比较可复现。保留2024/9/24—25上证多报及两个条件未决，不能说跨指数研究已确定公式。正常标记交叉核对优先创业板2023/1/6日线，其DIF最接近0；有标记只增支持，无标记且数值相符则三种现有解释都需复查。第二可核深成指2024/5/6，后续结构形成也可对照；不要求用户把三张都找齐。完整[结果及后续边界](../../reports/xxm_cross_index_daily_20261018_01/README.md)，产品及旧52项软件标签不变。
+2020与2021起结果相同，原规则与产品数值逐根相同，分段及历史池未变，前缀／恢复与同来源检查通过；只证明程序比较可复现。保留2024/9/24—25上证多报及两个条件未决，不能说跨指数研究已确定公式。正常标记交叉核对优先创业板2023/1/6日线，其DIF最接近0；有标记只增支持，无标记且数值相符则三种现有解释都需复查。第二可核深成指2024/5/6，后续结构形成也可对照；不要求用户把三张都找齐。完整结果及后续边界（原记录：`reports/xxm_cross_index_daily_20261018_01/README.md`），产品及旧52项软件标签不变。
 
 ### 8.88 2023/1/6深成指日线图增加的线索（2026-10-18）
 
-用户提供当日日线，末端未见顶钝化，与三组既有计算无事件相容。软件收盘11367.73、DIF12.496、DEA-16.800与源按显示精度一致，MACD柱58.592对源58.593差0.001，原样记录。原图、独立读数、一个日期三组状态及两段历史已存[新报告](../../reports/xxm_software_case_20230106_sz_day_20261018/README.md)，不将缺少文字直接填写为软件内部NONE。
+用户提供当日日线，末端未见顶钝化，与三组既有计算无事件相容。软件收盘11367.73、DIF12.496、DEA-16.800与源按显示精度一致，MACD柱58.592对源58.593差0.001，原样记录。原图、独立读数、一个日期三组状态及两段历史已存新报告（原记录：`reports/xxm_software_case_20230106_sz_day_20261018/README.md`），不将缺少文字直接填写为软件内部NONE。
 
 本图有用之处是价格对照：当前11367.7321已经超过更早11月段11351.3318，且当根DIF12.496低于旧45.606；但没有超过最近12月段11501.5781。当前先检查最近段价格会拒绝，若其余资格不变而跳过该检查，就会因更早段合格而多报。它支持保留最近段价格检查，仍不足证明软件唯一原因或参照。图上11511.32是图表高点，不等于模型的最高收盘。
 
@@ -3202,7 +3244,7 @@ H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续
 
 ### 8.89 2023/1/6上证50阳性与沪深300对照（2026-10-18）
 
-用户两图明确上证50末端黄字、沪深300未见钝化；独立读数与两条指定历史比较见[本步报告](../../reports/xxm_software_case_20230106_50_300_day_20261018/README.md)。沪深300按图号399300.SZ读取，不混用同名000300.SH。两源2020起各732条，与共用日历逐日相同，沿用原数值计算而未新增公式。三条件在1/6一致，模型上证50当日首次激活，沪深300无事件；原图不单独证明软件首次日期。上证50柱值、沪深300 DIF分别差0.001，保留来源差异。
+用户两图明确上证50末端黄字、沪深300未见钝化；独立读数与两条指定历史比较见本步报告（原记录：`reports/xxm_software_case_20230106_50_300_day_20261018/README.md`）。沪深300按图号399300.SZ读取，不混用同名000300.SH。两源2020起各732条，与共用日历逐日相同，沿用原数值计算而未新增公式。三条件在1/6一致，模型上证50当日首次激活，沪深300无事件；原图不单独证明软件首次日期。上证50柱值、沪深300 DIF分别差0.001，保留来源差异。
 
 上证50当前收盘2713.6307越过最近段2706.7388，DIF20.382低于46.905，形成阳性；沪深3003980.8888未超过最近段3998.2442。上证50更早段最高收盘2796.8887尚未被超过，软件仍有钝化，因此不能在其他条件固定时添加“超过两段所有高点”的统一要求。配合深成指旧段够格但最近段未破、末端无字的对照，支持保留现价格先检查和合格参照选择；软件内部参照仍未知，不能从一个阳性证明全公式。
 
@@ -3216,7 +3258,7 @@ H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续
 
 结合之前创业板与深成指，同窗口四指数1912根目标日线、7次首次顶部钝化，无所需分歧；不将缺少模型场景解读为软件公式或准确率。41相关输入／保存／选择器／日历隔离检查、原规则逐根等于产品、分段／池一致、12次前缀／恢复和跨来源拒绝、2021起普通输出相同均通过，仅证明程序比较可复查。当前多报与两个DIF条件仍未解，原软件标签不改。
 
-[完整筛选与读回检查](../../reports/xxm_50_300_daily_dates_20261018_01/README.md)保存空候选、全部事件、正DIF激活及来源；原方案§12.36／LLD§25.17同步，无新代码／配置／API／页面／正式数据写入，更早TODO保留。后续建议将两指数移到2024/9之后的可用视频期再筛，先更新新范围方案；本轮不自动扩读，也不再索取同类正DIF或已找不到的60分钟图片。
+完整筛选与读回检查（原记录：`reports/xxm_50_300_daily_dates_20261018_01/README.md`）保存空候选、全部事件、正DIF激活及来源；原方案§12.36／LLD§25.17同步，无新代码／配置／API／页面／正式数据写入，更早TODO保留。后续建议将两指数移到2024/9之后的可用视频期再筛，先更新新范围方案；本轮不自动扩读，也不再索取同类正DIF或已找不到的60分钟图片。
 
 ### 8.91 2024/9—2026/9上证50新增多报核对候选（2026-10-18）
 
@@ -3224,13 +3266,13 @@ H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续
 
 9/25当根DIF-9.096、所用历史-7.869，当前价2386.3227>历史2357.0309，参照8/16—8/30共11根；更早7月段DIF+2.18但价2456.79未被超过，所以两限制拒绝。若软件同样无钝化且数值对应，会增加非单根历史参照的多报证据；有标记则反对将两个限制统一用在本例。即使无标记仍不能二选一，9/27历史显示另须图核。
 
-[全部候选和具体补图要求](../../reports/xxm_50_300_daily_dates_20261018_02/README.md)给出9/25优先、9/26后续、9/27辅助，不用其他正DIF正常日凑数。两源每代码1132旧＋505新－1重叠＝1636，全部开市日对应，旧窗口记录完全相同；原数值及分段／池、12次前缀恢复／错来源拒绝、2021起普通输出和41相关隔离检查通过。仅研究数据和文档，不改内核／预测／API／页面或原软件标签，更早TODO保留。
+全部候选和具体补图要求（原记录：`reports/xxm_50_300_daily_dates_20261018_02/README.md`）给出9/25优先、9/26后续、9/27辅助，不用其他正DIF正常日凑数。两源每代码1132旧＋505新－1重叠＝1636，全部开市日对应，旧窗口记录完全相同；原数值及分段／池、12次前缀恢复／错来源拒绝、2021起普通输出和41相关隔离检查通过。仅研究数据和文档，不改内核／预测／API／页面或原软件标签，更早TODO保留。
 
 ### 8.92 换区间后找到两处日线DIF条件分歧（2026-10-18）
 
 用户无上证509/25—27资料，已停止请求并将不可得单独登记，不写成软件无信号。改查原先未筛的创业板／深成指2024/9—2026/9日线，各504根，首次找到两个DIF条件彼此不同的独立案例：创业板2026/3/12，当根-1.841、所用历史+12.380；深成指2026/4/13，当根-0.002、所用历史+59.454。历史DIF条件与原规则当日激活，当根DIF条件等待。新软件标签0，不能提前确认公式。
 
-创业板3/13当根DIF+0.610后才首次激活，之后普通状态相同，故仅“13日有钝化”不足判定，需12日图／首次位置。深成指当根条件4/14才激活并选较早DIF124.162；历史条件13日已锁59.454，15日DIF91.217使后者取消而前者保留，16日140.087前者才取消。可给六个观察日，但只算两个独立案例，优先3/12创业板、备用4/15深成指，详见[具体补图清单](../../reports/xxm_sz_daily_dates_20261018_02/README.md)。
+创业板3/13当根DIF+0.610后才首次激活，之后普通状态相同，故仅“13日有钝化”不足判定，需12日图／首次位置。深成指当根条件4/14才激活并选较早DIF124.162；历史条件13日已锁59.454，15日DIF91.217使后者取消而前者保留，16日140.087前者才取消。可给六个观察日，但只算两个独立案例，优先3/12创业板、备用4/15深成指，详见具体补图清单（原记录：`reports/xxm_sz_daily_dates_20261018_02/README.md`）。
 
 限制已记录：深成指13日-0.002极近0，须核软件符号；创业板12日当前收3317.5225低于所用历史3344.9823，模型以11日同段最高3349.5287够格，若软件要求当根价亦可影响。两处所用近段均单根，软件实际参照仍未知，不恢复已被旧证据反对的统一两根过滤。拿到图后先核源数值与标签，不凭无字直接宣布唯一DIF门槛。
 
@@ -3238,7 +3280,7 @@ H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续
 
 ### 8.93 4月16日深成指已见钝化和消失，发生日期仍待确认（2026-10-18）
 
-用户只找到本日日线。[原件、独立读数与四日比较](../../reports/xxm_software_case_20260416_sz_day_20261018/README.md)确认红圈有黄色钝化、绿色消失。16日收盘14796.33按两位与源相同，DIF140.086／DEA2.066各比源少0.001，柱276.041相同。直接确认的是两个文字存在，软件确切日期、13日实际DIF及所用参照未定；不改源，也不以末位差异反推13日符号。
+用户只找到本日日线。原件、独立读数与四日比较（原记录：`reports/xxm_software_case_20260416_sz_day_20261018/README.md`）确认红圈有黄色钝化、绿色消失。16日收盘14796.33按两位与源相同，DIF140.086／DEA2.066各比源少0.001，柱276.041相同。直接确认的是两个文字存在，软件确切日期、13日实际DIF及所用参照未定；不改源，也不以末位差异反推13日符号。
 
 旧模型历史DIF条件13日激活／15日取消，当根DIF条件14日激活／16日取消，故16日已消失两者均能解释。放大后按文字起点观察更像14日钝化／15日消失，不能把向右展开的文字中心当事件所在柱子；这一位置判断暂存推测，未升为软件标签。已向管理员询问绿色第一个字对应15日阴线还是16日阳线，不要求另找原日截图。若14日／15日组合确立，两原候选均不完整，后续须核首次参照选择及保存，不能只挑其中一次事件宣称公式通过。
 
@@ -3246,7 +3288,7 @@ H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续
 
 ### 8.94 4月16日讲稿明确当天钝化消失，支持当根DIF候选（2026-10-18）
 
-用户全文先明确4/16，随后明确“深成指今天钝化消失”，又解释一根红柱使前面高点取不进去。[补证与逐字摘录](../../reports/xxm_software_case_20260416_sz_day_20261018/transcript_update/README.md)将当日事件按16日登记；用户与我对文字更靠近15日的构图判断另存，撤回其作为发生日期的推测。原8.93和旧JSON作为收到讲稿前记录保留，不再以视觉推测要求本组日期的新图；原视频音频未另行核验。
+用户全文先明确4/16，随后明确“深成指今天钝化消失”，又解释一根红柱使前面高点取不进去。补证与逐字摘录（原记录：`reports/xxm_software_case_20260416_sz_day_20261018/transcript_update/README.md`）将当日事件按16日登记；用户与我对文字更靠近15日的构图判断另存，撤回其作为发生日期的推测。原8.93和旧JSON作为收到讲稿前记录保留，不再以视觉推测要求本组日期的新图；原视频音频未另行核验。
 
 现模型历史DIF条件／产品原规则13日以59.454激活，15日DIF91.217突破而消失；当根DIF条件14日才选124.162，15日仍钝化，16日软件140.086及源140.087均超过它，16日消失与讲稿吻合。这是第一处本轮日线两条件之间有直接当日讲稿区别的案例，支持当根条件而非只加历史DIF条件的现有实现；首次14日、13日软件DIF、软件实际参照及唯一公式仍未直接证明，不能混称全部问题已解决。
 
@@ -3256,7 +3298,7 @@ H2b在相同源及原结构锚点下会漏掉15日已出现的黄，不能继续
 
 ### 8.95 当根DIF条件保留已有样本，下一步进入代码级修订方案（2026-10-18）
 
-管理员要求继续研究，原方案§12.41／LLD§25.22先行。[回核报告](../../reports/xxm_top_current_dif_recheck_20261018_01/README.md)复用原audit对上证四周期40478根冻结输入跑当根／历史两候选共8单元，全部与旧同名结果逐字段一致。各候选原52项全匹配、新增漏项0（20直接／32按图映射），10日期保护、12/15四词链和当日消失／重新钝化、四个原7月模拟保留；全部1179个底部事件与BASE完整字段相同，12个前缀／恢复通过。旧观察反复使用，不作为独立盲测或全历史准确率。
+管理员要求继续研究，原方案§12.41／LLD§25.22先行。回核报告（原记录：`reports/xxm_top_current_dif_recheck_20261018_01/README.md`）复用原audit对上证四周期40478根冻结输入跑当根／历史两候选共8单元，全部与旧同名结果逐字段一致。各候选原52项全匹配、新增漏项0（20直接／32按图映射），10日期保护、12/15四词链和当日消失／重新钝化、四个原7月模拟保留；全部1179个底部事件与BASE完整字段相同，12个前缀／恢复通过。旧观察反复使用，不作为独立盲测或全历史准确率。
 
 两候选均去除上证9/24—25TOP事件，与原当日图末端未见字相容；仍不赋予软件内部NONE。新深成指4/16当日讲稿只有当根条件吻合，因此未发现已确认反例，优先将它作为拟修订方向，而非继续等量并列两解释。首次黄字、4/13软件DIF、零值等号和软件实际参照未直接确认；原单根历史仍占位置，BOTTOM不加对称规则，已激活后不持续要求正DIF。
 
@@ -3297,7 +3339,7 @@ LLD列出可手算的正负／零、同段后来转正、负DIF时已有信号�
 
 ### 8.99 首次TOP修订的开发前独立预期（2026-10-18）
 
-第三项仅准备预期，产品／合同及原测试仍r1。按原方案§12.45、LLD§29先审计并分别锁旧分钟拼接3161根、原四周期39747根、2020起日线1643根；0.75／1.0／1.2共24单元133653根。新[报告](../../reports/xxm_top_activation_expectations_20261018_01/README.md)保存每根完整状态／事件／两类历史／等待、差异、最终snapshot与独立编号映射；底部逐根保持，24个末100根恢复通过，11293项r1／拟定r2编号及关联核验通过。此处是预期身份，不表示产品已运行新版。
+第三项仅准备预期，产品／合同及原测试仍r1。按原方案§12.45、LLD§29先审计并分别锁旧分钟拼接3161根、原四周期39747根、2020起日线1643根；0.75／1.0／1.2共24单元133653根。新报告（原记录：`reports/xxm_top_activation_expectations_20261018_01/README.md`）保存每根完整状态／事件／两类历史／等待、差异、最终snapshot与独立编号映射；底部逐根保持，24个末100根恢复通过，11293项r1／拟定r2编号及关联核验通过。此处是预期身份，不表示产品已运行新版。
 
 原1215预测逐项保留SHA和前缀，693项可沿用旧完整预期；522项首次TOP入口按分数独立补证。210项由原池DIF直接证明无解；另312项共104个独立分钟前缀取已校准投影为输入，按原两段排序和价格／DIF求完整范围，9项再因交集为空无解，303项均证明最早第二根可形成结构。最终219项无入口、303项完整P—C／参照，三比例分别保存。未调用产品forecast／entry／joint或研究预测器生成expected，未覆盖初始summary或旧1215结果。
 
@@ -3312,6 +3354,658 @@ LLD列出可手算的正负／零、同段后来转正、负DIF时已有信号�
 
 开发中发现§8.99的预测分类错把18项（6时点×三比例）当根已确认底部结构列入首次TOP；撤回该分类结论并获管理员批准更正。原117文件、36源／旧证据和失败批次保留，新增更正SHA。实际711项原完整响应保持＋504项独立核验（213无入口／291第二根），总1215不变，不改底部确认规则迎合错误预期。验收浮点中心、零基值／旧R1测试与响应大小夹具的错误已分别记依据修正；没有改guard或放宽预算。
 
-24单元133653根完整结果与开发前预期相符，1215预测／45恢复和4模拟通过。2020起日线1643端点、94前缀／恢复、4截图事件、20冷／20暖及两并发隔离通过，442校准保护保持；冻结模型最长82.94ms，日线隔离最长171.51ms。Python主题／API、Wealth1191项、类型／构建及源保护证据见[交付报告](../../reports/xxm_top_activation_r2_implementation_20261019/README.md)。本轮未访问正式数据库／Lake或网络、未提交／部署，临时SQLite及固定时钟不能替代正式API和整页成绩。
+24单元133653根完整结果与开发前预期相符，1215预测／45恢复和4模拟通过。2020起日线1643端点、94前缀／恢复、4截图事件、20冷／20暖及两并发隔离通过，442校准保护保持；冻结模型最长82.94ms，日线隔离最长171.51ms。Python主题／API、Wealth1191项、类型／构建及源保护证据见[交付报告](../../reports/xxm/conclusions/xxm_top_activation_r2_implementation_20261019/README.md)。本轮未访问正式数据库／Lake或网络、未提交／部署，临时SQLite及固定时钟不能替代正式API和整页成绩。
 
 后续建议先做本版正式四周期接口／预算及实际页面验收，再按原TODO处理2020以前日线、Figma／原型清退。当前不需管理员找更多同组图；软件零值等号、首次黄字、实际参照及OHLC依赖继续保留未知，不声称完整还原原软件或预测准确率。
+
+
+### 8.101 r2真实数据接口正确性与性能验收（2026-10-19）
+
+管理员先要求提交此前修改，已提交f035a9e6c且无推送／部署；随后按LLD§31执行两项TODO。只读预检确认现存日线2010-01-04至2026-10-16共4074根，日期和必需字段完整，三分钟正式根数17272／12954／8636，旧冻结重叠相符。旧更早缺口快照保留，不再将其作为当前输入阻塞。
+
+18历史场景36请求核完整预测／display和当根状态／事件；四周期20首次＋20重复及配对识别、LATEST与两并发332请求通过，合计368。最长单请求2.504秒、已记录模型89.134ms，原上限不变。仅按事前设计修订研究验收工具的完整日线参考及当根识别比较，29工具测试通过；产品源码、旧预期和来源SHA保持，没有新增软件公式真值。证据见[报告](../../reports/xxm/conclusions/xxm_top_activation_r2_formal_20261019/README.md)。
+
+两项TODO已完成，实际页面、完整整页／双标签、Figma和原型清退继续保留。本机TestClient真实路由读取正式PG／Gold，不是已部署远端网络、登录权限或浏览器验收。新工具／测试／验收结果未另行提交，未写业务数据或部署。
+
+### 8.102 新样本交叉验证：本轮完成计算核对和找图筛选（2026-10-19）
+
+管理员选择剩余研究第一项，要求给找图建议。本轮先在算法§12.52及识别LLD§32明确目标、当前代码依据、范围、读写/续跑/性能和验收。仅读已封存上证四周期40478根，以当前唯一r2推进并与已通过的完整事件比较，日线1643个完整point亦相同；没有重复计算预测、访问正式来源或修改产品。
+
+历史结构消失合计237条，47条在2022-09-13以后。排除已用图证并联接原结构/价格/参照后，建议优先找2024-01-08、2023-05-08上证日线，分别检验新的底部和顶部历史消失；再找2024-05-10的90分钟、2024-03-11的120分钟，当前模型价格已破高但DIF回落，若软件同样如此才可进一步排除附加DIF回升作为必要条件。这些是模型待核日期，不是新增准确软件标签。四组在旧三比例中时间/结构/参照一致，不靠改参数选图。
+
+备用为2023-10-16和10/18的90分钟（同段附近行情，相关对照）、2024-01-16的90分钟；完整事件链、附近日期、截图范围与判断办法见报告（原记录：`reports/xxm_history_disappearance_screen_20261019_01/README.md`）。不要求已反馈不可得60分钟或早于视频起日的资料。没看到字先核遮挡/保留，不能直接算反例。
+
+筛选约0.638秒、峰值142.6MiB，19项隔离测试通过，旧源/结果/产品SHA保持。只新增研究入口、测试、新报告及原文档；新外部观察0，尚未完成新增软件交叉验证，未提交、推送、部署或写正式数据。下一步拿到任一清晰新图，先核软件与本地输入，再按事前事件链逐项确认；发现不符保留原预测并追查，不即时拟合。
+
+### 8.103 2023/5/8与2024/1/8日线新图：事件相容，后者有行情输入差异（2026-10-19）
+
+管理员提供事前两处候选原图及YouTube链接。本轮先写算法§12.53与识别LLD§33，复用已保存的日线候选、CSV和r2 ledger核两条事件链，没有重新筛日期、重算全时间线或修改产品。原图按原字节保存，数值和结论单列见核对报告（原记录：`reports/xxm_new_daily_evidence_20261019_01/README.md`）。
+
+5/8图可见黄钝化、紫结构及最右绿色消失，与模型4/14钝化—4/21结构—5/8历史消失顺序及大致柱位相容；收3395.00与本地3395.0036显示相同，软件DIF14.005/DEA10.937各比源少0.001，柱6.136相同。补充一个新顶部历史消失的外部观察，不等于软件内部参照、黄紫准确日期及全部公式已确认。
+
+1/8图也有旧黄/紫及最右绿色，底部消失观察与模型12/27结构后的候选相容。但管理员明确收盘为2869.34，须保留该确认，不能采用先前猜读2889.34。本地最终2887.5379，差-18.1979；软件DIF-18.594/DEA-20.363/柱3.538，对源差+0.143/+0.028/+0.230。截图时点及来源差原因未知，输入一致性不能算通过。即便两种收盘都低于模型2898.8787，也只能证明价格不等式方向未变，不能证明软件用同一锁定低点/参照。
+
+MCP余额实测0，未发送已知不能支付的字幕请求或付费重试；网页读取两个链接也未成功，新稿0，不据此断言视频无字幕。若管理员能辅助，优先1/8讲日线的短段，核是否明确说旧结构消失及画面时点；不用重复找相同构图或先整理全文。研究下一步仍优先5/10的90分钟、3/11的120分钟，区分价格突破时是否还必须DIF回升；本轮两日的DIF条件重合，不能作该问题的唯一答案。
+
+新图2，原52标签不改。原候选/CSV/ledger、产品源码SHA保持；无新代码、参数、合同、API、页面或正式写入，未提交推送部署。两例仅按实际证据等级记录，不填进原标签总准确率或宣称完全还原。
+
+### 8.104 1/8完整稿补证：新钝化仍是后续条件，旧绿色规则与报价差异未明（2026-10-19）
+
+管理员提供1/8全文，原字节14690、121行保存，7段逐字摘录有行号及字符定位，无视频时间码、未独立核听，见补证（原记录：`reports/xxm_new_daily_evidence_20261019_01/transcript_update/README.md`）。本轮按算法§12.54/识别LLD§33.1只读既有比较、候选和同版ledger，旧原件/预测不覆盖，不再次请求MCP或重算。
+
+开头明确“再向下会有新的日线底部钝化”“最快周三下午”，并回顾十二月底第一次日线结构；当前工作规则中1/8无新钝化，若1/9首根负柱、1/10第二根才能达到负柱至少两根前提，尚须价格/DIF资格，与该条件性展望相容。已有结果1/8历史消失、1/10新DULL保持，后续真实行情只作事后对照，不把未来数据用于选择解释或承诺必然出现。
+
+全文唯一“消失”是第33行“不太容易消失”，紧接创业板新钝化及参照说明，不作为上证旧结构消失的直接口述。第49行没有卖出理由是作者持仓判断，不能反推软件没绿色或改成本系统交易规则。第121行16:01支持课程结束在收盘后，但不证明截图取自最终收盘。稿中没有2869/2887/2889报价，1/8输入差异仍未解决。
+
+第31行转写为“上证指应该明天出钝化”，与开头最快周三的对象/切图有歧义；保存原文，不擅改为深成指、不据此填上证1/9精确软件标签。新稿1、图不增加、旧52标签不改；产品/来源/旧比较/候选SHA保持，无新代码、测试、配置、合同或正式数据读写，未提交推送部署。完整稿已取得，不再重复索取；下一步仍优先两处分钟图证，精确触发与输入差异分别保留。
+
+### 8.105 3/11上证120分钟：上午结构消失获位置与讲稿补证（2026-10-19）
+
+管理员补事前候选3/11的120分钟原图，说明5/10的90分钟未找到，随后确认绿色首字对着倒数第二根上午小阳线，并提供全文。按算法§12.55与LLD§34/34.1保留原图/原稿/确认，初始位置待核comparison不覆盖，以新补证接续。完整报告（原记录：`reports/xxm_software_case_20240311_m120_20261019/README.md`）保存14017字节/535行稿及四段原文定位，未独立核听或伪造时间码。
+
+图末端收3068.46、DIF32.061、DEA35.119、柱-6.115与原源3/11 15:00按精度相同。用户确认绿色对应11:30；原模型3/1 15:00顶钝化—3/6 15:00结构—3/11 11:30历史消失的事件链与其对应，三比例的时刻/原结构/参照相同。完整稿第430—443行问答在“为什么120分钟结构消失不加回来”后，作者明确所有按结构卖出的都是钝化消失买回、不是结构消失买回；故不只凭提问命名事件，也不把这类绿色归为普通钝化取消。买回/仓位原话只用于语义，不成为系统功能。
+
+本地原锁定价3051.3457，上午收3052.2827已破高0.9370，DIF从32.180388降至31.591896约-1.829%；下午收3068.4553，DIF升至32.060928约+1.485%。在相同原记录/参照与普通事件不变的局部对照里，价格主条件上午满足，追加DIF回升或三组比例都要等下午，与确认的上午时点不符。因此现有价格规则获得新的区分证据，继续保留、不追加DIF门槛。软件上午精确DIF与实际ref仍未知，末端一致不构成历史误差界；不宣布所有DIF条件或全周期公式唯一确定。
+
+新图1、新稿1，旧52标签/原源/候选/比较/产品SHA保持，没有新代码/参数/合同/API/页面或正式资源读写、安装、提交部署。5/10的90分钟不可得已登记，不再索同图。当前无需为本例改内核；后续围绕尚未验证的独立事件和历史数值继续取证，不重复把当天有绿字当新验证。
+
+### 8.106 1/8收盘更正：结束报价差异追查，下一项聚焦旧结构何时停止比较（2026-10-19）
+
+管理员重新核查确认1/8收盘2887.54，与既有源2887.5379按两位显示一致。撤回§8.103/8.104把2869.34直接绑定1/8末根及据此判定18.1979点差的当前结论。截图光标可能指向旧柱，具体归属未确认，不继续把旧顶栏值当输入故障追查；未绑定末根的DIF/DEA/柱差值也不作为已证的当日计算误差。旧原件和比较保留，由[本次更正](../../reports/xxm/conclusions/xxm_new_daily_evidence_20261019_01/close_confirmation_20261019.md)接续，算法§12.56与LLD§33.2同步。
+
+这一更正只消除收盘输入疑点，不证明全部指标或软件公式。原模型收盘仍低于保存低点11.3408，已有事件与图文观察保持；3/11上午新证据支持现行价格规则、不追加DIF回升限制，无需因此改内核。1/8/5/8日线与3/11分钟的证据范围分别保存，不累计成原52标签的准确率。
+
+下一项建议只研究新同方向钝化出现后的旧结构处理。CodeGraph已读取当前calculator.py：顶部和底部历史均先核原DIF参照是否被突破，再核新同方向DULL/STRUCTURE，随后才判断历史价格突破；这是当前实现，不是新增软件证明。先用已有记录和9/2等原图核该顺序、找出不同处理方式会产生不同标记的案例，再提出最小找图请求。先不同时研究固定到期时间，不执行竞争计算或扩大读取；正式下一步须补针对该问题的方案/LLD及验收后再做。本轮只是材料更正和建议，无代码、合同或正式数据变化。
+
+### 8.107 新同方向钝化之后的旧结构比较：已定位后续分歧，等待最小独立图证（2026-10-19）
+
+管理员批准本项研究、需要新图时停止说明。本轮先补算法§12.57及LLD§35，新增离线入口/字面测试，只读四周期40478根原冻结源，用唯一r2核完整事件与原结果相同，日线1643points亦同。保存被新DULL结束的433条旧记录，189条同原柱色段内反向、244条已离原段；固定普通事件和原参照，只查后者若跳过DULL当根却继续保留，会不会在新STRUCTURE/原DIF突破前出现后续破价，未创建另一套识别/预测器。
+
+244条中144条有后续分歧、73条先新结构、27条先原DIF突破，无末端截尾；这不是软件误报数或准确率。视频起日后可取材的分歧34条，日线3、90/120分钟16、60分钟15。9/2之后，90分钟在9/3 11:00、120分钟在9/3 11:30都会出现后续破价；现有绿字分别对应9/3 14:00及9/4上午的钝化消失，不能把它们冒认成上述早一根的旧结构消失。原用户确认只说明紫/黄之间无绿，不能扩大成黄字之后9/3从未有别的绿色。
+
+5/8日线现图4月黄/紫之间未见独立绿，与当前处理相容；但3/7旧结构在现图可见范围之外，且截图已在4/21新结构之后，标签是否保留不能由此证明。故目前仍保留当前结束规则，不声称原软件已证。最小新请求为2023/4/17上证日线/MACD，最好显示3/7旧紫色、4/14新黄色及4/17末端；4/18或4/19可备。若只跳过4/14当根，4/17收3385.6095高于旧高3328.3927共57.2168，DIF22.553尚未突破41.186，当前下一新结构4/21也未发生；两种处理有明确不同结果。三比例既有事件链相同，不靠调参选日。
+
+新增24项及原19项共43测试通过，1.764秒/164052992B峰值，完成单元续读/原保护SHA保持；旧软件52标签未改、没有新增已确认软件标签、内核/预测/合同/页面不变。现依要求停止等待图证，不扩大固定到期等研究或读取正式源。详见阶段报告（原记录：`reports/xxm_history_replacement_screen_20261019_01/README.md`）。未提交、推送或部署。
+
+### 8.108 4/18新图已收到，先完成线程交接（2026-10-19）
+
+用户已提供2023/4/18上证日线，符合上一轮4/17—4/19备选范围；原图已打开，尚未完成逐项标签日期/指标数值及研究结论。随后用户要求先整理当前进展，故本轮只写[交接文档](xxm-research-handoff-20261019.md)，将原图同字节归档到材料接收目录（原记录：`reports/xxm_history_replacement_screen_20261019_01/new_image_20230418/README.md`），原报告/summary/final_checks不反写。当前从“等图”变为“已收到待核”，不得再要求同图；3/7旧结构、4/14新钝化、4/17—4/18标记是接手后的首项核对。
+
+交接列明已提交R1/r2内核、真实数据接口正确性/性能通过与实际页面待办、1/8最终收盘更正、3/11上午证据和限制、本题局部比较及需要区分的两种处理、现有输入/工具/报告、未提交范围和用户取材条件。当前内核相对f035a9e6无新改动，59份旧保护文件SHA保持；新图2828×1290/2476074字节同字节保存。用户反馈报错但无可用错误信息，最后可见读图调用成功，原因未定位，不称已修复。无新模型运行或软件标签结论，未提交、推送或部署。
+
+### 8.109 继续核4/18原图：末端读数及旧紫/新黄可见，右端位置待管理员辨认（2026-10-19）
+
+管理员明确继续本图研究，并允许看不清时求助。本步先补算法§12.57.1和识别LLD§35.3，再读原图及已有日线3/1—4/21共37行，不重跑识别/预测，不取正式来源，不改产品/配置/合同。原59份保护及原图/receipt/父完成记录合计71份SHA保持。原三比例保存的3/6钝化—3/7结构—4/14新钝化—4/21新结构链和参照相同，没有按图调参。
+
+图明确显示上证、日线、2023/04/18及末价3393.33；日期/末价/形态支持末根归属，未操作软件游标核验。收盘3393.33、DIF26.754、DEA16.667与源3393.3312/26.754/16.667按显示相同；柱20.174对20.175差-0.001，不记全相同，也不由末端相近推断软件3月或4/17精确历史相同。
+
+旧紫色“顶部结构”在图内，按两根短正柱后首根负柱及日线形态映射3/7。最右黄色“钝化”可见，初看首字在倒数第三根4/14附近；后两根附近未见清楚独立绿字。字与柱靠近，已只向管理员询问现图这处黄色发生柱、以及4/17—18是否同样未见绿色，不再索图。确认前准确新黄日期/旧绿阴性保持未知。
+
+与5/8旧图相比，本图补上“旧紫色仍可见”和“尚未经过4/21新结构”两项条件，因此对本题更有辨别力。事前旧价3328.3927、原DIF41.186保持，4/17收3385.6095破价57.2168、DIF22.553仍低18.633；只跳过4/14当根会在此满足旧绿，现行结束规则不会。静态未见仍不证明历史从未显示，用户确认未返回前不作软件永久结束/全方向公式结论。
+
+原始comparison保存待确认状态，后续用户确认另存，不覆盖。记录见本图核对（原记录：`reports/xxm_history_replacement_screen_20261019_01/new_image_20230418/review_20261019_01/README.md`）。没有新代码/算法测试、源下载/正式数据读写、安装、提交或部署；原43测试不是本次重跑。
+
+### 8.110 4/14补图及4/17—18无“消失”的确认：对新钝化后结束旧比较增加局部支持（2026-10-20）
+
+管理员答复“应该是4月14日出的钝化”，主动补4/14截图，另明确“4月17，18附近没有消失两个字”。本步先补算法§12.57.2及LLD§35.4，再保存原PNG和确认原话。原“应该”的暂定措辞与对4/18静态画面无字的明确确认分别记录，不把两者合成首次日期/永久结束的断言。初次comparison/manifest/final_checks/README和4/18原图/receipt不改。
+
+4/14新图末端已有黄色“钝化”，旧紫色“顶部结构”仍可见。上证/日线、可见04/14片段、2023刻度、末价3338.15与所给日期及已有源一致；完整顶部日期被边缘截掉，未操作原软件游标。软件3338.15/17.648/12.043/11.211，对源3338.1525/17.649/12.043/11.212，收盘/DEA按显示一致，DIF/柱各少0.001；4/18柱差-0.001也保持，不记全同，不由末端接近证明软件旧参照和4/17精确历史一致。
+
+补图证明4/14画面时已经新钝化，与事前模型相容，不额外证明4/13从未出现。4/18图中，管理员确认4/17—18附近没有“消失”。同一过程的两图补齐旧紫仍可见、新黄已在4/14出现、且尚未经过4/21下一结构；比5/8更晚图的区分条件更直接，不能算两次独立规则验证。
+
+只复用原37行来源和事前三比例事件，不再取数据或重跑模型。旧高3328.3927、原DIF41.186保持，4/17收3385.6095破旧高57.2168、DIF22.553仍低18.633。只跳过4/14当根但继续留旧比较，会在4/17满足旧绿色；当前结束旧记录不会。本组因此支持保留当前工作选择；沿用该记录/参照及绿字会保留显示的前提下，不支持只跳过当根、随后继续自动显示旧绿的解释。是否曾显示后隐藏/删除、软件真实旧参照、固定期限/其他条件及全方向永久规则仍未证明。
+
+本组图证核对收束，当前不需继续找同组图或改内核。原77份保护保持，新图/确认/比较/结论见最终补证（原记录：`reports/xxm_history_replacement_screen_20261019_01/new_image_20230418/review_20261019_01/supplement_20230414/README.md`）。旧52标签不改，不新增准确率或收益结论；没有新代码/算法测试、配置/合同/API/页面变更、正式数据读写、网络/安装、提交或部署，原43测试未重跑。
+
+### 8.111 旧结构有效期首阶段：复核23根和69根候选，先复用已有图确认（2026-10-20）
+
+管理员批准按下一步计划继续。本步先补原算法§12.58和识别LLD§36，用CodeGraph核已保存记录生产/读取链及现内核结束条件；只读取原237条历史消失完成JSON，未重放40478根或运行预测。原结构/发生日均在2022-09-13后共47条（日线7/60分钟17/90分钟13/120分钟10），这不是全部结构，未结束或其他结束原因不在集合中，不当全量有效期分布。
+
+日线视频期最长10根是7/9—7/23，已有材料，不重复索图；137根长日线在2021年，不要求视频。60分钟34根9/18—10/9保留但不优先。按取材与长度选90分钟6/12 14:00—6/24 11:00（23根/12天/两次变色）和120分钟11/14 15:00—1/6 11:30（69根/53天/三次变色）。两组源窗口共94行，SSE日历/原端点应有与实际逐项同、缺0/多0；三比例原结构/参照/时刻相同，均无期间同向新钝化/结构或原DIF严格突破，末端第一次严格破旧价。
+
+120分钟旧价4029.5012到4069.376破高39.8748，末DIF32.61195822721447低于原36.045260398387654；中间两条BOTTOM事件不结束TOP旧记录。90分钟旧价3406.0967到3412.122破高6.0253，末DIF0.0015755282656755298低于原23.498217554217263。69根旧线索在r2仍成立；旧60/90分钟136/102根起点/原参照/旧价与r2可对应，但在1/5 14:00新TOP DULL结束，不当到期证据或1/6旧绿色，原两条根数本步未另数。
+
+已重看管理员给过的6/24的90分钟原图：旧紫与末端绿/黄均可见，原软件读数差、绿色身份/时刻未确认保持。已只询问绿色首字是否6/24 11:00、此前最后旧紫是否6/12 14:00；确认未返回前，23根不能登记为软件有效期下限。既有1/6新原图是日线，旧全文主要讲60/90和日线小钝化，未直接命名120分钟旧结构绿色，不能替代69根图证；1/6（或1/7/8历史区）120分钟列为备用，当前未索取新图。
+
+当前产出是候选和理由，不新增有效期公式、软件精确标签/准确率或永久保留结论。先等已有图具体位置确认，不随机扩日期或变参数。报告/94行窗口/事件/原保护见首阶段整理（原记录：`reports/xxm_history_lifetime_review_20261020_01/README.md`）。只有临时只读审计和报告/原文档更新，无新源码/测试/配置/合同/API/页面或正式数据/网络/安装/提交/部署；原43测试未重跑。
+
+### 8.112 6/12原图与全文补证：确认当天二次结构，14/15点及23/22根仍待核（2026-10-20）
+
+管理员对6/24绿色11:00回复“我认为是的”，对6/12最后紫色回复“可能对应的是15点那根”，随后主动补6/12上证90分钟原图和159行全文。本步先补算法§12.58.2/LLD§36.2，再保存原字节和回复，不反写首阶段候选/比较/完成结果，不把暂定判断升级为精确标签。
+
+图上身份、日期、末价3402.66及末端黄色钝化、紫色顶部结构可见。按首个紫色“顶”观察更接近倒数第二根蓝色K线，整词向右延伸；按已有端点推为14:00，最右细红色为15:00。没有直接逐柱游标，原“可能15点”仍保留，已只请管理员确认首字在这两根中的哪根，允许未知，不要求另找图。全文12:56—13:41明确90分钟二次钝化、二次结构，未说明准确14/15或6/24绿色关联。
+
+只补摘6/12的11/14/15三行，14/15与原窗口一致。独立算14相对11的DIF降幅2.0400%、15相对14降1.6183%，均超过0.75/1/1.2%；原完成模型结构14:00保持，不靠改比例迎合图片。软件末端DIF9.571/DEA9.122/柱0.899对本地约9.60299/9.15563/0.89472有差，不平移到前根或原参照。若结构在14而绿色在6/24 11则23根；若结构在15则22根，均跨12自然日、两次本地变色，当前只作条件计数。
+
+全文4:22—6:59的“30个周期”是120分钟钝化以DIF差额和假定速度估算消失，不能解释为旧结构固定期限；原稿14/0.4字面35，仍按原文保留粗略说法，不转成精确公式。16:34—18:09为再次结构/纠错及采用周期讲解，也未给出到期规则，不衍生仓位或产品功能。新增结果只证明6/12当日结构存在，软件精确有效期下限/内部参照尚未新增确认。
+
+原96份SHA保护保持，新原图/全文与附件同字节；比较、逐行原文和最后核验见本步补证（原记录：`reports/xxm_history_lifetime_review_20261020_01/jun12_followup_20261020/README.md`）。只新增报告与原文档，无新源码/测试、模型重跑、正式数据读写、网络/安装/提交/部署；原43项测试未重跑。120分钟69根仍为备用候选，本步未新索图。
+
+### 8.113 6/24全文当时解读（由本稿衍生的固定24根分支已在§8.115撤回）
+
+管理员主动补6/24讲稿并询问是否有帮助。本步先补算法§12.58.4/LLD§36.3范围，读完整156行并同字节保存。12:09—12:25提到第二个90分钟、卖出、已经过22个周期、结构对应24个周期、今天下午24周期，以及不会跌穿趋势的判断。结合6/12讲稿的二次结构，增强两段讲解的上下文关联；新稿没有再次报6/12日期或软件旧参照，不登记精确事件关系已证。
+
+13:04—13:44说可继续等钝化消失，本次买回还依赖三浪三等判断；15:09—15:45明确90/120仍钝化并讨论隔峰比较，16:36—17:01继续等消失也被说成符合规则。因此买回并不能代替软件绿色、到期或当前钝化已消失。当前图上的旧绿色与后面新黄色仍需分别核，不能由谈话推为全部取消。
+
+原已核窗口不计形成当根：6/12 14起，到6/23 15为22、6/24 11为23；15起则21/22。按已有端点顺延6/24 14/15，两起点分别24/25与23/24。若原话22指当日11、24指15，15起点更吻合，对管理员“可能15点”增加条件支持；稿中并未明确22观察点、下午哪根或计不计形成当根，14起到14也达24，不能为了凑数反填软件时间。图像首字偏14和文字条件偏15两项依据均保留，原模型/23根候选不改。
+
+本稿增加结构对应24周期的直接资料，需要继续分清作者所说结构对调整的影响与软件何时停止旧结构价格/DIF比较。旧记录自动到期、标签删除、绿色准确身份及原参照仍未证明，不增加24根参数。原106份SHA保护保持，含6/12补证及原候选；全文、计数与核验（原记录：`reports/xxm_history_lifetime_review_20261020_01/jun24_transcript_20261020/README.md`）可复查。无新行情读取、模型重跑、新源码/测试、DB/Lake/网络/安装/提交/部署；原43测试未重跑。首字问题保留，不重复询问或扩大索图。
+
+### 8.114 当时的15:00确认及一根差异（已由§8.116更正、撤回）
+
+管理员对现图首字选择明确答复“最右细红色（15:00）”。本步按算法§12.58.6/LLD§36.4另存原问题与回复，将软件图位登记为2025/6/12 15:00，撤回助手此前偏14的初判；不再等待或重复询问这处位置。原待确认报告和模型输出不覆盖，不将新结论反写成当时已经知道。
+
+不计形成当根，从确认15:00起到6/24 11为22根，复核自首阶段完整窗口；到当天14/15顺延23/24根，仅既有端点计数，无新行情提取。这与6/24讲稿22/24相容；讲稿本身仍未明示两个观察时点或计形成当根方式。6/24绿色11:00的“我认为是的”措辞保持，本次确认不连带证明绿色属于哪次旧结构、软件原参照或24根自动到期，不能据此宣布软件有效期下限已证。
+
+原冻结模型三比例均报6/12 14:00，比管理员确认的软件图位早一根。该差异现已明确记录，原因尚未定位；不因确认改比例、原数据、软件52标签或旧23根模型结果。此前软件末端数值差存在，但没有前根软件值，不能据此认定差异原因。原113份保护保持；确认原话、计数和核验（原记录：`reports/xxm_history_lifetime_review_20261020_01/jun12_confirmation_20261020/README.md`）可复查。只更新确认及文档，无模型重跑、新行情读取、源码/参数/正式数据变更、网络/安装/提交/部署；原43测试未重跑。
+
+### 8.115 24是具体行情的对应数字，撤回由讲稿衍生的固定期限分支（2026-10-20）
+
+管理员说明：“不是一个普遍的，而是行情中恰好与之前对应的一个数字，不是说某某条件一定走24个周期。” 本研究按此将24限定为当时行情前后对应的具体计数；不把它推广为某种结构或钝化条件必走24根。
+
+助手此前把“软件是否满24根停止旧比较”列为下一待核问题，扩大了本稿含义，现明确撤回该延伸；不再基于本稿为固定24根设假设、索图或调参。旧结构是否有其他终止条件仍须独立证据，不能由这段数字先定答案再找材料。
+
+6/12软件图位15:00确认、本例到6/24 11/14/15的22/23/24根及原冻结模型14:00早一根的差异继续保留。计数相符仅说明本例时间关系，不证明通用规律；一根差异原因仍未定位。已同步原算法§12.58.7、LLD§36.5、交接和导航，更正说明（原记录：`reports/xxm_history_lifetime_review_20261020_01/interpretation_clarification_20261020.md`）接续旧报告，原报告和原件不覆盖。此次只有解释及文档更新，无新实验、数据读取、模型重跑或产品/参数变化。
+
+### 8.116 管理员重看原图后采用14:00，撤回模型早一根结论（2026-10-20）
+
+管理员先询问是哪天的图，明确所指为2025/6/12上证90分钟图后，再次查看并回复：“那就按照14点，我看了下，结字是从14点开始的。” 当前采用本次14:00复核，取代此前15:00答复；保留其实际辨认“结”字的原话，不改写成首个“顶”字。原冻结模型也是14:00，本处时间一致，撤回“模型早一根”“该一根差异原因待查”的结论。
+
+不计形成当根，到6/24 11/14/15分别23/24/25根，复用已有窗口/端点，无新行情提取或重跑。讲稿22/24不强行绑定这几个时点，24仍只作当时行情的具体对应数字，不恢复固定到期研究分支。绿色11:00仍保留“我认为是的”，其准确归属/软件原参照不因本次确认而升级；时间一致也不证明完整公式。
+
+已同步算法§12.58.8、LLD§36.6、交接及导航，[更正说明](../../reports/xxm/conclusions/xxm_history_lifetime_review_20261020_01/jun12_time_correction_20261020.md)取代旧15:00与模型早一根的当前结论；原报告、原件和模型输出保留历史。只有说明及文档更新，无源码/参数/软件52标签变更、新实验或正式数据操作。
+
+### 8.117 新确认案例自动回归完成，内核不变（2026-10-20）
+
+管理员批准三步计划。本步先补算法§12.59/LLD§37并核现有reader、冻结全状态预期及调用关系；采用最小方案，只新增主题测试，直接复用现有pytest/load_bars/产品XxmCalculator，没有另写runner或算法。3/11上证120分钟上午旧绿、4月日线新钝化后的旧记录处理及4/21正常变化、6/12上证90分钟14:00结构三项均有来自新图/管理员确认的独立字面预期。只断言已确认范围，6/24绿色归属/软件原参照/24根期限不进入预期。
+
+新增13项（10 SHA/3行为）及原68项内核回归通过，0.63/4.99秒，峰值约115/136MiB；读取三冻结源23218行，必要前缀推进20155根，未重跑1215预测或全筛图，原144份保护保持，旧52标签不改。阶段报告（原记录：`reports/xxm_confirmed_case_regression_20261020_01/README.md`）保存命令、日志、XML及资源。仅测试/文档/报告新增，产品内核、参数、API/页面和正式数据不变，无网络/安装/提交部署。下一项为实际页面，浏览器验收不得用本步测试代替。
+
+### 8.118 实际页面阶段验收完成，下一项待120分钟原图（2026-10-20）
+
+按已批准顺序，新增案例13项和原68项回归后，完成本地四周期实际页面、三个历史时点和XXM失败重试。6/12 m90结构在14:00、3/11 m120旧绿在11:30、4月新黄后4/17—18无关联旧绿均与各自实际响应/悬停相符。8行预测的状态/时点/条件/截至与display逐项一致；10份识别响应4000点对图表行情/指标0差异，含重复加载，不增加软件独立样本数。
+
+实际发现右栏缺失提示盖住正文/预测条件，按原方案/LLD先补根因设计后修复正常占位。旧实现2项新断言失败，修复后Wealth1191项、类型、构建通过；真实partial提示与正文间隔10px。只修改IndexInfoRail、页面CSS和既有页面测试，算法/参数/API、52旧标签及冻结证据保持。报告见实际页面结果（原记录：`reports/xxm_page_acceptance_20261020_01/README.md`）。这是本地已执行场景通过，完整冷启动计时、远端/登录/部署、Delayed真实状态及Figma/原型清退仍未覆盖；未提交或部署。
+
+下一项已按算法§12.61/LLD§39准备120分钟取证说明（原记录：`reports/xxm_history_lifetime_review_20261020_01/m120_next_case_20261020/README.md`）。只复用原70行窗口/材料审查，模型11/14 15:00→1/6 11:30跨69根/53天/三次变色仍候选，现有1/6日线图无法确认。需要一张2026/1/6上证120分钟图（1/7—8保留历史也可），尽量覆盖11/14旧紫与1/6绿色，之后才评估旧结构关联和较长保留。没有绿色或旧紫不可见均不能直接推出到期；不恢复固定24周期解释，没有新重放或软件公式结论。
+
+
+### 8.119 长案例原图不可得，先复用日线并给更早备用（2026-10-20）
+
+管理员未找到2026/1/6上证120分钟图，表示日线有、可考虑更早日期。该项不再重复索图，69根长保留保留软件未证，不据日线替代或增加期限。现有2023/5/8、2024/1/8日线原图已经保存，可以继续复核，无需重找。
+
+只读已有候选清单及m90/m120原记录并核SHA：2024/1/16 m90模型底部消失（原1/11 14:00结构，9根）优先，2023/3/1 m120模型顶部消失（原2/23 15:00结构，7根）备用；两者只能增加旧结构消失对照，不能冒充69根证据。原237条是最终发生模型消失的子集，视频范围日线最多10根，不能推出全体日线结构都短。另可接受明确命名同周期、旧结构与后来消失的讲稿作外部证据，现有1/6稿尚不满足。没有新模型/来源读取、代码/参数/标签变化或正式操作。
+
+
+### 8.120 新两稿支持日线解释，3/1分钟图出现待核差异（2026-10-20）
+
+管理员提供2024/1/17—18全文和2023/3/1上证120分钟图。原稿/PNG同字节保存，按算法§12.62/LLD§40只复用冻结结果和42行窗口。1/17明确回顾昨日结构并在今日重新钝化，且称目前未有钝化消失；日线语境与原模型1/16结构、1/17重钝化、1/18维持相容。没有明确命名90/120分钟，不作1/16 m90旧绿证据。1/18盘中一天半、后来回升使时间增加，为行情条件估计；ASR原词“4点”等保留，不造精确天数或新门槛。
+
+3/1图的末端收盘/DIF相符，DEA/柱各0.001小差；旧紫与最后绿在圈左，圈内暂未辨认模型2/22黄→2/23紫→3/1绿。已请管理员确认现有图可见文字，尚未返回，不记通过、不把圈左绿按模型配给后结构。原事件另外确有2/16→2/21链，两条不可混配。若差异确认，先查新钝化/结构及输入/参照/显示保留，不直接只改绿色或推固定到期。19份实际输入/产品SHA保持，9日线point/4事件及42分钟行/8事件已存，产品/参数/软件52标签不变。材料报告（原记录：`reports/xxm_alternative_evidence_20261020_01/README.md`）保留当前待确认状态，无新重放/正式读取或开发。
+
+2026-10-20后续确认：管理员明确“圈内没有这些文字”。确认及模型来源核对（原记录：`reports/xxm_alternative_evidence_20261020_01/confirmation_20261020/README.md`）接续原待确认状态，不记命中。CodeGraph/current Spec表明2/22新DULL使用2/21的段内高收3306.524，超过最近段3305.854；当根3298.13低于最近段高点，但当前资格没有这一项要求，选中更早2/1—2/2参照31.4063505后产生新DULL，后续2/23结构及3/1绿依赖这轮。当前只确定模型来源和圈内缺字，尚未证明软件应采用当根破近高、其他参照或不同显示；下一步应先区分这轮新钝化资格/比较对象，不先归因期限或只修绿色。无新重放、规则选择、产品/旧预期或软件标签变化。
+
+
+### 8.121 同日90分钟末端黄字补对照，价格条件仍待区分（2026-10-20）
+
+管理员补2023/3/1上证90分钟图，明确最右有钝化。原模型当日15:00 TOP DULL与末端类型/方向相容，软件精确首字时点未独立确认。源当日三红，直到末根3312.348才破最近红段高3306.524；120当日上午负、末根第一红，当前两根门槛无黄。新图是后续研究需要保留的对照，120之前那轮新紫绿缺席仍单独待解释。末端软件DIF/DEA/柱与源按三位差-0.017/-0.016/-0.003，未称数值全复现。
+
+新图中间绿字右侧黄字可进一步检验先前猜想：原模型2/21 14当根3294.037低于近高3304.952而出黄，15当根3306.524才高于近高。已请管理员确认现有图黄字首字时点/日期，不索新图；若14相符，将不支持必须当根破近高，若15相符也不唯一证明。答案未到先保存两种可能，不改变规则。63行源/10事件、20保护保持，无新step/预测、正式读取或代码变化，讲稿仍待管理员寻找。对照报告（原记录：`reports/xxm_same_day_m90_m120_20230301_20261020_01/README.md`）保存原件和当前停点。
+
+
+### 8.122 2/21仅近似14，红柱首次缩短记忆尚不能直接采用（2026-10-20）
+
+管理员认为2/21、更像14:00，但明确看不清；保留近似、不新增精确时间标签。同时提出记忆中钝化是红柱开始下降第一根，会找2/21视频。已核当前代码：首次顶部钝化看当前红段价格/DIF参照等条件，不要求柱递减；结构按DIF转折另算。
+
+现存源90模型黄为2/21 14，红柱首次缩是2/22 14；120模型黄2/22 11:30，首次缩2/22 15，DIF仍在升，紫要到2/23 15。3/1 90已确认末端有黄，而源红柱1.325841→4.447576→7.412579逐增。因此“首次缩柱”为所有新黄必要条件不能直接采用；也不据近似14否定价格猜想。105既有行仅作字面比较，无新模型/来源读取或产品更改；输入小差、软件前根/参照和词义前提待视频厘清。原话和核对（原记录：`reports/xxm_same_day_m90_m120_20230301_20261020_01/feb21_followup_20261020/README.md`）保存，原件/旧预期保持。
+
+### 8.123 2/21三周期图与讲稿补足一根红柱的解释（2026-10-20）
+
+管理员新供60/90/120分钟三图及2/21转录全文。当天120分钟消失、60/90分钟钝化有图文支持；01:15直接说120未新钝化因只有一根红柱，次日上午正常走可能新钝化。该预计不能替代2/22实际软件证据，亦未确认首字精确时刻。反复结构以最新一次计时，不等于旧峰参照被清空或普遍固定期限。
+
+02:32比较旧峰的临风与中间没有红角线两处已请核听，未答保留未知。01:15开头价格够说日线，不直接裁定分钟条件；后面只需时间也不足以证明实际下跌后仍具资格。下一步先核比较对象和历史文字保留，不能从3/1圈内缺字倒推2/22未曾钝化。未采用当根破近高或首次缩柱新门槛；原模型黄→紫→绿差异及原软件输入限制保持。本步报告（原记录：`reports/xxm_feb21_three_period_evidence_20261020_01/README.md`）保存原件/原文/17旧事件/15既有行，19份保护保持，无新模型或产品变更。原方案§12.65和LLD§43同步。
+
+### 8.124 邻峰指向1/30附近，次日模型参照另有切换（2026-10-20）
+
+管理员核听确认是邻峰、即相邻高峰，画图指1/30附近；红角线与红柱线同义，原说法无需纠成另一原词。核27封存行后，2/21三周期原事件的参照DIF均匹配1/30附近本地峰，120为历史消失所沿用的参照。精确时间/数值不冒充软件确认，也不把一次指向升级通用选峰办法。
+
+90图及本地2/1—8共18根无红柱与讲稿相容，90当前选峰不呈现冲突；不能将90说明搬到120。次日模型新120黄改用2/1—2/2的峰；当前只保留最近两段，按本地正柱段2/1—2/2及2/14—2/16已挤出1/30旧段。旧历史记录仍存原参照，不能混为一事。中间没有红柱的具体指向区间尚未知，后续应核该区间与本地来源/分段；不直接删除中间段、修改窗口或认定这是3/1缺字根因，没有改选参照实验。确认核对（原记录：`reports/xxm_feb21_three_period_evidence_20261020_01/neighbor_confirmation_20261020/README.md`）保存原话及35保护，算法§12.66/LLD§44同步，无产品/参数/旧预期变更。
+
+### 8.125 120分钟移除旧峰和选择新峰的步骤已核实（2026-10-20）
+
+按管理员要求核2022/12/27—2023/2/22封存72行/36开市日，无缺重，指标恒等式最大差6e−15。2/1上午负柱−0.437864之后有三根正柱0.919369/2.400074/1.523779，当前单根异色也分段，故独立计2/1—2/2。2/3上午结束此段入历史，2/16下午结束下一段后只留两段，才移除1/30所在旧段。
+
+不是同次钝化中途换峰：2/16原黄/紫和2/21历史消失仍沿用已保存1/30参照；2/22上午新一轮重选。两候选都满足段高3306.524与DIF11.402466条件，最近价格前置余0.670；2/1—2/2参照DIF31.406351比2/14—16的16.076542更高，所以被选，与原事件吻合。程序行为与原方案§4.2相符，但两段最强仍是有限案例假设，非软件公式已证。
+
+已只请管理员核现有120图2/1上午短负柱是否隔开前后红柱，图中负柱偏蓝，答案待返。不据90画线定义120，也不因选峰解释完整就宣称3/1缺字已解决。当前段高与当根收盘区别、软件全部输入/历史显示仍待核。报告（原记录：`reports/xxm_m120_reference_trace_20261020_01/README.md`）保存43保护、逐段及两候选字面值，算法§12.67/LLD§45同步，无新内核/预测或产品变化。
+
+### 8.126 软件图的短负柱得到管理员确认（2026-10-20）
+
+管理员答“能看见一根短绿柱隔开”，本处软件图与本地正负变化相容，不再将缺少此柱作为解释，不再索同图/追问本柱。此前问题中“决定是否单独算段”过强，确认只覆盖可见短负柱，不覆盖软件内部如何分段、保留几段或选择哪个峰，也不确认精确值。
+
+确认补充（原记录：`reports/xxm_m120_reference_trace_20261020_01/image_confirmation_20261020/README.md`）保留父报告及完成文件，接续算法§12.67.2/LLD§45.2。后续应核软件分段/选峰规则、价格条件或文字保留差异，不能自动合并小柱段或判3/1缺字已解释。此次只有确认记录/文档，无新模型/来源读取或产品/参数/旧预期变化。
+
+### 8.127 从短负柱区分选峰和新钝化资格（2026-10-20）
+
+管理员要求推测原理，并补120画线图确认讲解也指1/30附近，不再仅限90。DIF29.572451低于DEA29.791383但仍为正，负柱不等于DIF归零或所有旧峰作废。原峰可随多次结构沿用值得优先检验；不能直接忽略绿柱、合并历史或统一改三段。
+
+固定其他条件仅换三个旧峰，2/22都合格、后续DIF都未破，2/23紫/3/1绿仍有来源；所以换参照本身不足以解释缺字。五段首次资格表另显示当根价格假说有区分性：2/22当根3298.130已低于近高3305.854，现代码借2/21高收3306.524触发；增加当根过高后120这段不新黄，原两处120及3/1 90资格保留，2/21 90会从14改15但旧确认模糊不评分。
+
+该表不是新内核/完整状态机/旧52回归，尚不采用任何新规则。沿用原峰与当根资格应分开核，不能凭本例拼接修补；旧三段最强10月反例、3/11负柱时消失及3/1 90递增柱有黄继续保留。本步报告（原记录：`reports/xxm_short_negative_bar_hypotheses_20261020_01/README.md`）保存原件/82与72行/32重叠/假说和限定核算，算法§12.68/LLD§46同步，无产品/参数/标签/旧预期变化。
+
+### 8.128 因果表述更正及旧首次标记的当根价格核查（2026-10-20）
+
+管理员提醒负柱不会导致或保证红柱出现，接受更正：行情变化带动指标，只有实际观察到后续正柱才研究前后分段，不从历史柱色推出下一根行情。原评论与更正另存，原完成报告不覆盖。
+
+继续从原52条找反例，15 DULL按当前r2实际事件分为10首次TOP、4 dif_return及1 BOTTOM，只前10适用本猜想。1 direct/9 mapped原置信等级不改，10个当根均高于最近完成正柱段最高收盘及所选参照价，未发现当根价格反例。494来源行窗口/近段/日历核清；此结果不是完整新候选或52条通过，不证明后续STRUCTURE/CANCEL/NONE相同。
+
+只读旧例审计（原记录：`reports/xxm_current_close_old_case_audit_20261020_01/README.md`）保存全部52/分类/10窗口/差值，算法§12.68.2—12.69、LLD§47同步，76保护保持。候选仍待后续完整研究设计，不因本表采用规则，未改产品/参数/原峰选择/旧预期。
+
+### 8.129 首次顶部当根价格的完整候选已运行（2026-10-20）
+
+管理员批准四步计划并要求说明三类判别规则。先完成算法§12.70/LLD§48，再新增仅过滤首次TOP当根价格的离线子类与独立小样本测试；不改变产品转换、两段选峰、1%、底部或旧历史结束次序。40478条从原始起点各自运行，现算法与原r2完整账本相等；候选原52仍52/52（20 direct/32 mapped），10项后来确认范围相容，不升级模糊时刻/内部身份。
+
+120分钟2/21两组状态/旧历史一致；2/22当根3298.130未过最近段3305.854，候选不借2/21段高3306.524发黄，故后续2/23紫/3/1绿自然没有。不是单独隐藏绿色，不证明软件2/22从未钝化。90分钟3/1黄保持，2/21首黄改15但原14/15未知，不评分。3/11、4/14—18及6/12确认观察保持。分段/底部相同、截断/恢复相等；88项通过，完整实验1.33秒，80保护保持。
+
+689根差异未逐一取得软件证据，不能认定公式已还原。优先反证为2023/5/9—10上证日线：原程序9日黄/10日紫，候选均无。5/8原图已收到，不再索同图；已请管理员核新黄/紫有无，若有则本候选至少该例失败，先查输入/参照/最高价或收盘价，不调参修补。不是旧2024/5/10的90分钟材料缺口。
+
+目前认识：钝化比较价格与旧高低及DIF与旧峰谷；有效钝化后DIF反向与结构形成相符，1%、异色/精度的普遍公式未证。“消失”分原钝化的DIF比较失效、已形成结构后来被价格突破、底部同段回转未满足重新钝化等情形；软件选峰、价格取法与完整有效期仍待核。程序分支不是软件真值，也不能将红柱缩短当全部新钝化的充分/必要条件。详见完整候选及规则认识（原记录：`reports/xxm_top_current_close_20261020_01/README.md`），产品保持。
+
+### 8.130 事先选定的5月9日日线无新钝化（2026-10-20）
+
+管理员补图与全文转录，并确认“没有钝化”。截图是否收盘未答；此图无黄与冻结候选相容，旧程序5/9有黄，5/10仍未确认。图收3356.95与封存3357.6707小差原因未知，均低于本地近高3393.3312，不改输入或假设软件旧峰等同。5/8第一红柱过旧高、5/9第二红柱价已回落，与2/21—22的120分钟过程相似，增加当根条件支持；仍非公式已还原。
+
+讲稿另明确5/9 90分钟14点无结构、15点才有，90/120收盘形成。已存两组事件均15点；封存90在14点柱23.021缩18.723但DIF21.354升21.545，15点DIF才降19.521。说明单用第一根缩柱确认结构不足，与DIF转向更相容，不锁1%或把本地数值当软件真值。120“闪烁”所指时段不明，已请管理员核听，未据此认定收盘后会变；假设句不当作日线结构实证。
+
+算法§12.71/LLD§49先限定后归档，新证据（原记录：`reports/xxm_top_current_close_20261020_01/may9_evidence_20261020/README.md`）保存原图同字节、研究段原文节选（非全文）、答复、13行投影/读数差/重复模式。96保护保持，原完成结果不改；未执行新模型或修改候选/产品/参数/旧52与88工程预期，无正式源/网络/安装操作。继续反证，不自动迁产品。
+
+### 8.131 5月10日日线支持候选，120分钟通过结论撤回（2026-10-20）
+
+管理员核听解释120“闪烁”即不确定、当时还没形成结构，只是可能，并强调钝化是前提但不保证结构。撤回前节120收盘结构已确认的部分；90分钟14无15有保持，120最终15点软件状态未知。本地两组仍在15点报结构，DIF下降3.408%超过现1%；作为待核差异，不因这句换门槛、也不把开头模糊转录当最终确认。
+
+另补5/10上证日线，直接核图末端未见新紫，圈内是旧绿色，旧紫更早可见。图收3319.15与封存按两位一致，DIF/DEA各差0.001、柱一致。结合管理员5/9无黄确认，与候选两处均不产生相容，原程序则有黄/紫。封存DIF5/10已降15.095%，仍需有效钝化前提，不能单凭下降补结构。图面缺字不扩成全天历史/内部状态已知。
+
+算法§12.72/LLD§50先设计后归档，补图与更正（原记录：`reports/xxm_top_current_close_20261020_01/may10_and_flash_clarification_20261020/README.md`）保留两条研究独立：首次价格得到新支持，结构确认仍待核。109旧原件/完成产物/来源/代码保持，无新模型或产品/候选/参数/旧预期修改，不重跑原88工程回归。
+
+### 8.132 120分钟时点差异缩到具体画面和价格（2026-10-21）
+
+管理员授权继续。核当前代码首次价格条件只影响activation，5/9已有钝化后的120转向不受它改变，两组本地最终仍有结构。固定原源/MACD/锁定峰及1%，解90价格上界3380.342973、120上界3362.855738，中间区间可90成立而120未成立；核中点/端点正柱与原峰未破、有理数与EMA改写/DEA/H一致。它只是条件区间，不能断言当时屏幕真的在区间内或软件采用1%。
+
+若120那一屏也用日线图3356.95，则本地120降3.742%，仍满足当前门槛。因此不能把日线图对封存0.72点小差当差异已解释。另核该日线图DIF/DEA/H的小差，存在同一组未舍入值能由价差及0.001显示同时解释，但不恢复软件原值、不认定截图时点。已请管理员核原视频03:33的120一屏实际黄/紫及顶栏价，不再问闪烁原词或索同日日线；最终120状态仍未知，旧通过撤回保持。
+
+算法§12.73/LLD§51先限定后执行，算术与待核点（原记录：`reports/xxm_may9_m120_time_price_audit_20261021_01/README.md`）保存117保护，零新来源/模型/预测器执行。无实现/参数/旧52与88工程预期改动，不扫描门槛；待实屏信息再判断时点解释能否排除。
+
+### 8.133 120分钟画面确有紫色结构形成（2026-10-21）
+
+管理员核约03:33画面明确是紫色“结构形成”四字，真实收盘3357.67；截图“应该”收盘前，为其推断保留。120具体顶栏数值和精确时刻没提供，不套日线图3356.95。旧分钟3357.671、日线3357.6707两位显示一致，不改收盘输入。
+
+可见紫字与两组本地120在15点有结构的方向相容，结束画面字样待答。本例不再作为已确认无结构反例，不能用此前闪烁解释生成画面无字或最终无结构标签；闪烁的不确定含义、最终固定状态/软件指标/旧峰未另验收分别保留，1%未因此证实。原解析区间仍是条件算术，不认定实际路径。不重复索同屏/紫字/真实收盘，研究回到首次价格候选其他反例。
+
+算法§12.74/LLD§52同步，确认与范围（原记录：`reports/xxm_may9_m120_time_price_audit_20261021_01/screen_confirmation_20261021/README.md`）保存原话/对照；125旧源/完成文件/代码保持，无新模型/来源或候选/产品/参数/原52/88预期变动。
+
+### 8.134 2月25日近峰讲解反驳旧候选，先筛价格再选峰（2026-10-21）
+
+新2026/2/25上证90分钟图右端黄，讲稿03:43—03:59、05:05—05:13明确比较近期峰。旧候选先以段累计高点选更强1月峰，再用当根价整体拒绝，至25日无黄，与新材料相反。当前产品虽同日有黄却仍指1月峰，不能只看有无黄就称完全相符。先原字节冻结图稿与观察（原记录：`reports/xxm_feb25_m90_reference_evidence_20261021_01/README.md`）、算法§12.75/LLD§53限定，再另增研究候选：用当根close逐个筛价格资格，近高仍须超过，合格者按原DIF强弱选；两峰都合格时不强制取近峰，其他转换/参数不改。
+
+新候选本地2/25 14点钝化，选2月段、DIF峰在2/12；日期级黄与近期峰定性相容，软件首字14/15与内部身份未知。原52三组仍52/52（20 direct/32 mapped），后来13观察新13、旧12、产品10相容；都是已用研究材料回归，未冒充新验证。3/1 120分钟无圈内绿、5/9—10日线无新黄紫等改进保留，原13案例和68核心加7旧候选与13新测试共101项通过。40,478条、1.86秒，139保护/原账本/底部/分段/截断恢复保持。见三组结果及差异（原记录：`reports/xxm_top_current_close_selection_20261021_01/README.md`）。
+
+先筛再选与先选再拒绝只在3处首次比较产生不同：2015/6/5 m60、2017/3/27 m90、2026/2/25 m90；连带5去/9增事件，无软件材料不判正确。下一优先2017/3/28 m90：旧预测上午结构，新候选此前已取消，方向有区分力；年代早找不到可保留未知。2/26—27本地后续不当成软件真值。讲稿连续红绿描述是分段线索，不是绿导致红的因果规律；各周期天数也不变检测器固定到期。仍未证明价格取法/1%/两段池及完整消失公式，无产品迁移。
+
+### 8.135 早期资料不可得，改以近期长段和已有图交叉核查（2026-10-21）
+
+管理员说明没有那么早的讲稿/视频，停止索2017/2015。先写算法§12.76/LLD§54，再复用现有算法/固定源/上次sealed；40,478行三组完整事件一致，初筛1.31秒，156旧保护保持，无候选/产品/参数/52预期变更，不重跑无改动的101工程测试。严格旧/新研究候选首次选峰顺序的较近差异只有已给2/25；不能为了换近期日期，将首次价格条件的其他案例算成同问题独立验证。
+
+另筛2023以来两峰都合格而本地取远峰的36例，其中16例后续DIF先越近峰、未越远峰。优先2025/6/25 m90：近段28根，收盘14.491介于近峰10.557与远峰23.498；实际仍钝化/有新消失及作者所指峰待材料。120同视频自然展示可顺带核，不另要求第二份；只做固定阈值区分度，不计算近峰另一完整模型的最终状态。最新2026/5/7和2025/8/18收盘已越两峰，普通收盘材料区分力较弱，不单凭日期新就优先。备选2026/1/27 m60产品有黄、两候选无黄，检验当根收盘是否仍须过近高，不代替选峰顺序。
+
+4/18既有日线图已能核新问题：26.754已越最近原始正柱段DIF峰24.935、未过较远41.186，图仍黄、附近无消失。但最近3/3—6仅两根，软件可能不把它当合格参照，不能据此唯一确定最强峰算法；旧材料复用不新增独立案例数，也不混同原来讨论旧结构停止价格比较。2/25已有四周期本地方向相容，120近段最高收盘4188.236贴近口述4188，不将口述时态/近似价升级精确公式/最终状态真值。近期结果与一份材料请求（原记录：`reports/xxm_recent_reference_crosscheck_20261021_01/README.md`）接续§8.134的旧取材建议。
+
+### 8.136 6月25日新图稿支持较远峰，锁峰与换峰仍未分清（2026-10-21）
+
+管理员补齐请求的上证90图/全文，09:59—10:18明确90收盘钝化加9，60已消失；120的07:05—07:35以DIF约12/前根约7/旧峰约26估计离消失距离。先算法§12.77/LLD§55限定，再原字节归档。90图DIF14.501与本地14.491小差，仍在本地近峰10.557和远峰23.498之间；120本地7.620→12.049、远峰26.115与口述相容。日线另述15.64/最高23，不能搬作90旧峰确认；60精确软件取消时点未知。
+
+本例支持有资格时较远DIF峰可用于钝化比较，给DIF追过旧峰使当前钝化失效增加支持；反对机械永远只用最近原始段且破后绝不恢复，不证明总取最强/池为两段/1%公式。收盘黄仍可由先近后远解释：现代码取消后下一根能再首次选峰，6/25 14点越近峰、15点价/正柱/DIF仍可满足远峰，仅核算术未模拟另一完整模型。不能倒推从6/24一直锁同一峰。24周期原文按作用时长语境保存，不加软件固定到期，预计未来两天消失不当成已发生。
+
+仅读9行旧投影/三组既存事件，无新CSV或模型执行，169旧保护保持、原52/13不改、101旧工程测试无改未重跑；同日三个周期只记一组新材料，不算三次独立行情。见原图、全文与推断边界（原记录：`reports/xxm_jun25_reference_evidence_20261021_01/README.md`）。6/25请求结束不重索同日，下一步分别检验首次价格资格与参照能否中途更换，未改产品。
+
+### 8.137 先近峰、取消后换峰已完整计算，旧8月材料可限制该解释（2026-10-21）
+
+管理员要求继续明确疑点。先算法§12.78/LLD§56限定，再仅覆盖首次TOP选择次序，双方沿相同当根价资格/最近段价/两段池/1%及全部产品转换。原101加新9字面测试共110通过，40,478条两组完整比较约1.9秒；强峰组完整事件对原sealed，底部/分段/池、两组前缀恢复保持，180保护保持。原52强52/近49，失去两条mapped NONE及8/18 120下午direct取消；旧13后来观察按原范围均相容，不改标签或将4/18无绿偷换成当前NONE。
+
+6/25 m90近组实际14点取消、15点远峰重钝化，收盘相同；m120近组当日下午取消而强组仍钝化。旧8/18原图/holdout已回看，绿色在下午末根，近组上午取消后下午DIF已过两峰，无法再产生该下午取消。更早8/15字幕说120约3750/涨54点消失，当前冻结18行复算近/远下一价3715.211/3750.733；截至8/15最高DIF28.851仍未越近峰29.635。因此相同其他规则下“总先最近原始合格峰，必须取消后下一根才改远峰”与原证据不相容，不能继续只因6/25末态相同将它视为同等支持。
+
+这是原材料在新当根价条件下的复核，不算新独立样本；旧stage2虽有同名策略但以wave.price筛且无现产品完整状态，未运行或复用为当前内核。尚未排除未取消时换峰、结构转回钝化时换峰或旧段资格另有限制，不证明初始永久锁峰/普遍最强排序。近期收盘不同仅4点，多数已有材料，不再索一串收盘图。下一只缺2025/8/7讲稿，核120首次钝化时旧峰/消失价，已查存档未收；8/7事先算术3740.758/3776.280仅条件辅助，不作软件期望、不诱导核听。完整过程、旧原图与下一材料（原记录：`reports/xxm_top_reference_priority_20261021_02/README.md`）为当前结果，产品/预测/原52/13未改。
+
+为减轻找稿，另查已接入vidIQ余额，实际积分消耗0；付费搜索/字幕均需先确认未授权消耗，未调用。普通公开检索两次未定位8/7精确目标，错日期/无关结果未用于结论，不能声称视频不存在；取材记录存02子目录，8/7稿仍待。当前110测试/02完整事件与01相等，新增负向样本只补测试区分力，旧结果不覆盖。
+
+### 8.138 8月7日材料补齐，价格筛资格与峰的高低分开核（2026-10-21）
+
+管理员补120原图和全文，提醒选峰可能与价格点位有关。先算法§12.79/LLD§57限定，只归档和有界算术，未改/运行检测器。稿01:18确认120新钝化、06:17后确认90也有，但未给120比较旧峰或消失价；图末端数值按显示精度相容，精确锚点/软件完整输入仍未证。8/7原材料请求结束，不重复索。日线“一根红柱，再出一根”支持新段至少两根的假说，不推广为旧短段资格；序列按收盘失效与钝化选峰分开。
+
+此前已在2/25检验价格：当根4147.2305过近段4138.4746、未过远段4157.9844，导致先筛当根价格与先选再否决有实质区别。8月则不同，两段均过价格：旧段14行重算远段最高收3608.5757、最高DIF32.468749；近段最高收3628.53、DIF29.635070，价格较高和DIF较高不指同一峰。远段最高收7/23上午、DIF峰7/24下午，峰值位置也非同一根。8/7—15复用14行最低收3635.1282仍过两旧价、最高DIF28.850817仍未越近峰，不能用价格后来才达标解释这一段假定的换峰。
+
+补核已存8/15全文，120明确“市场又重新钝化了啊，新的钝化”，然后给出3750/涨54点消失；与本地结构转回钝化的方向相容，但没有说是否重选峰。下一待验解释是这次回到钝化是否允许重新选择合格峰，尚未开发或完整计算，不把一句“新的钝化”直接当成内部重选。价格的其他定义、旧段资格和初始远峰/中途换峰仍未知；本轮先不再索仅有黄色的普通图。
+
+两原件同字节、14新投影/14复用行/极值/逐根不等式/图显舍入/199保护及四完成周期核过；没有新模型、原110重跑或52/13标签修改。源只含close而无high，不能声称验证影线最高价。见8月7日材料与价格核查（原记录：`reports/xxm_aug07_price_reference_evidence_20261021_01/README.md`），产品/预测/API保持。
+
+### 8.139 回转重选C改善8月，但6月120分钟仍需核画面（2026-10-21）
+
+管理员批准三组对照并要求需辅助时停止提问。先算法§12.80/LLD§58，再新增离线C和15字面测试；原110保持，125通过、帮助正常。C首次最近优先，仅同段STRUCTURE回到DULL时按相同当根价格资格重选最强DIF；先越原峰仍取消，无合格回转则无新黄/当前NONE。原测试样本130新高混入旧结构消失，按真实合同换125保留断言和算法，原失败/理由保留，另有6.25→6.3125精确1%测试。
+
+40,478行三组约2.32秒，A/B旧sealed事件全等、分段/池/底部/C前缀恢复相等，214保护保持。原52 A52/B49/C51，13后来观察按原可见范围均相容，原置信/标签不改。C在8/15 m120由近29.635改远32.469，8/18下午取消，与旧8/15约3750和8/18末根绿相容。但这正是提出C的已有材料，不算新增独立证明。
+
+6/24—26 m120无C回转时机，C仍先取11.886、6/25末根DIF12.049时取消、6/26上午重新钝化。6/25原稿07:05—07:44以120当前12/前7/旧26估计未来4周期消失，这段口述与已经取消有差异。6/26原图/holdout已回看，上午无新黄仍mapped，文字锚点限制不升级，单独不足直接判软件内部规则；C剩此一条固定观察不符。已有6/25图是90，120只有稿，不能混周期。
+
+当前唯一请求为核6/25视频07:05—09:59的120画面右端最新黄/绿，若可读DIFF顺带原数。提出后停止研究等答，不继续加规则或索更多日期。C暂不能替代A，更不能以8月相容宣布换峰已证；初始最强/旧段资格/价格定义仍未知。A/C近期不同状态9、相同状态不同过程377已保存暂不索材。完整三组与原材料（原记录：`reports/xxm_top_return_reference_20261021_01/README.md`）为当前结果，无产品/参数/API/预测变化。
+
+### 8.140 6月25日120字序确认：左绿右黄，DIFF未知（2026-10-21）
+
+管理员在澄清日期为2025年后答“最右侧先展示了消失，然后是钝化，消失在钝化的左侧。DIFF我无法读出。”按算法§12.81/LLD§59只保存空间字序及数值未知，不填精确锚点、截图是否收盘或同轮关联；未有新图片文件，不宣称自行核图。该问题结束，不再索同字或DIFF。
+
+复用已完成m120六行，A/B/C均有本地6/24上午旧结构价格消失、下午新黄，A25日保持而B/C取消、26日上午再激活。故左绿右黄本身并非A独占证据，不能直接认定左绿是25日当前钝化取消；普通CANCEL与软件绿字是否一一对应仍未证。结合原稿120当前约12、旧26并预计后续消失，A更连贯，C仍不能解释相同完成数据条件下的持续钝化语境；不作软件精确状态新金样本或否定所有换峰方式。
+
+只新增确认与限定对照（原记录：`reports/xxm_jun25_m120_confirmation_20261021_01/README.md`）及接续原文档，231旧保护/四完成周期保持，六行既存投影，无新源/模型/测试/产品修改，125只是上轮工程结果，原52/13不改。下一研究回到首次选峰与旧段资格，不能靠此升级A为普遍公式或给C补日期条件。
+
+### 8.141 6月25日120原图补上DIFF，旧段长度单条件不足（2026-10-21）
+
+管理员补原图并授权继续，先算法§12.82/LLD§60限定。图读close3455.97、DIFF12.048、DEA4.513、MACD15.069；与原完成末根各差一显示单位内，和正数截断显示相容，不称已证明显示算法或完整输入一致。此前用户未读出仍保留为历史答复，新原图数值另记。12.048已过本地近峰11.886273而未过远峰26.114903，黄字仍在、红圈标5月峰；加6/25稿旧26及未来才消失，A更连贯，B/C差异不能只归末根0.001显示差。软件旧峰真实读值/精确截图时点/普通CANCEL显示仍未证，原52/13不改，不把手绘圈当软件自动参照字段。
+
+旧sealed近段6月14根、远17根；8月曾用于比较的远段12根、近2根。若当前原始分段下单用固定最少根数过滤，排6月近段需N>14，而保留8月远段需N≤12，不能同时满足。故“只是近段太短”单条件不足；不排除软件另有分段/资格/范围，也不调参或另造过滤器。首次强峰永久锁定仍未证，同根越近峰后改远峰尚未计算，不因现程序次根重进就认软件也如此。
+
+回查已有6/24全文，15:09—15:35在首次钝化当天写120“格峰”、90“隔风”可以比较。旧研究按上下文解释成隔峰，是推断而非管理员原词确认；2/21邻峰确认不能替代。当前只请核这两句原词，问后停止，不重复索已收6/25图或DIFF；即使确为隔峰也不自动证明两段池、最强DIF排序或精确初始参照。两版转录同一视频不算独立证据。
+
+原图同字节、237保护/四sealed保持，只读已有窗口/历史和条件算术，无模型/测试/产品/预测/API或参数变更，125为旧结果不重复计。原图、精度与原词语境（原记录：`reports/xxm_jun25_m120_image_evidence_20261021_01/README.md`）为当前接续。
+
+### 8.142 6月24日两周期均确认“隔峰”（2026-10-21）
+
+管理员核听15:09—15:35后答“隔峰。两处都是隔峰。”120、90分钟两句原词现已确认，原ASR“格峰/隔风”保留，代理未自行听音。原词请求结束，不与2/21的邻峰混用。
+
+6/24讲解已经允许隔峰比较，早于本地6/25越近DIF峰。故仅靠越近峰后重选、或后来结构回转才启用远峰，不能解释首次当天的作者讲法。结合6/25原图和旧26口述，首次按价格筛资格再比较较高DIF的A目前更相容。仍需区分作者讲解对象与软件内部参照：本条未证明精确首次峰身份、固定跳一段、两段池、最大DIF必优先、永久锁峰或软件价格字段，不能据此把A迁产品。
+
+下一研究把哪些旧峰有资格与合格后采用次序分开，优先复查已有价格排序与DIF排序相反的案例；无新证据不加条件。本次只复用十根窗口，245保护/四周期sealed及原稿SHA保持，无新模型/125测试/正式源/代码变更，原52/13标签保持。答复与限定结论（原记录：`reports/xxm_jun24_gefeng_confirmation_20261021_01/README.md`）对应算法§12.83/LLD§61。
+
+### 8.143 两段系统课建立判别模型，DIF两位取数待原图（2026-10-21）
+
+管理员先给00:01—28:33课程转录并要求建立模型，建模中又给自述2015/3/11的00:01—29:14课程。两段原文完整归档，第一段日期不猜，课程与现代软件版本是否相同不预设。按算法§12.84/12.84.1、LLD§62/62.1建立判别模型及当前代码对照（原记录：`reports/xxm_quantitative_structure_lesson_20261021_01/README.md`），17个时间段、14条规则。
+
+模型明确：第一课15:25—16:22两个同色段之间异色一根也可分隔；第二课05:18—06:20最新同色至少两根。两条不是同一根数要求，支持2/1短绿分隔，不证明其后峰必被选。价创新高低、DIF峰谷不创新高低及柱条件构成钝化方向；DIF转折在所看周期收盘确认结构形成，换色可以随后发生。第二课08:56—11:07和21:58—25:05已经回答前课75/25的歧义，改为记录换色前后不同纠错：未换色DIF转回，结构纠错但钝化可能继续；已经换色后看最高/最低收盘价突破。形成是点、钝化是段，不能把形成点与仍有效混成一项。
+
+关键新增是第二课12:38—13:28：判断钝化和结构看DIF左起第一个非零数字开始的两位。16:06—16:14的12→11、21:10—21:27的41→40提供数值例子，但无图不能确定截取/舍入、原数、负值和量级边界。此条同时影响旧峰资格与当下转折，不能只把固定1%换成另一百分比，也不把70/30或75/25作DIF幅度、加权评分或概率。现计算器完整DIF固定1%、两旧段与最强排序均保持现实现/候选身份，不称本课已证；零柱也切段与课中异色分隔的对应未明。
+
+逐对保留可比较峰，再研究软件采用/显示次序，课程多个结构例子并不自动证明同根并行多参照；单一参照亦非本课已证公理。强弱先保留速度/跨度观察，未给阈值不加权；26天发言有前提不作固定失效，浪形速度预测有作者原文反例，不作必出五浪。消失/新信号接替等旧研究仍未全部解决。
+
+现只请补**第二课2015/3/11的13:18—13:28**取两位数字画面，及**21:10—21:30**41回落40的画面，保留DIF完整读数及游标；前者必要时选12:38之后数字最清楚的一屏。无需再核第一课确认含义，也不索一串普通图；提出后停止。252保护、四周期sealed及原52/13保持，无新计算器/模型执行/125测试重跑或产品/参数变更。
+
+### 8.144 两图支持截取两位，数值模型与1%不等价（2026-10-21）
+
+管理员补齐所请求两图，并确认第一张约13:20且在该时间段唯一。图读第一张15分钟、游标2015/3/9 13:15、DIF-8.086；第二张60分钟、游标2014/12/19 10:30、DIF40.057，字幕从41回落40。日期是图中历史游标而非视频时间。前根41.xxx未显示，不补41.000或计算其真实跌幅。原图与原话同字节归档，两个截图请求结束。
+
+结合第一张原稿按8.0/80讲，较明确支持首位非零起保留两位、舍去后面，因两位四舍五入会把-8.086变成-8.1。第二张40.057读40相容，但独自不能区分两种方法。按算法§12.85/LLD§63建立保留符号和小数位置的数值候选，零按0、跨量级保持大小关系作为候选完整约定，未说课图已逐例证实。原始指标不截取重算，不能截取DIF而搭原DEA/柱值伪造输入。
+
+独立字面算术核19例、4个正负方向反例。顶部12.01→11.99仅跌约0.167%，截取后12→11；12.99→12.80跌约1.463%，截取后12→12。说明固定1%与两位变化并不等价，现1%不能再称作者取数规则的等价公式。构造例不是软件实测，未发结构事件；零/负值/跨量级/相等条件仍需区分候选约定与实际软件证据。
+
+复用既存90/120十根窗口，当前与近远峰共20次大小关系全部保持。6/25 m120由12.048531对11.886273/26.114903变成12对11/26，依旧越近未越远；m90末根14对10/23也保持。因此截取本身不能结清6月选峰，A/B/C成绩不改，旧峰资格/采用次序继续独立研究。后续在原方案/LLD写清每一处DIF比较及等值边界，再做唯一变化项的离线候选，不只换1%参数就宣布整套规则落实。
+
+261保护/四周期sealed及原52/13保持，只有图示数值核对和原文档更新，未重跑检测器或125项工程测试，产品/接口/参数不变。两图与数值模型（原记录：`reports/xxm_two_digit_dif_images_20261021_01/README.md`）为当前接续；两图已足够推进下一项设计，暂不要求新材料。
+
+### 8.145 两段课程学习成果整理（2026-10-21）
+
+**我们已经找到了作者核心量化标准的直接依据，可以据此建立模型。** 目前明确的是判别、确认、纠错及DIF取数标准；选哪一个旧峰、少数数值边界以及现代软件的完整实现还没有全部还原。固定1%不再作为作者两位取数规则的等价公式。
+
+本节是两项学习成果的统一摘要。第一课日期未知；第二课开头自述2015年3月11日。来源为管理员提供的第一课原稿（原记录：`reports/xxm_quantitative_structure_lesson_20261021_01/sources/lesson1_unknown_date.txt`）、第二课原稿（原记录：`reports/xxm_quantitative_structure_lesson_20261021_01/sources/lesson2_20150311.txt`）及后补两张截图。以下时间戳均指相应课程视频位置，不是图中行情游标时间。
+
+#### 成果一：钝化、结构形成与纠错的判别关系
+
+| 环节 | 学习所得 | 原课依据 |
+| --- | --- | --- |
+| 两个峰的比较 | 两段红柱之间必须有绿柱，两段绿柱之间必须有红柱；中间异色柱只有一根也可以分隔 | 第一课15:25—16:22 |
+| 最新柱段 | 最新红柱段或绿柱段至少两根；这与中间分隔柱一根即可是两个不同要求 | 第二课05:18—06:20、14:25—16:01 |
+| 钝化 | 顶部价格创新高而DIF对应峰不创新高；底部价格创新低而DIF对应谷不创新低，还须满足上述柱色和根数条件 | 第二课02:14—02:25、14:25—16:01 |
+| 结构形成 | 钝化状态下，DIF反向转折即判断结构形成；按所看周期收盘确认，可以早于柱换色 | 第二课08:56—11:07、11:11—12:26 |
+| 换色前纠错 | DIF又转回原方向时，对已形成结构纠错；若原背离关系仍在，钝化可继续，后来还能再次转折形成结构 | 第二课21:58—25:05 |
+| 换色后纠错 | 柱换色补全确认后，观察该结构对应最高/最低收盘价是否被突破；其价格区间与具体锚点仍需核定 | 第二课25:38—25:59、27:45—28:36 |
+| 钝化失效 | 钝化过程中DIF也创出对应新高/新低，原钝化关系不再成立 | 第二课03:06—03:31 |
+
+必须保留三个区别。第一，钝化是一段持续状态，结构形成是一个发生点；先前确实形成过，不因后来纠错就改写成从未发生。第二，DIF转回造成结构纠错，不必然代表钝化也消失。第三，两峰之间用于分隔的异色柱，与当前结构随后出现的换色确认，是不同位置、不同作用的柱。
+
+第一课75%/25%、第二课70%/30%是在讲DIF转折与换色的确认过程，不是DIF变化幅度、统计胜率或加权评分。第二课明确在DIF转折时判断形成，不能要求先等换色才登记形成点。结构存在及如何纠错，也不能直接改写成用户的交易或仓位指令。
+
+#### 成果二：DIF从首个非零数字开始保留两位
+
+第二课12:38—13:28明确判断钝化和结构看DIF左起第一个非零数字开始的两位。两张课程图把取数方式收窄为：**保留前两位，舍去后面的数字，同时保留符号和小数位置。**
+
+| 课堂图示 | 图中DIF原值 | 比较时读作 | 能说明什么 |
+| --- | ---: | ---: | --- |
+| [约13:20的画面](../../reports/xxm/sources/xxm_two_digit_dif_images_20261021_01/lesson2_1320.png) | -8.086 | -8.0；讲稿称8.0/80 | 支持截取；两位四舍五入会成为-8.1 |
+| [讲41回落40的画面](../../reports/xxm/sources/xxm_two_digit_dif_images_20261021_01/lesson2_dif_return.png) | 40.057 | 40 | 与截取相容；前一根完整41.xxx没有显示，继续保留未知 |
+
+数值模型按绝对值找到首位，保留两位、舍去之后的位数，再恢复符号和小数位置。原始MACD仍保留原DIF/DEA/柱值，截取只用于比较；不是改参数或重算指标。零按0、负数与跨量级保留大小关系，是为了把候选算术定义完整，不能说课图已逐项证明所有边界。
+
+它与固定1%不等价。以下为已经核对过的构造算术例，不是软件实测结构标签：
+
+| 原始DIF变化 | 原值变化幅度 | 截取后的变化 | 与固定1%的区别 |
+| --- | ---: | --- | --- |
+| 12.01降至11.99 | 约0.167% | 12降至11 | 不到1%，但两位已经下降 |
+| 12.99降至12.80 | 约1.463% | 仍是12 | 超过1%，但两位没有下降 |
+
+因此，现有1%只能继续以原实现/候选的身份保存，不能再当成作者原规则的等价公式。本次19个字面例、4个正负方向反例及十根旧窗口20次比较均为上一轮已完成的检查，本轮只整理，不重复计算。算术细节及证据见两图数值模型（原记录：`reports/xxm_two_digit_dif_images_20261021_01/README.md`）。
+
+#### 仍未解决的部分及本轮边界
+
+| 问题 | 当前结论 |
+| --- | --- |
+| 多个旧峰选谁 | 仍未解决；管理员继续找材料。两课及6/24隔峰原词支持较远峰可比较，不证明固定两峰、永远最高DIF或永久锁峰 |
+| 钝化的价格取法 | 创新高/新低的方向明确；用high/low还是最高/最低close及其区间尚未核定。纠错处说收盘价，不自动决定首次钝化取什么价 |
+| 数值及事件边界 | 截取后相等如何处理、零柱怎么归属、转折比较前一根还是某个累计峰、多个条件同根出现的次序仍待核 |
+| 历史记录与软件显示 | 后续新信号是否结束旧结构，以及各种纠错与绿色“消失”的对应，未由这两课全部说明 |
+| 课程和现代软件 | 核心标准有原课依据；2015课堂口径是否逐项对应2023—2026软件仍需案例验证 |
+
+第一课另讲速度较缓、跨度较长通常对应更大结构级别，可保留作强弱认识；未给阈值不拼成评分。26天发言有参数和图示端点前提，不设普遍26根到期。浪形速度判断有原文反例，不写成必出第五浪。
+
+按管理员本次要求，先完成成果整理，选峰材料由管理员继续寻找。本轮不索新图、不继续选峰实验、不开发新候选或替换产品算法；原稿、原图、旧事件/标签和既有成绩保持。后续开发须单独写清DIF比较的具体落点及验收，不能只改1%就称整套原规则已落实。整理范围见算法§12.86及LLD§64。
+
+### 8.146 结构对应关系：先看方向，再看反向结构的周期（2026-10-21）
+
+管理员新供视频标题“结构对应关系”、00:01—04:05聊天讲稿和三张折线示意图。课程日期未知，原转录保留。该课回答“遇到日线顶部结构，是否一定要等日线底部结构”的问题，补充的是不同周期结构怎样对应。
+
+| 行情条件 | 作者给出的对应标准 | 本段明确举例 | 讲稿位置 |
+| --- | --- | --- | --- |
+| 上升周期 | 较大周期顶部结构，用一半周期的底部结构即可对应 | 日线顶→120分钟底；120分钟顶→60分钟底；60分钟顶→30分钟底 | 00:57—03:01 |
+| 下降周期 | 较大周期底部结构，用一半周期的顶部结构即可对应 | 日线底→120分钟顶；60分钟底→30分钟顶 | 03:02—03:48 |
+| 震荡时期 | 按上下文整理为同周期顶底对应 | 原稿说明震荡与有方向行情不同，没有另外列出具体周期例子 | 02:22—02:37 |
+
+下降段03:12—03:14语序不顺，后文03:19明确讲60分钟底对应30分钟顶、03:27讲日线底对应120分钟顶。整理遵循这两个明确例子，不把上下方向写反，也不改原稿为已核听版本。
+
+这里“一半”指K线周期大小，日线对应120分钟由作者直接举例。它没有规定价格回撤、走势耗时、DIF值或旧峰有效期减半。“一半即可”说明不必强求同周期反向结构，并不表示只能接受恰好一半，也未证明行情未来一定出现该结构。
+
+模型整理时，先分别保留各周期已识别出的钝化/结构，再记录行情环境及其依据、起始结构方向/周期、可对应的反向结构方向/周期。上升/下降/震荡用什么数值和哪个周期判断，本课没有给；不能直接把现有趋势通道状态当作作者这里的环境定义。本课没有举90分钟的对应例子，暂不擅自配成60，也不增加45分钟产品能力。
+
+本课与同一周期内选择哪个旧DIF峰属于不同问题。它不改变§8.145的钝化、DIF转折、纠错及两位取数标准，也不为固定两峰、最高DIF优先或锁定参照提供新证据。这里涉及作者讨论结构采用的逻辑，不转换成用户交易/仓位指令。
+
+三图分别是无标注上升折线、标注日/120及红圈的上升折线、带红圈的下降折线；没有真实K线、MACD读值或软件结构标签。[第二图](../../reports/xxm/sources/xxm_structure_correspondence_lesson_20261021_01/02_upward_marked.png)配合日线顶→120底的例子；[第三图](../../reports/xxm/sources/xxm_structure_correspondence_lesson_20261021_01/03_downward_marked.png)谷下三角形未标明周期，不猜其含义。图中播放器约1:09/3:20/5:08与聊天讲稿时间分开登记，不强行逐秒对齐。
+
+本课学习内容已补充入档，现有资料足够整理，不另索图或核听。原文、三图、出处及边界见课程记录（原记录：`reports/xxm_structure_correspondence_lesson_20261021_01/README.md`）。本次只有资料和原文档更新，无代码/参数/模型或工程测试运行，原52/13及既有结果保持。对应算法§12.87、LLD§65。
+
+### 8.147 盘口两课的选峰依据：可隔一个，近峰不成立仍可比较隔峰（2026-10-21）
+
+管理员先供《大盘盘口的纠错及综合应用》附件全文，再补《大盘盘口的结构》聊天全文，要求合并学习并指出与分钟/日线结构原理相通。两段已通读并归档，第一课附件原字节保持，第二课为聊天全文复制，原转录词句不改。课程日期未给，两课新截图尚未取得。
+
+#### 本次选峰认识的直接进展
+
+| 原课位置 | 明确内容 | 对研究的帮助 |
+| --- | --- | --- |
+| 第一课35:37—36:37 | 同色柱中间没有异色柱，仍是单峰，不能当两个峰比较 | 波形收缩再放大本身不自动增加一个可比较峰 |
+| 第一课36:37—36:45 | 可以隔一个峰，但只能隔一个 | 暂按可比较相邻同向旧峰，或跳过一个同向旧峰整理；不是无限向前找 |
+| 第一课40:48—41:00 | 一根异色柱也可以分隔 | 分隔柱一根与跳过一个同向峰是两个概念 |
+| 第二课08:50—08:57、23:37—23:51 | 与近绿峰不形成背离，与隔一个旧绿峰形成背离，仍可判为5分钟低点 | 最近比较不成立，不等于全部允许比较都失效 |
+
+第一课给了范围，第二课给了实例。按目前原话，若独立同色峰先后为A、B、C，C既可与B比较，也可跳B与A比较；截图仍需核具体峰编号和分隔。它为此前最多两个旧同向峰的研究范围增加教学依据，但不同时证明旧段资格、软件精确池合同、最高DIF必优先或永久锁峰。
+
+更值得检验的模型是：把允许范围内每一对的分隔、价格新高低和相应指标峰收缩分别列出；其中一对成立，就存在背离候选。不能先要求最近一对成立，也不能只因近峰那对失效就直接宣布全部钝化结束。此为共同原理的模型化整理，不表示软件内部必须并行保存两条状态。
+
+用6月25日120分钟已有DIF12、近11、远26说明，近峰那对比较不成立而隔峰那对仍成立，是可以独立检验的解释，不必把“先锁近峰、取消后再换峰”当成唯一前提。本步没有重跑6月事件或改变A/B/C成绩，也没有凭盘口例子直接验收DIF软件。
+
+#### 原理相通，以及必须保留的区分
+
+第二课00:09—00:48把盘口结构与将来日线所讲的浪形/背离联系起来，共有的价格—指标背离、异色分隔和隔峰比较思想可以共同学习。它又在06:11—07:04把盘口红绿柱解释为主动买卖盘的表现，25:36—26:18另谈背后5/15分钟K线结构；本课盘口柱、前课DIF峰谷与背后K线结构分别记录，数值公式及周期不互换。不能直接把两位DIF取数用于未知公式的盘口柱。
+
+第二课23:37先说按上证通常可给5分钟低点，23:51—23:57又因深成指速度快而实际没给。28:05—29:23还说明临近收盘的连续性会影响报点，但学员找到的形态是对的。因此形态成立、级别评估及作者是否报出分开，不能把没给直接做成上证无背离的阴性标签。第一课34:14—34:32也先判高低点类别再判级别，50:39—51:12列背后结构、位置、速度和指数印证的考量。
+
+其他内容单独保留：一分钟高低点的提前修正不当作DIF结构形成公式；第一课20:11—20:48强调一分钟结束柱才固定，09:01—09:37提示课图可能反色；第二课29:31—36:21的线段是时间和空间结合的目测长度，1/3、1/2、2/3不能擅自写成单纯价格回撤；浪形延续及85%/90%是作者概率认识，不包装本研究的统计胜率，也不删掉尖顶尖底反例。
+
+#### 当前只需核对的两处画面
+
+1. **《大盘盘口的纠错及综合应用》36:31—36:50**：讲可以隔一个、但只能隔一个。需要完整当前/相邻/隔一个同向峰及异色分隔；若鼠标分次指向，可分别截屏。
+2. **《大盘盘口的结构》23:25—23:57**：讲与下午开盘近峰不背离、与隔一个峰背离。保留完整价格线和三个绿峰及指示位置，核近峰不成立究竟因柱峰更长还是价格未创新低。
+
+按所供讲稿时间和原句定位，不再索全文或要求读DIF。本轮提出后停止等图，不开发新候选或追加选峰实验。两原稿、18段语境、解释及请求见两课合并记录（原记录：`reports/xxm_peak_comparison_lessons_20261021_01/README.md`）。284保护/四周期已完成结果与原52/13保持，无模型/算术或工程测试执行，产品/参数/API不变；算法§12.88/LLD§66接续。
+
+### 8.148 盘口两图：比较范围已有图文依据，三个位置仍需核清（2026-10-21）
+
+管理员提供两原图并明确“第一张图对应1，第二张图对应2”。对应上一节两处请求，原件分别为2246×1454、2218×1466；没有图中文字可独立给出精确视频秒数，仍按管理员对应的讲稿区间记录。两张图已经取得，不再重复索取。
+
+#### 第一图说明了什么
+
+[第一图](../../reports/xxm/sources/xxm_peak_comparison_images_20261021_01/01_only_one_skipped_peak.png)标题“大盘盘口的综合应用”，显示深证成指，字幕为“但是只能隔一个”。结合原课35:37—36:45，应同时记住两点：
+
+1. **先有独立的两个峰，才谈比较。** 作者在同屏前文说明，红柱收短后再放大，但中间没有绿柱，仍是一个峰。第一课09:01—09:37已说明图像反色，因此图中浅蓝/粉色须结合零轴与讲稿辨方向，不能把绿色手绘当作分隔柱。
+2. **允许跳过一个同向峰，不能无限向前找。** “只能隔一个”与前一句“形成三个峰值”合看，是当前峰可以与近峰比较，也可以跳过近峰，与再前一个同向峰比较；不是只允许一根异色分隔柱。分隔只一根也有效，是另一个条件。
+
+该屏实际仍在解释未被异色分开的两次上升，不能把手绘双拱直接编号成两个独立峰，也不能声称图中已清楚标出一组三个独立峰。比较范围来自画面与完整讲稿，不是从单句字幕猜软件合同。
+
+#### 第二图的观察与尚需核对的位置
+
+[第二图](../../reports/xxm/sources/xxm_peak_comparison_images_20261021_01/02_near_and_skipped_peak.png)标题“大盘盘口的结构”，显示上证指数，字幕为“他是形成背离的”。结合23:37—23:51，作者明确说：与下午刚开盘的绿峰不形成背离，与隔一个峰形成背离。
+
+目前暂按以下三处理解，**尚未得到管理员确认**：
+
+| 比较位置 | 图中辨认方式 | 当前证据限度 |
+| --- | --- | --- |
+| 正在判断的峰 | 右侧最低价附近正上方，下沿画绿色短横线的较深绿峰 | 是代理按画面和上下文的定位，不能当已核定时刻 |
+| 近峰 | 它左侧，下沿也画绿色短横线的较短绿峰 | 须确认是否就是作者说的“下午刚开盘” |
+| 隔峰旧峰 | 再往左，紧靠中间竖线且被绿色手绘覆盖的深绿峰 | 极值受覆盖，无法独立读出完整柱长 |
+
+**若这三个位置正确**，当前价线低于近峰对应的价线，而当前绿柱比近峰更长。这样，近对不成立的原因是指标峰没有收缩，并非价格没有创新低。更早旧峰的柱底受手绘覆盖，不能用截图估造精确长度；与它背离目前仍以作者原话为依据，不冒充已完成独立数值复核。
+
+这使选峰研究更具体：近峰那一对不背离，不应直接终止整个判断，还需检查允许范围内隔峰那一对。它不要求先发生一次“取消”，到下一根才能让隔峰参加；也不支持越过更多峰、一直寻找历史最大值。对于6月已存的近DIF11/远26/当下12，可以据此设计逐对比较的检验，但本轮未重算事件、改预期或证明现代软件实现。
+
+目前只请管理员确认第二张已有图中的这三处对应；若有错，只纠正位置即可，不索新图或DIF。确认之前停止推断近对失败的具体原因。原两图、SHA及观察见本轮核图记录（原记录：`reports/xxm_peak_comparison_images_20261021_01/README.md`）。293项旧文件及四周期完成结果保持，本轮无新行情、模型/算术或工程测试、产品/参数/API变化，原52/13不改；对应算法§12.89、LLD§67。
+
+### 8.149 三峰位置已确认：旧峰之间与比较两端的分隔要分别看（2026-10-21）
+
+管理员在[第一张标注图](../../reports/xxm/sources/xxm_peak_annotation_confirmation_20261021_01/01_three_peaks_user_circles.png)用红圈指当前峰、橙圈指近峰、蓝圈指隔峰，并明确说明：蓝橙两处是作者说的两个下跌连在一起，也可以分别看待，虽然中间没有红角线。[第二张标注图](../../reports/xxm/sources/xxm_peak_annotation_confirmation_20261021_01/02_divergence_user_lines.png)进一步说明价格创新低、绿角线没有创新低。三处位置不再待核；两图为同一课堂画面的管理员标注，不新增独立现代软件样本。
+
+#### 现在能够对应清楚的比较
+
+| 两个位置 | 中间是否有红角线 | 比较结果及依据 |
+| --- | --- | --- |
+| 蓝圈旧峰与橙圈旧峰 | 没有；管理员已明确 | 本例仍把它们作为两次下跌分别说明。这里不是正在检验的当前背离对 |
+| 红圈当前峰与橙圈近峰 | 有 | 当前价格更低，但绿柱比近峰更长，未收缩；第二课23:37—23:44明确不形成背离 |
+| 红圈当前峰与蓝圈隔峰 | 有；同一段红柱位于这两端之间 | 当前价格更低，绿角线未创新低，形成背离；管理员第二图及第二课23:44—23:51相互对应 |
+
+这里绿柱收缩按长度理解，不将负数更小误写成柱更短。手绘只说明位置和方向，不据斜线读精确数值、跌幅或时刻；“没有创新低”也未解决数值相等时软件怎样判断。
+
+**关键修正：没有红柱分隔的是蓝、橙两个旧峰，不是当前与旧峰这两个比较端点。** 因此，本例不要求推翻两端之间需有异色柱的课程条件。错误在于我此前先要求当前、近、隔三个峰各自都是独立换色柱段，再据此编号；这样会在比较之前，把蓝橙合为一个旧位置，无法完整说明作者的近对不成立、隔峰对成立。
+
+#### 原话怎样与画面合看
+
+第二课22:39说中午收盘前绿角线到达高值，22:48—22:56明确说“两个下跌连在一起”“也可以看作是分别的下跌”，之后23:37—23:51分别比较下午刚开盘近峰与再前隔峰。管理员本次给出蓝橙的具体对应，补足上轮位置缺口。
+
+第一课35:37—36:45说同色两次上升未被异色隔开仍是一个峰，并说明可以隔一个、只能隔一个；前两段定量结构课也明确讲异色分隔。这些原话保留。本例没有证明蓝橙相互形成背离，也不证明同色段内任何回调、柱回收或再次放大都能自动产生一个合格比较峰。不能为了消除表面差别，另造作者未讲的阈值，或直接说午间休市必然分峰。
+
+目前可以保留的共同认识是：比较需要价格位置和相应指标峰，近对不成立仍可检查允许范围内隔峰；同时，作者在这张盘口图中使用的两个旧位置，不是一段连续同色柱只能保存一个极值就能完整表达的。课程“只能隔一个峰”不能直接等同于程序“只保存两个完整同色段”。现代DIF软件是否也按同色段内多个位置比较，还没有由本例证明。
+
+#### 对后续研究的具体影响
+
+下一步要先核作者按哪些价格下跌/反弹来找比较位置，分别记录这些位置的柱峰，以及真正比较两端之间是否有异色柱。这样能把“在哪里找峰”与“找出后比较哪一个”依次说清楚；不能只在最近或最高之间改排序。
+
+待检验的解释是：作者可能结合价格波段辨认每一次力量变化，再找对应指标峰；这还不是自动分峰规则。第一图同色两次上升仍单峰的实例继续作为限制，后续办法必须同时说明为什么该图不形成5分钟高点，不能只迎合本图。盘口柱与DIF的输入、数值规则继续分别保存，前课两位DIF成果不因本例改变。
+
+本轮已读当前calculator.py:38—64及161—171、spec.py:11—15和离线A选择实现：现行按hist符号变化切段，段内累计价格/DIF极值，再从历史段选参照。本例没有验收这套现代DIF合同，也不能仅因未表达橙色近峰就宣布最终结果必错；只保留蓝峰也可能给出相同最终背离，但并未复现作者近峰那一步比较。完整源文件SHA与本次读取范围另存报告，代码未改。
+
+原位置问题已结束，本轮现有资料足够登记修正，不再索同图或要求管理员读DIF。原话、两原图、四段课程语境及修正范围见圈图确认记录（原记录：`reports/xxm_peak_annotation_confirmation_20261021_01/README.md`）。301项旧文件、四周期完成结果及已审代码保持；只有资料和原五文档变化，无新行情、模型/算术或工程测试运行，原52/13和产品不改。对应算法§12.90、LLD§68。
+
+#### 8.149.1 能比较，不等于比较后成立
+
+管理员针对“同色柱中的两次下跌，什么时候可以分别作为比较位置”指出应一直可以，并要求给出反例。重新核对两课，目前没有反例证明已辨认的两次下跌不能分别供后续比较。上一段把这一点写成还需证明其资格，超出了现有依据，这个提法撤回。
+
+我此前的顾虑来自第一课35:42—36:24：红柱收短再放大，中间没有绿柱，作者说不是两个独立峰、不能形成5分钟高点。这能约束那两个位置直接构成该类结构，却不能证明它们以后不能分别与另一新峰比较。第二课的当前峰对橙圈不背离、对蓝圈背离，已经提供了两个旧位置分别参与的正面例子；蓝橙彼此无红柱不影响当前与它们之间实际有红柱。
+
+现阶段更简洁的研究假设是：**同色柱中已经辨认的两次下跌均保留为后续比较位置，在允许的近峰、隔峰范围内分别检查；能否形成背离由比较结果及相应分隔条件决定，不预先额外过滤。** 没有反例不等于已证明无限普遍性；后续若有不相容实例再修正，不能仅以尚未证明为由制造新门槛。
+
+还缺的是自动辨认的依据：一次下跌从哪里开始、哪里结束，对应哪个价格和柱峰，如何避免把任意小波动都当作另一次下跌。这与“一个已辨认位置能否拿来比较”是不同问题。前者需要为模型找到可执行的取值方法，后者当前不再另立资格条件。它也未允许无限向前选峰，或证明现代DIF软件内部同样保存这些位置。本次只澄清认识和原文档，不改原报告、标签或运行模型；对应算法§12.90.1、LLD§68.1。
+
+### 8.150 基础识别先找柱长转折，不把完整价格波段划分作为前置难题（2026-10-21）
+
+管理员询问这一步是否应较容易。基础找峰本身确实可以从简单方法开始；此前把完整下跌边界也作为先决问题，扩大了眼下需要解决的范围。对这张盘口图，更直接的研究候选是先找绿角线局部最长处，再核对应价格，不先建立一套完整浪形算法。
+
+1. **绿柱越来越长，保存当前最长处。** 按柱的长度理解，不把负数更小误当成长度缩短。
+2. **第一次出现已完成的更短柱，记下此前的峰。** 连续数根同高时只算一处，保留这一平台的起止位置。
+3. **缩短后再次变长、再变短，再记一处峰。** 不要求中间翻红，因此有机会分别保留蓝圈、橙圈的位置，而非先合并成整个连续绿柱段的一个极值。
+4. **把位置与后续背离判断分开。** 先完整保留识别出的峰，再核其对应价格、近/隔关系及实际分隔。暂不设最小回收幅度、几根才有效或平滑参数。
+
+仅作方法示意，假设连续绿柱长度为`2、5、8、6、3、4、6、4`，可记录长度8和后面的6两处局部峰；它们可以一直处于绿色。这里是人工字面例子，不是截图取数、课程数值或程序运行结果。
+
+**时间必须诚实。** 只有后续短柱已经完成，才知道此前是局部峰；保存峰发生位置，也保存何时确认。末端还在变长就继续更新候选，不能读取未来柱后倒称更早已确认。这只是找局部峰，不是新的结构形成条件，也不能据此推迟已由前课定义的钝化或DIF转折判断。
+
+下一检验先看这种基础识别是否对应管理员的蓝、橙、红三处，并检查有没有额外位置。不能只挑匹配的三处，或一开始为配图加过滤条件。两峰间的回收处可以辅助整理范围，但价格最低点不必与指标峰同根，具体价格窗口仍须与案例核对；找出柱峰不等于价格取值问题也已解决。
+
+这是盘口柱的识别思路。分钟/日线MACD定量结构比较对象为DIF，需在DIF序列上核其极值与前课取数，不能把盘口柱峰或MACD柱峰直接替代DIF峰。两者可以借鉴寻找转折的方法，不意味着输入和所有判别条件相同。
+
+本轮只提出简单研究候选并同步原方案/LLD，不编写实现、不运行模型、读取新行情或改变旧预期；也不宣称已经从图片自动识别三峰。原结果/代码保持，当前不需管理员补图。算法§12.91/LLD§69为本步范围。
+
+### 8.151 局部找峰试验：基础识别可用，完整选峰仍未验收（2026-10-21）
+
+管理员已授权按上节方法实现、试验，并要求结束后报告成果、问题与下一步。本轮只开发离线局部转折识别及验证，不修改既有钝化/结构/消失状态机。结果及全部中间证据见[试验报告](../../reports/xxm/conclusions/xxm_local_extrema_trial_20261021_01/README.md)。
+
+#### 实现与真实数列检查
+
+扫描器从已完成输入识别增加/减少方向的转折，同高平台合一处，保存峰发生位置及后续确认位置；末端仅候选。不要求换色、不加平滑或最小回收幅度，完整保留细小转折。它不产生结构事件，也不把局部峰确认当结构形成。
+
+52项新测试通过，其中一项将3,280组短整数列与独立批量数学定义逐一对照；另有未完成柱、重复/倒序/非有限输入不改变状态、平台、正负镜像、微小回收、不同未来尾段、输出目录拒绝覆盖等检查。使用真实生产者格式的三个既存JSON共198根做合同核对、402次独立前缀重放及4个编码前读定的峰时点检查，均通过。原125测试没有重跑，52项不是其替代验收。
+
+| 既存窗口 | 根数 | DIF局部转折（峰和谷） | 柱长峰 | 可见同色段 | 含多个柱长峰的段 |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| 120分钟，2022/12/27—2023/2/22 | 72 | 14 | 13 | 8 | 3 |
+| 90分钟，2023/2/1—3/1 | 63 | 13 | 11 | 6 | 3 |
+| 90分钟，2026/1/22—2/27 | 63 | 19 | 12 | 6 | 4 |
+
+同色段内多个峰可以被分别保留，基本识别并不需要先完成整个价格浪形划分。上表是有限窗口内完整输出，不是作者软件命中率或全市场统计。源SHA、真实字段、顺序/唯一性、日内时点及H=2*(DIF-DEA)通过，最大误差6E-15；没有重新独立核全部交易日期日历，也不将窗口最左/最右端冒作已确认极值。
+
+#### 三圈图也有了形状核对结果
+
+先固定原图测量区域与三种相邻像素口径，三种都在管理员的蓝、橙、红圈位置各找到一处局部峰；三次均蓝>红>橙。长度范围分别约122—123、71—73、105.5—113像素，**像素不是原始指标值**。因此本例支持局部转折能够找出这三处比较位置，并保留近峰不背离/隔峰背离所需的柱长关系。
+
+但整块区域读出的柱组数25/18/25、局部峰数5/4/4随口径变化。三圈外的峰全部保留，没有只挑三处吻合值；绿色手绘、压缩与低对比度仍影响读柱。显式遮挡标记0也不证明原图没有遮挡。本轮确认的是圈内形状及相对关系，未取得原始分钟数值/精确时刻或完整峰序；三种测量来自同图，不算9个独立软件样本。详见[全部图片测量](../../reports/xxm/local-extrema/image_measurement.json)。
+
+#### 三个需要继续核的问题
+
+1. **细小原值起伏也会被计为转折。** 120分钟2023/1/18 11:30 DIF26.912497557015286到1/19 11:30的26.870653959187166，原值有回落，按课程两位读法均26。若把所有原始峰直接排近峰/隔峰次序，可能额外插入位置。现在没有独立标签证明该删哪处，所以原始峰全部保留，不增加新门槛；下一先核已有两位规则怎样作用于这一步。
+2. **柱峰与DIF峰时点不同。** 2026年90分钟柱峰在2/10 14:00和2/11 11:00，DIF仍继续升，到2/12 15:00才有这一段高点。因此盘口柱的正面核对不能替代分钟/日线DIF选峰验证。
+3. **指标峰那根不一定是价格极值那根。** 2023年120分钟2/16下午—2/21上午的绿柱段，最低收盘在2/17 15:00，最低DIF在2/20 11:30。直接拿DIF最低那根收盘作整段最低价会取错。本轮没有这样绑定；价格窗口及high/low还是close的口径仍须核定。
+
+以上是实际行支持的未决问题，不是测试失败后临时调整预期；具体原行见[字面证据](../../reports/xxm/local-extrema/literal_evidence.json)。
+
+基础实现与因果时序验证通过，工程上没有性能障碍：100,000人工点约0.066秒，扫描器仅8个状态字段；本轮真实窗口/图片/性能及复查至完成约0.221秒，峰值约81.8MiB。人工点不当成行情证据。下一拟并列核原值和两位DIF下的转折，再用既有6月/8月材料看是否改变近/隔次序，并核对应价格窗口；不先加阈值，本轮未执行下一实验。
+
+当前不需要管理员重复找三圈图或读模糊数值。本阶段新增三个离线模块、两个主题测试和新报告，产品、A/B/C、配置/API/前端及旧52/13/四周期结果保持；312旧文件保护通过。CodeGraph已核原链并完成sync/status。[复查notebook](../../reports/xxm/local-extrema/review.ipynb)三个代码单元已用现有Python顺序执行，重算与完成结果一致；未安装或声称运行Jupyter内核。对应算法§12.92/12.92.1及LLD§70/70.5。
+
+
+### 8.152 每根先近后远及相邻峰范围的首轮回放（2026-10-21）
+
+管理员建议先回测，强调相邻同向角线峰中间至多0/1反向峰；同色连绵、起伏不大且多于2峰时倾向取最高。另确认前低是上次回调低点，并追问结构形成、DIF/柱线口径和周期结束。对应算法§12.93/LLD§71先完成方案与范围审计，再执行两个有界部分。
+
+**先近后远的条件回放有正面证据，完整选峰尚未验证。** 12个6月保存点每根重检，6/25收盘60分钟无参考支持本轮钝化条件，90/120仍由远峰支持；原值与两位DIF判断差异0。近峰失效时检查远峰，解释上优于首次近峰锁定后立即取消，但参考池是既有模型输入，不是重新确认作者选法；没有生成DULL/STRUCTURE/CANCEL或重算旧结构价格消失，也未证明换峰后的状态连续性。6月24作者说隔峰而该顺序先近峰，当时两峰条件均成立，仍不能据此认定内部参照一致。
+
+新增峰数限制有实际影响：4个真实小窗口共212根，32对相邻同向柱峰之间反向峰0/1/2/3个分别20/6/3/3，对其中6对会拒绝。没有作者逐对标签，不能把排除认作正确。21段可见同色柱中7段含3个以上已确认峰，14段最长柱与DIF极值不同时刻。最高峰指DIF还是柱长已提问；起伏不大未定，故未合并，也不添加阈值。尤其2026/2/10 14:00最长柱与2/12 15:00 DIF最高不同，定义会改变结果。7月14根输入仅7/21—30，非完整8/7回测。
+
+原课程口径再次核清：2015/3/11课12:38—12:49明确判断钝化/结构看DIF首个非零起两位；09:03—10:59说明先钝化、DIF转折可早于金叉，柱仍绿时已到前段确认；11:18—12:29说明60分钟9:30—10:30，需等这根周期末的收盘值，不能理解为整段行情结束。盘口角线课的直接柱长比较与此分开保存。前低按已确认的上次回调低点，未偷换为上一K线低点。
+
+81项新研究及直接局部回归通过；独立字面核12点、批量数学核真实柱峰、212前缀通过，335历史保护，旧4周期与52/13保持。首批只出现摘要把显示数值不同计作判断不同的问题；实际选择没变，已修正、补反例并新存02，01保留。详细报告及复现（原记录：`reports/xxm_near_first_review_20261021_02/README.md`）、独立核验（原记录：`reports/xxm_near_first_review_20261021_02/validation.json`）。本轮为条件及柱形检查，未完整状态回测、收益/胜率、软件新标签、源/正式数据读取、安装或产品变更；原125未重跑。下一先确认最高含义，再将合并、价格波段/DIF极值与逐根重检接在一起。
+
+### 8.153 新图确认DIF峰谷，合并对照改变比较范围（2026-10-21）
+
+管理员明确回答“DIF最高的那处”，又提供[定量结构（12）原图](../../reports/xxm/sources/xxm_dif_peak_confirmation_20261021_01/quantitative_structure_12.png)，指出指标背离以DIF峰值为准。已目视原图并按字节归档，价格高低点与指标曲线峰谷黑线对应，结合2015课12:38—12:49看DIF的原话，分钟/日线定量结构采用DIF峰谷口径已有图文依据，不再把这个问题列为待确认。盘口角线及MACD柱形仍只按各自含义记录；不把最长柱峰代替DIF峰，也不因本图声称选峰优先级、价格区间及软件事件时间全已确认。图无精确日期/逐根值，不新增3份软件标签。
+
+按原方案/LLD先补范围再继续同批小数据，报告为04批次（原记录：`reports/xxm_near_first_review_20261021_04/README.md`）。6月12点逐根重检结果保持：6/25收盘90/120由远峰支持条件、60无支持，原值/两位判断差异0。最高定义明确后，对21段可见同色柱中7段多于2峰的组，做全部按DIF极值合并的宽松对照，未检查“起伏不大”；这个放宽不当成管理员完整建议或作者公式。候选相邻位置32→16对，中间0/1/2反向位置4/9/3对。合并后仍排除的3对为2023年120分钟2/2—2/14红峰、2/8—2/17绿峰，以及2026年90分钟1/29—2/12红峰；应核这些排除是否符合作者，而非默认拒绝正确。
+
+合并列表只用于位置数量检查，不是完整DIF参考池，未合并项仍为柱形位置；没有配价格或产技术事件。开放组的DIF代表可随走势更新，212个前缀各自重算留档，不能把最终极值提前回填；独立批量复核全部通过。85项隔离/直接回归通过，约0.138秒/52.8MiB，357历史/旧4周期与52/13保持。新增图证不要求再确认最高，起伏条件与完整价格波段/结构/消失尚未验收。原125未重跑，产品/旧A/B/C/API不改；具体配置/测试/范围见算法§12.93.2—3和LLD§71.5—6。

@@ -1,0 +1,71 @@
+{
+  "status": "ANALYSIS_COMPUTED_AUTHOR_VALIDATION_LIMITS",
+  "date": "2026-10-21",
+  "rows": 198,
+  "cases": [
+    {
+      "case": "m120_2023",
+      "difTurns": 14,
+      "histogramTurns": 19,
+      "histogramLengthPeaks": 13,
+      "colourSegments": 8,
+      "segmentsWithMultipleLengthPeaks": 3
+    },
+    {
+      "case": "m90_2023",
+      "difTurns": 13,
+      "histogramTurns": 18,
+      "histogramLengthPeaks": 11,
+      "colourSegments": 6,
+      "segmentsWithMultipleLengthPeaks": 3
+    },
+    {
+      "case": "m90_2026",
+      "difTurns": 19,
+      "histogramTurns": 20,
+      "histogramLengthPeaks": 12,
+      "colourSegments": 6,
+      "segmentsWithMultipleLengthPeaks": 4
+    }
+  ],
+  "independentPrefixChecks": 402,
+  "realLiteralAnchorChecks": [
+    {
+      "case": "m120_2023",
+      "series": "difTurns",
+      "expectedPeak": "2023-02-02 11:30:00",
+      "expectedKnownAt": "2023-02-02 15:00:00",
+      "passed": true
+    },
+    {
+      "case": "m90_2026",
+      "series": "histogramTurns",
+      "expectedPeak": "2026-02-10 14:00:00",
+      "expectedKnownAt": "2026-02-10 15:00:00",
+      "passed": true
+    },
+    {
+      "case": "m90_2026",
+      "series": "histogramTurns",
+      "expectedPeak": "2026-02-11 11:00:00",
+      "expectedKnownAt": "2026-02-11 14:00:00",
+      "passed": true
+    },
+    {
+      "case": "m90_2026",
+      "series": "difTurns",
+      "expectedPeak": "2026-02-12 15:00:00",
+      "expectedKnownAt": "2026-02-13 11:00:00",
+      "passed": true
+    }
+  ],
+  "codeBehaviorValidated": true,
+  "authorRuleFullyValidated": false,
+  "imageRawIndicatorValuesAvailable": false,
+  "imageIndependentThreePeakValidation": false,
+  "noNewFiltering": true,
+  "noProductionCodeChanged": true,
+  "noNewSoftwareLabels": true,
+  "seconds": 0.15736320801079273,
+  "peakRssBytes": 85721088
+}

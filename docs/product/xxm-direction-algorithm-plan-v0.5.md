@@ -1,5 +1,7 @@
 # 徐小明算法与当前代码实现总结 v0.5
 
+> P5整理说明（2026-11-03）：本文保留原设计、开发及验收记录的历史含义，不是当前开工或运行入口。旧执行代码和过程产物已按清单清退；原路径文字仅作出处。现行规则与阶段见[产品文档](wealth-top-bottom-recognition-product-v1.md)，有效原材料见[资料索引](../../reports/xxm/README.md)。
+
 原全篇核对日期：2026-10-22。**2026-10-28重新核对第1—4节的r2核心判别规则，作为本次r4开发前的规则登记；其余接口、页面、研究及部署相关内容没有在本轮重新验收。**本文陈述代码事实，不再作为拟开发方案。v0.5是文档版本，当前产品识别算法仍为`xxm-direction-v0.1-r2`，预测仍为`xxm-key-point-forecast-v0.3-r2`；不能把文档版本当算法版本。
 
 源码位置及字段细节见[配套实现说明v0.5](../../wealth/docs/pages/index-detail/index-detail-xxm-implementation-and-low-level-design-v0.5.md)。当前拟开发规则见[r4方案](xxm-r4-implementation-plan-v0.1.md)和[r4 LLD](../../wealth/docs/pages/index-detail/index-detail-xxm-r4-low-level-design-v0.1.md)；[v0.6方案](xxm-next-implementation-plan-v0.6.md)、[原LLD](../../wealth/docs/pages/index-detail/index-detail-xxm-next-implementation-low-level-design-v0.6.md)及[研究记录](xxm-research-and-implementation-v0.6.md)保留历史。2026-10-28管理员决定使用本登记及开发后的代码审计，确认r2业务规则未被误改，不采用运行时读取源码、核对源码SHA或逐字匹配源码来证明未修改。r4允许变化以r4方案/LLD为准，不能逆写为当前r2已经实现；共用单根输入及内存进度副本安全检查已于2026-10-28实现并通过本轮定向人工验收；r2判别规则保持。未运行真实产品、读取实际行情、回测或核实部署状态。
@@ -111,13 +113,13 @@
 | 首次同根DULL后STRUCTURE | 未进入r2首次激活路径 |
 | 完整新方法离线计算、独立观察读取及三方核对入口 | 仍属v0.6拟实现内容，不能把旧试验脚本称为已完成整套方法 |
 
-研究依据：[局部转折](../../scripts/research/index_market/xxm/local_extrema.py:1)、[两位算术及旧条件检查](../../scripts/research/index_market/xxm/near_first_review.py:47)。新方法的待定边界和开发顺序仅维护在v0.6，不在本文建立第二套未来规则。
+研究依据：[局部转折](../../src/biz/services/wealth/market/index_detail_daily_wave/local_extrema.py)、[两位算术及旧条件检查](../../scripts/research/index_market/xxm/near_first_review.py:47)。新方法的待定边界和开发顺序仅维护在v0.6，不在本文建立第二套未来规则。
 
 ## 7. 本次核对和结论范围
 
 原2026-10-22核对读取当时源码、相关调用方及测试正文；算法、来源、接口和页面事实均有配套说明中的位置。已有测试包含字面状态转换、参照救援、恢复、接口/schema和图层消费等，但**本轮没有运行这些测试，也没有重新核对真实行情或徐小明软件标记**。有测试代码不等于本次通过，隔离接口测试不等于生产服务验收。
 
-本文准确描述的是当前工作区代码，不断言线上已部署、当前服务正在使用这些文件或完整还原作者软件。改写前v0.5保存在[本次核对记录](../../reports/xxm_v05_current_code_summary_20261022_01/README.md)，历史研究信息仍可追溯。后续代码改变时同步修订本文及实现说明；新的研究假设继续留在v0.6方案与LLD。
+本文准确描述的是当前工作区代码，不断言线上已部署、当前服务正在使用这些文件或完整还原作者软件。改写前v0.5保存在本次核对记录（原记录：`reports/xxm_v05_current_code_summary_20261022_01/README.md`），历史研究信息仍可追溯。后续代码改变时同步修订本文及实现说明；新的研究假设继续留在v0.6方案与LLD。
 
 ## 8. 2026-10-27：隐藏MACD标题旁常驻研究文案
 

@@ -1,0 +1,58 @@
+{
+  "userConfirmation": {
+    "userAnswer": "对着倒数第二根，上午的小阳线",
+    "questionContext": "绿色消失第一个字对应倒数第二根3/11上午小阳线，还是最后下午大阳线",
+    "softwareGreenEndpoint": "2024-03-11T11:30:00+08:00",
+    "timeEvidence": "USER_CONFIRMED_CANDLE_POSITION_ON_SUPPLIED_120_MIN_CHART",
+    "authorTranscriptIndependentlyStatesIntradayTime": false
+  },
+  "originalTranscriptAttachment": "/Users/congming/.codex/attachments/6cf760ec-fe5c-4b2f-b4f0-4db7ce242347/Pasted text.txt",
+  "savedTranscript": "transcript_20240311_user.txt",
+  "transcriptSha256": "5cd1fa7ccdb3cfec416f0d8a984f15b90b5e05a7aba1d5f7667687b3966cf239",
+  "transcriptType": "USER_SUPPLIED_ASR_NO_TIMESTAMPS",
+  "independentlyListened": false,
+  "excerpts": [
+    {
+      "startLine": 13,
+      "endLine": 16,
+      "charStart": 126,
+      "charEnd": 178,
+      "meaning": "old_top_structure_then_rise_ASR_bottom_word_preserved",
+      "text": "120分钟请看120分钟形成顶部结构之后\n然后市场再上\n我们一开始就不排除\n120分钟有多次的底部结构\n",
+      "videoTimestamp": null
+    },
+    {
+      "startLine": 49,
+      "endLine": 54,
+      "charStart": 490,
+      "charEnd": 568,
+      "meaning": "no_red_histogram_and_future_second_top_dulling",
+      "text": "再看这个\n120分钟现在目前来讲还没有红角线\n所以\n市场有可能形成第二次的顶部的钝化\n1820分钟 1820分钟结构进行检查\n检仓之后是按钝化消失进行求索\n",
+      "videoTimestamp": null
+    },
+    {
+      "startLine": 116,
+      "endLine": 119,
+      "charStart": 1153,
+      "charEnd": 1195,
+      "meaning": "closing_index_approx_3068",
+      "text": "好吧上证指数呢\n今天收款价格是30六八点\n3,068点距离3,200呢\n也是比较近\n",
+      "videoTimestamp": null
+    },
+    {
+      "startLine": 430,
+      "endLine": 443,
+      "charStart": 4251,
+      "charEnd": 4390,
+      "meaning": "complete_question_and_author_answer_distinguishing_structure_and_dulling_disappearance",
+      "text": "为什么120分钟结构消失不加回来\n我在文字课里的时候说过一嘴\n我说我一口老血\n看到这句话没\n问你看到这句话没\n我所有按结构卖出的\n都是敦化消失买回来\n不是结构消失买回来\n这都这都是最基本的了好吧\n被我刚才谈到过对吧\n这里买回来之后再次形成\n然后你再剪吗\n动画再消失\n你再买回来\n",
+      "videoTimestamp": null
+    }
+  ],
+  "eventIdentity": "OLD_TOP_STRUCTURE_DISAPPEARANCE",
+  "authorDistinguishesStructureFromDullingDisappearance": true,
+  "questionOnlyNotUsedAsSoleEventIdentityEvidence": true,
+  "softwareMorningExactDifKnown": false,
+  "softwareActualReferenceKnown": false,
+  "uniqueSoftwareFormulaProven": false
+}
