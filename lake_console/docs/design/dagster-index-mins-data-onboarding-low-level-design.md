@@ -102,7 +102,7 @@ INDEX_MINS_BOOTSTRAP_DISK_SAFETY_MULTIPLIER = 1.25
 | `DAGSTER_HOME` | Dagster runtime | definitions/正式运行 | 业务代码不读取 |
 | Tushare token | TushareResource | 本专项不消费 | 不作为 Prod Raw 前置依赖 |
 
-本专项不新增 env、数据库配置、Dagster Config 或前端输入项。若后续把 query timeout、page limit、active-pool path 做成配置，必须单独完成配置审计并增加测试。
+本专项不新增 env、数据库配置或前端输入项。2026-11-03获批增加原Raw/Silver job的`IndexMinsWriteConfig.write_mode`，默认`reuse_existing`、显式`replace_existing`；完整配置审计、调用方、失败/继续、测试和本次执行范围统一见[分钟写入修正方案与LLD第10节](dagster-minute-raw-silver-staging-write-plan-and-low-level-design.md#task-18007)。若后续把 query timeout、page limit、active-pool path 做成配置，必须单独完成配置审计并增加测试。
 
 ### 3.3 输入语义与源接口矩阵
 
@@ -154,8 +154,8 @@ P2 已将 Raw 写入硬口径落到：
 | exact active code-set | `defs/assets/index_mins.py:_code_set_diff` | missing/extra code 均 fail-closed，有限样本进入错误信息 |
 | 主键与范围 | `defs/assets/index_mins.py:_validate_relation` | `(ts_code, freq, trade_time)` 重复、日期/频率越界均拒绝 |
 | DuckDB staging | `write_raw_index_mins_partition_from_prod_db(...)` | 先 source relation，再 `COPY` 临时 Parquet |
-| 回读与原子替换 | 同一 writer | schema、行数、集合合同复核后 `os.replace`；异常清理 staging |
-| 已有文件语义 | 同一 writer | 合同通过才复用；错误文件不覆盖；目标出现竞争时停止 |
+| 回读与原子替换 | 同一 writer及MinutePartitionPublication | schema、行数、集合合同复核后 `os.replace`；失败候选和receipt保留，按输入身份继续，详见分钟写入修正方案 |
+| 已有文件语义 | 同一 writer | 默认合同通过才复用；显式`replace_existing`以完整候选替换；目标出现竞争时停止，不绕过原检查 |
 
 P2 测试文件：
 
@@ -777,3 +777,8 @@ P6 已完成工具与回归：本轮相关 Prod/Bootstrap/static 测试 `108 pas
 - sensor 过慢：停止启用，重做 batch readiness，不提高 RPC timeout。P5 已用单连接、10 日窗口、无 event history 的测试门禁约束该风险；P6B coverage-only 全历史 source scan 已通过 300 秒预算；P7 已完成 source-empty fallback 处理和 Raw/Silver 全量对账。
 
 回滚只清理当前 run 临时 staging；不删除既有 Parquet、Dagster event 或 Prod 数据。
+
+
+## 2026-10-24 Raw/Silver候选与继续执行修正
+
+2026-10-24授权修正Raw/Silver候选位置、失败留存与单文件继续；2026-11-03另批准原job显式替换模式，默认复用不变。原源、字段、对象池、派生公式和检查不变。当前具体方案、LLD、调用影响面与测试门禁统一见[分钟写入修正方案和LLD](dagster-minute-raw-silver-staging-write-plan-and-low-level-design.md)，11月2日范围和预算见其第10节；22日记录只作历史证据，不作本次执行授权。

@@ -1,5 +1,9 @@
 # `index_global` 国际指数数据集接入方案
 
+> 2026-10-26新增修正：审计发现Raw/Silver候选位于正式Lake且失败后删除，违反现行规则。管理员已批准按专项顺序实施；原P9“无新增开发任务”为当时记录，不能覆盖本轮问题。本次单日补探测及写入修正见[专项方案与LLD](dagster-index-global-recovery-20261026-plan-and-low-level-design.md)及本文§12，实际进展以专项§12为准。
+
+> 本轮已完成：两层写入修正、131项隔离回归及10月4日原job重执行通过；源端仍0行，正式Raw/Silver未替换，Silver按条件跳过，五个writer sensor已恢复。26日最终跨市场阶段仍待到时，不代表全天已齐。
+
 ## 1. 文档状态
 
 - 状态：方案口径已冻结，P1 真实请求验证、P2 Raw contract/phase merge/staging、P3 临时湖五阶段联调、P4 Silver writer/contract/临时联调、P5 正式 Dagster definitions、P6 自然日分区注册/五阶段 Raw sensor/Silver final-phase 触发、P7A Bootstrap 只读目标审计、P7B 全量 Tushare 源请求审计、正式 Raw/Silver 生成与全量文件对账、P8 Dagster 分区注册与事件验收均已完成；P9 已完成实例启用和首个实际运行日验证，多交易日观察仍在进行。
@@ -621,3 +625,13 @@ P8 失败恢复口径：事件写入不是事务性 lake 操作，若进程中�
 - Raw/Silver 字段合同：[`asset_column_schemas.py`](/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py)
 - 低延迟/有限请求规范：[`tushare-contract-validation`](/Users/congming/github/goldenshare/.agents/skills/tushare-contract-validation/SKILL.md)
 - Dagster 性能治理：[`dagster-data-pipeline-performance-governance.md`](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-data-pipeline-performance-governance.md)
+
+## 12. 2026-10-26单日补探测前置修正（已批准实施）
+
+本次审计定位10月4日late-empty的第二次探测因DNS失败，已有Raw/Silver零行文件及原检查成功记录仍在；近期分区在DG启动后自动追赶，不能把截图颜色当成行情损坏。
+
+按已批准专项完成修正和单日执行，实际run为`0465cb4b-0af1-4d6e-81d5-ed4c75c5d6f3`，SUCCESS且原检查绑定通过。此次1请求返回0行，保留原文件，未运行不必要的Silver；维护的五个sensor均已恢复。完整测试、代码对账、证据和边界见专项§12.4—12.6，不能将下文原提案措辞理解为尚未执行。
+
+现代码两个global staging helper和两层writer把候选写在正式Lake的`raw|silver/index_global/_staging`，并删除失败候选。拟先修候选根、失败留存及单文件checkpoint，隔离验证后再批准执行单日job。原文涉及正式Lake内临时目录及失败清理的描述保留为历史实现，不能作为继续正式执行的依据。
+
+完整目标/禁止项、代码和调用方、配置与路径、维护顺序、失败/继续规则、性能预算和验收条件统一见[专项方案与LLD](dagster-index-global-recovery-20261026-plan-and-low-level-design.md)。不改变日期、阶段、字段、job、check、retry及run key语义。主动补数仅10月4日，沿用旧失败late_empty_attempt=2人工重执行一次，Silver按Raw结果承接。近期不人工批量重跑；Bootstrap违规工作目录不纳入本轮修复且禁止执行。管理员已批准实施，开发/验证/维护/执行结果仅按专项执行记录认定，不将批准当成完成。

@@ -1,5 +1,9 @@
 # `index_global` 国际指数数据集低层设计（LLD）
 
+> 2026-10-26已批准修正：审计发现Raw/Silver候选根和失败留存与当前AGENTS冲突，补探测前须先解决。新增设计和执行限制见[专项方案与LLD](dagster-index-global-recovery-20261026-plan-and-low-level-design.md)及本文§16，实际开发/验证/执行进展以专项§12为准。
+
+> 本轮已实现并完成验收：本链单文件协议及路径修正已加载，131项隔离回归通过，10月4日原job及原check成功；空源保留原Raw，Silver条件跳过，维护sensor已恢复。实际证据和真实验证边界见专项§12.4—12.6。
+
 ## 1. 目标与边界
 
 本文是 [`dagster-index-global-data-onboarding-plan.md`](./dagster-index-global-data-onboarding-plan.md) 的代码级设计。目标是把 Tushare `index_global` 接入 Dagster Lake，形成 Raw/Silver 两层、自然日分区、同日五阶段刷新和低开销自动触发链路。
@@ -1221,3 +1225,13 @@ git diff --check
 ```
 
 正式 `dg check defs`、sensor tick、job、Bootstrap 和 event 写入仍需按 orchestrator AGENTS 单独批准；本 LLD 不把这些本地验证命令当作正式运行授权。
+
+## 16. 2026-10-26写入安全修正与单日补探测LLD（已批准实施）
+
+本轮只修两层日更writer的候选目录、失败保留及逐文件checkpoint，保留现有取源/合并/转换/检查合同。新实现位置拟为`defs/io/index_global_writer.py`，由现有Raw/Silver入口调用；正式候选仅位于`/Volumes/datasource/data_lake_staging`，不新增配置或恢复旧根。原文正式Lake内临时路径、失败删除候选的实现记录不再作为新执行依据。
+
+上述本链实现已落地并验收，`publish`内部仅执行原候选validator一次，校验前后及replace前核文件身份；完整候选、冻结输入、checkpoint及continue路径由隔离文件测试覆盖。真实10月4日执行仅覆盖空源reuse分支，不把此前26日维护前的自动run当作新代码非空正式验收。Bootstrap冻结边界继续有效。
+
+具体操作身份、冻结输入、候选完整校验、同设备原子提升、中断恢复、调用方/测试、单日原配置、Silver条件承接、暂停/恢复五个writer sensor、正常及继续/最后验收预算，统一以[专项方案与LLD](dagster-index-global-recovery-20261026-plan-and-low-level-design.md)§4—10为本次已批准设计，不在此复制第二套细节。
+
+现有Bootstrap调用还含正式Lake内工作目录问题，本轮不执行且不恢复该能力，不得宣称路径helper修正已完成整个Bootstrap迁移。本文历史命令示例也不替代当前AGENTS规定的既有项目`.venv`、隔离资源及禁止自动安装要求。本轮未变更代码、配置、数据、event或sensor状态。

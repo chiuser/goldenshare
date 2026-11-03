@@ -156,7 +156,7 @@ P2 已完成五频 Raw writer，但仍保持纯 writer 边界，没有新增 act
 - `tests/test_index_mins_raw_writer.py`：临时 Parquet smoke、缺失/额外 code、重复 key、越界行、已有文件复用/拒绝覆盖、staging 失败清理。
 - `tests/test_index_mins_prod_db.py`：attached source SQL 的显式字段和只读 attach 测试。
 
-P2 writer 的安全顺序固定为：
+P2初始writer的安全顺序如下；当前候选、失败留存和显式替换以文末链接的分钟写入修正方案与LLD为准：
 
 ~~~text
 目标存在性/既有文件合同
@@ -170,7 +170,7 @@ P2 writer 的安全顺序固定为：
   -> os.replace 原子 promote
 ~~~
 
-失败时只清理当前 staging；已有目标文件不覆盖。已有文件只有在同一 active pool、日期、频率、schema、主键和行数合同全部通过时才复用。
+当前默认模式只有在同一active pool、日期、频率、schema、主键和行数合同通过时才复用已有文件；2026-11-03获批的显式`replace_existing`通过原Raw/Silver job生成并校验完整候选后替换。失败保留候选和receipt，不删除正式结果；目标写前身份发生竞争则停止。详细配置、代码点、失败/继续及预算见[分钟写入修正方案与LLD第10节](dagster-minute-raw-silver-staging-write-plan-and-low-level-design.md#task-18007)。
 
 验证结果：P1/P2 专项测试 `23 passed`；P2 真实只读 smoke 均写入 `/private/tmp`，目标日为 `2026-07-27`：`5min` source/written 为 25,970 行、`1min` source/written 为 127,730 行，两次均为 530/530 code，重复/缺失/额外/越界均为 0，单频 query 次数为 1，耗时分别约 8.369 秒和 15.948 秒。两次 smoke 均不写正式 Lake、Prod DB、Dagster DB 或 event。
 
@@ -612,3 +612,8 @@ P7 正式报告（2026-07-30）：
 - [x] P0 文档与代码事实已再次对账；未解释的历史 source scope 冲突已明确为 P7 前置阻断。
 
 任何源字段、active pool、日期起点、窗口规则或性能预算冲突，必须停止并更新方案，不得靠兼容补丁绕过。
+
+
+## 2026-10-24 Raw/Silver候选与继续执行修正
+
+2026-10-24授权修正Raw/Silver候选位置、失败留存与单文件继续；2026-11-03另批准原job显式替换模式，默认复用不变。原源、字段、对象池、派生公式和检查不变。当前具体方案、LLD、调用影响面与测试门禁统一见[分钟写入修正方案和LLD](dagster-minute-raw-silver-staging-write-plan-and-low-level-design.md)，11月2日范围和预算见其第10节；22日记录只作历史证据，不作本次执行授权。

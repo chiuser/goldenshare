@@ -5,7 +5,7 @@
 > 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
 
 
-状态：2026-10-27 第三项原生中断分类及两项隔离验收待办已按第17节完成，最终613项及40项子用例通过，结果见17.7。前两项历史585项通过保留在16.6。正式重载、真实源/正式PostgreSQL事件验收、任务及补数均未执行，不将隔离完成等同于正式上线验收。
+状态：2026-10-27第18节正式启动及补数完成：6个原job全部SUCCESS、14条物化和28项检查通过，DG及原公告schedule继续运行。第17节613项及40项子用例为隔离开发证据；18.5为本轮真实源、正式Raw和PostgreSQL原事件的限定范围验收。08:00长期准点性未因本轮成功而获证明。
 
 对应[技术方案](dagster-anns-d-onboarding-plan-v1.md)，约束编号R01—R10以方案第10节为准。遵守[编码规范](../../orchestrator/CODING_STANDARDS.md)、[性能治理](dagster-data-pipeline-performance-governance.md)、[schema contract](dagster-asset-schema-contract-design.md)及[接入模板7A](../templates/dagster-dataset-onboarding-template.html#source-contract-budget)。
 
@@ -435,6 +435,8 @@ data_lake_staging/anns_d/run_id=<sha256(window_id:day)>/delivery.json
 第16.3节的原物化指纹核验同时识别真实原生及runless生产者的已有字段，不重写历史metadata；首次生成runless物化和纯文件核验不要求预先已有物化。第16.2节的旧P2现场检查只负责拒绝自动迁移，不重新启用旧执行路径。
 
 ### 8.3 正式切换
+
+本段记录开发阶段的授权边界；2026-10-27管理员追加批准的正式启动、其他原有自动任务运行及本次补数，按第18节执行。
 
 本轮不实施。未来顺序为：隔离测试通过→列清批准的重载范围及旧活动任务→停止本公告旧入口领取新任务并让活动任务正常结束或按批准取消→重载→确认只有一个正式公告job/schedule定义→恢复原实例持久启停状态→另获准运行一次新九日job。
 
@@ -919,3 +921,110 @@ CodeGraph explore覆盖`AnnouncementControl`、day/window、asset/check、历史
 最终测试目录`anns-d-acceptance-final-20261027.KRkLLV`的**4,387个文件、8,168,448 B**已删除，确认目录不再存在；测量worker先自行清掉measurement-data，定向组也删除Parquet/DuckDB/checkpoint及临时instance。只保留有用小日志/报告：`/private/tmp/anns-d-acceptance-closeout-20261027.wToffs/`内最终pytest、完整测量JSON、阶段摘要、signal-report及cleanup记录；取消原红/绿小日志仍在`/private/tmp/anns-cancellation-7kjV0M/`。未清理正式或其他任务文件。
 
 本步第三项及两项隔离验收待办已闭合。上述隔离验收完成时尚未提交；后续提交以Git记录为准，不代表部署或补数。未安装、未重载DG、未跑正式job/check、未取当前真实源或读写正式业务数据；正式源/PostgreSQL事件验收和08:00后台迟到根因仍属于未执行的正式边界，不能宣称已上线或源站完整性已验证。
+
+
+## 18. 正式启动与本轮补数执行细节（2026-10-27）
+
+### 18.1 授权、实现依据与启动
+
+本节落实方案17。管理员批准本轮补数，并追加明确授权启动DG、允许其他数据集按原状态自动更新。原后台停止时考虑的CLI直接执行路线取消；通过正式服务与队列执行原job。原实现位置为`defs/schedules/anns_d.py`、`defs/jobs/anns_d.py`、`anns_d_window.py`、原asset/guard/checks/IO；不开发新的数据写入脚本。
+
+当前工作目录为`/Users/congming/github/goldenshare`，分支`dev-interface`。启动前已核正式实例无活动任务、无DG进程；启动后保留原119个启用sensor、2个启用schedule和全部停用状态。工作区其他未提交定义会随共享code location一起加载，这一启动影响已向管理员说明并获准；不提交或修改它们。
+
+原启动命令为：
+
+```bash
+/bin/bash /Users/congming/github/goldenshare/lake_console/bin/lake-dg-start > /private/tmp/anns-d-recovery-20261027.TFx87F/dg-start-session.log 2>&1
+```
+
+脚本以现有项目`.venv`和登录环境执行`orchestrator.local_startup`，强制复用`/Users/congming/.goldenshare/dagster_home`及已有`goldenshare_dagster` PostgreSQL；先查询原PG/本机CH/Prod CH隧道，可按原逻辑启动已有服务，不能安装/initdb/升级/重建。PG启动探测已有`runs/event_logs/jobs`；补核`instance_info`存在。DG绑定`127.0.0.1:3000`，单一`orchestrator/__repository__`。无旧实例、第二个daemon或临时工作区。启动失败则保留日志，停止正式补数；不擅自重启已监听但异常的依赖。
+
+启动命令在工具持久终端会话运行并保留，不退出该会话。首次nohup包装未保留进程且日志为空，已核无DG进程后才改用上述同一原入口；未出现两个DG实例。
+
+### 18.2 固定范围与提交输入
+
+启动就绪后，仅查询公告job、对应schedule、同window_id的新run及活动公告run。若schedule已创建同九日窗口，直接跟踪它，禁止重复提交；若存在旧公告活动任务，先等待正常结束，不能同时替换同日期文件。其他数据集运行允许排队，原队列`max_concurrent_runs=1`不变。
+
+同窗口查询不筛状态，失败也不能另起新root。必须同时核本公告schedule最近tick：tick尚为STARTED时等待评估终态再查，不能把暂时无run当作可提交依据；GraphQL launch本身没有按window_id的原子去重。确认本计划tick不会再自动提交后才允许补交；存在任何不确定性先等待并核事实，不与scheduler竞争。
+
+九日使用原`announcement_schedule_tags`按2026-10-27 08:00 Asia/Shanghai生成，启动晚于08:00不改变计划时间或日期。通过正式GraphQL `launchPipelineExecution(executionParams: $executionParams)`提交（SDK原生提交路径），selector为`repositoryLocationName=orchestrator`、`repositoryName=__repository__`、`pipelineName=raw_anns_d_update_job`。`runConfigData`固定为：
+
+```json
+{"ops":{"raw_tushare_anns_d":{"config":{"interval_seconds":5}}}}
+```
+
+`executionMetadata.tags`使用完整八项，不传单日partition、不删automatic或执行版本，不用CLI partition-range冒充本次计划：
+
+```json
+{"anns_d/window_id":"3eb56d3c8e8fc262e742b27c01b93361","anns_d/start_date":"2026-10-20","anns_d/end_date":"2026-10-28","anns_d/started_at":"1793059200.0","anns_d/execution_version":"2","anns_d/automatic":"true","dagster/asset_partition_range_start":"2026-10-20","dagster/asset_partition_range_end":"2026-10-28"}
+```
+
+提交命令使用项目现有`.venv/bin/dagster-graphql --remote http://127.0.0.1:3000 --text <已核mutation> --variables <JSON>`，工作目录为`lake_console/orchestrator`；请求/响应和日志保存在上述私有报告目录。先保存返回run_id再跟踪，结果不确定时先查询同window_id，不能盲目重发。schedule实际已生成任务时，以其原run_key/标签/config为准，不手工造第二套自动意图。
+
+第一步成功后依次处理2026-09-29、10-10、10-17、10-18、10-19；每次只提交原同名job，原config加单项`dagster/partition=目标日`，不携带九日自动标签。提交前只核目标日是否已有本轮更晚成功来源观察；有则复用并记录。没有新自动公告任务冲突时提交下一日；队列其他数据集不视为失败或插队理由。
+
+### 18.3 路径、预算、失败与恢复
+
+目标仅`/Volumes/datasource/data_lake/raw/tushare/anns_d/ann_date=目标日/part-000.parquet`；候选、来源页、JSON、budget和CP仅原`/Volumes/datasource/data_lake_staging/anns_d`。原同文件系统校验/replace和逐日持久化保留，无备份、Kopia、Prod业务写入、runless事件或动态分区操作。
+
+统计已有10文件F=276,963B，目标14日；按累计S=4MiB/C=8MiB估算，`10F+9S+19C=199,901,918B`（约190.6MiB），Parquet输出12MiB。一次必要同范围恢复按各日真实阶段选择10.2分支，保守再预留268MiB逻辑读取，合计取整512MiB；Parquet输出合计预留24MiB、额外空间512MiB含JSON/失败现场，原20GB spill策略另计而非预先使用。预计14至30次基础/分页请求；原保护累计理论上限为九日350加五单日各100，不能写成预计850次请求。无总期限、新RSS/IO阈值或性能测试；预计正常数分钟，不含其他数据集排队。实测请求、输出和原CP记录与预估分开，不把压缩文件size当物理磁盘IO。
+
+任一新run失败/取消则停下一批，保留数据和现场。通过原GraphQL原生reexecution/from-failure引用该parent/root，保留原range、config、budget；依据原失败step/原执行计划选择恢复，不把新普通run当续跑。仅checks失败按7.5恢复原检查，不重抓源或重写文件；包含asset时按16节root核验。旧P2失败run不进入V2恢复。失败原因/所选恢复范围必须先记入本节；不自动反复重跑。不可恢复或需改方案时停下汇报，不临时改代码。
+
+### 18.4 验收及执行记录
+
+每个run只核原生终态、执行版本/range、原物化及原两checks。九日预期9条物化、18项passed；五单日各1条物化、2项passed。每项检查的target storage_id/run_id/timestamp须对应本日原物化；文件存在、stat大小与原物化指纹一致。复用原检查，不再额外读Parquet明细/重算SHA或扫全月。10-28合法空预取保留成功语义，不要求未来日期已有公告。最终最多14条物化/28项通过检查，实际以自动已完成复用及执行情况记录。
+
+本节在正式执行前完成，输入/原实现及启动范围经独立复核后实施。实际启动、run_id/日期、合并行数、请求/文件数、原检查和恢复情况见18.5；不再将执行前预检当作最终状态。
+
+
+### 18.5 实际启动、逐日验收与最终状态
+
+**启动及提交。** 原入口在持久终端会话40806运行，日志为`dg-start-session.log`；PG、本机CH和Prod CH隧道按原入口检查后DG上线。正式schema `runs/instance_info/event_logs/jobs`均已存在，无新实例或数据库初始化。新调度只创建一个10-27 08:00九日run，window_id与18.2一致，原schedule tick `2867494`为SUCCESS，自动run为`49b08e12-041b-49ec-b8fa-f9a26baf116f`，没有手工重复提交。
+
+原生事件核九日9/18通过后，再按方案17.1表的run顺序依次提交五个原单日job，全部SUCCESS；没有中断、失败或reexecution。五个提交均由现有`dagster-graphql --remote`向正式服务发送原job，不用Python手工写数据、不绕过队列、不另加执行限制。实际使用的mutation为：
+
+```graphql
+mutation Launch($p: ExecutionParams!) {
+  launchPipelineExecution(executionParams: $p) {
+    __typename
+    ... on LaunchRunSuccess { run { runId status } }
+    ... on RunConfigValidationInvalid { errors { message reason } }
+    ... on PythonError { message }
+  }
+}
+```
+
+变量`p`为18.2规定的selector、`mode=default`、原runConfigData及目标日partition标签。实际存在的请求/config、原生事件和六份run-verify验收报告已[逐字归档](../../reports/anns_d_recovery_20261027/README.md)，执行结果以[execution-summary.json](../../reports/anns_d_recovery_20261027/execution-summary.json)为准。收尾核发现CLI远端模式的`--output`没有写出此前文档所述window-state-1/2、launch等响应文件，因此撤回这些文件存在的表述；未补造原始响应。正式运行及原检查通过有已保存的原生事件/验收报告依据，不依赖这些未落盘响应。
+
+**逐日正式结果。** 行数取本run的原物化与原交付readback，文件大小只用stat；不重新查询Parquet。Raw按原六字段完整行合并口径保存，表中是合并后行数，不能作为本次源返回或公告唯一数量。
+
+| 日期 | 正式Raw行数 | 正式文件字节 | 本日原检查 |
+| --- | --- | --- | --- |
+| 2026-09-29 | 3,604 | 61,394 | 2项通过 |
+| 2026-10-10 | 2,264 | 40,417 | 2项通过 |
+| 2026-10-17 | 1,184 | 34,029 | 2项通过 |
+| 2026-10-18 | 2 | 1,718 | 2项通过 |
+| 2026-10-19 | 299 | 12,082 | 2项通过 |
+| 2026-10-20 | 1,213 | 35,224 | 2项通过 |
+| 2026-10-21 | 1,200 | 34,604 | 2项通过 |
+| 2026-10-22 | 1,133 | 31,530 | 2项通过 |
+| 2026-10-23 | 1,784 | 42,918 | 2项通过 |
+| 2026-10-24 | 2,044 | 45,738 | 2项通过 |
+| 2026-10-25 | 19 | 2,285 | 2项通过 |
+| 2026-10-26 | 1,141 | 26,692 | 2项通过 |
+| 2026-10-27 | 3,150 | 59,657 | 2项通过 |
+| 2026-10-28 | 0 | 192 | 2项通过 |
+
+合计14条物化、28项passed；逐项核target_materialization的storage_id/run_id/timestamp与本日原物化一致，文件大小与原指纹一致。九日事件只读报告`nine-native-events-verified.json`之后复用，小型原window execution JSON补足九日文件stat，没有重复查询九日事件或重算SHA；五单日报告逐个限定本run。源请求九日11次、五单日各1次，共16次；无续跑和已消耗请求重置。10-28合法空预取行数0、文件192字节，本次预取成功不等于已覆盖未来尚未发布的公告。
+
+**开销及边界。** 正式14个文件合计428,480B（约418.4KiB），比执行前276,963B增加151,517B；这是最终文件大小与增长，不能当作累计COPY写入或实际物理IO。512MiB读取/24MiB Parquet写入/512MiB空间仍为执行前保守预算，本轮没有加装观察器或额外读取数据测量引擎物理IO，不能声称已测得全部实际读写量。仅原job执行源获取、候选构建、校验和原子提升；收尾小JSON/PG元数据/stat不包含新的源调用、Parquet明细或数据集全局读取。
+
+最终只读GraphQL确认DG在线，版本1.13.26，`raw_anns_d_update_schedule`保持RUNNING、`0 8 * * *`、Asia/Shanghai。其他原自动任务启停及全局并发未修改；它们正常按配置运行和排队未阻断本轮六个job。既有P2失败run不改写，原staging和CP/预算保留供证据/恢复使用，本轮没有正式资源测试或待清理的测试临时文件。当前没有剩余目标日补数；08:00到实际启动之间的长期可用性/延迟根因仍非本次修复结论。完整小汇总为`execution-summary.json`，本轮两份方案文档更新未另行提交。
+
+
+### 18.6 临时文件及长期证据收尾
+
+2026-10-27按管理员收尾指令，将实际存在的29份公告小证据（68,200B）复制到`lake_console/reports/anns_d_recovery_20261027`，逐份核对字节一致；[manifest（附件已清理）](../../reports/anns_d_recovery_20261027/README.md#report-attachment-cleanup-20261103)记录原路径/归档映射。只读辅助.py以.py.txt保存后删除临时执行副本，6份重复stdout经解析与JSON一致后删除，失败启动空文件/旧pid记录一并精确清理。没有移动或删除活动`dg-start-session.log`、有效请求/config、恢复CP/budget或正式数据。23日收尾第43—44节记录精确21项跨轮清理和两项股票sensor恢复；公告schedule启停未在本次改变。
+
+历史/tmp路径保留其执行时含义，长期查看以本节归档为准；重用源码需先审计其原路径/资源，不直接运行归档文本。原文中没有落盘的CLI响应文件已撤回引用，未伪造或重采集原始响应。此次只处理小文本和状态，无行情/源读取或新测试；正式补数结果保持6个SUCCESS、14条物化、28项通过。文件/状态与文档验证见[收尾结果](../../reports/datasets_recovery_20261023_20261026/README.md#44-恢复开关与清理的执行结果2026-10-27)。

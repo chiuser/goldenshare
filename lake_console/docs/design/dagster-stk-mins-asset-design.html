@@ -2196,5 +2196,6 @@ python3 scripts/check_docs_integrity.py</code></pre>
 </main>
 <section><h2>2026-10-24 前复权与MACD/KDJ写入安全修正</h2>
 <p>管理员已授权先修正两条写入链，再推进10月22日补齐。候选改放staging，补齐逐文件完成记录及中断继续核对；字段、公式、日期、频率与正式目标布局保持不变。当前实施依据为<a href="dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md">写入修正方案和LLD</a>。原文中的目标旁临时文件写法不再作为本次执行依据。</p></section>
+<section id="minute-raw-silver-staging-20261024"><h2>2026-10-24 Prod Raw/Silver写入修正</h2><p>管理员已授权修正Prod Raw和Silver目标旁候选、保留失败现场及逐文件继续。业务公式、停牌/身份/frozen行、专项output_path_override和既有覆盖边界不变；不改Tushare Raw或merge repair。开发前方案和LLD见<a href="dagster-minute-raw-silver-staging-write-plan-and-low-level-design.md">分钟写入修正方案和LLD</a>，正式数据按22日恢复记录逐批核验。</p></section>
 </body>
 </html>

@@ -1,5 +1,7 @@
 # Index Daily Raw By-Date Prod DB Migration Low-Level Design
 
+> 2026-10-24：管理员已授权指数日线Silver和主要指数日线Gold的staging、逐文件记录与中断继续修正，详见[本步方案和LLD](dagster-index-daily-staging-write-plan-and-low-level-design.md)。Raw来源、登记对象范围、日期和字段合同不变；代码验证后再补22日，执行结果另记。
+
 > M5 清退边界（2026-09-05）：本文出现的旧 backend service/mapping 是当时字段与实现对照，不是正式模块依赖；旧 Console 代码已在 M6 删除。已完成迁移、quarantine、旧 staging 和临时报告路径仅用于追溯，不授权重跑或物理删除。当前正式数据、schema、serving、公式及验收记录保留。
 
 状态：P-1 至 P9C-2 已完成；包括 P8 旧 by-code quarantine 最终物理删除，以及 P9C-2 四个 mixed run 的精确 Dagster 状态治理。`raw_index_daily_update_job_sensor` 与 `silver_index_daily_sensor` 已启用，`2026-06-23` 首个自动 raw+silver 日更已成功。
@@ -2056,3 +2058,8 @@ P9C-1 当时结论：旧 by-code asset/check/sensor state 和旧 run history 安
 1. P8 删除前只读 plan 固化 quarantine 目录 947 个文件、1,894 个目录、204,912 KiB、0 个 symlink，并保存 SHA-256 文件清单；随后永久删除 `/Volumes/datasource/data_lake/_quarantine/index_daily_p8/index_daily_by_code_20260624_084707`。旧 raw 原路径和 quarantine 路径均不存在；新 `raw/index_daily` 保持 6,778 个 `part-000.parquet`、191,596 KiB。
 2. P9C-2 对四个固定 mixed run 先导出精确 CSV 备份：4 个 runs、528 条 event_logs、8 条 run_tags、8 条 asset_event_tags；`asset_check_executions`、`pending_steps`、`concurrency_slots` 均为 0。备份 manifest 与 SHA-256 位于 `/private/tmp/index_daily_p8_p9c2_apply_20260715_171747/postgres_backup/`。
 3. 单事务删除后，四个候选 run/event/tag 均归零。`raw_index_daily` event_logs 仍为 61、raw/silver check executions 合计仍为 45,467、两个动态分区合计仍为 7,316；`silver_index_daily` event_logs 从 12,983 精确降为 12,975，差额是被批准删除的 8 条旧 mixed-run silver event。plan/apply/post-audit 目录分别为 `/private/tmp/index_daily_p8_p9c2_plan_20260715_171718/` 与 `/private/tmp/index_daily_p8_p9c2_apply_20260715_171747/`。
+
+
+### 2026-10-24 Raw候选目录补充修正
+
+执行前确认Raw候选仍拼到正式Lake内；管理员已授权一并修正。具体范围、逐文件继续、来源内容摘要、性能和测试以[写入修正方案和LLD第10节](dagster-index-daily-staging-write-plan-and-low-level-design.md#10-raw额外修正方案与lld开发前)为准；本节在该步代码前落档。Prod源、Raw字段/日期与代码覆盖、正式目标和任务入口不改。

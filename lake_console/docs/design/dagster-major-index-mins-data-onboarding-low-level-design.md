@@ -1,5 +1,7 @@
 # Dagster 主要指数历史分钟线接入 LLD
 
+> 2026-11-03：日常Raw/Silver写入及本日恢复以第34节为准；早期P2/P3的失败删候选和Lake内候选做法已被取代。历史Bootstrap执行记录保留，不作为本轮重跑指令。
+
 > 2026-08-16 当前口径：本文继续约束 Raw/Silver 接入，但不再定义最终业务 K 线层。
 > 主要指数必须新增七频 Gold bars；Gold 非 1m 不输出 09:30，技术指标和业务 reader
 > 都只消费 Gold。代码级变更和安全重建顺序见
@@ -839,7 +841,7 @@ P2 已完成，执行日期为 `2026-08-05`。实现只写临时测试 Lake；�
   request code set 来自版本化日期 scope。
 - 目标已存在且合同正确时直接复用，不请求 Tushare；目标已存在但 schema/日期/主键/代码集/数值域错误时拒绝覆盖。
 - 目标缺失时先执行 P1 bounded fetch，再进入 DuckDB 固定 schema temp table；source 和 staging 使用同一套 set-based validation。
-- staging 通过回读和行数对账、再次确认目标未出现后才 `os.replace()`；异常路径删除 staging 文件。
+- 此处为P2历史实现记录；现行候选留存、发布与继续规则以第34节为准，失败不得删除继续所需候选。
 - validator 对缺列文件先做 schema fail-closed，不再引用不存在的列产生 BinderException。
 
 ### 22.2 测试与性能
@@ -1938,3 +1940,84 @@ build_repair_attempt_run_key(
 `ba026401-e59d-4d0d-85c5-3df8e124090f`、
 `75d75d69-f728-4117-90d0-34466e62aedc`。Raw 五频率、Silver 七频率、Gold 七频率指标和
 七个 state 均覆盖 10 个指数，无重复业务键；最终主要指数分钟线资产族缺失数为 0。
+
+## 34. 2026-11-03 Raw/Silver写入修正和当日恢复
+
+本节对应原方案第24节，目标仅为修正两层候选位置和中断继续，再完成11月3日主要指数链。Prod审计计数与旧失败背景见方案24.1；Prod齐备不替代实际Tushare来源核验。禁止改源请求、公式、字段顺序/类型、对象集合、历史fallback、原checks和sensor策略，禁止替换已完成的1m Raw及其他日期文件。
+
+### 34.1 当前实现、影响面和代码位置
+
+`io/major_index_mins_raw_writer.py::write_major_index_mins_raw_partition`与`io/major_index_mins_silver_writer.py::_write_major_index_mins_silver_partition`原来在正式Lake下COPY候选、异常unlink，没有receipt。前者由Raw asset调用；后者同时服务日常Silver和Bootstrap历史fallback。CodeGraph explore与`MinutePartitionPublication` impact已核对：共用发布类还被普通指数/股票Raw/Silver调用；本轮只加两项合同登记，不改这四类的算法、默认覆盖行为或配置。没有API/前端/DatasetDefinition合同变化。
+
+| 位置 | 必须完成的改动 | 必须保留 |
+| --- | --- | --- |
+| `paths.py`两项major staging helper | 正式root映射到`DEFAULT_LAKE_STAGING_ROOT`；自有临时/Bootstrap root映射到该root的`_staging`下；原run/date/freq校验保留 | canonical Raw/Silver路径完全不变 |
+| `io/minute_partition_writer.py::CONTRACTS` | 加`raw_major_index_mins`五频与`silver_major_index_mins`七频，使用原路径/schema | 原四项、锁、摘要次数、状态机和校验算法不改 |
+| Raw公共writer | 同名同参数包装器；原函数移为私有builder，增加私有候选参数；builder只COPY/业务校验，发布类负责replace | 原分页/11字段/source revision、Raw质量检查、已有合格复用/坏文件拒绝 |
+| Silver私有公共入口 | 同样拆为包装器与builder，两种原public入口继续汇入 | 原清洗、价格修正、派生SQL、原输入与输出检查；Bootstrap显式fallback规则/代码/文件校验 |
+| Raw/Silver asset factory | 原`run_id`传`context.run.root_run_id or context.run.run_id` | job/asset/check/partition和默认入口不变 |
+
+wrapper在规范目标存在且本身份无receipt时交回原builder只读复核；否则走共用发布类，`overwrite=False`。builder的候选参数为空且目标缺失时拒绝，不保留另一条不带receipt的写入路径。指定候选时不因目标出现而返回复用，由发布类检查写前目标是否变化，避免候选未生成却错误成功。返回dataclass及`to_details()`合同不变；wrapper用`asdict`追加仅供发布检查的`row_count=output_row_count`，从receipt读回后移除该辅助键并恢复Path。复用validated/promoted结果标为`reuse_existing`，Raw本次request/page/retry计0，不能宣称又下载了一次。
+
+### 34.2 输入、候选及继续规则
+
+只复用既有`MinutePartitionPublication`，不另建状态表、配置或重试器。其规范目录为`data_lake_staging/minute_partitions/<dataset>/target=<路径SHA>/run_id=<执行身份SHA>/attempt=<UUID>/part-000.parquet`，同级`receipt.json`保存输入、目标写前stat、状态、候选摘要和原结果；目标锁仍在target目录。系统临时目录仅用于隔离测试。
+
+Raw `source_identity`绑定规范日期/频率、expected codes/scope hash、完整11字段、原全日参数及page limit、writer源码摘要；实际下载结果由source revision和通过原检查的候选冻结。Silver `source_paths`绑定本次真实Raw（native）或Silver30/60（derived）文件，显式历史fallback还绑定实际文件；`source_identity`绑定scope hash、fallback代码和writer源码摘要。fallback是否允许、对象范围和物理合同仍由原builder核验，不能只存名字就绕过业务校验。既有合同模块决定scope hash；本轮不改合同版本。
+
+发布类原状态机保持：`building`失败保留attempt，下次同身份可新建attempt；`validated`继续已完整校验候选；`promoting`若正式目标摘要已匹配则只补receipt；`promoted`读回原结果。输入、源码、scope、目标或候选变化仍拒绝。源变化后要重新获取数据须另建独立执行，不能编辑receipt；本轮新root不沿用旧050a。不要为本次改动重刷历史、搬走正式目标或强制标绿。失败停止后续步骤、不自动重跑；中断是否继续先核清进度和输入，继续只处理尚未完成项。正确目标复用不改inode/内容。
+
+### 34.3 隔离测试与验收
+
+测试只用自有临时目录、内存DuckDB、临时Dagster instance和假Tushare传输；保留真实生产者的11列类型/顺序及真实业务SQL。临时DuckDB、子进程、telemetry和网络均须隔离，不使用正式instance、挂载卷临时区或源请求。人工期望来自原合同与字面时间表，不调用待测函数生成期望。子进程中断测试也须显式连接临时DuckDB。
+
+| 硬口径 | 验收证据 |
+| --- | --- |
+| 候选只能在staging | 正式根映射/自有临时根正向；不安全run/date/freq反例；实际COPY候选路径核验 |
+| 原业务结果不变 | 原Raw/Silver writer全套：分页/source质量/时间网格、native清洗、90/120完整窗口、历史fallback/北证；源请求及计算SQL与改前源码逐项对账 |
+| 默认已有文件行为不变 | 合格文件复用且Raw不访问源；坏目标拒绝；返回Path/统计正确 |
+| 失败与继续 | 两层候选失败留存、replace前/后中断；同身份不再调用源/计算；完成重放inode不变；源或scope变化拒绝；fallback输入变化拒绝 |
+| 正式组合入口不变 | 原Raw/Silver job最小隔离链，原asset/check通过；root重执行身份继续绑定；定义/sensor原回归 |
+| 不影响共用消费者 | 原四项发布测试及普通指数Raw/Silver回归，新增两项用同一状态机；静态检查 |
+
+测试后逐项对照34.1—34.3，未通过不重载/补数；不以测试数量替代真实来源核验。不新增性能测试或安装依赖，隔离临时空间预算64MiB。测试结果与实现对账追加本节。
+
+### 34.4 正式执行顺序、开销与收尾
+
+1. 只读核对这五个job的11月3日最新run和活动状态、对应sensor开关/cursor/key；已排队、活动或成功则跟进，不重复发起。必要时只暂停原来开启的目标sensor，保存开关和cursor；不影响其他数据集，不重置或手动评价sensor。
+2. 通过现有控制平面仅重载`orchestrator`代码位置，确认加载成功。Tushare `idx_mins`按四缺频×10代码×当日00:00:00—23:59:59，投影`ts_code,trade_time,freq`一次核验（最多40请求、800行）；核对覆盖、字面时间网格、重复/额外点。异常停止，不能用Prod齐备替代，不改下载来源。原job仍校验完整11字段。
+3. 原`raw_major_index_mins_update_job`：复用1m 2,410行，新建5/15/30/60m的490/170/90/50行。原job SUCCESS、五项原core check针对本次物化通过，才推进。
+4. 原`silver_major_index_mins_update_job`：七频；90m由30m、120m由60m，原依赖执行。七频预期2,410/490/170/90/50/30/20行（共3,260），以原业务检查为最终依据。
+5. 原`gold_major_index_mins_update_job`：七频业务K线；1m保留09:30，其他频率移除集合竞价点；预期2,410/480/160/80/40/30/20行（共3,220）。
+6. 原`gold_major_index_mins_nineturn_update_job`六频，再原`gold_major_index_mins_technical_daily_update_job`七频指标及七频state。每步SUCCESS且原检查通过后继续。没有股票复权或repair。
+7. 复用精确run事件核对39项输出和原检查，再对39个本日路径stat/必要计数；不重扫catalog。恢复本轮暂停的sensor原状态，验证cursor/key未被重置。清理自有测试、控制文件和成功后空候选目录，保留正式文件、receipt、必要冻结输入、旧失败run及正式日志。
+
+日期只限2026-11-03；技术上下文按原MA250读取七频3/7/17/33/64/84/126个分区（含当日），以及11月2日指标/state；九转原最近20个Gold分区和11月2日seed。已有文件只stat得461份参考（含重复）2,971,923B，去重363份2,375,296B，文件均存在。原请求、上下文计算、检查、摘要与收尾正常一轮预算读128MiB、写16MiB、额外空间64MiB；必要中断继续最坏另预留同范围128/16/64MiB，非自动重试授权/非新运行限制。原source审计40请求另计，原Raw业务预计40请求800行；不额外读全历史、不写其他日期。失败停止并汇报，禁止为凑齐结果自动切源、放宽检查或重复跑全局审计。
+
+### 34.5 开发验收与操作入口
+
+隔离回归143项通过，另两项asset root/child身份传递测试通过，共145项；原Raw/Silver job在临时instance、字面11字段假传输、真实业务SQL及12项原core check下通过。两层replace前/后中断不重算、失败候选留存、输入变化拒绝、历史fallback文件绑定以及原四类共用发布行为均覆盖。改前/后AST对账：Raw原12个辅助函数/类型、Silver原14个辅助函数/类型完全一致，源请求、清洗/派生SQL及结果类型未改；只拆原写入函数。Ruff致命基线及所有本轮修改Python默认检查通过，文档完整性通过。CodeGraph sync/status已完成。测试夹具首次把Silver频率错写为整数、且空集合传给旧fixture的executemany，已按现行字符串频率合同和显式空11列Raw修正；未因此改业务合同或放宽断言，不引用早期失败结果作为通过证据。
+
+Tushare本轮一次核验共40请求、800行：5/15/30/60min分别10代码、490/170/90/50行，缺时间点/额外点/重复/身份不符均0。只投影三列，不是全字段业务验收；后者仍由原job执行。
+
+正式控制使用项目既有`.venv/bin/python3 -B`，工作目录`lake_console/orchestrator`，目标`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`，通过`http://127.0.0.1:3000/graphql`现行接口。私有控制文件只放`/private/tmp/dg_major_mins_write_fix_20261103_904ynkmp/control.py`，收尾删除；只调用原控制平面，不直接调用业务writer。完整入口为`.venv/bin/python3 -B /private/tmp/dg_major_mins_write_fix_20261103_904ynkmp/control.py <动作> [参数]`：
+
+| 顺序/动作 | 实际接口和限定参数 | 写入/恢复 |
+| --- | --- | --- |
+| `snapshot`、`status` | `runsOrError`按五个原job名+partition=2026-11-03各limit=4；对应五sensor的`status/id/lastCursor/lastRunKey`；位置仅orchestrator | 只读；保存初始开关和本日39目标stat |
+| `pause` | `stopSensor(id=<snapshot中的状态id>)`，仅五项中原RUNNING者 | 只改这些开关；有同日活动run先跟进，禁止重复发起 |
+| `reload` | `reloadRepositoryLocation(repositoryLocationName:"orchestrator")` | 仅重载代码位置，须LOADED且无PythonError；不重启webserver/daemon |
+| `launch <原job名>` | `launchPipelineExecution`，selector位置orchestrator、仓库__repository__、pipelineName为34.4对应原job；mode=default，runConfigData={}，tags含`dagster/partition=2026-11-03`和本次操作来源；不伪造sensor run key | 仅提交当日原job，保存返回run id；SUCCESS和原检查通过后才下一步 |
+| `run <run id>`、`events <run id>` | `runOrError`和`logsForRun`仅查精确run；事件分页游标继续，不重复扫全历史 | 只读；核对物化与check指向本次run，失败即停止 |
+| `finish` | 复用五run已有事件，核对39项物化/95项原check、本日39个目标stat、11个Raw/Silver promoted receipt；对比原1m文件写前stat | 不读行情明细；只删本轮已提升候选的空attempt目录及其余三job精确run下空目录，保留receipt/锁/正式日志 |
+| `restore` | `startSensor`仅恢复本轮暂停项；位置/仓库/名称来自snapshot | 不改原cursor/key，不启用原来STOPPED项；最后核查开关/已有记录 |
+
+上述脚本不得添加直接SQL业务写入、materialize替代流程、runless、自动重跑或新限制；若实际自动run已完成，复用其事实，不再launch。恢复开关前确保本轮没有仍执行中的任务。失败保留必要receipt和正式结果，不撤回已完成数据；异常由本轮向管理员说明后再决定继续。
+
+### 34.6 实现对账和正式验收结论
+
+34.1代码点均已实现：两helper正式根映射外部staging，两个原writer拆为包装器/候选builder；历史fallback入口仍汇入同一Silver发布路径；两asset使用root run身份，实际原job隔离执行通过。共用类仅新增两项CONTRACTS登记；AST对账其所有原函数/类不变，`paths.py`相对本轮改前工作区只改两项major staging helper，保留原有其他未提交修正。Raw原12个辅助函数/类型与Silver原14个辅助函数/类型、字段和计算SQL未变。34.3矩阵已由143项回归及2项root/child参数测试覆盖；未执行额外性能测试、安装或其他日期重算。
+
+正式执行五run及各行数见方案24.4，均SUCCESS；39项输出、95项原check逐名与当前definition一致、日期均2026-11-03、check均指向本次相应物化，0失败/缺check。39个目标文件stat正常，原1m Raw写前stat未变；新增38份正式文件845,722B，11个Raw/Silver promoted receipt留存。没有重跑任何正式job，没有补runless事件，也没有扩展到其他日期、repair或全catalog审计。
+
+操作文件曾有只读事件查询少一个闭括号，以及空目录清理按run名称猜前缀的错误；校正查询、直接按现行路径helper定位后完成收尾。这两处仅影响临时操作文件，未使原job失败、未修改业务代码或重算数据。清理只删除成功后空目录；候选已通过原检查并原子提升，不遗留本轮候选Parquet。原正式文件、11份receipt、正式日志和旧失败run保留。五sensor已恢复原RUNNING，恢复时cursor/key与暂停后完全一致；临时脚本、夹具、私有事件副本和改前代码副本清理后不成为长期依赖。自动单频重试/初次1m探测保持本轮禁止变更范围。

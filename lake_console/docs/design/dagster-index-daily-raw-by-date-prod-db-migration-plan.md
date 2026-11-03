@@ -1,5 +1,7 @@
 # Dagster Index Daily Raw By-Date Prod DB Migration Plan
 
+> 2026-10-24：管理员已授权指数日线Silver和主要指数日线Gold的staging、逐文件记录与中断继续修正，详见[本步方案和LLD](dagster-index-daily-staging-write-plan-and-low-level-design.md)。Raw来源、登记对象范围、日期和字段合同不变；代码验证后再补22日，执行结果另记。
+
 > M5 清退边界（2026-09-05）：本文出现的旧 backend service/mapping 是当时字段与实现对照，不是正式模块依赖；旧 Console 代码已在 M6 删除。已完成迁移、quarantine、旧 staging 和临时报告路径仅用于追溯，不授权重跑或物理删除。当前正式数据、schema、serving、公式及验收记录保留。
 
 状态：P-1 至 P9C-2 已完成；包括 P8 旧 by-code quarantine 最终物理删除，以及 P9C-2 四个 mixed run 的精确 Dagster 状态治理。`raw_index_daily_update_job_sensor` 与 `silver_index_daily_sensor` 已启用，`2026-06-23` 首个自动 raw+silver 日更已成功。
@@ -688,3 +690,8 @@ P7 当轮明确不做：
 9. 性能报告记录 prod-core-db 单日读取、历史转换、runless event 写入和 sensor tick 耗时。
 10. raw by-date blocking check 只有两个聚合 check，Dagster DB 不新增 file exists、row count、schema、partition date、unique key 等细碎 raw check event。
 11. P9B-1/P9C-1 报告证明没有删除新 by-date raw、silver、dynamic partitions、trade-day partitions 或 prod 数据；剩余 4 个 protected mixed runs 不参与新 readiness 和日更状态。
+
+
+### 2026-10-24 Raw候选目录补充修正
+
+执行前确认Raw候选仍拼到正式Lake内；管理员已授权一并修正。具体范围、逐文件继续、来源内容摘要、性能和测试以[写入修正方案和LLD第10节](dagster-index-daily-staging-write-plan-and-low-level-design.md#10-raw额外修正方案与lld开发前)为准；本节在该步代码前落档。Prod源、Raw字段/日期与代码覆盖、正式目标和任务入口不改。

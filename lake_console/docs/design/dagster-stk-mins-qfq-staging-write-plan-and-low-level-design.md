@@ -5,6 +5,10 @@
 > 2026-11-03附件清理：相关恢复请求/响应、轮询、旧脚本和测试输出等过程附件已删除；下文旧附件清单、数量、命令和裸路径保留为当时记录，不表示文件仍存在，也不要求重跑任务。保留说明及最终结果，具体范围见[清理LLD20.17](dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2017-其余恢复过程附件的清理2026-11-03)。
 
 
+> 2026-11-03恢复完成：11月2日股票分钟链及直接下游37项、八个原job和117项原检查全部通过，两次repair完整门槛ready，八条sensor已按原状态恢复。完整结果见21.13；较早“准备时/执行中”段落保留当时事实。
+
+> 2026-11-03文档准备时：第21节是11月2日分钟链恢复执行LLD，对应MACD/KDJ方案第18节。状态为方案准备、待审阅和具体执行授权；本轮未改代码、未触发job、未调整sensor、未读取历史行情正文。下方10月各次完成记录保留当时事实。
+
 > 2026-11-01附件精简：本页所引恢复过程附件已按管理员指令删除，相关链接转到对应README的清理说明；原数量、操作和历史结论保留，旧裸路径不表示文件仍存在。
 
 > 2026-11-01报告精简：按管理员明确指令，五个恢复报告目录仅留必要最终结果和说明，过程附件删除，不再压缩另存。历史附件路径描述当时执行，已删除附件的链接改为对应README的清理说明。具体保留范围和验收见20.16；不因附件删除重跑补数、检查或审计。
@@ -513,9 +517,11 @@ a2系统临时目录修正和预检通过。1分钟真实writer完成241条repla
 
 管理员已明确批准停用这两个sensor并继续补数，追加以下恢复条件，取代上段笼统的“再决定何时开启”：
 
-- [ ] **TODO：等2026-10-23的数据补齐完成后，再启用`gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor`和`gold_stk_mins_qfq_nineturn_update_job_sensor`。** 后续补数执行者在确认23日补齐结果后处理并记录启用时间及状态读回；本轮22日七频QFQ完成不满足启用条件，不能提前恢复RUNNING。
+- [x] **sensor恢复TODO已完成（2026-10-27）**：两项sensor已按管理员本次追加授权恢复并读回RUNNING，原身份、cursor和lastRunKey保留。23日股票链及repair已验收；THS两项独立未完成，不再作为本次恢复开关的等待条件。详见23日恢复报告第43—44节及`operational-closeout-20261027/sensor-restoration-summary.json`。
 
 本轮先停止两个现有状态并读回，刷新无并发run/daemon、五输入stat和空间，再执行13.1原命令一次。沿用已完成年度stat，不再次列举年度文件，不再测试。状态修改及预启动结果写`qfq_recovery_20261025/sensor-stop-and-launch-preflight.json`，业务结果仍由原28项检查及publication记录验收。
+
+2026-10-27补充授权：管理员明确要求收尾并恢复此前关闭的两项sensor。23日股票链及repair已验收，THS两项无本链输入依赖；本次按[23日报告第43节](../../reports/datasets_recovery_20261023_20261026/README.md#43-恢复自动任务及文件收尾方案与lld2026-10-27)的精确名称、原身份/cursor保留、原生GraphQL状态恢复及读回执行。此为对上方旧等待条件的最新授权，不代表THS已补齐；TODO只在两项实际RUNNING读回后关闭。
 
 ### 13.3 正式执行及验收结论
 
@@ -1652,6 +1658,7 @@ CodeGraph已查两项parse函数的调用方均为`assets/stk_mins.py`相应mate
 
 提交格式检查发现所保留的真实任务样本文本第3行表头末尾有空格；只去掉这一处尾空格，任务数据行及JSON保持原样，不修改夹具值或测试预期。前述24份原字节一致为删除完成时的核对结果；此处另记提交前的格式整理，不以此声称重新核验了Prod。
 
+
 ### 20.17 其余恢复过程附件的清理（2026-11-03）
 
 **目标、授权与范围。** 管理员明确指`lake_console/reports`并要求将上述recovery临时文件清理。本步承接20.16，只处理当前该目录中路径含`recovery`的605份文件、14,249,238字节，覆盖18个目录或单文件名称；不是删除整个reports，也不处理根`reports`。按准确清单删除539份过程附件、12,969,561字节；保留66份说明/最终结果及测试来源。被保留的原JSON和样本不改正文；历史README/分析说明保留，补充附件已清理的说明，避免把旧路径当成再次执行要求。未跟踪或ignored过程附件同属授权范围，不假定它们都能从Git恢复。
@@ -1683,3 +1690,235 @@ CodeGraph已查两项parse函数的调用方均为`assets/stk_mins.py`相应mate
 **实际结果。** 已按准确清单删除539份文件、12,969,561B及9个空子目录；本轮相关文件由605份变为66份、1,293,694B（包括清理说明文字），保留的41份非Markdown结果/真实样本SHA-256全部与清理前一致。29份直接关联文档修正157处附件链接，另在原方案补入本次清理状态，共涉及30份说明/设计文档。157处新链接均指向实际存在的清理说明，未残留指向本轮已删附件的活动链接；文档完整性和本轮`git diff --check`均通过，其他已有状态与暂存区保持不变。只处理报告及引用，无代码/测试/配置改动，没有访问正式服务、读写正式数据或重新审计/补数，没有新增备份包、Git提交或推送。临时清单与辅助脚本在完成上述核对后清理，不在reports新增另一套清理附件。
 
 **随后批准的提交范围。** 管理员随后要求提交。本次仅提交准确路径内已跟踪过程附件的删除、清理说明和必要引用修正；公告/ETF/国际指数保留的9份原未跟踪说明与最终结果一并纳入，以免新增清理链接指向未入Git的文件。两个范围外旧文档仍留工作区，相关报告的两处链接改为历史文字，不将整份旧方案或其他过程材料带入。对混有旧改动的方案/LLD只暂存本步段落及HEAD已有内容中的附件链接修正；此前补数、11月2日执行记录和未提交源码不混入。提交前校验准确白名单、暂存差异及文档链接，不推送或部署，保留其他原有工作区改动。
+
+<a id="recovery-20261102-lld"></a>
+
+## 21. 2026-11-02股票分钟链恢复执行LLD（2026-11-03准备）
+
+对应[MACD/KDJ原方案第18节](dagster-stk-mins-qfq-macd-kdj-indicators-plan.md#recovery-20261102-plan)。本节定义后续操作，不表示已经执行或已获本日历史读写批准；第20节只保留10月30日事实。
+
+### 21.1 本日已核实的事实
+
+| 事实 | 已有证据及含义 |
+| --- | --- |
+| Prod补源 | 2026-11-03 00:18:07 +08只读核验`raw_tushare.stk_mins`的`ts_code/freq/trade_time`；按单日、五频和5,577个预期代码的索引范围查询，没有导出OHLC或读取历史分钟正文 |
+| 股票范围 | 使用现有`load_current_listed_stock_codes_for_stk_mins`的上市日期/CNY范围；6只全天停牌为000831.SZ、002129.SZ、002717.SZ、601326.SH、688121.SH、688496.SH；Raw代码覆盖仍核5,577只，盘中时间点按5,571只有效股票核对 |
+| 五频时间点 | 每只股票1/5/15/30/60m分别241/49/17/9/5个时间点，含09:30；盘中记录分别1,342,611/272,979/94,707/50,139/27,855，缺口和重复均0。15:00后至15:30另计；这不是价格或成交质量通过结论 |
+| Prod全日计数 | 五频分别1,354,677/275,397/95,517/50,547/28,239，合计1,804,377；包括停牌结构行及收盘后记录，不能直接作为Silver行数 |
+| 旧Raw/Silver | Raw `67ae61e1-87f0-466b-9760-17c980c0a11c`、Silver `9b35a759-c5a3-4839-9396-8dfd829e54cb`为SUCCESS，但导入的是旧的不完整来源；两层五频均需替换 |
+| 旧QFQ | `16acde55-cf25-4e36-afb8-cb2d11f602a5`于11月2日22:17:14—22:17:17失败；七频均在`_validate_canonical_qfq_windows`处、年度writer调用前失败，没有本run的正式Gold替换 |
+| 成交额 | `b890f7f4-55fb-4278-b7ab-88fc3cb6cdc6`在Gold步骤报`bse_close_point_missing: freq=1, invalid_code_count=38`；必须在Silver新来源完整后恢复，不能复用其失败为已发布事实 |
+| 运行只读快照 | 11月3日准备阶段读取最近180条run元数据，本日上述两成功、两失败可见；范围内未发现活动run或本日两次repair/MACD/九转成功记录。它是有界快照，不证明未来无并发，正式提交前再按本日/本job核对 |
+
+现有源检查的边界：Prod门禁证明成功任务与代码存在，Silver原检查也不检查整日所有应有时间点。因此本节明确复用已经完成的本日Prod时间点审计，并在新Raw/Silver产物做必要计数；不修改正式check语义、不把一次审计结果写成新门禁或新状态实体。
+
+### 21.2 范围、禁止项和执行权限
+
+仅更新本日37项及原job实际识别的必要历史repair。前一交易日是2026-10-30；日历确认2014-01-02至2026-11-02共有3,118个交易日。本轮不触发11月3日，不重跑已完成10月30日及更早日更，不重建其他股票历史state或重算无关历史指标。年度文件合并保留非本日记录；repair仅替换原产物指定股票，合并共享state时保留其他股票。
+
+编写第21节时，授权只覆盖方案/LLD和必要只读准备；后续具体执行授权记在21.12。正式操作必须具有本日执行及21.7具体年度/历史读取范围批准；旧日期审批、一般继续指令或Prod下载完成不能替代。文档准备阶段不运行job、sensor evaluation、check执行、分区写入、runless事件，不启停sensor或重启DG。
+
+### 21.3 当前实现位置和影响面
+
+| 现有位置（均相对`orchestrator/src/orchestrator/`） | 本次真实职责及边界 |
+| --- | --- |
+| `defs/run_contracts/configs.py` | Raw的`source=prod_db`、`write_mode.replace_existing`及完整`prod_completion_reference`；Silver同名替换selector；默认与builder行为不改 |
+| `defs/assets/stk_mins.py` | 两层五频替换、QFQ日更和原检查前的业务校验；Raw/Silver显式替换向原writer传`overwrite=True`；新来源不走默认复用 |
+| `defs/io/minute_partition_writer.py` | Raw/Silver候选、输入/目标身份、receipt及逐文件提升；正常路径是两次候选SHA和一次正式文件SHA读回，不能误写成年度publisher的单次摘要；不新写目录旁临时文件 |
+| `defs/run_contracts/stk_mins_silver_policy.py`及Silver原转换 | 保留600355.SH、300344.SZ、300391.SZ冻结规则及原过滤/重算；准备阶段仅核这3股在本日五份旧Silver中的计数，均0，本日无须解除冻结或改写旧历史 |
+| `defs/asset_guards/stk_mins_prod_readiness.py`、`defs/prod_db/stk_mins_task_run.py` | 先按覆盖目标日筛任务，再取最多20候选，验证成功/全单元/全市场/五频等原条件；冻结和写前验证真实reference，不手填旧任务身份 |
+| `defs/stk_mins_qfq_factor_repair.py`、`defs/ops/stock_mins_qfq_factor_repair.py` | 仅传本日，原job识别变化并产生真实scope；按年份加载四频共享Silver来源再限定股票，七频修复 |
+| `defs/stk_mins_qfq_macd_kdj.py::_prepare_daily_macd_kdj_replacement_tables`及对应assets | 前一交易日state、日更读取和年度合并；沿第19节既有实现，不改公式，不重刷其他日期 |
+| `defs/sensors/gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py`、对应repair op | 原decision及`_run_config_for_repair_decision`生成显式scope；op再与因子repair产物逐项核对；不得虚构`end_trade_date`参数 |
+| `defs/assets/qfq_nineturn.py`、`defs/assets/wealth_market_turnover.py`及Prod发布asset | 原四频九转、成交额Gold/Prod更新；不新增外部消费者或发布方式 |
+
+本次CodeGraph `codegraph_explore`覆盖Raw/Silver writer、两个repair op和指标repair config调用链，随后补看真实SQL、配置、原job selection及冻结规则。CodeGraph关于测试覆盖的推断不作为无测试结论；既有替换回归见`tests/test_stk_mins_replace_existing.py`。无架构或共享contract修改，不涉及Prod同步执行器、API/前端修改。正式加载版本和当前业务状态属于执行前运行核验，文档与代码存在不能代替它们。
+
+### 21.4 执行前准备与原生提交
+
+1. 工作目录`/Users/congming/github/goldenshare/lake_console/orchestrator`，现有`.venv/bin/python3 -B`，正式`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`。提交使用现有本机`http://127.0.0.1:3000/graphql`原生`launchRun`，selector为`orchestrator/__repository__/<下表原job>`；不是Dagster Plus CLI，不运行可能同步安装依赖的命令。
+2. 只读核对code location公开的Raw/Silver配置确有`replace_existing`，当前源码和正式运行加载版本一致，原job/资产/check集合存在。若不一致，停止汇报，不能在本轮文档任务中自行部署、重启或临时改代码。
+3. 核对本日Raw分区`cn_a_stock_mins_trade_days`、Silver及下游分区`cn_a_stock_mins_silver_trade_days`，以及股票日线/因子/生命周期/停牌/身份参考的本日就绪事实。只核精确目标和前交易日，不全历史逐分区审计。通常已有分区无需写入；若本日某键确实缺失，只有获准正式操作后补该缺失键并读回，不新建九转分区集合。
+4. 保存八条sensor原selector/id、开关、cursor、lastRunKey：`stock_mins_raw_sensor`、`stock_mins_silver_sensor`、`stock_mins_qfq_daily_sensor`、`stock_mins_qfq_factor_repair_sensor`、`gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor`、`gold_stk_mins_qfq_macd_kdj_repair_job_sensor`、`gold_stk_mins_qfq_nineturn_update_job_sensor`、`gold_wealth_market_turnover_update_job_sensor`。获准后只暂停其中原来RUNNING者，不动登记分区的sensor、其他数据集或daemon。
+5. 停sensor不会停止已有run。按目标日/原job和共用年度文件writer核对活动、queued及新成功run；有冲突先等待核实，不杀任务、不抢锁。Nov2准备快照不代替本步。
+6. 挂载、正式根/staging存在、同设备、可用空间和原锁无冲突后，冻结本次小型执行记录。正式Lake仅`/Volumes/datasource/data_lake/raw|silver|gold`，候选/冻结/receipt仅`/Volumes/datasource/data_lake_staging`。不备份、不调用Kopia、不用旧Lake或改路径配置。
+7. 提交调用只保存本次意图、日期、配置、响应和精确run ID，不承载行情计算。已有触发方式可用时直接复用；如需整理薄调用文件，须先按本节固定配置核对，不能扩展为手工补数脚本。请求只发一次，响应不明时按已保存意图和原生run事实查找，禁止盲重发。
+
+### 21.5 job顺序、配置与阶段验收
+
+每个步骤等待SUCCESS及原检查绑定本次物化后再进入下一步；SUCCESS而检查/receipt缺失不能当作通过。不按“最新run”或仅资产历史绿灯代替精确本次事实。
+
+| 步骤 | job及必须传入的配置 | 必须验收 |
+| --- | --- | --- |
+| A | `stock_mins_raw_update_from_prod_job`，partition=2026-11-02。使用原`build_stock_mins_raw_update_job_run_config(source='prod_db', prod_completion_reference=reference)`，仅将五个`raw_stk_mins_{1,5,15,30,60}m`配置的`write_mode`改为`{'replace_existing': {}}` | 五物化、15原check；来源仍为Prod九字段，五份候选/正式receipt完整，逐频与21.1源行数对应 |
+| B | `stock_mins_silver_update_job`，partition同日。`ops`仅五个`silver_stk_mins_{1,5,15,30,60}m`，各`config={'write_mode': {'replace_existing': {}}}` | 五物化、20原check；原过滤/重算/冻结统计及receipt成立，不能简单让Silver行数等于Raw |
+| C | `gold_wealth_market_turnover_update_job`，partition同日，空config | Gold和Prod两物化、原Gold检查及发布结果通过；原先BSE收盘缺口消失，不再另跑Prod发布job |
+| D | `stock_mins_qfq_daily_update_job`，partition同日，空config，新独立run | 七物化及28原check、publication完成；不能FROM_FAILURE旧`16acde55`，因为来源已经变化 |
+| E | `stock_mins_qfq_factor_repair_job`，非分区op job：`ops.stock_mins_qfq_factor_repair_op.config={'trade_date':'2026-11-02'}` | 七条原completion/原factor guard通过；真实名单、起止、codes hash、batch和producer身份完整；不传手工股票列表 |
+| F | `gold_stk_mins_qfq_macd_kdj_daily_update_job`，partition同日，空config | 14物化、28原check，七频当日state和精确前交易日state关系成立；因子repair必须先通过 |
+| G | 先用`build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision`，按`_run_config_for_repair_decision`产出配置后提交`gold_stk_mins_qfq_macd_kdj_repair_job` | 只承接E产物和F事实，配置字段见21.6；有repair则14条completion及完整repair guard通过；无repair须有原decision依据，不传空名单强跑 |
+| H | `gold_stk_mins_qfq_nineturn_update_job`，partition同日，空config | 因子repair和指标repair均满足门槛后，四物化/四原check及receipt通过 |
+
+**reference。** A之前使用原Prod门禁选择覆盖11月2日的合法全市场成功任务，继续保留原全部成功、完成单元、五频、代码覆盖条件，生成新的`ProdStkMinsCompletionReference`并保存其原字段。不能将管理员下载完成口述、00:18计数或旧Raw的reference当作新reference；代码不会因此自动验证整日分钟时间点，21.1有界证据须独立保留。准备/审计的临时SQL访问仍走仓库指定`psql-remote.sh`，不另写数据库连接；正式job仍使用其已存在的Prod resource。
+
+**Raw/Silver额外计数只做一次。** A、B各自产物完成后，分别对当天五份新文件做一次按股票/频率的预期时间点聚合，与21.1的同一口径核对，仅读代码/频率/时间字段、返回计数和必要缺口样本，不读行情值、不扫描其他日期。它补充原检查未覆盖的盘中完整性，不能省略为“代码都在”。同一阶段已有原产物明确给出等价计数时复用，不重复查。发生来源、身份或处理统计变化先查明，不把不一致静默归零。B按原全天停牌过滤核对5,571只；冻结规则三股本日无行，不要求解除规则。
+
+**D的预计计数。** 当前股票范围和处理规则不变时，每频5,571只，七频目标日K线分别1,342,611/267,408/89,136/44,568/22,284/16,713/11,142；总1,793,862条，至多38,997个受影响股票/频率年度目标。它们用于对照原metadata/窗口检查，不作为强行删行或修值的指令。原目标年度含其他日期/股票时仍按原writer保留。
+
+### 21.6 repair产物交接与不重刷边界
+
+11月3日00:25准备阶段复用`build_adj_factor_changed_codes_sql`比较10月30日、11月2日两个小型因子文件和原生命周期范围，结果仅`factor_changed=3`，其他原因0。预算识别为001393.SZ、301536.SZ、688548.SH；这些代码只用于56份历史QFQ/56份指标文件stat，不进入正式手填参数。E仍在执行时重新产生原产物；若实际变化原因、名单规模或日期超出本节预算依据，停下重新核定，不能人工删成3只继续。
+
+E覆盖原日历起点2014-01-02至2026-11-02的3,118日、七频，只重写原产物指定股票。共享Silver来源是四频全市场日文件；不能擅自减少源频率、缩短范围、另建stock-only中间数据或绕过原diagnostics。
+
+G配置来自原decision：`qfq_factor_repair_trade_date`、`start_trade_date`、固定全七频`freqs`、`stock_codes`、`reason`、`repair_required_codes_hash`、`upstream_batch_id`。end由原op从E产物派生，不添加不存在的参数。原op再次逐项核对scope，不跳过；不把“日更成功”当成历史repair完成。F先生成本日七份state，G随后才有完整3,118日×7频=21,826份共享state目标；写入时只替换受影响股票并保留其他股票。E明确无需repair时，F仍正常日更，G只复用原无须repair决策，H仍检查对应依赖。
+
+本次源修复不构成全市场历史重刷授权。年度合并保留其他日期，原本因复权变化需要的3只预估股票历史repair属于E/G，不能扩大到其他股票或10月已完成批次。2013年准备stat无这3股QFQ文件，未读其正文；若原入口实际需要超出批准年份的文件，先停止核清。
+
+### 21.7 必要读取来源及测量依据
+
+准备只读统计时间为2026-11-03 00:25:55 +08。年度数据只列路径并stat，没有打开其Parquet正文或计算SHA；小型日期/因子依据只用于预算，不形成正式repair完成事实。
+
+| stat范围 | 文件数 | GiB |
+| --- | ---: | ---: |
+| 2025七频QFQ | 38,241 | 8.814355 |
+| 2026七频QFQ | 39,165 | 7.796705 |
+| 2026七频指标 | 39,165 | 17.809291 |
+| 3只预算股票2014—2026 QFQ | 56 | 0.012333 |
+| 3只预算股票2014—2026指标 | 56 | 0.024793 |
+| 3,118日四频Silver（1/5/30/60m） | 12,472 | 44.240539 |
+| 同期Silver因子 | 3,118 | 0.105777 |
+| 已存在的历史七频共享state（截至10月30日） | 21,819 | 3.585124 |
+| 10月30日七份前日state | 7 | 0.001635 |
+
+当时Lake可用约2,697.21GiB。F之后共享state应增加7份为21,826；旧Nov2 Silver替换后的总字节小幅变化应通过本日新文件stat记入，不重新枚举所有历史文件测量。上表只是文件大小，不等于每个SQL的实际设备读取量。
+
+后续拟批准范围逐项如下：
+
+- A：Prod `raw_tushare.stk_mins`，11月2日五频、原5,577代码范围、九字段`ts_code/freq/trade_time/open/high/low/close/vol/amount`，沿原09:00—19:00日内边界；不发Tushare请求。原TaskRun窄门禁只读其现行白名单身份/状态/进度/日期与过滤字段，不扩展Ops其他表。
+- B/C：本日五频Raw/Silver，原小型Basic/identity/lifecycle/停牌/日线等必要参考。C的唯一Prod写入表为`core_serving.wealth_market_turnover_snapshot`，仅`type='stock'、market='CN_A'、trade_date='2026-11-02'`五频5行，使用现有`ProdPostgresWriteResource`和原事务内删除该日范围、插入、读回比对的发布方法；异常沿原事务回滚，不改其他日期/市场或Prod行情表。正式执行批准必须覆盖这次单日发布，不能拿只读审计授权执行。
+- D：本日Silver及因子，合并受影响2026七频QFQ年度文件；不读取2025 QFQ来做当日前复权，不重算其他日期。
+- E：原产物指定股票、2014-01-02至2026-11-02七频QFQ历史；来源按原实现读取同期四频全市场Silver和每日因子。四频来源加载约44.24GiB，不能按3股比例折扣；其余年份/股票不写。
+- F：当前实现需要的2026七频QFQ及必要2025来源、10月30日精确state，合并2026指标年度及本日state；保留第19节最近至多8根历史K线加前日递推state的原算法和原检查。只取8根不是取消MACD/KDJ历史迭代。
+- G：E实际名单的2014—2026七频QFQ和指标，3,118日七频共享state及原确需的前序state依据；只改名单内股票，其余股票state仍按原合并保留。没有历史指标全市场重算。
+- H：2025/2026四频QFQ、10月30日九转seed和原有界查询选中的更早实际候选，早年正文限2014—2026且合计不超过1GiB、先stat；预算不授权随意扩大早年扫描或人工重建前日seed。
+
+### 21.8 正常、失败恢复和最后收尾预算
+
+与方案18.4一致，包含当前job原checks、原完整候选校验、现行摘要读写、原引擎临时读写及精确run/receipt/stat收尾。QFQ/指标年度publisher只做现行单次摘要，不恢复旧三遍年度摘要。Raw/Silver的`MinutePartitionPublication.run`目前在生成后及提升前各读一次候选SHA，替换后再读一次正式文件SHA；这三次小型日文件读取都计入A/B/C的4GiB预算，不宣称本轮已优化为一遍，也不新增第四遍。本轮不改该提交器、不做独立全年度审计。
+
+| 阶段 | 正常读GiB | 正常写GiB | 阶段额外空间GiB | 估算依据 |
+| --- | ---: | ---: | ---: | --- |
+| A/B/C | 4 | 1 | 2 | Prod本日1,804,377行、10个当日文件、原转换/检查/时间点计数及单日发布；含小型参考和临时留量 |
+| D | 40 | 10 | 16 | 旧年度约7.80GiB、候选估≤9.25GiB，沿原旧年度合并、候选校验与单次摘要模型；另含本日输入冻结和原28检查 |
+| E | 50 | 2 | 4 | 共享来源44.24GiB、历史因子0.106GiB，受影响年度/冻结/摘要及完成检查；文件较小不抵扣共享来源 |
+| F | 248 | 36 | 48 | 沿19.7的现行读取模型；条件与计算见下文 |
+| G | 24 | 12 | 16 | 3股QFQ约0.0124GiB、指标约0.0248GiB、共享state约3.59GiB，包含state保留/合并、原校验/摘要/completion和引擎留量 |
+| H | 28 | 4 | 8 | 四频两年必要来源、seed与≤1GiB早年实际候选、原检查及临时留量 |
+
+合计正常读394GiB、写65GiB，拟申请**读400GiB、写70GiB、额外空间128GiB**。阶段串行，空间按候选、冻结、临时与保留失败现场预留，不等于把空间改成运行配额；不改现有16GB内存、线程、spill、并发、超时、限流或SQL设置。准备时没有性能样本；历史耗时只说明可能为分钟至数十分钟级，不承诺固定完成时间，repair涉及大量小文件可能更久。
+
+F继续采用19.7：`R=6Qy+4Qp+L+2I+4C+P+V+Fr+Tr`、`W=C+P+Fw+Tw`。本次估算条件为`Qy≤8.5GiB、Qp≤9.25GiB、L≤9.25GiB、I≤20GiB、C≤22GiB、P≤0.125GiB、V≤0.002GiB`，`Fr/Fw`各1GiB、`Tr/Tw`各8GiB留量；保守代入读约234.38GiB、写约31.13GiB，在248/36预算内。原检查中的年度来源查询仍包含在预算，没有把它们删成“一遍”，也不另加一次checks-only全频复审。候选SHA沿已实现单次摘要，不恢复过去三次完整摘要做法。
+
+**中断后的成本。** 正常各job只运行一次，失败停止。全部范围最坏再执行一次的额外参考为读400GiB、写70GiB；与首轮合计最坏800/140GiB，失败现场和新候选共存空间参考上界256GiB。该数字没有授权重跑。实际恢复必须先按原receipt/completion和目标身份扣除可复用部分；已经完成的job不重算，其余只在核定原入口、剩余历史范围、开销及授权后继续。若实测来源/名单/候选规模明显超出依据，先记录并报告，不能以新加内存或时间限制强行截断任务。
+
+**最后收尾。** 默认只复用本次37项物化、原检查、repair completion、目标receipt与必要stat，不额外跑一次37项物理全文计数，更不跑180项目录审计。A/B的本日必要时间点计数已计在4GiB阶段预算。若某项完成证据不足，只针对该项补最小计数，先列增量开销，不把收尾变成额外全市场年度读取。
+
+### 21.9 新run身份、失败及继续方式
+
+- 本次A、B、D使用新独立root run；来源已变，不能沿旧Raw/Silver成功run或`16acde55`的root接旧候选。新root并不授权删除旧日志或现场。
+- 同一次新Raw/Silver执行中断时，依原`MinutePartitionPublication`校验输入/源码/范围/目标和receipt。只有原实现能认定的validated/promoting/promoted事实才可继续；Prod补源再次变化时不能复用旧候选声称已导入新源。
+- D和F、E分别按现行publication/root及真实输入绑定处理，已经提升文件保持现状，不回滚、不备份、不修改记录绕过冲突。
+- G的op当前调用共用writer时没有传整个run的`publication_id`，不能承诺原生FROM_FAILURE会按该run自动复用每频文件receipt。若G中断，必须先逐频核对原内部publication与completion、state已合并范围及剩余成本，再明确原入口能否安全完成；不能在方案中虚构通用自动续跑能力，也不能擅自开发新入口。正常一次执行不受此恢复边界影响。
+- C/H同样只按其原writer可证明的状态处理，不将新root、SUCCESS或候选存在作为完整提交依据。任一失败后不继续后续job，不自动清理尚承担恢复用途的staging，不把失败run改绿。
+
+### 21.10 验收、开关恢复及清理
+
+预期原检查总117项：A15、B20、C1、D28、E7、F28、G14、H4；无repair时记录原决策和实际完成项，不空跑G来凑数。每次检查须绑定对应本次物化/repair产物，repair写后的最终文件身份采用最终receipt，不能用日更时的旧stat证明历史repair后的文件。
+
+完成判据为37项本日结果及必需repair全部满足原门槛、无同范围活动/重复run、运行记录与物理提交回执一致。之后恢复21.4中本次暂停的sensor到原状态，cursor/lastRunKey原样保留，并做一次只读状态回查，不触发evaluation。若失败，明确记录已完成/未完成、剩余原sensor状态及对后续日期的影响，向管理员汇报后停止；不能一边保留失败又恢复会越过依赖的自动链。
+
+清理只删除本次调用/查询产生且不再使用的临时文件；保留正式数据、原日志、候选/冻结输入/receipt中仍用于继续执行的内容，不整目录删除staging。文档准备的临时预算/前后版本文件在本次复审完成后删除，必要计数与stat摘要已写入本节，不另建大量恢复报告附件。
+
+### 21.11 文档对账与待执行事项
+
+本节文档准备阶段不新增代码、不改配置、不触发job、不启停sensor、不安装依赖；当时没有正式补数或隔离测试结果可宣称。方案18.1—18.5与本节事实、范围、八步顺序、两次repair来源、400/70/128预算、恢复边界和收尾要求一一对应。
+
+正式执行前仍须取得本日具体批准，并在21.4按实际运行状态完成一次有界准备；真实reference、精确新run ID、原job产生的repair名单/hash/batch和最终receipt都是执行时产物，不在准备阶段捏造。3股只是预算预估，不要求管理员手工提供名单。未发现本轮正常执行所必需的新开发；如运行核验发现版本、来源或原入口不满足本节，不先写临时补丁，停下说明具体差异。
+
+**2026-11-03独立复审记录。** 初稿完成后重新按当前schema/parse、实际writer及job selection对照复审，纠正了日更准备函数的实际模块位置，以及Raw/Silver小文件提交器和年度publisher的摘要次数差异；补明成交额唯一Prod目标表、5行单日事务及写入授权边界。方案和LLD现已按同一口径表述，没有把这些既有行为误写成本轮新增开发。逐条核对37项范围、八步先后、两次repair交接、原117检查、3,118日/21,826份state、394/65分项与400/70/128预留、失败停止及原状态恢复，未发现本轮正常执行方案的阻断矛盾。仓库文档完整性、两份文档相互链接/显式锚点、相关代码路径、预算和计数算术核验及定向差异格式检查均通过；原文与本轮前已有修改完整保留。此结论只验收文档准备，正式加载版本、reference及job结果仍按21.4—21.5执行时核验，不宣称正式补数已验收。
+
+
+### 21.12 11月3日执行授权、命令和阶段记录
+
+**授权依据。** 管理员在收到本节对应方案和明确预算后要求“按照方案，开始推进补数吧，完成后向我汇报进展”。本次以此执行21.2、21.5、21.7—21.8已明示的11月2日范围、必要年度/历史读取及400/70/128GiB预算，不沿用旧日期批准，不自动重跑。21.1、21.11及文首“准备时”状态保留当时事实；只有本节后续实际结果才代表正式进度。
+
+**原生调用命令。** 工作目录、解释器、DAGSTER_HOME及GraphQL地址仍按21.4。调用文件为`/private/tmp/dg_20261102_execute_20261103/control.py`，只封装原生查询/提交，原resource门禁、原config builder和原job执行实际业务，不含行情计算或数据文件写入代码。用现有`.venv/bin/python3 -B /private/tmp/dg_20261102_execute_20261103/control.py <动作> [阶段]`执行：
+
+| 动作 | 读写与条件 |
+| --- | --- |
+| `preflight` | 只读加载中的Raw/Silver配置schema、八sensor原状态/cursor/lastRunKey、活动run、十个目标stat及空间，不执行check或eval |
+| `pause` | 按已保存selector/id原生stop八条原RUNNING sensor，读回STOPPED、保存停后cursor/lastRunKey；不重置、不操作其他sensor |
+| `reference` | 原Prod完成门禁及5,577代码覆盖，生成真实reference和A/B/E原job配置，其余空config；不查询OHLC |
+| `launch A`至`launch H` | 每次只提交21.5对应原job一次；G配置须在E/F完成后由原decision生成，当前不得提前手填；无G需求按原decision跳过 |
+| `inspect A`至`inspect H` | 按已保存精确run ID、增量event cursor读取状态/物化/原check/异常，不扫描其他资产或行情历史 |
+| `restore` | 全部验收后确认无活动冲突，核停后cursor/lastRunKey，原生start恢复本次原RUNNING者；不触发evaluation |
+
+调用文件已在不访问正式资源的情况下做语法核对；这不是业务测试或性能样本。不对job加运行超时、内存或并发限制。GraphQL客户端只设置连接响应等待，响应不明保存原意图并查精确run，不盲重发。
+
+开始时DG原生只读查询确认无STARTED/STARTING/QUEUED/CANCELING run，八sensor全部RUNNING；预检与后续实际run结果依次追加。正式候选、冻结输入和receipt仍由原writer只写正式staging；本调用目录只保存控制请求和元数据，完成后清理。
+
+
+**A/B/C已完成，D执行中。** Raw新run `8614e7ff-fe31-4c30-b62f-ae4be99223f8` SUCCESS，82.700秒、5物化/15检查；Silver新run `8075253a-a59b-4d84-90cf-703e056fde74` SUCCESS，14.514秒、5物化/20检查。两层各自一次本日代码/时间点计数完成，均无缺口/重复，与21.1来源及原停牌过滤口径相符。成交额新run `5d22f6bd-0f03-4b7b-aa1d-259e07c9653b` SUCCESS，1.501秒、2物化/1检查，Prod当天stock/CN_A五频5行读回通过。QFQ新run `6d9d48a8-d029-4538-8c26-8d72fdaea49b`已启动，此时尚未验收完成，不先触发E。
+
+**操作读回处理。** 初次stop八条均返回STOPPED，但立即读回时指标repair sensor仍为RUNNING；只读确认其近期tick均SKIPPED、无活动run，再单独原生stop该条并读回八条全STOPPED，未重置cursor。辅助检查最初误要求普通check的`partition`非NULL；真实Dagster事件中该字段合法为NULL，而`targetMaterialization`明确绑定本次run及物化storage ID。依据真实合同改为核对绑定的物化日期和run，未改正式checks、未重跑A；两层计数只在此核对通过后各执行一次。
+
+**E/G原状态读取和配置来源补充。** 因子与指标repair验收复用现有`gold_stk_mins_qfq_factor_repair_status`和`gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status`。读取已有DG事件库时只实例化现有`PostgresEventLogStorage`读取对象，使用正式dagster.yaml中的既有连接、显式`should_autocreate_tables=False`，不创建DagsterInstance、不建表/升级、不修改配置文件；只查询本日七/十四个原check键及必要event ID。原读取对象接给上述现成函数，不合成通过状态或另一份名单。G配置只由原`build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision`及`_run_config_for_repair_decision`生成，原G op再做完整产物核验。此补充只是21.5既定门槛的只读调用方式，不增加数据范围或新计算入口。
+
+
+**D完成、E启动。** QFQ run `6d9d48a8-d029-4538-8c26-8d72fdaea49b` SUCCESS，耗时1,040.777秒，七物化/28原检查及其本次物化绑定均通过。本日七频1,793,862条、每频5,571年度目标，合计38,997份完成；未读取额外年度正文做收尾。随后原因子repair run `65aaf3ed-4f77-46c2-a433-80930e7e0b71`启动，只传11月2日，实际名单和完成范围等待其原产物。
+
+
+**E已完成，F启动。** 因子repair run `65aaf3ed-4f77-46c2-a433-80930e7e0b71` SUCCESS，32.820秒、七completion通过。原状态函数读回ready，producer为本run；实际名单001393.SZ、301536.SZ、688548.SH，范围2014-01-02至2026-11-02、3,118日，与预算一致。原生年度改写40份/481,840条，派生改写16份/7,600条；批次`qfq_factor_repair:2026-11-02:c11563f5bbd0`，代码hash `c83f443401391c396ef57acf0864c59f42e5ab7d8cd1182093379e226bf0b2ad`，七条completion event ID为7846222—7846228。F仅在此原门槛通过后启动，尚未提前运行G或H。
+
+
+**G配置准备复用已核实证据。** E原状态函数已完整核对七条check、producer、event ID、名单/hash/batch；F自身仍执行其原写前门槛。八条sensor暂停、无其他E执行的本轮内，G配置准备直接从保存的E原`to_payload()`还原同一现有状态类型并逐字段回读相等，调用原decision/config函数；不重复一次相同E状态查询，不合成ready或名单。G op仍按真实事件库重新核验其原上游；G完成后的完整repair guard另正常读取一次，未降低正式门槛。若本轮出现新的E/来源身份变化，则此复用不成立，先停止核实。
+
+
+**F完成、G启动。** MACD/KDJ日更run `52e5b57c-4174-422f-a49e-62b5a974c5a4` SUCCESS，742.138秒，14物化/28原检查及对应本次物化绑定通过。本日指标七频合计1,793,862条，每频5,571份指标年度目标；每频state为5,595行，沿原无当日行情股票状态保留规则，不把指标当日5,571代码数硬套state。G配置由原decision/config函数根据E原产物和F成功事实生成，未人工编辑名单/hash/batch。原指标repair run `078154e8-151d-40f6-8982-c5418763f937`已提交；此时H尚未启动，继续等待G的14条completion和原完整repair guard。
+
+
+**H早年读取范围的执行前核定。** G完成后，H启动前复用`qfq_nineturn.py::_minute_nineturn_source_paths`和`_bounded_candidate_codes`，仅对2025/2026四频来源及10月30日seed做原有界代码/日期计数，取得与原planner相同的候选股票；不调用会先读早年正文的完整planner。随后仅列举这些实际候选的历史路径并stat，确认年份2014—2026且早于2025的文件合计≤1GiB；此时不读取早年正文。结果写入本次临时控制记录并汇总至此处。H原job随后仍自行使用原planner，不向job手填fallback股票或另传过滤参数；本次候选范围核定属于21.7—21.8已有H预算，不扩大范围、不增加运行限制。若候选路径或范围不符，先停止，不启动越界读取。
+
+
+**G完成、完整门槛ready、H启动。** G run `078154e8-151d-40f6-8982-c5418763f937` SUCCESS，283.209秒、14completion通过；实际3股、3,118日、指标年度56份和共享state21,826份。原完整repair guard随后读回ready，因子与指标修复的名单/hash/batch/2014-01-02至2026-11-02范围及七频完全一致；指标completion event ID为7846487—7846500，不再做全历史内容比对。
+
+H前置原候选计数四频均选择002827.SZ、605258.SH；每频18个历史候选文件，早于2025的文件共56份/2,212,164B（约2.11MiB），已只stat确认年份和≤1GiB，未提前读取这些早年正文。与因子repair的3股是不同用途，不能互相当作修复名单。随后H原job run `a2a564f4-88b9-499d-9772-df9ad1275137`启动，原planner自行决定fallback并仅输出本日九转，未手填这两股参数。
+
+
+<a id="recovery-20261102-complete"></a>
+
+### 21.13 11月2日分钟链正式完成及收尾（2026-11-03）
+
+**最终结果：本轮37项本日物化齐备，八个原job均SUCCESS，117项原检查/repair completion全部通过，两次repair完整门槛ready。** 下表时间均为11月3日北京时间；耗时是每个run自身执行时间，不能当成端到端墙钟耗时。
+
+| 步骤 | 原job | 精确run ID | 北京时间 | 耗时秒 | 物化 / 通过检查 |
+| --- | --- | --- | --- | ---: | ---: |
+| A | `stock_mins_raw_update_from_prod_job` | `8614e7ff-fe31-4c30-b62f-ae4be99223f8` | 01:21:44—01:23:07 | 82.700 | 5 / 15 |
+| B | `stock_mins_silver_update_job` | `8075253a-a59b-4d84-90cf-703e056fde74` | 01:25:29—01:25:44 | 14.514 | 5 / 20 |
+| C | `gold_wealth_market_turnover_update_job` | `5d22f6bd-0f03-4b7b-aa1d-259e07c9653b` | 01:27:27—01:27:28 | 1.501 | 2 / 1 |
+| D | `stock_mins_qfq_daily_update_job` | `6d9d48a8-d029-4538-8c26-8d72fdaea49b` | 01:28:03—01:45:23 | 1040.777 | 7 / 28 |
+| E | `stock_mins_qfq_factor_repair_job` | `65aaf3ed-4f77-46c2-a433-80930e7e0b71` | 01:46:01—01:46:34 | 32.820 | 0 / 7 |
+| F | `gold_stk_mins_qfq_macd_kdj_daily_update_job` | `52e5b57c-4174-422f-a49e-62b5a974c5a4` | 01:49:20—02:01:42 | 742.138 | 14 / 28 |
+| G | `gold_stk_mins_qfq_macd_kdj_repair_job` | `078154e8-151d-40f6-8982-c5418763f937` | 02:03:11—02:07:55 | 283.209 | 0 / 14 |
+| H | `gold_stk_mins_qfq_nineturn_update_job` | `a2a564f4-88b9-499d-9772-df9ad1275137` | 02:11:23—02:12:32 | 69.137 | 4 / 4 |
+
+**本日数据。** Raw/Silver五频显式替换完成，新Raw分别1,354,677/275,397/95,517/50,547/28,239行，五频均5,577代码；扣除6只全天停牌后，Silver分别1,342,611/272,979/94,707/50,139/27,855行，均5,571代码。两层各做了一次本日必要时间点计数，没有缺口或重复。前复权及MACD指标七频各1,793,862条；九转30/60/90/120m分别44,568/22,284/16,713/11,142条，四项原检查绑定本次物化通过。成交额Gold和Prod同日五频5行已发布且原读回一致。没有把Raw含停牌/盘后记录的行数硬套Silver，也没有把当天指标代码数硬套应保留状态的state。
+
+**必要历史repair。** 只对原job识别的001393.SZ、301536.SZ、688548.SH执行两次原repair，覆盖2014-01-02至2026-11-02的3,118日、七频。因子repair改写40份原生及16份派生年度文件；指标repair完成56份指标年度文件及21,826份共享state文件合并，保留其他股票。原完整guard确认producer、名单/hash、batch、日期和频率一致；不是全市场历史重刷。九转另有原候选002827.SZ/605258.SH的早年读取，56份约2.11MiB的stat范围已在21.12记录；没有手改fallback名单或重写前日seed。
+
+**最后验收和开关。** 只汇总八个精确run、37个不同资产物化、117项原检查、原repair门槛、回执/既有日志，并对本日Raw/Silver、state、九转及成交额共22份文件做stat，均存在且非空。未追加年度正文/SHA、全历史公式比对、checks-only重跑或180项目录审计。最终八条本轮暂停sensor均按原状态恢复RUNNING，原cursor/lastRunKey在启用时保留；随后一次有界只读回查无本链活动或恢复后重复run，不运行evaluation。
+
+**执行边界。** 全部业务计算和写入均由上述原job完成，调用文件只负责配置、提交和读取结果；未修改业务代码/公式/schema、默认配置、内存/线程/spill/并发/超时/限流，没有性能测试、自动重跑或补runless通过事件。本日各阶段正常执行一次。400GiB读/70GiB写/128GiB额外空间为批准预算，未采集设备I/O实测，不能把预算写成实际设备读写量。旧失败run `16acde55`及成交额旧失败run保留为历史，不改状态；本次完成以新run和原检查为准。
+
+**清理已完成。** 本次临时控制目录中的79个调用/查询/元数据文件（1,125,881B，约1.07MiB）及空目录已删除；必要计数、run、修复范围及开关结论已写入本文。正式Lake结果、Dagster原日志和正式staging/冻结输入/receipt保留，没有另建恢复报告目录。

@@ -2125,3 +2125,239 @@ Bootstrap 已增加 `silver-apply`：只消费同 operation 的 Raw 完成报告
 8. 2025 全年正式补录已经证明 2026 及以后 Raw/Silver 文件零变化。
 9. 历史动态分区先于 runless events 注册；分区、事件和物理写入分别授权，Sensors 在 Definitions 中默认 STOPPED，经单独授权后已在正式实例启用并完成首个自然生产日验收。
 10. 没有 ETF 激活池、`fund_daily`、旧 Lake、Kopia、Prod N+1 或 Python 明细循环。
+
+## 28. 2026-10-21恢复执行细节（待批准，未执行）
+
+### 28.1 当前事实和影响面
+
+目标与阶段依原方案第19节。只读证据 `/private/tmp/etf_mins_cause_20261021_summary.json` 显示15、16、19、20日五频Raw/Silver全部缺失，三个相关sensor为RUNNING，四日分区已注册；最新Basic为20日有效观测。Prod15、16日故障及样本、全对象请求、实际对象数量、执行限制和授权门禁见原Prod说明第11节。CodeGraph核对了创建/重试、planner、源请求及消费者；随后直接核验 `etf_mins_sensor.py`、`bounded_continuity.py`、`etf_mins_prod_readiness.py`、两个正式jobs和assets。没有代码或contract改动，不影响catalog和依赖方向。
+
+### 28.2 正式入口与配置
+
+- 项目目录固定 `/Users/congming/github/goldenshare/lake_console/orchestrator`，复用已安装的 `.venv`；不执行uv同步、安装或依赖下载。
+- 正式实例固定 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`，只使用已有instance，不初始化或迁移。正常恢复不需要重新执行命令或评估sensor；已经运行的sensor在21:00窗口按现行路径提交job。
+- job固定为 `raw_etf_mins_update_job` 和 `silver_etf_mins_update_job`；日期依次 `2026-10-15`、`2026-10-16`、`2026-10-19`、`2026-10-20`。Raw运行配置必须由 `build_etf_mins_raw_run_config()` 生成，包含同日五频Prod coverage和最新checked Basic reference，不手写hash或从run key反推参数。Silver仅使用正式Raw证据和checks。
+- 默认不人为提交这八个job；如果正常窗口内未追赶，先查阻塞原因，再形成确切命令及run config供单独确认。不能以本节预先批准未知命令或未知reference。
+- 正常窗口外立即执行并不包含在默认方案：必须先单独列两个Basic job、目标文件和事件影响，批准后完成当前日期Basic及checks，再审查分钟job配置。禁止把昨天的observed_at改成今天。
+
+### 28.3 输入、写入与中断
+
+每次Raw只读取已批准的Prod `raw_tushare.etf_minute_bar` 本日期本频11字段；四日预估220万源行。通过原writer生成候选，文件范围、身份和日期/频度检查通过后才原子提升。不得由临时脚本逐行处理、直接覆盖正式Parquet或访问其它工程合同。Silver使用本地Raw，逐日期五频复用正式bar_domain检查并核对原样转换。候选/staging沿用现有run-scoped路径，不改配置、不备份、不清理异常现场。
+
+正式文件按单文件提交；中断不能声称整组回滚。已完成文件与事件继续保留，只读恢复时核对当前物理文件、当前materialization/check绑定和活动run；已有错误文件不能通过修改sensor/cursor、补绿event或删文件重新开始。任何门禁不满足则停止下一日期，交回阻塞事实，不自行启动补跑。
+
+### 28.4 性能及验收门禁
+
+| 维度 | 范围与预算 |
+| --- | --- |
+| 对象/日期/频度 | ETF代码来自正式Basic；四交易日×五频×两层=40文件；不读取全历史分钟数据 |
+| Prod | 每Raw日五频coverage一次、明细五次；四日24条SQL；不在asset内重复coverage或全范围指纹扫描 |
+| Lake | 读本次四日五频文件，最多40个输出；源约220万行、两层约440万行；内存、临时目录和spill沿用当前统一DuckDB资源，不能另设无界临时目录 |
+| 时间 | 实际job保守15分钟；sensor最小间隔10分钟及Basic等待单列，21:00后观察90分钟；这不是每次必定完成的承诺 |
+| 失败/续跑 | 不自动重复全部四日，先按缺失/等价/冲突分类；只批准缺失且门禁通过的job，重新估算该日期一次导出和检查；保留已提交成果 |
+| 最终验收 | 最多四日×五频两层，预算15分钟；文件和行数、schema、日期/频度、主键、11字段等价、checks绑定、run终态均需记录 |
+
+已有单元与隔离测试证明的writer、日期和禁止覆盖规则继续复用；本轮只准备恢复方案，未运行正式assets/checks或将静态读取冒充真实执行验收。正式执行前需重新确认活动run、Basic新鲜度、源coverage、剩余空间与目标冲突。40项全部物理和checks验收通过后，才能宣称本次四日DG恢复；Prod成功本身不构成DG验收。
+
+## 29. 2026-10-24 七日分钟恢复执行细节（七日补齐完成）
+
+对应原方案第20节。本节扩展第28节的日期范围，并按新发现的运行配置错误及daemon停机事实调整执行方式；第28节保留为21日方案记录，不作为本次直接执行授权。初稿完成只读审计、纯函数复现和文档，随后按29.7完成代码（29.8）；管理员再按29.9批准正式恢复，现已完成，最新结果见29.10。
+
+### 29.1 编码前事实与代码依据
+
+- 7日35组Prod逐代码覆盖通过，共3,838,839行；文件目标为35 Raw+35 Silver，08:56均缺失。7日分区均已注册，无ETF活动run。来源分别为 `/private/tmp/etf_mins_prod_reaudit_20261015_23.json` 和 `/private/tmp/etf_mins_dg_repair_preflight_20261024.json`。
+- 23日Basic Raw/Silver最新事件分别为7721008/7721472，同一Raw内容版本 `4ce66d2b4b2d28d56d77bed53cc98f18d14b91dbf2f9e409dfb8d40c6f80794e`；6项blocking checks通过并绑定对应事件。24日必须重新真实观测，不能复用昨天的观测时间。
+- `_load_window_and_lineage()` 读取SSE日历、ETF专用分区及5次有界Raw lineage查询；`select_first_not_ready_trade_date()` 不越过已有检查失败的日期。24日最近10个交易日为12、13、14、15、16、19、20、21、22、23日。
+- `etf_mins_prod_source_ready_for_trade_date()` 与 `validate_etf_mins_prod_coverage_reference()` 已按 `list_date<=目标交易日` 计算正确的集合；writer会验证数量和代码hash。错误仅在 `run_contracts/etf_mins.py::build_etf_mins_raw_run_config()` 又要求 `coverage.expected_code_count == basic.requestable_code_count`，会误拦新ETF上市前的历史日期。
+- 纯函数真实事实复现：23日Basic可请求数1,713，15日coverage应有且存在1,701，builder抛出 `ETF minute coverage reference expected count does not match frozen Basic.`；23日1,713通过。证据 `/private/tmp/etf_mins_historical_run_config_audit_20261024.json`。该复现不执行job，不证明正式导入完成。
+- daemon最后心跳24日00:15、当前无daemon进程。不得由5个sensor持久状态RUNNING推定其仍在工作。
+
+CodeGraph已使用 `codegraph_explore` 和 `codegraph_impact(build_etf_mins_raw_run_config, depth=2)`，覆盖builder、Raw/Silver sensor、Basic selector和影响到的sensor测试；对同名continuity helper又核对了ETF实际import的 `bounded_continuity.py`，没有把股票分钟同名函数当作ETF实现。完整文本引用审计补充writer和生产源校验中的全部实现/调用点。跨工程Prod、API和前端不消费本内部builder或本次拟迁移的纯校验；不改DatasetDefinition或共享Tushare接口契约，不需更新架构快照。
+
+### 29.2 阶段A：先修正运行配置校验
+
+#### 29.2.1 实现位置与合同
+
+| 文件（相对orchestrator） | 拟实施内容 |
+| --- | --- |
+| `src/orchestrator/defs/run_contracts/etf_mins.py` | `build_etf_mins_raw_run_config()` 增加必填 `requestable_targets` 参数；接收冻结Basic对应的完整可请求集合，按目标日校验coverage数量和代码hash，不再与Basic总数直接相等比较 |
+| 同上及 `defs/asset_guards/etf_mins_prod_readiness.py` | 将现有 `validate_etf_mins_prod_coverage_reference()` 及其Basic目标范围核验集中到纯run contract中，保持同一校验来源；guard保留Prod探测编排，删除被迁移实现，不留旧导出或兼容转发 |
+| `src/orchestrator/defs/sensors/etf_mins_sensor.py` | 将已经由 `revalidate_etf_mins_basic_reference()` 得到的targets传给builder；不增加Prod查询，不改变run key、cursor、窗口或最早日期选择 |
+| `src/orchestrator/defs/assets/etf_mins.py` | writer切换到共享纯校验的新所属位置；不改候选生成、写入、字段和失败处理 |
+
+共享核验必须同时证明：targets完整匹配Basic的请求数/hash；coverage绑定相同Basic fingerprint及目标日期；目标集合来自这些targets中 `list_date<=partition_key` 的成员；coverage数量及代码hash与该集合一致；五频完整且缺失为0。只删除判断、改为小于等于、填充数量、回退Basic或伪造fingerprint均不符合方案。
+
+运行配置输出仍只有原来的 `basic_snapshot_reference` 和 `prod_coverage_reference`，五个Raw op携带同一对reference；不变更已保存run config的字段、物理文件schema、源字段或源请求。内部函数签名和所属位置的调整需在同次批准中迁移全部消费者与测试，清零旧导入。
+
+#### 29.2.2 测试与验收
+
+复用并补充 `tests/test_etf_mins_contracts.py`、`test_etf_mins_prod_readiness.py`、`test_etf_mins_sensors.py`、`test_etf_mins_raw_writer.py`、`test_etf_mins_p8_assets_checks.py` 和 `test_etf_basic_readiness.py`。关键用例如下：
+
+| 约束 | 正向依据 | 负向与防误拦 |
+| --- | --- | --- |
+| 历史目标集合可以小于当前Basic | 明确标为人工构造的2只ETF样本，第二只在目标日后上市，历史应有数独立写为1、同日应有数写为2；真实计数1701/1713复现作为补充证据 | 旧实现历史用例必须失败；修复后历史和当天用例均通过，不能只证明错误被拦 |
+| 保留完整范围校验 | 同一冻结Basic、正确目标日及独立字面代码集合/hash可构造配置 | 数量相同但代码hash不同、少传/替换targets、错Basic fingerprint、错目标日、五频缺失或missing>0均拒绝 |
+| 不扩大请求或改变写入 | sensor仍只消费一次coverage；writer不增加Prod查询；配置五个op引用一致 | 不读取Prod Ops；不引入第二套校验/旧导入；窗口外零资源访问、已有失败文件不覆盖等既有禁止项保留 |
+| 真实输入边界 | Basic类型、字段及分钟11字段来自当前producer/schema与本轮真实样本；gold expected不得调用待测builder生成 | mocked网络只证明隔离逻辑；不能把测试通过称为正式Lake或DG验收 |
+
+从项目已有 `.venv` 运行上述必要专项及本次触及的静态治理测试；不安装依赖，不执行正式Definitions/assets/checks作为测试。Ruff先跑致命错误基线，本次改动文件跑默认检查；纯函数1701/1713复现修复后重新核验。实现前后记录CodeGraph影响面和旧引用清零结果，代码结果独立接受后才进入阶段B。
+
+### 29.3 阶段B：准备当天Basic与具体运行配置
+
+执行目录固定 `/Users/congming/github/goldenshare/lake_console/orchestrator`，正式 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`。使用Bash登录环境中现有数据库/Tushare配置和项目 `.venv`；不新建配置项、不打印凭据、不安装或同步依赖。当前Python、Dagster等版本以已安装项目为准。
+
+选择手动执行已有jobs，而非重启daemon。已核对本机 `dg launch --help`：参数是 `--job`、`--partition`、`--config`；本机没有 `--config-file`。安装版 `dagster_dg_cli/cli/launch.py` 的job路径调用 `job_execute_command_impl()`，该路径使用已设置 `DAGSTER_HOME` 的正式instance并执行指定job，不依赖daemon消费队列；因此不能拿网上“异步提交”的说明替代本机行为。先确保四个ETF更新job无活动run，且daemon未恢复；有并发时停止并重新确认，不自行启停sensor。
+
+批准后的命令形状为：
+
+```bash
+cd /Users/congming/github/goldenshare/lake_console/orchestrator
+export DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home
+.venv/bin/dg launch --job raw_etf_basic_update_job
+.venv/bin/dg launch --job silver_etf_basic_update_job --config /private/tmp/etf-mins-recovery-20261024/basic-silver.yaml
+```
+
+该目录下的配置文件本轮未生成，不能直接执行上述第二条job。先执行并验收Raw Basic，随后用 `select_latest_etf_basic_raw_snapshot_reference(required_freshness_date=实际执行日)` 和 `build_etf_basic_silver_run_config()` 生成真实Silver配置，保存配置摘要供核对后才执行。Raw和Silver最新版本各自的checks必须通过且精确绑定当前materialization。成功后用 `select_latest_etf_basic_snapshot_reference(eligibility_as_of=实际执行日, required_freshness_date=实际执行日)` 冻结分钟输入。
+
+本阶段会直接请求Tushare `etf_basic` 全部14字段（当前约1,908行，预计1个短页）、只读校验对应Raw/Silver不可变快照的完整14字段；这是正式Basic job和selector必需的全量小快照操作。阶段B的执行授权必须明确包含这一范围，不能以此前仅四列读取授权替代。Raw/Silver新内容则新增版本，同内容只复用等价文件并产生真实当天观测/checks，不修改旧时间。若今天Basic改变了7日的预期代码集合，先做有界coverage核验并解释差异，不套用23日快照的历史通过结论。
+
+### 29.4 阶段C/D：逐日Raw与Silver
+
+固定日期为15、16、19、20、21、22、23日。15日先完成独立样本验收，得到继续确认后再处理其余6日。每日期执行：
+
+1. 读回该日五频Raw/Silver目标、动态分区和活动run；确认没有未经处理的已有冲突或失败结果。并发检查也覆盖Basic版本变化。
+2. 复用正式Basic selector及 `revalidate_etf_mins_basic_reference()`；一次调用 `etf_mins_prod_source_ready_for_trade_date()` 得到当日五频全绿coverage，再由修正后的 `build_etf_mins_raw_run_config(partition_key=该日, basic_reference=冻结reference, prod_coverage_reference=该日coverage, requestable_targets=对应targets)` 生成配置。新shared validator不追加Prod查询。
+3. 将配置保存到本次临时证据目录，列清日期、五频、Basic双观测时间与hash、预期数、coverage fingerprint和输出目标。没有生成并审查真实配置前不执行命令，不手写hash或从run key反推日期。
+4. 执行 `raw_etf_mins_update_job`，必须成功且该日15项Raw检查目标通过；保留N3 WARN及样本。
+5. 执行 `silver_etf_mins_update_job`；该job在同一run先重做Raw checks，再生成与Raw逐行等价的五频Silver及10项Silver检查目标。通过后读回再进入下一日期。
+
+以15日为例的待批准命令形状：
+
+```bash
+.venv/bin/dg launch --job raw_etf_mins_update_job --partition 2026-10-15 --config /private/tmp/etf-mins-recovery-20261024/raw-2026-10-15.yaml
+.venv/bin/dg launch --job silver_etf_mins_update_job --partition 2026-10-15
+```
+
+本轮没有生成该配置或执行上述命令。其余6日仅替换明确批准的日期和对应配置，不用含休市日的partition range，也不循环越过失败。不得改用旧bootstrap、临时writer或只执行部分Raw资产来跳过五频N3。
+
+### 29.5 读写与失败边界
+
+- Prod只读白名单表 `raw_tushare.etf_minute_bar`，限定本7日、单频、11字段；每个Raw op一次明细查询，不按Basic在Prod SQL中丢行，不读取 `ops.*`、不改变Prod任务或数据。此前3,838,839行及规则核验直接复用。
+- 分钟正式目标仅 `/Volumes/datasource/data_lake/raw/tushare/etf_mins` 与 `/Volumes/datasource/data_lake/silver/quote/etf_mins` 的上述7日×5频文件；Basic为现有content-addressed两层目录。staging只在 `/Volumes/datasource/data_lake_staging` 当前run目录；不使用旧Lake、Kopia、备份或新输出层。
+- 每文件完整校验后同文件系统原子提升，只允许新增或等价复用；文件提交后失败不整组回滚，不删除正式文件或事件。已有目标冲突、检查失败、reference漂移、活动run、字段变化或查询上界突破均停止。取消优先结束当前run后只读核对，不领取下一日期；中断候选和失败证据保留，不擅自清理。
+- 手动CLI中断可能已提交部分Raw文件；续跑先在10分钟预算内核对7日目标与当前materialization/check绑定。相同日期重跑仍使用正式五频job并按新的有效reference/coverage完整验收，内容冲突交管理员处理，不自动覆盖或重建文件。
+- 不启停daemon、sensor、schedule，不注册分区，不补runless event。若运行途中daemon恢复并可能提交同日任务，停止后续手动提交并只读判断；暂停服务属于独立审批。手动恢复完成不代表整个DG自动调度已恢复。
+
+### 29.6 性能预算与验收清单
+
+| 项目 | 初次成功路径 | 中断与最终验收 |
+| --- | --- | --- |
+| 日期/频率/任务 | 7日×5频；2个Basic+14个分钟job，串行且15日先验收 | 续跑按剩余日期列清，不重跑全部；每日期重新读最多5次明细和1次coverage |
+| Prod | 7次coverage+35次明细=42条；无全历史或重复fingerprint审计 | 单日期续跑至多增加6条；最终验收以本地文件及writer传输结果为主，不重扫Prod全部分钟 |
+| 行与文件 | Raw3,838,839行，Silver同量，合计7,677,678行、70文件；若正式源/reference变化先解释 | 70文件全覆盖；schema/主键/日期/频率/网格及11字段双向等价；现有等价目标只复用 |
+| Basic | 约1,908行Raw/1,901行Silver，14字段；新源请求预计1短页；现有writer可能按op重校验小快照 | 准备和合法selector校验预算5分钟；任何版本变化先复核引用，不重复下载旧版本 |
+| 内存/磁盘 | 沿用统一DuckDB的16GiB内存/4线程及既有临时目录，不新增配置；正式文件预算2GiB、候选2GiB、临时计算4GiB | 同文件系统且剩余至少64GiB；当前约2.65TiB只是08:56观测，执行前再核对；超过预算先停下一日期 |
+| 时间 | 专项测试预算5分钟；Basic5分钟；分钟jobs30分钟；单Raw>5分钟或Silver>2分钟先定位 | 续跑预检10分钟、单日期续跑8分钟、最终验收15分钟；人工阶段验收等待另计，不能许诺固定完成时刻 |
+| 正式检查 | 每日15个不同Raw检查目标+10个Silver检查目标；7日共175个不同目标，另有6个Basic检查 | Raw checks在Silver job内再次执行会产生额外事件；验收必须按最新materialization精确绑定，不能按事件总条数判断 |
+
+最终必须记录：7日覆盖完整、70个目标文件无缺失/零字节、逐日五频行数和预期代码相符、11字段schema/类型、主键和物理日期/频率、完整N3结论及WARN、Raw/Silver双向 `EXCEPT ALL=0`、70条目标materialization与175个检查目标绑定正确、全部受控job终态一致且无活动ETF run。相邻13/14日文件至少读回路径/大小/修改时间与执行前记录一致；若变化由外部任务造成先说明，不能宣称本次未改动。只读预检不写Lake canary，正式job的既有健康检查属于获批执行范围。
+
+初稿文档验收只运行文档完整性和增量差异检查，当时未运行上述回归、正式jobs、asset checks或DG服务。后续阶段A授权、实施和验收见29.7—29.8；阶段B、C、D仍须明确正式读写范围后执行。
+
+### 29.7 阶段A编码前的具体约束（2026-10-24获准）
+
+管理员已批准20.5中的代码修正、必要测试和新代码只读审计。本条更新29.2/29.6中尚待批准的阶段A状态；29.3—29.6的正式数据恢复步骤仍未执行、未获本轮授权。
+
+实现顺序与精确接口：
+
+1. 在 `run_contracts/etf_mins.py` 增加公开纯函数 `validate_etf_mins_targets_match_basic_reference(*, basic_reference, requestable_targets)`。将guard的 `_validate_targets_match_basic_reference` 原逻辑整体迁入：校验Basic合同、归一化targets、验证完整集合的数量和 `ts_code/list_date/exchange` hash，返回归一化tuple。沿用现有Basic hash算法，不新增算法或配置。
+2. 同文件接收原有 `validate_etf_mins_prod_coverage_reference(*, partition_key, basic_reference, requestable_targets, coverage_reference)`，保持原有日期、Basic fingerprint、五频、缺少数、按目标日筛选后的数量/hash检查；只将私有targets helper调用改为上述公共函数。两个函数加入本文件 `__all__`。
+3. `build_etf_mins_raw_run_config(*, partition_key, basic_reference, prod_coverage_reference, requestable_targets)` 新增必填targets，调用共享coverage校验后按原格式序列化；删除原来直接比较历史数量和Basic全部数量的重复判断。完整targets只参与纯校验，不放入序列化配置。
+4. `asset_guards/etf_mins_prod_readiness.py` 删除迁移的两个实现及旧coverage导出；源探测调用新的targets公共函数。保留一次五频查询及其reference构造。`assets/etf_mins.py` 改从run contract导入coverage校验；`sensors/etf_mins_sensor.py` 唯一builder调用传入刚由Basic重新校验得到的targets。
+5. 文本引用核验必须证明旧guard导入、旧私有helper和遗漏targets的生产调用为0。已用CodeGraph explore/impact及逐项代码读取确认：builder只有Raw sensor一个生产调用，coverage校验只有writer一个生产调用，targets helper只有guard内部使用；没有API、前端或Prod消费者。迁移不涉及共享源接口合同、DatasetDefinition和架构边界。
+
+测试仅修改 `test_etf_mins_contracts.py`、`test_etf_mins_prod_readiness.py`、`test_etf_mins_sensors.py`，并运行29.2.2列出的既有writer、assets/checks、Basic readiness及必要治理回归。contract人工样本使用510300.SH（2012-05-28）和159915.SZ（**人工上市日2026-09-01，非真实上市事实**），Basic截至09-30；08-28独立预期1，09-01独立预期2。预期代码hash以明确的排序JSON文本独立计算后固化字面值，不调用被测builder/helper生成expected。负向覆盖错日期、错Basic绑定、错误数量、同数错hash、少传/替换targets、不完整五频、非零missing；sensor覆盖1只和2只Basic对同一历史日都能产出一个五频RunRequest且只消费一次coverage。
+
+既有sensor样本 `requestable_code_hash='c'*64` 与其510300.SH target不符，过去builder未验证targets，掩盖了夹具不一致。本次依据 `compute_etf_requestable_target_hash` 已确认的排序JSON合同纠正为独立字面hash；不放宽新校验，也不通过mock builder消除错误。Prod readiness测试只迁移纯validator导入，保留原有历史1/最新2的源探测测试。
+
+真实只读验收不调用Basic selector（其当天新鲜条件仍需阶段B），而是使用真实23日观测信息和已批准四列快照构造合法reference，沿用目标日筛选规则。使用当前 `PROD_ETF_MINS_COVERAGE_SQL` 在只读事务中一次查7日×5频，超时30秒；结果仅35组统计，不读取/导出分钟全明细。逐日用新coverage校验及新builder核对五频并记录ops数量和配置一致性；不执行sensor、资产、checks、job或正式配置文件。报告必须明确这证明历史输入可匹配，不能代替当日Basic准备、正式导入及70文件验收。只读查询失败时保留结果、停止声明通过；恢复查询最多从未完成的验收重做，不补写任何业务事实。
+
+### 29.8 阶段A实现、测试和只读验收结果（2026-10-24）
+
+29.7的函数签名、迁移位置和全部消费者均按计划落地。硬口径对账如下：
+
+| 硬口径 | 实现 | 验证 |
+| --- | --- | --- |
+| 历史数量按目标日计算，完整Basic不能缩水 | builder调用迁入run contract的coverage validator；validator调用完整targets validator后按上市日筛选 | contract人工08-28应有1、09-01应有2均通过；旧真实15日1701/1713失败复现已保存，新代码7日全部通过 |
+| 完整集合、日期、Basic绑定、数量、hash和五频不能放松 | 两个共享validator及既有coverage合同 | 同数错hash、少传/换码targets、错日期、错Basic fingerprint、错数量、不全五频、非零missing均拒绝 |
+| 只使用已有targets，不增加查询，不改变配置字段 | Raw sensor唯一builder调用传targets；writer只迁移导入 | sensor人工第二只上市日在08-31、目标日在08-28；Basic 1只/2只均只消费一次coverage，生成一个五频RunRequest；contract解析5个op并核对同一对reference |
+| 不保留旧实现或旧导入 | guard删除两个迁移实现及旧导出 | 全项目AST核验：生产builder调用1处、测试调用4处，均传targets；旧guard导入0，旧私有helper0 |
+| 不改写入、schema、规则及Prod | 只改4个实现文件和3个测试文件 | 既有Raw writer、Silver写入及checks隔离回归通过；本轮未运行正式writer、asset check或job |
+| 真实核验有界且不能代替当天Basic或数据恢复 | 一次四列1901行快照读取，一次7日×5频coverage统计 | 35组missing=0，新validator和7份五频配置均通过；未调用Basic selector；70正式目标文件审计前后均缺失 |
+
+六个ETF专项文件使用项目 `.venv/bin/python -B -m pytest -q`，87项通过，耗时6.16秒。治理的 `test_asset_governance_contracts.py`、`test_asset_check_incremental_governance.py`、`test_run_contract_static_gates.py` 按现有 `tests/stock_suspend_confirmed_test_runner.py --scope regression --suite ...` 分别完整通过12/6/113项，另有513/180/5个子断言。最终合计218项及698个子断言。首次直接跑治理文件时有1项因专用支持模块无法导入而失败；随后未修改测试，使用专用启动器重跑完整通过。启动器在外层沙箱中曾被系统拒绝嵌套 `sandbox-exec`，经工具授权在外执行原启动器后仍由它自己的系统隔离保护，未绕过隔离、未安装依赖。
+
+Ruff全项目致命错误基线和7个改动Python文件默认规则均通过；文档完整性检查通过。已再次执行CodeGraph sync/status、impact和explore，builder影响面仍为Raw sensor及其测试；共享coverage validator消费者为builder、writer及既有Prod readiness测试。未发现需要修改的API、前端、Prod消费者或新增人工边界。完整引用扫描和当前源码hash保存在报告证据中。
+
+真实只读验收开始09:33:26、完成09:34:08；通过 `bash scripts/psql-remote.sh -f ... -- -qAt` 在 `BEGIN READ ONLY` / `ROLLBACK` 内运行当前正式coverage SQL（30秒超时）。查询完成，无超时，无分钟明细导出。Basic维持23日真实观测与截至23日的1713个targets；7日各5频全部覆盖，并通过新代码的数量/hash校验及5个op的配置解析。未生成正式YAML或调用正式instance。该结论不包含24日Basic当天新鲜性，也不包含正式文件和materialization/check验收。
+
+本步结论保留原方案20.6及本节；旧过程附件已清理。分钟质量深审计沿用20.1既有结论；本次新增审计仅针对coverage与运行配置，未重扫3,838,839行的全部数值。阶段B—E停在执行前，后续须按29.3—29.6独立准备与验收。
+
+### 29.9 逐日正式执行约束（2026-10-24获准）
+
+本次管理员明确要求按日完成补齐，批准B—E按20.7执行，取代29.4的15日后等待下一次授权要求。目标、日期、正式job/检查、失败与禁止项及预算继续使用29.3—29.6；不扩大到13/14日、其它数据集或自动调度恢复。14字段Basic小快照读取属于29.3已列明的本次正式Basic准备，不沿用阶段A的四列限制，也不扩展为其它数据集全局读取。
+
+09:57只读预检：70目标文件仍缺失、7分区已注册、4个ETF job无活动run；5个sensor持久状态RUNNING但最新tick仍00:12附近，未发现daemon进程；Basic仍是23日观测。正式根、staging、DuckDB临时目录已存在且同文件系统，剩余约2.65TiB。证据 `/private/tmp/etf_mins_recovery_preflight_20261024.json`。原方案阶段A源码hash仍应在正式运行前核对，变动则先解释。
+
+执行目录与环境：`/Users/congming/github/goldenshare/lake_console/orchestrator`，Bash登录环境和现有 `.venv`，`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home`；不安装依赖、不初始化临时instance、不改环境文件。正式CLI会写既有DG事件/run表，业务数据只写批准的Lake范围；Prod resource只读。临时配置和读回证据位于 `/private/tmp/etf-mins-recovery-20261024`，最终报告存 `lake_console/reports/etf_mins_recovery_20261024`。
+
+只读辅助脚本 `/private/tmp/etf-mins-recovery-20261024/inspect_and_configure.py` 只负责编排现有selector、Basic重校验、五频coverage和修正后的builder，保存正式job配置以及有界run/check核验；不实现writer、不触发jobs、不补事件。DG读取直接使用 `PostgresRunStorage/PostgresEventLogStorage(..., should_autocreate_tables=False)`，进程内 `PGOPTIONS` 强制只读；现有selectors通过这两个storage的原生读取方法取得真实记录，不构造DagsterInstance或伪造观测。Basic全部14字段使用正式selector现有校验；targets和hash不得手写。每次配置前查4个ETF job活动run、daemon和Basic最新事件；发现外部变动停止。
+
+按以下顺序逐条执行，任何非零退出、正式检查失败、文件冲突或超出预算均不领取下一日期：
+
+```bash
+export DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home
+.venv/bin/dg launch --job raw_etf_basic_update_job
+.venv/bin/python -B /private/tmp/etf-mins-recovery-20261024/inspect_and_configure.py basic-raw-config
+.venv/bin/dg launch --job silver_etf_basic_update_job --config /private/tmp/etf-mins-recovery-20261024/basic-silver.yaml
+.venv/bin/python -B /private/tmp/etf-mins-recovery-20261024/inspect_and_configure.py freeze-basic
+.venv/bin/python -B /private/tmp/etf-mins-recovery-20261024/inspect_and_configure.py raw-config 2026-10-15
+.venv/bin/dg launch --job raw_etf_mins_update_job --partition 2026-10-15 --config /private/tmp/etf-mins-recovery-20261024/raw-2026-10-15.yaml
+.venv/bin/python -B /private/tmp/etf-mins-recovery-20261024/inspect_and_configure.py verify-raw 2026-10-15
+.venv/bin/dg launch --job silver_etf_mins_update_job --partition 2026-10-15
+.venv/bin/python -B /private/tmp/etf-mins-recovery-20261024/inspect_and_configure.py verify-silver 2026-10-15
+```
+
+15日通过后，对16、19、20、21、22、23逐日执行相同的后五条命令，每次只替换日期及对应配置，不一次提交多个日期。每job日志独立保存，10秒左右读日志进展，60秒内向管理员更新；这不是额外业务扫描。临时辅助脚本由本任务维护，验收完成后仅作为报告文本证据留存，不接入Definitions或后续自动运行。
+
+每日验收从该job有界读取最多1000条事件，要求5个materialization、Raw job15个检查或Silver job25个检查完整通过，checks精确绑定Raw/Silver当前storage_id；保存行数、代码数、Basic fingerprint、N3 WARN和文件stat。Silver检查通过即提供本次完整11字段/主键双向等价证据，不能仅凭job退出码继续。若记录超过1000、绑定缺失或行数/代码数与已确认源证据不同则停止解释，不追加无界日志或全库扫描。
+
+最终辅助命令 `.../inspect_and_configure.py final` 不运行正式checks或重复差集：统一核对7份每日验收、70文件大小/行数/schema、文件内容hash与materialization metadata一致、70条materialization和175个不同检查目标绑定、16个job终态（含2个Basic）及无活动ETF run。复用正式Silver checks已经执行的双向差集零结果，保存证据来源；相邻13/14日只比较执行前后stat。预计新增最终读取为70个压缩文件hash及70次仅计数/schema查询（无明细导出），不重新读取Prod分钟；仍在15分钟验收预算内。中断只重读未完成日期的有界证据，不能重跑已通过全部日期或删除文件/事件。
+
+### 29.10 正式执行与最终验收完成（2026-10-24 10:17）
+
+29.9已全部实施。Basic Raw run `f3ac990d-4c8c-4aa5-bc86-2ba35da3a2f8`、Silver run `4157a49b-e610-45cd-b63b-d08d1680f387` 成功，1908/1901行，分别3项检查绑定通过；真实观测为24日10:00:02/10:02:41，冻结可请求数1713。新Raw内容版本为 `1b6f63dbddec8a3fdb3e6181b15340c427f042154e87b4afef5b5496f2584856`，没有改写23日观测；所有7日目标代码hash与阶段A证据一致。
+
+| 日期 | 每频代码数 | Raw行数 | Silver行数 | Raw/Silver文件 | 验收 |
+| --- | ---: | ---: | ---: | --- | --- |
+| 2026-10-15 | 1701 | 546021 | 546021 | 5/5 | 通过 |
+| 2026-10-16 | 1705 | 547305 | 547305 | 5/5 | 通过 |
+| 2026-10-19 | 1708 | 548268 | 548268 | 5/5 | 通过，零成交WARN |
+| 2026-10-20 | 1709 | 548589 | 548589 | 5/5 | 通过 |
+| 2026-10-21 | 1711 | 549231 | 549231 | 5/5 | 通过，零成交WARN |
+| 2026-10-22 | 1712 | 549552 | 549552 | 5/5 | 通过，零成交WARN |
+| 2026-10-23 | 1713 | 549873 | 549873 | 5/5 | 通过 |
+
+验收与预算逐项对账：
+
+- 先Basic，再逐日Raw→检查读回→Silver→检查读回，前一日期完整通过后才生成下一日期配置；没有并行、跳日、失败重跑或临时writer。2个Basic和14个分钟run均SUCCESS，run ID逐项存于报告。
+- 7份coverage对应7次有界五频存在性查询，35个Raw materialization中的 `query_count` 合计35；单日单频11字段源明细合计3,838,839行，符合原预算，没有额外Prod分钟质量深扫。
+- 每个Raw run通过15项检查，每个Silver run通过25项（含重新执行15项Raw），实际分钟检查280次，对应175个不同日期/资产/检查目标。每个检查均核对 `target_materialization_data.storage_id` 为对应当前文件的materialization；另有6个Basic检查通过。
+- 35个Silver正式等价检查实际执行11字段及主键双向 `EXCEPT ALL`，通过结果 `failure_counts={}`，因此差集均为0；最终审计复用这些绑定正确的检查，不再重复差集。schema/主键/分区/频率/代码范围/N3由本次正式checks验收，没有把单纯present或退出码当成ready。
+- 最终读回10:17:03至10:17:05，耗时1.748077秒；70文件非零，行数/schema/内容hash与metadata逐项一致，两层各3,838,839行，合计7,677,678行，总文件大小107,962,396字节。13/14日20文件stat不变，4个ETF job无活动run，未发现daemon进程。
+- Basic jobs共12.32秒、7个Raw jobs共317.76秒、7个Silver jobs共42.07秒，单Raw最高48.79秒、单Silver最高6.53秒，均未触发停止预算；没有新增大扫描或重读Prod用于最后验收。
+- 唯一中断发生在最终只读汇总脚本：调用不存在的 `PostgresRunStorage.get_run_by_id`，尚未进入文件校验。改为已核实的 `get_run_records(RunsFilter(run_ids=[id]), limit=1)` 后完成；不是正式job失败，没有重跑或补写事件。错误与纠正均已归档。
+- WARN仅为全天零成交：19日159291.SZ；21日511770.SH、511820.SH；22日159642.SZ。按日去重为1/2/1只，各频相同，符合现有 `etf_mins_gap_policy_v1`；没有改值或造数据。
+- 未修改正式Python实现、Prod、自动调度、分区、cursor、runless事件或配置项，未安装依赖、覆盖/删除历史业务文件、创建分支/worktree或提交Git变更。本次完成不声称自动调度已恢复。
+
+完整证据：[完成报告](../../reports/etf_mins_recovery_20261024/README.md)、[执行汇总](../../reports/etf_mins_recovery_20261024/execution-summary.json)、[70文件最终验收](../../reports/etf_mins_recovery_20261024/final-verified.json)。配置和逐run检查记录随报告保留；临时核验脚本仅归档为文本，不进入正式入口。B—E验收已闭合，不再停留在“Prod通过但DG文件缺失”的阶段。
