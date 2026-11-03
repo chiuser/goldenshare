@@ -1,5 +1,7 @@
 # 指数详情页技术实施方案 v1
 
+> 2026-11-04 成分行情缺失修订：用户验收通过，需求收尾。仅成分缺行情不再触发两处提示及 PARTIAL；完整月度 A 股名单、缺失计数与贡献 `--` 保留，其它异常照常展示。本次仅收尾提交，不执行推送或部署；生产发布及同拓扑复验独立进行。实现、技术验证和用户验收记录见[LLD §25](./index-detail-low-level-design-v1.md#index-constituent-missing-quote-20261020)。
+
 > 状态：指数详情开发与生产验收已完成。M1～M5-B、P10、共享图表、九转 S7/M5/M6-A～M6-D 和日线最终数据/性能门禁均已闭环；bars 与 indicators 只读正式 Gold，无 Silver fallback 或 Mock。本地按 capability 开放七个分钟周期，生产只开放日线且分钟路由保持 404。
 > 新增专项（2026-10-13）：上证日线及 60／90／120 分钟的徐小明 V0.1 已按批准 Figma 实现，技术验收完成，等用户验收；仅指数详情页的 1280／1440px 适配另获批准。当前证据及未确认边界见[专项实施方案与 LLD §13](./index-detail-xxm-implementation-and-low-level-design-v0.1.md#13-实施与技术验收2026-10-13)。本专项尚未部署，不改变本文既有验收记录或生产分钟门禁。
 > 对应需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
@@ -318,7 +320,7 @@ interface IndexDetailPageInitResponse {
 3. quote 先查询 `index_daily_serving.trade_date <= pageContext.tradeDate` 的最近一行作为 `asOfTradeDate` 和价格来源，再精确读取同 code、同日 `index_factor_pro.vol/amount`；不读取 daily 量额，也不为“较昨日”读取前一日成交额。
 4. 无 quote 时 `asOfTradeDate=null` 且状态 EMPTY。
 5. `dailyBasic` 只读 `trade_date = asOfTradeDate` 的一行；整行或单字段缺失都保持 `null`，由前端逐字段显示 `--`。
-6. `constituentBreadth` 只做最新有效源权重批次中的 A 股集合聚合，不返回成分明细。A 股由 `Security.security_type=EQUITY`、`exchange in (SSE,SZSE,BSE)`、`curr_type=CNY` 定义；B 股不进入总数和缺失数。A 股日线优先，确认停牌按 0%/FLAT；只有无日线且无停牌依据的 A 股才令模块 `dataStatus=PARTIAL`。
+6. `constituentBreadth` 只做最新有效源权重批次中的 A 股集合聚合，不返回成分明细。A 股由 `Security.security_type=EQUITY`、`exchange in (SSE,SZSE,BSE)`、`curr_type=CNY` 定义；B 股不进入总数和缺失数。A 股日线优先，确认停牌按 0%/FLAT；无日线且无停牌依据的 A 股计入 missing，但不单独令 breadth 或 page-init 为 PARTIAL，也不显示成分缺失提示。
 7. 不在 page-init 加载 K 线、权重明细或趋势历史。
 8. `supportsTrendChannel` 仅对 `000001.SH + day` 返回 true；其余指数的 `availableMainOverlays` 不包含 `TREND_CHANNEL`。
 9. `supportsTradePlanEntry=true` 只表达顶部入口存在；技术结论与任何数据状态不触发交易动作。
@@ -535,9 +537,9 @@ route tsCode
 | `ID_SOURCE_DELAYED` | observed 早于完成交易日 | DELAYED，显示日期 |
 | `ID_FACTOR_PARTIAL` | page-init 同日 factor 量额缺失，或 Kline 因子缺行/缺列 | 基本行情量额 `--`、主图 PARTIAL，缺线不补 0 |
 | `ID_BASIC_DAILY_PARTIAL` | 同日 dailyBasic 缺行/缺字段 | 对应指标 `--`，页面 PARTIAL |
-| `ID_BASIC_BREADTH_PARTIAL` | A 股成分无同日行情且无停牌依据 | 三计数保留并提示 coverage；B 股/确认停牌不触发 |
+| `ID_BASIC_BREADTH_PARTIAL` | 原 1.3.1 的成分行情缺失诊断 | 工作区 1.3.2 已停止产生；注册表保留历史，不删除缺失计数；未部署 |
 | `ID_WEIGHT_EMPTY` | 无可用权重批次 | 权重页签 EMPTY |
-| `ID_WEIGHT_CONTRIBUTION_PARTIAL` | A 股成分既无日线也无停牌依据，或指数昨收缺失 | 行显示 `--`，页签 PARTIAL |
+| `ID_WEIGHT_CONTRIBUTION_PARTIAL` | 指数昨收缺失；成分缺行情不再触发 | 行显示 `--`，指数昨收缺失时页签仍为 PARTIAL |
 | `ID_QUERY_FAILED` | 其它查询失败 | 对应模块 ERROR |
 | `IM_SOURCE_NOT_READY` | 本地分钟文件未覆盖 | 分钟模块 DELAYED |
 | `IM_SOURCE_CONTRACT_INVALID` | 本地 Parquet 合同错误 | 分钟模块 ERROR |
@@ -557,7 +559,7 @@ route tsCode
 | weights loading/error/empty | 只替换权重 tab，主图保持 | 局部重试 weights |
 | weights PARTIAL | 保留完整 A 股行；真实缺失贡献显示 `--`；确认停牌显示 0 | 不把未知缺失补 0；允许局部重试 |
 | basic daily fields missing | 仅对应字段显示 `--`；其余基本行情保留 | 不回填、不补 0 |
-| constituent breadth PARTIAL | 保留已分类 A 股的上涨/平盘/下跌；确认停牌计平盘，真实缺失不计入三类 | 显示部分缺失状态；允许整页重试 |
+| 仅成分行情缺失 | 保留已分类 A 股的上涨/平盘/下跌、完整成分行及缺失数；不计入平盘 | 不增加页面或列表提示，不单独触发 PARTIAL；其它错误照常处理 |
 | trend/指标 error | 隐藏对应层或断点，基本行情保持 | 局部重试 trend/kline |
 | local minute empty/delayed/error | 只替换分钟图，日线缓存保持 | 局部重试或切回日线 |
 
@@ -660,7 +662,7 @@ M5-B 准备批次已于 2026-08-12 验收。2026-08-13 最终重跑确认 Silver
 | 贡献缺失被当 0 | adapter 使用 valueOrZero | index adapter null-safe，API coverage 明示 |
 | 全量 A 股权重导致 DOM/响应膨胀 | 直接渲染完整数组或查询逐行补名 | 单次完整 A 股子集 API + 集合查询；前端虚拟化；P95 与 1 MiB payload 门禁 |
 | B 股被误报缺失 | 直接以源权重总数减日线匹配数 | 先按 Security 事实字段限定 A 股；B 股不进入 coverage，不用代码前缀判断 |
-| 停牌被误报缺失或无依据补 0 | 仅 LEFT JOIN 日线，或把全部 null 当平盘 | 只在同日 `suspend_type=S` 命中时使用 0%/FLAT；无停牌依据继续 PARTIAL |
+| 停牌被误报缺失或无依据补 0 | 仅 LEFT JOIN 日线，或把全部 null 当平盘 | 只在同日 `suspend_type=S` 命中时使用 0%/FLAT；无停牌依据保留 null 和缺失数，不补 0，也不单独触发 PARTIAL |
 | 技术内容诱发交易含义 | 用通道自动生成建议/动作 | 客观事实与用户 action 严格分离 |
 | 状态稿被当成静态样例 | 把 Partial 三个缺失字段或上证 Loading 文案写死 | 状态组件由 capability/缺失字段驱动，Figma 只冻结结构、文案模板和视觉语义 |
 | Figma 旧说明误导字段实现 | 继续读取 `425:190` 的振幅/较昨日 | 以 Basic 组件 `414:446`、详细口径 `425:219` 和三件套 15 项清单为唯一合同 |
@@ -671,7 +673,7 @@ M5-B 准备批次已于 2026-08-12 验收。2026-08-13 最终重跑确认 Silver
 2. 通道按短期25、长期90各自上下轨绘制；每个交易日都有竖线，颜色按当日收盘点相对各自下轨逐日决定并允许在交易日边界切换；右侧展示四个轨道值，不展示中轴。
 3. 权重 API 返回完整 A 股子集；B 股不返回、不占 coverage；前端固定 10 行视窗、表头固定、内部滚动并虚拟化，不提供任意 limit。
 4. 基本行情固定 15 项；日度指标无值显示 `--`，删除“成交状态”和“较昨日”。
-5. 上涨/平盘/下跌只按最新有效源批次中的 A 股聚合；日线优先，确认停牌计入平盘，只有无日线且无停牌依据的 A 股进入 missing/PARTIAL。
+5. 上涨/平盘/下跌只按最新有效源批次中的 A 股聚合；日线优先，确认停牌计入平盘，只有无日线且无停牌依据的 A 股进入 missing；该缺失不再单独触发 PARTIAL 或用户提示。
 6. 基本行情与 Kline 的成交量、成交额统一取 `index_factor_pro`；`index_daily_serving` 只保留日期/价格锚点职责，不提供量额 fallback。
 
 ## 14. 版本记录
@@ -704,3 +706,26 @@ M5-B 准备批次已于 2026-08-12 验收。2026-08-13 最终重跑确认 Silver
 | v1.2 | 2026-08-11 | 趋势通道收敛为仅上证指数直接调用既有 API；删除十指数适配层与中轴设计；补双通道绘制/颜色规则、成交状态和生产字段审计 | Codex |
 | v1.1 | 2026-08-11 | 权重改为完整批次与 10 行虚拟滚动；补齐页面/模块异常恢复矩阵和当前股票详情实现差距 | Codex |
 | v1 | 2026-08-10 | 基于现有代码、CodeGraph、Figma 与生产权重审计形成首版实施草案 | Codex |
+
+
+<a id="index-constituent-missing-quote-plan-20261020"></a>
+## 15. 成分行情缺失展示修订（2026-10-20 实施，2026-11-04 用户验收通过）
+
+### 15.1 目标与依据
+
+管理员已确认：成分按月更新，日行情缺失不必再提示；名单继续按不晚于页面行情日的最新成分批次展示，贡献缺失显示 `--`。不新增价格列。2026-10-20 只读复核 Prod：上证行情日为 2026-10-19，9 月 30 日权重原始表及 serving 均 2,230 行，页面 A 股子集 2,190 行，matched 2,188、missing 2；信达证券 `601059.SH`、东兴证券 `601198.SH` 仍在该批次，两者当天没有有效日线或停牌记录。这是当次审计证据，不是固定代码或日期规则。
+
+文档修订已获确认，管理员随后授权按本方案开发；本步开始前代码会因成分缺行情令 page-init/weights 为 PARTIAL，并展示两处提示。现已完成本步代码、回归及真实只读接口和页面验收；2026-11-04 管理员确认验收通过并授权收尾提交。本次不执行推送或部署。原历史验收和已有“右栏提示遮挡修订”均保留，后者继续负责其它有效提示的位置。
+
+### 15.2 实现范围与验收
+
+1. 后端 page-init 与 weights 取消“仅成分缺行情”触发 PARTIAL 的判断，完整名单、null、coverage 和 debug missingCount 保留；指数昨收缺失及其它失败继续按原规则处理。
+2. 前端删除成分缺失专用提示来源；后端状态同步修订，避免改成“部分基本行情”继续提示。权重页签不因成分缺行情显示提示，其它 PARTIAL/DELAYED/error 继续保留。
+3. 不改月度批次选择、A 股身份过滤、排序、贡献公式或停牌解析；不按 list_status/delist_date 另删成分。保持当前三列表格及现有 `--` 格式，不新增价格、涨跌幅或缺失数量展示。
+4. 不改 DatasetDefinition、自动任务、Tushare 请求、存储、生产数据或配置；不新增开关。目标合同 1.3.2 一次同步本模块全部状态消费者，不由前端另算可用性或继续兼容旧状态口径。
+5. 具体代码位置、测试、读写边界、失败与重试、预算及验收见[原 LLD §25](./index-detail-low-level-design-v1.md#index-constituent-missing-quote-20261020)。本步开发已获管理员明确授权；部署仍不在本轮范围，开发与验收分别记录，不沿用旧版本完成结论。
+
+
+### 15.3 本步结果（2026-10-20）
+
+已改两个 query service、异常 builder 和前端缺失原因收集；列表直接复用原有完整行与 `--` 渲染，没有新增价格列、配置、SQL 或数据写入。后端相关 48 项、页面与状态组件 35 项通过；Wealth 全量 1,193 项通过，随后对两处夹具真实性修正又定向跑 35 项通过；typecheck/build 通过。真实只读 HTTP 20 次及 Chrome 页面已验证：上证 total=2190、matched=2188、missing=2 仍保留，页面和贡献列表不再提示，末尾两只贡献为 `--`。完整证据与本地/生产边界见 LLD §25.7。原本地 8000 进程仍加载旧代码，验收时临时进程与请求转发均已清理；长期本地生效需重新加载后端，Prod 生效需另行发布。

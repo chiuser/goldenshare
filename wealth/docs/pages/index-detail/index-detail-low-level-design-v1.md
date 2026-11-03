@@ -1,5 +1,7 @@
 # 指数详情页低层设计（LLD）v1
 
+> 2026-11-04 成分行情缺失修订：用户验收通过，需求收尾。仅成分缺行情不再触发两处提示及 PARTIAL；完整月度 A 股名单、缺失计数与贡献 `--` 保留，其它异常照常展示。本次仅收尾提交，不执行推送或部署；生产发布及同拓扑复验独立进行。实现、技术验证和用户验收记录见[LLD §25](./index-detail-low-level-design-v1.md#index-constituent-missing-quote-20261020)。
+
 > 状态：指数详情开发与生产验收已完成。M1～M5-B、P10、共享图表、九转 S7/M5/M6-A～M6-D 和日线最终数据/性能门禁均已按冻结合同实现；主要指数 bars/indicators 只读正式 Gold，无 Silver fallback 或 Mock。本地按 capability 开放七个分钟周期，生产只开放日线且分钟路由保持 404。
 > 新增专项（2026-10-13）：上证日线及 60／90／120 分钟的徐小明 V0.1 已按批准 Figma 实现，技术验收完成，等用户验收；仅指数详情页的 1280／1440px 适配另获批准。当前证据及未确认边界见[专项实施方案与 LLD §13](./index-detail-xxm-implementation-and-low-level-design-v0.1.md#13-实施与技术验收2026-10-13)。本专项尚未部署，不改变本文既有验收记录或生产分钟门禁。
 > 需求依据：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
@@ -449,8 +451,8 @@ interface IndexDetailPageInitResponseDto {
 7. `supportsTrendChannel` 只在 code 为 `000001.SH` 时为 true，且仅日线使用。
 8. local capability disabled 时 `availablePeriods=["day"]`、分钟频率为空；enabled 时追加七个分钟 key。
 9. `availableMainOverlays` 对上证指数包含 `TREND_CHANNEL`，其余 9 个只含 `MA/BOLL`。
-10. Partial 提示不增加另一个自由文本合同。前端从 quote/dailyBasic 的真实 null 字段和 breadth 的 `missingCount/dataStatus` 生成缺失项列表；Figma fixture 不写死。
-11. page-init 状态解析固定为：quote 无行是 EMPTY；quote 存在但同日 factor 量额、dailyBasic 整行/字段缺失、breadth 为空或 `missingCount>0` 是 PARTIAL；B 股排除和有停牌证据的 A 股不属于 partial 原因；没有 partial 原因且 observed 落后 expected 是 DELAYED；其余是 READY。
+10. Partial 提示不增加另一个自由文本合同。前端从 quote/dailyBasic 的真实 null 字段及其它仍适用的异常生成缺失项列表；不再将成分 `missingCount>0` 加入提示，也不能改成泛化的“部分基本行情”继续提示。Figma fixture 不写死。
+11. page-init 状态解析固定为：quote 无行是 EMPTY；quote 存在但同日 factor 量额、dailyBasic 整行/字段缺失或 breadth 为空时是 PARTIAL；仅成分 `missingCount>0` 不再作为 partial 原因。有效批次的 breadth 即使有 missing 也为 READY，数值和 missingCount 均保留；没有其它 partial 原因且 observed 落后 expected 时 page-init 为 DELAYED，其余为 READY。
 12. `supportsTradePlanEntry=true` 只表达顶部入口存在；技术结论、趋势状态和任何数据 effect 均不得触发交易动作。
 
 ### 8.3 `GET /kline`
@@ -587,7 +589,7 @@ contributionPoint
 4. 源查询不承担最终业务排序；service 完成贡献点四位小数舍入后，按 `contributionPoint DESC NULLS LAST, weight DESC, conCode ASC` 排列完整 rows。前端保持 API 原序，不得二次排序。
 5. `rows.length = totalCount = returnedCount`，`isTruncated=false`；这里的 total 是页面 A 股子集总数，不是官方源批次含 B 股的行数。
 6. A 股官方原始 weight 原样返回，不按 A 股权重合计重新归一化，也不按实际指数涨跌缩放。
-7. 精确日 daily `pct_chg` 优先；仅在 daily 缺失/空值且存在 `suspend_type='S'` 时输出 `changePct=0`、`direction=FLAT`、`contributionPoint=0`，并计入 contributionAvailableCount；无两类证据才保持 null/PARTIAL。
+7. 精确日 daily `pct_chg` 优先；仅在 daily 缺失/空值且存在 `suspend_type='S'` 时输出 `changePct=0`、`direction=FLAT`、`contributionPoint=0`，并计入 contributionAvailableCount；无两类证据才保持 null/UNKNOWN 并计入缺失数，但不单独触发 PARTIAL 或用户提示。
 8. A 股名称缺失时保留行并显示 code；名称缺失不影响贡献 coverage。
 9. 权重日期默认动态解析；`2026-07-31` 是当前生产验收基线，不硬编码在业务代码。
 10. weights endpoint 先按 page-init 同口径解析最新指数日线。若完全没有指数日线，返回 `dataStatus=EMPTY`、`contributionTradeDate=pageContext.tradeDate`、`weightTradeDate=null`、空 rows；页面 EMPTY 不主动请求该接口。只要存在观测日，`contributionTradeDate` 就必须等于该观测日。
@@ -710,7 +712,7 @@ up + flat + down = matched
 matched + missing = total
 ```
 
-只有 A 股 `missing > 0` 时 breadth 和 page-init 为 PARTIAL，但三个已计算计数保留。B 股排除和有停牌证据的 A 股不进入 missing；没有权重批次时 breadth 为 null，15 项中的三个计数显示 `--`。
+A 股 `missing > 0` 时保留缺失数和三个已计算计数，不单独令 breadth 或 page-init 为 PARTIAL，不显示成分缺行情提示。缺失成分不进入 up/flat/down；B 股排除和有停牌证据的 A 股不进入 missing。没有权重批次时 breadth 仍为 null，page-init 仍为 PARTIAL，15 项中的三个计数显示 `--`。
 
 ### 9.3 Kline 查询
 
@@ -1062,9 +1064,9 @@ type ModulePhase = "idle" | "loading" | "ready" | "delayed" | "partial" | "empty
 | `ID_SOURCE_DELAYED` | 200 DELAYED | observed < expected | 保留数据，显示日期 |
 | `ID_FACTOR_PARTIAL` | 200 PARTIAL | page-init 同日 factor 量额缺失、因子整体落后或异常断裂 | 基本行情量额 `--`；日线保留，缺线断点 |
 | `ID_BASIC_DAILY_PARTIAL` | 200 PARTIAL | 同日 dailyBasic 缺行/缺字段 | 对应指标 `--`，其它数据保留 |
-| `ID_BASIC_BREADTH_PARTIAL` | 200 PARTIAL | A 股成分同日既无有效 daily pct，也无 `suspend_type='S'` 证据 | 三计数保留并提示 coverage；B 股排除和已证实停牌不触发 |
+| `ID_BASIC_BREADTH_PARTIAL` | 原 1.3.1 为 200 PARTIAL | 原成分缺行情诊断；目标 1.3.2 不再产生 | 保留注册历史；工作区已停用，缺失数量保留，无成分缺失提示；未部署 |
 | `ID_WEIGHT_EMPTY` | 200 EMPTY | 无权重批次 | 权重 Tab Empty |
-| `ID_WEIGHT_CONTRIBUTION_PARTIAL` | 200 PARTIAL | preClose 缺失，或 A 股同日既无有效 daily pct 也无停牌证据 | 行保留，贡献 `--`；有停牌证据输出 0，不触发 |
+| `ID_WEIGHT_CONTRIBUTION_PARTIAL` | 200 PARTIAL | 指数 preClose 缺失；不再由成分缺行情触发 | 行保留，贡献 `--`；仅成分缺行情时不显示此提示 |
 | `ID_QUERY_FAILED` | 500/模块 ERROR | 配置或 SQL 未知失败 | 整页或模块重试 |
 | `IM_SOURCE_NOT_READY` | 200 DELAYED | local 分区无覆盖 | 分钟局部 delayed |
 | `IM_SOURCE_CONTRACT_INVALID` | 500 | Parquet/path/schema 不符 | 分钟局部 error |
@@ -1392,7 +1394,7 @@ tests/test_index_minute_gold_audit.py             # M5-B read-only acceptance
 3. 默认/显式 tradeDate，latest <= expected，DELAYED。
 4. quote EMPTY 后不返回 mock。
 5. dailyBasic 同日缺行/单字段 null。
-6. breadth up/flat/down/missing 和两条数量恒等式；B 股排除、停牌 A 股按 flat、daily 与停牌同时存在时 daily 优先、无两类证据才 PARTIAL。
+6. breadth up/flat/down/missing 和两条数量恒等式；B 股排除、停牌 A 股按 flat、daily 与停牌同时存在时 daily 优先、无两类证据只计 missing，不单独触发 PARTIAL。
 7. kline 只允许 day、不接受 adjustment、升序、limit 边界。
 8. 因子 null 保持 null，KDJ J 映射正确，不返回 MA15/MA120。
 9. 权重日期、完整 A 股子集、贡献点正/零/负/null 降序、null 置底、同贡献 weight/code 决胜、B 股不进入 rows/coverage、名称缺失、停牌 pct/贡献为 0、真实 null pct、preClose 缺失。
@@ -1605,6 +1607,117 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 | v1.1 | 2026-08-11 | 完成 M0：落生产因子覆盖/性能审计、冻结独立 DTO 1.0.0、登记异常码；记录深市量额分叉、当时 A500 MA250 空值与真实 2000 行性能限制；量额最终来源已由 v1.3 修订 | Codex |
 | v1 | 2026-08-11 | 基于最新 Figma、三件套、当前代码、CodeGraph、生产字段审计与分钟 Lake 合同形成首版 LLD；冻结文件结构、DTO、SQL、状态机、趋势 primitive、共享图表、测试和实施顺序 | Codex |
 
+
+<a id="index-constituent-missing-quote-20261020"></a>
+## 25. 成分行情缺失展示修订 LLD（2026-10-20 实施，2026-11-04 用户验收通过）
+
+### 25.1 目标、范围与当前证据
+
+对应[实施方案 §15](./index-detail-implementation-design-v1.md#index-constituent-missing-quote-plan-20261020)。管理员已确认取消仅成分缺行情产生的两处提示和对应 PARTIAL 判断；月度成分保留、缺失贡献显示 `--`，不新增价格列。管理员已在文档确认后授权本步开发；以下门禁从待执行开始逐项回填，部署不在本轮范围。
+
+当前 `IndexDetailQuery.load_breadth/load_weight_rows` 已按同一 A 股范围读最新有效批次，日线优先、同日停牌补充；缺行情行已经保留，贡献计算返回 null，`IndexWeightsTab.formatContribution` 已显示 `--`。错误发生在状态及提示：page service 将 breadth missing 同时传给 breadth 和页面 PARTIAL；weights service 将总贡献缺失数作为 PARTIAL；前端又由 missingCount 生成页面提示，并在 weights phase=partial 时显示列表提示。不能只删一段文案而留下泛化提示或错误状态。
+
+### 25.2 目标状态及数值
+
+| 情况 | 目标行为 |
+|---|---|
+| 成分有效涨跌幅存在 | 依其正/零/负计入 up/flat/down，按原公式计算贡献 |
+| 无涨跌幅但同日有 `suspend_type=S` | 按 0%/FLAT 与贡献 0 处理，不受本次修订影响 |
+| 无有效涨跌幅且无停牌依据 | 保留成分；`changePct=null`、`direction=UNKNOWN`、`contributionPoint=null`；显示 `--`，不计入 up/flat/down |
+| 只有上述成分缺行情，其它输入完整 | breadth READY；page-init/weights 按原观测日期返回 READY 或 DELAYED，不再仅因 missing 为 PARTIAL，不显示两处缺失提示 |
+| 指数昨收为空 | weights 仍 PARTIAL，仍产生 `ID_WEIGHT_CONTRIBUTION_PARTIAL` 并显示原局部说明，不伪造贡献 |
+| factor/dailyBasic 缺失、无权重批次、日期落后或接口异常 | 保留原 PARTIAL/EMPTY/DELAYED/HTTP 错误及提示，不批量关闭提示 |
+
+`up+flat+down=matched`、`matched+missing=total`、`contributionAvailableCount+contributionMissingCount=totalCount` 不变。没有成分批次与已有批次但成分缺行情必须区分；不增加比例阈值或股票/日期特例。即使批次内所有成分都无行情，也保留名单与真实缺失数，不将它们伪计 flat；此情况同样不能仅因成分缺行情产生提示。
+
+### 25.3 逐文件变更和消费者
+
+| 位置 | 已实施内容 / 已核验消费者 |
+|---|---|
+| `src/biz/queries/wealth/market/index_detail/index_detail_page_query_service.py` / `build_page_init` | breadth 的 partial 不再由 missingCount 决定；页面 partial 条件去掉 breadth missing，保留 factor、dailyBasic、无批次判断；停止产生 breadth_partial 异常；debug breadth missingCount 仍为真实值 |
+| `src/biz/queries/wealth/market/index_detail/index_detail_weights_query_service.py` / `build_weights` | coverage 仍按实际可计算贡献计数；PARTIAL 与异常触发改由指数昨收缺失决定，不能再用总 missing_count 代替；保留原排序、行和缺失值 |
+| `src/biz/services/wealth/market/index_detail/index_detail_exception_builder.py` | 审计并清除停止产生的 breadth_partial 调用/方法；保留其它异常；统一注册表保留历史记录，不新增同义码 |
+| `src/biz/schemas/wealth/market/index_detail.py`、`wealth/src/features/index-detail/api/indexDetailApiTypes.ts` | 字段、数值/null 类型不变；旧 breadth 异常码的类型声明只保留作已登记代码，不再允许服务实际产生；同步合同目标版本和测试，不保留旧状态行为 |
+| `wealth/src/features/index-detail/model/indexDetailState.ts` / `collectIndexPartialReasons` | 去掉由 breadth missingCount 拼出的提示；不能以“部分基本行情”替代；其它实际缺字段和 K 线提示保留，页面 phase 继续消费后端状态 |
+| `wealth/src/features/index-detail/controller/useIndexDetailController.ts`、`controller/useIndexWeights.ts` | 验证状态与缓存消费使用新响应；不加前端覆盖后端状态的判断，不改缓存键、请求或重试流程 |
+| `wealth/src/features/index-detail/sidebar/IndexWeightsTab.tsx` | 无行情的行沿用现有 `--`；仅成分缺行情时由新 READY/DELAYED 状态自然不显示 PARTIAL 提示；保留指数昨收缺失时的 PARTIAL 提示和 error/empty/delayed，不新增列或 CSS 改版 |
+| `IndexInfoRail`、`IndexDetailPartialNotice`、`indexDetailViewModelAdapter.buildBasicMetrics` | 作为消费者核验；保留其它提示位置、15 项指标和涨跌数展示；不因 missing 清空已计算计数 |
+
+已使用仓库根 CodeGraph `codegraph_explore` 和 `codegraph_impact(collectIndexPartialReasons)`，并核对当前 query/service、exception builder、后端 schema、TS 类型、controller、sidebar、页面与 API 测试。图中出现的通用 `load` 同名候选不据此扩大修改范围；当前代码引用表明实际影响限于指数详情 `page-init/weights` 及本页消费者。无 Foundation、Ops、股票详情、主要指数首页 API 或 XXM 数学/接口变更。尚需人工确认的是改后真实页面视觉和验收结果，不是新增产品规则。
+
+### 25.4 配置、读写、失败与性能边界
+
+- 不新增、修改或安装配置/依赖；沿用现有 majorIndices 名单与页面请求。无业务表、状态表、Lake 或自动任务写入，后端仍为只读查询。
+- 沿用现有集合 SQL，不新增查询，不把完整成分逐行补查；内存与单次完整成分响应相关，沿用固定 10 行视窗和虚拟滚动，不新增常驻缓存或后台任务。
+- 沿用 §18 的 page-init P95 ≤300ms、weights P95 ≤800ms、payload ≤1 MiB 门禁；成分数量随最新批次变化，2184/2190 是历史样本，不作为截断上限。对同一有界样本复核，不进行全数据集扫描。
+- 请求取消、失败、重新加载与局部重试沿用现有生命周期；中断无需数据恢复或数据库续跑。重试仍只重新读取原请求，page-init 和 weights 分别沿用首次读取的预算，不增加扫描范围；记录首次、重试及最后验收各自耗时，不把接口 P95 相加冒充整页性能。
+- 最后验收限定一个正常指数和有缺失的上证样本，每个接口各 5 次只读请求，记录实际行数、缺失数及耗时，共不超过 20 次请求。验收调用单次最长等待 5 秒，仅作为验收的停止条件，不修改产品请求超时或新增配置；遇失败先记录并停止该样本，每个失败样本最多补查一次，不反复压测。包括补查在内该有界核验预算不超过 2 分钟；现有全量测试、typecheck/build 和浏览器人工检查的时间另记，不冒充接口性能。
+- 本轮未执行真实 API 验收或部署，也不授权生产写入；后续核验遵守已授予的有界只读权限，不运行同步或修数。
+
+### 25.5 测试输入的独立依据
+
+字段以当前 `IndexWeight`、`Security`、`EquityDailyBar`、`EquitySuspendD` ORM 及现有 query 投影为准，不靠消费者反推。真实例子使用实施方案 §15.1 的 Prod 只读结果；该快照只证明数据接入边界，尚不能证明修改后的 API 或页面。
+
+隔离 API fixture 使用可人工核算的四个 A 股成分：权重分别 10/20/30/40，涨跌幅分别 +1%/-2%/无日线但有同日 S/无日线且无 S，指数昨收 1000。字面预期为 up=1、flat=1、down=1、matched=3、missing=1，贡献分别 1/-4/0/null，排序为 1、0、-4、null；不得调用待测 helper 产生 expected。额外 B 股行必须被原 A 股条件排除；退市状态的 A 股行只要仍在所选批次就保留。真实缺失、确认停牌、零涨跌及指数昨收缺失分开造例。
+
+### 25.6 编码与本地验收门禁（已完成，生产发布另验）
+
+| 硬口径 | 测试/验收落点 | 当前状态 |
+|---|---|---|
+| 缺行情保留成分、null 和覆盖数，不删退市行、不补零、不加价格列 | `tests/web/test_wealth_index_detail_api.py` 的完整 rows/coverage/状态断言；页面三列表格及 `--` | 已实施，相关回归通过 |
+| 仅成分缺行情不 PARTIAL，也不产生两处提示或泛化提示 | 同一 API 测试对 page-init/breadth/weights 状态、debug 缺失数和异常码断言；`wealth/src/pages/index-detail/IndexDetailPage.test.tsx` 对 ready 与 missing 组合断言 | 已实施，相关回归通过 |
+| 日线优先、停牌 flat/0、真实 missing 不计平盘，排序不变 | 原 API/贡献 builder 测试及 §25.5 独立金样本；覆盖 daily 与 S 同时存在的反例 | 已实施，相关回归通过 |
+| 只取消成分缺行情提示，不隐藏其它异常 | API 与页面分别覆盖 preClose null、factor/dailyBasic null、无批次、delayed、HTTP 500；混合缺失时只提示仍适用的问题 | 已实施，相关回归通过 |
+| missingCount=0、正常变动的正/负/零行情与旧正常路径不受影响；全部成分无行情仍保留完整名单 | API/页面正常、部分缺失、全部缺失三组；覆盖 debug=0/1、页签切换和缓存后重新进入 | 已实施，相关回归通过 |
+| 测试不只 mock 待验收边界 | 现有 Web 数据库 fixture 走真实路由、query/service/DTO；另以有界只读样本复核新 API，前端请求真实后端并确认两处不再提示、列表与其它有效提示正常 | 本机真实只读接口与页面通过；生产同拓扑待发布复验 |
+| 新旧口径一次迁移 | 原测试中 missing 导致 PARTIAL/异常的断言逐项改到新口径，保留独立数值依据；注册表/合同/前端消费者同步，不能靠删断言或吞异常通过 | 已实施，相关回归通过 |
+| 模块通用清单 | §25.1/25.3 覆盖交付事实与后端归一；§25.2/25.6 覆盖状态、显示、真实 API/页面；§25.4 覆盖查询/性能与读写；本轮无新增组件/视觉稿/配置，沿用当前表格和提示布局，无新增例外 | 本步代码与本地技术验收完成，无新增例外；未部署 |
+
+执行顺序：先核验并更新后端 API 契约测试及两个 query service，再同步前端提示和页面测试；保留其它异常反例。用现有环境运行相关后端测试、Wealth typecheck/test/build，再进行上述有界真实 API 与页面验收。只有修复前会因原问题失败、修复后通过的回归和真实边界核验均完成，才回填完成状态。原 §19、M2 旧勾选和历史测试数量不能作为本修订通过证据。
+
+
+### 25.7 开发与本地技术验收记录（2026-10-20，未部署）
+
+**实现已完成，本地技术验收通过；未提交、未部署、未写 Prod。** 原常驻本地 8000 进程仍加载旧后端；本轮没有重启该进程。新状态的长期本地生效需要重新加载后端，生产生效需要另行发布。
+
+1. 后端只改 `build_page_init` 的 breadth/page PARTIAL 与异常判断、`build_weights` 的 PARTIAL 触发条件及异常说明，清除无调用的 `breadth_partial` 方法。集合 SQL、成分名单、公式、四位舍入、排序、coverage 和 debug 缺失数均保留。
+2. 前端删除 `collectIndexPartialReasons` 的成分缺失提示来源；权重列表已有的保留行和 `--` 渲染直接复用，没有删除其它 PARTIAL/DELAYED/error 提示，也没有覆盖后端状态或新增列。现有右栏提示正常占位布局改动和对应测试保留。
+3. 按 §25.5 的四成分字面金样本验证贡献 1/0/-4/null、停牌、退市成分保留、B 股排除、debug=0/1；另覆盖全部有行情、全部无行情及 factor/dailyBasic/preClose 缺失和日期落后。前端缺失夹具同时保证 up+flat+down=matched，指数昨收缺失的 fixture 明确设 preClose=null，不用不一致输入证明提示保留。
+4. 回归先在旧实现执行：后端新 READY 断言及字面样本因旧 PARTIAL 判断失败；前端混合缺失测试因旧文案仍存在而失败。修复后相关测试通过，未通过 skip 或删除数值断言掩盖失败。
+
+| 检查 | 实际结果与范围 |
+|---|---|
+| `.venv/bin/python -m pytest tests/web/test_wealth_index_detail_api.py tests/test_index_weight_contribution_builder.py tests/test_index_detail_field_mapper.py tests/test_index_detail_status_resolver.py -q --disable-warnings` | 48 passed；Web fixture 为隔离内存 SQLite，走真实路由/query/service/DTO；不等于生产集成 |
+| `npm --prefix wealth run test -- src/pages/index-detail/IndexDetailPage.test.tsx src/features/index-detail/state/IndexDetailState.test.tsx` | 35 passed；覆盖缺失提示消失、完整行/占位、缓存切换，以及其它错误与局部重试；最终两处夹具校准后再次通过 |
+| `npm --prefix wealth run test` | 168 文件、1,193 项通过；随后只改上述两处夹具，定向 35 项再通过，不重复运行其它无关测试 |
+| `npm --prefix wealth run typecheck` / `npm --prefix wealth run build` | 均通过；build 仍有现有 chunk 超过 500 kB 的非阻断提示，本轮未做无关拆包 |
+| CodeGraph | 开发前 explore/impact 已记录于 §25.3；开发后 `codegraph sync/status` 完成，无分支或依赖方向变更 |
+
+真实数据核验使用已有 App、原路由和工作区代码，在 `127.0.0.1:18001` 运行临时验收进程，关闭 lifespan、不启动后台任务、拒绝非 GET/HEAD/OPTIONS；数据库强制 `transaction_read_only=on`、statement_timeout=5s、lock_timeout=2s，并已用 SHOW 核对。只读目标为 Prod `core_serving.index_daily_serving/index_factor_pro/index_daily_basic/index_weight/security_serving/equity_daily_bar/equity_suspend_d` 及上下文日历；仅 `000001.SH/000016.SH`、行情日 2026-10-19 和各自不晚于当日的最新批次。每接口各 5 次，合计 20 次，未读取全数据集。单次在内存接收原 API 响应，只保存汇总与两只缺失成分；实际源数据没有更新。
+
+| 指数 | 接口 | 样本数 | 本机 HTTP P95/ms | 最大响应/bytes | 状态 |
+|---|---|---:|---:|---:|---|
+| `000001.SH` | `page-init` | 5 | 211.312 | 2,359 | READY |
+| `000001.SH` | `weights` | 5 | 454.441 | 274,962 | READY |
+| `000016.SH` | `page-init` | 5 | 196.140 | 2,329 | READY |
+| `000016.SH` | `weights` | 5 | 185.939 | 6,856 | READY |
+
+这些样本达到本轮 300/800ms 和 1 MiB 预算；它们是**本机临时 App → Prod PostgreSQL 跨网络样本**，不是生产 Web 主机同拓扑 P95，也不替代发布阶段复验。正式 20 次采样未失败；前序连通性诊断有一次本机代理导致的 5 秒无响应，显式绕过本机代理后有界补查成功，不计入接口性能样本。浏览器工具曾阻塞、且验证被用户中断后续做；因此端到端人工操作超过原 2 分钟估算，这部分不伪装为接口延迟或重试进度。
+
+Chrome 实际页面 `/wealth/market/index/000001.SH?tradeDate=2026-10-19&debug=1`：只将该页 `page-init/weights` 的实际 Fetch 请求临时送到上述新代码进程，没有替换 JSON 或使用 mock adapter；原登录和数据库读链保留。上证 breadth=984/64/1140、total=2190、matched=2188、missing=2，page-init/breadth/weights 均 READY；完整列表 data-total-rows=2190，滚动至末尾仍显示信达证券 601059.SH（权重 0.082）和东兴证券 601198.SH（权重 0.068），两行贡献均 `--`，没有缺行情提示或泛化“部分基本行情”提示；切回基本行情仍无提示。上证50的正常样本 total/matched=50、missing=0、READY。当前页控制台 error 为空；已在本次会话查看完整页面截图，未将它冒充生产截图。其它错误保留由上述隔离 API/页面反例验证，不声称在 Prod 制造了真实错误。
+
+验收临时文件：`/private/tmp/index_missing_quote_api_acceptance_20261020.json`（20 次汇总）、`/private/tmp/index_missing_quote_wealth_tests_20261020.log`（全量前端日志）。临时文件不作为未来持续存在的前提，关键事实已记在本节。浏览器临时请求转发已清空，临时进程已停止，原 8000 服务未改动；未创建分支/worktree、安装依赖、提交或发布。无剩余产品拍板项；用户视觉复看和生产发布/同拓扑验收继续独立进行。
+
+
+### 25.8 用户验收与需求收尾（2026-11-04）
+
+管理员已明确“我验收通过了”，授权本需求收尾并提交。缺行情时继续展示当前有效月度批次中的完整 A 股名单，贡献缺失为 `null`、页面为 `--`，不新增价格列；取消仅由此引起的两处提示及 PARTIAL 判断。缺失不计平盘，停牌、贡献公式、排序、其它异常和延迟提示均保留。用户同时确认，即使后续再次出现类似缺失，也保留这套展示规则。无待拍板问题。
+
+2026-11-04 00:07:48（上海时间）的 Prod 有界只读复核：raw_tushare.index_weight 与 core_serving.index_weight 中，上证、沪深300、中证500的最新批次均为 2026-10-30，分别为 2233、300、500 行，均不包含信达证券 `601059.SH` 和东兴证券 `601198.SH`；两码仍可见于 9 月 30 日历史批次。该更新不改变本次通用缺行情展示规则，也不删除历史成分。
+
+收尾时在当前 `dev-interface` 再次复跑：`tests/web/test_wealth_index_detail_api.py`、贡献 builder、field mapper、status resolver 共 49 项通过；`IndexDetailPage.test.tsx` 与 `IndexDetailState.test.tsx` 共 40 项通过。后端使用隔离 SQLite fixture，前端使用响应替身，覆盖缺失/全缺失、名单保留、`--` 和其它异常不被隐藏；这次回归不代替 §25.7 的真实接口与浏览器证据。`python3 scripts/check_docs_integrity.py` 通过；它仅检查脚本声明的文档结构范围，不证明业务语义。未重复生产读写或部署。
+
+本次提交范围为成分缺行情状态、提示、回归测试及对应文档；共享文件中的右栏提示布局和其它研究需求改动不并入。§25.7 是 10 月 20 日技术验收历史记录，其中本地服务、未提交和未部署描述仅对当时有效。本次不推送、不部署、不修改生产数据；生产发布及 Web 主机同拓扑性能复验仍独立进行。
 
 ### 26. 第四批波段核对与页面1000根（2026-10-26，开发完成，待管理员浏览器验收）
 

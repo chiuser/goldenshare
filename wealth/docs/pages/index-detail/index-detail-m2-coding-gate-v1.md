@@ -1,5 +1,7 @@
 # 指数详情页 M2 编码前门禁 v1
 
+> 2026-11-04 成分行情缺失修订：用户验收通过，需求收尾。仅成分缺行情不再触发两处提示及 PARTIAL；完整月度 A 股名单、缺失计数与贡献 `--` 保留，其它异常照常展示。本次仅收尾提交，不执行推送或部署；生产发布及同拓扑复验独立进行。实现、技术验证和用户验收记录见[LLD §25](./index-detail-low-level-design-v1.md#index-constituent-missing-quote-20261020)。
+
 > 状态：全部门禁已关闭。M1～M5-B、P10、共享图表、生产隔离、日线数据/性能、权重排序和九转 M6-D 均已验收；bars/indicators 只读正式 Gold，无 Silver fallback 或 Mock。生产分钟路由保持 404 是最终产品边界，不是待开发项。
 > 需求：[指数详情页标杆需求 v1](./index-detail-benchmark-requirement-v1.md)
 > 方案：[指数详情页技术实施方案 v1](./index-detail-implementation-design-v1.md)
@@ -335,7 +337,7 @@ LIMIT :limit;
 3. [x] `constituentBreadth.weightTradeDate = max(index_weight.trade_date) <= asOfTradeDate`，随后将该批次 INNER JOIN `Security`，只保留 `security_type=EQUITY`、`exchange in (SSE,SZSE,BSE)`、`curr_type=CNY` 的 A 股；禁止按代码前缀过滤。
 4. [x] A 股精确日 `equity_daily_bar.pct_chg` 非空时优先：`> 0` 计 up、`= 0` 计 flat、`< 0` 计 down；daily 缺失/空值但精确日有 `equity_suspend_d.suspend_type='S'` 时计 matched/flat；两类证据都没有才计 missing。daily 与停牌同时存在时 daily 优先。
 5. [x] `upCount + flatCount + downCount = matchedCount`，`matchedCount + missingCount = totalConstituentCount`。
-6. [x] 只有 A 股 missing 大于 0 时保留三项计数并返回模块 PARTIAL；B 股排除和已证实停牌不触发 PARTIAL；无权重批次时三项为不可用，不返回伪 0。
+6. [x] 2026-10-20 工作区修订已实施并通过本地技术验收：A 股 missing 大于 0 时保留三项计数与 missing，breadth 和 page-init 不再仅因此 PARTIAL，也不显示提示；无权重批次仍保留原异常与不可用状态，不返回伪 0。新证据见 LLD §25.7，不沿用旧成绩；未部署。
 7. [x] page-init 不查询前一交易日成交额，不返回 `amountChangePct`。
 
 ### 5.3 权重与贡献
@@ -440,9 +442,9 @@ WHERE w.index_code = :index_code
 | `ID_SOURCE_DELAYED` | 日线日期落后 | 200 + DELAYED |
 | `ID_FACTOR_PARTIAL` | page-init 同日 factor 量额缺失，或 Kline 因子缺失 | 200 + PARTIAL |
 | `ID_BASIC_DAILY_PARTIAL` | 同日 dailyBasic 缺行/缺字段 | page-init 基本行情模块 PARTIAL |
-| `ID_BASIC_BREADTH_PARTIAL` | A 股成分同日既无有效 daily pct 也无停牌证据 | page-init 基本行情模块 PARTIAL；B 股排除/停牌不触发 |
+| `ID_BASIC_BREADTH_PARTIAL` | 1.3.1 原触发条件已由 2026-10-20 方案修订 | 工作区 1.3.2 已停止产生，保留注册历史及缺失数；本地技术验收通过，未部署 |
 | `ID_WEIGHT_EMPTY` | 无权重批次 | weights EMPTY |
-| `ID_WEIGHT_CONTRIBUTION_PARTIAL` | preClose 缺失，或 A 股既无有效 daily pct 也无停牌证据 | weights PARTIAL；停牌贡献 0 不触发 |
+| `ID_WEIGHT_CONTRIBUTION_PARTIAL` | 修订后仅指数 preClose 缺失触发 | weights PARTIAL；仅成分缺行情不触发，行及缺失数保留；本地技术验收通过，未部署 |
 | `ID_QUERY_FAILED` | 查询异常 | 对应模块 error |
 | `IM_SOURCE_NOT_READY` | Lake 日期缺失 | minutes DELAYED |
 | `IM_SOURCE_CONTRACT_INVALID` | Parquet 合同错误 | minutes ERROR |
@@ -654,3 +656,16 @@ cd wealth && npm run build
 | v1.2 | 2026-08-11 | 趋势门禁改为仅上证指数直接消费既有 API；删除十指数适配、中轴和十指数缓存门禁；补双通道绘制/配色、成交状态与字段选择门禁 | Codex |
 | v1.1 | 2026-08-11 | 权重门禁改为完整批次、10 行虚拟滚动与不截断；确认 09 状态页并补异常恢复要求 | Codex |
 | v1 | 2026-08-10 | 首版编码门禁草案，已区分已拍板产品口径与未通过实施门禁 | Codex |
+
+
+## 14. 2026-10-20 成分缺行情修订门禁（2026-11-04 用户验收通过）
+
+以[原 LLD §25](./index-detail-low-level-design-v1.md#index-constituent-missing-quote-20261020)为唯一代码级清单。原文中已关闭门禁仅属于旧版本，不覆盖本次状态修订。
+
+- [x] page-init/breadth/weights 不再仅因成分缺行情进入 PARTIAL；缺失计数与 null 保留。
+- [x] 页面不再显示成分缺行情提示或泛化替代提示；列表仅此原因时无提示，缺失贡献仍为 `--`。
+- [x] 指数昨收缺失、factor/dailyBasic 缺失、无批次、delayed、HTTP 错误仍有正确状态和提示。
+- [x] 完整月度 A 股名单、停牌、排序及贡献公式不变；不新增价格列、不按退市状态删行、不改自动任务。
+- [x] API 契约、异常注册表和全部本页消费者同步迁移；相关回归及本机真实有界 API/页面/性能样本通过，证据见 LLD §25.7；生产同拓扑性能仍随发布复验，不引用旧成绩。
+
+- [x] 2026-11-04 管理员确认验收通过并授权收尾提交；无待拍板问题。本次不推送、不部署，收尾记录见 LLD §25.8。

@@ -26,10 +26,10 @@ describe("index detail state components", () => {
   });
 
   it("keeps Partial copy response-driven", () => {
-    render(<IndexDetailPartialNotice reasons={["市净率", "成分涨跌统计（缺少 3 个成分行情）"]} variant="partial" />);
+    render(<IndexDetailPartialNotice reasons={["市净率", "换手率"]} variant="partial" />);
     const notice = screen.getByLabelText("部分数据缺失");
     expect(notice).toHaveTextContent("市净率");
-    expect(notice).toHaveTextContent("缺少 3 个成分行情");
+    expect(notice).toHaveTextContent("换手率");
     expect(notice).not.toHaveTextContent("金额、TTM 市盈率、平盘数");
   });
 

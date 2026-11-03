@@ -53,9 +53,6 @@ export function collectIndexPartialReasons(
     .filter((metric) => metric.value === "--")
     .map((metric) => metric.label);
 
-  if (pageInit.constituentBreadth && pageInit.constituentBreadth.missingCount > 0) {
-    reasons.push(`成分涨跌统计（缺少 ${pageInit.constituentBreadth.missingCount} 个成分行情）`);
-  }
   if (kline.dataStatus.status === "PARTIAL") reasons.push("部分日线技术指标");
   if (reasons.length === 0 && pageInit.dataStatus.status === "PARTIAL") reasons.push("部分基本行情");
   return [...new Set(reasons)];

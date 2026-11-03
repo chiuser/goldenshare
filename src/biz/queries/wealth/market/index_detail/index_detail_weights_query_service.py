@@ -158,17 +158,18 @@ class IndexDetailWeightsQueryService:
 
         rows.sort(key=_weight_row_sort_key)
         missing_count = len(rows) - available_count
+        index_pre_close_missing = daily_anchor.get("pre_close") is None
         data_status = self._status_resolver.resolve(
             expected_trade_date=context.trade_date,
             observed_trade_date=contribution_trade_date,
             empty=False,
-            partial=missing_count > 0,
+            partial=index_pre_close_missing,
         )
         exceptions = []
-        if missing_count > 0:
+        if index_pre_close_missing:
             exceptions.append(
                 self._exception_builder.weight_contribution_partial(
-                    message="部分 A 股成分贡献点输入缺失",
+                    message="指数昨收缺失，无法计算成分贡献点",
                 )
             )
         if contribution_trade_date < context.trade_date:

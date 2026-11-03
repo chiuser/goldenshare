@@ -153,7 +153,7 @@ class IndexDetailPageQueryService:
                 expected_trade_date=as_of_trade_date,
                 observed_trade_date=as_of_trade_date,
                 empty=False,
-                partial=breadth_missing_count > 0,
+                partial=False,
             )
             breadth = IndexDetailConstituentBreadthDto(
                 tradeDate=as_of_trade_date,
@@ -171,7 +171,6 @@ class IndexDetailPageQueryService:
             factor_missing_count > 0
             or daily_basic_missing_count > 0
             or weight_trade_date is None
-            or bool(breadth_missing_count)
         )
         data_status = self._status_resolver.resolve(
             expected_trade_date=context.trade_date,
@@ -194,12 +193,6 @@ class IndexDetailPageQueryService:
                 self._exception_builder.weight_empty(
                     module="indexDetailPageInit",
                     message="指数无可用权重批次",
-                )
-            )
-        elif breadth_missing_count:
-            exceptions.append(
-                self._exception_builder.breadth_partial(
-                    message="部分 A 股成分同日既无有效行情也无停牌证据"
                 )
             )
         if as_of_trade_date < context.trade_date:

@@ -55,7 +55,7 @@ describe("IndexDetailPage", () => {
 
   it("renders weight rows in the contribution order supplied by the API", async () => {
     const pageInit = makePageInit("399001.SZ");
-    const weights = makeWeights(pageInit, "PARTIAL");
+    const weights = makeWeights(pageInit, "READY");
     weights.rows = [
       { ...weights.rows[0], conCode: "600010.SH", name: "正贡献", weight: 1, contributionPoint: 2 },
       { ...weights.rows[1], conCode: "600020.SH", name: "零贡献", weight: 50, contributionPoint: 0 },
@@ -81,6 +81,44 @@ describe("IndexDetailPage", () => {
       "600030.SH",
       "600040.SH",
     ]);
+  });
+
+  it.each([false, true])("keeps monthly rows without warnings when quotes are missing (all=%s)", async (allMissing) => {
+    // LLD §25: four A-share members; three classified or none classified.
+    // Use distinct supported indices so earlier tests' real module cache cannot supply their 24-row response.
+    const tsCode = allMissing ? "000510.SH" : "000688.SH";
+    const pageInit = makePageInit(tsCode);
+    pageInit.constituentBreadth = { ...pageInit.constituentBreadth!, totalConstituentCount: 4,
+      matchedCount: allMissing ? 0 : 3, missingCount: allMissing ? 4 : 1,
+      upCount: allMissing ? 0 : 1, flatCount: allMissing ? 0 : 1, downCount: allMissing ? 0 : 1 };
+    const weights = makeWeights(pageInit, "READY");
+    weights.rows = [
+      { conCode: "600001.SH", name: "上涨样本", weight: 10, changePct: allMissing ? null : 1, contributionPoint: allMissing ? null : 1, direction: allMissing ? "UNKNOWN" : "UP" },
+      { conCode: "600003.SH", name: "停牌样本", weight: 30, changePct: allMissing ? null : 0, contributionPoint: allMissing ? null : 0, direction: allMissing ? "UNKNOWN" : "FLAT" },
+      { conCode: "600002.SH", name: "下跌样本", weight: 20, changePct: allMissing ? null : -2, contributionPoint: allMissing ? null : -4, direction: allMissing ? "UNKNOWN" : "DOWN" },
+      { conCode: "601059.SH", name: "缺行情样本", weight: 40, changePct: null, contributionPoint: null, direction: "UNKNOWN" },
+    ];
+    weights.coverage = { totalCount: 4, returnedCount: 4, contributionAvailableCount: allMissing ? 0 : 3, contributionMissingCount: allMissing ? 4 : 1, isTruncated: false };
+    const fetchMock = mockFetch(tsCode, { pageInit: () => response(pageInit), weights: () => response(weights) });
+    render(<IndexDetailPage search="" tsCode={tsCode} />);
+    await screen.findByLabelText("指数日线图表区");
+    expect(metricValue("upCount")).toBe(allMissing ? "0" : "1");
+    expect(metricValue("flatCount")).toBe(allMissing ? "0" : "1");
+    expect(metricValue("downCount")).toBe(allMissing ? "0" : "1");
+    expect(screen.queryByLabelText("部分数据缺失")).not.toBeInTheDocument();
+    expect(screen.queryByText(/部分基本行情|缺少 .* 个成分行情/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "权重股贡献" }));
+    const viewport = await screen.findByLabelText("权重股滚动列表");
+    expect(viewport).toHaveAttribute("data-total-rows", "4");
+    expect(viewport.querySelectorAll(".index-weight-row")).toHaveLength(4);
+    expect(viewport.querySelector(".index-weight-row:last-child > span:last-child")).toHaveTextContent("--");
+    expect(screen.queryByText("部分贡献点暂不可用，缺失值保留为 --。")).not.toBeInTheDocument();
+    expect(screen.queryByText("最新价")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("tab", { name: "基本行情" }));
+    fireEvent.click(screen.getByRole("tab", { name: "权重股贡献" }));
+    expect(screen.getByLabelText("权重股滚动列表")).toHaveAttribute("data-total-rows", "4");
+    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/weights"))).toHaveLength(1);
+    expect(screen.queryByLabelText("部分数据缺失")).not.toBeInTheDocument();
   });
 
   it("returns a direct index detail visit to the Wealth overview", async () => {
@@ -300,7 +338,7 @@ describe("IndexDetailPage", () => {
     const partial = makePageInit("399001.SZ");
     partial.quote = { ...partial.quote!, amount: null };
     partial.dailyBasic = { ...partial.dailyBasic!, peTtm: null };
-    partial.constituentBreadth = { ...partial.constituentBreadth!, missingCount: 7, matchedCount: 2345 };
+    partial.constituentBreadth = { ...partial.constituentBreadth!, upCount: 1704, missingCount: 7, matchedCount: 2345 };
     partial.dataStatus = { status: "PARTIAL", expectedTradeDate: "2026-07-31", observedTradeDate: "2026-07-31" };
     mockFetch("399001.SZ", { pageInit: () => response(partial) });
     render(<IndexDetailPage search="" tsCode="399001.SZ" />);
@@ -312,7 +350,7 @@ describe("IndexDetailPage", () => {
     const notice = screen.getByLabelText("部分数据缺失");
     expect(notice).toHaveTextContent("金额");
     expect(notice).toHaveTextContent("TTM 市盈率");
-    expect(notice).toHaveTextContent("成分涨跌统计（缺少 7 个成分行情）");
+    expect(notice).not.toHaveTextContent("成分涨跌统计");
   });
 
   it("generates a different Partial warning when a different field is missing", async () => {
@@ -363,10 +401,13 @@ describe("IndexDetailPage", () => {
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/kline"))).toHaveLength(1);
   });
 
-  it("renders weights Partial rows and retries only the weights module", async () => {
+  it("keeps the missing index pre-close warning and retries only the weights module", async () => {
     let weightCalls = 0;
     const pageInit = makePageInit("000905.SH");
+    pageInit.quote = { ...pageInit.quote!, preClose: null };
     const partialWeights = makeWeights(pageInit, "PARTIAL");
+    partialWeights.rows = partialWeights.rows.map(row => ({ ...row, contributionPoint: null }));
+    partialWeights.coverage = { ...partialWeights.coverage, contributionAvailableCount: 0, contributionMissingCount: 24 };
     const readyWeights = makeWeights(pageInit, "READY");
     const fetchMock = mockFetch("000905.SH", {
       weights: () => response(++weightCalls === 1 ? partialWeights : readyWeights),

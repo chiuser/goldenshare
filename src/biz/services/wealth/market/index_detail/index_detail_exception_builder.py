@@ -28,15 +28,6 @@ class IndexDetailExceptionBuilder:
         )
 
     @staticmethod
-    def breadth_partial(*, message: str) -> IndexDetailExceptionDto:
-        return IndexDetailExceptionDto(
-            module="indexDetailPageInit",
-            code="ID_BASIC_BREADTH_PARTIAL",
-            severity="warn",
-            message=message,
-        )
-
-    @staticmethod
     def weight_empty(*, module: str, message: str) -> IndexDetailExceptionDto:
         return IndexDetailExceptionDto(module=module, code="ID_WEIGHT_EMPTY", severity="warn", message=message)  # type: ignore[arg-type]
 
