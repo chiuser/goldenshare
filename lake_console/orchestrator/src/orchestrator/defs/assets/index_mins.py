@@ -7,22 +7,22 @@ definitions.
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Sequence
-from dataclasses import dataclass
-import os
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from time import perf_counter
-from uuid import uuid4
 
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     read_parquet,
 )
+from orchestrator.defs.io.minute_partition_writer import MinutePartitionPublication
 from orchestrator.defs.paths import raw_index_mins_path
 from orchestrator.defs.prod_db.index_mins import (
-    PROD_INDEX_MINS_DUCKDB_ATTACHED_DATABASE,
     PROD_INDEX_MINS_DUCKDB_ATTACH_OPTIONS,
+    PROD_INDEX_MINS_DUCKDB_ATTACHED_DATABASE,
     IndexMinsActivePool,
     build_prod_index_mins_duckdb_source_sql,
     validate_prod_index_mins_query_contract,
@@ -35,7 +35,6 @@ from orchestrator.defs.run_contracts.index_mins import (
     normalize_index_mins_codes,
     normalize_index_mins_source_freq,
 )
-
 
 INDEX_MINS_RAW_COLUMNS = tuple(column.name for column in RAW_INDEX_MINS_SCHEMA)
 INDEX_MINS_RAW_COLUMN_TYPES = {
@@ -125,6 +124,76 @@ def write_raw_index_mins_partition_from_prod_db(
     source_freq: str,
     partition_key: str,
     active_pool: IndexMinsActivePool | Sequence[object],
+    publication_id: str | None = None,
+    overwrite: bool = False,
+) -> IndexMinsRawWriteResult:
+    normalized = normalize_index_mins_source_freq(source_freq)
+    codes, pool_hash = _active_pool_values(active_pool)
+    target = raw_index_mins_path(lake_root, normalized, partition_key)
+    start, end = index_mins_trade_date_window(partition_key)
+    source_sql = build_prod_index_mins_duckdb_source_sql(
+        source_freq=normalized,
+        start_datetime=start,
+        end_datetime=end,
+        effective_codes=codes,
+    )
+    publication = MinutePartitionPublication(
+        dataset="raw_index_mins",
+        target=target,
+        day=partition_key,
+        freq=int(normalized[:-3]),
+        publication_id=publication_id,
+        overwrite=overwrite,
+        source_identity=(
+            pool_hash,
+            hashlib.sha256(source_sql.encode()).hexdigest(),
+            hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        ),
+    )
+    if (
+        not overwrite
+        and target.exists()
+        and not (publication.directory / "receipt.json").exists()
+    ):
+        return _build_raw_index_mins_partition_from_prod_db(
+            lake_root=lake_root,
+            duckdb=duckdb,
+            prod_postgres=prod_postgres,
+            source_freq=normalized,
+            partition_key=partition_key,
+            active_pool=active_pool,
+        )
+
+    def build(candidate):
+        result = _build_raw_index_mins_partition_from_prod_db(
+            lake_root=lake_root,
+            duckdb=duckdb,
+            prod_postgres=prod_postgres,
+            source_freq=normalized,
+            partition_key=partition_key,
+            active_pool=active_pool,
+            target_override=candidate,
+        )
+        return asdict(replace(result, raw_file_path=target))
+
+    data = publication.run(build)
+    data["raw_file_path"] = Path(data["raw_file_path"])
+    if publication.reused:
+        data.update(query_count=0, write_mode="reuse_existing")
+    if overwrite:
+        data["write_mode"] = "replace_existing"
+    return IndexMinsRawWriteResult(**data)
+
+
+def _build_raw_index_mins_partition_from_prod_db(
+    *,
+    lake_root: Path,
+    duckdb: DuckDBResource,
+    prod_postgres: ProdPostgresResource,
+    source_freq: str,
+    partition_key: str,
+    active_pool: IndexMinsActivePool | Sequence[object],
+    target_override: Path | None = None,
 ) -> IndexMinsRawWriteResult:
     """Write one frequency/date Raw partition from the read-only Prod DB.
 
@@ -138,7 +207,9 @@ def write_raw_index_mins_partition_from_prod_db(
     normalized_freq = normalize_index_mins_source_freq(source_freq)
     start_datetime, end_datetime = index_mins_trade_date_window(partition_key)
     expected_codes, active_pool_hash = _active_pool_values(active_pool)
-    target_path = raw_index_mins_path(lake_root, normalized_freq, partition_key)
+    target_path = target_override or raw_index_mins_path(
+        lake_root, normalized_freq, partition_key
+    )
 
     if target_path.exists():
         with connect_configured_duckdb() as connection:
@@ -177,66 +248,51 @@ def write_raw_index_mins_partition_from_prod_db(
         effective_codes=expected_codes,
     )
     target_path.parent.mkdir(parents=True, exist_ok=True)
-    staging_path = target_path.with_name(f"{target_path.name}.p2-{uuid4().hex}.tmp")
-
-    try:
-        with connect_configured_duckdb() as connection:
-            _load_duckdb_postgres_extension(connection)
-            _attach_prod_postgres_database(
-                connection,
-                postgres_connection_string=prod_postgres.duckdb_connection_string(),
-            )
-            connection.execute(
-                "CREATE TEMP TABLE index_mins_source AS " + source_sql
-            )
-            _create_expected_code_table(connection, expected_codes)
-            source_validation = _validate_relation(
-                connection,
-                relation_sql="index_mins_source",
-                expected_codes=expected_codes,
-                source_freq=normalized_freq,
-                partition_key=partition_key,
-            )
-            if source_validation.errors:
-                raise IndexMinsRawValidationError(
-                    "Prod index_mins source failed before staging promote: "
-                    f"freq={normalized_freq}, partition={partition_key}, "
-                    f"errors={list(source_validation.errors)}, "
-                    f"missing_codes={list(source_validation.missing_code_samples)}, "
-                    f"extra_codes={list(source_validation.extra_code_samples)}."
-                )
-
-            output_sql = _raw_output_sql()
-            connection.execute(copy_query_to_parquet(output_sql, staging_path))
-            staging_validation = _validate_relation(
-                connection,
-                relation_sql=read_parquet(staging_path, hive_partitioning=False),
-                expected_codes=expected_codes,
-                source_freq=normalized_freq,
-                partition_key=partition_key,
-            )
-            if staging_validation.errors:
-                raise IndexMinsRawValidationError(
-                    "index_mins staging Parquet failed readback validation: "
-                    f"freq={normalized_freq}, partition={partition_key}, "
-                    f"errors={list(staging_validation.errors)}."
-                )
-            if staging_validation.row_count != source_validation.row_count:
-                raise IndexMinsRawValidationError(
-                    "index_mins source/staging row reconciliation failed: "
-                    f"source={source_validation.row_count}, "
-                    f"staging={staging_validation.row_count}."
-                )
-
-        if target_path.exists():
+    with connect_configured_duckdb() as connection:
+        _load_duckdb_postgres_extension(connection)
+        _attach_prod_postgres_database(
+            connection,
+            postgres_connection_string=prod_postgres.duckdb_connection_string(),
+        )
+        connection.execute("CREATE TEMP TABLE index_mins_source AS " + source_sql)
+        _create_expected_code_table(connection, expected_codes)
+        source_validation = _validate_relation(
+            connection,
+            relation_sql="index_mins_source",
+            expected_codes=expected_codes,
+            source_freq=normalized_freq,
+            partition_key=partition_key,
+        )
+        if source_validation.errors:
             raise IndexMinsRawValidationError(
-                f"index_mins target appeared during write; refusing overwrite: {target_path}."
+                "Prod index_mins source failed before staging promote: "
+                f"freq={normalized_freq}, partition={partition_key}, "
+                f"errors={list(source_validation.errors)}, "
+                f"missing_codes={list(source_validation.missing_code_samples)}, "
+                f"extra_codes={list(source_validation.extra_code_samples)}."
             )
-        os.replace(staging_path, target_path)
-    except Exception:
-        if staging_path.exists():
-            staging_path.unlink()
-        raise
+
+        output_sql = _raw_output_sql()
+        connection.execute(copy_query_to_parquet(output_sql, target_path))
+        staging_validation = _validate_relation(
+            connection,
+            relation_sql=read_parquet(target_path, hive_partitioning=False),
+            expected_codes=expected_codes,
+            source_freq=normalized_freq,
+            partition_key=partition_key,
+        )
+        if staging_validation.errors:
+            raise IndexMinsRawValidationError(
+                "index_mins staging Parquet failed readback validation: "
+                f"freq={normalized_freq}, partition={partition_key}, "
+                f"errors={list(staging_validation.errors)}."
+            )
+        if staging_validation.row_count != source_validation.row_count:
+            raise IndexMinsRawValidationError(
+                "index_mins source/staging row reconciliation failed: "
+                f"source={source_validation.row_count}, "
+                f"staging={staging_validation.row_count}."
+            )
 
     return _build_result(
         target_path=target_path,
@@ -338,9 +394,7 @@ def _validate_relation(
     columns = tuple(str(row[0]) for row in description)
     schema_errors = _schema_errors(description)
     row_count = int(
-        connection.execute(
-            f"SELECT count(*) FROM {relation_sql}"
-        ).fetchone()[0]
+        connection.execute(f"SELECT count(*) FROM {relation_sql}").fetchone()[0]
     )
     returned_code_count = int(
         connection.execute(

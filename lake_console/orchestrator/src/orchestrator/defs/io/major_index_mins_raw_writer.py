@@ -1,8 +1,8 @@
 """Bounded Tushare fetch primitives for major-index minute bars."""
 
-import os
+import hashlib
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
 from time import perf_counter
@@ -12,6 +12,7 @@ from orchestrator.defs.io.major_index_mins_quality import (
     prepare_major_index_mins_raw_expected_tables,
     validate_major_index_mins_raw_relation,
 )
+from orchestrator.defs.io.minute_partition_writer import MinutePartitionPublication
 from orchestrator.defs.paths import (
     raw_major_index_mins_path,
     raw_major_index_mins_staging_path,
@@ -163,13 +164,13 @@ def fetch_major_index_mins_window(
         raise MajorIndexMinsFetchError("expected code scope must not be empty.")
     if len(set(normalized_codes)) != len(normalized_codes):
         raise MajorIndexMinsFetchError("expected code scope contains duplicate codes.")
-    unknown_codes = tuple(code for code in normalized_codes if code not in MAJOR_INDEX_MINS_CODES)
+    unknown_codes = tuple(
+        code for code in normalized_codes if code not in MAJOR_INDEX_MINS_CODES
+    )
     if unknown_codes:
         raise MajorIndexMinsFetchError(f"unsupported code(s): {unknown_codes!r}")
     if source_freq not in MAJOR_INDEX_MINS_SOURCE_FREQS:
-        raise MajorIndexMinsFetchError(
-            f"unsupported source frequency: {source_freq!r}"
-        )
+        raise MajorIndexMinsFetchError(f"unsupported source frequency: {source_freq!r}")
 
     normalized_start, parsed_start = _normalize_datetime(
         start_datetime,
@@ -318,7 +319,7 @@ def _elapsed_ms(started_at: float) -> float:
     return (perf_counter() - started_at) * 1000
 
 
-def write_major_index_mins_raw_partition(
+def _build_major_index_mins_raw_partition(
     *,
     lake_root_path: Path,
     duckdb_resource: DuckDBResource,
@@ -327,8 +328,9 @@ def write_major_index_mins_raw_partition(
     partition_key: str,
     run_id: str,
     request_policy: TushareRequestPolicy,
+    candidate_path: Path | None = None,
 ) -> MajorIndexMinsRawWriteResult:
-    """Write one Raw frequency/date through staging and no-overwrite promote."""
+    """Build a Raw candidate or validate an existing partition."""
 
     started_at = perf_counter()
     normalized_freq = normalize_major_index_mins_source_freq(source_freq)
@@ -347,14 +349,14 @@ def write_major_index_mins_raw_partition(
         normalized_freq,
         normalized_partition,
     )
-    staging_path = raw_major_index_mins_staging_path(
+    staging_path = candidate_path or raw_major_index_mins_staging_path(
         lake_root_path,
         run_id,
         normalized_freq,
         normalized_partition,
     )
 
-    if target_path.exists():
+    if candidate_path is None and target_path.exists():
         with duckdb_resource.connect() as connection:
             prepare_major_index_mins_raw_expected_tables(
                 connection,
@@ -391,6 +393,9 @@ def write_major_index_mins_raw_partition(
             scope_hash=scope_hash,
         )
 
+    if candidate_path is None:
+        raise ValueError("Raw candidate path is required for a new partition")
+
     fetch_result = fetch_major_index_mins_window(
         tushare=tushare,
         ts_codes=expected_codes,
@@ -401,56 +406,46 @@ def write_major_index_mins_raw_partition(
     )
     target_path.parent.mkdir(parents=True, exist_ok=True)
     staging_path.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with duckdb_resource.connect() as connection:
-            _create_source_table(connection)
-            _insert_source_rows(connection, fetch_result.rows)
-            prepare_major_index_mins_raw_expected_tables(
-                connection,
-                expected_codes=expected_codes,
-                frequency=normalized_freq,
-                partition_key=normalized_partition,
-            )
-            source_validation = validate_major_index_mins_raw_relation(
-                connection,
-                relation_sql="major_index_mins_source",
-                expected_codes=expected_codes,
-                frequency=normalized_freq,
-                partition_key=normalized_partition,
-            )
-            if source_validation.errors:
-                raise MajorIndexMinsRawValidationError(
-                    "Raw source validation failed before staging: "
-                    f"errors={source_validation.errors!r}"
-                )
-            connection.execute(copy_query_to_parquet(_raw_output_sql(), staging_path))
-            staging_validation = validate_major_index_mins_raw_relation(
-                connection,
-                relation_sql=read_parquet(staging_path, hive_partitioning=False),
-                expected_codes=expected_codes,
-                frequency=normalized_freq,
-                partition_key=normalized_partition,
-            )
-            if staging_validation.errors:
-                raise MajorIndexMinsRawValidationError(
-                    "Raw staging validation failed after readback: "
-                    f"errors={staging_validation.errors!r}"
-                )
-            if staging_validation.row_count != source_validation.row_count:
-                raise MajorIndexMinsRawValidationError(
-                    "Raw source/staging row reconciliation failed: "
-                    f"source={source_validation.row_count}, "
-                    f"staging={staging_validation.row_count}."
-                )
-        if target_path.exists():
+    with duckdb_resource.connect() as connection:
+        _create_source_table(connection)
+        _insert_source_rows(connection, fetch_result.rows)
+        prepare_major_index_mins_raw_expected_tables(
+            connection,
+            expected_codes=expected_codes,
+            frequency=normalized_freq,
+            partition_key=normalized_partition,
+        )
+        source_validation = validate_major_index_mins_raw_relation(
+            connection,
+            relation_sql="major_index_mins_source",
+            expected_codes=expected_codes,
+            frequency=normalized_freq,
+            partition_key=normalized_partition,
+        )
+        if source_validation.errors:
             raise MajorIndexMinsRawValidationError(
-                f"Raw target appeared during staging; refusing overwrite: {target_path}"
+                "Raw source validation failed before staging: "
+                f"errors={source_validation.errors!r}"
             )
-        os.replace(staging_path, target_path)
-    except Exception:
-        if staging_path.exists():
-            staging_path.unlink()
-        raise
+        connection.execute(copy_query_to_parquet(_raw_output_sql(), staging_path))
+        staging_validation = validate_major_index_mins_raw_relation(
+            connection,
+            relation_sql=read_parquet(staging_path, hive_partitioning=False),
+            expected_codes=expected_codes,
+            frequency=normalized_freq,
+            partition_key=normalized_partition,
+        )
+        if staging_validation.errors:
+            raise MajorIndexMinsRawValidationError(
+                "Raw staging validation failed after readback: "
+                f"errors={staging_validation.errors!r}"
+            )
+        if staging_validation.row_count != source_validation.row_count:
+            raise MajorIndexMinsRawValidationError(
+                "Raw source/staging row reconciliation failed: "
+                f"source={source_validation.row_count}, "
+                f"staging={staging_validation.row_count}."
+            )
 
     return MajorIndexMinsRawWriteResult(
         partition_key=normalized_partition,
@@ -468,3 +463,66 @@ def write_major_index_mins_raw_partition(
         source_revision=fetch_result.source_revision.revision,
         scope_hash=scope_hash,
     )
+
+
+def write_major_index_mins_raw_partition(
+    *,
+    lake_root_path: Path,
+    duckdb_resource: DuckDBResource,
+    tushare: TushareResource,
+    source_freq: str,
+    partition_key: str,
+    run_id: str,
+    request_policy: TushareRequestPolicy,
+) -> MajorIndexMinsRawWriteResult:
+    """Keep business validation and publish through the shared receipt."""
+
+    frequency = normalize_major_index_mins_source_freq(source_freq)
+    day = normalize_major_index_mins_trade_date(partition_key)
+    target = raw_major_index_mins_path(lake_root_path, frequency, day)
+    publication = MinutePartitionPublication(
+        dataset="raw_major_index_mins",
+        target=target,
+        day=day,
+        freq=int(frequency[:-3]),
+        publication_id=run_id,
+        source_identity={
+            "scope_hash": raw_scope_hash_for_partition(day, frequency),
+            "codes": effective_raw_request_codes_for_date(day),
+            "fields": MAJOR_INDEX_MINS_SOURCE_COLUMNS,
+            "request": {
+                "freq": frequency,
+                "start_date": f"{day} 00:00:00",
+                "end_date": f"{day} 23:59:59",
+                "limit": MAJOR_INDEX_MINS_PAGE_LIMIT,
+            },
+            "writer_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        },
+    )
+    kwargs = {
+        "lake_root_path": lake_root_path,
+        "duckdb_resource": duckdb_resource,
+        "tushare": tushare,
+        "source_freq": frequency,
+        "partition_key": day,
+        "run_id": run_id,
+        "request_policy": request_policy,
+    }
+    if target.exists() and not (publication.directory / "receipt.json").exists():
+        return _build_major_index_mins_raw_partition(**kwargs)
+
+    def build(candidate):
+        result = _build_major_index_mins_raw_partition(
+            **kwargs, candidate_path=candidate
+        )
+        return {**asdict(result), "row_count": result.output_row_count}
+
+    data = publication.run(build)
+    data.pop("row_count")
+    for key in ("target_path", "staging_path"):
+        data[key] = Path(data[key])
+    if publication.reused:
+        data.update(
+            write_mode="reuse_existing", request_count=0, page_count=0, retry_count=0
+        )
+    return MajorIndexMinsRawWriteResult(**data)

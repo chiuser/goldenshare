@@ -1,4 +1,4 @@
-"""Publish the four approved Raw/Silver minute families one file at a time."""
+"""Publish approved Raw/Silver minute families one file at a time."""
 
 import fcntl
 import hashlib
@@ -15,18 +15,32 @@ from orchestrator.defs.paths import (
     DEFAULT_LAKE_ROOT,
     DEFAULT_LAKE_STAGING_ROOT,
     raw_index_mins_path,
+    raw_major_index_mins_path,
     raw_stk_mins_path,
     silver_index_mins_path,
+    silver_major_index_mins_path,
     silver_stk_mins_path,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_INDEX_MINS_SCHEMA,
+    RAW_MAJOR_INDEX_MINS_SCHEMA,
     RAW_STK_MINS_SCHEMA,
     SILVER_INDEX_MINS_SCHEMA,
+    SILVER_MAJOR_INDEX_MINS_SCHEMA,
     SILVER_STK_MINS_SCHEMA,
 )
 
 CONTRACTS = {
+    "raw_major_index_mins": (
+        raw_major_index_mins_path,
+        RAW_MAJOR_INDEX_MINS_SCHEMA,
+        (1, 5, 15, 30, 60),
+    ),
+    "silver_major_index_mins": (
+        silver_major_index_mins_path,
+        SILVER_MAJOR_INDEX_MINS_SCHEMA,
+        (1, 5, 15, 30, 60, 90, 120),
+    ),
     "raw_index_mins": (raw_index_mins_path, RAW_INDEX_MINS_SCHEMA, (1, 5, 15, 30, 60)),
     "silver_index_mins": (
         silver_index_mins_path,

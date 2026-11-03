@@ -262,6 +262,7 @@ def evaluate_raw_etf_mins_sensor(
                         partition_key=target_date,
                         basic_reference=basic_reference,
                         prod_coverage_reference=prod_status.coverage_reference,
+                        requestable_targets=requestable_targets,
                     ),
                 )
             ],

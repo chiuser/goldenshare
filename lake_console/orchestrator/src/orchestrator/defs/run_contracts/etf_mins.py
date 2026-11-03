@@ -14,6 +14,7 @@ import dagster as dg
 
 from orchestrator.defs.run_contracts.etf_basic import (
     EtfBasicSilverSnapshotReference,
+    compute_etf_requestable_target_hash,
 )
 
 ETF_MINS_SOURCE_FREQS = ("1min", "5min", "15min", "30min", "60min")
@@ -400,29 +401,17 @@ def build_etf_mins_raw_run_config(
     partition_key: str,
     basic_reference: EtfBasicSilverSnapshotReference,
     prod_coverage_reference: EtfMinsProdCoverageReference,
+    requestable_targets: Iterable[EtfMinsRequestableTarget | Mapping[str, object]],
 ) -> dict[str, object]:
     """Serialize one identical reference pair for all five Raw asset ops."""
 
-    normalized_partition = normalize_etf_mins_trade_date(partition_key)
     normalized_basic = basic_reference.validate_contract()
-    normalized_coverage = prod_coverage_reference.validate()
-    if normalized_coverage.trade_date != normalized_partition:
-        raise ValueError(
-            "ETF minute coverage reference trade_date does not match the run partition."
-        )
-    if normalized_coverage.basic_reference_fingerprint != (
-        normalized_basic.reference_fingerprint
-    ):
-        raise ValueError(
-            "ETF minute coverage reference is not bound to the frozen Basic reference."
-        )
-    if (
-        normalized_coverage.expected_code_count
-        != normalized_basic.requestable_code_count
-    ):
-        raise ValueError(
-            "ETF minute coverage reference expected count does not match frozen Basic."
-        )
+    normalized_coverage = validate_etf_mins_prod_coverage_reference(
+        partition_key=partition_key,
+        basic_reference=normalized_basic,
+        requestable_targets=requestable_targets,
+        coverage_reference=prod_coverage_reference,
+    )
     config = {
         "basic_snapshot_reference": normalized_basic.model_dump(),
         "prod_coverage_reference": {
@@ -450,6 +439,71 @@ def build_etf_mins_raw_run_config(
             for asset_freq in ETF_MINS_ASSET_FREQS
         }
     }
+
+
+def validate_etf_mins_prod_coverage_reference(
+    *,
+    partition_key: str,
+    basic_reference: EtfBasicSilverSnapshotReference,
+    requestable_targets: Iterable[
+        EtfMinsRequestableTarget | Mapping[str, object]
+    ],
+    coverage_reference: EtfMinsProdCoverageReference,
+) -> EtfMinsProdCoverageReference:
+    """Revalidate a carried coverage fact without querying Prod again."""
+
+    normalized_trade_date = normalize_etf_mins_trade_date(partition_key)
+    normalized_targets = validate_etf_mins_targets_match_basic_reference(
+        basic_reference=basic_reference,
+        requestable_targets=requestable_targets,
+    )
+    coverage_reference.validate()
+    if coverage_reference.trade_date != normalized_trade_date:
+        raise ValueError("ETF minute coverage reference does not match the partition.")
+    if (
+        coverage_reference.basic_reference_fingerprint
+        != basic_reference.reference_fingerprint
+    ):
+        raise ValueError("ETF minute coverage reference uses a different Basic snapshot.")
+    expected_targets = expected_etf_mins_targets_for_trade_date(
+        normalized_targets,
+        trade_date=normalized_trade_date,
+    )
+    if coverage_reference.expected_code_count != len(expected_targets):
+        raise ValueError("ETF minute coverage expected count has changed.")
+    expected_code_hash = compute_etf_mins_expected_code_hash(
+        normalized_targets,
+        trade_date=normalized_trade_date,
+    )
+    if coverage_reference.expected_code_hash != expected_code_hash:
+        raise ValueError("ETF minute coverage expected code hash has changed.")
+    return coverage_reference
+
+
+def validate_etf_mins_targets_match_basic_reference(
+    *,
+    basic_reference: EtfBasicSilverSnapshotReference,
+    requestable_targets: Iterable[
+        EtfMinsRequestableTarget | Mapping[str, object]
+    ],
+) -> tuple[EtfMinsRequestableTarget, ...]:
+    basic_reference.validate_contract()
+    normalized_targets = normalize_etf_mins_requestable_targets(requestable_targets)
+    target_rows = tuple(
+        {
+            "ts_code": target.ts_code,
+            "list_date": target.list_date,
+            "exchange": target.exchange,
+        }
+        for target in normalized_targets
+    )
+    if (
+        len(normalized_targets) != basic_reference.requestable_code_count
+        or compute_etf_requestable_target_hash(target_rows)
+        != basic_reference.requestable_code_hash
+    ):
+        raise ValueError("ETF minute targets do not match the frozen Basic reference.")
+    return normalized_targets
 
 
 def normalize_etf_mins_requestable_targets(
@@ -821,4 +875,6 @@ __all__ = [
     "raw_etf_mins_check_names",
     "silver_etf_mins_check_names",
     "source_freq_for_etf_mins_asset_freq",
+    "validate_etf_mins_prod_coverage_reference",
+    "validate_etf_mins_targets_match_basic_reference",
 ]

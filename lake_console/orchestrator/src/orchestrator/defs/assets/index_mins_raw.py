@@ -15,9 +15,18 @@ from orchestrator.defs.paths import (
     raw_index_mins_path,
 )
 from orchestrator.defs.prod_db.index_mins import load_prod_index_mins_active_pool
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource, ProdPostgresResource
+from orchestrator.defs.resources import (
+    DuckDBResource,
+    LakeRootResource,
+    ProdPostgresResource,
+)
 from orchestrator.defs.run_contracts.asset_column_schemas import RAW_INDEX_MINS_SCHEMA
-from orchestrator.defs.run_contracts.asset_tags import AssetLayer, DataDomain, build_asset_tags
+from orchestrator.defs.run_contracts.asset_tags import (
+    AssetLayer,
+    DataDomain,
+    build_asset_tags,
+)
+from orchestrator.defs.run_contracts.configs import IndexMinsWriteConfig
 from orchestrator.defs.run_contracts.index_mins import INDEX_MINS_SOURCE_FREQS
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
@@ -61,6 +70,7 @@ def _build_raw_asset(*, asset_name: str, source_freq: str) -> dg.AssetsDefinitio
     )
     def raw_asset(
         context: dg.AssetExecutionContext,
+        config: IndexMinsWriteConfig,
         lake_root: LakeRootResource,
         duckdb: DuckDBResource,
         prod_postgres: ProdPostgresResource,
@@ -74,6 +84,8 @@ def _build_raw_asset(*, asset_name: str, source_freq: str) -> dg.AssetsDefinitio
             source_freq=source_freq,
             partition_key=context.partition_key,
             active_pool=active_pool,
+            publication_id=context.run.root_run_id or context.run.run_id,
+            overwrite=config.write_mode == "replace_existing",
         )
         return dg.MaterializeResult(
             metadata=build_materialization_metadata(

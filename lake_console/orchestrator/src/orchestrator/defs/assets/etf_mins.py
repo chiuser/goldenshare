@@ -18,9 +18,6 @@ from orchestrator.defs.asset_guards.etf_mins_lake_readiness import (
     load_etf_mins_bar_domain_check_evidence,
     load_etf_mins_raw_materialization_evidence,
 )
-from orchestrator.defs.asset_guards.etf_mins_prod_readiness import (
-    validate_etf_mins_prod_coverage_reference,
-)
 from orchestrator.defs.assets.etf_basic import (
     audit_etf_basic_silver_snapshot,
     silver_etf_basic,
@@ -76,6 +73,7 @@ from orchestrator.defs.run_contracts.etf_mins import (
     normalize_etf_mins_source_freq,
     normalize_etf_mins_trade_date,
     source_freq_for_etf_mins_asset_freq,
+    validate_etf_mins_prod_coverage_reference,
 )
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,

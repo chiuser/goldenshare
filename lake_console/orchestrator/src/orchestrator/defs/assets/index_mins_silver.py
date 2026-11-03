@@ -7,18 +7,18 @@ Silver assets, checks, jobs, and sensors are introduced.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+import hashlib
+from dataclasses import asdict, dataclass, replace
 from pathlib import Path
 from time import perf_counter
-from uuid import uuid4
-import os
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     describe_parquet_query,
     read_parquet,
 )
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
+from orchestrator.defs.io.minute_partition_writer import MinutePartitionPublication
 from orchestrator.defs.paths import raw_index_mins_path, silver_index_mins_path
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
@@ -36,7 +36,6 @@ from orchestrator.defs.run_contracts.index_mins import (
     normalize_index_mins_silver_freq,
     source_freq_for_index_mins_derived_freq,
 )
-
 
 INDEX_MINS_SILVER_COLUMNS = tuple(column.name for column in SILVER_INDEX_MINS_SCHEMA)
 INDEX_MINS_SILVER_COLUMN_TYPES = {
@@ -111,6 +110,67 @@ def write_silver_index_mins_partition(
     duckdb: DuckDBResource,
     freq: int | str,
     partition_key: str,
+    publication_id: str | None = None,
+    overwrite: bool = False,
+) -> IndexMinsSilverWriteResult:
+    normalized = normalize_index_mins_silver_freq(freq)
+    source_freq = (
+        source_freq_for_index_mins_derived_freq(normalized)
+        if int(normalized[:-3]) in INDEX_MINS_DERIVED_FREQS
+        else normalized
+    )
+    source = (
+        silver_index_mins_path(lake_root, source_freq, partition_key)
+        if int(normalized[:-3]) in INDEX_MINS_DERIVED_FREQS
+        else raw_index_mins_path(lake_root, source_freq, partition_key)
+    )
+    target = silver_index_mins_path(lake_root, normalized, partition_key)
+    publication = MinutePartitionPublication(
+        dataset="silver_index_mins",
+        target=target,
+        day=partition_key,
+        freq=int(normalized[:-3]),
+        publication_id=publication_id,
+        overwrite=overwrite,
+        source_paths=(source,),
+        source_identity=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+    )
+    if (
+        not overwrite
+        and target.exists()
+        and not (publication.directory / "receipt.json").exists()
+    ):
+        return _build_silver_index_mins_partition(
+            lake_root=lake_root, duckdb=duckdb, freq=freq, partition_key=partition_key
+        )
+
+    def build(candidate):
+        result = _build_silver_index_mins_partition(
+            lake_root=lake_root,
+            duckdb=duckdb,
+            freq=freq,
+            partition_key=partition_key,
+            target_override=candidate,
+        )
+        return asdict(replace(result, silver_file_path=target))
+
+    data = publication.run(build)
+    for key in ("silver_file_path", "source_file_path"):
+        data[key] = Path(data[key])
+    if publication.reused:
+        data["write_mode"] = "reuse_existing"
+    if overwrite:
+        data["write_mode"] = "replace_existing"
+    return IndexMinsSilverWriteResult(**data)
+
+
+def _build_silver_index_mins_partition(
+    *,
+    lake_root: Path,
+    duckdb: DuckDBResource,
+    freq: int | str,
+    partition_key: str,
+    target_override: Path | None = None,
 ) -> IndexMinsSilverWriteResult:
     """Write one native or derived Silver frequency atomically."""
 
@@ -121,12 +181,14 @@ def write_silver_index_mins_partition(
             duckdb=duckdb,
             silver_freq=normalized_freq,
             partition_key=partition_key,
+            target_override=target_override,
         )
     return _write_native_partition(
         lake_root=lake_root,
         duckdb=duckdb,
         silver_freq=normalized_freq,
         partition_key=partition_key,
+        target_override=target_override,
     )
 
 
@@ -136,11 +198,14 @@ def _write_native_partition(
     duckdb: DuckDBResource,
     silver_freq: str,
     partition_key: str,
+    target_override: Path | None = None,
 ) -> IndexMinsSilverWriteResult:
     source_freq = silver_freq
     del duckdb  # Use the repository-wide configured connection helper.
     source_path = raw_index_mins_path(lake_root, source_freq, partition_key)
-    target_path = silver_index_mins_path(lake_root, silver_freq, partition_key)
+    target_path = target_override or silver_index_mins_path(
+        lake_root, silver_freq, partition_key
+    )
     if not source_path.exists():
         raise FileNotFoundError(f"Missing index_mins Raw file: {source_path}")
 
@@ -216,11 +281,14 @@ def _write_derived_partition(
     duckdb: DuckDBResource,
     silver_freq: str,
     partition_key: str,
+    target_override: Path | None = None,
 ) -> IndexMinsSilverWriteResult:
     source_freq = source_freq_for_index_mins_derived_freq(silver_freq)
     del duckdb  # Use the repository-wide configured connection helper.
     source_path = silver_index_mins_path(lake_root, source_freq, partition_key)
-    target_path = silver_index_mins_path(lake_root, silver_freq, partition_key)
+    target_path = target_override or silver_index_mins_path(
+        lake_root, silver_freq, partition_key
+    )
     if not source_path.exists():
         raise FileNotFoundError(
             "Missing native Silver source for derived index_mins: "
@@ -349,34 +417,21 @@ def _stage_and_promote(
     started_at: float,
 ) -> IndexMinsSilverWriteResult:
     target_path.parent.mkdir(parents=True, exist_ok=True)
-    staging_path = target_path.with_name(f"{target_path.name}.p3-{uuid4().hex}.tmp")
-    promoted = False
-    try:
-        connection.execute(copy_query_to_parquet(output_sql, staging_path))
-        staging_validation = _validate_existing_target(
-            connection,
-            target_path=staging_path,
-            relation_sql=read_parquet(staging_path, hive_partitioning=False),
-            expected_freq=silver_freq,
-            partition_key=partition_key,
-            expected_row_count=expected_row_count,
-            require_null_vwap=int(silver_freq[:-3]) in INDEX_MINS_DERIVED_FREQS,
+    connection.execute(copy_query_to_parquet(output_sql, target_path))
+    staging_validation = _validate_existing_target(
+        connection,
+        target_path=target_path,
+        relation_sql=read_parquet(target_path, hive_partitioning=False),
+        expected_freq=silver_freq,
+        partition_key=partition_key,
+        expected_row_count=expected_row_count,
+        require_null_vwap=int(silver_freq[:-3]) in INDEX_MINS_DERIVED_FREQS,
+    )
+    if staging_validation.row_count != expected_row_count:
+        raise IndexMinsSilverValidationError(
+            "index_mins Silver staging row reconciliation failed: "
+            f"expected={expected_row_count}, actual={staging_validation.row_count}."
         )
-        if staging_validation.row_count != expected_row_count:
-            raise IndexMinsSilverValidationError(
-                "index_mins Silver staging row reconciliation failed: "
-                f"expected={expected_row_count}, actual={staging_validation.row_count}."
-            )
-        if target_path.exists():
-            raise IndexMinsSilverValidationError(
-                "index_mins Silver target appeared during write; refusing overwrite: "
-                f"{target_path}"
-            )
-        os.replace(staging_path, target_path)
-        promoted = True
-    finally:
-        if not promoted and staging_path.exists():
-            staging_path.unlink()
 
     return _result(
         target_path=target_path,
@@ -518,8 +573,9 @@ def _validate_relation(
         if relation_sql.lstrip().lower().startswith("select")
         else f"SELECT * FROM {relation_sql}"
     )
-    row_count, invalid_row_count, duplicate_key_count, non_null_vwap_count = connection.execute(
-        f"""
+    row_count, invalid_row_count, duplicate_key_count, non_null_vwap_count = (
+        connection.execute(
+            f"""
         SELECT
           count(*),
           count(*) FILTER (
@@ -550,8 +606,9 @@ def _validate_relation(
           count(*) FILTER (WHERE vwap IS NOT NULL)
         FROM ({relation_select}) relation_rows
         """,
-        [expected_freq, partition_key],
-    ).fetchone()
+            [expected_freq, partition_key],
+        ).fetchone()
+    )
     return _RelationValidation(
         row_count=int(row_count or 0),
         duplicate_key_count=int(duplicate_key_count or 0),
@@ -700,7 +757,9 @@ def _derived_diagnostics(
     }
 
 
-def _derived_output_sql(*, source_sql: str, silver_freq: str, partition_key: str) -> str:
+def _derived_output_sql(
+    *, source_sql: str, silver_freq: str, partition_key: str
+) -> str:
     window_map = cn_a_derived_minute_window_map_sql(silver_freq)
     completion = cn_a_derived_minute_completion_predicate(
         regular_row_count_column="regular_row_count",
@@ -796,5 +855,7 @@ def _derived_output_sql(*, source_sql: str, silver_freq: str, partition_key: str
       AND ({completion})
     ORDER BY ts_code, trade_time
     """
+
+
 def _elapsed_ms(started_at: float) -> float:
     return (perf_counter() - started_at) * 1000

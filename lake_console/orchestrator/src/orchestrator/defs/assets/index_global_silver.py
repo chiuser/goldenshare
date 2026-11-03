@@ -1,7 +1,6 @@
 """DuckDB Silver writer and Dagster asset for international indexes."""
 
 from dataclasses import dataclass
-import os
 from pathlib import Path
 from time import perf_counter
 from typing import Any
@@ -15,6 +14,8 @@ from orchestrator.defs.duckdb_sql import (
     duckdb_string,
     read_parquet,
 )
+from orchestrator.defs.io.index_global_writer import IndexGlobalPublication
+from orchestrator.defs.partitions import cn_global_index_trade_days
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
@@ -23,23 +24,22 @@ from orchestrator.defs.paths import (
     silver_index_global_path,
     silver_index_global_staging_path,
 )
-from orchestrator.defs.partitions import cn_global_index_trade_days
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_INDEX_GLOBAL_SCHEMA,
     SILVER_INDEX_GLOBAL_SCHEMA,
 )
-from orchestrator.defs.run_contracts.index_global import (
-    INDEX_GLOBAL_EXPECTED_CODES,
-    IndexGlobalSilverConfig,
-    SILVER_INDEX_GLOBAL_FIELDS,
-    normalize_index_global_trade_date,
-    validate_index_global_silver_config,
-)
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
     DataDomain,
     build_asset_tags,
+)
+from orchestrator.defs.run_contracts.index_global import (
+    INDEX_GLOBAL_EXPECTED_CODES,
+    SILVER_INDEX_GLOBAL_FIELDS,
+    IndexGlobalSilverConfig,
+    normalize_index_global_trade_date,
+    validate_index_global_silver_config,
 )
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
@@ -180,7 +180,9 @@ def _duplicate_counts(
     normalized_sql: str,
 ) -> tuple[int, int]:
     value_columns = tuple(
-        field for field in SILVER_INDEX_GLOBAL_FIELDS if field not in {"ts_code", "trade_date"}
+        field
+        for field in SILVER_INDEX_GLOBAL_FIELDS
+        if field not in {"ts_code", "trade_date"}
     )
     values_sql = ", ".join(f'"{field}"' for field in value_columns)
     duplicates, conflicts = connection.execute(
@@ -266,95 +268,99 @@ def write_silver_index_global_partition(
     duckdb_resource: DuckDBResource,
     partition_key: str,
     run_id: str,
+    publication_id: str | None = None,
 ) -> IndexGlobalSilverWriteResult:
-    """Normalize one Raw date partition into Silver using one DuckDB query."""
-
-    normalized_partition_key = normalize_index_global_trade_date(partition_key)
-    raw_path = raw_index_global_path(lake_root_path, normalized_partition_key)
-    target_path = silver_index_global_path(lake_root_path, normalized_partition_key)
-    staging_path = silver_index_global_staging_path(
-        lake_root_path,
-        run_id,
-        normalized_partition_key,
-    )
-    if not raw_path.exists():
-        raise FileNotFoundError(f"Missing index_global Raw file: {raw_path}")
-    if staging_path.exists():
-        staging_path.unlink()
-
+    """Normalize one Raw date with retained, resumable single-file publication."""
+    day = normalize_index_global_trade_date(partition_key)
+    raw_path = raw_index_global_path(lake_root_path, day)
+    target_path = silver_index_global_path(lake_root_path, day)
+    operation = publication_id or run_id
+    operation_directory = silver_index_global_staging_path(
+        lake_root_path, operation, day
+    ).parent
     started_at = perf_counter()
-    promoted = False
-    try:
-        with duckdb_resource.connect() as connection:
-            _assert_schema(
-                connection,
-                raw_path,
-                RAW_INDEX_GLOBAL_SCHEMA,
-                label="index_global Raw",
-            )
-            normalized_sql = _normalized_sql(raw_path)
-            source_row_count = int(
-                connection.execute(
-                    f"SELECT count(*) FROM ({normalized_sql}) normalized"
-                ).fetchone()[0]
-            )
-            reject_reason_counts = _rejection_counts(
-                connection,
-                normalized_sql,
-                partition_key=normalized_partition_key,
-            )
-            rejected_row_count = sum(reject_reason_counts.values())
-            if rejected_row_count:
-                raise IndexGlobalSilverValidationError(
-                    "index_global Silver normalization rejected rows: "
-                    f"{reject_reason_counts}"
+    with IndexGlobalPublication(
+        lake_root_path=lake_root_path,
+        target_path=target_path,
+        operation_directory=operation_directory,
+        asset_key="silver_index_global",
+        day=day,
+        phase="silver",
+        operation_id=operation,
+        source_paths=(raw_path,),
+    ) as publication:
+        result = publication.completed()
+        if result is None:
+            with duckdb_resource.connect() as connection:
+                _assert_schema(
+                    connection,
+                    raw_path,
+                    RAW_INDEX_GLOBAL_SCHEMA,
+                    label="index_global Raw",
                 )
-
-            duplicate_removed_count, conflict_key_count = _duplicate_counts(
-                connection,
-                normalized_sql,
-            )
-            if conflict_key_count:
-                raise IndexGlobalSilverValidationError(
-                    "index_global Silver has conflicting duplicate business keys: "
-                    f"conflict_key_count={conflict_key_count}"
+                normalized_sql = _normalized_sql(raw_path)
+                source_row_count = int(
+                    connection.execute(
+                        f"SELECT count(*) FROM ({normalized_sql}) normalized"
+                    ).fetchone()[0]
                 )
-
-            output_sql = _output_sql(normalized_sql)
-            expected_output_count = int(
-                connection.execute(
-                    f"SELECT count(*) FROM ({output_sql}) output_rows"
-                ).fetchone()[0]
-            )
-            staging_path.parent.mkdir(parents=True, exist_ok=True)
-            connection.execute(copy_query_to_parquet(output_sql, staging_path))
-            output_row_count = _validate_staging(
-                connection,
-                staging_path,
-                partition_key=normalized_partition_key,
-                expected_row_count=expected_output_count,
-            )
-
-        target_path.parent.mkdir(parents=True, exist_ok=True)
-        os.replace(staging_path, target_path)
-        promoted = True
-        return IndexGlobalSilverWriteResult(
-            partition_key=normalized_partition_key,
-            source_file_path=raw_path,
-            target_file_path=target_path,
-            staging_path=staging_path,
-            source_row_count=source_row_count,
-            output_row_count=output_row_count,
-            duplicate_removed_count=duplicate_removed_count,
-            rejected_row_count=rejected_row_count,
-            reject_reason_counts=reject_reason_counts,
-            observed_columns=SILVER_INDEX_GLOBAL_FIELDS,
-            elapsed_ms=(perf_counter() - started_at) * 1000,
-            promoted=True,
-        )
-    finally:
-        if not promoted and staging_path.exists():
-            staging_path.unlink()
+                reject_reason_counts = _rejection_counts(
+                    connection, normalized_sql, partition_key=day
+                )
+                rejected_row_count = sum(reject_reason_counts.values())
+                if rejected_row_count:
+                    raise IndexGlobalSilverValidationError(
+                        "index_global Silver normalization rejected rows: "
+                        f"{reject_reason_counts}"
+                    )
+                duplicate_removed_count, conflict_key_count = _duplicate_counts(
+                    connection, normalized_sql
+                )
+                if conflict_key_count:
+                    raise IndexGlobalSilverValidationError(
+                        "index_global Silver has conflicting duplicate business keys: "
+                        f"conflict_key_count={conflict_key_count}"
+                    )
+                output_sql = _output_sql(normalized_sql)
+                expected_output_count = int(
+                    connection.execute(
+                        f"SELECT count(*) FROM ({output_sql}) output_rows"
+                    ).fetchone()[0]
+                )
+                staging_path = publication.new_candidate()
+                connection.execute(copy_query_to_parquet(output_sql, staging_path))
+                result = publication.publish(
+                    staging_path,
+                    validator=lambda candidate: _validate_staging(
+                        connection,
+                        candidate,
+                        partition_key=day,
+                        expected_row_count=expected_output_count,
+                    ),
+                    result={
+                        "staging_path": str(staging_path),
+                        "source_row_count": source_row_count,
+                        "output_row_count": expected_output_count,
+                        "duplicate_removed_count": duplicate_removed_count,
+                        "rejected_row_count": rejected_row_count,
+                        "reject_reason_counts": reject_reason_counts,
+                        "elapsed_ms": (perf_counter() - started_at) * 1000,
+                    },
+                )
+    return IndexGlobalSilverWriteResult(
+        partition_key=day,
+        source_file_path=raw_path,
+        target_file_path=target_path,
+        staging_path=Path(result["staging_path"]),
+        source_row_count=int(result["source_row_count"]),
+        output_row_count=int(result["output_row_count"]),
+        duplicate_removed_count=int(result["duplicate_removed_count"]),
+        rejected_row_count=int(result["rejected_row_count"]),
+        reject_reason_counts=dict(result["reject_reason_counts"]),
+        observed_columns=SILVER_INDEX_GLOBAL_FIELDS,
+        elapsed_ms=(perf_counter() - started_at) * 1000,
+        promoted=True,
+    )
 
 
 @dg.asset(
@@ -369,7 +375,9 @@ def write_silver_index_global_partition(
         data_contract="silver_index_global_by_trade_date",
         column_schema=SILVER_INDEX_GLOBAL_SCHEMA,
         path_template=lake_path_template(
-            silver_index_global_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+            silver_index_global_path(
+                PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY
+            )
         ),
         extra_metadata={
             "partition_set": cn_global_index_trade_days.name,
@@ -395,6 +403,7 @@ def silver_index_global(
         duckdb_resource=duckdb,
         partition_key=partition_key,
         run_id=context.run_id,
+        publication_id=context.run.root_run_id or context.run_id,
     )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(

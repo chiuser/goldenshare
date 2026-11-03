@@ -1,4 +1,4 @@
-import os
+import hashlib
 from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,12 +9,12 @@ import dagster as dg
 from orchestrator.defs.duckdb_sql import (
     INDEX_DAILY_RAW_COLUMNS,
     INDEX_DAILY_SILVER_COLUMNS,
-    copy_query_to_parquet,
     count_parquet_query,
     describe_parquet_query,
     duckdb_string,
     read_parquet,
 )
+from orchestrator.defs.io.index_daily_writer import write_index_daily_partition
 from orchestrator.defs.partitions import cn_a_index_trade_days, cn_a_index_ts_codes
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
@@ -121,16 +121,6 @@ def _human_materialization_metadata(
     if filter_summary is not None:
         metadata["filter_summary"] = filter_summary
     return metadata
-
-
-def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) -> None:
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path = target_path.with_name(f"{target_path.name}.tmp")
-    if temporary_path.exists():
-        temporary_path.unlink()
-
-    connection.execute(copy_query_to_parquet(select_sql, temporary_path))
-    os.replace(temporary_path, target_path)
 
 
 def _registered_index_ts_codes(context: dg.AssetExecutionContext) -> tuple[str, ...]:
@@ -254,11 +244,6 @@ def _write_raw_index_daily_rows_from_prod_db_source(
     expected_codes_sql = ", ".join(duckdb_string(index_code) for index_code in expected_codes)
     expected_code_set_sql = _index_daily_expected_codes_sql(expected_codes)
     source_trade_date = normalized_partition_key.replace("-", "")
-
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-    staging_path.parent.mkdir(parents=True, exist_ok=True)
-    if staging_path.exists():
-        staging_path.unlink()
 
     duckdb_resource = duckdb
     with duckdb_resource.connect() as connection:
@@ -393,27 +378,37 @@ def _write_raw_index_daily_rows_from_prod_db_source(
                 f"missing_samples={missing_samples}, extra_samples={extra_samples}."
             )
 
-        connection.execute(
-            copy_query_to_parquet(
-                _prod_db_raw_index_daily_output_sql(),
-                staging_path,
-            )
-        )
-        observed_columns = tuple(_column_names(connection, staging_path))
-        output_row_count = _row_count(connection, staging_path)
-        if output_row_count != source_row_count:
-            raise RuntimeError(
-                "raw_index_daily staging row count differs from prod source: "
-                f"source_row_count={source_row_count}, output_row_count={output_row_count}."
-            )
-        _assert_raw_index_daily_staging_contract(
-            connection,
-            staging_path=staging_path,
-            partition_key=normalized_partition_key,
-            expected_codes=expected_codes,
-        )
+        output_sql = _prod_db_raw_index_daily_output_sql()
+        source_digest = connection.execute(
+            "SELECT sha256(string_agg(to_json(rows), chr(10) ORDER BY ts_code)) "
+            f"FROM ({output_sql}) AS rows"
+        ).fetchone()[0]
 
-    os.replace(staging_path, target_path)
+        def validate_raw_candidate(candidate_connection, candidate_path):
+            _assert_raw_index_daily_staging_contract(
+                candidate_connection,
+                staging_path=candidate_path,
+                partition_key=normalized_partition_key,
+                expected_codes=expected_codes,
+            )
+
+        output_row_count = write_index_daily_partition(
+            connection,
+            output_sql,
+            dataset="raw_index_daily",
+            partition_key=normalized_partition_key,
+            target_path=target_path,
+            source_paths=(),
+            expected_rows=source_row_count,
+            publication_id=str(staging_path.parent),
+            additional_identity=(
+                source_digest, hashlib.sha256(source_sql.encode()).hexdigest(), expected_codes
+            ),
+            staging_directory=staging_path.parent,
+            candidate_validator=validate_raw_candidate,
+        )
+        observed_columns = INDEX_DAILY_RAW_COLUMNS
+
     return IndexDailyRawWriteResult(
         raw_file_path=target_path,
         row_count=output_row_count,
@@ -700,6 +695,7 @@ def materialize_silver_index_daily_partition_from_raw_by_date(
     duckdb: DuckDBResource,
     partition_key: str,
     log: DgStdoutLogger | None = None,
+    publication_id: str | None = None,
 ) -> SilverIndexDailyWriteResult:
     normalized_partition_key = normalize_iso_trade_date(partition_key)
     raw_path = raw_index_daily_path(lake_root_path, normalized_partition_key)
@@ -715,6 +711,7 @@ def materialize_silver_index_daily_partition_from_raw_by_date(
         duckdb_resource=duckdb,
         partition_key=normalized_partition_key,
         log=log,
+        publication_id=publication_id,
     )
 
 
@@ -725,6 +722,7 @@ def materialize_silver_index_daily_partition_from_raw_file(
     duckdb_resource: DuckDBResource,
     partition_key: str,
     log: DgStdoutLogger | None = None,
+    publication_id: str | None = None,
 ) -> SilverIndexDailyWriteResult:
     """Run the formal Silver normalization against an explicit Raw/target pair."""
 
@@ -735,6 +733,7 @@ def materialize_silver_index_daily_partition_from_raw_file(
             target_path=target_path,
             partition_key=partition_key,
             log=log,
+            publication_id=publication_id,
         )
 
 
@@ -745,6 +744,7 @@ def write_silver_index_daily_partition_from_raw_file(
     target_path: Path,
     partition_key: str,
     log: DgStdoutLogger | None = None,
+    publication_id: str | None = None,
 ) -> SilverIndexDailyWriteResult:
     """Connection-reusing form of the formal Silver normalization writer."""
 
@@ -788,14 +788,19 @@ def write_silver_index_daily_partition_from_raw_file(
         connection,
         normalized_sql,
     )
-    _replace_parquet_from_query(
+    write_index_daily_partition(
         connection,
         f"""
         SELECT DISTINCT *
         FROM ({normalized_sql}) normalized
         ORDER BY ts_code
         """,
-        target_path,
+        dataset="silver_index_daily",
+        partition_key=normalized_partition_key,
+        target_path=target_path,
+        source_paths=(raw_path,),
+        expected_rows=raw_row_count - duplicate_removed_count,
+        publication_id=publication_id,
     )
     columns = tuple(_column_names(connection, target_path))
     row_count = _row_count(connection, target_path)
@@ -828,6 +833,7 @@ def materialize_silver_index_daily_partitions_from_raw_by_date(
     duckdb: DuckDBResource,
     partition_keys: Sequence[str],
     log: DgStdoutLogger | None = None,
+    publication_id: str | None = None,
 ) -> dict[str, dict[str, Any]]:
     partition_metadata: dict[str, dict[str, Any]] = {}
     for partition_key in tuple(sorted(set(partition_keys))):
@@ -836,6 +842,7 @@ def materialize_silver_index_daily_partitions_from_raw_by_date(
             duckdb=duckdb,
             partition_key=partition_key,
             log=log,
+            publication_id=publication_id,
         )
         partition_metadata[write_result.partition_key] = (
             write_result.materialization_metadata()
@@ -906,7 +913,7 @@ def raw_index_daily(
         prod_postgres=prod_postgres,
         partition_key=partition_key,
         index_codes=registered_index_codes,
-        run_id=context.run_id,
+        run_id=context.run.root_run_id or context.run.run_id,
     )
     extra_metadata = {
         **write_result.materialization_extra_metadata(partition_key=partition_key),
@@ -1001,6 +1008,7 @@ def silver_index_daily(
         duckdb=duckdb,
         partition_keys=partition_keys,
         log=DgStdoutLogger("index_daily"),
+        publication_id=context.run.root_run_id or context.run.run_id,
     )
 
     total_row_count = sum(

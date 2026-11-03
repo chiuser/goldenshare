@@ -1,8 +1,8 @@
 """DuckDB Silver writer for major-index minute bars."""
 
-import os
+import hashlib
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from pathlib import Path
 from time import perf_counter
 
@@ -18,6 +18,7 @@ from orchestrator.defs.io.major_index_mins_quality import (
     validate_major_index_mins_raw_relation,
     validate_major_index_mins_silver_relation,
 )
+from orchestrator.defs.io.minute_partition_writer import MinutePartitionPublication
 from orchestrator.defs.paths import (
     raw_major_index_mins_path,
     silver_major_index_mins_path,
@@ -421,7 +422,7 @@ def _elapsed_ms(started_at: float) -> float:
     return (perf_counter() - started_at) * 1000
 
 
-def _write_major_index_mins_silver_partition(
+def _build_major_index_mins_silver_partition(
     *,
     lake_root_path: Path,
     duckdb_resource: DuckDBResource,
@@ -430,8 +431,9 @@ def _write_major_index_mins_silver_partition(
     run_id: str,
     historical_fallback_path: Path | None,
     historical_fallback_codes: Sequence[str],
+    candidate_path: Path | None = None,
 ) -> MajorIndexMinsSilverWriteResult:
-    """Write one native or derived Silver partition through staging."""
+    """Build a native or derived candidate, or validate an existing partition."""
 
     started_at = perf_counter()
     silver_freq = normalize_major_index_mins_silver_freq(freq)
@@ -499,194 +501,187 @@ def _write_major_index_mins_silver_partition(
         silver_freq,
         normalized_partition,
     )
-    staging_path = silver_major_index_mins_staging_path(
+    staging_path = candidate_path or silver_major_index_mins_staging_path(
         lake_root_path,
         run_id,
         silver_freq,
         normalized_partition,
     )
 
-    try:
-        with duckdb_resource.connect() as connection:
-            source_relation = read_parquet(source_path, hive_partitioning=False)
-            _assert_physical_schema(
-                connection,
-                relation_sql=source_relation,
-                label="major-index minute Silver source",
-            )
-            if derived:
-                prepare_major_index_mins_silver_expected_tables(
-                    connection,
-                    expected_codes=expected_codes,
-                    frequency=source_freq,
-                )
-                source_validation = validate_major_index_mins_silver_relation(
-                    connection,
-                    relation_sql=source_relation,
-                    expected_codes=expected_codes,
-                    frequency=source_freq,
-                    partition_key=normalized_partition,
-                )
-            else:
-                prepare_major_index_mins_raw_expected_tables(
-                    connection,
-                    expected_codes=raw_expected_codes,
-                    frequency=source_freq,
-                    partition_key=normalized_partition,
-                )
-                source_validation = validate_major_index_mins_raw_relation(
-                    connection,
-                    relation_sql=_normalized_raw_validation_sql(source_relation),
-                    expected_codes=raw_expected_codes,
-                    frequency=source_freq,
-                    partition_key=normalized_partition,
-                )
-            _require_clean(source_validation, label="Silver source")
-            source_sql = _normalized_source_sql(source_relation)
-            if historical_fallback_path is not None:
-                fallback_relation = read_parquet(
-                    historical_fallback_path,
-                    hive_partitioning=False,
-                )
-                _assert_physical_schema(
-                    connection,
-                    relation_sql=fallback_relation,
-                    label="major-index minute historical fallback",
-                )
-                prepare_major_index_mins_silver_expected_tables(
-                    connection,
-                    expected_codes=normalized_fallback_codes,
-                    frequency=silver_freq,
-                )
-                fallback_validation = validate_major_index_mins_silver_relation(
-                    connection,
-                    relation_sql=fallback_relation,
-                    expected_codes=normalized_fallback_codes,
-                    frequency=silver_freq,
-                    partition_key=normalized_partition,
-                    require_null_vwap=True,
-                )
-                _require_clean(
-                    fallback_validation,
-                    label="historical fallback",
-                )
-                fallback_code_sql = ", ".join(
-                    duckdb_string(code) for code in normalized_fallback_codes
-                )
-                source_sql = f"""
-                SELECT * FROM ({source_sql}) native_rows
-                WHERE ts_code NOT IN ({fallback_code_sql})
-                UNION ALL
-                SELECT * FROM {fallback_relation}
-                """
-
-            expected_window_count = 0
-            generated_window_count = 0
-            incomplete_window_count = 0
-            output_sql = _ordered_output_sql(source_sql)
-            if derived:
-                _prepare_derived_window_map(connection, silver_freq=silver_freq)
-                derived_sql = _derived_aggregate_sql(
-                    source_sql=source_sql,
-                    silver_freq=silver_freq,
-                )
-                (
-                    expected_window_count,
-                    generated_window_count,
-                    incomplete_window_count,
-                ) = _derived_diagnostics(connection, output_sql=derived_sql)
-                if incomplete_window_count:
-                    raise MajorIndexMinsSilverValidationError(
-                        "derived Silver window is incomplete: "
-                        f"freq={silver_freq}, partition={normalized_partition}, "
-                        f"expected={expected_window_count}, "
-                        f"generated={generated_window_count}."
-                    )
-                output_sql = _ordered_output_sql(derived_sql)
-
+    with duckdb_resource.connect() as connection:
+        source_relation = read_parquet(source_path, hive_partitioning=False)
+        _assert_physical_schema(
+            connection,
+            relation_sql=source_relation,
+            label="major-index minute Silver source",
+        )
+        if derived:
             prepare_major_index_mins_silver_expected_tables(
                 connection,
                 expected_codes=expected_codes,
-                frequency=silver_freq,
+                frequency=source_freq,
             )
-            output_validation = validate_major_index_mins_silver_relation(
+            source_validation = validate_major_index_mins_silver_relation(
                 connection,
-                relation_sql=output_sql,
+                relation_sql=source_relation,
                 expected_codes=expected_codes,
-                frequency=silver_freq,
+                frequency=source_freq,
                 partition_key=normalized_partition,
-                require_null_vwap=derived,
             )
-            _require_clean(output_validation, label="Silver output")
-
-            if target_path.exists():
-                target_relation = read_parquet(target_path, hive_partitioning=False)
-                _assert_physical_schema(
-                    connection,
-                    relation_sql=target_relation,
-                    label="existing major-index minute Silver target",
-                )
-                target_validation = validate_major_index_mins_silver_relation(
-                    connection,
-                    relation_sql=target_relation,
-                    expected_codes=expected_codes,
-                    frequency=silver_freq,
-                    partition_key=normalized_partition,
-                    require_null_vwap=derived,
-                )
-                _require_clean(target_validation, label="existing Silver target")
-                return MajorIndexMinsSilverWriteResult(
-                    partition_key=normalized_partition,
-                    silver_freq=silver_freq,
-                    source_freq=source_freq,
-                    source_mode=source_mode,
-                    source_path=source_path,
-                    target_path=target_path,
-                    staging_path=staging_path,
-                    write_mode="reuse_existing",
-                    expected_code_count=len(expected_codes),
-                    source_row_count=source_validation.row_count,
-                    output_row_count=target_validation.row_count,
-                    expected_window_count=expected_window_count,
-                    generated_window_count=generated_window_count,
-                    incomplete_window_count=incomplete_window_count,
-                    elapsed_ms=_elapsed_ms(started_at),
-                    scope_hash=scope_hash,
-                )
-
-            target_path.parent.mkdir(parents=True, exist_ok=True)
-            staging_path.parent.mkdir(parents=True, exist_ok=True)
-            connection.execute(copy_query_to_parquet(output_sql, staging_path))
-            staging_relation = read_parquet(staging_path, hive_partitioning=False)
+        else:
+            prepare_major_index_mins_raw_expected_tables(
+                connection,
+                expected_codes=raw_expected_codes,
+                frequency=source_freq,
+                partition_key=normalized_partition,
+            )
+            source_validation = validate_major_index_mins_raw_relation(
+                connection,
+                relation_sql=_normalized_raw_validation_sql(source_relation),
+                expected_codes=raw_expected_codes,
+                frequency=source_freq,
+                partition_key=normalized_partition,
+            )
+        _require_clean(source_validation, label="Silver source")
+        source_sql = _normalized_source_sql(source_relation)
+        if historical_fallback_path is not None:
+            fallback_relation = read_parquet(
+                historical_fallback_path,
+                hive_partitioning=False,
+            )
             _assert_physical_schema(
                 connection,
-                relation_sql=staging_relation,
-                label="major-index minute Silver staging",
+                relation_sql=fallback_relation,
+                label="major-index minute historical fallback",
             )
-            staging_validation = validate_major_index_mins_silver_relation(
+            prepare_major_index_mins_silver_expected_tables(
                 connection,
-                relation_sql=staging_relation,
+                expected_codes=normalized_fallback_codes,
+                frequency=silver_freq,
+            )
+            fallback_validation = validate_major_index_mins_silver_relation(
+                connection,
+                relation_sql=fallback_relation,
+                expected_codes=normalized_fallback_codes,
+                frequency=silver_freq,
+                partition_key=normalized_partition,
+                require_null_vwap=True,
+            )
+            _require_clean(
+                fallback_validation,
+                label="historical fallback",
+            )
+            fallback_code_sql = ", ".join(
+                duckdb_string(code) for code in normalized_fallback_codes
+            )
+            source_sql = f"""
+            SELECT * FROM ({source_sql}) native_rows
+            WHERE ts_code NOT IN ({fallback_code_sql})
+            UNION ALL
+            SELECT * FROM {fallback_relation}
+            """
+
+        expected_window_count = 0
+        generated_window_count = 0
+        incomplete_window_count = 0
+        output_sql = _ordered_output_sql(source_sql)
+        if derived:
+            _prepare_derived_window_map(connection, silver_freq=silver_freq)
+            derived_sql = _derived_aggregate_sql(
+                source_sql=source_sql,
+                silver_freq=silver_freq,
+            )
+            (
+                expected_window_count,
+                generated_window_count,
+                incomplete_window_count,
+            ) = _derived_diagnostics(connection, output_sql=derived_sql)
+            if incomplete_window_count:
+                raise MajorIndexMinsSilverValidationError(
+                    "derived Silver window is incomplete: "
+                    f"freq={silver_freq}, partition={normalized_partition}, "
+                    f"expected={expected_window_count}, "
+                    f"generated={generated_window_count}."
+                )
+            output_sql = _ordered_output_sql(derived_sql)
+
+        prepare_major_index_mins_silver_expected_tables(
+            connection,
+            expected_codes=expected_codes,
+            frequency=silver_freq,
+        )
+        output_validation = validate_major_index_mins_silver_relation(
+            connection,
+            relation_sql=output_sql,
+            expected_codes=expected_codes,
+            frequency=silver_freq,
+            partition_key=normalized_partition,
+            require_null_vwap=derived,
+        )
+        _require_clean(output_validation, label="Silver output")
+
+        if candidate_path is None and target_path.exists():
+            target_relation = read_parquet(target_path, hive_partitioning=False)
+            _assert_physical_schema(
+                connection,
+                relation_sql=target_relation,
+                label="existing major-index minute Silver target",
+            )
+            target_validation = validate_major_index_mins_silver_relation(
+                connection,
+                relation_sql=target_relation,
                 expected_codes=expected_codes,
                 frequency=silver_freq,
                 partition_key=normalized_partition,
                 require_null_vwap=derived,
             )
-            _require_clean(staging_validation, label="Silver staging")
-            if staging_validation.row_count != output_validation.row_count:
-                raise MajorIndexMinsSilverValidationError(
-                    "Silver staging row reconciliation failed: "
-                    f"output={output_validation.row_count}, "
-                    f"staging={staging_validation.row_count}."
-                )
-        if target_path.exists():
-            raise MajorIndexMinsSilverValidationError(
-                f"Silver target appeared during staging; refusing overwrite: {target_path}"
+            _require_clean(target_validation, label="existing Silver target")
+            return MajorIndexMinsSilverWriteResult(
+                partition_key=normalized_partition,
+                silver_freq=silver_freq,
+                source_freq=source_freq,
+                source_mode=source_mode,
+                source_path=source_path,
+                target_path=target_path,
+                staging_path=staging_path,
+                write_mode="reuse_existing",
+                expected_code_count=len(expected_codes),
+                source_row_count=source_validation.row_count,
+                output_row_count=target_validation.row_count,
+                expected_window_count=expected_window_count,
+                generated_window_count=generated_window_count,
+                incomplete_window_count=incomplete_window_count,
+                elapsed_ms=_elapsed_ms(started_at),
+                scope_hash=scope_hash,
             )
-        os.replace(staging_path, target_path)
-    except Exception:
-        if staging_path.exists():
-            staging_path.unlink()
-        raise
+
+        if candidate_path is None:
+            raise ValueError("Silver candidate path is required for a new partition")
+
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        staging_path.parent.mkdir(parents=True, exist_ok=True)
+        connection.execute(copy_query_to_parquet(output_sql, staging_path))
+        staging_relation = read_parquet(staging_path, hive_partitioning=False)
+        _assert_physical_schema(
+            connection,
+            relation_sql=staging_relation,
+            label="major-index minute Silver staging",
+        )
+        staging_validation = validate_major_index_mins_silver_relation(
+            connection,
+            relation_sql=staging_relation,
+            expected_codes=expected_codes,
+            frequency=silver_freq,
+            partition_key=normalized_partition,
+            require_null_vwap=derived,
+        )
+        _require_clean(staging_validation, label="Silver staging")
+        if staging_validation.row_count != output_validation.row_count:
+            raise MajorIndexMinsSilverValidationError(
+                "Silver staging row reconciliation failed: "
+                f"output={output_validation.row_count}, "
+                f"staging={staging_validation.row_count}."
+            )
 
     return MajorIndexMinsSilverWriteResult(
         partition_key=normalized_partition,
@@ -706,6 +701,77 @@ def _write_major_index_mins_silver_partition(
         elapsed_ms=_elapsed_ms(started_at),
         scope_hash=scope_hash,
     )
+
+
+def _write_major_index_mins_silver_partition(
+    *,
+    lake_root_path: Path,
+    duckdb_resource: DuckDBResource,
+    freq: int | str,
+    partition_key: str,
+    run_id: str,
+    historical_fallback_path: Path | None,
+    historical_fallback_codes: Sequence[str],
+) -> MajorIndexMinsSilverWriteResult:
+    """Publish both daily and published historical-fallback candidates."""
+
+    frequency = normalize_major_index_mins_silver_freq(freq)
+    day = normalize_major_index_mins_trade_date(partition_key)
+    derived = frequency not in MAJOR_INDEX_MINS_SOURCE_FREQS
+    source_freq = (
+        source_freq_for_major_index_mins_derived_freq(frequency)
+        if derived
+        else frequency
+    )
+    source = (
+        silver_major_index_mins_path(lake_root_path, source_freq, day)
+        if derived
+        else raw_major_index_mins_path(lake_root_path, source_freq, day)
+    )
+    target = silver_major_index_mins_path(lake_root_path, frequency, day)
+    sources = (source,)
+    if historical_fallback_path is not None:
+        sources += (historical_fallback_path,)
+    publication = MinutePartitionPublication(
+        dataset="silver_major_index_mins",
+        target=target,
+        day=day,
+        freq=int(frequency[:-3]),
+        publication_id=run_id,
+        source_paths=sources,
+        source_identity={
+            "scope_hash": silver_scope_hash_for_date(day),
+            "fallback_codes": sorted(
+                {str(c).strip().upper() for c in historical_fallback_codes}
+            ),
+            "writer_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        },
+    )
+    kwargs = {
+        "lake_root_path": lake_root_path,
+        "duckdb_resource": duckdb_resource,
+        "freq": frequency,
+        "partition_key": day,
+        "run_id": run_id,
+        "historical_fallback_path": historical_fallback_path,
+        "historical_fallback_codes": historical_fallback_codes,
+    }
+    if target.exists() and not (publication.directory / "receipt.json").exists():
+        return _build_major_index_mins_silver_partition(**kwargs)
+
+    def build(candidate):
+        result = _build_major_index_mins_silver_partition(
+            **kwargs, candidate_path=candidate
+        )
+        return {**asdict(result), "row_count": result.output_row_count}
+
+    data = publication.run(build)
+    data.pop("row_count")
+    for key in ("source_path", "target_path", "staging_path"):
+        data[key] = Path(data[key])
+    if publication.reused:
+        data["write_mode"] = "reuse_existing"
+    return MajorIndexMinsSilverWriteResult(**data)
 
 
 def write_major_index_mins_silver_partition(

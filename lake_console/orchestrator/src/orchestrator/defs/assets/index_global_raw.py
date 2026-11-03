@@ -1,6 +1,5 @@
 """Raw phase merge writer and Dagster asset for international indexes."""
 
-import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -13,6 +12,7 @@ from orchestrator.defs.duckdb_sql import (
     describe_parquet_query,
     read_parquet,
 )
+from orchestrator.defs.io.index_global_writer import IndexGlobalPublication
 from orchestrator.defs.partitions import cn_global_index_trade_days
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
@@ -204,7 +204,8 @@ def _describe_columns(connection: Any, path: Path) -> tuple[tuple[str, str], ...
 
 def _expected_columns() -> tuple[tuple[str, str], ...]:
     return tuple(
-        (field, INDEX_GLOBAL_COLUMN_TYPES[field].upper()) for field in INDEX_GLOBAL_FIELDS
+        (field, INDEX_GLOBAL_COLUMN_TYPES[field].upper())
+        for field in INDEX_GLOBAL_FIELDS
     )
 
 
@@ -303,9 +304,11 @@ def _load_existing_rows(connection: Any, target_path: Path) -> tuple[bool, int]:
     )
     columns_sql = ", ".join(f'"{field}"' for field in INDEX_GLOBAL_FIELDS)
     connection.execute(
-        f'CREATE TEMP TABLE existing_rows AS SELECT {columns_sql} FROM {read_parquet(target_path)}'
+        f"CREATE TEMP TABLE existing_rows AS SELECT {columns_sql} FROM {read_parquet(target_path)}"
     )
-    return True, int(connection.execute("SELECT count(*) FROM existing_rows").fetchone()[0])
+    return True, int(
+        connection.execute("SELECT count(*) FROM existing_rows").fetchone()[0]
+    )
 
 
 def _merged_query() -> str:
@@ -331,7 +334,9 @@ def _merged_query() -> str:
 
 
 def _replaced_row_count(connection: Any) -> int:
-    columns = [field for field in INDEX_GLOBAL_FIELDS if field not in {"ts_code", "trade_date"}]
+    columns = [
+        field for field in INDEX_GLOBAL_FIELDS if field not in {"ts_code", "trade_date"}
+    ]
     comparisons = " OR ".join(
         f'e."{field}" IS DISTINCT FROM p."{field}"' for field in columns
     )
@@ -358,7 +363,7 @@ def _validate_staging(
         _describe_columns(connection, staging_path), label="staging"
     )
     connection.execute(
-        f'CREATE TEMP TABLE staging_rows AS SELECT * FROM {read_parquet(staging_path)}'
+        f"CREATE TEMP TABLE staging_rows AS SELECT * FROM {read_parquet(staging_path)}"
     )
     actual_row_count = _validate_table_rows(
         connection, "staging_rows", trade_date=trade_date
@@ -370,6 +375,25 @@ def _validate_staging(
     return actual_row_count
 
 
+def _raw_publication(
+    root: Path,
+    day: str,
+    phase: str,
+    operation_id: str,
+) -> IndexGlobalPublication:
+    return IndexGlobalPublication(
+        lake_root_path=root,
+        target_path=raw_index_global_path(root, day),
+        operation_directory=raw_index_global_staging_path(
+            root, operation_id, day, phase
+        ).parent,
+        asset_key="raw_index_global",
+        day=day,
+        phase=phase,
+        operation_id=operation_id,
+    )
+
+
 def merge_index_global_phase(
     *,
     lake_root_path: Path,
@@ -378,87 +402,178 @@ def merge_index_global_phase(
     probe_phase: str,
     phase_rows: Sequence[Mapping[str, object]],
     run_id: str,
+    publication_id: str | None = None,
+    _publication: IndexGlobalPublication | None = None,
 ) -> IndexGlobalMergeResult:
-    """Merge one validated phase into one Raw date file atomically."""
-
-    normalized_trade_date = normalize_index_global_trade_date(trade_date)
+    """Merge the unchanged business relation through retained single-file work."""
+    day = normalize_index_global_trade_date(trade_date)
     normalized_rows = validate_index_global_phase_rows(
         phase_rows,
-        trade_date=normalized_trade_date,
+        trade_date=day,
         probe_phase=probe_phase,
     )
     normalized_rows = tuple(
         normalize_index_global_numeric_values(row) for row in normalized_rows
     )
+    target_path = raw_index_global_path(lake_root_path, day)
+    if _publication is None:
+        with _raw_publication(
+            lake_root_path, day, probe_phase, publication_id or run_id
+        ) as publication:
+            return merge_index_global_phase(
+                lake_root_path=lake_root_path,
+                duckdb_resource=duckdb_resource,
+                trade_date=day,
+                probe_phase=probe_phase,
+                phase_rows=normalized_rows,
+                run_id=run_id,
+                publication_id=publication_id,
+                _publication=publication,
+            )
 
-    target_path = raw_index_global_path(lake_root_path, normalized_trade_date)
-    staging_path = raw_index_global_staging_path(
-        lake_root_path, run_id, normalized_trade_date, probe_phase
-    )
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-    if staging_path.exists():
-        staging_path.unlink()
-
-    target_existed = False
-    promoted = False
-    try:
+    if (
+        _publication.target != target_path.resolve()
+        or _publication.asset_key != "raw_index_global"
+        or _publication.day != day
+        or _publication.phase != probe_phase
+    ):
+        raise IndexGlobalRawValidationError("index_global publication scope differs")
+    frozen = _publication.read_input()
+    if frozen is None:
+        _publication.freeze_input({"rows": list(normalized_rows), "fetch": None})
+    elif frozen.get("rows") != list(normalized_rows):
+        raise IndexGlobalRawValidationError("index_global frozen phase rows changed")
+    result = _publication.completed()
+    if result is None:
         with duckdb_resource.connect() as connection:
-            target_existed, existing_row_count = _load_existing_rows(connection, target_path)
+            target_existed, existing_row_count = _load_existing_rows(
+                connection, target_path
+            )
             if target_existed:
-                _validate_table_rows(
-                    connection, "existing_rows", trade_date=normalized_trade_date
+                _validate_table_rows(connection, "existing_rows", trade_date=day)
+            if target_existed and not normalized_rows:
+                result = _publication.reuse(
+                    result={
+                        "target_existed": True,
+                        "source_row_count": 0,
+                        "output_row_count": existing_row_count,
+                        "replaced_row_count": 0,
+                        "promoted": False,
+                        "staging_path": None,
+                    }
                 )
-                if not normalized_rows:
-                    return IndexGlobalMergeResult(
-                        partition_key=normalized_trade_date,
-                        probe_phase=probe_phase,
-                        run_id=run_id,
-                        target_path=target_path,
-                        staging_path=None,
-                        target_existed=True,
-                        source_row_count=0,
-                        output_row_count=existing_row_count,
-                        replaced_row_count=0,
-                        promoted=False,
-                    )
-            _load_phase_rows(connection, normalized_rows)
-            _validate_table_rows(
-                connection, "phase_rows", trade_date=normalized_trade_date
+            else:
+                _load_phase_rows(connection, normalized_rows)
+                _validate_table_rows(connection, "phase_rows", trade_date=day)
+                replaced_row_count = (
+                    _replaced_row_count(connection) if normalized_rows else 0
+                )
+                staging_path = _publication.new_candidate()
+                connection.execute(copy_query_to_parquet(_merged_query(), staging_path))
+                output_row_count = int(
+                    connection.execute(
+                        "SELECT count(*) FROM (" + _merged_query() + ")"
+                    ).fetchone()[0]
+                )
+                result = _publication.publish(
+                    staging_path,
+                    validator=lambda candidate: _validate_staging(
+                        connection,
+                        candidate,
+                        trade_date=day,
+                        expected_row_count=output_row_count,
+                    ),
+                    result={
+                        "target_existed": target_existed,
+                        "source_row_count": len(normalized_rows),
+                        "output_row_count": output_row_count,
+                        "replaced_row_count": replaced_row_count,
+                        "promoted": True,
+                        "staging_path": str(staging_path),
+                    },
+                )
+    return IndexGlobalMergeResult(
+        partition_key=day,
+        probe_phase=probe_phase,
+        run_id=run_id,
+        target_path=target_path,
+        staging_path=Path(result["staging_path"]) if result["staging_path"] else None,
+        target_existed=bool(result["target_existed"]),
+        source_row_count=int(result["source_row_count"]),
+        output_row_count=int(result["output_row_count"]),
+        replaced_row_count=int(result["replaced_row_count"]),
+        promoted=bool(result["promoted"]),
+    )
+
+
+def run_index_global_phase(
+    *,
+    lake_root_path: Path,
+    duckdb_resource: DuckDBResource,
+    tushare: TushareResource,
+    trade_date: str,
+    probe_phase: str,
+    run_id: str,
+    request_policy: TushareRequestPolicy,
+    publication_id: str | None = None,
+) -> tuple[IndexGlobalPhaseFetchResult, IndexGlobalMergeResult]:
+    """Fetch once, retain normalized input, and publish one existing Raw phase."""
+    day = normalize_index_global_trade_date(trade_date)
+    operation = publication_id or run_id
+    with _raw_publication(lake_root_path, day, probe_phase, operation) as publication:
+        frozen = publication.read_input()
+        if frozen is None:
+            if publication.completed() is not None:
+                raise IndexGlobalRawValidationError("completed Raw has no frozen input")
+            fetched = fetch_index_global_phase(
+                tushare=tushare,
+                trade_date=day,
+                probe_phase=probe_phase,
+                request_policy=request_policy,
             )
-            replaced_row_count = _replaced_row_count(connection) if normalized_rows else 0
-            staging_path.parent.mkdir(parents=True, exist_ok=True)
-            connection.execute(
-                copy_query_to_parquet(_merged_query(), staging_path)
+            rows = validate_index_global_phase_rows(
+                fetched.rows,
+                trade_date=day,
+                probe_phase=probe_phase,
             )
-            output_row_count = _validate_staging(
-                connection,
-                staging_path,
-                trade_date=normalized_trade_date,
-                expected_row_count=(
-                    int(
-                        connection.execute(
-                            "SELECT count(*) FROM (" + _merged_query() + ")"
-                        ).fetchone()[0]
-                    )
-                ),
+            rows = tuple(normalize_index_global_numeric_values(row) for row in rows)
+            frozen = {
+                "rows": list(rows),
+                "fetch": {
+                    "trade_date": day,
+                    "probe_phase": probe_phase,
+                    "page_count": fetched.page_count,
+                    "request_count": fetched.request_count,
+                    "retry_count": fetched.retry_count,
+                    "elapsed_ms": fetched.elapsed_ms,
+                },
+            }
+            publication.freeze_input(frozen)
+        details = frozen.get("fetch")
+        if (
+            not isinstance(details, dict)
+            or details.get("trade_date") != day
+            or details.get("probe_phase") != probe_phase
+        ):
+            raise IndexGlobalRawValidationError(
+                "index_global frozen fetch scope differs"
             )
-        os.replace(staging_path, target_path)
-        promoted = True
-        return IndexGlobalMergeResult(
-            partition_key=normalized_trade_date,
-            probe_phase=probe_phase,
-            run_id=run_id,
-            target_path=target_path,
-            staging_path=staging_path,
-            target_existed=target_existed,
-            source_row_count=len(normalized_rows),
-            output_row_count=output_row_count,
-            replaced_row_count=replaced_row_count,
-            promoted=True,
+        rows = validate_index_global_phase_rows(
+            frozen["rows"], trade_date=day, probe_phase=probe_phase
         )
-    finally:
-        if not promoted and staging_path.exists():
-            staging_path.unlink()
+        rows = tuple(normalize_index_global_numeric_values(row) for row in rows)
+        fetched = IndexGlobalPhaseFetchResult(rows=rows, **details)
+        merged = merge_index_global_phase(
+            lake_root_path=lake_root_path,
+            duckdb_resource=duckdb_resource,
+            trade_date=day,
+            probe_phase=probe_phase,
+            phase_rows=rows,
+            run_id=run_id,
+            publication_id=operation,
+            _publication=publication,
+        )
+        return fetched, merged
 
 
 def run_index_global_phase_sequence(
@@ -484,19 +599,14 @@ def run_index_global_phase_sequence(
     phase_results: list[IndexGlobalPhaseFetchResult] = []
     merge_results: list[IndexGlobalMergeResult] = []
     for phase in phases:
-        fetched = fetch_index_global_phase(
+        fetched, merged = run_index_global_phase(
+            lake_root_path=lake_root_path,
+            duckdb_resource=duckdb_resource,
             tushare=tushare,
             trade_date=normalized_trade_date,
             probe_phase=phase,
-            request_policy=request_policy,
-        )
-        merged = merge_index_global_phase(
-            lake_root_path=lake_root_path,
-            duckdb_resource=duckdb_resource,
-            trade_date=normalized_trade_date,
-            probe_phase=phase,
-            phase_rows=fetched.rows,
             run_id=run_id,
+            request_policy=request_policy,
         )
         phase_results.append(fetched)
         merge_results.append(merged)
@@ -541,19 +651,15 @@ def raw_index_global(
     partition_key = validate_index_global_raw_config(
         config, partition_key=context.partition_key
     )
-    fetched = fetch_index_global_phase(
+    fetched, merged = run_index_global_phase(
+        lake_root_path=lake_root.root(),
+        duckdb_resource=duckdb,
         tushare=tushare,
         trade_date=partition_key,
         probe_phase=config.probe_phase,
-        request_policy=build_index_global_request_policy(),
-    )
-    merged = merge_index_global_phase(
-        lake_root_path=lake_root.root(),
-        duckdb_resource=duckdb,
-        trade_date=partition_key,
-        probe_phase=config.probe_phase,
-        phase_rows=fetched.rows,
         run_id=context.run_id,
+        publication_id=context.run.root_run_id or context.run_id,
+        request_policy=build_index_global_request_policy(),
     )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(

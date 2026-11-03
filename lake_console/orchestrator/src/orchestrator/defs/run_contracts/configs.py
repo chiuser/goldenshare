@@ -42,6 +42,10 @@ class IndexDailyRawConfig(dg.Config):
     )
 
 
+class IndexMinsWriteConfig(dg.Config):
+    write_mode: Literal["reuse_existing", "replace_existing"] = "reuse_existing"
+
+
 class DcBoardSourceFreezeConfig(dg.Config):
     policy_version: str
     trade_date: str

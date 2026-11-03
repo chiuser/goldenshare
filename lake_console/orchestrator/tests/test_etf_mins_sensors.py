@@ -8,6 +8,7 @@ from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 import dagster as dg
+import pytest
 
 from orchestrator.defs.asset_guards.bounded_continuity import (
     ContinuityBatchReadiness,
@@ -127,7 +128,7 @@ def _batch(*, ready: bool, materialized: bool) -> ContinuityBatchReadiness:
     )
 
 
-def _basic_reference():  # type: ignore[no-untyped-def]
+def _basic_reference(*, later_listing: bool = False):  # type: ignore[no-untyped-def]
     return build_etf_basic_silver_snapshot_reference(
         raw_snapshot_hash="a" * 64,
         silver_content_hash="b" * 64,
@@ -136,8 +137,14 @@ def _basic_reference():  # type: ignore[no-untyped-def]
         raw_observed_at="2026-08-31T08:00:00+08:00",
         silver_observed_at="2026-08-31T08:01:00+08:00",
         eligibility_as_of="2026-08-31",
-        requestable_code_count=1,
-        requestable_code_hash="c" * 64,
+        requestable_code_count=2 if later_listing else 1,
+        # Independent hashes of sorted compact ts_code/list_date/exchange JSON.
+        # The second listing date is artificial and after TRADE_DATE.
+        requestable_code_hash=(
+            "ebeb61307f109639199801593e3988bddb36fa64a4156c6d1483ea91c9f69b6e"
+            if later_listing
+            else "da717b4997e253365bc16a2b137f4e1a5fda52405e7621392c484d1df2d17f26"
+        ),
     )
 
 
@@ -200,8 +207,10 @@ def test_partition_sensor_enters_calendar_path_at_window_start(monkeypatch) -> N
     assert result is expected
 
 
+@pytest.mark.parametrize("later_listing", [False, True])
 def test_raw_sensor_uses_one_coverage_result_after_batch_readiness(
     monkeypatch,
+    later_listing: bool,
 ) -> None:  # type: ignore[no-untyped-def]
     context = _context()
     window = _window()
@@ -219,12 +228,15 @@ def test_raw_sensor_uses_one_coverage_result_after_batch_readiness(
         "batch_etf_mins_raw_lake_readiness",
         lambda **kwargs: _batch(ready=False, materialized=False),
     )
-    reference = _basic_reference()
+    reference = _basic_reference(later_listing=later_listing)
     target = EtfMinsRequestableTarget(
         ts_code="510300.SH",
         list_date=date(2012, 5, 28),
         exchange="SH",
     )
+    targets = (target,)
+    if later_listing:
+        targets += (EtfMinsRequestableTarget("159915.SZ", date(2026, 8, 31), "SZ"),)
     monkeypatch.setattr(
         etf_mins_sensor,
         "select_latest_etf_basic_snapshot_reference",
@@ -233,7 +245,7 @@ def test_raw_sensor_uses_one_coverage_result_after_batch_readiness(
     monkeypatch.setattr(
         etf_mins_sensor,
         "revalidate_etf_mins_basic_reference",
-        lambda **kwargs: (reference, (target,)),
+        lambda **kwargs: (reference, targets),
     )
     coverage = build_etf_mins_prod_coverage_reference(
         trade_date=TRADE_DATE,
@@ -270,6 +282,12 @@ def test_raw_sensor_uses_one_coverage_result_after_batch_readiness(
     assert coverage_calls == 1
     assert len(result.run_requests or []) == 1
     assert result.run_requests[0].partition_key == TRADE_DATE
+    assert len(result.run_requests[0].run_config["ops"]) == 5
+    for op in result.run_requests[0].run_config["ops"].values():
+        assert op["config"]["prod_coverage_reference"]["expected_code_count"] == 1
+        assert op["config"]["basic_snapshot_reference"]["requestable_code_count"] == (
+            2 if later_listing else 1
+        )
     assert len(result.cursor.encode("utf-8")) < 2048
 
 
@@ -335,14 +353,17 @@ def test_silver_sensor_stops_at_raw_failure_without_prod_access(
     assert "不越过" in str(result.skip_reason)
 
 
-def test_minute_readiness_contract_has_no_check_history_or_instance_dependency() -> None:
+def test_minute_readiness_contract_has_no_check_history_or_instance_dependency() -> (
+    None
+):
     readiness_source = getsource(etf_mins_sensor.batch_etf_mins_raw_lake_readiness)
     silver_source = getsource(evaluate_silver_etf_mins_sensor)
 
     assert "get_asset_check_execution_history" not in readiness_source
     assert "fetch_materializations" not in readiness_source
-    assert "instance" not in signature(
-        etf_mins_sensor.batch_etf_mins_raw_lake_readiness
-    ).parameters
+    assert (
+        "instance"
+        not in signature(etf_mins_sensor.batch_etf_mins_raw_lake_readiness).parameters
+    )
     assert "prod_postgres" not in silver_source
     assert "etf_mins_prod_source_ready_for_trade_date" not in silver_source

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from datetime import datetime, time, timezone
+from dataclasses import replace
+from datetime import date, datetime, time, timezone
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -39,6 +40,9 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_ETF_MINS_SCHEMA,
     SILVER_ETF_MINS_SCHEMA,
 )
+from orchestrator.defs.run_contracts.etf_basic import (
+    build_etf_basic_silver_snapshot_reference,
+)
 from orchestrator.defs.run_contracts.etf_mins import (
     ETF_MINS_ASSET_FREQS,
     ETF_MINS_BOOTSTRAP_BATCH_TRADE_DAY_LIMIT,
@@ -55,7 +59,11 @@ from orchestrator.defs.run_contracts.etf_mins import (
     ETF_MINS_SOURCE_EXCHANGE_BY_CODE_SUFFIX,
     ETF_MINS_SOURCE_FREQS,
     ETF_SENSOR_WINDOW_START,
+    EtfMinsRawConfig,
+    EtfMinsRequestableTarget,
     asset_freq_for_etf_mins_source_freq,
+    build_etf_mins_prod_coverage_reference,
+    build_etf_mins_raw_run_config,
     etf_sensor_window_is_open,
     expected_etf_mins_source_exchange,
     get_etf_mins_raw_decision_policy,
@@ -68,6 +76,164 @@ from orchestrator.defs.run_contracts.etf_mins import (
     source_freq_for_etf_mins_asset_freq,
 )
 from orchestrator.defs.run_contracts.metadata import SourceSystem
+
+# Artificial second listing date, not 159915.SZ's real listing date.
+# Hashes are independent SHA256 literals of the documented sorted compact JSON:
+# Basic: ts_code/list_date/exchange objects; minute scope: sorted code strings.
+_HISTORICAL_TARGETS = (
+    EtfMinsRequestableTarget("510300.SH", date(2012, 5, 28), "SH"),
+    EtfMinsRequestableTarget("159915.SZ", date(2026, 9, 1), "SZ"),
+)
+_HISTORICAL_BASIC_HASH = (
+    "8c075a8ad076e38f38ef52b46b292decae61aefad5c6a73033de91a08092f01b"
+)
+_HISTORICAL_CODE_HASH = (
+    "eb2a09141693d8ffa619fab66a698c210e3bb425bb9605e7996ed273428e99cc"
+)
+_LATER_CODE_HASH = "a93a2bf6cc52edb27e642540e204e9a59dd0663dcc8cbe0f4c91b5d30fb27423"
+
+
+def _historical_basic_reference():  # type: ignore[no-untyped-def]
+    return build_etf_basic_silver_snapshot_reference(
+        raw_snapshot_hash="a" * 64,
+        silver_content_hash="b" * 64,
+        raw_uri="/isolated/raw-basic.parquet",
+        silver_uri="/isolated/silver-basic.parquet",
+        raw_observed_at="2026-09-30T08:00:00+08:00",
+        silver_observed_at="2026-09-30T08:01:00+08:00",
+        eligibility_as_of="2026-09-30",
+        requestable_code_count=2,
+        requestable_code_hash=_HISTORICAL_BASIC_HASH,
+    )
+
+
+def _historical_coverage(**overrides):  # type: ignore[no-untyped-def]
+    values = {
+        "trade_date": "2026-08-28",
+        "basic_reference_fingerprint": (
+            _historical_basic_reference().reference_fingerprint
+        ),
+        "expected_code_count": 1,
+        "expected_code_hash": _HISTORICAL_CODE_HASH,
+        "frequency_coverages": tuple((freq, 1, 1, 0) for freq in ETF_MINS_SOURCE_FREQS),
+        "coverage_observed_at": "2026-09-30T21:00:00+08:00",
+    }
+    values.update(overrides)
+    return build_etf_mins_prod_coverage_reference(**values)
+
+
+@pytest.mark.parametrize(
+    ("trade_date", "expected_count", "expected_hash"),
+    [
+        ("2026-08-28", 1, _HISTORICAL_CODE_HASH),
+        ("2026-09-01", 2, _LATER_CODE_HASH),
+    ],
+)
+def test_raw_config_accepts_historical_and_later_listing_scopes(
+    trade_date: str, expected_count: int, expected_hash: str
+) -> None:
+    basic = _historical_basic_reference()
+    coverage = _historical_coverage(
+        trade_date=trade_date,
+        expected_code_count=expected_count,
+        expected_code_hash=expected_hash,
+        frequency_coverages=tuple(
+            (freq, expected_count, expected_count, 0) for freq in ETF_MINS_SOURCE_FREQS
+        ),
+    )
+    result = build_etf_mins_raw_run_config(
+        partition_key=trade_date,
+        basic_reference=basic,
+        requestable_targets=iter(_HISTORICAL_TARGETS),
+        prod_coverage_reference=coverage,
+    )
+    assert set(result["ops"]) == {
+        "raw_etf_mins_1m",
+        "raw_etf_mins_5m",
+        "raw_etf_mins_15m",
+        "raw_etf_mins_30m",
+        "raw_etf_mins_60m",
+    }
+    for op in result["ops"].values():
+        assert set(op["config"]) == {
+            "basic_snapshot_reference",
+            "prod_coverage_reference",
+        }
+        config = EtfMinsRawConfig(**op["config"])
+        assert config.basic_snapshot_reference.requestable_code_count == 2
+        carried = config.prod_coverage_reference.to_reference()
+        assert carried == coverage
+        assert carried.expected_code_count == expected_count
+        assert carried.expected_code_hash == expected_hash
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"trade_date": "2026-08-27"}, "does not match the partition"),
+        ({"basic_reference_fingerprint": "d" * 64}, "different Basic snapshot"),
+        ({"expected_code_hash": _LATER_CODE_HASH}, "code hash has changed"),
+        (
+            {
+                "expected_code_count": 2,
+                "frequency_coverages": tuple(
+                    (freq, 2, 2, 0) for freq in ETF_MINS_SOURCE_FREQS
+                ),
+            },
+            "expected count has changed",
+        ),
+    ],
+)
+def test_raw_config_rejects_valid_coverage_bound_to_wrong_inputs(
+    overrides: dict[str, object], message: str
+) -> None:
+    coverage = _historical_coverage(**overrides)
+    assert coverage.validate() == coverage  # Not a malformed-fingerprint shortcut.
+    with pytest.raises(ValueError, match=message):
+        build_etf_mins_raw_run_config(
+            partition_key="2026-08-28",
+            basic_reference=_historical_basic_reference(),
+            requestable_targets=_HISTORICAL_TARGETS,
+            prod_coverage_reference=coverage,
+        )
+
+
+@pytest.mark.parametrize(
+    "targets",
+    [
+        _HISTORICAL_TARGETS[:1],
+        (
+            _HISTORICAL_TARGETS[0],
+            EtfMinsRequestableTarget("159916.SZ", date(2026, 9, 1), "SZ"),
+        ),
+    ],
+)
+def test_raw_config_rejects_incomplete_or_substituted_basic_targets(targets) -> None:  # type: ignore[no-untyped-def]
+    with pytest.raises(ValueError, match="targets do not match the frozen Basic"):
+        build_etf_mins_raw_run_config(
+            partition_key="2026-08-28",
+            basic_reference=_historical_basic_reference(),
+            requestable_targets=targets,
+            prod_coverage_reference=_historical_coverage(),
+        )
+
+
+@pytest.mark.parametrize(
+    "coverages",
+    [
+        (("1min", 1, 1, 0),),
+        tuple((freq, 1, 0, 1) for freq in ETF_MINS_SOURCE_FREQS),
+    ],
+)
+def test_raw_config_rejects_missing_frequencies_or_codes(coverages) -> None:  # type: ignore[no-untyped-def]
+    invalid = replace(_historical_coverage(), frequency_coverages=coverages)
+    with pytest.raises(ValueError, match="five.*frequencies"):
+        build_etf_mins_raw_run_config(
+            partition_key="2026-08-28",
+            basic_reference=_historical_basic_reference(),
+            requestable_targets=_HISTORICAL_TARGETS,
+            prod_coverage_reference=invalid,
+        )
 
 
 def test_frequency_date_and_exchange_contracts_are_centralized() -> None:
@@ -126,15 +292,9 @@ def test_etf_sensor_window_is_21_to_midnight_in_shanghai() -> None:
     assert not etf_sensor_window_is_open(
         datetime(2026, 8, 31, 20, 59, 59, tzinfo=shanghai)
     )
-    assert etf_sensor_window_is_open(
-        datetime(2026, 8, 31, 21, 0, 0, tzinfo=shanghai)
-    )
-    assert etf_sensor_window_is_open(
-        datetime(2026, 8, 31, 23, 59, 59, tzinfo=shanghai)
-    )
-    assert not etf_sensor_window_is_open(
-        datetime(2026, 9, 1, 0, 0, 0, tzinfo=shanghai)
-    )
+    assert etf_sensor_window_is_open(datetime(2026, 8, 31, 21, 0, 0, tzinfo=shanghai))
+    assert etf_sensor_window_is_open(datetime(2026, 8, 31, 23, 59, 59, tzinfo=shanghai))
+    assert not etf_sensor_window_is_open(datetime(2026, 9, 1, 0, 0, 0, tzinfo=shanghai))
 
     utc_boundary = datetime(2026, 8, 31, 13, 0, 0, tzinfo=timezone.utc)
     assert etf_sensor_window_is_open(utc_boundary)
@@ -240,15 +400,23 @@ def test_paths_match_formal_lake_and_operation_staging_contracts() -> None:
         "freq=60min/trade_date=2026-08-28/part-000.parquet"
     )
 
-    assert raw_etf_basic_snapshot_path(
-        PATH_TEMPLATE_LAKE_ROOT,
-        PATH_TEMPLATE_SNAPSHOT_ID,
-    ).as_posix().endswith("snapshot_id={snapshot_id}/part-000.parquet")
-    assert raw_etf_mins_path(
-        PATH_TEMPLATE_LAKE_ROOT,
-        1,
-        PATH_TEMPLATE_PARTITION_KEY,
-    ).as_posix().endswith("freq=1min/trade_date={partition_key}/part-000.parquet")
+    assert (
+        raw_etf_basic_snapshot_path(
+            PATH_TEMPLATE_LAKE_ROOT,
+            PATH_TEMPLATE_SNAPSHOT_ID,
+        )
+        .as_posix()
+        .endswith("snapshot_id={snapshot_id}/part-000.parquet")
+    )
+    assert (
+        raw_etf_mins_path(
+            PATH_TEMPLATE_LAKE_ROOT,
+            1,
+            PATH_TEMPLATE_PARTITION_KEY,
+        )
+        .as_posix()
+        .endswith("freq=1min/trade_date={partition_key}/part-000.parquet")
+    )
 
 
 @pytest.mark.parametrize(
@@ -315,9 +483,7 @@ def test_catalog_registers_twelve_contract_only_etf_entries() -> None:
         assert raw_entry.performance_contract.compute_engine is ComputeEngine.DUCKDB_SQL
         assert "prod-raw-db.raw_tushare.etf_minute_bar" in raw_entry.notes
         assert silver_entry.source_system is SourceSystem.DERIVED
-        assert silver_entry.bootstrap_sources == (
-            IngestionSource.DERIVED_FROM_ASSETS,
-        )
+        assert silver_entry.bootstrap_sources == (IngestionSource.DERIVED_FROM_ASSETS,)
         assert silver_entry.blocking_check_names == silver_etf_mins_check_names(freq)
         assert raw_entry.event_policy is EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL
         assert silver_entry.event_policy is EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL

@@ -29,7 +29,7 @@ class IndexDailyRawByDateAssetTests(unittest.TestCase):
         self.assertEqual(
             raw_index_daily_staging_path(root, "run-1", "2026-06-22"),
             Path(
-                "/lake/raw/index_daily/_staging/run_id=run-1/"
+                "/lake/_staging/index_daily/raw_index_daily/run_id=run-1/"
                 "trade_date=2026-06-22/part-000.parquet"
             ),
         )
@@ -180,13 +180,15 @@ class IndexDailyRawByDateAssetTests(unittest.TestCase):
             )
 
     def test_materialize_silver_index_daily_fails_for_missing_raw_file(self) -> None:
-        with tempfile.TemporaryDirectory() as temporary_dir:
-            with self.assertRaisesRegex(FileNotFoundError, "raw_index_daily"):
-                materialize_silver_index_daily_partition_from_raw_by_date(
-                    lake_root_path=Path(temporary_dir),
-                    duckdb=DuckDBResource(),
-                    partition_key="2026-06-22",
-                )
+        with (
+            tempfile.TemporaryDirectory() as temporary_dir,
+            self.assertRaisesRegex(FileNotFoundError, "raw_index_daily"),
+        ):
+            materialize_silver_index_daily_partition_from_raw_by_date(
+                lake_root_path=Path(temporary_dir),
+                duckdb=DuckDBResource(),
+                partition_key="2026-06-22",
+            )
 
     def test_materialize_silver_index_daily_fails_for_conflicting_duplicate_key(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_dir:

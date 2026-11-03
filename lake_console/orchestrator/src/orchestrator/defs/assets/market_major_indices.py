@@ -1,4 +1,3 @@
-import os
 from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
@@ -11,12 +10,12 @@ from orchestrator.defs.assets.index_daily import (
 )
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
-    copy_query_to_parquet,
     count_parquet_query,
     describe_parquet_query,
     duckdb_string,
     read_parquet,
 )
+from orchestrator.defs.io.index_daily_writer import write_index_daily_partition
 from orchestrator.defs.partitions import cn_a_index_trade_days
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
@@ -86,16 +85,6 @@ def _sample_dicts(
     return samples
 
 
-def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) -> None:
-    target_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path = target_path.with_name(f"{target_path.name}.tmp")
-    if temporary_path.exists():
-        temporary_path.unlink()
-
-    connection.execute(copy_query_to_parquet(select_sql, temporary_path))
-    os.replace(temporary_path, target_path)
-
-
 def create_major_indices_seed_table(
     connection, table_name: str = "major_indices_seed"
 ) -> int:
@@ -135,6 +124,7 @@ def write_gold_market_major_indices_daily_partition(
     silver_path: Path,
     target_path: Path,
     partition_key: str,
+    publication_id: str | None = None,
 ) -> dict[str, Any]:
     """Write one Gold partition using the same contract as the formal asset."""
 
@@ -155,14 +145,23 @@ def write_gold_market_major_indices_daily_partition(
             "silver_index_daily is missing major index rows for "
             f"{partition_key}: {missing_samples}"
         )
-    _replace_parquet_from_query(
+    write_index_daily_partition(
         connection,
         _major_indices_daily_select_sql(
             seed_table_name=seed_table_name,
             silver_path=silver_path,
             partition_key=partition_key,
         ),
-        target_path,
+        dataset="gold_market_major_indices_daily",
+        partition_key=partition_key,
+        target_path=target_path,
+        source_paths=(silver_path,),
+        expected_rows=len(active_seed_rows),
+        publication_id=publication_id,
+        additional_identity=tuple(
+            (row.rank, row.ts_code, row.display_name, str(row.effective_start_date),
+             str(row.effective_end_date)) for row in active_seed_rows
+        ),
     )
     return {
         "partition_key": partition_key,
@@ -357,6 +356,7 @@ def gold_market_major_indices_daily(
                     silver_path=silver_path,
                     target_path=target_path,
                     partition_key=partition_key,
+                    publication_id=context.run.root_run_id or context.run.run_id,
                 )
             )
 

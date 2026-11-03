@@ -11,7 +11,10 @@ from orchestrator.defs.run_contracts.cn_a_derived_minute_bars import (
     CanonicalGoldMinuteWindow,
     cn_a_derived_minute_windows,
 )
-from orchestrator.defs.run_contracts.configs import normalize_iso_trade_date
+from orchestrator.defs.run_contracts.configs import (
+    IndexMinsWriteConfig,
+    normalize_iso_trade_date,
+)
 
 INDEX_MINS_HISTORY_START_DATE = "2025-01-02"
 INDEX_MINS_SOURCE_FREQS = ("1min", "5min", "15min", "30min", "60min")
@@ -167,6 +170,30 @@ INDEX_MINS_GOLD_CHECKS = tuple(
 INDEX_MINS_GOLD_JOB_NAME = "gold_index_mins_update_job"
 INDEX_MINS_GOLD_SENSOR_NAME = "gold_index_mins_update_job_sensor"
 _INDEX_MINS_CODE_RE = re.compile(r"^[0-9A-Z]{1,12}\.[A-Z0-9]{2,8}$")
+
+
+def build_index_mins_raw_update_job_run_config(
+    *, write_mode: str = "reuse_existing"
+) -> dict[str, object]:
+    config = IndexMinsWriteConfig(write_mode=write_mode)
+    return {
+        "ops": {
+            name: {"config": config.model_dump()}
+            for name in INDEX_MINS_RAW_ASSET_NAMES
+        }
+    }
+
+
+def build_index_mins_silver_update_job_run_config(
+    *, write_mode: str = "reuse_existing"
+) -> dict[str, object]:
+    config = IndexMinsWriteConfig(write_mode=write_mode)
+    return {
+        "ops": {
+            name: {"config": config.model_dump()}
+            for name in INDEX_MINS_SILVER_ASSET_NAMES
+        }
+    }
 
 
 def normalize_index_mins_source_freq(value: object) -> str:

@@ -12,7 +12,11 @@ from orchestrator.defs.paths import (
     lake_path_template,
     raw_major_index_mins_path,
 )
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.resources import (
+    DuckDBResource,
+    LakeRootResource,
+    TushareResource,
+)
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_MAJOR_INDEX_MINS_SCHEMA,
 )
@@ -80,7 +84,7 @@ def _build_raw_asset(*, asset_name: str, source_freq: str) -> dg.AssetsDefinitio
             tushare=tushare,
             source_freq=source_freq,
             partition_key=context.partition_key,
-            run_id=context.run_id,
+            run_id=context.run.root_run_id or context.run.run_id,
             request_policy=TushareRequestPolicy(),
         )
         return dg.MaterializeResult(

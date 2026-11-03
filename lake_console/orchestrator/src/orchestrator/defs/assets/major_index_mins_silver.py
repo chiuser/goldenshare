@@ -90,7 +90,7 @@ def _build_silver_asset(
             duckdb_resource=duckdb,
             freq=frequency,
             partition_key=context.partition_key,
-            run_id=context.run_id,
+            run_id=context.run.root_run_id or context.run.run_id,
         )
         return dg.MaterializeResult(
             metadata=build_materialization_metadata(

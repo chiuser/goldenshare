@@ -13,7 +13,6 @@ from orchestrator.defs.asset_guards.etf_mins_lake_readiness import (
 )
 from orchestrator.defs.asset_guards.etf_mins_prod_readiness import (
     etf_mins_prod_source_ready_for_trade_date,
-    validate_etf_mins_prod_coverage_reference,
 )
 from orchestrator.defs.prod_db.etf_mins import (
     ProdEtfMinsCodeCoverageProbe,
@@ -27,6 +26,7 @@ from orchestrator.defs.run_contracts.etf_mins import (
     ETF_MINS_SOURCE_FREQS,
     EtfMinsProdCoverageReference,
     EtfMinsRequestableTarget,
+    validate_etf_mins_prod_coverage_reference,
 )
 
 TRADE_DATE = "2026-08-28"

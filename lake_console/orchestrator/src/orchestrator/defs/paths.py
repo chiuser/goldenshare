@@ -1,6 +1,7 @@
 import re
 from datetime import date
 from pathlib import Path
+from tempfile import gettempdir
 from uuid import UUID
 
 from orchestrator.defs.run_contracts.etf_daily import (
@@ -872,14 +873,18 @@ def raw_index_daily_staging_path(
     run_id: str,
     partition_key: str,
 ) -> Path:
-    return lake_path(
-        root,
-        RAW,
-        "index_daily",
-        "_staging",
-        f"run_id={run_id}",
-        f"trade_date={partition_key}",
-        "part-000.parquet",
+    day = date.fromisoformat(partition_key).isoformat()
+    if day != partition_key:
+        raise ValueError("Index daily partition must use YYYY-MM-DD")
+    staging_root = (
+        Path(DEFAULT_LAKE_STAGING_ROOT)
+        if Path(root) == Path(DEFAULT_LAKE_ROOT)
+        else Path(root) / "_staging"
+    )
+    return (
+        staging_root / "index_daily" / "raw_index_daily"
+        / _safe_run_id_part(run_id, asset_family="raw_index_daily")
+        / f"trade_date={day}" / "part-000.parquet"
     )
 
 
@@ -1083,8 +1088,13 @@ def raw_major_index_mins_staging_path(
         or "\\" in safe_run_id
     ):
         raise ValueError("major_index_mins run_id must be a safe non-empty path component")
+    staging_root = (
+        Path(DEFAULT_LAKE_STAGING_ROOT)
+        if Path(root) == Path(DEFAULT_LAKE_ROOT)
+        else Path(root) / "_staging"
+    )
     return lake_path(
-        root,
+        staging_root,
         RAW,
         "tushare",
         "major_index_mins",
@@ -1126,8 +1136,13 @@ def silver_major_index_mins_staging_path(
         or "\\" in safe_run_id
     ):
         raise ValueError("major_index_mins run_id must be a safe non-empty path component")
+    staging_root = (
+        Path(DEFAULT_LAKE_STAGING_ROOT)
+        if Path(root) == Path(DEFAULT_LAKE_ROOT)
+        else Path(root) / "_staging"
+    )
     return lake_path(
-        root,
+        staging_root,
         SILVER,
         "quote",
         "major_index_mins",
@@ -1224,9 +1239,54 @@ def gold_index_mins_staging_path(
 
 
 def _validate_staging_component(value: str, *, name: str) -> str:
-    if not value or value in {".", ".."} or "/" in value or "\\" in value:
+    if (
+        not isinstance(value, str)
+        or len(value) > 240
+        or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9_.-]*", value) is None
+    ):
         raise ValueError(f"index_global {name} must be a safe non-empty path component")
     return value
+
+
+def _index_global_staging_root(root: Path) -> Path:
+    """Map the formal root, or a caller-owned isolated temporary root."""
+    root = Path(root)
+    if not root.is_absolute() or ".." in root.parts:
+        raise ValueError("index_global staging requires an absolute approved root")
+    if root == Path(DEFAULT_LAKE_ROOT):
+        # Path construction must not probe the formal volume. The writer checks
+        # root availability, symlinks and same-device publication before I/O.
+        return Path(DEFAULT_LAKE_STAGING_ROOT)
+    temporary_root = Path(gettempdir())
+    canonical_temporary_root = temporary_root
+    if temporary_root.is_relative_to(Path("/var")):
+        canonical_temporary_root = Path("/private/var") / temporary_root.relative_to("/var")
+    temporary_roots = (
+        Path("/private/tmp"), Path("/tmp"), temporary_root, canonical_temporary_root,
+    )
+    if not any(root.is_relative_to(temporary) for temporary in temporary_roots):
+        raise ValueError("index_global staging requires the formal or an isolated temporary root")
+    for component in (root, *root.parents):
+        if (
+            component in (Path("/tmp"), Path("/var"))
+            and component.resolve() == Path("/private") / component.name
+        ):
+            continue
+        if component.is_symlink():
+            raise ValueError("index_global staging root cannot contain symbolic links")
+    return root / "_staging"
+
+
+def _index_global_staging_day(trade_date: str) -> str:
+    if not isinstance(trade_date, str):
+        raise TypeError("index_global staging date must use YYYY-MM-DD")
+    try:
+        day = date.fromisoformat(trade_date).isoformat()
+    except ValueError as error:
+        raise ValueError("index_global staging date must use YYYY-MM-DD") from error
+    if day != trade_date:
+        raise ValueError("index_global staging date must use YYYY-MM-DD")
+    return day
 
 
 def raw_index_global_path(root: Path, trade_date: str) -> Path:
@@ -1247,15 +1307,13 @@ def raw_index_global_staging_path(
 ) -> Path:
     safe_run_id = _validate_staging_component(run_id, name="run_id")
     safe_phase = _validate_staging_component(probe_phase, name="probe_phase")
-    return lake_path(
-        root,
-        RAW,
-        "index_global",
-        "_staging",
-        f"run_id={safe_run_id}",
-        f"trade_date={trade_date}",
-        f"probe_phase={safe_phase}",
-        "part-000.parquet",
+    if safe_phase not in {"asia_1", "asia_2", "asia_3", "europe", "americas", "late_empty"}:
+        raise ValueError("index_global staging probe_phase is unsupported")
+    day = _index_global_staging_day(trade_date)
+    return (
+        _index_global_staging_root(root)
+        / "index_global" / "raw_index_global" / f"trade_date={day}"
+        / f"operation={safe_run_id}" / f"phase={safe_phase}" / "part-000.parquet"
     )
 
 
@@ -1275,14 +1333,11 @@ def silver_index_global_staging_path(
     trade_date: str,
 ) -> Path:
     safe_run_id = _validate_staging_component(run_id, name="run_id")
-    return lake_path(
-        root,
-        SILVER,
-        "index_global",
-        "_staging",
-        f"run_id={safe_run_id}",
-        f"trade_date={trade_date}",
-        "part-000.parquet",
+    day = _index_global_staging_day(trade_date)
+    return (
+        _index_global_staging_root(root)
+        / "index_global" / "silver_index_global" / f"trade_date={day}"
+        / f"operation={safe_run_id}" / "phase=silver" / "part-000.parquet"
     )
 
 

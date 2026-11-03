@@ -2,16 +2,16 @@
 
 import dagster as dg
 
-from orchestrator.defs.assets.index_mins_silver import (
-    INDEX_MINS_SILVER_COLUMNS,
-    write_silver_index_mins_partition,
-)
 from orchestrator.defs.assets.index_mins_raw import (
     raw_index_mins_1m,
     raw_index_mins_5m,
     raw_index_mins_15m,
     raw_index_mins_30m,
     raw_index_mins_60m,
+)
+from orchestrator.defs.assets.index_mins_silver import (
+    INDEX_MINS_SILVER_COLUMNS,
+    write_silver_index_mins_partition,
 )
 from orchestrator.defs.partitions import cn_a_index_mins_trade_days
 from orchestrator.defs.paths import (
@@ -21,14 +21,20 @@ from orchestrator.defs.paths import (
     silver_index_mins_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
-from orchestrator.defs.run_contracts.asset_column_schemas import SILVER_INDEX_MINS_SCHEMA
-from orchestrator.defs.run_contracts.asset_tags import AssetLayer, DataDomain, build_asset_tags
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    SILVER_INDEX_MINS_SCHEMA,
+)
+from orchestrator.defs.run_contracts.asset_tags import (
+    AssetLayer,
+    DataDomain,
+    build_asset_tags,
+)
+from orchestrator.defs.run_contracts.configs import IndexMinsWriteConfig
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
-
 
 _NATIVE_ASSETS = {
     1: raw_index_mins_1m,
@@ -42,19 +48,25 @@ _NATIVE_ASSETS = {
 def _silver_asset_metadata(freq: int) -> dict[str, object]:
     return {
         "frequency": f"{freq}min",
-        "source_frequency": f"{freq}min" if freq < 90 else ("30min" if freq == 90 else "60min"),
+        "source_frequency": f"{freq}min"
+        if freq < 90
+        else ("30min" if freq == 90 else "60min"),
         "derived_vwap_policy": "preserve_native_vwap_else_null",
         "write_boundary": "p4_dagster_asset",
     }
 
 
-def _build_silver_asset(*, asset_name: str, freq: int, deps: list[object]) -> dg.AssetsDefinition:
+def _build_silver_asset(
+    *, asset_name: str, freq: int, deps: list[object]
+) -> dg.AssetsDefinition:
     @dg.asset(
         name=asset_name,
         deps=deps,
         partitions_def=cn_a_index_mins_trade_days,
         group_name="index",
-        tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
+        tags=build_asset_tags(
+            layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA
+        ),
         metadata=build_asset_definition_metadata(
             dataset_id="index_mins",
             source_system=SourceSystem.DERIVED,
@@ -73,6 +85,7 @@ def _build_silver_asset(*, asset_name: str, freq: int, deps: list[object]) -> dg
     )
     def silver_asset(
         context: dg.AssetExecutionContext,
+        config: IndexMinsWriteConfig,
         lake_root: LakeRootResource,
         duckdb: DuckDBResource,
     ) -> dg.MaterializeResult:
@@ -82,6 +95,8 @@ def _build_silver_asset(*, asset_name: str, freq: int, deps: list[object]) -> dg
             duckdb=duckdb,
             freq=freq,
             partition_key=context.partition_key,
+            publication_id=context.run.root_run_id or context.run.run_id,
+            overwrite=config.write_mode == "replace_existing",
         )
         return dg.MaterializeResult(
             metadata=build_materialization_metadata(
