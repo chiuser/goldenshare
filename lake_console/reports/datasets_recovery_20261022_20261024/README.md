@@ -14,7 +14,7 @@
 
 全部五个目录的范围与执行规则见[原LLD20.16](../../docs/design/dagster-stk-mins-qfq-staging-write-plan-and-low-level-design.md#2016-五个恢复报告目录的精简2026-11-01)。
 
-状态（2026-10-26，最新）：2026-10-22原109项缺失清单已全部补齐。最后四频分钟九转由原job一次成功执行，4条原检查及物化绑定通过，合94,690行；详情见第50节。21/23日与来源身份未变，两sensor仍STOPPED，23日全部补齐后再启用的TODO保留。没有再次做全局完整性审计；本结论按原清单及本次精确验收销账。代码已提交`9d7028af`，未推送。
+状态（2026-10-27，最新）：2026-10-22原109项缺失已全部补齐，23日股票链及两类repair也已验收；本次按管理员追加授权恢复曾停用的MACD/KDJ日更、九转sensor并读回RUNNING，收尾见第51节。THS两项独立未完成，不据此扩大22日/23日完整性结论。本次仅开关恢复、精确临时文件清理和文档归档，没有新增手工补数或全局审计。
 
 ## 1. 为什么显示109项缺失
 
@@ -1036,7 +1036,7 @@ S只采用旧目录/stat的39144份/7.518GiB作测算背景，实际目标未冻
 
 管理员随后已明确批准停用上述两项并开始补数。执行状态修改后保存读回证据，再运行原七频job，不恢复性能测试或全局审计。
 
-- [ ] **TODO：等2026-10-23的数据补齐完成后，再启用`gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor`和`gold_stk_mins_qfq_nineturn_update_job_sensor`。** 由后续补数执行者核对23日结果后执行并记录；本轮22日完成后继续保持STOPPED。
+- [x] **sensor恢复TODO已完成（2026-10-27）**：两项sensor已按管理员本次追加授权恢复并读回RUNNING，原身份、cursor和lastRunKey保留。23日股票链及repair已验收；THS两项独立未完成，不再作为本次恢复开关的等待条件。详见23日恢复报告第43—44节及`operational-closeout-20261027/sensor-restoration-summary.json`。
 
 2026-10-25 21:24（Asia/Shanghai）两项已从RUNNING改为STOPPED并读回，cursor/instigator_data及其他自动任务状态保持原值，见[状态修改及启动预检（附件已清理）](README.md#报告附件清理2026-11-01)。现场无活动run/daemon，五输入stat未变、空间满足12GiB要求；没有重新列举年度文件。
 
@@ -1272,3 +1272,12 @@ CodeGraph与实际实现确认：分钟候选仍由旧helper放在正式Gold的`
 按原清单累计恢复**109/109，剩余0**；原136项检查目标销账完成。这不是对新增数据集或23日的新全局审计。23日全部补齐后再启用sensor的TODO继续保留。本次临时脚本/日志已归档并清除，业务staging恢复记录保留，共享`index_daily_p3`目录未误删。代码提交为`9d7028af`，未推送；本节执行证据和文档更新留在工作区供审阅。
 
 证据：[补数汇总](nineturn_recovery_20261026/summary.json)、[四项精确验收（附件已清理）](README.md#报告附件清理2026-11-01)、[附加来源/工作目录stat（附件已清理）](README.md#报告附件清理2026-11-01)、[原job日志（附件已清理）](README.md#报告附件清理2026-11-01)、[最终控制状态（附件已清理）](README.md#报告附件清理2026-11-01)。
+
+
+## 51. sensor待办及临时文件收尾完成（2026-10-27）
+
+管理员本次明确要求恢复此前为补数停用的sensor。23日股票链和两类repair已验收，THS两项无本链输入依赖，因此按最新授权恢复，而非声称23日112项全部完成。12:21正式读回`gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor`及`gold_stk_mins_qfq_nineturn_update_job_sensor`均RUNNING；原origin/selector/cursor/lastRunKey在启用响应中保持。仅这两个开关改变，未重置进度、手工触发job或修改其他sensor/schedule/并发。上述TODO已关闭；此前各节STOPPED为对应历史时点记录。
+
+本次另删除21个已明确无用的临时文件，共65,411B：10个已归档dg22脚本/SQL、6个重复公告verify.out、2个已逐字归档的公告只读辅助脚本、3个失败启动遗留的空文件/旧pid记录。没有删除唯一compute.out、正式Lake、业务staging、receipt/checkpoint/budget、失败现场、最新审计报告或DG活动日志。此前20个DuckDB工作文件已按第46节清理，不重复清理或删除共享index_daily_p3。公告有效证据已作长期归档；本报告旧归档和验收结果保持。
+
+精确操作及读回、清单/逐项结果由[23日收尾记录](../datasets_recovery_20261023_20261026/README.md#44-恢复开关与清理的执行结果2026-10-27)承接。此处只关闭原22日等待23日后恢复sensor的待办，不改写历史数据执行事实。

@@ -67,10 +67,6 @@ A = "000001.SZ"
 T, P, START = date(2026, 10, 16), date(2026, 10, 15), date(2026, 10, 12)
 DATES = tuple(date(2026, 10, day) for day in range(12, 17))
 PROJECT = Path(__file__).resolve().parents[1]
-REPORT = (
-    PROJECT.parent
-    / "reports/stock_factor_pro_batch3_20261026/integration-evidence.json"
-)
 
 
 class Metrics:
@@ -234,11 +230,11 @@ class MeasuredConnection:
         return value
 
 
-def evidence(section, value):
-    REPORT.parent.mkdir(parents=True, exist_ok=True)
-    existing = json.loads(REPORT.read_text()) if REPORT.exists() else {}
+def evidence(output_dir, section, value):
+    report = output_dir / "integration-evidence.json"
+    existing = json.loads(report.read_text()) if report.exists() else {}
     existing[section] = value
-    write_json(REPORT, existing)
+    write_json(report, existing)
 
 
 class ObservedDownloader:
@@ -496,6 +492,7 @@ def test_native_saved_response_retry_notifications_and_complete_chain(tmp_path):
         assert metric.counts["formal_replaces"] == 8
         assert metric.max_relation_rows["stk_factor_pro_history_batch_source"] == 4
         evidence(
+            tmp_path,
             "normal",
             {
                 "source_evidence": "stock_factor_pro_batch1_20261026/source/component-rows.canonical.json",
@@ -696,6 +693,7 @@ def test_real_process_exit_then_new_process_redownloads_complete_original_scope(
     assert fresh["cost"]["counts"]["source_unit_copies"] == 1
     assert fresh["cost"]["counts"]["batch_source_ctas"] == 1
     evidence(
+        tmp_path,
         "process_exit_and_redownload",
         {
             "failed_process": old,
