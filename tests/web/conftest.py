@@ -220,6 +220,10 @@ def app_client(db_session: Session, monkeypatch) -> Generator[TestClient, None, 
         yield
 
     monkeypatch.setattr("src.app.web.lifespan.trading_assistant_lifespan", isolated_trading_assistant)
+    # Shared Web tests do not exercise the stock indicator runtime. Dedicated
+    # integration cases install their own backend and real target middleware.
+    monkeypatch.setattr("src.app.web.lifespan.stock_daily_technical_indicators_lifespan",
+                        isolated_trading_assistant)
 
     def override_db_session():
         yield db_session

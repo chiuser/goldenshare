@@ -1,0 +1,160 @@
+{
+  "status": "step3_ordinary_validation_complete",
+  "stage_C_complete": true,
+  "scope": "original stock daily integration LLD16.4; 11 pending ordinary functions only",
+  "source_scope": "resume_scope_20261103.json",
+  "original_failure": "blocker.json",
+  "old_progress": "progress.json",
+  "current_progress": "resume_progress_20261103.json",
+  "original_passed_retained": [
+    "test_mapping_and_legal_nulls",
+    "test_result_contract_errors",
+    "test_actual_send_holds_lease",
+    "test_cancel_and_cleanup_release_once",
+    "test_legacy_payload_encoding_boundaries",
+    "test_database_session_ownership_and_timeout",
+    "test_lifespan_and_other_paths"
+  ],
+  "new_test_groups": [
+    {
+      "name": "web_resume_20261103",
+      "nodeids": [
+        "tests/web/test_stock_daily_technical_indicator_api.py::test_original_limits_and_openapi",
+        "tests/web/test_stock_daily_technical_indicator_api.py::test_prewait_errors_unknown_and_empty",
+        "tests/web/test_wealth_stock_detail_api.py::test_stock_detail_kline_returns_day_forward_bars_without_forbidden_ma",
+        "tests/web/test_wealth_stock_detail_api.py::test_stock_detail_kline_preserves_unavailable_ma_as_null",
+        "tests/web/test_wealth_stock_detail_api.py::test_stock_detail_kline_rejects_unsupported_period_and_adjustment",
+        "tests/web/test_wealth_stock_detail_api.py::test_stock_detail_returns_404_for_unknown_stock",
+        "tests/web/test_wealth_stock_detail_api.py::test_stock_detail_page_init_returns_context_stock_quote_and_defaults"
+      ],
+      "exit_code": 0,
+      "seconds": 6.183957583270967,
+      "cases": [
+        {
+          "name": "test_original_limits_and_openapi",
+          "passed": true
+        },
+        {
+          "name": "test_prewait_errors_unknown_and_empty",
+          "passed": true
+        },
+        {
+          "name": "test_stock_detail_kline_returns_day_forward_bars_without_forbidden_ma",
+          "passed": true
+        },
+        {
+          "name": "test_stock_detail_kline_preserves_unavailable_ma_as_null",
+          "passed": true
+        },
+        {
+          "name": "test_stock_detail_kline_rejects_unsupported_period_and_adjustment",
+          "passed": true
+        },
+        {
+          "name": "test_stock_detail_returns_404_for_unknown_stock",
+          "passed": true
+        },
+        {
+          "name": "test_stock_detail_page_init_returns_context_stock_quote_and_defaults",
+          "passed": true
+        }
+      ],
+      "fake_controls": 16,
+      "sqlite_returned_rows": 5030,
+      "log": "web_resume_20261103.txt",
+      "junit": "web_resume_20261103.xml"
+    },
+    {
+      "name": "dependencies_resume_20261103",
+      "nodeids": [
+        "tests/architecture/test_subsystem_dependency_matrix.py::test_subsystem_dependency_matrix",
+        "tests/architecture/test_platform_legacy_guardrails.py::test_no_runtime_imports_from_platform_legacy_package",
+        "tests/architecture/test_operations_legacy_guardrails.py::test_no_legacy_operations_services_imports",
+        "tests/architecture/test_technical_indicator_dependencies.py::test_indicator_dependency_boundaries"
+      ],
+      "exit_code": 0,
+      "seconds": 6.9431635001674294,
+      "cases": [
+        {
+          "name": "test_subsystem_dependency_matrix",
+          "passed": true
+        },
+        {
+          "name": "test_no_runtime_imports_from_platform_legacy_package",
+          "passed": true
+        },
+        {
+          "name": "test_no_legacy_operations_services_imports",
+          "passed": true
+        },
+        {
+          "name": "test_indicator_dependency_boundaries",
+          "passed": true
+        }
+      ],
+      "fake_controls": 0,
+      "sqlite_returned_rows": 0,
+      "log": "dependencies_resume_20261103.txt",
+      "junit": "dependencies_resume_20261103.xml"
+    }
+  ],
+  "passed_new_function_count": 11,
+  "retained_original_passed_count": 7,
+  "step3_passed_function_count": 18,
+  "additional_costs": {
+    "pytest_seconds": 13.127121083438396,
+    "fake_controls": 16,
+    "sqlite_returned_rows": 5030
+  },
+  "step3_total_costs": {
+    "pytest_seconds": 17.416619583033025,
+    "fake_controls": 32,
+    "sqlite_returned_rows": 5030
+  },
+  "step3_remaining": {
+    "pytest_seconds": 42.583380416966975,
+    "fake_controls": 16,
+    "sqlite_returned_rows": 9970
+  },
+  "specialty_total_fake_controls": 41,
+  "specialty_remaining_fake_controls": 31,
+  "real_controls": 0,
+  "real_calculate_calls": 0,
+  "formal_source_rows": 0,
+  "indicator_sql_rows": 0,
+  "coverage": [
+    "full Web app import",
+    "original stock route/OpenAPI/parameters and 1/1000/2000 bounds",
+    "prewait errors and unknown-stock/empty success",
+    "legacy stock kline/null mapping and page-init regression",
+    "four actual dependency guards"
+  ],
+  "substitutes": [
+    "indicator calculation",
+    "ExecutionControl",
+    "business PG resource context replaced by independent worker SQLite Session"
+  ],
+  "not_accepted": [
+    "P01 real PG readonly/timeout probe",
+    "R01-R04 real kernel with temporary Lake",
+    "R05 real source/browser/performance",
+    "deployment",
+    "DG exit"
+  ],
+  "original_reports_preserved": true,
+  "implementation_test_files_unchanged": 21,
+  "protected_files_unchanged": 64,
+  "dependency_changes": false,
+  "source_changes": false,
+  "pytest_warnings": "existing httpx deprecation and xunit2 record_property compatibility; properties present and costs parsed; no install or expectation changes",
+  "committed": false,
+  "deployed": false,
+  "final_document_checks": {
+    "both_HTML_structure_and_local_links": "passed",
+    "repository_document_integrity": "passed",
+    "scoped_whitespace": "passed",
+    "all_frozen_source_and_old_evidence": "unchanged",
+    "runtime_tests_rerun_after_pass": false
+  },
+  "codegraph_closeout": "codegraph sync already up to date; codegraph status checked"
+}

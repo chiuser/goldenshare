@@ -10,6 +10,7 @@ from starlette.middleware.cors import CORSMiddleware
 from src.app.api.router import router as api_router
 from src.app.exceptions import install_exception_handlers
 from src.app.runtime.announcement_archive_lifespan import install_data_center
+from src.app.dependencies.stock_daily_technical_indicators import install_stock_daily_technical_indicators
 from src.foundation.config.settings import get_settings
 from src.foundation.config.announcement_archive import announcements_enabled
 from src.app.web.lifespan import web_lifespan
@@ -49,6 +50,7 @@ if WEALTH_ASSETS_DIR.exists():
     app.mount("/wealth/assets", StaticFiles(directory=str(WEALTH_ASSETS_DIR)), name="wealth-assets")
 install_exception_handlers(app)
 install_data_center(app)
+install_stock_daily_technical_indicators(app)
 app.include_router(api_router)
 
 

@@ -43,6 +43,10 @@ _FACTOR_FIELD_NAMES: tuple[str, ...] = (
 )
 
 FACTOR_COLUMNS = tuple(getattr(EquityFactorPro, field_name) for field_name in _FACTOR_FIELD_NAMES)
+KLINE_COLUMNS = tuple(getattr(EquityFactorPro, field_name) for field_name in (
+    "ts_code", "trade_date", "open_qfq", "high_qfq", "low_qfq", "close_qfq",
+    "pre_close", "change", "pct_chg", "vol", "amount", "turnover_rate", "volume_ratio",
+))
 
 
 class StockDetailQuery:
@@ -87,7 +91,7 @@ class StockDetailQuery:
             conditions.append(EquityFactorPro.trade_date >= start_date)
 
         statement = (
-            select(*FACTOR_COLUMNS)
+            select(*KLINE_COLUMNS)
             .where(*conditions)
             .order_by(desc(EquityFactorPro.trade_date))
             .limit(limit)

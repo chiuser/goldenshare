@@ -5,15 +5,23 @@ from typing import Any, Mapping
 
 from src.biz.services.wealth.market.detail_volume_display import format_daily_volume_display
 from src.biz.schemas.wealth.market.stock_detail import (
-    StockBollDto,
     StockDetailDataStatusDto,
-    StockKdjDto,
     StockKlineBarDto,
     StockKlineFactorDto,
-    StockMacdDto,
-    StockMovingAverageDto,
     StockQuoteSnapshotDto,
 )
+
+from src.biz.schemas.wealth.market.context import MarketPageContextDto
+from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContext
+from .stock_daily_kline_contracts import StockDailyKlineRow
+
+
+def build_page_context(context: MarketPageContext) -> MarketPageContextDto:
+    return MarketPageContextDto(
+        market="CN_A", tradeDate=context.trade_date, prevTradeDate=context.prev_trade_date,
+        isTradingDay=context.is_trading_day, sessionStatus=context.session_status,
+        timezone="Asia/Shanghai", generatedAt=context.generated_at, source=context.source,
+    )
 
 
 def to_float(value: Any) -> float | None:
@@ -84,53 +92,20 @@ def build_quote(row: Mapping[str, Any]) -> StockQuoteSnapshotDto:
     )
 
 
-def build_kline_bar(row: Mapping[str, Any]) -> StockKlineBarDto:
-    open_price = to_float(row.get("open_qfq"))
-    high_price = to_float(row.get("high_qfq"))
-    low_price = to_float(row.get("low_qfq"))
-    close_price = to_float(row.get("close_qfq"))
-    pre_close = to_float(row.get("pre_close"))
-    change_pct = to_float(row.get("pct_chg"))
-    vol = to_float(row.get("vol"))
+def build_kline_bar(row: StockDailyKlineRow, factors: StockKlineFactorDto) -> StockKlineBarDto:
+    open_price = to_float(row.open_qfq)
+    high_price = to_float(row.high_qfq)
+    low_price = to_float(row.low_qfq)
+    close_price = to_float(row.close_qfq)
+    pre_close = to_float(row.pre_close)
+    change_pct = to_float(row.pct_chg)
+    vol = to_float(row.vol)
     return StockKlineBarDto(
-        tradeDate=row["trade_date"],
-        open=open_price,
-        high=high_price,
-        low=low_price,
-        close=close_price,
-        preClose=pre_close,
-        change=to_float(row.get("change")),
-        changePct=change_pct,
+        tradeDate=row.trade_date,
+        open=open_price, high=high_price, low=low_price, close=close_price,
+        preClose=pre_close, change=to_float(row.change), changePct=change_pct,
         amplitude=calculate_amplitude(high=high_price, low=low_price, pre_close=pre_close),
-        vol=vol,
-        volDisplay=format_daily_volume_display(vol),
-        amount=to_float(row.get("amount")),
-        turnoverRate=to_float(row.get("turnover_rate")),
-        volumeRatio=to_float(row.get("volume_ratio")),
-        factors=StockKlineFactorDto(
-            ma=StockMovingAverageDto(
-                ma5=to_float(row.get("ma_qfq_5")),
-                ma10=to_float(row.get("ma_qfq_10")),
-                ma20=to_float(row.get("ma_qfq_20")),
-                ma30=to_float(row.get("ma_qfq_30")),
-                ma60=to_float(row.get("ma_qfq_60")),
-                ma90=to_float(row.get("ma_qfq_90")),
-                ma250=to_float(row.get("ma_qfq_250")),
-            ),
-            boll=StockBollDto(
-                upper=to_float(row.get("boll_upper_qfq")),
-                middle=to_float(row.get("boll_mid_qfq")),
-                lower=to_float(row.get("boll_lower_qfq")),
-            ),
-            macd=StockMacdDto(
-                dif=to_float(row.get("macd_dif_qfq")),
-                dea=to_float(row.get("macd_dea_qfq")),
-                macd=to_float(row.get("macd_qfq")),
-            ),
-            kdj=StockKdjDto(
-                k=to_float(row.get("kdj_k_qfq")),
-                d=to_float(row.get("kdj_d_qfq")),
-                j=to_float(row.get("kdj_qfq")),
-            ),
-        ),
+        vol=vol, volDisplay=format_daily_volume_display(vol), amount=to_float(row.amount),
+        turnoverRate=to_float(row.turnover_rate), volumeRatio=to_float(row.volume_ratio),
+        factors=factors,
     )

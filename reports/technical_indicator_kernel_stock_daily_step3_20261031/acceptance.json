@@ -1,0 +1,80 @@
+{
+  "status": "step3_implemented_pending_web_validation_blocked",
+  "stage_complete": false,
+  "passed_function_count": 7,
+  "passed_functions": [
+    "test_mapping_and_legal_nulls",
+    "test_result_contract_errors",
+    "test_actual_send_holds_lease",
+    "test_cancel_and_cleanup_release_once",
+    "test_legacy_payload_encoding_boundaries",
+    "test_database_session_ownership_and_timeout",
+    "test_lifespan_and_other_paths"
+  ],
+  "failed_node": "tests/web/test_stock_daily_technical_indicator_api.py::test_original_limits_and_openapi",
+  "not_run": [
+    "tests/web/test_stock_daily_technical_indicator_api.py::test_prewait_errors_unknown_and_empty",
+    "tests/web/test_wealth_stock_detail_api.py::test_stock_detail_kline_returns_day_forward_bars_without_forbidden_ma",
+    "tests/web/test_wealth_stock_detail_api.py::test_stock_detail_kline_preserves_unavailable_ma_as_null",
+    "tests/web/test_wealth_stock_detail_api.py::test_stock_detail_kline_rejects_unsupported_period_and_adjustment",
+    "tests/web/test_wealth_stock_detail_api.py::test_stock_detail_returns_404_for_unknown_stock",
+    "tests/web/test_wealth_stock_detail_api.py::test_stock_detail_page_init_returns_context_stock_quote_and_defaults",
+    "tests/architecture/test_subsystem_dependency_matrix.py::test_subsystem_dependency_matrix",
+    "tests/architecture/test_platform_legacy_guardrails.py::test_no_runtime_imports_from_platform_legacy_package",
+    "tests/architecture/test_operations_legacy_guardrails.py::test_no_legacy_operations_services_imports",
+    "tests/architecture/test_technical_indicator_dependencies.py::test_indicator_dependency_boundaries"
+  ],
+  "blocker": {
+    "phase": "Web fixture import before first stock API test",
+    "error_type": "ImportError",
+    "message": "cannot import name 'inactive_result'",
+    "files": {
+      "src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py": {
+        "sha256": "a070b07e28f44bf576c554e1f0688f7af789e33f5a700bb0ff30c13e1b12e686",
+        "unchanged_from_start_commit": true
+      },
+      "src/biz/services/wealth/market/index_detail_xxm/forecast.py": {
+        "sha256": "16b3b0dd5613832eacf65f5cdaa7b67562b0083c346536a24e322ca14cd17a4b",
+        "unchanged_from_start_commit": true
+      }
+    },
+    "test_body_started": false,
+    "stock_runtime_started": false,
+    "outside_this_task": true,
+    "proposed_action": "Have the XXM task resolve its existing import contract; then explicitly authorize the failed Web node and remaining checks. Do not stub the global router or repeat passed cases."
+  },
+  "test_costs": {
+    "pytest_seconds": 4.289498499594629,
+    "fake_controls": 16,
+    "sqlite_returned_rows": 0
+  },
+  "real_controls": 0,
+  "real_calculate_calls": 0,
+  "formal_reads": false,
+  "indicator_sql_rows": 0,
+  "P_R_executed": false,
+  "protected_files_unchanged": true,
+  "production_changes_verified": "syntax and original route query parameter AST checked before testing; stock query/mapper/app/resource/send unit paths passed; full app import blocked before API tests",
+  "implementation_sha256": {
+    "src/biz/queries/wealth/market/stock_detail/stock_detail_query.py": "76d47886f9242b18727802b7584b4c94e03deb2eaef0617909719b1ba07d031e",
+    "src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py": "1df616a0602f5207f1c018608e558947f0371baded6241715fb2a1d21194e9f9",
+    "src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py": "4a1ae54bf9d4d8097a9b8f7dfb922c940875952fa11332852f1718eae365455e",
+    "src/biz/services/wealth/market/stock_detail/stock_daily_kline_service.py": "6cb4506af7e16285bc60867c7c3a497ac282d514fc23399e3f42f2346cc72298",
+    "src/biz/api/wealth/market/stock_detail.py": "841287150a962ecbd98ff7ba6d09e925003c4f3f99c8b5460a8141e0d76723ad",
+    "src/app/dependencies/stock_daily_technical_indicators.py": "8511238f4c4ff1b8f06a5107063848f146a0621c4c4c83a5358df6b1e5f07b0e",
+    "src/app/web/middleware/stock_daily_kline.py": "fdf3956f2b889d601a2d632cf699e7adb74fcb72551a525a398bb8b58e53b44b",
+    "src/app/web/middleware/access_log.py": "b236f7b49c143199c33995e9e06ff991fdb5b0f93bcc9def52d5c06c668a3f87",
+    "src/app/web/middleware/request_id.py": "d5ebcaed5e53c53bf8e4dcadef43692351ab5ddb44620651229db27442fa268a",
+    "src/app/web/app.py": "bd41debe867fc2d84cca86e9250258b11cf1d0541b1ab5677bf61c8991d7d1f4",
+    "src/app/web/lifespan.py": "b4ed12ef5b1c33fce3de8341c50b8806a82cb8d5c2fe802d87ca9de1261a53c0"
+  },
+  "committed": false,
+  "deployed": false,
+  "final_closeout_checks": {
+    "repository_docs_integrity": "passed",
+    "scoped_diff_whitespace": "passed",
+    "tested_files_unchanged_after_failure": true,
+    "protected_code_unchanged": true,
+    "no_additional_tests_after_failure": true
+  }
+}

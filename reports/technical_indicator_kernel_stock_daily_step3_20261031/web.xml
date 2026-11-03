@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites name="pytest tests"><testsuite name="pytest" errors="1" failures="0" skipped="0" tests="1" time="1.259" timestamp="2026-10-31T10:55:14.723488+08:00" hostname="bogon"><testcase classname="tests.web.test_stock_daily_technical_indicator_api" name="test_original_limits_and_openapi" time="0.654"><error message="failed on setup with &quot;ImportError: cannot import name 'inactive_result' from 'src.biz.services.wealth.market.index_detail_xxm.forecast' (/Users/congming/github/goldenshare/src/biz/services/wealth/market/index_detail_xxm/forecast.py)&quot;">db_session = &lt;sqlalchemy.orm.session.Session object at 0x10aab23c0&gt;
+monkeypatch = &lt;_pytest.monkeypatch.MonkeyPatch object at 0x107c542b0&gt;
+
+    @pytest.fixture()
+    def app_client(db_session: Session, monkeypatch) -&gt; Generator[TestClient, None, None]:
+&gt;       from src.app.web.app import app
+
+tests/web/conftest.py:208: 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+src/app/web/app.py:10: in &lt;module&gt;
+    from src.app.api.router import router as api_router
+src/app/api/__init__.py:1: in &lt;module&gt;
+    from src.app.api.router import router
+src/app/api/router.py:6: in &lt;module&gt;
+    from src.app.api.v1.router import router as v1_router
+src/app/api/v1/__init__.py:1: in &lt;module&gt;
+    from src.app.api.v1.router import router
+src/app/api/v1/router.py:18: in &lt;module&gt;
+    from src.biz.api.wealth.market import index_detail_daily_wave, index_detail_xxm, index_detail_xxm_forecast
+src/biz/api/wealth/market/index_detail_xxm_forecast.py:5: in &lt;module&gt;
+    from src.biz.queries.wealth.market.index_detail_xxm.forecast_query_service import IndexDetailXxmForecastQueryService
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+
+    from bisect import bisect_right
+    from datetime import date, datetime, time as daytime, timedelta
+    import hashlib
+    import json
+    import time
+    
+    from sqlalchemy import select
+    from src.foundation.models.core.trade_calendar import TradeCalendar
+    from src.biz.schemas.wealth.market.index_detail_xxm_forecast import ForecastResponseDto
+&gt;   from src.biz.services.wealth.market.index_detail_xxm.forecast import forecast, inactive_result
+E   ImportError: cannot import name 'inactive_result' from 'src.biz.services.wealth.market.index_detail_xxm.forecast' (/Users/congming/github/goldenshare/src/biz/services/wealth/market/index_detail_xxm/forecast.py)
+
+src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py:10: ImportError</error></testcase></testsuite></testsuites>

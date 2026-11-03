@@ -124,3 +124,81 @@ def test_input_is_detached_and_immutable():
         _request(trade_date=datetime(2026, 1, 5))
     with pytest.raises(RuntimeError, match="Stock daily kline backend is not installed"):
         get_stock_daily_kline_backend()
+
+
+def test_mapping_and_legal_nulls(monkeypatch):
+    from dataclasses import asdict
+    from decimal import Decimal
+    from types import SimpleNamespace
+    from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
+    from tests.stock_daily_kline_helpers import result_for
+
+    service = StockDailyKlineService()
+    source = _source((_row(date(2026, 1, 5)), _row(date(2026, 1, 6))), _request(debug=True))
+    order = []
+    query = service._query
+    monkeypatch.setattr(query._context_query, "resolve_context", lambda session, **kw: (
+        order.append(("context", kw)) or source.context))
+    monkeypatch.setattr(query._query, "load_security", lambda session, **kw: (
+        order.append(("security", kw)) or SimpleNamespace(ts_code="600000.SH", name="浦发银行")))
+    rows = [asdict(row) | {"ts_code": "600000.SH"} for row in source.bars]
+    rows[0]["close_qfq"] = Decimal("10.00000000001")
+    monkeypatch.setattr(query._query, "load_kline_rows", lambda session, **kw: (
+        order.append(("bars", kw)) or rows))
+    prepared = service.prepare(object(), source.request)
+    assert [name for name, _ in order] == ["context", "security", "bars"]
+    assert order[-1][1] == {"ts_code": "600000.SH", "end_date": date(2026, 1, 9),
+                            "start_date": None, "limit": 300}
+    assert type(prepared.bars[0].close_qfq) is float
+    assert prepared.bars[0].close_qfq == 10.00000000001  # no early rounding
+    rows[0]["close_qfq"] = 999
+    assert prepared.bars[0].close_qfq == 10.00000000001
+    del rows[0]["amount"]
+    with pytest.raises(KeyError, match="amount"):
+        service.prepare(object(), source.request)
+
+    result = result_for(source.ts_code, (date(2026, 1, 5), date(2026, 1, 6)), {
+        ("ma250", "value"): None, ("boll", "middle"): None,
+        ("macd", "hist"): 0.3333333333333, ("kdj", "j"): 77.7,
+    })
+    payload = service.assemble(source, result).model_dump(mode="json")
+    assert payload["meta"] == {"count": 2, "limit": 300, "startDate": None, "endDate": "2026-01-09"}
+    assert payload["dataStatus"]["status"] == "DELAYED"
+    bar = payload["bars"][0]
+    assert (bar["open"], bar["high"], bar["low"], bar["close"], bar["amplitude"]) == (10, 11, 9, 10, 20)
+    assert (bar["vol"], bar["volDisplay"], bar["amount"], bar["turnoverRate"]) == (100, "0.01万", 1000, None)
+    assert bar["factors"]["ma"]["ma250"] is None and bar["factors"]["boll"]["middle"] is None
+    assert bar["factors"]["macd"]["macd"] == 0.3333333333
+    assert bar["factors"]["kdj"]["j"] == 77.7
+    assert payload["debugInfo"]["sourceTables"] == ["core_serving.security_serving", "core_serving.equity_factor_pro",
+                                                     "lake.silver.quote.stock_daily", "lake.silver.quote.adj_factor"]
+    assert "msg" not in payload
+    empty = service.assemble(replace(source, bars=()), None).model_dump(mode="json")
+    assert empty["bars"] == [] and empty["meta"]["count"] == 0 and empty["dataStatus"]["status"] == "EMPTY"
+    assert len(empty["debugInfo"]["sourceTables"]) == 2
+    assert service.assemble(replace(source, request=_request()), result).debugInfo is None
+
+
+def test_result_contract_errors():
+    from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
+    from src.foundation.technical_indicators.errors import OutputContractError
+    from tests.stock_daily_kline_helpers import result_for
+
+    source = _source((_row(date(2026, 1, 5)), _row(date(2026, 1, 6))))
+    result = result_for(source.ts_code, (date(2026, 1, 5), date(2026, 1, 6)))
+    service = StockDailyKlineService()
+    assert len(service.assemble(source, result).bars) == 2
+    calculations = result.calculations
+    missing_field = replace(calculations[-1], fields=calculations[-1].fields[:-1])
+    wrong_version = replace(calculations[-1], algorithm_version="other")
+    missing_value = replace(calculations[-1], fields=(("k", (None, 10.0)),) + calculations[-1].fields[1:])
+    for broken, reason in (
+        (replace(result, times=result.times[:-1]), "time_mismatch"),
+        (replace(result, calculations=calculations[:-1] + (missing_field,)), "fields_mismatch"),
+        (replace(result, calculations=calculations[:-1] + (wrong_version,)), "definition_mismatch"),
+        (replace(result, calculations=calculations[:-1] + (missing_value,)), "unexpected_null"),
+    ):
+        with pytest.raises(OutputContractError) as caught:
+            service.assemble(source, broken)
+        assert caught.value.reason == reason and caught.value.stage == "stock_daily_assemble"
+        assert not any(isinstance(value, type(result)) for value in caught.value.diagnostics.values())

@@ -163,13 +163,19 @@ def test_stock_detail_page_init_exposes_trend_overlay_only_from_capability(
     ]
 
 
-def test_stock_detail_kline_returns_day_forward_bars_without_forbidden_ma(app_client, db_session) -> None:
+def test_stock_detail_kline_returns_day_forward_bars_without_forbidden_ma(app_client, db_session, monkeypatch, record_property) -> None:
     _seed_stock_detail_data(db_session)
 
-    response = app_client.get(
-        "/api/v1/wealth/market/stock-detail/kline",
-        params={"tsCode": "603806.SH", "period": "day", "adjustment": "forward", "endDate": "2026-05-29"},
-    )
+    from tests.stock_daily_kline_helpers import backend_for_client
+    # These independent literals only check the old field mapping. The database
+    # indicator fields are no longer inputs to the kline query.
+    values = {("ma5", "value"): 19.0, ("ma10", "value"): 18.9,
+              ("ma20", "value"): 18.8, ("ma90", "value"): 18.5, ("kdj", "j"): 77.7}
+    with backend_for_client(app_client, monkeypatch, db_session.get_bind(), record_property, overrides=values):
+        response = app_client.get(
+            "/api/v1/wealth/market/stock-detail/kline",
+            params={"tsCode": "603806.SH", "period": "day", "adjustment": "forward", "endDate": "2026-05-29"},
+        )
 
     assert response.status_code == 200
     payload = response.json()
@@ -196,42 +202,47 @@ def test_stock_detail_kline_returns_day_forward_bars_without_forbidden_ma(app_cl
     assert latest["factors"]["kdj"]["j"] == 77.7
 
 
-def test_stock_detail_kline_preserves_unavailable_ma_as_null(app_client, db_session) -> None:
+def test_stock_detail_kline_preserves_unavailable_ma_as_null(app_client, db_session, monkeypatch, record_property) -> None:
     _seed_stock_detail_data(db_session)
     row = db_session.get(EquityFactorPro, ("603806.SH", date(2026, 5, 28)))
     assert row is not None
-    row.ma_qfq_250 = None
+    row.ma_qfq_250 = 1234.0  # opposite sentinel: NULL must come from the kernel result
     db_session.commit()
 
-    response = app_client.get(
-        "/api/v1/wealth/market/stock-detail/kline",
-        params={"tsCode": "603806.SH", "period": "day", "adjustment": "forward", "endDate": "2026-05-28"},
-    )
+    from tests.stock_daily_kline_helpers import backend_for_client
+    with backend_for_client(app_client, monkeypatch, db_session.get_bind(), record_property,
+                            overrides={("ma250", "value"): None}):
+        response = app_client.get(
+            "/api/v1/wealth/market/stock-detail/kline",
+            params={"tsCode": "603806.SH", "period": "day", "adjustment": "forward", "endDate": "2026-05-28"},
+        )
 
     assert response.status_code == 200
     payload = response.json()
     assert payload["bars"][0]["factors"]["ma"]["ma250"] is None
 
 
-def test_stock_detail_kline_rejects_unsupported_period_and_adjustment(app_client, db_session) -> None:
+def test_stock_detail_kline_rejects_unsupported_period_and_adjustment(app_client, db_session, monkeypatch, record_property) -> None:
     _seed_stock_detail_data(db_session)
 
-    period_response = app_client.get(
-        "/api/v1/wealth/market/stock-detail/kline",
-        params={"tsCode": "603806.SH", "period": "week", "adjustment": "forward"},
-    )
+    from tests.stock_daily_kline_helpers import backend_for_client
+    with backend_for_client(app_client, monkeypatch, db_session.get_bind(), record_property):
+        period_response = app_client.get(
+            "/api/v1/wealth/market/stock-detail/kline",
+            params={"tsCode": "603806.SH", "period": "week", "adjustment": "forward"},
+        )
+        adjustment_response = app_client.get(
+            "/api/v1/wealth/market/stock-detail/kline",
+            params={"tsCode": "603806.SH", "period": "day", "adjustment": "qfq"},
+        )
     assert period_response.status_code == 400
     assert period_response.json()["code"] == "400001"
 
-    adjustment_response = app_client.get(
-        "/api/v1/wealth/market/stock-detail/kline",
-        params={"tsCode": "603806.SH", "period": "day", "adjustment": "qfq"},
-    )
     assert adjustment_response.status_code == 400
     assert adjustment_response.json()["code"] == "400001"
 
 
-def test_stock_detail_returns_404_for_unknown_stock(app_client, db_session) -> None:
+def test_stock_detail_returns_404_for_unknown_stock(app_client, db_session, monkeypatch, record_property) -> None:
     _ensure_stock_detail_tables(db_session)
 
     response = app_client.get(
@@ -241,3 +252,8 @@ def test_stock_detail_returns_404_for_unknown_stock(app_client, db_session) -> N
 
     assert response.status_code == 404
     assert response.json()["code"] == "404001"
+    from tests.stock_daily_kline_helpers import backend_for_client
+    with backend_for_client(app_client, monkeypatch, db_session.get_bind(), record_property) as (_, calls, _):
+        kline = app_client.get("/api/v1/wealth/market/stock-detail/kline",
+                               params={"tsCode": "000000.SH", "tradeDate": "2026-05-29"})
+        assert kline.status_code == 404 and kline.json()["code"] == "404001" and not calls

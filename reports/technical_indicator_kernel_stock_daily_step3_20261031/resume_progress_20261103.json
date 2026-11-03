@@ -1,0 +1,123 @@
+{
+  "status": "step3_ordinary_validation_complete",
+  "scope": "resume_scope_20261103.json",
+  "groups": [
+    {
+      "name": "web_resume_20261103",
+      "nodeids": [
+        "tests/web/test_stock_daily_technical_indicator_api.py::test_original_limits_and_openapi",
+        "tests/web/test_stock_daily_technical_indicator_api.py::test_prewait_errors_unknown_and_empty",
+        "tests/web/test_wealth_stock_detail_api.py::test_stock_detail_kline_returns_day_forward_bars_without_forbidden_ma",
+        "tests/web/test_wealth_stock_detail_api.py::test_stock_detail_kline_preserves_unavailable_ma_as_null",
+        "tests/web/test_wealth_stock_detail_api.py::test_stock_detail_kline_rejects_unsupported_period_and_adjustment",
+        "tests/web/test_wealth_stock_detail_api.py::test_stock_detail_returns_404_for_unknown_stock",
+        "tests/web/test_wealth_stock_detail_api.py::test_stock_detail_page_init_returns_context_stock_quote_and_defaults"
+      ],
+      "exit_code": 0,
+      "seconds": 6.183957583270967,
+      "cases": [
+        {
+          "name": "test_original_limits_and_openapi",
+          "passed": true
+        },
+        {
+          "name": "test_prewait_errors_unknown_and_empty",
+          "passed": true
+        },
+        {
+          "name": "test_stock_detail_kline_returns_day_forward_bars_without_forbidden_ma",
+          "passed": true
+        },
+        {
+          "name": "test_stock_detail_kline_preserves_unavailable_ma_as_null",
+          "passed": true
+        },
+        {
+          "name": "test_stock_detail_kline_rejects_unsupported_period_and_adjustment",
+          "passed": true
+        },
+        {
+          "name": "test_stock_detail_returns_404_for_unknown_stock",
+          "passed": true
+        },
+        {
+          "name": "test_stock_detail_page_init_returns_context_stock_quote_and_defaults",
+          "passed": true
+        }
+      ],
+      "fake_controls": 16,
+      "sqlite_returned_rows": 5030,
+      "log": "web_resume_20261103.txt",
+      "junit": "web_resume_20261103.xml"
+    },
+    {
+      "name": "dependencies_resume_20261103",
+      "nodeids": [
+        "tests/architecture/test_subsystem_dependency_matrix.py::test_subsystem_dependency_matrix",
+        "tests/architecture/test_platform_legacy_guardrails.py::test_no_runtime_imports_from_platform_legacy_package",
+        "tests/architecture/test_operations_legacy_guardrails.py::test_no_legacy_operations_services_imports",
+        "tests/architecture/test_technical_indicator_dependencies.py::test_indicator_dependency_boundaries"
+      ],
+      "exit_code": 0,
+      "seconds": 6.9431635001674294,
+      "cases": [
+        {
+          "name": "test_subsystem_dependency_matrix",
+          "passed": true
+        },
+        {
+          "name": "test_no_runtime_imports_from_platform_legacy_package",
+          "passed": true
+        },
+        {
+          "name": "test_no_legacy_operations_services_imports",
+          "passed": true
+        },
+        {
+          "name": "test_indicator_dependency_boundaries",
+          "passed": true
+        }
+      ],
+      "fake_controls": 0,
+      "sqlite_returned_rows": 0,
+      "log": "dependencies_resume_20261103.txt",
+      "junit": "dependencies_resume_20261103.xml"
+    }
+  ],
+  "prior_costs": {
+    "pytest_seconds": 4.289498499594629,
+    "fake_controls": 16,
+    "sqlite_returned_rows": 0
+  },
+  "additional_costs": {
+    "pytest_seconds": 13.127121083438396,
+    "fake_controls": 16,
+    "sqlite_returned_rows": 5030
+  },
+  "total_costs": {
+    "pytest_seconds": 17.416619583033025,
+    "fake_controls": 32,
+    "sqlite_returned_rows": 5030
+  },
+  "remaining": {
+    "pytest_seconds": 42.583380416966975,
+    "fake_controls": 16,
+    "sqlite_returned_rows": 9970
+  },
+  "original_reports_preserved": true,
+  "automatic_retry": false,
+  "pending_functions": [],
+  "passed_new_function_count": 11,
+  "retained_original_passed_count": 7,
+  "step3_passed_function_count": 18,
+  "cleanup": {
+    "web_tests": "normal fixture teardown; no JUnit setup/call/teardown errors; runtimes and leases checked by helpers",
+    "subprocesses": "both pytest processes exited normally",
+    "formal_connections": "none created",
+    "temporary_database": "isolated SQLite Session/Engine fixtures exited"
+  },
+  "implementation_changed": false,
+  "P_R_executed": false,
+  "committed": false,
+  "deployed": false
+}

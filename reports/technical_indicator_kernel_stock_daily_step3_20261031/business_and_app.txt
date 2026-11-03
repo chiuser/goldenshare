@@ -1,0 +1,24 @@
+.......                                                                  [100%]
+=============================== warnings summary ===============================
+tests/app/technical_indicators/test_stock_daily_integration.py::test_actual_send_holds_lease
+  tests/app/technical_indicators/test_stock_daily_integration.py:232: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+    def test_actual_send_holds_lease(monkeypatch, record_property):
+
+tests/app/technical_indicators/test_stock_daily_integration.py::test_cancel_and_cleanup_release_once
+  tests/app/technical_indicators/test_stock_daily_integration.py:277: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+    def test_cancel_and_cleanup_release_once(monkeypatch, record_property):
+
+tests/app/technical_indicators/test_stock_daily_integration.py::test_legacy_payload_encoding_boundaries
+  tests/app/technical_indicators/test_stock_daily_integration.py:395: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+    def test_legacy_payload_encoding_boundaries(monkeypatch, record_property):
+
+tests/app/technical_indicators/test_stock_daily_integration.py::test_database_session_ownership_and_timeout
+  tests/app/technical_indicators/test_stock_daily_integration.py:427: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+    def test_database_session_ownership_and_timeout(monkeypatch, record_property):
+
+tests/app/technical_indicators/test_stock_daily_integration.py::test_lifespan_and_other_paths
+  tests/app/technical_indicators/test_stock_daily_integration.py:540: PytestWarning: record_property is incompatible with junit_family 'xunit2' (use 'legacy' or 'xunit1')
+    def test_lifespan_and_other_paths(monkeypatch, record_property):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+7 passed, 5 warnings in 1.13s

@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
+from starlette.responses import JSONResponse, Response
 from sqlalchemy.orm import Session
 
 from src.app.auth.dependencies import require_quote_access
@@ -17,6 +18,10 @@ from src.biz.schemas.wealth.market.stock_detail import (
     StockDetailKlineResponseDto,
     StockDetailPageInitResponseDto,
 )
+from src.biz.api.wealth.market.stock_detail_dependencies import (
+    StockDailyKlineBackend, get_stock_daily_kline_backend,
+)
+from src.biz.services.wealth.market.stock_detail.stock_daily_kline_contracts import StockDailyKlineRequest
 
 
 router = APIRouter(prefix="/wealth/market/stock-detail", tags=["wealth-market"])
@@ -43,8 +48,9 @@ def get_stock_detail_page_init(
         raise WebAppError(status_code=400, code="400001", message=str(exc)) from exc
 
 
-@router.get("/kline", response_model=StockDetailKlineResponseDto)
-def get_stock_detail_kline(
+@router.get("/kline", response_model=StockDetailKlineResponseDto, response_class=JSONResponse)
+async def get_stock_detail_kline(
+    request: Request,
     ts_code: str = Query(alias="tsCode"),
     period: str = Query(default="day"),
     adjustment: str = Query(default="forward"),
@@ -54,21 +60,9 @@ def get_stock_detail_kline(
     limit: int = Query(default=300),
     debug: int = Query(default=0, ge=0, le=1),
     _user: AuthenticatedUser | None = Depends(require_quote_access),
-    session: Session = Depends(get_db_session),
-) -> StockDetailKlineResponseDto:
-    try:
-        return StockDetailQueryService().build_kline(
-            session,
-            ts_code=ts_code.strip().upper(),
-            period=period,
-            adjustment=adjustment,
-            trade_date=trade_date,
-            start_date=start_date,
-            end_date=end_date,
-            limit=limit,
-            debug=bool(debug),
-        )
-    except StockDetailNotFoundError as exc:
-        raise WebAppError(status_code=404, code="404001", message=str(exc)) from exc
-    except ValueError as exc:
-        raise WebAppError(status_code=400, code="400001", message=str(exc)) from exc
+    backend: StockDailyKlineBackend = Depends(get_stock_daily_kline_backend),
+) -> Response:
+    return backend.response(StockDailyKlineRequest(
+        ts_code.strip().upper(), period, adjustment, trade_date, start_date, end_date,
+        limit, bool(debug),
+    ), arrived_at=request.state.stock_daily_arrived_at)

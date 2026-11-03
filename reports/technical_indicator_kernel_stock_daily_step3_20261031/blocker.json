@@ -1,0 +1,19 @@
+{
+  "phase": "Web fixture import before first stock API test",
+  "error_type": "ImportError",
+  "message": "cannot import name 'inactive_result'",
+  "files": {
+    "src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py": {
+      "sha256": "a070b07e28f44bf576c554e1f0688f7af789e33f5a700bb0ff30c13e1b12e686",
+      "unchanged_from_start_commit": true
+    },
+    "src/biz/services/wealth/market/index_detail_xxm/forecast.py": {
+      "sha256": "16b3b0dd5613832eacf65f5cdaa7b67562b0083c346536a24e322ca14cd17a4b",
+      "unchanged_from_start_commit": true
+    }
+  },
+  "test_body_started": false,
+  "stock_runtime_started": false,
+  "outside_this_task": true,
+  "proposed_action": "Have the XXM task resolve its existing import contract; then explicitly authorize the failed Web node and remaining checks. Do not stub the global router or repeat passed cases."
+}

@@ -7,6 +7,7 @@ from src.app.web.settings import get_web_settings
 from src.foundation.config.settings import get_settings
 from src.app.runtime.trading_assistant_lifespan import trading_assistant_lifespan
 from src.app.runtime.announcement_archive_lifespan import announcement_archive_lifespan
+from src.app.dependencies.stock_daily_technical_indicators import stock_daily_technical_indicators_lifespan
 
 
 @asynccontextmanager
@@ -24,6 +25,7 @@ async def web_lifespan(_app):  # type: ignore[no-untyped-def]
     async with (
         trading_assistant_lifespan(_app, database_url=get_settings().database_url, logger=logger),
         announcement_archive_lifespan(_app),
+        stock_daily_technical_indicators_lifespan(_app),
     ):
         yield
     logger.info("stopping goldenshare web")
