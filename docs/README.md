@@ -284,10 +284,12 @@ docs/
 - [工程风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md)
 
 ## 9. 产品原始材料
-- [财势乾坤顶底识别产品文档 v1（当前规则、仅本地、普通/debug；新规则待开发）](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-product-v1.md)
+- [财势乾坤顶底识别产品文档 v1（当前规则、仅本地；P4已验收，P5审计设计完成、清退未实施）](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-product-v1.md)
 - [财势乾坤顶底识别技术方案 v1（当前实施依据、识别/预测/合同和开发顺序）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-technical-design-v1.md)
 - [财势乾坤顶底识别LLD v1（当前编码要求、逐根规则与测试、开工检查）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md)
-- [财势乾坤顶底识别P4耗时优化专项方案 v1（8方向静态调查、代码修改计划及缓存对照测量设计；待review，未开发或测量）](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-p4-performance-optimization-plan-v1.md)
+- [财势乾坤顶底识别P4耗时优化专项方案 v1（P4已收尾；后续性能优化4—7批保留TODO）](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-p4-performance-optimization-plan-v1.md)
+- [顶底识别P5代码/测试逐文件审计清单（103文件，未执行）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-p5-code-audit-v1.csv)
+- [顶底识别P5报告逐文件审计清单（3503文件及明确收敛目标，未执行）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-p5-reports-audit-v1.csv)
 - [修订后r4与历史r2、r4识别结果对比方案 v1（独立专项、922根、保护现有代码；设计已编写，未开发或执行）](/Users/congming/github/goldenshare/docs/product/wealth-r4-historical-comparison-plan-v1.md)
 - [r4历史识别对比专项LLD v1（固定版本进程、通信、合计内存、失败回收及测试设计；未开发或执行）](/Users/congming/github/goldenshare/docs/product/wealth-r4-historical-comparison-low-level-design-v1.md)
 

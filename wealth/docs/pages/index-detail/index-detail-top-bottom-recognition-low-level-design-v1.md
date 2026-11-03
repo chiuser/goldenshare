@@ -1,9 +1,11 @@
 # 财势乾坤顶底识别低层设计 v1
 
-更新：2026-11-03（Asia/Shanghai）。P4第5步自动验收已完成：60/90/120分钟固定清单42组、540业务+126私有全部通过，含此前m60-A30/12；本次续验新增38组510业务+114私有，未重跑首批。96对普通/debug公共结果一致，192次r4请求均READY/1500根，识别均返回500；预算/缓存/读取及退出通过。日线复用原已适用真实证据。详细结果和第6步交接见LLD§21.14.13；第6步仍待管理员页面review，P4整批尚未验收完成。工具204项限定测试证据保持，优化TODO不启动；本次只更新原四文档，无新代码/额外请求/部署或P5清退；本需求工具、测试及文档现已获管理员批准提交，实际版本以本次Git记录为准。
+更新：2026-11-03（Asia/Shanghai）。**P4已完成并验收收尾。**管理员明确确认“页面验收通过了”，第6步据此登记通过；第1—5步沿用已完成的工程及真实只读证据，不重新采样。工具/测试及验收记录已提交c7c606e81；最终对账见LLD§21.14.14，详细自动结果见§21.14.13。P5第一步静态审计、编码设计及两项审计修正见§22；本次提交P4收尾及P5设计文档，实际清退仍待第二步单独执行授权，不部署、不开放生产r4。
 
-P4剩余计划已于2026-11-02细化；当前工具补齐及执行进度见LLD§21.14.10：性能优化第4—7批继续暂缓为TODO，不再是正式验收的前置；先补现有验收工具的分钟1500根检查及限定回归，再按m60→m90→m120逐周期完成固定正式续验，最后交管理员第6步页面review并收尾。产品代码、来源、缓存及预算保持；工具校验及第5步自动验收已完成，页面第6步仍待管理员review，不能登记整批完成。详细步骤、编码设计及测试见LLD§21.14/专项§17。上轮文档交付停点已结束，本轮按§21.14.10授权推进自动部分，不进入P5；提交另按管理员指令。
+P4六步现已全部完成：本地/生产装配、debug动态加载、辅助详情及手动波段核对、保留工具迁移、真实来源/性能验收、管理员页面验收。60/90/120分钟固定清单42组、540业务及126私有请求，96对普通/debug公共结果一致；日线复用原适用证据。204项限定测试为已提交的既有证据，本轮无新增业务测试或真实请求。性能优化第4—7批及交易助手日期问题继续作为TODO，不转入P5。
 依据：[产品文档](../../../../docs/product/wealth-top-bottom-recognition-product-v1.md)、[技术方案](index-detail-top-bottom-recognition-technical-design-v1.md)。本文件只规定当前目标、代码迁移位置、开发顺序和验收，不包含已废弃的开发流程。实施必须使用本文规则和独立用例，不得从旧实验或旧输出推导当前预期。
+
+此前优化批次和阶段停点的历史记录如下；其中“未执行/待验收/本轮”仅描述当时，不覆盖上述最终收尾状态。当前P5范围见产品§11、技术方案§8及LLD§20.4；原失败记录和未覆盖范围仍据实保留。
 
 P4耗时优化专项的静态调查、8方向修改计划和缓存测量方案见[专项方案](../../../../docs/product/wealth-top-bottom-recognition-p4-performance-optimization-plan-v1.md)。管理员已确定先完成容易、明确的精简，再做测量和复杂改造，编码及交接顺序见§0.3。第1批已提交5084ef939，证据见§0.4.7；第2批编码设计及两批文档联合审计见§0.5，开发及438例回归已随70659f763提交；第三批编码设计和开发交付见§0.6，610例限定回归及独立审计见§0.6.10，代码已随4debb8eb3提交；此前第三批测试轮首错停止，见§0.7.9。暂缓优化将来重新启动时仍须先补对应细节并review；当前正式P4剩余设计统一见§21.14，不以新增计时/复杂改造为前置。原失败记录保留，简单结构复算保持；本轮只设计，不重启采样。
 
@@ -11,7 +13,7 @@ P4耗时优化专项的静态调查、8方向修改计划和缓存测量方案�
 
 本文规定r4识别、单根预测及产品接入。三项截图修正、核心/恢复/预测及专项对比已完成并由管理员验收；公开API、必要前端及提交后修复已完成限定工程验收，代码为bebe6f403、11271531c，实际证据见§19—20。原软件内部怎样保存事件仍未被证实，不影响本产品已定规则。
 
-P4第1—4步代码及定向工程验证已完成，e2844c6f7后的工具审计修正继续生效，证据见§21.10。第5步先前日线真实证据及后续三分钟周期固定自动验收均已完成，当前结果见§21.14.13，先前失败仍保留于§21.13.4；第6步待管理员页面review，P5清退未执行。耗时优化第1批已提交5084ef939，第二批已开发及独立审计，证据见§0.5.10；整批顺序以§0.3及专项§6为准。§21保留原P4实现及后续正式续验要求，不作为重新开发第1—4步或立即恢复采样的指令。P3既有实现直接复用，不重复开发或重跑专项。设计及文档检查不能代替实现、性能或真实验收；§15—17修改前成绩只保留历史用途。
+P4第1—4步代码及定向工程验证已完成，e2844c6f7后的工具审计修正继续生效，证据见§21.10。第5步先前日线真实证据及后续三分钟周期固定自动验收均已完成，当前结果见§21.14.13，先前失败仍保留于§21.13.4；管理员本轮已明确确认第6步页面验收通过，P4最终对账见§21.14.14；P5清退未执行。耗时优化第1批已提交5084ef939，第二批已开发及独立审计，证据见§0.5.10；整批顺序以§0.3及专项§6为准。§21保留原P4实现及后续正式续验要求，不作为重新开发第1—4步或立即恢复采样的指令。P3既有实现直接复用，不重复开发或重跑专项。设计及文档检查不能代替实现、性能或真实验收；§15—17修改前成绩只保留历史用途。
 
 只在当前dev-interface工作区保留清单外修改，不创建分支/worktree、安装依赖或恢复旧算法。输入、进度和结果仅内存，无数据库/Lake写入、结果/恢复文件、后台任务、用户算法开关或浏览器持久缓存。原1%、近远选择、首次资格、原EMA、预算及正式来源精度保持；P3完整400ms含最终校验和编码，不因三项修正放宽。
 
@@ -2561,403 +2563,223 @@ P3还须在IndexChartWorkspace.test.tsx中将旧review prop样本迁为唯一deb
 
 本轮不触发数据读取。实施时涉及真实源的最小核验先限定标的/周期/日期、原字段和上限；复用仍有效证据。若需全数据集明细读取须另按根AGENTS取得明确范围批准；“只读”不是全局读取的自动许可。
 
-## 10. 清退清单与有效能力迁移
+## 10. P5当前清退清单、资料收敛与验收
 
-本节是P5逐文件及函数处理范围。有效人工样本必须先迁到唯一r4，活动引用清零后才删代码。不得因清退扩大为删除报告目录、原始行情、截图或其他工作区修改；不迁移旧算法结果生成器和旧执行协议。
+本节已按2026-11-03当前代码重新审计，不再把P3/P4已经完成的迁移列为待开发。P5第一步本轮只完成审计和编码设计，**没有迁移、删除、运行旧代码、重放行情或执行测试**。之后开发必须先迁出保留能力及其消费者，再清退旧执行链；不能先删文件再靠补兼容层修引用。
 
-### 10.1. 清退顺序与硬边界
+逐文件明细是本节附件：[代码与测试103文件清单](index-detail-top-bottom-recognition-p5-code-audit-v1.csv)、[reports的3503文件清单](index-detail-top-bottom-recognition-p5-reports-audit-v1.csv)。CSV是供人review的设计附件，不是产品配置、自动删除脚本或运行时读取要求；本轮没有执行其中动作。行号指本次审计时源码，实施以函数和真实消费者为准。清单外文件不因名称相似自动纳入。
 
-1. 新规则按§2—7和§14独立预期实现并验收；不读取旧源码、不捕获旧结果、不启动新旧双组对账。
-2. 迁移所有查询新建、历史位置复制、增量计算、预测clone、类型/解码/缓存身份；不保留r2模式、参数、回退或执行入口。
-3. 保留工具先解除对旧算法源码、旧SHA和旧结果读取器的依赖；纯行情/日历/原图继续按明确来源核验，不能把来源校验一起删除。
-4. 所有调用迁完、唯一r4和保留工具通过后，才删除本清单内旧实现、专属执行器和专属测试。旧模块的生成缓存只按对应模块清理，禁止删共享解释器环境或用户其他数据。
-5. 删除前检查本清单各文件当前git状态。未跟踪文件也在清单核查范围；出现清单外调用方或他人正在修改的冲突，先停止并说明，不擅删、加兼容层或移到.txt/Markdown代码块伪封存。
-6. 源码清退不得删除原CSV/JSON/图片或重写Git历史；仍有价值的独立研究结论按其用途保存，当前开发文档中的废弃要求必须直接删除。CLI和README中对应活动命令清零，不为死链恢复旧代码。
+### 10.1. 范围、顺序与硬边界
 
-### 10.2. 研究主目录逐文件处理
+1. 正式`src/biz/services/wealth/market/index_detail_xxm/**`、queries/schemas/API、App本地装配、Wealth页面和独立daily-wave算法均已完成P3/P4；它们不是旧r2目录，不删除、不重新迁移，不改变规则、Spec、输入来源、公开字段或配置。
+2. 本次审计允许静态阅读现有旧源码确认用途；**不从Git加载执行旧算法、不捕获旧结果、不运行r2/r4或两位双组比较、不读取源码SHA证明产品未改**。已存在的原始数据/图片身份核验与源码保护分开处理，不能一并删掉。
+3. `xxm/`当前41文件为30个整文件清退、7个局部精简、4个保留；加主题测试/人工材料和4个现工具，共103个代码或测试文件逐行列明处理。旧函数没有真实保留用途时不因“它是纯函数”机械留下；有效数学和输入仍按下列明确落点保留。
+4. 本需求reports共112个目录、3503文件、744135468字节；其他行业、DG、指标内核和其他主题的reports不在本轮。**原先“reports/所有CSV/JSON/README一律保留”的要求取消。**无用中间结果、过时假说/错误解释、旧API响应、测试日志、重复账本、源码ZIP和文本源码副本按附件删除；原图/原讲稿/必要输入、有效结论及r2设计开发历史保留或收敛。
+5. 删除和迁移均按附件具体路径进行，不按扩展名或父目录批删。执行前复核当前Git状态和消费者；出现新的活动调用方、清单外文件或他人冲突时停止说明，不能擅改清单或覆盖未提交内容。
+6. 不增加清理框架、配置、用户参数、网络、数据库/Lake写入、后台任务或备份源码；不恢复旧类/模块别名，不把旧算法装进ZIP、`.txt`、Notebook或文档代码块留存。Git历史不重写。
+7. 资料收敛和测试交接先完成，同次明确改动验收后才删原文件。中断只按已完成文件与当前Git差异说明，不自动续跑、恢复旧执行器或新建备份；恢复工作先核对目标/源两侧，再继续未完成项。
 
-本节路径前缀统一为 `scripts/research/index_market/xxm/`，每行都是一个实际文件。表中“迁出”只指仍被当前r4验证需要的既有能力，不为旧试验增加新框架或新运行模式。
+### 10.2. 研究代码的最终处理
 
-| 文件 | 最终处理与保留边界 |
+路径前缀为`scripts/research/index_market/xxm/`，全部定义及当前行号、消费者已在代码附件登记。
+
+| 保留文件 | 固定边界 |
 |---|---|
-| `__init__.py` | 保留主题包；更新说明，不从中注册旧实现。 |
-| `r4_reference_trial.py` | 新规则按§14及P3/P4独立验收、有用观察能力迁出及引用清零后，在P5，删除研究识别类、复制step、研究Spec和包装恢复。不是把它改成继承正式r4的第二份实现。 |
-| `r4_observation.py` | 删除ObservedR2Calculator、旧研究R4继承；真实分支观察的有效能力迁入§7唯一正式step及手动离线函数。普通/debug必须调用同一规则，不在页面推断。 |
-| `r4_comparison.py` | 删除r2/r4双计算、旧五字段账本和运行入口。不得把正式r4冒称r2。旧compare终端格式化不迁入产品；当前单组核验使用§11.1已有原路由工具，不留双算法入口。 |
-| `r4_comparison_records.py` | 不保留硬编码r2/r4配对接口。记录引用完整性的独立反例迁§11.1所列恢复/合同tests；旧配对/因果推断及无当前消费者的格式化helper直接删除。 |
-| `confirmation_only_trial.py` | 迁出纯字面算术样本后删除完整TwoDigitTurnCalculator、复制step、旧Spec/源码SHA/AST保护及双组身份。 |
-| `confirmation_comparison.py` | 删除旧r2/两位计算、读取/重放/CLI入口及专属账本比较。不得去掉旧保护后悄悄继承r4。 |
-| `reference_rescue.py` | 删除BottomDullRescueCalculator、R1_POLICY、new/child_of及旧比较/重放入口；其已批准且仍适用的行为只在正式r4一处存在。 |
-| `reference_rescue_paths.py` | 删除旧候选clone/路径求解复制实现；正式预测直接使用本文完成修正后的产品路径，不保留研究双轨。 |
-| `reference_rescue_forecast.py` | 删除旧候选forecast/make_display/main，不在正式产品或debug动态加载。 |
-| `top_daily_ambiguity.py` | 删除ReferenceGateCalculator、BASE/T2/S2/ZC/ZR多算法模式及运行器。原截图事实保留，不能连带删除原图或文字观察。 |
-| `top_current_close.py` | 删除TopCurrentCloseCalculator及旧对照入口；ordinary/check_time等小辅助只有确认当前单组核验仍需要时并入现测试，不能为保留旧类留下文件转发。 |
-| `top_current_close_selection.py` | 删除PriceBeforeSelectionCalculator及旧运行/保护/比较。 |
-| `top_reference_priority.py` | 删除NearFirstCalculator及旧运行/保护/比较。 |
-| `top_return_reference.py` | 删除ReturnReferenceCalculator及旧运行/保护/比较。 |
-| `cross_index_daily.py` | 删除依赖ReferenceGateCalculator的BASE/ZC/ZR实验和其运行/恢复入口。纯来源行/日历检查若仍需要，由现有有界来源模块承担；不把此清退扩为新深市r4产品功能。 |
-| `same_segment_acceptance.py` | 删除r2/A1 frozen_mode、可选旧门槛及旧runner；有用独立人工输入先迁当前产品验收，不保留旧算法模式。 |
-| `reference_rescue_acceptance.py` | 删除r1/r2旧frozen/semantic compare/formal_replay入口。保留验收需要的人工案例和源材料；旧expected/Spec不作为新r4结果。 |
-| `bottom_history_acceptance.py` | 删除旧H/A1/R1/R2专用runner、旧frozen/API基线比较。新r4真实只读验收复用已有正式读取保护/原路由，不沿用此模块作为隐含数据库入口。必要已有日历/原始数值辅助在删除前迁当前测试。 |
-| `cancellation_restart_audit.py` | 删除对A1旧事件账本要求完全相等的runner；其原材料、结论和可人工理解的案例保留文档。 |
-| `cancellation_restart_detail.py` | 删除旧16次重启研究入口和对旧基线的引用；必要独立日期/资格算术样本迁当前r4测试，不保留旧版本模式。 |
-| `rearm_discrimination.py` | 删除旧A1基线对账和模拟runner；仍适用的原价格/DIF边界字面样本迁新回转/首次反色测试，旧等待结果只用于拒绝反例。 |
-| `top_activation_expectations.py` | 删除借cross_index_daily保存/恢复旧r2 expected账本、旧源码保护和旧runner。独立字面/有理数数学预期与作者观察分离保留，不把旧计算输出重命名r4。 |
-| `top_activation_math.py` | 保留pair/daily_options及独立Fraction公式；expectations仅1%字面案例，不再运行0.75/1.2门槛；该组目标零柱由旧严格边界改为包含等号，仍须满足正收盘/1%，完整手算见§11.2.1。生产不得import预期生成器。 |
-| `top_activation_real_math.py` | 仅保留meet/minus/interval及必要pair依赖。删entry_domains/proof/main、旧常量和保存/日历导入；entry_domains按DIF强弱选峰不能成为r4预期，见§11.2.1。 |
-| `forecast_expectations.py` | 删除未使用expected_unit导入；保留fraction/contains/regions/assert_partition/coefficients。删除verify_changed_forecast及MATH_KEYS旧oracle；其严格排除零目标/只准无切换的断言不是r4通用数学。有效字面条件迁现预测tests，见§11.2.1。 |
-| `acceptance.py` | 只留sha/load_source/collect_readouts的纯来源读取和作者数值事实；删replay/main、产品类/Spec/冻结读取导入、旧结果writer及CLI，见§11.2.1。 |
-| `frozen_inputs.py` | 解除§11.2.1列出的旧消费者后整文件删除，不新增替代reader。其唯一旧源reader会缺DEA反算，旧expected_*及forecast_inventory均清退。原CSV/manifest保留，完整真实源由现load_source/read_case/read_window读取，不补值。 |
-| `daily_window_precheck.py` | 仅保留validate_window/read_window/isolated_client；删capture/replay_checks/validate_capture_identity/check/main、旧b/MATH_KEYS/semantic依赖及全部结果写入。隔离App在原文件接正式装配，不再借待删app_for；见§11.2.3。 |
-| `history_disappearance_screen.py` | 仅保留dif_diagnostics/history_record/event_signature纯事实及REVIEWED原材料说明，并增加§7 observe_rows。删除select_candidates/load_bars/screen_period/protected_paths/identity/verify_protected/run/main、旧frozen/多门槛重放及read_unit/seal依赖。history_record只核实际结构/历史/价格关联；初始DULL可能保存B而结构已用A，不能以两者参照不同拒绝合法r4记录。来源窗口/原观察不改写。 |
-| `history_replacement_screen.py` | 仅保留ordinary_index纯事件唯一性/时刻检查；删除local_followup/screen_period/select_candidates/identity/run/main及旧read_unit/seal/import/落盘/保护，清仅服务旧试验的常量，保留ordinary_index必需的ORDINARY字面集合。local_followup跳过new_*_DULL后延长旧历史是另一套旧寿命试验，不能换成r4身份继续运行。原材料/报告保留。 |
-| `near_first_review.py` | 最小化保留decimal_value/quantize_dif及必要数值校验和说明；仅依赖Decimal/ROUND_DOWN及纯number。删除ReviewSpec/Reference/choose_reference/decision_signature、旧选峰/合并/replay_june/protected_evidence/check_protected/run/main。不得因“保留此函数”保留整份旧判别代码。 |
-| `reference_window_review.py` | 仅留sign/build_references原始事实，删qdif及quantize导入、ReviewSpec/SPEC/LIMITATION/inspect_prefix/review_locked_reference/run/main和writer；输入由saved_minute_window供给，见§11.2.2。 |
-| `same_bar_dull_review.py` | 删除advance_bottom和display_events及旧状态校验，不能继续自行产生CANCEL/DULL/STRUCTURE或隐藏“先取消再钝化”。真实r4已在取消前换参照，无需第二层抹事件。 |
-| `local_extrema_study.py` | 保留纯输入/扫描/独立样本/benchmark；protected_files/assert_protected仅核原材料。删save_new/main和结果writer，notebook只返回未执行字典，不exec/写文件；既有Notebook/原材料不改，见§11.2.2。 |
-| `peak_image_measurement.py` | 保留图像量取函数与人工尺寸/颜色预期，不借它计算正式标签。 |
-| `saved_minute_window.py` | 保留已知来源CSV的有界定位、列/日期/数值校验及read_window，不重算MACD、不产生标签。来源SHA是数据身份，不能与旧源码SHA保护一起清空。 |
+| `__init__.py` | 只留主题包说明，不注册旧实现 |
+| `daily_window_precheck.py` | P4已仅保留`validate_window/read_window/isolated_client`并接正式装配；本次不重复开发、不改日期/来源/预算 |
+| `saved_minute_window.py` | 保留原90分钟CSV有限定位/原字段校验；只在调用方同步资料路径，不新增识别或写入 |
+| `peak_image_measurement.py` | 保留原像素量取、尺寸/颜色/遮挡限制及字面测试；不作为真实DIF或正式标签 |
 
-#### 10.2.1 其他主题级执行文件
-
-这些路径不是上表xxm子目录，必须一并处理：
-
-| 完整路径 | 处理 |
+| 局部精简文件 | 保留和必须移除的代码 |
 |---|---|
-| `scripts/research/index_market/xxm_forecast_display_audit.py` | 改为§11.2.4原路由RAM核验；删除--candidate/--output及旧动态算法/源码SHA和所有响应写入，复用同一正式环境装配及只读App。 |
-| `scripts/research/index_market/xxm_page_request_audit.py` | 原文件提isolated_app(settings, *, group)供两个Python工具在本组子进程内复用；保留原鉴权/只读/临时server清理，删除--output和完整响应保存，按§11.2.4迁正式装配和合同。它当前尚不是RAM验收工具，不原样复用。 |
-| `scripts/research/index_market/xxm_page_request_audit.mjs` | 保留真实客户端HTTP请求核验，去output/writeFile/persist，使用实际1000常量及新normal/debug合同，仅RAM；Node脚本不冒称浏览器验收，见§11.2.4。 |
-| `scripts/research/index_market/xxm_history_projection_audit.py` | 仅源行情投影核对能力，未发现r2识别实现；保留。不因文件名xxm删除。 |
-| `scripts/research/index_market/README.md` | 清理活动旧CLI/旧candidate/旧两位命令，保留已注明历史的事实记录；当前入口只指新LLD。不得把历史命令成功作为当前结果。 |
+| `acceptance.py` | 只留`sha/load_source/collect_readouts`；去`replay/main`、产品计算器/Spec、frozen导入和所有写报告路径。27条作者数值事实改读现有`software_readouts.json`，不再依赖5份混合旧模型报告，细节见§11.2.1 |
+| `history_disappearance_screen.py` | 只留当前`observe_rows`及必要导入；去旧常量/读取/选日期/runner/源码保护，连同旧`dif_diagnostics/history_record/event_signature`删除。后三者只被旧formatter/tests使用，且仍按`histories/relatedTopHistoryId`旧合同关联；当前完整性由正式记录/恢复/HTTP tests覆盖，不为它们新增新格式化层 |
+| `local_extrema_study.py` | 保留`SavedCase/CASES/sha/validate_rows/read_case/series_turns/summarize_case/literal_anchor_checks/benchmark`；限定原材料保护，删除`PREVIOUS`递归保护、`save_new/main`及`exec`。`notebook(out)`只组装未执行字典，见§11.2.2 |
+| `near_first_review.py` | 只留`decimal_value/quantize_dif`及Decimal/ROUND_DOWN/number依赖；删除Spec/Reference/选峰/合并/重放/文件保护/CLI。没有两位识别模式 |
+| `reference_window_review.py` | 只留`sign/build_references`的原始色段、日期、转折、价格窗口；删除`qdif`字段和两位导入，以及资格/选峰/生命周期/运行/落盘。它是独立研究事实工具，不是r4参照选择器 |
+| `top_activation_math.py` | 只留`pair/daily_options`；整个`expectations`旧多门槛、第二根目标和20根结果生成删除。单步预期使用现M1—M5/PF独立样本，不保留旧业务答案 |
+| `top_activation_real_math.py` | 只留`meet/minus/interval`及Fraction/pair；删除最强排序`entry_domains`、`proof/main`及旧读取/日历/保存导入。纯开闭区间数学有独立用途，其余旧业务不迁 |
 
-### 10.3. 旧报告中的执行代码
+另外30文件全部清退，完整名单见附件，包括旧r2候选/研究r4/两位计算器、双组配对、旧等待/多步预测和旧frozen输入。`forecast_expectations.py`的唯一真实消费者是待退的R1验收；其剩余通用helper没有当前消费者，表达式前提还是旧双价格协议，故整文件删除，不再为“保留纯函数”留下无用框架。
 
-先迁仍有用的原输入/截图事实核验；只删除本节明确的代码文件，绝不删除整个报告目录。下面报告路径按表中前缀组成，均是具体待删文件，禁止删除整个目录。
+**补齐原清单遗漏：**`r4_history_comparison.py/r4_history_lake.py/r4_history_records.py/r4_history_worker.py`全部清退。它们是已完成922根历史对比的固定版本、Git源码加载、专属数据读取/通信/配对执行链，不是正式r4或正式分钟Reader；有用最终报告已在原方案/专项LLD，不保留执行重放能力。
 
-#### 10.3.1 旧MACD研究执行链（45个.py）
+#### 10.2.1 主题级工具与正式业务
 
-前缀 `reports/xxm_macd_structure_20261011/`。静态AST核到以下文件自身定义旧replay或直接/间接import旧replay，全部清退执行代码，不以“.py还原为.txt”保留：
+`xxm_page_request_audit.py/.mjs`、`xxm_forecast_display_audit.py`已完成P4仅内存/真实路由/1500根范围迁移和验收，本次原样保留。`xxm_history_projection_audit.py`只做来源字段投影比对、无旧算法，也保留；它的既有全历史读源和输出行为不因清退改写，但不得自动作为P5验收运行。
 
-- `active_reference_candidate.py`：删除旧执行代码。
-- `audit_0366.py`：删除旧执行代码。
-- `audit_0369_0370.py`：删除旧执行代码。
-- `audit_0374.py`：删除旧执行代码。
-- `audit_20251016.py`：删除旧执行代码。
-- `audit_20260105_pair.py`：删除旧执行代码。
-- `audit_20260605_user_captions.py`：删除旧执行代码。
-- `audit_90_history_prefix.py`：删除旧执行代码。
-- `audit_active_reference_captions.py`：删除旧执行代码。
-- `audit_active_references.py`：删除旧执行代码。
-- `audit_context_contrasts.py`：删除旧执行代码。
-- `audit_correction_lifecycle.py`：删除旧执行代码。
-- `audit_july3_chart.py`：删除旧执行代码。
-- `audit_july3_lecture.py`：删除旧执行代码。
-- `audit_june_context.py`：删除旧执行代码。
-- `audit_lifecycle_trace.py`：删除旧执行代码。
-- `audit_narrated_thresholds.py`：删除旧执行代码。
-- `audit_nov11_lecture.py`：删除旧执行代码。
-- `audit_nov13_17_charts.py`：删除旧执行代码。
-- `audit_nov13_lecture.py`：删除旧执行代码。
-- `audit_nov14_daily_disappearance.py`：删除旧执行代码。
-- `audit_nov14_lecture.py`：删除旧执行代码。
-- `audit_november_followup.py`：删除旧执行代码。
-- `audit_october_reference_membership.py`：删除旧执行代码。
-- `audit_reference_extrema.py`：删除旧执行代码。
-- `audit_reference_extrema_captions.py`：删除旧执行代码。
-- `audit_reference_lifecycle.py`：删除旧执行代码。
-- `audit_source_sensitivity.py`：删除旧执行代码。
-- `audit_threshold_constraints.py`：删除旧执行代码。
-- `audit_turn_filters.py`：删除旧执行代码。
-- `audit_wave_boundaries.py`：删除旧执行代码。
-- `audit_withdrawal_price_context.py`：删除旧执行代码。
-- `freeze_post_june9.py`：删除旧执行代码。
-- `reference_extrema_candidate.py`：删除旧执行代码。
-- `reference_retirement_candidate.py`：删除旧执行代码。
-- `replay.py`：删除旧执行代码。
-- `replay_color_flip.py`：删除旧执行代码。
-- `replay_frozen_25_points.py`：删除旧执行代码。
-- `screen_discriminating_nodes.py`：删除旧执行代码。
-- `screen_reference_retirement.py`：删除旧执行代码。
-- `screen_structure_withdrawal.py`：删除旧执行代码。
-- `screen_withdrawal_recensor.py`：删除旧执行代码。
-- `turn_filter_candidate.py`：删除旧执行代码。
-- `validate_stage2.py`：删除旧执行代码。
-- `wave_boundary_candidate.py`：删除旧执行代码。
+本轮核对正式query/clone/API、Wealth的xxm/forecast/debug/页面消费者，没有导入上述待删研究模块。正式功能不依赖reports资料；资料迁移仅影响明确离线工具/测试和文档导航。保留所有daily-wave生产实现及其前后端测试。
 
-同目录4个不导入旧replay的文件不能按目录一并删：
+### 10.3. reports逐文件审计与收敛
 
-- `audit_90_numeric_semantics.py`：保留原始数值/来源/EMA精度审计用途；不接正式识别或debug，不把它的来源模拟当产品指标。若其中固定历史路径不再存在，则从当前活动运行命令移除，保留其文档结果，不恢复旧识别实现。
-- `audit_june26_lecture.py`：保留原始数值/来源/EMA精度审计用途；不接正式识别或debug，不把它的来源模拟当产品指标。若其中固定历史路径不再存在，则从当前活动运行命令移除，保留其文档结果，不恢复旧识别实现。
-- `audit_software_numeric_history.py`：保留原始数值/来源/EMA精度审计用途；不接正式识别或debug，不把它的来源模拟当产品指标。若其中固定历史路径不再存在，则从当前活动运行命令移除，保留其文档结果，不恢复旧识别实现。
-- `export_90_jan13.py`：保留原始数值/来源/EMA精度审计用途；不接正式识别或debug，不把它的来源模拟当产品指标。若其中固定历史路径不再存在，则从当前活动运行命令移除，保留其文档结果，不恢复旧识别实现。
+附件每行都有原路径、Git状态、字节数、内容用途、处理、唯一目标及先完成的交接。**原目录是否叫reports、文件是否是JSON或Markdown，都不构成保留理由。**记录是审计时数量，不冒称已释放磁盘或已经删除。
 
-#### 10.3.2 其他已核旧实现/执行器（18个.py）
+| 处理 | 原文件数 | 原字节数 | 范围 |
+|---|---:|---:|---|
+| 删除 | 3282 | 588580476 | 无用过程产物、旧执行脚本/预期/响应、错误或过时假说、重复事实和源码包 |
+| 原事实/有效结论原字节收敛保留 | 207 | 155476195 | 原图、讲稿、必要来源/观察、日期纠正及独立峰谷结果 |
+| 仅整理链接、历史范围与失效命令后收敛 | 6 | 57672 | 有效历史交付README；成绩、日期和事实不改，不宣称文件字节不变 |
+| 仅抽取列明事实字段后删原 | 7 | 16775 | 混有旧模型解释的观察/来源JSON；根字段及必要的嵌套字段白名单见附件和§10.3.3.1 |
+| 修改路径和未执行代码单元后收敛 | 1 | 4350 | 独立峰谷`review.ipynb` |
+| 合计 | 3503 | 744135468 | 112个本需求旧目录；不触及其他主题 |
 
-- `reports/xxm_bottom_history_precheck_20261016/candidate.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
-- `reports/xxm_bottom_history_precheck_20261016/finalize_report.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
-- `reports/xxm_bottom_history_precheck_20261016/run_additional.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
-- `reports/xxm_bottom_history_precheck_20261016/run_budget.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
-- `reports/xxm_bottom_history_precheck_20261016/run_forecast.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
-- `reports/xxm_bottom_history_precheck_20261016/run_frozen.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
-- `reports/xxm_forecast_range_precheck_20261014/http_precheck.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
-- `reports/xxm_forecast_range_precheck_20261014/range_model.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
-- `reports/xxm_forecast_range_precheck_20261014/run_precheck.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
-- `reports/xxm_forecast_range_precheck_20261014/synthetic_cases.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
-- `reports/xxm_forecast_range_precheck_20261014/text_model.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
-- `reports/xxm_forecast_range_precheck_20261014/validate_model.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
-- `reports/xxm_minute_reader_optimization_20261014/checkpoint_compare.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
-- `reports/xxm_minute_reader_optimization_20261014/compare.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
-- `reports/xxm_minute_reader_optimization_20261014/http_precheck.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
-- `reports/xxm_minute_reader_optimization_20261014/prototype.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
-- `reports/xxm_forecast_precheck_20261014/precheck.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
-- `reports/xxm_forecast_range_implementation_20261014/http_acceptance.py`：不保留候选/旧预测/旧runner；仍有用的独立数学或当前读取验证先迁至主题现有测试/工具，再删除该报告执行文件。该目录的JSON/CSV/图片/README不随之删除。
+收敛目标只使用`reports/xxm/sources/`、`observations/`、`conclusions/`和`local-extrema/`四类，具体文件目标由附件固定。原路径下的目录名保留作出处，收敛后不再散放112个顶层目录；没有剩余文件的本次旧目录才删除。新增`reports/xxm/README.md`不计入221份原资料迁移数，只做资料导航及现行规则入口，不复制算法、现方案或重新写旧成绩；没有运行代码放进reports。
 
-#### 10.3.3 Notebook、原始材料和历史文档
+#### 10.3.1 旧执行代码及隐藏源码
 
-- `reports/xxm_local_extrema_trial_20261021_01/review.ipynb`：保留。代码单元只导入正式daily_wave扫描器和local_extrema_study，无r2执行；生成器`local_extrema_study.notebook()`同步核当前路径，不能因清退旧报告.py把Notebook连带删除。
-- 不修改历史`run.json/manifest.json`的内容或SHA，不把当前代码重新登记成旧运行代码。新运行保护仅白名单验证所需原始数据/图片，不从旧manifest的protected/codeSha字段递归要求旧源文件存在。
-- `local_extrema_study.CASES`三份必要材料保留：`reports/xxm_m120_reference_trace_20261020_01/source_window.json`、`reports/xxm_same_day_m90_m120_20230301_20261020_01/m90_source_window.json`、`reports/xxm_feb25_m90_reference_evidence_20261021_01/source_projection.json`。
-- 原算术/图像材料保留：`reports/xxm_jun25_reference_evidence_20261021_01/saved_comparison.json`、`reports/xxm_aug07_price_reference_evidence_20261021_01/old_segment_source_projection.json`、`reports/xxm_peak_comparison_images_20261021_01/02_near_and_skipped_peak.png`，以及引用这些材料的历史README/作者图文。旧条件判断只保留为历史结论，不继续作为新r4判别。
-- `reports/xxm_source_audit_20261013_213852/`中的原始日线/分钟源和SSE日历、`reports/xxm_forecast_precheck_20261014/future_sse_calendar.json`等仍被测试使用的输入不得按父目录删除。原始输入与旧API输出必须分开登记。
-- `reports/xxm_top_activation_r2_implementation_20261019/api/`、`reports/xxm_reference_rescue_r1_implementation_20261017/api_02/`、`reports/xxm_same_segment_a1_implementation_20261016/api/`的旧响应JSON只作历史结果；活动测试不能只换版本/hash继续把它们当新r4金样本。不改写旧JSON来迎合新实现。
-- 新增/整理LLD索引时，原r2设计与开发文档标历史及后继入口，不删除整份研究演进。不能把本清单状态写成已删除。
+67个报告`.py`、1个`.cjs`均清退；原清单45+18个旧执行器及4个“纯数值脚本”现在全部覆盖。4个数值脚本已无当前消费者，其SQL/模拟/EMA诊断不迁；已有数值事实及现源精度tests承担必要用途。
 
-### 10.4. 主题测试逐文件处理
+以下4个源码ZIP必须删除：`xxm_same_segment_a1_implementation_20261016/h1_research_source.zip`、`xxm_reference_rescue_r1_implementation_20261017/baseline_source.zip`、`xxm_research_freeze_20261024_01/research_before_first_batch.zip`、`xxm_top_reference_priority_20261021_01/test_source_before_gate_review.zip`。已只读核包目录：分别95/46/315/1项，含93/46/110/1个代码文件；非代码成员在当前工作区均有原文件，不需要从包中恢复资料。旧版本差异不作为再次保存旧源码的理由。
 
-前缀统一为 `scripts/research/index_market/tests/`。删除旧专属测试前，已批准且仍适用的反例先迁当前r4单组测试；删除不是跳过错误或降低覆盖。
+`xxm_rearm_discrimination_20261016_01/diagnostic_v1_source.txt`实际为Python源码，同样删除；报告里的旧源码diff、前版整篇方案拷贝和多步算法生成结果不因扩展名豁免。讲稿和管理员原话中的代码样式文字不是执行器，不按关键词删除。
 
-| 文件 | 处理 |
+#### 10.3.2 不保留的中间产物
+
+- 旧API响应/浏览器DOM、完整事件账本、`.complete.json`续跑校验、失败/测试/构建/CodeGraph日志、gzip预期流、筛日期队列、派生事件CSV及旧截图中间版本均按具体行删除。
+- 旧两位/合峰/最强选峰/等待/先取消后换峰等研究方案与中间解释删除；有效作者图、讲稿和原始观察另存，不能连同错误解释保留为当前开发依据。
+- 原r2设计与开发主文档仍保留在docs/wealth历史入口；其中仍有价值的阶段交付报告按附件9份保留。保留历史实际成绩不等于恢复其旧运行指令。
+- 两份saved_comparison.json混有旧本地选峰/模型结果，保留工具已无消费者，原始行情/图/讲稿另有保留，故删除而不以“原始片段”名义留存。同样的52条观察有多份字节相同拷贝，只保留附件指定的一份；`confidence=mapped`不能变成精确时刻金样本。27条数值摘录与52条标签观察独立保存，不合成成绩。
+
+#### 10.3.3 资料交接、原字节和证据限制
+
+1. 3个`local_extrema_study.CASES`窗口、量图原图、真实DEA的源CSV和必要SSE日历保留；7个混合JSON只抽取附件及§10.3.3.1明确的字段，禁止带回被删除的模型结论。抽取文件与原图/讲稿的“原字节保留”分别验，不能混称全部原文件不变。
+2. 对保留的普通文件，移动前后逐字节相同；数据/图片既有SHA不变。仅路径迁移不能重新计算MACD、补列/值或修改原CSV/讲稿。源码不新增SHA保护。
+3. 对7个抽取件，目标JSON根字段恰为附件白名单；原5件保留字段值逐项等于原字段。另2件必须继续按§10.3.3.1投影嵌套对象，不能直接复制整个根字段。没有再次投影的叶值逐项等于原文，数组长度/顺序不变；不增加推断字段，不将null补为确定状态。先确认字段和引用迁移，再删混合原件。
+4. 27条数值摘录中11条原图原路径为已不存在的Downloads文件，当前reports亦无同字节副本。本次只确认这些路径已失效，不重新核图、不联网补图。摘录及其既有图片身份保留为历史事实，`collect_readouts`不得将“文件可读”冒称图证重新通过；目录README明确缺图条目，见§22.4。该旧限制不改变P4验收，不要求为P5补视频。
+5. 资料目标当前尚不存在。实施时先检查精确目标无占用再移动保留项；逐个确认新位置及内容，同步全部活动消费者和链接，才能删无用原件。目标存在或原件变化即停止，不覆盖、合并猜测或自动加后缀。
+6. 中断时记录哪些文件已移动/抽取、哪些消费者已改及剩余项；只核这些路径继续，不重新读正式源或重算结果，不把两份不完整目录当成功。没有持久化业务任务、恢复数据库或后台清理器。
+
+#### 10.3.3.1 两份混合来源JSON的明确抽取设计
+
+以下原文件均在`reports/xxm_macd_structure_20261011/sources/`；目标仍是附件列明的`reports/xxm/sources/xxm_macd_structure_20261011/sources/`下同名文件。本轮只补设计，不改原JSON，也不运行其记载的旧预测、找图或联网任务。
+
+| 原文件 | 目标根字段 | 嵌套保留字段 | 必须移除 |
+|---|---|---|---|
+| `correction_context_20261012.json` | `research_date,existing_sources,new_public_sources,fetch_limits` | `existing_sources[]`仅保留`date,file,sha256,video_url,text_field,locator,excerpts`；`new_public_sources[]`仅保留原对象已有的`url,retrieval,purpose,title,publication,event_date,paraphrase`；`excerpts`和`fetch_limits`原值保留 | 根`analysis/software_labels_added/next_request`；`new_public_sources[].comparison`。原文字出处保留，不带旧模型相容性判断或后续找图要求 |
+| `post_june9_author_check_20261012.json` | `research_date,sources,source_limits` | `sources[]`仅保留`id,url,title,page_publication,event_date,retrieval,paraphrases`；`paraphrases`和`source_limits`原值保留 | 根`scope/definitions_file/prediction_file/prediction_sha256/next_material/protected_previous_research_files/software_labels_added`及每个`sources[].comparison`。不带旧预测身份、比较结果或后续任务 |
+
+后续编码逐文件写明确的字典/列表字段投影，不新增通用清理器或配置。固定根字段用原键直接取值；嵌套对象按表中字段顺序，仅复制该对象原来已有的键，不把可选缺键补成null。`existing_sources[].excerpts`、`sources[].paraphrases`等保留值独立复制，不改原对象、原中文、日期、出处、获取状态或限制。`file`中的旧绝对路径只作为出处，由新资料README映射新位置，不拿它自动读取旧目录。
+
+验收必须逐项核：两份文件的目标根键集合准确；每个嵌套对象的键集合恰为“原对象键与对应白名单的交集”；两层数组长度和顺序不变，保留叶值与原文一致。仅检查根键不合格：必须用含`comparison`的原对象抓住嵌套旧解释漏出，并用保留了`purpose`的来源项、无`purpose`但有`title/paraphrase`的另一来源项证明正常差异不会被误拒或补值。旧分析和找图要求不得复制到新README、另存JSON或文档附录。
+
+对应长期回归落在精简后的`test_xxm_acceptance_scope.py`：新增`test_retained_source_summaries_match_independent_literals`，按两文件参数化，直接读取迁后固定目标并断言作者摘要/出处/获取限制；完整预期在编码前按本轮已读取原文逐项核成测试内字面值，不调用投影过程生成expected。新增`test_retained_source_summaries_exclude_model_comparisons_and_tasks`检查准确根/嵌套键及禁止字段；同时保留上述两种合法可选字段差异，不把来源不足改成“已验证”。测试不读已删混合原件、旧预测文件或模型输出；迁移当次另在删原件前逐值对账7件抽取，删后回归使用独立字面预期，不因旧原件缺席跳过检查。
+
+7件抽取、207件原样保留、6件历史说明及1件Notebook仍对应221个原文件目标；源文件总数3503及3282件直接删除项不变。新增两件抽取的原字节共8398，从原样保留移入抽取统计，不把抽取后目标大小冒称为原文件大小。
+
+### 10.4. 测试清退与当前覆盖
+
+103文件附件将源码和测试分开列出。当前r4规则、following、restore、internal_results、query、单根预测、输入/快照、P4工具和源/合同tests保留，不按名字含r4、r1或legacy删除。
+
+- `test_xxm_calculator.py`保留CURRENT_CORE_NODES及7个现函数/22参数用例；删尾部3个legacy oracle/等待节点、专属helpers和导入，不能整文件删除。
+- 3个P1迁移执行helper及`test_xxm_product_v1_migration.py`清退；旧response工厂和自测文件清退。它们能捕获旧Git源码或构造旧合同，正式消费者已经迁移完毕。
+- `xxm_product_v1_cases.py`仍被当前snapshot_validation使用，**37组222根人工输入必须保留**。保留DATES/PERIODS、最小Case(name, values)和inputs时间映射；去旧Reference/Check、rules/checks/facts及等待/旧寿命/多步expected，不复制成第二份样本。原数值逐组在§22.3登记，不能由被测核心生成。
+- `test_xxm_product_v1_cases.py`仅保留纯输入/不可变/时间映射/无运行依赖验证；旧37组业务expected删除。`test_xxm_snapshot_validation.py`仍使用全部37×4输入在各截断处恢复并继续；不能减少这一覆盖或改为永不运行的样本。
+- `test_xxm_r4_observation.py`当前已经直接测试正式类及`observe_rows`，整文件保留；旧`r4_observation.py`研究包装文件才删除。
+- `test_xxm_confirmed_cases.py`保留原10份依据及3例作者观察，去旧load_bars/失效validate_capture_identity，改直接读明确原源。只改当前记录字段/派生标记关联，不继承“new_top_DULL结束旧历史”旧解释，具体断言见§22.5。
+- 原forecast_display与acceptance_scope不是可直接保留的现行suite：分别迁当前独立显示边界及原输入事实读取测试，删除旧多步/等待/旧CLI/旧结果oracle。不能去掉导入后仍拿旧响应充当前r4。
+- 其余旧候选/双组/配对/历史专项执行suite按附件删除；当前RC/PF、恢复/查询及P4工具中对应覆盖须逐项核对，不为删旧协议复制一套通用通信框架。
+
+#### 10.4.1 已完成迁移的跨层消费者
+
+当前`tests/web/test_wealth_index_detail_xxm_api.py`、forecast_api、`test_xxm_shared_loads.py`及Wealth的`xxm/xxm-forecast/debug`fixtures/合同/Hook均已是P3/P4当前实现，本次静态核对未读取待删旧API报告作成功基线。保留它们，不再按旧文档第239/268等行号重复迁移。`r1Contract.test.tsx`、`rearmContract.test.tsx`当前名称不能作为删除理由，必须保留其中当前合同或拒旧断言。
+
+`test_xxm_forecast_expression_contract.py`验证的是当前仍接受的表达式联合，其测试中出现legacy/1—20不是正在执行旧多步预测；保留其公共合同断言，本次不改schema或缩窄API。普通/debug字段与开关、客户端deadline、生产禁用、daily-wave四种三角/1000根均保持。
+
+### 10.5. 删后验收与禁止误删
+
+P5只做单组当前r4回归，不重开双组对比。新增/迁移用例按§22.5逐项设计，测试预期来自原规则、原始事实或手写数学，不来自旧/new同一算法输出。
+
+1. 先跑迁移后的纯输入、算术、取窗、量图、Notebook和观察测试，再删旧实现；删除后的新进程再收集并执行保留测试，不能靠旧module缓存/pyc通过。
+2. 规则/记录/恢复/查询/预测、API和实际受影响前端、根三份架构、研究依赖/组织及文档检查均按§22.6执行。单组超过60秒或首次失败先停查因；交易助手已知日期TODO不混入修复，不伪称全部前端通过。
+3. 静态引用核对覆盖AST import、明确动态加载、CLI/README、Notebook code cells、报告代码/文本/ZIP。必须清零的是附件旧执行模块、类和Git加载入口；历史文字、原sourceRecord以及明确拒绝旧身份的字面值可出现，不为让rg全空删除有效事实。
+4. 旧代码缺席后，正式r4、保留工具和全部已声明资料应独立可用。资料新路径及原字段/字节检查是明确边界；不能只看测试数量或r4标签数。
+5. 本次清退不改变正式业务、路由和读源设计，P4有效真实证据直接复用；不自动重跑540次、922根或读取全历史。若未来实现发现必须修改正式代码或真实边界证据不再适用，先停止并补具体最小验证方案再review，不能临时增加真实请求。
+6. 文档、引用和清单检查通过只证明本轮审计/设计一致，不证明已经清退、回归或释放空间。
+
+#### 10.5.1 清退后的交付清单
+
+报告必须给出每个附件行的实际处理、仍有消费者的阻塞及测试节点；已保留资料与目标一一对应，不能“整目录拷贝后再慢慢挑”。当前命令只保留正式r4及保留工具入口；全部无用目录空后再删除空目录。保留Git历史和有效主文档，不留旧执行代码副本或兼容层。最终交付仍须管理员review，提交/推送/部署按各自明确授权；本轮不执行。
+
+
+## 11. 开发顺序、前置条件与上下游交接
+
+P3和P4均已完成，P4最终收尾见§21.14.14；不再从§20.2重新开发公开接口或页面。当前P5第一步只审计、补齐方案/LLD，后续按§20.4和§22先迁有用能力及资料，再删旧代码/无用报告，再删后回归和交付。下列是尚未实施的编码要求，不能登记已开发。
+
+### 11.1 保留能力的唯一落点
+
+| 能力 | 当前落点和P5处理 |
 |---|---|
-| `test_xxm_calculator.py` | 迁当前正式r4；保留独立人工核心、1%、翻色、原参照和恢复安全；历史生命周期按§14重写，旧等待仅作拒绝反例；移除旧r2零切段/最强选峰专属预期和旧frozen账本相等测试。 |
-| `test_xxm_input_validation.py` | 保留，改为唯一正式r4入口；布尔/NaN/无穷/逆序/未完成拒绝及合法输入反例均保留。 |
-| `test_xxm_snapshot_validation.py` | 保留严格恢复、拒错后对象不变及合法继续；删旧r2独立零段合法性断言，按r4零中性/新身份预期。 |
-| `test_xxm_snapshot_consumers.py` | 保留真实查询calculator_at/load/clone恢复调用；所有构造器为唯一正式r4，不能mock恢复成功。 |
-| `test_xxm_r4_reference_trial.py` | 有效R4-18—24、选峰/零日/恢复人工样本迁正式r4测试后删除研究包装/父r2身份专属测试；不保留第二识别类。 |
-| `test_xxm_r4_observation.py` | 有效真实调用次数、before B/after A、转折理由及不篡改记录测试迁§7离线观察；ObservedR2和旧父方法包装测试删除。 |
-| `test_xxm_r4_comparison.py` | 删除双算法重放/旧组身份专属测试；资源上限、当前结果完整性、无副作用及独立字面报告用例按保留工具迁移。 |
-| `test_xxm_r4_records.py` | 仅迁仍被保留的当前记录/独立预期引用完整性反例；旧r2/r4组配对预期删除。 |
-| `test_xxm_confirmation_only_trial.py` | 取数字面样本迁最小算术测试；整份旧类/源码保护/旧r2政策/恢复suite删除。 |
-| `test_xxm_confirmation_comparison.py` | 删除旧r2/两位编排、CLI和专属账本预期；当前来源核验能力已有正式测试承接，不能为留此suite恢复旧执行器。 |
-| `test_xxm_near_first_review.py` | 最小化为decimal_value/quantize_dif人工算术及非法输入；删除旧choose_reference/合并/条件重放预期。 |
-| `test_xxm_reference_window_review.py` | 仅核sign/build_references的原始日期、平台、数值；删qdif及旧eligible/selected/两位生命周期和writer测试。 |
-| `test_xxm_same_bar_dull_review.py` | 旧advance_bottom/display_events删除后本专属文件删除；已批准的同根B→A人工行为由正式r4测试承接，不测试“先双报再隐藏”。 |
-| `test_xxm_saved_minute_window.py` | 保留纯取窗/列/原值/边界测试，无标签计算。 |
-| `test_xxm_local_extrema.py` | 保留扫描器/平台/图像量取字面预期。 |
-| `test_xxm_local_extrema_study.py` | 保留输入身份、独立数学/图像和扫描性能；旧拒覆盖writer测试改为无结果写入/原料不变；Notebook仅核返回的未执行字典，不执行真实窗口。 |
-| `test_xxm_top_activation_r2.py` | 将仍适用的首次TOP正DIF、两根、预测资格独立用例迁当前测试，删除旧版本/旧frozen期望及旧文件。 |
-| `test_xxm_top_activation_expectations.py` | 独立数学预期迁当前预测测试；删除旧r2账本保存/保护/IdMap专属预期。 |
-| `test_xxm_top_activation_real_math.py` | 仅保留meet/minus/interval纯数学预期；删entry_domains/proof及旧报告身份测试。r4选峰/求价另用§14及§5.4.4独立字面预期，不沿用最强排序oracle。 |
-| `test_xxm_top_current_close.py` | 删除旧TopCurrentCloseCalculator专属测试；通用收盘口径反例先迁正式r4。 |
-| `test_xxm_top_current_close_selection.py` | 删除旧PriceBeforeSelectionCalculator专属测试。 |
-| `test_xxm_top_reference_priority.py` | 删除旧NearFirstCalculator专属测试；已批准先B后A反例由正式r4覆盖。 |
-| `test_xxm_top_return_reference.py` | 删除旧ReturnReferenceCalculator专属测试，不能影响正式r4原参照跟踪测试。 |
-| `test_xxm_top_daily_ambiguity.py` | 删除BASE/T2/S2/ZC/ZR多变体测试；已确认正DIF和根数规则迁当前r4。 |
-| `test_xxm_reference_rescue.py` | 删除旧研究候选类测试；正式r4顶/底DULL当根救援和失败边界保留。 |
-| `test_xxm_cross_index_daily.py` | 旧多指数变体实验测试删除；SSE共用日历、日期/字段合法性仍由当前来源测试核验，不恢复研究算法。 |
-| `test_xxm_acceptance_scope.py` | 保留真实读取边界/权限/有限范围等当前仍适用的检查，迁当前入口；删旧frozen/spec/候选模式及旧账本混合预期。 |
-| `test_xxm_daily_window_precheck.py` | 保留validate/read_window和isolated_client的独立合同；删旧capture身份、frozenOverlap、writer及旧响应基线测试，补正式装配/字节正文与normal/debug投影。 |
-| `test_xxm_cancellation_restart_audit.py` | 旧A1账本相等及旧runner专属测试删除；仍适用的取消/连续钝化人工反例迁正式r4。 |
-| `test_xxm_cancellation_restart_detail.py` | 旧16次研究专属suite删除；有效严格价格/等号用例迁正式r4。 |
-| `test_xxm_rearm_discrimination.py` | 旧A1对账suite删除；当根收盘/原DIF边界迁新r4；等待结果改为新回转/首次反色用例或旧输入拒绝用例。 |
-| `test_xxm_history_disappearance_screen.py` | 保留dif_diagnostics/history_record/event_signature的独立字面测试，补§7 observe_rows及合法B→A后原DULL/结构不同参照；删旧runner/保护/frozen/候选排序测试。 |
-| `test_xxm_history_replacement_screen.py` | 仅保留ordinary_index的时刻/唯一性/方向反例；删除local_followup和旧延长历史/runner测试，不将旧替换政策迁r4。 |
-| `test_xxm_confirmed_cases.py` | 保留来源明确的作者截图观察及其原预期，迁正式r4；如真实观察不符应报告，不改原预期凑通过。 |
-| `test_xxm_key_point_forecast.py` | 保留独立求价/精度/区间/禁止中点概括等有效测试，按唯一r4和全部路径修正；不依赖旧算法生成expected。 |
-| `test_xxm_forecast_reference_paths.py` | 迁正式r4顶底B→A/零日路径，删除研究候选路径类及旧排序预期。 |
-| `test_xxm_forecast_display.py` | 保留当前正式r4文本和条件显示，解除经key_point_forecast.frozen间接导入旧账本。 |
+| 唯一r4识别/预测、恢复、记录、来源和公开模型 | 当前src正式实现；不改规则/Spec/取价/邻峰或预测数学，不依赖研究包 |
+| 真实分支观察 | 正式`record_decisions`及`history_disappearance_screen.observe_rows`已经可用；后者只精简导入和旧执行段，不复制step |
+| 两位算术 | 原`near_first_review.decimal_value/quantize_dif`和最小人工测试；不留完整类/旧策略或另起模式 |
+| 独立有理数 | `top_activation_math.pair/daily_options`、`top_activation_real_math.meet/minus/interval`及独立字面测试；当前单步预期已有M1—M5/PF，不迁旧两步oracle |
+| 原始数据/作者事实 | 精简`acceptance`、独立取窗、原CSV/日历/27数值与52标签事实；文件按§10.3附件收敛，不产生策略事件 |
+| 独立峰谷/量图/原始窗口 | 当前daily_wave扫描器、local_extrema_study、reference_window_review及peak_image_measurement；不成为r4依赖或选峰政策 |
+| 路由/来源/客户端核验 | P4已经完成的daily_window、page_request及forecast_display现工具；保留原行为和预算，不重做迁移 |
+| 手写恢复输入 | 原`xxm_product_v1_cases`的37组输入仍在原文件精简保留，当前snapshot_validation继续消费；旧预期和Git捕获执行链删除 |
 
-#### 10.4.1 跨层现存夹具消费者必须迁移
+### 11.2 P5逐函数编码与资料交接
 
-| 当前消费者 | 要求 |
-|---|---|
-| `tests/web/test_wealth_index_detail_xxm_api.py` | 唯一r4请求/来源/DTO/恢复、普通与debug投影及本地/生产门禁。旧API JSON不作新金样本。 |
-| `tests/web/test_wealth_index_detail_xxm_forecast_api.py` | 第239/268/587附近读取r2 API夹具、301及594/625附近读A1/R1旧响应的测试分开处理：新r4金样本用独立输入/手写期待；旧响应只用于明确“旧版本必须拒绝”的反例，不能改几个身份字段后声称当前完整合同。 |
-| `tests/web/test_xxm_shared_loads.py` | 保留并核普通/debug及识别/预测共用读取不串模式，不借清退删除并发/取消测试。 |
-| `wealth/src/features/index-detail/xxm-forecast/identity.test.tsx` | 新r4身份/旧r2拒绝；不再把r2报告目录读成current()。 |
-| `wealth/src/features/index-detail/xxm-forecast/forecast.test.tsx` | 原第132附近报告JSON消费者改独立r4当前合同，不能仅换version/hash。 |
-| `wealth/src/features/index-detail/xxm-forecast/r1Contract.test.tsx` | 旧多步路径/等待成功样本撤销，按§5.4/§6迁下一根条件与拒旧测试；旧r1/r2 JSON只保留拒绝反例。 |
-| `wealth/src/features/index-detail/xxm/rearmContract.test.tsx` | 统一结构记录/悬挂引用用独立字面fixture，旧等待只验拒绝；旧报告不伪装当前。 |
-| `wealth/src/features/index-detail/xxm/useIndexXxmLayer.test.tsx` | 当前身份迁r4，补本地普通/debug与生产无请求；不再expect r2。 |
-| `wealth/src/features/index-detail/xxm/xxmFixtures.test-support.ts` | 独立明确构造普通/debug不同投影，输入/expected不依赖待测adapter生成。 |
-| `wealth/src/features/index-detail/xxm/types.ts` | 唯一r4识别身份，配套adapter拒绝旧身份，无r2选项。 |
-| `wealth/src/features/index-detail/xxm-forecast/types.ts` | 唯一r4预测身份；识别器身份/hash与正式r4一致，无r2回退。 |
+#### 11.2.1 原输入读取与纯数学
 
-`tests/test_index_detail_daily_wave*.py`、`tests/web/test_wealth_index_detail_daily_wave_api.py`、`tests/test_index_detail_daily_wave_connection.py`及前端daily-wave测试全部保留；只按本地/生产/debug新门禁调整输入和调用，不改变四种三角、极值/色段/价格候选定义、真实1000根限制或原始数据精度。
+`acceptance.load_source(root, period)`仍只接受已明确的原CSV目录，沿原`manifest.files`定位本文件数据SHA及原字段读取真实DEA。收敛后的源目录仍与CSV/manifest成组；不递归验证manifest里历史代码或已退文件，不补算缺DEA，也不从prod/DG重新下载。day 912根原材料、day_2020 1643根材料和三分钟原CSV是不同已存文件，不互相替代；它们是离线材料，不把全CSV输入恢复到产品请求。
 
-### 10.5. 独立验收矩阵与删后引用检查
+`collect_readouts(root)`删除现有5份混合旧模型报告读取，固定读传入目录的既有`software_readouts.json`；目标为附件指定observations下`xxm_implementation_20261013`目录。根必须是27项list，每项必要键为`period/time/image/imageSha256/sourceRecord/software/source/softwareMinusSource/sameDisplayedValue`，这些键已核真实生产者全部27项共有；保留每项原字段，不重新产生差值/同显示判断，不把缺原图当作新图证通过。原image/sourceRecord字符串仅作历史出处，不作加载地址；新资料README按附件给16条可用原图的新位置和11条缺图。返回对象独立复制，连续两次调用不共享可变字典；不计算标签/EMA、读DB或写文件。27项及其`period/time/software`人工抽样预期直接用已存事实，不能调用待测函数生成expected。
 
-| 断言 | 独立输入与必须抓住的反例 | 落点 |
-|---|---|---|
-| 两位纯算术保留 | 40.057→40、−8.086→−8.0、41.01→41、40.99→40、41.9与41.4同41、0/±小数/数量级及bool/NaN拒绝；expected字面给定 | 最小化near_first_review与其人工测试；不得构造产品计算器或读源码/数据 |
-| 旧依赖已解除 | 在临时目录中只提供已声明原始CSV/JSON/图像，不提供top_reference_priority/top_return_reference/旧r2源码；保留工具可运行。篡改原始数据SHA仍拒绝 | local_extrema_study和纯取窗/量图测试 |
-| 无第二套识别 | 页面debug指向真实r4活动参照、离线观察只记实际分支；保留工具不能调用choose_reference/inspect_prefix/advance_bottom/display_events产生新标签或遮事件 | 产品debug tests及静态导入/符号检查 |
-| 当根切换与历史 | 人工A/B价与DIF、零日/缺A/等号/晚合格/结构考核/首次反色边界，原DULL事件B保持、activeA；旧结构从首次反色起比价、单根不结束、首个有效同色段结束正常停止，正常结束不报消失 | 唯一正式calculator人工测试，从原r4-v2 R4-18—24迁移 |
-| 身份与内存复制 | r2/研究v1/研究v2旧快照不能作为正式r4进度；坏输入拒绝后正常输入仍成功；旧API JSON仅拒绝反例 | 恢复、真实调用方及前后端合同测试 |
-| 新规则完整结果 | §14逐根事件/状态/参照/结构、连续/恢复/历史asOf；不能只数标签或要求等同旧v2 | 唯一新r4及独立预期，不运行旧等价进程 |
-| 默认不触发研究 | 本地普通URL和生产任何URL不得加载辅助研究包/请求/三角；本地debug=1且点击波段核对才计算；生产日线也无r4请求/信息 | 页面/API/浏览器真实验收；不能只用mock声称整个环境门禁通过 |
-| 删后仍工作 | 删除清单中的旧模块和已知生成缓存后，当前核心/预测/API/debug/峰谷工具的定向测试通过，原市场数据/历史报告字节未改 | 全部迁移完成后再执行，不拿删前成绩充数 |
+`frozen_inputs.py`整文件清退，尤其不迁其`dea = dif-hist/2`兜底。`forecast_expectations.py`、top_activation_expectations及R1专属执行链不再是数学预期入口。`top_activation_math`只留`pair/daily_options`；`top_activation_real_math`只留3个区间函数及所需Fraction/pair，其他import及常量清零。daily_options只描述既有来源三位小数精度，不是两位策略四舍五入，不进入正式标签。独立测试直接写分数端点、正负.001舍入和开闭结果，不调用正式solver生成预期。
 
-#### 10.5.1 静态和动态引用清零
+#### 11.2.2 独立峰谷、取窗、量图和Notebook
 
-1. 使用当前AST列所有活动Python的Import/ImportFrom及明确动态import路径；核`.mjs/.ts/.tsx/.sh`中的模块/命令和生成Notebook字符串。以清单中每个旧模块路径、旧类名、旧CLI模块名检查，不能只搜r2字串。
-2. 必须为零的运行引用包括：TwoDigitTurnCalculator、ObservedR2Calculator、BottomDullRescueCalculator、ReferenceGateCalculator、TopCurrentCloseCalculator、PriceBeforeSelectionCalculator、NearFirstCalculator、ReturnReferenceCalculator、旧研究R4Calculator，以及旧replay/candidate动态加载入口。
-3. 历史Markdown中的叙述或旧JSON的版本身份不算运行引用，不能为了让rg无结果删除有效事实。测试中的旧version/hash可出现，但必须是“拒绝旧身份”的明确反例；不能仍有旧版本成功路径、实例化或产生旧算法结果。
-4. 扫描旧研究MODULE.main/argparse入口、README活动命令、`runpy`/`spec_from_file_location`、Notebook code cells。只删Python源文件但保留可执行Notebook或动态复制源码，不算清退。
-5. 对已清退模块精确删除对应__pycache__项，不做整个repo/环境缓存清空；检查无软链接、转发文件、`.py.txt`、兼容别名或r2算法选择。Git历史不动。
-6. 删除后从干净新Python进程导入所有现入口，按现pytest发现配置收集目标测试；不skip失败、不把旧测试仅移出testpaths。保留测试/工具在旧文件缺席时必须真实执行到原始材料校验。
-7. 根三份架构、研究依赖方向、必要后端/Wealth测试、类型/构建及文档链接检查按本文相关章节统一执行。本章节不另造数据库/外部源验收，也不授权重跑922根。
+1. `CASES`3个源路径按reports附件分别同步，rows/frequency/SHA和原值不变。`read_case/validate_rows`仍按真实原字段校验；`summarize_case`不改转折、平台、尾部、段和价格窗口定义。
+2. `protected_files()`只返回3个CASES和原量图图片的明确资料身份，`assert_protected`只检查这4份材料；删`PREVIOUS/run.json`及目录全扫，不再让算法源码、旧protected链或待删报告成为使用前置。
+3. `save_new/main`删除，去argparse/writer/旧目录/`exec`等专属导入；`notebook(out)`返回字典，不执行代码单元、不写文件。out只用作已保留独立结果目录说明，不创建目录。
+4. 现有`review.ipynb`移到`reports/xxm/local-extrema/`，同步source及读取路径；code cells保留正常纯工具导入，全部`execution_count=None/outputs=[]`，不保留生成器执行时的旧终端输出。测试只查结构/导入/路径和无副作用，不运行Notebook。
+5. 3个旧峰谷结果JSON原字节保留，其`source`是原路径；新`CASES.path`为目标路径。Notebook对比必须先分别断言saved.source等于附件原路径、current.source等于其唯一目标，再用副本去掉这一个路径字段比较其余全部结果。不得宽泛删除数值、时间、count、尾部或SHA字段来凑一致。
+6. `reference_window_review`去qdif与资格判断后，只返回原有phases/assignments/references/censored/raw_turns事实；每条reference保留原dif、price及其窗口/确认时间。不得新增selected/eligible或用其峰谷替换正式r4参照。
+7. `saved_minute_window`保留现有行/字节/定位/时间/原始数值约束；source显式传新位置，existing SHA是原数据身份。它不是正式分钟Reader，原数据检查不能接入普通请求；P5不借此开启性能优化。
+8. `peak_image_measurement`保持原算法与PIL延迟导入，原图片尺寸/颜色/遮挡/像素限制不变；仅调用处路径迁移，不重绘或补图。
 
-## 11. 后续开发顺序、前置条件与上下游交接
+#### 11.2.3 日线窗口及隔离客户端
 
-P3第1、2步、三项修补及一次专项对比已按§19验收；当前只从§20.2继续第3—5步，先公开查询/API，再必要前端，整批独立验收后才进入P4。普通/debug、生产禁用及最终清退范围不变。§15—17是修改前历史，§18是本次已执行的设计交接，不作为再次开发或重放指令。不得用旧成绩代替本批新增公开/前端验收。
+当前文件114行已仅有`validate_window/read_window/isolated_client`，已使用正式本地装配和当前bytes合同。原LLD曾要求删除的capture/replay_checks/validate_capture_identity及旧b/MATH_KEYS/semantic导入实际已经不存在；不再重复实施，也不恢复它们供旧load_bars使用。
 
-### 11.1 保留能力的明确落点
+保留现START/MAX_ROWS/MAX_CALENDAR、真实字段/SSE连续性和finally恢复内存缓存/时钟/SQLite；不接新配置，不改日期范围或完整性规则。该SQLite工具只用于隔离合同验证，不能冒称正式源或性能通过。唯一尚需改的旧`test_xxm_confirmed_cases`读取交接见§22.5，不修改此已验收工具补旧接口。
 
-§10出现的“迁移有效能力”按下面落点执行，不能临时增加通用框架或保留旧容器转发：
+#### 11.2.4 P4三个路由核验入口及投影工具
 
-| 旧能力 | 唯一落点/不迁的部分 |
-|---|---|
-| 研究r4真实选峰/救援/转折观察 | §7唯一step的可选内存记录及history_disappearance_screen.observe_rows；不入SeriesEntry/HTTP，不保留Observed类/第二份判别 |
-| 两位算术 | 最小化`near_first_review.decimal_value/quantize_dif`和`test_xxm_near_first_review.py`；完整类/重放不迁 |
-| 人工首次、1%、同根切换、结构考核/首次反色和取消边界 | 现`test_xxm_calculator.py`及恢复/输入tests；研究wrapper/旧Spec测试不迁 |
-| 独立有理数/求价/源精度案例 | 现`top_activation_math.py`、`forecast_expectations.py`及现`test_xxm_key_point_forecast.py`；不得import产品来生成expected |
-| 纯数值窗口/来源/日历/截图 | 最小化现`saved_minute_window.py`、`local_extrema_study.py`、`peak_image_measurement.py`、纯事实`reference_window_review.py`；不在这些工具继续输出selected/eligible/标签 |
-| 正式来源/路由/显示核验 | 现`daily_window_precheck.py`、`xxm_page_request_audit.py/.mjs`、`xxm_forecast_display_audit.py`，只有唯一r4原路由，无candidate模块参数 |
-| 旧compare ID/记录完整性中的有效反例 | `test_xxm_snapshot_validation.py`、当前web合同及debug合同tests的独立字面输入；旧r2/r4配对、原因猜测、完整runner不迁 |
-| 旧report复制预测/候选实现 | 不迁实现；仍适用的字面数学反例迁上述现预测tests，原材料/结论保留；无新r4通用框架 |
-| 同根双报后隐藏`display_events` | 删除而不迁；r4必须取消前换A，正式events是真实结果，不允许事后抹事件 |
+page_request.py/.mjs及forecast_display.py现已符合§21.5/§21.14：正式装配、鉴权/只读、仅内存、独立受监督子进程、1500根、normal/debug和原期限均已验收。本次保持原文件，不增加--output/--candidate、写完整body或动态旧算法加载。
 
-没有在上述落点和§10名单内的能力不因“也许有用”新增开发。实施时新发现真实调用或多人改动冲突先说明，不能随意扩删。
+现`xxm_history_projection_audit.py`无旧算法；保留，但不把其全历史字段比对拿来当P5新增任务。P5只静态确认工具导入和其定向隔离tests；真实证据复用P4。若开发触碰本段正式工具行为，先停下补方案而不是扩大清退。
 
-### 11.2 保留工具的逐函数交接及仅内存要求
+#### 11.2.5 当前测试与身份
 
-以下是§10各行的唯一细化，当前只静态核对，均待后续获准实施。不新增验证框架、算法副本、HTTP接口或结果目录。
+正式Spec仍为§2及§19已验收身份，前后端类型/解码器/bytes/共享加载均按当前合同保留。旧version/hash仅可用于明确拒绝输入或历史事实，不恢复旧版本成功模式。r1Contract/rearmContract及表达式联合中“legacy”字段已经核当前消费者，不能据名字清退。
 
-#### 11.2.1 旧输入读取器与独立数学
+旧业务expected与有用原始输入分开：37组人工输入按§22.3保留，旧等待、旧寿命、多步条件预期删除。现RC01—110/PF01—34及其内部/公开分工不降级。删除r4_history及P1一次性迁移通信suite只撤销旧执行协议测试，现正式工具的预算、取消、通信和清理回归原样保留。
 
-| 现文件/函数 | 固定处理及真实依据 |
-|---|---|
-| `scripts/research/index_market/xxm/frozen_inputs.py` | 整文件删除。`expected_unit/expected_steps/assert_expected_recognition/forecast_inventory`属于旧账本；`load_frozen_inputs`第35—37行缺DEA时按DIF/柱反算，不能继续构造新r4输入。原CSV、JSON、manifest和作者观察不删、不重写。 |
-| `xxm/acceptance.py` | 只留`sha/load_source/collect_readouts`。`load_source`沿原CSV字段读取真实DEA并验证原数据SHA；`collect_readouts`保留27条作者数值事实及图片出处。删`replay/main`、产品计算器/Spec及`load_frozen_inputs`导入、旧baseline/软件对照结果写入和CLI。 |
-| `xxm/top_activation_math.py` | `pair/daily_options`和独立Fraction公式保留；`expectations`只迁仍适用的独立算术字面例，删除多步入口/目标结果生成；合法零及相邻1%按§5.4.4和PF08手算，不复用旧门槛预期。 |
-| `xxm/top_activation_real_math.py` | 只留`meet/minus/interval`纯区间数学及必要`pair`依赖。删`entry_domains/proof/main`、旧报告路径/版本常量及来源、日历、保存模块导入。`entry_domains`当前第53行按DIF强弱排序，是旧选择政策，不可换身份后作为r4预期。 |
-| `xxm/forecast_expectations.py` | 删除未使用的`expected_unit`导入，解除旧冻结模块依赖。保留`fraction/contains/regions/assert_partition/coefficients`。删除`verify_changed_forecast`及MATH_KEYS：它硬编码dif_turn目标hist>0、无transitions/prefix等旧断言，唯一消费者reference_rescue_acceptance也将删除，不能继续当r4 oracle。 |
+#### 11.2.6 活动消费者与资料路径同步
 
-独立算术样本只迁当前单步目标仍需要的部分。当前求解预期必须使用§5.4.4 M1—M5及§6.10 PF01—34，不能调用正式预测器生成expected，也不能复用多步入口/目标关系作为当前答案。`coefficients`等纯函数若仍被保留测试使用，必须限定其数学前提；不能作为一般负值/跨零求解器。
+1. 正式src/API/App/Wealth不导入待删研究类或读取旧reports API成功样本，当前不需改运行时代码。保留当前路由、共享load、Spec、普通/debug和前端资格/deadline，不按旧阶段行号重做。
+2. `local_extrema_study.CASES/protected_files`、Notebook代码单元、`acceptance.collect_readouts`及`test_xxm_confirmed_cases`、各纯输入/图像测试同步附件资料路径。原数值和原图的SHA保持，7个抽取件另以根/嵌套字段白名单验证；6份历史说明单列导航/失效命令整理，不将这些文件都称原字节不变。
+3. `test_xxm_calculator`3个旧节点、`test_xxm_forecast_display`旧报告/frozen import、`test_xxm_acceptance_scope`旧预算/CLI/续跑路径、旧r4_records/forecast_expectations/研究包装消费者按附件清退或迁有效用例；全部测试收集必须覆盖迁后现入口。
+4. 研究README的活动旧CLI、旧SHA运行前提及已删报告链接清零；只更新本需求相关条目，不重排其他研究主题。r2历史主文档保留，失效当前命令从主文档移除；不留一段“错但还能选”的并行说明。
+5. 保留的历史交付报告按附件6份单独整理导航和显式历史适用范围，不改写旧成绩；旧文件路径可作为来源原文存在，但不能再是运行指令或点击死链。主索引和新资料README全部指向本次唯一目标。删除前核全部Markdown实际链接：保留资料的链接改为附件新目标；删除项的活动条目清除，必要历史出处改为非链接旧路径并注明当前入口。禁止留死链或为通过检查恢复旧文件。
 
-`top_activation_real_math`不再需要旧`calendar_rows/future_slots/read_unit/seal/OUT/ROOT/SOURCE`；不为保留这些旧runner依赖再造日历框架。
-必要日历端点的预期直接写入当前测试字面输入；真实产品仍使用自己的正式日历模块。
-
-删除`frozen_inputs.py`前清零的当前消费者为：
-
-- `acceptance.main`、待删`top_activation_expectations`及`reference_rescue_acceptance`中的旧运行分支。
-- `daily_window_precheck.validate_capture_identity`里的旧`expected_unit`身份补全。
-- `forecast_expectations`顶层未使用导入。
-- `test_xxm_calculator`旧冻结账本组、`test_xxm_top_activation_r2`及旧acceptance专属mock。
-
-现`test_xxm_confirmed_cases.py`不导入该冻结模块，不得为了清退它而删除作者观察测试。
-旧JSON可供拒绝旧身份的反例；不得换hash后作为新r4结果。删除后用新进程收集、执行保留测试，不能靠移动测试目录隐藏引用。
-
-#### 11.2.2 纯峰谷、取窗和Notebook
-
-| 现文件/函数 | 固定处理 |
-|---|---|
-| `xxm/saved_minute_window.py` | 保留`_timestamp/_parse_row/read_window`及原常量。它只读取已有、有SHA且受行数/字节/定位上限约束的90分钟原CSV；不计算标签、不落盘，无旧算法依赖。 |
-| `xxm/local_extrema_study.py` | 保留`SavedCase/CASES/sha/validate_rows/read_case/series_turns/summarize_case/literal_anchor_checks/benchmark`。它们仍属于独立峰谷核验，不能把其统计当r4识别政策。 |
-| 同文件`protected_files/assert_protected` | 仅验证已声明CASES和原图SHA；删除继承`PREVIOUS/run.json`、旧算法源码及源码SHA的要求。原始材料修改仍须拒绝。 |
-| 同文件`save_new/main` | 删除旧结果writer和旧`--output`runner，不再写run、行情窗口、峰谷结果、benchmark或新的恢复文件。 |
-| 同文件`notebook` | 改为返回未执行Notebook字典的纯组装函数，不`exec`代码单元、不调用`save_new`、不生成文件。代码单元调用原扫描器及`read_case/summarize_case`，不复制实现；已有`review.ipynb`和既存结果不改。 |
-| `xxm/reference_window_review.py` | 只保留`sign/build_references`的原始色段、DIF转折、日期/价格窗口事实；删除`qdif`字段及`quantize_dif`导入，避免继续输出旧两位资格。 |
-| 同文件其余 | 删除`ReviewSpec/SPEC/LIMITATION/inspect_prefix/review_locked_reference/run/main`、旧两位选峰/突破/转折、条件重放、输出目录及源码hash；输入由现`read_window`提供。 |
-| `xxm/peak_image_measurement.py` | 保留原量图函数、必要类型及人工尺寸/颜色测试；无旧算法或结果落盘依赖，不安装新的图像套件。 |
-
-`test_xxm_local_extrema_study.py`保留原输入身份、独立数学、图像及性能测试；旧“拒覆盖新结果目录”用例改为验证没有结果写入、原始材料不变。
-Notebook组装测试检查返回字典、未执行的代码单元和当前导入，不运行真实窗口来证明格式正确。
-`test_xxm_reference_window_review.py`仅核原始日期/平台/数值，不再断言`eligible/selected`或两位生命周期。
-
-#### 11.2.3 日线窗口核验不再借旧acceptance运行器
-
-`xxm/daily_window_precheck.py`仅保留`validate_window/read_window/isolated_client`，删除`capture/replay_checks/validate_capture_identity/check/main`及旧源捕获CLI。
-同时删除`bottom_history_acceptance as b`、`MATH_KEYS/semantic/expected_unit`、旧R1/R2响应比较、全部`b.save`及结果目录逻辑。
-`read_window`只返回现有上证字段和SSE日历，保留原START/数量约束、字段/交易日检查；不把它变成新的下载器或正式来源。
-它读取真实源时仍须单独限定标的/范围/原字段，不能因保留函数就自动运行2020年以来全部明细。
-
-`isolated_client(bars, calendar, now)`继续是人工/已明确输入的隔离合同测试，不冒充正式PostgreSQL性能或原鉴权验收：
-
-1. 原SQLite内存表、真实字段、只读开关、冻结时钟和缓存隔离保持；不写正式数据库。
-2. 在原文件内建立最小`FastAPI`，安装现异常处理，调用正式本地r4路由装配函数；不再调用待删`b.app_for`。该人工客户端内部创建一份显式local且分钟关闭的测试Settings并传入装配，不继承机器分钟开启配置，也不重新从全局env猜一次。
-3. 用显式本地Settings建立测试装配；依赖替换仅限该临时App的会话及原用例明确声明的鉴权替身，不改全局配置/环境。
-4. 原`get_db_session`替换为内存会话；测试自身声明替代了存储/鉴权，真实r4读取转换、计算、DTO和投影仍实际执行。
-5. `finally`恢复时钟/查询包装及原缓存并释放SQLite；新的普通/debug响应按bytes及目标DTO解析，不再按旧对象取字段。
-
-`test_xxm_daily_window_precheck.py`保留窗口/缺交易日/字段测试及上述隔离客户端合同，删除旧capture身份、frozenOverlap、报告writer及旧响应比较测试。
-真实源和原鉴权的路由核验由下节现有工具承担，不能把本SQLite通过结果当真实接入或性能通过。
-
-#### 11.2.4 三个原路由核验入口改为仅内存
-
-三个原文件xxm_page_request_audit.py/.mjs及xxm_forecast_display_audit.py原地迁移；§21.5为本批参数、分组、返回结构、观测位置、父子进程及退出的唯一细化，不再沿用旧入口的输出目录、candidate、固定全周期/160次或200ms断言。
-
-- isolated_app(settings, *, group)放原页面工具，仅在本组子进程内创建原路由/原鉴权/只读会话，两个Python入口共用。正式App装配仍调用_include_local_xxm_routers(target_router, settings)，不能直接build_router绕环境。
-- main只解析既定--periods/--as-of/--mode/--samples，生成§21.5.1封闭任务清单并监督本组子进程；不新增worker CLI参数、运行器、配置或后台任务。
-- 无--output、完整HTTP/VM保存、动态candidate源码、结果目录或恢复文件。正文仅本组RAM，跨组只留同源比较摘要。mjs复用现客户端/解码器/scheduler和唯一INDEX_DAILY_HISTORY_LIMIT；日线1000、分钟500，禁止硬编码300或引入React研究模块。
-- 普通与debug根字段按当前合同分别校验；旧rearmContext/bottomHistories/pendingRearmId两模式都拒绝。client必须拆response/deadline，最终显示仍同一时限。
-- 每组只处理选定period/mode/scenario，私有context/reset/metrics及逐请求字段按§21.5.3；source修订/截止变化不能强配。缺周期如实未验收，不增默认周期、不自动重试。
-- 父进程从创建本组子进程前开始计满60秒；工作50秒，收尾期间先等真实活动请求结束再恢复。卡住线程按§21.5.6终止整个本组，不留活线程同时恢复包装，不进入下一组。Node工具不冒称浏览器验收。
-- 自动组只使用临时端口并按期关闭。管理员真实页面由§21.7固定本地开发服务/8000及本机静态生产入口承担，不延长采样组等待review，不自动重启现有服务。
-
-显示工具的request仍必须校验实际HTTP状态、完整目标DTO、字节和原时限；原auth、参数、SQL/Reader及数据精度保持。原始材料的来源/SHA核验仍保留；只移除旧算法源码保护及结果保存，不拿清退顺便放宽源校验。
-
-#### 11.2.5 身份与测试交付的当前要求
-
-完整Spec、模型、普通/debug字段已在§2—6确定；P3已按§11.3—11.4同步合同及全部本批消费者，实际证据见§19—20，P4直接复用。测试hash显式来自对应完整Spec，不预填r2、旧r4或占位身份；业务expected独立手写，不随实现结果重生成。
-
-P3同时完成§11.4中的纯debug类型/两种解析器、客户端返回和同一deadline的Hook交接、普通悬停及其日分钟调用和受影响fixture；P4接动态模块和完整页面。P4保留工具及其尚未迁移的专属执行测试在P3不运行、不计通过；P5旧runner保持既定清退归属。按节点列清未执行原因，不删除/改低预期、不以skip/xfail或整文件过滤掩盖本属P3的失败；通用核心/恢复/输入/源精度及P3消费者测试仍须通过。
-清退后测试收集须覆盖新数学、纯窗口、离线观察、普通/debug HTTP、工具RAM及异常清理；静态检查不能替代真实入口执行。
-针对工具补负例：缺旧模块仍可import；禁止旧动态candidate加载；不创建结果目录或写完整body；启动/请求/Node失败后清理及包装恢复。
-真实分钟不可用时保留该周期“未验收”并说明原因；不得把日线或人工替身抵充。P4按已声明四周期完成条件判断，缺必要真实证据不能宣称整批通过或据此进入P5。
-若管理员后续批准暂缓某周期，先同步产品/方案/LLD的验收范围再继续；本轮不默认得到这种批准，也不重问已确认算法。
-上述均为工程细化，无新增算法、产品开关或需要重新拍板的规则；先补进原方案/LLD，再编码。
-
-### 11.2.6 直接调用方的确定迁移清单
-
-下表登记必须覆盖的真实调用位置及阶段归属，不是可选范围。P3运行时/本批测试已按§20.7—20.8完成，不重复开发；P4工具在首次使用前整体迁移，P5删除明确旧执行器。后续仍须核验这些消费者不被新改动破坏。
-
-| 当前文件/调用 | 处理要求 |
-|---|---|
-| `src/biz/api/wealth/market/index_detail_xxm.py` | P3日线build增加debug；发送同一已校验bytes，不二次编码 |
-| `src/biz/api/wealth/market/index_detail_minute_xxm.py` | P3同合同，保留分钟来源/权限；P4按本地能力装配 |
-| `src/biz/api/wealth/market/index_detail_xxm_forecast.py` | P3预测build的debug和bytes，P4同Settings传入reader |
-| `src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py` | 内部持识别query、使用load_entry而非另跑一份算法；新P3第1步先迁共享识别进度，本文件/预测身份及完整结果按第2—3步迁移 |
-| `tests/web/test_wealth_index_detail_xxm_api.py` | P3直接build和_response断言改按目标合同；保留来源、恢复、历史及失败反例，不只替换hash |
-| `tests/web/test_wealth_index_detail_xxm_forecast_api.py` | P3直接build结果解析bytes；旧r2/A1/R1响应只留明确拒绝反例，P4环境验收 |
-| `scripts/research/index_market/tests/test_xxm_snapshot_consumers.py` | P3第1步验真实query/恢复；第3步受影响响应按bytes |
-| `scripts/research/index_market/xxm/daily_window_precheck.py` | P4仅保留§11.2.3的窗口/隔离客户端，使用前完成bytes/模式及相关测试迁移；P3不执行或用作验收；旧build计时/check/capture包装随旧runner清退 |
-| `scripts/research/index_market/xxm_page_request_audit.py` | P4保留原真实只读/鉴权计时，适配bytes和模式，finally恢复、不写响应文件；P3不执行或用作验收 |
-| `scripts/research/index_market/xxm_page_request_audit.mjs` | P4与Python父入口同次迁新客户端返回及普通/debug解析，去落盘；P3不执行，不静态导入辅助实现充当普通模式 |
-| `scripts/research/index_market/xxm_forecast_display_audit.py` | P4使用前同步新公开模型和模式，移除candidate/旧display替换及落盘；使用唯一正式r4；P3不执行或用作验收 |
-| `scripts/research/index_market/xxm/bottom_history_acceptance.py` | P5删除旧build/_response计时及来源runner；有效独立样例先迁出 |
-| `scripts/research/index_market/xxm/reference_rescue_acceptance.py` | P5删除旧build包装及比较；不让它继续当正式r4入口 |
-| `reports/xxm_bottom_history_precheck_20261016/run_budget.py` | 已在§10.3.2具体删除名单；P5清退旧query/预算运行器，保留原报告 |
-| `reports/xxm_forecast_range_precheck_20261014/http_precheck.py` | 同上，旧query直接调用随文件清退 |
-| `reports/xxm_forecast_range_implementation_20261014/http_acceptance.py` | 同上，旧forecast build替换随文件清退 |
-| `reports/xxm_minute_reader_optimization_20261014/http_precheck.py` | 同上，旧build包装随文件清退 |
-
-`query_service.py`内部_response/历史投影互调与SeriesEntry聚合在同一实现中一起更新。`tests/web/test_xxm_shared_loads.py`保留并发/取消/共享来源，受影响字段按P3第3步同步。Wealth直接调用为`xxm/apiClient.ts→adapter.ts→useIndexXxmLayer.ts→日/分钟工作区`及`xxm-forecast/apiClient.ts→adapter.ts→useXxmForecast.ts→页面/右栏`；P3第4步必须整条迁移，不能把新外层返回结构留到P4处理。daily-wave原合同/算法不变；P3移走普通入口的运行时依赖并在真实控制组件保留独立行为测试，P4再接页面动态生命周期和真实来源。
 
 ### 11.3 各批开工前置检查
 
 1. 核对日线合同§10、分钟合同§8和预测方案§36的目标入口与本文§2—7一致。本轮已同步这些文书；实施日必须重新核验没有字段/版本/空值分歧。发现分歧必须先修文档，禁止边编码边选择口径。
 2. 核实施当日calculator/types/snapshot/query/预测/schema/API/客户端/decoder/Hook/工作区/离线工具的全量引用与dirty文件边界；本轮CodeGraph及源码依据在§0.2，不代替实施时引用清单。
 3. 依§14及§6.10先确认独立预期和测试落点；旧正确安全检查保留，旧底部等待、跨根借价首次及无限跨段撤销预期不再是验收答案；首次反色/分隔/零柱价格失效、单根跳过/有效段结束及同根显示均须覆盖。新身份、解析与恢复拒旧必须有正常变化的反例证明不过度拦截。
-4. 必须获得对应批次执行授权；P3已完成，当前P4按§21六步实施，不发布混合版本，不擅自进入P5。既有通过结论只在原适用范围内复用，不能代替本批实际实现及验收。
+4. 必须获得对应批次执行授权；P3、P4均已完成，P4最终验收见§21.14.14。P5第一步审计设计已完成，下一步只按§20.4、§22先迁有效能力及资料、验证后再清退；本轮仅补文档、提交和开工条件审计，不执行第二步。既有通过结论只在原适用范围内复用，不能代替P5删后回归。
 
 ### 11.4 P3五步及P4/P5交接
 
 #### 当前代码依据
 
 1. 当前SeriesEntry保存points/events/structure_records，calculator_at有界还原真实前缀；新计数/跟踪极值、单根起点重置和asOf投影已完成本次限定验收，见§19.1。§17.4仍只为旧成绩，不代替本次证据。
-2. 当前识别v0.4-r4、预测v0.6-r4，核心/预测提交50b0f22bb，专项工具及结果提交ec37c69ea，管理员已验收该范围。公开API完整模型/投影/一次编码及TS消费者已按下表第3—5步完成，工程证据见§20.7；P4真实装配/来源/浏览器未通过前仍不可宣称产品可发布。
-3. 内部真实来源、共享读取、原MACD/1%/EMA和预算保持；修补文件及内部证据分别见§18.3、§19，公开显隐和全部P3消费者已按§20.7—20.8完成。P4环境和动态挂载已完成定向工程验证，当前只按§21.14补工具范围检查及真实/页面剩余证据，不重复这两项开发。
+2. 当前识别v0.4-r4、预测v0.6-r4，核心/预测提交50b0f22bb，专项工具及结果提交ec37c69ea，管理员已验收该范围。公开API完整模型/投影/一次编码及TS消费者已按下表第3—5步完成，工程证据见§20.7；P4真实装配、来源/性能及管理员页面验收均已完成，见§21.14.14。验收不等于部署或开放生产r4。
+3. 内部真实来源、共享读取、原MACD/1%/EMA和预算保持；修补文件及内部证据分别见§18.3、§19，公开显隐和全部P3消费者已按§20.7—20.8完成。P4工具、环境、动态挂载及真实/页面验收不再列为待开发或待补证据；P5保持其行为和已验收边界，只按§10/§11.2/§22迁出有效能力、清退及回归。
 
 #### P3实施步骤、前置与停点
 
@@ -3747,16 +3569,16 @@ P4不修改识别规则，不清退P5文件，不新增下载、后台任务、�
 
 ### 20.4 最后批次：P5旧实现清退与总交付
 
-1. 依据§10逐文件重查引用，有用的读取/数学/核验能力必须先具备唯一r4下的实际落点；不能仅按名字含r2或snapshot批量删除。
-2. 按已批准清单删除旧r2执行实现、旧研究识别副本/比较运行器、专属测试与对应生成缓存；保留历史文档、原始材料、图片和报告，以及已批准最低成本保留的独立两位取数函数/算术测试。
+1. 先按§10/§22完成当前引用、代码/测试及reports逐文件审计，明确有用能力落点、资料收敛、测试和失败交接，补齐原方案/LLD供review。本轮只完成这一准备，不迁移或删除。
+2. 获准开发后先迁出有用工具/人工输入/数学及资料和消费者，验证交接后再依附件清退旧r2/研究识别副本/比较运行器/专属测试/源码包与无用中间报告；只清对应生成缓存。有效原图/讲稿/输入/结论收敛保留，独立两位算术不接识别。
 3. 在旧模块确实缺席的情况下做引用清零、r4及保留工具回归、API/前端/架构和必要本地核验，证明没有动态回退、别名或磁盘源码副本依赖。
 4. 完成文档索引、运行命令、唯一版本及保留/清退逐项对账，给出全部测试和未覆盖限制，交管理员做最终验收。提交、推送、部署仍按各自明确指令。
 
 ### 20.5 执行节奏与本轮停点
 
-P3开发及修复已提交，后续依次为P4设计review→P4整批实施→独立审计/管理员验收→P5整批→最终验收。每批内的步骤是依赖顺序，不允许跳过或把未完成的上游留给后续自由发挥；每批开工前按对应原方案/LLD复核，不重复造方案。遇到未定义行为、文档冲突或真实预算无法满足时，先停下说明上下文和建议。
+P3开发及修复已提交，P4整批实施、独立审计及管理员页面验收现已完成，证据见§21.14.14。后续依次为P5当前引用/能力迁出审计与原LLD逐项对账→按获准范围迁移→清退旧执行代码→删后回归→文档和最终验收；详细四步计划见产品§11。每批内的步骤是依赖顺序，不允许跳过或把未完成的上游留给后续自由发挥；每批开工前按对应原方案/LLD复核，不重复造方案。遇到未定义行为、文档冲突或真实预算无法满足时，先停下说明上下文和建议。
 
-P3第3—5步及提交后修复已完成，证据见§20.7—20.8。本轮只按§21细化P4整体设计，不开始编码、业务测试、行情读取或清退，不自动提交。P4文档通过不等于实现或性能通过，后续仍须逐步编码、独立验收并交管理员review。
+P3第3—5步及提交后修复已完成，证据见§20.7—20.8；P4已验收收尾。P4最终对账已完成；本轮完成P5当前代码/资料/测试审计和原方案/LLD补齐，不开始P5编码、迁移或删除，不运行业务测试、读取行情或自动提交。§10/§11.2仍为清退设计依据，须在P5开工前逐项复核当前实现；其中已在P4完成的迁移不重复实施，不能把旧设计时的缺口当成当前仍缺失。
 
 
 ### 20.6 P3开工前文档补齐与独立审计记录
@@ -4609,7 +4431,7 @@ P4完成后的下一件事是单独准备P5：重审旧r2/旧候选/完整两位
 
 管理员要求继续推进后，严格从m60-B执行C/D，再m90与m120各A/B/C/D；既有m60-A不重跑，204项限定工程测试不重复运行。只用原xxm_page_request_audit及xxm_forecast_display_audit两CLI、原四参数、真实TS client/decoder/adapter/原调度器；没有临时替代入口、预热、改日期补样本、人工延时、阈值放宽或切源。真实并发未重叠按§21.14.12仅保留观察，其他失败仍首错停止。
 
-**第5步自动验收完成；第6步页面及P4整批尚未完成。**以下全部是已完成实际记录，不是计划上限。完整分钟清单42组、540业务+126私有，分三周期各14组/180业务/42私有；其中m60-A的4组30/12来自此前已完成轮，本次实际新执行11条命令、38组、510业务+114私有。旧日线119/68及旧四次小范围复测不加入此计数。所有12条命令exit=0，42组cleaned/activeRequests=0，原监督器确认自有worker/Node/线程/进程组退出；没有仍在运行的采样任务。
+**以下为第5步自动验收交付时的实际记录，当时尚待第6步；管理员随后已确认页面通过，P4最终收尾见§21.14.14。**以下全部是已完成实际记录，不是计划上限。完整分钟清单42组、540业务+126私有，分三周期各14组/180业务/42私有；其中m60-A的4组30/12来自此前已完成轮，本次实际新执行11条命令、38组、510业务+114私有。旧日线119/68及旧四次小范围复测不加入此计数。所有12条命令exit=0，42组cleaned/activeRequests=0，原监督器确认自有worker/Node/线程/进程组退出；没有仍在运行的采样任务。
 
 ##### 固定命令逐项对账
 
@@ -4742,3 +4564,212 @@ latest实际截止均2026-11-02T15:00:00+08:00，原context是在11月3日尚无
 最终交付检查：原四文档当前状态已同步为“第5步自动通过、待管理员第6步”，旧失败及限定复测保留历史用途；36处本地文件链接和4处锚点经逐项检查有效（已更新改名后的专项§17锚点）。工具/测试/mjs及显示CLI与续验前逐字相同，无新增代码；暂存区为空。文档完整性三项及限定diff通过。上述为执行后静态核对，不额外发请求或增加测试成绩。
 
 提交交接：管理员已明确批准提交本批六文件，仅原xxm_page_request_audit.py、test_xxm_p4_audit_tools.py及原产品/技术/专项/LLD四文档；其他工作区修改保留。本次提交包含204项限定验证和三分钟固定540业务/126私有的记录，不重跑已通过测试，不提前登记第6步通过，不推送或部署。实际版本由本次Git提交记录确认。
+
+
+#### 21.14.14 P4最终对账与验收收尾（2026-11-03）
+
+**P4六步已完成并验收收尾。**管理员本轮原话为“页面验收通过了”，这是第6步人工页面验收的确认依据；本轮不另造浏览器地址、截图、DOM、console或network检查记录，也不将Node请求结果冒称人工页面操作。
+
+| 步骤 | 完成依据与当前结论 |
+|---|---|
+| 1 本地/生产装配 | 复用§21.10的实际代码/定向工程验证；本地四周期按配置可用，生产r4仍关闭，未部署或开放生产 |
+| 2 debug动态加载及请求模式 | 复用§21.10及当前页面实现；无debug不加载辅助模块，URL切换允许既有重请求/图表重建；模块阶段变化不额外重刷 |
+| 3 辅助详情和手动波段核对 | 复用§21.10；仅debug动态挂载，日线研究仍需手动开启，独立峰谷/波段工具保留；管理员页面验收已通过 |
+| 4 保留工具 | 原工具迁移和限定回归见§21.10及§21.14.10；1500根校验补齐及204项限定测试已提交c7c606e81 |
+| 5 真实来源/性能 | 日线复用§21.11/§21.13.4已适用证据；分钟实际结果见§21.14.13，42组540业务/126私有、96对公共相同、192次r4全READY且1500根；不重新请求或采样 |
+| 6 管理员页面及最终对账 | 管理员本轮明确确认页面验收通过；本条同步原四文档当前状态，收尾完成，不再保留当前“待第6步”阻塞 |
+
+真实记录的540业务请求包含36次signals、156次forecast和其他行情/指标/九转；此前m60-A计入完整清单，本次不重复执行。所有已记预算、缓存、读取及退出结论沿§21.14.13的实际范围，日线历史性能不改称今日latest。自然双页未出现加载重叠的两组not_verified保留原结论，不造verified、不补请求；隔离共享测试及真实异常停止规则继续有效。
+
+正式唯一识别`xxm-direction-v0.4-r4`和预测`xxm-key-point-forecast-v0.6-r4`及其Spec不变；默认分钟500根输出、最多1500根计算、4秒完整HTTP/400ms预测/<5秒客户端预算与当前来源/缓存政策不变。P4完成不表示生产r4开放、分钟生产支持、部署完成、全历史等价或作者全部视频已匹配。
+
+**保留但不阻塞P4/P5的事项：**性能优化第4—7批继续按专项§16/本文§0.11作为后续TODO；无关交易助手日期测试问题继续单列TODO，未修复且不登记全部前端回归通过。未覆盖的完整历史等价、全部真实预测分支等边界沿原证据，不转成未经确认的新验收任务。
+
+**交接：**P4工具/测试及自动证据已提交c7c606e81；本次将原产品/技术/LLD/优化专项的收尾与P5设计一并提交。P5第一步当前代码/资料/测试审计及编码设计已完成，见§22；实际迁移与删除尚未开始。下一步按§20.4和§22.6先迁有用能力及资料、完成交接，再删旧执行链；取得该步执行授权后重新核当日文件状态，不能跳过交接或重做P4验收。历史材料、独立波段工具及最小两位算术保留。
+
+本轮独立核对使用CodeGraph codegraph_explore及当前正式query/计算器引用、研究副本/两位函数和原P5清单；证实正式查询使用唯一产品类、旧研究及完整两位执行链仍待清退，不把典型文件核对冒充P5全量引用审计。本次没有修改代码、读行情、运行新业务测试、清理缓存、提交、推送、部署或改变其他工作区内容。文档差异、原文档链接及完整性检查另按本轮实际结果登记。
+
+收尾检查结果：原四文档当前状态及P5四步顺序一致；36处本地文件链接、4处锚点和文档完整性三项均通过，限定diff无空白错误。当前分支仍为dev-interface，HEAD为c7c606e81；正式识别/查询、P4工具及测试相对HEAD无修改。上述仅为本轮文档和静态核对，不计新增业务测试或真实来源验收。
+
+
+## 22. P5第一步审计、编码设计及开工对账（2026-11-03）
+
+### 22.1 本轮目标、依据与结论边界
+
+依据产品§11、技术方案§8/§24及本文§10/§11.2/§20.4。管理员本轮要求只审计和补LLD，并明确无用中间报告/错误解释不留、有用资料收敛；本节落实这一口径。P4已通过，不能为清退再改规则或重做产品集成。
+
+本轮静态核103个代码/测试文件，AST解析当前定义/导入、动态Git加载、写文件及Notebook代码单元；需要保留的取数、量图、算术、观察、恢复输入逐函数核当前实现。reports清单覆盖112目录3503文件，JSON全部实际解析、代码实际AST解析、讲稿/报告正文和来源关系核对；4个ZIP只读核目录及非代码成员是否已有原件，不解包执行。其他主题reports只列边界，不冒称已审核其内容。该工作判断代码/资料的保留用途和依赖，**不重新验证旧算法成绩或新视频事实，不冒称旧文件已删、测试已过或221份资料已经移好**。
+
+CodeGraph已使用`codegraph_explore`核quantize/旧研究/正式类、load/clone/API/前端Hook等入口，`codegraph_impact`核两位函数18个符号及历史对比入口影响；再用当前AST/源码补动态加载、测试和报告中未由索引完整覆盖的引用。当前正式运行链无待退研究导入；数据资料引用主要在离线工具/测试/历史导航。
+
+### 22.2 本轮纠正的旧设计及确定决策
+
+| 发现 | 当前代码事实与固定修正 |
+|---|---|
+| 原清退表遗漏后增历史执行链 | 4个r4_history模块及4份专属测试整退；已完成专项最终报告留原文档，不保留Git复活旧算法入口 |
+| 一次性P1/P2迁移工具还会加载旧源码 | migration/capture/worker三helper及专属test清退；response工厂及自测旧合同亦清退。37组原始输入仍被当前恢复tests用到，单独保留，不整包删 |
+| 多处LLD还要求重做P3/P4迁移 | daily_window现已114行纯工具，Web/TS fixtures及3个真实路由工具已迁好；§10/§11改成当前事实，只复核、不重复开发 |
+| 按“纯函数”保留无消费者旧代码 | 旧history formatter/ordinary_index/forecast_expectations去掉；它们只服务旧合同或旧执行链，当前独立记录/数学/工具tests已承接有用覆盖 |
+| 两位/数学样本中夹着旧业务答案 | 只留2个两位函数、纯有理数/区间与手写输入；多步/horizon20/最强排序/等待期待不能当当前预期 |
+| reports笼统保留导致大量过程产物和隐藏源码遗留 | 3503行逐项分类，3282删除、207原件收敛、6份历史说明整理、7字段抽取、1Notebook整理；4源码ZIP和diagnostic文本源码不豁免，混合来源摘要中的嵌套旧比较同样去掉 |
+| 资料移动会破坏CASES、Notebook和原始观察测试 | 精确新旧路径/字段白名单/使用方已登记附件，源码/测试与资料同批交接；源字节、路径元数据、抽取内容分别检查 |
+| 27条旧摘录并非27张仍可用原图 | 11条Downloads原图已经不存在，reports无同字节副本；保留数字摘录及限制，不伪造核图通过、不因此新增下载/视频任务 |
+
+以上是管理与工程清退，不改变已经确认的r4业务规则。没有新增需要管理员决定的算法口径；资料缺图只限制历史证据，不作为P4或清退设计的新阻塞。
+
+### 22.3 人工输入不能误删
+
+#### 22.3.1 原样本精简的编码规则
+
+`xxm_product_v1_cases.py`改为仅标准库和纯输入材料：固定DATES/PERIODS、不可变`Case(name, values)`及`inputs(period)`。按原DATES给day或该日15:00:00+08:00，不调用产品求DEA或结果；close/DIF/DEA/hist四项均采用原字面值。旧名称仅是输入标识，不再暗示旧规则正确。删除Reference/Check和所有rules/why/checks/facts/FORECAST_MATH业务预期后，逐组数量/顺序/数值须与下表完全一致，不能仅数37组。
+
+当前snapshot_validation的`test_handwritten_input_prefixes_restore_and_continue_in_all_four_periods`继续消费全部37×4，并在每个截断点恢复/继续；旧business expected不再导入。`test_xxm_product_v1_cases`只验材料/独立性，不继续自证旧等待或多步规则。正式RC/PF手写预期另有当前测试，不被本材料替代。
+
+#### 22.3.2 37组、222根原始输入登记
+
+下表只登记输入，不含算法预期；每个元组顺序是(close, DIF, DEA, hist)。由现文件纯字面AST展开常量/拼接/切片取得，没有import或执行旧算法。
+
+| 原输入标识 | 根数 | 原四项数值 |
+|---|---:|---|
+| `no_completed_same_color_reference` | 2 | `((100, 10, 9, 2), (101, 11, 10, 2))` |
+| `one_nonzero_colored_bar_is_insufficient` | 3 | `((100, 50, 49, 2), (90, 0, 1, -2), (101, 40, 39, 2))` |
+| `nearest_before_stronger_far` | 6 | `((130, 30, 29, 2), (90, 0, 1, -2), (120, 20, 19, 2), (90, 0, 1, -2), (131, 15, 14, 2), (132, 16, 15, 2))` |
+| `far_only_after_near_fails` | 6 | `((130, 30, 29, 2), (90, 0, 1, -2), (120, 20, 19, 2), (90, 0, 1, -2), (131, 25, 24, 2), (132, 26, 25, 2))` |
+| `near_price_gate_blocks_far` | 6 | `((100, 30, 29, 2), (90, 0, 1, -2), (120, 20, 19, 2), (90, 0, 1, -2), (119, 10, 9, 2), (119, 10, 9, 2))` |
+| `first_price_equality_rejected` | 6 | `((130, 30, 29, 2), (90, 0, 1, -2), (120, 20, 19, 2), (90, 0, 1, -2), (120, 10, 9, 2), (120, 10, 9, 2))` |
+| `first_dif_equality_rejected` | 6 | `((130, 30, 29, 2), (90, 0, 1, -2), (120, 20, 19, 2), (90, 0, 1, -2), (131, 30, 29, 2), (132, 30, 29, 2))` |
+| `third_candidate_not_searched` | 8 | `((150, 60, 59, 2), (90, 0, 1, -2), (130, 30, 29, 2), (90, 0, 1, -2), (120, 20, 19, 2), (90, 0, 1, -2), (160, 40, 39, 2), (161, 40, 39, 2))` |
+| `same_color_zero_is_not_opposite` | 3 | `((100, 50, 49, 2), (101, 30, 30, 0), (102, 31, 30, 2))` |
+| `zero_does_not_supply_second_colored_bar` | 5 | `((100, 50, 49, 2), (90, 0, 1, -2), (98, 5, 4, 2), (101, 5, 5, 0), (102, 5, 4, 2))` |
+| `zero_day_first_activation` | 5 | `((100, 50, 49, 2), (90, 0, 1, -2), (98, 5, 4, 2), (99, 6, 5, 2), (101, 6, 6, 0))` |
+| `opening_zero_not_backfilled` | 3 | `((100, 1, 1, 0), (99, -1, -1, 0), (100, 2, 1, 2))` |
+| `first_entry_is_not_same_bar_structure` | 4 | `((100, 50, 49, 2), (90, 0, 1, -2), (102, 41, 40, 2), (103, 40, 39, 2))` |
+| `exact_one_percent_zero_target` | 5 | `((100, 200, 199, 2), (90, 0, 1, -2), (101, 90, 89, 2), (102, 100, 99, 2), (102, 99, 99, 0))` |
+| `less_than_one_percent_remains_dull` | 5 | `((100, 200, 199, 2), (90, 0, 1, -2), (101, 90, 89, 2), (102, 100, 99, 2), (102, 99.1, 99.1, 0))` |
+| `previous_zero_dif_is_not_skipped` | 6 | `((100, 10, 9, 2), (90, 0, 1, -2), (101, 1, 0, 2), (102, 0.5, -0.5, 2), (102, 0, 0, 0), (102, -1, -2, 2))` |
+| `previous_zero_bar_dif_is_adjacent_basis` | 7 | `((100, 50, 49, 2), (90, 0, 1, -2), (101, 40, 39, 2), (102, 41, 40, 2), (102, 40, 39, 2), (102, 39.9, 39.9, 0), (102, 40.35, 39.35, 2))` |
+| `true_flip_confirms_without_one_percent` | 6 | `((100, 50, 49, 2), (90, 0, 1, -2), (101, 40, 39, 2), (102, 41, 40, 2), (102, 41, 41, 0), (999, 40.9, 41.9, -2))` |
+| `true_flip_break_precedes_confirmation` | 5 | `((100, 50, 49, 2), (90, 0, 1, -2), (101, 40, 39, 2), (102, 41, 40, 2), (999, 51, 52, -2))` |
+| `same_bar_near_to_far_switch` | 9 | `((100, 41.186, 40.186, 2), (90, 0, 1, -2), (120, 24.935, 23.935, 2), (90, 0, 1, -2), (130, 17.649, 16.649, 2), (131, 17.649, 16.649, 2), (132, 26.754, 26.754, 0), (131, 27.89, 26.89, 2), (131, 27.4, 26.4, 2))` |
+| `true_flip_never_rescues_with_eligible_a` | 7 | `((100, 41.186, 40.186, 2), (90, 0, 1, -2), (120, 24.935, 23.935, 2), (90, 0, 1, -2), (130, 17.649, 16.649, 2), (131, 17.649, 16.649, 2), (132, 26.754, 27.754, -2))` |
+| `far_qualifies_only_next_bar` | 8 | `((140, 41.186, 40.186, 2), (90, 0, 1, -2), (120, 24.935, 23.935, 2), (90, 0, 1, -2), (130, 17.649, 16.649, 2), (131, 17.649, 16.649, 2), (132, 26.754, 25.754, 2), (141, 27.89, 26.89, 2))` |
+| `structure_does_not_use_dull_switch` | 8 | `((100, 41.186, 40.186, 2), (90, 0, 1, -2), (120, 24.935, 23.935, 2), (90, 0, 1, -2), (130, 17.649, 16.649, 2), (131, 17.649, 16.649, 2), (131, 17, 16, 2), (132, 26.754, 26.754, 0))` |
+| `equal_active_reference_does_not_switch` | 7 | `((100, 41.186, 40.186, 2), (90, 0, 1, -2), (120, 24.935, 23.935, 2), (90, 0, 1, -2), (130, 17.649, 16.649, 2), (131, 17.649, 16.649, 2), (132, 24.935, 23.935, 2))` |
+| `bottom_same_bar_switch` | 9 | `((100, -41.186, -40.186, -2), (110, 0, -1, 2), (80, -24.935, -23.935, -2), (110, 0, -1, 2), (70, -17.649, -16.649, -2), (69, -17.649, -16.649, -2), (68, -26.754, -26.754, 0), (69, -27.89, -26.89, -2), (69, -27.4, -26.4, -2))` |
+| `bottom_has_no_negative_current_dif_gate` | 4 | `((100, -1, 0, -2), (110, 1, 0, 2), (99, 0, 1, -2), (98, 1, 2, -2))` |
+| `bottom_current_close_starts_waiting` | 7 | `((100, -10, -9, -2), (99, -11, -10, -2), (105, -5, -6, 2), (98, -9, -8, -2), (97, -9.2, -8.2, -2), (98, -8.8, -7.8, -2), (100, -9, -9, 0))` |
+| `zero_day_bottom_reactivation` | 8 | `((100, -10, -9, -2), (99, -11, -10, -2), (105, -5, -6, 2), (98, -9, -8, -2), (97, -9.2, -8.2, -2), (98, -8.8, -7.8, -2), (100, -9, -9, 0), (98.5, -9.2, -9.2, 0))` |
+| `waiting_price_equality_not_reactivated` | 8 | `((100, -10, -9, -2), (99, -11, -10, -2), (105, -5, -6, 2), (98, -9, -8, -2), (97, -9.2, -8.2, -2), (98, -8.8, -7.8, -2), (100, -9, -9, 0), (99, -9.2, -9.2, 0))` |
+| `waiting_reference_break_invalidates` | 8 | `((100, -10, -9, -2), (99, -11, -10, -2), (105, -5, -6, 2), (98, -9, -8, -2), (97, -9.2, -8.2, -2), (98, -8.8, -7.8, -2), (100, -9, -9, 0), (98.5, -11.1, -11.1, 0))` |
+| `waiting_true_red_ends_segment` | 8 | `((100, -10, -9, -2), (99, -11, -10, -2), (105, -5, -6, 2), (98, -9, -8, -2), (97, -9.2, -8.2, -2), (98, -8.8, -7.8, -2), (100, -9, -9, 0), (100, -9, -10, 2))` |
+| `historical_top_price_withdrawal` | 7 | `((100, 50, 49, 2), (90, 0, 1, -2), (101, 40, 39, 2), (102, 41, 40, 2), (102, 40, 39, 2), (103, 39.9, 38.9, 2), (104, 39.8, 38.8, 2))` |
+| `bottom_history_withdraws_only_after_real_red` | 8 | `((100, -10, -9, -2), (99, -11, -10, -2), (105, -5, -6, 2), (98, -9, -8, -2), (97, -9.2, -8.2, -2), (98, -8.8, -7.8, -2), (105, -8.8, -9.8, 2), (96, -8, -7, -2))` |
+| `cumulative_close_and_separate_dif_dates` | 4 | `((120, 50, 49, 2), (110, 0, 1, -2), (125, 20, 19, 2), (119, 25, 24, 2))` |
+| `first_top_requires_positive_current_dif` | 4 | `((120, 20, 19, 2), (110, 0, 1, -2), (131, 1, 0, 2), (132, 0, -1, 2))` |
+| `active_reference_equality_then_strict_break` | 6 | `((100, 50, 49, 2), (90, 0, 1, -2), (101, 40, 39, 2), (102, 41, 40, 2), (102, 50, 49, 2), (102, 50.01, 49.01, 2))` |
+| `price_fall_alone_does_not_cancel_existing_dull` | 5 | `((100, 50, 49, 2), (90, 0, 1, -2), (101, 40, 39, 2), (102, 41, 40, 2), (99, 41, 40, 2))` |
+
+### 22.4 资料路径、抽取和历史限制
+
+reports附件中221个有目标的原文件分别映射唯一目标，目标没有冲突；其余3282原文件明确删除。新资料README按sources/observations/conclusions/local-extrema列用途、旧路径、新路径和当前文档入口，不另建研究方案、算法实现或完整结果库。
+
+27条数值摘录完整保留，52条标签观察只保留一份。11条缺原图记录如下，仅表示当前无法重新看原图，不能删除其已存摘录或自动填补：
+
+| 周期 | 时间 | 已失效的原图文件名 |
+|---|---|---|
+| m120 | 2025-08-08T15:00:00+08:00 | `IMG_0318.PNG` |
+| m120 | 2025-08-12T15:00:00+08:00 | `IMG_0358.PNG` |
+| m120 | 2026-05-07T15:00:00+08:00 | `IMG_0310.PNG` |
+| m120 | 2026-09-01T15:00:00+08:00 | `IMG_0360.PNG` |
+| m90 | 2025-08-06T15:00:00+08:00 | `IMG_0374.PNG` |
+| m90 | 2025-08-12T15:00:00+08:00 | `IMG_0359.PNG` |
+| m90 | 2025-08-14T15:00:00+08:00 | `IMG_0315.PNG` |
+| m90 | 2026-01-13T15:00:00+08:00 | `IMG_0369.PNG` |
+| m60 | 2026-01-13T15:00:00+08:00 | `IMG_0370.PNG` |
+| m60 | 2026-04-07T15:00:00+08:00 | `IMG_0366.PNG` |
+| m60 | 2026-04-20T15:00:00+08:00 | `IMG_0361.PNG` |
+
+资料变更按以下固定顺序，不能颠倒：
+
+1. 按精确清单核源文件和目标无占用，准备消费者修改及独立测试；代码与资料同步在当前工作区处理，不发布半成品。
+2. 移动207份普通保留件，逐字节核对；7份抽取件按附件根字段及§10.3.3.1嵌套白名单逐值核原文，目标先完整成立，才删除混合原件；6份历史README单独整理链接/历史范围/失效活动命令，不更改原成绩/日期；Notebook按§11.2.2改未执行代码单元/路径。不能递归复制整份旧目录后把不需要的继续留下。
+3. 更新CASES、collect_readouts、保留测试和Notebook/文档入口；数据/原图/讲稿SHA不变，7份抽取件以原字段值/明确原文检验，不把它们当原字节文件。Notebook只对source路径作明确对账，不宽泛归一化业务字段。
+4. 原材料/纯工具/测试交接通过后，才删除3282份无用产物及旧执行链、已知对应pyc；确认旧目录无其他文件再删空目录。遇到变更、新用途/目标冲突即停，不吞错或改目标后缀。
+5. 删除后新进程核引用和当前运行入口，再做§22.5/§22.6回归；未完成的文件如实列剩余，不称“基本清干净”。
+
+### 22.5 对应编码的规则与清退测试设计
+
+本节是后续测试设计，本轮不写测试代码、不执行业务测试。除明确只验证隔离/原材料边界外，预期均为独立字面；不调用待测函数生成expected。
+
+| 编号 | 代码/资料位置与输入 | 正向独立预期 | 必须抓住的错误/反例 |
+|---|---|---|---|
+| P5-01 | 103代码清单、静态import/动态字符串/Notebook/README | 正式r4和全部保留入口不依赖待删模块；旧模块缺席新进程仍能正常导入 | 静态import、Git blob执行、别名/转发、.pyc、ZIP/文本源码仍可复活旧类，任一种都失败；不能只搜r2 |
+| P5-02 | near_first纯两位取数 | 40.057→40；−8.086→−8.0；41.01→41，40.99→40；41.9/41.4均41；0、±0.008086、99.999、100.1字面结果 | bool、NaN、±inf拒绝；测试不得构造计算器/读代码或行情；不能用Q自身生成expected |
+| P5-03 | 37人工输入、222根、4周期 | 每组name/顺序/四项值与§22.3一致；时间仅按原格式变化，Case和返回输入互不污染 | 丢一组、丢/改一根DEA、把旧checks/facts重新当当前expected或由产品生成材料均抓住 |
+| P5-04 | 当前snapshot_validation及37×4每截断 | restore后继续与同输入连续结果一致，坏恢复不污染原对象；当前独立快照字面测试照常保留 | 只保留37组材料却不运行恢复、减少周期/截断、为旧waiting成功而加状态兼容均失败 |
+| P5-05 | acceptance.load_source临时真实字段CSV/manifest | day的trade_date/close/macd_*_bfq及分钟原字段/真实DEA按原值交付，data SHA不变；两个合法源目录独立 | 缺DEA或改文件直接失败；时间/非有限数值沿消费者的bar.validate校验，不给load_source另加新协议或兜底；不能读取不存在的旧源码或递归旧manifest.protected |
+| P5-06 | collect_readouts已有27条、两次调用 | 行数27且period/time唯一，原software/source/sourceRecord及数据不变；改一次返回不影响另一次 | 旧5份算法报告缺席仍工作；不能重新跑模型算差值、把11缺图报作已核图或补猜值 |
+| P5-07 | 52条重复观察 | 只保留指定一份，原confidence/source/endpoint不变 | mapped升级精确时刻、与27数值或别的13条直接合成独立样本数、保留多份相同旧JSON都不合格 |
+| P5-08 | 207原件、6历史说明、7抽取文件、1Notebook；新增两份真实来源摘要见§10.3.3.1 | 普通件字节一一相同；6份说明仅导航/历史范围/失效活动命令变化，旧成绩/日期/事实不变；7件抽取根键准确，新增两件的每个来源对象嵌套键恰为原键与白名单交集，数组顺序及保留叶值等原文；可选purpose/title/paraphrase原本有无均如实保留；Notebook仅明确路径/未执行单元变更 | 仅筛根键却带出嵌套comparison、残留旧预测文件/身份/analysis/后续找图任务，少保留有效原文或补缺键为null，均失败；其他旧interpretation/legacy_model_difference/工作规则同样不得带回；不另存旧解释 |
+| P5-09 | local_extrema 3真实小窗口/人工峰谷 | 72+63+63原行、原SHA/时间/数值不变；局部峰谷/平台/未确认尾部/量图边界及4个原时间锚点保持 | 旧run.json/源码缺席不能阻塞；坏数据仍拒绝，不因搬目录取消数据身份检查 |
+| P5-10 | Notebook组装及已有Notebook | 纯返回字典，所有执行计数为空、无outputs，引用纯扫描/新资料路径；旧结果与新计算仅source字段路径明确一对一，其余结果不删字段 | exec/写文件、绝对旧目录、旧candidate import、为凑比较删除峰谷/日期/数量字段均失败；测试不运行Notebook |
+| P5-11 | reference_window原始事实人工值 | 平台−10/−10先后确认和首反色窗口，原DIF/price及日期保持；调用前后输入不变 | qdif/eligible/selected重新出现、把该工具接入正式r4、把不同色段边界当r4选峰结论都失败 |
+| P5-12 | saved_minute_window与量图原字面tests | 原90分钟行/字节/定位/时点、H恒等式和有限数值、边界邻行行为不变；遮挡不补像素 | 缺列、逆序、超限、坏SHA、错尺寸/遮挡不应被资料移动或清退放宽；源检查不进入产品请求 |
+| P5-13 | top_activation_math及real_math纯分数 | pair(1/3)=[1,3]；daily_options在±0.0005及±2×10^-10两侧、恰tie保留原选项；meet/minus开闭、单点手写结果 | import旧expectations/proof、最强排序、2步目标/20根oracle重新出现或不当作闭边界，失败 |
+| P5-14 | test_xxm_calculator现CURRENT_CORE_NODES | 7个现函数/22参数用例及RC01—110现有业务断言全部保留 | 只删文件尾部却删掉当前函数、改1%/零中性/B→A/当前价/结构寿命或恢复拒错来迎合旧测试，失败 |
+| P5-15 | 当前r4_observation/observe_rows | 正式类record_decisions实际分支及无记录模式业务相同；1000/1001根、20秒、256MiB、16MiB及copy/失败不共享照原独立例 | 恢复旧Observed类/抄step，或因删旧formatter把现观察测试一起删掉，失败 |
+| P5-16 | forecast_display迁当前_range_text，独立范围 | [10,20]且display10/20→“收盘不低于10点且不高于20点”；单点12→“收盘等于12点”；(10.2,∞)且display11/None→“收盘不低于11点”；(10.2,10.3)无整数→现无整数说明；原精确区间不变 | display为float/bool、非正数、上无界却有displayUpper、单点不闭/不等、半份整数边界均拒绝；不能再次根据中点/旧报告求价；8组分别覆盖正常/单点/无上界/无整数/坏类型/坏单点/半字段/不改输入 |
+| P5-17 | confirmed_cases原观察3例、原源文件 | 保留2024-03-11 m120上午11:30绿色消失、2025-06-12 m90 14:00结构而非15:00、2023-04-14钝化及17/18无可见旧消失的原确认；值3052.2827/3401.2473等独立原值不变 | 不再断言new_top_DULL自动结束旧历史；用当前structures/relatedStructureId及正式派生标记核身份。改字段不能改作者日期；与当前r4真实结果不符必须停review，不能改图证/skip/改规则凑过 |
+| P5-18 | 3例既有离线源读取交接 | case_windows直接load_source，day仍核原calendar/manifest行数和validate_window；minute逐根validate及时间唯一升序；只留3例需要结果窗口 | 不能恢复load_bars/validate_capture_identity旧接口，不能缺DEA补算。源CSV最大按已知912/1643/17260/12945/8630根及合计8MiB上限，按3个原终点停止；组60秒且只保留原3例结果窗口，不新增RSS检查/全步骤缓存，不能接正式库或新增全区间比较 |
+| P5-19 | r4_records/历史配对旧反例 | 有效悬挂引用/错方向/重复事件/未来记录反例由现snapshot_validation/r4_restore/r4_internal_results及Web/debug合同保持；旧五字段配对不留 | 删除旧suite后又同时减少当前拒错覆盖，或把旧r2组改名r4作对照expected，失败 |
+| P5-20 | 4个现工具和Web/TS当前合同 | P4已验收只读/参数/仅内存/首错/退出/1500/缓存/双模式行为不变；现r1/rearm命名合同tests及表达式联合保留 | 借清退改--output/--candidate、注册生产r4、隐藏原错误、放宽预算或删合法当前表达式，都超范围停下 |
+| P5-21 | 资料目录/空目录/其他工作区 | 221个明确目标逐项存在且可解释；3282删除行均已清引用；清单外文件不动 | 整目录批删、遇到目标已存在就覆盖、拷整个旧包/旧ZIP或伪装TXT、丢原图/原稿均失败 |
+| P5-22 | 中断/文件已移动但引用未改 | 按实际完成文件续做明确交接，不从头重复覆盖；已过的文件内容不变，未过项不报成功 | 自动全量重跑、默默补不存在源文件、创建后台/恢复库或用旧执行器兜底，失败 |
+
+P5-17/18是已有三例离线材料的当前单组回归，非新双组回测；不通过observe_rows绕过其1000根上限，也不改变默认分钟产品1500根预算。只保留原case_windows的有限结果，按原3个终点结束，不新增截图日期或调阈值。当前规则不允许保留的旧内部寿命解释已明确删除，但作者原始标签/日期不能改写；实际开发核对若有剩余业务差异须汇报，不把本轮静态设计说成已经验证匹配。
+
+### 22.6 实施顺序、测试分组、失败与完成条件
+
+本轮到“准备完成，待review”，不进行下面开发/测试：
+
+1. 第一阶段开发先精简保留工具和人工材料、迁221份有用资料及其路径/字段消费者，补本节对应独立测试；正式r4/App/API/前端/Reader/Spec不动。旧执行链此时尚未删除，工具必须已解除其依赖，不能靠旧导入碰巧通过。
+2. 迁出能力的定向测试合格后，按两份附件删除旧执行代码/专属tests/3282无用产物、ZIP及明确pyc，清活动命令和相关空目录；不得删其他主题或未登记内容。
+3. 在旧文件物理缺席的新进程做测试收集和以下分组回归；每组60秒截止含退出/报告，失败或超时首次出现即停查因，不自动续下一组、不安装依赖。按既有命令习惯禁用插件自动加载/bytecode/pytest缓存，不改产品配置。
+
+| 组 | 明确覆盖 | 输入与执行边界 |
+|---|---|---|
+| 收集/引用 | 现pytest testpaths、主题完整收集、AST/动态入口/Notebook/README清单；保留模块新进程import | 不运行被删除旧suite，不通过移动testpaths或skip藏错；其他主题只收集不执行研究 |
+| 纯工具/资料 | near_first、saved_minute_window、local_extrema、local_extrema_study、reference_window、top_activation_real_math、acceptance_scope、纯输入材料tests | 临时合成/明确本地原材料；无真源/正式写入/新报告；3小窗口和量图仅现独立测试 |
+| 核心/恢复/观察 | calculator、r4_rules/following/restore/internal_results、input/snapshot_validation/snapshot_consumers、r4_observation及following_query | 当前人工RC预期；37×4恢复输入；无旧算法；大文件按文件继续分组但不得漏掉迁后节点 |
+| 预测/文本 | key_point_forecast、p3_forecast_math、r4_following_forecast、forecast_expression_contract、精简forecast_display | 当前单步/PF/原EMA/有限边界/无上界与整数；不跑旧horizon20、多门槛oracle |
+| 原图事实3例 | confirmed_cases迁后全文件 | 明确原文件/源身份，P5-18根数/8MiB/60秒及有限结果窗口；不连DB/Lake，不新增业务区间 |
+| 路由/工具 | 当前Web识别/预测、shared_loads、daily_window_precheck和完整p4_audit_tools | 原人工SQLite/临时Gold/隔离服务样本；不启动真实CLI，不发P4正式请求 |
+| 必要前端 | 当前xxm、xxm-forecast、debug、daily-wave及页面相关定向tests；现typecheck/build | 若未来实现未改前端，核其现消费者仍不依赖旧报告；不修无关交易助手日期TODO，不声称全前端全部通过 |
+| 架构/组织/文档 | 根三份架构、研究依赖方向和test_research_layout::test_single_location_roots_and_pytest_discovery、check_docs_integrity、两CSV完整性和本批链接/diff | 不跑其他主题历史归档/回测；链接新旧出处与活动入口分清 |
+
+4. 正式业务未改时复用P4四周期真实证据，不加真实API采样、完整历史字段比对或全量读取。若发现必须修改正式逻辑或资料不能按本设计迁移，先停下明确范围/影响并补方案LLD，不能临时扩大开发和测试。
+5. 交付原三文档/索引、两附件逐项处理结果、测试节点/结果及未覆盖；原r2设计开发文档、有效历史成绩、原图/讲稿/输入、独立波段工具保留。暂缓性能4—7批及交易助手日期TODO保持，不变相纳入清退。
+6. 独立审计确认当前唯一r4/预测/页面行为及P4已验收边界不变、没有活动旧执行器/源码包/隐藏回退、保留资料均可定位后停止，交管理员验收。提交/推送/部署另按明确指令。
+
+### 22.7 本轮审计交付记录
+
+本次仅修改原方案/LLD及其两个逐文件设计附件和必要索引，保留上一轮P4收尾未提交内容。没有移动/删除源文件或报告，没有更改业务/测试代码、执行测试/回测/真实读源、安装、提交或部署；临时审计只读本地文件、静态AST/JSON和ZIP目录，不导入执行待退模块。
+
+独立复核包括：103代码和3503报告路径全部存在、分类无遗漏/重复、221目标唯一、7个抽取白名单及新增两件的嵌套字段确实存在、37组222输入只作输入保留；原字节文件、6份历史说明、抽取件及Notebook的验收不混用，P4已完成项不重复开发，后续步骤依赖先迁后删。实际文档/链接/差异检查结果在末尾据实登记。这里的“第一步完成”只指审计和设计准备，不表示有效能力已迁出或旧文件可立即绕过review删除。
+
+原第一步已核103代码/测试Git状态、3503报告原路径/文件数量/字节、221唯一目标及37组222根原始输入，实际源文件未改。两项独立审计修正后的统计以§10.3当前表为准，7件抽取与嵌套字段、22组测试设计及本轮文档检查见§22.8；静态检查不计业务测试通过。本次将本需求P4收尾、P5设计及两项审计修正一并提交，索引仅提交本需求改动，其他已有修改保留；没有迁移或删除源代码/资料。
+
+### 22.8 两项独立审计修正及第二步交接（2026-11-03）
+
+管理员本轮要求先补齐已发现问题、提交，再审计是否能推进下一步；不是第二步清退执行授权。本次仅修改本需求方案/LLD、两个设计附件及必要索引，并一并提交尚未提交的P4收尾文档；不改代码/测试、原报告或原图/讲稿，不进行行情读取、测量、回测、迁移、删除、部署或生产开放。
+
+| 修正 | 当前明确口径及后续交接 |
+|---|---|
+| P4状态残留 | §11.3/§11.4与原技术方案当前状态统一为P3/P4已完成，P4最终证据只引§21.14.14。保留有日期的失败和当时交付记录，不再要求重做真实/页面验收；P5当前准备与实施顺序只按§10/§11.2/§22 |
+| 两份来源摘要混入旧解释 | 按§10.3.3.1和附件精确根/嵌套字段抽取，原文件本轮未动。207件原样保留、7件抽取、6件说明和1件Notebook共221目标；3503总数和3282件直接删除项不变，大小统计使用原字节 |
+| 配套测试 | P5-08及`test_xxm_acceptance_scope.py`清单同步两份独立字面/禁止嵌套比较回归，合法可选字段有无均保留。删原件前逐值核对，删后不再读取混合原件生成expected；不新增长期清理框架、旧源码或第二套预期库 |
+| 下一步范围 | 第二步先精简有用函数和37组人工输入、迁221份资料及代码/测试/Notebook路径，定向交接通过后才删旧执行链和无用报告；第三步在旧文件物理缺席的新进程回归。103文件处理边界与P4已验收正式运行链不变 |
+
+本轮文档检查实际通过：根文档完整性3项；103代码/测试路径、Git状态与清单一致；3503原报告路径/原大小未改；分类及744135468总原字节对齐；221目标唯一且均未创建；7件根字段及新增两件的嵌套真实字段已核；22组P5测试设计均存在。另以本批链接/差异检查核本需求文档，不将其计为业务回归通过。
+
+提交后开工审计按以下条件判断，不能再把“P4尚未验收”作为阻塞，也不能把本轮静态通过当作第二步已经完成：正式运行链与保留函数不依赖待退代码；人工输入及原作者事实未丢失；资料目标/字段及代码消费者先迁后删；定向与删后回归的独立预期、分组、60秒及首错退出要求已明确。任一新调用方、源变化、目标占用或必须修改正式规则/接口的事实出现，停止并说明，不临时扩大范围或恢复旧算法。当前未发现需要管理员重新选择的算法口径。
