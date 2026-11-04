@@ -1,6 +1,6 @@
 # 指数详情页正式 API / DTO 合同 v1
 
-> 2026-10-30：§10为本次r4日线识别的唯一目标合同入口，字段与代码顺序统一由[顶底识别LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)登记；本轮仅同步文书，未修改运行接口。§1—9的page-init/kline/weights及其debugInfo规则不变。
+> 2026-11-04：§10为已实施的本地r4日线识别配套摘要；完整字段和实现依据统一见[顶底识别LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)§2—5，P3/P4及P5删后回归证据见其§20.7—20.8、§21.14.14和§22.16.6。§1—9的page-init/kline/weights、1.3.2及其debugInfo规则不变；本次仅修正文书状态，不改接口。
 
 > 2026-11-04 用户验收通过：`1.3.2` 仅调整成分行情缺失的状态和异常触发，不增删响应字段。代码、隔离回归、本机真实只读 API 与页面已验证；本次收尾提交，不执行推送或部署，不表示生产已生效。§4.3、§6.3 的规则及[LLD §25](./index-detail-low-level-design-v1.md#index-constituent-missing-quote-20261020)记录本次实现与验收边界。
 
@@ -445,15 +445,17 @@ interface IndexDetailErrorResponseDto {
 | `1.0.0` | 2026-08-11 | 首次冻结 page-init/kline/weights 独立 DTO |
 
 
-## 10. r4日线顶底识别目标合同
+<a id="10-r4日线顶底识别目标合同"></a>
+
+## 10. r4日线顶底识别合同
 
 本节普通响应必须没有debug键，debug请求才有独立debug对象；**不得套用§2.6对原page-init/kline/weights的debugInfo始终存在要求，也不得返回debugInfo、debug:null或空debug对象作兼容。**
 
-本节约束独立`xxm-signals`接口的后续实施，不向page-init/kline/weights添加识别字段。完整字段、空值、结构记录和校验要求唯一登记于[顶底识别LLD§2—5](index-detail-top-bottom-recognition-low-level-design-v1.md)，开发必须逐项执行；不得从其他版本合同拼装字段。本次只同步文档，接口实现尚未按目标修改。
+本节说明已实施的独立`xxm-signals`接口，不向page-init/kline/weights添加识别字段。完整字段、空值、结构记录和校验要求唯一登记于[顶底识别LLD§2—5](index-detail-top-bottom-recognition-low-level-design-v1.md)，当前schema、query/API及直接消费者共同落实；不得从其他版本合同拼装字段。本次只同步文书，不重新迁移接口。
 
 ### 10.1 路由、环境与请求
 
-`GET /api/v1/wealth/market/index-detail/xxm-signals`，鉴权保持；成功200按本目标显式设置Cache-Control:no-store，错误沿原处理器不新增header；不误称当前xxm处理器已经有该响应头。
+`GET /api/v1/wealth/market/index-detail/xxm-signals`，鉴权保持；成功200已显式发送Cache-Control:no-store，错误沿原处理器不新增header。
 
 | 参数 | 规则 |
 |---|---|
@@ -481,10 +483,10 @@ interface IndexDetailErrorResponseDto {
 
 ### 10.4 返回、预算、错误及消费者
 
-query目标返回已校验bytes：完整内部校验→显式新建普通/debug投影→公开校验→一次编码→检查同一deadline和字节上限→API发送同一正文。禁止二次编码、修改缓存对象或debug失败降级普通成功。
+query返回已校验bytes：完整内部校验→显式新建普通/debug投影→公开校验→一次编码→检查同一deadline和字节上限→API发送同一正文。禁止二次编码、修改缓存对象或debug失败降级普通成功。
 
 总4秒（含共享等待、来源、恢复、完整/公开校验及编码），并发2、返回≤2000根/1MiB、缓存64MiB/16系列；客户端同一5秒截止覆盖网络、解码和最终显示。错误体及既有400/404/500/503、鉴权行为按[LLD§9](index-detail-top-bottom-recognition-low-level-design-v1.md#9-预算错误取消及数据读写边界)和现异常登记，不新增错误包装。
 
-实施必须按LLD§11顺序同步query、schema、API、直接Python调用、TS类型/解码/client/Hook和普通悬停，不发布中间混配版本；消费者清单见LLD§11.2.6。保留核验工具在P4使用前整体迁移，清退在P5完成，均不得提前。
+query、schema、API、直接Python调用、TS类型/解码/client/Hook和普通悬停已按LLD§11依赖顺序完成同步，不发布中间混配版本；消费者清单见LLD§11.2.6，P3证据见§20.7—20.8。保留核验工具已在P4使用前整体迁移，旧执行链在P5第二步交接后清退，分别见§21.14.14/§22.9；P5删后整体回归见§22.16.6。
 
-本次目标修订（2026-10-31，待实施）：首次反色起逐根检查旧结构收盘突破，反色段、单根同色段和零柱都检查；单根同色段结束不停止，首个至少两根同色段结束正常停止，结束反色根不再检查。完整事件始终保留；同根同方向旧CANCEL/structure_price_break与新DULL/activation并存时，前者displayOnChart=False、后者True；其他事件不误隐藏。普通/debug根events、标志、id和顺序相同，debug仍关联全部旧结构事实；前端只按标志画图/普通说明，不删除事件或下一根补报。严格字段/新增计数与跟踪极值/asOf投影以LLD§2—5为准。原参数/来源/预算不变，运行接口尚未迁移，不宣称已可用。
+2026-10-31修订已实施并验收（完成依据见LLD§19—20、§21.14.14及§22.16.6）：首次反色起逐根检查旧结构收盘突破，反色段、单根同色段和零柱都检查；单根同色段结束不停止，首个至少两根同色段结束正常停止，结束反色根不再检查。完整事件始终保留；同根同方向旧CANCEL/structure_price_break与新DULL/activation并存时，前者displayOnChart=False、后者True；其他事件不误隐藏。普通/debug根events、标志、id和顺序相同，debug仍关联全部旧结构事实；前端只按标志画图/普通说明，不删除事件或下一根补报。严格字段/新增计数与跟踪极值/asOf投影以LLD§2—5为准。原参数/来源/预算不变，接口及Python/TS消费者已同步；可用范围仍仅显式本地和上证，不表示部署或生产开放。

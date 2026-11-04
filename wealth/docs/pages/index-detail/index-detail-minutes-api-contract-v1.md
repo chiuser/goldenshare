@@ -1,6 +1,6 @@
 # 指数详情本地分钟 API / DTO 合同 v1
 
-> 2026-10-30：§8为本次r4分钟识别的唯一目标合同入口，完整字段以[顶底识别LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)为准；本轮仅同步文书，未修改运行接口。§1—7的七频分钟行情/指标合同不变，不将七频或10000行情上限套到识别。
+> 2026-11-04：§8为已实施的本地r4分钟识别配套摘要，完整字段以[顶底识别LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)为准，完成证据见其§20.7—20.8、§21.14.14及§22.16.6。本次只修正文书状态；§1—7的七频分钟行情/指标合同和1.1.0不变，不将七频或10000行情上限套到识别。
 
 > 版本：`1.1.0`
 > 状态：指数分钟交付已完成。P10 业务读取已切换并验收；bars 只读正式 Gold canonical bars，indicators 只读正式 Gold technical；没有 Silver、旧 Lake、staging 或 Mock fallback。七频合同、全历史对齐、性能、分页、局部状态、浏览器和生产隔离门禁均已闭环。切换与历史重建证据见 [A 股分钟线 Gold 标准 K 线合同与历史重建 LLD](../../../../lake_console/docs/design/dagster-cn-a-minute-gold-canonical-bars-rebuild-low-level-design.md)。
@@ -202,13 +202,15 @@ uv run python -m src.scripts.audit_index_minute_gold --runs 10 --full-alignment 
 | 1.0.0 | 2026-08-11 | 冻结 local-only 双接口、Silver bars、Gold indicators、状态/异常/cursor/5MB 边界与 M5-A 开发态 Mock 例外 | Codex |
 
 
-## 8. r4分钟顶底识别目标合同
+<a id="8-r4分钟顶底识别目标合同"></a>
 
-本节仅约束独立`minute-xxm-signals`，不修改minutes/minute-indicators行情合同，不开放生产分钟。识别规则、六字段参照、统一structures、普通/debug、版本和全部校验必须执行[顶底识别LLD§2—5](index-detail-top-bottom-recognition-low-level-design-v1.md)；本节不维护第二份字段表。本次仅同步文书，运行接口尚未按目标修改。
+## 8. r4分钟顶底识别合同
+
+本节仅约束独立`minute-xxm-signals`，不修改minutes/minute-indicators行情合同，不开放生产分钟。识别规则、六字段参照、统一structures、普通/debug、版本和全部校验必须执行[顶底识别LLD§2—5](index-detail-top-bottom-recognition-low-level-design-v1.md)；本节不维护第二份字段表。当前schema、query/API及Python/TS消费者已完成同步；本次仅修正文书状态，不改运行接口。
 
 ### 8.1 请求及环境
 
-`GET /api/v1/wealth/market/index-detail/minute-xxm-signals`，鉴权保持；成功200按本目标显式设置Cache-Control:no-store，错误沿原处理器，不新增header。
+`GET /api/v1/wealth/market/index-detail/minute-xxm-signals`，鉴权保持；成功200已显式发送Cache-Control:no-store，错误沿原处理器，不新增header。
 
 | 参数 | 规则 |
 |---|---|
@@ -234,6 +236,6 @@ uv run python -m src.scripts.audit_index_minute_gold --runs 10 --full-alignment 
 
 HTTP沿已登记XXM错误、原code/message/request_id及鉴权。直接query缺分钟reader的现有503例外保持，正常HTTP装配先保证分钟能力；生产未注册由框架404，不伪造EMPTY。
 
-新核心、内部类型/恢复/聚合先按LLD§11完成，再迁公开模型/API和TS客户端/Hook/悬停；完整新身份及消费者必须同一P3完成，不保留旧字段兼容或发布混配版本。P3第4步完成必要参数/真实辅助组件和静态拆分，P4再验App环境、动态挂载、真实分钟来源/预算和页面；内部测试通过不能代替它们。当前开工以本次已同步目标合同及LLD为依据，不重做旧捕获或旧算法等价核验。
+新核心、内部类型/恢复/聚合已先按LLD§11完成，再于同一P3同步完整新身份、公开模型/API和TS客户端/Hook/悬停，不保留旧字段兼容或发布混配版本。P3第4步已完成必要参数/真实辅助组件和静态拆分；P4已完成App环境、动态挂载、真实分钟来源/预算和管理员页面验收，内部测试不能代替这些证据。当前实现与验收分别见LLD§20.7—20.8/§21.14.14；有用工具在P4使用前已迁移，旧执行链在P5第二步已清退，删后整体回归见§22.16.6，不重做旧捕获或旧算法等价核验。
 
-本节r4目标配套修订（2026-10-31，待实施）：同日线detector v0.4-r4，使用LLD§2.3新完整结构字段。首次反色起逐根比价，单根同色段结束继续，首个至少两根同色段完整结束正常停止；保留全部计算事件，同根同向旧价格CANCEL+新activation仅前者displayOnChart=False。公开普通/debug根events均有该必填严格bool，图上一致、debug仍可核完整事实；不把分钟时间截成日期来决定同根。原分钟行情/来源/生产禁用及预算不变，接口/Python/TS消费者按原阶段同批迁移，不加兼容开关。
+本节2026-10-31 r4配套修订已实施（完成依据见LLD§19—20、§21.14.14及§22.16.6）：同日线detector v0.4-r4，使用LLD§2.3新完整结构字段。首次反色起逐根比价，单根同色段结束继续，首个至少两根同色段完整结束正常停止；保留全部计算事件，同根同向旧价格CANCEL+新activation仅前者displayOnChart=False。公开普通/debug根events均有该必填严格bool，图上一致、debug仍可核完整事实；不把分钟时间截成日期来决定同根。原分钟行情/来源/生产禁用及预算不变，接口/Python/TS消费者已按原阶段同批迁移，不加兼容开关。
