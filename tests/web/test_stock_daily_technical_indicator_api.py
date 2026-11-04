@@ -18,7 +18,7 @@ def test_original_limits_and_openapi(app_client, db_session, monkeypatch, record
     _ensure_stock_detail_tables(db_session)
     db_session.add(Security(ts_code="600000.SH", symbol="600000", name="浦发银行",
                             security_type="EQUITY", source="tushare"))
-    days = tuple(date(2020, 1, 1) + timedelta(days=i) for i in range(2000))
+    days = tuple(date(2020, 1, 1) + timedelta(days=i) for i in range(500))
     db_session.add_all(EquityFactorPro(
         ts_code="600000.SH", trade_date=day, source="tushare", open_qfq=10,
         high_qfq=11, low_qfq=9, close_qfq=10, pre_close=10, change=0, pct_chg=0,
@@ -26,12 +26,16 @@ def test_original_limits_and_openapi(app_client, db_session, monkeypatch, record
     ) for day in days)
     db_session.commit()
     with backend_for_client(app_client, monkeypatch, db_session.get_bind(), record_property) as (_, calls, _):
-        for limit in (1, 1000, 2000):
-            response = app_client.get(PATH, params={"tsCode": "600000.SH", "endDate": days[-1].isoformat(), "limit": limit})
+        for limit in (None, 1, 500):
+            params = {"tsCode": "600000.SH", "endDate": days[-1].isoformat()}
+            if limit is not None:
+                params["limit"] = limit
+            expected_limit = 500 if limit is None else limit
+            response = app_client.get(PATH, params=params)
             assert response.status_code == 200, response.text
             payload = response.json()
-            assert payload["meta"]["count"] == payload["meta"]["limit"] == len(payload["bars"]) == limit
-            assert [bar["tradeDate"] for bar in payload["bars"]] == [day.isoformat() for day in days[-limit:]]
+            assert payload["meta"]["count"] == payload["meta"]["limit"] == len(payload["bars"]) == expected_limit
+            assert [bar["tradeDate"] for bar in payload["bars"]] == [day.isoformat() for day in days[-expected_limit:]]
             assert payload["adjustment"] == "forward" and payload["sourceAdjustment"] == "qfq"
             assert set(payload) == {"pageContext", "stockRef", "period", "adjustment", "sourceAdjustment",
                                     "bars", "meta", "dataStatus", "debugInfo"}
@@ -40,7 +44,7 @@ def test_original_limits_and_openapi(app_client, db_session, monkeypatch, record
     operation = app_client.app.openapi()["paths"][PATH]["get"]
     params = {item["name"]: item["schema"] for item in operation["parameters"] if item["in"] == "query"}
     assert set(params) == {"tsCode", "period", "adjustment", "tradeDate", "startDate", "endDate", "limit", "debug"}
-    assert params["limit"]["default"] == 300 and params["period"]["default"] == "day"
+    assert params["limit"]["default"] == 500 and params["period"]["default"] == "day"
     assert params["adjustment"]["default"] == "forward"
     assert operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"].endswith("/StockDetailKlineResponseDto")
 
@@ -54,7 +58,7 @@ def test_prewait_errors_unknown_and_empty(app_client, db_session, monkeypatch, r
             admissions.append(control)
             return await original(control)
         monkeypatch.setattr(backend.runtime.admission, "acquire", acquire)
-        for changes in ({"period": "week"}, {"adjustment": "qfq"}, {"limit": 0}, {"limit": 2001},
+        for changes in ({"period": "week"}, {"adjustment": "qfq"}, {"limit": 0}, {"limit": 501},
                         {"startDate": "2026-05-29", "endDate": "2026-05-28"}):
             response = app_client.get(PATH, params={"tsCode": "603806.SH", **changes})
             assert response.status_code == 400 and response.json()["code"] == "400001"

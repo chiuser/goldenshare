@@ -57,7 +57,7 @@ async def get_stock_detail_kline(
     trade_date: date | None = Query(default=None, alias="tradeDate"),
     start_date: date | None = Query(default=None, alias="startDate"),
     end_date: date | None = Query(default=None, alias="endDate"),
-    limit: int = Query(default=300),
+    limit: int = Query(default=500),
     debug: int = Query(default=0, ge=0, le=1),
     _user: AuthenticatedUser | None = Depends(require_quote_access),
     backend: StockDailyKlineBackend = Depends(get_stock_daily_kline_backend),

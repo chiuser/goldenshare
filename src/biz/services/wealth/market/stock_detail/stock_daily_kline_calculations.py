@@ -24,13 +24,13 @@ STOCK_DAILY_OUTPUT_FIELDS = MappingProxyType({
 
 
 def validate_stock_daily_request(request: StockDailyKlineRequest) -> None:
-    """Preserve the old API rules and their order; unknown codes reach the DB later."""
+    """Apply the API rules in order; unknown codes reach the DB later."""
     if request.period != "day":
         raise ValueError("股票详情首期只支持 period=day")
     if request.adjustment != "forward":
         raise ValueError("股票详情首期只支持 adjustment=forward")
-    if request.limit < 1 or request.limit > 2000:
-        raise ValueError("limit 必须在 1 到 2000 之间")
+    if request.limit < 1 or request.limit > 500:
+        raise ValueError("limit 必须在 1 到 500 之间")
     if (request.start_date is not None and request.end_date is not None
             and request.start_date > request.end_date):
         raise ValueError("startDate 不能晚于 endDate")

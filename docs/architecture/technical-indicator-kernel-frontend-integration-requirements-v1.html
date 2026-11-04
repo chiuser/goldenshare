@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="技术指标计算内核的未来页面接入要求：1000根分页、提前加载、动态预热、复权一致性、取消与空结果。已确认方向，未实施页面或API迁移。">
-  <title>技术指标计算内核 · 前端接入要求 v1</title>
+  <meta name="description" content="先完成内核独立开发与验收，再评审产品策略、Figma、股票API和前端接入。内核各周期统一默认500根、硬输出上限500根，动态预热另计；本文保留后续产品设想。">
+  <title>技术指标计算内核 · 后续产品与前端接入记录 v1</title>
   <style>
     :root{--ink:#173340;--muted:#58717d;--line:#d9e4e9;--bg:#f1f5f6;--blue:#285d7a;--green:#236b58}
     *{box-sizing:border-box}html{scroll-behavior:smooth;scroll-padding-top:24px}
@@ -23,137 +23,141 @@
 <body>
 <main>
   <header>
-    <h1>技术指标计算内核<br>前端接入要求 v1</h1>
-    <p>记录股票、指数详情主要图表区域未来接入计算内核时，页面和内核必须共同遵守的要求。</p>
-    <div class="meta">日期：2026-10-26 · 状态：已确认的后续接入要求，尚未实施 · 本轮仅文档</div>
+    <h1>技术指标计算内核<br>后续产品与前端接入记录 v1</h1>
+    <p>先完成内核独立开发与验收，再推进产品策略设计、Figma、股票API和前端接入。</p>
+    <div class="meta">日期：2026-11-04 · 状态：本轮仅另行对齐股票日线API默认及最大500；页面与产品策略仍后置 · 500/剩100提前加载保留为此前设想，后续待review</div>
   </header>
   <nav aria-label="文档目录">
-    <a href="#scope">1 范围与依据</a><a href="#current">2 当前代码</a><a href="#requests">3 请求与责任</a><a href="#pages">4 分页示例</a><a href="#loading">5 提前加载</a><a href="#failures">6 切换、失败与到头</a><a href="#kernel">7 内核约束</a><a href="#acceptance">8 后续交付检查</a>
+    <a href="#scope">1 当前边界</a><a href="#current">2 当前代码事实</a><a href="#requests">3 后续产品接入</a><a href="#pages">4 此前分页示例</a><a href="#loading">5 此前提前加载设想</a><a href="#failures">6 业务状态与文案</a><a href="#kernel">7 内核统一合同</a><a href="#acceptance">8 后续阶段与核对</a>
   </nav>
 
   <section id="scope">
-    <h2>1. 范围与依据</h2>
-    <p>本文是“第四批-修复开发”的外部使用约束，也是后续页面改造的输入。内核组件边界以<a href="technical-indicator-kernel-component-design-v1.html">组件方案</a>为准，代码与SQL细节以<a href="technical-indicator-kernel-low-level-design-v1.html">代码级LLD</a>为准；本文不重复定义预热公式、误差计算或资源配置。</p>
-    <div class="note">本轮不修改前端、正式API或现行页面行为，不声称页面已经具备本文能力。后续实施前，仍须把实际API和页面代码位置补入相应页面的设计与LLD，完成现行消费者迁移核对。</div>
-    <p>约束适用于主要图表区域中使用同一证券、同一周期、同一目标复权和同一时间范围的相关指标。其他独立区域可以有自己的请求，不要求整页所有区域只能发送一次请求。不在本文件中增加任意复权基准日期、跨请求计算状态缓存或新的分页探测能力。</p>
+    <h2>1. 当前边界：先内核，后产品</h2>
+    <p>最新边界是先完成计算内核的独立开发和验收，之后才能推进产品策略设计、Figma、股票API其余改造或前端提前加载。管理员本轮单独批准股票日线API默认limit=500、合法范围1～500的数量对齐；这不启动后续产品开发。内核的当前设计以<a href="technical-indicator-kernel-component-design-v1.html">组件方案</a>和<a href="technical-indicator-kernel-low-level-design-v1.html">代码级LLD</a>为准。本文保留此前已讨论的产品设想和源码依据，不再作为内核开发必须接受的前端约束，也不作为内核验收的前置条件。</p>
+    <div class="note">内核各周期、各调用方统一使用默认500根、硬输出上限500根；动态预热另计。这是内核自身的合同，不能只靠页面显式传500实现。内核不判断首屏、何时发请求或是否加载到底；合法0根只表示本次成功没有结果，保留msg字段但所有成功结果的msg均为空字符串。代码尚待按该合同修改和验收。</div>
+    <p>此前“页面每页500、剩100根时提前加载”的设想仍可在§4、§5查看，但需要在内核完成后重新进行产品review。已确定的“暂无行情信息”和“已经加载全部数据了”两条文案继续保留，由业务根据自己的DTO和请求用途显示，不由内核msg驱动。除已批准的API数量对齐外，本轮不开发后续产品、不编辑Figma或前端代码；API局部验证与完整产品验收分别记录。</p>
   </section>
 
   <section id="current">
-    <h2>2. 当前代码与未来要求分开</h2>
-    <p class="muted">以下为2026-10-26源码核验结果；未运行页面、API或计算验收。</p>
+    <h2>2. 当前代码事实，不等于后续目标已经实现</h2>
+    <p class="muted">以下依据2026-11-04已核对的源码；没有运行页面、API、SQL或计算验收。</p>
     <div class="table-wrap"><table>
-      <thead><tr><th>位置</th><th>当前行为</th><th>未来接入需要补充</th></tr></thead>
+      <thead><tr><th>位置</th><th>当前实现</th><th>与后续工作的关系</th></tr></thead>
       <tbody>
-        <tr><td><a href="../../wealth/src/pages/stock-detail/StockDetailPage.tsx">股票详情页</a></td><td>股票日线请求300根；分钟线请求500根，K线与指标分别请求；已有请求取消处理。</td><td>按本文实施1000根分页、相关指标组合请求和提前加载；不能把现有500根写成已经修改。</td></tr>
-        <tr><td><a href="../../wealth/src/features/index-detail/controller/useIndexMinuteSeries.ts">指数分钟线加载</a></td><td>请求500根；K线与指标分别请求；已有取消和请求序号检查；仍有开发环境门禁。</td><td>接入未来正式API时同步迁移，不能只改一个数量常量便声称完成。</td></tr>
-        <tr><td><a href="../../wealth/src/features/index-detail/model/indexDetailConstants.ts">指数日线数量</a></td><td>当前日线常量为1000根。</td><td>仍需补历史分页和取消、视图保持等行为。</td></tr>
-        <tr><td><a href="../../wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.tsx">主要图表组件</a></td><td>已有可见时间范围变化监听，用于多图联动及视图记录，尚未据此请求更早历史。</td><td>在后续页面LLD中明确由谁根据可见范围发起历史请求，继续复用现有组件。</td></tr>
-        <tr><td><a href="../../src/foundation/technical_indicators/output/result.py">内核结果说明</a></td><td>已定义向前请求成功空结果时的<code>msg="已经加载全部数据了"</code>，有结果时<code>msg=""</code>。</td><td>未来正式API应准确传递这一含义，不能用读算失败冒充历史到头。</td></tr>
+        <tr><td><a href="../../wealth/src/pages/stock-detail/StockDetailPage.tsx">StockDetailPage</a></td><td>日线显式请求300根，单次回包已含MA、BOLL、MACD、KDJ；尚未实现日线历史加载。分钟线请求500根，K线与指标分别请求。已有AbortController，日线成功写回前尚无请求身份检查。</td><td>这些页面行为本轮保持；不能把分钟线500根当成已完成日线分页，也不能将产品改造计入内核独立验收。</td></tr>
+        <tr><td><a href="../../src/biz/api/wealth/market/stock_detail.py">股票日线公开API</a></td><td>管理员已批准本轮默认limit=500、合法范围1～500；此前默认300、上限2000是修订前合同。请求和DTO均没有公开before、hasMore或msg字段。</td><td>不截断或拆分超限请求，仍按原参数错误HTTP 400、code=400001失败。页面显式请求300仍合法，本轮不修改页面请求、日期策略或公开字段。</td></tr>
+        <tr><td><a href="../../wealth/src/features/stock-detail/api/stockDetailApiClient.ts">股票日线client</a>与<a href="../../wealth/src/features/stock-detail/api/stockDetailApiTypes.ts">DTO类型</a></td><td>已有endDate、startDate、tradeDate、limit及AbortSignal；回包含bars、meta.count/limit/startDate/endDate、dataStatus，parseResponse对HTTP成功直接解析JSON。</td><td>后续可复用现有字段讨论接入，不为此先增加新公开参数或结果字段。</td></tr>
+        <tr><td><a href="../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">page-init</a>、<a href="../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">空状态映射</a>及<a href="../../src/biz/services/wealth/market/stock_detail/stock_daily_kline_service.py">K线组装</a></td><td>证券存在而截至请求日期没有行情时，page-init可成功返回quote=null、EMPTY、observedTradeDate=null；K线无结果可返回HTTP 200、bars=[]、count=0、EMPTY。证券不存在仍为404。</td><td>业务已有表达成功0根的字段；不需要依赖内核msg说明首屏还是历史请求。</td></tr>
+        <tr><td><a href="../../wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.ts">buildStockDetailViewModel</a>与页面状态</td><td>该函数将股票资料、报价和K线整理成页面要显示的数据，但遇quote空或bars空会报错；页面目前只有loading/ready/error，合法首屏空仍会显示失败。</td><td>“暂无行情信息”是已确定的后续页面文案，当前还没有实现；具体改造留到产品阶段。</td></tr>
+        <tr><td><a href="../../wealth/src/features/stock-detail/chart/StockChartWorkspace.tsx">股票图表</a>与<a href="../../wealth/src/shared/charts/detail-workspace/DetailChartWorkspace.tsx">共享图表</a></td><td>已有内部范围监听；尚无对外历史加载回调，dataKey为stock:${tsCode}:day。现点数变化处理保留旧下标，不能直接保证插入更早K线后日期不变。</td><td>后续产品若采用提前加载，再复核回调、dataKey和日期保持办法；本轮不细化回调签名。</td></tr>
+        <tr><td><a href="../../wealth/src/features/stock-detail/model/stockDetailTypes.ts">StockCandlePoint</a>及单点整理</td><td>BOLL三项内部仍是number，NULL经valueOrZero变成0；已有readStockFactor、formatMetric和buildLineData能够处理NULL。</td><td>此前讨论的BOLL保留NULL改造仍未实现，不作为内核阶段的前端任务。</td></tr>
+        <tr><td><a href="../../src/foundation/technical_indicators/contracts.py">内核请求</a>、<a href="../../src/foundation/config/settings.py">Settings</a>及<a href="../../src/foundation/technical_indicators/output/result.py">结果生成</a></td><td>现代码请求默认1000、配置默认输出上限10000；before非空的成功空结果仍会生成到头文案。</td><td>这是待修改的现状。新内核合同是统一默认500、硬输出上限500、成功msg均为空；不能保留旧值作为未来能力上限。</td></tr>
+        <tr><td><a href="../../wealth/src/features/index-detail/model/indexDetailConstants.ts">指数日线</a>与<a href="../../wealth/src/features/index-detail/controller/useIndexMinuteSeries.ts">指数分钟线</a></td><td>指数日线常量仍为1000；分钟请求500并分开取K线和指标，仍有开发环境门禁。</td><td>产品调用方的后续迁移分别评审，不能用这些旧页面值放宽内核统一500上限。</td></tr>
       </tbody>
     </table></div>
-    <p>现行旧API的游标、<code>hasMore</code>等字段不因本文件而变成新内核能力。本轮不修改旧API合同；以后接入时按获批API设计同步迁移，不能往新内核恢复额外读取一根的策略。</p>
   </section>
 
   <section id="requests">
-    <h2>3. 请求内容和双方责任</h2>
-    <ul>
-      <li>页面提交证券、周期、目标复权、相关指标及其参数、请求截止范围，以及本次最多返回1000根的要求。未指定目标复权时沿用内核默认前复权。</li>
-      <li>同一主要图表区域的相关指标应组合为一次请求；同一批K线只读取、按需复权一次，供这些指标使用。不能为了十个指标重复发起十次相同范围的计算。</li>
-      <li>前端不传预热根数，也不按“显示1000根”强制内核只能读取1000根。内核根据参数确定所需额外历史，只向页面返回目标日期的结果。</li>
-      <li>向前加载时，取当前已经返回并保存的最早K线日期时间作为<code>before</code>。内核按严格早于这个时间选择数据，该时间对应的K线不再返回。</li>
-      <li>下一次只请求更早的一页，收到后在已有结果前方合并；不要求返回累计最新2500根，也不重复替换已经加载的1000根。</li>
-    </ul>
-    <p><code>limit</code>和<code>before</code>在这里表达内核语义，不在本文件预先确定未来HTTP DTO的命名或新增端点。正式API的时间表示、字段映射和错误传递，须在后续接入的API合同与页面LLD中统一。</p>
+    <h2>3. 后续产品接入：保留依据，当前不启动设计或开发</h2>
+    <p>本节是此前讨论的记录，供内核完成后的产品阶段复审。股票专项的<a href="technical-indicator-kernel-stock-daily-api-integration-plan-v1.html">接入方案</a>与<a href="technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html">专项LLD</a>也须服从先内核、后产品的边界；旧任务拆分不构成现在开工的授权。</p>
+    <h3>3.1 此前代码映射与后续需要决策的事项</h3>
+    <div class="table-wrap"><table>
+      <thead><tr><th>对象</th><th>此前设想或已核代码依据</th><th>当前处理</th></tr></thead>
+      <tbody>
+        <tr><td>页面数量与公开API</td><td>股票日线API默认500、范围1～500已批准，直接相关数量合同和测试随本轮对齐。页面当前显式300，不依赖API默认值。</td><td>本轮不将页面300改为500，也不增加提前加载；页面如何组织请求仍在后置产品阶段review，不能把API数量对齐说成页面或内核已经完成。</td></tr>
+        <tr><td>日期与PG交接</td><td><a href="../../src/biz/queries/wealth/market/stock_detail/stock_detail_query.py">load_kline_rows</a>使用trade_date≤endDate、倒序LIMIT后反转。此前历史页方案用已返回最早tradeDate的前一自然日作为endDate；内部按PG实际R及首末日期组织计算。</td><td>保留为后续接入依据，不把首屏或历史页用途传入内核。最早日期减一天仅是股票日线API的候选映射，不预先套用其他周期或产品。</td></tr>
+        <tr><td>StockDetailPage与WealthRouter</td><td>当前先page-init后kline；WealthRouter未向股票页面传search，页面effect只依赖tsCode。此前考虑透传既有search，并在股票领域增加useStockDailyHistory。</td><td>原请求顺序、原日期及迟到响应问题留待产品阶段处理；当前不新增hook、控件或请求。</td></tr>
+        <tr><td>DTO与单页数据整理</td><td>现有bars/count/dataStatus可表达成功0根。此前考虑首屏与历史共用单页检查和bars整理，非空页面复用已整理数据，BOLL内部保留NULL。</td><td>保留源码依据和此前方案，不在本轮新增第二遍数组检查或继续细化内部接口。具体实现回到后续股票方案/LLD评审。</td></tr>
+        <tr><td>请求与取消</td><td><a href="../../wealth/src/shared/api/wealthApiClient.ts">wealthFetch</a>已处理鉴权、刷新、重放和AbortSignal；此前方案要求首屏、历史及失败写回都核取消信号和请求身份。</td><td>后续接入复用既有请求能力，避免旧响应覆盖新选择；这不是本轮前端开发任务。</td></tr>
+      </tbody>
+    </table></div>
+    <h3>3.2 成功0根与业务显示分开</h3>
+    <p>内核合法0根只表示本次成功无结果，所有成功结果的msg均为空；它不知道调用方是否首次打开页面或在继续查更早数据。现股票HTTP协议已用HTTP 200、bars=[]、meta.count=0、EMPTY、observedTradeDate=null表达空结果，page-init.quote=null/EMPTY在证券存在而没有行情时也合法。业务后续根据这些已有字段和本次请求用途选择文案，不新增isEmpty、success或msg字段来让内核判断页面状态。</p>
+    <p>已确定的首屏文案为“暂无行情信息”，历史到底文案为“已经加载全部数据了”。此前拟在StockDetailPage整理显示数据之前处理合法空，页面增加empty状态，不造报价或K线；空历史页保留已加载图表。该页面实现、状态面板及协议对接都后置到产品阶段，当前没有实现，也不影响内核独立开发和验收。</p>
   </section>
 
   <section id="pages">
-    <h2>4. 分页示例与最早一页</h2>
-    <p>以下编号只用于说明：最新K线为1，编号越大日期越早。实际分页使用日期时间，避免最新K线变化后编号移动造成重复。</p>
-    <h3>4.1 历史充足，默认预热500根</h3>
+    <h2>4. 此前500根分页示例（产品策略待review）</h2>
+    <p>以下仅保留此前产品讨论：假设后续每页采用500根，最新为1、越早编号越大，理论预热B=500；实际前置H随数据起点变化。该例不决定何时发请求，也不要求内核知道“第几页”。动态预热按内核参数计算，不由页面传入。</p>
     <div class="table-wrap"><table>
-      <thead><tr><th>请求</th><th>内核读取并计算</th><th>仅供预热</th><th>页面收到并保存</th></tr></thead>
+      <thead><tr><th>此前业务请求示例</th><th>本次计算输入</th><th>返回目标</th><th>业务可能采用的处理</th></tr></thead>
       <tbody>
-        <tr><td>首次</td><td>1500～1，共1500根</td><td>1500～1001，共500根</td><td>1000～1，共1000根</td></tr>
-        <tr><td>向前一页</td><td>2500～1001，共1500根</td><td>2500～2001，共500根</td><td>2000～1001，共1000根</td></tr>
-        <tr><td>继续向前</td><td>3500～2001，共1500根</td><td>3500～3001，共500根</td><td>3000～2001，共1000根</td></tr>
+        <tr><td>最近500根</td><td>1000～1，共1000；H=500</td><td>500～1，共500</td><td>保存实际返回日期。</td></tr>
+        <tr><td>早于第500根</td><td>1500～501，共1000；H=500</td><td>1000～501，共500</td><td>在已有结果前加入更早日期。</td></tr>
+        <tr><td>总历史1600根，早于第1000根</td><td>1600～1001，共600；H=100</td><td>1500～1001，共500</td><td>不能因实际预热不足理论500而删掉目标。</td></tr>
+        <tr><td>早于第1500根</td><td>1600～1501，共100；H=0</td><td>1600～1501，共100</td><td>保留实际短结果；是否及何时再请求属于产品策略。</td></tr>
+        <tr><td>之后的正常请求没有目标</td><td>目标R=0，不读取预热价格</td><td>中性成功空结果，msg=""</td><td>业务可依据自己的DTO和请求用途显示已确定的到头文案；不能由core msg直接判断。</td></tr>
       </tbody>
     </table></div>
-    <p>预热根数随实际参数变化，页面仍只按返回的日期时间翻页。例如长周期MACD需要更多预热时，页面不改变分页游标和合并方法。</p>
-    <h3>4.2 全部历史只有1600根</h3>
-    <div class="table-wrap"><table>
-      <thead><tr><th>请求</th><th>内核如何计算</th><th>返回结果</th><th>页面行为</th></tr></thead>
-      <tbody>
-        <tr><td>首次</td><td>计算1500～1；前500根预热。</td><td>1000～1，共1000根。</td><td>显示并保存1000根；最早时间为第1000根的实际时间。</td></tr>
-        <tr><td>第二次，早于第1000根</td><td>可返回的更早历史共有600根，包含首次仅预热、未返回的500根，以及此前尚未读取的最早100根。从第1600根这个真实历史起点初始化，计算1600～1001。</td><td>1600～1001，共600根；不能再扣500根而只返回100根。</td><td>把600根加在前方，累计1600根；不足1000根本身不触发额外探测请求。</td></tr>
-        <tr><td>再次触发向前加载，早于第1600根</td><td>没有可返回的更早日期。</td><td>成功空结果，<code>msg="已经加载全部数据了"</code>。</td><td>提示已经加载全部数据，并停止后续向前请求。</td></tr>
-      </tbody>
-    </table></div>
-    <p>第二次从真实历史起点递推，使用指标原有初始化规则；首次有限预热结果和这次结果按同一精度门槛与完整历史参考核对。两页公开日期互不重复；不能要求页面传递或保存第一次的预热数据来保证计算正确。</p>
-    <p>新股首次只有300根时返回实际300根；窗口不足的MA等结果保留合法NULL，不补零、不复制K线。首次无可返回数据时成功空结果且<code>msg=""</code>，不能提示已经向前加载到底。</p>
+    <p>若后续仍采用这套分页策略，公开日期可依次覆盖500＋500＋500＋100；首次只有300根也只返回实际数量。500是内核输出上限，预热不计入其中；B=500仅为本例条件。产品不能将所有短结果或合法0根直接解释成内核已判定“到底”。</p>
   </section>
 
   <section id="loading">
-    <h2>5. 提前加载的触发与合并</h2>
-    <ol>
-      <li>首次成功后，保存返回K线、各指标值及实际最早日期时间，并显示最近的数据。</li>
-      <li>用户向左查看，当前视图进入已加载数据最早的500根所覆盖的区间时，如果没有同范围请求在执行、没有已到头记录，就发起一次向前请求。无需等到视图已经没有数据。</li>
-      <li>首次已加载1000根时，查看到第500根附近开始准备第1001～2000根；第二页合并后，下一次阈值随新的最早边界移动。不能每次范围变化都重复请求同一页。</li>
-      <li>响应成功后，按日期时间将新页放在已有数据之前，K线与所有相关指标保持对齐。页间日期应严格早于现有最早时间；返回日期越界、重复或必要字段缺失应报告合同错误，不能靠静默删除行掩盖问题。</li>
-      <li>追加前记录当前可见的时间范围，追加后继续显示同一段日期，避免插入旧数据导致画面跳到另一个位置。不能只保留插入前的数组下标。</li>
-    </ol>
-    <div class="note">提前500根是为下一页争取加载时间，不是对网络或用户任意滑动速度的无等待保证。若用户滑动快于加载速度，应显示历史加载中；本文件不新增后台计算任务或跨请求状态缓存。</div>
-    <p>前端提前发起下一次请求，与读取模块“不预读下一批”是两件事：每次进入内核后仍顺序读取、计算和释放，不能借页面提前加载改变8192根合批和资源归属规则。</p>
+    <h2>5. 此前提前加载设想（内核完成后再review）</h2>
+    <p>此前设想是在距已加载最早边界还剩100根时，由用户向左查看触发下一页；若每页500，则整页例为第400、900、1400根，1600根短尾合并后可在第1500根触发下一次正常空请求。它是产品何时发请求的候选策略，不是内核的请求频率、分页或验收规则，当前不按此开工。</p>
+    <h3>5.1 此前已讨论的前端影响面</h3>
+    <ul>
+      <li>若后续产品继续采用提前加载，再评审StockChartWorkspace与DetailChartWorkspace的范围通知。此前考虑可选onVisibleRangeChange；本轮不选择或继续细化其签名、字段及事件取值。</li>
+      <li>此前设想不让首次设置图表数据、插入更早K线后把图表调回用户刚才看的日期、四图自动对齐等操作自行发请求；同一边界只保留一个在途请求，失败由明确重试处理。这些仍是待产品review的行为，core不关注它们。</li>
+      <li>此前考虑dataKey含证券、day、原首屏日期及forward，历史页endDate不进入key；插入更早K线时按实际日期保持用户视图，原截止日变化再重置。现代码仍是旧key与下标处理，没有完成该改造。</li>
+      <li>按日期合并、保持指标对齐、保留顶部报价与pageContext、避免迟到响应覆盖新选择，均属于后续业务与图表实现。未传可选通知的指数/分钟调用方怎样保持现状，也在产品阶段核对，不因内核500上限擅自迁移它们。</li>
+    </ul>
+    <p>当前共享图表points变化会清理并重建四图、重画累计点，不能把总渲染成本说成固定500根。若后续保留500/剩100策略，再在产品方案中确定页面常量和加载状态；内核硬上限500不能由这些前端常量代替。本轮不做图表生命周期重构，也不创建跨请求计算缓存。</p>
   </section>
 
   <section id="failures">
-    <h2>6. 请求切换、失败、重试与到头</h2>
+    <h2>6. 已确定的业务文案，后续由业务落实</h2>
     <div class="table-wrap"><table>
-      <thead><tr><th>情况</th><th>必须行为</th></tr></thead>
+      <thead><tr><th>业务用途或情况</th><th>保留的业务含义</th><th>与core的区别</th></tr></thead>
       <tbody>
-        <tr><td>同一页反复触发</td><td>同一证券、周期、复权、参数、截止范围和<code>before</code>的请求未结束时，不再发相同请求。其他独立区域不因此被禁止请求。</td></tr>
-        <tr><td>切换股票、周期、复权、参数或截止范围</td><td>取消旧请求，清空或切换到完全匹配的已有数据；用现有取消及请求身份检查拒绝旧响应覆盖新选择，不以“已经取消网络”代替响应有效性检查。</td></tr>
-        <tr><td>页面离开</td><td>取消未完成请求，不再将其响应写回已离开的页面。后端按自身取消和清理合同处理，不能依赖前端直接释放后端资源。</td></tr>
-        <tr><td>历史页读取或计算失败、繁忙、到期</td><td>保留已成功加载的数据，提示本次历史加载失败，允许重试相同<code>before</code>；不标记历史到头，不返回或合并半份指标结果。</td></tr>
-        <tr><td>向前请求成功且结果为空</td><td>显示<code>已经加载全部数据了</code>，记录这一组选择已到起点，此后不再因滚动重复请求。</td></tr>
-        <tr><td>成功返回少于1000根但非空</td><td>完整合并实际结果；不自动追加一个探测请求，不要求服务额外读取一根。之后用户正常触发向前请求时，仍按正常空结果规则处理。</td></tr>
-        <tr><td>同一显示组的复权基准或来源状态已经更新</td><td>不得把不同价格尺度的数据直接接在一起。需要刷新时重新加载该组已显示数据，维持一致口径；识别来源更新的方法在后续正式API及页面LLD中使用其获批来源说明定义，本文不新增业务可选基准日期或虚构来源修订字段。</td></tr>
+        <tr><td>首屏合法成功无行情</td><td>文案精确为“暂无行情信息”，不显示加载失败，不生成假的报价或K线。</td><td>业务根据现DTO及首屏请求用途处理；core只有中性空结果，msg为空。</td></tr>
+        <tr><td>已加载数据后正常查更早结果为空</td><td>业务根据已有DTO和历史请求用途，可保留原图并显示“已经加载全部数据了”；此前停止续页的设想留待产品review。</td><td>core不返回到头文案、不生成hasMore，也不决定是否继续请求。</td></tr>
+        <tr><td>HTTP、参数、来源、计算或清理失败</td><td>继续按真正失败处理，不能为了展示空状态而吞掉错误。</td><td>合法0根与失败分开；core不根据页面文案改变结果。</td></tr>
+        <tr><td>股票、周期、参数或原截止日改变</td><td>此前要求取消旧请求并拒绝迟到响应，保留完全匹配的已成功数据。</td><td>业务决定哪些请求已失效；core只履行自身取消和资源清理合同。</td></tr>
+        <tr><td>不同请求的来源状态更新</td><td>沿已确认范围不承诺跨请求来源固定，不新增revision、来源审计或自动刷新。</td><td>不把这项范围取舍变成内核开发的新阻塞，也不虚构来源版本。</td></tr>
       </tbody>
     </table></div>
-    <p>缓存若沿用现有实现，其识别条件必须包含所有影响结果的选择：证券、周期、复权、指标及完整参数、截止范围、分页位置和算法版本。参数默认补齐后的含义也必须一致；不能继续只按分钟周期就复用另一只股票或另一组参数的结果。具体代码组织在后续页面LLD确定，本轮不新建通用缓存组件。</p>
+    <p>这些文案已经确定，但页面、API对接和相应状态设计仍未开发。后续产品阶段要核对业务处理及Figma；不能把本文写了文案当成图稿或代码已完成，也不能向core加入首屏、提前加载或到底的业务分支。</p>
   </section>
 
   <section id="kernel">
-    <h2>7. 对本轮计算内核的外部约束</h2>
+    <h2>7. 内核统一合同，以内核原方案和LLD为准</h2>
     <ul>
-      <li>每次返回数量是输出要求，不是计算输入上限。读取模块根据本次目标日期和动态预热需求，确定额外历史。</li>
-      <li>同一页中的全部相关指标使用同一批已读取、按需复权的K线。预热需求取最大值，不相加，也不对每个指标重复读文件。</li>
-      <li>只读最近一段历史不能改变复权基准。前复权仍采用来源既定最新基准，后复权仍采用来源既定基准；相同来源状态下同一日期的目标复权价格必须一致。</li>
-      <li>所选输入不超过8192根时，读取完成后一次交给计算模块；超过时，除最后一批外每批满8192根。1500份日线文件不能触发1500次指标计算。</li>
-      <li>返回的日期和字段必须完整；窗口不足导致的NULL保留。只有正常完成且没有可返回日期时可以成功空结果，来源、参数、计算、超限或清理失败不得转换为空成功。</li>
-      <li>结果必须在本请求资源关闭后仍能独立访问。对外准确说明实际参数、算法版本及实际读取范围，不再把有限预热描述成每次从全部历史起点递推。</li>
-      <li>未收盘K线按请求截止时刻参与计算；周、月线继续使用来源已经提供的目标复权数据，不读取后来发生的数据回算周中。</li>
-      <li>本文不授予额外的前端、正式API、XXM、DG任务退出或并发阶段开发授权。第四批-修复开发完成后再校准原D4；后续接入单独推进。</li>
+      <li>各周期、各调用方统一默认500根、硬输出上限500根；不是仅网页传500，也不是保留旧10000上限后给网页另设约定。超过上限按内核合同处理，产品不能默默截断或拆分来绕过。</li>
+      <li>动态预热另计。读取及计算可以需要500根以外的历史，最终只返回本次目标；实际不足上限则返回实际数量，合法NULL保留。输入合批和资源限制继续由内核方案定义，不以500当输入上限。</li>
+      <li>合法0根是中性成功无结果；保留msg字段，所有成功结果均为msg=""。before仍只表达数据时间边界，不让空结果具有“首屏无数据”或“历史到底”的不同内核含义。</li>
+      <li>内核不关注首屏、屏幕可见范围、提前100根、何时请求下一段或是否继续请求。股票HTTP的bars/count/dataStatus与用户文案由后续业务接入处理，不反向决定core结构。</li>
+      <li>同次组合使用同一批所需K线及必要复权，预热取必要最大值；来源、公式、输出、取消和清理保持各自职责。页面不是内核独立验收的先决条件。</li>
     </ul>
+    <p>这些是本轮已明确的内核边界，不代表现代码已实现。具体代码、SQL、调用方及独立验收范围回到内核原方案/LLD核对；本文不再另列一套由前端驱动的内核门禁。</p>
   </section>
 
   <section id="acceptance">
-    <h2>8. 后续交付需要核对的内容</h2>
-    <p>以下为后续页面及API实施阶段的检查依据，本轮不执行，不计为D4或页面已经验收。只核日常场景，不扩展参数组合矩阵。</p>
-    <div class="table-wrap"><table>
-      <thead><tr><th>场景</th><th>应看到的结果</th><th>实施时需明确的代码位置</th></tr></thead>
-      <tbody>
-        <tr><td>首次组合请求</td><td>主要图表相关指标一次请求；返回最新1000根或实际短历史；预热数据不返回。</td><td>股票/指数页面请求组织、API client与适配器、后端API到内核的映射。</td></tr>
-        <tr><td>向前滚动</td><td>进入已有最早500根时提前请求；多次范围通知不重复发同一请求；新页日期无重无漏。</td><td>图表可见范围通知、页面加载条件、请求身份与合并处理。</td></tr>
-        <tr><td>追加历史</td><td>所有图表仍对齐，当前可见日期保持不变。</td><td>已有图表组件及日期视图保存、恢复逻辑。</td></tr>
-        <tr><td>1600根及更短历史</td><td>1000＋600，再正常请求得到空结果；不能丢掉首次仅预热的500根。新股不足窗口保留NULL。</td><td>API结果数量和日期检查、页面合并、已到头记录。</td></tr>
-        <tr><td>切换与迟到响应</td><td>股票、周期、复权、参数或截止范围改变后，旧响应不覆盖新结果。</td><td>取消、请求序号、结果保存条件及缓存识别条件。</td></tr>
-        <tr><td>失败与重试</td><td>已加载数据保留；能重试同一页；失败不当成到头；空成功停止重复请求。</td><td>API错误映射、页面历史加载状态和提示。</td></tr>
-        <tr><td>复权与算法说明</td><td>页间价格口径一致；完整参数及算法版本准确；来源刷新后不混接不同尺度。</td><td>API及适配器说明字段、页面数据重置条件。</td></tr>
-      </tbody>
-    </table></div>
-    <p>本文件经过CodeGraph定位，再核验当前页面请求、图表范围监听和内核结果说明。它定义后续需求，不以源码静态核验替代真实API和浏览器验收。</p>
+    <h2>8. 后续阶段与核对，不是当前执行安排</h2>
+    <ol>
+      <li>先完成内核独立开发与验收；当前阶段不要求股票API、Figma或前端提前加载已经实现。</li>
+      <li>内核完成后，再推进产品策略和股票API其余设计review。API默认500、范围1～500不再待拍板；继续复核此前500/剩100、日期交接、业务空状态及现有消费者迁移，不能默认此前产品草案已经批准。</li>
+      <li>产品设计就绪且阶段获准后，核对并更新Figma；完成可编辑图稿和真实链接回填后，才进入前端编码。股票API实施按后续产品方案另行推进。</li>
+      <li>后续若保留原三个mock函数及R05首屏安排，仍只在该产品阶段获准后执行；不以它们为内核验收前置，不重跑历史已通过证据。</li>
+    </ol>
+    <h3>8.1 此前固定的三个mock函数（仅保留范围，后续待review）</h3>
+    <p>以下尚未新增或运行。它们不是本轮core测试，也不赋予前端现在开工的授权。保留原范围，不新增函数、参数矩阵、时间额度或恢复余量；后续实际记录调用、耗时、失败及清理，不重跑已通过项。仅用fetch/图表替身及独立字面输入，无真实HTTP、Control、指标SQL、正式PG或Lake读取。</p>
+    <ul>
+      <li><code>useStockDailyHistory.test.ts::loads_500_rows_and_keeps_history_state</code>：此前用于500/500/500/100/0的产品分页设想、剩100触发、防重、失败重试、取消、迟到响应及DTO检查。若产品策略改变，先修订后续产品设计，不直接沿旧case开发。</li>
+      <li><code>DetailChartWorkspace.test.tsx::notifies_user_history_and_preserves_dates_after_prepend</code>：此前用于范围通知、拖动/缩放、四图同步、插入更早K线后日期保持、原日期改变重置及共享调用方保护；不在本轮进一步定义callback。</li>
+      <li><code>StockDetailPage.test.tsx::loads_500_daily_rows_and_preserves_page_context</code>：此前用于首屏数量、日期切换、报价/上下文保持、合法空与真正失败区分、BOLL NULL。已确定的“暂无行情信息”在后续该函数内核对，不新起测试矩阵。</li>
+    </ul>
+    <p>此前R05一次真实500根首屏也只是后续产品阶段记录，尚未执行；具体接入和真实只读验证以届时获准的股票专项方案/LLD为准。三个前端mock不能证明core计算正确，历史普通测试或文档检查也不能证明产品已经完成。</p>
+    <h3 id="figma-before-frontend">8.2 内核完成、产品设计就绪后，再更新Figma</h3>
+    <p>先完成内核独立开发与验收，再完成产品设计review；之后才是Figma核对更新 → 前端代码 → 获准的原三个mock → 后续R05。这里保留的是后续步骤，不是现在继续产品策略设计或编辑Figma的安排。现稿尚未核对或修改，不能标为完成。</p>
+    <ol>
+      <li>进入获准产品阶段后，再打开并核对既有<a href="https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x">Goldenshare Web文件</a>（fileKey=<code>RADlZzREU4lPVviYfkLy6x</code>）；旧节点<code>385:2</code>仅是查找线索，不是已核实的当前目标。</li>
+      <li>按届时产品设计补可编辑状态并核图，保留精确文案“暂无行情信息”，将合法空与真正失败分开；其他加载/到头状态依后续review结果处理，不借此重做布局。</li>
+      <li>把真实文件及节点链接、核图结果回填本节和股票专项LLD；完成后才允许前端编码。当前没有新增状态的真实节点链接，Figma及前端均保持未完成。</li>
+    </ol>
+    <p>此前使用CodeGraph定位并核对页面、DTO、请求封装、共享图表、后端查询与空结果组装；当前又对照库请求默认值、Settings上限和msg生成代码区分现状与新合同。本文件仅同步已批准API数量和后置前端边界；API局部代码及验证由股票专项记录，不运行前端、浏览器或Figma，不把文档检查或参数检查当作内核或完整产品验收。</p>
   </section>
-  <footer>文档归属：计算内核架构专题的外部使用约束。正式页面改造时由对应页面设计与LLD落实，不由计算内核导入或依赖前端工程。</footer>
+  <footer>本文归属：内核完成后再推进的产品与前端接入参考。它不作为core独立开发或验收门禁；本轮仅API默认及上限500的数量对齐获得单独批准，不表示其余股票API、产品策略、Figma或提前加载已经获准开工。</footer>
 </main>
 </body>
 </html>

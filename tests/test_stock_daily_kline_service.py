@@ -72,14 +72,14 @@ def test_request_and_fixed_calculations():
     for changed, message in (
         ({"period": "week", "adjustment": "qfq", "limit": 0}, "股票详情首期只支持 period=day"),
         ({"adjustment": "qfq", "limit": 0}, "股票详情首期只支持 adjustment=forward"),
-        ({"limit": 0}, "limit 必须在 1 到 2000 之间"),
-        ({"limit": 2001}, "limit 必须在 1 到 2000 之间"),
+        ({"limit": 0}, "limit 必须在 1 到 500 之间"),
+        ({"limit": 501}, "limit 必须在 1 到 500 之间"),
         ({"start_date": date(2026, 1, 9), "end_date": date(2026, 1, 8)}, "startDate 不能晚于 endDate"),
     ):
         with pytest.raises(ValueError) as caught:
             validate_stock_daily_request(_request(**changed))
         assert str(caught.value) == message
-    for limit in (1, 300, 1000, 2000):
+    for limit in (1, 300, 500):
         validate_stock_daily_request(_request(ts_code="UNKNOWN", limit=limit))
     # The old rule compares explicit start/end only, not the eventual context.
     validate_stock_daily_request(_request(start_date=date(2026, 1, 12)))

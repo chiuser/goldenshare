@@ -249,6 +249,10 @@
   </head>
   <body>
     <main>
+      <section id="daily-limit-alignment-20261104">
+        <h2>2026-11-04：仅对齐股票日线API数量</h2>
+        <p>管理员已批准股票日线 <code>GET /api/v1/wealth/market/stock-detail/kline</code> 默认limit=500、合法范围1～500；超限仍按原参数错误HTTP 400、code=400001，不截断、不拆分计算，不增加公开字段。页面现有显式300请求仍合法，本轮不修改前端、Figma、请求时机或其他API。相关代码与局部验证见<a href="../../../../docs/architecture/technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html">股票日线专项LLD</a>，数量对齐不等于内核或产品整体已验收。</p>
+      </section>
       <section id="daily-indicator-kernel-plan-20261031">
         <h2>2026-10-31：日线技术指标来源替换方案</h2>
         <p>本文保留股票详情页既有真实API合同和原接入依据。管理员现已确认先替换日线MA、BOLL、MACD、KDJ的后端取得方式，原API协议、页面及其他行情字段不变，全部指标仍随日线一次返回；具体见<a href="../../../../docs/architecture/technical-indicator-kernel-stock-daily-api-integration-plan-v1.html">股票日线技术指标正式接入方案v1</a>。</p>
@@ -514,7 +518,7 @@
             <tr>
               <td><code>limit</code></td>
               <td>否</td>
-              <td>默认 300，最大 2000。用于控制响应体大小和查询成本。</td>
+              <td>默认 500，合法范围 1～500。用于控制响应体大小和查询成本；超限沿原参数错误失败。</td>
             </tr>
           </tbody>
         </table>
@@ -691,7 +695,7 @@
         <h4>5.5 StockKlineBarDto</h4>
         <p><strong>为什么需要：</strong>K 线图和指标图需要同一根 bar 的价格、量额和技术因子，避免前端多次拼表。</p>
         <p><strong>来源：</strong><code>core_serving.equity_factor_pro</code>。</p>
-        <p><strong>性能与必要性：</strong>kline 接口默认 300 根；字段按图表所需选择，不返回全表宽字段。</p>
+        <p><strong>性能与必要性：</strong>kline 接口默认 500 根、最大 500 根；字段按图表所需选择，不返回全表宽字段。</p>
         <table>
           <thead>
             <tr>
@@ -945,7 +949,7 @@
             <td>M3</td>
             <td>实现 kline</td>
             <td>day + forward + bars + factors</td>
-            <td>返回 300 根以内日 K；字段单位和指标映射正确。</td>
+            <td>默认返回最多500根日K；显式1～500和短历史正确，超限失败；字段单位和指标映射正确。</td>
           </tr>
           <tr>
             <td>M4</td>

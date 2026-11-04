@@ -1,5 +1,7 @@
 # 股票详情页｜真实 API 接入技术实施方案 v1
 
+> 2026-11-04数量合同修订：股票日线 `/api/v1/wealth/market/stock-detail/kline` 默认 `limit=500`，合法范围 `1～500`；超限沿原参数错误 HTTP 400、`code=400001`，不截断、不拆多次计算。现页面显式传300仍合法，本轮不改页面、请求时机或其他接口。其余技术指标内核与后续产品工作的状态以[股票日线专项LLD](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html)为准。
+
 > 用途：把股票详情页真实 API 接入需求转成可实施的前后端工程方案。
 > 阶段：编码前。  
 > 产物性质：实现设计基线。
@@ -149,7 +151,7 @@ wealth/src/
 | `adjustment` | 否 | string | 首期只允许 `forward`。 |
 | `startDate` | 否 | date | 起始日期。 |
 | `endDate` | 否 | date | 截止日期。 |
-| `limit` | 否 | int | 默认 300，最大 2000。 |
+| `limit` | 否 | int | 默认 500，合法范围 1～500。 |
 | `debug` | 否 | boolean | 返回调试信息。 |
 
 查询：
@@ -173,8 +175,8 @@ wealth/src/
 
 性能要求：
 
-1. 默认最多 300 根。
-2. 最大不超过 2000 根。
+1. 默认最多 500 根，历史不足返回实际数量。
+2. 最大不超过 500 根；超限返回原参数错误，不截断为500根。
 3. 只查询页面首期所需字段。
 4. 不查询分钟线、不查询板块、不查询资金。
 
@@ -512,4 +514,4 @@ wealth/src/pages/stock-detail/
 1. 对外复权口径仍为 `forward`，响应中保留 `sourceAdjustment="qfq"` 说明底层字段。
 2. KDJ 的 `j` 明确来自 `kdj_qfq`。
 3. MA 只保留 `ma5/ma10/ma20/ma30/ma60/ma90/ma250`，不返回、不展示 `ma15/ma120`。
-4. `kline` 返回按日期升序排列的 bars，默认最近 300 根，最大 2000 根。
+4. `kline` 返回按日期升序排列的 bars，默认最近 500 根，最大 500 根；显式1～500均合法。
