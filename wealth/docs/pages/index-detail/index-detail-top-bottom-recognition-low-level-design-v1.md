@@ -1,8 +1,8 @@
 # 财势乾坤顶底识别低层设计 v1
 
-**当前停点（2026-11-03）：F01—F14用例清理与独立复核完成。**本轮仅测试和文档：Python2740、前端74项限定验证及Wealth类型/构建通过。P5第三步整批仍未恢复，原1570通过/1失败仅历史；逐项结果见测试用例清理记录及LLD§22.15.4。
+**当前状态（2026-11-04）：P5第三步整体回归完成。**后端35单元3193项、前端28文件332项及类型/构建通过（含已明确登记的完整证据复用），最终引用、资料、文档及结果/退出审计通过。临时检查漏导入已修正并重验；P5第四步尚未开始，未推送或部署。完整结果与边界见LLD§22.16.6。
 
-更新：2026-11-03（Asia/Shanghai）。**P4已完成并验收收尾。**管理员明确确认“页面验收通过了”，第6步据此登记通过；第1—5步沿用已完成的工程及真实只读证据，不重新采样。工具/测试及验收记录已提交c7c606e81；最终对账见LLD§21.14.14，详细自动结果见§21.14.13。P5第一步静态审计、编码设计及两项审计修正见§22；P5第二步现已按授权完成：先交接后清退，61个代码/测试文件及3282份无用产物已删，221份资料已收敛；879项定向交接通过，删后14个保留模块/工具导入及3583项主题收集通过。第二步已提交f057cefaa；第三步已删除批准的两个造错用例，恢复/内部结果通过，续做在旧规则预期测试处首错停止；当时1570项通过、1项失败，整批尚未完成，详见§22.13.1。本轮不部署或开放生产r4。
+更新：2026-11-04（Asia/Shanghai）。**P4已完成并验收收尾。**管理员明确确认“页面验收通过了”，第6步据此登记通过；第1—5步沿用已完成的工程及真实只读证据，不重新采样。工具/测试及验收记录已提交c7c606e81；最终对账见LLD§21.14.14，详细自动结果见§21.14.13。P5第一步静态审计、编码设计及两项审计修正见§22；P5第二步现已按授权完成：先交接后清退，61个代码/测试文件及3282份无用产物已删，221份资料已收敛；879项定向交接通过，删后14个保留模块/工具导入及3583项主题收集通过。第二步已提交f057cefaa；第三步整体回归及最终审计已完成：3193后端、332前端及类型/构建通过，详见LLD§22.16.6。早期1570/1与首错记录仅保留历史身份，不覆盖当前完成状态。本轮不部署或开放生产r4。
 
 P4六步现已全部完成：本地/生产装配、debug动态加载、辅助详情及手动波段核对、保留工具迁移、真实来源/性能验收、管理员页面验收。60/90/120分钟固定清单42组、540业务及126私有请求，96对普通/debug公共结果一致；日线复用原适用证据。204项限定测试是P4已提交证据；P5第二步交接结果独立登记§22.9，没有新增真实请求。性能优化第4—7批及交易助手日期问题继续作为TODO，不转入P5。
 依据：[产品文档](../../../../docs/product/wealth-top-bottom-recognition-product-v1.md)、[技术方案](index-detail-top-bottom-recognition-technical-design-v1.md)。本文件只规定当前目标、代码迁移位置、开发顺序和验收，不包含已废弃的开发流程。实施必须使用本文规则和独立用例，不得从旧实验或旧输出推导当前预期。
@@ -2705,7 +2705,7 @@ P5只做单组当前r4回归，不重开双组对比。新增/迁移用例按§2
 
 ## 11. 开发顺序、前置条件与上下游交接
 
-P3/P4及P5第一、二步均已完成，第二步提交f057cefaa，结果见§22.9；不再从§20.2重做产品集成，也不再迁移或删除一次。§11.1—11.2保留的是已实施设计，供第三步核对功能/依赖使用。当前用例清理及限定验证已完成，整批回归仍暂停，按§22.15.4交接；恢复后须先更新实际收集数量，不能直接沿§22.10旧数字执行，更不能提前交第四步。
+P3/P4及P5第一至三步均已完成；第二步提交f057cefaa，结果见§22.9；第三步整体回归及最终审计见§22.16.6。不再从§20.2重做产品集成，也不再迁移或删除一次。§11.1—11.2为已实施设计，第三步已经完成核对；旧收集数量及首错只保留历史身份。当前等待第四步最终交付的执行安排，不自动开始第四步或重跑第三步。
 
 ### 11.1 保留能力的唯一落点
 
@@ -2773,7 +2773,7 @@ page_request.py/.mjs及forecast_display.py现已符合§21.5/§21.14：正式装
 1. 核对日线合同§10、分钟合同§8和预测方案§36的目标入口与本文§2—7一致。本轮已同步这些文书；实施日必须重新核验没有字段/版本/空值分歧。发现分歧必须先修文档，禁止边编码边选择口径。
 2. 核实施当日calculator/types/snapshot/query/预测/schema/API/客户端/decoder/Hook/工作区/离线工具的全量引用与dirty文件边界；本轮CodeGraph及源码依据在§0.2，不代替实施时引用清单。
 3. 依§14及§6.10先确认独立预期和测试落点；旧正确安全检查保留，旧底部等待、跨根借价首次及无限跨段撤销预期不再是验收答案；首次反色/分隔/零柱价格失效、单根跳过/有效段结束及同根显示均须覆盖。新身份、解析与恢复拒旧必须有正常变化的反例证明不过度拦截。
-4. 必须获得对应批次执行授权；P3、P4均已完成，P4最终验收见§21.14.14。P5第一、二步已完成，第三步的用例清理和限定验证已按§22.15完成；当前整批暂停。后续按§22.15.4先登记实际清单/数量及复用依据，再在获准范围执行，不沿旧3298/3320硬断言启动。既有通过结论只在原适用范围内复用，不能代替P5删后回归。
+4. 必须获得对应批次执行授权；P3、P4均已完成，P4最终验收见§21.14.14。P5第一至三步已完成，第三步实际3193/332、复用依据及最终审计见§22.16.6，不再按旧3298/3320或历史首错启动。第四步最终交付尚未执行；既有证据只在原适用范围内复用，不扩展为新真实源、性能或软件全匹配验收。
 
 ### 11.4 P3五步及P4/P5交接
 
@@ -4596,7 +4596,7 @@ latest实际截止均2026-11-02T15:00:00+08:00，原context是在11月3日尚无
 
 ## 22. P5审计、编码设计及开工对账（2026-11-03）
 
-§22.1—22.8记录第一步审计/设计及当时未执行的事实；第二步当前结果与第三步交接统一见§22.9。下文带“本轮只审计/待review”的旧时点记录不能覆盖§22.9，也不是重新执行第一步的指令。
+§22.1—22.8记录第一步审计/设计及当时未执行的事实；第二步结果见§22.9，第三步最终完成结果见§22.16.6。下文带“本轮只审计/待review/暂停/首错停止”的旧时点记录仅解释历史，不能覆盖当前完成状态，也不是重新执行已完成步骤的指令。
 
 ### 22.1 本轮目标、依据与结论边界
 
@@ -5315,3 +5315,166 @@ F11补充直接消费者核对：识别API187完整通过；预测文件28通过
 103份代码/测试审计CSV的原symbols/post_move_symbols及execution_result记录的是P5第二步迁移/清退时的事实，不覆盖本轮测试函数清理；这些历史列不作为当前节点执行命令。当前处理和验证以本轮63项测试清单及本节结果为准，其他资料清退历史不重写。
 
 本轮最终静态检查：文档完整性3项、6份Markdown的446本地链接/22锚点、63清单路径/状态、限定差异/新文件空白均通过；CodeGraph sync/status为最新。末尾空行整理的AST完全不变，已有运行证据仍适用；没有新增测试数或产品结论。
+
+### 22.16 清理后继续第三步整批回归（2026-11-04，已获授权）
+
+#### 22.16.1 本次范围、准备事实与证据复用
+
+管理员已明确继续P5第三步整体回归；§22.14—15的暂停限制属于之前两轮，只约束当时执行，当前按本节及§22.10八步续做。35个Python单元、28个前端完整文件、两个编译单元与§22.10逐行相同，不新增测试、修改预期或回退F01—F14。本次只可修改原三文档、审计记录/CSV的结果登记和/private/tmp临时监督，不改业务、测试、配置、源材料、其他任务内容或共享服务。
+
+初始工作区为dev-interface，HEAD `2a81ce1a4b61a3b79230042137d92ff02e0e5385`。清理代码提交`5129f1452`之后的相关变化是指数成分缺行情处理：page/weights query、exception builder、indexDetailState及整页测试，另有既存IndexInfoRail/CSS/页面测试修改；这些是当前页面/编译基线，本轮保留。Web共享fixture仍为临时SQLite，替换交易助手/股票指标lifespan并覆盖DB依赖；XXM正式核心、查询、表达式schema、预测Hook/客户端、研究工具和本轮15个纯Python测试无相关差异。CodeGraph explore及实际diff核入口和消费者，图谱中TS测试缺边用现测试正文补核，不把缺边当未覆盖或通过证据。
+
+准备只读核对：103代码清单中61待退文件及对应明确pyc均不存在；3503旧报告路径不存在；221唯一指定目标全部存在。仅核目标路径和现消费者，复用第二步迁前207逐字节/7逐字段事实，不再次读取155MiB全部原件，不清理新出现的其他资料。旧清单定义列是历史，不作为当前执行节点。
+
+复用证据为`/private/tmp/p5-case-cleanup-_hbyfk0q/verification-4/results.json`中已有完整有效行，包括其reusedResults。按实际路径映射原顺序号：
+
+| 类型 | 仅可复用的原顺序号 | 已通过数量与条件 |
+|---|---|---|
+| Python | 2.5、2.7、3.1—3.9、4.1—4.4 | 15个完整文件，共2419项；与当前相关代码/输入/依赖和本次收集数一致才采用 |
+| 前端 | 7.6、7.7、7.9、7.10、7.11、7.14 | 6个完整文件，共74项；测试/生产者/依赖/当前选取边界未变，原进程退出干净 |
+
+两份Web API即使上轮通过，因共享App导入的指数模块已有变化，本次仍重跑；三架构、组织节点读取当前树，也重跑。类型/构建覆盖当前整个Wealth，同样重跑。旧1570/1及部分文件通过数不采用；旧总3298/3320不作新断言。任何未能确认仍适用的复用行先明确受影响集合，不默默算通过。
+
+#### 22.16.2 临时调用、实际收集和续做顺序
+
+1. 使用现有环境，Python关闭自动plugin加载/写pyc/cacheprovider；前端沿原vitest run/bail命令；不安装或下载。先按§22.10.3显式收集主题整目录及5Web/3架构，主题其他研究只收集、不执行。用当前35个单元映射实际唯一节点，不能采用旧runner的3298、307、固定HEAD或固定首错停点检查；数量变化按F01—F14及当前文件逐项解释、登记后再执行。
+2. 临时目录`/private/tmp/p5-step3-complete-20261104-k1fr1ts6`，只记选择/数量/耗时/退出及必要错误，不存行情、源码副本或业务恢复数据。复用原临时`p5_step3_run.py`中execute的Popen/monotonic/进程所有权/55秒停止工作和60秒完整回收函数；临时适配只替换当前清单、收集数和摘要状态，不执行旧specs/init/resume分支，不继承旧307检查。不新增工程文件、长期测试框架或配置。进程关系只跟踪本次PID/PPID/PGID，不能按名称终止共享服务。
+3. 收集成功后，按§22.10原步骤2→3→4→5→6→7→8继续；遇复用行登记原完整证据，不再运行或加第二次。其余20个Python单元、22个前端完整文件及两个编译单元每行新进程，单元55秒工作加最多5秒清理/摘要。只执行表内路径/唯一明确组织节点；前端包含过滤必须恰好选中对应一文件，不能全Wealth默认运行。
+4. 三例原图仍执行原13项，离线CSV/日历/原MACD/有限前缀及8MiB边界保持，不扩大日期或比较组。API/工具仅用原临时SQLite/Gold/loopback/子进程；原临时鉴权和读取合同不替换成正式源，不操作管理员8000/前端/DG。
+5. 每行通过数须与本轮实际收集/完整文件匹配，禁止skip/xfail/only、重试或更新快照；首次失败/超时/退出不净立即停止全部后续单元，保留首错，先只读定位并汇报，不自动修代码或调阈值。中断按已完成行及实际工作区续做，禁止默认从头重跑。
+6. 测试完成后执行§22.10.9四项静态审计，各自≤60秒：当前活动引用/11保留模块及3工具导入、221材料及两个抽取摘要边界、根文档/修改文档链接锚点/diff、结果唯一性/进程退出/已有改动不受影响。正式环境/测试数据/配置和材料不得被本轮改变；仅既有ignored构建产物允许写入。
+7. 最终逐行登记35后端/28前端/类型构建的执行或复用、实际数量/耗时/退出，给出P5-01—22覆盖与证据类型，和旧失败分开。全部明确单元及静态检查通过才记第三步完成；不据此新增真实源/性能/视频验收结论，不自动进入P5第四步、提交、推送或部署。
+
+本节执行准备和既有证据核对不等于测试通过；本次实际结果另记下节。
+
+#### 22.16.3 当前实际收集及执行登记
+
+本次收集3862个节点，归入原35个Python单元的唯一节点3193个；其他669个只收集、不运行。收集耗时2.567168秒，退出0、自有进程已退出。相对最初3298，变化只在已批准清理的6行：2.5为16（原11），3.3为435（原437），3.4为198（原285），4.1为82（原95），4.2为57（原60），4.4为81（原86）；合计减少105。恢复文件的307是中途历史数，不与最初285或当前198混用。其余29行数量未变，35个目标无缺失/重复。
+
+15个纯Python完整证据的2419项与当前收集逐行相符，6个前端完整文件的74项仍在原独立范围。本次待执行20个Python单元774项、22个前端完整文件及两个编译单元；完成结果在下文据实登记，不能提前记通过。
+
+#### 22.16.4 测试结果及首次静态审计停点（历史，最终完成见§22.16.6）
+
+
+本次测试部分已完成：35个Python单元3193项（本次20单元774项，复用15单元2419项），28个前端完整文件332项（本次22文件258项，复用6文件74项），类型检查及构建均通过。测试无失败、skip/xfail或超时，自有进程均干净退出；本次最长测试19.820993秒，类型4.903735秒、构建5.940516秒。复用次数不另加，旧1570/1不并入。
+
+最后静态审计的首个引用检查未完成：临时`references.py`仅import importlib，却访问importlib.util.resolve_name，标准库子模块未显式导入，0.255767秒以AttributeError退出。错误在临时检查脚本中，不是产品代码/测试失败；本轮未修该脚本或重试，未继续其余最终静态检查。按LLD首错停止，P5第三步仍未完成，不能交第四步。后续只需先明确临时脚本修正，再补最终引用、资料、文档及结果审计；已经有效通过的测试不默认重跑。本轮未改业务/测试/配置/数据，未提交、推送或部署。
+
+
+下表为本次实际完整选择范围；“复用”耗时为原有效执行耗时，不计为本轮新执行时间。每行均通过、无意外跳过且退出干净；表外最终引用检查失败另列，不能用这65行通过代替整批完成。
+
+| 顺序 | 文件/单元 | 结果 | 证据来源 | 秒数（含退出） |
+|---|---|---:|---|---:|
+| 2.1 | `scripts/research/index_market/tests/test_xxm_acceptance_scope.py` | 16 passed | 本次执行 | 1.160946 |
+| 2.2 | `scripts/research/index_market/tests/test_xxm_near_first_review.py` | 24 passed | 本次执行 | 0.205351 |
+| 2.3 | `scripts/research/index_market/tests/test_xxm_top_activation_real_math.py` | 12 passed | 本次执行 | 0.204624 |
+| 2.4 | `scripts/research/index_market/tests/test_xxm_reference_window_review.py` | 9 passed | 本次执行 | 0.204649 |
+| 2.5 | `scripts/research/index_market/tests/test_xxm_product_v1_cases.py` | 16 passed | 复用清理阶段完整证据 | 0.191748 |
+| 2.6 | `scripts/research/index_market/tests/test_xxm_local_extrema.py` | 47 passed | 本次执行 | 0.278767 |
+| 2.7 | `scripts/research/index_market/tests/test_xxm_local_extrema_study.py` | 6 passed | 复用清理阶段完整证据 | 0.232730 |
+| 2.8 | `scripts/research/index_market/tests/test_xxm_saved_minute_window.py` | 41 passed | 本次执行 | 0.316416 |
+| 3.1 | `scripts/research/index_market/tests/test_xxm_calculator.py` | 22 passed | 复用清理阶段完整证据 | 0.331353 |
+| 3.2 | `scripts/research/index_market/tests/test_xxm_r4_rules.py` | 504 passed | 复用清理阶段完整证据 | 0.850240 |
+| 3.3 | `scripts/research/index_market/tests/test_xxm_r4_following.py` | 435 passed | 复用清理阶段完整证据 | 6.260020 |
+| 3.4 | `scripts/research/index_market/tests/test_xxm_r4_restore.py` | 198 passed | 复用清理阶段完整证据 | 0.778312 |
+| 3.5 | `scripts/research/index_market/tests/test_xxm_r4_internal_results.py` | 39 passed | 复用清理阶段完整证据 | 0.634157 |
+| 3.6 | `scripts/research/index_market/tests/test_xxm_input_validation.py` | 101 passed | 复用清理阶段完整证据 | 0.226145 |
+| 3.7 | `scripts/research/index_market/tests/test_xxm_snapshot_validation.py` | 249 passed | 复用清理阶段完整证据 | 1.351846 |
+| 3.8 | `scripts/research/index_market/tests/test_xxm_snapshot_consumers.py` | 21 passed | 复用清理阶段完整证据 | 0.978347 |
+| 3.9 | `scripts/research/index_market/tests/test_xxm_r4_observation.py` | 515 passed | 复用清理阶段完整证据 | 1.863209 |
+| 3.10 | `scripts/research/index_market/tests/test_xxm_r4_following_query.py` | 27 passed | 本次执行 | 0.891364 |
+| 4.1 | `scripts/research/index_market/tests/test_xxm_key_point_forecast.py` | 82 passed | 复用清理阶段完整证据 | 1.505505 |
+| 4.2 | `scripts/research/index_market/tests/test_xxm_p3_forecast_math.py` | 57 passed | 复用清理阶段完整证据 | 0.260541 |
+| 4.3 | `scripts/research/index_market/tests/test_xxm_r4_following_forecast.py` | 93 passed | 复用清理阶段完整证据 | 1.462520 |
+| 4.4 | `scripts/research/index_market/tests/test_xxm_forecast_expression_contract.py` | 81 passed | 复用清理阶段完整证据 | 0.305306 |
+| 4.5 | `scripts/research/index_market/tests/test_xxm_forecast_display.py` | 15 passed | 本次执行 | 0.250229 |
+| 5.1 | `scripts/research/index_market/tests/test_xxm_confirmed_cases.py` | 13 passed | 本次执行 | 4.654878 |
+| 6.1 | `scripts/research/index_market/tests/test_xxm_daily_window_precheck.py` | 11 passed | 本次执行 | 3.926701 |
+| 6.2 | `scripts/research/index_market/tests/test_xxm_p4_audit_tools.py` | 174 passed | 本次执行 | 9.163218 |
+| 6.3 | `tests/web/test_wealth_index_detail_xxm_api.py` | 187 passed | 本次执行 | 19.820993 |
+| 6.4 | `tests/web/test_wealth_index_detail_xxm_forecast_api.py` | 117 passed | 本次执行 | 5.773790 |
+| 6.5 | `tests/web/test_wealth_index_detail_xxm_forecast_validation.py` | 47 passed | 本次执行 | 3.415553 |
+| 6.6 | `tests/web/test_wealth_index_detail_xxm_local_routes.py` | 14 passed | 本次执行 | 6.612380 |
+| 6.7 | `tests/web/test_xxm_shared_loads.py` | 3 passed | 本次执行 | 0.924564 |
+| 7.1 | `wealth/src/features/index-detail/xxm/apiClient.test.ts` | 6 passed | 本次执行 | 1.214391 |
+| 7.2 | `wealth/src/features/index-detail/xxm/adapter.test.tsx` | 5 passed | 本次执行 | 0.959294 |
+| 7.3 | `wealth/src/features/index-detail/xxm/rearmContract.test.tsx` | 1 passed | 本次执行 | 0.923950 |
+| 7.4 | `wealth/src/features/index-detail/xxm/markerGeometry.test.ts` | 10 passed | 本次执行 | 1.020140 |
+| 7.5 | `wealth/src/features/index-detail/xxm/useIndexXxmLayer.test.tsx` | 6 passed | 本次执行 | 1.151791 |
+| 7.6 | `wealth/src/features/index-detail/xxm-forecast/apiClient.test.ts` | 7 passed | 复用清理阶段完整证据 | 0.904294 |
+| 7.7 | `wealth/src/features/index-detail/xxm-forecast/expressionContract.test.ts` | 2 passed | 复用清理阶段完整证据 | 0.885000 |
+| 7.8 | `wealth/src/features/index-detail/xxm-forecast/identity.test.tsx` | 2 passed | 本次执行 | 0.885199 |
+| 7.9 | `wealth/src/features/index-detail/xxm-forecast/r1Contract.test.tsx` | 3 passed | 复用清理阶段完整证据 | 0.894967 |
+| 7.10 | `wealth/src/features/index-detail/xxm-forecast/forecast.test.tsx` | 10 passed | 复用清理阶段完整证据 | 1.196883 |
+| 7.11 | `wealth/src/features/index-detail/debug/dependencyBoundary.test.ts` | 4 passed | 复用清理阶段完整证据 | 1.381212 |
+| 7.12 | `wealth/src/features/index-detail/debug/useIndexDebugModule.test.tsx` | 5 passed | 本次执行 | 1.738358 |
+| 7.13 | `wealth/src/features/index-detail/debug/xxmDebugContract.test.ts` | 4 passed | 本次执行 | 0.982207 |
+| 7.14 | `wealth/src/features/index-detail/debug/forecastDebugContract.test.ts` | 48 passed | 复用清理阶段完整证据 | 0.891560 |
+| 7.15 | `wealth/src/features/index-detail/debug/IndexRecognitionDebug.test.tsx` | 6 passed | 本次执行 | 1.494416 |
+| 7.16 | `wealth/src/features/index-detail/daily-wave/apiClient.test.ts` | 9 passed | 本次执行 | 0.935734 |
+| 7.17 | `wealth/src/features/index-detail/daily-wave/adapter.test.ts` | 78 passed | 本次执行 | 0.952240 |
+| 7.18 | `wealth/src/features/index-detail/daily-wave/markerGeometry.test.ts` | 9 passed | 本次执行 | 0.861030 |
+| 7.19 | `wealth/src/features/index-detail/daily-wave/presentation.test.ts` | 21 passed | 本次执行 | 0.995026 |
+| 7.20 | `wealth/src/features/index-detail/daily-wave/DailyWavePrimitive.test.ts` | 15 passed | 本次执行 | 0.990571 |
+| 7.21 | `wealth/src/features/index-detail/daily-wave/DailyWaveLayerUi.test.tsx` | 13 passed | 本次执行 | 1.093739 |
+| 7.22 | `wealth/src/features/index-detail/daily-wave/useDailyWaveReview.test.tsx` | 21 passed | 本次执行 | 1.088163 |
+| 7.23 | `wealth/src/features/index-detail/model/indexRecognitionAvailability.test.ts` | 1 passed | 本次执行 | 0.912269 |
+| 7.24 | `wealth/src/features/index-detail/api/indexDetailRequestScheduler.test.ts` | 4 passed | 本次执行 | 0.935723 |
+| 7.25 | `wealth/src/features/index-detail/chart/IndexChartWorkspace.test.tsx` | 3 passed | 本次执行 | 0.984266 |
+| 7.26 | `wealth/src/features/index-detail/chart/IndexMinuteChartWorkspace.test.tsx` | 2 passed | 本次执行 | 0.976891 |
+| 7.27 | `wealth/src/pages/index-detail/IndexDetailDailyWave.test.tsx` | 1 passed | 本次执行 | 1.240174 |
+| 7.28 | `wealth/src/pages/index-detail/IndexDetailPage.test.tsx` | 36 passed | 本次执行 | 2.106812 |
+| 7.29 | `wealth` | 通过 | 本次执行 | 4.903735 |
+| 7.30 | `wealth` | 通过 | 本次执行 | 5.940516 |
+| 8.1 | `tests/architecture/test_subsystem_dependency_matrix.py` | 4 passed | 本次执行 | 1.539103 |
+| 8.2 | `tests/architecture/test_platform_legacy_guardrails.py` | 3 passed | 本次执行 | 2.623019 |
+| 8.3 | `tests/architecture/test_operations_legacy_guardrails.py` | 9 passed | 本次执行 | 9.289665 |
+| 8.4 | `scripts/research/index_market/tests/test_research_layout.py::test_single_location_roots_and_pytest_discovery` | 1 passed | 本次执行 | 0.591151 |
+
+执行摘要在`/private/tmp/p5-step3-complete-20261104-k1fr1ts6/results.json`。独立只读复核：65个测试/编译单元与原清单一一对应；其中21个明确复用、44个本次执行，测试计数与当前收集一致，无部分成绩或已删除用例累加。新测试/编译累计107.133996秒；含本次收集、14导入及失败静态检查累计110.545412秒，均为各单元之和，不是接口性能成绩。全部已启动单元都记录clean=true、residualGroups为空；临时引用检查也已退出。P4真实源/页面、资料迁前交接和11原图缺失限制未升级。
+
+| P5要求 | 本次覆盖/证据边界 |
+|---|---|
+| P5-01 | 步骤1确认61旧代码及对应pyc缺席、14保留入口导入成功，CodeGraph/当前依赖差异已核；最终全量活动引用检查因临时脚本缺导入未完成，不能报本项整体通过 |
+| P5-02、03、05、06、09、10、11、12、13 | 步骤2八完整文件171项采用当前独立字面输入、资料与纯工具合同，未执行Notebook或benchmark |
+| P5-04、14、15、19 | 核心/规则/跟踪/记录/恢复/观察完整文件含37×4每截断，结合本次历史查询和API/debug合同；F01—F14清理后的覆盖未回退 |
+| P5-07、08、21 | 221目标及3503旧路径准备核对完成；迁前原字节/叶值交接只复用原范围；两个摘要的长期16项acceptance通过，最终七件抽取/资料审计未执行，不登记整项完成 |
+| P5-16、17、18 | 单根预测/整数文本与原图三例13项均通过，3例沿原离线源及端点单组执行，不代表新图核验或双组全历史对比 |
+| P5-20 | P4工具、5Web、28前端、类型和构建完成；临时SQLite/Gold/loopback及真实客户端/ASGI边界，不新增正式源/性能验收 |
+| P5-22 | 复用明确未变完整单元、只补其余；临时静态检查首错停止，不修产品/改预期/自动重试或继续后续检查；保留停点，未进入第四步 |
+
+剩余仅最终静态审计：修正并重验临时引用检查、资料和抽取边界、文档链接/锚点/diff及本轮结果/工作区/退出对账。正式测试已有效通过的行在相关代码/输入未变时复用，不因临时脚本错误自动整轮重跑。未取得后续续做确认前不执行或将P5第三步标成完成。
+
+#### 22.16.5 临时引用检查修复与最终审计续做（2026-11-04，已获授权）
+
+管理员已明确要求立即修正并完成第三步。本次只在原临时`references.py`第一行增加显式`importlib.util`导入，原引用判断、范围、断言和14个导入检查保持；不改业务/测试/配置或材料。不增加长期检查框架，不安装依赖。当前HEAD仍为`2a81ce1a4b61a3b79230042137d92ff02e0e5385`；先核相关代码/输入相对上一轮无新增变化，再复用§22.16.4的65个完整测试/编译单元及原收集，不重复执行、收集或加通过数。
+
+续做顺序：
+
+1. 修正前先核临时引用检查其余逻辑与§22.10.9一致；仅补标准库导入。原失败摘要保留，修复后用独立结果ID `8.static.references_after_import_fix`执行原`references.py`，避免覆盖首次失败。原临时监督只增加该结果ID到同名原脚本的对应关系，execute和55秒工作/60秒完整退出预算不改。
+2. 引用检查通过后才运行已准备且未执行的`materials.py`：核3503原路径/221目标、7抽取根键/两个嵌套白名单及8单元Notebook未执行；复用迁前原字节和叶值交接，不重读全部155MiB、不运行Notebook。
+3. 再运行原文档完整性和本组三文档/审计记录/CSV的本地链接、锚点、空白和状态检查；复用已核过的链接检查方式，只把结果写入本任务临时目录。文档先登记事实，最后以真实检查结果更新完成状态，再针对最终文本复核一次，不增加测试执行。
+4. 最后逐行对账65个测试/编译单元与原清单、数量/完整通过/复用、当前相关代码及已有修改、所有本次自有进程/临时服务退出。只查询已记录的自有PID/PGID，不按名称操作其他进程。旧引用检查失败只有在本次同范围修正后通过才转为历史已解决；不能删掉失败或用旧通过代替本次检查。此阶段各单元仍≤60秒，含取消/回收及最后验收；如出现新失败，继续按原首错规则停止并报告。
+5. 全部通过后，将原三文档、审计记录及CSV同步为“P5第三步回归完成”，明确3193/332中原复用与本次测试数量、修正后的静态结果及证据边界；P5-01—22逐项对齐。旧首错和当时停点保留历史身份，当前执行口径不再指向已解决问题。仅完成第三步并汇报，不进入第四步、不提交/推送/部署、不重做P4真实源/页面验收。
+
+临时摘要仍在`/private/tmp/p5-step3-complete-20261104-k1fr1ts6`；原65行结果逐字保留，新增独立静态结果。结果状态可以恢复为running并记录本次授权/修正，旧失败行不得删除或改成通过。
+
+#### 22.16.6 第三步最终完成与交接（2026-11-04）
+
+本次已完成P5第三步整体回归及最终独立审计：35个Python单元3193项、28个前端完整文件332项、类型检查和构建通过。3193=本次执行774+明确复用2419；332=本次执行258+明确复用74，65个测试/编译单元无缺失、重复、测试失败、意外跳过或超时。复用仅来自代码/输入/依赖未变的完整有效证据，不把早期部分通过或删除项算入成绩。
+
+临时引用脚本仅补显式importlib.util导入，原首次失败保留；同范围修正后检查2.187603秒通过。随后资料0.166654秒、文档0.283145秒、结果/工作区/退出0.459565秒分别通过。61旧代码/对应pyc缺席，221目标及7抽取合同、两个嵌套白名单和未执行Notebook有效；全部65行与63项测试清单相符、记录的54个自有进程组均已退出，其他工作区状态和资料未受影响。根文档完整性3项、本次4份Markdown的47个本地链接/4锚点及CSV63行通过，差异空白通过。同步完成状态后还按同一方法复核最终文本和结果。
+
+本轮续做只修临时检查并同步原三文档、审计记录/CSV，没有修改产品/测试/配置/数据，没有重跑已通过测试，也未新增正式源、性能、浏览器或视频验收结论。P4真实来源/页面及迁前原字节/叶值交接继续只复用原范围；11条缺原图限制、暂缓优化及范围外日期TODO保持。P5第四步最终交付尚未开始，未提交、推送、部署或开放生产r4。
+
+| P5要求 | 当前完成依据及限制 |
+|---|---|
+| P5-01 | 103代码清单、61旧路径/pyc缺席、14保留模块/工具导入及活动import/动态字面引用/旧执行入口核对；临时漏导入已修正，最终引用检查通过 |
+| P5-02、03、05、06、09、10、11、12、13 | 步骤2八文件171项覆盖纯取数/区间、37组222根原字面输入、真实DEA/27摘录及独立峰谷/量图/Notebook静态合同；未运行Notebook/benchmark |
+| P5-04、14、15、19 | 当前识别/跟踪/记录/历史查询/恢复/观察与API/debug合同全部有完整通过行；37×4每截断覆盖保持，正式1%/零中性/近远切换/逐根价格与显示规则未改 |
+| P5-07、08、21 | 3503旧路径、3282删除项和221目标逐项可解释，7抽取根键与两个摘要的嵌套白名单通过、8单元Notebook无执行输出；207原字节/7逐字段迁前交接在原范围复用，没有重复全读148MiB资料 |
+| P5-16、17、18 | 单根预测与整数文本、三例原图13项离线单组回归通过；只沿原材料/端点/8MiB边界，不构造新视频一致性或双组回测结论 |
+| P5-20 | P4工具、5个Web文件、28前端、类型/构建及根三份架构/组织节点全部完成；临时SQLite/Gold/loopback、原真实客户端/ASGI边界，无生产r4开放或预算变更 |
+| P5-22 | 前次首错保留，获本次明确授权后仅修临时脚本并补静态审计；65个原有效完整结果复用，未重收集/重跑业务，进程已退出、暂存区为空、范围外修改保留 |
+
+完整逐行结果保留于§22.16.4，最终四项静态结果追加在原临时results.json；原8.static.references失败只有在8.static.references_after_import_fix同范围通过后登记为历史已解决，原行未删改。有效测试与静态证据分别对账，临时脚本错误不算作产品失败，也不抹去其实际发生/当时停止。当前证据足以完成本次第三步，后续只等待第四步最终交付安排。
