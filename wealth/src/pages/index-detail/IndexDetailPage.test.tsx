@@ -602,7 +602,7 @@ describe("P4 page uses one effective mode and matching debug owner",()=>{
     const state:{phase:"idle"|"loading"|"ready"|"error";module:IndexRecognitionDebugModule|null;errorMessage:string;retry:()=>void}=
       {phase:"loading",module:null,errorMessage:"",retry:vi.fn()};
     const loader=vi.spyOn(debugLoader,"useIndexDebugModule").mockImplementation(()=>state);
-    const forecast=vi.spyOn(forecastHook,"useXxmForecast").mockReturnValue({rows:{day:{phase:"idle",response:null,error:""},m60:{phase:"unsupported",response:null,error:""},m90:{phase:"unsupported",response:null,error:""},m120:{phase:"unsupported",response:null,error:""}},retry:vi.fn()});
+    const forecast=vi.spyOn(forecastHook,"useXxmForecast").mockReturnValue({rows:{day:{phase:"idle",response:null,error:""},m30:{phase:"unsupported",response:null,error:""},m60:{phase:"unsupported",response:null,error:""},m90:{phase:"unsupported",response:null,error:""},m120:{phase:"unsupported",response:null,error:""}},retry:vi.fn()});
     return {state,module,loader,forecast,props:()=>props};
   }
   it("keeps ordinary requests during loading/error, switches only ready, and immediately clears on exit",async()=>{
@@ -641,15 +641,67 @@ describe("P4 page uses one effective mode and matching debug owner",()=>{
     expect(klines.map(url=>url.searchParams.get("debug"))).toEqual(["1",null]);
     expect(fetcher.mock.calls.some(([url])=>String(url).includes("daily-waves"))).toBe(false);
   });
-  it.each(["production","other-index"])("keeps all recognition/debug disabled for %s even when loader returns a module",async mode=>{
+  it.each(["production","north-index"])("keeps all recognition/debug disabled for %s even when loader returns a module",async mode=>{
     const h=setup();h.state.phase="ready";h.state.module=h.module;
     if(mode==="production")vi.stubEnv("DEV",false);
-    const code=mode==="production"?"000001.SH":"399001.SZ";
+    const code=mode==="production"?"000001.SH":"899050.BJ";
     mockFetch(code);render(<IndexDetailPage tsCode={code} search="?debug=1"/>);
     await screen.findByLabelText("指数日线图表区");
     expect(h.loader.mock.lastCall?.[0]).toBe(false);expect(p4View.recognition).toMatchObject({recognitionEnabled:false,debug:0});
     expect(h.forecast.mock.lastCall?.[0]).toMatchObject({enabled:false,active:false,debug:0});
     expect(h.props()).toBeNull();
+  });
+  it.each(["000001.SH","399001.SZ","399006.SZ","000688.SH","000300.SH","000905.SH","000852.SH","000510.SH","000016.SH"])("enables recognition and lazy forecast for validated %s",async code=>{
+    const h=setup();h.state.phase="ready";h.state.module=h.module;
+    const fetcher=mockFetch(code);render(<IndexDetailPage tsCode={code} search="?debug=1"/>);
+    await screen.findByLabelText("指数日线图表区");
+    expect(h.loader.mock.lastCall?.[0]).toBe(true);
+    expect(p4View.recognition).toMatchObject({recognitionEnabled:true,debug:1});
+    expect(h.forecast.mock.lastCall?.[0]).toMatchObject({tsCode:code,enabled:true,active:false,minutes:false,debug:1});
+    fireEvent.click(screen.getByRole("tab",{name:"技术面"}));
+    expect(h.forecast.mock.lastCall?.[0]).toMatchObject({tsCode:code,enabled:true,active:true});
+    expect(fetcher.mock.calls.some(([url])=>String(url).includes("daily-waves"))).toBe(false);
+  });
+  it("does not enable recognition or import debug while page identity is pending",async()=>{
+    const h=setup();let finish!: (value:Response)=>void;
+    mockFetch("399001.SZ",{pageInit:()=>new Promise<Response>(resolve=>{finish=resolve;})});
+    render(<IndexDetailPage tsCode="399001.SZ" search="?debug=1"/>);
+    await screen.findByLabelText("正在加载指数行情");
+    expect(h.loader.mock.lastCall?.[0]).toBe(false);
+    expect(h.forecast.mock.lastCall?.[0]).toMatchObject({enabled:false,active:false});
+    await act(async()=>finish(response(makePageInit("399001.SZ"))));
+    await screen.findByLabelText("指数日线图表区");
+    expect(h.forecast.mock.lastCall?.[0]).toMatchObject({tsCode:"399001.SZ",enabled:true,active:false});
+  });
+  it.each([
+    {stage:"page-init",responseCode:"399001.SZ",title:"暂无指数日线数据"},
+    {stage:"page-init",responseCode:"000001.SH",title:"指数详情加载失败"},
+    {stage:"kline",responseCode:"399001.SZ",title:"暂无指数日线数据"},
+    {stage:"kline",responseCode:"000001.SH",title:"指数详情加载失败"},
+  ])("keeps recognition disabled for $stage EMPTY with response code $responseCode",async({stage,responseCode,title})=>{
+    // Page wiring only: the real controller consumes API-shaped responses;
+    // setup replaces the forecast hook/debug loader and charts are mocked above.
+    const h=setup();h.state.phase="ready";h.state.module=h.module;
+    const emptyStatus={status:"EMPTY" as const,expectedTradeDate:"2026-07-31",observedTradeDate:null};
+    const pageInit=makePageInit(stage==="page-init"?responseCode:"399001.SZ");
+    // index_detail_page_query_service.py:73-109 retains identity with null data.
+    if(stage==="page-init"){
+      pageInit.asOfTradeDate=null;pageInit.quote=null;
+      pageInit.dailyBasic=null;pageInit.constituentBreadth=null;pageInit.dataStatus=emptyStatus;
+    }
+    // index_detail_kline_query_service.py:99-133 retains indexRef with no bars.
+    const kline=makeKline(responseCode);kline.bars=[];
+    kline.meta={count:0,limit:1000,startDate:null,endDate:"2026-07-31"};kline.dataStatus=emptyStatus;
+    const fetcher=mockFetch("399001.SZ",{pageInit:()=>response(pageInit),kline:()=>response(kline)});
+    render(<IndexDetailPage tsCode="399001.SZ" search="?debug=1"/>);
+    await screen.findByText(title);
+    expect(h.loader.mock.lastCall?.[0]).toBe(false);
+    expect(h.loader.mock.calls.some(([enabled])=>enabled)).toBe(false);
+    expect(h.forecast.mock.lastCall?.[0]).toMatchObject({tsCode:"399001.SZ",enabled:false,active:false,debug:0});
+    expect(h.props()).toBeNull();
+    expect(screen.queryByLabelText("指数日线图表区")).not.toBeInTheDocument();
+    expect(fetcher.mock.calls.filter(([url])=>String(url).includes("/kline"))).toHaveLength(stage==="kline"?1:0);
+    expect(fetcher.mock.calls.some(([url])=>String(url).includes("xxm-"))).toBe(false);
   });
   it.each([false,true])("keeps forecast eligibility when the main chart changes to m5 and m90, debug=%s",async debug=>{
     const h=setup();

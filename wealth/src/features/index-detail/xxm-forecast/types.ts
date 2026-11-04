@@ -1,9 +1,9 @@
 import type { XxmReference, XxmWave } from "../xxm/types";
 export const XXM_FORECAST_VERSION = "xxm-key-point-forecast-v0.6-r4" as const;
 export const XXM_FORECAST_SPEC_HASH = "9994790178d64757462643fc37eba9e0945b118e91f1fdb85223db81db2a7b12";
-export const FORECAST_PERIODS = ["day", "m60", "m90", "m120"] as const;
+export const FORECAST_PERIODS = ["day", "m30", "m60", "m90", "m120"] as const;
 export type ForecastPeriod = typeof FORECAST_PERIODS[number];
-export const PERIOD_LABELS: Record<ForecastPeriod, string> = { day: "日线", m60: "60 分钟", m90: "90 分钟", m120: "120 分钟" };
+export const PERIOD_LABELS: Record<ForecastPeriod, string> = { day: "日线", m30: "30 分钟", m60: "60 分钟", m90: "90 分钟", m120: "120 分钟" };
 export type ForecastDirection = "TOP" | "BOTTOM";
 export type ForecastExpression = {
     op: "affine";
@@ -74,7 +74,7 @@ export interface ForecastStructureFollowCondition {
     predicates: ForecastPredicate[];
 }
 export interface ForecastResponse {
-    tsCode: "000001.SH";
+    tsCode: string;
     period: ForecastPeriod;
     forecastVersion: typeof XXM_FORECAST_VERSION;
     forecastSpecHash: string;

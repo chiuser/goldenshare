@@ -6,7 +6,7 @@ import { buildXxmViewModel } from "./adapter";
 import type { SeriesAttachedParameter, Time } from "lightweight-charts";
 
 function julyMarkers(): PositionedMarker[] {
-  const { response, points } = xxmFixture();
+  const { response, points } = xxmFixture("000001.SH");
   const base = buildXxmViewModel(response, points, "day", "000001.SH").markers[0]!;
   // CSS coordinates recovered from the user's daily-chart screenshot, not invented prices.
   return [
@@ -20,7 +20,7 @@ function julyMarkers(): PositionedMarker[] {
 
 describe("MACD marker pixel geometry", () => {
   it("places centered bold-label boxes left of the event, including the right edge", () => {
-    const { response, points } = xxmFixture();
+    const { response, points } = xxmFixture("000001.SH");
     const marker = buildXxmViewModel(response, points, "day", "000001.SH").markers[0]!;
     for (const x of [100, 198]) {
       const [label] = layoutXxmLabels([{ marker, x, y: 50 }], 200, 100, text => text.length * 12);
@@ -30,14 +30,14 @@ describe("MACD marker pixel geometry", () => {
     }
   });
   it("uses the right side only when a label cannot fit on the left boundary", () => {
-    const { response, points } = xxmFixture();
+    const { response, points } = xxmFixture("000001.SH");
     const marker = buildXxmViewModel(response, points, "day", "000001.SH").markers[0]!;
     const [label] = layoutXxmLabels([{ marker, x: 6, y: 50 }], 90, 100, text => text.length * 12);
     expect(label!.left).toBe(6 + 4 + 8);
     expect(label!.left + label!.width).toBeLessThanOrEqual(90);
   });
   it("moves dense labels vertically without covering a neighboring event dot", () => {
-    const { response, points } = xxmFixture();
+    const { response, points } = xxmFixture("000001.SH");
     const marker = buildXxmViewModel(response, points, "day", "000001.SH").markers[0]!;
     const positioned = [{ marker, x: 130, y: 50 }, { marker: { ...marker, time: "2026-10-12" }, x: 106, y: 50 }];
     const result = layoutXxmLabels(positioned, 200, 100, text => text.length * 12);
@@ -54,7 +54,7 @@ describe("MACD marker pixel geometry", () => {
     expect(positioned.map(p => [p.x, p.y])).toEqual([[130, 50], [106, 50]]);
   });
   it("compacts same-bar events when full labels cannot share the pane", () => {
-    const { response, points } = xxmFixture();
+    const { response, points } = xxmFixture("000001.SH");
     const markers = buildXxmViewModel(response, points, "day", "000001.SH").markers;
     const positioned = markers.map(marker => ({ marker, x: 100, y: 11 }));
     const result = layoutXxmLabels(positioned, 200, 22, text => text.length * 12);
@@ -64,7 +64,7 @@ describe("MACD marker pixel geometry", () => {
     expect(positioned.every(marker => marker.x === 100 && marker.y === 11)).toBe(true);
   });
   it("keeps anchors and labels inside pane without collisions at narrow widths", () => {
-    const { response, points } = xxmFixture();
+    const { response, points } = xxmFixture("000001.SH");
     const markers = buildXxmViewModel(response, points, "day", "000001.SH").markers;
     const positioned = markers.map(marker => ({ marker, x: 10, y: 4 }));
     const result = layoutXxmLabels(positioned, 90, 70, text => text.length * 11);
@@ -160,7 +160,7 @@ describe("MACD marker pixel geometry", () => {
     expect(primitive.autoscaleInfo()).toBeNull();
   });
   it("attaches to actual DIF coordinate, retains all event dots, and never changes autoscale", () => {
-    const { response, points } = xxmFixture();
+    const { response, points } = xxmFixture("000001.SH");
     const markers = buildXxmViewModel(response, points, "day", "000001.SH").markers;
     const primitive = new XxmMacdPrimitive();
     const coordinate = vi.fn((_value: number) => 50); const update = vi.fn();

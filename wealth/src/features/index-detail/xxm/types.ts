@@ -1,7 +1,7 @@
 import type { Time } from "lightweight-charts";
 export const XXM_ALGORITHM_VERSION = "xxm-direction-v0.4-r4" as const;
 export const XXM_SPEC_HASH = "db435b39a3d198c126bfff567dfbe66faf74ff9299005578ec6b49bf065fd110";
-export type XxmPeriod = "day" | "m60" | "m90" | "m120";
+export type XxmPeriod = "day" | "m30" | "m60" | "m90" | "m120";
 export type XxmDirection = "TOP" | "BOTTOM";
 export interface XxmReference {
     startTime: string;
@@ -71,7 +71,7 @@ export interface XxmStructure {
     disappearanceReason: "dif_return" | "reference_dif_break" | "structure_price_break" | null;
 }
 export interface XxmResponse {
-    tsCode: "000001.SH";
+    tsCode: string;
     period: XxmPeriod;
     algorithmVersion: string;
     specHash: string;

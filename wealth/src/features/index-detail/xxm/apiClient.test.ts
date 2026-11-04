@@ -20,6 +20,18 @@ describe("XXM HTTP client", () => {
     expect([...url.searchParams.keys()].sort()).toEqual(["endDate", "freq", "limit", "startDate", "tsCode"]);
     expect(url.searchParams.get("freq")).toBe("60");
   });
+  it.each(["day", "m30", "m60", "m90", "m120"] as const)("requests and decodes the actual non-Shanghai index for %s", async period => {
+    const { xxmFixture } = await import("./xxmFixtures.test-support");
+    const fixture = xxmFixture("399001.SZ", period);
+    vi.mocked(wealthFetch).mockResolvedValue(new Response(JSON.stringify(fixture.response)));
+    const { response } = await fetchXxm({ ...params, tsCode: "399001.SZ", period }, new AbortController().signal);
+    const url = new URL(String(vi.mocked(wealthFetch).mock.calls[0]![0]));
+    expect(url.searchParams.get("tsCode")).toBe("399001.SZ");
+    expect(url.pathname).toBe(`/api/v1/wealth/market/index-detail/${period === "day" ? "xxm-signals" : "minute-xxm-signals"}`);
+    expect(url.searchParams.get(period === "day" ? "period" : "freq")).toBe(period === "day" ? "day" : period.slice(1));
+    expect(response).toEqual(fixture.response);
+    expect(response.events).toHaveLength(2);
+  });
   it("aborts at the 5 second limit and returns a local retry message", async () => {
     vi.useFakeTimers(); pendingUntilAbort();
     const promise = fetchXxm(params, new AbortController().signal);
@@ -47,7 +59,7 @@ it.each([4999,5001])("keeps the original deadline through real debug decoding at
   const { xxmDebugFixture } = await import("./xxmFixtures.test-support");
   const { decodeXxmDebug } = await import("../debug/xxmDebugContract");
   let now=0;vi.spyOn(performance,"now").mockImplementation(()=>now);
-  vi.mocked(wealthFetch).mockImplementation(async()=>{now=4990;return new Response(JSON.stringify(xxmDebugFixture().response));});
+  vi.mocked(wealthFetch).mockImplementation(async()=>{now=4990;return new Response(JSON.stringify(xxmDebugFixture("000001.SH").response));});
   const pending=fetchXxm({...params,period:"day",debug:1,decodeDebug:(raw,context)=>{
     const data=decodeXxmDebug(raw,context);now=end;return data;
   }},new AbortController().signal);

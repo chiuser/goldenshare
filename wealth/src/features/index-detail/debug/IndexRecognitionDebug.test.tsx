@@ -12,6 +12,7 @@ import { useNineTurnSeriesRegistry } from "../../nine-turn/controller/useNineTur
 import { loadIndexNineTurnSeries } from "../api/indexNineTurnLoader";
 import { IndexInfoRail } from "../sidebar/IndexInfoRail";
 import type { IndexTechnicalNineTurnSummary } from "../model/indexTechnicalNineTurnSummary";
+import type { IndexPeriodKey } from "../model/indexDetailTypes";
 const DAILY=["day"] as const;
 function Harness({debug=true}:{debug?:boolean}){
   const controller=useIndexDetailController("000001.SH","");
@@ -70,6 +71,54 @@ function installSource({ failResearchTrend = false, mismatch = false, researchTr
   vi.stubGlobal("fetch", fetcher);
   return fetcher;
 }
+
+it.each([
+  ["399001.SZ", "day"], ["399006.SZ", "m30"], ["000001.SH", "m30"],
+  ["000001.SH", "m60"], ["000001.SH", "m90"], ["000001.SH", "m120"],
+] as const)("does not mount the independent study for %s/%s", (tsCode, activePeriod) => {
+  const fetcher = vi.fn();
+  vi.stubGlobal("fetch", fetcher);
+  const onChange = vi.fn();
+  render(<IndexRecognitionDebug ownerKey={`${tsCode}|${activePeriod}|2026-07-31`} tsCode={tsCode}
+    activePeriod={activePeriod} ordinaryAsOfDate="2026-07-31" supportsNineTurn supportsTrend onChange={onChange} />);
+  expect(screen.queryByRole("button", { name: "波段核对" })).not.toBeInTheDocument();
+  expect(fetcher).not.toHaveBeenCalled();
+  expect(onChange).not.toHaveBeenCalled();
+});
+
+it.each([
+  ["399001.SZ", "day"], ["000001.SH", "m30"],
+] as const)("clears a running study when its owner changes to %s/%s", async (tsCode, activePeriod) => {
+  const original = installSource();
+  let finish!: (response: Response) => void;
+  let signal: AbortSignal | undefined;
+  const fetcher = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+    if (String(input).includes("/daily-waves")) {
+      signal = init?.signal ?? undefined;
+      return new Promise<Response>(resolve => { finish = resolve; });
+    }
+    return original(input);
+  });
+  vi.stubGlobal("fetch", fetcher);
+  const onChange = vi.fn();
+  const firstOwner = "000001.SH|day|2026-07-31";
+  const { rerender } = render(<IndexRecognitionDebug ownerKey={firstOwner} tsCode="000001.SH" activePeriod="day"
+    ordinaryAsOfDate="2026-07-31" supportsNineTurn supportsTrend onChange={onChange} />);
+  const extension = onChange.mock.calls.at(-1)![1] as IndexRecognitionDebugExtension;
+  // The controller exports its controls to the page; exercise that real manual action.
+  const controls = render(<>{extension.controls}</>);
+  fireEvent.click(screen.getByRole("button", { name: "波段核对" }));
+  await waitFor(() => expect(fetcher.mock.calls.filter(([url]) => String(url).includes("/daily-waves"))).toHaveLength(1));
+  rerender(<IndexRecognitionDebug ownerKey={`${tsCode}|${activePeriod}|2026-07-31`} tsCode={tsCode}
+    activePeriod={activePeriod as IndexPeriodKey} ordinaryAsOfDate="2026-07-31" supportsNineTurn supportsTrend onChange={onChange} />);
+  controls.unmount();
+  expect(signal?.aborted).toBe(true);
+  expect(onChange).toHaveBeenLastCalledWith(firstOwner, null);
+  const afterSwitch = onChange.mock.calls.length;
+  await act(async () => finish(json(dailyWaveReadyFixture())));
+  expect(onChange).toHaveBeenCalledTimes(afterSwitch);
+  expect(fetcher.mock.calls.filter(([url]) => String(url).includes("/kline"))).toHaveLength(0);
+});
 
 describe("real extracted research controller/workspace keeps ordinary dates independent", () => {
   it("does not calculate by default; enters a matched history and returns to the retained ordinary graph", async () => {

@@ -109,7 +109,7 @@ async function runTab(tab,tabId,auditContext){
   const endDate=group.requestedAsOf??auditContext.businessDate;
   const asOf=group.requestedAsOf?(minute?`${group.requestedAsOf}T15:00:00+08:00`:group.requestedAsOf):undefined;
   const debug=group.mode==="debug"?1:undefined;
-  const forecast=round=>execute(tab,tabId,round,()=>tab.fetchForecast(period,asOf,controller.signal,
+  const forecast=round=>execute(tab,tabId,round,()=>tab.fetchForecast("000001.SH",period,asOf,controller.signal,
     {debug,decodeDebug:tab.decodeForecastDebug}),{r4:true});
   const kline=round=>execute(tab,tabId,round,()=>minute?
     tab.fetchIndexDetailMinutes({tsCode:"000001.SH",freq,endDate,limit:500},{signal:controller.signal}):

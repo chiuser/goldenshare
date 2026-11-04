@@ -18,7 +18,7 @@ export const renderXxmDetails: IndexRecognitionDebugModule["renderXxmDetails"] =
 export const renderForecastDetails: IndexRecognitionDebugModule["renderForecastDetails"] = (response) => <ForecastDebugDetails response={response}/>;
 const PADDING = { top: 44, bottom: 44 };
 export function IndexRecognitionDebug(props: IndexRecognitionDebugProps) {
-    return props.activePeriod === "day" ? <DailyWaveController {...props}/> : null;
+    return props.tsCode === "000001.SH" && props.activePeriod === "day" ? <DailyWaveController {...props}/> : null;
 }
 function DailyWaveController({ ownerKey, tsCode, activePeriod, ordinaryAsOfDate, supportsNineTurn, supportsTrend, onChange }: IndexRecognitionDebugProps) {
     const enabled = import.meta.env.DEV && tsCode === "000001.SH" && ordinaryAsOfDate !== null;

@@ -30,7 +30,7 @@ const invalidRanges = [
 ];
 
 function fixture(period: ForecastPeriod, path: "conditions" | "structureFollowConditions", value: unknown) {
-  const response = forecastDebugFixture(period);
+  const response = forecastDebugFixture("399001.SZ", period);
   if (path === "conditions") {
     response.debug.conditions[0]!.priceRanges = [value as ForecastDisplayRange];
   } else {
@@ -49,10 +49,10 @@ function fixture(period: ForecastPeriod, path: "conditions" | "structureFollowCo
   return response;
 }
 
-for (const period of ["day", "m60", "m90", "m120"] as const) {
+for (const period of ["day", "m30", "m60", "m90", "m120"] as const) {
   for (const path of ["conditions", "structureFollowConditions"] as const) {
     describe(`${period} ${path} display integers`, () => {
-      const options = { period, debug: 1 as const, decodeDebug: decodeForecastDebug, check: () => {} };
+      const options = { tsCode: "399001.SZ", period, debug: 1 as const, decodeDebug: decodeForecastDebug, check: () => {} };
       // All 18 shapes on day; minutes check both entry paths without repeating the matrix.
       it.each(period === "day" ? validRanges : validRanges.slice(0, 1))("accepts $name", ({ value }) => {
         const input = fixture(period, path, value);

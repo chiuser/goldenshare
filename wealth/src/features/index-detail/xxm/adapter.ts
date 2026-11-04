@@ -17,7 +17,13 @@ export function timeKey(stamp: unknown, period: XxmPeriod): string {
         assert(stamp.length === 10);
         return stamp;
     }
-    const endpoints = period === "m60" ? ["10:30", "11:30", "14:00", "15:00"] : period === "m90" ? ["11:00", "14:00", "15:00"] : ["11:30", "15:00"];
+    const endpoints = {
+        m30: ["10:00", "10:30", "11:00", "11:30", "13:30", "14:00", "14:30", "15:00"],
+        m60: ["10:30", "11:30", "14:00", "15:00"],
+        m90: ["11:00", "14:00", "15:00"],
+        m120: ["11:30", "15:00"],
+    }[period];
+    assert(endpoints);
     assert(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:00\+08:00$/.test(stamp) && endpoints.includes(stamp.slice(11, 16)));
     const value = Date.parse(stamp) / 1000;
     assert(Number.isFinite(value));
@@ -34,7 +40,7 @@ export function decodeXxmResponse(raw: unknown, options: {
     check();
     const names = "tsCode period algorithmVersion specHash source points events meta dataStatus";
     keys(raw, names + (options.debug ? " debug" : ""));
-    assert(raw.tsCode === options.tsCode && raw.tsCode === "000001.SH" && raw.period === period && raw.algorithmVersion === XXM_ALGORITHM_VERSION && raw.specHash === XXM_SPEC_HASH);
+    assert(raw.tsCode === options.tsCode && raw.period === period && raw.algorithmVersion === XXM_ALGORITHM_VERSION && raw.specHash === XXM_SPEC_HASH);
     keys(raw.source, "kind startTime computedThrough initialHistoryIncomplete indicatorVersion");
     keys(raw.meta, "count responseStart responseEnd");
     keys(raw.dataStatus, "status message asOf");

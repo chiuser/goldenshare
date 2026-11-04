@@ -69,7 +69,8 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
     supportsNineTurn: viewModel?.capabilities.supportsNineTurn ?? false,
     tsCode: normalizedTsCode,
   });
-  const { recognitionEnabled, debugEnabled } = resolveIndexRecognitionAvailability({ development: import.meta.env.DEV, tsCode: normalizedTsCode, search });
+  const { recognitionEnabled, debugEnabled } = resolveIndexRecognitionAvailability({ development: import.meta.env.DEV,
+    tsCode: normalizedTsCode, validatedTsCode: hasData && viewModel?.identity.tsCode === normalizedTsCode ? normalizedTsCode : null, search });
   const debugModule = useIndexDebugModule(debugEnabled);
   const readyModule = debugEnabled && debugModule.phase === "ready" ? debugModule.module : null;
   const effectiveDebug = readyModule ? 1 as const : 0 as const;

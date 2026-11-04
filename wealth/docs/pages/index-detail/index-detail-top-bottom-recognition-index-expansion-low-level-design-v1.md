@@ -1,6 +1,6 @@
 # 财势乾坤r4指数扩展LLD v1
 
-日期：2026-11-05（Asia/Shanghai）。状态：**第1步来源根数统计、第2步Python后端实现及限定回归、独立审计已完成；第3步前端消费及第4步真实来源/性能/页面验收尚未执行。第2步交付与测试记录限制见§13.3，新增页面范围尚未开放。**
+日期：2026-11-05（Asia/Shanghai）。状态：**第1步来源根数统计、第2步Python后端和第3步前端接入及限定回归、独立审计已完成；新增范围已接入本地前端代码。第4步整体回归、真实来源/性能/页面验收尚未执行，本需求整体尚未验收收尾。第2步记录见§13，第3步交付及证据边界见§14。**
 
 依据：[独立扩展方案](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-index-expansion-plan-v1.md)。本LLD只细化本次扩大指数及新增30分钟的变化；原[产品文档](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-product-v1.md)、[技术方案](index-detail-top-bottom-recognition-technical-design-v1.md)、[原LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)继续作为已验收r4规则及原四周期事实依据，不把原P5成绩当本次扩展验收。
 
@@ -23,7 +23,7 @@
 | 生产关闭、不改鉴权、不部署 | §9及原App装配 | T07、T31 |
 | 保留预算，不开启暂缓优化 | §9 | T33、§11性能 |
 
-初版方案/LLD及两索引已随99d876a32提交，文档收敛及根数统计口径已分别随f2c2d0f72、5339f0898提交。随后按管理员授权完成第1步来源统计及第2步Python实现、限定回归，结果见§13.1/13.3。当前停在第3步之前；配置、旧P5文档及其他工作区修改保持，不安装、不建分支、不部署。
+初版方案/LLD及两索引已随99d876a32提交，文档收敛及根数统计口径已分别随f2c2d0f72、5339f0898提交。随后按管理员授权完成第1步来源统计、第2步Python及第3步前端实现、限定回归，结果见§13—14。当前停在第4步之前；配置、旧P5文档及其他工作区修改保持，不安装、不建分支、不部署。
 
 ## 2. 开发步骤、依赖、失败和交接
 
@@ -614,4 +614,77 @@ T01—T36仍为36组设计case，T34/T35已改为数量统计，T36只验正常A
 - 必填ts_code的九个目标签名与全部已跟踪Python调用方匹配；透明包装原样转发。没有改TS/mjs、五组客户端测试及prelude、App装配、Foundation或DG；原上证TS/mjs调用仍匹配，新增页面范围未提前开放。
 - 保存的28个有效单元与3037项通过、四个被替代结果及§13.3数量/耗时一致。p4工具选中37个函数、138项，恰好排除第3步五组TS函数。原证据涉及的实现和输入未变，本轮未重跑测试、读取真实来源或扩大验收。§13.3.2的测试计时粒度不足继续保留，不冒充真实来源/性能结论。
 
-**结论：未发现第2步剩余业务实现偏差、漏迁或错改，功能实现符合方案及本LLD的第2步要求。**本轮只补回提交/审计事实，不修改业务代码。第3步前端及第4步真实来源、性能和页面验收仍未执行；第4步临时调用时限仍须按§11.3在该步开始前核定。文档完整性及限定差异检查通过。
+**结论：未发现第2步剩余业务实现偏差、漏迁或错改，功能实现符合方案及本LLD的第2步要求。**该轮只补回提交/审计事实，不修改业务代码。第3步前端实施另见§14；第4步临时调用时限仍须按§11.3在该步开始前核定。文档完整性及限定差异检查通过。
+
+## 14. 第3步前端实现、限定回归及独立审计（2026-11-05）
+
+本步在重读根、wealth、scripts/research规则及适用基线后，复核第2步后端合同、最新§8和T27空响应顺序，按第3步获准范围实施。只改前端身份/周期消费、对应测试及既有mjs调用，不修改后端、数据来源、配置、r4规则或预算。测试使用现环境，没有安装、启动/重启服务或读取真实DB/Lake。
+
+### 14.1 硬口径、代码及测试对账
+
+下表前端路径位于`wealth/src/features/index-detail/`，Page位于`wealth/src/pages/index-detail/`。
+
+| 要求 | 实际落地 | 测试/审计 |
+|---|---|---|
+| T27当前页面身份及空数据 | `controller/useIndexDetailController.ts`两处先isCurrent、再核code、最后EMPTY；`model/indexRecognitionAvailability.ts`和Page按hasData及当前viewModel身份传validatedTsCode | controller新增6项；Page覆盖同码/错码EMPTY共4项、pending及九码正向；availability覆盖九码/生产、未验证/错码及北证，不复制产品名单 |
+| T14/T24/T25五周期识别 | `xxm/{types,adapter,useIndexXxmLayer}.ts`加入m30、移除仅上证限制；timeKey明确四种分钟端点，仍核expected code/period/版本/hash及图表close/DIF/DEA/hist | 非空普通/debug五周期、9×5 Hook、八端点及反例；保留原primitive/marker及数值对齐，未改两个ChartWorkspace传参 |
+| T25完整预测代码传递 | `xxm-forecast/{types,apiClient,adapter,useXxmForecast}.ts`、全部调用/fixture及debug测试显式使用tsCode；Card沿原数组生成五行 | 非上证m30普通/debug实际client URL、错code/period/asOf拒绝；next endpoint用独立字面值；不留旧签名或默认上证 |
+| T26五行及单行行为 | 现FORECAST_PERIODS依day/m30/m60/m90/m120；分钟关闭只请求day；Card、样式和状态模型保持 | 激活后五行、m30独立失败/重试、其他行保留、m30 READY普通/debug后端文案及本行计算依据 |
+| T28取消及迟到结果 | 原requestKey、abort/generation/owner及预测身份保持，主图activePeriod未加入预测身份 | code/date/debug切换的旧成功/失败、退出取消及可见性/刷新；Page切主图仍传同一预测资格/参数，Hook依赖经源码审计，不据Hook pending宣称真实并发 |
+| T29调度和5秒起点 | 调度器实现未改；API client仍在调度实际执行时建立截止 | 用真实scheduler和五个真实forecast client，只替代HTTP、普通任务和测试时钟；证明轻请求最多2、r4独占、排队不消耗执行5秒。不是实测排队耗时或真实性能结果 |
+| T30/T31辅助/研究边界 | `debug/IndexRecognitionDebug.tsx`仅上证day挂载研究；r4 decoder/render仍供其他获准范围，普通页沿原动态加载 | 非上证/分钟不挂研究及切出取消；debug按需、普通依赖边界、生产关闭；独立daily-wave Hook/client原回归通过 |
+| 工具同批迁移 | `xxm_page_request_audit.mjs`给forecast增加000001.SH首参；`test_xxm_p4_audit_tools.py::_node_fixture_prelude`显式传两类fixture代码 | §11.2五组实际TS客户端节点37项通过，原工具标的/周期/预算不扩；Python包装和D组方法不改 |
+
+产品tsCode只由当前页面已核身份传入，前端不另建九码运行名单。事件显示、颜色、版本/hash、来源指纹及判断规则不变；业务源码改动仅限§8列清的接入位置。原`IndexInfoRail.tsx`、页面CSS与开工前内容一致，Page测试原有其他需求的11行断言保留，未覆盖他人修改。
+
+### 14.2 限定执行结果及成本
+
+本轮使用现有Vitest/TypeScript及Python环境。前端按文件运行`vitest run --no-cache --configLoader runner --bail=1`，类型检查使用`npm --prefix wealth run typecheck`；工具使用pytest首错退出、禁缓存/字节码，basetemp位于本任务`/private/tmp/r4-index-expansion-step3.Z6Dsrn`。各单元摘要、日志、测试结果及临时计时调用只在该目录，不写reports或工程临时目录。
+
+测试边界分别为：Page接线测试替代图表、预测Hook或debug loader；Hook测试替代API client；真实client测试替代HTTP；调度测试保留真实scheduler/client；工具五组使用原人工输入/替身传输，实际加载TS/mjs。没有以这些替代层宣称真实行情接入、实际浏览器展示或4秒/400ms性能已验收。
+
+| 单元（前端路径相对`wealth/src`） | 通过项 | 至摘要/核验完成（秒） |
+|---|---:|---:|
+| features/index-detail/model/indexRecognitionAvailability.test.ts | 19 | 1.110 |
+| features/index-detail/controller/useIndexDetailController.test.tsx | 6 | 1.278 |
+| pages/index-detail/IndexDetailPage.test.tsx | 50 | 2.492 |
+| features/index-detail/xxm/adapter.test.tsx | 23 | 0.927 |
+| features/index-detail/xxm/apiClient.test.ts | 11 | 0.874 |
+| features/index-detail/xxm/useIndexXxmLayer.test.tsx | 59 | 4.082 |
+| features/index-detail/xxm/rearmContract.test.tsx | 1 | 0.716 |
+| features/index-detail/xxm/markerGeometry.test.ts | 10 | 0.860 |
+| features/index-detail/xxm-forecast/apiClient.test.ts | 14 | 1.377 |
+| features/index-detail/xxm-forecast/identity.test.tsx | 3 | 0.770 |
+| features/index-detail/xxm-forecast/forecast.test.tsx | 19 | 1.290 |
+| features/index-detail/xxm-forecast/r1Contract.test.tsx | 7 | 0.873 |
+| features/index-detail/xxm-forecast/expressionContract.test.ts | 2 | 0.789 |
+| features/index-detail/debug/xxmDebugContract.test.ts | 9 | 0.992 |
+| features/index-detail/debug/forecastDebugContract.test.ts | 52 | 0.764 |
+| features/index-detail/debug/IndexRecognitionDebug.test.tsx | 14 | 1.359 |
+| features/index-detail/debug/useIndexDebugModule.test.tsx | 5 | 1.010 |
+| features/index-detail/debug/dependencyBoundary.test.ts | 4 | 0.966 |
+| features/index-detail/api/indexDetailRequestScheduler.test.ts | 4 | 0.715 |
+| features/index-detail/daily-wave/useDailyWaveReview.test.tsx | 21 | 0.840 |
+| features/index-detail/daily-wave/apiClient.test.ts | 9 | 0.759 |
+| scripts/research/index_market/tests/test_xxm_p4_audit_tools.py的五组TS客户端节点 | 37 | 6.072 |
+| 最终typecheck | 通过，不计测试项 | 4.771 |
+
+最终**21个Vitest文件342项＋工具37项＝379项全部通过**；最终typecheck通过。以上23个有效执行单元原始计时累计35.684713秒，包括被替代的两个类型检查单元共25次调用累计45.138337秒。类型检查、测试项及实际调用次数分开统计，不重复累计被替代结果，不将累计时间说成单次API耗时或完整开发墙钟时间。
+
+本轮临时记录分别采集调用准备、导入/收集、实际测试、退出、摘要解析和最后数量/退出核对；前端测试生命周期按[Vitest 3.2.4 reporter合同](https://github.com/vitest-dev/vitest/blob/v3.2.4/docs/advanced/api/reporters.md)核对，pytest沿现session/collection/sessionfinish回调，均不修改仓库测试配置。最终有效单元中，测试导入/收集累计16.665秒、执行至报告累计12.440秒、退出累计1.797秒；类型检查进程含载入/关闭的4.770秒单列，不虚构它的测试收集阶段。准备、摘要及核验的单元记录一并保留；表内总时间截止最后核验，不包含后续文档编写和独立人工审计。记录精度与范围如实保留，不用其推导真实请求预算或性能保证。
+
+首轮typecheck在4.729秒后报告新人工夹具的Time包含BusinessDay，超出实际图表时间合同；已只将夹具返回时间收窄为string/UTCTimestamp，没有放宽生产类型或断言。修正后typecheck通过；随后为独立审计补齐A500日期及m30卡片测试，再执行最终typecheck，结果通过。受影响单元使用独立名称保留各轮记录，未继续执行失败单元之后的测试来掩盖错误。
+
+### 14.3 独立审计与证据复用
+
+开发后分别独立核对预测客户端/解码/五行与调度、识别/页面身份/研究边界、工具消费者及测试依赖。已关闭以下发现：
+
+1. EMPTY页面的“不启用r4”原有分层断言不足以直接验证Page接线；已按T27补4项真实controller＋替身Hook/loader的页面断言，正常empty不误拦、错码empty进入error，两者均不启用r4。
+2. m30原卡片测试只验证失败/重试；已补正常/debug READY文案及本行依据2项，不改生产展示逻辑。
+3. A500的9×5 Hook人工样本原用2023日期，早于正式来源起点；只将A500日期映射到2025-11-04至11-13的独立合法日期。分钟端点、相对顺序、原段3根及下一同色2根、业务数值/关联保持，默认上证day原事实不变；Hook用字面日期断言实际采用起点后样本。
+
+核CodeGraph explore/impact/callers及当前源码/静态调用，未发现漏迁、新增兼容签名或第3步剩余业务实现偏差。图谱模糊命中回到明确路径核实，批量修改后sync/status正常。后端r4核心/查询/schema/API、Spec/hash、Foundation/DG和原调度器无本轮改动；依赖边界测试及限定差异检查通过。
+
+原第2步3037项中未受影响的结果保留，不计入本轮379项。其中P4 D组138项并非仅凭函数体未变而复用：已核42个测试函数只改共享prelude，只有E组五函数会调用它；D组进程用自有Python字符串/node -e或替换_run_node，不加载变化的产品mjs/TS fixture。相应Python工具与后端依赖未变，因此D组138项仍适用；本轮新执行E组37项，两组不重计。完整文件节点仍由第4步按§11.2对账。
+
+**交接结论：第3步代码、限定回归及独立审计符合本LLD，停在第4步之前。**没有执行完整前端回归、构建、45组合真实API、真实页面或真实性能验收。第4步先按§11.3核定完整临时调用时限，再按既定顺序验证；不得以本轮人工样本代替真实结果。本轮未提交/推送、安装、部署、切源、读真实行情或写数据库/Lake，等待管理员review。

@@ -67,6 +67,7 @@ export function useIndexDetailController(tsCode: string, search: string): IndexD
           { signal: controller.signal },
         );
         if (!isCurrent(requestIdRef, requestId, controller.signal)) return;
+        if (pageInit.index.tsCode !== normalizedTsCode) throw new Error("指数详情返回的代码与请求不一致");
 
         if (pageInit.dataStatus.status === "EMPTY" || !pageInit.quote || !pageInit.asOfTradeDate) {
           setState({
@@ -98,6 +99,7 @@ export function useIndexDetailController(tsCode: string, search: string): IndexD
           { signal: controller.signal },
         );
         if (!isCurrent(requestIdRef, requestId, controller.signal)) return;
+        if (kline.indexRef.tsCode !== normalizedTsCode) throw new Error("指数K线返回的代码与请求不一致");
         if (kline.dataStatus.status === "EMPTY" || kline.bars.length === 0) {
           trendControllerRef.current?.abort();
           setState({

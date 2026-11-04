@@ -5,6 +5,7 @@ import type { ForecastPeriod, ForecastResponse, ForecastDebugResponse } from "./
 import type { DecodeForecastDebug } from "../debug/types";
 const root = "tsCode period forecastVersion forecastSpecHash detectorSpecHash computedThrough requestedAsOf mode dataStatus ordinaryState direction targetEndpoint barsAhead status reasonCode forecastId display applicabilityText invalidationText refreshAfterMs";
 export function adaptForecast(raw: unknown, options: {
+    tsCode: string;
     period: ForecastPeriod;
     asOf?: string;
     debug: 0 | 1;
@@ -14,7 +15,7 @@ export function adaptForecast(raw: unknown, options: {
     const { period, check } = options;
     check();
     keys(raw, root + (options.debug ? " debug" : ""));
-    assert(raw.tsCode === "000001.SH" && raw.period === period && raw.forecastVersion === XXM_FORECAST_VERSION && raw.forecastSpecHash === XXM_FORECAST_SPEC_HASH && raw.detectorSpecHash === XXM_SPEC_HASH);
+    assert(raw.tsCode === options.tsCode && raw.period === period && raw.forecastVersion === XXM_FORECAST_VERSION && raw.forecastSpecHash === XXM_FORECAST_SPEC_HASH && raw.detectorSpecHash === XXM_SPEC_HASH);
     assert(raw.mode === (options.asOf ? "REPLAY" : "LATEST") && raw.requestedAsOf === (options.asOf ?? null));
     for (const stamp of [raw.computedThrough, raw.requestedAsOf, raw.targetEndpoint])
         if (stamp !== null)

@@ -23,7 +23,7 @@ export function useXxmForecast({ active, tsCode, historicalDate, minutes, enable
     let refreshMs: number | undefined;
     let queue: ForecastPeriod[] = [];
     const controllers = new Map<ForecastPeriod, AbortController>();
-    const supported = enabled && import.meta.env.DEV && tsCode === "000001.SH" && (debug === 0 || !!decodeDebug);
+    const supported = enabled && import.meta.env.DEV && (debug === 0 || !!decodeDebug);
     setStateIdentity(identity);
     setRows(initial(minutes));
     retryRef.current = () => {};
@@ -53,7 +53,7 @@ export function useXxmForecast({ active, tsCode, historicalDate, minutes, enable
         controllers.set(p, controller);
         running++;
         setRows(r => ({ ...r, [p]: r[p].response ? r[p] : { phase: "loading", response: null, error: "" } }));
-        fetchForecast(p, asOf(p), controller.signal, { debug: debug === 1 ? 1 : undefined, decodeDebug }).then(({response, deadline}) => {
+        fetchForecast(tsCode, p, asOf(p), controller.signal, { debug: debug === 1 ? 1 : undefined, decodeDebug }).then(({response, deadline}) => {
           if (disposed || current !== generation || controller.signal.aborted) return;
           checkRequest(controller.signal, deadline);
           refreshMs = response.refreshAfterMs;

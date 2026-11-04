@@ -360,7 +360,7 @@ globalThis.fetch=async(input,options={{}})=>{{
  let body,kind;
  if(endpoint==='minutes'||endpoint==='minute-indicators'){{
   if(url.searchParams.has('debug')||url.searchParams.get('freq')!==String(freq)||url.searchParams.get('limit')!=='500'||url.searchParams.get('endDate')!=='2023-01-13')throw new Error('wrong minute params');
-  const point=(g.mode==='debug'?facts.xxmDebugFixture():facts.xxmFixture()).response.points[0];
+  const point=(g.mode==='debug'?facts.xxmDebugFixture('000001.SH'):facts.xxmFixture('000001.SH')).response.points[0];
   const item={{tsCode:'000001.SH',freq,tradeDate:'2023-01-12',tradeTime:'2023-01-12T15:00:00+08:00',open:point.close,high:point.close+1,low:point.close-1,close:point.close,vol:100,amount:1000,exchange:'SSE'}};
   body={{tsCode:'000001.SH',freq,meta:{{count:1,limit:500}},dataStatus:{{status:'READY'}}}};
   if(endpoint==='minutes'){{body.bars=[item];kind='kline';}}
@@ -371,17 +371,17 @@ globalThis.fetch=async(input,options={{}})=>{{
  }}else if(endpoint==='kline'){{
   if(url.searchParams.has('debug')||url.searchParams.get('limit')!=='1000'||url.searchParams.get('endDate')!=='2023-01-13')throw new Error('wrong chart params');
   await new Promise(resolve=>setTimeout(resolve,10));
-  const p=(g.mode==='debug'?facts.xxmDebugFixture():facts.xxmFixture()).response.points[0];
+  const p=(g.mode==='debug'?facts.xxmDebugFixture('000001.SH'):facts.xxmFixture('000001.SH')).response.points[0];
   body={{bars:bad==='empty'?[]:[{{tradeDate:p.time,close:bad==='bad-number'?null:p.close,factors:{{macd:{{dif:p.dif,dea:p.dea,macd:p.hist}}}}}}]}};kind='kline';
  }}else if((endpoint==='nine-turn'||endpoint==='minute-nine-turn')){{
   if(url.searchParams.has('debug')||url.searchParams.get('limit')!==(minute?'500':'1000')||url.searchParams.get('endDate')!=='2023-01-13')throw new Error('wrong nine params');
   body={{markers:[]}};kind='nineTurn';
  }}else if(endpoint==='xxm-key-point-forecast'){{
   if(url.searchParams.has('asOf'))throw new Error('must keep latest');
-  body=debug?facts.forecastDebugFixture(g.period):facts.forecastFixture(g.period);kind='forecast';
+  body=debug?facts.forecastDebugFixture('000001.SH',g.period):facts.forecastFixture('000001.SH',g.period);kind='forecast';
  }}else if((endpoint==='xxm-signals'||endpoint==='minute-xxm-signals')){{
   if(!(minute?calls.includes('minutes')&&calls.includes('minute-indicators'):calls.includes('kline'))||url.searchParams.get('startDate')!=='2023-01-12'||url.searchParams.get('endDate')!=='2023-01-12'||url.searchParams.get('limit')!=='1')throw new Error('wrong actual window');
-  body=(debug?facts.xxmDebugFixture():facts.xxmFixture()).response;if(minute)body=minuteResponse(body);kind='signals';
+  body=(debug?facts.xxmDebugFixture('000001.SH'):facts.xxmFixture('000001.SH')).response;if(minute)body=minuteResponse(body);kind='signals';
   if(bad==='contract')body={{...body,specHash:'old'}};
  }}else throw new Error('unexpected endpoint');
  const bytes=Buffer.byteLength(JSON.stringify(body));

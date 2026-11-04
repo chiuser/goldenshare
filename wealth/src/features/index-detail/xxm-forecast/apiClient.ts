@@ -4,17 +4,17 @@ import { checkRequest, XXM_TIMEOUT_MS } from "../xxm/apiClient";
 import { adaptForecast } from "./adapter";
 import type { ForecastPeriod, ForecastRequestResult } from "./types";
 import type { DecodeForecastDebug } from "../debug/types";
-export function fetchForecast(period: ForecastPeriod, asOf: string | undefined, signal: AbortSignal, options: {
+export function fetchForecast(tsCode: string, period: ForecastPeriod, asOf: string | undefined, signal: AbortSignal, options: {
     debug?: 1;
     decodeDebug?: DecodeForecastDebug;
 } = {}): Promise<ForecastRequestResult> {
-    return indexDetailRequests.run("forecast", () => sendForecast(period, asOf, signal, options, performance.now() + XXM_TIMEOUT_MS), signal);
+    return indexDetailRequests.run("forecast", () => sendForecast(tsCode, period, asOf, signal, options, performance.now() + XXM_TIMEOUT_MS), signal);
 }
-async function sendForecast(period: ForecastPeriod, asOf: string | undefined, signal: AbortSignal, options: {
+async function sendForecast(tsCode: string, period: ForecastPeriod, asOf: string | undefined, signal: AbortSignal, options: {
     debug?: 1;
     decodeDebug?: DecodeForecastDebug;
 }, deadline: number): Promise<ForecastRequestResult> {
-    const params = new URLSearchParams({ tsCode: "000001.SH", period });
+    const params = new URLSearchParams({ tsCode, period });
     if (asOf)
         params.set("asOf", asOf);
     if (options.debug)
@@ -40,7 +40,7 @@ async function sendForecast(period: ForecastPeriod, asOf: string | undefined, si
         }
         const raw: unknown = await http.json();
         check();
-        const response = adaptForecast(raw, { period, asOf, debug: options.debug ?? 0, decodeDebug: options.decodeDebug, check });
+        const response = adaptForecast(raw, { tsCode, period, asOf, debug: options.debug ?? 0, decodeDebug: options.decodeDebug, check });
         check();
         return { response, deadline };
     }
