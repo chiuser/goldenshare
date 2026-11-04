@@ -39,8 +39,8 @@ def source_boundary(monkeypatch):
     def calendar(session, *, start, end):
         assert session is None
         return tuple(date.fromisoformat(s) for s in DATES if start <= date.fromisoformat(s) <= end)
-    def reader(session, *, completed, check):
-        assert session is None and completed in DATES
+    def reader(session, *, ts_code, completed, check):
+        assert session is None and completed in DATES and ts_code == "000001.SH"
         check()
         reads.append(completed)
         return tuple(b for b in RAW if b.time <= completed)
@@ -51,7 +51,7 @@ def source_boundary(monkeypatch):
         day = date.fromisoformat(DATES[count - 1])
         return service._load_series(None, key=KEY, period="day",
             now=datetime(day.year, day.month, day.day, 16, tzinfo=CN_ZONE),
-            business_date=day, remaining=lambda: None)[0]
+            business_date=day, remaining=lambda: None, ts_code="000001.SH")[0]
     return service, load, reads
 
 
@@ -158,7 +158,8 @@ def daily_source(monkeypatch, bars):
     def calendar(session, *, start, end):
         return tuple(day for day in days if start <= day <= end)
 
-    def reader(session, *, completed, check):
+    def reader(session, *, ts_code, completed, check):
+        assert ts_code == "000001.SH"
         check()
         source["reads"].append(completed)
         return tuple(bar for bar in source["bars"] if completed and bar.time <= completed)
@@ -171,7 +172,7 @@ def daily_source(monkeypatch, bars):
         day = days[count - 1]
         return service._load_series(None, key=key, period="day",
             now=datetime.combine(day, datetime.min.time(), CN_ZONE).replace(hour=16),
-            business_date=day, remaining=lambda: None)[0]
+            business_date=day, remaining=lambda: None, ts_code="000001.SH")[0]
 
     return service, load, source
 
@@ -256,10 +257,10 @@ def test_past_prefix_and_empty_response_do_not_use_future_confirmation(source_bo
     _, load, _ = source_boundary
     old = load(5)
     before = IndexDetailXxmQueryService._response(old, period="day", expected=DATES[4],
-        start_date=None, limit=1000, check=lambda: None)
+        start_date=None, limit=1000, check=lambda: None, ts_code="000001.SH")
     new = load(6)
     past = IndexDetailXxmQueryService._response(new, period="day", expected=DATES[4],
-        start_date=None, limit=1000, check=lambda: None)
+        start_date=None, limit=1000, check=lambda: None, ts_code="000001.SH")
     assert past.model_dump() == before.model_dump()
     assert past.source.inputId == new.fingerprints[4] != new.fingerprints[5]
     assert past.dataStatus.asOf == DATES[4]
@@ -267,7 +268,7 @@ def test_past_prefix_and_empty_response_do_not_use_future_confirmation(source_bo
     assert [(event.type, event.route) for event in past.events] == [("DULL", "activation")]
     assert not past.structures
     empty = IndexDetailXxmQueryService._response(new, period="day", expected="2025-03-02",
-        start_date=None, limit=1000, check=lambda: None)
+        start_date=None, limit=1000, check=lambda: None, ts_code="000001.SH")
     assert empty.dataStatus.status == "EMPTY" and empty.dataStatus.asOf is None
     assert empty.source.inputId == hashlib.sha256(b"empty").hexdigest()
     assert empty.source.startTime is None and empty.source.computedThrough is None
@@ -307,9 +308,9 @@ def test_increment_failure_after_real_step_preserves_old_entry(monkeypatch):
     assert new.structure_records[structure_id]["priceExtreme"] == 103
     assert new.calculator.wave.price == 104
     past = IndexDetailXxmQueryService._response(new, period="day", expected=DATES[5],
-        start_date=None, limit=1000, check=lambda: None)
+        start_date=None, limit=1000, check=lambda: None, ts_code="000001.SH")
     original = IndexDetailXxmQueryService._response(old, period="day", expected=DATES[5],
-        start_date=None, limit=1000, check=lambda: None)
+        start_date=None, limit=1000, check=lambda: None, ts_code="000001.SH")
     assert past.model_dump() == original.model_dump()
     assert past.structures[0].status == "ASSESSING" and past.structures[0].firstOppositeAt is None
     assert service.cache.get(KEY) is new and entry_facts(old) == before
@@ -352,25 +353,25 @@ def test_load_entry_cache_separates_rule_connection_and_source_identity(monkeypa
             return self.bind
 
     session = SessionIdentity()
-    actual_key = (id(session.bind), service.lake_identity, "day", MAIN_SPEC.spec_hash)
+    actual_key = (id(session.bind), service.lake_identity, "day", MAIN_SPEC.spec_hash, "000001.SH")
     # This is a stale cache-key fixture, not a relabelled old algorithm result.
     old_hash = "6db425730c72f22ea756c121a832f27c966d1324ef0a72a2312a3c572038724d"
     assert MAIN_SPEC.algorithm_version == "xxm-direction-v0.4-r4" and MAIN_SPEC.spec_hash != old_hash
-    old_key = (*actual_key[:-1], old_hash)
+    old_key = (*actual_key[:3], old_hash, actual_key[4])
     old = service._load_series(None, key=old_key, period="day", now=stamp,
-        business_date=stamp.date(), remaining=lambda: None)[0]
-    with service.load_entry(session, period="day", now=stamp) as (entry, *_):
+        business_date=stamp.date(), remaining=lambda: None, ts_code="000001.SH")[0]
+    with service.load_entry(session, period="day", now=stamp, ts_code="000001.SH") as (entry, *_):
         assert entry is not old and entry.calculator.spec is MAIN_SPEC
         assert service.cache.get(actual_key) is entry
-    with service.load_entry(session, period="day", now=stamp) as (same, *_):
+    with service.load_entry(session, period="day", now=stamp, ts_code="000001.SH") as (same, *_):
         assert same is entry
     other_session = SessionIdentity()
-    with service.load_entry(other_session, period="day", now=stamp) as (other_connection, *_):
+    with service.load_entry(other_session, period="day", now=stamp, ts_code="000001.SH") as (other_connection, *_):
         assert other_connection is not entry
     # Substitute reader construction so this identity test never opens a lake.
     monkeypatch.setattr(query_service, "minute_reader", lambda root: object())
     other_source = IndexDetailXxmQueryService(lake_root=tmp_path / "other-source", cache=service.cache)
-    with other_source.load_entry(session, period="day", now=stamp) as (other_origin, *_):
+    with other_source.load_entry(session, period="day", now=stamp, ts_code="000001.SH") as (other_origin, *_):
         assert other_origin is not entry
     assert service.cache.get(actual_key) is entry and service.cache.get(old_key) is old
 
@@ -406,7 +407,7 @@ def test_clone_rejects_wrong_source_snapshot_without_changing_parent(source_boun
     assert entry_facts(entry) == before
 
 
-@pytest.mark.parametrize("period", ["day", "m60", "m90", "m120"])
+@pytest.mark.parametrize("period", ["day", "m30", "m60", "m90", "m120"])
 def test_historical_prefix_and_zero_return_to_dull_clone_in_every_period(monkeypatch, period):
     # LLD 3.6/4.1 and RC47/52: bar6 forms a bottom structure; bar7 is
     # zero, its -8.8 -> -9.0 return exceeds 1%, so it returns directly
@@ -423,8 +424,8 @@ def test_historical_prefix_and_zero_return_to_dull_clone_in_every_period(monkeyp
     bars = tuple(XxmBar(stamp, *value) for stamp, value in zip(stamps, values, strict=True))
     monkeypatch.setattr(query_service, "calendar_dates",
                         lambda session, *, start, end: tuple(day for day in days if start <= day <= end))
-    monkeypatch.setattr(query_service, "read_daily", lambda session, *, completed, check: bars)
-    monkeypatch.setattr(query_service, "read_minutes", lambda *a, window, **k: tuple(
+    monkeypatch.setattr(query_service, "read_daily", lambda session, *, ts_code, completed, check: bars)
+    monkeypatch.setattr(query_service, "read_minutes", lambda reader, *, ts_code, freq, window, deadline: tuple(
         bar for bar in bars if window.start_time.isoformat() <= bar.time <= window.end_time.isoformat()))
     from src.biz.queries.wealth.market.index_detail_xxm.source import MinuteSourceWindow
     # Isolate only the range planner in this snapshot test (no DB). Actual
@@ -440,7 +441,7 @@ def test_historical_prefix_and_zero_return_to_dull_clone_in_every_period(monkeyp
                if period == "day" else datetime.fromisoformat(stamp) + timedelta(minutes=1))
         window={} if period=='day' else dict(window_rows=500,requested_end=datetime.fromisoformat(stamp))
         return service._load_series(None, key=("four-period-prefix", period, MAIN_SPEC.spec_hash),
-            period=period, now=now, business_date=now.date(), remaining=lambda: None,**window)[0]
+            period=period, now=now, business_date=now.date(), remaining=lambda: None,**window, ts_code="000001.SH")[0]
 
     old = load(6)
     before = entry_facts(old)
@@ -466,7 +467,7 @@ def test_historical_prefix_and_zero_return_to_dull_clone_in_every_period(monkeyp
     assert past.active_structure["disappearedAt"] is None
     assert past.snapshot() == old.calculator.snapshot()
     response = service._response(full, period=period, expected=stamps[5], start_date=None,
-        limit=1000, check=lambda: None)
+        limit=1000, check=lambda: None, ts_code="000001.SH")
     assert response.structures[0].status == "ASSESSING"
     assert response.structures[0].disappearedAt is None
     assert response.structures[0].firstOppositeAt is None

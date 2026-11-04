@@ -18,7 +18,7 @@ from src.biz.services.wealth.market.index_detail_xxm.snapshot_validation import 
 from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
 
-PERIODS = ("day", "m60", "m90", "m120")
+PERIODS = ("day", "m30", "m60", "m90", "m120")
 DATES = ("2023-01-03", "2023-01-04", "2023-01-05", "2023-01-06", "2023-01-09",
          "2023-01-10", "2023-01-11", "2023-01-12", "2023-01-13", "2023-01-16",
          "2023-01-17", "2023-01-18")
@@ -31,8 +31,8 @@ def stamp(i, period):
     return DATES[i] if period == "day" else DATES[i] + "T15:00:00+08:00"
 
 
-def ident(period, *parts):
-    raw = [MAIN_SPEC.algorithm_version, MAIN_SPEC.spec_hash, "000001.SH", period, *parts]
+def ident(period, *parts, ts_code="000001.SH"):
+    raw = [MAIN_SPEC.algorithm_version, MAIN_SPEC.spec_hash, ts_code, period, *parts]
     return hashlib.sha256("|".join(map(str, raw)).encode()).hexdigest()[:24]
 
 
@@ -46,8 +46,8 @@ def bar(i, values, period):
     return XxmBar(stamp(i, period), close, dif, dif - hist / 2, hist)
 
 
-def literal_snapshot(period="day", *, sign=1, state="DULL"):
-    raw = dict(specHash=MAIN_SPEC.spec_hash, tsCode="000001.SH", period=period,
+def literal_snapshot(period="day", *, sign=1, state="DULL", ts_code="000001.SH"):
+    raw = dict(specHash=MAIN_SPEC.spec_hash, tsCode=ts_code, period=period,
                sourceIdentity=SOURCE, processed=0, wave=None, history={"1": [], "-1": []},
                state="NONE", reference=None, previous=None, activeStructure=None, followedStructures={"TOP": None, "BOTTOM": None})
     if state == "EMPTY":
@@ -65,11 +65,11 @@ def literal_snapshot(period="day", *, sign=1, state="DULL"):
     raw["history"][str(-sign)] = [opposite]
     if state == "STRUCTURE":
         extreme = 103 if sign == 1 else 97
-        event_id = ident(period, stamp(4, period), "STRUCTURE", sign, stamp(0, period))
+        event_id = ident(period, stamp(4, period), "STRUCTURE", sign, stamp(0, period), ts_code=ts_code)
         raw.update(processed=5, wave=literal_wave(sign, 2, 4, 3, extreme, sign * 100, 4, 2, period),
                    previous=asdict(bar(4, (extreme, sign * 99, sign * 2), period)),
                    activeStructure=dict(
-                       id=ident(period, "structure", event_id), direction="TOP" if sign == 1 else "BOTTOM",
+                       id=ident(period, "structure", event_id, ts_code=ts_code), direction="TOP" if sign == 1 else "BOTTOM",
                        structureEventId=event_id, formedAt=stamp(4, period), formationRoute="dif_turn",
                        originSegmentStart=stamp(2, period),
                        originalReference=dict(startTime=stamp(0, period), endTime=stamp(0, period),
@@ -89,6 +89,50 @@ def new_calc(period="day", **kwargs):
 def replay(values, period):
     calc = new_calc(period)
     return calc, [calc.step(bar(i, value, period)) for i, value in enumerate(values)]
+
+
+@pytest.mark.parametrize("code", ["000001.SH", "399001.SZ", "000510.SH"])
+def test_m30_normalized_identity_restores_literal_structure_and_split_results(code):
+    values = T + ((103, 99, 2), (99, 100, 2), (104, 99, 2), (98, 100, 2))
+    full = new_calc("m30", ts_code=code)
+    continuous = [full.step(bar(i, value, "m30")) for i, value in enumerate(values)]
+    for cut in range(len(values) + 1):
+        first = new_calc("m30", ts_code=code)
+        before = [first.step(bar(i, value, "m30")) for i, value in enumerate(values[:cut])]
+        incoming = first.snapshot()
+        saved = deepcopy(incoming)
+        resumed = new_calc("m30", ts_code=code)
+        resumed.restore(incoming)
+        child = clone(first)
+        assert child.ts_code == code and child.period == "m30" and child.snapshot() == saved
+        after = [resumed.step(bar(i, value, "m30")) for i, value in enumerate(values) if i >= cut]
+        assert before + after == continuous and resumed.snapshot() == full.snapshot()
+        assert incoming == saved and first.snapshot() == saved
+        if cut == 5:
+            assert saved == literal_snapshot("m30", ts_code=code, state="STRUCTURE")
+
+
+@pytest.mark.parametrize("source_code,source_period,target_code,target_period", [
+    ("399001.SZ", "m30", "000001.SH", "m30"),
+    ("000001.SH", "m30", "399001.SZ", "m30"),
+    ("399001.SZ", "m30", "399001.SZ", "m60"),
+    ("399001.SZ", "m60", "399001.SZ", "m30"),
+])
+def test_cross_code_or_m30_m60_restore_rejects_valid_progress_atomically(
+        source_code, source_period, target_code, target_period):
+    # Both snapshots are legal nonempty structures for their own identities.
+    source = new_calc(source_period, ts_code=source_code)
+    incoming = literal_snapshot(source_period, ts_code=source_code, state="STRUCTURE")
+    source.restore(incoming)
+    target = new_calc(target_period, ts_code=target_code)
+    target.restore(literal_snapshot(target_period, ts_code=target_code))
+    returned = target.step(bar(4, (103, 99, 2), target_period))
+    returned_before, source_before, target_before = deepcopy(returned), source.snapshot(), target.snapshot()
+    incoming_before = deepcopy(incoming)
+    with pytest.raises(ValueError):
+        target.restore(incoming)
+    assert target.snapshot() == target_before and source.snapshot() == source_before
+    assert incoming == incoming_before and returned == returned_before
 
 
 def put(raw, path, value):
@@ -130,7 +174,7 @@ def test_rc71_literal_structure_is_the_actual_kernel_contract(period, sign):
 
 @pytest.mark.parametrize("field", ["nextSameColorCount", "trackingPriceExtreme", "trackingPriceExtremeAt"])
 def test_rc71_missing_tracking_field_is_rejected_without_defaulting(field):
-    # Common field-shape check; four-period and mirrored valid restoration stays below.
+    # Common field-shape check; five-period and mirrored valid restoration stays below.
     period, sign = "day", 1
     raw = literal_snapshot(period, sign=sign, state="STRUCTURE")
     calc = new_calc(period)

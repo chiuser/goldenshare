@@ -18,6 +18,9 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContextQuery
+from src.biz.services.wealth.market.index_detail.index_detail_universe import (
+    IndexDetailNotFoundError, IndexDetailQueryError, IndexDetailRequestError, IndexDetailUniverseService,
+)
 from src.foundation.clients.local_lake.major_index_mins_reader import IndexMinuteHistoryBudgetError, IndexMinuteSourceContractError
 from src.biz.schemas.wealth.market.index_detail_xxm import InternalXxmResponseDto
 from src.biz.schemas.wealth.market.index_detail_xxm_forecast import InternalForecastResponseDto
@@ -36,6 +39,24 @@ class XxmQueryError(RuntimeError):
     def __init__(self, code: str, message: str, status: int = 500) -> None:
         super().__init__(message)
         self.code, self.status = code, status
+
+
+def require_xxm_code(ts_code: str) -> str:
+    if not isinstance(ts_code, str):
+        raise XxmQueryError("XXM_REQUEST_INVALID", "tsCode 必须是六位代码及市场后缀。", 400)
+    universe = IndexDetailUniverseService()
+    try:
+        code = universe.normalize_ts_code(ts_code)
+        universe.require_supported(code)
+    except IndexDetailRequestError as exc:
+        raise XxmQueryError("XXM_REQUEST_INVALID", str(exc), 400) from exc
+    except IndexDetailNotFoundError as exc:
+        raise XxmQueryError("XXM_NOT_SUPPORTED", "该指数暂不支持顶底识别。", 404) from exc
+    except IndexDetailQueryError as exc:
+        raise XxmQueryError("XXM_QUERY_FAILED", "顶底识别指数名单配置不可用。", 500) from exc
+    if code == "899050.BJ":
+        raise XxmQueryError("XXM_NOT_SUPPORTED", "该指数暂不支持顶底识别。", 404)
+    return code
 
 
 def _deep_size(value: Any, seen: set[int] | None = None) -> int:
@@ -160,7 +181,7 @@ class XxmCache:
 
 _CACHE = XxmCache()
 _REQUEST_SLOTS = BoundedSemaphore(BUDGET.max_concurrent_requests)
-_PERIODS = ("day", "m60", "m90", "m120")
+_PERIODS = ("day", "m30", "m60", "m90", "m120")
 
 
 class IndexDetailXxmQueryService:
@@ -169,15 +190,22 @@ class IndexDetailXxmQueryService:
         self.cache = cache or _CACHE
         self.lake_identity = str(lake_root.resolve()) if lake_root is not None else "daily"
 
-    def build(self, session: Session, *, period: XxmPeriod, start_date: date | None, end_date: date | None,
+    @staticmethod
+    def _check_entry_identity(entry: SeriesEntry, *, ts_code: str, period: XxmPeriod) -> None:
+        if (entry.calculator.ts_code != ts_code or entry.calculator.period != period
+                or entry.calculator.spec.spec_hash != MAIN_SPEC.spec_hash):
+            raise XxmQueryError("XXM_SOURCE_CONTRACT_INVALID", "顶底识别缓存或结果与请求标的不一致。")
+
+    def build(self, session: Session, *, ts_code: str, period: XxmPeriod, start_date: date | None, end_date: date | None,
               limit: int, debug: bool = False, now: datetime | None = None) -> bytes:
         if period not in _PERIODS or not 1 <= limit <= BUDGET.max_response_rows or (start_date and end_date and start_date > end_date):
             raise XxmQueryError("XXM_REQUEST_INVALID", "研究指标请求参数不合法。", 400)
         window = {} if period == "day" else dict(window_rows=limit, requested_end=end_date)
-        with self.load_entry(session, period=period, now=now, **window) as (entry, context, open_dates, remaining):
+        with self.load_entry(session, ts_code=ts_code, period=period, now=now, **window) as (entry, context, open_dates, remaining):
+            code = entry.calculator.ts_code
             upper = min(end_date or context.trade_date, context.trade_date)
             expected = expected_through(period, open_dates, context.generated_at, upper)
-            response = self._response(entry, period=period, expected=expected, start_date=start_date, limit=limit, check=remaining)
+            response = self._response(entry, ts_code=code, period=period, expected=expected, start_date=start_date, limit=limit, check=remaining)
             from src.biz.services.wealth.market.index_detail_xxm.response_projection import project_xxm_response
             response = project_xxm_response(response, debug=debug)
             remaining()
@@ -188,13 +216,9 @@ class IndexDetailXxmQueryService:
             return body
 
     @contextmanager
-    def load_entry(self, session: Session, *, period: XxmPeriod, now: datetime | None = None,
+    def load_entry(self, session: Session, *, ts_code: str, period: XxmPeriod, now: datetime | None = None,
                    window_rows: int | None = None, requested_end: date | datetime | None = None):
         """Publish a validated real prefix; consumers never hold a source slot."""
-        if period not in _PERIODS:
-            raise XxmQueryError("XXM_REQUEST_INVALID", "研究指标周期不合法。", 400)
-        if period != "day" and self.reader is None:
-            raise XxmQueryError("XXM_QUERY_FAILED", "本地分钟来源未配置。", 503)
         started = time.perf_counter()
 
         def remaining() -> float:
@@ -204,12 +228,19 @@ class IndexDetailXxmQueryService:
             return left
 
         try:
+            remaining()
+            if period not in _PERIODS:
+                raise XxmQueryError("XXM_REQUEST_INVALID", "研究指标周期不合法。", 400)
+            code = require_xxm_code(ts_code)
+            remaining()
+            if period != "day" and self.reader is None:
+                raise XxmQueryError("XXM_QUERY_FAILED", "本地分钟来源未配置。", 503)
             now = (now or datetime.now(CN_ZONE)).astimezone(CN_ZONE)
             context = MarketPageContextQuery().resolve_context(
                 session, market="CN_A", requested_trade_date=None, now=now,
             )
             remaining()
-            key = (id(session.get_bind()), self.lake_identity, period, MAIN_SPEC.spec_hash)
+            key = (id(session.get_bind()), self.lake_identity, period, MAIN_SPEC.spec_hash, code)
             # Before/after the cutover and different calendar coverages cannot
             # join the same flight, even when their latest physical bar matches.
             completed_hint = expected_through(period, (context.trade_date,), now, context.trade_date)
@@ -232,12 +263,13 @@ class IndexDetailXxmQueryService:
                 if not _REQUEST_SLOTS.acquire(timeout=remaining()):
                     raise XxmQueryError("XXM_BUDGET_EXCEEDED", "研究指标查询超时。", 503)
                 try:
-                    return self._load_series(session, key=key, period=period, now=now,
+                    return self._load_series(session, ts_code=code, key=key, period=period, now=now,
                                              business_date=context.trade_date, remaining=remaining, **window)
                 finally:
                     _REQUEST_SLOTS.release()
             entry, open_dates = self.cache.loads.load(flight_key, load, remaining)
             remaining()
+            self._check_entry_identity(entry, ts_code=code, period=period)
             yield entry, context, open_dates, remaining
             remaining()
         except (AsyncCancelledError, FutureCancelledError):
@@ -253,7 +285,7 @@ class IndexDetailXxmQueryService:
         except Exception as exc:
             raise XxmQueryError("XXM_QUERY_FAILED", "研究指标查询失败，请重试。") from exc
 
-    def _load_series(self, session, *, key, period, now, business_date, remaining,
+    def _load_series(self, session, *, ts_code, key, period, now, business_date, remaining,
                       window_rows: int | None = None, requested_end: datetime | None = None, context=None):
         remaining()
         if period == "day":
@@ -261,7 +293,9 @@ class IndexDetailXxmQueryService:
             remaining()
             completed = expected_through(period, open_dates, now, business_date)
             previous_entry = self.cache.get(key)
-            raw = read_daily(session, completed=completed, check=remaining)
+            if previous_entry is not None:
+                self._check_entry_identity(previous_entry, ts_code=ts_code, period=period)
+            raw = read_daily(session, ts_code=ts_code, completed=completed, check=remaining)
             signature = ()
         else:
             assert self.reader is not None
@@ -273,10 +307,12 @@ class IndexDetailXxmQueryService:
             completed = window.end_time.isoformat() if window.end_time is not None else None
             key = (*key, window.output_rows, window.read_rows, window.start_time, window.end_time)
             previous_entry = self.cache.get(key)
+            if previous_entry is not None:
+                self._check_entry_identity(previous_entry, ts_code=ts_code, period=period)
             freq = int(period[1:])
             signatures = []
             if window.start_time is not None:
-                request = minute_request(freq, window)
+                request = minute_request(freq, window, ts_code=ts_code)
                 for dataset in ("bars", "indicators"):
                     remaining()
                     signatures.append(self.reader.history_source_signature(request, dataset=dataset))
@@ -287,7 +323,7 @@ class IndexDetailXxmQueryService:
             elif previous_entry is not None and signature == previous_entry.signature:
                 raw = previous_entry.raw
             else:
-                raw = read_minutes(self.reader, freq=freq, window=window, deadline=remaining)
+                raw = read_minutes(self.reader, ts_code=ts_code, freq=freq, window=window, deadline=remaining)
             remaining()
         remaining()
         if (previous_entry is not None and signature == previous_entry.signature and raw == previous_entry.raw
@@ -298,7 +334,7 @@ class IndexDetailXxmQueryService:
         origin = f"{period}|{processed[0].time if processed else 'empty'}|{INDICATOR_VERSION if period != 'day' else 'bfq'}"
         revised = (previous_entry is None or processed[:len(previous_entry.processed)] != previous_entry.processed
                    or previous_entry.calculator.source_identity != origin)
-        calculator = XxmCalculator(period=period, source_identity=origin)
+        calculator = XxmCalculator(ts_code=ts_code, period=period, source_identity=origin)
         if revised:
             entry = SeriesEntry(raw=raw, signature=signature, calculator=calculator, processed=(), points=[], events=[],
                                 structure_records={}, fingerprints=[], checkpoints={})
@@ -327,7 +363,7 @@ class IndexDetailXxmQueryService:
         # Validate the entire candidate, including all structure associations,
         # before publishing. A failed candidate is discarded with its calculator.
         self._validate_entry(entry, check=remaining)
-        self._response(entry, period=period, expected=completed, start_date=None,
+        self._response(entry, ts_code=ts_code, period=period, expected=completed, start_date=None,
                        limit=len(processed), check=remaining)
         remaining()
         self.cache.put(key, entry, check=remaining)
@@ -445,8 +481,9 @@ class IndexDetailXxmQueryService:
         return deepcopy(record)
 
     @staticmethod
-    def _response(entry: SeriesEntry, *, period: XxmPeriod, expected: str | None,
+    def _response(entry: SeriesEntry, *, ts_code: str, period: XxmPeriod, expected: str | None,
                   start_date: date | None, limit: int, check) -> InternalXxmResponseDto:
+        IndexDetailXxmQueryService._check_entry_identity(entry, ts_code=ts_code, period=period)
         times = [bar.time for bar in entry.processed]
         end_index = bisect_right(times, expected) if expected is not None else 0
         indices = [index for index in range(end_index) if start_date is None or times[index][:10] >= start_date.isoformat()][-limit:] if limit else []
@@ -503,7 +540,7 @@ class IndexDetailXxmQueryService:
         status = "EMPTY" if through is None else "DELAYED" if expected and through < expected else "READY"
         message = "研究指标暂无数据" if status == "EMPTY" else f"研究指标数据截至 {through}" if status == "DELAYED" else None
         response = InternalXxmResponseDto(
-            tsCode="000001.SH", period=period, algorithmVersion=MAIN_SPEC.algorithm_version, specHash=MAIN_SPEC.spec_hash,
+            tsCode=ts_code, period=period, algorithmVersion=MAIN_SPEC.algorithm_version, specHash=MAIN_SPEC.spec_hash,
             source={"kind": "daily_factor" if period == "day" else "minute_gold",
                     "inputId": entry.fingerprints[end_index - 1] if end_index else hashlib.sha256(b"empty").hexdigest(),
                     "startTime": times[0] if end_index else None, "computedThrough": through,

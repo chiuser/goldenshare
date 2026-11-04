@@ -57,11 +57,11 @@ def _draft(result):
     return conditions,following
 
 
-def _assemble(*, period, through, as_of, data_status, ordinary, direction, source_id, calendar_id,
+def _assemble(*, ts_code, period, through, as_of, data_status, ordinary, direction, source_id, calendar_id,
               result, prepared, check):
     conditions,following=_draft(result) if result else ([],[])
     references=result.references if result else {'nearest':None,'farther':None}
-    payload=dict(tsCode='000001.SH',period=period,forecastVersion=FORECAST_SPEC.forecast_version,
+    payload=dict(tsCode=ts_code,period=period,forecastVersion=FORECAST_SPEC.forecast_version,
         forecastSpecHash=FORECAST_SPEC.spec_hash,detectorSpecHash=MAIN_SPEC.spec_hash,computedThrough=through,
         requestedAsOf=as_of,mode='REPLAY' if as_of is not None else 'LATEST',dataStatus=data_status,
         ordinaryState=ordinary,direction=direction,targetEndpoint=result.target_endpoint if result else None,
@@ -96,7 +96,7 @@ class IndexDetailXxmForecastQueryService:
     def __init__(self, *, lake_root=None, cache=None):
         self.source=IndexDetailXxmQueryService(lake_root=lake_root,cache=cache)
 
-    def build(self, session, *, period, as_of=None, debug=False, now=None) -> bytes:
+    def build(self, session, *, ts_code, period, as_of=None, debug=False, now=None) -> bytes:
         candidate=None
         try:
             window = {}
@@ -105,7 +105,8 @@ class IndexDetailXxmForecastQueryService:
                 if requested_end is not None and requested_end.date() < date(1990,1,1):
                     raise XxmQueryError('XXM_REQUEST_INVALID','asOf 必须是已完成的开市端点。',400)
                 window = dict(window_rows=BUDGET.response_default_minute, requested_end=requested_end)
-            with self.source.load_entry(session,period=period,now=now,**window) as (entry,context,open_dates,remaining):
+            with self.source.load_entry(session,ts_code=ts_code,period=period,now=now,**window) as (entry,context,open_dates,remaining):
+                code=entry.calculator.ts_code
                 upper=min(date.fromisoformat(as_of[:10]) if as_of else context.trade_date,context.trade_date)
                 request_open_dates=open_dates
                 expected=expected_through(period,request_open_dates,context.generated_at,upper)
@@ -143,12 +144,18 @@ class IndexDetailXxmForecastQueryService:
                         else:
                             endpoint,calendar_id=future_calendar(session,period,through,check)
                             key=(id(session.get_bind()),self.source.lake_identity,period,MAIN_SPEC.spec_hash,
-                                 FORECAST_SPEC.spec_hash,source_id,expected,as_of,calendar_id)
+                                 FORECAST_SPEC.spec_hash,source_id,expected,as_of,calendar_id,code)
                             cached=self.source.cache.get_forecast(key,check=check)
                             if cached is None:
                                 result=forecast(calculator,projection,endpoint,check,prepared=prepared)
+                if cached is not None and (not isinstance(cached,InternalForecastResponseDto)
+                        or cached.tsCode!=code or cached.period!=period
+                        or cached.forecastVersion!=FORECAST_SPEC.forecast_version
+                        or cached.forecastSpecHash!=FORECAST_SPEC.spec_hash
+                        or cached.detectorSpecHash!=MAIN_SPEC.spec_hash):
+                    raise XxmQueryError('XXM_SOURCE_CONTRACT_INVALID','预测缓存与当前指数、周期或规则不一致。')
                 response=(InternalForecastResponseDto.model_validate(cached.model_dump()) if cached is not None else
-                    _assemble(period=period,through=through,as_of=as_of,data_status=status,ordinary=ordinary,direction=direction,
+                    _assemble(ts_code=code,period=period,through=through,as_of=as_of,data_status=status,ordinary=ordinary,direction=direction,
                         source_id=source_id,calendar_id=calendar_id,result=result,prepared=prepared,check=check))
                 check()
                 public=project_forecast_response(response,debug=debug)

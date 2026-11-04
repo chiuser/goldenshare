@@ -9,7 +9,7 @@ if TYPE_CHECKING:
     from .forecast_math import Interval
 
 
-XxmPeriod = Literal["day", "m60", "m90", "m120"]
+XxmPeriod = Literal["day", "m30", "m60", "m90", "m120"]
 
 
 @dataclass(frozen=True, slots=True)
@@ -32,7 +32,7 @@ class XxmBar:
             if period == "day":
                 if date.fromisoformat(self.time).isoformat() != self.time:
                     raise ValueError("Invalid daily time")
-            elif period in ("m60", "m90", "m120"):
+            elif period in ("m30", "m60", "m90", "m120"):
                 stamp = datetime.fromisoformat(self.time)
                 if stamp.utcoffset() != timedelta(hours=8):
                     raise ValueError("Minute endpoint must include +08:00")

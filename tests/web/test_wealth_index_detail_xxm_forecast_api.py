@@ -72,15 +72,16 @@ def m1(monkeypatch,source_db):
     service=query.IndexDetailXxmForecastQueryService(cache=XxmCache())
     state=entry(M1)
     @contextmanager
-    def load(*a,**kw):
+    def load(session,*,ts_code,period,now=None,window_rows=None,requested_end=None):
+        assert ts_code==state.calculator.ts_code and period==state.calculator.period
         yield state,SimpleNamespace(trade_date=NOW.date(),generated_at=NOW),(NOW.date(),),lambda:4.
     service.source.load_entry=load
     monkeypatch.setattr(query,'recover_projection',lambda *a:ProjectionState(13,27,0))
     return service,state
 
 
-def read(service,session,**kwargs):
-    return json.loads(service.build(session,period='day',now=NOW,**kwargs))
+def read(service,session,*,ts_code='000001.SH',**kwargs):
+    return json.loads(service.build(session,ts_code=ts_code,period='day',now=NOW,**kwargs))
 
 
 def test_full_m1_normal_debug_cache_and_exact_single_target(m1,source_db,monkeypatch):
@@ -133,8 +134,8 @@ def test_invalid_debug_early_failure(source_db,monkeypatch,raw):
 
 
 @pytest.mark.parametrize('query_string,status',[
-    ('period=day',400),('tsCode=bad&period=day',400),('tsCode=399001.SZ&period=day',404),
-    ('tsCode=000001.SH&period=m30',400),('tsCode=000001.SH&period=day&period=day',400),
+    ('period=day',400),('tsCode=bad&period=day',400),('tsCode=000680.SH&period=day',404),
+    ('tsCode=000001.SH&period=m15',400),('tsCode=000001.SH&period=day&period=day',400),
     ('tsCode=000001.sh&period=day',400),('tsCode=%20000001.SH&period=day',400),
     ('tsCode=000001.SH&period=m90&asOf=2023-01-10T11:30:00%2B08:00',400),
     ('tsCode=000001.SH&period=m60',404)])
@@ -162,7 +163,7 @@ def test_real_route_source_empty_static_and_delayed_no_fake_conditions(source_db
         service=query.IndexDetailXxmForecastQueryService(cache=XxmCache())
         empty=read(service,s,as_of='2023-01-03')
         assert empty['status']=='NO_CANDIDATE'
-        delayed=json.loads(service.build(s,period='day',now=datetime(2023,1,11,20,tzinfo=CN_ZONE)))
+        delayed=json.loads(service.build(s,ts_code='000001.SH',period='day',now=datetime(2023,1,11,20,tzinfo=CN_ZONE)))
         assert delayed['status']=='DELAYED' and delayed['targetEndpoint'] is None
     with source_db.begin() as c: c.execute(text('DELETE FROM core_serving.index_factor_pro'))
     r=api(source_db).get(PATH+'?tsCode=000001.SH&period=day&debug=1')
@@ -183,8 +184,9 @@ def test_calibration_failure_does_not_read_future_calendar_or_cache(m1,source_db
 def test_with_exit_failure_never_publishes_forecast(m1,source_db):
     service,_=m1;original=service.source.load_entry
     @contextmanager
-    def failing(*a,**kw):
-        with original(*a,**kw) as loaded: yield loaded
+    def failing(session,*,ts_code,period,now=None,window_rows=None,requested_end=None):
+        with original(session,ts_code=ts_code,period=period,now=now,
+                      window_rows=window_rows,requested_end=requested_end) as loaded: yield loaded
         raise XxmQueryError('XXM_BUDGET_EXCEEDED','exit check',503)
     service.source.load_entry=failing
     with Session(source_db) as s,pytest.raises(XxmQueryError,match='exit check'):read(service,s)
@@ -221,6 +223,8 @@ def test_cache_publish_failure_is_atomic_and_normal_change_is_allowed():
 
 @pytest.mark.parametrize('period,through,target',[
     ('day','2023-01-13','2023-01-16'),
+    ('m30','2023-01-10T11:30:00+08:00','2023-01-10T13:30:00+08:00'),
+    ('m30','2023-01-13T15:00:00+08:00','2023-01-16T10:00:00+08:00'),
     ('m60','2023-01-10T10:30:00+08:00','2023-01-10T11:30:00+08:00'),
     ('m90','2023-01-10T11:00:00+08:00','2023-01-10T14:00:00+08:00'),
     ('m120','2023-01-13T15:00:00+08:00','2023-01-16T11:30:00+08:00')])
@@ -272,12 +276,12 @@ def test_actual_source_calibration_solver_models_and_encoding_share_budget(sourc
     with Session(source_db) as s,patch.object(query,'recover_projection',wraps=query.recover_projection) as calibration,patch.object(query,'forecast',wraps=query.forecast) as solve:
         service=query.IndexDetailXxmForecastQueryService(cache=XxmCache())
         start=time.perf_counter()
-        body=service.build(s,period='day',now=now,debug=True)
+        body=service.build(s,ts_code='000001.SH',period='day',now=now,debug=True)
         cold_ms=(time.perf_counter()-start)*1000
         value=json.loads(body)
         assert calibration.call_count==solve.call_count==1
         start=time.perf_counter()
-        normal=json.loads(service.build(s,period='day',now=now))
+        normal=json.loads(service.build(s,ts_code='000001.SH',period='day',now=now))
         warm_ms=(time.perf_counter()-start)*1000
         assert calibration.call_count==2 and solve.call_count==1
         assert {k:v for k,v in value.items() if k!='debug'}==normal
@@ -348,8 +352,9 @@ def test_f06_unexpected_failure_returns_forecast_error_and_keeps_old_cache(m1,so
     else:
         original=service.source.load_entry
         @contextmanager
-        def failing(*a,**kw):
-            with original(*a,**kw) as value:yield value
+        def failing(session,*,ts_code,period,now=None,window_rows=None,requested_end=None):
+            with original(session,ts_code=ts_code,period=period,now=now,
+                          window_rows=window_rows,requested_end=requested_end) as value:yield value
             raise failure
         monkeypatch.setattr(service.source,'load_entry',failing)
     monkeypatch.setattr(route,'IndexDetailXxmForecastQueryService',lambda **kw:service)
@@ -410,7 +415,7 @@ def test_f07_real_load_exit_does_not_replace_original_error_with_a_later_timeout
              'async_cancel':AsyncCancelled('cancel'),'future_cancel':FutureCancelled('cancel')}[failure_kind]
     expected=type(failure) if 'cancel' in failure_kind else XxmQueryError
     with Session(source_db) as session,pytest.raises(expected) as error:
-        with service.load_entry(session,period='day',now=NOW):
+        with service.load_entry(session,ts_code='000001.SH',period='day',now=NOW):
             clock[0]=4.001
             raise failure
     if 'cancel' in failure_kind:assert error.value is failure
@@ -421,7 +426,7 @@ def test_f07_real_load_exit_does_not_replace_original_error_with_a_later_timeout
     # A normal request after rejection still obtains the released resources.
     clock[0]=0
     with Session(source_db) as session:
-        with service.load_entry(session,period='day',now=NOW) as value:
+        with service.load_entry(session,ts_code='000001.SH',period='day',now=NOW) as value:
             assert value[0].processed
 
 
@@ -449,7 +454,7 @@ def test_f07_cancellation_inside_cache_lock_is_atomic_and_unlocks(m1,source_db,k
     assert ('forecast','new identity') in cache.entries
 
 
-@pytest.mark.parametrize('freq',[60,90,120])
+@pytest.mark.parametrize('freq',[30,60,90,120])
 def test_p4_bounded_early_open_asof_uses_range_calendar_and_empty(batch3_db_factory,tmp_path,monkeypatch,freq):
     from src.biz.queries.wealth.market.index_detail_xxm import source
     _batch3_gold(tmp_path,freq,[(f'2023-01-10T{slot}:00',100.,0.,0.,0.) for slot in BATCH3_SLOTS[freq]])
@@ -466,7 +471,7 @@ def test_p4_bounded_early_open_asof_uses_range_calendar_and_empty(batch3_db_fact
     monkeypatch.setattr(service.source.cache,'get_forecast',lambda *a,**k:pytest.fail('EMPTY cache read'))
     monkeypatch.setattr(service.source.cache,'put_forecast',lambda *a,**k:pytest.fail('EMPTY cache publish'))
     with Session(engine) as session:
-        result=json.loads(service.build(session,period=f'm{freq}',as_of=f'2023-01-06T{BATCH3_SLOTS[freq][-1]}:00+08:00',debug=True,now=BATCH3_NOW))
+        result=json.loads(service.build(session,ts_code='000001.SH',period=f'm{freq}',as_of=f'2023-01-06T{BATCH3_SLOTS[freq][-1]}:00+08:00',debug=True,now=BATCH3_NOW))
     assert calls==[]  # The one range calendar already contains this day.
     assert result['status']=='EMPTY' and result['targetEndpoint'] is None
     assert result['debug']['sourceInputId'] is None and result['debug']['calendarInputId'] is None
@@ -512,7 +517,7 @@ def _batch3_fixed_clock(monkeypatch,now=BATCH3_NOW):
     return cache
 
 
-@pytest.mark.parametrize('freq',[60,90,120])
+@pytest.mark.parametrize('freq',[30,60,90,120])
 @pytest.mark.parametrize('kind,status',[('closed',400),('absent',500),('null',500),('open',200)])
 def test_p4_batch3_early_asof_http_contract(batch3_db_factory,tmp_path,monkeypatch,freq,kind,status):
     _batch3_gold(tmp_path,freq,[(f'2023-01-10T{slot}:00',100.,0.,0.,0.) for slot in BATCH3_SLOTS[freq]])
@@ -535,7 +540,7 @@ def test_p4_batch3_early_asof_http_contract(batch3_db_factory,tmp_path,monkeypat
     else:assert response.json()['code']==('XXMF_REQUEST_INVALID' if status==400 else 'XXMF_SOURCE_CONTRACT_INVALID')
 
 
-@pytest.mark.parametrize('freq',[60,90,120])
+@pytest.mark.parametrize('freq',[30,60,90,120])
 @pytest.mark.parametrize('case',['empty_early','empty_current','inside','closed_inside','before_1990','future','future_endpoint'])
 def test_p4_batch3_qualification_bounds_and_empty(batch3_db_factory,tmp_path,monkeypatch,freq,case):
     engine=batch3_db_factory()
@@ -549,22 +554,23 @@ def test_p4_batch3_qualification_bounds_and_empty(batch3_db_factory,tmp_path,mon
     now=BATCH3_NOW.replace(hour=10) if case=='future_endpoint' else BATCH3_NOW
     with Session(engine) as session,patch.object(source_data,'is_open_date',wraps=source_data.is_open_date) as lookup:
         if case in ('closed_inside','before_1990','future','future_endpoint'):
-            with pytest.raises(XxmQueryError) as error:service.build(session,period=f'm{freq}',as_of=stamp,now=now)
+            with pytest.raises(XxmQueryError) as error:service.build(session,ts_code='000001.SH',period=f'm{freq}',as_of=stamp,now=now)
             assert error.value.status==400
         else:
-            result=json.loads(service.build(session,period=f'm{freq}',as_of=stamp,debug=True,now=now))
+            result=json.loads(service.build(session,ts_code='000001.SH',period=f'm{freq}',as_of=stamp,debug=True,now=now))
             assert result['status']==('EMPTY' if case.startswith('empty') else 'NO_CANDIDATE')
         assert lookup.call_count==0
 
 
-@pytest.mark.parametrize('freq',[60,90,120])
+@pytest.mark.parametrize('freq',[30,60,90,120])
 def test_p4_batch3_real_minute_ready_cache_identity_and_next_endpoint(batch3_db_factory,tmp_path,monkeypatch,freq):
     from dataclasses import replace
     from unittest.mock import Mock
     from src.biz.queries.wealth.market.index_detail_xxm import query_service as source_query
     from src.foundation.clients.local_lake.major_index_mins_reader import MajorIndexMinsLakeReader
     # Literal LLD 0.6.6. Only calibration is isolated; source and solver are real.
-    times={60:('01-09T14:00','01-09T15:00','01-10T10:30','01-10T11:30','01-10T14:00','01-10T15:00'),
+    times={30:('01-10T11:00','01-10T11:30','01-10T13:30','01-10T14:00','01-10T14:30','01-10T15:00'),
+           60:('01-09T14:00','01-09T15:00','01-10T10:30','01-10T11:30','01-10T14:00','01-10T15:00'),
            90:('01-09T11:00','01-09T14:00','01-09T15:00','01-10T11:00','01-10T14:00','01-10T15:00'),
            120:('01-06T11:30','01-06T15:00','01-09T11:30','01-09T15:00','01-10T11:30','01-10T15:00')}[freq]
     values=((100.,-60.,-59.,-2.),(110.,0.,-1.,2.),(90.,-50.,-49.,-2.),(100.,0.,-1.,2.),(89.,-15.,0.,-30.),(88.,-14.,0.,-28.))
@@ -628,10 +634,10 @@ def test_p4_bounded_plan_failure_keeps_published_source_and_priority(batch3_db_f
         if failure is not None:raise failure
         return result
     with Session(batch3_db_factory()) as session,patch.object(service.source.cache,'put_forecast',side_effect=AssertionError('failed forecast published')):
-        with service.source.load_entry(session,period='m60',now=BATCH3_NOW):pass
+        with service.source.load_entry(session,ts_code='000001.SH',period='m60',now=BATCH3_NOW):pass
         monkeypatch.setattr(source_query,'plan_minute_window',planned)
         with pytest.raises(type(failure) if kind.endswith('cancel') else XxmQueryError) as error:
-            service.build(session,period='m60',as_of='2023-01-06T15:00:00+08:00',now=BATCH3_NOW)
+            service.build(session,ts_code='000001.SH',period='m60',as_of='2023-01-06T15:00:00+08:00',now=BATCH3_NOW)
         assert calls==[1]
         if kind.endswith('cancel'):assert error.value is failure
         else:assert error.value.code=={'timeout':'XXM_BUDGET_EXCEEDED','source':'XXM_SOURCE_CONTRACT_INVALID','query':'XXM_QUERY_FAILED'}[kind]
@@ -640,7 +646,7 @@ def test_p4_bounded_plan_failure_keeps_published_source_and_priority(batch3_db_f
         assert not any(key[0]=='forecast' for key in service.source.cache.entries)
         snapshot=entries[0].calculator.snapshot()
         monkeypatch.setattr(source_query,'plan_minute_window',original);clock[0]=0.
-        result=json.loads(service.build(session,period='m60',as_of='2023-01-06T15:00:00+08:00',now=BATCH3_NOW))
+        result=json.loads(service.build(session,ts_code='000001.SH',period='m60',as_of='2023-01-06T15:00:00+08:00',now=BATCH3_NOW))
         assert result['status']=='EMPTY' and entries[0].calculator.snapshot()==snapshot
 
 
@@ -652,7 +658,10 @@ def test_p4_batch3_day_and_latest_do_not_use_single_day(m1,source_db,monkeypatch
         assert read(service,session,as_of='2023-01-10')['status']=='READY'
 
 
-@pytest.mark.parametrize('period,stamp',[('m60','2023-01-10T10:30:00'),('m90','2023-01-10T11:30:00+08:00'),('m120','2023-01-10T11:30:00+00:00')])
+@pytest.mark.parametrize('period,stamp',[
+    ('m30','2023-01-10T09:30:00+08:00'),('m30','2023-01-10T12:00:00+08:00'),
+    ('m30','2023-01-10T10:15:00+08:00'),('m60','2023-01-10T10:30:00'),
+    ('m90','2023-01-10T11:30:00+08:00'),('m120','2023-01-10T11:30:00+00:00')])
 def test_p4_batch3_invalid_endpoint_rejected_before_source(batch3_db_factory,tmp_path,monkeypatch,period,stamp):
     monkeypatch.setattr(query.IndexDetailXxmForecastQueryService,'build',lambda *a,**k:pytest.fail('invalid endpoint loaded source'))
     with api(batch3_db_factory(),lake_root=tmp_path) as client:
@@ -675,7 +684,7 @@ def test_p4_bounded_short_source_precheck_precedes_real_calibration(batch3_db_fa
     with Session(batch3_db_factory()) as session,patch.object(query,'recover_projection',wraps=query.recover_projection) as calibration,\
          patch.object(query,'future_calendar',side_effect=AssertionError('no future calendar before calibration')),\
          patch.object(query,'precheck_next_bar',wraps=query.precheck_next_bar) as precheck:
-        result=json.loads(service.build(session,period='m60',debug=True,now=BATCH3_NOW))
+        result=json.loads(service.build(session,ts_code='000001.SH',period='m60',debug=True,now=BATCH3_NOW))
     assert result['status']==expected and result['dataStatus']=='READY'
     assert calibration.call_count==calls and precheck.call_count==1
     if case=='only_following':
@@ -689,7 +698,7 @@ def test_p4_bounded_nonready_source_does_not_calibrate(batch3_db_factory,tmp_pat
     if case=='delayed':_batch3_gold(tmp_path,60,[('2023-01-10T14:00:00',100.,0.,0.,0.)])
     service=query.IndexDetailXxmForecastQueryService(lake_root=tmp_path,cache=XxmCache())
     with Session(batch3_db_factory()) as session,patch.object(query,'recover_projection',side_effect=AssertionError('nonready calibration')):
-        result=json.loads(service.build(session,period='m60',now=BATCH3_NOW))
+        result=json.loads(service.build(session,ts_code='000001.SH',period='m60',now=BATCH3_NOW))
     assert result['status']==case.upper()
 
 
@@ -743,9 +752,9 @@ def test_p4_bounded_overlapping_signal_forecast_use_same_flight(batch3_db_factor
         return original_shared(key,loader,wait_budget)
     monkeypatch.setattr(source_query,'plan_minute_window',plan);monkeypatch.setattr(cache.loads,'load',shared)
     def signal():
-        with Session(engine) as session:return json.loads(signals.build(session,period='m60',start_date=None,end_date=end,limit=500,now=BATCH3_NOW))
+        with Session(engine) as session:return json.loads(signals.build(session,ts_code='000001.SH',period='m60',start_date=None,end_date=end,limit=500,now=BATCH3_NOW))
     def forecast():
-        with Session(engine) as session:return json.loads(forecasts.build(session,period='m60',
+        with Session(engine) as session:return json.loads(forecasts.build(session,ts_code='000001.SH',period='m60',
             as_of=end.isoformat()+'T15:00:00+08:00' if holiday else None,now=BATCH3_NOW))
     with patch.object(MajorIndexMinsLakeReader,'read_complete_history_pair',autospec=True,
                       side_effect=MajorIndexMinsLakeReader.read_complete_history_pair) as pair,ThreadPoolExecutor(max_workers=2) as pool:
@@ -765,9 +774,182 @@ def test_p4_bounded_early_and_future_forecast_refused_before_source(batch3_db_fa
     service=query.IndexDetailXxmForecastQueryService(lake_root=tmp_path,cache=XxmCache())
     with Session(batch3_db_factory()) as session,patch.object(service.source,'load_entry',side_effect=AssertionError('early load')):
         with pytest.raises(XxmQueryError) as error:
-            service.build(session,period='m60',as_of='1989-12-29T15:00:00+08:00',now=BATCH3_NOW)
+            service.build(session,ts_code='000001.SH',period='m60',as_of='1989-12-29T15:00:00+08:00',now=BATCH3_NOW)
         assert error.value.status==400
     with Session(batch3_db_factory()) as session,patch.object(service.source,'_load_series',side_effect=AssertionError('future source')):
         with pytest.raises(XxmQueryError) as error:
-            service.build(session,period='m60',as_of='2023-01-11T15:00:00+08:00',now=BATCH3_NOW)
+            service.build(session,ts_code='000001.SH',period='m60',as_of='2023-01-11T15:00:00+08:00',now=BATCH3_NOW)
         assert error.value.status==400 and not service.source.cache.entries
+
+
+EXPANSION_CODES=('000001.SH','399001.SZ','399006.SZ','000688.SH','000300.SH',
+                 '000905.SH','000852.SH','000510.SH','000016.SH')
+
+
+def _daily_literal_rows(engine, codes, values):
+    """Finite M1/zero fixtures on the six independently fixed trading dates."""
+    days=('2023-01-03','2023-01-04','2023-01-05','2023-01-06','2023-01-09','2023-01-10')
+    rows=[dict(code=code,day=day,close=close,dif=dif,dea=dif-hist/2,hist=hist)
+          for code in codes for day,(close,dif,hist) in zip(days,values,strict=True)]
+    with engine.begin() as connection:
+        connection.execute(text('DELETE FROM core_serving.index_factor_pro'))
+        if rows:
+            connection.execute(text('INSERT INTO core_serving.index_factor_pro '
+                'VALUES(:code,:day,:close,:dif,:dea,:hist)'),rows)
+
+
+@pytest.mark.parametrize('ts_code',EXPANSION_CODES)
+@pytest.mark.parametrize('period',['day','m30','m60','m90','m120'])
+def test_expansion_forecast_http_binds_all_approved_codes_and_periods(source_db,tmp_path,ts_code,period):
+    # Real isolated query/source/calculator/DTO, with deliberately empty Gold.
+    # The SSE day fixture is flat; no nonempty prediction is claimed here.
+    with api(source_db,lake_root=tmp_path) as client:
+        response=client.get(PATH,params=dict(tsCode=ts_code,period=period))
+    assert response.status_code==200,response.text
+    value=response.json()
+    assert (value['tsCode'],value['period'])==(ts_code,period)
+    assert value['status']==('NO_CANDIDATE' if ts_code=='000001.SH' and period=='day' else 'EMPTY')
+
+
+@pytest.mark.parametrize('ts_code',['000680.SH','899050.BJ','999999.SH'])
+@pytest.mark.parametrize('period',['day','m30'])
+def test_expansion_forecast_rejects_unapproved_codes_before_context_or_cache(source_db,tmp_path,monkeypatch,ts_code,period):
+    from src.biz.queries.wealth.market.index_detail_xxm import query_service as source_query
+    monkeypatch.setattr(source_query.MarketPageContextQuery,'resolve_context',
+                        lambda *a,**k:pytest.fail('unsupported code reached context'))
+    monkeypatch.setattr(source_query.XxmCache,'get',lambda *a:pytest.fail('unsupported cache read'))
+    with api(source_db,lake_root=tmp_path) as client:
+        response=client.get(PATH,params=dict(tsCode=ts_code,period=period))
+    assert response.status_code==404 and response.json()['code']=='XXMF_NOT_SUPPORTED'
+
+
+def test_expansion_forecast_configuration_error_is_not_source_or_unsupported(source_db,monkeypatch):
+    from src.biz.services.wealth.market.index_detail.index_detail_universe import (
+        IndexDetailUniverseService,IndexDetailQueryError,
+    )
+    def broken_config(self):
+        raise IndexDetailQueryError('configured payload unavailable')
+    with monkeypatch.context() as scoped:
+        scoped.setattr(IndexDetailUniverseService,'load_universe',broken_config)
+        scoped.setattr(query.IndexDetailXxmQueryService,'_load_series',
+                       lambda *a,**k:pytest.fail('invalid configuration read source'))
+        response=api(source_db).get(PATH,params=dict(tsCode='399001.SZ',period='day'))
+    assert response.status_code==500 and response.json()['code']=='XXMF_QUERY_FAILED'
+    normal=api(source_db).get(PATH,params=dict(tsCode='399001.SZ',period='day'))
+    assert normal.status_code==200 and normal.json()['tsCode']=='399001.SZ'
+
+
+def test_expansion_forecast_direct_build_requires_code_and_uses_normalized_identity(source_db):
+    _daily_literal_rows(source_db,('399001.SZ',),[(100,0,0)]*6)
+    service=query.IndexDetailXxmForecastQueryService(cache=XxmCache())
+    with pytest.raises(TypeError,match='ts_code'):
+        service.build(None,period='day')
+    with Session(source_db) as session:
+        value=read(service,session,ts_code=' 399001.sz ')
+    assert value['tsCode']=='399001.SZ' and value['status']=='NO_CANDIDATE'
+
+
+@pytest.mark.parametrize('ts_code',['399001.SZ','000688.SH'])
+@pytest.mark.parametrize('case,expected',[
+    ('empty','EMPTY'),('delayed','DELAYED'),('zero','NO_CANDIDATE'),('candidate','PRECISION_PENDING'),
+])
+def test_expansion_forecast_nonready_and_short_source_states_keep_code(source_db,monkeypatch,ts_code,case,expected):
+    values=M1 if case=='candidate' else [(100,0,0)]*6
+    _daily_literal_rows(source_db,(ts_code,),values)
+    with source_db.begin() as connection:
+        if case=='empty':connection.execute(text('DELETE FROM core_serving.index_factor_pro'))
+        elif case=='delayed':connection.execute(text("DELETE FROM core_serving.index_factor_pro WHERE trade_date='2023-01-10'"))
+    service=query.IndexDetailXxmForecastQueryService(cache=XxmCache())
+    with Session(source_db) as session,patch.object(query,'recover_projection',wraps=query.recover_projection) as calibration:
+        value=read(service,session,ts_code=ts_code,debug=True)
+    assert value['tsCode']==ts_code and value['period']=='day' and value['status']==expected
+    assert calibration.call_count==(1 if case=='candidate' else 0)
+    assert value['targetEndpoint'] is None and value['debug']['conditions']==[]
+
+
+def test_expansion_forecast_equal_inputs_have_separate_code_caches_and_ids(source_db,monkeypatch):
+    codes=('399001.SZ','000688.SH')
+    _daily_literal_rows(source_db,codes,M1)
+    # M1's published literal EMA state isolates calibration only, as in m1.
+    monkeypatch.setattr(query,'recover_projection',lambda bars,period,check:ProjectionState(13,27,0))
+    service=query.IndexDetailXxmForecastQueryService(cache=XxmCache())
+    with Session(source_db) as session,patch.object(query,'forecast',wraps=query.forecast) as solve:
+        values=[read(service,session,ts_code=code,debug=True) for code in codes]
+        assert solve.call_count==2
+        for code,value in zip(codes,values,strict=True):
+            assert read(service,session,ts_code=code,debug=True)==value
+        assert solve.call_count==2
+    assert all(value['status']=='READY' and value['debug']['conditions'] for value in values)
+    assert values[0]['debug']['sourceInputId']==values[1]['debug']['sourceInputId']
+    assert values[0]['forecastId']!=values[1]['forecastId']
+    assert {key[-1] for key in service.source.cache.entries if key[0]=='forecast'}==set(codes)
+
+
+@pytest.mark.parametrize('field,wrong',[
+    ('tsCode','000688.SH'),('period','m30'),('forecastVersion','wrong'),
+    ('forecastSpecHash','f'*64),('detectorSpecHash','f'*64),
+])
+@pytest.mark.parametrize('debug',[False,True])
+def test_expansion_forecast_cache_binding_rejected_before_full_validation(source_db,monkeypatch,field,wrong,debug):
+    codes=('399001.SZ','000688.SH')
+    _daily_literal_rows(source_db,codes,M1)
+    monkeypatch.setattr(query,'recover_projection',lambda bars,period,check:ProjectionState(13,27,0))
+    service=query.IndexDetailXxmForecastQueryService(cache=XxmCache())
+    cache=service.source.cache
+    with Session(source_db) as session:
+        for code in codes:read(service,session,ts_code=code)
+        key=next(key for key in cache.entries if key[0]=='forecast' and key[-1]==codes[0])
+        if field=='tsCode':
+            other=next(value[0] for k,value in cache.entries.items() if k[0]=='forecast' and k[-1]==codes[1])
+            cache.entries[key]=(other,cache.entries[key][1])
+        else:
+            setattr(cache.entries[key][0],field,wrong)
+        before=dict(cache.entries)
+        monkeypatch.setattr(query,'forecast',lambda *a,**k:pytest.fail('wrong cache was solved again'))
+        with patch.object(InternalForecastResponseDto,'model_validate',side_effect=AssertionError('cheap binding must run first')):
+            with pytest.raises(XxmQueryError) as error:read(service,session,ts_code=codes[0],debug=debug)
+    assert error.value.code=='XXM_SOURCE_CONTRACT_INVALID'
+    assert set(cache.entries)==set(before)
+    assert all(cache.entries[k][0] is before[k][0] for k in before)
+
+
+@pytest.mark.parametrize('ts_code',['399001.SZ','000510.SH'])
+def test_expansion_m30_real_calibration_and_nonempty_forecast(batch3_db_factory,tmp_path,ts_code):
+    from decimal import Decimal,localcontext
+    # Same independently justified two-decline closes as the existing real
+    # calibration test. The producer EMA below uses Decimal, not projection.
+    closes=[100.]*250+[100,90,80,70,60,50,55,65,75,85,95,105]+list(range(100,49,-2))+[49,48]
+    assert len(closes)==290
+    slots=('10:00','10:30','11:00','11:30','13:30','14:00','14:30','15:00')
+    # Both codes are in formal scope here, including A500 after 2024-10-22.
+    begin=date(2025,10,9)
+    stamps=[];day=begin
+    while len(stamps)<len(closes):
+        if day.weekday()<5:
+            stamps.extend(day.isoformat()+'T'+slot+':00' for slot in slots)
+        day+=timedelta(days=1)
+    stamps=stamps[:len(closes)]
+    rows=[]
+    with localcontext():
+        e12=e26=Decimal(100);dea=Decimal(0)
+        for stamp,close in zip(stamps,closes,strict=True):
+            price=Decimal(str(close))
+            e12=(e12*11+price*2)/13;e26=(e26*25+price*2)/27
+            dif=e12-e26;dea=(dea*4+dif)/5
+            rows.append((stamp,float(price),float(dif),float(dea),float(2*(dif-dea))))
+    assert rows[0][2:]==(0.,0.,0.) and rows[-1][1]==48
+    assert stamps[-1].endswith('T10:30:00')
+    _batch3_gold(tmp_path,30,rows,ts_code=ts_code)
+    through=datetime.fromisoformat(stamps[-1]).replace(tzinfo=CN_ZONE)
+    engine=batch3_db_factory(begin=begin,end=through.date())
+    service=query.IndexDetailXxmForecastQueryService(lake_root=tmp_path,cache=XxmCache())
+    with Session(engine) as session,patch.object(query,'recover_projection',wraps=query.recover_projection) as calibration:
+        value=json.loads(service.build(session,ts_code=ts_code,period='m30',debug=True,
+            as_of=through.isoformat(),now=through.replace(hour=21,minute=0,second=0)))
+    assert calibration.call_count==1
+    assert value['tsCode']==ts_code and value['period']=='m30'
+    assert value['status']=='READY' and value['dataStatus']=='READY'
+    assert value['computedThrough']==through.isoformat()
+    assert value['targetEndpoint']==through.date().isoformat()+'T11:00:00+08:00'
+    assert value['debug']['precisionPolicy']=='full_float'
+    assert value['debug']['conditions'] and value['debug']['selectedReference']=='NEAR'

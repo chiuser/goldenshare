@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 from typing import Annotated, Literal, Union
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StrictInt, field_validator, model_validator
-from .index_detail_xxm import XxmReferenceDto, XxmWaveDto, InternalXxmWaveDto
+from .index_detail_xxm import XxmReferenceDto, XxmWaveDto, InternalXxmWaveDto, XxmTsCode
 from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.forecast_spec import FORECAST_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
@@ -171,8 +171,8 @@ class ForecastDisplayDto(Dto):
 
 
 class ForecastResponseDto(Dto):
-    tsCode: Literal["000001.SH"]
-    period: Literal["day", "m60", "m90", "m120"]
+    tsCode: XxmTsCode
+    period: Literal["day", "m30", "m60", "m90", "m120"]
     forecastVersion: str
     forecastSpecHash: str
     detectorSpecHash: str

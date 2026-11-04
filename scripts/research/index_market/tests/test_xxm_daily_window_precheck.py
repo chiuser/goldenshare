@@ -83,6 +83,31 @@ def test_real_route_uses_literal_zero_window_and_returns_static_no_candidate():
         generator.close()
 
 
+def test_isolated_clock_forwards_explicit_code_and_requested_window(monkeypatch):
+    from contextlib import contextmanager
+    from src.biz.queries.wealth.market.index_detail_xxm import query_service as q
+
+    # This checks the observation wrapper, not recognition or source admission.
+    # The isolated tool freezes time; it must forward every product argument.
+    calls=[];marker=object()
+    @contextmanager
+    def load(self,session,*,ts_code,period,now=None,window_rows=None,requested_end=None):
+        calls.append((session,ts_code,period,now,window_rows,requested_end))
+        yield marker
+    monkeypatch.setattr(q.IndexDetailXxmQueryService,'load_entry',load)
+    frozen=datetime.fromisoformat('2020-01-10T21:00:00+08:00')
+    bars,calendar=sample();session_marker=object()
+    with isolated_client(bars,calendar,frozen):
+        with q.IndexDetailXxmQueryService().load_entry(
+            session_marker,ts_code='000001.SH',period='day',
+            now=datetime.fromisoformat('2020-01-09T21:00:00+08:00'),
+            window_rows=37,requested_end=date(2020,1,9),
+        ) as value:
+            assert value is marker
+    assert calls==[(session_marker,'000001.SH','day',frozen,37,date(2020,1,9))]
+    assert q.IndexDetailXxmQueryService.load_entry is load
+
+
 def test_missing_future_calendar_is_not_bypassed_for_isolation():
     bars,calendar=sample(future=False)
     with isolated_client(bars,calendar,datetime.fromisoformat('2020-01-10T21:00:00+08:00')) as (client,_):

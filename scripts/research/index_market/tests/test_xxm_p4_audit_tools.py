@@ -146,6 +146,35 @@ def test_original_cache_methods_once_and_no_context_passthrough():
     assert q._CACHE is original
 
 
+def test_observer_forwards_explicit_code_and_window_once(monkeypatch):
+    from src.biz.queries.wealth.market.index_detail_xxm import query_service as q
+
+    # Only the observer is under test. It records the real call, never chooses
+    # an index or silently discards a product window argument.
+    calls=[];marker=object();session=object();now=object();remaining=lambda:1.
+    result=(marker,object(),{},remaining)
+    @contextmanager
+    def load(self,session,*,ts_code,period,now=None,window_rows=None,requested_end=None):
+        calls.append((session,ts_code,period,now,window_rows,requested_end))
+        yield result
+    monkeypatch.setattr(q.IndexDetailXxmQueryService,'load_entry',load)
+    g=group('forecast_series');c=audit.AuditCollector(g)
+    identity=c.start(scope(g,kind='forecast'))
+    with audit._observe(c):
+        token=audit._REQUEST_ID.set(identity)
+        try:
+            with q.IndexDetailXxmQueryService().load_entry(
+                session,ts_code='000001.SH',period='day',now=now,
+                window_rows=37,requested_end=date(2023,1,3),
+            ) as value:
+                assert value is result and c._entries[identity] is marker
+            assert not c._entries
+        finally:audit._REQUEST_ID.reset(token)
+        c.active=0
+    assert calls==[(session,'000001.SH','day',now,37,date(2023,1,3))]
+    assert q.IndexDetailXxmQueryService.load_entry is load
+
+
 @pytest.mark.parametrize('fail',[False,True])
 def test_shared_actual_result_or_exception_keeps_one_load_and_cache_lookup(fail):
     from src.biz.queries.wealth.market.index_detail_xxm import query_service as q

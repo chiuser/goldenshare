@@ -20,12 +20,10 @@ def parse_parameters(request: Request, *, minute: bool) -> dict:
     code = (request.query_params.get("tsCode") or "").strip().upper()
     if not re.fullmatch(r"[0-9]{6}\.(?:SH|SZ|BJ)", code):
         raise XxmQueryError("XXM_REQUEST_INVALID", "tsCode 必须是六位代码及市场后缀。", 400)
-    if code != "000001.SH":
-        raise XxmQueryError("XXM_NOT_SUPPORTED", "顶底识别 仅支持上证指数。", 404)
     if minute:
         raw = request.query_params.get("freq", "")
-        if raw not in ("60", "90", "120"):
-            raise XxmQueryError("XXM_REQUEST_INVALID", "顶底识别分钟周期只支持 60／90／120。", 400)
+        if raw not in ("30", "60", "90", "120"):
+            raise XxmQueryError("XXM_REQUEST_INVALID", "顶底识别分钟周期只支持 30／60／90／120。", 400)
         period = f"m{raw}"
     else:
         period = request.query_params.get("period", "day")
@@ -46,7 +44,7 @@ def parse_parameters(request: Request, *, minute: bool) -> dict:
     raw_limit = request.query_params.get("limit", str(default))
     if not re.fullmatch(r"[0-9]{1,4}", raw_limit) or not 1 <= int(raw_limit) <= BUDGET.max_response_rows:
         raise XxmQueryError("XXM_REQUEST_INVALID", "limit 必须在 1～2000 之间。", 400)
-    return {"period": period, "start_date": dates["startDate"], "end_date": dates["endDate"], "limit": int(raw_limit), "debug": parse_debug(request)}
+    return {"ts_code": code, "period": period, "start_date": dates["startDate"], "end_date": dates["endDate"], "limit": int(raw_limit), "debug": parse_debug(request)}
 
 
 def parse_debug(request):

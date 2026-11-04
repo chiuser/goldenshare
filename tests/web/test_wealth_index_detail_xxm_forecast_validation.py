@@ -73,9 +73,10 @@ def test_f02_bad_native_wave_rejected_before_both_public_modes(full_payload,fiel
     with pytest.raises(ValueError):InternalForecastResponseDto.model_validate(raw)
 
 
-@pytest.mark.parametrize('period',['day','m60','m90','m120'])
+@pytest.mark.parametrize('period',['day','m30','m60','m90','m120'])
 @pytest.mark.parametrize('sign',[1,-1])
-def test_f02_single_colored_bar_and_wire_native_roundtrip_remain_valid(full_payload,period,sign):
+@pytest.mark.parametrize('ts_code',['000001.SH','399001.SZ'])
+def test_f02_single_colored_bar_and_wire_native_roundtrip_remain_valid(full_payload,period,sign,ts_code):
     raw=following_payload(full_payload)
     if sign==-1:
         old=raw['structureFollowConditions'][0]
@@ -83,6 +84,7 @@ def test_f02_single_colored_bar_and_wire_native_roundtrip_remain_valid(full_payl
         old['originWave'].update(sign=-1,price=80,dif=-100)
         old['priceRanges']=[dict(lower=0,upper=80,lowerInclusive=False,upperInclusive=False,displayLower=1,displayUpper=79)]
         old['predicates'][0].update(op='lt',right=dict(op='affine',pCoefficient=0,cCoefficient=0,constant=80))
+    raw['tsCode']=ts_code
     raw['period']=period
     if period!='day':
         def stamps(v):

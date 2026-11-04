@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import math
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator, model_validator
 
 from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+
+
+XxmTsCode = Annotated[str, Field(strict=True, min_length=9, max_length=9,
+                                pattern=r"^[0-9]{6}\.(?:SH|SZ|BJ)$")]
 
 
 def _validate_wave_facts(*, sign, start, end, count, price, dif, price_at, dif_at):
@@ -199,8 +203,8 @@ class InternalXxmDataStatusDto(InternalXxmDto):
 
 
 class InternalXxmResponseDto(InternalXxmDto):
-    tsCode: Literal["000001.SH"]
-    period: Literal["day", "m60", "m90", "m120"]
+    tsCode: XxmTsCode
+    period: Literal["day", "m30", "m60", "m90", "m120"]
     algorithmVersion: str
     specHash: str
     source: InternalXxmSourceDto
@@ -445,8 +449,8 @@ class XxmDataStatusDto(InternalXxmDataStatusDto):
 
 
 class XxmResponseDto(XxmDto):
-    tsCode: Literal["000001.SH"]
-    period: Literal["day", "m60", "m90", "m120"]
+    tsCode: XxmTsCode
+    period: Literal["day", "m30", "m60", "m90", "m120"]
     algorithmVersion: str
     specHash: str
     source: XxmSourceDto

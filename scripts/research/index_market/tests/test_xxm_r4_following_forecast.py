@@ -22,7 +22,7 @@ def interval_has(r,C):
             and (r['upper'] is None or C<r['upper'] or C==r['upper'] and r['upperInclusive']))
 
 
-@pytest.mark.parametrize('period',['day','m60','m90','m120'])
+@pytest.mark.parametrize('period',['day','m30','m60','m90','m120'])
 @pytest.mark.parametrize('sign',[1,-1])
 def test_pf21_22_23_literal_old_structure_color_and_strict_price_boundaries(period,sign):
     # Hand equations: D=(28C+26306)/351, H=0 at 8443/28 for top.
@@ -42,7 +42,7 @@ def test_pf21_22_23_literal_old_structure_color_and_strict_price_boundaries(peri
         assert evaluate_structure_follow_at_price(c,projection,273,target(c),record['id'],lambda:None) is True
 
 
-@pytest.mark.parametrize('period',['day','m60','m90','m120'])
+@pytest.mark.parametrize('period',['day','m30','m60','m90','m120'])
 def test_pf24_old_verifier_never_selects_far_or_runs_a_full_step(period):
     c,_=run(TN,period);p=precheck_next_bar(c,lambda:None);projection=ProjectionState(196,100,95)
     original=c.snapshot()
@@ -71,7 +71,7 @@ def test_pf24_old_verifier_never_selects_far_or_runs_a_full_step(period):
     assert any(interval_has(r,400) for r in result.structure_follow_conditions[0].price_ranges)
 
 
-@pytest.mark.parametrize('period',['day','m60','m90','m120'])
+@pytest.mark.parametrize('period',['day','m30','m60','m90','m120'])
 @pytest.mark.parametrize('sign',[1,-1])
 def test_pf26_static_ordinary_no_candidate_does_not_suppress_old_conditions(sign,period):
     rows=TS+[(90,-1,-2)]
@@ -116,7 +116,7 @@ def test_pf27_28_target_identity_cancellation_and_real_progress_isolation():
     assert c.snapshot()==original
 
 
-@pytest.mark.parametrize('period',['day','m60','m90','m120'])
+@pytest.mark.parametrize('period',['day','m30','m60','m90','m120'])
 def test_pf23_zero_checks_price_without_starting_or_ending_a_color_segment(period):
     # C351: EMA12=11+54=65, EMA26=34+26=60, D=5,
     # DEA=.8*5+.2*5=5 and H=0, using exact original operations.

@@ -89,8 +89,9 @@ def isolated_client(bars,calendar,now):
         with Session(engine) as value:
             yield value
     original_load,original_cache=q.IndexDetailXxmQueryService.load_entry,q._CACHE
-    def load(self,session,*,period,now=None):
-        return original_load(self,session,period=period,now=frozen_now)
+    def load(self,session,*,ts_code,period,now=None,window_rows=None,requested_end=None):
+        return original_load(self,session,ts_code=ts_code,period=period,now=frozen_now,
+                             window_rows=window_rows,requested_end=requested_end)
     frozen_now=now
     q.IndexDetailXxmQueryService.load_entry=load
     q._CACHE=q.XxmCache()

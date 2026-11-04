@@ -125,7 +125,7 @@ def make_display(result, *, prepared, period, through, mode, check):
     if type(result) is not ForecastKernelResult or type(prepared) is not ForecastPrecheck:
         raise ValueError("Display requires the next-bar kernel result and its precheck")
     snapshot = prepared.snapshot
-    if (period not in ("day", "m60", "m90", "m120") or mode not in ("LATEST", "REPLAY")
+    if (period not in ("day", "m30", "m60", "m90", "m120") or mode not in ("LATEST", "REPLAY")
             or type(snapshot) is not dict or snapshot.get("period") != period):
         raise ValueError("Forecast display context differs from its precheck")
     previous = snapshot.get("previous")

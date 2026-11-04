@@ -1,7 +1,12 @@
-"""P5-16: literal current integer display ranges; no legacy report or forecast execution."""
+"""Literal integer display ranges and the approved m30 M3 next-bar example."""
 from copy import deepcopy
 import pytest
-from src.biz.services.wealth.market.index_detail_xxm.forecast_text import _range_text
+from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
+from src.biz.services.wealth.market.index_detail_xxm.forecast import forecast, precheck_next_bar
+from src.biz.services.wealth.market.index_detail_xxm.forecast_math import as_interval
+from src.biz.services.wealth.market.index_detail_xxm.forecast_text import _range_text, make_display
+from src.biz.services.wealth.market.index_detail_xxm.projection import ProjectionState
+from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
 
 
 def value(lower=10, upper=20, lower_inclusive=True, upper_inclusive=True, lo=10, hi=20):
@@ -47,3 +52,32 @@ def test_does_not_modify_exact_range_or_integer_fields():
     original = deepcopy(row)
     assert _range_text(row) == "收盘不低于11点且不高于20点"
     assert row == original
+
+
+def test_m30_actual_candidate_reaches_comparison_and_display_without_mutating_prefix():
+    # LLD's independent M3 values: the second red bar at C=100 forms TOP DULL.
+    # All four timestamps are literal completed endpoints from the m30 contract.
+    calc = XxmCalculator(ts_code="399001.SZ", period="m30", source_identity="m30-m3-literal")
+    for stamp, close, dif, hist in (
+        ("2023-01-03T10:00:00+08:00", 70, 10, 2),
+        ("2023-01-03T10:30:00+08:00", 90, 0, -2),
+        ("2023-01-03T11:00:00+08:00", 100, 2, 8),
+    ):
+        calc.step(XxmBar(stamp, close, dif, dif-hist/2, hist))
+    before = calc.snapshot()
+    prepared = precheck_next_bar(calc, lambda: None)
+    result = forecast(calc, ProjectionState(102, 100, -2), "2023-01-03T11:30:00+08:00",
+                      lambda: None, prepared=prepared)
+    assert result.status == "READY" and result.bars_ahead == 1
+    assert result.selected_reference == "NEAR" and not result.far_evaluated
+    assert result.conditions and {item.outcome for item in result.conditions} == {"DULL_FORMED"}
+    assert {item.outcome for item in result.conditions
+            if any(as_interval(row).contains(100.) for row in item.price_ranges)} == {"DULL_FORMED"}
+    shown = make_display(result, prepared=prepared, period="m30", through="2023-01-03T11:00:00+08:00",
+                         mode="LATEST", check=lambda: None)
+    assert shown["statusLabel"] == "可形成顶钝化"
+    assert shown["targetText"] == "2023-01-03 11:30 收盘 · 下一根条件"
+    assert shown["asOfText"] == "截至 2023-01-03 11:00 收盘"
+    assert "本次只计算近参照条件。" in shown["conditionsText"]
+    assert "形成顶钝化。" in shown["conditionsText"]
+    assert calc.snapshot() == before

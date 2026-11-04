@@ -41,7 +41,7 @@ def test_daily_time_is_not_coerced_or_repaired(value):
         XxmBar(value, 100, 0, 0, 0).validate("day")
 
 
-@pytest.mark.parametrize("period", ["m60", "m90", "m120"])
+@pytest.mark.parametrize("period", ["m30", "m60", "m90", "m120"])
 @pytest.mark.parametrize("stamp", [None, "", "bad", "2025-03-03T15:00:00", "2025-03-03T15:00:00+00:00"])
 def test_minute_time_requires_existing_plus_eight_semantics(period, stamp):
     with pytest.raises(ValueError):
@@ -55,6 +55,7 @@ def test_close_must_remain_positive(close):
 
 
 @pytest.mark.parametrize("period,stamp", [("day", "2025-03-03"),
+    ("m30", "2025-03-03T10:00:00+08:00"),
     ("m60", "2025-03-03T10:30:00+08:00"), ("m90", "2025-03-03T11:00:00+08:00"),
     ("m120", "2025-03-03T11:30:00+08:00")])
 def test_ordinary_int_float_and_zero_indicators_remain_valid(period, stamp):

@@ -36,8 +36,8 @@ def source(monkeypatch, values):
         assert session is None
         return tuple(date.fromisoformat(stamp) for stamp in DATES if start <= date.fromisoformat(stamp) <= end)
 
-    def read(session, *, completed, check):
-        assert session is None
+    def read(session, *, ts_code, completed, check):
+        assert session is None and ts_code == "000001.SH"
         reads.append(completed)
         check()
         return tuple(row for row in rows if row.time <= completed)
@@ -50,14 +50,14 @@ def source(monkeypatch, values):
         day = date.fromisoformat(DATES[count - 1])
         return service._load_series(None, key=key, period="day",
                                     now=datetime(day.year, day.month, day.day, 16, tzinfo=CN_ZONE),
-                                    business_date=day, remaining=lambda: None)[0]
+                                    business_date=day, remaining=lambda: None, ts_code="000001.SH")[0]
 
     return service, key, rows, reads, load
 
 
 def response(entry, count, *, start=None, limit=1000):
     return IndexDetailXxmQueryService._response(entry, period="day", expected=DATES[count - 1],
-                                               start_date=start, limit=limit, check=lambda: None)
+                                               start_date=start, limit=limit, check=lambda: None, ts_code="000001.SH")
 
 
 @pytest.mark.parametrize("values,direction,extreme", [(TOP, "TOP", 103), (BOTTOM, "BOTTOM", 97)])
@@ -317,7 +317,7 @@ def test_rc72_cache_publication_checks_original_deadline_after_size_and_lock(mon
     with pytest.raises(query_service.XxmQueryError, match="original request expired"):
         service._load_series(None, key=key, period="day",
                              now=datetime(day.year, day.month, day.day, 16, tzinfo=CN_ZONE),
-                             business_date=day, remaining=remaining)
+                             business_date=day, remaining=remaining, ts_code="000001.SH")
     assert clock["size_finished"] and list(service.cache.entries.items()) == previous_entries
     assert service.cache.entries[key][0] is old and old.calculator.snapshot() == old_snapshot
 

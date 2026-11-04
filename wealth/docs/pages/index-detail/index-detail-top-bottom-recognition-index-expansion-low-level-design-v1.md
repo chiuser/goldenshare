@@ -1,6 +1,6 @@
 # 财势乾坤r4指数扩展LLD v1
 
-日期：2026-11-04（Asia/Shanghai）。状态：**编码设计已编写，供review；本轮未编码、未执行真实来源或性能验收。**
+日期：2026-11-05（Asia/Shanghai）。状态：**第1步来源根数统计、第2步Python后端实现及限定回归、独立审计已完成；第3步前端消费及第4步真实来源/性能/页面验收尚未执行。第2步交付与测试记录限制见§13.3，新增页面范围尚未开放。**
 
 依据：[独立扩展方案](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-index-expansion-plan-v1.md)。本LLD只细化本次扩大指数及新增30分钟的变化；原[产品文档](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-product-v1.md)、[技术方案](index-detail-top-bottom-recognition-technical-design-v1.md)、[原LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)继续作为已验收r4规则及原四周期事实依据，不把原P5成绩当本次扩展验收。
 
@@ -23,7 +23,7 @@
 | 生产关闭、不改鉴权、不部署 | §9及原App装配 | T07、T31 |
 | 保留预算，不开启暂缓优化 | §9 | T33、§11性能 |
 
-初版方案/LLD及两索引已随99d876a32提交，上轮文档收敛已随f2c2d0f72提交。本轮按管理员要求仅修正为来源根数统计，索引位置和状态保持。不改业务代码、测试、配置、旧P5文档或其他未提交内容；不安装、不建分支、不执行统计或再次提交。后续按§2先统计数量，再进入编码。
+初版方案/LLD及两索引已随99d876a32提交，文档收敛及根数统计口径已分别随f2c2d0f72、5339f0898提交。随后按管理员授权完成第1步来源统计及第2步Python实现、限定回归，结果见§13.1/13.3。当前停在第3步之前；配置、旧P5文档及其他工作区修改保持，不安装、不建分支、不部署。
 
 ## 2. 开发步骤、依赖、失败和交接
 
@@ -31,11 +31,11 @@
 |---|---|---|---|
 | 0 文档及开工审计 | 本方案/LLD、消费者和合同检查 | 当前源码及管理员范围明确 | 方案/LLD一致；无未决业务口径；文档review完成 |
 | 1 来源根数统计 | §10日线1条、分钟两类各1条聚合SELECT，禁止明细审计 | 第0步完成，当前Web目标/权限及既有环境确认 | 各指数/周期实际、预期根数及差额有结果；数量吻合，不扩大为数据质量已验收 |
-| 2 核心身份/周期及来源查询 | §3—7类型、DTO、来源、缓存、API及工具签名成套迁移 | 第1步数量吻合、当前工作区无冲突 | 后端正反向及原上证金样本通过；前端新范围尚不开放 |
-| 3 前端消费 | §8页面身份、五周期识别/五行预判/debug及研究边界 | 第2步完整，公开字段/异常已冻结 | 类型、限定交互及消费测试通过；不是只修改名单 |
+| 2 核心身份/周期及来源查询 | §3—7类型、DTO、来源、缓存、API及Python工具/直接调用测试成套迁移；不改TS客户端或mjs调用 | 第1步数量吻合、当前工作区无冲突 | 后端正反向及原上证金样本通过；原TS客户端与mjs仍相互匹配，前端新范围尚不开放 |
+| 3 前端消费 | §8页面身份、五周期识别/五行预判/debug、研究边界；TS客户端、mjs及其调用/测试同批迁移 | 第2步完整，公开字段/异常已冻结 | 类型、限定交互及消费测试通过；mjs调用新签名正确，不是只修改名单 |
 | 4 整体回归和真实验收 | §11自动测试、45组合及代表页面/性能 | 第2—3步独立审计符合LLD | §12门禁对账、管理员review；不自动部署 |
 
-第2步内部先扩核心类型、DTO及30分钟端点，再改来源和查询/预测传递，最后API和直接调用者同时迁移；不得暂时给产品方法保留上证默认参数维持旧签名。第3步最后才启用页面新范围。中间提交若需进行，必须明确尚未可验收，不发布中间混配版本。
+第2步内部先扩核心类型、DTO及30分钟端点，再改来源和查询/预测传递，最后API、Python工具和全部Python调用者同时迁移；不得暂时给产品方法保留上证默认参数维持旧签名。第2步保持TS客户端与mjs现有参数形状：HTTP仍接受原上证四周期请求，响应字段集合/版本不变，原前端可以继续使用。第3步再将TS客户端、Hook/decoder/fixture、mjs及其集成测试同时迁移，最后启用页面新范围。不能在第2步先让mjs给旧client传code首参，也不能为迁mjs提前扩大第2步到前端改造。中间提交若需进行，必须明确尚未可验收，不发布中间混配版本。
 
 失败先停止该单元，不自动重试、切源、补数据、放宽阈值或清缓存掩盖。代码/规则与本文冲突时先汇报并修正文档，不临时加兼容路径。源码保护通过人工规则/差异审计，不读源码SHA作运行校验。无业务写入、迁移或磁盘快照；真实输入或实现改变导致证据不再适用时，只补受影响单元。
 
@@ -43,9 +43,9 @@
 
 本次只扩展r4标的身份及周期，不重构既有普通分钟Hook、缓存或请求状态模型，不为“上游两个接口同时违反合同”等未观察到的问题增加必改项或成组防御测试。执行临时调用复用现有观察方法、内部工作截止及标准外层超时，不另建分阶段信号管理、进程通信或通用监督框架。
 
-外层临时调用只启动一个自有Python核验进程，SQL、DuckDB或隔离API在该进程中执行，沿标准subprocess超时收尾；不嵌套Node、浏览器或额外服务子进程。真实页面验收在§11.4另行进行，不纳入这个临时单元。
+来源统计和第4步隔离API的外层临时调用只启动一个自有Python核验进程，SQL、DuckDB或隔离API在该进程中执行；不嵌套Node、浏览器或额外服务子进程。已完成来源统计的时限及实耗按§10/13保留，第4步须按§11.3先核定完整时限再使用标准subprocess超时，不借用旧工具的进程监督逻辑。自动测试仍可运行现有测试中原本就有的Node客户端夹具，不将这类夹具误当新增来源核验子进程。真实页面验收在§11.4另行进行，不纳入隔离API单元。
 
-所有测试/查询/临时调用在`/private/tmp`本任务目录，禁止将过程结果写入工程或reports。正式结论写回本方案/LLD。单个自动测试执行单元连退出≤60秒；来源50/15秒和正式请求预算见§9—11。失败退出、记录及最后核验均计入各自预算。
+所有测试/查询/临时调用的过程文件在`/private/tmp`本任务目录，禁止写入工程或reports。正式结论写回本方案/LLD。自动测试的单元、成本组成和失败退出按§11.2，不设置缺乏依据的统一总时限；已完成来源单元的历史时限不自动用于新单元。产品现有限额及第4步完整执行前条件见§9/11.3，中断后重做、退出、记录和最后核验的成本均须列明。
 
 ## 3. 指数准入、API和参数传递
 
@@ -178,7 +178,7 @@ forecast = (bind_id, lake_identity, period, detector_hash, forecast_hash,
 
 forecast缓存仍由原`('forecast', *key)`命名空间保存。一个共用LRU最多16项/64MiB，**不是每码16项或分别给series/forecast各扩一份**。保留原共享加载、修订重算、历史prefix及淘汰，不预计算九码，不引入新的TTL/mtime校验或缓存层。
 
-仅在边界做廉价字段绑定检查：load_entry取得共享entry后、yield前检查calculator的code/period/Spec；`_response`接受显式规范code，装配前检查entry一致（也覆盖内部直接装配调用）；forecast缓存命中检查code/period/版本/hash后继续原完整DTO校验一次。不得修改另一指数对象的tsCode后返回，不为身份检查重放算法或重复构造整份结果。
+仅在缓存读取和装配边界做廉价字段绑定检查：`_load_series`的日线/分钟`cache.get`取得非空旧entry后，必须立即核calculator的code/period/Spec，再复用输入或判断修订；不能让源值变化后的重算覆盖错绑entry、掩盖错绑。load_entry取得共享entry后、yield前再核同一身份；`_response`接受显式规范code，装配前检查entry一致（也覆盖内部直接装配调用）。这些entry检查共用模块内的`_check_entry_identity`方法，不重读配置、不重放算法或重复构造整份结果。forecast缓存命中检查code/period/版本/hash后继续原完整DTO校验一次。不得修改另一指数对象的tsCode后返回。
 
 不匹配按来源合同错误失败，不覆盖原有效缓存。**两类缓存的原发布位置不同，不能合并或一起后移。**series在_load_series完成真实前缀、完整entry/内部响应验证及remaining后按现位置发布；后续普通投影、编码或forecast失败，可保留这份已验证的真实series，不回滚它。forecast候选才遵守：完整预测/装配→投影→序列化与字节检查→load_entry退出最后remaining成功→forecast最后check及原子发布→返回。禁止提前发布forecast候选，亦禁止因本需求后移series发布；原取消异常传播不吞掉，不返回部分成功。
 
@@ -186,7 +186,7 @@ forecast缓存仍由原`('forecast', *key)`命名空间保存。一个共用LRU�
 
 `IndexDetailXxmForecastQueryService.build`必填ts_code，交load_entry。READY/EMPTY/DELAYED以及NO_CANDIDATE/PRECISION_PENDING装配均用当前规范code。`_assemble`不再固定上证；缓存和forecastId以实际code生成，普通/debug字段集合、可空、状态和文本来源保持，不增加产品字段。
 
-产品入口及直接消费者全部同次迁移：
+以下按被调用函数所在步骤成套迁移，不能因本节同时列出两种语言就把TS改造提前到第2步：
 
 | 位置 | 具体动作 |
 |---|---|
@@ -196,10 +196,10 @@ forecast缓存仍由原`('forecast', *key)`命名空间保存。一个共用LRU�
 | tests/web三组xxm API/validation测试 | read/build/load_entry包装及替身签名接收并断言code，不用任意kwargs吞掉错传 |
 | `test_xxm_snapshot_consumers / r4_internal_results / r4_following_query` | _load_series/_response及read_daily替身迁移；旧hashkey和period位置断言同步 |
 | `xxm/daily_window_precheck.py`固定时钟load包装 | 显式接受并转发ts_code、window_rows、requested_end；仍只做原上证研究 |
-| `xxm_page_request_audit.mjs` | 调新版forecast client时显式传000001.SH，不扩成九码性能工具 |
+| `xxm_page_request_audit.mjs` | **第3步**与TS forecast client同批改：调用新版时显式传000001.SH；第2步不改该调用，不扩成九码性能工具 |
 | `xxm_page_request_audit.py` | key[2]仍是period；核透明包装无漏参，不新增一轮观察计算 |
 
-保留工具只做签名适配及必要回归，不运行旧研究、r2双组重放或扩工具业务范围。新增必填签名的其他真实调用若在编码前发现，先记录位置及迁移要求，不能用默认上证掩盖。
+表中其余Python入口、包装、工具和直接测试均归第2步；mjs及其TS客户端集成测试归第3步。保留工具只做签名适配及必要回归，不运行旧研究、r2双组重放或扩工具业务范围。新增必填签名的其他真实调用若在编码前发现，先记录位置及所属步骤的迁移要求，不能用默认上证掩盖。
 
 ## 8. 前端编码设计
 
@@ -240,6 +240,8 @@ fetchForecast(tsCode: string, period: ForecastPeriod,
 
 sendForecast使用传入code构URL，交`adaptForecast`的options新增必填tsCode；校验raw.tsCode===options.tsCode，保留原period/asOf/mode/版本/hash/状态/下一根端点/barsAhead合同。所有直接调用者一次迁移，不留旧签名重载或上证默认。debug外层身份核过后，decoder沿该response身份，不另读名单。
 
+本段全部归第3步。`scripts/research/index_market/xxm_page_request_audit.mjs::runTab`中的forecast调用随上述新签名增加`000001.SH`首参；同时核`test_xxm_p4_audit_tools.py::_node_fixture_prelude`中动态导入TS fixture及字符串中的调用。对应客户端集成测试按§11.2在本步迁移和验证，第2步保持这条旧TS→旧mjs调用链，不增加兼容重载。
+
 `useXxmForecast`移除仅上证限制，保留页面enabled+DEV+debug decoder；每次fetch显式传code。identity原有code、历史日期、minutes、版本/hash及debug不删；initial(minutes)生成五行，分钟能力关闭时只请求day。仍在技术面预判激活及页面可见时排队，按原refreshAfterMs刷新，单行重试、abort/generation/owner隔离保持。历史分钟asOf仍为历史日15:00+08:00，目标下一根由后端返回，前端不加30分钟。
 
 ### 8.4 调度和迟到结果
@@ -272,7 +274,7 @@ sendForecast使用传入code构URL，交`adaptForecast`的options新增必填tsC
 
 ## 10. 编码前的来源根数统计
 
-本节是唯一来源核验设计，**只做统计计算，禁止读取每根行情来审计**。本轮未执行。范围不变：九码，日线截至2026-11-03最近10个开市日所在窗口；分钟2026-10-30、11-02、11-03及30/60/90/120分钟，不追到最新、不扩大到全历史。
+本节是唯一来源核验设计，**只做统计计算，禁止读取每根行情来审计**。2026-11-04已按本节完成，结果见§13。范围不变：九码，日线截至2026-11-03最近10个开市日所在窗口；分钟2026-10-30、11-02、11-03及30/60/90/120分钟，不追到最新、不扩大到全历史。
 
 统计在数据库/DuckDB内完成，只向应用层返回按指数、周期分组的实际根数、预期根数和差额。只用COUNT及统计窗口所需的日历聚合；不得读close、DIF、DEA、柱值、trade_time、参数版本或首末行情样本。不做逐值/逐键/逐日对账、网格、唯一性、字段质量检查；即使只返回摘要也不得在SQL内部继续这些逐根审计。
 
@@ -370,9 +372,9 @@ ORDER BY ts_code, freq;
 | T20 | 两code同period/端点、每根数值完全相同的合法输入 | sourceInputId可相同；series/flight/forecast分开；非空ID随code不同 | xxm_api/forecast_api/shared-load |
 | T21 | A/B交替及并发，B失败/修订/取消 | 各码独立；A有效结果不变；同码同窗共享不重复读取 | 同上 |
 | T22 | m30与m60各合法输入、端点相同 | 缓存/快照/forecast不同周期不混；同周期热命中正确 | 同上 |
-| T23 | 在缓存边界放入另一code的合法完整entry/forecast对象 | 即使DTO现允许多码也拒绝错绑，不覆盖旧缓存；不重放算法验证 | 同上 |
+| T23 | 在缓存边界放入另一code的合法完整entry/forecast对象；entry分别配本码相同/不同源值 | 即使DTO现允许多码也拒绝错绑，不因修订重算覆盖旧缓存；不重放算法验证 | 同上 |
 | T24 | 五周期普通/debug结果，同code同窗 | 普通字段投影一致；普通无辅助，debug参照/事件/结构关联完整 | API validation、debug contracts |
-| T25 | forecast client/adapter传非上证及m30，错code/period/asOf | 请求URL实际code，正确通过、错误拒绝 | client/identity/r1Contract |
+| T25 | 第3步forecast client/adapter及mjs调用，非上证/m30、错code/period/asOf | 所有调用新签名、URL实际code，正确通过、错误拒绝；mjs原上证工具不扩业务范围 | client/identity/r1Contract及p4_audit_tools客户端节点 |
 | T26 | 激活五行预判，单行失败/重试，minutes=false | 顺序day/m30/m60/m90/m120；重试仅本行；分钟关闭只day | forecast.test、Card |
 | T27 | validated=null/串码/北证、初始shell/loading/empty/error；正常九码 | 前者不发r4、后者正常；page-init和kline串码进错误态 | availability/Page/controller |
 | T28 | 切指数/日期/debug，旧成功/失败延迟返回；另切主图周期 | 旧结果不回写；识别/研究清理对应owner，主图周期变化不重启五行预测 | Hook/Page |
@@ -389,18 +391,26 @@ T13/T17复用现独立数学/业务金样本，换成正式合同中的m30合法
 
 ### 11.2 自动测试分组和消费者核对
 
-先核现文件及环境存在再运行。使用现解释器，pytest加`-p no:cacheprovider --basetemp=/private/tmp/<本任务>/pytest`并禁字节码写入。前端保留package.json的类型检查及Vite构建两项职责，但不执行会写工程内构建信息的裸`tsc -b`。固定：根目录执行`npm --prefix wealth run typecheck`；wealth工作目录以现`./node_modules/.bin/vitest run --no-cache --configLoader runner`执行限定/完整测试，`./node_modules/.bin/vite build --configLoader runner --outDir /private/tmp/<本任务>/wealth-dist`构建。runner避免临时config bundle，构建目录是本任务新目录；不清其他产物、不修改package/config、不使用可能下载的npx。每组≤60秒，超时停止查因，不反复盲跑或跳过失败。
+先核现文件及环境存在再运行。使用现解释器，pytest加`-p no:cacheprovider --basetemp=/private/tmp/<本任务>/pytest`并禁字节码写入。前端保留package.json的类型检查及Vite构建两项职责，但不执行会写工程内构建信息的裸`tsc -b`。固定：根目录执行`npm --prefix wealth run typecheck`；wealth工作目录以现`./node_modules/.bin/vitest run --no-cache --configLoader runner`执行限定/完整测试，`./node_modules/.bin/vite build --configLoader runner --outDir /private/tmp/<本任务>/wealth-dist`构建。runner避免临时config bundle，构建目录是本任务新目录；不清其他产物、不修改package/config、不使用可能下载的npx。
 
-临时输出参数依据现安装CLI及[Vitest 3.2.4文档](https://github.com/vitest-dev/vitest/blob/v3.2.4/docs/guide/cli.md)、[Vite 7 CLI](https://v7.vite.dev/guide/cli)和[配置加载说明](https://v7.vite.dev/config)核对；这是后续执行设计，本轮不运行测试或构建。
+**测试成本及执行安排：**当前`pyproject.toml`未配置统一测试总超时。[原LLD§22.16.4逐文件实测及§22.16.6最终对账](index-detail-top-bottom-recognition-low-level-design-v1.md)中，原识别API187项全程19.820993秒、原预测API117项全程5.773790秒；它们只说明原输入、原测试数量和当时环境的实耗，不能推导扩码/m30后的全程上界。每个后端执行单元取下表一个明确文件，或本节已划分的工具节点；前端限定测试按文件，typecheck、完整test和build各为独立单元。保留测试原有局部超时，不新增统一总时限，也不宣称测试已满足尚未有依据的全程秒数。
+
+每个单元从准备临时调用开始，分别记录准备/导入收集、实际测试、资源关闭/退出、摘要和最后数量/退出核对的耗时；完整单元总耗时为这些实际阶段之和。新增测试的各阶段耗时在执行前不能确定，如实登记这个限制，不加固定余量。原产品4秒/400ms/客户端5秒仍按其实际生效位置断言，不以测试进程总时间替代。第2步只执行A—D的后端必要文件/节点及F中的架构、依赖和文档检查；前端类型检查、测试及构建在第3—4步执行。
+
+使用原测试的首错退出方式（pytest `-x`、Vitest `--bail=1`）；断言失败、非零退出、现有局部超时或取消后，不再领取后续单元，关闭本次自有资源并记录已经发生的准备、测试和收尾成本，不动共享服务。未完成单元在原因解决并获准继续后完整重做，其重新准备、全部测试和收尾另计；已完整通过且依赖未变的单元不重跑。测试进程退出后才核数量、退出状态及本次自有资源释放；没有这些结果不得登记完成，不自动重试、跳过失败或为通过测试增加新的超时值。
+
+前端临时输出参数在设计时已依据现安装CLI及[Vitest 3.2.4文档](https://github.com/vitest-dev/vitest/blob/v3.2.4/docs/guide/cli.md)、[Vite 7 CLI](https://v7.vite.dev/guide/cli)和[配置加载说明](https://v7.vite.dev/config)核对；第2步不运行这些前端测试或构建，留第3—4步执行。
 
 | 组 | 执行范围 | 说明 |
 |---|---|---|
-| A 核心/恢复 | scripts/research/index_market/tests下现calculator、r4_rules、following、restore、snapshot_validation、input_validation、product_v1_cases | 原四周期已有金样本加m30必要参数化，按文件切单元，不运行冻结行情回放 |
+| A 核心/恢复 | scripts/research/index_market/tests下现calculator、r4_rules、following、restore、snapshot_validation、input_validation、product_v1_cases及`test_xxm_index_expansion_dto.py` | 原四周期已有金样本加m30必要参数化；新增DTO测试只覆盖本需求代码格式/五周期准入，按文件切单元，不运行冻结行情回放 |
 | B 预测数学 | 现key_point_forecast、p3_forecast_math、forecast_expression_contract、r4_following_forecast、forecast_display | 覆盖m30内部限制及原数学不变 |
 | C 查询/API | tests/web/test_wealth_index_detail_xxm_api.py、forecast_api.py、forecast_validation.py、local_routes.py、test_xxm_shared_loads.py | API实际路由、Universe配置和真实query；临时DB/Gold按当前生产合同构造；替代哪层须说明 |
-| D 内部消费者/工具 | 现snapshot_consumers、r4_internal_results、r4_following_query、saved_minute_window、p4_audit_tools及`test_xxm_daily_window_precheck.py` | 签名及观察工具透明转发、历史/发布顺序；后者必须覆盖待改固定时钟load包装的新code/window参数，不新造研究用例 |
-| E 前端 | availability、controller/Page、xxm及xxm-forecast、debug、daily-wave、scheduler各现测试 | 新client首参和所有adaptForecast options同步；五行fixture/Record补m30 |
+| D 内部消费者/工具 | 现snapshot_consumers、r4_internal_results、r4_following_query、saved_minute_window、p4_audit_tools的Python节点及`test_xxm_daily_window_precheck.py` | 第2步核Python签名/观察包装、历史/发布顺序；daily_window_precheck完整覆盖新code/window参数；p4_audit_tools下列TS客户端节点归E，不因文件是Python就提前迁TS |
+| E 前端及TS工具调用 | availability、controller/Page、xxm及xxm-forecast、debug、daily-wave、scheduler及下列p4_audit_tools客户端节点 | 第3步同步新client首参、mjs、全部adaptForecast options及fixture字符串调用；五行fixture/Record补m30 |
 | F 通用检查 | 现typecheck、完整test、构建各独立单元；测试禁缓存，构建仅调整输出到上述临时路径；架构三测试及研究依赖、文档检查 | 前端全回归失败不得登记全部通过；无关旧TODO不趁机修复 |
+
+`test_xxm_p4_audit_tools.py`不物理拆文件。第3步随client/mjs同批迁移并验证下列五组现有函数及其参数化节点：`test_actual_node_clients_selected_counts_dates_and_debug`、`test_actual_node_clients_reject_empty_bad_source_and_old_contract`、`test_actual_minute_node_clients_wait_for_paired_indicators`、`test_actual_minute_node_clients_reject_mismatched_pair_before_signals`、`test_real_node_failure_protocol_preserves_client_error_records`。它们实际加载TS fixture及mjs，不能提前按新签名修改。第2步执行该文件除上述五组客户端节点外的其余现有节点，按明确nodeid列清选择；不能因名字中含node就误排原通用进程监督测试。第4步按当前完整文件节点清单对账，复用代码/输入/依赖未变且完整通过的结果，只补未覆盖或依赖变更节点；完整文件覆盖不等于强制整文件重跑，复用及本次执行不重复计数。不拆文件或新增case，也不因此扩工具业务范围。
 
 研究依赖用CodeGraph影响面及临时AST导入检查复核本次`src/biz/services/wealth/market/index_detail_xxm`和`queries/wealth/market/index_detail_xxm`：不得引入scripts/research、reports、App或QTF；纯计算不新增DB/文件/网络依赖，runtime既有Foundation限额引用保持。检查只分析当前文件导入，不运行研究或读源码SHA。架构三项为`tests/architecture/test_subsystem_dependency_matrix.py`、`test_platform_legacy_guardrails.py`、`test_operations_legacy_guardrails.py`。不虚构依赖测试文件，也不把整仓测试作为本次最小验收。
 
@@ -414,7 +424,9 @@ T13/T17复用现独立数学/业务金样本，换成正式合同中的m30合法
 
 - 每组合一次普通识别（day limit=300、分钟limit=500，endDate=cutoff），一次普通forecast（day asOf=cutoff、分钟asOf=cutoff的15:00+08:00），共90业务请求。不得重复读旧行情跑完整r2对比。
 - 五个代表组合另各一次debug识别及debug forecast：上证day、上证m30、深证m60、科创50m90、中证A500m120，共10请求。与同组合普通公共字段比较；共100业务请求，不另为“更好看的信号”随意加日期。比较先按本次code/period绑定唯一一对，再复用现`compare_modes`的同源前提：sourceInputId、calendarInputId、indicatorVersion、请求截止、computedThrough及实际窗口相同。固定cutoff不等于冻结历史修订；来源不同时记`not_comparable`、不登记该比较通过，也不追加读源或重发请求来凑一致。这是现比较方法的复用，不新增产品检查。
-- 每个组合为独立有界单元，最多2或4请求；每请求客户端5秒、后端4秒/预测400ms保持。从准备临时调用前计时，工作截止25秒，预留5秒关闭/摘要，总预算30秒；外层沿标准`subprocess.run(..., timeout=30)`，内层使用原截止检查及finally清理，超时停止并报告，不发下一组合或自动重试。不直接复用旧固定50/60秒执行入口后宣称30秒，也不为本需求开发新的进程组/通信监督框架；只沿用其透明观察方法。先完成并记录再进下一组合，不积攒全部响应到末尾。
+- 每个组合是规定的2或4次请求，不按时间剩余增加请求。原后端4秒及预测400ms保持；真实TS客户端仍从调度实际开始执行时计5秒。2×5=10秒、4×5=20秒仅是按现客户端限额推导的请求执行阶段累计额度，**不含排队、准备、关闭、摘要和核验，也不是隔离Python进程的全程上界**。单Python隔离API不会自动执行TS的5秒取消，后端剩余时间检查也不能硬中断同步阻塞SQL，不能因此声称已实现5秒外部硬截止。
+- 完整成本必须列为准备/导入及连接、规定请求、公共结果比较、关闭/退出、摘要及最后核验之和；中断后的未完成组合另计重新准备、完整2或4请求、比较及收尾，不拼接旧单元。当前尚无适用于本隔离调用的准备/关闭等阶段耗时依据，因此不设置固定全程秒数或固定余量。**第4步启动前须先审计最终临时调用，核清外部请求截止及整个进程含收尾的时限依据并落回本节；未核定前不得编写或执行45组合调用。**可用适用的已有实测、可复算的具体步骤或管理员明确指定的本轮执行值，不得套用旧工具绑定原场景、Node及服务线程的时限。这个条件只约束第4步，不要求为第2步编码补测来源或引入新监督框架。
+- 核定上述时限后，外层用标准subprocess超时、内部沿已核截止及finally清理；超时停止并报告，不发下一组合或自动重试。仅沿用旧工具的透明观察方法，不搬入其旧执行入口或进程组/通信监督框架。先完成并记录一个组合再进下一个，不积攒全部响应到末尾。
 - 使用临时进程自有缓存，不清共享Web缓存。代表组合普通识别首次为series冷路径，普通预测首次为预测冷路径；紧接debug请求作为同窗热路径。记录实际是否命中，不伪称保证命中；不为测冷反复启动相同请求。
 - 每次只记录code/period、请求截止、完成时点、原状态/原因、根数、读取次数/范围、缓存、响应字节及原阶段耗时。沿现透明观察方式，在原读取返回处只取结果长度，在原`project_xxm_response / project_forecast_response`处取得内部已有输入/日历编号、完成时点和code/period、响应meta.count及公共摘要；不另遍历entry时间、拼前缀、逐根核指纹或保留行情值作审计。现普通预测不公开sourceInputId，编号从内部DTO取得，不新增公开字段或debug请求。只保留这些观察，不直接搬入旧工具中逐根生成时间列表及整套通信校验，不加第二次读取/重放。
 - 识别和预测响应的code/period必须等于请求。完成端点、source初始历史状态、events与引用一致。实际无候选/精度待定如实记录，不能作为有价格预测通过。
@@ -444,7 +456,7 @@ T13/T17复用现独立数学/业务金样本，换成正式合同中的m30合法
 | 2.5行为测试 | 适用：五行、切换、错误/重试/迟到 | T26—T31 |
 | 2.6文档同步 | 适用：方案/LLD/索引及实际执行事实 | 逐项对账 |
 | 2.7渐进替换 | 只适用单模块及失败停止；本次已有real能力扩范围，不是mock→real，不新增source开关或退回mock | §2、§9、T31 |
-| 2.8契约 | 适用：字段集合不变，code/period值扩展，全消费者同迁 | §3—8、T24—T25 |
+| 2.8契约 | 适用：字段集合不变，code/period值扩展；第2步Python生产者/调用方同迁，第3步TS客户端/mjs/调用及测试同迁 | §2/3—8、T24—T25 |
 | 2.9坐标说明 | 适用原MACD坐标/标记；家数/累计值非负等例子不适用，DIF允许负值 | T13、页面 |
 | 2.10传输/性能 | 适用：源code/窗口下推、4秒/400ms/5秒；无新增中位数或数据库特有聚合 | §5、§9—11 |
 | 2.11配置 | 适用复用审计；不新增配置或热加载 | §9、T04 |
@@ -463,7 +475,7 @@ T13/T17复用现独立数学/业务金样本，换成正式合同中的m30合法
 | 配置一致 | §3/9，不复制名单/不新配置；T04 |
 | 默认显式 | 北证、五周期、空/延迟、minutes关闭；T02/T05/T06/T11 |
 | 排序筛选确定 | code过滤、时间升序、预判五行顺序；T08/T15/T26 |
-| 性能预算前置 | §9—11全部含退出，超标先报；T33及真实性能 |
+| 性能预算前置 | §9现产品限额保持；§11.2完整记录测试成本；§11.3第4步先核定含退出/重做的时限，未核定不执行；T33及真实性能 |
 | 异常标准 | §3.1现码、普通/debug分层；T03/T04/T24 |
 | 用户可见结果 | 标签/时间/五行预判/辅助及生产边界；§11.4 |
 
@@ -471,16 +483,107 @@ T13/T17复用现独立数学/业务金样本，换成正式合同中的m30合法
 
 交付逐条记录硬口径→实际代码→测试/真实证据；未完成的来源/性能/页面验收明确列出。完成后只收尾本需求及管理员认可的文档，不自动提交、部署或扩大研究。
 
-## 13. 本轮审计记录及状态
+## 13. 审计记录、第1步执行结果及状态
 
-编码设计已依据当前代码与CodeGraph核API、Universe、query/source、缓存、核心/恢复、预测、TS/page/controller/debug及直接消费者。本轮仅按管理员要求修正文档，没有读取真实行情/数据库。方案与本LLD对应为：方案§1—2→本§1—2；§3→本§5/10；§4—5→本§3—8；§6→本§9；§7→本§11—12；§8→本§2/10—11。
+编码设计已依据当前代码与CodeGraph核API、Universe、query/source、缓存、核心/恢复、预测、TS/page/controller/debug及直接消费者。第1步先提交统计设计，再执行来源计数，当时没有读取行情值或修改产品代码；第2步实现记录见§13.3。方案与本LLD对应为：方案§1—2→本§1—2；§3→本§5/10；§4—5→本§3—8；§6→本§9；§7→本§11—12；§8→本§2/10—11。
 
 已核对signals规范代码、两类缓存各自发布时序、配置实例缓存事实、主图周期不重启五行预测及m30夹具下一根时点。正常EMPTY的page-init身份字段已核对真实生产者/schema/既有测试，原已设计的身份检查不把正常空行情误判为串码。
 
 来源执行要求以§10根数统计为准：日线1条聚合、分钟两类各1条聚合，只返回指数/周期实际根数、预期根数及差额。旧的四查询、行情样本、逐日/逐键/数值审计执行内容已删除，不以标记过时的方式留作开发入口。§11正常API验收也不额外补校准或逐根核前缀。正常产品§5和独立人工规则/数学测试保持。
 
-T01—T36仍为36组设计case，T34/T35已改为数量统计，T36只验正常API；不新增普通分钟防御case。计数吻合仅说明数量，不扩大成指标、唯一性、时间位置或数据质量结论。50/15/30秒及产品预算保持，不新增监督/恢复系统。
+T01—T36仍为36组设计case，T34/T35已改为数量统计，T36只验正常API；不新增普通分钟防御case。计数吻合仅说明数量，不扩大成指标、唯一性、时间位置或数据质量结论。已执行来源单元50/15秒限额及实耗按§13.1保留，不外推到新阶段；后续测试成本、真实调用时限的依据和执行条件分别按§11.2/11.3，不新增监督/恢复系统。
 
-已分别独立复核来源统计和步骤/测试交接，两文档的范围、查询数量、预期根数及执行顺序一致；正常产品§3—9未改。文档完整性、链接、代码围栏、T01—T36编号及限定差异检查通过。这些检查只评价文档，不代表已执行统计、功能或性能验收。
+已分别独立复核来源统计和步骤/测试交接，两文档的范围、查询数量和预期根数一致。统计设计修正未改变产品编码设计；本轮另补清第2—3步的工具与测试归属、测试成本和第4步执行前条件，没有修改r4规则、源范围或产品现有限额。文档检查只评价文档，不代替各步功能或性能验收。
 
-下一步按§10做第1步来源根数统计并汇报，数量吻合后进入第2步编码；本轮止于文档修正，不执行统计或开发。
+### 13.1 第1步执行对账（2026-11-04）
+
+执行前已核现Settings解析、正式首页名单和计数字段合同；临时脚本独立复核未发现额外来源查询、明细读取或写入。分组摘要9/10/11对预期10的差额分别为-1/0/+1，按独立字面值检查通过。临时调用复用现Python、psycopg、DuckDB，不安装依赖、不改产品配置。
+
+| 执行要求 | 实际结果 |
+|---|---|
+| 当前Web日线目标、只读事务 | `.env.web.local`经现get_settings解析；远程`152.136.*.251:5432/goldenshare`，连接默认只读，事务REPEATABLE READ READ ONLY，最后ROLLBACK/关闭；未切源 |
+| 日线1条聚合SELECT | 两张获准表、九码，窗口2026-10-21至11-03，开市日数10；返回9组，每组实际10/预期10/差额0，合计90；BEGIN、SET LOCAL、ROLLBACK另计3条 |
+| 分钟两类各1条聚合SELECT | 正式`/Volumes/datasource/data_lake`，按§10.3指定三日/四周期/两类24路径；每类返回36组，未glob或逐文件查询 |
+| 分钟实际/预期及两类差额 | 九码每码bars、indicators均为m30=24、m60=12、m90=9、m120=6；各类459、两类918；72个实际/预期分组差额和36个bars-indicators差额全部0；完整代码计数表见方案§11 |
+| 日线40秒工作/50秒全程 | 连接0.093秒、SELECT 1.580秒；worker至关闭/摘要2.215秒，全程至退出2.304秒；无超时/重试 |
+| 分钟10秒工作/15秒全程 | bars计数1.341秒、indicators计数0.013秒；worker至关闭/摘要1.592秒，全程至退出1.679秒；无超时/重试 |
+| 范围、读写及停点 | 仅3条来源计数SELECT，应用只收到分组摘要；未读价格、DIF或时间键明细，未额外运行识别/预测/校准，未写DB/Lake、未改产品代码；到第1步完成停止 |
+
+已独立复核保存的分组统计及执行记录，代码、日期、根数、差额、查询数和预算均符合§10。第1步数量吻合，满足第2步来源数量前置条件；不宣称指标质量、唯一性、时间位置、算法结果或产品4秒/400ms通过。临时脚本及统计摘要仅在`/private/tmp`，正式结论保留本节和方案§11，不生成reports过程附件。下一步为§2第2步编码，本轮未启动。
+
+### 13.2 第2步开工条件补齐及独立审计
+
+本轮只修改方案和本LLD：第2步限定Python后端/工具及调用测试，第3步同步TS客户端、mjs及五组客户端集成测试；第4步按完整节点清单对账，复用仍适用的通过结果，不强制重跑或重复计数。已分别独立复核工具/测试交接和数字依据，未发现本次修正引入提前迁TS、漏测、步骤冲突或预算冒充。T01—T36、r4核心规则、实际来源范围及产品现有限额保持。
+
+文档完整性、两文档本地链接/代码围栏、case编号、五组客户端测试函数位置和限定差异检查通过；未查询来源、运行测试、修改业务代码或提交。第1步数量前置、后端编码设计、调用方/测试交接及工作区相关路径已具备第2步条件。第4步完整进程时限须在其执行前核定，不将未知耗时填成固定数字；该限制不阻塞当前第2步编码。本轮到文档修正和审计结束。
+
+### 13.3 第2步实现、测试及独立审计（2026-11-05）
+
+本步只实施§2第2步。已按开工硬口径复核API→Universe→query/source→calculator→DTO及Python调用链；开发后独立审计当前差异，不以测试数量代替实现核对。
+
+#### 13.3.1 硬口径与实际落点
+
+以下路径在`src/biz`下时省略该前缀；测试文件在本节表中列清。
+
+| 硬口径/Case | 实际代码 | 已验证内容及边界 |
+|---|---|---|
+| 唯一产品准入、规范code必填；T01—T05 | `queries/wealth/market/index_detail_xxm/query_service.py::require_xxm_code/build/load_entry`；两个`api/wealth/market/index_detail_xxm*.py` | 查询4秒计时内先核名单，之后才context/cache/read；现Universe一次准入，北证及名单外404、格式400、配置500。识别trim/upper和预测严格格式分别保留；直接Python调用无产品默认上证 |
+| 核心/DTO只扩身份和五周期；T12/T13/T19/T32 | `services/wealth/market/index_detail_xxm/{types,calculator}.py`；`schemas/wealth/market/index_detail_xxm*.py` | 核心只改构造准入/period类型，DTO严格规范代码，不读配置；原业务方法、Spec/hash/ID/snapshot格式不变。跨code及m30/m60恢复拒绝且原状态不变，m30恢复/历史/clone通过 |
+| 实际来源绑定；T08—T10/T15 | `queries/wealth/market/index_detail_xxm/source.py::{read_daily,minute_request,read_minutes}`及query `_load_series` | SQL过滤当前code；分钟签名发现和pair请求同code/freq/window；保持N+1000及短历史、不补值/重算MACD、不遍历其他指数，不改Foundation读取器 |
+| m30端点及下一根；T05/T14—T16 | `source.py::ENDPOINTS`及其现窗口/完成/下一根消费者 | 八端点、11:30→13:30、15:00/周末→下开市日10:00、历史asOf及非法/未完成输入；默认/最大规划沿189/376开市日，非实际文件读取次数 |
+| series/共享加载身份与淘汰；T20—T23/T33 | `query_service.py::load_entry/_load_series/_check_entry_identity/_response` | key尾部加code、period保留原位置；旧缓存取出后立即核code/period/Spec，之后才能复用或重算。相同/不同源值的错绑都拒绝且不覆盖；同输入跨code、flight成功/失败、17项共用容量及淘汰重算通过 |
+| 预测身份、非空路径及发布；T11/T17/T18/T20—T24/T33 | `forecast_query_service.py::build/_assemble`；`forecast_expression.comparison_envelope`；`forecast_text.make_display` | 实际code进入普通/debug全部分支和forecast key；命中先核code/period/版本/hash。保持装配/投影/编码/大小检查→退出load_entry→最后检查→原子发布，取消继续传播。m30普通候选、旧结构价格/颜色条件、独立Decimal校准、249/250及扰动通过 |
+| Python工具/直接调用迁移；T19/T24/T32 | `scripts/research/index_market/xxm/daily_window_precheck.py`及当前透明包装/直接测试 | 预检load包装显式接收并转发code/window；原透明`*args/**kwargs`包装无需改实现，以专门用例证明参数只转发一次。恢复/历史查询及工具Python节点通过 |
+| 普通/debug及本地/生产；T06/T07/T24 | 现投影模块保持；`tests/web/test_wealth_index_detail_xxm*.py` | 五周期两方向非上证普通/debug公共事实一致，既有辅助字段投影不变；prod App十码五周期不注册r4路由。T07前端无请求/辅助import仍归第3—4步，本步不冒充完成 |
+
+相同输入内容的跨code样本允许sourceInputId相同，用现身份及key隔离计算状态，不改指纹公式。已确认`MAIN_SPEC`、`FORECAST_SPEC`、runtime、mjs没有本步改动；calculator构造以外的方法AST与开工基线一致，其他算法文件只增加m30准入。API公开字段集合及原上证四周期HTTP请求保持，不新增接口、配置、依赖或版本。
+
+#### 13.3.2 限定回归结果
+
+测试均使用现`.venv`，禁字节码及pytest缓存，`--basetemp`和日志摘要在`/private/tmp/r4-index-expansion-step2-7IU911`。C组和部分D组走实际路由、Universe/query/source/calculator/DTO，真实DB由隔离SQLite替代，Lake内容由正式合同下的临时Gold人工样本替代；没有读取远程/正式Lake行情、调用真实45组合或运行冻结回放。鉴权和生产路由边界沿原测试覆盖。该结果为隔离集成及人工规则回归，不是第4步真实来源/性能结论。
+
+下表A/B/D文件均位于`scripts/research/index_market/tests/`，C位于`tests/web/`，F位于`tests/architecture/`。耗时单位秒，为外层临时调用从启动子进程前到进程退出且日志摘要写完的实测；不代表单次产品计算耗时。
+
+| 组 | 文件/明确执行范围 | 最终通过项 | 调用耗时（秒） |
+|---|---|---:|---:|
+| A | test_xxm_calculator.py | 50 | 0.372 |
+| A | test_xxm_r4_rules.py | 504 | 0.842 |
+| A | test_xxm_r4_following.py | 435 | 6.478 |
+| A | test_xxm_r4_restore.py | 239 | 0.897 |
+| A | test_xxm_snapshot_validation.py | 249 | 1.244 |
+| A | test_xxm_input_validation.py | 107 | 0.224 |
+| A | test_xxm_product_v1_cases.py | 16 | 0.144 |
+| A | test_xxm_index_expansion_dto.py | 252 | 0.358 |
+| B | test_xxm_key_point_forecast.py | 82 | 1.545 |
+| B | test_xxm_p3_forecast_math.py（最终补齐m30/249/250后） | 58 | 0.231 |
+| B | test_xxm_forecast_expression_contract.py | 82 | 0.273 |
+| B | test_xxm_r4_following_forecast.py（最终补齐m30旧结构后） | 99 | 1.595 |
+| B | test_xxm_forecast_display.py | 16 | 0.213 |
+| C | test_wealth_index_detail_xxm_api.py（先原范围，后新增投影10项，节点不重复） | 256+10=266 | 29.863+1.509 |
+| C | test_wealth_index_detail_xxm_forecast_api.py（夹具修正后完整重跑） | 209 | 10.738 |
+| C | test_wealth_index_detail_xxm_forecast_validation.py | 59 | 5.137 |
+| C | test_wealth_index_detail_xxm_local_routes.py（最终生产矩阵） | 14 | 7.439 |
+| C | test_xxm_shared_loads.py | 5 | 1.472 |
+| D | test_xxm_snapshot_consumers.py | 22 | 1.196 |
+| D | test_xxm_r4_internal_results.py | 39 | 0.721 |
+| D | test_xxm_r4_following_query.py | 27 | 0.725 |
+| D | test_xxm_saved_minute_window.py | 41 | 0.168 |
+| D | test_xxm_daily_window_precheck.py | 12 | 3.881 |
+| D | test_xxm_p4_audit_tools.py（37个明确函数节点，排除§11.2五组TS客户端函数） | 138 | 1.412 |
+| F | test_subsystem_dependency_matrix.py | 4 | 1.253 |
+| F | test_platform_legacy_guardrails.py | 3 | 2.691 |
+| F | test_operations_legacy_guardrails.py | 9 | 9.032 |
+
+最终有效**28个执行单元、3037项全部通过**：A1852+B337+C553+D279=3021，F16。上表调用耗时按未四舍五入记录相加为91.654265秒；包括被替代的首轮/中间轮在内，32次实际调用累计111.644244秒。这里累计的是多次测试调用实耗，不是连续墙钟时间、完整开发总时长或产品性能预算。pytest标准警告为现httpx/FastAPI旧用法提示，没有安装/升级依赖处理它。
+
+**测试计时记录限制：**§11.2要求分别记录准备/导入收集、执行、关闭退出、摘要和最后核验；实际仅保留pytest报告总耗时与上述外层调用实耗，未独立采集各阶段，也未单独计时调用前准备和最后独立核验。因此这项记录粒度要求没有完整落实，不将两种时间相减冒充某阶段，不宣称已获得完整分阶段成本或真实产品4秒/400ms通过。该限制不改变测试断言/退出及数量证据，不为补时间拆分而重跑已经完整通过且依赖未变的单元。后续执行仍按§11.2准备记录，不把本次限制改写成已满足原要求。
+
+#### 13.3.3 独立复核、问题处理和交接
+
+1. 开发后独立审计发现：若只在共享加载返回/响应装配核身份，错绑旧缓存遇源值变化时可能先重算覆盖。已先在§6、T23和方案§5.2补清原身份要求，再复用`_check_entry_identity`于日线/分钟缓存取出后，早于源修订判断。相同/不同输入两种回归都证明拒绝且旧缓存对象保留；未新增源码SHA检查或重放算法核验。
+2. 首轮forecast API出现1项失败、207项通过（调用10.497秒）：新m30夹具在10:30后立即请求，却按当日完成日作预期，忽略现20点切换；又需覆盖A500真实起点。已核当前context规则和正式起点，将模拟区间置于2025-10-09之后，显式历史asOf=10:30、now=当日21:00，保留完成10:30/下一根11:00和独立Decimal预期。没有改产品/断言迎合错误。该文件完整重跑209通过，首轮207不再加到最终通过数。
+3. 最终独立复核补齐T17旧结构预测和T18校准边界：原四周期字面价格/颜色样本增加m30；独立高精度Decimal历史保留原1500根断言，并检查前249/250根、250末根DIF扰动，使用合法15:00端点。只重跑这两个受影响文件，最终99/58通过取代旧93/57；不重复计算通过数。生产路由矩阵补全十码五周期后，最终14项取代旧14项（原调用7.734秒）。
+4. CodeGraph explore/search/impact/callers覆盖API/Universe、query/source/cache、core/schema/forecast、Python工具及测试消费者；图谱模糊处回到当前源码核实，最终sync/status显示索引正常。临时AST导入检查核22个计算/查询模块，没有引入scripts/research、reports、App或QTF；三份架构护栏通过。源码差异核算法、Spec/hash及既有编号/发布顺序，未发现剩余第2步业务偏差。文档、链接和限定差异检查完成；这些检查不代替第4步真实验收。
+5. `xxm_page_request_audit.mjs`、`_node_fixture_prelude`及§11.2五组TS客户端函数与本步开工前一致；D组只执行其余37个函数的138项参数化用例。它们的具体nodeid仅保存临时执行清单，正式归属见§11.2，不把跳过的五组登记为通过。没有改前端客户端、页面或首页；工作区其他修改保持，不纳入本次审计结论。
+
+**交接：第2步功能实现、限定回归与独立代码审计完成，测试计时记录限制如上。**管理员review后再进入第3步，按§8同步TS客户端/mjs/全部消费者和页面，不能只改名单；第4步先核定§11.3全程临时调用时限，再做45组合、代表页面及真实性能。未执行前端typecheck/test/build、真实DB/Lake API验收、安装、提交、推送、部署或业务写入。本需求整体尚未验收收尾。

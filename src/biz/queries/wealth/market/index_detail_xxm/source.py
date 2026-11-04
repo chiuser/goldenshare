@@ -18,7 +18,9 @@ from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar, XxmPer
 
 
 CN_ZONE = ZoneInfo("Asia/Shanghai")
-ENDPOINTS = {60: (time(10, 30), time(11, 30), time(14), time(15)),
+ENDPOINTS = {30: (time(10), time(10, 30), time(11), time(11, 30),
+                  time(13, 30), time(14), time(14, 30), time(15)),
+             60: (time(10, 30), time(11, 30), time(14), time(15)),
              90: (time(11), time(14), time(15)), 120: (time(11, 30), time(15))}
 
 
@@ -125,13 +127,14 @@ def expected_through(period: XxmPeriod, open_dates: tuple[date, ...], now: datet
     return None
 
 
-def read_daily(session: Session, *, completed: str | None, check: Callable[[], None]) -> tuple[XxmBar, ...]:
+def read_daily(session: Session, *, ts_code: str, completed: str | None,
+               check: Callable[[], None]) -> tuple[XxmBar, ...]:
     if completed is None:
         return ()
     values, after = [], None
     while True:
         check()
-        conditions = [IndexFactorPro.ts_code == "000001.SH", IndexFactorPro.trade_date <= date.fromisoformat(completed)]
+        conditions = [IndexFactorPro.ts_code == ts_code, IndexFactorPro.trade_date <= date.fromisoformat(completed)]
         if after is not None:
             conditions.append(IndexFactorPro.trade_date > after)
         batch = session.execute(select(IndexFactorPro.trade_date, IndexFactorPro.close, IndexFactorPro.macd_dif_bfq,
@@ -152,16 +155,16 @@ def read_daily(session: Session, *, completed: str | None, check: Callable[[], N
     return tuple(values)
 
 
-def minute_request(freq: int, window: MinuteSourceWindow) -> IndexMinuteReadRequest:
+def minute_request(freq: int, window: MinuteSourceWindow, *, ts_code: str) -> IndexMinuteReadRequest:
     if window.start_time is None or window.end_time is None:
         raise ValueError("空分钟范围不能读取文件。")
-    return IndexMinuteReadRequest("000001.SH", freq, window.start_time.date(), window.end_time.date(),
+    return IndexMinuteReadRequest(ts_code, freq, window.start_time.date(), window.end_time.date(),
                                   window.read_rows, None)
 
 
-def read_minutes(reader: MajorIndexMinsLakeReader, *, freq: int, window: MinuteSourceWindow,
+def read_minutes(reader: MajorIndexMinsLakeReader, *, ts_code: str, freq: int, window: MinuteSourceWindow,
                  deadline: Callable[[], float]) -> tuple[XxmBar, ...]:
-    request = minute_request(freq, window)
+    request = minute_request(freq, window, ts_code=ts_code)
     bars, indicators = reader.read_complete_history_pair(request, timeout_seconds=deadline(),
         max_rows=window.read_rows,
         time_window=(window.start_time.replace(tzinfo=None), window.end_time.replace(tzinfo=None)),

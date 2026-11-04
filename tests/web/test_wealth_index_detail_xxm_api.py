@@ -37,10 +37,11 @@ def _source_clock(monkeypatch, scenario_now):
     """Only supply the existing default-now argument; keep real SQL and checks."""
     original = IndexDetailXxmQueryService.load_entry
 
-    def load_entry(self, session, **kwargs):
-        if kwargs.get("now") is None:
-            kwargs["now"] = scenario_now
-        return original(self, session, **kwargs)
+    def load_entry(self, session, *, ts_code, period, now=None,
+                   window_rows=None, requested_end=None):
+        return original(self, session, ts_code=ts_code, period=period,
+                        now=scenario_now if now is None else now,
+                        window_rows=window_rows, requested_end=requested_end)
 
     monkeypatch.setattr(IndexDetailXxmQueryService, "load_entry", load_entry)
 
@@ -71,9 +72,12 @@ def source_db(monkeypatch, request):
     engine.dispose()
 
 
-def build_debug(service, *args, **kwargs):
+def build_debug(service, session, *, period, start_date, end_date, limit,
+                now=None, ts_code="000001.SH"):
     from src.biz.schemas.wealth.market.index_detail_xxm import XxmDebugResponseDto
-    return XxmDebugResponseDto.model_validate_json(service.build(*args, debug=True, **kwargs))
+    return XxmDebugResponseDto.model_validate_json(service.build(
+        session, ts_code=ts_code, period=period, start_date=start_date,
+        end_date=end_date, limit=limit, now=now, debug=True))
 
 
 def client(engine, auth=lambda: None):
@@ -113,7 +117,7 @@ def test_real_router_query_and_window_reference_history_are_consistent(source_db
     ("tsCode=000001.SH&limit=2&limit=3",400), ("tsCode=000001.SH&dif_turn_pct=1",400),
     ("tsCode=000001.SH&startDate=2020-01-08&endDate=2020-01-01",400),
     ("tsCode=000001.SH&period=m60",400), ("tsCode=000001.SH&endDate=2020-02-30",400),
-    ("tsCode=399001.SZ",404), ("tsCode=bad",400), ("",400),
+    ("tsCode=000680.SH",404), ("tsCode=bad",400), ("",400),
 ])
 def test_invalid_and_unsupported_requests_never_produce_a_layer(source_db, suffix, status):
     result = client(source_db).get("/api/v1/wealth/market/index-detail/xxm-signals?" + suffix)
@@ -181,17 +185,17 @@ def test_budgets_and_calendar_gap_on_both_streams_are_not_silently_skipped(sourc
         assert_continuous(values, period="m120", open_dates=(date(2020,1,1),date(2020,1,2),date(2020,1,3)))
 
 
-@pytest.mark.parametrize("freq", [60, 90, 120])
+@pytest.mark.parametrize("freq", [30, 60, 90, 120])
 def test_minute_router_uses_real_two_stream_reader_and_completed_endpoints(source_db, tmp_path, freq):
     import duckdb
     from src.foundation.clients.local_lake.major_index_mins_contract import (
         GOLD_BAR_COLUMN_SPECS, GOLD_INDICATOR_COLUMN_SPECS, GOLD_PARAMS_KEY,
     )
-    from src.biz.queries.wealth.market.index_detail_xxm.source import ENDPOINTS
-
     # These are isolated test Parquet files, never the formal Lake.
-    endpoints = ENDPOINTS[freq]
-    values = VALUES + [VALUES[-1]] if freq == 90 else VALUES
+    # The endpoint literals follow the formal Gold production windows, not the
+    # product source table being tested below.
+    endpoints = tuple(datetime.strptime(slot, "%H:%M").time() for slot in BATCH3_SLOTS[freq])
+    values = VALUES * 2 if freq == 30 else VALUES + [VALUES[-1]] if freq == 90 else VALUES
     con = duckdb.connect(":memory:")
     try:
         for dataset, specs, relative in (("bars", GOLD_BAR_COLUMN_SPECS, "quote/major_index_mins"),
@@ -231,7 +235,7 @@ def test_minute_router_uses_real_two_stream_reader_and_completed_endpoints(sourc
     assert data["meta"]["count"] == len(values) and data["dataStatus"]["status"] == "READY"
     assert [p["close"] for p in data["points"]] == [v[0] for v in values]
     assert any(e["type"] == "STRUCTURE" for e in data["events"])
-    for bad in ("freq=30", "freq=60&freq=90", "freq=120&dif_turn_pct=1"):
+    for bad in ("freq=15", "freq=60&freq=90", "freq=120&dif_turn_pct=1"):
         assert api.get(path+"?tsCode=000001.SH&"+bad).status_code == 400
     # Even a full current-day file must not enter the page before the 20:00 switch.
     with Session(source_db) as session:
@@ -398,11 +402,11 @@ def test_p4_batch2_two_streams_match_in_one_pass(mismatch):
     reader=Mock()
     reader.read_complete_history_pair.return_value=(SimpleNamespace(rows=tuple(price)),SimpleNamespace(rows=tuple(indicators)))
     if mismatch in ('none','both_empty'):
-        result=read_minutes(reader,freq=60,window=_literal_minute_window(),deadline=lambda:3.)
+        result=read_minutes(reader,ts_code='000001.SH',freq=60,window=_literal_minute_window(),deadline=lambda:3.)
         assert [bar.close for bar in result]==([100,101,102] if mismatch=='none' else [])
         assert all((bar.dif,bar.dea,bar.hist)==(0.,0.,0.) for bar in result)
     else:
-        with pytest.raises(XxmSourceError): read_minutes(reader,freq=60,window=_literal_minute_window(),deadline=lambda:3.)
+        with pytest.raises(XxmSourceError): read_minutes(reader,ts_code='000001.SH',freq=60,window=_literal_minute_window(),deadline=lambda:3.)
     args=reader.read_complete_history_pair.call_args
     assert reader.read_complete_history_pair.call_count==1
     assert args.kwargs==dict(timeout_seconds=3., max_rows=1500,
@@ -420,7 +424,7 @@ def test_p4_batch2_bar_validation_still_rejects_required_values(field,bad):
     indicator={k:v for k,v in price.items() if k!='close'}|dict(macd_dif=0.,macd_dea=0.,macd=0.)
     (price if field=='close' else indicator)[field]=bad
     reader=Mock();reader.read_complete_history_pair.return_value=(SimpleNamespace(rows=(price,)),SimpleNamespace(rows=(indicator,)))
-    with pytest.raises(XxmSourceError): read_minutes(reader,freq=60,window=_literal_minute_window(),deadline=lambda:3.)
+    with pytest.raises(XxmSourceError): read_minutes(reader,ts_code='000001.SH',freq=60,window=_literal_minute_window(),deadline=lambda:3.)
 
 
 @pytest.mark.parametrize('period,endpoints',[
@@ -497,7 +501,8 @@ def test_p4_batch2_real_xxm_partial_reader_and_http(source_db,tmp_path,freq,chan
 # P4 batch 3: literal LLD 0.6.6 samples. These are temporary Gold/SQLite
 # producers, never the formal Lake. Expected times do not come from ENDPOINTS.
 BATCH3_NOW = datetime(2023, 1, 10, 20, tzinfo=ZONE)
-BATCH3_SLOTS = {60: ('10:30', '11:30', '14:00', '15:00'),
+BATCH3_SLOTS = {30: ('10:00', '10:30', '11:00', '11:30', '13:30', '14:00', '14:30', '15:00'),
+                60: ('10:30', '11:30', '14:00', '15:00'),
                 90: ('11:00', '14:00', '15:00'), 120: ('11:30', '15:00')}
 
 
@@ -528,7 +533,7 @@ def batch3_db_factory():
         engine.dispose()
 
 
-def _batch3_gold(root, freq, rows=None):
+def _batch3_gold(root, freq, rows=None, *, ts_code='000001.SH'):
     import duckdb
     from src.foundation.clients.local_lake.major_index_mins_contract import (
         GOLD_BAR_COLUMN_SPECS, GOLD_INDICATOR_COLUMN_SPECS, GOLD_PARAMS_KEY,
@@ -546,7 +551,7 @@ def _batch3_gold(root, freq, rows=None):
             connection.execute(f'CREATE TABLE {dataset} (' + ','.join(f'{n} {t}' for n, t in specs) + ')')
             for stamp, close, dif, dea, hist in rows:
                 value = {name: None for name, _ in specs}
-                value.update(ts_code='000001.SH', freq=freq, trade_date=date.fromisoformat(stamp[:10]),
+                value.update(ts_code=ts_code, freq=freq, trade_date=date.fromisoformat(stamp[:10]),
                              trade_time=datetime.fromisoformat(stamp), open=close, high=close, low=close,
                              close=close, vol=1., amount=close, exchange='SSE', vwap=close,
                              macd_dif=dif, macd_dea=dea, macd=hist, observation_count=1,
@@ -583,7 +588,7 @@ def test_p4_batch3_calendar_range_sql_and_errors(batch3_db_factory):
                 calendar_dates(session, start=start, end=end)
 
 
-@pytest.mark.parametrize('freq,count', [(60, 12), (90, 9), (120, 6)])
+@pytest.mark.parametrize('freq,count', [(30, 24), (60, 12), (90, 9), (120, 6)])
 def test_p4_bounded_real_minute_cold_order_range_and_hot_reuse(batch3_db_factory, tmp_path, monkeypatch, freq, count):
     from unittest.mock import patch
     _batch3_gold(tmp_path, freq)
@@ -598,11 +603,12 @@ def test_p4_bounded_real_minute_cold_order_range_and_hot_reuse(batch3_db_factory
         return original_calendar(*args, **kwargs)
 
     original_signature = service.reader.history_source_signature
-    def signature(*args, **kwargs):
-        order.append(kwargs['dataset'])
-        assert args[0].start_date == date(2023,1,3) and args[0].end_date == date(2023,1,10)
-        assert args[0].limit==1500
-        return original_signature(*args, **kwargs)
+    def signature(request, *, dataset):
+        order.append(dataset)
+        assert request.ts_code == '000001.SH' and request.freq == freq
+        assert request.start_date == date(2023,1,3) and request.end_date == date(2023,1,10)
+        assert request.limit==1500
+        return original_signature(request, dataset=dataset)
 
     original_pair = service.reader.read_complete_history_pair
     def pair(*args, **kwargs):
@@ -613,7 +619,7 @@ def test_p4_bounded_real_minute_cold_order_range_and_hot_reuse(batch3_db_factory
     monkeypatch.setattr(service.reader, 'history_source_signature', signature)
     monkeypatch.setattr(service.reader, 'read_complete_history_pair', pair)
     with Session(engine) as session:
-        with service.load_entry(session, period=f'm{freq}', now=BATCH3_NOW) as loaded:
+        with service.load_entry(session, period=f'm{freq}', now=BATCH3_NOW, ts_code="000001.SH") as loaded:
             first = loaded[0]
         assert order == ['calendar', 'bars', 'indicators', 'pair']
         assert len(first.raw) == len(first.processed) == count
@@ -622,7 +628,7 @@ def test_p4_bounded_real_minute_cold_order_range_and_hot_reuse(batch3_db_factory
         saved = first.calculator.snapshot()
         order.clear()
         with patch.object(query_service.XxmCalculator, 'step', side_effect=AssertionError('hot request stepped')):
-            with service.load_entry(session, period=f'm{freq}', now=BATCH3_NOW) as loaded:
+            with service.load_entry(session, period=f'm{freq}', now=BATCH3_NOW, ts_code="000001.SH") as loaded:
                 assert loaded[0] is first
         assert order == ['calendar', 'bars', 'indicators']
         assert first.calculator.snapshot() == saved
@@ -637,14 +643,14 @@ def test_p4_bounded_calendar_metadata_change_is_not_revision(batch3_db_factory,t
     with Session(batch3_db_factory()) as session:
         kwargs=dict(key=key,period=f'm{freq}',now=BATCH3_NOW,business_date=BATCH3_NOW.date(),remaining=lambda:4.,
                     requested_end=datetime(2023,1,10,15,tzinfo=ZONE),window_rows=500)
-        old,_=service._load_series(session,**kwargs)
+        old,_=service._load_series(session,**kwargs, ts_code="000001.SH")
         stored_key=next(iter(service.cache.entries))
         old=replace(old,open_dates=(date(2023,1,2),*old.open_dates))
         service.cache.put(stored_key,old,check=lambda:4.)
         facts=(old.calculator.snapshot(),list(old.fingerprints),list(old.points),old.open_dates)
         with patch.object(query_service.XxmCalculator,'step',side_effect=AssertionError('calendar change replayed source')):
-            new,days=service._load_series(session,**kwargs)
-            again,_=service._load_series(session,**kwargs)
+            new,days=service._load_series(session,**kwargs, ts_code="000001.SH")
+            again,_=service._load_series(session,**kwargs, ts_code="000001.SH")
         assert new is not old and again is new
         assert days==tuple(date(2023,1,d) for d in (3,4,5,6,9,10))
         assert new.calculator.snapshot()==facts[0] and new.fingerprints==facts[1] and new.points==facts[2]
@@ -662,7 +668,7 @@ def test_p4_bounded_raw_bounds_and_original_completion(batch3_db_factory,tmp_pat
     service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
     now=BATCH3_NOW.replace(hour=10) if case=='not_completed' else BATCH3_NOW
     with Session(batch3_db_factory()) as session,patch.object(query_service,'plan_minute_window',wraps=query_service.plan_minute_window) as calendar:
-        with service.load_entry(session,period=f'm{freq}',now=now) as (entry,_,days,_): pass
+        with service.load_entry(session,period=f'm{freq}',now=now, ts_code="000001.SH") as (entry,_,days,_): pass
     target_day=9 if case=='not_completed' else 10
     assert calendar.call_count==1 and calendar.call_args.kwargs['requested_end']==datetime(2023,1,target_day,15,tzinfo=ZONE)
     assert len(entry.raw)==len(entry.processed)==(0 if case=='not_completed' else len(rows))
@@ -676,7 +682,7 @@ def test_p4_batch3_real_context_cutover_and_weekend(batch3_db_factory,tmp_path,c
     _batch3_gold(tmp_path,60)
     service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
     with Session(batch3_db_factory(end=date(2023,1,end))) as session,patch.object(query_service,'plan_minute_window',wraps=query_service.plan_minute_window) as calendar:
-        with service.load_entry(session,period='m60',now=clock) as (entry,context,days,remaining):
+        with service.load_entry(session,period='m60',now=clock, ts_code="000001.SH") as (entry,context,days,remaining):
             assert context.trade_date==date(2023,1,business_day)
             assert calendar.call_args.kwargs['requested_end']==datetime(2023,1,business_day,15,tzinfo=ZONE)
             assert entry.processed[-1].time==('2023-01-09T15:00:00+08:00' if business_day==9 else '2023-01-10T15:00:00+08:00')
@@ -690,7 +696,7 @@ def test_p4_batch3_real_range_still_rejects_gaps(batch3_db_factory,tmp_path,freq
     _batch3_gold(tmp_path,freq,rows)
     service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
     with Session(batch3_db_factory()) as session,pytest.raises(XxmQueryError) as failure:
-        with service.load_entry(session,period=f'm{freq}',now=BATCH3_NOW):pass
+        with service.load_entry(session,period=f'm{freq}',now=BATCH3_NOW, ts_code="000001.SH"):pass
     assert failure.value.code=='XXM_SOURCE_CONTRACT_INVALID' and not service.cache.entries
 
 
@@ -706,7 +712,8 @@ def test_p4_bounded_deadline_stops_at_each_stage(tmp_path,monkeypatch,stage,name
         calls.append(dataset)
         if stage==dataset:expired[0]=True
         return dataset
-    def raw(*a,**k):
+    def raw(reader, *, ts_code, freq, window, deadline):
+        assert ts_code == '000001.SH' and freq == 60
         calls.append('raw')
         if stage=='raw':expired[0]=True
         return ()
@@ -719,7 +726,7 @@ def test_p4_bounded_deadline_stops_at_each_stage(tmp_path,monkeypatch,stage,name
     monkeypatch.setattr(query_service,'plan_minute_window',calendar)
     put=Mock(side_effect=AssertionError('partial publish'));monkeypatch.setattr(service.cache,'put',put)
     with pytest.raises(XxmQueryError) as failure:
-        service._load_series(None,key=('deadline',),period='m60',now=BATCH3_NOW,business_date=BATCH3_NOW.date(),remaining=remaining)
+        service._load_series(None,key=('deadline',),period='m60',now=BATCH3_NOW,business_date=BATCH3_NOW.date(),remaining=remaining, ts_code="000001.SH")
     assert failure.value.code=='XXM_BUDGET_EXCEEDED'
     assert [name for name in calls if name in ('bars','indicators')]==names
     assert ('raw' in calls)==(stage=='raw')
@@ -742,7 +749,7 @@ def test_p4_batch3_signature_error_preserves_priority(tmp_path,monkeypatch,kind)
     monkeypatch.setattr(query_service,'plan_minute_window',lambda *a,**k:MinuteSourceWindow(
         500,1500,datetime(2023,1,10,10,30,tzinfo=ZONE),datetime(2023,1,10,15,tzinfo=ZONE),(date(2023,1,10),)))
     with pytest.raises(type(failure)) as error:
-        service._load_series(None,key=('failure',),period='m60',now=BATCH3_NOW,business_date=BATCH3_NOW.date(),remaining=remaining)
+        service._load_series(None,key=('failure',),period='m60',now=BATCH3_NOW,business_date=BATCH3_NOW.date(),remaining=remaining, ts_code="000001.SH")
     assert error.value is failure and calls==['bars'] and not service.cache.entries
 
 
@@ -754,11 +761,14 @@ def test_p4_batch3_day_keeps_original_range_order_and_values(batch3_db_factory,m
     service=IndexDetailXxmQueryService(cache=XxmCache());order=[]
     old_calendar=query_service.calendar_dates;old_read=query_service.read_daily;old_get=service.cache.get
     def calendar(*a,**k):order.append('calendar');assert k==dict(start=date(1990,1,1),end=date(2023,1,10));return old_calendar(*a,**k)
-    def read(*a,**k):order.append('read');return old_read(*a,**k)
+    def read(session, *, ts_code, completed, check):
+        order.append('read')
+        assert ts_code == '000001.SH'
+        return old_read(session, ts_code=ts_code, completed=completed, check=check)
     def get(*a,**k):order.append('cache');return old_get(*a,**k)
     monkeypatch.setattr(query_service,'calendar_dates',calendar);monkeypatch.setattr(query_service,'read_daily',read);monkeypatch.setattr(service.cache,'get',get)
     with Session(engine) as session:
-        value=json.loads(service.build(session,period='day',start_date=None,end_date=None,limit=500,now=BATCH3_NOW))
+        value=json.loads(service.build(session,period='day',start_date=None,end_date=None,limit=500,now=BATCH3_NOW, ts_code="000001.SH"))
     assert order==['calendar','cache','read'] and value['points'][0]['close']==100.
     assert value['dataStatus']['status']=='READY'
 
@@ -776,7 +786,7 @@ def test_p4_batch3_append_revision_and_calendar_failure_keep_old_facts(batch3_db
     def load():
         with Session(engine) as session:
             return service._load_series(session,key=key,period=f'm{freq}',now=BATCH3_NOW,business_date=BATCH3_NOW.date(),remaining=lambda:4.,
-                                       requested_end=datetime(2023,1,10,15,tzinfo=ZONE),window_rows=500)[0]
+                                       requested_end=datetime(2023,1,10,15,tzinfo=ZONE),window_rows=500, ts_code="000001.SH")[0]
     first=load();first_facts=deepcopy(first)
     _batch3_gold(tmp_path,freq,rows[:2*size]);steps.clear()
     second=load()
@@ -818,7 +828,7 @@ def test_p4_batch3_overlapping_loads_share_actual_range_and_recover(batch3_db_fa
     def leader():
         with Session(engine) as session:
             return service._load_series(session,key=('shared',),period='m60',now=BATCH3_NOW,business_date=BATCH3_NOW.date(),remaining=lambda:4.,
-                                       requested_end=datetime(2023,1,10,15,tzinfo=ZONE),window_rows=500)
+                                       requested_end=datetime(2023,1,10,15,tzinfo=ZONE),window_rows=500, ts_code="000001.SH")
     def waiter_remaining():joined.set();return 4.
     with patch.object(service.reader,'read_complete_history_pair',wraps=service.reader.read_complete_history_pair) as pair:
         with ThreadPoolExecutor(max_workers=2) as pool:
@@ -863,7 +873,8 @@ def test_p4_batch3_signal_http_window_never_cuts_loaded_prefix(batch3_db_factory
 
 # LLD 0.9: independent calendar dates/endpoint literals; never formal data.
 @pytest.mark.parametrize('freq,n,read_rows,day_limit',[(60,1,1001,252),(60,500,1500,376),
-    (90,500,1500,501),(120,500,1500,751),(60,2000,3000,751)])
+    (90,500,1500,501),(120,500,1500,751),(60,2000,3000,751),
+    (30,1,1001,127),(30,500,1500,189),(30,2000,3000,376)])
 def test_p4_bounded_plan_uses_one_limited_sql_and_fixed_extra(batch3_db_factory,freq,n,read_rows,day_limit):
     from types import SimpleNamespace
     from unittest.mock import patch
@@ -925,7 +936,8 @@ def test_p4_bounded_calendar_errors_are_not_empty(batch3_db_factory,kind):
 
 
 @pytest.mark.parametrize('freq,n,read_rows,input_rows',[(60,1,1001,1044),(60,500,1500,1524),
-    (60,2000,3000,3024),(90,500,1500,1524),(120,500,1500,1524)])
+    (60,2000,3000,3024),(90,500,1500,1524),(120,500,1500,1524),
+    (30,500,1500,1528)])
 def test_p4_bounded_real_gold_limits_files_sql_steps_and_output(batch3_db_factory,tmp_path,monkeypatch,freq,n,read_rows,input_rows):
     import os
     from src.foundation.clients.local_lake import major_index_mins_reader as reader_module
@@ -984,12 +996,12 @@ def test_p4_bounded_history_intraday_and_early_empty(batch3_db_factory,tmp_path,
     first_slot=BATCH3_SLOTS[freq][0]
     end=datetime.fromisoformat('2023-01-09T'+first_slot+':00+08:00')
     with Session(batch3_db_factory()) as session:
-        with service.load_entry(session,period=f'm{freq}',requested_end=end,now=BATCH3_NOW) as (entry,_,_,_):
+        with service.load_entry(session,period=f'm{freq}',requested_end=end,now=BATCH3_NOW, ts_code="000001.SH") as (entry,_,_,_):
             assert entry.validated_through==entry.processed[-1].time==end.isoformat()
             assert all(bar.time<=end.isoformat() for bar in entry.raw)
         with patch.object(service.reader,'history_source_signature',side_effect=AssertionError('early signature')),\
              patch.object(service.reader,'read_complete_history_pair',side_effect=AssertionError('early data')):
-            result=json.loads(service.build(session,period=f'm{freq}',start_date=None,end_date=date(1989,12,29),limit=500,now=BATCH3_NOW))
+            result=json.loads(service.build(session,period=f'm{freq}',start_date=None,end_date=date(1989,12,29),limit=500,now=BATCH3_NOW, ts_code="000001.SH"))
         assert result['dataStatus']['status']=='EMPTY' and result['points']==[]
 
 
@@ -999,7 +1011,7 @@ def test_p4_bounded_changed_plan_rebuilds_even_with_same_actual_first(batch3_db_
     _batch3_gold(tmp_path,60)
     service=IndexDetailXxmQueryService(lake_root=tmp_path,cache=XxmCache())
     with Session(batch3_db_factory()) as session:
-        with service.load_entry(session,period='m60',requested_end=datetime.fromisoformat(initial_end),now=BATCH3_NOW) as (old,_,_,_):pass
+        with service.load_entry(session,period='m60',requested_end=datetime.fromisoformat(initial_end),now=BATCH3_NOW, ts_code="000001.SH") as (old,_,_,_):pass
         before=old.calculator.snapshot();steps=[];restores=[];original=query_service.XxmCalculator.step
         original_restore=query_service.XxmCalculator.restore
         def step(calculator,bar):steps.append(bar.time);return original(calculator,bar)
@@ -1007,7 +1019,7 @@ def test_p4_bounded_changed_plan_rebuilds_even_with_same_actual_first(batch3_db_
         monkeypatch.setattr(query_service.XxmCalculator,'step',step)
         monkeypatch.setattr(query_service.XxmCalculator,'restore',restore)
         with patch.object(service.reader,'read_complete_history_pair',wraps=service.reader.read_complete_history_pair) as pair:
-            with service.load_entry(session,period='m60',now=BATCH3_NOW) as (new,_,_,_):pass
+            with service.load_entry(session,period='m60',now=BATCH3_NOW, ts_code="000001.SH") as (new,_,_,_):pass
         assert pair.call_count==1 and len(steps)==12 and len(service.cache.entries)==2
         assert old.raw[0].time==new.raw[0].time and old.calculator.snapshot()==before
         assert all(calculator is not new.calculator for calculator in restores)
@@ -1018,7 +1030,7 @@ def test_p4_bounded_counts_and_historical_endpoints_have_separate_entries(batch3
     with Session(batch3_db_factory()) as session:
         entries=[]
         for n,end in ((500,None),(2000,None),(500,None),(500,date(2023,1,6))):
-            with service.load_entry(session,period='m60',window_rows=n,requested_end=end,now=BATCH3_NOW) as (entry,_,_,_):entries.append(entry)
+            with service.load_entry(session,period='m60',window_rows=n,requested_end=end,now=BATCH3_NOW, ts_code="000001.SH") as (entry,_,_,_):entries.append(entry)
     assert entries[0] is entries[2] and entries[0] is not entries[1] and entries[0] is not entries[3]
     assert len(service.cache.entries)==3
     assert entries[3].validated_through=='2023-01-06T15:00:00+08:00'
@@ -1073,3 +1085,264 @@ def test_p4_bounded_window_does_not_hide_corrupt_cached_old_structure(batch3_db_
         with pytest.raises(XxmQueryError) as error:build_debug(service,session,**kwargs)
         assert error.value.code=='XXM_SOURCE_CONTRACT_INVALID'
         assert valid.structure_records==before and service.cache.get(key) is poisoned
+
+
+# Independent target list approved in the expansion plan. Production still
+# reads the majorIndices configuration; tests must not manufacture this list
+# through the admission function under test.
+EXPANSION_CODES = ('000001.SH', '399001.SZ', '399006.SZ', '000688.SH',
+                   '000300.SH', '000905.SH', '000852.SH', '000510.SH', '000016.SH')
+EXPANSION_PERIODS = ('day', 'm30', 'm60', 'm90', 'm120')
+
+
+def _expansion_client(engine, lake_root):
+    app = FastAPI()
+    install_exception_handlers(app)
+
+    def session():
+        with Session(engine) as value:
+            yield value
+
+    app.include_router(build_router(db_dependency=session, auth_dependency=lambda: None,
+                                   error_factory=WebAppError), prefix='/api/v1')
+    app.include_router(build_minute_router(db_dependency=session, auth_dependency=lambda: None,
+                                          lake_dependency=lambda: lake_root,
+                                          error_factory=WebAppError), prefix='/api/v1')
+    return TestClient(app)
+
+
+@pytest.mark.parametrize('ts_code', EXPANSION_CODES)
+@pytest.mark.parametrize('period', EXPANSION_PERIODS)
+def test_expansion_real_signals_bind_nine_codes_and_five_periods(
+        batch3_db_factory, tmp_path, monkeypatch, ts_code, period):
+    """Real route/query/SQL or paired Gold, using only isolated contract inputs."""
+    # All nine approved indices, including 000510.SH, exist in this window.
+    _source_clock(monkeypatch, datetime(2025,10,16,21,tzinfo=ZONE))
+    monkeypatch.setattr(query_service, '_CACHE', XxmCache())
+    engine = batch3_db_factory(begin=date(2025,10,9), end=date(2025,10,16))
+    if period == 'day':
+        days = ('2025-10-09', '2025-10-10', '2025-10-13', '2025-10-14',
+                '2025-10-15', '2025-10-16')
+        with engine.begin() as connection:
+            # Different first closes catch an accidental fixed 上证 SQL filter.
+            connection.execute(text('INSERT INTO core_serving.index_factor_pro '
+                'VALUES(:code,:day,:close,:dif,:dea,:hist)'),
+                [dict(code=code, day=day, close=c + 20 * index, dif=d, dea=d-h/2, hist=h)
+                 for index, code in enumerate(EXPANSION_CODES)
+                 for day, (c,d,h) in zip(days, VALUES[:6], strict=True)])
+        endpoint = 'xxm-signals'
+        params = dict(tsCode=ts_code, period='day', endDate='2025-10-16')
+    else:
+        freq = int(period[1:])
+        offset = 20 * EXPANSION_CODES.index(ts_code)
+        stamps = [f'2025-10-{day:02d}T{slot}:00'
+                  for day in (14,15,16) for slot in BATCH3_SLOTS[freq]]
+        rows = [(stamp, float(c + offset), float(d), float(d-h/2), float(h))
+                for stamp, (c,d,h) in zip(stamps, (VALUES * 3)[:len(stamps)], strict=True)]
+        _batch3_gold(tmp_path, freq, rows, ts_code=ts_code)
+        endpoint = 'minute-xxm-signals'
+        params = dict(tsCode=ts_code, freq=freq, endDate='2025-10-16')
+    with _expansion_client(engine, tmp_path) as api:
+        response = api.get('/api/v1/wealth/market/index-detail/' + endpoint, params=params)
+    assert response.status_code == 200, response.text
+    value = response.json()
+    assert value['tsCode'] == ts_code and value['period'] == period
+    assert value['dataStatus']['status'] == 'READY'
+    assert value['points'] and value['points'][0]['close'] == 100 + 20 * EXPANSION_CODES.index(ts_code)
+    assert value['meta']['count'] == (6 if period == 'day' else 3 * len(BATCH3_SLOTS[freq]))
+    if period == 'm30':
+        assert value['source']['startTime'] == '2025-10-14T10:00:00+08:00'
+        assert {point['time'][11:16] for point in value['points']} == set(BATCH3_SLOTS[30])
+    assert value['events'] and any(event['type'] == 'STRUCTURE' for event in value['events'])
+
+
+@pytest.mark.parametrize('ts_code', ['899050.BJ', '000680.SH'])
+@pytest.mark.parametrize('period', EXPANSION_PERIODS)
+def test_expansion_rejects_excluded_codes_before_context_cache_or_source(
+        source_db, tmp_path, monkeypatch, ts_code, period):
+    from unittest.mock import Mock
+    denied = Mock(side_effect=AssertionError('admission must precede context, cache and source'))
+    monkeypatch.setattr(query_service.MarketPageContextQuery, 'resolve_context', denied)
+    monkeypatch.setattr(query_service._CACHE, 'get', denied)
+    monkeypatch.setattr(query_service._CACHE.loads, 'load', denied)
+    monkeypatch.setattr(query_service, 'read_daily', denied)
+    monkeypatch.setattr(query_service, 'read_minutes', denied)
+    with _expansion_client(source_db, tmp_path) as api:
+        minute = period != 'day'
+        response = api.get('/api/v1/wealth/market/index-detail/' +
+            ('minute-xxm-signals' if minute else 'xxm-signals'),
+            params={'tsCode':ts_code, **({'freq':period[1:]} if minute else {'period':'day'})})
+    assert response.status_code == 404 and response.json()['code'] == 'XXM_NOT_SUPPORTED'
+    service = IndexDetailXxmQueryService(cache=query_service._CACHE)
+    with Session(source_db) as session:
+        with pytest.raises(XxmQueryError) as error:
+            with service.load_entry(session, ts_code=ts_code, period=period, now=BATCH3_NOW):
+                pytest.fail('excluded code entered the query')
+    assert error.value.status == 404 and error.value.code == 'XXM_NOT_SUPPORTED'
+    denied.assert_not_called()
+
+
+@pytest.mark.parametrize('problem', ['unavailable', 'wrong_payload'])
+def test_expansion_configuration_failure_is_query_failure_without_source(
+        source_db, monkeypatch, problem):
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+    from src.biz.services.wealth.config import StrategyConfigError, StrategyConfigService
+
+    def broken_config(self, *, module_key, market):
+        assert (module_key, market) == ('majorIndices', 'CN_A')
+        if problem == 'unavailable':
+            raise StrategyConfigError('isolated missing configuration')
+        return SimpleNamespace(payload=None, version='invalid-fixture')
+
+    monkeypatch.setattr(StrategyConfigService, 'get_config', broken_config)
+    source = Mock(side_effect=AssertionError('configuration failure must precede source'))
+    monkeypatch.setattr(query_service.MarketPageContextQuery, 'resolve_context', source)
+    response = client(source_db).get('/api/v1/wealth/market/index-detail/xxm-signals',
+                                     params={'tsCode':'000001.SH'})
+    assert response.status_code == 500 and response.json()['code'] == 'XXM_QUERY_FAILED'
+    source.assert_not_called()
+
+
+def test_expansion_identical_daily_inputs_keep_separate_series_and_event_ids(source_db):
+    with source_db.begin() as connection:
+        connection.execute(text("INSERT INTO core_serving.index_factor_pro "
+            "SELECT '399001.SZ',trade_date,close,macd_dif_bfq,macd_dea_bfq,macd_bfq "
+            "FROM core_serving.index_factor_pro WHERE ts_code='000001.SH'"))
+    service = IndexDetailXxmQueryService(cache=XxmCache())
+    entries = []
+    with Session(source_db) as session:
+        for code in ('000001.SH', '399001.SZ'):
+            with service.load_entry(session, ts_code=code, period='day',
+                                    now=datetime(2020,1,10,20,tzinfo=ZONE)) as loaded:
+                entries.append(loaded[0])
+        for code, saved in zip(('000001.SH', '399001.SZ'), entries, strict=True):
+            with service.load_entry(session, ts_code=code, period='day',
+                                    now=datetime(2020,1,10,20,tzinfo=ZONE)) as loaded:
+                assert loaded[0] is saved
+    left, right = entries
+    assert left is not right and left.calculator is not right.calculator
+    assert left.raw == right.raw and left.fingerprints == right.fingerprints
+    assert left.points is not right.points and left.events is not right.events
+    assert left.events and right.events
+    assert {event['id'] for event in left.events}.isdisjoint(event['id'] for event in right.events)
+    assert (left.calculator.ts_code, right.calculator.ts_code) == ('000001.SH', '399001.SZ')
+    assert {key[-1] for key in service.cache.entries} == {'000001.SH', '399001.SZ'}
+
+
+def test_expansion_seventeen_valid_series_share_global_cache_limits_and_recompute(
+        batch3_db_factory, monkeypatch):
+    """Exercise the unchanged cache with real source-derived SeriesEntry values."""
+    from copy import deepcopy
+
+    days = ('2025-10-09','2025-10-10','2025-10-13','2025-10-14','2025-10-15','2025-10-16')
+    engines = [batch3_db_factory(begin=date(2025,10,9), end=date(2025,10,16))
+               for _ in range(2)]
+    for engine in engines:
+        with engine.begin() as connection:
+            connection.execute(text('INSERT INTO core_serving.index_factor_pro '
+                'VALUES(:code,:day,:close,:dif,:dea,:hist)'),
+                [dict(code=code,day=day,close=c,dif=d,dea=d-h/2,hist=h)
+                 for code in EXPANSION_CODES
+                 for day,(c,d,h) in zip(days,VALUES[:6],strict=True)])
+    cache = XxmCache()
+    services = [IndexDetailXxmQueryService(cache=cache) for _ in engines]
+    assert all(service.cache is cache for service in services)
+    assert (cache.max_series,cache.max_bytes) == (16,64*1024*1024)
+    now = datetime(2025,10,16,21,tzinfo=ZONE)
+
+    def load(origin,code):
+        with Session(engines[origin]) as session:
+            with services[origin].load_entry(session,ts_code=code,period='day',now=now) as result:
+                return result[0]
+
+    # Both connections are valid current source contexts. All entries use the
+    # same cache, rather than allocating a separate sixteen-item cache per code.
+    requests = [(0,code) for code in EXPANSION_CODES] + [(1,code) for code in EXPANSION_CODES[:8]]
+    saved = [load(origin,code) for origin,code in requests]
+    keys = [(id(engines[origin]),'daily','day',entry.calculator.spec.spec_hash,code)
+            for (origin,code),entry in zip(requests,saved,strict=True)]
+    assert len(set(keys)) == 17 and len(cache.entries) == 16
+    assert keys[0] not in cache.entries and tuple(cache.entries) == tuple(keys[1:])
+    assert {key[-1] for key in cache.entries} == set(EXPANSION_CODES)
+    assert 0 < sum(size for _,size in cache.entries.values()) <= 64*1024*1024
+    assert all(isinstance(entry,query_service.SeriesEntry) for entry,_ in cache.entries.values())
+
+    first_facts = deepcopy((saved[0].calculator.snapshot(),saved[0].points,saved[0].events,
+                           saved[0].structure_records,saved[0].fingerprints))
+    steps = [];original_step = query_service.XxmCalculator.step
+    def step(calculator,bar):
+        steps.append((calculator.ts_code,bar.time))
+        return original_step(calculator,bar)
+    monkeypatch.setattr(query_service.XxmCalculator,'step',step)
+    assert load(*requests[-1]) is saved[-1] and steps == []
+    rebuilt = load(*requests[0])
+    assert rebuilt is not saved[0] and steps == [('000001.SH',day) for day in days]
+    assert (rebuilt.calculator.snapshot(),rebuilt.points,rebuilt.events,
+            rebuilt.structure_records,rebuilt.fingerprints) == first_facts
+    assert len(cache.entries) == 16 and cache.get(keys[0]) is rebuilt and keys[1] not in cache.entries
+    assert 0 < sum(size for _,size in cache.entries.values()) <= cache.max_bytes
+
+
+@pytest.mark.parametrize('raw_code', ['000001.SH', ' 000001.sh '])
+def test_expansion_signals_and_direct_build_use_the_normalized_code(source_db, raw_code):
+    api_response = client(source_db).get('/api/v1/wealth/market/index-detail/xxm-signals',
+        params={'tsCode':raw_code, 'endDate':'2020-01-08'})
+    assert api_response.status_code == 200 and api_response.json()['tsCode'] == '000001.SH'
+    with Session(source_db) as session:
+        value = json.loads(IndexDetailXxmQueryService(cache=XxmCache()).build(
+            session, ts_code=raw_code, period='day', start_date=None,
+            end_date=date(2020,1,8), limit=8, now=datetime(2020,1,10,20,tzinfo=ZONE)))
+    assert value['tsCode'] == '000001.SH' and value['points']
+
+
+@pytest.mark.parametrize('source_changed', [False, True])
+def test_expansion_wrong_code_series_cache_rejected_before_rebuild(source_db, source_changed):
+    """A valid other-code entry put at a wrong key is a cache binding error."""
+    from copy import deepcopy
+    with source_db.begin() as connection:
+        connection.execute(text("INSERT INTO core_serving.index_factor_pro "
+            "SELECT '399001.SZ',trade_date,close,macd_dif_bfq,macd_dea_bfq,macd_bfq "
+            "FROM core_serving.index_factor_pro WHERE ts_code='000001.SH'"))
+    service = IndexDetailXxmQueryService(cache=XxmCache())
+    saved = {}
+    with Session(source_db) as session:
+        for code in ('000001.SH', '399001.SZ'):
+            with service.load_entry(session, ts_code=code, period='day',
+                                    now=datetime(2020,1,10,20,tzinfo=ZONE)) as loaded:
+                saved[code] = loaded[0]
+    wrong = saved['399001.SZ']
+    facts = deepcopy(wrong.calculator.snapshot())
+    target_key = next(key for key in service.cache.entries if key[-1] == '000001.SH')
+    service.cache.put(target_key, wrong, check=lambda:4.)
+    if source_changed:
+        with source_db.begin() as connection:
+            connection.execute(text("UPDATE core_serving.index_factor_pro SET close=close+5 "
+                                    "WHERE ts_code='000001.SH' AND trade_date='2020-01-01'"))
+    with Session(source_db) as session, pytest.raises(XxmQueryError) as error:
+        with service.load_entry(session, ts_code='000001.SH', period='day',
+                                now=datetime(2020,1,10,20,tzinfo=ZONE)):
+            pytest.fail('wrong-code entry was accepted or replaced')
+    assert error.value.code == 'XXM_SOURCE_CONTRACT_INVALID'
+    assert service.cache.get(target_key) is wrong and wrong.calculator.snapshot() == facts
+
+
+@pytest.mark.parametrize('period', EXPANSION_PERIODS)
+@pytest.mark.parametrize('sign', [1, -1])
+def test_expansion_five_period_nonshanghai_normal_debug_projection(period, sign):
+    # Approved RC77/93 literal path: price ending is retained internally while
+    # same-bar activation is the chart event; the public facts are identical.
+    from scripts.research.index_market.tests.test_xxm_r4_following_query import entry, response
+    from scripts.research.index_market.tests.test_xxm_r4_following import TF, values
+    from src.biz.services.wealth.market.index_detail_xxm.response_projection import project_xxm_response
+
+    source = entry(values(TF + [(102,97,2),(104,96,2)],sign), period, ts_code='399001.SZ')
+    internal = response(source,8,limit=1)
+    normal = project_xxm_response(internal, debug=False)
+    debug = project_xxm_response(internal, debug=True)
+    assert normal.tsCode == debug.tsCode == '399001.SZ'
+    assert normal.period == debug.period == period
+    assert normal.model_dump() == {key:value for key,value in debug.model_dump().items() if key != 'debug'}
+    assert [event.type for event in normal.events] == ['CANCEL','DULL']
+    assert [event.displayOnChart for event in normal.events] == [False,True]
+    assert debug.debug.structures[0].status == 'DISAPPEARED'

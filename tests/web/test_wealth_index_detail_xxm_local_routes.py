@@ -92,8 +92,22 @@ def test_production_full_api_aggregation_has_no_r4_routes_or_source_calls(monkey
         app.dependency_overrides[get_db_session] = forbidden
         app.dependency_overrides[require_quote_access] = forbidden
         with TestClient(app) as client:
-            for name in NAMES:
-                assert client.get(PATH+name+'?tsCode=000001.SH&debug=1').status_code == 404
+            from src.biz.services.wealth.market.index_detail.index_detail_universe import IndexDetailUniverseService
+            codes = IndexDetailUniverseService().load_universe().ordered_codes
+            assert len(codes) == 10 and '899050.BJ' in codes
+            for code in codes:
+                for period in ('day','m30','m60','m90','m120'):
+                    params = {'tsCode':code,'debug':'1'}
+                    if period == 'day':
+                        signals = 'xxm-signals'
+                        params['period'] = 'day'
+                    else:
+                        signals = 'minute-xxm-signals'
+                        params['freq'] = period[1:]
+                    assert client.get(PATH+signals,params=params).status_code == 404
+                    assert client.get(PATH+'xxm-key-point-forecast',params={
+                        'tsCode':code,'period':period,'debug':'1'}).status_code == 404
+            assert client.get(PATH+'daily-waves?tsCode=000001.SH&debug=1').status_code == 404
             schema = client.get('/openapi.json').json()
             assert all(PATH+name not in schema['paths'] for name in NAMES)
             assert PATH+'kline' in schema['paths']

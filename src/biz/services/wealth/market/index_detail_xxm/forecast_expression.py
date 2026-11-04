@@ -302,7 +302,7 @@ def _visit_envelope(node, projection, source):
 
 
 def comparison_envelope(left, right, *, projection, period):
-    if period not in ("day", "m60", "m90", "m120"):
+    if period not in ("day", "m30", "m60", "m90", "m120"):
         raise ValueError("Unsupported forecast period")
     validate_expression(left, projection=projection)
     validate_expression(right, projection=projection)

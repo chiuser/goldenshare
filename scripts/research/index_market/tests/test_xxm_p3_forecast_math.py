@@ -12,8 +12,9 @@ import sys
 import pytest
 
 
-def test_p4_bounded_projection_recovers_1500_from_independent_decimal_history():
-    """LLD 0.9.7(14): Decimal EMA is independent of ProjectionState.advance."""
+@pytest.mark.parametrize('period', ['m30', 'm60'])
+def test_p4_bounded_projection_recovers_1500_from_independent_decimal_history(period):
+    """Independent Decimal history; expansion T18's exact 249/250 boundary."""
     from decimal import Decimal, localcontext
     from dataclasses import replace
     from datetime import datetime, timedelta
@@ -27,18 +28,33 @@ def test_p4_bounded_projection_recovers_1500_from_independent_decimal_history():
             fast=fast*Decimal(11)/13+close*Decimal(2)/13
             slow=slow*Decimal(25)/27+close*Decimal(2)/27
             dif=fast-slow;signal=signal*Decimal('0.8')+dif*Decimal('0.2')
-            # Timestamp validity is tested by source/reader; no source is read here.
-            stamp=(datetime(2020,1,1)+timedelta(days=i)).isoformat()+'+08:00'
+            # Literal 15:00 is a completed endpoint for both minute periods;
+            # this mathematical fixture does not read a source or calendar.
+            stamp=(datetime(2020,1,1,15)+timedelta(days=i)).isoformat()+'+08:00'
             bars.append(XxmBar(stamp,float(close),float(dif),float(signal),float(2*(dif-signal))))
+            if i == 249:
+                expected_250=tuple(float(value) for value in (fast,slow,signal))
         expected=tuple(float(value) for value in (fast,slow,signal))
     selected=tuple(bars[-1500:])
-    result=recover_projection(selected,'m60',lambda:None)
+    result=recover_projection(selected,period,lambda:None)
     assert (result.e12,result.e26,result.dea)==pytest.approx(expected,rel=0,abs=1e-10)
     changed=list(selected);changed[-1]=replace(changed[-1],dif=changed[-1].dif+2e-8)
     with pytest.raises(ProjectionPrecisionError,match='CALIBRATION_FAILED'):
-        recover_projection(tuple(changed),'m60',lambda:None)
+        recover_projection(tuple(changed),period,lambda:None)
     with pytest.raises(ProjectionPrecisionError,match='CALIBRATION_FAILED'):
-        recover_projection(selected[-249:],'m60',lambda:None)
+        recover_projection(selected[-249:],period,lambda:None)
+    # The first 250 bars retain the independent source's actual EMA start.
+    # A tail cut from this history would use a different initial EMA and would
+    # not establish the exact-length positive boundary.
+    first_250=tuple(bars[:250])
+    result_250=recover_projection(first_250,period,lambda:None)
+    assert (result_250.e12,result_250.e26,result_250.dea)==pytest.approx(expected_250,rel=0,abs=1e-10)
+    with pytest.raises(ProjectionPrecisionError,match='CALIBRATION_FAILED'):
+        recover_projection(first_250[:249],period,lambda:None)
+    changed_250=list(first_250)
+    changed_250[-1]=replace(changed_250[-1],dif=changed_250[-1].dif+2e-8)
+    with pytest.raises(ProjectionPrecisionError,match='CALIBRATION_FAILED'):
+        recover_projection(tuple(changed_250),period,lambda:None)
 
 from src.biz.services.wealth.market.index_detail_xxm.forecast_expression import (
     _expression_envelope, literal,

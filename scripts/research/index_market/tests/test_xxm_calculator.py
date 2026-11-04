@@ -131,7 +131,7 @@ def test_color_flip_freezes_origin_and_keeps_following_in_separator(sign):
     assert creation["status"] == "ASSESSING" and locked["status"] == "FOLLOWING"
 
 
-@pytest.mark.parametrize("period",["day","m60","m90","m120"])
+@pytest.mark.parametrize("period",["day","m30","m60","m90","m120"])
 def test_snapshot_clone_restore_and_failed_restore_are_isolated(period):
     values=TOP+[(103,99,2),(102,98,-2),(105,97,-2)]
     inputs=bars(values,period)
@@ -175,3 +175,66 @@ def test_snapshot_clone_restore_and_failed_restore_are_isolated(period):
 def test_fixed_formal_rule_identity_rejects_policy_changes(override):
     with pytest.raises(ValueError):
         XxmSpec(**override)
+
+
+@pytest.mark.parametrize("code", ["000001.SH", "399001.SZ", "899050.BJ", "000680.SH"])
+def test_calculator_accepts_normalized_code_format_without_product_membership(code):
+    # Product membership belongs to query_service; pure mathematical use only
+    # requires the canonical code format, including codes outside its universe.
+    calc = XxmCalculator(ts_code=code, period="m30", source_identity="literal-m30")
+    assert calc.ts_code == code and calc.period == "m30"
+
+
+@pytest.mark.parametrize("code", [None, 1, True, b"000001.SH", " 000001.SH", "000001.SH ",
+                                    "000001.sh", "000001SH", "00001.SH", "0000001.SH",
+                                    "000001.HK", "０００００１.SH", "000001.SH\n"])
+def test_calculator_does_not_normalize_or_coerce_code(code):
+    with pytest.raises(ValueError, match="Unsupported XXM identity"):
+        XxmCalculator(ts_code=code, period="m30", source_identity="literal-m30")
+
+
+@pytest.mark.parametrize("period", ["m15", "m5", "week", "30", 30, None])
+def test_calculator_expansion_does_not_admit_other_periods(period):
+    with pytest.raises(ValueError, match="Unsupported XXM identity"):
+        XxmCalculator(ts_code="399001.SZ", period=period, source_identity="literal-m30")
+
+
+def test_m30_literal_completed_times_form_dull_then_structure_with_bound_ids():
+    # Existing TOP business values, assigned independent legal 30-minute
+    # endpoints from the approved producer contract; no endpoint helper is used.
+    times = ("2023-01-03T10:00:00+08:00", "2023-01-03T10:30:00+08:00",
+             "2023-01-03T11:00:00+08:00", "2023-01-03T11:30:00+08:00",
+             "2023-01-03T13:30:00+08:00")
+    values = TOP + [(103, 99, 2)]
+    seen = []
+    for code in ("000001.SH", "399001.SZ"):
+        calc = XxmCalculator(ts_code=code, period="m30", source_identity="literal-m30")
+        steps = [calc.step(XxmBar(stamp, close, dif, dif-hist/2, hist))
+                 for stamp, (close, dif, hist) in zip(times, values)]
+        assert [step.point["ordinaryState"] for step in steps] == ["NONE", "NONE", "NONE", "DULL", "STRUCTURE"]
+        assert [(event["type"], event["route"]) for step in steps for event in step.events] == [
+            ("DULL", "activation"), ("STRUCTURE", "dif_turn")]
+        event = steps[-1].events[0]
+        record = steps[-1].structures[0]
+        # Independently registered ID formula; no calculator ID helper supplies
+        # the expected value, so original 上证 identity is guarded as well.
+        parts = ("xxm-direction-v0.4-r4", MAIN_SPEC.spec_hash, code, "m30", times[-1],
+                 "STRUCTURE", 1, times[0])
+        event_id = hashlib.sha256("|".join(map(str, parts)).encode()).hexdigest()[:24]
+        structure_parts = ("xxm-direction-v0.4-r4", MAIN_SPEC.spec_hash, code, "m30", "structure", event_id)
+        structure_id = hashlib.sha256("|".join(map(str, structure_parts)).encode()).hexdigest()[:24]
+        assert event["id"] == event_id and record["id"] == structure_id
+        assert record["status"] == "ASSESSING" and record["structureEventId"] == event_id
+        assert record["formedAt"] == times[-1]
+        seen.append((event_id, structure_id))
+    assert seen[0][0] != seen[1][0] and seen[0][1] != seen[1][1]
+
+
+@pytest.mark.parametrize("stamp", ["2023-01-03", "2023-01-03T10:00:00",
+                                     "2023-01-03T10:00:00+00:00"])
+def test_m30_retains_minute_timezone_validation_without_changing_progress(stamp):
+    calc = XxmCalculator(ts_code="399001.SZ", period="m30", source_identity="literal-m30")
+    before = calc.snapshot()
+    with pytest.raises(ValueError):
+        calc.step(XxmBar(stamp, 100, 1, 0, 2))
+    assert calc.snapshot() == before

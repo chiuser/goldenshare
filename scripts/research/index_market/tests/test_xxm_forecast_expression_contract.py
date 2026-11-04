@@ -1,14 +1,17 @@
 """LLD 5.4/22.15 F02: literal contracts for the six single-bar JSON nodes.
 
-No forecast or formula is executed. Expected fields are independent literals;
+Expected fields and the m30 affine coefficients are independent literals;
 negative numeric tests start from a valid five-field MACD descriptor.
 """
 from copy import deepcopy
+from fractions import Fraction
 
 import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from src.biz.schemas.wealth.market.index_detail_xxm_forecast import ForecastExpression
+from src.biz.services.wealth.market.index_detail_xxm.forecast_expression import comparison_envelope
+from src.biz.services.wealth.market.index_detail_xxm.projection import ProjectionState
 
 
 EXPRESSION = TypeAdapter(ForecastExpression)
@@ -103,3 +106,14 @@ def test_old_nodes_and_prefix_fields_are_rejected(value):
 def test_invalid_nested_json_and_missing_child_are_rejected(value):
     with pytest.raises(ValidationError):
         EXPRESSION.validate_python(value)
+
+
+def test_m30_comparison_envelope_uses_original_full_float_minute_expression():
+    # E12'=11+2C/13, E26'=25+2C/27 independently give
+    # DIF'=28C/351-14. The expected coefficients do not use a solver/helper.
+    result = comparison_envelope(dict(MACD, field="dif"),
+        {"op": "affine", "pCoefficient": 0, "cCoefficient": 0, "constant": 0},
+        projection=ProjectionState(13, 27, 0), period="m30")
+    assert result.ideal == (Fraction(0), Fraction(28, 351), Fraction(-14))
+    assert result.error[0] == 0
+    assert result.error[1] > 0 and result.error[2] > 0

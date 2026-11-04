@@ -3,6 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from dataclasses import asdict, replace
 import hashlib
+import re
 from typing import Any
 
 from .snapshot_validation import (
@@ -30,7 +31,8 @@ class XxmCalculator:
                  spec: XxmSpec = MAIN_SPEC, record_decisions: bool = False) -> None:
         if type(record_decisions) is not bool:
             raise ValueError("record_decisions must be a boolean")
-        if (ts_code != "000001.SH" or period not in ("day", "m60", "m90", "m120")
+        if (not isinstance(ts_code, str) or re.fullmatch(r"[0-9]{6}\.(?:SH|SZ|BJ)", ts_code) is None
+                or period not in ("day", "m30", "m60", "m90", "m120")
                 or not isinstance(source_identity, str) or not source_identity
                 or type(spec) is not XxmSpec):
             raise ValueError("Unsupported XXM identity")

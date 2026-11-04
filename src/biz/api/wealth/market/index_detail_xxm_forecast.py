@@ -14,10 +14,8 @@ def parse_parameters(request):
     code = request.query_params.get("tsCode", "")
     if not re.fullmatch(r"[0-9]{6}\.(SH|SZ|BJ)", code):
         raise XxmQueryError("XXM_REQUEST_INVALID", "tsCode 格式不合法。", 400)
-    if code != "000001.SH":
-        raise XxmQueryError("XXM_NOT_SUPPORTED", "预测第一版仅支持上证指数。", 404)
     period = request.query_params.get("period")
-    if period not in ("day", "m60", "m90", "m120"):
+    if period not in ("day", "m30", "m60", "m90", "m120"):
         raise XxmQueryError("XXM_REQUEST_INVALID", "预测周期不合法。", 400)
     as_of = request.query_params.get("asOf")
     if as_of is not None:
@@ -31,7 +29,7 @@ def parse_parameters(request):
                     raise ValueError()
         except ValueError:
             raise XxmQueryError("XXM_REQUEST_INVALID", "asOf 必须是该周期标准完成端点。", 400) from None
-    return period, as_of, parse_debug(request)
+    return code, period, as_of, parse_debug(request)
 
 
 def build_router(*, db_dependency, auth_dependency, lake_dependency, error_factory):
@@ -40,11 +38,11 @@ def build_router(*, db_dependency, auth_dependency, lake_dependency, error_facto
     def get_forecast(request: Request, tsCode: str | None = Query(None), period: str | None = Query(None),
                      asOf: str | None = Query(None), debug: str | None = Query(None), user=Depends(auth_dependency), session=Depends(db_dependency)):
         try:
-            selected, as_of, debug_mode = parse_parameters(request)
+            code, selected, as_of, debug_mode = parse_parameters(request)
             root = lake_dependency() if selected != "day" else None
             if selected != "day" and root is None:
                 raise XxmQueryError("XXM_NOT_SUPPORTED", "当前环境未开放分钟预判。", 404)
-            body = IndexDetailXxmForecastQueryService(lake_root=root).build(session, period=selected, as_of=as_of, debug=debug_mode)
+            body = IndexDetailXxmForecastQueryService(lake_root=root).build(session, ts_code=code, period=selected, as_of=as_of, debug=debug_mode)
             return Response(content=body, media_type="application/json", headers={"Cache-Control": "no-store"})
         except XxmQueryError as exc:
             code = exc.code.replace("XXM_", "XXMF_", 1)

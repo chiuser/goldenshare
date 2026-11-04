@@ -14,8 +14,8 @@ from src.biz.services.wealth.market.index_detail_xxm.types import XxmStep
 from scripts.research.index_market.tests.test_xxm_r4_following import DATES, T, TS, TF, TN, DUAL, bars, run, values
 
 
-def entry(rows, period='day'):
-    c=XxmCalculator(period=period,source_identity='finite-literals')
+def entry(rows, period='day', *, ts_code='000001.SH'):
+    c=XxmCalculator(ts_code=ts_code,period=period,source_identity='finite-literals')
     inputs=tuple(bars(rows,period))
     result=SeriesEntry(inputs,(),c,inputs,[],[],{},['literal']*len(rows),{})
     for bar in inputs:
@@ -28,7 +28,7 @@ def entry(rows, period='day'):
 
 
 def response(item, count, *, limit=1000, start=None):
-    return Query._response(item,period=item.calculator.period,expected=item.processed[count-1].time,
+    return Query._response(item,ts_code=item.calculator.ts_code,period=item.calculator.period,expected=item.processed[count-1].time,
                           start_date=start,limit=limit,check=lambda:None)
 
 
