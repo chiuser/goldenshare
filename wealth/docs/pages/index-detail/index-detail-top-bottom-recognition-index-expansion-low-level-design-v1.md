@@ -23,7 +23,7 @@
 | 生产关闭、不改鉴权、不部署 | §9及原App装配 | T07、T31 |
 | 保留预算，不开启暂缓优化 | §9 | T33、§11性能 |
 
-本轮只修改本LLD、对应方案和两个索引，不修改业务代码、测试、配置、已验收旧P5文档及其他未提交内容。不安装、不建分支、不读真实行情、不提交。后续按§2逐步授权推进，不能凭本轮文档完成直接跳过来源核验进入编码。
+初版方案/LLD及两索引已随99d876a32提交；本轮仅收敛本LLD与对应方案，索引位置和状态保持。不修改业务代码、测试、配置、已验收旧P5文档及其他未提交内容；不安装、不建分支、不读真实行情、不再次提交。后续按§2逐步推进，不能凭文档完成跳过来源核验进入编码。
 
 ## 2. 开发步骤、依赖、失败和交接
 
@@ -37,7 +37,13 @@
 
 第2步内部先扩核心类型、DTO及30分钟端点，再改来源和查询/预测传递，最后API和直接调用者同时迁移；不得暂时给产品方法保留上证默认参数维持旧签名。第3步最后才启用页面新范围。中间提交若需进行，必须明确尚未可验收，不发布中间混配版本。
 
-失败先停止该单元，不自动重试、切源、补数据、放宽阈值或清缓存掩盖。代码/规则与本文冲突时先汇报并修正文档，不临时加兼容路径。源码保护通过人工规则/差异审计，不读源码SHA作运行校验。无业务写入、迁移或磁盘快照；中断后保留本轮已验证摘要和代码，按未完成步骤继续，不自动重做已通过来源单元。真实输入或实现改变导致证据不再适用时，只补受影响单元。
+失败先停止该单元，不自动重试、切源、补数据、放宽阈值或清缓存掩盖。代码/规则与本文冲突时先汇报并修正文档，不临时加兼容路径。源码保护通过人工规则/差异审计，不读源码SHA作运行校验。无业务写入、迁移或磁盘快照；真实输入或实现改变导致证据不再适用时，只补受影响单元。
+
+续跑按完整单元处理：日线四条SELECT是一个单元，分钟24文件是另一个单元，每个指数/周期的2或4次API请求各是一个组合单元。完整通过的单元保留；未完成的部分只作诊断，原因解决并获准继续后重做该未完成单元，不能拼旧事务的Q1/Q2与新事务的Q3/Q4，也不能换新缓存只补debug后称为热路径。无需新增持久化进度或续跑系统。
+
+本次只扩展r4标的身份及周期，不重构既有普通分钟Hook、缓存或请求状态模型，不为“上游两个接口同时违反合同”等未观察到的问题增加必改项或成组防御测试。执行临时调用复用现有观察方法、内部工作截止及标准外层超时，不另建分阶段信号管理、进程通信或通用监督框架。
+
+外层临时调用只启动一个自有Python核验进程，SQL、DuckDB或隔离API在该进程中执行，沿标准subprocess超时收尾；不嵌套Node、浏览器或额外服务子进程。真实页面验收在§11.4另行进行，不纳入这个临时单元。
 
 所有测试/查询/临时调用在`/private/tmp`本任务目录，禁止将过程结果写入工程或reports。正式结论写回本方案/LLD。单个自动测试执行单元连退出≤60秒；来源50/15秒和正式请求预算见§9—11。失败退出、记录及最后核验均计入各自预算。
 
@@ -221,6 +227,8 @@ resolveIndexRecognitionAvailability({development, tsCode, validatedTsCode, searc
 - `timeKey`显式按m30/m60/m90/m120查各自端点，不让m30落入“否则120分钟”的分支，也不为非法周期兜底。
 - day/minute两个ChartWorkspace继续传当前真实code/period/points；buildXxmViewModel保留逐根时间、close/DIF/DEA/hist与当前图表对应检查。非当前或缺数据不画旧标签。
 
+普通分钟query/reader已有请求代码、周期及目标行检查，Hook已有requestId、abort和Map缓存；本需求沿用这些机制。对“两接口同时错返同一别码”不新增前端防御要求。切主图周期沿原loading→新数据交接，不增加“切换当次render必须清空”的状态模型；不能仅凭短暂旧state推断有错发r4或持续串图。正常切换和迟到响应仍做既有回归，实际页面验收如发现可见错误再按具体问题最小修复。
+
 ### 8.3 五行预判
 
 `ForecastResponse.tsCode`改string；`FORECAST_PERIODS=['day','m30','m60','m90','m120']`，PERIOD_LABELS补`m30: '30 分钟'`。卡片沿现map及样式生成五行，不重排其它栏或新增周期按钮。
@@ -272,7 +280,7 @@ sendForecast使用传入code构URL，交`adaptForecast`的options新增必填tsC
 
 临时调用自有一个只读连接，事务为REPEATABLE READ READ ONLY；连接超时≤10秒。每个业务SELECT前设置事务内statement_timeout为`min(10秒, 工作截止剩余时间)`，保留既有驱动取消/关闭方式。4条指业务读取SELECT；BEGIN、事务属性及每条超时设置等控制语句单列实际次数，耗时全部计入预算，不以“四条”隐去。
 
-总计时从创建临时子进程/连接之前开始，工作截止40秒；正常连接/读取/校验必须在此之前结束。自有父调用在40秒停止领取查询并通知子进程退出，最多5秒等待清理，再终止未退出的自有进程，最多2秒确认退出，剩余3秒输出有界摘要，总≤50秒。正常/错误路径finally rollback、关闭自有连接/engine；不杀共享Web/DG服务，不更换超时设置影响共享连接。不能仅用Python批次check声称阻塞SQL可硬中断。
+总计时从启动临时调用前开始，工作截止40秒；连接/读取/校验使用该截止，预留10秒关闭、摘要及退出，总预算50秒。临时调用外层沿标准`subprocess.run(..., timeout=50)`的超时处理，内层正常/错误路径finally rollback、关闭自有连接/engine；超时报告本单元未完成，不自动重试。仅管理本次自有调用，不杀共享Web/DG服务或修改共享连接设置；不为本需求另写逐级信号/进程组监督框架。SQL阻塞由既有驱动statement_timeout约束，不能把Python批次check说成数据库硬中断。
 
 ### 10.2 四条日线SQL及校验
 
@@ -285,7 +293,7 @@ sendForecast使用传入code构URL，交`adaptForecast`的options新增必填tsC
 | Q1 日历 | recent取SSE、is_open=true、trade_date≤cutoff，日期降序LIMIT 10；bounds取最早选中日；同SQL用bounds到cutoff自然日序列，与该窗口全部SSE日历做覆盖、重复和is_open非空统计。返回按升序的最多10开市日数组及摘要 | 恰10个不同开市日；窗口首末覆盖、自然日期无缺/重、布尔合法。不能仅过滤开市而忽略非法日历行；空或不足直接报告 |
 | Q2 每码范围 | wanted LEFT JOIN日线，以`ts_code`及trade_date≤cutoff过滤聚合COUNT(trade_date)/MIN/MAX；按wanted顺序返回 | 恰9行，包括缺数据code的count=0；任何count=0、首末日期无效、max落后Q1最新开市日均失败。只统计，不导全历史 |
 | Q3 首末样本 | 把Q2每码首/末日期去重，构成绑定VALUES(code,date)，JOIN日线，显式取六列，按code/date | 正常≤18行且实际键等于所选首末键；首末同日仅1个。允许正常上限+1作溢出证据，但一旦超量必须失败，不能截断后通过 |
-| Q4 同窗尾部 | wanted×Q1同一10日，JOIN六列日线，按code/date；不能每码各取自己最新10行 | 正常恰90键；缺日、重复、额外键和必需数值异常均失败。读取上限91用于超量失败，不截断成功 |
+| Q4 同窗尾部 | wanted×Q1同一10个开市日，JOIN六列日线，按code/date；不能每码各取自己最新10行 | 正常恰90键；所选集合的缺日、重复及必需数值异常失败。读取上限91用于超量失败，不截断成功。只证明这10个开市日的覆盖，不检查休市日或其他指数的异常行 |
 
 Q3/Q4逐值检查日期对象、code绑定、close>0、非NULL和math.isfinite；不要把DuckDB的数值函数直接套PG。Q1摘要同时检查selected开市日期的重复；记录请求日期、实际日历窗口、每码count/min/max及至多10个坏键，不输出整份价格。Q2统计count获准不等于导出全历史获准，不能追加全历史读取。
 
@@ -346,7 +354,7 @@ VALUES生成只构造占位符和有限序号；Q2固定9组，Q3用实际去重
 
 ### 10.3 分钟24文件
 
-只构造四频×三日×两类24条精确路径：bars根`gold/quote/major_index_mins`，indicators根`gold/indicator/major_index_mins_technical`，其下`freq=F/trade_date=D/part-000.parquet`。路径存在及实际内容待执行，禁止glob全历史。使用当前DuckDB环境，内存256MiB、线程1、禁临时落盘/自动扩展安装，开读前起计时；10秒工作+5秒关闭/摘要，总≤15秒，Timer中断自有连接并finally取消计时器/关闭。
+只构造四频×三日×两类24条精确路径：bars根`gold/quote/major_index_mins`，indicators根`gold/indicator/major_index_mins_technical`，其下`freq=F/trade_date=D/part-000.parquet`。路径存在及实际内容待执行，禁止glob全历史。使用当前DuckDB环境，内存256MiB、线程1、禁临时落盘/自动扩展安装；10秒工作+5秒关闭/摘要，总预算15秒。从启动临时调用前计时，外层沿标准`subprocess.run(..., timeout=15)`处理超时，内层沿既有DuckDB Timer及finally取消计时器/关闭。Timer仅用于SQL中断，不宣称它覆盖连接打开/关闭；不新增分钟专用监督器或修改产品reader。
 
 一次按各类路径集合投影，`hive_partitioning=false`、带filename，只WHERE九码。bars取四键ts_code/freq/trade_date/trade_time和close；indicators取四键、macd_dif/macd_dea/macd、params_key/indicator_version。只核所需列类型（bars.freq INTEGER、technical.freq SMALLINT、date DATE、time TIMESTAMP、指标DOUBLE等），不核无关列全顺序、其他指数或文件mtime。
 
@@ -412,7 +420,7 @@ T13/T17复用现独立数学/业务金样本，换成正式合同中的m30合法
 | A 核心/恢复 | scripts/research/index_market/tests下现calculator、r4_rules、following、restore、snapshot_validation、input_validation、product_v1_cases | 原四周期已有金样本加m30必要参数化，按文件切单元，不运行冻结行情回放 |
 | B 预测数学 | 现key_point_forecast、p3_forecast_math、forecast_expression_contract、r4_following_forecast、forecast_display | 覆盖m30内部限制及原数学不变 |
 | C 查询/API | tests/web/test_wealth_index_detail_xxm_api.py、forecast_api.py、forecast_validation.py、local_routes.py、test_xxm_shared_loads.py | API实际路由、Universe配置和真实query；临时DB/Gold按当前生产合同构造；替代哪层须说明 |
-| D 内部消费者/工具 | 现snapshot_consumers、r4_internal_results、r4_following_query、saved_minute_window、p4_audit_tools | 签名及观察工具透明转发、历史/发布顺序 |
+| D 内部消费者/工具 | 现snapshot_consumers、r4_internal_results、r4_following_query、saved_minute_window、p4_audit_tools及`test_xxm_daily_window_precheck.py` | 签名及观察工具透明转发、历史/发布顺序；后者必须覆盖待改固定时钟load包装的新code/window参数，不新造研究用例 |
 | E 前端 | availability、controller/Page、xxm及xxm-forecast、debug、daily-wave、scheduler各现测试 | 新client首参和所有adaptForecast options同步；五行fixture/Record补m30 |
 | F 通用检查 | 现typecheck、完整test、构建各独立单元；测试禁缓存，构建仅调整输出到上述临时路径；架构三测试及研究依赖、文档检查 | 前端全回归失败不得登记全部通过；无关旧TODO不趁机修复 |
 
@@ -427,15 +435,15 @@ T13/T17复用现独立数学/业务金样本，换成正式合同中的m30合法
 固定cutoff仍2026-11-03，九码按首页顺序排除北证，每码按day/m30/m60/m90/m120。
 
 - 每组合一次普通识别（day limit=300、分钟limit=500，endDate=cutoff），一次普通forecast（day asOf=cutoff、分钟asOf=cutoff的15:00+08:00），共90业务请求。不得重复读旧行情跑完整r2对比。
-- 五个代表组合另各一次debug识别及debug forecast：上证day、上证m30、深证m60、科创50m90、中证A500m120，共10请求。与同组合普通公共字段比较；共100业务请求，不另为“更好看的信号”随意加日期。
-- 每个组合为独立有界单元，最多2或4请求；每请求客户端5秒、后端4秒/预测400ms保持。本次临时父/worker从准备调用前计时，工作截止25秒；25秒未完成通知自有进程组退出，27秒仍存活则终止，29秒前确认退出，剩余1秒记摘要，总≤30秒。未确认退出登记失败且不发下一组合；只终止本次自有进程，不动共享服务。不能直接用旧固定50/60秒审计工具宣称30秒；本次临时调用另按本文准备，旧工具仍仅签名适配。先完成并记录再进下一组合，不积攒全部响应到末尾。
+- 五个代表组合另各一次debug识别及debug forecast：上证day、上证m30、深证m60、科创50m90、中证A500m120，共10请求。与同组合普通公共字段比较；共100业务请求，不另为“更好看的信号”随意加日期。比较先按本次code/period绑定唯一一对，再复用现`compare_modes`的同源前提：sourceInputId、calendarInputId、indicatorVersion、请求截止、computedThrough及实际窗口相同。固定cutoff不等于冻结历史修订；来源不同时记`not_comparable`、不登记该比较通过，也不追加读源或重发请求来凑一致。这是现比较方法的复用，不新增产品检查。
+- 每个组合为独立有界单元，最多2或4请求；每请求客户端5秒、后端4秒/预测400ms保持。从准备临时调用前计时，工作截止25秒，预留5秒关闭/摘要，总预算30秒；外层沿标准`subprocess.run(..., timeout=30)`，内层使用原截止检查及finally清理，超时停止并报告，不发下一组合或自动重试。不直接复用旧固定50/60秒执行入口后宣称30秒，也不为本需求开发新的进程组/通信监督框架；只沿用其透明观察方法。先完成并记录再进下一组合，不积攒全部响应到末尾。
 - 使用临时进程自有缓存，不清共享Web缓存。代表组合普通识别首次为series冷路径，普通预测首次为预测冷路径；紧接debug请求作为同窗热路径。记录实际是否命中，不伪称保证命中；不为测冷反复启动相同请求。
-- 每次记录code/period、requested cutoff、computedThrough、实际数量、状态/原因、源读取次数/范围、是否缓存、响应字节、请求及预测阶段耗时。通过现透明观察方法收集，不加第二次读取/计算来计时。
+- 每次记录code/period、requested cutoff、computedThrough、实际数量、状态/原因、源读取次数/范围、是否缓存、响应字节、请求及预测阶段耗时。复用`xxm_page_request_audit.py::_observe / AuditCollector.projected`的透明观察方式：在原load_entry yield期间按requestId关联实际entry，在原`project_xxm_response / project_forecast_response`调用点取得同一请求的内部输入编号、日历编号、完成时点及code/period，再记录公共结果摘要。现普通预测响应不公开sourceInputId，不从普通JSON取该字段，不新增公开字段/debug请求，也不用entry自己的指纹替代内部响应编号作为预期。只保留本次需要的观察和绑定，不搬入旧工具整套分组/通信校验；不加第二次读源或重放来计时。
 - 识别和预测响应的code/period必须等于请求。完成端点、source初始历史状态、events与引用一致。实际无候选/精度待定如实记录，不能作为有价格预测通过。
-- 九个m30组合各记录一次真实输入及校准结果，不能只核上证代表。临时透明观察在forecast的load_entry原yield期间保留该次`entry.processed`引用及fingerprints/code/period；响应返回后按computedThrough截取原实际前缀，核末尾指纹等于本次sourceInputId。不是从公开500根响应恢复1500根输入，也不再次调load_entry读源。产品recover_projection已执行则直接记原状态/耗时；仅NO_CANDIDATE未执行时，针对同一前缀补调用一次原函数，使用本单元25秒工作截止的剩余时间，不复用已结束HTTP的4秒remaining。补校准不改产品响应、不作400ms产品预测证据；debug请求不再补第二次。记录后释放本单元数据；不足250或校准失败如实登记，不换源/放宽。
+- 九个m30组合各记录一次真实输入及校准结果，不能只核上证代表。临时观察保留本次forecast实际entry.processed及内部投影取得的请求身份/编号；响应返回后按内部computedThrough截取实际前缀，核末尾指纹等于该请求内部sourceInputId。不是从公开500根响应恢复1500根输入，也不再次调load_entry读源。产品recover_projection已执行则直接记原状态/耗时；仅NO_CANDIDATE未执行时，针对同一前缀补调用一次原函数，使用本单元25秒工作截止的剩余时间，不复用已结束HTTP的4秒remaining。补校准不改产品响应、不作400ms产品预测证据；debug请求不再补第二次。记录后释放本单元数据；不足250或校准失败如实登记，不换源/放宽。
 - 有任何性能不达标，首个失败即停止后续真实性能请求并汇报实际路径/数量/阶段耗时；不改预算/自动重试。其他纯静态或已获准隔离回归可继续，但本批真实验收不得报全部通过。
 
-未完成单元可以在原因解决、证据仍适用后续跑；保存每个已完成单元的小摘要到临时目录，正式文档只记45组合状态表及代表性能，不保存100份完整JSON到reports。接口成功、NO_CANDIDATE和算法非空样本分别报告，不能混为一项通过。
+按§2完整单元续跑：一个组合内2或4次请求及其校准/比较共同完成才登记该单元通过；中断部分仅诊断，原因解决并获准继续后重做该未完成组合，不能换新worker只补debug而宣称同缓存热路径。完整通过的其他组合保留。保存每单元小摘要到临时目录，正式文档只记45组合状态表及代表性能，不保存100份完整JSON到reports。接口成功、NO_CANDIDATE和算法非空样本分别报告，不混为一项通过；不新增恢复或续跑框架。
 
 ### 11.4 页面核心验收
 
@@ -489,8 +497,12 @@ T13/T17复用现独立数学/业务金样本，换成正式合同中的m30合法
 
 本轮依据当前代码与CodeGraph explore/impact/callers核API、Universe、query/source、缓存、核心/恢复、预测、TS/page/controller/debug及直接工具消费者。合同核验止于源码，未读真实行情/数据库。主方案与本LLD的对应为：方案§1—2→本§1—2；§3→本§5/10；§4—5→本§3—8；§6→本§9；§7→本§11—12；§8→本§2/10—11。
 
-已分别完成后端、来源和前端独立复核，并在修订后再次核对。已补清：signals使用规范代码、两类缓存各自发布时序、配置实例缓存事实、主图周期不重启五行预测、m30夹具下一根时点、真实API单元硬退出以及九个m30的原前缀校准证据。正常EMPTY的page-init身份字段已核对真实生产者/schema/既有测试，新增代码检查不会把正常空行情误判为串码。
+已核对signals规范代码、两类缓存各自发布时序、配置实例缓存事实、主图周期不重启五行预测及m30夹具下一根时点。正常EMPTY的page-init身份字段已核对真实生产者/schema/既有测试，原已设计的身份检查不把正常空行情误判为串码。
 
-最终复核未发现方案与本LLD在范围、规则、接口、依赖顺序和验收设计上的实质矛盾，也无新增待拍板业务项。已设计T01—T36共36组case，完成文档完整性3项、相对/绝对本地链接、代码围栏、case编号及限定文件差异检查。以上是设计和文档检查结果，未运行这些业务case或真实读源。
+本轮按重新核实的必要性收敛执行设计：普通分钟Hook保持现状，不追加同时错码防御或切换当次强制清空；Q4只证明所选10个交易日；真实输入编号从既有内部投影观察点取得，同源后比较公共结果；续跑按完整单元；补入已有daily_window_precheck包装回归。50/15/30秒预算保持，用标准外层超时和既有内部截止收尾，不新增监督/恢复系统。上述调整不改变r4规则或增加开工门槛。
+
+T01—T36仍为36组设计case，不因本次收敛新增普通分钟防御case。文档检查及独立复核只评价设计一致性，不代表这些业务case、真实来源或性能已通过。
+
+收敛后已分别对来源执行设计和前端范围进行独立复核，两文档的范围、依赖、预算及测试口径一致，未发现需要新增业务拍板或扩大实现的问题。文档完整性及限定差异检查通过。
 
 当前可供管理员review；文档完成不等于第1步来源核验通过。后续先按本LLD做有界来源核验及执行前检查，再进入第2步编码；本轮到文档交付即停止。
