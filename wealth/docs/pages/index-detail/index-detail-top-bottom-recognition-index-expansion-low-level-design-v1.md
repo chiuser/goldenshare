@@ -205,7 +205,13 @@ forecast缓存仍由原`('forecast', *key)`命名空间保存。一个共用LRU�
 
 ### 8.1 页面身份和资格
 
-当前page-init client只将JSON声明为类型，不能假定已核代码。`controller/useIndexDetailController.ts::load`在page-init返回且`isCurrent`通过后、EMPTY/后续请求之前核`pageInit.index.tsCode === normalizedTsCode`；kline返回且isCurrent通过后、buildViewModel前核`kline.indexRef.tsCode === normalizedTsCode`。不一致沿原catch进入ID_QUERY_FAILED/error，不新增整个页面decoder或异常码。
+当前page-init client只将JSON声明为类型，不能假定已核代码。`controller/useIndexDetailController.ts::load`的顺序必须如下：
+
+1. page-init返回后，先执行原`isCurrent`检查；已经过期或取消的响应直接沿原逻辑返回，不再核身份或更新页面。
+2. 当前响应立即核`pageInit.index.tsCode === normalizedTsCode`；只有通过后，才能判断`EMPTY / !pageInit.quote / !pageInit.asOfTradeDate`并进入空状态，或发起后续请求。
+3. kline返回后，同样先执行原`isCurrent`检查；当前响应立即核`kline.indexRef.tsCode === normalizedTsCode`，只有通过后，才能判断`EMPTY / kline.bars.length === 0`并进入空状态，或继续构建非空页面模型。
+
+**两次代码身份检查都必须位于各自的空数据提前返回分支之前，不能仅放在`buildIndexDetailViewModel`紧前。**代码不一致沿原catch进入ID_QUERY_FAILED/error，不新增整个页面decoder或异常码；同码合法空数据继续使用原empty处理，不误报身份错误，也不启用r4。这是既有身份绑定要求的顺序细化，不改变普通分钟检查范围或页面状态模型。
 
 `model/indexRecognitionAvailability.ts`目标签名：
 
@@ -376,7 +382,7 @@ ORDER BY ts_code, freq;
 | T24 | 五周期普通/debug结果，同code同窗 | 普通字段投影一致；普通无辅助，debug参照/事件/结构关联完整 | API validation、debug contracts |
 | T25 | 第3步forecast client/adapter及mjs调用，非上证/m30、错code/period/asOf | 所有调用新签名、URL实际code，正确通过、错误拒绝；mjs原上证工具不扩业务范围 | client/identity/r1Contract及p4_audit_tools客户端节点 |
 | T26 | 激活五行预判，单行失败/重试，minutes=false | 顺序day/m30/m60/m90/m120；重试仅本行；分钟关闭只day | forecast.test、Card |
-| T27 | validated=null/串码/北证、初始shell/loading/empty/error；正常九码 | 前者不发r4、后者正常；page-init和kline串码进错误态 | availability/Page/controller |
+| T27 | validated=null/串码/北证、初始shell/loading/empty/error；正常九码；page-init及kline各自同码/错码EMPTY响应 | 前者不发r4、正常九码可用；两接口都先核身份再判断空数据，同码EMPTY进empty，错码EMPTY及错码非空进ID_QUERY_FAILED/error | availability/Page/controller |
 | T28 | 切指数/日期/debug，旧成功/失败延迟返回；另切主图周期 | 旧结果不回写；识别/研究清理对应owner，主图周期变化不重启五行预测 | Hook/Page |
 | T29 | 通过真实scheduler排队普通请求+五行r4 | 轻请求上限2，r4独占；5秒从开始执行算，不把Hook mock五pending当网络并发证据 | scheduler/client |
 | T30 | debug上证day手动开研究；其他码/m30/退debug/切页 | 研究仅原范围手动；其他码r4辅助可用、无daily-waves请求/覆盖 | debug/daily-wave/Page |
@@ -388,6 +394,15 @@ ORDER BY ts_code, freq;
 | T36 | 真实9码×5周期正常API | §11.3请求身份、完成时间、状态、计数及大小正确；正常产品返回什么就记录什么，不额外补校准/逐根审计 | 真实只读API |
 
 T13/T17复用现独立数学/业务金样本，换成正式合同中的m30合法时间，不用被测端点表生成时点；预测校准长前缀可沿已有高精度Decimal独立参考构造，expected不调用recover_projection/同一求解器。T23只构造真实可能的“另一合法对象被放错key”，不造无意义内部坏状态。不能将所有真实行情强行要求有信号；非空规则路径在独立人工样本保证。
+
+T27的空响应沿现page-init/kline生产者及schema构造，保留合法EMPTY的身份和空数据字段，不制造与合同矛盾的READY空行情。具体覆盖：
+
+- page-init同码EMPTY：页面进入empty，不报ID_QUERY_FAILED，不继续发kline或r4请求。
+- page-init错码EMPTY：使用另一合法指数的完整空响应；必须进入ID_QUERY_FAILED/error，不得被EMPTY分支提前接收，也不继续发kline或r4请求。
+- page-init同码正常，随后kline同码EMPTY且bars为空：页面沿原逻辑进入empty，不报身份错误、不启用r4。
+- page-init同码正常，随后kline错码EMPTY且bars为空：使用另一合法指数的完整空响应；必须进入ID_QUERY_FAILED/error，不得按empty接收、不启用r4。
+
+以上与既有错码非空、正常九码及初始/错误状态用例一起验证。过期/取消响应仍先由isCurrent忽略，迟到结果覆盖沿T28，不因新增身份检查将旧响应变成当前页面错误。
 
 ### 11.2 自动测试分组和消费者核对
 
