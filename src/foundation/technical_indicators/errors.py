@@ -1,5 +1,25 @@
 """Internal kernel errors; HTTP error codes belong to the consumer."""
 
+import traceback
+
+
+def _clear_error_frames(error: BaseException) -> None:
+    """Release ended frames while preserving error identity and diagnostics."""
+    pending, seen = [error], set()
+    while pending:
+        current = pending.pop()
+        if id(current) in seen:
+            continue
+        seen.add(id(current))
+        if current.__cause__ is not None:
+            pending.append(current.__cause__)
+        if current.__context__ is not None:
+            pending.append(current.__context__)
+        if isinstance(current, BaseExceptionGroup):
+            pending.extend(current.exceptions)
+        if current.__traceback__ is not None:
+            traceback.clear_frames(current.__traceback__)
+
 
 class TechnicalIndicatorError(Exception):
     """Base error, retaining the original exception through normal chaining."""

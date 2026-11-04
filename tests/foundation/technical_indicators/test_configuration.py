@@ -23,10 +23,9 @@ EXPECTED_DEFAULTS = {
     "deployment_reserve_bytes": 1073741824,
     "total_target_ms": 8000,
     "cleanup_reserve_ms": 2000,
-    "frontend_expire_ms": 10000,
     "max_input_rows": 1500000,
     "max_source_files": 10000,
-    "max_output_rows": 10000,
+    "max_output_rows": 500,
     "max_output_bytes": 5000000,
     "max_indicator_instances": 16,
     "max_projected_row_group_bytes": 33554432,
@@ -54,7 +53,7 @@ def test_all_confirmed_defaults_and_existing_lake_root_are_copied():
     settings = Settings(_env_file=None, GOLDENSHARE_LAKE_ROOT="/not-opened/data_lake")
     config = KernelConfig.from_settings(settings)
 
-    assert len(EXPECTED_DEFAULTS) == 19
+    assert len(EXPECTED_DEFAULTS) == 18
     assert {
         name for name in Settings.model_fields if name.startswith("technical_indicator_")
     } == {f"technical_indicator_{name}" for name in EXPECTED_DEFAULTS}
@@ -77,8 +76,9 @@ def test_config_has_no_defaults_and_cannot_be_changed():
 
 @pytest.mark.parametrize("name", tuple(EXPECTED_DEFAULTS))
 def test_each_settings_field_can_be_changed(name):
-    # 两倍初始值同时对total/cleanup保持合法；poll40仍小于cleanup2000。
-    new_value = EXPECTED_DEFAULTS[name] * 2
+    # 输出上限只允许收紧；其余沿原合法变化及total/cleanup直接关系。
+    new_value = (EXPECTED_DEFAULTS[name] // 2 if name == "max_output_rows"
+                 else EXPECTED_DEFAULTS[name] * 2)
     values = {f"TECHNICAL_INDICATOR_{name.upper()}": new_value}
     if name == "cleanup_reserve_ms":
         values["TECHNICAL_INDICATOR_TOTAL_TARGET_MS"] = 16000
@@ -132,11 +132,15 @@ def test_no_unapproved_combination_or_period_limits_are_added():
     config = replace(
         default_config(), batch_rows=2000000, max_input_rows=1,
         query_memory_bytes=1024, request_memory_bytes=1,
-        max_indicator_instances=20, max_output_rows=20000,
+        max_indicator_instances=20,
     )
     assert config.batch_rows == 2000000
     assert "max_period" not in {field.name for field in fields(config)}
     assert "max_source_bytes" not in {field.name for field in fields(config)}
+    with pytest.raises(ValueError, match="max_output_rows"):
+        replace(config, max_output_rows=20000)
+    with pytest.raises(ValueError):
+        Settings(_env_file=None, TECHNICAL_INDICATOR_MAX_OUTPUT_ROWS=20000)
 
 
 def test_from_settings_does_not_read_environment_or_files(monkeypatch):

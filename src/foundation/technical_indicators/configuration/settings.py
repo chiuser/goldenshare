@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, fields
 from typing import TYPE_CHECKING
 
+from ..contracts import _MAX_OUTPUT_ROWS
+
 if TYPE_CHECKING:
     from src.foundation.config.settings import Settings
 
@@ -24,7 +26,6 @@ class KernelConfig:
     deployment_reserve_bytes: int
     total_target_ms: int
     cleanup_reserve_ms: int
-    frontend_expire_ms: int
     max_input_rows: int
     max_source_files: int
     max_output_rows: int
@@ -48,6 +49,8 @@ class KernelConfig:
             raise ValueError("cleanup_reserve_ms must be smaller than total_target_ms")
         if self.control_poll_ms >= self.cleanup_reserve_ms:
             raise ValueError("control_poll_ms must be smaller than cleanup_reserve_ms")
+        if self.max_output_rows > _MAX_OUTPUT_ROWS:
+            raise ValueError(f"max_output_rows must be <= {_MAX_OUTPUT_ROWS}")
 
     @classmethod
     def from_settings(cls, settings: Settings) -> KernelConfig:

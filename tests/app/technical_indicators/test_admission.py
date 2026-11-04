@@ -108,7 +108,7 @@ def test_normal_grant_and_prewait_validation(monkeypatch):
                 await execution.execute_library(runtime, bad, arrived_at=monotonic())
             assert not admission.waiters and len(admission.active_leases) == 2
             good = replace(bad, calculations=(CalculationInstance("ma", "ma", {"period":20}),))
-            assert execution._validate_request_before_wait(runtime, good) == good
+            assert execution._validate_request_before_wait(runtime, good).normalized is good
             queued = asyncio.create_task(admission.acquire(FakeControl(config=config)))
             await asyncio.sleep(0)
             assert len(admission.waiters) == 1

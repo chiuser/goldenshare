@@ -45,7 +45,7 @@ _MA = (5, 10, 20, 30, 60, 90, 250)
 
 def _request(calculations=None, **changes):
     return CalculationRequest(**(dict(security_type="stock", ts_code="600000.SH", period="1m",
-        calculations=calculations or (CalculationInstance("price", "price", {}),), limit=1000) | changes))
+        calculations=calculations or (CalculationInstance("price", "price", {}),), limit=500) | changes))
 
 
 def _default_calculations():
@@ -389,17 +389,17 @@ def test_default_two_pages_and_shared_input(fourth_data):
     state = fourth_data
     with state.case("test_default_two_pages_and_shared_input"):
         first, service, source = state.run(_request(_default_calculations()))
-        _compare(first,state,3000,4000,kdj=True,windows=True)
-        assert first.kernel_version == "2.0.0" and source.batches == [1500] and source.open_calls == 1
-        assert first.statistics.source_rows == 1500 and first.statistics.price_conversion_batches == 0
+        _compare(first,state,3500,4000,kdj=True,windows=True)
+        assert first.kernel_version == "3.0.0" and source.batches == [1000] and source.open_calls == 1
+        assert first.statistics.source_rows == 1000 and first.statistics.price_conversion_batches == 0
         assert service.warmups == [(500,False),(500,False)]
         assert source.description.selection.preceding_rows == 500
         assert not source.description.selection.reached_source_origin
-        assert first.source.read_start == state.times[2500]
+        assert first.source.read_start == state.times[3000]
         assert sum(s.step_name=="rolling_mean" for s in service.observed_executor.statistics)==7
         previous, _, source = state.run(_request(_default_calculations(),before=first.times[0]))
-        _compare(previous,state,2000,3000,kdj=True,windows=True)
-        assert source.batches == [1500] and previous.statistics.source_rows == 1500
+        _compare(previous,state,3000,3500,kdj=True,windows=True)
+        assert source.batches == [1000] and previous.statistics.source_rows == 1000
         assert previous.times[-1]<first.times[0] and not set(previous.times)&set(first.times)
 
 
@@ -410,27 +410,33 @@ def test_used_parameters_choose_dynamic_warmup(fourth_data):
             for label,f,s,g in (("macd",12,26,9),("macd9",9,65,9),("macd10",10,69,10)))
         result, service, source = state.run(_request(calculations))
         for identity in ("macd","macd9","macd10"):
-            _compare(result,state,3000,4000,macd=identity)
+            _compare(result,state,3500,4000,macd=identity)
         assert service.warmups == [(500,False),(1163,False),(1235,False)]
         assert source.requirement.history.warmup_rows == 1235
-        assert source.batches == [2235] and source.open_calls == 1
-        assert result.statistics.source_rows == 2235
+        assert source.batches == [1735] and source.open_calls == 1
+        assert result.statistics.source_rows == 1735
 
 
-def test_1600_history_returns_1000_then_600_then_empty(fourth_data):
+def test_1600_history_returns_three_500_pages_then_100_then_empty(fourth_data):
     state = fourth_data
-    with state.case("test_1600_history_returns_1000_then_600_then_empty"):
+    with state.case("test_1600_history_returns_three_500_pages_then_100_then_empty"):
         calculations = _default_calculations()
         first, _, source = state.run(_request(calculations),root="short")
-        _compare(first,state,600,1600,kdj=True,windows=True)
-        assert source.batches == [1500] and not source.description.selection.reached_source_origin
-        oldest, _, source = state.run(_request(calculations,before=first.times[0]),root="short")
-        _compare(oldest,state,0,600,kdj=True,windows=True)
+        _compare(first,state,1100,1600,kdj=True,windows=True)
+        assert source.batches == [1000] and not source.description.selection.reached_source_origin
+        second, _, source = state.run(_request(calculations,before=first.times[0]),root="short")
+        _compare(second,state,600,1100,kdj=True,windows=True)
+        assert source.batches == [1000] and not source.description.selection.reached_source_origin
+        third, _, source = state.run(_request(calculations,before=second.times[0]),root="short")
+        _compare(third,state,100,600,kdj=True,windows=True)
         assert source.batches == [600] and source.description.selection.reached_source_origin
+        oldest, _, source = state.run(_request(calculations,before=third.times[0]),root="short")
+        _compare(oldest,state,0,100,kdj=True,windows=True)
+        assert source.batches == [100] and source.description.selection.reached_source_origin
         assert _values(oldest)["macd"]["dif"][0] == _values(oldest)["macd"]["dea"][0] == _values(oldest)["macd"]["hist"][0] == 0.0
         assert _values(oldest)["ma20"]["value"][:19] == (None,)*19
         empty, _, source = state.run(_request(calculations,before=oldest.times[0]),root="short")
-        assert empty.times == () and empty.range.count == 0 and empty.msg == "已经加载全部数据了"
+        assert empty.times == () and empty.range.count == 0 and empty.msg == ""
         assert source.open_calls == 0 and empty.source.read_start is empty.source.read_end is None
         assert tuple(item.instance_id for item in empty.calculations) == tuple(item.instance_id for item in calculations)
         assert dict(empty.calculations[0].parameters) == {"fast":12,"slow":26,"signal":9}
@@ -442,7 +448,7 @@ def test_short_origin_is_allowed_when_required_warmup_exceeds_capacity(fourth_da
         selected = _request((CalculationInstance("macd10","macd",dict(fast=10,slow=69,signal=10)),))
         config = replace(state.config,goldenshare_lake_root=str(state.root/"short"),max_input_rows=1600)
         result, _, source = state.run(selected,config=config)
-        _compare(result,state,600,1600,macd="macd10")
+        _compare(result,state,1100,1600,macd="macd10")
         assert source.batches == [1600] and source.description.selection.reached_source_origin
         # A literal internal handoff with an insufficient finite prefix must
         # fail before opening a price reader, rather than shorten R or B.
@@ -577,8 +583,8 @@ def test_locator_failure_and_cleanup_are_not_empty_success(fourth_data,monkeypat
                 state.run(selected,root="literal")
         original_count = LakePriceLocator._count_group
         with monkeypatch.context() as patch:
-            def read_failed(self,*args):
-                original_count(self,*args)
+            def read_failed(self,*args,**kwargs):
+                original_count(self,*args,**kwargs)
                 raise SourceReadError("fourth-fix deliberate key-reader failure")
             patch.setattr(LakePriceLocator,"_count_group",read_failed)
             with pytest.raises(SourceReadError,match="key-reader"):
@@ -591,26 +597,24 @@ def test_locator_failure_and_cleanup_are_not_empty_success(fourth_data,monkeypat
             patch.setattr(CalculationEngine,"close",close_failed)
             with pytest.raises(ResourceCleanupError,match="cleanup"):
                 state.run(selected,root="literal",expected_cleanup_error=True)
-        original_retain = OutputCollector._retain
+        original_append = OutputCollector.append_new_rows
         with monkeypatch.context() as patch:
             def lose_row(self,batch):
-                original_retain(self,batch)
+                original_append(self,batch)
                 self.executor.execute(SqlStep("fourth_fix_test_delete_tail_row",
                     "DELETE FROM ti_output_tail WHERE seq=(SELECT max(seq) FROM ti_output_tail)",
                     (),("ti_output_tail",),("ti_output_tail",),3))
-                self._tail_rows = 2
-            patch.setattr(OutputCollector,"_retain",lose_row)
+            patch.setattr(OutputCollector,"append_new_rows",lose_row)
             with pytest.raises(OutputContractError) as caught:
                 state.run(selected,root="literal")
-            assert (caught.value.reason,caught.value.stage) == ("fetch_count_mismatch","final_query")
+            assert (caught.value.reason,caught.value.stage) == ("fetch_count_mismatch","final_fetch")
             assert caught.value.diagnostics == {"expected_count":3,"actual_count":2}
-            assert not any(step["name"]=="select_result" for step in state.calls[-1]["steps"])
+            assert any(step["name"]=="select_result" for step in state.calls[-1]["steps"])
         with monkeypatch.context() as patch:
             def lose_table(self,batch):
-                original_retain(self,batch)
+                original_append(self,batch)
                 self._drop("ti_output_tail")
-                self._tail_rows = 0
-            patch.setattr(OutputCollector,"_retain",lose_table)
+            patch.setattr(OutputCollector,"append_new_rows",lose_table)
             with pytest.raises(OutputContractError) as caught:
                 state.run(selected,root="literal")
             assert (caught.value.reason,caught.value.stage) == ("fetch_count_mismatch","final_query")

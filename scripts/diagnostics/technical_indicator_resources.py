@@ -4,6 +4,10 @@ Importing this module performs no I/O, calculation, thread creation or assembly.
 The owner creates one 4000-row Parquet fixture; each fixed case runs in a new
 process, sharing only that owned fixture and its saved accounting. This is not
 a production API or a generic benchmark. No automatic retry is supported.
+
+This is the historical D4 execution plan. LLD24 migrates only its calculation
+observation hook; the original large-output requests and historical ledgers
+are not a current execution or retry plan and are not run in the core repair.
 """
 
 from __future__ import annotations
@@ -346,14 +350,14 @@ class _Node:
                     raise
                 return connection, executor
 
-            def calculate(self, request):
+            def _calculate_result(self, prepared, *, control):
                 entry = state.call_for(self.control)
                 with state.lock:
                     entry["worker_thread"] = threading.get_ident()
                     entry["calculation_started_at"] = monotonic()
                 try:
                     try:
-                        result = super().calculate(request)
+                        result = super()._calculate_result(prepared, control=control)
                     finally:
                         with state.lock:
                             entry["calculation_finished_at"] = monotonic()

@@ -21,7 +21,7 @@ def test_complete_service_empty_before(d3_data):
         assert result.range.actual_start is result.range.actual_end is None
         assert result.source.read_start is result.source.read_end is None
         assert result.statistics.source_rows == 0 and source.batches == []
-        assert result.msg == "已经加载全部数据了"
+        assert result.msg == ""
         assert values(result) == {"macd":{"dif":(),"dea":(),"hist":()}}
         assert dict(result.calculations[0].parameters) == {"fast":12,"slow":26,"signal":9}
         assert result.calculations[0].algorithm_version == "2.0.0"

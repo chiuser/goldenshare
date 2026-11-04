@@ -28,7 +28,7 @@ def request(**kwargs):
 
 def test_default_and_each_explicit_single_adjustment():
     assert request() == request(adjustment="qfq")
-    assert request().limit == 1000
+    assert request().limit == 500
     for adjustment in ("none", "qfq", "hfq"):
         assert request(adjustment=adjustment).adjustment == adjustment
     assert request(security_type="index", ts_code="000001.SH").adjustment == "qfq"
@@ -81,15 +81,21 @@ def test_instances_are_independent_and_immutable():
             CalculationInstance("id", "ma", {"period": value})
 
 
-def test_capacity_boundaries_use_runtime_config_not_magic_request_constants():
-    config = SimpleNamespace(max_output_rows=10000, max_indicator_instances=16)
+def test_capacity_boundaries_respect_hard_limit_and_tighter_runtime_config():
+    config = SimpleNamespace(max_output_rows=500, max_indicator_instances=16)
     instances = tuple(CalculationInstance(str(i), "ma", {}) for i in range(16))
-    assert normalize_request_and_validate_all_instances(request(calculations=instances, limit=10000), config).limit == 10000
+    original = request(calculations=instances, limit=500)
+    assert normalize_request_and_validate_all_instances(original, config) is original
     with pytest.raises(ResourceLimitError):
-        normalize_request_and_validate_all_instances(request(limit=10001), config)
+        normalize_request_and_validate_all_instances(request(limit=501), config)
     with pytest.raises(ResourceLimitError):
         normalize_request_and_validate_all_instances(request(calculations=instances + (CalculationInstance("17", "ma", {}),)), config)
-    assert normalize_request_and_validate_all_instances(request(limit=10001), SimpleNamespace(max_output_rows=10001, max_indicator_instances=16)).limit == 10001
+    with pytest.raises(ResourceLimitError):
+        normalize_request_and_validate_all_instances(request(limit=10001), SimpleNamespace(max_output_rows=10001, max_indicator_instances=16))
+    tighter = SimpleNamespace(max_output_rows=250, max_indicator_instances=16)
+    assert normalize_request_and_validate_all_instances(request(limit=250), tighter).limit == 250
+    with pytest.raises(ResourceLimitError):
+        normalize_request_and_validate_all_instances(request(), tighter)
 
 
 @pytest.mark.parametrize("module,identifier,parameters,outputs", [

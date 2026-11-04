@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import date, datetime
 import math
 import re
@@ -24,7 +24,8 @@ ParameterValue = int | float | str | bool | None
 Parameters = tuple[tuple[str, int | float], ...]
 PERIODS: tuple[Period, ...] = ("1m", "5m", "15m", "30m", "60m", "90m", "120m", "day", "week", "month")
 TIMEZONE = "Asia/Shanghai"
-KERNEL_VERSION = "2.0.0"
+KERNEL_VERSION = "3.0.0"
+_MAX_OUTPUT_ROWS = 500
 _IDENTIFIER = re.compile(r"[A-Za-z0-9_-]{1,64}\Z")
 _SECURITY = re.compile(r"[0-9]{6}\.(?:SH|SZ|BJ)\Z")
 
@@ -74,7 +75,7 @@ class CalculationRequest:
     adjustment: Adjustment = "qfq"
     start: TimePosition | None = None
     end: TimePosition | None = None
-    limit: int = 1000
+    limit: int = _MAX_OUTPUT_ROWS
     before: TimePosition | None = None
 
     def __post_init__(self) -> None:
@@ -117,12 +118,11 @@ def normalize_request_and_validate_all_instances(
     """Validate the structural request before registry parameters or any I/O."""
     if not isinstance(request, CalculationRequest):
         raise RequestInvalidError("A CalculationRequest is required")
-    normalized = replace(request)
-    if normalized.limit > config.max_output_rows:
+    if request.limit > _MAX_OUTPUT_ROWS or request.limit > config.max_output_rows:
         raise ResourceLimitError("Requested output positions exceed max_output_rows")
-    if len(normalized.calculations) > config.max_indicator_instances:
+    if len(request.calculations) > config.max_indicator_instances:
         raise ResourceLimitError("Calculation instances exceed max_indicator_instances")
-    return normalized
+    return request
 
 
 @dataclass(frozen=True, slots=True)

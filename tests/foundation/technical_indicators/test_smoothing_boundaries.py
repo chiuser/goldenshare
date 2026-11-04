@@ -1,4 +1,4 @@
-"""LLD 18.1/19.10: one 2051-row request, three actual video parameter sets.
+"""Three actual video parameter sets, using the original reference's first 500 rows.
 
 Stop/clock control is substituted explicitly. Algorithm SQL and source reading
 are real. Expected values are independent original-price HUGEINT recursion.
@@ -19,13 +19,13 @@ def test_three_video_macd_parameter_sets_share_input_not_state(d3_data, monkeypa
             ("macd10",{"fast":10,"slow":69,"signal":10}),
         ))
         with template_io(state, monkeypatch):
-            result, service, source = state.run(request(calculations, end=state.times[2050], limit=2051))
-        assert source.batches == [2051] and source.open_calls == 1
-        assert result.times == state.times[:2051] and result.statistics.source_rows == 2051
-        assert result.source.read_start == state.times[0] and result.source.read_end == state.times[2050]
+            result, service, source = state.run(request(calculations, end=state.times[499], limit=500))
+        assert source.batches == [500] and source.open_calls == 1
+        assert result.times == state.times[:500] and result.statistics.source_rows == 500
+        assert result.source.read_start == state.times[0] and result.source.read_end == state.times[499]
         actual = values(result)
         for identity, reference_key in (("default","macd"),("macd9","macd9"),("macd10","macd10")):
-            reference = state.references[reference_key][:2051]
+            reference = state.references[reference_key][:500]
             for column, name in enumerate(("dif","dea","hist"),1):
                 close_enough(actual[identity][name], tuple(row[column] for row in reference))
                 assert actual[identity][name][0] == 0.0
@@ -37,6 +37,6 @@ def test_three_video_macd_parameter_sets_share_input_not_state(d3_data, monkeypa
         assert len({tuple(actual[identity]["dif"]) for identity in actual}) == 3
         assert_templates_once(state.calls[-1], {
             "smoothing_parameters.sql","macd_first.sql","macd_segment.sql","macd_warmup.sql",
-            "merge_batch.sql","retain_tail.sql","select_result.sql",
+            "merge_batch.sql","select_result.sql",
         })
         assert_closed(service)

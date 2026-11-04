@@ -213,6 +213,7 @@ def test_new_calculation_and_kdj_boundaries_use_existing_engine(d3_data):
             assert engine.output_for(batch) == outputs
             collector = OutputCollector(
                 executor=executor, request=normalized, instances=service._describe_output_instances(plan),
+                target_first_seq=1, target_rows=3,
             )
             identity, first = outputs.instances[0]
             stale = replace(first, new_first_seq=0, new_last_seq=2)

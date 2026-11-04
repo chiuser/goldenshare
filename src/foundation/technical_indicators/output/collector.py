@@ -29,7 +29,6 @@ _CHECK_ROWS_SQL = """SELECT
  MAX(seq) FILTER (WHERE seq BETWEEN ? AND ?) AS last_seq,
  COUNT(*) FILTER (WHERE seq IS NULL OR seq > ? OR (? AND seq < ?)) AS unexpected_rows
  FROM {{result_table}}"""
-_COUNT_SQL = "SELECT COUNT(*) AS row_count FROM {{tail}}"
 _CHECK_COLUMNS = tuple((name, "BIGINT") for name in (
     "new_rows", "distinct_new_rows", "first_seq", "last_seq", "unexpected_rows",
 ))
@@ -47,21 +46,26 @@ def _column(name: str) -> str:
 
 class OutputCollector:
     SQL_PACKAGE = _OUTPUT_PACKAGE
-    SQL_FILES = ("merge_batch.sql", "retain_tail.sql", "select_result.sql")
+    SQL_FILES = ("merge_batch.sql", "select_result.sql")
     FIXED_SQL_STEPS = MappingProxyType({
         "inspect_columns": _INSPECT_SQL,
         "check_batch_rows": _CHECK_ROWS_SQL,
-        "count_tail": _COUNT_SQL,
     })
-    TABLE_ROLES = ("ti_output_batch", "ti_output_tail", "ti_output_tail_next")
+    TABLE_ROLES = ("ti_output_tail",)
 
     def __init__(
         self, *, executor: DuckDBExecutor, request: CalculationRequest,
         instances: tuple[OutputInstanceDescription, ...],
+        target_first_seq: int, target_rows: int,
     ):
         self.executor = executor
         self.request = request
         self.instances = tuple(instances)
+        if (type(target_first_seq) is not int or target_first_seq <= 0
+                or type(target_rows) is not int or not 0 <= target_rows <= request.limit):
+            self._contract("fetch_count_mismatch", "final_query", "Invalid selected output range")
+        self.target_first_seq, self.target_rows = target_first_seq, target_rows
+        self._range_condition, self._range_bindings = range_filter(request)
         self._tables: list[str] = []
         self._template_texts: dict[tuple[str, str], str] = {}
         self._templates = MappingProxyType({})
@@ -81,6 +85,13 @@ class OutputCollector:
             *((name, "TIMESTAMP" if name == "trade_time" else "DATE") for name in self._time_fields),
             *((name, "DOUBLE") for aliases in self._value_columns for name in aliases),
         )
+        final_time_fields = (("trade_time",) if request.period.endswith("m") else
+                             ("period_start", "source_as_of") if request.period in ("week", "month") else
+                             ("period_start",))
+        self._result_columns = (*final_time_fields,
+                                *(name for aliases in self._value_columns for name in aliases))
+        types = dict(self._expected_columns)
+        self._result_expected_columns = tuple((name, types[name]) for name in self._result_columns)
         try:
             self._check_descriptions()
             if type(self).SQL_PACKAGE != _OUTPUT_PACKAGE:
@@ -144,8 +155,7 @@ class OutputCollector:
         # Fragments are generated solely by the fixed projection/join/range
         # methods below. Business strings, IDs and expressions never enter them.
         allowed = {
-            "merge_batch.sql": frozenset({"projection", "joins"}),
-            "retain_tail.sql": frozenset({"columns", "range", "previous"}),
+            "merge_batch.sql": frozenset({"projection", "joins", "columns", "range"}),
             "select_result.sql": frozenset({"columns"}),
         }[name]
         supplied = fragments or {}
@@ -266,8 +276,8 @@ class OutputCollector:
                            distinct_count=distinct, unexpected_count=outside,
                            expected_range=(first, last), actual_range=(actual_first, actual_last))
 
-    def _merge(self, batch: PriceBatch, received) -> None:
-        tables = {"price": batch.table_name, "output": "ti_output_batch"}
+    def _merge(self, batch: PriceBatch, received, first: int, last: int) -> None:
+        tables = {"price": batch.table_name}
         projection = [f"p.{_column(name)}" for name in ("seq", *self._time_fields)]
         joins, joined = [], {}
         for item, aliases in zip(self.instances, self._value_columns):
@@ -285,57 +295,39 @@ class OutputCollector:
                 alias = joined[output.table_name]
             projection.extend(f"{alias}.{_column(field.column_name)} AS {_column(name)}"
                               for field, name in zip(output.fields, aliases))
-        self._own_table("ti_output_batch")
+        columns = ", ".join(_column(name) for name in self._columns)
+        selection = self._template("merge_batch.sql", tables=tables, fragments={
+            "projection": ", ".join(projection), "joins": "\n".join(joins),
+            "columns": columns, "range": self._range_condition,
+        })
+        if "ti_output_tail" in self._tables:
+            prefix = f'INSERT INTO "ti_output_tail" ({columns}) '
+        else:
+            self._own_table("ti_output_tail")
+            prefix = 'CREATE TEMP TABLE "ti_output_tail" AS '
         stats = self.executor.execute(SqlStep(
-            "merge_batch", self._template("merge_batch.sql", tables=tables,
-                                          fragments={"projection": ", ".join(projection), "joins": "\n".join(joins)}),
-            (batch.new_first_seq, batch.new_last_seq),
-            (batch.table_name, *joined), ("ti_output_batch",),
+            "merge_batch", prefix + selection, (first, last) + self._range_bindings,
+            (batch.table_name, *joined), ("ti_output_tail",),
             batch.new_row_count + batch.history_rows + len(joined) * batch.new_row_count,
         ))
-        if stats.output_rows != batch.new_row_count:
-            self._contract("missing_rows" if stats.output_rows < batch.new_row_count else "unexpected_rows",
-                           "merge", "Merging indicators changed the number of new price rows",
-                           expected_count=batch.new_row_count, actual_count=stats.output_rows)
-
-    def _range_filter(self):
-        return range_filter(self.request)
-
-    def _retain(self, batch: PriceBatch) -> None:
-        columns = ", ".join(_column(name) for name in self._columns)
-        selection, bindings = self._range_filter()
-        had_tail = "ti_output_tail" in self._tables
-        tables = {"next": "ti_output_tail_next", "batch": "ti_output_batch"}
-        previous = ""
-        inputs = ("ti_output_batch",)
-        if had_tail:
-            tables["tail"] = "ti_output_tail"
-            previous = "SELECT " + columns + " FROM {{tail}} UNION ALL"
-            inputs += ("ti_output_tail",)
-        self._own_table("ti_output_tail_next")
-        stats = self.executor.execute(SqlStep(
-            "retain_tail", self._template("retain_tail.sql", tables=tables,
-                                          fragments={"columns": columns, "range": selection, "previous": previous}),
-            bindings + (self.request.limit,), inputs, ("ti_output_tail_next",),
-            batch.new_row_count + self._tail_rows,
-        ))
-        if not 0 <= stats.output_rows <= min(self.request.limit, batch.new_row_count + self._tail_rows):
-            self._contract("unexpected_rows", "merge", "Retaining output exceeded the requested limit",
-                           expected_count=self.request.limit, actual_count=stats.output_rows)
-        if had_tail:
-            self._drop("ti_output_tail")
-        self._own_table("ti_output_tail")
-        self.executor.rename_table("ti_output_tail_next", "ti_output_tail", processed_rows=stats.output_rows)
-        self._tables.remove("ti_output_tail_next")
-        self._tail_rows = stats.output_rows
-        self._drop("ti_output_batch")
+        expected = last - first + 1
+        if stats.output_rows != expected:
+            self._contract("missing_rows" if stats.output_rows < expected else "unexpected_rows",
+                           "merge", "Merging indicators changed the selected price row count",
+                           expected_count=expected, actual_count=stats.output_rows)
+        self._tail_rows += stats.output_rows
+        if self._tail_rows > self.target_rows:
+            self._contract("unexpected_rows", "merge", "Collected output exceeded the selected target count",
+                           expected_count=self.target_rows, actual_count=self._tail_rows)
 
     def append_new_rows(self, batch_outputs: BatchCalculationOutputs) -> None:
         self._assert_open()
         try:
             batch, received = self._check_batch(batch_outputs)
-            self._merge(batch, received)
-            self._retain(batch)
+            first = max(batch.new_first_seq, self.target_first_seq)
+            last = min(batch.new_last_seq, self.target_first_seq + self.target_rows - 1)
+            if first <= last:
+                self._merge(batch, received, first, last)
             self._last_seq = batch.new_last_seq
         except BaseException:
             self._failed = True
@@ -343,45 +335,34 @@ class OutputCollector:
 
     def build_result(
         self, description: SourceDescription, statistics: CalculationStatistics,
-        *, read_start: TimePosition | None, read_end: TimePosition | None, expected_rows: int,
+        *, read_start: TimePosition | None, read_end: TimePosition | None,
     ) -> CalculationResult:
         self._assert_open()
         try:
-            if type(expected_rows) is not int or not 0 <= expected_rows <= self.request.limit:
-                self._contract("fetch_count_mismatch", "final_query", "Invalid expected output count",
-                               expected_count=expected_rows, actual_count=self._tail_rows)
+            if self._tail_rows != self.target_rows:
+                self._contract("fetch_count_mismatch", "final_query", "Collected output differs from the selected target count",
+                               expected_count=self.target_rows, actual_count=self._tail_rows)
             rows = ()
-            if "ti_output_tail" in self._tables:
-                counts = self._read(
-                    "count_tail", render_sql(_COUNT_SQL, tables={"tail": "ti_output_tail"}),
-                    (), ("ti_output_tail",), self._tail_rows,
-                    expected=(("row_count", "BIGINT"),), maximum=1,
-                )
-                if len(counts) != 1 or type(counts[0][0]) is not int or counts[0][0] != self._tail_rows:
-                    self._contract("fetch_count_mismatch", "final_query", "The final output count changed",
-                                   expected_count=self._tail_rows, actual_count=counts)
-                if counts[0][0] != expected_rows:
-                    self._contract("fetch_count_mismatch", "final_query", "Final output differs from the selected target count",
-                                   expected_count=expected_rows, actual_count=counts[0][0])
+            if self.target_rows:
+                if "ti_output_tail" not in self._tables:
+                    self._contract("fetch_count_mismatch", "final_query", "Selected output has no result table",
+                                   expected_count=self.target_rows, actual_count=0)
                 rows = self._read(
                     "select_result", self._template("select_result.sql", tables={"tail": "ti_output_tail"},
-                                                    fragments={"columns": ", ".join(_column(name) for name in self._columns)}),
-                    (), ("ti_output_tail",), self._tail_rows,
-                    expected=self._expected_columns, maximum=self.request.limit,
+                        fragments={"columns": ", ".join(_column(name) for name in self._result_columns)}),
+                    (), ("ti_output_tail",), self.target_rows,
+                    expected=self._result_expected_columns, maximum=self.target_rows,
                 )
-                if len(rows) != counts[0][0]:
+                if len(rows) != self.target_rows:
                     self._contract("fetch_count_mismatch", "final_fetch", "The final fetch omitted output rows",
-                                   expected_count=counts[0][0], actual_count=len(rows))
-            elif expected_rows:
-                self._contract("fetch_count_mismatch", "final_query", "Selected output has no result table",
-                               expected_count=expected_rows, actual_count=0)
+                                   expected_count=self.target_rows, actual_count=len(rows))
             final_statistics = replace(
                 statistics, sql_processed_rows=self.executor.sql_processed_rows,
                 elapsed_ms=(self.executor.control.clock() - self.executor.control.arrived_at) * 1000,
             )
             result = build_calculation_result(
                 request=self.request, instances=self.instances, description=description,
-                statistics=final_statistics, rows=rows, columns=self._columns,
+                statistics=final_statistics, rows=rows, columns=self._result_columns,
                 value_columns=self._value_columns, read_start=read_start, read_end=read_end,
             )
             self.executor.control.check_active()

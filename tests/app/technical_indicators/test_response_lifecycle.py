@@ -37,8 +37,8 @@ def test_response_lifecycle(monkeypatch):
                         control.target_finish = monotonic() + 0.2
 
                 created = install_control(monkeypatch, on_create=on_create)
-                monkeypatch.setattr(execution.TechnicalIndicatorService, "calculate",
-                                    lambda service, normalized: literal_result())
+                monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_result",
+                                    lambda service, prepared, *, control: literal_result())
                 original_release = rt.admission.release
 
                 def release(lease):
@@ -103,7 +103,7 @@ def test_response_lifecycle(monkeypatch):
 
             created = install_control(monkeypatch, on_stop=on_stop)
 
-            def controlled_calculate(service, normalized):
+            def controlled_calculate(service, prepared, *, control):
                 anyio.from_thread.run_sync(started.set)
                 try:
                     assert release_worker.wait(1), "Test did not release its controlled HTTP worker"
@@ -112,7 +112,7 @@ def test_response_lifecycle(monkeypatch):
                 finally:
                     order.append("worker_exit")
 
-            monkeypatch.setattr(execution.TechnicalIndicatorService, "calculate", controlled_calculate)
+            monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_result", controlled_calculate)
             original_release = rt.admission.release
 
             def release(lease):
@@ -164,8 +164,8 @@ def test_response_lifecycle(monkeypatch):
             cause = TypeError("Deliberate unsupported encoding input")
             original_error.add_note("controlled fixture note")
             sent, released = [], []
-            monkeypatch.setattr(execution.TechnicalIndicatorService, "calculate",
-                                lambda service, normalized: literal_result())
+            monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_result",
+                                lambda service, prepared, *, control: literal_result())
 
             def failing_encoder(payload, *, control, max_bytes):
                 result = payload

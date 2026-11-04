@@ -18,12 +18,12 @@ CALCULATION_FILES = {
     "macd_first.sql", "macd_segment.sql", "kdj_window.sql", "kdj_segment.sql",
     "macd_warmup.sql", "kdj_warmup.sql",
 }
-OUTPUT_FILES = {"merge_batch.sql", "retain_tail.sql", "select_result.sql"}
+OUTPUT_FILES = {"merge_batch.sql", "select_result.sql"}
 
 
 def _compare_page(result, state, start, end):
     assert result.times == state.times[start:end]
-    assert result.range.count == len(result.times) == 1000
+    assert result.range.count == len(result.times) == 500
     assert result.range.actual_start == result.times[0]
     assert result.range.actual_end == result.times[-1]
     assert result.source.read_start == state.times[start-500]
@@ -47,8 +47,8 @@ def _compare_page(result, state, start, end):
         close_enough(actual["boll"][name], tuple(row[column] for row in reference))
     for name, column in (("open",1),("close",1),("high",2),("low",3)):
         close_enough(actual["price"][name], tuple(row[column] for row in reference))
-    assert actual["price"]["volume"] == (100.0,)*1000
-    assert actual["price"]["amount"] == (1000.0,)*1000
+    assert actual["price"]["volume"] == (100.0,)*500
+    assert actual["price"]["amount"] == (1000.0,)*500
     assert len(result.calculations) == 11
     assert dict(result.calculations[0].parameters) == {"fast":12,"slow":26,"signal":9}
     assert all(item.algorithm_version == ("2.0.0" if item.calculation_id in {"macd", "kdj"} else "1.0.0") for item in result.calculations)
@@ -58,25 +58,25 @@ def test_complete_service_initial_and_before(d3_data, monkeypatch):
     state = d3_data
     with state.case("initial_and_before"):
         with template_io(state, monkeypatch):
-            initial, service, source = state.run(request(default_calculations()), real=True)
-            assert initial.statistics.source_rows == 1500
+            initial, service, source = state.run(request(default_calculations(), limit=500), real=True)
+            assert initial.statistics.source_rows == 1000
             assert initial.statistics.locator_rows == source.context.locator_rows
             assert initial.statistics.price_conversion_batches == 0
-            assert source.batches == [1500] and source.open_calls == 1
-            _compare_page(initial, state, 9001, 10001)
+            assert source.batches == [1000] and source.open_calls == 1
+            _compare_page(initial, state, 9501, 10001)
             assert_closed(service)
             assert_templates_once(state.calls[-1], CALCULATION_FILES|OUTPUT_FILES)
             # One unique MA20/BOLL20 mean is executed once for each real batch.
             steps = service.observed_executor.statistics
             assert sum(s.step_name == "rolling_mean" for s in steps) == 7
-            # One selected 1500-row batch includes the 500-row warmup.
+            # One selected 1000-row batch includes the 500-row warmup.
             segment_rows = [s.logical_input_rows for s in steps if s.step_name == "macd_segment"]
-            assert segment_rows and set(segment_rows) == {1502}
+            assert segment_rows and set(segment_rows) == {1002}
             assert all(s.output_rows>0 for s in steps if s.step_name == "macd_segment")
-            earlier, second, previous_source = state.run(request(default_calculations(), before=state.times[9001]), real=True)
-            assert earlier.statistics.source_rows == 1500
-            assert previous_source.batches == [1500]
-            _compare_page(earlier, state, 8001, 9001)
+            earlier, second, previous_source = state.run(request(default_calculations(), before=state.times[9501], limit=500), real=True)
+            assert earlier.statistics.source_rows == 1000
+            assert previous_source.batches == [1000]
+            _compare_page(earlier, state, 9001, 9501)
             assert earlier.times[-1] < initial.times[0]
             assert not set(earlier.times).intersection(initial.times)
             assert_closed(second)

@@ -13,6 +13,7 @@ from ..errors import CalculationExecutionError
 _PACKAGES = frozenset({
     "src.foundation.technical_indicators.calculation",
     "src.foundation.technical_indicators.output",
+    "src.foundation.technical_indicators.sources",
 })
 _PACKAGE_FILES = MappingProxyType({
     "src.foundation.technical_indicators.calculation": frozenset({
@@ -21,7 +22,10 @@ _PACKAGE_FILES = MappingProxyType({
         "macd_warmup.sql", "kdj_warmup.sql",
     }),
     "src.foundation.technical_indicators.output": frozenset({
-        "merge_batch.sql", "retain_tail.sql", "select_result.sql",
+        "merge_batch.sql", "select_result.sql",
+    }),
+    "src.foundation.technical_indicators.sources": frozenset({
+        "stage_input.sql", "adjust_price.sql", "retain_history.sql",
     }),
 })
 _FILENAME = re.compile(r"[a-z][a-z0-9_]*\.sql\Z")
@@ -32,6 +36,7 @@ _TOKEN = re.compile(r"\{\{([a-z][a-z0-9_]*)\}\}")
 
 def load_sql_templates(
     owner_type: type, *, request_texts: dict[tuple[str, str], str], control,
+    requested_files: tuple[str, ...] | None = None,
 ) -> Mapping[str, str]:
     """Reuse unrendered text only within the current owning request.
 
@@ -46,8 +51,13 @@ def load_sql_templates(
         raise CalculationExecutionError("SQL resource names must be unique declared package file names")
     if any(name not in _PACKAGE_FILES[package] for name in names):
         raise CalculationExecutionError("SQL resource is not an implemented file in the fixed package")
+    requested = names if requested_files is None else requested_files
+    if (not isinstance(requested, tuple) or any(not isinstance(name, str) for name in requested)
+            or len(set(requested)) != len(requested)
+            or any(name not in names for name in requested)):
+        raise CalculationExecutionError("Requested SQL resources must be a unique declared subset")
     loaded = {}
-    for name in names:
+    for name in requested:
         control.check_active()
         key = (package, name)
         if key in request_texts:

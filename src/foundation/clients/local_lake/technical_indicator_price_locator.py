@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 
 from src.foundation.technical_indicators.calculation.calculation import SqlStep
 from src.foundation.technical_indicators.errors import (
+    CalculationCancelledError, CalculationDeadlineError,
     ResourceCleanupError, ResourceLimitError, SourceContractError, SourceReadError,
     TechnicalIndicatorError,
 )
@@ -28,6 +29,8 @@ class _Group:
     targets: int
     first: object
     last: object
+    price_schema_error: str | None
+    price_projected_bytes: int
 
 
 class LakePriceLocator:
@@ -52,6 +55,7 @@ class LakePriceLocator:
         self._tables, self._registrations = [], []
         self._stage_text = None
         self._closed = self._started = False
+        self._defer_sql_cleanup = False
 
     def _position(self, value):
         if self.requirement.request.period.endswith("m") and isinstance(value, datetime):
@@ -66,7 +70,7 @@ class LakePriceLocator:
                 raise ResourceCleanupError("The price locator metadata handle did not close") from exc
             self._metadata_reader = None
 
-    def _open_metadata(self, path, contract, projection):
+    def _open_metadata(self, path, contract, projection, *, price_projection):
         pa, _, _, pq = _arrow()
         self.control.check_active()
         self.context.record_file(path, path.stat().st_size)
@@ -77,8 +81,24 @@ class LakePriceLocator:
             if (name not in actual.names or name not in expected
                     or not _matches_type(pa, actual.field(name).type, expected[name])):
                 raise SourceContractError("The projected source schema does not match its declared contract")
+        price_schema_error = None
+        for name in price_projection:
+            if name in projection:
+                continue
+            if (name not in actual.names or name not in expected
+                    or not _matches_type(pa, actual.field(name).type, expected[name])):
+                price_schema_error = f"The projected price field does not match its declared contract: {name}"
+                break
         self.control.check_active()
-        return self._metadata_reader.metadata
+        return self._metadata_reader.metadata, price_schema_error
+
+    def _validate_selected_price_groups(self, groups: tuple[_Group, ...]) -> None:
+        for group in groups:
+            self.control.check_active()
+            if group.price_schema_error is not None:
+                raise SourceContractError(group.price_schema_error)
+            if group.price_projected_bytes > self.source._config.max_projected_row_group_bytes:
+                raise ResourceLimitError("Projected row group bytes exceed the initial protection")
 
     def _may_match(self, group, projection):
         """Use only reliable typed metadata; missing statistics require keys."""
@@ -119,6 +139,25 @@ class LakePriceLocator:
         self._reader = self._scanner = self._fragment = None
 
     def _key_batches(self, path, index, projection, standard):
+        primary = None
+        try:
+            yield from self._read_key_batches(path, index, projection, standard)
+        except GeneratorExit:
+            raise
+        except BaseException as error:
+            primary = error
+            self._defer_sql_cleanup = True
+            raise
+        finally:
+            try:
+                self._close_key_reader()
+            except BaseException as error:
+                if primary is not None:
+                    primary.add_note(f"Locator key reader cleanup: {type(error).__name__}: {error}")
+                else:
+                    raise
+
+    def _read_key_batches(self, path, index, projection, standard):
         pa, ds, fs, _ = _arrow()
         request = self.requirement.request
         predicate = ds.field("ts_code") == request.ts_code
@@ -153,63 +192,103 @@ class LakePriceLocator:
                 batch = None
                 continue
             self.context.record_locator_rows(batch.num_rows)
-            self._registrations.append("ti_locator_keys")
-            self.executor.register_arrow("ti_locator_keys", batch)
-            self.executor.declare_table("ti_locator_times")
-            self._tables.append("ti_locator_times")
-            self.executor.execute(SqlStep("locate_stage", text, (0,), ("ti_locator_keys",),
-                                          ("ti_locator_times",), batch.num_rows))
-            self.executor.unregister_arrow("ti_locator_keys")
-            self._registrations.remove("ti_locator_keys")
-            check_period_cutoff(self.executor, "ti_locator_times", request)
-            yield time_key
-            self.executor.drop_table("ti_locator_times")
-            self._tables.remove("ti_locator_times")
-            batch = None
-        self._close_key_reader()
+            try:
+                self._registrations.append("ti_locator_keys")
+                self.executor.register_arrow("ti_locator_keys", batch)
+                self.executor.declare_table("ti_locator_times")
+                self._tables.append("ti_locator_times")
+                self.executor.execute(SqlStep("locate_stage", text, (0,), ("ti_locator_keys",),
+                                              ("ti_locator_times",), batch.num_rows))
+                self.executor.unregister_arrow("ti_locator_keys")
+                self._registrations.remove("ti_locator_keys")
+                yield time_key
+            except GeneratorExit:
+                raise
+            except BaseException:
+                self._defer_sql_cleanup = True
+                raise
+            finally:
+                batch = None
+                if not self._defer_sql_cleanup:
+                    if "ti_locator_keys" in self._registrations:
+                        self.executor.unregister_arrow("ti_locator_keys")
+                        self._registrations.remove("ti_locator_keys")
+                    if "ti_locator_times" in self._tables:
+                        self.executor.drop_table("ti_locator_times")
+                        self._tables.remove("ti_locator_times")
 
-    def _count_group(self, path, index, projection, standard):
+    def _count_group(self, path, index, projection, standard, *, price_schema_error, price_projected_bytes):
         request = self.requirement.request
         upper, upper_bindings = range_filter(request, include_start=False)
         target, target_bindings = range_filter(request)
         rows = targets = 0
         first = last = None
-        for time_key in self._key_batches(path, index, projection, standard):
-            sql = self.FIXED_SQL_STEPS["locate_count"].format(
-                upper=upper, target=target, time_key=time_key)
-            summary = self.executor.scalar(sql, upper_bindings + target_bindings)
-            rows += summary["n"]
-            targets += summary["targets"]
-            if summary["n"]:
-                if first is None:
-                    first = summary["first_time"]
-                last = summary["last_time"]
-        return _Group(path, index, rows, targets, first, last)
+        iterator, primary = self._key_batches(path, index, projection, standard), None
+        try:
+            for time_key in iterator:
+                check_period_cutoff(self.executor, "ti_locator_times", request)
+                sql = self.FIXED_SQL_STEPS["locate_count"].format(
+                    upper=upper, target=target, time_key=time_key)
+                summary = self.executor.scalar(sql, upper_bindings + target_bindings)
+                rows += summary["n"]
+                targets += summary["targets"]
+                if summary["n"]:
+                    if first is None:
+                        first = summary["first_time"]
+                    last = summary["last_time"]
+        except BaseException as error:
+            primary = error
+            self._defer_sql_cleanup = True
+            raise
+        finally:
+            self._close_iteration(iterator, primary)
+        return _Group(path, index, rows, targets, first, last, price_schema_error, price_projected_bytes)
+
+    def _close_iteration(self, iterator, primary):
+        try:
+            iterator.close()
+        except BaseException as error:
+            if primary is not None:
+                primary.add_note(f"Locator iterator cleanup: {type(error).__name__}: {error}")
+            else:
+                if isinstance(error, (CalculationCancelledError, CalculationDeadlineError)):
+                    raise
+                raise ResourceCleanupError("The locator key iteration could not be released") from error
 
     def _bounds(self, group, ranks, projection, standard):
         """Second key pass for at most two ordinal positions in this group."""
         found, preceding = {}, 0
         upper, bindings = range_filter(self.requirement.request, include_start=False)
         target, target_bindings = range_filter(self.requirement.request)
-        for time_key in self._key_batches(group.path, group.index, projection, standard):
-            summary = self.executor.scalar(self.FIXED_SQL_STEPS["locate_count"].format(
-                upper=upper, target=target, time_key=time_key), bindings + target_bindings)
-            count = summary["n"]
-            wanted = tuple(rank for rank in ranks if preceding < rank <= preceding + count)
-            if wanted:
-                first = wanted[0] - preceding
-                second = wanted[1] - preceding if len(wanted) > 1 else first
-                values = self.executor.scalar(self.FIXED_SQL_STEPS["locate_bounds"].format(
-                    upper=upper, time_key=time_key), bindings + (first, second))
-                found[wanted[0]] = values["first_time"]
-                if len(wanted) > 1:
-                    found[wanted[1]] = values["second_time"]
-            preceding += count
+        iterator, primary = self._key_batches(group.path, group.index, projection, standard), None
+        try:
+            for time_key in iterator:
+                summary = self.executor.scalar(self.FIXED_SQL_STEPS["locate_count"].format(
+                    upper=upper, target=target, time_key=time_key), bindings + target_bindings)
+                count = summary["n"]
+                wanted = tuple(rank for rank in ranks if preceding < rank <= preceding + count)
+                if wanted:
+                    first = wanted[0] - preceding
+                    second = wanted[1] - preceding if len(wanted) > 1 else first
+                    values = self.executor.scalar(self.FIXED_SQL_STEPS["locate_bounds"].format(
+                        upper=upper, time_key=time_key), bindings + (first, second))
+                    found[wanted[0]] = values["first_time"]
+                    if len(wanted) > 1:
+                        found[wanted[1]] = values["second_time"]
+                preceding += count
+                if set(found) == set(ranks):
+                    break
+        except BaseException as error:
+            primary = error
+            self._defer_sql_cleanup = True
+            raise
+        finally:
+            self._close_iteration(iterator, primary)
         if set(found) != set(ranks):
             raise SourceContractError("The second key read could not reproduce the selected boundary")
         return found
 
-    def _select(self, paths, contract, projection, standard):
+    def _select(self, paths, contract, projection, standard, *, price_projection):
         request, history = self.requirement.request, self.requirement.history
         maximum = self.source._config.max_input_rows
         groups, rows, targets = [], 0, 0
@@ -219,14 +298,19 @@ class LakePriceLocator:
         # if the newer groups did not already provide the necessary history.
         for path_index in range(len(paths) - 1, -1, -1):
             path = paths[path_index]
-            metadata = self._open_metadata(path, contract, projection)
+            metadata, price_schema_error = self._open_metadata(path, contract, projection,
+                                                               price_projection=price_projection)
             for index in range(metadata.num_row_groups - 1, -1, -1):
                 self.control.check_active()
                 group_metadata = metadata.row_group(index)
                 if not self._may_match(group_metadata, projection):
                     continue
                 self._check_group_bytes(group_metadata, projection)
-                group = self._count_group(path, index, projection, standard)
+                price_projected_bytes = sum(group_metadata.column(i).total_uncompressed_size
+                    for i in range(group_metadata.num_columns)
+                    if group_metadata.column(i).path_in_schema in price_projection)
+                group = self._count_group(path, index, projection, standard,
+                    price_schema_error=price_schema_error, price_projected_bytes=price_projected_bytes)
                 if group.rows:
                     groups.append(group)
                     rows += group.rows
@@ -250,7 +334,7 @@ class LakePriceLocator:
             candidates_exhausted = True
         actual = min(targets, request.limit)
         if not actual:
-            return (), PriceReadSelection(None, None, None, None, 0, 0, candidates_exhausted, ())
+            return (), PriceReadSelection(None, None, None, None, 0, 0, candidates_exhausted, ()), ()
         needs_origin = history.requires_source_origin or actual + history.warmup_rows > maximum
         # Counting the oldest group does not select all of its rows. First
         # keep the finite requested range; only then decide whether its lower
@@ -289,7 +373,7 @@ class LakePriceLocator:
             actual, wanted - actual, origin,
             tuple(tuple(indices) for indices in selected.values()),
         )
-        return selected_paths, selection
+        return selected_paths, selection, tuple(reversed(included))
 
     def describe(self):
         if self._closed or self._started:
@@ -308,11 +392,13 @@ class LakePriceLocator:
                     base /= "ts_code=" + request.ts_code
             paths = tuple(path for _, path in self.source._partition_paths(root, base, request, self.control))
             projection, standard = source_projection(contract, frozenset(), request.adjustment)
-            self._stage_text = (Path(__file__).parents[2] / "technical_indicators/sources/sql/stage_input.sql").read_text()
-            paths, selection = self._select(paths, contract, projection, standard)
-            projection, standard = source_projection(contract, self.requirement.history.fields, request.adjustment)
-            for path, indices in zip(paths, selection.row_groups):
-                self.source._inspect(path, projection, contract.schema, self.control, self.context, row_groups=indices)
+            price_projection, price_standard = source_projection(
+                contract, self.requirement.history.fields, request.adjustment)
+            self._stage_text = self.context.sql_template("stage_input.sql", control=self.control)
+            paths, selection, groups = self._select(paths, contract, projection, standard,
+                                                    price_projection=price_projection)
+            self._validate_selected_price_groups(groups)
+            groups = None
             conversion = contract.input_adjustment != request.adjustment
             factor_paths = self.source._partition_paths(root, root / "silver/quote/adj_factor",
                 request, self.control, factors=True) if conversion and selection.target_rows else ()
@@ -328,7 +414,7 @@ class LakePriceLocator:
                 supports_partial_period=contract.period_kind in ("week", "month"),
                 supported_adjustment_paths=contract.adjustment_paths, converted=conversion,
                 selection=selection, price_paths=paths, factor_paths=factor_paths,
-                source_projection=projection, standard_projection=standard,
+                source_projection=price_projection, standard_projection=price_standard,
             )
         except TechnicalIndicatorError:
             raise

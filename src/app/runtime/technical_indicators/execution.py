@@ -5,16 +5,15 @@ connection; the event-loop task observes cancellation and waits for real exit.
 """
 
 from collections.abc import Callable
-import traceback
 
 import anyio
 from starlette.types import Receive, Send
 
 from src.foundation.technical_indicators.contracts import (
-    CalculationRequest, CalculationResult, normalize_request_and_validate_all_instances,
+    CalculationRequest, CalculationResult,
 )
 from src.foundation.technical_indicators.errors import (
-    CalculationCancelledError, CalculationUnsupportedError, OutputContractError,
+    CalculationCancelledError, OutputContractError, _clear_error_frames,
 )
 from src.foundation.technical_indicators.execution_control import ExecutionControl
 from src.foundation.technical_indicators.output.encoding import encode_response_utf8
@@ -26,31 +25,10 @@ from .response import send_encoded_body
 
 def _validate_request_before_wait(
     runtime: TechnicalIndicatorRuntime, request: CalculationRequest,
-) -> CalculationRequest:
-    normalized = normalize_request_and_validate_all_instances(request, runtime.config)
-    for item in normalized.calculations:
-        definition = runtime.registry.resolve(item.calculation_id)
-        if normalized.period not in definition.supported_periods:
-            raise CalculationUnsupportedError("Calculation does not support the requested period")
-        definition.validate_parameters(item.parameters)
-    return normalized
-
-
-def _clear_error_frames(error: BaseException) -> None:
-    pending, seen = [error], set()
-    while pending:
-        current = pending.pop()
-        if id(current) in seen:
-            continue
-        seen.add(id(current))
-        if current.__cause__ is not None:
-            pending.append(current.__cause__)
-        if current.__context__ is not None:
-            pending.append(current.__context__)
-        if isinstance(current, BaseExceptionGroup):
-            pending.extend(current.exceptions)
-        if current.__traceback__ is not None:
-            traceback.clear_frames(current.__traceback__)
+):
+    return TechnicalIndicatorService(
+        source=runtime.source, registry=runtime.registry, config=runtime.config,
+    )._prepare_calculation(request)
 
 
 async def _execute(
@@ -173,7 +151,7 @@ async def _execute(
         # Leaving the task group has awaited the worker and receive observer.
         # Cancellation cannot skip finalization or release a live request.
         with anyio.CancelScope(shield=True):
-            result = body = None
+            result = body = normalized = None
             handoff["result"] = handoff["body"] = handoff["error"] = None
             if primary_error is None and not request_finished:
                 try:
@@ -202,7 +180,14 @@ def _calculate_request(runtime, request, control) -> CalculationResult:
     return TechnicalIndicatorService(
         source=runtime.source, registry=runtime.registry,
         config=runtime.config, control=control,
-    ).calculate(request)
+    )._calculate_library(request, control=control)
+
+
+def _calculate_http_payload(runtime, prepared, control) -> CalculationResult:
+    return TechnicalIndicatorService(
+        source=runtime.source, registry=runtime.registry,
+        config=runtime.config, control=control,
+    )._calculate_result(prepared, control=control)
 
 
 async def execute_library(
@@ -232,6 +217,6 @@ async def execute_http(
     await _execute(
         runtime, arrived_at=arrived_at,
         validate_before_wait=lambda: _validate_request_before_wait(runtime, request),
-        work=lambda normalized, control: _calculate_request(runtime, normalized, control),
+        work=lambda prepared, control: _calculate_http_payload(runtime, prepared, control),
         receive=receive, send=send,
     )

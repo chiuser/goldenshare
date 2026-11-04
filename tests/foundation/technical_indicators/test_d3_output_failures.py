@@ -272,7 +272,7 @@ def test_borrowed_tables_and_fixed_template_boundaries(d3_data, monkeypatch):
             initialize(self,*args,**kwargs)
 
         def fail_second_output_file(file,*args,**kwargs):
-            if isinstance(file,(str,Path)) and Path(file).name=="retain_tail.sql":
+            if isinstance(file,(str,Path)) and Path(file).name=="select_result.sql":
                 raise OSError("D3 deliberate package-text read failure")
             return actual_open(file,*args,**kwargs)
 

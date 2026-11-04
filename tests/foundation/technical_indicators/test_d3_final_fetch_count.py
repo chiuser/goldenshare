@@ -1,9 +1,9 @@
-"""LLD 19.30: retain real calculate/SQL/COUNT, corrupt only final fetch delivery.
+"""Retain real calculate/SQL, corrupt only final fetch delivery.
 
 The existing producer-shaped three-file fixture supplies prices 10/12/11.
 Only the final select_result cursor omits or repeats its last row. This reaches
-the collector's COUNT comparison and the executor's max_rows check separately;
-neither earlier batch checks nor a mocked COUNT can substitute for them.
+the collector's known target count and the executor's max_rows check separately;
+no additional COUNT query or earlier batch check substitutes for final delivery.
 """
 
 from dataclasses import replace
@@ -64,10 +64,6 @@ def test_calculate_final_fetch_count_and_cleanup(d3_data, monkeypatch):
                 return CursorView(actual, self.entry)
 
         def observe_read(self, step, **kwargs):
-            if step.name == "count_tail":
-                rows = original_read(self, step, **kwargs)
-                current["count_results"].append(rows)
-                return rows
             if step.name != "select_result":
                 return original_read(self, step, **kwargs)
             assert kwargs["max_rows"] == 3
@@ -86,7 +82,7 @@ def test_calculate_final_fetch_count_and_cleanup(d3_data, monkeypatch):
             for mode, actual_count in (("normal", 3), ("short", 2), ("over", 4)):
                 current = {
                     "mode": mode, "status": "running", "result_returned": False,
-                    "count_results": [], "real_final_query_calls": 0,
+                    "real_final_query_calls": 0,
                     "native_fetch_sizes": [], "delivered_fetch_sizes": [],
                     "closed_connection_probe": {"status": "not_started"},
                 }
@@ -112,7 +108,7 @@ def test_calculate_final_fetch_count_and_cleanup(d3_data, monkeypatch):
                             "low": (10.0, 12.0, 11.0), "close": (10.0, 12.0, 11.0),
                             "volume": (100.0, 100.0, 100.0), "amount": (1000.0, 1000.0, 1000.0),
                         }
-                        assert result.statistics.sql_processed_rows == 41
+                        assert result.statistics.sql_processed_rows == 32
                     else:
                         with pytest.raises(OutputContractError) as caught:
                             returned = state.run(selected, real=False, config=config)
@@ -126,7 +122,6 @@ def test_calculate_final_fetch_count_and_cleanup(d3_data, monkeypatch):
                         assert error.diagnostics == {"expected_count": 3, "actual_count": actual_count}
                         assert not getattr(error, "__notes__", ())
                         assert returned is None and not current["result_returned"]
-                    assert current["count_results"] == [((3,),)]
                     assert current["real_final_query_calls"] == 1
                     assert current["native_fetch_sizes"] == ([3] if mode == "over" else [3, 0])
                     assert current["delivered_fetch_sizes"] == ([4] if mode == "over" else [actual_count, 0])
@@ -162,7 +157,8 @@ def test_calculate_final_fetch_count_and_cleanup(d3_data, monkeypatch):
                         assert call["source_rows"] == 3 and call["batches"] == [3]
                         assert call["source_open_calls"] == 1
                         assert call["status"] == ("passed" if mode == "normal" else "failed")
-                        assert executor.sql_processed_rows == 41
+                        assert executor.sql_processed_rows == 32
+                        assert not any(item.step_name == "count_tail" for item in executor.statistics)
                         assert final_read.logical_input_rows == 3 and final_read.output_rows == actual_count
                         assert final_read.failed is (mode == "over")
                         assert executor.connection is connection and not executor._executing
@@ -177,7 +173,7 @@ def test_calculate_final_fetch_count_and_cleanup(d3_data, monkeypatch):
                             raise
                         call_error.add_note(f"Final count cleanup assertion: {type(error).__name__}: {error}")
             assert (state.input_rows - before[0], state.sql_rows - before[1],
-                    state.real_controls - before[2]) == (9, 126, 0)
+                    state.real_controls - before[2]) == (9, 99, 0)
             details["status"] = "passed"
         except BaseException as error:
             primary_error = error

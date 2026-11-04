@@ -6,6 +6,7 @@ connections and row-quality checks do not implement the kernel input contract.
 
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 from dataclasses import replace
 from datetime import date, datetime
 import os
@@ -211,21 +212,38 @@ class LakeTechnicalIndicatorPriceSource:
                 (str(path), requirement.request.ts_code), (), (name,), 0))
             if stats.output_rows:
                 basis = executor.scalar(f"SELECT struct_pack(basis_date:=basis_date,basis_value:=basis_value) FROM {name}", ())
-                return replace(description, basis_date=basis["basis_date"], basis_value=basis["basis_value"])
+                resolved = replace(description, basis_date=basis["basis_date"], basis_value=basis["basis_value"])
+                read_context.remember_basis(resolved, requirement.request, path)
+                return resolved
         raise SourceContractError("The declared daily conversion has no available basis row")
 
     def prepare_factors(self, executor, description, requirement, trade_dates, *, table_name, read_context):
         name = _table_name(table_name)
         selected_dates = frozenset(trade_dates)
-        selected = tuple(path for day, path in description.factor_paths if day in selected_dates)
-        for path in selected:
+        paths = description.factor_paths
+        if trade_dates:
+            first = bisect_left(paths, trade_dates[0], key=lambda item: item[0])
+            last = bisect_right(paths, trade_dates[-1], key=lambda item: item[0])
+            selected = tuple(path for day, path in paths[first:last] if day in selected_dates)
+        else:
+            selected = ()
+        basis = read_context.reusable_basis(description, requirement.request, selected_dates, selected)
+        unread = tuple(path for path in selected if basis is None or path != basis[0])
+        for path in unread:
             self._inspect(path, tuple(field for field, _ in FACTOR_SCHEMA), FACTOR_SCHEMA, executor.control, read_context)
-        if selected and trade_dates:
-            paths_sql = "[" + ",".join("?" for _ in selected) + "]"
+        if unread and trade_dates:
+            paths_sql = "[" + ",".join("?" for _ in unread) + "]"
             dates_sql = ",".join("?" for _ in trade_dates)
-            sql = f"""CREATE TEMP TABLE {name} AS SELECT trade_date, CAST(adj_factor AS DOUBLE) AS adj_factor
+            select_sql = f"""SELECT trade_date, CAST(adj_factor AS DOUBLE) AS adj_factor
                 FROM read_parquet({paths_sql}, hive_partitioning=false) WHERE ts_code=? AND trade_date IN ({dates_sql})"""
-            bindings = (*map(str, selected), requirement.request.ts_code, *trade_dates)
+            bindings = (*map(str, unread), requirement.request.ts_code, *trade_dates)
+            if basis is not None:
+                select_sql += " UNION ALL SELECT CAST(? AS DATE), CAST(? AS DOUBLE)"
+                bindings += (basis[1], basis[2])
+            sql = f"CREATE TEMP TABLE {name} AS " + select_sql
+        elif basis is not None:
+            sql = f"CREATE TEMP TABLE {name} AS SELECT CAST(? AS DATE) trade_date, CAST(? AS DOUBLE) adj_factor"
+            bindings = (basis[1], basis[2])
         else:
             sql = f"CREATE TEMP TABLE {name} AS SELECT CAST(NULL AS DATE) trade_date, CAST(NULL AS DOUBLE) adj_factor WHERE false"
             bindings = ()

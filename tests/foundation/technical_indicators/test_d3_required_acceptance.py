@@ -137,7 +137,7 @@ def test_unknown_global_dates_are_not_inferred_from_read_range(d3_data):
         statistics = CalculationStatistics(21, 0, 21, 0, 0, 0, 0.0)
         arguments = dict(
             request=selected, instances=instances, statistics=statistics, rows=(),
-            columns=("seq", "trade_date", "period_start", "period_end", "source_as_of", "value_0_0"),
+            columns=("period_start", "value_0_0"),
             value_columns=(("value_0_0",),),
             read_start=date(2026, 1, 5), read_end=date(2026, 2, 2),
         )

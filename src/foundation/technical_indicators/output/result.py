@@ -121,5 +121,5 @@ def build_calculation_result(
         times=times, source_as_of=source_as_of, calculations=calculations,
         range=OutputRange(times[0] if times else None, times[-1] if times else None, len(times)),
         statistics=statistics,
-        msg="已经加载全部数据了" if not times and request.before is not None else "",
+        msg="",
     )

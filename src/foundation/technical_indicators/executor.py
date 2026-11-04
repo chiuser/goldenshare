@@ -213,7 +213,7 @@ class DuckDBExecutor:
         """Fully fetch a fixed collector query without exposing a live cursor."""
         self._assert_owner()
         stages = {"inspect_columns": "inspect", "check_batch_rows": "append",
-                  "count_tail": "final_query", "select_result": "final_query"}
+                  "select_result": "final_query"}
         if step.name not in stages or step.output_tables:
             raise ValueError("Only fixed read-only output steps are supported")
         if type(max_rows) is not int or max_rows < 0:

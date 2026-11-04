@@ -2,17 +2,28 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 from time import monotonic
 
 from .configuration.settings import KernelConfig
-from .errors import ResourceCleanupError, SourceContractError, SourceUnsupportedError
+from .errors import ResourceCleanupError, _clear_error_frames
 from .execution_control import ExecutionControl
 from .executor import DuckDBExecutor
 
 if TYPE_CHECKING:
+    from .calculation.dependencies import CalculationPlan
     from .calculation.registry import CalculationRegistry
+    from .contracts import CalculationRequest
+    from .output.contracts import OutputInstanceDescription
     from .sources.contracts import PriceSource
+
+
+@dataclass(frozen=True, slots=True)
+class _PreparedCalculation:
+    normalized: CalculationRequest
+    plan: CalculationPlan
+    instances: tuple[OutputInstanceDescription, ...]
 
 
 def connect_private_memory_instance(config: KernelConfig):
@@ -73,18 +84,49 @@ class TechnicalIndicatorService:
 
     def calculate(self, request):
         """Compute the requested region and return a detached immutable result."""
-        from .calculation.engine import CalculationEngine
-        from .contracts import CalculationStatistics, normalize_request_and_validate_all_instances
-        from .output.collector import OutputCollector
+        control = self.control or ExecutionControl(arrived_at=monotonic(), config=self.config)
+        prepared = None
+        try:
+            control.check_active()
+            prepared = self._prepare_calculation(request)
+            return self._calculate_library(prepared, control=control)
+        finally:
+            prepared = None
+
+    def _prepare_calculation(self, request):
+        """Prepare parameters and descriptions once, without opening resources."""
+        from .contracts import normalize_request_and_validate_all_instances
+
+        normalized = normalize_request_and_validate_all_instances(request, self.config)
+        plan = self.registry.expand_dependencies(normalized)
+        return _PreparedCalculation(normalized, plan, self._describe_output_instances(plan))
+
+    def _calculate_library(self, prepared, *, control):
         from .output.encoding import measure_result_utf8
+
+        result = None
+        try:
+            result = self._calculate_result(prepared, control=control)
+            measure_result_utf8(result, control=control, max_bytes=self.config.max_output_bytes)
+            control.check_active()
+            return result
+        except BaseException as error:
+            result = prepared = None
+            _clear_error_frames(error)
+            raise
+        finally:
+            result = prepared = None
+
+    def _calculate_result(self, prepared, *, control):
+        """Own the single calculation and cleanup flow, without JSON encoding."""
+        from .calculation.engine import CalculationEngine
+        from .contracts import CalculationStatistics
+        from .output.collector import OutputCollector
         from .sources.contracts import ReadRequirement
         from .sources.read_context import SourceReadContext
         from .sources.session import PriceInputSession
 
-        control = self.control or ExecutionControl(arrived_at=monotonic(), config=self.config)
-        normalized = normalize_request_and_validate_all_instances(request, self.config)
-        plan = self.registry.expand_dependencies(normalized)
-        instances = self._describe_output_instances(plan)
+        normalized, plan, instances = prepared.normalized, prepared.plan, prepared.instances
         read_context = SourceReadContext(self.config)
         connection = executor = inputs = engine = output = None
         result = primary_error = None
@@ -100,7 +142,12 @@ class TechnicalIndicatorService:
             )
             inputs = PriceInputSession(executor, self.source, requirement, read_context=read_context)
             inputs.prepare()
-            output = OutputCollector(executor=executor, request=normalized, instances=instances)
+            description = inputs.resolved_description()
+            output = OutputCollector(
+                executor=executor, request=normalized, instances=instances,
+                target_first_seq=description.selection.preceding_rows + 1,
+                target_rows=description.selection.target_rows,
+            )
             while True:
                 control.check_active()
                 batch = inputs.next_batch()
@@ -123,21 +170,24 @@ class TechnicalIndicatorService:
                 elapsed_ms=(control.clock() - control.arrived_at) * 1000,
             )
             result = output.build_result(
-                inputs.resolved_description(), statistics,
+                description, statistics,
                 read_start=inputs.read_start, read_end=inputs.read_end,
-                expected_rows=inputs.resolved_description().selection.target_rows,
             )
-            measure_result_utf8(result, control=control, max_bytes=self.config.max_output_bytes)
             control.check_active()
         except BaseException as exc:
             primary_error = exc
+            result = None
         finally:
             cleanup_errors = self._close_execution(
                 control, connection, engine=engine, inputs=inputs, output=output,
             )
-        raise_primary_or_cleanup_error_if_any(primary_error, cleanup_errors)
-        control.check_active()
-        return result
+            read_context.clear_request_metadata()
+        try:
+            raise_primary_or_cleanup_error_if_any(primary_error, cleanup_errors)
+            control.check_active()
+            return result
+        finally:
+            result = output = inputs = engine = executor = connection = prepared = plan = None
 
     def _open_execution(self, control: ExecutionControl):
         connection = None

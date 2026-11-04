@@ -34,17 +34,17 @@ def test_calculate_utf8_limits_and_cleanup(d3_data, monkeypatch):
             source_files = [{"path": str(path), "bytes": path.stat().st_size} for path in paths]
             source_file_bytes = sum(item["bytes"] for item in source_files)
             details["source_files"] = source_files
-            # Independent count: original 38 service rows plus three one-row
-            # locate_stage steps. Scalar metadata queries keep the established
-            # zero logical-row accounting. No warmup SQL is needed for price.
+            # Independent new steps: locator/input stage 3+3, two input renames
+            # 3+3, price-column inspection 11, row check 3, merge 3, final select
+            # 3 = 32. There is no history, warmup, output trim or final COUNT.
             expected = {
-                "kernel_version": "2.0.0",
+                "kernel_version": "3.0.0",
                 "series": {
                     "security_type": "stock", "ts_code": "600000.SH", "period": "day",
                     "adjustment": "none", "timezone": "Asia/Shanghai", "price_unit": "CNY",
                     "volume_unit": "lot", "amount_unit": "thousand_CNY",
                 },
-                "requested": {"start": None, "end": None, "before": None, "limit": 1000},
+                "requested": {"start": None, "end": None, "before": None, "limit": 500},
                 "source": {
                     "id": "lake_stock_daily", "contract_version": "1", "input_adjustment": "none",
                     "history_start": None, "read_start": "2026-01-05", "read_end": "2026-01-07",
@@ -68,7 +68,7 @@ def test_calculate_utf8_limits_and_cleanup(d3_data, monkeypatch):
                 }],
                 "range": {"actual_start": "2026-01-05", "actual_end": "2026-01-07", "count": 3},
                 "statistics": {
-                    "source_rows": 3, "sql_processed_rows": 41, "source_files": 3,
+                    "source_rows": 3, "sql_processed_rows": 32, "source_files": 3,
                     "source_file_bytes": source_file_bytes, "locator_rows": 3,
                     "price_conversion_batches": 0, "elapsed_ms": 0.0,
                 },
@@ -105,7 +105,7 @@ def test_calculate_utf8_limits_and_cleanup(d3_data, monkeypatch):
                     return value.isoformat()
                 raise TypeError(f"Unexpected library result value: {type(value).__name__}")
 
-            selected = request(period="day", adjustment="none", limit=1000)
+            selected = request(period="day", adjustment="none", limit=500)
             for index, threshold in enumerate((byte_count + 1, byte_count, byte_count - 1)):
                 entry = {"index": index + 1, "threshold": threshold, "status": "running",
                          "result_returned": False, "actual_matches_expected": None,
@@ -134,7 +134,7 @@ def test_calculate_utf8_limits_and_cleanup(d3_data, monkeypatch):
                                      actual_matches_expected=actual_bytes == expected_bytes,
                                      actual_payload=json.loads(actual_bytes))
                         assert actual_bytes == expected_bytes
-                        assert result.statistics.sql_processed_rows == 41
+                        assert result.statistics.sql_processed_rows == 32
                     else:
                         with pytest.raises(ResourceLimitError) as caught:
                             returned = state.run(selected, real=False, config=config)

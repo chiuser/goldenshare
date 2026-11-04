@@ -1,7 +1,8 @@
 """Four original D4 lifecycle classes, with controlled work and no data I/O.
 
 LLD12.4/12.4b/13 define the independent expectations. Admission and the
-App entry points are real; only ExecutionControl and calculate are replaced.
+App entry points and preparation are real; only ExecutionControl and the
+private library calculation are replaced.
 No connection, SQL, source fixture or real interrupt monitor is created here.
 """
 
@@ -40,9 +41,9 @@ def literal_result():
     """A result contract literal, not a calculated price or expected algorithm."""
     day = date(2026, 1, 2)
     return CalculationResult(
-        "2.0.0", SeriesDescription("stock", "600000.SH", "day", "qfq", "Asia/Shanghai",
+        "3.0.0", SeriesDescription("stock", "600000.SH", "day", "qfq", "Asia/Shanghai",
                                   "CNY", "share", "CNY"),
-        RequestedRange(None, None, None, 1000),
+        RequestedRange(None, None, None, 500),
         SourceResult("controlled-lifecycle", "1", "qfq", None, day, day, None),
         PriceAdjustmentResult(None, None, None, None, False, "1"),
         (day,), None,
@@ -133,7 +134,7 @@ def test_execution_cancelled(monkeypatch):
 
             created = install_control(monkeypatch, on_stop=on_stop)
 
-            def controlled_calculate(service, normalized):
+            def controlled_calculate(service, prepared, *, control):
                 is_a = not controls
                 controls.append(service.control)
                 anyio.from_thread.run_sync((started_a if is_a else started_b).set)
@@ -144,7 +145,7 @@ def test_execution_cancelled(monkeypatch):
                 finally:
                     order.append("worker_a_exit" if is_a else "worker_b_exit")
 
-            monkeypatch.setattr(execution.TechnicalIndicatorService, "calculate", controlled_calculate)
+            monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_library", controlled_calculate)
             original_release = rt.admission.release
 
             def release(lease):
@@ -210,7 +211,7 @@ def test_execution_deadline(monkeypatch):
             created = install_control(monkeypatch, on_create=on_create,
                                       on_stop=lambda control: stopped.set())
 
-            def controlled_calculate(service, normalized):
+            def controlled_calculate(service, prepared, *, control):
                 calls.append(service.control)
                 if len(calls) == 1:
                     anyio.from_thread.run_sync(started.set)
@@ -218,7 +219,7 @@ def test_execution_deadline(monkeypatch):
                     service.control.check_active()
                 return literal_result()
 
-            monkeypatch.setattr(execution.TechnicalIndicatorService, "calculate", controlled_calculate)
+            monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_library", controlled_calculate)
 
             async def call():
                 try:
@@ -261,7 +262,7 @@ def test_cleanup_failure(monkeypatch):
                 release_error = RuntimeError("Deliberate controlled admission release failure")
                 releases = []
 
-                def failing_calculate(service, normalized):
+                def failing_calculate(service, prepared, *, control):
                     result = literal_result()
                     if mode != "release_only":
                         try:
@@ -270,7 +271,7 @@ def test_cleanup_failure(monkeypatch):
                             raise primary from cause
                     return result
 
-                monkeypatch.setattr(execution.TechnicalIndicatorService, "calculate", failing_calculate)
+                monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_library", failing_calculate)
                 original_release = rt.admission.release
 
                 def release(lease):
@@ -320,7 +321,7 @@ def test_shutdown(monkeypatch):
             outcomes, calls = {}, []
             created = install_control(monkeypatch, on_stop=lambda control: stopped.set())
 
-            def controlled_calculate(service, normalized):
+            def controlled_calculate(service, prepared, *, control):
                 calls.append(service.control)
                 if len(calls) == 1:
                     anyio.from_thread.run_sync(started.set)
@@ -328,7 +329,7 @@ def test_shutdown(monkeypatch):
                     service.control.check_active()
                 return literal_result()
 
-            monkeypatch.setattr(execution.TechnicalIndicatorService, "calculate", controlled_calculate)
+            monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_library", controlled_calculate)
 
             async def active_call():
                 try:

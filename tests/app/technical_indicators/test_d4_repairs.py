@@ -3,6 +3,7 @@
 Expectations come from LLD12.4 and d4-three-repairs-20261027. These tests
 use actual Admission, App tasks and worker handoff; calculate and Control
 are controlled, so no source, SQL or real interrupt monitor is created.
+The queue-before-work preparation remains the actual Foundation preparation.
 Only pytest's JUnit properties report costs; historical reports are untouched.
 """
 
@@ -119,7 +120,7 @@ def _exercise_cancel_order(monkeypatch, *, feedback, original_failure=None):
             monkeypatch, on_create=created, on_stop=lambda control: stopped.set(),
         )
 
-        def calculate(service, normalized):
+        def calculate(service, prepared, *, control):
             anyio.from_thread.run_sync(started.set)
             try:
                 assert release_worker.wait(1), "The controlled worker was not released"
@@ -136,7 +137,7 @@ def _exercise_cancel_order(monkeypatch, *, feedback, original_failure=None):
             finally:
                 order.append("worker_exit")
 
-        monkeypatch.setattr(execution.TechnicalIndicatorService, "calculate", calculate)
+        monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_result", calculate)
         original_release = rt.admission.release
 
         def release(lease):

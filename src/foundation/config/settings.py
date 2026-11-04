@@ -7,6 +7,8 @@ from pathlib import Path
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from src.foundation.technical_indicators.contracts import _MAX_OUTPUT_ROWS
+
 
 class Settings(BaseSettings):
     app_env: str = Field(default="dev", alias="APP_ENV")
@@ -94,9 +96,6 @@ class Settings(BaseSettings):
     technical_indicator_cleanup_reserve_ms: int = Field(
         default=2000, alias="TECHNICAL_INDICATOR_CLEANUP_RESERVE_MS",
     )
-    technical_indicator_frontend_expire_ms: int = Field(
-        default=10000, alias="TECHNICAL_INDICATOR_FRONTEND_EXPIRE_MS",
-    )
     technical_indicator_max_input_rows: int = Field(
         default=1500000, alias="TECHNICAL_INDICATOR_MAX_INPUT_ROWS",
     )
@@ -104,7 +103,8 @@ class Settings(BaseSettings):
         default=10000, alias="TECHNICAL_INDICATOR_MAX_SOURCE_FILES",
     )
     technical_indicator_max_output_rows: int = Field(
-        default=10000, alias="TECHNICAL_INDICATOR_MAX_OUTPUT_ROWS",
+        default=_MAX_OUTPUT_ROWS, ge=1, le=_MAX_OUTPUT_ROWS,
+        alias="TECHNICAL_INDICATOR_MAX_OUTPUT_ROWS",
     )
     technical_indicator_max_output_bytes: int = Field(
         default=5000000, alias="TECHNICAL_INDICATOR_MAX_OUTPUT_BYTES",

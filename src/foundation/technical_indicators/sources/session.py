@@ -1,14 +1,10 @@
 """Own the current shared input and its retained history, never indicator state."""
 
-from pathlib import Path
-
 from ..calculation.calculation import SqlStep
 from ..errors import ResourceCleanupError, ResourceLimitError, SourceContractError, SourceUnsupportedError
-from ..time_range import check_period_cutoff
 from .contracts import PriceBatch, SourceDescription
 from .price_adjustment import PriceAdjustmentCalculation, VALUE_FIELDS
 
-_SQL = Path(__file__).parent / "sql"
 _FIELD_ORDER = ("open", "high", "low", "close", "volume", "amount")
 
 
@@ -128,6 +124,11 @@ class PriceInputSession:
             self.executor.drop_table(name)
             self._tables.remove(name)
 
+    def _rename_owned_table(self, old_name, new_name, rows):
+        self._own_table(new_name)
+        self.executor.rename_table(old_name, new_name, processed_rows=rows)
+        self._tables.remove(old_name)
+
     def next_batch(self):
         if not self._prepared or self._closed or self._failed:
             raise RuntimeError("Input session is not available")
@@ -151,50 +152,60 @@ class PriceInputSession:
             self.executor.register_arrow(registration, batch.columns)
             projection = ", ".join(f'{expression} AS "{name}"'
                 for name, expression in self.description.standard_projection)
-            sql = (_SQL / "stage_input.sql").read_text().format(output_table="ti_raw_new",
+            sql = self.read_context.sql_template("stage_input.sql", control=self.executor.control).format(output_table="ti_raw_new",
                 time_key=self.time_key, projection=projection, registration=registration)
-            self._execute("stage_input", sql, (registration,), "ti_raw_new",
-                          batch.selected_rows, (self._rows,))
+            stats = self._execute("stage_input", sql, (registration,), "ti_raw_new",
+                                  batch.selected_rows, (self._rows,))
+            new_rows = stats.output_rows
+            if new_rows != batch.selected_rows or new_rows <= 0:
+                error = SourceContractError("Materialized input count differs from its source batch")
+                error.reason = "selection_count_mismatch"
+                error.expected_count, error.actual_count = batch.selected_rows, new_rows
+                raise error
             self.executor.unregister_arrow(registration)
             self._registrations.remove(registration)
             self._stream.release_current_batch()
             del batch
-            check_period_cutoff(self.executor, "ti_raw_new", self.requirement.request)
+            expected = self.description.selection.target_rows + self.description.selection.preceding_rows
+            if self._rows + new_rows > expected:
+                error = SourceContractError("Price delivery exceeds the selected input count")
+                error.reason = "selection_count_mismatch"
+                error.expected_count, error.actual_count = expected, self._rows + new_rows
+                raise error
+            converted = self.description.input_adjustment != self.requirement.request.adjustment
+            dates_sql = (", trade_dates := list(DISTINCT trade_date ORDER BY trade_date) "
+                         "FILTER (WHERE trade_date IS NOT NULL)" if converted else "")
             metadata = self.executor.scalar(
-                f"SELECT struct_pack(n := count(*), first_time := min({self.time_key}), "
-                f"last_time := max({self.time_key})) FROM ti_raw_new")
-            new_rows = metadata["n"]
-            if new_rows <= 0:
-                raise SourceContractError("A delivered price batch must retain its time positions")
+                f"SELECT struct_pack(first_time := min({self.time_key}), "
+                f"last_time := max({self.time_key}){dates_sql}) FROM ti_raw_new")
             self._rows += new_rows
             if self.read_start is None:
                 self.read_start = metadata["first_time"]
             self.read_end = metadata["last_time"]
-            converted = self.description.input_adjustment != self.requirement.request.adjustment
             if converted:
-                dates = tuple(self.executor.scalar("SELECT list(DISTINCT trade_date) FROM ti_raw_new"))
+                dates = tuple(metadata["trade_dates"] or ())
                 self._own_table("ti_day_factor")
                 self.source.prepare_factors(self.executor, self._resolved, self.requirement,
                     dates, table_name="ti_day_factor", read_context=self.read_context)
                 step = PriceAdjustmentCalculation().build_sql("ti_raw_new", "ti_day_factor", "ti_anchor",
                     output_table="ti_price_new", fields=self.fields, time_fields=self.time_fields,
-                    processed_rows=new_rows)
+                    processed_rows=new_rows,
+                    template=self.read_context.sql_template("adjust_price.sql", control=self.executor.control))
                 self._own_table("ti_price_new")
                 self.executor.execute(step)
                 self.conversion_batches += 1
                 self._drop("ti_day_factor")
             else:
-                self._execute("target_price", "CREATE TEMP TABLE ti_price_new AS SELECT * FROM ti_raw_new",
-                              ("ti_raw_new",), "ti_price_new", new_rows)
+                self._rename_owned_table("ti_raw_new", "ti_price_new", new_rows)
             self._drop("ti_raw_new")
             if self._history_rows:
                 sql = ("CREATE TEMP TABLE ti_price_window AS SELECT * FROM ti_history "
                        "UNION ALL SELECT * FROM ti_price_new ORDER BY seq")
                 inputs = ("ti_history", "ti_price_new")
             else:
-                sql = "CREATE TEMP TABLE ti_price_window AS SELECT * FROM ti_price_new ORDER BY seq"
-                inputs = ("ti_price_new",)
-            self._execute("input_window", sql, inputs, "ti_price_window", new_rows + self._history_rows)
+                self._rename_owned_table("ti_price_new", "ti_price_window", new_rows)
+            if self._history_rows:
+                self._execute("input_window", sql, inputs, "ti_price_window", new_rows + self._history_rows)
             self._batch = PriceBatch("ti_price_window", self._rows-new_rows+1, self._rows,
                 new_rows, self._history_rows, self.time_fields, self.fields, self.requirement.request.adjustment)
             self._retained = False
@@ -208,22 +219,21 @@ class PriceInputSession:
             raise RuntimeError("No unfinished input batch to retain")
         wanted = self.requirement.history.preceding_rows
         try:
-            if wanted:
-                sql = (_SQL / "retain_history.sql").read_text().format(
+            expected = self.description.selection.target_rows + self.description.selection.preceding_rows
+            if self._rows < expected and wanted:
+                sql = self.read_context.sql_template("retain_history.sql", control=self.executor.control).format(
                     output_table="ti_history_next", input_table=self._batch.table_name)
                 self._execute("retain_input_history", sql, (self._batch.table_name,),
                               "ti_history_next", self._batch.new_row_count+self._history_rows, (wanted,))
                 self._drop("ti_history")
                 # The owner remembers both names until the executor confirms
                 # the rename; failures retain everything needed for cleanup.
-                self._own_table("ti_history")
-                self.executor.rename_table("ti_history_next", "ti_history",
-                                           processed_rows=min(wanted, self._rows))
-                self._tables.remove("ti_history_next")
+                self._rename_owned_table("ti_history_next", "ti_history", min(wanted, self._rows))
         except BaseException:
             self._failed = True
             raise
-        self._history_rows = min(wanted, self._rows)
+        if self._rows < expected:
+            self._history_rows = min(wanted, self._rows)
         self._retained = True
 
     def finish_batch(self):
@@ -233,6 +243,10 @@ class PriceInputSession:
             raise RuntimeError("Required input history has not been saved")
         for name in ("ti_price_window", "ti_price_new"):
             self._drop(name)
+        expected = self.description.selection.target_rows + self.description.selection.preceding_rows
+        if self._rows == expected:
+            self._drop("ti_history")
+            self._history_rows = 0
         self._batch = None
 
     def close(self):

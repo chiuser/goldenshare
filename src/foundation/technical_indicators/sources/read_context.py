@@ -7,12 +7,39 @@ from ..errors import ResourceLimitError
 
 
 class SourceReadContext:
+    SQL_PACKAGE = "src.foundation.technical_indicators.sources"
+    SQL_FILES = ("stage_input.sql", "adjust_price.sql", "retain_history.sql")
+
     def __init__(self, config: KernelConfig):
         self.config = config
         self._files: dict[Path, int] = {}
         self._source_rows = 0
         self._locator_rows = 0
         self._source_file_bytes = 0
+        self._sql_texts: dict[tuple[str, str], str] = {}
+        self._basis_row = None
+
+    def sql_template(self, name: str, *, control) -> str:
+        from ..calculation.sql_templates import load_sql_templates
+
+        return load_sql_templates(type(self), request_texts=self._sql_texts,
+                                  control=control, requested_files=(name,))[name]
+
+    def remember_basis(self, description, request, path: Path) -> None:
+        self._basis_row = (description.source_id, request.ts_code, Path(path),
+                           description.basis_date, description.basis_value)
+
+    def reusable_basis(self, description, request, selected_dates, selected_paths):
+        row = self._basis_row
+        if (row is not None and row[0] == description.source_id and row[1] == request.ts_code
+                and row[2] in selected_paths and row[3] in selected_dates
+                and row[3] == description.basis_date and row[4] == description.basis_value):
+            return row[2:]
+        return None
+
+    def clear_request_metadata(self) -> None:
+        self._sql_texts.clear()
+        self._basis_row = None
 
     def record_file(self, path: Path, size_bytes: int) -> None:
         path = Path(path)
