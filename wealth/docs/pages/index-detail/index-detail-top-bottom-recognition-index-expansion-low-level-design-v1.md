@@ -16,22 +16,22 @@
 | 名单同源，北证明确排除 | §3单次Universe准入，§8页面资格 | T01—T07、T27 |
 | 实际代码贯穿取数、计算、缓存和响应 | §3—7必填参数 | T08—T11、T20—T23 |
 | 五周期成套接入，不能只放行参数 | §4、§5、§7、§8 | T12—T19、T24—T26 |
-| 真实MACD来自现日线/Gold，不补值、不重算 | §5来源及§10核验 | T08—T10、T34—T36 |
+| 真实MACD来自现日线/Gold，不补值、不重算 | §5正常产品取数；§10只统计根数，不作指标质量证据 | T08—T10原功能测试；T34/T35仅计数 |
 | 分钟返回N，计算额外1000根 | §5窗口不变 | T15、T36 |
 | 普通/debug事实一致，辅助按需 | §8保持动态模块及投影 | T24、T28—T30、§11 |
 | 上证独立日线波段研究不扩大 | §8.5研究控制器 | T30 |
 | 生产关闭、不改鉴权、不部署 | §9及原App装配 | T07、T31 |
 | 保留预算，不开启暂缓优化 | §9 | T33、§11性能 |
 
-初版方案/LLD及两索引已随99d876a32提交；本轮仅收敛本LLD与对应方案，索引位置和状态保持。不修改业务代码、测试、配置、已验收旧P5文档及其他未提交内容；不安装、不建分支、不读真实行情、不再次提交。后续按§2逐步推进，不能凭文档完成跳过来源核验进入编码。
+初版方案/LLD及两索引已随99d876a32提交，上轮文档收敛已随f2c2d0f72提交。本轮按管理员要求仅修正为来源根数统计，索引位置和状态保持。不改业务代码、测试、配置、旧P5文档或其他未提交内容；不安装、不建分支、不执行统计或再次提交。后续按§2先统计数量，再进入编码。
 
 ## 2. 开发步骤、依赖、失败和交接
 
 | 顺序 | 目标与实现范围 | 开始条件 | 完成/交接条件 |
 |---|---|---|---|
 | 0 文档及开工审计 | 本方案/LLD、消费者和合同检查 | 当前源码及管理员范围明确 | 方案/LLD一致；无未决业务口径；文档review完成 |
-| 1 有界来源核验 | 仅§10四条日线业务SELECT及24个分钟目标文件 | 第0步完成，当前Web目标/权限及既有环境确认 | 九码同窗日线和四分钟来源合格；摘要落回原文档，不能用旧footer代替 |
-| 2 核心身份/周期及来源查询 | §3—7类型、DTO、来源、缓存、API及工具签名成套迁移 | 第1步通过、当前工作区无冲突 | 后端正反向及原上证金样本通过；前端新范围尚不开放 |
+| 1 来源根数统计 | §10日线1条、分钟两类各1条聚合SELECT，禁止明细审计 | 第0步完成，当前Web目标/权限及既有环境确认 | 各指数/周期实际、预期根数及差额有结果；数量吻合，不扩大为数据质量已验收 |
+| 2 核心身份/周期及来源查询 | §3—7类型、DTO、来源、缓存、API及工具签名成套迁移 | 第1步数量吻合、当前工作区无冲突 | 后端正反向及原上证金样本通过；前端新范围尚不开放 |
 | 3 前端消费 | §8页面身份、五周期识别/五行预判/debug及研究边界 | 第2步完整，公开字段/异常已冻结 | 类型、限定交互及消费测试通过；不是只修改名单 |
 | 4 整体回归和真实验收 | §11自动测试、45组合及代表页面/性能 | 第2—3步独立审计符合LLD | §12门禁对账、管理员review；不自动部署 |
 
@@ -39,7 +39,7 @@
 
 失败先停止该单元，不自动重试、切源、补数据、放宽阈值或清缓存掩盖。代码/规则与本文冲突时先汇报并修正文档，不临时加兼容路径。源码保护通过人工规则/差异审计，不读源码SHA作运行校验。无业务写入、迁移或磁盘快照；真实输入或实现改变导致证据不再适用时，只补受影响单元。
 
-续跑按完整单元处理：日线四条SELECT是一个单元，分钟24文件是另一个单元，每个指数/周期的2或4次API请求各是一个组合单元。完整通过的单元保留；未完成的部分只作诊断，原因解决并获准继续后重做该未完成单元，不能拼旧事务的Q1/Q2与新事务的Q3/Q4，也不能换新缓存只补debug后称为热路径。无需新增持久化进度或续跑系统。
+续跑按完整单元处理：日线1条计数SELECT是一个单元，分钟两类计数共同为另一个单元，每个指数/周期2或4次正常API请求各为一个组合单元。完整结果保留，中断部分仅诊断，原因解决并获准后重做未完成单元；不拼接不同次分钟两类计数，也不换新缓存只补debug称热路径，不新增恢复系统。
 
 本次只扩展r4标的身份及周期，不重构既有普通分钟Hook、缓存或请求状态模型，不为“上游两个接口同时违反合同”等未观察到的问题增加必改项或成组防御测试。执行临时调用复用现有观察方法、内部工作截止及标准外层超时，不另建分阶段信号管理、进程通信或通用监督框架。
 
@@ -270,34 +270,25 @@ sendForecast使用传入code构URL，交`adaptForecast`的options新增必填tsC
 
 状态沿原合同：识别loading→ready/empty/delayed/error；预测idle/loading→ready（具体status为READY/NO_CANDIDATE/PRECISION_PENDING/EMPTY/DELAYED）或error，unsupported仅用于当前前端不可用范围。EMPTY/DELAYED不输出旧价格冒充新预判；北证为产品不支持，不是r4 EMPTY。普通只显示原公共事实，debug显示原完整依据，不能只凭标签相同漏掉真实code/参照错绑。
 
-## 10. 编码前的有界来源核验设计
+## 10. 编码前的来源根数统计
 
-本节是后续第1步执行设计，**本轮未执行**。固定当前方案日期：日线共同cutoff为2026-11-03；分钟三日为2026-10-30、11-02、11-03。仅本轮九码，上证为控制；首错停止。日期若因后续明确需求要换，先同步方案/本节，不能执行时自行追到最新或另切来源。
+本节是唯一来源核验设计，**只做统计计算，禁止读取每根行情来审计**。本轮未执行。范围不变：九码，日线截至2026-11-03最近10个开市日所在窗口；分钟2026-10-30、11-02、11-03及30/60/90/120分钟，不追到最新、不扩大到全历史。
 
-### 10.1 连接、超时和退出
+统计在数据库/DuckDB内完成，只向应用层返回按指数、周期分组的实际根数、预期根数和差额。只用COUNT及统计窗口所需的日历聚合；不得读close、DIF、DEA、柱值、trade_time、参数版本或首末行情样本。不做逐值/逐键/逐日对账、网格、唯一性、字段质量检查；即使只返回摘要也不得在SQL内部继续这些逐根审计。
 
-复用当前Web配置解析获取实际数据库目标，记录脱敏目标与原env-file路径及cutoff；不用库名prod/dg猜主机，不在输出放URL/密码。采用现有解释器和SQLAlchemy/当前PG驱动，临时核验脚本位于`/private/tmp`；不改生产factory、引入daily-wave查询依赖或新建仓库审计框架。若当前驱动/权限不能实施只读及连接/语句超时，则该步骤不得执行，报告具体条件。
+### 10.1 连接、预算、结果和续跑
 
-临时调用自有一个只读连接，事务为REPEATABLE READ READ ONLY；连接超时≤10秒。每个业务SELECT前设置事务内statement_timeout为`min(10秒, 工作截止剩余时间)`，保留既有驱动取消/关闭方式。4条指业务读取SELECT；BEGIN、事务属性及每条超时设置等控制语句单列实际次数，耗时全部计入预算，不以“四条”隐去。
+复用当前Web配置解析取得实际数据库目标，记录脱敏目标及env-file路径；不输出凭据、不切DG或其他库。现解释器及PG驱动建立自有REPEATABLE READ READ ONLY事务，连接及单条SQL最多10秒且受工作截止约束；BEGIN、事务属性和超时设置单列实际次数，不冒充行情查询。
 
-总计时从启动临时调用前开始，工作截止40秒；连接/读取/校验使用该截止，预留10秒关闭、摘要及退出，总预算50秒。临时调用外层沿标准`subprocess.run(..., timeout=50)`的超时处理，内层正常/错误路径finally rollback、关闭自有连接/engine；超时报告本单元未完成，不自动重试。仅管理本次自有调用，不杀共享Web/DG服务或修改共享连接设置；不为本需求另写逐级信号/进程组监督框架。SQL阻塞由既有驱动statement_timeout约束，不能把Python批次check说成数据库硬中断。
+日线1条聚合SELECT为一个单元：40秒工作+10秒关闭/摘要，总预算50秒，外层标准subprocess超时50秒。分钟2条聚合SELECT共同为一个单元：10秒工作+5秒关闭/摘要，总预算15秒，外层标准subprocess超时15秒。正常/错误路径finally关闭自有资源；计数SQL沿既有statement_timeout/DuckDB中断，不新增监督系统。首错/超时只报告，不自动重试、换源、补读、加时或改数据。
 
-### 10.2 四条日线SQL及校验
+完整通过的统计单元保留；中断部分仅诊断，原因解决并获准后重做未完成单元。不拼接不同次分钟K线/指标计数，不新增持久化恢复系统。
 
-现模型合同：`core_serving.trade_calendar(exchange, trade_date DATE, is_open BOOLEAN)`；不是Raw cal_date。日线六列为`ts_code, trade_date, close, macd_dif_bfq, macd_dea_bfq, macd_bfq`，值列可空Float(53)。按这些显式投影，不先DESCRIBE全表或SELECT *。不存在列/类型不符直接失败，不另查源尝试修补。
+每组输出固定字段：`sourceKind / tsCode / period / windowStart / windowEnd / tradingDays / actualCount / expectedCount / difference`。difference=actualCount-expectedCount，分组无记录时actualCount记0，这是统计结果，不是补行情。另列分钟两类根数差额。只报告数量吻合、差额或未完成，不输出“MACD有效/无缺根重复/逐时刻对齐”等超出计数证据的结论。
 
-下列为固定查询结构，九个code和日期均用绑定参数。`wanted`是从正式配置取九码后用于本次查询的VALUES关系，不是新增运行名单；顺序按原配置。不能使用库中全部指数。
+### 10.2 日线：一条聚合SELECT
 
-| SELECT | 具体结构 | 正常结果/失败条件 |
-|---|---|---|
-| Q1 日历 | recent取SSE、is_open=true、trade_date≤cutoff，日期降序LIMIT 10；bounds取最早选中日；同SQL用bounds到cutoff自然日序列，与该窗口全部SSE日历做覆盖、重复和is_open非空统计。返回按升序的最多10开市日数组及摘要 | 恰10个不同开市日；窗口首末覆盖、自然日期无缺/重、布尔合法。不能仅过滤开市而忽略非法日历行；空或不足直接报告 |
-| Q2 每码范围 | wanted LEFT JOIN日线，以`ts_code`及trade_date≤cutoff过滤聚合COUNT(trade_date)/MIN/MAX；按wanted顺序返回 | 恰9行，包括缺数据code的count=0；任何count=0、首末日期无效、max落后Q1最新开市日均失败。只统计，不导全历史 |
-| Q3 首末样本 | 把Q2每码首/末日期去重，构成绑定VALUES(code,date)，JOIN日线，显式取六列，按code/date | 正常≤18行且实际键等于所选首末键；首末同日仅1个。允许正常上限+1作溢出证据，但一旦超量必须失败，不能截断后通过 |
-| Q4 同窗尾部 | wanted×Q1同一10个开市日，JOIN六列日线，按code/date；不能每码各取自己最新10行 | 正常恰90键；所选集合的缺日、重复及必需数值异常失败。读取上限91用于超量失败，不截断成功。只证明这10个开市日的覆盖，不检查休市日或其他指数的异常行 |
-
-Q3/Q4逐值检查日期对象、code绑定、close>0、非NULL和math.isfinite；不要把DuckDB的数值函数直接套PG。Q1摘要同时检查selected开市日期的重复；记录请求日期、实际日历窗口、每码count/min/max及至多10个坏键，不输出整份价格。Q2统计count获准不等于导出全历史获准，不能追加全历史读取。
-
-Q1固定SQL如下，cutoff绑定为DATE；一行结果含日期数组和摘要，不另查日历明细：
+用现`core_serving.trade_calendar`的SSE开市日期确定截止日之前最近10个开市日的窗口起点和数量，仅保留聚合结果，不返回日期明细、不做逐日日历覆盖审计。日线在同窗口按九码COUNT；从正式配置取九码形成有限绑定VALUES，不另建运行名单。
 
 ```sql
 WITH recent AS (
@@ -305,62 +296,49 @@ WITH recent AS (
   WHERE exchange = 'SSE' AND is_open IS TRUE AND trade_date <= :cutoff
   ORDER BY trade_date DESC LIMIT 10
 ), bounds AS (
-  SELECT MIN(trade_date) AS first_day FROM recent
-), expected AS (
-  SELECT g::date AS trade_date FROM bounds b
-  CROSS JOIN LATERAL generate_series(b.first_day, CAST(:cutoff AS date),
-                                    INTERVAL '1 day') AS g
-), actual AS (
-  SELECT c.trade_date, c.is_open FROM core_serving.trade_calendar c, bounds b
-  WHERE c.exchange = 'SSE' AND c.trade_date BETWEEN b.first_day AND :cutoff
-)
-SELECT ARRAY(SELECT trade_date FROM recent ORDER BY trade_date) AS open_dates,
-       (SELECT COUNT(*) FROM expected) AS expected_days,
-       (SELECT COUNT(*) FROM actual) AS actual_rows,
-       (SELECT COUNT(DISTINCT trade_date) FROM actual) AS distinct_days,
-       (SELECT COUNT(*) FROM actual WHERE is_open IS NULL) AS invalid_flags,
-       (SELECT COUNT(*) FROM expected e WHERE NOT EXISTS
-         (SELECT 1 FROM actual a WHERE a.trade_date = e.trade_date)) AS missing_days;
+  SELECT MIN(trade_date) AS window_start, COUNT(*) AS trading_days FROM recent
+), wanted(ts_code, ord) AS (VALUES /* 九组(:code_i, :order_i)绑定槽 */)
+SELECT w.ts_code, b.window_start, CAST(:cutoff AS date) AS window_end,
+       b.trading_days, COUNT(f.trade_date) AS actual_count,
+       b.trading_days AS expected_count,
+       COUNT(f.trade_date) - b.trading_days AS difference
+FROM wanted w CROSS JOIN bounds b
+LEFT JOIN core_serving.index_factor_pro f
+  ON f.ts_code = w.ts_code
+ AND f.trade_date BETWEEN b.window_start AND :cutoff
+GROUP BY w.ts_code, w.ord, b.window_start, b.trading_days
+ORDER BY w.ord;
 ```
 
-Q1返回的is_open由现BOOLEAN合同保证类型；异常类型/列缺失会使SQL或驱动结果检查失败。open_dates须恰10个不同DATE；expected_days=actual_rows=distinct_days且invalid_flags=missing_days=0才通过，不能以空窗口的全0统计当成功。
+cutoff绑定为DATE。只返回九条统计；period补固定day，sourceKind标日线。窗口应有10个开市日，每码预期10、九码合计90；日历数量不足时如实报告无法按原窗口完成，不展开逐日排查。根数差额直接记录，不追加明细查询定位哪根。原日线首末/尾部样本查询、逐值检查和四查询执行约束全部删除。
 
-Q2—Q4的SQL固定为以下结构：wanted值槽从本次九码按顺序绑定；selected值槽由Q2首末键去重后绑定，最多18组；不插入标的/日期原文拼SQL。
+### 10.3 分钟：两类各一条聚合SELECT
+
+只构造原四频×三日×两类24条精确路径，不glob历史。bars根`gold/quote/major_index_mins`，indicators根`gold/indicator/major_index_mins_technical`，其下`freq=F/trade_date=D/part-000.parquet`，两类各12文件。路径不存在或计数SQL不能执行，报告未完成，不改源补读。
+
+使用现DuckDB，内存256MiB、线程1、禁临时落盘和扩展安装；只读统计分组及范围过滤所需字段，禁止投影行情/指标值。对bars的12路径和indicators的12路径分别执行下列聚合，各最多返回九码×四周期的36条计数，不返回每日或每根记录：
 
 ```sql
--- Q2: wanted(ts_code, ord)为九组(:code_i, :order_i)的VALUES。
-WITH wanted(ts_code, ord) AS (VALUES /* 九组绑定槽 */)
-SELECT w.ts_code, COUNT(f.trade_date) AS row_count, MIN(f.trade_date) AS first_day,
-       MAX(f.trade_date) AS last_day
-FROM wanted w LEFT JOIN core_serving.index_factor_pro f
-  ON f.ts_code = w.ts_code AND f.trade_date <= :cutoff
-GROUP BY w.ts_code, w.ord ORDER BY w.ord;
-
--- Q3: selected(ts_code, trade_date)为首末键的绑定VALUES，日期绑定为DATE。
-WITH selected(ts_code, trade_date) AS (VALUES /* 最多18组绑定槽 */)
-SELECT f.ts_code, f.trade_date, f.close, f.macd_dif_bfq, f.macd_dea_bfq, f.macd_bfq
-FROM selected s JOIN core_serving.index_factor_pro f
-  ON f.ts_code = s.ts_code AND f.trade_date = s.trade_date
-ORDER BY f.ts_code, f.trade_date LIMIT 19;
-
--- Q4: codes与dates使用SQLAlchemy expanding绑定，分别9码与Q1的10个DATE。
-SELECT ts_code, trade_date, close, macd_dif_bfq, macd_dea_bfq, macd_bfq
-FROM core_serving.index_factor_pro
-WHERE ts_code IN :codes AND trade_date IN :dates
-ORDER BY ts_code, trade_date LIMIT 91;
+SELECT ts_code, freq, COUNT(*) AS actual_count
+FROM read_parquet(?, hive_partitioning=false)
+WHERE ts_code IN (SELECT unnest(?))
+  AND freq IN (SELECT unnest(?))
+  AND trade_date IN (SELECT unnest(?))
+GROUP BY ts_code, freq
+ORDER BY ts_code, freq;
 ```
 
-VALUES生成只构造占位符和有限序号；Q2固定9组，Q3用实际去重键数量，禁止把正常上限变成额外循环查询。Q3返回19或Q4返回91立即按超量失败；少于上限仍须逐键集合相等，不能只看行数。
+参数顺序为该类12路径、九码、[30,60,90,120]、三个DATE。只在应用层合并这36个统计分组并计算差额，不拉取/遍历任何行情明细；不调用会读取完整pair的产品reader进行来源审计。
 
-### 10.3 分钟24文件
+| 周期 | 每日根数 | 三日每码每类预期 | 九码每类合计 |
+|---|---|---|---|
+| m30 | 8 | 24 | 216 |
+| m60 | 4 | 12 | 108 |
+| m90 | 3 | 9 | 81 |
+| m120 | 2 | 6 | 54 |
+| 合计 | 17 | 51 | 459 |
 
-只构造四频×三日×两类24条精确路径：bars根`gold/quote/major_index_mins`，indicators根`gold/indicator/major_index_mins_technical`，其下`freq=F/trade_date=D/part-000.parquet`。路径存在及实际内容待执行，禁止glob全历史。使用当前DuckDB环境，内存256MiB、线程1、禁临时落盘/自动扩展安装；10秒工作+5秒关闭/摘要，总预算15秒。从启动临时调用前计时，外层沿标准`subprocess.run(..., timeout=15)`处理超时，内层沿既有DuckDB Timer及finally取消计时器/关闭。Timer仅用于SQL中断，不宣称它覆盖连接打开/关闭；不新增分钟专用监督器或修改产品reader。
-
-一次按各类路径集合投影，`hive_partitioning=false`、带filename，只WHERE九码。bars取四键ts_code/freq/trade_date/trade_time和close；indicators取四键、macd_dif/macd_dea/macd、params_key/indicator_version。只核所需列类型（bars.freq INTEGER、technical.freq SMALLINT、date DATE、time TIMESTAMP、指标DOUBLE等），不核无关列全顺序、其他指数或文件mtime。
-
-独立字面端点表为30八根、60四根、90三根、120两根，三日九码生成459个预期键；bars/indicators各459，合计918。核path中的freq/date与内部键相同、无重复、实际/预期双向键差集、两源键集合相同、必需非空有限、正close、params_key及indicator_version符合Web当前合同。合法范围外000680.SH已被code条件排除，不算目标异常。SQL返回摘要及最多10坏键，不回传918行全价格，也不逐码重复调用36次pair reader。
-
-不得因不足918便自动补读其他日期；不得LIMIT 918掩盖重复或额外目标键。15秒是硬截止，不是已测通过。超时先报告；拆分或提高限额须先更新执行设计，不现场继续。24文件同窗通过也不代替1500根前缀、250根校准或产品4秒/400ms验收。
+每类459、两类918仅是总量汇总，逐指数/周期仍列实际、预期和差额；不只看两类合计。原端点网格、键集合差、两源逐键、NULL/有限数、价格、schema全列和参数版本审计全部删除，不变换为SQL条件聚合继续执行。这里只证明根数，不要求额外校准或源质量结论。正常产品§5的取数、识别、预测和已有校验保持，本节不修改它们。
 
 ## 11. 测试case、执行组及真实验收
 
@@ -403,9 +381,9 @@ VALUES生成只构造占位符和有限序号；Q2固定9组，Q3用实际去重
 | T31 | 普通页、debug页、生产构建 | 普通无动态辅助import，debug按需，生产关闭 | dependencyBoundary/useIndexDebugModule |
 | T32 | 上证原相同输入及code默认核心数学样本 | 旧指纹/ID/hash稳定；产品构造显式传code | snapshot_consumers/forecast_api/forecast_validation/现规则组 |
 | T33 | 17个合法缓存项、冷热及forecast候选最后检查失败 | 共用16项/64MiB正常淘汰；最后失败不发布forecast候选，但已验证series仍可保留，不改原两类发布顺序 | cache/API validation |
-| T34 | §10日历缺/重/非法与正常同窗 | 四查询读源范围和摘要准确，正常不误拦；无换源/全历史明细 | 临时来源核验及摘要 |
-| T35 | §10两类24文件目标键、合法非目标码 | 各459、合计918；只验九码，异常不得截掉，未读无关列/历史 | 同上 |
-| T36 | 真实9码×5周期 | §11.3请求身份/完成时间/状态/计数/大小正确，m30完整前缀及校准有证据 | 真实只读API |
+| T34 | §10日线九码分组计数，窗口10个开市日 | 每码预期10、合计90；独立字面统计样本中实际9/11时差额为-1/+1；SQL仅计数，不返回或逐根核行情值 | 临时来源统计及摘要 |
+| T35 | §10分钟两类按九码/四周期计数 | 每码每类24/12/9/6，各类459；逐分组列实际/预期/差额及两类数量差，不生成日期/端点网格或逐键审计 | 同上 |
+| T36 | 真实9码×5周期正常API | §11.3请求身份、完成时间、状态、计数及大小正确；正常产品返回什么就记录什么，不额外补校准/逐根审计 | 真实只读API |
 
 T13/T17复用现独立数学/业务金样本，换成正式合同中的m30合法时间，不用被测端点表生成时点；预测校准长前缀可沿已有高精度Decimal独立参考构造，expected不调用recover_projection/同一求解器。T23只构造真实可能的“另一合法对象被放错key”，不造无意义内部坏状态。不能将所有真实行情强行要求有信号；非空规则路径在独立人工样本保证。
 
@@ -438,12 +416,12 @@ T13/T17复用现独立数学/业务金样本，换成正式合同中的m30合法
 - 五个代表组合另各一次debug识别及debug forecast：上证day、上证m30、深证m60、科创50m90、中证A500m120，共10请求。与同组合普通公共字段比较；共100业务请求，不另为“更好看的信号”随意加日期。比较先按本次code/period绑定唯一一对，再复用现`compare_modes`的同源前提：sourceInputId、calendarInputId、indicatorVersion、请求截止、computedThrough及实际窗口相同。固定cutoff不等于冻结历史修订；来源不同时记`not_comparable`、不登记该比较通过，也不追加读源或重发请求来凑一致。这是现比较方法的复用，不新增产品检查。
 - 每个组合为独立有界单元，最多2或4请求；每请求客户端5秒、后端4秒/预测400ms保持。从准备临时调用前计时，工作截止25秒，预留5秒关闭/摘要，总预算30秒；外层沿标准`subprocess.run(..., timeout=30)`，内层使用原截止检查及finally清理，超时停止并报告，不发下一组合或自动重试。不直接复用旧固定50/60秒执行入口后宣称30秒，也不为本需求开发新的进程组/通信监督框架；只沿用其透明观察方法。先完成并记录再进下一组合，不积攒全部响应到末尾。
 - 使用临时进程自有缓存，不清共享Web缓存。代表组合普通识别首次为series冷路径，普通预测首次为预测冷路径；紧接debug请求作为同窗热路径。记录实际是否命中，不伪称保证命中；不为测冷反复启动相同请求。
-- 每次记录code/period、requested cutoff、computedThrough、实际数量、状态/原因、源读取次数/范围、是否缓存、响应字节、请求及预测阶段耗时。复用`xxm_page_request_audit.py::_observe / AuditCollector.projected`的透明观察方式：在原load_entry yield期间按requestId关联实际entry，在原`project_xxm_response / project_forecast_response`调用点取得同一请求的内部输入编号、日历编号、完成时点及code/period，再记录公共结果摘要。现普通预测响应不公开sourceInputId，不从普通JSON取该字段，不新增公开字段/debug请求，也不用entry自己的指纹替代内部响应编号作为预期。只保留本次需要的观察和绑定，不搬入旧工具整套分组/通信校验；不加第二次读源或重放来计时。
+- 每次只记录code/period、请求截止、完成时点、原状态/原因、根数、读取次数/范围、缓存、响应字节及原阶段耗时。沿现透明观察方式，在原读取返回处只取结果长度，在原`project_xxm_response / project_forecast_response`处取得内部已有输入/日历编号、完成时点和code/period、响应meta.count及公共摘要；不另遍历entry时间、拼前缀、逐根核指纹或保留行情值作审计。现普通预测不公开sourceInputId，编号从内部DTO取得，不新增公开字段或debug请求。只保留这些观察，不直接搬入旧工具中逐根生成时间列表及整套通信校验，不加第二次读取/重放。
 - 识别和预测响应的code/period必须等于请求。完成端点、source初始历史状态、events与引用一致。实际无候选/精度待定如实记录，不能作为有价格预测通过。
-- 九个m30组合各记录一次真实输入及校准结果，不能只核上证代表。临时观察保留本次forecast实际entry.processed及内部投影取得的请求身份/编号；响应返回后按内部computedThrough截取实际前缀，核末尾指纹等于该请求内部sourceInputId。不是从公开500根响应恢复1500根输入，也不再次调load_entry读源。产品recover_projection已执行则直接记原状态/耗时；仅NO_CANDIDATE未执行时，针对同一前缀补调用一次原函数，使用本单元25秒工作截止的剩余时间，不复用已结束HTTP的4秒remaining。补校准不改产品响应、不作400ms产品预测证据；debug请求不再补第二次。记录后释放本单元数据；不足250或校准失败如实登记，不换源/放宽。
+- m30按正常产品路径执行；产品已有校准则只记录原返回状态/耗时，NO_CANDIDATE未校准就保留该状态。禁止为审计保留整份前缀再逐根核指纹、补调recover_projection或第二次读源，不另做真实行情逐根检查。原人工数学/规则测试及产品正常读取、识别、预测和原有校验不变。
 - 有任何性能不达标，首个失败即停止后续真实性能请求并汇报实际路径/数量/阶段耗时；不改预算/自动重试。其他纯静态或已获准隔离回归可继续，但本批真实验收不得报全部通过。
 
-按§2完整单元续跑：一个组合内2或4次请求及其校准/比较共同完成才登记该单元通过；中断部分仅诊断，原因解决并获准继续后重做该未完成组合，不能换新worker只补debug而宣称同缓存热路径。完整通过的其他组合保留。保存每单元小摘要到临时目录，正式文档只记45组合状态表及代表性能，不保存100份完整JSON到reports。接口成功、NO_CANDIDATE和算法非空样本分别报告，不混为一项通过；不新增恢复或续跑框架。
+按§2完整单元续跑：一个组合内2或4次正常请求及规定的公共结果比较完成后登记；不额外要求独立校准审计。中断部分仅诊断，原因解决并获准后重做未完成组合，不换新worker只补debug称热路径。完整通过的其他组合保留。每单元仅保存小摘要，正式文档记录45组合状态及代表性能，不向reports保存100份完整JSON。接口成功、NO_CANDIDATE和人工非空样本分别报告，不新增恢复系统。
 
 ### 11.4 页面核心验收
 
@@ -495,14 +473,14 @@ T13/T17复用现独立数学/业务金样本，换成正式合同中的m30合法
 
 ## 13. 本轮审计记录及状态
 
-本轮依据当前代码与CodeGraph explore/impact/callers核API、Universe、query/source、缓存、核心/恢复、预测、TS/page/controller/debug及直接工具消费者。合同核验止于源码，未读真实行情/数据库。主方案与本LLD的对应为：方案§1—2→本§1—2；§3→本§5/10；§4—5→本§3—8；§6→本§9；§7→本§11—12；§8→本§2/10—11。
+编码设计已依据当前代码与CodeGraph核API、Universe、query/source、缓存、核心/恢复、预测、TS/page/controller/debug及直接消费者。本轮仅按管理员要求修正文档，没有读取真实行情/数据库。方案与本LLD对应为：方案§1—2→本§1—2；§3→本§5/10；§4—5→本§3—8；§6→本§9；§7→本§11—12；§8→本§2/10—11。
 
 已核对signals规范代码、两类缓存各自发布时序、配置实例缓存事实、主图周期不重启五行预测及m30夹具下一根时点。正常EMPTY的page-init身份字段已核对真实生产者/schema/既有测试，原已设计的身份检查不把正常空行情误判为串码。
 
-本轮按重新核实的必要性收敛执行设计：普通分钟Hook保持现状，不追加同时错码防御或切换当次强制清空；Q4只证明所选10个交易日；真实输入编号从既有内部投影观察点取得，同源后比较公共结果；续跑按完整单元；补入已有daily_window_precheck包装回归。50/15/30秒预算保持，用标准外层超时和既有内部截止收尾，不新增监督/恢复系统。上述调整不改变r4规则或增加开工门槛。
+来源执行要求以§10根数统计为准：日线1条聚合、分钟两类各1条聚合，只返回指数/周期实际根数、预期根数及差额。旧的四查询、行情样本、逐日/逐键/数值审计执行内容已删除，不以标记过时的方式留作开发入口。§11正常API验收也不额外补校准或逐根核前缀。正常产品§5和独立人工规则/数学测试保持。
 
-T01—T36仍为36组设计case，不因本次收敛新增普通分钟防御case。文档检查及独立复核只评价设计一致性，不代表这些业务case、真实来源或性能已通过。
+T01—T36仍为36组设计case，T34/T35已改为数量统计，T36只验正常API；不新增普通分钟防御case。计数吻合仅说明数量，不扩大成指标、唯一性、时间位置或数据质量结论。50/15/30秒及产品预算保持，不新增监督/恢复系统。
 
-收敛后已分别对来源执行设计和前端范围进行独立复核，两文档的范围、依赖、预算及测试口径一致，未发现需要新增业务拍板或扩大实现的问题。文档完整性及限定差异检查通过。
+已分别独立复核来源统计和步骤/测试交接，两文档的范围、查询数量、预期根数及执行顺序一致；正常产品§3—9未改。文档完整性、链接、代码围栏、T01—T36编号及限定差异检查通过。这些检查只评价文档，不代表已执行统计、功能或性能验收。
 
-当前可供管理员review；文档完成不等于第1步来源核验通过。后续先按本LLD做有界来源核验及执行前检查，再进入第2步编码；本轮到文档交付即停止。
+下一步按§10做第1步来源根数统计并汇报，数量吻合后进入第2步编码；本轮止于文档修正，不执行统计或开发。
