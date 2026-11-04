@@ -578,13 +578,37 @@ def test_coverage_unknown_does_not_smuggle_counts_and_gap_requires_exact_ref():
         missing_count=1,
         coverage_complete=False,
         missing_codes_ref=m.StkFactorProBootstrapCodesRef(
-            f"coverage/{D}/input={SHA}/missing-codes.parquet", SHA, 1
+            None, f"coverage/{D}/input={SHA}/missing-codes.parquet", SHA, 1
         ),
         missing_sample_codes=("600000.SH",),
     )
     assert gap.actual_count == 1 and gap.expected_count == 2
     with pytest.raises(ValueError, match="差集引用"):
         replace(gap, missing_codes_ref=replace(gap.missing_codes_ref, row_count=2))
+
+
+def test_codes_reference_requires_explicit_creator_and_keeps_run_ownership():
+    ref = m.StkFactorProBootstrapCodesRef(
+        "supplement-run", "diagnostics/day-missing-codes.parquet", SHA, 1
+    )
+    gap = replace(
+        date_coverage(),
+        expected_count=2,
+        missing_count=1,
+        coverage_complete=False,
+        missing_codes_ref=ref,
+        missing_sample_codes=("600000.SH",),
+    )
+    assert gap.missing_codes_ref.creator_run_id == "supplement-run"
+    wire = m.stk_factor_pro_record_to_dict(ref)
+    assert m.parse_stk_factor_pro_record(m.StkFactorProBootstrapCodesRef, wire) == ref
+    del wire["creator_run_id"]
+    with pytest.raises(ValueError, match="缺字段"):
+        m.parse_stk_factor_pro_record(m.StkFactorProBootstrapCodesRef, wire)
+    with pytest.raises(ValueError, match="差集引用"):
+        replace(gap, missing_codes_ref=replace(ref, creator_run_id=None))
+    with pytest.raises(ValueError):
+        replace(ref, creator_run_id="")
 
 
 def test_summary_keeps_original_transfer_totals_and_current_supplement_totals_separate():

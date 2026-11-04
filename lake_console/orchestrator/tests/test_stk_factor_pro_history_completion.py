@@ -3,9 +3,11 @@
 from dataclasses import replace
 from datetime import date
 from decimal import Decimal
+from pathlib import Path
 
 import pytest
 
+from orchestrator.defs.io import stk_factor_pro_history as history
 from orchestrator.defs.io import stk_factor_pro_publication as publication
 from orchestrator.defs.paths import (
     raw_stk_factor_pro_path,
@@ -35,8 +37,11 @@ def assert_released(conn):
 
 
 def test_complete_record_covers_exact_delivered_targets_and_current_source(tmp_path):
+    known_records = {}
     with connection(tmp_path) as conn:
-        _, root, days, _, _, _, args = setup(conn, tmp_path, 1)
+        _, root, days, _, _, _, args = setup(
+            conn, tmp_path, 1, known_records=known_records
+        )
         facts = args["recheck_inputs"]()
         calls = []
 
@@ -45,9 +50,16 @@ def test_complete_record_covers_exact_delivered_targets_and_current_source(tmp_p
             return facts
 
         args["recheck_inputs"] = observed
-        delivered = tuple(publication.publish_stk_factor_pro_history(conn, **args))
+        delivered = tuple(
+            publication.publish_stk_factor_pro_history(
+                conn, **args, known_records=known_records
+            )
+        )
         record = publication.read_stk_factor_pro_history_publication_complete(
-            root, expected_target=T, expected_run_id="run-a"
+            root,
+            expected_target=T,
+            expected_run_id="run-a",
+            known_records=known_records,
         )
         assert record.targets == tuple(target for target, _ in delivered)
         assert [(target.trade_date, target.layer) for target in record.targets] == [
@@ -73,8 +85,11 @@ def test_complete_record_covers_exact_delivered_targets_and_current_source(tmp_p
 
 @pytest.mark.parametrize("fault", ["factor", "raw-incomplete", "silver-not-ready"])
 def test_final_input_change_keeps_valid_files_but_no_range_complete(tmp_path, fault):
+    known_records = {}
     with connection(tmp_path) as conn:
-        lake, root, days, _, _, _, args = setup(conn, tmp_path, 1)
+        lake, root, days, _, _, _, args = setup(
+            conn, tmp_path, 1, known_records=known_records
+        )
         facts = args["recheck_inputs"]()
         calls = 0
 
@@ -91,7 +106,9 @@ def test_final_input_change_keeps_valid_files_but_no_range_complete(tmp_path, fa
             return facts[0], facts[1], facts[2], replace(facts[3], ready=False)
 
         args["recheck_inputs"] = changed
-        iterator = publication.publish_stk_factor_pro_history(conn, **args)
+        iterator = publication.publish_stk_factor_pro_history(
+            conn, **args, known_records=known_records
+        )
         assert next(iterator)[0].layer == "raw"
         assert next(iterator)[0].layer == "silver"
         with pytest.raises(ValueError):
@@ -102,54 +119,129 @@ def test_final_input_change_keeps_valid_files_but_no_range_complete(tmp_path, fa
         assert_released(conn)
 
 
-@pytest.mark.parametrize(
-    "fault",
-    [
-        "missing-checkpoint",
-        "changed-target",
-        "changed-ranges",
-        "changed-source-metadata",
-    ],
-)
-def test_final_physical_or_metadata_identity_must_still_match(tmp_path, fault):
+def test_changed_formal_target_is_still_rejected_before_complete(tmp_path):
+    known_records = {}
     with connection(tmp_path) as conn:
-        lake, root, days, _, _, _, args = setup(conn, tmp_path, 1)
-        iterator = publication.publish_stk_factor_pro_history(conn, **args)
-        raw, _ = next(iterator)
+        lake, root, days, _, _, _, args = setup(
+            conn, tmp_path, 1, known_records=known_records
+        )
+        iterator = publication.publish_stk_factor_pro_history(
+            conn, **args, known_records=known_records
+        )
         next(iterator)
-        if fault == "missing-checkpoint":
-            (root / raw.checkpoint_ref.relative_path).unlink()
-        elif fault == "changed-target":
-            write_rows(
-                conn,
-                raw_stk_factor_pro_path(lake, days[0].isoformat()),
-                (row(A, days[0].strftime("%Y%m%d"), close=Decimal(77)),),
-                layer="raw",
-            )
-        else:
-            path = root / (
-                "history-ranges.parquet"
-                if fault == "changed-ranges"
-                else "source/history/source-complete.json"
-            )
-            with path.open("ab") as stream:
-                stream.write(b"\nchanged")
+        next(iterator)
+        write_rows(
+            conn,
+            raw_stk_factor_pro_path(lake, days[0].isoformat()),
+            (row(A, days[0].strftime("%Y%m%d"), close=Decimal(77)),),
+            layer="raw",
+        )
         with pytest.raises((ValueError, FileNotFoundError)):
             next(iterator)
         assert not complete_path(root).exists()
         assert_released(conn)
 
 
-def test_write_complete_failure_does_not_undo_published_files(tmp_path, monkeypatch):
+def test_complete_reuses_confirmed_records_without_reading_them_again(
+    tmp_path, monkeypatch
+):
+    known_records = {}
     with connection(tmp_path) as conn:
-        lake, root, days, _, _, _, args = setup(conn, tmp_path, 1)
+        _, root, _, _, _, _, args = setup(
+            conn, tmp_path, 1, known_records=known_records
+        )
+        iterator = publication.publish_stk_factor_pro_history(
+            conn, **args, known_records=known_records
+        )
+        raw, _ = next(iterator)
+        silver, _ = next(iterator)
+        confirmed = {
+            root / raw.checkpoint_ref.relative_path,
+            root / silver.checkpoint_ref.relative_path,
+            root / "history-ranges.parquet",
+            root / "source/history/source-complete.json",
+        }
+        assert confirmed <= known_records.keys()
+        read_bytes = Path.read_bytes
 
-        def failed(root, identity, relative, record):
-            assert relative == "publication/history/publication-complete.json"
-            raise OSError("controlled complete write failure")
+        def first_unseen_only(path):
+            assert path not in confirmed, f"已确认记录不应再次读取：{path.name}"
+            return read_bytes(path)
+
+        monkeypatch.setattr(Path, "read_bytes", first_unseen_only)
+        with pytest.raises(StopIteration):
+            next(iterator)
+        assert complete_path(root).is_file()
+        assert_released(conn)
+
+
+@pytest.mark.parametrize(
+    "fault", ["missing-checkpoint", "changed-ranges", "changed-source-metadata"]
+)
+def test_new_execution_rejects_bad_record_on_first_read(tmp_path, fault):
+    producer_records = {}
+    with connection(tmp_path) as conn:
+        _, root, _, _, _, _, args = setup(
+            conn, tmp_path, 1, known_records=producer_records
+        )
+        iterator = publication.publish_stk_factor_pro_history(
+            conn, **args, known_records=producer_records
+        )
+        raw, _ = next(iterator)
+        next(iterator)
+        iterator.close()
+        records = {}
+        if fault == "missing-checkpoint":
+            path = root / raw.checkpoint_ref.relative_path
+            path.unlink()
+            with pytest.raises(ValueError, match="缺失"):
+                publication.read_stk_factor_pro_publication_record(
+                    path, known_records=records
+                )
+        elif fault == "changed-ranges":
+            path = root / "history-ranges.parquet"
+            with path.open("ab") as stream:
+                stream.write(b"\nchanged")
+            with pytest.raises(ValueError, match="SHA"):
+                history.read_stk_factor_pro_history_ranges(
+                    conn, root=root, plan=args["plan"], known_records=records
+                )
+        else:
+            path = root / "source/history/source-complete.json"
+            with path.open("ab") as stream:
+                stream.write(b"\nchanged")
+            with pytest.raises(ValueError):
+                history._json_read(
+                    path, type(args["source"].source_complete), known_records=records
+                )
+        assert_released(conn)
+
+
+def test_write_complete_failure_does_not_undo_published_files(tmp_path, monkeypatch):
+    known_records = {}
+    with connection(tmp_path) as conn:
+        lake, root, days, _, _, _, args = setup(
+            conn, tmp_path, 1, known_records=known_records
+        )
+
+        original_write = publication._json_write
+
+        def failed(root, identity, relative, record, *, known_records, check_space):
+            if relative == "publication/history/publication-complete.json":
+                raise OSError("controlled complete write failure")
+            return original_write(
+                root,
+                identity,
+                relative,
+                record,
+                known_records=known_records,
+                check_space=check_space,
+            )
 
         monkeypatch.setattr(publication, "_json_write", failed)
-        iterator = publication.publish_stk_factor_pro_history(conn, **args)
+        iterator = publication.publish_stk_factor_pro_history(
+            conn, **args, known_records=known_records
+        )
         next(iterator)
         next(iterator)
         with pytest.raises(OSError, match="controlled"):
@@ -161,9 +253,16 @@ def test_write_complete_failure_does_not_undo_published_files(tmp_path, monkeypa
 
 
 def test_explicit_skips_complete_without_file_audits_or_fake_checkpoints(tmp_path):
+    known_records = {}
     with connection(tmp_path) as conn:
-        _, root, _, _, _, _, args = setup(conn, tmp_path, 1, missing_dates=(P,))
-        delivered = tuple(publication.publish_stk_factor_pro_history(conn, **args))
+        _, root, _, _, _, _, args = setup(
+            conn, tmp_path, 1, missing_dates=(P,), known_records=known_records
+        )
+        delivered = tuple(
+            publication.publish_stk_factor_pro_history(
+                conn, **args, known_records=known_records
+            )
+        )
         assert len(delivered) == 2
         assert all(
             target.skip_no_file
@@ -173,7 +272,10 @@ def test_explicit_skips_complete_without_file_audits_or_fake_checkpoints(tmp_pat
             for target, audit in delivered
         )
         record = publication.read_stk_factor_pro_history_publication_complete(
-            root, expected_target=T, expected_run_id="run-a"
+            root,
+            expected_target=T,
+            expected_run_id="run-a",
+            known_records=known_records,
         )
         assert record.targets == tuple(target for target, _ in delivered)
         assert all(target.scope_rows == 0 for target in record.targets)
@@ -202,10 +304,15 @@ class NoSecondFieldAudit:
 
 
 def test_completion_reuses_file_audits_without_another_full_field_scan(tmp_path):
+    known_records = {}
     with connection(tmp_path) as conn:
-        _, root, _, _, _, _, args = setup(conn, tmp_path, 1)
+        _, root, _, _, _, _, args = setup(
+            conn, tmp_path, 1, known_records=known_records
+        )
         observed = NoSecondFieldAudit(conn)
-        iterator = publication.publish_stk_factor_pro_history(observed, **args)
+        iterator = publication.publish_stk_factor_pro_history(
+            observed, **args, known_records=known_records
+        )
         next(iterator)
         next(iterator)
         observed.final = True

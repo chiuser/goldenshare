@@ -14,10 +14,9 @@ from psycopg2 import sql
 from orchestrator.defs.bootstrap import stk_factor_pro_bootstrap_records as records
 from orchestrator.defs.checks.stk_factor_pro import (
     factor_content_sha,
-    factor_file_sha,
-    require_factor_relation,
 )
 from orchestrator.defs.io.stk_factor_pro_candidates import (
+    BOOTSTRAP_DAY_SOURCE,
     build_stk_factor_pro_raw_batch,
     write_stk_factor_pro_raw_fragment,
 )
@@ -99,21 +98,28 @@ def require_stk_factor_pro_bootstrap_source_window(*, approval, now):
         raise ValueError("bootstrap原Prod维护窗口已结束或尚未开始")
 
 
-def _approved_inputs(connection, *, staging_root, approval):
-    records.approval_sha(staging_root, approval)
+def _approved_inputs(connection, *, staging_root, approval, known_records):
+    records.approval_sha(staging_root, approval, known_records=known_records)
     counts = dict(
         records.load_approved_counts(
-            connection, staging_root=staging_root, approval=approval
+            connection,
+            staging_root=staging_root,
+            approval=approval,
+            known_records=known_records,
         )
     )
     evidence_path = records.operation_path(
         staging_root, approval, approval.approved_source_evidence_ref
     )
-    if factor_file_sha(evidence_path) != approval.approved_source_evidence_digest:
-        raise ValueError("bootstrap来源证据文件摘要不符")
-    evidence = records.read_json(evidence_path, C.StkFactorProBootstrapSourceEvidence)
+    evidence = records.read_json(
+        evidence_path,
+        C.StkFactorProBootstrapSourceEvidence,
+        known_records=known_records,
+    )
     if evidence is None:
         raise ValueError("bootstrap缺批准来源证据")
+    if known_records[evidence_path][1] != approval.approved_source_evidence_digest:
+        raise ValueError("bootstrap来源证据文件摘要不符")
     expected = (
         approval.operation_id,
         approval.source_identity_digest,
@@ -155,10 +161,15 @@ def _approved_inputs(connection, *, staging_root, approval):
     sample_path = records.operation_path(
         staging_root, approval, evidence.source_sample_ref
     )
-    if factor_file_sha(sample_path) != evidence.source_sample_file_sha256:
+    sample = records.read_json(
+        sample_path, C.StkFactorProBootstrapSourceSample, known_records=known_records
+    )
+    if (
+        sample is None
+        or known_records[sample_path][1] != evidence.source_sample_file_sha256
+    ):
         raise ValueError("bootstrap来源样本文件摘要不符")
-    sample = records.read_json(sample_path, C.StkFactorProBootstrapSourceSample)
-    if sample is None or (
+    if (
         sample.operation_id != approval.operation_id
         or sample.source_identity_digest != approval.source_identity_digest
         or sample.contract_content_digest != approval.contract_content_digest
@@ -169,15 +180,10 @@ def _approved_inputs(connection, *, staging_root, approval):
         <= approval.end_trade_date
     ):
         raise ValueError("bootstrap批准固定样本身份或结果不符")
-    if (
-        factor_file_sha(evidence_path) != approval.approved_source_evidence_digest
-        or factor_file_sha(sample_path) != evidence.source_sample_file_sha256
-    ):
-        raise ValueError("bootstrap批准来源证据在读取期间变化")
     return counts, evidence, sample
 
 
-def _selected_dates(connection, *, staging_root, approval, month):
+def _selected_dates(connection, *, staging_root, approval, month, known_records):
     if month not in approval.month_limits:
         raise ValueError("bootstrap月份不属于批准")
     pending = []
@@ -187,6 +193,7 @@ def _selected_dates(connection, *, staging_root, approval, month):
             staging_root=staging_root,
             approval=approval,
             trade_date=day,
+            known_records=known_records,
         )
         if completed is None:
             pending.append(day)
@@ -223,14 +230,7 @@ def _projection():
     )
 
 
-def _preflight(
-    control, *, prod_postgres, approval, month, selected_dates, counts, evidence, sample
-):
-    require_stk_factor_pro_bootstrap_source_window(approval=approval, now=_now())
-    control.execute(
-        "SELECT set_config('statement_timeout', %s, true)",
-        (str(approval.source_statement_timeout_ms),),
-    )
+def _preflight_fixed(control, *, prod_postgres, approval, evidence, sample):
     control.execute(
         "SELECT column_name,data_type,is_nullable FROM information_schema.columns "
         "WHERE table_schema=%s AND table_name=%s AND column_name=ANY(%s) ORDER BY ordinal_position",
@@ -269,26 +269,6 @@ def _preflight(
         raise ValueError("bootstrap源实际首尾或截止日期改变")
     control.execute(
         sql.SQL(
-            "SELECT trade_date,COUNT(*) FROM {} WHERE trade_date>=%s AND trade_date<%s AND trade_date=ANY(%s::date[]) GROUP BY trade_date ORDER BY trade_date"
-        ).format(table),
-        (month.month_start, month.month_end_exclusive, list(selected_dates)),
-    )
-    current = control.fetchmany(32)
-    if (
-        any(
-            type(day) is not date or type(number) is not int or number <= 0
-            for day, number in current
-        )
-        or len(dict(current)) != len(current)
-        or set(dict(current)) - set(selected_dates)
-    ):
-        raise ValueError("bootstrap当前日计数结构非法")
-    if {day: dict(current).get(day, 0) for day in selected_dates} != {
-        day: counts[day] for day in selected_dates
-    }:
-        raise ValueError("bootstrap当前源日计数与批准不符")
-    control.execute(
-        sql.SQL(
             "SELECT {} FROM {} WHERE trade_date=%s AND ts_code=ANY(%s) ORDER BY trade_date,ts_code LIMIT %s"
         ).format(_projection(), table),
         (sample.sample_date, list(sample.sample_codes), sample.row_limit),
@@ -307,16 +287,73 @@ def _preflight(
     )
     if any(row[0] not in sample.sample_codes for row in rows):
         raise ValueError("bootstrap固定样本返回范围外股票")
+
+
+def _preflight(
+    control,
+    *,
+    prod_postgres,
+    approval,
+    month,
+    selected_dates,
+    source_inputs,
+    preflight_context,
+):
+    counts, evidence, sample = source_inputs
+    require_stk_factor_pro_bootstrap_source_window(approval=approval, now=_now())
+    control.execute(
+        "SELECT set_config('statement_timeout', %s, true)",
+        (str(approval.source_statement_timeout_ms),),
+    )
+    if not preflight_context["fixed_done"]:
+        _preflight_fixed(
+            control,
+            prod_postgres=prod_postgres,
+            approval=approval,
+            evidence=evidence,
+            sample=sample,
+        )
+        preflight_context["fixed_done"] = True
+    checked = preflight_context["checked_windows"].setdefault(month.month_start, {})
+    pending = tuple(day for day in selected_dates if day not in checked)
+    if pending:
+        control.execute(
+            sql.SQL(
+                "SELECT trade_date,COUNT(*) FROM {} WHERE trade_date>=%s AND trade_date<%s AND trade_date=ANY(%s::date[]) GROUP BY trade_date ORDER BY trade_date"
+            ).format(sql.Identifier("raw_tushare", "stk_factor_pro")),
+            (month.month_start, month.month_end_exclusive, list(pending)),
+        )
+        rows = control.fetchmany(32)
+        current = dict(rows)
+        if (
+            any(
+                type(day) is not date or type(number) is not int or number <= 0
+                for day, number in rows
+            )
+            or len(current) != len(rows)
+            or set(current) - set(pending)
+        ):
+            raise ValueError("bootstrap当前日计数结构非法")
+        observed = {day: current.get(day, 0) for day in pending}
+        if observed != {day: counts[day] for day in pending}:
+            raise ValueError("bootstrap当前源日计数与批准不符")
+        checked.update(observed)
     require_stk_factor_pro_bootstrap_source_window(approval=approval, now=_now())
 
 
 def preflight_stk_factor_pro_bootstrap_source(
-    *, prod_postgres, connection, staging_root, approval, month, selected_dates
+    *,
+    prod_postgres,
+    connection,
+    staging_root,
+    approval,
+    month,
+    selected_dates,
+    source_inputs,
+    preflight_context,
+    known_records,
 ):
     """Check the existing approved source before restoring business publication."""
-    counts, evidence, sample = _approved_inputs(
-        connection, staging_root=staging_root, approval=approval
-    )
     if (
         month not in approval.month_limits
         or tuple(sorted(set(selected_dates))) != selected_dates
@@ -337,9 +374,8 @@ def preflight_stk_factor_pro_bootstrap_source(
                 approval=approval,
                 month=month,
                 selected_dates=selected_dates,
-                counts=counts,
-                evidence=evidence,
-                sample=sample,
+                source_inputs=source_inputs,
+                preflight_context=preflight_context,
             )
 
 
@@ -354,69 +390,48 @@ def _complete_day(
     day,
     references,
     approved_rows,
+    actual_rows,
+    source_relation,
     close_reason,
     next_trade_date,
     check_space,
     verification=None,
+    known_records,
 ):
-    paths = [
-        str(records.operation_path(staging_root, approval, ref.fragment.relative_path))
-        for ref in references
-    ]
-    relation = "stk_factor_bootstrap_source_day_facts"
-    with records.resource_cleanup(
-        lambda: connection.execute(f"DROP TABLE IF EXISTS {relation}")
-    ):
-        if paths:
-            connection.execute(
-                f"CREATE TEMP TABLE {relation} AS SELECT * FROM read_parquet(?,hive_partitioning=false) WHERE trade_date=?",
-                [paths, day.strftime("%Y%m%d")],
-            )
-        else:
-            projection = ",".join(
-                f'CAST(NULL AS {kind}) AS "{name}"'
-                for name, kind in C.STK_FACTOR_PRO_RAW_COLUMN_TYPES.items()
-            )
-            connection.execute(
-                f"CREATE TEMP TABLE {relation} AS SELECT {projection} WHERE false"
-            )
-        actual_rows, _ = require_factor_relation(
-            connection, relation, target_trade_date=day, layer="raw"
-        )
-        if actual_rows != approved_rows:
-            raise ValueError("bootstrap完整日源行数与批准不符")
-        record = C.StkFactorProBootstrapSourceComplete(
-            1,
-            approval.operation_id,
-            records.approval_sha(staging_root, approval),
-            approval.source_identity_digest,
-            approval.contract_content_digest,
-            approval.source_cutoff_trade_date,
-            month.month_start,
-            month.month_end_exclusive,
-            attempt_id,
-            C.stk_factor_pro_bootstrap_query_digest(
-                approval,
-                records.approval_sha(staging_root, approval),
-                month,
-                selected_dates,
-            ),
+    if actual_rows != approved_rows:
+        raise ValueError("bootstrap完整日源行数与批准不符")
+    record = C.StkFactorProBootstrapSourceComplete(
+        1,
+        approval.operation_id,
+        records.approval_sha(staging_root, approval, known_records=known_records),
+        approval.source_identity_digest,
+        approval.contract_content_digest,
+        approval.source_cutoff_trade_date,
+        month.month_start,
+        month.month_end_exclusive,
+        attempt_id,
+        C.stk_factor_pro_bootstrap_query_digest(
+            approval,
+            records.approval_sha(staging_root, approval, known_records=known_records),
+            month,
             selected_dates,
-            month.row_upper_bound,
-            day,
-            approved_rows,
-            actual_rows,
-            references,
-            C.fragments_manifest_digest(references),
-            C.stk_factor_pro_schema_digest("raw"),
-            factor_content_sha(connection, relation),
-            1,
-            close_reason,
-            next_trade_date,
-            actual_rows == 0,
-            "0" * 64,
-            _now(),
-        )
+        ),
+        selected_dates,
+        month.row_upper_bound,
+        day,
+        approved_rows,
+        actual_rows,
+        references,
+        C.fragments_manifest_digest(references),
+        C.stk_factor_pro_schema_digest("raw"),
+        factor_content_sha(connection, source_relation),
+        1,
+        close_reason,
+        next_trade_date,
+        actual_rows == 0,
+        "0" * 64,
+        _now(),
+    )
     record = replace(
         record,
         source_complete_digest=C.stk_factor_pro_bootstrap_source_complete_digest(
@@ -428,8 +443,21 @@ def _complete_day(
         staging_root=staging_root,
         approval=approval,
         record=record,
+        approved_date_rows=approved_rows,
+        source_relation=source_relation,
         check_space=check_space,
         verification=verification,
+        known_records=known_records,
+    )
+
+
+def _empty_day_source(connection):
+    projection = ",".join(
+        f'CAST(NULL AS {kind}) AS "{name}"'
+        for name, kind in C.STK_FACTOR_PRO_RAW_COLUMN_TYPES.items()
+    )
+    connection.execute(
+        f"CREATE TEMP TABLE {BOOTSTRAP_DAY_SOURCE} AS SELECT {projection} WHERE false"
     )
 
 
@@ -462,19 +490,27 @@ def export_stk_factor_pro_bootstrap_month(
     approval,
     month,
     selected_dates,
+    source_inputs,
+    preflight_context,
     on_complete_date,
     check_space,
-    verification=None,
+    verification,
     progress=None,
+    known_records,
 ):
     """Fetch whole pending days, save batches, and synchronously publish closed days."""
-    counts, evidence, sample = _approved_inputs(
-        connection, staging_root=staging_root, approval=approval
-    )
-    if selected_dates != _selected_dates(
-        connection, staging_root=staging_root, approval=approval, month=month
+    counts, _, _ = source_inputs
+    if (
+        month not in approval.month_limits
+        or type(selected_dates) is not tuple
+        or tuple(sorted(set(selected_dates))) != selected_dates
+        or any(
+            day not in counts
+            or not month.month_start <= day < month.month_end_exclusive
+            for day in selected_dates
+        )
     ):
-        raise ValueError("bootstrap待读取日期必须是批准月扣除有效完整源日期")
+        raise ValueError("bootstrap待读取日期必须属于已分类批准月")
     attempt_id = uuid4().hex
     if progress is not None:
         progress.start_attempt(attempt_id)
@@ -487,31 +523,63 @@ def export_stk_factor_pro_bootstrap_month(
     seen, last_key, open_day = 0, None, None
 
     def complete(day, reason, following):
+        nonlocal open_day
         require_stk_factor_pro_bootstrap_source_window(approval=approval, now=_now())
-        record = _complete_day(
-            connection,
-            staging_root=staging_root,
-            approval=approval,
-            month=month,
-            selected_dates=selected_dates,
-            attempt_id=attempt_id,
-            day=day,
-            references=tuple(references[day]),
-            approved_rows=counts[day],
-            close_reason=reason,
-            next_trade_date=following,
-            check_space=check_space,
-            verification=verification,
-        )
-        completed.append(day)
-        audits.extend(_validate_date_result(record, on_complete_date(record)))
+        if counts[day] == 0:
+            _empty_day_source(connection)
+
+        def release():
+            nonlocal open_day
+            if day == open_day:
+                open_day = None
+            connection.execute(f"DROP TABLE IF EXISTS {BOOTSTRAP_DAY_SOURCE}")
+
+        with records.resource_cleanup(release):
+            record, digest = _complete_day(
+                connection,
+                staging_root=staging_root,
+                approval=approval,
+                month=month,
+                selected_dates=selected_dates,
+                attempt_id=attempt_id,
+                day=day,
+                references=tuple(references[day]),
+                approved_rows=counts[day],
+                actual_rows=actual_counts[day],
+                source_relation=BOOTSTRAP_DAY_SOURCE,
+                close_reason=reason,
+                next_trade_date=following,
+                check_space=check_space,
+                verification=verification,
+                known_records=known_records,
+            )
+            completed.append(day)
+            audits.extend(
+                _validate_date_result(
+                    record,
+                    on_complete_date(
+                        record,
+                        source_record_sha256=digest,
+                        source_relation=BOOTSTRAP_DAY_SOURCE,
+                    ),
+                )
+            )
+
+    def release_open_day():
+        nonlocal open_day
+        if open_day is not None:
+            open_day = None
+            connection.execute(f"DROP TABLE IF EXISTS {BOOTSTRAP_DAY_SOURCE}")
 
     check_space(
         "月源明细读取前",
         path=records.operation_root(staging_root, approval),
         month_start=month.month_start,
     )
-    with _readonly_transaction(prod_postgres) as remote:
+    with (
+        records.resource_cleanup(release_open_day),
+        _readonly_transaction(prod_postgres) as remote,
+    ):
         control = remote.cursor()
         with records.resource_cleanup(control.close):
             _preflight(
@@ -520,9 +588,8 @@ def export_stk_factor_pro_bootstrap_month(
                 approval=approval,
                 month=month,
                 selected_dates=selected_dates,
-                counts=counts,
-                evidence=evidence,
-                sample=sample,
+                source_inputs=source_inputs,
+                preflight_context=preflight_context,
             )
             cursor = remote.cursor(
                 name=f"stk_factor_bootstrap_{attempt_id}",
@@ -573,10 +640,9 @@ def export_stk_factor_pro_bootstrap_month(
                             actual_counts[day] != counts[day] for day in selected_dates
                         ):
                             raise ValueError("bootstrap真实EOF日计数或合计与批准不符")
-                        for day in sorted(
-                            {day for day in selected_dates if counts[day] == 0}
-                            | ({open_day} if open_day is not None else set())
-                        ):
+                        if open_day is not None:
+                            complete(open_day, "eof", None)
+                        for day in (day for day in selected_dates if counts[day] == 0):
                             complete(day, "eof", None)
                         break
                     frame = build_stk_factor_pro_raw_batch(
@@ -610,9 +676,7 @@ def export_stk_factor_pro_bootstrap_month(
                         candidate_path=path,
                         expected_row_count=len(rows),
                         on_verified_fragment=(
-                            None
-                            if verification is None
-                            else lambda **facts: verification.remember_saved(
+                            lambda **facts: verification.remember_saved(
                                 connection=connection, **facts
                             )
                         ),
@@ -637,10 +701,20 @@ def export_stk_factor_pro_bootstrap_month(
                     for day, number_rows in batch_counts.items():
                         references[day].append(reference)
                         actual_counts[day] += number_rows
-                    for day in sorted(batch_counts):
-                        if open_day is not None and day != open_day:
-                            complete(open_day, "next_date", day)
-                        open_day = day
+                    with records.resource_cleanup(
+                        lambda path=path: verification.release_source_relation(path)
+                    ):
+                        source_relation = verification._relations[path]
+                        for day in sorted(batch_counts):
+                            if open_day is not None and day != open_day:
+                                complete(open_day, "next_date", day)
+                            if open_day is None:
+                                open_day = day
+                                _empty_day_source(connection)
+                            connection.execute(
+                                f"INSERT INTO {BOOTSTRAP_DAY_SOURCE} SELECT * FROM {source_relation} WHERE trade_date=?",
+                                [day.strftime("%Y%m%d")],
+                            )
                 if progress is not None:
                     progress.set_stage("关闭源游标和只读事务")
     return C.StkFactorProBootstrapMonthResult(

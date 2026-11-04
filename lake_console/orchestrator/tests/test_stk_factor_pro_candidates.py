@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from orchestrator.defs.io.stk_factor_pro_candidates import (
+    RAW_EXPECTED,
     build_stk_factor_pro_raw_batch,
     build_stk_factor_pro_raw_candidate,
     build_stk_factor_pro_silver_candidate,
@@ -45,6 +46,7 @@ from tests.stk_factor_pro_test_support import (
 def test_candidate_builders_reject_bad_paths_before_sql_or_write(tmp_path, layer, kind):
     # Independent forbidden layouts from LLD 15.9. The real native source is
     # prepared first; only SQL after the builder call is forbidden by this probe.
+    known_records = {}
     run_root, outside = tmp_path / "run-a", tmp_path / "outside"
     run_root.mkdir()
     candidate = run_root / "candidates" / "day" / layer / "data.parquet"
@@ -89,6 +91,16 @@ def test_candidate_builders_reject_bad_paths_before_sql_or_write(tmp_path, layer
             summary=summary(1),
             contract=contract(),
         )
+        raw_audit = None
+        if layer == "silver":
+            raw_audit = build_stk_factor_pro_raw_candidate(
+                conn,
+                source=source,
+                prior_path=None,
+                candidate_path=run_root / "candidates/day/raw/data.parquet",
+                run_root=run_root,
+                known_records=known_records,
+            )
         before = sorted(str(p.relative_to(tmp_path)) for p in tmp_path.rglob("*"))
         probe = NoSQL()
         try:
@@ -100,14 +112,17 @@ def test_candidate_builders_reject_bad_paths_before_sql_or_write(tmp_path, layer
                         prior_path=None,
                         candidate_path=candidate,
                         run_root=run_root,
+                        known_records=known_records,
                     )
                 else:
                     build_stk_factor_pro_silver_candidate(
                         probe,
-                        verified_raw_path=tmp_path / "must-not-read.parquet",
+                        verified_raw_relation=RAW_EXPECTED,
+                        raw_audit=raw_audit,
                         target_trade_date=date(2026, 10, 16),
                         candidate_path=candidate,
                         run_root=run_root,
+                        known_records=known_records,
                     )
             assert probe.calls == 0
             assert (

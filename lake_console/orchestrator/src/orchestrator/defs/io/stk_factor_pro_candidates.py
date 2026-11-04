@@ -16,19 +16,27 @@ import pandas as pd
 from orchestrator.defs.checks.stk_factor_pro import (
     audit_stk_factor_pro_file,
     factor_columns,
+    factor_file_identity,
+    factor_known_file_sha,
+    relation_identifier,
+    release_stk_factor_pro_audit_relations,
     require_factor_relation,
 )
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
 from orchestrator.defs.run_contracts.stk_factor_pro import (
     STK_FACTOR_PRO_SOURCE_COLUMNS,
+    StkFactorProFileAudit,
     VerifiedDaySource,
 )
 from orchestrator.tushare_download import UnitResult
 
 DAY_SOURCE = "stk_factor_pro_day_source"
 HISTORY_DAY_SOURCE = "stk_factor_pro_history_day_source"
+HISTORY_SOURCE = "stk_factor_pro_history_source"
 BOOTSTRAP_DAY_SOURCE = "stk_factor_pro_bootstrap_day_source"
 DAY_PRIOR = "stk_factor_pro_day_prior"
+DAY_PRIOR_SILVER = "stk_factor_pro_day_prior_silver"
+RAW_MATCHED_KEYS = "stk_factor_pro_raw_matched_keys"
 RAW_EXPECTED = "stk_factor_pro_raw_expected"
 SILVER_EXPECTED = "stk_factor_pro_silver_expected"
 Source = Literal["http", "prod_postgres"]
@@ -207,22 +215,65 @@ def materialize_stk_factor_pro_day_source(
 
 
 def release_stk_factor_pro_day_source(connection) -> None:
-    for name in (SILVER_EXPECTED, RAW_EXPECTED, DAY_PRIOR, DAY_SOURCE):
+    release_stk_factor_pro_audit_relations(connection)
+    for name in (
+        SILVER_EXPECTED,
+        RAW_EXPECTED,
+        RAW_MATCHED_KEYS,
+        DAY_PRIOR_SILVER,
+        DAY_PRIOR,
+        DAY_SOURCE,
+    ):
         connection.execute(f"DROP TABLE IF EXISTS {name}")
 
 
+def load_stk_factor_pro_prior_relation(
+    connection,
+    *,
+    path: Path,
+    relation: str,
+    target_trade_date: date,
+    layer: str,
+    known_records: dict,
+) -> tuple[int, tuple[tuple[str, str], ...]]:
+    """Read a prior file once; its data, contract and digest stay on this task."""
+    require_stk_factor_pro_safe_path(path)
+    digest = factor_known_file_sha(path, known_records=known_records)
+    if digest is None:
+        raise ValueError("技术因子原文件缺失")
+    connection.execute(
+        f"CREATE TEMP TABLE {relation_identifier(relation)} AS SELECT * FROM read_parquet(?, hive_partitioning=false)",
+        [str(path)],
+    )
+    rows, schema = require_factor_relation(
+        connection, relation, target_trade_date=target_trade_date, layer=layer
+    )
+    if factor_file_identity(path) != known_records[path][2]:
+        raise ValueError("技术因子原文件在首次读取期间改变")
+    known_records[path] = ((relation, rows, schema), digest, known_records[path][2])
+    return rows, schema
+
+
 def build_stk_factor_pro_raw_candidate(
-    connection, *, source, prior_path: Path | None, candidate_path: Path, run_root: Path
+    connection,
+    *,
+    source,
+    prior_path: Path | None,
+    candidate_path: Path,
+    run_root: Path,
+    known_records: dict,
 ):
     if not isinstance(source, VerifiedDaySource) or source.raw_relation != DAY_SOURCE:
         raise TypeError("日Raw候选必须接收当前VerifiedDaySource")
     return build_stk_factor_pro_raw_candidate_from_relation(
         connection,
         source_relation=DAY_SOURCE,
+        source_row_count=len(source.unit_result.records),
         target_trade_date=source.identity.target_trade_date,
         prior_path=prior_path,
         candidate_path=candidate_path,
         run_root=run_root,
+        known_records=known_records,
     )
 
 
@@ -230,15 +281,19 @@ def build_stk_factor_pro_raw_candidate_from_relation(
     connection,
     *,
     source_relation: str,
+    source_row_count: int,
     target_trade_date: date,
     prior_path: Path | None,
     candidate_path: Path,
     run_root: Path,
+    known_records: dict,
 ):
     """Build B-K+U from an already verified, internal single-date relation."""
     if (
         source_relation not in (DAY_SOURCE, HISTORY_DAY_SOURCE, BOOTSTRAP_DAY_SOURCE)
         or type(target_trade_date) is not date
+        or type(source_row_count) is not int
+        or source_row_count < 0
     ):
         raise ValueError("Raw候选只接受内部已核单日关系及DATE处理日期")
     if source_relation == BOOTSTRAP_DAY_SOURCE and prior_path is not None:
@@ -251,30 +306,27 @@ def build_stk_factor_pro_raw_candidate_from_relation(
         connection.execute(
             f"CREATE TEMP TABLE {DAY_PRIOR} AS SELECT * FROM {source_relation} WHERE false"
         )
+        base = 0
     else:
-        require_stk_factor_pro_safe_path(prior_path)
-        connection.execute(
-            f"CREATE TEMP TABLE {DAY_PRIOR} AS SELECT * FROM read_parquet(?, hive_partitioning=false)",
-            [str(prior_path)],
+        base, _ = load_stk_factor_pro_prior_relation(
+            connection,
+            path=prior_path,
+            relation=DAY_PRIOR,
+            target_trade_date=target,
+            layer="raw",
+            known_records=known_records,
         )
-    require_factor_relation(
-        connection, DAY_PRIOR, target_trade_date=target, layer="raw"
+    connection.execute(
+        f"CREATE TEMP TABLE {RAW_MATCHED_KEYS} AS SELECT b.ts_code,b.trade_date FROM {DAY_PRIOR} b JOIN {source_relation} u USING(ts_code,trade_date)"
     )
-    require_factor_relation(
-        connection, source_relation, target_trade_date=target, layer="raw"
-    )
+    overlap = connection.execute(f"SELECT count(*) FROM {RAW_MATCHED_KEYS}").fetchone()[
+        0
+    ]
     connection.execute(
         f"CREATE TEMP TABLE {RAW_EXPECTED} AS SELECT {factor_columns('b')} FROM {DAY_PRIOR} b "
-        f"WHERE NOT EXISTS (SELECT 1 FROM {source_relation} u WHERE u.ts_code=b.ts_code AND u.trade_date=b.trade_date) "
+        f"WHERE NOT EXISTS (SELECT 1 FROM {RAW_MATCHED_KEYS} k WHERE k.ts_code=b.ts_code AND k.trade_date=b.trade_date) "
         f"UNION ALL SELECT {factor_columns()} FROM {source_relation}"
     )
-    base, new, overlap, actual = connection.execute(
-        f"SELECT (SELECT count(*) FROM {DAY_PRIOR}), (SELECT count(*) FROM {source_relation}), "
-        f"(SELECT count(*) FROM {DAY_PRIOR} JOIN {source_relation} USING (ts_code,trade_date)), "
-        f"(SELECT count(*) FROM {RAW_EXPECTED})"
-    ).fetchone()
-    if actual != base - overlap + new:
-        raise ValueError("技术因子Raw合并数量不符合B-K+U")
     _prepare_stk_factor_pro_candidate_path(
         candidate_path=candidate_path, run_root=run_root
     )
@@ -284,26 +336,40 @@ def build_stk_factor_pro_raw_candidate_from_relation(
             candidate_path,
         )
     )
-    return audit_stk_factor_pro_file(
+    audit = audit_stk_factor_pro_file(
         connection,
         path=candidate_path,
         expected_relation=RAW_EXPECTED,
         target_trade_date=target,
         layer="raw",
+        known_records=known_records,
     )
+    if audit.row_count != base - overlap + source_row_count:
+        raise ValueError("技术因子Raw合并数量不符合B-K+U")
+    return audit
 
 
 def build_stk_factor_pro_silver_candidate(
     connection,
     *,
-    verified_raw_path: Path,
+    verified_raw_relation: str,
+    raw_audit: StkFactorProFileAudit,
     target_trade_date: date,
     candidate_path: Path,
     run_root: Path,
+    known_records: dict,
 ):
     require_stk_factor_pro_candidate_path(
         candidate_path=candidate_path, run_root=run_root
     )
+    if (
+        verified_raw_relation != RAW_EXPECTED
+        or not isinstance(raw_audit, StkFactorProFileAudit)
+        or not raw_audit.passed
+        or raw_audit.layer != "raw"
+        or raw_audit.trade_date != target_trade_date
+    ):
+        raise ValueError("Silver候选必须接收本日已核Raw关系及同一audit")
     projection = ", ".join(
         "CAST(strptime(trade_date, '%Y%m%d') AS DATE) AS trade_date"
         if name == "trade_date"
@@ -311,11 +377,7 @@ def build_stk_factor_pro_silver_candidate(
         for name in STK_FACTOR_PRO_SOURCE_COLUMNS
     )
     connection.execute(
-        f"CREATE TEMP TABLE {SILVER_EXPECTED} AS SELECT {projection} FROM read_parquet(?, hive_partitioning=false)",
-        [str(verified_raw_path)],
-    )
-    require_factor_relation(
-        connection, SILVER_EXPECTED, target_trade_date=target_trade_date, layer="silver"
+        f"CREATE TEMP TABLE {SILVER_EXPECTED} AS SELECT {projection} FROM {verified_raw_relation}"
     )
     _prepare_stk_factor_pro_candidate_path(
         candidate_path=candidate_path, run_root=run_root
@@ -332,6 +394,7 @@ def build_stk_factor_pro_silver_candidate(
         expected_relation=SILVER_EXPECTED,
         target_trade_date=target_trade_date,
         layer="silver",
+        known_records=known_records,
     )
 
 
@@ -401,16 +464,13 @@ def stk_factor_pro_fragment_file_signature(path):
 
 
 def write_stk_factor_pro_raw_fragment(
-    *, connection, frame, candidate_path, expected_row_count, on_verified_fragment=None
+    *, connection, frame, candidate_path, expected_row_count, on_verified_fragment
 ):
     """Save one approved Prod source batch on the caller's existing connection."""
     import os
     from uuid import uuid4
 
-    from orchestrator.defs.checks.stk_factor_pro import (
-        compare_factor_relations,
-        factor_file_sha,
-    )
+    from orchestrator.defs.checks.stk_factor_pro import compare_factor_relations
     from orchestrator.defs.duckdb_sql import read_parquet
 
     require_stk_factor_pro_safe_path(candidate_path)
@@ -434,9 +494,10 @@ def write_stk_factor_pro_raw_fragment(
     temporary = candidate_path.with_name(candidate_path.name + f".{uuid4().hex}.tmp")
     relation, saved = (
         "stk_factor_bootstrap_fragment_batch",
-        "stk_factor_bootstrap_fragment_saved",
+        f"stk_factor_bootstrap_fragment_saved_{uuid4().hex}",
     )
     registered = False
+    transferred = False
     primary = None
     try:
         connection.register("stk_factor_bootstrap_frame", frame)
@@ -465,7 +526,7 @@ def write_stk_factor_pro_raw_fragment(
             )
         )
         connection.execute(
-            f"CREATE TEMP VIEW {saved} AS SELECT * FROM {read_parquet(temporary, hive_partitioning=False)}"
+            f"CREATE TEMP TABLE {saved} AS SELECT * FROM {read_parquet(temporary, hive_partitioning=False)}"
         )
         before = stk_factor_pro_fragment_file_signature(temporary)
         comparison = compare_factor_relations(
@@ -502,29 +563,28 @@ def write_stk_factor_pro_raw_fragment(
         # Rename may update ctime. The same inode, size and mtime plus the exact
         # validated bytes let us retain the full readback without scanning again.
         final = stk_factor_pro_fragment_file_signature(candidate_path)
-        if (
-            final[:4] != verified[:4]
-            or factor_file_sha(candidate_path) != fragment.file_sha256
-            or stk_factor_pro_fragment_file_signature(candidate_path) != final
-        ):
-            raise ValueError("源片段原子保存后身份或字节改变")
+        if final[:4] != verified[:4]:
+            raise ValueError("源片段原子保存后身份改变")
         fragment = replace(
             fragment, relative_path=candidate_path.relative_to(root).as_posix()
         )
         if fragment.row_count != expected_row_count:
             raise ValueError("源片段最终行数不符")
-        if on_verified_fragment is not None:
-            on_verified_fragment(path=candidate_path, fragment=fragment)
+        on_verified_fragment(
+            path=candidate_path, fragment=fragment, source_relation=saved
+        )
+        transferred = True
         return fragment
     except BaseException as error:
         primary = error
         raise
     finally:
         errors = []
-        actions = [
-            lambda: connection.execute(f"DROP VIEW IF EXISTS {saved}"),
-            lambda: connection.execute(f"DROP TABLE IF EXISTS {relation}"),
-        ]
+        actions = [lambda: connection.execute(f"DROP TABLE IF EXISTS {relation}")]
+        if not transferred:
+            actions.insert(
+                0, lambda: connection.execute(f"DROP TABLE IF EXISTS {saved}")
+            )
         if registered:
             actions.append(lambda: connection.unregister("stk_factor_bootstrap_frame"))
         for action in actions:

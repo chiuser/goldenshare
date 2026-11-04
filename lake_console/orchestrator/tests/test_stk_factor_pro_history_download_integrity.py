@@ -17,8 +17,9 @@ from tests.test_stk_factor_pro_history_download import (
 def test_valid_schema_and_row_count_do_not_hide_changed_source_value(
     tmp_path, monkeypatch
 ):
+    known_records = {}
     with connection(tmp_path) as conn:
-        root, args = prepare(conn, tmp_path)
+        root, args = prepare(conn, tmp_path, known_records=known_records)
         original = downloads.copy_query_to_parquet
 
         def alter(query, path):
@@ -31,8 +32,8 @@ def test_valid_schema_and_row_count_do_not_hide_changed_source_value(
             return original(query, path)
 
         monkeypatch.setattr(downloads, "copy_query_to_parquet", alter)
-        with pytest.raises(ValueError, match="全部业务字段对账"):
-            run_download(conn, args, sample_downloader())
+        with pytest.raises(ValueError, match="全部业务字段或NULL对账"):
+            run_download(conn, args, sample_downloader(), known_records=known_records)
         assert_no_complete(root)
         assert list((root / "source/history/units").glob("*.parquet")) == []
         assert_no_relations(conn)
@@ -46,9 +47,9 @@ class CleanupFaultConnection:
         return getattr(self.conn, name)
 
     def execute(self, query, parameters=None):
-        if query.startswith("DROP VIEW IF EXISTS stk_factor_pro_history_saved_unit"):
-            self.attempts.append("view")
-            raise DuckDBError("synthetic view cleanup error")
+        if query.startswith("DROP TABLE IF EXISTS stk_factor_pro_history_saved_unit"):
+            self.attempts.append("saved_unit")
+            raise DuckDBError("source table cleanup error")
         if query.startswith("DROP TABLE IF EXISTS stk_factor_pro_history_current_unit"):
             self.attempts.append("table")
         return (
@@ -65,18 +66,22 @@ class CleanupFaultConnection:
 def test_cleanup_attempts_remaining_resources_and_preserves_save_error(
     tmp_path, monkeypatch
 ):
+    known_records = {}
     with connection(tmp_path) as conn:
-        root, args = prepare(conn, tmp_path)
+        root, args = prepare(conn, tmp_path, known_records=known_records)
         proxy = CleanupFaultConnection(conn)
 
         def fail_copy(*args, **kwargs):
             raise OSError("synthetic source disk write failed")
 
         monkeypatch.setattr(downloads, "copy_query_to_parquet", fail_copy)
+        downloader = sample_downloader()
         with pytest.raises(OSError, match="source disk write") as captured:
-            run_download(proxy, args, sample_downloader())
+            run_download(proxy, args, downloader, known_records=known_records)
         assert any("清理" in note for note in captured.value.__notes__)
         assert "table" in proxy.attempts and "unregister" in proxy.attempts
+        assert len(downloader.calls) == 1
+        assert downloader.sessions[0].closed and downloader.sessions[0].delivered == 1
         assert_no_relations(conn)
         assert_no_complete(root)
 
@@ -84,12 +89,13 @@ def test_cleanup_attempts_remaining_resources_and_preserves_save_error(
 def test_history_unit_parent_symlink_created_during_delivery_is_write_rejected(
     tmp_path,
 ):
+    known_records = {}
     outside = tmp_path / "outside"
     outside.mkdir()
     marker = outside / "marker"
     marker.write_bytes(b"unchanged")
     with connection(tmp_path) as conn:
-        root, args = prepare(conn, tmp_path)
+        root, args = prepare(conn, tmp_path, known_records=known_records)
 
         def unsafe_parent(result):
             source = root / "source/history"
@@ -99,7 +105,7 @@ def test_history_unit_parent_symlink_created_during_delivery_is_write_rejected(
 
         loader = sample_downloader(result_transform=unsafe_parent)
         with pytest.raises(ValueError, match="路径"):
-            run_download(conn, args, loader)
+            run_download(conn, args, loader, known_records=known_records)
         assert_no_complete(root)
         assert sorted(path.name for path in outside.iterdir()) == ["marker"]
         assert marker.read_bytes() == b"unchanged"

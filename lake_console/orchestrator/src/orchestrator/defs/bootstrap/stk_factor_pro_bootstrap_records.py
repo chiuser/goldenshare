@@ -7,15 +7,14 @@ import os
 import shutil
 import stat
 from contextlib import contextmanager
-from dataclasses import dataclass
 from datetime import timedelta
+from hashlib import sha256
 from pathlib import Path
 from uuid import uuid4
 
 from orchestrator.defs.checks.stk_factor_pro import (
     factor_content_sha,
     factor_file_sha,
-    require_factor_relation,
 )
 from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.io.stk_factor_pro_candidates import (
@@ -28,6 +27,7 @@ from orchestrator.defs.paths import (
     stk_factor_pro_bootstrap_record_path,
 )
 from orchestrator.defs.run_contracts import stk_factor_pro as C
+from orchestrator.defs.run_contracts.stk_factor_pro import BootstrapSpaceEstimate
 
 
 def operation_root(staging_root, approval):
@@ -88,7 +88,7 @@ def resource_context(manager):
         manager.__exit__(None, None, None)
 
 
-def atomic_promote(temporary, path, *, replace_existing=False):
+def atomic_promote(temporary, path, *, replace_existing=False, on_replaced=None):
     for value in (temporary, path):
         require_stk_factor_pro_safe_path(value)
     if path.exists() and not replace_existing:
@@ -98,6 +98,8 @@ def atomic_promote(temporary, path, *, replace_existing=False):
     with temporary.open("rb") as stream:
         os.fsync(stream.fileno())
     os.replace(temporary, path)
+    if on_replaced is not None:
+        on_replaced()
     fsync_directory(path.parent)
 
 
@@ -110,27 +112,51 @@ def _pairs(items):
     return result
 
 
-def read_json(path, record_type):
+def read_json(path, record_type, *, known_records):
+    path = Path(path)
+    if path in known_records:
+        record = known_records[path][0]
+        if record is not None and type(record) is not record_type:
+            raise ValueError("bootstrap已登记记录类型不符")
+        return record
     require_stk_factor_pro_safe_path(path)
     if not path.exists():
+        known_records[path] = (None, None, None)
         return None
-    before = factor_file_sha(path)
+    before = stk_factor_pro_fragment_file_signature(path)
+    payload = path.read_bytes()
     value = json.loads(
-        path.read_text(encoding="utf-8"),
+        payload,
         object_pairs_hook=_pairs,
         parse_constant=lambda value: (_ for _ in ()).throw(ValueError("非法JSON常量")),
     )
     record = C.parse_stk_factor_pro_record(record_type, value)
     if (
         C.stk_factor_pro_record_to_dict(record) != value
-        or factor_file_sha(path) != before
+        or stk_factor_pro_fragment_file_signature(path) != before
     ):
         raise ValueError("bootstrap记录不规范或读回期间变化")
+    known_records[path] = (record, sha256(payload).hexdigest(), before)
     return record
 
 
-def write_json(path, record, *, mutable=False, check_space=None):
+def write_json(
+    path, record, *, known_records, mutable=False, check_space=None, on_replaced=None
+):
+    path = Path(path)
     require_stk_factor_pro_safe_path(path)
+    existing = read_json(path, type(record), known_records=known_records)
+    if existing == record:
+        if check_space is not None:
+            check_space(
+                "已有业务记录复用",
+                path=path,
+                trade_date=getattr(record, "trade_date", None),
+                event="record_saved",
+            )
+        return existing, known_records[path][1]
+    if existing is not None and not mutable:
+        raise ValueError("bootstrap不可变记录内容冲突")
     payload = (
         json.dumps(
             C.stk_factor_pro_record_to_dict(record),
@@ -141,26 +167,11 @@ def write_json(path, record, *, mutable=False, check_space=None):
         )
         + "\n"
     ).encode()
-    C.parse_stk_factor_pro_record(
-        type(record), json.loads(payload, object_pairs_hook=_pairs)
-    )
-    if path.exists() and not mutable:
-        existing = read_json(path, type(record))
-        if existing != record:
-            raise ValueError("bootstrap不可变记录内容冲突")
-        if check_space is not None:
-            check_space(
-                "已有业务记录读回",
-                path=path,
-                trade_date=getattr(record, "trade_date", None),
-                event="record_saved",
-            )
-        return existing
     if check_space is not None:
         check_space(
             "业务记录保存前", path=path, trade_date=getattr(record, "trade_date", None)
         )
-    before = factor_file_sha(path) if path.exists() else None
+    before = known_records[path][2]
     path.parent.mkdir(parents=True, exist_ok=True)
     require_stk_factor_pro_safe_path(path)
     temporary = path.with_name(path.name + f".{uuid4().hex}.tmp")
@@ -168,32 +179,53 @@ def write_json(path, record, *, mutable=False, check_space=None):
         stream.write(payload)
         stream.flush()
         os.fsync(stream.fileno())
-    if (factor_file_sha(path) if path.exists() else None) != before:
+    if (
+        stk_factor_pro_fragment_file_signature(path) if path.exists() else None
+    ) != before:
         raise ValueError("bootstrap记录写入期间改变")
-    atomic_promote(temporary, path, replace_existing=mutable)
-    saved = read_json(path, type(record))
-    if saved != record:
-        raise ValueError("bootstrap记录读回不一致")
+
+    def replaced():
+        known_records.pop(path, None)
+        if on_replaced is not None:
+            on_replaced()
+
+    atomic_promote(temporary, path, replace_existing=mutable, on_replaced=replaced)
+    digest = sha256(payload).hexdigest()
+    known_records[path] = (
+        record,
+        digest,
+        stk_factor_pro_fragment_file_signature(path),
+    )
     if check_space is not None:
         check_space(
-            "业务记录保存读回后",
+            "业务记录保存后",
             path=path,
             trade_date=getattr(record, "trade_date", None),
             event="record_saved",
         )
-    return saved
+    return record, digest
 
 
-def approval_sha(staging_root, approval):
+def approval_sha(staging_root, approval, *, known_records):
     path = operation_path(staging_root, approval, "approval.json")
-    if read_json(path, C.StkFactorProBootstrapApproval) != approval:
+    if (
+        read_json(path, C.StkFactorProBootstrapApproval, known_records=known_records)
+        != approval
+    ):
         raise ValueError("bootstrap批准记录不存在或与当前operation不符")
-    return factor_file_sha(path)
+    return known_records[path][1]
 
 
-def load_approved_counts(connection, *, staging_root, approval):
+def load_approved_counts(connection, *, staging_root, approval, known_records):
     path = operation_path(staging_root, approval, approval.approved_daily_counts_ref)
-    if factor_file_sha(path) != approval.approved_daily_counts_digest:
+    if path in known_records:
+        rows, digest, _ = known_records[path]
+        if digest != approval.approved_daily_counts_digest:
+            raise ValueError("bootstrap批准日计数摘要不符")
+        return rows
+    before = stk_factor_pro_fragment_file_signature(path)
+    digest = factor_file_sha(path)
+    if digest != approval.approved_daily_counts_digest:
         raise ValueError("bootstrap批准日计数摘要不符")
     connection.execute(
         f"CREATE OR REPLACE TEMP VIEW stk_factor_bootstrap_counts AS SELECT * FROM {read_parquet(path, hive_partitioning=False)}"
@@ -224,8 +256,9 @@ def load_approved_counts(connection, *, staging_root, approval):
             type(n) is not int or n < 0 for _, n in rows
         ):
             raise ValueError("bootstrap批准日计数缺日、重复或非法")
-        if factor_file_sha(path) != approval.approved_daily_counts_digest:
+        if stk_factor_pro_fragment_file_signature(path) != before:
             raise ValueError("bootstrap批准日计数读取期间改变")
+        known_records[path] = (rows, digest, before)
         return rows
 
 
@@ -239,10 +272,11 @@ def fragment_from_relation(connection, *, path, operation_root, relation):
     )
 
 
-def _source_identity(staging_root, approval, record):
+def _source_identity(staging_root, approval, record, *, known_records):
     if (
         record.operation_id != approval.operation_id
-        or record.approval_digest != approval_sha(staging_root, approval)
+        or record.approval_digest
+        != approval_sha(staging_root, approval, known_records=known_records)
         or record.source_identity_digest != approval.source_identity_digest
         or record.contract_content_digest != approval.contract_content_digest
         or record.source_cutoff_trade_date != approval.source_cutoff_trade_date
@@ -264,7 +298,10 @@ def _source_identity(staging_root, approval, record):
         m for m in approval.month_limits if m.month_start == record.month_start
     )
     if record.query_scope_digest != C.stk_factor_pro_bootstrap_query_digest(
-        approval, approval_sha(staging_root, approval), month, record.selected_dates
+        approval,
+        approval_sha(staging_root, approval, known_records=known_records),
+        month,
+        record.selected_dates,
     ) or record.fragments_manifest_digest != C.fragments_manifest_digest(
         record.fragments
     ):
@@ -272,30 +309,39 @@ def _source_identity(staging_root, approval, record):
 
 
 def read_stk_factor_pro_bootstrap_source_complete(
-    connection, *, staging_root, approval, trade_date
+    connection, *, staging_root, approval, trade_date, known_records
 ):
     path = operation_path(
         staging_root,
         approval,
         f"source/dates/{trade_date.isoformat()}/source-complete.json",
     )
-    record = read_json(path, C.StkFactorProBootstrapSourceComplete)
+    first_read = path not in known_records
+    record = read_json(
+        path, C.StkFactorProBootstrapSourceComplete, known_records=known_records
+    )
     if record is not None:
-        _source_identity(staging_root, approval, record)
-        if record.trade_date != trade_date:
-            raise ValueError("bootstrap源记录固定日期不符")
+        try:
+            if first_read:
+                _source_identity(
+                    staging_root, approval, record, known_records=known_records
+                )
+            if record.trade_date != trade_date:
+                raise ValueError("bootstrap源记录固定日期不符")
+        except BaseException:
+            if first_read:
+                known_records.pop(path, None)
+            raise
     return record
 
 
 def _verify_bootstrap_source_fragment(connection, *, path, root, fragment):
     before = stk_factor_pro_fragment_file_signature(path)
-    relation = "stk_factor_bootstrap_verify_fragment"
+    relation = f"stk_factor_bootstrap_verify_fragment_{uuid4().hex}"
     connection.execute(
-        f"CREATE OR REPLACE TEMP VIEW {relation} AS SELECT * FROM {read_parquet(path, hive_partitioning=False)}"
+        f"CREATE TEMP TABLE {relation} AS SELECT * FROM {read_parquet(path, hive_partitioning=False)}"
     )
-    with resource_cleanup(
-        lambda: connection.execute(f"DROP VIEW IF EXISTS {relation}")
-    ):
+    try:
         if (
             fragment_from_relation(
                 connection, path=path, operation_root=root, relation=relation
@@ -303,28 +349,43 @@ def _verify_bootstrap_source_fragment(connection, *, path, root, fragment):
             != fragment
         ):
             raise ValueError("bootstrap片段完整内容不符")
-    if stk_factor_pro_fragment_file_signature(path) != before:
-        raise ValueError("bootstrap源片段完整核验期间改变")
-    return before
+        if stk_factor_pro_fragment_file_signature(path) != before:
+            raise ValueError("bootstrap源片段完整核验期间改变")
+    except BaseException:
+        with resource_cleanup(
+            lambda: connection.execute(f"DROP TABLE IF EXISTS {relation}")
+        ):
+            raise
+    return before, relation
 
 
 class BootstrapFragmentVerification:
     """Successful fragment facts scoped to one caller connection and one month."""
 
-    def __init__(self, connection, *, staging_root, approval, month):
+    def __init__(self, connection, *, staging_root, approval, month, known_records):
         if month not in approval.month_limits:
             raise ValueError("bootstrap片段验证月份不属于本次批准")
         self._connection = connection
         self._staging_root = Path(staging_root)
         self._approval = approval
-        self._approval_digest = approval_sha(staging_root, approval)
+        self._known_records = known_records
+        self._approval_digest = approval_sha(
+            staging_root, approval, known_records=known_records
+        )
         self._month = month
         self._entries = {}
+        self._relations = {}
         self._closed = False
 
     def close(self):
-        self._entries.clear()
-        self._closed = True
+        with resource_cleanup(
+            *(
+                lambda path=path: self.release_source_relation(path)
+                for path in tuple(self._relations)
+            )
+        ):
+            self._closed = True
+            self._entries.clear()
 
     def _require_scope(self, connection, *, staging_root, approval, record=None):
         if (
@@ -332,7 +393,8 @@ class BootstrapFragmentVerification:
             or connection is not self._connection
             or Path(staging_root) != self._staging_root
             or approval != self._approval
-            or approval_sha(staging_root, approval) != self._approval_digest
+            or approval_sha(staging_root, approval, known_records=self._known_records)
+            != self._approval_digest
         ):
             raise ValueError("bootstrap片段验证上下文已关闭或连接/operation/批准不符")
         if record is not None and (
@@ -354,7 +416,7 @@ class BootstrapFragmentVerification:
             self._staging_root, self._approval, fragment.relative_path
         )
 
-    def remember_saved(self, *, connection, path, fragment):
+    def remember_saved(self, *, connection, path, fragment, source_relation):
         """Accept only the writer's already-complete real Parquet readback."""
         self._require_scope(
             connection, staging_root=self._staging_root, approval=self._approval
@@ -362,12 +424,14 @@ class BootstrapFragmentVerification:
         if path != self._path(fragment):
             raise ValueError("bootstrap已核片段路径与描述不符")
         before = stk_factor_pro_fragment_file_signature(path)
-        if (
-            factor_file_sha(path) != fragment.file_sha256
-            or stk_factor_pro_fragment_file_signature(path) != before
-        ):
-            raise ValueError("bootstrap已核片段登记前改变")
         self._entries[path] = (before, fragment)
+        self._relations[path] = source_relation
+        self._known_records[path] = (fragment, fragment.file_sha256, before)
+
+    def release_source_relation(self, path):
+        relation = self._relations.pop(path, None)
+        if relation is not None:
+            self._connection.execute(f"DROP TABLE IF EXISTS {relation}")
 
     def verify(self, connection, *, staging_root, approval, record, reference):
         self._require_scope(
@@ -376,119 +440,139 @@ class BootstrapFragmentVerification:
         path = self._path(reference.fragment)
         before = stk_factor_pro_fragment_file_signature(path)
         observed = self._entries.get(path)
-        if observed != (before, reference.fragment):
-            self._entries.pop(path, None)
-            before = _verify_bootstrap_source_fragment(
+        if observed is not None and observed != (before, reference.fragment):
+            raise ValueError("bootstrap片段首次确认后的身份或描述已改变")
+        if observed is None:
+            before, relation = _verify_bootstrap_source_fragment(
                 connection,
                 path=path,
                 root=operation_root(staging_root, approval),
                 fragment=reference.fragment,
             )
             self._entries[path] = (before, reference.fragment)
-        return path, before
+            self._relations[path] = relation
+            self._known_records[path] = (
+                reference.fragment,
+                reference.fragment.file_sha256,
+                before,
+            )
+        if path not in self._relations:
+            raise ValueError("bootstrap片段本次关系已释放，不能重新回盘读取")
+        return path, before, self._relations[path]
 
 
 def load_complete_source(
-    connection, *, staging_root, approval, record, verification=None
+    connection, *, staging_root, approval, record, verification, known_records
 ):
-    """Verify exact referenced fragments, then materialize one bounded full day."""
-    _source_identity(staging_root, approval, record)
-    if verification is not None:
-        verification._require_scope(
-            connection, staging_root=staging_root, approval=approval, record=record
-        )
-    paths = []
-    identities = []
-    root = operation_root(staging_root, approval)
-    for reference in record.fragments:
-        fragment = reference.fragment
-        wanted = f"source/month={record.month_start:%Y-%m}/attempt_id={record.attempt_id}/fragment-{reference.fragment_no:06d}.parquet"
-        if (
-            fragment.relative_path != wanted
-            or reference.attempt_id != record.attempt_id
-        ):
-            raise ValueError("bootstrap片段位置/attempt不符")
-        if verification is None:
-            path = operation_path(staging_root, approval, wanted)
-            before = _verify_bootstrap_source_fragment(
-                connection, path=path, root=root, fragment=fragment
-            )
-        else:
-            path, before = verification.verify(
+    """Restore one day from each necessary fragment's first actual readback."""
+    path = operation_path(
+        staging_root,
+        approval,
+        f"source/dates/{record.trade_date.isoformat()}/source-complete.json",
+    )
+    if path not in known_records or known_records[path][0] != record:
+        raise ValueError("bootstrap源恢复缺少本次首次核实的完整日记录")
+    verification._require_scope(
+        connection, staging_root=staging_root, approval=approval, record=record
+    )
+    for prior_path, (_, fragment) in tuple(verification._entries.items()):
+        if fragment.max_trade_date < record.trade_date:
+            verification.release_source_relation(prior_path)
+    fields = ",".join(
+        f'CAST(NULL AS {kind}) AS "{name}"'
+        for name, kind in C.STK_FACTOR_PRO_RAW_COLUMN_TYPES.items()
+    )
+    connection.execute(
+        f"CREATE TEMP TABLE {BOOTSTRAP_DAY_SOURCE} AS SELECT {fields} WHERE false"
+    )
+    actual_rows = 0
+    consumed = []
+    primary = None
+    try:
+        for reference in record.fragments:
+            fragment = reference.fragment
+            wanted = f"source/month={record.month_start:%Y-%m}/attempt_id={record.attempt_id}/fragment-{reference.fragment_no:06d}.parquet"
+            if (
+                fragment.relative_path != wanted
+                or reference.attempt_id != record.attempt_id
+            ):
+                raise ValueError("bootstrap片段位置/attempt不符")
+            fragment_path, _, relation = verification.verify(
                 connection,
                 staging_root=staging_root,
                 approval=approval,
                 record=record,
                 reference=reference,
             )
-        relation = "stk_factor_bootstrap_fragment_day_presence"
-        connection.execute(
-            f"CREATE OR REPLACE TEMP VIEW {relation} AS SELECT * FROM {read_parquet(path, hive_partitioning=False)}"
-        )
-        with resource_cleanup(
-            lambda relation=relation: connection.execute(
-                f"DROP VIEW IF EXISTS {relation}"
-            )
-        ):
-            if not connection.execute(
-                f"SELECT count(*) FROM {relation} WHERE trade_date=?",
+            count = connection.execute(
+                f"INSERT INTO {BOOTSTRAP_DAY_SOURCE} SELECT * FROM {relation} WHERE trade_date=?",
                 [record.trade_date.strftime("%Y%m%d")],
-            ).fetchone()[0]:
+            ).fetchone()[0]
+            if not count:
                 raise ValueError("bootstrap引用片段没有本日行")
-        if stk_factor_pro_fragment_file_signature(path) != before:
-            raise ValueError("bootstrap源片段本日读取期间改变")
-        paths.append(str(path))
-        identities.append((path, before))
-    for path, before in identities:
-        if stk_factor_pro_fragment_file_signature(path) != before:
-            raise ValueError("bootstrap源片段本日物化前改变")
-    connection.execute(f"DROP TABLE IF EXISTS {BOOTSTRAP_DAY_SOURCE}")
-    if paths:
-        connection.execute(
-            f"CREATE TEMP TABLE {BOOTSTRAP_DAY_SOURCE} AS SELECT * FROM read_parquet(?,hive_partitioning=false) WHERE trade_date=?",
-            [paths, record.trade_date.strftime("%Y%m%d")],
-        )
-    else:
-        fields = ",".join(
-            f'CAST(NULL AS {kind}) AS "{name}"'
-            for name, kind in C.STK_FACTOR_PRO_RAW_COLUMN_TYPES.items()
-        )
-        connection.execute(
-            f"CREATE TEMP TABLE {BOOTSTRAP_DAY_SOURCE} AS SELECT {fields} WHERE false"
-        )
-    try:
-        for path, before in identities:
-            if stk_factor_pro_fragment_file_signature(path) != before:
-                raise ValueError("bootstrap源片段本日物化期间改变")
-        count, _ = require_factor_relation(
-            connection,
-            BOOTSTRAP_DAY_SOURCE,
-            target_trade_date=record.trade_date,
-            layer="raw",
-        )
+            actual_rows += count
+            if fragment.max_trade_date <= record.trade_date:
+                consumed.append(fragment_path)
         if (
-            count != record.actual_rows
+            actual_rows != record.actual_rows
             or factor_content_sha(connection, BOOTSTRAP_DAY_SOURCE)
             != record.date_content_sha256
         ):
             raise ValueError("bootstrap完整日源行数/业务内容不符")
-    except BaseException as primary:
-        try:
-            connection.execute(f"DROP TABLE IF EXISTS {BOOTSTRAP_DAY_SOURCE}")
-        except BaseException as cleanup:  # noqa: BLE001 - retain the original cancellation/failure
-            primary.add_note(f"bootstrap源验证清理同时失败：{type(cleanup).__name__}")
+        return BOOTSTRAP_DAY_SOURCE
+    except BaseException as error:
+        primary = error
         raise
+    finally:
+        releases = [
+            lambda fragment_path=fragment_path: verification.release_source_relation(
+                fragment_path
+            )
+            for fragment_path in consumed
+        ]
+        if primary is not None:
+            releases.append(
+                lambda: connection.execute(
+                    f"DROP TABLE IF EXISTS {BOOTSTRAP_DAY_SOURCE}"
+                )
+            )
+        with resource_cleanup(*releases):
+            if primary is not None:
+                raise primary
 
 
 def write_stk_factor_pro_bootstrap_source_complete(
-    connection, *, staging_root, approval, record, check_space, verification=None
+    connection,
+    *,
+    staging_root,
+    approval,
+    record,
+    approved_date_rows,
+    source_relation,
+    check_space,
+    verification=None,
+    known_records,
 ):
-    _source_identity(staging_root, approval, record)
-    counts = dict(
-        load_approved_counts(connection, staging_root=staging_root, approval=approval)
-    )
-    if counts[record.trade_date] != record.approved_rows:
+    if (
+        record.operation_id != approval.operation_id
+        or record.approval_digest
+        != approval_sha(staging_root, approval, known_records=known_records)
+        or record.source_identity_digest != approval.source_identity_digest
+        or record.contract_content_digest != approval.contract_content_digest
+        or record.source_cutoff_trade_date != approval.source_cutoff_trade_date
+        or not approval.start_trade_date <= record.trade_date <= approval.end_trade_date
+        or source_relation != BOOTSTRAP_DAY_SOURCE
+    ):
+        raise ValueError("bootstrap完整日源与本次批准/关系不符")
+    if (
+        type(approved_date_rows) is not int
+        or approved_date_rows != record.approved_rows
+    ):
         raise ValueError("bootstrap完整日源计数不符批准")
+    if verification is not None:
+        verification._require_scope(
+            connection, staging_root=staging_root, approval=approval, record=record
+        )
     check_space(
         "完整日源记录保存前",
         path=operation_path(
@@ -499,39 +583,16 @@ def write_stk_factor_pro_bootstrap_source_complete(
         trade_date=record.trade_date,
         rows=record.actual_rows,
     )
-    with resource_cleanup(
-        lambda: connection.execute(f"DROP TABLE IF EXISTS {BOOTSTRAP_DAY_SOURCE}")
-    ):
-        load_complete_source(
-            connection,
-            staging_root=staging_root,
-            approval=approval,
-            record=record,
-            verification=verification,
-        )
-        return write_json(
-            operation_path(
-                staging_root,
-                approval,
-                f"source/dates/{record.trade_date.isoformat()}/source-complete.json",
-            ),
-            record,
-            check_space=check_space,
-        )
-
-
-@dataclass(frozen=True, slots=True)
-class BootstrapSpaceEstimate:
-    """Additional bytes still required, not bytes already present on disk."""
-
-    source_bytes: int
-    candidate_bytes: int
-    temp_bytes: int
-    record_bytes: int
-
-    def __post_init__(self):
-        for name in ("source_bytes", "candidate_bytes", "temp_bytes", "record_bytes"):
-            _space_count(getattr(self, name), name)
+    return write_json(
+        operation_path(
+            staging_root,
+            approval,
+            f"source/dates/{record.trade_date.isoformat()}/source-complete.json",
+        ),
+        record,
+        check_space=check_space,
+        known_records=known_records,
+    )
 
 
 def _space_count(value, name, *, minimum=0):
@@ -549,9 +610,9 @@ def estimate_bootstrap_space(
     remaining_date_count,
     statistics_only=False,
     remaining_layer_totals=None,
-    observed_row_bytes=4178,
-    observed_file_overhead=4 * 1024 * 1024,
-    observed_record_bytes=1024 * 1024,
+    observed_row_bytes=C.STK_FACTOR_PRO_ESTIMATED_ROW_BYTES,
+    observed_file_overhead=C.STK_FACTOR_PRO_ESTIMATED_FILE_OVERHEAD_BYTES,
+    observed_record_bytes=C.STK_FACTOR_PRO_ESTIMATED_RECORD_BYTES,
 ):
     """LLD 17.8.2 arithmetic over already verified counts; performs no IO."""
     for name, values in (
@@ -582,11 +643,21 @@ def estimate_bootstrap_space(
     if pending_fetch_rows > 5000:
         raise ValueError("bootstrap空间估算当前批不能超过5000行")
     _space_count(remaining_date_count, "remaining_date_count")
-    _space_count(observed_row_bytes, "observed_row_bytes", minimum=4178)
     _space_count(
-        observed_file_overhead, "observed_file_overhead", minimum=4 * 1024 * 1024
+        observed_row_bytes,
+        "observed_row_bytes",
+        minimum=C.STK_FACTOR_PRO_ESTIMATED_ROW_BYTES,
     )
-    _space_count(observed_record_bytes, "observed_record_bytes", minimum=1024 * 1024)
+    _space_count(
+        observed_file_overhead,
+        "observed_file_overhead",
+        minimum=C.STK_FACTOR_PRO_ESTIMATED_FILE_OVERHEAD_BYTES,
+    )
+    _space_count(
+        observed_record_bytes,
+        "observed_record_bytes",
+        minimum=C.STK_FACTOR_PRO_ESTIMATED_RECORD_BYTES,
+    )
 
     def file_bytes(rows):
         return observed_row_bytes * rows + observed_file_overhead if rows else 0
@@ -669,7 +740,7 @@ def require_bootstrap_space(
             amount + (0 if previous is None else previous[1]),
         )
     for device, (ancestor, amount) in devices.items():
-        required = amount + 16 * 1024 * 1024
+        required = amount + C.STK_FACTOR_PRO_FREE_SPACE_MARGIN_BYTES
         try:
             free = shutil.disk_usage(ancestor).free
         except OSError as error:

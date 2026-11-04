@@ -2,6 +2,7 @@ import json
 import os
 import subprocess
 import sys
+from collections import Counter
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
@@ -14,6 +15,8 @@ from orchestrator.defs.checks.stk_factor_pro import (
     audit_stk_factor_pro_file,
     factor_file_sha,
 )
+from orchestrator.defs.io import stk_factor_pro_candidates as candidate_module
+from orchestrator.defs.io import stk_factor_pro_download as download_module
 from orchestrator.defs.io import stk_factor_pro_publication as publication
 from orchestrator.defs.io.stk_factor_pro_candidates import (
     release_stk_factor_pro_day_source,
@@ -41,7 +44,9 @@ def roots(tmp_path):
     return lake, staging
 
 
-def run_day(conn, lake, staging, rows, run="run-a", check=lambda: None):
+def run_day(
+    conn, lake, staging, rows, run="run-a", check=lambda: None, *, known_records
+):
     downloader = Downloader(result(rows))
     source = download_stk_factor_pro_day(
         conn,
@@ -58,6 +63,7 @@ def run_day(conn, lake, staging, rows, run="run-a", check=lambda: None):
                 lake_root=lake,
                 staging_root=staging,
                 check_cancel=check,
+                known_records=known_records,
             )
         )
         return outputs, downloader
@@ -66,10 +72,15 @@ def run_day(conn, lake, staging, rows, run="run-a", check=lambda: None):
 
 
 def test_raw_merge_silver_from_full_raw_and_nullable_negative_values(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         first, _ = run_day(
-            conn, lake, staging, (row(), row("600000.SH", close=Decimal(20)))
+            conn,
+            lake,
+            staging,
+            (row(), row("600000.SH", close=Decimal(20))),
+            known_records={},
         )
         assert [r.layer for r, _ in first] == ["raw", "silver"]
         updated, loader = run_day(
@@ -78,6 +89,7 @@ def test_raw_merge_silver_from_full_raw_and_nullable_negative_values(tmp_path):
             staging,
             (row(close=Decimal(12)), row("000002.SZ", close=Decimal(30))),
             run="run-b",
+            known_records=known_records,
         )
         assert len(loader.calls) == 1
         raw, silver = (
@@ -106,15 +118,18 @@ def test_raw_merge_silver_from_full_raw_and_nullable_negative_values(tmp_path):
 
 
 def test_empty_initial_no_files_and_empty_later_preserves_old(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        empty, loader = run_day(conn, lake, staging, (), run="empty")
+        empty, loader = run_day(conn, lake, staging, (), run="empty", known_records={})
         assert empty == [] and loader.closed
         assert list(lake.rglob("*.parquet")) == [] and list(staging.rglob("*")) == []
-        run_day(conn, lake, staging, (row(),), run="has-data")
+        run_day(conn, lake, staging, (row(),), run="has-data", known_records={})
         old = raw_stk_factor_pro_path(lake, DAY.isoformat())
         sha = factor_file_sha(old)
-        outputs, _ = run_day(conn, lake, staging, (), run="empty-with-old")
+        outputs, _ = run_day(
+            conn, lake, staging, (), run="empty-with-old", known_records=known_records
+        )
         assert factor_file_sha(old) == sha and all(a.row_count == 1 for _, a in outputs)
         assert all(
             publication.read_stk_factor_pro_publication_record(
@@ -122,7 +137,8 @@ def test_empty_initial_no_files_and_empty_later_preserves_old(tmp_path):
                 / "stk_factor_pro"
                 / f"trade_date={DAY}"
                 / "run_id=empty-with-old"
-                / r.checkpoint_ref.relative_path
+                / r.checkpoint_ref.relative_path,
+                known_records=known_records,
             ).mode
             == "reuse"
             for r, _ in outputs
@@ -130,12 +146,14 @@ def test_empty_initial_no_files_and_empty_later_preserves_old(tmp_path):
 
 
 def test_two_rounds_do_not_retain_delivered_unit_references(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     value = result((row(),))
     loader = Downloader(value)
     baseline = sys.getrefcount(value)
     with connection(tmp_path) as conn:
         for run in ("first-round", "second-round"):
+            known_records = {}
             source = download_stk_factor_pro_day(
                 conn,
                 identity=identity(run),
@@ -151,6 +169,7 @@ def test_two_rounds_do_not_retain_delivered_unit_references(tmp_path):
                         lake_root=lake,
                         staging_root=staging,
                         check_cancel=lambda: None,
+                        known_records=known_records,
                     )
                 )
                 assert len(outputs) == 2
@@ -162,47 +181,167 @@ def test_two_rounds_do_not_retain_delivered_unit_references(tmp_path):
 
 
 def test_prior_plan_directory_allowed_but_day_candidates_cannot_resume(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     directory = staging / "stk_factor_pro" / f"trade_date={DAY}" / "run_id=run-a"
     directory.mkdir(parents=True)
     plan = directory / "history-plan.json"
     plan.write_text('{"test":"owned by earlier job step"}')
     with connection(tmp_path) as conn:
-        outputs, _ = run_day(conn, lake, staging, (row(),))
+        outputs, _ = run_day(conn, lake, staging, (row(),), known_records=known_records)
         assert (
             len(outputs) == 2
             and plan.read_text() == '{"test":"owned by earlier job step"}'
         )
         with pytest.raises(ValueError, match="已有日候选"):
-            run_day(conn, lake, staging, (row(close=Decimal(12)),))
+            run_day(
+                conn,
+                lake,
+                staging,
+                (row(close=Decimal(12)),),
+                known_records=known_records,
+            )
 
 
-def test_modified_current_u_rejected_before_candidate_or_target(tmp_path):
+def test_complete_day_reuses_source_old_files_and_unique_candidate_audits(
+    tmp_path, monkeypatch
+):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        source = download_stk_factor_pro_day(
+        run_day(
             conn,
-            identity=identity(),
-            contract=contract(),
-            downloader=Downloader(result((row(),))),
-            check_cancel=lambda: None,
+            lake,
+            staging,
+            (row(), row("600000.SH", close=Decimal(20))),
+            run="baseline",
+            known_records={},
         )
-        conn.execute("UPDATE stk_factor_pro_day_source SET close=999")
-        with pytest.raises(ValueError, match="内存U已改变"):
-            list(
-                publication.publish_stk_factor_pro_day(
-                    conn,
-                    source=source,
-                    lake_root=lake,
-                    staging_root=staging,
-                    check_cancel=lambda: None,
+        source_checks, digests, hashes, audits = Counter(), Counter(), Counter(), []
+        original_require = check_module.require_factor_relation
+        original_digest = check_module.factor_content_sha
+        original_hash = check_module.factor_file_sha
+        original_audit = check_module.audit_stk_factor_pro_file
+
+        def require_once(connection, relation, **kwargs):
+            source_checks[relation] += 1
+            return original_require(connection, relation, **kwargs)
+
+        def digest_once(connection, relation):
+            digests[relation] += 1
+            return original_digest(connection, relation)
+
+        def hash_once(path):
+            hashes[Path(path)] += 1
+            return original_hash(path)
+
+        def first_audit(connection, **kwargs):
+            audit = original_audit(connection, **kwargs)
+            audits.append(audit)
+            return audit
+
+        for module in (check_module, candidate_module, download_module):
+            if hasattr(module, "require_factor_relation"):
+                monkeypatch.setattr(module, "require_factor_relation", require_once)
+            if hasattr(module, "factor_content_sha"):
+                monkeypatch.setattr(module, "factor_content_sha", digest_once)
+            if hasattr(module, "factor_file_sha"):
+                monkeypatch.setattr(module, "factor_file_sha", hash_once)
+        monkeypatch.setattr(publication, "factor_file_sha", hash_once)
+        monkeypatch.setattr(candidate_module, "audit_stk_factor_pro_file", first_audit)
+
+        class Reads:
+            def __init__(self):
+                self.sql = []
+
+            def __getattr__(self, name):
+                return getattr(conn, name)
+
+            def execute(self, query, parameters=None):
+                self.sql.append((str(query), parameters))
+                return (
+                    conn.execute(query)
+                    if parameters is None
+                    else conn.execute(query, parameters)
                 )
-            )
-        release_stk_factor_pro_day_source(conn)
-        assert list(lake.rglob("*")) == list(staging.rglob("*")) == []
+
+        observed = Reads()
+        outputs, _ = run_day(
+            observed,
+            lake,
+            staging,
+            (row(close=Decimal(12)), row("000002.SZ", close=Decimal(30))),
+            run="current",
+            known_records=known_records,
+        )
+        assert source_checks[candidate_module.DAY_SOURCE] == 1
+        assert digests[candidate_module.DAY_SOURCE] == 1
+        assert len(audits) == 2 and {audit.layer for audit in audits} == {
+            "raw",
+            "silver",
+        }
+        assert all(audit.passed for audit in audits)
+        assert all(hashes[audit.path] == 1 for audit in audits)
+        for (_, actual), checked in zip(outputs, audits, strict=True):
+            assert actual.comparison is checked.comparison
+            assert actual.file_sha256 == checked.file_sha256
+        for path in (
+            raw_stk_factor_pro_path(lake, DAY.isoformat()),
+            silver_stock_factor_pro_path(lake, DAY.isoformat()),
+        ):
+            assert hashes[path] == 1
+            matching = [
+                query
+                for query, parameters in observed.sql
+                if "read_parquet" in query.lower()
+                and str(path) in query + repr(parameters)
+            ]
+            assert len(matching) == 1
+        # A newly saved file is materialized once for its actual transport
+        # check; a lazy file view would decode it again in later consumers.
+        assert not [
+            query
+            for query, _ in observed.sql
+            if "read_parquet" in query.lower() and "view" in query.lower()
+        ]
+        assert conn.execute(
+            "SELECT ts_code,close,macd_bfq,pe FROM read_parquet(?,hive_partitioning=false) ORDER BY ts_code",
+            [str(raw_stk_factor_pro_path(lake, DAY.isoformat()))],
+        ).fetchall() == [
+            ("000001.SZ", 12.0, -1.25, None),
+            ("000002.SZ", 30.0, -1.25, None),
+            ("600000.SH", 20.0, -1.25, None),
+        ]
+
+
+def test_first_candidate_transport_corruption_is_rejected_before_formal_publish(
+    tmp_path, monkeypatch
+):
+    lake, staging = roots(tmp_path)
+    original = candidate_module.copy_query_to_parquet
+    outputs = []
+
+    def corrupted_output(query, target):
+        outputs.append(target)
+        projection = ", ".join(
+            '999.0::DOUBLE AS "close"' if field == "close" else f'"{field}"'
+            for field in candidate_module.STK_FACTOR_PRO_SOURCE_COLUMNS
+        )
+        return original(f"SELECT {projection} FROM ({query}) first_output", target)
+
+    monkeypatch.setattr(candidate_module, "copy_query_to_parquet", corrupted_output)
+    with (
+        connection(tmp_path) as conn,
+        pytest.raises(ValueError, match="未通过|对账|校验"),
+    ):
+        run_day(conn, lake, staging, (row(),), known_records={})
+    assert len(outputs) == 1 and outputs[0].is_file()
+    assert not raw_stk_factor_pro_path(lake, DAY.isoformat()).exists()
+    assert not silver_stock_factor_pro_path(lake, DAY.isoformat()).exists()
 
 
 def test_cancel_after_raw_complete_stops_silver_without_rollback(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         source = download_stk_factor_pro_day(
@@ -224,6 +363,7 @@ def test_cancel_after_raw_complete_stops_silver_without_rollback(tmp_path):
             lake_root=lake,
             staging_root=staging,
             check_cancel=check,
+            known_records=known_records,
         )
         next(iterator)
         cancel[0] = True
@@ -236,6 +376,7 @@ def test_cancel_after_raw_complete_stops_silver_without_rollback(tmp_path):
 
 
 def test_symlink_roots_and_relative_roots_rejected(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     alias = tmp_path / "alias"
     alias.symlink_to(lake, target_is_directory=True)
@@ -256,6 +397,7 @@ def test_symlink_roots_and_relative_roots_rejected(tmp_path):
                         lake_root=root,
                         staging_root=staging,
                         check_cancel=lambda: None,
+                        known_records=known_records,
                     )
                 )
         release_stk_factor_pro_day_source(conn)
@@ -265,6 +407,7 @@ def test_symlink_roots_and_relative_roots_rejected(tmp_path):
 def test_candidate_directory_symlink_rejected_before_any_write(tmp_path, dangling):
     # LLD 15.9: this is the independently reproduced bad directory layout,
     # not a simulated COPY failure. An ordinary run root may already exist.
+    known_records = {}
     lake, staging = roots(tmp_path)
     outside = tmp_path / "outside"
     if not dangling:
@@ -273,7 +416,7 @@ def test_candidate_directory_symlink_rejected_before_any_write(tmp_path, danglin
     run_root.mkdir(parents=True)
     (run_root / "candidates").symlink_to(outside, target_is_directory=True)
     with connection(tmp_path) as conn, pytest.raises(ValueError, match="路径|候选"):
-        run_day(conn, lake, staging, (row(),))
+        run_day(conn, lake, staging, (row(),), known_records=known_records)
     assert list(outside.rglob("*")) == []
     assert outside.exists() is (not dangling)
     assert list(lake.rglob("*")) == []
@@ -282,6 +425,7 @@ def test_candidate_directory_symlink_rejected_before_any_write(tmp_path, danglin
 
 @pytest.mark.parametrize("dangling", [False, True])
 def test_silver_symlink_after_raw_yield_rejected_before_write(tmp_path, dangling):
+    known_records = {}
     lake, staging = roots(tmp_path)
     outside = tmp_path / "outside"
     if not dangling:
@@ -300,6 +444,7 @@ def test_silver_symlink_after_raw_yield_rejected_before_write(tmp_path, dangling
             lake_root=lake,
             staging_root=staging,
             check_cancel=lambda: None,
+            known_records=known_records,
         )
         try:
             target, _ = next(iterator)
@@ -341,9 +486,10 @@ def test_unmounted_formal_volume_rejected_without_accessing_formal_files(monkeyp
 
 
 def test_equivalent_new_download_does_not_replace_targets(tmp_path, monkeypatch):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        run_day(conn, lake, staging, (row(),))
+        run_day(conn, lake, staging, (row(),), known_records={})
         calls = []
         original = publication.os.replace
 
@@ -352,7 +498,9 @@ def test_equivalent_new_download_does_not_replace_targets(tmp_path, monkeypatch)
             return original(a, b)
 
         monkeypatch.setattr(publication.os, "replace", replace_file)
-        outputs, loader = run_day(conn, lake, staging, (row(),), run="equivalent")
+        outputs, loader = run_day(
+            conn, lake, staging, (row(),), run="equivalent", known_records=known_records
+        )
         assert len(loader.calls) == 1 and len(outputs) == 2
         assert not any(path.is_relative_to(lake) for path in calls)
 
@@ -360,6 +508,7 @@ def test_equivalent_new_download_does_not_replace_targets(tmp_path, monkeypatch)
 def test_raw_yield_precedes_silver_and_failure_preserves_actual_raw(
     tmp_path, monkeypatch
 ):
+    known_records = {}
     lake, staging = roots(tmp_path)
 
     def fail_silver(*args, **kwargs):
@@ -382,6 +531,7 @@ def test_raw_yield_precedes_silver_and_failure_preserves_actual_raw(
             lake_root=lake,
             staging_root=staging,
             check_cancel=lambda: None,
+            known_records=known_records,
         )
         target, audit = next(iterator)
         assert target.layer == "raw" and audit.passed
@@ -394,14 +544,15 @@ def test_raw_yield_precedes_silver_and_failure_preserves_actual_raw(
 
 
 @pytest.mark.parametrize(
-    "change", ["target", "candidate", "cancel", "space", "device", "raw_for_silver"]
+    "change", ["target", "cancel", "space", "device", "raw_for_silver"]
 )
 def test_publication_rechecks_before_replace_and_preserves_committed_files(
     tmp_path, monkeypatch, change
 ):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        run_day(conn, lake, staging, (row(),), run="baseline")
+        run_day(conn, lake, staging, (row(),), run="baseline", known_records={})
         raw = raw_stk_factor_pro_path(lake, DAY.isoformat())
         silver = silver_stock_factor_pro_path(lake, DAY.isoformat())
         old_silver = factor_file_sha(silver)
@@ -413,10 +564,6 @@ def test_publication_rechecks_before_replace_and_preserves_committed_files(
             if calls[0] == 2:
                 if change == "target":
                     raw.write_bytes(b"external change")
-                if change == "candidate":
-                    next(
-                        staging.rglob("run_id=changed/candidates/day/raw/data.parquet")
-                    ).write_bytes(b"changed")
                 if change == "cancel":
                     raise RuntimeError("synthetic cancellation")
                 if change == "space":
@@ -456,14 +603,19 @@ def test_publication_rechecks_before_replace_and_preserves_committed_files(
                 (row(close=Decimal(12)),),
                 run="changed",
                 check=check,
+                known_records=known_records,
             )
         assert factor_file_sha(silver) == old_silver
 
 
 def test_full_field_comparison_null_mismatch_and_equal_count_different_keys(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        run_day(conn, lake, staging, (row(),))
+        run_day(conn, lake, staging, (row(),), known_records=known_records)
+        # The producer has released its SQL relations. This independent audit
+        # has its own task dictionary, shared across its two expected inputs.
+        known_records = {}
         raw = raw_stk_factor_pro_path(lake, DAY.isoformat())
         conn.execute(
             "CREATE TEMP TABLE expected AS SELECT * FROM read_parquet(?,hive_partitioning=false)",
@@ -477,6 +629,7 @@ def test_full_field_comparison_null_mismatch_and_equal_count_different_keys(tmp_
             target_trade_date=DAY,
             layer="raw",
             diagnostics_path=staging / "diagnostics.json",
+            known_records=known_records,
         )
         assert not audit.passed and audit.comparison.changed_row_count == 1
         assert dict(audit.comparison.changed_field_counts)["pe"] == 1
@@ -487,6 +640,7 @@ def test_full_field_comparison_null_mismatch_and_equal_count_different_keys(tmp_
             expected_relation="expected",
             target_trade_date=DAY,
             layer="raw",
+            known_records=known_records,
         )
         assert (
             audit.comparison.missing_key_count
@@ -496,11 +650,14 @@ def test_full_field_comparison_null_mismatch_and_equal_count_different_keys(tmp_
 
 
 def test_records_reject_unknown_history_or_noncanonical_inputs(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        run_day(conn, lake, staging, (row(),))
+        run_day(conn, lake, staging, (row(),), known_records=known_records)
     complete = next(staging.rglob("raw/complete.json"))
-    record = publication.read_stk_factor_pro_publication_record(complete)
+    record = publication.read_stk_factor_pro_publication_record(
+        complete, known_records=known_records
+    )
     assert (
         record.actual_rows == 1
         and record.verified_at.utcoffset().total_seconds() == 28800
@@ -522,14 +679,19 @@ def test_records_reject_unknown_history_or_noncanonical_inputs(tmp_path):
         path = tmp_path / f"bad-{key}.json"
         path.write_text(json.dumps({**value, key: bad}))
         with pytest.raises((ValueError, TypeError)):
-            publication.read_stk_factor_pro_publication_record(path)
+            publication.read_stk_factor_pro_publication_record(
+                path, known_records=known_records
+            )
     forged = tmp_path / "valid-but-wrong-run.json"
     forged.write_text(json.dumps(value))
     with pytest.raises(ValueError, match="物理路径"):
-        publication.read_stk_factor_pro_publication_record(forged)
+        publication.read_stk_factor_pro_publication_record(
+            forged, known_records=known_records
+        )
 
 
 def test_failed_run_and_old_candidate_not_used_on_new_download(tmp_path, monkeypatch):
+    known_records = {}
     lake, staging = roots(tmp_path)
     original = publication.build_stk_factor_pro_silver_candidate
     with connection(tmp_path) as conn:
@@ -539,11 +701,25 @@ def test_failed_run_and_old_candidate_not_used_on_new_download(tmp_path, monkeyp
             lambda *a, **k: (_ for _ in ()).throw(OSError("synthetic")),
         )
         with pytest.raises(OSError):
-            run_day(conn, lake, staging, (row(close=Decimal(10)),), run="failed")
+            run_day(
+                conn,
+                lake,
+                staging,
+                (row(close=Decimal(10)),),
+                run="failed",
+                known_records={},
+            )
         monkeypatch.setattr(
             publication, "build_stk_factor_pro_silver_candidate", original
         )
-        run_day(conn, lake, staging, (row(close=Decimal(11)),), run="newer")
+        run_day(
+            conn,
+            lake,
+            staging,
+            (row(close=Decimal(11)),),
+            run="newer",
+            known_records={},
+        )
         old_hash = publication.factor_file_sha
 
         def refuse_old(path):
@@ -552,7 +728,12 @@ def test_failed_run_and_old_candidate_not_used_on_new_download(tmp_path, monkeyp
 
         monkeypatch.setattr(publication, "factor_file_sha", refuse_old)
         _, loader = run_day(
-            conn, lake, staging, (row(close=Decimal(12)),), run="retry-new-run"
+            conn,
+            lake,
+            staging,
+            (row(close=Decimal(12)),),
+            run="retry-new-run",
+            known_records=known_records,
         )
         assert len(loader.calls) == 1
         assert (
@@ -578,7 +759,7 @@ root,lake,staging,mode=map(Path,sys.argv[1:])
 with connection(root) as conn:
     loader=Downloader(result((row(close=Decimal('10' if str(mode)=='exit' else '12')),)))
     source=download_stk_factor_pro_day(conn,identity=identity('failed' if str(mode)=='exit' else 'fresh'),contract=contract(),downloader=loader,check_cancel=lambda:None)
-    iterator=publish_stk_factor_pro_day(conn,source=source,lake_root=lake,staging_root=staging,check_cancel=lambda:None)
+    iterator=publish_stk_factor_pro_day(conn,source=source,lake_root=lake,staging_root=staging,check_cancel=lambda:None,known_records={})
     next(iterator)
     if str(mode)=='exit':
         import os
@@ -618,6 +799,7 @@ with connection(root) as conn:
 def test_saved_real_response_full_field_roundtrip_and_bounded_timing(
     tmp_path, record_property, monkeypatch
 ):
+    known_records = {}
     evidence = (
         Path(__file__).resolve().parents[2]
         / "reports/stock_factor_pro_batch1_20261026/source/component-rows.canonical.json"
@@ -676,11 +858,14 @@ def test_saved_real_response_full_field_roundtrip_and_bounded_timing(
         elapsed, measurements = [], []
         probe = CountSQL(conn)
         for run in ("normal", "same-day"):
+            known_records = {}
             hash_reads.clear()
             moves.clear()
             probe.sql_count = probe.parquet_reads = 0
             begin = perf_counter()
-            outputs, _ = run_day(probe, lake, staging, actual_day, run=run)
+            outputs, _ = run_day(
+                probe, lake, staging, actual_day, run=run, known_records=known_records
+            )
             elapsed.append(round(perf_counter() - begin, 4))
             assert len(outputs) == 2
             current_root = (

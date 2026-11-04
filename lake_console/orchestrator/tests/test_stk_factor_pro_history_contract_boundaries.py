@@ -248,6 +248,7 @@ def bootstrap_context_wire():
         "authorized_gap_input_digest": SHA,
         "authorized_missing_count": 1,
         "authorized_missing_codes_ref": {
+            "creator_run_id": None,
             "relative_path": f"coverage/2026-10-16/input={SHA}/missing-codes.parquet",
             "file_sha256": SHA,
             "row_count": 1,

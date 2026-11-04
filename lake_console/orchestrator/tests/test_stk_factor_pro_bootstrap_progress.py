@@ -79,10 +79,12 @@ class SelectedDateProd(FakeProd):
         return cursor
 
 
-def _setup(tmp_path, monkeypatch, *, counts=((DAY, 1),), rows=None, market=None):
+def _setup(
+    tmp_path, monkeypatch, *, counts=((DAY, 1),), rows=None, market=None, known_records
+):
     with connection(tmp_path) as conn:
         lake, staging, approval, identity = approval_fixture(
-            conn, tmp_path, counts=counts
+            conn, tmp_path, counts=counts, known_records=known_records
         )
         if market is not None:
             upstream(conn, lake, days=tuple(d for d, _ in counts), **market)
@@ -146,6 +148,7 @@ def _data(lake, day, layer):
 def test_standard_sequence_and_fields_after_owned_connection_closed(
     tmp_path, monkeypatch, caplog
 ):
+    known_records = {}
     following = DAY + timedelta(days=1)
     counts = ((DAY, 1), (following, 2))
     rows = [
@@ -153,7 +156,9 @@ def test_standard_sequence_and_fields_after_owned_connection_closed(
         native_row("000001.SZ", following),
         native_row("000002.SZ", following),
     ]
-    args, state, _, _, _ = _setup(tmp_path, monkeypatch, counts=counts, rows=rows)
+    args, state, _, _, _ = _setup(
+        tmp_path, monkeypatch, counts=counts, rows=rows, known_records=known_records
+    )
     monkeypatch.setattr(C, "STK_FACTOR_PRO_BOOTSTRAP_FETCH_ROWS", 1)
     caplog.set_level(logging.INFO, logger=B._LOGGER.name)
     finish_states = []
@@ -233,12 +238,14 @@ def test_standard_sequence_and_fields_after_owned_connection_closed(
 def test_month_change_starts_a_new_attempt_without_cumulative_saved_rows(
     tmp_path, monkeypatch, caplog
 ):
+    known_records = {}
     first, second = date(2019, 10, 31), date(2019, 11, 1)
     args, _, _, _, _ = _setup(
         tmp_path,
         monkeypatch,
         counts=((first, 1), (second, 1)),
         rows=[native_row(day=first), native_row(day=second)],
+        known_records=known_records,
     )
     caplog.set_level(logging.INFO, logger=B._LOGGER.name)
     result = B.bootstrap_stk_factor_pro_history(**args)
@@ -258,6 +265,7 @@ def test_month_change_starts_a_new_attempt_without_cumulative_saved_rows(
 def test_empty_date_is_counted_and_replay_restores_completed_date_baseline(
     tmp_path, monkeypatch, caplog, middle_closed
 ):
+    known_records = {}
     days = (DAY - timedelta(days=1), DAY, DAY + timedelta(days=1))
     counts = ((days[0], 1), (DAY, 0), (days[2], 1))
     args, _, lake, _, _ = _setup(
@@ -273,6 +281,7 @@ def test_empty_date_is_counted_and_replay_restores_completed_date_baseline(
                 ("SSE", days[2], True, days[0] if middle_closed else DAY),
             ],
         },
+        known_records=known_records,
     )
     caplog.set_level(logging.INFO, logger=B._LOGGER.name)
     B.bootstrap_stk_factor_pro_history(**args)
@@ -302,7 +311,8 @@ def test_empty_date_is_counted_and_replay_restores_completed_date_baseline(
 def test_business_or_connection_close_failure_never_reports_operation_finished(
     tmp_path, monkeypatch, caplog, failure
 ):
-    args, state, lake, _, _ = _setup(tmp_path, monkeypatch)
+    known_records = {}
+    args, state, lake, _, _ = _setup(tmp_path, monkeypatch, known_records=known_records)
     caplog.set_level(logging.INFO, logger=B._LOGGER.name)
     primary = OSError(f"intentional {failure} failure")
 
@@ -338,7 +348,8 @@ def test_business_or_connection_close_failure_never_reports_operation_finished(
 def test_broken_log_handler_warns_once_without_retries_or_repeated_publication(
     tmp_path, monkeypatch, caplog, capsys
 ):
-    args, _, _, _, _ = _setup(tmp_path, monkeypatch)
+    known_records = {}
+    args, _, _, _, _ = _setup(tmp_path, monkeypatch, known_records=known_records)
     caplog.set_level(logging.INFO, logger=B._LOGGER.name)
     calls = []
 
@@ -351,9 +362,9 @@ def test_broken_log_handler_warns_once_without_retries_or_repeated_publication(
     replacements = []
     original = P.atomic_promote
 
-    def promote(candidate, target):
+    def promote(candidate, target, **kwargs):
         replacements.append(target)
-        return original(candidate, target)
+        return original(candidate, target, **kwargs)
 
     monkeypatch.setattr(P, "atomic_promote", promote)
     result = B.bootstrap_stk_factor_pro_history(**args)
@@ -377,12 +388,14 @@ def test_broken_log_handler_warns_once_without_retries_or_repeated_publication(
 def test_post_publication_capacity_failure_keeps_completed_date_in_failed_summary(
     tmp_path, monkeypatch, caplog
 ):
+    known_records = {}
     following = DAY + timedelta(days=1)
     args, state, lake, staging, approval = _setup(
         tmp_path,
         monkeypatch,
         counts=((DAY, 1), (following, 1)),
         rows=[native_row(), native_row(day=following)],
+        known_records=known_records,
     )
     first_result = R.operation_root(staging, approval) / f"coverage/{DAY}/result.json"
     monkeypatch.setattr(
@@ -402,7 +415,10 @@ def test_post_publication_capacity_failure_keeps_completed_date_in_failed_summar
     assert events[-2]["completed_dates"] == events[-1]["completed_dates"] == 1
     assert events[-2]["source_rows"] == 1
     assert events[-1]["source_rows"] is None
-    assert events[-1]["space_estimate_stage"] == "完整日期处理完成"
+    # Failure remains at the original business stage; its one summary attempt
+    # reports the new, real summary-only capacity boundary (LLD 17.8.2).
+    assert events[-1]["stage"] == "完整日期处理完成"
+    assert events[-1]["space_estimate_stage"] == "最终统计准备前"
     assert events[-1]["space_initial_estimate"] == {
         "source_bytes": 4_202_660,
         "candidate_bytes": 16_793_928,
@@ -410,7 +426,9 @@ def test_post_publication_capacity_failure_keeps_completed_date_in_failed_summar
         "record_bytes": 3_145_728,
     }
     assert events[-1]["space_latest_estimate"]["source_bytes"] == 0
-    assert events[-1]["space_latest_estimate"]["candidate_bytes"] == 8_396_964
+    assert events[-1]["space_latest_estimate"]["candidate_bytes"] == 0
+    assert events[-1]["space_latest_estimate"]["temp_bytes"] == 0
+    assert events[-1]["space_latest_estimate"]["record_bytes"] == 1_048_576
     assert first_result.is_file() and state.closed == ["duckdb_closed"]
     assert not any(event["event"] == "operation_finished" for event in events)
     for layer in ("raw", "silver"):
@@ -422,7 +440,8 @@ def test_post_publication_capacity_failure_keeps_completed_date_in_failed_summar
 def test_log_control_exception_propagates_and_resources_close(
     tmp_path, monkeypatch, caplog, kind
 ):
-    args, state, _, _, _ = _setup(tmp_path, monkeypatch)
+    known_records = {}
+    args, state, _, _, _ = _setup(tmp_path, monkeypatch, known_records=known_records)
     caplog.set_level(logging.INFO, logger=B._LOGGER.name)
     primary = kind("intentional log interruption")
 
@@ -441,7 +460,8 @@ def test_log_control_exception_propagates_and_resources_close(
 def test_failure_log_interruption_and_close_error_keep_original_business_error(
     tmp_path, monkeypatch, caplog, kind
 ):
-    args, state, _, _, _ = _setup(tmp_path, monkeypatch)
+    known_records = {}
+    args, state, _, _, _ = _setup(tmp_path, monkeypatch, known_records=known_records)
     caplog.set_level(logging.INFO, logger=B._LOGGER.name)
     primary = RuntimeError("original business failure")
     state.close_error = OSError("connection close failure")
@@ -466,7 +486,10 @@ def test_failure_log_interruption_and_close_error_keep_original_business_error(
 def test_reused_complete_source_reports_zero_new_downloads(
     tmp_path, monkeypatch, caplog
 ):
-    args, _, lake, staging, approval = _setup(tmp_path, monkeypatch)
+    known_records = {}
+    args, _, lake, staging, approval = _setup(
+        tmp_path, monkeypatch, known_records=known_records
+    )
     original = P.build_stk_factor_pro_silver_candidate
 
     def fail(*_values, **_keywords):
@@ -507,7 +530,10 @@ def test_reused_complete_source_reports_zero_new_downloads(
 def test_borrowed_connection_does_not_claim_resource_close_success(
     tmp_path, monkeypatch, caplog
 ):
-    args, _, lake, staging, _ = _setup(tmp_path, monkeypatch)
+    known_records = {}
+    args, _, lake, staging, _ = _setup(
+        tmp_path, monkeypatch, known_records=known_records
+    )
     caplog.set_level(logging.INFO, logger=B._LOGGER.name)
     with connection(tmp_path) as conn:
         result = B._run_stk_factor_pro_bootstrap(
@@ -530,12 +556,14 @@ def test_supplement_log_keeps_original_zero_source_separate_from_five_current_ro
 ):
     # Existing approved import and independent supplement fixture both use the
     # real 261-column producer; only the DG publication reader remains replaced.
+    known_records = {}
     days = (DAY - timedelta(days=1), DAY, DAY + timedelta(days=1))
     args, _, lake, staging, approval = _setup(
         tmp_path,
         monkeypatch,
         counts=((days[0], 1), (DAY, 0), (days[2], 1)),
         rows=[native_row(day=days[0]), native_row(day=days[2])],
+        known_records=known_records,
     )
     caplog.set_level(logging.INFO, logger=B._LOGGER.name)
     B.bootstrap_stk_factor_pro_history(**args)
@@ -548,6 +576,7 @@ def test_supplement_log_keeps_original_zero_source_separate_from_five_current_ro
             conn,
             {"trade_date": DAY, "lake_root": lake},
             ("000001.SZ", "000002.SZ", "000003.SZ", "000004.SZ", "000005.SZ"),
+            known_records=known_records,
         )
         publication = C.StkFactorProBootstrapCurrentPublication(
             "supplement-run",
@@ -595,11 +624,24 @@ def test_space_observation_adds_no_io_or_events_and_reports_literal_size_differe
 ):
     # This is metadata arithmetic only. The sparse files below deliberately are
     # not business Parquet/JSON records and never enter a source/publication path.
-    _args, _, lake, staging, approval = _setup(tmp_path, monkeypatch)
+    known_records = {}
+    _args, _, lake, staging, approval = _setup(
+        tmp_path, monkeypatch, known_records=known_records
+    )
     progress = B._BootstrapProgress(approval.operation_id)
     caplog.set_level(logging.INFO, logger=B._LOGGER.name)
     with connection(tmp_path) as conn:
-        classified = {DAY: (None, False, False, None)}
+        classified = {
+            DAY: B._classify_date(
+                conn,
+                lake_root=lake,
+                staging_root=staging,
+                approval=approval,
+                day=DAY,
+                trusted={},
+                known_records=known_records,
+            )
+        }
         common = {
             "lake_root": lake,
             "staging_root": staging,
@@ -607,8 +649,10 @@ def test_space_observation_adds_no_io_or_events_and_reports_literal_size_differe
             "counts": {DAY: 1},
             "classified": classified,
         }
-        plain = B._bootstrap_space_check(conn, **common)
-        watched = B._bootstrap_space_check(conn, **common, progress=progress)
+        plain = B._bootstrap_space_check(conn, known_records=known_records, **common)
+        watched = B._bootstrap_space_check(
+            conn, **common, progress=progress, known_records=known_records
+        )
         root = R.operation_root(staging, approval)
         stats, capacities = [], []
         real_stat = Path.stat
@@ -700,7 +744,9 @@ def test_space_observation_adds_no_io_or_events_and_reports_literal_size_differe
         assert progress.fields["space_initial_estimate"] == first
 
         failed_progress = B._BootstrapProgress(approval.operation_id)
-        failing = B._bootstrap_space_check(conn, **common, progress=failed_progress)
+        failing = B._bootstrap_space_check(
+            conn, **common, progress=failed_progress, known_records=known_records
+        )
         monkeypatch.setattr(R.shutil, "disk_usage", lambda _: SimpleNamespace(free=0))
         with pytest.raises(ValueError, match="空间不足"):
             failing("首次不足", path=root)

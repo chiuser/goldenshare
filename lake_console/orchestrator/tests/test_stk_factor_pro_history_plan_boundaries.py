@@ -1,5 +1,6 @@
 """Independent LLD 5.1/16 planning boundaries; no network or formal resources."""
 
+import sys
 from dataclasses import replace
 from datetime import date
 
@@ -39,28 +40,60 @@ def start(code=A, day=EARLY):
     return StkFactorProHistoryStart(code, day, None if day is None else 1, day)
 
 
-def build(conn, lake, staging, *, values_t, values_p, starts, run="run-a", old=None):
-    factor_t = write_factor_file(conn, lake, T, values_t)
-    factor_p = write_factor_file(conn, lake, P, values_p)
-    return history.build_stk_factor_pro_history_plan(
-        conn,
-        identity=identity(run),
-        contract=contract(),
-        lake_root=lake,
-        staging_root=staging,
-        factor_t=factor_t,
-        factor_p=factor_p,
-        prior_results=prior() if old is None else old,
-        history_starts=starts,
-        check_cancel=lambda: None,
-    )
+def build(
+    conn,
+    lake,
+    staging,
+    *,
+    values_t,
+    values_p,
+    starts,
+    run="run-a",
+    old=None,
+    known_records,
+):
+    # Each call models a new complete planning task.
+    known_records.clear()
+    try:
+        factor_t = write_factor_file(conn, lake, T, values_t)
+        factor_p = write_factor_file(conn, lake, P, values_p)
+        factor_relations, lifecycle_relation = (
+            history.prepare_stk_factor_pro_history_inputs(
+                conn,
+                identity=identity(run),
+                lake_root=lake,
+                factor_t=factor_t,
+                factor_p=factor_p,
+                known_records=known_records,
+                check_cancel=lambda: None,
+            )
+        )
+        return history.build_stk_factor_pro_history_plan(
+            conn,
+            identity=identity(run),
+            contract=contract(),
+            lake_root=lake,
+            staging_root=staging,
+            factor_t=factor_t,
+            factor_p=factor_p,
+            prior_results=prior() if old is None else old,
+            history_starts=starts,
+            check_cancel=lambda: None,
+            known_records=known_records,
+            factor_relations=factor_relations,
+            lifecycle_relation=lifecycle_relation,
+        )[0]
+    finally:
+        history.release_stk_factor_pro_history_inputs(conn, primary=sys.exception())
 
 
-def read_ranges(conn, staging, plan):
+def read_ranges(conn, staging, plan, *, known_records):
     root = stk_factor_pro_run_staging_root(
         staging, plan.identity.creator_run_id, T.isoformat()
     )
-    return history.read_stk_factor_pro_history_ranges(conn, root=root, plan=plan)
+    return history.read_stk_factor_pro_history_ranges(
+        conn, root=root, plan=plan, known_records=known_records
+    )
 
 
 def write_lifecycle(conn, lake, *, code, list_day):
@@ -95,6 +128,7 @@ def test_trusted_earliest_date_is_not_cropped_by_newer_approved_window(tmp_path)
 
 
 def test_full_plan_keeps_unknown_beside_known_changed_stock(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         plan = build(
@@ -104,8 +138,12 @@ def test_full_plan_keeps_unknown_beside_known_changed_stock(tmp_path):
             values_t=((A, 2.0), (B, 4.0)),
             values_p=((A, 1.0), (B, 3.0)),
             starts=(start(A), start(B, None)),
+            known_records=known_records,
         )
-        actual = {item.ts_code: item for item in read_ranges(conn, staging, plan)}
+        actual = {
+            item.ts_code: item
+            for item in read_ranges(conn, staging, plan, known_records=known_records)
+        }
         assert plan.full_code_count == 2 and set(actual) == {A, B}
         assert actual[A].start_date == EARLY and actual[A].end_date == T
         assert actual[B].start_date is None and actual[B].end_date is None
@@ -114,6 +152,7 @@ def test_full_plan_keeps_unknown_beside_known_changed_stock(tmp_path):
 
 
 def test_full_outer_factor_comparison_keeps_each_missing_side(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         plan = build(
@@ -123,8 +162,12 @@ def test_full_outer_factor_comparison_keeps_each_missing_side(tmp_path):
             values_t=((A, 2.0), (C, 7.0)),
             values_p=((A, 1.0), (B, 5.0)),
             starts=(start(A), start(B), start(C)),
+            known_records=known_records,
         )
-        actual = {item.ts_code: item for item in read_ranges(conn, staging, plan)}
+        actual = {
+            item.ts_code: item
+            for item in read_ranges(conn, staging, plan, known_records=known_records)
+        }
         assert plan.full_code_count == 3 and set(actual) == {A, B, C}
         assert (actual[B].t_present, actual[B].t_value) == (False, None)
         assert (actual[B].p_present, actual[B].p_value) == (True, 5.0)
@@ -135,6 +178,7 @@ def test_full_outer_factor_comparison_keeps_each_missing_side(tmp_path):
 
 
 def test_pending_survives_equal_factors_and_preserves_original_earlier_start(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         build(
@@ -145,6 +189,7 @@ def test_pending_survives_equal_factors_and_preserves_original_earlier_start(tmp
             values_p=((A, 1.0),),
             starts=(start(),),
             run="run-old",
+            known_records=known_records,
         )
         old_root = stk_factor_pro_run_staging_root(staging, "run-old", T.isoformat())
         old_ref = RecordRef(
@@ -160,8 +205,9 @@ def test_pending_survives_equal_factors_and_preserves_original_earlier_start(tmp
             values_p=((A, 1.0),),
             starts=(start(A, date(2020, 1, 2)),),
             old=replace(prior(), pending_plan_refs=(old_ref,)),
+            known_records=known_records,
         )
-        actual = read_ranges(conn, staging, current)
+        actual = read_ranges(conn, staging, current, known_records=known_records)
         assert current.full_code_count == 1 and len(actual) == 1
         assert actual[0].ts_code == A and actual[0].start_date == EARLY
         assert actual[0].t_value == actual[0].p_value == 1.0
@@ -181,6 +227,7 @@ def test_pending_survives_equal_factors_and_preserves_original_earlier_start(tmp
 def test_missing_previous_factor_is_no_history_only_for_proven_new_stock(
     tmp_path, listed, known_start, no_history
 ):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         write_lifecycle(conn, lake, code=A, list_day=listed)
@@ -193,8 +240,9 @@ def test_missing_previous_factor_is_no_history_only_for_proven_new_stock(
             values_t=((A, 1.0), (B, 2.0)),
             values_p=((B, 2.0),),
             starts=(start(A, known_start),),
+            known_records=known_records,
         )
-        actual = read_ranges(conn, staging, plan)
+        actual = read_ranges(conn, staging, plan, known_records=known_records)
         assert len(actual) == 1 and actual[0].ts_code == A
         assert actual[0].start_date == known_start
         assert actual[0].end_date == (None if known_start is None else T)
@@ -204,6 +252,7 @@ def test_missing_previous_factor_is_no_history_only_for_proven_new_stock(
 
 
 def test_missing_pending_reference_is_not_treated_as_no_previous_work(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     bad_ref = RecordRef("run-missing", "history-plan.json", "a" * 64)
     with (
@@ -218,6 +267,7 @@ def test_missing_pending_reference_is_not_treated_as_no_previous_work(tmp_path):
             values_p=((A, 1.0),),
             starts=(start(),),
             old=replace(prior(), pending_plan_refs=(bad_ref,)),
+            known_records=known_records,
         )
     root = stk_factor_pro_run_staging_root(staging, "run-a", T.isoformat())
     assert not (root / "history-plan.json").exists()

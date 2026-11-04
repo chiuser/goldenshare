@@ -7,7 +7,10 @@ import os
 import subprocess
 import sys
 from collections import Counter
+from datetime import timedelta
 from pathlib import Path
+
+import pytest
 
 from orchestrator.defs.bootstrap import stk_factor_pro_bootstrap_coverage as coverage
 from orchestrator.defs.bootstrap import (
@@ -24,7 +27,11 @@ from orchestrator.defs.paths import (
     stk_factor_pro_bootstrap_operation_root,
 )
 from orchestrator.defs.run_contracts import stk_factor_pro as C
-from tests.stk_factor_pro_bootstrap_test_support import approval_fixture, native_row
+from tests.stk_factor_pro_bootstrap_test_support import (
+    approval_fixture,
+    native_row,
+    source_fixture,
+)
 from tests.stk_factor_pro_test_support import connection
 from tests.test_stk_factor_pro_bootstrap_coverage import DAY, upstream
 from tests.test_stk_factor_pro_bootstrap_source import FakeProd
@@ -69,6 +76,14 @@ class CountingConnection:
         text = str(query).lower()
         self.costs["duckdb_sql"] += 1
         self.costs["parquet_sql"] += int("read_parquet" in text)
+        self.costs["source_parquet_sql"] += int(
+            "read_parquet" in text and "source/month=" in text + repr(parameters)
+        )
+        if "read_parquet" in text and (
+            "missing-codes.parquet" in text + repr(parameters)
+            or "extra-codes.parquet" in text + repr(parameters)
+        ):
+            self.costs["diagnostic_parquet_sql"] += text.count("read_parquet")
         self.costs["copy_sql"] += int(text.startswith("copy"))
         if parameters is None:
             return self.underlying.execute(query)
@@ -100,10 +115,13 @@ def _save_costs(path, costs, remote, instance):
 
 def _process_worker(root, mode):
     """Called in fresh interpreters; production files and instance are unreachable."""
+    known_records = {}
     lake, staging = root / "lake", root / "staging"
     operation = stk_factor_pro_bootstrap_operation_root(staging, OPERATION)
     approval = records.read_json(
-        operation / "approval.json", C.StkFactorProBootstrapApproval
+        operation / "approval.json",
+        C.StkFactorProBootstrapApproval,
+        known_records=known_records,
     )
     costs = Counter()
     for module in (
@@ -115,12 +133,14 @@ def _process_worker(root, mode):
         checks,
         candidates,
     ):
-        for name in ("factor_file_sha", "_file_sha"):
+        # Instrument the actual SHA leaf, not _file_sha wrappers that call it.
+        for name in ("factor_file_sha",):
             if hasattr(module, name):
                 original_sha = getattr(module, name)
 
                 def sha(path, original=original_sha):
                     costs["file_sha"] += 1
+                    costs["source_file_sha"] += int("source/month=" in str(path))
                     return original(path)
 
                 setattr(module, name, sha)
@@ -136,7 +156,10 @@ def _process_worker(root, mode):
     else:
         with connection(root) as conn:
             _, evidence, _ = source._approved_inputs(
-                conn, staging_root=staging, approval=approval
+                conn,
+                staging_root=staging,
+                approval=approval,
+                known_records=known_records,
             )
         remote_type = FakeProd if mode == "crash" else ControlOnlyProd
         remote = remote_type(
@@ -212,9 +235,10 @@ def test_real_process_exit_raw_complete_new_process_restores_silver_then_local_s
 ):
     # Approved source uses actual Prod DATE/float carrier types and the independently
     # checked full 261 fields. Upstreams use their real producer schemas via upstream().
+    known_records = {}
     with connection(tmp_path) as conn:
         lake, staging, approval, _ = approval_fixture(
-            conn, tmp_path, operation=OPERATION
+            conn, tmp_path, operation=OPERATION, known_records=known_records
         )
         upstream(conn, lake, days=(DAY,), codes=("000001.SZ",))
     approval_path = records.operation_root(staging, approval) / "approval.json"
@@ -250,12 +274,16 @@ def test_real_process_exit_raw_complete_new_process_restores_silver_then_local_s
         crash["prod_detail_queries"],
         crash["prod_detail_fetches"],
     ) == (1, 1, 2)
+    assert crash["source_parquet_sql"] == crash["source_file_sha"] == 1
     assert (
         recovery["prod_connections"],
         recovery["prod_control_queries"],
         recovery["prod_detail_queries"],
         recovery["prod_detail_fetches"],
     ) == (1, 5, 0, 0)
+    # Raw was already complete before the process exited. A new interpreter
+    # restores Silver from that Raw, without opening old source fragments.
+    assert recovery["source_parquet_sql"] == recovery.get("source_file_sha", 0) == 0
     assert recovery["registered"] == [DAY.isoformat()]
     formal_before = _fingerprint((raw_path, silver_path))
     last = _launch(tmp_path, "local")
@@ -269,10 +297,15 @@ def test_real_process_exit_raw_complete_new_process_restores_silver_then_local_s
         == 0
     )
     assert local["copy_sql"] == 0 and local["active_queries"] == 2
+    assert local["source_parquet_sql"] == local.get("source_file_sha", 0) == 0
     assert _fingerprint((raw_path, silver_path)) == formal_before
     assert _fingerprint((approval_path,)) == approval_before
     summary_path = records.operation_path(staging, approval, "coverage/summary.json")
-    summary = records.read_json(summary_path, C.StkFactorProBootstrapCoverageSummary)
+    summary = records.read_json(
+        summary_path,
+        C.StkFactorProBootstrapCoverageSummary,
+        known_records=known_records,
+    )
     assert summary.import_pending_dates == () and summary.all_expected_present
     assert (
         summary.verified_source_rows
@@ -280,3 +313,167 @@ def test_real_process_exit_raw_complete_new_process_restores_silver_then_local_s
         == summary.current_silver_rows
         == 1
     )
+
+
+def test_new_task_restores_saved_complete_source_once_before_publication(
+    tmp_path, monkeypatch
+):
+    # The first connection is deliberately closed: no relation or per-task
+    # dictionary may be carried into the new execution below.
+    with connection(tmp_path) as conn:
+        known_records = {}
+        lake, staging, approval, identity = approval_fixture(
+            conn, tmp_path, known_records=known_records
+        )
+        source_fixture(
+            conn,
+            staging_root=staging,
+            approval=approval,
+            rows=(native_row(),),
+            known_records=known_records,
+        )
+        upstream(conn, lake, days=(DAY,), codes=("000001.SZ",))
+    costs = Counter()
+    original_load = records.load_complete_source
+    original_sha = checks.factor_file_sha
+
+    def load_once(*args, **kwargs):
+        costs["source_loads"] += 1
+        return original_load(*args, **kwargs)
+
+    def source_sha(path):
+        costs["source_file_sha"] += int("source/month=" in str(path))
+        return original_sha(path)
+
+    monkeypatch.setattr(records, "load_complete_source", load_once)
+    monkeypatch.setattr(checks, "factor_file_sha", source_sha)
+    remote = ControlOnlyProd(approval, identity, ((DAY, 1),), [native_row()])
+    with connection(tmp_path) as native:
+        result = bootstrap._run_stk_factor_pro_bootstrap(
+            CountingConnection(native, costs),
+            lake_root=lake,
+            staging_root=staging,
+            operation_id=approval.operation_id,
+            instance=IsolatedInstance(),
+            prod_postgres=remote,
+        )
+        assert result.verified_source_rows == result.current_raw_rows == 1
+        assert result.current_silver_rows == 1 and result.all_expected_present
+        assert costs["source_loads"] == 1
+        assert costs["source_parquet_sql"] == costs["source_file_sha"] == 1
+        assert not any(named for named, _, _ in remote.queries)
+        assert native.execute(
+            "SELECT ts_code,trade_date,close FROM read_parquet(?)",
+            [str(silver_stock_factor_pro_path(lake, DAY.isoformat()))],
+        ).fetchall() == [("000001.SZ", DAY, 10.0)]
+        assert (
+            native.execute(
+                "SELECT table_name FROM duckdb_tables() WHERE temporary "
+                "AND starts_with(table_name,'stk_factor_pro_')"
+            ).fetchall()
+            == []
+        )
+
+
+@pytest.mark.parametrize("day_count", [1, 3])
+def test_small_cross_batch_source_hands_each_complete_day_to_real_process(
+    tmp_path, monkeypatch, day_count
+):
+    # The existing source-boundary suite covers the real 5000-row constant.
+    # Two-row test batches exercise the same crossing with only five rows.
+    monkeypatch.setattr(C, "STK_FACTOR_PRO_BOOTSTRAP_FETCH_ROWS", 2)
+    counts = (
+        ((DAY, 5),)
+        if day_count == 1
+        else ((DAY, 3), (DAY + timedelta(days=1), 0), (DAY + timedelta(days=2), 2))
+    )
+    rows = [
+        native_row(f"{number:06d}.SZ", day)
+        for day, amount in counts
+        for number in range(1, amount + 1)
+    ]
+    costs, candidate_audits = Counter(), Counter()
+    calls = []
+    original_process = bootstrap.process_stk_factor_pro_bootstrap_complete_date
+    original_audit = candidates.audit_stk_factor_pro_file
+    original_sha = checks.factor_file_sha
+
+    def complete_day(conn, **kwargs):
+        value = kwargs["source_complete"]
+        source_path = records.operation_path(
+            kwargs["staging_root"],
+            kwargs["approval"],
+            f"source/dates/{value.trade_date}/source-complete.json",
+        )
+        assert kwargs["source_relation"] == candidates.BOOTSTRAP_DAY_SOURCE
+        assert kwargs["known_records"][source_path][0] is value
+        assert kwargs["known_records"][source_path][1] == kwargs["source_record_sha256"]
+        assert (
+            conn.execute(
+                f"SELECT count(*) FROM {candidates.BOOTSTRAP_DAY_SOURCE}"
+            ).fetchone()[0]
+            == dict(counts)[value.trade_date]
+        )
+        calls.append((value.trade_date, value.actual_rows))
+        return original_process(conn, **kwargs)
+
+    def audit(conn, **kwargs):
+        if "/candidates/" in str(kwargs["path"]):
+            candidate_audits[str(kwargs["path"])] += 1
+        return original_audit(conn, **kwargs)
+
+    def sha(path):
+        costs["source_file_sha"] += int("source/month=" in str(path))
+        return original_sha(path)
+
+    monkeypatch.setattr(
+        bootstrap, "process_stk_factor_pro_bootstrap_complete_date", complete_day
+    )
+    monkeypatch.setattr(candidates, "audit_stk_factor_pro_file", audit)
+    monkeypatch.setattr(publication, "audit_stk_factor_pro_file", audit)
+    monkeypatch.setattr(checks, "factor_file_sha", sha)
+    monkeypatch.setattr(
+        records,
+        "load_complete_source",
+        lambda *_a, **_k: pytest.fail(
+            "new source must reach process without reloading"
+        ),
+    )
+    with connection(tmp_path) as native:
+        lake, staging, approval, identity = approval_fixture(
+            native, tmp_path, counts=counts, known_records={}
+        )
+        remote = FakeProd(approval, identity, counts, rows, sample_rows=[rows[0]])
+        result = bootstrap._run_stk_factor_pro_bootstrap(
+            CountingConnection(native, costs),
+            lake_root=lake,
+            staging_root=staging,
+            operation_id=approval.operation_id,
+            instance=IsolatedInstance(),
+            prod_postgres=remote,
+        )
+        assert tuple(sorted(calls)) == counts
+        assert costs["source_parquet_sql"] == costs["source_file_sha"] == 3
+        assert len(candidate_audits) == (2 if day_count == 1 else 4)
+        assert set(candidate_audits.values()) == {1}
+        assert result.verified_source_rows == result.current_raw_rows == 5
+        assert result.current_silver_rows == 5 and result.import_pending_dates == ()
+        for day, expected_rows in counts:
+            path = silver_stock_factor_pro_path(lake, day.isoformat())
+            if expected_rows:
+                assert native.execute(
+                    "SELECT ts_code,trade_date,close FROM read_parquet(?) ORDER BY ts_code",
+                    [str(path)],
+                ).fetchall() == [
+                    (f"{number:06d}.SZ", day, 10.0)
+                    for number in range(1, expected_rows + 1)
+                ]
+            else:
+                assert not path.exists()
+        assert (
+            native.execute(
+                "SELECT table_name FROM duckdb_tables() WHERE temporary "
+                "AND starts_with(table_name,'stk_factor_pro_')"
+            ).fetchall()
+            == []
+        )

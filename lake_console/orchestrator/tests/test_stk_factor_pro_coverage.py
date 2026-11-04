@@ -3,6 +3,7 @@ from datetime import date
 import pytest
 
 from orchestrator.defs.asset_guards.stk_factor_pro_readiness import (
+    _build_stk_factor_pro_coverage_keys,
     build_stk_factor_pro_coverage_keys,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
@@ -145,6 +146,46 @@ def test_empty_actual_has_real_missing_count_no_fake_green(tmp_path):
             value.missing_count,
             value.extra_count,
         ) == (2, 0, 2, 0)
+
+
+def test_verified_projections_compute_once_without_repeating_input_audit(tmp_path):
+    # Literal producer-schema projections above are already valid; this isolates
+    # the internal path rather than claiming a source or Dagster integration.
+    with connection(tmp_path) as conn:
+        prepare(conn)
+        queries = []
+
+        class ObservedConnection:
+            def execute(self, query, *args, **kwargs):
+                queries.append(str(query))
+                return conn.execute(query, *args, **kwargs)
+
+        value = _build_stk_factor_pro_coverage_keys(
+            ObservedConnection(),
+            target_trade_date=DAY,
+            listed_relation="listed",
+            full_suspend_relation="full_suspend",
+            actual_relation="actual",
+            identity_relation="identities",
+        )
+        assert (
+            value.expected_count,
+            value.actual_count,
+            value.matched_count,
+            value.missing_count,
+            value.extra_count,
+        ) == (2, 2, 1, 1, 1)
+        assert not any(
+            query.startswith("DESCRIBE") or "trade_date IS DISTINCT FROM" in query
+            for query in queries
+        )
+        assert (
+            sum(
+                query.startswith("CREATE TEMP TABLE stk_factor_pro_coverage_mapping AS")
+                for query in queries
+            )
+            == 1
+        )
 
 
 @pytest.mark.parametrize(

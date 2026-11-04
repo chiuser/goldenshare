@@ -16,37 +16,54 @@ from orchestrator.defs.bootstrap import stk_factor_pro_bootstrap_publication as 
 from orchestrator.defs.bootstrap import stk_factor_pro_bootstrap_records as R
 from orchestrator.defs.checks import stk_factor_pro as checks
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
-from orchestrator.defs.io.stk_factor_pro_candidates import SILVER_EXPECTED
+from orchestrator.defs.io.stk_factor_pro_candidates import (
+    BOOTSTRAP_DAY_SOURCE,
+    RAW_EXPECTED,
+    SILVER_EXPECTED,
+)
 from orchestrator.defs.run_contracts import stk_factor_pro as C
 from tests.stk_factor_pro_bootstrap_test_support import (
     approval_fixture,
+    bootstrap_date_results,
     check_test_space,
     native_row,
     source_fixture,
 )
 from tests.stk_factor_pro_test_support import connection
+from tests.test_stk_factor_pro_bootstrap_publication import restore_source_context
 
 
-def _setup(conn, tmp_path, *, rows=None, counts=None, day=None):
+def _setup(conn, tmp_path, *, rows=None, counts=None, day=None, known_records):
     options = {} if counts is None else {"counts": counts}
-    lake, staging, approval, _ = approval_fixture(conn, tmp_path, **options)
+    lake, staging, approval, _ = approval_fixture(
+        conn, tmp_path, known_records=known_records, **options
+    )
     source = source_fixture(
         conn,
         staging_root=staging,
         approval=approval,
         rows=(native_row(),) if rows is None else rows,
         day=day,
+        known_records=known_records,
     )
     return {
         "lake_root": lake,
         "staging_root": staging,
         "approval": approval,
         "source_complete": source,
+        "source_record_sha256": known_records[
+            R.operation_path(
+                staging,
+                approval,
+                f"source/dates/{source.trade_date}/source-complete.json",
+            )
+        ][1],
+        "source_relation": BOOTSTRAP_DAY_SOURCE,
         "before_publish": lambda: None,
     }
 
 
-def _raw_only(conn, args, monkeypatch):
+def _raw_only(conn, args, monkeypatch, *, known_records, date_results):
     def stop(*_args, **_kwargs):
         raise OSError("intentional stop after complete Raw")
 
@@ -57,10 +74,14 @@ def _raw_only(conn, args, monkeypatch):
                 conn,
                 **args,
                 check_space=check_test_space,
+                known_records=known_records,
+                date_results=bootstrap_date_results(
+                    date_results, args["source_complete"]
+                ),
             )
 
 
-def _silver_intent(conn, args):
+def _silver_intent(conn, args, *, known_records):
     approval, source = args["approval"], args["source_complete"]
     staging, lake = args["staging_root"], args["lake_root"]
     root = R.operation_root(staging, approval)
@@ -68,21 +89,31 @@ def _silver_intent(conn, args):
     candidate = R.operation_path(
         staging, approval, f"candidates/{source.trade_date}/silver/part-000.parquet"
     )
-    P.build_stk_factor_pro_silver_candidate(
+    # _raw_only left this task's verified Raw relation with the test caller.
+    # The Silver intent consumes that same relation; it must not reopen Raw.
+    audit = P.build_stk_factor_pro_silver_candidate(
         conn,
-        verified_raw_path=raw,
+        verified_raw_relation=RAW_EXPECTED,
+        raw_audit=known_records[raw][0],
         target_trade_date=source.trade_date,
         candidate_path=candidate,
         run_root=root,
+        known_records=known_records,
     )
-    fragment = P._silver_fragment(
-        conn, candidate, root, SILVER_EXPECTED, source.trade_date
+    fragment = P._candidate_fragment(
+        conn,
+        audit=audit,
+        root=root,
+        relation=SILVER_EXPECTED,
+        source=source,
+        code_bounds=("000001.SZ", "000001.SZ"),
     )
     conn.execute(f"DROP TABLE {SILVER_EXPECTED}")
+    conn.execute(f"DROP TABLE {RAW_EXPECTED}")
     intent = C.StkFactorProBootstrapPublicationIntent(
         1,
         approval.operation_id,
-        R.approval_sha(staging, approval),
+        R.approval_sha(staging, approval, known_records=known_records),
         source.trade_date,
         "silver",
         source.source_complete_digest,
@@ -103,10 +134,18 @@ def _silver_intent(conn, args):
 def test_silver_rejects_wrong_raw_binding_before_any_silver_publication(
     tmp_path, monkeypatch, existing_intent
 ):
+    date_results = {}
+    known_records = {}
     with connection(tmp_path) as conn:
-        args = _setup(conn, tmp_path)
-        _raw_only(conn, args, monkeypatch)
-        valid = _silver_intent(conn, args)
+        args = _setup(conn, tmp_path, known_records=known_records)
+        _raw_only(
+            conn,
+            args,
+            monkeypatch,
+            known_records=known_records,
+            date_results=date_results,
+        )
+        valid = _silver_intent(conn, args, known_records=known_records)
         wrong = replace(valid, raw_file_sha256="f" * 64)
         wrong = replace(
             wrong, intent_digest=C.stk_factor_pro_bootstrap_intent_digest(wrong)
@@ -122,12 +161,20 @@ def test_silver_rejects_wrong_raw_binding_before_any_silver_publication(
                     f"publication/{wrong.trade_date}/silver/intent.json",
                 ),
                 wrong,
+                known_records=known_records,
             )
+            # This is an old external record, not a new valid fact produced by
+            # the current task. Its first consumer must start with fresh facts.
+            known_records, date_results, args = restore_source_context(conn, args)
             with pytest.raises(ValueError, match="Raw完成事实"):
                 P.publish_bootstrap_date(
                     conn,
                     **args,
                     check_space=check_test_space,
+                    known_records=known_records,
+                    date_results=bootstrap_date_results(
+                        date_results, args["source_complete"]
+                    ),
                 )
         else:
             with pytest.raises(ValueError, match="Raw完成事实"):
@@ -137,6 +184,7 @@ def test_silver_rejects_wrong_raw_binding_before_any_silver_publication(
                     approval=args["approval"],
                     record=wrong,
                     check_space=check_test_space,
+                    known_records=known_records,
                 )
         silver = P._target(args["lake_root"], wrong.trade_date, "silver")
         assert not silver.exists()
@@ -148,8 +196,12 @@ def test_silver_rejects_wrong_raw_binding_before_any_silver_publication(
 
 
 def test_valid_silver_binding_and_equivalent_existing_raw_are_accepted(tmp_path):
+    date_results = {}
+    known_records = {}
     with connection(tmp_path) as conn:
-        args = _setup(conn, tmp_path, rows=(native_row(open=-1.25),))
+        args = _setup(
+            conn, tmp_path, rows=(native_row(open=-1.25),), known_records=known_records
+        )
         source = args["source_complete"]
         source_file = R.operation_path(
             args["staging_root"],
@@ -163,6 +215,8 @@ def test_valid_silver_binding_and_equivalent_existing_raw_are_accepted(tmp_path)
             conn,
             **args,
             check_space=check_test_space,
+            known_records=known_records,
+            date_results=bootstrap_date_results(date_results, args["source_complete"]),
         )
         assert raw.passed and silver.passed
         raw_intent, _ = P.read_stk_factor_pro_bootstrap_publication(
@@ -171,6 +225,7 @@ def test_valid_silver_binding_and_equivalent_existing_raw_are_accepted(tmp_path)
             approval=args["approval"],
             trade_date=source.trade_date,
             layer="raw",
+            known_records=known_records,
         )
         silver_intent, _ = P.read_stk_factor_pro_bootstrap_publication(
             lake_root=args["lake_root"],
@@ -178,6 +233,7 @@ def test_valid_silver_binding_and_equivalent_existing_raw_are_accepted(tmp_path)
             approval=args["approval"],
             trade_date=source.trade_date,
             layer="silver",
+            known_records=known_records,
         )
         assert raw_intent.mode == "reuse"
         assert silver_intent.raw_file_sha256 == raw.file_sha256
@@ -187,6 +243,8 @@ def test_valid_silver_binding_and_equivalent_existing_raw_are_accepted(tmp_path)
 
 
 def test_empty_source_requires_same_operation_but_valid_empty_has_no_files(tmp_path):
+    date_results = {}
+    known_records = {}
     day = date(2019, 10, 16)
     with connection(tmp_path) as conn:
         args = _setup(
@@ -195,6 +253,7 @@ def test_empty_source_requires_same_operation_but_valid_empty_has_no_files(tmp_p
             rows=(),
             day=day,
             counts=((date(2019, 10, 15), 1), (day, 0)),
+            known_records=known_records,
         )
         wrong = replace(args["source_complete"], operation_id="other-operation")
         wrong = replace(
@@ -208,11 +267,15 @@ def test_empty_source_requires_same_operation_but_valid_empty_has_no_files(tmp_p
                 conn,
                 **{**args, "source_complete": wrong},
                 check_space=check_test_space,
+                known_records=known_records,
+                date_results=bootstrap_date_results(date_results, wrong),
             )
         assert P.publish_bootstrap_date(
             conn,
             **args,
             check_space=check_test_space,
+            known_records=known_records,
+            date_results=bootstrap_date_results(date_results, args["source_complete"]),
         ) == (None, None)
         assert not P._target(args["lake_root"], day, "raw").exists()
         assert not P._target(args["lake_root"], day, "silver").exists()
@@ -222,8 +285,10 @@ def test_empty_source_requires_same_operation_but_valid_empty_has_no_files(tmp_p
 def test_diagnostics_are_saved_as_operation_relative_path(
     tmp_path, monkeypatch, absolute
 ):
+    date_results = {}
+    known_records = {}
     with connection(tmp_path) as conn:
-        args = _setup(conn, tmp_path)
+        args = _setup(conn, tmp_path, known_records=known_records)
         relative = Path("diagnostics/verified-result.json")
         root = R.operation_root(args["staging_root"], args["approval"])
         diagnostic = root / relative
@@ -250,6 +315,8 @@ def test_diagnostics_are_saved_as_operation_relative_path(
             conn,
             **args,
             check_space=check_test_space,
+            known_records=known_records,
+            date_results=bootstrap_date_results(date_results, args["source_complete"]),
         )
         assert raw.passed and silver.passed
         _, saved = P.read_stk_factor_pro_bootstrap_publication(
@@ -258,6 +325,7 @@ def test_diagnostics_are_saved_as_operation_relative_path(
             approval=args["approval"],
             trade_date=args["source_complete"].trade_date,
             layer="raw",
+            known_records=known_records,
         )
         assert saved.audit.diagnostics_path == relative
         assert not saved.audit.diagnostics_path.is_absolute()
@@ -277,8 +345,10 @@ def test_diagnostics_are_saved_as_operation_relative_path(
     [Path("../outside.json"), Path("/private/tmp/other-operation/diagnostic.json")],
 )
 def test_diagnostics_cannot_leave_approved_operation(tmp_path, monkeypatch, outside):
+    date_results = {}
+    known_records = {}
     with connection(tmp_path) as conn:
-        args = _setup(conn, tmp_path)
+        args = _setup(conn, tmp_path, known_records=known_records)
         original = P.write_stk_factor_pro_bootstrap_publication_complete
 
         def attach(**kwargs):
@@ -300,6 +370,10 @@ def test_diagnostics_cannot_leave_approved_operation(tmp_path, monkeypatch, outs
                 conn,
                 **args,
                 check_space=check_test_space,
+                known_records=known_records,
+                date_results=bootstrap_date_results(
+                    date_results, args["source_complete"]
+                ),
             )
         assert not R.operation_path(
             args["staging_root"],
@@ -312,8 +386,10 @@ def test_diagnostics_cannot_leave_approved_operation(tmp_path, monkeypatch, outs
 def test_complete_rejects_audit_consistent_but_wrong_intent_content_or_rows(
     tmp_path, monkeypatch, field
 ):
+    date_results = {}
+    known_records = {}
     with connection(tmp_path) as conn:
-        args = _setup(conn, tmp_path)
+        args = _setup(conn, tmp_path, known_records=known_records)
         original = P.write_stk_factor_pro_bootstrap_publication_complete
 
         def wrong_fact(**kwargs):
@@ -338,6 +414,10 @@ def test_complete_rejects_audit_consistent_but_wrong_intent_content_or_rows(
                 conn,
                 **args,
                 check_space=check_test_space,
+                known_records=known_records,
+                date_results=bootstrap_date_results(
+                    date_results, args["source_complete"]
+                ),
             )
         assert not R.operation_path(
             args["staging_root"],
@@ -352,7 +432,7 @@ class _DropFailure:
         self.drops = 0
 
     def execute(self, sql, *args, **kwargs):
-        if sql == "DROP VIEW IF EXISTS stk_factor_pro_checked_file":
+        if sql.startswith("DROP TABLE") and "stk_factor_pro_checked_" in sql:
             self.drops += 1
             if self.error is not None:
                 raise self.error
@@ -366,8 +446,9 @@ class _DropFailure:
 def test_shared_check_cleanup_preserves_real_body_error_and_reports_cleanup(
     tmp_path, monkeypatch, body_fails, cleanup_fails
 ):
+    known_records = {}
     with connection(tmp_path) as conn:
-        args = _setup(conn, tmp_path)
+        args = _setup(conn, tmp_path, known_records=known_records)
         source = args["source_complete"]
         path = R.operation_path(
             args["staging_root"],
@@ -399,13 +480,16 @@ def test_shared_check_cleanup_preserves_real_body_error_and_reports_cleanup(
         monkeypatch.setattr(checks, "require_factor_relation", observe)
 
         def run():
-            return checks.audit_stk_factor_pro_file(
+            audit = checks.audit_stk_factor_pro_file(
                 proxy,
                 path=path,
                 expected_relation="audit_expected",
                 target_trade_date=source.trade_date,
                 layer="raw",
+                known_records=known_records,
             )
+            checks.release_stk_factor_pro_audit_relations(proxy)
+            return audit
 
         if body_fails:
             with pytest.raises(ValueError) as result:
@@ -424,7 +508,7 @@ def test_shared_check_cleanup_preserves_real_body_error_and_reports_cleanup(
         if not cleanup_fails:
             assert (
                 conn.execute(
-                    "SELECT count(*) FROM duckdb_views() WHERE view_name='stk_factor_pro_checked_file'"
+                    "SELECT count(*) FROM duckdb_tables() WHERE temporary AND starts_with(table_name,'stk_factor_pro_checked_')"
                 ).fetchone()[0]
                 == 0
             )

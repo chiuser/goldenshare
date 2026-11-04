@@ -38,6 +38,11 @@ STK_FACTOR_PRO_ACTIVE_RUN_STATUSES = (
     dg.DagsterRunStatus.STARTED,
     dg.DagsterRunStatus.CANCELING,
 )
+STK_FACTOR_PRO_RUNNING_RUN_STATUSES = (
+    dg.DagsterRunStatus.STARTING,
+    dg.DagsterRunStatus.STARTED,
+    dg.DagsterRunStatus.CANCELING,
+)
 STK_FACTOR_PRO_PARTITIONS = "cn_a_stock_factor_pro_trade_days"
 STK_FACTOR_PRO_UPDATE_SENSOR_NAME = "raw_tushare_stk_factor_pro_update_job_sensor"
 STK_FACTOR_PRO_PARTITION_SENSOR_NAME = "stock_factor_pro_trade_day_sensor"
@@ -54,6 +59,11 @@ STK_FACTOR_PRO_CANCEL_STATUS_POLL_SECONDS = 1
 STK_FACTOR_PRO_SENSOR_TARGET_SECONDS = 5
 STK_FACTOR_PRO_DAY_UPDATE_TARGET_SECONDS = 120
 STK_FACTOR_PRO_HISTORY_REFERENCE_TARGET_SECONDS = 1200
+STK_FACTOR_PRO_ESTIMATED_ROW_BYTES = 4178
+STK_FACTOR_PRO_ESTIMATED_FILE_OVERHEAD_BYTES = 4 * 1024 * 1024
+STK_FACTOR_PRO_ESTIMATED_RECORD_BYTES = 1024 * 1024
+STK_FACTOR_PRO_FREE_SPACE_MARGIN_BYTES = 16 * 1024 * 1024
+STK_FACTOR_PRO_DAY_WORKSPACE_ESTIMATE_BYTES = 1024 * 1024 * 1024
 
 STK_FACTOR_PRO_SOURCE_COLUMNS = STK_FACTOR_PRO_CONTRACT.field_names
 STK_FACTOR_PRO_RAW_COLUMN_TYPES = MappingProxyType(
@@ -75,6 +85,22 @@ StkFactorProPurpose = Literal[
 ]
 StkFactorProPhase = Literal["day", "history"]
 StkFactorProLayer = Literal["raw", "silver"]
+
+
+@dataclass(frozen=True, slots=True)
+class BootstrapSpaceEstimate:
+    """Additional bytes required by this dataset's current execution."""
+
+    source_bytes: int
+    candidate_bytes: int
+    temp_bytes: int
+    record_bytes: int
+
+    def __post_init__(self):
+        for name in ("source_bytes", "candidate_bytes", "temp_bytes", "record_bytes"):
+            value = getattr(self, name)
+            if type(value) is not int or value < 0:
+                raise ValueError(f"bootstrap空间估算{name}必须是至少0的整数")
 
 
 class HistoryPlanReason(IntEnum):
@@ -786,7 +812,10 @@ class StkFactorProPublicationRecord:
             _count(self.unrefreshed_count)
             if self.day_source_digest is not None:
                 raise ValueError("历史发布不得混入日源摘要")
-            if not isinstance(self.unrefreshed_keys_ref, RecordRef) or (
+            if self.unrefreshed_count == 0:
+                if self.unrefreshed_keys_ref is not None:
+                    raise ValueError("历史零缺原键不能有诊断附件")
+            elif not isinstance(self.unrefreshed_keys_ref, RecordRef) or (
                 self.unrefreshed_keys_ref.creator_run_id != self.identity.creator_run_id
                 or self.unrefreshed_keys_ref.relative_path
                 != f"publication/history/{self.trade_date.isoformat()}/{self.layer}/unrefreshed-keys.parquet"
@@ -1249,12 +1278,15 @@ class SourceCompleteRecord:
 
 @dataclass(frozen=True, slots=True)
 class VerifiedSource:
-    """Reference carrier; the current-run verifier must inspect actual files."""
+    """Current-task SQL source and the unit facts already audited by its producer."""
 
     identity: RunIdentity
     contract: ContractIdentity
     source_complete: SourceCompleteRecord
     source_complete_ref: RecordRef
+    source_relation: str
+    files: tuple[SourceFileRecord, ...]
+    file_identities: tuple[tuple[str, tuple[int, int, int, int, int]], ...]
 
     def __post_init__(self) -> None:
         if not isinstance(self.source_complete, SourceCompleteRecord) or (
@@ -1267,16 +1299,42 @@ class VerifiedSource:
             self.identity,
             "source/history/source-complete.json",
         )
+        if self.source_relation != "stk_factor_pro_history_source":
+            raise ValueError("已核历史源必须使用本任务固定SQL关系")
+        _tuple(self.files, SourceFileRecord)
+        if (
+            type(self.file_identities) is not tuple
+            or len(self.files) != self.source_complete.completed_unit_count
+        ):
+            raise ValueError("已核历史源文件事实数量不符")
+        if any(
+            type(value) is not tuple
+            or len(value) != 2
+            or type(value[1]) is not tuple
+            or len(value[1]) != 5
+            or any(type(part) is not int for part in value[1])
+            for value in self.file_identities
+        ):
+            raise TypeError("已核历史源文件identity必须为五项整数tuple")
+        if tuple(value[0] for value in self.file_identities) != tuple(
+            file.file_relative_path for file in self.files
+        ):
+            raise ValueError("已核历史源文件元信息必须逐项对应首次文件")
 
 
 @dataclass(frozen=True, slots=True)
 class StkFactorProBootstrapCodesRef:
+    creator_run_id: str | None
     relative_path: str
     file_sha256: str
     row_count: int
 
     def __post_init__(self) -> None:
-        RecordRef("operation", self.relative_path, self.file_sha256)
+        RecordRef(
+            self.creator_run_id or "operation", self.relative_path, self.file_sha256
+        )
+        if self.creator_run_id is not None:
+            validate_stk_factor_pro_identifier(self.creator_run_id)
         _count(self.row_count)
 
 
@@ -1530,15 +1588,20 @@ def _hex(value: float | None) -> str | None:
 
 
 def stk_factor_pro_history_plan_digest(
-    identity: RunIdentity, contract: ContractIdentity, ranges: tuple[HistoryRange, ...]
+    identity: RunIdentity,
+    contract: ContractIdentity,
+    ranges: tuple[HistoryRange, ...],
+    *,
+    ranges_digest: str,
 ) -> str:
+    _digest(ranges_digest)
     return _business_digest(
         "stk_factor_pro.history_plan",
         {
             "T": identity.target_trade_date.isoformat(),
             "P": identity.previous_trade_date.isoformat(),
             "contract": stk_factor_pro_record_to_dict(contract),
-            "history_ranges_digest": stk_factor_pro_history_ranges_digest(ranges),
+            "history_ranges_digest": ranges_digest,
             "entries": [
                 {
                     "ts_code": row.ts_code,
@@ -2740,7 +2803,11 @@ class StkFactorProBootstrapDateCoverage:
                 not isinstance(ref, StkFactorProBootstrapCodesRef)
                 or ref.row_count != count
                 or ref.relative_path
-                != f"coverage/{self.trade_date.isoformat()}/input={self.input_digest}/{kind}-codes.parquet"
+                != (
+                    f"coverage/{self.trade_date.isoformat()}/input={self.input_digest}/{kind}-codes.parquet"
+                    if ref.creator_run_id is None
+                    else f"diagnostics/day-{kind}-codes.parquet"
+                )
             ):
                 raise ValueError("bootstrap差集引用必须匹配日期/输入摘要/数量")
         _bootstrap_text(self.reason)

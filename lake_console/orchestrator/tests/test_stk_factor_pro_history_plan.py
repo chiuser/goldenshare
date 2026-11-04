@@ -4,6 +4,7 @@ The factor contract comes from RAW_TUSHARE_ADJ_FACTOR_SCHEMA/adj_factor_checks,
 not from the planner. Expected ranges/revisions below are literal small cases.
 """
 
+import sys
 from dataclasses import replace
 from datetime import date
 
@@ -62,19 +63,39 @@ def build(
     starts=None,
     run_identity=None,
     cancel=lambda: None,
+    known_records,
 ):
-    return history.build_stk_factor_pro_history_plan(
-        conn,
-        identity=identity(run) if run_identity is None else run_identity,
-        contract=contract(),
-        lake_root=lake,
-        staging_root=staging,
-        factor_t=refs[0],
-        factor_p=refs[1],
-        prior_results=prior() if old is None else old,
-        history_starts=(start(),) if starts is None else starts,
-        check_cancel=cancel,
-    )
+    # Each call models a new complete planning task.
+    known_records.clear()
+    try:
+        factor_relations, lifecycle_relation = (
+            history.prepare_stk_factor_pro_history_inputs(
+                conn,
+                identity=identity(run) if run_identity is None else run_identity,
+                lake_root=lake,
+                factor_t=refs[0],
+                factor_p=refs[1],
+                known_records=known_records,
+                check_cancel=cancel,
+            )
+        )
+        return history.build_stk_factor_pro_history_plan(
+            conn,
+            identity=identity(run) if run_identity is None else run_identity,
+            contract=contract(),
+            lake_root=lake,
+            staging_root=staging,
+            factor_t=refs[0],
+            factor_p=refs[1],
+            prior_results=prior() if old is None else old,
+            history_starts=(start(),) if starts is None else starts,
+            check_cancel=cancel,
+            known_records=known_records,
+            factor_relations=factor_relations,
+            lifecycle_relation=lifecycle_relation,
+        )[0]
+    finally:
+        history.release_stk_factor_pro_history_inputs(conn, primary=sys.exception())
 
 
 def run_root(staging, run):
@@ -88,9 +109,12 @@ def plan_ref(staging, plan):
     )
 
 
-def rows(conn, staging, plan):
+def rows(conn, staging, plan, *, known_records):
     return history.read_stk_factor_pro_history_ranges(
-        conn, root=run_root(staging, plan.identity.creator_run_id), plan=plan
+        conn,
+        root=run_root(staging, plan.identity.creator_run_id),
+        plan=plan,
+        known_records=known_records,
     )
 
 
@@ -105,21 +129,29 @@ def assert_clean(conn):
 
 
 def test_no_change_saves_empty_verified_plan_without_source(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        plan = build(conn, lake, staging, inputs(conn, lake, t=((A, 1.0),)))
+        plan = build(
+            conn,
+            lake,
+            staging,
+            inputs(conn, lake, t=((A, 1.0),)),
+            known_records=known_records,
+        )
         assert plan.full_code_count == 0 and plan.revision == 1
-        assert rows(conn, staging, plan) == ()
+        assert rows(conn, staging, plan, known_records=known_records) == ()
         assert not (run_root(staging, "run-a") / "source").exists()
         assert_clean(conn)
 
 
 def test_change_saves_whole_trusted_range_and_real_factor_refs(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         refs = inputs(conn, lake)
-        plan = build(conn, lake, staging, refs)
-        actual = rows(conn, staging, plan)
+        plan = build(conn, lake, staging, refs, known_records=known_records)
+        actual = rows(conn, staging, plan, known_records=known_records)
         assert len(actual) == 1
         value = actual[0]
         assert (value.ts_code, value.start_date, value.end_date) == (A, EARLY, T)
@@ -138,6 +170,7 @@ def test_change_saves_whole_trusted_range_and_real_factor_refs(tmp_path):
 
 
 def test_missing_both_factors_for_known_prior_object_stays_unknown(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         plan = build(
@@ -146,8 +179,9 @@ def test_missing_both_factors_for_known_prior_object_stays_unknown(tmp_path):
             staging,
             inputs(conn, lake, t=((B, 1.0),), p=((B, 1.0),)),
             starts=(start(A, None),),
+            known_records=known_records,
         )
-        actual = rows(conn, staging, plan)
+        actual = rows(conn, staging, plan, known_records=known_records)
         assert len(actual) == 1 and actual[0].ts_code == A
         assert actual[0].plan_reasons == (5,)
         assert (actual[0].t_present, actual[0].p_present) == (False, False)
@@ -156,15 +190,26 @@ def test_missing_both_factors_for_known_prior_object_stays_unknown(tmp_path):
 
 
 def test_same_business_input_keeps_revision_and_factor_revision_increments(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         refs = inputs(conn, lake)
-        first = build(conn, lake, staging, refs, run="run-first")
+        first = build(
+            conn, lake, staging, refs, run="run-first", known_records=known_records
+        )
         old = prior(
             history_plan_ref=plan_ref(staging, first),
             history_ranges_ref=first.ranges_ref,
         )
-        same = build(conn, lake, staging, refs, run="run-same", old=old)
+        same = build(
+            conn,
+            lake,
+            staging,
+            refs,
+            run="run-same",
+            old=old,
+            known_records=known_records,
+        )
         assert same.history_plan_digest == first.history_plan_digest
         assert same.history_ranges_digest == first.history_ranges_digest
         assert same.revision == first.revision == 1 and same.revision_of is None
@@ -179,6 +224,7 @@ def test_same_business_input_keeps_revision_and_factor_revision_increments(tmp_p
                 history_plan_ref=plan_ref(staging, same),
                 history_ranges_ref=same.ranges_ref,
             ),
+            known_records=known_records,
         )
         assert (
             second.revision == 2
@@ -188,6 +234,7 @@ def test_same_business_input_keeps_revision_and_factor_revision_increments(tmp_p
 
 
 def test_repair_preserves_original_authorized_codes_and_start(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         first = build(
@@ -196,6 +243,7 @@ def test_repair_preserves_original_authorized_codes_and_start(tmp_path):
             staging,
             inputs(conn, lake, t=((A, 2.0), (B, 1.0)), p=((A, 1.0), (B, 1.0))),
             run="run-origin",
+            known_records=known_records,
         )
         repair_id = replace(
             identity("run-repair"),
@@ -215,8 +263,9 @@ def test_repair_preserves_original_authorized_codes_and_start(tmp_path):
             ),
             starts=(start(A, date(2010, 1, 4)), start(B, date(2000, 1, 4))),
             run_identity=repair_id,
+            known_records=known_records,
         )
-        actual = rows(conn, staging, current)
+        actual = rows(conn, staging, current, known_records=known_records)
         assert [(r.ts_code, r.start_date, r.end_date) for r in actual] == [
             (A, EARLY, T)
         ]
@@ -229,23 +278,25 @@ def test_repair_preserves_original_authorized_codes_and_start(tmp_path):
 
 @pytest.mark.parametrize("invalid", [0.0, -1.0, float("nan"), float("inf"), None])
 def test_factor_must_be_present_positive_finite(tmp_path, invalid):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         refs = inputs(conn, lake, t=((A, invalid),))
         with pytest.raises(ValueError, match="正值"):
-            build(conn, lake, staging, refs)
+            build(conn, lake, staging, refs, known_records=known_records)
         assert not (run_root(staging, "run-a") / "history-plan.json").exists()
         assert_clean(conn)
 
 
 @pytest.mark.parametrize("which", [0, 1])
 def test_entire_empty_factor_file_cannot_be_ready(tmp_path, which):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         refs = list(inputs(conn, lake))
         refs[which] = write_factor_file(conn, lake, (T, P)[which], ())
         with pytest.raises(ValueError, match="非空"):
-            build(conn, lake, staging, tuple(refs))
+            build(conn, lake, staging, tuple(refs), known_records=known_records)
         assert_clean(conn)
 
 
@@ -253,6 +304,7 @@ def test_entire_empty_factor_file_cannot_be_ready(tmp_path, which):
     "violation", ["sha", "count", "wrong-reference-date", "duplicate"]
 )
 def test_factor_reference_and_actual_file_must_match(tmp_path, violation):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         refs = list(inputs(conn, lake))
@@ -265,7 +317,7 @@ def test_factor_reference_and_actual_file_must_match(tmp_path, violation):
         else:
             refs[0] = write_factor_file(conn, lake, T, ((A, 2.0), (A, 3.0)))
         with pytest.raises(ValueError):
-            build(conn, lake, staging, tuple(refs))
+            build(conn, lake, staging, tuple(refs), known_records=known_records)
         assert_clean(conn)
 
 
@@ -279,6 +331,7 @@ def test_factor_reference_and_actual_file_must_match(tmp_path, violation):
     ],
 )
 def test_factor_literal_wrong_schema_date_or_code_rejected(tmp_path, query):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         refs = list(inputs(conn, lake))
@@ -286,11 +339,12 @@ def test_factor_literal_wrong_schema_date_or_code_rejected(tmp_path, query):
         conn.execute(copy_query_to_parquet(query, path))
         refs[0] = FactorFileRef(T, "raw_tushare_adj_factor", factor_file_sha(path), 1)
         with pytest.raises(ValueError):
-            build(conn, lake, staging, tuple(refs))
+            build(conn, lake, staging, tuple(refs), known_records=known_records)
         assert_clean(conn)
 
 
 def test_cancel_before_save_leaves_no_plan_or_temp_factor_tables(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     calls = 0
 
@@ -302,34 +356,88 @@ def test_cancel_before_save_leaves_no_plan_or_temp_factor_tables(tmp_path):
 
     with connection(tmp_path) as conn:
         with pytest.raises(RuntimeError, match="cancel"):
-            build(conn, lake, staging, inputs(conn, lake), cancel=cancel)
+            build(
+                conn,
+                lake,
+                staging,
+                inputs(conn, lake),
+                cancel=cancel,
+                known_records=known_records,
+            )
         assert not (run_root(staging, "run-a") / "history-plan.json").exists()
         assert_clean(conn)
 
 
 @pytest.mark.parametrize("which", [0, 1])
 def test_factor_reference_type_is_checked_before_attribute_access(tmp_path, which):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         refs = list(inputs(conn, lake))
         refs[which] = {"trade_date": (T, P)[which]}
-        with pytest.raises(TypeError, match="冻结文件引用"):
-            build(conn, lake, staging, tuple(refs))
+        with pytest.raises(TypeError, match="权威因子引用"):
+            build(conn, lake, staging, tuple(refs), known_records=known_records)
         assert not (run_root(staging, "run-a") / "history-plan.json").exists()
 
 
-def test_factor_change_during_planning_stops_before_saving_plan(tmp_path, monkeypatch):
+def test_factor_change_after_planning_stops_before_history_network(tmp_path):
+    from orchestrator.defs.io import stk_factor_pro_download as downloads
+    from tests.stk_factor_pro_history_test_support import check_test_space, eligibility
+
+    known_records = {}
     lake, staging = roots(tmp_path)
-    original = history._history_lifecycle
     with connection(tmp_path) as conn:
         refs = inputs(conn, lake)
+        plan = build(conn, lake, staging, refs, known_records=known_records)
+        saved_ranges = rows(conn, staging, plan, known_records=known_records)
+        units = history.resolve_stk_factor_pro_history_units(
+            conn,
+            plan=plan,
+            ranges=saved_ranges,
+            prior_results=prior(),
+            staging_root=staging,
+            known_records=known_records,
+        )
+        # The plan describes the verified snapshot. A later upstream update
+        # does not trigger a builder rescan: the next download boundary stops.
+        updated_t = write_factor_file(conn, lake, T, ((A, 3.0),))
+        assert updated_t.file_sha256 != refs[0].file_sha256
+        assert plan.factor_t_ref == refs[0] and saved_ranges[0].t_value == 2.0
+        good = eligibility(plan.identity, plan)
 
-        def changed_input(connection, **kwargs):
-            write_factor_file(connection, lake, T, ((A, 3.0),))
-            return original(connection, **kwargs)
+        class NoNetwork:
+            calls = 0
 
-        monkeypatch.setattr(history, "_history_lifecycle", changed_input)
-        with pytest.raises(ValueError, match="保存前改变"):
-            build(conn, lake, staging, refs)
-        assert not (run_root(staging, "run-a") / "history-plan.json").exists()
+            def download(self, *args, **kwargs):
+                self.calls += 1
+                raise AssertionError("changed prepared inputs must stop before network")
+
+        downloader = NoNetwork()
+        with pytest.raises(ValueError, match="改变|变化"):
+            downloads.download_stk_factor_pro_history(
+                conn,
+                identity=plan.identity,
+                contract=plan.contract,
+                plan=plan,
+                ranges=saved_ranges,
+                plan_ref=plan_ref(staging, plan),
+                known_records=known_records,
+                expected_units=units,
+                prior_results=prior(),
+                eligibility=good,
+                lake_root=lake,
+                staging_root=staging,
+                recheck_inputs=lambda: (
+                    refs[0],
+                    refs[1],
+                    good.raw_coverage,
+                    good.target_silver,
+                ),
+                downloader=downloader,
+                check_cancel=lambda: None,
+                check_space=check_test_space,
+            )
+        assert downloader.calls == 0
+        assert (run_root(staging, "run-a") / "history-plan.json").is_file()
+        assert not (run_root(staging, "run-a") / "source").exists()
         assert_clean(conn)

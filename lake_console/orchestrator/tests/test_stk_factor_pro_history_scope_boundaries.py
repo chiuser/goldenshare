@@ -12,6 +12,7 @@ from orchestrator.defs.io import stk_factor_pro_history as history
 from orchestrator.defs.paths import stk_factor_pro_run_staging_root
 from orchestrator.defs.run_contracts import stk_factor_pro as models
 from tests.stk_factor_pro_history_test_support import (
+    check_test_space,
     connection,
     contract,
     eligibility,
@@ -52,7 +53,16 @@ def range_row(code, *, start=P, t_value=2.0, p_value=1.0, reasons=(1,)):
     )
 
 
-def save_plan(conn, staging, rows, *, run="run-a", source_contract=None, factors=None):
+def save_plan(
+    conn,
+    staging,
+    rows,
+    *,
+    run="run-a",
+    source_contract=None,
+    factors=None,
+    known_records,
+):
     rows = tuple(sorted(rows, key=lambda item: item.ts_code))
     run_identity = identity(run)
     source_contract = contract() if source_contract is None else source_contract
@@ -60,14 +70,17 @@ def save_plan(conn, staging, rows, *, run="run-a", source_contract=None, factors
         models.FactorFileRef(T, "raw_tushare_adj_factor", SHA, len(rows)),
         models.FactorFileRef(P, "raw_tushare_adj_factor", SHA, len(rows)),
     )
+    ranges_digest = models.stk_factor_pro_history_ranges_digest(rows)
     value = models.HistoryPlanRecord(
         1,
         run_identity,
         source_contract,
         1,
         NOW,
-        models.stk_factor_pro_history_plan_digest(run_identity, source_contract, rows),
-        models.stk_factor_pro_history_ranges_digest(rows),
+        models.stk_factor_pro_history_plan_digest(
+            run_identity, source_contract, rows, ranges_digest=ranges_digest
+        ),
+        ranges_digest,
         models.RecordRef(run, "history-ranges.parquet", "0" * 64),
         len(rows),
         factor_t,
@@ -79,14 +92,23 @@ def save_plan(conn, staging, rows, *, run="run-a", source_contract=None, factors
     )
     root = stk_factor_pro_run_staging_root(staging, run, T.isoformat())
     return history.write_stk_factor_pro_history_plan(
-        root, value, rows, connection=conn
-    ), rows
+        root,
+        value,
+        rows,
+        connection=conn,
+        known_records=known_records,
+    )[0], rows
 
 
-def old_success(conn, staging, rows, *, source_contract=None):
+def old_success(conn, staging, rows, *, source_contract=None, known_records):
     """Persist only authenticated metadata, deliberately no old business files."""
     plan, rows = save_plan(
-        conn, staging, rows, run="run-old", source_contract=source_contract
+        conn,
+        staging,
+        rows,
+        run="run-old",
+        source_contract=source_contract,
+        known_records=known_records,
     )
     root = stk_factor_pro_run_staging_root(staging, "run-old", T.isoformat())
     units = tuple(
@@ -117,7 +139,12 @@ def old_success(conn, staging, rows, *, source_contract=None):
         len(units),
         NOW,
     )
-    history.write_stk_factor_pro_source_complete(root, source)
+    history.write_stk_factor_pro_source_complete(
+        root,
+        source,
+        known_records=known_records,
+        check_space=check_test_space,
+    )
     source_ref = models.RecordRef(
         "run-old",
         "source/history/source-complete.json",
@@ -193,13 +220,14 @@ class RejectOldBusinessRead:
         )
 
 
-def resolve(conn, staging, plan, rows, *, success=()):
+def resolve(conn, staging, plan, rows, *, success=(), known_records):
     return history.resolve_stk_factor_pro_history_units(
         conn,
         plan=plan,
         ranges=rows,
         prior_results=prior(success=success),
         staging_root=staging,
+        known_records=known_records,
     )
 
 
@@ -218,6 +246,7 @@ def guard_old_business_reads(monkeypatch):
 
 @pytest.mark.parametrize("unknown", ["start", "T", "P"])
 def test_one_unknown_stock_rejects_whole_scope_instead_of_filtering(tmp_path, unknown):
+    known_records = {}
     _, staging = roots(tmp_path)
     b = range_row(B)
     if unknown == "start":
@@ -227,21 +256,25 @@ def test_one_unknown_stock_rejects_whole_scope_instead_of_filtering(tmp_path, un
     else:
         b = range_row(B, p_value=None, reasons=(3,))
     with connection(tmp_path) as conn:
-        plan, rows = save_plan(conn, staging, (range_row(A), b))
+        plan, rows = save_plan(
+            conn, staging, (range_row(A), b), known_records=known_records
+        )
         with pytest.raises(ValueError):
-            resolve(conn, staging, plan, rows)
+            resolve(conn, staging, plan, rows, known_records=known_records)
 
 
 def test_proven_no_history_stock_is_kept_in_plan_but_excluded_from_units(tmp_path):
+    known_records = {}
     _, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         plan, rows = save_plan(
             conn,
             staging,
             (range_row(A), range_row(B, start=None, p_value=None, reasons=(3, 6))),
+            known_records=known_records,
         )
         assert plan.full_code_count == 2
-        assert resolve(conn, staging, plan, rows) == (
+        assert resolve(conn, staging, plan, rows, known_records=known_records) == (
             models.UnitProjection(5, A, None, P, T),
         )
 
@@ -249,59 +282,103 @@ def test_proven_no_history_stock_is_kept_in_plan_but_excluded_from_units(tmp_pat
 def test_independent_ab_success_survives_new_c_without_reading_old_business_files(
     tmp_path, monkeypatch
 ):
+    known_records = {}
     _, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        success = old_success(conn, staging, (range_row(A), range_row(B)))
+        success = old_success(
+            conn, staging, (range_row(A), range_row(B)), known_records={}
+        )
         plan, rows = save_plan(
-            conn, staging, (range_row(A), range_row(B), range_row(C))
+            conn,
+            staging,
+            (range_row(A), range_row(B), range_row(C)),
+            known_records=known_records,
         )
         guard_old_business_reads(monkeypatch)
         assert resolve(
-            RejectOldBusinessRead(conn), staging, plan, rows, success=(success,)
+            RejectOldBusinessRead(conn),
+            staging,
+            plan,
+            rows,
+            success=(success,),
+            known_records=known_records,
         ) == (models.UnitProjection(5, C, None, P, T),)
 
 
 @pytest.mark.parametrize("change", ["value", "range"])
 def test_any_ab_input_change_invalidates_entire_old_success_scope(tmp_path, change):
+    known_records = {}
     _, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        success = old_success(conn, staging, (range_row(A), range_row(B)))
+        success = old_success(
+            conn, staging, (range_row(A), range_row(B)), known_records={}
+        )
         a = (
             range_row(A, t_value=3.0)
             if change == "value"
             else range_row(A, start=date(2026, 10, 14))
         )
-        plan, rows = save_plan(conn, staging, (a, range_row(B)))
-        assert resolve(conn, staging, plan, rows, success=(success,)) == tuple(
+        plan, rows = save_plan(
+            conn, staging, (a, range_row(B)), known_records=known_records
+        )
+        assert resolve(
+            conn, staging, plan, rows, success=(success,), known_records=known_records
+        ) == tuple(
             models.UnitProjection(5, item.ts_code, None, item.start_date, T)
             for item in rows
         )
 
 
 def test_old_success_with_different_contract_is_rejected_without_partial_skip(tmp_path):
+    known_records = {}
     _, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         wrong = replace(contract(), contract_content_digest="b" * 64)
         success = old_success(
-            conn, staging, (range_row(A), range_row(B)), source_contract=wrong
+            conn,
+            staging,
+            (range_row(A), range_row(B)),
+            source_contract=wrong,
+            known_records={},
         )
-        plan, rows = save_plan(conn, staging, (range_row(A), range_row(B)))
+        plan, rows = save_plan(
+            conn, staging, (range_row(A), range_row(B)), known_records=known_records
+        )
         with pytest.raises(ValueError):
-            resolve(conn, staging, plan, rows, success=(success,))
+            resolve(
+                conn,
+                staging,
+                plan,
+                rows,
+                success=(success,),
+                known_records=known_records,
+            )
 
 
 def test_old_success_source_complete_changed_bytes_rejected(tmp_path, monkeypatch):
+    known_records = {}
     _, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        success = old_success(conn, staging, (range_row(A), range_row(B)))
-        plan, rows = save_plan(conn, staging, (range_row(A), range_row(B)))
+        success = old_success(
+            conn, staging, (range_row(A), range_row(B)), known_records={}
+        )
+        plan, rows = save_plan(
+            conn, staging, (range_row(A), range_row(B)), known_records=known_records
+        )
         old_root = stk_factor_pro_run_staging_root(staging, "run-old", T.isoformat())
         source = old_root / "source/history/source-complete.json"
         source.write_text(source.read_text() + " ", encoding="utf-8")
+        # The older producer had its own task dictionary. The current task
+        # holds its new plan but must first read the older persisted input.
         guard_old_business_reads(monkeypatch)
         with pytest.raises(ValueError, match="SHA"):
             resolve(
-                RejectOldBusinessRead(conn), staging, plan, rows, success=(success,)
+                RejectOldBusinessRead(conn),
+                staging,
+                plan,
+                rows,
+                success=(success,),
+                known_records=known_records,
             )
 
 
@@ -309,10 +386,15 @@ def test_old_success_source_complete_changed_bytes_rejected(tmp_path, monkeypatc
 def test_old_success_business_digest_corrupt_despite_matching_file_refs(
     tmp_path, monkeypatch, field
 ):
+    known_records = {}
     _, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        success = old_success(conn, staging, (range_row(A), range_row(B)))
-        plan, rows = save_plan(conn, staging, (range_row(A), range_row(B)))
+        success = old_success(
+            conn, staging, (range_row(A), range_row(B)), known_records={}
+        )
+        plan, rows = save_plan(
+            conn, staging, (range_row(A), range_row(B)), known_records=known_records
+        )
         old_root = stk_factor_pro_run_staging_root(staging, "run-old", T.isoformat())
         source = old_root / "source/history/source-complete.json"
         publication = old_root / success.relative_path
@@ -341,6 +423,7 @@ def test_old_success_business_digest_corrupt_despite_matching_file_refs(
                 plan,
                 rows,
                 success=(corrected_ref,),
+                known_records=known_records,
             )
 
 
@@ -348,17 +431,31 @@ def test_old_success_business_digest_corrupt_despite_matching_file_refs(
 def test_recheck_uses_actual_scope_values_and_current_raw_silver_qualification(
     tmp_path, change
 ):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         refs = (
             write_factor_file(conn, lake, T, ((A, 2.0), (B, 1.0))),
             write_factor_file(conn, lake, P, ((A, 1.0), (B, 1.0))),
         )
-        plan, rows = save_plan(conn, staging, (range_row(A),), factors=refs)
-        valid = eligibility(plan.identity, plan)
-        current_t = write_factor_file(
-            conn, lake, T, ((A, 7.0 if change == "inside" else 2.0), (B, 4.0))
+        history.prepare_stk_factor_pro_history_inputs(
+            conn,
+            identity=identity(),
+            lake_root=lake,
+            factor_t=refs[0],
+            factor_p=refs[1],
+            known_records=known_records,
+            check_cancel=lambda: None,
         )
+        plan, rows = save_plan(
+            conn, staging, (range_row(A),), factors=refs, known_records=known_records
+        )
+        valid = eligibility(plan.identity, plan)
+        current_t = refs[0]
+        if change in ("outside", "inside"):
+            current_t = write_factor_file(
+                conn, lake, T, ((A, 7.0 if change == "inside" else 2.0), (B, 4.0))
+            )
         coverage = (
             replace(valid.raw_coverage, complete=False)
             if change == "raw"
@@ -376,13 +473,8 @@ def test_recheck_uses_actual_scope_values_and_current_raw_silver_qualification(
             "lake_root": lake,
             "recheck_inputs": lambda: (current_t, refs[1], coverage, silver),
         }
-        if change == "outside":
-            assert history.recheck_stk_factor_pro_history_inputs(conn, **args) == (
-                current_t,
-                refs[1],
-                coverage,
-                silver,
+        with pytest.raises(ValueError):
+            history.recheck_stk_factor_pro_history_inputs(
+                conn, **args, known_records=known_records
             )
-        else:
-            with pytest.raises(ValueError):
-                history.recheck_stk_factor_pro_history_inputs(conn, **args)
+        history.release_stk_factor_pro_history_inputs(conn)

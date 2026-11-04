@@ -5,6 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from orchestrator.defs.checks.stk_factor_pro import require_factor_relation
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
 from orchestrator.defs.io import stk_factor_pro_candidates as candidates
 from tests.stk_factor_pro_history_test_support import NAMES, connection
@@ -32,9 +33,19 @@ def input_table(conn, *, raw_day="20261015"):
         f"CREATE TEMP TABLE {candidates.HISTORY_DAY_SOURCE} AS "
         f"{literal_row(A, 12.5, raw_day)} UNION ALL {literal_row(C, -1.25, raw_day)}"
     )
+    # Real producer: _save_stk_factor_pro_history_unit verifies the full source;
+    # publish_stk_factor_pro_history selects WHERE trade_date=d from that source.
+    # Verify this handwritten fixture once at that source boundary instead of
+    # relying on the candidate builder to repeat its caller's input audit.
+    count, _ = require_factor_relation(
+        conn, candidates.HISTORY_DAY_SOURCE, target_trade_date=P, layer="raw"
+    )
+    assert count == 2
 
 
-def build(conn, root, target, *, source_relation=None, prior=None, day=P):
+def build(
+    conn, root, target, *, source_relation=None, prior=None, day=P, known_records
+):
     return candidates.build_stk_factor_pro_raw_candidate_from_relation(
         conn,
         source_relation=candidates.HISTORY_DAY_SOURCE
@@ -44,10 +55,13 @@ def build(conn, root, target, *, source_relation=None, prior=None, day=P):
         prior_path=prior,
         candidate_path=target,
         run_root=root,
+        source_row_count=2,
+        known_records=known_records,
     )
 
 
 def test_history_date_uses_whole_raw_merge_and_preserves_unrelated_all_fields(tmp_path):
+    known_records = {}
     root = tmp_path / "run"
     root.mkdir()
     old, output = (
@@ -65,7 +79,7 @@ def test_history_date_uses_whole_raw_merge_and_preserves_unrelated_all_fields(tm
             copy_query_to_parquet("SELECT * FROM original ORDER BY ts_code", old)
         )
         input_table(conn)
-        audit = build(conn, root, output, prior=old)
+        audit = build(conn, root, output, prior=old, known_records=known_records)
         assert audit.passed and audit.row_count == 3 and audit.trade_date == P
         assert conn.execute(
             "SELECT ts_code,trade_date,close,pe FROM read_parquet(?,hive_partitioning=false) ORDER BY ts_code",
@@ -98,36 +112,39 @@ def test_history_date_uses_whole_raw_merge_and_preserves_unrelated_all_fields(tm
     "relation", ["external", "stk_factor_pro_history_day_source;DROP TABLE x", "x.y"]
 )
 def test_arbitrary_relation_or_sql_is_rejected_before_copy(tmp_path, relation):
+    known_records = {}
     root = tmp_path / "run"
     root.mkdir()
     output = root / "candidates/history/raw/data.parquet"
     with connection(tmp_path) as conn, pytest.raises(ValueError, match="内部已核单日"):
-        build(conn, root, output, source_relation=relation)
+        build(conn, root, output, source_relation=relation, known_records=known_records)
     assert not output.exists()
 
 
 @pytest.mark.parametrize("day", ["2026-10-15", None])
 def test_explicit_processing_date_must_be_date(tmp_path, day):
+    known_records = {}
     root = tmp_path / "run"
     root.mkdir()
     output = root / "candidates/history/raw/data.parquet"
     with connection(tmp_path) as conn, pytest.raises(ValueError):
-        build(conn, root, output, day=day)
+        build(conn, root, output, day=day, known_records=known_records)
     assert not output.exists()
 
 
-def test_history_rows_of_another_date_cannot_be_silently_written(tmp_path):
+def test_history_rows_of_another_date_are_rejected_at_first_source_audit(tmp_path):
+    known_records = {}
     root = tmp_path / "run"
     root.mkdir()
     output = root / "candidates/history/raw/data.parquet"
-    with connection(tmp_path) as conn:
+    with connection(tmp_path) as conn, pytest.raises(ValueError, match="日期"):
         input_table(conn, raw_day="20261014")
-        with pytest.raises(ValueError, match="日期"):
-            build(conn, root, output)
+        build(conn, root, output, known_records=known_records)
     assert not output.exists()
 
 
 def test_day_wrapper_cannot_accept_an_unverified_source_object(tmp_path):
+    known_records = {}
     root = tmp_path / "run"
     root.mkdir()
     with (
@@ -143,6 +160,7 @@ def test_day_wrapper_cannot_accept_an_unverified_source_object(tmp_path):
             prior_path=None,
             candidate_path=root / "candidates/day/raw/data.parquet",
             run_root=root,
+            known_records=known_records,
         )
 
 
@@ -150,6 +168,7 @@ def test_day_wrapper_cannot_accept_an_unverified_source_object(tmp_path):
 def test_history_candidate_path_is_checked_before_creating_external_file(
     tmp_path, kind
 ):
+    known_records = {}
     root, outside = tmp_path / "run", tmp_path / "outside"
     root.mkdir()
     outside.mkdir()
@@ -163,6 +182,6 @@ def test_history_candidate_path_is_checked_before_creating_external_file(
     with connection(tmp_path) as conn:
         input_table(conn)
         with pytest.raises(ValueError):
-            build(conn, root, output)
+            build(conn, root, output, known_records=known_records)
     assert list(outside.iterdir()) == []
     assert not (tmp_path / "absent").exists()

@@ -14,9 +14,11 @@ import pytest
 from orchestrator.defs.bootstrap import stk_factor_pro_bootstrap_publication as P
 from orchestrator.defs.bootstrap import stk_factor_pro_bootstrap_records as R
 from orchestrator.defs.bootstrap import stk_factor_pro_history as B
+from orchestrator.defs.io.stk_factor_pro_candidates import BOOTSTRAP_DAY_SOURCE
 from orchestrator.defs.run_contracts import stk_factor_pro as C
 from tests.stk_factor_pro_bootstrap_test_support import (
     approval_fixture,
+    bootstrap_date_results,
     check_test_space,
     native_row,
     source_fixture,
@@ -24,13 +26,19 @@ from tests.stk_factor_pro_bootstrap_test_support import (
 from tests.stk_factor_pro_test_support import connection
 from tests.test_stk_factor_pro_bootstrap import Instance, NoProd
 from tests.test_stk_factor_pro_bootstrap_coverage import supplement_audits
+from tests.test_stk_factor_pro_bootstrap_publication import (
+    release_date_work,
+    restore_source_context,
+)
 from tests.test_stk_factor_pro_bootstrap_source import FakeProd
 
 DAY = date(2019, 10, 16)
 
 
-def _setup(conn, tmp_path, counts):
-    lake, staging, approval, identity = approval_fixture(conn, tmp_path, counts=counts)
+def _setup(conn, tmp_path, counts, *, known_records):
+    lake, staging, approval, identity = approval_fixture(
+        conn, tmp_path, counts=counts, known_records=known_records
+    )
     return (
         {
             "lake_root": lake,
@@ -56,7 +64,7 @@ def _formal(args, day, layer):
     return args["lake_root"].joinpath(*relative, f"trade_date={day}", "data.parquet")
 
 
-def _guard(conn, args, approval, counts, *, trusted=None):
+def _guard(conn, args, approval, counts, *, trusted=None, known_records):
     classified = {
         day: B._classify_date(
             conn,
@@ -65,6 +73,7 @@ def _guard(conn, args, approval, counts, *, trusted=None):
             approval=approval,
             day=day,
             trusted={} if trusted is None else trusted,
+            known_records=known_records,
         )
         for day, _ in counts
     }
@@ -75,10 +84,11 @@ def _guard(conn, args, approval, counts, *, trusted=None):
         approval=approval,
         counts=dict(counts),
         classified=classified,
+        known_records=known_records,
     )
 
 
-def _source(conn, args, approval, rows, *, day=DAY, attempt="a" * 32):
+def _source(conn, args, approval, rows, *, day=DAY, attempt="a" * 32, known_records):
     return source_fixture(
         conn,
         staging_root=args["staging_root"],
@@ -86,24 +96,41 @@ def _source(conn, args, approval, rows, *, day=DAY, attempt="a" * 32):
         rows=rows,
         day=day,
         attempt=attempt,
+        known_records=known_records,
     )
 
 
-def _publish(conn, args, approval, source, *, guard=check_test_space):
-    return P.publish_bootstrap_date(
-        conn,
-        lake_root=args["lake_root"],
-        staging_root=args["staging_root"],
-        approval=approval,
-        source_complete=source,
-        before_publish=lambda: None,
-        check_space=guard,
-    )
+def _publish(
+    conn, args, approval, source, *, guard=check_test_space, known_records, date_results
+):
+    with R.resource_cleanup(lambda: release_date_work(conn)):
+        return P.publish_bootstrap_date(
+            conn,
+            lake_root=args["lake_root"],
+            staging_root=args["staging_root"],
+            approval=approval,
+            source_complete=source,
+            source_record_sha256=known_records[
+                R.operation_path(
+                    args["staging_root"],
+                    approval,
+                    f"source/dates/{source.trade_date}/source-complete.json",
+                )
+            ][1],
+            source_relation=BOOTSTRAP_DAY_SOURCE,
+            before_publish=lambda: None,
+            check_space=guard,
+            known_records=known_records,
+            date_results=bootstrap_date_results(date_results, source),
+        )
 
 
 def test_zero_free_space_blocks_before_any_prod_detail_read(tmp_path, monkeypatch):
+    known_records = {}
     with connection(tmp_path) as conn:
-        args, approval, identity = _setup(conn, tmp_path, ((DAY, 1),))
+        args, approval, identity = _setup(
+            conn, tmp_path, ((DAY, 1),), known_records=known_records
+        )
         remote = FakeProd(approval, identity, ((DAY, 1),), [native_row()])
         monkeypatch.setattr(R.shutil, "disk_usage", lambda _: SimpleNamespace(free=0))
         with pytest.raises(ValueError, match="空间不足.*阶段=读取前核磁盘空间"):
@@ -118,10 +145,13 @@ def test_zero_free_space_blocks_before_any_prod_detail_read(tmp_path, monkeypatc
 def test_space_drop_after_first_date_keeps_it_and_stops_next_date(
     tmp_path, monkeypatch
 ):
+    known_records = {}
     following = DAY + timedelta(days=1)
     counts = ((DAY, 1), (following, 1))
     with connection(tmp_path) as conn:
-        args, approval, identity = _setup(conn, tmp_path, counts)
+        args, approval, identity = _setup(
+            conn, tmp_path, counts, known_records=known_records
+        )
         remote = FakeProd(
             approval, identity, counts, [native_row(), native_row(day=following)]
         )
@@ -148,6 +178,7 @@ def test_space_drop_after_first_date_keeps_it_and_stops_next_date(
                 staging_root=args["staging_root"],
                 approval=approval,
                 trade_date=DAY,
+                known_records=known_records,
             )
             is not None
         )
@@ -157,17 +188,21 @@ def test_space_drop_after_first_date_keeps_it_and_stops_next_date(
                 staging_root=args["staging_root"],
                 approval=approval,
                 trade_date=following,
+                known_records=known_records,
             )
             is None
         )
 
 
 def test_half_day_left_on_disk_is_not_reused_by_new_attempt(tmp_path, monkeypatch):
+    known_records = {}
     counts = ((DAY, 3),)
     rows = [native_row(f"{number:06d}.SZ") for number in (1, 2, 3)]
     monkeypatch.setattr(C, "STK_FACTOR_PRO_BOOTSTRAP_FETCH_ROWS", 1)
     with connection(tmp_path) as conn:
-        args, approval, identity = _setup(conn, tmp_path, counts)
+        args, approval, identity = _setup(
+            conn, tmp_path, counts, known_records=known_records
+        )
         root = _root(args, approval)
         first = FakeProd(approval, identity, counts, rows, sample_rows=[rows[0]])
         monkeypatch.setattr(
@@ -189,6 +224,7 @@ def test_half_day_left_on_disk_is_not_reused_by_new_attempt(tmp_path, monkeypatc
                 staging_root=args["staging_root"],
                 approval=approval,
                 trade_date=DAY,
+                known_records=known_records,
             )
             is None
         )
@@ -200,7 +236,11 @@ def test_half_day_left_on_disk_is_not_reused_by_new_attempt(tmp_path, monkeypatc
         assert summary.verified_source_rows == summary.current_raw_rows == 3
         assert old_fragment.read_bytes() == old_bytes
         saved = R.read_stk_factor_pro_bootstrap_source_complete(
-            conn, staging_root=args["staging_root"], approval=approval, trade_date=DAY
+            conn,
+            staging_root=args["staging_root"],
+            approval=approval,
+            trade_date=DAY,
+            known_records={},
         )
         assert saved.actual_rows == 3 and len(saved.fragments) == 3
         assert all(
@@ -217,11 +257,12 @@ def test_half_day_left_on_disk_is_not_reused_by_new_attempt(tmp_path, monkeypatc
 
 
 def test_guard_reserves_all_ten_dates_of_formal_files(tmp_path, monkeypatch):
+    known_records = {}
     counts = tuple((DAY + timedelta(days=i), 1) for i in range(10))
     monkeypatch.setattr(R.shutil, "disk_usage", lambda _: SimpleNamespace(free=10**12))
     with connection(tmp_path) as conn:
-        args, approval, _ = _setup(conn, tmp_path, counts)
-        guard = _guard(conn, args, approval, counts)
+        args, approval, _ = _setup(conn, tmp_path, counts, known_records=known_records)
+        guard = _guard(conn, args, approval, counts, known_records=known_records)
         actual = guard("读取前", path=_root(args, approval))
         assert actual == R.BootstrapSpaceEstimate(
             source_bytes=4_236_084,
@@ -232,14 +273,25 @@ def test_guard_reserves_all_ten_dates_of_formal_files(tmp_path, monkeypatch):
 
 
 def test_completed_date_source_rows_are_excluded_only_once(tmp_path, monkeypatch):
+    date_results = {}
+    known_records = {}
     following = DAY + timedelta(days=1)
     counts = ((DAY, 1), (following, 1))
     monkeypatch.setattr(R.shutil, "disk_usage", lambda _: SimpleNamespace(free=10**12))
     with connection(tmp_path) as conn:
-        args, approval, _ = _setup(conn, tmp_path, counts)
-        complete = _source(conn, args, approval, (native_row(),))
-        _publish(conn, args, approval, complete)
-        guard = _guard(conn, args, approval, counts)
+        args, approval, _ = _setup(conn, tmp_path, counts, known_records=known_records)
+        complete = _source(
+            conn, args, approval, (native_row(),), known_records=known_records
+        )
+        _publish(
+            conn,
+            args,
+            approval,
+            complete,
+            known_records=known_records,
+            date_results=date_results,
+        )
+        guard = _guard(conn, args, approval, counts, known_records=known_records)
         initial = guard("剩余B日读取前", path=_root(args, approval))
         assert initial.source_bytes == 4_198_482
         remaining = _source(
@@ -249,6 +301,7 @@ def test_completed_date_source_rows_are_excluded_only_once(tmp_path, monkeypatch
             (native_row(day=following),),
             day=following,
             attempt="b" * 32,
+            known_records=known_records,
         )
         path = R.operation_path(
             args["staging_root"],
@@ -276,14 +329,20 @@ def test_completed_date_source_rows_are_excluded_only_once(tmp_path, monkeypatch
 def test_verified_candidates_do_not_end_two_layer_work_before_publication(
     tmp_path, monkeypatch
 ):
+    date_results = {}
+    known_records = {}
     counts = ((DAY, 3),)
     monkeypatch.setattr(R.shutil, "disk_usage", lambda _: SimpleNamespace(free=10**12))
     with connection(tmp_path) as conn:
-        args, approval, _ = _setup(conn, tmp_path, counts)
+        args, approval, _ = _setup(conn, tmp_path, counts, known_records=known_records)
         source = _source(
-            conn, args, approval, tuple(native_row(f"{n:06d}.SZ") for n in (1, 2, 3))
+            conn,
+            args,
+            approval,
+            tuple(native_row(f"{n:06d}.SZ") for n in (1, 2, 3)),
+            known_records=known_records,
         )
-        guard = _guard(conn, args, approval, counts)
+        guard = _guard(conn, args, approval, counts, known_records=known_records)
         first = guard("完整源复用", path=_root(args, approval), trade_date=DAY)
         assert first.source_bytes == 0 and first.temp_bytes == 33_654_704
         checked = []
@@ -294,7 +353,15 @@ def test_verified_candidates_do_not_end_two_layer_work_before_publication(
             return original(**keywords)
 
         monkeypatch.setattr(R, "require_bootstrap_space", record)
-        _publish(conn, args, approval, source, guard=guard)
+        _publish(
+            conn,
+            args,
+            approval,
+            source,
+            guard=guard,
+            known_records=known_records,
+            date_results=date_results,
+        )
         candidates = [
             estimate for stage, estimate in checked if stage == "候选完整检查通过"
         ]
@@ -308,11 +375,13 @@ def test_original_empty_source_current_five_rows_have_real_statistics_budget(
 ):
     # Real source approval has nonempty first/last dates. Its middle zero day
     # may later acquire five rows through an independently checked supplement.
+    date_results = {}
+    known_records = {}
     counts = ((DAY - timedelta(days=1), 1), (DAY, 0), (DAY + timedelta(days=1), 1))
     monkeypatch.setattr(R.shutil, "disk_usage", lambda _: SimpleNamespace(free=10**12))
     with connection(tmp_path) as conn:
-        args, approval, _ = _setup(conn, tmp_path, counts)
-        _source(conn, args, approval, ())
+        args, approval, _ = _setup(conn, tmp_path, counts, known_records=known_records)
+        _source(conn, args, approval, (), known_records=known_records)
         for neighbor in (counts[0][0], counts[2][0]):
             saved = _source(
                 conn,
@@ -321,12 +390,21 @@ def test_original_empty_source_current_five_rows_have_real_statistics_budget(
                 (native_row(day=neighbor),),
                 day=neighbor,
                 attempt=neighbor.strftime("%Y%m%d") + "b" * 24,
+                known_records=known_records,
             )
-            _publish(conn, args, approval, saved)
+            _publish(
+                conn,
+                args,
+                approval,
+                saved,
+                known_records=known_records,
+                date_results=date_results,
+            )
         raw, silver = supplement_audits(
             conn,
             {"trade_date": DAY, "lake_root": args["lake_root"]},
             tuple(f"{number:06d}.SZ" for number in (1, 2, 3, 4, 5)),
+            known_records=known_records,
         )
         publication = C.StkFactorProBootstrapCurrentPublication(
             "supplement-run",
@@ -342,7 +420,12 @@ def test_original_empty_source_current_five_rows_have_real_statistics_budget(
             "1",
         )
         guard = _guard(
-            conn, args, approval, counts, trusted={DAY: (publication, raw, silver)}
+            conn,
+            args,
+            approval,
+            counts,
+            trusted={DAY: (publication, raw, silver)},
+            known_records=known_records,
         )
         root = _root(args, approval)
         expected = R.BootstrapSpaceEstimate(0, 0, 16_860_776, 4_194_304)
@@ -358,7 +441,9 @@ def test_original_empty_source_current_five_rows_have_real_statistics_budget(
         assert summary.verified_source_rows == 2
         assert summary.current_raw_rows == summary.current_silver_rows == 7
         middle = R.read_json(
-            root / f"coverage/{DAY}/result.json", C.StkFactorProBootstrapDateCoverage
+            root / f"coverage/{DAY}/result.json",
+            C.StkFactorProBootstrapDateCoverage,
+            known_records={},
         )
         assert middle.source_rows == 0 and middle.raw_rows == middle.silver_rows == 5
 
@@ -367,11 +452,12 @@ def test_record_growth_is_observed_and_present_bytes_not_reserved_twice(
     tmp_path, monkeypatch
 ):
     # This file exercises only the capacity ledger, not record/schema validation.
+    known_records = {}
     counts = ((DAY, 1), (DAY + timedelta(days=1), 1))
     monkeypatch.setattr(R.shutil, "disk_usage", lambda _: SimpleNamespace(free=10**12))
     with connection(tmp_path) as conn:
-        args, approval, _ = _setup(conn, tmp_path, counts)
-        guard = _guard(conn, args, approval, counts)
+        args, approval, _ = _setup(conn, tmp_path, counts, known_records=known_records)
+        guard = _guard(conn, args, approval, counts, known_records=known_records)
         root = _root(args, approval)
         assert guard("初始记录估算", path=root).record_bytes == 3_145_728
         path = root / "coverage" / str(DAY) / "large.json"
@@ -386,9 +472,8 @@ def test_record_growth_is_observed_and_present_bytes_not_reserved_twice(
         )
 
 
-def test_final_statistics_retains_working_space_after_all_dates_published(
-    tmp_path, monkeypatch
-):
+def test_final_summary_reserves_one_record_without_business_work(tmp_path, monkeypatch):
+    known_records = {}
     seen = []
     original = R.require_bootstrap_space
 
@@ -398,7 +483,9 @@ def test_final_statistics_retains_working_space_after_all_dates_published(
 
     monkeypatch.setattr(R, "require_bootstrap_space", record)
     with connection(tmp_path) as conn:
-        args, approval, identity = _setup(conn, tmp_path, ((DAY, 1),))
+        args, approval, identity = _setup(
+            conn, tmp_path, ((DAY, 1),), known_records=known_records
+        )
         B._run_stk_factor_pro_bootstrap(
             conn,
             prod_postgres=FakeProd(approval, identity, ((DAY, 1),), [native_row()]),
@@ -407,15 +494,23 @@ def test_final_statistics_retains_working_space_after_all_dates_published(
         final = [value for stage, value in seen if stage == "最终统计准备前"]
         assert len(final) == 1
         assert final[0].source_bytes == final[0].candidate_bytes == 0
-        assert final[0].temp_bytes == 16_793_928
+        # LLD 17.8.2: summary consumes held totals, without data or temp work.
+        assert final[0].temp_bytes == 0
+        assert final[0].record_bytes == 1_048_576
 
 
 def test_expected_target_after_replace_without_complete_is_not_reserved_twice(
     tmp_path, monkeypatch
 ):
+    date_results = {}
+    known_records = {}
     with connection(tmp_path) as conn:
-        args, approval, _ = _setup(conn, tmp_path, ((DAY, 1),))
-        source = _source(conn, args, approval, (native_row(),))
+        args, approval, _ = _setup(
+            conn, tmp_path, ((DAY, 1),), known_records=known_records
+        )
+        source = _source(
+            conn, args, approval, (native_row(),), known_records=known_records
+        )
         original = P.write_stk_factor_pro_bootstrap_publication_complete
 
         def fail_raw(**kwargs):
@@ -427,11 +522,22 @@ def test_expected_target_after_replace_without_complete_is_not_reserved_twice(
             P, "write_stk_factor_pro_bootstrap_publication_complete", fail_raw
         )
         with pytest.raises(OSError, match="complete not saved"):
-            _publish(conn, args, approval, source)
+            _publish(
+                conn,
+                args,
+                approval,
+                source,
+                known_records=known_records,
+                date_results=date_results,
+            )
         monkeypatch.setattr(
             P, "write_stk_factor_pro_bootstrap_publication_complete", original
         )
-        guard = _guard(conn, args, approval, ((DAY, 1),))
+        known_records, date_results, restored = restore_source_context(
+            conn, {**args, "approval": approval, "source_complete": source}
+        )
+        source = restored["source_complete"]
+        guard = _guard(conn, args, approval, ((DAY, 1),), known_records=known_records)
         budget = guard(
             "原目标已提升但完成记录未写", path=_root(args, approval), trade_date=DAY
         )
@@ -440,20 +546,29 @@ def test_expected_target_after_replace_without_complete_is_not_reserved_twice(
         assert (
             budget.temp_bytes == 33_587_856
         )  # Both layers still require recovery work.
-        raw, silver = _publish(conn, args, approval, source, guard=guard)
+        raw, silver = _publish(
+            conn,
+            args,
+            approval,
+            source,
+            guard=guard,
+            known_records=known_records,
+            date_results=date_results,
+        )
         assert raw.passed and silver.passed
 
 
-def test_final_statistics_uses_all_months_maximum_without_reading_5000_rows(
+def test_final_summary_keeps_only_record_budget_without_reading_5000_rows(
     tmp_path, monkeypatch
 ):
     # Arithmetic-only accepted facts deliberately stand in for completed files.
     # This does not claim those files have been imported or verified.
+    known_records = {}
     earlier, later = date(2019, 1, 31), date(2019, 2, 1)
     counts = ((earlier, 5000), (later, 1))
     monkeypatch.setattr(R.shutil, "disk_usage", lambda _: SimpleNamespace(free=10**12))
     with connection(tmp_path) as conn:
-        args, approval, _ = _setup(conn, tmp_path, counts)
+        args, approval, _ = _setup(conn, tmp_path, counts, known_records=known_records)
         guard = B._bootstrap_space_check(
             conn,
             lake_root=args["lake_root"],
@@ -461,24 +576,40 @@ def test_final_statistics_uses_all_months_maximum_without_reading_5000_rows(
             approval=approval,
             counts=dict(counts),
             classified={
-                d: (SimpleNamespace(actual_rows=n), True, False, None)
+                d: {
+                    "source_complete": SimpleNamespace(actual_rows=n),
+                    "current_files_verified": True,
+                    "current_publication": None,
+                }
                 for d, n in counts
             },
+            known_records=known_records,
         )
         root = _root(args, approval)
         assert guard("最后月份", path=root, month_start=later).temp_bytes == 16_793_928
+        final = guard("最终汇总", path=root, event="final_statistics")
         assert (
-            guard("最终全范围统计", path=root, event="final_statistics").temp_bytes
-            == 100_337_216
+            final.source_bytes,
+            final.candidate_bytes,
+            final.temp_bytes,
+            final.record_bytes,
+        ) == (
+            0,
+            0,
+            0,
+            1_048_576,
         )
 
 
 def test_record_observation_does_not_reject_persisted_fact_and_next_write_checks(
     tmp_path, monkeypatch
 ):
+    known_records = {}
     with connection(tmp_path) as conn:
-        args, approval, _ = _setup(conn, tmp_path, ((DAY, 1),))
-        guard = _guard(conn, args, approval, ((DAY, 1),))
+        args, approval, _ = _setup(
+            conn, tmp_path, ((DAY, 1),), known_records=known_records
+        )
+        guard = _guard(conn, args, approval, ((DAY, 1),), known_records=known_records)
         path = _root(args, approval) / "coverage" / str(DAY) / "size-observation.json"
         path.parent.mkdir(parents=True)
         path.write_text("{}")

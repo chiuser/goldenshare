@@ -34,6 +34,58 @@ def factor_file_sha(path: Path) -> str:
         return hashlib.file_digest(stream, "sha256").hexdigest()
 
 
+def factor_file_identity(path: Path) -> tuple[int, int, int, int, int]:
+    """Inspect a file's identity without reading its business data."""
+    value = path.stat()
+    return (
+        value.st_dev,
+        value.st_ino,
+        value.st_size,
+        value.st_mtime_ns,
+        value.st_ctime_ns,
+    )
+
+
+def factor_known_file_sha(path: Path, *, known_records: dict) -> str | None:
+    """Return the first digest, refusing a later physical identity change."""
+    try:
+        identity = factor_file_identity(path)
+    except FileNotFoundError:
+        if path in known_records and known_records[path][2] is not None:
+            raise ValueError("技术因子正式文件在首次读取后改变") from None
+        known_records[path] = (None, None, None)
+        return None
+    if path in known_records:
+        if known_records[path][2] != identity:
+            raise ValueError("技术因子正式文件在首次读取后改变")
+        return known_records[path][1]
+    digest = factor_file_sha(path)
+    if factor_file_identity(path) != identity:
+        raise ValueError("技术因子文件在首次读取期间改变")
+    known_records[path] = (None, digest, identity)
+    return digest
+
+
+def release_stk_factor_pro_audit_relations(connection) -> None:
+    """Release this date's materialized file inputs after their final consumer."""
+    names = connection.execute(
+        "SELECT table_name FROM duckdb_tables() WHERE temporary "
+        "AND starts_with(table_name, 'stk_factor_pro_checked_')"
+    ).fetchall()
+    failures = []
+    for (name,) in names:
+        try:
+            connection.execute(f"DROP TABLE {relation_identifier(name)}")
+        except BaseException as error:  # noqa: BLE001 -- finish all owned releases, then raise the first cleanup error.
+            failures.append(error)
+    if failures:
+        for error in failures[1:]:
+            failures[0].add_note(
+                f"技术因子审计关系清理同时失败：{type(error).__name__}"
+            )
+        raise failures[0]
+
+
 def factor_content_sha(connection, relation: str) -> str:
     fields = ", ".join(f'{name} := "{name}"' for name in STK_FACTOR_PRO_SOURCE_COLUMNS)
     return connection.execute(
@@ -173,24 +225,44 @@ def audit_stk_factor_pro_file(
     expected_relation: str,
     target_trade_date: date,
     layer: str,
+    known_records: dict,
     diagnostics_path: Path | None = None,
 ) -> StkFactorProFileAudit:
-    before = factor_file_sha(path)
-    actual = "stk_factor_pro_checked_file"
-    connection.execute(
-        f"CREATE OR REPLACE TEMP VIEW {actual} AS SELECT * FROM {read_parquet(path, hive_partitioning=False)}"
+    identity = factor_file_identity(path)
+    prior = known_records.get(path)
+    if prior is not None and prior[2] != identity:
+        raise ValueError("技术因子文件在首次读取后改变")
+    before = (
+        prior[1]
+        if prior is not None and prior[1] is not None
+        else factor_file_sha(path)
+    )
+    actual = (
+        "stk_factor_pro_checked_"
+        + hashlib.sha256(f"{path}:{before}".encode()).hexdigest()[:20]
     )
     primary = None
     try:
-        rows, schema = require_factor_relation(
-            connection, actual, target_trade_date=target_trade_date, layer=layer
-        )
-        require_factor_relation(
-            connection,
-            expected_relation,
-            target_trade_date=target_trade_date,
-            layer=layer,
-        )
+        if prior is not None and isinstance(prior[0], StkFactorProFileAudit):
+            previous_audit = prior[0]
+            if (previous_audit.trade_date, previous_audit.layer) != (
+                target_trade_date,
+                layer,
+            ):
+                raise ValueError("技术因子首次审计的日期或层与本次比较不符")
+            if not connection.execute(
+                "SELECT count(*) FROM duckdb_tables() WHERE temporary AND table_name=?",
+                [actual],
+            ).fetchone()[0]:
+                raise ValueError("技术因子首次审计关系已经释放，请在新任务首次读取")
+            rows, schema = previous_audit.row_count, previous_audit.observed_schema
+        else:
+            connection.execute(
+                f"CREATE TEMP TABLE {actual} AS SELECT * FROM {read_parquet(path, hive_partitioning=False)}"
+            )
+            rows, schema = require_factor_relation(
+                connection, actual, target_trade_date=target_trade_date, layer=layer
+            )
         comparison = compare_factor_relations(
             connection, expected=expected_relation, actual=actual
         )
@@ -201,7 +273,7 @@ def audit_stk_factor_pro_file(
                 comparison.changed_row_count,
             )
         )
-        if factor_file_sha(path) != before:
+        if factor_file_identity(path) != identity:
             raise ValueError("技术因子检查期间文件已改变")
         saved_diagnostics = None
         if not passed and diagnostics_path is not None:
@@ -229,7 +301,7 @@ def audit_stk_factor_pro_file(
                 )
             )
             saved_diagnostics = diagnostics_path
-        return StkFactorProFileAudit(
+        audit = StkFactorProFileAudit(
             target_trade_date,
             layer,
             path,
@@ -244,13 +316,17 @@ def audit_stk_factor_pro_file(
             passed,
             saved_diagnostics,
         )
+        known_records[path] = (audit, before, identity)
+        return audit
     except BaseException as error:
         primary = error
         raise
     finally:
-        try:
-            connection.execute(f"DROP VIEW IF EXISTS {actual}")
-        except BaseException as cleanup:
-            if primary is None:
-                raise
-            primary.add_note(f"技术因子文件检查清理同时失败：{type(cleanup).__name__}")
+        if primary is not None:
+            try:
+                connection.execute(f"DROP TABLE IF EXISTS {actual}")
+            except BaseException as cleanup:  # noqa: BLE001 -- cleanup must not replace the existing business failure.
+                primary.add_note(
+                    f"技术因子文件检查清理同时失败：{type(cleanup).__name__}"
+                )
+                raise primary

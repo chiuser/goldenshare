@@ -6,17 +6,44 @@ from zoneinfo import ZoneInfo
 
 from orchestrator.defs.bootstrap.stk_factor_pro_bootstrap_records import (
     approval_sha,
+    load_approved_counts,
     operation_path,
     write_json,
     write_stk_factor_pro_bootstrap_source_complete,
 )
 from orchestrator.defs.checks.stk_factor_pro import factor_file_sha
 from orchestrator.defs.io.stk_factor_pro_candidates import (
+    BOOTSTRAP_DAY_SOURCE,
     build_stk_factor_pro_raw_batch,
     write_stk_factor_pro_raw_fragment,
 )
 from orchestrator.defs.run_contracts import stk_factor_pro as C
 from tests.stk_factor_pro_test_support import contract, row
+
+
+def bootstrap_date_results(date_results, source):
+    """The LLD 18.2.1 caller-owned date entry, without another persistent state."""
+    if source.trade_date not in date_results:
+        date_results[source.trade_date] = {
+            "source_complete": source,
+            "source_record_sha256": None,
+            "raw_complete": None,
+            "silver_complete": None,
+            "raw_audit": None,
+            "silver_audit": None,
+            "current_publication": None,
+            "current_files_verified": False,
+            "needs_restore": not source.source_empty,
+            "import_complete": source.source_empty,
+            "replaced_layers": set(),
+            "persisted_result": None,
+            "persisted_result_digest": None,
+            "computed_result": None,
+            "coverage_record_current": False,
+            "unknown_reason": None,
+            "previous_contribution": None,
+        }
+    return date_results
 
 
 def native_row(code="000001.SZ", day=date(2019, 10, 16), **values):
@@ -28,7 +55,12 @@ def native_row(code="000001.SZ", day=date(2019, 10, 16), **values):
 
 
 def approval_fixture(
-    connection, tmp_path, *, counts=((date(2019, 10, 16), 1),), operation="bootstrap-a"
+    connection,
+    tmp_path,
+    *,
+    counts=((date(2019, 10, 16), 1),),
+    operation="bootstrap-a",
+    known_records,
 ):
     # Counts/evidence are externally authored test approval, never created by executor.
     from orchestrator.defs.paths import stk_factor_pro_bootstrap_operation_root
@@ -74,7 +106,7 @@ def approval_fixture(
         True,
         now,
     )
-    write_json(root / "source-sample.json", sample)
+    write_json(root / "source-sample.json", sample, known_records=known_records)
     evidence = C.StkFactorProBootstrapSourceEvidence(
         1,
         operation,
@@ -93,7 +125,7 @@ def approval_fixture(
         "source-sample.json",
         factor_file_sha(root / "source-sample.json"),
     )
-    write_json(root / "source-evidence.json", evidence)
+    write_json(root / "source-evidence.json", evidence, known_records=known_records)
     month_limits = []
     start = counts[0][0]
     end = counts[-1][0] + timedelta(days=1)
@@ -127,15 +159,24 @@ def approval_fixture(
         tuple(month_limits),
         30000,
     )
-    write_json(root / "approval.json", approval)
+    write_json(root / "approval.json", approval, known_records=known_records)
     return lake, staging, approval, identity
 
 
 def source_fixture(
-    connection, *, staging_root, approval, rows, day=None, attempt="a" * 32
+    connection,
+    *,
+    staging_root,
+    approval,
+    rows,
+    day=None,
+    attempt="a" * 32,
+    known_records,
 ):
     from orchestrator.defs.checks.stk_factor_pro import factor_content_sha
-    from orchestrator.defs.duckdb_sql import read_parquet
+    from orchestrator.defs.io.stk_factor_pro_candidates import (
+        stk_factor_pro_fragment_file_signature,
+    )
 
     day = day or approval.start_trade_date
     month = next(
@@ -143,6 +184,7 @@ def source_fixture(
     )
     relative = f"source/month={month.month_start:%Y-%m}/attempt_id={attempt}/fragment-000001.parquet"
     path = operation_path(staging_root, approval, relative)
+    connection.execute(f"DROP TABLE IF EXISTS {BOOTSTRAP_DAY_SOURCE}")
     refs = ()
     if rows:
         frame = build_stk_factor_pro_raw_batch(
@@ -151,22 +193,35 @@ def source_fixture(
             source="prod_postgres",
             expected_dates=(day,),
         )
+
+        def retain(*, path, fragment, source_relation):
+            connection.execute(
+                f"ALTER TABLE {source_relation} RENAME TO {BOOTSTRAP_DAY_SOURCE}"
+            )
+            known_records[path] = (
+                fragment,
+                fragment.file_sha256,
+                stk_factor_pro_fragment_file_signature(path),
+            )
+
         fragment = write_stk_factor_pro_raw_fragment(
             connection=connection,
             frame=frame,
             candidate_path=path,
             expected_row_count=len(rows),
+            on_verified_fragment=retain,
         )
         refs = (C.StkFactorProBootstrapFragmentRef(1, attempt, fragment),)
-        connection.execute(
-            f"CREATE OR REPLACE TEMP VIEW fixture_day_source AS SELECT * FROM {read_parquet(path, hive_partitioning=False)}"
-        )
-        content = factor_content_sha(connection, "fixture_day_source")
-        connection.execute("DROP VIEW fixture_day_source")
+        content = factor_content_sha(connection, BOOTSTRAP_DAY_SOURCE)
     else:
         import hashlib
 
         content = hashlib.sha256(b"").hexdigest()
+        definitions = ",".join(
+            f'"{name}" {kind}'
+            for name, kind in C.STK_FACTOR_PRO_RAW_COLUMN_TYPES.items()
+        )
+        connection.execute(f"CREATE TEMP TABLE {BOOTSTRAP_DAY_SOURCE} ({definitions})")
     selected = tuple(
         month.month_start + timedelta(days=i)
         for i in range((month.month_end_exclusive - month.month_start).days)
@@ -174,7 +229,7 @@ def source_fixture(
     source = C.StkFactorProBootstrapSourceComplete(
         1,
         approval.operation_id,
-        approval_sha(staging_root, approval),
+        approval_sha(staging_root, approval, known_records=known_records),
         approval.source_identity_digest,
         approval.contract_content_digest,
         approval.source_cutoff_trade_date,
@@ -182,7 +237,10 @@ def source_fixture(
         month.month_end_exclusive,
         attempt,
         C.stk_factor_pro_bootstrap_query_digest(
-            approval, approval_sha(staging_root, approval), month, selected
+            approval,
+            approval_sha(staging_root, approval, known_records=known_records),
+            month,
+            selected,
         ),
         selected,
         month.row_upper_bound,
@@ -211,8 +269,18 @@ def source_fixture(
         staging_root=staging_root,
         approval=approval,
         record=source,
+        approved_date_rows=dict(
+            load_approved_counts(
+                connection,
+                staging_root=staging_root,
+                approval=approval,
+                known_records=known_records,
+            )
+        )[day],
+        source_relation=BOOTSTRAP_DAY_SOURCE,
         check_space=check_test_space,
-    )
+        known_records=known_records,
+    )[0]
 
 
 def check_test_space(stage, *, path, rows=None, **facts):

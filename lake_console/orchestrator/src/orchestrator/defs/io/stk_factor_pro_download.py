@@ -14,28 +14,30 @@ from orchestrator.defs.checks.stk_factor_pro import (
     compare_factor_relations,
     factor_columns,
     factor_content_sha,
+    factor_file_identity,
     factor_file_sha,
     require_factor_history_relation,
-    require_factor_relation,
 )
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.io.stk_factor_pro_candidates import (
     DAY_SOURCE,
+    HISTORY_SOURCE,
     build_stk_factor_pro_raw_batch,
     materialize_stk_factor_pro_day_source,
     release_stk_factor_pro_day_source,
     stk_factor_pro_http_rows,
 )
 from orchestrator.defs.io.stk_factor_pro_history import (
+    _check_history_unit_subset,
     _json_read,
     _json_write,
     _path,
     _prepare,
     _promote,
-    read_stk_factor_pro_source_files,
+    _ref_path,
     recheck_stk_factor_pro_history_inputs,
+    release_stk_factor_pro_history_inputs,
     require_stk_factor_pro_history_eligibility,
-    resolve_stk_factor_pro_history_units,
     verify_stk_factor_pro_current_source,
     write_stk_factor_pro_source_complete,
     write_stk_factor_pro_source_files,
@@ -138,16 +140,6 @@ def require_stk_factor_pro_current_day_source(connection, source):
         STK_FACTOR_PRO_PROCESSING_VERSION,
     ):
         raise ValueError("日发布当前合同不符")
-    count, _ = require_factor_relation(
-        connection,
-        DAY_SOURCE,
-        target_trade_date=source.identity.target_trade_date,
-        layer="raw",
-    )
-    if count != len(source.unit_result.records) or _day_digests(
-        connection, source.identity, source.contract, count
-    ) != (source.scope_digest, source.day_source_digest):
-        raise ValueError("日发布内存U已改变或不对应本次已验证日源")
 
 
 def verify_stk_factor_pro_day_source(
@@ -293,24 +285,51 @@ def _history_native_units(task):
 def _release_history_unit(connection, primary=None):
     failures = []
     for release in (
-        lambda: connection.execute(f"DROP VIEW IF EXISTS {HISTORY_SAVED_UNIT}"),
+        lambda: connection.execute(f"DROP TABLE IF EXISTS {HISTORY_SAVED_UNIT}"),
         lambda: connection.execute(f"DROP TABLE IF EXISTS {HISTORY_CURRENT_UNIT}"),
         lambda: connection.unregister(HISTORY_FRAME),
     ):
         try:
             release()
-        except DuckDBError as cleanup:
-            failures.append(cleanup)
+        except BaseException as error:  # noqa: BLE001 -- attempt all unit-owned cleanup, then retain the first failure.
+            failures.append(error)
     if failures:
         reported = primary if primary is not None else failures[0]
-        for cleanup in failures:
-            reported.add_note(f"历史unit清理同时失败：{type(cleanup).__name__}")
+        for error in failures:
+            reported.add_note(f"历史unit清理同时失败：{type(error).__name__}")
+        if primary is None:
+            raise reported
+
+
+def release_stk_factor_pro_history_source(connection, primary=None):
+    failures = []
+    for release in (
+        lambda: connection.execute(f"DROP TABLE IF EXISTS {HISTORY_SOURCE}"),
+        lambda: release_stk_factor_pro_history_inputs(connection, primary),
+    ):
+        try:
+            release()
+        except BaseException as error:  # noqa: BLE001 -- H and inputs must both be released while keeping the original task error.
+            failures.append(error)
+    if failures:
+        reported = primary if primary is not None else failures[0]
+        for error in failures:
+            reported.add_note(f"历史总源清理同时失败：{type(error).__name__}")
         if primary is None:
             raise reported
 
 
 def _save_stk_factor_pro_history_unit(
-    connection, *, root, identity, contract, projected, native, result
+    connection,
+    *,
+    root,
+    identity,
+    contract,
+    projected,
+    native,
+    result,
+    known_records,
+    check_space,
 ):
     if (
         not isinstance(result, UnitResult)
@@ -325,9 +344,9 @@ def _save_stk_factor_pro_history_unit(
     key = stk_factor_pro_unit_key(projected)
     relative = f"source/history/units/{key}.parquet"
     path = _path(root, identity, relative)
-    # Refuse an old source path before conversion or any new file write.
     if path.exists():
         raise ValueError("历史unit源已存在，不接受旧源或断点续写")
+    check_space("历史源转换前", path=path, rows=len(result.records))
     dates = tuple(
         projected.start_date + timedelta(days=index)
         for index in range((projected.end_date - projected.start_date).days + 1)
@@ -338,9 +357,9 @@ def _save_stk_factor_pro_history_unit(
         source="http",
         expected_dates=dates,
     )
-    connection.register(HISTORY_FRAME, frame)
     primary = None
     try:
+        connection.register(HISTORY_FRAME, frame)
         projection = ", ".join(
             f'CAST("{name}" AS {"VARCHAR" if index < 2 else "DOUBLE"}) AS "{name}"'
             for index, name in enumerate(STK_FACTOR_PRO_SOURCE_COLUMNS)
@@ -348,24 +367,15 @@ def _save_stk_factor_pro_history_unit(
         connection.execute(
             f"CREATE TEMP TABLE {HISTORY_CURRENT_UNIT} AS SELECT {projection} FROM {HISTORY_FRAME}"
         )
-        count, _ = require_factor_history_relation(
-            connection,
-            HISTORY_CURRENT_UNIT,
-            object_code=projected.object_code,
-            start_date=projected.start_date,
-            end_date=projected.end_date,
-        )
+        count = len(result.records)
         nulls = ", ".join(
             f'count(*) FILTER (WHERE "{name}" IS NULL)'
             for name in STK_FACTOR_PRO_SOURCE_COLUMNS
         )
-        actual_nulls = connection.execute(
-            f"SELECT {nulls} FROM {HISTORY_CURRENT_UNIT}"
-        ).fetchone()
-        if count != len(result.records) or actual_nulls != tuple(
+        expected_nulls = tuple(
             int(frame[name].isna().sum()) for name in STK_FACTOR_PRO_SOURCE_COLUMNS
-        ):
-            raise ValueError("历史unit转换前后行数或NULL发生变化")
+        )
+        check_space("历史源保存前", path=path, rows=count)
         temporary = _prepare(path)
         connection.execute(
             copy_query_to_parquet(
@@ -374,7 +384,7 @@ def _save_stk_factor_pro_history_unit(
             )
         )
         connection.execute(
-            f"CREATE TEMP VIEW {HISTORY_SAVED_UNIT} AS SELECT * FROM {read_parquet(temporary, hive_partitioning=False)}"
+            f"CREATE TEMP TABLE {HISTORY_SAVED_UNIT} AS SELECT * FROM {read_parquet(temporary, hive_partitioning=False)}"
         )
         saved_count, _ = require_factor_history_relation(
             connection,
@@ -386,21 +396,24 @@ def _save_stk_factor_pro_history_unit(
         comparison = compare_factor_relations(
             connection, expected=HISTORY_CURRENT_UNIT, actual=HISTORY_SAVED_UNIT
         )
-        if saved_count != count or any(
-            (
-                comparison.missing_key_count,
-                comparison.unexpected_key_count,
-                comparison.changed_row_count,
+        saved_nulls = connection.execute(
+            f"SELECT {nulls} FROM {HISTORY_SAVED_UNIT}"
+        ).fetchone()
+        if (
+            saved_count != count
+            or tuple(saved_nulls) != expected_nulls
+            or any(
+                (
+                    comparison.missing_key_count,
+                    comparison.unexpected_key_count,
+                    comparison.changed_row_count,
+                )
             )
         ):
-            raise ValueError("历史unit源保存后全部业务字段对账不符")
-        sha = factor_file_sha(temporary)
-        # Do not leave a live view referencing a file about to be renamed.
-        connection.execute(f"DROP VIEW {HISTORY_SAVED_UNIT}")
+            raise ValueError("历史unit源保存后全部业务字段或NULL对账不符")
+        digest = factor_file_sha(temporary)
         _promote(temporary, path)
-        if factor_file_sha(path) != sha:
-            raise ValueError("历史unit最终源文件读回SHA不符")
-        return SourceFileRecord(
+        record = SourceFileRecord(
             "history",
             key,
             native.unit_id,
@@ -413,18 +426,23 @@ def _save_stk_factor_pro_history_unit(
             len(result.records),
             count,
             relative,
-            sha,
+            digest,
             count,
             stk_factor_pro_schema_digest("raw"),
             contract.contract_content_digest,
             datetime.now(ZoneInfo(STK_FACTOR_PRO_TIMEZONE)),
         )
+        known_records[path] = (record, digest, factor_file_identity(path))
+        check_space("历史源已保存", path=path, rows=count, event="source_saved")
+        check_space("历史源并入总关系前", path=path, rows=count)
+        connection.execute(
+            f"INSERT INTO {HISTORY_SOURCE} SELECT {factor_columns()} FROM {HISTORY_SAVED_UNIT}"
+        )
+        return record
     except BaseException as error:
         primary = error
         raise
     finally:
-        # Only the converted table/temporary view survive frame unregistration;
-        # neither is retained across units.
         _release_history_unit(connection, primary)
 
 
@@ -461,6 +479,10 @@ def download_stk_factor_pro_history(
     contract,
     plan,
     ranges,
+    plan_ref,
+    known_records: dict,
+    expected_units,
+    check_space,
     prior_results,
     eligibility,
     lake_root: Path,
@@ -477,47 +499,80 @@ def download_stk_factor_pro_history(
     if plan.identity != identity or plan.contract != contract:
         raise ValueError("历史下载必须使用当前run身份及同一完整契约计划")
     require_stk_factor_pro_history_eligibility(plan, eligibility)
-    units = resolve_stk_factor_pro_history_units(
-        connection,
-        plan=plan,
-        ranges=ranges,
-        prior_results=prior_results,
-        staging_root=staging_root,
-    )
+    units = expected_units
+    _check_history_unit_subset(plan, ranges, units)
     if not units:
         raise ValueError("无待下载历史unit，不创建零unit任务")
     root = stk_factor_pro_run_staging_root(
         staging_root, identity.creator_run_id, identity.target_trade_date.isoformat()
     )
+    if root / "history-plan.json" not in known_records:
+        raise ValueError("历史下载缺少本次完整计划的首次记录交接")
+    if plan_ref != RecordRef(
+        identity.creator_run_id,
+        "history-plan.json",
+        known_records[root / "history-plan.json"][1],
+    ):
+        raise ValueError("历史下载计划引用与首次保存结果不符")
+    _ref_path(root, identity, plan_ref, known_records=known_records)
     source_root = _path(root, identity, "source/history")
     if source_root.exists():
         raise ValueError("当前run已有历史源目录，请创建完整重新下载的新任务")
-    saved_eligibility = _path(root, identity, "history-eligibility.json")
-    if saved_eligibility.exists():
-        if _json_read(saved_eligibility, HistoryEligibilityRecord) != eligibility:
-            raise ValueError("当前run历史资格记录与本次已核事实不符")
-    else:
-        _json_write(root, identity, "history-eligibility.json", eligibility)
-    recheck_stk_factor_pro_history_inputs(
-        connection,
-        plan=plan,
-        ranges=ranges,
-        expected_units=units,
-        lake_root=lake_root,
-        recheck_inputs=recheck_inputs,
-    )
-    check_cancel()
-    task = _history_task(units)
-    native_units = _history_native_units(task)
-    if len(native_units) != len(units):
-        raise ValueError("历史组件planner未生成本次完整范围")
-    downloader = TushareDownloader.load() if downloader is None else downloader
-    files = []
+    # Ownership starts after accepting a nonempty, fresh current-run request.
     try:
+        saved_eligibility = _path(root, identity, "history-eligibility.json")
+        if saved_eligibility.exists():
+            if (
+                _json_read(
+                    saved_eligibility,
+                    HistoryEligibilityRecord,
+                    known_records=known_records,
+                )
+                != eligibility
+            ):
+                raise ValueError("当前run历史资格记录与本次已核事实不符")
+        else:
+            _json_write(
+                root,
+                identity,
+                "history-eligibility.json",
+                eligibility,
+                known_records=known_records,
+                check_space=check_space,
+            )
+        recheck_stk_factor_pro_history_inputs(
+            connection,
+            plan=plan,
+            ranges=ranges,
+            expected_units=units,
+            lake_root=lake_root,
+            recheck_inputs=recheck_inputs,
+            known_records=known_records,
+        )
+        check_cancel()
+        task = _history_task(units)
+        native_units = _history_native_units(task)
+        if len(native_units) != len(units):
+            raise ValueError("历史组件planner未生成本次完整范围")
+        files = []
+        check_space("首个历史下载会话前", path=root)
+        downloader = TushareDownloader.load() if downloader is None else downloader
+        definitions = ", ".join(
+            f'"{name}" {"VARCHAR" if index < 2 else "DOUBLE"}'
+            for index, name in enumerate(STK_FACTOR_PRO_SOURCE_COLUMNS)
+        )
+        connection.execute(f"CREATE TEMP TABLE {HISTORY_SOURCE} ({definitions})")
         with downloader.download(
             task, control=control, on_progress=on_progress
         ) as session:
-            for result in session:
+            iterator = iter(session)
+            while True:
+                check_cancel()
+                check_space("领取下一历史unit前", path=root)
+                try:
+                    result = next(iterator)
+                except StopIteration:
+                    break
                 index = len(files)
                 if index >= len(units):
                     raise ValueError("历史下载交付了规划之外的额外unit")
@@ -531,6 +586,8 @@ def download_stk_factor_pro_history(
                         projected=units[index],
                         native=native_units[index],
                         result=result,
+                        known_records=known_records,
+                        check_space=check_space,
                     )
                 )
                 del result
@@ -548,18 +605,9 @@ def download_stk_factor_pro_history(
             identity=identity,
             contract=contract,
             files=files,
+            known_records=known_records,
+            check_space=check_space,
         )
-        if (
-            read_stk_factor_pro_source_files(
-                root,
-                manifest,
-                connection=connection,
-                identity=identity,
-                contract=contract,
-            )
-            != files
-        ):
-            raise ValueError("当前run历史manifest保存读回不一致")
         scope = stk_factor_pro_scope_digest(
             "history", identity.target_trade_date, units
         )
@@ -568,11 +616,7 @@ def download_stk_factor_pro_history(
             identity,
             "history",
             contract,
-            RecordRef(
-                identity.creator_run_id,
-                "history-plan.json",
-                factor_file_sha(root / "history-plan.json"),
-            ),
+            plan_ref,
             plan.history_plan_digest,
             plan.revision,
             plan.origin_history_plan_digest,
@@ -585,16 +629,34 @@ def download_stk_factor_pro_history(
             len(units),
             datetime.now(ZoneInfo(STK_FACTOR_PRO_TIMEZONE)),
         )
-        write_stk_factor_pro_source_complete(root, record)
+        record, source_digest = write_stk_factor_pro_source_complete(
+            root, record, known_records=known_records, check_space=check_space
+        )
+        source_ref = RecordRef(
+            identity.creator_run_id,
+            "source/history/source-complete.json",
+            source_digest,
+        )
         return verify_stk_factor_pro_current_source(
             root,
             record,
             connection=connection,
             current_run_id=identity.creator_run_id,
             expected_units=units,
+            source_complete_ref=source_ref,
+            known_records=known_records,
+            source_relation=HISTORY_SOURCE,
+            verified_files=files,
+            file_identities=tuple(
+                (
+                    file.file_relative_path,
+                    known_records[root / file.file_relative_path][2],
+                )
+                for file in files
+            ),
         )
     except BaseException as error:
-        _release_history_unit(connection, error)
+        release_stk_factor_pro_history_source(connection, error)
         raise
 
 

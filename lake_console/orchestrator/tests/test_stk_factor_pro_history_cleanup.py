@@ -1,4 +1,4 @@
-"""LLD 16.5: real temporary inputs and faults at the four cleanup boundaries.
+"""LLD 16/18: real temporary inputs, source ownership and cleanup failures.
 
 Range/manifest fixtures follow the existing closed 12/17-column contracts;
 source rows use doc328's 261 fields, and factor files use the actual three
@@ -12,21 +12,29 @@ import sys
 import pytest
 from duckdb import Error as DuckDBError
 
+from orchestrator.defs.checks import stk_factor_pro as checks
+from orchestrator.defs.io import stk_factor_pro_download as downloads
 from orchestrator.defs.io import stk_factor_pro_history as history
 from tests.stk_factor_pro_history_test_support import (
     connection,
+    contract,
     eligibility,
+    identity,
     roots,
     write_factor_file,
 )
-from tests.test_stk_factor_pro_history_plan import build, inputs
+from tests.test_stk_factor_pro_history_download import (
+    prepare,
+    run_download,
+    sample_downloader,
+)
+from tests.test_stk_factor_pro_history_plan import inputs, prior, start
 from tests.test_stk_factor_pro_history_records import (
     new_plan,
     ranges,
     root_for,
-    save_source,
 )
-from tests.test_stk_factor_pro_history_scope import A, B, P, T, prepared, resolve
+from tests.test_stk_factor_pro_history_scope import A, B, T, prepared, resolve
 
 MODES = ("normal", "primary_only", "cleanup_only", "primary_and_cleanup")
 ACTIONS = {
@@ -34,14 +42,10 @@ ACTIONS = {
         "unregister:stk_factor_pro_record_frame",
         "DROP TABLE IF EXISTS stk_factor_pro_record_rows",
     ),
-    "verify": ("DROP VIEW IF EXISTS stk_factor_pro_verified_source_unit",),
+    "source": ("DROP TABLE IF EXISTS stk_factor_pro_history_source",),
     "plan": (
         "DROP TABLE IF EXISTS stk_factor_pro_history_factor_t",
         "DROP TABLE IF EXISTS stk_factor_pro_history_factor_p",
-    ),
-    "recheck": (
-        "DROP TABLE IF EXISTS stk_factor_pro_history_recheck_t",
-        "DROP TABLE IF EXISTS stk_factor_pro_history_recheck_p",
     ),
 }
 
@@ -94,18 +98,14 @@ class CleanupConnection:
         return self._release(text, call)
 
     def unregister(self, name):
-        return self._release(
-            f"unregister:{name}", lambda: self.conn.unregister(name)
-        )
+        return self._release(f"unregister:{name}", lambda: self.conn.unregister(name))
 
 
 def assert_outcome(wrapped, invoke, expected_primary_type, known_primary=None):
     if not wrapped.fail_primary and not wrapped.fail_cleanup:
         result = invoke()
     else:
-        error_type = (
-            expected_primary_type if wrapped.fail_primary else DuckDBError
-        )
+        error_type = expected_primary_type if wrapped.fail_primary else DuckDBError
         with pytest.raises(error_type) as caught:
             invoke()
         if wrapped.fail_primary:
@@ -135,12 +135,17 @@ def table_count(conn, name):
 
 @pytest.mark.parametrize("mode", MODES)
 def test_record_cleanup_preserves_copy_error_and_attempts_drop(tmp_path, mode):
+    known_records = {}
     with connection(tmp_path) as conn:
         wrapped = CleanupConnection(conn, "writer", mode)
         plan = assert_outcome(
             wrapped,
             lambda: history.write_stk_factor_pro_history_plan(
-                root_for(tmp_path), new_plan(), ranges(), connection=wrapped
+                root_for(tmp_path),
+                new_plan(),
+                ranges(),
+                connection=wrapped,
+                known_records=known_records,
             ),
             OSError,
             wrapped.primary_error,
@@ -150,45 +155,14 @@ def test_record_cleanup_preserves_copy_error_and_attempts_drop(tmp_path, mode):
         assert wrapped.copy_attempts == 1
         assert table_count(conn, "stk_factor_pro_record_rows") == 0
         if mode == "normal":
-            assert plan.full_code_count == 1
+            assert plan[0].full_code_count == 1
         if mode == "cleanup_only":
             assert (root_for(tmp_path) / "history-ranges.parquet").is_file()
 
 
 @pytest.mark.parametrize("mode", MODES)
-def test_source_cleanup_keeps_original_field_error_visible(tmp_path, mode):
-    with connection(tmp_path) as conn:
-        root = root_for(tmp_path)
-        bad_source = mode in ("primary_only", "primary_and_cleanup")
-        _, source, unit, path = save_source(
-            conn, root, kind="missing_column" if bad_source else "normal"
-        )
-        before = path.read_bytes()
-        wrapped = CleanupConnection(conn, "verify", mode)
-        verified = assert_outcome(
-            wrapped,
-            lambda: history.verify_stk_factor_pro_current_source(
-                root,
-                source,
-                connection=wrapped,
-                current_run_id="run-a",
-                expected_units=(unit,),
-            ),
-            ValueError,
-        )
-        remaining = conn.execute(
-            "SELECT count(*) FROM duckdb_views() WHERE view_name=?",
-            ["stk_factor_pro_verified_source_unit"],
-        ).fetchone()[0]
-        # The deliberately failed DROP cannot be assumed to succeed.
-        assert remaining == int(wrapped.fail_cleanup)
-        assert path.read_bytes() == before
-        if mode == "normal":
-            assert verified.source_complete == source
-
-
-@pytest.mark.parametrize("mode", MODES)
 def test_plan_cleanup_retains_cancellation_and_attempts_both_tables(tmp_path, mode):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         refs = inputs(conn, lake)
@@ -199,19 +173,53 @@ def test_plan_cleanup_retains_cancellation_and_attempts_both_tables(tmp_path, mo
         def cancel():
             nonlocal cancellation_checks
             cancellation_checks += 1
-            if cancellation_checks == 2:
-                assert table_count(conn, "stk_factor_pro_history_factor_t") == 1
-                assert table_count(conn, "stk_factor_pro_history_factor_p") == 1
-                if wrapped.fail_primary:
-                    raise cancellation
+            assert table_count(conn, "stk_factor_pro_history_factor_t") == 1
+            assert table_count(conn, "stk_factor_pro_history_factor_p") == 1
+            if wrapped.fail_primary:
+                raise cancellation
+
+        def plan_and_release():
+            primary = None
+            try:
+                factor_relations, lifecycle_relation = (
+                    history.prepare_stk_factor_pro_history_inputs(
+                        wrapped,
+                        identity=identity(),
+                        lake_root=lake,
+                        factor_t=refs[0],
+                        factor_p=refs[1],
+                        known_records=known_records,
+                        check_cancel=lambda: None,
+                    )
+                )
+                return history.build_stk_factor_pro_history_plan(
+                    wrapped,
+                    identity=identity(),
+                    contract=contract(),
+                    lake_root=lake,
+                    staging_root=staging,
+                    factor_t=refs[0],
+                    factor_p=refs[1],
+                    factor_relations=factor_relations,
+                    lifecycle_relation=lifecycle_relation,
+                    prior_results=prior(),
+                    history_starts=(start(),),
+                    check_cancel=cancel,
+                    known_records=known_records,
+                )[0]
+            except BaseException as error:
+                primary = error
+                raise
+            finally:
+                history.release_stk_factor_pro_history_inputs(wrapped, primary=primary)
 
         plan = assert_outcome(
             wrapped,
-            lambda: build(wrapped, lake, staging, refs, cancel=cancel),
+            plan_and_release,
             KeyboardInterrupt,
             cancellation,
         )
-        assert cancellation_checks == 2
+        assert cancellation_checks >= 1
         assert table_count(conn, "stk_factor_pro_history_factor_t") == int(
             wrapped.fail_cleanup
         )
@@ -221,35 +229,89 @@ def test_plan_cleanup_retains_cancellation_and_attempts_both_tables(tmp_path, mo
 
 
 @pytest.mark.parametrize("mode", MODES)
-def test_recheck_cleanup_retains_factor_error_and_attempts_second_table(tmp_path, mode):
+def test_owned_history_source_release_preserves_cancellation_and_saved_facts(
+    tmp_path, mode
+):
+    known_records = {}
+    with connection(tmp_path) as conn:
+        root, args = prepare(conn, tmp_path, known_records=known_records)
+        downloader = sample_downloader()
+        source = run_download(conn, args, downloader, known_records=known_records)
+        assert conn.execute(
+            f"SELECT ts_code,trade_date,close FROM {source.source_relation} ORDER BY ts_code,trade_date"
+        ).fetchall() == [(A, "20261015", 10.0), (A, "20261016", 10.0)]
+        complete = root / "source/history/source-complete.json"
+        before = complete.read_bytes()
+        wrapped = CleanupConnection(conn, "source", mode)
+        cancellation = KeyboardInterrupt("controlled history owner cancellation")
+
+        def release():
+            primary = None
+            try:
+                if wrapped.fail_primary:
+                    raise cancellation
+            except BaseException as error:
+                primary = error
+                raise
+            finally:
+                downloads.release_stk_factor_pro_history_source(
+                    wrapped, primary=primary
+                )
+
+        assert_outcome(wrapped, release, KeyboardInterrupt, cancellation)
+        assert table_count(conn, source.source_relation) == int(wrapped.fail_cleanup)
+        assert table_count(conn, "stk_factor_pro_history_factor_t") == 0
+        assert table_count(conn, "stk_factor_pro_history_factor_p") == 0
+        assert downloader.sessions[0].closed
+        assert complete.read_bytes() == before
+
+
+@pytest.mark.parametrize("changed", [False, True])
+def test_history_input_recheck_uses_first_identity_without_reading_again(
+    tmp_path, monkeypatch, changed
+):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        plan, saved_ranges, _, _ = prepared(conn, lake, staging)
-        units = resolve(conn, staging, plan, saved_ranges)
-        wrapped = CleanupConnection(conn, "recheck", mode)
-        # Both files have real byte changes. Legitimate changes to B alone
-        # create both relations without invalidating requested stock A.
-        ft = write_factor_file(
-            conn, lake, T, ((A, 3.0 if wrapped.fail_primary else 2.0), (B, 2.0))
+        plan, saved_ranges, _, _ = prepared(
+            conn, lake, staging, known_records=known_records
         )
-        fp = write_factor_file(conn, lake, P, ((A, 1.0), (B, 2.0)))
+        units = resolve(conn, staging, plan, saved_ranges, known_records=known_records)
         allowed = eligibility(plan.identity, plan)
-        facts = (ft, fp, allowed.raw_coverage, allowed.target_silver)
-        result = assert_outcome(
-            wrapped,
-            lambda: history.recheck_stk_factor_pro_history_inputs(
-                wrapped,
-                plan=plan,
-                ranges=saved_ranges,
-                expected_units=units,
-                lake_root=lake,
-                recheck_inputs=lambda: facts,
-            ),
-            ValueError,
+        facts = (
+            plan.factor_t_ref,
+            plan.factor_p_ref,
+            allowed.raw_coverage,
+            allowed.target_silver,
         )
-        assert table_count(conn, "stk_factor_pro_history_recheck_t") == int(
-            wrapped.fail_cleanup
-        )
+        if changed:
+            # A real new version is a changed input even when only another stock differs.
+            write_factor_file(conn, lake, T, ((A, 2.0), (B, 2.0)))
+
+        class NoQueries:
+            def execute(self, *args, **kwargs):
+                raise AssertionError("输入重核不得重新查询业务数据")
+
+        def no_hash(*args, **kwargs):
+            raise AssertionError("输入重核不得重算首次SHA")
+
+        monkeypatch.setattr(history, "factor_file_sha", no_hash)
+        monkeypatch.setattr(checks, "factor_file_sha", no_hash)
+        arguments = {
+            "plan": plan,
+            "ranges": saved_ranges,
+            "expected_units": units,
+            "lake_root": lake,
+            "recheck_inputs": lambda: facts,
+            "known_records": known_records,
+        }
+        if changed:
+            with pytest.raises(ValueError, match="改变|变化"):
+                history.recheck_stk_factor_pro_history_inputs(NoQueries(), **arguments)
+        else:
+            assert (
+                history.recheck_stk_factor_pro_history_inputs(NoQueries(), **arguments)
+                == facts
+            )
+        assert table_count(conn, "stk_factor_pro_history_recheck_t") == 0
         assert table_count(conn, "stk_factor_pro_history_recheck_p") == 0
-        if mode == "normal":
-            assert result == facts

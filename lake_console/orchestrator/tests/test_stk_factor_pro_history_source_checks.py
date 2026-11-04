@@ -4,22 +4,17 @@ Fixtures deliberately bypass conversion to exercise invalid actual relations.
 No network, Dagster instance or formal Lake paths are accessed.
 """
 
-from dataclasses import replace
+from collections import Counter
 from datetime import date, datetime
+from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pytest
 
 from orchestrator.defs.checks import stk_factor_pro as checks
-from orchestrator.defs.duckdb_sql import copy_query_to_parquet
+from orchestrator.defs.io import stk_factor_pro_download as downloads
 from orchestrator.defs.io import stk_factor_pro_history as history
-from orchestrator.defs.run_contracts.stk_factor_pro import (
-    SourceFileRecord,
-    UnitProjection,
-    stk_factor_pro_schema_digest,
-    stk_factor_pro_unit_key,
-)
-from tests.stk_factor_pro_history_test_support import NAMES, connection, contract
+from tests.stk_factor_pro_history_test_support import NAMES, connection
 
 START, END = date(2026, 10, 15), date(2026, 10, 16)
 CODE = "000001.SZ"
@@ -176,75 +171,125 @@ def test_day_raw_and_silver_still_use_distinct_exact_date_types(tmp_path):
             )
 
 
-def file_record(path, *, count=1):
-    unit = UnitProjection(5, CODE, None, START, END)
-    key = stk_factor_pro_unit_key(unit)
-    return SourceFileRecord(
-        "history",
-        key,
-        "native-unit",
-        0,
-        5,
-        CODE,
-        None,
-        START,
-        END,
-        count,
-        count,
-        f"source/history/units/{key}.parquet",
-        checks.factor_file_sha(path),
-        count,
-        stk_factor_pro_schema_digest("raw"),
-        contract().contract_content_digest,
-        datetime(2026, 10, 16, 19, tzinfo=ZoneInfo("Asia/Shanghai")),
+def test_each_unit_is_audited_once_and_source_assembly_reads_no_unit_again(
+    tmp_path, monkeypatch
+):
+    from tests.test_stk_factor_pro_history_download import (
+        prepare,
+        run_download,
+        sample_downloader,
     )
 
+    records, calls, phase = {}, Counter(), {"assembly": False}
+    first_audit = checks.require_factor_history_relation
+    first_sha = checks.factor_file_sha
+    assemble = history.verify_stk_factor_pro_current_source
 
-def test_source_file_verifier_uses_common_history_helper(tmp_path, monkeypatch):
-    with connection(tmp_path) as conn:
-        create(conn, (source_row(),))
-        path = tmp_path / "unit.parquet"
-        conn.execute(copy_query_to_parquet(f"SELECT * FROM {RELATION}", path))
-        calls = []
-        original = checks.require_factor_history_relation
+    def audit_once(connection, relation, **kwargs):
+        calls[kwargs["object_code"]] += 1
+        return first_audit(connection, relation, **kwargs)
 
-        def tracked(connection, relation, **kwargs):
-            calls.append((relation, kwargs))
-            return original(connection, relation, **kwargs)
+    def sha_once(path):
+        if "source/history/units/" in Path(path).as_posix():
+            assert not phase["assembly"], "source assembly must use the first file SHA"
+            calls["unit_sha"] += 1
+        return first_sha(path)
 
-        monkeypatch.setattr(history, "require_factor_history_relation", tracked)
-        history._verify_source_unit(conn, path, file_record(path))
-        assert calls == [
-            (
-                "stk_factor_pro_verified_source_unit",
-                {"object_code": CODE, "start_date": START, "end_date": END},
+    def assemble_once(*args, **kwargs):
+        calls["assembly"] += 1
+        phase["assembly"] = True
+        try:
+            return assemble(*args, **kwargs)
+        finally:
+            phase["assembly"] = False
+
+    for module in (checks, downloads, history):
+        if hasattr(module, "require_factor_history_relation"):
+            monkeypatch.setattr(module, "require_factor_history_relation", audit_once)
+        if hasattr(module, "factor_file_sha"):
+            monkeypatch.setattr(module, "factor_file_sha", sha_once)
+        if hasattr(module, "verify_stk_factor_pro_current_source"):
+            monkeypatch.setattr(
+                module, "verify_stk_factor_pro_current_source", assemble_once
             )
-        ]
-        assert (
-            conn.execute(
-                "SELECT count(*) FROM duckdb_views() WHERE view_name='stk_factor_pro_verified_source_unit'"
-            ).fetchone()[0]
-            == 0
-        )
 
-
-@pytest.mark.parametrize("fault", ["count", "sha", "actual-date"])
-def test_source_file_verifier_keeps_row_count_sha_and_content_checks(tmp_path, fault):
     with connection(tmp_path) as conn:
-        create(
-            conn,
-            (source_row(day="20261017" if fault == "actual-date" else "20261015"),),
+
+        class UnitReads:
+            def __getattr__(self, name):
+                return getattr(conn, name)
+
+            def execute(self, query, parameters=None):
+                if "read_parquet" in str(
+                    query
+                ).lower() and "source/history/units/" in str(query) + repr(parameters):
+                    assert not phase["assembly"], (
+                        "source assembly must retain the original SQL rows"
+                    )
+                    calls["unit_read"] += 1
+                return (
+                    conn.execute(query)
+                    if parameters is None
+                    else conn.execute(query, parameters)
+                )
+
+        observed = UnitReads()
+        _, args = prepare(observed, tmp_path, known_records=records)
+        source = run_download(
+            observed, args, sample_downloader(), known_records=records
         )
-        path = tmp_path / "unit.parquet"
-        conn.execute(copy_query_to_parquet(f"SELECT * FROM {RELATION}", path))
-        record = file_record(path, count=2 if fault == "count" else 1)
-        if fault == "sha":
-            record = replace(record, file_sha256="a" * 64)
+        assert calls == {
+            "000001.SZ": 1,
+            "600000.SH": 1,
+            "unit_sha": 2,
+            "unit_read": 2,
+            "assembly": 1,
+        }
+        assert source.source_relation == "stk_factor_pro_history_source"
+        assert len(source.files) == len(source.file_identities) == 2
+        assert conn.execute(
+            f"SELECT ts_code,trade_date FROM {source.source_relation} ORDER BY trade_date"
+        ).fetchall() == [
+            ("000001.SZ", "20261015"),
+            ("000001.SZ", "20261016"),
+        ]
+        downloads.release_stk_factor_pro_history_source(conn)
+
+
+@pytest.mark.parametrize(
+    "fault", ["missing-file-fact", "missing-file-identity", "wrong-run"]
+)
+def test_source_assembly_rejects_mismatched_first_facts_without_file_rescan(
+    tmp_path, fault
+):
+    from tests.test_stk_factor_pro_history_download import (
+        prepare,
+        run_download,
+        sample_downloader,
+    )
+
+    records = {}
+    with connection(tmp_path) as conn:
+        root, args = prepare(conn, tmp_path, known_records=records)
+        source = run_download(conn, args, sample_downloader(), known_records=records)
+        values = {
+            "connection": conn,
+            "current_run_id": source.identity.creator_run_id,
+            "expected_units": source.source_complete.expected_units,
+            "source_relation": source.source_relation,
+            "source_complete_ref": source.source_complete_ref,
+            "known_records": records,
+            "verified_files": source.files,
+            "file_identities": source.file_identities,
+        }
+        if fault == "missing-file-fact":
+            values["verified_files"] = source.files[:-1]
+        elif fault == "missing-file-identity":
+            values["file_identities"] = source.file_identities[:-1]
+        else:
+            values["current_run_id"] = "another-run"
         with pytest.raises(ValueError):
-            history._verify_source_unit(conn, path, record)
-        assert (
-            conn.execute(
-                "SELECT count(*) FROM duckdb_views() WHERE view_name='stk_factor_pro_verified_source_unit'"
-            ).fetchone()[0]
-            == 0
-        )
+            history.verify_stk_factor_pro_current_source(
+                root, source.source_complete, **values
+            )
+        downloads.release_stk_factor_pro_history_source(conn)

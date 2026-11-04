@@ -40,12 +40,23 @@ def prior():
     )
 
 
-def prepared(conn, lake, staging, *, starts=None, values_t=None):
+def prepared(conn, lake, staging, *, starts=None, values_t=None, known_records):
     ft = write_factor_file(
         conn, lake, T, ((A, 2.0), (B, 1.0)) if values_t is None else values_t
     )
     fp = write_factor_file(conn, lake, P, ((A, 1.0), (B, 1.0)))
-    plan = history.build_stk_factor_pro_history_plan(
+    factor_relations, lifecycle_relation = (
+        history.prepare_stk_factor_pro_history_inputs(
+            conn,
+            identity=identity(),
+            lake_root=lake,
+            factor_t=ft,
+            factor_p=fp,
+            known_records=known_records,
+            check_cancel=lambda: None,
+        )
+    )
+    plan, ranges, _ = history.build_stk_factor_pro_history_plan(
         conn,
         identity=identity(),
         contract=contract(),
@@ -58,41 +69,50 @@ def prepared(conn, lake, staging, *, starts=None, values_t=None):
         if starts is None
         else starts,
         check_cancel=lambda: None,
+        known_records=known_records,
+        factor_relations=factor_relations,
+        lifecycle_relation=lifecycle_relation,
     )
-    root = stk_factor_pro_run_staging_root(staging, "run-a", T.isoformat())
-    ranges = history.read_stk_factor_pro_history_ranges(conn, root=root, plan=plan)
     return plan, ranges, ft, fp
 
 
-def resolve(conn, staging, plan, ranges):
+def resolve(conn, staging, plan, ranges, *, known_records):
     return history.resolve_stk_factor_pro_history_units(
         conn,
         plan=plan,
         ranges=ranges,
         prior_results=prior(),
         staging_root=staging,
+        known_records=known_records,
     )
 
 
 def test_normal_range_is_one_whole_stock_unit(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        plan, ranges, _, _ = prepared(conn, lake, staging)
-        units = resolve(conn, staging, plan, ranges)
+        plan, ranges, _, _ = prepared(conn, lake, staging, known_records=known_records)
+        units = resolve(conn, staging, plan, ranges, known_records=known_records)
         assert units == (UnitProjection(5, A, None, START, T),)
 
 
 def test_verified_no_work_has_no_download_units(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         plan, ranges, _, _ = prepared(
-            conn, lake, staging, values_t=((A, 1.0), (B, 1.0))
+            conn,
+            lake,
+            staging,
+            values_t=((A, 1.0), (B, 1.0)),
+            known_records=known_records,
         )
         assert plan.full_code_count == 0
-        assert resolve(conn, staging, plan, ranges) == ()
+        assert resolve(conn, staging, plan, ranges, known_records=known_records) == ()
 
 
 def test_unknown_member_does_not_allow_known_subset(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
         plan, ranges, _, _ = prepared(
@@ -104,53 +124,68 @@ def test_unknown_member_does_not_allow_known_subset(tmp_path):
                 StkFactorProHistoryStart(B, None, None, None),
             ),
             values_t=((A, 2.0), (B, 2.0)),
+            known_records=known_records,
         )
         assert len(ranges) == 2 and ranges[1].start_date is None
         with pytest.raises(ValueError, match="尚未判明"):
-            resolve(conn, staging, plan, ranges)
+            resolve(conn, staging, plan, ranges, known_records=known_records)
 
 
 def test_plan_or_ranges_not_equal_to_saved_current_run_are_rejected(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        plan, ranges, _, _ = prepared(conn, lake, staging)
+        plan, ranges, _, _ = prepared(conn, lake, staging, known_records=known_records)
         with pytest.raises(ValueError, match="保存读回"):
-            resolve(conn, staging, replace(plan, revision=2), ranges)
+            resolve(
+                conn,
+                staging,
+                replace(plan, revision=2),
+                ranges,
+                known_records=known_records,
+            )
         wrong_ranges = (replace(ranges[0], t_value=3.0),)
-        with pytest.raises(ValueError, match="摘要"):
-            resolve(conn, staging, plan, wrong_ranges)
+        with pytest.raises(ValueError, match="保存读回"):
+            resolve(conn, staging, plan, wrong_ranges, known_records=known_records)
 
 
 def test_no_history_reason_skips_only_consistent_stock(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        template, _, _, _ = prepared(conn, lake, staging)
+        template, _, _, _ = prepared(conn, lake, staging, known_records=known_records)
         run = identity("run-new")
         root = stk_factor_pro_run_staging_root(staging, "run-new", T.isoformat())
         new_stock = HistoryRange(
             B, True, False, 1.0, None, None, None, (3, 6), (T,), (), None, None
         )
         ranges = (new_stock,)
+        ranges_digest = stk_factor_pro_history_ranges_digest(ranges)
         plan = replace(
             template,
             identity=run,
             full_code_count=1,
             ranges_ref=RecordRef("run-new", "history-ranges.parquet", "0" * 64),
             history_plan_digest=stk_factor_pro_history_plan_digest(
-                run, contract(), ranges
+                run, contract(), ranges, ranges_digest=ranges_digest
             ),
-            history_ranges_digest=stk_factor_pro_history_ranges_digest(ranges),
+            history_ranges_digest=ranges_digest,
         )
-        plan = history.write_stk_factor_pro_history_plan(
-            root, plan, ranges, connection=conn
+        plan, _ = history.write_stk_factor_pro_history_plan(
+            root,
+            plan,
+            ranges,
+            connection=conn,
+            known_records=known_records,
         )
-        assert resolve(conn, staging, plan, ranges) == ()
+        assert resolve(conn, staging, plan, ranges, known_records=known_records) == ()
 
 
 def test_bad_no_history_reason_cannot_hide_existing_history(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        template, _, _, _ = prepared(conn, lake, staging)
+        template, _, _, _ = prepared(conn, lake, staging, known_records=known_records)
         run = identity("run-bad-new")
         root = stk_factor_pro_run_staging_root(staging, "run-bad-new", T.isoformat())
         ranges = (
@@ -158,6 +193,7 @@ def test_bad_no_history_reason_cannot_hide_existing_history(tmp_path):
                 B, True, False, 1.0, None, START, T, (3, 6), (T,), (), 1, START
             ),
         )
+        ranges_digest = stk_factor_pro_history_ranges_digest(ranges)
         plan = replace(
             template,
             identity=run,
@@ -166,21 +202,26 @@ def test_bad_no_history_reason_cannot_hide_existing_history(tmp_path):
                 run.creator_run_id, "history-ranges.parquet", "0" * 64
             ),
             history_plan_digest=stk_factor_pro_history_plan_digest(
-                run, contract(), ranges
+                run, contract(), ranges, ranges_digest=ranges_digest
             ),
-            history_ranges_digest=stk_factor_pro_history_ranges_digest(ranges),
+            history_ranges_digest=ranges_digest,
         )
-        plan = history.write_stk_factor_pro_history_plan(
-            root, plan, ranges, connection=conn
+        plan, _ = history.write_stk_factor_pro_history_plan(
+            root,
+            plan,
+            ranges,
+            connection=conn,
+            known_records=known_records,
         )
         with pytest.raises(ValueError, match="无原历史"):
-            resolve(conn, staging, plan, ranges)
+            resolve(conn, staging, plan, ranges, known_records=known_records)
 
 
 def test_eligibility_accepts_actual_frozen_facts_without_target_reads(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        plan, _, _, _ = prepared(conn, lake, staging)
+        plan, _, _, _ = prepared(conn, lake, staging, known_records=known_records)
         history.require_stk_factor_pro_history_eligibility(
             plan, eligibility(plan.identity, plan)
         )
@@ -199,9 +240,10 @@ def test_eligibility_accepts_actual_frozen_facts_without_target_reads(tmp_path):
     ],
 )
 def test_eligibility_rejects_missing_or_wrong_bound_facts(tmp_path, fault):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        plan, _, _, _ = prepared(conn, lake, staging)
+        plan, _, _, _ = prepared(conn, lake, staging, known_records=known_records)
         good = eligibility(plan.identity, plan)
         if fault == "run":
             bad = replace(good, identity=identity("other-run"))
@@ -230,7 +272,7 @@ def test_eligibility_rejects_missing_or_wrong_bound_facts(tmp_path, fault):
             history.require_stk_factor_pro_history_eligibility(plan, bad)
 
 
-def recheck(conn, lake, plan, ranges, units, callback):
+def recheck(conn, lake, plan, ranges, units, callback, *, known_records):
     return history.recheck_stk_factor_pro_history_inputs(
         conn,
         plan=plan,
@@ -238,13 +280,17 @@ def recheck(conn, lake, plan, ranges, units, callback):
         expected_units=units,
         lake_root=lake,
         recheck_inputs=callback,
+        known_records=known_records,
     )
 
 
 def test_recheck_unchanged_inputs_returns_exact_four_facts(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        plan, ranges, ft, fp = prepared(conn, lake, staging)
+        plan, ranges, ft, fp = prepared(
+            conn, lake, staging, known_records=known_records
+        )
         good = eligibility(plan.identity, plan)
         facts = (ft, fp, good.raw_coverage, good.target_silver)
         assert (
@@ -253,22 +299,33 @@ def test_recheck_unchanged_inputs_returns_exact_four_facts(tmp_path):
                 lake,
                 plan,
                 ranges,
-                resolve(conn, staging, plan, ranges),
+                resolve(conn, staging, plan, ranges, known_records=known_records),
                 lambda: facts,
+                known_records=known_records,
             )
             is facts
         )
 
 
-def test_recheck_changed_factor_outside_requested_scope_is_allowed(tmp_path):
+def test_recheck_changed_factor_outside_requested_scope_stops_current_task(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        plan, ranges, _, fp = prepared(conn, lake, staging)
-        units = resolve(conn, staging, plan, ranges)
+        plan, ranges, _, fp = prepared(conn, lake, staging, known_records=known_records)
+        units = resolve(conn, staging, plan, ranges, known_records=known_records)
         current_t = write_factor_file(conn, lake, T, ((A, 2.0), (B, 9.0)))
         good = eligibility(plan.identity, plan)
         facts = (current_t, fp, good.raw_coverage, good.target_silver)
-        assert recheck(conn, lake, plan, ranges, units, lambda: facts) == facts
+        with pytest.raises(ValueError, match="改变|变化|不符"):
+            recheck(
+                conn,
+                lake,
+                plan,
+                ranges,
+                units,
+                lambda: facts,
+                known_records=known_records,
+            )
         assert (
             conn.execute(
                 "SELECT count(*) FROM duckdb_tables() WHERE table_name LIKE 'stk_factor_pro_history_recheck_%'"
@@ -281,10 +338,13 @@ def test_recheck_changed_factor_outside_requested_scope_is_allowed(tmp_path):
 def test_recheck_requested_factor_change_or_false_file_ref_is_rejected(
     tmp_path, changed
 ):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        plan, ranges, ft, fp = prepared(conn, lake, staging)
-        units = resolve(conn, staging, plan, ranges)
+        plan, ranges, ft, fp = prepared(
+            conn, lake, staging, known_records=known_records
+        )
+        units = resolve(conn, staging, plan, ranges, known_records=known_records)
         if changed == "t-value":
             ft = write_factor_file(conn, lake, T, ((A, 3.0), (B, 1.0)))
         elif changed == "p-value":
@@ -302,6 +362,7 @@ def test_recheck_requested_factor_change_or_false_file_ref_is_rejected(
                 ranges,
                 units,
                 lambda: (ft, fp, good.raw_coverage, good.target_silver),
+                known_records=known_records,
             )
         assert (
             conn.execute(
@@ -315,24 +376,27 @@ def test_recheck_requested_factor_change_or_false_file_ref_is_rejected(
     "bad", [True, (), (True, True, True, True), [True, True, True, True]]
 )
 def test_recheck_callback_must_supply_exact_frozen_tuple(tmp_path, bad):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        plan, ranges, _, _ = prepared(conn, lake, staging)
+        plan, ranges, _, _ = prepared(conn, lake, staging, known_records=known_records)
         with pytest.raises(TypeError, match="四项冻结"):
             recheck(
                 conn,
                 lake,
                 plan,
                 ranges,
-                resolve(conn, staging, plan, ranges),
+                resolve(conn, staging, plan, ranges, known_records=known_records),
                 lambda: bad,
+                known_records=known_records,
             )
 
 
 def test_recheck_does_not_swallow_callback_exception(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        plan, ranges, _, _ = prepared(conn, lake, staging)
+        plan, ranges, _, _ = prepared(conn, lake, staging, known_records=known_records)
 
         def unavailable():
             raise RuntimeError("已核事实读取失败")
@@ -343,27 +407,34 @@ def test_recheck_does_not_swallow_callback_exception(tmp_path):
                 lake,
                 plan,
                 ranges,
-                resolve(conn, staging, plan, ranges),
+                resolve(conn, staging, plan, ranges, known_records=known_records),
                 unavailable,
+                known_records=known_records,
             )
 
 
 def test_empty_scope_recheck_refused_before_callback(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        plan, ranges, _, _ = prepared(conn, lake, staging)
+        plan, ranges, _, _ = prepared(conn, lake, staging, known_records=known_records)
 
         def forbidden():
             pytest.fail("零工作不应进入重查回调")
 
         with pytest.raises(ValueError, match="无实际历史"):
-            recheck(conn, lake, plan, ranges, (), forbidden)
+            recheck(
+                conn, lake, plan, ranges, (), forbidden, known_records=known_records
+            )
 
 
 def test_recheck_requires_silver_corresponding_to_current_raw(tmp_path):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        plan, ranges, ft, fp = prepared(conn, lake, staging)
+        plan, ranges, ft, fp = prepared(
+            conn, lake, staging, known_records=known_records
+        )
         good = eligibility(plan.identity, plan)
         different_raw = replace(good.raw_coverage, raw_file_sha256="f" * 64)
         with pytest.raises(ValueError, match="对应"):
@@ -372,8 +443,9 @@ def test_recheck_requires_silver_corresponding_to_current_raw(tmp_path):
                 lake,
                 plan,
                 ranges,
-                resolve(conn, staging, plan, ranges),
+                resolve(conn, staging, plan, ranges, known_records=known_records),
                 lambda: (ft, fp, different_raw, good.target_silver),
+                known_records=known_records,
             )
 
 
@@ -389,9 +461,10 @@ def test_recheck_requires_silver_corresponding_to_current_raw(tmp_path):
 def test_old_success_reference_is_not_silently_ignored_when_unreadable(
     tmp_path, reference
 ):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        plan, ranges, _, _ = prepared(conn, lake, staging)
+        plan, ranges, _, _ = prepared(conn, lake, staging, known_records=known_records)
         with pytest.raises(ValueError):
             history.resolve_stk_factor_pro_history_units(
                 conn,
@@ -401,6 +474,7 @@ def test_old_success_reference_is_not_silently_ignored_when_unreadable(
                     prior(), successful_publication_refs=(reference,)
                 ),
                 staging_root=staging,
+                known_records=known_records,
             )
 
 
@@ -408,9 +482,12 @@ def test_old_success_reference_is_not_silently_ignored_when_unreadable(
     "fault", ["date", "same-bytes-wrong-count", "raw-incomplete", "source-identity"]
 )
 def test_recheck_rejects_wrong_dates_or_facts_bound_to_other_input(tmp_path, fault):
+    known_records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        plan, ranges, ft, fp = prepared(conn, lake, staging)
+        plan, ranges, ft, fp = prepared(
+            conn, lake, staging, known_records=known_records
+        )
         good = eligibility(plan.identity, plan)
         if fault == "date":
             facts = (fp, fp, good.raw_coverage, good.target_silver)
@@ -420,19 +497,21 @@ def test_recheck_rejects_wrong_dates_or_facts_bound_to_other_input(tmp_path, fau
                     lake,
                     plan,
                     ranges,
-                    resolve(conn, staging, plan, ranges),
+                    resolve(conn, staging, plan, ranges, known_records=known_records),
                     lambda: facts,
+                    known_records=known_records,
                 )
         elif fault == "same-bytes-wrong-count":
             facts = (replace(ft, rows=99), fp, good.raw_coverage, good.target_silver)
-            with pytest.raises(ValueError, match="行数引用"):
+            with pytest.raises(ValueError, match="输入身份已改变"):
                 recheck(
                     conn,
                     lake,
                     plan,
                     ranges,
-                    resolve(conn, staging, plan, ranges),
+                    resolve(conn, staging, plan, ranges, known_records=known_records),
                     lambda: facts,
+                    known_records=known_records,
                 )
         elif fault == "raw-incomplete":
             facts = (
@@ -447,8 +526,9 @@ def test_recheck_rejects_wrong_dates_or_facts_bound_to_other_input(tmp_path, fau
                     lake,
                     plan,
                     ranges,
-                    resolve(conn, staging, plan, ranges),
+                    resolve(conn, staging, plan, ranges, known_records=known_records),
                     lambda: facts,
+                    known_records=known_records,
                 )
         else:
             other_source = replace(
@@ -458,30 +538,79 @@ def test_recheck_rejects_wrong_dates_or_facts_bound_to_other_input(tmp_path, fau
                 history.require_stk_factor_pro_history_eligibility(plan, other_source)
 
 
-def test_recheck_detects_first_factor_changed_while_reading_second(
-    tmp_path, monkeypatch
-):
+def test_recheck_unchanged_inputs_uses_no_sql_or_full_file_sha(tmp_path, monkeypatch):
+    from orchestrator.defs.checks import stk_factor_pro as checks
+
+    records = {}
     lake, staging = roots(tmp_path)
     with connection(tmp_path) as conn:
-        plan, ranges, ft, _ = prepared(conn, lake, staging)
-        units = resolve(conn, staging, plan, ranges)
-        fp = write_factor_file(conn, lake, P, ((A, 1.0), (B, 8.0)))
+        plan, ranges, ft, fp = prepared(conn, lake, staging, known_records=records)
+        units = resolve(conn, staging, plan, ranges, known_records=records)
         good = eligibility(plan.identity, plan)
-        original = history._read_history_factor
+        facts = (ft, fp, good.raw_coverage, good.target_silver)
 
-        def change_first(connection, **kwargs):
-            path = original(connection, **kwargs)
-            if kwargs["reference"].trade_date == P:
-                write_factor_file(connection, lake, T, ((A, 3.0), (B, 1.0)))
-            return path
+        def forbidden(*args, **kwargs):
+            raise AssertionError(
+                "unchanged prepared inputs must not be read or hashed again"
+            )
 
-        monkeypatch.setattr(history, "_read_history_factor", change_first)
-        with pytest.raises(ValueError, match="返回前改变"):
+        class NoSQL:
+            def __getattr__(self, name):
+                return getattr(conn, name)
+
+            execute = staticmethod(forbidden)
+
+        monkeypatch.setattr(checks, "factor_file_sha", forbidden)
+        if hasattr(history, "factor_file_sha"):
+            monkeypatch.setattr(history, "factor_file_sha", forbidden)
+        assert (
             recheck(
-                conn,
+                NoSQL(), lake, plan, ranges, units, lambda: facts, known_records=records
+            )
+            is facts
+        )
+        history.release_stk_factor_pro_history_inputs(conn)
+
+
+def test_lifecycle_changed_after_preparation_stops_without_reauditing_it(
+    tmp_path, monkeypatch
+):
+    from orchestrator.defs.checks import stk_factor_pro as checks
+    from tests.test_stk_factor_pro_history_plan_boundaries import write_lifecycle
+
+    records = {}
+    lake, staging = roots(tmp_path)
+    with connection(tmp_path) as conn:
+        write_lifecycle(conn, lake, code=A, list_day=date(2010, 1, 4))
+        plan, ranges, ft, fp = prepared(conn, lake, staging, known_records=records)
+        units = resolve(conn, staging, plan, ranges, known_records=records)
+        good = eligibility(plan.identity, plan)
+        # An upstream lifecycle producer can update its own file while this
+        # dataset is running. The original task must stop on changed identity.
+        write_lifecycle(conn, lake, code=A, list_day=date(2011, 1, 4))
+
+        def forbidden(*args, **kwargs):
+            raise AssertionError(
+                "changed input must stop, not be parsed or hashed again"
+            )
+
+        class NoSQL:
+            def __getattr__(self, name):
+                return getattr(conn, name)
+
+            execute = staticmethod(forbidden)
+
+        monkeypatch.setattr(checks, "factor_file_sha", forbidden)
+        if hasattr(history, "factor_file_sha"):
+            monkeypatch.setattr(history, "factor_file_sha", forbidden)
+        with pytest.raises(ValueError, match="改变|变化"):
+            recheck(
+                NoSQL(),
                 lake,
                 plan,
                 ranges,
                 units,
                 lambda: (ft, fp, good.raw_coverage, good.target_silver),
+                known_records=records,
             )
+        history.release_stk_factor_pro_history_inputs(conn)

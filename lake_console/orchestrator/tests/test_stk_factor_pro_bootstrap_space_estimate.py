@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from orchestrator.defs.bootstrap import stk_factor_pro_bootstrap_records as R
+from orchestrator.defs.run_contracts import stk_factor_pro as C
 
 
 def estimate(**changes):
@@ -30,6 +31,10 @@ def require(tmp_path, value, **changes):
     }
     args.update(changes)
     return R.require_bootstrap_space(**args)
+
+
+def test_bootstrap_uses_the_dataset_space_estimate_type():
+    assert R.BootstrapSpaceEstimate is C.BootstrapSpaceEstimate
 
 
 def test_monthly_fragments_cumulative_layers_and_work_have_literal_bytes():

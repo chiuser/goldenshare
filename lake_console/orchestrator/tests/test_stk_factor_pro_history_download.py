@@ -19,6 +19,7 @@ from orchestrator.tushare_download.download_models import CleanupIssue
 from tests.stk_factor_pro_history_test_support import (
     NAMES,
     HistoryDownloader,
+    check_test_space,
     connection,
     contract,
     eligibility,
@@ -32,7 +33,7 @@ T, P = date(2026, 10, 16), date(2026, 10, 15)
 A, B = "000001.SZ", "600000.SH"
 
 
-def prepare(conn, tmp_path, *, kind="normal", run="run-a"):
+def prepare(conn, tmp_path, *, kind="normal", run="run-a", known_records):
     lake, staging = roots(tmp_path)
     t = ((A, 1.0), (B, 2.0)) if kind == "no_action" else ((A, 2.0), (B, 3.0))
     p = ((A, 1.0), (B, 2.0))
@@ -54,7 +55,18 @@ def prepare(conn, tmp_path, *, kind="normal", run="run-a"):
     old = models.StkFactorProRecordedResults(
         T, None, None, None, None, None, None, (), (), None, None
     )
-    plan = history.build_stk_factor_pro_history_plan(
+    factor_relations, lifecycle_relation = (
+        history.prepare_stk_factor_pro_history_inputs(
+            conn,
+            identity=identity(run),
+            lake_root=lake,
+            factor_t=refs[0],
+            factor_p=refs[1],
+            known_records=known_records,
+            check_cancel=lambda: None,
+        )
+    )
+    plan, ranges, plan_ref = history.build_stk_factor_pro_history_plan(
         conn,
         identity=identity(run),
         contract=contract(),
@@ -65,11 +77,28 @@ def prepare(conn, tmp_path, *, kind="normal", run="run-a"):
         prior_results=old,
         history_starts=starts,
         check_cancel=lambda: None,
+        known_records=known_records,
+        factor_relations=factor_relations,
+        lifecycle_relation=lifecycle_relation,
     )
     root = stk_factor_pro_run_staging_root(staging, run, T.isoformat())
-    ranges = history.read_stk_factor_pro_history_ranges(conn, root=root, plan=plan)
     valid = eligibility(plan.identity, plan, stock_count=2)
+    expected_units = (
+        ()
+        if kind in ("unknown", "no_action")
+        else history.resolve_stk_factor_pro_history_units(
+            conn,
+            plan=plan,
+            ranges=ranges,
+            prior_results=old,
+            staging_root=staging,
+            known_records=known_records,
+        )
+    )
     args = {
+        "expected_units": expected_units,
+        "check_space": check_test_space,
+        "plan_ref": plan_ref,
         "identity": plan.identity,
         "contract": plan.contract,
         "plan": plan,
@@ -95,9 +124,12 @@ def sample_downloader(**kwargs):
     )
 
 
-def run_download(conn, args, downloader):
+def run_download(conn, args, downloader, *, known_records):
     return downloads.download_stk_factor_pro_history(
-        conn, **args, downloader=downloader
+        conn,
+        **args,
+        downloader=downloader,
+        known_records=known_records,
     )
 
 
@@ -107,19 +139,34 @@ def assert_no_complete(root):
     assert not (root / "publication").exists()
 
 
-def assert_no_relations(conn):
+def assert_no_relations(conn, *, retained_source=None):
     names = conn.execute(
         "SELECT table_name FROM duckdb_tables() WHERE temporary UNION ALL "
         "SELECT view_name FROM duckdb_views() WHERE temporary AND NOT internal"
     ).fetchall()
-    assert not [name for (name,) in names if name.startswith("stk_factor_pro_")]
+    actual = {name for (name,) in names if name.startswith("stk_factor_pro_")}
+    if retained_source is not None:
+        assert {
+            retained_source,
+            "stk_factor_pro_history_factor_t",
+            "stk_factor_pro_history_factor_p",
+        } <= actual
+        assert actual <= {
+            retained_source,
+            "stk_factor_pro_history_factor_t",
+            "stk_factor_pro_history_factor_p",
+            "stk_factor_pro_history_lifecycle",
+        }
+    else:
+        assert not actual
 
 
 def test_all_native_units_and_zero_row_schema_saved_before_current_source_is_returned(
     tmp_path, monkeypatch
 ):
+    known_records = {}
     with connection(tmp_path) as conn:
-        root, args = prepare(conn, tmp_path)
+        root, args = prepare(conn, tmp_path, known_records=known_records)
         downloader = sample_downloader()
         written = []
         original = history.write_stk_factor_pro_source_complete
@@ -139,7 +186,7 @@ def test_all_native_units_and_zero_row_schema_saved_before_current_source_is_ret
             monkeypatch.setattr(
                 downloads, "write_stk_factor_pro_source_complete", after_close
             )
-        verified = run_download(conn, args, downloader)
+        verified = run_download(conn, args, downloader, known_records=known_records)
         assert isinstance(verified, models.VerifiedSource) and written == [True]
         source = verified.source_complete
         assert source.identity == args["identity"]
@@ -154,6 +201,7 @@ def test_all_native_units_and_zero_row_schema_saved_before_current_source_is_ret
             connection=conn,
             identity=args["identity"],
             contract=args["contract"],
+            known_records=known_records,
         )
         by_code = {item.object_code: item for item in files}
         assert set(by_code) == {A, B}
@@ -196,53 +244,59 @@ def test_all_native_units_and_zero_row_schema_saved_before_current_source_is_ret
         assert all(
             task.mode is DownloadMode.BY_OBJECT_RANGE for task, _ in downloader.calls
         )
+        assert_no_relations(conn, retained_source=verified.source_relation)
+        downloads.release_stk_factor_pro_history_source(conn)
         assert_no_relations(conn)
 
 
 @pytest.mark.parametrize("kind", ["unknown", "no_action"])
 def test_unknown_or_no_work_rejects_before_network(tmp_path, kind):
+    known_records = {}
     with connection(tmp_path) as conn:
-        root, args = prepare(conn, tmp_path, kind=kind)
+        root, args = prepare(conn, tmp_path, kind=kind, known_records=known_records)
         downloader = sample_downloader()
         with pytest.raises(ValueError):
-            run_download(conn, args, downloader)
+            run_download(conn, args, downloader, known_records=known_records)
         assert downloader.calls == []
         assert_no_complete(root)
 
 
 def test_invalid_eligibility_rejects_before_network(tmp_path):
+    known_records = {}
     with connection(tmp_path) as conn:
-        root, args = prepare(conn, tmp_path)
+        root, args = prepare(conn, tmp_path, known_records=known_records)
         valid = args["eligibility"]
         args["eligibility"] = replace(
             valid, raw_coverage=replace(valid.raw_coverage, complete=False)
         )
         downloader = sample_downloader()
         with pytest.raises(ValueError):
-            run_download(conn, args, downloader)
+            run_download(conn, args, downloader, known_records=known_records)
         assert downloader.calls == []
         assert_no_complete(root)
 
 
 def test_old_run_plan_cannot_supply_a_new_run_download(tmp_path):
+    known_records = {}
     with connection(tmp_path) as conn:
-        root, args = prepare(conn, tmp_path, run="run-old")
+        root, args = prepare(conn, tmp_path, run="run-old", known_records=known_records)
         args["identity"] = identity("run-new")
         downloader = sample_downloader()
         with pytest.raises(ValueError):
-            run_download(conn, args, downloader)
+            run_download(conn, args, downloader, known_records=known_records)
         assert downloader.calls == []
         assert_no_complete(root)
 
 
 def test_close_failure_1304_never_forms_complete_source(tmp_path):
+    known_records = {}
     with connection(tmp_path) as conn:
-        root, args = prepare(conn, tmp_path)
+        root, args = prepare(conn, tmp_path, known_records=known_records)
         downloader = sample_downloader(
             close_error=DownloadError(DownloadErrorCode.CLEANUP)
         )
         with pytest.raises(DownloadError) as captured:
-            run_download(conn, args, downloader)
+            run_download(conn, args, downloader, known_records=known_records)
         assert captured.value.code is DownloadErrorCode.CLEANUP
         assert downloader.sessions[0].closed
         assert_no_complete(root)
@@ -269,13 +323,14 @@ def test_close_failure_1304_never_forms_complete_source(tmp_path):
 def test_bad_final_summary_cannot_release_saved_units_for_publication(
     tmp_path, field, value
 ):
+    known_records = {}
     with connection(tmp_path) as conn:
-        root, args = prepare(conn, tmp_path)
+        root, args = prepare(conn, tmp_path, known_records=known_records)
         downloader = sample_downloader(
             summary_transform=lambda summary: replace(summary, **{field: value})
         )
         with pytest.raises(ValueError):
-            run_download(conn, args, downloader)
+            run_download(conn, args, downloader, known_records=known_records)
         assert downloader.sessions[0].closed
         assert_no_complete(root)
         assert_no_relations(conn)
@@ -332,28 +387,32 @@ def corrupt_result(value, kind):
     ],
 )
 def test_invalid_unit_identity_or_rows_cannot_form_complete_source(tmp_path, kind):
+    known_records = {}
     with connection(tmp_path) as conn:
-        root, args = prepare(conn, tmp_path)
+        root, args = prepare(conn, tmp_path, known_records=known_records)
         downloader = sample_downloader(
             result_transform=lambda value: corrupt_result(value, kind)
         )
         with pytest.raises(ValueError):
-            run_download(conn, args, downloader)
+            run_download(conn, args, downloader, known_records=known_records)
         assert downloader.sessions[0].closed
         assert_no_complete(root)
         assert_no_relations(conn)
 
 
 def test_per_stock_different_start_dates_use_exact_native_object_ranges(tmp_path):
+    known_records = {}
     with connection(tmp_path) as conn:
-        root, args = prepare(conn, tmp_path, kind="different_starts")
+        root, args = prepare(
+            conn, tmp_path, kind="different_starts", known_records=known_records
+        )
         downloader = HistoryDownloader(
             {
                 A: (row(A, "20261015"),),
                 B: (row(B, "20261014"), row(B, "20261016")),
             }
         )
-        verified = run_download(conn, args, downloader)
+        verified = run_download(conn, args, downloader, known_records=known_records)
         assert verified.source_complete.expected_units == (
             models.UnitProjection(5, A, None, P, T),
             models.UnitProjection(5, B, None, date(2026, 10, 14), T),
@@ -369,11 +428,15 @@ def test_per_stock_different_start_dates_use_exact_native_object_ranges(tmp_path
             (B, "2026-10-14", "2026-10-16"),
         )
         assert (root / "source/history/source-complete.json").is_file()
+        assert_no_relations(conn, retained_source=verified.source_relation)
+        downloads.release_stk_factor_pro_history_source(conn)
         assert_no_relations(conn)
 
 
 @pytest.mark.parametrize("kind", ["missing", "extra"])
 def test_exact_planned_unit_list_is_required(tmp_path, kind):
+    known_records = {}
+
     class ChangedUnits(HistoryDownloader):
         def download(self, task, **kwargs):
             session = super().download(task, **kwargs)
@@ -385,10 +448,10 @@ def test_exact_planned_unit_list_is_required(tmp_path, kind):
             return session
 
     with connection(tmp_path) as conn:
-        root, args = prepare(conn, tmp_path)
+        root, args = prepare(conn, tmp_path, known_records=known_records)
         downloader = ChangedUnits({A: (row(A, "20261015"),), B: ()})
         with pytest.raises(ValueError):
-            run_download(conn, args, downloader)
+            run_download(conn, args, downloader, known_records=known_records)
         assert_no_complete(root)
         assert_no_relations(conn)
 
@@ -396,6 +459,8 @@ def test_exact_planned_unit_list_is_required(tmp_path, kind):
 def test_business_source_copy_failure_is_not_retried_or_followed_by_another_unit(
     tmp_path,
 ):
+    known_records = {}
+
     class FailingCopy:
         def __init__(self, conn):
             self.conn, self.copy_attempts = conn, 0
@@ -414,11 +479,11 @@ def test_business_source_copy_failure_is_not_retried_or_followed_by_another_unit
             )
 
     with connection(tmp_path) as conn:
-        root, args = prepare(conn, tmp_path)
+        root, args = prepare(conn, tmp_path, known_records=known_records)
         failing = FailingCopy(conn)
         downloader = sample_downloader()
         with pytest.raises(OSError, match="local source write"):
-            run_download(failing, args, downloader)
+            run_download(failing, args, downloader, known_records=known_records)
         assert failing.copy_attempts == 1
         assert len(downloader.calls) == 1
         assert downloader.sessions[0].closed and downloader.sessions[0].delivered == 1
@@ -427,8 +492,9 @@ def test_business_source_copy_failure_is_not_retried_or_followed_by_another_unit
 
 
 def test_cancel_after_first_saved_unit_stops_before_next_unit_and_complete(tmp_path):
+    known_records = {}
     with connection(tmp_path) as conn:
-        root, args = prepare(conn, tmp_path)
+        root, args = prepare(conn, tmp_path, known_records=known_records)
         downloader = sample_downloader()
 
         def cancelled():
@@ -437,15 +503,16 @@ def test_cancel_after_first_saved_unit_stops_before_next_unit_and_complete(tmp_p
 
         args["check_cancel"] = cancelled
         with pytest.raises(RuntimeError, match="cancelled after unit"):
-            run_download(conn, args, downloader)
+            run_download(conn, args, downloader, known_records=known_records)
         assert downloader.sessions[0].closed and downloader.sessions[0].delivered == 1
         assert_no_complete(root)
         assert_no_relations(conn)
 
 
 def test_recheck_failure_is_not_a_swallowed_progress_notification(tmp_path):
+    known_records = {}
     with connection(tmp_path) as conn:
-        root, args = prepare(conn, tmp_path)
+        root, args = prepare(conn, tmp_path, known_records=known_records)
         downloader = sample_downloader()
 
         def failed():
@@ -453,20 +520,21 @@ def test_recheck_failure_is_not_a_swallowed_progress_notification(tmp_path):
 
         args["recheck_inputs"] = failed
         with pytest.raises(RuntimeError, match="confirm upstream"):
-            run_download(conn, args, downloader)
+            run_download(conn, args, downloader, known_records=known_records)
         assert downloader.calls == []
         assert_no_complete(root)
 
 
 def test_progress_and_control_are_forwarded_without_data_saving_callback(tmp_path):
+    known_records = {}
     with connection(tmp_path) as conn:
-        root, args = prepare(conn, tmp_path)
+        root, args = prepare(conn, tmp_path, known_records=known_records)
         downloader = sample_downloader()
         received = []
         callback = received.append
         control = DownloadControl(is_cancelled=lambda: False)
         args.update(on_progress=callback, control=control)
-        run_download(conn, args, downloader)
+        run_download(conn, args, downloader, known_records=known_records)
         assert all(
             kwargs["on_progress"] is callback and kwargs["control"] is control
             for _, kwargs in downloader.calls

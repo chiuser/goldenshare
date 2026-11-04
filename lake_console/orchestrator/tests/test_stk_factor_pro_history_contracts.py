@@ -141,11 +141,7 @@ def publication(phase="history"):
         SHA,
         "replace",
         "intent",
-        models.RecordRef(
-            "run-a", f"publication/history/{day}/raw/unrefreshed-keys.parquet", SHA
-        )
-        if phase == "history"
-        else None,
+        None,
         0 if phase == "history" else None,
         None,
         None,
@@ -197,14 +193,24 @@ def test_range_digest_keeps_unknown_null_and_rejects_duplicate():
 
 def test_plan_and_input_identity_ignore_run_but_track_business_values():
     rows = (history_range(),)
-    original = models.stk_factor_pro_history_plan_digest(identity(), contract(), rows)
+    ranges_digest = models.stk_factor_pro_history_ranges_digest(rows)
+    original = models.stk_factor_pro_history_plan_digest(
+        identity(), contract(), rows, ranges_digest=ranges_digest
+    )
     assert (
-        models.stk_factor_pro_history_plan_digest(identity("run-b"), contract(), rows)
+        models.stk_factor_pro_history_plan_digest(
+            identity("run-b"), contract(), rows, ranges_digest=ranges_digest
+        )
         == original
     )
     changed = (replace(rows[0], t_value=3.0),)
     assert (
-        models.stk_factor_pro_history_plan_digest(identity(), contract(), changed)
+        models.stk_factor_pro_history_plan_digest(
+            identity(),
+            contract(),
+            changed,
+            ranges_digest=models.stk_factor_pro_history_ranges_digest(changed),
+        )
         != original
     )
     value = models.stk_factor_pro_history_input_digest(
@@ -304,12 +310,16 @@ def test_invalid_source_complete_rejected(changes):
 
 
 def test_same_unit_key_cannot_authorize_old_run_source():
-    with pytest.raises(ValueError):
+    file = source_file()
+    with pytest.raises(ValueError, match="历史源身份不一致"):
         models.VerifiedSource(
             identity("new-run"),
             contract(),
             source_complete(),
             models.RecordRef("run-a", "source/history/source-complete.json", SHA),
+            "stk_factor_pro_history_source",
+            (file,),
+            ((file.file_relative_path, (1, 2, 3, 4, 5)),),
         )
 
 
@@ -321,8 +331,19 @@ def test_publication_preserves_day_and_history_exclusion():
         replace(publication(), day_source_digest=SHA)
     with pytest.raises(ValueError):
         replace(publication(), trade_date=T)
+    assert publication().unrefreshed_keys_ref is None
     with pytest.raises(ValueError):
-        replace(publication(), unrefreshed_keys_ref=None)
+        replace(publication(), unrefreshed_count=1)
+    nonzero = replace(
+        publication(),
+        unrefreshed_count=1,
+        unrefreshed_keys_ref=models.RecordRef(
+            "run-a", f"publication/history/{P}/raw/unrefreshed-keys.parquet", SHA
+        ),
+    )
+    assert nonzero.unrefreshed_count == 1
+    with pytest.raises(ValueError):
+        replace(nonzero, unrefreshed_count=0)
 
 
 def test_codec_exact_boolean_count_and_canonical_time():

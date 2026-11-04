@@ -54,6 +54,7 @@ from tests.stk_factor_pro_test_support import NAMES, connection, contract, ident
 __all__ = [
     "NAMES",
     "HistoryDownloader",
+    "check_test_space",
     "connection",
     "contract",
     "eligibility",
@@ -66,6 +67,15 @@ __all__ = [
     "saved_real_rows",
     "write_factor_file",
 ]
+
+
+def check_test_space(stage: str, *, path: Path, **facts) -> None:
+    """Capacity substitute for non-capacity tests; never accepts formal paths."""
+    assert type(stage) is str and stage
+    assert path.is_absolute() and any(
+        path.is_relative_to(root)
+        for root in (Path("/private/tmp"), Path("/tmp"), Path("/private/var/folders"))
+    )
 
 
 def history_task(

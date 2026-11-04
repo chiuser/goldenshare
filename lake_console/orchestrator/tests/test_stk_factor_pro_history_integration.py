@@ -48,6 +48,7 @@ from orchestrator.tushare_download.download_models import (
 )
 from tests.stk_factor_pro_history_test_support import (
     NAMES,
+    check_test_space,
     connection,
     contract,
     eligibility,
@@ -116,6 +117,8 @@ class Metrics:
         def sha(path):
             self.add("sha_reads")
             self.add("sha_bytes", path.stat().st_size)
+            if "source/history/units/" in path.as_posix():
+                self.add("source_unit_sha_reads")
             return original_sha(path)
 
         def replace_file(source, target):
@@ -146,7 +149,8 @@ class Metrics:
                 self.switch(old_phase)
 
         for module in (checks, history, downloads, publication, sys.modules[__name__]):
-            self.stack.enter_context(patch.object(module, "factor_file_sha", sha))
+            if hasattr(module, "factor_file_sha"):
+                self.stack.enter_context(patch.object(module, "factor_file_sha", sha))
         self.stack.enter_context(patch.object(os, "replace", replace_file))
         self.stack.enter_context(
             patch.object(
@@ -199,6 +203,8 @@ class MeasuredConnection:
         if "read_parquet" in lower:
             metric.add("parquet_read_queries")
             metric.add("read_parquet_calls", lower.count("read_parquet"))
+            if "source/history/units/" in text + repr(parameters):
+                metric.add("source_unit_read_queries")
         if lower.lstrip().startswith("copy"):
             metric.add("copy_queries")
             if "/candidates/history/" in text:
@@ -218,8 +224,11 @@ class MeasuredConnection:
             r'\s*create\s+(?:or\s+replace\s+)?temp\s+table\s+"?(stk_factor_pro_[a-z_]+)"?\s',
             lower,
         )
-        if table:
-            name = table[1]
+        appended_source = re.match(
+            r'\s*insert\s+into\s+"?stk_factor_pro_history_source"?(?:\s|$)', lower
+        )
+        if table or appended_source:
+            name = table[1] if table else "stk_factor_pro_history_source"
             metric.measurement_queries += 1
             count = self.conn.execute(f'SELECT count(*) FROM "{name}"').fetchone()[0]
             metric.max_relation_rows[name] = max(
@@ -299,7 +308,7 @@ def fixtures(conn, base):
     return lake, staging, refs, (factor_file_sha(raw_t), factor_file_sha(silver_t))
 
 
-def create_flow(conn, fixture, *, run="run-normal", old=None):
+def create_flow(conn, fixture, *, run="run-normal", old=None, known_records):
     lake, staging, refs, t_hashes = fixture
     old = (
         models.StkFactorProRecordedResults(
@@ -309,7 +318,18 @@ def create_flow(conn, fixture, *, run="run-normal", old=None):
         else old
     )
     run_identity = identity(run)
-    plan = history.build_stk_factor_pro_history_plan(
+    factor_relations, lifecycle_relation = (
+        history.prepare_stk_factor_pro_history_inputs(
+            conn,
+            identity=run_identity,
+            lake_root=lake,
+            factor_t=refs[0],
+            factor_p=refs[1],
+            known_records=known_records,
+            check_cancel=lambda: None,
+        )
+    )
+    plan, ranges, plan_ref = history.build_stk_factor_pro_history_plan(
         conn,
         identity=run_identity,
         contract=contract(),
@@ -320,10 +340,26 @@ def create_flow(conn, fixture, *, run="run-normal", old=None):
         prior_results=old,
         history_starts=(models.StkFactorProHistoryStart(A, START, 1, START),),
         check_cancel=lambda: None,
+        known_records=known_records,
+        factor_relations=factor_relations,
+        lifecycle_relation=lifecycle_relation,
     )
     root = stk_factor_pro_run_staging_root(staging, run, T.isoformat())
-    ranges = history.read_stk_factor_pro_history_ranges(conn, root=root, plan=plan)
     verified_upstream = eligibility(run_identity, plan, *t_hashes)
+    expected_units = history.resolve_stk_factor_pro_history_units(
+        conn,
+        plan=plan,
+        ranges=ranges,
+        prior_results=old,
+        staging_root=staging,
+        known_records=known_records,
+    )
+    publication_dates = history.plan_stk_factor_pro_history_publication_dates(
+        identity=run_identity,
+        expected_units=expected_units,
+        calendar=DATES,
+        registered_dates=DATES[:-1],
+    )
 
     def recheck():
         # Third-batch boundary: the real PG/readiness readers belong to a later
@@ -336,6 +372,9 @@ def create_flow(conn, fixture, *, run="run-normal", old=None):
         )
 
     download_args = {
+        "expected_units": expected_units,
+        "check_space": check_test_space,
+        "plan_ref": plan_ref,
         "identity": run_identity,
         "contract": contract(),
         "plan": plan,
@@ -348,6 +387,8 @@ def create_flow(conn, fixture, *, run="run-normal", old=None):
         "check_cancel": lambda: None,
     }
     publish_args = {
+        "publication_dates": publication_dates,
+        "check_space": check_test_space,
         "plan": plan,
         "ranges": ranges,
         "lake_root": lake,
@@ -360,9 +401,11 @@ def create_flow(conn, fixture, *, run="run-normal", old=None):
     return root, download_args, publish_args
 
 
-def complete(conn, source, publish_args):
+def complete(conn, source, publish_args, *, known_records):
     return tuple(
-        publication.publish_stk_factor_pro_history(conn, source=source, **publish_args)
+        publication.publish_stk_factor_pro_history(
+            conn, source=source, **publish_args, known_records=known_records
+        )
     )
 
 
@@ -431,6 +474,7 @@ def verify_wide_previous(conn, lake):
 
 
 def test_native_saved_response_retry_notifications_and_complete_chain(tmp_path):
+    known_records = {}
     with connection(tmp_path) as conn:
         fixture = fixtures(conn, tmp_path)
         lake, _, _, t_hashes = fixture
@@ -439,7 +483,9 @@ def test_native_saved_response_retry_notifications_and_complete_chain(tmp_path):
         events = []
         metric = Metrics(conn, tmp_path)
         with metric as measured:
-            root, download_args, publish_args = create_flow(measured, fixture)
+            root, download_args, publish_args = create_flow(
+                measured, fixture, known_records=known_records
+            )
 
             def progress(event):
                 events.append(event)
@@ -450,8 +496,13 @@ def test_native_saved_response_retry_notifications_and_complete_chain(tmp_path):
 
             metric.switch("download")
             source = downloads.download_stk_factor_pro_history(
-                measured, **download_args, downloader=downloader, on_progress=progress
+                measured,
+                **download_args,
+                downloader=downloader,
+                on_progress=progress,
+                known_records=known_records,
             )
+            assert source.source_relation == "stk_factor_pro_history_source"
             assert [event.event for event in events] == [
                 DownloadProgressEvent.RETRY_SCHEDULED,
                 DownloadProgressEvent.PAGE_COMPLETED,
@@ -464,14 +515,19 @@ def test_native_saved_response_retry_notifications_and_complete_chain(tmp_path):
             assert summary.row_count == 5 and summary.total_units == 1
             assert all(transport.closed == 1 for transport in transports)
             metric.switch("publication")
-            targets = complete(measured, source, publish_args)
+            targets = complete(
+                measured, source, publish_args, known_records=known_records
+            )
             assert [(target.trade_date, target.layer) for target, _ in targets] == [
                 (day, layer) for day in DATES[:-1] for layer in ("raw", "silver")
             ]
             assert all(audit is not None and audit.passed for _, audit in targets)
             metric.switch("verification")
             final = publication.read_stk_factor_pro_history_publication_complete(
-                root, expected_target=T, expected_run_id="run-normal"
+                root,
+                expected_target=T,
+                expected_run_id="run-normal",
+                known_records=known_records,
             )
             assert final.targets == tuple(target for target, _ in targets)
             assert (
@@ -489,8 +545,15 @@ def test_native_saved_response_retry_notifications_and_complete_chain(tmp_path):
         assert metric.counts["batch_source_ctas"] == 1
         assert metric.counts["candidate_copies"] == 8
         assert metric.counts["source_unit_copies"] == 1
+        assert metric.counts["source_unit_read_queries"] == 1
+        assert metric.counts["source_unit_sha_reads"] == 1
+        assert metric.phases["publication"].get("source_unit_read_queries", 0) == 0
+        assert metric.phases["publication"].get("source_unit_sha_reads", 0) == 0
+        assert metric.phases["final_readback"].get("source_unit_read_queries", 0) == 0
+        assert metric.phases["final_readback"].get("source_unit_sha_reads", 0) == 0
         assert metric.counts["formal_replaces"] == 8
         assert metric.max_relation_rows["stk_factor_pro_history_batch_source"] == 4
+        assert metric.max_relation_rows["stk_factor_pro_history_source"] == 5
         evidence(
             tmp_path,
             "normal",
@@ -536,7 +599,7 @@ class RejectPreviousDownload:
         )
 
 
-def child_stage(stage, base):
+def child_stage(stage, base, *, known_records):
     with connection(base) as conn:
         fixture = fixtures(conn, base)
         lake, staging, _, _ = fixture
@@ -554,7 +617,10 @@ def child_stage(stage, base):
             old = None
             if stage == "recover":
                 plan = history.read_stk_factor_pro_history_plan(
-                    old_root, expected_target=T, expected_run_id="run-exit"
+                    old_root,
+                    expected_target=T,
+                    expected_run_id="run-exit",
+                    known_records=known_records,
                 )
                 plan_ref = models.RecordRef(
                     "run-exit",
@@ -576,16 +642,26 @@ def child_stage(stage, base):
             )
             run = "run-exit" if stage == "exit" else "run-recover"
             root, download_args, publish_args = create_flow(
-                guarded, fixture, run=run, old=old
+                guarded,
+                fixture,
+                run=run,
+                old=old,
+                known_records=known_records,
             )
             downloader, calls, _, _ = native_saved_source()
             metric.switch("download")
             source = downloads.download_stk_factor_pro_history(
-                guarded, **download_args, downloader=downloader
+                guarded,
+                **download_args,
+                downloader=downloader,
+                known_records=known_records,
             )
             metric.switch("publication")
             outputs = publication.publish_stk_factor_pro_history(
-                guarded, source=source, **publish_args
+                guarded,
+                source=source,
+                **publish_args,
+                known_records=known_records,
             )
             if stage == "exit":
                 target, audit = next(outputs)
@@ -615,7 +691,10 @@ def child_stage(stage, base):
             targets = tuple(outputs)
             metric.switch("verification")
             final = publication.read_stk_factor_pro_history_publication_complete(
-                root, expected_target=T, expected_run_id=run
+                root,
+                expected_target=T,
+                expected_run_id=run,
+                known_records=known_records,
             )
             assert final.targets == tuple(target for target, _ in targets)
             assert_clean(guarded)
@@ -707,4 +786,4 @@ def test_real_process_exit_then_new_process_redownloads_complete_original_scope(
 
 
 if __name__ == "__main__":
-    child_stage(sys.argv[1], Path(sys.argv[2]))
+    child_stage(sys.argv[1], Path(sys.argv[2]), known_records={})

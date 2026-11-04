@@ -5,7 +5,10 @@ from __future__ import annotations
 from datetime import date
 
 from orchestrator.defs.checks.stk_factor_pro import relation_identifier
-from orchestrator.defs.run_contracts.stk_factor_pro import StkFactorProCoverageCounts
+from orchestrator.defs.run_contracts.stk_factor_pro import (
+    STK_FACTOR_PRO_ACTIVE_RUN_STATUSES,
+    StkFactorProCoverageCounts,
+)
 
 
 def stk_factor_pro_invalid_code_sql(column: str) -> str:
@@ -33,16 +36,6 @@ def build_stk_factor_pro_coverage_keys(
         for value in (listed_relation, full_suspend_relation, actual_relation)
     )
     identity = relation_identifier(identity_relation)
-    outputs = ("stk_factor_pro_coverage_missing", "stk_factor_pro_coverage_extra")
-    internals = (
-        "stk_factor_pro_coverage_mapping",
-        "stk_factor_pro_coverage_expected",
-        "stk_factor_pro_coverage_listed",
-        "stk_factor_pro_coverage_suspend",
-        "stk_factor_pro_coverage_actual",
-    )
-    for name in (*outputs, *internals):
-        connection.execute(f"DROP TABLE IF EXISTS {name}")
     for relation in relations:
         schema = tuple(
             (r[0], r[1]) for r in connection.execute(f"DESCRIBE {relation}").fetchall()
@@ -67,6 +60,38 @@ def build_stk_factor_pro_coverage_keys(
         )
     ):
         raise ValueError("身份映射输入类型不符合现行合同")
+    return _build_stk_factor_pro_coverage_keys(
+        connection,
+        target_trade_date=target_trade_date,
+        listed_relation=relations[0],
+        full_suspend_relation=relations[1],
+        actual_relation=relations[2],
+        identity_relation=identity,
+    )
+
+
+def _build_stk_factor_pro_coverage_keys(
+    connection,
+    *,
+    target_trade_date: date,
+    listed_relation: str,
+    full_suspend_relation: str,
+    actual_relation: str,
+    identity_relation: str,
+) -> StkFactorProCoverageCounts:
+    """Compute once from the producer's already-verified fixed date/key projections."""
+    relations = (listed_relation, full_suspend_relation, actual_relation)
+    identity = identity_relation
+    outputs = ("stk_factor_pro_coverage_missing", "stk_factor_pro_coverage_extra")
+    internals = (
+        "stk_factor_pro_coverage_mapping",
+        "stk_factor_pro_coverage_expected",
+        "stk_factor_pro_coverage_listed",
+        "stk_factor_pro_coverage_suspend",
+        "stk_factor_pro_coverage_actual",
+    )
+    for name in (*outputs, *internals):
+        connection.execute(f"DROP TABLE IF EXISTS {name}")
     union = " UNION ".join(f"SELECT trade_date,ts_code FROM {r}" for r in relations)
     connection.execute(
         "CREATE TEMP TABLE stk_factor_pro_coverage_mapping AS "
@@ -142,21 +167,20 @@ def build_stk_factor_pro_coverage_keys(
     )
 
 
-def read_stk_factor_pro_other_active_runs(instance, *, own_run_id=None):
+def read_stk_factor_pro_other_active_runs(
+    instance, *, own_run_id=None, active_statuses=STK_FACTOR_PRO_ACTIVE_RUN_STATUSES
+):
     """Two bounded queries; bootstrap has no own Dagster run to exclude."""
     import dagster as dg
 
     from orchestrator.defs.run_contracts.stk_factor_pro import (
-        STK_FACTOR_PRO_ACTIVE_RUN_STATUSES,
         STK_FACTOR_PRO_WRITE_JOB_NAMES,
     )
 
     active = []
     for name in STK_FACTOR_PRO_WRITE_JOB_NAMES:
         records = instance.get_run_records(
-            filters=dg.RunsFilter(
-                job_name=name, statuses=STK_FACTOR_PRO_ACTIVE_RUN_STATUSES
-            ),
+            filters=dg.RunsFilter(job_name=name, statuses=active_statuses),
             limit=2,
         )
         active.extend(

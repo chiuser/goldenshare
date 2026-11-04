@@ -21,6 +21,7 @@ from orchestrator.defs.paths import (
 from orchestrator.defs.run_contracts import stk_factor_pro as models
 from tests.stk_factor_pro_history_test_support import (
     HistoryDownloader,
+    check_test_space,
     connection,
     contract,
     eligibility,
@@ -64,6 +65,7 @@ def prepare(
     codes=(A, B),
     old=None,
     supplied_rows=None,
+    known_records,
 ):
     lake, staging = roots(tmp_path)
     all_codes = tuple(sorted({A, B, C}))
@@ -88,7 +90,18 @@ def prepare(
     )
     old = empty_prior() if old is None else old
     run_identity = identity(run)
-    plan = history.build_stk_factor_pro_history_plan(
+    factor_relations, lifecycle_relation = (
+        history.prepare_stk_factor_pro_history_inputs(
+            conn,
+            identity=run_identity,
+            lake_root=lake,
+            factor_t=factors[0],
+            factor_p=factors[1],
+            known_records=known_records,
+            check_cancel=lambda: None,
+        )
+    )
+    plan, ranges, plan_ref = history.build_stk_factor_pro_history_plan(
         conn,
         identity=run_identity,
         contract=contract(),
@@ -102,9 +115,11 @@ def prepare(
             for code in sorted(codes)
         ),
         check_cancel=lambda: None,
+        known_records=known_records,
+        factor_relations=factor_relations,
+        lifecycle_relation=lifecycle_relation,
     )
     root = stk_factor_pro_run_staging_root(staging, run, T.isoformat())
-    ranges = history.read_stk_factor_pro_history_ranges(conn, root=root, plan=plan)
     valid = eligibility(
         run_identity,
         plan,
@@ -122,11 +137,28 @@ def prepare(
         else supplied_rows
     )
     downloader = HistoryDownloader(supplied_rows)
+    expected_units = history.resolve_stk_factor_pro_history_units(
+        conn,
+        plan=plan,
+        ranges=ranges,
+        prior_results=old,
+        staging_root=staging,
+        known_records=known_records,
+    )
+    publication_dates = history.plan_stk_factor_pro_history_publication_dates(
+        identity=run_identity,
+        expected_units=expected_units,
+        calendar=dates,
+        registered_dates=dates[:-1],
+    )
 
     def recheck():
         return factors[0], factors[1], valid.raw_coverage, valid.target_silver
 
     download_args = {
+        "expected_units": expected_units,
+        "check_space": check_test_space,
+        "plan_ref": plan_ref,
         "identity": run_identity,
         "contract": contract(),
         "plan": plan,
@@ -140,6 +172,8 @@ def prepare(
         "check_cancel": lambda: None,
     }
     publish_args = {
+        "publication_dates": publication_dates,
+        "check_space": check_test_space,
         "plan": plan,
         "ranges": ranges,
         "lake_root": lake,
@@ -152,17 +186,25 @@ def prepare(
     return lake, staging, root, downloader, download_args, publish_args
 
 
-def source_and_publish(conn, download_args, publish_args):
-    source = downloads.download_stk_factor_pro_history(conn, **download_args)
+def source_and_publish(conn, download_args, publish_args, *, known_records):
+    source = downloads.download_stk_factor_pro_history(
+        conn, **download_args, known_records=known_records
+    )
     return source, publication.publish_stk_factor_pro_history(
-        conn, source=source, **publish_args
+        conn,
+        source=source,
+        **publish_args,
+        known_records=known_records,
     )
 
 
 def test_successful_ab_old_rows_are_outside_current_c_completion_scope(tmp_path):
+    known_records = {}
     with connection(tmp_path) as conn:
         lake, staging = roots(tmp_path)
-        success = old_success(conn, staging, (range_row(A), range_row(B)))
+        success = old_success(
+            conn, staging, (range_row(A), range_row(B)), known_records={}
+        )
         old = replace(empty_prior(), successful_publication_refs=(success,))
         lake, _, root, downloader, download_args, publish_args = prepare(
             conn,
@@ -171,6 +213,7 @@ def test_successful_ab_old_rows_are_outside_current_c_completion_scope(tmp_path)
             codes=(A, B, C),
             old=old,
             supplied_rows={C: (row(C, "20261015"), row(C, "20261016"))},
+            known_records=known_records,
         )
         old_rows = (
             row(A, "20261015", close=Decimal(71)),
@@ -189,7 +232,9 @@ def test_successful_ab_old_rows_are_outside_current_c_completion_scope(tmp_path)
             return original_recheck()
 
         download_args["recheck_inputs"] = publish_args["recheck_inputs"] = recheck
-        source, outputs = source_and_publish(conn, download_args, publish_args)
+        source, outputs = source_and_publish(
+            conn, download_args, publish_args, known_records=known_records
+        )
         results = tuple(outputs)
         assert len(rechecks) == 3
         assert source.source_complete.expected_units == (
@@ -225,6 +270,7 @@ def test_successful_ab_old_rows_are_outside_current_c_completion_scope(tmp_path)
 
 
 def test_missing_old_scope_key_keeps_valid_files_but_fails_whole_history(tmp_path):
+    known_records = {}
     with connection(tmp_path) as conn:
         lake, _, root, _, download_args, publish_args = prepare(
             conn,
@@ -233,6 +279,7 @@ def test_missing_old_scope_key_keeps_valid_files_but_fails_whole_history(tmp_pat
                 A: (row(A, "20261014"), row(A, "20261016")),
                 B: (row(B, "20261014"), row(B, "20261015"), row(B, "20261016")),
             },
+            known_records=known_records,
         )
         before = (
             row(A, "20261015", close=Decimal(99)),
@@ -243,7 +290,9 @@ def test_missing_old_scope_key_keeps_valid_files_but_fails_whole_history(tmp_pat
             ("silver", silver_stock_factor_pro_path(lake, P.isoformat())),
         ):
             write_rows(conn, path, before, layer=layer)
-        source, outputs = source_and_publish(conn, download_args, publish_args)
+        source, outputs = source_and_publish(
+            conn, download_args, publish_args, known_records=known_records
+        )
         assert source.source_complete.completed_unit_count == 2
         results = []
         with pytest.raises(dg.Failure) as captured:
@@ -303,9 +352,13 @@ class NoOldSourceConnection:
 def test_new_run_redownloads_every_original_unit_despite_prior_source_or_files(
     tmp_path, monkeypatch, old_stage
 ):
+    known_records = {}
     with connection(tmp_path) as conn:
         lake, _, old_root, _, first_download, first_publish = prepare(
-            conn, tmp_path, run="run-failed"
+            conn,
+            tmp_path,
+            run="run-failed",
+            known_records=known_records,
         )
         original_silver = publication.build_stk_factor_pro_silver_candidate
 
@@ -316,7 +369,9 @@ def test_new_run_redownloads_every_original_unit_despite_prior_source_or_files(
             monkeypatch.setattr(
                 publication, "build_stk_factor_pro_silver_candidate", failed
             )
-        _, old_outputs = source_and_publish(conn, first_download, first_publish)
+        _, old_outputs = source_and_publish(
+            conn, first_download, first_publish, known_records=known_records
+        )
         if old_stage == "silver_failed":
             with pytest.raises(OSError, match="first run silver"):
                 tuple(old_outputs)
@@ -351,10 +406,18 @@ def test_new_run_redownloads_every_original_unit_despite_prior_source_or_files(
 
         monkeypatch.setattr(Path, "open", no_old_source)
         guarded = NoOldSourceConnection(conn, old_root)
+        # A new run owns fresh in-memory facts; it only inherits durable intent.
+        retry_known_records = {}
         _, _, root, downloader, retry_download, retry_publish = prepare(
-            guarded, tmp_path, run="run-retry", old=previous
+            guarded,
+            tmp_path,
+            run="run-retry",
+            old=previous,
+            known_records=retry_known_records,
         )
-        source, outputs = source_and_publish(guarded, retry_download, retry_publish)
+        source, outputs = source_and_publish(
+            guarded, retry_download, retry_publish, known_records=retry_known_records
+        )
         results = tuple(outputs)
         assert source.identity.creator_run_id == "run-retry"
         assert len(downloader.calls) == 1

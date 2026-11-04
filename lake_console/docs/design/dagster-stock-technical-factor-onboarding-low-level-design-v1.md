@@ -1,10 +1,10 @@
 # 股票技术因子 DG 数据集接入 LLD v1
 
-日期：2026-11-04。状态：第一至第四批原功能及隔离验收保留为历史证据；当前专项已确认重复完整审计、摘要重算及零诊断附件问题。§18是管理员本轮批准的修正设计，代码和测试尚未修改。第五批开工前必须先完成第二至第四批独立修正轮并验收。此前98/994等测试不证明新次数要求已通过；历史证据保留§14～17。Tushare失败新run完整重下、日仅内存、历史20日分批及原业务口径不变；正式资源操作仍分别授权。
+日期：2026-11-04。状态：§18修正轮8步已完成并通过隔离验收及交叉独立审计，逐项证据见§18.8。第五批尚未推进，不据本轮代码验收宣称正式存量或完整数据集已验收。Tushare失败新run完整重下、日仅内存、历史20日分批及原业务口径不变；本轮未迁移正式旧记录，正式资源操作分别授权。
 
 依据：[原技术方案](dagster-stock-technical-factor-onboarding-plan-v1.md)、[DG接入模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理规范](dagster-data-pipeline-performance-governance.md)、[Prod审计报告](../../reports/stock_factor_pro_prod_audit_20261021/README.md)。下载器依据[组件LLD](dagster-tushare-download-component-low-level-design-v1.html)与[业务使用文档](../architecture/tushare-download-component-usage-v1.html)，不在本数据集重做。
 
-此前第五批启动前的精确阶段引用、实际发布日期通知及测试状态修订保留为设计要求，尚未编码。2026-11-04新增§18要求先完成既有实现修正轮；不再据此前启动审计直接编码第五批。开发仍沿正常模块方式，不新增factory、延迟装载或开关；正式DG启动/重载、正式执行不在本轮范围。
+此前第五批启动前的精确阶段引用、实际发布日期通知及测试状态修订保留为设计要求，尚未编码。2026-11-04新增§18要求先完成既有实现修正轮；不再据此前启动审计直接编码第五批。开发不另建Definitions装配入口，不增加延迟装载或开关；正式DG启动/重载、正式执行不在本轮范围。
 
 ## 1. 范围、日期与已经拍板的规则
 
@@ -418,7 +418,7 @@ bootstrap是直接文件写入，不受该队列的单任务数量限制。例�
 
 #### 4.2.3 编码落点、调用顺序和失败处理
 
-在既有拟新增文件`defs/asset_guards/stk_factor_pro_readiness.py`内实现§2.3的两个函数；固定两job名称和活动状态在`defs/run_contracts/stk_factor_pro.py`单处维护。读取方式沿用现行`asset_guards/dc_board_run_recovery.py::read_dc_run_history`的有界活动查询语义，不调用其东财业务恢复逻辑，也不迁移旧消费者：
+在既有文件`defs/asset_guards/stk_factor_pro_readiness.py`内维护§2.3的两个函数；固定两job名称和活动状态在`defs/run_contracts/stk_factor_pro.py`单处维护。读取方式沿用现行`asset_guards/dc_board_run_recovery.py::read_dc_run_history`的有界活动查询语义，不调用其东财业务恢复逻辑，也不迁移旧消费者：
 
 ```python
 def read_stk_factor_pro_other_active_runs(
@@ -442,6 +442,8 @@ def read_stk_factor_pro_other_active_runs(
 ```
 
 STK_FACTOR_PRO_WRITE_JOB_NAMES仍单处维护两job。现有reader增加内部active_statuses关键字参数，默认既有五状态，供sensor/终端bootstrap原消费者；正常队列job在第五批传固定三状态。两组状态由run_contracts单处定义，不是业务配置，也不接受运营任意值。每job limit=2，排除本run后返回有界样本；无新增查询/锁/循环。共享reader在修正轮同步签名及现有消费者测试，终端默认行为不变。
+
+五状态常量名保持STK_FACTOR_PRO_ACTIVE_RUN_STATUSES；三状态常量固定为STK_FACTOR_PRO_RUNNING_RUN_STATUSES，值仅STARTING/STARTED/CANCELING。RunsFilter在存储查询内先应用statuses，随后limit取样，依据[Dagster实例及RunsFilter接口](https://dagster.io/docs/api/dagster/internals)。本步只修改这两个固定常量及既有reader的内部参数，不新增PG读取函数或队列job调用方。
 
 | 调用点 | 查询及有冲突/读不到事实时的动作 |
 | --- | --- |
@@ -588,7 +590,15 @@ def build_stk_factor_pro_coverage_keys(
     listed_relation: str, full_suspend_relation: str,
     actual_relation: str, identity_relation: str,
 ) -> StkFactorProCoverageCounts: ...
+
+def _build_stk_factor_pro_coverage_keys(
+    connection: DuckDBPyConnection, *, target_trade_date: date,
+    listed_relation: str, full_suspend_relation: str,
+    actual_relation: str, identity_relation: str,
+) -> StkFactorProCoverageCounts: ...
 ```
+
+两个入口使用同一份集合计算实现。公共函数保留首次外部输入的schema、日期、代码及关系名检查，再调用私有实现。本任务内已核生命周期、最终停牌、身份和Raw产生的固定两列投影，直接交同一私有实现；这些投影只使用已核代码和固定原T日期，不再DESCRIBE或扫描同一批代码做第二次有效性检查。私有函数不接跳过检查开关，不接受运营输入，也不增加另一套算法。公共函数错误输入仍拒绝；可信内部路径由首次依据/Raw审计与固定投影约束。两种调用都只执行一次映射和集合差，随后包装、记录及汇总不得再调用它。
 
 纯函数对参与三侧的原代码/日期去重并集先核每项恰一有效映射，再按§10.5.3两项集合等式生成统一身份的expected/actual/missing/extra；缺失与额外临时关系固定stk_factor_pro_coverage_missing/extra（两列trade_date DATE、ts_code VARCHAR）。映射不能确认时所有业务覆盖计数为None，保留映射异常计数/样本；不能返回缺0。正常日更/repair调用方完成自身PG/check及文件前置后在本任务首次调用；§4.0.1无旧文件的0行分支是明确例外：调用方先核实日历/生命周期/最终停牌/身份依据及当前成功空unit，给actual_relation传本连接内明确schema的空代码集合，不要求不存在的Raw文件或通过check，也不调用普通原T Raw就绪门槛伪造检查；输出用于真实缺失记录和业务失败，不能标记文件可用。bootstrap按§10.5完成本地物理前置及当月关系后也调用同一纯函数，不调用含instance的日更evaluator，也不从readiness反向import bootstrap。§10.5.3的SQL即该函数实现依据，避免另写两套；当前RawCoverage.actual_count为统一后唯一身份数，不是Raw物理行数。日更writer从该纯函数missing关系构造原stk_factor_pro_raw_coverage_missing供既有诊断写入；完整缺失清单使用统一身份码，不改业务行。
 
@@ -734,6 +744,10 @@ def verify_stk_factor_pro_current_source(root: Path, record: SourceCompleteRecor
 
 `write_stk_factor_pro_history_plan`负责新ranges文件的物理引用：输入record的身份、固定相对路径及两个业务摘要先严格核对；写成并读回新Parquet后，以实际文件字节SHA构造最终ranges_ref，使用dataclasses.replace生成最终冻结plan，再原子保存JSON并直接返回(final_plan,payload_sha256)；原ranges tuple及首次物理引用继续交接，不从Parquet重载。输入record仅作本次新计划的构造值，其ranges_ref SHA不能被调用方当成已落盘凭据；调用方必须使用函数返回的plan。已有ranges或plan一律拒绝覆盖，不用此方法修补旧记录；业务摘要不被writer改写。
 
+内部把上述保存步骤集中为私有保存函数。公开writer接收首次独立输入时核对业务摘要一次，再调用该函数；builder已经按同一合同生成完整合法计划和两个摘要，直接交同一保存函数，不再走公开writer的首次输入核对。两条调用共用唯一写入实现，不新增公开入口、缓存键或“跳过检查”参数；公开writer的错误输入反例继续有效。
+
+计划摘要函数仍接收完整ranges，但必填接收调用方已算出的ranges_digest；其内部只组装计划摘要内容，不再次计算范围摘要。builder先算范围摘要，再算计划摘要；独立writer首次核验同样复用本次核验得到的范围摘要。摘要算法和保存字段不变，全部内部调用方及测试同步传递，不提供缺参重新计算的分支。
+
 本节record reader统一必填接收同一known_records：首次明确需要的旧记录未登记时，只由这些读取函数读一份字节/Parquet并登记对象、摘要和身份；键已存在直接返回。下载、源组装和发布是消费者，当前plan/ranges/manifest/source-complete缺少既定登记即接口错误，不能自行回盘补齐。已确认不存在的旧路径登记(None,None,None)，坏文件继续报错；本次合法写入成功才更新该键。原成功范围的plan/ranges/source/publication同样只首次取得一次。
 
 ```python
@@ -849,7 +863,8 @@ PAGE_COMPLETED/RETRY_SCHEDULED/UNIT_COMPLETED只传摘要，业务不在通知�
 ```python
 def build_stk_factor_pro_run_control(
     instance: dg.DagsterInstance, *, identity: RunIdentity,
-    phase: Literal["day", "history"], monotonic: Callable[[], float],
+    phase: Literal["day", "history"],
+    monotonic: Callable[[], float] = system_monotonic,
 ) -> tuple[DownloadControl, Callable[[], None]]: ...
 ```
 
@@ -986,7 +1001,7 @@ Raw正式路径`/Volumes/datasource/data_lake/raw/tushare/stk_factor_pro/trade_d
 4. 原子提升成功并同步父目录后，沿原candidate audit构造正式文件事实并保存complete；不对同一字节重新DESCRIBE/count/全字段join或重算内容摘要。DG物化/check复用这一事实。I/O或记录失败保留已经发布文件，不伪造成功，也不回滚。
 5. replace后取消尽力完成该文件同步及继承唯一audit/摘要的checkpoint，小记录原子写成功即直接交接已得对象和payload摘要，不写后重开。随后停止下一文件；新run不使用旧候选。
 
-历史缺原键清单固定列`layer VARCHAR,ts_code VARCHAR,trade_date DATE`，只对非零差集按d/层保存并首次核验。0缺口在intent/complete保存unrefreshed_count=0、unrefreshed_keys_ref=None，PublishedTarget只记录已有unrefreshed_count=0，不新增其字段；不COPY、不建目录/附件、不为已知零差集额外执行schema/EXCEPT/SHA。skip_no_file同样只保留零数量及None引用。缺旧键时合法新行和旧行仍保留，不新增blocking check；非零则本轮历史不得写publication-complete，编排先yield waiting及原完整未完范围/数量/非空清单，再抛原Failure。Raw/Silver按层计数及失败新run全范围重下规则不变。
+历史缺原键清单固定列`layer VARCHAR,ts_code VARCHAR,trade_date DATE`，只对非零差集按d/层保存并首次核验。临时Parquet首次CTAS为本函数持有的读回临时表，schema及双向差异仅消费该表，不重复打开同一附件；临时文件SHA只算一次，原子提升后沿用该摘要并登记正式文件identity，不重新hash。差集表及读回表均由本函数finally各清理一次，保留最初业务错误。0缺口在intent/complete保存unrefreshed_count=0、unrefreshed_keys_ref=None，PublishedTarget只记录已有unrefreshed_count=0，不新增其字段；不COPY、不建目录/附件、不为已知零差集额外执行schema/EXCEPT/SHA。skip_no_file同样只保留零数量及None引用。缺旧键时合法新行和旧行仍保留，不新增blocking check；非零则本轮历史不得写publication-complete，编排先yield waiting及原完整未完范围/数量/非空清单，再抛原Failure。Raw/Silver按层计数及失败新run全范围重下规则不变。
 
 自动今天下一可用固定slot可重下原完整范围，仍核午夜、活动任务、因子与Raw齐备；自动补Q仍不增加第二次机会，Q日已齐仅历史失败不挡今天。手动repair失败后，由管理员查看缺失清单、修正问题并再次手动执行；sensor不会提交repair任务，job自身也不会循环重新执行。`allow_retries=False`禁止同run/op自动重试，与sensor下一slot创建新的自动日更run的retryable=True分别生效，不能混为一项开关。
 
@@ -998,7 +1013,7 @@ Raw正式路径`/Volumes/datasource/data_lake/raw/tushare/stk_factor_pro/trade_d
 
 控制层只一次从完整请求范围和已核SSE日历生成d<T开市日期并集publication_dates，去重升序，每20个交易日切批；同一结果供预算、发布及事件计划复用，尾批1～20日直接处理，不凑自然日。先核历史分区已批准登记，缺分区停止，repair不自动注册。无旧无源日期不造空文件/假物化，存在源则以空基础生成。
 
-全部历史源保存并核source-complete后、首次历史提升前，使用同一DuckDB连接一次聚合当前源的日期及不属于批准股票/日期范围的行数：每条历史源行的代码和日期须属于其原unit及当前批准范围；其中d<T的所有源日期必须包含在上述已核SSE开市日期并集，且每个日期的本数据集分区已登记。日历缺日期/状态未知、已确认休市却有源行、或源日期未进入发布计划时直接失败，说明股票/日期及计数，历史提升0次；不能过滤这些行后宣称范围完整。源中的T行只作既定诊断保留，不进入d<T清单；请求范围外日期包括T之后的行在源适配阶段已拒绝。用聚合日期集合核对计划，不逐行发起日历或分区查询。
+全部历史源保存并核source-complete后、首次历史提升前，继承每个unit首次源审计已经确认的股票和日期闭区间事实，不再全量重查这两项；使用同一DuckDB连接一次聚合总源关系的日期及本日行数。其中d<T的所有源日期必须包含在上述已核SSE开市日期并集，且每个日期的本数据集分区已登记。日历缺日期/状态未知、已确认休市却有源行、或源日期未进入发布计划时直接失败，说明日期及计数，历史提升0次；不能过滤这些行后宣称范围完整。源中的T行只作既定诊断保留，不进入d<T清单；请求范围外日期包括T之后的行在首次unit源审计已拒绝。用聚合日期集合核对计划，不逐行发起日历或分区查询。
 
 每批至多40个日期/层文件，同任务一个主要DuckDB连接做列式合并与校验；当前日期Raw→Silver完成后再处理后续日期，批内逐文件checkpoint，不是20日事务。当前run完整历史源先保存，不能边下载一股边改全年。批次大小/序号不进入源unit或业务输入身份。
 
@@ -1010,7 +1025,7 @@ bootstrap按§10独立合同恢复。
 
 历史下载首次转换/保存/审计每个unit时，同时将这些已经取得的行保留到主要连接的固定临时关系stk_factor_pro_history_source。仅当前unit网络对象/DataFrame及时释放；SQL源关系保持至本任务历史结束，不能在unit收尾丢掉后由日期规划、发布批次反复read_parquet取回。首次保存源的实际读回关系也物化一次供审计复用，不让临时view在各检查中反复解码文件。
 
-publication_dates由控制层在历史下载前根据expected_units和已核日历一次规划，供空间估算及发布共同使用；从完整源关系首次取得实际代码/日期集合，只核其属于已批准股票/闭区间及该已注册日期集合，不重新生成发布日期计划。正式只发布d<T，T响应行仍留作本次源事实，不覆盖日阶段。批次数ceil(D/20)，每批从已持有关系筛20日，逐日处理：本日旧Raw B首次读取一次，合并结果RAW_EXPECTED直接供候选审计、等价判断、Silver日期转换、覆盖及scope结果使用；旧Silver若需要首次读取一次供等价及缺原键判断，不在_publish_file再打开。
+publication_dates由控制层在历史下载前根据expected_units和已核日历一次规划，供空间估算及发布共同使用；股票和闭区间继承每个unit首次源审计，之后只从完整源关系首次聚合实际日期及行数，核其属于该已注册日期集合，不重新生成发布日期计划。正式只发布d<T，T响应行仍留作本次源事实，不覆盖日阶段。批次数ceil(D/20)，每批从已持有关系筛20日，逐日处理：本日旧Raw B首次读取一次，合并结果RAW_EXPECTED直接供候选审计、等价判断、Silver日期转换、覆盖及scope结果使用；旧Silver若需要首次读取一次供等价及缺原键判断，不在_publish_file再打开。
 
 每个日期Raw→Silver及必要scope/缺原键结果完成后，先执行本日最后一次数据消费，再由控制层释放该日固定关系。仅bootstrap_context非空且d属于原operation批准范围时，此时利用RAW_EXPECTED计算一次覆盖、保存必要非零明细。控制层必须在收到Silver结果后、恢复publisher进入下一日期前做完这一步；不得等批末再算。普通无关联历史不读取历史日停牌或执行逐日全市场覆盖。批末释放本批关系，保留下一批还要消费的本次源关系；历史完整结束或异常/取消finally关闭时释放总源关系。任何失败的新run仍全新下载原完整失败范围，不复用此连接的临时关系或旧源证据。
 
@@ -1059,10 +1074,11 @@ def build_stk_factor_pro_raw_batch(
 def write_stk_factor_pro_raw_fragment(
     *, connection: DuckDBPyConnection, frame: pandas.DataFrame,
     candidate_path: Path, expected_row_count: int,
+    on_verified_fragment: Callable[..., None],
 ) -> StkFactorProFragment: ...
 def build_stk_factor_pro_silver_candidate(
-    *, connection: DuckDBPyConnection, verified_raw_relation: str, raw_audit: StkFactorProFileAudit,
-    target_trade_date: date, candidate_path: Path, run_root: Path,
+    connection: DuckDBPyConnection, *, verified_raw_relation: str, raw_audit: StkFactorProFileAudit,
+    target_trade_date: date, candidate_path: Path, run_root: Path, known_records: dict,
 ) -> StkFactorProFileAudit: ...
 ```
 
@@ -1284,19 +1300,9 @@ def validate_stk_factor_pro_bootstrap_approval(
 def require_stk_factor_pro_bootstrap_source_window(
     *, approval: StkFactorProBootstrapApproval, now: datetime,
 ) -> None: ...
-def export_stk_factor_pro_bootstrap_month(
-    *, prod_postgres: ProdPostgresResource, connection: DuckDBPyConnection,
-    staging_root: Path,
-    approval: StkFactorProBootstrapApproval, month: StkFactorProBootstrapMonthLimit,
-    selected_dates: tuple[date, ...],
-    on_complete_date: Callable[
-        [StkFactorProBootstrapSourceComplete], StkFactorProBootstrapDateResult
-    ],
-    check_space: Callable[..., BootstrapSpaceEstimate],
-    verification: BootstrapFragmentVerification | None = None,
-    progress: _BootstrapProgress | None = None,
-) -> StkFactorProBootstrapMonthResult: ...
 ```
+
+月导出及完整日回调的唯一精确接口见§10.3.1，包含入口首次source_inputs、preflight_context、known_records以及首次日源SHA/关系交接，不在此重复声明。
 
 `StkFactorProSourceIdentity`为frozen dataclass：全部字段按`host:str,port:int,database:str,schema:str,table:str,columns:tuple[tuple[str,str,bool],...],contract_content_digest:str`声明，不在有默认字段之后声明必填字段；schema/table分别校验为固定raw_tushare/stk_factor_pro，不是调用参数默认。columns按261字段白名单顺序保存真实源列名、数据库源类型及nullable，来源摘要使用§10.3的规范投影，禁止含密码/DSN。端口1～65535，身份文本不得空，schema/table不能由输入任意替换。本节相互引用的类型在同一run_contracts模块定义并使用未来注解，不能为声明先后问题引入跨工程导入。
 
@@ -1312,7 +1318,7 @@ bootstrap重执行沿用原批准`operation_id`及该根的不可变`approval.js
 
 ### 10.3 bootstrap SQL、上限检测与分批源文件
 
-每月一个 `connect_readonly_transaction()`；不改resource，不跨月持有事务、不上表锁、不新增隔离级别。先用普通控制cursor执行：
+每月一个 `connect_readonly_transaction()`；不改resource，不跨月持有事务、不上表锁、不新增隔离级别。入口首次取得的`source_inputs=(counts,evidence,sample)`及`preflight_context={"fixed_done":False,"checked_windows":{}}`是本任务局部依赖，显式交给恢复预检和月导出；不新增配置、类型或跨run缓存。checked_windows按month_start保存本月已经核实的`date→count`，恢复分支先核pending与recover的联合日期后，导出分支的pending子集直接复用；只有尚未核实的日期才执行一次相应日期窗口计数。实际需要Prod时，schema、全源首尾及批准固定样本本任务首次一次；无剩余来源或业务恢复工作不连接Prod。每个新事务仍先用普通控制cursor执行：
 
 ```python
 control.execute("SELECT set_config('statement_timeout', %s, true)",
@@ -1336,7 +1342,7 @@ LIMIT %s
 
 预检批准的日计数和当前按日计数一致，selected_dates计数之和<=R；导出最终又按每日期实际行数核批准计数。R+1是运行中的截断防护，不是正常数据分页大小。**先检测是否收到了第R+1行，再把该行当“后一天已经开始”的依据。**触及R+1立即停止，不保存额外行，也不把当前未关闭日期记完整；此前已经完整发布的日期保留。恰好R行且真正EOF、日计数/主键/日期等均核对通过时才允许完成最后日期，不能把LIMIT造成的返回结束误当来源本来就没有更多行。
 
-每批先核完整261字段、类型/日期范围和排序。跨批维持上一批最后 `(trade_date, ts_code)`，键必须严格升序；同日跨批重复/逆序即停，不能去重。当前批转换成Raw表示后存 `source/month=<YYYY-MM>/attempt_id=<id>/fragment-<至少六位从000001起的连续编号>.parquet`，原子保存并按§9读回为StkFactorProFragment，才释放本批rows/列式转换对象。片段first_code/last_code对应源排序中第一行/最后一行代码，首尾完整键为(min_trade_date,first_code)/(max_trade_date,last_code)，跨日时不能额外要求first_code<=last_code。只保留片段的小型描述和本日累计行数，不保留本日业务行列表。
+每批先核完整261字段、类型/日期范围和排序。跨批维持上一批最后 `(trade_date, ts_code)`，键必须严格升序；同日跨批重复/逆序即停，不能去重。当前批转换成Raw表示后存 `source/month=<YYYY-MM>/attempt_id=<id>/fragment-<至少六位从000001起的连续编号>.parquet`，原子保存并按§9首次实际读回为StkFactorProFragment。读回使用本连接唯一命名的TEMP TABLE，不能用指向Parquet的VIEW代替物化；完成唯一传输对账、完整审计及摘要后，原子移动继承同一份事实，不再hash最终路径。writer通过`on_verified_fragment(path=最终路径, fragment=已核描述, source_relation=实际读回表名)`交接实际表；callback成功后表由调用方持有，writer只释放写前批关系、frame注册及Python转换对象。callback未成功时writer负责清理实际读回表，原异常优先。片段描述及首次文件身份直接登记，不在remember_saved再次SHA。当前日数据从该表依源日期顺序加入唯一BOOTSTRAP_DAY_SOURCE，跨批不重新打开片段；本批各日期已提取后释放本批实际表，仅保留当前日及仍供后续日期使用的跨日批表。片段first_code/last_code对应源排序中第一行/最后一行代码，首尾完整键为(min_trade_date,first_code)/(max_trade_date,last_code)，跨日时不能额外要求first_code<=last_code。Python侧只保留片段的小型描述和本日累计行数，不保留本日业务行列表。
 
 以下完整记录类型统一放`defs/run_contracts/stk_factor_pro.py`，读写/验证复用该模块的封闭结构校验及原子JSON办法。不是另一套通用状态平台；路径只由既有`defs/paths.py`扩展受控函数生成，实际读取/发布仍在`defs/bootstrap/stk_factor_pro_history.py`。
 
@@ -1408,12 +1414,21 @@ def process_stk_factor_pro_bootstrap_complete_date(
     source_complete: StkFactorProBootstrapSourceComplete,
     source_record_sha256: str, source_relation: str,
     inputs: StkFactorProBootstrapCoverageInputs,
-    known_records: dict, date_results: dict,
+    basis_inputs: dict, known_records: dict, date_results: dict,
     before_publish: Callable[[], None] | None = None,
     check_space: Callable[..., BootstrapSpaceEstimate],
-    verification: BootstrapFragmentVerification | None = None,
     progress: _BootstrapProgress | None = None,
 ) -> StkFactorProBootstrapDateResult: ...
+
+def publish_bootstrap_date(
+    connection: DuckDBPyConnection, *, lake_root: Path, staging_root: Path,
+    approval: StkFactorProBootstrapApproval,
+    source_complete: StkFactorProBootstrapSourceComplete,
+    source_record_sha256: str, source_relation: str,
+    before_publish: Callable[[], None],
+    check_space: Callable[..., BootstrapSpaceEstimate],
+    known_records: dict, date_results: dict,
+) -> tuple[StkFactorProFileAudit | None, StkFactorProFileAudit | None]: ...
 
 def read_stk_factor_pro_bootstrap_source_complete(
     connection: DuckDBPyConnection, *, staging_root: Path,
@@ -1429,11 +1444,43 @@ def write_stk_factor_pro_bootstrap_source_complete(
     check_space: Callable[..., BootstrapSpaceEstimate],
     verification: BootstrapFragmentVerification | None = None,
 ) -> tuple[StkFactorProBootstrapSourceComplete, str]: ...
+
+def preflight_stk_factor_pro_bootstrap_source(
+    *, prod_postgres, connection: DuckDBPyConnection, staging_root: Path,
+    approval: StkFactorProBootstrapApproval, month: StkFactorProBootstrapMonthLimit,
+    selected_dates: tuple[date, ...], source_inputs: tuple,
+    preflight_context: dict, known_records: dict,
+) -> None: ...
+
+def export_stk_factor_pro_bootstrap_month(
+    *, prod_postgres, connection: DuckDBPyConnection, staging_root: Path,
+    approval: StkFactorProBootstrapApproval, month: StkFactorProBootstrapMonthLimit,
+    selected_dates: tuple[date, ...], source_inputs: tuple,
+    preflight_context: dict, on_complete_date: Callable[..., StkFactorProBootstrapDateResult],
+    check_space: Callable[..., BootstrapSpaceEstimate],
+    verification: BootstrapFragmentVerification, known_records: dict,
+    progress: _BootstrapProgress | None = None,
+) -> StkFactorProBootstrapMonthResult: ...
+
+def load_complete_source(
+    connection: DuckDBPyConnection, *, staging_root: Path,
+    approval: StkFactorProBootstrapApproval,
+    record: StkFactorProBootstrapSourceComplete,
+    verification: BootstrapFragmentVerification, known_records: dict,
+) -> str: ...
 ```
 
 source_record_sha256专指SourceComplete JSON首次payload字节SHA，由writer第二返回值提供、在known_records对应路径登记；SourceComplete.source_complete_digest以及DateResult/DateCoverage同名字段仍为§10.3已定义的业务内容摘要，从原对象直接取，两者不得互换。
 
 source读函数仅固定路径不存在时返回None，坏记录仍报错；写函数只核既有本日审计结果与记录归属/日期/行数/摘要，原子保存后直接返回对象及payload摘要，删除内部load_complete_source。正常process/publication直接消费同步保留的BOOTSTRAP_DAY_SOURCE及结果，不重复加载/全验。bootstrap新执行恢复确需源重建时才load_complete_source一次，首次确认必要片段身份后得到唯一日关系，继承有效源审计，不在日层重审字段/数值；本次后续直接交接。已完成两层只补统计不读261列源；已有合法补数日期不沿旧Prod源重建。连接/同步回调/只读事务及关闭规则不变。
+
+主入口按已有逐日期分类决定是否调用process：两层均完成且当前文件身份有效的日期，直接将date_results中已有SourceComplete、Raw/Silver audit及合法当前发布引用交给现有覆盖步骤，不调用process、不创建BOOTSTRAP_DAY_SOURCE，也不调用load_complete_source。仅Raw已完成、Silver未完成时，首次读取已核正式Raw到BOOTSTRAP_DAY_SOURCE，复用原Raw完成事实和首次文件身份，交process/publication生成缺少的Silver；不为满足source_relation参数再读取原Prod片段。只有确需从完整源重建Raw时，才由恢复主入口调用load_complete_source一次并交出现成关系。已有合法补数日期仍只允许更新当前统计，不进入原Prod源恢复分支。
+
+source_inputs三项分别是入口首次已经核实的`dict[date,int]`、SourceEvidence、SourceSample，原样传入，不在preflight/export重新调用_approved_inputs或把日期再逐项read_source_complete。selected_dates直接来自主入口本次classified；source只核该冻结tuple的日期顺序、所属月份及批准计数，不重做分类。preflight_context只在固定schema/首尾/样本全部通过后置fixed_done=True；日期窗口也仅在对应当前计数全部通过后登记checked_windows，同月已核子集不再发查询。事务内timeout每个新事务都执行，与这两个复用事实分开。
+
+正常导出的完整日调用固定为`on_complete_date(record, source_record_sha256=payload_sha, source_relation=BOOTSTRAP_DAY_SOURCE)`。建立该关系的导出complete作用域持有它到同步回调返回或抛错，再finally释放一次；process/publication不得提前清除或重新创建调用方的日源关系。恢复driver由load_complete_source取得同名关系后，持有到同一回调结束并finally释放一次。process负责清理自己建立的B/expected/旧Silver/审计关系，不能与外层重复清理日源。回调失败时，已写完整SourceComplete和正式文件保留，当前日SQL关系正常清理；下一批fetch不再发生。
+
+真正EOF且计数通过后，先关闭仍持有的最后非零日，完成其同步回调并释放DAY，再按日期处理批准0行日的空DAY；月结果的complete_dates仍升序。0源须等EOF成立，不要求其内部回调排在最后非零日之前，不为这个未规定的顺序增加表重命名或复制。
 
 覆盖准备发现按合同可判定的输入无效时，按§10.5.2、§17.8.4记录对应依据未知并正常返回，继续合法导入；不能把这一分支抛成统计异常。除此之外，真实回调/转换/写入/统计异常立即停止领取下一日期和fetch，不自动重试数据库、不把本地写失败当源错误重发。try/finally先关闭named cursor及控制cursor，再由既有connect_readonly_transaction执行rollback和close；本地主要DuckDB连接由唯一主入口finally关闭。清理阶段的异常不得覆盖最初业务异常，应作为附加错误记录；若本来正常而关闭失败，整体按失败结束。已经落盘的完整日源和已发布文件保留，统计失败不回滚业务文件；下一次按§10.2实际剩余工作分类处理。中断在半日时不回调半日，中断在Raw/Silver之间只保留已完成层。JSON从已核对象序列化/计算摘要一次，临时文件、fsync、同文件系统replace、父目录fsync后直接返回；新明细Parquet保留首次传输读回。两者均不写半个最终记录。
 
@@ -1443,7 +1490,7 @@ source读函数仅固定路径不存在时返回None，坏记录仍报错；写�
 
 完整日源用于候选重建或业务文件恢复时，必须核原批准输入/来源身份/合同及源截止、维护约定仍适用、引用片段全部存在且指纹内容匹配、日行数和完整业务字段读回通过。随后从其Raw源重建候选并沿既有逐文件意图恢复；事件写成功与否不是完整源成立条件。仅本地统计按§10.2不要求Prod窗口继续有效，核不可变原导入事实及当前文件对应的原导入或合法补数依据；无依据或不匹配则不产生当前有效结论，不为每日期重新读取源片段或复做261列对账。已合法补数的日期只准更新当前统计，不再进入旧Prod源恢复/提升分支。同operation重执行不得改写已被完整日期引用的旧attempt片段，原完整日记录不可变；当前attempt只写新片段和此前未完成日期的完成记录。新的operation不得扫描或悄悄接用旧operation。
 
-当前日未关闭、查询超限、超时、schema/类型/计数变化或游标断开：不发布该未完整日期；获准再执行时在对应批准月内按尚需日期数组整日重读。不能按最后code、OFFSET、fragment编号接读，不因已读了某股而跳过；已完整日源即使尚未发布可直接核验复用。已经提升Raw而未完成Silver，按照§8.0从核验后的正式Raw生成Silver。
+当前日未关闭、查询超限、超时、schema/类型/计数变化或游标断开：不发布该未完整日期；获准再执行时在对应批准月内按尚需日期数组整日重读。不能按最后code、OFFSET、fragment编号接读，不因已读了某股而跳过；已完整日源即使尚未发布可直接核验复用。已经提升Raw且其完成记录与当前文件身份有效、Silver尚未完成时，按照§8.0从正式Raw首次取得的同一关系生成Silver，不重开原来源片段。两层已完成仅补统计时，不进入process或完整源重建；读取和调用顺序按§10.3.1。
 
 首次bootstrap没有旧文件直接生成；已有目标仅可确认内容等价而不覆盖。已有不同目标一律停止，交管理员单独获准的修复步骤；本bootstrap入口不支持覆盖不同目标，不能给执行参数增加任意overwrite开关。恢复时自身已提升、意图尚未记完成的情况照既有目标/候选指纹读回补事实；旧完整源不得覆盖后来合法修改的正式文件。
 
@@ -1492,13 +1539,14 @@ intent_digest统一为kind=stk_factor_pro.bootstrap_publication_intent的content
 
 固定持久化顺序：当前本日已核源→新候选首次完整audit及固定摘要→保存小型候选描述/intent（直接引用audit，不重算）→终端bootstrap首次维护核验及轻量身份/空间检查→原子提升→继承原audit生成正式事实→原子保存complete小记录并直接返回对象/摘要。提升后不读业务schema/行数/全字段，不重新计算摘要；任何实际I/O失败按原失败处理。
 
-读写方法同样在既定bootstrap模块，接口如下；写函数必须先验证记录与当前实际文件/校验事实匹配，保存后调用读方法核相同摘要。read返回None只表示对应固定文件确实不存在，记录存在却损坏一律抛错；有complete却无intent也抛错。它们均不连接Prod，不因一个不存在记录自动写入另一个记录。
+读写方法同样在既定bootstrap模块，接口如下；写函数只消费本任务已经核验的文件事实及记录，保存后直接登记对象与首次摘要，不调用reader自证。read只在新执行首次需要旧事实时读取，返回None仅表示固定文件确实不存在；坏记录、有complete却无intent仍抛错。它们均不连接Prod，不因一个不存在记录自动写入另一个记录。
 
 ```python
 def read_stk_factor_pro_bootstrap_publication(
     *, lake_root: Path, staging_root: Path,
     approval: StkFactorProBootstrapApproval,
     trade_date: date, layer: Literal["raw", "silver"],
+    known_records: dict,
 ) -> tuple[StkFactorProBootstrapPublicationIntent | None,
            StkFactorProBootstrapPublicationComplete | None]: ...
 
@@ -1506,6 +1554,7 @@ def write_stk_factor_pro_bootstrap_publication_intent(
     *, lake_root: Path, staging_root: Path,
     approval: StkFactorProBootstrapApproval,
     record: StkFactorProBootstrapPublicationIntent,
+    known_records: dict,
     check_space: Callable[..., BootstrapSpaceEstimate],
 ) -> StkFactorProBootstrapPublicationIntent: ...
 
@@ -1513,6 +1562,7 @@ def write_stk_factor_pro_bootstrap_publication_complete(
     *, lake_root: Path, staging_root: Path,
     approval: StkFactorProBootstrapApproval,
     record: StkFactorProBootstrapPublicationComplete,
+    known_records: dict, date_results: dict,
     check_space: Callable[..., BootstrapSpaceEstimate],
 ) -> StkFactorProBootstrapPublicationComplete: ...
 ```
@@ -1533,7 +1583,7 @@ bootstrap新执行恢复先读取批准及原intent/complete小记录。对确�
 | R+1 | R-1、R、R+1行；R行真实EOF才正常，R+1触限先停止，不能用超限行关闭当前日；批准计数不符即停；此前完整日期保留 |
 | SQL安全/只读 | 字段/表固定；日期/数组/limit/timeout值绑定；named cursor、5000、关闭/rollback；反例抓fetchall、OFFSET、普通cursor明细、系统字段/任意路径/未知输入参数 |
 | 失败恢复 | 完整日源后退出可0次远程明细重读；半日片段须整日重读；Raw已提升Silver未成从当前合法Raw生成；仍需来源/业务文件恢复而窗口过期、片段损坏/正式目标后改均停，不旧源覆盖；全部文件已完成仅本地统计不因Prod窗口过期拒绝，也不得发schema/计数/样本请求 |
-| 完整日回调及持久记录 | 同批多日期按早到晚回调；半日不回调；完整日记录含全部片段，字节SHA/内容SHA混用会失败；同operation已完整记录不得改写。回调在Raw后、Silver后、统计写入分别抛错，均不继续fetch，游标关闭/事务rollback/连接关闭，保留已成文件并可按相应事实重入；清理异常不能掩盖原始失败 |
+| 完整日回调及持久记录 | 同批非零日期按早到晚回调；批准0源日按§10.3.1等真实EOF并先关闭最后非零日后处理，月结果仍升序。半日不回调；完整日记录含全部片段，字节SHA/内容SHA混用会失败；同operation已完整记录不得改写。回调在Raw后、Silver后、统计写入分别抛错，均不继续fetch，游标关闭/事务rollback/连接关闭，保留已成文件并可按相应事实重入；清理异常不能掩盖原始失败 |
 | 性能与真实边界 | 复用批准小响应/既有schema证据作最小来源交接；不为5000行估算去读5000行或全历史；批次1/5000/跨日边界用小夹具替换批量常量测试；记录正常/恢复/最后对账的读写和SQL数量 |
 
 ### 10.5 在bootstrap中利用本地数据统计缺口
@@ -1551,6 +1601,8 @@ bootstrap新执行恢复先读取批准及原intent/complete小记录。对确�
 | 函数 | 接收本任务已经取得的值 | 允许动作 |
 | --- | --- | --- |
 | prepare_stk_factor_pro_bootstrap_coverage_month | 已核approval/digest、已加载全局依据、该月尚未取得的停牌/日历事实 | 仅首次取得该月新增事实并返回；全局关系及相同日期不能重复读。 |
+| prepare_stk_factor_pro_bootstrap_coverage_date | approval/digest、月输入及已加载关系、SourceComplete、两层audit、当前发布及旧result | 纯核对应关系，计算本日input_digest一次并判断旧result适用；在读取Raw代码之前完成，不查路径或执行SQL。 |
+| compute_stk_factor_pro_bootstrap_coverage_date | 上一步prepared、已有当前Raw关系、同任务known_records及诊断归属 | 仅确需新计算时执行一次覆盖键运算及非零明细保存；不读正式Raw补参数，不重算input_digest。 |
 | evaluate_stk_factor_pro_bootstrap_coverage_date | approval/digest、source_complete、原/current发布事实、完整coverage_counts、已保存的missing/extra引用和样本、旧result | 纯构造本日DateCoverage；不读路径/PG、不重新SQL计算、不自行保存明细。未知结果继续None，原source_rows取既有事实。 |
 | write_stk_factor_pro_bootstrap_coverage_date | 已构造result、旧result及摘要、既有路径/check_space | 版本未变直接返回；新版本只序列化/持久化一次并返回对象及摘要，更新唯一日期账本。没有_verify_result或二次明细/文件读取。 |
 | update_stk_factor_pro_bootstrap_after_publication | 本次两层audit/真实CurrentPublication、已经计算好的本日result及旧result/摘要 | 对应同日身份后调用上述写入步骤；不再调用prepare/evaluate或重读source/result。 |
@@ -1559,6 +1611,75 @@ bootstrap新执行恢复先读取批准及原intent/complete小记录。对确�
 这些依赖是内部显式参数，不是新增运营输入。生产两类结果只在相同本日最终Raw代码、相同覆盖依据下共用；不可用时本次只生成一次未知结果，不能一个wrapper猜0另一个又重新审。没有bootstrap关联的普通日更不建立bootstrap账本。
 
 全流程顺序为§2.5及§18.2.1。各层物理替换和完成记录分别立即登记，不等待process正常返回；新覆盖结果先作为本日已计算结果保留，只有result原子保存成功才登记当前持久结果及摘要。主入口据本次已有事实更新imported/current及贡献；变更后旧结果已不适用时即退出有效覆盖合计，未持久新结果不能填入成功汇总。原import/source事实不变；等价且原结果仍适用时保留，不因任意统计异常一律作废。异常收尾不回盘，原错误继续抛出。
+
+本轮固定内部签名如下；全部实现位于bootstrap_coverage.py，控制层仍在stk_factor_pro_history.py，不新增业务入口或持久格式：
+
+```python
+def prepare_stk_factor_pro_bootstrap_coverage_month(
+    connection, *, lake_root, staging_root, approval, month,
+    basis_inputs: dict, known_records: dict,
+) -> StkFactorProBootstrapCoverageInputs: ...
+def release_stk_factor_pro_bootstrap_coverage_month(connection, *, basis_inputs: dict) -> None: ...
+def release_stk_factor_pro_bootstrap_coverage_inputs(connection, *, basis_inputs: dict) -> None: ...
+def read_stk_factor_pro_bootstrap_coverage_date(
+    connection, *, staging_root, approval, approval_digest: str, source_complete,
+    trade_date: date, known_records: dict,
+) -> StkFactorProBootstrapDateCoverage | None: ...
+def prepare_stk_factor_pro_bootstrap_coverage_date(
+    *, approval, approval_digest: str, inputs, basis_inputs: dict,
+    source_complete, raw_audit, silver_audit, current_publication,
+    previous_result: StkFactorProBootstrapDateCoverage | None,
+) -> dict: ...
+def compute_stk_factor_pro_bootstrap_coverage_date(
+    connection, *, lake_root, staging_root, approval, prepared: dict,
+    raw_relation: str | None, diagnostic_run: RunIdentity | None,
+    check_space, known_records: dict,
+) -> dict: ...
+def require_stk_factor_pro_bootstrap_coverage_identities(
+    *, lake_root, prepared: dict, known_records: dict,
+) -> None: ...
+def evaluate_stk_factor_pro_bootstrap_coverage_date(
+    *, prepared: dict, calculated: dict | None,
+) -> StkFactorProBootstrapDateCoverage: ...
+def write_stk_factor_pro_bootstrap_coverage_date(
+    connection, *, lake_root, staging_root, approval, result,
+    previous_result: StkFactorProBootstrapDateCoverage | None,
+    previous_result_digest: str | None, date_results: dict,
+    check_space, known_records: dict,
+) -> tuple[StkFactorProBootstrapDateCoverage, str]: ...
+def new_stk_factor_pro_bootstrap_coverage_totals(*, natural_dates: tuple[date, ...]) -> dict: ...
+def refresh_stk_factor_pro_bootstrap_date_contribution(
+    *, trade_date: date, entry: dict, totals: dict,
+    is_open: bool | None, approved_rows: int,
+) -> None: ...
+def summarize_stk_factor_pro_bootstrap_coverage(
+    *, staging_root, approval, approval_digest: str, totals: dict,
+    previous_summary: StkFactorProBootstrapCoverageSummary | None,
+    previous_summary_digest: str | None, check_space, known_records: dict,
+) -> tuple[StkFactorProBootstrapCoverageSummary, str]: ...
+```
+
+入口只创建一份`basis_inputs={"files":{},"months":{},"active_month":None}`。files按已核绝对Path保存`{"basis":既有BasisFile,"reason":str,"relation":str|None,"owned":bool}`；months按month_start保存既有FrozenInputs；active_month是当前MonthLimit或None。同月关系仍有效时返回同一对象，已释放月份本任务不得再次prepare。全局或日期文件的首次schema/行数/SHA/identity及实际SQL关系同时登记本任务known_records；已经由本任务其他模块加载的关系直接借用，只补尚未取得的必要依据规则，不重开文件。月release清本月停牌及日工作，全局release在入口finally仅清本模块own的余表，不删除借用关系。文件缺失、专属不可读、已定义schema/代码/业务规则不符按原依据unknown分类；源/正式/统计文件错误及程序/SQL错误不因此吞掉。首次读取后identity改变即停止，不在同任务重新准备。
+
+prepared只含小型已得值：approval_digest、trade_date、source_complete、raw_audit、silver_audit、current_publication、raw_rows、silver_rows、raw_physical_code_count、raw_file_sha256、silver_file_sha256、is_open、basis_files、unknown_input_kinds、reason、input_digest、reusable_result、current_files_verified（初值True），以及relations的lifecycle/identity/suspend三个已有关系名。raw_physical_code_count继承本日已审计唯一主键的raw_audit.row_count，合法无文件取0，不追加DISTINCT/count。旧result适用时reusable_result直接保留原对象或仅更新合法CurrentPublication引用，控制层不再读Raw代码，calculated显式None。不可复用才首次读取必要Raw主键（正常发布直接用RAW_EXPECTED）、调用compute；unknown无需代码集合运算，显式None不触发回盘兜底。calculated固定保存coverage_counts、unknown_input_kinds、reason、missing_codes_ref、extra_codes_ref及两类sample_codes；evaluate只使用这两份既得小值，不再hash或SQL。
+
+compute的listed/actual/full_suspend代码关系仅由已首审生命周期、当前Raw及最终停牌做固定本日投影，identity也沿已核schema及关系。因此本数据集内部调用与公共build_stk_factor_pro_coverage_keys相同的私有_build_stk_factor_pro_coverage_keys计算core，不再次DESCRIBE或重扫这些已核代码/日期；公共入口仍完成原首次外部输入验证后调用同一core，不新增skip flag、不改变外部行为。新投影只做固定列/日期选择，没有新增未经核实的业务值。
+
+diagnostic_run仅为内部已核RunIdentity，纯bootstrap显式None；补数日d等于其原T时用该run的diagnostics/day-{missing|extra}-codes.parquet，d<T时只用原operation日期/input摘要目录。BootstrapCodesRef的creator_run_id据此分别为当前run或None，RawCoverage与Bootstrap日期记录复用同一非零文件/摘要/样本；已知0不创建文件或目录、不做附件EXCEPT/SHA。只有真正非零新输出首次实际读回/对账/摘要一次，原子移动继承；已有同输入附件只首次读入一次并复用，不能先写一份临时附件再重新审旧附件。
+
+主入口的唯一`summary_state`由new_*_coverage_totals创建，传给参数totals；imported/current直接引用其sets中的imported_dates/verified_current_dates，不另存第二套集合。字段固定为：natural_dates（既有批准tuple）、counts（原导入三项、当前两层及已知覆盖五项，键与Summary同名、初值0）、sets（known_open_dates、known_closed_dates、calendar_unknown_dates、imported_dates、source_empty_dates、import_pending_dates、known_coverage_dates、gap_dates、current_files_unverified_dates、verified_current_dates、open_coverage_pending_dates各set）、unknown_by_date（日期→kinds/reason）、date_result_digests（日期→首次payload SHA）、version（初值0）、saved_version（初值None）。open_coverage_pending_dates仅是本任务已有开市日尚无已知覆盖的集合，不新增持久字段。
+
+refresh仅接本日entry、上述合计及本日已知is_open/批准数，不接受路径/连接/instance。entry.previous_contribution保存本日原导入三项/当前两层/已知覆盖五项数量、所属集合、unknown及已持久result摘要；完全相同直接返回，只有摘要改变只更新摘要映射，数量/分类改变才减旧加新一次。初次载入与正常/失败收尾都用这同一方法；覆盖失效先撤旧有效贡献，computed_result不冒充persisted_result，适用旧记录保留。summary不重新调用refresh或遍历date_results；仅序列化现成sets/maps及counts。version未变直接返回同一previous_summary对象和摘要；新执行首次比较既有summary时沿用其evaluated_at，内容相同不改时间/重写；只有必要新版本才取当前时间并保存、更新saved_version。正常summary在主业务try/except之外执行一次；业务失败仅在except收尾一次summary，失败附原异常，不因正常summary保存失败再重复保存。
+
+本bootstrap保持最少写入频率：正常处理结束保存summary一次；业务处理异常时，以已登记日期事实和合计收尾，最多保存summary一次，再抛最初异常。正常summary调用放在业务处理的try/except之外，summary自身失败不得再次进入异常分支重写。逐日只保存必要result并更新本日贡献，不增加逐日或逐月summary写入。未处理月份仍按未知/未完成表达，不加载这些月份文件来凑完整结论。第五批人工补数T及历史20日批末按§10.5.6保存同一state的汇总，仍不全范围重新求和。
+
+旧result仅由read_*_coverage_date在本任务首次读取时确认归属、SourceComplete对应、原输入摘要及实际需要的非零引用身份；已经登记的对象直接复用。坏旧记录不能因文件存在而放行，也不在write/update/summary重新_verify_result。pure prepare_date发现本日源、两层文件摘要、依据及开市分类与已核旧结果相同，直接继承其input_digest；只有新事实才计算新input_digest，不重复计算同一个摘要。原完整0源且当前无文件允许raw_relation显式None，compute建立明确空actual；原source_empty=True但补数已有非空audit时，必须使用当前Raw关系，不能按旧源0推当前0。未知依据可不取得Raw键；其余非空且需已知覆盖的None关系是接口错误，不回盘补参。
+
+解析BootstrapCodesRef时，operation分支继续由operation_path对最终路径执行既有require_stk_factor_pro_safe_path；run分支在受控run根拼接diagnostics相对路径后，同样对最终完整路径执行该检查，不能只核run根。diagnostics子目录或文件为符号链接时，在任何读取/SHA前拒绝，不跟随外部路径；正常路径不增加其它检查或复审。
+
+旧result引用非零明细首次实际消费时，借同一主要连接CTAS一次，核固定ts_code VARCHAR、trade_date DATE列序、本日日期/代码/唯一键/既有行数与SHA一次；已由本任务writer完整首审并登记的引用不再次读回。旧错误列序如实拒绝，不引入legacy格式或自动迁移，本轮不读取/修改正式旧附件。update仍须纯标量核publication的批准契约、processing_version及Silver来源Raw绑定，不能只因publication与result彼此相等就放行错误归属。
+
+输入身份检查由控制层在pure prepare_date之后、复用或新计算之前调用require_*_coverage_identities一次；它仅比较本日basis与Raw/Silver的当前stat和首次known_records.identity，零SQL/文件SHA/业务读取。真正执行compute的路径在result保存前再比较一次；复用路径不做紧接的第二次相同比较。变化停止，不重新prepare后继续；缺失或专属不可读依据按首次已登记unknown处理，不能借检查身份将该合法unknown口径改成失败。guard先核Raw/Silver；当前文件identity无法确认时先置prepared.current_files_verified=False再抛错，basis变化则保留True。控制层catch统一撤旧有效覆盖，仅据这个已得bool决定是否同时撤当前物理数量，不再次stat。pure prepare/evaluate不承担I/O，不因旧result跳过compute而漏掉这条控制边界。
 
 #### 10.5.2 本地依据、日期范围与无法判断的条件
 
@@ -1809,7 +1930,7 @@ summary固定保存coverage/summary.json。只在日期账本版本改变时序�
 
 这是已确认的记录更新要求：正式补数功能在自己的收尾流程更新原operation的`coverage/<d>/result.json`及`coverage/summary.json`，不建立另一套审计入口、job、状态表或全历史数据扫描。补数的下载/合并/发布仍遵守本数据集原规则；本节只负责接收已经真实发布并通过检查的两层结果，不下载、不提升业务文件，不替代补数授权。原bootstrap SourceComplete和PublicationComplete始终不改，bootstrap恢复也不得用旧Prod源覆盖补数结果。
 
-**调用关系和内部接口。**代码仍放在`defs/bootstrap/stk_factor_pro_history.py`，类型引用§10.5.4的Context和CurrentPublication；发布层通过内部参数传入已核bootstrap上下文，不接受运营直接传路径、计数、passed或事件id。补数控制层在维护检查后读固定operation的approval并核approval_digest、原全范围物理导入已完成及本日原SourceComplete/两层导入完成记录；不要求旧覆盖已经齐备，也不要求历史事件已经补齐。首次补数按§10.7解析八字段及bootstrap授权；原生日更重新执行沿已核Context，历史repair从精确source_run继承Context而不增加四项配置。不得扫描staging猜operation或伪造parent。
+**调用关系和内部接口。**控制层在`defs/bootstrap/stk_factor_pro_history.py`，一次计算、纯包装、记录写入及summary在`defs/bootstrap/stk_factor_pro_bootstrap_coverage.py`；类型引用§10.5.4的Context和CurrentPublication。发布层通过内部参数传入已核bootstrap上下文，不接受运营直接传路径、计数、passed或事件id。补数控制层在维护检查后读固定operation的approval并核approval_digest、原全范围物理导入已完成及本日原SourceComplete/两层导入完成记录；不要求旧覆盖已经齐备，也不要求历史事件已经补齐。首次补数按§10.7解析八字段及bootstrap授权；原生日更重新执行沿已核Context，历史repair从精确source_run继承Context而不增加四项配置。不得扫描staging猜operation或伪造parent。
 
 具体调用者为asset/op控制层：它持有Context，在通用本数据集IO候选/发布函数返回audit且事件持久化后调用下列统计函数。IO候选/发布模块不import bootstrap；bootstrap原导入仍可复用这些IO函数，不形成bootstrap→publication→bootstrap循环。Context是内部传参/PG意图，不是让IO自行发现operation或另开线程执行统计。
 
@@ -2311,7 +2432,7 @@ Silver直接接收本run已经确认的Raw事实/摘要和同连接RAW_EXPECTED�
 
 `stk_factor_pro_http_rows`与`build_stk_factor_pro_raw_batch`复用完整261字段和标量转换；历史层另核任务规划的unit/code/start/end，不能仅凭result.unit自证。Raw候选在本数据集内抽出“已核单日关系＋实际处理日期”的共用构造，日入口仍接VerifiedDaySource，历史入口接本批临时表中的日期U；关系名由内部固定生成，不接受配置SQL。Silver候选复用verified_raw_relation/raw_audit/target_trade_date/run_root，本日全部消费者结束后统一清理expected关系。发布记录/解析器已按§5.4.3在同一实现扩phase/history和实际d，保留所有day字段互斥与路径反例，不复制另一套writer。
 
-该共用构造固定为`build_stk_factor_pro_raw_candidate_from_relation(connection, *, source_relation, target_trade_date, prior_path, candidate_path, run_root)`。source_relation只允许本模块固定的DAY_SOURCE或HISTORY_DAY_SOURCE（stk_factor_pro_history_day_source），处理日期必须为精确DATE；同用DAY_PRIOR、RAW_EXPECTED临时表和既有B−K+U/候选核验。日wrapper继续校验VerifiedDaySource，传入DAY_SOURCE和原T；历史调用者先从本批源表物化当日HISTORY_DAY_SOURCE，再显式传d。不接收外部SQL、任意关系名或较宽日期集合，候选写前路径检查保持不变。
+该共用构造固定为`build_stk_factor_pro_raw_candidate_from_relation(connection, *, source_relation, source_row_count, target_trade_date, prior_path, candidate_path, run_root, known_records)`。source_relation只允许本模块固定的DAY_SOURCE、HISTORY_DAY_SOURCE（stk_factor_pro_history_day_source）或BOOTSTRAP_DAY_SOURCE；bootstrap传首次确认的source_row_count且prior_path=None，处理日期必须为精确DATE；同用DAY_PRIOR、RAW_EXPECTED临时表和既有B−K+U/候选核验。日wrapper继续校验VerifiedDaySource，传入DAY_SOURCE和原T；历史调用者先从本批源表物化当日HISTORY_DAY_SOURCE，再显式传d。不接收外部SQL、任意关系名或较宽日期集合，候选写前路径检查保持不变。
 
 不在本批实现bootstrap批准/导出/统计、正式PG结果读取、覆盖evaluator、job/repair装配、sensor/catalog/历史事件或正式执行；不修改公共下载器、Prod、已有数据集、配置来源，不新增状态平台、锁或线程。只为本批在原指定模块落实类型、函数与隔离测试。
 
@@ -2363,6 +2484,17 @@ def build_stk_factor_pro_history_plan(
     check_cancel: Callable[[], None],
 ) -> tuple[HistoryPlanRecord, tuple[HistoryRange, ...], RecordRef]: ...
 
+def prepare_stk_factor_pro_history_inputs(connection, *, identity: RunIdentity,
+    lake_root: Path, factor_t: FactorFileRef, factor_p: FactorFileRef,
+    known_records: dict, check_cancel: Callable[[], None],
+) -> tuple[tuple[str, str], str | None]: ...
+def release_stk_factor_pro_history_inputs(connection, primary: BaseException | None = None) -> None: ...
+def release_stk_factor_pro_history_source(connection, primary: BaseException | None = None) -> None: ...
+def recheck_stk_factor_pro_history_inputs(connection, *, plan: HistoryPlanRecord,
+    ranges: tuple[HistoryRange, ...], expected_units: tuple[UnitProjection, ...],
+    lake_root: Path, recheck_inputs: Callable, known_records: dict,
+) -> tuple[FactorFileRef, FactorFileRef, StkFactorProRawCoverage, StkFactorProTargetSilver]: ...
+
 def resolve_stk_factor_pro_history_units(
     connection: DuckDBPyConnection, *, plan: HistoryPlanRecord,
     ranges: tuple[HistoryRange, ...],
@@ -2398,9 +2530,10 @@ def publish_stk_factor_pro_history(
         StkFactorProRawCoverage, StkFactorProTargetSilver,
     ]],
     check_cancel: Callable[[], None],
-    on_publish_attempt: Callable[[date, Literal["raw", "silver"]], None] | None = None,
 ) -> Iterator[tuple[PublishedTarget, StkFactorProFileAudit | None]]: ...
 ```
+
+此处列当前已实现签名；第五批按§10.5.6增加内部on_publish_attempt通知，用于控制层登记实际尝试日期，不能据此提前装配第五批。
 
 `resolve...`只对known_starts不能解决的代码做一次§5.1.1批量聚合，approved_raw_dates是已有授权/可信文件范围的内部日期tuple，须已覆盖需确认的可信既有历史；不能由空值默认扩成全湖或由当前20日批次生成。没有来源/日期范围证明时返回对应未知，交§5.1.2处理，不猜值。普通日更与首次补数共用同一方法，repair原授权起点仍保留，不重新扩大授权。
 
@@ -2412,7 +2545,7 @@ def publish_stk_factor_pro_history(
 
 历史unit在同一连接固定HISTORY_CURRENT_UNIT完成确定转换，源文件首次保存后一次审计由require_factor_history_relation及传输对账完成。保存前只做必要解析，不重复完整关系审计；读回得到行数/schema及首次摘要后直接写SourceFileRecord。后续会话收尾、发布和最终完成均消费这份结果，不再全验源；清理和失败不产VerifiedSource规则不变。
 
-unit成功保存/首次核验后，先把已得SQL行并入同连接stk_factor_pro_history_source，再逐项尝试删除读回view、删除当前unit表和解除DataFrame注册；一项失败不能跳过后两项。已有业务主错误时，将清理错误附到主错误后继续抛出主错误；正常收尾发生清理失败时则报告清理失败，不生成可发布的完整源结果。
+unit成功保存/首次核验后，先把已得SQL行并入同连接stk_factor_pro_history_source，再逐项尝试删除读回临时表、删除当前unit表和解除DataFrame注册；一项失败不能跳过后两项。已有业务主错误时，将清理错误附到主错误后继续抛出主错误；正常收尾发生清理失败时则报告清理失败，不生成可发布的完整源结果。
 
 `publish...`的on_publish_attempt仍为第五批可选内部接线；当前修正轮先使发布只消费本run首次已核源、完整manifest/范围及已有摘要，不再次完整verify源。缺原键只在非零时保存附件，0时ref=None；无文件日期skip_no_file/audit=None，不能造检查。每层原子提升后交付继承唯一候选audit的结果，完整范围收尾只汇总这些结果及既有摘要，不再次hash全部正式目标。第五批在yield点绑定真实DG事件并保存阶段结果，不能先list迭代器。
 
@@ -2580,7 +2713,7 @@ prepare/evaluate/write/summarize按§10.5实现，已有首次审计事实直接
 
 正常原子提升后继承audit形成正式完成事实，不再schema/count/全字段对账。新执行恢复按§10.4/§18.4对实际需要的产物首次确认一次，不能重设prior/expected。终端bootstrap维护核验保留，但不为此重审候选。
 
-验收只要求首次audit与intent/complete摘要绑定一致、描述函数不换摘要、原子提升失败不生成complete、正常首次和等价reuse及原intent恢复可用。删除检查后/意图前/提升前三处反复改写文件并要求每层重读的常态防御用例；真实外部坏源、I/O和原始身份绑定反例仍保留。当前设计已更新，代码待§18修正轮。
+验收只要求首次audit与intent/complete摘要绑定一致、描述函数不换摘要、原子提升失败不生成complete、正常首次和等价reuse及原intent恢复可用。真实外部坏源、I/O和原始身份绑定反例仍保留；不以反复改写内部已核文件为由要求各层重读。本项已在§18修正轮实现并验收，结果见§18.8。
 
 #### 17.8.2 空间预算、检查时点及中断处理
 
@@ -2617,10 +2750,12 @@ prepare/evaluate/write/summarize按§10.5实现，已有首次审计事实直接
 处理顺序：
 
 1. 拒绝符号链接/越界及缺失文件，获取文件stat；无完全相同缓存项时，执行原文件字节SHA、261列schema/类型、主键、日期范围、行数及整片段业务内容核验。结束再次stat，身份改变或任何检查失败都不登记成功；不得缓存异常或部分通过结果。
-2. 首次保存片段若已经从真实落盘Parquet完成同样的完整核验，可以登记；仅用写前内存关系生成期望描述不能登记。保存/读回和以后加载必须走同一个核验方法，避免“写时一次、读时再一次”各自全验。
+2. 首次保存片段若已经从真实落盘Parquet完成同样的完整核验，可以登记；仅用写前内存关系生成期望描述不能登记。saved必须是首次实际读回的TEMP TABLE；writer交接原描述、原SHA及source_relation，remember_saved只核连接/operation/路径归属并登记已有事实，不再hash或重审。原子移动只继承同一产物。保存/读回和新执行首次加载走同一个核验方法，避免“写时一次、读时再一次”各自全验。
 3. 命中且文件元信息未变直接复用，完整审计/摘要不再执行。当前同步中身份或已冻结描述变化立即停止，不重新全验后继续。新执行按正常流程对实际需要的未核产物首次确认一次；不得修改manifest迎合变化。
 4. 每个完整日仅建立一次本日关系，继承片段字段/数值及严格键序审计，仅核片段引用、本日过滤计数和合同日摘要；同连接同步保存日记录、发布及统计直接消费该结果，不重新创建/全验本日。候选各首次审计一次；提升后继承audit，不以源片段缓存之外为由追加复审。
 5. 首次审计记录文件元信息；后续实际取本日数据前作一次必要身份比较，变化停止，不在各helper前后重复比较或重算摘要。只有明确的阶段边界保留轻量身份核验，不引入锁。
+
+内部方法固定补足为：`remember_saved(*, connection, path, fragment, source_relation) -> None`接收writer唯一实际表；`verify(connection, *, staging_root, approval, record, reference) -> (path, file_identity, source_relation)`在新执行首次需要时CTAS并完整核一次，已登记时只返回同一表及首次事实；`release_source_relation(path) -> None`在本片段所需日期已提取后释放实际表，保留本月已核元信息；`close() -> None`尝试释放全部尚存片段表再清元信息。SQL关系名是连接内已有表的引用，不在字典保存业务行或全月表。已释放关系不能在本任务重新回盘建立；恢复按日期升序使用相邻日仍需的跨日片段表，已提取且不再需要的表立即释放，月末finally释放余项。该上下文所有关系仍只归当前主要连接和月份。
 
 验收用一个真实临时片段含3日、每日至少1行，串联片段保存、三日SourceComplete及两层发布，断言同连接/operation内整片段全验恰好1次（含可登记的首次落盘读回），三日本日过滤计数及唯一日摘要首次核验，字段/数值继承片段结果。分别测只改mtime/替换inode/文件身份改变/描述损坏/跨连接或operation/跨月清理；变化不能复用，损坏不能转为成功。额外记录Parquet查询与SHA次数，不能把“全验1次”说成只有1次物理读文件，也单日从已持有SQL关系过滤，不能再打开相同片段Parquet。
 
@@ -2687,8 +2822,10 @@ saved_rows指本attempt真正保存并读回的源行数；operation内复用的
 | BootstrapSpaceEstimate | 冻结的source_bytes/candidate_bytes/temp_bytes/record_bytes四个非负整数字节值，不持久化。 |
 | estimate_bootstrap_space | 接收已核各月尚需源行数、逐文件行数或互斥的remaining_layer_totals=(总行数,非空文件数)、本日两层工作行数、当前批行数、尚需日期数及实际观测余量，返回上述预算。参数只来自本次计划/已核事实，不能成为运营配置。 |
 | check_space | 入口内部闭包，接收中文stage、受控path及已核日期/层/行数和有限事件；source_saved按本attempt减源，candidate_verified只减C_new，publication_verified才解除对应未完成层，date_completed减剩余日期，final_statistics仅切换最后summary预算，复用既有总量/日期集合，不重开统计或重新求和，尚需业务文件量为0、工作行数=(0,0)、T=0、J仅本次必要summary版本，record_saved只观察实际大小。返回预算仅用于观测，不作为发布授权。 |
-| BootstrapFragmentVerification | 连接/staging/approval/month固定；verify对记录及引用核验，返回(path,文件身份)；remember_saved仅接受writer真实落盘读回后的登记；close清空并拒绝后用。 |
+| BootstrapFragmentVerification | 连接/staging/approval/month固定；verify返回(path,首次文件身份,已核实际关系)；remember_saved接writer实际表及原描述/摘要，不再次SHA；片段日期提取后由release_source_relation释放，close释放余表并清空，关闭后拒绝复用。 |
 | 运行摘要 | 标准INFO logging；固定字段见§17.8.5，另含月批准行数/R/批量/selected_date_count。调用环境沿用现有日志配置接收INFO，不由组件安装handler或修改全局日志设置。 |
+
+`_bootstrap_space_check`收到final_statistics后只将本闭包切到summary阶段；删除旧remaining_dates.update(counts)及sum(record_group_sizes.values())分支。后续沿原纯估算函数传pending_source_rows_by_month=()、remaining_layer_totals=(0,0)、work_rows=(0,0)、pending_fetch_rows=0、remaining_date_count=0、statistics_only=True，按已有观测余量得到S=C=T=0、仅1份summary的J；不减去其他日期已保存记录大小。正常末尾或业务失败收尾的每次实际summary尝试前各调用同一final_statistics边界一次，summary自身失败不再重写。其他导入/恢复阶段预算参数及公式不变。
 
 #### 17.8.6 修复顺序及对账完成条件
 
@@ -2712,7 +2849,7 @@ saved_rows指本attempt真正保存并读回的源行数；operation内复用的
 
 ### 18.1 范围与顺序
 
-本轮仅完成原方案/LLD修订，代码和测试尚未修改。修正轮覆盖已实现第二至第四批的数据读取、源/候选/发布、批准/小记录、覆盖与统计全过程；第五批PG reader、job/repair接线按相同规则实现。公共下载器、261字段源合同、源分页、Prod及其他数据集不动，正式资源不在本轮操作范围。
+本轮已获准按8步实施，逐步结果见§18.8。修正轮覆盖已实现第二至第四批的数据读取、源/候选/发布、批准/小记录、覆盖与统计全过程；第五批PG reader、job/repair接线按相同规则实现。公共下载器、261字段源合同、源分页、Prod及其他数据集不动，正式资源不在本轮操作范围。
 
 顺序为：主入口局部变量及首次读取交接→源/旧目标/新Raw与Silver关系复用→单次完整审计和摘要→共享覆盖/样本/单份明细→唯一日期账本与合计→PG/事件结果交接→次数回归与独立对账。所有内部签名与现有消费者同次迁移；禁止缺参数时回盘/查询/计算兜底，不增加缓存平台、状态表、后台进程、配置或锁。
 
@@ -2722,13 +2859,15 @@ saved_rows指本attempt真正保存并读回的源行数；operation内复用的
 
 summary只消费这份账本及本次已经维护的合计/集合/记录摘要：JSON、业务文件、PG读取0，覆盖SQL/重新求和0。必要新summary序列化/保存一次，无变化直接返回既有对象；正常、批末、失败和最后收尾同样执行，不重新classify、prepare或扫描日期。序列化当前必需字段属于新输出，不是再次计算各日统计。
 
+本bootstrap正常末尾一次、业务失败收尾最多一次调用summary；正常summary在业务try/except外执行，保存summary本身失败时不重试第二次写入。每日result/文件事实即时登记和本日贡献更新不触发额外summary写入。主入口首次为所有批准日期形成小型条目及贡献；进入某月后只首次准备该月输入，更新这批日期的日历分类和旧结果适用性，后续正常/异常仅更新实际受影响的日期。不在末尾再次classify、prepare、evaluate或遍历全体日期重求合计；尚未处理月份保留未知/未完成。
+
 原导入计数与当前状态分开，缺口/未知/未完成如实保留。原子发布后记录失败不回滚业务数据；账本保存真实已确认与未确认状态，下一获准执行从持久事实首次建立自己的账本。不存在跨进程共享或逐日断点续传。
 
 #### 18.2.1 登记、日期条目与失败收尾
 
 日/历史publish外层→_publish_file→intent/complete/publication-complete writer及IO _json_write/_write_rows必须原样传入口同一known_records；manifest writer登记首次files tuple、引用摘要及身份。纯转换/候选函数若已显式取得所需关系与audit，不为凑参数重复传字典。
 
-同一known_records同时供bootstrap records/source/publication/coverage/history调用；date_results复用主入口classified的按日字典，不另建持久账本。每个日期条目的字段固定为：source_complete及摘要、原raw_complete/silver_complete、当前raw_audit/silver_audit、replaced_layers（raw/silver集合）、persisted_result及摘要、computed_result、current_files_verified、coverage_record_current、unknown_reason、previous_contribution。以上均是现有对象/标量；computed_result只是本次待保存值，不成为第二份当前持久统计。主入口统一维护imported/current集合及合计，底层不自行维护另一套总数。
+同一known_records同时供bootstrap records/source/publication/coverage/history调用；date_results复用主入口classified的按日字典，不另建持久账本。每个日期条目的字段固定为：source_complete及摘要、原raw_complete/silver_complete、当前raw_audit/silver_audit、current_publication、needs_restore、replaced_layers（raw/silver集合）、persisted_result及摘要、computed_result、current_files_verified、coverage_record_current、unknown_reason、previous_contribution。原分类的source/valid/needs_restore/trusted四项分别迁为source_complete/current_files_verified/needs_restore，以及拆开的current_publication/raw_audit/silver_audit，不保留另一份旧tuple。以上均是现有对象/标量；computed_result只是本次待保存值，不成为第二份当前持久统计。主入口统一维护imported/current集合及合计，底层不自行维护另一套总数。
 
 | 真实边界 | 内存登记及允许的结论 |
 | --- | --- |
@@ -2760,6 +2899,16 @@ previous_contribution固定保存原导入三项数量、当前两层数量（�
 
 ### 18.3 首次源审计的具体项目
 
+历史首次prepare使用同一主要连接，把T/P各物化为固定`stk_factor_pro_history_factor_t/p`；schema、行数、唯一股票、原日期、有限正值及文件SHA各首次确认一次，登记原FactorFileRef、SHA、identity和关系。生命周期首次物化固定`stk_factor_pro_history_lifecycle`，schema有效时向后续规划/覆盖交关系；缺失或原规定schema不可用时为None，未知不猜值。builder直接消费这些关系；它不再打开同一文件或释放调用方的输入关系。准备失败清自己已创建关系；规划失败、无历史工作由控制层在本次调用最后一个消费者结束的finally调用release_inputs，正常历史任务在最终退出时统一释放。无历史工作但仍需日覆盖时，名单生成后不能提前释放覆盖仍需借用的生命周期关系，遵守§18.4最后消费者原则。三个输入再核边界必填同一known_records，只比较首次T/P/lifecycle实际identity及已有四项结果；变更停止，零SQL、零文件SHA、零重新读取后继续。
+
+历史prepare首次读取生命周期后，known_records[path]首项的既有三元组为(relation,row_count,observed_schema)；schema不符且实际表已清理时relation为None。coverage准备直接继承这个已得坏schema及计数，归lifecycle unknown，不能因None而重新打开同一文件。若schema原本合法但relation已释放，则本任务报错，不通过重新读取补回关系。此为已有三元组含义澄清，不新增记录格式或宽松兜底。
+
+历史下载先创建固定空的`stk_factor_pro_history_source`，每个完整unit保存临时Parquet后只实际读回/完整核验一次；已核实际关系并入该总关系，再释放本unit网络、DataFrame及转换/读回关系。只有全部会话正常退出、manifest逐项齐备才组装七字段VerifiedSource。source verifier不再读记录或源Parquet、计算文件或业务摘要；直接对比同任务已登记对象、摘要、unit和文件identity，并只按元信息确认源文件仍为首次保存的版本。含T响应仍留总关系，发布只处理已定d<T日期。
+
+download在非空完整units、当前身份/plan_ref及新source目录条件通过后，eligibility写入/recheck/取消/容量前进入callee收尾范围；此前参数拒绝/无工作仍由caller finally释放inputs，不做父子双清。成功将总关系及输入关系交publisher，进入该范围后的失败/取消调用release_source清总源及inputs；unit只由_save的finally清一次，release_source不重复清unit。publisher整个生成器都在同一收尾范围内，包括首次yield前失败、业务处理yield抛错、提前close和正常完成；日表由逐日scope清、批表由逐批scope清，外层只清总源及inputs，不重试已失败的日/批清理。保留原业务错误并附清理错误。每个Silver结果交给控制层后，先完成该日最后的数据计算及小结果交接，恢复迭代器才清本日表；20日只从总关系过滤一次，不能重新read_parquet源文件。无独立完成unit复用或跨run续跑。
+
+首次源日期聚合同时保留各日行数，后续HISTORY_DAY_SOURCE不再count；代码及原闭区间归属继承各unit首次审计，仅在总关系首次聚合核SSE/已登记发布日期。Raw缺原键复用首次B/U交集RAW_MATCHED_KEYS，缺口为0不保存附件、不再执行EXCEPT或SHA；无旧关系已知0时连空差集表/count也不创建。Raw范围行数直接为本日源行数加该范围未刷旧键数；Silver从同一Raw转换，复用相同行数，范围业务摘要按两种既定日期表示分别首次计算一次。完成记录汇总已有targets/audits/引用，不回读刚生成的记录或重新计算源/范围摘要。
+
 | 项目 | 本数据集具体检查 | 明确边界 |
 | --- | --- | --- |
 | 请求及交付完整 | unit属于本任务规划，分页正常结束；session正常关闭，最终SUCCEEDED及unit/row统计对应实际交付 | 半unit、关闭失败不进入发布；合法0行是源请求成功，是否有可用日数据由既定业务条件判断一次。 |
@@ -2775,6 +2924,36 @@ previous_contribution固定保存原导入三项数量、当前两层数量（�
 
 ### 18.4 原文件、新候选与审计结果
 
+本轮内部接口精确同步如下，所有调用方同次迁移，不保留旧路径参数或缺参回读：
+
+```python
+def build_stk_factor_pro_raw_candidate(connection, *, source: VerifiedDaySource,
+    prior_path: Path | None, candidate_path: Path, run_root: Path,
+    known_records: dict) -> StkFactorProFileAudit: ...
+def build_stk_factor_pro_raw_candidate_from_relation(connection, *, source_relation: str,
+    source_row_count: int, target_trade_date: date, prior_path: Path | None,
+    candidate_path: Path, run_root: Path, known_records: dict) -> StkFactorProFileAudit: ...
+def build_stk_factor_pro_silver_candidate(connection, *, verified_raw_relation: str,
+    raw_audit: StkFactorProFileAudit, target_trade_date: date,
+    candidate_path: Path, run_root: Path, known_records: dict) -> StkFactorProFileAudit: ...
+def audit_stk_factor_pro_file(connection, *, path: Path, expected_relation: str,
+    target_trade_date: date, layer: str, known_records: dict,
+    diagnostics_path: Path | None = None) -> StkFactorProFileAudit: ...
+def factor_file_identity(path: Path) -> tuple[int, int, int, int, int]: ...
+def factor_known_file_sha(path: Path, *, known_records: dict) -> str | None: ...
+def load_stk_factor_pro_prior_relation(connection, *, path: Path, relation: str,
+    target_trade_date: date, layer: str, known_records: dict
+) -> tuple[int, tuple[tuple[str, str], ...]]: ...
+def release_stk_factor_pro_audit_relations(connection) -> None: ...
+# _publish_file新增必填prior_relation: str | None；其余已定参数不变。
+```
+
+首次旧文件读取直接登记`known_records[path]=((relation,row_count,observed_schema),首次SHA,文件identity)`，其中三个本地值就是本次已取得的SQL关系名、行数和schema；发布等价比较通过时用该正式旧文件的StkFactorProFileAudit替换首项，摘要和identity不变；不等价时仍保留首次旧文件事实，只有实际replace后才登记新产物，不把比较不等当成旧文件损坏或本轮已发布。新候选登记首项始终为实际首次audit。已确认文件缺失仍为`(None,None,None)`；不得用无摘要的半记录冒充已核产物。factor_known_file_sha仅首次取得文件SHA，以后只核已有identity；变化停止，不重新hash后继续。以上均只在本任务变量中，不新增持久格式或记录种类。
+
+source_row_count直接使用首次来源结果，不再计数U。Raw首次B行数及B/U交集只算一次，交集临时关系同时供合并和K计数；不在构造expected后重新统计B/U/expected。旧文件第一次读取后已得关系、行数、schema、SHA及元信息向发布函数交接，等价判断不再打开旧文件。内容等价但Parquet字节不同，复用正式旧文件的首次audit及SHA；replace则继承新候选audit。
+
+新输出首次读回物化到本连接临时表，完整审计/文件SHA各一次；表名由已得路径和文件SHA派生，绑定实际文件版本，不再读取文件来派生。首次输入schema/计数已得后，同文件针对另一个expected关系的必要新比较只复用实际表及摘要，不能直接返回上次passed，也不能重新打开实际文件或重新审基础合同。本日最后的数据计算及小结果交接完成后统一清理本模块审计表；已经释放后不得拿旧任务字典继续新一轮审计，新任务首次读取自己的必要输入。缺文件时factor_file_identity抛FileNotFoundError，由允许目标不存在的外层明确记录缺失。
+
 旧Raw首次读取到DAY_PRIOR后，等价判断和合并均用该关系，不在_publish_file再打开目标。RAW_EXPECTED对应唯一Raw候选audit，保持至本日必要数据计算和小结果交接完成；build_stk_factor_pro_silver_candidate接收verified_raw_relation、raw_audit及既有根/日期，不再用verified_raw_path读取刚发布Raw。历史旧Silver若需要首次读取一次，缺原键和等价比较共用该关系。
 
 候选首次audit、文件/业务摘要、schema及计数向描述、intent、complete、DG checks、scope/覆盖消费者直接交接。发布后不重新DESCRIBE/count/全字段对账或hash；记录摘要从序列化payload计算一次。B−K+U及候选对账用首次已有计数/匹配结果，不重新构造相同B/U JOIN或expected。compare_factor_relations现有单次FULL JOIN聚合语义保留，不另跑259字段JOIN。
@@ -2785,7 +2964,9 @@ previous_contribution固定保存原导入三项数量、当前两层数量（�
 
 read_json首次读取一份字节，同时完成JSON结构解析及需要的摘要，返回对象/摘要供本次所有消费者复用；approval_sha、source身份、plan/ranges/manifest和日期分类不能再读相同文件。已由本模块构造的合法记录不在writer反解析/再次审计；序列化payload及摘要一次，原子写成功后直接返回新版本更新本任务变量，不读刚写文件来确认自己已知的值。相同版本不重复写入。
 
-bootstrap入口已读approval/计数/evidence/sample后，月导出、write_source_complete、publish及coverage只收这些值。实际需要Prod时，固定schema、全源首尾和批准固定样本本任务首次一次；每月新事务SET LOCAL timeout、各不同待读日期窗口计数首次一次，同月recover/pending共用该月结果，不各自preflight。没有Prod剩余工作不连接Prod。
+bootstrap_publication将旧`_publication_identity`拆成意图和完成记录各自的首次校验。read_publication按intent/complete两个固定路径，只有本任务首次读取该记录才检查其归属、摘要及引用；后续从同一known_records直接交出已确认对象，不重新校验已知intent、不重新计算intent_digest，也不因Silver重复读取已核Raw完成记录。公开write_intent对独立输入保留首次意图校验，再调用唯一私有保存体`_write_verified_stk_factor_pro_bootstrap_publication_intent`；内部_publish_layer已按既有规则构造合法intent、计算唯一intent_digest，直接调用同一保存体，不重复计算。保存体参数沿用公开writer的原参数，不新增skip/布尔开关或公开入口。write_complete直接消费本任务已核intent，只检查新complete与该intent、正式audit及其首次摘要的对应，不再校验整份旧intent或递归读Raw。首次坏记录、意图/完成错误绑定及首次Silver对应错误仍须拒绝。故障注入应覆盖实际JSON保存/原子提升边界，不为保留旧mock入口恢复重复检查。
+
+bootstrap入口已读approval/计数/evidence/sample后，月导出、write_source_complete、publish及coverage只收这些值。source_inputs及preflight_context的固定内部签名、checked_windows日期子集复用规则见§10.3.1；不能以recover联合日期和pending子集不同为由重复计数。实际需要Prod时，固定schema、全源首尾和批准固定样本本任务首次一次；每月新事务SET LOCAL timeout、各不同待读日期窗口计数首次一次，同月recover/pending共用该月结果，不各自preflight。没有Prod剩余工作不连接Prod。
 
 同一PG run/观察/物化/check在整个run按真实身份首次读一次，不以reader、授权resolver、Silver资格、bootstrap收尾分别缓存一次。本run新yield首次持久化后读取新增事实以取得真实id属于新事实，所得对象及批映射继续交接。历史三个边界仅比本次已确认身份，未变复用，变化停止；不重新读取PG/全文件SHA或覆盖后继续。队列job入口三状态且不二查，终端bootstrap原维护检查保留。
 
@@ -2798,6 +2979,10 @@ bootstrap入口已读approval/计数/evidence/sample后，月导出、write_sour
 | coverage update→evaluate→write→summary | 控制层首次覆盖一次；pure包装/单次保存；原日账本/合计复用；不读source/旧result/明细或重新核两层。 |
 | io download/history/候选/publication/纯检查 | T/P及生命周期已加载关系、源总关系、旧B/旧Silver、RAW_EXPECTED复用；首次audit/摘要/计数共享，不重复源文件读取或正式Raw读取。 |
 | 本数据集记录类型和诊断引用消费者 | 非零明细一份共享，补齐BootstrapCodesRef的受控run/operation归属；同步所有parser/writer/测试，0附件和旧格式无兼容分支。 |
+
+bootstrap控制层的`_classify_date`首次确认正式目标SHA后，将现成audit、摘要和identity登记同一known_records；`_bootstrap_space_check`直接消费classified中的complete及本次已登记intent对象，目标/候选SHA统一复用factor_known_file_sha，不再次调用publication reader或直接hash同一文件。恢复process沿用这些首次事实；预算公式、设备归并及行宽估算不变。验收以初始分类→预算→process整个任务计数，不能只证明某个helper局部减少读取。
+
+控制层内部由`_execute_stk_factor_pro_bootstrap`持有首次classified、唯一summary_state/basis_inputs及已有summary，私有`_process_stk_factor_pro_bootstrap_months`只顺序处理月份和日期，接收这些既得对象及本日贡献更新闭包。入口以同一finally释放本模块own的全局依据；月函数只释放该月关系。月函数不保存summary、不返回另一份账本，入口正常收尾一次、业务失败收尾最多一次按§18.2保存。删除原末尾重新prepare/classify/evaluate的整段流程，不保留第二路径。
 
 已用CodeGraph explore核完整日process与发布/覆盖调用链，impact核Silver构造影响；对索引未完整显示的调用方，另按真实引用核日/历史publication、bootstrap publication/coverage/history及对应候选、发布、覆盖、恢复测试。没有跨工程调用或公共下载器变更；第五批尚未实现的装配按§2.5接口另行接线，不能据本轮静态审计宣称其运行已通过。
 
@@ -2826,7 +3011,7 @@ bootstrap入口已读approval/计数/evidence/sample后，月导出、write_sour
 | W 单日工作量 | 入口首次用已得审计行数计算G=sum P(本连接仍持有的T/P、生命周期、身份等依据关系行数)；W=max(原已拍板1GiB处理余量, max_d 4*(G+P(b_d)+P(s_d)+2*P(b_d+u_d)))。覆盖全部既有依据、当前日B、旧Silver、两层expected及首次审计，不持有20天全市场。 |
 | T 临时计算 | H+max(2*U, B20+W)：下载时当前unit/首次读回短暂共存，发布时当前批加单日工作。 |
 | C 两层新文件 | sum_d 2*P(b_d+u_d)，每个计划日期/层各计一份。等价reuse留下的候选也计入；replace只是改名，不再加同一份正式副本，不预支删除旧目标收益。 |
-| J 记录与明细 | j*k。D=len(N)，D_op为本次原operation批准交集日期数；k包含尚未写的manifest/source-complete/publication-complete各1份、每日期两层intent/complete共4D份、每日期每层最多1份缺原键明细共最多2D份；有operation时另加每日期result及最多2份missing/extra共3D_op份，再加每个会更新该operation的批次1个summary版本。零附件不落盘，原已保存plan/ranges/eligibility不计未来新增，PG事件不计本地文件。 |
+| J 记录与明细 | j*k。D=len(N)，D_op为本次原operation批准交集日期数；k包含尚未写的manifest/source-complete/publication-complete各1份、每日期两层intent/complete共4D份、每日期每层最多1份缺原键明细共最多2D份；有operation时另加每日期result及最多2份missing/extra共3D_op份，再加每个会更新该operation的批次1个summary版本。零附件不落盘，原已保存plan/ranges/eligibility不计未来新增；eligibility若尚未保存则另计1份，并由同一回调核写前容量、写后扣除该份，不能无预算写入。PG事件不计本地文件。 |
 
 纯函数固定为：
 
@@ -2841,7 +3026,16 @@ def require_stk_factor_pro_history_space(
     *, required_by_path: tuple[tuple[Path, int], ...],
     run_id: str, stage: str,
 ) -> None: ...
+
+def build_stk_factor_pro_history_space_check(
+    connection: DuckDBPyConnection, *, identity: RunIdentity,
+    expected_units: tuple[UnitProjection, ...], publication_dates: tuple[date, ...],
+    lake_root: Path, staging_root: Path, known_records: dict,
+    basis_row_counts: tuple[int, ...], operation_dates: tuple[date, ...] = (),
+) -> Callable[..., BootstrapSpaceEstimate]: ...
 ```
+
+容量工厂只绑定本任务已得unit、日期、依据行数和原operation交集，不读取批准或PG。已有目标audit直接给行数；其余目标用同一连接的parquet_file_metadata一次批量取页脚行数，保留在闭包局部字典。回调固定接收stage及path、rows、trade_date、layer、event，字段沿既有内部容量通知，不加运营配置；首次预算及每个文件/版本的贡献保留在闭包，保存事件仅增量扣除。实际新文件超过本项估算时停止并说明，不重新全量计算，也不静默沿用偏小值。
 
 estimate仅首次对已得整数按上述公式计算，返回既有四字段(source_bytes=S,candidate_bytes=C,temp_bytes=T,record_bytes=J)；unit为空应沿no_action，不创建预算或下载会话。stage只是中文错误说明，不作为可扩张错误码/运营输入。require按实际路径最近存在父目录的st_dev归并，每设备新增量求和后只加一次m，并核disk_usage.free；同设备S/C/J/T相加，不同设备分别核。source/candidate/record归现有staging路径，T归该主要连接既有temp_directory；manifest/source-complete、intent/complete及必要诊断/汇总写入前同样传check_space核J，不为早已保存的plan/ranges再计算一次；16GB内存及512GB临时配置不修改、不当成磁盘剩余量。初始设备无法确认或空间不足就明确Failure，零历史session/请求。容量闭包按§6.1将此本地错误归入history阶段、source_error_code=None、retryable=False及allow_retries=False，携带已有run/T、stage、设备required/free和管理员处理动作；不新增下载器错误码，不把磁盘错误交源重试。
 
@@ -2853,6 +3047,46 @@ estimate仅首次对已得整数按上述公式计算，返回既有四字段(so
 
 ### 18.7 第五批实现边界
 
-第五批PG reader、授权、asset/op/job及本批统计收尾尚未实现，必须按§2.5传递同一任务已得事实，直接复用修正轮接口。先完成本轮已实现部分修正及独立验收，再review第五批详细计划；本次文档更新不表示代码已修正或正式执行获准。
+物理bootstrap按顺序月份prepare；第五批不得把该全月准备直接挂到单日或每20日批末。T及历史日期只首次取得实际需要的新依据/日期事实，已算T小结果保留至记录收尾，不能因为先释放某月份再返回同月而重读。compute/evaluate始终消费本任务已取得关系及事实，不以“重新prepare整月”作为调用前提；本修正轮不开发第五批入口。
 
-本轮核验范围为原方案/LLD、实际接口及调用方；文档完整性、本地链接、Python示例AST及差异检查单独执行。未运行生产代码回归或数据任务，不能将文档检查当作§18次数及性能验收通过。
+第五批PG reader、授权、asset/op/job及本批统计收尾尚未实现，必须按§2.5传递同一任务已得事实，直接复用修正轮接口。本修正轮已完成实现及独立验收，结果见§18.8；第五批仍须单独review详细计划，本轮通过不表示正式执行获准。
+
+文档完整性、本地链接、Python示例AST及差异检查单独执行，不能代替§18次数及性能验收。修正轮只运行隔离回归，不操作正式数据或启用自动化。
+
+### 18.8 修正轮执行与验收
+
+2026-11-04按管理员批准的8步执行，每步完成定向回归后再进入下一步。下列各组存在重复用例，不直接相加；整体结论只在第8步独立审计完成后给出。
+
+| 步骤 | 当前结果与证据范围 |
+| --- | --- |
+| 1 记录、摘要及参数交接 | 通过。合同107项、历史records28项、bootstrap直接调用57项；其余接口/plan/adapter/完成边界及已有真实响应、跨进程测试已完成定向验证。旧同任务改盘后要求回读的测试改为本任务不重读、新执行首次坏输入仍拒绝。独立复核无遗留记录交接问题。 |
+| 2 一次规划及容量 | 通过。新增历史容量14项，bootstrap空间/进度89项，历史records28项及直接接口回归。纯预算及元信息读取验证使用DuckDB 1.5.2临时连接；有/无资格记录、同/异设备、spill、首unit前及下一unit前失败均覆盖。 |
+| 3 日数据及共用候选/发布 | 通过。publication25项、candidate相关64项；bootstrap发布/主入口/审计反例39项，摘要命名3项补验与其重叠。单日U、旧两层及新候选首审/摘要次数已核，Silver重新打开正式Raw为0；异字节等价复用和异常即时登记保留。受影响records28及容量14项再验通过；CodeGraph同步后核过共用调用方。 |
+| 4 历史源及20日发布 | 通过。源/下载及合同直接回归73项、输入身份3项、records28项、清理/完整性17项、20日批次10项、发布/完成及重入31项、离线集成2项分别有通过证据。非零附件每层实际读回及SHA各1，正式路径SHA为0；零缺口附件/EXCEPT/读取/SHA为0。独立复核未发现其他重复回源或业务审计；各组有重叠，不相加。 |
+| 5 bootstrap来源及完整日交接 | 通过。source/records/fragment57项、发布与审计22项、完整任务4项、SHA/空间直接18项及覆盖调用3项分别有通过证据。单片段跨3日首读/SHA各1、日内容摘要各1，正常load为0；新执行相邻日恢复同片段只首读一次。只缺Silver和纯统计均不读原源。固定预检各1，同月子集不重复计数，新事务timeout保留；各组重叠不相加。 |
+| 6 覆盖、日期统计及汇总 | 通过。输入/进度/空间49项、公共及可信覆盖内核13项、主coverage原35项及7处定向修正、process4项、真实入口六故障及最终两种旧结果适用性对照/发布记录首验次数均有通过证据，分组重叠不相加。同日覆盖内核1次，包装/summary额外SQL及输入读取0，同版本重写0；非零附件实际首读/SHA各1，零附件无附加EXCEPT/SHA。真实借用坏schema事实不再开文件；最后summary仅S=C=T=0/J一份记录预算。 |
+| 7 已有活动任务查询参数 | 通过。13项验证默认五状态、内部三状态、存储过滤先于limit、排除自身及两job各一次/limit2，不按T过滤；终端bootstrap原入口及首次提升检查不变。未新增PG reader或第五批装配。 |
+| 8 整体回归及独立审计 | 通过。17文件407项组合中403初过；2处旧消费者按当前合同迁移后补验通过，2项仅本机临时HTTP端口权限受限，沿工具权限运行后通过。另补2项run诊断首读/符号链接回归。受保护runner的1/6/12/113项全部通过，隔离策略未绕过。默认Ruff覆盖本轮49个Python文件、全项目致命错误基线及文档检查通过。交叉独立审计发现的最终路径漏查已按既有规则修复，无未修确定问题；第五批未推进。 |
+
+以下按硬口径核实现位置、测试及结果，不将每步重叠用例累加成新的总数：
+
+| 步骤 | 当前实现及消费关系 | 实际验收 |
+| --- | --- | --- |
+| 1 记录/摘要交接 | run_contracts封闭类型；bootstrap_records与io/history的known_records贯穿主入口、writer和consumer。SourceComplete/manifest/plan直接交对象与首次摘要，公开首次输入检查和内部已核保存共用实现。 | history_records的test_written_records_keep_first_payload_and_parquet_facts、test_fresh_record_reader_reads_bytes_and_parquet_only_once，bootstrap_records的test_json_first_bytes_and_approval_digest_are_shared及test_approved_counts_reuse_first_rows_and_digest；首次坏输入、跨run/路径及零引用反例保持。 |
+| 2 一次规划/容量 | io/history.py的resolve_stk_factor_pro_history_units、plan_stk_factor_pro_history_publication_dates、build_stk_factor_pro_history_space_check只首次得到本次unit/N/预算；同一check_space贯穿下载、候选、发布及统计。 | history_space14项独立字面预算；源文件与总关系同时存在、同设备余量一次、spill不重复扣、下一unit前不足即停。最后summary为S=C=T=0、J仅一份必要记录；不扩大账户额度或限频职责。 |
+| 3 日数据/共用发布 | io/candidates和checks保存首次U/B/audit，publication继承候选及原摘要，Silver消费RAW_EXPECTED，正常移动后不复审正式副本。 | publication的test_complete_day_reuses_source_old_files_and_unique_candidate_audits、test_first_candidate_transport_corruption_is_rejected_before_formal_publish；同时验证真正新输出错误仍被首次审计拒绝。 |
+| 4 历史/20日 | download逐unit首次实际读回并入H；publisher每20日筛H一次，逐日两层，最后仅已有targets/audits形成完整记录；三个再核边界只比身份。 | 原batches10项与integration2项；1/20/21/41/45日对应1/1/2/3/3次筛选，45日20/20/5；源含T但正式T不改，真实新进程重新下载原完整范围，旧源/候选读取为0。小型组件unit_id协议核对保留，不另算业务范围或重读文件。 |
+| 5 bootstrap来源 | source固定预检首次一次、事务timeout保留、同月已核计数复用；fragment实际关系到DAY到process直交，原源恢复仅首次必要加载。 | fragment_verification的test_normal_three_day_task_reads_source_once_and_hands_same_facts，以及process的test_small_cross_batch_source_hands_each_complete_day_to_real_process、test_new_task_restores_saved_complete_source_once_before_publication及真实子进程：正常load0，只缺Silver/纯统计源0，确需重建Raw才首次源读1。 |
+| 6 覆盖/合计 | coverage首次prepare/compute、pure evaluate/write/update，公共首次检查和可信固定投影共用同一集合core；主入口唯一date_results及summary_state，真实replace/complete/result分开登记，逐日贡献按版本更新。 | coverage的test_replay_zero_keys_zero_result_rewrites_and_global_hash_reuse、test_nonzero_diagnostic_saved_once_in_run_t_or_operation_history、test_real_control_failure_summarizes_registered_facts_without_reauditing等；core1、包装/summary额外计算0，非零单份，零附件无附加EXCEPT/SHA。六种真实入口故障、3→5保存失败与等价引用失败均核已有文件/原导入/当前覆盖/摘要；同日未持久结果不计成功，适用旧结果不误清。真实history坏schema事实到coverage仍只首读/SHA一次。 |
+| 7 活动任务 | 既有readiness reader默认五状态，内部可传固定三状态；状态先入RunsFilter，require及终端bootstrap两次维护检查保持。 | bootstrap的test_three_running_states_filter_before_limit_and_exclude_only_own_run及原五状态/错误查询反例，13项通过；两job各一次、limit2、不按T筛选。 |
+| 8 最终闭合 | 独立审查方交叉阅读非本人模块，CodeGraph explore/impact及sync/status核调用方；人工核代码、SQL、关系所有权及原方案/LLD。 | 407项组合的4项均有精确补验，另2项路径回归及132项受保护治理/Definitions测试通过。34个Python文档片段可解析，66处现有函数声明的参数及必填性与代码匹配；修正3处旧声明，未来第五批通知参数只保留在对应未来要求，不混入第三批现签名。 |
+
+独立审计最后确认的run诊断引用路径漏查已按原路径规则补齐：两种归属都对最终文件路径使用既有安全检查。正常旧run引用首次明细SQL/SHA各1、同任务再次消费0；实际diagnostics父目录符号链接在SQL/SHA前拒绝，未加新安全机制。
+
+本轮验收只证明获准模块的代码、合同与隔离执行符合新规则。公共下载器及261字段、分页未变，未创建第五批PG读取/授权/job/repair/sensor/catalog，未写正式数据或启动DG。后续按第五批详细计划review推进，不能将本轮通过当作正式补数、历史事件或自动化执行授权。
+
+本轮真实源新增请求、正式Lake/数据库/Dagster写入均为0；已有真实响应仅在临时资源中重放，不宣称正式运行或全历史性能已验收。
+
+正式旧bootstrap记录和诊断附件本轮未读取、未迁移。引用中的creator_run_id及非零附件的ts_code/trade_date列序按本文唯一合同执行，不增加旧格式兼容分支；代码与隔离测试通过不代表正式存量已经一致。后续获准正式执行时，首次核对实际需要消费的记录及附件，格式不合约应明确停止并交管理员处理，不能据本轮结论跳过，也不因此开展全量历史数据审计。
+
+第4步的有界成本已使用原261字段、一股五日响应在临时目录重放：总源关系5行，保留T但只发布此前4日的8份两层文件；其中一个旧日期文件含5,568行，独立核对其他5,567只股票业务值不变。源unit首次Parquet读取及文件SHA各1次，发布和最后完整记录阶段重新读取/摘要该源均为0；20日批关系筛选1次，候选实际输出8次、正式替换8次。正常链本次观察3.55秒，包含独立结果验证约0.90秒；实际进程退出后，新进程完整重新下载同一范围并完成约2.54秒，读取旧run源/候选为0。计时仅说明这个样本，不外推全历史吞吐；SQL次数和Parquet查询次数也不等同物理磁盘读取次数，测量用查询与业务查询分开计数。两条隔离集成测试及本步其余定向门禁均已通过，完整范围见上表。

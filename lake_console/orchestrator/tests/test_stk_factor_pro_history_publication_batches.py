@@ -26,6 +26,7 @@ from orchestrator.defs.run_contracts import stk_factor_pro as models
 from tests.stk_factor_pro_history_test_support import (
     NAMES,
     HistoryDownloader,
+    check_test_space,
     connection,
     contract,
     eligibility,
@@ -83,7 +84,7 @@ def write_rows(conn, path, rows, *, layer):
         conn.unregister("test_history_publication_input")
 
 
-def setup(conn, tmp_path, count, *, missing_dates=(), unrelated=False):
+def setup(conn, tmp_path, count, *, missing_dates=(), unrelated=False, known_records):
     lake, staging = roots(tmp_path)
     dates = trading_dates(count)
     raw_t = raw_stk_factor_pro_path(lake, T.isoformat())
@@ -100,7 +101,18 @@ def setup(conn, tmp_path, count, *, missing_dates=(), unrelated=False):
         T, None, None, None, None, None, None, (), (), None, None
     )
     run = identity()
-    plan = history.build_stk_factor_pro_history_plan(
+    factor_relations, lifecycle_relation = (
+        history.prepare_stk_factor_pro_history_inputs(
+            conn,
+            identity=run,
+            lake_root=lake,
+            factor_t=refs[0],
+            factor_p=refs[1],
+            known_records=known_records,
+            check_cancel=lambda: None,
+        )
+    )
+    plan, ranges, plan_ref = history.build_stk_factor_pro_history_plan(
         conn,
         identity=run,
         contract=contract(),
@@ -111,10 +123,26 @@ def setup(conn, tmp_path, count, *, missing_dates=(), unrelated=False):
         prior_results=old,
         history_starts=(models.StkFactorProHistoryStart(A, dates[0], 1, dates[0]),),
         check_cancel=lambda: None,
+        known_records=known_records,
+        factor_relations=factor_relations,
+        lifecycle_relation=lifecycle_relation,
     )
     root = stk_factor_pro_run_staging_root(staging, run.creator_run_id, T.isoformat())
-    ranges = history.read_stk_factor_pro_history_ranges(conn, root=root, plan=plan)
     valid = eligibility(run, plan, *t_hashes)
+    expected_units = history.resolve_stk_factor_pro_history_units(
+        conn,
+        plan=plan,
+        ranges=ranges,
+        prior_results=old,
+        staging_root=staging,
+        known_records=known_records,
+    )
+    publication_dates = history.plan_stk_factor_pro_history_publication_dates(
+        identity=run,
+        expected_units=expected_units,
+        calendar=(*dates, T),
+        registered_dates=dates,
+    )
     source_rows = tuple(
         row(A, day.strftime("%Y%m%d"))
         for day in (*dates, T)
@@ -138,6 +166,10 @@ def setup(conn, tmp_path, count, *, missing_dates=(), unrelated=False):
         recheck_inputs=recheck,
         downloader=downloader,
         check_cancel=lambda: None,
+        known_records=known_records,
+        plan_ref=plan_ref,
+        expected_units=expected_units,
+        check_space=check_test_space,
     )
     untouched = None
     if unrelated:
@@ -158,6 +190,8 @@ def setup(conn, tmp_path, count, *, missing_dates=(), unrelated=False):
             layer="raw",
         )
     args = {
+        "publication_dates": publication_dates,
+        "check_space": check_test_space,
         "source": source,
         "plan": plan,
         "ranges": ranges,
@@ -195,17 +229,17 @@ class BatchQueries:
             is not None
         )
         if is_batch:
-            assert source and "read_parquet" in lower
+            assert not source and "read_parquet" not in lower
+            assert "stk_factor_pro_history_source" in lower
             self.batch_queries.append((text, parameters))
             self.in_batch = True
             if len(self.batch_queries) == self.fail_batch:
                 raise OSError("test: batch source read failed")
         else:
             self.other_queries.append((text, parameters))
-            if self.in_batch:
-                assert not (source and "read_parquet" in lower), (
-                    "A date query reopened historical source files instead of the materialized batch"
-                )
+            assert not (source and "read_parquet" in lower), (
+                "History publication reopened source files instead of reusing this task's SQL source"
+            )
         return (
             self.conn.execute(query)
             if parameters is None
@@ -239,12 +273,21 @@ def assert_current_day_unchanged(conn, lake, expected_hashes):
 def test_one_batch_source_query_per_twenty_dates_and_raw_silver_order(
     tmp_path, count, batches
 ):
+    known_records = {}
     with connection(tmp_path) as conn:
         lake, root, dates, hashes, downloader, untouched, args = setup(
-            conn, tmp_path, count, unrelated=count == 1
+            conn,
+            tmp_path,
+            count,
+            unrelated=count == 1,
+            known_records=known_records,
         )
         observed = BatchQueries(conn)
-        outputs = tuple(publication.publish_stk_factor_pro_history(observed, **args))
+        outputs = tuple(
+            publication.publish_stk_factor_pro_history(
+                observed, **args, known_records=known_records
+            )
+        )
         assert len(observed.batch_queries) == batches
         assert tuple(
             (target.trade_date, target.layer) for target, _ in outputs
@@ -281,15 +324,24 @@ def test_one_batch_source_query_per_twenty_dates_and_raw_silver_order(
 
 
 def test_holiday_gap_and_no_row_dates_keep_explicit_skip_without_file_audit(tmp_path):
+    known_records = {}
     with connection(tmp_path) as conn:
         dates = trading_dates(20)
         omitted = dates[4]
         lake, root, dates, hashes, _, _, args = setup(
-            conn, tmp_path, 20, missing_dates=(omitted,)
+            conn,
+            tmp_path,
+            20,
+            missing_dates=(omitted,),
+            known_records=known_records,
         )
         assert any((later - earlier).days > 3 for earlier, later in pairwise(dates))
         observed = BatchQueries(conn)
-        outputs = tuple(publication.publish_stk_factor_pro_history(observed, **args))
+        outputs = tuple(
+            publication.publish_stk_factor_pro_history(
+                observed, **args, known_records=known_records
+            )
+        )
         missing = [
             (target, audit) for target, audit in outputs if target.trade_date == omitted
         ]
@@ -309,10 +361,15 @@ def test_holiday_gap_and_no_row_dates_keep_explicit_skip_without_file_audit(tmp_
 def test_business_closes_iterator_after_raw_retains_raw_and_releases_all_relations(
     tmp_path,
 ):
+    known_records = {}
     with connection(tmp_path) as conn:
-        lake, _, dates, hashes, _, _, args = setup(conn, tmp_path, 1)
+        lake, _, dates, hashes, _, _, args = setup(
+            conn, tmp_path, 1, known_records=known_records
+        )
         iterator = publication.publish_stk_factor_pro_history(
-            BatchQueries(conn), **args
+            BatchQueries(conn),
+            **args,
+            known_records=known_records,
         )
         target, audit = next(iterator)
         assert target.trade_date == dates[0] and target.layer == "raw" and audit.passed
@@ -326,8 +383,11 @@ def test_business_closes_iterator_after_raw_retains_raw_and_releases_all_relatio
 def test_silver_failure_keeps_completed_raw_and_cleans_current_batch(
     tmp_path, monkeypatch
 ):
+    known_records = {}
     with connection(tmp_path) as conn:
-        lake, _, dates, hashes, _, _, args = setup(conn, tmp_path, 1)
+        lake, _, dates, hashes, _, _, args = setup(
+            conn, tmp_path, 1, known_records=known_records
+        )
 
         def failed(*args, **kwargs):
             raise OSError("test: silver candidate failed")
@@ -336,7 +396,9 @@ def test_silver_failure_keeps_completed_raw_and_cleans_current_batch(
             publication, "build_stk_factor_pro_silver_candidate", failed
         )
         iterator = publication.publish_stk_factor_pro_history(
-            BatchQueries(conn), **args
+            BatchQueries(conn),
+            **args,
+            known_records=known_records,
         )
         target, audit = next(iterator)
         assert target.layer == "raw" and audit.passed
@@ -352,13 +414,18 @@ def test_silver_failure_keeps_completed_raw_and_cleans_current_batch(
 def test_batch_read_failure_stops_new_dates_and_releases_prior_relations(
     tmp_path, failed_batch
 ):
+    known_records = {}
     with connection(tmp_path) as conn:
-        lake, _, dates, hashes, _, _, args = setup(conn, tmp_path, 21)
+        lake, _, dates, hashes, _, _, args = setup(
+            conn, tmp_path, 21, known_records=known_records
+        )
         observed = BatchQueries(conn, fail_batch=failed_batch)
         completed = []
         with pytest.raises(OSError, match="batch source read"):
             for target, audit in publication.publish_stk_factor_pro_history(
-                observed, **args
+                observed,
+                **args,
+                known_records=known_records,
             ):
                 completed.append((target, audit))
         assert len(completed) == (failed_batch - 1) * 40

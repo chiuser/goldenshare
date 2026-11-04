@@ -140,23 +140,56 @@ class FakeProd:
         return cursor
 
 
-def execute(conn, staging, approval, remote, *, callback, month=None, selected=None):
+def execute(
+    conn,
+    staging,
+    approval,
+    remote,
+    *,
+    callback,
+    month=None,
+    selected=None,
+    known_records,
+):
     month = month or approval.month_limits[0]
-    if selected is None:
-        selected = tuple(
-            month.month_start + timedelta(days=i)
-            for i in range((month.month_end_exclusive - month.month_start).days)
-        )
-    return source.export_stk_factor_pro_bootstrap_month(
-        prod_postgres=remote,
-        connection=conn,
+    planned = source._selected_dates(
+        conn,
         staging_root=staging,
         approval=approval,
         month=month,
-        selected_dates=selected,
-        on_complete_date=callback,
-        check_space=check_test_space,
+        known_records=known_records,
     )
+    if selected is None:
+        selected = planned
+    elif selected != planned:
+        raise ValueError("测试调用方待读取日期不对应首次分类")
+    verification = records.BootstrapFragmentVerification(
+        conn,
+        staging_root=staging,
+        approval=approval,
+        month=month,
+        known_records=known_records,
+    )
+    with records.resource_cleanup(verification.close):
+        return source.export_stk_factor_pro_bootstrap_month(
+            prod_postgres=remote,
+            connection=conn,
+            staging_root=staging,
+            approval=approval,
+            month=month,
+            selected_dates=selected,
+            source_inputs=source._approved_inputs(
+                conn,
+                staging_root=staging,
+                approval=approval,
+                known_records=known_records,
+            ),
+            preflight_context={"fixed_done": False, "checked_windows": {}},
+            on_complete_date=callback,
+            check_space=check_test_space,
+            verification=verification,
+            known_records=known_records,
+        )
 
 
 def accept_source_only(monkeypatch, seen):
@@ -164,7 +197,7 @@ def accept_source_only(monkeypatch, seen):
     # public callback-shape validation has separate positive/negative tests below.
     monkeypatch.setattr(source, "_validate_date_result", lambda record, result: ())
 
-    def callback(record):
+    def callback(record, **source_facts):
         seen.append(record)
 
     return callback
@@ -172,10 +205,13 @@ def accept_source_only(monkeypatch, seen):
 
 @pytest.mark.parametrize("size", [4999, 5000, 5001])
 def test_named_stream_batches_and_true_eof(tmp_path, monkeypatch, size):
+    known_records = {}
     counts = ((DAY, size),)
     rows = [native_row(f"{i:06}.SZ") for i in range(size)]
     with connection(tmp_path) as conn:
-        _, staging, approval, identity = approval_fixture(conn, tmp_path, counts=counts)
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known_records
+        )
         remote = FakeProd(approval, identity, counts, rows, sample_rows=[native_row()])
         seen = []
         result = execute(
@@ -184,6 +220,7 @@ def test_named_stream_batches_and_true_eof(tmp_path, monkeypatch, size):
             approval,
             remote,
             callback=accept_source_only(monkeypatch, seen),
+            known_records=known_records,
         )
         assert result.source_rows == size and result.complete_dates == (DAY,)
         assert len(result.fragments) == (1 if size <= 5000 else 2)
@@ -208,13 +245,16 @@ def test_named_stream_batches_and_true_eof(tmp_path, monkeypatch, size):
 
 
 def test_multiple_days_cross_batches_and_empty_days_wait_for_eof(tmp_path, monkeypatch):
+    known_records = {}
     counts = ((DAY, 3), (DAY + timedelta(days=1), 0), (DAY + timedelta(days=2), 2))
     rows = [native_row(f"{i:06}.SZ", DAY) for i in range(3)] + [
         native_row(f"{i:06}.SZ", DAY + timedelta(days=2)) for i in range(2)
     ]
     monkeypatch.setattr(C, "STK_FACTOR_PRO_BOOTSTRAP_FETCH_ROWS", 2)
     with connection(tmp_path) as conn:
-        _, staging, approval, identity = approval_fixture(conn, tmp_path, counts=counts)
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known_records
+        )
         remote = FakeProd(approval, identity, counts, rows, sample_rows=[native_row()])
         seen = []
         result = execute(
@@ -223,28 +263,32 @@ def test_multiple_days_cross_batches_and_empty_days_wait_for_eof(tmp_path, monke
             approval,
             remote,
             callback=accept_source_only(monkeypatch, seen),
+            known_records=known_records,
         )
         assert [item.trade_date for item in seen] == [
             DAY,
-            DAY + timedelta(days=1),
             DAY + timedelta(days=2),
+            DAY + timedelta(days=1),
         ]
         assert [(item.close_reason, len(item.fragments)) for item in seen] == [
             ("next_date", 2),
-            ("eof", 0),
             ("eof", 2),
+            ("eof", 0),
         ]
-        assert [item.actual_rows for item in seen] == [3, 0, 2]
+        assert [item.actual_rows for item in seen] == [3, 2, 0]
         assert result.complete_dates == tuple(day for day, _ in counts)
         assert remote.fetch_sizes == [2, 2, 2, 1]
 
 
 @pytest.mark.parametrize("delta", [-1, 1])
 def test_short_eof_and_r_plus_one_reject_current_batch(tmp_path, monkeypatch, delta):
+    known_records = {}
     counts = ((DAY, 2),)
     rows = [native_row(f"{i:06}.SZ") for i in range(2 + delta)]
     with connection(tmp_path) as conn:
-        _, staging, approval, identity = approval_fixture(conn, tmp_path, counts=counts)
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known_records
+        )
         remote = FakeProd(approval, identity, counts, rows, sample_rows=[native_row()])
         seen = []
         with pytest.raises(ValueError, match="EOF|R\\+1"):
@@ -254,6 +298,7 @@ def test_short_eof_and_r_plus_one_reject_current_batch(tmp_path, monkeypatch, de
                 approval,
                 remote,
                 callback=accept_source_only(monkeypatch, seen),
+                known_records=known_records,
             )
         assert not seen
         root = records.operation_root(staging, approval)
@@ -266,6 +311,7 @@ def test_short_eof_and_r_plus_one_reject_current_batch(tmp_path, monkeypatch, de
     "kind", ["duplicate", "reverse", "wrong_date", "wrong_type", "wrong_fields"]
 )
 def test_invalid_batch_never_saves_or_calls_back(tmp_path, monkeypatch, kind):
+    known_records = {}
     counts = ((DAY, 2),)
     rows = [native_row("000001.SZ"), native_row("000002.SZ")]
     if kind == "duplicate":
@@ -277,7 +323,9 @@ def test_invalid_batch_never_saves_or_calls_back(tmp_path, monkeypatch, kind):
     elif kind == "wrong_type":
         rows[1] = tuple("1.2" if i == 2 else value for i, value in enumerate(rows[1]))
     with connection(tmp_path) as conn:
-        _, staging, approval, identity = approval_fixture(conn, tmp_path, counts=counts)
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known_records
+        )
         remote = FakeProd(approval, identity, counts, rows, sample_rows=[native_row()])
         if kind == "wrong_fields":
             original = remote.cursor
@@ -297,6 +345,7 @@ def test_invalid_batch_never_saves_or_calls_back(tmp_path, monkeypatch, kind):
                 approval,
                 remote,
                 callback=accept_source_only(monkeypatch, seen),
+                known_records=known_records,
             )
         assert not seen and not list(
             records.operation_root(staging, approval).rglob("fragment-*.parquet")
@@ -306,9 +355,12 @@ def test_invalid_batch_never_saves_or_calls_back(tmp_path, monkeypatch, kind):
 def test_completed_source_removed_from_plan_without_prod_connection(
     tmp_path, monkeypatch
 ):
+    known_records = {}
     counts = ((DAY, 1),)
     with connection(tmp_path) as conn:
-        _, staging, approval, identity = approval_fixture(conn, tmp_path, counts=counts)
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known_records
+        )
         remote = FakeProd(approval, identity, counts, [native_row()])
         execute(
             conn,
@@ -316,6 +368,7 @@ def test_completed_source_removed_from_plan_without_prod_connection(
             approval,
             remote,
             callback=accept_source_only(monkeypatch, []),
+            known_records=known_records,
         )
         before = remote.connections
         result = execute(
@@ -324,45 +377,73 @@ def test_completed_source_removed_from_plan_without_prod_connection(
             approval,
             remote,
             selected=(),
-            callback=lambda _: pytest.fail("unexpected callback"),
+            callback=lambda _, **source_facts: pytest.fail("unexpected callback"),
+            known_records=known_records,
         )
         assert (
             remote.connections == before
             and result.source_rows == 0
             and result.complete_dates == ()
         )
-        with pytest.raises(ValueError, match="待读取日期"):
-            execute(conn, staging, approval, remote, callback=lambda _: None)
+        repeated = execute(
+            conn,
+            staging,
+            approval,
+            remote,
+            callback=lambda _, **source_facts: None,
+            known_records=known_records,
+        )
+        assert repeated.complete_dates == () and remote.connections == before
         path = records.operation_path(
             staging, approval, f"source/dates/{DAY}/source-complete.json"
         )
         path.write_text("{}")
         with pytest.raises((TypeError, ValueError)):
             execute(
-                conn, staging, approval, remote, selected=(), callback=lambda _: None
+                conn,
+                staging,
+                approval,
+                remote,
+                selected=(),
+                callback=lambda _, **source_facts: None,
+                known_records={},
             )
         assert remote.connections == before
 
 
 def test_callback_failure_and_multiple_cleanup_failures_keep_first_error(tmp_path):
+    known_records = {}
     counts = ((DAY, 1), (DAY + timedelta(days=1), 1))
     rows = [native_row(), native_row(day=DAY + timedelta(days=1))]
     with connection(tmp_path) as conn:
-        _, staging, approval, identity = approval_fixture(conn, tmp_path, counts=counts)
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known_records
+        )
         remote = FakeProd(approval, identity, counts, rows)
         remote.close_failure = remote.exit_failure = True
 
-        def callback(_record):
+        def callback(_record, **source_facts):
             raise LookupError("business callback failed")
 
         with pytest.raises(LookupError, match="business callback failed") as error:
-            execute(conn, staging, approval, remote, callback=callback)
+            execute(
+                conn,
+                staging,
+                approval,
+                remote,
+                callback=callback,
+                known_records=known_records,
+            )
         assert len(error.value.__notes__) == 3
         assert remote.closes == ["named", "control", "rollback", "connection"]
         assert len(remote.fetch_sizes) == 1
         assert (
             records.read_stk_factor_pro_bootstrap_source_complete(
-                conn, staging_root=staging, approval=approval, trade_date=DAY
+                conn,
+                staging_root=staging,
+                approval=approval,
+                trade_date=DAY,
+                known_records=known_records,
             )
             is not None
         )
@@ -372,15 +453,19 @@ def test_callback_failure_and_multiple_cleanup_failures_keep_first_error(tmp_pat
                 staging_root=staging,
                 approval=approval,
                 trade_date=DAY + timedelta(days=1),
+                known_records=known_records,
             )
             is None
         )
 
 
 def test_normal_body_close_failure_is_failure(tmp_path, monkeypatch):
+    known_records = {}
     counts = ((DAY, 1),)
     with connection(tmp_path) as conn:
-        _, staging, approval, identity = approval_fixture(conn, tmp_path, counts=counts)
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known_records
+        )
         remote = FakeProd(approval, identity, counts, [native_row()])
         remote.close_failure = True
         with pytest.raises(RuntimeError, match="cursor close"):
@@ -390,6 +475,7 @@ def test_normal_body_close_failure_is_failure(tmp_path, monkeypatch):
                 approval,
                 remote,
                 callback=accept_source_only(monkeypatch, []),
+                known_records=known_records,
             )
         assert all(cursor.closed for cursor in remote.cursors)
 
@@ -397,9 +483,12 @@ def test_normal_body_close_failure_is_failure(tmp_path, monkeypatch):
 def test_preflight_and_window_are_separate_from_local_approval_validation(
     tmp_path, monkeypatch
 ):
+    known_records = {}
     counts = ((DAY, 1),)
     with connection(tmp_path) as conn:
-        _, staging, approval, identity = approval_fixture(conn, tmp_path, counts=counts)
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known_records
+        )
         remote = FakeProd(approval, identity, counts, [native_row()])
         source.preflight_stk_factor_pro_bootstrap_source(
             prod_postgres=remote,
@@ -408,6 +497,14 @@ def test_preflight_and_window_are_separate_from_local_approval_validation(
             approval=approval,
             month=approval.month_limits[0],
             selected_dates=(DAY,),
+            source_inputs=source._approved_inputs(
+                conn,
+                staging_root=staging,
+                approval=approval,
+                known_records=known_records,
+            ),
+            preflight_context={"fixed_done": False, "checked_windows": {}},
+            known_records=known_records,
         )
         assert remote.connections == 1 and not remote.fetch_sizes
         expired = approval.source_maintenance_end
@@ -419,8 +516,105 @@ def test_preflight_and_window_are_separate_from_local_approval_validation(
         )
         monkeypatch.setattr(source, "_now", lambda: expired)
         with pytest.raises(ValueError, match="维护窗口"):
-            execute(conn, staging, approval, remote, callback=lambda _: None)
+            execute(
+                conn,
+                staging,
+                approval,
+                remote,
+                callback=lambda _, **source_facts: None,
+                known_records=known_records,
+            )
         assert remote.connections == 1
+
+
+def test_task_reuses_fixed_preflight_and_checked_month_dates(tmp_path, monkeypatch):
+    known_records = {}
+    recover, first, second = date(2019, 1, 30), date(2019, 1, 31), date(2019, 2, 1)
+    counts = ((recover, 1), (first, 1), (second, 1))
+    with connection(tmp_path) as conn:
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known_records
+        )
+        source_inputs = source._approved_inputs(
+            conn, staging_root=staging, approval=approval, known_records=known_records
+        )
+        preflight_context = {"fixed_done": False, "checked_windows": {}}
+        source_fixture(
+            conn,
+            staging_root=staging,
+            approval=approval,
+            rows=(native_row(day=recover),),
+            day=recover,
+            known_records=known_records,
+        )
+        conn.execute(f"DROP TABLE {source.BOOTSTRAP_DAY_SOURCE}")
+        remote = FakeProd(
+            approval,
+            identity,
+            counts,
+            [native_row(day=first)],
+            sample_rows=[native_row(day=recover)],
+        )
+        source.preflight_stk_factor_pro_bootstrap_source(
+            prod_postgres=remote,
+            connection=conn,
+            staging_root=staging,
+            approval=approval,
+            month=approval.month_limits[0],
+            selected_dates=(recover, first),
+            source_inputs=source_inputs,
+            preflight_context=preflight_context,
+            known_records=known_records,
+        )
+        seen = []
+        callback = accept_source_only(monkeypatch, seen)
+        for month, day in zip(approval.month_limits, (first, second), strict=True):
+            # The fake socket delivers the selected month query's rows; source
+            # identity, approved global range and complete date counts stay fixed.
+            remote.rows = [native_row(day=day)]
+            verification = records.BootstrapFragmentVerification(
+                conn,
+                staging_root=staging,
+                approval=approval,
+                month=month,
+                known_records=known_records,
+            )
+            with records.resource_cleanup(verification.close):
+                result = source.export_stk_factor_pro_bootstrap_month(
+                    prod_postgres=remote,
+                    connection=conn,
+                    staging_root=staging,
+                    approval=approval,
+                    month=month,
+                    selected_dates=(day,),
+                    source_inputs=source_inputs,
+                    preflight_context=preflight_context,
+                    on_complete_date=callback,
+                    check_space=check_test_space,
+                    verification=verification,
+                    known_records=known_records,
+                )
+                assert result.complete_dates == (day,) and result.source_rows == 1
+        controls = [
+            (query, params) for named, query, params in remote.queries if not named
+        ]
+        assert sum("information_schema.columns" in query for query, _ in controls) == 1
+        assert sum("MIN(trade_date)" in query for query, _ in controls) == 1
+        assert sum("ts_code=ANY" in query for query, _ in controls) == 1
+        assert [params[2] for query, params in controls if "COUNT(*)" in query] == [
+            [recover, first],
+            [second],
+        ]
+        assert (
+            sum("set_config" in query for query, _ in controls)
+            == remote.connections
+            == 3
+        )
+        assert preflight_context == {
+            "fixed_done": True,
+            "checked_windows": {recover: {recover: 1, first: 1}, second: {second: 1}},
+        }
+        assert [record.trade_date for record in seen] == [first, second]
 
 
 def test_planner_clips_exact_whole_range_and_rejects_extra_months():
@@ -460,13 +654,21 @@ def test_empty_and_nonempty_callback_contracts(tmp_path):
 def test_partial_month_plan_never_reads_completed_source_business_columns(
     tmp_path, monkeypatch
 ):
+    known_records = {}
     following = DAY + timedelta(days=1)
     counts = ((DAY, 1), (following, 1))
     with connection(tmp_path) as conn:
-        _, staging, approval, identity = approval_fixture(conn, tmp_path, counts=counts)
-        source_fixture(
-            conn, staging_root=staging, approval=approval, rows=[native_row()]
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known_records
         )
+        source_fixture(
+            conn,
+            staging_root=staging,
+            approval=approval,
+            rows=[native_row()],
+            known_records=known_records,
+        )
+        conn.execute(f"DROP TABLE {source.BOOTSTRAP_DAY_SOURCE}")
         with monkeypatch.context() as probe:
             probe.setattr(
                 records,
@@ -480,6 +682,7 @@ def test_partial_month_plan_never_reads_completed_source_business_columns(
                 staging_root=staging,
                 approval=approval,
                 month=approval.month_limits[0],
+                known_records=known_records,
             ) == (following,)
         remote = FakeProd(
             approval,
@@ -496,18 +699,27 @@ def test_partial_month_plan_never_reads_completed_source_business_columns(
             remote,
             selected=(following,),
             callback=accept_source_only(monkeypatch, seen),
+            known_records=known_records,
         )
         assert result.complete_dates == (following,)
         assert [query[2][2] for query in remote.queries if query[0]] == [[following]]
 
 
 def test_selected_zero_source_date_is_completed_only_after_real_eof(tmp_path):
+    known_records = {}
     empty_day, last = DAY + timedelta(days=1), DAY + timedelta(days=2)
     counts = ((DAY, 1), (empty_day, 0), (last, 1))
     with connection(tmp_path) as conn:
-        _, staging, approval, identity = approval_fixture(conn, tmp_path, counts=counts)
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known_records
+        )
         source_fixture(
-            conn, staging_root=staging, approval=approval, rows=[native_row()], day=DAY
+            conn,
+            staging_root=staging,
+            approval=approval,
+            rows=[native_row()],
+            day=DAY,
+            known_records=known_records,
         )
         source_fixture(
             conn,
@@ -516,11 +728,13 @@ def test_selected_zero_source_date_is_completed_only_after_real_eof(tmp_path):
             rows=[native_row(day=last)],
             day=last,
             attempt="b" * 32,
+            known_records=known_records,
         )
+        conn.execute(f"DROP TABLE {source.BOOTSTRAP_DAY_SOURCE}")
         remote = FakeProd(approval, identity, counts, [], sample_rows=[native_row()])
         seen = []
 
-        def callback(record):
+        def callback(record, **source_facts):
             seen.append(record)
             assert remote.fetch_sizes == [3]
             return C.StkFactorProBootstrapDateResult(
@@ -528,7 +742,13 @@ def test_selected_zero_source_date_is_completed_only_after_real_eof(tmp_path):
             )
 
         result = execute(
-            conn, staging, approval, remote, selected=(empty_day,), callback=callback
+            conn,
+            staging,
+            approval,
+            remote,
+            selected=(empty_day,),
+            callback=callback,
+            known_records=known_records,
         )
         assert (
             result.source_rows == 0
@@ -540,6 +760,7 @@ def test_selected_zero_source_date_is_completed_only_after_real_eof(tmp_path):
 
 
 def test_r_plus_one_batch_preserves_earlier_complete_day(tmp_path, monkeypatch):
+    known_records = {}
     following = DAY + timedelta(days=1)
     counts = ((DAY, 1), (following, 2))
     rows = [native_row(day=DAY)] + [
@@ -547,7 +768,9 @@ def test_r_plus_one_batch_preserves_earlier_complete_day(tmp_path, monkeypatch):
     ]
     monkeypatch.setattr(C, "STK_FACTOR_PRO_BOOTSTRAP_FETCH_ROWS", 2)
     with connection(tmp_path) as conn:
-        _, staging, approval, identity = approval_fixture(conn, tmp_path, counts=counts)
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known_records
+        )
         remote = FakeProd(approval, identity, counts, rows)
         seen = []
         with pytest.raises(ValueError, match="R\\+1"):
@@ -557,6 +780,7 @@ def test_r_plus_one_batch_preserves_earlier_complete_day(tmp_path, monkeypatch):
                 approval,
                 remote,
                 callback=accept_source_only(monkeypatch, seen),
+                known_records=known_records,
             )
         assert [record.trade_date for record in seen] == [DAY]
         assert (
@@ -571,13 +795,21 @@ def test_r_plus_one_batch_preserves_earlier_complete_day(tmp_path, monkeypatch):
         )
         assert (
             records.read_stk_factor_pro_bootstrap_source_complete(
-                conn, staging_root=staging, approval=approval, trade_date=DAY
+                conn,
+                staging_root=staging,
+                approval=approval,
+                trade_date=DAY,
+                known_records=known_records,
             )
             is not None
         )
         assert (
             records.read_stk_factor_pro_bootstrap_source_complete(
-                conn, staging_root=staging, approval=approval, trade_date=following
+                conn,
+                staging_root=staging,
+                approval=approval,
+                trade_date=following,
+                known_records=known_records,
             )
             is None
         )
@@ -585,6 +817,7 @@ def test_r_plus_one_batch_preserves_earlier_complete_day(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize("kind", ["duplicate", "reverse"])
 def test_strict_order_across_batches(tmp_path, monkeypatch, kind):
+    known_records = {}
     counts = ((DAY, 3),)
     rows = [
         native_row("000001.SZ"),
@@ -593,7 +826,9 @@ def test_strict_order_across_batches(tmp_path, monkeypatch, kind):
     ]
     monkeypatch.setattr(C, "STK_FACTOR_PRO_BOOTSTRAP_FETCH_ROWS", 2)
     with connection(tmp_path) as conn:
-        _, staging, approval, identity = approval_fixture(conn, tmp_path, counts=counts)
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known_records
+        )
         remote = FakeProd(approval, identity, counts, rows)
         with pytest.raises(ValueError, match="跨批逆序"):
             execute(
@@ -601,7 +836,8 @@ def test_strict_order_across_batches(tmp_path, monkeypatch, kind):
                 staging,
                 approval,
                 remote,
-                callback=lambda _: pytest.fail("half day callback"),
+                callback=lambda _, **source_facts: pytest.fail("half day callback"),
+                known_records=known_records,
             )
         assert (
             len(
@@ -622,11 +858,14 @@ def test_strict_order_across_batches(tmp_path, monkeypatch, kind):
 def test_fetch_error_or_cancellation_keeps_half_day_incomplete(
     tmp_path, monkeypatch, failure
 ):
+    known_records = {}
     counts = ((DAY, 3),)
     rows = [native_row(f"{i:06}.SZ") for i in range(3)]
     monkeypatch.setattr(C, "STK_FACTOR_PRO_BOOTSTRAP_FETCH_ROWS", 2)
     with connection(tmp_path) as conn:
-        _, staging, approval, identity = approval_fixture(conn, tmp_path, counts=counts)
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known_records
+        )
         remote = FakeProd(approval, identity, counts, rows)
         original = Cursor.fetchmany
 
@@ -642,7 +881,8 @@ def test_fetch_error_or_cancellation_keeps_half_day_incomplete(
                 staging,
                 approval,
                 remote,
-                callback=lambda _: pytest.fail("half day callback"),
+                callback=lambda _, **source_facts: pytest.fail("half day callback"),
+                known_records=known_records,
             )
         assert not list(
             records.operation_root(staging, approval).rglob("source-complete.json")
@@ -652,9 +892,12 @@ def test_fetch_error_or_cancellation_keeps_half_day_incomplete(
 
 @pytest.mark.parametrize("kind", ["schema", "range", "counts", "sample"])
 def test_preflight_changes_stop_before_named_cursor(tmp_path, kind):
+    known_records = {}
     counts = ((DAY, 1),)
     with connection(tmp_path) as conn:
-        _, staging, approval, identity = approval_fixture(conn, tmp_path, counts=counts)
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known_records
+        )
         remote = FakeProd(approval, identity, counts, [native_row()])
         if kind == "schema":
             remote.identity = replace(
@@ -686,31 +929,41 @@ def test_preflight_changes_stop_before_named_cursor(tmp_path, kind):
                 staging,
                 approval,
                 remote,
-                callback=lambda _: pytest.fail("preflight callback"),
+                callback=lambda _, **source_facts: pytest.fail("preflight callback"),
+                known_records=known_records,
             )
         assert not any(cursor.named for cursor in remote.cursors)
         assert remote.closes == ["control", "rollback", "connection"]
 
 
 def test_zero_row_month_has_real_eof_and_no_fragments(tmp_path):
+    known_records = {}
     first = date(2019, 12, 31)
     counts = tuple((first + timedelta(days=i), int(i in (0, 32))) for i in range(33))
     with connection(tmp_path) as conn:
-        _, staging, approval, identity = approval_fixture(conn, tmp_path, counts=counts)
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known_records
+        )
         month = approval.month_limits[1]
         remote = FakeProd(
             approval, identity, counts, [], sample_rows=[native_row(day=first)]
         )
         observed = []
 
-        def callback(record):
+        def callback(record, **source_facts):
             observed.append(record.trade_date)
             return C.StkFactorProBootstrapDateResult(
                 record.trade_date, record.source_complete_digest, None, None, None
             )
 
         result = execute(
-            conn, staging, approval, remote, month=month, callback=callback
+            conn,
+            staging,
+            approval,
+            remote,
+            month=month,
+            callback=callback,
+            known_records=known_records,
         )
         assert month.row_upper_bound == 0 and remote.fetch_sizes == [1]
         assert len(observed) == 31 and observed == sorted(observed)
@@ -719,9 +972,12 @@ def test_zero_row_month_has_real_eof_and_no_fragments(tmp_path):
 
 
 def test_maintenance_expiry_during_fetch_does_not_save_batch(tmp_path, monkeypatch):
+    known_records = {}
     counts = ((DAY, 1),)
     with connection(tmp_path) as conn:
-        _, staging, approval, identity = approval_fixture(conn, tmp_path, counts=counts)
+        _, staging, approval, identity = approval_fixture(
+            conn, tmp_path, counts=counts, known_records=known_records
+        )
         remote = FakeProd(approval, identity, counts, [native_row()])
         original = Cursor.fetchmany
 
@@ -740,7 +996,8 @@ def test_maintenance_expiry_during_fetch_does_not_save_batch(tmp_path, monkeypat
                 staging,
                 approval,
                 remote,
-                callback=lambda _: pytest.fail("expired callback"),
+                callback=lambda _, **source_facts: pytest.fail("expired callback"),
+                known_records=known_records,
             )
         assert not list(
             records.operation_root(staging, approval).rglob("fragment-*.parquet")
