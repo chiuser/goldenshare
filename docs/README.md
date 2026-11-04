@@ -285,9 +285,9 @@ docs/
 
 ## 9. 产品原始材料
 
-- [财势乾坤顶底识别产品文档 v1（唯一正式r4、仅本地；P5第四步文档已交付，待最终review）](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-product-v1.md)
-- [财势乾坤顶底识别技术方案 v1（当前实现、合同与交付依据；P5待最终review）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-technical-design-v1.md)
-- [财势乾坤顶底识别LLD v1（当前规则、编码、测试及交付对账；P5待最终review）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md)
+- [财势乾坤顶底识别产品文档 v1（唯一正式r4、仅本地；P5整体验收通过）](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-product-v1.md)
+- [财势乾坤顶底识别技术方案 v1（当前实现、合同与交付依据；P5已验收收尾）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-technical-design-v1.md)
+- [财势乾坤顶底识别LLD v1（当前规则、编码、测试及交付对账；P5已验收收尾）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md)
 - [财势乾坤顶底识别P4耗时优化专项方案 v1（P4已收尾；性能优化4—7批保留TODO）](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-p4-performance-optimization-plan-v1.md)
 - [顶底识别P5代码/测试逐文件审计清单（103文件，第二步执行结果已登记）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-p5-code-audit-v1.csv)
 - [顶底识别P5报告逐文件审计清单（3503原文件及221收敛目标，第二步执行结果已登记）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-p5-reports-audit-v1.csv)

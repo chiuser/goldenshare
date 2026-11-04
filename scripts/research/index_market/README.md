@@ -2,7 +2,7 @@
 
 ## 顶底识别与保留核验工具（P5）
 
-正式识别与下一根预测只有src中的r4。当前依据是[产品文档](../../../docs/product/wealth-top-bottom-recognition-product-v1.md)、[技术方案](../../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-technical-design-v1.md)和[LLD](../../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md)。P4已完成验收；P5第二步材料/工具交接和清退完成，879项定向交接通过；第三步35个Python单元3193项、28个前端文件332项及类型/构建、最终审计通过（含明确登记的证据复用）。第四步文档与交付对账已完成，实际结果见LLD§22.18，待管理员最终review；暂缓性能优化及无关日期TODO不纳入。
+正式识别与下一根预测只有src中的r4。当前依据是[产品文档](../../../docs/product/wealth-top-bottom-recognition-product-v1.md)、[技术方案](../../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-technical-design-v1.md)和[LLD](../../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md)。P4已完成验收；P5第二步材料/工具交接和清退完成，879项定向交接通过；第三步35个Python单元3193项、28个前端文件332项及类型/构建、最终审计通过（含明确登记的证据复用）。P5已获管理员最终验收并收尾，工程交付及最终记录见LLD§22.18—22.19；暂缓性能优化及无关日期TODO不纳入。
 
 原图、讲稿、输入、作者观察及有效历史交付统一从[资料索引](../../../reports/xxm/README.md)进入。旧r2/候选/完整两位/双组/Git捕获执行链不再提供运行入口；历史设计与最终对比结论仍在原文档中，不恢复旧代码或用旧结果作当前expected。
 
