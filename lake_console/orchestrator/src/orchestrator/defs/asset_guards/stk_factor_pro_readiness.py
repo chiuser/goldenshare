@@ -397,6 +397,7 @@ def read_stk_factor_pro_recorded_results(
     values = None
     result = C.empty_stk_factor_pro_recorded_results(target)
     day_values = history_values = None
+    history_failure_observed_at = None
     if records:
         record = records[0]
         if record.event_log_entry.run_id == exclude_run_id:
@@ -450,6 +451,9 @@ def read_stk_factor_pro_recorded_results(
                 dg.DagsterRunStatus.CANCELED,
             ):
                 history_failure = producer.run_id
+                history_failure_observed_at = known_pg[
+                    ("observation", history_ref.storage_id)
+                ].event_log_entry.timestamp
         day_failure = values["unresolved_day_failure_run_id"]
         if (
             day_values is not None
@@ -486,34 +490,30 @@ def read_stk_factor_pro_recorded_results(
         known_pg[latest_key] = native
         for record in native:
             known_pg[("run", record.dagster_run.run_id)] = record.dagster_run
-    latest = next(
-        (
-            r.dagster_run
-            for r in known_pg[latest_key]
-            if r.dagster_run.run_id != exclude_run_id
-        ),
+    latest_record = next(
+        (r for r in known_pg[latest_key] if r.dagster_run.run_id != exclude_run_id),
         None,
     )
-    if latest is not None and latest.status in (
+    if latest_record is not None and latest_record.dagster_run.status in (
         dg.DagsterRunStatus.FAILURE,
         dg.DagsterRunStatus.CANCELED,
     ):
         from dataclasses import replace
 
+        latest = latest_record.dagster_run
         failure = read_stk_factor_pro_failure(
             instance, latest.run_id, known_pg=known_pg
         )
+        is_history_failure = failure["failure_phase"] == "history"
         # A later successful recovery is already represented by the entry. Do not
         # revive its older failed producer from the separate latest-update query.
-        recovery = (
-            history_values if failure["failure_phase"] == "history" else day_values
-        )
+        recovery = history_values if is_history_failure else day_values
         recovered = (
             recovery is not None
             and recovery["result"] == "completed"
             and recovery["recovery_of_run_id"] == latest.run_id
             and (
-                failure["failure_phase"] != "history"
+                not is_history_failure
                 or read_stk_factor_pro_run(
                     instance, recovery["producer_run_id"], known_pg=known_pg
                 ).status
@@ -521,12 +521,19 @@ def read_stk_factor_pro_recorded_results(
             )
         )
         if not recovered:
-            field = (
-                "unresolved_history_failure_run_id"
-                if failure["failure_phase"] == "history"
-                else "unresolved_day_failure_run_id"
-            )
-            result = replace(result, **{field: latest.run_id})
+            if is_history_failure:
+                ended_at = latest_record.end_time
+                if ended_at is None:
+                    ended_at = latest_record.update_timestamp.timestamp()
+                if (
+                    history_failure_observed_at is None
+                    or ended_at > history_failure_observed_at
+                ):
+                    result = replace(
+                        result, unresolved_history_failure_run_id=latest.run_id
+                    )
+            else:
+                result = replace(result, unresolved_day_failure_run_id=latest.run_id)
     known_pg[key] = result
     return result
 

@@ -1,6 +1,7 @@
 """Actual repair operation with real temporary native events and frozen source scope."""
 
 from contextlib import contextmanager
+from unittest.mock import patch
 
 import dagster as dg
 import pytest
@@ -14,7 +15,7 @@ from orchestrator.defs.paths import (
     raw_stk_factor_pro_path,
     silver_stock_factor_pro_path,
 )
-from orchestrator.tushare_download import DownloadMode
+from orchestrator.tushare_download import DownloadError, DownloadErrorCode, DownloadMode
 from tests import test_stk_factor_pro_jobs as update_tests
 from tests.stk_factor_pro_history_test_support import HistoryDownloader, saved_real_rows
 from tests.stk_factor_pro_test_support import DAY, connection
@@ -23,17 +24,22 @@ from tests.test_stk_factor_pro_jobs import FIRST, A, config, input_files
 actual_job = update_tests.actual_job
 
 
-def setup_failed_history(tmp_path, monkeypatch, actual_job):
+def setup_failed_history(tmp_path, monkeypatch, actual_job, *, history_error=None):
     instance, job, set_source, lake, staging, _counts = actual_job
     input_files(tmp_path, lake, changed=(A,), codes=(A,))
     replay = saved_real_rows()
     remote = HistoryDownloader({A: (replay[-1],)})
     day_source = set_source((replay[-1],))
+    history_calls = []
 
     class FailedHistoricalDownload:
         def download(self, task, **kwargs):
-            source = day_source if task.mode is DownloadMode.BY_POINT else remote
-            return source.download(task, **kwargs)
+            if task.mode is DownloadMode.BY_POINT:
+                return day_source.download(task, **kwargs)
+            history_calls.append(task.mode)
+            if history_error is not None:
+                raise DownloadError(history_error)
+            return remote.download(task, **kwargs)
 
     monkeypatch.setattr(
         asset.download.TushareDownloader, "load", FailedHistoricalDownload
@@ -62,7 +68,12 @@ def setup_failed_history(tmp_path, monkeypatch, actual_job):
     failure = executed.failure_data_for_node("stk_factor_pro").user_failure_data
     assert failure.metadata["goldenshare/failure_phase"].value == "history"
     assert failure.metadata["goldenshare/retryable"].value is True
-    assert len(day_source.calls) == len(remote.calls) == 1
+    if history_error is not None:
+        assert failure.metadata["goldenshare/source_error_code"].value == int(
+            history_error
+        )
+    assert len(day_source.calls) == 1
+    assert history_calls == [DownloadMode.BY_OBJECT_RANGE]
     source_id = executed.run_id
     original = asset.history.read_stk_factor_pro_history_plan(
         asset.stk_factor_pro_run_staging_root(staging, source_id, str(DAY)),
@@ -180,6 +191,49 @@ def test_repair_uses_current_native_gate_and_only_fresh_original_history(
         == target_state
     )
     assert all(not calls for calls in counts.values())
+
+
+def test_newer_repair_failure_takes_precedence_over_retryable_update(
+    tmp_path, monkeypatch, actual_job
+):
+    instance, _, _, lake, _, _ = actual_job
+    job, source_id, original, _ = setup_failed_history(
+        tmp_path,
+        monkeypatch,
+        actual_job,
+        history_error=DownloadErrorCode.TRANSIENT_SOURCE,
+    )
+    silver_stock_factor_pro_path(lake, str(DAY)).unlink()
+    with repair_job_context(job) as repair:
+        failed = repair.execute_in_process(
+            instance=instance,
+            run_config=repair_config(source_id, original),
+            raise_on_error=False,
+        )
+    assert not failed.success
+    failure = failed.failure_data_for_node("repair_stk_factor_pro_history")
+    assert "原日期Silver不可用" in failure.error.message
+    known_pg = {}
+    with (
+        patch.object(
+            instance, "get_run_records", wraps=instance.get_run_records
+        ) as runs,
+        patch.object(
+            instance, "fetch_observations", wraps=instance.fetch_observations
+        ) as observations,
+    ):
+        facts = asset.readiness.read_stk_factor_pro_recorded_results(
+            instance, target_trade_date=DAY, known_pg=known_pg
+        )
+        assert runs.call_count == 1 and runs.call_args.kwargs["limit"] == 2
+        assert observations.call_count == 2
+        assert all(call.kwargs["limit"] == 1 for call in observations.call_args_list)
+    assert facts.day_result_ref.run_id == source_id
+    assert facts.unresolved_day_failure_run_id is None
+    assert facts.unresolved_history_failure_run_id == failed.run_id
+    assert asset.readiness.read_stk_factor_pro_failure(
+        instance, facts.unresolved_history_failure_run_id, known_pg=known_pg
+    ) == {"retryable": False, "failure_phase": "history"}
 
 
 def test_explicit_initialization_repair_updates_only_touched_import_record(

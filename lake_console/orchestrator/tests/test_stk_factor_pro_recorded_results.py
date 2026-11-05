@@ -137,6 +137,14 @@ def test_start_keeps_old_results_and_new_pending_plan(tmp_path):
             C.empty_stk_factor_pro_recorded_results(T),
             day_result_ref=latest_ref(instance, old.run_id),
         )
+        first_failure, _ = run_observations(
+            instance, ["history"], previous=prior, fail=("history", False)
+        )
+        prior = replace(
+            prior,
+            history_result_ref=latest_ref(instance, first_failure.run_id),
+            unresolved_history_failure_run_id=first_failure.run_id,
+        )
         new, _ = run_observations(
             instance, ["start"], previous=prior, fail=("history", True)
         )
@@ -144,6 +152,7 @@ def test_start_keeps_old_results_and_new_pending_plan(tmp_path):
             instance, target_trade_date=T, known_pg={}
         )
         assert result.day_result_ref == prior.day_result_ref
+        assert result.history_result_ref == prior.history_result_ref
         assert any(p.creator_run_id == new.run_id for p in result.pending_plan_refs)
         assert result.unresolved_history_failure_run_id == new.run_id
         assert result.successful_publication_refs == ()
