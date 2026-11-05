@@ -301,3 +301,22 @@ pytest -q tests/web/test_wealth_stock_detail_api.py
 cd wealth && npm run typecheck
 cd wealth && npm run test -- StockDetailPage
 ```
+
+<a id="top-market-indices-bugfix"></a>
+
+## 12. Bugfix（2026-11-05）股票详情页顶部指数行情
+
+依据为[技术实施方案第 11 节](./stock-detail-implementation-design-v1.md#top-market-indices-bugfix)。已核对 `WatchlistPage → useWatchlistTickers → fetchMarketMajorIndices` 和 `StockDetailPage → buildStockDetailViewModel → stockDetailMockAdapter`，以及主要指数路由、响应结构和共享 `TopMarketBar` 的字段消费。
+
+| 检查项 | 实现和验收条件 |
+| --- | --- |
+| 请求与展示 | 将自选页的 `useWatchlistTickers` 移至主要指数模块并命名为 `useMajorIndexTickers`。自选页继续传原参数，股票详情页调用时省略日期。复用 API client、指数映射和 `TopMarketBar`。默认自选页点击股票后，详情页应发起主要指数请求，按返回的指数名称、点位、涨跌幅与方向渲染。 |
+| 页面模型与状态 | 从 `StockDetailViewModel` 和 `stockDetailMockAdapter` 移除 `topMarketTickers`。详情页加载中、成功与失败均使用指数模块提供的列表。指数请求失败或无可用数据时列表为空，个股请求与状态独立。回归测试覆盖等待中、成功、失败和无数据，断言示例行情不会进入顶部栏。 |
+| 读写边界与性能 | 正常鉴权下，每次进入已构建的股票详情页发起一次只读主要指数请求，与个股请求并行。现有合同返回 10 个配置项，无分页。切换图表周期或同一详情组件的股票代码时不重复发起指数请求。离开页面取消该请求，取数逻辑不额外重试，重新进入按同一请求开销重新读取。登录续期沿用现有 API client。 |
+| 验证 | 运行 `npm run typecheck`、`npm run test` 和 `npm run build`。真实 API 展示验收使用隔离数据库和现有主要指数路由，通过浏览器在默认自选页和股票详情页分别对照接口响应与顶部栏的名称、点位、涨跌幅和方向，并检查控制台及请求。 |
+
+### 验收记录
+
+- 回归测试确认旧代码在指数数据等待中仍显示 10 条示例。修复后覆盖自选到详情跳转、指数请求等待和返回、HTTP 失败、行情字段全空，以及个股请求失败时指数仍独立显示。
+- 前端类型检查和构建通过。全量前端测试 187 个文件、1,618 项通过。文档完整性和差异空白检查通过。
+- 主要指数后端路由测试 2 项通过。Chromium 使用构建产物、隔离 PostgreSQL 和真实主要指数路由，从默认自选页点进 `000001.SZ`。两页各发起一次默认主要指数请求，均返回 HTTP 200 和测试交易日 `2026-09-02`。两页各 10 条指数的名称、点位、涨跌幅和方向与各自响应一致，未发现 API 失败或浏览器控制台错误。个股日 K 的指标值由测试夹具提供，本轮浏览器验收范围是顶部指数取数与展示。

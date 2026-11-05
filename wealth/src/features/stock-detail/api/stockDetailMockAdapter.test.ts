@@ -7,7 +7,6 @@ describe("getStockDetailViewModel", () => {
     const viewModel = getStockDetailViewModel("603806.SH");
 
     expect(viewModel.stock.tsCode).toBe("603806.SH");
-    expect(viewModel.topMarketTickers.length).toBeGreaterThanOrEqual(5);
     expect(viewModel.periods.map((period) => period.label)).toEqual([
       "分时",
       "日K",

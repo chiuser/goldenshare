@@ -249,6 +249,10 @@
   </head>
   <body>
     <main>
+      <section id="top-market-indices-bugfix-20261105">
+        <h2>2026-11-05 股票详情页顶部指数行情修复</h2>
+        <p>股票详情接入真实个股数据后，顶部指数仍引用首版示例。默认访问时改为从现有主要指数接口独立取数，复用自选页的请求与展示规则。指数数据等待中、为空或读取失败时，指数区域留空。实施与验收见<a href="./stock-detail-implementation-design-v1.md#top-market-indices-bugfix">技术实施方案第 11 节</a>。</p>
+      </section>
       <section id="daily-limit-alignment-20261104">
         <h2>2026-11-04：仅对齐股票日线API数量</h2>
         <p>管理员已批准股票日线 <code>GET /api/v1/wealth/market/stock-detail/kline</code> 默认limit=500、合法范围1～500；超限仍按原参数错误HTTP 400、code=400001，不截断、不拆分计算，不增加公开字段。页面现有显式300请求仍合法，本轮不修改前端、Figma、请求时机或其他API。相关代码与局部验证见<a href="../../../../docs/architecture/technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html">股票日线专项LLD</a>，数量对齐不等于内核或产品整体已验收。</p>

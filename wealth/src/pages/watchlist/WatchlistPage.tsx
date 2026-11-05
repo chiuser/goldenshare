@@ -6,7 +6,7 @@ import { useWatchlistGroupsController } from "../../features/watchlist/model/use
 import { useWatchlistItemsController } from "../../features/watchlist/model/useWatchlistItemsController";
 import { useWatchlistEditController } from "../../features/watchlist/model/useWatchlistEditController";
 import { mutationLocked, watchlistError } from "../../features/watchlist/model/watchlistTypes";
-import { useWatchlistTickers } from "../../features/watchlist/model/useWatchlistTickers";
+import { useMajorIndexTickers } from "../../features/major-indices/model/useMajorIndexTickers";
 import { AddWatchlistDialog } from "../../features/watchlist/ui/AddWatchlistDialog";
 import { WatchlistTabs } from "../../features/watchlist/ui/WatchlistTabs";
 import { WatchlistEditToolbar } from "../../features/watchlist/ui/WatchlistEditToolbar";
@@ -31,7 +31,7 @@ export function WatchlistPage({
   const ready = groups.state.kind === "ready" ? groups.state : null;
   const group = ready?.groups.find(g => g.id === ready.currentGroupId);
   const edit = useWatchlistEditController(groups.currentGroupId, items.items.map(row => row.membershipId), ready?.rules.maxBatchMemberships ?? 0);
-  const tickers = useWatchlistTickers(tradeDate);
+  const tickers = useMajorIndexTickers(tradeDate);
   const [addOpen, setAddOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [feedback, setFeedback] = useState("");

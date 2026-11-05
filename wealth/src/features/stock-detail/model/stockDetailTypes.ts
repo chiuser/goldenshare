@@ -1,5 +1,4 @@
 import type { MarketDirection } from "../../../shared/model/market";
-import type { TopMarketTicker } from "../../../shared/ui/top-market-bar/topMarketBarTypes";
 
 export type StockPeriodKey =
   | "timeShare"
@@ -106,7 +105,6 @@ export interface StockMoneyFlowRow {
 }
 
 export interface StockDetailViewModel {
-  topMarketTickers: TopMarketTicker[];
   stock: StockIdentity;
   quote: StockQuoteSnapshot;
   periods: StockPeriodOption[];

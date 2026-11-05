@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
-import { fetchMarketMajorIndices } from "../../major-indices/api/marketMajorIndicesApi";
+import { fetchMarketMajorIndices } from "../api/marketMajorIndicesApi";
 import {
   buildMajorIndicesViewModelFromApi,
   buildTopMarketTickersFromMajorIndices,
-} from "../../major-indices/api/marketMajorIndicesAdapter";
+} from "../api/marketMajorIndicesAdapter";
 import type { TopMarketTicker } from "../../../shared/ui/top-market-bar/topMarketBarTypes";
 
-export function useWatchlistTickers(tradeDate?: string) {
+export function useMajorIndexTickers(tradeDate?: string) {
   const [tickers, setTickers] = useState<readonly TopMarketTicker[]>([]);
   useEffect(() => {
     const controller = new AbortController();

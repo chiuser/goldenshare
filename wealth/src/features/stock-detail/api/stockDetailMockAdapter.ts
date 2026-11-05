@@ -107,18 +107,6 @@ export function getStockDetailViewModel(tsCode: string): StockDetailViewModel {
   const changePct = round((change / previous.close) * 100);
 
   return {
-    topMarketTickers: [
-      { code: "000001.SH", name: "上证指数", point: 4177.92, pct: -1.52, direction: "DOWN" },
-      { code: "399001.SZ", name: "深证成指", point: 15745.74, pct: -2.14, direction: "DOWN" },
-      { code: "399006.SZ", name: "创业板指", point: 3951.14, pct: -2.16, direction: "DOWN" },
-      { code: "000688.SH", name: "科创50", point: 1725.09, pct: -2.55, direction: "DOWN" },
-      { code: "000300.SH", name: "沪深300", point: 4914.6, pct: -1.68, direction: "DOWN" },
-      { code: "000905.SH", name: "中证500", point: 8670.16, pct: -2.78, direction: "DOWN" },
-      { code: "000852.SH", name: "中证1000", point: 8778.71, pct: -1.97, direction: "DOWN" },
-      { code: "899050.BJ", name: "北证50", point: 1384.78, pct: -3.73, direction: "DOWN" },
-      { code: "000510.SH", name: "中证A500", point: 6182.97, pct: -2.14, direction: "DOWN" },
-      { code: "000016.SH", name: "上证50", point: 2996.57, pct: -1.66, direction: "DOWN" },
-    ],
     stock: {
       tsCode,
       name: "福斯特",

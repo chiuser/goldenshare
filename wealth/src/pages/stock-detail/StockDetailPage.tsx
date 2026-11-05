@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { fetchStockNineTurnSeries } from "../../features/nine-turn/api/nineTurnApiClient";
 import type { NineTurnPeriod } from "../../features/nine-turn/api/nineTurnApiTypes";
@@ -7,7 +7,7 @@ import { useNineTurnSeriesRegistry } from "../../features/nine-turn/controller/u
 import { fetchStockDetailKline, fetchStockDetailPageInit } from "../../features/stock-detail/api/stockDetailApiClient";
 import { fetchStockMinuteBars, fetchStockMinuteIndicators } from "../../features/stock-detail/api/stockMinuteApiClient";
 import { buildStockMinuteChartViewModel, minuteFrequencyFromPeriodKey } from "../../features/stock-detail/api/stockMinuteViewModelAdapter";
-import { getStockDetailViewModel } from "../../features/stock-detail/api/stockDetailMockAdapter";
+import { useMajorIndexTickers } from "../../features/major-indices/model/useMajorIndexTickers";
 import { buildStockDetailViewModel } from "../../features/stock-detail/api/stockDetailViewModelAdapter";
 import { StockChartWorkspace } from "../../features/stock-detail/chart/StockChartWorkspace";
 import { StockMinuteChartWorkspace } from "../../features/stock-detail/chart/StockMinuteChartWorkspace";
@@ -49,7 +49,7 @@ const loadStockNineTurnSeries: NineTurnSeriesLoader = (request, options) => {
 };
 
 export function StockDetailPage({ tsCode }: StockDetailPageProps) {
-  const scaffoldViewModel = useMemo(() => getStockDetailViewModel(tsCode), [tsCode]);
+  const tickers = useMajorIndexTickers();
   const [viewModel, setViewModel] = useState<StockDetailViewModel | null>(null);
   const [pageInit, setPageInit] = useState<StockDetailPageInitResponseDto | null>(null);
   const [activePeriod, setActivePeriod] = useState<StockPeriodKey>("day");
@@ -214,7 +214,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
           activeNav="market"
           onNavigate={handleTopNavigate}
           onTickerSelect={openIndexDetail}
-          tickers={scaffoldViewModel.topMarketTickers}
+          tickers={tickers}
         />
         <section className="stock-detail-state-panel" aria-label={loadState === "loading" ? "股票详情加载中" : "股票详情加载失败"}>
           <div className="state-title">{loadState === "loading" ? "正在加载股票详情" : "股票详情加载失败"}</div>
@@ -231,7 +231,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
         activeNav="market"
         onNavigate={handleTopNavigate}
         onTickerSelect={openIndexDetail}
-        tickers={viewModel.topMarketTickers}
+        tickers={tickers}
       />
       <StockBreadcrumbActionBar onReturnHome={returnToWealthOverview} stock={viewModel.stock} />
       <StockChartToolbar

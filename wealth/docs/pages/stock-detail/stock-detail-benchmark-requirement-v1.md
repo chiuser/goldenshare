@@ -234,3 +234,7 @@
 4. 前端股票详情页已切为 `page-init -> kline` 两段加载，loading/error 状态不再展示 mock K 线或 mock 盘口摘要。
 5. 未接真实数据的右侧资金、板块、用户动作仍保留独立 mock / disabled / toast，不与真实日 K 数据混入同一事实对象。
 6. 前端与后端均已清除股票详情真实数据链路中的 `MA15/MA120` 依赖，仅展示 `MA5/MA10/MA20/MA30/MA60/MA90/MA250`。
+
+## 10. Bugfix（2026-11-05）股票详情页顶部指数行情
+
+默认打开股票详情页时，顶部指数栏显示现有主要指数接口返回的日频行情。指数数据尚未返回、为空或读取失败时，指数区域留空，导航和个股内容按各自状态显示。见[技术实施方案第 11 节](./stock-detail-implementation-design-v1.md#top-market-indices-bugfix)。

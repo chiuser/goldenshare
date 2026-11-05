@@ -1,9 +1,45 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AuthProvider } from "../../features/auth/model/AuthProvider";
+import type { MarketMajorIndicesResponse } from "../../features/major-indices/api/marketMajorIndicesApi";
+import { deferred, item, page, rules } from "../../features/watchlist/test/watchlistFixtures";
 import { WealthRouter } from "../../app/routes/WealthRouter";
 import { StockDetailPage } from "./StockDetailPage";
+
+const MAJOR_INDICES_PATH = "/api/v1/wealth/market/major-indices";
+const MAJOR_INDEX_CODES = [
+  "000001.SH", "399001.SZ", "399006.SZ", "000688.SH", "000300.SH",
+  "000905.SH", "000852.SH", "899050.BJ", "000510.SH", "000016.SH",
+];
+
+function majorIndicesResponse(hasQuotes = true) {
+  return Response.json({
+    tradingDay: {
+      tradeDate: "2026-09-02",
+      prevTradeDate: "2026-09-01",
+      market: "CN_A",
+      isTradingDay: true,
+      sessionStatus: "CLOSED",
+      timezone: "Asia/Shanghai",
+    },
+    pageStatus: { status: hasQuotes ? "PARTIAL" : "EMPTY", displayText: hasQuotes ? "部分指数数据缺失" : "模块数据为空" },
+    majorIndices: {
+      definition: { definitionKey: "CN_A_MAJOR_INDICES_V1", version: "1", fixedCount: 10 },
+      // The API retains all configured rows and uses nulls for missing quotes.
+      rows: MAJOR_INDEX_CODES.map((subjectCode, index) => {
+        const hasQuote = hasQuotes && index === 0;
+        return {
+          subject: { subjectType: "index", subjectCode, subjectName: index === 0 ? "上证指数" : null },
+          point: hasQuote ? 3825.76 : null,
+          change: hasQuote ? 12.3 : null,
+          changePct: hasQuote ? 0.45 : null,
+          direction: hasQuote ? "UP" : "UNKNOWN",
+        };
+      }),
+    },
+  } satisfies MarketMajorIndicesResponse);
+}
 
 describe("StockDetailPage", () => {
   function mockStockDetailFetch({
@@ -357,6 +393,64 @@ describe("StockDetailPage", () => {
     window.history.replaceState({}, "", "/wealth/market/overview");
   });
 
+  it("loads ticker data from the API independently after opening a stock from the default watchlist", async () => {
+    const detailFetch = mockStockDetailFetch();
+    const watchlistItem = item();
+    const watchlist = page([item(1, {
+      stock: { ...watchlistItem.stock, tsCode: "603806.SH", name: "福斯特" },
+    })]);
+    const detailIndices = deferred<Response>();
+    const fetchMock = vi.fn((input: RequestInfo | URL, options?: RequestInit) => {
+      const { pathname } = new URL(String(input));
+      if (pathname.endsWith("/watchlist/groups")) {
+        return Promise.resolve(Response.json({ groups: [watchlist.group], rules }));
+      }
+      if (pathname.endsWith("/watchlist/groups/1/items")) return Promise.resolve(Response.json(watchlist));
+      if (pathname === MAJOR_INDICES_PATH) {
+        if (window.location.pathname === "/wealth/market/watchlist") return Promise.resolve(majorIndicesResponse());
+        return detailIndices.promise;
+      }
+      return detailFetch(input, options);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.history.replaceState({}, "", "/wealth/market/watchlist");
+    render(<AuthProvider><WealthRouter /></AuthProvider>);
+
+    const tickers = () => within(screen.getByLabelText("主要指数行情条"));
+    expect(await tickers().findByRole("button", { name: /上证指数/ })).toHaveTextContent("3825.76");
+    fireEvent.click(await screen.findByRole("button", { name: "603806.SH" }));
+    expect(window.location.pathname).toBe("/wealth/market/stock/603806.SH");
+    expect(screen.getByLabelText("股票详情加载中")).toBeInTheDocument();
+    expect(tickers().queryAllByRole("button")).toHaveLength(0);
+
+    expect(await screen.findByText("福斯特 603806.SH")).toBeInTheDocument();
+    expect(tickers().queryAllByRole("button")).toHaveLength(0);
+    detailIndices.resolve(majorIndicesResponse());
+    const index = await tickers().findByRole("button", { name: /上证指数/ });
+    expect(within(index).getByText("3825.76")).toHaveClass("up");
+    expect(within(index).getByText("+0.45%")).toHaveClass("up");
+    const indicesCalls = fetchMock.mock.calls.map(([url]) => new URL(String(url)))
+      .filter(({ pathname }) => pathname === MAJOR_INDICES_PATH);
+    expect(indicesCalls.map(({ search }) => search)).toEqual(["", ""]);
+  });
+
+  it.each(["failed", "empty"])("keeps stock content available when the index response is %s", async (outcome) => {
+    const detailFetch = mockStockDetailFetch();
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
+      if (new URL(String(input)).pathname === MAJOR_INDICES_PATH) {
+        return outcome === "failed" ? new Response("{}", { status: 503 }) : majorIndicesResponse(false);
+      }
+      return detailFetch(input, options);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    render(<StockDetailPage tsCode="603806.SH" />);
+
+    expect(await screen.findByText("福斯特 603806.SH")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "乾坤行情" })).toBeInTheDocument();
+    expect(within(screen.getByLabelText("主要指数行情条")).queryAllByRole("button")).toHaveLength(0);
+    expect(fetchMock.mock.calls.filter(([url]) => new URL(String(url)).pathname === MAJOR_INDICES_PATH)).toHaveLength(1);
+  });
+
   it("renders stock detail route for authenticated users", async () => {
     window.localStorage.setItem("wealth.auth.access-token", "mock-token");
     window.history.replaceState({}, "", "/wealth/market/stock/603806.SH");
@@ -556,13 +650,18 @@ describe("StockDetailPage", () => {
     });
   });
 
-  it("shows error state instead of mock quote when real api fails", async () => {
-    mockStockDetailFetch({ fail: true });
+  it("keeps index data visible when the stock API fails", async () => {
+    const detailFetch = mockStockDetailFetch({ fail: true });
+    vi.stubGlobal("fetch", (input: RequestInfo | URL, options?: RequestInit) =>
+      new URL(String(input)).pathname === MAJOR_INDICES_PATH
+        ? Promise.resolve(majorIndicesResponse())
+        : detailFetch(input, options));
 
     render(<StockDetailPage tsCode="603806.SH" />);
 
     expect(await screen.findByLabelText("股票详情加载失败")).toBeInTheDocument();
     expect(screen.getByText("接口失败")).toBeInTheDocument();
     await waitFor(() => expect(screen.queryByLabelText("K线主图")).not.toBeInTheDocument());
+    expect(await screen.findByRole("button", { name: /上证指数/ })).toHaveTextContent("3825.76");
   });
 });
