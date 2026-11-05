@@ -212,8 +212,8 @@ bootstrap先核实来源维护窗口内Prod全表实际最早至最晚日期，�
 ### 3.2 sensor按轻重顺序作决定
 
 1. 校验正式根可用、Asia/Shanghai执行日期、有效日历的开市标志及19:00～午夜窗口；执行日休市直接跳过，不发起下载或消耗补Q机会。窗口前不做重扫描。
-2. 确定今天/Q、当前已到达的固定半小时时点；按§4.2调用同一读取函数查询本数据集活动run，有则跳过该时点，不积压。这是本次评估唯一的活动任务查询，结果在本次评估中复用，构造RunRequest前不重复查。查询失败按§3.5不能确认当前slot处理，关闭当前slot但不消耗Q实际下载机会。
-3. 若Q应有代码仍缺、覆盖不能判断或日阶段失败且不能证实已齐，先检查是否已实际使用D补Q的一次机会。已使用且仍有这些问题则本执行日停止自动推进，不能改选今天；仅历史阶段失败不等于Q日覆盖失败。
+2. 确定今天/Q和当前固定时点，按§3.5判断该时点是否已提交或已因活动任务跳过。仍可提交时，按§4.2查询本数据集活动run，有则跳过并记录该时点。这是本次评估唯一一轮活动任务查询，构造RunRequest前不再重复。查询失败按§3.5关闭当前slot，不消耗Q实际下载机会。
+3. Q沿用已有DG日覆盖结论。缺少该结论时，按§10.6读取首次启用前补录的覆盖结论。若Q应有代码仍缺、覆盖不能判断或日阶段失败且不能证实已齐，先检查是否已实际使用D补Q的一次机会。已使用且仍有这些问题则本执行日停止自动推进，不能改选今天；仅历史阶段失败不等于Q日覆盖失败。
 4. Q需要补且机会未用，检查Q及其P股票复权因子Raw因子真实就绪；未就绪只等待，不能下载Q，也不能绕过Q去今天。Q日阶段满足条件后可以考虑今天，不能仅因历史pending重新补Q日数据；原目标日pending通过§4.1手动入口处理，不把它显示成代码覆盖不足。
 5. 今天的候选同样先核T/P因子；尚缺股票、覆盖未知或本目标T明确历史待处理，可按§6.1失败矩阵进入后续时点；历史永久失败不能仅因pending而继续请求。代码已齐且必要历史已处理时，按§3.6在合法时点评估复权因子输入是否修订。未修订则跳过，修订后仍提交同一个日更job。不能用股票已齐抹掉历史未完成。
 6. 构造一个T的RunRequest，写计划日期/时点、用途为补Q或更新今天、前日业务attempt固定为1；sensor不取技术因子、不保存变化清单。
@@ -240,20 +240,21 @@ bootstrap先核实来源维护窗口内Prod全表实际最早至最晚日期，�
 
 前日未开始后的重新发起采用以下具体规则，不靠重发已用key：
 
-1. 每固定时点最多提交一个自动run；读取本job、本执行日D、前日目标Q的自动发起事实，至多11条检测超过10时点异常。RunsFilter使用job/时间及原生tags：PARTITION_NAME_TAG=Q.isoformat()、SENSOR_NAME_TAG=raw_tushare_stk_factor_pro_update_job_sensor，常量从dagster._core.storage.tags导入。Dagster的sensor创建run流程自动写入该sensor标签，本数据集不新增自定义tag。再核配置D/T/purpose/slot及parent/root；bootstrap_supplement和其人工重执行无此sensor标签，不能挤掉11条内的自动事实。普通日更的人工重新执行即使继承sensor标签，也不计新submission/机会；超过上界不能确认时保守停止，不猜开始次数为0。活动任务及最新同T结果查询不加sensor过滤，仍必须看见所有人工run。不能用任意run_config SQL过滤，具体查询见§6.1。
+1. 从§3.5已经取得的当日自动发起记录中取`previous_day`且目标为Q的记录，用于确认既有提交和计算提交序号。只有需要判断补Q时才进一步读取这些run的开始或预检观察，复用同一批run，不另查一次提交列表。人工重新执行不计新submission或自动下载机会。
 2. 任何active run先占位。任何匹配的持久“开始下载”即表明业务一次已用，无论run最终状态和cursor内容，都不再自动补Q。不能遍历全量run历史。
 3. 只有全部既有terminal发起都明确记录`PRECHECK_NO_DOWNLOAD`、且没有开始事实时，才允许在下一未用时点再次发起。证据缺失、进程失联或无法确认是否下载一律不猜0次，报告人工处理。
 4. `submission_no`按已有持久发起单调+1，至多10；业务`attempt=1`不变，key的`attempt_scope`使用D加提交序号。同slot不重发，不使用随机key、业务attempt=2或每次tick自增；cursor不是序号和机会的权威。
 5. job预检确认上游未就绪时，生成器yield含`PRECHECK_NO_DOWNLOAD`、D/Q/slot/submission_no的观察并正常结束，不产生数据可用物化。写不成该结果的终态不得当成明确未用。正式实现以隔离测试证明事件持久顺序和重启恢复。
 
-### 3.5 用既有持久tick保留跳过决定
+### 3.5 用既有运行和评估记录去重
 
-只复用Dagster原生sensor评估记录；不新建表、文件、锁，不调用create_tick/update_tick。沿现有`build_sensor_cursor/build_cursor_details`，在`details.runtime_state`携带`slot_decision_version:int=1, execution_day:ISO日期, closed_slots:list[int]`。closed_slots去重升序、至多10项、每项精确int且0～9；现有builder会移除空集合，合法同日/版本下缺closed_slots按空清单解析。中文SkipReason仅供展示，不能解析中文决定是否再发。
+**已提交看run。** 在选择Q或今天之前，按§6.1一次读取本执行日、本sensor提交的两个目标日期的日更run。只要有原始自动run的`execution_day`及`scheduled_slot`对应当前时点，该时点已用，无论run是否已经结束、目标后来是否改变。两个目标各自的run key继续用于Dagster原生去重。已有run同时供§3.4判断补Q机会，实际用过下载仍以开始观察为准。
+
+**因活动任务跳过看tick。** 复用Dagster原生评估记录，沿现有`build_sensor_cursor/build_cursor_details`，在`details.runtime_state`携带`slot_decision_version:int=1, execution_day:ISO日期, closed_slots:list[int]`。closed_slots记录因活动占用或无法确认当前时点而关闭的slot，去重升序、至多10项、每项精确int且0～9。合法同日/版本下缺closed_slots按空清单解析。返回RunRequest时沿用已有集合，提交事实由run记录承担。中文SkipReason只用于展示。应用不调用create_tick/update_tick，不新建表、文件或锁。
 
 本机Dagster普通sensor会把SensorResult的cursor同时保存到其已完成tick，清空当前sensor cursor不删除旧tick。每次评估均携带当天已关闭slot的并集，以下原生接口集中在本数据集sensor内的`restore_stk_factor_pro_slots(context, execution_day:date, slot:int, now:datetime)`；返回`tuple[frozenset[int], bool]`，第二项表示当前slot可以继续选择，false仍须正常返回SensorResult以持久当前决定。
 
 ```python
-from dagster._core.definitions.run_request import InstigatorType
 from dagster._core.remote_origin import RemoteRepositoryOrigin
 from dagster._core.scheduler.instigation import TickStatus
 from dagster._serdes import create_snapshot_id
@@ -272,14 +273,16 @@ ticks = context.instance.get_ticks(
 
 判定顺序固定：
 
-1. 正常解析当前cursor的同日集合；用`get_tick_retention_settings(InstigatorType.SENSOR)`确认SUCCESS/SKIPPED有效保留期至少1日或-1，再按上例只读最近一条已完成tick。当前STARTED不在查询状态中，不读取第二条绕过最近坏记录。
+1. 正常解析当前cursor的同日集合。当前slot已关闭则直接跳过，否则按上例只读最近一条已完成tick。当前STARTED不在查询状态中，不读取第二条绕过最近坏记录。
 2. 最近tick为本数据集、本版本、同D时，与当前cursor集合取并集；窗口前记录携带前一日集合可丢弃。窗口内却日期不符、缺版本、结构坏或计数越界，视为当前slot不能确认。
 3. 本日没有旧完成tick且`context.last_tick_completion_time`也不在D日19:00之后，是首次合法窗口评估，允许正常选择；不能因cursor为空就拒绝首次运行。若已有窗口内完成时间却查不到记录，则不能猜当前slot未关闭。
-4. 身份/读取/保留期故障，或上述不能确认时，只把当前slot加入一个本版合法同日cursor，并正常return SKIPPED说明原因；不能反复raise使修正后的cursor始终无法落库。以后同slot仍关闭，下一slot可读到合法新记录继续判断；存储持续不可读时继续保守跳过。不得把一条旧坏记录永久当成全日故障。
-5. 集合已含当前slot，或同slot已有持久run，直接跳过。活动run占用本数据集时把当前slot加入集合，跳过后同slot不再开放。已实际提交RunRequest也将当前slot加入集合；原生run_key和持久run仍负责提交去重。
+4. 读取失败或上述记录无法确认时，只关闭当前slot，正常返回SKIPPED并保存原因和同日cursor。下一slot读到有效记录后可继续判断。
+5. 恢复后集合已含当前slot，或本时点已有持久run，直接跳过。两项均未关闭当前slot时再查活动run；有活动run则把当前slot加入集合。
 6. 只是上游尚未就绪、尚未提交且无活动占用时，不关闭当前slot，允许同slot内以后评估继续等待。所有分支均用现有cursor factory保存合法同日小集合；过去slot不回放，补Q机会仍以run/开始事实为准。
 
-最小隔离测试：19:30活动占用→SKIPPED持久→清cursor→19:45原run已结束仍不发；首次19:00允许；同slot上游后来就绪允许；坏记录只关闭当前slot、下一slot可正常选；同名不同location不混；读取失败和保留期不足不重复提交。至少用临时instance真实保存/读取tick一次，不能只mock返回列表。
+按§10.6在启用前检查一次`get_tick_retention_settings(InstigatorType.SENSOR)`，确认SUCCESS/SKIPPED至少保留1日或为-1（不清理），覆盖本执行日内的恢复范围。运行时无需重复检查保留期。
+
+最小隔离测试覆盖两条路径。19:00补Q已提交并结束，清cursor且没有该次提交的已完成tick，Q已齐也不能在19:00改发今天，19:30可选今天。19:30因活动任务而跳过，真实保存SKIPPED评估记录，清cursor后在19:45即使原run已结束仍跳过。另覆盖首次合法评估、同slot上游后来就绪、坏记录只关闭当前slot、同名不同location隔离、人工重执行不计新提交，以及启用前保留期不足时保持停止。
 
 ### 3.6 当晚复权因子修订后的自动追修
 
@@ -933,7 +936,7 @@ run_id必须等于当前执行身份；CANCELING/CANCELED返回True，STARTING/S
 
 `read_stk_factor_pro_failure(instance, run_id, *, known_pg:dict)`仅对已验证本数据集run调用`event_log_storage.get_records_for_run(run_id, of_type=STEP_FAILURE, limit=1, ascending=False)`，从`step_failure_data.user_failure_data.metadata`读取上述字段，严格检查类型和目标身份。缺记录、缺retryable、错类型、run异常退出或取消但原因未知均按不可自动重试处理，不默认true。直接参考现有`moneyflow_failure_retryable()`的读取方法，不改资金流代码。
 
-更新sensor选择T后先调用§6.2读取同T阶段结果。自动机会查询固定get_run_records(RunsFilter(job_name=update_job, tags={PARTITION_NAME_TAG:T.isoformat(), SENSOR_NAME_TAG:update_sensor_name}, created_after=D零点, created_before=D+1零点), limit=11, order_by="create_timestamp", ascending=False)，update_sensor_name为§2.1固定名。逐条按八字段解析并仅统计自动用途，额外bootstrap字段必须None；原生人工重新执行不增加自动机会。仅开发阶段的初始化人工run不带sensor身份，不挤占11条；标签不能单独授权。此查询不代替看全部活动/最新同T任务，后两者不能加sensor过滤。失败解除沿精确run引用读取，不到新D就忘旧T失败或扫描全史。
+更新sensor在选择目标之前按§3.5调用一次`get_run_records(RunsFilter(job_name=update_job, tags={PARTITION_NAME_TAG: [D.isoformat(), Q.isoformat()], SENSOR_NAME_TAG: update_sensor_name}, created_after=day_start_utc, created_before=next_day_start_utc), limit=11, order_by="create_timestamp", ascending=False)`。两个边界先按上海自然日取零点，再转UTC传入，Dagster的SQL存储会去掉查询参数的时区。使用§2.1的job、sensor名称和Dagster原生标签。原始自动run须由该sensor发起，按八字段配置核对D、目标、用途、slot，且无parent/root。人工重新执行即使继承sensor标签也不计新提交。一天最多10个时点，两目标合计至多10个原始自动run。第11条用于发现查询可能截断，无法确认时按§3.5关闭当前slot。该批记录同时供§3.4筛出补Q的提交，不重复查询。活动任务和最新同T结果仍分别按§4.2、§6.2读取，包含人工run。失败解除沿精确run引用读取。
 
 每个实际经过的阶段以`AssetObservation(asset_key=Raw, partition=T, metadata=...)`保存固定摘要；开始和预检观察也按§6.2转交完整现有结果：`phase_result_version=1, observation_kind(day/history), target_trade_date, phase, result(completed/waiting/no_action), producer_run_id, recovery_of_run_id|null, pending_plan_refs:tuple[RecordRef,...], successful_publication_refs:tuple[RecordRef,...], unresolved_day_failure_run_id|null, unresolved_history_failure_run_id|null, day_source_digest|null, source_complete_digest|null, publication_complete_digest|null, history_plan_ref:RecordRef|null, history_ranges_ref:RecordRef|null, raw_coverage:StkFactorProRawCoverage|null, target_silver:StkFactorProTargetSilver|null, bootstrap_context:StkFactorProBootstrapContext|null, bootstrap_coverage_refs:tuple[tuple[Date,str,Digest],...], bootstrap_summary_ref:{relative_path:str,file_sha256:Digest}|null, prior_day_result:{run_id,storage_id}|null, prior_history_result:{run_id,storage_id}|null`。字段全有，可空值显式null；record_version/日期/计数按§5.4，storage_id是正精确int。bootstrap_context只用于开发阶段上线前初始化补数，按§10.5.6核验；上线后的普通日更/重新执行/历史repair固定为null，相应bootstrap_coverage_refs为空tuple、bootstrap_summary_ref为None，不读取或更新导入记录，也不因旧观察含Context而转入初始化用途。日阶段source_complete_digest始终null，day_source_digest仅在本次会话及当前U通过后填写；它是摘要，不包含日下载行或日下载文件引用。历史day_source_digest始终null、完整源形成后才填source_complete_digest。日阶段观察保存本run完整计划引用和实际覆盖结果；repair观察保留原授权及当前原T覆盖。失败未形成新计划时引用为null并说明失败阶段，不能伪造计划。
 
@@ -2113,7 +2116,11 @@ evaluate在本节仅表示现有最终记录构造函数：输入原SourceComple
 | 物理bootstrap | 沿§10.1～10.5忠实导入；来源完整性、源到Raw及Raw到Silver261字段核对均有完整事实；合法Prod原缺口不阻止其余日期导入。 | 传输/文件错误按原规则停；市场缺口/依据未知记录在既有逐日统计和summary，合法已导入文件保留且可读。不因缺口删文件或自动补采。 |
 | 批准范围完整性审计 | 同operation原导入事实完整；当前result/summary、文件/依据身份匹配，所有缺口/未知/当前不可核验日期为空且total_missing_count=0。原导入对账及当前两层check有效，允许当前数量不同于原source_rows；extra已解释。另核本operation已产生的必要历史计划无未完成范围/未解除失败，完成或确实无历史的阶段事实有效。 | 缺失/未知/两层未完成、当前身份不符或必要历史未完均不放行。即使T已补齐、summary缺口0，后续历史失败仍阻止补绿/启用；复用已有阶段/plan/完整发布事实，不重算全历史。补数收尾更新现有统计，覆盖绿灯不冒充历史完成。 |
 | 历史事件补录 | 引用上述同范围最新有效result/summary及当前正式文件身份；先做只读事件计划，列资产/分区、已存在、应补、冲突及精确写入上界，管理员另批后写入。补数任务已产生且与当前文件绑定的物化/check直接使用，只补仍缺失的合法事件；先物化后check。原源0但已补出数据的日期按当前文件处理，仍无文件日期不造事件。 | 有缺口/未知不补绿色；旧失败、旧文件或metadata冲突不能覆盖掩盖为通过，也不能因原source_rows少于当前数量而拒绝合法补数。写入失败保留已成功事件，按已核缺失清单继续并读回，不重导业务文件、不自动启用。 |
-| 自动化启用 | 当前数据、同operation必要历史完成及事件补录三类依据都仍有效，全部应补事件已关联核对、无活动修复/发布；管理员按§4.2明确启用分区/日更sensor。 | 任一事件缺失/失败/绑定不明或补数必要历史pending/失败，均STOPPED；不能只凭文件存在、缺口0、run结束或summary已保存启用。 |
+| 自动化启用 | 当前数据、同operation必要历史完成及事件补录三类依据都仍有效，全部应补事件已关联核对、无活动修复/发布。启用更新sensor前按§3.5核对已完成tick的保留期；管理员按§4.2明确启用分区/日更sensor。 | 任一事件缺失/失败/绑定不明或补数必要历史pending/失败，均STOPPED；保留期不足时更新sensor继续STOPPED。不能只凭文件存在、缺口0、run结束或summary已保存启用。 |
+
+**首次启用的前日覆盖交接。** 事件补录计划按首次启用的上海日期，从SSE日历确定其上一交易日Q。在上线前补数和覆盖验收完成后，复用该日已验收的逐日覆盖结果。若Q已有有效日覆盖记录，直接沿用。否则，Q缺少Raw物化、且既有逐日结果已确认齐备时，在补录Q的首条`raw_tushare_stk_factor_pro`物化中写入`goldenshare/raw_coverage_complete=True`，沿用该物化的分区和文件SHA标识。补录读回时同时核对这个字段；首次启用日变化时按实际启用日核对Q。已有物化仍按上表处理，缺少覆盖交接时在补录计划中列明，不为补字段重复生成物化。覆盖结论只取已有结果，不重算、不另存文件，也不增加事件条数。
+
+更新sensor先用§6.2取得Q的日覆盖结果。只有`raw_coverage is None`且无未解除的日阶段失败时，才按Raw资产和Q分区用`fetch_materializations(..., limit=1, ascending=True)`取首条物化，直接读取上述字段。取首条可在后续历史回刷产生新物化后继续读到原覆盖结论。字段为`True`时只判定Q股票覆盖齐备，历史处理仍按既有规则判断；其余情况沿用覆盖未知的规则。sensor不读取bootstrap目录、不扫描其他分区，也不因正常历史回刷改了文件摘要而重算Q覆盖。
 
 事件阶段沿现有[性能治理§7](dagster-data-pipeline-performance-governance.md#7-dagster-event-与-runless-event-规则)使用有界批量读取/补录和写后核验；不在日常sensor逐日扫描历史。它的正式写入实现和执行清单必须在进入该阶段前完成独立审查和批准，物理bootstrap交付只输出可接用的文件及审计事实，不自行增加事件job、状态表或启用配置。事件补录及启用的必要验证为：物理导入成功但仍缺一股/有一个未知日期时均禁止补绿及启用；审计已过但少一个历史check时仍禁止启用；两者范围/身份均匹配且事件已完整读回后才可按批准启用。
 
@@ -3453,19 +3460,21 @@ Ruff、两份文档完整性和git diff --check通过。CodeGraph在修改前核
 
 ### 20.4 第3步：更新sensor选择、时间和持久去重
 
-在`defs/sensors/raw_tushare_stk_factor_pro_update_job_sensor.py`定义`raw_tushare_stk_factor_pro_update_job_sensor`，绑定`raw_tushare_stk_factor_pro_update_job`，使用`STK_FACTOR_PRO_UPDATE_SENSOR_INTERVAL_SECONDS`和`STOPPED`。先按§3.2取得上海日期、日历、当前合法slot。评估只取得今天、Q及选择Q时所需的上一交易日，后续步骤复用日期。沿§3.5读取当前cursor和本定义本执行日最近一条已完成tick。当前slot已关闭则直接结束。仍可提交时调用一次`read_stk_factor_pro_other_active_runs`，使用§4.2的五种活动状态，由该函数分别对两个job执行一次`limit=2`查询。已有活动run占用时关闭当前slot，同一评估不再查第二轮。
+在`defs/sensors/raw_tushare_stk_factor_pro_update_job_sensor.py`定义`raw_tushare_stk_factor_pro_update_job_sensor`，绑定`raw_tushare_stk_factor_pro_update_job`，使用`STK_FACTOR_PRO_UPDATE_SENSOR_INTERVAL_SECONDS`和`STOPPED`。先按§3.2取得上海日期、日历、当前合法slot。评估只取得今天、Q及选择Q时所需的上一交易日，后续步骤复用日期。按§3.5从cursor和最近一条已完成tick恢复跳过决定。时点尚未关闭时，按§6.1一次读取今天和Q的持久提交，当前slot已有自动run则直接结束。仍可提交时调用一次`read_stk_factor_pro_other_active_runs`，使用§4.2的五种活动状态，由该函数分别对两个job执行一次`limit=2`查询。已有活动run占用时关闭当前slot，同一评估不再查第二轮。
 
-按§3.2的顺序处理Q与今天。每个评估为已选日期共用`known_pg`和`known_records`。用§6.2的日覆盖、Silver及历史结果决定目标需要处理的阶段，按§3.4只在需判补Q时读取既有开始和提交事实。Q补采已实际使用且仍未齐备时跳过今天。Q日已齐而仅历史未完成时可继续选择今天。目标已登记才可提交。用`raw_tushare_adj_factor_ready_for_trade_date`按需核目标T/P，并按日期复用本轮结果。今天有缺口或历史待处理时用正常选择分支，今天原本可跳过时才按§3.6比较因子摘要。上游尚未就绪不关闭当前slot，留给本slot后续合法评估。
+按§3.2的顺序处理Q与今天。每个评估为已选日期共用`known_pg`和`known_records`。用§6.2的日覆盖、Silver及历史结果决定目标需要处理的阶段；首次启用的Q覆盖按§10.6交接。需判补Q机会时复用已取得的提交记录，按§3.4读取相应run的开始或预检观察。Q补采已实际使用且仍未齐备时跳过今天。Q日已齐而仅历史未完成时可继续选择今天。目标已登记才可提交。用`raw_tushare_adj_factor_ready_for_trade_date`按需核目标T/P，并按日期复用本轮结果。今天有缺口或历史待处理时用正常选择分支，今天原本可跳过时才按§3.6比较因子摘要。上游尚未就绪不关闭当前slot，留给本slot后续合法评估。
 
 `select_stk_factor_pro_request`按§2.4返回单个`StkFactorProRunInput`或空结果及本次cursor摘要。外层使用`build_asset_update_run_key`或`build_repair_attempt_run_key`按§3.3生成key，八字段配置由既有本数据集合同构造，再由`build_run_request`生成至多一条RunRequest。cursor使用现有`build_sensor_cursor`及`build_cursor_details`，按§3.5保存已关闭slot。业务阶段及Q实际下载机会从已有Dagster记录判断。更新sensor不注册分区，不下载、不生成历史名单、不写业务文件。
 
-**本步验收。**按已有时间常量测试18:59、19:00、23:30、00:00、休市、周一补周五、运行中占用下一slot、先补Q后下一合法slot可选今天。覆盖预检未下载、实际已用一次、Q仍缺保护今天、仅Q历史失败、T/P未就绪后同slot就绪、目标尚未登记、今天仍待刷及历史永久失败。输入未变跳过，T或P修订提交相同日更job。同一slot复评不重复提交，清cursor后复用真实持久tick和原生run记录，不重获Q机会。证明队列等待跨午夜的自动run开头零下载，午夜前已开始的run可结束。§6.2的较新repair失败继续供自动选择使用。
+**本步验收。**按已有时间常量测试18:59、19:00、23:30、00:00、休市、周一补周五。按§3.5分别证明清cursor后，已结束的补Q任务仍占用原slot，因活动任务跳过的slot仍保持关闭，下一合法slot可选今天。覆盖预检未下载、实际已用一次、Q仍缺保护今天、仅Q历史失败、T/P未就绪后同slot就绪、目标尚未登记、今天仍待刷及历史永久失败。输入未变跳过，T或P修订提交相同日更job。证明队列等待跨午夜的自动run开头零下载，午夜前已开始的run可结束。§6.2的较新repair失败继续供自动选择使用。
+
+首次启用的隔离用例用临时实例保存Q的补录物化。Q无日覆盖记录时，凭物化中的已验收结论直接评估今天；后来新增Q的历史回刷物化，结论仍可读。仅另一日期有结论或Q物化缺字段时，Q仍为覆盖未知。已有Q日覆盖记录时，额外物化查询为0，后续日覆盖出现缺口也以该记录为准。
 
 ### 20.5 第4步：隔离串联、成本和读回
 
 使用临时Dagster实例、模拟上海时钟、第五批保存的小样本及定向构造的因子修订，串联实际定义。分区登记后用实际RunRequest配置执行日更。至少持久化并重新读取一次更新sensor的真实已完成tick。
 
-按分支记录日历查询、活动任务、Q机会、tick、目标日结果和上游就绪的实际调用数。活动任务最多两个`limit=2`查询，最近完成tick至多一条，Q候选记录沿§3.4至多11条。每个必要T的结果沿§6.2只读一条入口和至多两个直接阶段观察，已取得的run按身份复用。只有今天原本可跳过时另读一份小计划及至多两份因子文件，无历史Parquet读取和起点查询。逐分支记录耗时，与§11.1的单次评估5秒目标比较。job侧单列正常、失败后全范围新下载及最终读回的请求、行数、候选、正式替换和必要读取，不通过重复扫历史或重复跑真实源测量。
+按分支记录日历查询、当日持久提交、活动任务、Q机会、tick、目标日结果和上游就绪的实际调用数。已完成tick至多查询一次、取一条。今天和Q的持久提交合计一次`limit=11`查询，时点去重与Q机会复用这批记录。活动任务最多两个`limit=2`查询。每个必要T的结果沿§6.2只读一条入口和至多两个直接阶段观察，已取得的run按身份复用。§10.6的覆盖交接至多为Q增加一次`limit=1`的Raw物化查询。只有今天原本可跳过时另读一份小计划及至多两份因子文件，无历史Parquet读取和起点查询。逐分支记录耗时，与§11.1的单次评估5秒目标比较。job侧单列正常、失败后全范围新下载及最终读回的请求、行数、候选、正式替换和必要读取，不通过重复扫历史或重复跑真实源测量。
 
 **本步验收。**用实际RunRequest证明日缺口在下一时点补入。因子修订后仍收到旧值时只保留有效日发布，待刷历史在后续slot全范围重新下载，源跟上后确认原范围Raw、Silver和对应事件均完成。手动repair只确认原授权历史，无T日发布及日阶段结果。核对实际读写和上述调用次数。
 
