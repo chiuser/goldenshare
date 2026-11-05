@@ -129,6 +129,8 @@ docs/
 - [ETF 异动监控重入方案（已合并撤销 LLD；保留现行监控/归档，不可开工）](/Users/congming/github/goldenshare/docs/ops/ops-etf-realtime-volume-anomaly-monitor-plan-v1.md)
 - [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
 - [审查中心使用与查询说明（指数激活池、板块口径与审计导航）](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
+- [审查中心功能审计（2026-10-26：页面、API、数据检查范围、自动补齐边界与测试证据）](/Users/congming/github/goldenshare/docs/ops/ops-review-center-capability-audit-20261026.md)
+- [Tushare 数据集审计与公共事实模型（HTML，2026-10-30：91 个数据集的方法参数、公共日期和每日股票交易事实、生成复用与审计组合）](/Users/congming/github/goldenshare/docs/ops/prod-dataset-audit-classification-20261030.html)
 - [日期完整性与日期对象矩阵审计说明（已合并对象矩阵及性能专项；区分现行机制、限制和历史验收）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v2.md)
 - [多源对账工具与后续需求（现行 CLI、阈值边界及未实施平台设想）](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
 - [Tushare 请求执行规则阅读入口（旧逐数据集表已退出维护；保留特殊规则去向）](/Users/congming/github/goldenshare/docs/ops/tushare-request-execution-policy-v1.md)
