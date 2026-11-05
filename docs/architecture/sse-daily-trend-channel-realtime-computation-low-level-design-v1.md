@@ -131,9 +131,26 @@ observed_trade_date 来自完整源水位，不等于裁剪窗口末日；as_of_
 
 已识别异常映射不等于吞掉所有编程异常；具体 reason_code 在内部异常对象保留，不能据此声称已经有专用日志。
 
+<a id="trend-history-range-api"></a>
+### 5.1 历史页起始日期（已定稿，待实现）
+
+同一路由增加可选 `start_date`，使用 `YYYY-MM-DD` 日期，包含该日。其它请求参数和响应字段沿用 §5。省略 `start_date` 时，输出、分页和空结果说明按 §5 处理。首屏继续只发 `end_date` 和 `limit`，上证普通日线首屏显式使用500。
+
+| 情况 | 规则 |
+|---|---|
+| 两个边界均显式传入且 `start_date > end_date` | HTTP 400，复用 Quote 的 `INVALID_DATE_RANGE` 和消息「起始日期不能晚于结束日期」，在查标的、读源或计算之前返回。非法日期参数仍走现有框架 422。 |
+| 给出 `start_date`，省略 `end_date` | 有效结束日用当前完整趋势序列的末日。 |
+| 范围有趋势点 | 在现有完整趋势序列上，取包含首末日的范围内最新的至多 `limit` 根，按交易日正序返回。公式、输入历史、缓存及源水位规则沿用原实现。 |
+| 范围内可再向前取 | `meta.has_more_history=true`，`meta.next_end_date` 为本次第一根之前、仍在起始日边界内的那一根日期。仅起始日之前还有数据时返回 `false/null`。 |
+| 完整序列有数据但范围内为空 | HTTP 200，`data_status.status="EMPTY"`，`note="no_rows_in_requested_range"`，`bars=[]`。无源数据仍用原 `source_has_no_daily_rows`。两种空结果均返回 `bar_count=0`、实际首末日为 `null`、分页为 `false/null`。 |
+
+`meta.start_date/end_date` 始终是本次实际返回首末日。`data_status.observed_trade_date` 仍是完整源水位。上证普通日K以当页实际首末交易日请求历史趋势，按该页K线日期绘制。是否继续翻日K由日K回包决定。
+
+编码落点及用例见[指数详情 LLD §27](../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#sse-daily-kline-integration)。
+
 ## 6. 已接入的 Wealth 消费者
 
-指数详情 controller 仅在 capability 支持且 ts_code=000001.SH 时发请求，使用 day、endDate 和 limit=300。其他指数不增加适配。专用 adapter 将 close 和上下轨字符串转数值；非法日期、非有限值、上下轨倒置、重复/非升序日期会被过滤并计入 PARTIAL，不能把这种页面防御等同于后端接受坏源行。
+指数详情 controller 仅在 capability 支持且 ts_code=000001.SH 时发请求，使用 day、endDate。现有控制器显式传1000，上证普通日线接入按 §5.1 改为显式500。专用 adapter 将 close 和上下轨字符串转数值；非法日期、非有限值、上下轨倒置、重复/非升序日期会被过滤并计入 PARTIAL，不能把这种页面防御等同于后端接受坏源行。
 
 绘制按 close < lower 判定下方，否则判定非下方：短期红/绿、长期粉/蓝；同日连上下轨，跨日只连相邻 candle logical index 的同名轨，不跨缺口连线，采用当前点颜色。不填充区域、不绘制中轴。
 

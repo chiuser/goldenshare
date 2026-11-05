@@ -1,5 +1,7 @@
 # 指数详情页 M2 编码前门禁 v1
 
+> 上证日K接入另按[LLD §27](./index-detail-low-level-design-v1.md#sse-daily-kline-integration)推进。Figma 已确认，[上证日K 1.4.0](./index-detail-api-contract-v1.md#sse-daily-kline-api)与[趋势历史范围](../../../../docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md#trend-history-range-api)已定稿，待核定有界验收样本及读取上限后编码。下方 M2 门禁记录对应原阶段。
+
 > 2026-11-04 成分行情缺失修订：用户验收通过，需求收尾。仅成分缺行情不再触发两处提示及 PARTIAL；完整月度 A 股名单、缺失计数与贡献 `--` 保留，其它异常照常展示。本次仅收尾提交，不执行推送或部署；生产发布及同拓扑复验独立进行。实现、技术验证和用户验收记录见[LLD §25](./index-detail-low-level-design-v1.md#index-constituent-missing-quote-20261020)。
 
 > 状态：全部门禁已关闭。M1～M5-B、P10、共享图表、生产隔离、日线数据/性能、权重排序和九转 M6-D 均已验收；bars/indicators 只读正式 Gold，无 Silver fallback 或 Mock。生产分钟路由保持 404 是最终产品边界，不是待开发项。

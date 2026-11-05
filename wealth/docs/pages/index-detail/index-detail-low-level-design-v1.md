@@ -1740,7 +1740,7 @@ Chrome 实际页面 `/wealth/market/index/000001.SH?tradeDate=2026-10-19&debug=1
 | 文件 | 处理规则 |
 |---|---|
 | `src/biz/api/wealth/market/index_detail.py` | `build_router()` 接收 App 提供的上证日K执行函数。原 `/kline` 路由保留鉴权、参数、默认300和合法范围1～2000，按原规则解析并校验一次，再用标准化代码、周期和 `limit` 选分支。只有 `000001.SH/day` 且 `limit≤500` 走 App 执行函数。路由改为异步，旧分支用现有请求 Session 在线程中执行原 `build_kline()`。 |
-| `src/app/api/v1/router.py`、新增 `src/app/dependencies/index_daily_technical_indicators.py` | 装配时把执行函数和既有 DG reader 传给指数路由。执行函数从 `request.app.state.technical_indicator_runtime` 取现有运行对象，以路由开始时记录的单调时钟、当前请求的 `receive` 和一个同步工作函数进入 `execution._execute()`。工作函数返回原日K DTO，由原路由序列化。沿用现有名额、请求截止和断开后的停止处理。App 缺装配时按查询错误处理。 |
+| `src/app/api/v1/router.py`、新增 `src/app/dependencies/index_daily_technical_indicators.py` | 装配时把执行函数和既有 DG reader 传给指数路由。执行函数从 `request.app.state.technical_indicator_runtime` 取运行对象，调用 `execution._execute(runtime, arrived_at=arrived_at, validate_before_wait=..., work=..., receive=request.receive)`。`validate_before_wait` 直接交付路由已校验的参数，`work(parsed_request, control)` 执行同步查询并返回日K DTO。路由仍用原响应模型序列化。沿用现有名额、请求截止和断开后的停止处理。App 缺装配时按查询错误处理。 |
 | `src/biz/queries/wealth/market/index_detail/index_detail_kline_query_service.py`、`index_detail_query.py`、`src/foundation/clients/local_lake/index_daily_reader.py` | 在 `build_kline()` 增加可选的指标计算回调，本地新分支可传 `session=None`，PG 分支使用 App 传入的 Session。上证新分支沿用原行情来源，查询一次当页日期和现有行情字段，校验后把 `rows` 和同源补读函数交给回调。合法空页直接组包。旧指标列只在原分支和验收对照时读取。 |
 | 新增 `src/foundation/technical_indicators/sources/index_daily.py` | 实现 `IndexDailyPriceSource`。App 回调在拿到当页 `rows` 后创建，每请求一个。来源接收当页交易日、高、低、收及同源补读函数。由现有 `TechnicalIndicatorService.calculate(request)` 调用该来源，指标对象及算法沿用原实现。 |
 | `src/biz/services/wealth/market/index_detail/index_detail_field_mapper.py` | 继续使用 `build_kline_bar(row)`。业务组包只消费内核的16个指标值。开高低收、昨收、涨跌、成交量额仍按原行情行生成。内核已有 `price` 能力和输出合同保留。 |
@@ -1749,8 +1749,8 @@ Chrome 实际页面 `/wealth/market/index/000001.SH?tradeDate=2026-10-19&debug=1
 
 1. **读当页。** App 工作线程持有本次行情读取。本地将现有 DG reader 交给查询服务，行情读取使用 DG。Prod 由 App 工作函数通过现有 `get_session_factory()` 开一份行情 Session，当页查询和补读共用这份 Session，工作退出时关闭。鉴权及旧分支的 Session 仍由原依赖管理。工作线程检查同一请求的停止状态，已开始的读取退出后再清理，DuckDB 沿用内核现有中断和关闭顺序。
 2. **建来源并调用一次内核。** 非空且通过校验后，App 回调创建 `IndexDailyPriceSource`，以 `security_type="index"`、`ts_code="000001.SH"`、`period="day"`、`adjustment="none"` 和本节的十项指标构造 `CalculationRequest`。内核 `start/end` 是当页实际首末日期，`limit` 是当页实际根数，`before=None`。用共享运行对象的注册表和配置、同一个 `ExecutionControl` 创建本次 `TechnicalIndicatorService`，调用一次 `calculate()`。
-3. **按日期补读预热。** 内核用 `CalculationEngine.resolve_history_requirement()` 计算预热根数，将 `ReadRequirement` 传给来源的 `create_locator()`。以当页首日为排除边界，调用一次 `read_previous(before, limit)`，其中 `limit` 是内核要求的预热根数。根数为0时跳过补读。DG 按同环境交易日历选出更早的预热交易日，直接以这些日期调用 `IndexDailyLakeReader.factor_rows()`，读取对应文件中的 `trade_date/high/low/close`。PG 按 `ts_code`、`trade_date < before`、日期倒序和预热根数取同四列。两条路径的补读参数均来自日期边界和预热根数。读回后按交易日正序核对应有日期和输入值。仅在达到同源已核实的历史起点时允许少于要求的预热根数。缺交易日、无效输入或读失败按 `ID_QUERY_FAILED` 返回。
-4. **交付与回填。** 预热读取完成后，由本次 `IndexDailyPriceSource` 持有这批数据，`SourceLocator.describe()` 用 `PriceReadSelection` 分别登记当页和预热根数，以及是否到来源起点。定位器关闭后，`open()` 把来源已持有的前置K线和当页K线按顺序交给 `SourceStream`，以 `pyarrow.RecordBatch` 交付，达到内核批大小后交付，最后一批可以较短。标准投影为 `trade_date/period_start/period_end/source_as_of` 四列 `DATE`，值均为本根交易日，以及 `high/low/close` 三列 `DOUBLE`。当页及前置K线各通过 `SourceReadContext.record_price_rows()` 计一次输入，交付批次时沿用该计数。两段均是不复权指数点位，按 `none → none` 交付。App 回调把 `CalculationResult` 和通过校验、实际交付给内核的预热根数一并交回查询服务。
+3. **按日期补读预热。** `CalculationEngine.resolve_history_requirement()` 的结果随 `ReadRequirement` 传给 `create_locator()`。使用 `requirement.history.warmup_rows`，大于0时调用一次 `read_previous(before, limit)`，`before` 为当页首日，`limit` 为预热根数。由该函数按同环境交易日历选取 `trade_date < before` 且不早于同源行情起点的最近至多 `limit` 个开市日。DG 以这些日期直接调用 `IndexDailyLakeReader.factor_rows()`，PG 按指数代码与这段实际首末日期查询。两边只取 `trade_date/high/low/close`，日期正序交回，预热范围为空时跳过行情读取。按应有日期核对缺行并校验输入值，确认到同源历史起点才允许预热不足。缺交易日、无效输入或读失败按 `ID_QUERY_FAILED` 返回。
+4. **交付与回填。** 预热结果归本次 `IndexDailyPriceSource` 持有。`SourceLocator.describe()` 返回 `SourceDescription`，其中 `PriceReadSelection.target_start/target_end` 是当页首末日，`read_start` 是实际读到的最早日，`read_end=target_end`，`target_rows/preceding_rows` 分别用当页和预热的实得数量。来源用已核实的行情起点确定 `reached_source_origin`，`row_groups=()` 和 `price_paths=()`，因为行情读取已完成。定位器关闭后，`open()` 从来源已持有的数据按先预热、后当页的顺序交给 `SourceStream`，`next_batch(max_rows)` 交付合并后的 `SourceBatch`，除最后一批外每批交满。Arrow 列为 `trade_date/period_start/period_end/source_as_of` 四列 `DATE`，值均为本根交易日，以及 `high/low/close` 三列 `DOUBLE`。`standard_projection` 用对应 Arrow 列名作为 SQL 投影表达式。`SourceReadContext.record_price_rows()` 对当页和预热各计一次，交付批次时无需再计。`supported_adjustment_paths=(("none", "none"),)`，基准字段为空，按原流程跳过因子和复权计算。App 回调把 `CalculationResult` 和实际预热根数一并交回查询服务。
 
 ### 27.2 校验和回填
 
@@ -1765,7 +1765,21 @@ Chrome 实际页面 `/wealth/market/index/000001.SH?tradeDate=2026-10-19&debug=1
    | KDJ `k/d/j` | `kdj_k_bfq/kdj_d_bfq/kdj_bfq` |
 
 3. 回填后用本次已经取得的数据检查，再按原方式组包。上证新分支直接使用第1步的交易日核对结果判断状态。原 `load_latest_daily_date()`、`has_daily_after()` 及原均线历史计数查询仅由旧分支调用。新分支检查 MA 和 BOLL 时，从 App 交回的实际预热根数开始，按当页正序每根加1。以 BOLL20 为例，实际预热12根时，当页第1根是第13根有效输入，BOLL 三项为空是合法的，到当页第8根才满20根。窗口已满仍为空按指标缺项处理，组包沿用既有 `PARTIAL` 状态。行情缺失、日期对不上、结果字段不齐或计算失败，整页按 `ID_QUERY_FAILED` 返回，用现有消息字段说明指数、适用的交易日及原因。失败或取消时按原流程释放读取和计算资源。
-4. 上证分页接口合同的设计字段为 `meta.nextEndDate`，类型为 `YYYY-MM-DD` 或 `null`。实际根数等于本次请求 `limit` 时，从本页最早K线已经取得的日历记录取 `pretrade_date`。短页、空页或请求下界内无可用的更早交易日时为 `null`。日期用于下一次 `endDate`，例如本页最早是周一且上周五开市，直接传周五。原 `pageContext.prevTradeDate` 仍对应本次请求截止日，`meta.endDate` 仍表示本次查询截止日。只为上证新分支交付分页日期。下一页是否有行情由该页实际返回决定，当前页计算分页日期只用日历。
+4. 上证分页字段为 `meta.nextEndDate`，类型为 `YYYY-MM-DD` 或 `null`。实际根数等于本次请求 `limit` 时，从本页最早K线已经取得的日历记录取 `pretrade_date`。短页、空页或请求下界内无可用的更早交易日时为 `null`。日期用于下一次 `endDate`，例如本页最早是周一且上周五开市，直接传周五。原 `pageContext.prevTradeDate` 仍对应本次请求截止日，`meta.endDate` 仍表示本次查询截止日。只为上证新分支交付分页日期。下一页是否有行情由该页实际返回决定，当前页计算分页日期只用日历。
+
+#### 27.2.1 日K接口实现
+
+正式字段和错误形状以[日K合同 §5.5](index-detail-api-contract-v1.md#sse-daily-kline-api)为准。实现按以下顺序：
+
+1. **路由选择。** `index_detail.py` 进入处理函数时记录 `monotonic()`。复用 `_validate_query_shape()`、`_normalize_ts_code()`、`_parse_date()`、`_parse_limit()`、`_parse_debug()`，省略 `period` 时仍用 `day`。把解析后的参数传入选中的分支。上证且 `day`、`limit≤500` 时，在 App 排队和读取前拒绝显式起始日晚于显式截止日的请求，沿用 `ID_REQUEST_INVALID` 及消息「startDate 不能晚于 endDate」。其余请求进入原 `build_kline()`。新分支失败时使用现有错误映射。
+2. **计算本页应有日期。** `build_kline()` 的新分支用 `query_end_date = end_date or context.trade_date` 保留原查询上界。若该日开市，`expected_end` 取查询上界，否则取同环境日历中的上一开市日。窗口下界取已核实的同源行情起点与显式 `start_date` 中较晚者，省略起始日时仅用同源起点。从 SSE 日历读取此窗口内最新至多 `limit` 个开市日及其 `pretrade_date`，按日期正序保留。该组日期同时用于当页读取边界、校验、状态与续页。日历读取失败进入查询错误。
+   - DG 复用 `IndexDailyLakeReader.calendar_rows()`。显式截止日用该日和 `recent_open_days=limit`，省略截止日用上海当天和 `recent_open_days=limit+1`，其中多一个开市日是为兼容原上下文在收盘数据切换前锚定上一交易日。把同一批日历记录交给 `MarketPageContextQuery.resolve_local_context(calendar_rows=...)`，再按已解析窗口筛出本页应有日期。附加的是日历日期，行情仍只读本页应有根数。
+   - Prod 在 `market_page_context_query.py` 增加上证新分支使用的查询，复用 `resolve_context()` 的上界计算。用同一条 SQL 返回上下文和窗口日期：先得到唯一的 `resolved_anchor`，用锚点的 `is_open/pretrade_date` 得到有效上界，再对 `core_serving.trade_calendar` 取 `exchange='SSE'`、`is_open=true`、窗口下界至有效上界的 `trade_date/pretrade_date`，倒序取 `limit` 后按正序交回。窗口为空仍返回锚点上下文。旧分支继续直接调用 `resolve_context()`。
+3. **一次读取当页并校验。** 应有日期为空时直接组包 EMPTY，跳过当页行情、预热和指标计算。非空时，PG 按代码和应有首末日期从 `core_serving.index_factor_pro` 读取当页，DG 把应有日期传给现有 `factor_rows()`。两条路径都按 `trade_date` 正序，只投影 `ts_code/trade_date/open/high/low/close/pre_close/change/pct_change/vol/amount`。按实际返回日期顺序与应有日期比较。缺失报告应有但未返回的交易日，重复、乱序或超出范围报告对应日期及原因。在这一步同时检查四价均为有限数值，字段检查顺序为开盘、最高、最低、收盘。空值报「收盘价缺失」等具体字段，非有限值报「收盘价无效」等。DG 行情读取失败时可用本次选定的文件路径定位缺文件的日期，正常路径无需逐文件再查一次。
+4. **回填与状态。** 当页通过校验后执行 §27.1 的一次计算，按 §27.2 的日期、实例编号和字段表回填。可定位到交易日的失败使用 `IndexDetailQueryError`，消息格式为「指数代码 交易日 具体原因」，例如「000001.SH 2026-10-15 收盘价缺失」，由 `_raise_http_error()` 返回原 HTTP 500 / `ID_QUERY_FAILED`。读取或计算异常无法定位到单日时，消息给出指数代码及失败环节。新分支沿用既有 `PARTIAL` 缺项语义和成功状态组包，`expectedTradeDate = expected_end or query_end_date`，`observedTradeDate = rows[-1].trade_date`（空页为 `None`）。启用 debug 时，调试模块使用同一组日期与状态。
+5. **构造分页字段。** 只有 `len(rows) == limit` 时，从本页最早交易日已读取的日历记录中取 `pretrade_date`。没有该值，或早于显式 `start_date` 时，传 `None`。短页和空页同样传 `None`。该字段和 `pageContext.prevTradeDate` 分别对应本页首根与请求上界，组包时各用各自的来源。
+
+`src/biz/schemas/wealth/market/index_detail.py` 保留四字段的 `IndexDetailKlineMetaDto`，增加 `IndexDetailSseKlineMetaDto(IndexDetailKlineMetaDto)`，声明必填的 `nextEndDate: date | None`，字段没有默认值。将 `IndexDetailKlineResponseDto.meta` 声明为 `IndexDetailSseKlineMetaDto | IndexDetailKlineMetaDto`，两个类型沿用 `extra="forbid"`。新分支明确构造前者，旧分支仍构造后者。沿用路由响应模型默认序列化，确保新分支能输出 `"nextEndDate": null`、旧分支省略该键、两者都保留 `"debugInfo": null`。
 
 ### 27.3 前端请求、缓存和同页图层
 
@@ -1783,11 +1797,39 @@ Chrome 实际页面 `/wealth/market/index/000001.SH?tradeDate=2026-10-19&debug=1
 - 上证历史日K成功且非空后，由控制器调用同页两路图层加载，每路传该页 `bars` 的实际首末交易日期及500。历史空页不触发两路请求。控制器按本次打开页面、历史页首末日期、图层类型登记，在发请求前写入在途状态。重复通知命中在途或已成功记录时直接使用该记录。某一路失败时保留原参数及失败状态，用户重试只重发该范围该图层。历史回包按日期写入缓存，用户已拖回较新位置时暂不更新图表。首屏右栏摘要始终取首屏状态。是否继续加载更早的历史由日K回包决定。
 - 按标的、周期、首屏截止日、页面和请求编号核对归属，图层再核所属页。切换标的、日期或离开时取消旧请求，成功、失败和收尾均检查归属。分钟线相关请求当前已传500。
 
+#### 27.3.1 趋势范围与前端接口实现
+
+1. **趋势路由和查询。** 在 `src/biz/api/quote.py::get_quote_detail_trend_channel()` 增加 `start_date: date | None = Query(default=None)`。沿用鉴权及代码、周期校验，然后在调用查询服务前检查两个显式日期的顺序。倒序时抛 `WebAppError(status_code=400, code="INVALID_DATE_RANGE", message="起始日期不能晚于结束日期")`，非法日期沿用框架 422。给 `QuoteTrendChannelQueryService.build_response()` 增加默认 `None` 的同名关键字参数。
+2. **仅裁剪完整结果。** 在 `src/biz/services/quote_trend_channel_query_service.py`，沿用原 `load_instrument()`、`load_series()` 和响应组装。使用 `bisect_left/bisect_right` 按 `trade_date` 在已排序的 `series.rows` 中查边界，直接用现有行，避免每页另建全量日期数组。边界及返回位置如下：
+
+   ```python
+   # rows 非空。key 按行取 trade_date。
+   effective_end = end_date if end_date is not None else rows[-1].trade_date
+   lo = bisect_left(rows, start_date, key=key) if start_date is not None else 0
+   hi = bisect_right(rows, effective_end, key=key)
+   first = max(lo, hi - limit)
+   selected = rows[first:hi]
+   has_more_history = bool(selected) and first > lo
+   next_end_date = rows[first - 1].trade_date if has_more_history else None
+   ```
+
+   `hi≤lo` 或完整序列为空时均走空结果分支，返回空数组、计数0、首末日与下一截止日为空、`has_more_history=false`。有源但指定范围内没有数据时使用 `no_rows_in_requested_range`，省略起始日的空结果继续用原说明，无源继续用 `source_has_no_daily_rows`。有结果时实际首末日从 `selected` 取。水位日期、公式、缓存和 `TrendChannelResponse` 字段不变。正式约定见[趋势合同 §5.1](../../../../docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md#trend-history-range-api)。
+3. **日K客户端。** `indexDetailApiTypes.ts` 将 `meta` 声明为原四字段类型与包含必填 `nextEndDate: string | null` 的类型。沿用 `fetchIndexDetailKline()` 和现有错误消息读取。控制器在请求归属通过后，用 `"nextEndDate" in response.meta` 读取当前上证日K页的分页字段。字段缺失走现有接口错误处理，保留已有图与缓存。历史页按成功回包的截止日发起，入缓存成功后更新保存的下一截止日；失败保留旧值。旧分支消费者继续读取原字段。
+4. **图层客户端。** `trendChannelApiClient.ts::fetchTrendChannel()` 的请求参数增加 `startDate?: string`。仅在参数存在时序列化成 `start_date`。首屏继续传原 `endDate` 与显式500，通用客户端既有默认值保留。历史页以当页 `bars[0].tradeDate`、`bars.at(-1).tradeDate` 为起止日。给 `useNineTurnSeriesRegistry.ts` 导出的 `NineTurnSeriesLoadRequest` 增加 `startDate?: string`，首屏 `ensure(period)` 的调用照旧，历史页直接通过 `loadIndexNineTurnSeries()` 将 `startDate/endDate` 转给现有 `fetchIndexNineTurnSeries()`。两路各发一次，重试复用记录的原参数与图层类型。现有请求取消和回包归属检查适用于两路。
+
 ### 27.4 开发顺序和 Figma
 
-1. 开发前按方案§6完成 Figma，核图并回填实际节点。同步定稿[日K接口合同](index-detail-api-contract-v1.md#5-get-kline)里的下一页截止日及数据错误，以及趋势起始日的接口合同，并冻结 §27.5 的有界验收样本与读取上限。Figma 和接口合同均定稿，有界验收样本和读取上限均确定后，才开始任何后端或前端编码。
+1. Figma 已确认，[日K接口合同 §5.5](index-detail-api-contract-v1.md#sse-daily-kline-api)与[趋势范围合同 §5.1](../../../../docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md#trend-history-range-api)已定稿。开始任何前后端编码前，完成 §27.5 的有界验收样本、同源历史起点及读取上限确认。
 2. 先做上证日K后端接入和趋势日期边界。后端完成当页复用、预热、字段回填和两位小数对照后，再做普通日线请求量及上证分页和图层接入。
 3. 最后验收页面交互和真实接口衔接。行情读取沿用已有环境配置，按只读执行。
+
+[上证日线历史加载与图层状态总稿](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2170-639)已绘制、核图并经管理员确认，作为本次交互和视觉依据。核对了左端提示的位置、四图与时间轴的对齐、接入前后已有画面的对照，以及 1280 px 窄屏长错误提示的两行显示。
+
+| 画稿 | 评审节点 |
+|---|---|
+| 左端提示与历史回包 | [加载中](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2170-646)、[加载失败与拖拽重试](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2170-649)、[接上历史页](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2170-653)、[拖回较新位置时只写缓存](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2170-656) |
+| 行情校验与空结果 | [历史页窄屏错误](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2170-3108)、[首屏校验错误](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2170-3717)、[既有首屏空态](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=499-579)；历史空页和短页见总稿第05组说明。 |
+| 图层局部失败 | [九转](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2170-3737)、[趋势通道](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2170-3740) |
 
 ### 27.5 验收与停点
 
@@ -1799,5 +1841,13 @@ Chrome 实际页面 `/wealth/market/index/000001.SH?tradeDate=2026-10-19&debug=1
 | 上证缓存与图层 | 核首屏、续页、短页和空页的实际日期及到头。用可控回包核首屏趋势仍先发、九转主图和右栏复用同一次请求、历史页每图层只发一次、失败只重试原图层及范围。核左端等待、用户选定 BOLL 后趋势回包仍显示 BOLL、回到较新位置只更新缓存和旧请求丢弃。 |
 
 旧日K分支、趋势接口和趋势查询服务分别在现有 `tests/web/test_wealth_index_detail_api.py`、`tests/web/test_quote_trend_channel_api.py` 和趋势查询服务测试验证。断言上证旧指标值的用例显式传大于500的合法值，省略 `limit` 仍取300的检查归入上证新分支。上证新分支在 `tests/app/technical_indicators/test_index_daily_kline_integration.py` 单独装配指数路由、运行对象和有界行情样本，覆盖页面读取、补读和回填。现有 Web 公共夹具会替换指标运行对象的生命周期，专门用例自行装配。前端验收落在现有股票、指数详情页测试及九转注册表测试。样本的预期日期、根数及旧指标值来自已核实的输入和原路径。
+
+| 接口用例落点 | 用例与断言 |
+|---|---|
+| `tests/app/technical_indicators/test_index_daily_kline_integration.py` | 用周一、上周五和周四的交易日记录验证顺序。上证请求周一 `limit=1`，该页只返回周一、`nextEndDate` 为周五。续页传周五，只返回周五。直接传周日时，`meta.endDate` 仍是周日，预期、观测与调试模块用周五，状态沿用原逻辑。达到显式起始日时满页的 `nextEndDate` 为 `null`。省略 `limit` 走新分支，`meta.limit=300`。 |
+| 同一上证日K测试文件 | 短页按实际数量返回且 `nextEndDate=null`。日历确认无应有日期时响应为 EMPTY，断言没有行情读取和内核调用。存在应有交易日但没有对应行情，以及该日收盘价为空，均断言 HTTP 500、`code/message/request_id` 和具体交易日，且没有执行内核。正常回包断言指标依日期回填，原行情字段及 `debugInfo` 保留。 |
+| `tests/web/test_wealth_index_detail_api.py` | 保留上证大于500和其它指数的旧路径用例。断言 `meta` 仅有原四字段，`debug=0` 时保留 `debugInfo:null`。 |
+| `tests/web/test_quote_trend_channel_api.py` | 在既有切片样本上追加 `start_date`。验证起止日均包含、范围内超过 `limit` 时下一截止日仍在范围内、仅范围外有更早数据时分页为 `false/null`。有源但范围为空时检查 `no_rows_in_requested_range`，旧请求继续使用原空结果说明。显式日期倒序时断言 HTTP 400 和 `INVALID_DATE_RANGE`，查询服务未被调用。 |
+| `useIndexDetailController.test.tsx`、`IndexDetailPage.test.tsx` | 核对首屏三路仍按原触发顺序，历史日K使用回包给出的周五截止日，两路历史图层分别发送其规定字段名并使用当页实际日期。核对历史空页、只重试失败的图层及原日期、过期回包丢弃、迟到的趋势回包保留已有 BOLL 选择。 |
 
 真实行情验收取完成指标对照及页面衔接所需的上证有界范围。编码前根据实际查询和已有证据定好各环境样本、逐次读取上限及续跑和最终验收开销。每次记录当页、复用、补读根数和实际耗时。一个正常非空页最多发日K、日线九转、趋势三路请求，首屏另有原 `page-init`。重试只重新请求原失败范围。出现差异时记录原因并停止该节点。

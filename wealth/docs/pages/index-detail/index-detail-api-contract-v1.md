@@ -1,6 +1,8 @@
 # 指数详情页正式 API / DTO 合同 v1
 
-> 2026-11-04：§10为已实施的本地r4日线识别配套摘要；完整字段和实现依据统一见[顶底识别LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)§2—5，P3/P4及P5删后回归证据见其§20.7—20.8、§21.14.14和§22.16.6。§1—9的page-init/kline/weights、1.3.2及其debugInfo规则不变；本次仅修正文书状态，不改接口。
+> 2026-11-05：上证日K接入合同 `1.4.0` 已定稿，待实现和验收。仅变更 §5.5 指定的上证日K请求。当前已实现合同仍为 `1.3.2`。趋势历史范围由[趋势接口合同 §5.1](../../../../docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md#trend-history-range-api)定义。
+
+> 2026-11-04：§10为已实施的本地r4日线识别配套摘要；完整字段和实现依据统一见[顶底识别LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)§2—5，P3/P4及P5删后回归证据见其§20.7—20.8、§21.14.14和§22.16.6。当日只修正文书状态，§1—9所记的 `1.3.2` 接口及 `debugInfo` 规则照旧。
 
 > 2026-11-04 用户验收通过：`1.3.2` 仅调整成分行情缺失的状态和异常触发，不增删响应字段。代码、隔离回归、本机真实只读 API 与页面已验证；本次收尾提交，不执行推送或部署，不表示生产已生效。§4.3、§6.3 的规则及[LLD §25](./index-detail-low-level-design-v1.md#index-constituent-missing-quote-20261020)记录本次实现与验收边界。
 
@@ -26,7 +28,7 @@
 2. 所有日期为 `YYYY-MM-DD`，时间为带时区 ISO-8601。
 3. 数值使用 JSON number；缺失值使用 `null`，禁止 `NaN/Infinity/"--"/0` 代替缺失。
 4. 数组字段永远存在；没有元素时返回 `[]`，不返回 `null`。
-5. 本文列出的响应字段全部 required；nullable 不等于 optional。
+5. 本文列出的响应字段在各自响应形状内均为 required；nullable 不等于 optional。日K的两种 `meta` 形状见 §5.5。
 6. `debugInfo` 始终存在：`debug=0` 时为 `null`，`debug=1` 时为完整对象。
 7. Pydantic DTO 使用 `ConfigDict(extra="forbid")`；TypeScript 不使用 index signature 或 `unknown` 扩展响应。
 8. 数据库字段名只允许出现在 query/mapper，不进入 HTTP DTO。
@@ -240,7 +242,7 @@ interface IndexDetailPageInitResponseDto {
 | `tsCode` | string | 是 | 同 page-init |
 | `period` | `day` | 否 | 默认 day；其它值拒绝 |
 | `startDate` | ISO date | 否 | 不得晚于 endDate |
-| `endDate` | ISO date | 否 | 页面传 asOfTradeDate |
+| `endDate` | ISO date | 否 | 首屏传 `page-init.asOfTradeDate`；上证普通日线续页传上一成功页的 `meta.nextEndDate`。包含此日，省略时沿用行情上下文。 |
 | `limit` | integer | 否 | 默认 300，范围 1..2000 |
 | `debug` | 0 或 1 | 否 | 默认 0 |
 
@@ -260,6 +262,7 @@ interface IndexKlineBarDto {
   changePct: number | null;
   amplitude: number | null;
   vol: number | null;
+  volDisplay: string | null;
   amount: number | null;
   factors: {
     ma: {
@@ -297,16 +300,24 @@ interface IndexDetailKlineResponseDto {
   };
   period: "day";
   bars: IndexKlineBarDto[];
-  meta: {
-    count: number;
-    limit: number;
-    startDate: string | null;
-    endDate: string | null;
-  };
+  meta: IndexDetailKlineMetaDto | IndexDetailSseKlineMetaDto;
   dataStatus: IndexDetailDataStatusDto;
   debugInfo: IndexDetailDebugInfoDto | null;
 }
+
+interface IndexDetailKlineMetaDto {
+  count: number;
+  limit: number;
+  startDate: string | null;
+  endDate: string | null;
+}
+
+interface IndexDetailSseKlineMetaDto extends IndexDetailKlineMetaDto {
+  nextEndDate: string | null;
+}
 ```
+
+部署 `1.4.0` 后，§5.5 所列请求使用 `IndexDetailSseKlineMetaDto`，其余请求使用原四字段的 `IndexDetailKlineMetaDto`。
 
 ### 5.3 唯一字段来源
 
@@ -316,25 +327,45 @@ interface IndexDetailKlineResponseDto {
 |---|---|
 | 日期、OHLC、昨收、涨跌、涨跌幅 | `IndexFactorPro` 同名字段；`pct_change -> changePct` |
 | `vol/amount` | `IndexFactorPro.vol/amount` |
+| `volDisplay` | 现有日线成交量 formatter 处理同一行 `vol` |
 | MA | `ma_bfq_5/10/20/30/60/90/250` |
 | BOLL | `boll_upper_bfq/boll_mid_bfq/boll_lower_bfq` |
 | MACD | `macd_dif_bfq/macd_dea_bfq/macd_bfq` |
 | KDJ | `kdj_k_bfq/kdj_d_bfq/kdj_bfq` |
 | amplitude | `(high-low)/preClose*100`；缺输入或昨收为 0 时 null |
 
-Kline 的价格、量额与技术指标均来自同一 `IndexFactorPro` 行。禁止倍率修正，禁止从 `IndexDailyServing.vol/amount` 读取或 fallback。factor 行存在但 `vol/amount` 缺失时，对应字段为 null 且 K 线 PARTIAL。
+Kline 的日期、价格、量额和派生行情字段沿用同一日线因子行。上证本地读 DG 日线因子，生产读 Prod PostgreSQL `core_serving.index_factor_pro`。旧分支的技术指标也来自该行；§5.5 的上证新分支以计算内核结果填入同名指标字段。禁止倍率修正，禁止从 `IndexDailyServing.vol/amount` 读取或 fallback。factor 行存在但 `vol/amount` 缺失时，对应字段为 null 且 K 线 PARTIAL。
 
 ### 5.4 排序、null 与状态
 
 1. 查询按 `trade_date DESC LIMIT`，返回前反转为 ASC。
 2. `meta.count=bars.length`，`meta.limit` 是归一化后的请求上限。
 3. `meta.startDate` 是归一化请求下界；`meta.endDate` 是实际查询上界（显式 endDate，否则 pageContext.tradeDate），不是最后一根 bar 日期。
-4. 不返回 MA15/MA120，不在请求链临时计算技术指标。
-5. MA 不设指数或日期特例。`maN` 的源值非 null 时原样返回；为 null 时保持 null，图表断点，不补 0、不向前填充，也不在请求链临时重算。
+4. 不返回 MA15/MA120。第5～9条为旧分支的来源和状态规则；上证新分支按 §5.5。
+5. `maN` 的源值非 null 时原样返回；为 null 时保持 null，图表断点，不补 0、不向前填充。
 6. 只有同一 code 截至该 bar 的实际有效历史 K 线根数小于 N 时，`maN=null` 才属于合理的历史不足；判断不得使用当前请求 `limit`、前端可见窗口、固定 code、固定日期或当前表起点代替真实历史。
 7. 实际有效历史已达到 N 根但 `maN` 仍为 null，或其它预期技术因子缺失时，返回 PARTIAL 并登记 `ID_FACTOR_PARTIAL`。接口仍返回 null，不制造推算值。
 8. factor 最新日落后，或可绘制 bar 的 factor `vol/amount` 缺失，同样返回 PARTIAL 并登记 `ID_FACTOR_PARTIAL`。
 9. factor 完全无行返回 EMPTY；SQL/映射失败返回 HTTP error，不返回成功态 ERROR。
+
+<a id="sse-daily-kline-api"></a>
+### 5.5 上证日K指标及历史分页（1.4.0）
+
+**适用请求**为标准化后的 `tsCode=000001.SH`、`period=day`、`1≤limit≤500`，省略 `limit` 时按默认300进入同一分支。上证501～2000和其它指数保留原路径及原 `meta` 字段集合。请求参数、URL 和鉴权沿用 §5.1。
+
+| 字段或动作 | 冻结规则 |
+|---|---|
+| `bars`、`factors` | 日期正序。原行情字段按原行组包，只把七条MA、BOLL、MACD、KDJ合计16个数值字段换成内核结果。结构、命名、输出精度及合法 null 沿用原协议。 |
+| `meta.endDate` | 本次查询上界。显式传休市日时仍返回该日期。 |
+| `meta.nextEndDate` | 新分支成功响应必有，值为交易日字符串或 `null`。满页时从本页最早K线对应的交易日历记录取得上一开市日。短页、空页、无上一开市日或上一开市日早于显式 `startDate` 时为 `null`。字段来自日历，无需多查一根K线。 |
+| 下一次日K请求 | 将上一成功页的非空 `meta.nextEndDate` 原样作为 `endDate`。例如本页最早是周一且上周五开市，下一次传周五。失败后重试原截止日。 |
+| `dataStatus` | `expectedTradeDate` 用本次有效上界对应的最近开市日，`observedTradeDate` 用实际末根日期；空页的观测日为 `null`。日历中确无截止日及以前的开市日时，成功空页的 `expectedTradeDate` 使用本次查询上界。日期核对和调试信息用同一预期日期。 |
+| `debugInfo` | 仍按 §2 始终返回该字段，`debug=0` 为 `null`，`debug=1` 为原结构。 |
+
+- **正常空页。** 按上交所日历、请求上下界与本环境已核实的上证行情起点，确认请求内本来没有应返回的交易日，返回 HTTP 200、`bars=[]`、`meta.count=0`、`meta.nextEndDate=null`、`dataStatus.status="EMPTY"`。有部分应有交易日且全部读到时按实际根数返回。预热不足且确实到历史起点时允许按实际有效历史初始化，MA、BOLL 未满窗口的 null 合法。
+- **行情缺失。** 请求范围内应有交易日缺整根、日期与应有序列不符、或当页开高低收缺失或无效，返回 HTTP 500、`ID_QUERY_FAILED`。当页有数据或达到 `limit` 都不能掩盖缺口。预热数据缺失、读取或计算失败、内核结果日期或字段不完整，同样整页失败。
+- **已有部分缺项规则。** 日期和四价校验通过后，量额等原行情缺项、以及 MA 或 BOLL 窗口已满但指标值仍为空，沿用 `PARTIAL` 和原有调试信息。缺少指标字段或对应日期属于整页错误。分页继续与否由本页K线根数和 `meta.nextEndDate` 决定。
+- **图层衔接。** 首屏按原时机调用独立图层。历史页有K线时，以实际首末交易日分别请求日线九转和[趋势历史范围](../../../../docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md#trend-history-range-api)，每路传500。历史空页不发图层请求。
 
 ## 6. `GET /weights`
 
@@ -421,9 +452,12 @@ interface IndexDetailErrorResponseDto {
 | 参数非法 | 400 | `ID_REQUEST_INVALID` |
 | code 不属于 10 指数或身份不存在 | 404 | `ID_NOT_FOUND` |
 | 配置缺失/非法、SQL 或映射失败 | 500 | `ID_QUERY_FAILED` |
+| 上证新分支缺交易日、当页四价无效、补读或计算失败 | 500 | `ID_QUERY_FAILED` |
 | 未登录/无权限 | 401/403 | 沿用认证层 `unauthorized/forbidden` |
 
 `ID_SOURCE_EMPTY` 等状态型异常只在 `debugInfo.exceptions` 和结构化日志出现；用户看到的是稳定空态/局部状态，不直接显示异常码。
+
+上证新分支的行情校验错误使用既有错误形状。可以定位到日期时，`message` 给出指数代码、交易日和具体原因，例如 `000001.SH 2026-10-15 收盘价缺失`。前端对当前请求显示这条消息，历史页保留已有缓存和画面。
 
 ## 8. 兼容与变更规则
 
@@ -436,6 +470,7 @@ interface IndexDetailErrorResponseDto {
 
 | 版本 | 日期 | 变更摘要 |
 |---|---|---|
+| `1.4.0` | 2026-11-05 | 定稿上证日K新分支、`meta.nextEndDate`、完整性错误与16个指标回填，待实现和验收 |
 | `1.3.2` | 2026-10-20 | 仅成分缺行情不再触发 breadth/page-init/weights PARTIAL 或两处提示；保留完整名单、null 与缺失计数，指数昨收缺失等原错误继续提示。工作区开发与本地技术验收完成，未部署 |
 | `1.3.1` | 2026-08-17 | 权重股贡献列表改为按四位小数 `contributionPoint` 数值降序，缺失值置底；同贡献点按 `weight DESC, conCode ASC` 保持确定性；DTO 字段结构不变 |
 | `1.3.0` | 2026-08-15 | S7/M5 升级指数 page-init 九转 capability：生产仅开放日线，local/dev 在同一 router capability 就绪时开放 5/15/30/60/90/120 分钟；指数 1 分钟永不开放，九转数据仍由独立接口提供 |
