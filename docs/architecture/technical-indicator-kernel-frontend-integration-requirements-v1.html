@@ -93,7 +93,8 @@
   </section>
 
   <section id="loading">
-    <h2>5. 此前提前加载设想（内核完成后再review）</h2>
+    <h2>5. 此前提前加载设想（历史记录）</h2>
+    <p>2026-11-05已确认的普通日线页面规则见<a href="../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#sse-daily-kline-integration">指数详情LLD第27节</a>及<a href="technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html#stock-daily-frontend">股票专项LLD第16.5节</a>。以下编号和短页后的示例保留为此前讨论记录，页面实施以两份LLD为准。</p>
     <p>此前设想是在距已加载最早边界还剩100根时，由用户向左查看触发下一页；若每页500，则整页例为第400、900、1400根，1600根短尾合并后可在第1500根触发下一次正常空请求。它是产品何时发请求的候选策略，不是内核的请求频率、分页或验收规则，当前不按此开工。</p>
     <h3>5.1 此前已讨论的前端影响面</h3>
     <ul>

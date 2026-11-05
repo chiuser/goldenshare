@@ -25,7 +25,7 @@
 <header>
   <p class="meta">技术指标计算内核 · 第一个正式消费者</p>
   <h1>股票详情页日线技术指标<br>正式接入方案 v1</h1>
-  <p>页面继续调用原来的日线接口。后端把原来读取已保存指标的部分，替换成调用计算内核；所有现有指标仍在一次响应中返回。股票日线首屏及历史页统一每页500根，在距已加载最早端剩100根时提前加载下一页。</p>
+  <p>页面继续调用原来的日线接口。后端把原来读取已保存指标的部分，替换成调用计算内核；所有现有指标仍在一次响应中返回。股票日线页面规则见第9.3节。首屏及历史页每页500根，距缓存最早端剩100根时预取，成功短页即到头。</p>
   <p class="meta">2026-11-04 · 先完成内核独立开发与验收，再进入全部业务/产品阶段。股票A/B/C原18项普通验证证据保留，源码仅例外本次API数量对齐，其余冻结，不以新内核立即发布原产品；股票query/mapper/固定十项优化、数据库P01、PREP、R01～R05及前端全部后置并暂停。内核所有周期默认及输出硬上限500、动态预热另计；管理员本轮已确认股票日线API默认500、范围1～500，单独先对齐该数量合同；只修改原两处数量代码、直接测试与说明，不推进其余内核或产品开发、真实PG/Lake或Figma，不提交或部署。</p>
 </header>
 <nav aria-label="文档目录">
@@ -36,13 +36,13 @@
   <h2>01 · 股票日线指标接入与每页500根加载</h2>
   <div class="note"><strong>2026-10-31修订历史：</strong>管理员已将唯一来源文件上限改定为10000。数据库部分初始化/清理及旧入口迁移顺序已按要求补全到LLD；SQLite仅沿用现有隔离测试，PG业务读取与DuckDB计算的职责、独立预期及测试替换位置已写明。见<a href="../../reports/technical_indicator_kernel_stock_daily_lld_20261031/lld_revision_04.md">本轮修订记录</a>。三位价格对照标准保持；当时只完成A/B基础合同、既有配置默认值及D4共用执行，10个限定函数通过，未将股票API接入或P/R验收标为已完成。</div>
   <p>配套<a href="technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html">股票日线接入代码级LLD v1</a>已明确文件、对象、签名、查询与字段映射、D4执行/实际发送、关闭、错误、配置及固定验收。当前来源门禁与只读核验结果见其第02节，未通过前不进入股票后续开发；它不是内核独立开发前提。</p>
-  <div class="note"><strong>已确认的方向：</strong>股票详情页日线是内核独立验收后的业务任务；既有URL及DTO字段不扩，API数量按第03节已确认的默认500、范围1～500执行，成功空结果与前端处理按第03、9.3节保留目标，页面每页显式请求500根、滑到第400根时请求第501～1000根；无论某项指标是否正在显示，均一次返回七条MA、BOLL、MACD、KDJ。切换MA、BOLL继续只改变画图，不重新请求。</div>
+  <div class="note"><strong>已确认的方向：</strong>股票详情页日线是内核独立验收后的业务任务；既有URL及DTO字段不扩，API数量按第03节已确认的默认500、范围1～500执行，成功空结果与前端处理按第03、9.3节保留目标，页面每页显式请求500根、距缓存最早端剩100根时预取，首屏第401根触发第501～1000根；无论某项指标是否正在显示，均一次返回七条MA、BOLL、MACD、KDJ。切换MA、BOLL继续只改变画图，不重新请求。</div>
   <ul>
     <li>唯一接入接口：<code>GET /api/v1/wealth/market/stock-detail/kline</code>。</li>
     <li>替换七条MA、BOLL三条线、MACD三项和KDJ三项，共16个数值字段。内核一次计算10项：七套MA参数及BOLL、MACD、KDJ各一项。</li>
     <li>前端改为每页显式limit=500及提前加载历史，已载入部分按日期合并；API字段类型、指标路径、已有行情图的颜色和布局、MA/BOLL切换规则保持；首屏合法空结果按第9.3节先更新Figma设计，再实现“暂无行情信息”。首屏、历史页、失败重试及切换取消规则在本方案与LLD一并定义，不把500根留作另一个悬空阶段。</li>
     <li>股票身份、页面日期、K线OHLC、成交量、成交额、涨跌、振幅、换手率、量比等继续来自原有查询；本阶段不更换这些字段的来源；历史页只向前合并K线，顶部页面日期和quote保持page-init/首屏值。</li>
-    <li>不接入或改变分钟线、指数、周月线、九转、趋势通道、XXM或研究消费者的业务行为；内核独立阶段只按根LLD第24节修正通用读取、计算、输出及基础App运行；股票query/mapper、固定十项和页面分页均后置，见第9.1～9.3节。不启停DG，不清理指标文件或数据库字段，不安装或升级依赖。</li>
+    <li>本股票指标计算范围限日K。独立日线九转、趋势只同步第9.3节的页面请求根数，其余算法、接口和触发方式沿用原流程；内核独立阶段只按根LLD第24节修正通用读取、计算、输出及基础App运行；股票query/mapper、固定十项和页面分页均后置，见第9.1～9.3节。不启停DG，不清理指标文件或数据库字段，不安装或升级依赖。</li>
     <li>不新增API地址、版本、业务指标选择参数、任意指标参数、复权选项或新开关；不保留失败时自动改读旧指标的备用路径。</li>
   </ul>
   <p>本文是<a href="technical-indicator-kernel-component-design-v1.html">内核组件方案</a>的后续股票产品专题。内核独立完成条件、SQL、动态预热及资源规则只引用<a href="technical-indicator-kernel-low-level-design-v1.html#s24">根LLD第24节</a>；本专项不作为内核开工或独立验收前提。A/B/C已实现源码和原证据冻结，当前股票后台对非空PG结果仍调用公开calculate，核心阶段不要求立即迁私有helper。<a href="technical-indicator-kernel-frontend-integration-requirements-v1.html">前端要求</a>与本文的500/剩100根预取、日期保持及回调均为后置产品设计，内核完成后再细化确认；当前页面仍取300且无该分页流程。内核所有周期默认limit=500、单次目标输出硬上限500，Settings及KernelConfig不得放宽，预热B另计。调整前API默认300、允许1～2000仅保留为历史；本轮已确认默认500、只接受1～500，超限在原队前步骤以HTTP400/400001拒绝。页面显式300仍合法，不因此改前端；API数量对齐不表示已具备切换新内核或发布完整产品的条件。P01、PREP、原21根四R及R05预案保留，不执行、不扩大样本。</p>
@@ -182,7 +182,7 @@
   <p>已用CodeGraph explore/impact核对StockDetailQueryService、build_kline及mapper，并用当前文件引用补核动态路由、同名符号和前端调用；不能把同名的指数build_kline_bar当作股票实现。以下是本仓已发现的直接消费者，仓库外调用方无法由源码枚举；产品数量合同若获准调整，须同步交付适用范围和迁移说明，不能承诺旧R&gt;500仍兼容，也不另造兼容分支。</p>
   <div class="table-wrap"><table>
     <thead><tr><th>消费者/验证文件</th><th>必须保证</th></tr></thead><tbody>
-      <tr><td><a href="../../wealth/src/pages/stock-detail/StockDetailPage.tsx">StockDetailPage</a></td><td>同一路径，仍先page-init后kline；首屏和历史页显式500，当前页到第400根预取下一500根。首屏合法0根在buildStockDetailViewModel前分流到loadState=empty，保留pageInit、viewModel=null并显示“暂无行情信息”；非空才整理成显示数据。切标的/日期时取消旧请求并清空旧页，成功、空、错误与finally均核对取消和请求身份，迟到响应不得覆盖新页面。</td></tr>
+      <tr><td><a href="../../wealth/src/pages/stock-detail/StockDetailPage.tsx">StockDetailPage</a></td><td>同一路径，仍先page-init后kline；首屏和历史页显式500，当前缓存最左侧剩100根时预取下一500根。首屏合法0根在buildStockDetailViewModel前分流到loadState=empty，保留pageInit、viewModel=null并显示“暂无行情信息”；非空才整理成显示数据。切标的/日期时取消旧请求并清空旧页，成功、空、错误与finally均核对取消和请求身份，迟到响应不得覆盖新页面。</td></tr>
       <tr><td><a href="../../wealth/src/features/stock-detail/api/stockDetailApiClient.ts">stockDetailApiClient</a>、<a href="../../wealth/src/features/stock-detail/api/stockDetailApiTypes.ts">stockDetailApiTypes</a></td><td>复用原DTO、endDate/limit及HTTP失败解析；新增历史页调用但不扩公开参数或响应字段。到头只按成功空bars、count=0、EMPTY及observedTradeDate=null判断，保留已有图并显示“已经加载全部数据了”；失败保留重试。</td></tr>
       <tr><td><a href="../../wealth/src/features/stock-detail/api/stockDetailViewModelAdapter.ts">stockDetailViewModelAdapter</a></td><td>日期和16项原路径不变；合法首屏空结果在调用buildStockDetailViewModel前处理，非空才调用；历史空结果也不送入遇空即throw的现有整理函数。MA、MACD、KDJ合法null原样处理，BOLL现有null行为见第04节。</td></tr>
       <tr><td><a href="../../wealth/src/features/stock-detail/chart/StockChartWorkspace.tsx">StockChartWorkspace</a>及<code>wealth/src/shared/charts/detail-workspace/</code></td><td>七MA、BOLL及MACD/KDJ副图、标题数值、日期对齐和断线行为保持；切换MA/BOLL不触发网络请求。</td></tr>
@@ -228,10 +228,11 @@
   <p>R01～R04继续使用原21根样本和独立测试模块，正常4个真实Control；R05仅为一次500根真实首屏。整个专项的固定范围、实际费用与失败续做统一见<a href="technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html#budget">专项LLD第15节</a>；删除无依据的倍率、取整余量和测试专用拒绝阈值，不以其他数字替代，不改Settings。SQL逻辑量、定位、文件打开与耗时按实际固定步骤登记。全专项失败节点重试仅允许一次且须另获明确授权；前端三函数的执行范围见第9.3节及专项LLD第16.5节。</p>
   <p>数值口径不变：来源前复权价按ROUND(value,3)对照；同输入算法按1e-8＋1e-10×绝对参考值核验；API仍保留原10位小数格式。测试隔离改目录不增加节点、请求、表或数据，P01原PG探针、SQLite65行及全部原费用保持。只核必要的原场景，不重跑D2/D3/D4、A/B、已通过普通小例或参数矩阵。首错即停止并清理、保存累计事实、报告原因；续做须明确授权且不重跑已通过项。到R04通过且第9.3节前端分页mock验收通过后，才接续R05一次500根真实首屏及最终收尾。R05不滚动到预取点、不再请求真实历史页；分页交互用mock覆盖。原18项普通通过不能证明新500分页已验收，不能提前标记正式接入或部署完成。</p>
 
-  <h3 id="stock-daily-frontend">9.3 股票日线500根分页阶段（待review）</h3>
+  <h3 id="stock-daily-frontend">9.3 股票日线500根分页</h3>
+  <p>2026-11-05已确认：股票和指数普通日线图表显式请求500根。股票的日K、日线九转和日线趋势均用该页大小，保留九转、趋势原来的触发条件、接口和缓存。日K按本节约定预取，成功不足500根即到头。共用规则及请求落点见<a href="../../wealth/docs/pages/index-detail/index-detail-low-level-design-v1.md#sse-daily-kline-integration">指数详情LLD第27节</a>，股票指标接口和验收范围按本专项其他章节执行。</p>
   <p>本节500/剩100根预取、日期保持、空状态、图表回调及固定3个mock均为内核独立完成后的产品任务，股票后端修正、P01和四R同样后置。先确认策略和完整前后端行为设计（API数量已定500）（含callback具体签名），再Figma核图，再编码业务后端与页面。相应后端编码完成后按第9.2节P01→PREP→四R，页面编码后执行原3个mock；两路均通过且获准才R05。文件和设计预案见<a href="technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html#stock-daily-frontend">专项LLD第16.5节</a>，产品阶段再细化review，不作为当前内核开发约束。</p>
   <p><strong>前端编码前先更新Figma：</strong>使用既有<a href="https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=0-1">Goldenshare Web</a>，fileKey为<code>RADlZzREU4lPVviYfkLy6x</code>。旧<a href="https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=385-2">状态页385:2</a>只是历史定位线索，执行该步时先在线读取核对原稿状态页，沿用既有样式补可编辑的“暂无行情信息”首屏状态，核对合法成功空、真正失败、历史到头的区别，回填真实node链接及截图核对结果后才可编码，具体见<a href="technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html#stock-empty-figma">专项LLD的Figma步骤</a>。当前Figma尚未更新，该前端页面任务不能算已可开工；本轮只落文档，不实际读取或修改Figma。</p>
-  <p>用户向左查看，距已加载最早端剩100根时请求一页500；首屏第400根触发第501～1000根，满页后为900/1400。1600根例为500＋500＋500＋100，再次正常向前到1500才允许第五次空页；短页本身不自动探测，不能固定等1900。每次仅1个在途，重复通知不重发；失败保留已载入数据并明确重试同页，切换/离开取消并拒绝迟到响应。本次向图表传内部initialTradeDate=pageInit.pageContext.tradeDate，dataKey即须包含该原首屏截止日与forward（如stock:${tsCode}:day:${initialTradeDate}:forward）；同股票tradeDate变化换key并重载，历史页endDate不入key，合并保持同key及原可见日期/宽度。初始setData、历史合并、恢复视图和四图同步一律不触发历史请求；历史响应不覆盖首屏quote/pageContext/独立图层截止日。</p>
+  <p>用户向历史拖动，从当前最左可见K线到缓存最早一根，两端都计入，剩100根或更少时预取500根。最新为第1根，已有500根时第401根触发第501～1000根，满页后依次为第901、1401根。1600根例为500＋500＋500＋100，最后100根合并后即到头。每次仅1个在途，重复通知不重发；失败保留已载入数据并明确重试同页，切换/离开取消并拒绝迟到响应。本次向图表传内部initialTradeDate=pageInit.pageContext.tradeDate，dataKey即须包含该原首屏截止日与forward（如stock:${tsCode}:day:${initialTradeDate}:forward）；同股票tradeDate变化换key并重载，历史页endDate不入key，合并保持同key及原可见日期/宽度。初始setData、历史合并、恢复视图和四图同步一律不触发历史请求；历史响应不覆盖首屏quote/pageContext/独立图层截止日。</p>
   <p>首屏kline成功HTTP 200且bars=[]、meta.count=0、dataStatus.status=EMPTY、observedTradeDate=null时，在buildStockDetailViewModel前分流，新增loadState=empty，保存pageInit、令viewModel=null，精确显示“暂无行情信息”；首屏和历史共用一次单页检查判空或非空，非空才整理成显示数据并复用该结果，不再全数组检查第二遍；处理及渲染位置见<a href="technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html#stock-empty-state">专项LLD空结果合同</a>。page-init的quote有值或合法quote=null/EMPTY均不改变该空结果处理，不增加请求，仍先page-init后kline。成功历史空页按同一空合同保留已有图，页面本地提示“已经加载全部数据了”并停止，不读取core msg（成功msg统一为空）；真正错误不作空态或到头，成功/空/错及finally均遵守取消与请求身份检查。原DTO不加msg、before、hasMore或revision。当前来源说明不承诺跨请求来源固定；不新增来源审计、自动刷新或合同字段，也不把该能力范围列成新开发阻塞。</p>
   <p>固定3个mock函数仅验证分页、日期、NULL、图表范围、请求取消、上下文与本节合法空处理；在原页面函数内补有quote但kline合法0根、quote=null/EMPTY且kline合法0根、真正错误的区别，核对精确文案、pageInit保留、viewModel=null且空结果不调用buildStockDetailViewModel；不新增函数或真实请求。独立预期来自现行DTO和字面日期，不用待测helper生成。0真实HTTP、0真实Control、0指标SQL、0正式PG/Lake；不增测试矩阵、不重跑已通过项。实际登记调用、耗时、失败及清理，不另设测试专用时限或余量。首次失败即停止，续做须另获明确授权，只选原冻结清单的未通过有序子集。R05只执行一次500根真实首屏；默认参数且历史充足时1000价格输入，历史因子与基准按实际读取登记。不能用旧18项通过、mock或文档检查声称其已验。</p>
 </section>
@@ -250,7 +251,7 @@
     <li><strong>异常：</strong>各具体内核异常到原HTTP失败结构的映射、取消/到期/清理主错误保留、有限日志；不新增未登记异常码，不让错误引用结果。</li>
     <li><strong>装配与配置：</strong>Web启动/退出及依赖注入、原Settings消费者、未配置Lake时的明确失败；不把应用导入变成读行情，不新增配置或启停DG。</li>
     <li><strong>有限执行：</strong>第09节的固定函数和费用、正常/错误/续跑清单，检查fixture与conftest副作用；既有API测试的指标假样本只能用于合同，数值改用独立依据。</li>
-    <li><strong>前端分页核验：</strong>先在既有Figma稿补“暂无行情信息”并核对成功空/失败/历史到头、回填真实node链接及截图，再前端编码；随后用原固定3个mock函数验证合法首屏空与真正错误，并验证500/400/501～1000、连续页、失败重试和迟到响应，再用R05唯一真实500根首屏核接入及MA/BOLL切换无请求；同时验证BOLL合法NULL不补零；未开发/未验收不能以旧截图宣称已修复。</li>
+    <li><strong>前端分页核验：</strong>先在既有Figma稿补“暂无行情信息”并核对成功空/失败/历史到头、回填真实node链接及截图，再前端编码；随后用原固定3个mock函数验证合法首屏空与真正错误，并验证500/剩100/501～1000、连续页、失败重试和迟到响应，再用R05唯一真实500根首屏核接入及MA/BOLL切换无请求；同时验证BOLL合法NULL不补零；未开发/未验收不能以旧截图宣称已修复。</li>
     <li><strong>逐条对账：</strong>按本方案硬约束对应代码、SQL、测试及证据；未验收项单列，完成后才请求提交或部署授权。</li>
   </ol>
 </section>

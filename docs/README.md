@@ -251,6 +251,7 @@ docs/
 
 ## 6. 前端、业务与发布（S4）
 
+- [上证指数详情页日线接入方案 v1（四组指标、分页与图层日期对齐，待评审）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-daily-kline-integration-implementation-design-v1.md)
 - [财势乾坤交易助手技术实施方案 v1（核验草稿；本金分配边界已确认，账户期间计算已展开，未编码）](/Users/congming/github/goldenshare/wealth/docs/pages/trading-assistant/trading-assistant-implementation-design-v1.md)
 - [我的自选分组能力技术实施方案 v2（十项评审修订已确认并回填；尚未开发）](/Users/congming/github/goldenshare/wealth/docs/pages/watchlist/watchlist-grouping-implementation-design-v2.md)
 - [我的自选分组能力低层设计 v2（含代码审计、修订对账与三阶段门禁；尚未开发）](/Users/congming/github/goldenshare/wealth/docs/pages/watchlist/watchlist-grouping-low-level-design-v2.md)
