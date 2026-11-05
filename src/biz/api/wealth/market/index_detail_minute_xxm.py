@@ -9,10 +9,13 @@ from sqlalchemy.orm import Session
 from src.biz.api.wealth.market.index_detail_xxm import parse_parameters
 from src.biz.queries.wealth.market.index_detail_xxm.query_service import IndexDetailXxmQueryService, XxmQueryError
 from src.biz.schemas.wealth.market.index_detail_xxm import XxmResponseDto, XxmDebugResponseDto
+from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 
 
-def build_router(*, db_dependency: Callable, auth_dependency: Callable, lake_dependency: Callable,
-                 error_factory: Callable) -> APIRouter:
+def build_router(
+    *, db_dependency: Callable, auth_dependency: Callable, lake_dependency: Callable,
+    error_factory: Callable, daily_lake: IndexDailyLakeReader | None = None,
+) -> APIRouter:
     router = APIRouter(prefix="/wealth/market/index-detail", tags=["wealth-market"])
 
     @router.get("/minute-xxm-signals", response_model=XxmResponseDto | XxmDebugResponseDto)
@@ -22,7 +25,9 @@ def build_router(*, db_dependency: Callable, auth_dependency: Callable, lake_dep
                              _user=Depends(auth_dependency), session: Session = Depends(db_dependency),
                              lake_root: Path = Depends(lake_dependency)) -> Response:
         try:
-            body = IndexDetailXxmQueryService(lake_root=lake_root).build(session, **parse_parameters(request, minute=True))
+            body = IndexDetailXxmQueryService(lake_root=lake_root, daily_lake=daily_lake).build(
+                session, **parse_parameters(request, minute=True),
+            )
             return Response(content=body, media_type="application/json", headers={"Cache-Control": "no-store"})
         except XxmQueryError as exc:
             raise error_factory(status_code=exc.status, code=exc.code, message=str(exc)) from exc

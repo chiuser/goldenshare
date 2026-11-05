@@ -22,10 +22,93 @@ from src.biz.queries.wealth.market.index_detail_xxm.source import (
     assert_continuous, XxmSourceError, MinuteSourceWindow, normalize_minute_end, plan_minute_window,
 )
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 
 
 VALUES = [(100, 10, 2), (101, 12, 2), (99, 9, -2), (100, 9, 2), (102, 10, 2), (103, 9.8, 2), (104, 10, 2), (105, 9.7, 2)]
 ZONE = ZoneInfo("Asia/Shanghai")
+
+
+def _write_dg_calendar(root, *, first, last, open_days):
+    import duckdb
+
+    # Silver trade_calendar/full stores SSE DATE keys and DATE pretrade_date.
+    path = root / "silver/calendar/trade_calendar/full/part-000.parquet"
+    path.parent.mkdir(parents=True)
+    previous = None
+    rows = []
+    for offset in range((last - first).days + 1):
+        day = first + timedelta(days=offset)
+        opened = day in open_days
+        rows.append(("SSE", day, opened, previous))
+        if opened:
+            previous = day
+    with duckdb.connect() as connection:
+        connection.execute("CREATE TABLE calendar(exchange VARCHAR, trade_date DATE, is_open BOOLEAN, pretrade_date DATE)")
+        connection.executemany("INSERT INTO calendar VALUES (?, ?, ?, ?)", rows)
+        connection.execute("COPY calendar TO ? (FORMAT PARQUET)", [str(path)])
+
+
+@pytest.fixture
+def dg_daily(tmp_path):
+    import duckdb
+
+    first = date(2009, 12, 31)
+    days = [date(2010, 1, day) for day in (4, 5, 6, 7, 8)]
+    _write_dg_calendar(tmp_path, first=first, last=date(2010, 1, 8), open_days={first, *days})
+    # DG Silver index_factor_pro uses DATE, DOUBLE and a per-trading-day file.
+    with duckdb.connect() as connection:
+        connection.execute("""CREATE TABLE factors(ts_code VARCHAR, trade_date DATE,
+            close DOUBLE, macd_dif_bfq DOUBLE, macd_dea_bfq DOUBLE, macd_bfq DOUBLE)""")
+        for index, day in enumerate((first, *days)):
+            connection.execute("INSERT INTO factors VALUES ('000001.SH', ?, ?, 0, 0, 0)", [day, 100 + index])
+            if day >= date(2010, 1, 6):
+                connection.execute("INSERT INTO factors VALUES ('399001.SZ', ?, ?, 0, 0, 0)", [day, 200 + index])
+            path = tmp_path / f"silver/index/index_factor_pro/trade_date={day}/part-000.parquet"
+            path.parent.mkdir(parents=True)
+            connection.execute("COPY factors TO ? (FORMAT PARQUET)", [str(path)])
+            connection.execute("DELETE FROM factors")
+    return IndexDailyLakeReader(tmp_path)
+
+
+def test_dg_day_bounds_prefix_and_cache_identity(dg_daily):
+    from src.biz.queries.wealth.market.index_detail_xxm.forecast_query_service import IndexDetailXxmForecastQueryService
+
+    cache = XxmCache()
+    signals = IndexDetailXxmQueryService(daily_lake=dg_daily, cache=cache)
+    forecast = IndexDetailXxmForecastQueryService(daily_lake=dg_daily, cache=cache)
+    now = datetime(2010, 1, 7, 20, tzinfo=ZONE)
+    selected = build_debug(signals, None, period="day", start_date=date(2010, 1, 5),
+                           end_date=date(2010, 1, 6), limit=1, now=now)
+    assert selected.source.startTime == "2010-01-04"
+    assert selected.source.computedThrough == "2010-01-06"
+    assert [(point.time, point.close) for point in selected.points] == [("2010-01-06", 103.0)]
+    latest = json.loads(forecast.build(None, ts_code="000001.SH", period="day", now=now))
+    historical = json.loads(forecast.build(None, ts_code="000001.SH", period="day", as_of="2010-01-05", now=now))
+    assert (latest["mode"], latest["computedThrough"], latest["status"]) == ("LATEST", "2010-01-07", "NO_CANDIDATE")
+    assert historical["computedThrough"] == "2010-01-05"
+    late = build_debug(signals, None, ts_code="399001.SZ", period="day",
+                       start_date=None, end_date=None, limit=300, now=now)
+    assert late.source.startTime == "2010-01-06"
+    assert [point.time for point in late.points] == ["2010-01-06", "2010-01-07"]
+    assert {key[-1] for key in cache.entries} == {"000001.SH", "399001.SZ"}
+    assert all(key[:3] == ("dg", f"dg:{dg_daily.root}", "day") and len(key) == 5 for key in cache.entries)
+    actual = cache.entries[next(key for key in cache.entries if key[-1] == "000001.SH")][0]
+    assert [bar.time for bar in actual.raw] == ["2010-01-04", "2010-01-05", "2010-01-06", "2010-01-07"]
+
+
+def test_dg_day_existing_cutover_and_internal_gap(dg_daily):
+    service = IndexDetailXxmQueryService(daily_lake=dg_daily, cache=XxmCache())
+    before_switch = datetime(2010, 1, 7, 19, 59, tzinfo=ZONE)
+    result = build_debug(service, None, period="day", start_date=None, end_date=None, limit=300, now=before_switch)
+    assert result.source.computedThrough == "2010-01-06"
+    (dg_daily.root / "silver/index/index_factor_pro/trade_date=2010-01-05/part-000.parquet").unlink()
+    with pytest.raises(XxmQueryError) as caught:
+        build_debug(service, None, period="day", start_date=None, end_date=None, limit=300,
+                    now=before_switch.replace(hour=20))
+    assert caught.value.code == "XXM_SOURCE_CONTRACT_INVALID"
+    entry = next(iter(service.cache.entries.values()))[0]
+    assert entry.validated_through == "2010-01-06"
 
 
 def _literal_minute_window():

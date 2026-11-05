@@ -21,6 +21,7 @@ from src.biz.queries.wealth.market.context.market_page_context_query import Mark
 from src.biz.services.wealth.market.index_detail.index_detail_universe import (
     IndexDetailNotFoundError, IndexDetailQueryError, IndexDetailRequestError, IndexDetailUniverseService,
 )
+from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 from src.foundation.clients.local_lake.major_index_mins_reader import IndexMinuteHistoryBudgetError, IndexMinuteSourceContractError
 from src.biz.schemas.wealth.market.index_detail_xxm import InternalXxmResponseDto
 from src.biz.schemas.wealth.market.index_detail_xxm_forecast import InternalForecastResponseDto
@@ -29,9 +30,9 @@ from src.biz.services.wealth.market.index_detail_xxm.runtime import BUDGET
 from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.snapshot_validation import validate_structure_record
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar, XxmPeriod, XxmStep
-from .source import (CN_ZONE, INDICATOR_VERSION, XxmSourceError, assert_continuous, calendar_dates,
+from .source import (CN_ZONE, DAILY_START, INDICATOR_VERSION, XxmLakeCalendar, XxmSourceError, assert_continuous, calendar_dates,
                      expected_through, minute_reader, minute_request, normalize_minute_end,
-                     plan_minute_window, read_daily, read_minutes)
+                     plan_minute_window, read_daily, read_lake_daily, read_minutes)
 from .shared_loads import SharedLoads
 
 
@@ -185,10 +186,18 @@ _PERIODS = ("day", "m30", "m60", "m90", "m120")
 
 
 class IndexDetailXxmQueryService:
-    def __init__(self, *, lake_root: Path | None = None, cache: XxmCache | None = None) -> None:
+    def __init__(self, *, lake_root: Path | None = None, daily_lake: IndexDailyLakeReader | None = None,
+                 cache: XxmCache | None = None) -> None:
         self.reader = minute_reader(lake_root) if lake_root is not None else None
+        self.daily_lake = daily_lake
         self.cache = cache or _CACHE
-        self.lake_identity = str(lake_root.resolve()) if lake_root is not None else "daily"
+        if daily_lake is not None:
+            self.lake_identity = f"dg:{daily_lake.root}"
+        else:
+            self.lake_identity = str(lake_root.resolve()) if lake_root is not None else "daily"
+
+    def cache_bind_id(self, session: Session | None) -> int | str:
+        return "dg" if self.daily_lake is not None else id(session.get_bind())
 
     @staticmethod
     def _check_entry_identity(entry: SeriesEntry, *, ts_code: str, period: XxmPeriod) -> None:
@@ -196,7 +205,7 @@ class IndexDetailXxmQueryService:
                 or entry.calculator.spec.spec_hash != MAIN_SPEC.spec_hash):
             raise XxmQueryError("XXM_SOURCE_CONTRACT_INVALID", "顶底识别缓存或结果与请求标的不一致。")
 
-    def build(self, session: Session, *, ts_code: str, period: XxmPeriod, start_date: date | None, end_date: date | None,
+    def build(self, session: Session | None, *, ts_code: str, period: XxmPeriod, start_date: date | None, end_date: date | None,
               limit: int, debug: bool = False, now: datetime | None = None) -> bytes:
         if period not in _PERIODS or not 1 <= limit <= BUDGET.max_response_rows or (start_date and end_date and start_date > end_date):
             raise XxmQueryError("XXM_REQUEST_INVALID", "研究指标请求参数不合法。", 400)
@@ -216,8 +225,9 @@ class IndexDetailXxmQueryService:
             return body
 
     @contextmanager
-    def load_entry(self, session: Session, *, ts_code: str, period: XxmPeriod, now: datetime | None = None,
-                   window_rows: int | None = None, requested_end: date | datetime | None = None):
+    def load_entry(self, session: Session | None, *, ts_code: str, period: XxmPeriod, now: datetime | None = None,
+                   window_rows: int | None = None, requested_end: date | datetime | None = None,
+                   lake_calendar: XxmLakeCalendar | None = None):
         """Publish a validated real prefix; consumers never hold a source slot."""
         started = time.perf_counter()
 
@@ -236,16 +246,23 @@ class IndexDetailXxmQueryService:
             if period != "day" and self.reader is None:
                 raise XxmQueryError("XXM_QUERY_FAILED", "本地分钟来源未配置。", 503)
             now = (now or datetime.now(CN_ZONE)).astimezone(CN_ZONE)
-            context = MarketPageContextQuery().resolve_context(
-                session, market="CN_A", requested_trade_date=None, now=now,
-            )
+            context_query = MarketPageContextQuery()
+            window = {}
+            if self.daily_lake is not None:
+                lake_calendar = lake_calendar or XxmLakeCalendar(self.daily_lake)
+                rows = lake_calendar.recent(end=now.date(), open_days=2)
+                context = context_query.resolve_local_context(
+                    self.daily_lake, market="CN_A", requested_trade_date=None, now=now, calendar_rows=rows,
+                )
+                window["lake_calendar"] = lake_calendar
+            else:
+                context = context_query.resolve_context(session, market="CN_A", requested_trade_date=None, now=now)
             remaining()
-            key = (id(session.get_bind()), self.lake_identity, period, MAIN_SPEC.spec_hash, code)
+            key = (self.cache_bind_id(session), self.lake_identity, period, MAIN_SPEC.spec_hash, code)
             # Before/after the cutover and different calendar coverages cannot
             # join the same flight, even when their latest physical bar matches.
             completed_hint = expected_through(period, (context.trade_date,), now, context.trade_date)
             flight_key = (*key, context.trade_date, now.date(), completed_hint)
-            window = {}
             if period != "day":
                 output_rows = BUDGET.response_default_minute if window_rows is None else window_rows
                 if type(output_rows) is not int or not 1 <= output_rows <= BUDGET.max_response_rows:
@@ -258,7 +275,7 @@ class IndexDetailXxmQueryService:
                 normalized_end = normalize_minute_end(period=period, requested_end=requested_end,
                                                        context=context, now=now)
                 flight_key = (*key, output_rows, normalized_end, context.trade_date, now.date(), completed_hint)
-                window = dict(window_rows=output_rows, requested_end=normalized_end, context=context)
+                window.update(window_rows=output_rows, requested_end=normalized_end, context=context)
             def load():
                 if not _REQUEST_SLOTS.acquire(timeout=remaining()):
                     raise XxmQueryError("XXM_BUDGET_EXCEEDED", "研究指标查询超时。", 503)
@@ -286,22 +303,33 @@ class IndexDetailXxmQueryService:
             raise XxmQueryError("XXM_QUERY_FAILED", "研究指标查询失败，请重试。") from exc
 
     def _load_series(self, session, *, ts_code, key, period, now, business_date, remaining,
-                      window_rows: int | None = None, requested_end: datetime | None = None, context=None):
+                      window_rows: int | None = None, requested_end: datetime | None = None, context=None,
+                      lake_calendar: XxmLakeCalendar | None = None):
         remaining()
         if period == "day":
-            open_dates = calendar_dates(session, start=date(1990, 1, 1), end=now.date())
+            if lake_calendar is not None:
+                rows = lake_calendar.range(start=DAILY_START, end=now.date())
+                if now.date() >= DAILY_START and (not rows or rows[-1][0] != now.date()):
+                    raise XxmSourceError("SSE 交易日历未覆盖计算日期。")
+                open_dates = tuple(day for day, opened, _ in rows if opened)
+            else:
+                open_dates = calendar_dates(session, start=date(1990, 1, 1), end=now.date())
             remaining()
             completed = expected_through(period, open_dates, now, business_date)
             previous_entry = self.cache.get(key)
             if previous_entry is not None:
                 self._check_entry_identity(previous_entry, ts_code=ts_code, period=period)
-            raw = read_daily(session, ts_code=ts_code, completed=completed, check=remaining)
+            if self.daily_lake is not None:
+                raw = read_lake_daily(self.daily_lake, ts_code=ts_code, completed=completed, check=remaining)
+            else:
+                raw = read_daily(session, ts_code=ts_code, completed=completed, check=remaining)
             signature = ()
         else:
             assert self.reader is not None
+            calendar_options = {"lake_calendar": lake_calendar} if lake_calendar is not None else {}
             window = plan_minute_window(session, period=period,
                 output_rows=BUDGET.response_default_minute if window_rows is None else window_rows,
-                requested_end=requested_end, context=context, now=now, check=remaining)
+                requested_end=requested_end, context=context, now=now, check=remaining, **calendar_options)
             remaining()
             open_dates = window.open_dates
             completed = window.end_time.isoformat() if window.end_time is not None else None

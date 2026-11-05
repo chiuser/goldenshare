@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
 from pathlib import Path
@@ -9,6 +10,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 from src.foundation.clients.local_lake.major_index_mins_contract import GOLD_INDICATOR_VERSION
 from src.foundation.clients.local_lake.major_index_mins_reader import MajorIndexMinsLakeReader, IndexMinuteReadRequest
 from src.foundation.models.core.index_factor_pro import IndexFactorPro
@@ -18,6 +20,8 @@ from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar, XxmPer
 
 
 CN_ZONE = ZoneInfo("Asia/Shanghai")
+DAILY_START = date(2010, 1, 4)
+_DAILY_COLUMNS = ("trade_date", "close", "macd_dif_bfq", "macd_dea_bfq", "macd_bfq")
 ENDPOINTS = {30: (time(10), time(10, 30), time(11), time(11, 30),
                   time(13, 30), time(14), time(14, 30), time(15)),
              60: (time(10, 30), time(11, 30), time(14), time(15)),
@@ -26,6 +30,44 @@ ENDPOINTS = {30: (time(10), time(10, 30), time(11), time(11, 30),
 
 class XxmSourceError(ValueError):
     pass
+
+
+class XxmLakeCalendar:
+    """One request's SSE rows, reused by context, source and forecast."""
+
+    def __init__(self, reader: IndexDailyLakeReader) -> None:
+        self.reader = reader
+        self.rows: tuple[tuple[date, bool, date | None], ...] = ()
+
+    def range(self, *, start: date, end: date) -> tuple[tuple[date, bool, date | None], ...]:
+        if start > end:
+            return ()
+        if not self.rows or end < self.rows[0][0] or start > self.rows[-1][0]:
+            self.rows = self.reader.calendar_rows(start=start, end=end)
+            return self.rows
+        if start < self.rows[0][0]:
+            earlier = self.reader.calendar_rows(start=start, end=self.rows[0][0] - timedelta(days=1))
+            self.rows = earlier + self.rows
+        if end > self.rows[-1][0]:
+            later = self.reader.calendar_rows(start=self.rows[-1][0] + timedelta(days=1), end=end)
+            self.rows += later
+        first = bisect_left(self.rows, start, key=lambda row: row[0])
+        last = bisect_right(self.rows, end, key=lambda row: row[0])
+        return self.rows[first:last]
+
+    def recent(self, *, end: date, open_days: int) -> tuple[tuple[date, bool, date | None], ...]:
+        if not self.rows or not self.rows[0][0] <= end <= self.rows[-1][0]:
+            self.rows = self.reader.calendar_rows(end=end, recent_open_days=open_days)
+            return self.rows
+        last = bisect_right(self.rows, end, key=lambda row: row[0])
+        visible = self.rows[:last]
+        opens = [index for index, (_, opened, _) in enumerate(visible) if opened]
+        if len(opens) >= open_days:
+            return visible[opens[-open_days]:]
+        earlier = self.reader.calendar_rows(end=self.rows[0][0] - timedelta(days=1),
+                                            recent_open_days=open_days - len(opens))
+        self.rows = earlier + self.rows
+        return earlier + visible
 
 
 @dataclass(frozen=True, slots=True)
@@ -52,7 +94,7 @@ def normalize_minute_end(*, period: XxmPeriod, requested_end: date | datetime | 
 
 def plan_minute_window(session: Session, *, period: XxmPeriod, output_rows: int,
                        requested_end: datetime | None, context, now: datetime,
-                       check: Callable[[], object]) -> MinuteSourceWindow:
+                       check: Callable[[], object], lake_calendar: XxmLakeCalendar | None = None) -> MinuteSourceWindow:
     """Plan completed endpoints before discovering any minute files (LLD 0.9)."""
     if type(output_rows) is not int or not 1 <= output_rows <= BUDGET.max_response_rows:
         raise ValueError("分钟返回根数不合法。")
@@ -63,13 +105,16 @@ def plan_minute_window(session: Session, *, period: XxmPeriod, output_rows: int,
     end = requested_end.date()
     slots = ENDPOINTS[int(period[1:])]
     open_day_count = (read_rows + len(slots) - 1) // len(slots) + 1
-    recent = (select(TradeCalendar.trade_date).where(
-        TradeCalendar.exchange == "SSE", TradeCalendar.is_open.is_(True), TradeCalendar.trade_date <= end)
-        .order_by(TradeCalendar.trade_date.desc()).limit(open_day_count).cte("xxm_recent_open_dates"))
-    first = select(func.min(recent.c.trade_date)).scalar_subquery()
-    rows = session.execute(select(TradeCalendar.trade_date, TradeCalendar.is_open).where(
-        TradeCalendar.exchange == "SSE", TradeCalendar.trade_date >= func.coalesce(first, end),
-        TradeCalendar.trade_date <= end).order_by(TradeCalendar.trade_date)).all()
+    if lake_calendar is not None:
+        rows = tuple((day, opened) for day, opened, _ in lake_calendar.recent(end=end, open_days=open_day_count))
+    else:
+        recent = (select(TradeCalendar.trade_date).where(
+            TradeCalendar.exchange == "SSE", TradeCalendar.is_open.is_(True), TradeCalendar.trade_date <= end)
+            .order_by(TradeCalendar.trade_date.desc()).limit(open_day_count).cte("xxm_recent_open_dates"))
+        first = select(func.min(recent.c.trade_date)).scalar_subquery()
+        rows = session.execute(select(TradeCalendar.trade_date, TradeCalendar.is_open).where(
+            TradeCalendar.exchange == "SSE", TradeCalendar.trade_date >= func.coalesce(first, end),
+            TradeCalendar.trade_date <= end).order_by(TradeCalendar.trade_date)).all()
     check()
     if not rows or rows[-1][0] != end:
         raise XxmSourceError("SSE 交易日历未覆盖计算日期。")
@@ -143,16 +188,34 @@ def read_daily(session: Session, *, ts_code: str, completed: str | None,
         if not batch:
             break
         for row in batch:
-            try:
-                bar = XxmBar(row[0].isoformat(), *(float(value) for value in row[1:]))
-                bar.validate("day")
-            except (ValueError, TypeError) as exc:
-                raise XxmSourceError("日线必需指标或收盘值异常。") from exc
-            values.append(bar)
+            values.append(_daily_bar(*row))
         if len(values) > BUDGET.max_source_rows:
             raise OverflowError("XXM 日线源行数超预算。")
         after = batch[-1][0]
     return tuple(values)
+
+
+def read_lake_daily(reader: IndexDailyLakeReader, *, ts_code: str, completed: str | None,
+                    check: Callable[[], None]) -> tuple[XxmBar, ...]:
+    if completed is None or (end := date.fromisoformat(completed)) < DAILY_START:
+        return ()
+    check()
+    dates = reader.factor_dates(start=DAILY_START, end=end)
+    check()
+    rows = reader.factor_rows(ts_code=ts_code, dates=dates, columns=_DAILY_COLUMNS, limit=BUDGET.max_source_rows + 1)
+    check()
+    if len(rows) > BUDGET.max_source_rows:
+        raise OverflowError("XXM 日线源行数超预算。")
+    return tuple(_daily_bar(*(row[column] for column in _DAILY_COLUMNS)) for row in rows)
+
+
+def _daily_bar(day: date, *values: float) -> XxmBar:
+    try:
+        bar = XxmBar(day.isoformat(), *(float(value) for value in values))
+        bar.validate("day")
+    except (AttributeError, ValueError, TypeError) as exc:
+        raise XxmSourceError("日线必需指标或收盘值异常。") from exc
+    return bar
 
 
 def minute_request(freq: int, window: MinuteSourceWindow, *, ts_code: str) -> IndexMinuteReadRequest:

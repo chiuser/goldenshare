@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import APIRouter
 
 from src.app.api.v1 import health, qtf, trading_assistant
@@ -38,6 +40,8 @@ from src.biz.api.wealth.market import style as wealth_market_style
 from src.biz.api.wealth.market import summary as wealth_market_summary
 from src.biz.api.wealth.market import turnover as wealth_market_turnover
 from src.biz.api.wealth.market import turnover_insight as wealth_market_turnover_insight
+from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
+from src.foundation.clients.local_lake.major_index_mins_contract import FORMAL_LAKE_ROOT
 from src.foundation.config.local_minute_capability import (
     resolve_index_minute_capability,
     resolve_index_nine_turn_minute_capability,
@@ -50,6 +54,24 @@ from src.foundation.config.stock_daily_trend_channel_capability import (
 )
 from src.ops.api.router import router as ops_router
 
+
+def _xxm_local_environment_enabled(settings: Settings) -> bool:
+    return (
+        "app_env" in settings.model_fields_set
+        and settings.app_env.strip().lower() in {"dev", "local"}
+    )
+
+
+def _resolve_index_daily_lake(settings: Settings) -> IndexDailyLakeReader | None:
+    if not _xxm_local_environment_enabled(settings):
+        return None
+    configured_root = settings.goldenshare_lake_root.strip()
+    root = Path(configured_root).expanduser().resolve() if configured_root else None
+    return IndexDailyLakeReader(root if root == FORMAL_LAKE_ROOT.resolve() else None)
+
+
+_settings = get_settings()
+_index_daily_lake = _resolve_index_daily_lake(_settings)
 router = APIRouter(prefix="/v1")
 router.include_router(health.router)
 router.include_router(qtf.router)
@@ -62,7 +84,7 @@ router.include_router(biz_quote.router)
 router.include_router(biz_market.router)
 router.include_router(biz_realtime.router)
 router.include_router(wealth_market_context.router)
-router.include_router(wealth_market_index_detail.router)
+router.include_router(wealth_market_index_detail.build_router(daily_lake=_index_daily_lake))
 router.include_router(wealth_market_index_detail_nine_turn.router)
 router.include_router(wealth_market_summary.router)
 router.include_router(wealth_market_major_indices.router)
@@ -87,16 +109,16 @@ router.include_router(wealth_market_news_communications.router)
 router.include_router(wealth_market_news_item.router)
 
 
-def _xxm_local_environment_enabled(settings: Settings) -> bool:
-    return (
-        "app_env" in settings.model_fields_set
-        and settings.app_env.strip().lower() in {"dev", "local"}
-    )
-
-
-def _include_local_xxm_routers(target_router: APIRouter, settings: Settings) -> None:
+def _include_local_xxm_routers(
+    target_router: APIRouter,
+    settings: Settings,
+    *,
+    daily_lake: IndexDailyLakeReader | None = None,
+) -> None:
     if not _xxm_local_environment_enabled(settings):
         return
+    if daily_lake is None:
+        daily_lake = _resolve_index_daily_lake(settings)
     capability = resolve_index_minute_capability(settings)
     root = capability.lake_root if capability.enabled else None
 
@@ -109,21 +131,22 @@ def _include_local_xxm_routers(target_router: APIRouter, settings: Settings) -> 
     ))
     target_router.include_router(index_detail_xxm.build_router(
         db_dependency=get_db_session, auth_dependency=require_quote_access, error_factory=WebAppError,
+        daily_lake=daily_lake,
     ))
     target_router.include_router(index_detail_xxm_forecast.build_router(
         db_dependency=get_db_session, auth_dependency=require_quote_access,
-        lake_dependency=lake_root, error_factory=WebAppError,
+        lake_dependency=lake_root, error_factory=WebAppError, daily_lake=daily_lake,
     ))
     if root is not None:
         from src.biz.api.wealth.market import index_detail_minute_xxm
 
         target_router.include_router(index_detail_minute_xxm.build_router(
             db_dependency=get_db_session, auth_dependency=require_quote_access,
-            lake_dependency=lake_root, error_factory=WebAppError,
+            lake_dependency=lake_root, error_factory=WebAppError, daily_lake=daily_lake,
         ))
 
 
-_include_local_xxm_routers(router, get_settings())
+_include_local_xxm_routers(router, _settings, daily_lake=_index_daily_lake)
 
 
 def _include_local_minute_router(target_router: APIRouter) -> None:

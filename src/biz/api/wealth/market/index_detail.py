@@ -30,9 +30,7 @@ from src.biz.services.wealth.market.index_detail.index_detail_universe import (
     IndexDetailRequestError,
     IndexDetailUniverseService,
 )
-
-
-router = APIRouter(prefix="/wealth/market/index-detail", tags=["wealth-market"])
+from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 
 _ISO_DATE_PATTERN = re.compile(r"^[0-9]{4}-[0-9]{2}-[0-9]{2}$")
 
@@ -89,7 +87,6 @@ def _raise_http_error(exc: Exception) -> None:
     raise WebAppError(status_code=500, code="ID_QUERY_FAILED", message="指数详情查询失败") from exc
 
 
-@router.get("/page-init", response_model=IndexDetailPageInitResponseDto)
 def get_index_detail_page_init(
     request: Request,
     ts_code: str | None = Query(default=None, alias="tsCode"),
@@ -111,38 +108,6 @@ def get_index_detail_page_init(
         raise AssertionError("unreachable")
 
 
-@router.get("/kline", response_model=IndexDetailKlineResponseDto)
-def get_index_detail_kline(
-    request: Request,
-    ts_code: str | None = Query(default=None, alias="tsCode"),
-    period: str | None = Query(default=None),
-    start_date: str | None = Query(default=None, alias="startDate"),
-    end_date: str | None = Query(default=None, alias="endDate"),
-    limit: str | None = Query(default=None),
-    debug: str | None = Query(default=None),
-    _user: AuthenticatedUser | None = Depends(require_quote_access),
-    session: Session = Depends(get_db_session),
-) -> IndexDetailKlineResponseDto:
-    try:
-        _validate_query_shape(
-            request,
-            allowed={"tsCode", "period", "startDate", "endDate", "limit", "debug"},
-        )
-        return IndexDetailKlineQueryService().build_kline(
-            session,
-            ts_code=_normalize_ts_code(ts_code),
-            period="day" if period is None else period,
-            start_date=_parse_date(start_date, field_name="startDate"),
-            end_date=_parse_date(end_date, field_name="endDate"),
-            limit=_parse_limit(limit),
-            debug=_parse_debug(debug),
-        )
-    except Exception as exc:  # noqa: BLE001
-        _raise_http_error(exc)
-        raise AssertionError("unreachable")
-
-
-@router.get("/weights", response_model=IndexDetailWeightsResponseDto)
 def get_index_detail_weights(
     request: Request,
     ts_code: str | None = Query(default=None, alias="tsCode"),
@@ -162,3 +127,47 @@ def get_index_detail_weights(
     except Exception as exc:  # noqa: BLE001
         _raise_http_error(exc)
         raise AssertionError("unreachable")
+
+
+def build_router(*, daily_lake: IndexDailyLakeReader | None = None) -> APIRouter:
+    router = APIRouter(prefix="/wealth/market/index-detail", tags=["wealth-market"])
+    router.add_api_route(
+        "/page-init", get_index_detail_page_init, methods=["GET"],
+        response_model=IndexDetailPageInitResponseDto,
+    )
+
+    @router.get("/kline", response_model=IndexDetailKlineResponseDto)
+    def get_index_detail_kline(
+        request: Request,
+        ts_code: str | None = Query(default=None, alias="tsCode"),
+        period: str | None = Query(default=None),
+        start_date: str | None = Query(default=None, alias="startDate"),
+        end_date: str | None = Query(default=None, alias="endDate"),
+        limit: str | None = Query(default=None),
+        debug: str | None = Query(default=None),
+        _user: AuthenticatedUser | None = Depends(require_quote_access),
+        session: Session = Depends(get_db_session),
+    ) -> IndexDetailKlineResponseDto:
+        try:
+            _validate_query_shape(
+                request,
+                allowed={"tsCode", "period", "startDate", "endDate", "limit", "debug"},
+            )
+            return IndexDetailKlineQueryService(daily_lake=daily_lake).build_kline(
+                session,
+                ts_code=_normalize_ts_code(ts_code),
+                period="day" if period is None else period,
+                start_date=_parse_date(start_date, field_name="startDate"),
+                end_date=_parse_date(end_date, field_name="endDate"),
+                limit=_parse_limit(limit),
+                debug=_parse_debug(debug),
+            )
+        except Exception as exc:  # noqa: BLE001
+            _raise_http_error(exc)
+            raise AssertionError("unreachable")
+
+    router.add_api_route(
+        "/weights", get_index_detail_weights, methods=["GET"],
+        response_model=IndexDetailWeightsResponseDto,
+    )
+    return router

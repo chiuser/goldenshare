@@ -1,7 +1,10 @@
-"""P4-01..04: original App assembly; storage fixture follows read_daily's ORM projection."""
+"""Index-detail routes select storage from the backend environment."""
+from datetime import datetime
 import importlib
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
+import duckdb
 from fastapi import APIRouter, FastAPI
 from fastapi.testclient import TestClient
 import pytest
@@ -11,8 +14,6 @@ from src.app.dependencies import get_db_session
 from src.app.exceptions import WebAppError, install_exception_handlers
 from src.foundation.config.settings import Settings, get_settings
 from src.foundation.config.local_minute_capability import LocalMinuteCapability, LocalMinuteCapabilityError
-from tests.web.test_wealth_index_detail_xxm_api import source_db  # noqa: F401
-from sqlalchemy.orm import Session
 
 PATH = '/api/v1/wealth/market/index-detail/'
 NAMES = ('xxm-signals', 'xxm-key-point-forecast', 'daily-waves', 'minute-xxm-signals')
@@ -43,16 +44,62 @@ def test_explicit_environment_and_once_only_registration(monkeypatch, value):
     assert len(calls) == int(enabled)
 
 
-def test_unconfigured_minutes_do_not_block_real_daily_query_or_auth(monkeypatch, source_db):
+def test_unconfigured_minutes_do_not_block_dg_daily_query_or_auth(monkeypatch, tmp_path):
     assembly = importlib.import_module("src.app.api.v1.router")
-    supplied = settings(APP_ENV='local')
-    monkeypatch.setattr(assembly, 'resolve_index_minute_capability', lambda s: LocalMinuteCapability(False, None, None))
+    supplied = settings(APP_ENV='local', GOLDENSHARE_LAKE_ROOT=str(tmp_path))
+    monkeypatch.setattr(assembly, 'FORMAL_LAKE_ROOT', tmp_path)
+    # DG Silver uses DATE and DOUBLE and publishes one factor file per trade date.
+    calendar = tmp_path / 'silver/calendar/trade_calendar/full/part-000.parquet'
+    calendar.parent.mkdir(parents=True)
+    identity = tmp_path / 'silver/index_basic/full/part-000.parquet'
+    identity.parent.mkdir(parents=True)
+    today = datetime.now(ZoneInfo('Asia/Shanghai')).date()
+    with duckdb.connect(':memory:') as connection:
+        connection.execute(f"""
+            COPY (SELECT '000001.SH' AS ts_code, '上证指数' AS name,
+                         'SSE' AS market, 'SSE' AS publisher, '综合' AS category)
+            TO '{identity}' (FORMAT PARQUET)
+        """)
+        connection.execute(f"""
+            COPY (
+                WITH days AS (
+                    SELECT CAST(day AS DATE) AS trade_date, dayofweek(day) BETWEEN 1 AND 5 AS is_open
+                    FROM generate_series(DATE '2010-01-04', DATE '{today.isoformat()}', INTERVAL 1 DAY) AS t(day)
+                )
+                SELECT 'SSE' AS exchange, trade_date, is_open,
+                       max(trade_date) FILTER (WHERE is_open) OVER (
+                           ORDER BY trade_date ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
+                       ) AS pretrade_date
+                FROM days
+            ) TO '{calendar}' (FORMAT PARQUET)
+        """)
+        for day, close in (('2020-01-06', 100.0), ('2020-01-07', 101.0), ('2020-01-08', 102.0)):
+            part = tmp_path / f'silver/index/index_factor_pro/trade_date={day}/part-000.parquet'
+            part.parent.mkdir(parents=True)
+            connection.execute(f"""
+                COPY (
+                    SELECT '000001.SH' AS ts_code, DATE '{day}' AS trade_date,
+                           {close - 0.5}::DOUBLE AS open, {close + 1}::DOUBLE AS high,
+                           {close - 1}::DOUBLE AS low, {close}::DOUBLE AS close,
+                           {close - 1}::DOUBLE AS pre_close, 1.0::DOUBLE AS change,
+                           1.0::DOUBLE AS pct_change, 200.0::DOUBLE AS vol, 2000.0::DOUBLE AS amount,
+                           100.0::DOUBLE AS ma_bfq_5, 100.0::DOUBLE AS ma_bfq_10,
+                           100.0::DOUBLE AS ma_bfq_20, 100.0::DOUBLE AS ma_bfq_30,
+                           100.0::DOUBLE AS ma_bfq_60, 100.0::DOUBLE AS ma_bfq_90,
+                           100.0::DOUBLE AS ma_bfq_250, 104.0::DOUBLE AS boll_upper_bfq,
+                           100.0::DOUBLE AS boll_mid_bfq, 96.0::DOUBLE AS boll_lower_bfq,
+                           1.0::DOUBLE AS macd_dif_bfq, 0.5::DOUBLE AS macd_dea_bfq,
+                           1.0::DOUBLE AS macd_bfq, 50.0::DOUBLE AS kdj_k_bfq,
+                           50.0::DOUBLE AS kdj_d_bfq, 50.0::DOUBLE AS kdj_bfq
+                ) TO '{part}' (FORMAT PARQUET)
+            """)
     app = FastAPI(); install_exception_handlers(app)
-    target = APIRouter(prefix='/api/v1'); assembly._include_local_xxm_routers(target, supplied)
+    daily_lake = assembly._resolve_index_daily_lake(supplied)
+    target = APIRouter(prefix='/api/v1')
+    target.include_router(assembly.wealth_market_index_detail.build_router(daily_lake=daily_lake))
+    assembly._include_local_xxm_routers(target, supplied, daily_lake=daily_lake)
     app.include_router(target)
-    def session():
-        with Session(source_db) as value: yield value
-    app.dependency_overrides[get_db_session] = session
+    app.dependency_overrides[get_db_session] = lambda: None
     import src.app.auth.dependencies as auth
     from types import SimpleNamespace
     monkeypatch.setattr(auth, 'get_web_settings', lambda: SimpleNamespace(quote_api_auth_required=True))
@@ -61,7 +108,13 @@ def test_unconfigured_minutes_do_not_block_real_daily_query_or_auth(monkeypatch,
         app.dependency_overrides[require_quote_access] = lambda: None
         result = client.get(PATH+'xxm-signals?tsCode=000001.SH&endDate=2020-01-08&limit=8')
         assert result.status_code == 200
-        assert result.json()['meta']['count'] == 8
+        assert [point['close'] for point in result.json()['points']] == [100.0, 101.0, 102.0]
+        chart = client.get(PATH+'kline?tsCode=000001.SH&endDate=2020-01-08&limit=8')
+        assert chart.status_code == 200
+        assert [bar['close'] for bar in chart.json()['bars']] == [100.0, 101.0, 102.0]
+        day_forecast = client.get(PATH+'xxm-key-point-forecast?tsCode=000001.SH&period=day&asOf=2020-01-08')
+        assert day_forecast.status_code == 200
+        assert day_forecast.json()['computedThrough'] == '2020-01-08'
         assert client.get(PATH+'minute-xxm-signals?tsCode=000001.SH&freq=60').status_code == 404
         forecast = client.get(PATH+'xxm-key-point-forecast?tsCode=000001.SH&period=m60')
         assert forecast.status_code == 404 and forecast.json()['code'] == 'XXMF_NOT_SUPPORTED'
@@ -87,6 +140,7 @@ def test_production_full_api_aggregation_has_no_r4_routes_or_source_calls(monkey
     try:
         monkeypatch.setattr(config, 'get_settings', lambda: settings(APP_ENV='prod'))
         importlib.reload(v1); importlib.reload(api)
+        assert v1._index_daily_lake is None
         app = FastAPI(); app.include_router(api.router)
         def forbidden(): raise AssertionError('production r4 reached database')
         app.dependency_overrides[get_db_session] = forbidden

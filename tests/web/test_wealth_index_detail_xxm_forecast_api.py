@@ -27,9 +27,10 @@ from src.biz.queries.wealth.market.index_detail_xxm.query_service import XxmCach
 from src.biz.queries.wealth.market.index_detail_xxm.source import CN_ZONE
 from src.biz.schemas.wealth.market.index_detail_xxm_forecast import InternalForecastResponseDto, ForecastResponseDto, ForecastDebugResponseDto
 from src.biz.services.wealth.market.index_detail_xxm.projection import ProjectionState,ProjectionPrecisionError
+from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 from scripts.research.index_market.tests.test_xxm_r4_following_query import entry
 from tests.web.test_wealth_index_detail_xxm_api import (  # shared temporary producers, no source replacement
-    batch3_db_factory, _batch3_gold, BATCH3_NOW, BATCH3_SLOTS, _source_clock,
+    batch3_db_factory, _batch3_gold, BATCH3_NOW, BATCH3_SLOTS, _source_clock, _write_dg_calendar,
 )
 
 PATH='/api/v1/wealth/market/index-detail/xxm-key-point-forecast'
@@ -108,6 +109,32 @@ def test_full_m1_normal_debug_cache_and_exact_single_target(m1,source_db,monkeyp
         assert read(service,s)['display']==normal['display']
         replay=read(service,s,as_of='2023-01-10')
         assert replay['mode']=='REPLAY' and replay['forecastId']!=normal['forecastId']
+
+
+def test_dg_minute_forecast_uses_gold_and_only_reads_missing_calendar_days(tmp_path, monkeypatch):
+    # The M1 turns keep the next-endpoint branch real; the short synthetic
+    # fixture has no projection warm-up, so only calibration is isolated.
+    stamps = ("2023-01-09T14:00:00", "2023-01-09T15:00:00", "2023-01-10T10:30:00",
+              "2023-01-10T11:30:00", "2023-01-10T14:00:00", "2023-01-10T15:00:00")
+    rows = [(stamp, close, dif, dif - hist / 2, hist) for stamp, (close, dif, hist) in zip(stamps, M1, strict=True)]
+    _batch3_gold(tmp_path, 60, rows)
+    open_days = {date(2023, 1, day) for day in (3, 4, 5, 6, 9, 10, 11)}
+    _write_dg_calendar(tmp_path, first=date(2023, 1, 3), last=date(2023, 1, 11), open_days=open_days)
+    reader = IndexDailyLakeReader(tmp_path)
+    cache = XxmCache()
+    service = query.IndexDetailXxmForecastQueryService(lake_root=tmp_path, daily_lake=reader, cache=cache)
+    monkeypatch.setattr(query, "recover_projection", lambda *args: ProjectionState(13, 27, 0))
+    with patch.object(reader, "calendar_rows", wraps=reader.calendar_rows) as read_calendar:
+        response = json.loads(service.build(None, ts_code="000001.SH", period="m60", now=NOW))
+    assert response["status"] == "READY"
+    assert response["computedThrough"] == "2023-01-10T15:00:00+08:00"
+    assert response["targetEndpoint"] == "2023-01-11T10:30:00+08:00"
+    current, past, future = [call.kwargs for call in read_calendar.call_args_list]
+    assert current["end"] == date(2023, 1, 10)
+    assert past["end"] == date(2023, 1, 8)
+    assert future["start"] == date(2023, 1, 11)
+    key = next(key for key in cache.entries if key[0] == "forecast")
+    assert key[1:4] == ("dg", f"dg:{tmp_path}", "m60") and key[-1] == "000001.SH"
 
 
 def test_generated_ids_and_fields_are_required_and_no_legacy_contract(m1,source_db):

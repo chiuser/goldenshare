@@ -448,7 +448,11 @@ def isolated_app(settings, *, group):
     """One disposable worker owns the App, source pool, patches and socket."""
     import uvicorn
     from fastapi import APIRouter, Depends, FastAPI
-    from src.app.api.v1.router import _include_local_xxm_routers, _xxm_local_environment_enabled
+    from src.app.api.v1.router import (
+        _include_local_xxm_routers,
+        _resolve_index_daily_lake,
+        _xxm_local_environment_enabled,
+    )
     from src.app.auth.dependencies import require_quote_access
     from src.app.dependencies import get_db_session
     from src.app.exceptions import install_exception_handlers
@@ -471,8 +475,9 @@ def isolated_app(settings, *, group):
                 yield session
         app.dependency_overrides[get_db_session] = readonly_session
         target = APIRouter(prefix='/api/v1')
-        _include_local_xxm_routers(target, settings)
-        target.include_router(index_detail.router)
+        daily_lake = _resolve_index_daily_lake(settings)
+        _include_local_xxm_routers(target, settings, daily_lake=daily_lake)
+        target.include_router(index_detail.build_router(daily_lake=daily_lake))
         target.include_router(index_detail_nine_turn.router)
         if group.period != 'day':
             from src.foundation.config.local_minute_capability import resolve_index_minute_capability, resolve_index_nine_turn_minute_capability

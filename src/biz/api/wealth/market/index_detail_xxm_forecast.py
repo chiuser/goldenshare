@@ -5,6 +5,7 @@ from .index_detail_xxm import XxmQueryError, parse_debug
 from src.biz.queries.wealth.market.index_detail_xxm.forecast_query_service import IndexDetailXxmForecastQueryService
 from src.biz.queries.wealth.market.index_detail_xxm.source import ENDPOINTS
 from src.biz.schemas.wealth.market.index_detail_xxm_forecast import ForecastResponseDto, ForecastDebugResponseDto
+from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 
 
 def parse_parameters(request):
@@ -32,7 +33,10 @@ def parse_parameters(request):
     return code, period, as_of, parse_debug(request)
 
 
-def build_router(*, db_dependency, auth_dependency, lake_dependency, error_factory):
+def build_router(
+    *, db_dependency, auth_dependency, lake_dependency, error_factory,
+    daily_lake: IndexDailyLakeReader | None = None,
+) -> APIRouter:
     router = APIRouter(prefix="/wealth/market/index-detail", tags=["wealth-market"])
     @router.get("/xxm-key-point-forecast", response_model=ForecastResponseDto | ForecastDebugResponseDto)
     def get_forecast(request: Request, tsCode: str | None = Query(None), period: str | None = Query(None),
@@ -42,7 +46,9 @@ def build_router(*, db_dependency, auth_dependency, lake_dependency, error_facto
             root = lake_dependency() if selected != "day" else None
             if selected != "day" and root is None:
                 raise XxmQueryError("XXM_NOT_SUPPORTED", "当前环境未开放分钟预判。", 404)
-            body = IndexDetailXxmForecastQueryService(lake_root=root).build(session, ts_code=code, period=selected, as_of=as_of, debug=debug_mode)
+            body = IndexDetailXxmForecastQueryService(lake_root=root, daily_lake=daily_lake).build(
+                session, ts_code=code, period=selected, as_of=as_of, debug=debug_mode,
+            )
             return Response(content=body, media_type="application/json", headers={"Cache-Control": "no-store"})
         except XxmQueryError as exc:
             code = exc.code.replace("XXM_", "XXMF_", 1)

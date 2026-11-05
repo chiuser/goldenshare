@@ -1,12 +1,12 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
 from typing import Any, Mapping
 
 from sqlalchemy.orm import Session
 
 from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContextQuery
-from src.biz.queries.wealth.market.index_detail.index_detail_query import IndexDetailQuery
+from src.biz.queries.wealth.market.index_detail.index_detail_query import _KLINE_FIELD_NAMES, IndexDetailQuery
 from src.biz.schemas.wealth.market.index_detail import (
     IndexDetailDataStatusDto,
     IndexDetailDebugInfoDto,
@@ -28,6 +28,7 @@ from src.biz.services.wealth.market.index_detail.index_detail_universe import (
     IndexDetailRequestError,
     IndexDetailUniverseService,
 )
+from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 
 
 _BASE_REQUIRED_FIELDS = ("open", "high", "low", "close", "pre_close", "change", "pct_change", "vol", "amount")
@@ -56,10 +57,11 @@ _MA_FIELDS: tuple[tuple[str, int], ...] = (
 class IndexDetailKlineQueryService:
     """Assemble factor-only index daily K-line responses."""
 
-    def __init__(self) -> None:
+    def __init__(self, *, daily_lake: IndexDailyLakeReader | None = None) -> None:
         self._universe_service = IndexDetailUniverseService()
         self._context_query = MarketPageContextQuery()
         self._query = IndexDetailQuery()
+        self._daily_lake = daily_lake
         self._status_resolver = IndexDetailStatusResolver()
         self._exception_builder = IndexDetailExceptionBuilder()
 
@@ -82,20 +84,24 @@ class IndexDetailKlineQueryService:
             raise IndexDetailRequestError("startDate 不能晚于 endDate")
 
         self._universe_service.require_supported(ts_code)
-        identity = self._load_identity_or_raise(session, ts_code=ts_code)
-        context = self._context_query.resolve_context(
-            session,
-            market="CN_A",
-            requested_trade_date=end_date,
-        )
-        query_end_date = end_date or context.trade_date
-        rows = self._query.load_kline_rows(
-            session,
-            ts_code=ts_code,
-            end_date=query_end_date,
-            start_date=start_date,
-            limit=limit,
-        )
+        daily_lake = None if ts_code == "899050.BJ" else self._daily_lake
+        history_before = None
+        if daily_lake is None:
+            identity = self._build_identity_or_raise(self._query.load_identity(session, ts_code=ts_code), ts_code=ts_code)
+            context = self._context_query.resolve_context(session, market="CN_A", requested_trade_date=end_date)
+            query_end_date = end_date or context.trade_date
+            rows = self._query.load_kline_rows(
+                session, ts_code=ts_code, end_date=query_end_date, start_date=start_date, limit=limit,
+            )
+        else:
+            identity = self._build_identity_or_raise(daily_lake.index_identity(ts_code), ts_code=ts_code)
+            context = self._context_query.resolve_local_context(
+                daily_lake, market="CN_A", requested_trade_date=end_date,
+            )
+            query_end_date = end_date or context.trade_date
+            rows, history_before = self._load_lake_rows(
+                daily_lake, ts_code=ts_code, start_date=start_date, end_date=query_end_date, limit=limit,
+            )
         observed_trade_date = rows[-1]["trade_date"] if rows else None
         if not rows:
             data_status = self._status_resolver.resolve(
@@ -137,19 +143,20 @@ class IndexDetailKlineQueryService:
             session,
             ts_code=ts_code,
             rows=rows,
+            daily_lake=daily_lake,
+            history_before=history_before,
         )
         if ma_missing_after_warmup:
             missing_count += 1
-        latest_daily_date = self._query.load_latest_daily_date(
-            session,
-            ts_code=ts_code,
-            end_date=query_end_date,
-        )
-        factor_lags_completed_daily = (
-            latest_daily_date is not None
-            and observed_trade_date is not None
-            and observed_trade_date < latest_daily_date
-        )
+        if daily_lake is None:
+            latest_daily_date = self._query.load_latest_daily_date(
+                session, ts_code=ts_code, end_date=query_end_date,
+            )
+            factor_lags_completed_daily = latest_daily_date is not None and observed_trade_date < latest_daily_date
+        else:
+            factor_lags_completed_daily = observed_trade_date < query_end_date and daily_lake.has_daily_after(
+                ts_code=ts_code, after=observed_trade_date, end=query_end_date,
+            )
         if factor_lags_completed_daily:
             missing_count += 1
         partial = missing_count > 0
@@ -201,20 +208,72 @@ class IndexDetailKlineQueryService:
         field_names = _BASE_REQUIRED_FIELDS + _TECHNICAL_REQUIRED_FIELDS
         return sum(1 for row in rows for field_name in field_names if row.get(field_name) is None)
 
+    @staticmethod
+    def _load_lake_rows(
+        reader: IndexDailyLakeReader,
+        *,
+        ts_code: str,
+        start_date: date | None,
+        end_date: date,
+        limit: int,
+    ) -> tuple[list[dict[str, Any]], date | None]:
+        dates = reader.factor_dates(start=start_date, end=end_date)
+        rows = []
+        stop = len(dates)
+        while stop and len(rows) < limit:
+            remaining = limit - len(rows)
+            start = max(0, stop - remaining)
+            rows.extend(reader.factor_rows(
+                ts_code=ts_code, dates=dates[start:stop], columns=_KLINE_FIELD_NAMES,
+                limit=remaining, descending=True,
+            ))
+            stop = start
+        rows.reverse()
+        return rows, dates[stop] if dates else None
+
+    @staticmethod
+    def _count_lake_history(
+        reader: IndexDailyLakeReader,
+        *,
+        ts_code: str,
+        before: date,
+    ) -> int:
+        dates = reader.factor_dates(start=None, end=before - timedelta(days=1))
+        max_period = max(period for _, period in _MA_FIELDS)
+        count = 0
+        stop = len(dates)
+        while stop and count < max_period:
+            remaining = max_period - count
+            start = max(0, stop - remaining)
+            rows = reader.factor_rows(
+                ts_code=ts_code, dates=dates[start:stop], columns=("trade_date", "close"),
+                limit=remaining, descending=True,
+            )
+            count += sum(row["close"] is not None for row in rows)
+            stop = start
+        return count
+
     def _has_ma_missing_after_effective_history(
         self,
         session: Session,
         *,
         ts_code: str,
         rows: list[Mapping[str, Any]],
+        daily_lake: IndexDailyLakeReader | None,
+        history_before: date | None,
     ) -> bool:
         if not any(row.get(field_name) is None for row in rows for field_name, _period in _MA_FIELDS):
             return False
-        effective_count = self._query.count_effective_history_before(
-            session,
-            ts_code=ts_code,
-            first_trade_date=rows[0]["trade_date"],
-        )
+        if daily_lake is None:
+            effective_count = self._query.count_effective_history_before(
+                session, ts_code=ts_code, first_trade_date=rows[0]["trade_date"],
+            )
+        else:
+            # A newer partition already examined by the chart cannot contain
+            # an earlier target row. Only look beyond that window for warmup.
+            effective_count = self._count_lake_history(
+                daily_lake, ts_code=ts_code, before=history_before or rows[0]["trade_date"],
+            )
         for row in rows:
             if row.get("close") is not None:
                 effective_count += 1
@@ -239,8 +298,10 @@ class IndexDetailKlineQueryService:
             missingCount=missing_count,
         )
 
-    def _load_identity_or_raise(self, session: Session, *, ts_code: str) -> IndexDetailIdentityDto:
-        identity_row = self._query.load_identity(session, ts_code=ts_code)
+    @staticmethod
+    def _build_identity_or_raise(
+        identity_row: Mapping[str, Any] | None, *, ts_code: str,
+    ) -> IndexDetailIdentityDto:
         if identity_row is None:
             raise IndexDetailNotFoundError(f"未找到指数身份：{ts_code}")
         try:

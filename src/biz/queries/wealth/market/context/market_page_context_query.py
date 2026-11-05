@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import and_, case, func, literal, select
 from sqlalchemy.orm import Session, aliased
 
+from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 from src.foundation.models.core.trade_calendar import TradeCalendar
 
 
@@ -16,6 +17,7 @@ _SESSION_MORNING_CLOSE = time(hour=11, minute=30)
 _SESSION_AFTERNOON_OPEN = time(hour=13, minute=0)
 _SESSION_CLOSE = time(hour=15, minute=0)
 _EOD_EXPECTED_SWITCH_HOUR = 20
+CalendarRow = tuple[date, bool, date | None]
 
 
 def _now_cn() -> datetime:
@@ -147,6 +149,46 @@ class MarketPageContextQuery:
             session_status=self._resolve_session_status(local_now=local_now, is_trading_day=is_trading_day),
             generated_at=local_now,
             source=source,
+        )
+
+    def resolve_local_context(
+        self,
+        reader: IndexDailyLakeReader,
+        *,
+        market: str,
+        requested_trade_date: date | None,
+        now: datetime | None = None,
+        calendar_rows: tuple[CalendarRow, ...] | None = None,
+    ) -> MarketPageContext:
+        if market != "CN_A":
+            raise ValueError(f"unsupported market: {market}")
+        local_now = (now or _now_cn()).astimezone(_CN_TIMEZONE)
+        today = local_now.date()
+        if calendar_rows is None:
+            calendar_rows = reader.calendar_rows(end=requested_trade_date or today, recent_open_days=2)
+        resolved = requested_trade_date
+        if resolved is None:
+            before_switch = local_now.hour < _EOD_EXPECTED_SWITCH_HOUR
+            latest_open = next((day for day, opened, _ in reversed(calendar_rows)
+                                if opened and day <= today and (day != today or not before_switch)), None)
+            if latest_open is None:
+                # The bounded window can start on today's first recorded open date.
+                latest_open = next((day for day, opened, _ in reversed(calendar_rows) if opened and day <= today), None)
+            resolved = latest_open or today
+        selected = next((row for row in reversed(calendar_rows) if row[0] == resolved), None)
+        if selected is None:
+            prev_trade_date = next((day for day, opened, _ in reversed(calendar_rows) if opened and day < resolved), None)
+            is_trading_day = False
+        else:
+            _, is_trading_day, prev_trade_date = selected
+        return MarketPageContext(
+            market=market,
+            trade_date=resolved,
+            prev_trade_date=prev_trade_date,
+            is_trading_day=is_trading_day,
+            session_status=self._resolve_session_status(local_now=local_now, is_trading_day=is_trading_day),
+            generated_at=local_now,
+            source="explicit" if requested_trade_date is not None else "default",
         )
 
     @staticmethod

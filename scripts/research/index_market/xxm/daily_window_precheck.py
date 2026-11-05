@@ -97,17 +97,15 @@ def isolated_client(bars,calendar,now):
     q._CACHE=q.XxmCache()
     try:
         from fastapi import APIRouter, FastAPI
-        from src.app.api.v1.router import _include_local_xxm_routers
-        from src.app.dependencies import get_db_session
-        from src.app.auth.dependencies import require_quote_access
-        from src.app.exceptions import install_exception_handlers
-        from src.foundation.config.settings import Settings
+        from src.app.exceptions import WebAppError, install_exception_handlers
+        from src.biz.api.wealth.market.index_detail_xxm_forecast import build_router
         app=FastAPI(); install_exception_handlers(app)
         target=APIRouter(prefix='/api/v1')
-        _include_local_xxm_routers(target,Settings(_env_file=None,APP_ENV='local',WEALTH_LOCAL_LAKE_MINUTE_API_ENABLED=False))
+        target.include_router(build_router(
+            db_dependency=session, auth_dependency=lambda: None,
+            lake_dependency=lambda: None, error_factory=WebAppError,
+        ))
         app.include_router(target)
-        app.dependency_overrides[get_db_session]=session
-        app.dependency_overrides[require_quote_access]=lambda:None
         with TestClient(app) as client:
             yield client,session
     finally:

@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from src.biz.queries.wealth.market.index_detail_xxm.query_service import IndexDetailXxmQueryService, XxmQueryError
 from src.biz.schemas.wealth.market.index_detail_xxm import XxmResponseDto, XxmDebugResponseDto
 from src.biz.services.wealth.market.index_detail_xxm.runtime import BUDGET
+from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 
 
 def parse_parameters(request: Request, *, minute: bool) -> dict:
@@ -54,7 +55,10 @@ def parse_debug(request):
     return value == "1"
 
 
-def build_router(*, db_dependency: Callable, auth_dependency: Callable, error_factory: Callable) -> APIRouter:
+def build_router(
+    *, db_dependency: Callable, auth_dependency: Callable, error_factory: Callable,
+    daily_lake: IndexDailyLakeReader | None = None,
+) -> APIRouter:
     """App supplies infrastructure dependencies; Biz never imports App."""
     router = APIRouter(prefix="/wealth/market/index-detail", tags=["wealth-market"])
 
@@ -64,7 +68,9 @@ def build_router(*, db_dependency: Callable, auth_dependency: Callable, error_fa
                       end_date: str | None = Query(None, alias="endDate"), limit: str | None = Query(None), debug: str | None = Query(None),
                       _user=Depends(auth_dependency), session: Session = Depends(db_dependency)) -> Response:
         try:
-            body = IndexDetailXxmQueryService().build(session, **parse_parameters(request, minute=False))
+            body = IndexDetailXxmQueryService(daily_lake=daily_lake).build(
+                session, **parse_parameters(request, minute=False),
+            )
             return Response(content=body, media_type="application/json", headers={"Cache-Control": "no-store"})
         except XxmQueryError as exc:
             raise error_factory(status_code=exc.status, code=exc.code, message=str(exc)) from exc

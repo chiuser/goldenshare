@@ -7,6 +7,7 @@ from datetime import date, datetime, time as daytime, timedelta
 import time
 
 from sqlalchemy import select
+from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.biz.schemas.wealth.market.index_detail_xxm_forecast import InternalForecastResponseDto
 from src.biz.services.wealth.market.index_detail_xxm.forecast import forecast, precheck_next_bar
@@ -21,16 +22,19 @@ from src.biz.services.wealth.market.index_detail_xxm.forecast_identity import (
     digest, forecast_result_id, forecast_condition_id,
 )
 from .query_service import IndexDetailXxmQueryService, XxmQueryError, _deep_size
-from .source import CN_ZONE, ENDPOINTS, expected_through
+from .source import CN_ZONE, ENDPOINTS, XxmLakeCalendar, expected_through
 
 
-def future_calendar(session, period, through, check):
+def future_calendar(session, period, through, check, *, lake_calendar: XxmLakeCalendar | None = None):
     anchor=date.fromisoformat(through[:10])
+    end=anchor+timedelta(days=FORECAST_SPEC.future_calendar_days)
     check()
-    rows=session.execute(select(TradeCalendar.trade_date,TradeCalendar.is_open).where(
-        TradeCalendar.exchange=='SSE',TradeCalendar.trade_date>=anchor,
-        TradeCalendar.trade_date<=anchor+timedelta(days=FORECAST_SPEC.future_calendar_days))
-        .order_by(TradeCalendar.trade_date).limit(FORECAST_SPEC.future_calendar_days+1)).all()
+    if lake_calendar is not None:
+        rows=((day, opened) for day, opened, _ in lake_calendar.range(start=anchor,end=end))
+    else:
+        rows=session.execute(select(TradeCalendar.trade_date,TradeCalendar.is_open).where(
+            TradeCalendar.exchange=='SSE',TradeCalendar.trade_date>=anchor,TradeCalendar.trade_date<=end)
+            .order_by(TradeCalendar.trade_date).limit(FORECAST_SPEC.future_calendar_days+1)).all()
     check()
     previous=anchor-timedelta(days=1);identity=[]
     slots=(daytime(15),) if period=='day' else ENDPOINTS[int(period[1:])]
@@ -93,8 +97,8 @@ def _assemble(*, ts_code, period, through, as_of, data_status, ordinary, directi
 
 
 class IndexDetailXxmForecastQueryService:
-    def __init__(self, *, lake_root=None, cache=None):
-        self.source=IndexDetailXxmQueryService(lake_root=lake_root,cache=cache)
+    def __init__(self, *, lake_root=None, daily_lake: IndexDailyLakeReader | None = None, cache=None):
+        self.source=IndexDetailXxmQueryService(lake_root=lake_root,daily_lake=daily_lake,cache=cache)
 
     def build(self, session, *, ts_code, period, as_of=None, debug=False, now=None) -> bytes:
         candidate=None
@@ -105,7 +109,9 @@ class IndexDetailXxmForecastQueryService:
                 if requested_end is not None and requested_end.date() < date(1990,1,1):
                     raise XxmQueryError('XXM_REQUEST_INVALID','asOf 必须是已完成的开市端点。',400)
                 window = dict(window_rows=BUDGET.response_default_minute, requested_end=requested_end)
-            with self.source.load_entry(session,ts_code=ts_code,period=period,now=now,**window) as (entry,context,open_dates,remaining):
+            calendar_options = ({"lake_calendar": XxmLakeCalendar(self.source.daily_lake)}
+                                if self.source.daily_lake is not None else {})
+            with self.source.load_entry(session,ts_code=ts_code,period=period,now=now,**window,**calendar_options) as (entry,context,open_dates,remaining):
                 code=entry.calculator.ts_code
                 upper=min(date.fromisoformat(as_of[:10]) if as_of else context.trade_date,context.trade_date)
                 request_open_dates=open_dates
@@ -142,8 +148,8 @@ class IndexDetailXxmForecastQueryService:
                             result=ForecastKernelResult('PRECISION_PENDING',exc.reason,None,None,prepared.references,None,
                                                         prepared.nearest_decision,False,(),(),())
                         else:
-                            endpoint,calendar_id=future_calendar(session,period,through,check)
-                            key=(id(session.get_bind()),self.source.lake_identity,period,MAIN_SPEC.spec_hash,
+                            endpoint,calendar_id=future_calendar(session,period,through,check,**calendar_options)
+                            key=(self.source.cache_bind_id(session),self.source.lake_identity,period,MAIN_SPEC.spec_hash,
                                  FORECAST_SPEC.spec_hash,source_id,expected,as_of,calendar_id,code)
                             cached=self.source.cache.get_forecast(key,check=check)
                             if cached is None:
