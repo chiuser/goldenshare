@@ -2,6 +2,8 @@
 
 > P5整理说明（2026-11-03）：本文保留原设计、开发及验收记录的历史含义，不是当前开工或运行入口。旧执行代码和过程产物已按清单清退；原路径文字仅作出处。现行规则与阶段见[产品文档](wealth-top-bottom-recognition-product-v1.md)，有效原材料见[资料索引](../../reports/xxm/README.md)。
 
+> 当前实现、验收范围和未解决问题汇总在 [r4 当前交接](xxm-research-and-implementation-v0.6.md#r4-current-handoff)。下方原始研究按记录日期阅读。
+
 2026-10-21接续见§8.153：最高定义已确认是DIF，课堂图证（原记录：`reports/xxm_dif_peak_confirmation_20261021_01/README.md`）已归档。先近后远12点结果保持；全部同色3峰以上取DIF极值的宽松对照使32对变16对，仍排除3对，未确认排除正确；完整结构回测未完成。最新报告（原记录：`reports/xxm_near_first_review_20261021_04/README.md`）。
 
 2026-10-21最新进展见§8.152：先近后远的6月12点条件回放相容，新增反向峰上限会排除6/32对。21段可见同色柱中7段超过2峰，最高DIF与最长柱定义待确认；未执行合并及完整结构回测。报告见本轮回放（原记录：`reports/xxm_near_first_review_20261021_02/README.md`）。

@@ -2,11 +2,15 @@
 
 > P5整理说明（2026-11-03）：本文保留原设计、开发及验收记录的历史含义，不是当前开工或运行入口。旧执行代码和过程产物已按清单清退；原路径文字仅作出处。现行规则与阶段见[产品文档](wealth-top-bottom-recognition-product-v1.md)，有效原材料见[资料索引](../../reports/xxm/README.md)。
 
+> 接手当前项目请从 [r4 当前交接](xxm-research-and-implementation-v0.6.md#r4-current-handoff) 开始，查看已验收成果、现行代码和待研究问题。以下保留冻结时点及之后的历史记录。
+
 冻结时点：首批第1、2、9项开发之前。本文件保存这一时点的研究进度，不代替之后修订的实施方案，也不表示首批已经开发或验收。
 
-## 1. 从哪里恢复
+<a id="1-从哪里恢复"></a>
 
-本文件及首批LLD审计（原记录：`reports/xxm_first_batch_lld_audit_20261024_01/README.md`）保留2026-10-24冻结时点的事实。2026-10-27管理员已删除旧r3产品方案正文，旧首批不再作为恢复入口；当前见[r4方案](xxm-r4-implementation-plan-v0.1.md)及[r4 LLD](../../wealth/docs/pages/index-detail/index-detail-xxm-r4-low-level-design-v0.1.md)，均待review、未开发。下文冻结材料和压缩包不改写，不按历史指令自动恢复执行。
+## 1. 当时的冻结与接续入口
+
+本文件及首批LLD审计（原记录：`reports/xxm_first_batch_lld_audit_20261024_01/README.md`）保留2026-10-24冻结时点的事实。2026-10-27管理员删除旧r3产品方案正文，旧首批停止作为恢复入口。当时转入[r4历史方案](xxm-r4-implementation-plan-v0.1.md)及[r4历史 LLD](../../wealth/docs/pages/index-detail/index-detail-xxm-r4-low-level-design-v0.1.md)，在该时点待review、未开发。下文只记录当时的冻结材料和压缩包。
 
 本轮保存了开发前文档、研究代码、当前r2相关产品源码、测试和关键证据的逐文件清单及SHA（原记录：`reports/xxm_research_freeze_20261024_01/manifest.json`）与原字节压缩包（原记录：`reports/xxm_research_freeze_20261024_01/research_before_first_batch.zip`）。315个文件，原内容约35.49MiB，压缩包约30.66MiB；逐项校验记录（原记录：`reports/xxm_research_freeze_20261024_01/archive_verification.json`）确认压缩包内容与冻结时原件一致。旧文档和原件均保留。
 
