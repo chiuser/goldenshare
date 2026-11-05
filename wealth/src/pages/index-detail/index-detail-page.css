@@ -237,7 +237,7 @@ body:has(.index-detail-app) {
 .index-page-state-forbidden .index-page-state-icon { background: rgba(90,167,255,.1); font-family: var(--cs-font-family-base); font-size: 12px; }
 .index-page-state-forbidden .index-page-state-actions button { background: var(--cs-color-info); border-color: var(--cs-color-info); color: #07111f; font-weight: 700; min-width: 132px; }
 
-.index-data-notice { border: 1px solid; border-radius: 10px; bottom: 302px; box-sizing: border-box; left: 9px; min-height: 96px; overflow: hidden; padding: 14px; position: absolute; right: 9px; z-index: 5; }
+.index-data-notice { border: 1px solid; border-radius: 10px; box-sizing: border-box; margin-bottom: var(--cs-space-10); min-height: 96px; overflow: hidden; padding: 14px; }
 .index-data-notice > div { align-items: center; display: flex; gap: 8px; }
 .index-data-notice > div i { border-radius: 50%; display: block; height: 7px; width: 7px; }
 .index-data-notice strong { font-size: 14px; }

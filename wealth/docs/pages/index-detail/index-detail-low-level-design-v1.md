@@ -1610,6 +1610,11 @@ M5 另加 reader、local route 和临时 Parquet 真实查询测试，不与 M1-
 | v1 | 2026-08-11 | 基于最新 Figma、三件套、当前代码、CodeGraph、生产字段审计与分钟 Lake 合同形成首版 LLD；冻结文件结构、DTO、SQL、状态机、趋势 primitive、共享图表、测试和实施顺序 | Codex |
 
 
+## 2026-10-20 右栏提示遮挡修订（编码前）
+
+IndexInfoRail将原partial/delayed提示渲染在.index-right-tab-content首部；index-detail-page.css移除.index-data-notice绝对定位及补偿坐标，使用普通内容与--cs-space-10底部间隔。IndexDetailPartialNotice及状态/接口不变，修改范围限右栏布局。IndexDetailPage既有Partial/Delayed测试补当前tabpanel包含且先于正文、页签切换及Ready无提示；真实Partial浏览器检查文字与矩形无交叠。根因/预算/保存与验收详见XXM LLD§38.4，不将模拟状态声称真实源验收。
+
+
 <a id="index-constituent-missing-quote-20261020"></a>
 ## 25. 成分行情缺失展示修订 LLD（2026-10-20 实施，2026-11-04 用户验收通过）
 

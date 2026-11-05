@@ -32,6 +32,8 @@ describe("IndexDetailPage", () => {
 
     expect(await screen.findByText("上证指数 000001.SH")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "返回首页" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("部分数据缺失")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("数据更新延迟")).not.toBeInTheDocument();
     expect(screen.getByLabelText("指数日线图表区")).toBeInTheDocument();
     expect(screen.getAllByRole("tab")).toHaveLength(3);
     expect(screen.getAllByText("下跌数")).toHaveLength(1);
@@ -351,6 +353,12 @@ describe("IndexDetailPage", () => {
     expect(notice).toHaveTextContent("金额");
     expect(notice).toHaveTextContent("TTM 市盈率");
     expect(notice).not.toHaveTextContent("成分涨跌统计");
+    // The live partial page must scroll its warning with the active tab, above
+    // the usable data; an overlay outside the panel used to obscure that data.
+    expect(screen.getByRole("tabpanel").firstElementChild).toBe(notice);
+    fireEvent.click(screen.getByRole("tab", { name: "技术面" }));
+    expect(screen.getByRole("tabpanel").firstElementChild).toBe(notice);
+    expect(screen.getByLabelText("指数日线图表区")).toBeInTheDocument();
   });
 
   it("generates a different Partial warning when a different field is missing", async () => {
@@ -374,6 +382,9 @@ describe("IndexDetailPage", () => {
 
     expect(await screen.findByLabelText("指数日线图表区")).toBeInTheDocument();
     expect(screen.getByLabelText("数据更新延迟")).toHaveTextContent("数据更新至 2026-07-31，预期交易日为 2026-08-03");
+    expect(screen.getByRole("tabpanel").firstElementChild).toBe(screen.getByLabelText("数据更新延迟"));
+    fireEvent.click(screen.getByRole("tab", { name: "技术面" }));
+    expect(screen.getByRole("tabpanel").firstElementChild).toBe(screen.getByLabelText("数据更新延迟"));
     expect(screen.queryByLabelText("部分数据缺失")).not.toBeInTheDocument();
   });
 

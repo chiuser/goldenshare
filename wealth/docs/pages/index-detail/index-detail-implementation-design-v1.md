@@ -480,7 +480,7 @@ route tsCode
 
 1. Loading、Empty、Partial 保持 Loaded 的左右栏尺寸；Error、Forbidden 使用全宽主面板，但外层四段骨架尺寸不变。
 2. 页面骨架、状态内容、按钮组、右栏卡片和列表使用 Auto Layout/CSS Grid/Flex；图表绘图区内部保留坐标定位。
-3. PARTIAL 提示内部采用流式布局；其相对右栏的位置可作为状态覆盖层实现，但不得用多组补偿坐标重排原右栏实例。
+3. PARTIAL 和 DELAYED 提示放在当前右栏页签的滚动内容首部，正常占位并随正文滚动。
 4. ERROR 使用 `--cs-color-danger-system`，PARTIAL 使用 `--cs-color-warning`，FORBIDDEN 使用 `--cs-color-info`；不得使用 `--cs-color-market-up/down` 表达系统状态。
 5. 404 没有独立完整 Figma 画板，复用 ERROR 的全宽页面壳并替换为“指数不存在 / 返回指数首页”；DELAYED 没有独立完整像素稿，保留 Loaded 数据并显示实际观测日期。
 6. EMPTY 的“重新加载”保留当前 URL 参数并重跑完整加载链；“查看最近交易日”移除隐藏的 `tradeDate` 查询参数后 replace 到同一指数路由，让 `MarketPageContextQuery` 重新解析最新已完成交易日。若默认查询仍为空，继续停留 EMPTY，不回填 mock 或任意旧日期。
@@ -706,6 +706,11 @@ M5-B 准备批次已于 2026-08-12 验收。2026-08-13 最终重跑确认 Silver
 | v1.2 | 2026-08-11 | 趋势通道收敛为仅上证指数直接调用既有 API；删除十指数适配层与中轴设计；补双通道绘制/颜色规则、成交状态和生产字段审计 | Codex |
 | v1.1 | 2026-08-11 | 权重改为完整批次与 10 行虚拟滚动；补齐页面/模块异常恢复矩阵和当前股票详情实现差距 | Codex |
 | v1 | 2026-08-10 | 基于现有代码、CodeGraph、Figma 与生产权重审计形成首版实施草案 | Codex |
+
+
+## 2026-10-20 右栏提示遮挡修订（编码前）
+
+XXM 实际页面验收发现，原提示覆盖层遮住了基本行情及预测条件。提示位置按 §7.5 调整，页头、Tab、左右栏尺寸、提示文案、颜色及状态合同沿用原设计。具体范围与授权见 XXM 方案 §12.60.1 及 LLD §38.4。
 
 
 <a id="index-constituent-missing-quote-plan-20261020"></a>

@@ -54,12 +54,12 @@ export function IndexInfoRail({ forecast, activeTab, nineTurnSummary, onAction, 
         {TABS.map((tab, index) => <button aria-controls={`index-tab-${tab.key}`} aria-selected={activeTab === tab.key} className={activeTab === tab.key ? "active" : ""} key={tab.key} onClick={() => onTabChange(tab.key)} onKeyDown={(event) => onTabKeyDown(event, index)} ref={(node) => { tabRefs.current[index] = node; }} role="tab" tabIndex={activeTab === tab.key ? 0 : -1} type="button">{tab.label}</button>)}
       </div>
       <div className="index-right-tab-content" id={`index-tab-${activeTab}`} role="tabpanel">
+        {pagePhase === "partial" ? <IndexDetailPartialNotice reasons={partialReasons} variant="partial" /> : null}
+        {pagePhase === "delayed" ? <IndexDetailPartialNotice expectedTradeDate={viewModel.dataStatus.expectedTradeDate} observedTradeDate={viewModel.dataStatus.observedTradeDate} variant="delayed" /> : null}
         {activeTab === "basic" ? <IndexBasicTab metrics={viewModel.basicMetrics} statusLabel={pagePhase === "empty" ? "暂无数据" : "日线口径"} /> : null}
         {activeTab === "weights" ? <IndexWeightsTab {...weights} onRetry={weights.retry} onScrollTopChange={setWeightsScrollTop} scrollTop={weightsScrollTop} /> : null}
         {activeTab === "technical" ? <IndexTechnicalTab forecast={forecast} nineTurnSummary={nineTurnSummary} onNineTurnRetry={onNineTurnRetry} onTrendRetry={onTrendRetry} trend={trend} trendPhase={trendPhase} viewModel={viewModel} /> : null}
       </div>
-      {pagePhase === "partial" ? <IndexDetailPartialNotice reasons={partialReasons} variant="partial" /> : null}
-      {pagePhase === "delayed" ? <IndexDetailPartialNotice expectedTradeDate={viewModel.dataStatus.expectedTradeDate} observedTradeDate={viewModel.dataStatus.observedTradeDate} variant="delayed" /> : null}
     </aside>
   );
 }
