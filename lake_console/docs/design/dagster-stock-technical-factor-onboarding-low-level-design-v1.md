@@ -156,7 +156,7 @@ def resolve_stk_factor_pro_source_run(instance, current_run,
 “重新执行”指管理员对原日更run明确发起原生重新执行后产生新run，原run可为FAILURE、CANCELED，或SUCCESS但数据未齐/仍有处理需要；不重新创建job定义。管理员须先执行§4.2维护步骤，仍通过同一队列。自动sensor永不创建带parent/root的重新执行，也不提供跨午夜特权参数。本期采用统一规则：人工新run从头执行整个日更步骤，不能只选失败步骤跳过日下载；无论原任务是否已下载完整、是否已建候选或已发布部分文件，均重新下载，不使用原run源或候选。
 
 1. 无parent的today/previous_day仍按原D自动时点及午夜执行；无parent的bootstrap_supplement只走§10.7首次人工授权分支。原生重执行用get_run_by_id精确核直接parent及必要root（最多两条不同run），同update job、终态、相同八字段和T分区；字段缺省统一None后比较，不拿新增缺省误拒正常自动配置。bootstrap补数另核原授权观察，必要时再读它明确引用的一个authorization_run_id，合计最多三个不同run，不沿祖先无限查找。人工重执行保留原八字段，不把T或D改成本次实际日期；实际时间另记。普通旧配置无合法parent/root不得获得跨午夜例外，新bootstrap用途不能借此绕过§10.7。
-2. 新run核当前原T/P，重新计算、保存本run完整名单，再请求原T完整日unit；Raw齐备且日阶段通过时，在同一run立即重新请求原待处理历史完整范围。只通过§6.2既有DG记录读取原未完意图和成功事实，不扫描旧下载目录。确认原任务在下载前失败且未形成完整plan时，允许仅按当前T/P和可信范围重新规划；若已有开始下载/计划引用却记录损坏或无法确定原未完范围，停止并说明，不能猜为空。日更新重新执行不要求无中生有的旧plan；独立历史repair仍按§4.1的原完整授权执行。
+2. 普通日更原生重执行以原任务核身份、目标T及原配置。每次都按当前原T/P生成本轮完整名单，并从§6.2取得的同T最新DG结果合入当前待刷范围及完整成功记录。当前结果明确引用的计划、范围或完成记录缺失、损坏或无法确定待刷范围时，停止并报出对应引用。当前确实无旧计划和待刷引用时，按当前原T/P和可信范围生成名单。已有完整成功记录仍按§5.4.3核对。已被后续任务承接的待刷范围直接取当前清单，无需翻查旧任务自己的历史计划文件。保存本run完整名单后，重新请求原T完整日unit。Raw齐备且日阶段通过后，同run重新请求完整待刷范围，符合§5.4.3的整范围成功项可以跳过。独立历史repair的原完整授权见§4.1，初始化补数重执行的原授权见§10.7。
 3. 本run source-complete只证明当前run刚取得的阶段数据已保存完整，供当前运行从下载进入处理，不是跨失败run的恢复授权。新事实只写当前run目录；旧记录保留排障，已发布正式文件保留供新合并，不删除、不回滚。
 4. 前日一次和19:00～午夜仅限制自动发起；人工重新执行及明确授权的bootstrap_supplement不受该窗口/实际执行日开休市/Q次数限制，但均核T已登记开市、原T/P、唯一写入和维护批准。人工补齐后同job继续必要历史，历史不足保留日文件并按§6.1失败。无原日更run只允许§10.7的bootstrap授权，不开放其他任意日期/股票输入；不恢复Q机会、不补发slot、不加外层自动重试。
 
@@ -491,7 +491,7 @@ require函数保留给终端bootstrap五状态维护检查，入口与首次提�
 
 每次同T的日更job（自动或人工重新执行）都用当前`adj_factor`数据集原T/P重新比较、重新保存本run完整名单。通过§6.2直接读取DG已有观察中的同T未完成范围和成功事实；业务输入未变时内容摘要可以相同，不复用失败run的下载源、候选或部分下载进度。手动历史repair严格按§4.1先查原T Raw齐备，之后才核T/P及原完整授权，不重新扩大授权。两入口都保留已知未完意图：修订后T/P相等也不删除旧未完历史，仅生命周期证明该股本无待刷历史时记录依据和排除原因。不能因本轮源少了一只、源超时、股票暂时无T行就把它从已知变化名单删除。
 
-例如前次任务在生成名单时失败，还没有保存`history-plan.json`：本次日更新直接读取当前T/P重新计算，不尝试读取不存在的文件。若DG已经明确记录了原历史回刷名单，则读取其中哪些股票、哪些起止日期尚未刷完；该记录损坏时报告具体引用，不能把原待回刷股票当成空集合。这里保存的是历史工作范围，不是日下载数据。日数据每次都重新下载，历史失败后的完整原范围也重新下载；只有正式已发布业务文件保留供合并。
+例如19:00的任务记录A股待刷，19:30接手后，管理员再重跑19:00。只从同T当前记录取待刷股票及起止日期。A股仍待刷就重新下载完整范围，已有符合§5.4.3的完整成功记录就跳过该范围。当前明确引用的名单或完成记录无法读取时，报告具体引用并停止。当前确实没有历史计划时，依据当前T/P生成本轮名单。日数据每轮重新下载，已发布文件保留供合并。
 
 比较以T/P的`FULL OUTER JOIN`按代码显式对应，再并入本数据集可信既有历史/同一目标T旧pending中明确应核对的有界代码范围；不能只以T为左边，也不能inner join后漏掉P有T无旧股。至少区分两日都有且变化/不变、T有P无、P有T无、以及既有范围/旧pending证明应核对但两日都缺。后两类没有生命周期或其他明确解释时保留无法判断，不写“0变化”；证明退市也要留下解释，不能静默删除待处理。生命周期可证明的真新股不造上市前历史，单列新股结论；旧股票缺P保留原因。这是本数据集有界对象比较，不新增全市场覆盖发布门槛。没有变化必须能证明输入已检查；股票复权因子Raw文件就绪不意味着每只股票都必有两日值。
 
@@ -851,9 +851,7 @@ FactorFileRef固定`trade_date:Date,asset_key:str=raw_tushare_adj_factor,file_sh
 
 **publication/<phase>/publication-complete.json**：`record_version,identity,phase,contract,history_plan_digest,history_ranges_digest,scope_digest,history_input_digest:Digest|null,source_complete_ref:RecordRef|null,day_source_digest:Digest|null,source_manifest_digest:Digest|null,targets:list[PublishedTarget],verified_at:Instant`。day的source_complete_ref、source_manifest_digest、history_input_digest均为null，day_source_digest必填且来自本次内存U；history的上述三项必填、day_source_digest为null。不能为满足结构而生成日下载文件或虚构其引用。PublishedTarget固定`trade_date:Date,layer,skip_no_file:bool,file_sha256:Digest|null,file_rows:Count,checkpoint_ref:RecordRef|null,unrefreshed_count:Count,scope_rows:Count|null,scope_content_sha256:Digest|null,scope_content_version:int|null`；无旧无源日期明确skip=true、hash/ref=null/数量0，不假物化；有文件则skip=false、hash/ref齐全。历史scope三项全有，记录该完整成功范围在本日期/层的行数、业务内容摘要及版本1，空范围为0及空串SHA；day三项全null。全部预期日期/层去重升序无遗漏，历史所有unrefreshed_count=0才可完整。正式完成后还须同producer run最终成功才可成为后续正常轮次的历史免重刷依据。失败run即使此文件存在也不能复用其源/候选或部分checkpoint跳过重下载。
 
-后续同T正常轮次通过§6.2直接读取**原来独立成功的整个范围**的DG阶段记录、原完整授权和publication-complete引用。原T、全部代码/起止、对应权威T/P及契约/处理版本匹配，且DG没有后来使该范围失效的发布事实时，直接复用成功结论，不让sensor逐文件扫描历史、重新做全范围字段对账。新全名单新增无关股票不推翻原范围成功，不能以新旧全名单摘要不同要求全量重刷。
-
-正式写入均通过本数据集受控发布并记录影响日期/代码及文件身份；日更和repair已经保证唯一写入。人工外部修改须按维护流程撤销相应完成依据、处理后重新验收，不能一边绕过管理直接改文件，一边承诺PG旧结果始终有效。job确知原成功范围的文件被后续发布改动时，仅对受影响日期按该范围筛正式行、核scope_rows/scope_content_sha256；不影响的结果直接复用，不在每次sensor评估做物理全历史核验。失败run绝不进入成功复用判断，不读取其旧下载Parquet，也不按页/股票/日期领取失败任务的部分成果。
+后续同T轮次通过§6.2读取**原来独立成功的整个范围**的DG阶段记录及publication-complete引用，并核其计划、范围和source-complete元数据。原T、该完整范围的全部代码/起止、对应权威T/P、契约及处理版本匹配时复用成功结论。新增无关股票不使原独立范围失效。其他目标日回刷覆盖相同历史日期时，旧任务仍按自己的完成记录判断，不追查跨目标日的发布记录，不重读历史文件或重算范围摘要。后一次回刷成功就保留其发布结果，后一次失败由该任务保留待刷范围并按失败规则重新下载。失败run不能作为成功依据，也不按页、股票或日期领取其部分成果。
 
 #### 5.4.4 小样本门禁
 
@@ -972,9 +970,13 @@ referenced = instance.fetch_observations(
 
 1. 最新入口核实际asset/T/run、producer、封闭字段、job及配置；日更原生分区等于T，repair虽无job分区，其观察显式partition=T。没有入口才是首次无记录；入口结构坏、明确引用读不到或身份不符均停止，不能扫描旧记录找一条绿色替代。
 2. 只取入口自身及其直接日/历史引用。相应阶段就是入口时直接复用，否则按明确storage_id各读一次；核实际run、T、phase和结构。**不沿被引用记录的prior字段递归展开。**当前完整待处理/成功引用和未解除失败取最新入口；被引用阶段只提供对应覆盖、Silver或结果凭据，不能用其更早状态覆盖入口。查到的同一(run_id,storage_id)供所有消费者复用。
-3. 同T最新日更run仍用`get_run_records(RunsFilter(job_name=update_job,tags={PARTITION_NAME_TAG:T.isoformat()}),limit=2,ascending=False)`；本run最多占其中1条，故足以取最新其他run。返回run对象直接登记known_pg，不再get_run_by_id读同一对象。最新run若在首条观察前失败/取消或无可解释完成事实，保存对应未解除失败；自动路径停止，获准人工重执行按原身份处理。原生run的SUCCESS仍不代替覆盖齐备或历史完成。
+3. 同T最新日更run仍用`get_run_records(RunsFilter(job_name=update_job,tags={PARTITION_NAME_TAG:T.isoformat()}),limit=2,ascending=False)`。排除本run后保留第一条`RunRecord`，其`dagster_run`直接登记`known_pg`。最新日更失败或取消时，从已有失败记录确定阶段，再按下述顺序决定是否用终态补足。最新日更在首条观察前退出且没有更晚的同阶段结果时，仍记录未解除失败。原生run的SUCCESS仍不代替覆盖齐备或历史完成。
 4. run按真实run_id精确核身份/最终状态一次。成功发布引用需要的producer也按引用中实际不同run_id首次取得，不设人工任务次数上限，不遍历祖先；普通原生重执行另精确核parent及必要root，初始化授权额外只核明确authorization_run_id。原生run查询已经返回的对象一律复用。历史repair的成功只能解除对应原T/阶段及原范围失败，日失败与历史失败分别保留。入口或直接历史结果若为completed，只在其producer最终SUCCESS、原T资格及完整发布依据有效时，把该run固定publication/history/publication-complete.json及其已存摘要纳入成功引用，并移除被其完整覆盖的待处理意图；producer仍运行或终态失败时保留原完整待处理范围。当前run写观察时尚未有最终SUCCESS，因此不得提前将自己计为独立成功或清除旧历史失败。日阶段真实完成可独立保留，即使该run后来历史失败。
 5. bootstrap_context只解析为可空结构。普通上线后用途不展开它或读初始化文件；仅上线前初始化调用方走§10.7专用resolver。readiness不import bootstrap。覆盖/文件凭据不变直接使用，首次必要输入变化才重算原T代码；本run历史中途输入变化只停止，不重新审计后继续。
+
+**同日历史失败的读取顺序（第六批开工前修正）。**修正`defs/asset_guards/stk_factor_pro_readiness.py`的`read_stk_factor_pro_recorded_results`，供日更、repair和第六批sensor共用。先按最新入口及其直接阶段记录得出未解除失败，再处理日更终态。既有`recovery_of_run_id`和生产任务终态核对先执行，已经解除的失败不恢复。日更终态若指向历史阶段，且当前未解除历史失败由另一个已失败或取消的任务的直接历史观察确认，取已加载的该观察的`event_log_entry.timestamp`，与日更的`RunRecord.end_time`比较。没有`end_time`时使用同一记录的`update_timestamp.timestamp()`。历史观察时间等于或晚于日更结束时间时，保留当前历史失败。日更更晚且无对应完成结果时，用终态补足。比较限定同一目标交易日和历史阶段，日阶段失败及阶段未知的退出按原规则单独处理。
+
+**定向验收。**用临时Dagster实例构造同日两条实际任务记录。日更历史因网络失败，后续手动repair明确记录需人工处理的历史失败。读取结果须保留repair的run及不可自动重试的结论。复用既有开始后未写历史结果、首次观察前退出及repair成功解除失败的用例，确认终态补足仍有效，日阶段结果仍单独处理。正常读取、终态补足及回归核对都沿用下述查询上限，无新增表、事件类型、业务文件读取或历史遍历。调用方沿用现有失败详情读取，按最终适用的run复用`known_pg`，每个必要run最多读取一次失败详情。
 
 **查询量及依据。**首次入口1次、limit=1；入口最多有日/历史两个直接引用，额外精确观察查询至多2次、各limit=1，合计至多3条事件，不随历史批次或人工处理轮数增长。最新日更run查询1次、limit=2。其余get_run_by_id次数等于本任务实际必要且尚未取得的不同run_id数量R；先从入口/直接阶段/成功范围及授权引用建立去重集合，记录R和真实调用数，不能用10个自动时点推导人工引用数量。没有必要引用时R=0；失败metadata读取同一run最多一次。历史修复原范围文件的必要读取另按原范围清单计，不藏在观察发现查询里。
 
@@ -1026,7 +1028,7 @@ Raw正式路径`/Volumes/datasource/data_lake/raw/tushare/stk_factor_pro/trade_d
 
 自动今天下一可用固定slot可重下原完整范围，仍核午夜、活动任务、因子与Raw齐备；自动补Q仍不增加第二次机会，Q日已齐仅历史失败不挡今天。手动repair失败后，由管理员查看缺失清单、修正问题并再次手动执行；sensor不会提交repair任务，job自身也不会循环重新执行。`allow_retries=False`禁止同run/op自动重试，与sensor下一slot创建新的自动日更run的retryable=True分别生效，不能混为一项开关。
 
-完整业务内容等价/摘要沿现有ETF形式：261字段固定顺序struct_pack→to_json，按(ts_code,trade_date)升序换行string_agg→sha256，空集为sha256空串，数量另比。Raw和Silver使用各自日期schema，NULL真实编码，不填值或舍入；算法版本1。历史成功范围的scope_rows/scope_content_sha256只统计该范围各code的start_date<=d<=end_date且d<T的正式行，同日期多个范围以唯一代码/日期筛选、不重复计行；版本同为1。仅当前日期/层有界计算，用于本轮候选、已成功事实或bootstrap核验，不用于跨失败run续写旧源。
+完整业务内容等价/摘要沿现有ETF形式：261字段固定顺序struct_pack→to_json，按(ts_code,trade_date)升序换行string_agg→sha256，空集为sha256空串，数量另比。Raw和Silver使用各自日期schema，NULL真实编码，不填值或舍入；算法版本1。历史成功范围的scope_rows/scope_content_sha256只记录当轮实际发布范围中各code的start_date<=d<=end_date且d<T的行，同日期多个范围以唯一代码/日期筛选、不重复计行，版本同为1。按当前日期及层在当轮发布时计算。后续复用历史完成记录时按§5.4.3判断，无需再计算这份摘要。
 
 ### 8.2 历史20交易日批次与整范围成功
 
@@ -2204,7 +2206,7 @@ StkFactorProBootstrapContext的完整字段以§10.5.4为准：operation_id、ap
 | bootstrap八字段及授权重入 | §10.7所有正反例；周末首次、隔日重执行、原始0源日、首次授权未保存且明确未下载的重核、授权后gap已0但历史/记录失败仍重下。parent/root错八字段、观察损坏、旧配置无parent、0缺口或未知首次均拒绝。sensor过滤下10条自动+多条人工仍准确核Q机会；最新同T与活动任务必须看见人工。 |
 | 覆盖身份语义一致 | 旧代码A经有效日期映射到标准B时，日更/repair/bootstrap两类包装均缺0，Raw/Silver原值不变；映射缺失/过期/歧义均未知。仅identity SHA改变也重算；正常等价物化不重算。拒绝把统一身份码再当原码映射第二次，不因旧新码差异出现统计已齐而历史门槛仍缺。 |
 | 人工跨午夜及同job历史 | 原T任务FAILURE或SUCCESS但缺股，管理员获准在原D午夜后/休市实际执行日重新执行，核原T/P并新下载；Raw齐、日Silver通过后，同run即发必要历史请求。自动无parent旧配置仍拒绝、自动午夜截止不变、人工不恢复Q机会、不新增历史自动job。 |
-| 名单形成前失败 | 上次任务在生成回刷名单前失败，这次重新比较原T/P并生成本次名单；不读取一份当时没有保存出来的名单。已记录原待回刷股票/起止日期时保留它们，原授权损坏时报具体引用，不能用空集合掩盖；旧下载读取作新源即测试失败。 |
+| 旧日更重执行取当前名单 | 普通日更重跑时，当前仍待刷的股票及起止日期全部保留，整范围成功且输入匹配的历史可以跳过。当前没有旧计划时按原T/P生成本轮名单，当前明确引用缺失或损坏时报具体引用。按§2.4使用同T当前记录，旧下载不能作为新源。独立repair的原授权核验见手动入口项。 |
 | 前日机会与原生tick | PRECHECK_NO_DOWNLOAD不耗、开始事实写后crash保守耗、清cursor不复活；19:30活动跳过后清cursor仍不补发，首次合法slot可发；临时instance实存tick。 |
 | 输入与完整名单 | T/P Raw未就绪不提交/不联网，job二次核；完整变化名单先于技术网络保存，不按本轮源少股缩小。缺P/缺T/两日缺必须保留未知，因子改回相等不抹掉原失败范围。 |
 | 原T Raw齐备 | 五股应有、Raw只有四股：日Raw/Silver可发布，历史请求和提升均0；第五股补齐后全名单一起历史。不能只看行数/字段check绿/某次unit完成。 |
@@ -2223,7 +2225,7 @@ StkFactorProBootstrapContext的完整字段以§10.5.4为准：operation_id、ap
 | 失败阶段全新下载 | 分别在日unit未完、日结果仍在内存但未发布、Raw完Silver失败、历史源完未发布、历史部分已发布、全部物理写完事件失败处退出；新run所有所需unit均重新网络获取，不读取旧源/候选、不得按页/股/日期跳请求。 |
 | 新数据确实覆盖旧候选 | 固定旧候选值10、当前正式值11、新网络值12；重执行必须得到12，且保留正式中源未返的合法旧键。旧source路径若被当新输入读取则测试主动失败。 |
 | 正式已发布保留 | 失败/取消后当前已发布文件仍在；新历史请求全范围后基于这些当前文件合并，不删、不回滚、不重放旧候选。成功的其他独立完整范围不无故并入失败范围。 |
-| 完整成功免重复 | 仅producer最终成功且整范围publication-complete/输入/范围有效可避免后续同T重复历史；全名单新增一股不使原独立成功范围重下，其他股改同日文件时核scope行数/内容摘要仍有效，原范围任一业务值改变则不沿旧完成。repair核实已无待处理历史时返回真实no_action，零技术请求/零正式提升，不伪造本run新完成历史。producer失败即使有完整源及物理记录仍重下。 |
+| 完整成功免重复 | 仅producer最终成功且整范围publication-complete、权威T/P、范围、契约及处理版本匹配时，后续同T才可复用。新增无关股票不使原独立成功范围重下，复用判断只读已有记录，历史文件读取及范围摘要重算均为0。repair核实已无待处理历史时返回真实no_action，技术请求和正式提升均为0。producer失败仍重下该任务的完整失败范围。 |
 | 当前run安全发布 | 候选必要校验→intent→再核prior→replace/fsync→读回/complete；目标变动拒绝，事件失败不回滚。当前正式内容与新候选等价可不replace，但必须已经本次新下载。 |
 | Raw→Silver与T边界 | 每日期从最终Raw生成Silver；Raw5000/旧Silver4800/本轮只返4800，Silver必须5000；历史只d<T，源T保留但不覆盖正式T。 |
 | 历史完整和漏原键 | 全部当前run约定源完整才首批20日；源少旧键时保留旧行、有效行可发布、原键缺项诊断非0不假称整范围刷新，不新增第三check。 |
