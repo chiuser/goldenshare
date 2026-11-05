@@ -284,13 +284,14 @@ ticks = context.instance.get_ticks(
 ### 3.6 当晚复权因子修订后的自动追修
 
 1. 沿§3.2的交易日、时点、前日保护和活动任务判断。一轮结束后，在后续合法时点选择今天。今天存在待处理工作时按原流程处理。仅在日覆盖已确认齐备、日Silver有效且历史已经处理完成，本可跳过今天的分支，才比较复权因子摘要。
-2. 通过§6.2已有的直接历史阶段观察取得同T已成功任务的完整计划引用。历史结果须为真实`completed`或`no_action`，生产run须为`SUCCESS`。从该引用读取一次`history-plan.json`，核对应run、T及引用摘要。分别用其中`factor_t_ref.file_sha256`、`factor_p_ref.file_sha256`和当前对应日期的本地Raw复权因子文件摘要比较。单次评估两份文件各最多计算一次摘要，复用既有文件摘要函数。摘要一致则跳过，变化且上游就绪则提交既有`today`日更。计划或文件明确不可用时按现有就绪规则等待或报告原因。开始、等待或失败的计划只说明有待处理工作。
+2. **自动追修以同T最近一次有效日更的T/P摘要为准。**从§6.2已取得的`day_result_ref`取同一份已解析日观察，要求它来自日更job，`phase=day`、`result=completed`，并且其日Raw/Silver发布和对应检查仍有效。是否齐备单独由第1项的日覆盖判断决定。取该日观察自身的`history_plan_ref`。用`read_stk_factor_pro_history_plan`按引用run/T读取一次`history-plan.json`，核对`RecordRef`与已读文件摘要、计划T/P及身份。直接使用计划的`factor_t_ref.file_sha256`和`factor_p_ref.file_sha256`，与当前对应日期的本地Raw复权因子文件摘要分别比较。复用现有摘要函数，同一评估每份文件最多读并算一次，不读取范围Parquet或技术因子历史。摘要一致则跳过，变化且上游已就绪则提交既有`today`日更。日观察、计划或文件不可用时按已有就绪规则等待或报告，不猜摘要一致。
+   - 日观察有效时，生产run后来历史失败仍可作为日更摘要依据。历史是否完成独立用§6.2当前待刷引用、未解除失败及有效历史结果判断。历史`completed`或`no_action`的成功条件沿用现行规则。手动repair成功只确认原授权范围，即使其计划保存了更新的T/P摘要，也不参与第2项比较。不能取最新入口、开始观察或历史观察的`history_plan_ref`代替日观察自身的引用。
 3. job按现有T/P输入重新生成计划并先完成日发布。追修历史完整源已交付后，在历史publisher的既有资源清理范围内、创建首个历史候选前，复用已核历史源关系及本轮T/P因子关系做一次比较。范围限定本次追修待发布的股票，按`ts_code`和同一个`trade_date`连接，只比较T、P上两边均有实际数值的行。沿现有因子值比较口径。同一股票不同日期的数值互不比较。缺T行的全天停牌股沿§5.2处理，无可对照行继续使用既有覆盖、源完整性和范围校验。
 4. 若有明确差异，沿§6.1保存`history waiting`及本轮完整待刷范围，再以`failure_phase=history`、`retryable=True`、`source_error_code=None`结束本轮。历史Raw/Silver发布、物化、check和`publication-complete`均为0，当天已发布结果保留。后续允许的轮次按已有待刷计划重下全范围，继续应用同一项核对。通过后走原历史发布和完成流程。执行中的输入变动、取消、其他文件错误沿既有处理。
 
-**第六批接线建议，随整批方案评审。**用现有`history-ranges.parquet`的`plan_reasons`记录“当晚复权因子修订追修”。建议在现有`HistoryPlanReason`中加一个取值，旧取值和文件列保持原样。首次自动追修时，job复用§6.2已读的成功阶段及对应计划摘要，与本轮规划已取得的T/P摘要比较，只给按现行规则需要回刷的范围加此原因。原因本身不新增股票或延长范围。后续同T的自动`today`轮次，只从`pending_plan_refs`中仍未完成的范围继承此原因。自动历史发布只对本次实际下载且带该原因的范围做第3项核对。成功后由原有完成流程移除待刷引用，后续轮次从新的完成记录判断。沿用当前的计划读写和失败记录，普通日更、手动repair和初始化补数的入口配置保持原样。
+**第六批接线。**用现有`history-ranges.parquet`的`plan_reasons`记录当晚复权因子修订追修，新增`HistoryPlanReason.SAME_NIGHT_FACTOR_REVISION=7`，沿用原字段和1～6的含义。已有有效日观察的自动`today`在生成本轮计划前，用第2项的同一取法取得日观察中的计划摘要，与本轮已取得的T/P摘要比较。首次发现修订时，只给本轮按现行规则需要回刷的范围加此原因，原因本身不增加股票或延长范围。无有效日更可比较的首次正常更新沿原流程。后续同T自动`today`从`pending_plan_refs`中仍未完成的范围继承此原因，即使新日观察已使用新摘要，历史核对仍继续。自动历史发布只对本次实际下载且带该原因的范围做第3项核对。成功后由原有完成流程移除待刷引用，后续比较取最近一次有效日更的摘要。沿用现有日更、手动repair及初始化补数的入口配置，修复原授权历史不建立新的日阶段结果。
 
-**定向验收。**用同一小样本证明输入未变时不提交，T或P修订时后续时点提交，历史源仍返回旧值时连续两轮都保持待刷且零历史发布，源更新后原范围完整发布。再核对第2项的文件读取次数和第3项的比较次数，日发布和全天停牌例外按既有用例回归。
+**定向验收。**用同一小样本证明输入未变时跳过，T或P修订时在后续合法时点提交。原日更已经发布日数据，随后手动repair只修原授权范围且计划包含更新因子时，比较仍用原日观察的计划。历史源连续两轮仍返回旧值时均保持完整待刷范围且零历史发布，源更新后原范围完整发布。核对第2项文件读取次数和第3项源端比较次数。日发布、手动repair和全天停牌例外沿既有用例回归。
 
 ## 4. job内的严格顺序与Dagster编码组织
 
@@ -422,7 +423,7 @@ ops:
 7. 当前历史全部源完整后，按原20交易日批次和日期升序，逐日期Raw合并/候选唯一审计/提升/完成记录→从这份Raw生成Silver并候选唯一审计/提升/完成记录。仅d<T。已经发布的文件不删除、不回滚；本次新下载结果与当前正式文件按既定主键规则合并，不使用旧失败run候选覆盖。当前run文件提升前后仍写既有intent/checkpoint；这是本次文件发布依据，不是跨失败run省下载的理由。
 8. 仅在全部当前请求范围通过检查和原子发布事实确认后记录历史完成。失败/取消/异常退出保留正式已发布文件和原完整未完成意图；下一次repair仍全新下载原失败范围，不从页、股票或日期下载断点继续。成功/失败均在metadata说明原T、来源授权、当前新下载行数和实际发布范围。
 
-原T Raw齐备且原T Silver有效并对应当前Raw，是自动job和手动repair进入历史的共同条件。日更通过当轮发布及检查建立事实，手动repair只读取已有有效DG凭据，不重新全字段对账。手动repair不消耗或重置自动补Q一次机会，历史完成只解除原T历史失败，不能解除日阶段失败。正式历史只d<T；T行即使出现在完整历史响应中也只留源证据，不发布T。不得要求所有待回刷历史日的Silver预先存在：某历史d缺Silver时，应从本轮刷新后的Raw d生成并检查。
+原T Raw齐备且原T Silver有效并对应当前Raw，是自动job和手动repair进入历史的共同条件。日更通过当轮发布及检查建立事实，手动repair只读取已有有效DG凭据，不重新全字段对账。手动repair不消耗或重置自动补Q一次机会，成功只确认原授权范围并解除对应历史失败，保留日阶段结果及其计划引用。正式历史只d<T；T行即使出现在完整历史响应中也只留源证据，不发布T。不得要求所有待回刷历史日的Silver预先存在：某历史d缺Silver时，应从本轮刷新后的Raw d生成并检查。
 
 ### 4.2 自动、手动与bootstrap的写入互斥
 
@@ -750,7 +751,7 @@ require仅在ready=True时返回，否则抛`dg.Failure(..., allow_retries=False
 
 自动身份按§2.4；manual_repair实际执行日为当前上海日期，T/P仍原日期。bootstrap_supplement首次D为实际上海日期，重新执行仍保留原D。两人工用途slot/submission/attempt均null；自动previous_day的attempt=1、submission=1～10，today后两者null。source_run_id仅原意图/名单引用，bootstrap首次为null，不伪造旧run；bootstrap授权在Context中独立保存。新run只写自己目录，不修改旧run。
 
-现行`HistoryPlanReason`集中定义六个取值。1=本次T/P变化，2=原T失败/未完范围保留，3=缺P，4=缺T，5=两日因子都缺，6=生命周期证明无原历史。每股原因去重升序，供解释名单。第六批拟新增的当晚复权因子修订追修原因及继承规则见§3.6，随该批方案一并评审。
+`HistoryPlanReason`集中定义名单原因。1=本次T/P变化，2=原T失败/未完范围保留，3=缺P，4=缺T，5=两日因子都缺，6=生命周期证明无原历史。第六批按§3.6新增7=当晚复权因子修订追修，只用于自动追修的生成和待刷继承。每股原因去重升序，原1～6的记录继续按原含义读取。
 
 统一写入：校验完整结构/交叉条件→内存合法对象序列化并计算payload摘要一次→受控临时文件→flush/fsync→os.replace→fsync父目录→直接返回对象、摘要与引用。旧历史下载文件可保留排障，日下载没有单独保存的中间文件。读取原记录时只取历史工作范围/授权/失败或已成功事实，不把旧历史Parquet当本run源。接口：
 
@@ -853,7 +854,7 @@ FactorFileRef固定`trade_date:Date,asset_key:str=raw_tushare_adj_factor,file_sh
 
 **history-ranges.parquet**：`ts_code VARCHAR NOT NULL,t_present BOOLEAN NOT NULL,p_present BOOLEAN NOT NULL,t_value DOUBLE NULL,p_value DOUBLE NULL,start_date DATE NULL,end_date DATE NULL,plan_reasons INTEGER[] NOT NULL,origin_target_dates DATE[] NOT NULL,origin_record_refs VARCHAR NOT NULL,earliest_basis_kind INTEGER NULL,earliest_basis_date DATE NULL`。唯一键ts_code；origin_record_refs是固定字段T/run/relative_path/file_sha的规范JSON数组，仅追溯。present=false必须value=NULL；有效历史请求因子/范围必须已判明、start<=end、end=T；范围未知不猜起点。earliest_basis_kind只1=可信现有最早日期、2=已批准bootstrap事实。缺关键因子/范围保留未判定并明确停止对应历史，不用技术行相等作门槛。
 
-**history-eligibility.json**：`record_version,identity:RunIdentity,history_plan_digest,history_ranges_digest,raw_coverage:StkFactorProRawCoverage,target_silver:StkFactorProTargetSilver|null,evaluated_at:Instant`。覆盖结构及完整缺失清单引用见§5.2.1；原T Silver有效性独立保存，未执行该步为null，不把Raw齐备改写成Silver有效。技术因子同名adj_factor差异另放原诊断摘要，不参与放行。
+**history-eligibility.json**：`record_version,identity:RunIdentity,history_plan_digest,history_ranges_digest,raw_coverage:StkFactorProRawCoverage,target_silver:StkFactorProTargetSilver|null,evaluated_at:Instant`。覆盖结构及完整缺失清单引用见§5.2.1。原T Silver有效性独立保存，未执行该步为null。本记录确认下载历史前的日覆盖及Silver资格。自动追修历史源下载后的因子核对按§3.6处理。
 
 **source/history/source-files.parquet**：`phase VARCHAR,unit_key VARCHAR,component_unit_id VARCHAR,ordinal BIGINT,mode INTEGER,object_code VARCHAR NULL,point DATE NULL,start_date DATE NULL,end_date DATE NULL,source_row_count BIGINT,saved_row_count BIGINT,file_relative_path VARCHAR,file_sha256 VARCHAR,file_rows BIGINT,schema_content_digest VARCHAR,contract_content_digest VARCHAR,verified_at TIMESTAMPTZ`，除明确NULL列外均NOT NULL。phase只能history，唯一键(phase,unit_key)，每完整历史unit一个261列文件（合法0行也保存明确schema文件）。mode5/code/start/end全有且end=T，point=null。ordinal仅当前任务内序号；component_unit_id保留组件原值。statistics.row_count==len(records)==saved_row_count==file_rows；逐项字段/范围/身份必须对应，不能只比unit数。日阶段无该文件及引用。每个unit源文件固定为当前run下`source/history/units/<unit_key>.parquet`，manifest的file_relative_path从当前run根表达为同一路径；合法0行也写完整schema文件。只由unit_key函数生成文件名，写前核safe_path和source/history归属、拒绝已有文件，不能套用仅允许candidates目录的检查或放宽候选目录规则。
 
@@ -982,7 +983,7 @@ referenced = instance.fetch_observations(
 ```
 
 1. 最新入口核实际asset/T/run、producer、封闭字段、job及配置；日更原生分区等于T，repair虽无job分区，其观察显式partition=T。没有入口才是首次无记录；入口结构坏、明确引用读不到或身份不符均停止，不能扫描旧记录找一条绿色替代。
-2. 只取入口自身及其直接日/历史引用。相应阶段就是入口时直接复用，否则按明确storage_id各读一次；核实际run、T、phase和结构。**不沿被引用记录的prior字段递归展开。**当前完整待处理/成功引用和未解除失败取最新入口；被引用阶段只提供对应覆盖、Silver或结果凭据，不能用其更早状态覆盖入口。查到的同一(run_id,storage_id)供所有消费者复用。
+2. 只取入口自身及其直接日/历史引用。相应阶段就是入口时直接复用，否则按明确storage_id各读一次；核实际run、T、phase和结构。**不沿被引用记录的prior字段递归展开。**当前完整待处理/成功引用和未解除失败取最新入口。被引用阶段提供对应覆盖、Silver或结果凭据。自动追修按§3.6额外使用已解析日观察自身的计划引用，直接复用`known_pg`中该事件，无新增观察查询。查到的同一(run_id,storage_id)供所有消费者复用。
 3. 同T最新日更run仍用`get_run_records(RunsFilter(job_name=update_job,tags={PARTITION_NAME_TAG:T.isoformat()}),limit=2,ascending=False)`。排除本run后保留第一条`RunRecord`，其`dagster_run`直接登记`known_pg`。最新日更失败或取消时，从已有失败记录确定阶段，再按下述顺序决定是否用终态补足。最新日更在首条观察前退出且没有更晚的同阶段结果时，仍记录未解除失败。原生run的SUCCESS仍不代替覆盖齐备或历史完成。
 4. run按真实run_id精确核身份/最终状态一次。成功发布引用需要的producer也按引用中实际不同run_id首次取得，不设人工任务次数上限，不遍历祖先；普通原生重执行另精确核parent及必要root，初始化授权额外只核明确authorization_run_id。原生run查询已经返回的对象一律复用。历史repair的成功只能解除对应原T/阶段及原范围失败，日失败与历史失败分别保留。入口或直接历史结果若为completed，只在其producer最终SUCCESS、原T资格及完整发布依据有效时，把该run固定publication/history/publication-complete.json及其已存摘要纳入成功引用，并移除被其完整覆盖的待处理意图；producer仍运行或终态失败时保留原完整待处理范围。当前run写观察时尚未有最终SUCCESS，因此不得提前将自己计为独立成功或清除旧历史失败。日阶段真实完成可独立保留，即使该run后来历史失败。
 5. bootstrap_context只解析为可空结构。普通上线后用途不展开它或读初始化文件；仅上线前初始化调用方走§10.7专用resolver。readiness不import bootstrap。覆盖/文件凭据不变直接使用，首次必要输入变化才重算原T代码；本run历史中途输入变化只停止，不重新审计后继续。
@@ -3427,3 +3428,49 @@ Ruff、两份文档完整性和git diff --check通过。CodeGraph在修改前核
 完整两次运行均得到10条物化和10条绑定检查。首轮历史内核定向回归337项，末次日更、repair、整链及直接消费者回归43项，起点、初始化覆盖和repair追加定向回归68项，两组范围有交叠。受保护的定义、资产目录、检查登记及运行契约分别1、12、6、113项通过。实际数据和事件均在临时目录与隔离实例，真实Tushare网络请求为0。正式实例装载、初始化验收、历史事件补录和启用按后续阶段的既有授权和顺序执行。
 
 **第五批收尾。**§6.2的历史失败顺序已在`read_stk_factor_pro_recorded_results`实现。隔离回归使用实际日更和repair任务及临时Dagster事件库，下载替身让日更历史返回临时源错误，随后repair发现原日期Silver缺失。修复前读到旧日更run，修复后读到新repair run并确认不可自动重试，已有日结果仍归原日更。该次读取查询任务列表1次（limit=2），查询观察2次（各limit=1）。同组回归验证较新日更未写历史观察时仍由终态补足，首次观察前退出仍可见，repair成功仍可解除对应历史失败。结果读取、repair、日更和第五批整链的31项定向回归通过，新增用例另行复核通过，包含在这31项范围内。Ruff与文档检查通过。验证使用临时资源，真实Tushare请求和正式DG及Lake写入均为0。
+
+## 20. 第六批：自动追修、分区注册和更新sensor
+
+### 20.1 依据和开工范围
+
+对应技术方案§13.12。以§19.13已经隔离验收的日更、手动repair和结果读取为入口。按下述第1～5步依次实施，每步通过定向回归和代码核对才进入下一步。第1步独立使用已有job及临时实例，第2步独立验证分区请求，第3步消费前两步的接口。第4～5步完成隔离串联、Definitions及治理验收。
+
+使用现有分区、资源、任务配置、检查和失败记录。本批开发范围是本数据集的追修接线、两条sensor和对应治理登记及测试。第1～5步使用临时实例和文件，复用已保存的有界样本。正式code location装载单独授权。Prod搬迁、上线前补数实际执行、历史事件补录及正式sensor启用走§10.6，不是开发步骤的前置，也不由测试触发。
+
+### 20.2 第1步：日更job接好自动追修
+
+1. 在`defs/asset_guards/stk_factor_pro_readiness.py`复用§6.2的直接阶段读取。追修比较的唯一旧输入是`day_result_ref`所指的有效日阶段观察及该观察自身的`history_plan_ref`。使用同一`known_pg`、`known_records`，将计划解析和引用核验按§3.6交给现有历史计划读取链。把两个已核SHA交给比较处。历史完成和未完范围继续从当前DG结果取得，repair的历史结果仍可用于它授权范围的完成判断。
+2. `defs/assets/stk_factor_pro.py`在保存本轮历史名单前把是否发现修订交给`defs/io/stk_factor_pro_history.py`的现有planner。比较使用本轮已经准备的T/P文件引用。仅自动`today`按§3.6追加和继承`HistoryPlanReason.SAME_NIGHT_FACTOR_REVISION`。新增原因落在`defs/run_contracts/stk_factor_pro.py`，范围读取校验同时接受原1～6和新值。job配置、文件列、日期范围和下载入口沿用原接口。
+3. `defs/io/stk_factor_pro_publication.py`在历史源已经完整确认、进入现有源清理范围后，创建首个候选前完成追修比对。资产入口交接已经加载的T/P关系与本轮`expected_units`中带追修原因的股票。以`ts_code`和规范后的同一`trade_date`连接，比较双方非NULL的`adj_factor`，同一批只执行一次。自动追修历史使用该次比较结果排障，移除这一路径原先对同一历史源另做的T日诊断查询。日阶段和普通历史诊断沿原流程。差异由现有历史阶段失败出口按§3.6保存完整待刷范围和可重试原因，确保该分支释放本次源关系。执行中止后，下一轮全新下载失败范围。
+
+**本步验收。**用现有job证明日成功、历史失败后日观察仍有效。随后手动repair成功，日观察的计划来源仍保持原值，repair结果只用于原授权历史。断言追修历史比对一次、旧因子时零历史候选/发布/事件，仍有日发布和可重试记录。下一轮继续拿到旧因子时仍保留完整范围，源值更新后两层历史发布完成。核对历史只写d<T、停牌缺T行照常处理、repair无T日写入以及已独立成功范围无需重读历史文件。
+
+### 20.3 第2步：独立注册今天及上个交易日
+
+在`defs/sensors/stock_factor_pro_trade_day_sensor.py`定义`stock_factor_pro_trade_day_sensor`，使用`STK_FACTOR_PRO_PARTITION_SENSOR_INTERVAL_SECONDS`和`STOPPED`。从现有lake root和`DuckDBResource`获取SSE日历，使用上海日期D，取D的日历记录及D之前最近一个已确认开市日Q。用有界日期投影，避免调用返回所有已到期日键的注册流程。D已确认开市才可作为候选，Q经日历确认后可单独登记。日历不能确认时按已有就绪规则返回说明。对最多两个候选键通过本数据集的`cn_a_stock_factor_pro_trade_days`查询是否已登记，只把缺少键排序后交`build_add_request`，由`SensorResult.dynamic_partitions_requests`返回。无需上游资产就绪，不创建RunRequest。
+
+**本步验收。**临时实例证明开市日新增D/Q、已有键不重复登记。已确认休市时仅可新增缺失的Q，休市D和未来日均不登记。日历不可用时不写入，现有旧键保留。评估只读取日历和候选分区登记，不读因子、技术数据、任务及事件记录。
+
+### 20.4 第3步：更新sensor选择、时间和持久去重
+
+在`defs/sensors/raw_tushare_stk_factor_pro_update_job_sensor.py`定义`raw_tushare_stk_factor_pro_update_job_sensor`，绑定`raw_tushare_stk_factor_pro_update_job`，使用`STK_FACTOR_PRO_UPDATE_SENSOR_INTERVAL_SECONDS`和`STOPPED`。先按§3.2取得上海日期、日历、当前合法slot。评估只取得今天、Q及选择Q时所需的上一交易日，后续步骤复用日期。沿§3.5读取当前cursor和本定义本执行日最近一条已完成tick。当前slot已关闭则直接结束。仍可提交时调用一次`read_stk_factor_pro_other_active_runs`，使用§4.2的五种活动状态，由该函数分别对两个job执行一次`limit=2`查询。已有活动run占用时关闭当前slot，同一评估不再查第二轮。
+
+按§3.2的顺序处理Q与今天。每个评估为已选日期共用`known_pg`和`known_records`。用§6.2的日覆盖、Silver及历史结果决定目标需要处理的阶段，按§3.4只在需判补Q时读取既有开始和提交事实。Q补采已实际使用且仍未齐备时跳过今天。Q日已齐而仅历史未完成时可继续选择今天。目标已登记才可提交。用`raw_tushare_adj_factor_ready_for_trade_date`按需核目标T/P，并按日期复用本轮结果。今天有缺口或历史待处理时用正常选择分支，今天原本可跳过时才按§3.6比较因子摘要。上游尚未就绪不关闭当前slot，留给本slot后续合法评估。
+
+`select_stk_factor_pro_request`按§2.4返回单个`StkFactorProRunInput`或空结果及本次cursor摘要。外层使用`build_asset_update_run_key`或`build_repair_attempt_run_key`按§3.3生成key，八字段配置由既有本数据集合同构造，再由`build_run_request`生成至多一条RunRequest。cursor使用现有`build_sensor_cursor`及`build_cursor_details`，按§3.5保存已关闭slot。业务阶段及Q实际下载机会从已有Dagster记录判断。更新sensor不注册分区，不下载、不生成历史名单、不写业务文件。
+
+**本步验收。**按已有时间常量测试18:59、19:00、23:30、00:00、休市、周一补周五、运行中占用下一slot、先补Q后下一合法slot可选今天。覆盖预检未下载、实际已用一次、Q仍缺保护今天、仅Q历史失败、T/P未就绪后同slot就绪、目标尚未登记、今天仍待刷及历史永久失败。输入未变跳过，T或P修订提交相同日更job。同一slot复评不重复提交，清cursor后复用真实持久tick和原生run记录，不重获Q机会。证明队列等待跨午夜的自动run开头零下载，午夜前已开始的run可结束。§6.2的较新repair失败继续供自动选择使用。
+
+### 20.5 第4步：隔离串联、成本和读回
+
+使用临时Dagster实例、模拟上海时钟、第五批保存的小样本及定向构造的因子修订，串联实际定义。分区登记后用实际RunRequest配置执行日更。至少持久化并重新读取一次更新sensor的真实已完成tick。
+
+按分支记录日历查询、活动任务、Q机会、tick、目标日结果和上游就绪的实际调用数。活动任务最多两个`limit=2`查询，最近完成tick至多一条，Q候选记录沿§3.4至多11条。每个必要T的结果沿§6.2只读一条入口和至多两个直接阶段观察，已取得的run按身份复用。只有今天原本可跳过时另读一份小计划及至多两份因子文件，无历史Parquet读取和起点查询。逐分支记录耗时，与§11.1的单次评估5秒目标比较。job侧单列正常、失败后全范围新下载及最终读回的请求、行数、候选、正式替换和必要读取，不通过重复扫历史或重复跑真实源测量。
+
+**本步验收。**用实际RunRequest证明日缺口在下一时点补入。因子修订后仍收到旧值时只保留有效日发布，待刷历史在后续slot全范围重新下载，源跟上后确认原范围Raw、Silver和对应事件均完成。手动repair只确认原授权历史，无T日发布及日阶段结果。核对实际读写和上述调用次数。
+
+### 20.6 第5步：定义装载、治理及交付
+
+两条sensor使用`defs/run_contracts/sensor_tags.py`的`build_sensor_tags`写定义`tags`。数据域为`quote_data`。注册sensor使用`partition`和`partition_registration`，更新sensor使用`raw_silver`和`asset_update`。在编码交付中同步运行合同治理和资产任务拓扑的两条登记及静态门禁。资产Catalog沿第五批已有两条资产和分区模型，不另建状态或资产。
+
+**本步验收。**通过`tests/stock_suspend_confirmed_test_runner.py`执行对应受保护Definitions和治理套件。将`test_stk_factor_pro_definitions.py`的第五批“sensor尚未登记”断言更新为验证两个确切名称、绑定、60/600秒间隔、定义标签和默认STOPPED，保留两个资产、两个job及既有检查的核对。按§11.1完成相关回归、Ruff和文档检查，逐项在原方案和LLD记录代码位置、证据与未覆盖的正式步骤。隔离装载验收后，正式code location核验、历史事件补齐及正式启用仍分别按授权和§10.6的顺序执行。
