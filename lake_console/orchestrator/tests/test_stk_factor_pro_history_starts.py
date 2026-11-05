@@ -19,10 +19,13 @@ A, B, C = "000001.SZ", "600000.SH", "000002.SZ"
 class CountConnection:
     def __init__(self, conn):
         self.conn, self.aggregates = conn, []
+        self.schemas = []
 
     def execute(self, sql, parameters=None):
         if "min(CAST(try_strptime" in sql:
             self.aggregates.append((sql, parameters))
+        if "parquet_schema" in sql or "DESCRIBE" in sql:
+            self.schemas.append((sql, parameters))
         return (
             self.conn.execute(sql, parameters)
             if parameters is not None
@@ -50,6 +53,7 @@ def resolve(conn, lake, *, known=(), dates=(), codes=(A, B, C), cancel=lambda: N
         known_starts=known,
         approved_raw_dates=dates,
         check_cancel=cancel,
+        known_records={},
     )
 
 
@@ -67,6 +71,10 @@ def test_single_bounded_aggregate_for_unknown_codes_and_earliest_known_kept(tmp_
             StkFactorProHistoryStart(B, OLD, 1, OLD),
         )
         assert len(conn.aggregates) == 1
+        assert len(conn.schemas) == 1
+        assert set(conn.schemas[0][1][0]) == {
+            str(raw_stk_factor_pro_path(lake, d.isoformat())) for d in (OLD, NEW)
+        }
         assert conn.aggregates[0][1][-1] == [C, B]
         assert actual.execute("SHOW TABLES").fetchall() == []
 
@@ -78,6 +86,7 @@ def test_trusted_known_dates_do_not_scan_irrelevant_missing_files(tmp_path):
         known = (StkFactorProHistoryStart(A, OLD, 1, OLD),)
         assert resolve(conn, lake, known=known, dates=(NEW,), codes=(A,)) == known
         assert conn.aggregates == []
+        assert conn.schemas == []
 
 
 def test_no_approved_range_or_no_rows_stays_unknown(tmp_path):
@@ -106,6 +115,24 @@ def test_missing_approved_file_cannot_silently_shorten_history(tmp_path):
     with connection(tmp_path) as actual, pytest.raises(ValueError, match="文件缺失"):
         write_keys(actual, lake, NEW)
         resolve(actual, lake, dates=(OLD, NEW))
+
+
+def test_mixed_key_types_stop_before_the_data_scan(tmp_path):
+    lake, _ = roots(tmp_path)
+    with connection(tmp_path) as actual:
+        write_keys(actual, lake, OLD)
+        path = raw_stk_factor_pro_path(lake, NEW.isoformat())
+        path.parent.mkdir(parents=True)
+        actual.execute(
+            copy_query_to_parquet(
+                "SELECT '000001.SZ' AS ts_code, DATE '2020-01-06' AS trade_date", path
+            )
+        )
+        counted = CountConnection(actual)
+        with pytest.raises(ValueError, match="主键字段类型"):
+            resolve(counted, lake, dates=(OLD, NEW))
+        assert len(counted.schemas) == 1
+        assert counted.aggregates == []
 
 
 @pytest.mark.parametrize(

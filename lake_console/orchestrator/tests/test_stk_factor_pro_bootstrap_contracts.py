@@ -551,8 +551,14 @@ def test_original_empty_source_can_later_have_real_supplement_without_rewriting_
     )
     assert updated.source_rows == 0 and updated.raw_rows == updated.silver_rows == 1
     assert updated.source_empty
-    with pytest.raises(ValueError, match="原导入"):
-        replace(updated, current_publication=None)
+    # LLD19.11: the shared record does not infer the business entry from DG refs.
+    unbound = replace(updated, current_publication=None)
+    assert (
+        m.parse_stk_factor_pro_record(
+            type(unbound), m.stk_factor_pro_record_to_dict(unbound)
+        )
+        == unbound
+    )
     with pytest.raises(ValueError, match="日期/文件"):
         replace(updated, current_publication=replace(current, trade_date=NEXT))
 

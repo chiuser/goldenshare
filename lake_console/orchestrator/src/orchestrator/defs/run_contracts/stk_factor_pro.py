@@ -65,6 +65,7 @@ STK_FACTOR_PRO_ESTIMATED_RECORD_BYTES = 1024 * 1024
 STK_FACTOR_PRO_FREE_SPACE_MARGIN_BYTES = 16 * 1024 * 1024
 STK_FACTOR_PRO_DAY_WORKSPACE_ESTIMATE_BYTES = 1024 * 1024 * 1024
 
+STK_FACTOR_PRO_CONTRACT_CONTENT_DIGEST = content_digest(STK_FACTOR_PRO_CONTRACT)
 STK_FACTOR_PRO_SOURCE_COLUMNS = STK_FACTOR_PRO_CONTRACT.field_names
 STK_FACTOR_PRO_RAW_COLUMN_TYPES = MappingProxyType(
     {
@@ -2734,12 +2735,7 @@ class StkFactorProBootstrapDateCoverage:
             self.raw_rows > 0 and self.raw_file_sha256 is None
         ):
             raise ValueError("bootstrap当前文件必须有两层身份")
-        if self.current_publication is None:
-            if self.source_rows != self.raw_rows or (
-                self.source_empty and self.raw_file_sha256 is not None
-            ):
-                raise ValueError("bootstrap原导入当前数量必须忠实等于来源")
-        else:
+        if self.current_publication is not None:
             current = self.current_publication
             if (
                 not isinstance(current, StkFactorProBootstrapCurrentPublication)
@@ -3126,3 +3122,217 @@ def stk_factor_pro_bootstrap_date_coverage_input_digest(
             "basis_files": stk_factor_pro_record_to_dict(basis_files),
         },
     )
+
+
+@dataclass(frozen=True, slots=True)
+class StkFactorProSourceRun:
+    """Verified reexecution intent; never contains old download/candidate data."""
+
+    parent_run_id: str
+    root_run_id: str
+    run_input: StkFactorProRunInput
+    original_status: str
+    history_plan_ref: RecordRef | None
+    history_ranges_ref: RecordRef | None
+    bootstrap_context: StkFactorProBootstrapContext | None
+
+    def __post_init__(self):
+        validate_stk_factor_pro_identifier(self.parent_run_id)
+        validate_stk_factor_pro_identifier(self.root_run_id)
+        if not isinstance(self.run_input, StkFactorProRunInput):
+            raise TypeError("重执行缺原八字段输入")
+        if self.original_status not in ("SUCCESS", "FAILURE", "CANCELED"):
+            raise ValueError("重执行原任务必须已经结束")
+        for value, kind in (
+            (self.history_plan_ref, RecordRef),
+            (self.history_ranges_ref, RecordRef),
+            (self.bootstrap_context, StkFactorProBootstrapContext),
+        ):
+            if value is not None and not isinstance(value, kind):
+                raise TypeError("重执行原任务引用类型错误")
+
+
+# One closed observation contract for the four approved producer branches.
+_STK_FACTOR_OBSERVATION_TYPES = {
+    "phase_result_version": int,
+    "observation_kind": Literal["start", "precheck", "day", "history"],
+    "target_trade_date": date,
+    "producer_run_id": str,
+    "execution_day": date,
+    "purpose": StkFactorProPurpose,
+    "scheduled_slot": int | None,
+    "submission_no": int | None,
+    "business_attempt": int | None,
+    "goldenshare/download_started": bool,
+    "goldenshare/summary": str,
+    "goldenshare/next_action": str,
+    "phase": StkFactorProPhase | None,
+    "result": Literal["completed", "waiting", "no_action"] | None,
+    "recovery_of_run_id": str | None,
+    "pending_plan_refs": tuple[RecordRef, ...],
+    "successful_publication_refs": tuple[RecordRef, ...],
+    "unresolved_day_failure_run_id": str | None,
+    "unresolved_history_failure_run_id": str | None,
+    "day_source_digest": str | None,
+    "source_complete_digest": str | None,
+    "publication_complete_digest": str | None,
+    "history_plan_ref": RecordRef | None,
+    "history_ranges_ref": RecordRef | None,
+    "raw_coverage": StkFactorProRawCoverage | None,
+    "target_silver": StkFactorProTargetSilver | None,
+    "bootstrap_context": StkFactorProBootstrapContext | None,
+    "bootstrap_coverage_refs": tuple[tuple[date, str, str], ...],
+    "bootstrap_summary_ref": dict | None,
+    "prior_day_result": StkFactorProResultRef | None,
+    "prior_history_result": StkFactorProResultRef | None,
+}
+
+
+def empty_stk_factor_pro_recorded_results(target_trade_date):
+    return StkFactorProRecordedResults(
+        target_trade_date, None, None, None, None, None, None, (), (), None, None
+    )
+
+
+def build_stk_factor_pro_observation_metadata(
+    *,
+    identity: RunIdentity,
+    recorded_results: StkFactorProRecordedResults,
+    observation_kind: Literal["start", "precheck", "day", "history"],
+    result: Literal["completed", "waiting", "no_action"] | None = None,
+    history_plan_ref: RecordRef | None = None,
+    history_ranges_ref: RecordRef | None = None,
+    raw_coverage: StkFactorProRawCoverage | None = None,
+    target_silver: StkFactorProTargetSilver | None = None,
+    day_source_digest: str | None = None,
+    source_complete_digest: str | None = None,
+    publication_complete_digest: str | None = None,
+    recovery_of_run_id: str | None = None,
+    bootstrap_context: StkFactorProBootstrapContext | None = None,
+    bootstrap_coverage_refs: tuple[tuple[date, str, str], ...] = (),
+    bootstrap_summary_ref: dict[str, str] | None = None,
+    summary: str = "",
+    next_action: str = "",
+):
+    """Serialize already-validated values once; parsing is for first PG reads."""
+    if observation_kind not in ("start", "precheck", "day", "history"):
+        raise ValueError("观察分支错误")
+    phase = observation_kind if observation_kind in ("day", "history") else None
+    if (phase is None) != (result is None):
+        raise ValueError("开始/预检不是阶段完成结果")
+    if identity.target_trade_date != recorded_results.target_trade_date:
+        raise ValueError("观察不是同一目标日期")
+    pending = recorded_results.pending_plan_refs
+    if history_plan_ref is not None and history_plan_ref not in pending:
+        pending = (*pending, history_plan_ref)
+    values = {
+        "phase_result_version": 1,
+        "observation_kind": observation_kind,
+        "target_trade_date": identity.target_trade_date,
+        "producer_run_id": identity.creator_run_id,
+        "execution_day": identity.execution_day,
+        "purpose": identity.purpose,
+        "scheduled_slot": identity.scheduled_slot,
+        "submission_no": identity.submission_no,
+        "business_attempt": identity.business_attempt,
+        "goldenshare/download_started": observation_kind == "start",
+        "goldenshare/summary": summary,
+        "goldenshare/next_action": next_action,
+        "phase": phase,
+        "result": result,
+        "recovery_of_run_id": recovery_of_run_id,
+        "pending_plan_refs": pending,
+        "successful_publication_refs": recorded_results.successful_publication_refs,
+        "unresolved_day_failure_run_id": recorded_results.unresolved_day_failure_run_id,
+        "unresolved_history_failure_run_id": recorded_results.unresolved_history_failure_run_id,
+        "day_source_digest": day_source_digest,
+        "source_complete_digest": source_complete_digest,
+        "publication_complete_digest": publication_complete_digest,
+        "history_plan_ref": history_plan_ref or recorded_results.history_plan_ref,
+        "history_ranges_ref": history_ranges_ref or recorded_results.history_ranges_ref,
+        "raw_coverage": raw_coverage or recorded_results.raw_coverage,
+        "target_silver": target_silver,
+        # An ordinary run must not inherit an old initialization context.
+        "bootstrap_context": bootstrap_context,
+        "bootstrap_coverage_refs": bootstrap_coverage_refs,
+        "bootstrap_summary_ref": bootstrap_summary_ref,
+        "prior_day_result": recorded_results.day_result_ref,
+        "prior_history_result": recorded_results.history_result_ref,
+    }
+    return {
+        key: dg.MetadataValue.json(stk_factor_pro_record_to_dict(value))
+        if is_dataclass(value) or type(value) is tuple
+        else dg.MetadataValue.json(value)
+        if type(value) is dict
+        else stk_factor_pro_record_to_dict(value)
+        for key, value in values.items()
+    }
+
+
+def parse_stk_factor_pro_observation_metadata(metadata):
+    """First-read closed metadata parser; it never expands an external reference."""
+    if set(metadata) != set(_STK_FACTOR_OBSERVATION_TYPES):
+        raise ValueError("技术因子观察缺字段或含未知字段")
+    values = {}
+    for name, kind in _STK_FACTOR_OBSERVATION_TYPES.items():
+        value = getattr(metadata[name], "value", metadata[name])
+        if name == "bootstrap_summary_ref":
+            if value is not None:
+                if type(value) is not dict or set(value) != {
+                    "relative_path",
+                    "file_sha256",
+                }:
+                    raise ValueError("初始化汇总引用结构错误")
+                _bootstrap_relative(value["relative_path"])
+                _digest(value["file_sha256"])
+            values[name] = value
+        else:
+            values[name] = _parse_record_value(kind, value)
+    _version(values["phase_result_version"])
+    validate_stk_factor_pro_identifier(values["producer_run_id"])
+    for name in (
+        "recovery_of_run_id",
+        "unresolved_day_failure_run_id",
+        "unresolved_history_failure_run_id",
+    ):
+        if values[name] is not None:
+            validate_stk_factor_pro_identifier(values[name])
+    for name in (
+        "day_source_digest",
+        "source_complete_digest",
+        "publication_complete_digest",
+    ):
+        _optional_digest(values[name])
+    kind = values["observation_kind"]
+    if values["goldenshare/download_started"] != (kind == "start"):
+        raise ValueError("观察开始标记与分支不符")
+    if kind in ("start", "precheck"):
+        if values["phase"] is not None or values["result"] is not None:
+            raise ValueError("开始/预检不得伪造阶段结果")
+    elif values["phase"] != kind or values["result"] is None:
+        raise ValueError("阶段观察类型与结果不符")
+    if kind == "day" and values["source_complete_digest"] is not None:
+        raise ValueError("日观察不得引用历史下载完成")
+    if kind == "history" and values["day_source_digest"] is not None:
+        raise ValueError("历史观察不得保存日下载摘要")
+    for name in ("raw_coverage", "target_silver", "bootstrap_context"):
+        value = values[name]
+        if value is not None and value.target_trade_date != values["target_trade_date"]:
+            raise ValueError("观察嵌套结果不是同一目标日期")
+    if values["bootstrap_context"] is None and (
+        values["bootstrap_coverage_refs"] or values["bootstrap_summary_ref"] is not None
+    ):
+        raise ValueError("普通观察不得维护初始化统计")
+    if (
+        kind == "history"
+        and values["result"] == "completed"
+        and (
+            values["target_silver"] is None
+            or not values["target_silver"].ready
+            or values["raw_coverage"] is None
+            or values["raw_coverage"].complete is not True
+            or values["publication_complete_digest"] is None
+        )
+    ):
+        raise ValueError("历史完成缺原T资格或完整发布依据")
+    return values

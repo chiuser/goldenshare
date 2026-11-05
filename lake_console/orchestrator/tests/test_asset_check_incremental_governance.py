@@ -11,6 +11,7 @@ from pathlib import Path
 import orchestrator.defs.checks as checks_pkg
 import orchestrator.defs.sensors as sensors_pkg
 from orchestrator.defs.anns_d_contract import ANNOUNCEMENT_ASSET, ANNOUNCEMENT_CHECKS
+from orchestrator.defs.assets.stk_factor_pro import stk_factor_pro
 from orchestrator.defs.bootstrap.stk_mins_event_history_retention import (
     STK_MINS_RETENTION_PROTECTED_CHECK_NAMES,
 )
@@ -63,6 +64,12 @@ from orchestrator.defs.run_contracts.moneyflow_automation import (
     STOCK_MONEYFLOW_AUTOMATION,
     STOCK_THS_MONEYFLOW_AUTOMATION,
     MoneyflowAutomationContract,
+)
+from orchestrator.defs.run_contracts.stk_factor_pro import (
+    STK_FACTOR_PRO_RAW_ASSET_KEY,
+    STK_FACTOR_PRO_RAW_CHECK_NAME,
+    STK_FACTOR_PRO_SILVER_ASSET_KEY,
+    STK_FACTOR_PRO_SILVER_CHECK_NAME,
 )
 from orchestrator.defs.run_contracts.stock_monthly import (
     StockMonthlySource,
@@ -810,6 +817,18 @@ ASSET_CHECK_GOVERNANCE: dict[str, dict[str, AssetCheckGovernanceRule]] = {
         readiness=False,
         retention_allowed=True,
     ),
+    STK_FACTOR_PRO_RAW_ASSET_KEY: _rules(
+        (STK_FACTOR_PRO_RAW_CHECK_NAME,),
+        category=KEEP_BLOCKING_DAGSTER,
+        phase="STK_FACTOR_PRO_BATCH5",
+        retention_allowed=False,
+    ),
+    STK_FACTOR_PRO_SILVER_ASSET_KEY: _rules(
+        (STK_FACTOR_PRO_SILVER_CHECK_NAME,),
+        category=KEEP_BLOCKING_DAGSTER,
+        phase="STK_FACTOR_PRO_BATCH5",
+        retention_allowed=False,
+    ),
     **_planned_etf_asset_rules(),
     **_planned_index_technical_asset_rules(),
     **_planned_stock_daily_trend_channel_rules(),
@@ -1040,7 +1059,10 @@ def _catalog_blocking_checks_by_asset() -> dict[str, tuple[str, ...]]:
 
 
 def _active_blocking_checks_by_asset() -> dict[str, set[str]]:
-    check_names: dict[str, set[str]] = {}
+    check_names: dict[str, set[str]] = {
+        spec.asset_key.to_user_string(): {spec.name}
+        for spec in stk_factor_pro.check_specs if spec.blocking
+    }
     for module_info in pkgutil.iter_modules(checks_pkg.__path__):
         if module_info.name.startswith("__"):
             continue

@@ -7,15 +7,13 @@ from datetime import date, datetime, timedelta
 from uuid import uuid4
 from zoneinfo import ZoneInfo
 
-import duckdb
-
 from orchestrator.defs.asset_guards.stk_factor_pro_readiness import (
-    _build_stk_factor_pro_coverage_keys,
+    _GLOBALS,
+    _load_basis,
+    _schema,
+    _stat,
+    calculate_stk_factor_pro_coverage,
     stk_factor_pro_invalid_code_sql,
-)
-from orchestrator.defs.assets.stock_identity_map import (
-    STOCK_IDENTITY_ALLOWED_CONFIDENCE,
-    STOCK_IDENTITY_ALLOWED_SOURCES,
 )
 from orchestrator.defs.bootstrap.stk_factor_pro_bootstrap_records import (
     approval_sha,
@@ -27,40 +25,25 @@ from orchestrator.defs.bootstrap.stk_factor_pro_bootstrap_records import (
 )
 from orchestrator.defs.checks.stk_factor_pro import (
     factor_file_identity,
-    factor_file_sha,
     factor_known_file_sha,
-    relation_identifier,
 )
-from orchestrator.defs.duckdb_sql import BJ_MARKET_OPEN_DATE, read_parquet
+from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.io.stk_factor_pro_candidates import (
     require_stk_factor_pro_safe_path,
 )
 from orchestrator.defs.paths import (
     raw_stk_factor_pro_path,
     silver_stock_factor_pro_path,
-    silver_stock_identity_map_path,
-    silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
-    silver_trade_calendar_path,
     stk_factor_pro_run_staging_root,
 )
 from orchestrator.defs.run_contracts import stk_factor_pro as C
 from orchestrator.defs.run_contracts.asset_column_schemas import (
-    SILVER_STOCK_IDENTITY_MAP_SCHEMA,
-    SILVER_STOCK_LIFECYCLE_SCHEMA,
     SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
-    SILVER_TRADE_CALENDAR_SCHEMA,
 )
-from orchestrator.tushare_download.contract_registry import content_digest
 
-_GLOBALS = {
-    "calendar": (silver_trade_calendar_path, SILVER_TRADE_CALENDAR_SCHEMA),
-    "lifecycle": (silver_stock_lifecycle_path, SILVER_STOCK_LIFECYCLE_SCHEMA),
-    "identity": (silver_stock_identity_map_path, SILVER_STOCK_IDENTITY_MAP_SCHEMA),
-}
 _PREFIX = "stk_factor_bootstrap_coverage_"
 _SUSPEND = _PREFIX + "suspend"
-_DAILY = tuple(_PREFIX + suffix for suffix in ("listed", "full_suspend", "actual"))
 _PURE_TABLES = tuple(
     "stk_factor_pro_coverage_" + suffix
     for suffix in (
@@ -86,12 +69,6 @@ def _days(first, last_exclusive):
     )
 
 
-def _schema(connection, relation):
-    return tuple(
-        (r[0], r[1]) for r in connection.execute(f"DESCRIBE {relation}").fetchall()
-    )
-
-
 def _drop(connection, names):
     with resource_cleanup(
         *(
@@ -108,263 +85,6 @@ def _basis_path(lake_root, basis):
         if basis.kind == "suspend"
         else _GLOBALS[basis.kind][0](lake_root)
     )
-
-
-def _stat(path):
-    try:
-        return factor_file_identity(path)
-    except FileNotFoundError:
-        return None
-
-
-def _invalid_code_reason(connection, table, column):
-    predicate = stk_factor_pro_invalid_code_sql(column)
-    count = connection.execute(
-        f"SELECT count(*) FROM {table} WHERE {predicate}"
-    ).fetchone()[0]
-    if not count:
-        return ""
-    sample = tuple(
-        r[0]
-        for r in connection.execute(
-            f"SELECT {column} FROM {table} WHERE {predicate} "
-            f"ORDER BY {column} NULLS FIRST LIMIT 20"
-        ).fetchall()
-    )
-    return f"{column}非法代码{count}行，样本{sample}"
-
-
-def _validate_lifecycle(connection, table):
-    code_reason = _invalid_code_reason(connection, table, "ts_code")
-    required = ("ts_code", "symbol", "name", "exchange", "curr_type", "list_status")
-    empty = " OR ".join(f"{name} IS NULL OR trim({name})=''" for name in required)
-    invalid = connection.execute(
-        f"SELECT count(*) FROM {table} WHERE {empty} OR is_cny_stock IS DISTINCT FROM true "
-        "OR curr_type IS DISTINCT FROM 'CNY' OR list_date IS NULL "
-        "OR (delist_date IS NOT NULL AND delist_date<list_date)"
-    ).fetchone()[0]
-    duplicates = connection.execute(
-        f"SELECT count(*) FROM (SELECT ts_code FROM {table} GROUP BY ts_code HAVING count(*)>1)"
-    ).fetchone()[0]
-    rule_reason = (
-        "生命周期必需字段、股票域、日期或唯一键不符" if invalid or duplicates else ""
-    )
-    return "; ".join(value for value in (code_reason, rule_reason) if value)
-
-
-def _validate_identity(connection, table, *, lifecycle_valid, lifecycle_table):
-    code_reasons = tuple(
-        _invalid_code_reason(connection, table, column)
-        for column in ("source_ts_code", "latest_ts_code")
-    )
-    invalid = connection.execute(
-        f"SELECT count(*) FROM {table} i WHERE source_ts_code IS NULL OR trim(source_ts_code)='' "
-        "OR latest_ts_code IS NULL OR trim(latest_ts_code)='' OR valid_from IS NULL "
-        "OR (valid_to IS NOT NULL AND valid_to<valid_from) "
-        "OR identity_source IS NULL OR identity_source NOT IN (SELECT unnest(?::VARCHAR[])) "
-        "OR confidence IS NULL OR confidence NOT IN (SELECT unnest(?::VARCHAR[]))",
-        [
-            sorted(STOCK_IDENTITY_ALLOWED_SOURCES),
-            sorted(STOCK_IDENTITY_ALLOWED_CONFIDENCE),
-        ],
-    ).fetchone()[0]
-    duplicates = connection.execute(
-        f"SELECT count(*) FROM (SELECT source_ts_code FROM {table} GROUP BY source_ts_code HAVING count(*)>1)"
-    ).fetchone()[0]
-    rule_reason = (
-        "身份映射字段、来源域、日期或唯一键不符" if invalid or duplicates else ""
-    )
-    # An unavailable lifecycle is already reported as lifecycle unknown. Its
-    # absence must neither skip identity's own checks nor create a false error.
-    missing_reference = (
-        connection.execute(
-            f"SELECT count(*) FROM {table} i WHERE NOT EXISTS "
-            f"(SELECT 1 FROM {lifecycle_table} l WHERE l.ts_code=i.latest_ts_code)"
-        ).fetchone()[0]
-        if lifecycle_valid
-        else 0
-    )
-    reference_reason = "身份映射生命周期引用不符" if missing_reference else ""
-    # Producer seed completeness is checked by stock_identity_map_checks; this
-    # consumer verifies the four approved physical inputs, not a fifth seed file.
-    return "; ".join(
-        value for value in (*code_reasons, rule_reason, reference_reason) if value
-    )
-
-
-def _validate_basis_rules(
-    connection, *, table, kind, row_count, trade_date, lifecycle_valid, lifecycle_table
-):
-    if kind == "calendar":
-        # Per-day duplicates/missing/NULL flags only invalidate that day.
-        invalid = connection.execute(
-            f"SELECT count(*) FROM {table} WHERE exchange IS NULL OR trim(exchange)='' "
-            "OR trade_date IS NULL"
-        ).fetchone()[0]
-        return "日历含无法归属日期的行" if invalid else ""
-    if kind == "lifecycle":
-        return _validate_lifecycle(connection, table) if row_count else "生命周期为空"
-    if kind == "identity":
-        return (
-            _validate_identity(
-                connection,
-                table,
-                lifecycle_valid=lifecycle_valid,
-                lifecycle_table=lifecycle_table,
-            )
-            if row_count
-            else "身份映射为空"
-        )
-    code_reason = _invalid_code_reason(connection, table, "ts_code")
-    invalid = connection.execute(
-        f"SELECT count(*) FROM {table} WHERE trade_date IS DISTINCT FROM ? "
-        "OR suspend_type IS NULL OR suspend_type NOT IN ('S','R') "
-        "OR (suspend_timing IS NOT NULL AND trim(suspend_timing)='')",
-        [trade_date],
-    ).fetchone()[0]
-    duplicates = connection.execute(
-        f"SELECT count(*) FROM (SELECT ts_code,trade_date,suspend_type,coalesce(suspend_timing,'') "
-        f"FROM {table} GROUP BY ALL HAVING count(*)>1)"
-    ).fetchone()[0]
-    # Nonempty producer timing remains intraday, without a new timing regex.
-    rule_reason = (
-        "最终停牌日期、类型、时段或业务键不符" if invalid or duplicates else ""
-    )
-    return "; ".join(value for value in (code_reason, rule_reason) if value)
-
-
-def _basis_metadata(path, *, known_records):
-    before = _stat(path)
-    fact = known_records.get(path)
-    if fact is not None:
-        if fact[2] != before:
-            raise ValueError("本地覆盖依据在首次读取后改变")
-        return fact[1], before
-    try:
-        digest = factor_file_sha(path) if before is not None else None
-    except OSError:
-        known_records[path] = (None, None, before)
-        raise
-    if _stat(path) != before:
-        raise ValueError("本地覆盖依据首次读取期间改变")
-    known_records[path] = (None, digest, before)
-    return digest, before
-
-
-def _load_basis(
-    connection,
-    *,
-    path,
-    kind,
-    trade_date,
-    basis_inputs,
-    known_records,
-    lifecycle_file=None,
-):
-    previous = basis_inputs["files"].get(path)
-    if previous is not None:
-        try:
-            _basis_metadata(path, known_records=known_records)
-        except OSError:
-            if previous["basis"].valid:
-                raise
-        return previous
-    table = _PREFIX + ("probe" if kind == "suspend" else kind)
-    expected = (
-        SILVER_STOCK_SUSPEND_DAILY_SCHEMA if kind == "suspend" else _GLOBALS[kind][1]
-    )
-    before = None
-    try:
-        digest, before = _basis_metadata(path, known_records=known_records)
-    except OSError as error:
-        before = known_records.get(path, (None, None, None))[2]
-        basis = C.StkFactorProBootstrapBasisFile(
-            kind, trade_date, None, None, None, False
-        )
-        fact = {
-            "basis": basis,
-            "reason": f"{kind}依据无法读取：{error}",
-            "relation": None,
-            "owned": False,
-        }
-        known_records[path] = (basis, None, before)
-        basis_inputs["files"][path] = fact
-        return fact
-    schema_digest = row_count = None
-    valid, reason, relation, owned = False, f"{kind}依据文件不存在", None, False
-    try:
-        if digest is not None:
-            initial = known_records[path][0]
-            if (
-                isinstance(initial, tuple)
-                and len(initial) == 3
-                and (isinstance(initial[0], str) or initial[0] is None)
-            ):
-                relation, row_count, observed = initial
-                if relation is None:
-                    schema_digest = content_digest(observed)
-                    if observed == tuple((c.name, c.type) for c in expected):
-                        raise ValueError("已核覆盖依据的合法关系已释放，禁止重新回盘")
-                    reason = f"{kind}依据无效：依据schema不符"
-            else:
-                try:
-                    connection.execute(
-                        f"CREATE TEMP TABLE {table} AS SELECT * FROM {read_parquet(path, hive_partitioning=False)}"
-                    )
-                except (
-                    OSError,
-                    duckdb.IOException,
-                    duckdb.InvalidInputException,
-                ) as error:
-                    reason = f"{kind}依据文件无法读取：{error}"
-                else:
-                    owned, relation = True, table
-                    observed = _schema(connection, relation)
-                    row_count = connection.execute(
-                        f"SELECT count(*) FROM {relation}"
-                    ).fetchone()[0]
-            if relation is not None:
-                schema_digest = content_digest(observed)
-                if observed != tuple((c.name, c.type) for c in expected):
-                    reason = f"{kind}依据无效：依据schema不符"
-                else:
-                    invalid = _validate_basis_rules(
-                        connection,
-                        table=relation,
-                        kind=kind,
-                        row_count=row_count,
-                        trade_date=trade_date,
-                        lifecycle_valid=lifecycle_file is None
-                        or lifecycle_file["basis"].valid,
-                        lifecycle_table=lifecycle_file["relation"]
-                        if lifecycle_file is not None
-                        else None,
-                    )
-                    valid = not invalid
-                    reason = f"{kind}依据无效：{invalid}" if invalid else ""
-            if _stat(path) != before:
-                raise ValueError("覆盖依据读取期间改变，本次停止")
-        basis = C.StkFactorProBootstrapBasisFile(
-            kind, trade_date, digest, schema_digest, row_count, valid
-        )
-        if relation is not None and not valid:
-            if owned:
-                owned = False
-                _drop(connection, (relation,))
-            relation = None
-        fact = {"basis": basis, "reason": reason, "relation": relation, "owned": owned}
-        known_records[path] = (
-            (relation, row_count, observed) if valid else basis,
-            digest,
-            before,
-        )
-        basis_inputs["files"][path] = fact
-        return fact
-    except BaseException:
-        if owned:
-            with resource_cleanup(lambda: _drop(connection, (relation,))):
-                raise
-        raise
 
 
 def prepare_stk_factor_pro_bootstrap_coverage_month(
@@ -600,126 +320,81 @@ def read_stk_factor_pro_bootstrap_coverage_date(
 
 def prepare_stk_factor_pro_bootstrap_coverage_date(
     *,
-    approval,
-    approval_digest,
+    trade_date,
     inputs,
     basis_inputs,
-    source_complete,
     raw_audit,
     silver_audit,
-    current_publication,
-    previous_result,
 ):
-    day = source_complete.trade_date
+    return prepare_stk_factor_pro_bootstrap_supplement_date(
+        trade_date=trade_date,
+        raw_audit=raw_audit,
+        silver_audit=silver_audit,
+        coverage_inputs=_bootstrap_date_inputs(trade_date, inputs, basis_inputs),
+    )
+
+
+def _bootstrap_date_inputs(trade_date, inputs, basis_inputs):
     if (
-        inputs.operation_id != approval.operation_id
-        or inputs.month not in approval.month_limits
-        or day not in inputs.natural_dates
+        trade_date not in inputs.natural_dates
         or basis_inputs["active_month"] != inputs.month
-        or source_complete.operation_id != approval.operation_id
-        or source_complete.approval_digest != approval_digest
     ):
-        raise ValueError("覆盖准备的批准、月份或完整日来源不符")
-    if day in inputs.closed_dates:
+        raise ValueError("覆盖准备的月份或日期不符")
+    if trade_date in inputs.closed_dates:
         raise ValueError("已确认休市有源属于冲突；休市空源只汇总分类")
-    if raw_audit is None or silver_audit is None:
-        if not (
-            raw_audit is None
-            and silver_audit is None
-            and source_complete.source_empty
-            and current_publication is None
-        ):
-            raise ValueError("当前两层缺已通过的真实audit")
-        raw_rows = silver_rows = 0
-        hashes = (None, None)
-    else:
-        if any(
-            not isinstance(a, C.StkFactorProFileAudit)
-            or not a.passed
-            or a.trade_date != day
-            or a.layer != layer
-            for a, layer in zip(
-                (raw_audit, silver_audit), ("raw", "silver"), strict=True
-            )
-        ):
-            raise ValueError("当前两层有效audit与日期/层不符")
-        if raw_audit.row_count != silver_audit.row_count:
-            raise ValueError("当前Raw/Silver数量不一致")
-        raw_rows, silver_rows = raw_audit.row_count, silver_audit.row_count
-        hashes = raw_audit.file_sha256, silver_audit.file_sha256
-    if current_publication is None:
-        if (raw_rows, silver_rows) != (
-            source_complete.actual_rows,
-            source_complete.actual_rows,
-        ):
-            raise ValueError("首次导入数量与原来源不符")
-    elif (
-        current_publication.trade_date != day
-        or current_publication.contract_content_digest
-        != approval.contract_content_digest
-        or current_publication.processing_version != C.STK_FACTOR_PRO_PROCESSING_VERSION
-        or (current_publication.raw_file_sha256, current_publication.silver_file_sha256)
-        != hashes
-        or current_publication.silver_source_raw_sha256 != hashes[0]
-    ):
-        raise ValueError("补数发布与本日两层audit不符")
-    basis = tuple(
-        b for b in inputs.basis_files if b.trade_date is None or b.trade_date == day
-    )
-    is_open = True if day in inputs.open_dates else None
     unknown, reason = next(
-        ((k, r) for d, k, r in inputs.unknown_by_date if d == day), ((), "")
+        ((k, r) for d, k, r in inputs.unknown_by_date if d == trade_date), ((), "")
     )
-    same = (
-        previous_result is not None
-        and previous_result.operation_id == approval.operation_id
-        and previous_result.approval_digest == approval_digest
-        and previous_result.trade_date == day
-        and previous_result.source_complete_digest
-        == source_complete.source_complete_digest
-        and (previous_result.raw_file_sha256, previous_result.silver_file_sha256)
-        == hashes
-        and previous_result.basis_files == basis
-        and previous_result.is_open == is_open
-    )
-    digest = (
-        previous_result.input_digest
-        if same
-        else _date_digest(
-            approval, approval_digest, day, source_complete, hashes, basis, is_open
-        )
-    )
-    reusable = previous_result if same else None
-    if reusable is not None and reusable.current_publication != current_publication:
-        reusable = replace(
-            reusable, current_publication=current_publication, evaluated_at=_now()
-        )
     relations = {"suspend": _SUSPEND}
     for fact in basis_inputs["files"].values():
         if fact["basis"].trade_date is None:
             relations[fact["basis"].kind] = fact["relation"]
-            if all(kind in relations for kind in _GLOBALS):
-                break
-    return {
-        "approval_digest": approval_digest,
-        "trade_date": day,
-        "source_complete": source_complete,
-        "raw_audit": raw_audit,
-        "silver_audit": silver_audit,
-        "current_publication": current_publication,
-        "raw_rows": raw_rows,
-        "silver_rows": silver_rows,
-        "raw_physical_code_count": raw_rows,
-        "raw_file_sha256": hashes[0],
-        "silver_file_sha256": hashes[1],
-        "is_open": is_open,
-        "basis_files": basis,
+    coverage_inputs = {
+        "trade_date": trade_date,
+        "basis_files": tuple(
+            b
+            for b in inputs.basis_files
+            if b.trade_date is None or b.trade_date == trade_date
+        ),
+        "is_open": True if trade_date in inputs.open_dates else None,
         "unknown_input_kinds": unknown,
         "reason": reason,
-        "input_digest": digest,
-        "reusable_result": reusable,
         "relations": relations,
-        "current_files_verified": True,
+    }
+    return coverage_inputs
+
+
+def prepare_stk_factor_pro_bootstrap_supplement_date(
+    *,
+    trade_date,
+    raw_audit,
+    silver_audit,
+    coverage_inputs,
+):
+    if (
+        trade_date != coverage_inputs["trade_date"]
+        or coverage_inputs["is_open"] is False
+    ):
+        raise ValueError("初始化补数日期与开市依据不符")
+    for audit, layer in ((raw_audit, "raw"), (silver_audit, "silver")):
+        if (
+            not isinstance(audit, C.StkFactorProFileAudit)
+            or not audit.passed
+            or audit.trade_date != trade_date
+            or audit.layer != layer
+        ):
+            raise ValueError("当前两层有效audit与日期/层不符")
+    if raw_audit.row_count != silver_audit.row_count:
+        raise ValueError("当前Raw/Silver数量不一致")
+    return {
+        **coverage_inputs,
+        "raw_audit": raw_audit,
+        "silver_audit": silver_audit,
+        "raw_rows": raw_audit.row_count,
+        "silver_rows": silver_audit.row_count,
+        "raw_physical_code_count": raw_audit.row_count,
+        "raw_file_sha256": raw_audit.file_sha256,
+        "silver_file_sha256": silver_audit.file_sha256,
     }
 
 
@@ -728,13 +403,8 @@ def require_stk_factor_pro_bootstrap_coverage_identities(
 ):
     for path in _targets(lake_root, prepared["trade_date"]):
         fact = known_records.get(path)
-        try:
-            current = _stat(path)
-        except OSError:
-            prepared["current_files_verified"] = False
-            raise
+        current = _stat(path)
         if fact is None or current != fact[2]:
-            prepared["current_files_verified"] = False
             raise ValueError("当前Raw/Silver在首次确认后已改变")
     for basis in prepared["basis_files"]:
         path = _basis_path(lake_root, basis)
@@ -842,94 +512,75 @@ def compute_stk_factor_pro_bootstrap_coverage_date(
     prepared,
     raw_relation,
     diagnostic_run,
+    input_digest,
     check_space,
     known_records,
 ):
-    if prepared["reusable_result"] is not None:
-        raise ValueError("本日已有适用结果，不应重新计算覆盖")
-    counts, unknown, reason = None, prepared["unknown_input_kinds"], prepared["reason"]
-    refs, samples = (None, None), ((), ())
     check_space(
         "计算本日覆盖前",
         path=operation_path(staging_root, approval, "coverage"),
         trade_date=prepared["trade_date"],
         rows=prepared["raw_rows"],
     )
-    with resource_cleanup(
-        *((lambda: _drop(connection, (*_DAILY, *_PURE_TABLES)),) if not unknown else ())
+    if (
+        raw_relation is None
+        and prepared["raw_rows"]
+        and not prepared["unknown_input_kinds"]
     ):
-        if not unknown:
-            actual = _DAILY[2]
-            if prepared["raw_rows"] == 0 and raw_relation is None:
-                connection.execute(
-                    f"CREATE TEMP TABLE {actual} (trade_date DATE,ts_code VARCHAR)"
+        raise ValueError("非空当前Raw缺已有代码关系，禁止回盘补参")
+    with resource_cleanup(lambda: _drop(connection, _PURE_TABLES)):
+        calculated = calculate_stk_factor_pro_coverage(
+            connection,
+            coverage_inputs=prepared,
+            raw_relation=raw_relation,
+        )
+        counts = calculated["coverage_counts"]
+        if counts is not None and counts.expected_count is not None:
+            for kind in ("missing", "extra"):
+                ref, sample = _write_codes(
+                    connection,
+                    staging_root=staging_root,
+                    approval=approval,
+                    day=prepared["trade_date"],
+                    digest=input_digest,
+                    kind=kind,
+                    count=getattr(counts, kind + "_count"),
+                    diagnostic_run=diagnostic_run,
+                    check_space=check_space,
+                    known_records=known_records,
                 )
-            elif raw_relation is None:
-                raise ValueError("非空当前Raw缺已有代码关系，禁止回盘补参")
-            else:
-                relation_identifier(raw_relation)
-                connection.execute(
-                    f"CREATE TEMP TABLE {actual} AS SELECT strptime(trade_date,'%Y%m%d')::DATE AS trade_date,ts_code FROM {raw_relation}"
-                )
-            day, relations = prepared["trade_date"], prepared["relations"]
-            connection.execute(
-                f"CREATE TEMP TABLE {_DAILY[0]} AS SELECT ?::DATE AS trade_date,ts_code FROM {relations['lifecycle']} WHERE list_date<=? AND (delist_date IS NULL OR ?<delist_date) AND (NOT ends_with(ts_code,'.BJ') OR ?>=CAST(? AS DATE))",
-                [day, day, day, day, BJ_MARKET_OPEN_DATE],
-            )
-            connection.execute(
-                f"CREATE TEMP TABLE {_DAILY[1]} AS SELECT DISTINCT trade_date,ts_code FROM {relations['suspend']} WHERE trade_date=? AND suspend_type='S' AND suspend_timing IS NULL",
-                [day],
-            )
-            counts = _build_stk_factor_pro_coverage_keys(
-                connection,
-                target_trade_date=day,
-                listed_relation=_DAILY[0],
-                full_suspend_relation=_DAILY[1],
-                actual_relation=actual,
-                identity_relation=relations["identity"],
-            )
-            reason = counts.reason
-            if counts.expected_count is None:
-                unknown = ("identity",)
-            else:
-                detail = tuple(
-                    _write_codes(
-                        connection,
-                        staging_root=staging_root,
-                        approval=approval,
-                        day=day,
-                        digest=prepared["input_digest"],
-                        kind=kind,
-                        count=count,
-                        diagnostic_run=diagnostic_run,
-                        check_space=check_space,
-                        known_records=known_records,
-                    )
-                    for kind, count in (
-                        ("missing", counts.missing_count),
-                        ("extra", counts.extra_count),
-                    )
-                )
-                refs, samples = tuple(d[0] for d in detail), tuple(d[1] for d in detail)
-    return {
-        "coverage_counts": counts,
-        "unknown_input_kinds": unknown,
-        "reason": reason,
-        "missing_codes_ref": refs[0],
-        "extra_codes_ref": refs[1],
-        "missing_sample_codes": samples[0],
-        "extra_sample_codes": samples[1],
-    }
+                calculated[kind + "_codes_ref"] = ref
+                calculated[kind + "_sample_codes"] = sample
+    return calculated
 
 
-def evaluate_stk_factor_pro_bootstrap_coverage_date(*, prepared, calculated):
-    if prepared["reusable_result"] is not None:
-        if calculated is not None:
-            raise ValueError("适用旧结果不得再带第二份计算")
-        return prepared["reusable_result"]
-    if calculated is None:
-        raise ValueError("新覆盖结果缺首次计算结果")
-    counts, source = calculated["coverage_counts"], prepared["source_complete"]
+def evaluate_stk_factor_pro_bootstrap_coverage_date(
+    *,
+    prepared,
+    calculated,
+    approval_digest,
+    input_digest,
+    source_complete,
+    current_publication,
+    previous_result,
+):
+    source = source_complete
+    if (
+        source.trade_date != prepared["trade_date"]
+        or source.approval_digest != approval_digest
+    ):
+        raise ValueError("最终覆盖记录原来源与批准/日期不符")
+    if current_publication is not None and (
+        current_publication.trade_date != prepared["trade_date"]
+        or current_publication.contract_content_digest
+        != C.STK_FACTOR_PRO_CONTRACT_CONTENT_DIGEST
+        or current_publication.processing_version != C.STK_FACTOR_PRO_PROCESSING_VERSION
+        or current_publication.raw_file_sha256 != prepared["raw_file_sha256"]
+        or current_publication.silver_file_sha256 != prepared["silver_file_sha256"]
+        or current_publication.silver_source_raw_sha256 != prepared["raw_file_sha256"]
+    ):
+        raise ValueError("补数发布与本日两层audit不符")
+    counts = calculated["coverage_counts"]
     values = {
         name: getattr(counts, name) if counts is not None else None
         for name in (
@@ -942,10 +593,10 @@ def evaluate_stk_factor_pro_bootstrap_coverage_date(*, prepared, calculated):
             "identity_ambiguous_count",
         )
     }
-    return C.StkFactorProBootstrapDateCoverage(
+    result = C.StkFactorProBootstrapDateCoverage(
         record_version=1,
         operation_id=source.operation_id,
-        approval_digest=prepared["approval_digest"],
+        approval_digest=approval_digest,
         trade_date=prepared["trade_date"],
         source_rows=source.actual_rows,
         raw_rows=prepared["raw_rows"],
@@ -956,11 +607,11 @@ def evaluate_stk_factor_pro_bootstrap_coverage_date(*, prepared, calculated):
         silver_file_sha256=prepared["silver_file_sha256"],
         import_complete=True,
         source_empty=source.source_empty,
-        current_publication=prepared["current_publication"],
+        current_publication=current_publication,
         is_open=prepared["is_open"],
         basis_files=prepared["basis_files"],
         unknown_input_kinds=calculated["unknown_input_kinds"],
-        input_digest=prepared["input_digest"],
+        input_digest=input_digest,
         **values,
         identity_unmapped_sample_codes=counts.identity_unmapped_sample_codes
         if counts
@@ -978,6 +629,14 @@ def evaluate_stk_factor_pro_bootstrap_coverage_date(*, prepared, calculated):
         extra_sample_codes=calculated["extra_sample_codes"],
         evaluated_at=_now(),
     )
+
+    if (
+        previous_result is not None
+        and replace(result, evaluated_at=previous_result.evaluated_at)
+        == previous_result
+    ):
+        return previous_result
+    return result
 
 
 def write_stk_factor_pro_bootstrap_coverage_date(
@@ -1060,10 +719,6 @@ def update_stk_factor_pro_bootstrap_after_publication(
     lake_root,
     staging_root,
     approval,
-    inputs,
-    publication,
-    raw_audit,
-    silver_audit,
     result,
     previous_result,
     previous_result_digest,
@@ -1071,26 +726,6 @@ def update_stk_factor_pro_bootstrap_after_publication(
     date_results,
     check_space,
 ):
-    if (
-        publication != result.current_publication
-        or publication.contract_content_digest != approval.contract_content_digest
-        or publication.processing_version != C.STK_FACTOR_PRO_PROCESSING_VERSION
-        or publication.silver_source_raw_sha256 != raw_audit.file_sha256
-        or publication.trade_date != result.trade_date
-        or inputs.operation_id != approval.operation_id
-        or result.trade_date not in inputs.natural_dates
-        or result.raw_file_sha256 != raw_audit.file_sha256
-        or result.silver_file_sha256 != silver_audit.file_sha256
-        or not raw_audit.passed
-        or not silver_audit.passed
-        or raw_audit.trade_date != result.trade_date
-        or silver_audit.trade_date != result.trade_date
-        or raw_audit.layer != "raw"
-        or silver_audit.layer != "silver"
-        or raw_audit.row_count != result.raw_rows
-        or silver_audit.row_count != result.silver_rows
-    ):
-        raise ValueError("补数统计结果没有对应真实两层发布")
     return write_stk_factor_pro_bootstrap_coverage_date(
         connection,
         lake_root=lake_root,
@@ -1239,6 +874,18 @@ def refresh_stk_factor_pro_bootstrap_date_contribution(
         "unknown": unknown,
         "result_digest": digest,
     }
+    _replace_stk_factor_pro_bootstrap_contribution(
+        trade_date=trade_date,
+        entry=entry,
+        totals=totals,
+        contribution=contribution,
+    )
+
+
+def _replace_stk_factor_pro_bootstrap_contribution(
+    *, trade_date, entry, totals, contribution
+):
+    unknown, digest = contribution["unknown"], contribution["result_digest"]
     previous = entry["previous_contribution"]
     if contribution == previous:
         return

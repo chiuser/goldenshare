@@ -121,10 +121,21 @@ def setup(conn, tmp_path, count, *, missing_dates=(), unrelated=False, known_rec
         factor_t=refs[0],
         factor_p=refs[1],
         prior_results=old,
+        prior_history=history.read_stk_factor_pro_prior_history(
+            conn,
+            staging_root=staging,
+            target=(run).target_trade_date,
+            contract=contract(),
+            prior=old,
+            known_records=known_records,
+        ),
         history_starts=(models.StkFactorProHistoryStart(A, dates[0], 1, dates[0]),),
         check_cancel=lambda: None,
         known_records=known_records,
         factor_relations=factor_relations,
+        factor_comparison=history.compare_stk_factor_pro_history_factors(
+            conn, factor_relations=factor_relations
+        ),
         lifecycle_relation=lifecycle_relation,
     )
     root = stk_factor_pro_run_staging_root(staging, run.creator_run_id, T.isoformat())

@@ -201,8 +201,19 @@ def test_plan_cleanup_retains_cancellation_and_attempts_both_tables(tmp_path, mo
                     factor_t=refs[0],
                     factor_p=refs[1],
                     factor_relations=factor_relations,
+                    factor_comparison=history.compare_stk_factor_pro_history_factors(
+                        conn, factor_relations=factor_relations
+                    ),
                     lifecycle_relation=lifecycle_relation,
                     prior_results=prior(),
+                    prior_history=history.read_stk_factor_pro_prior_history(
+                        wrapped,
+                        staging_root=staging,
+                        target=(identity()).target_trade_date,
+                        contract=contract(),
+                        prior=prior(),
+                        known_records=known_records,
+                    ),
                     history_starts=(start(),),
                     check_cancel=cancel,
                     known_records=known_records,

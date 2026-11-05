@@ -22,6 +22,7 @@ from orchestrator.defs.checks.stk_factor_pro import (
     factor_file_identity,
     factor_file_sha,
     factor_known_file_sha,
+    relation_identifier,
 )
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.io.stk_factor_pro_candidates import (
@@ -123,7 +124,7 @@ def _history_resource_cleanup(*releases: Callable[[], object]) -> Iterator[None]
         for release in releases:
             try:
                 release()
-            except DuckDBError as cleanup:
+            except (DuckDBError, OSError) as cleanup:
                 failures.append(cleanup)
         if failures:
             reported = primary if primary is not None else failures[0]
@@ -735,6 +736,7 @@ def resolve_stk_factor_pro_history_starts(
     known_starts: tuple[StkFactorProHistoryStart, ...],
     approved_raw_dates: tuple[date, ...],
     check_cancel,
+    known_records: dict,
 ) -> tuple[StkFactorProHistoryStart, ...]:
     """Resolve only missing boundaries, within the caller's trusted date set."""
     if type(target_trade_date) is not date or type(codes) is not tuple:
@@ -779,18 +781,35 @@ def resolve_stk_factor_pro_history_starts(
         paths = tuple(
             raw_stk_factor_pro_path(lake_root, day.isoformat()) for day in dates
         )
-        for path in paths:
+        unverified_paths = []
+        for day, path in zip(dates, paths, strict=True):
             require_stk_factor_pro_safe_path(path)
             if not path.is_file():
                 raise ValueError("已批准可信Raw文件缺失，不能据剩余文件推算最早日期")
-            schema = {
-                row[0]: row[1]
-                for row in connection.execute(
-                    "DESCRIBE SELECT ts_code,trade_date FROM read_parquet(?,hive_partitioning=false)",
-                    [str(path)],
-                ).fetchall()
-            }
-            if schema != {"ts_code": "VARCHAR", "trade_date": "VARCHAR"}:
+            fact = known_records.get(path)
+            audit = fact[0] if fact is not None else None
+            if (
+                isinstance(audit, C.StkFactorProFileAudit)
+                and audit.passed
+                and audit.layer == "raw"
+                and audit.trade_date == day
+                and audit.path == path
+            ):
+                if factor_file_identity(path) != fact[2]:
+                    raise ValueError("可信Raw文件在任务内改变，不能计算历史起点")
+            else:
+                unverified_paths.append(str(path))
+        if unverified_paths:
+            schemas = connection.execute(
+                "SELECT file_name,list(name ORDER BY name),list(duckdb_type ORDER BY name) "
+                "FROM parquet_schema(?) WHERE column_id>0 "
+                "AND name IN ('trade_date','ts_code') GROUP BY file_name",
+                [unverified_paths],
+            ).fetchall()
+            if {row[0] for row in schemas} != set(unverified_paths) or any(
+                names != ["trade_date", "ts_code"] or types != ["VARCHAR", "VARCHAR"]
+                for _, names, types in schemas
+            ):
                 raise ValueError("可信Raw主键字段类型不符合源表示")
         check_cancel()
         # One column-pruned, code-bounded aggregate for all unresolved stocks.
@@ -962,7 +981,7 @@ def prepare_stk_factor_pro_history_inputs(
         raise
 
 
-def _history_old_records(
+def read_stk_factor_pro_prior_history(
     connection, *, staging_root, target, contract, prior, known_records
 ):
     """Exact old work records only; never inspect old downloaded unit files."""
@@ -1049,6 +1068,41 @@ def _history_old_records(
     return plans, load_plan
 
 
+def stk_factor_pro_codes_without_history_starts(
+    *,
+    factor_comparison,
+    prior_results,
+    prior_history,
+) -> tuple[str, ...]:
+    """Find only missing boundaries in the plan that this run will build."""
+    observed = {code for code, *_ in factor_comparison}
+    needed = {
+        code
+        for code, current, previous, t_present, p_present in factor_comparison
+        if not (t_present and p_present) or current != previous
+    }
+    pending = set(prior_results.pending_plan_refs)
+    known = set()
+    for ref, (_, ranges) in prior_history[0].items():
+        for row in ranges:
+            if row.start_date is not None:
+                known.add(row.ts_code)
+            if (
+                ref in pending
+                or row.ts_code not in observed
+                or any(
+                    reason
+                    in (
+                        HistoryPlanReason.FACTOR_CHANGED,
+                        HistoryPlanReason.PRIOR_UNFINISHED,
+                    )
+                    for reason in row.plan_reasons
+                )
+            ):
+                needed.add(row.ts_code)
+    return tuple(sorted(needed - known))
+
+
 def _history_lifecycle(connection, *, relation, codes, target):
     if not codes or relation is None:
         return {}
@@ -1071,6 +1125,16 @@ def _history_lifecycle(connection, *, relation, codes, target):
     }
 
 
+def compare_stk_factor_pro_history_factors(connection, *, factor_relations):
+    """One T/P comparison, shared by earliest-date selection and plan creation."""
+    t_relation, p_relation = map(relation_identifier, factor_relations)
+    return tuple(
+        connection.execute(
+            f"SELECT coalesce(t.ts_code,p.ts_code),t.adj_factor,p.adj_factor,t.ts_code IS NOT NULL,p.ts_code IS NOT NULL FROM {t_relation} t FULL OUTER JOIN {p_relation} p USING(ts_code) ORDER BY 1"
+        ).fetchall()
+    )
+
+
 def build_stk_factor_pro_history_plan(
     connection,
     *,
@@ -1081,8 +1145,10 @@ def build_stk_factor_pro_history_plan(
     factor_t: FactorFileRef,
     factor_p: FactorFileRef,
     factor_relations: tuple[str, str],
+    factor_comparison: tuple,
     lifecycle_relation: str | None,
     prior_results: StkFactorProRecordedResults,
+    prior_history: tuple[dict, Callable],
     history_starts: tuple[StkFactorProHistoryStart, ...],
     check_cancel,
     known_records: dict,
@@ -1124,14 +1190,7 @@ def build_stk_factor_pro_history_plan(
     _run_root(root, run_id=identity.creator_run_id, target=identity.target_trade_date)
     require_stk_factor_pro_safe_path(lake_root)
     check_cancel()
-    plans, load_plan = _history_old_records(
-        connection,
-        staging_root=staging_root,
-        target=identity.target_trade_date,
-        contract=contract,
-        prior=prior_results,
-        known_records=known_records,
-    )
+    plans, load_plan = prior_history
     authorized, origin_ref = None, None
     if identity.purpose == "manual_repair":
         source_refs = [
@@ -1175,9 +1234,7 @@ def build_stk_factor_pro_history_plan(
         or (life_fact[0][0] if life_fact[0] is not None else None) != lifecycle_relation
     ):
         raise ValueError("历史规划未交接首次生命周期事实")
-    compared = connection.execute(
-        f"SELECT coalesce(t.ts_code,p.ts_code),t.adj_factor,p.adj_factor,t.ts_code IS NOT NULL,p.ts_code IS NOT NULL FROM {t_relation} t FULL OUTER JOIN {p_relation} p USING(ts_code) ORDER BY 1"
-    ).fetchall()
+    compared = factor_comparison
     factors = {code: (tv, pv, tp, pp) for code, tv, pv, tp, pp in compared}
     codes = set(factors) | set(old) | set(starts)
     if authorized is not None:
@@ -2015,3 +2072,94 @@ def build_stk_factor_pro_history_space_check(
                 return current
 
         return check_space
+
+
+def stk_factor_pro_missing_codes_reusable(coverage, *, staging_root, known_records):
+    if not coverage.missing_count:
+        return True
+    ref = coverage.missing_codes_ref
+    if ref is None:
+        return False
+    root = stk_factor_pro_run_staging_root(
+        staging_root, ref.creator_run_id, str(coverage.target_trade_date)
+    )
+    path = root / ref.relative_path
+    require_stk_factor_pro_safe_path(path)
+    return factor_known_file_sha(path, known_records=known_records) == ref.file_sha256
+
+
+def write_stk_factor_pro_missing_codes(
+    connection, *, staging_root, identity, coverage, calculated, known_records
+):
+    """Persist only the first nonempty difference; hand off its existing result."""
+    if coverage.missing_count in (None, 0):
+        return coverage
+    if coverage.missing_codes_ref is not None:
+        if not stk_factor_pro_missing_codes_reusable(
+            coverage,
+            staging_root=staging_root,
+            known_records=known_records,
+        ):
+            raise ValueError("原缺失清单失效，需以原T现有代码重新计算")
+        return coverage
+    if (
+        calculated is None
+        or calculated["coverage_counts"].missing_count != coverage.missing_count
+    ):
+        raise ValueError("缺失清单缺本任务首次集合结果")
+    ref = calculated["missing_codes_ref"]
+    if ref is not None:
+        if isinstance(ref, C.StkFactorProBootstrapCodesRef):
+            ref = RecordRef(ref.creator_run_id, ref.relative_path, ref.file_sha256)
+        return replace(
+            coverage,
+            missing_codes_ref=ref,
+            missing_sample_codes=calculated["missing_sample_codes"],
+        )
+    root = stk_factor_pro_run_staging_root(
+        staging_root, identity.creator_run_id, str(identity.target_trade_date)
+    )
+    path = _path(root, identity, "diagnostics/day-missing-codes.parquet")
+    temporary = _prepare(path)
+    source = "stk_factor_pro_coverage_missing"
+    saved = "stk_factor_pro_missing_saved"
+    with _history_resource_cleanup(
+        lambda: connection.execute(f"DROP TABLE IF EXISTS {saved}"),
+        lambda: temporary.unlink(missing_ok=True),
+    ):
+        connection.execute(
+            f"COPY (SELECT ts_code,trade_date FROM {source} ORDER BY ts_code) TO ? (FORMAT PARQUET)",
+            [str(temporary)],
+        )
+        connection.execute(
+            f"CREATE TEMP TABLE {saved} AS SELECT * FROM {read_parquet(temporary, hive_partitioning=False)}"
+        )
+        observed = tuple(
+            (r[0], r[1]) for r in connection.execute(f"DESCRIBE {saved}").fetchall()
+        )
+        if observed != (("ts_code", "VARCHAR"), ("trade_date", "DATE")):
+            raise ValueError("缺失清单传输schema不符")
+        count = connection.execute(f"SELECT count(*) FROM {saved}").fetchone()[0]
+        difference = connection.execute(
+            f"SELECT count(*) FROM ((SELECT ts_code,trade_date FROM {source} EXCEPT ALL SELECT * FROM {saved}) UNION ALL "
+            f"(SELECT * FROM {saved} EXCEPT ALL SELECT ts_code,trade_date FROM {source}))"
+        ).fetchone()[0]
+        if count != coverage.missing_count or difference:
+            raise ValueError("缺失清单传输内容不符")
+        sample = tuple(
+            r[0]
+            for r in connection.execute(
+                f"SELECT ts_code FROM {saved} ORDER BY ts_code LIMIT 20"
+            ).fetchall()
+        )
+        digest = factor_file_sha(temporary)
+        _promote(temporary, path)
+        ref = RecordRef(
+            identity.creator_run_id, "diagnostics/day-missing-codes.parquet", digest
+        )
+        known_records[path] = (ref, digest, factor_file_identity(path))
+        calculated["missing_codes_ref"], calculated["missing_sample_codes"] = (
+            ref,
+            sample,
+        )
+        return replace(coverage, missing_codes_ref=ref, missing_sample_codes=sample)

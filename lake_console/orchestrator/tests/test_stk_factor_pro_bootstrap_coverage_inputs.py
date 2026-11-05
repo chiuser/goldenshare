@@ -10,6 +10,7 @@ from datetime import date, timedelta
 import duckdb
 import pytest
 
+from orchestrator.defs.asset_guards import stk_factor_pro_readiness as R
 from orchestrator.defs.asset_guards.stk_factor_pro_readiness import (
     stk_factor_pro_invalid_code_sql,
 )
@@ -363,14 +364,14 @@ def test_unexpected_error_at_file_read_boundary_still_propagates(tmp_path, monke
         lake, staging, approval, _ = prepare_case(
             conn, tmp_path, known_records=known_records
         )
-        real_schema = B._schema
+        real_schema = R._schema
 
         def broken_schema(connection, relation):
             if relation == "stk_factor_bootstrap_coverage_lifecycle":
                 raise duckdb.InternalException("unexpected file reader bug")
             return real_schema(connection, relation)
 
-        monkeypatch.setattr(B, "_schema", broken_schema)
+        monkeypatch.setattr(R, "_schema", broken_schema)
         with pytest.raises(
             duckdb.InternalException, match="unexpected file reader bug"
         ):
@@ -386,14 +387,14 @@ def test_unreadable_basis_is_classified_without_swallowing_other_errors(
             conn, tmp_path, known_records=known_records
         )
         lifecycle = silver_stock_lifecycle_path(lake)
-        real_sha = B.factor_file_sha
+        real_sha = R.factor_file_sha
 
         def unreadable(path):
             if path == lifecycle:
                 raise PermissionError("deliberately unreadable input")
             return real_sha(path)
 
-        monkeypatch.setattr(B, "factor_file_sha", unreadable)
+        monkeypatch.setattr(R, "factor_file_sha", unreadable)
         inputs = prepare(conn, lake, staging, approval, known_records=known_records)
         assert tuple(kinds for _, kinds, _ in inputs.unknown_by_date) == (
             ("lifecycle",),

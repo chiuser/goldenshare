@@ -338,10 +338,21 @@ def create_flow(conn, fixture, *, run="run-normal", old=None, known_records):
         factor_t=refs[0],
         factor_p=refs[1],
         prior_results=old,
+        prior_history=history.read_stk_factor_pro_prior_history(
+            conn,
+            staging_root=staging,
+            target=(run_identity).target_trade_date,
+            contract=contract(),
+            prior=old,
+            known_records=known_records,
+        ),
         history_starts=(models.StkFactorProHistoryStart(A, START, 1, START),),
         check_cancel=lambda: None,
         known_records=known_records,
         factor_relations=factor_relations,
+        factor_comparison=history.compare_stk_factor_pro_history_factors(
+            conn, factor_relations=factor_relations
+        ),
         lifecycle_relation=lifecycle_relation,
     )
     root = stk_factor_pro_run_staging_root(staging, run, T.isoformat())

@@ -88,10 +88,23 @@ def build(
             factor_t=refs[0],
             factor_p=refs[1],
             prior_results=prior() if old is None else old,
+            prior_history=history.read_stk_factor_pro_prior_history(
+                conn,
+                staging_root=staging,
+                target=(
+                    identity(run) if run_identity is None else run_identity
+                ).target_trade_date,
+                contract=contract(),
+                prior=prior() if old is None else old,
+                known_records=known_records,
+            ),
             history_starts=(start(),) if starts is None else starts,
             check_cancel=cancel,
             known_records=known_records,
             factor_relations=factor_relations,
+            factor_comparison=history.compare_stk_factor_pro_history_factors(
+                conn, factor_relations=factor_relations
+            ),
             lifecycle_relation=lifecycle_relation,
         )[0]
     finally:

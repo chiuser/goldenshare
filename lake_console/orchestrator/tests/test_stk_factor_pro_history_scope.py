@@ -65,12 +65,23 @@ def prepared(conn, lake, staging, *, starts=None, values_t=None, known_records):
         factor_t=ft,
         factor_p=fp,
         prior_results=prior(),
+        prior_history=history.read_stk_factor_pro_prior_history(
+            conn,
+            staging_root=staging,
+            target=(identity()).target_trade_date,
+            contract=contract(),
+            prior=prior(),
+            known_records=known_records,
+        ),
         history_starts=(StkFactorProHistoryStart(A, START, 1, START),)
         if starts is None
         else starts,
         check_cancel=lambda: None,
         known_records=known_records,
         factor_relations=factor_relations,
+        factor_comparison=history.compare_stk_factor_pro_history_factors(
+            conn, factor_relations=factor_relations
+        ),
         lifecycle_relation=lifecycle_relation,
     )
     return plan, ranges, ft, fp

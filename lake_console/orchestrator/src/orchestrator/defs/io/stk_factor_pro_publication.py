@@ -159,6 +159,7 @@ def _publish_file(
     unrefreshed_keys_ref=None,
     unrefreshed_count=None,
     scope_facts=None,
+    on_publish_attempt=None,
 ):
     candidate = candidate_audit.path
     for path in (candidate, target):
@@ -250,6 +251,8 @@ def _publish_file(
         None,
         None,
     )
+    if on_publish_attempt is not None:
+        on_publish_attempt(candidate_audit.trade_date, layer)
     _write_record(
         directory / "intent.json",
         record,
@@ -324,6 +327,7 @@ def publish_stk_factor_pro_day(
     staging_root: Path,
     check_cancel,
     known_records: dict,
+    on_publish_attempt=None,
 ):
     require_stk_factor_pro_current_day_source(connection, source)
     _roots(lake_root, staging_root)
@@ -371,6 +375,7 @@ def publish_stk_factor_pro_day(
         raw_guard=lambda: None,
         known_records=known_records,
         check_space=None,
+        on_publish_attempt=on_publish_attempt,
     )
     yield raw_target, raw_audit
     check_cancel()
@@ -413,6 +418,7 @@ def publish_stk_factor_pro_day(
         raw_guard=raw_guard,
         known_records=known_records,
         check_space=None,
+        on_publish_attempt=on_publish_attempt,
     )
 
 
@@ -676,6 +682,7 @@ def publish_stk_factor_pro_history(
     check_space,
     recheck_inputs,
     check_cancel,
+    on_publish_attempt=None,
 ):
     """Keep all source ownership through final consumers and every exit path."""
     with _history_cleanup(connection, release_stk_factor_pro_history_source):
@@ -693,6 +700,7 @@ def publish_stk_factor_pro_history(
             check_space=check_space,
             recheck_inputs=recheck_inputs,
             check_cancel=check_cancel,
+            on_publish_attempt=on_publish_attempt,
         )
 
 
@@ -711,6 +719,7 @@ def _publish_stk_factor_pro_history(
     check_space,
     recheck_inputs,
     check_cancel,
+    on_publish_attempt=None,
 ):
     """Publish actual history dates in bounded batches; yields each completed file."""
     if (
@@ -897,6 +906,7 @@ def _publish_stk_factor_pro_history(
                         check_cancel=check_cancel,
                         raw_guard=lambda: None,
                         phase="history",
+                        on_publish_attempt=on_publish_attempt,
                         unrefreshed_keys_ref=ref,
                         unrefreshed_count=missing,
                         scope_facts=scope_facts,
@@ -986,6 +996,7 @@ def _publish_stk_factor_pro_history(
                         check_cancel=check_cancel,
                         raw_guard=raw_guard,
                         phase="history",
+                        on_publish_attempt=on_publish_attempt,
                         unrefreshed_keys_ref=ref,
                         unrefreshed_count=missing,
                         scope_facts=scope_facts,

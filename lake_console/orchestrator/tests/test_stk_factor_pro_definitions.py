@@ -28,24 +28,28 @@ class StkFactorProDefinitionsTests(unittest.TestCase):
             dg.AssetKey("raw_tushare_stk_factor_pro"),
             dg.AssetKey("silver_stock_factor_pro"),
         }
-        self.assertTrue(factor_assets.isdisjoint(actual_assets))
-        self.assertFalse(
-            any(key.asset_key in factor_assets for key in graph.asset_check_keys)
+        self.assertTrue(factor_assets.issubset(actual_assets))
+        self.assertEqual(
+            {
+                key.name
+                for key in graph.asset_check_keys
+                if key.asset_key in factor_assets
+            },
+            {
+                "raw_tushare_stk_factor_pro_file_contract_check",
+                "silver_stock_factor_pro_file_contract_check",
+            },
         )
         self.assertTrue(
-            {
-                "raw_tushare_stk_factor_pro",
-                "silver_stock_factor_pro",
-            }.isdisjoint(list_lake_asset_keys())
+            {key.to_user_string() for key in factor_assets}.issubset(
+                list_lake_asset_keys()
+            )
         )
 
         repository = definitions.get_repository_def()
-        self.assertTrue(
-            {
-                "raw_tushare_stk_factor_pro_update_job",
-                "raw_tushare_stk_factor_pro_repair_job",
-            }.isdisjoint(job.name for job in repository.get_all_jobs())
-        )
+        jobs = {job.name for job in repository.get_all_jobs()}
+        self.assertIn("raw_tushare_stk_factor_pro_update_job", jobs)
+        self.assertIn("raw_tushare_stk_factor_pro_repair_job", jobs)
         self.assertTrue(
             {
                 "stock_factor_pro_trade_day_sensor",

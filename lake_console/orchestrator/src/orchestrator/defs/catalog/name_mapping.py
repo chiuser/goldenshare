@@ -44,6 +44,8 @@ DATASET_CHINESE_NAMES = MappingProxyType(
         "major_index_mins_nineturn": "主要指数分钟九转",
         "idx_factor_pro": "指数技术因子（专业版）",
         "index_factor_pro": "指数技术因子（专业版）标准层",
+        "stk_factor_pro": "股票技术因子（专业版）",
+        "stock_factor_pro": "股票技术因子（专业版）标准层",
         "major_index_mins_technical": "主要指数分钟技术指标",
         "major_index_mins_technical_state": "主要指数分钟技术指标状态",
         "index_global": "国际指数日线",

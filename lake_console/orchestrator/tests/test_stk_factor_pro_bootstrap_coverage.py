@@ -9,6 +9,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import pytest
 
+from orchestrator.defs.asset_guards import stk_factor_pro_readiness as R
 from orchestrator.defs.bootstrap import stk_factor_pro_bootstrap_coverage as B
 from orchestrator.defs.bootstrap import stk_factor_pro_bootstrap_publication as P
 from orchestrator.defs.bootstrap import stk_factor_pro_history as driver
@@ -265,34 +266,29 @@ def setup(
 
 def calculate(conn, args, *, known_records):
     entry = args["_date_results"][args["trade_date"]]
-    prepared = B.prepare_stk_factor_pro_bootstrap_coverage_date(
-        **{
-            k: args[k]
-            for k in (
-                "approval",
-                "inputs",
-                "source_complete",
-                "raw_audit",
-                "silver_audit",
-                "current_publication",
-            )
-        },
+    prepared = driver._prepare_bootstrap_date_coverage(
+        lake_root=args["lake_root"],
+        approval=args["approval"],
         approval_digest=args["_approval_digest"],
+        inputs=args["inputs"],
         basis_inputs=args["_basis_inputs"],
-        previous_result=entry["persisted_result"],
-    )
-    B.require_stk_factor_pro_bootstrap_coverage_identities(
-        lake_root=args["lake_root"], prepared=prepared, known_records=known_records
+        source=args["source_complete"],
+        raw=args["raw_audit"],
+        silver=args["silver_audit"],
+        publication=args["current_publication"],
+        date_results=args["_date_results"],
+        known_records=known_records,
     )
     calculated = (
-        None
-        if prepared["reusable_result"] is not None
+        driver._bootstrap_previous_calculation(entry["persisted_result"])
+        if entry["coverage_record_current"]
         else B.compute_stk_factor_pro_bootstrap_coverage_date(
             conn,
             **{k: args[k] for k in ("lake_root", "staging_root", "approval")},
             prepared=prepared,
             raw_relation=args["_raw_relation"],
             diagnostic_run=args["_diagnostic_run"],
+            input_digest=entry["coverage_input_digest"],
             check_space=check_test_space,
             known_records=known_records,
         )
@@ -300,12 +296,14 @@ def calculate(conn, args, *, known_records):
     result = B.evaluate_stk_factor_pro_bootstrap_coverage_date(
         prepared=prepared,
         calculated=calculated,
+        approval_digest=args["_approval_digest"],
+        input_digest=entry["coverage_input_digest"],
+        source_complete=args["source_complete"],
+        current_publication=args["current_publication"],
+        previous_result=entry["persisted_result"],
     )
-    if calculated is not None:
-        B.require_stk_factor_pro_bootstrap_coverage_identities(
-            lake_root=args["lake_root"], prepared=prepared, known_records=known_records
-        )
     entry["computed_result"] = result
+    args["_prepared"] = prepared
     return result
 
 
@@ -347,12 +345,8 @@ def update(conn, args, publication, result, *, known_records):
                 "lake_root",
                 "staging_root",
                 "approval",
-                "inputs",
-                "raw_audit",
-                "silver_audit",
             )
         },
-        publication=publication,
         result=result,
         previous_result=entry["persisted_result"],
         previous_result_digest=entry["persisted_result_digest"],
@@ -1315,13 +1309,15 @@ def test_wrong_current_publication_contract_or_raw_binding_rejected(tmp_path):
         with pytest.raises(ValueError, match="来源Raw"):
             replace(publication, silver_source_raw_sha256="f" * 64)
         for wrong in (replace(publication, contract_content_digest="f" * 64),):
-            with pytest.raises(ValueError, match="没有对应真实两层发布"):
-                update(
-                    conn,
-                    args,
-                    wrong,
-                    replace(result, current_publication=wrong),
-                    known_records=known_records,
+            with pytest.raises(ValueError, match="补数发布与本日两层audit不符"):
+                B.evaluate_stk_factor_pro_bootstrap_coverage_date(
+                    prepared=args["_prepared"],
+                    calculated=driver._bootstrap_previous_calculation(result),
+                    approval_digest=args["_approval_digest"],
+                    input_digest=result.input_digest,
+                    source_complete=args["source_complete"],
+                    current_publication=wrong,
+                    previous_result=result,
                 )
 
 
@@ -1360,7 +1356,7 @@ def test_result_save_failure_keeps_only_still_applicable_previous_coverage(
         original_bytes = result_path.read_bytes()
         original_digest = args["_date_results"][DAY]["persisted_result_digest"]
         calls, costs, reads = [], Counter(), Counter()
-        build_keys = B._build_stk_factor_pro_coverage_keys
+        build_keys = R._build_stk_factor_pro_coverage_keys
 
         def counted_keys(*values, **kwargs):
             calls.append(True)
@@ -1438,7 +1434,7 @@ def test_result_save_failure_keeps_only_still_applicable_previous_coverage(
             scoped.setattr(Path, "read_bytes", read_once)
             scoped.setattr(checks, "factor_file_sha", sha)
             scoped.setattr(B, "write_json", fail_result)
-            scoped.setattr(B, "_build_stk_factor_pro_coverage_keys", counted_keys)
+            scoped.setattr(R, "_build_stk_factor_pro_coverage_keys", counted_keys)
             scoped.setattr(driver, "_classify_date", classify_once)
             scoped.setattr(
                 driver, "prepare_stk_factor_pro_bootstrap_coverage_month", prepare_once
@@ -1505,9 +1501,9 @@ def test_replay_zero_keys_zero_result_rewrites_and_global_hash_reuse(
     known_records = {}
     with connection(tmp_path) as conn:
         hashes = []
-        original_sha = B.factor_file_sha
+        original_sha = R.factor_file_sha
         monkeypatch.setattr(
-            B,
+            R,
             "factor_file_sha",
             lambda path: (hashes.append(path), original_sha(path))[1],
         )
@@ -1519,9 +1515,9 @@ def test_replay_zero_keys_zero_result_rewrites_and_global_hash_reuse(
             date_results=date_results,
         )
         calls = []
-        original_keys = B._build_stk_factor_pro_coverage_keys
+        original_keys = R._build_stk_factor_pro_coverage_keys
         monkeypatch.setattr(
-            B,
+            R,
             "_build_stk_factor_pro_coverage_keys",
             lambda *a, **k: (calls.append(1), original_keys(*a, **k))[1],
         )
@@ -1582,7 +1578,7 @@ def test_replay_zero_keys_zero_result_rewrites_and_global_hash_reuse(
         monkeypatch.undo()
         hashes = []
         monkeypatch.setattr(
-            B,
+            R,
             "factor_file_sha",
             lambda path: (hashes.append(path), original_sha(path))[1],
         )
@@ -1774,7 +1770,7 @@ def test_cleanup_all_tables_preserves_primary_failure(tmp_path, monkeypatch):
             conn, tmp_path, known_records=known_records, date_results=date_results
         )
         monkeypatch.setattr(
-            B,
+            R,
             "_build_stk_factor_pro_coverage_keys",
             lambda *_a, **_k: (_ for _ in ()).throw(
                 KeyboardInterrupt("primary cancel")
@@ -1786,18 +1782,18 @@ def test_cleanup_all_tables_preserves_primary_failure(tmp_path, monkeypatch):
             def execute(self, query, *a, **k):
                 executed.append(query)
                 if query.startswith("DROP TABLE IF EXISTS ") and query.endswith(
-                    B._DAILY[0]
+                    "stk_factor_pro_coverage_listed_input"
                 ):
                     raise OSError("cleanup one")
                 if query.startswith("DROP TABLE IF EXISTS ") and query.endswith(
-                    B._DAILY[1]
+                    "stk_factor_pro_coverage_suspend_input"
                 ):
                     raise RuntimeError("cleanup two")
                 return conn.execute(query, *a, **k)
 
         with pytest.raises(KeyboardInterrupt, match="primary cancel") as caught:
             save(WrappedConnection(), args, known_records=known_records)
-        assert "bootstrap清理同时失败：OSError" in caught.value.__notes__
+        assert "覆盖计算清理同时失败：OSError" in caught.value.__notes__
         assert any(q.endswith(B._PURE_TABLES[-1]) for q in executed)
 
 
@@ -1830,10 +1826,10 @@ def test_release_month_preserves_global_tables_and_bounded_identity_cache(
             B._PREFIX + kind in names for kind in ("calendar", "lifecycle", "identity")
         )
         assert args["_basis_inputs"]["active_month"] is None
-        original = B.factor_file_sha
+        original = R.factor_file_sha
         hashes = []
         monkeypatch.setattr(
-            B, "factor_file_sha", lambda p: (hashes.append(p), original(p))[1]
+            R, "factor_file_sha", lambda p: (hashes.append(p), original(p))[1]
         )
         args["inputs"] = B.prepare_stk_factor_pro_bootstrap_coverage_month(
             conn,
@@ -1922,7 +1918,7 @@ def test_real_control_failure_summarizes_registered_facts_without_reauditing(
         read_bytes = Path.read_bytes
         classify = driver._classify_date
         prepare_month = driver.prepare_stk_factor_pro_bootstrap_coverage_month
-        build_keys = B._build_stk_factor_pro_coverage_keys
+        build_keys = R._build_stk_factor_pro_coverage_keys
         write_json = B.write_json
         fsync_directory = records.fsync_directory
         write_complete = P.write_stk_factor_pro_bootstrap_publication_complete
@@ -1987,7 +1983,7 @@ def test_real_control_failure_summarizes_registered_facts_without_reauditing(
         monkeypatch.setattr(
             driver, "prepare_stk_factor_pro_bootstrap_coverage_month", prepare_once
         )
-        monkeypatch.setattr(B, "_build_stk_factor_pro_coverage_keys", keys_once)
+        monkeypatch.setattr(R, "_build_stk_factor_pro_coverage_keys", keys_once)
         monkeypatch.setattr(B, "write_json", save_record)
         monkeypatch.setattr(records, "fsync_directory", sync)
         monkeypatch.setattr(
@@ -2038,3 +2034,26 @@ def test_real_control_failure_summarizes_registered_facts_without_reauditing(
             ).fetchall()
             == []
         )
+
+
+def test_month_coverage_uses_only_target_day_suspend(tmp_path):
+    """A next-day unmapped suspension must not change today's known coverage."""
+    later = DAY + timedelta(days=1)
+    with connection(tmp_path) as conn:
+        known = {}
+        args = setup(
+            conn,
+            tmp_path,
+            days=(DAY, later),
+            codes=(A,),
+            suspensions={later: (("000004.SZ", later, None, "S"),)},
+            known_records=known,
+            date_results={},
+        )
+        current = calculate(conn, args, known_records=known)
+        assert (
+            current.expected_count,
+            current.actual_count,
+            current.missing_count,
+        ) == (3, 1, 2)
+        assert current.unknown_input_kinds == ()

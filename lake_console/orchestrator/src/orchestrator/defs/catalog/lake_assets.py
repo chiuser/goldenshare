@@ -57,6 +57,7 @@ from orchestrator.defs.paths import (
     raw_major_index_mins_path,
     raw_moneyflow_path,
     raw_namechange_path,
+    raw_stk_factor_pro_path,
     raw_stk_mins_path,
     raw_stk_nineturn_path,
     raw_stk_period_bar_adj_week_path,
@@ -84,6 +85,7 @@ from orchestrator.defs.paths import (
     silver_stk_mins_path,
     silver_stock_basic_path,
     silver_stock_daily_path,
+    silver_stock_factor_pro_path,
     silver_stock_identity_map_path,
     silver_stock_lifecycle_path,
     silver_stock_nineturn_daily_path,
@@ -142,6 +144,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_MONEYFLOW_SCHEMA,
     RAW_TUSHARE_MONEYFLOW_THS_SCHEMA,
     RAW_TUSHARE_NAMECHANGE_SCHEMA,
+    RAW_TUSHARE_STK_FACTOR_PRO_SCHEMA,
     RAW_TUSHARE_STK_NINETURN_SCHEMA,
     RAW_TUSHARE_STOCK_BASIC_SCHEMA,
     RAW_TUSHARE_STOCK_DAILY_SCHEMA,
@@ -173,6 +176,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_STK_MINS_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
     SILVER_STOCK_DAILY_SCHEMA,
+    SILVER_STOCK_FACTOR_PRO_SCHEMA,
     SILVER_STOCK_IDENTITY_MAP_SCHEMA,
     SILVER_STOCK_LIFECYCLE_SCHEMA,
     SILVER_STOCK_NINETURN_DAILY_SCHEMA,
@@ -256,6 +260,12 @@ from orchestrator.defs.run_contracts.moneyflow import (
     MONEYFLOW_SILVER_CHECK,
     MONEYFLOW_THS_RAW_CHECK,
     MONEYFLOW_THS_SILVER_CHECK,
+)
+from orchestrator.defs.run_contracts.stk_factor_pro import (
+    STK_FACTOR_PRO_RAW_ASSET_KEY,
+    STK_FACTOR_PRO_RAW_CHECK_NAME,
+    STK_FACTOR_PRO_SILVER_ASSET_KEY,
+    STK_FACTOR_PRO_SILVER_CHECK_NAME,
 )
 from orchestrator.defs.run_contracts.stock_weekly import (
     StockWeeklySource,
@@ -409,6 +419,8 @@ class PartitionModel(str, Enum):
     TRADE_DATE_PARTITION_RAW_IDX_FACTOR_PRO = (
         "trade_date_partition_raw_idx_factor_pro"
     )
+    TRADE_DATE_PARTITION_RAW_STK_FACTOR_PRO = "trade_date_partition_raw_stk_factor_pro"
+    TRADE_DATE_PARTITION_SILVER_STOCK_FACTOR_PRO = "trade_date_partition_silver_stock_factor_pro"
     TRADE_DATE_PARTITION_SILVER_INDEX_FACTOR_PRO = (
         "trade_date_partition_silver_index_factor_pro"
     )
@@ -1231,6 +1243,22 @@ PARTITION_MODEL_DEFINITIONS = (
         "trade_date",
         PartitionPhysicalLayout.PARTITION_FILE,
         notes="日级指数技术因子使用独立主要指数技术因子交易日分区。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_RAW_STK_FACTOR_PRO,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.RAW,
+        "stk_factor_pro",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_SILVER_STOCK_FACTOR_PRO,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.SILVER,
+        "stock_factor_pro",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
     ),
     _model(
         PartitionModel.TRADE_DATE_PARTITION_SILVER_INDEX_FACTOR_PRO,
@@ -3400,6 +3428,54 @@ LAKE_ASSET_CATALOG += (
 )
 
 LAKE_ASSET_CATALOG += (
+    _entry(
+        asset_key=STK_FACTOR_PRO_RAW_ASSET_KEY,
+        dataset_id="stk_factor_pro",
+        layer=AssetLayer.RAW,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        source_system=SourceSystem.TUSHARE,
+        data_contract="tushare_stk_factor_pro_v1",
+        data_contract_source=DataContractSource.TUSHARE_RAW_CONTRACT,
+        column_schema=RAW_TUSHARE_STK_FACTOR_PRO_SCHEMA,
+        path_template=lake_path_template(
+            raw_stk_factor_pro_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_RAW_STK_FACTOR_PRO,
+        source_api="stk_factor_pro",
+        source_doc="docs/sources/tushare/股票数据/特色数据/0328_股票技术面因子(专业版).md",
+        ingestion_sources=(IngestionSource.TUSHARE_API, IngestionSource.PROD_DB_READONLY),
+        default_daily_ingestion_source=IngestionSource.TUSHARE_API,
+        bootstrap_sources=(IngestionSource.PROD_DB_READONLY,),
+        blocking_check_names=(STK_FACTOR_PRO_RAW_CHECK_NAME,),
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        performance_contract=_perf(
+            batch_grain="trade_date",
+            compute_engine=ComputeEngine.DUCKDB_SQL,
+            source_request_policy="one_day_or_complete_stock_history_ranges",
+            notes="单日内存交付。必要历史按完整股票范围下载，按20日批次发布。",
+        ),
+    ),
+    _derived_entry(
+        asset_key=STK_FACTOR_PRO_SILVER_ASSET_KEY,
+        dataset_id="stock_factor_pro",
+        layer=AssetLayer.SILVER,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        data_contract="standardized_stock_factor_pro",
+        column_schema=SILVER_STOCK_FACTOR_PRO_SCHEMA,
+        path_template=lake_path_template(
+            silver_stock_factor_pro_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_SILVER_STOCK_FACTOR_PRO,
+        blocking_check_names=(STK_FACTOR_PRO_SILVER_CHECK_NAME,),
+        batch_grain="trade_date",
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        notes="从已核Raw派生，保持完整业务字段，仅将交易日期标准化为DATE。",
+    ),
     _entry(
         asset_key="raw_tushare_idx_factor_pro",
         dataset_id="idx_factor_pro",

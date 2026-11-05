@@ -12,8 +12,15 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from orchestrator.defs.asset_guards.stk_factor_pro_readiness import (
+    _GLOBALS,
+    _stk_factor_pro_observation,
+    _stk_factor_pro_update_input,
+    read_stk_factor_pro_run,
     require_stk_factor_pro_no_other_active_runs,
+    resolve_stk_factor_pro_source_run,
+    stk_factor_pro_invalid_code_sql,
 )
+from orchestrator.defs.bootstrap import stk_factor_pro_bootstrap_coverage as B
 from orchestrator.defs.bootstrap import stk_factor_pro_bootstrap_records as R
 from orchestrator.defs.bootstrap import stk_factor_pro_bootstrap_source as S
 from orchestrator.defs.bootstrap.stk_factor_pro_bootstrap_coverage import (
@@ -66,6 +73,7 @@ from orchestrator.defs.paths import (
     DEFAULT_LAKE_STAGING_ROOT,
     raw_stk_factor_pro_path,
     silver_stock_factor_pro_path,
+    silver_stock_suspend_daily_path,
     stk_factor_pro_bootstrap_operation_root,
 )
 from orchestrator.defs.run_contracts import stk_factor_pro as C
@@ -314,7 +322,7 @@ def _require_bootstrap_coverage_identities(
         )
     except (ValueError, OSError):
         entry["coverage_record_current"] = False
-        entry["current_files_verified"] = prepared["current_files_verified"]
+        entry["current_files_verified"] = False
         entry["unknown_reason"] = "覆盖依据或正式文件身份发生变化"
         raise
 
@@ -334,25 +342,94 @@ def _prepare_bootstrap_date_coverage(
     known_records,
 ):
     entry = date_results[source.trade_date]
-    prepared = prepare_stk_factor_pro_bootstrap_coverage_date(
-        approval=approval,
-        approval_digest=approval_digest,
-        inputs=inputs,
-        basis_inputs=basis_inputs,
-        source_complete=source,
-        raw_audit=raw,
-        silver_audit=silver,
-        current_publication=publication,
-        previous_result=entry["persisted_result"],
+    from orchestrator.defs.bootstrap import (
+        stk_factor_pro_bootstrap_coverage as coverage,
     )
-    entry["coverage_record_current"] = prepared["reusable_result"] is not None
+
+    if raw is None and silver is None:
+        if not source.source_empty or publication is not None:
+            raise ValueError("缺两层文件且无已确认完整空源")
+        prepared = {
+            **coverage._bootstrap_date_inputs(source.trade_date, inputs, basis_inputs),
+            "raw_audit": None,
+            "silver_audit": None,
+            "raw_rows": 0,
+            "silver_rows": 0,
+            "raw_physical_code_count": 0,
+            "raw_file_sha256": None,
+            "silver_file_sha256": None,
+        }
+    else:
+        prepared = prepare_stk_factor_pro_bootstrap_coverage_date(
+            trade_date=source.trade_date,
+            inputs=inputs,
+            basis_inputs=basis_inputs,
+            raw_audit=raw,
+            silver_audit=silver,
+        )
+    # This entry has already classified original transfer versus verified later publication.
+    if publication is None and (prepared["raw_rows"], prepared["silver_rows"]) != (
+        source.actual_rows,
+        source.actual_rows,
+    ):
+        raise ValueError("首次导入数量与原来源不符")
+    hashes = prepared["raw_file_sha256"], prepared["silver_file_sha256"]
+    entry["coverage_input_digest"] = coverage._date_digest(
+        approval,
+        approval_digest,
+        source.trade_date,
+        source,
+        hashes,
+        prepared["basis_files"],
+        prepared["is_open"],
+    )
+    old = entry["persisted_result"]
+    entry["coverage_record_current"] = (
+        old is not None and old.input_digest == entry["coverage_input_digest"]
+    )
     entry["unknown_reason"] = (
         None if entry["coverage_record_current"] else "本日覆盖统计尚未完成"
     )
     _require_bootstrap_coverage_identities(
-        lake_root=lake_root, prepared=prepared, known_records=known_records, entry=entry
+        lake_root=lake_root,
+        prepared=prepared,
+        known_records=known_records,
+        entry=entry,
     )
     return prepared
+
+
+def _bootstrap_previous_calculation(result):
+    return {
+        "coverage_counts": C.StkFactorProCoverageCounts(
+            **{
+                name: getattr(result, name)
+                for name in (
+                    "expected_count",
+                    "actual_count",
+                    "matched_count",
+                    "missing_count",
+                    "extra_count",
+                    "identity_unmapped_count",
+                    "identity_ambiguous_count",
+                    "identity_unmapped_sample_codes",
+                    "identity_ambiguous_sample_codes",
+                    "reason",
+                )
+            }
+        ),
+        **{
+            name: getattr(result, name)
+            for name in (
+                "unknown_input_kinds",
+                "reason",
+                "missing_codes_ref",
+                "extra_codes_ref",
+                "missing_sample_codes",
+                "extra_sample_codes",
+            )
+        },
+    }
 
 
 def _save_prepared_bootstrap_coverage(
@@ -368,8 +445,12 @@ def _save_prepared_bootstrap_coverage(
     known_records,
 ):
     entry = date_results[prepared["trade_date"]]
-    calculated = None
-    if prepared["reusable_result"] is None:
+    source = entry["source_complete"]
+    approval_digest = source.approval_digest
+    input_digest = entry["coverage_input_digest"]
+    if entry["coverage_record_current"]:
+        calculated = _bootstrap_previous_calculation(entry["persisted_result"])
+    else:
         calculated = compute_stk_factor_pro_bootstrap_coverage_date(
             connection,
             lake_root=lake_root,
@@ -378,6 +459,7 @@ def _save_prepared_bootstrap_coverage(
             prepared=prepared,
             raw_relation=raw_relation,
             diagnostic_run=None,
+            input_digest=input_digest,
             check_space=check_space,
             known_records=known_records,
         )
@@ -388,7 +470,13 @@ def _save_prepared_bootstrap_coverage(
             entry=entry,
         )
     result = evaluate_stk_factor_pro_bootstrap_coverage_date(
-        prepared=prepared, calculated=calculated
+        prepared=prepared,
+        calculated=calculated,
+        approval_digest=approval_digest,
+        input_digest=input_digest,
+        source_complete=source,
+        current_publication=entry["current_publication"],
+        previous_result=entry["persisted_result"],
     )
     entry["computed_result"] = result
     return write_stk_factor_pro_bootstrap_coverage_date(
@@ -444,7 +532,7 @@ def _complete_existing_bootstrap_coverage(
         "known_records": known_records,
     }
     if (
-        prepared["reusable_result"] is not None
+        entry["coverage_record_current"]
         or prepared["unknown_input_kinds"]
         or prepared["raw_audit"] is None
     ):
@@ -1481,3 +1569,568 @@ def bootstrap_stk_factor_pro_history(
         raise
     progress.finish(result)
     return result
+
+
+def load_stk_factor_pro_bootstrap_supplement_state(
+    *, staging_root, approval, approval_digest, approved_counts, known_records
+):
+    """Load the initialization ledger once, without opening business files."""
+    summary_path = R.operation_path(staging_root, approval, "coverage/summary.json")
+    summary = R.read_json(
+        summary_path,
+        C.StkFactorProBootstrapCoverageSummary,
+        known_records=known_records,
+    )
+    original_rows = sum(approved_counts.values())
+    if (
+        summary is None
+        or summary.operation_id != approval.operation_id
+        or summary.approval_digest != approval_digest
+        or (summary.start_trade_date, summary.end_trade_date)
+        != (approval.start_trade_date, approval.end_trade_date)
+        or summary.import_pending_dates
+        or any(
+            getattr(summary, name) != original_rows
+            for name in (
+                "verified_source_rows",
+                "verified_raw_rows",
+                "verified_silver_rows",
+            )
+        )
+    ):
+        raise ValueError("初始化原物理导入尚未全范围完成，不能进入补数")
+    dates = tuple(approved_counts)
+    totals = new_stk_factor_pro_bootstrap_coverage_totals(natural_dates=dates)
+    entries = {}
+    for day, approved_rows in approved_counts.items():
+        path = R.operation_path(staging_root, approval, f"coverage/{day}/result.json")
+        result = R.read_json(
+            path, C.StkFactorProBootstrapDateCoverage, known_records=known_records
+        )
+        if result is not None:
+            digest = C.stk_factor_pro_bootstrap_date_coverage_input_digest(
+                operation_id=approval.operation_id,
+                approval_digest=approval_digest,
+                trade_date=day,
+                is_open=result.is_open,
+                source_complete_digest=result.source_complete_digest,
+                source_rows=result.source_rows,
+                raw_file_sha256=result.raw_file_sha256,
+                silver_file_sha256=result.silver_file_sha256,
+                source_empty=result.source_empty,
+                basis_files=result.basis_files,
+            )
+            if (
+                result.operation_id != approval.operation_id
+                or result.approval_digest != approval_digest
+                or result.trade_date != day
+                or result.source_rows != approved_rows
+                or result.input_digest != digest
+                or not result.import_complete
+            ):
+                raise ValueError(f"初始化逐日小记录与批准或输入摘要不符：{day}")
+        is_open = (
+            result.is_open
+            if result is not None
+            else (
+                True
+                if day in summary.known_open_dates
+                else False
+                if day in summary.known_closed_dates
+                else None
+            )
+        )
+        # A saved date can be newer than a summary whose final write failed.
+        invalid = day in summary.current_files_unverified_dates and (
+            result is None or result.evaluated_at <= summary.evaluated_at
+        )
+        current = result is not None and not invalid
+        known = current and result.coverage_complete is not None and is_open is True
+        sets = {
+            "known_open_dates"
+            if is_open is True
+            else "known_closed_dates"
+            if is_open is False
+            else "calendar_unknown_dates"
+        }
+        if day in summary.imported_dates:
+            sets.add("imported_dates")
+        if day in summary.source_empty_dates:
+            sets.add("source_empty_dates")
+        if current:
+            sets.add("verified_current_dates")
+        elif is_open is not False:
+            sets.add("current_files_unverified_dates")
+        if known:
+            sets.add("known_coverage_dates")
+            if result.missing_count:
+                sets.add("gap_dates")
+        elif is_open is True:
+            sets.add("open_coverage_pending_dates")
+        unknown = (
+            None
+            if known or is_open is False
+            else (
+                result.unknown_input_kinds
+                if current
+                else ("calendar",)
+                if is_open is None
+                else (),
+                result.reason if current else "本日当前文件或统计尚未确认",
+            )
+        )
+        entry = {
+            "source_complete": None,
+            "source_record_sha256": None,
+            "raw_complete": None,
+            "silver_complete": None,
+            "raw_audit": None,
+            "silver_audit": None,
+            "current_publication": None,
+            "current_files_verified": current,
+            "needs_restore": False,
+            "import_complete": True,
+            "replaced_layers": set(),
+            "persisted_result": result,
+            "persisted_result_digest": known_records[path][1],
+            "computed_result": None,
+            "coverage_record_current": current,
+            "unknown_reason": None,
+            "previous_contribution": None,
+        }
+        B._replace_stk_factor_pro_bootstrap_contribution(
+            trade_date=day,
+            entry=entry,
+            totals=totals,
+            contribution={
+                "original": (approved_rows, approved_rows, approved_rows),
+                "current": (result.raw_rows, result.silver_rows)
+                if current
+                else (0, 0)
+                if is_open is False and approved_rows == 0
+                else None,
+                "known": tuple(
+                    getattr(result, name)
+                    for name in (
+                        "expected_count",
+                        "actual_count",
+                        "matched_count",
+                        "missing_count",
+                        "extra_count",
+                    )
+                )
+                if known
+                else None,
+                "sets": frozenset(sets),
+                "unknown": unknown,
+                "result_digest": known_records[path][1] if current else None,
+            },
+        )
+        entries[day] = entry
+    return {
+        "date_results": entries,
+        "totals": totals,
+        "previous_summary": summary,
+        "previous_summary_digest": known_records[summary_path][1],
+    }
+
+
+def prepare_stk_factor_pro_bootstrap_supplement_entry(
+    connection,
+    *,
+    staging_root,
+    approval,
+    approval_digest,
+    trade_date,
+    approved_counts,
+    date_results,
+    known_records,
+):
+    """Only the touched date needs its original three small import records."""
+    entry = date_results[trade_date]
+    if entry["source_complete"] is not None:
+        return entry
+    source = R.read_stk_factor_pro_bootstrap_source_complete(
+        connection,
+        staging_root=staging_root,
+        approval=approval,
+        trade_date=trade_date,
+        known_records=known_records,
+    )
+    if source is None or source.actual_rows != approved_counts[trade_date]:
+        raise ValueError("补数目标缺原完整日导入事实")
+    originals = []
+    for layer in ("raw", "silver"):
+        complete = R.read_json(
+            R.operation_path(
+                staging_root,
+                approval,
+                f"publication/{trade_date}/{layer}/complete.json",
+            ),
+            C.StkFactorProBootstrapPublicationComplete,
+            known_records=known_records,
+        )
+        if complete is not None and (
+            complete.operation_id != approval.operation_id
+            or complete.approval_digest != approval_digest
+            or complete.trade_date != trade_date
+            or complete.layer != layer
+            or complete.source_complete_digest != source.source_complete_digest
+            or complete.actual_rows != source.actual_rows
+            or not complete.audit.passed
+        ):
+            raise ValueError("补数原逐层完成记录与来源不符")
+        if not source.source_empty and complete is None:
+            raise ValueError("补数原逐层导入尚未完成")
+        originals.append(complete)
+    result = entry["persisted_result"]
+    if (
+        result is not None
+        and result.source_complete_digest != source.source_complete_digest
+    ):
+        raise ValueError("补数原来源与逐日统计不符")
+    entry.update(
+        source_complete=source,
+        source_record_sha256=known_records[
+            R.operation_path(
+                staging_root,
+                approval,
+                f"source/dates/{trade_date}/source-complete.json",
+            )
+        ][1],
+        raw_complete=originals[0],
+        silver_complete=originals[1],
+    )
+    return entry
+
+
+def load_stk_factor_pro_bootstrap_supplement_authorization(
+    connection,
+    *,
+    staging_root,
+    operation_id,
+    approval_digest,
+    day,
+    known_pg,
+    known_records,
+):
+    """Load the one explicitly authorized import ledger for this run."""
+    path = (
+        stk_factor_pro_bootstrap_operation_root(staging_root, operation_id)
+        / "approval.json"
+    )
+    approval = R.read_json(
+        path, C.StkFactorProBootstrapApproval, known_records=known_records
+    )
+    if (
+        approval is None
+        or known_records[path][1] != approval_digest
+        or approval.contract_content_digest != C.STK_FACTOR_PRO_CONTRACT_CONTENT_DIGEST
+        or not approval.start_trade_date <= day <= approval.end_trade_date
+    ):
+        raise ValueError("初始化批准摘要、合同或日期不符")
+    counts = dict(
+        R.load_approved_counts(
+            connection,
+            staging_root=staging_root,
+            approval=approval,
+            known_records=known_records,
+        )
+    )
+    state_key = ("bootstrap_supplement", approval.operation_id)
+    if state_key not in known_pg:
+        known_pg[state_key] = load_stk_factor_pro_bootstrap_supplement_state(
+            staging_root=staging_root,
+            approval=approval,
+            approval_digest=known_records[path][1],
+            approved_counts=counts,
+            known_records=known_records,
+        )
+    state = known_pg[state_key]
+    state.update(
+        approval=approval,
+        approved_counts=counts,
+        approval_digest=known_records[path][1],
+    )
+    return state
+
+
+def resolve_stk_factor_pro_bootstrap_context(
+    instance,
+    connection,
+    *,
+    lake_root,
+    staging_root,
+    current_run,
+    run_input,
+    calendar,
+    known_pg,
+    known_records,
+):
+    """Validate prelaunch intent; never load an old download or write production."""
+    import dagster as dg
+
+    if run_input.purpose != "bootstrap_supplement":
+        return None
+    source_run = resolve_stk_factor_pro_source_run(
+        instance, current_run, run_input, known_pg=known_pg, known_records=known_records
+    )
+    day = run_input.target_trade_date
+    if day not in calendar or calendar.index(day) == 0:
+        raise ValueError("初始化目标缺已确认T/P交易日期")
+    if (
+        source_run is None
+        and run_input.execution_day
+        != _now().astimezone(ZoneInfo("Asia/Shanghai")).date()
+    ):
+        raise ValueError("首次初始化补数执行日期不是本次上海日期")
+    state = load_stk_factor_pro_bootstrap_supplement_authorization(
+        connection,
+        staging_root=staging_root,
+        operation_id=run_input.bootstrap_operation_id,
+        approval_digest=run_input.expected_bootstrap_approval_digest,
+        day=day,
+        known_pg=known_pg,
+        known_records=known_records,
+    )
+    approval, counts = state["approval"], state["approved_counts"]
+    path = R.operation_path(staging_root, approval, "approval.json")
+    entry = prepare_stk_factor_pro_bootstrap_supplement_entry(
+        connection,
+        staging_root=staging_root,
+        approval=approval,
+        approval_digest=known_records[path][1],
+        trade_date=day,
+        approved_counts=counts,
+        date_results=state["date_results"],
+        known_records=known_records,
+    )
+    inherited = source_run.bootstrap_context if source_run is not None else None
+    if inherited is not None:
+        auth = read_stk_factor_pro_run(
+            instance, inherited.authorization_run_id, known_pg=known_pg
+        )
+        if (
+            auth.job_name != C.STK_FACTOR_PRO_UPDATE_JOB_NAME
+            or _stk_factor_pro_update_input(auth) != run_input
+        ):
+            raise ValueError("初始化授权run与八字段不符")
+        key = ("first_observation", auth.run_id)
+        if key not in known_pg:
+            known_pg[key] = tuple(
+                instance.get_records_for_run(
+                    auth.run_id,
+                    of_type=dg.DagsterEventType.ASSET_OBSERVATION,
+                    limit=1,
+                    ascending=True,
+                ).records
+            )
+        records = known_pg[key]
+        values = (
+            _stk_factor_pro_observation(
+                instance, records[0], target=day, known_pg=known_pg
+            )
+            if records
+            else None
+        )
+        if (
+            values is None
+            or not values["goldenshare/download_started"]
+            or values["bootstrap_context"] != inherited
+            or values["producer_run_id"] != auth.run_id
+            or inherited.operation_id != approval.operation_id
+            or inherited.approval_digest != known_records[path][1]
+            or inherited.authorized_date_result_digest
+            != run_input.expected_bootstrap_date_result_digest
+        ):
+            raise ValueError("初始化原开始授权缺失或不一致")
+        return inherited
+    if source_run is not None:
+        first = known_pg[("first_observation", source_run.parent_run_id)]
+        values = (
+            _stk_factor_pro_observation(
+                instance, first[0], target=day, known_pg=known_pg
+            )
+            if first
+            else None
+        )
+        if (
+            values is None
+            or values["observation_kind"] != "precheck"
+            or values["goldenshare/download_started"]
+        ):
+            raise ValueError("初始化原任务是否下载不能确认，不得猜作首次授权")
+    result = entry["persisted_result"]
+    result_path = R.operation_path(
+        staging_root, approval, f"coverage/{day}/result.json"
+    )
+    if (
+        result is None
+        or known_records[result_path][1]
+        != run_input.expected_bootstrap_date_result_digest
+        or result.coverage_complete is not False
+        or not result.missing_count
+        or result.missing_codes_ref is None
+        or not entry["current_files_verified"]
+    ):
+        raise ValueError("初始化目标缺口依据已变或未知，请刷新统计后按新摘要提交")
+    for basis in result.basis_files:
+        basis_path = (
+            silver_stock_suspend_daily_path(lake_root, str(day))
+            if basis.kind == "suspend"
+            else _GLOBALS[basis.kind][0](lake_root)
+        )
+        if (
+            not basis.valid
+            or factor_known_file_sha(basis_path, known_records=known_records)
+            != basis.file_sha256
+        ):
+            raise ValueError("初始化覆盖依据已变，请先刷新统计")
+    for target, digest in zip(
+        B._targets(lake_root, day),
+        (result.raw_file_sha256, result.silver_file_sha256),
+        strict=True,
+    ):
+        if digest is None:
+            if target.exists():
+                raise ValueError("初始化原无文件日期出现了未确认文件")
+        elif factor_known_file_sha(target, known_records=known_records) != digest:
+            raise ValueError("初始化目标文件已变，请先刷新统计")
+    # This first-use reader validates the authorized diagnostic only, not all dates.
+    ref = result.missing_codes_ref
+    diagnostic = B._codes_path(staging_root, approval, day, ref)
+    if (
+        factor_known_file_sha(diagnostic, known_records=known_records)
+        != ref.file_sha256
+    ):
+        raise ValueError("初始化授权缺失清单摘要不符")
+    if known_records[diagnostic][0] != ref:
+        table = "stk_factor_supplement_authorized_missing"
+        with R.resource_cleanup(
+            lambda: connection.execute(f"DROP TABLE IF EXISTS {table}")
+        ):
+            connection.execute(
+                f"CREATE TEMP TABLE {table} AS SELECT * FROM {read_parquet(diagnostic, hive_partitioning=False)}"
+            )
+            if B._schema(connection, table) != (
+                ("ts_code", "VARCHAR"),
+                ("trade_date", "DATE"),
+            ):
+                raise ValueError("初始化授权缺失清单schema不符")
+            count, unique, invalid = connection.execute(
+                f"SELECT count(*),count(DISTINCT ts_code),count(*) FILTER(WHERE trade_date IS DISTINCT FROM ? OR {stk_factor_pro_invalid_code_sql('ts_code')}) FROM {table}",
+                [day],
+            ).fetchone()
+            if (
+                count != ref.row_count
+                or unique != count
+                or invalid
+                or count != result.missing_count
+            ):
+                raise ValueError("初始化授权缺失清单日期/代码/数量不符")
+        known_records[diagnostic] = (ref, *known_records[diagnostic][1:])
+    return C.StkFactorProBootstrapContext(
+        approval.operation_id,
+        known_records[path][1],
+        day,
+        known_records[result_path][1],
+        result.input_digest,
+        result.missing_count,
+        ref,
+        current_run.run_id,
+    )
+
+
+def read_stk_factor_pro_bootstrap_current_publications(
+    instance,
+    *,
+    context,
+    run_id,
+    audits,
+    expected_file_dates,
+    attempted_dates,
+    known_pg,
+    known_records,
+):
+    """Consume current-batch native event identities already acquired by the emitter."""
+    approval = next(
+        (
+            fact[0]
+            for fact in known_records.values()
+            if isinstance(fact[0], C.StkFactorProBootstrapApproval)
+            and fact[0].operation_id == context.operation_id
+        ),
+        None,
+    )
+    if approval is None:
+        raise ValueError("初始化发布交接缺本任务已核批准")
+    actual = {(audit.trade_date, audit.layer): audit for audit in audits}
+    if len(actual) != len(audits) or any(not a.passed for a in audits):
+        raise ValueError("初始化发布audit重复或未通过")
+    expected = set(expected_file_dates)
+    if not {day for day, _ in actual} <= expected:
+        raise ValueError("初始化真实发布超出本批文件计划")
+    publications, incomplete, unchanged = [], [], []
+    for day in sorted(set(attempted_dates)):
+        if not approval.start_trade_date <= day <= approval.end_trade_date:
+            continue
+        raw, silver = actual.get((day, "raw")), actual.get((day, "silver"))
+        if raw is not None and silver is not None:
+            r = known_pg.get(("publication_events", run_id, day, "raw"))
+            s = known_pg.get(("publication_events", run_id, day, "silver"))
+            if r is None or s is None or r[2] != raw or s[2] != silver:
+                raise ValueError("初始化两层发布缺真实已保存事件交接")
+            metadata = {
+                k: getattr(v, "value", v)
+                for k, v in s[
+                    0
+                ].event_log_entry.dagster_event.event_specific_data.materialization.metadata.items()
+            }
+            if metadata.get("goldenshare/raw_sha256") != raw.file_sha256:
+                raise ValueError("初始化Silver事件未绑定本次Raw")
+            publications.append(
+                C.StkFactorProBootstrapCurrentPublication(
+                    run_id,
+                    day,
+                    r[0].storage_id,
+                    r[1].storage_id,
+                    s[0].storage_id,
+                    s[1].storage_id,
+                    raw.file_sha256,
+                    silver.file_sha256,
+                    raw.file_sha256,
+                    approval.contract_content_digest,
+                    C.STK_FACTOR_PRO_PROCESSING_VERSION,
+                )
+            )
+        else:
+            old = next(
+                (
+                    fact[0]
+                    for fact in known_records.values()
+                    if isinstance(fact[0], C.StkFactorProBootstrapDateCoverage)
+                    and fact[0].operation_id == approval.operation_id
+                    and fact[0].trade_date == day
+                ),
+                None,
+            )
+            current = {
+                fact[0].layer: fact[0].file_sha256
+                for path, fact in known_records.items()
+                if isinstance(fact[0], C.StkFactorProFileAudit)
+                and fact[0].trade_date == day
+                and fact[0].path == path
+                and "candidates" not in path.parts
+            }
+            if (
+                old is not None
+                and current.get("raw", old.raw_file_sha256) == old.raw_file_sha256
+                and current.get("silver", old.silver_file_sha256)
+                == old.silver_file_sha256
+            ):
+                unchanged.append(day)
+            else:
+                incomplete.append(day)
+    return C.StkFactorProBootstrapPublicationBatch(
+        tuple(publications), tuple(incomplete), tuple(unchanged)
+    )

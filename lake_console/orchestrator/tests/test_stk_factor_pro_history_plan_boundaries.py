@@ -77,10 +77,21 @@ def build(
             factor_t=factor_t,
             factor_p=factor_p,
             prior_results=prior() if old is None else old,
+            prior_history=history.read_stk_factor_pro_prior_history(
+                conn,
+                staging_root=staging,
+                target=(identity(run)).target_trade_date,
+                contract=contract(),
+                prior=prior() if old is None else old,
+                known_records=known_records,
+            ),
             history_starts=starts,
             check_cancel=lambda: None,
             known_records=known_records,
             factor_relations=factor_relations,
+            factor_comparison=history.compare_stk_factor_pro_history_factors(
+                conn, factor_relations=factor_relations
+            ),
             lifecycle_relation=lifecycle_relation,
         )[0]
     finally:
@@ -123,6 +134,7 @@ def test_trusted_earliest_date_is_not_cropped_by_newer_approved_window(tmp_path)
             known_starts=(start(),),
             approved_raw_dates=(P,),
             check_cancel=lambda: None,
+            known_records={},
         )
         assert result == (StkFactorProHistoryStart(A, EARLY, 1, EARLY),)
 

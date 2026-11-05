@@ -73,9 +73,22 @@ def test_builder_passes_first_business_digests_to_record_writer(tmp_path, monkey
             factor_t=factor_t,
             factor_p=factor_p,
             factor_relations=factor_relations,
+            factor_comparison=records.compare_stk_factor_pro_history_factors(
+                conn, factor_relations=factor_relations
+            ),
             lifecycle_relation=lifecycle_relation,
             prior_results=models.StkFactorProRecordedResults(
                 T, None, None, None, None, None, None, (), (), None, None
+            ),
+            prior_history=records.read_stk_factor_pro_prior_history(
+                conn,
+                staging_root=staging,
+                target=(identity()).target_trade_date,
+                contract=contract(),
+                prior=models.StkFactorProRecordedResults(
+                    T, None, None, None, None, None, None, (), (), None, None
+                ),
+                known_records=known_records,
             ),
             history_starts=(
                 models.StkFactorProHistoryStart("000001.SZ", START, 1, START),

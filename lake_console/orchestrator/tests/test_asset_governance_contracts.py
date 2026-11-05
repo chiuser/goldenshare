@@ -114,6 +114,7 @@ from orchestrator.defs.assets.qfq_nineturn import (
     GOLD_STK_MINS_QFQ_NINETURN_ASSETS,
     gold_stock_daily_qfq_nineturn,
 )
+from orchestrator.defs.assets.stk_factor_pro import stk_factor_pro
 from orchestrator.defs.assets.stk_mins import (
     GOLD_STK_MINS_QFQ_COLUMNS,
     STK_MINS_RAW_COLUMN_TYPES,
@@ -374,6 +375,7 @@ ACTIVE_ASSET_DEFINITIONS = (
     prod_core_index_daily_nineturn,
     raw_tushare_idx_factor_pro,
     silver_index_factor_pro,
+    stk_factor_pro,
     raw_tushare_fund_daily,
     raw_tushare_fund_adj,
     silver_etf_daily,
@@ -449,6 +451,10 @@ def _catalog_entries_by_key():
 
 def _blocking_check_names_by_asset_key() -> dict[str, set[str]]:
     check_names: dict[str, set[str]] = {}
+    for definition in ACTIVE_ASSET_DEFINITIONS:
+        for spec in getattr(definition, "check_specs", ()):
+            if spec.blocking:
+                check_names.setdefault(spec.asset_key.to_user_string(), set()).add(spec.name)
     for module_info in pkgutil.iter_modules(checks_pkg.__path__):
         if module_info.name.startswith("__"):
             continue
