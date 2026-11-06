@@ -1,12 +1,17 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from collections.abc import Callable
+from datetime import date, datetime, timedelta
+from math import isfinite
 from typing import Any, Mapping
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
 from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContextQuery
-from src.biz.queries.wealth.market.index_detail.index_detail_query import _KLINE_FIELD_NAMES, IndexDetailQuery
+from src.biz.queries.wealth.market.index_detail.index_detail_query import (
+    _KLINE_FIELD_NAMES, _KLINE_PRICE_FIELDS, IndexDetailQuery,
+)
 from src.biz.schemas.wealth.market.index_detail import (
     IndexDetailDataStatusDto,
     IndexDetailDebugInfoDto,
@@ -15,6 +20,7 @@ from src.biz.schemas.wealth.market.index_detail import (
     IndexDetailKlineMetaDto,
     IndexDetailKlineResponseDto,
     IndexDetailModuleDebugDto,
+    IndexDetailSseKlineMetaDto,
 )
 from src.biz.services.wealth.market.index_detail.index_detail_exception_builder import IndexDetailExceptionBuilder
 from src.biz.services.wealth.market.index_detail.index_detail_field_mapper import (
@@ -25,10 +31,12 @@ from src.biz.services.wealth.market.index_detail.index_detail_field_mapper impor
 from src.biz.services.wealth.market.index_detail.index_detail_status_resolver import IndexDetailStatusResolver
 from src.biz.services.wealth.market.index_detail.index_detail_universe import (
     IndexDetailNotFoundError,
+    IndexDetailQueryError,
     IndexDetailRequestError,
     IndexDetailUniverseService,
 )
-from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
+from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader, IndexDailyLakeSourceError
+from src.foundation.technical_indicators.contracts import CalculationInstance, CalculationResult
 
 
 _BASE_REQUIRED_FIELDS = ("open", "high", "low", "close", "pre_close", "change", "pct_change", "vol", "amount")
@@ -52,6 +60,23 @@ _MA_FIELDS: tuple[tuple[str, int], ...] = (
     ("ma_bfq_90", 90),
     ("ma_bfq_250", 250),
 )
+_BOLL_FIELDS = _TECHNICAL_REQUIRED_FIELDS[:3]
+SSE_DAILY_CALCULATIONS = (
+    *(CalculationInstance(f"ma{period}", "ma", {"period": period}) for _, period in _MA_FIELDS),
+    CalculationInstance("boll", "boll", {"period": 20, "multiplier": 2}),
+    CalculationInstance("macd", "macd", {"fast": 12, "slow": 26, "signal": 9}),
+    CalculationInstance("kdj", "kdj", {"window": 9, "k_period": 3, "d_period": 3}),
+)
+_SSE_FACTOR_FIELDS = {
+    **{f"ma{period}": (("value", field),) for field, period in _MA_FIELDS},
+    "boll": tuple(zip(("upper", "middle", "lower"), _BOLL_FIELDS)),
+    "macd": tuple(zip(("dif", "dea", "hist"), _TECHNICAL_REQUIRED_FIELDS[3:6])),
+    "kdj": tuple(zip(("k", "d", "j"), _TECHNICAL_REQUIRED_FIELDS[6:])),
+}
+_PRICE_LABELS = {"open": "开盘价", "high": "最高价", "low": "最低价", "close": "收盘价"}
+PriceRows = list[dict[str, Any]]
+ReadPrevious = Callable[[date, int], PriceRows]
+CalculateDailyFactors = Callable[[PriceRows, ReadPrevious], tuple[CalculationResult, int]]
 
 
 class IndexDetailKlineQueryService:
@@ -67,7 +92,7 @@ class IndexDetailKlineQueryService:
 
     def build_kline(
         self,
-        session: Session,
+        session: Session | None,
         *,
         ts_code: str,
         period: str,
@@ -75,6 +100,9 @@ class IndexDetailKlineQueryService:
         end_date: date | None,
         limit: int,
         debug: bool,
+        calculate: CalculateDailyFactors | None = None,
+        source_origin: date | None = None,
+        check_active: Callable[[], None] | None = None,
     ) -> IndexDetailKlineResponseDto:
         if period != "day":
             raise IndexDetailRequestError("指数详情只支持 period=day")
@@ -84,6 +112,13 @@ class IndexDetailKlineQueryService:
             raise IndexDetailRequestError("startDate 不能晚于 endDate")
 
         self._universe_service.require_supported(ts_code)
+        if calculate is not None:
+            assert source_origin is not None and check_active is not None
+            return self._build_sse_kline(
+                session, ts_code=ts_code, start_date=start_date, end_date=end_date,
+                limit=limit, debug=debug, source_origin=source_origin,
+                calculate=calculate, check_active=check_active,
+            )
         daily_lake = None if ts_code == "899050.BJ" else self._daily_lake
         history_before = None
         if daily_lake is None:
@@ -201,6 +236,154 @@ class IndexDetailKlineQueryService:
                 if debug
                 else None
             ),
+        )
+
+    def _build_sse_kline(
+        self, session: Session | None, *, ts_code: str, start_date: date | None, end_date: date | None,
+        limit: int, debug: bool, source_origin: date, calculate: CalculateDailyFactors,
+        check_active: Callable[[], None],
+    ) -> IndexDetailKlineResponseDto:
+        lower = max(source_origin, start_date or source_origin)
+        check_active()
+        if self._daily_lake is not None:
+            identity_row = self._daily_lake.index_identity(ts_code)
+            check_active()
+            now = datetime.now(ZoneInfo("Asia/Shanghai"))
+            calendar = self._daily_lake.calendar_rows(
+                end=end_date or now.date(),
+                start=min(lower, end_date) if end_date is not None else None,
+                recent_open_days=(None if end_date < lower else limit) if end_date is not None else limit + 1,
+            )
+            check_active()
+            context = self._context_query.resolve_local_context(
+                self._daily_lake, market="CN_A", requested_trade_date=end_date, now=now, calendar_rows=calendar,
+            )
+            expected_end = context.trade_date if context.is_trading_day else context.prev_trade_date
+            window = tuple(row for row in calendar if row[1] and expected_end is not None
+                           and lower <= row[0] <= expected_end)[-limit:]
+        else:
+            identity_row = self._query.load_identity(session, ts_code=ts_code)
+            context, window = self._context_query.resolve_sse_kline_context(
+                session, requested_trade_date=end_date, start=lower, limit=limit,
+            )
+            expected_end = context.trade_date if context.is_trading_day else context.prev_trade_date
+        identity = self._build_identity_or_raise(identity_row, ts_code=ts_code)
+        query_end = context.trade_date
+        dates = tuple(row[0] for row in window)
+        rows = self._read_sse_rows(session, ts_code, dates, _KLINE_PRICE_FIELDS, check_active)
+
+        def read_previous(before: date, warmup: int) -> PriceRows:
+            if before <= source_origin:
+                return []
+            check_active()
+            if self._daily_lake is not None:
+                previous = tuple(day for day, opened, _ in self._daily_lake.calendar_rows(
+                    end=before - timedelta(days=1), start=source_origin, recent_open_days=warmup,
+                ) if opened)
+            else:
+                previous = self._context_query.load_sse_preceding_dates(
+                    session, before=before, start=source_origin, limit=warmup,
+                )
+            return self._read_sse_rows(session, ts_code, previous, ("trade_date", "high", "low", "close"), check_active)
+
+        exceptions = []
+        missing_count = None
+        if rows:
+            result, preceding_rows = calculate(rows, read_previous)
+            self._apply_sse_factors(ts_code, rows, dates, result)
+            missing_count = self._count_sse_missing(rows, preceding_rows)
+            if missing_count:
+                exceptions.append(self._exception_builder.factor_partial(
+                    module="indexDetailKline", message="指数日线因子存在缺失或落后",
+                ))
+        else:
+            exceptions.append(self._exception_builder.source_empty(
+                module="indexDetailKline", message="指数因子日线无可用数据",
+            ))
+        next_end = window[0][2] if len(window) == limit else None
+        if next_end is not None and start_date is not None and next_end < start_date:
+            next_end = None
+        data_status = self._status_resolver.resolve(
+            expected_trade_date=expected_end or query_end, observed_trade_date=dates[-1] if dates else None,
+            empty=not rows, partial=bool(missing_count),
+        )
+        return IndexDetailKlineResponseDto(
+            pageContext=build_page_context(context),
+            indexRef=IndexDetailIndexRefDto(tsCode=identity.tsCode, name=identity.name),
+            period="day", bars=[build_kline_bar(row) for row in rows],
+            meta=IndexDetailSseKlineMetaDto(
+                count=len(rows), limit=limit, startDate=start_date, endDate=query_end, nextEndDate=next_end,
+            ),
+            dataStatus=data_status,
+            debugInfo=IndexDetailDebugInfoDto(
+                modules=[self._module_debug(data_status, row_count=len(rows), missing_count=missing_count)],
+                exceptions=exceptions,
+            ) if debug else None,
+        )
+
+    def _read_sse_rows(
+        self, session: Session | None, ts_code: str, dates: tuple[date, ...],
+        fields: tuple[str, ...], check_active: Callable[[], None],
+    ) -> PriceRows:
+        if not dates:
+            return []
+        check_active()
+        if self._daily_lake is not None:
+            try:
+                rows = self._daily_lake.factor_rows(ts_code=ts_code, dates=dates, columns=fields, limit=len(dates))
+            except IndexDailyLakeSourceError as exc:
+                detail = str(exc.__cause__)
+                failed_day = next((day for day in dates if f"trade_date={day}/" in detail), None)
+                if failed_day is not None:
+                    raise IndexDetailQueryError(f"{ts_code} {failed_day} 日线行情文件读取失败") from exc
+                raise IndexDetailQueryError(f"{ts_code} 日线行情读取失败") from exc
+        else:
+            rows = self._query.load_kline_rows(
+                session, ts_code=ts_code, start_date=dates[0], end_date=dates[-1], limit=len(dates), fields=fields,
+            )
+        check_active()
+        actual_dates = tuple(row["trade_date"] for row in rows)
+        if actual_dates != dates:
+            missing = next((day for day in dates if day not in actual_dates), None)
+            if missing is not None:
+                raise IndexDetailQueryError(f"{ts_code} {missing} 缺少交易日日线行情")
+            expected, actual = next((want, got) for want, got in zip(dates, actual_dates) if want != got)
+            raise IndexDetailQueryError(f"{ts_code} {actual} 日线行情日期重复、乱序或超出范围，应为 {expected}")
+        for row in rows:
+            for field, label in _PRICE_LABELS.items():
+                if field not in fields:
+                    continue
+                value = row[field]
+                if value is None:
+                    raise IndexDetailQueryError(f"{ts_code} {row['trade_date']} {label}缺失")
+                if not isfinite(value):
+                    raise IndexDetailQueryError(f"{ts_code} {row['trade_date']} {label}无效")
+        return rows
+
+    @staticmethod
+    def _apply_sse_factors(ts_code: str, rows: PriceRows, dates: tuple[date, ...], result: CalculationResult) -> None:
+        if result.times != dates or result.range.count != len(rows):
+            raise IndexDetailQueryError(f"{ts_code} 指标结果日期或根数与本页行情不一致")
+        instances = {item.instance_id: dict(item.fields) for item in result.calculations}
+        if len(result.calculations) != len(_SSE_FACTOR_FIELDS) or instances.keys() != _SSE_FACTOR_FIELDS.keys():
+            raise IndexDetailQueryError(f"{ts_code} 本页指标实例不完整")
+        for instance, fields in _SSE_FACTOR_FIELDS.items():
+            values_by_field = instances[instance]
+            for result_field, row_field in fields:
+                values = values_by_field.get(result_field)
+                if values is None or len(values) != len(rows):
+                    raise IndexDetailQueryError(f"{ts_code} 指标结果字段不完整：{instance}.{result_field}")
+                for row, value in zip(rows, values):
+                    row[row_field] = value
+
+    @staticmethod
+    def _count_sse_missing(rows: PriceRows, preceding_rows: int) -> int:
+        required = _BASE_REQUIRED_FIELDS + _TECHNICAL_REQUIRED_FIELDS[3:]
+        windowed = _MA_FIELDS + tuple((name, 20) for name in _BOLL_FIELDS)
+        return sum(
+            sum(row[name] is None for name in required)
+            + sum(row[name] is None and effective_count >= period for name, period in windowed)
+            for effective_count, row in enumerate(rows, start=preceding_rows + 1)
         )
 
     @staticmethod

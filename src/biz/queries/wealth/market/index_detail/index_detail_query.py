@@ -16,7 +16,7 @@ from src.foundation.models.core_serving.index_daily_serving import IndexDailySer
 from src.foundation.models.core_serving.security_serving import Security
 
 
-_KLINE_FIELD_NAMES: tuple[str, ...] = (
+_KLINE_PRICE_FIELDS = (
     "ts_code",
     "trade_date",
     "open",
@@ -28,6 +28,8 @@ _KLINE_FIELD_NAMES: tuple[str, ...] = (
     "pct_change",
     "vol",
     "amount",
+)
+_KLINE_FIELD_NAMES = _KLINE_PRICE_FIELDS + (
     "ma_bfq_5",
     "ma_bfq_10",
     "ma_bfq_20",
@@ -227,6 +229,7 @@ class IndexDetailQuery:
         end_date: date,
         start_date: date | None,
         limit: int,
+        fields: tuple[str, ...] = _KLINE_FIELD_NAMES,
     ) -> list[dict[str, Any]]:
         conditions = [
             IndexFactorPro.ts_code == ts_code,
@@ -234,7 +237,8 @@ class IndexDetailQuery:
         ]
         if start_date is not None:
             conditions.append(IndexFactorPro.trade_date >= start_date)
-        statement = select(*KLINE_COLUMNS).where(*conditions).order_by(desc(IndexFactorPro.trade_date)).limit(limit)
+        columns = KLINE_COLUMNS if fields == _KLINE_FIELD_NAMES else tuple(getattr(IndexFactorPro, name) for name in fields)
+        statement = select(*columns).where(*conditions).order_by(desc(IndexFactorPro.trade_date)).limit(limit)
         rows = [dict(row) for row in session.execute(statement).mappings().all()]
         rows.reverse()
         return rows

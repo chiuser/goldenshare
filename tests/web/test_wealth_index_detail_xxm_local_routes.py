@@ -109,7 +109,7 @@ def test_unconfigured_minutes_do_not_block_dg_daily_query_or_auth(monkeypatch, t
         result = client.get(PATH+'xxm-signals?tsCode=000001.SH&endDate=2020-01-08&limit=8')
         assert result.status_code == 200
         assert [point['close'] for point in result.json()['points']] == [100.0, 101.0, 102.0]
-        chart = client.get(PATH+'kline?tsCode=000001.SH&endDate=2020-01-08&limit=8')
+        chart = client.get(PATH+'kline?tsCode=000001.SH&endDate=2020-01-08&limit=501')
         assert chart.status_code == 200
         assert [bar['close'] for bar in chart.json()['bars']] == [100.0, 101.0, 102.0]
         day_forecast = client.get(PATH+'xxm-key-point-forecast?tsCode=000001.SH&period=day&asOf=2020-01-08')
@@ -189,7 +189,7 @@ def test_existing_kline_debug_contract_is_preserved(app_client, db_session):
     # Real ordinary producer/ORM fixture; r4 assembly must not change its query contract.
     from tests.web.test_wealth_index_detail_api import _seed_full_data
     _seed_full_data(db_session)
-    params = {'tsCode':'000001.SH','endDate':'2026-08-10','limit':'300'}
+    params = {'tsCode':'000001.SH','endDate':'2026-08-10','limit':'501'}
     for debug in (None,'0','1'):
         response = app_client.get(PATH+'kline',params={**params,**({'debug':debug} if debug is not None else {})})
         assert response.status_code == 200

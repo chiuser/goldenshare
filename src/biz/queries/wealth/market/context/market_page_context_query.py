@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import and_, case, func, literal, select
+from sqlalchemy import and_, case, func, literal, select, true
 from sqlalchemy.orm import Session, aliased
 
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
@@ -50,7 +50,45 @@ class MarketPageContextQuery:
             raise ValueError(f"unsupported market: {market}")
 
         local_now = (now or _now_cn()).astimezone(_CN_TIMEZONE)
-        source = "explicit" if requested_trade_date is not None else "default"
+        row = session.execute(self._context_statement(requested_trade_date, local_now)).one()
+        return self._context_from_row(row, market, requested_trade_date, local_now)
+
+    def resolve_sse_kline_context(
+        self, session: Session, *, requested_trade_date: date | None, start: date, limit: int,
+    ) -> tuple[MarketPageContext, tuple[CalendarRow, ...]]:
+        local_now = _now_cn()
+        anchor = self._context_statement(requested_trade_date, local_now).cte("sse_kline_context")
+        expected_end = case(
+            (anchor.c.calendar_is_open.is_(True), anchor.c.resolved_trade_date),
+            (anchor.c.calendar_trade_date.is_not(None), anchor.c.calendar_pretrade_date),
+            else_=anchor.c.previous_open_fallback,
+        )
+        window = (
+            select(TradeCalendar.trade_date.label("window_date"), TradeCalendar.pretrade_date.label("window_prev"))
+            .select_from(TradeCalendar).join(anchor, true())
+            .where(TradeCalendar.exchange == "SSE", TradeCalendar.is_open.is_(True),
+                   TradeCalendar.trade_date.between(start, expected_end))
+            .order_by(TradeCalendar.trade_date.desc()).limit(limit).cte("sse_kline_window")
+        )
+        rows = session.execute(
+            select(*anchor.c, *window.c).select_from(anchor.outerjoin(window, true()))
+            .order_by(window.c.window_date)
+        ).all()
+        context = self._context_from_row(rows[0], "CN_A", requested_trade_date, local_now)
+        return context, tuple((row.window_date, True, row.window_prev) for row in rows if row.window_date is not None)
+
+    @staticmethod
+    def load_sse_preceding_dates(session: Session, *, before: date, start: date, limit: int) -> tuple[date, ...]:
+        dates = session.scalars(
+            select(TradeCalendar.trade_date)
+            .where(TradeCalendar.exchange == "SSE", TradeCalendar.is_open.is_(True),
+                   TradeCalendar.trade_date >= start, TradeCalendar.trade_date < before)
+            .order_by(TradeCalendar.trade_date.desc()).limit(limit)
+        ).all()
+        return tuple(reversed(dates))
+
+    @staticmethod
+    def _context_statement(requested_trade_date: date | None, local_now: datetime):
 
         latest_open_date = (
             select(func.max(TradeCalendar.trade_date))
@@ -115,7 +153,7 @@ class MarketPageContextQuery:
             .correlate(resolved_anchor)
             .scalar_subquery()
         )
-        row = session.execute(
+        return (
             select(
                 resolved_anchor.c.resolved_trade_date,
                 resolved_calendar.trade_date.label("calendar_trade_date"),
@@ -131,8 +169,9 @@ class MarketPageContextQuery:
                     resolved_calendar.trade_date == resolved_anchor.c.resolved_trade_date,
                 ),
             )
-        ).one()
+        )
 
+    def _context_from_row(self, row, market: str, requested_trade_date: date | None, local_now: datetime):
         resolved_trade_date = row.resolved_trade_date
         if row.calendar_trade_date is not None:
             prev_trade_date = row.calendar_pretrade_date
@@ -148,7 +187,7 @@ class MarketPageContextQuery:
             is_trading_day=is_trading_day,
             session_status=self._resolve_session_status(local_now=local_now, is_trading_day=is_trading_day),
             generated_at=local_now,
-            source=source,
+            source="explicit" if requested_trade_date is not None else "default",
         )
 
     def resolve_local_context(

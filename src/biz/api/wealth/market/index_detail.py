@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from datetime import date
+from functools import partial
 import re
+from time import monotonic
 
 from fastapi import APIRouter, Depends, Query, Request
+from fastapi.concurrency import run_in_threadpool
+from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
 from src.app.auth.dependencies import require_quote_access
@@ -129,7 +134,10 @@ def get_index_detail_weights(
         raise AssertionError("unreachable")
 
 
-def build_router(*, daily_lake: IndexDailyLakeReader | None = None) -> APIRouter:
+def build_router(
+    *, daily_lake: IndexDailyLakeReader | None = None,
+    run_sse_kline: Callable[..., Awaitable[bytes]] | None = None,
+) -> APIRouter:
     router = APIRouter(prefix="/wealth/market/index-detail", tags=["wealth-market"])
     router.add_api_route(
         "/page-init", get_index_detail_page_init, methods=["GET"],
@@ -137,7 +145,7 @@ def build_router(*, daily_lake: IndexDailyLakeReader | None = None) -> APIRouter
     )
 
     @router.get("/kline", response_model=IndexDetailKlineResponseDto)
-    def get_index_detail_kline(
+    async def get_index_detail_kline(
         request: Request,
         ts_code: str | None = Query(default=None, alias="tsCode"),
         period: str | None = Query(default=None),
@@ -147,14 +155,14 @@ def build_router(*, daily_lake: IndexDailyLakeReader | None = None) -> APIRouter
         debug: str | None = Query(default=None),
         _user: AuthenticatedUser | None = Depends(require_quote_access),
         session: Session = Depends(get_db_session),
-    ) -> IndexDetailKlineResponseDto:
+    ) -> IndexDetailKlineResponseDto | Response:
+        arrived_at = monotonic()
         try:
             _validate_query_shape(
                 request,
                 allowed={"tsCode", "period", "startDate", "endDate", "limit", "debug"},
             )
-            return IndexDetailKlineQueryService(daily_lake=daily_lake).build_kline(
-                session,
+            params = dict(
                 ts_code=_normalize_ts_code(ts_code),
                 period="day" if period is None else period,
                 start_date=_parse_date(start_date, field_name="startDate"),
@@ -162,6 +170,17 @@ def build_router(*, daily_lake: IndexDailyLakeReader | None = None) -> APIRouter
                 limit=_parse_limit(limit),
                 debug=_parse_debug(debug),
             )
+            if params["ts_code"] == "000001.SH" and params["period"] == "day" and params["limit"] <= 500:
+                start, end = params["start_date"], params["end_date"]
+                if start is not None and end is not None and start > end:
+                    raise IndexDetailRequestError("startDate 不能晚于 endDate")
+                if run_sse_kline is None:
+                    raise IndexDetailQueryError("000001.SH 日线指标运行环境未装配")
+                body = await run_sse_kline(request, arrived_at=arrived_at, **params)
+                return Response(content=body, media_type="application/json")
+            return await run_in_threadpool(partial(
+                IndexDetailKlineQueryService(daily_lake=daily_lake).build_kline, session, **params,
+            ))
         except Exception as exc:  # noqa: BLE001
             _raise_http_error(exc)
             raise AssertionError("unreachable")

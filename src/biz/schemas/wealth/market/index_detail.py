@@ -252,6 +252,10 @@ class IndexDetailKlineMetaDto(BaseModel):
     endDate: date | None
 
 
+class IndexDetailSseKlineMetaDto(IndexDetailKlineMetaDto):
+    nextEndDate: date | None
+
+
 class IndexDetailKlineResponseDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -259,7 +263,7 @@ class IndexDetailKlineResponseDto(BaseModel):
     indexRef: IndexDetailIndexRefDto
     period: Literal["day"]
     bars: list[IndexKlineBarDto]
-    meta: IndexDetailKlineMetaDto
+    meta: IndexDetailSseKlineMetaDto | IndexDetailKlineMetaDto
     dataStatus: IndexDetailDataStatusDto
     debugInfo: IndexDetailDebugInfoDto | None
 

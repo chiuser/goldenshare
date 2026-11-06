@@ -165,6 +165,34 @@ def test_trend_channel_limit_and_end_date_slice_without_recalculation_drift(
     assert historical_payload["meta"]["has_more_history"] is False
     assert historical_payload["meta"]["next_end_date"] is None
 
+    params = {"ts_code": "000001.SH", "start_date": "2026-08-06", "end_date": "2026-08-07"}
+    bounded = app_client.get(TREND_CHANNEL_URL, params={**params, "limit": 2}).json()
+    assert bounded["bars"] == latest_two["bars"]
+    assert bounded["meta"]["has_more_history"] is False
+    assert bounded["meta"]["next_end_date"] is None
+
+    first = app_client.get(TREND_CHANNEL_URL, params={**params, "limit": 1}).json()
+    assert first["bars"] == latest_one["bars"]
+    assert first["meta"]["has_more_history"] is True
+    assert first["meta"]["next_end_date"] == "2026-08-06"
+
+    empty = app_client.get(TREND_CHANNEL_URL, params={**params, "start_date": "2026-08-08", "end_date": "2026-08-09"})
+    assert empty.status_code == 200
+    assert empty.json()["bars"] == []
+    assert empty.json()["data_status"]["note"] == "no_rows_in_requested_range"
+
+
+def test_trend_channel_rejects_reversed_range_before_query(app_client, monkeypatch) -> None:
+    def unexpected_query(*args, **kwargs):
+        pytest.fail("a reversed date range must be rejected before the service call")
+
+    monkeypatch.setattr(QuoteTrendChannelQueryService, "build_response", unexpected_query)
+    response = app_client.get(TREND_CHANNEL_URL, params={
+        "ts_code": "000001.SH", "start_date": "2026-08-07", "end_date": "2026-08-06",
+    })
+    assert response.status_code == 400
+    assert response.json()["code"] == "INVALID_DATE_RANGE"
+
 
 def test_trend_channel_returns_empty_when_source_has_no_daily_rows(app_client, db_session) -> None:
     _seed_instrument(db_session, name=None)
@@ -293,8 +321,8 @@ def test_trend_channel_maps_each_service_error(
     expected_status: int,
     expected_code: str,
 ) -> None:
-    def fail_build_response(self, session, *, end_date, limit):
-        del self, session, end_date, limit
+    def fail_build_response(self, session, *, start_date, end_date, limit):
+        del self, session, start_date, end_date, limit
         raise service_error
 
     monkeypatch.setattr(

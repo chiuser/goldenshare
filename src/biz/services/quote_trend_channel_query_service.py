@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from bisect import bisect_right
+from bisect import bisect_left, bisect_right
 from collections import OrderedDict
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date, datetime
 from functools import lru_cache
+from operator import attrgetter
 from threading import RLock
 from typing import ContextManager
 from zoneinfo import ZoneInfo
@@ -184,6 +185,7 @@ class QuoteTrendChannelQueryService:
         *,
         end_date: date | None,
         limit: int,
+        start_date: date | None = None,
     ) -> TrendChannelResponse:
         instrument = self.load_instrument(session)
         series = self.load_series(session)
@@ -191,11 +193,12 @@ class QuoteTrendChannelQueryService:
 
         if rows:
             effective_end_date = end_date or rows[-1].trade_date
-            trade_dates = tuple(row.trade_date for row in rows)
-            end_index = bisect_right(trade_dates, effective_end_date)
-            start_index = max(0, end_index - limit)
+            date_key = attrgetter("trade_date")
+            first_allowed = bisect_left(rows, start_date, key=date_key) if start_date is not None else 0
+            end_index = bisect_right(rows, effective_end_date, key=date_key)
+            start_index = max(first_allowed, end_index - limit)
             selected = rows[start_index:end_index]
-            has_more_history = start_index > 0
+            has_more_history = bool(selected) and start_index > first_allowed
             next_end_date = (
                 rows[start_index - 1].trade_date if has_more_history else None
             )
@@ -209,7 +212,7 @@ class QuoteTrendChannelQueryService:
             note = None
         elif rows:
             status = "EMPTY"
-            note = "no_rows_on_or_before_end_date"
+            note = "no_rows_in_requested_range" if start_date is not None else "no_rows_on_or_before_end_date"
         else:
             status = "EMPTY"
             note = "source_has_no_daily_rows"

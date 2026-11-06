@@ -127,6 +127,7 @@ def get_quote_detail_kline(
 def get_quote_detail_trend_channel(
     ts_code: str = Query(...),
     period: str = Query(default="day"),
+    start_date: date | None = Query(default=None),
     end_date: date | None = Query(default=None),
     limit: int = Query(default=500, ge=1, le=2000),
     _user: AuthenticatedUser | None = Depends(require_quote_access),
@@ -146,10 +147,13 @@ def get_quote_detail_trend_channel(
             code="UNSUPPORTED_TREND_CHANNEL_PERIOD",
             message="趋势通道 v1 仅支持正式日线周期",
         )
+    if start_date is not None and end_date is not None and start_date > end_date:
+        raise WebAppError(status_code=400, code="INVALID_DATE_RANGE", message="起始日期不能晚于结束日期")
 
     try:
         return QuoteTrendChannelQueryService().build_response(
             session,
+            start_date=start_date,
             end_date=end_date,
             limit=limit,
         )

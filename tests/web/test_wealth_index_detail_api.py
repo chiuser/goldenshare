@@ -37,7 +37,7 @@ _INDEX_CODES = (
 )
 
 
-def test_kline_1000_limit_returns_latest_ordered_rows_preserves_overlap_and_default(app_client, db_session) -> None:
+def test_kline_1000_limit_returns_latest_ordered_rows_preserves_overlap(app_client, db_session) -> None:
     """Synthetic fixture, not real trading history: 1001 eligible weekday bars.
 
     IndexFactorPro's DATE/Float columns and the current API's factor-only query
@@ -69,7 +69,7 @@ def test_kline_1000_limit_returns_latest_ordered_rows_preserves_overlap_and_defa
     params = {"tsCode": _INDEX_CODE, "period": "day", "endDate": _TRADE_DATE.isoformat()}
 
     response = app_client.get(url, params={**params, "limit": "1000"})
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     payload = response.json()
     bars = payload["bars"]
     assert payload["meta"]["limit"] == 1000
@@ -80,12 +80,9 @@ def test_kline_1000_limit_returns_latest_ordered_rows_preserves_overlap_and_defa
     assert all(bar["factors"]["macd"] == {"dif": -0.873123, "dea": -1.110111, "macd": 0.473976}
                for bar in bars)
 
-    default_response = app_client.get(url, params=params)
-    assert default_response.status_code == 200
-    previous = default_response.json()
-    assert previous["meta"]["limit"] == previous["meta"]["count"] == 300
-    assert [bar["close"] for bar in previous["bars"]] == [float(801 + index) for index in range(300)]
-    assert previous["bars"] == bars[-300:]
+    previous = app_client.get(url, params={**params, "limit": 501}).json()
+    assert previous["meta"]["limit"] == previous["meta"]["count"] == 501
+    assert previous["bars"] == bars[-501:]
 
     short_response = app_client.get(url, params={**params, "startDate": days[-2].isoformat(), "limit": "1000"})
     assert short_response.status_code == 200
@@ -501,7 +498,7 @@ def test_kline_is_factor_only_ascending_and_has_no_adjustment_contract(app_clien
 
     response = app_client.get(
         "/api/v1/wealth/market/index-detail/kline",
-        params={"tsCode": _INDEX_CODE, "endDate": "2026-08-10", "limit": "300"},
+        params={"tsCode": _INDEX_CODE, "endDate": "2026-08-10", "limit": "501"},
     )
 
     assert response.status_code == 200
@@ -516,12 +513,13 @@ def test_kline_is_factor_only_ascending_and_has_no_adjustment_contract(app_clien
     assert "ma120" not in payload["bars"][-1]["factors"]["ma"]
     assert payload["meta"] == {
         "count": 2,
-        "limit": 300,
+        "limit": 501,
         "startDate": None,
         "endDate": "2026-08-10",
     }
     assert "adjustment" not in payload
     assert "sourceAdjustment" not in payload
+    assert payload["debugInfo"] is None
 
     rejected = app_client.get(
         "/api/v1/wealth/market/index-detail/kline",
@@ -561,7 +559,7 @@ def test_ma250_null_reclassifies_after_earlier_history_arrives(app_client, db_se
         "tsCode": _INDEX_CODE,
         "startDate": "2026-08-10",
         "endDate": "2026-08-10",
-        "limit": 1,
+        "limit": 501,
         "debug": 1,
     }
     before_backfill = app_client.get("/api/v1/wealth/market/index-detail/kline", params=params)
@@ -591,7 +589,7 @@ def test_kline_distinguishes_source_delay_from_factor_lag(app_client, db_session
 
     delayed = app_client.get(
         "/api/v1/wealth/market/index-detail/kline",
-        params={"tsCode": _INDEX_CODE, "endDate": "2026-08-11", "debug": 1},
+        params={"tsCode": _INDEX_CODE, "endDate": "2026-08-11", "debug": 1, "limit": 501},
     )
     assert delayed.status_code == 200
     assert delayed.json()["dataStatus"]["status"] == "DELAYED"
@@ -602,7 +600,7 @@ def test_kline_distinguishes_source_delay_from_factor_lag(app_client, db_session
 
     partial = app_client.get(
         "/api/v1/wealth/market/index-detail/kline",
-        params={"tsCode": _INDEX_CODE, "endDate": "2026-08-10", "debug": 1},
+        params={"tsCode": _INDEX_CODE, "endDate": "2026-08-10", "debug": 1, "limit": 501},
     )
     assert partial.status_code == 200
     payload = partial.json()
