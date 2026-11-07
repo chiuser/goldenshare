@@ -474,6 +474,8 @@ describe("StockDetailPage", () => {
       expect.stringContaining("/stock-detail/nine-turn"),
       expect.anything(),
     ));
+    const nineTurnRequest = vi.mocked(fetch).mock.calls.find(([url]) => String(url).includes("/stock-detail/nine-turn"));
+    expect(new URL(String(nineTurnRequest?.[0])).searchParams.get("limit")).toBe("500");
   });
 
   it("loads membership, adds once and preserves default day/forward and other placeholders", async () => {
@@ -491,6 +493,7 @@ describe("StockDetailPage", () => {
     expect(JSON.parse(String(writeCall?.[1]?.body))).toEqual({ groupIds: [2] });
     expect(fetchMock.mock.calls.filter(([url, options]) => String(url).includes("/watchlist/") && options?.method === "PUT")).toHaveLength(1);
     const klineUrl = new URL(String(fetchMock.mock.calls.find(([url]) => String(url).includes("/kline"))![0]));
+    expect(klineUrl.searchParams.get("limit")).toBe("500");
     expect(klineUrl.searchParams.get("period")).toBe("day"); expect(klineUrl.searchParams.get("adjustment")).toBe("forward");
     fireEvent.click(screen.getByRole("button", { name: "+提醒" })); expect(screen.getByText("+提醒暂未开通")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "+交易计划" })); expect(screen.getByText("+交易计划暂未开通")).toBeInTheDocument();
@@ -596,7 +599,7 @@ describe("StockDetailPage", () => {
       expect(requests).toHaveLength(1);
       expect(requests[0]).toContain("tsCode=603806.SH");
       expect(requests[0]).toContain("endDate=2026-05-29");
-      expect(requests[0]).toContain("limit=300");
+      expect(requests[0]).toContain("limit=500");
     });
     expect(await screen.findByText("短上:19.30")).toBeInTheDocument();
     expect(screen.getByLabelText("K线主图")).toBeInTheDocument();

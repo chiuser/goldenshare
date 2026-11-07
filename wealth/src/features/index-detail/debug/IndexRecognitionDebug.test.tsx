@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DetailChartWorkspaceProps } from "../../../shared/charts/detail-workspace/detailChartTypes";
-import { makeKline, makePageInit, makeTrendPayload } from "../testing/indexDetailTestFixtures";
+import { makeOrdinaryKline, makePageInit, makeTrendPayload } from "../testing/indexDetailTestFixtures";
 import { dailyWaveKlineFixture, dailyWaveReadyFixture } from "../daily-wave/dailyWaveFixtures.test-support";
 import { useCallback,useEffect,useState } from "react";
 import { IndexRecognitionDebug } from "./IndexRecognitionDebug";
@@ -20,7 +20,7 @@ function Harness({debug=true}:{debug?:boolean}){
   const [extension,setExtension]=useState<IndexRecognitionDebugExtension|null>(null);
   const owner=`000001.SH|day|${vm?.asOfTradeDate??""}`;
   const onChange=useCallback((key:string,next:IndexRecognitionDebugExtension|null)=>{if(key===owner)setExtension(next);},[owner]);
-  const nine=useNineTurnSeriesRegistry({tsCode:"000001.SH",subjectType:"index",dailyLimit:1000,endDate:vm?.asOfTradeDate??null,load:loadIndexNineTurnSeries,supportedPeriods:DAILY,supportsNineTurn:vm?.capabilities.supportsNineTurn??false});
+  const nine=useNineTurnSeriesRegistry({tsCode:"000001.SH",subjectType:"index",dailyLimit:500,endDate:vm?.asOfTradeDate??null,load:loadIndexNineTurnSeries,supportedPeriods:DAILY,supportsNineTurn:vm?.capabilities.supportsNineTurn??false});
   useEffect(()=>{if(vm)void nine.ensure("day");},[!!vm,nine.ensure]);
   if(!vm)return null;
   return <>{debug ? <IndexRecognitionDebug ownerKey={owner} tsCode="000001.SH" activePeriod="day" ordinaryAsOfDate={vm.asOfTradeDate} supportsNineTurn={vm.capabilities.supportsNineTurn} supportsTrend={vm.capabilities.supportsTrendChannel} onChange={onChange}/> : null}
@@ -49,7 +49,7 @@ function installSource({ failResearchTrend = false, mismatch = false, researchTr
     if (url.pathname.endsWith("/page-init")) return json(makePageInit());
     if (url.pathname.endsWith("/daily-waves")) return json(dailyWaveReadyFixture(`review-${++calculations}`));
     if (url.pathname.endsWith("/kline")) {
-      if (!url.searchParams.has("startDate")) return json(makeKline());
+      if (!url.searchParams.has("startDate")) return json(makeOrdinaryKline());
       const kline = dailyWaveKlineFixture();
       if (mismatch) kline.bars[1]!.factors.macd.dif = 4.01;
       return json(kline);
@@ -138,11 +138,11 @@ describe("real extracted research controller/workspace keeps ordinary dates inde
     const urls = fetcher.mock.calls.map(([url]) => new URL(String(url)));
     const kline = urls.filter((url) => url.pathname.endsWith("/kline"));
     expect(kline.map((url) => [url.searchParams.get("startDate"), url.searchParams.get("endDate"), url.searchParams.get("limit")]))
-      .toEqual([[null, "2026-07-31", "1000"], ["2023-10-24", "2023-10-26", "1000"]]);
+      .toEqual([[null, "2026-07-31", "500"], ["2023-10-24", "2023-10-26", "1000"]]);
     await waitFor(() => expect(fetcher.mock.calls.filter(([url]) => String(url).includes("/nine-turn"))).toHaveLength(2));
     const nine = fetcher.mock.calls.map(([url]) => new URL(String(url))).filter((url) => url.pathname.endsWith("/nine-turn"));
     expect(nine.map((url) => [url.searchParams.get("endDate"), url.searchParams.get("limit")]))
-      .toEqual([["2026-07-31", "1000"], ["2023-10-26", "1000"]]);
+      .toEqual([["2026-07-31", "500"], ["2023-10-26", "1000"]]);
     fireEvent.click(screen.getByRole("button", { name: "波段核对" }));
     expect(chart.props?.dataKey).toBe("index:000001.SH:day");
     expect(chart.props?.points.at(-1)?.fullDate).toContain("2026-07-31");

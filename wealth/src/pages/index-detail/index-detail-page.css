@@ -272,3 +272,34 @@ body:has(.index-detail-app) {
   color: var(--cs-color-text-secondary);
   background: var(--cs-color-surface-panel);
 }
+
+.index-history-layer-errors {
+  display: grid;
+  gap: 4px;
+  left: 10px;
+  max-width: calc(100% - 20px);
+  position: absolute;
+  top: calc(var(--detail-chart-panel-header-height, 28px) + 8px);
+  z-index: 9;
+}
+
+.index-history-layer-error {
+  align-items: center;
+  background: var(--cs-color-surface-panel);
+  border: 1px solid var(--cs-color-danger-system);
+  border-radius: 8px;
+  color: var(--cs-color-text-primary);
+  display: flex;
+  font-size: 12px;
+  gap: 8px;
+  padding: 6px 9px;
+}
+
+.index-history-layer-error button {
+  background: transparent;
+  border: 0;
+  color: var(--cs-color-brand);
+  cursor: pointer;
+  padding: 0;
+  white-space: nowrap;
+}

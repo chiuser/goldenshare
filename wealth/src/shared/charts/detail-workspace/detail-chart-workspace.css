@@ -367,3 +367,24 @@
     grid-template-rows: 46fr 16fr 16fr 16fr;
   }
 }
+
+.detail-chart-history-edge {
+  background: var(--cs-color-surface-panel);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--cs-color-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  left: 5px;
+  padding: 6px;
+  pointer-events: none;
+  position: absolute;
+  top: 36%;
+  white-space: nowrap;
+  z-index: 5;
+}
+
+.detail-chart-history-edge.error {
+  border-color: var(--cs-color-danger-system);
+  color: var(--cs-color-danger-system);
+}

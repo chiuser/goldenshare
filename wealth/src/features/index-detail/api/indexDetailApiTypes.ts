@@ -134,17 +134,19 @@ export interface IndexKlineBarDto {
   };
 }
 
+interface IndexDailyKlineMeta {
+  count: number;
+  limit: number;
+  startDate: string | null;
+  endDate: string | null;
+}
+
 export interface IndexDetailKlineResponseDto {
   pageContext: IndexDetailPageContextDto;
   indexRef: { tsCode: string; name: string | null };
   period: "day";
   bars: IndexKlineBarDto[];
-  meta: {
-    count: number;
-    limit: number;
-    startDate: string | null;
-    endDate: string | null;
-  };
+  meta: IndexDailyKlineMeta | (IndexDailyKlineMeta & { nextEndDate: string | null });
   dataStatus: IndexDetailDataStatusDto;
   debugInfo: IndexDetailDebugInfoDto | null;
 }

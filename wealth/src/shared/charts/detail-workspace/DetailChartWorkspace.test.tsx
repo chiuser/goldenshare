@@ -181,6 +181,88 @@ const mainLines: DetailChartLineDefinition[] = [
 ];
 
 describe("DetailChartWorkspace", () => {
+  it("prepends SSE candles on the existing charts and preserves the visible dates and active drag", () => {
+    const all = makePoints(300);
+    const initial = all.slice(100);
+    const onHistoryViewport = vi.fn();
+    const element = (points: DetailChartPoint[]) => (
+      <DetailChartWorkspace {...workspaceElement(points, "daily", "sse:history").props}
+        onHistoryViewport={onHistoryViewport} />
+    );
+    const rendered = render(element(initial));
+    const host = screen.getByLabelText("共享K线主图").querySelector(".detail-chart-host")!;
+    Object.defineProperty(host, "clientWidth", { configurable: true, value: 1000 });
+    const charts = [...chartMock.charts];
+    fireEvent.mouseDown(host, { button: 0, clientX: 200 });
+    fireEvent.mouseMove(window, { clientX: 300 });
+    const before = charts[0]!.timeScale().getVisibleLogicalRange();
+    rendered.rerender(element(all));
+    expect(chartMock.createChart).toHaveBeenCalledTimes(4);
+    for (const chart of charts) {
+      expect(chart.timeScale().getVisibleLogicalRange()).toEqual({ from: before.from + 100, to: before.to + 100 });
+    }
+    expect(charts[0]!.series[0].setData.mock.lastCall[0]).toHaveLength(300);
+    expect(onHistoryViewport).toHaveBeenLastCalledWith(expect.objectContaining({ direction: "stationary" }));
+    fireEvent.mouseMove(window, { clientX: 400 });
+    const after = charts[0]!.timeScale().getVisibleLogicalRange();
+    expect(after.to - after.from).toBeCloseTo(before.to - before.from);
+    expect(after.from).toBeCloseTo(before.from + 100 - 100 * (before.to - before.from) / 944);
+    expect(onHistoryViewport).toHaveBeenLastCalledWith(expect.objectContaining({ direction: "history" }));
+    fireEvent.mouseUp(window);
+  });
+
+  it("preserves the visible date and spacing when a short page only partly fills the left gutter", () => {
+    const points = makePoints(202);
+    const onHistoryViewport = vi.fn();
+    const element = (data: DetailChartPoint[], historyPhase: "idle" | "loading") => (
+      <DetailChartWorkspace {...workspaceElement(data, "daily", "sse:left-gutter").props}
+        onHistoryViewport={onHistoryViewport} historyPhase={historyPhase} />
+    );
+    const rendered = render(element(points.slice(2), "idle"));
+    const host = screen.getByLabelText("共享K线主图").querySelector(".detail-chart-host")!;
+    Object.defineProperty(host, "clientWidth", { configurable: true, value: 1000 });
+    const firstChart = chartMock.charts[0]!;
+    act(() => firstChart.timeScale().setVisibleLogicalRange({ from: 0, to: 80 }));
+    rendered.rerender(element(points.slice(2), "loading"));
+    const waiting = firstChart.timeScale().getVisibleLogicalRange();
+    expect(waiting.from).toBeLessThan(-2);
+    expect(screen.getByText("加载中")).toBeInTheDocument();
+    rendered.rerender(element(points, "idle"));
+    expect(screen.queryByText("加载中")).not.toBeInTheDocument();
+    expect(firstChart.timeScale().getVisibleLogicalRange()).toEqual({ from: waiting.from + 2, to: waiting.to + 2 });
+  });
+
+  it("keeps early candles and the MACD pane when indicator values are absent, including on a prepend", () => {
+    const source = makePoints(6);
+    const points = source.map((point, index) => ({
+      ...point,
+      changePct: index < 3 ? null : index === 3 ? 0 : point.changePct,
+      macd: index < 3 ? null : index === 3 ? 0 : point.macd,
+      dif: index < 3 ? null : index === 3 ? 0 : point.dif,
+      dea: index < 3 ? null : index === 3 ? 0 : point.dea,
+    }));
+    const onHistoryViewport = vi.fn();
+    const element = (data: DetailChartPoint[]) => (
+      <DetailChartWorkspace {...workspaceElement(data, "daily", "sse:early").props}
+        onHistoryViewport={onHistoryViewport} />
+    );
+    const rendered = render(element(points.slice(3)));
+    rendered.rerender(element(points));
+    const [kline, macd] = chartMock.charts;
+    expect(chartMock.createChart).toHaveBeenCalledTimes(4);
+    expect(kline!.series[0].setData.mock.lastCall[0].map((row: { time: string }) => row.time)).toEqual(points.map(point => point.time));
+    expect(kline!.series[1].setData.mock.lastCall[0].slice(0, 4)).toEqual([
+      { time: points[0]!.time }, { time: points[1]!.time }, { time: points[2]!.time }, { time: points[3]!.time, value: 0 },
+    ]);
+    expect(macd!.series[0].setData.mock.lastCall[0][0]).toMatchObject({ time: points[3]!.time, value: 0 });
+    expect(macd!.series[1].setData.mock.lastCall[0].slice(0, 4)).toEqual([
+      { time: points[0]!.time }, { time: points[1]!.time }, { time: points[2]!.time }, { time: points[3]!.time, value: 0 },
+    ]);
+    act(() => kline!.timeScale().setVisibleLogicalRange({ from: 0, to: 2 }));
+    expect(screen.getByLabelText("共享MACD")).toBeInTheDocument();
+    expect(macd!.series[0].priceLines.every((line: { options: { lineVisible: boolean } }) => !line.options.lineVisible)).toBe(true);
+  });
+
   it("updates only main price padding without recreating charts or changing the time range", () => {
     const height = vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(200);
     const points = makePoints(300);

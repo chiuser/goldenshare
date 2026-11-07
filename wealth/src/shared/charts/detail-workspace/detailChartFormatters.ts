@@ -44,6 +44,7 @@ export function formatMinuteTradeTime(value: string): string {
 export function buildDailyTimeAxisMarkers(
   points: DetailChartPoint[],
   chart: IChartApi,
+  avoidOverlappingLabels = false,
 ): DetailChartTimeAxisMarker[] {
   const markers: DetailChartTimeAxisMarker[] = [];
   const visibleRange = chart.timeScale().getVisibleLogicalRange();
@@ -62,6 +63,11 @@ export function buildDailyTimeAxisMarkers(
 
     const coordinate = chart.timeScale().timeToCoordinate(point.time as Time);
     if (coordinate === null) continue;
+    previousMonth = yearMonth.month;
+    const previous = markers.at(-1);
+    // The year/month label is left-aligned. Month labels are centered in 24px.
+    if (avoidOverlappingLabels && previous &&
+        coordinate - previous.left < (previous.tone === "year" ? 60 : 24)) continue;
 
     markers.push({
       key: String(point.time),
@@ -69,7 +75,6 @@ export function buildDailyTimeAxisMarkers(
       left: coordinate,
       tone: isFirstPoint ? "year" : "month",
     });
-    previousMonth = yearMonth.month;
   }
 
   return markers;

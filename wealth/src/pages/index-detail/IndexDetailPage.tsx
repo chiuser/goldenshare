@@ -33,7 +33,7 @@ import { fetchMarketMajorIndices } from "../../features/major-indices/api/market
 import type { NineTurnPeriod } from "../../features/nine-turn/api/nineTurnApiTypes";
 import { useNineTurnSeriesRegistry } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
 import { resolveIndexRecognitionAvailability } from "../../features/index-detail/model/indexRecognitionAvailability";
-import { INDEX_DAILY_HISTORY_LIMIT } from "../../features/index-detail/model/indexDetailConstants";
+import { DAILY_CHART_PAGE_SIZE } from "../../shared/charts/dailyChartRequestLimits";
 import { unsupportedNineTurnLayer } from "../../features/nine-turn/model/nineTurnAdapter";
 import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
 import type { TopMarketNavKey, TopMarketTicker } from "../../shared/ui/top-market-bar/topMarketBarTypes";
@@ -43,8 +43,8 @@ interface IndexDetailPageProps { search: string; tsCode: string; }
 
 const EMPTY_NINE_TURN_PERIODS: NineTurnPeriod[] = [];
 export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
-  const controller = useIndexDetailController(tsCode, search);
   const [activePeriod, setActivePeriod] = useState<IndexPeriodKey>("day");
+  const controller = useIndexDetailController(tsCode, search, activePeriod === "day");
   const [activeTab, setActiveTab] = useState<IndexInfoTab>("basic");
   const [toast, setToast] = useState("");
   const tickers = useTopMarketTickers();
@@ -61,7 +61,7 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
   const identity = viewModel?.identity ?? getIndexShellIdentity(normalizedTsCode);
   const periods = viewModel?.periods ?? getIndexShellPeriods();
   const nineTurnRegistry = useNineTurnSeriesRegistry({
-    dailyLimit: INDEX_DAILY_HISTORY_LIMIT,
+    dailyLimit: DAILY_CHART_PAGE_SIZE,
     endDate: viewModel?.asOfTradeDate ?? null,
     load: loadIndexNineTurnSeries,
     subjectType: "index",
@@ -131,6 +131,17 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
       }
     });
   }, [activeTab, hasData, nineTurnRegistry.ensure, viewModel]);
+
+  const historyError = controller.history?.error;
+  useEffect(() => {
+    if (!historyError) return;
+    setToast(historyError);
+    const timer = window.setTimeout(() => setToast(current => current === historyError ? "" : current), 1800);
+    return () => {
+      window.clearTimeout(timer);
+      setToast(current => current === historyError ? "" : current);
+    };
+  }, [historyError]);
 
   function showToast(message: string) {
     setToast(message);
@@ -231,6 +242,7 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
                 if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
               }}
               onTrendRetry={controller.retryTrend}
+              history={controller.history}
               trend={controller.trend}
               trendPhase={controller.trendPhase}
               viewModel={viewModel}

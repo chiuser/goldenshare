@@ -31,11 +31,12 @@ describe("IndexChartWorkspace adapter", () => {
     const props = { nineTurnLayer: idleNineTurnLayer("day"), onNineTurnRetry: vi.fn(), viewModel };
     const { rerender } = render(<IndexChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} {...props} trend={null} trendPhase="loading" />);
     const first = latestProps();
+    fireEvent.change(screen.getByLabelText("指数主图指标切换"), { target: { value: "BOLL" } });
     const trend = { droppedCount: 0, status: "READY" as const, points: [{ time: "2023-10-26", close: 120,
       shortUpper: 122, shortLower: 115, longUpper: 125, longLower: 112 }] };
     rerender(<IndexChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} {...props} trend={trend} trendPhase="ready" />);
-    // The ordinary graph retains its existing automatic initial trend selection.
-    expect(latestProps().mainPrimitives).toHaveLength(2);
+    expect(screen.getByLabelText("指数主图指标切换")).toHaveValue("BOLL");
+    expect(latestProps().mainLines).toHaveLength(3);
     expect(latestProps().dataKey).toBe(first.dataKey);
     fireEvent.change(screen.getByLabelText("指数主图指标切换"), { target: { value: "TREND_CHANNEL" } });
     const selected = latestProps();

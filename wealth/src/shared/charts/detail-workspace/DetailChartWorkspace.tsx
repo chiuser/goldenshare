@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   CandlestickSeries,
   ColorType,
@@ -42,6 +42,7 @@ import {
 import type {
   DetailChartAxisFloatLabelState,
   DetailChartCrosshairPresentation,
+  DetailChartHistoryViewport,
   DetailChartPanelKey,
   DetailChartPoint,
   DetailChartTimeAxisPlacement,
@@ -97,6 +98,10 @@ interface DetailChartViewportUiState {
 }
 
 interface DetailChartRuntime {
+  dataKey: string;
+  reportHistoryViewport?: (range: DetailChartLogicalRange) => void;
+  updateHistory?: (data: DetailChartHistoryData) => void;
+  applyHistoryGutter?: () => void;
   macdSeries: ISeriesApi<SeriesType>;
   macdPrimitives: NonNullable<DetailChartWorkspaceProps["macdPrimitives"]>;
   applyRange: (range: DetailChartLogicalRange) => void;
@@ -112,6 +117,14 @@ interface IndicatorAxisPriceLines {
   zero: IPriceLine | null;
 }
 
+interface DetailChartHistoryData {
+  points: DetailChartPoint[];
+  candleData: ReturnType<typeof buildCandlestickData>;
+  mainLines: DetailChartWorkspaceProps["mainLines"];
+  primitives: NonNullable<DetailChartWorkspaceProps["mainPrimitives"]>;
+}
+
+const HISTORY_GUTTER_PX = 74;
 const EMPTY_MAIN_PRIMITIVES: NonNullable<DetailChartWorkspaceProps["mainPrimitives"]> = [];
 
 export function DetailChartWorkspace({
@@ -120,6 +133,8 @@ export function DetailChartWorkspace({
   bottomBarAriaLabel,
   crosshairPresentation = "synchronized-overlay",
   dataKey,
+  historyPhase,
+  onHistoryViewport,
   mainLines,
   mainLayerAccessory,
   mainPriceScalePaddingPx,
@@ -161,6 +176,12 @@ export function DetailChartWorkspace({
   const [viewportUi, setViewportUi] = useState<DetailChartViewportUiState>({ dataKey, visibleCount: 0 });
   const latest = points[hoverIndex] ?? points.at(-1) ?? null;
   const candleData = useMemo(() => buildCandlestickData(points), [points]);
+  const keepCharts = onHistoryViewport !== undefined;
+  const dataRef = useRef<DetailChartHistoryData>({ points, candleData, mainLines, primitives });
+  dataRef.current = { points, candleData, mainLines, primitives };
+  const historyRef = useRef({ historyPhase, onHistoryViewport });
+  historyRef.current = { historyPhase, onHistoryViewport };
+  const [atHistoryEdge, setAtHistoryEdge] = useState(false);
   const zoomAvailability = viewportUi.dataKey === dataKey && viewportUi.visibleCount > 0
     ? resolveZoomAvailability(viewportUi.visibleCount, points.length)
     : { canZoomIn: false, canZoomOut: false };
@@ -179,6 +200,7 @@ export function DetailChartWorkspace({
     if (range) {
       runtimeRef.current?.applyIndicatorRanges(range);
       if (options.applyToCharts !== false) runtimeRef.current?.applyRange(range);
+      runtimeRef.current?.reportHistoryViewport?.(range);
     }
     runtimeRef.current?.queuePriceScaleAlignment();
   }, []);
@@ -197,8 +219,8 @@ export function DetailChartWorkspace({
   }, [commitViewportRange]);
 
   useEffect(() => {
-    setHoverIndex(points.length - 1);
-  }, [points]);
+    if (!keepCharts) setHoverIndex(points.length - 1);
+  }, [keepCharts, points]);
 
   useEffect(() => {
     if (typeof ResizeObserver === "undefined") return;
@@ -206,6 +228,8 @@ export function DetailChartWorkspace({
     if (!chartRefs.current.kline || !chartRefs.current.macd || !chartRefs.current.volume || !chartRefs.current.kdj) return;
 
     const chartArea = chartsAreaRef.current;
+    let { points: plottedPoints, candleData, mainLines, primitives } = dataRef.current;
+    if (keepCharts) setHoverIndex(plottedPoints.length - 1);
     const charts: IChartApi[] = [];
     const createPaneChart = (container: HTMLDivElement, height: number, panel: DetailChartPanelKey) => {
       const showTimeScale = timeMode === "minute" && (timeAxisPlacement === "each-pane" || panel === "kdj");
@@ -267,10 +291,10 @@ export function DetailChartWorkspace({
         ...(fixedPrecision ? { priceFormat: INDICATOR_PRICE_FORMAT } : {}),
         priceLineVisible: false,
       });
-      series.setData(buildLineData(points, valueOf));
+      series.setData(buildLineData(plottedPoints, valueOf));
       return series;
     };
-    mainLines.forEach((line) => addLine(klineChart, line.color, line.valueOf));
+    let mainSeries = mainLines.map((line) => addLine(klineChart, line.color, line.valueOf));
 
     const volumeSeries = volumeChart.addSeries(HistogramSeries, {
       base: 0,
@@ -278,8 +302,8 @@ export function DetailChartWorkspace({
       priceFormat: { type: "volume" },
       priceLineVisible: false,
     });
-    volumeSeries.setData(buildHistogramData(
-      points,
+    const setVolumeData = () => volumeSeries.setData(buildHistogramData(
+      plottedPoints,
       (point) => point.volume,
       (point) => isFiniteChartNumber(point.close) && isFiniteChartNumber(point.open) && point.close >= point.open
         ? "rgba(255, 77, 90, 0.55)"
@@ -292,11 +316,13 @@ export function DetailChartWorkspace({
       priceFormat: INDICATOR_PRICE_FORMAT,
       priceLineVisible: false,
     });
-    macdBars.setData(buildHistogramData(
-      points,
+    const setMacdData = () => macdBars.setData(buildHistogramData(
+      plottedPoints,
       (point) => point.macd,
       (_point, value) => value >= 0 ? "rgba(255, 77, 90, 0.64)" : "rgba(24, 208, 146, 0.64)",
     ));
+    setVolumeData();
+    setMacdData();
     const difSeries = addLine(macdChart, DETAIL_CHART_COLORS.brand, (point) => point.dif, true);
     latestMacdLayers.current.forEach(primitive => difSeries.attachPrimitive(primitive));
     const deaSeries = addLine(macdChart, DETAIL_CHART_COLORS.blue, (point) => point.dea, true);
@@ -307,7 +333,8 @@ export function DetailChartWorkspace({
     const macdAxisPriceLines = createIndicatorAxisPriceLines(macdBars, true);
     const kdjAxisPriceLines = createIndicatorAxisPriceLines(kSeries, false);
 
-    const pointByTime = new Map(points.map((point, index) => [String(point.time), { index, point }]));
+    const indexPoints = () => new Map(plottedPoints.map((point, index) => [String(point.time), { index, point }]));
+    let pointByTime = indexPoints();
     const syncTargets: Record<DetailChartPanelKey, ChartSyncTarget> = {
       kline: { chart: klineChart, formatter: formatPriceAxisValue, series: klineSeries, valueOf: (point) => point.close },
       macd: { chart: macdChart, formatter: formatSignedAxisValue, series: macdBars, valueOf: (point) => point.macd },
@@ -409,7 +436,7 @@ export function DetailChartWorkspace({
         setTimeAxisMarkers([]);
         return;
       }
-      setTimeAxisMarkers(buildDailyTimeAxisMarkers(points, kdjChart));
+      setTimeAxisMarkers(buildDailyTimeAxisMarkers(plottedPoints, kdjChart, keepCharts));
     };
     let markerFrame = window.requestAnimationFrame(updateTimeAxisMarkers);
     const queueTimeAxisMarkerUpdate = () => {
@@ -429,8 +456,8 @@ export function DetailChartWorkspace({
     const macdAutoscaleProvider: AutoscaleInfoProvider = () => toAutoscaleInfo(macdRange);
     const kdjAutoscaleProvider: AutoscaleInfoProvider = () => toAutoscaleInfo(kdjRange);
     const applyIndicatorRanges = (range: DetailChartLogicalRange) => {
-      macdRange = resolveVisibleIndicatorRange(points, range, MACD_RANGE_FIELDS);
-      kdjRange = resolveVisibleIndicatorRange(points, range, KDJ_RANGE_FIELDS);
+      macdRange = resolveVisibleIndicatorRange(plottedPoints, range, MACD_RANGE_FIELDS);
+      kdjRange = resolveVisibleIndicatorRange(plottedPoints, range, KDJ_RANGE_FIELDS);
       [macdBars, difSeries, deaSeries].forEach((series) => {
         series.applyOptions({ autoscaleInfoProvider: macdAutoscaleProvider });
       });
@@ -482,7 +509,25 @@ export function DetailChartWorkspace({
         alignRightPriceScales();
       });
     };
+    const reportViewport = (
+      range: DetailChartLogicalRange,
+      direction: DetailChartHistoryViewport["direction"] = "stationary",
+      beyondLeft = false,
+      gesture?: symbol,
+    ) => {
+      const first = plottedPoints[0];
+      const leftIndex = Math.max(0, Math.min(plottedPoints.length - 1, Math.ceil(range.from)));
+      const left = plottedPoints[leftIndex];
+      if (!first || !left) return;
+      setAtHistoryEdge(range.from <= 0);
+      historyRef.current.onHistoryViewport?.({
+        firstDate: first.fullDate, leftDate: left.fullDate, remaining: leftIndex + 1,
+        direction, beyondLeft, gesture,
+      });
+    };
     const runtime: DetailChartRuntime = {
+      dataKey,
+      reportHistoryViewport: keepCharts ? reportViewport : undefined,
       macdSeries: difSeries,
       macdPrimitives: latestMacdLayers.current,
       applyRange: applyVisibleRange,
@@ -518,29 +563,29 @@ export function DetailChartWorkspace({
       viewportRef.current = {
         dataKey,
         lastMeasuredHostWidth: hostWidth,
-        pointCount: points.length,
+        pointCount: plottedPoints.length,
         range: null,
         userAdjusted: false,
       };
       initialRange = resolveInitialRange(
-        points.length,
-        resolveAdaptiveVisibleCount(hostWidth, points.length, sharedRightPriceScaleWidth),
+        plottedPoints.length,
+        resolveAdaptiveVisibleCount(hostWidth, plottedPoints.length, sharedRightPriceScaleWidth),
       );
     } else {
       previousViewport.lastMeasuredHostWidth = hostWidth;
-      previousViewport.pointCount = points.length;
+      previousViewport.pointCount = plottedPoints.length;
       initialRange = previousViewport.userAdjusted
-        ? previousViewport.range && previousPointCount !== points.length
-          ? resolveRangeAfterPointCountChange(previousViewport.range, previousPointCount, points.length)
+        ? previousViewport.range && previousPointCount !== plottedPoints.length
+          ? resolveRangeAfterPointCountChange(previousViewport.range, previousPointCount, plottedPoints.length)
           : previousViewport.range
         : resolveInitialRange(
-            points.length,
-            resolveAdaptiveVisibleCount(hostWidth, points.length, sharedRightPriceScaleWidth),
+            plottedPoints.length,
+            resolveAdaptiveVisibleCount(hostWidth, plottedPoints.length, sharedRightPriceScaleWidth),
           );
-      if (!initialRange && points.length > 0) {
+      if (!initialRange && plottedPoints.length > 0) {
         initialRange = resolveInitialRange(
-          points.length,
-          resolveAdaptiveVisibleCount(hostWidth, points.length, sharedRightPriceScaleWidth),
+          plottedPoints.length,
+          resolveAdaptiveVisibleCount(hostWidth, plottedPoints.length, sharedRightPriceScaleWidth),
         );
       }
     }
@@ -553,13 +598,80 @@ export function DetailChartWorkspace({
     alignRightPriceScales();
     queuePriceScaleAlignment();
 
-    let dragState: { pointerId: number | null; startX: number; startRange: { from: number; to: number } } | null = null;
+    let dragState: {
+      pointerId: number | null;
+      startX: number;
+      lastX: number;
+      startRange: DetailChartLogicalRange;
+      gesture: symbol;
+    } | null = null;
+    const historyGutter = (range: DetailChartLogicalRange) => {
+      const phase = historyRef.current.historyPhase;
+      if (!keepCharts || (phase !== "loading" && phase !== "error")) return 0;
+      const width = resolveDetailChartPlotWidth(chartRefs.current.kline?.clientWidth ?? 1, sharedRightPriceScaleWidth);
+      return (range.to - range.from) * HISTORY_GUTTER_PX / width;
+    };
+    if (keepCharts) {
+      runtime.applyHistoryGutter = () => {
+        const range = viewportRef.current.range;
+        if (!range || range.from > 0) return;
+        const gutter = historyGutter(range);
+        if (gutter === 0) return;
+        const from = -gutter;
+        const offset = from - range.from;
+        if (offset === 0) return;
+        if (dragState) {
+          dragState.startRange = { from: dragState.startRange.from + offset, to: dragState.startRange.to + offset };
+        }
+        commitViewportRange({ from, to: range.to + offset });
+      };
+      runtime.updateHistory = (data) => {
+        const pointsChanged = data.points !== plottedPoints;
+        const linesChanged = data.mainLines !== mainLines;
+        if (!pointsChanged && !linesChanged && data.primitives === primitives) return;
+        const range = viewportRef.current.range;
+        let offset = 0;
+        isSyncingVisibleRange = true;
+        if (pointsChanged) {
+          const previousFirstTime = plottedPoints[0]?.time;
+          offset = Math.max(0, data.points.findIndex((point) => point.time === previousFirstTime));
+          plottedPoints = data.points;
+          viewportRef.current.pointCount = plottedPoints.length;
+          pointByTime = indexPoints();
+          klineSeries.setData(data.candleData);
+          visibleExtremaPrimitive.setCandles(data.candleData);
+          setVolumeData();
+          setMacdData();
+          difSeries.setData(buildLineData(plottedPoints, (point) => point.dif));
+          deaSeries.setData(buildLineData(plottedPoints, (point) => point.dea));
+          kSeries.setData(buildLineData(plottedPoints, (point) => point.k));
+          dSeries.setData(buildLineData(plottedPoints, (point) => point.d));
+          jSeries.setData(buildLineData(plottedPoints, (point) => point.j));
+          setHoverIndex(index => index + offset);
+          if (dragState) {
+            dragState.startRange = { from: dragState.startRange.from + offset, to: dragState.startRange.to + offset };
+          }
+        }
+        if (linesChanged) {
+          mainSeries.forEach(series => klineChart.removeSeries(series));
+          mainLines = data.mainLines;
+          mainSeries = mainLines.map(line => addLine(klineChart, line.color, line.valueOf));
+        } else if (pointsChanged) {
+          mainSeries.forEach((series, index) => series.setData(buildLineData(plottedPoints, mainLines[index]!.valueOf)));
+        }
+        primitives.filter(primitive => !data.primitives.includes(primitive)).forEach(primitive => klineSeries.detachPrimitive(primitive));
+        data.primitives.filter(primitive => !primitives.includes(primitive)).forEach(primitive => klineSeries.attachPrimitive(primitive));
+        primitives = data.primitives;
+        isSyncingVisibleRange = false;
+        if (range) commitViewportRange({ from: range.from + offset, to: range.to + offset });
+      };
+    }
     const startDrag = (clientX: number, target: EventTarget | null, button: number, pointerId: number | null = null) => {
       if (dragState || button !== 0) return;
       if (target instanceof Element && target.closest("button,select,[data-detail-chart-interactive]")) return;
       const startRange = klineChart.timeScale().getVisibleLogicalRange();
       if (!startRange) return;
-      dragState = { pointerId, startRange, startX: clientX };
+      dragState = { pointerId, startRange, startX: clientX, lastX: clientX, gesture: Symbol() };
     };
     const moveDrag = (clientX: number) => {
       if (!dragState) return;
@@ -567,21 +679,29 @@ export function DetailChartWorkspace({
       const plotWidth = resolveDetailChartPlotWidth(hostWidth, sharedRightPriceScaleWidth);
       const rangeWidth = dragState.startRange.to - dragState.startRange.from;
       if (rangeWidth <= 0) return;
+      if (clientX === dragState.lastX) return;
+      const direction = clientX > dragState.lastX ? "history" : "recent";
+      dragState.lastX = clientX;
       const deltaLogical = -((clientX - dragState.startX) * rangeWidth) / plotWidth;
       let from = dragState.startRange.from + deltaLogical;
       let to = dragState.startRange.to + deltaLogical;
-      const maxTo = points.length - 1;
-      if (from < 0) {
-        to -= from;
-        from = 0;
+      const maxTo = plottedPoints.length - 1;
+      const beyondLeft = from < 0;
+      const minFrom = keepCharts
+        ? Math.min(-historyGutter(dragState.startRange), dragState.startRange.from)
+        : 0;
+      if (from < minFrom) {
+        to += minFrom - from;
+        from = minFrom;
       }
       if (to > maxTo) {
         from -= to - maxTo;
         to = maxTo;
       }
-      if (from < 0 || to > maxTo) return;
-      if (Math.abs(deltaLogical) <= Number.EPSILON) return;
-      commitViewportRange({ from, to }, { userAdjusted: true });
+      if (from < minFrom || to > maxTo) return;
+      const range = { from, to };
+      commitViewportRange(range, { userAdjusted: true });
+      if (keepCharts) reportViewport(range, direction, beyondLeft, dragState.gesture);
     };
     const handlePointerDown = (event: PointerEvent) => {
       startDrag(event.clientX, event.target, event.button, event.pointerId);
@@ -674,7 +794,16 @@ export function DetailChartWorkspace({
       runtime.macdPrimitives.forEach(primitive => difSeries.detachPrimitive(primitive));
       charts.forEach((chart) => chart.remove());
     };
-  }, [candleData, commitViewportRange, crosshairPresentation, dataKey, mainLines, points, primitives, timeAxisPlacement, timeMode]);
+  }, [commitViewportRange, crosshairPresentation, dataKey, keepCharts,
+    keepCharts ? null : candleData,
+    keepCharts ? null : mainLines, keepCharts ? null : points, keepCharts ? null : primitives, timeAxisPlacement, timeMode]);
+
+  useLayoutEffect(() => {
+    const runtime = runtimeRef.current;
+    if (runtime?.dataKey !== dataKey) return;
+    runtime.updateHistory?.(dataRef.current);
+    runtime.applyHistoryGutter?.();
+  }, [dataKey, historyPhase, points, mainLines, primitives]);
 
   useEffect(() => {
     runtimeRef.current?.applyMainPriceScalePadding();
@@ -710,6 +839,11 @@ export function DetailChartWorkspace({
           overlay={(
             <>
               {mainLayerAccessory}
+              {keepCharts && atHistoryEdge && historyPhase && historyPhase !== "idle" ? (
+                <span className={`detail-chart-history-edge ${historyPhase}`} role="status">
+                  {historyPhase === "loading" ? "加载中" : "加载失败"}
+                </span>
+              ) : null}
               {mainPaddingUnavailable ? <span role="status" style={{ position: "absolute", left: 8,
                 top: "calc(var(--detail-chart-panel-header-height, 28px) + 8px)" }}>图表空间不足</span> : null}
               {latest && isChartHovering ? renderTooltip(latest, tooltipSide) : null}

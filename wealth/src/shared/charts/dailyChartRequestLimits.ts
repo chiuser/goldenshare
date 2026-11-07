@@ -1,0 +1,2 @@
+export const DAILY_CHART_PAGE_SIZE = 500;
+export const SSE_DAILY_PREFETCH_REMAINING = 100;

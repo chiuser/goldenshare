@@ -38,7 +38,12 @@ export class VisibleExtremaPrimitive implements ISeriesPrimitive<Time> {
   private readonly view = new VisibleExtremaPaneView(this);
   private readonly views: readonly IPrimitivePaneView[] = [this.view];
 
-  constructor(private readonly candles: readonly DetailChartVisibleCandle[]) {}
+  constructor(private candles: readonly DetailChartVisibleCandle[]) {}
+
+  setCandles(candles: readonly DetailChartVisibleCandle[]): void {
+    this.candles = candles;
+    this.cache = null;
+  }
 
   attached(parameters: SeriesAttachedParameter<Time>): void {
     this.attachedParameters = parameters;

@@ -17,6 +17,7 @@ export interface NineTurnSeriesLoadRequest {
   endDate: string;
   limit: number;
   period: NineTurnPeriod;
+  startDate?: string;
   subjectType: NineTurnSubjectType;
   tsCode: string;
 }

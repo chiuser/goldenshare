@@ -42,12 +42,23 @@ export interface DetailChartAxisFloatLabelState {
   value: string;
 }
 
+export interface DetailChartHistoryViewport {
+  firstDate: string;
+  leftDate: string;
+  remaining: number;
+  direction: "history" | "recent" | "stationary";
+  beyondLeft: boolean;
+  gesture?: symbol;
+}
+
 interface DetailChartWorkspaceBaseProps {
   dataKey: string;
   ariaLabel: string;
   crosshairPresentation?: DetailChartCrosshairPresentation;
   mainLines: DetailChartLineDefinition[];
   mainLayerAccessory?: ReactNode;
+  historyPhase?: "idle" | "loading" | "error";
+  onHistoryViewport?: (viewport: DetailChartHistoryViewport) => void;
   mainPriceScalePaddingPx?: { top: number; bottom: number };
   mainPrimitives?: ISeriesPrimitive<Time>[];
   macdPrimitives?: ISeriesPrimitive<Time>[];

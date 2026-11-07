@@ -11,7 +11,8 @@ import {
   buildIndexDetailViewModel,
 } from "../api/indexDetailViewModelAdapter";
 import { buildTrendChannelViewModel } from "../api/trendChannelAdapter";
-import { INDEX_DAILY_HISTORY_LIMIT } from "../model/indexDetailConstants";
+import { DAILY_CHART_PAGE_SIZE } from "../../../shared/charts/dailyChartRequestLimits";
+import { readSseDailyCursor, useIndexDailyHistory, type IndexDailyHistory, type IndexDailyHistorySeed } from "./useIndexDailyHistory";
 import {
   collectIndexPartialReasons,
   normalizeIndexTsCode,
@@ -32,17 +33,19 @@ interface IndexDetailControllerSnapshot {
   partialReasons: string[];
   phase: IndexPagePhase;
   requestKey: string;
+  historySeed: IndexDailyHistorySeed | null;
   trend: TrendChannelViewModel | null;
   trendPhase: "unavailable" | "loading" | "ready" | "error";
   viewModel: IndexDetailViewModel | null;
 }
 
 export interface IndexDetailControllerState extends IndexDetailControllerSnapshot {
+  history: IndexDailyHistory;
   retry: () => void;
   retryTrend: () => void;
 }
 
-export function useIndexDetailController(tsCode: string, search: string): IndexDetailControllerState {
+export function useIndexDetailController(tsCode: string, search: string, dailyActive = true): IndexDetailControllerState {
   const normalizedTsCode = normalizeIndexTsCode(tsCode);
   const [retryToken, setRetryToken] = useState(0);
   const requestKey = `${normalizedTsCode}|${search}|${retryToken}`;
@@ -95,11 +98,14 @@ export function useIndexDetailController(tsCode: string, search: string): IndexD
         }
 
         const kline = await fetchIndexDetailKline(
-          { tsCode: normalizedTsCode, period: "day", endDate: pageInit.asOfTradeDate, limit: INDEX_DAILY_HISTORY_LIMIT, debug },
+          { tsCode: normalizedTsCode, period: "day", endDate: pageInit.asOfTradeDate, limit: DAILY_CHART_PAGE_SIZE, debug },
           { signal: controller.signal },
         );
         if (!isCurrent(requestIdRef, requestId, controller.signal)) return;
         if (kline.indexRef.tsCode !== normalizedTsCode) throw new Error("指数K线返回的代码与请求不一致");
+        const nextEndDate = normalizedTsCode === "000001.SH"
+          ? readSseDailyCursor(kline, pageInit.asOfTradeDate)
+          : null;
         if (kline.dataStatus.status === "EMPTY" || kline.bars.length === 0) {
           trendControllerRef.current?.abort();
           setState({
@@ -123,6 +129,7 @@ export function useIndexDetailController(tsCode: string, search: string): IndexD
             pagePartialReasons,
             partialReasons: trendFailed ? mergeReasons(pagePartialReasons, ["趋势通道"]) : pagePartialReasons,
             phase: trendFailed ? "partial" : basePhase,
+            historySeed: normalizedTsCode === "000001.SH" ? { viewModel, nextEndDate, debug } : null,
             viewModel,
           };
         });
@@ -167,7 +174,8 @@ export function useIndexDetailController(tsCode: string, search: string): IndexD
   }, [normalizedTsCode, state.viewModel?.asOfTradeDate]);
 
   const visibleState = state.requestKey === requestKey ? state : createInitialState(requestKey);
-  return { ...visibleState, retry, retryTrend };
+  const history = useIndexDailyHistory(visibleState.historySeed, dailyActive);
+  return { ...visibleState, history, retry, retryTrend };
 }
 
 function createInitialState(requestKey: string): IndexDetailControllerSnapshot {
@@ -175,6 +183,7 @@ function createInitialState(requestKey: string): IndexDetailControllerSnapshot {
     basePhase: "ready",
     errorCode: "",
     errorMessage: "",
+    historySeed: null,
     pagePartialReasons: [],
     partialReasons: [],
     phase: "loading",
@@ -186,7 +195,7 @@ function createInitialState(requestKey: string): IndexDetailControllerSnapshot {
 }
 
 async function requestTrend(endDate: string, signal: AbortSignal): Promise<TrendChannelViewModel> {
-  const response = await fetchTrendChannel({ endDate, limit: INDEX_DAILY_HISTORY_LIMIT }, { signal });
+  const response = await fetchTrendChannel({ endDate, limit: DAILY_CHART_PAGE_SIZE }, { signal });
   return buildTrendChannelViewModel(response);
 }
 

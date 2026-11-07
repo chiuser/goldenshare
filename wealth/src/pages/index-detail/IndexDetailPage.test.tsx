@@ -2,7 +2,7 @@ import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { IndexDetailWeightsResponseDto } from "../../features/index-detail/api/indexDetailApiTypes";
-import { makeKline, makePageInit, makeTrendPayload } from "../../features/index-detail/testing/indexDetailTestFixtures";
+import { makeOrdinaryKline, makePageInit, makeTrendPayload } from "../../features/index-detail/testing/indexDetailTestFixtures";
 import * as debugLoader from "../../features/index-detail/debug/useIndexDebugModule";
 import * as forecastHook from "../../features/index-detail/xxm-forecast/useXxmForecast";
 import type { IndexRecognitionProps, IndexRecognitionDebugExtension, IndexRecognitionDebugModule, IndexRecognitionDebugProps } from "../../features/index-detail/debug/types";
@@ -195,7 +195,9 @@ describe("IndexDetailPage", () => {
       .filter(([input]) => String(input).includes("/minute-nine-turn"))
       .map(([input]) => new URL(String(input)).searchParams.get("freq"));
     expect(requestedSummaryFrequencies.sort()).toEqual(["120", "15", "30", "60", "90"]);
-    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/nine-turn"))).toHaveLength(1);
+    const dailyNineTurn = fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/nine-turn"));
+    expect(dailyNineTurn).toHaveLength(1);
+    expect(new URL(String(dailyNineTurn[0]?.[0])).searchParams.get("limit")).toBe("500");
   });
 
   it("keeps the index chart when nine-turn fails and retries only the failed layer", async () => {
@@ -441,7 +443,7 @@ describe("IndexDetailPage", () => {
       if (url.includes("/major-indices")) return response(makeMajorIndices("399001.SZ", makePageInit("399001.SZ")));
       if (url.includes("tsCode=000001.SH") && url.includes("/page-init")) return new Promise<Response>((resolve) => { resolveFirst = resolve; });
       if (url.includes("tsCode=399001.SZ") && url.includes("/page-init")) return response(makePageInit("399001.SZ"));
-      if (url.includes("tsCode=399001.SZ") && url.includes("/kline")) return response(makeKline("399001.SZ"));
+      if (url.includes("tsCode=399001.SZ") && url.includes("/kline")) return response(makeOrdinaryKline("399001.SZ"));
       return response({}, 404);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -459,7 +461,7 @@ describe("IndexDetailPage", () => {
       const url = String(input);
       if (url.includes("/major-indices")) return response(makeMajorIndices("000001.SH", makePageInit("000001.SH")));
       if (url.includes("tsCode=000001.SH") && url.includes("/page-init")) return response(makePageInit("000001.SH"));
-      if (url.includes("tsCode=000001.SH") && url.includes("/kline")) return response(makeKline("000001.SH"));
+      if (url.includes("tsCode=000001.SH") && url.includes("/kline")) return response(makeOrdinaryKline("000001.SH"));
       if (url.includes("tsCode=399001.SZ") && url.includes("/page-init")) return new Promise<Response>(() => undefined);
       if (url.includes("/trend-channel")) return response(makeTrendPayload());
       return response({}, 404);
@@ -487,7 +489,7 @@ interface MockFetchOptions {
 
 function mockFetch(tsCode: string, options: MockFetchOptions = {}) {
   const pageInit = makePageInit(tsCode);
-  const kline = makeKline(tsCode);
+  const kline = makeOrdinaryKline(tsCode);
   const weights = makeWeights(pageInit, "READY");
   const majorIndices = makeMajorIndices(tsCode, pageInit);
   const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
@@ -701,7 +703,7 @@ describe("P4 page uses one effective mode and matching debug owner",()=>{
       pageInit.dailyBasic=null;pageInit.constituentBreadth=null;pageInit.dataStatus=emptyStatus;
     }
     // index_detail_kline_query_service.py:99-133 retains indexRef with no bars.
-    const kline=makeKline(responseCode);kline.bars=[];
+    const kline=makeOrdinaryKline(responseCode);kline.bars=[];
     kline.meta={count:0,limit:1000,startDate:null,endDate:"2026-07-31"};kline.dataStatus=emptyStatus;
     const fetcher=mockFetch("399001.SZ",{pageInit:()=>response(pageInit),kline:()=>response(kline)});
     render(<IndexDetailPage tsCode="399001.SZ" search="?debug=1"/>);

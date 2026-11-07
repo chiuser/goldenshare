@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { fetchStockNineTurnSeries } from "../../features/nine-turn/api/nineTurnApiClient";
 import type { NineTurnPeriod } from "../../features/nine-turn/api/nineTurnApiTypes";
+import { DAILY_CHART_PAGE_SIZE } from "../../shared/charts/dailyChartRequestLimits";
 import type { NineTurnSeriesLoader } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
 import { useNineTurnSeriesRegistry } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
 import { fetchStockDetailKline, fetchStockDetailPageInit } from "../../features/stock-detail/api/stockDetailApiClient";
@@ -72,6 +73,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
     tsCode,
   });
   const nineTurnRegistry = useNineTurnSeriesRegistry({
+    dailyLimit: DAILY_CHART_PAGE_SIZE,
     endDate: activePageInit?.pageContext.tradeDate ?? null,
     load: loadStockNineTurnSeries,
     subjectType: "stock",
@@ -114,7 +116,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
             period: "day",
             adjustment: "forward",
             endDate: pageInit.pageContext.tradeDate,
-            limit: 300,
+            limit: DAILY_CHART_PAGE_SIZE,
             debug,
           },
           { signal: controller.signal },

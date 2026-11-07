@@ -52,12 +52,13 @@ interface TrendChannelRawBand {
 }
 
 export async function fetchTrendChannel(
-  params: { endDate: string; limit?: number },
+  params: { endDate: string; limit?: number; startDate?: string },
   options: { signal?: AbortSignal } = {},
 ): Promise<TrendChannelRawResponse> {
   const url = new URL("/api/v1/quote/detail/trend-channel", window.location.origin);
   url.searchParams.set("ts_code", "000001.SH");
   url.searchParams.set("period", "day");
+  if (params.startDate !== undefined) url.searchParams.set("start_date", params.startDate);
   url.searchParams.set("end_date", params.endDate);
   url.searchParams.set("limit", String(params.limit ?? INDEX_DAILY_HISTORY_LIMIT));
   const response = await wealthFetch(url, { method: "GET", signal: options.signal });

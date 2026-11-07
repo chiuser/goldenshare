@@ -1,5 +1,6 @@
 import { toDetailChartPoint } from "./indexChartPointAdapter";
 import { useEffect, useMemo, useState } from "react";
+import type { IndexDailyHistory } from "../controller/useIndexDailyHistory";
 import type { IndexRecognitionProps, IndexRecognitionDebugExtension } from "../debug/types";
 import { useIndexXxmLayer } from "../xxm/useIndexXxmLayer";
 import { XxmLayerStatus, XxmSignalDetails } from "../xxm/XxmLayerUi";
@@ -35,24 +36,47 @@ interface IndexChartWorkspaceProps {
   recognition: IndexRecognitionProps;
   debugExtension?: IndexRecognitionDebugExtension;
   onTrendRetry?: () => void;
+  history?: IndexDailyHistory;
 }
 
-export function IndexChartWorkspace({ nineTurnLayer: ordinaryNineTurn, onNineTurnRetry: ordinaryNineTurnRetry, trend: ordinaryTrend, trendPhase: ordinaryTrendPhase, viewModel, recognition, debugExtension, onTrendRetry: ordinaryTrendRetry }: IndexChartWorkspaceProps) {
+export function IndexChartWorkspace({ nineTurnLayer: ordinaryNineTurn, onNineTurnRetry: ordinaryNineTurnRetry, trend: ordinaryTrend, trendPhase: ordinaryTrendPhase, viewModel, recognition, debugExtension, onTrendRetry: ordinaryTrendRetry, history }: IndexChartWorkspaceProps) {
   const ownerKey = `${viewModel.identity.tsCode}|day|${viewModel.asOfTradeDate}`;
   const extension = recognition.debug === 1 && debugExtension?.ownerKey === ownerKey ? debugExtension : null;
   const research = extension?.chartOverride ?? null;
-  const nineTurnLayer = research?.nineTurnLayer ?? ordinaryNineTurn;
-  const trend = research ? research.trend : ordinaryTrend;
+  const activeHistory = !research && history?.active ? history : undefined;
+  const historical = activeHistory?.visible;
+  const firstDate = activeHistory ? viewModel.chart.candles[0]?.time : undefined;
+  const lastDate = activeHistory ? viewModel.chart.candles.at(-1)?.time : undefined;
+  const nineTurnLayer = useMemo(() => {
+    if (research) return research.nineTurnLayer;
+    if (!firstDate || !lastDate) return ordinaryNineTurn;
+    const initial = ordinaryNineTurn.markers.filter(marker => firstDate <= marker.tradeDate && marker.tradeDate <= lastDate);
+    return { ...ordinaryNineTurn, markers: [...(historical?.nineTurnMarkers ?? []), ...initial] };
+  }, [firstDate, lastDate, historical?.nineTurnMarkers, ordinaryNineTurn, research]);
+  const trend = useMemo(() => {
+    if (research) return research.trend;
+    if (!firstDate || !lastDate) return ordinaryTrend;
+    if (!ordinaryTrend && !historical?.trendPoints.length) return null;
+    const initial = ordinaryTrend?.points.filter(point => firstDate <= point.time && point.time <= lastDate) ?? [];
+    return {
+      points: [...(historical?.trendPoints ?? []), ...initial],
+      droppedCount: ordinaryTrend?.droppedCount ?? 0,
+      status: ordinaryTrend?.status ?? "READY",
+    } satisfies TrendChannelViewModel;
+  }, [firstDate, lastDate, historical?.trendPoints, ordinaryTrend, research]);
   const trendPhase = research?.trendPhase ?? ordinaryTrendPhase;
   const onNineTurnRetry = research?.onNineTurnRetry ?? ordinaryNineTurnRetry;
   const onTrendRetry = research?.onTrendRetry ?? ordinaryTrendRetry;
   const supportsTrend = viewModel.capabilities.supportsTrendChannel && viewModel.identity.tsCode === "000001.SH";
-  const [overlay, setOverlay] = useState<IndexMainOverlay>(supportsTrend && trend ? "TREND_CHANNEL" : "MA");
-  useEffect(() => { if (!research) setOverlay(supportsTrend && trend ? "TREND_CHANNEL" : "MA"); }, [supportsTrend, trend, viewModel.identity.tsCode, research !== null]);
-  const candles = research?.candles ?? viewModel.chart.candles;
-  const points = useMemo(() => candles.map(toDetailChartPoint), [candles]);
-  const dataKey = research?.dataKey ?? `index:${viewModel.identity.tsCode}:day`;
-  const xxm = useIndexXxmLayer({ tsCode: viewModel.identity.tsCode, period: "day", points, enabled: recognition.recognitionEnabled, debug: recognition.debug, decodeDebug: recognition.decodeXxmDebug });
+  const [selection, setSelection] = useState<{ owner: string; overlay: IndexMainOverlay } | null>(null);
+  const overlay = selection?.owner === ownerKey ? selection.overlay : supportsTrend && ordinaryTrend ? "TREND_CHANNEL" : "MA";
+  const setOverlay = (overlay: IndexMainOverlay) => setSelection({ owner: ownerKey, overlay });
+  const initialCandles = research?.candles ?? viewModel.chart.candles;
+  const initialPoints = useMemo(() => initialCandles.map(toDetailChartPoint), [initialCandles]);
+  const historicalCandles = historical?.candles;
+  const points = useMemo(() => historicalCandles?.map(toDetailChartPoint) ?? initialPoints, [historicalCandles, initialPoints]);
+  const dataKey = research?.dataKey ?? (activeHistory ? `index:${ownerKey}` : `index:${viewModel.identity.tsCode}:day`);
+  const xxm = useIndexXxmLayer({ tsCode: viewModel.identity.tsCode, period: "day", points: initialPoints, enabled: recognition.recognitionEnabled, debug: recognition.debug, decodeDebug: recognition.decodeXxmDebug });
   const nineTurnChartLayer = useNineTurnChartLayer({ dataKey, layer: nineTurnLayer, points, timeMode: "daily" });
   const trendByTime = useMemo(() => new Map((trend?.points ?? []).map((point) => [point.time, point])), [trend]);
   const mainLines = useMemo(() => overlay === "MA" ? buildMaLines() : overlay === "BOLL" ? buildBollLines() : [], [overlay]);
@@ -72,13 +96,24 @@ export function IndexChartWorkspace({ nineTurnLayer: ordinaryNineTurn, onNineTur
       </div>}
       bottomBarAriaLabel="指数指标栏"
       dataKey={dataKey}
+      historyPhase={activeHistory?.phase}
+      onHistoryViewport={activeHistory?.onViewport}
       mainLayerAccessory={(
         <><NineTurnLayerStatus
           showAlignmentDiagnostics={recognition.debug === 1}
           droppedMarkerCount={nineTurnChartLayer.droppedMarkerCount}
           layer={nineTurnLayer}
           onRetry={onNineTurnRetry}
-        />{research && trendPhase === "error" ? <button className="daily-wave-trend-error" onClick={onTrendRetry} type="button">趋势通道加载失败 · 重试</button> : null}</>
+        />{historical?.failedLayers.length ? (
+          <div className="index-history-layer-errors">
+            {historical.failedLayers.map(({ page, layer }) => (
+              <div className="index-history-layer-error" role="status" key={`${page.endDate}|${layer}`}>
+                <span>{layer === "nineTurn" ? "九转" : "趋势"}历史数据加载失败</span>
+                <button type="button" onClick={() => activeHistory?.retryLayer(page, layer)}>重试</button>
+              </div>
+            ))}
+          </div>
+        ) : null}{research && trendPhase === "error" ? <button className="daily-wave-trend-error" onClick={onTrendRetry} type="button">趋势通道加载失败 · 重试</button> : null}</>
       )}
       mainLines={mainLines}
       mainPrimitives={mainPrimitives}

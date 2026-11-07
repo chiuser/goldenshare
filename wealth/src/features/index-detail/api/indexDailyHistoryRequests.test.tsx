@@ -2,7 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { useIndexDetailController } from "../controller/useIndexDetailController";
-import { makeKline, makePageInit, makeTrendPayload } from "../testing/indexDetailTestFixtures";
+import { makeKline, makeOrdinaryKline, makePageInit, makeTrendPayload } from "../testing/indexDetailTestFixtures";
 import { fetchIndexDetailKline } from "./indexDetailApiClient";
 import { buildIndexDetailViewModel, toCandlePoint } from "./indexDetailViewModelAdapter";
 import { fetchTrendChannel } from "./trendChannelApiClient";
@@ -43,12 +43,11 @@ describe("index daily history requests", () => {
     ]);
   });
 
-  it("requests 1000 Klines and trend rows for ordinary loads and explicit retries", async () => {
+  it("requests 500 Klines and trend rows for ordinary loads and explicit retries", async () => {
     const fetch = vi.fn().mockImplementation(async (input: RequestInfo | URL) => {
       const path = new URL(String(input)).pathname;
       if (path.endsWith("/page-init")) return Response.json(makePageInit());
-      if (path.endsWith("/kline")) return Response.json({ ...makeKline(),
-        meta: { ...makeKline().meta, limit: 1000 } });
+      if (path.endsWith("/kline")) return Response.json(makeOrdinaryKline());
       if (path.endsWith("/trend-channel")) return Response.json(makeTrendPayload());
       throw new Error(`Unexpected request: ${path}`);
     });
@@ -64,9 +63,9 @@ describe("index daily history requests", () => {
     await waitFor(() => expect(result.current.phase).toBe("ready"));
 
     expect(requests("/kline").map(url => [url.searchParams.get("limit"), url.searchParams.get("endDate")]))
-      .toEqual([["1000", "2026-07-31"], ["1000", "2026-07-31"]]);
+      .toEqual([["500", "2026-07-31"], ["500", "2026-07-31"]]);
     expect(requests("/trend-channel").map(url => [url.searchParams.get("limit"), url.searchParams.get("end_date")]))
-      .toEqual([["1000", "2026-07-31"], ["1000", "2026-07-31"], ["1000", "2026-07-31"]]);
+      .toEqual([["500", "2026-07-31"], ["500", "2026-07-31"], ["500", "2026-07-31"]]);
     expect(result.current.viewModel?.chart.candles).toHaveLength(2);
 
     function requests(suffix: string) {

@@ -27,6 +27,13 @@ export function makeKline(tsCode = "000001.SH"): IndexDetailKlineResponseDto {
   };
 }
 
+// Ordinary day=500 requests use the SSE paging meta on the new branch.
+export function makeOrdinaryKline(tsCode = "000001.SH"): IndexDetailKlineResponseDto {
+  const response = makeKline(tsCode);
+  const meta = { ...response.meta, startDate: null, limit: 500 };
+  return { ...response, meta: tsCode === "000001.SH" ? { ...meta, nextEndDate: null } : meta };
+}
+
 export function makeTrendPayload(): TrendChannelRawResponse {
   return {
     instrument: { ts_code: "000001.SH", name: "上证指数", security_type: "index" }, period: "day", adjustment: "none",

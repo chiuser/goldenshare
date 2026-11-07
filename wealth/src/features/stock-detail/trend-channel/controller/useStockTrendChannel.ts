@@ -1,3 +1,4 @@
+import { DAILY_CHART_PAGE_SIZE } from "../../../../shared/charts/dailyChartRequestLimits";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { fetchStockTrendChannel } from "../api/stockTrendChannelApiClient";
@@ -64,7 +65,7 @@ export function useStockTrendChannel({
     const requestId = ++requestIdRef.current;
     setSnapshot({ data: null, errorMessage: "", phase: "loading", requestKey });
     void fetchStockTrendChannel(
-      { tsCode, endDate, limit: 300 },
+      { tsCode, endDate, limit: DAILY_CHART_PAGE_SIZE },
       { signal: controller.signal },
     ).then((payload) => {
       if (
