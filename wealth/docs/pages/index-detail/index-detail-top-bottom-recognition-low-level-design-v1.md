@@ -1,5 +1,7 @@
 # 财势乾坤顶底识别低层设计 v1
 
+**r4.1 待实施**。本次编码、测试及验收以[§23](#r41-lld)为准。前述阶段保留为已验收 r4 的基线。
+
 **当前状态（2026-11-04）：P5整体验收通过，已收尾。**管理员本轮已明确确认通过；P5四步均已完成，既有交接/回归证据见LLD§22.9/§22.16.6，工程文档交付及最终收尾见§22.18—22.19。本轮只同步最终验收状态、核对并提交本聊天文档，不改变产品范围、规则或验收成绩。
 
 **P5最终收尾：**管理员最终确认与文档提交核对见LLD§22.19；原工程交付记录及TODO保留，不自动启动新开发或生产开放。
@@ -5729,3 +5731,65 @@ TODO统一引用现位置，不在收尾中扩展产品：性能4—7批按专�
 文档按本轮明确授权在dev-interface限定提交：五份无混合差异的文档完整暂存，根docs/README只暂存指向原三主文档的验收标签变更；其他5组既有索引片段及其他dirty文档/代码均保持原样。提交前须核实际暂存6文件及其正文/空白，提交后核本需求无未提交遗漏和其他差异保持；实际提交编号由Git记录及本轮回复提供，不为把编号写进自身提交而追加重复提交。
 
 最终结论为“P5整体验收通过，已收尾”。3193/332等既有成绩继续仅作原范围证据，本轮没有新业务测试或正式数据请求；暂缓TODO/证据限制按§22.18.2保留，不作为P5残留任务，也不自动开始新研究、优化、推送、部署或生产开放。
+
+<a id="r41-lld"></a>
+
+## 23. r4.1 同根重新钝化编码设计
+
+依据[产品方案 §12](../../../../docs/product/wealth-top-bottom-recognition-product-v1.md#r41-product)、[技术方案 §25](index-detail-top-bottom-recognition-technical-design-v1.md#r41-technical)及[定量结构方法研究](../../../../docs/product/quantitative-structure-method-research.md)。识别以 `xxm-direction-v0.4-r4` 为基线，单根预判以 `xxm-key-point-forecast-v0.6-r4` 为基线。以下规定仅替换两处旧假设，即考核期结构同段 DIF 击穿后必定以空状态结束，以及预判中所有该类击穿都只产生直接消失。其余已验收规则继续生效。
+
+### 23.1 识别与结构记录
+
+1. 在 `src/biz/services/wealth/market/index_detail_xxm/calculator.py` 的 `XxmCalculator.step` 中，继续先推进独立的旧跟踪记录，再判真实反色。未反色时按现有顺序在 `work` 上更新当前色段的末尾、有色柱数及价格和 DIF 极值。零柱沿用当前逻辑色段，不增加有色柱数。只在 `old_state == "STRUCTURE"`、`old_structure` 为 `ASSESSING`、`old_ref` 等于现有同方向历史池最近 B，且本根 DIF 严格击穿 B 时，进入新分支。前一根仍在有效结构考核期，进度已保证本段此前未严格击穿 B。顶部击穿为 `dif > B.dif`，底部为 `dif < B.dif`，等于 B 继续走现行判断。已用 A、真实反色、独立跟踪及从 `DULL` 开始的同根换参照沿用原分支。
+2. 先按原 `dif_break` 生成旧结构的 `CANCEL`，`fromState=STRUCTURE`，`eventReference=B`，`relatedStructureId=旧结构编号`。调用 `_finish_structure` 生成 `DISAPPEARED` 更新，`disappearanceReason=reference_dif_break`、`disappearedAt=本根`、`firstOppositeAt=null`。形成时间、形成事件编号、原参照均保持原值。将本根工作进度的普通状态、参照、考核中结构设为 `NONE/None/None`。
+3. 从更新后的逻辑色段和现有同方向历史池取唯一的 A。把 `_rescue_dull_reference` 中取 B、A 及检查资格的共同部分提为小函数，由旧钝化切换和新结构取消分支各自调用，保留 `_current_reference_qualifies` 的比较。令 `s` 顶部为 `+1`、底部为 `−1`，当根收盘 `C`、DIF `D`。A 通过须同时满足 `s × (C−B.price) > 0`、`s × (C−A.price) > 0`、`s × (D−A.dif) < 0`，且更新后的本段 DIF 极值未严格击穿 A。仍须有至少两根有色柱，顶部 `D > 0`。历史池、最少有色根数、短色段和零柱沿用现行 Spec。A 不存在或任何一项失败，保留第 2 步结果。A 通过则在 `CANCEL` 后追加 `DULL/activation`，同一时间同一方向，`fromState=NONE`、`eventReference=A`、`relatedStructureId=null`，把进度设为 `DULL/A/None`。本根至此结束，不能在同一根再确认结构。
+4. 调试观察在 `types.py` 的 `XxmReferenceCheck`、`XxmSelectionCall` 增加 `structure_reactivation` 阶段。有 A 时记录实际比较和选中结果，缺 A 时仅记录未选中及原因。`_observed_branch` 在两条普通事件时报告原结构取消和远参照新钝化。原 `switched` 仍只表示已有钝化继续持有而改用 A，新分支使用两条事件说明状态变化。普通计算继续使用同一决策路径，额外观察只在启用时构造。第 5 步的资格复核关闭观察，避免把同一次选择记两次。
+5. `_validate_step` 先按原口径分离独立跟踪事件。根据计算前状态、本根数据和更新后的色段按第 1、3 步确定是否应有新钝化，再核事件，合格但漏发也须拒绝。普通事件只有这一种允许两条，必须按 `[CANCEL/dif_break, DULL/activation]` 排序，两条均匹配本根时间及方向，分别匹配旧 B 和当前历史池 A。第一条关联旧 `ASSESSING` 结构并产生第 2 步规定的终态，第二条只允许从中间 `NONE` 进入 `DULL`。最终参照与 A 一致，考核中结构为空。所有单事件和旧跟踪检查照常执行。继续使用 `step` 已有工作副本，在事件、记录和进度全部检查通过后一次发布。本根只增加一次 `processed`。两条事件沿用现有普通事件编号公式，使用各自的事件类型和参照起始时间。
+
+### 23.2 历史查询与展示
+
+| 代码位置 | 修改要求 |
+|---|---|
+| `src/biz/schemas/wealth/market/index_detail_xxm.py` 的 `InternalXxmResponseDto.complete_facts` | 同时间的普通事件按顺序检查。第一个事件从上一可见点的状态进入中间 `NONE`，第二个从 `NONE` 进入当根 `DULL`，不得把最终 `DULL` 用来否定第一个 `CANCEL`。严格检查成对时两条类型、方向、参照、取消关联的 `DISAPPEARED` 记录和当根最终参照。窗口以本根开始时，仍验证上述事件间关系和旧记录，不要求形成事件在可见窗口内。原价格消失与独立跟踪规则继续单独验证。 |
+| `src/biz/queries/wealth/market/index_detail_xxm/query_service.py` 的 `_merge_structure_updates`、`_response` 及 `SeriesEntry.calculator_at` | 继续用原事件顺序、结构编号和可见事件关联回填旧结构。确认跨窗口裁剪保留整组事件，且按实际完成端点查询时，终止前仍为原 `ASSESSING`，终止根才出现 `DISAPPEARED`。查询层不得补造钝化或改写事件顺序。若原通用逻辑已满足则只补测试。 |
+| `src/biz/services/wealth/market/index_detail_xxm/response_projection.py` 的 `event_display_flags` | 保留现行 `structure_price_break` 配对。另对已验证的新事件组，在同一时间、方向的 `CANCEL/dif_break/fromState=STRUCTURE`（有关联旧结构）与 `DULL/activation/fromState=NONE`（无关联结构、参照不同）同时存在时，只将取消的 `displayOnChart` 设为 `false`。原始事件、顺序、旧结构事实仍在响应中。单条取消、反色取消及其他时间或方向的事件不得套用。 |
+| `wealth/src/features/index-detail/debug/xxmDebugContract.ts`、`xxm/adapter.ts`、`xxm/XxmLayerUi.tsx` | 调试解码按有序普通事件校验中间和最终状态，校验显示标志与后端一致。适配器继续以事件编号关联两条详情、按 `displayOnChart` 渲染普通及 debug 主图和普通悬停。调试详情列出取消 B 和钝化 A。悬停版本标题改为 `顶底识别 · r4.1`，无额外前端行情或调试请求。 |
+
+### 23.3 下一根预判
+
+`forecast.py:_forecast_ordinary` 保留结构考核使用原参照的入口，`selectedReference` 仍是 B 的 `NEAR`。在 `forecast_next.py:solve_active_reference` 中，只为 `STRUCTURE/NEAR` 的击穿结果增加 A 的子区间。令 `s`、`C` 同识别，`D(C)`、`H(C)` 分别为现有一步 EMA 求得并按原来源精度处理的 DIF 与柱值。
+
+| 集合 | 计算口径 |
+|---|---|
+| `K`，B 严格击穿 | `s × (D(C)−B.dif) > 0`。现有预判其他结果继续使用 B 未击穿的范围。 |
+| `G`，本根可用 A 新钝化 | `s × H(C) ≥ 0`，当根收盘严格跨过 B、A 两处价格，且 `s × (D(C)−A.dif) < 0`。已有结构保证色段有色柱数达标，顶部继续保留原正 DIF 资格。历史 A 缺失或本段截至当前已严格击穿 A 时，A 无资格。其余情况先确认 `K` 与同段条件的交集存在确定或临界未决范围，再检查 A。价格、DIF、柱色均使用同一假设收盘。 |
+| 取消并新钝化 | `K ∩ G`，新增 `STRUCTURE_DISAPPEARED_AND_DULL_FORMED`，该条 `referenceRole=FAR`。 |
+| 直接取消 | `K ∩ 非 G`，沿用 `SIGNAL_DISAPPEARED` 及 `referenceRole=NEAR`。包括反色当根击穿、A 缺失和确定不通过。没有 A 可检查时，沿用原整个 `K`。 |
+
+1. 复用 `forecast_math.py` 的 `ComparisonRanges` 和 `Interval/intersect/merge/subtract`。在现有正收盘域，令 `T` 表示确定真、`F` 表示确定假。组合结果的确定真为 `T(K) ∩ T(G)`，确定假为 `F(K) ∪ F(G)`。直接取消的确定真为 `T(K) ∩ F(G)`，确定假为 `F(K) ∪ T(G)`。两项各自剩余为未决，再按原逻辑核验有限边界。不能把未决当作 G 不成立。交集保留开闭端点。同一收盘的价格、DIF 与柱色使用同一组原 EMA 和精度选项。日线保留 `rounded3_guarded`，分钟保留 `full_float`。
+2. `_solve_conditions` 保留原求根和有限核验流程，普通条件定义增加每条的结果参照和角色，并允许该组传入已按上式合成的范围。原有调用继续使用自己的参照、条件和现有求根方式。新组合的 `predicates` 给出 `K` 加 `G` 的数值比较，直接取消的 `predicates` 给出必要的 `K`，该条的完整适用区间以排除 A 成立或未决后核验的 `priceRanges` 为准。沿用现有 `predicates` 表达式、区间字段和 `precisionRanges`，前端按服务端文字和区间展示，不从必要条件自行推导结果。组合里的候选核验点同时取自 B 和 A 的有效谓词边界及输出端点。去重后沿用同一 B 考核入口和核验缓存，一组来源选项各执行一次实际下一根识别。
+3. `forecast_detector.py:_actual_outcome` 在原单事件校验前识别 §23.1 唯一合法的双事件，核实原 B 结构终态、第二事件引用历史 A、最终 `DULL/A`，然后返回新结果及 A。`evaluate_next_at_price` 在该分支的原运算核验中同时覆盖 A，保持同一收盘和同一个实际 `step`。只在来源选项的实际结果和参照都一致时确认边界。原 `RETURNED_TO_DULL` 仍对应保留原参照的相邻 DIF 回转。原独立跟踪的预判仍单列，正常真实状态与输入快照不由预判修改。
+4. 在 `types.py` 的 `ReferenceForecast` 记录本次是否实际检查 A，并由 `forecast.py` 传入原 `farEvaluated`。在这个新分支可出现 `selectedReference=NEAR`、`farEvaluated=true`。`references` 保留已知 B、A，`nearestDecision.status` 仍为 `NOT_EVALUATED`，理由说明正在考核原 B 以及 A 何时会被检查。`src/biz/schemas/wealth/market/index_detail_xxm_forecast.py` 的 `Outcome`、`_validate_details`、`wealth/src/features/index-detail/debug/forecastDebugContract.ts` 及 `xxm-forecast/types.ts` 同步接受上述特例。特例仅用于当前为 `STRUCTURE`、B/A 均存在且主参照为 `NEAR`，只有新结果可用 `referenceRole=FAR`。如同时返回两种击穿后结果，两者的确定区间不能重叠。其余结果按旧角色规则校验。新分支未实际检查 A 时 `farEvaluated=false`，即使 A 出现在历史池。
+5. `forecast_text.py` 同步条件顺序、角色检查和文字。已检查 A 时说明先判断原结构，再计算取消后能否按远参照钝化。新结果用「原结构消失，转用远参照形成顶/底钝化」，直接取消用「结构直接消失」，继续明确未决区间尚无确定结论。`src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py` 用现有 `_assemble` 和条件编号规则传递各条角色、区间和结果。保持普通响应字段、单根目标端点和现有选近逻辑，正常页面仍按最新已完成根预判。
+
+### 23.4 版本、缓存与执行顺序
+
+1. 同一交付内将 `spec.py` 识别版本更新为 `xxm-direction-v0.5-r4.1`，加入本节固定策略 `structure_reactivation_policy="cancel_near_then_activate_far_on_same_bar"`。将 `forecast_spec.py` 预判版本更新为 `xxm-key-point-forecast-v0.7-r4.1`，加入固定策略 `structure_break_policy="split_direct_cancel_and_far_activation"`。按现有 Spec 序列化生成 hash，更新 `wealth/src/features/index-detail/xxm/types.ts`、`xxm-forecast/types.ts` 的身份常量、解码及定向测试中固化的当前版本值。仍用原编号规则，算法版本变化后比较业务事实时按时间、参照和状态对照，不要求新旧编号相等。
+2. 查询继续用正式 Spec hash 隔离缓存和进度。`snapshot_validation.py` 保留现行字段及身份校验，旧版本进度按原机制拒绝，r4.1 的 `DULL/A` 可按相同字段恢复。按真实前缀重新计算后发布，旧取消记录由查询记录链保留。无需增加磁盘缓存、迁移、算法开关或双版本运行。回滚按原提交恢复匹配的后端、前端和 Spec，重建各自内存缓存，避免版本混用。
+3. 开发顺序为识别及内部校验 → 历史查询和事件投影 → 单根预判 → 身份及前端消费者同步 → 定向回归和真实小窗口验收 → 对照本节审计。身份同步时核对分钟 API 合同现有识别章节，并补其对本节的指向，字段定义仍由原合同入口维护。识别与预判、前端版本校验完成联动后再进入真实请求。仅本地既有九指数与五周期入口生效，取数源、现行历史起点和计算前缀、缓存共享、生产门禁沿用指数扩展收尾口径。新增识别工作只查内存里的 A，预判复用同一行情前缀、同一目标端点。
+
+### 23.5 测试设计与完成条件
+
+| 验证内容 | 样本及独立预期 | 首选现有测试入口 |
+|---|---|---|
+| 同根取消并钝化、随后形成 | 使用研究文档实数锁定 11 月 3 日 14:00 按 B 钝化、15:00 形成旧结构、11 月 4 日 11:00 依序取消 B 和新钝化 A、14:00 首次翻红产生不同编号的新结构并开始跟踪。11:00 普通状态 DULL/A，14:00 普通状态 NONE，跟踪记录为 `FOLLOWING`。按相反方向手算一份顶部正例，给出预期事件、终态和记录。 | `scripts/research/index_market/tests/test_xxm_r4_rules.py`、`test_xxm_r4_observation.py` |
+| 严格边界与禁止分支 | 以可成立样本分别改变一个比较。DIF 等于 B 不产生 `dif_break`，等于 A 不允许新钝化。分别让 B 和 A 成为更难跨越的价格门槛，验证当根收盘等于该门槛时不新钝化。A 缺失、本段曾击穿 A、原参照是 A、真实反色击穿，分别核对取消或原有分支及事件数量。已达有色柱数时用零柱核验仍可走同段，且计数不增加。顶部已有合法结构保证 B 的 DIF 为正，严格向上击穿 B 后当根 DIF 也为正，沿用原资格检查及其已有用例。补原 DULL 的同根连续换参照、旧结构 1% 回转及价格取消和新钝化同时发生的对照，分别验证原事件和展示语义。 | `test_xxm_r4_rules.py`、`test_xxm_r4_internal_results.py`、`test_xxm_r4_following.py` |
+| 查询、恢复和显示 | 以取消当根为首根裁剪窗口时仍能看到两条事实和 B 的旧结构终止记录。实际前缀在取消前只含旧结构，取消后恢复结果与连续计算一致。合格时漏发新钝化、调换两条事件顺序、错配参照或关联编号的结果必须拒绝。普通与 debug 公共内容一致，图上仅钝化，debug 有两条详情。只有取消时取消仍可见。 | `test_xxm_r4_following_query.py`、`test_xxm_r4_restore.py`、`tests/web/test_wealth_index_detail_xxm_api.py`、`wealth/src/features/index-detail/xxm/adapter.test.tsx` |
+| 单根预测区间 | 手算同一假设收盘下 K/G 两种可确认结果，分别断言不同角色、区间互斥及实际一步识别一致。覆盖 B 击穿而 A 无解、已有 A 失效、只有反色才可击穿、两集合恰好相等的严格端点、日线精度未决及分钟全精度。验证已有 1% 转折、反色跟踪和首次钝化先近后远不变，且只处理下一根。 | `test_xxm_key_point_forecast.py`、`test_xxm_r4_following_forecast.py`、`test_xxm_forecast_display.py`、`tests/web/test_wealth_index_detail_xxm_forecast_api.py`、`wealth/src/features/index-detail/debug/forecastDebugContract.test.ts` |
+| 身份与来源边界 | 同一真实前缀连续和恢复结果一致，旧版本进度和新旧前后端错配按原合同拒绝。普通/debug 使用同一来源。分钟识别取数维持返回数量加原热身上限，同一预判不另读一份识别前缀。验证已有本地/生产门禁、既有源与周期消费者。 | `test_xxm_input_validation.py`、`test_xxm_snapshot_consumers.py`、`tests/web/test_xxm_shared_loads.py`、`test_wealth_index_detail_xxm_local_routes.py`、`wealth/src/features/index-detail/xxm-forecast/identity.test.tsx` |
+
+真实核验使用已有隔离本地 App 和本机正式分钟 Gold，只查 `000001.SH` 的 m90。识别用 `minute-xxm-signals`，`endDate=2026-11-04`、`limit=500`，分别核普通、debug 和 debug 加 `startDate=2026-11-04` 的输出裁剪。`startDate` 只裁响应，保持同一 1500 根输入上限。次根预判用 `xxm-key-point-forecast`，复用现有只读 `asOf` 核验入口，以 `2026-11-03T15:00:00+08:00`、`2026-11-04T11:00:00+08:00` 两个前缀分别核 11:00 和 14:00 的目标及实际收盘对应结果。临界未决据实记录。页面正常使用最新行情，不增加历史回看入口。其他周期的边界由定向回归验证，本轮真实样本结论限该指数和周期。
+
+真实核验继续使用现行服务端完整请求 4 秒、预判计算与缓存处理 400 毫秒、客户端识别与预判 5 秒预算，沿用识别响应 1 MiB、预判响应 32 KiB 上限。复用原隔离组 50 秒工作、60 秒含启动、最终检查与退出的约束。记录各请求实际根数、数据截止、读次数、耗时及识别/预判事实。首个失败或超预算即结束本组，清理本组临时进程，保留已得证据并汇报原因。后续获准续做时从首个未通过检查开始，重新确认相同数据前缀及版本，继续按同组预算。工具临时信息放 `/private/tmp`，无数据库、Lake、生产配置或正式结果文件写入。
+
+验收须同时核对识别两条事件和旧记录、新预判两个结果、真实样本时间与价格、版本和展示一致、指定负例与原分支无回归，以及读取和耗时证据。只完成其中一层时据实报告对应进度。当前阶段为文档设计，以上各项均待编码后的验证。
