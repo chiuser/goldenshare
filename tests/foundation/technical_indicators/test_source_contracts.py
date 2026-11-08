@@ -23,6 +23,7 @@ import pytest
 
 from src.foundation.config.settings import Settings
 from src.foundation.clients.local_lake.technical_indicator_contracts import price_contract, source_projection
+from src.foundation.clients.local_lake.technical_indicator_price_locator import LakePriceLocator
 from src.foundation.clients.local_lake.technical_indicator_price_source import LakeTechnicalIndicatorPriceSource
 from src.foundation.technical_indicators import CalculationInstance, CalculationRequest
 from src.foundation.technical_indicators.calculation.history import HistoryRequirement
@@ -201,15 +202,16 @@ def test_cancellation_and_file_count_fail_before_data_reader(minute_files, monke
     with pytest.raises(ResourceLimitError, match="max_source_files"):
         _describe(source, _requirement(request), control=control, read_context=context)
     assert context.source_files == 2
-    original = source._inspect
+    original = LakePriceLocator._open_metadata
     visited = []
 
-    def cancel_after_first(path, *args, **kwargs):
-        original(path, *args, **kwargs)
+    def cancel_after_first(locator, path, *args, **kwargs):
+        result = original(locator, path, *args, **kwargs)
         visited.append(path)
         control.stopped = True
+        return result
 
-    monkeypatch.setattr(source, "_inspect", cancel_after_first)
+    monkeypatch.setattr(LakePriceLocator, "_open_metadata", cancel_after_first)
     with pytest.raises(CalculationCancelledError):
         _describe(source, _requirement(request), control=control, read_context=SourceReadContext(config))
     assert len(visited) == 1

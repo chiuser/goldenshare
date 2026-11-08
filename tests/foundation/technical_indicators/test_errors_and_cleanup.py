@@ -215,7 +215,7 @@ def test_pending_batch_cancel_releases_stream(batch_assembly_files, monkeypatch,
         pending = stream._pending_batch
         assert pending is not None and pending.num_rows==1808
         assert context.source_rows==trace.actual_read_rows==10000
-        assert trace.reader_opens==[str(path) for path in batch_assembly_files.minute_paths[:3]]
+        assert trace.reader_opens==[str(batch_assembly_files.minute_paths[i]) for i in (0, 2)]
         stream.release_current_batch()
         assert stream._pending_batch is pending
         del batch,pending

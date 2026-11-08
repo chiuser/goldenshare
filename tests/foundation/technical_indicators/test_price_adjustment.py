@@ -12,13 +12,16 @@ from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
+import duckdb
 import pyarrow as pa
 import pytest
 
+from src.foundation.clients.local_lake.technical_indicator_price_source import LakeTechnicalIndicatorPriceSource
 from src.foundation.config.settings import Settings
 from src.foundation.technical_indicators import CalculationInstance, CalculationRequest
 from src.foundation.technical_indicators.calculation.calculation import SqlStep
 from src.foundation.technical_indicators.calculation.history import HistoryRequirement
+from src.foundation.technical_indicators.calculation.indicators import create_builtin_registry
 from src.foundation.technical_indicators.configuration import KernelConfig
 from src.foundation.technical_indicators.errors import CalculationCancelledError, ResourceLimitError, SourceUnsupportedError
 from src.foundation.technical_indicators.execution_control import ExecutionControl
@@ -162,6 +165,8 @@ def test_literal_conversion_once_per_batch_and_retained_adjusted_history(target,
             assert source.stream.current is None  # Arrow already released
             # Two independent SQL consumers borrow the same price table; no re-read.
             values.append(executor.scalar(f"SELECT close FROM {batch.table_name} WHERE seq={seq}"))
+            if seq == 2:
+                assert executor.scalar(f"SELECT close FROM {batch.table_name} WHERE seq=1") == expected[0]
             assert executor.scalar(f"SELECT volume FROM {batch.table_name} WHERE seq={seq}") == (100., 200.)[seq-1]
             assert source.stream.reads == seq
             with pytest.raises(RuntimeError):
@@ -174,7 +179,7 @@ def test_literal_conversion_once_per_batch_and_retained_adjusted_history(target,
         assert source.factor_calls == inputs.conversion_batches == 2
         assert context.source_rows == 2
         assert inputs.read_start == date(2026, 1, 5) and inputs.read_end == date(2026, 1, 6)
-        assert executor.scalar("SELECT count(*) FROM ti_history") == 1
+        assert "ti_history" not in inputs._tables
     finally:
         assert not service._close_execution(control, connection, inputs=inputs)
     assert source.stream.closed
@@ -215,28 +220,32 @@ def test_missing_daily_factor_does_not_drop_positions_or_fall_back_to_one():
     ("week", date(2026, 1, 5), date(2026, 1, 9), date(2026, 1, 12), date(2026, 1, 13), False),
 ])
 def test_period_cutoff_rejects_future_information_but_keeps_valid_partial_and_completed_bars(
-        period, start, finish, as_of, cutoff, rejected):
-    service, connection, executor, control, source, context, previous = open_session("none")
-    days = (finish, start, finish, as_of)
-    batch = pa.record_batch([pa.array([day], type=pa.date32()) for day in days] +
-                            [pa.array([10.]), pa.array([100.])],
-                            names=("trade_date", "period_start", "period_end", "source_as_of", "close", "volume"))
-    source.stream = LiteralStream(context, (batch,))
-    requirement = replace(previous.requirement,
-                          request=replace(previous.requirement.request, period=period, end=cutoff))
-    source.description = replace(source.description,
-        selection=PriceReadSelection(start, start, start, start, 1, 0, True, ()))
-    inputs = PriceInputSession(executor, source, requirement, read_context=context)
-    try:
-        inputs.prepare()
-        if rejected:
-            with pytest.raises(SourceUnsupportedError, match="later version"):
-                inputs.next_batch()
-        else:
-            assert inputs.next_batch().new_row_count == 1
-            assert inputs.read_start == start
-    finally:
-        assert not service._close_execution(control, connection, inputs=inputs)
+        period, start, finish, as_of, cutoff, rejected, tmp_path):
+    # Projected fields from the DG stock_weekly and stock_monthly producer contracts.
+    partition = (f"stock_weekly/week_end={finish:%Y-%m-%d}" if period == "week"
+                 else f"stock_monthly/month={finish:%Y-%m}")
+    path = tmp_path / "silver/quote" / partition / "part-000.parquet"
+    path.parent.mkdir(parents=True)
+    with duckdb.connect(":memory:", config={"threads": 1, "max_temp_directory_size": "0B"}) as connection:
+        connection.execute("""COPY (SELECT '600000.SH'::VARCHAR AS ts_code,
+            $finish::VARCHAR AS trade_date, $asof::VARCHAR AS end_date,
+            10::DECIMAL(18,4) AS open, 14::DECIMAL(18,4) AS high,
+            8::DECIMAL(18,4) AS low, 12::DECIMAL(18,4) AS close,
+            12::DECIMAL(20,4) AS vol, 34::DECIMAL(20,4) AS amount)
+            TO $target (FORMAT PARQUET)""",
+            {"finish": finish.strftime("%Y%m%d"), "asof": as_of.strftime("%Y%m%d"), "target": str(path)})
+    cfg = config(goldenshare_lake_root=str(tmp_path))
+    service = TechnicalIndicatorService(source=LakeTechnicalIndicatorPriceSource(cfg),
+        registry=create_builtin_registry(), config=cfg)
+    request = CalculationRequest("stock", "600000.SH", period,
+        (CalculationInstance("price", "price", {}),), adjustment="none", end=cutoff)
+    if rejected:
+        with pytest.raises(SourceUnsupportedError, match="later version"):
+            service.calculate(request)
+    else:
+        result = service.calculate(request)
+        assert result.times == (start,) and result.source_as_of == (as_of,)
+        assert result.source.read_start == start
 
 
 def test_source_resource_boundaries_and_request_isolation_without_file_io():
@@ -412,8 +421,7 @@ def test_assembled_daily_batch_runs_one_qfq_session(batch_assembly_files, monkey
         values=[row[1:] for row in rows]
         assert values==[(5.,5.5,4.5,5.,100.,1000.)]*10+[(10.,11.,9.,10.,100.,1000.)]*11
         inputs.retain_required_history()
-        verification_sql_rows += 19
-        assert executor.scalar("SELECT count(*) FROM ti_history")==19
+        assert "ti_history" not in inputs._tables
         inputs.finish_batch()
         assert inputs.next_batch() is None
         assert context.source_rows==trace.actual_read_rows==21
@@ -425,7 +433,7 @@ def test_assembled_daily_batch_runs_one_qfq_session(batch_assembly_files, monkey
             sql_rows=(0 if executor is None else executor.sql_processed_rows)+verification_sql_rows,
             cleanup=[str(item) for item in cleanup],
             expected={"input":21,"sizes":[21],"qfq_close_first":5.0,"qfq_close_last":10.0,
-                      "conversion_batches":1,"retained_history":19},
+                      "conversion_batches":1,"retained_history":0},
             source_calls=calls,stop_requested_at=control.stop_requested_at,
             sql_step_logical_rows=0 if executor is None else executor.sql_processed_rows,
             verification_sql_logical_rows=verification_sql_rows,

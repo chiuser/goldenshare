@@ -1,7 +1,7 @@
 """LLD §08/16.2: common execution only; no stock Web registration in A/B.
 
-Real Admission, AnyIO worker, handoff, encoder and send; only Control and
-calculate are replaced. The result is a contract literal, not algorithm evidence.
+Real Admission, request preparation, AnyIO worker, handoff, encoder and send.
+Only Control and worker calculation are replaced with test doubles.
 JUnit reports this function's costs; historical reports are never read/written.
 """
 
@@ -70,20 +70,21 @@ def test_single_work_and_existing_entries(monkeypatch, record_property):
             calls, releases, weak_values, faults = [], [], [], []
             mode = "normal"
 
-            def calculate(service, normalized):
+            def calculate(service, prepared, *, control):
                 metrics["calculate_stub_calls"] += 1
                 assert threading.get_ident() != main_thread
-                assert service.control is controls[-1]
-                assert normalized == request and normalized is not request
-                assert len(normalized.calculations) == 10
-                calls.append(normalized)
+                assert service.control is control is controls[-1]
+                assert prepared.normalized is request
+                assert len(prepared.normalized.calculations) == 10
+                calls.append(prepared.normalized)
                 if mode == "wrong_library_type":
                     value = _Payload(result="unsupported library result")
                     weak_values.append(weakref.ref(value))
                     return value
                 return reference
 
-            monkeypatch.setattr(execution.TechnicalIndicatorService, "calculate", calculate)
+            monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_library", calculate)
+            monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_result", calculate)
             original_release = rt.admission.release
 
             def release(lease):
