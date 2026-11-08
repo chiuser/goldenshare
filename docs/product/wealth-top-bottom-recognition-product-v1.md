@@ -1,6 +1,6 @@
 # 财势乾坤顶底识别产品文档 v1
 
-**r4.1 开发完成，待验收。** 已验收的 r4 及其记录作为基线。本次规则变更以[产品方案 §12](#r41-product)为准，案例和证据见[定量结构方法研究](quantitative-structure-method-research.md)。
+**r4.1 本地验收通过，已收尾（2026-11-08）。** 当前本地版本及验收依据见[LLD §23.5](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md#r41-acceptance-closeout)，业务规则见[产品方案 §12](#r41-product)，案例与作者软件证据见[定量结构方法研究](quantitative-structure-method-research.md)。
 
 **当前状态（2026-11-04）：P5整体验收通过，已收尾。**管理员本轮已明确确认通过；P5四步均已完成，既有交接/回归证据见LLD§22.9/§22.16.6，工程文档交付及最终收尾见§22.18—22.19。本轮只同步最终验收状态、核对并提交本聊天文档，不改变产品范围、规则或验收成绩。
 
@@ -527,4 +527,4 @@ r4.1 以 §4、§4.1 的已验收 r4 为基础，只增加一个真实完成 K �
 
 更早的跟踪中结构若也在当根因价格取消，先记录这条价格取消，再记录 B 的 DIF 取消和 A 的新钝化。每条取消按自己的方向和原因判断是否在图上隐藏，调试详情保留全部事件和各自关联的结构。预判调试详情以适用收盘区间说明结果，并将所列比较标为必要比较。击穿 B 本身仍不足以判定是直接取消还是按 A 新钝化。
 
-按[技术方案 §25](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-technical-design-v1.md#r41-technical)和[LLD §23](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md#r41-lld)交付。先完成识别和事件校验，再同步次根预判、版本和页面消费者，最后完成离线定向回归与实现对账，状态登记为「开发完成，待验收」。[上证 90 分钟案例](quantitative-structure-method-research.md)的真实行情小窗口、请求预算、11 月 4 日 11:00 对 14:00 的预判及实际页面展示均由管理员在正式验收阶段核验。作者软件的实际标注独立留作研究证据。
+已按[技术方案 §25](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-technical-design-v1.md#r41-technical)和[LLD §23](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md#r41-lld)交付。开发回归及管理员的整体通过确认统一登记在[LLD §23.5](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md#r41-acceptance-closeout)。[上证 90 分钟案例](quantitative-structure-method-research.md)继续区分产品规则、离线回归与作者软件的研究证据。

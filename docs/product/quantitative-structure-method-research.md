@@ -1,6 +1,6 @@
 # 定量结构方法研究
 
-**r4.1 开发完成，待验收。** 本轮以已验收的 r4 为基线，研究上证 90 分钟旧结构被 DIF 击穿后，如何在同一根完成 K 线上重新判断远参照。开发版本为识别 `xxm-direction-v0.5-r4.1`、预判 `xxm-key-point-forecast-v0.7-r4.1`。r4.1 的业务决策、技术边界和编码设计分别见[产品方案 §12](wealth-top-bottom-recognition-product-v1.md#r41-product)、[技术方案 §25](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-technical-design-v1.md#r41-technical)及[LLD §23](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md#r41-lld)。此前的研究、旧版本对比和验收资料由[原研究交接](xxm-research-and-implementation-v0.6.md#r4-current-handoff)索引。
+**r4.1 本地验收通过，已收尾（2026-11-08）。** 本轮以已验收的 r4 为基线，研究上证 90 分钟旧结构被 DIF 击穿后，如何在同一根完成 K 线上重新判断远参照。版本为识别 `xxm-direction-v0.5-r4.1`、预判 `xxm-key-point-forecast-v0.7-r4.1`。业务决策、技术边界和验收记录分别见[产品方案 §12](wealth-top-bottom-recognition-product-v1.md#r41-product)、[技术方案 §25](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-technical-design-v1.md#r41-technical)及[LLD §23.5](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md#r41-acceptance-closeout)。此前的研究、旧版本对比和验收资料由[原研究交接](xxm-research-and-implementation-v0.6.md#r4-current-handoff)索引。
 
 ## 上证 90 分钟案例
 
@@ -11,14 +11,14 @@
 | 近谷 B | 2026-10-30 11:00 至 11-02 14:00 | 3599.0166，10-30 15:00 | −27.029098705920205，11-02 11:00 |
 | 远谷 A | 2026-10-22 14:00 至 10-23 15:00 | 3620.7249，10-23 11:00 | −36.186445721572454，10-23 14:00 |
 
-| 完成时间 | 本机收盘价 | 本机 DIF | 本机 MACD 柱 | 已核对的 r4 结果 | r4.1 本例待验预期 |
+| 完成时间 | 本机收盘价 | 本机 DIF | 本机 MACD 柱 | 已核对的 r4 结果 | r4.1 规则预期 |
 |---|---:|---:|---:|---|---|
 | 2026-11-03 14:00 | 3584.8710 | −26.883732958846394 | −4.488127712248506 | 先选合格近谷 B，成立底部钝化 | 同 r4 |
 | 2026-11-03 15:00 | 3608.0977 | −26.476741829203547 | −2.939316362370235 | 按 B 形成底部结构 | 同 r4 |
 | 2026-11-04 11:00 | 3591.8962 | −27.1485722338507 | −3.4263817373316314 | 第 4 根绿柱，DIF 击穿 B，旧结构取消，状态为空 | 取消 B 对应旧结构，按 A 新成立钝化，图上只标钝化 |
 | 2026-11-04 14:00 | 3660.3843 | −21.902111471293665 | +5.6532318302259625 | 首次翻红，无新结构 | 按 A 形成新结构并开始后续跟踪 |
 
-11:00 的当根收盘同时低于 B 和 A 的最低收盘，且 `DIF_A < 当根 DIF < DIF_B`。从 11 月 3 日 11:00 至此，绿柱段最低 DIF 仍高于 A。B 的旧结构因此可明确结束，同时 A 满足新钝化的独立资格。14:00 的 DIF 仍高于 A，收盘也高于新结构原绿段最低收盘 3584.8710，满足反色确认和进入跟踪的条件。r4.1 的预期已用表中数值和人工补齐的历史前缀通过离线回归。真实接口与页面结果由管理员在正式验收后登记。
+11:00 的当根收盘同时低于 B 和 A 的最低收盘，且 `DIF_A < 当根 DIF < DIF_B`。从 11 月 3 日 11:00 至此，绿柱段最低 DIF 仍高于 A。B 的旧结构因此可明确结束，同时 A 满足新钝化的独立资格。14:00 的 DIF 仍高于 A，收盘也高于新结构原绿段最低收盘 3584.8710，满足反色确认和进入跟踪的条件。r4.1 的预期已用表中数值和人工补齐的历史前缀通过离线回归。管理员的本地验收确认见[LLD §23.5](../../wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md#r41-acceptance-closeout)，表内 r4.1 一列保留为规则预期。
 
 ## 原图与讲解的证据边界
 

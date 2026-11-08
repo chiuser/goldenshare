@@ -291,7 +291,7 @@ docs/
 - [财势乾坤顶底识别产品文档 v1（唯一正式r4、仅本地；P5整体验收通过）](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-product-v1.md)
 - [财势乾坤顶底识别技术方案 v1（当前实现、合同与交付依据；P5已验收收尾）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-technical-design-v1.md)
 - [财势乾坤顶底识别LLD v1（当前规则、编码、测试及交付对账；P5已验收收尾）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-low-level-design-v1.md)
-- [定量结构方法研究（r4.1，基于 r4，待实施）](/Users/congming/github/goldenshare/docs/product/quantitative-structure-method-research.md)
+- [定量结构方法研究（r4.1 本地验收通过）](/Users/congming/github/goldenshare/docs/product/quantitative-structure-method-research.md)
 - [财势乾坤r4指数扩展方案 v1（九指数五周期，本机DG取数及验收已收尾）](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-index-expansion-plan-v1.md)
 - [财势乾坤r4指数扩展LLD v1（DG实测与页面验收收尾，见§18）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-index-expansion-low-level-design-v1.md)
 - [财势乾坤顶底识别P4耗时优化专项方案 v1（P4已收尾；性能优化4—7批保留TODO）](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-p4-performance-optimization-plan-v1.md)
