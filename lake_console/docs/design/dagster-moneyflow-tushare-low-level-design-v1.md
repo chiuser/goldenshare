@@ -5357,3 +5357,28 @@ Dagster元数据必须按本表job、sensor、asset/check及日期过滤：每�
 本轮只补齐执行说明及提交状态，已逐项核对上述当前代码、安装版sensor标签、现有异常报告与清退记录。未发现新的已确认待开发项；待观察的真实性能与自动调度行为必须保留未验收结论。本节文档通过检查不等于三日数据已验收，也不构成DG启动或任何正式变更授权。
 
 本轮文档验收：仓库`python3 scripts/check_docs_integrity.py`三组通过；两文档312处本地链接目标存在，新增章节无编号重复，限定两文档的`git diff --check`通过。已提交清退实现无后续差异，未重复执行既有757项测试；本轮没有源码、配置、依赖边界或正式运行变化。
+
+<a id="moneyflow-ths-20261027-recovery"></a>
+
+## 78. 2026-10-27同花顺个股资金流补齐
+
+2026-11-08管理员已批准本日两层恢复。原日失败任务为`cfadc217-b3d4-4ca6-9312-5d15a8a5b41f`与`2cfc3cb5-e9f0-4a85-878c-86832182d120`，均报`source_numeric_contract`。本轮只读按原2000行分页得到2000、2000、1221行，合计5,221个唯一键，13字段在原始响应和SDK转换后均通过原逐页校验。正式预检确认目标日已登记，两份目标文件缺失，两层均无活动任务，Lake与staging同设备且满足原64 GiB余量。
+
+先使用最新失败父任务`2cfc3cb5-e9f0-4a85-878c-86832182d120`、`FROM_FAILURE`、`useParentRunTags=true`续跑一次，保持原日分区和空配置。原Raw两轮采集相隔至少60秒，以预核每轮3页估计正常6次请求，保留实际结束页、原最多64次及300秒预算和行数基准。Raw两轮一致及原阻断检查通过后，优先接已有Silver；本机当前尚未到原22:00时点，若无本日Silver任务，手动提交一次原Silver job。Silver只读本日Raw及其检查和摘要，仅生成同日Silver。两层候选由原入口校验并同盘提升。失败保留原证据并停在当前层，响应不明按原日期和运行编号先查；验收只看本日两份文件元数据、原检查和交付绑定。
+
+在`/Users/congming/github/goldenshare/lake_console/orchestrator`工作目录连接既有本机Dagster（`/Users/congming/.goldenshare/dagster_home`）。Raw命令如下；Silver使用同一命令形状，将请求和响应文件名中的raw换为silver，selector为`orchestrator/__repository__`及`silver_moneyflow_ths_update_job`，空配置、原目标分区及对应分区集标签。
+
+```bash
+curl --max-time 25 --fail-with-body --silent --show-error \
+  http://127.0.0.1:3000/graphql -H 'Content-Type: application/json' \
+  --data-binary @/private/tmp/dg-ths-recovery-20261027.QX0EFa/launch-raw.json \
+  -o /private/tmp/dg-ths-recovery-20261027.QX0EFa/launch-raw-response.json
+```
+
+### 78.1 执行结果
+
+2026-11-08（北京时间）Raw续跑`866108e5-ae23-4d71-b174-b8e8c6981524`于17:14:16开始、17:15:33成功。两轮共6次请求，相隔60.03秒，各5,221行，内容摘要一致。候选通过原行数门禁，基准为5,218行。Raw原检查通过，绑定当日物化`7950694`。
+
+原Silver传感器当时尚未到22:00，预检无该日任务，按批准范围手动提交原Silver任务`adde4421-8ad1-4009-9bc6-d3d092ededd7`，于17:16:02成功。原标准化检查通过，绑定当日物化`7950722`，并核对其引用的Raw SHA-256与本次Raw一致。
+
+两份正式文件分别为336,266和336,242字节，Parquet元数据均为5,221行，读取期间文件未变化。恢复范围仅为10月27日的两层数据。本轮临时请求、响应和核验文件在收尾时清理，正式运行记录及交付收据作为验收依据。
