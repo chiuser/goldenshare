@@ -6,6 +6,7 @@
 > 方案：[详情页共享图表与 K 线缩放技术实施方案 v1](./detail-chart-zoom-implementation-design-v1.md)
 > 门禁：[详情页共享图表与 K 线缩放 M2 编码前门禁 v1](./detail-chart-zoom-m2-coding-gate-v1.md)
 > 后续共享交互扩展：[详情页 K 线可见区间最高/最低价标注技术方案 v1](./detail-chart-visible-extrema-annotation-implementation-design-v1.md)及其[代码级 LLD](./detail-chart-visible-extrema-annotation-low-level-design-v1.md)。该扩展已完成前端开发、自动化门禁、部署和用户人工交互验收，并已独立闭环；本文既有 M1/M2 完成状态不用于替代该扩展自身的验收记录。
+> 已按 Figma 审阅结果修订的副图显示与隐藏扩展见[代码级 LLD](./detail-chart-indicator-panel-visibility-low-level-design-v1.md)。该文规定副图显隐、固定底轴和股票分钟底部标签，本文各阶段的原始实施与验收记录保留。
 
 ---
 
