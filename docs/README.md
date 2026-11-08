@@ -294,6 +294,7 @@ docs/
 - [定量结构方法研究（r4.1 本地验收通过）](/Users/congming/github/goldenshare/docs/product/quantitative-structure-method-research.md)
 - [财势乾坤r4指数扩展方案 v1（九指数五周期，本机DG取数及验收已收尾）](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-index-expansion-plan-v1.md)
 - [财势乾坤r4指数扩展LLD v1（DG实测与页面验收收尾，见§18）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-index-expansion-low-level-design-v1.md)
+- [DG 主要指数顶底识别 Gold 数据集接入方案 v1（结果字段、同日触发和历史初始化，待详细设计）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-major-index-xxm-onboarding-plan-v1.md)
 - [财势乾坤顶底识别P4耗时优化专项方案 v1（P4已收尾；性能优化4—7批保留TODO）](/Users/congming/github/goldenshare/docs/product/wealth-top-bottom-recognition-p4-performance-optimization-plan-v1.md)
 - [顶底识别P5代码/测试逐文件审计清单（103文件，第二步执行结果已登记）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-p5-code-audit-v1.csv)
 - [顶底识别P5报告逐文件审计清单（3503原文件及221收敛目标，第二步执行结果已登记）](/Users/congming/github/goldenshare/wealth/docs/pages/index-detail/index-detail-top-bottom-recognition-p5-reports-audit-v1.csv)
