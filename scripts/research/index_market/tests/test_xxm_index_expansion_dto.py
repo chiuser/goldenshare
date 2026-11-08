@@ -25,7 +25,7 @@ from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
 def recognition_payload(code, period, view, *, stamp=None):
     stamp = stamp if stamp is not None else "2023-01-03" + ("" if period == "day" else "T15:00:00+08:00")
     raw = dict(
-        tsCode=code, period=period, algorithmVersion="xxm-direction-v0.4-r4", specHash=MAIN_SPEC.spec_hash,
+        tsCode=code, period=period, algorithmVersion="xxm-direction-v0.5-r4.1", specHash=MAIN_SPEC.spec_hash,
         source=dict(kind="daily_factor" if period == "day" else "minute_gold", inputId="literal-one-bar",
                     startTime=stamp, computedThrough=stamp, initialHistoryIncomplete=True,
                     indicatorVersion=None if period == "day" else 1),
@@ -51,7 +51,7 @@ def forecast_payload(code, period, view, *, stamp=None):
     stamp = stamp if stamp is not None else "2023-01-03" + ("" if period == "day" else "T15:00:00+08:00")
     # The zero bar cannot start a colored wave, so a next-bar solve is absent.
     facts = dict(
-        tsCode=code, period=period, forecastVersion="xxm-key-point-forecast-v0.6-r4",
+        tsCode=code, period=period, forecastVersion="xxm-key-point-forecast-v0.7-r4.1",
         forecastSpecHash=FORECAST_SPEC.spec_hash, detectorSpecHash=MAIN_SPEC.spec_hash,
         computedThrough=stamp, requestedAsOf=None, mode="LATEST", dataStatus="READY",
         ordinaryState="NONE", direction=None, targetEndpoint=None, barsAhead=None,

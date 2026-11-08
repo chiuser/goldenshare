@@ -5,12 +5,17 @@ from unittest.mock import patch
 
 import pytest
 
+from src.biz.queries.wealth.market.index_detail_xxm.forecast_query_service import _assemble
+from src.biz.schemas.wealth.market.index_detail_xxm_forecast import InternalForecastResponseDto
 from src.biz.services.wealth.market.index_detail_xxm.forecast import forecast, precheck_next_bar
 from src.biz.services.wealth.market.index_detail_xxm.forecast_detector import evaluate_structure_follow_at_price, evaluate_next_at_price
 from src.biz.services.wealth.market.index_detail_xxm.forecast_next import solve_followed_structure
 from src.biz.services.wealth.market.index_detail_xxm.forecast_text import make_display
 from src.biz.services.wealth.market.index_detail_xxm.projection import ProjectionState
-from scripts.research.index_market.tests.test_xxm_r4_following import T, TS, TF, TN, MULTI_SINGLE, bars, run, values
+from src.biz.services.wealth.market.index_detail_xxm.response_projection import project_forecast_response
+from scripts.research.index_market.tests.test_xxm_r4_following import (
+    T, TS, TF, TN, MULTI_SINGLE, REACTIVATION_ROWS, bars, run, values,
+)
 
 
 def target(c):
@@ -20,6 +25,62 @@ def target(c):
 def interval_has(r,C):
     return ((C>r['lower'] or C==r['lower'] and r['lowerInclusive'])
             and (r['upper'] is None or C<r['upper'] or C==r['upper'] and r['upperInclusive']))
+
+
+@pytest.mark.parametrize("period", ["day", "m90"])
+def test_r41_same_bar_break_forecasts_disjoint_results_and_old_price_cancellation(period):
+    c, _ = run(REACTIVATION_ROWS[:-1], period)
+    before = c.snapshot()
+    # DIF = 28 * (C - 350) / 351, histogram has the same sign.
+    # At 89 and 90 the DIF is between -28 and -15. Only 89 is below both prices.
+    projection = ProjectionState(350, 350, 0)
+    check = lambda: None
+    prepared = precheck_next_bar(c, check)
+    result = forecast(c, projection, target(c), check, prepared=prepared)
+    combined = "STRUCTURE_DISAPPEARED_AND_DULL_FORMED"
+    assert result.selected_reference == "NEAR" and result.far_evaluated
+    assert result.nearest_decision["status"] == "NOT_EVALUATED"
+    expected = [(89., combined, "FAR", 90), (90., "SIGNAL_DISAPPEARED", "NEAR", 100),
+                (100., "SIGNAL_DISAPPEARED", "NEAR", 100)]
+    for price, outcome, role, reference_price in expected:
+        assert [(condition.outcome, condition.reference_role) for condition in result.conditions
+                if any(interval_has(r, price) for r in condition.price_ranges)] == [(outcome, role)]
+        actual = evaluate_next_at_price(c, projection, price, target(c), "NEAR", check)
+        assert (actual["outcome"], actual["reference"]["price"]) == (outcome, reference_price)
+    assert len(result.structure_follow_conditions) == 1
+    assert any(interval_has(r, 89.) for r in result.structure_follow_conditions[0].price_ranges)
+    # DIF lies on a daily half-thousandth boundary. The two admissible daily
+    # readings straddle the strict -15 near-reference comparison.
+    rounding_boundary = 350 - 15.0005 * 351 / 28
+    assert any(interval_has(r["priceRange"], rounding_boundary) for r in result.precision_ranges) == (period == "day")
+    display = make_display(result, prepared=prepared, period=period, through=c.previous.time, mode="REPLAY", check=check)
+    assert "原结构消失，转用远参照形成底钝化" in display["conditionsText"]
+    assert "底部结构直接消失" in display["conditionsText"]
+    internal = _assemble(ts_code=c.ts_code, period=period, through=c.previous.time, as_of=c.previous.time,
+                         data_status="READY", ordinary="STRUCTURE", direction="BOTTOM",
+                         source_id="a" * 64, calendar_id="b" * 64, result=result, prepared=prepared, check=check)
+    public = project_forecast_response(internal, debug=False)
+    debug = project_forecast_response(internal, debug=True)
+    assert public.model_dump() == debug.model_dump(exclude={"debug"})
+    assert debug.debug.farEvaluated and debug.debug.selectedReference == "NEAR"
+    assert next(condition for condition in debug.debug.conditions if condition.outcome == combined).referenceRole == "FAR"
+    bad = internal.model_dump()
+    next(condition for condition in bad["conditions"] if condition["outcome"] == combined)["referenceRole"] = "NEAR"
+    with pytest.raises(ValueError, match="Condition state/reference mismatch"):
+        InternalForecastResponseDto.model_validate(bad)
+    assert c.snapshot() == before
+
+
+def test_r41_only_opposite_color_can_break_B_and_far_is_not_solved():
+    c, _ = run(REACTIVATION_ROWS[:-1], "m90")
+    # All positive prices give a DIF above -28. With DEA=-100 they all flip
+    # the green segment to red, including every close that strictly breaks B.
+    projection = ProjectionState(350, 350, -100)
+    check = lambda: None
+    result = forecast(c, projection, target(c), check, prepared=precheck_next_bar(c, check))
+    assert result.selected_reference == "NEAR" and not result.far_evaluated
+    assert [(c.outcome, c.reference_role) for c in result.conditions if any(interval_has(r, 89.) for r in c.price_ranges)] == [
+        ("SIGNAL_DISAPPEARED", "NEAR")]
 
 
 @pytest.mark.parametrize('period',['day','m30','m60','m90','m120'])

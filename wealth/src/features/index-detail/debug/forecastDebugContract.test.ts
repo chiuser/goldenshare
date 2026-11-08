@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { adaptForecast } from "../xxm-forecast/adapter";
-import { forecastDebugFixture } from "../xxm-forecast/forecastFixtures.test-support";
+import { forecastDebugFixture, forecastReactivationFixture } from "../xxm-forecast/forecastFixtures.test-support";
 import type { ForecastPeriod, ForecastDisplayRange } from "../xxm-forecast/types";
 import { decodeForecastDebug } from "./forecastDebugContract";
 
@@ -66,3 +66,21 @@ for (const period of ["day", "m30", "m60", "m90", "m120"] as const) {
     });
   }
 }
+
+it("accepts disjoint direct and far reactivation ranges with a near main reference", () => {
+  const options = { tsCode: "399001.SZ", period: "m90" as const, debug: 1 as const,
+    decodeDebug: decodeForecastDebug, check: () => {} };
+  const response = forecastReactivationFixture();
+  expect(adaptForecast(response, options)).toEqual(response);
+  const wrongRole = structuredClone(response);
+  wrongRole.debug.conditions[1]!.referenceRole = "NEAR";
+  expect(() => adaptForecast(wrongRole, options)).toThrow();
+  const noFar = structuredClone(response);
+  noFar.debug.farEvaluated = false;
+  expect(() => adaptForecast(noFar, options)).toThrow();
+  const overlap = structuredClone(response);
+  const farRange = overlap.debug.conditions[1]!.priceRanges[0]!;
+  farRange.upperInclusive = true;
+  farRange.displayUpper = 90;
+  expect(() => adaptForecast(overlap, options)).toThrow();
+});

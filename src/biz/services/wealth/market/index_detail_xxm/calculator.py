@@ -189,14 +189,15 @@ class XxmCalculator:
                 "pricePassed": price, "difPassed": dif, "referenceBroken": broken, "reason": reason,
             })
 
-    def _current_reference_qualifies(self, bar: XxmBar, wave: Wave, ref: Wave, nearest: Wave) -> bool:
+    def _current_reference_qualifies(self, bar: XxmBar, wave: Wave, ref: Wave, nearest: Wave,
+                                     *, observe: bool = True) -> bool:
         if (wave.count < self.spec.min_bars or (bar.hist > 0) - (bar.hist < 0) not in (0, wave.sign)
                 or (wave.sign == 1 and self.spec.top_activation_requires_positive_dif and bar.dif <= 0)):
             return False
         price = wave.sign * (bar.close - nearest.price) > 0 and wave.sign * (bar.close - ref.price) > 0
         broken = self._reference_was_broken(wave, ref) if price else None
         dif = wave.sign * (bar.dif - ref.dif) < 0 if price else None
-        if self._decision_context is not None:
+        if observe and self._decision_context is not None:
             stage = self._decision_context["selectionStage"]
             self._record_reference_check(stage, "B" if ref == nearest else "A", ref, checked=True,
                                          price=price, dif=dif, broken=broken,
@@ -233,28 +234,35 @@ class XxmCalculator:
                 return self._selection_result(candidate)
         return self._selection_result(None)
 
-    def _rescue_dull_reference(self, bar: XxmBar, wave: Wave, reference: Wave,
-                              history: list[Wave]) -> Wave | None:
-        # The caller permits this only in DULL, on the same logical segment.
-        pool = list(reversed(history))[:self.spec.max_refs]
-        if (len(pool) != 2 or reference != pool[0]
+    def _far_reference_after_break(self, bar: XxmBar, wave: Wave, reference: Wave,
+                                   history: list[Wave], *, stage: str,
+                                   observe: bool = True) -> Wave | None:
+        if (not history or reference != history[-1]
                 or (bar.hist > 0) - (bar.hist < 0) not in (0, wave.sign)
                 or not self._reference_was_broken(wave, reference)):
             return None
-        context = self._decision_context
+        context = self._decision_context if observe else None
         if context is not None:
-            context["selectionStage"] = "same_bar_rescue"
+            context["selectionStage"] = stage
         try:
-            candidate = pool[1] if self._current_reference_qualifies(bar, wave, pool[1], pool[0]) else None
-            self._selection_result(candidate)
-            if candidate is not None:
-                if context is not None:
-                    context["switched"] = True
-                return deepcopy(candidate)
-            return None
+            farther = history[-2] if len(history) == 2 else None
+            candidate = farther if farther is not None and self._current_reference_qualifies(
+                bar, wave, farther, reference, observe=observe) else None
+            if context is not None and (farther is not None or stage == "structure_reactivation"):
+                self._selection_result(candidate)
+                if farther is None:
+                    context["turn"]["reason"] = "近参照DIF已击穿，无远参照可检查"
+            return candidate
         finally:
             if context is not None:
                 context["selectionStage"] = "activation"
+
+    def _rescue_dull_reference(self, bar: XxmBar, wave: Wave, reference: Wave,
+                              history: list[Wave]) -> Wave | None:
+        candidate = self._far_reference_after_break(bar, wave, reference, history, stage="same_bar_rescue")
+        if candidate is not None and self._decision_context is not None:
+            self._decision_context["switched"] = True
+        return deepcopy(candidate)
 
     def _begin_decision(self, bar: XxmBar) -> None:
         previous = self.previous.dif if self.previous else None
@@ -273,7 +281,9 @@ class XxmCalculator:
         context = self._decision_context
         assert context is not None
         ordinary_events = [event for event in result.events if event["route"] != "structure_price_break"]
-        if ordinary_events:
+        if len(ordinary_events) == 2:
+            branch, reason = "structure_reactivation", "原结构因近参照DIF击穿取消，当根按远参照新钝化"
+        elif ordinary_events:
             branch = ordinary_events[0]["route"]
             reason = "实际普通事件：" + ordinary_events[0]["type"] + "/" + branch
         elif any(record["status"] == "FOLLOWING" and record["firstOppositeAt"] == result.point["time"]
@@ -338,17 +348,31 @@ class XxmCalculator:
         result = replace(result, events=result.events[n_events:], structures=result.structures[n_records:])
         ordinary = tuple(event for event in result.events if event["route"] != "structure_price_break")
         prices = tuple(event for event in result.events if event["route"] == "structure_price_break")
-        if len(ordinary) > 1 or len(prices) > 1 or len(result.structures) > 1 or result.events != ordinary + prices:
+        if len(prices) > 1 or len(result.structures) > 1 or result.events != ordinary + prices:
             raise ValueError("Invalid current relationship event order or multiplicity")
         true_flip = self.wave is not None and (bar.hist > 0) - (bar.hist < 0) == -self.wave.sign
-        if true_flip:
+        structure_break = (not true_flip and self.active_structure is not None and self.reference is not None
+                           and self.wave.sign * (bar.dif - self.reference.dif) > 0)
+        if structure_break:
+            sign = self.wave.sign
+            farther = self._far_reference_after_break(
+                bar, work.wave, self.reference, self.history[sign], stage="structure_reactivation", observe=False)
+            expected = (self._event(bar, "CANCEL", "dif_break", sign, self.reference,
+                                    "STRUCTURE", self.active_structure["id"]),)
+            if farther is not None:
+                expected += (self._event(bar, "DULL", "activation", sign, farther, "NONE", None),)
+            if (not _same_facts(ordinary, expected) or work.state != ("DULL" if farther else "NONE")
+                    or work.reference != farther or work.active_structure is not None):
+                raise ValueError("XXM structure DIF break differs from its same-bar events or progress")
+            expected_event = "CANCEL"
+        elif true_flip:
             broken = self.reference is not None and self.wave.sign * (bar.dif - self.reference.dif) > 0
             expected_event = "CANCEL" if broken else "STRUCTURE" if self.state == "DULL" else None
         else:
             expected_event = {("NONE", "DULL"): "DULL", ("DULL", "STRUCTURE"): "STRUCTURE",
                               ("STRUCTURE", "DULL"): "DULL", ("DULL", "NONE"): "CANCEL",
                               ("STRUCTURE", "NONE"): "CANCEL"}.get((self.state, work.state))
-        if tuple(event["type"] for event in ordinary) != ((expected_event,) if expected_event else ()):
+        if not structure_break and tuple(event["type"] for event in ordinary) != ((expected_event,) if expected_event else ()):
             raise ValueError("XXM step omitted or invented its state transition event")
         changed_structure = self.active_structure != work.active_structure or expected_event == "STRUCTURE"
         if len(result.structures) != int(changed_structure):
@@ -392,7 +416,7 @@ class XxmCalculator:
         routes = {"activation": ("DULL", "NONE"), "dif_turn": ("STRUCTURE", "DULL"),
                   "dif_return": ("DULL", "STRUCTURE"), "color_flip": ("STRUCTURE", "DULL")}
         event_fields = {"id", "time", "direction", "type", "route", "fromState", "eventReference", "relatedStructureId"}
-        for event in result.events:
+        for event in (() if structure_break else result.events):
             if set(event) != event_fields or event["time"] != bar.time or event["fromState"] != self.state:
                 raise ValueError("Invalid XXM event fields or prior state")
             sign = 1 if event["direction"] == "TOP" else -1 if event["direction"] == "BOTTOM" else 0
@@ -508,6 +532,12 @@ class XxmCalculator:
                             if old_structure is not None:
                                 structures.append(self._finish_structure(old_structure, bar, "DISAPPEARED", "reference_dif_break"))
                             work.state, work.reference, work.active_structure = "NONE", None, None
+                            if old_structure is not None:
+                                farther = self._far_reference_after_break(
+                                    bar, wave, old_ref, work.history[sign], stage="structure_reactivation")
+                                if farther is not None:
+                                    events.append(self._event(bar, "DULL", "activation", sign, farther, "NONE", None))
+                                    work.state, work.reference = "DULL", deepcopy(farther)
                     else:
                         assert self.previous is not None
                         basis = self.previous.dif

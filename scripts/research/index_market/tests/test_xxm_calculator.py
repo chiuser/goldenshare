@@ -155,7 +155,7 @@ def test_snapshot_clone_restore_and_failed_restore_are_isolated(period):
     first.restore(before)  # Valid rewind before the first opposite bar.
     assert first.snapshot() == before and first.active_structure["status"] == "ASSESSING"
     assert first.step(inputs[5]).structures[0]["status"] == "FOLLOWING"
-    assert first.spec.algorithm_version == "xxm-direction-v0.4-r4"
+    assert first.spec.algorithm_version == "xxm-direction-v0.5-r4.1"
     assert first.spec.spec_hash == MAIN_SPEC.spec_hash
     for rejected in [replace(inputs[-1], completed=False),replace(inputs[-1], dif=float("nan"))]:
         current=first.snapshot()
@@ -218,10 +218,10 @@ def test_m30_literal_completed_times_form_dull_then_structure_with_bound_ids():
         record = steps[-1].structures[0]
         # Independently registered ID formula; no calculator ID helper supplies
         # the expected value, so original 上证 identity is guarded as well.
-        parts = ("xxm-direction-v0.4-r4", MAIN_SPEC.spec_hash, code, "m30", times[-1],
+        parts = ("xxm-direction-v0.5-r4.1", MAIN_SPEC.spec_hash, code, "m30", times[-1],
                  "STRUCTURE", 1, times[0])
         event_id = hashlib.sha256("|".join(map(str, parts)).encode()).hexdigest()[:24]
-        structure_parts = ("xxm-direction-v0.4-r4", MAIN_SPEC.spec_hash, code, "m30", "structure", event_id)
+        structure_parts = ("xxm-direction-v0.5-r4.1", MAIN_SPEC.spec_hash, code, "m30", "structure", event_id)
         structure_id = hashlib.sha256("|".join(map(str, structure_parts)).encode()).hexdigest()[:24]
         assert event["id"] == event_id and record["id"] == structure_id
         assert record["status"] == "ASSESSING" and record["structureEventId"] == event_id

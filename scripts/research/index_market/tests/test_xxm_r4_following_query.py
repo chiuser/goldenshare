@@ -11,7 +11,8 @@ from src.biz.queries.wealth.market.index_detail_xxm.query_service import IndexDe
 from src.biz.schemas.wealth.market.index_detail_xxm import InternalXxmResponseDto
 from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
 from src.biz.services.wealth.market.index_detail_xxm.types import XxmStep
-from scripts.research.index_market.tests.test_xxm_r4_following import DATES, T, TS, TF, TN, DUAL, bars, run, values
+from scripts.research.index_market.tests.test_xxm_r4_following import DATES, T, TS, TF, TN, DUAL, REACTIVATION_ROWS, bars, run, values
+from src.biz.services.wealth.market.index_detail_xxm.response_projection import project_xxm_response
 
 
 def entry(rows, period='day', *, ts_code='000001.SH'):
@@ -30,6 +31,28 @@ def entry(rows, period='day', *, ts_code='000001.SH'):
 def response(item, count, *, limit=1000, start=None):
     return Query._response(item,ts_code=item.calculator.ts_code,period=item.calculator.period,expected=item.processed[count-1].time,
                           start_date=start,limit=limit,check=lambda:None)
+
+
+@pytest.mark.parametrize("limit", [1, 11])
+def test_r41_triple_events_survive_cropping_and_public_projection(limit):
+    item = entry(REACTIVATION_ROWS, "m90")
+    assert {s.status for s in response(item, 10).structures} == {"FOLLOWING", "ASSESSING"}
+    out = response(item, 11, limit=limit)
+    end = item.processed[-1].time
+    events = [e for e in out.events if e.time == end]
+    assert [e.route for e in events] == ["structure_price_break", "dif_break", "activation"]
+    assert len({e.relatedStructureId for e in events[:2]}) == 2
+    assert out.points[-1].activeReference == events[-1].eventReference
+    assert [s.status for s in out.structures] == ["DISAPPEARED", "DISAPPEARED"]
+    public = project_xxm_response(out, debug=False)
+    debug = project_xxm_response(out, debug=True)
+    assert [e.displayOnChart for e in public.events if e.time == end] == [False, False, True]
+    assert public.model_dump() == debug.model_dump(exclude={"debug"})
+    assert [e.route for e in debug.debug.events[-3:]] == ["structure_price_break", "dif_break", "activation"]
+    invalid = out.model_dump()
+    invalid["events"][-2:] = reversed(invalid["events"][-2:])
+    with pytest.raises(ValidationError):
+        InternalXxmResponseDto.model_validate(invalid)
 
 
 @pytest.mark.parametrize('sign',[1,-1])

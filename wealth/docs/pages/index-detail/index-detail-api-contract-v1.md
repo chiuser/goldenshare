@@ -482,7 +482,9 @@ interface IndexDetailErrorResponseDto {
 
 <a id="10-r4日线顶底识别目标合同"></a>
 
-## 10. r4日线顶底识别合同
+## 10. r4.1 日线顶底识别合同
+
+r4.1 的同根 DIF 取消与新钝化、事件顺序、显示标志及版本身份见[顶底识别 LLD §23](index-detail-top-bottom-recognition-low-level-design-v1.md#r41-lld)。
 
 本节普通响应必须没有debug键，debug请求才有独立debug对象；**不得套用§2.6对原page-init/kline/weights的debugInfo始终存在要求，也不得返回debugInfo、debug:null或空debug对象作兼容。**
 
@@ -494,17 +496,17 @@ interface IndexDetailErrorResponseDto {
 
 | 参数 | 规则 |
 |---|---|
-| tsCode | 必填；trim+upper后仅000001.SH；非法格式400，其他合法标的404 |
+| tsCode | 必填。trim+upper 后接受[指数扩展方案](../../../../docs/product/wealth-top-bottom-recognition-index-expansion-plan-v1.md)的九个指数。非法格式返回 400，其他合法标的返回 404 |
 | period | 缺省day，只接受day |
 | startDate/endDate | 可选非空YYYY-MM-DD，开始不得晚于结束；只筛响应窗口，不能截断建立识别状态所需前段 |
 | limit | 缺省300，1..2000；指数页面显式1000，不改变接口默认值 |
 | debug | 缺省或文本0普通，文本1辅助；空/true/01/2等非法值、未知或重复参数均400 |
 
-必须由最终Settings显式dev/local才装配；生产、缺配置及未知环境不注册，框架404且不得读取来源或计算，debug不能绕过。日线不依赖分钟Lake；既有正常日线功能不受影响。来源只用IndexFactorPro完成根的原收盘/DIF/DEA/MACD柱，不补值或重算实际指标。
+必须由最终 Settings 显式 dev/local 才装配。生产、缺配置及未知环境不注册，框架返回 404，debug 不能绕过。本机日线识别按指数扩展方案读取 DG Silver `index_factor_pro` 完成根的原收盘、DIF、DEA 和 MACD 柱，不补值或重算实际指标。
 
 ### 10.2 普通与debug的完整字段
 
-- 识别版本固定`xxm-direction-v0.4-r4`，specHash必须等于完整新MAIN_SPEC的真实hash；禁止换旧响应的版本/hash冒充新结果。
+- 识别版本固定为 `xxm-direction-v0.5-r4.1`，`specHash` 绑定完整 `MAIN_SPEC`，旧响应按原身份校验拒绝。
 - 普通根仅身份/source/points/events/meta/dataStatus；正常point保留原值、普通状态和方向，event为id/time/direction/type/displayOnChart（必填严格bool），类型只有DULL/STRUCTURE/CANCEL。普通响应没有debug字段。
 - debug在相同普通字段之外，仅增加sourceInputId、同time的points、同id的events和统一structures集合。参照完整六字段为startTime/endTime/price/dif/priceAt/difAt；活动结构用activeStructureId，事件关联用relatedStructureId。
 - 顶底统一结构状态为ASSESSING/FOLLOWING/FINISHED/DISAPPEARED，形成、首次反色、完整原Wave、当前同色段起点/根数、跟踪价格极值/日期及结束时点按LLD§2.3保存。不得输出等待记录、旧顶/底历史集合、旧历史追溯撤销事件，也不得以空数组/别名保留它们。
@@ -514,7 +516,7 @@ interface IndexDetailErrorResponseDto {
 
 历史point的活动结构表示该point当时的考核状态；查询截至时该记录可以已首次反色、正常结束或消失。必须按发生时点及查询截止分别校验，不因如今已进入后续跟踪或终态而拒绝合法历史点，也不得把未来终态泄露给更早asOf。窗口外形成、窗口内结束的结构引用须完整带齐。结构集合按LLD§4.2.1先做截至投影及全记录校验，再保留本窗引用、已发生变化或有效时间覆盖窗口的记录；无事件的FOLLOWING窗口及正常结束当天也须保留，过期且无本窗关联的记录不附带。普通仍不传structures，不为正常结束伪造事件。
 
-同根B→A只能改本根活动参照，不能回写原DULL事件。当前普通钝化取消后不能在同根补首次钝化；旧结构在有效跟踪范围内价格突破而消失时，仍须正常评估新段，允许旧CANCEL与当前新事件同根且各自关联。正常停止不报消失。READY/DELAYED/EMPTY和source/meta的空值与窗口关系按LLD§5.3执行，失败不得返回EMPTY或保留失效标签。
+已钝化的同根 B→A 只改本根活动参照。考核中的结构因 DIF 击穿 B 时，依 LLD §23.2 保留原取消及符合资格的同根新钝化。有效跟踪中的旧结构因价格突破消失时，继续按原规则评估新段，各事件保留各自关联。正常停止不报消失。READY/DELAYED/EMPTY和source/meta的空值与窗口关系按LLD§5.3执行，失败不得返回EMPTY或保留失效标签。
 
 ### 10.4 返回、预算、错误及消费者
 
@@ -524,4 +526,4 @@ query返回已校验bytes：完整内部校验→显式新建普通/debug投影�
 
 query、schema、API、直接Python调用、TS类型/解码/client/Hook和普通悬停已按LLD§11依赖顺序完成同步，不发布中间混配版本；消费者清单见LLD§11.2.6，P3证据见§20.7—20.8。保留核验工具已在P4使用前整体迁移，旧执行链在P5第二步交接后清退，分别见§21.14.14/§22.9；P5删后整体回归见§22.16.6。
 
-2026-10-31修订已实施并验收（完成依据见LLD§19—20、§21.14.14及§22.16.6）：首次反色起逐根检查旧结构收盘突破，反色段、单根同色段和零柱都检查；单根同色段结束不停止，首个至少两根同色段结束正常停止，结束反色根不再检查。完整事件始终保留；同根同方向旧CANCEL/structure_price_break与新DULL/activation并存时，前者displayOnChart=False、后者True；其他事件不误隐藏。普通/debug根events、标志、id和顺序相同，debug仍关联全部旧结构事实；前端只按标志画图/普通说明，不删除事件或下一根补报。严格字段/新增计数与跟踪极值/asOf投影以LLD§2—5为准。原参数/来源/预算不变，接口及Python/TS消费者已同步；可用范围仍仅显式本地和上证，不表示部署或生产开放。
+2026-10-31 的 r4 修订已验收，依据见 LLD §19—20、§21.14.14 和 §22.16.6。旧结构从首次反色起逐根检查收盘突破，反色段、单根同色段和零柱都检查。单根同色段结束后继续跟踪，首个至少两根的同色段结束时正常停止，结束反色根不再检查。完整事件始终保留。同根同方向的旧 `CANCEL/structure_price_break` 与新 `DULL/activation` 并存时，前者 `displayOnChart=false`，后者为 `true`。普通与 debug 的根事件、显示标志、编号和顺序一致，debug 关联全部旧结构事实。r4.1 的 DIF 取消显示按 LLD §23.2 执行，当前指数范围及来源见 §10.1。

@@ -233,14 +233,14 @@ def test_pf11_m5_assessing_structure_outcomes(period,values,projection,cases):
     assert c.snapshot()==before
 
 
-def test_pf12_structure_never_rescues_far(monkeypatch):
+def test_pf12_structure_opposite_color_break_never_reactivates_far(monkeypatch):
     c=calculator(ABTD+((132,99,2),)); far=c.history[1][0]
     original=XxmCalculator._current_reference_qualifies
-    def no_far(self,bar,wave,reference,nearest):
+    def no_far(self,bar,wave,reference,nearest,**kwargs):
         if reference==far: raise AssertionError('structure rescue called')
-        return original(self,bar,wave,reference,nearest)
+        return original(self,bar,wave,reference,nearest,**kwargs)
     monkeypatch.setattr(XxmCalculator,'_current_reference_qualifies',no_far)
-    value=detector.evaluate_next_at_price(c,ProjectionState(500,186,0),200.,stamp('day',7),'NEAR',lambda:None)
+    value=detector.evaluate_next_at_price(c,ProjectionState(500,186,500),200.,stamp('day',7),'NEAR',lambda:None)
     assert value['outcome']=='SIGNAL_DISAPPEARED' and value['reference']==c.reference.reference()
 
 
@@ -365,8 +365,9 @@ def test_pf18_source_disagreement_stays_uncertain(monkeypatch):
 
 
 def test_pf20_fixed_spec_literal_contract_and_hash():
-    expected={'forecast_version':'xxm-key-point-forecast-v0.6-r4','scenario_policy':'next_completed_bar',
-        'target_selection':'near_range_before_far','max_future_bars':1,'calibration_tail_bars':250,
+    expected={'forecast_version':'xxm-key-point-forecast-v0.7-r4.1','scenario_policy':'next_completed_bar',
+        'target_selection':'near_range_before_far','structure_break_policy':'split_direct_cancel_and_far_activation',
+        'max_future_bars':1,'calibration_tail_bars':250,
         'daily_calibration_abs_tol':0.0005,'minute_calibration_abs_tol':1e-8,'daily_rounding_guard':1e-10,
         'display_policy':'valid_integer_boundaries','structure_text_places':0,
         'forecast_compute_budget_ms':400,'max_response_bytes':32768,'future_calendar_days':90,'refresh_after_ms':60000}

@@ -33,3 +33,38 @@ it.each(["day", "m30", "m60", "m90", "m120"] as const)("decodes a non-Shanghai i
   bad.debug.events[0]!.relatedStructureId = "missing";
   expect(() => decodeXxmResponse(bad, { ...options, tsCode: "399006.SZ", period })).toThrow();
 });
+
+it.each(["TOP", "BOTTOM"] as const)("preserves three same-bar events for a %s reactivation", direction => {
+  const { response, points } = xxmDebugFixture("000001.SH");
+  const oldEvent = response.events[0]!, activation = response.events[1]!;
+  const oldRecord = response.debug.structures[0]!;
+  const sign = direction === "TOP" ? 1 : -1;
+  const near = { ...response.debug.events[1]!.eventReference, price: sign === 1 ? 103 : 110, dif: sign * 100 };
+  const far = { ...oldRecord.originalReference, price: sign === 1 ? 100 : 120, dif: sign * 200 };
+  oldEvent.displayOnChart = direction !== oldEvent.direction;
+  activation.direction = direction;
+  const cancel = { ...oldEvent, id: "cancel-assessing", direction, displayOnChart: false };
+  response.events = [oldEvent, cancel, activation];
+  response.debug.events.splice(1, 0, {
+    id: cancel.id, route: "dif_break", fromState: "STRUCTURE", eventReference: near, relatedStructureId: "assessing",
+  });
+  response.debug.events[2]!.eventReference = far;
+  response.points[0]!.ordinaryDirection = direction;
+  Object.assign(response.points[0]!, { dif: sign * 150, dea: sign * 149, hist: sign * 2 });
+  Object.assign(points[0]!, { dif: sign * 150, dea: sign * 149, macd: sign * 2 });
+  response.debug.points[0]!.activeReference = far;
+  response.debug.structures.push({
+    ...oldRecord, id: "assessing", direction, structureEventId: "assessing-formation", formedAt: "2023-01-11",
+    originSegmentStart: "2023-01-10", originalReference: near, priceExtremeAt: "2023-01-11",
+    originWave: null, firstOppositeAt: null, nextSameColorStart: null, nextSameColorCount: 0,
+    trackingPriceExtreme: null, trackingPriceExtremeAt: null, disappearanceReason: "reference_dif_break",
+  });
+  const decoded = decodeXxmResponse(response, options);
+  const row = buildXxmViewModel(decoded, points, "day", "000001.SH").byTime.get(points[0]!.fullDate)!;
+  expect(row.debugDetail?.events.map(event => event.id)).toEqual(["cancel-old", "cancel-assessing", "activate-new"]);
+  expect(row.displayEvents.map(event => event.id)).toEqual(direction === "TOP" ? ["activate-new"] : ["cancel-old", "activate-new"]);
+  const bad = structuredClone(response);
+  bad.events.reverse();
+  bad.debug.events.reverse();
+  expect(() => decodeXxmResponse(bad, options)).toThrow();
+});

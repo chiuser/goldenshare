@@ -96,10 +96,10 @@ def test_same_bar_switch_preserves_actual_b_break_and_never_runs_turn(sign,hist,
         values=[(200-c,-d,-h) for c,d,h in values]
     checks=[]
     original=XxmCalculator._current_reference_qualifies
-    def qualifies(self,item,wave,ref,nearest):
+    def qualifies(self,item,wave,ref,nearest,**kwargs):
         if item.time == stamp(7):
             checks.append(ref.start)
-        return original(self,item,wave,ref,nearest)
+        return original(self,item,wave,ref,nearest,**kwargs)
     monkeypatch.setattr(XxmCalculator,"_current_reference_qualifies",qualifies)
     calc,steps,facts=run(values)
     assert checks == [stamp(1)]  # Only A; B's break was checked by the actual DULL branch.

@@ -1,6 +1,6 @@
 import type { XxmReference, XxmWave } from "../xxm/types";
-export const XXM_FORECAST_VERSION = "xxm-key-point-forecast-v0.6-r4" as const;
-export const XXM_FORECAST_SPEC_HASH = "9994790178d64757462643fc37eba9e0945b118e91f1fdb85223db81db2a7b12";
+export const XXM_FORECAST_VERSION = "xxm-key-point-forecast-v0.7-r4.1" as const;
+export const XXM_FORECAST_SPEC_HASH = "09b31261ecc10ed7aabb78a51ba89584c6bfbf353c64c465945134dbdabf84c5";
 export const FORECAST_PERIODS = ["day", "m30", "m60", "m90", "m120"] as const;
 export type ForecastPeriod = typeof FORECAST_PERIODS[number];
 export const PERIOD_LABELS: Record<ForecastPeriod, string> = { day: "日线", m30: "30 分钟", m60: "60 分钟", m90: "90 分钟", m120: "120 分钟" };
@@ -49,7 +49,7 @@ export interface ForecastPredicate {
     op: "lt" | "le" | "eq" | "ge" | "gt";
     right: ForecastExpression;
 }
-export type ForecastOutcome = "DULL_FORMED" | "DULL_HELD" | "STRUCTURE_FORMED" | "STRUCTURE_HELD" | "RETURNED_TO_DULL" | "STRUCTURE_FORMED_AND_FOLLOWING" | "STRUCTURE_FOLLOWING" | "STRUCTURE_PRICE_DISAPPEARED" | "SIGNAL_DISAPPEARED" | "REFERENCE_INVALIDATED";
+export type ForecastOutcome = "DULL_FORMED" | "DULL_HELD" | "STRUCTURE_FORMED" | "STRUCTURE_HELD" | "RETURNED_TO_DULL" | "STRUCTURE_FORMED_AND_FOLLOWING" | "STRUCTURE_FOLLOWING" | "STRUCTURE_PRICE_DISAPPEARED" | "SIGNAL_DISAPPEARED" | "STRUCTURE_DISAPPEARED_AND_DULL_FORMED" | "REFERENCE_INVALIDATED";
 export interface ForecastCondition {
     id: string;
     outcome: ForecastOutcome;

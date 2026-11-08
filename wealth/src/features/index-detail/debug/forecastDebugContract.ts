@@ -87,7 +87,10 @@ export const decodeForecastDebug: DecodeForecastDebug = (raw, { response, period
     }
     keys(raw.nearestDecision, "status reason");
     assert(["NOT_EVALUATED", "UNAVAILABLE", "HAS_RANGE", "NO_RANGE", "UNCERTAIN"].includes(String(raw.nearestDecision.status)) && (raw.nearestDecision.reason === null || typeof raw.nearestDecision.reason === "string" && !!raw.nearestDecision.reason));
-    assert([null, "NEAR", "FAR"].includes(raw.selectedReference as null) && typeof raw.farEvaluated === "boolean" && raw.farEvaluated === (raw.selectedReference === "FAR"));
+    const checkedFarAfterBreak = response.ordinaryState === "STRUCTURE" && raw.selectedReference === "NEAR"
+        && raw.references.farther !== null && raw.farEvaluated === true && raw.nearestDecision.status === "NOT_EVALUATED";
+    assert([null, "NEAR", "FAR"].includes(raw.selectedReference as null) && typeof raw.farEvaluated === "boolean"
+        && raw.farEvaluated === (raw.selectedReference === "FAR" || checkedFarAfterBreak));
     if (raw.selectedReference !== null)
         assert(raw.references[raw.selectedReference === "NEAR" ? "nearest" : "farther"] !== null);
     assert(Array.isArray(raw.conditions) && Array.isArray(raw.precisionRanges) && Array.isArray(raw.structureFollowConditions));
@@ -115,16 +118,25 @@ export const decodeForecastDebug: DecodeForecastDebug = (raw, { response, period
         validateExpression(p.right, bindings, check);
     } };
     const id = (v: unknown) => { assert(typeof v === "string" && v.length === 64 && /^[0-9a-f]{64}$/.test(v) && !ids.has(v)); ids.add(v); };
-    const allowed: Record<string, string[]> = { NONE: ["DULL_FORMED"], DULL: ["DULL_HELD", "STRUCTURE_FORMED", "STRUCTURE_FORMED_AND_FOLLOWING", "STRUCTURE_PRICE_DISAPPEARED", "SIGNAL_DISAPPEARED", "REFERENCE_INVALIDATED"], STRUCTURE: ["STRUCTURE_HELD", "RETURNED_TO_DULL", "STRUCTURE_FOLLOWING", "STRUCTURE_PRICE_DISAPPEARED", "SIGNAL_DISAPPEARED"] };
+    const allowed: Record<string, string[]> = { NONE: ["DULL_FORMED"], DULL: ["DULL_HELD", "STRUCTURE_FORMED", "STRUCTURE_FORMED_AND_FOLLOWING", "STRUCTURE_PRICE_DISAPPEARED", "SIGNAL_DISAPPEARED", "REFERENCE_INVALIDATED"], STRUCTURE: ["STRUCTURE_HELD", "RETURNED_TO_DULL", "STRUCTURE_FOLLOWING", "STRUCTURE_PRICE_DISAPPEARED", "SIGNAL_DISAPPEARED", "STRUCTURE_DISAPPEARED_AND_DULL_FORMED"] };
+    let direct: ForecastPriceRange[] = [], reactivation: ForecastPriceRange[] = [];
     for (const c of raw.conditions) {
         check();
         keys(c, "id outcome referenceRole priceRanges predicates");
         id(c.id);
-        assert(c.referenceRole === raw.selectedReference && typeof c.outcome === "string" && (allowed[response.ordinaryState ?? ""] ?? []).includes(c.outcome) && !outcomes.has(c.outcome) && Array.isArray(c.priceRanges) && c.priceRanges.length > 0);
+        const combined = c.outcome === "STRUCTURE_DISAPPEARED_AND_DULL_FORMED";
+        const roleMatches = combined ? checkedFarAfterBreak && c.referenceRole === "FAR"
+            : c.referenceRole === raw.selectedReference;
+        assert(roleMatches && typeof c.outcome === "string" && (allowed[response.ordinaryState ?? ""] ?? []).includes(c.outcome) && !outcomes.has(c.outcome) && Array.isArray(c.priceRanges) && c.priceRanges.length > 0);
         outcomes.add(c.outcome);
         ranges(c.priceRanges, raw.precisionRanges);
         predicates(c.predicates);
+        if (combined)
+            reactivation = c.priceRanges;
+        else if (c.outcome === "SIGNAL_DISAPPEARED")
+            direct = c.priceRanges;
     }
+    assert(!direct.some(a => reactivation.some(b => overlaps(a, b))));
     for (const c of raw.structureFollowConditions) {
         check();
         keys(c, "id outcome relatedStructureId direction originWave nextSameColorStart nextSameColorCount priceRanges precisionRanges predicates");

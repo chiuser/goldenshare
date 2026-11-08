@@ -3,7 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { useXxmForecast } from "./useXxmForecast";
 import { fetchForecast } from "./apiClient";
 import { XxmForecastCard } from "./XxmForecastCard";
-import { forecastFixture, forecastDebugFixture } from "./forecastFixtures.test-support";
+import { forecastFixture, forecastDebugFixture, forecastReactivationFixture } from "./forecastFixtures.test-support";
 import { renderForecastDetails } from "../debug/IndexRecognitionDebug";
 import { decodeForecastDebug } from "../debug/forecastDebugContract";
 import type { ForecastPeriod, ForecastRequestResult, ForecastRows } from "./types";
@@ -14,6 +14,19 @@ const initial = { active: false, tsCode: "399001.SZ", minutes: true, enabled: tr
 const wrapped = (tsCode: string, period: ForecastPeriod) => ({ response: forecastFixture(tsCode, period), deadline: performance.now() + 5000 });
 beforeEach(() => mocked.mockReset());
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
+
+it("shows the backend price ranges before the necessary comparisons for both outcomes", () => {
+  const response = forecastReactivationFixture();
+  render(renderForecastDetails(response));
+  fireEvent.click(screen.getByText("计算依据"));
+  const direct = screen.getByText(/· SIGNAL_DISAPPEARED · NEAR/).parentElement!;
+  const far = screen.getByText(/· STRUCTURE_DISAPPEARED_AND_DULL_FORMED · FAR/).parentElement!;
+  const label = "必要比较（结果以适用收盘区间为准）";
+  expect(within(direct).getByText("适用收盘区间")).toBeVisible();
+  expect(within(direct).getByText("收盘≥90 且<160").nextElementSibling).toHaveTextContent(label);
+  expect(within(far).getByText("收盘>0 且<90").nextElementSibling).toHaveTextContent(label);
+  expect(screen.getByText(/另有1段临界价格待核验/)).toBeVisible();
+});
 
 it("loads five rows only after activation and retries only the failed m30 row", async () => {
   const pending: Array<{ tsCode: string; period: ForecastPeriod; resolve: (value: ForecastRequestResult) => void; reject: (error: Error) => void }> = [];

@@ -204,7 +204,9 @@ uv run python -m src.scripts.audit_index_minute_gold --runs 10 --full-alignment 
 
 <a id="8-r4分钟顶底识别目标合同"></a>
 
-## 8. r4分钟顶底识别合同
+## 8. r4.1 分钟顶底识别合同
+
+r4.1 的同根 DIF 取消与新钝化、事件顺序、显示标志及版本身份见[顶底识别 LLD §23](index-detail-top-bottom-recognition-low-level-design-v1.md#r41-lld)。
 
 本节仅约束独立`minute-xxm-signals`，不修改minutes/minute-indicators行情合同，不开放生产分钟。识别规则、六字段参照、统一structures、普通/debug、版本和全部校验必须执行[顶底识别LLD§2—5](index-detail-top-bottom-recognition-low-level-design-v1.md)；本节不维护第二份字段表。当前schema、query/API及Python/TS消费者已完成同步；本次仅修正文书状态，不改运行接口。
 
@@ -214,8 +216,8 @@ uv run python -m src.scripts.audit_index_minute_gold --runs 10 --full-alignment 
 
 | 参数 | 规则 |
 |---|---|
-| tsCode | 必填；trim+upper后仅000001.SH；非法格式400，其他合法标的404 |
-| freq | 必填文本60/90/120；对应m60/m90/m120，不接受period代替或其他分钟周期 |
+| tsCode | 必填。trim+upper 后接受[指数扩展方案](../../../../docs/product/wealth-top-bottom-recognition-index-expansion-plan-v1.md)的九个指数。非法格式返回 400，其他合法标的返回 404 |
+| freq | 必填文本 30/60/90/120，对应 m30/m60/m90/m120。不接受 period 代替或其他分钟周期 |
 | startDate/endDate | 可选非空YYYY-MM-DD且开始≤结束；仅响应窗口，不截断算法历史 |
 | limit | 缺省500，1..2000，无cursor；不得套用行情10000上限 |
 | debug | 缺省或文本0普通，文本1辅助；非法空/值、未知/重复参数400 |
@@ -224,9 +226,9 @@ uv run python -m src.scripts.audit_index_minute_gold --runs 10 --full-alignment 
 
 ### 8.2 响应及分钟专属要求
 
-- detector版本固定`xxm-direction-v0.4-r4`，specHash绑定完整新MAIN_SPEC；普通与debug完整字段和结构关系仅按LLD§5.3及[日线合同§10](index-detail-api-contract-v1.md)执行。
+- 识别版本固定为 `xxm-direction-v0.5-r4.1`，`specHash` 绑定完整 `MAIN_SPEC`。普通与 debug 字段和结构关系按 LLD §5.3、§23.2 及[日线合同 §10](index-detail-api-contract-v1.md)执行。
 - source.kind=minute_gold、indicatorVersion为当前Gold整数版本；time保留ISO精确完成时刻和+08:00，不截成日期、不拿当日15:00补latest或空值。
-- 当前正式source.ENDPOINTS是唯一代码来源：m60为10:30/11:30/14:00/15:00，m90为11:00/14:00/15:00，m120为11:30/15:00。必须同时按SSE开市日验证，不另加09:30或复制一份日历策略。
+- 分钟完成时点以现有代码中的 `source.ENDPOINTS` 为准，各周期沿用同一 SSE 开市日规则。
 - 源Gold价格/指标按ts_code/freq/trade_date/trade_time严格配对，保留原close/DIF/DEA/柱，不补值、不重算实际MACD。
 - 普通响应不带辅助对象；debug只有实际参照、结构关联和统一structures。等待、旧顶/底历史集合、追溯撤销事件在两种模式均禁止。历史引用和asOf投影与日线同规则，不能因旧结构形成点在窗口外而误拒。
 

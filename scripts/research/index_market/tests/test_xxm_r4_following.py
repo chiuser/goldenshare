@@ -1,6 +1,6 @@
 """LLD RC74–96: independent literal finite-following timelines (no market reads)."""
 from copy import deepcopy
-from dataclasses import asdict
+from dataclasses import asdict, replace
 from unittest.mock import patch
 
 import pytest
@@ -15,6 +15,11 @@ T = [(100,200,2),(90,0,-2),(101,100,2),(102,100,2)]
 TS = T+[(103,99,2)]
 TF = TS+[(90,98,-2)]
 TN = TF+[(102,97,2),(103,96,2)]
+REACTIVATION_ROWS = [
+    (105, -35, -2), (103, -34, 2), (92, -28, -2), (90, -27, -2), (96, -22, 2),
+    (100, -15, -2), (101, -12, 2), (98, -14, -2), (97, -13, -2), (96, -11, -2),
+    (89, -17, -2),
+]
 
 
 def values(top, sign):
@@ -29,6 +34,136 @@ def bars(rows, period='day'):
 def run(rows, period='day', observe=False):
     c=XxmCalculator(period=period,source_identity='finite-literals',record_decisions=observe)
     return c,[c.step(b) for b in bars(rows,period)]
+
+
+def test_r41_documented_shanghai_m90_bars_reactivate_then_form_a_new_structure():
+    # The research document fixes the reference extrema and the four target bars.
+    # Other prefix values only establish those references for this offline test.
+    a_price, a_dif = 3620.7249, -36.186445721572454
+    b_price, b_dif = 3599.0166, -27.029098705920205
+    prefix = [
+        ("10-22T14:00", 3640., -34., -2.),
+        ("10-23T11:00", a_price, -35., -2.),
+        ("10-23T14:00", 3630., a_dif, -2.),
+        ("10-23T15:00", 3645., -35., -2.),
+        ("10-26T11:00", 3660., -32., 2.),
+        ("10-30T11:00", 3630., -25., -2.),
+        ("10-30T15:00", b_price, -26., -2.),
+        ("11-02T11:00", 3600., b_dif, -2.),
+        ("11-02T14:00", 3620., -26.9, -2.),
+        ("11-02T15:00", 3640., -26., 0.93069),
+        ("11-03T11:00", 3615., -26.7, -2.),
+    ]
+    documented = [
+        ("11-03T14:00", 3584.8710, -26.883732958846394, -4.488127712248506),
+        ("11-03T15:00", 3608.0977, -26.476741829203547, -2.939316362370235),
+        ("11-04T11:00", 3591.8962, -27.1485722338507, -3.4263817373316314),
+        ("11-04T14:00", 3660.3843, -21.902111471293665, 5.6532318302259625),
+    ]
+    c = XxmCalculator(period="m90", source_identity="documented-shanghai-m90")
+    steps = [c.step(XxmBar(f"2026-{stamp}:00+08:00", close, dif, dif - hist / 2, hist))
+             for stamp, close, dif, hist in prefix + documented]
+    dull, formed, reactivated, new_formed = steps[-4:]
+    assert (dull.point["ordinaryState"], dull.point["activeReference"]["dif"]) == ("DULL", b_dif)
+    assert formed.point["ordinaryState"] == "STRUCTURE"
+    old_id = formed.point["activeStructureId"]
+    assert [(e["route"], e["eventReference"]["dif"], e["relatedStructureId"]) for e in reactivated.events] == [
+        ("dif_break", b_dif, old_id), ("activation", a_dif, None),
+    ]
+    assert reactivated.point["ordinaryState"] == "DULL"
+    assert [(record["id"], record["status"]) for record in reactivated.structures] == [(old_id, "DISAPPEARED")]
+    assert [(event["route"], event["eventReference"]["dif"]) for event in new_formed.events] == [
+        ("color_flip", a_dif),
+    ]
+    new_record, = new_formed.structures
+    assert new_record["id"] != old_id and new_record["status"] == "FOLLOWING"
+    assert new_record["originWave"]["price"] == 3584.8710
+    assert new_formed.point["ordinaryState"] == "NONE"
+
+
+@pytest.mark.parametrize("mirror", [False, True])
+@pytest.mark.parametrize("zero", [False, True])
+def test_r41_reactivation_keeps_both_terminal_records_and_restores(mirror, zero):
+    rows = REACTIVATION_ROWS[:-1] + [(89, -17, 0 if zero else -2)]
+    if mirror:
+        rows = values(rows, -1)
+    c, prior = run(rows[:-1], "m90", observe=True)
+    old = prior[4].structures[0]
+    assessing = next(record for record in prior[9].structures if record["status"] == "ASSESSING")
+    snapshot = c.snapshot()
+    target = bars(rows, "m90")[-1]
+    step = c.step(target)
+    assert [e["route"] for e in step.events] == ["structure_price_break", "dif_break", "activation"]
+    assert [e["fromState"] for e in step.events] == ["STRUCTURE", "STRUCTURE", "NONE"]
+    assert [e["relatedStructureId"] for e in step.events] == [old["id"], assessing["id"], None]
+    assert [(s["status"], s["disappearanceReason"]) for s in step.structures] == [
+        ("DISAPPEARED", "structure_price_break"), ("DISAPPEARED", "reference_dif_break")]
+    assert c.state == "DULL" and c.active_structure is None and c.processed == 11
+    assert c.reference.price == (110 if mirror else 90)
+    assert c.wave.count == (3 if zero else 4)
+    assert step.decision["branch"] == "structure_reactivation" and not step.decision["switched"]
+    assert step.decision["selectionCalls"] == [{"stage": "structure_reactivation", "selected": c.reference.reference()}]
+    restored = XxmCalculator(period="m90", source_identity="finite-literals", record_decisions=True)
+    restored.restore(snapshot)
+    assert restored.step(target) == step and restored.snapshot() == c.snapshot()
+    restored.restore(c.snapshot())
+    assert restored.snapshot() == c.snapshot()
+    old_snapshot = dict(snapshot, specHash="db435b39a3d198c126bfff567dfbe66faf74ff9299005578ec6b49bf065fd110")
+    with pytest.raises(ValueError):
+        restored.restore(old_snapshot)
+    assert restored.snapshot() == c.snapshot()
+
+
+@pytest.mark.parametrize("target,ordinary_routes,state", [
+    ((90, -17, -2), ["dif_break"], "NONE"),
+    ((89, -28, -2), ["dif_break"], "NONE"),
+    ((89, -15, -2), ["dif_return"], "DULL"),
+    ((89, -17, 2), ["dif_break_on_flip"], "NONE"),
+])
+def test_r41_reactivation_requires_strict_thresholds_and_same_segment(target, ordinary_routes, state):
+    c, steps = run(REACTIVATION_ROWS[:-1] + [target], "m90")
+    assert [e["route"] for e in steps[-1].events if e["route"] != "structure_price_break"] == ordinary_routes
+    assert c.state == state
+
+
+@pytest.mark.parametrize("before,target,expected", [
+    ([(100, -15, -2), (101, -12, 2), (98, -14, -2), (97, -13, -2), (96, -11, -2)],
+     (89, -17, -2), "dif_break"),  # No A.
+    (REACTIVATION_ROWS[:2] + [(92, -10, -2), (90, -9, -2)] + REACTIVATION_ROWS[4:-1],
+     (89, -17, -2), "dif_break"),  # A was already broken before this bar.
+    ([(100, -28, -2), (101, -23, 2), (90, -15, -2), (100, -12, 2),
+      (88, -14, -2), (87, -13, -2), (86, -11, -2)],
+     (90, -17, -2), "dif_break"),  # A price passes, B price equals.
+    (REACTIVATION_ROWS[:7] + [(88, -17, -2), (87, -16, -2), (86, -14, -2)],
+     (85, -29, -2), "dif_break"),  # The assessing structure already uses A.
+])
+def test_r41_does_not_reactivate_against_an_unqualified_reference(before, target, expected):
+    c, steps = run(before + [target], "m90")
+    assert steps[-2].point["ordinaryState"] == "STRUCTURE"
+    assert [e["route"] for e in steps[-1].events if e["route"] != "structure_price_break"] == [expected]
+    assert c.state == "NONE"
+
+
+@pytest.mark.parametrize("fault", ["missing", "reordered", "wrong-reference", "wrong-structure"])
+def test_r41_rejects_invalid_events_before_publishing(fault):
+    c, _ = run(REACTIVATION_ROWS[:-1], "m90")
+    before = c.snapshot()
+    original = c._finish_step
+
+    def invalid_step(result, work):
+        result = original(result, work)
+        old, cancel, activation = result.events
+        if fault == "missing":
+            return replace(result, events=(old, cancel))
+        if fault == "reordered":
+            return replace(result, events=(old, activation, cancel))
+        if fault == "wrong-reference":
+            return replace(result, events=(old, cancel, dict(activation, eventReference=cancel["eventReference"])))
+        return replace(result, events=(old, dict(cancel, relatedStructureId=old["relatedStructureId"]), activation))
+
+    with patch.object(c, "_finish_step", invalid_step), pytest.raises(ValueError):
+        c.step(bars(REACTIVATION_ROWS, "m90")[-1])
+    assert c.snapshot() == before
 
 
 # Expected old-record changes are handwritten row/status pairs. No calculator supplies expected.

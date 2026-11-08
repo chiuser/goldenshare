@@ -6,9 +6,10 @@ import json
 
 @dataclass(frozen=True, slots=True)
 class ForecastSpec:
-    forecast_version: str = "xxm-key-point-forecast-v0.6-r4"
+    forecast_version: str = "xxm-key-point-forecast-v0.7-r4.1"
     scenario_policy: str = "next_completed_bar"
     target_selection: str = "near_range_before_far"
+    structure_break_policy: str = "split_direct_cancel_and_far_activation"
     max_future_bars: int = 1
     calibration_tail_bars: int = 250
     daily_calibration_abs_tol: float = 0.0005

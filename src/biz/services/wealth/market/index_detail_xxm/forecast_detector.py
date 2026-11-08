@@ -197,6 +197,19 @@ def _actual_outcome(c, child, step):
             raise ValueError('Same-bar price ending lacks its current color-flip formation')
         return {'outcome': 'STRUCTURE_PRICE_DISAPPEARED', 'reference': c.reference.reference()}
 
+    if len(events) == 2:
+        pool = c.history[c.wave.sign]
+        if (c.state != 'STRUCTURE' or len(pool) != 2 or c.reference != pool[-1]
+                or child.state != 'DULL' or child.reference != pool[0] or child.active_structure is not None
+                or c.wave.sign * step.point['hist'] < 0
+                or c.wave.sign * (step.point['dif'] - c.reference.dif) <= 0):
+            raise ValueError('Invalid same-bar forecast reactivation progress')
+        bar, sign, farther = child.previous, c.wave.sign, pool[0]
+        if (events != (c._event(bar, 'CANCEL', 'dif_break', sign, c.reference, 'STRUCTURE', old_id),
+                       c._event(bar, 'DULL', 'activation', sign, farther, 'NONE', None))
+                or records != (c._finish_structure(c.active_structure, bar, 'DISAPPEARED', 'reference_dif_break'),)):
+            raise ValueError('Invalid same-bar forecast reactivation events')
+        return {'outcome': 'STRUCTURE_DISAPPEARED_AND_DULL_FORMED', 'reference': farther.reference()}
     if events:
         if len(events) != 1:
             raise ValueError('One bar invented multiple ordinary events')
@@ -313,6 +326,9 @@ def evaluate_next_at_price(c, projection, C, endpoint, role, check):
                     and c.wave.sign * ((max(c.wave.dif, bar.dif) if c.wave.sign > 0
                                        else min(c.wave.dif, bar.dif)) - c.reference.dif) > 0):
                 _qualification_wave(c, bar, requested, pool[0])
+            if (role == 'NEAR' and c.state == 'STRUCTURE' and c.reference == requested and len(pool) == 2
+                    and c.wave.sign * bar.hist >= 0 and c.wave.sign * (bar.dif - requested.dif) > 0):
+                _qualification_wave(c, bar, pool[1], requested)
             if role == 'NEAR' and c.state == 'NONE' and not _first_near_qualifies(c, bar, requested):
                 value = {'outcome': None, 'reference': None}
             elif (role == 'NEAR' and c.state == 'DULL' and c.reference == requested

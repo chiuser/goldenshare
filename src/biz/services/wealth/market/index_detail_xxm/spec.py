@@ -7,7 +7,7 @@ import json
 
 @dataclass(frozen=True, slots=True)
 class XxmSpec:
-    algorithm_version: str = "xxm-direction-v0.4-r4"
+    algorithm_version: str = "xxm-direction-v0.5-r4.1"
     dif_turn_pct: float = 1.0
     max_refs: int = 2
     min_bars: int = 2
@@ -18,6 +18,7 @@ class XxmSpec:
     activation_policy: str = "current_close_and_current_dif"
     reference_break_policy: str = "strict_break_within_current_segment"
     structure_return_policy: str = "adjacent_one_percent_to_dull"
+    structure_reactivation_policy: str = "cancel_near_then_activate_far_on_same_bar"
     structure_follow_policy: str = "price_until_first_valid_same_color_end"
     structure_follow_min_bars: int = 2
     structure_follow_price_policy: str = "closed_origin_wave_extreme"

@@ -241,19 +241,29 @@ class InternalXxmResponseDto(InternalXxmDto):
         event_times = [event.time for event in self.events]
         if event_times != sorted(event_times) or any(stamp not in times for stamp in event_times):
             raise ValueError("XXM events must be ordered and visible")
-        ordinary_times, ranks = set(), {}
+        ordinary_by_time, ranks = {}, {}
         for event in self.events:
             if event.route == "structure_price_break":
                 record = records.get(event.relatedStructureId)
                 rank = 2 if record is not None and record.firstOppositeAt == event.time else 0
             else:
-                if event.time in ordinary_times:
-                    raise ValueError("Multiple ordinary events on one bar")
-                ordinary_times.add(event.time)
+                ordinary_by_time.setdefault(event.time, []).append(event)
                 rank = 1
             if rank < ranks.get(event.time, -1):
                 raise ValueError("XXM events violate old/current/first-opposite order")
             ranks[event.time] = rank
+        reactivations = {}
+        for time, ordinary in ordinary_by_time.items():
+            if len(ordinary) == 1:
+                continue
+            if len(ordinary) != 2:
+                raise ValueError("Invalid ordinary event count")
+            cancel, activation = ordinary
+            if (cancel.route != "dif_break" or cancel.fromState != "STRUCTURE"
+                    or activation.route != "activation" or cancel.direction != activation.direction
+                    or activation.eventReference.endTime >= cancel.eventReference.startTime):
+                raise ValueError("Invalid same-bar structure reactivation")
+            reactivations[time] = (cancel, activation)
         through, start = self.source.computedThrough, self.source.startTime
         if self.dataStatus.asOf != through:
             raise ValueError("XXM asOf mismatch")
@@ -319,6 +329,7 @@ class InternalXxmResponseDto(InternalXxmDto):
                        (event.time, event.type, sign, event.eventReference.startTime) )):
                 raise ValueError("XXM event identity/reference mismatch")
             index, point = points_by_time[event.time]
+            pair = reactivations.get(event.time)
             if event.route in ("activation", "dif_return", "dif_turn"):
                 expected_state = "STRUCTURE" if event.route == "dif_turn" else "DULL"
                 if (point.ordinaryState != expected_state or point.ordinaryDirection != event.direction
@@ -326,12 +337,16 @@ class InternalXxmResponseDto(InternalXxmDto):
                     raise ValueError("XXM event and final point state/direction/reference disagree")
                 if event.route == "dif_turn" and point.activeStructureId != event.relatedStructureId:
                     raise ValueError("XXM formation event and final point structure disagree")
-            elif event.route != "structure_price_break" and point.ordinaryState != "NONE":
+            elif event.route != "structure_price_break" and pair is None and point.ordinaryState != "NONE":
                 raise ValueError("XXM flip/cancellation must leave the final point in NONE")
             # The response window need not include the preceding source bar.
             # When it does, fromState is an existing fact, not a recomputation.
-            if event.route != "structure_price_break" and index and event.fromState != self.points[index - 1].ordinaryState:
-                raise ValueError("XXM event fromState disagrees with the preceding visible point")
+            if event.route != "structure_price_break" and index and (pair is None or event is pair[0]):
+                previous = self.points[index - 1]
+                if (event.fromState != previous.ordinaryState or pair is not None and
+                        (event.eventReference != previous.activeReference
+                         or event.relatedStructureId != previous.activeStructureId)):
+                    raise ValueError("XXM event disagrees with the preceding visible point")
             if event.relatedStructureId is not None:
                 record = records.get(event.relatedStructureId)
                 if (record is None or record.direction != event.direction
@@ -342,6 +357,7 @@ class InternalXxmResponseDto(InternalXxmDto):
                             or record.formationRoute != event.route):
                         raise ValueError("XXM formation association mismatch")
                 elif (record.status != "DISAPPEARED" or record.disappearedAt != event.time
+                      or pair is not None and event is pair[0] and record.firstOppositeAt is not None
                       or record.disappearanceReason != ("dif_return" if event.route == "dif_return"
                                                         else "structure_price_break" if event.route == "structure_price_break"
                                                         else "reference_dif_break")):

@@ -12,3 +12,31 @@ export function forecastDebugFixture(tsCode: string, period: ForecastPeriod = "d
     const stamp = (s: string) => period === "day" ? s : s + "T15:00:00+08:00";
     return { ...forecastFixture(tsCode, period, asOf), debug: { sourceInputId: "a".repeat(64), calendarInputId: "b".repeat(64), precisionPolicy: period === "day" ? "rounded3_guarded" : "full_float", references: { nearest: { startTime: stamp("2023-01-05"), endTime: stamp("2023-01-05"), price: 90, dif: -50, priceAt: stamp("2023-01-05"), difAt: stamp("2023-01-05") }, farther: { startTime: stamp("2023-01-03"), endTime: stamp("2023-01-03"), price: 100, dif: -60, priceAt: stamp("2023-01-03"), difAt: stamp("2023-01-03") } }, selectedReference: "NEAR", nearestDecision: { status: "HAS_RANGE", reason: "近参照有确定范围。" }, farEvaluated: false, conditions: [{ id: "c".repeat(64), outcome: "STRUCTURE_FORMED", referenceRole: "NEAR", priceRanges: [{ lower: 2, upper: 175, lowerInclusive: true, upperInclusive: true, displayLower: 2, displayUpper: 175 }], predicates: [{ left: { op: "macd", e12: 13, e26: 27, dea: 0, field: "dif" }, op: "ge", right: { op: "affine", pCoefficient: 0, cCoefficient: 0, constant: -13.86 } }] }], precisionRanges: [], structureFollowConditions: [] } };
 }
+
+export function forecastReactivationFixture(): ForecastDebugResponse {
+    const response = forecastDebugFixture("399001.SZ", "m90");
+    response.ordinaryState = "STRUCTURE";
+    response.debug.farEvaluated = true;
+    response.debug.nearestDecision = { status: "NOT_EVALUATED", reason: "沿原近参照考核结构。" };
+    const near = response.debug.references.nearest!;
+    const far = response.debug.references.farther!;
+    Object.assign(near, { price: 100, dif: -15 });
+    Object.assign(far, { price: 90, dif: -28 });
+    const breakNear = {
+        left: { op: "macd", e12: 350, e26: 350, dea: 0, field: "dif" }, op: "lt",
+        right: { op: "affine", pCoefficient: 0, cCoefficient: 0, constant: -15 },
+    } as const;
+    response.debug.conditions = [
+        { id: "c".repeat(64), outcome: "SIGNAL_DISAPPEARED", referenceRole: "NEAR", predicates: [breakNear],
+          priceRanges: [{ lower: 90, upper: 160, lowerInclusive: true, upperInclusive: false, displayLower: 90, displayUpper: 159 }] },
+        { id: "d".repeat(64), outcome: "STRUCTURE_DISAPPEARED_AND_DULL_FORMED", referenceRole: "FAR",
+          predicates: [breakNear, { left: { op: "affine", pCoefficient: 0, cCoefficient: 1, constant: 0 }, op: "lt",
+                        right: { op: "affine", pCoefficient: 0, cCoefficient: 0, constant: 90 } }],
+          priceRanges: [{ lower: 0, upper: 90, lowerInclusive: false, upperInclusive: false, displayLower: 1, displayUpper: 89 }] },
+    ];
+    response.debug.precisionRanges = [{
+        reason: "ROUNDING_BOUNDARY", priceRange: { lower: 160, upper: 160, lowerInclusive: true, upperInclusive: true },
+    }];
+    response.reasonCode = "ROUNDING_BOUNDARY";
+    return response;
+}

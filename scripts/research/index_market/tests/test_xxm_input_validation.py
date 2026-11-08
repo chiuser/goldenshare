@@ -122,13 +122,14 @@ def test_formal_spec_contains_every_approved_rule_and_hashes_canonical_content()
 
     # Independent literal contract from LLD v1 sections 2.2/22.15 (F01), no research Spec.
     expected = {
-        "algorithm_version": "xxm-direction-v0.4-r4", "dif_turn_pct": 1.0,
+        "algorithm_version": "xxm-direction-v0.5-r4.1", "dif_turn_pct": 1.0,
         "max_refs": 2, "min_bars": 2, "reference_policy": "nearest_then_farther_two",
         "active_reference_policy": "same_bar_near_to_far_on_dull_break",
         "zero_policy": "neutral_real_opposite", "allow_zero_activation": True,
         "activation_policy": "current_close_and_current_dif",
         "reference_break_policy": "strict_break_within_current_segment",
         "structure_return_policy": "adjacent_one_percent_to_dull",
+        "structure_reactivation_policy": "cancel_near_then_activate_far_on_same_bar",
         "structure_follow_policy": "price_until_first_valid_same_color_end",
         "structure_follow_min_bars": 2,
         "structure_follow_price_policy": "closed_origin_wave_extreme",

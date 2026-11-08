@@ -5,7 +5,7 @@ import {forecastFixture} from "./forecastFixtures.test-support";
 import {adaptForecast} from "./adapter";
 const options={tsCode:"000001.SH",period:"day" as const,debug:0 as const,check:()=>{}};
 it("uses the accepted complete r4 identities, rejects old or mixed identities and missing fields",()=>{
-  expect(XXM_ALGORITHM_VERSION).toBe("xxm-direction-v0.4-r4");expect(XXM_SPEC_HASH).toBe("db435b39a3d198c126bfff567dfbe66faf74ff9299005578ec6b49bf065fd110");expect(XXM_FORECAST_VERSION).toBe("xxm-key-point-forecast-v0.6-r4");expect(XXM_FORECAST_SPEC_HASH).toBe("9994790178d64757462643fc37eba9e0945b118e91f1fdb85223db81db2a7b12");
+  expect(XXM_ALGORITHM_VERSION).toBe("xxm-direction-v0.5-r4.1");expect(XXM_SPEC_HASH).toBe("a2554ffb510d36930ed22b03bf6b40d94b71e81636290ea666585e94fbf9e367");expect(XXM_FORECAST_VERSION).toBe("xxm-key-point-forecast-v0.7-r4.1");expect(XXM_FORECAST_SPEC_HASH).toBe("09b31261ecc10ed7aabb78a51ba89584c6bfbf353c64c465945134dbdabf84c5");
   expect(adaptForecast(forecastFixture("000001.SH"),options).status).toBe("READY");
   for(const field of ["forecastSpecHash","detectorSpecHash","forecastVersion"]){expect(()=>adaptForecast({...forecastFixture("000001.SH"),[field]:"old"},options)).toThrow();}
   for(const field of Object.keys(forecastFixture("000001.SH"))){const bad:any=forecastFixture("000001.SH");delete bad[field];expect(()=>adaptForecast(bad,options)).toThrow();}

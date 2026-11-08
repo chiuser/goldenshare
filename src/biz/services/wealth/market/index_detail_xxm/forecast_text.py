@@ -11,7 +11,7 @@ _OUTCOME_ORDER = {
     "NONE": ("DULL_FORMED",),
     "DULL": ("STRUCTURE_FORMED", "STRUCTURE_FORMED_AND_FOLLOWING", "STRUCTURE_PRICE_DISAPPEARED",
              "SIGNAL_DISAPPEARED", "REFERENCE_INVALIDATED", "DULL_HELD"),
-    "STRUCTURE": ("SIGNAL_DISAPPEARED", "RETURNED_TO_DULL",
+    "STRUCTURE": ("SIGNAL_DISAPPEARED", "STRUCTURE_DISAPPEARED_AND_DULL_FORMED", "RETURNED_TO_DULL",
                   "STRUCTURE_FOLLOWING", "STRUCTURE_PRICE_DISAPPEARED", "STRUCTURE_HELD"),
 }
 _RANGE_FIELDS = {"lower", "upper", "lowerInclusive", "upperInclusive",
@@ -99,6 +99,7 @@ def _outcome_text(outcome: str, state: str, direction: str, rescue: bool) -> str
         "STRUCTURE_PRICE_DISAPPEARED": (f"{name}结构首次反色当根因价格突破消失" if state == "STRUCTURE"
                                         else f"{name}结构当根形成后因价格突破消失"),
         "SIGNAL_DISAPPEARED": f"{name}结构直接消失" if state == "STRUCTURE" else f"{side}钝化消失",
+        "STRUCTURE_DISAPPEARED_AND_DULL_FORMED": f"原结构消失，转用远参照形成{side}钝化",
         "REFERENCE_INVALIDATED": "近参照失效，远参照本次未计算，真实收盘按r4同根规则检查",
     }[outcome]
 
@@ -164,7 +165,10 @@ def make_display(result, *, prepared, period, through, mode, check):
                      if result.reason_code == "CALIBRATION_FAILED" else
                      "临界取值尚不能确定，不能当作无解；仅以下已证明条件可用。"
                      if result.conditions else "临界取值尚不能确定，不能当作无解。")
-    if result.conditions and result.selected_reference == "FAR":
+    checked_far_after_break = state == "STRUCTURE" and result.selected_reference == "NEAR" and result.far_evaluated
+    if checked_far_after_break:
+        lines.append("先按近参照考核原结构，同段击穿时再检查能否按远参照新钝化。")
+    elif result.conditions and result.selected_reference == "FAR":
         lines.append("本次按远参照给出条件。")
     elif result.conditions and result.selected_reference == "NEAR":
         lines.append("本次只计算近参照条件。")
@@ -176,7 +180,10 @@ def make_display(result, *, prepared, period, through, mode, check):
     rescue = state == "DULL" and prepared.active_role == "NEAR" and result.selected_reference == "FAR"
     for condition in sorted(conditions, key=lambda item: order.index(item.outcome)):
         check()
-        if condition.reference_role != result.selected_reference or not condition.price_ranges:
+        combined = condition.outcome == "STRUCTURE_DISAPPEARED_AND_DULL_FORMED"
+        role_matches = (checked_far_after_break and condition.reference_role == "FAR") if combined else (
+            condition.reference_role == result.selected_reference)
+        if not role_matches or not condition.price_ranges:
             raise ValueError("Condition display reference differs from the selected reference")
         action = _outcome_text(condition.outcome, state, direction, rescue)
         for price_range in condition.price_ranges:

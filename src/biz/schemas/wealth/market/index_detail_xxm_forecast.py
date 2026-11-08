@@ -125,7 +125,8 @@ class PrecisionRangeDto(Dto):
 
 
 Outcome = Literal["DULL_FORMED", "DULL_HELD", "STRUCTURE_FORMED", "STRUCTURE_HELD", "RETURNED_TO_DULL",
-    "STRUCTURE_FORMED_AND_FOLLOWING", "STRUCTURE_FOLLOWING", "STRUCTURE_PRICE_DISAPPEARED", "SIGNAL_DISAPPEARED", "REFERENCE_INVALIDATED"]
+    "STRUCTURE_FORMED_AND_FOLLOWING", "STRUCTURE_FOLLOWING", "STRUCTURE_PRICE_DISAPPEARED", "SIGNAL_DISAPPEARED",
+    "STRUCTURE_DISAPPEARED_AND_DULL_FORMED", "REFERENCE_INVALIDATED"]
 
 
 class ForecastConditionDto(Dto):
@@ -305,7 +306,10 @@ def _validate_details(root, details):
         raise ValueError("Invalid calendar identity")
     if root.targetEndpoint is None and (details.selectedReference is not None or details.farEvaluated or details.conditions or details.precisionRanges or details.structureFollowConditions):
         raise ValueError("Unsolved result has no conditions")
-    if details.farEvaluated != (details.selectedReference == "FAR"):
+    checked_far_after_break = (root.ordinaryState == "STRUCTURE" and details.selectedReference == "NEAR"
+                               and details.references.farther is not None and details.farEvaluated
+                               and details.nearestDecision.status == "NOT_EVALUATED")
+    if details.farEvaluated != (details.selectedReference == "FAR" or checked_far_after_break):
         raise ValueError("Far evaluation differs from selection")
     ref = details.references.nearest if details.selectedReference == "NEAR" else details.references.farther if details.selectedReference == "FAR" else None
     if details.selectedReference is not None and ref is None:
@@ -317,7 +321,8 @@ def _validate_details(root, details):
     if len(outcomes) != len(set(outcomes)):
         raise ValueError("Duplicate ordinary outcome")
     allowed = {"NONE": {"DULL_FORMED"}, "DULL": {"DULL_HELD", "STRUCTURE_FORMED", "STRUCTURE_FORMED_AND_FOLLOWING", "STRUCTURE_PRICE_DISAPPEARED", "REFERENCE_INVALIDATED", "SIGNAL_DISAPPEARED"},
-               "STRUCTURE": {"STRUCTURE_HELD", "RETURNED_TO_DULL", "STRUCTURE_FOLLOWING", "STRUCTURE_PRICE_DISAPPEARED", "SIGNAL_DISAPPEARED"}, None: set()}
+               "STRUCTURE": {"STRUCTURE_HELD", "RETURNED_TO_DULL", "STRUCTURE_FOLLOWING", "STRUCTURE_PRICE_DISAPPEARED",
+                             "SIGNAL_DISAPPEARED", "STRUCTURE_DISAPPEARED_AND_DULL_FORMED"}, None: set()}
     bindings = set()
     def expr(value):
         if isinstance(value, MacdExpressionDto):
@@ -337,11 +342,21 @@ def _validate_details(root, details):
                 raise ValueError("Reference is not historical")
     if details.references.farther is not None and (details.references.nearest is None or details.references.farther.endTime >= details.references.nearest.startTime):
         raise ValueError("Near/far chronology mismatch")
+    direct, reactivation = (), ()
     for c in details.conditions:
-        if c.referenceRole != details.selectedReference or c.outcome not in allowed[root.ordinaryState]:
+        combined = c.outcome == "STRUCTURE_DISAPPEARED_AND_DULL_FORMED"
+        role_matches = (checked_far_after_break and c.referenceRole == "FAR") if combined else (
+            c.referenceRole == details.selectedReference)
+        if not role_matches or c.outcome not in allowed[root.ordinaryState]:
             raise ValueError("Condition state/reference mismatch")
         _ranges(c.priceRanges,details.precisionRanges)
         for p in c.predicates: expr(p.left); expr(p.right)
+        if combined:
+            reactivation = c.priceRanges
+        elif c.outcome == "SIGNAL_DISAPPEARED":
+            direct = c.priceRanges
+    if any(_overlap(a, b) for a in direct for b in reactivation):
+        raise ValueError("Direct cancellation and reactivation ranges overlap")
     groups = set()
     for c in details.structureFollowConditions:
         if c.direction in groups or (c.nextSameColorStart is None) != (c.nextSameColorCount == 0):

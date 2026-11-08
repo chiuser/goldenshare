@@ -91,10 +91,39 @@ export const decodeXxmDebug: DecodeXxmDebug = (raw, { response, period, check })
             assert(s && s.direction === ordinary.ordinaryDirection && same(s.originalReference, p.activeReference) && String(s.formedAt) <= ordinary.time && (s.firstOppositeAt === null || ordinary.time < String(s.firstOppositeAt)) && (s.disappearedAt === null || ordinary.time < String(s.disappearedAt)));
         }
     }
-    const activation = new Set<string>();
+    const ordinaryByTime = new Map<string, number[]>();
+    const ranks = new Map<string, number>();
     for (const [i, e] of raw.events.entries()) {
         check();
         keys(e, "id route fromState eventReference relatedStructureId");
+        const { time } = response.events[i]!;
+        const priceBreak = e.route === "structure_price_break";
+        const rank = priceBreak ? (structures.get(e.relatedStructureId)?.firstOppositeAt === time ? 2 : 0) : 1;
+        assert(rank >= (ranks.get(time) ?? -1));
+        ranks.set(time, rank);
+        if (!priceBreak) {
+            const indices = ordinaryByTime.get(time) ?? [];
+            indices.push(i);
+            ordinaryByTime.set(time, indices);
+        }
+    }
+    const reactivationCancels = new Set<number>(), reactivations = new Set<number>();
+    for (const indices of ordinaryByTime.values()) {
+        if (indices.length === 1)
+            continue;
+        assert(indices.length === 2);
+        const [cancelIndex, activationIndex] = indices as [number, number];
+        const cancel = raw.events[cancelIndex], activation = raw.events[activationIndex];
+        assert(cancel.route === "dif_break" && cancel.fromState === "STRUCTURE" && activation.route === "activation"
+            && response.events[cancelIndex]!.direction === response.events[activationIndex]!.direction
+            && record(activation.eventReference) && record(cancel.eventReference)
+            && String(activation.eventReference.endTime) < String(cancel.eventReference.startTime));
+        reactivationCancels.add(cancelIndex);
+        reactivations.add(activationIndex);
+    }
+    const activation = new Set<string>();
+    for (const [i, e] of raw.events.entries()) {
+        check();
         const normal = response.events[i]!;
         assert(e.id === normal.id && through);
         reference(e.eventReference, period, through);
@@ -128,14 +157,21 @@ export const decodeXxmDebug: DecodeXxmDebug = (raw, { response, period, check })
             if (e.route === "dif_turn")
                 assert(detail.activeStructureId === e.relatedStructureId);
         }
-        else if (e.route !== "structure_price_break")
+        else if (e.route !== "structure_price_break" && !reactivationCancels.has(i))
             assert(point.ordinaryState === "NONE");
-        if (e.route !== "structure_price_break" && pointIndex)
+        if (e.route !== "structure_price_break" && pointIndex && !reactivations.has(i)) {
             assert(e.fromState === response.points[pointIndex - 1]!.ordinaryState);
+            if (reactivationCancels.has(i)) {
+                const prior = raw.points[pointIndex - 1]!;
+                assert(same(prior.activeReference, e.eventReference) && prior.activeStructureId === e.relatedStructureId);
+            }
+        }
     }
     for (const [i, e] of raw.events.entries()) {
         const n = response.events[i]!;
-        assert(n.displayOnChart !== (n.type === "CANCEL" && e.route === "structure_price_break" && activation.has(n.time + n.direction)));
+        const hiddenPriceBreak = n.type === "CANCEL" && e.route === "structure_price_break"
+            && activation.has(n.time + n.direction);
+        assert(n.displayOnChart === !(hiddenPriceBreak || reactivationCancels.has(i)));
     }
     for (const s of raw.structures) {
         if (response.points.some(p => p.time === s.formedAt))

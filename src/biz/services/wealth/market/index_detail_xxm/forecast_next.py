@@ -1,19 +1,20 @@
-"""One-reference conditions for an existing r4 relationship."""
+"""Next-bar conditions for an existing relationship."""
 from copy import deepcopy
 import math
 
 from .forecast_detector import clone, evaluate_next_at_price, evaluation_scope, _validate_endpoint, _finite
 from .forecast_expression import macd_expression, sourced
-from .forecast_math import (Interval, candidate_prices, condition, const, difference,
+from .forecast_math import (Interval, _intersection, candidate_prices, condition, const, difference,
                             display_range, merge, scaled, solve_predicates, subtract)
-from .types import ForecastConditionDraft, ReferenceForecast
+from .types import ComparisonRanges, ForecastConditionDraft, ReferenceForecast
 
 
 _RELATIONSHIPS = frozenset(('DULL_FORMED', 'DULL_HELD', 'STRUCTURE_FORMED',
                             'STRUCTURE_FORMED_AND_FOLLOWING'))
 OUTCOME_ORDER = ('DULL_FORMED', 'DULL_HELD', 'STRUCTURE_FORMED', 'STRUCTURE_HELD',
                  'RETURNED_TO_DULL', 'STRUCTURE_FORMED_AND_FOLLOWING', 'STRUCTURE_FOLLOWING',
-                 'STRUCTURE_PRICE_DISAPPEARED', 'SIGNAL_DISAPPEARED', 'REFERENCE_INVALIDATED')
+                 'STRUCTURE_PRICE_DISAPPEARED', 'SIGNAL_DISAPPEARED',
+                 'STRUCTURE_DISAPPEARED_AND_DULL_FORMED', 'REFERENCE_INVALIDATED')
 
 
 def _empty_reference():
@@ -62,7 +63,7 @@ def _matches(value, outcome, reference):
             and value['reference'] == reference.reference())
 
 
-def _solve_conditions(c, projection, endpoint, reference, role, definitions, check):
+def _solve_conditions(c, projection, endpoint, reference, role, definitions, check, *, overrides=None):
     """Prove ranges, then certify only the finite necessary points and integers."""
     check()
     _validate_endpoint(c, endpoint)
@@ -74,25 +75,29 @@ def _solve_conditions(c, projection, endpoint, reference, role, definitions, che
         candidates = set()
         for outcome, predicates in definitions:
             check()
-            certificate = solve_predicates(predicates, projection=projection, period=c.period, check=check)
+            if overrides and outcome in overrides:
+                condition_reference, condition_role, certificate = overrides[outcome]
+            else:
+                condition_reference, condition_role = reference, role
+                certificate = solve_predicates(predicates, projection=projection, period=c.period, check=check)
             candidates.update(candidate_prices(predicates, projection=projection, period=c.period, check=check))
             for region in (*certificate.certain_true, *certificate.undecided):
                 for value in (region.lo, region.hi):
                     if value is not None and value > 0 and math.isfinite(value):
                         candidates.add(value)
-            proved.append((outcome, predicates, certificate))
+            proved.append((outcome, predicates, certificate, condition_reference, condition_role))
         evaluated = {}
         for C in sorted(candidates):
             check()
             evaluated[C] = evaluate_next_at_price(c, projection, C, endpoint, role, check)
         conditions = []
         all_true, all_pending, relation_true, relation_pending = [], [], [], []
-        for outcome, predicates, certificate in proved:
+        for outcome, predicates, certificate, condition_reference, condition_role in proved:
             confirmed = list(certificate.certain_true)
             pending = list(certificate.undecided)
             for C, value in evaluated.items():
                 check()
-                matches = _matches(value, outcome, reference)
+                matches = _matches(value, outcome, condition_reference)
                 if any(region.contains(C) for region in certificate.certain_true):
                     if not matches:
                         raise ValueError('Certified one-bar point differs from the formal calculator')
@@ -119,13 +124,13 @@ def _solve_conditions(c, projection, endpoint, reference, role, definitions, che
                     if C not in evaluated:
                         value = evaluate_next_at_price(c, projection, C, endpoint, role, check)
                         evaluated[C] = value
-                    if not _matches(value, outcome, reference):
+                    if not _matches(value, outcome, condition_reference):
                         raise ValueError('Display integer differs from the formal calculator')
                 check()
                 ranges.append(shown)
             if ranges:
                 conditions.append(ForecastConditionDraft(
-                    outcome=outcome, reference_role=role, price_ranges=tuple(deepcopy(ranges)),
+                    outcome=outcome, reference_role=condition_role, price_ranges=tuple(deepcopy(ranges)),
                     predicates=tuple(deepcopy(predicates))))
             all_true.extend(confirmed)
             all_pending.extend(pending)
@@ -141,7 +146,14 @@ def _solve_conditions(c, projection, endpoint, reference, role, definitions, che
         return ReferenceForecast(
             conditions=tuple(sorted(conditions, key=lambda value: OUTCOME_ORDER.index(value.outcome))),
             relationship_ranges=tuple(merge(relation_true)),
-            relationship_precision_ranges=relationship_precision, precision_ranges=precision)
+            relationship_precision_ranges=relationship_precision, precision_ranges=precision,
+            far_evaluated=bool(overrides))
+
+
+def _conjunction(left, right_true, right_false):
+    certain_true = _intersection(left.certain_true, right_true)
+    certain_false = tuple(merge((*left.certain_false, *right_false)))
+    return ComparisonRanges(certain_true, certain_false, _remove((Interval(),), (*certain_true, *certain_false)))
 
 
 def solve_active_reference(c, projection, endpoint, reference, role, check):
@@ -156,6 +168,7 @@ def solve_active_reference(c, projection, endpoint, reference, role, check):
     opposite = _compare(signed_h, 'lt')
     valid = _compare(ref_delta, 'le')
     broken = _compare(ref_delta, 'gt')
+    overrides = None
     rescue = reference != c.reference
     if rescue:
         if (c.state != 'DULL' or role != 'FAR' or len(pool) != 2 or c.reference != pool[0]):
@@ -208,7 +221,27 @@ def solve_active_reference(c, projection, endpoint, reference, role, check):
             hold = () if P == 0 else ((_compare(delta, 'lt', gate),)
                                       if gate > 0 else (_compare(delta, 'le'),))
             definitions.append(('STRUCTURE_HELD', (same, valid, *hold)))
-    return _solve_conditions(c, projection, endpoint, reference, role, definitions, check)
+            if role == 'NEAR' and len(pool) == 2:
+                same_bar_break = solve_predicates((broken, same), projection=projection, period=c.period, check=check)
+                farther = pool[1]
+                if ((same_bar_break.certain_true or same_bar_break.undecided)
+                        and not c._reference_was_broken(c.wave, farther)):
+                    qualifies = (same, _compare(_against(price, reference.price, s), 'gt'),
+                                 _compare(_against(price, farther.price, s), 'gt'),
+                                 _compare(_against(d, farther.dif, s), 'lt'))
+                    if s == 1 and c.spec.top_activation_requires_positive_dif:
+                        qualifies += (_compare(d, 'gt'),)
+                    break_ranges = solve_predicates((broken,), projection=projection, period=c.period, check=check)
+                    far_ranges = solve_predicates(qualifies, projection=projection, period=c.period, check=check)
+                    combined = 'STRUCTURE_DISAPPEARED_AND_DULL_FORMED'
+                    definitions.append((combined, (broken, *qualifies)))
+                    overrides = {
+                        'SIGNAL_DISAPPEARED': (reference, 'NEAR',
+                            _conjunction(break_ranges, far_ranges.certain_false, far_ranges.certain_true)),
+                        combined: (farther, 'FAR',
+                            _conjunction(break_ranges, far_ranges.certain_true, far_ranges.certain_false)),
+                    }
+    return _solve_conditions(c, projection, endpoint, reference, role, definitions, check, overrides=overrides)
 
 
 def solve_followed_structure(c, projection, endpoint, record, check):

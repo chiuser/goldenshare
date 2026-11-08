@@ -124,8 +124,10 @@ def _forecast_ordinary(c, projection, endpoint, check, *, prepared):
             role = prepared.active_role
             nearest = {"status": "NOT_EVALUATED", "reason": "沿已选原参照继续考核，不重新选择近远。"}
             solved = solver(c, projection, endpoint, c.reference, role, check)
+            if solved.far_evaluated:
+                nearest["reason"] = "沿原近参照考核结构，仅对同段击穿范围检查远参照能否新钝化。"
             result = _resolved(prepared, solved, endpoint=endpoint, role=role,
-                               nearest=nearest, far=role == "FAR")
+                               nearest=nearest, far=role == "FAR" or solved.far_evaluated)
         else:
             near, solved, role = pool[0], None, None
             if _already_broken(c, near):

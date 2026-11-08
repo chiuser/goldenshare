@@ -148,8 +148,8 @@ case(36, "top-far-never-return-B", extend(TOP_FAR, [(133,190,2)], "S", [5], [3],
 case(36, "bottom-far-never-return-B", extend(BOTTOM_FAR, [(67,-190,-2)], "S", [-5], [3], [1], "T"))
 case(36, "top-B-unbroken-still-fixed-A", extend(TOP_EQUAL_SELECT_A, [(133,199,2)], "D", [5], [3], [1]))
 case(36, "bottom-B-unbroken-still-fixed-A", extend(BOTTOM_EQUAL_SELECT_A, [(67,-199,-2)], "D", [-5], [3], [1]))
-case(37, "top-structure-no-rescue-next-bar-A", extend(ABTD, [(132,99,2),(133,201,2),(134,201,2)], "SND", [5,5,5], [3,4,5], [3,0,1], "TCA"))
-case(37, "bottom-structure-no-rescue-next-bar-A", extend(ABBD, [(68,-99,-2),(67,-201,-2),(66,-201,-2)], "SND", [-5,-5,-5], [3,4,5], [3,0,1], "TCA"))
+case(37, "top-structure-cancel-and-activate-A", extend(ABTD, [(132,99,2),(133,201,2),(134,201,2)], "SDD", [5,5,5], [3,4,5], [3,1,1], "TY-"))
+case(37, "bottom-structure-cancel-and-activate-A", extend(ABBD, [(68,-99,-2),(67,-201,-2),(66,-201,-2)], "SDD", [-5,-5,-5], [3,4,5], [3,1,1], "TY-"))
 case(38, "top-retain-with-price-inside", extend(T, [(99,100,2)], "D", [3], [3], [1]))
 case(38, "bottom-retain-with-price-inside", extend(B, [(101,-100,-2)], "D", [-3], [3], [1]))
 case(39, "top-exact-one-percent", TS)
@@ -270,7 +270,8 @@ def test_lld_rc_rule_sequence(period, number, data):
         before_segment = data.segments[row - 2] if row > 1 else 0
         current_segment = data.segments[row - 1]
         flipped = bool(before_segment and current_segment != before_segment)
-        code = data.events[row - 1]
+        reactivation = data.events[row - 1] == "Y"
+        code = "C" if reactivation else data.events[row - 1]
         expected_state = STATES[data.states[row - 1]]
         expected_sign = 1 if (before_segment if flipped else current_segment) > 0 else -1
         expected_direction = "TOP" if expected_sign == 1 else "BOTTOM"
@@ -335,6 +336,12 @@ def test_lld_rc_rule_sequence(period, number, data):
             expected_events.append({"id": event_id, "time": bar.time, "direction": expected_direction,
                                     "type": event_type, "route": route, "fromState": before_state,
                                     "eventReference": event_ref, "relatedStructureId": related})
+            if reactivation:
+                farther = _reference_for_row(data, period, row)
+                expected_events.append({"id": _identity(period, bar.time, "DULL", expected_sign, farther["startTime"]),
+                                        "time": bar.time, "direction": expected_direction, "type": "DULL",
+                                        "route": "activation", "fromState": "NONE", "eventReference": farther,
+                                        "relatedStructureId": None})
         elif flipped and before_state == "STRUCTURE":
             assert expected_active is not None
             expected_updates.append(dict(expected_active, status="FOLLOWING", firstOppositeAt=bar.time,

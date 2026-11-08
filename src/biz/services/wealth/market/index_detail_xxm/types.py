@@ -109,7 +109,7 @@ class XxmDecisionBefore(TypedDict):
 
 
 class XxmReferenceCheck(TypedDict):
-    stage: Literal["nearest_price_gate", "activation", "same_bar_rescue", "not_entered"]
+    stage: Literal["nearest_price_gate", "activation", "same_bar_rescue", "structure_reactivation", "not_entered"]
     candidate: Literal["B", "A"]
     wave: XxmWaveFacts
     checked: bool
@@ -120,7 +120,7 @@ class XxmReferenceCheck(TypedDict):
 
 
 class XxmSelectionCall(TypedDict):
-    stage: Literal["activation", "same_bar_rescue"]
+    stage: Literal["activation", "same_bar_rescue", "structure_reactivation"]
     selected: XxmReferenceFacts | None
 
 
@@ -205,6 +205,7 @@ class ReferenceForecast:
     relationship_ranges: tuple[Interval, ...]
     relationship_precision_ranges: tuple[Interval, ...]
     precision_ranges: tuple[Interval, ...]
+    far_evaluated: bool = False
 
 
 @dataclass(frozen=True, slots=True)
