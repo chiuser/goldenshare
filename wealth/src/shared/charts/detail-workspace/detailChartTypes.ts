@@ -2,6 +2,13 @@ import type { ReactNode } from "react";
 import type { ISeriesPrimitive, Time, UTCTimestamp } from "lightweight-charts";
 
 export type DetailChartPanelKey = "kline" | "macd" | "volume" | "kdj";
+export type DetailChartIndicatorPanelKey = Exclude<DetailChartPanelKey, "kline">;
+
+export interface DetailChartIndicatorControls {
+  hiddenIndicatorPanels: ReadonlySet<DetailChartIndicatorPanelKey>;
+  onToggleIndicatorPanel: (panel: DetailChartIndicatorPanelKey) => void;
+}
+
 export type DetailChartTooltipSide = "left" | "right";
 export type DetailChartTimeMode = "daily" | "minute";
 export type DetailChartTimeAxisPlacement = "bottom-pane" | "each-pane";
@@ -55,6 +62,7 @@ interface DetailChartWorkspaceBaseProps {
   dataKey: string;
   ariaLabel: string;
   crosshairPresentation?: DetailChartCrosshairPresentation;
+  hiddenIndicatorPanels?: ReadonlySet<DetailChartIndicatorPanelKey>;
   mainLines: DetailChartLineDefinition[];
   mainLayerAccessory?: ReactNode;
   historyPhase?: "idle" | "loading" | "error";
@@ -65,7 +73,7 @@ interface DetailChartWorkspaceBaseProps {
   panelAriaLabels: Record<DetailChartPanelKey, string>;
   points: DetailChartPoint[];
   renderMainHeader: (point: DetailChartPoint | null) => ReactNode;
-  renderPanelHeader: (panel: Exclude<DetailChartPanelKey, "kline">, point: DetailChartPoint | null) => ReactNode;
+  renderPanelHeader: (panel: DetailChartIndicatorPanelKey, point: DetailChartPoint | null) => ReactNode;
   renderTooltip: (point: DetailChartPoint, side: DetailChartTooltipSide) => ReactNode;
   timeAxisAriaLabel: string;
   timeAxisPlacement?: DetailChartTimeAxisPlacement;

@@ -11,12 +11,34 @@
 }
 
 .detail-chart-area {
+  --detail-chart-pane-height: calc(100% * 17 / 95);
   --detail-chart-right-price-scale-width: 56px;
+  --detail-chart-time-axis-height: 24px;
 
   display: grid;
-  grid-template-rows: 44fr 17fr 17fr 17fr;
+  grid-template-rows:
+    minmax(0, 1fr)
+    var(--detail-chart-macd-row, var(--detail-chart-pane-height))
+    var(--detail-chart-volume-row, var(--detail-chart-pane-height))
+    var(--detail-chart-kdj-row, var(--detail-chart-pane-height));
   min-height: 0;
   position: relative;
+}
+
+.detail-chart-area[data-time-mode="minute"] {
+  --detail-chart-time-axis-height: 28px;
+}
+
+.detail-chart-area:has(> .macd-panel[data-hidden]) {
+  --detail-chart-macd-row: 0px;
+}
+
+.detail-chart-area:has(> .volume-panel[data-hidden]) {
+  --detail-chart-volume-row: 0px;
+}
+
+.detail-chart-area:has(> .kdj-panel[data-hidden]) {
+  --detail-chart-kdj-row: var(--detail-chart-time-axis-height);
 }
 
 .detail-chart-crosshair-vertical {
@@ -40,7 +62,7 @@
   background: linear-gradient(180deg, rgba(10, 16, 29, 0.14), rgba(10, 16, 29, 0.9));
   border-top: 1px solid rgba(148, 163, 184, 0.14);
   bottom: 0;
-  height: 24px;
+  height: var(--detail-chart-time-axis-height);
   left: 0;
   pointer-events: none;
   position: absolute;
@@ -96,6 +118,46 @@
 .detail-chart-panel.macd-panel,
 .detail-chart-panel.kdj-panel {
   border-bottom: none;
+}
+
+.detail-chart-area > .kline-panel {
+  grid-row: 1;
+}
+
+.detail-chart-area > .macd-panel:not([data-hidden]) {
+  grid-row: 2;
+}
+
+.detail-chart-area > .volume-panel:not([data-hidden]) {
+  grid-row: 3;
+}
+
+.detail-chart-area > :is(.macd-panel, .volume-panel)[data-hidden],
+.detail-chart-area > .kdj-panel {
+  height: var(--detail-chart-pane-height);
+  inset-inline: 0;
+  position: absolute;
+}
+
+.detail-chart-area > :is(.macd-panel, .volume-panel)[data-hidden] {
+  top: 0;
+  visibility: hidden;
+}
+
+.detail-chart-area > .kdj-panel {
+  bottom: 0;
+}
+
+.detail-chart-area[data-time-mode="daily"] > .kdj-panel {
+  clip-path: inset(0 0 var(--detail-chart-time-axis-height) 0);
+}
+
+.detail-chart-area[data-time-mode="daily"] > .kdj-panel[data-hidden] {
+  visibility: hidden;
+}
+
+.detail-chart-area[data-time-mode="minute"] > .kdj-panel[data-hidden] {
+  clip-path: inset(calc(100% - var(--detail-chart-time-axis-height)) 0 0 0);
 }
 
 .detail-chart-panel-header {
@@ -364,7 +426,7 @@
 
 @media (max-width: 1360px) {
   .detail-chart-area {
-    grid-template-rows: 46fr 16fr 16fr 16fr;
+    --detail-chart-pane-height: calc(100% * 16 / 94);
   }
 }
 

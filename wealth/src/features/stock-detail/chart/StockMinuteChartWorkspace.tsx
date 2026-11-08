@@ -4,8 +4,10 @@ import type { UTCTimestamp } from "lightweight-charts";
 import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import { NineTurnLayerStatus } from "../../nine-turn/ui/NineTurnLayerStatus";
+import { DetailChartIndicatorToggles } from "../../../shared/charts/detail-workspace/DetailChartIndicatorToggle";
 import { DetailChartWorkspace } from "../../../shared/charts/detail-workspace/DetailChartWorkspace";
 import type {
+  DetailChartIndicatorControls,
   DetailChartLineDefinition,
   DetailChartPanelKey,
   DetailChartPoint,
@@ -17,6 +19,7 @@ import type { StockMinuteChartPoint, StockMinuteChartViewModel } from "../api/st
 
 interface StockMinuteChartWorkspaceProps {
   data: StockMinuteChartViewModel | null;
+  indicatorControls: DetailChartIndicatorControls;
   loadState: "idle" | "loading" | "ready" | "error";
   errorMessage?: string;
   nineTurnLayer: NineTurnLayerViewModel;
@@ -27,6 +30,7 @@ const STOCK_MINUTE_MAIN_LINES: DetailChartLineDefinition[] = [];
 
 export function StockMinuteChartWorkspace({
   data,
+  indicatorControls,
   loadState,
   errorMessage,
   nineTurnLayer,
@@ -57,7 +61,14 @@ export function StockMinuteChartWorkspace({
   return (
     <DetailChartWorkspace
       ariaLabel="分钟图表区"
+      bottomBar={(
+        <div className="detail-chart-indicator-tabs">
+          <DetailChartIndicatorToggles indicatorControls={indicatorControls} />
+        </div>
+      )}
+      bottomBarAriaLabel="股票分钟指标栏"
       dataKey={dataKey}
+      hiddenIndicatorPanels={indicatorControls.hiddenIndicatorPanels}
       mainLayerAccessory={(
         <NineTurnLayerStatus
           droppedMarkerCount={nineTurnChartLayer.droppedMarkerCount}

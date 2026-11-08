@@ -9,9 +9,11 @@ import type { XxmLayerState } from "../xxm/types";
 import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import { NineTurnLayerStatus } from "../../nine-turn/ui/NineTurnLayerStatus";
+import { DetailChartIndicatorToggle } from "../../../shared/charts/detail-workspace/DetailChartIndicatorToggle";
 import { DetailChartWorkspace } from "../../../shared/charts/detail-workspace/DetailChartWorkspace";
 import { DETAIL_CHART_COLORS, isFiniteChartNumber } from "../../../shared/charts/detail-workspace/detailChartSeries";
 import type {
+  DetailChartIndicatorControls,
   DetailChartLineDefinition,
   DetailChartPanelKey,
   DetailChartPoint,
@@ -28,6 +30,7 @@ import type {
 } from "../model/indexDetailTypes";
 
 interface IndexChartWorkspaceProps {
+  indicatorControls: DetailChartIndicatorControls;
   nineTurnLayer: NineTurnLayerViewModel;
   onNineTurnRetry: () => void;
   trend: TrendChannelViewModel | null;
@@ -39,7 +42,18 @@ interface IndexChartWorkspaceProps {
   history?: IndexDailyHistory;
 }
 
-export function IndexChartWorkspace({ nineTurnLayer: ordinaryNineTurn, onNineTurnRetry: ordinaryNineTurnRetry, trend: ordinaryTrend, trendPhase: ordinaryTrendPhase, viewModel, recognition, debugExtension, onTrendRetry: ordinaryTrendRetry, history }: IndexChartWorkspaceProps) {
+export function IndexChartWorkspace({
+  indicatorControls,
+  nineTurnLayer: ordinaryNineTurn,
+  onNineTurnRetry: ordinaryNineTurnRetry,
+  trend: ordinaryTrend,
+  trendPhase: ordinaryTrendPhase,
+  viewModel,
+  recognition,
+  debugExtension,
+  onTrendRetry: ordinaryTrendRetry,
+  history,
+}: IndexChartWorkspaceProps) {
   const ownerKey = `${viewModel.identity.tsCode}|day|${viewModel.asOfTradeDate}`;
   const extension = recognition.debug === 1 && debugExtension?.ownerKey === ownerKey ? debugExtension : null;
   const research = extension?.chartOverride ?? null;
@@ -91,11 +105,12 @@ export function IndexChartWorkspace({ nineTurnLayer: ordinaryNineTurn, onNineTur
     <DetailChartWorkspace
       ariaLabel="指数日线图表区"
       bottomBar={<div className={extension ? "daily-wave-bottom-bar" : undefined}>
-        <IndexIndicatorBar overlay={overlay} setOverlay={setOverlay} supportsTrend={supportsTrend && (!!research || trendPhase === "ready")} />
+        <IndexIndicatorBar indicatorControls={indicatorControls} overlay={overlay} setOverlay={setOverlay} supportsTrend={supportsTrend && (!!research || trendPhase === "ready")} />
         {extension?.controls}
       </div>}
       bottomBarAriaLabel="指数指标栏"
       dataKey={dataKey}
+      hiddenIndicatorPanels={indicatorControls.hiddenIndicatorPanels}
       historyPhase={activeHistory?.phase}
       onHistoryViewport={activeHistory?.onViewport}
       mainLayerAccessory={(
@@ -201,9 +216,17 @@ function IndexPanelHeader({ panel, point }: { panel: Exclude<DetailChartPanelKey
   })}<button className="detail-chart-gear" disabled title="指标设置暂未开通" type="button">⚙</button></>;
 }
 
-function IndexIndicatorBar({ overlay, setOverlay, supportsTrend }: { overlay: IndexMainOverlay; setOverlay: (overlay: IndexMainOverlay) => void; supportsTrend: boolean }) {
+function IndexIndicatorBar({ indicatorControls, overlay, setOverlay, supportsTrend }: {
+  indicatorControls: DetailChartIndicatorControls;
+  overlay: IndexMainOverlay;
+  setOverlay: (overlay: IndexMainOverlay) => void;
+  supportsTrend: boolean;
+}) {
   return <div className="detail-chart-indicator-tabs">
-    {["VOL", "成交额", "MACD", "KDJ"].map((label) => <button className="detail-chart-indicator-tab" disabled key={label} type="button">{label}</button>)}
+    <DetailChartIndicatorToggle panel="volume" indicatorControls={indicatorControls} />
+    <button className="detail-chart-indicator-tab" disabled type="button">成交额</button>
+    <DetailChartIndicatorToggle panel="macd" indicatorControls={indicatorControls} />
+    <DetailChartIndicatorToggle panel="kdj" indicatorControls={indicatorControls} />
     <button className={`detail-chart-indicator-tab ${overlay === "MA" ? "active" : ""}`} type="button" onClick={() => setOverlay("MA")}>均线</button>
     <button className={`detail-chart-indicator-tab ${overlay === "BOLL" ? "active" : ""}`} type="button" onClick={() => setOverlay("BOLL")}>BOLL</button>
     {supportsTrend ? <button className={`detail-chart-indicator-tab ${overlay === "TREND_CHANNEL" ? "active" : ""}`} type="button" onClick={() => setOverlay("TREND_CHANNEL")}>趋势通道</button> : null}

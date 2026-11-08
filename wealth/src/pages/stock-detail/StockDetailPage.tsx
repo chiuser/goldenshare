@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { fetchStockNineTurnSeries } from "../../features/nine-turn/api/nineTurnApiClient";
 import type { NineTurnPeriod } from "../../features/nine-turn/api/nineTurnApiTypes";
 import { DAILY_CHART_PAGE_SIZE } from "../../shared/charts/dailyChartRequestLimits";
+import { useDetailChartIndicatorControls } from "../../shared/charts/detail-workspace/useDetailChartIndicatorControls";
 import type { NineTurnSeriesLoader } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
 import { useNineTurnSeriesRegistry } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
 import { fetchStockDetailKline, fetchStockDetailPageInit } from "../../features/stock-detail/api/stockDetailApiClient";
@@ -50,6 +51,7 @@ const loadStockNineTurnSeries: NineTurnSeriesLoader = (request, options) => {
 };
 
 export function StockDetailPage({ tsCode }: StockDetailPageProps) {
+  const indicatorControls = useDetailChartIndicatorControls(tsCode);
   const tickers = useMajorIndexTickers();
   const [viewModel, setViewModel] = useState<StockDetailViewModel | null>(null);
   const [pageInit, setPageInit] = useState<StockDetailPageInitResponseDto | null>(null);
@@ -247,6 +249,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
         {activePeriod === "day" ? (
           <StockChartWorkspace
             candles={viewModel.chart.candles}
+            indicatorControls={indicatorControls}
             indicatorTabs={viewModel.indicatorTabs}
             nineTurnLayer={nineTurnLayer}
             onNineTurnRetry={() => {
@@ -262,6 +265,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
           <StockMinuteChartWorkspace
             data={minuteChart}
             errorMessage={minuteError}
+            indicatorControls={indicatorControls}
             loadState={minuteLoadState}
             nineTurnLayer={nineTurnLayer}
             onNineTurnRetry={() => {

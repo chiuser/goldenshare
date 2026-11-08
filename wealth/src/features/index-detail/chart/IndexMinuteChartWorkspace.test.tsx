@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DetailChartWorkspaceProps } from "../../../shared/charts/detail-workspace/detailChartTypes";
@@ -24,7 +24,8 @@ describe("IndexMinuteChartWorkspace adapter", () => {
   beforeEach(() => workspaceMock.reset());
 
   it("uses the index/frequency dataKey and keeps the partial message without a mock badge", () => {
-    render(<IndexMinuteChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} data={makeData()} errorMessage="指标部分缺失" nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="partial" />);
+    const onToggleIndicatorPanel = vi.fn();
+    render(<IndexMinuteChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} data={makeData()} errorMessage="指标部分缺失" indicatorControls={{ hiddenIndicatorPanels: new Set(["kdj"]), onToggleIndicatorPanel }} nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="partial" />);
 
     const props = latestProps();
     expect(props.dataKey).toBe("index:000001.SH:m5");
@@ -33,10 +34,19 @@ describe("IndexMinuteChartWorkspace adapter", () => {
     expect(props.mainPrimitives).toHaveLength(1);
     expect(screen.queryByText("模拟指标")).not.toBeInTheDocument();
     expect(screen.getByText("指标部分缺失")).toBeInTheDocument();
+    expect(props.hiddenIndicatorPanels).toEqual(new Set(["kdj"]));
+    expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual(["VOL", "MACD", "KDJ", "均线", "BOLL"]);
+    expect(screen.getByRole("button", { name: "VOL", pressed: true })).toHaveClass("active");
+    expect(screen.getByRole("button", { name: "MACD", pressed: true })).toHaveClass("active");
+    fireEvent.click(screen.getByRole("button", { name: "KDJ", pressed: false }));
+    expect(onToggleIndicatorPanel).toHaveBeenCalledWith("kdj");
+    fireEvent.click(screen.getByRole("button", { name: "BOLL" }));
+    expect(screen.getByRole("button", { name: "BOLL" })).toHaveClass("active");
+    expect(onToggleIndicatorPanel).toHaveBeenCalledTimes(1);
   });
 
   it("keeps empty/error module states outside the loaded shared workspace", () => {
-    render(<IndexMinuteChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} data={null} errorMessage="分钟数据失败" nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="error" />);
+    render(<IndexMinuteChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} data={null} errorMessage="分钟数据失败" indicatorControls={{ hiddenIndicatorPanels: new Set(), onToggleIndicatorPanel: vi.fn() }} nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="error" />);
     expect(workspaceMock.props).toHaveLength(0);
     expect(screen.getByText("分钟数据失败")).toBeInTheDocument();
   });

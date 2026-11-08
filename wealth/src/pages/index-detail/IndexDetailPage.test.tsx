@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { IndexDetailWeightsResponseDto } from "../../features/index-detail/api/indexDetailApiTypes";
@@ -6,17 +6,39 @@ import { makeOrdinaryKline, makePageInit, makeTrendPayload } from "../../feature
 import * as debugLoader from "../../features/index-detail/debug/useIndexDebugModule";
 import * as forecastHook from "../../features/index-detail/xxm-forecast/useXxmForecast";
 import type { IndexRecognitionProps, IndexRecognitionDebugExtension, IndexRecognitionDebugModule, IndexRecognitionDebugProps } from "../../features/index-detail/debug/types";
+import { DetailChartIndicatorToggles } from "../../shared/charts/detail-workspace/DetailChartIndicatorToggle";
+import type { DetailChartIndicatorControls } from "../../shared/charts/detail-workspace/detailChartTypes";
 import { IndexDetailPage } from "./IndexDetailPage";
 
 const p4View = vi.hoisted(() => ({ recognition: null as IndexRecognitionProps | null, extension: undefined as IndexRecognitionDebugExtension | undefined }));
 
 vi.mock("../../features/index-detail/chart/IndexChartWorkspace", () => ({
-  IndexChartWorkspace: ({ nineTurnLayer, recognition, debugExtension }: { nineTurnLayer: { phase: string }; recognition: IndexRecognitionProps; debugExtension?: IndexRecognitionDebugExtension }) => { p4View.recognition=recognition; p4View.extension=debugExtension; return <div aria-label="指数日线图表区" data-nine-turn-phase={nineTurnLayer.phase} />; },
+  IndexChartWorkspace: ({ nineTurnLayer, recognition, debugExtension, indicatorControls }: {
+    nineTurnLayer: { phase: string };
+    recognition: IndexRecognitionProps;
+    debugExtension?: IndexRecognitionDebugExtension;
+    indicatorControls: DetailChartIndicatorControls;
+  }) => {
+    p4View.recognition = recognition;
+    p4View.extension = debugExtension;
+    return <div aria-label="指数日线图表区" data-nine-turn-phase={nineTurnLayer.phase}>
+      <DetailChartIndicatorToggles indicatorControls={indicatorControls} />
+    </div>;
+  },
 }));
 
 vi.mock("../../features/index-detail/chart/IndexMinuteChartWorkspace", () => ({
-  IndexMinuteChartWorkspace: ({ data, errorMessage, nineTurnLayer, phase }: { data: { freq: number } | null; errorMessage: string; nineTurnLayer: { phase: string }; phase: string }) => (
-    <div aria-label="指数分钟图表区" data-freq={data?.freq ?? ""} data-nine-turn-phase={nineTurnLayer.phase} data-phase={phase}>{errorMessage}</div>
+  IndexMinuteChartWorkspace: ({ data, errorMessage, indicatorControls, nineTurnLayer, phase }: {
+    data: { freq: number } | null;
+    errorMessage: string;
+    indicatorControls: DetailChartIndicatorControls;
+    nineTurnLayer: { phase: string };
+    phase: string;
+  }) => (
+    <div aria-label="指数分钟图表区" data-freq={data?.freq ?? ""} data-nine-turn-phase={nineTurnLayer.phase} data-phase={phase}>
+      {errorMessage}
+      {data && <DetailChartIndicatorToggles indicatorControls={indicatorControls} />}
+    </div>
   ),
 }));
 
@@ -147,23 +169,78 @@ describe("IndexDetailPage", () => {
     });
     render(<IndexDetailPage search="" tsCode="000001.SH" />);
 
-    expect(await screen.findByLabelText("指数日线图表区")).toBeInTheDocument();
+    const dailyChart = await screen.findByLabelText("指数日线图表区");
+    for (const name of ["VOL", "MACD", "KDJ"]) {
+      expect(within(dailyChart).getByRole("button", { name, pressed: true })).toHaveClass("active");
+    }
+    fireEvent.click(within(dailyChart).getByRole("button", { name: "KDJ", pressed: true }));
     fireEvent.click(screen.getByRole("button", { name: "5分" }));
     const minuteChart = await screen.findByLabelText("指数分钟图表区");
     await waitFor(() => expect(minuteChart).toHaveAttribute("data-phase", "ready"));
     await waitFor(() => expect(minuteChart).toHaveAttribute("data-nine-turn-phase", "READY"));
     expect(minuteChart).toHaveAttribute("data-freq", "5");
     expect(screen.getByLabelText("IndexHeader")).toHaveTextContent("3940.04");
+    expect(within(minuteChart).getByRole("button", { name: "KDJ", pressed: false })).not.toHaveClass("active");
+    const requestCount = fetchMock.mock.calls.length;
+    fireEvent.click(within(minuteChart).getByRole("button", { name: "VOL", pressed: true }));
+    fireEvent.click(within(minuteChart).getByRole("button", { name: "MACD", pressed: true }));
+    fireEvent.click(within(minuteChart).getByRole("button", { name: "MACD", pressed: false }));
+    expect(fetchMock).toHaveBeenCalledTimes(requestCount);
+
+    fireEvent.click(screen.getByRole("button", { name: "15分" }));
+    const otherMinuteChart = await screen.findByLabelText("指数分钟图表区");
+    await waitFor(() => expect(otherMinuteChart).toHaveAttribute("data-phase", "ready"));
+    expect(otherMinuteChart).toHaveAttribute("data-freq", "15");
+    expect(within(otherMinuteChart).getByRole("button", { name: "VOL", pressed: false })).toBeInTheDocument();
+    expect(within(otherMinuteChart).getByRole("button", { name: "KDJ", pressed: false })).toBeInTheDocument();
+    expect(within(otherMinuteChart).getByRole("button", { name: "MACD", pressed: true })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "日K" }));
-    expect(screen.getByLabelText("指数日线图表区")).toBeInTheDocument();
+    expect(within(screen.getByLabelText("指数日线图表区")).getByRole("button", { name: "KDJ", pressed: false })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "5分" }));
     await waitFor(() => expect(screen.getByLabelText("指数分钟图表区")).toHaveAttribute("data-phase", "ready"));
+    expect(within(screen.getByLabelText("指数分钟图表区")).getByRole("button", { name: "VOL", pressed: false })).toBeInTheDocument();
 
-    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/minutes"))).toHaveLength(1);
-    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/minute-indicators"))).toHaveLength(1);
-    expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/minute-nine-turn"))).toHaveLength(1);
+    for (const endpoint of ["minutes", "minute-indicators", "minute-nine-turn"]) {
+      const frequencies = fetchMock.mock.calls.map(([input]) => new URL(String(input)))
+        .filter((url) => url.pathname.endsWith(`/index-detail/${endpoint}`))
+        .map((url) => url.searchParams.get("freq"));
+      expect(frequencies).toEqual(["5", "15"]);
+    }
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/kline"))).toHaveLength(1);
+  });
+
+  it("resets all indicator toggles on each index change, including a return to the first index", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const url = new URL(String(input));
+      const tsCode = url.searchParams.get("tsCode") === "399001.SZ" ? "399001.SZ" : "000001.SH";
+      const pageInit = makePageInit(tsCode);
+      if (url.pathname.endsWith("/major-indices")) return response(makeMajorIndices(tsCode, pageInit));
+      if (url.pathname.endsWith("/page-init")) return response(pageInit);
+      if (url.pathname.endsWith("/kline")) return response(makeOrdinaryKline(tsCode));
+      if (url.pathname.endsWith("/nine-turn")) return response(makeIndexNineTurnResponse(tsCode, "day"));
+      if (url.pathname.endsWith("/trend-channel")) return response(makeTrendPayload());
+      return response({}, 404);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const { rerender } = render(<IndexDetailPage search="" tsCode="000001.SH" />);
+    const expectAllOn = () => {
+      const chart = within(screen.getByLabelText("指数日线图表区"));
+      for (const name of ["VOL", "MACD", "KDJ"]) {
+        expect(chart.getByRole("button", { name, pressed: true })).toHaveClass("active");
+      }
+    };
+
+    expect(await screen.findByText("上证指数 000001.SH")).toBeInTheDocument();
+    expectAllOn();
+    fireEvent.click(screen.getByRole("button", { name: "KDJ", pressed: true }));
+    rerender(<IndexDetailPage search="" tsCode="399001.SZ" />);
+    expect(await screen.findByText("深证成指 399001.SZ")).toBeInTheDocument();
+    expectAllOn();
+    fireEvent.click(screen.getByRole("button", { name: "MACD", pressed: true }));
+    rerender(<IndexDetailPage search="" tsCode="000001.SH" />);
+    expect(await screen.findByText("上证指数 000001.SH")).toBeInTheDocument();
+    expectAllOn();
   });
 
   it("uses the page-init matrix for index nine-turn and keeps 1 minute at zero requests", async () => {

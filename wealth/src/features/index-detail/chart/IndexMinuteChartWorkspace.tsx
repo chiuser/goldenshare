@@ -8,9 +8,11 @@ import type { UTCTimestamp } from "lightweight-charts";
 import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import { NineTurnLayerStatus } from "../../nine-turn/ui/NineTurnLayerStatus";
+import { DetailChartIndicatorToggles } from "../../../shared/charts/detail-workspace/DetailChartIndicatorToggle";
 import { DetailChartWorkspace } from "../../../shared/charts/detail-workspace/DetailChartWorkspace";
 import { DETAIL_CHART_COLORS, isFiniteChartNumber } from "../../../shared/charts/detail-workspace/detailChartSeries";
 import type {
+  DetailChartIndicatorControls,
   DetailChartLineDefinition,
   DetailChartPanelKey,
   DetailChartPoint,
@@ -26,22 +28,24 @@ import type {
 } from "../model/indexDetailTypes";
 
 interface IndexMinuteChartWorkspaceProps extends IndexMinuteSeriesState {
+  indicatorControls: DetailChartIndicatorControls;
   recognition: IndexRecognitionProps;
   nineTurnLayer: NineTurnLayerViewModel;
   onNineTurnRetry: () => void;
   onRetry: () => void;
 }
 
-export function IndexMinuteChartWorkspace({ data, errorMessage, nineTurnLayer, onNineTurnRetry, onRetry, phase, recognition }: IndexMinuteChartWorkspaceProps) {
+export function IndexMinuteChartWorkspace({ data, errorMessage, indicatorControls, nineTurnLayer, onNineTurnRetry, onRetry, phase, recognition }: IndexMinuteChartWorkspaceProps) {
   if (!data || data.points.length === 0) {
     return <IndexMinuteModuleState errorMessage={errorMessage} onRetry={onRetry} phase={phase} />;
   }
-  return <LoadedIndexMinuteChart recognition={recognition} data={data} message={errorMessage} nineTurnLayer={nineTurnLayer} onNineTurnRetry={onNineTurnRetry} phase={phase} />;
+  return <LoadedIndexMinuteChart recognition={recognition} data={data} indicatorControls={indicatorControls} message={errorMessage} nineTurnLayer={nineTurnLayer} onNineTurnRetry={onNineTurnRetry} phase={phase} />;
 }
 
 function LoadedIndexMinuteChart({
   recognition,
   data,
+  indicatorControls,
   message,
   nineTurnLayer,
   onNineTurnRetry,
@@ -49,6 +53,7 @@ function LoadedIndexMinuteChart({
 }: {
   recognition: IndexRecognitionProps;
   data: IndexMinuteChartViewModel;
+  indicatorControls: DetailChartIndicatorControls;
   message: string;
   nineTurnLayer: NineTurnLayerViewModel;
   onNineTurnRetry: () => void;
@@ -66,9 +71,10 @@ function LoadedIndexMinuteChart({
   return (
     <DetailChartWorkspace
       ariaLabel="指数分钟图表区"
-      bottomBar={<IndexMinuteIndicatorBar message={message} overlay={overlay} phase={phase} setOverlay={setOverlay} />}
+      bottomBar={<IndexMinuteIndicatorBar indicatorControls={indicatorControls} message={message} overlay={overlay} phase={phase} setOverlay={setOverlay} />}
       bottomBarAriaLabel="指数分钟指标栏"
       dataKey={dataKey}
+      hiddenIndicatorPanels={indicatorControls.hiddenIndicatorPanels}
       mainLayerAccessory={(
         <NineTurnLayerStatus
           showAlignmentDiagnostics={recognition.debug === 1}
@@ -167,17 +173,20 @@ function IndexMinutePanelHeader({
 }
 
 function IndexMinuteIndicatorBar({
+  indicatorControls,
   message,
   overlay,
   phase,
   setOverlay,
 }: {
+  indicatorControls: DetailChartIndicatorControls;
   message: string;
   overlay: Exclude<IndexMainOverlay, "TREND_CHANNEL">;
   phase: IndexMinuteSeriesState["phase"];
   setOverlay: (overlay: Exclude<IndexMainOverlay, "TREND_CHANNEL">) => void;
 }) {
   return <div className="detail-chart-indicator-tabs">
+    <DetailChartIndicatorToggles indicatorControls={indicatorControls} />
     <button className={`detail-chart-indicator-tab ${overlay === "MA" ? "active" : ""}`} type="button" onClick={() => setOverlay("MA")}>均线</button>
     <button className={`detail-chart-indicator-tab ${overlay === "BOLL" ? "active" : ""}`} type="button" onClick={() => setOverlay("BOLL")}>BOLL</button>
     {phase === "delayed" || phase === "partial" ? <span className="index-minute-status-message">{message}</span> : null}

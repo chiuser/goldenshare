@@ -84,10 +84,14 @@ vi.mock("lightweight-charts", () => ({
 }));
 
 const indicatorTabs: StockIndicatorTab[] = [
+  { key: "VOL", label: "VOL", active: false, supported: false },
+  { key: "AMOUNT", label: "成交额", active: false, supported: false },
   { key: "MA", label: "均线", active: true, supported: true, overlay: "MA" },
   { key: "BOLL", label: "BOLL", active: false, supported: true, overlay: "BOLL" },
   { key: "MACD", label: "MACD", active: false, supported: true },
+  { key: "KDJ", label: "KDJ", active: true, supported: true },
 ];
+const defaultIndicatorControls = { hiddenIndicatorPanels: new Set<never>(), onToggleIndicatorPanel: vi.fn() };
 
 describe("StockChartWorkspace shared adapter", () => {
   beforeEach(() => chartMock.reset());
@@ -95,10 +99,12 @@ describe("StockChartWorkspace shared adapter", () => {
   it("preserves the stock four-pane, 120-bar, overlay and tooltip behavior", () => {
     const candles = makeCandles(300);
     const onAction = vi.fn();
+    const onToggleIndicatorPanel = vi.fn();
     render(
       <StockChartWorkspace
         candles={candles}
         indicatorTabs={indicatorTabs}
+        indicatorControls={{ hiddenIndicatorPanels: new Set(["kdj"]), onToggleIndicatorPanel }}
         nineTurnLayer={idleNineTurnLayer("day")}
         onNineTurnRetry={vi.fn()}
         onAction={onAction}
@@ -116,8 +122,19 @@ describe("StockChartWorkspace shared adapter", () => {
     expect(screen.getByLabelText("K线主图")).toBeInTheDocument();
     expect(screen.getByLabelText("MACD(12,26,9)")).toBeInTheDocument();
     expect(screen.getByLabelText("成交量")).toBeInTheDocument();
-    expect(screen.getByLabelText("KDJ(9,3,3)")).toBeInTheDocument();
+    expect(screen.getByLabelText("KDJ(9,3,3)")).toHaveAttribute("inert");
     expect(screen.getByText("MA250:19.99")).toBeInTheDocument();
+
+    const vol = screen.getByRole("button", { name: "VOL", pressed: true });
+    const macd = screen.getByRole("button", { name: "MACD", pressed: true });
+    const kdj = screen.getByRole("button", { name: "KDJ", pressed: false });
+    expect(vol).toHaveClass("active");
+    expect(kdj).not.toHaveClass("active");
+    [vol, macd, kdj].forEach((button) => fireEvent.click(button));
+    expect(onToggleIndicatorPanel.mock.calls).toEqual([["volume"], ["macd"], ["kdj"]]);
+    expect(onAction).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "成交额" }));
+    expect(onAction).toHaveBeenCalledWith("成交额 指标暂未支持");
 
     fireEvent.change(screen.getByLabelText("主图指标切换"), { target: { value: "BOLL" } });
     expect(screen.getByText("UPPER:22.99")).toBeInTheDocument();
@@ -143,6 +160,7 @@ describe("StockChartWorkspace shared adapter", () => {
       <StockChartWorkspace
         candles={candles}
         indicatorTabs={indicatorTabs}
+        indicatorControls={defaultIndicatorControls}
         nineTurnLayer={idleNineTurnLayer("day")}
         onNineTurnRetry={vi.fn()}
         onAction={vi.fn()}
@@ -158,6 +176,7 @@ describe("StockChartWorkspace shared adapter", () => {
       <StockChartWorkspace
         candles={candles}
         indicatorTabs={indicatorTabs}
+        indicatorControls={defaultIndicatorControls}
         nineTurnLayer={readyNineTurnLayer(candles.at(-1)!.fullDate)}
         onNineTurnRetry={vi.fn()}
         onAction={vi.fn()}
@@ -182,6 +201,7 @@ describe("StockChartWorkspace shared adapter", () => {
       <StockChartWorkspace
         candles={candles}
         indicatorTabs={indicatorTabs}
+        indicatorControls={defaultIndicatorControls}
         nineTurnLayer={idleNineTurnLayer("day")}
         onNineTurnRetry={vi.fn()}
         onAction={vi.fn()}

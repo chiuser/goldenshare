@@ -342,6 +342,10 @@ describe("StockDetailPage", () => {
 
     const fetchMock = vi.fn(async (input: RequestInfo | URL, options?: RequestInit) => {
       const url = String(input);
+      const requestedCode = new URL(url).searchParams.get("tsCode");
+      const otherStock = requestedCode === "601878.SH"
+        ? { tsCode: "601878.SH", symbol: "601878", name: "浙商证券" }
+        : null;
       if (fail) return new Response(JSON.stringify({ code: "internal_error", message: "接口失败" }), { status: 500 });
       if (url.includes("/watchlist/stocks/")) {
         if (failWatchlist) return new Response(JSON.stringify({ code: "WL_QUERY_FAILED", message: "自选失败" }), { status: 500 });
@@ -352,15 +356,21 @@ describe("StockDetailPage", () => {
       if (url.includes("/trend-channel") && failTrend) {
         return new Response(JSON.stringify({ code: "STOCK_TREND_CHANNEL_READ_FAILED", message: "趋势通道失败" }), { status: 500 });
       }
-      if (url.includes("/page-init")) return new Response(JSON.stringify(pageInit), { status: 200 });
-      if (url.includes("/kline")) return new Response(JSON.stringify(kline), { status: 200 });
+      if (url.includes("/page-init")) {
+        return Response.json(otherStock ? { ...pageInit, stock: { ...pageInit.stock, ...otherStock } } : pageInit);
+      }
+      if (url.includes("/kline")) {
+        return Response.json(otherStock ? { ...kline, stockRef: { tsCode: otherStock.tsCode, name: otherStock.name } } : kline);
+      }
       if (url.includes("/trend-channel")) return new Response(JSON.stringify(stockTrendChannel), { status: 200 });
       if (url.includes("/stock-detail/news")) return new Response(JSON.stringify(stockNews), { status: 200 });
       if (url.includes("/minute-nine-turn")) {
         const period = new URL(url).searchParams.get("freq") ?? "30";
         return new Response(JSON.stringify({ ...minuteNineTurn, period }), { status: 200 });
       }
-      if (url.includes("/nine-turn")) return new Response(JSON.stringify(dailyNineTurn), { status: 200 });
+      if (url.includes("/nine-turn")) {
+        return Response.json(otherStock ? { ...dailyNineTurn, tsCode: otherStock.tsCode } : dailyNineTurn);
+      }
       if (supportsMinute && url.includes("/minutes")) {
         const freq = Number(new URL(url).searchParams.get("freq"));
         return new Response(JSON.stringify({
@@ -556,9 +566,16 @@ describe("StockDetailPage", () => {
 
   it("loads both minute endpoints with one shared bounded request window", async () => {
     const fetchMock = mockStockDetailFetch({ supportsMinute: true });
-    render(<StockDetailPage tsCode="603806.SH" />);
+    const { rerender } = render(<StockDetailPage tsCode="603806.SH" />);
 
     expect(await screen.findByText("福斯特 603806.SH")).toBeInTheDocument();
+    const expectAllOn = () => {
+      for (const name of ["VOL", "MACD", "KDJ"]) {
+        expect(screen.getByRole("button", { name, pressed: true })).toHaveClass("active");
+      }
+    };
+    expectAllOn();
+    fireEvent.click(screen.getByRole("button", { name: "KDJ", pressed: true }));
     fireEvent.click(screen.getByRole("button", { name: "5分" }));
 
     await waitFor(() => {
@@ -576,12 +593,40 @@ describe("StockDetailPage", () => {
     expect(minuteRequests[0]).toContain("limit=500");
     expect(minuteRequests[1]).toContain("freq=5");
     expect(minuteRequests.some((url) => url.includes("/stock-detail/minute-indicators"))).toBe(true);
-    expect(screen.getByLabelText("分钟图表区")).toBeInTheDocument();
+    expect(await screen.findByLabelText("分钟图表区")).toBeInTheDocument();
     expect(screen.getByText("分钟K线")).toBeInTheDocument();
     const nineTurnMinuteRequests = fetchMock.mock.calls
       .map(([input]) => String(input))
       .filter((url) => url.includes("/minute-nine-turn"));
     expect(nineTurnMinuteRequests).toHaveLength(0);
+    expect(screen.getByRole("button", { name: "KDJ", pressed: false })).not.toHaveClass("active");
+    const requestCount = fetchMock.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: "VOL", pressed: true }));
+    fireEvent.click(screen.getByRole("button", { name: "MACD", pressed: true }));
+    fireEvent.click(screen.getByRole("button", { name: "MACD", pressed: false }));
+    expect(fetchMock).toHaveBeenCalledTimes(requestCount);
+
+    fireEvent.click(screen.getByRole("button", { name: "15分" }));
+    const otherMinuteBar = await screen.findByLabelText("股票分钟指标栏");
+    expect(within(otherMinuteBar).getByRole("button", { name: "VOL", pressed: false })).toBeInTheDocument();
+    expect(within(otherMinuteBar).getByRole("button", { name: "KDJ", pressed: false })).toBeInTheDocument();
+    expect(within(otherMinuteBar).getByRole("button", { name: "MACD", pressed: true })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "日K" }));
+    expect(screen.getByRole("button", { name: "KDJ", pressed: false })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "5分" }));
+    expect(await screen.findByRole("button", { name: "VOL", pressed: false })).toBeInTheDocument();
+    const fiveMinuteRequests = fetchMock.mock.calls
+      .map(([input]) => String(input))
+      .filter((url) => (url.includes("/stock-detail/minutes") || url.includes("/stock-detail/minute-indicators")) && url.includes("freq=5"));
+    expect(fiveMinuteRequests).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "日K" }));
+
+    rerender(<StockDetailPage tsCode="601878.SH" />);
+    expect(await screen.findByText("浙商证券 601878.SH")).toBeInTheDocument();
+    expectAllOn();
+    rerender(<StockDetailPage tsCode="603806.SH" />);
+    expect(await screen.findByText("福斯特 603806.SH")).toBeInTheDocument();
+    expectAllOn();
   });
 
   it("loads stock trend channel only after first selection and keeps the base chart alive", async () => {

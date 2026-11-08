@@ -133,6 +133,7 @@ export function DetailChartWorkspace({
   bottomBarAriaLabel,
   crosshairPresentation = "synchronized-overlay",
   dataKey,
+  hiddenIndicatorPanels,
   historyPhase,
   onHistoryViewport,
   mainLines,
@@ -819,7 +820,7 @@ export function DetailChartWorkspace({
 
   return (
     <section className="detail-chart-workspace" aria-label={ariaLabel}>
-      <div className="detail-chart-area" ref={chartsAreaRef} onMouseLeave={() => setIsChartHovering(false)}>
+      <div className="detail-chart-area" data-time-mode={timeMode} ref={chartsAreaRef} onMouseLeave={() => setIsChartHovering(false)}>
         {topRightAccessory}
         {timeAxisMarkers.length > 0 ? <DailyTimeAxis ariaLabel={timeAxisAriaLabel} markers={timeAxisMarkers} /> : null}
         {crosshairPresentation === "synchronized-overlay" && sharedCrosshair !== null ? (
@@ -864,6 +865,7 @@ export function DetailChartWorkspace({
             axisFloatLabel={axisFloatLabel?.panel === panel ? axisFloatLabel : null}
             className={`${panel}-panel`}
             header={renderPanelHeader(panel, latest)}
+            hidden={hiddenIndicatorPanels?.has(panel)}
             hostRef={(node) => { chartRefs.current[panel] = node; }}
             key={panel}
           />

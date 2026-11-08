@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import type { UTCTimestamp } from "lightweight-charts";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,6 +9,7 @@ import { VisibleExtremaPrimitive } from "./VisibleExtremaPrimitive";
 import { buildCandlestickData, buildHistogramData, buildLineData } from "./detailChartSeries";
 import type {
   DetailChartLineDefinition,
+  DetailChartIndicatorPanelKey,
   DetailChartPoint,
   DetailChartWorkspaceProps,
 } from "./detailChartTypes";
@@ -435,6 +437,57 @@ describe("DetailChartWorkspace", () => {
     expect(screen.getByLabelText("共享MACD")).toBeInTheDocument();
     expect(screen.getByLabelText("共享成交量")).toBeInTheDocument();
     expect(screen.getByLabelText("共享KDJ")).toBeInTheDocument();
+  });
+
+  it.each(["daily", "minute"] as const)("keeps the %s charts, range and bottom axis while hiding and restoring panes", async (timeMode) => {
+    const points = makePoints(300).map((point) => {
+      if (timeMode === "daily") return point;
+      const fullDate = `${point.fullDate}T09:30:00+08:00`;
+      return { ...point, fullDate, time: (Date.parse(fullDate) / 1000) as UTCTimestamp };
+    });
+    const props = workspaceElement(points, timeMode, `shared:visibility:${timeMode}`).props;
+    const chartElement = (...hiddenPanels: DetailChartIndicatorPanelKey[]) => (
+      <DetailChartWorkspace {...props} hiddenIndicatorPanels={new Set(hiddenPanels)} />
+    );
+    const rendered = render(chartElement());
+    const paneLabels = ["共享K线主图", "共享MACD", "共享成交量", "共享KDJ"];
+    const area = rendered.container.querySelector(".detail-chart-area")!;
+    const hosts = [...area.querySelectorAll(".detail-chart-host")];
+    const charts = [...chartMock.charts];
+    const dataCalls = () => charts.map((chart) =>
+      chart.series.map((series: { setData: ReturnType<typeof vi.fn> }) => series.setData.mock.calls.length),
+    );
+    const initialDataCalls = dataCalls();
+    const dateAxis = timeMode === "daily" ? await screen.findByLabelText("共享日线时间轴") : null;
+    const axisVisibility = timeMode === "daily" ? [false, false, false, false] : [false, false, false, true];
+    const expectChartState = (hiddenLabels: string[], range: { from: number; to: number }) => {
+      const panes = [...area.querySelectorAll(".detail-chart-panel")];
+      expect(panes.map((pane) => pane.getAttribute("aria-label"))).toEqual(paneLabels);
+      panes.forEach((pane, index) => {
+        const hidden = hiddenLabels.includes(paneLabels[index]!);
+        expect(pane.hasAttribute("data-hidden")).toBe(hidden);
+        expect(pane.hasAttribute("inert")).toBe(hidden);
+        expect(pane.querySelector(".detail-chart-host")).toBe(hosts[index]);
+      });
+      expect(screen.queryByLabelText("共享日线时间轴")).toBe(dateAxis);
+      expect(screen.getByLabelText("共享指标栏")).toHaveTextContent("bottom");
+      expect(chartMock.createChart).toHaveBeenCalledTimes(4);
+      expect(chartMock.createChart.mock.calls.map((call) => call[1]?.timeScale.visible)).toEqual(axisVisibility);
+      charts.forEach((chart) => {
+        expect(chart.remove).not.toHaveBeenCalled();
+        expect(chart.timeScale().getVisibleLogicalRange()).toEqual(range);
+      });
+      expect(dataCalls()).toEqual(initialDataCalls);
+    };
+
+    expect(within(screen.getByLabelText("共享KDJ")).getByText("kdj")).toBeInTheDocument();
+    rendered.rerender(chartElement("kdj"));
+    expectChartState(["共享KDJ"], { from: 180, to: 299 });
+    act(() => charts[0]!.timeScale().setVisibleLogicalRange({ from: 90, to: 179 }));
+    rendered.rerender(chartElement("kdj", "volume", "macd"));
+    expectChartState(["共享MACD", "共享成交量", "共享KDJ"], { from: 90, to: 179 });
+    rendered.rerender(chartElement());
+    expectChartState([], { from: 90, to: 179 });
   });
 
   it("fits MACD and KDJ to their shared visible extrema and renders labels only on the right scale", () => {

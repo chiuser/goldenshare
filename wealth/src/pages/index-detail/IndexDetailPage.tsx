@@ -34,6 +34,7 @@ import type { NineTurnPeriod } from "../../features/nine-turn/api/nineTurnApiTyp
 import { useNineTurnSeriesRegistry } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
 import { resolveIndexRecognitionAvailability } from "../../features/index-detail/model/indexRecognitionAvailability";
 import { DAILY_CHART_PAGE_SIZE } from "../../shared/charts/dailyChartRequestLimits";
+import { useDetailChartIndicatorControls } from "../../shared/charts/detail-workspace/useDetailChartIndicatorControls";
 import { unsupportedNineTurnLayer } from "../../features/nine-turn/model/nineTurnAdapter";
 import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
 import type { TopMarketNavKey, TopMarketTicker } from "../../shared/ui/top-market-bar/topMarketBarTypes";
@@ -49,6 +50,7 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
   const [toast, setToast] = useState("");
   const tickers = useTopMarketTickers();
   const normalizedTsCode = normalizeIndexTsCode(tsCode);
+  const indicatorControls = useDetailChartIndicatorControls(normalizedTsCode);
   const debug = useMemo(() => new URLSearchParams(search).get("debug") === "1" ? 1 as const : undefined, [search]);
   const hasData = controller.phase === "ready" || controller.phase === "delayed" || controller.phase === "partial";
   const weights = useIndexWeights({
@@ -237,6 +239,7 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
             <IndexChartWorkspace
               recognition={recognition}
               debugExtension={extension}
+              indicatorControls={indicatorControls}
               nineTurnLayer={nineTurnLayer}
               onNineTurnRetry={() => {
                 if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
@@ -252,6 +255,7 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
               recognition={recognition}
               data={minute.data}
               errorMessage={minute.errorMessage}
+              indicatorControls={indicatorControls}
               nineTurnLayer={nineTurnLayer}
               onNineTurnRetry={() => {
                 if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);

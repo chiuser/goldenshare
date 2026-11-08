@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { DetailChartWorkspaceProps } from "../../../shared/charts/detail-workspace/detailChartTypes";
+import { useDetailChartIndicatorControls } from "../../../shared/charts/detail-workspace/useDetailChartIndicatorControls";
 import { makeOrdinaryKline, makePageInit, makeTrendPayload } from "../testing/indexDetailTestFixtures";
 import { dailyWaveKlineFixture, dailyWaveReadyFixture } from "../daily-wave/dailyWaveFixtures.test-support";
 import { useCallback,useEffect,useState } from "react";
@@ -16,6 +17,7 @@ import type { IndexPeriodKey } from "../model/indexDetailTypes";
 const DAILY=["day"] as const;
 function Harness({debug=true}:{debug?:boolean}){
   const controller=useIndexDetailController("000001.SH","");
+  const indicatorControls=useDetailChartIndicatorControls("000001.SH");
   const vm=controller.viewModel;
   const [extension,setExtension]=useState<IndexRecognitionDebugExtension|null>(null);
   const owner=`000001.SH|day|${vm?.asOfTradeDate??""}`;
@@ -24,7 +26,7 @@ function Harness({debug=true}:{debug?:boolean}){
   useEffect(()=>{if(vm)void nine.ensure("day");},[!!vm,nine.ensure]);
   if(!vm)return null;
   return <>{debug ? <IndexRecognitionDebug ownerKey={owner} tsCode="000001.SH" activePeriod="day" ordinaryAsOfDate={vm.asOfTradeDate} supportsNineTurn={vm.capabilities.supportsNineTurn} supportsTrend={vm.capabilities.supportsTrendChannel} onChange={onChange}/> : null}
-    <IndexChartWorkspace recognition={{recognitionEnabled:true,debug:debug?1:0}} debugExtension={extension??undefined} nineTurnLayer={nine.stateFor("day")} onNineTurnRetry={()=>{void nine.retry("day");}} trend={controller.trend} trendPhase={controller.trendPhase} onTrendRetry={controller.retryTrend} viewModel={vm}/>
+    <IndexChartWorkspace recognition={{recognitionEnabled:true,debug:debug?1:0}} debugExtension={extension??undefined} indicatorControls={indicatorControls} nineTurnLayer={nine.stateFor("day")} onNineTurnRetry={()=>{void nine.retry("day");}} trend={controller.trend} trendPhase={controller.trendPhase} onTrendRetry={controller.retryTrend} viewModel={vm}/>
     <IndexInfoRail activeTab="basic" nineTurnSummary={{} as IndexTechnicalNineTurnSummary} onAction={()=>{}} onNineTurnRetry={()=>{}} onTrendRetry={controller.retryTrend} onTabChange={()=>{}} pagePhase="ready" partialReasons={[]} trend={controller.trend} trendPhase={controller.trendPhase} viewModel={vm} weights={{data:null,errorMessage:"",phase:"idle",retry:()=>{}}}/></>;
 }
 

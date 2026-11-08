@@ -13,6 +13,7 @@ const workspaceMock = vi.hoisted(() => ({
   props: [] as DetailChartWorkspaceProps[],
   reset() { this.props.splice(0, this.props.length); },
 }));
+const defaultIndicatorControls = { hiddenIndicatorPanels: new Set<never>(), onToggleIndicatorPanel: vi.fn() };
 
 vi.mock("../xxm/useIndexXxmLayer", () => ({ useIndexXxmLayer: () => ({ phase: "unsupported", data: null, errorMessage: "", requestKey: "", retry: () => {}, macdPrimitives: [] }) }));
 
@@ -28,7 +29,7 @@ describe("IndexChartWorkspace adapter", () => {
 
   it("updates asynchronous ordinary trend content without replacing chart primitives or changing the selected overlay", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit(), makeKline());
-    const props = { nineTurnLayer: idleNineTurnLayer("day"), onNineTurnRetry: vi.fn(), viewModel };
+    const props = { indicatorControls: defaultIndicatorControls, nineTurnLayer: idleNineTurnLayer("day"), onNineTurnRetry: vi.fn(), viewModel };
     const { rerender } = render(<IndexChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} {...props} trend={null} trendPhase="loading" />);
     const first = latestProps();
     fireEvent.change(screen.getByLabelText("指数主图指标切换"), { target: { value: "BOLL" } });
@@ -47,18 +48,27 @@ describe("IndexChartWorkspace adapter", () => {
 
   it("uses the index daily dataKey and keeps it stable across MA/BOLL switches", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit("399001.SZ"), makeKline("399001.SZ"));
-    render(<IndexChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} nineTurnLayer={idleNineTurnLayer("day")} onNineTurnRetry={vi.fn()} trend={null} trendPhase="unavailable" viewModel={viewModel} />);
+    const onToggleIndicatorPanel = vi.fn();
+    render(<IndexChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} indicatorControls={{ hiddenIndicatorPanels: new Set(["volume"]), onToggleIndicatorPanel }} nineTurnLayer={idleNineTurnLayer("day")} onNineTurnRetry={vi.fn()} trend={null} trendPhase="unavailable" viewModel={viewModel} />);
 
     expect(latestProps().dataKey).toBe("index:399001.SZ:day");
+    expect(latestProps().hiddenIndicatorPanels).toEqual(new Set(["volume"]));
+    expect(screen.getByRole("button", { name: "成交额" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "MACD", pressed: true })).toHaveClass("active");
+    expect(screen.getByRole("button", { name: "KDJ", pressed: true })).toHaveClass("active");
+    fireEvent.click(screen.getByRole("button", { name: "VOL", pressed: false }));
+    expect(onToggleIndicatorPanel).toHaveBeenCalledWith("volume");
     fireEvent.change(screen.getByLabelText("指数主图指标切换"), { target: { value: "BOLL" } });
     expect(latestProps().dataKey).toBe("index:399001.SZ:day");
     expect(latestProps().mainLines).toHaveLength(3);
+    expect(onToggleIndicatorPanel).toHaveBeenCalledTimes(1);
   });
 
   it("keeps the same dataKey when the SSE trend primitive is active", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit(), makeKline());
     render(
       <IndexChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }}
+        indicatorControls={defaultIndicatorControls}
         nineTurnLayer={idleNineTurnLayer("day")}
         onNineTurnRetry={vi.fn()}
         trend={{

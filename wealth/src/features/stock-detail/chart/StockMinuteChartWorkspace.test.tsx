@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { DetailChartWorkspaceProps } from "../../../shared/charts/detail-workspace/detailChartTypes";
@@ -13,6 +13,7 @@ const workspaceMock = vi.hoisted(() => ({
     this.props.splice(0, this.props.length);
   },
 }));
+const defaultIndicatorControls = { hiddenIndicatorPanels: new Set<never>(), onToggleIndicatorPanel: vi.fn() };
 
 vi.mock("../../../shared/charts/detail-workspace/DetailChartWorkspace", () => ({
   DetailChartWorkspace: (props: DetailChartWorkspaceProps) => {
@@ -25,6 +26,7 @@ vi.mock("../../../shared/charts/detail-workspace/DetailChartWorkspace", () => ({
         {props.renderPanelHeader("macd", latest)}
         {props.renderPanelHeader("volume", latest)}
         {props.renderPanelHeader("kdj", latest)}
+        {props.bottomBar}
       </div>
     );
   },
@@ -41,6 +43,7 @@ describe("StockMinuteChartWorkspace", () => {
     render(
       <StockMinuteChartWorkspace
         data={data}
+        indicatorControls={defaultIndicatorControls}
         loadState="ready"
         nineTurnLayer={idleNineTurnLayer("30")}
         onNineTurnRetry={vi.fn()}
@@ -82,10 +85,12 @@ describe("StockMinuteChartWorkspace", () => {
       observedEndDate: "2026-07-30",
       message: "指标尚未覆盖页面期望交易日。",
     };
+    const onToggleIndicatorPanel = vi.fn();
 
     render(
       <StockMinuteChartWorkspace
         data={data}
+        indicatorControls={{ hiddenIndicatorPanels: new Set(["macd"]), onToggleIndicatorPanel }}
         loadState="ready"
         nineTurnLayer={idleNineTurnLayer("30")}
         onNineTurnRetry={vi.fn()}
@@ -101,7 +106,13 @@ describe("StockMinuteChartWorkspace", () => {
     });
     expect(props.crosshairPresentation).toBeUndefined();
     expect(props.timeAxisPlacement).toBeUndefined();
-    expect("bottomBar" in props).toBe(false);
+    expect(props.bottomBarAriaLabel).toBe("股票分钟指标栏");
+    expect(props.hiddenIndicatorPanels).toEqual(new Set(["macd"]));
+    expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual(["VOL", "MACD", "KDJ"]);
+    expect(screen.getByRole("button", { name: "VOL", pressed: true })).toHaveClass("active");
+    expect(screen.getByRole("button", { name: "KDJ", pressed: true })).toHaveClass("active");
+    fireEvent.click(screen.getByRole("button", { name: "MACD", pressed: false }));
+    expect(onToggleIndicatorPanel).toHaveBeenCalledWith("macd");
     expect(screen.getByRole("status")).toHaveTextContent("指标尚未覆盖页面期望交易日。");
     expect(screen.getByRole("status")).toHaveTextContent("freq=5");
     expect(screen.getByText("DIF:--")).toBeInTheDocument();
@@ -119,6 +130,7 @@ describe("StockMinuteChartWorkspace", () => {
     render(
       <StockMinuteChartWorkspace
         data={data}
+        indicatorControls={defaultIndicatorControls}
         loadState="ready"
         nineTurnLayer={idleNineTurnLayer("30")}
         onNineTurnRetry={vi.fn()}
@@ -151,6 +163,7 @@ describe("StockMinuteChartWorkspace", () => {
     render(
       <StockMinuteChartWorkspace
         data={null}
+        indicatorControls={defaultIndicatorControls}
         errorMessage={errorMessage}
         loadState={loadState}
         nineTurnLayer={idleNineTurnLayer("30")}

@@ -3,9 +3,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import { NineTurnLayerStatus } from "../../nine-turn/ui/NineTurnLayerStatus";
+import { DetailChartIndicatorToggle } from "../../../shared/charts/detail-workspace/DetailChartIndicatorToggle";
 import { DetailChartWorkspace } from "../../../shared/charts/detail-workspace/DetailChartWorkspace";
 import { DETAIL_CHART_COLORS, isFiniteChartNumber } from "../../../shared/charts/detail-workspace/detailChartSeries";
 import type {
+  DetailChartIndicatorControls,
+  DetailChartIndicatorPanelKey,
   DetailChartLineDefinition,
   DetailChartPanelKey,
   DetailChartPoint,
@@ -24,6 +27,7 @@ import type {
 
 interface StockChartWorkspaceProps {
   candles: StockCandlePoint[];
+  indicatorControls: DetailChartIndicatorControls;
   indicatorTabs: StockIndicatorTab[];
   nineTurnLayer: NineTurnLayerViewModel;
   onNineTurnRetry: () => void;
@@ -36,6 +40,7 @@ interface StockChartWorkspaceProps {
 
 export function StockChartWorkspace({
   candles,
+  indicatorControls,
   indicatorTabs,
   nineTurnLayer,
   onNineTurnRetry,
@@ -90,6 +95,7 @@ export function StockChartWorkspace({
       ariaLabel="左侧图表区"
       bottomBar={(
         <StockIndicatorBar
+          indicatorControls={indicatorControls}
           indicatorTabs={indicatorTabs}
           onAction={onAction}
           onOverlayChange={changeOverlay}
@@ -99,6 +105,7 @@ export function StockChartWorkspace({
       )}
       bottomBarAriaLabel="底部指标栏"
       dataKey={dataKey}
+      hiddenIndicatorPanels={indicatorControls.hiddenIndicatorPanels}
       mainLayerAccessory={(
         <NineTurnLayerStatus
           droppedMarkerCount={nineTurnChartLayer.droppedMarkerCount}
@@ -328,13 +335,21 @@ function panelMetrics(
   ];
 }
 
+const STOCK_INDICATOR_PANELS = new Map<string, DetailChartIndicatorPanelKey>([
+  ["VOL", "volume"],
+  ["MACD", "macd"],
+  ["KDJ", "kdj"],
+]);
+
 function StockIndicatorBar({
+  indicatorControls,
   indicatorTabs,
   onAction,
   onOverlayChange,
   overlay,
   supportsTrendChannel,
 }: {
+  indicatorControls: DetailChartIndicatorControls;
   indicatorTabs: StockIndicatorTab[];
   onAction: (message: string) => void;
   onOverlayChange: (overlay: StockMainOverlay) => void;
@@ -343,22 +358,28 @@ function StockIndicatorBar({
 }) {
   return (
     <div className="detail-chart-indicator-tabs">
-      {indicatorTabs.map((tab) => (
-        <button
-          className={buildIndicatorClass(tab, overlay)}
-          key={tab.key}
-          type="button"
-          onClick={() => {
-            if (tab.overlay) {
-              onOverlayChange(tab.overlay);
-              return;
-            }
-            onAction(`${tab.label} 指标暂未支持`);
-          }}
-        >
-          {tab.label}
-        </button>
-      ))}
+      {indicatorTabs.map((tab) => {
+        const panel = STOCK_INDICATOR_PANELS.get(tab.key);
+        if (panel) {
+          return <DetailChartIndicatorToggle key={tab.key} panel={panel} indicatorControls={indicatorControls} />;
+        }
+        return (
+          <button
+            className={buildIndicatorClass(tab, overlay)}
+            key={tab.key}
+            type="button"
+            onClick={() => {
+              if (tab.overlay) {
+                onOverlayChange(tab.overlay);
+                return;
+              }
+              onAction(`${tab.label} 指标暂未支持`);
+            }}
+          >
+            {tab.label}
+          </button>
+        );
+      })}
       {supportsTrendChannel ? (
         <button
           className={`detail-chart-indicator-tab ${overlay === "TREND_CHANNEL" ? "active" : ""}`}

@@ -7,6 +7,7 @@ interface DetailChartPaneProps {
   axisFloatLabel?: DetailChartAxisFloatLabelState | null;
   className?: string;
   header: ReactNode;
+  hidden?: boolean;
   hostRef: (node: HTMLDivElement | null) => void;
   overlay?: ReactNode;
 }
@@ -16,11 +17,17 @@ export function DetailChartPane({
   axisFloatLabel,
   className = "",
   header,
+  hidden,
   hostRef,
   overlay,
 }: DetailChartPaneProps) {
   return (
-    <div className={["detail-chart-panel", className].filter(Boolean).join(" ")} aria-label={ariaLabel}>
+    <div
+      aria-label={ariaLabel}
+      className={["detail-chart-panel", className].filter(Boolean).join(" ")}
+      data-hidden={hidden || undefined}
+      inert={hidden || undefined}
+    >
       <div className="detail-chart-panel-header">{header}</div>
       <div className="detail-chart-host" ref={hostRef} />
       {overlay}
