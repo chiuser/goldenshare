@@ -24,10 +24,10 @@ from src.app.runtime.technical_indicators import execution
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_calculations import (
     STOCK_DAILY_CALCULATIONS,
 )
-from src.foundation.technical_indicators.contracts import (
+from goldenshare_technical_indicators.contracts import (
     CalculationInstance, CalculationRequest, CalculationValues,
 )
-from src.foundation.technical_indicators.errors import OutputContractError, RequestInvalidError
+from goldenshare_technical_indicators.errors import OutputContractError, RequestInvalidError
 
 
 class _Payload(dict):
@@ -279,7 +279,7 @@ def test_cancel_and_cleanup_release_once(monkeypatch, record_property):
     from contextlib import contextmanager
     from datetime import date
     from src.app.dependencies import stock_daily_technical_indicators as wiring
-    from src.foundation.technical_indicators.errors import CalculationCancelledError, ResourceCleanupError
+    from goldenshare_technical_indicators.errors import CalculationCancelledError, ResourceCleanupError
     from tests.stock_daily_kline_helpers import controlled_controls, make_runtime, result_for
     from tests.test_stock_daily_kline_service import _request, _row, _source
 
@@ -394,7 +394,7 @@ def test_cancel_and_cleanup_release_once(monkeypatch, record_property):
 
 
 def test_legacy_payload_encoding_boundaries(monkeypatch, record_property):
-    from src.foundation.technical_indicators.errors import ResourceLimitError
+    from goldenshare_technical_indicators.errors import ResourceLimitError
     from tests.stock_daily_kline_helpers import controlled_controls, make_runtime
     payload = {"debugInfo": None, "bars": [], "label": "中文"}
     expected = json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()
@@ -429,7 +429,7 @@ def test_database_session_ownership_and_timeout(monkeypatch, record_property):
     from types import SimpleNamespace
     from sqlalchemy.exc import SQLAlchemyError
     from src.app.dependencies import stock_daily_technical_indicators as wiring
-    from src.foundation.technical_indicators.errors import ResourceCleanupError, SourceReadError, SourceUnsupportedError
+    from goldenshare_technical_indicators.errors import ResourceCleanupError, SourceReadError, SourceUnsupportedError
     from tests.stock_daily_kline_helpers import controlled_controls
 
     with controlled_controls(monkeypatch, record_property) as (create, _):

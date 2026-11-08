@@ -14,26 +14,26 @@ import pytest
 from d3_support import (
     D3Control, ObservedService, assert_closed, close_enough, d3_data, request,
 )
-from src.foundation.technical_indicators import CalculationInstance
-from src.foundation.technical_indicators.calculation.calculation import (
+from goldenshare_technical_indicators import CalculationInstance
+from goldenshare_technical_indicators.calculation.calculation import (
     CalculationDefinition, CalculationOutput, Dependency, OutputField, SqlStep,
 )
-from src.foundation.technical_indicators.calculation.engine import CalculationEngine
-from src.foundation.technical_indicators.calculation.history import HistoryRequirement
-from src.foundation.technical_indicators.calculation.indicators import kdj, price
-from src.foundation.technical_indicators.calculation.registry import CalculationRegistry
-from src.foundation.technical_indicators.calculation.sql_templates import load_sql_templates
-from src.foundation.technical_indicators.contracts import normalize_request_and_validate_all_instances
-from src.foundation.technical_indicators.errors import (
+from goldenshare_technical_indicators.calculation.engine import CalculationEngine
+from goldenshare_technical_indicators.calculation.history import HistoryRequirement
+from goldenshare_technical_indicators.calculation.indicators import kdj, price
+from goldenshare_technical_indicators.calculation.registry import CalculationRegistry
+from goldenshare_technical_indicators.calculation.sql_templates import load_sql_templates
+from goldenshare_technical_indicators.contracts import normalize_request_and_validate_all_instances
+from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, CalculationExecutionError, OutputContractError, ResourceCleanupError,
 )
-from src.foundation.technical_indicators.executor import DuckDBExecutor
-from src.foundation.technical_indicators.output.collector import OutputCollector
-from src.foundation.technical_indicators.service import raise_primary_or_cleanup_error_if_any
-from src.foundation.technical_indicators.sources.contracts import PriceBatch
+from goldenshare_technical_indicators.executor import DuckDBExecutor
+from goldenshare_technical_indicators.output.collector import OutputCollector
+from goldenshare_technical_indicators.service import raise_primary_or_cleanup_error_if_any
+from goldenshare_technical_indicators.sources.contracts import PriceBatch
 
 
-_PACKAGE = "src.foundation.technical_indicators.calculation"
+_PACKAGE = "goldenshare_technical_indicators.calculation"
 _CLOSE_FIELD = OutputField("close", "close", "DOUBLE", False, "目标价格原样")
 _CLOSE_DEFINITION = CalculationDefinition(
     calculation_id="d3_borrowed_close", algorithm_version="1.0.0",

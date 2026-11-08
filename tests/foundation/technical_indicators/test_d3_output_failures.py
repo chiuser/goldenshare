@@ -10,10 +10,10 @@ from dataclasses import replace
 import pytest
 
 from d3_support import D3Control, ObservedService, TracedSource, d3_data, request
-from src.foundation.technical_indicators import CalculationInstance
-from src.foundation.technical_indicators.calculation.calculation import SqlStep
-from src.foundation.technical_indicators.calculation.engine import CalculationEngine
-from src.foundation.technical_indicators.errors import (
+from goldenshare_technical_indicators import CalculationInstance
+from goldenshare_technical_indicators.calculation.calculation import SqlStep
+from goldenshare_technical_indicators.calculation.engine import CalculationEngine
+from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, CalculationExecutionError, OutputContractError, OutputEncodingError, OutputReadError,
     ResourceCleanupError, ResourceLimitError, SourceReadError,
 )
@@ -120,7 +120,7 @@ def test_actual_input_limit_and_cleanup_failure_remain_errors(d3_data, monkeypat
 
 
 def test_strict_utf8_exact_limit_and_nonfinite_errors(d3_data):
-    from src.foundation.technical_indicators.output.encoding import encode_response_utf8
+    from goldenshare_technical_indicators.output.encoding import encode_response_utf8
 
     state = d3_data
     with state.case("strict_utf8_boundaries"):
@@ -203,7 +203,7 @@ def test_borrowed_tables_and_fixed_template_boundaries(d3_data, monkeypatch):
     import io
     from pathlib import Path
 
-    from src.foundation.technical_indicators.calculation.sql_templates import load_sql_templates
+    from goldenshare_technical_indicators.calculation.sql_templates import load_sql_templates
 
     state = d3_data
     original = CalculationEngine.output_for
@@ -254,7 +254,7 @@ def test_borrowed_tables_and_fixed_template_boundaries(d3_data, monkeypatch):
             return actual_open(file,*args,**kwargs)
 
         class InvalidTemplate:
-            SQL_PACKAGE = "src.foundation.technical_indicators.calculation"
+            SQL_PACKAGE = "goldenshare_technical_indicators.calculation"
             SQL_FILES = ("../macd_segment.sql",)
 
         with monkeypatch.context() as patch:
@@ -263,7 +263,7 @@ def test_borrowed_tables_and_fixed_template_boundaries(d3_data, monkeypatch):
                 load_sql_templates(InvalidTemplate,request_texts={},control=D3Control(state.config))
         assert opened==[]
 
-        from src.foundation.technical_indicators.output.collector import OutputCollector
+        from goldenshare_technical_indicators.output.collector import OutputCollector
         captured = []
         initialize = OutputCollector.__init__
 

@@ -55,7 +55,7 @@ def _error(error):
 
 
 def _request():
-    from src.foundation.technical_indicators import CalculationInstance, CalculationRequest
+    from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
 
     items = (CalculationInstance("macd", "macd", {}), CalculationInstance("kdj", "kdj", {}),
              *(CalculationInstance("ma" + str(n), "ma", {"period": n}) for n in MA_PERIODS),
@@ -291,7 +291,7 @@ class _Node:
         import anyio
         import duckdb
         from src.app.runtime.technical_indicators import execution
-        from src.foundation.technical_indicators.errors import OutputEncodingError
+        from goldenshare_technical_indicators.errors import OutputEncodingError
 
         original_control = execution.ExecutionControl
         original_service = execution.TechnicalIndicatorService
@@ -559,7 +559,7 @@ class _Node:
     async def run(self):
         import asyncio
         import anyio
-        from src.foundation.technical_indicators.errors import CalculationCancelledError, OutputEncodingError
+        from goldenshare_technical_indicators.errors import CalculationCancelledError, OutputEncodingError
 
         outcomes = []
         try:

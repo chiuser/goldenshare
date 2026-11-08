@@ -6,7 +6,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from goldenshare_technical_indicators.xxm.types import XxmBar
 
 def sha(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()

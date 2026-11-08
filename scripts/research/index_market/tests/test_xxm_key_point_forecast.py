@@ -14,7 +14,7 @@ import time
 
 import pytest
 
-from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
+from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
 from src.biz.services.wealth.market.index_detail_xxm.forecast import forecast, precheck_next_bar
 from src.biz.services.wealth.market.index_detail_xxm import forecast_detector as detector
 from src.biz.services.wealth.market.index_detail_xxm.forecast_math import Interval, as_interval
@@ -22,9 +22,8 @@ from src.biz.services.wealth.market.index_detail_xxm.forecast_next import solve_
 from src.biz.services.wealth.market.index_detail_xxm.forecast_spec import ForecastSpec, FORECAST_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.forecast_text import make_display
 from src.biz.services.wealth.market.index_detail_xxm.projection import ProjectionState
-from src.biz.services.wealth.market.index_detail_xxm.types import (
-    XxmBar, ForecastConditionDraft, ForecastKernelResult, ReferenceForecast,
-)
+from goldenshare_technical_indicators.xxm.types import XxmBar
+from src.biz.services.wealth.market.index_detail_xxm.types import ForecastConditionDraft, ForecastKernelResult, ReferenceForecast
 
 engine = importlib.import_module('src.biz.services.wealth.market.index_detail_xxm.forecast')
 next_solver = importlib.import_module('src.biz.services.wealth.market.index_detail_xxm.forecast_next')

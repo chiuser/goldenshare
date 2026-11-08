@@ -21,23 +21,22 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import pytest
 
-from src.foundation.config.settings import Settings
+from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
 from src.foundation.clients.local_lake.technical_indicator_contracts import price_contract, source_projection
 from src.foundation.clients.local_lake.technical_indicator_price_locator import LakePriceLocator
 from src.foundation.clients.local_lake.technical_indicator_price_source import LakeTechnicalIndicatorPriceSource
-from src.foundation.technical_indicators import CalculationInstance, CalculationRequest
-from src.foundation.technical_indicators.calculation.history import HistoryRequirement
-from src.foundation.technical_indicators.configuration import KernelConfig
-from src.foundation.technical_indicators.errors import (
+from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
+from goldenshare_technical_indicators.calculation.history import HistoryRequirement
+from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, ResourceCleanupError, ResourceLimitError,
     SourceContractError, SourceUnsupportedError,
 )
-from src.foundation.technical_indicators.sources.contracts import PriceReadSelection, ReadRequirement
-from src.foundation.technical_indicators.sources.read_context import SourceReadContext
+from goldenshare_technical_indicators.sources.contracts import PriceReadSelection, ReadRequirement
+from goldenshare_technical_indicators.sources.read_context import SourceReadContext
 
 
 def _config(root, **kwargs):
-    config = KernelConfig.from_settings(Settings(_env_file=None))
+    config = technical_indicator_config_from_settings(Settings(_env_file=None))
     return replace(config, goldenshare_lake_root=str(root), batch_rows=2,
                    max_input_rows=1500000, max_source_files=5000,
                    max_projected_row_group_bytes=33554432, **kwargs)
@@ -76,7 +75,7 @@ def _describe(source, requirement, *, control, read_context):
     service continues to create its sole connection itself. No helper runs at
     import time or is used by the new phase's acceptance fixture.
     """
-    from src.foundation.technical_indicators.executor import DuckDBExecutor
+    from goldenshare_technical_indicators.executor import DuckDBExecutor
     control.config = source._config
     connection = duckdb.connect(":memory:", config={"threads": 1, "memory_limit": "128MiB",
                                                     "max_temp_directory_size": "0B"})
@@ -463,7 +462,7 @@ def track_compact_copies(trace, monkeypatch):
 
 
 def assembly_config(files, *, limit=1500000):
-    return replace(KernelConfig.from_settings(Settings(_env_file=None)),
+    return replace(technical_indicator_config_from_settings(Settings(_env_file=None)),
         goldenshare_lake_root=str(files.root), batch_rows=8192, max_input_rows=limit)
 
 
@@ -544,7 +543,7 @@ def test_existing_fixture_delivers_four_full_batches(monkeypatch, record_propert
     started, trace = monotonic(), AssemblyReadTrace()
     metadata = inspect_fixture(FIXTURE)
     validate_fixture(metadata)  # exact count/footer/resource checks precede the data reader
-    cfg = replace(KernelConfig.from_settings(Settings(_env_file=None)), batch_rows=8192)
+    cfg = replace(technical_indicator_config_from_settings(Settings(_env_file=None)), batch_rows=8192)
     context = SourceReadContext(cfg)
     context.record_file(FIXTURE, metadata["bytes"])
     request = _request(security_type="stock", ts_code="600000.SH", adjustment="qfq")

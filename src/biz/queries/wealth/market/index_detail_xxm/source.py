@@ -16,7 +16,7 @@ from src.foundation.clients.local_lake.major_index_mins_reader import MajorIndex
 from src.foundation.models.core.index_factor_pro import IndexFactorPro
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.biz.services.wealth.market.index_detail_xxm.runtime import BUDGET
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar, XxmPeriod
+from goldenshare_technical_indicators.xxm.types import XxmBar, XxmPeriod
 
 
 CN_ZONE = ZoneInfo("Asia/Shanghai")

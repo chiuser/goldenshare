@@ -24,18 +24,17 @@ import pytest
 from d3_reference import DAILY_DATES, MACD_REFERENCE
 from d3_support import D3Control
 from src.foundation.clients.local_lake.technical_indicator_price_source import LakeTechnicalIndicatorPriceSource
-from src.foundation.technical_indicators import CalculationInstance, CalculationRequest
-from src.foundation.technical_indicators.calculation.calculation import SqlStep
-from src.foundation.technical_indicators.calculation.engine import CalculationEngine
-from src.foundation.technical_indicators.calculation.indicators import create_builtin_registry
-from src.foundation.technical_indicators.configuration import KernelConfig
-from src.foundation.technical_indicators.errors import (
+from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
+from goldenshare_technical_indicators.calculation.calculation import SqlStep
+from goldenshare_technical_indicators.calculation.engine import CalculationEngine
+from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
+from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, CalculationExecutionError, OutputContractError,
     RequestInvalidError, ResourceCleanupError, ResourceLimitError, SourceContractError,
     SourceReadError, SourceUnsupportedError,
 )
-from src.foundation.technical_indicators.output.collector import OutputCollector
-from src.foundation.technical_indicators.service import TechnicalIndicatorService, connect_private_memory_instance
+from goldenshare_technical_indicators.output.collector import OutputCollector
+from goldenshare_technical_indicators.service import TechnicalIndicatorService, connect_private_memory_instance
 
 
 _REPORT = Path(__file__).resolve().parents[3] / "reports/technical_indicator_kernel_fourth_batch_fix"
@@ -149,7 +148,7 @@ class _Service(TechnicalIndicatorService):
 
 class _State:
     def __init__(self, root):
-        from src.foundation.config.settings import Settings
+        from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
         self.root, self.started = root, _PROGRAM_STARTED
         self.saved = json.loads((_REPORT / "progress.json").read_text())
         self.elapsed_before = self.saved["elapsed_seconds"]
@@ -158,7 +157,7 @@ class _State:
         self.locator_rows = self.saved["locator_rows"]
         assert self.saved["real_controls"] == 0
         self.calls, self.queries = [], []
-        self.config = KernelConfig.from_settings(Settings(_env_file=None, GOLDENSHARE_LAKE_ROOT=str(root)))
+        self.config = technical_indicator_config_from_settings(Settings(_env_file=None, GOLDENSHARE_LAKE_ROOT=str(root)))
         self.references = json.loads(_OLD_REFERENCE.read_text())
         self.last_service = self.last_source = None
 
@@ -452,7 +451,7 @@ def test_short_origin_is_allowed_when_required_warmup_exceeds_capacity(fourth_da
         assert source.batches == [1600] and source.description.selection.reached_source_origin
         # A literal internal handoff with an insufficient finite prefix must
         # fail before opening a price reader, rather than shorten R or B.
-        from src.foundation.technical_indicators.sources.session import PriceInputSession
+        from goldenshare_technical_indicators.sources.session import PriceInputSession
         description = replace(source.description,selection=replace(source.description.selection,reached_source_origin=False))
         inputs = PriceInputSession(SimpleNamespace(control=SimpleNamespace(config=config)),None,
             source.requirement,read_context=None)
@@ -518,8 +517,8 @@ def test_warmup_control_and_selection_contracts(fourth_data,monkeypatch):
         config = state.config
         control = D3Control(config)
         con = connect_private_memory_instance(config)
-        from src.foundation.technical_indicators.executor import DuckDBExecutor
-        from src.foundation.technical_indicators.contracts import normalize_request_and_validate_all_instances
+        from goldenshare_technical_indicators.executor import DuckDBExecutor
+        from goldenshare_technical_indicators.contracts import normalize_request_and_validate_all_instances
         executor = DuckDBExecutor(con,control)
         selected = normalize_request_and_validate_all_instances(_request((CalculationInstance("kdj","kdj",dict(window=9,k_period=1,d_period=1)),)),config)
         registry = create_builtin_registry()
@@ -543,9 +542,9 @@ def test_warmup_control_and_selection_contracts(fourth_data,monkeypatch):
                 session.read_control_row("business_supplied_query")
             with pytest.raises(CalculationExecutionError):
                 session.execute(SqlStep("business_supplied_file","SELECT 1",(),(),(),0))
-            from src.foundation.technical_indicators.calculation.sql_templates import load_sql_templates
+            from goldenshare_technical_indicators.calculation.sql_templates import load_sql_templates
             class ReplacedFiles:
-                SQL_PACKAGE = "src.foundation.technical_indicators.calculation"
+                SQL_PACKAGE = "goldenshare_technical_indicators.calculation"
                 SQL_FILES = ("business_supplied.sql",)
             with pytest.raises(CalculationExecutionError):
                 load_sql_templates(ReplacedFiles,request_texts={},control=control)

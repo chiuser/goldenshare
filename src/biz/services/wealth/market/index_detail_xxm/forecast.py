@@ -3,12 +3,14 @@ from copy import deepcopy
 from dataclasses import replace
 import math
 
-from .calculator import XxmCalculator
+from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
+from goldenshare_technical_indicators.xxm.types import XxmBar
+
 from .forecast_detector import clone, next_bar_evaluations, evaluation_scope
 from .forecast_entry import solve_first_dull
 from .forecast_next import solve_active_reference, solve_followed_structure
 from .projection import ProjectionState
-from .types import ForecastKernelResult, ForecastPrecheck, ReferenceForecast, XxmBar
+from .types import ForecastKernelResult, ForecastPrecheck, ReferenceForecast
 
 
 def _already_broken(c, reference):

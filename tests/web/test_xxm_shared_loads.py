@@ -76,7 +76,7 @@ def test_product_shared_loads_separate_codes_with_identical_input(monkeypatch, s
     from types import SimpleNamespace
     from src.biz.queries.wealth.market.index_detail_xxm import query_service as q
     from src.biz.queries.wealth.market.index_detail_xxm.source import CN_ZONE, XxmSourceError
-    from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+    from goldenshare_technical_indicators.xxm.types import XxmBar
 
     codes = ('000001.SH', '399001.SZ')
     dates = ('2025-03-03','2025-03-04','2025-03-05','2025-03-06','2025-03-07','2025-03-10')

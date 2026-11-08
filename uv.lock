@@ -402,6 +402,7 @@ dependencies = [
     { name = "bcrypt" },
     { name = "cryptography" },
     { name = "fastapi" },
+    { name = "goldenshare-technical-indicators" },
     { name = "httpx" },
     { name = "psycopg", extra = ["binary"] },
     { name = "pydantic" },
@@ -424,6 +425,7 @@ dev = [
 local-lake = [
     { name = "duckdb" },
     { name = "pyarrow" },
+    { name = "pypinyin" },
 ]
 
 [package.metadata]
@@ -433,12 +435,14 @@ requires-dist = [
     { name = "cryptography", specifier = "==50.0.1" },
     { name = "duckdb", marker = "extra == 'local-lake'", specifier = ">=1.3,<2" },
     { name = "fastapi", specifier = ">=0.116.0" },
+    { name = "goldenshare-technical-indicators", editable = "packages/technical_indicators" },
     { name = "httpx", specifier = ">=0.28.1" },
     { name = "psycopg", extras = ["binary"], specifier = ">=3.2.0" },
     { name = "pyarrow", marker = "extra == 'local-lake'", specifier = "==23.0.1" },
     { name = "pydantic", specifier = ">=2.10.0" },
     { name = "pydantic-settings", specifier = ">=2.6.0" },
     { name = "pyjwt", specifier = ">=2.10.1" },
+    { name = "pypinyin", marker = "extra == 'local-lake'", specifier = "==0.55.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.3.0" },
     { name = "pytest-mock", marker = "extra == 'dev'", specifier = ">=3.14.0" },
     { name = "redis", specifier = ">=5.2.0" },
@@ -450,6 +454,18 @@ requires-dist = [
     { name = "uvicorn", specifier = ">=0.35.0" },
 ]
 provides-extras = ["dev", "local-lake"]
+
+[[package]]
+name = "goldenshare-technical-indicators"
+version = "0.1.0"
+source = { editable = "packages/technical_indicators" }
+
+[package.metadata]
+requires-dist = [
+    { name = "duckdb", marker = "extra == 'sql'", specifier = ">=1.3,<2" },
+    { name = "pyarrow", marker = "extra == 'sql'", specifier = "==23.0.1" },
+]
+provides-extras = ["sql"]
 
 [[package]]
 name = "greenlet"
@@ -1014,6 +1030,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/3b/81/58d0ac84e1ef3a3843791d6954d94c0b33d526c75eeb1efbce9d0a4c4077/pyjwt-2.13.0.tar.gz", hash = "sha256:41571c89ca91598c79e8ef18a2d07367d4810fbbd6f637794879baf1b7703423", size = 107515, upload-time = "2026-05-21T19:54:36.618Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a3/5e/ecf12fdb62546d64385c158514e9b2b671f7832108ef2ecd2020ce0af2d1/pyjwt-2.13.0-py3-none-any.whl", hash = "sha256:66adcc2aff09b3f1bbd95fc1e1577df8ac8723c978552fd43304c8a290ac5728", size = 31274, upload-time = "2026-05-21T19:54:35.362Z" },
+]
+
+[[package]]
+name = "pypinyin"
+version = "0.55.0"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/b4/a4/784cf98c09e0dc22776b0d7d8a4a5b761218bcae4608c2416ce1e167c8af/pypinyin-0.55.0.tar.gz", hash = "sha256:b5711b3a0c6f76e67408ec6b2e3c4987a3a806b7c528076e7c7b86fcf0eaa66b", size = 839836, upload-time = "2025-07-20T12:01:50.657Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/b9/7b/4cabc76fcc21c3c7d5c671d8783984d30ac9d3bb387c4ba784fca3cdfa3a/pypinyin-0.55.0-py2.py3-none-any.whl", hash = "sha256:d53b1e8ad2cdb815fb2cb604ed3123372f5a28c6f447571244aca36fc62a286f", size = 840203, upload-time = "2025-07-20T12:01:48.535Z" },
 ]
 
 [[package]]

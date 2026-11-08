@@ -5,8 +5,8 @@ from unittest.mock import patch
 
 import pytest
 
-from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
+from goldenshare_technical_indicators.xxm.types import XxmBar
 
 DATES = ('2023-01-03','2023-01-04','2023-01-05','2023-01-06','2023-01-09','2023-01-10',
          '2023-01-11','2023-01-12','2023-01-13','2023-01-16','2023-01-17','2023-01-18',

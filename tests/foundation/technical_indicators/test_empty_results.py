@@ -9,7 +9,7 @@ from datetime import date
 
 from d3_reference import DAILY_DATES
 from d3_support import assert_closed, d3_data, request, values
-from src.foundation.technical_indicators import CalculationInstance
+from goldenshare_technical_indicators import CalculationInstance
 
 
 def test_complete_service_empty_before(d3_data):

@@ -12,13 +12,13 @@ from src.biz.queries.wealth.market.index_detail.index_detail_kline_query_service
 from src.biz.services.wealth.market.index_detail.index_detail_universe import IndexDetailQueryError
 from src.db import get_session_factory
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader, IndexDailyLakeSourceError
-from src.foundation.technical_indicators.contracts import CalculationRequest
-from src.foundation.technical_indicators.errors import (
+from goldenshare_technical_indicators.contracts import CalculationRequest
+from goldenshare_technical_indicators.errors import (
     OutputEncodingError, ResourceLimitError, SourceReadError, TechnicalIndicatorError,
 )
-from src.foundation.technical_indicators.output.encoding import encode_response_utf8
-from src.foundation.technical_indicators.service import TechnicalIndicatorService
-from src.foundation.technical_indicators.sources.index_daily import IndexDailyPriceSource
+from goldenshare_technical_indicators.output.encoding import encode_response_utf8
+from goldenshare_technical_indicators.service import TechnicalIndicatorService
+from goldenshare_technical_indicators.sources.index_daily import IndexDailyPriceSource
 
 
 _DG_SOURCE_ORIGIN = date(2000, 1, 4)

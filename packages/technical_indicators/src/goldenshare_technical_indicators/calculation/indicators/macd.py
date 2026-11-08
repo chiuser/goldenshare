@@ -28,7 +28,7 @@ DEFINITION = CalculationDefinition(
 class MACDCalculation:
     parameters: Parameters
 
-    SQL_PACKAGE: ClassVar = "src.foundation.technical_indicators.calculation"
+    SQL_PACKAGE: ClassVar = "goldenshare_technical_indicators.calculation"
     TABLE_ROLES: ClassVar = MappingProxyType({
         "parameters": ("ti_macd_parameters", "state"),
         "warmup": ("ti_macd_warmup", "state"),

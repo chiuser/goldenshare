@@ -8,8 +8,8 @@ import resource
 import sys
 import time
 
-from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar, XxmStep
+from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
+from goldenshare_technical_indicators.xxm.types import XxmBar, XxmStep
 
 def observe_rows(bars, *, period, source_identity, check) -> tuple[XxmStep, ...]:
     """Observe the single formal r4 calculator; bounded in-memory results."""

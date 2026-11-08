@@ -14,7 +14,9 @@ on:
       - "src/ops/schemas/ingestion_codebook.py"
       - "src/ops/queries/**"
       - "src/ops/services/**"
+      - "packages/technical_indicators/**"
       - "tests/architecture/test_dataset_codebook_guardrails.py"
+      - "tests/architecture/test_technical_indicator_dependencies.py"
       - "tests/architecture/test_dataset_runtime_registry_guardrails.py"
       - "tests/architecture/test_dataset_maintenance_refactor_guardrails.py"
       - "tests/architecture/test_arch_no_all_sentinel.py"
@@ -38,7 +40,9 @@ on:
       - "src/ops/schemas/ingestion_codebook.py"
       - "src/ops/queries/**"
       - "src/ops/services/**"
+      - "packages/technical_indicators/**"
       - "tests/architecture/test_dataset_codebook_guardrails.py"
+      - "tests/architecture/test_technical_indicator_dependencies.py"
       - "tests/architecture/test_dataset_runtime_registry_guardrails.py"
       - "tests/architecture/test_dataset_maintenance_refactor_guardrails.py"
       - "tests/architecture/test_arch_no_all_sentinel.py"
@@ -70,7 +74,11 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          python -m pip wheel --no-deps --wheel-dir "$RUNNER_TEMP/operator-wheels" ./packages/technical_indicators
+          python -m pip install -e ".[dev]" "$RUNNER_TEMP"/operator-wheels/goldenshare_technical_indicators-*.whl
+
+      - name: Shared calculation package boundary
+        run: pytest -q tests/architecture/test_technical_indicator_dependencies.py
 
       - name: Dataset ingestion architecture guardrails
         run: pytest -q tests/architecture/test_dataset_codebook_guardrails.py tests/architecture/test_dataset_runtime_registry_guardrails.py tests/architecture/test_dataset_maintenance_refactor_guardrails.py tests/architecture/test_arch_no_all_sentinel.py

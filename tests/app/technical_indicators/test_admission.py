@@ -15,18 +15,17 @@ import pytest
 
 from src.app.runtime.technical_indicators.admission import AdmissionController
 from src.app.runtime.technical_indicators.composition import TechnicalIndicatorRuntime
-from src.foundation.config.settings import Settings
-from src.foundation.technical_indicators import CalculationInstance, CalculationRequest
-from src.foundation.technical_indicators.calculation.indicators import create_builtin_registry
-from src.foundation.technical_indicators.configuration import KernelConfig
-from src.foundation.technical_indicators.errors import (
+from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
+from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
+from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
+from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, CalculationDeadlineError, CapacityBusyError,
     RequestInvalidError, WaitExpiredError,
 )
 
 
 def make_config(**overrides):
-    base = KernelConfig.from_settings(Settings(
+    base = technical_indicator_config_from_settings(Settings(
         _env_file=None, GOLDENSHARE_LAKE_ROOT="/private/tmp/d4-no-source-access",
         TECHNICAL_INDICATOR_MAX_CONCURRENT_REQUESTS=2,
         TECHNICAL_INDICATOR_MAX_WAITING_REQUESTS=2,

@@ -458,7 +458,7 @@ def isolated_app(settings, *, group):
     from src.app.exceptions import install_exception_handlers
     from src.biz.api.wealth.market import index_detail, index_detail_nine_turn
     from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContextQuery
-    from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
+    from goldenshare_technical_indicators.xxm.spec import MAIN_SPEC
     from src.biz.services.wealth.market.index_detail_xxm.forecast_spec import FORECAST_SPEC
     from sqlalchemy import text
     from src.db import get_engine, get_session_factory

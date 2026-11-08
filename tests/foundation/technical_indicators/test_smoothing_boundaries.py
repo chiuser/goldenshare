@@ -8,7 +8,7 @@ from d3_support import (
     assert_closed, assert_templates_once, close_enough, d3_data,
     request, template_io, values,
 )
-from src.foundation.technical_indicators import CalculationInstance
+from goldenshare_technical_indicators import CalculationInstance
 
 
 def test_three_video_macd_parameter_sets_share_input_not_state(d3_data, monkeypatch):

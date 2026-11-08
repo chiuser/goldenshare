@@ -11,11 +11,11 @@ from types import SimpleNamespace
 
 import pytest
 
-from src.foundation.technical_indicators import CalculationInstance, CalculationRequest
-from src.foundation.technical_indicators.contracts import (
+from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
+from goldenshare_technical_indicators.contracts import (
     CalculationResult, CalculationValues, normalize_request_and_validate_all_instances,
 )
-from src.foundation.technical_indicators.errors import (
+from goldenshare_technical_indicators.errors import (
     CalculationUnsupportedError, RequestInvalidError, ResourceLimitError,
 )
 
@@ -106,7 +106,7 @@ def test_capacity_boundaries_respect_hard_limit_and_tighter_runtime_config():
     ("kdj", "kdj", (("window", 9), ("k_period", 3), ("d_period", 3)), ("k", "d", "j")),
 ])
 def test_five_definitions_match_independent_lld_literals(module, identifier, parameters, outputs):
-    definition = importlib.import_module("src.foundation.technical_indicators.calculation.indicators." + module).DEFINITION
+    definition = importlib.import_module("goldenshare_technical_indicators.calculation.indicators." + module).DEFINITION
     assert definition.calculation_id == identifier
     assert definition.validate_parameters({}) == parameters
     assert tuple(field.name for field in definition.output_fields) == outputs
@@ -141,9 +141,9 @@ def test_five_definitions_match_independent_lld_literals(module, identifier, par
 
 
 def test_parameter_rules_allow_real_variations_without_period_or_multiplier_cap():
-    from src.foundation.technical_indicators.calculation.indicators.moving_average import DEFINITION as ma
-    from src.foundation.technical_indicators.calculation.indicators.bollinger_bands import DEFINITION as boll
-    from src.foundation.technical_indicators.calculation.indicators.macd import DEFINITION as macd
+    from goldenshare_technical_indicators.calculation.indicators.moving_average import DEFINITION as ma
+    from goldenshare_technical_indicators.calculation.indicators.bollinger_bands import DEFINITION as boll
+    from goldenshare_technical_indicators.calculation.indicators.macd import DEFINITION as macd
 
     assert ma.validate_parameters({"period": 10001}) == (("period", 10001),)
     for multiplier in (0, 11):
@@ -173,21 +173,21 @@ def test_result_contract_matches_literal_top_level_and_copies_mutable_field_inpu
 
 
 def test_d1_has_no_fake_calculation_or_source_import_side_effects():
-    import src.foundation.technical_indicators as package
-    from src.foundation.technical_indicators.calculation import calculation
+    import goldenshare_technical_indicators as package
+    from goldenshare_technical_indicators.calculation import calculation
 
     assert not hasattr(package, "calculate")
     assert "OutputField" in vars(calculation)
     assert "OutputField" not in vars(importlib.import_module(package.__name__ + ".contracts"))
     # D3 publishes the complete service operation, while keeping the package
     # free of a global calculate function and import-time database resources.
-    from src.foundation.technical_indicators.service import TechnicalIndicatorService
+    from goldenshare_technical_indicators.service import TechnicalIndicatorService
     assert callable(TechnicalIndicatorService.calculate)
 
 
 def test_dependency_copies_both_parameter_container_levels():
     """LLD §19.4: modifying the original input must not change a declaration."""
-    from src.foundation.technical_indicators.calculation.calculation import Dependency
+    from goldenshare_technical_indicators.calculation.calculation import Dependency
 
     parameters = [["period", 20]]
     dependency = Dependency("mean", "window_mean", "1.0.0", parameters)
@@ -197,7 +197,7 @@ def test_dependency_copies_both_parameter_container_levels():
 
 
 def test_sql_step_copies_binding_and_table_name_containers():
-    from src.foundation.technical_indicators.calculation.calculation import SqlStep
+    from goldenshare_technical_indicators.calculation.calculation import SqlStep
 
     bindings, inputs, outputs = [20, date(2026, 10, 23), None], ["prices"], ["mean"]
     step = SqlStep("mean", "SELECT ?", bindings, inputs, outputs, 3)
@@ -210,10 +210,10 @@ def test_sql_step_copies_binding_and_table_name_containers():
 
 
 def test_output_descriptions_copy_fields_and_instance_pairs():
-    from src.foundation.technical_indicators.calculation.calculation import (
+    from goldenshare_technical_indicators.calculation.calculation import (
         BatchCalculationOutputs, CalculationOutput, OutputField,
     )
-    from src.foundation.technical_indicators.sources.contracts import PriceBatch
+    from goldenshare_technical_indicators.sources.contracts import PriceBatch
 
     field = OutputField("value", "value", "DOUBLE", True, "First N-1 positions NULL")
     fields_input = [field]
@@ -229,9 +229,9 @@ def test_output_descriptions_copy_fields_and_instance_pairs():
 
 
 def test_node_and_discovery_descriptions_copy_their_container_inputs():
-    from src.foundation.technical_indicators.calculation.dependencies import CalculationNode
-    from src.foundation.technical_indicators.calculation.indicators.moving_average import DEFINITION
-    from src.foundation.technical_indicators.discovery.catalog import CalculationDescription, SourceCapability
+    from goldenshare_technical_indicators.calculation.dependencies import CalculationNode
+    from goldenshare_technical_indicators.calculation.indicators.moving_average import DEFINITION
+    from goldenshare_technical_indicators.discovery.catalog import CalculationDescription, SourceCapability
 
     parameters = [["period", 20]]
     node = CalculationNode(0, DEFINITION, parameters, object(), {})
@@ -246,7 +246,7 @@ def test_node_and_discovery_descriptions_copy_their_container_inputs():
 
 @pytest.mark.parametrize("value", [[], {}, {"value"}, (1, 2)])
 def test_sql_step_rejects_non_scalar_binding_instead_of_retaining_mutable_data(value):
-    from src.foundation.technical_indicators.calculation.calculation import SqlStep
+    from goldenshare_technical_indicators.calculation.calculation import SqlStep
 
     with pytest.raises(ValueError, match="scalar"):
         SqlStep("invalid", "SELECT ?", (value,), (), (), 0)
@@ -254,14 +254,14 @@ def test_sql_step_rejects_non_scalar_binding_instead_of_retaining_mutable_data(v
 
 @pytest.mark.parametrize("parameters", [[["period", []]], [["period", True]], [["period"]]])
 def test_normalized_parameter_contract_rejects_mutable_or_malformed_values(parameters):
-    from src.foundation.technical_indicators.calculation.calculation import Dependency
+    from goldenshare_technical_indicators.calculation.calculation import Dependency
 
     with pytest.raises(RequestInvalidError):
         Dependency("mean", "window_mean", "1.0.0", parameters)
 
 
 def test_immutable_tuple_inputs_and_ordinary_sql_scalars_remain_valid():
-    from src.foundation.technical_indicators.calculation.calculation import Dependency, SqlStep
+    from goldenshare_technical_indicators.calculation.calculation import Dependency, SqlStep
 
     assert Dependency("mean", "window_mean", "1.0.0", (("period", 20),)).parameters == (("period", 20),)
     values = (1, 2.5, True, "value", date(2026, 10, 23), datetime(2026, 10, 23, 10), None)

@@ -14,8 +14,8 @@ from src.app.dependencies import stock_daily_technical_indicators as wiring
 from src.app.runtime.technical_indicators import execution
 from src.app.runtime.technical_indicators.admission import AdmissionController
 from src.app.runtime.technical_indicators.composition import TechnicalIndicatorRuntime
-from src.foundation.technical_indicators.calculation.indicators import create_builtin_registry
-from src.foundation.technical_indicators.contracts import (
+from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
+from goldenshare_technical_indicators.contracts import (
     CalculationResult, CalculationStatistics, CalculationValues, OutputRange,
     PriceAdjustmentResult, RequestedRange, SeriesDescription, SourceResult,
 )

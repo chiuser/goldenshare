@@ -7,12 +7,12 @@ from dataclasses import dataclass
 
 import anyio
 
-from src.foundation.technical_indicators.configuration import KernelConfig
-from src.foundation.technical_indicators.errors import (
+from goldenshare_technical_indicators.configuration import KernelConfig
+from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, CalculationDeadlineError, CapacityBusyError,
     WaitExpiredError,
 )
-from src.foundation.technical_indicators.execution_control import ExecutionControl
+from goldenshare_technical_indicators.execution_control import ExecutionControl
 
 
 @dataclass(slots=True, eq=False)

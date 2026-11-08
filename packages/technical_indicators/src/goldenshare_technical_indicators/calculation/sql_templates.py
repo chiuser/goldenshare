@@ -11,20 +11,20 @@ from ..errors import CalculationExecutionError
 
 
 _PACKAGES = frozenset({
-    "src.foundation.technical_indicators.calculation",
-    "src.foundation.technical_indicators.output",
-    "src.foundation.technical_indicators.sources",
+    "goldenshare_technical_indicators.calculation",
+    "goldenshare_technical_indicators.output",
+    "goldenshare_technical_indicators.sources",
 })
 _PACKAGE_FILES = MappingProxyType({
-    "src.foundation.technical_indicators.calculation": frozenset({
+    "goldenshare_technical_indicators.calculation": frozenset({
         "smoothing_parameters.sql", "rolling_mean.sql", "bollinger_bands.sql",
         "macd_first.sql", "macd_segment.sql", "kdj_window.sql", "kdj_segment.sql",
         "macd_warmup.sql", "kdj_warmup.sql",
     }),
-    "src.foundation.technical_indicators.output": frozenset({
+    "goldenshare_technical_indicators.output": frozenset({
         "merge_batch.sql", "select_result.sql",
     }),
-    "src.foundation.technical_indicators.sources": frozenset({
+    "goldenshare_technical_indicators.sources": frozenset({
         "stage_input.sql", "adjust_price.sql", "retain_history.sql",
     }),
 })

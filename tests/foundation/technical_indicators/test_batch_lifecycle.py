@@ -10,7 +10,7 @@ from datetime import date
 
 from d3_reference import DAILY_DATES
 from d3_support import assert_closed, close_enough, d3_data, request, values
-from src.foundation.technical_indicators import CalculationInstance
+from goldenshare_technical_indicators import CalculationInstance
 
 
 def test_daily_21_files_deliver_one_indicator_batch_and_nulls(d3_data):

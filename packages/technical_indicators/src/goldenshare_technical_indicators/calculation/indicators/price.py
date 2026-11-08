@@ -26,7 +26,7 @@ class PriceCalculation:
     TABLE_ROLES: ClassVar = MappingProxyType({})
     SQL_FILES: ClassVar = ()
     FIXED_SQL_STEPS: ClassVar = MappingProxyType({})
-    SQL_PACKAGE: ClassVar = "src.foundation.technical_indicators.calculation"
+    SQL_PACKAGE: ClassVar = "goldenshare_technical_indicators.calculation"
 
     def __post_init__(self):
         object.__setattr__(self, "parameters", _freeze_parameters(self.parameters))

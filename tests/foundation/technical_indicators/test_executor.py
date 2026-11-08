@@ -14,14 +14,14 @@ import duckdb
 import pyarrow as pa
 import pytest
 
-from src.foundation.technical_indicators.calculation.calculation import SqlStep
-from src.foundation.technical_indicators.configuration import KernelConfig
-from src.foundation.technical_indicators.errors import (
+from goldenshare_technical_indicators.calculation.calculation import SqlStep
+from goldenshare_technical_indicators.configuration import KernelConfig
+from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, CalculationExecutionError, ResourceLimitError,
 )
-from src.foundation.technical_indicators.execution_control import ExecutionControl
-from src.foundation.technical_indicators.executor import DuckDBExecutor
-from src.foundation.technical_indicators.service import TechnicalIndicatorService
+from goldenshare_technical_indicators.execution_control import ExecutionControl
+from goldenshare_technical_indicators.executor import DuckDBExecutor
+from goldenshare_technical_indicators.service import TechnicalIndicatorService
 
 
 def config(**changes):

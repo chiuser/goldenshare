@@ -16,7 +16,7 @@ import pytest
 
 import d3_support
 from d3_support import D3Control, ObservedService, REPORT, d3_data, request
-from src.foundation.technical_indicators.errors import ResourceLimitError
+from goldenshare_technical_indicators.errors import ResourceLimitError
 
 
 def test_calculate_utf8_limits_and_cleanup(d3_data, monkeypatch):

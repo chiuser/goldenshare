@@ -54,7 +54,7 @@ usage() {
   --skip-backend-compile       跳过后端编译检查
   --skip-frontend-build        跳过前端构建
   --with-preflight             先执行 scripts/release-preflight.sh
-  --install-python-deps        执行 python3 -m pip install -e .
+  --install-python-deps        安装本地计算算子包和主工程的 Python 依赖
   --install-frontend-deps      执行 npm --prefix frontend install
   -h, --help                   显示帮助
 
@@ -201,7 +201,7 @@ main() {
 
   if [[ "${INSTALL_PY_DEPS}" == "1" ]]; then
     log "1/6 安装 Python 依赖"
-    python3 -m pip install -e .
+    python3 -m pip install -e ./packages/technical_indicators -e .
   fi
 
   if [[ "${INSTALL_FE_DEPS}" == "1" ]]; then
@@ -219,7 +219,7 @@ main() {
 
   if [[ "${RUN_BACKEND_COMPILE}" == "1" ]]; then
     log "4/6 后端编译检查"
-    python3 -m compileall src/foundation src/ops src/biz src/app src/shared src/scripts src/platform src/operations
+    python3 -m compileall src/foundation src/ops src/biz src/app src/shared src/scripts src/platform src/operations packages/technical_indicators/src
   fi
 
   if [[ "${RUN_FRONTEND_BUILD}" == "1" ]]; then

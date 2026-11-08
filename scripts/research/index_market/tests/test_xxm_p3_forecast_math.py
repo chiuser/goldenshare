@@ -19,7 +19,7 @@ def test_p4_bounded_projection_recovers_1500_from_independent_decimal_history(pe
     from dataclasses import replace
     from datetime import datetime, timedelta
     from src.biz.services.wealth.market.index_detail_xxm.projection import recover_projection, ProjectionPrecisionError
-    from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+    from goldenshare_technical_indicators.xxm.types import XxmBar
     with localcontext() as context:
         context.prec=70
         fast=slow=Decimal('100');signal=Decimal(0);bars=[]

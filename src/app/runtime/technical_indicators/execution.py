@@ -9,15 +9,15 @@ from collections.abc import Callable
 import anyio
 from starlette.types import Receive, Send
 
-from src.foundation.technical_indicators.contracts import (
+from goldenshare_technical_indicators.contracts import (
     CalculationRequest, CalculationResult,
 )
-from src.foundation.technical_indicators.errors import (
+from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, OutputContractError, _clear_error_frames,
 )
-from src.foundation.technical_indicators.execution_control import ExecutionControl
-from src.foundation.technical_indicators.output.encoding import encode_response_utf8
-from src.foundation.technical_indicators.service import TechnicalIndicatorService
+from goldenshare_technical_indicators.execution_control import ExecutionControl
+from goldenshare_technical_indicators.output.encoding import encode_response_utf8
+from goldenshare_technical_indicators.service import TechnicalIndicatorService
 
 from .composition import TechnicalIndicatorRuntime
 from .response import send_encoded_body

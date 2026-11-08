@@ -16,20 +16,19 @@ import pytest
 from src.app.runtime.technical_indicators import execution
 from src.app.runtime.technical_indicators.admission import AdmissionController
 from src.app.runtime.technical_indicators.composition import TechnicalIndicatorRuntime
-from src.foundation.config.settings import Settings
-from src.foundation.technical_indicators.calculation.indicators import create_builtin_registry
-from src.foundation.technical_indicators.configuration import KernelConfig
-from src.foundation.technical_indicators.contracts import (
+from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
+from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
+from goldenshare_technical_indicators.contracts import (
     CalculationInstance, CalculationRequest, CalculationResult, CalculationStatistics,
     CalculationValues, OutputRange, PriceAdjustmentResult, RequestedRange,
     SeriesDescription, SourceResult,
 )
-from src.foundation.technical_indicators.errors import (
+from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, CalculationDeadlineError, OutputEncodingError,
     RequestInvalidError, ResourceCleanupError, ResourceLimitError,
 )
-from src.foundation.technical_indicators.output import encoding
-from src.foundation.technical_indicators.service import TechnicalIndicatorService
+from goldenshare_technical_indicators.output import encoding
+from goldenshare_technical_indicators.service import TechnicalIndicatorService
 
 
 class _Control:
@@ -90,7 +89,7 @@ def _expected_bytes():
 
 
 def test_library_and_http_encode_only_their_final_output(monkeypatch):
-    config = KernelConfig.from_settings(Settings(_env_file=None))
+    config = technical_indicator_config_from_settings(Settings(_env_file=None))
     selected = CalculationRequest("stock", "600000.SH", "day", (
         CalculationInstance("ma", "ma", {"period": 20}),
     ), adjustment="none", limit=1)

@@ -9,11 +9,11 @@ import hashlib
 
 import pytest
 
-from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
+from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
 from src.biz.services.wealth.market.index_detail_xxm.forecast_detector import clone
-from src.biz.services.wealth.market.index_detail_xxm.snapshot_validation import parse_xxm_snapshot
-from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from goldenshare_technical_indicators.xxm.snapshot_validation import parse_xxm_snapshot
+from goldenshare_technical_indicators.xxm.spec import MAIN_SPEC
+from goldenshare_technical_indicators.xxm.types import XxmBar
 from scripts.research.index_market.tests.xxm_product_v1_cases import CASES, PERIODS
 
 SOURCE = "snapshot-unit"
@@ -311,7 +311,7 @@ def test_forecast_clone_uses_normal_snapshot_and_does_not_share_state():
 
 
 def test_unknown_program_errors_are_not_swallowed_or_published(monkeypatch):
-    from src.biz.services.wealth.market.index_detail_xxm import calculator as kernel
+    from goldenshare_technical_indicators.xxm import calculator as kernel
 
     calc = calculator()
     calc.restore(top_dull_snapshot())

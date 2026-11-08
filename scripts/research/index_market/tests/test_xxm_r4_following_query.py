@@ -9,8 +9,8 @@ from pydantic import ValidationError
 
 from src.biz.queries.wealth.market.index_detail_xxm.query_service import IndexDetailXxmQueryService as Query, SeriesEntry
 from src.biz.schemas.wealth.market.index_detail_xxm import InternalXxmResponseDto
-from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmStep
+from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
+from goldenshare_technical_indicators.xxm.types import XxmStep
 from scripts.research.index_market.tests.test_xxm_r4_following import DATES, T, TS, TF, TN, DUAL, REACTIVATION_ROWS, bars, run, values
 from src.biz.services.wealth.market.index_detail_xxm.response_projection import project_xxm_response
 

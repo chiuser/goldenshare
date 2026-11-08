@@ -36,7 +36,7 @@ from src.biz.services.wealth.market.index_detail.index_detail_universe import (
     IndexDetailUniverseService,
 )
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader, IndexDailyLakeSourceError
-from src.foundation.technical_indicators.contracts import CalculationInstance, CalculationResult
+from goldenshare_technical_indicators.contracts import CalculationInstance, CalculationResult
 
 
 _BASE_REQUIRED_FIELDS = ("open", "high", "low", "close", "pre_close", "change", "pct_change", "vol", "amount")

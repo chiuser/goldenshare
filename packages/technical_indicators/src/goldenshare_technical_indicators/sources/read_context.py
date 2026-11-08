@@ -7,7 +7,7 @@ from ..errors import ResourceLimitError
 
 
 class SourceReadContext:
-    SQL_PACKAGE = "src.foundation.technical_indicators.sources"
+    SQL_PACKAGE = "goldenshare_technical_indicators.sources"
     SQL_FILES = ("stage_input.sql", "adjust_price.sql", "retain_history.sql")
 
     def __init__(self, config: KernelConfig):

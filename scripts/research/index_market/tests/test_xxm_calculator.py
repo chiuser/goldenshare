@@ -9,10 +9,10 @@ import json
 
 import pytest
 
-from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
+from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
 from src.biz.services.wealth.market.index_detail_xxm.forecast_detector import clone
-from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC, XxmSpec
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from goldenshare_technical_indicators.xxm.spec import MAIN_SPEC, XxmSpec
+from goldenshare_technical_indicators.xxm.types import XxmBar
 
 TOP = [(100,200,2),(90,0,-2),(101,100,2),(102,100,2)]
 BOTTOM = [(100,-200,-2),(110,0,2),(99,-100,-2),(98,-100,-2)]

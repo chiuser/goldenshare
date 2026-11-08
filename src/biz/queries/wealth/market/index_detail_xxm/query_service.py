@@ -25,11 +25,11 @@ from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeR
 from src.foundation.clients.local_lake.major_index_mins_reader import IndexMinuteHistoryBudgetError, IndexMinuteSourceContractError
 from src.biz.schemas.wealth.market.index_detail_xxm import InternalXxmResponseDto
 from src.biz.schemas.wealth.market.index_detail_xxm_forecast import InternalForecastResponseDto
-from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
+from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
 from src.biz.services.wealth.market.index_detail_xxm.runtime import BUDGET
-from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
-from src.biz.services.wealth.market.index_detail_xxm.snapshot_validation import validate_structure_record
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar, XxmPeriod, XxmStep
+from goldenshare_technical_indicators.xxm.spec import MAIN_SPEC
+from goldenshare_technical_indicators.xxm.snapshot_validation import validate_structure_record
+from goldenshare_technical_indicators.xxm.types import XxmBar, XxmPeriod, XxmStep
 from .source import (CN_ZONE, DAILY_START, INDICATOR_VERSION, XxmLakeCalendar, XxmSourceError, assert_continuous, calendar_dates,
                      expected_through, minute_reader, minute_request, normalize_minute_end,
                      plan_minute_window, read_daily, read_lake_daily, read_minutes)

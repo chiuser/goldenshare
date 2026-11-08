@@ -17,18 +17,17 @@ import pyarrow as pa
 import pytest
 
 from src.foundation.clients.local_lake.technical_indicator_price_source import LakeTechnicalIndicatorPriceSource
-from src.foundation.config.settings import Settings
-from src.foundation.technical_indicators import CalculationInstance, CalculationRequest
-from src.foundation.technical_indicators.calculation.calculation import SqlStep
-from src.foundation.technical_indicators.calculation.history import HistoryRequirement
-from src.foundation.technical_indicators.calculation.indicators import create_builtin_registry
-from src.foundation.technical_indicators.configuration import KernelConfig
-from src.foundation.technical_indicators.errors import CalculationCancelledError, ResourceLimitError, SourceUnsupportedError
-from src.foundation.technical_indicators.execution_control import ExecutionControl
-from src.foundation.technical_indicators.service import TechnicalIndicatorService
-from src.foundation.technical_indicators.sources.contracts import PriceReadSelection, ReadRequirement, SourceBatch, SourceDescription
-from src.foundation.technical_indicators.sources.read_context import SourceReadContext
-from src.foundation.technical_indicators.sources.session import PriceInputSession
+from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
+from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
+from goldenshare_technical_indicators.calculation.calculation import SqlStep
+from goldenshare_technical_indicators.calculation.history import HistoryRequirement
+from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
+from goldenshare_technical_indicators.errors import CalculationCancelledError, ResourceLimitError, SourceUnsupportedError
+from goldenshare_technical_indicators.execution_control import ExecutionControl
+from goldenshare_technical_indicators.service import TechnicalIndicatorService
+from goldenshare_technical_indicators.sources.contracts import PriceReadSelection, ReadRequirement, SourceBatch, SourceDescription
+from goldenshare_technical_indicators.sources.read_context import SourceReadContext
+from goldenshare_technical_indicators.sources.session import PriceInputSession
 
 # Only these shared helpers/fixture are imported; no existing control-creating
 # test is called.  The fixture caches by the common pytest base directory.
@@ -39,7 +38,7 @@ from test_source_contracts import (
 
 
 def config(**kwargs):
-    return replace(KernelConfig.from_settings(Settings(_env_file=None,
+    return replace(technical_indicator_config_from_settings(Settings(_env_file=None,
         GOLDENSHARE_LAKE_ROOT="/not-opened/data_lake")), **kwargs)
 
 

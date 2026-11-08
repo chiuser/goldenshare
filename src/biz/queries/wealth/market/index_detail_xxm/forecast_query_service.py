@@ -15,7 +15,7 @@ from src.biz.services.wealth.market.index_detail_xxm.forecast_spec import FORECA
 from src.biz.services.wealth.market.index_detail_xxm.forecast_text import make_display
 from src.biz.services.wealth.market.index_detail_xxm.projection import recover_projection, ProjectionPrecisionError
 from src.biz.services.wealth.market.index_detail_xxm.response_projection import project_forecast_response
-from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
+from goldenshare_technical_indicators.xxm.spec import MAIN_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.runtime import BUDGET
 from src.biz.services.wealth.market.index_detail_xxm.types import ForecastKernelResult
 from src.biz.services.wealth.market.index_detail_xxm.forecast_identity import (

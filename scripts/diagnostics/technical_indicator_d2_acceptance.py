@@ -19,17 +19,16 @@ import pyarrow.dataset as ds
 import pyarrow.fs as fs
 import pyarrow.parquet as pq
 
-from src.foundation.config.settings import Settings
+from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
 from src.foundation.clients.local_lake.technical_indicator_contracts import price_contract, source_projection
 from src.foundation.clients.local_lake.technical_indicator_price_source import LakeTechnicalIndicatorPriceSource, _LakePriceStream
-from src.foundation.technical_indicators import CalculationInstance, CalculationRequest
-from src.foundation.technical_indicators.calculation.history import HistoryRequirement
-from src.foundation.technical_indicators.configuration import KernelConfig
-from src.foundation.technical_indicators.execution_control import ExecutionControl
-from src.foundation.technical_indicators.service import TechnicalIndicatorService
-from src.foundation.technical_indicators.sources.contracts import PriceReadSelection, ReadRequirement, SourceDescription
-from src.foundation.technical_indicators.sources.read_context import SourceReadContext
-from src.foundation.technical_indicators.sources.session import PriceInputSession
+from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
+from goldenshare_technical_indicators.calculation.history import HistoryRequirement
+from goldenshare_technical_indicators.execution_control import ExecutionControl
+from goldenshare_technical_indicators.service import TechnicalIndicatorService
+from goldenshare_technical_indicators.sources.contracts import PriceReadSelection, ReadRequirement, SourceDescription
+from goldenshare_technical_indicators.sources.read_context import SourceReadContext
+from goldenshare_technical_indicators.sources.session import PriceInputSession
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = Path('/private/tmp/indicator_lld_probe_20261022/fixture.parquet')
@@ -338,7 +337,7 @@ def main():
         else:
             raise AssertionError('The wrong sample must be rejected before data access')
         persist(report)
-        config = KernelConfig.from_settings(Settings(_env_file=None,GOLDENSHARE_LAKE_ROOT='/Volumes/datasource/data_lake'))
+        config = technical_indicator_config_from_settings(Settings(_env_file=None,GOLDENSHARE_LAKE_ROOT='/Volumes/datasource/data_lake'))
         verify_fixture(config, report)
         verify_real_sources(config, report)
         report['status'] = 'passed'

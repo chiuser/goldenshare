@@ -1,12 +1,12 @@
 """Literal integer display ranges and the approved m30 M3 next-bar example."""
 from copy import deepcopy
 import pytest
-from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
+from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
 from src.biz.services.wealth.market.index_detail_xxm.forecast import forecast, precheck_next_bar
 from src.biz.services.wealth.market.index_detail_xxm.forecast_math import as_interval
 from src.biz.services.wealth.market.index_detail_xxm.forecast_text import _range_text, make_display
 from src.biz.services.wealth.market.index_detail_xxm.projection import ProjectionState
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from goldenshare_technical_indicators.xxm.types import XxmBar
 
 
 def value(lower=10, upper=20, lower_inclusive=True, upper_inclusive=True, lo=10, hi=20):

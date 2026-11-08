@@ -21,17 +21,16 @@ from d3_support import D3Control
 from src.foundation.clients.local_lake import technical_indicator_price_locator as locator_module
 from src.foundation.clients.local_lake import technical_indicator_price_source as source_module
 from src.foundation.clients.local_lake.technical_indicator_contracts import DAILY_SCHEMA
-from src.foundation.technical_indicators import CalculationInstance, CalculationRequest
-from src.foundation.technical_indicators.calculation.history import HistoryRequirement
-from src.foundation.technical_indicators.calculation.indicators import create_builtin_registry
-from src.foundation.technical_indicators.configuration import KernelConfig
-from src.foundation.technical_indicators.errors import (
+from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
+from goldenshare_technical_indicators.calculation.history import HistoryRequirement
+from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
+from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, CalculationDeadlineError, ResourceCleanupError,
     ResourceLimitError, SourceReadError,
 )
-from src.foundation.technical_indicators.service import TechnicalIndicatorService
-from src.foundation.technical_indicators.sources.contracts import ReadRequirement
-from src.foundation.technical_indicators.sources.read_context import SourceReadContext
+from goldenshare_technical_indicators.service import TechnicalIndicatorService
+from goldenshare_technical_indicators.sources.contracts import ReadRequirement
+from goldenshare_technical_indicators.sources.read_context import SourceReadContext
 
 
 _DATES = (date(2026, 1, 5), date(2026, 1, 6), date(2026, 1, 7))
@@ -194,12 +193,12 @@ class _Faults:
 
 class _State:
     def __init__(self, root):
-        from src.foundation.config.settings import Settings
+        from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
         self.root = root
         self.started = monotonic()
         self.saved = dict(status="running", completed_nodes=[], attempts=[], calls=[],
             fixture_queries=[], preservation=[], fixture_root=str(root))
-        self.config = KernelConfig.from_settings(Settings(_env_file=None, GOLDENSHARE_LAKE_ROOT=str(root)))
+        self.config = technical_indicator_config_from_settings(Settings(_env_file=None, GOLDENSHARE_LAKE_ROOT=str(root)))
         self.input_rows = self.locator_rows = self.sql_rows = self.fake_controls = 0
         self.save()
 

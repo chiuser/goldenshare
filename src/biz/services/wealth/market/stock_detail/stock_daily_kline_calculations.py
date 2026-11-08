@@ -2,7 +2,7 @@
 
 from types import MappingProxyType
 
-from src.foundation.technical_indicators.contracts import CalculationInstance, CalculationRequest
+from goldenshare_technical_indicators.contracts import CalculationInstance, CalculationRequest
 
 from .stock_daily_kline_contracts import StockDailyKlineInput, StockDailyKlineRequest
 

@@ -1,6 +1,6 @@
 # 计算算子共享包落地方案 v1
 
-2026-11-09 · 迁移前回归通过 · 共享包开发待启动。本文和 [LLD](calculation-operator-shared-package-low-level-design-v1.md) 定义迁移范围与验收。
+2026-11-09 · 共享包 `0.1.0` 已完成源码迁移和本地验收。迁移范围及结果见 [LLD](calculation-operator-shared-package-low-level-design-v1.md#8-实现与验收记录)。
 
 ## 1. 目标
 
@@ -10,7 +10,7 @@
 
 现有本地编译、预检和发布命令保留原入口、参数及默认行为。编译检查随源码迁移纳入共享包，依赖准备沿用现有安装入口和发布前的环境准备步骤。
 
-## 2. 审计结论
+## 2. 迁移前的审计结论
 
 | 当前代码 | 审计结论 | 迁移要求 |
 | --- | --- | --- |
@@ -19,7 +19,7 @@
 | 财势乾坤 r4.1 | 识别、版本和恢复代码可单独运行。`types.py` 同时包含识别和预判类型。历史识别、下一根预判、响应校验和研究脚本都引用同一个计算器或它的类型。图上标记的判断在响应模块和调试校验中都有调用。 | 迁移识别实现及其类型，保留预判和响应代码原位。所有调用方引用同一个 `XxmCalculator`、`XxmBar`、`XxmSpec`，沿用现有事件 ID、状态内容和判断图上画哪些标记的函数。 |
 | 本地安装和交付 | 财势乾坤主工程的安装、CI、DG 各有入口。两套本机解释器都是 Python 3.13.5，DG 项目声明的 Python 支持范围更宽。 | 单独构建 wheel，验证两个工程的用法。财势乾坤补齐基础依赖和安装入口，DG 先在隔离环境验收 r4.1，不借本轮改变 DG 的项目支持范围。 |
 
-调用链已用 CodeGraph 对照实际源码，逐项清单及测试落点见 LLD。 [技术指标计算入口](../../src/foundation/technical_indicators/service.py#L57) · [SQL 资源加载](../../src/foundation/technical_indicators/calculation/sql_templates.py#L13) · [识别计算入口](../../src/biz/services/wealth/market/index_detail_xxm/calculator.py#L473) · [原内核设计](technical-indicator-kernel-component-design-v1.html#boundary)
+调用链已用 CodeGraph 对照实际源码，逐项清单及测试落点见 LLD。 [技术指标计算入口](../../packages/technical_indicators/src/goldenshare_technical_indicators/service.py#L57) · [SQL 资源加载](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/sql_templates.py#L13) · [识别计算入口](../../packages/technical_indicators/src/goldenshare_technical_indicators/xxm/calculator.py#L473) · [原内核设计](technical-indicator-kernel-component-design-v1.html#boundary)
 
 ## 3. 包和工程各自负责什么
 
@@ -30,7 +30,7 @@
 | 财势乾坤 | 保留行情来源、环境配置、请求控制、缓存、API 和下一根预判。切换调用路径后仍走现有的数据和计算流程。 |
 | DG | 本轮验收从独立安装的 wheel 运行 r4.1。后续数据集由 DG 自己读行情和现有 MACD、调用识别和写 Gold。 |
 
-共享包保留两个现有计算入口。通用指标服务仍按现有请求返回最多 500 根。r4.1 保持逐根输入和跨 K 线状态，历史回放使用同一个计算器推进。二者各自沿用已有算法版本。 [通用计算请求合同](../../src/foundation/technical_indicators/contracts.py#L25) · [r4.1 版本定义](../../src/biz/services/wealth/market/index_detail_xxm/spec.py#L8)
+共享包保留两个现有计算入口。通用指标服务仍按现有请求返回最多 500 根。r4.1 保持逐根输入和跨 K 线状态，历史回放使用同一个计算器推进。二者各自沿用已有算法版本。 [通用计算请求合同](../../packages/technical_indicators/src/goldenshare_technical_indicators/contracts.py#L25) · [r4.1 版本定义](../../packages/technical_indicators/src/goldenshare_technical_indicators/xxm/spec.py#L8)
 
 ## 4. 最小迁移顺序
 
@@ -39,8 +39,8 @@
 3. **验收本地构建产物。** 同一个 wheel 在隔离环境里分别跑通通用指标和 r4.1。再按原有入口验收财势乾坤的股票、指数日线以及历史识别和下一根预判。迁移前后的对照必须使用同一版本的运行依赖和同一批输入。
 4. **交付。** 共享包目录的提交进入现有 CI 构建检查。获准发布时，共享包内容有变化则更新包版本、构建 wheel 并在目标环境预装。记录包版本、源码提交、wheel 的 SHA-256 和验收结果。共享包通过评审与验收后交给量化结构数据集开发使用。
 
-## 5. 评审边界
+## 5. 交付边界
 
 本轮只审共享包和现有引用迁移。指标公式、预热和舍入规则、历史读取策略、接口字段、DG 现有指标任务和 Gold 数据集按各自的现行设计管理。将 r4.1 并入通用指标注册表、统一两套 MACD 生产链路、调整 DuckDB 连接方式或优化 r4.1 性能，都属于单独的架构或行为变更。当前审计未发现这些改造是打包所必需的。
 
-本轮需要评审的实现选择是包的路径和名称、两个计算入口的边界，以及现有安装入口如何取得 wheel。验收结果必须能够证明使用的是装好的包，并且现有功能和行为一致。生产部署和 DG 正式环境的安装、数据读写与调度操作分别按原工程规则审批。 [LLD 的安装和验收设计](calculation-operator-shared-package-low-level-design-v1.md)
+本轮交付包括共享包源码、财势乾坤调用方迁移、安装入口及本地验收。共享包 `0.1.0` 可供量化结构数据集后续开发使用。生产部署和 DG 正式环境的安装、数据读写与调度操作按各自工程的规则执行。 [LLD 的安装和验收记录](calculation-operator-shared-package-low-level-design-v1.md#8-实现与验收记录)

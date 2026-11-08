@@ -14,8 +14,8 @@ import duckdb
 import pytest
 
 from d3_support import ObservedService, REPORT, d3_data, request
-from src.foundation.technical_indicators.errors import OutputContractError
-from src.foundation.technical_indicators.executor import DuckDBExecutor
+from goldenshare_technical_indicators.errors import OutputContractError
+from goldenshare_technical_indicators.executor import DuckDBExecutor
 
 
 def test_calculate_final_fetch_count_and_cleanup(d3_data, monkeypatch):

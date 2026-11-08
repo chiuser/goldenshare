@@ -17,8 +17,8 @@ from src.biz.queries.wealth.market.index_detail_xxm import query_service
 from src.biz.queries.wealth.market.index_detail_xxm.query_service import IndexDetailXxmQueryService, XxmCache
 from src.biz.queries.wealth.market.index_detail_xxm.source import CN_ZONE
 from src.biz.schemas.wealth.market.index_detail_xxm import InternalXxmResponseDto
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar, XxmStep
-from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
+from goldenshare_technical_indicators.xxm.types import XxmBar, XxmStep
+from goldenshare_technical_indicators.xxm.spec import MAIN_SPEC
 
 
 DATES = ("2023-01-03", "2023-01-04", "2023-01-05", "2023-01-06", "2023-01-09",

@@ -121,7 +121,7 @@
 
 ## 3 当前产品已经做到哪里
 
-代码位置：[calculator.py](/Users/congming/github/goldenshare/src/biz/services/wealth/market/index_detail_xxm/calculator.py)、[识别Spec](/Users/congming/github/goldenshare/src/biz/services/wealth/market/index_detail_xxm/spec.py)、[预测Spec](/Users/congming/github/goldenshare/src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py)。当前正式支持仍是上证000001.SH的日线、60/90/120分钟；深成指、创业板等曾用作研究对照，不能据此称产品已支持这些对象。
+当时的计算器和识别 Spec 位于 `src/biz/services/wealth/market/index_detail_xxm/` 的 `calculator.py` 和 `spec.py`。本次交接时，正式支持范围是上证 000001.SH 日线及 60、90、120 分钟，深成指和创业板曾用作研究对照。 [当前共享包 LLD](../architecture/calculation-operator-shared-package-low-level-design-v1.md) · [预测 Spec](/Users/congming/github/goldenshare/src/biz/services/wealth/market/index_detail_xxm/forecast_spec.py)
 
 | 已实现部分 | 具体处理 | 尚未证明的范围 |
 | --- | --- | --- |

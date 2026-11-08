@@ -36,7 +36,7 @@ main() {
 
   if [[ "${RUN_COMPILE_CHECK}" == "1" ]]; then
     log "1/6 Python 编译检查"
-    compile_targets=(src/foundation src/ops src/biz src/app src/shared src/scripts)
+    compile_targets=(src/foundation src/ops src/biz src/app src/shared src/scripts packages/technical_indicators/src)
     if [[ "${RUN_LEGACY_COMPILE}" == "1" ]]; then
       compile_targets+=(src/platform src/operations)
     fi

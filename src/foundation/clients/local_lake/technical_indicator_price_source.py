@@ -14,13 +14,13 @@ from pathlib import Path
 import re
 import sys
 
-from src.foundation.technical_indicators.calculation.calculation import SqlStep
-from src.foundation.technical_indicators.configuration import KernelConfig
-from src.foundation.technical_indicators.errors import (
+from goldenshare_technical_indicators.calculation.calculation import SqlStep
+from goldenshare_technical_indicators.configuration import KernelConfig
+from goldenshare_technical_indicators.errors import (
     ResourceCleanupError, ResourceLimitError, SourceContractError, SourceReadError,
     TechnicalIndicatorError,
 )
-from src.foundation.technical_indicators.sources.contracts import SourceBatch, SourceDescription
+from goldenshare_technical_indicators.sources.contracts import SourceBatch, SourceDescription
 
 from .technical_indicator_contracts import (
     FACTOR_SCHEMA, LakePriceContract, price_contract, source_capabilities, source_projection,

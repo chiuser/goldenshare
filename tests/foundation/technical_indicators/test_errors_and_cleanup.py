@@ -12,10 +12,10 @@ from time import monotonic
 
 import pytest
 
-from src.foundation.technical_indicators.configuration import KernelConfig
-from src.foundation.technical_indicators.errors import CalculationCancelledError, ResourceCleanupError
-from src.foundation.technical_indicators.execution_control import ExecutionControl
-from src.foundation.technical_indicators import service as implementation
+from goldenshare_technical_indicators.configuration import KernelConfig
+from goldenshare_technical_indicators.errors import CalculationCancelledError, ResourceCleanupError
+from goldenshare_technical_indicators.execution_control import ExecutionControl
+from goldenshare_technical_indicators import service as implementation
 
 from test_source_contracts import (
     batch_assembly_files, AssemblyReadTrace, assembly_metrics, assembly_source, assembly_config,

@@ -23,11 +23,11 @@ from src.biz.services.wealth.market.stock_detail.stock_daily_kline_calculations 
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
 from src.db import get_session_factory
 from src.foundation.config.settings import get_settings
-from src.foundation.technical_indicators.errors import (
+from goldenshare_technical_indicators.errors import (
     CalculationDeadlineError, CalculationUnsupportedError, ResourceCleanupError,
     SourceReadError, SourceUnsupportedError,
 )
-from src.foundation.technical_indicators.service import TechnicalIndicatorService
+from goldenshare_technical_indicators.service import TechnicalIndicatorService
 
 
 from contextlib import contextmanager

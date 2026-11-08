@@ -26,7 +26,7 @@ class BollingerBandsCalculation:
     TABLE_ROLES: ClassVar = MappingProxyType({"output": ("ti_boll_output", "batch")})
     SQL_FILES: ClassVar = ("bollinger_bands.sql",)
     FIXED_SQL_STEPS: ClassVar = MappingProxyType({})
-    SQL_PACKAGE: ClassVar = "src.foundation.technical_indicators.calculation"
+    SQL_PACKAGE: ClassVar = "goldenshare_technical_indicators.calculation"
 
     def __post_init__(self):
         object.__setattr__(self, "parameters", _freeze_parameters(self.parameters))

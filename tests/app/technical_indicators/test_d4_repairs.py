@@ -24,7 +24,7 @@ from test_execution_cancellation import (
     inspect_release_locals, install_control, request, runtime,
 )
 from src.app.runtime.technical_indicators import execution
-from src.foundation.technical_indicators.errors import (
+from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, SourceReadError,
 )
 

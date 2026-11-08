@@ -33,7 +33,7 @@ class CalculationEngine:
 
     def _session_for(self, node) -> CalculationSession:
         calculation_type = type(node.calculation)
-        if getattr(calculation_type, "SQL_PACKAGE", None) != "src.foundation.technical_indicators.calculation":
+        if getattr(calculation_type, "SQL_PACKAGE", None) != "goldenshare_technical_indicators.calculation":
             raise CalculationExecutionError("Calculation SQL must belong to the fixed calculation package")
         roles = getattr(calculation_type, "TABLE_ROLES", None)
         sql_files = getattr(calculation_type, "SQL_FILES", None)

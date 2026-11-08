@@ -41,6 +41,8 @@ Run 启动意图 -> App QtfTaskRunIntentStager -> Ops TaskRun
 
 后端对应入口在 `src/biz/api/wealth/market/**`，统一挂到 `/api/v1/wealth/market/**`。
 
+股票和指数日线通过原有 App 装配调用共享包的 `TechnicalIndicatorService`。指数历史识别和下一根预判使用同一份 `XxmCalculator`，预判求解留在 Biz。共享包位于 `packages/technical_indicators/`，DG 可在自己的环境独立安装该包。 [共享包 LLD](calculation-operator-shared-package-low-level-design-v1.md)
+
 ### 正式 Dagster 数据湖：`lake_console/`
 
 `lake_console/orchestrator` 是当前正式 Dagster 工程，不是生产 Ops 子系统或 Web app。

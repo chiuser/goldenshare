@@ -36,7 +36,7 @@ WINDOW_RANGE_DEFINITION = CalculationDefinition(
 class WindowRangeCalculation:
     parameters: Parameters
 
-    SQL_PACKAGE: ClassVar = "src.foundation.technical_indicators.calculation"
+    SQL_PACKAGE: ClassVar = "goldenshare_technical_indicators.calculation"
     TABLE_ROLES: ClassVar = MappingProxyType({"output": ("ti_range", "batch")})
     SQL_FILES: ClassVar = ("kdj_window.sql",)
     FIXED_SQL_STEPS: ClassVar = MappingProxyType({})
@@ -79,7 +79,7 @@ class WindowRangeCalculation:
 class KDJCalculation:
     parameters: Parameters
 
-    SQL_PACKAGE: ClassVar = "src.foundation.technical_indicators.calculation"
+    SQL_PACKAGE: ClassVar = "goldenshare_technical_indicators.calculation"
     TABLE_ROLES: ClassVar = MappingProxyType({
         "parameters": ("ti_kdj_parameters", "state"),
         "warmup": ("ti_kdj_warmup", "state"),

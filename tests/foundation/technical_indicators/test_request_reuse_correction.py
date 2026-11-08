@@ -21,21 +21,20 @@ import pytest
 
 from src.foundation.clients.local_lake.technical_indicator_price_locator import LakePriceLocator
 from src.foundation.clients.local_lake.technical_indicator_price_source import LakeTechnicalIndicatorPriceSource
-from src.foundation.config.settings import Settings
-from src.foundation.technical_indicators import CalculationInstance, CalculationRequest
-from src.foundation.technical_indicators.calculation import sql_templates
-from src.foundation.technical_indicators.calculation.engine import CalculationEngine
-from src.foundation.technical_indicators.calculation.history import HistoryRequirement
-from src.foundation.technical_indicators.calculation.indicators import create_builtin_registry
-from src.foundation.technical_indicators.configuration import KernelConfig
-from src.foundation.technical_indicators.errors import ResourceLimitError, SourceContractError
-from src.foundation.technical_indicators.executor import DuckDBExecutor
-from src.foundation.technical_indicators.service import connect_private_memory_instance
-from src.foundation.technical_indicators.sources.contracts import (
+from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
+from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
+from goldenshare_technical_indicators.calculation import sql_templates
+from goldenshare_technical_indicators.calculation.engine import CalculationEngine
+from goldenshare_technical_indicators.calculation.history import HistoryRequirement
+from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
+from goldenshare_technical_indicators.errors import ResourceLimitError, SourceContractError
+from goldenshare_technical_indicators.executor import DuckDBExecutor
+from goldenshare_technical_indicators.service import connect_private_memory_instance
+from goldenshare_technical_indicators.sources.contracts import (
     PriceReadSelection, ReadRequirement, SourceBatch, SourceDescription,
 )
-from src.foundation.technical_indicators.sources.read_context import SourceReadContext
-from src.foundation.technical_indicators.sources.session import PriceInputSession
+from goldenshare_technical_indicators.sources.read_context import SourceReadContext
+from goldenshare_technical_indicators.sources.session import PriceInputSession
 
 
 _DAY = date(2026, 1, 2)
@@ -71,7 +70,7 @@ class _Control:
 
 
 def _config(root, **changes):
-    return replace(KernelConfig.from_settings(Settings(_env_file=None)),
+    return replace(technical_indicator_config_from_settings(Settings(_env_file=None)),
                    goldenshare_lake_root=str(root), **changes)
 
 
@@ -392,14 +391,14 @@ def test_reuses_source_templates_and_daily_factors(tmp_path, monkeypatch):
 
 def test_collector_only_saves_target_rows(tmp_path):
     """Two literal positions per period; final fetch may return short chunks."""
-    from src.foundation.technical_indicators.calculation.calculation import (
+    from goldenshare_technical_indicators.calculation.calculation import (
         BatchCalculationOutputs, CalculationOutput, OutputField,
     )
-    from src.foundation.technical_indicators.contracts import CalculationStatistics
-    from src.foundation.technical_indicators.errors import OutputContractError, OutputReadError
-    from src.foundation.technical_indicators.output.collector import OutputCollector
-    from src.foundation.technical_indicators.output.contracts import OutputFieldDescription, OutputInstanceDescription
-    from src.foundation.technical_indicators.sources.contracts import PriceBatch
+    from goldenshare_technical_indicators.contracts import CalculationStatistics
+    from goldenshare_technical_indicators.errors import OutputContractError, OutputReadError
+    from goldenshare_technical_indicators.output.collector import OutputCollector
+    from goldenshare_technical_indicators.output.contracts import OutputFieldDescription, OutputInstanceDescription
+    from goldenshare_technical_indicators.sources.contracts import PriceBatch
 
     field = OutputField("value", "value", "DOUBLE", True, "Incomplete window is NULL")
     instances = (OutputInstanceDescription("ma", "ma", "1.0.0", (("period", 20),), (

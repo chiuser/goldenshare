@@ -5,9 +5,9 @@ import math
 from typing import Annotated, Literal, Union
 from pydantic import BaseModel, BeforeValidator, ConfigDict, Field, StrictInt, field_validator, model_validator
 from .index_detail_xxm import XxmReferenceDto, XxmWaveDto, InternalXxmWaveDto, XxmTsCode
-from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
+from goldenshare_technical_indicators.xxm.spec import MAIN_SPEC
 from src.biz.services.wealth.market.index_detail_xxm.forecast_spec import FORECAST_SPEC
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from goldenshare_technical_indicators.xxm.types import XxmBar
 from src.biz.services.wealth.market.index_detail_xxm.forecast_identity import (
     ROOT_FACT_FIELDS, DETAIL_FACT_FIELDS, forecast_result_id, forecast_condition_id,
 )

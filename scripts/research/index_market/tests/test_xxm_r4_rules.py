@@ -13,9 +13,9 @@ import hashlib
 
 import pytest
 
-from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
-from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
+from goldenshare_technical_indicators.xxm.spec import MAIN_SPEC
+from goldenshare_technical_indicators.xxm.types import XxmBar
 
 
 DATES = ("2023-01-03", "2023-01-04", "2023-01-05", "2023-01-06",

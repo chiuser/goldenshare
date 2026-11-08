@@ -20,7 +20,7 @@ from .result import build_calculation_result
 
 _COLUMN = re.compile(r"[a-z][a-z0-9_]*\Z")
 _VALUE_FIELDS = frozenset({"open", "high", "low", "close", "volume", "amount"})
-_OUTPUT_PACKAGE = "src.foundation.technical_indicators.output"
+_OUTPUT_PACKAGE = "goldenshare_technical_indicators.output"
 _INSPECT_SQL = "SELECT name,type FROM pragma_table_info(?) ORDER BY cid"
 _CHECK_ROWS_SQL = """SELECT
  COUNT(*) FILTER (WHERE seq BETWEEN ? AND ?) AS new_rows,

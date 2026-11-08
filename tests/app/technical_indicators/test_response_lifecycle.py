@@ -18,7 +18,7 @@ from test_execution_cancellation import (
     literal_result, request, runtime,
 )
 from src.app.runtime.technical_indicators import execution
-from src.foundation.technical_indicators.errors import CalculationDeadlineError, OutputEncodingError
+from goldenshare_technical_indicators.errors import CalculationDeadlineError, OutputEncodingError
 
 
 def test_response_lifecycle(monkeypatch):

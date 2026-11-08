@@ -11,7 +11,7 @@ from sqlalchemy.pool import StaticPool
 from src.biz.queries.wealth.market.index_detail_xxm import query_service as q
 from src.biz.queries.wealth.market.index_detail_xxm.source import assert_continuous
 from src.biz.services.wealth.market.index_detail_xxm.forecast_spec import FORECAST_SPEC
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from goldenshare_technical_indicators.xxm.types import XxmBar
 from src.foundation.models.core.index_factor_pro import IndexFactorPro
 from src.foundation.models.core.trade_calendar import TradeCalendar
 

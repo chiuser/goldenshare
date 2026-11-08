@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import os
+from dataclasses import fields
 from functools import lru_cache
 from pathlib import Path
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from src.foundation.technical_indicators.contracts import _MAX_OUTPUT_ROWS
+from goldenshare_technical_indicators.configuration import KernelConfig
+from goldenshare_technical_indicators.contracts import _MAX_OUTPUT_ROWS
 
 
 class Settings(BaseSettings):
@@ -146,6 +148,17 @@ class Settings(BaseSettings):
     ops_task_notify_timeout_seconds: int = Field(default=5, alias="OPS_TASK_NOTIFY_TIMEOUT_SECONDS")
     ops_public_base_url: str = Field(default="", alias="OPS_PUBLIC_BASE_URL")
     model_config = SettingsConfigDict(extra="ignore")
+
+
+def technical_indicator_config_from_settings(settings: Settings) -> KernelConfig:
+    """复制已解析字段。路径由读取模块检查。"""
+
+    values = {
+        field.name: getattr(settings, f"technical_indicator_{field.name}")
+        for field in fields(KernelConfig)
+        if field.name != "goldenshare_lake_root"
+    }
+    return KernelConfig(goldenshare_lake_root=settings.goldenshare_lake_root, **values)
 
 
 def _load_env_file_values(env_file: str) -> dict[str, str]:

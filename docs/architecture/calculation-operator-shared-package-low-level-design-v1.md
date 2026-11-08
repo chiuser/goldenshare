@@ -1,10 +1,10 @@
 # 计算算子共享包 LLD v1
 
-2026-11-09 · 迁移前回归通过 · 共享包开发待启动。对应 [落地方案](calculation-operator-shared-package-plan-v1.md)。实际共享包的构建、独立安装和迁移后回归留待实施验收。
+2026-11-09 · 共享包 `0.1.0` 已完成源码迁移和本地验收。对应 [落地方案](calculation-operator-shared-package-plan-v1.md)及[实现与验收记录](#8-实现与验收记录)。
 
 ## 1. 源码与交付目录
 
-拟用发行包名 `goldenshare-technical-indicators`，导入名 `goldenshare_technical_indicators`，首个包版本 `0.1.0`。包版本用于安装。`KERNEL_VERSION`、各 `CalculationDefinition.algorithm_version`、`MAIN_SPEC.algorithm_version` 与预判版本仍分别由原定义维护。首轮验收按两个工程当前使用的 Python 3.13 环境执行，共享包的 `requires-python` 拟设 `>=3.13`。
+发行包名为 `goldenshare-technical-indicators`，导入名为 `goldenshare_technical_indicators`，首个包版本为 `0.1.0`。包版本用于安装。`KERNEL_VERSION`、各 `CalculationDefinition.algorithm_version`、`MAIN_SPEC.algorithm_version` 与预判版本仍分别由原定义维护。首轮验收使用两个工程当前的 Python 3.13 环境，共享包的 `requires-python` 为 `>=3.13`。
 
 ```text
 packages/technical_indicators/
@@ -27,7 +27,7 @@ packages/technical_indicators/
 
 沿用现有 Setuptools 构建方式。新项目发现 `src/` 下的独立导入名，并为 `calculation`、`sources`、`output` 明确登记 `sql/*.sql`。迁移前的目录含 35 份 Python 文件和 14 份 SQL 文件。SQL 分别是 9 份计算、3 份输入、2 份输出，构建后核对名称和内容与原文件一致。根 `pyproject.toml` 删除原内核的三条资源登记，保留其他包和资源设置。 [现有主工程打包配置](../../pyproject.toml#L45) · [Setuptools 的包内文件规则](https://setuptools.pypa.io/en/latest/userguide/datafiles.html)
 
-基础包允许只运行 r4.1、导入配置和读取算子说明。DuckDB 计算仍在实际调用时加载 DuckDB，`IndexDailyPriceSource` 在组装批次时加载 PyArrow。对独立的通用指标调用方拟提供 `sql` 安装选项，使用主工程现有的 `duckdb>=1.3,<2`、`pyarrow==23.0.1`。财势乾坤现有 `local-lake` 依赖及运行版本沿用原口径，DG 的 r4.1 验收只安装基础包。首轮以两边已装版本为实测范围。 [DuckDB 连接](../../src/foundation/technical_indicators/service.py#L29) · [日线批次转换](../../src/foundation/technical_indicators/sources/index_daily.py#L30) · [现有依赖](../../pyproject.toml#L30)
+基础包允许只运行 r4.1、导入配置和读取算子说明。DuckDB 计算仍在实际调用时加载 DuckDB，`IndexDailyPriceSource` 在组装批次时加载 PyArrow。对独立的通用指标调用方拟提供 `sql` 安装选项，使用主工程现有的 `duckdb>=1.3,<2`、`pyarrow==23.0.1`。财势乾坤现有 `local-lake` 依赖及运行版本沿用原口径，DG 的 r4.1 验收只安装基础包。首轮以两边已装版本为实测范围。 [DuckDB 连接](../../packages/technical_indicators/src/goldenshare_technical_indicators/service.py#L29) · [日线批次转换](../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/index_daily.py#L30) · [现有依赖](../../pyproject.toml#L30)
 
 ## 2. 技术指标代码迁移
 
@@ -39,7 +39,7 @@ packages/technical_indicators/
 | `output/` 与 `discovery/` | 整体迁移。更新 `collector.py` 中的 `_OUTPUT_PACKAGE`。通用结果和编码留在包内，API DTO 和发送留在调用方 | 列顺序、空值、空结果、字节预算、结果收集与释放顺序，能力说明的公开字段和版本 |
 | `configuration/settings.py` | `KernelConfig` 的字段、类型和校验迁入包。现有 `from_settings` 的字段复制移至主工程 `src/foundation/config/settings.py` 的 `technical_indicator_config_from_settings(settings)`。该文件的 `_MAX_OUTPUT_ROWS` 引用改到共享包 | `GOLDENSHARE_LAKE_ROOT` 和现有 18 个 `TECHNICAL_INDICATOR_*` 字段仍由同一 `Settings` 解析。默认值、别名、校验、生效方式、可见性及资源限制均按原定义 |
 
-`SQL_PACKAGE` 的改动覆盖 `calculation/engine.py`、`calculation/sql_templates.py`、`calculation/indicators/{price,moving_average,bollinger_bands,macd,kdj}.py`、`sources/read_context.py` 和 `output/collector.py`。只替换包名前缀，同步相关测试中的固定资源名。用 `git diff -M` 核对迁移的 Python 文件，只接受本表和第 3 节明确列出的改动。逐文件比对 SQL 内容，保留原来的模板检查。 [模板装载](../../src/foundation/technical_indicators/calculation/sql_templates.py#L13) · [配置复制](../../src/foundation/technical_indicators/configuration/settings.py#L55) · [现有配置项](../../src/foundation/config/settings.py#L68)
+`SQL_PACKAGE` 的改动覆盖 `calculation/engine.py`、`calculation/sql_templates.py`、`calculation/indicators/{price,moving_average,bollinger_bands,macd,kdj}.py`、`sources/read_context.py` 和 `output/collector.py`。只替换包名前缀，同步相关测试中的固定资源名。用 `git diff -M` 核对迁移的 Python 文件，只接受本表和第 3 节明确列出的改动。逐文件比对 SQL 内容，保留原来的模板检查。 [模板装载](../../packages/technical_indicators/src/goldenshare_technical_indicators/calculation/sql_templates.py#L13) · [配置复制](../../src/foundation/config/settings.py#L153) · [现有配置项](../../src/foundation/config/settings.py#L68)
 
 ## 3. r4.1 代码迁移
 
@@ -52,7 +52,7 @@ packages/technical_indicators/
 | `types.py` 的预判部分 | 原处保留 `ForecastPrecheck`、`ComparisonRanges`、`ForecastConditionDraft`、`ReferenceForecast`、`StructureFollowConditionDraft`、`ForecastKernelResult`，从共享包引入所需的识别类型 | `Interval` 及预判类型继续由原模块维护。预判的结构引用、候选区间和文案保持原样 |
 | `response_projection.py` 的 `event_display_flags` | 原函数体移到 `xxm/event_display.py`。现有响应组装和调试校验从新位置调用 | 同一指数同一周期的事件顺序、全部事件和 `displayOnChart` 保持原样。普通响应与调试响应的 DTO、字段和校验留在财势乾坤 |
 
-预判仍由财势乾坤的 `forecast*.py`、`projection.py` 计算。`forecast_detector.clone()` 从共享包创建计算器再恢复状态，现有预判调用的计算器方法和属性沿用原实现。版本、事件 ID 和状态内容来自原数据字段及计算逻辑，迁移时不改变 `sourceIdentity`、字典键、时间格式及运算顺序。现有查询缓存依旧在进程内，状态恢复用原字典格式验收。 [识别状态与事件 ID](../../src/biz/services/wealth/market/index_detail_xxm/calculator.py#L51) · [状态保存与恢复](../../src/biz/services/wealth/market/index_detail_xxm/calculator.py#L584) · [预判复制计算器](../../src/biz/services/wealth/market/index_detail_xxm/forecast_detector.py#L38) · [类型定义](../../src/biz/services/wealth/market/index_detail_xxm/types.py) · [图上标记函数](../../src/biz/services/wealth/market/index_detail_xxm/response_projection.py#L10)
+预判仍由财势乾坤的 `forecast*.py`、`projection.py` 计算。`forecast_detector.clone()` 从共享包创建计算器再恢复状态，现有预判调用的计算器方法和属性沿用原实现。版本、事件 ID 和状态内容来自原数据字段及计算逻辑，迁移时不改变 `sourceIdentity`、字典键、时间格式及运算顺序。现有查询缓存依旧在进程内，状态恢复用原字典格式验收。 [识别状态与事件 ID](../../packages/technical_indicators/src/goldenshare_technical_indicators/xxm/calculator.py#L51) · [状态保存与恢复](../../packages/technical_indicators/src/goldenshare_technical_indicators/xxm/calculator.py#L584) · [预判复制计算器](../../src/biz/services/wealth/market/index_detail_xxm/forecast_detector.py#L38) · [类型定义](../../packages/technical_indicators/src/goldenshare_technical_indicators/xxm/types.py) · [图上标记函数](../../packages/technical_indicators/src/goldenshare_technical_indicators/xxm/event_display.py#L4)
 
 ## 4. 现有调用方逐项切换
 
@@ -85,7 +85,7 @@ packages/technical_indicators/
 
 开工审计已用本机现有的 Python 3.13.5、Setuptools 78.1.1、wheel 0.45.1 和 pip 25.1 离线构建一个带 SQL 文件的临时小包，核对 SQL 已装入 wheel。正式构建用这套工具，实施前复核版本。管理员已同意后续验收时仅将本需求的 wheel 安装到 `/private/tmp` 下的隔离环境。通用指标复用主工程已装的 DuckDB 和 PyArrow，DG 继续使用自己的解释器。预装失败时先解决依赖问题再切换源码，切换后的验收失败时按既有发布流程恢复原源码和对应依赖，再重新验收。 [uv 本地依赖规则](https://docs.astral.sh/uv/concepts/projects/dependencies/#path) · [pip 安装规则](https://pip.pypa.io/en/stable/cli/pip_install/#overview) · [本地安装入口](../../scripts/local-build-and-run.sh#L240) · [编译预检入口](../../scripts/release-preflight.sh#L37) · [生产安装入口](../../scripts/deploy-layered-systemd.sh#L368) · [CI 安装入口](../../.github/workflows/ingestion-guardrail.yml#L70) · [DG 支持范围](../../lake_console/orchestrator/pyproject.toml#L1)
 
-隔离构建和 r4.1 安装验收使用以下命令。`run_dir` 是 `/private/tmp` 下本轮目录，`build-src` 是审核后的包源码副本，`build_python` 是已具备构建工具的解释器，`dg_python` 指向 DG 现有解释器。`wheel` 填本轮实际生成并已核对 SHA-256 的文件。命令待实施阶段执行。
+隔离构建和 r4.1 安装验收使用以下命令。`run_dir` 是 `/private/tmp` 下本轮目录，`build-src` 是审核后的包源码副本，`build_python` 是已具备构建工具的解释器，`dg_python` 指向 DG 现有解释器。`wheel` 填本轮实际生成并已核对 SHA-256 的文件。
 
 ```bash
 "$build_python" -m pip wheel --no-index --no-deps --no-build-isolation \
@@ -131,10 +131,17 @@ uv pip install --offline --no-deps --python "$run_dir/dg-smoke/bin/python" "$whe
 
 2026-11-09 修正后复跑。主工程使用 Python 3.13.5、DuckDB 1.5.5、PyArrow 23.0.1。第一批 901 项通过，pytest 用时 9.59 秒。第二批 851 项通过，pytest 用时 44.30 秒，未选入上文的 1 项 D2 诊断用例。合计 1,752 项通过，8 项原失败全部通过。DG 环境已核对为 Python 3.13.5、DuckDB 1.5.2，实际安装验收留待迁移阶段。
 
-## 7. 评审和交接
+## 7. 交接
 
-评审时先核对文件去向与全部调用方，再核对安装入口、算法内容及验收清单。批准后先冻结迁移前基线。一次切换同一批源码和调用方。只有两边的独立安装验收与财势乾坤现有调用的前后对照均通过，才将共享包交给量化结构数据集开发使用。
-
-后续量化结构数据集接入时，使用本 LLD 定义的共享包路径及 `goldenshare_technical_indicators.xxm`，同时修正数据集 LLD 中原先单独打包 r4.1 的路径。
+共享包 `0.1.0` 已通过两套环境的独立安装验收和财势乾坤的迁移前后对照。量化结构数据集接入时，使用本 LLD 定义的共享包路径及 `goldenshare_technical_indicators.xxm`，同时修正数据集 LLD 中原先单独打包 r4.1 的路径。
 
 新增指标时在共享包登记该指标需要的输入、参数、输出、算法版本及独立预期。现有通用 SQL 算子沿用已有注册方式，逐根计算模块按自己的入口使用。新增指标、重做注册方式、改行情接口或调整公式需要另行提出方案并评审。
+
+## 8. 实现与验收记录
+
+- 在迁移前提交 `e71214a3b` 的基础上迁移 35 个通用指标 Python 文件。逐文件核对，14 个 SQL 文件和 r4.1 的计算器、版本、状态恢复文件字节一致。识别类型与预判类型拆开，类型定义和图上标记函数的代码保持一致。旧包和被迁移的识别模块在活跃 Python 代码中已无引用。 [共享包打包配置](../../packages/technical_indicators/pyproject.toml) · [配置复制](../../src/foundation/config/settings.py#L153)
+- 同一份 `goldenshare_technical_indicators-0.1.0-py3-none-any.whl` 分别安装到 `/private/tmp` 下的两处验证目录。包体 88,697 字节，包含全部 14 个 SQL 文件，SHA-256 为 `5fc911ef9215847e1400d56ad95428c38d38e0af828b8dea568786b3b4730913`。重复离线构建得到相同文件，重建实测 0.703 秒，子进程峰值内存 53.20 MiB。交付源码以本节所在提交为准。
+- 在仓库外运行安装产物。价格、MA、BOLL、MACD、KDJ 的三根样本结果与迁移前逐项一致。DG 独立环境未安装 DuckDB、PyArrow 或财势乾坤，仍能运行上证 90 分钟案例，逐根事件、图上标记和保存／恢复的结果与迁移前一致。安装后的两次样本验证实测分别为 0.440 秒和 0.075 秒，含解释器启动，整个前后对照的子进程峰值内存为 148.69 MiB。该结果仅适用于三根指标样本与现有 r4.1 固定案例。
+- 迁移前的两批回归用安装后的包复跑，901 项及 851 项通过，用时分别为 9.99 秒及 44.02 秒。额外运行架构边界、现有股票服务和 XXM API、下一根预判等 401 项，全部通过，用时 21.29 秒。Web 测试显式使用临时配置路径，避免仓库 `.env` 把 SQLite 用例切换到本机 DG 来源。旧 D2 缺失诊断夹具的用例仍未选入。现有 `goldenshare ingestion-lint-definitions` 也通过。
+- 已验证本地启动脚本的安装开关、发版预检的编译和跳过开关。用 `pip --dry-run` 验证两份 editable 本地安装、CI 带 wheel 的首次安装及预装 wheel 后的发版安装，版本不匹配时按预期失败。`uv lock --check --offline` 通过。根锁文件补入现有配置已声明的 `pypinyin==0.55.0`，其他第三方锁定项一致。GitHub Actions 在推送后运行，正式预装及部署由发布流程执行。
+- CodeGraph 用 `explore`、`impact` 核对指标配置、日线装配、历史识别和下一根预判的调用方，迁移后执行 `sync`、`status` 并核对新包已被索引。DG 正式接入范围仍按量化结构数据集自己的方案验收。 [架构快照](codegraph-architecture-snapshot.md)

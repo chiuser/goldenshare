@@ -13,6 +13,7 @@ dependencies = [
   "bcrypt>=4.3.0",
   "cryptography==50.0.1",
   "fastapi>=0.116.0",
+  "goldenshare-technical-indicators==0.1.0",
   "httpx>=0.28.1",
   "pydantic>=2.10.0",
   "pydantic-settings>=2.6.0",
@@ -52,9 +53,9 @@ exclude = ["tests", "tests.*", "scripts", "scripts.*", "wealth", "wealth.*", "fr
 
 [tool.setuptools.package-data]
 "src.foundation.dao.announcement_archive" = ["pg_migrations/*.sql", "pg_migrations/*.json"]
-"src.foundation.technical_indicators.sources" = ["sql/*.sql"]
-"src.foundation.technical_indicators.calculation" = ["sql/*.sql"]
-"src.foundation.technical_indicators.output" = ["sql/*.sql"]
+
+[tool.uv.sources]
+goldenshare-technical-indicators = { path = "packages/technical_indicators", editable = true }
 
 [tool.pytest.ini_options]
 pythonpath = ["."]

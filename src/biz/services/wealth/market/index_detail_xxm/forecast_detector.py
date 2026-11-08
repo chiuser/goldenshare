@@ -7,9 +7,9 @@ from itertools import product
 import json
 import math
 
-from .calculator import XxmCalculator
+from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
 from .forecast_math import source_options
-from .types import XxmBar
+from goldenshare_technical_indicators.xxm.types import XxmBar
 
 
 # The dictionary exists only inside one synchronous forecast/solver invocation.

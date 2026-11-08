@@ -19,13 +19,13 @@ from test_admission import FakeControl, light_case, make_config
 from src.app.runtime.technical_indicators import execution
 from src.app.runtime.technical_indicators.admission import AdmissionController
 from src.app.runtime.technical_indicators.composition import TechnicalIndicatorRuntime
-from src.foundation.technical_indicators import CalculationInstance, CalculationRequest
-from src.foundation.technical_indicators.calculation.indicators import create_builtin_registry
-from src.foundation.technical_indicators.contracts import (
+from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
+from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
+from goldenshare_technical_indicators.contracts import (
     CalculationResult, CalculationStatistics, CalculationValues, OutputRange,
     PriceAdjustmentResult, RequestedRange, SeriesDescription, SourceResult,
 )
-from src.foundation.technical_indicators.errors import (
+from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, CalculationDeadlineError, CapacityBusyError,
     ResourceCleanupError,
 )

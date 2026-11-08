@@ -10,7 +10,7 @@ from dataclasses import FrozenInstanceError, dataclass, replace
 
 import pytest
 
-from src.foundation.technical_indicators.calculation.calculation import (
+from goldenshare_technical_indicators.calculation.calculation import (
     CalculationDefinition,
     CalculationOutput,
     CalculationSession,
@@ -18,19 +18,19 @@ from src.foundation.technical_indicators.calculation.calculation import (
     OutputField,
     ParameterSpec,
 )
-from src.foundation.technical_indicators.calculation.history import (
+from goldenshare_technical_indicators.calculation.history import (
     HistoryRequirement,
     combine_history_and_fields,
 )
-from src.foundation.technical_indicators.calculation.registry import CalculationRegistry
-from src.foundation.technical_indicators.contracts import CalculationInstance, CalculationRequest, Parameters
-from src.foundation.technical_indicators.discovery import (
+from goldenshare_technical_indicators.calculation.registry import CalculationRegistry
+from goldenshare_technical_indicators.contracts import CalculationInstance, CalculationRequest, Parameters
+from goldenshare_technical_indicators.discovery import (
     SourceCapability,
     describe_calculation,
     list_calculations,
 )
-from src.foundation.technical_indicators.errors import CalculationUnsupportedError, RequestInvalidError
-from src.foundation.technical_indicators.sources.contracts import PriceBatch
+from goldenshare_technical_indicators.errors import CalculationUnsupportedError, RequestInvalidError
+from goldenshare_technical_indicators.sources.contracts import PriceBatch
 
 
 FIELD = OutputField("value", "close", "DOUBLE", False, "Every current bar")

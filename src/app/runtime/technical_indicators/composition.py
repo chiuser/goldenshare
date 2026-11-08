@@ -7,11 +7,11 @@ from dataclasses import dataclass
 import anyio
 
 from src.foundation.clients.local_lake.technical_indicator_price_source import LakeTechnicalIndicatorPriceSource
-from src.foundation.config.settings import Settings
-from src.foundation.technical_indicators.calculation.indicators import create_builtin_registry
-from src.foundation.technical_indicators.calculation.registry import CalculationRegistry
-from src.foundation.technical_indicators.configuration import KernelConfig
-from src.foundation.technical_indicators.sources.contracts import PriceSource
+from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
+from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
+from goldenshare_technical_indicators.calculation.registry import CalculationRegistry
+from goldenshare_technical_indicators.configuration import KernelConfig
+from goldenshare_technical_indicators.sources.contracts import PriceSource
 
 from .admission import AdmissionController
 
@@ -29,7 +29,7 @@ class TechnicalIndicatorRuntime:
 
 
 def create_runtime(settings: Settings) -> TechnicalIndicatorRuntime:
-    config = KernelConfig.from_settings(settings)
+    config = technical_indicator_config_from_settings(settings)
     registry = create_builtin_registry()
     source = LakeTechnicalIndicatorPriceSource(config)
     admission = AdmissionController(config)

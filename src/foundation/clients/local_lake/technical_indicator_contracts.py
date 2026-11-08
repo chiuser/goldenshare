@@ -9,9 +9,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.foundation.technical_indicators.contracts import CalculationRequest
-from src.foundation.technical_indicators.discovery.catalog import SourceCapability
-from src.foundation.technical_indicators.errors import SourceUnsupportedError
+from goldenshare_technical_indicators.contracts import CalculationRequest
+from goldenshare_technical_indicators.discovery.catalog import SourceCapability
+from goldenshare_technical_indicators.errors import SourceUnsupportedError
 
 from .major_index_mins_contract import MAJOR_INDEX_MINS_GOLD_CODES
 

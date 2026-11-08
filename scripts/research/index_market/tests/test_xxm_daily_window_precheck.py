@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from scripts.research.index_market.xxm.daily_window_precheck import (
     START,isolated_client,read_window,validate_window,
 )
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from goldenshare_technical_indicators.xxm.types import XxmBar
 
 
 def sample(future=True):

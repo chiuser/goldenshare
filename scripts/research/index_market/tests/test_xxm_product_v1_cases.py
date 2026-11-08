@@ -109,7 +109,7 @@ def test_independent_material_allows_normal_standard_library_imports(source):
 
 
 @pytest.mark.parametrize("source", [
-    "from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC",
+    "from goldenshare_technical_indicators.xxm.spec import MAIN_SPEC",
     "from scripts.research.index_market.tests.xxm_product_v1_cases import CASES",
 ])
 def test_material_rejects_product_and_research_dependencies(source):

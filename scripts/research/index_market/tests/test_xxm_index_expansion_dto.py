@@ -19,7 +19,7 @@ from src.biz.schemas.wealth.market.index_detail_xxm_forecast import (
     InternalForecastResponseDto, ForecastResponseDto, ForecastDebugResponseDto,
 )
 from src.biz.services.wealth.market.index_detail_xxm.forecast_spec import FORECAST_SPEC
-from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
+from goldenshare_technical_indicators.xxm.spec import MAIN_SPEC
 
 
 def recognition_payload(code, period, view, *, stamp=None):

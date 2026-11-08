@@ -21,7 +21,7 @@ from src.biz.queries.wealth.market.index_detail_xxm.query_service import IndexDe
 from src.biz.queries.wealth.market.index_detail_xxm.source import (
     assert_continuous, XxmSourceError, MinuteSourceWindow, normalize_minute_end, plan_minute_window,
 )
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from goldenshare_technical_indicators.xxm.types import XxmBar
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 
 

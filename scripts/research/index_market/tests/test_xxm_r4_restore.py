@@ -10,13 +10,13 @@ import hashlib
 
 import pytest
 
-from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
+from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
 from src.biz.services.wealth.market.index_detail_xxm.forecast_detector import clone
-from src.biz.services.wealth.market.index_detail_xxm.snapshot_validation import (
+from goldenshare_technical_indicators.xxm.snapshot_validation import (
     parse_xxm_snapshot, validate_structure_record, validate_xxm_progress,
 )
-from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from goldenshare_technical_indicators.xxm.spec import MAIN_SPEC
+from goldenshare_technical_indicators.xxm.types import XxmBar
 
 PERIODS = ("day", "m30", "m60", "m90", "m120")
 DATES = ("2023-01-03", "2023-01-04", "2023-01-05", "2023-01-06", "2023-01-09",
@@ -497,7 +497,7 @@ def test_rc71_structure_formed_extreme_need_not_equal_later_wave_extreme(period,
 
 
 def test_rc71_unknown_restore_program_error_propagates_without_publication(monkeypatch):
-    from src.biz.services.wealth.market.index_detail_xxm import snapshot_validation
+    from goldenshare_technical_indicators.xxm import snapshot_validation
 
     calc = new_calc()
     calc.restore(literal_snapshot())

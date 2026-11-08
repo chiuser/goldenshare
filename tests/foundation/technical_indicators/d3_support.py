@@ -18,14 +18,13 @@ from time import monotonic
 
 import pytest
 
-from src.foundation.config.settings import Settings
+from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
 from src.foundation.clients.local_lake.technical_indicator_price_source import LakeTechnicalIndicatorPriceSource
-from src.foundation.technical_indicators import CalculationInstance, CalculationRequest
-from src.foundation.technical_indicators.calculation.indicators import create_builtin_registry
-from src.foundation.technical_indicators.configuration import KernelConfig
-from src.foundation.technical_indicators.errors import CalculationCancelledError
-from src.foundation.technical_indicators.execution_control import ExecutionControl
-from src.foundation.technical_indicators.service import TechnicalIndicatorService
+from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
+from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
+from goldenshare_technical_indicators.errors import CalculationCancelledError
+from goldenshare_technical_indicators.execution_control import ExecutionControl
+from goldenshare_technical_indicators.service import TechnicalIndicatorService
 
 
 REPORT = Path(__file__).resolve().parents[3] / "reports/technical_indicator_kernel_d3_20261025"
@@ -129,7 +128,7 @@ class D3State:
         self.references = {}
         self.times = ()
         self.template_reads = []
-        self.config = KernelConfig.from_settings(Settings(_env_file=None, GOLDENSHARE_LAKE_ROOT=str(root)))
+        self.config = technical_indicator_config_from_settings(Settings(_env_file=None, GOLDENSHARE_LAKE_ROOT=str(root)))
 
     @classmethod
     def resume_saved(cls, saved: dict, *, elapsed_before: float, root: Path):
@@ -157,7 +156,7 @@ class D3State:
         """Only three producer-shaped files, never a long fixture/reference."""
         import pyarrow as pa
         import pyarrow.parquet as pq
-        from src.foundation.technical_indicators.service import connect_private_memory_instance
+        from goldenshare_technical_indicators.service import connect_private_memory_instance
 
         # Independent copy of SILVER_STOCK_DAILY_SCHEMA in the current DG
         # run_contracts/asset_column_schemas.py; do not infer it from a query.
@@ -420,7 +419,7 @@ def d3_data(tmp_path_factory, request):
         state = None
 
         def finish_owned_directory():
-            from src.foundation.technical_indicators.service import raise_primary_or_cleanup_error_if_any
+            from goldenshare_technical_indicators.service import raise_primary_or_cleanup_error_if_any
 
             errors = []
             try:

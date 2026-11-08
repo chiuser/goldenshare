@@ -11,8 +11,8 @@ from src.biz.schemas.wealth.market.stock_detail import (
     StockDetailStockRefDto, StockKdjDto, StockKlineFactorDto, StockKlineMetaDto,
     StockMacdDto, StockMovingAverageDto,
 )
-from src.foundation.technical_indicators.contracts import CalculationResult
-from src.foundation.technical_indicators.errors import OutputContractError
+from goldenshare_technical_indicators.contracts import CalculationResult
+from goldenshare_technical_indicators.errors import OutputContractError
 
 from .stock_daily_kline_calculations import (
     STOCK_DAILY_ALGORITHM_VERSIONS, STOCK_DAILY_CALCULATIONS, STOCK_DAILY_OUTPUT_FIELDS,

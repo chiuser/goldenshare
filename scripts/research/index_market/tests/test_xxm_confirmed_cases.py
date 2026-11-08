@@ -12,8 +12,8 @@ import pytest
 
 from scripts.research.index_market.xxm.acceptance import sha, load_source
 from scripts.research.index_market.xxm.daily_window_precheck import validate_window
-from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
-from src.biz.services.wealth.market.index_detail_xxm.response_projection import event_display_flags
+from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
+from goldenshare_technical_indicators.xxm.event_display import event_display_flags
 
 ROOT = Path(__file__).resolve().parents[4]
 DAILY = ROOT / "reports/xxm/sources/xxm_reference_rescue_r1_implementation_20261017/daily_2020_source_01"

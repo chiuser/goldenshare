@@ -9,9 +9,9 @@ from datetime import date, datetime
 
 import pytest
 
-from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
-from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC, XxmSpec
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
+from goldenshare_technical_indicators.xxm.spec import MAIN_SPEC, XxmSpec
+from goldenshare_technical_indicators.xxm.types import XxmBar
 
 
 @pytest.mark.parametrize("field", ["close", "dif", "dea", "hist"])

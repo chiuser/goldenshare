@@ -5,8 +5,8 @@ from time import monotonic
 import anyio
 from starlette.types import Send
 
-from src.foundation.technical_indicators.errors import CalculationDeadlineError
-from src.foundation.technical_indicators.execution_control import ExecutionControl
+from goldenshare_technical_indicators.errors import CalculationDeadlineError
+from goldenshare_technical_indicators.execution_control import ExecutionControl
 
 
 async def send_encoded_body(

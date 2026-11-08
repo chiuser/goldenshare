@@ -3,7 +3,7 @@ import math
 from typing import Callable
 
 from .forecast_spec import FORECAST_SPEC
-from .types import XxmBar
+from goldenshare_technical_indicators.xxm.types import XxmBar
 
 
 class ProjectionPrecisionError(ValueError):

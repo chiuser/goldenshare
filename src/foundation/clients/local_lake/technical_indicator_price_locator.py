@@ -8,14 +8,14 @@ from pathlib import Path
 from types import MappingProxyType
 from zoneinfo import ZoneInfo
 
-from src.foundation.technical_indicators.calculation.calculation import SqlStep
-from src.foundation.technical_indicators.errors import (
+from goldenshare_technical_indicators.calculation.calculation import SqlStep
+from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, CalculationDeadlineError,
     ResourceCleanupError, ResourceLimitError, SourceContractError, SourceReadError,
     TechnicalIndicatorError,
 )
-from src.foundation.technical_indicators.sources.contracts import PriceReadSelection, SourceDescription
-from src.foundation.technical_indicators.time_range import check_period_cutoff, range_filter
+from goldenshare_technical_indicators.sources.contracts import PriceReadSelection, SourceDescription
+from goldenshare_technical_indicators.time_range import check_period_cutoff, range_filter
 
 from .technical_indicator_contracts import price_contract, source_projection
 from .technical_indicator_price_source import _arrow, _matches_type

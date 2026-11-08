@@ -12,16 +12,16 @@ from datetime import date, datetime, timezone
 import pytest
 
 from d3_support import d3_data, request
-from src.foundation.technical_indicators import CalculationInstance
-from src.foundation.technical_indicators.contracts import CalculationStatistics
-from src.foundation.technical_indicators.errors import OutputContractError, RequestInvalidError
-from src.foundation.technical_indicators.output.contracts import (
+from goldenshare_technical_indicators import CalculationInstance
+from goldenshare_technical_indicators.contracts import CalculationStatistics
+from goldenshare_technical_indicators.errors import OutputContractError, RequestInvalidError
+from goldenshare_technical_indicators.output.contracts import (
     OutputFieldDescription, OutputInstanceDescription,
 )
-from src.foundation.technical_indicators.output.result import (
+from goldenshare_technical_indicators.output.result import (
     build_calculation_result, normalize_read_range,
 )
-from src.foundation.technical_indicators.sources.contracts import PriceReadSelection, SourceDescription
+from goldenshare_technical_indicators.sources.contracts import PriceReadSelection, SourceDescription
 
 
 def test_one_unrepresentable_macd_component_rejects_before_price_rows(d3_data):

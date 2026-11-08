@@ -87,7 +87,7 @@ docs/
 - [上证日线趋势通道维护说明（LLD、六项决定、未来扩展与已知差距）](/Users/congming/github/goldenshare/docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md)
 - [技术指标计算内核组件设计 v1（HTML；组件设计、实现与历史阶段记录；正式消费者接入见股票日线专题）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-kernel-component-design-v1.html)
 - [技术指标计算内核代码级LLD v1（HTML；内核代码合同、有限预热、执行与阶段验收记录）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-kernel-low-level-design-v1.html)
-- [计算算子共享包落地方案 v1（迁移前回归通过，开发待启动）](/Users/congming/github/goldenshare/docs/architecture/calculation-operator-shared-package-plan-v1.md)
+- [计算算子共享包落地方案 v1（0.1.0 已完成迁移及本地验收）](/Users/congming/github/goldenshare/docs/architecture/calculation-operator-shared-package-plan-v1.md)
 - [计算算子共享包 LLD v1（源码迁移、独立安装和行为对照）](/Users/congming/github/goldenshare/docs/architecture/calculation-operator-shared-package-low-level-design-v1.md)
 - [技术指标计算内核前端接入要求 v1（HTML；后续1000根分页、提前500根加载、取消与空结果；当前内核外部约束，页面未实施）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-kernel-frontend-integration-requirements-v1.html)
 - [股票详情页日线技术指标正式接入方案 v1（HTML；原API和页面不变，一次返回全部现有指标；有界来源核验通过、步骤1＋2完成；步骤3代码及普通验证完成；11项续跑通过，P/R未执行）](/Users/congming/github/goldenshare/docs/architecture/technical-indicator-kernel-stock-daily-api-integration-plan-v1.html)

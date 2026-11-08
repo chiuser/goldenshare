@@ -1,19 +1,15 @@
-"""从统一 Settings 生成不可变配置，不读取环境或数据文件。"""
+"""不可变的计算配置，不读取环境或数据文件。"""
 
 from __future__ import annotations
 
 from dataclasses import dataclass, fields
-from typing import TYPE_CHECKING
 
 from ..contracts import _MAX_OUTPUT_ROWS
-
-if TYPE_CHECKING:
-    from src.foundation.config.settings import Settings
 
 
 @dataclass(frozen=True, slots=True)
 class KernelConfig:
-    """一次运行实例的配置；初始值只由 Settings 维护。"""
+    """一次运行实例的配置。"""
 
     goldenshare_lake_root: str
     max_concurrent_requests: int
@@ -51,14 +47,3 @@ class KernelConfig:
             raise ValueError("control_poll_ms must be smaller than cleanup_reserve_ms")
         if self.max_output_rows > _MAX_OUTPUT_ROWS:
             raise ValueError(f"max_output_rows must be <= {_MAX_OUTPUT_ROWS}")
-
-    @classmethod
-    def from_settings(cls, settings: Settings) -> KernelConfig:
-        """复制已解析字段；路径的来源及可读性由后续读取模块检查。"""
-
-        values = {
-            field.name: getattr(settings, f"technical_indicator_{field.name}")
-            for field in fields(cls)
-            if field.name != "goldenshare_lake_root"
-        }
-        return cls(goldenshare_lake_root=settings.goldenshare_lake_root, **values)

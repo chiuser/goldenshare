@@ -18,10 +18,10 @@ import pytest
 from src.biz.queries.wealth.market.index_detail_xxm import query_service
 from src.biz.queries.wealth.market.index_detail_xxm.query_service import IndexDetailXxmQueryService, XxmCache
 from src.biz.queries.wealth.market.index_detail_xxm.source import CN_ZONE, ENDPOINTS
-from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
+from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
 from src.biz.services.wealth.market.index_detail_xxm.forecast_detector import clone
-from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from goldenshare_technical_indicators.xxm.spec import MAIN_SPEC
+from goldenshare_technical_indicators.xxm.types import XxmBar
 
 
 DATES = ("2025-03-03", "2025-03-04", "2025-03-05", "2025-03-06", "2025-03-07", "2025-03-10")

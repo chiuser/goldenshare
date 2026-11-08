@@ -10,8 +10,8 @@ from datetime import date, timedelta
 import pytest
 
 from scripts.research.index_market.tests.test_xxm_r4_rules import CASES, PERIODS, _time
-from src.biz.services.wealth.market.index_detail_xxm.calculator import XxmCalculator
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
+from goldenshare_technical_indicators.xxm.types import XxmBar
 
 SOURCE = "observation-literal-unit"
 TOP = [(100, 200, 2), (90, 0, -2), (101, 100, 2), (102, 100, 2)]

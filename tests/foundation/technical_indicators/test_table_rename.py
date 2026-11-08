@@ -15,15 +15,14 @@ from types import SimpleNamespace
 import pyarrow as pa
 import pytest
 
-from src.foundation.config.settings import Settings
-from src.foundation.technical_indicators import CalculationInstance, CalculationRequest
-from src.foundation.technical_indicators.calculation.calculation import SqlStep
-from src.foundation.technical_indicators.calculation.history import HistoryRequirement
-from src.foundation.technical_indicators.configuration import KernelConfig
-from src.foundation.technical_indicators.errors import CalculationCancelledError, CalculationExecutionError
-from src.foundation.technical_indicators.service import TechnicalIndicatorService
-from src.foundation.technical_indicators.sources.contracts import PriceBatch, ReadRequirement
-from src.foundation.technical_indicators.sources.session import PriceInputSession
+from src.foundation.config.settings import Settings, technical_indicator_config_from_settings
+from goldenshare_technical_indicators import CalculationInstance, CalculationRequest
+from goldenshare_technical_indicators.calculation.calculation import SqlStep
+from goldenshare_technical_indicators.calculation.history import HistoryRequirement
+from goldenshare_technical_indicators.errors import CalculationCancelledError, CalculationExecutionError
+from goldenshare_technical_indicators.service import TechnicalIndicatorService
+from goldenshare_technical_indicators.sources.contracts import PriceBatch, ReadRequirement
+from goldenshare_technical_indicators.sources.session import PriceInputSession
 
 
 class RenameTestControl:
@@ -57,7 +56,7 @@ class RenameTestControl:
 
 @pytest.fixture
 def rename_execution(record_property):
-    cfg = KernelConfig.from_settings(Settings(_env_file=None,
+    cfg = technical_indicator_config_from_settings(Settings(_env_file=None,
         GOLDENSHARE_LAKE_ROOT="/not-accessed/data_lake"))
     service = TechnicalIndicatorService(source=None, registry=None, config=cfg)
     control = RenameTestControl()

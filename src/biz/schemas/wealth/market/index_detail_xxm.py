@@ -5,8 +5,8 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator, model_validator
 
-from src.biz.services.wealth.market.index_detail_xxm.spec import MAIN_SPEC
-from src.biz.services.wealth.market.index_detail_xxm.types import XxmBar
+from goldenshare_technical_indicators.xxm.spec import MAIN_SPEC
+from goldenshare_technical_indicators.xxm.types import XxmBar
 
 
 XxmTsCode = Annotated[str, Field(strict=True, min_length=9, max_length=9,
@@ -170,7 +170,7 @@ class InternalXxmStructureDto(InternalXxmDto):
 
     @model_validator(mode="after")
     def lifecycle(self):
-        from src.biz.services.wealth.market.index_detail_xxm.snapshot_validation import validate_structure_facts
+        from goldenshare_technical_indicators.xxm.snapshot_validation import validate_structure_facts
 
         raw = self.model_dump()
         upper = max(value for value in (self.formedAt, self.firstOppositeAt,
@@ -562,7 +562,7 @@ class XxmDebugResponseDto(XxmResponseDto):
                 wave["price_at"], wave["dif_at"] = wave.pop("priceAt"), wave.pop("difAt")
         raw["structures"] = details["structures"]
         InternalXxmResponseDto.model_validate(raw)
-        from src.biz.services.wealth.market.index_detail_xxm.response_projection import event_display_flags
+        from goldenshare_technical_indicators.xxm.event_display import event_display_flags
         flags = event_display_flags(raw["events"])
         if any(event.displayOnChart != flags[event.id] for event in self.events):
             raise ValueError("Incorrect display selection")

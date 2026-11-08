@@ -19,7 +19,7 @@ from src.biz.services.wealth.market.stock_detail.stock_daily_kline_calculations 
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_contracts import (
     StockDailyKlineInput, StockDailyKlineRequest, StockDailyKlineRow,
 )
-from src.foundation.technical_indicators.calculation.indicators import create_builtin_registry
+from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
 
 
 def _request(**overrides):
@@ -181,7 +181,7 @@ def test_mapping_and_legal_nulls(monkeypatch):
 
 def test_result_contract_errors():
     from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
-    from src.foundation.technical_indicators.errors import OutputContractError
+    from goldenshare_technical_indicators.errors import OutputContractError
     from tests.stock_daily_kline_helpers import result_for
 
     source = _source((_row(date(2026, 1, 5)), _row(date(2026, 1, 6))))

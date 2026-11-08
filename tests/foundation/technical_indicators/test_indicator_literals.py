@@ -8,7 +8,7 @@ from dataclasses import replace
 from datetime import date
 
 from d3_support import assert_closed, close_enough, d3_data, request, values
-from src.foundation.technical_indicators import CalculationInstance
+from goldenshare_technical_indicators import CalculationInstance
 
 
 def test_literal_formulas_initialization_and_period_edges(d3_data):
