@@ -6,14 +6,14 @@ import { XxmMacdPrimitive } from "./XxmMacdPrimitive";
 import type { XxmLayerState, XxmPeriod, XxmResponse, XxmDebugResponse } from "./types";
 
 import type { DecodeXxmDebug } from "../debug/types";
-import { XXM_ALGORITHM_VERSION, XXM_SPEC_HASH } from "./types";
+import { isXxmPeriod, XXM_ALGORITHM_VERSION, XXM_SPEC_HASH } from "./types";
 
 const unsupported: XxmLayerState = { requestKey: "", phase: "unsupported", data: null, errorMessage: "" };
 
 export function useIndexXxmLayer({ tsCode, period, points, indicatorVersion = null, indicatorsPending = false, enabled, debug, decodeDebug }: {
   tsCode: string; period: string; points: DetailChartPoint[]; indicatorVersion?: number | null; indicatorsPending?: boolean; enabled: boolean; debug: 0|1; decodeDebug?: DecodeXxmDebug;
 }) {
-  const supported = enabled && import.meta.env.DEV && (debug === 0 || !!decodeDebug) && ["day", "m30", "m60", "m90", "m120"].includes(period);
+  const supported = enabled && import.meta.env.DEV && (debug === 0 || !!decodeDebug) && isXxmPeriod(period);
   const ready = points.length > 0 && points.every(point => [point.close, point.dif, point.dea, point.macd].every(Number.isFinite));
   const requestKey = `${XXM_ALGORITHM_VERSION}|${XXM_SPEC_HASH}|${debug}|${indicatorVersion}|${tsCode}|${period}|${points[0]?.fullDate ?? ""}|${points.at(-1)?.fullDate ?? ""}|${points.length}`;
   const [state, setState] = useState<XxmLayerState>(unsupported);

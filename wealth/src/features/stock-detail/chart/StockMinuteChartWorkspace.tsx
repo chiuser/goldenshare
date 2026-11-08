@@ -63,7 +63,7 @@ export function StockMinuteChartWorkspace({
       ariaLabel="分钟图表区"
       bottomBar={(
         <div className="detail-chart-indicator-tabs">
-          <DetailChartIndicatorToggles indicatorControls={indicatorControls} />
+          <DetailChartIndicatorToggles indicatorControls={indicatorControls} quantitativeStructureMode="placeholder" />
         </div>
       )}
       bottomBarAriaLabel="股票分钟指标栏"

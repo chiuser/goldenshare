@@ -35,6 +35,7 @@ import { useNineTurnSeriesRegistry } from "../../features/nine-turn/controller/u
 import { resolveIndexRecognitionAvailability } from "../../features/index-detail/model/indexRecognitionAvailability";
 import { DAILY_CHART_PAGE_SIZE } from "../../shared/charts/dailyChartRequestLimits";
 import { useDetailChartIndicatorControls } from "../../shared/charts/detail-workspace/useDetailChartIndicatorControls";
+import { isXxmPeriod } from "../../features/index-detail/xxm/types";
 import { unsupportedNineTurnLayer } from "../../features/nine-turn/model/nineTurnAdapter";
 import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
 import type { TopMarketNavKey, TopMarketTicker } from "../../shared/ui/top-market-bar/topMarketBarTypes";
@@ -48,9 +49,9 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
   const controller = useIndexDetailController(tsCode, search, activePeriod === "day");
   const [activeTab, setActiveTab] = useState<IndexInfoTab>("basic");
   const [toast, setToast] = useState("");
+  const toastTimer = useRef<number | undefined>(undefined);
   const tickers = useTopMarketTickers();
   const normalizedTsCode = normalizeIndexTsCode(tsCode);
-  const indicatorControls = useDetailChartIndicatorControls(normalizedTsCode);
   const debug = useMemo(() => new URLSearchParams(search).get("debug") === "1" ? 1 as const : undefined, [search]);
   const hasData = controller.phase === "ready" || controller.phase === "delayed" || controller.phase === "partial";
   const weights = useIndexWeights({
@@ -145,10 +146,17 @@ export function IndexDetailPage({ search, tsCode }: IndexDetailPageProps) {
     };
   }, [historyError]);
 
-  function showToast(message: string) {
+  const showToast = useCallback((message: string) => {
+    window.clearTimeout(toastTimer.current);
     setToast(message);
-    window.setTimeout(() => setToast(""), 1800);
-  }
+    toastTimer.current = window.setTimeout(() => setToast(current => current === message ? "" : current), 1800);
+  }, []);
+  useEffect(() => () => window.clearTimeout(toastTimer.current), []);
+  const showIndicatorLimit = useCallback(() => showToast("最多展示3个技术指标，请取消一个后再打开"), [showToast]);
+  const quantitativeStructureAvailable = recognitionEnabled && isXxmPeriod(activePeriod)
+    && (activePeriod === "day" || (viewModel?.capabilities.supportsMinute === true
+      && minute.data?.tsCode === normalizedTsCode && `m${minute.data.freq}` === activePeriod));
+  const indicatorControls = useDetailChartIndicatorControls(normalizedTsCode, quantitativeStructureAvailable, showIndicatorLimit);
 
   function handleTopNavigate(target: TopMarketNavKey) {
     const path = resolveTopMarketNavPath(target);

@@ -2,11 +2,12 @@ import type { ReactNode } from "react";
 import type { ISeriesPrimitive, Time, UTCTimestamp } from "lightweight-charts";
 
 export type DetailChartPanelKey = "kline" | "macd" | "volume" | "kdj";
-export type DetailChartIndicatorPanelKey = Exclude<DetailChartPanelKey, "kline">;
+export type DetailChartIndicatorPanelKey = Exclude<DetailChartPanelKey, "kline"> | "quantitativeStructure";
 
 export interface DetailChartIndicatorControls {
   hiddenIndicatorPanels: ReadonlySet<DetailChartIndicatorPanelKey>;
   onToggleIndicatorPanel: (panel: DetailChartIndicatorPanelKey) => void;
+  quantitativeStructureAvailable: boolean;
 }
 
 export type DetailChartTooltipSide = "left" | "right";
@@ -44,7 +45,7 @@ export interface DetailChartLineDefinition {
 }
 
 export interface DetailChartAxisFloatLabelState {
-  panel: DetailChartPanelKey;
+  panel: DetailChartPanelKey | "quantitativeStructure";
   top: number;
   value: string;
 }
@@ -58,6 +59,15 @@ export interface DetailChartHistoryViewport {
   gesture?: symbol;
 }
 
+export type DetailChartMacdValues = Pick<DetailChartPoint, "macd" | "dif" | "dea">;
+
+export interface DetailChartQuantitativeStructure {
+  ariaLabel: string;
+  valuesAt: (time: DetailChartPoint["time"]) => DetailChartMacdValues | null;
+  primitives: readonly ISeriesPrimitive<Time>[];
+  renderHeader: (values: DetailChartMacdValues | null) => ReactNode;
+}
+
 interface DetailChartWorkspaceBaseProps {
   dataKey: string;
   ariaLabel: string;
@@ -69,11 +79,11 @@ interface DetailChartWorkspaceBaseProps {
   onHistoryViewport?: (viewport: DetailChartHistoryViewport) => void;
   mainPriceScalePaddingPx?: { top: number; bottom: number };
   mainPrimitives?: ISeriesPrimitive<Time>[];
-  macdPrimitives?: ISeriesPrimitive<Time>[];
   panelAriaLabels: Record<DetailChartPanelKey, string>;
   points: DetailChartPoint[];
+  quantitativeStructure?: DetailChartQuantitativeStructure;
   renderMainHeader: (point: DetailChartPoint | null) => ReactNode;
-  renderPanelHeader: (panel: DetailChartIndicatorPanelKey, point: DetailChartPoint | null) => ReactNode;
+  renderPanelHeader: (panel: Exclude<DetailChartPanelKey, "kline">, point: DetailChartPoint | null) => ReactNode;
   renderTooltip: (point: DetailChartPoint, side: DetailChartTooltipSide) => ReactNode;
   timeAxisAriaLabel: string;
   timeAxisPlacement?: DetailChartTimeAxisPlacement;

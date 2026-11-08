@@ -1,10 +1,9 @@
 import { toDetailChartPoint } from "./indexChartPointAdapter";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import type { IndexDailyHistory } from "../controller/useIndexDailyHistory";
 import type { IndexRecognitionProps, IndexRecognitionDebugExtension } from "../debug/types";
 import { useIndexXxmLayer } from "../xxm/useIndexXxmLayer";
-import { XxmLayerStatus, XxmSignalDetails } from "../xxm/XxmLayerUi";
-import type { XxmLayerState } from "../xxm/types";
+import { QUANTITATIVE_STRUCTURE_TITLE, useXxmValuesAt, XxmLayerStatus, XxmSignalDetails } from "../xxm/XxmLayerUi";
 
 import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
@@ -15,6 +14,7 @@ import { DETAIL_CHART_COLORS, isFiniteChartNumber } from "../../../shared/charts
 import type {
   DetailChartIndicatorControls,
   DetailChartLineDefinition,
+  DetailChartMacdValues,
   DetailChartPanelKey,
   DetailChartPoint,
   DetailChartTooltipSide,
@@ -91,6 +91,9 @@ export function IndexChartWorkspace({
   const points = useMemo(() => historicalCandles?.map(toDetailChartPoint) ?? initialPoints, [historicalCandles, initialPoints]);
   const dataKey = research?.dataKey ?? (activeHistory ? `index:${ownerKey}` : `index:${viewModel.identity.tsCode}:day`);
   const xxm = useIndexXxmLayer({ tsCode: viewModel.identity.tsCode, period: "day", points: initialPoints, enabled: recognition.recognitionEnabled, debug: recognition.debug, decodeDebug: recognition.decodeXxmDebug });
+  const valuesAt = useXxmValuesAt(xxm.data);
+  const structureVisible = indicatorControls.quantitativeStructureAvailable
+    && !indicatorControls.hiddenIndicatorPanels.has("quantitativeStructure");
   const nineTurnChartLayer = useNineTurnChartLayer({ dataKey, layer: nineTurnLayer, points, timeMode: "daily" });
   const trendByTime = useMemo(() => new Map((trend?.points ?? []).map((point) => [point.time, point])), [trend]);
   const mainLines = useMemo(() => overlay === "MA" ? buildMaLines() : overlay === "BOLL" ? buildBollLines() : [], [overlay]);
@@ -133,9 +136,14 @@ export function IndexChartWorkspace({
       mainLines={mainLines}
       mainPrimitives={mainPrimitives}
       mainPriceScalePaddingPx={research?.mainPriceScalePaddingPx}
-      macdPrimitives={xxm.macdPrimitives}
       panelAriaLabels={{ kline: "指数K线主图", macd: "MACD(12,26,9)", volume: "成交量", kdj: "KDJ(9,3,3)" }}
       points={points}
+      quantitativeStructure={indicatorControls.quantitativeStructureAvailable ? {
+        ariaLabel: QUANTITATIVE_STRUCTURE_TITLE,
+        valuesAt,
+        primitives: xxm.macdPrimitives,
+        renderHeader: (values) => <><IndexPanelHeader panel="quantitativeStructure" point={values} /><XxmLayerStatus layer={xxm} onRetry={xxm.retry} /></>,
+      } : undefined}
       renderMainHeader={(point) => (
         <IndexMainHeader
           overlay={overlay}
@@ -146,8 +154,16 @@ export function IndexChartWorkspace({
           waveLegend={extension?.legend}
         />
       )}
-      renderPanelHeader={(panel, point) => <><IndexPanelHeader panel={panel} point={point} />{panel === "macd" ? <XxmLayerStatus layer={xxm} onRetry={xxm.retry} /> : null}</>}
-      renderTooltip={(point, side) => <IndexTooltip point={point} side={side} xxm={xxm} waveDetails={<>{recognition.debug === 1 ? recognition.renderXxmDetails?.(xxm, String(point.time)) : null}{extension?.renderWaveDetails(point)}</>} />}
+      renderPanelHeader={(panel, point) => <IndexPanelHeader panel={panel} point={point} />}
+      renderTooltip={(point, side) => (
+        <IndexTooltip point={point} side={side}>
+          {structureVisible && xxm.data?.byTime.has(String(point.time)) ? (
+            <><XxmSignalDetails layer={xxm} time={String(point.time)} />
+              {recognition.debug === 1 ? recognition.renderXxmDetails?.(xxm, String(point.time)) : null}</>
+          ) : null}
+          {extension?.renderWaveDetails(point)}
+        </IndexTooltip>
+      )}
       timeAxisAriaLabel="指数日线底部时间轴"
       timeMode="daily"
     />
@@ -204,10 +220,16 @@ function MainMetrics({ overlay, point, trendPoint }: { overlay: IndexMainOverlay
   return <>{keys.map((key) => <span className={`metric ${key.replace("bollUpper", "ma5").replace("bollMiddle", "ma10").replace("bollLower", "ma20")}`} key={key}>{key.toUpperCase()}:{format(point.overlays[key] ?? null)}</span>)}</>;
 }
 
-function IndexPanelHeader({ panel, point }: { panel: Exclude<DetailChartPanelKey, "kline">; point: DetailChartPoint | null }) {
-  const title = panel === "macd" ? "MACD(12,26,9)" : panel === "volume" ? "成交量" : "KDJ(9,3,3)";
-  const values: Array<{ display?: string; label: string; value: number | null }> = !point ? [] : panel === "macd"
-    ? [{ label: "MACD", value: point.macd }, { label: "DIF", value: point.dif }, { label: "DEA", value: point.dea }]
+function IndexPanelHeader({ panel, point }: (
+  | { panel: Exclude<DetailChartPanelKey, "kline">; point: DetailChartPoint | null }
+  | { panel: "quantitativeStructure"; point: DetailChartMacdValues | null }
+)) {
+  const title = panel === "quantitativeStructure" ? QUANTITATIVE_STRUCTURE_TITLE
+    : panel === "macd" ? "MACD(12,26,9)" : panel === "volume" ? "成交量" : "KDJ(9,3,3)";
+  const values: Array<{ display?: string; label: string; value: number | null }> =
+    panel === "quantitativeStructure" || (panel === "macd" && point)
+    ? [{ label: "MACD", value: point?.macd ?? null }, { label: "DIF", value: point?.dif ?? null }, { label: "DEA", value: point?.dea ?? null }]
+    : !point ? []
     : panel === "volume"
       ? [{ display: point.volumeDisplay ?? "--", label: "总量", value: point.volume }]
       : [{ label: "K", value: point.k }, { label: "D", value: point.d }, { label: "J", value: point.j }];
@@ -227,13 +249,15 @@ function IndexIndicatorBar({ indicatorControls, overlay, setOverlay, supportsTre
     <button className="detail-chart-indicator-tab" disabled type="button">成交额</button>
     <DetailChartIndicatorToggle panel="macd" indicatorControls={indicatorControls} />
     <DetailChartIndicatorToggle panel="kdj" indicatorControls={indicatorControls} />
+    <DetailChartIndicatorToggle panel="quantitativeStructure" indicatorControls={indicatorControls}
+      mode={indicatorControls.quantitativeStructureAvailable ? "available" : "disabled"} />
     <button className={`detail-chart-indicator-tab ${overlay === "MA" ? "active" : ""}`} type="button" onClick={() => setOverlay("MA")}>均线</button>
     <button className={`detail-chart-indicator-tab ${overlay === "BOLL" ? "active" : ""}`} type="button" onClick={() => setOverlay("BOLL")}>BOLL</button>
     {supportsTrend ? <button className={`detail-chart-indicator-tab ${overlay === "TREND_CHANNEL" ? "active" : ""}`} type="button" onClick={() => setOverlay("TREND_CHANNEL")}>趋势通道</button> : null}
   </div>;
 }
 
-function IndexTooltip({ point, side, xxm, waveDetails }: { point: DetailChartPoint; side: DetailChartTooltipSide; xxm: XxmLayerState; waveDetails?: import("react").ReactNode }) {
+function IndexTooltip({ point, side, children }: { point: DetailChartPoint; side: DetailChartTooltipSide; children: ReactNode }) {
   const rows = [
     ["时间", point.fullDate.replaceAll("-", ""), "secondary"],
     ["开盘", format(point.open), directionClass(compare(point.open, point.preClose))],
@@ -245,7 +269,7 @@ function IndexTooltip({ point, side, xxm, waveDetails }: { point: DetailChartPoi
     ["成交量", point.volumeDisplay ?? "--", "secondary"],
     ["成交额", formatCompact(point.amount, ""), "secondary"],
   ];
-  return <div className={`detail-chart-tooltip ${side}`}><div className="detail-chart-tooltip-grid">{rows.map(([label, value, tone]) => <div className="detail-chart-tooltip-row" key={label}><span>{label}</span><b className={tone}>{value}</b></div>)}</div><XxmSignalDetails layer={xxm} time={String(point.time)} />{waveDetails}</div>;
+  return <div className={`detail-chart-tooltip ${side}`}><div className="detail-chart-tooltip-grid">{rows.map(([label, value, tone]) => <div className="detail-chart-tooltip-row" key={label}><span>{label}</span><b className={tone}>{value}</b></div>)}</div>{children}</div>;
 }
 
 function pointValue(value: number | undefined): number | null { return Number.isFinite(value) ? value ?? null : null; }

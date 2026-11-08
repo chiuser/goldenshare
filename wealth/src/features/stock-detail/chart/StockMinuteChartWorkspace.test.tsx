@@ -13,7 +13,7 @@ const workspaceMock = vi.hoisted(() => ({
     this.props.splice(0, this.props.length);
   },
 }));
-const defaultIndicatorControls = { hiddenIndicatorPanels: new Set<never>(), onToggleIndicatorPanel: vi.fn() };
+const defaultIndicatorControls = { hiddenIndicatorPanels: new Set<never>(), onToggleIndicatorPanel: vi.fn(), quantitativeStructureAvailable: false };
 
 vi.mock("../../../shared/charts/detail-workspace/DetailChartWorkspace", () => ({
   DetailChartWorkspace: (props: DetailChartWorkspaceProps) => {
@@ -90,7 +90,7 @@ describe("StockMinuteChartWorkspace", () => {
     render(
       <StockMinuteChartWorkspace
         data={data}
-        indicatorControls={{ hiddenIndicatorPanels: new Set(["macd"]), onToggleIndicatorPanel }}
+        indicatorControls={{ ...defaultIndicatorControls, hiddenIndicatorPanels: new Set(["macd"]), onToggleIndicatorPanel }}
         loadState="ready"
         nineTurnLayer={idleNineTurnLayer("30")}
         onNineTurnRetry={vi.fn()}
@@ -108,7 +108,11 @@ describe("StockMinuteChartWorkspace", () => {
     expect(props.timeAxisPlacement).toBeUndefined();
     expect(props.bottomBarAriaLabel).toBe("股票分钟指标栏");
     expect(props.hiddenIndicatorPanels).toEqual(new Set(["macd"]));
-    expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual(["VOL", "MACD", "KDJ"]);
+    expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual(["VOL", "MACD", "KDJ", "量化结构"]);
+    const structure = screen.getByRole("button", { name: "量化结构", pressed: false });
+    expect(structure).toBeEnabled();
+    fireEvent.click(structure);
+    expect(onToggleIndicatorPanel).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "VOL", pressed: true })).toHaveClass("active");
     expect(screen.getByRole("button", { name: "KDJ", pressed: true })).toHaveClass("active");
     fireEvent.click(screen.getByRole("button", { name: "MACD", pressed: false }));

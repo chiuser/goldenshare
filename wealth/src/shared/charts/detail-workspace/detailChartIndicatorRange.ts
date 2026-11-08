@@ -16,10 +16,11 @@ export interface DetailChartIndicatorRange {
 export const MACD_RANGE_FIELDS = ["macd", "dif", "dea"] as const;
 export const KDJ_RANGE_FIELDS = ["k", "d", "j"] as const;
 
-export function resolveVisibleIndicatorRange(
+export function resolveVisibleIndicatorRange<Field extends DetailChartIndicatorField>(
   points: readonly DetailChartPoint[],
   logicalRange: DetailChartLogicalRange | null,
-  fields: readonly DetailChartIndicatorField[],
+  fields: readonly Field[],
+  valuesOf: (point: DetailChartPoint) => Pick<DetailChartPoint, Field> | null = (point) => point,
 ): DetailChartIndicatorRange | null {
   const visibleIndexes = resolveVisibleIndexRange(logicalRange, points.length);
   if (!visibleIndexes) return null;
@@ -30,8 +31,10 @@ export function resolveVisibleIndicatorRange(
   for (let index = visibleIndexes.startIndex; index <= visibleIndexes.endIndex; index += 1) {
     const point = points[index];
     if (!point) continue;
+    const values = valuesOf(point);
+    if (!values) continue;
     for (const field of fields) {
-      const value = point[field];
+      const value = values[field];
       if (!isFiniteChartNumber(value)) continue;
       dataMin = Math.min(dataMin, value);
       dataMax = Math.max(dataMax, value);

@@ -1,7 +1,12 @@
 import type { Time } from "lightweight-charts";
 export const XXM_ALGORITHM_VERSION = "xxm-direction-v0.5-r4.1" as const;
 export const XXM_SPEC_HASH = "a2554ffb510d36930ed22b03bf6b40d94b71e81636290ea666585e94fbf9e367";
-export type XxmPeriod = "day" | "m30" | "m60" | "m90" | "m120";
+const XXM_PERIODS = ["day", "m30", "m60", "m90", "m120"] as const;
+export type XxmPeriod = typeof XXM_PERIODS[number];
+
+export function isXxmPeriod(period: string): boolean {
+    return XXM_PERIODS.some(supported => supported === period);
+}
 export type XxmDirection = "TOP" | "BOTTOM";
 export interface XxmReference {
     startTime: string;

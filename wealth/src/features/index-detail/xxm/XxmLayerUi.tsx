@@ -1,6 +1,18 @@
+import { useCallback } from "react";
+import type { DetailChartQuantitativeStructure } from "../../../shared/charts/detail-workspace/detailChartTypes";
 import { eventLabel } from "./adapter";
 import type { XxmLayerState } from "./types";
 import "./xxm-layer.css";
+
+export const QUANTITATIVE_STRUCTURE_TITLE = "量化结构(12,26,9)";
+
+export function useXxmValuesAt(data: XxmLayerState["data"]): DetailChartQuantitativeStructure["valuesAt"] {
+  return useCallback((time) => {
+    const point = data?.byTime.get(String(time))?.point;
+    return point ? { dif: point.dif, dea: point.dea, macd: point.hist } : null;
+  }, [data]);
+}
+
 export function XxmLayerStatus({layer,onRetry}:{layer:XxmLayerState;onRetry:()=>void}){
   if(layer.phase==="unsupported")return null;
   const status=layer.phase==="loading"?"正在加载顶底识别":layer.phase==="empty"?"顶底识别暂无数据":layer.phase==="error"?"顶底识别加载失败":layer.phase==="delayed"?layer.data?.response.dataStatus.message:"";

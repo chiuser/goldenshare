@@ -91,7 +91,7 @@ const indicatorTabs: StockIndicatorTab[] = [
   { key: "MACD", label: "MACD", active: false, supported: true },
   { key: "KDJ", label: "KDJ", active: true, supported: true },
 ];
-const defaultIndicatorControls = { hiddenIndicatorPanels: new Set<never>(), onToggleIndicatorPanel: vi.fn() };
+const defaultIndicatorControls = { hiddenIndicatorPanels: new Set<never>(), onToggleIndicatorPanel: vi.fn(), quantitativeStructureAvailable: false };
 
 describe("StockChartWorkspace shared adapter", () => {
   beforeEach(() => chartMock.reset());
@@ -104,7 +104,7 @@ describe("StockChartWorkspace shared adapter", () => {
       <StockChartWorkspace
         candles={candles}
         indicatorTabs={indicatorTabs}
-        indicatorControls={{ hiddenIndicatorPanels: new Set(["kdj"]), onToggleIndicatorPanel }}
+        indicatorControls={{ ...defaultIndicatorControls, hiddenIndicatorPanels: new Set(["kdj"]), onToggleIndicatorPanel }}
         nineTurnLayer={idleNineTurnLayer("day")}
         onNineTurnRetry={vi.fn()}
         onAction={onAction}
@@ -128,6 +128,11 @@ describe("StockChartWorkspace shared adapter", () => {
     const vol = screen.getByRole("button", { name: "VOL", pressed: true });
     const macd = screen.getByRole("button", { name: "MACD", pressed: true });
     const kdj = screen.getByRole("button", { name: "KDJ", pressed: false });
+    const structure = screen.getByRole("button", { name: "量化结构", pressed: false });
+    expect(kdj.nextElementSibling).toBe(structure);
+    expect(structure).toBeEnabled();
+    fireEvent.click(structure);
+    expect(screen.queryByLabelText("量化结构(12,26,9)")).not.toBeInTheDocument();
     expect(vol).toHaveClass("active");
     expect(kdj).not.toHaveClass("active");
     [vol, macd, kdj].forEach((button) => fireEvent.click(button));

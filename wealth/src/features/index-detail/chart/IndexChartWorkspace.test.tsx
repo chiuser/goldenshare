@@ -1,21 +1,27 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import type { DetailChartWorkspaceProps } from "../../../shared/charts/detail-workspace/detailChartTypes";
+import type { DetailChartIndicatorPanelKey, DetailChartWorkspaceProps } from "../../../shared/charts/detail-workspace/detailChartTypes";
 import { idleNineTurnLayer } from "../../nine-turn/model/nineTurnAdapter";
 import { NineTurnMarkerPrimitive } from "../../../shared/charts/detail-workspace/NineTurnMarkerPrimitive";
 import { buildIndexDetailViewModel } from "../api/indexDetailViewModelAdapter";
 import { makeKline, makePageInit } from "../testing/indexDetailTestFixtures";
 import { IndexChartWorkspace } from "./IndexChartWorkspace";
 import { TrendChannelPanePrimitive } from "../../../shared/charts/trend-channel/TrendChannelPanePrimitive";
+import { fetchXxm } from "../xxm/apiClient";
+import { decodeXxmDebug } from "../debug/xxmDebugContract";
+import { xxmDebugFixture } from "../xxm/xxmFixtures.test-support";
 
 const workspaceMock = vi.hoisted(() => ({
   props: [] as DetailChartWorkspaceProps[],
   reset() { this.props.splice(0, this.props.length); },
 }));
-const defaultIndicatorControls = { hiddenIndicatorPanels: new Set<never>(), onToggleIndicatorPanel: vi.fn() };
+const defaultIndicatorControls = { hiddenIndicatorPanels: new Set<never>(), onToggleIndicatorPanel: vi.fn(), quantitativeStructureAvailable: false };
 
-vi.mock("../xxm/useIndexXxmLayer", () => ({ useIndexXxmLayer: () => ({ phase: "unsupported", data: null, errorMessage: "", requestKey: "", retry: () => {}, macdPrimitives: [] }) }));
+vi.mock("../xxm/apiClient", async (importOriginal) => ({
+  ...await importOriginal<typeof import("../xxm/apiClient")>(),
+  fetchXxm: vi.fn(),
+}));
 
 vi.mock("../../../shared/charts/detail-workspace/DetailChartWorkspace", () => ({
   DetailChartWorkspace: (props: DetailChartWorkspaceProps) => {
@@ -25,7 +31,10 @@ vi.mock("../../../shared/charts/detail-workspace/DetailChartWorkspace", () => ({
 }));
 
 describe("IndexChartWorkspace adapter", () => {
-  beforeEach(() => workspaceMock.reset());
+  beforeEach(() => {
+    workspaceMock.reset();
+    vi.mocked(fetchXxm).mockReset().mockReturnValue(new Promise(() => {}));
+  });
 
   it("updates asynchronous ordinary trend content without replacing chart primitives or changing the selected overlay", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit(), makeKline());
@@ -49,13 +58,16 @@ describe("IndexChartWorkspace adapter", () => {
   it("uses the index daily dataKey and keeps it stable across MA/BOLL switches", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit("399001.SZ"), makeKline("399001.SZ"));
     const onToggleIndicatorPanel = vi.fn();
-    render(<IndexChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} indicatorControls={{ hiddenIndicatorPanels: new Set(["volume"]), onToggleIndicatorPanel }} nineTurnLayer={idleNineTurnLayer("day")} onNineTurnRetry={vi.fn()} trend={null} trendPhase="unavailable" viewModel={viewModel} />);
+    render(<IndexChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} indicatorControls={{ ...defaultIndicatorControls, hiddenIndicatorPanels: new Set(["volume"]), onToggleIndicatorPanel }} nineTurnLayer={idleNineTurnLayer("day")} onNineTurnRetry={vi.fn()} trend={null} trendPhase="unavailable" viewModel={viewModel} />);
 
     expect(latestProps().dataKey).toBe("index:399001.SZ:day");
     expect(latestProps().hiddenIndicatorPanels).toEqual(new Set(["volume"]));
     expect(screen.getByRole("button", { name: "成交额" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "MACD", pressed: true })).toHaveClass("active");
     expect(screen.getByRole("button", { name: "KDJ", pressed: true })).toHaveClass("active");
+    const structure = screen.getByRole("button", { name: "量化结构", pressed: false });
+    expect(structure).toBeDisabled();
+    expect(screen.getByRole("button", { name: "KDJ" }).nextElementSibling).toBe(structure);
     fireEvent.click(screen.getByRole("button", { name: "VOL", pressed: false }));
     expect(onToggleIndicatorPanel).toHaveBeenCalledWith("volume");
     fireEvent.change(screen.getByLabelText("指数主图指标切换"), { target: { value: "BOLL" } });
@@ -93,6 +105,58 @@ describe("IndexChartWorkspace adapter", () => {
     expect(latestProps().mainPrimitives?.[0]).toBeInstanceOf(TrendChannelPanePrimitive);
     expect(latestProps().mainPrimitives?.[1]).toBeInstanceOf(NineTurnMarkerPrimitive);
     expect(latestProps().mainLines).toHaveLength(0);
+  });
+
+  it("shows only the first recognition window and gates its hover details without refetching", async () => {
+    const { response } = xxmDebugFixture("000001.SH");
+    const kline = makeKline();
+    const tradeDate = "2023-01-12";
+    const previousDate = "2023-01-11";
+    const seed = { ...kline.bars[1]!, tradeDate, open: 105, high: 106, low: 102, close: 104, preClose: 105 };
+    const previous = { ...kline.bars[0]!, tradeDate: previousDate, open: 103, high: 106, low: 102, close: 105, preClose: 103 };
+    vi.mocked(fetchXxm).mockResolvedValueOnce({ response, deadline: performance.now() + 5000 });
+    const viewModel = buildIndexDetailViewModel(makePageInit(), { ...kline, bars: [seed] });
+    const allCandles = buildIndexDetailViewModel(makePageInit(), { ...kline, bars: [previous, seed] }).chart.candles;
+    const controls = { ...defaultIndicatorControls, quantitativeStructureAvailable: true };
+    const renderXxmDetails = vi.fn(() => <span>识别调试内容</span>);
+    const base = {
+      nineTurnLayer: idleNineTurnLayer("day"), onNineTurnRetry: vi.fn(), viewModel,
+      trend: null, trendPhase: "unavailable" as const,
+      recognition: { recognitionEnabled: true, debug: 1 as const, renderXxmDetails, decodeXxmDebug },
+    };
+    const history = {
+      active: true, visible: null, phase: "idle" as const, error: undefined,
+      onViewport: vi.fn(), retryLayer: vi.fn(),
+    };
+    const hidden = new Set<DetailChartIndicatorPanelKey>(["quantitativeStructure", "kdj"]);
+    const rendered = render(<IndexChartWorkspace {...base} history={history} indicatorControls={{ ...controls, hiddenIndicatorPanels: hidden }} />);
+    await waitFor(() => expect(latestProps().quantitativeStructure?.valuesAt(tradeDate)).toEqual({ dif: 96, dea: 95, macd: 2 }));
+    const first = latestProps();
+    const valuesAt = first.quantitativeStructure?.valuesAt;
+    const latest = first.points[0]!;
+    expect(latest.macd).toBe(1);
+    const tooltip = render(first.renderTooltip(latest, "right"));
+    expect(screen.queryByLabelText("顶底识别详情")).not.toBeInTheDocument();
+    expect(renderXxmDetails).not.toHaveBeenCalled();
+
+    rendered.rerender(<IndexChartWorkspace {...base} history={history} indicatorControls={{ ...controls, hiddenIndicatorPanels: new Set(["kdj"]) }} />);
+    tooltip.rerender(latestProps().renderTooltip(latest, "right"));
+    expect(screen.getByLabelText("顶底识别详情")).toBeInTheDocument();
+    expect(screen.getByText("识别调试内容")).toBeInTheDocument();
+    const header = render(latestProps().quantitativeStructure?.renderHeader(valuesAt!(tradeDate)));
+    expect(header.getByText("DIF:96.00")).toBeInTheDocument();
+    expect(header.getByText("MACD:2.00")).toBeInTheDocument();
+
+    rendered.rerender(<IndexChartWorkspace {...base} indicatorControls={{ ...controls, hiddenIndicatorPanels: new Set(["kdj"]) }}
+      history={{ ...history, visible: { candles: allCandles, failedLayers: [], nineTurnMarkers: [], trendPoints: [] } }} />);
+    expect(latestProps().points).toHaveLength(2);
+    expect(latestProps().quantitativeStructure?.valuesAt).toBe(valuesAt);
+    expect(valuesAt?.(previousDate)).toBeNull();
+    tooltip.rerender(latestProps().renderTooltip(latestProps().points[0]!, "right"));
+    expect(screen.queryByLabelText("顶底识别详情")).not.toBeInTheDocument();
+    expect(screen.queryByText("识别调试内容")).not.toBeInTheDocument();
+    expect(fetchXxm).toHaveBeenCalledTimes(1);
+    expect(fetchXxm).toHaveBeenCalledWith(expect.objectContaining({ startDate: tradeDate, endDate: tradeDate, limit: 1 }), expect.any(AbortSignal));
   });
 });
 

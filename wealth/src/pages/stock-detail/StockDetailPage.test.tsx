@@ -574,8 +574,20 @@ describe("StockDetailPage", () => {
         expect(screen.getByRole("button", { name, pressed: true })).toHaveClass("active");
       }
     };
+    const expectSilentStructure = () => {
+      const count = fetchMock.mock.calls.length;
+      const structure = screen.getByRole("button", { name: "量化结构", pressed: false });
+      expect(structure).toBeEnabled();
+      fireEvent.click(structure);
+      expect(structure).toHaveAttribute("aria-pressed", "false");
+      expect(screen.queryByLabelText("量化结构(12,26,9)")).not.toBeInTheDocument();
+      expect(screen.queryByText("最多展示3个技术指标，请取消一个后再打开")).not.toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledTimes(count);
+    };
     expectAllOn();
+    expectSilentStructure();
     fireEvent.click(screen.getByRole("button", { name: "KDJ", pressed: true }));
+    expectSilentStructure();
     fireEvent.click(screen.getByRole("button", { name: "5分" }));
 
     await waitFor(() => {
@@ -600,6 +612,10 @@ describe("StockDetailPage", () => {
       .filter((url) => url.includes("/minute-nine-turn"));
     expect(nineTurnMinuteRequests).toHaveLength(0);
     expect(screen.getByRole("button", { name: "KDJ", pressed: false })).not.toHaveClass("active");
+    expectSilentStructure();
+    fireEvent.click(screen.getByRole("button", { name: "KDJ", pressed: false }));
+    expectSilentStructure();
+    fireEvent.click(screen.getByRole("button", { name: "KDJ", pressed: true }));
     const requestCount = fetchMock.mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: "VOL", pressed: true }));
     fireEvent.click(screen.getByRole("button", { name: "MACD", pressed: true }));

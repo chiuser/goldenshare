@@ -104,7 +104,7 @@ export function buildXxmViewModel(response: XxmResponse | XxmDebugResponse, poin
         if (through === null || (period === "day" ? String(p.time) > through : Number(p.time) > Number(through)))
             continue;
         const s = source.get(String(p.time));
-        assert(s && [p.close, p.dif, p.dea, p.macd].every(finite) && p.close === s.close && p.dif === s.dif && p.dea === s.dea && p.macd === s.hist);
+        assert(s && finite(p.close) && p.close === s.close);
     }
     const byTime: XxmViewModel["byTime"] = new Map();
     const markers: XxmViewModel["markers"] = [];

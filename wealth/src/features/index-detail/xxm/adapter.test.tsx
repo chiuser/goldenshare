@@ -7,7 +7,22 @@ import {XxmSignalDetails} from "./XxmLayerUi";
 import {XxmDebugDetails} from "../debug/XxmDebugDetails";
 import type { XxmPeriod } from "./types";
 const options={tsCode:"000001.SH",period:"day" as const,debug:0 as const,check:()=>{}};
-it("decodes an ordinary response without any research fields and matches original chart values",()=>{const {response,points}=xxmFixture("000001.SH");const decoded=decodeXxmResponse(response,options);const vm=buildXxmViewModel(decoded,points,"day","000001.SH");expect(vm.markers).toHaveLength(2);expect(vm.byTime.get("2023-01-12")?.debugDetail).toBeNull();for(const key of ["close","dif","dea","macd"] as const){const changed=points.map(p=>({...p,[key]:Number(p[key])+.00001}));expect(()=>buildXxmViewModel(decoded,changed,"day","000001.SH")).toThrow();}});
+it("keeps the recognition values when the chart MACD differs on the same daily bar", () => {
+    const { response, points } = xxmFixture("000001.SH");
+    const decoded = decodeXxmResponse(response, options);
+    const changed = points.map(point => ({ ...point, dif: -14, dea: -13, macd: -1 }));
+    const vm = buildXxmViewModel(decoded, changed, "day", "000001.SH");
+
+    expect(vm.markers).toHaveLength(2);
+    expect(vm.markers.map(marker => marker.dif)).toEqual([-16, -16]);
+    expect(vm.byTime.get("2023-01-12")).toMatchObject({
+        point: { dif: -16, dea: -15, hist: -2 },
+        debugDetail: null,
+    });
+
+    const wrongClose = points.map(point => ({ ...point, close: 107 }));
+    expect(() => buildXxmViewModel(decoded, wrongClose, "day", "000001.SH")).toThrow();
+});
 it("keeps both same-time facts but draws and normally describes only the authorized new dulling",()=>{const {response,points}=xxmDebugFixture("000001.SH");const decoded=decodeXxmResponse(response,{...options,debug:1,decodeDebug:decodeXxmDebug});const data=buildXxmViewModel(decoded,points,"day","000001.SH");const detail=data.byTime.get("2023-01-12")!;expect(detail.events).toHaveLength(2);expect(detail.displayEvents).toHaveLength(1);expect(data.markers.map(m=>m.event.id)).toEqual(["activate-new"]);const layer={phase:"ready" as const,requestKey:"current",data,errorMessage:""};render(<><XxmSignalDetails layer={layer} time="2023-01-12"/><XxmDebugDetails layer={layer} time="2023-01-12"/></>);expect(screen.getByLabelText("顶底识别详情")).toHaveTextContent("顶钝化");expect(screen.getByLabelText("顶底识别详情")).not.toHaveTextContent("消失");expect(screen.getByLabelText("顶底识别核验依据")).toHaveTextContent("cancel-old");});
 it("rejects incorrect identity, illegal values, unordered points and missing display flags",()=>{const base=xxmFixture("000001.SH").response;const mutations=[(v:any)=>v.specHash="old",(v:any)=>v.algorithmVersion="xxm-direction-v0.1-r2",(v:any)=>v.points[0].dif=NaN,(v:any)=>v.points[0].close=true,(v:any)=>v.points.push({...v.points[0]}),(v:any)=>delete v.events[0].displayOnChart,(v:any)=>v.events[0].displayOnChart=1,(v:any)=>v.events.push({...v.events[0]}),(v:any)=>v.points[0].ordinaryState="WAITING",(v:any)=>v.points[0].time="2023-02-30",(v:any)=>v.source.inputId="old",(v:any)=>v.rearmRecords=[]];for(const mutate of mutations){const bad=structuredClone(base);mutate(bad);expect(()=>decodeXxmResponse(bad,options)).toThrow();}});
 it("handles source EMPTY and DELAYED without turning errors into empty",()=>{const r=xxmFixture("000001.SH").response;const empty={...r,points:[],events:[],source:{...r.source,startTime:null,computedThrough:null},meta:{count:0,responseStart:null,responseEnd:null},dataStatus:{status:"EMPTY",message:null,asOf:null}};expect(decodeXxmResponse(empty,options).dataStatus.status).toBe("EMPTY");expect(decodeXxmResponse({...r,dataStatus:{...r.dataStatus,status:"DELAYED",message:"来源滞后"}},options).dataStatus.status).toBe("DELAYED");expect(()=>decodeXxmResponse({...empty,events:r.events},options)).toThrow();});
@@ -24,17 +39,19 @@ it.each(periods)("binds nonempty ordinary/debug facts and chart values to the re
   const { debug, ...publicFacts } = decoded as typeof response;
   expect(publicFacts).toEqual(normal);
   expect(debug).toEqual(expectedDebug);
-  const data = buildXxmViewModel(decoded, points, period, tsCode, period === "day" ? null : 1);
+  const indicatorVersion = period === "day" ? null : 1;
+  const changed = points.map(point => ({ ...point, dif: 97, dea: 94, macd: 6 }));
+  const data = buildXxmViewModel(decoded, changed, period, tsCode, indicatorVersion);
   expect(data.markers.map(marker => marker.event.id)).toEqual(["activate-new"]);
+  expect(data.markers[0]?.dif).toBe(96);
+  expect(data.byTime.get(String(points[0]!.time))?.point).toMatchObject({ dif: 96, dea: 95, hist: 2 });
   expect(data.byTime.get(String(points[0]!.time))?.debugDetail?.structures.map(s => s.id)).toEqual(["old-structure"]);
   expect(() => decodeXxmResponse(response, { ...contract, tsCode: "000001.SH", debug: 1, decodeDebug: decodeXxmDebug })).toThrow();
   expect(() => buildXxmViewModel(decoded, points, period, "000001.SH", period === "day" ? null : 1)).toThrow();
   expect(() => decodeXxmResponse(response, { ...contract, period: period === "m30" ? "m60" : "m30", debug: 1, decodeDebug: decodeXxmDebug })).toThrow();
   if (period !== "day") expect(() => buildXxmViewModel(decoded, points, period, tsCode, 2)).toThrow();
-  for (const key of ["close", "dif", "dea", "macd"] as const) {
-    const changed = points.map(point => ({ ...point, [key]: Number(point[key]) + 0.00001 }));
-    expect(() => buildXxmViewModel(decoded, changed, period, tsCode, period === "day" ? null : 1)).toThrow();
-  }
+  const wrongClose = points.map(point => ({ ...point, close: 105 }));
+  expect(() => buildXxmViewModel(decoded, wrongClose, period, tsCode, indicatorVersion)).toThrow();
 });
 
 // Independent literal completed endpoints from the major-index minute producer

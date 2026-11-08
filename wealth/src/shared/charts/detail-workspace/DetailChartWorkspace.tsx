@@ -43,8 +43,9 @@ import type {
   DetailChartAxisFloatLabelState,
   DetailChartCrosshairPresentation,
   DetailChartHistoryViewport,
-  DetailChartPanelKey,
+  DetailChartMacdValues,
   DetailChartPoint,
+  DetailChartQuantitativeStructure,
   DetailChartTimeAxisPlacement,
   DetailChartTimeAxisMarker,
   DetailChartWorkspaceProps,
@@ -65,12 +66,8 @@ import {
 } from "./detailChartViewport";
 import "./detail-chart-workspace.css";
 
-interface ChartRefs {
-  kline: HTMLDivElement | null;
-  macd: HTMLDivElement | null;
-  volume: HTMLDivElement | null;
-  kdj: HTMLDivElement | null;
-}
+type WorkspacePanelKey = DetailChartAxisFloatLabelState["panel"];
+type ChartRefs = Record<WorkspacePanelKey, HTMLDivElement | null>;
 
 interface ChartSyncTarget {
   chart: IChartApi;
@@ -102,8 +99,7 @@ interface DetailChartRuntime {
   reportHistoryViewport?: (range: DetailChartLogicalRange) => void;
   updateHistory?: (data: DetailChartHistoryData) => void;
   applyHistoryGutter?: () => void;
-  macdSeries: ISeriesApi<SeriesType>;
-  macdPrimitives: NonNullable<DetailChartWorkspaceProps["macdPrimitives"]>;
+  updateQuantitativeStructure?: (structure: DetailChartQuantitativeStructure) => void;
   applyRange: (range: DetailChartLogicalRange) => void;
   applyIndicatorRanges: (range: DetailChartLogicalRange) => void;
   getRange: () => DetailChartLogicalRange | null;
@@ -140,9 +136,9 @@ export function DetailChartWorkspace({
   mainLayerAccessory,
   mainPriceScalePaddingPx,
   mainPrimitives,
-  macdPrimitives,
   panelAriaLabels,
   points,
+  quantitativeStructure,
   renderMainHeader,
   renderPanelHeader,
   renderTooltip,
@@ -152,11 +148,11 @@ export function DetailChartWorkspace({
   topRightAccessory,
 }: DetailChartWorkspaceProps) {
   const primitives = mainPrimitives ?? EMPTY_MAIN_PRIMITIVES;
-  const macdLayers = macdPrimitives ?? EMPTY_MAIN_PRIMITIVES;
-  const latestMacdLayers = useRef(macdLayers);
-  latestMacdLayers.current = macdLayers;
+  const hasQuantitativeStructure = quantitativeStructure !== undefined;
+  const quantitativeStructureRef = useRef(quantitativeStructure);
+  quantitativeStructureRef.current = quantitativeStructure;
   const chartsAreaRef = useRef<HTMLDivElement | null>(null);
-  const chartRefs = useRef<ChartRefs>({ kline: null, macd: null, volume: null, kdj: null });
+  const chartRefs = useRef<ChartRefs>({ kline: null, macd: null, quantitativeStructure: null, volume: null, kdj: null });
   const [hoverIndex, setHoverIndex] = useState(points.length - 1);
   const [isChartHovering, setIsChartHovering] = useState(false);
   const [tooltipSide, setTooltipSide] = useState<"left" | "right">("right");
@@ -232,8 +228,9 @@ export function DetailChartWorkspace({
     let { points: plottedPoints, candleData, mainLines, primitives } = dataRef.current;
     if (keepCharts) setHoverIndex(plottedPoints.length - 1);
     const charts: IChartApi[] = [];
-    const createPaneChart = (container: HTMLDivElement, height: number, panel: DetailChartPanelKey) => {
-      const showTimeScale = timeMode === "minute" && (timeAxisPlacement === "each-pane" || panel === "kdj");
+    const createPaneChart = (container: HTMLDivElement, height: number, panel: WorkspacePanelKey) => {
+      const showTimeScale = timeMode === "minute" && panel !== "quantitativeStructure"
+        && (timeAxisPlacement === "each-pane" || panel === "kdj");
       const chart = createChart(
         container,
         buildChartOptions(height, showTimeScale, timeMode, crosshairPresentation, panel),
@@ -244,6 +241,9 @@ export function DetailChartWorkspace({
 
     const klineChart = createPaneChart(chartRefs.current.kline, 280, "kline");
     const macdChart = createPaneChart(chartRefs.current.macd, 112, "macd");
+    const structureChart = hasQuantitativeStructure && chartRefs.current.quantitativeStructure
+      ? createPaneChart(chartRefs.current.quantitativeStructure, 112, "quantitativeStructure")
+      : null;
     const volumeChart = createPaneChart(chartRefs.current.volume, 112, "volume");
     const kdjChart = createPaneChart(chartRefs.current.kdj, 112, "kdj");
     const rightPriceScales = charts.map((chart) => chart.priceScale("right"));
@@ -311,41 +311,68 @@ export function DetailChartWorkspace({
         : "rgba(24, 208, 146, 0.55)",
     ));
 
-    const macdBars = macdChart.addSeries(HistogramSeries, {
-      base: 0,
-      lastValueVisible: false,
-      priceFormat: INDICATOR_PRICE_FORMAT,
-      priceLineVisible: false,
-    });
-    const setMacdData = () => macdBars.setData(buildHistogramData(
-      plottedPoints,
-      (point) => point.macd,
-      (_point, value) => value >= 0 ? "rgba(255, 77, 90, 0.64)" : "rgba(24, 208, 146, 0.64)",
-    ));
+    const addMacdPane = (chart: IChartApi, valuesOf: (point: DetailChartPoint) => DetailChartMacdValues | null) => {
+      const valueOf = (point: DetailChartPoint) => valuesOf(point)?.macd ?? null;
+      const difOf = (point: DetailChartPoint) => valuesOf(point)?.dif ?? null;
+      const deaOf = (point: DetailChartPoint) => valuesOf(point)?.dea ?? null;
+      const bars = chart.addSeries(HistogramSeries, {
+        base: 0,
+        lastValueVisible: false,
+        priceFormat: INDICATOR_PRICE_FORMAT,
+        priceLineVisible: false,
+      });
+      const setBarData = () => bars.setData(buildHistogramData(
+        plottedPoints,
+        valueOf,
+        (_point, value) => value >= 0 ? "rgba(255, 77, 90, 0.64)" : "rgba(24, 208, 146, 0.64)",
+      ));
+      setBarData();
+      const dif = addLine(chart, DETAIL_CHART_COLORS.brand, difOf, true);
+      const dea = addLine(chart, DETAIL_CHART_COLORS.blue, deaOf, true);
+      const axisPriceLines = createIndicatorAxisPriceLines(bars, true);
+      let range: DetailChartIndicatorRange | null = null;
+      const autoscaleInfoProvider: AutoscaleInfoProvider = () => toAutoscaleInfo(range);
+      return {
+        dif,
+        syncTarget: { chart, series: bars, formatter: formatSignedAxisValue, valueOf },
+        setData() {
+          setBarData();
+          dif.setData(buildLineData(plottedPoints, difOf));
+          dea.setData(buildLineData(plottedPoints, deaOf));
+        },
+        applyRange(visibleRange: DetailChartLogicalRange) {
+          range = resolveVisibleIndicatorRange(plottedPoints, visibleRange, MACD_RANGE_FIELDS, valuesOf);
+          [bars, dif, dea].forEach(series => series.applyOptions({ autoscaleInfoProvider }));
+          applyIndicatorAxisPriceLines(axisPriceLines, range);
+        },
+      };
+    };
     setVolumeData();
-    setMacdData();
-    const difSeries = addLine(macdChart, DETAIL_CHART_COLORS.brand, (point) => point.dif, true);
-    latestMacdLayers.current.forEach(primitive => difSeries.attachPrimitive(primitive));
-    const deaSeries = addLine(macdChart, DETAIL_CHART_COLORS.blue, (point) => point.dea, true);
+    const macd = addMacdPane(macdChart, (point) => point);
+    let structureInput = quantitativeStructureRef.current;
+    const structure = structureChart
+      ? addMacdPane(structureChart, (point) => structureInput?.valuesAt(point.time) ?? null)
+      : null;
+    structureInput?.primitives.forEach(primitive => structure?.dif.attachPrimitive(primitive));
 
     const kSeries = addLine(kdjChart, DETAIL_CHART_COLORS.brand, (point) => point.k, true);
     const dSeries = addLine(kdjChart, DETAIL_CHART_COLORS.blue, (point) => point.d, true);
     const jSeries = addLine(kdjChart, DETAIL_CHART_COLORS.purple, (point) => point.j, true);
-    const macdAxisPriceLines = createIndicatorAxisPriceLines(macdBars, true);
     const kdjAxisPriceLines = createIndicatorAxisPriceLines(kSeries, false);
 
     const indexPoints = () => new Map(plottedPoints.map((point, index) => [String(point.time), { index, point }]));
     let pointByTime = indexPoints();
-    const syncTargets: Record<DetailChartPanelKey, ChartSyncTarget> = {
-      kline: { chart: klineChart, formatter: formatPriceAxisValue, series: klineSeries, valueOf: (point) => point.close },
-      macd: { chart: macdChart, formatter: formatSignedAxisValue, series: macdBars, valueOf: (point) => point.macd },
-      volume: { chart: volumeChart, formatter: formatCompactAxisValue, series: volumeSeries, valueOf: (point) => point.volume },
-      kdj: { chart: kdjChart, formatter: formatPriceAxisValue, series: kSeries, valueOf: (point) => point.k },
-    };
+    const syncTargets = new Map<WorkspacePanelKey, ChartSyncTarget>([
+      ["kline", { chart: klineChart, formatter: formatPriceAxisValue, series: klineSeries, valueOf: (point) => point.close }],
+      ["macd", macd.syncTarget],
+      ["volume", { chart: volumeChart, formatter: formatCompactAxisValue, series: volumeSeries, valueOf: (point) => point.volume }],
+      ["kdj", { chart: kdjChart, formatter: formatPriceAxisValue, series: kSeries, valueOf: (point) => point.k }],
+    ]);
+    if (structure) syncTargets.set("quantitativeStructure", structure.syncTarget);
     let isSyncingCrosshair = false;
 
     const updateAxisFloatLabel = (
-      panel: DetailChartPanelKey,
+      panel: WorkspacePanelKey,
       series: ISeriesApi<SeriesType>,
       pointY: number | undefined,
       formatter: (value: number) => string,
@@ -374,18 +401,17 @@ export function DetailChartWorkspace({
       setSharedCrosshair(null);
       setIsChartHovering(false);
       isSyncingCrosshair = true;
-      Object.values(syncTargets).forEach(({ chart }) => chart.clearCrosshairPosition());
+      syncTargets.forEach(({ chart }) => chart.clearCrosshairPosition());
       isSyncingCrosshair = false;
     };
 
     const syncCrosshairMove = (
-      sourcePanel: DetailChartPanelKey,
+      sourcePanel: WorkspacePanelKey,
+      target: ChartSyncTarget,
       pointX: number | undefined,
       pointY: number | undefined,
       time: Time | undefined,
     ) => {
-      const target = syncTargets[sourcePanel];
-      updateAxisFloatLabel(sourcePanel, target.series, pointY, target.formatter);
       if (!time || pointX === undefined) {
         clearSyncedCrosshair();
         return;
@@ -394,6 +420,11 @@ export function DetailChartWorkspace({
       if (!entry) {
         clearSyncedCrosshair();
         return;
+      }
+      if (sourcePanel === "quantitativeStructure" && !isFiniteChartNumber(target.valueOf(entry.point))) {
+        setAxisFloatLabel(null);
+      } else {
+        updateAxisFloatLabel(sourcePanel, target.series, pointY, target.formatter);
       }
       setHoverIndex(entry.index);
       setIsChartHovering(true);
@@ -407,7 +438,7 @@ export function DetailChartWorkspace({
       }
 
       isSyncingCrosshair = true;
-      Object.values(syncTargets).forEach(({ chart, series, valueOf }) => {
+      syncTargets.forEach(({ chart, series, valueOf }) => {
         const value = valueOf(entry.point);
         if (!isFiniteChartNumber(value)) {
           chart.clearCrosshairPosition();
@@ -418,19 +449,18 @@ export function DetailChartWorkspace({
       isSyncingCrosshair = false;
     };
 
-    const subscribeCrosshair = (panel: DetailChartPanelKey) => {
-      const target = syncTargets[panel];
+    const subscribeCrosshair = ([panel, target]: [WorkspacePanelKey, ChartSyncTarget]) => {
       const handler = (param: { point?: { x: number; y: number }; time?: Time }) => {
         if (isSyncingCrosshair) return;
         if (panel === "kline" && param.point && chartRefs.current.kline) {
           setTooltipSide(param.point.x > chartRefs.current.kline.clientWidth * 0.62 ? "left" : "right");
         }
-        syncCrosshairMove(panel, param.point?.x, param.point?.y, param.time);
+        syncCrosshairMove(panel, target, param.point?.x, param.point?.y, param.time);
       };
       target.chart.subscribeCrosshairMove(handler);
       return { chart: target.chart, handler };
     };
-    const crosshairHandlers = (Object.keys(syncTargets) as DetailChartPanelKey[]).map(subscribeCrosshair);
+    const crosshairHandlers = Array.from(syncTargets, subscribeCrosshair);
 
     const updateTimeAxisMarkers = () => {
       if (timeMode !== "daily") {
@@ -452,20 +482,15 @@ export function DetailChartWorkspace({
       isSyncingVisibleRange = false;
       queueTimeAxisMarkerUpdate();
     };
-    let macdRange: DetailChartIndicatorRange | null = null;
     let kdjRange: DetailChartIndicatorRange | null = null;
-    const macdAutoscaleProvider: AutoscaleInfoProvider = () => toAutoscaleInfo(macdRange);
     const kdjAutoscaleProvider: AutoscaleInfoProvider = () => toAutoscaleInfo(kdjRange);
     const applyIndicatorRanges = (range: DetailChartLogicalRange) => {
-      macdRange = resolveVisibleIndicatorRange(plottedPoints, range, MACD_RANGE_FIELDS);
+      macd.applyRange(range);
+      structure?.applyRange(range);
       kdjRange = resolveVisibleIndicatorRange(plottedPoints, range, KDJ_RANGE_FIELDS);
-      [macdBars, difSeries, deaSeries].forEach((series) => {
-        series.applyOptions({ autoscaleInfoProvider: macdAutoscaleProvider });
-      });
       [kSeries, dSeries, jSeries].forEach((series) => {
         series.applyOptions({ autoscaleInfoProvider: kdjAutoscaleProvider });
       });
-      applyIndicatorAxisPriceLines(macdAxisPriceLines, macdRange);
       applyIndicatorAxisPriceLines(kdjAxisPriceLines, kdjRange);
     };
     const alignRightPriceScales = (): boolean => {
@@ -529,8 +554,25 @@ export function DetailChartWorkspace({
     const runtime: DetailChartRuntime = {
       dataKey,
       reportHistoryViewport: keepCharts ? reportViewport : undefined,
-      macdSeries: difSeries,
-      macdPrimitives: latestMacdLayers.current,
+      updateQuantitativeStructure: structure && structureChart ? (next) => {
+        const previous = structureInput;
+        structureInput = next;
+        if (previous?.primitives !== next.primitives) {
+          previous?.primitives.forEach(primitive => structure.dif.detachPrimitive(primitive));
+          next.primitives.forEach(primitive => structure.dif.attachPrimitive(primitive));
+        }
+        if (previous?.valuesAt !== next.valuesAt) {
+          isSyncingVisibleRange = true;
+          structure.setData();
+          const range = viewportRef.current.range;
+          if (range) {
+            structure.applyRange(range);
+            structureChart.timeScale().setVisibleLogicalRange(range);
+          }
+          isSyncingVisibleRange = false;
+          queuePriceScaleAlignment();
+        }
+      } : undefined,
       applyRange: applyVisibleRange,
       applyIndicatorRanges,
       getRange: () => klineChart.timeScale().getVisibleLogicalRange(),
@@ -552,6 +594,8 @@ export function DetailChartWorkspace({
       queueTimeAxisMarkerUpdate();
     };
     charts.forEach((chart) => {
+      // The structure pane can clamp its range while it has only whitespace.
+      if (chart === structureChart) return;
       const handler = () => syncVisibleRange(chart);
       chart.timeScale().subscribeVisibleLogicalRangeChange(handler);
       visibleRangeHandlers.push({ chart, handler });
@@ -642,9 +686,8 @@ export function DetailChartWorkspace({
           klineSeries.setData(data.candleData);
           visibleExtremaPrimitive.setCandles(data.candleData);
           setVolumeData();
-          setMacdData();
-          difSeries.setData(buildLineData(plottedPoints, (point) => point.dif));
-          deaSeries.setData(buildLineData(plottedPoints, (point) => point.dea));
+          macd.setData();
+          structure?.setData();
           kSeries.setData(buildLineData(plottedPoints, (point) => point.k));
           dSeries.setData(buildLineData(plottedPoints, (point) => point.d));
           jSeries.setData(buildLineData(plottedPoints, (point) => point.j));
@@ -792,10 +835,10 @@ export function DetailChartWorkspace({
       window.removeEventListener("mouseup", handleMouseUp, { capture: true });
       klineSeries.detachPrimitive(visibleExtremaPrimitive);
       primitives.forEach((primitive) => klineSeries.detachPrimitive(primitive));
-      runtime.macdPrimitives.forEach(primitive => difSeries.detachPrimitive(primitive));
+      structureInput?.primitives.forEach(primitive => structure?.dif.detachPrimitive(primitive));
       charts.forEach((chart) => chart.remove());
     };
-  }, [commitViewportRange, crosshairPresentation, dataKey, keepCharts,
+  }, [commitViewportRange, crosshairPresentation, dataKey, hasQuantitativeStructure, keepCharts,
     keepCharts ? null : candleData,
     keepCharts ? null : mainLines, keepCharts ? null : points, keepCharts ? null : primitives, timeAxisPlacement, timeMode]);
 
@@ -810,13 +853,12 @@ export function DetailChartWorkspace({
     runtimeRef.current?.applyMainPriceScalePadding();
   }, [mainPriceScalePaddingPx?.top, mainPriceScalePaddingPx?.bottom]);
 
+  const structureValuesAt = quantitativeStructure?.valuesAt;
+  const structurePrimitives = quantitativeStructure?.primitives;
   useEffect(() => {
-    const runtime = runtimeRef.current;
-    if (!runtime || runtime.macdPrimitives === macdLayers) return;
-    runtime.macdPrimitives.forEach(primitive => runtime.macdSeries.detachPrimitive(primitive));
-    macdLayers.forEach(primitive => runtime.macdSeries.attachPrimitive(primitive));
-    runtime.macdPrimitives = macdLayers;
-  }, [macdLayers]);
+    const input = quantitativeStructureRef.current;
+    if (input) runtimeRef.current?.updateQuantitativeStructure?.(input);
+  }, [structureValuesAt, structurePrimitives]);
 
   return (
     <section className="detail-chart-workspace" aria-label={ariaLabel}>
@@ -859,7 +901,17 @@ export function DetailChartWorkspace({
             </>
           )}
         />
-        {(["macd", "volume", "kdj"] as const).map((panel) => (
+        {(["macd", "quantitativeStructure", "volume", "kdj"] as const).map((panel) => panel === "quantitativeStructure" ? (
+          quantitativeStructure ? <DetailChartPane
+            ariaLabel={quantitativeStructure.ariaLabel}
+            axisFloatLabel={axisFloatLabel?.panel === panel ? axisFloatLabel : null}
+            className="quantitative-structure-panel"
+            header={quantitativeStructure.renderHeader(latest ? quantitativeStructure.valuesAt(latest.time) : null)}
+            hidden={hiddenIndicatorPanels?.has(panel)}
+            hostRef={(node) => { chartRefs.current.quantitativeStructure = node; }}
+            key={panel}
+          /> : null
+        ) : (
           <DetailChartPane
             ariaLabel={panelAriaLabels[panel]}
             axisFloatLabel={axisFloatLabel?.panel === panel ? axisFloatLabel : null}
@@ -885,9 +937,9 @@ function buildChartOptions(
   showTimeScale: boolean,
   timeMode: "daily" | "minute",
   crosshairPresentation: DetailChartCrosshairPresentation,
-  panel: DetailChartPanelKey,
+  panel: WorkspacePanelKey,
 ) {
-  const isIndicatorPanel = panel === "macd" || panel === "kdj";
+  const isIndicatorPanel = panel === "macd" || panel === "quantitativeStructure" || panel === "kdj";
   const crosshair = crosshairPresentation === "native-axis-labels"
     ? { mode: CrosshairMode.Normal }
     : {

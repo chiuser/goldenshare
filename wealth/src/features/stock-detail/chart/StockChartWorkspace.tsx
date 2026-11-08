@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
@@ -361,7 +361,12 @@ function StockIndicatorBar({
       {indicatorTabs.map((tab) => {
         const panel = STOCK_INDICATOR_PANELS.get(tab.key);
         if (panel) {
-          return <DetailChartIndicatorToggle key={tab.key} panel={panel} indicatorControls={indicatorControls} />;
+          return (
+            <Fragment key={tab.key}>
+              <DetailChartIndicatorToggle panel={panel} indicatorControls={indicatorControls} />
+              {panel === "kdj" ? <DetailChartIndicatorToggle panel="quantitativeStructure" indicatorControls={indicatorControls} mode="placeholder" /> : null}
+            </Fragment>
+          );
         }
         return (
           <button

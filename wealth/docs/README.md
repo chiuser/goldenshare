@@ -71,6 +71,7 @@ docs/
 - [财势乾坤行情系统组件规范 v1](./system/component-guidelines-baseline.md)
 - [股票和指数详情页副图显示与隐藏方案 v1（Figma 交互及开工基线已确认）](./system/detail-chart-indicator-panel-visibility-implementation-design-v1.md)
 - [股票和指数详情页副图显示与隐藏 LLD v1（含四类图表实测基线）](./system/detail-chart-indicator-panel-visibility-low-level-design-v1.md)
+- [股票和指数详情页量化结构需求方案 v1（本机页面验收通过）](./system/detail-chart-quantitative-structure-requirements-v1.md)
 - [异常码注册表（统一管理）](./system/exception-code-registry.md)
 - [策略配置中心 v1（统一策略读取）](./system/strategy-config-center-v1.md)
 - [策略配置中心 M1 编码门禁 v1](./system/strategy-config-center-m1-coding-gate-v1.md)

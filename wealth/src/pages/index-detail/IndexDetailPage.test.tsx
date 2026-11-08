@@ -210,6 +210,65 @@ describe("IndexDetailPage", () => {
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/kline"))).toHaveLength(1);
   });
 
+  it("keeps three panes and renews the limit toast on another rejected click", async () => {
+    const fetchMock = mockFetch("000001.SH");
+    render(<IndexDetailPage search="" tsCode="000001.SH" />);
+    const chart = within(await screen.findByLabelText("指数日线图表区"));
+    const requestCount = fetchMock.mock.calls.length;
+    const structure = chart.getByRole("button", { name: "量化结构", pressed: false });
+    const kdj = chart.getByRole("button", { name: "KDJ", pressed: true });
+    const limitMessage = "最多展示3个技术指标，请取消一个后再打开";
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(structure);
+      expect(screen.getByText(limitMessage)).toBeInTheDocument();
+      expect(structure).toHaveAttribute("aria-pressed", "false");
+      expect(kdj).toHaveAttribute("aria-pressed", "true");
+      fireEvent.click(kdj);
+      fireEvent.click(structure);
+      expect(structure).toHaveAttribute("aria-pressed", "true");
+      act(() => vi.advanceTimersByTime(1000));
+      fireEvent.click(kdj);
+      expect(kdj).toHaveAttribute("aria-pressed", "false");
+      act(() => vi.advanceTimersByTime(800));
+      expect(screen.getByText(limitMessage)).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(1000));
+      expect(screen.queryByText(limitMessage)).not.toBeInTheDocument();
+      expect(fetchMock).toHaveBeenCalledTimes(requestCount);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("restores the structure after an unsupported period only while there is space", async () => {
+    const local = makePageInit("000001.SH");
+    local.capabilities.supportsMinute = true;
+    local.capabilities.minuteFrequencies = [5, 90];
+    local.chartDefaults.availablePeriods = ["day", "m5", "m90"];
+    mockFetch("000001.SH", {
+      minutes: (url) => response(makeMinuteResponse(Number(url.searchParams.get("freq")))),
+      minuteIndicators: (url) => response(makeMinuteIndicatorResponse(Number(url.searchParams.get("freq")))),
+      pageInit: () => response(local),
+    });
+    render(<IndexDetailPage search="" tsCode="000001.SH" />);
+    await screen.findByLabelText("指数日线图表区");
+    const structure = () => screen.getByRole("button", { name: "量化结构" });
+    fireEvent.click(screen.getByRole("button", { name: "KDJ" }));
+    fireEvent.click(structure());
+    fireEvent.click(screen.getByRole("button", { name: "5分" }));
+    await waitFor(() => expect(structure()).toBeDisabled());
+    expect(structure()).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(screen.getByRole("button", { name: "90分" }));
+    await waitFor(() => expect(structure()).toHaveAttribute("aria-pressed", "true"));
+    fireEvent.click(screen.getByRole("button", { name: "5分" }));
+    await waitFor(() => expect(structure()).toBeDisabled());
+    fireEvent.click(screen.getByRole("button", { name: "KDJ" }));
+    fireEvent.click(screen.getByRole("button", { name: "日K" }));
+    expect(structure()).toBeEnabled();
+    expect(structure()).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "KDJ", pressed: true })).toBeInTheDocument();
+  });
+
   it("resets all indicator toggles on each index change, including a return to the first index", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const url = new URL(String(input));

@@ -183,13 +183,20 @@ const mainLines: DetailChartLineDefinition[] = [
 ];
 
 describe("DetailChartWorkspace", () => {
-  it("prepends SSE candles on the existing charts and preserves the visible dates and active drag", () => {
+  it.each([false, true])("preserves the visible dates and active drag when prepending SSE candles (structure=%s)", (showStructure) => {
     const all = makePoints(300);
     const initial = all.slice(100);
     const onHistoryViewport = vi.fn();
+    const firstRecognitionTime = initial[0]!.time;
+    const quantitativeStructure: DetailChartWorkspaceProps["quantitativeStructure"] = showStructure ? {
+      ariaLabel: "量化结构(12,26,9)",
+      valuesAt: (time) => time === firstRecognitionTime ? { macd: -2, dif: -16, dea: -15 } : null,
+      primitives: [],
+      renderHeader: () => null,
+    } : undefined;
     const element = (points: DetailChartPoint[]) => (
       <DetailChartWorkspace {...workspaceElement(points, "daily", "sse:history").props}
-        onHistoryViewport={onHistoryViewport} />
+        onHistoryViewport={onHistoryViewport} quantitativeStructure={quantitativeStructure} />
     );
     const rendered = render(element(initial));
     const host = screen.getByLabelText("共享K线主图").querySelector(".detail-chart-host")!;
@@ -199,11 +206,19 @@ describe("DetailChartWorkspace", () => {
     fireEvent.mouseMove(window, { clientX: 300 });
     const before = charts[0]!.timeScale().getVisibleLogicalRange();
     rendered.rerender(element(all));
-    expect(chartMock.createChart).toHaveBeenCalledTimes(4);
+    expect(chartMock.createChart).toHaveBeenCalledTimes(showStructure ? 5 : 4);
     for (const chart of charts) {
       expect(chart.timeScale().getVisibleLogicalRange()).toEqual({ from: before.from + 100, to: before.to + 100 });
     }
     expect(charts[0]!.series[0].setData.mock.lastCall[0]).toHaveLength(300);
+    if (showStructure) {
+      const series = charts[2]!.series;
+      const difData = series[1].setData.mock.lastCall[0];
+      expect(difData).toHaveLength(300);
+      expect(difData[99]).toEqual({ time: all[99]!.time });
+      expect(difData[100]).toEqual({ time: firstRecognitionTime, value: -16 });
+      expect(series[0].setData.mock.lastCall[0]).toHaveLength(1);
+    }
     expect(onHistoryViewport).toHaveBeenLastCalledWith(expect.objectContaining({ direction: "stationary" }));
     fireEvent.mouseMove(window, { clientX: 400 });
     const after = charts[0]!.timeScale().getVisibleLogicalRange();
@@ -739,21 +754,80 @@ describe("DetailChartWorkspace", () => {
     fetchSpy.mockRestore();
   });
 
-  it("updates asynchronous MACD primitives on DIF without rebuilding or changing viewport", () => {
-    const points = makePoints(300);
+  it("keeps the structure series, range and markers separate from ordinary MACD across updates and toggles", () => {
+    const points = makePoints(3).map(point => ({ ...point, macd: 1, dif: 2, dea: 3 }));
     const primitive = { attached: vi.fn(), detached: vi.fn(), paneViews: () => [] };
-    const first = workspaceElement(points, "daily", "shared:macd:day");
-    const rendered = render(first);
-    const count = chartMock.createChart.mock.calls.length;
-    const range = chartMock.charts[0].timeScale().getVisibleLogicalRange();
-    rendered.rerender(<DetailChartWorkspace {...first.props} macdPrimitives={[primitive as never]} />);
-    expect(chartMock.createChart).toHaveBeenCalledTimes(count);
-    expect(chartMock.charts[1].series[1].attachedPrimitives).toContain(primitive);
-    expect(chartMock.charts[0].timeScale().getVisibleLogicalRange()).toEqual(range);
-    rendered.rerender(<DetailChartWorkspace {...first.props} macdPrimitives={[]} />);
-    expect(primitive.detached).toHaveBeenCalledTimes(1);
-    expect(chartMock.createChart).toHaveBeenCalledTimes(count);
+    const base = workspaceElement(points, "daily", "shared:structure:day").props;
+    const empty: NonNullable<DetailChartWorkspaceProps["quantitativeStructure"]> = {
+      ariaLabel: "量化结构(12,26,9)", valuesAt: () => null, primitives: [],
+      renderHeader: (values) => <span>{values?.dif ?? "--"}</span>,
+    };
+    const loaded = {
+      ...empty, primitives: [primitive as never],
+      valuesAt: (time: DetailChartPoint["time"]) => time === points[2].time ? { macd: 0, dif: -8, dea: 9 } : null,
+    };
+    const hidden = new Set<DetailChartIndicatorPanelKey>(["quantitativeStructure", "kdj"]);
+    const rendered = render(<DetailChartWorkspace {...base} hiddenIndicatorPanels={hidden} quantitativeStructure={empty} />);
+    const [main, macd, structure] = chartMock.charts;
+    const range = main.timeScale().getVisibleLogicalRange();
+    const pane = screen.getByLabelText("量化结构(12,26,9)");
+    expect(pane).toHaveAttribute("inert");
+    expect(pane.previousElementSibling).toBe(screen.getByLabelText("共享MACD"));
+    expect(pane.nextElementSibling).toBe(screen.getByLabelText("共享成交量"));
+
+    rendered.rerender(<DetailChartWorkspace {...base} hiddenIndicatorPanels={hidden} quantitativeStructure={loaded} />);
+    expect(main.timeScale().getVisibleLogicalRange()).toEqual(range);
+    expect(structure.timeScale().getVisibleLogicalRange()).toEqual(range);
+    expect(macd.series[0].setData).toHaveBeenCalledTimes(1);
+    expect(macd.series[0].options.autoscaleInfoProvider()).toEqual({ priceRange: { minValue: 1, maxValue: 3 } });
+    expect(structure.series[0].options.autoscaleInfoProvider()).toEqual({ priceRange: { minValue: -8, maxValue: 9 } });
+    expect(structure.series[0].setData.mock.lastCall[0]).toEqual([
+      { time: points[2].time, value: 0, color: "rgba(255, 77, 90, 0.64)" },
+    ]);
+    expect(structure.series[1].setData.mock.lastCall[0]).toEqual([
+      { time: points[0].time }, { time: points[1].time }, { time: points[2].time, value: -8 },
+    ]);
+    expect(structure.series[2].setData.mock.lastCall[0][2]).toEqual({ time: points[2].time, value: 9 });
+    expect(structure.series[1].attachedPrimitives).toEqual([primitive]);
+    expect(macd.series[1].attachedPrimitives).toEqual([]);
+
+    rendered.rerender(<DetailChartWorkspace {...base} hiddenIndicatorPanels={new Set(["kdj"])} quantitativeStructure={loaded} />);
+    expect(pane).not.toHaveAttribute("inert");
+    expect(pane).toHaveTextContent("-8");
+    expect(chartMock.createChart).toHaveBeenCalledTimes(5);
+    for (const series of structure.series) expect(series.setData).toHaveBeenCalledTimes(2);
+    act(() => main.crosshairHandlers[0]({ point: { x: 24, y: 20 }, time: points[2].time }));
+    expect(structure.setCrosshairPosition).toHaveBeenLastCalledWith(0, points[2].time, structure.series[0]);
+    act(() => main.crosshairHandlers[0]({ point: { x: 24, y: 20 }, time: points[1].time }));
+    expect(structure.clearCrosshairPosition).toHaveBeenCalled();
+    expect(pane).toHaveTextContent("--");
     rendered.unmount();
+    expect(primitive.detached).toHaveBeenCalledTimes(1);
+    expect(structure.remove).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["daily", "minute"] as const)("keeps the %s viewport at the latest bar when the empty structure reports a clamped range", (timeMode) => {
+    const points = makePoints(500).map(point => {
+      if (timeMode === "daily") return point;
+      const fullDate = `${point.fullDate}T15:00:00+08:00`;
+      return { ...point, fullDate, time: (Date.parse(fullDate) / 1000) as UTCTimestamp };
+    });
+    const base = workspaceElement(points, timeMode, `shared:structure:${timeMode}`).props;
+    render(<DetailChartWorkspace {...base} hiddenIndicatorPanels={new Set(["quantitativeStructure"])}
+      quantitativeStructure={{ ariaLabel: "量化结构", valuesAt: () => null, primitives: [], renderHeader: () => null }} />);
+    const [main, , structure] = chartMock.charts;
+    const latestRange = main.timeScale().getVisibleLogicalRange();
+    expect(latestRange.to).toBe(499);
+
+    // Lightweight Charts bounds the offset from index zero while the pane has only whitespace.
+    act(() => structure.timeScale().setVisibleLogicalRange({ from: -1, to: latestRange.to - latestRange.from - 1 }));
+    expect(main.timeScale().getVisibleLogicalRange()).toEqual(latestRange);
+
+    fireEvent.click(screen.getByRole("button", { name: "放大K线，减少可见根数" }));
+    const zoomed = main.timeScale().getVisibleLogicalRange();
+    expect(zoomed.to).toBe(499);
+    expect(zoomed.from).toBeGreaterThan(latestRange.from);
+    expect(structure.timeScale().getVisibleLogicalRange()).toEqual(zoomed);
   });
 
   it("attaches the built-in extrema primitive before external business primitives", () => {

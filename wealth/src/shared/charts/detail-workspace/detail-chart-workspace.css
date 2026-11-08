@@ -19,6 +19,7 @@
   grid-template-rows:
     minmax(0, 1fr)
     var(--detail-chart-macd-row, var(--detail-chart-pane-height))
+    var(--detail-chart-quantitative-structure-row, 0px)
     var(--detail-chart-volume-row, var(--detail-chart-pane-height))
     var(--detail-chart-kdj-row, var(--detail-chart-pane-height));
   min-height: 0;
@@ -31,6 +32,10 @@
 
 .detail-chart-area:has(> .macd-panel[data-hidden]) {
   --detail-chart-macd-row: 0px;
+}
+
+.detail-chart-area:has(> .quantitative-structure-panel:not([data-hidden])) {
+  --detail-chart-quantitative-structure-row: var(--detail-chart-pane-height);
 }
 
 .detail-chart-area:has(> .volume-panel[data-hidden]) {
@@ -116,6 +121,7 @@
 }
 
 .detail-chart-panel.macd-panel,
+.detail-chart-panel.quantitative-structure-panel,
 .detail-chart-panel.kdj-panel {
   border-bottom: none;
 }
@@ -128,18 +134,22 @@
   grid-row: 2;
 }
 
-.detail-chart-area > .volume-panel:not([data-hidden]) {
+.detail-chart-area > .quantitative-structure-panel:not([data-hidden]) {
   grid-row: 3;
 }
 
-.detail-chart-area > :is(.macd-panel, .volume-panel)[data-hidden],
+.detail-chart-area > .volume-panel:not([data-hidden]) {
+  grid-row: 4;
+}
+
+.detail-chart-area > :is(.macd-panel, .quantitative-structure-panel, .volume-panel)[data-hidden],
 .detail-chart-area > .kdj-panel {
   height: var(--detail-chart-pane-height);
   inset-inline: 0;
   position: absolute;
 }
 
-.detail-chart-area > :is(.macd-panel, .volume-panel)[data-hidden] {
+.detail-chart-area > :is(.macd-panel, .quantitative-structure-panel, .volume-panel)[data-hidden] {
   top: 0;
   visibility: hidden;
 }
@@ -422,6 +432,10 @@
 
 .detail-chart-indicator-tab.unsupported {
   color: rgba(148, 163, 184, 0.68);
+}
+
+.detail-chart-indicator-tab.unsupported:disabled {
+  cursor: default;
 }
 
 @media (max-width: 1360px) {

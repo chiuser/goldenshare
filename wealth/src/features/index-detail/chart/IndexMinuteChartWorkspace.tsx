@@ -1,8 +1,7 @@
 import type { IndexRecognitionProps } from "../debug/types";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useIndexXxmLayer } from "../xxm/useIndexXxmLayer";
-import { XxmLayerStatus, XxmSignalDetails } from "../xxm/XxmLayerUi";
-import type { XxmLayerState } from "../xxm/types";
+import { QUANTITATIVE_STRUCTURE_TITLE, useXxmValuesAt, XxmLayerStatus, XxmSignalDetails } from "../xxm/XxmLayerUi";
 import type { UTCTimestamp } from "lightweight-charts";
 
 import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
@@ -14,6 +13,7 @@ import { DETAIL_CHART_COLORS, isFiniteChartNumber } from "../../../shared/charts
 import type {
   DetailChartIndicatorControls,
   DetailChartLineDefinition,
+  DetailChartMacdValues,
   DetailChartPanelKey,
   DetailChartPoint,
   DetailChartTooltipSide,
@@ -66,6 +66,9 @@ function LoadedIndexMinuteChart({
   const xxm = useIndexXxmLayer({ tsCode: data.tsCode, period: `m${data.freq}`, points,
     enabled: recognition.recognitionEnabled, debug: recognition.debug, decodeDebug: recognition.decodeXxmDebug,
     indicatorVersion: data.indicatorVersion, indicatorsPending: phase === "loading" });
+  const valuesAt = useXxmValuesAt(xxm.data);
+  const structureVisible = indicatorControls.quantitativeStructureAvailable
+    && !indicatorControls.hiddenIndicatorPanels.has("quantitativeStructure");
   const nineTurnChartLayer = useNineTurnChartLayer({ dataKey, layer: nineTurnLayer, points, timeMode: "minute" });
 
   return (
@@ -85,12 +88,24 @@ function LoadedIndexMinuteChart({
       )}
       mainLines={mainLines}
       mainPrimitives={nineTurnChartLayer.mainPrimitives}
-      macdPrimitives={xxm.macdPrimitives}
       panelAriaLabels={{ kline: "指数分钟K线主图", macd: "分钟 MACD(12,26,9)", volume: "分钟成交量", kdj: "分钟 KDJ(9,3,3)" }}
       points={points}
+      quantitativeStructure={indicatorControls.quantitativeStructureAvailable ? {
+        ariaLabel: QUANTITATIVE_STRUCTURE_TITLE,
+        valuesAt,
+        primitives: xxm.macdPrimitives,
+        renderHeader: (values) => <><IndexMinutePanelHeader panel="quantitativeStructure" point={values} /><XxmLayerStatus layer={xxm} onRetry={xxm.retry} /></>,
+      } : undefined}
       renderMainHeader={(point) => <IndexMinuteMainHeader overlay={overlay} point={point} setOverlay={setOverlay} />}
-      renderPanelHeader={(panel, point) => <><IndexMinutePanelHeader panel={panel} point={point} />{panel === "macd" ? <XxmLayerStatus layer={xxm} onRetry={xxm.retry} /> : null}</>}
-      renderTooltip={(point, side) => <IndexMinuteTooltip point={point} side={side} xxm={xxm} debugDetails={recognition.debug === 1 ? recognition.renderXxmDetails?.(xxm, String(point.time)) : null} />}
+      renderPanelHeader={(panel, point) => <IndexMinutePanelHeader panel={panel} point={point} />}
+      renderTooltip={(point, side) => (
+        <IndexMinuteTooltip point={point} side={side}>
+          {structureVisible && xxm.data?.byTime.has(String(point.time)) ? (
+            <><XxmSignalDetails layer={xxm} time={String(point.time)} />
+              {recognition.debug === 1 ? recognition.renderXxmDetails?.(xxm, String(point.time)) : null}</>
+          ) : null}
+        </IndexMinuteTooltip>
+      )}
       timeAxisAriaLabel="指数分钟底部时间轴"
       timeMode="minute"
     />
@@ -158,13 +173,15 @@ function IndexMinuteMainHeader({
 function IndexMinutePanelHeader({
   panel,
   point,
-}: {
-  panel: Exclude<DetailChartPanelKey, "kline">;
-  point: DetailChartPoint | null;
-}) {
-  const title = panel === "macd" ? "MACD(12,26,9)" : panel === "volume" ? "成交量" : "KDJ(9,3,3)";
-  const values = !point ? [] : panel === "macd"
-    ? [["MACD", point.macd], ["DIF", point.dif], ["DEA", point.dea]]
+}: (
+  | { panel: Exclude<DetailChartPanelKey, "kline">; point: DetailChartPoint | null }
+  | { panel: "quantitativeStructure"; point: DetailChartMacdValues | null }
+)) {
+  const title = panel === "quantitativeStructure" ? QUANTITATIVE_STRUCTURE_TITLE
+    : panel === "macd" ? "MACD(12,26,9)" : panel === "volume" ? "成交量" : "KDJ(9,3,3)";
+  const values = panel === "quantitativeStructure" || (panel === "macd" && point)
+    ? [["MACD", point?.macd], ["DIF", point?.dif], ["DEA", point?.dea]]
+    : !point ? []
     : panel === "volume" ? [["总量", point.volume]] : [["K", point.k], ["D", point.d], ["J", point.j]];
   return <><strong>{title}</strong>{values.map(([label, raw]) => {
     const value = typeof raw === "number" ? raw : null;
@@ -193,7 +210,7 @@ function IndexMinuteIndicatorBar({
   </div>;
 }
 
-function IndexMinuteTooltip({ point, side, xxm, debugDetails }: { point: DetailChartPoint; side: DetailChartTooltipSide; xxm: XxmLayerState; debugDetails?: import("react").ReactNode }) {
+function IndexMinuteTooltip({ point, side, children }: { point: DetailChartPoint; side: DetailChartTooltipSide; children: ReactNode }) {
   const rows = [
     ["时间", formatMinuteTradeTime(point.fullDate), "secondary"],
     ["开盘", format(point.open), "flat"],
@@ -205,7 +222,7 @@ function IndexMinuteTooltip({ point, side, xxm, debugDetails }: { point: DetailC
   ];
   return <div aria-label="指数分钟K线数据提示" className={`detail-chart-tooltip ${side}`}><div className="detail-chart-tooltip-grid">
     {rows.map(([label, value, tone]) => <div className="detail-chart-tooltip-row" key={label}><span>{label}</span><b className={tone}>{value}</b></div>)}
-  </div><XxmSignalDetails layer={xxm} time={String(point.time)} />{debugDetails}</div>;
+  </div>{children}</div>;
 }
 
 function IndexMinuteModuleState({
