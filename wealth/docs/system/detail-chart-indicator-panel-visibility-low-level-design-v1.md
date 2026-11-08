@@ -1,6 +1,6 @@
 # 股票和指数详情页副图显示与隐藏 LLD v1
 
-> 2026-11-09。第 1–7 节保留原三项副图显隐的 Figma、实测和实现基线。[第 8 节](#quantitative-structure-lld)的量化结构与切周期首屏修复已通过管理员本机页面验收。原显隐规则见[实施方案 R1～R6](./detail-chart-indicator-panel-visibility-implementation-design-v1.md#1-交付范围)，底轴和浏览范围沿用[共享图表 LLD](./detail-chart-zoom-low-level-design-v1.md)。
+> 2026-11-09。原三项副图显隐已在 `ce3246ea5` 实现，管理员确认本机页面验收通过，见[第 5.1 节](#indicator-visibility-acceptance)。第 1–7 节保留原交互、实测和实现基线，[第 8 节](#quantitative-structure-lld)单独记录已验收的量化结构与切周期首屏修复。原显隐规则见[实施方案 R1～R6](./detail-chart-indicator-panel-visibility-implementation-design-v1.md#1-交付范围)，底轴和浏览范围沿用[共享图表 LLD](./detail-chart-zoom-low-level-design-v1.md)。
 
 ## 1. 代码落点与参数
 
@@ -99,6 +99,21 @@ export interface DetailChartIndicatorControls {
 
 受影响测试优先跑 `npm --prefix wealth run test -- detail-workspace stock-detail index-detail`。后续交付门禁执行 `npm --prefix wealth run typecheck`、`npm --prefix wealth run test` 和 `npm --prefix wealth run build`。测试替身只用于按钮、布局属性、状态和图表调用的断言，真实几何和 API 展示用本地浏览器单独验收。
 
+<a id="indicator-visibility-acceptance"></a>
+
+### 5.1 原三项副图显隐验收记录
+
+2026-11-08，开发自检覆盖 `ce3246ea5` 的前端改动。测试和构建在仓库外的临时目录用已有依赖执行。
+
+| 检查 | 结果及覆盖 |
+|---|---|
+| `npm --prefix wealth run test -- detail-workspace stock-detail index-detail` | 55 个文件、668 项通过。四个图表入口覆盖标签显隐与原有标签行为（R1、R5），共享图表覆盖隐藏整块副图、面板顺序、底轴、可见范围及图表实例与序列复用（R1–R3），两页覆盖跨周期选择、换标的重置及点击无额外请求（R4、R6）。 |
+| `npm --prefix wealth run typecheck` | 通过。 |
+| `npm --prefix wealth run test` | 187 个文件、1,631 项通过。 |
+| `npm --prefix wealth run build` | 通过。构建仍有原有的包体积提示。 |
+
+2026-11-09，管理员确认股票和指数详情页原三项副图显隐的本机页面验收通过。验收结论来自管理员反馈，逐项尺寸和接口回包未随反馈提供。第 6.1 节是实现前的实测基线。
+
 ## 6. 真实 API 展示与性能证据
 
 通过现有本地 Wealth 前端入口验收。如需启动前端，沿用本机已配置的开发环境和 `npm --prefix wealth run dev`。用 `/wealth/market/stock/<tsCode>` 和 `/wealth/market/index/<tsCode>` 各选一个已验证日线及分钟数据可用的标的。使用真实路由和本地已启用的分钟能力。每页先等日线 Loaded，再选择现行支持且有数据的分钟周期。周期联动用 5 分钟和另一个已支持的频率。图表全开时记录现有几何基线，使用缩放文档曾量测的 `1600 × 1200` 视口，再用 `1360 × 1200` 覆盖共享 CSS 的窄侧规则，宽度依据现行断点。
@@ -138,7 +153,7 @@ export interface DetailChartIndicatorControls {
 | §2.3 模块状态机 | 适用。第 2 节复用现有状态机和超时。 | R4/R5，现有状态用例。 |
 | §2.4 显示与数据绑定 | 适用。副图仅切显示，保留真实单位、缺值、颜色。 | R1 与第 6 节。 |
 | §2.5 行为过程 | 适用。第 5 节逐项覆盖切换和恢复。 | 组件、页面与浏览器证据。 |
-| §2.6 文档同步 | 适用。原共享方案和 LLD 链接本次设计。 | 开发完成后按 R1～R6 回填对账。 |
+| §2.6 文档同步 | 适用。原共享方案和 LLD 链接本次设计。 | 第 5.1 节记录 R1～R6 的自检结果和管理员验收结论。 |
 | §2.7 渐进替换 | 数据源切换不适用。复用现有真实源，失败处理见方案第 4 节。 | R6 验证现行请求和回退路径。 |
 | §2.8 契约与消费者 | 适用。冻结第 1 节前端参数，四个消费者一并接入。API DTO 原样消费。 | 类型检查与四个适配测试。 |
 | §2.9 图表坐标 | 适用。第 4 节保留横轴同步和时间语义。 | R2/R3 的几何和轴验证。 |
@@ -152,7 +167,7 @@ export interface DetailChartIndicatorControls {
 | §2.17 真实 API 与展示 | 适用。第 6 节真实响应及显示检查。 | 现有真实路由驱动四类浏览器图表，并对照响应字段。 |
 | §2.18 跨模块抽象 | 适用。见方案第 6 节逐条对照。 | 验证同一套布局和状态逻辑覆盖四个入口。 |
 
-CodeGraph 使用 `codegraph_explore` 核对指数页面、共享图表、面板和范围相关符号。`codegraph_callers` 没有返回 JSX 调用方，已通过实际源码引用确认四个图表适配组件是运行时消费者，并核对其上层页面、测试、标签和响应字段。真实浏览器需要复核原始绘图区与底轴的尺寸，以及副图显隐前后的横向范围和位置。
+CodeGraph 使用 `codegraph_explore` 核对指数页面、共享图表、面板和范围相关符号。`codegraph_callers` 没有返回 JSX 调用方，已通过实际源码引用确认四个图表适配组件是运行时消费者，并核对其上层页面、测试、标签和响应字段。浏览器检查项见第 5 节，验收结论见第 5.1 节。
 
 <a id="quantitative-structure-lld"></a>
 

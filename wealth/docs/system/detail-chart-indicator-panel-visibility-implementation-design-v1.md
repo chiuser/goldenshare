@@ -1,6 +1,6 @@
 # 股票和指数详情页副图显示与隐藏方案 v1
 
-> 2026-11-09。第 1–6 节记录原三项副图显隐方案及其 Figma 和量测基线。[第 7 节](#quantitative-structure-plan)的量化结构与切周期首屏修复已通过管理员本机页面验收。
+> 2026-11-09。原三项副图显隐已在 `ce3246ea5` 实现，管理员确认本机页面验收通过。第 1–6 节保留原交互与量测基线，[第 7 节](#quantitative-structure-plan)单独记录已验收的量化结构与切周期首屏修复。
 > 配套文档为[代码级 LLD](./detail-chart-indicator-panel-visibility-low-level-design-v1.md)。
 > [已审阅的 Figma 交互稿](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2191-419)使用原设计文件的可编辑图层。比较页展示指数分钟图的全亮、关 KDJ 和全关，四类图表均有可点击的原型入口。图稿用于审阅交互，尺寸依据见[当前页面实测](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#61-编码前量测记录)。
 
@@ -19,9 +19,9 @@
 
 副图的高度以全开时实际可见的副图内容为基准，包括标题和绘图区。现有底轴占用的空间单独计入，保持底轴高度和整个工作台高度。隐藏 KDJ 后，成交量图贴在独立底轴上方，画柱子的高度保持原样。主图 Tooltip 和右侧技术信息属于各自区域，副图开关只作用于对应副图。
 
-## 2. 当前代码与变更依据
+## 2. 实现前代码与变更依据
 
-| 当前代码 | 已核实的行为 |
+| 代码位置 | 实现前已核实的行为 |
 |---|---|
 | [股票详情页](../../src/pages/stock-detail/StockDetailPage.tsx)、[指数详情页](../../src/pages/index-detail/IndexDetailPage.tsx) | 页面持有当前标的和周期。日线与分钟线分别挂载不同图表组件，因而跨周期的开关选择应放在页面。 |
 | [股票日线标签条](../../src/features/stock-detail/chart/StockChartWorkspace.tsx)、[指数日线标签条](../../src/features/index-detail/chart/IndexChartWorkspace.tsx) | 股票三个标签走暂未支持提示，指数三个标签为禁用按钮。均线、BOLL 和符合现有条件时出现的趋势通道已接通。 |
@@ -48,8 +48,9 @@
 
 1. **Figma 交互审阅已通过。** 以股票和指数日线、分钟线的现有图表和标签为基准，核对全亮、隐藏 KDJ、隐藏中间副图、全部关闭及恢复，以及同一标的跨周期沿用选择。审阅稿作为本轮交互基准。
 2. **实现前量测和复核已完成。** 在本机 Chrome 以 `1600 × 1200` 和 `1360 × 1200` 量测股票和指数的日线、5 分钟线。两档布局的分配比例与现行 CSS 一致，日线日期轴 `24px`、分钟刻度画布 `28px`、标签条 `34px`。实测可作为实现和开发后验收的全开基线。[量测记录](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#61-编码前量测记录)
-3. 按 LLD 接通页面状态、按钮、共享布局和独立底轴。实现完成后逐项核对 R1～R6。
-4. 执行受影响测试、Wealth 类型检查和构建。在本地用真实响应驱动股票、指数的日线与分钟图，记录切换前后布局、当前时间范围和网络。四类图表、跨周期保留及换标的重置均通过后再交付验收。
+3. **前端实现已提交。** 页面状态、按钮、共享布局和独立底轴随 `ce3246ea5` 交付。
+4. **开发自检已通过。** 受影响测试、Wealth 全量测试、类型检查和构建结果见 [LLD 验收记录](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#indicator-visibility-acceptance)。
+5. **本机页面验收已通过。** 2026-11-09，管理员确认原三项副图显隐验收通过。
 
 阶段边界为 Figma 交互审阅、当前页面量测与方案及 LLD 评审、前端开发、浏览器验收。Figma 表达交互和尺寸关系，开工量测以当前真实页面为准。
 
