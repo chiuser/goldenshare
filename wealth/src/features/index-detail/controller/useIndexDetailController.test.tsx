@@ -56,13 +56,13 @@ describe("current index identity is checked before empty data", () => {
     // Wrong-code cases substitute another valid index response, not missing fields.
     vi.mocked(fetchIndexDetailPageInit).mockResolvedValue(empty ? emptyPageInit(responseCode) : makePageInit(responseCode));
 
-    const { result } = renderHook(() => useIndexDetailController(requestedCode, ""));
+    const { result } = renderHook(() => useIndexDetailController(requestedCode, undefined));
     await waitFor(() => expect(result.current.phase).toBe(phase));
 
     expect(result.current.errorCode).toBe(errorCode);
     expect(fetchIndexDetailPageInit).toHaveBeenCalledTimes(1);
     expect(fetchIndexDetailPageInit).toHaveBeenCalledWith(
-      { tsCode: "399001.SZ", tradeDate: undefined, debug: undefined },
+      { tsCode: "399001.SZ", tradeDate: undefined },
       { signal: expect.any(AbortSignal) },
     );
     expect(fetchIndexDetailKline).not.toHaveBeenCalled();
@@ -83,14 +83,14 @@ describe("current index identity is checked before empty data", () => {
     vi.mocked(fetchIndexDetailPageInit).mockResolvedValue(makePageInit(requestedCode));
     vi.mocked(fetchIndexDetailKline).mockResolvedValue(dailyKline(responseCode, empty));
 
-    const { result } = renderHook(() => useIndexDetailController(requestedCode, ""));
+    const { result } = renderHook(() => useIndexDetailController(requestedCode, undefined));
     await waitFor(() => expect(result.current.phase).toBe(phase));
 
     expect(result.current.errorCode).toBe(errorCode);
     expect(fetchIndexDetailPageInit).toHaveBeenCalledTimes(1);
     expect(fetchIndexDetailKline).toHaveBeenCalledTimes(1);
     expect(fetchIndexDetailKline).toHaveBeenCalledWith(
-      { tsCode: "399001.SZ", period: "day", endDate: "2026-07-31", limit: 500, debug: undefined },
+      { tsCode: "399001.SZ", period: "day", endDate: "2026-07-31", limit: 500 },
       { signal: expect.any(AbortSignal) },
     );
     expect(fetchTrendChannel).not.toHaveBeenCalled();
@@ -139,7 +139,7 @@ describe("SSE ordinary daily history", () => {
     vi.mocked(fetchIndexDetailPageInit).mockResolvedValue(makePageInit(code));
     vi.mocked(fetchIndexDetailKline).mockResolvedValueOnce(initial);
     vi.mocked(fetchTrendChannel).mockResolvedValueOnce(makeTrendPayload());
-    const hook = renderHook(({ tsCode }) => useIndexDetailController(tsCode, ""), { initialProps: { tsCode: code } });
+    const hook = renderHook(({ tsCode }) => useIndexDetailController(tsCode, undefined), { initialProps: { tsCode: code } });
     const move = (remaining: number, direction: "history" | "recent", gesture = Symbol(), beyondLeft = false) =>
       act(() => hook.result.current.history.onViewport({
         firstDate, leftDate: initial.bars[remaining - 1]!.tradeDate,
@@ -179,7 +179,7 @@ describe("SSE ordinary daily history", () => {
     move(99, "history");
     expect(fetchIndexDetailKline).toHaveBeenCalledTimes(2);
     expect(fetchIndexDetailKline).toHaveBeenLastCalledWith(
-      { tsCode: code, period: "day", limit: 500, endDate: olderEnd, debug: undefined }, { signal: expect.any(AbortSignal) },
+      { tsCode: code, period: "day", limit: 500, endDate: olderEnd }, { signal: expect.any(AbortSignal) },
     );
     move(140, "recent");
     await act(async () => complete(older));

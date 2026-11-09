@@ -1,7 +1,7 @@
 import type { DetailChartPoint } from "../../../shared/charts/detail-workspace/detailChartTypes";
 import { XXM_ALGORITHM_VERSION, XXM_SPEC_HASH } from "./types";
 import type { UTCTimestamp } from "lightweight-charts";
-import type { XxmResponse, XxmDebugResponse, XxmPeriod } from "./types";
+import type { GoldXxmResponse, XxmResponse, XxmDebugResponse, XxmPeriod } from "./types";
 // Public fields follow src/biz/schemas/wealth/market/index_detail_xxm.py.
 // The independent literal r4 facts below stay unchanged. Each minute table places
 // them on seven consecutive completed bars: originWave.count=3 and the final
@@ -38,4 +38,16 @@ export function xxmDebugFixture(tsCode: string, period: XxmPeriod = "day") {
     const next = { startTime: stamp("2023-01-05", period, tsCode), endTime: stamp("2023-01-09", period, tsCode), price: 103, dif: 100, priceAt: stamp("2023-01-09", period, tsCode), difAt: stamp("2023-01-05", period, tsCode) };
     const value: XxmDebugResponse = { ...response, debug: { sourceInputId: "b".repeat(64), points: [{ time: stamp("2023-01-12", period, tsCode), activeReference: next, activeStructureId: null }], events: [{ id: "cancel-old", route: "structure_price_break", fromState: "STRUCTURE", eventReference: old, relatedStructureId: "old-structure" }, { id: "activate-new", route: "activation", fromState: "NONE", eventReference: next, relatedStructureId: null }], structures: [{ id: "old-structure", structureEventId: "formation-outside-window", direction: "TOP", formedAt: stamp("2023-01-09", period, tsCode), formationRoute: "dif_turn", originSegmentStart: stamp("2023-01-05", period, tsCode), originalReference: old, priceExtreme: 103, priceExtremeAt: stamp("2023-01-09", period, tsCode), status: "DISAPPEARED", originWave: { sign: 1, start: stamp("2023-01-05", period, tsCode), end: stamp("2023-01-09", period, tsCode), count: 3, price: 103, dif: 100, priceAt: stamp("2023-01-09", period, tsCode), difAt: stamp("2023-01-05", period, tsCode) }, firstOppositeAt: stamp("2023-01-10", period, tsCode), nextSameColorStart: stamp("2023-01-11", period, tsCode), nextSameColorCount: 2, trackingPriceExtreme: 104, trackingPriceExtremeAt: stamp("2023-01-12", period, tsCode), trackingEndedAt: stamp("2023-01-12", period, tsCode), disappearedAt: stamp("2023-01-12", period, tsCode), disappearanceReason: "structure_price_break" }] } };
     return { response: value, points: [chartPoint(value.points[0]!)] };
+}
+
+/** Gold keeps the observed curve and events, without live recognition state or a calculation prefix. */
+export function goldXxmFixture(tsCode: string, period: XxmPeriod = "day") {
+    const { response, points } = xxmFixture(tsCode, period);
+    return { response: goldResponse(response), points };
+}
+
+export function goldResponse(response: XxmResponse | XxmDebugResponse): GoldXxmResponse {
+    const { tsCode, period, algorithmVersion, specHash, points, events, meta, dataStatus } = response;
+    return { tsCode, period, algorithmVersion, specHash, events, meta, dataStatus,
+        points: points.map(point => ({ ...point, ordinaryState: null, ordinaryDirection: null })) };
 }

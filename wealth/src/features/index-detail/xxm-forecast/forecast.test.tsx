@@ -4,13 +4,14 @@ import { useXxmForecast } from "./useXxmForecast";
 import { fetchForecast } from "./apiClient";
 import { XxmForecastCard } from "./XxmForecastCard";
 import { forecastFixture, forecastDebugFixture, forecastReactivationFixture } from "./forecastFixtures.test-support";
-import { renderForecastDetails } from "../debug/IndexRecognitionDebug";
-import { decodeForecastDebug } from "../debug/forecastDebugContract";
+import { ForecastDebugDetails } from "../debug/ForecastDebugDetails";
+import type { ForecastDebugResponse, ForecastResponse } from "./types";
+const renderForecastDetails = (response: ForecastResponse) => "debug" in response ? <ForecastDebugDetails response={response as ForecastDebugResponse} /> : null;
 import type { ForecastPeriod, ForecastRequestResult, ForecastRows } from "./types";
 
 vi.mock("./apiClient", () => ({ fetchForecast: vi.fn() }));
 const mocked = vi.mocked(fetchForecast);
-const initial = { active: false, tsCode: "399001.SZ", minutes: true, enabled: true, debug: 0 as const };
+const initial = { active: false, tsCode: "399001.SZ", minutes: true, enabled: true };
 const wrapped = (tsCode: string, period: ForecastPeriod) => ({ response: forecastFixture(tsCode, period), deadline: performance.now() + 5000 });
 beforeEach(() => mocked.mockReset());
 afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
@@ -63,16 +64,13 @@ it.each([{ dev: false, enabled: true }, { dev: true, enabled: false }])("does no
   expect(mocked).not.toHaveBeenCalled();
 });
 
-it("waits for the requested debug decoder and keeps disabled minute rows unsupported", async () => {
-  const props: Parameters<typeof useXxmForecast>[0] = { ...initial, active: true, minutes: false, debug: 1 };
-  mocked.mockResolvedValue({ response: forecastDebugFixture("399001.SZ"), deadline: performance.now() + 5000 });
-  const { result, rerender } = renderHook(p => useXxmForecast(p), { initialProps: props });
-  expect(mocked).not.toHaveBeenCalled();
-  for (const period of ["m30", "m60", "m90", "m120"] as const) expect(result.current.rows[period].phase).toBe("unsupported");
-  rerender({ ...props, decodeDebug: decodeForecastDebug });
+it("loads only the supported day row through the supplied request function", async () => {
+  const load = vi.fn().mockResolvedValue({ response: forecastDebugFixture("399001.SZ"), deadline: performance.now() + 5000 });
+  const { result } = renderHook(() => useXxmForecast({ ...initial, active: true, minutes: false }, load));
   await waitFor(() => expect(result.current.rows.day.phase).toBe("ready"));
-  expect(mocked).toHaveBeenCalledTimes(1);
-  expect(mocked.mock.calls[0]!.slice(0, 3)).toEqual(["399001.SZ", "day", undefined]);
+  for (const period of ["m30", "m60", "m90", "m120"] as const) expect(result.current.rows[period].phase).toBe("unsupported");
+  expect(load).toHaveBeenCalledTimes(1);
+  expect(mocked).not.toHaveBeenCalled();
 });
 
 it("aborts and ignores late values on deactivation", async () => {
@@ -151,7 +149,7 @@ it("renders five rows in order using backend text and retries the selected m30 r
   fireEvent.click(screen.getByRole("button", { name: "重试30 分钟关键点预判" }));
   expect(retry).toHaveBeenCalledTimes(1);
   expect(retry).toHaveBeenCalledWith("m30");
-  rerender(<XxmForecastCard rows={rows} retry={retry} renderDebugDetails={renderForecastDetails} />);
+  rerender(<XxmForecastCard rows={rows} retry={retry} renderDetails={renderForecastDetails} />);
   expect(screen.getByText("计算依据")).toBeVisible();
   expect(screen.queryByText(/评分|可信度|买入|卖出/)).not.toBeInTheDocument();
 });
@@ -161,7 +159,7 @@ it.each([false, true])("renders the ready m30 row's backend text and requested a
   const rows = Object.fromEntries(periods.map(period => [period, { phase: "ready", response: forecastFixture("399001.SZ", period), error: "" }])) as ForecastRows;
   const response = debug ? forecastDebugFixture("399001.SZ", "m30") : forecastFixture("399001.SZ", "m30");
   rows.m30 = { phase: "ready", response, error: "" };
-  const { container } = render(<XxmForecastCard rows={rows} retry={vi.fn()} renderDebugDetails={debug ? renderForecastDetails : undefined} />);
+  const { container } = render(<XxmForecastCard rows={rows} retry={vi.fn()} renderDetails={debug ? renderForecastDetails : undefined} />);
   const element = container.querySelector<HTMLElement>('[data-period="m30"]')!;
   const row = within(element);
   expect(element).toHaveAttribute("data-phase", "ready");
@@ -190,11 +188,12 @@ it.each([
 ] as const)("ignores a late $late after changing $change and accepts only the new result", async ({ change, late }) => {
   const pending: Array<{ resolve: (value: ForecastRequestResult) => void; reject: (error: Error) => void }> = [];
   mocked.mockImplementation(() => new Promise((resolve, reject) => pending.push({ resolve, reject })));
-  const props: Parameters<typeof useXxmForecast>[0] = { ...initial, active: true, minutes: false, decodeDebug: decodeForecastDebug };
-  const { result, rerender } = renderHook(p => useXxmForecast(p), { initialProps: props });
+  const props = { ...initial, active: true, minutes: false, historicalDate: undefined as string | undefined, load: fetchForecast };
+  const otherLoad: typeof fetchForecast = (...args) => fetchForecast(...args);
+  const { result, rerender } = renderHook(({ load, ...p }) => useXxmForecast(p, load), { initialProps: props });
   await waitFor(() => expect(pending).toHaveLength(1));
   const oldSignal = mocked.mock.calls[0]![3];
-  const next = { ...props, ...(change === "index" ? { tsCode: "000688.SH" } : change === "date" ? { historicalDate: "2023-01-10" } : { debug: 1 as const }) };
+  const next = { ...props, ...(change === "index" ? { tsCode: "000688.SH" } : change === "date" ? { historicalDate: "2023-01-10" } : { load: otherLoad }) };
   rerender(next);
   await waitFor(() => expect(pending).toHaveLength(2));
   expect(oldSignal.aborted).toBe(true);
@@ -202,7 +201,6 @@ it.each([
   await act(async () => pending[1]!.resolve({ response, deadline: performance.now() + 5000 }));
   expect(result.current.rows.day.response).toEqual(response);
   expect(mocked.mock.calls[1]!.slice(0, 3)).toEqual([next.tsCode, "day", next.historicalDate]);
-  expect(mocked.mock.calls[1]![4]?.debug).toBe(change === "debug" ? 1 : undefined);
   await act(async () => {
     if (late === "success") pending[0]!.resolve(wrapped(props.tsCode, "day"));
     else pending[0]!.reject(new Error("old request failed"));

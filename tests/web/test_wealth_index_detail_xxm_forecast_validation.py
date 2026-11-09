@@ -9,9 +9,11 @@ import hashlib
 import json
 
 import pytest
+from src.biz.services.wealth.market.index_detail_xxm.debug_projection import project_debug_forecast
 from src.biz.schemas.wealth.market.index_detail_xxm_forecast import (
-    ForecastResponseDto, ForecastDebugResponseDto, InternalForecastResponseDto,
+    ForecastResponseDto, InternalForecastResponseDto,
 )
+from src.biz.schemas.wealth.market.index_detail_xxm_forecast_debug import ForecastDebugResponseDto
 from src.biz.services.wealth.market.index_detail_xxm.forecast_identity import (
     forecast_result_id, forecast_condition_id,
 )
@@ -54,7 +56,7 @@ def following_payload(payload):
 
 @pytest.mark.parametrize('bad',[True,False,1.0,'1',0,2])
 def test_f01_bar_count_rejected_before_literal_conversion(full_payload,bad):
-    normal=project_forecast_response(InternalForecastResponseDto.model_validate(full_payload),debug=False).model_dump()
+    normal=project_forecast_response(InternalForecastResponseDto.model_validate(full_payload)).model_dump()
     normal['barsAhead']=bad
     with pytest.raises(ValueError):ForecastResponseDto.model_validate(normal)
     assert ForecastResponseDto.model_validate(dict(normal,barsAhead=1)).barsAhead==1
@@ -95,8 +97,8 @@ def test_f02_single_colored_bar_and_wire_native_roundtrip_remain_valid(full_payl
         raw=stamps(raw);raw['precisionPolicy']='full_float'
     raw=assign_ids(raw)
     internal=InternalForecastResponseDto.model_validate(raw)
-    normal=project_forecast_response(internal,debug=False).model_dump()
-    debug=project_forecast_response(internal,debug=True).model_dump()
+    normal=project_forecast_response(internal).model_dump()
+    debug=project_debug_forecast(internal).model_dump()
     assert normal=={k:v for k,v in debug.items() if k!='debug'}
     assert debug['debug']['structureFollowConditions'][0]['originWave']['count']==1
     assert ForecastDebugResponseDto.model_validate(debug).forecastId==normal['forecastId']
@@ -155,7 +157,7 @@ def test_p4_batch1_forecast_projection_does_not_rebuild_internal(full_payload, d
     internal = InternalForecastResponseDto.model_validate(following_payload(full_payload))
     before = internal.model_dump()
     with patch.object(InternalForecastResponseDto, 'model_validate', wraps=InternalForecastResponseDto.model_validate) as validate:
-        public = project_forecast_response(internal, debug=debug)
+        public = (project_debug_forecast if debug else project_forecast_response)(internal)
     assert validate.call_count == 0
     assert public.ordinaryState == 'DULL' and public.direction == 'BOTTOM'
     assert public.targetEndpoint == '2023-01-11' and public.barsAhead == 1
@@ -199,17 +201,12 @@ def test_p4_batch1_f04_cached_nested_model_is_revalidated(full_payload, m1, sour
 @pytest.mark.parametrize('debug', [False, True])
 def test_p4_batch1_forecast_projection_requires_internal_model_and_strict_debug(full_payload, debug):
     internal = InternalForecastResponseDto.model_validate(full_payload)
-    ordinary = project_forecast_response(internal, debug=False)
-    detailed = project_forecast_response(internal, debug=True)
+    ordinary = project_forecast_response(internal)
+    detailed = project_debug_forecast(internal)
     assert ordinary.model_dump() == {k: v for k, v in detailed.model_dump().items() if k != 'debug'}
     for bad in (internal.model_dump(), ordinary, detailed, None, object()):
         with pytest.raises(ValueError, match='InternalForecastResponseDto'):
-            project_forecast_response(bad, debug=debug)
-    for bad_debug in (0, 1, None, 'true'):
-        with pytest.raises(ValueError, match='Debug must be a boolean'):
-            project_forecast_response(internal, debug=bad_debug)
-        with pytest.raises(ValueError, match='Debug must be a boolean'):
-            project_forecast_response({}, debug=bad_debug)
+            (project_debug_forecast if debug else project_forecast_response)(bad)
 
 
 @pytest.mark.parametrize('debug', [False, True])
@@ -225,7 +222,7 @@ def test_p4_batch1_forecast_projection_keeps_dynamic_audit_wrapper(full_payload,
     assert audit._REQUEST_ID.get() is None
     with audit._observe(collector):
         assert query.project_forecast_response is not original
-        public = query.project_forecast_response(internal, debug=debug)
+        public = project_debug_forecast(internal) if debug else query.project_forecast_response(internal)
         assert public.targetEndpoint == '2023-01-11' and public.ordinaryState == 'DULL'
         if debug:
             assert public.debug.structureFollowConditions[0].originWave.count == 1
@@ -234,7 +231,7 @@ def test_p4_batch1_forecast_projection_keeps_dynamic_audit_wrapper(full_payload,
 
 
 def test_f05_normal_identity_format_is_closed_but_does_not_require_debug(full_payload):
-    normal=project_forecast_response(InternalForecastResponseDto.model_validate(full_payload),debug=False).model_dump()
+    normal=project_forecast_response(InternalForecastResponseDto.model_validate(full_payload)).model_dump()
     for value in ['',True,'wrong','G'*64,'f'*63,'f'*64+'\n']:
         with pytest.raises(ValueError):ForecastResponseDto.model_validate(dict(normal,forecastId=value))
     assert ForecastResponseDto.model_validate(normal).status=='READY'

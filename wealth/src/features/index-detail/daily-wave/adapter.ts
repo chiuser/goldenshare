@@ -1,6 +1,3 @@
-import type { IndexDetailKlineResponseDto } from "../api/indexDetailApiTypes";
-import { toCandlePoint } from "../api/indexDetailViewModelAdapter";
-import type { IndexCandlePoint } from "../model/indexDetailTypes";
 import type {
   DailyWaveColorSegment, DailyWaveConfirmedTurn, DailyWaveDateRange, DailyWaveEmptyResponse,
   DailyWaveExtrema, DailyWavePendingTurn, DailyWavePriceSegment,
@@ -260,20 +257,4 @@ export function decodeDailyWaveResponse(raw: unknown): DailyWaveResponse {
   const response = parseReady(raw);
   checkReady(response);
   return response;
-}
-
-export type DailyWaveKlineMatch = { matched: true; candles: IndexCandlePoint[] } | { matched: false; message: string };
-export function matchDailyWaveKline(response: DailyWaveReadyResponse, kline: IndexDetailKlineResponseDto): DailyWaveKlineMatch {
-  const mismatch: DailyWaveKlineMatch = { matched: false, message: "行情与研究结果不一致，暂不显示波段" };
-  if (kline?.indexRef?.tsCode !== response.tsCode || kline?.period !== "day" || !Array.isArray(kline.bars)
-      || kline.bars.length !== response.sourcePoints.length) return mismatch;
-  for (let i = 0; i < kline.bars.length; i++) {
-    const bar = kline.bars[i], source = response.sourcePoints[i];
-    if (!bar || !source || bar.tradeDate !== source.date || i > 0 && kline.bars[i - 1]!.tradeDate >= bar.tradeDate) return mismatch;
-    const actual = [bar.close, bar.factors?.macd?.dif, bar.factors?.macd?.dea, bar.factors?.macd?.macd];
-    const expected = [source.close, source.dif, source.dea, source.macd].map(Number);
-    if (!actual.every((value, index) => typeof value === "number" && Number.isFinite(value)
-        && Number.isFinite(expected[index]) && value === expected[index])) return mismatch;
-  }
-  return { matched: true, candles: kline.bars.map(toCandlePoint) };
 }

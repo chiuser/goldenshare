@@ -100,6 +100,15 @@ export interface XxmResponse {
         asOf: string | null;
     };
 }
+export interface GoldXxmPoint extends Omit<XxmPoint, "ordinaryState" | "ordinaryDirection"> {
+    ordinaryState: null;
+    ordinaryDirection: null;
+}
+export interface GoldXxmResponse extends Omit<XxmResponse, "source" | "points"> {
+    points: GoldXxmPoint[];
+}
+export type XxmHistoryResponse = GoldXxmResponse | XxmResponse | XxmDebugResponse;
+
 export interface XxmDebugData {
     sourceInputId: string;
     points: XxmDebugPoint[];
@@ -115,7 +124,7 @@ export interface XxmMarker {
     event: XxmEvent;
 }
 export interface XxmDetail {
-    point: XxmPoint;
+    point: XxmPoint | GoldXxmPoint;
     events: XxmEvent[];
     displayEvents: XxmEvent[];
     debugDetail: {
@@ -125,7 +134,7 @@ export interface XxmDetail {
     } | null;
 }
 export interface XxmViewModel {
-    response: XxmResponse | XxmDebugResponse;
+    response: XxmHistoryResponse;
     markers: XxmMarker[];
     byTime: Map<string, XxmDetail>;
 }
@@ -136,6 +145,6 @@ export interface XxmLayerState {
     errorMessage: string;
 }
 export interface XxmRequestResult {
-    response: XxmResponse | XxmDebugResponse;
+    response: XxmHistoryResponse;
     deadline: number;
 }

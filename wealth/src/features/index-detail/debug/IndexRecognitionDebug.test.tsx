@@ -1,34 +1,16 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
 import type { DetailChartWorkspaceProps } from "../../../shared/charts/detail-workspace/detailChartTypes";
 import { useDetailChartIndicatorControls } from "../../../shared/charts/detail-workspace/useDetailChartIndicatorControls";
 import { makeOrdinaryKline, makePageInit, makeTrendPayload } from "../testing/indexDetailTestFixtures";
-import { dailyWaveKlineFixture, dailyWaveReadyFixture } from "../daily-wave/dailyWaveFixtures.test-support";
-import { useCallback,useEffect,useState } from "react";
+import { dailyWaveEndedKlineFixture, dailyWaveEndedFixture } from "../daily-wave/dailyWaveFixtures.test-support";
+import { DailyWavePrimitive } from "../daily-wave/DailyWavePrimitive";
 import { IndexRecognitionDebug } from "./IndexRecognitionDebug";
-import type { IndexRecognitionDebugExtension } from "./types";
 import { IndexChartWorkspace } from "../chart/IndexChartWorkspace";
 import { useIndexDetailController } from "../controller/useIndexDetailController";
-import { useNineTurnSeriesRegistry } from "../../nine-turn/controller/useNineTurnSeriesRegistry";
-import { loadIndexNineTurnSeries } from "../api/indexNineTurnLoader";
-import { IndexInfoRail } from "../sidebar/IndexInfoRail";
-import type { IndexTechnicalNineTurnSummary } from "../model/indexTechnicalNineTurnSummary";
-import type { IndexPeriodKey } from "../model/indexDetailTypes";
-const DAILY=["day"] as const;
-function Harness({debug=true}:{debug?:boolean}){
-  const controller=useIndexDetailController("000001.SH","");
-  const indicatorControls=useDetailChartIndicatorControls("000001.SH");
-  const vm=controller.viewModel;
-  const [extension,setExtension]=useState<IndexRecognitionDebugExtension|null>(null);
-  const owner=`000001.SH|day|${vm?.asOfTradeDate??""}`;
-  const onChange=useCallback((key:string,next:IndexRecognitionDebugExtension|null)=>{if(key===owner)setExtension(next);},[owner]);
-  const nine=useNineTurnSeriesRegistry({tsCode:"000001.SH",subjectType:"index",dailyLimit:500,endDate:vm?.asOfTradeDate??null,load:loadIndexNineTurnSeries,supportedPeriods:DAILY,supportsNineTurn:vm?.capabilities.supportsNineTurn??false});
-  useEffect(()=>{if(vm)void nine.ensure("day");},[!!vm,nine.ensure]);
-  if(!vm)return null;
-  return <>{debug ? <IndexRecognitionDebug ownerKey={owner} tsCode="000001.SH" activePeriod="day" ordinaryAsOfDate={vm.asOfTradeDate} supportsNineTurn={vm.capabilities.supportsNineTurn} supportsTrend={vm.capabilities.supportsTrendChannel} onChange={onChange}/> : null}
-    <IndexChartWorkspace recognition={{recognitionEnabled:true,debug:debug?1:0}} debugExtension={extension??undefined} indicatorControls={indicatorControls} nineTurnLayer={nine.stateFor("day")} onNineTurnRetry={()=>{void nine.retry("day");}} trend={controller.trend} trendPhase={controller.trendPhase} onTrendRetry={controller.retryTrend} viewModel={vm}/>
-    <IndexInfoRail activeTab="basic" nineTurnSummary={{} as IndexTechnicalNineTurnSummary} onAction={()=>{}} onNineTurnRetry={()=>{}} onTrendRetry={controller.retryTrend} onTabChange={()=>{}} pagePhase="ready" partialReasons={[]} trend={controller.trend} trendPhase={controller.trendPhase} viewModel={vm} weights={{data:null,errorMessage:"",phase:"idle",retry:()=>{}}}/></>;
-}
+import { idleNineTurnLayer } from "../../nine-turn/model/nineTurnAdapter";
+import { fetchDebugKline, fetchDebugPageInit } from "./apiClient";
+import { toCandlePoint } from "../api/indexDetailViewModelAdapter";
 
 const chart = vi.hoisted(() => ({ props: null as DetailChartWorkspaceProps | null }));
 vi.mock("../xxm/useIndexXxmLayer", () => ({ useIndexXxmLayer: () => ({ phase: "unsupported", data: null,
@@ -36,215 +18,57 @@ vi.mock("../xxm/useIndexXxmLayer", () => ({ useIndexXxmLayer: () => ({ phase: "u
 vi.mock("../../../shared/charts/detail-workspace/DetailChartWorkspace", () => ({
   DetailChartWorkspace: (props: DetailChartWorkspaceProps) => {
     chart.props = props;
-    return <div aria-label={props.ariaLabel} className="detail-chart-workspace" data-key={props.dataKey}>
-      {props.renderMainHeader(props.points.at(-1) ?? null)}{props.mainLayerAccessory}<div className="detail-chart-indicator-bar">{props.bottomBar}</div>
+    return <div aria-label={props.ariaLabel} data-key={props.dataKey}>
+      {props.renderMainHeader(props.points.at(-1) ?? null)}{props.mainLayerAccessory}{props.bottomBar}
     </div>;
   },
 }));
-afterEach(() => { vi.unstubAllGlobals(); chart.props = null; });
-const json = (payload: unknown, status = 200) => new Response(JSON.stringify(payload), { status });
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); chart.props = null; });
 
-function installSource({ failResearchTrend = false, mismatch = false, researchTrend = null as Promise<Response> | null } = {}) {
-  let calculations = 0;
+function Harness({ withHistory = false }: { withHistory?: boolean }) {
+  const controller = useIndexDetailController("000001.SH", undefined, true, fetchDebugPageInit, fetchDebugKline);
+  const indicatorControls = useDetailChartIndicatorControls("000001.SH");
+  if (!controller.viewModel) return null;
+  const history = withHistory ? {
+    ...controller.history, active: true, visible: {
+      candles: [...dailyWaveEndedKlineFixture().bars.map(toCandlePoint), ...controller.viewModel.chart.candles],
+      nineTurnMarkers: [], trendPoints: [], failedLayers: [],
+    },
+  } : { ...controller.history, active: true };
+  return <IndexChartWorkspace recognitionEnabled={false} MainChartAddon={IndexRecognitionDebug}
+    indicatorControls={indicatorControls} nineTurnLayer={idleNineTurnLayer("day")} onNineTurnRetry={() => {}}
+    trend={controller.trend} trendPhase={controller.trendPhase} viewModel={controller.viewModel} history={history} />;
+}
+
+it("opens the wave with one request and overlays only dates loaded in the existing chart", async () => {
+  const json = (payload: unknown) => new Response(JSON.stringify(payload));
   const fetcher = vi.fn(async (input: RequestInfo | URL) => {
     const url = new URL(String(input));
-    if (url.pathname.endsWith("/page-init")) return json(makePageInit());
-    if (url.pathname.endsWith("/daily-waves")) return json(dailyWaveReadyFixture(`review-${++calculations}`));
-    if (url.pathname.endsWith("/kline")) {
-      if (!url.searchParams.has("startDate")) return json(makeOrdinaryKline());
-      const kline = dailyWaveKlineFixture();
-      if (mismatch) kline.bars[1]!.factors.macd.dif = 4.01;
-      return json(kline);
-    }
-    if (url.pathname.endsWith("/nine-turn")) return json(nineTurn(url.searchParams.get("endDate")!, Number(url.searchParams.get("limit"))));
-    if (url.pathname.endsWith("/trend-channel")) {
-      const end = url.searchParams.get("end_date")!;
-      if (researchTrend && end === "2023-10-26") return researchTrend;
-      if (failResearchTrend && end === "2023-10-26") return json({ message: "趋势暂不可用" }, 503);
-      const trend = makeTrendPayload();
-      if (end === "2023-10-26") {
-        trend.data_status.observed_trade_date = end;
-        trend.bars.forEach((bar, index) => { bar.trade_date = index ? "20231026" : "20231025"; });
-      }
-      return json(trend);
-    }
-    return json({}, 404);
+    if (url.pathname.endsWith("/debug/page-init")) return json(makePageInit());
+    if (url.pathname.endsWith("/debug/kline")) return json(makeOrdinaryKline());
+    if (url.pathname.endsWith("/debug/daily-waves")) return json(dailyWaveEndedFixture());
+    if (url.pathname.endsWith("/trend-channel")) return json(makeTrendPayload());
+    return new Response(null, { status: 404 });
   });
   vi.stubGlobal("fetch", fetcher);
-  return fetcher;
-}
-
-it.each([
-  ["399001.SZ", "day"], ["399006.SZ", "m30"], ["000001.SH", "m30"],
-  ["000001.SH", "m60"], ["000001.SH", "m90"], ["000001.SH", "m120"],
-] as const)("does not mount the independent study for %s/%s", (tsCode, activePeriod) => {
-  const fetcher = vi.fn();
-  vi.stubGlobal("fetch", fetcher);
-  const onChange = vi.fn();
-  render(<IndexRecognitionDebug ownerKey={`${tsCode}|${activePeriod}|2026-07-31`} tsCode={tsCode}
-    activePeriod={activePeriod} ordinaryAsOfDate="2026-07-31" supportsNineTurn supportsTrend onChange={onChange} />);
-  expect(screen.queryByRole("button", { name: "波段核对" })).not.toBeInTheDocument();
-  expect(fetcher).not.toHaveBeenCalled();
-  expect(onChange).not.toHaveBeenCalled();
-});
-
-it.each([
-  ["399001.SZ", "day"], ["000001.SH", "m30"],
-] as const)("clears a running study when its owner changes to %s/%s", async (tsCode, activePeriod) => {
-  const original = installSource();
-  let finish!: (response: Response) => void;
-  let signal: AbortSignal | undefined;
-  const fetcher = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-    if (String(input).includes("/daily-waves")) {
-      signal = init?.signal ?? undefined;
-      return new Promise<Response>(resolve => { finish = resolve; });
-    }
-    return original(input);
-  });
-  vi.stubGlobal("fetch", fetcher);
-  const onChange = vi.fn();
-  const firstOwner = "000001.SH|day|2026-07-31";
-  const { rerender } = render(<IndexRecognitionDebug ownerKey={firstOwner} tsCode="000001.SH" activePeriod="day"
-    ordinaryAsOfDate="2026-07-31" supportsNineTurn supportsTrend onChange={onChange} />);
-  const extension = onChange.mock.calls.at(-1)![1] as IndexRecognitionDebugExtension;
-  // The controller exports its controls to the page; exercise that real manual action.
-  const controls = render(<>{extension.controls}</>);
+  const drawing = vi.spyOn(DailyWavePrimitive.prototype, "setData");
+  const { rerender } = render(<Harness />);
+  const graph = await screen.findByLabelText("指数日线图表区");
+  const before = chart.props!;
+  const requestCount = fetcher.mock.calls.length;
   fireEvent.click(screen.getByRole("button", { name: "波段核对" }));
-  await waitFor(() => expect(fetcher.mock.calls.filter(([url]) => String(url).includes("/daily-waves"))).toHaveLength(1));
-  rerender(<IndexRecognitionDebug ownerKey={`${tsCode}|${activePeriod}|2026-07-31`} tsCode={tsCode}
-    activePeriod={activePeriod as IndexPeriodKey} ordinaryAsOfDate="2026-07-31" supportsNineTurn supportsTrend onChange={onChange} />);
-  controls.unmount();
-  expect(signal?.aborted).toBe(true);
-  expect(onChange).toHaveBeenLastCalledWith(firstOwner, null);
-  const afterSwitch = onChange.mock.calls.length;
-  await act(async () => finish(json(dailyWaveReadyFixture())));
-  expect(onChange).toHaveBeenCalledTimes(afterSwitch);
-  expect(fetcher.mock.calls.filter(([url]) => String(url).includes("/kline"))).toHaveLength(0);
+  await waitFor(() => expect(chart.props!.mainPrimitives).toContainEqual(expect.any(DailyWavePrimitive)));
+  expect(screen.getByLabelText("指数日线图表区")).toBe(graph);
+  expect(chart.props!.dataKey).toBe(before.dataKey);
+  expect(chart.props!.points).toBe(before.points);
+  expect(fetcher.mock.calls.slice(requestCount).map(([url]) => new URL(String(url)).pathname))
+    .toEqual(["/api/v1/wealth/market/index-detail/debug/daily-waves"]);
+  expect(drawing.mock.lastCall?.[0].markers).toEqual([]);
+
+  rerender(<Harness withHistory />);
+  await waitFor(() => expect(drawing.mock.lastCall?.[0].markers.length).toBeGreaterThan(0));
+  expect(chart.props!.dataKey).toBe(before.dataKey);
+  expect(fetcher.mock.calls).toHaveLength(requestCount + 1);
+  fireEvent.click(screen.getByRole("button", { name: "波段核对" }));
+  expect(chart.props!.mainPrimitives).not.toContainEqual(expect.any(DailyWavePrimitive));
 });
-
-describe("real extracted research controller/workspace keeps ordinary dates independent", () => {
-  it("does not calculate by default; enters a matched history and returns to the retained ordinary graph", async () => {
-    const fetcher = installSource();
-    render(<Harness/>);
-    await screen.findByRole("button", { name: "波段核对" });
-    expect(chart.props?.dataKey).toBe("index:000001.SH:day");
-    expect(fetcher.mock.calls.some(([url]) => String(url).includes("/daily-waves"))).toBe(false);
-    expect(chart.props?.points.at(-1)?.fullDate).toContain("2026-07-31");
-    fireEvent.click(screen.getByRole("button", { name: "波段核对" }));
-    await waitFor(() => expect(chart.props?.dataKey).toBe("index:000001.SH:day:wave-review:review-1"));
-    expect(chart.props?.points.map((p) => p.close)).toEqual([110, 105, 120]);
-    expect(chart.props?.mainPriceScalePaddingPx).toEqual({ top: 44, bottom: 44 });
-    expect(screen.getByLabelText("IndexHeader")).toHaveTextContent("3940.04");
-    fireEvent.click(screen.getByRole("button", { name: "查看说明" }));
-    expect(screen.getByRole("region", { name: "波段核对说明" })).toHaveTextContent("2023-10-23 / 100");
-    const urls = fetcher.mock.calls.map(([url]) => new URL(String(url)));
-    const kline = urls.filter((url) => url.pathname.endsWith("/kline"));
-    expect(kline.map((url) => [url.searchParams.get("startDate"), url.searchParams.get("endDate"), url.searchParams.get("limit")]))
-      .toEqual([[null, "2026-07-31", "500"], ["2023-10-24", "2023-10-26", "1000"]]);
-    await waitFor(() => expect(fetcher.mock.calls.filter(([url]) => String(url).includes("/nine-turn"))).toHaveLength(2));
-    const nine = fetcher.mock.calls.map(([url]) => new URL(String(url))).filter((url) => url.pathname.endsWith("/nine-turn"));
-    expect(nine.map((url) => [url.searchParams.get("endDate"), url.searchParams.get("limit")]))
-      .toEqual([["2026-07-31", "500"], ["2023-10-26", "1000"]]);
-    fireEvent.click(screen.getByRole("button", { name: "波段核对" }));
-    expect(chart.props?.dataKey).toBe("index:000001.SH:day");
-    expect(chart.props?.points.at(-1)?.fullDate).toContain("2026-07-31");
-    expect(chart.props?.mainPriceScalePaddingPx).toBeUndefined();
-    expect(screen.queryByRole("region", { name: "波段核对说明" })).not.toBeInTheDocument();
-    expect(fetcher.mock.calls.filter(([url]) => String(url).includes("/kline"))).toHaveLength(2);
-  });
-
-  it("updates asynchronous research trend without replacing primitives, lines, dataKey or selected overlay", async () => {
-    let resolve!: (response: Response) => void;
-    installSource({ researchTrend: new Promise<Response>(r => { resolve = r; }) });
-    render(<Harness/>);
-    fireEvent.click(await screen.findByRole("button", { name: "波段核对" }));
-    await waitFor(() => expect(chart.props?.dataKey).toContain("wave-review"));
-    const first = chart.props!;
-    fireEvent.change(screen.getByLabelText("指数主图指标切换"), { target: { value: "TREND_CHANNEL" } });
-    const selected = chart.props!;
-    const payload = makeTrendPayload();
-    payload.data_status.observed_trade_date = "2023-10-26";
-    payload.bars.forEach((bar, i) => { bar.trade_date = i ? "20231026" : "20231025"; });
-    await act(async () => { resolve(json(payload)); });
-    await waitFor(() => expect(screen.queryByText("趋势通道加载中")).not.toBeInTheDocument());
-    expect(chart.props?.dataKey).toBe(first.dataKey);
-    expect(chart.props?.mainPrimitives).toBe(selected.mainPrimitives);
-    expect(chart.props?.mainLines).toBe(selected.mainLines);
-    expect(screen.getByLabelText("指数主图指标切换")).toHaveValue("TREND_CHANNEL");
-  });
-
-  it("leaves matched waves available when only research trend fails, and retries only its historical date", async () => {
-    const fetcher = installSource({ failResearchTrend: true });
-    render(<Harness/>);
-    fireEvent.click(await screen.findByRole("button", { name: "波段核对" }));
-    await waitFor(() => expect(chart.props?.dataKey).toContain("wave-review"));
-    fireEvent.click(await screen.findByRole("button", { name: "趋势通道加载失败 · 重试" }));
-    await waitFor(() => expect(fetcher.mock.calls.filter(([url]) => String(url).includes("end_date=2023-10-26"))).toHaveLength(2));
-    expect(fetcher.mock.calls.filter(([url]) => String(url).includes("end_date=2026-07-31"))).toHaveLength(1);
-    expect(chart.props?.dataKey).toContain("wave-review");
-    expect(screen.getByLabelText("IndexHeader")).toHaveTextContent("3940.04");
-  });
-
-  it("retains the ordinary graph on a true source difference and gives the mismatch explanation", async () => {
-    installSource({ mismatch: true });
-    render(<Harness/>);
-    fireEvent.click(await screen.findByRole("button", { name: "波段核对" }));
-    await screen.findByText("行情与研究结果不一致，暂不显示波段");
-    expect(chart.props?.dataKey).toBe("index:000001.SH:day");
-    expect(chart.props?.points.at(-1)?.close).toBe(3940);
-    expect(chart.props?.mainPriceScalePaddingPx).toBeUndefined();
-    fireEvent.click(screen.getByRole("button", { name: "查看说明" }));
-    expect(screen.getByRole("region", { name: "波段核对说明" })).toHaveTextContent("行情与研究结果不一致");
-  });
-
-  it("closing while compute is pending aborts it and ignores its late history", async () => {
-    const original = installSource();
-    let resolve!: (response: Response) => void;
-    let signal: AbortSignal | undefined;
-    vi.stubGlobal("fetch", vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      if (String(input).includes("/daily-waves")) {
-        signal = init?.signal ?? undefined;
-        return new Promise<Response>((accept) => { resolve = accept; });
-      }
-      return original(input);
-    }));
-    render(<Harness/>);
-    fireEvent.click(await screen.findByRole("button", { name: "波段核对" }));
-    await screen.findByText("正在计算波段划分…");
-    fireEvent.click(screen.getByRole("button", { name: "波段核对" }));
-    expect(signal?.aborted).toBe(true);
-    await act(async () => resolve(json(dailyWaveReadyFixture())));
-    expect(chart.props?.dataKey).toBe("index:000001.SH:day");
-    expect(screen.queryByRole("button", { name: "查看说明" })).not.toBeInTheDocument();
-  });
-});
-
-it("refresh/unmount cancels the pending study, and returning to debug does not restart it",async()=>{
-  const original=installSource();
-  let finish!: (response:Response)=>void;let signal:AbortSignal|undefined;
-  const fetcher=vi.fn((input:RequestInfo|URL,init?:RequestInit)=>{
-    if(String(input).includes("/daily-waves")){
-      signal=init?.signal??undefined;return new Promise<Response>(resolve=>{finish=resolve;});
-    }
-    return original(input);
-  });
-  vi.stubGlobal("fetch",fetcher);
-  const {rerender}=render(<Harness/>);
-  fireEvent.click(await screen.findByRole("button",{name:"波段核对"}));
-  await screen.findByText("正在计算波段划分…");
-  rerender(<Harness debug={false}/>);expect(signal?.aborted).toBe(true);
-  await act(async()=>finish(json(dailyWaveReadyFixture())));
-  expect(chart.props?.dataKey).toBe("index:000001.SH:day");
-  rerender(<Harness debug/>);
-  await screen.findByRole("button",{name:"波段核对"});
-  expect(screen.queryByRole("button",{name:"查看说明"})).not.toBeInTheDocument();
-  expect(fetcher.mock.calls.filter(([url])=>String(url).includes("/daily-waves"))).toHaveLength(1);
-});
-
-function nineTurn(endDate: string, limit: number) {
-  const marker = { completed: false, direction: "UP", sequenceNumber: 3, tradeDate: endDate, tradeTime: null };
-  return { dataStatus: { code: null, expectedEndDate: endDate, observedEndDate: endDate, message: null, status: "READY" }, debugInfo: null,
-    latestMarker: marker, markers: [marker], period: "day", subjectType: "index", tsCode: "000001.SH",
-    meta: { comparisonLag: 4, endDate, formulaVersion: 1, hasMore: false, limit, markerCount: 1, matchedRowCount: 1,
-      missingRowCount: 0, nextCursor: null, observedEndDate: endDate, observedStartDate: endDate, signalThreshold: 9, sourceRowCount: 1, startDate: null } };
-}

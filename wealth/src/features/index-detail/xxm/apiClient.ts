@@ -1,8 +1,7 @@
 import { wealthFetch } from "../../../shared/api/wealthApiClient";
 import { indexDetailRequests } from "../api/indexDetailRequestScheduler";
-import { decodeXxmResponse } from "./adapter";
-import type { DecodeXxmDebug } from "../debug/types";
-import type { XxmPeriod, XxmRequestResult } from "./types";
+import { decodeXxmResponse, type XxmDecodeOptions } from "./adapter";
+import type { XxmHistoryResponse, XxmPeriod, XxmRequestResult } from "./types";
 export const XXM_TIMEOUT_MS = 5000;
 export function checkRequest(signal: AbortSignal, deadline: number) {
     if (signal.aborted)
@@ -10,22 +9,21 @@ export function checkRequest(signal: AbortSignal, deadline: number) {
     if (performance.now() >= deadline)
         throw new Error("顶底识别加载超时，请重试");
 }
-interface Params {
+export interface XxmRequestParams {
     tsCode: string;
     period: XxmPeriod;
     startDate: string;
     endDate: string;
     limit: number;
-    debug?: 1;
-    decodeDebug?: DecodeXxmDebug;
 }
-export function fetchXxm(params: Params, signal: AbortSignal): Promise<XxmRequestResult> {
-    return indexDetailRequests.run("xxm", () => sendXxm(params, signal, performance.now() + XXM_TIMEOUT_MS), signal);
+export function fetchXxm(params: XxmRequestParams, signal: AbortSignal): Promise<XxmRequestResult> {
+    return indexDetailRequests.run("xxm", () => sendXxm(params, signal, performance.now() + XXM_TIMEOUT_MS, "", decodeXxmResponse), signal);
 }
-async function sendXxm(params: Params, signal: AbortSignal, deadline: number): Promise<XxmRequestResult> {
+export async function sendXxm(params: XxmRequestParams, signal: AbortSignal, deadline: number,
+    prefix: string, decode: (raw: unknown, options: XxmDecodeOptions) => XxmHistoryResponse): Promise<XxmRequestResult> {
     const minute = params.period !== "day", endpoint = minute ? "minute-xxm-signals" : "xxm-signals";
-    const url = new URL(`/api/v1/wealth/market/index-detail/${endpoint}`, window.location.origin);
-    url.search = new URLSearchParams({ tsCode: params.tsCode, startDate: params.startDate, endDate: params.endDate, limit: String(params.limit), ...(minute ? { freq: params.period.slice(1) } : { period: "day" }), ...(params.debug ? { debug: "1" } : {}) }).toString();
+    const url = new URL(`/api/v1/wealth/market/index-detail/${prefix}${endpoint}`, window.location.origin);
+    url.search = new URLSearchParams({ tsCode: params.tsCode, startDate: params.startDate, endDate: params.endDate, limit: String(params.limit), ...(minute ? { freq: params.period.slice(1) } : { period: "day" }) }).toString();
     const controller = new AbortController();
     const abort = () => controller.abort(signal.reason);
     signal.addEventListener("abort", abort, { once: true });
@@ -47,7 +45,7 @@ async function sendXxm(params: Params, signal: AbortSignal, deadline: number): P
         }
         const raw: unknown = await http.json();
         check();
-        const response = decodeXxmResponse(raw, { tsCode: params.tsCode, period: params.period, debug: params.debug ?? 0, decodeDebug: params.decodeDebug, check });
+        const response = decode(raw, { tsCode: params.tsCode, period: params.period, check });
         check();
         return { response, deadline };
     }

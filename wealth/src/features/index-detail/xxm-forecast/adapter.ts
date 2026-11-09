@@ -1,20 +1,14 @@
 import { XXM_SPEC_HASH } from "../xxm/types";
 import { assert, keys, timeKey } from "../xxm/adapter";
 import { XXM_FORECAST_VERSION, XXM_FORECAST_SPEC_HASH } from "./types";
-import type { ForecastPeriod, ForecastResponse, ForecastDebugResponse } from "./types";
-import type { DecodeForecastDebug } from "../debug/types";
+import type { ForecastPeriod, ForecastResponse } from "./types";
 const root = "tsCode period forecastVersion forecastSpecHash detectorSpecHash computedThrough requestedAsOf mode dataStatus ordinaryState direction targetEndpoint barsAhead status reasonCode forecastId display applicabilityText invalidationText refreshAfterMs";
-export function adaptForecast(raw: unknown, options: {
-    tsCode: string;
-    period: ForecastPeriod;
-    asOf?: string;
-    debug: 0 | 1;
-    decodeDebug?: DecodeForecastDebug;
-    check: () => void;
-}): ForecastResponse | ForecastDebugResponse {
+export type ForecastDecodeOptions = { tsCode: string; period: ForecastPeriod; asOf?: string; check: () => void };
+
+export function adaptForecast(raw: unknown, options: ForecastDecodeOptions): ForecastResponse {
     const { period, check } = options;
     check();
-    keys(raw, root + (options.debug ? " debug" : ""));
+    keys(raw, root);
     assert(raw.tsCode === options.tsCode && raw.period === period && raw.forecastVersion === XXM_FORECAST_VERSION && raw.forecastSpecHash === XXM_FORECAST_SPEC_HASH && raw.detectorSpecHash === XXM_SPEC_HASH);
     assert(raw.mode === (options.asOf ? "REPLAY" : "LATEST") && raw.requestedAsOf === (options.asOf ?? null));
     for (const stamp of [raw.computedThrough, raw.requestedAsOf, raw.targetEndpoint])
@@ -45,12 +39,6 @@ export function adaptForecast(raw: unknown, options: {
     keys(raw.display, "statusLabel targetText conditionsText asOfText");
     assert(Object.values(raw.display).every(v => typeof v === "string" && v.length > 0) && typeof raw.applicabilityText === "string" && !!raw.applicabilityText && typeof raw.invalidationText === "string" && !!raw.invalidationText);
     const response = Object.fromEntries(root.split(" ").map(k => [k, raw[k]])) as unknown as ForecastResponse;
-    if (options.debug) {
-        assert(options.decodeDebug);
-        const debug = options.decodeDebug(raw.debug, { response, period, asOf: options.asOf, check });
-        check();
-        return { ...response, debug };
-    }
     check();
     return response;
 }

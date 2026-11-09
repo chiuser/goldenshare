@@ -13,7 +13,7 @@ describe("daily-wave API client", () => {
     expect(wealthFetch).toHaveBeenCalledTimes(1);
     const [input, options] = vi.mocked(wealthFetch).mock.calls[0]!;
     const url = new URL(String(input));
-    expect(url.pathname).toBe("/api/v1/wealth/market/index-detail/daily-waves");
+    expect(url.pathname).toBe("/api/v1/wealth/market/index-detail/debug/daily-waves");
     expect([...url.searchParams]).toEqual([["tsCode", "000001.SH"]]);
     expect(options).toEqual({ method: "GET", cache: "no-store", signal: controller.signal });
   });

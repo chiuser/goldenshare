@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { IndexRecognitionDebugModule } from "./types";
+type IndexDetailDebugModule = typeof import("./IndexDetailDebugPage");
 
 type State = {
   phase: "idle" | "loading" | "ready" | "error";
-  module: IndexRecognitionDebugModule | null;
+  module: IndexDetailDebugModule | null;
   errorMessage: string;
 };
 const IDLE: State = { phase: "idle", module: null, errorMessage: "" };
@@ -22,7 +22,7 @@ export function useIndexDebugModule(enabled: boolean) {
     let disposed = false;
     if (!enabled) { setState(IDLE); return; }
     setState(LOADING);
-    void import("./IndexRecognitionDebug").then(module => {
+    void import("./IndexDetailDebugPage").then(module => {
       if (!disposed && active.current && id === sequence.current) {
         setState({ phase: "ready", module, errorMessage: "" });
       }

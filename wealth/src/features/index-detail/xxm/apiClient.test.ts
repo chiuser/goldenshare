@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { wealthFetch } from "../../../shared/api/wealthApiClient";
-import { fetchXxm, XXM_TIMEOUT_MS } from "./apiClient";
+import { fetchXxm, sendXxm, XXM_TIMEOUT_MS } from "./apiClient";
 
 vi.mock("../../../shared/api/wealthApiClient", () => ({ wealthFetch: vi.fn() }));
 afterEach(() => { vi.clearAllMocks(); vi.useRealTimers(); });
@@ -21,7 +21,7 @@ describe("XXM HTTP client", () => {
     expect(url.searchParams.get("freq")).toBe("60");
   });
   it.each(["day", "m30", "m60", "m90", "m120"] as const)("requests and decodes the actual non-Shanghai index for %s", async period => {
-    const { xxmFixture } = await import("./xxmFixtures.test-support");
+    const { goldXxmFixture: xxmFixture } = await import("./xxmFixtures.test-support");
     const fixture = xxmFixture("399001.SZ", period);
     vi.mocked(wealthFetch).mockResolvedValue(new Response(JSON.stringify(fixture.response)));
     const { response } = await fetchXxm({ ...params, tsCode: "399001.SZ", period }, new AbortController().signal);
@@ -57,15 +57,15 @@ describe("XXM HTTP client", () => {
 
 it.each([4999,5001])("keeps the original deadline through real debug decoding at %dms", async end => {
   const { xxmDebugFixture } = await import("./xxmFixtures.test-support");
-  const { decodeXxmDebug } = await import("../debug/xxmDebugContract");
+  const { decodeDebugXxmResponse } = await import("../debug/xxmAdapter");
   let now=0;vi.spyOn(performance,"now").mockImplementation(()=>now);
   vi.mocked(wealthFetch).mockImplementation(async()=>{now=4990;return new Response(JSON.stringify(xxmDebugFixture("000001.SH").response));});
-  const pending=fetchXxm({...params,period:"day",debug:1,decodeDebug:(raw,context)=>{
-    const data=decodeXxmDebug(raw,context);now=end;return data;
-  }},new AbortController().signal);
+  const pending = sendXxm({...params,period:"day"}, new AbortController().signal, 5000, "debug/", (raw, context) => {
+    const data = decodeDebugXxmResponse(raw, context); now = end; return data;
+  });
   try {
     if(end<5000)expect((await pending).deadline).toBe(5000);
     else await expect(pending).rejects.toThrow("超时");
-    expect(new URL(String(vi.mocked(wealthFetch).mock.calls[0]![0])).searchParams.get("debug")).toBe("1");
+    expect(new URL(String(vi.mocked(wealthFetch).mock.calls[0]![0])).pathname).toContain("/debug/xxm-signals");
   } finally {vi.restoreAllMocks();}
 });

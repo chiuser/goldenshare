@@ -8,15 +8,12 @@ from src.biz.queries.wealth.market.context.market_page_context_query import Mark
 from src.biz.queries.wealth.market.index_detail.index_detail_query import IndexDetailQuery
 from src.biz.schemas.wealth.market.index_detail import (
     IndexDetailDataStatusDto,
-    IndexDetailDebugInfoDto,
     IndexDetailIdentityDto,
     IndexDetailIndexRefDto,
-    IndexDetailModuleDebugDto,
     IndexDetailWeightCoverageDto,
     IndexDetailWeightRowDto,
     IndexDetailWeightsResponseDto,
 )
-from src.biz.services.wealth.market.index_detail.index_detail_exception_builder import IndexDetailExceptionBuilder
 from src.biz.services.wealth.market.index_detail.index_detail_field_mapper import build_identity, resolve_direction, to_float
 from src.biz.services.wealth.market.index_detail.index_detail_status_resolver import IndexDetailStatusResolver
 from src.biz.services.wealth.market.index_detail.index_detail_universe import (
@@ -50,16 +47,18 @@ class IndexDetailWeightsQueryService:
         self._context_query = MarketPageContextQuery()
         self._query = IndexDetailQuery()
         self._status_resolver = IndexDetailStatusResolver()
-        self._exception_builder = IndexDetailExceptionBuilder()
 
-    def build_weights(
+    def build_weights(self, session: Session, *, ts_code: str,
+                      trade_date: date | None) -> IndexDetailWeightsResponseDto:
+        return self.query_weights(session, ts_code=ts_code, trade_date=trade_date)[0]
+
+    def query_weights(
         self,
         session: Session,
         *,
         ts_code: str,
         trade_date: date | None,
-        debug: bool,
-    ) -> IndexDetailWeightsResponseDto:
+    ) -> tuple[IndexDetailWeightsResponseDto, bool]:
         self._universe_service.require_supported(ts_code)
         identity = self._load_identity_or_raise(session, ts_code=ts_code)
         context = self._context_query.resolve_context(
@@ -84,9 +83,7 @@ class IndexDetailWeightsQueryService:
                 name=identity.name,
                 contribution_trade_date=context.trade_date,
                 data_status=data_status,
-                debug=debug,
-                source_empty=True,
-            )
+            ), True
 
         contribution_trade_date = daily_anchor["trade_date"]
         weight_trade_date = self._query.load_weight_trade_date(
@@ -106,9 +103,7 @@ class IndexDetailWeightsQueryService:
                 name=identity.name,
                 contribution_trade_date=contribution_trade_date,
                 data_status=data_status,
-                debug=debug,
-                source_empty=False,
-            )
+            ), False
 
         stats = self._query.load_weight_batch_stats(
             session,
@@ -165,20 +160,6 @@ class IndexDetailWeightsQueryService:
             empty=False,
             partial=index_pre_close_missing,
         )
-        exceptions = []
-        if index_pre_close_missing:
-            exceptions.append(
-                self._exception_builder.weight_contribution_partial(
-                    message="指数昨收缺失，无法计算成分贡献点",
-                )
-            )
-        if contribution_trade_date < context.trade_date:
-            exceptions.append(
-                self._exception_builder.source_delayed(
-                    module="indexDetailWeights",
-                    message="权重贡献日期落后于期望日期",
-                )
-            )
         return IndexDetailWeightsResponseDto(
             indexRef=IndexDetailIndexRefDto(tsCode=identity.tsCode, name=identity.name),
             contributionTradeDate=contribution_trade_date,
@@ -194,15 +175,7 @@ class IndexDetailWeightsQueryService:
             ),
             dataStatus=data_status,
             note=_WEIGHTS_NOTE,
-            debugInfo=(
-                IndexDetailDebugInfoDto(
-                    modules=[self._module_debug(data_status, row_count=len(rows), missing_count=missing_count)],
-                    exceptions=exceptions,
-                )
-                if debug
-                else None
-            ),
-        )
+        ), index_pre_close_missing
 
     def _build_empty_response(
         self,
@@ -211,20 +184,7 @@ class IndexDetailWeightsQueryService:
         name: str,
         contribution_trade_date: date,
         data_status: IndexDetailDataStatusDto,
-        debug: bool,
-        source_empty: bool,
     ) -> IndexDetailWeightsResponseDto:
-        exception = (
-            self._exception_builder.source_empty(
-                module="indexDetailWeights",
-                message="指数日线无可用数据",
-            )
-            if source_empty
-            else self._exception_builder.weight_empty(
-                module="indexDetailWeights",
-                message="指数无可用权重批次",
-            )
-        )
         return IndexDetailWeightsResponseDto(
             indexRef=IndexDetailIndexRefDto(tsCode=ts_code, name=name),
             contributionTradeDate=contribution_trade_date,
@@ -240,30 +200,6 @@ class IndexDetailWeightsQueryService:
             ),
             dataStatus=data_status,
             note=_WEIGHTS_NOTE,
-            debugInfo=(
-                IndexDetailDebugInfoDto(
-                    modules=[self._module_debug(data_status, row_count=0, missing_count=None)],
-                    exceptions=[exception],
-                )
-                if debug
-                else None
-            ),
-        )
-
-    @staticmethod
-    def _module_debug(
-        data_status: IndexDetailDataStatusDto,
-        *,
-        row_count: int,
-        missing_count: int | None,
-    ) -> IndexDetailModuleDebugDto:
-        return IndexDetailModuleDebugDto(
-            module="weights",
-            status=data_status.status,
-            expectedTradeDate=data_status.expectedTradeDate,
-            observedTradeDate=data_status.observedTradeDate,
-            rowCount=row_count,
-            missingCount=missing_count,
         )
 
     def _load_identity_or_raise(self, session: Session, *, ts_code: str) -> IndexDetailIdentityDto:

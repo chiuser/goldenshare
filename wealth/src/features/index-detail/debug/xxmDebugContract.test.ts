@@ -1,5 +1,5 @@
 import {expect,it} from "vitest";
-import {decodeXxmResponse,buildXxmViewModel} from "../xxm/adapter";
+import {decodeDebugXxmResponse as decodeXxmResponse,buildDebugXxmViewModel as buildXxmViewModel} from "./xxmAdapter";
 import {xxmDebugFixture} from "../xxm/xxmFixtures.test-support";
 import {decodeXxmDebug} from "./xxmDebugContract";
 const options={tsCode:"000001.SH",period:"day" as const,debug:1 as const,decodeDebug:decodeXxmDebug,check:()=>{}};

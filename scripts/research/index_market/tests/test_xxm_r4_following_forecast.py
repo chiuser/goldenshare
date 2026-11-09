@@ -5,6 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
+from src.biz.services.wealth.market.index_detail_xxm.debug_projection import project_debug_forecast
 from src.biz.queries.wealth.market.index_detail_xxm.forecast_query_service import _assemble
 from src.biz.schemas.wealth.market.index_detail_xxm_forecast import InternalForecastResponseDto
 from src.biz.services.wealth.market.index_detail_xxm.forecast import forecast, precheck_next_bar
@@ -59,8 +60,8 @@ def test_r41_same_bar_break_forecasts_disjoint_results_and_old_price_cancellatio
     internal = _assemble(ts_code=c.ts_code, period=period, through=c.previous.time, as_of=c.previous.time,
                          data_status="READY", ordinary="STRUCTURE", direction="BOTTOM",
                          source_id="a" * 64, calendar_id="b" * 64, result=result, prepared=prepared, check=check)
-    public = project_forecast_response(internal, debug=False)
-    debug = project_forecast_response(internal, debug=True)
+    public = project_forecast_response(internal)
+    debug = project_debug_forecast(internal)
     assert public.model_dump() == debug.model_dump(exclude={"debug"})
     assert debug.debug.farEvaluated and debug.debug.selectedReference == "NEAR"
     assert next(condition for condition in debug.debug.conditions if condition.outcome == combined).referenceRole == "FAR"

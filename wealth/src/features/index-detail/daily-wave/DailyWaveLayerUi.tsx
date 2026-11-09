@@ -15,7 +15,7 @@ export function DailyWaveLayerUi({ review, presentation }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
   const response = review.response;
-  useEffect(() => { setOpen(false); }, [review.enabled, review.dataKey]);
+  useEffect(() => { setOpen(false); }, [review.enabled, review.response?.calculationId]);
   const measurePanel = useCallback(() => {
     const container = containerRef.current;
     const node = container?.closest(".detail-chart-workspace");
@@ -54,10 +54,9 @@ export function DailyWaveLayerUi({ review, presentation }: Props) {
         {review.phase === "empty" ? `截至${response?.requestedEnd ?? "2026-10-21"}暂无可用日线行情` : null}
         {review.phase === "ready" && response?.status === "ready"
           ? `截至${response.observationEnd} · 待核对${count}段` : null}
-        {review.phase === "mismatch" ? "行情与研究结果不一致，暂不显示波段" : null}
         {review.phase === "error" || review.phase === "timeout" ? "波段划分计算失败" : null}
       </span>
-      {review.phase === "error" || review.phase === "timeout" || review.phase === "mismatch"
+      {review.phase === "error" || review.phase === "timeout"
         ? <button className="detail-chart-indicator-tab" onClick={review.retry} type="button">重试</button> : null}
       {canExplain ? <button aria-controls={panelId} aria-expanded={open} className="detail-chart-indicator-tab daily-wave-explain-button"
         onClick={() => setOpen((value) => !value)} ref={toggleRef} type="button">{open ? "收起说明" : "查看说明"}</button> : null}
@@ -67,7 +66,6 @@ export function DailyWaveLayerUi({ review, presentation }: Props) {
           <button className="detail-chart-indicator-tab" onClick={closePanel} type="button">收起</button></div>
         <div className="daily-wave-explanation-scroll" tabIndex={0}>
           <p className="daily-wave-range num">实际范围 {response.observationStart} — {response.observationEnd} · {response.sourcePoints.length}根日线</p>
-          {review.phase === "mismatch" ? <p className="daily-wave-source-message">{review.errorMessage || "行情与研究结果不一致，暂不显示波段。"}</p> : null}
           {presentation?.spaceUnavailableEndpointCount ? <p>有{presentation.spaceUnavailableEndpointCount}个起止K线空间不足，暂未绘制；日期与计算结果保留。</p> : null}
           {presentation && presentation.unavailableEndpointCount > presentation.spaceUnavailableEndpointCount
             ? <p>有{presentation.unavailableEndpointCount - presentation.spaceUnavailableEndpointCount}个起止K线暂时无法定位，计算结果保留。</p> : null}

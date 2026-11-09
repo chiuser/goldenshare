@@ -1,15 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { fetchIndexDetailKline, IndexDetailApiError } from "../api/indexDetailApiClient";
-import { INDEX_DAILY_HISTORY_LIMIT } from "../model/indexDetailConstants";
+import { IndexDetailApiError } from "../api/indexDetailApiClient";
 import type { IndexPeriodKey } from "../model/indexDetailTypes";
-import { DailyWaveContractError, decodeDailyWaveResponse, matchDailyWaveKline } from "./adapter";
+import { DailyWaveContractError, decodeDailyWaveResponse } from "./adapter";
 import { fetchDailyWaveReview } from "./apiClient";
 import type { DailyWaveReviewState } from "./types";
 
 export const DAILY_WAVE_TIMEOUT_MS = 10_000;
-type Snapshot = Pick<DailyWaveReviewState, "enabled" | "phase" | "response" | "candles" | "dataKey" | "errorMessage">;
-const EMPTY_CANDLES: DailyWaveReviewState["candles"] = [];
-const closed = (): Snapshot => ({ enabled: false, phase: "closed", response: null, candles: EMPTY_CANDLES, dataKey: null, errorMessage: "" });
+type Snapshot = Pick<DailyWaveReviewState, "enabled" | "phase" | "response" | "errorMessage">;
+const closed = (): Snapshot => ({ enabled: false, phase: "closed", response: null, errorMessage: "" });
 
 export function useDailyWaveReview({ tsCode, activePeriod, enabled, ownerKey }: { tsCode: string; activePeriod: IndexPeriodKey; enabled: boolean; ownerKey: string }): DailyWaveReviewState {
   const supported = enabled && tsCode === "000001.SH" && activePeriod === "day";
@@ -61,19 +59,7 @@ export function useDailyWaveReview({ tsCode, activePeriod, enabled, ownerKey }: 
         if (!check()) return;
         const response = decodeDailyWaveResponse(raw);
         if (!check()) return;
-        if (response.status === "empty") {
-          setSnapshot({ ...closed(), enabled: true, phase: "empty", response });
-          return;
-        }
-        const kline = await fetchIndexDetailKline({ tsCode: "000001.SH", period: "day",
-          startDate: response.observationStart, endDate: response.observationEnd, limit: INDEX_DAILY_HISTORY_LIMIT }, { signal: request.signal });
-        if (!check()) return;
-        const matched = matchDailyWaveKline(response, kline);
-        if (!check()) return;
-        setSnapshot(matched.matched
-          ? { enabled: true, phase: "ready", response, candles: matched.candles,
-            dataKey: `index:000001.SH:day:wave-review:${response.calculationId}`, errorMessage: "" }
-          : { ...closed(), enabled: true, phase: "mismatch", response, errorMessage: matched.message });
+        setSnapshot({ ...closed(), enabled: true, phase: response.status, response });
       } catch (error) {
         if (!check()) return;
         setSnapshot({ ...closed(), enabled: true, phase: "error",

@@ -1,5 +1,3 @@
-import type { IndexCandlePoint } from "../model/indexDetailTypes";
-
 // HTTP facts mirror DailyWaveReadyDto/EmptyDto (LLD 14.6.1, 15.3, 15.7).
 // Decimal values remain source text; rendering never replaces these facts.
 export type DailyWaveValidity = "VALID" | "INVALID" | "UNKNOWN";
@@ -75,9 +73,9 @@ export interface DailyWaveReadyResponse extends DailyWaveHeader {
   shortOppositeSegments: DailyWaveShortOppositeSegment[]; coverage: DailyWaveCoverage;
 }
 export type DailyWaveResponse = DailyWaveReadyResponse | DailyWaveEmptyResponse;
-export type DailyWavePhase = "closed" | "loading" | "empty" | "ready" | "error" | "timeout" | "mismatch";
+export type DailyWavePhase = "closed" | "loading" | "empty" | "ready" | "error" | "timeout";
 export interface DailyWaveReviewState {
   supported: boolean; enabled: boolean; phase: DailyWavePhase; response: DailyWaveResponse | null;
-  candles: IndexCandlePoint[]; dataKey: string | null; errorMessage: string;
+  errorMessage: string;
   toggle: () => void; retry: () => void; close: () => void;
 }

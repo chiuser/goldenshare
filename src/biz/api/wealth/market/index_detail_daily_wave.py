@@ -6,7 +6,7 @@ import json
 from typing import Callable
 
 import psycopg
-from fastapi import APIRouter, Depends, Query, Request, Response
+from fastapi import Response
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -55,44 +55,29 @@ def _build_response(result, *, budget: DailyWaveBudget) -> Response:
     return response
 
 
-def build_router(*, session_factory: Callable, auth_dependency: Callable,
-                 error_factory: Callable) -> APIRouter:
-    """No App imports, synchronous business sessions, or alternative data reads."""
-    router = APIRouter(prefix="/wealth/market/index-detail", tags=["wealth-market"])
+async def get_daily_waves(*, session_factory: Callable, error_factory: Callable) -> Response:
     service = DailyWaveQueryService(session_factory)
+    task = asyncio.current_task()
 
-    @router.get("/daily-waves", response_model=DailyWaveReadyDto | DailyWaveEmptyDto)
-    async def get_daily_waves(request: Request,
-                              _ts_code: str | None = Query(None, alias="tsCode"),
-                              _user=Depends(auth_dependency)) -> Response:
-        supplied = request.query_params.multi_items()
-        if len(supplied) != 1 or supplied[0] != ("tsCode", DEFAULT_SPEC.ts_code):
-            raise error_factory(status_code=422, code="DAILY_WAVE_INVALID_REQUEST",
-                message="波段核对仅支持唯一的上证指数代码，请检查参数。")
+    def check_cancelled() -> bool:
+        return task is not None and task.cancelling() > 0
 
-        task = asyncio.current_task()
-
-        def check_cancelled() -> bool:
-            return task is not None and task.cancelling() > 0
-
-        try:
-            budget = DailyWaveBudget(DEFAULT_SPEC, check_cancelled=check_cancelled)
-            budget.check()
-            result = await service.build(spec=DEFAULT_SPEC, deadline=budget.deadline,
-                                         check_cancelled=check_cancelled)
-            return _build_response(result, budget=budget)
-        except asyncio.CancelledError:
-            raise
-        except DailyWaveCancelled as error:
-            raise asyncio.CancelledError() from error
-        except DailyWaveBudgetExceeded as error:
-            raise error_factory(status_code=503, code="DAILY_WAVE_BUDGET_EXCEEDED",
-                message="波段划分处理超过限制，请重试。") from error
-        except (DailyWaveSourceError, SQLAlchemyError, psycopg.Error) as error:
-            raise error_factory(status_code=503, code="DAILY_WAVE_SOURCE_INVALID",
-                message="波段划分所需行情或日历暂不可用。") from error
-        except (DailyWaveInputError, ValidationError) as error:
-            raise error_factory(status_code=503, code="DAILY_WAVE_CALCULATION_FAILED",
-                message="波段划分结果校验或响应生成失败。") from error
-
-    return router
+    try:
+        budget = DailyWaveBudget(DEFAULT_SPEC, check_cancelled=check_cancelled)
+        budget.check()
+        result = await service.build(spec=DEFAULT_SPEC, deadline=budget.deadline,
+                                     check_cancelled=check_cancelled)
+        return _build_response(result, budget=budget)
+    except asyncio.CancelledError:
+        raise
+    except DailyWaveCancelled as error:
+        raise asyncio.CancelledError() from error
+    except DailyWaveBudgetExceeded as error:
+        raise error_factory(status_code=503, code="DAILY_WAVE_BUDGET_EXCEEDED",
+            message="波段划分处理超过限制，请重试。") from error
+    except (DailyWaveSourceError, SQLAlchemyError, psycopg.Error) as error:
+        raise error_factory(status_code=503, code="DAILY_WAVE_SOURCE_INVALID",
+            message="波段划分所需行情或日历暂不可用。") from error
+    except (DailyWaveInputError, ValidationError) as error:
+        raise error_factory(status_code=503, code="DAILY_WAVE_CALCULATION_FAILED",
+            message="波段划分结果校验或响应生成失败。") from error

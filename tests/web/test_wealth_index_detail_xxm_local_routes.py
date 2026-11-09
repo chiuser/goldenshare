@@ -16,7 +16,8 @@ from src.foundation.config.settings import Settings, get_settings
 from src.foundation.config.local_minute_capability import LocalMinuteCapability, LocalMinuteCapabilityError
 
 PATH = '/api/v1/wealth/market/index-detail/'
-NAMES = ('xxm-signals', 'xxm-key-point-forecast', 'daily-waves', 'minute-xxm-signals')
+NAMES = ('xxm-signals', 'xxm-key-point-forecast', 'minute-xxm-signals',
+         'debug/daily-waves', 'debug/xxm-signals', 'debug/xxm-key-point-forecast', 'debug/minute-xxm-signals')
 
 
 def settings(**kwargs):
@@ -93,6 +94,16 @@ def test_unconfigured_minutes_do_not_block_dg_daily_query_or_auth(monkeypatch, t
                            50.0::DOUBLE AS kdj_d_bfq, 50.0::DOUBLE AS kdj_bfq
                 ) TO '{part}' (FORMAT PARQUET)
             """)
+        # Match DG's physical nested result schema. This fixture publishes only these three dates.
+        for day in ('2020-01-06', '2020-01-07', '2020-01-08'):
+            result_file = tmp_path / f'gold/indicator/major_index_quantitative_structure/trade_date={day}/part-000.parquet'
+            result_file.parent.mkdir(parents=True)
+            connection.execute("""
+                COPY (SELECT ?::DATE AS trade_date, true AS success,
+                    []::STRUCT(ts_code VARCHAR, period VARCHAR, bar_end_time TIME, event_type VARCHAR,
+                               direction VARCHAR, display_on_chart BOOLEAN)[] AS results)
+                TO ? (FORMAT PARQUET)
+            """, [str(result_file), day])
     app = FastAPI(); install_exception_handlers(app)
     daily_lake = assembly._resolve_index_daily_lake(supplied)
     target = APIRouter(prefix='/api/v1')
@@ -106,9 +117,39 @@ def test_unconfigured_minutes_do_not_block_dg_daily_query_or_auth(monkeypatch, t
     with TestClient(app) as client:
         assert client.get(PATH+'xxm-signals?tsCode=000001.SH').status_code == 401
         app.dependency_overrides[require_quote_access] = lambda: None
-        result = client.get(PATH+'xxm-signals?tsCode=000001.SH&endDate=2020-01-08&limit=8')
+        result = client.get(PATH+'xxm-signals?tsCode=000001.SH&startDate=2020-01-06&endDate=2020-01-08&limit=8')
         assert result.status_code == 200
-        assert [point['close'] for point in result.json()['points']] == [100.0, 101.0, 102.0]
+        points = result.json()['points']
+        assert [point['close'] for point in points] == [100.0, 101.0, 102.0]
+        assert points[-1] == dict(time='2020-01-08', close=102.0, dif=1.0, dea=0.5, hist=1.0,
+                                  ordinaryState=None, ordinaryDirection=None)
+        assert result.json()['events'] == []
+        assert result.json()['dataStatus']['status'] == 'READY'
+        assert 'source' not in result.json()
+        delayed = client.get(PATH+'xxm-signals?tsCode=000001.SH&startDate=2020-01-06&endDate=2020-01-09&limit=8')
+        assert delayed.json()['dataStatus'] == dict(status='DELAYED', message='量化结构结果截至 2020-01-08。', asOf='2020-01-08')
+        assert delayed.json()['points'] == points
+        empty = client.get(PATH+'xxm-signals?tsCode=000001.SH&startDate=2020-01-09&endDate=2020-01-09')
+        assert empty.json()['dataStatus'] == dict(status='EMPTY', message='量化结构结果尚未生成。', asOf=None)
+        assert empty.json()['points'] == empty.json()['events'] == []
+        assert client.get(PATH+'xxm-signals?tsCode=899050.BJ&endDate=2020-01-08').status_code == 404
+        assert client.get(PATH+'xxm-signals?tsCode=000001.SH&debug=1').status_code == 400
+        from src.biz.queries.wealth.market.index_detail_xxm import gold_query
+
+        def timed_out(*args, **kwargs):
+            raise TimeoutError
+
+        window = PATH+'xxm-signals?tsCode=000001.SH&startDate=2020-01-06&endDate=2020-01-08'
+        with monkeypatch.context() as patch:
+            patch.setattr(gold_query, 'read_structure_days', timed_out)
+            for _ in range(2):
+                result = client.get(window)
+                assert result.status_code == 503 and result.json()['code'] == 'XXM_BUDGET_EXCEEDED'
+        assert client.get(window).json()['points'] == points
+        missing = result_file.parent.parent / 'trade_date=2020-01-07' / result_file.name
+        missing.unlink()
+        gap = client.get(window)
+        assert gap.status_code == 500 and gap.json()['code'] == 'XXM_SOURCE_CONTRACT_INVALID'
         chart = client.get(PATH+'kline?tsCode=000001.SH&endDate=2020-01-08&limit=501')
         assert chart.status_code == 200
         assert [bar['close'] for bar in chart.json()['bars']] == [100.0, 101.0, 102.0]
@@ -190,11 +231,18 @@ def test_existing_kline_debug_contract_is_preserved(app_client, db_session):
     from tests.web.test_wealth_index_detail_api import _seed_full_data
     _seed_full_data(db_session)
     params = {'tsCode':'000001.SH','endDate':'2026-08-10','limit':'501'}
-    for debug in (None,'0','1'):
-        response = app_client.get(PATH+'kline',params={**params,**({'debug':debug} if debug is not None else {})})
-        assert response.status_code == 200
-        assert [bar['tradeDate'] for bar in response.json()['bars']] == ['2026-08-07','2026-08-10']
-        assert response.json()['bars'][-1]['close'] == 105.0
-    for extra in ('debug=2','debug=0&debug=1'):
-        response = app_client.get(PATH+'kline?tsCode=000001.SH&'+extra)
-        assert response.status_code == 400 and response.json()['code'] == 'ID_REQUEST_INVALID'
+    ordinary = app_client.get(PATH+'kline', params=params)
+    debug = app_client.get(PATH+'debug/kline', params=params)
+    assert ordinary.status_code == debug.status_code == 200
+    expected = ordinary.json()
+    assert expected['debugInfo'] is None
+    assert [bar['tradeDate'] for bar in expected['bars']] == ['2026-08-07', '2026-08-10']
+    assert expected['bars'][-1]['close'] == 105.0
+    assert debug.json()['debugInfo']['modules'][0]['rowCount'] == 2
+    assert {
+        **debug.json(), 'debugInfo': None, 'pageContext': expected['pageContext'],
+    } == expected
+    for path in ('kline', 'debug/kline'):
+        for extra in ('debug=0', 'debug=1', 'debug=2', 'debug=0&debug=1'):
+            response = app_client.get(PATH+path+'?tsCode=000001.SH&'+extra)
+            assert response.status_code == 400 and response.json()['code'] == 'ID_REQUEST_INVALID'

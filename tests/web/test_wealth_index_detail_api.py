@@ -288,8 +288,8 @@ def test_page_init_uses_daily_prices_factor_volume_and_complete_basic_contract(a
     _seed_full_data(db_session)
 
     response = app_client.get(
-        "/api/v1/wealth/market/index-detail/page-init",
-        params={"tsCode": " 000001.sh ", "tradeDate": "2026-08-10", "debug": "1"},
+        "/api/v1/wealth/market/index-detail/debug/page-init",
+        params={"tsCode": " 000001.sh ", "tradeDate": "2026-08-10"},
     )
 
     assert response.status_code == 200
@@ -396,8 +396,8 @@ def test_page_init_keeps_factor_amount_null_and_never_falls_back_to_daily(app_cl
     db_session.commit()
 
     response = app_client.get(
-        "/api/v1/wealth/market/index-detail/page-init",
-        params={"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10", "debug": 1},
+        "/api/v1/wealth/market/index-detail/debug/page-init",
+        params={"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10"},
     )
 
     assert response.status_code == 200
@@ -446,8 +446,8 @@ def test_page_init_can_be_delayed_without_becoming_partial(app_client, db_sessio
     db_session.commit()
 
     response = app_client.get(
-        "/api/v1/wealth/market/index-detail/page-init",
-        params={"tsCode": _INDEX_CODE, "tradeDate": "2026-08-11", "debug": 1},
+        "/api/v1/wealth/market/index-detail/debug/page-init",
+        params={"tsCode": _INDEX_CODE, "tradeDate": "2026-08-11"},
     )
 
     assert response.status_code == 200
@@ -478,8 +478,8 @@ def test_page_init_without_daily_source_returns_empty_with_stable_identity(app_c
     db_session.commit()
 
     response = app_client.get(
-        "/api/v1/wealth/market/index-detail/page-init",
-        params={"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10", "debug": 1},
+        "/api/v1/wealth/market/index-detail/debug/page-init",
+        params={"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10"},
     )
 
     assert response.status_code == 200
@@ -560,9 +560,8 @@ def test_ma250_null_reclassifies_after_earlier_history_arrives(app_client, db_se
         "startDate": "2026-08-10",
         "endDate": "2026-08-10",
         "limit": 501,
-        "debug": 1,
     }
-    before_backfill = app_client.get("/api/v1/wealth/market/index-detail/kline", params=params)
+    before_backfill = app_client.get("/api/v1/wealth/market/index-detail/debug/kline", params=params)
     assert before_backfill.status_code == 200
     assert before_backfill.json()["bars"][0]["factors"]["ma"]["ma250"] is None
     assert before_backfill.json()["dataStatus"]["status"] == "READY"
@@ -576,7 +575,7 @@ def test_ma250_null_reclassifies_after_earlier_history_arrives(app_client, db_se
     db_session.add(earlier_history)
     db_session.commit()
 
-    after_backfill = app_client.get("/api/v1/wealth/market/index-detail/kline", params=params)
+    after_backfill = app_client.get("/api/v1/wealth/market/index-detail/debug/kline", params=params)
     assert after_backfill.status_code == 200
     payload = after_backfill.json()
     assert payload["bars"][0]["factors"]["ma"]["ma250"] is None
@@ -588,8 +587,8 @@ def test_kline_distinguishes_source_delay_from_factor_lag(app_client, db_session
     _seed_full_data(db_session)
 
     delayed = app_client.get(
-        "/api/v1/wealth/market/index-detail/kline",
-        params={"tsCode": _INDEX_CODE, "endDate": "2026-08-11", "debug": 1, "limit": 501},
+        "/api/v1/wealth/market/index-detail/debug/kline",
+        params={"tsCode": _INDEX_CODE, "endDate": "2026-08-11", "limit": 501},
     )
     assert delayed.status_code == 200
     assert delayed.json()["dataStatus"]["status"] == "DELAYED"
@@ -599,8 +598,8 @@ def test_kline_distinguishes_source_delay_from_factor_lag(app_client, db_session
     db_session.commit()
 
     partial = app_client.get(
-        "/api/v1/wealth/market/index-detail/kline",
-        params={"tsCode": _INDEX_CODE, "endDate": "2026-08-10", "debug": 1, "limit": 501},
+        "/api/v1/wealth/market/index-detail/debug/kline",
+        params={"tsCode": _INDEX_CODE, "endDate": "2026-08-10", "limit": 501},
     )
     assert partial.status_code == 200
     payload = partial.json()
@@ -648,8 +647,8 @@ def test_page_and_weights_use_a_shares_with_daily_first_and_suspension_fallback(
     db_session.commit()
 
     page_response = app_client.get(
-        "/api/v1/wealth/market/index-detail/page-init",
-        params={"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10", "debug": 1},
+        "/api/v1/wealth/market/index-detail/debug/page-init",
+        params={"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10"},
     )
 
     assert page_response.status_code == 200
@@ -673,8 +672,8 @@ def test_page_and_weights_use_a_shares_with_daily_first_and_suspension_fallback(
     assert page_payload["debugInfo"]["exceptions"] == []
 
     weights_response = app_client.get(
-        "/api/v1/wealth/market/index-detail/weights",
-        params={"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10", "debug": 1},
+        "/api/v1/wealth/market/index-detail/debug/weights",
+        params={"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10"},
     )
 
     assert weights_response.status_code == 200
@@ -730,8 +729,8 @@ def test_weights_return_complete_batch_stable_sort_and_frozen_contribution(app_c
     db_session.commit()
 
     response = app_client.get(
-        "/api/v1/wealth/market/index-detail/weights",
-        params={"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10", "debug": 1},
+        "/api/v1/wealth/market/index-detail/debug/weights",
+        params={"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10"},
     )
 
     assert response.status_code == 200
@@ -777,8 +776,8 @@ def test_weights_without_batch_return_empty_instead_of_fake_zero_rows(app_client
     db_session.commit()
 
     response = app_client.get(
-        "/api/v1/wealth/market/index-detail/weights",
-        params={"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10", "debug": 1},
+        "/api/v1/wealth/market/index-detail/debug/weights",
+        params={"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10"},
     )
 
     assert response.status_code == 200
@@ -893,9 +892,10 @@ def test_missing_quotes_preserve_monthly_members_and_literal_contribution_sample
         IndexWeight(index_code=_INDEX_CODE, trade_date=date(2026, 7, 31), con_code="900001.SH", weight=Decimal("1")),
     ])
     db_session.commit()
-    params = {"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10", "debug": debug}
-    page_response = app_client.get("/api/v1/wealth/market/index-detail/page-init", params=params)
-    weight_response = app_client.get("/api/v1/wealth/market/index-detail/weights", params=params)
+    params = {"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10"}
+    prefix = "/api/v1/wealth/market/index-detail" + ("/debug" if debug else "")
+    page_response = app_client.get(f"{prefix}/page-init", params=params)
+    weight_response = app_client.get(f"{prefix}/weights", params=params)
     assert page_response.status_code == weight_response.status_code == 200
     page, weights = page_response.json(), weight_response.json()
     breadth = page["constituentBreadth"]
@@ -923,9 +923,9 @@ def test_complete_and_all_missing_quotes_keep_truthful_counts_without_partial(ap
     else:
         db_session.add(_equity_daily(ts_code="600004.SH", pct_chg=Decimal("1")))
     db_session.commit()
-    params = {"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10", "debug": 1}
-    page = app_client.get("/api/v1/wealth/market/index-detail/page-init", params=params).json()
-    weights = app_client.get("/api/v1/wealth/market/index-detail/weights", params=params).json()
+    params = {"tsCode": _INDEX_CODE, "tradeDate": "2026-08-10"}
+    page = app_client.get("/api/v1/wealth/market/index-detail/debug/page-init", params=params).json()
+    weights = app_client.get("/api/v1/wealth/market/index-detail/debug/weights", params=params).json()
     breadth = page["constituentBreadth"]
     assert [breadth[key] for key in ("upCount", "flatCount", "downCount", "matchedCount", "missingCount")] == counts
     assert page["dataStatus"]["status"] == breadth["dataStatus"]["status"] == weights["dataStatus"]["status"] == "READY"
@@ -955,9 +955,9 @@ def test_missing_constituent_quote_does_not_hide_other_problems(app_client, db_s
         target_date = "2026-08-11"
         db_session.add(TradeCalendar(exchange="SSE", trade_date=date(2026, 8, 11), is_open=True, pretrade_date=_TRADE_DATE))
     db_session.commit()
-    params = {"tsCode": _INDEX_CODE, "tradeDate": target_date, "debug": 1}
-    page = app_client.get("/api/v1/wealth/market/index-detail/page-init", params=params).json()
-    weights = app_client.get("/api/v1/wealth/market/index-detail/weights", params=params).json()
+    params = {"tsCode": _INDEX_CODE, "tradeDate": target_date}
+    page = app_client.get("/api/v1/wealth/market/index-detail/debug/page-init", params=params).json()
+    weights = app_client.get("/api/v1/wealth/market/index-detail/debug/weights", params=params).json()
     assert page["dataStatus"]["status"] == page_status
     assert weights["dataStatus"]["status"] == weights_status
     assert page["constituentBreadth"]["missingCount"] == 1

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adaptForecast } from "../xxm-forecast/adapter";
+import { decodeDebugForecast as adaptForecast } from "./apiClient";
 import { forecastDebugFixture, forecastReactivationFixture } from "../xxm-forecast/forecastFixtures.test-support";
 import type { ForecastPeriod, ForecastDisplayRange } from "../xxm-forecast/types";
 import { decodeForecastDebug } from "./forecastDebugContract";

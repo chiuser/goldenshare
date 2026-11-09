@@ -7,6 +7,7 @@ from unittest.mock import patch
 import pytest
 from pydantic import ValidationError
 
+from src.biz.services.wealth.market.index_detail_xxm.debug_projection import project_debug_signal
 from src.biz.queries.wealth.market.index_detail_xxm.query_service import IndexDetailXxmQueryService as Query, SeriesEntry
 from src.biz.schemas.wealth.market.index_detail_xxm import InternalXxmResponseDto
 from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
@@ -44,8 +45,8 @@ def test_r41_triple_events_survive_cropping_and_public_projection(limit):
     assert len({e.relatedStructureId for e in events[:2]}) == 2
     assert out.points[-1].activeReference == events[-1].eventReference
     assert [s.status for s in out.structures] == ["DISAPPEARED", "DISAPPEARED"]
-    public = project_xxm_response(out, debug=False)
-    debug = project_xxm_response(out, debug=True)
+    public = project_xxm_response(out)
+    debug = project_debug_signal(out)
     assert [e.displayOnChart for e in public.events if e.time == end] == [False, False, True]
     assert public.model_dump() == debug.model_dump(exclude={"debug"})
     assert [e.route for e in debug.debug.events[-3:]] == ["structure_price_break", "dif_break", "activation"]

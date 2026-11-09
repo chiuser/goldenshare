@@ -12,17 +12,21 @@ const group = JSON.parse(rawGroup);
 assert(base && group && ["normal", "debug"].includes(group.mode));
 const prefix = `${root}wealth/src/features/index-detail/`;
 const entry = [
-  ["api/indexDetailApiClient.ts", "fetchIndexDetailMinutes, fetchIndexDetailMinuteIndicators, fetchIndexDetailKline"],
-  ["api/indexNineTurnLoader.ts", "loadIndexNineTurnSeries"],
-  ["api/indexDetailRequestScheduler.ts", "indexDetailRequests"],
+  ["api/indexDetailApiClient.ts", "fetchIndexDetailMinutes, fetchIndexDetailMinuteIndicators"],
+  ["api/indexNineTurnLoader.ts", "makeIndexNineTurnLoader"],
   ["model/indexDetailConstants.ts", "INDEX_DAILY_HISTORY_LIMIT"],
-  ["xxm/adapter.ts", "buildXxmViewModel"],
   ["api/indexMinuteViewModelAdapter.ts", "buildIndexMinuteChartViewModel"],
-  ["xxm/apiClient.ts", "fetchXxm, checkRequest, XXM_TIMEOUT_MS"],
-  ["xxm-forecast/apiClient.ts", "fetchForecast"],
+  ["xxm/apiClient.ts", "checkRequest, XXM_TIMEOUT_MS"],
   ...(group.mode === "debug" ? [
-    ["debug/xxmDebugContract.ts", "decodeXxmDebug"], ["debug/forecastDebugContract.ts", "decodeForecastDebug"],
-  ] : []),
+    ["debug/apiClient.ts", "fetchDebugXxm as fetchXxm, fetchDebugForecast as fetchForecast, fetchDebugKline as fetchIndexDetailKline, debugRequests as indexDetailRequests"],
+    ["debug/xxmAdapter.ts", "buildDebugXxmViewModel as buildXxmViewModel"],
+  ] : [
+    ["api/indexDetailApiClient.ts", "fetchIndexDetailKline"],
+    ["api/indexDetailRequestScheduler.ts", "indexDetailRequests"],
+    ["xxm/adapter.ts", "buildXxmViewModel"],
+    ["xxm/apiClient.ts", "fetchXxm"],
+    ["xxm-forecast/apiClient.ts", "fetchForecast"],
+  ]),
 ].map(([path,names]) => `export { ${names} } from ${JSON.stringify(prefix+path)};`).join("\n");
 const compiled = await build({stdin:{contents:entry,resolveDir:root,sourcefile:"xxm-p4-audit.ts"},
   bundle:true,write:false,platform:"node",format:"esm",logLevel:"silent"});
@@ -76,7 +80,7 @@ async function execute(tab,tabId,round,work,{r4=false,adapt}={}) {
         tab.checkRequest(controller.signal,deadline);
         if(adapt) adapt(response,()=>tab.checkRequest(controller.signal,deadline));
         // Build the bounded per-request summary before the original final check.
-        row.computedThrough=response.computedThrough??response.source?.computedThrough??null;
+        row.computedThrough=response.computedThrough??response.source?.computedThrough??response.dataStatus?.asOf??null;
         if(response.points){row.responseRows=response.meta.count;row.windowStart=response.meta.responseStart;row.windowEnd=response.meta.responseEnd;}
         const summaryDigest=digest(response.debug?Object.fromEntries(Object.entries(response).filter(([k])=>k!=="debug")):response);
         assert(summaryDigest.length===64);
@@ -108,14 +112,12 @@ async function runTab(tab,tabId,auditContext){
   const period=group.period,minute=period!=="day",freq=minute?Number(period.slice(1)):null;
   const endDate=group.requestedAsOf??auditContext.businessDate;
   const asOf=group.requestedAsOf?(minute?`${group.requestedAsOf}T15:00:00+08:00`:group.requestedAsOf):undefined;
-  const debug=group.mode==="debug"?1:undefined;
-  const forecast=round=>execute(tab,tabId,round,()=>tab.fetchForecast("000001.SH",period,asOf,controller.signal,
-    {debug,decodeDebug:tab.decodeForecastDebug}),{r4:true});
+  const forecast=round=>execute(tab,tabId,round,()=>tab.fetchForecast("000001.SH",period,asOf,controller.signal),{r4:true});
   const kline=round=>execute(tab,tabId,round,()=>minute?
-    tab.fetchIndexDetailMinutes({tsCode:"000001.SH",freq,endDate,limit:500},{signal:controller.signal}):
-    tab.indexDetailRequests.run("chart",()=>tab.fetchIndexDetailKline({tsCode:"000001.SH",period:"day",endDate,
-      limit:tab.INDEX_DAILY_HISTORY_LIMIT},{signal:controller.signal}),controller.signal));
-  const indicators=round=>execute(tab,tabId,round,()=>tab.fetchIndexDetailMinuteIndicators({tsCode:"000001.SH",freq,endDate,limit:500},{signal:controller.signal}));
+    tab.fetchIndexDetailMinutes({tsCode:"000001.SH",freq,endDate,limit:500},{signal:controller.signal},tab.indexDetailRequests):
+    tab.fetchIndexDetailKline({tsCode:"000001.SH",period:"day",endDate,
+      limit:tab.INDEX_DAILY_HISTORY_LIMIT},{signal:controller.signal}));
+  const indicators=round=>execute(tab,tabId,round,()=>tab.fetchIndexDetailMinuteIndicators({tsCode:"000001.SH",freq,endDate,limit:500},{signal:controller.signal},tab.indexDetailRequests));
   if(group.scenario==="forecast_series" || group.scenario==="kline_series" || group.scenario==="indicator_series"){
     for(let round=1;round<=group.samples;round++){
       controller.signal.throwIfAborted();
@@ -127,7 +129,7 @@ async function runTab(tab,tabId,auditContext){
   }
   // Each task is enqueued in the same round. Original scheduler priorities win.
   const prediction=forecast(1);
-  const nine=execute(tab,tabId,1,()=>tab.loadIndexNineTurnSeries({subjectType:"index",tsCode:"000001.SH",
+  const nine=execute(tab,tabId,1,()=>tab.makeIndexNineTurnLoader(tab.indexDetailRequests)({subjectType:"index",tsCode:"000001.SH",
     period:minute?String(freq):"day",endDate,limit:minute?500:tab.INDEX_DAILY_HISTORY_LIMIT},{signal:controller.signal}));
   const chartPromise=minute?Promise.all([kline(1),indicators(1)]):kline(1);
   const layer=(async()=>{
@@ -140,7 +142,7 @@ async function runTab(tab,tabId,auditContext){
     let previous="";
     for(const p of points){assert(p.fullDate>previous && [p.close,p.dif,p.dea,p.macd].every(Number.isFinite));previous=p.fullDate;}
     return execute(tab,tabId,1,()=>tab.fetchXxm({tsCode:"000001.SH",period,startDate:points[0].fullDate.slice(0,10),
-      endDate:points.at(-1).fullDate.slice(0,10),limit:points.length,debug,decodeDebug:tab.decodeXxmDebug},controller.signal),
+      endDate:points.at(-1).fullDate.slice(0,10),limit:points.length},controller.signal),
       {r4:true,adapt:(response,check)=>tab.buildXxmViewModel(response,points,period,"000001.SH",model?.indicatorVersion??null,check)});
   })();
   const settled=await Promise.allSettled([prediction,nine,layer]);

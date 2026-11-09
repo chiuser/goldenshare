@@ -23,6 +23,7 @@ from src.app.auth import dependencies as auth_module
 from src.app.dependencies import daily_wave as connection_module
 from src.app.exceptions import WebAppError, install_exception_handlers
 from src.biz.api.wealth.market import index_detail_daily_wave as module
+from src.biz.api.wealth.market.index_detail_debug import build_daily_wave_router
 from src.biz.queries.wealth.market.index_detail_daily_wave import query_service
 from src.biz.queries.wealth.market.index_detail_daily_wave.query import DailyWaveSourceError
 from src.biz.schemas.wealth.market.index_detail_daily_wave import DailyWaveReadyDto
@@ -34,7 +35,7 @@ from src.biz.services.wealth.market.index_detail_daily_wave.calculator import bu
 from src.biz.services.wealth.market.index_detail_daily_wave.spec import DEFAULT_SPEC
 from src.biz.services.wealth.market.index_detail_daily_wave.types import CalendarDay, DateRange
 
-PATH = "/api/v1/wealth/market/index-detail/daily-waves"
+PATH = "/api/v1/wealth/market/index-detail/debug/daily-waves"
 QUERY = "?tsCode=000001.SH"
 WHEN = datetime(2026, 10, 25, tzinfo=timezone(timedelta(hours=8)))
 IDENTITY = "00000000-0000-0000-0000-000000000001"
@@ -89,7 +90,7 @@ def no_source_factory(**kwargs):
 def make_app(*, factory=no_source_factory, auth=lambda: None):
     app = FastAPI()
     install_exception_handlers(app)
-    app.include_router(module.build_router(session_factory=factory,
+    app.include_router(build_daily_wave_router(session_factory=factory,
         auth_dependency=auth, error_factory=WebAppError), prefix="/api/v1")
     return app
 
@@ -478,9 +479,15 @@ def test_task_cancellation_observed_during_dto_does_not_encode_or_return_json(mo
 
 
 def test_app_wires_one_new_route_without_changing_existing_xxm_routes():
-    from src.app.api.v1.router import router
+    from fastapi import APIRouter
+    from src.app.api.v1.router import _include_local_xxm_routers
+    from src.foundation.config.settings import Settings
+
+    router = APIRouter(prefix="/v1")
+    _include_local_xxm_routers(router, Settings(_env_file=None, APP_ENV="local"))
     paths = [route.path for route in router.routes]
-    assert paths.count("/v1/wealth/market/index-detail/daily-waves") == 1
+    assert paths.count("/v1/wealth/market/index-detail/debug/daily-waves") == 1
+    assert "/v1/wealth/market/index-detail/daily-waves" not in paths
     assert paths.count("/v1/wealth/market/index-detail/xxm-signals") == 1
     assert paths.count("/v1/wealth/market/index-detail/xxm-key-point-forecast") == 1
 

@@ -40,7 +40,7 @@ describe("IndexMinuteChartWorkspace adapter", () => {
 
   it("uses the index/frequency dataKey and keeps the partial message without a mock badge", () => {
     const onToggleIndicatorPanel = vi.fn();
-    render(<IndexMinuteChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} data={makeData()} errorMessage="指标部分缺失" indicatorControls={{ hiddenIndicatorPanels: new Set(["kdj"]), onToggleIndicatorPanel, quantitativeStructureAvailable: false }} nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="partial" />);
+    render(<IndexMinuteChartWorkspace recognitionEnabled data={makeData()} errorMessage="指标部分缺失" indicatorControls={{ hiddenIndicatorPanels: new Set(["kdj"]), onToggleIndicatorPanel, quantitativeStructureAvailable: false }} nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="partial" />);
 
     const props = latestProps();
     expect(props.dataKey).toBe("index:000001.SH:m5");
@@ -64,7 +64,7 @@ describe("IndexMinuteChartWorkspace adapter", () => {
   });
 
   it("keeps empty/error module states outside the loaded shared workspace", () => {
-    render(<IndexMinuteChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} data={null} errorMessage="分钟数据失败" indicatorControls={{ hiddenIndicatorPanels: new Set(), onToggleIndicatorPanel: vi.fn(), quantitativeStructureAvailable: false }} nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="error" />);
+    render(<IndexMinuteChartWorkspace recognitionEnabled data={null} errorMessage="分钟数据失败" indicatorControls={{ hiddenIndicatorPanels: new Set(), onToggleIndicatorPanel: vi.fn(), quantitativeStructureAvailable: false }} nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="error" />);
     expect(workspaceMock.props).toHaveLength(0);
     expect(screen.getByText("分钟数据失败")).toBeInTheDocument();
   });
@@ -81,7 +81,7 @@ describe("IndexMinuteChartWorkspace adapter", () => {
     vi.mocked(fetchXxm).mockRejectedValueOnce(new Error("识别加载失败"))
       .mockResolvedValueOnce({ response, deadline: performance.now() + 5000 });
     const props = {
-      recognition: { recognitionEnabled: true, debug: 0 as const }, data, errorMessage: "",
+      recognitionEnabled: true, data, errorMessage: "",
       nineTurnLayer: idleNineTurnLayer("90"), onNineTurnRetry: vi.fn(), onRetry: vi.fn(), phase: "ready" as const,
     };
     const controls = { hiddenIndicatorPanels: new Set<"kdj" | "quantitativeStructure">(["kdj"]), onToggleIndicatorPanel: vi.fn(), quantitativeStructureAvailable: true };

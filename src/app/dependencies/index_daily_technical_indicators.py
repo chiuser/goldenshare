@@ -27,7 +27,7 @@ _PROD_SOURCE_ORIGIN = date(2010, 1, 4)
 
 async def run_index_daily_kline(
     request: Request, *, daily_lake: IndexDailyLakeReader | None, arrived_at: float,
-    ts_code: str, period: str, start_date: date | None, end_date: date | None, limit: int, debug: bool,
+    ts_code: str, period: str, start_date: date | None, end_date: date | None, limit: int, project=None,
 ) -> bytes:
     runtime = getattr(request.app.state, "technical_indicator_runtime", None)
     if runtime is None:
@@ -36,7 +36,7 @@ async def run_index_daily_kline(
     source_origin = _PROD_SOURCE_ORIGIN if daily_lake is None else _DG_SOURCE_ORIGIN
     source_id = "prod_index_factor_pro" if daily_lake is None else "dg_index_factor_pro"
     query_params = dict(ts_code=ts_code, period=period, start_date=start_date, end_date=end_date,
-                        limit=limit, debug=debug)
+                        limit=limit)
 
     def work(params, control) -> bytes:
         def calculate(rows: PriceRows, read_previous: ReadPrevious):
@@ -59,12 +59,17 @@ async def run_index_daily_kline(
 
         query = IndexDetailKlineQueryService(daily_lake=daily_lake)
         options = dict(params, calculate=calculate, source_origin=source_origin, check_active=control.check_active)
+        def build(session):
+            if project is None:
+                return query.build_kline(session, **options)
+            return project(*query.query_kline(session, **options))
+
         try:
             if daily_lake is None:
                 with open_stock_daily_read_session(get_session_factory(), control) as session:
-                    response = query.build_kline(session, **options)
+                    response = build(session)
             else:
-                response = query.build_kline(None, **options)
+                response = build(None)
         except (IndexDailyLakeSourceError, SourceReadError) as exc:
             raise IndexDetailQueryError(f"{ts_code} 日线行情读取失败") from exc
 

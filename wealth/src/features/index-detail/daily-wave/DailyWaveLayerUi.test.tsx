@@ -7,7 +7,7 @@ import type { DailyWaveReviewState } from "./types";
 
 function state(overrides: Partial<DailyWaveReviewState> = {}): DailyWaveReviewState {
   return { supported: true, enabled: true, phase: "ready", response: dailyWaveReadyFixture(),
-    candles: [], dataKey: "index:000001.SH:day:wave-review:literal-review", errorMessage: "",
+    errorMessage: "",
     toggle: vi.fn(), retry: vi.fn(), close: vi.fn(), ...overrides };
 }
 
@@ -43,7 +43,7 @@ describe("wave-review bottom bar and read-only explanation", () => {
     vi.restoreAllMocks();
   });
   it("shows only the toggle when closed, and nothing for unsupported subjects", () => {
-    const review = state({ enabled: false, phase: "closed", response: null, dataKey: null });
+    const review = state({ enabled: false, phase: "closed", response: null, });
     const { rerender } = render(<DailyWaveLayerUi review={review} presentation={null} />);
     fireEvent.click(screen.getByRole("button", { name: "波段核对" }));
     expect(review.toggle).toHaveBeenCalledOnce();
@@ -69,17 +69,15 @@ describe("wave-review bottom bar and read-only explanation", () => {
     expect(toggle).toHaveFocus();
   });
 
-  it("closes the panel when calculation changes and preserves the mismatch explanation", () => {
+  it("closes the panel when calculation changes", () => {
     const response = dailyWaveReadyFixture();
     const view = buildDailyWavePresentation(response);
     const { rerender } = render(<DailyWaveLayerUi review={state({ response })} presentation={view} />);
     fireEvent.click(screen.getByRole("button", { name: "查看说明" }));
-    rerender(<DailyWaveLayerUi review={state({ response, dataKey: "new-calculation" })} presentation={view} />);
+    rerender(<DailyWaveLayerUi review={state({ response: dailyWaveReadyFixture("changed") })} presentation={view} />);
     expect(screen.queryByRole("region")).not.toBeInTheDocument();
-    rerender(<DailyWaveLayerUi review={state({ response, phase: "mismatch", dataKey: null, errorMessage: "2023-10-25的DIF不一致" })} presentation={view} />);
-    expect(screen.getByRole("status")).toHaveTextContent("行情与研究结果不一致");
     fireEvent.click(screen.getByRole("button", { name: "查看说明" }));
-    expect(screen.getByRole("region")).toHaveTextContent("2023-10-25的DIF不一致");
+    expect(screen.getByRole("region")).toBeInTheDocument();
   });
 
   it.each(["error", "timeout"] as const)("offers an explicit retry for %s", (phase) => {

@@ -97,10 +97,10 @@ def _assemble(*, ts_code, period, through, as_of, data_status, ordinary, directi
 
 
 class IndexDetailXxmForecastQueryService:
-    def __init__(self, *, lake_root=None, daily_lake: IndexDailyLakeReader | None = None, cache=None):
-        self.source=IndexDetailXxmQueryService(lake_root=lake_root,daily_lake=daily_lake,cache=cache)
+    def __init__(self, *, lake_root=None, daily_lake: IndexDailyLakeReader | None = None, cache=None, entry_scope="normal"):
+        self.source=IndexDetailXxmQueryService(lake_root=lake_root,daily_lake=daily_lake,cache=cache,entry_scope=entry_scope)
 
-    def build(self, session, *, ts_code, period, as_of=None, debug=False, now=None) -> bytes:
+    def build(self, session, *, ts_code, period, as_of=None, project=None, now=None) -> bytes:
         candidate=None
         try:
             window = {}
@@ -164,7 +164,7 @@ class IndexDetailXxmForecastQueryService:
                     _assemble(ts_code=code,period=period,through=through,as_of=as_of,data_status=status,ordinary=ordinary,direction=direction,
                         source_id=source_id,calendar_id=calendar_id,result=result,prepared=prepared,check=check))
                 check()
-                public=project_forecast_response(response,debug=debug)
+                public=(project or project_forecast_response)(response)
                 check()
                 body=public.model_dump_json().encode('utf-8')
                 if len(body)>FORECAST_SPEC.max_response_bytes:

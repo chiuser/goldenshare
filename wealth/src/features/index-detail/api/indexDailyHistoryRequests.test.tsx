@@ -52,7 +52,7 @@ describe("index daily history requests", () => {
       throw new Error(`Unexpected request: ${path}`);
     });
     vi.stubGlobal("fetch", fetch);
-    const { result } = renderHook(() => useIndexDetailController("000001.SH", ""));
+    const { result } = renderHook(() => useIndexDetailController("000001.SH", undefined));
     await waitFor(() => expect(result.current.phase).toBe("ready"));
     await waitFor(() => expect(result.current.trendPhase).toBe("ready"));
     act(() => result.current.retryTrend());

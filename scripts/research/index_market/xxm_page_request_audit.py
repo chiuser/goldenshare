@@ -190,12 +190,14 @@ class AuditCollector:
             period = 'm' + str(period)
         if period != self.group.period:
             raise ValueError('Unselected period')
-        debug = params.get('debug', [None])[0]
-        expected = '1' if kind in ('signals', 'forecast') and self.group.mode == 'debug' else None
-        if debug != expected:
-            raise ValueError('Unexpected transmitted debug')
+        prefix = '/api/v1/wealth/market/index-detail/'
+        debug = self.group.mode == 'debug' and kind in ('signals', 'forecast') or (
+            self.group.mode == 'debug' and endpoint == 'kline')
+        expected_path = prefix + ('debug/' if debug else '') + endpoint
+        if 'debug' in params or scope['path'] != expected_path:
+            raise ValueError('Unexpected request address or debug parameter')
         row = dict(groupId=self.group.groupId, requestId=identity, tabId=tab, sequence=int(seq), round=int(round_),
-                   endpointKind=kind, period=period, debug=int(debug) if debug is not None else None,
+                   endpointKind=kind, period=period, debug=1 if debug else None,
                    requestedAsOf=params.get('asOf' if kind == 'forecast' else 'endDate', [None])[0],
                    startedMs=self.offset(), finishedMs=None, httpStatus=None, bodyBytes=0,
                    httpSeconds=None, clientSeconds=None, computedThrough=None, dataStatus=None, responseRows=None,
@@ -273,6 +275,12 @@ class _RequestMiddleware:
                     try: row['errorCode'] = json.loads(body).get('code')
                     except (ValueError, AttributeError): pass
                 if not message.get('more_body', False):
+                    if row['httpStatus'] == 200 and row['endpointKind'] == 'signals' and row['debug'] is None:
+                        payload = json.loads(body)
+                        status, meta = payload['dataStatus'], payload['meta']
+                        row.update(computedThrough=status['asOf'], dataStatus=status['status'],
+                                   responseRows=meta['count'], windowStart=meta['responseStart'], windowEnd=meta['responseEnd'],
+                                   publicDigest=_digest(payload))
                     row['finishedMs'] = self.collector.offset()
                     row['terminal'] = 'success' if row['httpStatus'] < 400 else 'error'
             await send(message)
@@ -293,7 +301,7 @@ class _RequestMiddleware:
 def _observe(collector):
     """Observe originals exactly once. All patches are worker-local and reversed last."""
     from src.biz.queries.wealth.market.index_detail_xxm import query_service as q, forecast_query_service as fq
-    from src.biz.services.wealth.market.index_detail_xxm import response_projection as projection
+    from src.biz.services.wealth.market.index_detail_xxm import debug_projection, response_projection as projection
     from src.foundation.clients.local_lake.major_index_mins_reader import MajorIndexMinsLakeReader as Reader
     original_cache = q._CACHE
     cache = q.XxmCache()
@@ -318,7 +326,12 @@ def _observe(collector):
                 finally:
                     with collector.lock: collector._entries.pop(identity, None)
         stack.enter_context(patch.object(q.IndexDetailXxmQueryService, 'load_entry', load_entry))
-        for module, name, kind in ((projection, 'project_xxm_response', 'signals'), (fq, 'project_forecast_response', 'forecast')):
+        for module, name, kind in (
+            (projection, 'project_xxm_response', 'signals'),
+            (debug_projection, 'project_debug_signal', 'signals'),
+            (fq, 'project_forecast_response', 'forecast'),
+            (debug_projection, 'project_debug_forecast', 'forecast'),
+        ):
             original = getattr(module, name)
             def project(internal, *a, _original=original, _kind=kind, **kw):
                 value = _original(internal, *a, **kw)
@@ -455,8 +468,11 @@ def isolated_app(settings, *, group):
     )
     from src.app.auth.dependencies import require_quote_access
     from src.app.dependencies import get_db_session
+    from src.app.dependencies.index_daily_technical_indicators import run_index_daily_kline
+    from src.app.dependencies.stock_daily_technical_indicators import stock_daily_technical_indicators_lifespan
+    from functools import partial
     from src.app.exceptions import install_exception_handlers
-    from src.biz.api.wealth.market import index_detail, index_detail_nine_turn
+    from src.biz.api.wealth.market import index_detail, index_detail_debug, index_detail_nine_turn
     from src.biz.queries.wealth.market.context.market_page_context_query import MarketPageContextQuery
     from goldenshare_technical_indicators.xxm.spec import MAIN_SPEC
     from src.biz.services.wealth.market.index_detail_xxm.forecast_spec import FORECAST_SPEC
@@ -468,7 +484,8 @@ def isolated_app(settings, *, group):
     server = thread = sock = None
     try:
         cache = stack.enter_context(_observe(collector))
-        app = FastAPI(); install_exception_handlers(app)
+        app = FastAPI(lifespan=partial(stock_daily_technical_indicators_lifespan, settings_provider=lambda: settings))
+        install_exception_handlers(app)
         def readonly_session():
             with get_session_factory()() as session:
                 session.execute(text('SET TRANSACTION READ ONLY'))
@@ -477,7 +494,9 @@ def isolated_app(settings, *, group):
         target = APIRouter(prefix='/api/v1')
         daily_lake = _resolve_index_daily_lake(settings)
         _include_local_xxm_routers(target, settings, daily_lake=daily_lake)
-        target.include_router(index_detail.build_router(daily_lake=daily_lake))
+        runner = partial(run_index_daily_kline, daily_lake=daily_lake)
+        target.include_router(index_detail.build_router(daily_lake=daily_lake, run_sse_kline=runner))
+        target.include_router(index_detail_debug.build_router(daily_lake=daily_lake, run_sse_kline=runner))
         target.include_router(index_detail_nine_turn.router)
         if group.period != 'day':
             from src.foundation.config.local_minute_capability import resolve_index_minute_capability, resolve_index_nine_turn_minute_capability
@@ -511,7 +530,7 @@ def isolated_app(settings, *, group):
                 time.sleep(.01)
             return collector.metrics(cache)
         sock = socket.socket(); sock.bind(('127.0.0.1', 0)); sock.listen(32)
-        server = uvicorn.Server(uvicorn.Config(app, log_level='error', access_log=False, lifespan='off', timeout_graceful_shutdown=1))
+        server = uvicorn.Server(uvicorn.Config(app, log_level='error', access_log=False, lifespan='on', timeout_graceful_shutdown=1))
         thread = Thread(target=server.run, kwargs={'sockets': [sock]}, daemon=True); thread.start()
         while not server.started:
             if not thread.is_alive(): raise RuntimeError('Audit server did not start')
@@ -538,6 +557,13 @@ def _validate_minute_r4_prefix(row):
         return
     if row['dataStatus'] != 'READY':
         raise ValueError('Minute source is not READY')
+    if row['endpointKind'] == 'signals' and row['debug'] is None:
+        if row['prefixRows'] is not None or row['sourceInputId'] is not None:
+            raise ValueError('Ordinary Gold signals have no calculated prefix')
+        count = row['responseRows']
+        if type(count) is not int or not 0 < count <= BUDGET.response_default_minute:
+            raise ValueError('Minute Gold response rows exceeded or invalid')
+        return
     prefix = row['prefixRows']
     if type(prefix) is not int or not 0 < prefix <= BUDGET.response_default_minute + BUDGET.source_extra_rows:
         raise ValueError('Minute prefix rows exceeded or invalid')

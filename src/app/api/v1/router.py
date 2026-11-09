@@ -10,7 +10,6 @@ from src.app.runtime.announcement_archive_lifespan import include_data_center
 from src.app.auth.api import admin, admin_users, auth, users
 from src.app.auth.dependencies import require_quote_access
 from src.app.dependencies import get_db_session
-from src.app.dependencies.daily_wave import daily_wave_session_factory
 from src.app.dependencies.index_daily_technical_indicators import run_index_daily_kline
 from src.app.exceptions import WebAppError
 from src.biz.api import market as biz_market
@@ -19,7 +18,7 @@ from src.biz.api import realtime as biz_realtime
 from src.biz.api.wealth.market import breadth as wealth_market_breadth
 from src.biz.api.wealth.market import context as wealth_market_context
 from src.biz.api.wealth.market import index_detail as wealth_market_index_detail
-from src.biz.api.wealth.market import index_detail_daily_wave, index_detail_xxm, index_detail_xxm_forecast
+from src.biz.api.wealth.market import index_detail_debug, index_detail_xxm, index_detail_xxm_forecast
 from src.biz.api.wealth.market import (
     index_detail_nine_turn as wealth_market_index_detail_nine_turn,
 )
@@ -90,6 +89,10 @@ router.include_router(wealth_market_index_detail.build_router(
     daily_lake=_index_daily_lake,
     run_sse_kline=partial(run_index_daily_kline, daily_lake=_index_daily_lake),
 ))
+router.include_router(index_detail_debug.build_router(
+    daily_lake=_index_daily_lake,
+    run_sse_kline=partial(run_index_daily_kline, daily_lake=_index_daily_lake),
+))
 router.include_router(wealth_market_index_detail_nine_turn.router)
 router.include_router(wealth_market_summary.router)
 router.include_router(wealth_market_major_indices.router)
@@ -130,9 +133,13 @@ def _include_local_xxm_routers(
     def lake_root():
         return root
 
-    target_router.include_router(index_detail_daily_wave.build_router(
-        session_factory=daily_wave_session_factory, auth_dependency=require_quote_access,
-        error_factory=WebAppError,
+    def open_daily_wave_session(*, budget):
+        from src.app.dependencies.daily_wave import daily_wave_session_factory
+
+        return daily_wave_session_factory(budget=budget)
+
+    target_router.include_router(index_detail_debug.build_daily_wave_router(
+        session_factory=open_daily_wave_session,
     ))
     target_router.include_router(index_detail_xxm.build_router(
         db_dependency=get_db_session, auth_dependency=require_quote_access, error_factory=WebAppError,
@@ -149,6 +156,9 @@ def _include_local_xxm_routers(
             db_dependency=get_db_session, auth_dependency=require_quote_access,
             lake_dependency=lake_root, error_factory=WebAppError, daily_lake=daily_lake,
         ))
+    target_router.include_router(index_detail_debug.build_xxm_router(
+        daily_lake=daily_lake, lake_dependency=lake_root, minute_enabled=root is not None,
+    ))
 
 
 _include_local_xxm_routers(router, _settings, daily_lake=_index_daily_lake)

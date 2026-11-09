@@ -7,7 +7,8 @@ import { expect, it } from "vitest";
 const root = resolve(import.meta.dirname, "../../..");
 const debugRoot = resolve(root, "features/index-detail/debug");
 const waveRoot = resolve(root, "features/index-detail/daily-wave");
-const loaderPath = "features/index-detail/debug/useIndexDebugModule.ts";
+const loaderPath = "pages/index-detail/useIndexDebugModule.ts";
+const debugEntry = resolve(root, "pages/index-detail/IndexDetailDebugPage");
 type Dependency = { module: string; runtime: boolean; dynamic: boolean };
 function dependencies(source: string): Dependency[] {
   const file = ts.createSourceFile("entry.tsx", source, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
@@ -34,20 +35,19 @@ function target(path: string, dependency: Dependency) {
     : dependency.module;
 }
 function auxiliary(path: string) {
-  return [debugRoot, waveRoot].some(dir => path === dir || path.startsWith(dir + "/"));
+  return path === debugEntry || [debugRoot, waveRoot].some(dir => path === dir || path.startsWith(dir + "/"));
 }
 function violations(path: string, source: string) {
   return dependencies(source).filter(dep => {
     if (!dep.runtime || !auxiliary(target(path, dep))) return false;
     if (path === loaderPath) return !dep.dynamic;
-    return !(path === "pages/index-detail/IndexDetailPage.tsx" && !dep.dynamic &&
-      target(path, dep) === resolve(debugRoot, "useIndexDebugModule"));
+    return true;
   });
 }
 
 it("ordinary entries do not load auxiliary implementations", () => {
   const files = [
-    "pages/index-detail/IndexDetailPage.tsx",
+    "pages/index-detail/IndexDetailPage.tsx", "pages/index-detail/IndexDetailPageView.tsx", "app/routes/WealthRouter.tsx",
     ...["IndexChartWorkspace.tsx", "IndexMinuteChartWorkspace.tsx"].map(p => `features/index-detail/chart/${p}`),
     ...["xxm", "xxm-forecast"].flatMap(dir => ["apiClient.ts", "adapter.ts", dir === "xxm" ? "useIndexXxmLayer.ts" : "useXxmForecast.ts"]
       .map(p => `features/index-detail/${dir}/${p}`)),
@@ -59,7 +59,7 @@ it("the loader dynamically loads the auxiliary component without static auxiliar
   const source = readFileSync(resolve(root, loaderPath), "utf8");
   expect(violations(loaderPath, source)).toEqual([]);
   expect(dependencies(source).some(dep => dep.dynamic && target(loaderPath, dep) ===
-    resolve(debugRoot, "IndexRecognitionDebug"))).toBe(true);
+    debugEntry)).toBe(true);
 });
 
 it("allows type-only imports, normal helpers and formatting changes", () => {
@@ -73,7 +73,7 @@ it("allows type-only imports, normal helpers and formatting changes", () => {
   ]);
   expect(violations("pages/index-detail/IndexDetailPage.tsx", `import {
     useIndexDebugModule
-  } from '../../features/index-detail/debug/useIndexDebugModule'`)).toEqual([]);
+  } from './useIndexDebugModule'`)).toEqual([]);
   expect(violations(loaderPath, "import { useEffect } from 'react'; import { helper } from '../shared/helper';")).toEqual([]);
 });
 
@@ -84,5 +84,5 @@ it("rejects runtime auxiliary imports including side effects and dynamic calls i
   expect(violations("features/index-detail/xxm/adapter.ts", source).map(dep => dep.module)).toEqual([
     "../debug/IndexRecognitionDebug", "../daily-wave/apiClient", "../debug/IndexRecognitionDebug",
   ]);
-  expect(violations(loaderPath, "import { render } from './IndexRecognitionDebug';")).toHaveLength(1);
+  expect(violations(loaderPath, "import { render } from './IndexDetailDebugPage';")).toHaveLength(1);
 });

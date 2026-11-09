@@ -13,11 +13,13 @@ import pytest
 from pydantic import ValidationError
 
 from src.biz.schemas.wealth.market.index_detail_xxm import (
-    InternalXxmResponseDto, XxmResponseDto, XxmDebugResponseDto,
+    InternalXxmResponseDto, XxmResponseDto,
 )
+from src.biz.schemas.wealth.market.index_detail_xxm_debug import XxmDebugResponseDto
 from src.biz.schemas.wealth.market.index_detail_xxm_forecast import (
-    InternalForecastResponseDto, ForecastResponseDto, ForecastDebugResponseDto,
+    InternalForecastResponseDto, ForecastResponseDto,
 )
+from src.biz.schemas.wealth.market.index_detail_xxm_forecast_debug import ForecastDebugResponseDto
 from src.biz.services.wealth.market.index_detail_xxm.forecast_spec import FORECAST_SPEC
 from goldenshare_technical_indicators.xxm.spec import MAIN_SPEC
 

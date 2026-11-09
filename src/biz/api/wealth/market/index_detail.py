@@ -61,13 +61,6 @@ def _parse_date(raw_value: str | None, *, field_name: str) -> date | None:
         raise IndexDetailRequestError(f"{field_name} 不是有效日期") from exc
 
 
-def _parse_debug(raw_value: str | None) -> bool:
-    value = "0" if raw_value is None else raw_value
-    if value not in {"0", "1"}:
-        raise IndexDetailRequestError("debug 只允许 0 或 1")
-    return value == "1"
-
-
 def _parse_limit(raw_value: str | None) -> int:
     value = "300" if raw_value is None else raw_value
     if not value.isdigit():
@@ -96,17 +89,15 @@ def get_index_detail_page_init(
     request: Request,
     ts_code: str | None = Query(default=None, alias="tsCode"),
     trade_date: str | None = Query(default=None, alias="tradeDate"),
-    debug: str | None = Query(default=None),
     _user: AuthenticatedUser | None = Depends(require_quote_access),
     session: Session = Depends(get_db_session),
 ) -> IndexDetailPageInitResponseDto:
     try:
-        _validate_query_shape(request, allowed={"tsCode", "tradeDate", "debug"})
+        _validate_query_shape(request, allowed={"tsCode", "tradeDate"})
         return IndexDetailPageQueryService().build_page_init(
             session,
             ts_code=_normalize_ts_code(ts_code),
             trade_date=_parse_date(trade_date, field_name="tradeDate"),
-            debug=_parse_debug(debug),
         )
     except Exception as exc:  # noqa: BLE001
         _raise_http_error(exc)
@@ -117,17 +108,15 @@ def get_index_detail_weights(
     request: Request,
     ts_code: str | None = Query(default=None, alias="tsCode"),
     trade_date: str | None = Query(default=None, alias="tradeDate"),
-    debug: str | None = Query(default=None),
     _user: AuthenticatedUser | None = Depends(require_quote_access),
     session: Session = Depends(get_db_session),
 ) -> IndexDetailWeightsResponseDto:
     try:
-        _validate_query_shape(request, allowed={"tsCode", "tradeDate", "debug"})
+        _validate_query_shape(request, allowed={"tsCode", "tradeDate"})
         return IndexDetailWeightsQueryService().build_weights(
             session,
             ts_code=_normalize_ts_code(ts_code),
             trade_date=_parse_date(trade_date, field_name="tradeDate"),
-            debug=_parse_debug(debug),
         )
     except Exception as exc:  # noqa: BLE001
         _raise_http_error(exc)
@@ -152,41 +141,50 @@ def build_router(
         start_date: str | None = Query(default=None, alias="startDate"),
         end_date: str | None = Query(default=None, alias="endDate"),
         limit: str | None = Query(default=None),
-        debug: str | None = Query(default=None),
         _user: AuthenticatedUser | None = Depends(require_quote_access),
         session: Session = Depends(get_db_session),
     ) -> IndexDetailKlineResponseDto | Response:
-        arrived_at = monotonic()
-        try:
-            _validate_query_shape(
-                request,
-                allowed={"tsCode", "period", "startDate", "endDate", "limit", "debug"},
-            )
-            params = dict(
-                ts_code=_normalize_ts_code(ts_code),
-                period="day" if period is None else period,
-                start_date=_parse_date(start_date, field_name="startDate"),
-                end_date=_parse_date(end_date, field_name="endDate"),
-                limit=_parse_limit(limit),
-                debug=_parse_debug(debug),
-            )
-            if params["ts_code"] == "000001.SH" and params["period"] == "day" and params["limit"] <= 500:
-                start, end = params["start_date"], params["end_date"]
-                if start is not None and end is not None and start > end:
-                    raise IndexDetailRequestError("startDate 不能晚于 endDate")
-                if run_sse_kline is None:
-                    raise IndexDetailQueryError("000001.SH 日线指标运行环境未装配")
-                body = await run_sse_kline(request, arrived_at=arrived_at, **params)
-                return Response(content=body, media_type="application/json")
-            return await run_in_threadpool(partial(
-                IndexDetailKlineQueryService(daily_lake=daily_lake).build_kline, session, **params,
-            ))
-        except Exception as exc:  # noqa: BLE001
-            _raise_http_error(exc)
-            raise AssertionError("unreachable")
+        return await query_kline_response(
+            request, session, ts_code=ts_code, period=period, start_date=start_date, end_date=end_date,
+            limit=limit, daily_lake=daily_lake, run_sse_kline=run_sse_kline,
+        )
 
     router.add_api_route(
         "/weights", get_index_detail_weights, methods=["GET"],
         response_model=IndexDetailWeightsResponseDto,
     )
     return router
+
+
+async def query_kline_response(
+    request: Request, session: Session, *, ts_code: str | None, period: str | None,
+    start_date: str | None, end_date: str | None, limit: str | None,
+    daily_lake: IndexDailyLakeReader | None, run_sse_kline: Callable[..., Awaitable[bytes]] | None,
+    project=None,
+):
+    arrived_at = monotonic()
+    try:
+        _validate_query_shape(request, allowed={"tsCode", "period", "startDate", "endDate", "limit"})
+        params = dict(
+            ts_code=_normalize_ts_code(ts_code), period="day" if period is None else period,
+            start_date=_parse_date(start_date, field_name="startDate"),
+            end_date=_parse_date(end_date, field_name="endDate"), limit=_parse_limit(limit),
+        )
+        if params["ts_code"] == "000001.SH" and params["period"] == "day" and params["limit"] <= 500:
+            start, end = params["start_date"], params["end_date"]
+            if start is not None and end is not None and start > end:
+                raise IndexDetailRequestError("startDate 不能晚于 endDate")
+            if run_sse_kline is None:
+                raise IndexDetailQueryError("000001.SH 日线指标运行环境未装配")
+            body = await run_sse_kline(request, arrived_at=arrived_at, project=project, **params)
+            return Response(content=body, media_type="application/json")
+        service = IndexDetailKlineQueryService(daily_lake=daily_lake)
+        if project is None:
+            return await run_in_threadpool(partial(service.build_kline, session, **params))
+        def build():
+            return project(*service.query_kline(session, **params))
+
+        return await run_in_threadpool(build)
+    except Exception as exc:  # noqa: BLE001
+        _raise_http_error(exc)
+        raise AssertionError("unreachable")

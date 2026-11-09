@@ -238,19 +238,6 @@ class ForecastResponseDto(Dto):
         return self
 
 
-class ForecastDebugDto(Dto):
-    sourceInputId: str | None = Field(min_length=1)
-    calendarInputId: str | None = Field(min_length=1)
-    precisionPolicy: Literal["rounded3_guarded", "full_float"]
-    references: ForecastReferencesDto
-    selectedReference: Literal["NEAR", "FAR"] | None
-    nearestDecision: NearestDecisionDto
-    farEvaluated: bool
-    conditions: list[ForecastConditionDto]
-    precisionRanges: list[PrecisionRangeDto]
-    structureFollowConditions: list[StructureFollowConditionDto]
-
-
 class InternalForecastResponseDto(ForecastResponseDto):
     sourceInputId: str | None = Field(min_length=1)
     calendarInputId: str | None = Field(min_length=1)
@@ -266,15 +253,6 @@ class InternalForecastResponseDto(ForecastResponseDto):
     @model_validator(mode="after")
     def complete_facts(self):
         _validate_details(self, self)
-        return self
-
-
-class ForecastDebugResponseDto(ForecastResponseDto):
-    debug: ForecastDebugDto
-
-    @model_validator(mode="after")
-    def complete_facts(self):
-        _validate_details(self, self.debug)
         return self
 
 
@@ -297,7 +275,7 @@ def _ranges(ranges, pending):
         raise ValueError("Certain and uncertain ranges overlap")
 
 
-def _validate_details(root, details):
+def _validate_details(root, details, *, native=None):
     if details.precisionPolicy != ("rounded3_guarded" if root.period == "day" else "full_float"):
         raise ValueError("Precision/period mismatch")
     if (details.sourceInputId is None) != (root.dataStatus == "EMPTY"):
@@ -379,17 +357,12 @@ def _validate_details(root, details):
         raise ValueError("Uncertain forecast cannot contain certain conditions")
     if root.reasonCode == 'ROUNDING_BOUNDARY' and not pending:
         raise ValueError("Missing precision ranges")
-    _validate_identity(root, details)
+    _validate_identity(root, details, details.model_dump() if native is None else native)
 
 
-def _validate_identity(root, details):
+def _validate_identity(root, details, raw_details):
     payload = {name: getattr(root, name) for name in ROOT_FACT_FIELDS}
-    raw_details = details.model_dump()
     payload.update({name: raw_details[name] for name in DETAIL_FACT_FIELDS})
-    if isinstance(details, ForecastDebugDto):
-        for condition in payload['structureFollowConditions']:
-            wave = condition['originWave']
-            wave['price_at'], wave['dif_at'] = wave.pop('priceAt'), wave.pop('difAt')
     if root.forecastId != forecast_result_id(payload):
         raise ValueError("Forecast identity does not match complete facts")
     for condition in details.conditions:

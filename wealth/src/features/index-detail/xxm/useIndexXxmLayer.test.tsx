@@ -3,12 +3,13 @@ import {afterEach,expect,it,vi} from "vitest";
 import {fetchXxm} from "./apiClient";
 import {useIndexXxmLayer} from "./useIndexXxmLayer";
 import {xxmFixture,xxmDebugFixture} from "./xxmFixtures.test-support";
-import { decodeXxmDebug } from "../debug/xxmDebugContract";
+import { buildDebugXxmViewModel } from "../debug/xxmAdapter";
+import { buildXxmViewModel } from "./adapter";
 import type {XxmRequestResult} from "./types";
 import type { DetailChartPoint } from "../../../shared/charts/detail-workspace/detailChartTypes";
 vi.mock("./apiClient",async importOriginal=>({...await importOriginal<typeof import('./apiClient')>(),fetchXxm:vi.fn()}));
 afterEach(()=>{vi.clearAllMocks();vi.unstubAllEnvs();});
-const initial={enabled:true,debug:0 as const,tsCode:"000001.SH",period:"day"};
+const initial={enabled:true,tsCode:"000001.SH",period:"day"};
 const resultValue=():XxmRequestResult=>({response:xxmFixture("000001.SH").response,deadline:performance.now()+5000});
 it("waits for pending indicators then exposes a source error",()=>{const points=xxmFixture("000001.SH").points.map(p=>({...p,dif:null}));const {result,rerender}=renderHook(({pending})=>useIndexXxmLayer({...initial,points,indicatorsPending:pending}),{initialProps:{pending:true}});expect(result.current.phase).toBe("loading");rerender({pending:false});expect(result.current.phase).toBe("error");expect(fetchXxm).not.toHaveBeenCalled();});
 it.each([{ development: false, enabled: true }, { development: true, enabled: false }])("cannot create a primitive or request with development=$development and enabled=$enabled",({ development, enabled })=>{vi.stubEnv("DEV",development);const points=xxmFixture("399001.SZ","m30").points;const {result}=renderHook(()=>useIndexXxmLayer({...initial,tsCode:"399001.SZ",period:"m30",enabled,points,indicatorVersion:1}));expect(result.current.phase).toBe("unsupported");expect(result.current.macdPrimitives).toEqual([]);act(()=>result.current.retry());expect(fetchXxm).not.toHaveBeenCalled();});
@@ -28,7 +29,16 @@ it("keeps an unapproved period inactive after cancelling its former owner", asyn
 });
 it("retries this layer, clears failed data and preserves its primitive",async()=>{vi.mocked(fetchXxm).mockResolvedValueOnce(resultValue()).mockRejectedValueOnce(new Error("源异常"));const points=xxmFixture("000001.SH").points;const {result}=renderHook(()=>useIndexXxmLayer({...initial,points}));await waitFor(()=>expect(result.current.phase).toBe("ready"));expect(result.current.data?.markers).toHaveLength(2);const primitive=result.current.macdPrimitives[0];act(()=>result.current.retry());await waitFor(()=>expect(result.current.phase).toBe("error"));expect(result.current.data).toBeNull();expect(result.current.macdPrimitives[0]).toBe(primitive);});
 it("rejects a final commit after the original deadline",async()=>{vi.mocked(fetchXxm).mockResolvedValue({response:xxmFixture("000001.SH").response,deadline:performance.now()-1});const points=xxmFixture("000001.SH").points;const {result}=renderHook(()=>useIndexXxmLayer({...initial,points}));await waitFor(()=>expect(result.current.phase).toBe("error"));expect(result.current.data).toBeNull();});
-it("uses new requests for indicator identity and mode, and does not send auxiliary mode without a decoder",async()=>{vi.mocked(fetchXxm).mockResolvedValue(resultValue());const points=xxmFixture("000001.SH").points;const {result,rerender}=renderHook(({indicatorVersion,debug})=>useIndexXxmLayer({...initial,points,indicatorVersion,debug}),{initialProps:{indicatorVersion:null as number|null,debug:0 as 0|1}});await waitFor(()=>expect(result.current.phase).toBe("ready"));rerender({indicatorVersion:2,debug:0});await waitFor(()=>expect(fetchXxm).toHaveBeenCalledTimes(2));rerender({indicatorVersion:2,debug:1});expect(result.current.phase).toBe("unsupported");expect(fetchXxm).toHaveBeenCalledTimes(2);});
+it("uses a new request for a new minute indicator identity", async () => {
+  vi.mocked(fetchXxm).mockResolvedValue(resultValue());
+  const points = xxmFixture("000001.SH").points;
+  const { result, rerender } = renderHook(({ indicatorVersion }) =>
+    useIndexXxmLayer({ ...initial, points, indicatorVersion }), { initialProps: { indicatorVersion: null as number | null } });
+  await waitFor(() => expect(result.current.phase).toBe("ready"));
+  rerender({ indicatorVersion: 2 });
+  await waitFor(() => expect(fetchXxm).toHaveBeenCalledTimes(2));
+});
+
 
 const approvedCodes = ["000001.SH", "399001.SZ", "399006.SZ", "000688.SH", "000300.SH", "000905.SH", "000852.SH", "000510.SH", "000016.SH"];
 it.each(approvedCodes.flatMap(tsCode => (["day", "m30", "m60", "m90", "m120"] as const).map(period => ({ tsCode, period }))))("loads nonempty recognition for $tsCode/$period", async ({ tsCode, period }) => {
@@ -81,21 +91,19 @@ it("changes period and debug owners without reusing a former owner's response", 
   vi.mocked(fetchXxm).mockResolvedValueOnce({ response: base.response, deadline: performance.now() + 5000 })
     .mockResolvedValueOnce({ response: m30.response, deadline: performance.now() + 5000 })
     .mockResolvedValueOnce({ response: debug.response, deadline: performance.now() + 5000 });
-  const { result, rerender } = renderHook(props => useIndexXxmLayer(props), { initialProps: {
-    ...initial, debug: 0 as 0 | 1, tsCode: "399001.SZ", period: "m60", points: base.points, indicatorVersion: 1, decodeDebug: decodeXxmDebug,
+  const { result, rerender } = renderHook(({ debug, ...props }) => useIndexXxmLayer(props, fetchXxm, debug ? buildDebugXxmViewModel : buildXxmViewModel), { initialProps: {
+    ...initial, debug: 0 as 0 | 1, tsCode: "399001.SZ", period: "m60", points: base.points, indicatorVersion: 1,
   } });
   await waitFor(() => expect(result.current.phase).toBe("ready"));
   const baseKey = result.current.requestKey;
-  rerender({ ...initial, tsCode: "399001.SZ", period: "m30", points: m30.points, indicatorVersion: 1, decodeDebug: decodeXxmDebug });
+  rerender({ ...initial, debug: 0, tsCode: "399001.SZ", period: "m30", points: m30.points, indicatorVersion: 1 });
   await waitFor(() => expect(result.current.data?.response.period).toBe("m30"));
   expect(result.current.requestKey).not.toBe(baseKey);
-  const normalKey = result.current.requestKey;
-  rerender({ ...initial, tsCode: "399001.SZ", period: "m30", points: debug.points, indicatorVersion: 1, debug: 1 as 0 | 1, decodeDebug: decodeXxmDebug });
+  rerender({ ...initial, tsCode: "399001.SZ", period: "m30", points: debug.points, indicatorVersion: 1, debug: 1 as 0 | 1 });
   await waitFor(() => expect(result.current.data?.response).toHaveProperty("debug"));
-  expect(result.current.requestKey).not.toBe(normalKey);
   expect(fetchXxm).toHaveBeenCalledTimes(3);
-  expect(vi.mocked(fetchXxm).mock.calls.map(([request]) => [request.tsCode, request.period, request.debug])).toEqual([
-    ["399001.SZ", "m60", undefined], ["399001.SZ", "m30", undefined], ["399001.SZ", "m30", 1],
+  expect(vi.mocked(fetchXxm).mock.calls.map(([request]) => [request.tsCode, request.period])).toEqual([
+    ["399001.SZ", "m60"], ["399001.SZ", "m30"], ["399001.SZ", "m30"],
   ]);
 });
 
@@ -117,7 +125,7 @@ it.each((["date", "debug"] as const).flatMap(change => (["success", "failure"] a
   vi.mocked(fetchXxm).mockImplementationOnce(() => new Promise((resolve, reject) => { finish = resolve; fail = reject; }))
     .mockResolvedValueOnce({ response: second.response, deadline: performance.now() + 5000 });
   const { result, rerender } = renderHook(({ points, debug }) => useIndexXxmLayer({ ...initial, tsCode: "399001.SZ", period: "m30", points,
-    indicatorVersion: 1, debug, decodeDebug: decodeXxmDebug }), { initialProps: { points: first.points, debug: 0 as 0 | 1 } });
+    indicatorVersion: 1 }, fetchXxm, debug ? buildDebugXxmViewModel : buildXxmViewModel), { initialProps: { points: first.points, debug: 0 as 0 | 1 } });
   await waitFor(() => expect(fetchXxm).toHaveBeenCalledTimes(1));
   const oldSignal = vi.mocked(fetchXxm).mock.calls[0]![1];
   rerender({ points: second.points, debug: change === "debug" ? 1 : 0 });

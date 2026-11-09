@@ -1,8 +1,10 @@
 import {afterEach,expect,it,vi} from "vitest";
 import {wealthFetch} from "../../../shared/api/wealthApiClient";
 import {indexDetailRequests} from "../api/indexDetailRequestScheduler";
-import {fetchForecast} from "./apiClient";
+import {fetchForecast,sendForecast} from "./apiClient";
 import {forecastDebugFixture,forecastFixture} from "./forecastFixtures.test-support";
+import {fetchDebugForecast} from "../debug/apiClient";
+import {adaptForecast} from "./adapter";
 import {decodeForecastDebug} from "../debug/forecastDebugContract";
 import type {ForecastPeriod} from "./types";
 vi.mock("../../../shared/api/wealthApiClient",()=>({wealthFetch:vi.fn()}));
@@ -10,9 +12,15 @@ afterEach(()=>{vi.clearAllMocks();vi.restoreAllMocks();});
 it.each([4999,5001])("does not renew the deadline after fetching or decoding at %dms",async end=>{
   let now=0;vi.spyOn(performance,"now").mockImplementation(()=>now);
   vi.mocked(wealthFetch).mockImplementation(async()=>{now=4990;return new Response(JSON.stringify(forecastDebugFixture("000001.SH")));});
-  const pending=fetchForecast("000001.SH","day",undefined,new AbortController().signal,{debug:1,decodeDebug:(raw,context)=>{const result=decodeForecastDebug(raw,context);now=end;return result;}});
+  const pending=sendForecast("000001.SH","day",undefined,new AbortController().signal,5000,"debug/",(raw,context)=>{
+    const {debug,...fields}=raw as ReturnType<typeof forecastDebugFixture>;
+    const response=adaptForecast(fields,context);
+    const details=decodeForecastDebug(debug,{...context,response});
+    now=end;
+    return {...response,debug:details};
+  });
   if(end<5000)expect((await pending).deadline).toBe(5000);else await expect(pending).rejects.toThrow("超时");
-  expect(String(vi.mocked(wealthFetch).mock.calls[0]![0])).toContain("debug=1");
+  expect(String(vi.mocked(wealthFetch).mock.calls[0]![0])).toContain("/debug/xxm-key-point-forecast");
 });
 it("normal requests omit debug and retain source errors",async()=>{
   vi.mocked(wealthFetch).mockResolvedValueOnce(new Response(JSON.stringify(forecastFixture("000001.SH"))));
@@ -27,7 +35,7 @@ it.each(["day","m30","m60","m90","m120"] as const)("preserves an unbounded debug
   const raw=forecastDebugFixture("399001.SZ",period);
   raw.debug.conditions[0]!.priceRanges=[{lower:3779.307688860061,upper:null,lowerInclusive:true,upperInclusive:false,displayLower:3780,displayUpper:null}];
   vi.mocked(wealthFetch).mockResolvedValueOnce(new Response(JSON.stringify(raw)));
-  const result=await fetchForecast("399001.SZ",period,undefined,new AbortController().signal,{debug:1,decodeDebug:decodeForecastDebug});
+  const result=await fetchDebugForecast("399001.SZ",period,undefined,new AbortController().signal);
   expect(result.response).toHaveProperty("debug.conditions.0.priceRanges.0",{lower:3779.307688860061,upper:null,lowerInclusive:true,upperInclusive:false,displayLower:3780,displayUpper:null});
   expect(result.deadline).toBeGreaterThan(performance.now());
   expect(vi.mocked(wealthFetch)).toHaveBeenCalledTimes(1);
@@ -37,9 +45,9 @@ it.each([0,1] as const)("sends the requested non-Shanghai m30 identity and repla
   const tsCode="399001.SZ",asOf="2023-01-10T15:00:00+08:00";
   const raw=debug?forecastDebugFixture(tsCode,"m30",asOf):forecastFixture(tsCode,"m30",asOf);
   vi.mocked(wealthFetch).mockResolvedValueOnce(new Response(JSON.stringify(raw)));
-  const {response}=await fetchForecast(tsCode,"m30",asOf,new AbortController().signal,{debug:debug?1:undefined,decodeDebug:debug?decodeForecastDebug:undefined});
+  const {response}=await (debug?fetchDebugForecast:fetchForecast)(tsCode,"m30",asOf,new AbortController().signal);
   const url=new URL(String(vi.mocked(wealthFetch).mock.calls[0]![0]),window.location.origin);
-  expect(Object.fromEntries(url.searchParams)).toEqual({tsCode,period:"m30",asOf,...(debug?{debug:"1"}:{})});
+  expect(Object.fromEntries(url.searchParams)).toEqual({tsCode,period:"m30",asOf});
   expect(response).toEqual(raw);
   expect(response.targetEndpoint).toBe("2023-01-11T10:00:00+08:00");
 });

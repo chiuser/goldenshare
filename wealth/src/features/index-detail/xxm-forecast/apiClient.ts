@@ -1,24 +1,18 @@
 import { wealthFetch } from "../../../shared/api/wealthApiClient";
 import { indexDetailRequests } from "../api/indexDetailRequestScheduler";
 import { checkRequest, XXM_TIMEOUT_MS } from "../xxm/apiClient";
-import { adaptForecast } from "./adapter";
-import type { ForecastPeriod, ForecastRequestResult } from "./types";
-import type { DecodeForecastDebug } from "../debug/types";
-export function fetchForecast(tsCode: string, period: ForecastPeriod, asOf: string | undefined, signal: AbortSignal, options: {
-    debug?: 1;
-    decodeDebug?: DecodeForecastDebug;
-} = {}): Promise<ForecastRequestResult> {
-    return indexDetailRequests.run("forecast", () => sendForecast(tsCode, period, asOf, signal, options, performance.now() + XXM_TIMEOUT_MS), signal);
+import { adaptForecast, type ForecastDecodeOptions } from "./adapter";
+import type { ForecastPeriod, ForecastRequestResult, ForecastResponse, ForecastDebugResponse } from "./types";
+export function fetchForecast(tsCode: string, period: ForecastPeriod, asOf: string | undefined,
+    signal: AbortSignal): Promise<ForecastRequestResult> {
+    return indexDetailRequests.run("forecast", () => sendForecast(tsCode, period, asOf, signal,
+        performance.now() + XXM_TIMEOUT_MS, "", adaptForecast), signal);
 }
-async function sendForecast(tsCode: string, period: ForecastPeriod, asOf: string | undefined, signal: AbortSignal, options: {
-    debug?: 1;
-    decodeDebug?: DecodeForecastDebug;
-}, deadline: number): Promise<ForecastRequestResult> {
+export async function sendForecast(tsCode: string, period: ForecastPeriod, asOf: string | undefined, signal: AbortSignal,
+    deadline: number, prefix: string, decode: (raw: unknown, options: ForecastDecodeOptions) => ForecastResponse | ForecastDebugResponse): Promise<ForecastRequestResult> {
     const params = new URLSearchParams({ tsCode, period });
     if (asOf)
         params.set("asOf", asOf);
-    if (options.debug)
-        params.set("debug", "1");
     const controller = new AbortController();
     const abort = () => controller.abort(signal.reason);
     signal.addEventListener("abort", abort, { once: true });
@@ -29,7 +23,7 @@ async function sendForecast(tsCode: string, period: ForecastPeriod, asOf: string
     const timer = setTimeout(() => controller.abort(), Math.max(0, deadline - performance.now()));
     try {
         check();
-        const http = await wealthFetch(`/api/v1/wealth/market/index-detail/xxm-key-point-forecast?${params}`, { signal: controller.signal });
+        const http = await wealthFetch(`/api/v1/wealth/market/index-detail/${prefix}xxm-key-point-forecast?${params}`, { signal: controller.signal });
         check();
         if (!http.ok) {
             const body = await http.json().catch(() => null) as {
@@ -40,7 +34,7 @@ async function sendForecast(tsCode: string, period: ForecastPeriod, asOf: string
         }
         const raw: unknown = await http.json();
         check();
-        const response = adaptForecast(raw, { tsCode, period, asOf, debug: options.debug ?? 0, decodeDebug: options.decodeDebug, check });
+        const response = decode(raw, { tsCode, period, asOf, check });
         check();
         return { response, deadline };
     }

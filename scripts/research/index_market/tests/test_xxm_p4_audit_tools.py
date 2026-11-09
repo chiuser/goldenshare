@@ -30,7 +30,7 @@ def scope(g, n=1, kind='signals', tab='1', round_=1):
     path={'signals':'xxm-signals','forecast':'xxm-key-point-forecast','kline':'kline','nineTurn':'nine-turn'}[kind]
     params='tsCode=000001.SH'
     if kind not in ('nineTurn',): params+='&period='+g.period
-    if g.mode=='debug' and kind in ('signals','forecast'): params+='&debug=1'
+    if g.mode=='debug' and kind in ('signals','forecast','kline'): path='debug/'+path
     return dict(type='http',path='/api/v1/wealth/market/index-detail/'+path,
                 query_string=params.encode(),headers=[(b'x-request-id',f'{g.groupId}:{g.scenario}:{round_}:{tab}:{n}'.encode())])
 
@@ -76,12 +76,14 @@ def test_exact_explicit_task_lists(period,mode,samples):
 def test_request_parameters_are_actual_and_duplicate_or_unselected_rejected():
     g=group(mode='debug');c=audit.AuditCollector(g)
     one=c.start(scope(g,kind='kline'));two=c.start(scope(g,2))
-    assert c.requests[one]['debug'] is None and c.requests[two]['debug']==1
+    assert c.requests[one]['debug'] == c.requests[two]['debug'] == 1
     with pytest.raises(ValueError,match='Duplicate'):c.start(scope(g,2))
     wrong=scope(g,3);wrong['query_string']=b'tsCode=000001.SH&period=m60&debug=1'
     with pytest.raises(ValueError,match='period'):c.start(wrong)
     wrong=scope(g,3,kind='kline');wrong['query_string']+=b'&debug=1'
     with pytest.raises(ValueError,match='debug'):c.start(wrong)
+    wrong=scope(g,3,kind='kline');wrong['path']=wrong['path'].replace('/debug/', '/')
+    with pytest.raises(ValueError,match='address'):c.start(wrong)
 
 
 def test_sample_count_p95_and_independent_timing_limits():
@@ -244,7 +246,8 @@ def test_real_asgi_to_sync_thread_preserves_each_request_identity():
     @app.get('/api/v1/wealth/market/index-detail/xxm-signals')
     def endpoint():
         identity=audit._REQUEST_ID.get();assert identity in c.requests;barrier.wait(2)
-        return {'identity':identity}
+        return dict(identity=identity, dataStatus=dict(status='READY', asOf='2023-01-03'),
+                    meta=dict(count=1, responseStart='2023-01-03', responseEnd='2023-01-03'))
     with TestClient(app) as client:
         values=[]
         def request(tab):
@@ -257,6 +260,8 @@ def test_real_asgi_to_sync_thread_preserves_each_request_identity():
         assert len(values)==2 and all(a==b==h for a,b,h in values)
         assert c.active==0 and len(c.requests)==2
         assert all(r['terminal']=='success' and r['bodyBytes']>0 for r in c.requests.values())
+        assert all(r['prefixRows'] is None and r['sourceInputId'] is None
+                   and r['dataStatus']=='READY' and r['responseRows']==1 for r in c.requests.values())
 
 
 def test_worker_input_protocol_and_no_extra_scenarios():
@@ -346,7 +351,8 @@ globalThis.fetch=async(input,options={{}})=>{{
  if(endpoint==='reset')return result({{groupId:g.groupId,ok:true}});
  if(endpoint==='metrics')return result({{groupId:g.groupId,requests:rows,loads:[],activeRequests:0,cacheBytes:0,cacheEntries:0,cleanupStatus:'pending',observedCalls:calls}});
  const requestId=new Headers(options.headers).get('X-Request-ID');
- const debug=url.searchParams.get('debug')==='1';
+ const debug=url.pathname.includes('/debug/');
+ if(url.searchParams.has('debug')||debug!==(g.mode==='debug'&&['kline','xxm-signals','minute-xxm-signals','xxm-key-point-forecast'].includes(endpoint)))throw new Error('wrong request address');
  const minute=g.period!=='day',freq=minute?Number(g.period.slice(1)):null;
  function minuteResponse(response){{
   function dates(value){{
@@ -381,7 +387,9 @@ globalThis.fetch=async(input,options={{}})=>{{
   body=debug?facts.forecastDebugFixture('000001.SH',g.period):facts.forecastFixture('000001.SH',g.period);kind='forecast';
  }}else if((endpoint==='xxm-signals'||endpoint==='minute-xxm-signals')){{
   if(!(minute?calls.includes('minutes')&&calls.includes('minute-indicators'):calls.includes('kline'))||url.searchParams.get('startDate')!=='2023-01-12'||url.searchParams.get('endDate')!=='2023-01-12'||url.searchParams.get('limit')!=='1')throw new Error('wrong actual window');
-  body=(debug?facts.xxmDebugFixture('000001.SH'):facts.xxmFixture('000001.SH')).response;if(minute)body=minuteResponse(body);kind='signals';
+  body=(debug?facts.xxmDebugFixture('000001.SH'):facts.xxmFixture('000001.SH')).response;if(minute)body=minuteResponse(body);
+  if(!debug){{delete body.source;body.points=body.points.map(point=>({{...point,ordinaryState:null,ordinaryDirection:null}}));}}
+  kind='signals';
   if(bad==='contract')body={{...body,specHash:'old'}};
  }}else throw new Error('unexpected endpoint');
  const bytes=Buffer.byteLength(JSON.stringify(body));
@@ -607,7 +615,7 @@ def test_partial_observation_setup_restores_already_registered_patches(monkeypat
 def test_p4_r02_minute_prefix_1501_rejected_in_complete_summary(period, kind):
     # LLD 21.14.2: the real collector records processed prefix rows, while
     # this independent literal boundary is 500 requested + 1000 extra.
-    g = group('mixed_single' if kind == 'signals' else 'forecast_series', period=period)
+    g = group('mixed_single' if kind == 'signals' else 'forecast_series', period=period, mode='debug' if kind == 'signals' else 'normal')
     values = (_p4_minute_mixed(g, prefixRows=1501) if kind == 'signals'
               else [_p4_minute_record(g, prefixRows=1501)])
     with pytest.raises(ValueError, match='prefix'):
@@ -624,7 +632,7 @@ def _p4_minute_scope(g, n, kind):
     value['path'] = '/api/v1/wealth/market/index-detail/' + endpoint
     query = 'tsCode=000001.SH&' + ('period=' + g.period if kind == 'forecast' else 'freq=' + g.period[1:])
     if g.mode == 'debug' and kind in ('signals', 'forecast'):
-        query += '&debug=1'
+        value['path'] = '/api/v1/wealth/market/index-detail/debug/' + endpoint
     value['query_string'] = query.encode()
     return value
 
@@ -646,6 +654,8 @@ def _p4_minute_record(g, n=1, kind='forecast', **changes):
                   clientSeconds=.02 if kind in ('signals', 'forecast') else None,
                   computeSeconds=.02 if kind == 'forecast' else None,
                   responseRows=500 if kind == 'signals' else None)
+    if kind == 'signals' and g.mode == 'normal':
+        values.update(prefixRows=None, sourceInputId=None)
     values.update(changes)
     c.requests[identity].update(values)
     return c.requests[identity]
@@ -667,13 +677,13 @@ def test_p4_r01_complete_minute_groups_accept_literal_limits(period, mode):
     values[-1]['computeSeconds'] = .4
     result = audit.validate_summary(g, summary(g, values))
     assert len(result['requests']) == 5 and result['p95HttpSeconds'] is None
-    assert result['requests'][3]['prefixRows'] == 1500
+    assert result['requests'][3]['prefixRows'] == (1500 if mode == 'debug' else None)
     assert result['requests'][3]['responseRows'] == 500
 
 
 @pytest.mark.parametrize('prefix,count', [(400, 400), (1001, 1), (1500, 1), (1, 1)])
 def test_p4_r03_short_source_does_not_require_1500_or_derive_limit_from_output(prefix, count):
-    g = group(period='m60')
+    g = group(period='m60', mode='debug')
     values = _p4_minute_mixed(g, prefixRows=prefix, responseRows=count)
     assert audit.validate_summary(g, summary(g, values))['requests'][3]['prefixRows'] == prefix
 
@@ -681,7 +691,7 @@ def test_p4_r03_short_source_does_not_require_1500_or_derive_limit_from_output(p
 @pytest.mark.parametrize('value', [None, True, 0, -1, 1500.0, '1500', 1501])
 @pytest.mark.parametrize('kind', ['signals', 'forecast'])
 def test_p4_r04_bad_prefix_rejected_in_full_group(value, kind):
-    g = group(period='m60')
+    g = group(period='m60', mode='debug' if kind == 'signals' else 'normal')
     values = _p4_minute_mixed(g)
     values[3 if kind == 'signals' else 4]['prefixRows'] = value
     with pytest.raises(ValueError, match='prefix'):
@@ -692,7 +702,7 @@ def test_p4_r04_bad_prefix_rejected_in_full_group(value, kind):
 @pytest.mark.parametrize('value', [None, ''])
 @pytest.mark.parametrize('kind', ['signals', 'forecast'])
 def test_p4_r05_minute_identity_is_required_without_source_lookup(field, value, kind):
-    g = group(period='m60')
+    g = group(period='m60', mode='debug' if kind == 'signals' else 'normal')
     values = _p4_minute_mixed(g)
     values[3 if kind == 'signals' else 4][field] = value
     with pytest.raises(ValueError, match='identity'):
@@ -702,9 +712,17 @@ def test_p4_r05_minute_identity_is_required_without_source_lookup(field, value, 
 @pytest.mark.parametrize('count,prefix', [(501, 1500), (0, 1500), (None, 1500),
                                          (True, 1500), (500.0, 1500), (500, 400)])
 def test_p4_r06_signal_count_is_positive_bounded_and_not_more_than_prefix(count, prefix):
-    g = group(period='m60')
+    g = group(period='m60', mode='debug')
     with pytest.raises(ValueError, match='response rows'):
         audit.validate_summary(g, summary(g, _p4_minute_mixed(g, responseRows=count, prefixRows=prefix)))
+
+
+def test_ordinary_gold_rejects_calculated_prefix_and_excessive_response_rows():
+    g = group(period='m60')
+    with pytest.raises(ValueError, match='no calculated prefix'):
+        audit.validate_summary(g, summary(g, _p4_minute_mixed(g, prefixRows=500)))
+    with pytest.raises(ValueError, match='response rows'):
+        audit.validate_summary(g, summary(g, _p4_minute_mixed(g, responseRows=501)))
 
 
 @pytest.mark.parametrize('status', ['EMPTY', 'DELAYED'])
@@ -799,6 +817,9 @@ def test_p4_r12_real_collector_distinguishes_prefix_from_window_and_modes(kind):
               for m in ('normal', 'debug')]
     summaries = []
     for g in groups:
+        if kind == 'signals' and g.mode == 'normal':
+            summaries.append(audit.validate_summary(g, summary(g, _p4_minute_mixed(g, responseRows=1))))
+            continue
         recorded, _ = _p4_projected_minute(g, kind)
         assert recorded['prefixRows'] == 2
         if kind == 'signals':
@@ -810,7 +831,11 @@ def test_p4_r12_real_collector_distinguishes_prefix_from_window_and_modes(kind):
             assert recorded['windowStart'] == '2026-10-26T15:00:00+08:00'
             values = [recorded]
         summaries.append(audit.validate_summary(g, summary(g, values)))
-    assert all(p['status'] == 'equal' for p in audit.compare_modes(*summaries))
+    comparisons = audit.compare_modes(*summaries)
+    if kind == 'signals':
+        assert [p['status'] for p in comparisons] == ['not_comparable', 'equal']
+        return
+    assert all(p['status'] == 'equal' for p in comparisons)
     changed = summaries[1]['requests'][0 if kind == 'forecast' else 3]
     changed['publicDigest'] = 'different'
     with pytest.raises(ValueError, match='public'):

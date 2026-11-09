@@ -1,5 +1,5 @@
 import { wealthFetch } from "../../../shared/api/wealthApiClient";
-import { indexDetailRequests } from "./indexDetailRequestScheduler";
+import { indexDetailRequests, type IndexDetailRequestScheduler } from "./indexDetailRequestScheduler";
 import type {
   IndexDetailKlineResponseDto,
   IndexDetailMinuteFrequency,
@@ -25,14 +25,14 @@ export class IndexDetailApiError extends Error {
 }
 
 export function fetchIndexDetailPageInit(
-  params: { tsCode: string; tradeDate?: string; debug?: 0 | 1 },
+  params: { tsCode: string; tradeDate?: string },
   options: FetchOptions = {},
 ): Promise<IndexDetailPageInitResponseDto> {
   return fetchIndexDetail<IndexDetailPageInitResponseDto>("page-init", params, options);
 }
 
 export function fetchIndexDetailKline(
-  params: { tsCode: string; period: "day"; startDate?: string; endDate?: string; limit?: number; debug?: 0 | 1 },
+  params: { tsCode: string; period: "day"; startDate?: string; endDate?: string; limit?: number },
   options: FetchOptions = {},
 ): Promise<IndexDetailKlineResponseDto> {
   return fetchIndexDetail<IndexDetailKlineResponseDto>("kline", params, options);
@@ -48,8 +48,9 @@ export function fetchIndexDetailMinutes(
     cursor?: string;
   },
   options: FetchOptions = {},
+  requests: IndexDetailRequestScheduler = indexDetailRequests,
 ): Promise<IndexMinutesResponseDto> {
-  return indexDetailRequests.run("chart", () => fetchIndexDetail<IndexMinutesResponseDto>("minutes", params, options), options.signal);
+  return requests.run("chart", () => fetchIndexDetail<IndexMinutesResponseDto>("minutes", params, options), options.signal);
 }
 
 export function fetchIndexDetailMinuteIndicators(
@@ -62,19 +63,20 @@ export function fetchIndexDetailMinuteIndicators(
     cursor?: string;
   },
   options: FetchOptions = {},
+  requests: IndexDetailRequestScheduler = indexDetailRequests,
 ): Promise<IndexMinuteIndicatorsResponseDto> {
-  return indexDetailRequests.run("chart", () => fetchIndexDetail<IndexMinuteIndicatorsResponseDto>("minute-indicators", params, options), options.signal);
+  return requests.run("chart", () => fetchIndexDetail<IndexMinuteIndicatorsResponseDto>("minute-indicators", params, options), options.signal);
 }
 
 export function fetchIndexDetailWeights(
-  params: { tsCode: string; tradeDate?: string; debug?: 0 | 1 },
+  params: { tsCode: string; tradeDate?: string },
   options: FetchOptions = {},
 ): Promise<IndexDetailWeightsResponseDto> {
   return fetchIndexDetail<IndexDetailWeightsResponseDto>("weights", params, options);
 }
 
-async function fetchIndexDetail<T>(
-  endpoint: "page-init" | "kline" | "minute-indicators" | "minutes" | "weights",
+export async function fetchIndexDetail<T>(
+  endpoint: "page-init" | "kline" | "minute-indicators" | "minutes" | "weights" | "debug/page-init" | "debug/kline" | "debug/weights",
   params: Record<string, string | number | undefined>,
   options: FetchOptions,
 ): Promise<T> {

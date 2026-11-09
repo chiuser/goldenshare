@@ -39,18 +39,18 @@ describe("IndexChartWorkspace adapter", () => {
   it("updates asynchronous ordinary trend content without replacing chart primitives or changing the selected overlay", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit(), makeKline());
     const props = { indicatorControls: defaultIndicatorControls, nineTurnLayer: idleNineTurnLayer("day"), onNineTurnRetry: vi.fn(), viewModel };
-    const { rerender } = render(<IndexChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} {...props} trend={null} trendPhase="loading" />);
+    const { rerender } = render(<IndexChartWorkspace recognitionEnabled {...props} trend={null} trendPhase="loading" />);
     const first = latestProps();
     fireEvent.change(screen.getByLabelText("指数主图指标切换"), { target: { value: "BOLL" } });
     const trend = { droppedCount: 0, status: "READY" as const, points: [{ time: "2023-10-26", close: 120,
       shortUpper: 122, shortLower: 115, longUpper: 125, longLower: 112 }] };
-    rerender(<IndexChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} {...props} trend={trend} trendPhase="ready" />);
+    rerender(<IndexChartWorkspace recognitionEnabled {...props} trend={trend} trendPhase="ready" />);
     expect(screen.getByLabelText("指数主图指标切换")).toHaveValue("BOLL");
     expect(latestProps().mainLines).toHaveLength(3);
     expect(latestProps().dataKey).toBe(first.dataKey);
     fireEvent.change(screen.getByLabelText("指数主图指标切换"), { target: { value: "TREND_CHANNEL" } });
     const selected = latestProps();
-    rerender(<IndexChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} {...props} trend={{ ...trend, points: [{ ...trend.points[0]!, shortUpper: 123 }] }} trendPhase="ready" />);
+    rerender(<IndexChartWorkspace recognitionEnabled {...props} trend={{ ...trend, points: [{ ...trend.points[0]!, shortUpper: 123 }] }} trendPhase="ready" />);
     expect(latestProps().mainPrimitives).toBe(selected.mainPrimitives);
     expect(latestProps().mainLines).toBe(selected.mainLines);
   });
@@ -58,7 +58,7 @@ describe("IndexChartWorkspace adapter", () => {
   it("uses the index daily dataKey and keeps it stable across MA/BOLL switches", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit("399001.SZ"), makeKline("399001.SZ"));
     const onToggleIndicatorPanel = vi.fn();
-    render(<IndexChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }} indicatorControls={{ ...defaultIndicatorControls, hiddenIndicatorPanels: new Set(["volume"]), onToggleIndicatorPanel }} nineTurnLayer={idleNineTurnLayer("day")} onNineTurnRetry={vi.fn()} trend={null} trendPhase="unavailable" viewModel={viewModel} />);
+    render(<IndexChartWorkspace recognitionEnabled indicatorControls={{ ...defaultIndicatorControls, hiddenIndicatorPanels: new Set(["volume"]), onToggleIndicatorPanel }} nineTurnLayer={idleNineTurnLayer("day")} onNineTurnRetry={vi.fn()} trend={null} trendPhase="unavailable" viewModel={viewModel} />);
 
     expect(latestProps().dataKey).toBe("index:399001.SZ:day");
     expect(latestProps().hiddenIndicatorPanels).toEqual(new Set(["volume"]));
@@ -79,7 +79,7 @@ describe("IndexChartWorkspace adapter", () => {
   it("keeps the same dataKey when the SSE trend primitive is active", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit(), makeKline());
     render(
-      <IndexChartWorkspace recognition={{ recognitionEnabled: true, debug: 0 }}
+      <IndexChartWorkspace recognitionEnabled
         indicatorControls={defaultIndicatorControls}
         nineTurnLayer={idleNineTurnLayer("day")}
         onNineTurnRetry={vi.fn()}
@@ -118,11 +118,10 @@ describe("IndexChartWorkspace adapter", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit(), { ...kline, bars: [seed] });
     const allCandles = buildIndexDetailViewModel(makePageInit(), { ...kline, bars: [previous, seed] }).chart.candles;
     const controls = { ...defaultIndicatorControls, quantitativeStructureAvailable: true };
-    const renderXxmDetails = vi.fn(() => <span>识别调试内容</span>);
     const base = {
       nineTurnLayer: idleNineTurnLayer("day"), onNineTurnRetry: vi.fn(), viewModel,
       trend: null, trendPhase: "unavailable" as const,
-      recognition: { recognitionEnabled: true, debug: 1 as const, renderXxmDetails, decodeXxmDebug },
+      recognitionEnabled: true,
     };
     const history = {
       active: true, visible: null, phase: "idle" as const, error: undefined,
@@ -137,12 +136,11 @@ describe("IndexChartWorkspace adapter", () => {
     expect(latest.macd).toBe(1);
     const tooltip = render(first.renderTooltip(latest, "right"));
     expect(screen.queryByLabelText("顶底识别详情")).not.toBeInTheDocument();
-    expect(renderXxmDetails).not.toHaveBeenCalled();
 
     rendered.rerender(<IndexChartWorkspace {...base} history={history} indicatorControls={{ ...controls, hiddenIndicatorPanels: new Set(["kdj"]) }} />);
     tooltip.rerender(latestProps().renderTooltip(latest, "right"));
     expect(screen.getByLabelText("顶底识别详情")).toBeInTheDocument();
-    expect(screen.getByText("识别调试内容")).toBeInTheDocument();
+    expect(screen.getByLabelText("顶底识别详情")).toHaveTextContent("顶消失 / 顶钝化");
     const header = render(latestProps().quantitativeStructure?.renderHeader(valuesAt!(tradeDate)));
     expect(header.getByText("DIF:96.00")).toBeInTheDocument();
     expect(header.getByText("MACD:2.00")).toBeInTheDocument();

@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
-import type { ForecastDebugResponse } from "./types";
+import type { ForecastResponse } from "./types";
 import { FORECAST_PERIODS, PERIOD_LABELS, type ForecastPeriod, type ForecastRows } from "./types";
 import "./xxm-forecast.css";
 
-export function XxmForecastCard({ rows, retry, renderDebugDetails }: { rows: ForecastRows; retry: (period: ForecastPeriod) => void; renderDebugDetails?: (response: ForecastDebugResponse) => ReactNode }) {
+export function XxmForecastCard({ rows, retry, renderDetails }: { rows: ForecastRows; retry: (period: ForecastPeriod) => void; renderDetails?: (response: ForecastResponse) => ReactNode }) {
   return <section className="xxm-forecast-card" aria-label="关键高低点预判">
     <header><strong>关键高低点预判</strong><small>各周期独立计算 · 随收盘更新</small></header>
     {FORECAST_PERIODS.map(period => {
@@ -17,7 +17,7 @@ export function XxmForecastCard({ rows, retry, renderDebugDetails }: { rows: For
         <p>{display?.conditionsText ?? (row.phase === "unsupported" ? "分钟数据能力开放后可计算。" : row.error)}</p>
         {row.response ? <><small>{row.response.applicabilityText}</small><small>{row.response.invalidationText}</small></> : null}
         <small>{display?.asOfText ?? row.response?.display.asOfText ?? "数据截至待获取"}</small>
-        {row.phase === "ready" && row.response && "debug" in row.response && renderDebugDetails ? renderDebugDetails(row.response) : null}
+        {row.phase === "ready" && row.response && renderDetails ? renderDetails(row.response) : null}
         {row.phase === "error" ? <button type="button" onClick={() => retry(period)} aria-label={`重试${PERIOD_LABELS[period]}关键点预判`}>重试</button> : null}
       </article>;
     })}

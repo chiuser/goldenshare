@@ -13,16 +13,12 @@ from src.biz.queries.wealth.market.index_detail.index_detail_query import (
     _KLINE_FIELD_NAMES, _KLINE_PRICE_FIELDS, IndexDetailQuery,
 )
 from src.biz.schemas.wealth.market.index_detail import (
-    IndexDetailDataStatusDto,
-    IndexDetailDebugInfoDto,
     IndexDetailIdentityDto,
     IndexDetailIndexRefDto,
     IndexDetailKlineMetaDto,
     IndexDetailKlineResponseDto,
-    IndexDetailModuleDebugDto,
     IndexDetailSseKlineMetaDto,
 )
-from src.biz.services.wealth.market.index_detail.index_detail_exception_builder import IndexDetailExceptionBuilder
 from src.biz.services.wealth.market.index_detail.index_detail_field_mapper import (
     build_identity,
     build_kline_bar,
@@ -88,9 +84,11 @@ class IndexDetailKlineQueryService:
         self._query = IndexDetailQuery()
         self._daily_lake = daily_lake
         self._status_resolver = IndexDetailStatusResolver()
-        self._exception_builder = IndexDetailExceptionBuilder()
 
-    def build_kline(
+    def build_kline(self, session: Session | None, **params) -> IndexDetailKlineResponseDto:
+        return self.query_kline(session, **params)[0]
+
+    def query_kline(
         self,
         session: Session | None,
         *,
@@ -99,11 +97,10 @@ class IndexDetailKlineQueryService:
         start_date: date | None,
         end_date: date | None,
         limit: int,
-        debug: bool,
         calculate: CalculateDailyFactors | None = None,
         source_origin: date | None = None,
         check_active: Callable[[], None] | None = None,
-    ) -> IndexDetailKlineResponseDto:
+    ) -> tuple[IndexDetailKlineResponseDto, int | None]:
         if period != "day":
             raise IndexDetailRequestError("指数详情只支持 period=day")
         if limit < 1 or limit > 2000:
@@ -116,7 +113,7 @@ class IndexDetailKlineQueryService:
             assert source_origin is not None and check_active is not None
             return self._build_sse_kline(
                 session, ts_code=ts_code, start_date=start_date, end_date=end_date,
-                limit=limit, debug=debug, source_origin=source_origin,
+                limit=limit, source_origin=source_origin,
                 calculate=calculate, check_active=check_active,
             )
         daily_lake = None if ts_code == "899050.BJ" else self._daily_lake
@@ -145,12 +142,6 @@ class IndexDetailKlineQueryService:
                 empty=True,
                 partial=False,
             )
-            exceptions = [
-                self._exception_builder.source_empty(
-                    module="indexDetailKline",
-                    message="指数因子日线无可用数据",
-                )
-            ]
             return IndexDetailKlineResponseDto(
                 pageContext=build_page_context(context),
                 indexRef=IndexDetailIndexRefDto(tsCode=identity.tsCode, name=identity.name),
@@ -163,15 +154,7 @@ class IndexDetailKlineQueryService:
                     endDate=query_end_date,
                 ),
                 dataStatus=data_status,
-                debugInfo=(
-                    IndexDetailDebugInfoDto(
-                        modules=[self._module_debug(data_status, row_count=0, missing_count=None)],
-                        exceptions=exceptions,
-                    )
-                    if debug
-                    else None
-                ),
-            )
+            ), None
 
         missing_count = self._count_non_ma_missing(rows)
         ma_missing_after_warmup = self._has_ma_missing_after_effective_history(
@@ -201,21 +184,6 @@ class IndexDetailKlineQueryService:
             empty=False,
             partial=partial,
         )
-        exceptions = []
-        if partial:
-            exceptions.append(
-                self._exception_builder.factor_partial(
-                    module="indexDetailKline",
-                    message="指数日线因子存在缺失或落后",
-                )
-            )
-        if observed_trade_date is not None and observed_trade_date < query_end_date:
-            exceptions.append(
-                self._exception_builder.source_delayed(
-                    module="indexDetailKline",
-                    message="指数因子观测日期落后于查询上界",
-                )
-            )
         return IndexDetailKlineResponseDto(
             pageContext=build_page_context(context),
             indexRef=IndexDetailIndexRefDto(tsCode=identity.tsCode, name=identity.name),
@@ -228,21 +196,13 @@ class IndexDetailKlineQueryService:
                 endDate=query_end_date,
             ),
             dataStatus=data_status,
-            debugInfo=(
-                IndexDetailDebugInfoDto(
-                    modules=[self._module_debug(data_status, row_count=len(rows), missing_count=missing_count)],
-                    exceptions=exceptions,
-                )
-                if debug
-                else None
-            ),
-        )
+        ), missing_count
 
     def _build_sse_kline(
         self, session: Session | None, *, ts_code: str, start_date: date | None, end_date: date | None,
-        limit: int, debug: bool, source_origin: date, calculate: CalculateDailyFactors,
+        limit: int, source_origin: date, calculate: CalculateDailyFactors,
         check_active: Callable[[], None],
-    ) -> IndexDetailKlineResponseDto:
+    ) -> tuple[IndexDetailKlineResponseDto, int | None]:
         lower = max(source_origin, start_date or source_origin)
         check_active()
         if self._daily_lake is not None:
@@ -286,20 +246,11 @@ class IndexDetailKlineQueryService:
                 )
             return self._read_sse_rows(session, ts_code, previous, ("trade_date", "high", "low", "close"), check_active)
 
-        exceptions = []
         missing_count = None
         if rows:
             result, preceding_rows = calculate(rows, read_previous)
             self._apply_sse_factors(ts_code, rows, dates, result)
             missing_count = self._count_sse_missing(rows, preceding_rows)
-            if missing_count:
-                exceptions.append(self._exception_builder.factor_partial(
-                    module="indexDetailKline", message="指数日线因子存在缺失或落后",
-                ))
-        else:
-            exceptions.append(self._exception_builder.source_empty(
-                module="indexDetailKline", message="指数因子日线无可用数据",
-            ))
         next_end = window[0][2] if len(window) == limit else None
         if next_end is not None and start_date is not None and next_end < start_date:
             next_end = None
@@ -315,11 +266,7 @@ class IndexDetailKlineQueryService:
                 count=len(rows), limit=limit, startDate=start_date, endDate=query_end, nextEndDate=next_end,
             ),
             dataStatus=data_status,
-            debugInfo=IndexDetailDebugInfoDto(
-                modules=[self._module_debug(data_status, row_count=len(rows), missing_count=missing_count)],
-                exceptions=exceptions,
-            ) if debug else None,
-        )
+        ), missing_count
 
     def _read_sse_rows(
         self, session: Session | None, ts_code: str, dates: tuple[date, ...],
@@ -464,22 +411,6 @@ class IndexDetailKlineQueryService:
                 if row.get(field_name) is None and effective_count >= period:
                     return True
         return False
-
-    @staticmethod
-    def _module_debug(
-        data_status: IndexDetailDataStatusDto,
-        *,
-        row_count: int,
-        missing_count: int | None,
-    ) -> IndexDetailModuleDebugDto:
-        return IndexDetailModuleDebugDto(
-            module="kline",
-            status=data_status.status,
-            expectedTradeDate=data_status.expectedTradeDate,
-            observedTradeDate=data_status.observedTradeDate,
-            rowCount=row_count,
-            missingCount=missing_count,
-        )
 
     @staticmethod
     def _build_identity_or_raise(

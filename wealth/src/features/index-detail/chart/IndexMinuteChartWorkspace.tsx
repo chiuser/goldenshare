@@ -1,7 +1,6 @@
-import type { IndexRecognitionProps } from "../debug/types";
-import { useMemo, useState, type ReactNode } from "react";
-import { useIndexXxmLayer } from "../xxm/useIndexXxmLayer";
-import { QUANTITATIVE_STRUCTURE_TITLE, useXxmValuesAt, XxmLayerStatus, XxmSignalDetails } from "../xxm/XxmLayerUi";
+import { useMemo, useState, type ComponentType, type ReactNode } from "react";
+import { IndexXxmLayer, type XxmLayerProps } from "../xxm/IndexXxmLayer";
+import { QUANTITATIVE_STRUCTURE_TITLE, XxmLayerStatus } from "../xxm/XxmLayerUi";
 import type { UTCTimestamp } from "lightweight-charts";
 
 import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
@@ -29,21 +28,25 @@ import type {
 
 interface IndexMinuteChartWorkspaceProps extends IndexMinuteSeriesState {
   indicatorControls: DetailChartIndicatorControls;
-  recognition: IndexRecognitionProps;
+  recognitionEnabled: boolean;
+  SignalLayer?: ComponentType<XxmLayerProps>;
+  showAlignmentDiagnostics?: boolean;
   nineTurnLayer: NineTurnLayerViewModel;
   onNineTurnRetry: () => void;
   onRetry: () => void;
 }
 
-export function IndexMinuteChartWorkspace({ data, errorMessage, indicatorControls, nineTurnLayer, onNineTurnRetry, onRetry, phase, recognition }: IndexMinuteChartWorkspaceProps) {
+export function IndexMinuteChartWorkspace({ data, errorMessage, indicatorControls, nineTurnLayer, onNineTurnRetry, onRetry, phase, recognitionEnabled, SignalLayer = IndexXxmLayer, showAlignmentDiagnostics = false }: IndexMinuteChartWorkspaceProps) {
   if (!data || data.points.length === 0) {
     return <IndexMinuteModuleState errorMessage={errorMessage} onRetry={onRetry} phase={phase} />;
   }
-  return <LoadedIndexMinuteChart recognition={recognition} data={data} indicatorControls={indicatorControls} message={errorMessage} nineTurnLayer={nineTurnLayer} onNineTurnRetry={onNineTurnRetry} phase={phase} />;
+  return <LoadedIndexMinuteChart recognitionEnabled={recognitionEnabled} SignalLayer={SignalLayer} showAlignmentDiagnostics={showAlignmentDiagnostics} data={data} indicatorControls={indicatorControls} message={errorMessage} nineTurnLayer={nineTurnLayer} onNineTurnRetry={onNineTurnRetry} phase={phase} />;
 }
 
 function LoadedIndexMinuteChart({
-  recognition,
+  recognitionEnabled,
+  SignalLayer = IndexXxmLayer,
+  showAlignmentDiagnostics = false,
   data,
   indicatorControls,
   message,
@@ -51,7 +54,9 @@ function LoadedIndexMinuteChart({
   onNineTurnRetry,
   phase,
 }: {
-  recognition: IndexRecognitionProps;
+  recognitionEnabled: boolean;
+  SignalLayer?: ComponentType<XxmLayerProps>;
+  showAlignmentDiagnostics?: boolean;
   data: IndexMinuteChartViewModel;
   indicatorControls: DetailChartIndicatorControls;
   message: string;
@@ -63,16 +68,14 @@ function LoadedIndexMinuteChart({
   const points = useMemo(() => data.points.map(toDetailChartPoint), [data.points]);
   const mainLines = useMemo(() => overlay === "MA" ? buildMaLines() : buildBollLines(), [overlay]);
   const dataKey = `index:${data.tsCode}:m${data.freq}`;
-  const xxm = useIndexXxmLayer({ tsCode: data.tsCode, period: `m${data.freq}`, points,
-    enabled: recognition.recognitionEnabled, debug: recognition.debug, decodeDebug: recognition.decodeXxmDebug,
-    indicatorVersion: data.indicatorVersion, indicatorsPending: phase === "loading" });
-  const valuesAt = useXxmValuesAt(xxm.data);
   const structureVisible = indicatorControls.quantitativeStructureAvailable
     && !indicatorControls.hiddenIndicatorPanels.has("quantitativeStructure");
   const nineTurnChartLayer = useNineTurnChartLayer({ dataKey, layer: nineTurnLayer, points, timeMode: "minute" });
 
   return (
-    <DetailChartWorkspace
+    <SignalLayer tsCode={data.tsCode} period={`m${data.freq}`} points={points}
+        indicatorVersion={data.indicatorVersion} indicatorsPending={phase === "loading"} enabled={recognitionEnabled}>
+      {xxm => <DetailChartWorkspace
       ariaLabel="指数分钟图表区"
       bottomBar={<IndexMinuteIndicatorBar indicatorControls={indicatorControls} message={message} overlay={overlay} phase={phase} setOverlay={setOverlay} />}
       bottomBarAriaLabel="指数分钟指标栏"
@@ -80,7 +83,7 @@ function LoadedIndexMinuteChart({
       hiddenIndicatorPanels={indicatorControls.hiddenIndicatorPanels}
       mainLayerAccessory={(
         <NineTurnLayerStatus
-          showAlignmentDiagnostics={recognition.debug === 1}
+          showAlignmentDiagnostics={showAlignmentDiagnostics}
           droppedMarkerCount={nineTurnChartLayer.droppedMarkerCount}
           layer={nineTurnLayer}
           onRetry={onNineTurnRetry}
@@ -92,7 +95,7 @@ function LoadedIndexMinuteChart({
       points={points}
       quantitativeStructure={indicatorControls.quantitativeStructureAvailable ? {
         ariaLabel: QUANTITATIVE_STRUCTURE_TITLE,
-        valuesAt,
+        valuesAt: xxm.valuesAt,
         primitives: xxm.macdPrimitives,
         renderHeader: (values) => <><IndexMinutePanelHeader panel="quantitativeStructure" point={values} /><XxmLayerStatus layer={xxm} onRetry={xxm.retry} /></>,
       } : undefined}
@@ -100,15 +103,13 @@ function LoadedIndexMinuteChart({
       renderPanelHeader={(panel, point) => <IndexMinutePanelHeader panel={panel} point={point} />}
       renderTooltip={(point, side) => (
         <IndexMinuteTooltip point={point} side={side}>
-          {structureVisible && xxm.data?.byTime.has(String(point.time)) ? (
-            <><XxmSignalDetails layer={xxm} time={String(point.time)} />
-              {recognition.debug === 1 ? recognition.renderXxmDetails?.(xxm, String(point.time)) : null}</>
-          ) : null}
+          {structureVisible ? xxm.renderDetails(String(point.time)) : null}
         </IndexMinuteTooltip>
       )}
       timeAxisAriaLabel="指数分钟底部时间轴"
       timeMode="minute"
-    />
+    />}
+    </SignalLayer>
   );
 }
 

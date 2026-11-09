@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from src.biz.schemas.wealth.market.index_detail import IndexDetailExceptionDto
+from src.biz.schemas.wealth.market.index_detail_debug import IndexDetailExceptionDto
 
 
 class IndexDetailExceptionBuilder:

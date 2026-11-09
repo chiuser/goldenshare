@@ -1,3 +1,4 @@
+from src.biz.queries.wealth.market.index_detail.debug_response import kline_response
 from datetime import date
 
 import duckdb
@@ -89,10 +90,10 @@ def test_dg_chart_fills_original_window_without_warmup_for_complete_ma(chart_lak
 
     monkeypatch.setattr(chart_lake, "factor_rows", record_factors)
     service = IndexDetailKlineQueryService(daily_lake=chart_lake)
-    result = service.build_kline(
+    result = kline_response(*service.query_kline(
         object(), ts_code=_CODE, period="day",
-        start_date=date(2009, 12, 31), end_date=date(2010, 1, 5), limit=2, debug=True,
-    )
+        start_date=date(2009, 12, 31), end_date=date(2010, 1, 5), limit=2,
+    ))
 
     assert batches == [(date(2010, 1, 4), date(2010, 1, 5)), (date(2009, 12, 31),)]
     assert [bar.tradeDate for bar in result.bars] == [date(2009, 12, 31), date(2010, 1, 4)]
@@ -110,9 +111,9 @@ def test_dg_chart_fills_original_window_without_warmup_for_complete_ma(chart_lak
     [(date(2009, 12, 28), "READY", 0), (date(2010, 1, 6), "PARTIAL", 1)],
 )
 def test_dg_chart_checks_ma_against_earlier_effective_bars(chart_lake, trade_date, status, missing_count):
-    result = IndexDetailKlineQueryService(daily_lake=chart_lake).build_kline(
-        object(), ts_code=_CODE, period="day", start_date=trade_date, end_date=trade_date, limit=1, debug=True,
-    )
+    result = kline_response(*IndexDetailKlineQueryService(daily_lake=chart_lake).query_kline(
+        object(), ts_code=_CODE, period="day", start_date=trade_date, end_date=trade_date, limit=1,
+    ))
 
     assert len(result.bars) == 1
     assert result.bars[0].factors.ma.ma5 is None

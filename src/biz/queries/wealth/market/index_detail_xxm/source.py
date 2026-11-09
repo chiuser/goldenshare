@@ -35,21 +35,27 @@ class XxmSourceError(ValueError):
 class XxmLakeCalendar:
     """One request's SSE rows, reused by context, source and forecast."""
 
-    def __init__(self, reader: IndexDailyLakeReader) -> None:
+    def __init__(self, reader: IndexDailyLakeReader, *, remaining: Callable[[], float] | None = None) -> None:
         self.reader = reader
+        self.remaining = remaining
         self.rows: tuple[tuple[date, bool, date | None], ...] = ()
+
+    def _read(self, **params):
+        if self.remaining is not None:
+            params["timeout_seconds"] = self.remaining()
+        return self.reader.calendar_rows(**params)
 
     def range(self, *, start: date, end: date) -> tuple[tuple[date, bool, date | None], ...]:
         if start > end:
             return ()
         if not self.rows or end < self.rows[0][0] or start > self.rows[-1][0]:
-            self.rows = self.reader.calendar_rows(start=start, end=end)
+            self.rows = self._read(start=start, end=end)
             return self.rows
         if start < self.rows[0][0]:
-            earlier = self.reader.calendar_rows(start=start, end=self.rows[0][0] - timedelta(days=1))
+            earlier = self._read(start=start, end=self.rows[0][0] - timedelta(days=1))
             self.rows = earlier + self.rows
         if end > self.rows[-1][0]:
-            later = self.reader.calendar_rows(start=self.rows[-1][0] + timedelta(days=1), end=end)
+            later = self._read(start=self.rows[-1][0] + timedelta(days=1), end=end)
             self.rows += later
         first = bisect_left(self.rows, start, key=lambda row: row[0])
         last = bisect_right(self.rows, end, key=lambda row: row[0])
@@ -57,14 +63,14 @@ class XxmLakeCalendar:
 
     def recent(self, *, end: date, open_days: int) -> tuple[tuple[date, bool, date | None], ...]:
         if not self.rows or not self.rows[0][0] <= end <= self.rows[-1][0]:
-            self.rows = self.reader.calendar_rows(end=end, recent_open_days=open_days)
+            self.rows = self._read(end=end, recent_open_days=open_days)
             return self.rows
         last = bisect_right(self.rows, end, key=lambda row: row[0])
         visible = self.rows[:last]
         opens = [index for index, (_, opened, _) in enumerate(visible) if opened]
         if len(opens) >= open_days:
             return visible[opens[-open_days]:]
-        earlier = self.reader.calendar_rows(end=self.rows[0][0] - timedelta(days=1),
+        earlier = self._read(end=self.rows[0][0] - timedelta(days=1),
                                             recent_open_days=open_days - len(opens))
         self.rows = earlier + self.rows
         return earlier + visible

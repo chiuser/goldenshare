@@ -7,14 +7,15 @@ from typing import Callable
 from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.orm import Session
 
-from src.biz.queries.wealth.market.index_detail_xxm.query_service import IndexDetailXxmQueryService, XxmQueryError
-from src.biz.schemas.wealth.market.index_detail_xxm import XxmResponseDto, XxmDebugResponseDto
+from src.biz.queries.wealth.market.index_detail_xxm.query_service import XxmQueryError
+from src.biz.queries.wealth.market.index_detail_xxm.gold_query import build_gold_history
+from src.biz.schemas.wealth.market.index_detail_xxm_gold import GoldXxmResponseDto
 from src.biz.services.wealth.market.index_detail_xxm.runtime import BUDGET
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 
 
 def parse_parameters(request: Request, *, minute: bool) -> dict:
-    allowed = {"tsCode", "freq" if minute else "period", "startDate", "endDate", "limit", "debug"}
+    allowed = {"tsCode", "freq" if minute else "period", "startDate", "endDate", "limit"}
     supplied = [key for key, _value in request.query_params.multi_items()]
     if set(supplied) - allowed or len(supplied) != len(set(supplied)):
         raise XxmQueryError("XXM_REQUEST_INVALID", "顶底识别参数未知或重复。", 400)
@@ -45,32 +46,26 @@ def parse_parameters(request: Request, *, minute: bool) -> dict:
     raw_limit = request.query_params.get("limit", str(default))
     if not re.fullmatch(r"[0-9]{1,4}", raw_limit) or not 1 <= int(raw_limit) <= BUDGET.max_response_rows:
         raise XxmQueryError("XXM_REQUEST_INVALID", "limit 必须在 1～2000 之间。", 400)
-    return {"ts_code": code, "period": period, "start_date": dates["startDate"], "end_date": dates["endDate"], "limit": int(raw_limit), "debug": parse_debug(request)}
-
-
-def parse_debug(request):
-    value = request.query_params.get("debug", "0")
-    if value not in ("0", "1"):
-        raise XxmQueryError("XXM_REQUEST_INVALID", "debug 仅允许0或1。", 400)
-    return value == "1"
+    return {"ts_code": code, "period": period, "start_date": dates["startDate"], "end_date": dates["endDate"], "limit": int(raw_limit)}
 
 
 def build_router(
     *, db_dependency: Callable, auth_dependency: Callable, error_factory: Callable,
     daily_lake: IndexDailyLakeReader | None = None,
+    path: str = "/xxm-signals", load=None, response_model=GoldXxmResponseDto,
 ) -> APIRouter:
     """App supplies infrastructure dependencies; Biz never imports App."""
     router = APIRouter(prefix="/wealth/market/index-detail", tags=["wealth-market"])
 
-    @router.get("/xxm-signals", response_model=XxmResponseDto | XxmDebugResponseDto)
+    @router.get(path, response_model=response_model)
     def get_index_xxm(request: Request, ts_code: str | None = Query(None, alias="tsCode"),
                       period: str | None = Query(None), start_date: str | None = Query(None, alias="startDate"),
-                      end_date: str | None = Query(None, alias="endDate"), limit: str | None = Query(None), debug: str | None = Query(None),
+                      end_date: str | None = Query(None, alias="endDate"), limit: str | None = Query(None),
                       _user=Depends(auth_dependency), session: Session = Depends(db_dependency)) -> Response:
         try:
-            body = IndexDetailXxmQueryService(daily_lake=daily_lake).build(
-                session, **parse_parameters(request, minute=False),
-            )
+            params = parse_parameters(request, minute=False)
+            body = (build_gold_history(daily_lake=daily_lake, **params)
+                    if load is None else load(session, **params))
             return Response(content=body, media_type="application/json", headers={"Cache-Control": "no-store"})
         except XxmQueryError as exc:
             raise error_factory(status_code=exc.status, code=exc.code, message=str(exc)) from exc

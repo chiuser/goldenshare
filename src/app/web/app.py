@@ -53,6 +53,19 @@ install_data_center(app)
 install_stock_daily_technical_indicators(app)
 app.include_router(api_router)
 
+_default_openapi = app.openapi
+
+
+def _openapi():
+    if app.openapi_schema is None:
+        from src.biz.api.wealth.market.index_detail_debug import add_openapi_responses
+
+        add_openapi_responses(_default_openapi())
+    return app.openapi_schema
+
+
+app.openapi = _openapi
+
 
 def _build_frontend_dev_url(path: str = "") -> str:
     base = settings.frontend_dev_server_url.strip().rstrip("/")

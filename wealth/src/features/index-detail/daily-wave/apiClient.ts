@@ -5,7 +5,7 @@ export async function fetchDailyWaveReview(
   { tsCode }: { tsCode: "000001.SH" },
   { signal }: { signal: AbortSignal },
 ): Promise<unknown> {
-  const url = new URL("/api/v1/wealth/market/index-detail/daily-waves", window.location.origin);
+  const url = new URL("/api/v1/wealth/market/index-detail/debug/daily-waves", window.location.origin);
   url.searchParams.set("tsCode", tsCode);
   const response = await wealthFetch(url, { method: "GET", cache: "no-store", signal });
   if (!response.ok) {

@@ -128,6 +128,21 @@
 
 后端回归入口为 `tests/web/test_wealth_index_detail_api.py`、`test_wealth_index_detail_dg_kline.py`、`test_wealth_index_detail_xxm_api.py`、`test_wealth_index_detail_xxm_local_routes.py`、`test_wealth_index_detail_xxm_forecast_api.py`、`test_wealth_index_detail_xxm_forecast_validation.py`、`test_wealth_index_detail_daily_wave_api.py`、`test_xxm_shared_loads.py`，以及 `tests/test_index_detail_daily_wave_query.py`、`tests/app/technical_indicators/test_index_daily_kline_integration.py`、`test_stock_daily_integration.py` 和 `scripts/research/index_market/tests/test_xxm_p4_audit_tools.py`。前端回归覆盖 `IndexDetailPage.test.tsx`、`IndexDetailDailyWave.test.tsx`、`useIndexDetailController.test.tsx`、两个图表 workspace、`IndexTechnicalTab.test.tsx`、`xxm/`、`xxm-forecast/`、`daily-wave/` 和 `debug/`。将波段原有第二次取日线及逐日对比用例改为一次请求、在已有 K 线上按日期加标记的断言。补路由冷加载、权重缓存切换及原并发上限的回归。开发验收运行相关用例、`npm --prefix wealth run typecheck`、`npm --prefix wealth run test` 和 `npm --prefix wealth run build`，用浏览器网络记录确认构建后的模块加载及波段请求次数。
 
+### 6.1 实施验收记录
+
+2026-11-10。本机通过后端相关回归 1,473 项及前端 1,602 项，类型检查、构建和文档完整性检查通过。后端冷启动、普通历史识别及拒绝核验权限时，均未加载核验响应组装和波段查询。接口说明保留各核验地址的响应字段，以及波段有结果和空结果两种响应。模拟连续两笔读取超时后，原窗口可重新请求。
+
+正式 Lake 只读验收使用本机 API 路由，替换鉴权和数据库会话依赖。普通识别的 r4.1 逐根计算调用为 0。表中为上证指数截至 2026-11-06 两次各取 500 根的实测，耗时包含本机 HTTP 处理，两次请求均访问同一份 SSE 日历两次。
+
+| 周期 | 首次／再次耗时 | 响应字节数 | 每次读取的文件数，另计日历 |
+| --- | --- | ---: | --- |
+| 日线 | 253／144 毫秒 | 66,843 | 500 份主要指数量化结构文件，500 份指数日线技术因子文件 |
+| 90 分钟 | 254／220 毫秒 | 93,177 | 主要指数量化结构、主要指数分钟线、主要指数分钟技术指标各 167 份 |
+
+另核对上证 2024-09-24 日线识别的 MACD 柱值 20.645、中证500 2010-01-04 日线成功且无事件、2010-01-05 的 30 分钟 14:30 顶钝化，以及上证 60 和 120 分钟完成端点。
+
+隔离浏览器使用真实普通识别回包，页面初始化、日线和波段等其他响应使用测试样本。普通页的核验代码下载及核验 API 请求均为 0。核验页的初始化、日线和识别均直接请求各自的 `/debug/` 地址。打开波段只新增一次 `/debug/daily-waves`。开发版 React StrictMode 在两种页面各取消了一次初始化请求，构建版普通页只发一次初始化请求，按原环境门禁使用普通页面。已验收的范围为本机接口和隔离浏览器，正式服务发布与上线后验证另行执行。
+
 ## 7. 财势乾坤编码门禁
 
 按[模块交付检查清单 §2](../../system/module-delivery-checklist-v1.md#2-硬检查)执行。

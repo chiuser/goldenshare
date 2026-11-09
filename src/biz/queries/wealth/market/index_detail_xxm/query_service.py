@@ -11,7 +11,7 @@ from datetime import date, datetime
 import hashlib
 from pathlib import Path
 import sys
-from threading import BoundedSemaphore, RLock
+from threading import RLock
 import time
 from typing import Any
 
@@ -26,7 +26,7 @@ from src.foundation.clients.local_lake.major_index_mins_reader import IndexMinut
 from src.biz.schemas.wealth.market.index_detail_xxm import InternalXxmResponseDto
 from src.biz.schemas.wealth.market.index_detail_xxm_forecast import InternalForecastResponseDto
 from goldenshare_technical_indicators.xxm.calculator import XxmCalculator
-from src.biz.services.wealth.market.index_detail_xxm.runtime import BUDGET
+from src.biz.services.wealth.market.index_detail_xxm.runtime import BUDGET, REQUEST_SLOTS as _REQUEST_SLOTS
 from goldenshare_technical_indicators.xxm.spec import MAIN_SPEC
 from goldenshare_technical_indicators.xxm.snapshot_validation import validate_structure_record
 from goldenshare_technical_indicators.xxm.types import XxmBar, XxmPeriod, XxmStep
@@ -181,23 +181,24 @@ class XxmCache:
 
 
 _CACHE = XxmCache()
-_REQUEST_SLOTS = BoundedSemaphore(BUDGET.max_concurrent_requests)
 _PERIODS = ("day", "m30", "m60", "m90", "m120")
 
 
 class IndexDetailXxmQueryService:
     def __init__(self, *, lake_root: Path | None = None, daily_lake: IndexDailyLakeReader | None = None,
-                 cache: XxmCache | None = None) -> None:
+                 cache: XxmCache | None = None, entry_scope: str = "normal") -> None:
         self.reader = minute_reader(lake_root) if lake_root is not None else None
         self.daily_lake = daily_lake
         self.cache = cache or _CACHE
+        self.entry_scope = entry_scope
         if daily_lake is not None:
             self.lake_identity = f"dg:{daily_lake.root}"
         else:
             self.lake_identity = str(lake_root.resolve()) if lake_root is not None else "daily"
 
-    def cache_bind_id(self, session: Session | None) -> int | str:
-        return "dg" if self.daily_lake is not None else id(session.get_bind())
+    def cache_bind_id(self, session: Session | None) -> int | str | tuple[str, int | str]:
+        bind = "dg" if self.daily_lake is not None else id(session.get_bind())
+        return bind if self.entry_scope == "normal" else (self.entry_scope, bind)
 
     @staticmethod
     def _check_entry_identity(entry: SeriesEntry, *, ts_code: str, period: XxmPeriod) -> None:
@@ -206,7 +207,7 @@ class IndexDetailXxmQueryService:
             raise XxmQueryError("XXM_SOURCE_CONTRACT_INVALID", "顶底识别缓存或结果与请求标的不一致。")
 
     def build(self, session: Session | None, *, ts_code: str, period: XxmPeriod, start_date: date | None, end_date: date | None,
-              limit: int, debug: bool = False, now: datetime | None = None) -> bytes:
+              limit: int, project=None, now: datetime | None = None) -> bytes:
         if period not in _PERIODS or not 1 <= limit <= BUDGET.max_response_rows or (start_date and end_date and start_date > end_date):
             raise XxmQueryError("XXM_REQUEST_INVALID", "研究指标请求参数不合法。", 400)
         window = {} if period == "day" else dict(window_rows=limit, requested_end=end_date)
@@ -215,8 +216,11 @@ class IndexDetailXxmQueryService:
             upper = min(end_date or context.trade_date, context.trade_date)
             expected = expected_through(period, open_dates, context.generated_at, upper)
             response = self._response(entry, ts_code=code, period=period, expected=expected, start_date=start_date, limit=limit, check=remaining)
-            from src.biz.services.wealth.market.index_detail_xxm.response_projection import project_xxm_response
-            response = project_xxm_response(response, debug=debug)
+            if project is None:
+                from src.biz.services.wealth.market.index_detail_xxm.response_projection import project_xxm_response
+
+                project = project_xxm_response
+            response = project(response)
             remaining()
             body = response.model_dump_json().encode("utf-8")
             if len(body) > BUDGET.max_response_bytes:

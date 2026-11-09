@@ -19,13 +19,15 @@ from sqlalchemy import create_engine,event,text
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
+from src.biz.services.wealth.market.index_detail_xxm.debug_projection import project_debug_forecast
 from src.app.exceptions import WebAppError, install_exception_handlers
 from src.biz.api.wealth.market.index_detail_xxm_forecast import build_router
 from src.biz.queries.wealth.market.index_detail_xxm import forecast_query_service as query
 from src.biz.queries.wealth.market.index_detail_xxm import source as source_data
 from src.biz.queries.wealth.market.index_detail_xxm.query_service import XxmCache, XxmQueryError
 from src.biz.queries.wealth.market.index_detail_xxm.source import CN_ZONE
-from src.biz.schemas.wealth.market.index_detail_xxm_forecast import InternalForecastResponseDto, ForecastResponseDto, ForecastDebugResponseDto
+from src.biz.schemas.wealth.market.index_detail_xxm_forecast import InternalForecastResponseDto, ForecastResponseDto
+from src.biz.schemas.wealth.market.index_detail_xxm_forecast_debug import ForecastDebugResponseDto
 from src.biz.services.wealth.market.index_detail_xxm.projection import ProjectionState,ProjectionPrecisionError
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 from scripts.research.index_market.tests.test_xxm_r4_following_query import entry
@@ -34,6 +36,7 @@ from tests.web.test_wealth_index_detail_xxm_api import (  # shared temporary pro
 )
 
 PATH='/api/v1/wealth/market/index-detail/xxm-key-point-forecast'
+DEBUG_PATH=PATH.replace('/xxm-key-point-forecast', '/debug/xxm-key-point-forecast')
 M1=[(100,-60,-2),(110,0,2),(90,-50,-2),(100,0,2),(89,-15,-30),(88,-14,-28)]
 NOW=datetime(2023,1,10,20,tzinfo=CN_ZONE)
 
@@ -65,6 +68,13 @@ def api(engine,denied=None,*,lake_root=None):
         with Session(engine) as s: yield s
     app.include_router(build_router(db_dependency=session,auth_dependency=denied or (lambda:None),
         lake_dependency=lambda:lake_root,error_factory=WebAppError),prefix='/api/v1')
+    def load_debug(session, *, lake_root, **params):
+        return query.IndexDetailXxmForecastQueryService(lake_root=lake_root, entry_scope="debug").build(
+            session, project=project_debug_forecast, **params,
+        )
+    app.include_router(build_router(db_dependency=session, auth_dependency=denied or (lambda: None),
+        lake_dependency=lambda: lake_root, error_factory=WebAppError,
+        path="/debug/xxm-key-point-forecast", load=load_debug, response_model=None), prefix="/api/v1")
     return TestClient(app)
 
 
@@ -82,7 +92,8 @@ def m1(monkeypatch,source_db):
 
 
 def read(service,session,*,ts_code='000001.SH',**kwargs):
-    return json.loads(service.build(session,ts_code=ts_code,period='day',now=NOW,**kwargs))
+    project = project_debug_forecast if kwargs.pop('debug', False) else None
+    return json.loads(service.build(session,ts_code=ts_code,period='day',now=NOW,project=project,**kwargs))
 
 
 def test_full_m1_normal_debug_cache_and_exact_single_target(m1,source_db,monkeypatch):
@@ -180,7 +191,7 @@ def test_auth_before_source(source_db,status):
 
 def test_real_route_source_empty_static_and_delayed_no_fake_conditions(source_db):
     c=api(source_db)
-    r=c.get(PATH+'?tsCode=000001.SH&period=day&asOf=2023-01-10&debug=1')
+    r=c.get(DEBUG_PATH+'?tsCode=000001.SH&period=day&asOf=2023-01-10')
     assert r.status_code==200,r.text
     v=r.json()
     assert v['status']=='NO_CANDIDATE' and v['reasonCode']=='ZERO_WAVE'
@@ -193,7 +204,7 @@ def test_real_route_source_empty_static_and_delayed_no_fake_conditions(source_db
         delayed=json.loads(service.build(s,ts_code='000001.SH',period='day',now=datetime(2023,1,11,20,tzinfo=CN_ZONE)))
         assert delayed['status']=='DELAYED' and delayed['targetEndpoint'] is None
     with source_db.begin() as c: c.execute(text('DELETE FROM core_serving.index_factor_pro'))
-    r=api(source_db).get(PATH+'?tsCode=000001.SH&period=day&debug=1')
+    r=api(source_db).get(DEBUG_PATH+'?tsCode=000001.SH&period=day')
     assert r.status_code==200 and r.json()['status']=='EMPTY'
     assert r.json()['ordinaryState'] is None and r.json()['debug']['sourceInputId'] is None
 
@@ -303,7 +314,7 @@ def test_actual_source_calibration_solver_models_and_encoding_share_budget(sourc
     with Session(source_db) as s,patch.object(query,'recover_projection',wraps=query.recover_projection) as calibration,patch.object(query,'forecast',wraps=query.forecast) as solve:
         service=query.IndexDetailXxmForecastQueryService(cache=XxmCache())
         start=time.perf_counter()
-        body=service.build(s,ts_code='000001.SH',period='day',now=now,debug=True)
+        body=service.build(s,ts_code='000001.SH',period='day',now=now,project=project_debug_forecast)
         cold_ms=(time.perf_counter()-start)*1000
         value=json.loads(body)
         assert calibration.call_count==solve.call_count==1
@@ -498,7 +509,7 @@ def test_p4_bounded_early_open_asof_uses_range_calendar_and_empty(batch3_db_fact
     monkeypatch.setattr(service.source.cache,'get_forecast',lambda *a,**k:pytest.fail('EMPTY cache read'))
     monkeypatch.setattr(service.source.cache,'put_forecast',lambda *a,**k:pytest.fail('EMPTY cache publish'))
     with Session(engine) as session:
-        result=json.loads(service.build(session,ts_code='000001.SH',period=f'm{freq}',as_of=f'2023-01-06T{BATCH3_SLOTS[freq][-1]}:00+08:00',debug=True,now=BATCH3_NOW))
+        result=json.loads(service.build(session,ts_code='000001.SH',period=f'm{freq}',as_of=f'2023-01-06T{BATCH3_SLOTS[freq][-1]}:00+08:00',project=project_debug_forecast,now=BATCH3_NOW))
     assert calls==[]  # The one range calendar already contains this day.
     assert result['status']=='EMPTY' and result['targetEndpoint'] is None
     assert result['debug']['sourceInputId'] is None and result['debug']['calendarInputId'] is None
@@ -554,7 +565,7 @@ def test_p4_batch3_early_asof_http_contract(batch3_db_factory,tmp_path,monkeypat
             connection.execute(text("DELETE FROM core_serving.trade_calendar WHERE trade_date='2023-01-06'") if kind=='absent' else text("UPDATE core_serving.trade_calendar SET is_open=NULL WHERE trade_date='2023-01-06'"))
     day='2023-01-07' if kind=='closed' else '2023-01-06'
     with patch.object(source_data,'is_open_date',wraps=source_data.is_open_date) as lookup,api(engine,lake_root=tmp_path) as client:
-        response=client.get(PATH,params=dict(tsCode='000001.SH',period=f'm{freq}',asOf=day+'T15:00:00+08:00',debug=1))
+        response=client.get(DEBUG_PATH,params=dict(tsCode='000001.SH',period=f'm{freq}',asOf=day+'T15:00:00+08:00'))
         assert response.status_code==status,response.text
         assert lookup.call_count==0
         if status==200:
@@ -584,7 +595,7 @@ def test_p4_batch3_qualification_bounds_and_empty(batch3_db_factory,tmp_path,mon
             with pytest.raises(XxmQueryError) as error:service.build(session,ts_code='000001.SH',period=f'm{freq}',as_of=stamp,now=now)
             assert error.value.status==400
         else:
-            result=json.loads(service.build(session,ts_code='000001.SH',period=f'm{freq}',as_of=stamp,debug=True,now=now))
+            result=json.loads(service.build(session,ts_code='000001.SH',period=f'm{freq}',as_of=stamp,project=project_debug_forecast,now=now))
             assert result['status']==('EMPTY' if case.startswith('empty') else 'NO_CANDIDATE')
         assert lookup.call_count==0
 
@@ -625,9 +636,12 @@ def test_p4_batch3_real_minute_ready_cache_identity_and_next_endpoint(batch3_db_
         old=replace(source_entry,open_dates=(date(2023,1,2),*source_entry.open_dates))
         cache.put(source_key,old,check=lambda:4.)
         with patch.object(source_query.XxmCalculator,'step',side_effect=AssertionError('calendar normalization replay')):
-            warm=client.get(PATH,params={**params,'debug':1})
+            warm=client.get(PATH,params=params)
         assert warm.status_code==200,warm.text
-        debug=warm.json();details=debug['debug']
+        assert warm.json() == normal
+        detailed=client.get(DEBUG_PATH,params=params)
+        assert detailed.status_code==200,detailed.text
+        debug=detailed.json();details=debug['debug']
         assert normal=={k:v for k,v in debug.items() if k!='debug'}
         assert normal['status']=='READY' and normal['ordinaryState']=='DULL' and normal['direction']=='BOTTOM'
         assert normal['targetEndpoint']==f'2023-01-11T{BATCH3_SLOTS[freq][0]}:00+08:00' and normal['barsAhead']==1
@@ -636,9 +650,9 @@ def test_p4_batch3_real_minute_ready_cache_identity_and_next_endpoint(batch3_db_
         assert normal['forecastId']==stored.forecastId
         assert details['sourceInputId']==stored.sourceInputId and details['calendarInputId']==stored.calendarInputId
         assert [c['id'] for c in details['conditions']]==[c.id for c in stored.conditions]
-        assert signatures==['bars','indicators','bars','indicators'] and pairs==[1]
-        assert calendar.call_count==2 and calibration.call_count==future.call_count==get.call_count==2
-        assert solve.call_count==put.call_count==1
+        assert signatures==['bars','indicators'] * 3 and pairs==[1, 1]
+        assert calendar.call_count==3 and calibration.call_count==future.call_count==get.call_count==3
+        assert solve.call_count==put.call_count==2
         assert all(call.kwargs['requested_end']==datetime(2023,1,10,15,tzinfo=CN_ZONE) for call in calendar.call_args_list)
         assert old.open_dates[0]==date(2023,1,2) and cache.entries[source_key][0] is not old
         assert cold.headers['cache-control']==warm.headers['cache-control']=='no-store'
@@ -711,7 +725,7 @@ def test_p4_bounded_short_source_precheck_precedes_real_calibration(batch3_db_fa
     with Session(batch3_db_factory()) as session,patch.object(query,'recover_projection',wraps=query.recover_projection) as calibration,\
          patch.object(query,'future_calendar',side_effect=AssertionError('no future calendar before calibration')),\
          patch.object(query,'precheck_next_bar',wraps=query.precheck_next_bar) as precheck:
-        result=json.loads(service.build(session,ts_code='000001.SH',period='m60',debug=True,now=BATCH3_NOW))
+        result=json.loads(service.build(session,ts_code='000001.SH',period='m60',project=project_debug_forecast,now=BATCH3_NOW))
     assert result['status']==expected and result['dataStatus']=='READY'
     assert calibration.call_count==calls and precheck.call_count==1
     if case=='only_following':
@@ -729,31 +743,39 @@ def test_p4_bounded_nonready_source_does_not_calibrate(batch3_db_factory,tmp_pat
     assert result['status']==case.upper()
 
 
-def test_p4_bounded_real_page_enddate_and_forecasts_share_source_keep_modes(batch3_db_factory,tmp_path,monkeypatch):
+def test_p4_bounded_debug_signals_and_forecast_keep_modes_and_separate_ordinary_cache(batch3_db_factory,tmp_path,monkeypatch):
     from src.biz.api.wealth.market.index_detail_minute_xxm import build_router as signals_router
     from src.biz.queries.wealth.market.index_detail_xxm import query_service as source_query
     from src.foundation.clients.local_lake.major_index_mins_reader import MajorIndexMinsLakeReader
     _batch3_gold(tmp_path,60);engine=batch3_db_factory();cache=_batch3_fixed_clock(monkeypatch)
     def session():
         with Session(engine) as value:yield value
+    def debug_signals(session, *, lake_root, **params):
+        from src.biz.services.wealth.market.index_detail_xxm.debug_projection import project_debug_signal
+
+        return source_query.IndexDetailXxmQueryService(lake_root=lake_root, entry_scope="debug").build(
+            session, project=project_debug_signal, **params,
+        )
     test_client=api(engine,lake_root=tmp_path)
     test_client.app.include_router(signals_router(db_dependency=session,auth_dependency=lambda:None,
-        lake_dependency=lambda:tmp_path,error_factory=WebAppError),prefix='/api/v1')
-    with patch.object(source_query,'plan_minute_window',wraps=source_query.plan_minute_window) as plans,\
+        lake_dependency=lambda:tmp_path,error_factory=WebAppError, path="/debug/minute-xxm-signals",
+        load=debug_signals,response_model=None),prefix='/api/v1')
+    with patch.object(source_query,'plan_minute_window',wraps=source_query.plan_minute_window) as plans, \
          patch.object(MajorIndexMinsLakeReader,'read_complete_history_pair',autospec=True,
                       side_effect=MajorIndexMinsLakeReader.read_complete_history_pair) as pair, test_client as client:
         params=dict(tsCode='000001.SH',freq=60,startDate='2023-01-06',endDate='2023-01-10',limit=500)
-        normal=client.get('/api/v1/wealth/market/index-detail/minute-xxm-signals',params=params)
-        debug=client.get('/api/v1/wealth/market/index-detail/minute-xxm-signals',params={**params,'debug':1})
+        signals=client.get('/api/v1/wealth/market/index-detail/debug/minute-xxm-signals',params=params)
+        debug=client.get(DEBUG_PATH,params=dict(tsCode='000001.SH',period='m60'))
         latest=client.get(PATH,params=dict(tsCode='000001.SH',period='m60'))
         replay=client.get(PATH,params=dict(tsCode='000001.SH',period='m60',asOf='2023-01-10T15:00:00+08:00'))
-    assert all(r.status_code==200 for r in (normal,debug,latest,replay))
-    assert normal.json()=={k:v for k,v in debug.json().items() if k!='debug'}
+    assert all(r.status_code==200 for r in (signals,debug,latest,replay))
+    assert 'debug' in signals.json() and 'debug' in debug.json() and 'debug' not in latest.json()
+    assert latest.json()=={k:v for k,v in debug.json().items() if k!='debug'}
     assert latest.json()['mode']=='LATEST' and latest.json()['requestedAsOf'] is None
     assert replay.json()['mode']=='REPLAY' and replay.json()['requestedAsOf']=='2023-01-10T15:00:00+08:00'
     assert replay.json()['forecastId']!=latest.json()['forecastId']
-    assert pair.call_count==1 and plans.call_count==4
-    assert len([k for k in cache.entries if k[0]!='forecast'])==1
+    assert pair.call_count==2 and plans.call_count==4
+    assert len([k for k in cache.entries if k[0]!='forecast'])==2
 
 
 @pytest.mark.parametrize('holiday',[False,True])
@@ -971,7 +993,7 @@ def test_expansion_m30_real_calibration_and_nonempty_forecast(batch3_db_factory,
     engine=batch3_db_factory(begin=begin,end=through.date())
     service=query.IndexDetailXxmForecastQueryService(lake_root=tmp_path,cache=XxmCache())
     with Session(engine) as session,patch.object(query,'recover_projection',wraps=query.recover_projection) as calibration:
-        value=json.loads(service.build(session,ts_code=ts_code,period='m30',debug=True,
+        value=json.loads(service.build(session,ts_code=ts_code,period='m30',project=project_debug_forecast,
             as_of=through.isoformat(),now=through.replace(hour=21,minute=0,second=0)))
     assert calibration.call_count==1
     assert value['tsCode']==ts_code and value['period']=='m30'

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { decodeDailyWaveResponse, matchDailyWaveKline } from "./adapter";
-import { dailyWaveEmptyFixture, dailyWaveEndedFixture, dailyWaveEndedKlineFixture, dailyWaveKlineFixture,
-  dailyWaveNeutralFixture, dailyWaveNeutralKlineFixture, dailyWaveReadyFixture } from "./dailyWaveFixtures.test-support";
+import { decodeDailyWaveResponse } from "./adapter";
+import { dailyWaveEmptyFixture, dailyWaveEndedFixture,
+  dailyWaveNeutralFixture, dailyWaveReadyFixture } from "./dailyWaveFixtures.test-support";
 import type { DailyWaveReadyResponse } from "./types";
 
 describe("daily-wave HTTP facts", () => {
@@ -97,14 +97,12 @@ describe("daily-wave HTTP facts", () => {
     expect([up.start?.date, up.start?.close, up.end?.date, up.end?.close, up.isEnded, up.endKnownAt])
       .toEqual(["2023-10-24", "90", "2023-10-26", "120", true, "2023-10-27T15:00:00+08:00"]);
     expect([down.start?.date, down.start?.close, down.isEnded, down.endKnownAt]).toEqual(["2023-10-26", "120", false, null]);
-    expect(matchDailyWaveKline(decoded, dailyWaveEndedKlineFixture()).matched).toBe(true);
   });
   it("keeps zero-only neutral days, pending flat platforms and zero candidates", () => {
     const decoded = decodeDailyWaveResponse(dailyWaveNeutralFixture());
     if (decoded.status !== "ready") throw new Error("expected neutral ready");
     expect(decoded.segments).toEqual([]); expect(decoded.colorSegments).toEqual([]);
     expect(decoded.pendingTurns.map(turn => turn.possibleKind)).toEqual([null, null]);
-    expect(matchDailyWaveKline(decoded, dailyWaveNeutralKlineFixture()).matched).toBe(true);
   });
   it.each(["missingColor", "nonDif", "duplicateDif", "wrongCount", "wrongBarLength", "negativeHigh", "badDate", "extraNested"])("rejects %s in complete three-color comparison", fault => {
     const input = dailyWaveEndedFixture(), triple = input.shortOppositeSegments[0]!;
@@ -117,42 +115,5 @@ describe("daily-wave HTTP facts", () => {
     if (fault === "badDate") triple.priceLows.next.dates = ["2023-02-30"];
     if (fault === "extraNested") Object.assign(triple.barStats.next, { threshold: 0.01 });
     expect(() => decodeDailyWaveResponse(input)).toThrow("校验失败");
-  });
-});
-
-describe("daily-wave exact Kline matching", () => {
-  it("preserves all real OHLC and factors, not a fabricated close-only candle", () => {
-    const response = dailyWaveReadyFixture(); const kline = dailyWaveKlineFixture();
-    const result = matchDailyWaveKline(response, kline);
-    expect(result.matched).toBe(true);
-    if (!result.matched) return;
-    expect(result.candles.map(point => [point.fullDate, point.open, point.high, point.low, point.close, point.dif, point.dea, point.macd]))
-      .toEqual([["2023-10-24", 109, 112, 108, 110, 5, 4, 2], ["2023-10-25", 104, 107, 103, 105, 4, 3.5, 1], ["2023-10-26", 119, 122, 118, 120, 7, 6, 2]]);
-    expect(response.sourcePoints[0]!.close).toBe("110");
-  });
-  it("compares numeric meaning, including a 4160.450 source text and 4160.45 Kline", () => {
-    const response = dailyWaveReadyFixture(), kline = dailyWaveKlineFixture();
-    response.sourcePoints[0]!.close = "4160.450"; kline.bars[0]!.close = 4160.45;
-    expect(matchDailyWaveKline(response, kline).matched).toBe(true);
-    expect(response.sourcePoints[0]!.close).toBe("4160.450");
-  });
-  it.each(["close", "dif", "dea", "macd"] as const)("does not hide real %s differences", key => {
-    const response = dailyWaveReadyFixture(), kline = dailyWaveKlineFixture();
-    if (key === "close") kline.bars[0]!.close = 110.000001;
-    else kline.bars[0]!.factors.macd[key] = Number(response.sourcePoints[0]![key]) + 0.000001;
-    expect(matchDailyWaveKline(response, kline)).toEqual({ matched: false, message: "行情与研究结果不一致，暂不显示波段" });
-  });
-  it.each(["missing", "duplicate", "reverse", "wrongDate", "wrongCode", "wrongPeriod", "nonfinite", "null", "numericString"])("rejects %s Kline", fault => {
-    const response = dailyWaveReadyFixture(), kline = dailyWaveKlineFixture();
-    if (fault === "missing") kline.bars.pop();
-    if (fault === "duplicate") kline.bars[1] = kline.bars[0]!;
-    if (fault === "reverse") kline.bars.reverse();
-    if (fault === "wrongDate") kline.bars[0]!.tradeDate = "2023-10-23";
-    if (fault === "wrongCode") kline.indexRef.tsCode = "399001.SZ";
-    if (fault === "wrongPeriod") Object.assign(kline, { period: "m90" });
-    if (fault === "nonfinite") kline.bars[0]!.factors.macd.dif = Infinity;
-    if (fault === "null") kline.bars[0]!.close = null;
-    if (fault === "numericString") Object.assign(kline.bars[0]!, { close: "110" });
-    expect(matchDailyWaveKline(response, kline).matched).toBe(false);
   });
 });

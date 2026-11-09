@@ -13,6 +13,7 @@ from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
+from src.biz.services.wealth.market.index_detail_xxm.debug_projection import project_debug_signal
 from src.app.exceptions import WebAppError, install_exception_handlers
 from src.biz.api.wealth.market.index_detail_xxm import build_router
 from src.biz.api.wealth.market.index_detail_minute_xxm import build_router as build_minute_router
@@ -157,10 +158,18 @@ def source_db(monkeypatch, request):
 
 def build_debug(service, session, *, period, start_date, end_date, limit,
                 now=None, ts_code="000001.SH"):
-    from src.biz.schemas.wealth.market.index_detail_xxm import XxmDebugResponseDto
+    from src.biz.schemas.wealth.market.index_detail_xxm_debug import XxmDebugResponseDto
+    from src.biz.services.wealth.market.index_detail_xxm.debug_projection import project_debug_signal
+
     return XxmDebugResponseDto.model_validate_json(service.build(
         session, ts_code=ts_code, period=period, start_date=start_date,
-        end_date=end_date, limit=limit, now=now, debug=True))
+        end_date=end_date, limit=limit, now=now, project=project_debug_signal))
+
+
+def _load_research_signals(session, *, lake_root=None, **params):
+    from src.biz.services.wealth.market.index_detail_xxm.debug_projection import project_debug_signal
+
+    return IndexDetailXxmQueryService(lake_root=lake_root).build(session, project=project_debug_signal, **params)
 
 
 def client(engine, auth=lambda: None):
@@ -171,15 +180,16 @@ def client(engine, auth=lambda: None):
         with Session(engine) as session:
             yield session
 
-    app.include_router(build_router(db_dependency=session, auth_dependency=auth, error_factory=WebAppError), prefix="/api/v1")
+    app.include_router(build_router(db_dependency=session, auth_dependency=auth, error_factory=WebAppError,
+        path="/debug/xxm-signals", load=_load_research_signals, response_model=None), prefix="/api/v1")
     return TestClient(app)
 
 
 def test_real_router_query_and_window_reference_history_are_consistent(source_db):
     api = client(source_db)
-    path = "/api/v1/wealth/market/index-detail/xxm-signals"
+    path = "/api/v1/wealth/market/index-detail/debug/xxm-signals"
     full = api.get(path, params={"tsCode": "000001.SH", "endDate": "2020-01-08", "limit": 8}).json()
-    small_response = api.get(path, params={"tsCode": "000001.SH", "startDate": "2020-01-05", "endDate": "2020-01-08", "limit": 3, "debug": 1})
+    small_response = api.get(path, params={"tsCode": "000001.SH", "startDate": "2020-01-05", "endDate": "2020-01-08", "limit": 3})
     assert small_response.status_code == 200
     small = small_response.json()
     assert small["points"] == full["points"][-3:]
@@ -187,7 +197,7 @@ def test_real_router_query_and_window_reference_history_are_consistent(source_db
     assert small["source"]["startTime"] == "2020-01-01"
     assert small["dataStatus"]["status"] == "READY"
     assert len(small["specHash"]) == 64 and small["source"]["initialHistoryIncomplete"]
-    past = api.get(path, params={"tsCode": "000001.SH", "endDate": "2020-01-06", "limit": 8, "debug": 1}).json()
+    past = api.get(path, params={"tsCode": "000001.SH", "endDate": "2020-01-06", "limit": 8}).json()
     assert len(past["debug"]["structures"]) == 1
     assert past["debug"]["structures"][0]["status"] == "ASSESSING"
     assert past["debug"]["structures"][0]["trackingEndedAt"] is None
@@ -203,7 +213,7 @@ def test_real_router_query_and_window_reference_history_are_consistent(source_db
     ("tsCode=000680.SH",404), ("tsCode=bad",400), ("",400),
 ])
 def test_invalid_and_unsupported_requests_never_produce_a_layer(source_db, suffix, status):
-    result = client(source_db).get("/api/v1/wealth/market/index-detail/xxm-signals?" + suffix)
+    result = client(source_db).get("/api/v1/wealth/market/index-detail/debug/xxm-signals?" + suffix)
     assert result.status_code == status
     assert result.json()["code"] == ("XXM_NOT_SUPPORTED" if status == 404 else "XXM_REQUEST_INVALID")
 
@@ -212,7 +222,7 @@ def test_invalid_and_unsupported_requests_never_produce_a_layer(source_db, suffi
 def test_injected_existing_auth_is_required_before_query(source_db, status):
     def denied():
         raise WebAppError(status_code=status, code="AUTH_REQUIRED", message="denied")
-    assert client(source_db, denied).get("/api/v1/wealth/market/index-detail/xxm-signals?tsCode=000001.SH").status_code == status
+    assert client(source_db, denied).get("/api/v1/wealth/market/index-detail/debug/xxm-signals?tsCode=000001.SH").status_code == status
 
 
 def test_append_revision_and_incomplete_day_do_not_mutate_past(source_db):
@@ -250,9 +260,9 @@ def test_missing_calendar_day_fails_closed(source_db):
 def test_zero_events_is_ready_and_empty_source_is_empty(source_db):
     # Restrict endDate before any history can activate, not an implementation-derived expectation.
     api = client(source_db)
-    r = api.get("/api/v1/wealth/market/index-detail/xxm-signals?tsCode=000001.SH&endDate=2020-01-02").json()
+    r = api.get("/api/v1/wealth/market/index-detail/debug/xxm-signals?tsCode=000001.SH&endDate=2020-01-02").json()
     assert r["events"] == [] and r["dataStatus"]["status"] == "READY"
-    r = api.get("/api/v1/wealth/market/index-detail/xxm-signals?tsCode=000001.SH&endDate=1999-01-01").json()
+    r = api.get("/api/v1/wealth/market/index-detail/debug/xxm-signals?tsCode=000001.SH&endDate=1999-01-01").json()
     assert r["points"] == [] and r["dataStatus"]["status"] == "EMPTY" and r["source"]["computedThrough"] is None
 
 
@@ -307,9 +317,9 @@ def test_minute_router_uses_real_two_stream_reader_and_completed_endpoints(sourc
     app = FastAPI()
     install_exception_handlers(app)
     app.include_router(build_minute_router(db_dependency=session,auth_dependency=lambda:None,
-                       lake_dependency=lambda:tmp_path,error_factory=WebAppError),prefix="/api/v1")
+                       lake_dependency=lambda:tmp_path,error_factory=WebAppError, path="/debug/minute-xxm-signals", load=_load_research_signals, response_model=None),prefix="/api/v1")
     api = TestClient(app)
-    path = "/api/v1/wealth/market/index-detail/minute-xxm-signals"
+    path = "/api/v1/wealth/market/index-detail/debug/minute-xxm-signals"
     end = date(2020,1,1) + timedelta(days=len(values)//len(endpoints)-1)
     response = api.get(path,params={"tsCode":"000001.SH","freq":freq,"endDate":end.isoformat()})
     assert response.status_code == 200
@@ -345,8 +355,8 @@ def test_current_public_window_full_events_and_no_future_structure(period, sign)
     from src.biz.services.wealth.market.index_detail_xxm.response_projection import project_xxm_response
     source = entry(values(TF + [(102,97,2),(104,96,2)],sign),period)
     internal = response(source,8,limit=1)
-    ordinary = project_xxm_response(internal,debug=False)
-    debug = project_xxm_response(internal,debug=True)
+    ordinary = project_xxm_response(internal)
+    debug = project_debug_signal(internal)
     assert ordinary.model_dump() == {k:v for k,v in debug.model_dump().items() if k != 'debug'}
     assert [e.type for e in ordinary.events] == ['CANCEL','DULL']
     assert [e.displayOnChart for e in ordinary.events] == [False,True]
@@ -354,7 +364,7 @@ def test_current_public_window_full_events_and_no_future_structure(period, sign)
     record=debug.debug.structures[0]
     assert record.formedAt < ordinary.meta.responseStart and record.status=='DISAPPEARED'
     assert record.originWave.priceAt and record.originWave.difAt
-    earlier=project_xxm_response(response(source,5),debug=True)
+    earlier=project_debug_signal(response(source,5))
     assert earlier.debug.structures[0].status=='ASSESSING'
     assert earlier.debug.structures[0].firstOppositeAt is None
 
@@ -370,7 +380,7 @@ def test_p4_batch1_signal_projection_validates_only_public_result(debug, expecte
     internal = response(entry(TN), 8)
     before = internal.model_dump()
     with patch.object(InternalXxmResponseDto, 'model_validate', wraps=InternalXxmResponseDto.model_validate) as validate:
-        public = project_xxm_response(internal, debug=debug)
+        public = (project_debug_signal if debug else project_xxm_response)(internal)
     # The public debug validator still verifies reconstructed associations.
     assert validate.call_count == expected_validations
     assert public.points[-1].time == '2023-01-12'
@@ -384,18 +394,12 @@ def test_p4_batch1_signal_projection_requires_internal_model_and_strict_debug(de
     from scripts.research.index_market.tests.test_xxm_r4_following import TN
 
     internal = response(entry(TN), 8)
-    ordinary = project_xxm_response(internal, debug=False)
-    detailed = project_xxm_response(internal, debug=True)
+    ordinary = project_xxm_response(internal)
+    detailed = project_debug_signal(internal)
     assert ordinary.model_dump() == {k: v for k, v in detailed.model_dump().items() if k != 'debug'}
     for bad in (internal.model_dump(), ordinary, detailed, None, object()):
         with pytest.raises(ValueError, match='InternalXxmResponseDto'):
-            project_xxm_response(bad, debug=debug)
-    for bad_debug in (0, 1, None, 'true'):
-        with pytest.raises(ValueError, match='Debug must be a boolean'):
-            project_xxm_response(internal, debug=bad_debug)
-        # Debug is checked before the input model, including when both are bad.
-        with pytest.raises(ValueError, match='Debug must be a boolean'):
-            project_xxm_response({}, debug=bad_debug)
+            (project_debug_signal if debug else project_xxm_response)(bad)
 
 
 @pytest.mark.parametrize('debug', [False, True])
@@ -413,7 +417,7 @@ def test_p4_batch1_signal_projection_keeps_dynamic_audit_wrapper(debug):
     assert audit._REQUEST_ID.get() is None
     with audit._observe(collector):
         assert projection.project_xxm_response is not original
-        public = projection.project_xxm_response(internal, debug=debug)
+        public = project_debug_signal(internal) if debug else projection.project_xxm_response(internal)
         assert [event.type for event in public.events] == ['CANCEL', 'DULL']
         assert [event.displayOnChart for event in public.events] == [False, True]
         assert public.meta.responseStart == '2023-01-12'
@@ -423,11 +427,12 @@ def test_p4_batch1_signal_projection_keeps_dynamic_audit_wrapper(debug):
 
 def test_public_and_debug_contracts_reject_legacy_bad_types_and_links():
     from copy import deepcopy
-    from src.biz.schemas.wealth.market.index_detail_xxm import XxmResponseDto, XxmDebugResponseDto
+    from src.biz.schemas.wealth.market.index_detail_xxm import XxmResponseDto
+    from src.biz.schemas.wealth.market.index_detail_xxm_debug import XxmDebugResponseDto
     from src.biz.services.wealth.market.index_detail_xxm.response_projection import project_xxm_response
     from scripts.research.index_market.tests.test_xxm_r4_following_query import entry, response
     from scripts.research.index_market.tests.test_xxm_r4_following import TN
-    value=project_xxm_response(response(entry(TN),8),debug=True).model_dump()
+    value=project_debug_signal(response(entry(TN),8)).model_dump()
     assert XxmDebugResponseDto.model_validate(value)
     normal={k:v for k,v in value.items() if k!='debug'}
     assert XxmResponseDto.model_validate(normal)
@@ -447,7 +452,7 @@ def test_public_and_debug_contracts_reject_legacy_bad_types_and_links():
 @pytest.mark.parametrize('raw',['','true','01','2','1&debug=0'])
 def test_invalid_debug_does_not_enter_source(source_db,raw,monkeypatch):
     monkeypatch.setattr(IndexDetailXxmQueryService,'build',lambda *a,**k:pytest.fail('bad request read source'))
-    r=client(source_db).get('/api/v1/wealth/market/index-detail/xxm-signals?tsCode=000001.SH&debug='+raw)
+    r=client(source_db).get('/api/v1/wealth/market/index-detail/debug/xxm-signals?tsCode=000001.SH&debug='+raw)
     assert r.status_code==400
 
 
@@ -457,13 +462,13 @@ def test_real_http_normal_debug_same_facts_and_no_store(source_db,monkeypatch):
     def encode(value,*a,**k):
         body=original(value,*a,**k);encoded.append(body.encode());return body
     monkeypatch.setattr(XxmResponseDto,"model_dump_json",encode)
-    c=client(source_db);path='/api/v1/wealth/market/index-detail/xxm-signals'
+    c=client(source_db);path='/api/v1/wealth/market/index-detail/debug/xxm-signals'
     normal=c.get(path,params={'tsCode':'000001.SH','endDate':'2020-01-08'})
-    debug=c.get(path,params={'tsCode':'000001.SH','endDate':'2020-01-08','debug':'1'})
+    debug=c.get(path,params={'tsCode':'000001.SH','endDate':'2020-01-08'})
     assert normal.status_code==debug.status_code==200
     assert normal.headers['cache-control']==debug.headers['cache-control']=='no-store'
     assert encoded==[normal.content,debug.content]
-    assert normal.json()=={k:v for k,v in debug.json().items() if k!='debug'}
+    assert normal.json()==debug.json()
     assert 'inputId' not in normal.json()['source']
 
 
@@ -561,14 +566,14 @@ def test_p4_batch2_real_xxm_partial_reader_and_http(source_db,tmp_path,freq,chan
     def session():
         with Session(source_db) as s: yield s
     app=FastAPI();install_exception_handlers(app)
-    app.include_router(build_minute_router(db_dependency=session,auth_dependency=lambda:None,lake_dependency=lambda:tmp_path,error_factory=WebAppError),prefix='/api/v1')
+    app.include_router(build_minute_router(db_dependency=session,auth_dependency=lambda:None,lake_dependency=lambda:tmp_path,error_factory=WebAppError, path="/debug/minute-xxm-signals", load=_load_research_signals, response_model=None),prefix='/api/v1')
     with TestClient(app) as api:
-        path='/api/v1/wealth/market/index-detail/minute-xxm-signals'
-        response=api.get(path,params={'tsCode':'000001.SH','freq':freq,'endDate':'2020-01-01','debug':'1'})
+        path='/api/v1/wealth/market/index-detail/debug/minute-xxm-signals'
+        response=api.get(path,params={'tsCode':'000001.SH','freq':freq,'endDate':'2020-01-01'})
         if change in ('valid','unused_bad','unused_missing','empty'):
             normal=api.get(path,params={'tsCode':'000001.SH','freq':freq,'endDate':'2020-01-01'})
             assert normal.status_code==200
-            assert normal.json()=={k:v for k,v in response.json().items() if k!='debug'}
+            assert normal.json()==response.json()
             assert normal.headers['cache-control']==response.headers['cache-control']=='no-store'
     if change in ('misaligned','bad_version','bad_macd','duplicate'):
         assert response.status_code==500 and response.json()['code']=='XXM_SOURCE_CONTRACT_INVALID'
@@ -940,15 +945,15 @@ def test_p4_batch3_signal_http_window_never_cuts_loaded_prefix(batch3_db_factory
     def session():
         with Session(engine) as value:yield value
     app=FastAPI();install_exception_handlers(app)
-    app.include_router(build_minute_router(db_dependency=session,auth_dependency=lambda:None,lake_dependency=lambda:tmp_path,error_factory=WebAppError),prefix='/api/v1')
+    app.include_router(build_minute_router(db_dependency=session,auth_dependency=lambda:None,lake_dependency=lambda:tmp_path,error_factory=WebAppError, path="/debug/minute-xxm-signals", load=_load_research_signals, response_model=None),prefix='/api/v1')
     with TestClient(app) as api:
-        path='/api/v1/wealth/market/index-detail/minute-xxm-signals'
+        path='/api/v1/wealth/market/index-detail/debug/minute-xxm-signals'
         empty=api.get(path,params=dict(tsCode='000001.SH',freq=60,endDate='2023-01-03'))
         assert empty.status_code==200 and empty.json()['dataStatus']['status']=='EMPTY' and empty.json()['points']==[]
         normal=api.get(path,params=dict(tsCode='000001.SH',freq=60,limit=2))
-        debug=api.get(path,params=dict(tsCode='000001.SH',freq=60,limit=2,debug=1))
+        debug=api.get(path,params=dict(tsCode='000001.SH',freq=60,limit=2))
         assert normal.status_code==debug.status_code==200
-        assert normal.json()=={k:v for k,v in debug.json().items() if k!='debug'}
+        assert normal.json()==debug.json()
         assert normal.json()['meta']['count']==2 and normal.json()['dataStatus']['status']=='READY'
     stored=max((value[0] for value in cache.entries.values()),key=lambda entry:len(entry.processed))
     assert len(stored.raw)==len(stored.processed)==12 and stored.raw[0].time=='2023-01-06T10:30:00+08:00'
@@ -1187,10 +1192,10 @@ def _expansion_client(engine, lake_root):
             yield value
 
     app.include_router(build_router(db_dependency=session, auth_dependency=lambda: None,
-                                   error_factory=WebAppError), prefix='/api/v1')
+                                   error_factory=WebAppError, path="/debug/xxm-signals", load=_load_research_signals, response_model=None), prefix='/api/v1')
     app.include_router(build_minute_router(db_dependency=session, auth_dependency=lambda: None,
                                           lake_dependency=lambda: lake_root,
-                                          error_factory=WebAppError), prefix='/api/v1')
+                                          error_factory=WebAppError, path="/debug/minute-xxm-signals", load=_load_research_signals, response_model=None), prefix='/api/v1')
     return TestClient(app)
 
 
@@ -1226,7 +1231,7 @@ def test_expansion_real_signals_bind_nine_codes_and_five_periods(
         endpoint = 'minute-xxm-signals'
         params = dict(tsCode=ts_code, freq=freq, endDate='2025-10-16')
     with _expansion_client(engine, tmp_path) as api:
-        response = api.get('/api/v1/wealth/market/index-detail/' + endpoint, params=params)
+        response = api.get('/api/v1/wealth/market/index-detail/debug/' + endpoint, params=params)
     assert response.status_code == 200, response.text
     value = response.json()
     assert value['tsCode'] == ts_code and value['period'] == period
@@ -1252,7 +1257,7 @@ def test_expansion_rejects_excluded_codes_before_context_cache_or_source(
     monkeypatch.setattr(query_service, 'read_minutes', denied)
     with _expansion_client(source_db, tmp_path) as api:
         minute = period != 'day'
-        response = api.get('/api/v1/wealth/market/index-detail/' +
+        response = api.get('/api/v1/wealth/market/index-detail/debug/' +
             ('minute-xxm-signals' if minute else 'xxm-signals'),
             params={'tsCode':ts_code, **({'freq':period[1:]} if minute else {'period':'day'})})
     assert response.status_code == 404 and response.json()['code'] == 'XXM_NOT_SUPPORTED'
@@ -1281,7 +1286,7 @@ def test_expansion_configuration_failure_is_query_failure_without_source(
     monkeypatch.setattr(StrategyConfigService, 'get_config', broken_config)
     source = Mock(side_effect=AssertionError('configuration failure must precede source'))
     monkeypatch.setattr(query_service.MarketPageContextQuery, 'resolve_context', source)
-    response = client(source_db).get('/api/v1/wealth/market/index-detail/xxm-signals',
+    response = client(source_db).get('/api/v1/wealth/market/index-detail/debug/xxm-signals',
                                      params={'tsCode':'000001.SH'})
     assert response.status_code == 500 and response.json()['code'] == 'XXM_QUERY_FAILED'
     source.assert_not_called()
@@ -1369,7 +1374,7 @@ def test_expansion_seventeen_valid_series_share_global_cache_limits_and_recomput
 
 @pytest.mark.parametrize('raw_code', ['000001.SH', ' 000001.sh '])
 def test_expansion_signals_and_direct_build_use_the_normalized_code(source_db, raw_code):
-    api_response = client(source_db).get('/api/v1/wealth/market/index-detail/xxm-signals',
+    api_response = client(source_db).get('/api/v1/wealth/market/index-detail/debug/xxm-signals',
         params={'tsCode':raw_code, 'endDate':'2020-01-08'})
     assert api_response.status_code == 200 and api_response.json()['tsCode'] == '000001.SH'
     with Session(source_db) as session:
@@ -1421,8 +1426,8 @@ def test_expansion_five_period_nonshanghai_normal_debug_projection(period, sign)
 
     source = entry(values(TF + [(102,97,2),(104,96,2)],sign), period, ts_code='399001.SZ')
     internal = response(source,8,limit=1)
-    normal = project_xxm_response(internal, debug=False)
-    debug = project_xxm_response(internal, debug=True)
+    normal = project_xxm_response(internal)
+    debug = project_debug_signal(internal)
     assert normal.tsCode == debug.tsCode == '399001.SZ'
     assert normal.period == debug.period == period
     assert normal.model_dump() == {key:value for key,value in debug.model_dump().items() if key != 'debug'}

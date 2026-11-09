@@ -9,11 +9,12 @@ const indexWeightsCache = new Map<string, IndexDetailWeightsResponseDto>();
 export function useIndexWeights(params: {
   active: boolean;
   asOfTradeDate: string | null;
-  debug?: 0 | 1;
+  endpoint: string;
+  load: typeof fetchIndexDetailWeights;
   tsCode: string;
 }) {
-  const { active, asOfTradeDate, debug, tsCode } = params;
-  const cacheKey = `${tsCode.toUpperCase()}|${asOfTradeDate ?? ""}`;
+  const { active, asOfTradeDate, endpoint, load, tsCode } = params;
+  const cacheKey = `${endpoint}|${tsCode.toUpperCase()}|${asOfTradeDate ?? ""}`;
   const cached = indexWeightsCache.get(cacheKey) ?? null;
   const [data, setData] = useState<IndexDetailWeightsResponseDto | null>(cached);
   const [phase, setPhase] = useState<IndexModulePhase>(cached ? resolveWeightsPhase(cached) : "idle");
@@ -32,8 +33,9 @@ export function useIndexWeights(params: {
     const controller = new AbortController();
     setPhase("loading");
     setErrorMessage("");
-    fetchIndexDetailWeights({ tsCode, tradeDate: asOfTradeDate, debug }, { signal: controller.signal })
+    load({ tsCode, tradeDate: asOfTradeDate }, { signal: controller.signal })
       .then((payload) => {
+        if (controller.signal.aborted) return;
         indexWeightsCache.set(cacheKey, payload);
         setData(payload);
         setPhase(resolveWeightsPhase(payload));
@@ -44,7 +46,7 @@ export function useIndexWeights(params: {
         setErrorMessage(error instanceof Error ? error.message : "权重股数据加载失败");
       });
     return () => controller.abort();
-  }, [active, asOfTradeDate, cacheKey, debug, retryToken, tsCode]);
+  }, [active, asOfTradeDate, cacheKey, load, retryToken, tsCode]);
 
   return {
     data,

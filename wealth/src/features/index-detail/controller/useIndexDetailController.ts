@@ -5,6 +5,7 @@ import {
   fetchIndexDetailPageInit,
   IndexDetailApiError,
 } from "../api/indexDetailApiClient";
+import { loadIndexNineTurnSeries } from "../api/indexNineTurnLoader";
 import { fetchTrendChannel } from "../api/trendChannelApiClient";
 import {
   buildEmptyIndexDetailViewModel,
@@ -45,10 +46,11 @@ export interface IndexDetailControllerState extends IndexDetailControllerSnapsho
   retryTrend: () => void;
 }
 
-export function useIndexDetailController(tsCode: string, search: string, dailyActive = true): IndexDetailControllerState {
+export function useIndexDetailController(tsCode: string, tradeDate: string | undefined, dailyActive = true,
+    loadPageInit = fetchIndexDetailPageInit, loadDailyKline = fetchIndexDetailKline, loadNineTurn = loadIndexNineTurnSeries): IndexDetailControllerState {
   const normalizedTsCode = normalizeIndexTsCode(tsCode);
   const [retryToken, setRetryToken] = useState(0);
-  const requestKey = `${normalizedTsCode}|${search}|${retryToken}`;
+  const requestKey = `${normalizedTsCode}|${tradeDate ?? ""}|${retryToken}`;
   const [state, setState] = useState<IndexDetailControllerSnapshot>(() => createInitialState(requestKey));
   const requestIdRef = useRef(0);
   const trendControllerRef = useRef<AbortController | null>(null);
@@ -56,17 +58,14 @@ export function useIndexDetailController(tsCode: string, search: string, dailyAc
   useEffect(() => {
     const controller = new AbortController();
     const requestId = ++requestIdRef.current;
-    const searchParams = new URLSearchParams(search);
-    const tradeDate = searchParams.get("tradeDate") ?? undefined;
-    const debug = searchParams.get("debug") === "1" ? 1 : undefined;
     trendControllerRef.current?.abort();
     trendControllerRef.current = null;
     setState(createInitialState(requestKey));
 
     async function load() {
       try {
-        const pageInit = await fetchIndexDetailPageInit(
-          { tsCode: normalizedTsCode, tradeDate, debug },
+        const pageInit = await loadPageInit(
+          { tsCode: normalizedTsCode, tradeDate },
           { signal: controller.signal },
         );
         if (!isCurrent(requestIdRef, requestId, controller.signal)) return;
@@ -97,8 +96,8 @@ export function useIndexDetailController(tsCode: string, search: string, dailyAc
             });
         }
 
-        const kline = await fetchIndexDetailKline(
-          { tsCode: normalizedTsCode, period: "day", endDate: pageInit.asOfTradeDate, limit: DAILY_CHART_PAGE_SIZE, debug },
+        const kline = await loadDailyKline(
+          { tsCode: normalizedTsCode, period: "day", endDate: pageInit.asOfTradeDate, limit: DAILY_CHART_PAGE_SIZE },
           { signal: controller.signal },
         );
         if (!isCurrent(requestIdRef, requestId, controller.signal)) return;
@@ -129,7 +128,7 @@ export function useIndexDetailController(tsCode: string, search: string, dailyAc
             pagePartialReasons,
             partialReasons: trendFailed ? mergeReasons(pagePartialReasons, ["趋势通道"]) : pagePartialReasons,
             phase: trendFailed ? "partial" : basePhase,
-            historySeed: normalizedTsCode === "000001.SH" ? { viewModel, nextEndDate, debug } : null,
+            historySeed: normalizedTsCode === "000001.SH" ? { viewModel, nextEndDate } : null,
             viewModel,
           };
         });
@@ -149,7 +148,7 @@ export function useIndexDetailController(tsCode: string, search: string, dailyAc
       controller.abort();
       trendControllerRef.current?.abort();
     };
-  }, [normalizedTsCode, requestKey, search]);
+  }, [normalizedTsCode, requestKey, tradeDate, loadPageInit, loadDailyKline]);
 
   const retry = useCallback(() => setRetryToken((value) => value + 1), []);
   const retryTrend = useCallback(() => {
@@ -174,7 +173,7 @@ export function useIndexDetailController(tsCode: string, search: string, dailyAc
   }, [normalizedTsCode, state.viewModel?.asOfTradeDate]);
 
   const visibleState = state.requestKey === requestKey ? state : createInitialState(requestKey);
-  const history = useIndexDailyHistory(visibleState.historySeed, dailyActive);
+  const history = useIndexDailyHistory(visibleState.historySeed, dailyActive, loadDailyKline, loadNineTurn);
   return { ...visibleState, history, retry, retryTrend };
 }
 

@@ -1,11 +1,11 @@
 import { toDetailChartPoint } from "./indexChartPointAdapter";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ComponentType, type ReactNode } from "react";
 import type { IndexDailyHistory } from "../controller/useIndexDailyHistory";
-import type { IndexRecognitionProps, IndexRecognitionDebugExtension } from "../debug/types";
-import { useIndexXxmLayer } from "../xxm/useIndexXxmLayer";
-import { QUANTITATIVE_STRUCTURE_TITLE, useXxmValuesAt, XxmLayerStatus, XxmSignalDetails } from "../xxm/XxmLayerUi";
+import { IndexXxmLayer, type XxmLayerProps } from "../xxm/IndexXxmLayer";
+import { QUANTITATIVE_STRUCTURE_TITLE, XxmLayerStatus } from "../xxm/XxmLayerUi";
 
 import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
+import type { ISeriesPrimitive, Time } from "lightweight-charts";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import { NineTurnLayerStatus } from "../../nine-turn/ui/NineTurnLayerStatus";
 import { DetailChartIndicatorToggle } from "../../../shared/charts/detail-workspace/DetailChartIndicatorToggle";
@@ -29,6 +29,23 @@ import type {
   TrendChannelViewModel,
 } from "../model/indexDetailTypes";
 
+interface IndexChartAddonView {
+  controls?: ReactNode;
+  legend?: ReactNode;
+  primitives?: ISeriesPrimitive<Time>[];
+  padding?: { top: number; bottom: number };
+  renderDetails?: (point: DetailChartPoint) => ReactNode;
+}
+export interface IndexChartAddonProps {
+  ownerKey: string;
+  tsCode: string;
+  asOfTradeDate: string | null;
+  points: DetailChartPoint[];
+  nineTurnMarkers: ReturnType<typeof useNineTurnChartLayer>["markers"];
+  children: (addon: IndexChartAddonView) => ReactNode;
+}
+function EmptyChartAddon({ children }: IndexChartAddonProps) { return children({}); }
+
 interface IndexChartWorkspaceProps {
   indicatorControls: DetailChartIndicatorControls;
   nineTurnLayer: NineTurnLayerViewModel;
@@ -36,9 +53,10 @@ interface IndexChartWorkspaceProps {
   trend: TrendChannelViewModel | null;
   trendPhase: "unavailable" | "loading" | "ready" | "error";
   viewModel: IndexDetailViewModel;
-  recognition: IndexRecognitionProps;
-  debugExtension?: IndexRecognitionDebugExtension;
-  onTrendRetry?: () => void;
+  recognitionEnabled: boolean;
+  SignalLayer?: ComponentType<XxmLayerProps>;
+  MainChartAddon?: ComponentType<IndexChartAddonProps>;
+  showAlignmentDiagnostics?: boolean;
   history?: IndexDailyHistory;
 }
 
@@ -49,26 +67,23 @@ export function IndexChartWorkspace({
   trend: ordinaryTrend,
   trendPhase: ordinaryTrendPhase,
   viewModel,
-  recognition,
-  debugExtension,
-  onTrendRetry: ordinaryTrendRetry,
+  recognitionEnabled,
+  SignalLayer = IndexXxmLayer,
+  MainChartAddon = EmptyChartAddon,
+  showAlignmentDiagnostics = false,
   history,
 }: IndexChartWorkspaceProps) {
   const ownerKey = `${viewModel.identity.tsCode}|day|${viewModel.asOfTradeDate}`;
-  const extension = recognition.debug === 1 && debugExtension?.ownerKey === ownerKey ? debugExtension : null;
-  const research = extension?.chartOverride ?? null;
-  const activeHistory = !research && history?.active ? history : undefined;
+  const activeHistory = history?.active ? history : undefined;
   const historical = activeHistory?.visible;
   const firstDate = activeHistory ? viewModel.chart.candles[0]?.time : undefined;
   const lastDate = activeHistory ? viewModel.chart.candles.at(-1)?.time : undefined;
   const nineTurnLayer = useMemo(() => {
-    if (research) return research.nineTurnLayer;
     if (!firstDate || !lastDate) return ordinaryNineTurn;
     const initial = ordinaryNineTurn.markers.filter(marker => firstDate <= marker.tradeDate && marker.tradeDate <= lastDate);
     return { ...ordinaryNineTurn, markers: [...(historical?.nineTurnMarkers ?? []), ...initial] };
-  }, [firstDate, lastDate, historical?.nineTurnMarkers, ordinaryNineTurn, research]);
+  }, [firstDate, lastDate, historical?.nineTurnMarkers, ordinaryNineTurn]);
   const trend = useMemo(() => {
-    if (research) return research.trend;
     if (!firstDate || !lastDate) return ordinaryTrend;
     if (!ordinaryTrend && !historical?.trendPoints.length) return null;
     const initial = ordinaryTrend?.points.filter(point => firstDate <= point.time && point.time <= lastDate) ?? [];
@@ -77,21 +92,17 @@ export function IndexChartWorkspace({
       droppedCount: ordinaryTrend?.droppedCount ?? 0,
       status: ordinaryTrend?.status ?? "READY",
     } satisfies TrendChannelViewModel;
-  }, [firstDate, lastDate, historical?.trendPoints, ordinaryTrend, research]);
-  const trendPhase = research?.trendPhase ?? ordinaryTrendPhase;
-  const onNineTurnRetry = research?.onNineTurnRetry ?? ordinaryNineTurnRetry;
-  const onTrendRetry = research?.onTrendRetry ?? ordinaryTrendRetry;
+  }, [firstDate, lastDate, historical?.trendPoints, ordinaryTrend]);
+  const trendPhase = ordinaryTrendPhase;
   const supportsTrend = viewModel.capabilities.supportsTrendChannel && viewModel.identity.tsCode === "000001.SH";
   const [selection, setSelection] = useState<{ owner: string; overlay: IndexMainOverlay } | null>(null);
   const overlay = selection?.owner === ownerKey ? selection.overlay : supportsTrend && ordinaryTrend ? "TREND_CHANNEL" : "MA";
   const setOverlay = (overlay: IndexMainOverlay) => setSelection({ owner: ownerKey, overlay });
-  const initialCandles = research?.candles ?? viewModel.chart.candles;
+  const initialCandles = viewModel.chart.candles;
   const initialPoints = useMemo(() => initialCandles.map(toDetailChartPoint), [initialCandles]);
   const historicalCandles = historical?.candles;
   const points = useMemo(() => historicalCandles?.map(toDetailChartPoint) ?? initialPoints, [historicalCandles, initialPoints]);
-  const dataKey = research?.dataKey ?? (activeHistory ? `index:${ownerKey}` : `index:${viewModel.identity.tsCode}:day`);
-  const xxm = useIndexXxmLayer({ tsCode: viewModel.identity.tsCode, period: "day", points: initialPoints, enabled: recognition.recognitionEnabled, debug: recognition.debug, decodeDebug: recognition.decodeXxmDebug });
-  const valuesAt = useXxmValuesAt(xxm.data);
+  const dataKey = activeHistory ? `index:${ownerKey}` : `index:${viewModel.identity.tsCode}:day`;
   const structureVisible = indicatorControls.quantitativeStructureAvailable
     && !indicatorControls.hiddenIndicatorPanels.has("quantitativeStructure");
   const nineTurnChartLayer = useNineTurnChartLayer({ dataKey, layer: nineTurnLayer, points, timeMode: "daily" });
@@ -99,17 +110,22 @@ export function IndexChartWorkspace({
   const mainLines = useMemo(() => overlay === "MA" ? buildMaLines() : overlay === "BOLL" ? buildBollLines() : [], [overlay]);
   const ordinaryTrendPrimitive = useMemo(() => new TrendChannelPanePrimitive([]), [dataKey]);
   useEffect(() => {
-    ordinaryTrendPrimitive.setLines(!research && trend ? buildTrendChannelLines(trend.points, points.map(p => String(p.time))) : []);
-  }, [ordinaryTrendPrimitive, research !== null, points, trend]);
+    ordinaryTrendPrimitive.setLines(trend ? buildTrendChannelLines(trend.points, points.map(p => String(p.time))) : []);
+  }, [ordinaryTrendPrimitive, points, trend]);
   const ordinaryTrendPrimitives = useMemo(() => overlay === "TREND_CHANNEL" ? [ordinaryTrendPrimitive] : [], [overlay, ordinaryTrendPrimitive]);
-  const mainPrimitives = useMemo(() => [...(overlay === "TREND_CHANNEL" ? research?.trendMainPrimitives ?? ordinaryTrendPrimitives : []), ...nineTurnChartLayer.mainPrimitives, ...(research?.waveMainPrimitives ?? [])], [overlay, research?.trendMainPrimitives, research?.waveMainPrimitives, ordinaryTrendPrimitives, nineTurnChartLayer.mainPrimitives]);
+  const mainPrimitives = useMemo(() => [...ordinaryTrendPrimitives, ...nineTurnChartLayer.mainPrimitives],
+    [ordinaryTrendPrimitives, nineTurnChartLayer.mainPrimitives]);
 
   return (
+    <SignalLayer tsCode={viewModel.identity.tsCode} period="day" points={initialPoints} enabled={recognitionEnabled}>
+      {xxm => <MainChartAddon ownerKey={ownerKey} tsCode={viewModel.identity.tsCode}
+          asOfTradeDate={viewModel.asOfTradeDate} points={points} nineTurnMarkers={nineTurnChartLayer.markers}>
+        {addon =>
     <DetailChartWorkspace
       ariaLabel="指数日线图表区"
-      bottomBar={<div className={extension ? "daily-wave-bottom-bar" : undefined}>
-        <IndexIndicatorBar indicatorControls={indicatorControls} overlay={overlay} setOverlay={setOverlay} supportsTrend={supportsTrend && (!!research || trendPhase === "ready")} />
-        {extension?.controls}
+      bottomBar={<div className={addon.controls ? "daily-wave-bottom-bar" : undefined}>
+        <IndexIndicatorBar indicatorControls={indicatorControls} overlay={overlay} setOverlay={setOverlay} supportsTrend={supportsTrend && (trendPhase === "ready")} />
+        {addon.controls}
       </div>}
       bottomBarAriaLabel="指数指标栏"
       dataKey={dataKey}
@@ -118,10 +134,10 @@ export function IndexChartWorkspace({
       onHistoryViewport={activeHistory?.onViewport}
       mainLayerAccessory={(
         <><NineTurnLayerStatus
-          showAlignmentDiagnostics={recognition.debug === 1}
+          showAlignmentDiagnostics={showAlignmentDiagnostics}
           droppedMarkerCount={nineTurnChartLayer.droppedMarkerCount}
           layer={nineTurnLayer}
-          onRetry={onNineTurnRetry}
+          onRetry={ordinaryNineTurnRetry}
         />{historical?.failedLayers.length ? (
           <div className="index-history-layer-errors">
             {historical.failedLayers.map(({ page, layer }) => (
@@ -131,16 +147,16 @@ export function IndexChartWorkspace({
               </div>
             ))}
           </div>
-        ) : null}{research && trendPhase === "error" ? <button className="daily-wave-trend-error" onClick={onTrendRetry} type="button">趋势通道加载失败 · 重试</button> : null}</>
+        ) : null}</>
       )}
       mainLines={mainLines}
-      mainPrimitives={mainPrimitives}
-      mainPriceScalePaddingPx={research?.mainPriceScalePaddingPx}
+      mainPrimitives={addon.primitives ? [...mainPrimitives, ...addon.primitives] : mainPrimitives}
+      mainPriceScalePaddingPx={addon.padding}
       panelAriaLabels={{ kline: "指数K线主图", macd: "MACD(12,26,9)", volume: "成交量", kdj: "KDJ(9,3,3)" }}
       points={points}
       quantitativeStructure={indicatorControls.quantitativeStructureAvailable ? {
         ariaLabel: QUANTITATIVE_STRUCTURE_TITLE,
-        valuesAt,
+        valuesAt: xxm.valuesAt,
         primitives: xxm.macdPrimitives,
         renderHeader: (values) => <><IndexPanelHeader panel="quantitativeStructure" point={values} /><XxmLayerStatus layer={xxm} onRetry={xxm.retry} /></>,
       } : undefined}
@@ -149,24 +165,23 @@ export function IndexChartWorkspace({
           overlay={overlay}
           point={point}
           setOverlay={setOverlay}
-          supportsTrend={supportsTrend && (!!research || trendPhase === "ready")}
+          supportsTrend={supportsTrend && (trendPhase === "ready")}
           trendPoint={point ? trendByTime.get(String(point.time)) : undefined}
-          waveLegend={extension?.legend}
+          waveLegend={addon.legend}
         />
       )}
       renderPanelHeader={(panel, point) => <IndexPanelHeader panel={panel} point={point} />}
       renderTooltip={(point, side) => (
         <IndexTooltip point={point} side={side}>
-          {structureVisible && xxm.data?.byTime.has(String(point.time)) ? (
-            <><XxmSignalDetails layer={xxm} time={String(point.time)} />
-              {recognition.debug === 1 ? recognition.renderXxmDetails?.(xxm, String(point.time)) : null}</>
-          ) : null}
-          {extension?.renderWaveDetails(point)}
+          {structureVisible ? xxm.renderDetails(String(point.time)) : null}
+          {addon.renderDetails?.(point)}
         </IndexTooltip>
       )}
       timeAxisAriaLabel="指数日线底部时间轴"
       timeMode="daily"
-    />
+    />}
+      </MainChartAddon>}
+    </SignalLayer>
   );
 }
 

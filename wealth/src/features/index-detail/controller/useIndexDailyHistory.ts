@@ -17,7 +17,6 @@ const SSE_CODE = "000001.SH";
 export interface IndexDailyHistorySeed {
   nextEndDate: string | null;
   viewModel: IndexDetailViewModel;
-  debug?: 1;
 }
 
 type LayerName = "nineTurn" | "trend";
@@ -68,7 +67,8 @@ export function readSseDailyCursor(response: IndexDetailKlineResponseDto, endDat
   return bars.length < DAILY_CHART_PAGE_SIZE ? null : meta.nextEndDate;
 }
 
-export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active: boolean) {
+export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active: boolean,
+    loadDailyKline = fetchIndexDetailKline, loadNineTurn = loadIndexNineTurnSeries) {
   const session = useMemo<HistorySession | null>(() => seed && active ? {
     seed, pages: [], shown: 0, candles: seed.viewModel.chart.candles, signal: null,
     nextEndDate: seed.nextEndDate, viewport: null, phase: "idle",
@@ -129,7 +129,7 @@ export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active:
     const { startDate, endDate } = page;
     try {
       if (name === "nineTurn") {
-        const response = await loadIndexNineTurnSeries(
+        const response = await loadNineTurn(
           { subjectType: "index", tsCode: SSE_CODE, period: "day", startDate, endDate, limit: DAILY_CHART_PAGE_SIZE },
           { signal },
         );
@@ -156,7 +156,7 @@ export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active:
       layer.result = { phase: "error" };
     }
     publish(owner);
-  }, [publish]);
+  }, [publish, loadNineTurn]);
 
   const loadPage = useCallback(async (owner: HistorySession) => {
     const { nextEndDate: endDate, signal } = owner;
@@ -165,8 +165,8 @@ export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active:
     owner.error = undefined;
     publish(owner);
     try {
-      const response = await fetchIndexDetailKline(
-        { tsCode: SSE_CODE, period: "day", endDate, limit: DAILY_CHART_PAGE_SIZE, debug: owner.seed.debug },
+      const response = await loadDailyKline(
+        { tsCode: SSE_CODE, period: "day", endDate, limit: DAILY_CHART_PAGE_SIZE },
         { signal },
       );
       if (signal.aborted) return;
@@ -201,7 +201,7 @@ export function useIndexDailyHistory(seed: IndexDailyHistorySeed | null, active:
       owner.error = error instanceof IndexDetailApiError ? error.message : undefined;
       publish(owner);
     }
-  }, [loadLayer, publish]);
+  }, [loadLayer, publish, loadDailyKline]);
 
   const onViewport = useCallback((viewport: DetailChartHistoryViewport) => {
     if (!session?.signal || session.signal.aborted || viewport.firstDate !== session.candles[0]?.time) return;

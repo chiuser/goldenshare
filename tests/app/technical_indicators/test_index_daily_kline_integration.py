@@ -14,6 +14,7 @@ from src.app.dependencies.db import get_db_session
 from src.app.exceptions.web import install_exception_handlers
 from src.app.runtime.technical_indicators.composition import create_runtime
 from src.biz.api.wealth.market.index_detail import build_router
+from src.biz.api.wealth.market.index_detail_debug import build_router as build_debug_router
 from src.biz.services.wealth.market.index_detail.index_detail_universe import IndexDetailUniverseService
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader
 from src.foundation.config.settings import Settings
@@ -89,17 +90,17 @@ def dg_client(tmp_path, monkeypatch):
     app.dependency_overrides[require_quote_access] = lambda: None
     install_exception_handlers(app)
     reader = ObservedReader(tmp_path)
-    app.include_router(build_router(daily_lake=reader, run_sse_kline=partial(
-        integration.run_index_daily_kline, daily_lake=reader,
-    )))
+    runner = partial(integration.run_index_daily_kline, daily_lake=reader)
+    app.include_router(build_router(daily_lake=reader, run_sse_kline=runner))
+    app.include_router(build_debug_router(daily_lake=reader, run_sse_kline=runner))
     with TestClient(app) as client:
         yield client, partitions, reads, encoded, calculated
 
 
 def test_sse_kline_reuses_page_and_uses_previous_trading_day(dg_client):
     client, _, reads, encoded, calculated = dg_client
-    params = {"tsCode": " 000001.sh ", "endDate": str(MON), "limit": 1, "debug": 1}
-    response = client.get(PATH, params=params)
+    params = {"tsCode": " 000001.sh ", "endDate": str(MON), "limit": 1}
+    response = client.get(PATH.replace("/kline", "/debug/kline"), params=params)
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["meta"] == {"count": 1, "limit": 1, "startDate": None, "endDate": str(MON), "nextEndDate": str(FRI)}
@@ -113,12 +114,12 @@ def test_sse_kline_reuses_page_and_uses_previous_trading_day(dg_client):
     assert reads[1][1] == ("trade_date", "high", "low", "close")
     assert len(encoded) == len(calculated) == 1
 
-    response = client.get(PATH, params={**params, "endDate": body["meta"]["nextEndDate"]})
+    response = client.get(PATH.replace("/kline", "/debug/kline"), params={**params, "endDate": body["meta"]["nextEndDate"]})
     assert response.status_code == 200, response.text
     assert [bar["tradeDate"] for bar in response.json()["bars"]] == [str(FRI)]
     assert response.json()["meta"]["nextEndDate"] == str(THU)
 
-    response = client.get(PATH, params={**params, "endDate": str(SUN), "startDate": str(FRI)})
+    response = client.get(PATH.replace("/kline", "/debug/kline"), params={**params, "endDate": str(SUN), "startDate": str(FRI)})
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["meta"]["endDate"] == str(SUN)

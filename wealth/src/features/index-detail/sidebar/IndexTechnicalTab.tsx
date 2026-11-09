@@ -1,7 +1,4 @@
 import type { ReactNode } from "react";
-import type { ForecastDebugResponse } from "../xxm-forecast/types";
-import { XxmForecastCard } from "../xxm-forecast/XxmForecastCard";
-import type { ForecastPeriod, ForecastRows } from "../xxm-forecast/types";
 import type { NineTurnPeriod } from "../../nine-turn/api/nineTurnApiTypes";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import type { IndexDetailViewModel, TrendChannelViewModel } from "../model/indexDetailTypes";
@@ -9,7 +6,7 @@ import { INDEX_TECHNICAL_NINE_TURN_PERIODS, type IndexTechnicalNineTurnSummary }
 import { IndexDetailModuleState } from "../state/IndexDetailModuleState";
 
 interface IndexTechnicalTabProps {
-  forecast?: { rows: ForecastRows; retry: (period: ForecastPeriod) => void; renderDebugDetails?: (response: ForecastDebugResponse) => ReactNode };
+  forecast?: ReactNode;
   nineTurnSummary: IndexTechnicalNineTurnSummary;
   onNineTurnRetry: (period: NineTurnPeriod) => void;
   onTrendRetry: () => void;
@@ -36,7 +33,7 @@ export function IndexTechnicalTab({ forecast, nineTurnSummary, onNineTurnRetry, 
           <Metric label="长期下轨" value={format(latest?.longLower)} />
         </div> : null}
       </div>
-      {forecast ? <XxmForecastCard {...forecast} /> : null}
+      {forecast}
     </section>
   );
 }

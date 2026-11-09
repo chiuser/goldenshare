@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from threading import BoundedSemaphore
 
 from src.foundation.clients.local_lake.major_index_mins_contract import MAX_INDEX_MINUTE_PARTITION_FILES
 from src.foundation.clients.local_lake.major_index_mins_reader import MAX_INDEX_MINUTE_HISTORY_ROWS
@@ -21,3 +22,5 @@ class XxmRuntimeBudget:
 
 
 BUDGET = XxmRuntimeBudget()
+
+REQUEST_SLOTS = BoundedSemaphore(BUDGET.max_concurrent_requests)

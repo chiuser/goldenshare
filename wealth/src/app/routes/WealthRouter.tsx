@@ -5,7 +5,8 @@ import { AnnouncementsPage } from "../../pages/data-center/AnnouncementsPage";
 import { useAuth } from "../../features/auth/model/AuthProvider";
 import { LoginPage } from "../../features/auth/ui/LoginPage";
 import { MarketOverviewPage } from "../../pages/market-overview/MarketOverviewPage";
-import { IndexDetailPage } from "../../pages/index-detail/IndexDetailPage";
+import { useIndexDebugModule } from "../../pages/index-detail/useIndexDebugModule";
+import { IndexDetailPage, type IndexDetailPageProps } from "../../pages/index-detail/IndexDetailPage";
 import { StockDetailPage } from "../../pages/stock-detail/StockDetailPage";
 import { WatchlistPage } from "../../pages/watchlist/WatchlistPage";
 import { TradingAssistantPage } from "../../pages/trading-assistant/TradingAssistantPage";
@@ -59,7 +60,9 @@ export function WealthRouter() {
 
   const indexDetailTsCode = parseIndexDetailTsCode(location.pathname);
   if (indexDetailTsCode) {
-    return <IndexDetailPage search={location.search} tsCode={indexDetailTsCode} />;
+    const props = { search: location.search, tsCode: indexDetailTsCode };
+    return import.meta.env.DEV && new URLSearchParams(location.search).get("debug") === "1"
+      ? <IndexDetailDebugEntry {...props} /> : <IndexDetailPage {...props} />;
   }
 
   const explorationRoute = resolveWealthExplorationRoute(location.pathname);
@@ -94,6 +97,15 @@ function parseStockDetailTsCode(pathname: string): string | null {
   const match = pathname.match(/^(?:\/wealth)?\/market\/stock\/([^/]+)$/);
   if (!match?.[1]) return null;
   return decodeURIComponent(match[1]);
+}
+
+function IndexDetailDebugEntry(props: IndexDetailPageProps) {
+  const state = useIndexDebugModule(true);
+  if (state.module) return <state.module.IndexDetailDebugPage {...props} />;
+  return <div className="index-debug-module-status" role="status">
+    {state.phase === "error" ? <>{state.errorMessage} · <button type="button" onClick={state.retry}>重试</button></>
+      : "核验工具加载中"}
+  </div>;
 }
 
 function parseIndexDetailTsCode(pathname: string): string | null {

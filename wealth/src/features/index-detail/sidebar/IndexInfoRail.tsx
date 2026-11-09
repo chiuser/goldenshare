@@ -1,6 +1,4 @@
 import type { ReactNode } from "react";
-import type { ForecastDebugResponse } from "../xxm-forecast/types";
-import type { ForecastPeriod, ForecastRows } from "../xxm-forecast/types";
 import { useRef, useState, type KeyboardEvent } from "react";
 
 import type { NineTurnPeriod } from "../../nine-turn/api/nineTurnApiTypes";
@@ -18,7 +16,7 @@ const TABS: Array<{ key: IndexInfoTab; label: string }> = [
 ];
 
 interface IndexInfoRailProps {
-  forecast?: { rows: ForecastRows; retry: (period: ForecastPeriod) => void; renderDebugDetails?: (response: ForecastDebugResponse) => ReactNode };
+  forecast?: ReactNode;
   activeTab: IndexInfoTab;
   nineTurnSummary: IndexTechnicalNineTurnSummary;
   onAction: (message: string) => void;

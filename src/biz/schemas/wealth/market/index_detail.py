@@ -8,26 +8,6 @@ from pydantic import BaseModel, ConfigDict
 
 IndexDetailDataStatusValue = Literal["READY", "DELAYED", "PARTIAL", "EMPTY"]
 IndexDetailDirection = Literal["UP", "DOWN", "FLAT", "UNKNOWN"]
-IndexDetailSeverity = Literal["info", "warn", "error"]
-IndexDetailDebugModule = Literal["pageInit", "quote", "dailyBasic", "breadth", "kline", "weights"]
-IndexDetailExceptionModule = Literal[
-    "indexDetail",
-    "indexDetailPageInit",
-    "indexDetailKline",
-    "indexDetailWeights",
-]
-IndexDetailExceptionCode = Literal[
-    "ID_REQUEST_INVALID",
-    "ID_NOT_FOUND",
-    "ID_SOURCE_EMPTY",
-    "ID_SOURCE_DELAYED",
-    "ID_FACTOR_PARTIAL",
-    "ID_BASIC_DAILY_PARTIAL",
-    "ID_BASIC_BREADTH_PARTIAL",
-    "ID_WEIGHT_EMPTY",
-    "ID_WEIGHT_CONTRIBUTION_PARTIAL",
-    "ID_QUERY_FAILED",
-]
 IndexDetailPeriod = Literal["day", "m1", "m5", "m15", "m30", "m60", "m90", "m120"]
 IndexDetailMinuteFrequency = Literal[1, 5, 15, 30, 60, 90, 120]
 IndexDetailNineTurnPeriod = Literal["day", "5", "15", "30", "60", "90", "120"]
@@ -52,33 +32,6 @@ class IndexDetailDataStatusDto(BaseModel):
     status: IndexDetailDataStatusValue
     expectedTradeDate: date
     observedTradeDate: date | None
-
-
-class IndexDetailModuleDebugDto(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    module: IndexDetailDebugModule
-    status: IndexDetailDataStatusValue | Literal["ERROR"]
-    expectedTradeDate: date
-    observedTradeDate: date | None
-    rowCount: int | None
-    missingCount: int | None
-
-
-class IndexDetailExceptionDto(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    module: IndexDetailExceptionModule
-    code: IndexDetailExceptionCode
-    severity: IndexDetailSeverity
-    message: str
-
-
-class IndexDetailDebugInfoDto(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    modules: list[IndexDetailModuleDebugDto]
-    exceptions: list[IndexDetailExceptionDto]
 
 
 class IndexDetailIdentityDto(BaseModel):
@@ -165,7 +118,7 @@ class IndexDetailCapabilitiesDto(BaseModel):
     supportsTradePlanEntry: Literal[True]
 
 
-class IndexDetailPageInitResponseDto(BaseModel):
+class IndexDetailPageInitDataDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     pageContext: IndexDetailPageContextDto
@@ -177,7 +130,10 @@ class IndexDetailPageInitResponseDto(BaseModel):
     chartDefaults: IndexDetailChartDefaultsDto
     capabilities: IndexDetailCapabilitiesDto
     dataStatus: IndexDetailDataStatusDto
-    debugInfo: IndexDetailDebugInfoDto | None
+
+
+class IndexDetailPageInitResponseDto(IndexDetailPageInitDataDto):
+    debugInfo: None = None
 
 
 class IndexMovingAverageDto(BaseModel):
@@ -256,7 +212,7 @@ class IndexDetailSseKlineMetaDto(IndexDetailKlineMetaDto):
     nextEndDate: date | None
 
 
-class IndexDetailKlineResponseDto(BaseModel):
+class IndexDetailKlineDataDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     pageContext: IndexDetailPageContextDto
@@ -265,7 +221,10 @@ class IndexDetailKlineResponseDto(BaseModel):
     bars: list[IndexKlineBarDto]
     meta: IndexDetailSseKlineMetaDto | IndexDetailKlineMetaDto
     dataStatus: IndexDetailDataStatusDto
-    debugInfo: IndexDetailDebugInfoDto | None
+
+
+class IndexDetailKlineResponseDto(IndexDetailKlineDataDto):
+    debugInfo: None = None
 
 
 class IndexDetailWeightRowDto(BaseModel):
@@ -289,7 +248,7 @@ class IndexDetailWeightCoverageDto(BaseModel):
     isTruncated: Literal[False]
 
 
-class IndexDetailWeightsResponseDto(BaseModel):
+class IndexDetailWeightsDataDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     indexRef: IndexDetailIndexRefDto
@@ -300,4 +259,7 @@ class IndexDetailWeightsResponseDto(BaseModel):
     coverage: IndexDetailWeightCoverageDto
     dataStatus: IndexDetailDataStatusDto
     note: Literal["基于最新月度权重估算，非指数公司官方归因"]
-    debugInfo: IndexDetailDebugInfoDto | None
+
+
+class IndexDetailWeightsResponseDto(IndexDetailWeightsDataDto):
+    debugInfo: None = None

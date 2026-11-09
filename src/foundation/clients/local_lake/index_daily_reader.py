@@ -7,6 +7,7 @@ from datetime import date, timedelta
 import os
 from pathlib import Path
 import stat
+from threading import Timer
 from typing import Any
 
 from .major_index_mins_contract import FORMAL_LAKE_ROOT as FORMAL_LAKE_ROOT
@@ -31,6 +32,7 @@ class IndexDailyLakeReader:
 
     def calendar_rows(
         self, *, end: date, start: date | None = None, recent_open_days: int | None = None,
+        timeout_seconds: float | None = None,
     ) -> tuple[tuple[date, bool, date | None], ...]:
         """Read a bounded range of SSE dates, including closed days."""
         path = str(self._path(_CALENDAR_FILE))
@@ -42,7 +44,7 @@ class IndexDailyLakeReader:
                 WHERE exchange = 'SSE' AND trade_date BETWEEN ? AND ?
                 ORDER BY trade_date
                 """,
-                [path, start if start is not None else end, end], _CALENDAR_COLUMNS,
+                [path, start if start is not None else end, end], _CALENDAR_COLUMNS, timeout_seconds=timeout_seconds,
             )
         else:
             rows = _read(
@@ -61,7 +63,7 @@ class IndexDailyLakeReader:
                   AND trade_date >= ?
                 ORDER BY trade_date
                 """,
-                [path, end, recent_open_days, end, start or date.min], _CALENDAR_COLUMNS,
+                [path, end, recent_open_days, end, start or date.min], _CALENDAR_COLUMNS, timeout_seconds=timeout_seconds,
             )
         return tuple(rows)
 
@@ -70,7 +72,7 @@ class IndexDailyLakeReader:
 
     def factor_rows(
         self, *, ts_code: str, dates: Sequence[date], columns: Sequence[str], limit: int,
-        descending: bool = False,
+        descending: bool = False, timeout_seconds: float | None = None,
     ) -> list[dict[str, Any]]:
         """Read only the selected published factor files and fields."""
         directory = self._path(_FACTOR_DIR)
@@ -92,7 +94,7 @@ class IndexDailyLakeReader:
             ORDER BY trade_date {direction}
             LIMIT ?
             """,
-            [_part_paths(directory, dates), ts_code, min(dates), max(dates), limit], schema,
+            [_part_paths(directory, dates), ts_code, min(dates), max(dates), limit], schema, timeout_seconds=timeout_seconds,
         )
         return [dict(zip(columns, row, strict=True)) for row in rows]
 
@@ -166,15 +168,27 @@ def _part_paths(directory: Path, dates: Sequence[date]) -> list[str]:
 
 def _read(
     sql: str, params: list[Any], schema: tuple[tuple[str, str], ...],
+    *, timeout_seconds: float | None = None,
 ) -> list[tuple[Any, ...]]:
     import duckdb
 
     try:
         with duckdb.connect(database=":memory:") as connection:
-            cursor = connection.execute(sql, params)
-            actual = tuple((column[0], str(column[1])) for column in cursor.description)
-            if actual != schema:
-                raise IndexDailyLakeSourceError("本机DG指数日线所用字段与合同不一致。")
-            return cursor.fetchall()
+            timer = None
+            if timeout_seconds is not None:
+                timer = Timer(timeout_seconds, connection.interrupt)
+                timer.daemon = True
+                timer.start()
+            try:
+                cursor = connection.execute(sql, params)
+                actual = tuple((column[0], str(column[1])) for column in cursor.description)
+                if actual != schema:
+                    raise IndexDailyLakeSourceError("本机DG指数日线所用字段与合同不一致。")
+                return cursor.fetchall()
+            finally:
+                if timer is not None:
+                    timer.cancel()
+    except duckdb.InterruptException as exc:
+        raise TimeoutError("指数日线读取超时。") from exc
     except duckdb.Error as exc:
         raise IndexDailyLakeSourceError("无法读取本机DG指数日线文件。") from exc

@@ -1,5 +1,7 @@
 # 指数详情页正式 API / DTO 合同 v1
 
+> 2026-11-10。普通与核验接口拆分及主要指数量化结构读取见 [§11](#11-普通与核验接口拆分)。§10 保留拆分前的 r4.1 历史合同。
+
 > 2026-11-05：上证日K接入合同 `1.4.0` 已定稿，待实现和验收。仅变更 §5.5 指定的上证日K请求。当前已实现合同仍为 `1.3.2`。趋势历史范围由[趋势接口合同 §5.1](../../../../docs/architecture/sse-daily-trend-channel-realtime-computation-low-level-design-v1.md#trend-history-range-api)定义。
 
 > 2026-11-04：§10为已实施的本地r4日线识别配套摘要；完整字段和实现依据统一见[顶底识别LLD](index-detail-top-bottom-recognition-low-level-design-v1.md)§2—5，P3/P4及P5删后回归证据见其§20.7—20.8、§21.14.14和§22.16.6。当日只修正文书状态，§1—9所记的 `1.3.2` 接口及 `debugInfo` 规则照旧。
@@ -29,7 +31,7 @@
 3. 数值使用 JSON number；缺失值使用 `null`，禁止 `NaN/Infinity/"--"/0` 代替缺失。
 4. 数组字段永远存在；没有元素时返回 `[]`，不返回 `null`。
 5. 本文列出的响应字段在各自响应形状内均为 required；nullable 不等于 optional。日K的两种 `meta` 形状见 §5.5。
-6. `debugInfo` 始终存在：`debug=0` 时为 `null`，`debug=1` 时为完整对象。
+6. 页面初始化、日线和权重的普通响应固定返回 `debugInfo: null`，各自的 `/debug/` 地址返回完整对象。
 7. Pydantic DTO 使用 `ConfigDict(extra="forbid")`；TypeScript 不使用 index signature 或 `unknown` 扩展响应。
 8. 数据库字段名只允许出现在 query/mapper，不进入 HTTP DTO。
 
@@ -128,9 +130,8 @@ debug 信息不得返回 SQL、Lake 绝对路径、环境变量、连接信息�
 |---|---|---:|---|
 | `tsCode` | string | 是 | trim + upper；必须属于 `majorIndices/CN_A` 10 code |
 | `tradeDate` | ISO date | 否 | 隐藏锚点；页面不提供日期选择器 |
-| `debug` | 0 或 1 | 否 | 默认 0 |
 
-日期、debug 或 code 解析失败统一返回 `ID_REQUEST_INVALID`；code 语法合法但不属于 10 code 返回 `ID_NOT_FOUND`。
+未知参数、日期或代码解析失败统一返回 `ID_REQUEST_INVALID`；code 语法合法但不属于 10 code 返回 `ID_NOT_FOUND`。
 
 ### 4.2 响应
 
@@ -244,7 +245,6 @@ interface IndexDetailPageInitResponseDto {
 | `startDate` | ISO date | 否 | 不得晚于 endDate |
 | `endDate` | ISO date | 否 | 首屏传 `page-init.asOfTradeDate`；上证普通日线续页传上一成功页的 `meta.nextEndDate`。包含此日，省略时沿用行情上下文。 |
 | `limit` | integer | 否 | 默认 300，范围 1..2000 |
-| `debug` | 0 或 1 | 否 | 默认 0 |
 
 请求不声明也不接受 `adjustment`。FastAPI 参数进入业务前必须统一映射非法输入为 `ID_REQUEST_INVALID`，不能让同一语义随机落为全局 `validation_error`。
 
@@ -360,7 +360,7 @@ Kline 的日期、价格、量额和派生行情字段沿用同一日线因子�
 | `meta.nextEndDate` | 新分支成功响应必有，值为交易日字符串或 `null`。满页时从本页最早K线对应的交易日历记录取得上一开市日。短页、空页、无上一开市日或上一开市日早于显式 `startDate` 时为 `null`。字段来自日历，无需多查一根K线。 |
 | 下一次日K请求 | 将上一成功页的非空 `meta.nextEndDate` 原样作为 `endDate`。例如本页最早是周一且上周五开市，下一次传周五。失败后重试原截止日。 |
 | `dataStatus` | `expectedTradeDate` 用本次有效上界对应的最近开市日，`observedTradeDate` 用实际末根日期；空页的观测日为 `null`。日历中确无截止日及以前的开市日时，成功空页的 `expectedTradeDate` 使用本次查询上界。日期核对和调试信息用同一预期日期。 |
-| `debugInfo` | 仍按 §2 始终返回该字段，`debug=0` 为 `null`，`debug=1` 为原结构。 |
+| `debugInfo` | 按 §2 始终返回该字段。普通地址为 `null`，核验地址为完整对象。 |
 
 - **正常空页。** 按上交所日历、请求上下界与本环境已核实的上证行情起点，确认请求内本来没有应返回的交易日，返回 HTTP 200、`bars=[]`、`meta.count=0`、`meta.nextEndDate=null`、`dataStatus.status="EMPTY"`。有部分应有交易日且全部读到时按实际根数返回。预热不足且确实到历史起点时允许按实际有效历史初始化，MA、BOLL 未满窗口的 null 合法。
 - **行情缺失。** 请求范围内应有交易日缺整根、日期与应有序列不符、或当页开高低收缺失或无效，返回 HTTP 500、`ID_QUERY_FAILED`。当页有数据或达到 `limit` 都不能掩盖缺口。预热数据缺失、读取或计算失败、内核结果日期或字段不完整，同样整页失败。
@@ -375,7 +375,6 @@ Kline 的日期、价格、量额和派生行情字段沿用同一日线因子�
 |---|---|---:|---|
 | `tsCode` | string | 是 | 同 page-init |
 | `tradeDate` | ISO date | 否 | 隐藏锚点 |
-| `debug` | 0 或 1 | 否 | 默认 0 |
 
 不接受 `limit/offset/sort/weightDate`；服务必须返回选定源权重批次中的完整 A 股子集。
 
@@ -527,3 +526,21 @@ query返回已校验bytes：完整内部校验→显式新建普通/debug投影�
 query、schema、API、直接Python调用、TS类型/解码/client/Hook和普通悬停已按LLD§11依赖顺序完成同步，不发布中间混配版本；消费者清单见LLD§11.2.6，P3证据见§20.7—20.8。保留核验工具已在P4使用前整体迁移，旧执行链在P5第二步交接后清退，分别见§21.14.14/§22.9；P5删后整体回归见§22.16.6。
 
 2026-10-31 的 r4 修订已验收，依据见 LLD §19—20、§21.14.14 和 §22.16.6。旧结构从首次反色起逐根检查收盘突破，反色段、单根同色段和零柱都检查。单根同色段结束后继续跟踪，首个至少两根的同色段结束时正常停止，结束反色根不再检查。完整事件始终保留。同根同方向的旧 `CANCEL/structure_price_break` 与新 `DULL/activation` 并存时，前者 `displayOnChart=false`，后者为 `true`。普通与 debug 的根事件、显示标志、编号和顺序一致，debug 关联全部旧结构事实。r4.1 的 DIF 取消显示按 LLD §23.2 执行，当前指数范围及来源见 §10.1。
+
+
+## 11. 普通与核验接口拆分
+
+以下路径均相对于 `/api/v1/wealth/market/index-detail`。请求参数沿用各接口的日期、根数和标的定义。网址的 `?debug=1` 由网页路由处理，接口收到任何显式 `debug` 参数均按无效参数拒绝。
+
+| 普通地址 | 核验地址 | 主要响应差异 |
+| --- | --- | --- |
+| `/page-init` | `/debug/page-init` | 普通 `debugInfo: null`，核验有原页面诊断 |
+| `/kline` | `/debug/kline` | 普通 `debugInfo: null`，核验有原日线诊断，首批和翻页均使用该地址 |
+| `/weights` | `/debug/weights` | 普通 `debugInfo: null`，核验有原权重诊断 |
+| `/xxm-signals`、`/minute-xxm-signals` | `/debug/xxm-signals`、`/debug/minute-xxm-signals` | 普通从主要指数量化结构数据集读事件，另读识别所用的 MACD（12、26、9）。回包字段见接入 LLD §8.3。核验沿用 §10 的完整计算回包 |
+| `/xxm-key-point-forecast` | `/debug/xxm-key-point-forecast` | 同一输入的公开结论相同，核验额外返回原计算依据 |
+| 无 | `/debug/daily-waves` | 原有结果和空结果的结构，波段按日期标在网页已有 K 线上 |
+
+普通识别响应示例中的曲线点为 `{"time":"2024-09-24","close":2863.1255,"dif":-26.795,"dea":-37.117,"hist":20.645,"ordinaryState":null,"ordinaryDirection":null}`。当天没有事件时 `events=[]`，有曲线覆盖时 `meta.count` 仍包含该根 K 线。普通的上证日线 MACD 继续由原日线接口计算。
+
+基础三项遇到旧 `debug` 参数返回 400 `ID_REQUEST_INVALID`，识别和预判分别返回 400 `XXM_REQUEST_INVALID` 和 `XXMF_REQUEST_INVALID`，波段返回 422 `DAILY_WAVE_INVALID_REQUEST`。旧 `/daily-waves` 返回 404。环境和权限见[拆分 LLD §2](index-detail-debug-separation-low-level-design-v1.md#2-冻结请求和响应合同)。 [接入 LLD §8.3](../../../../lake_console/docs/design/dagster-major-index-quantitative-structure-onboarding-low-level-design-v1.md#83-返回字段缺数据和页面行为)

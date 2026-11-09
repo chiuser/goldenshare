@@ -1,3 +1,4 @@
+import type { IndexDetailRequestScheduler } from "../api/indexDetailRequestScheduler";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import {
@@ -22,11 +23,13 @@ export function useIndexMinuteSeries({
   activePeriod,
   enabled,
   endDate,
+  requests,
   tsCode,
 }: {
   activePeriod: IndexPeriodKey;
   enabled: boolean;
   endDate: string | null;
+  requests?: IndexDetailRequestScheduler;
   tsCode: string;
 }): IndexMinuteSeriesState & { retry: () => void } {
   const [state, setState] = useState<IndexMinuteSeriesState>(idleState);
@@ -54,9 +57,9 @@ export function useIndexMinuteSeries({
     setState({ data: null, errorMessage: "", phase: "loading" });
     const request = { tsCode, freq, endDate, limit: 500 } as const;
     const indicatorsRequest = settle(
-      fetchIndexDetailMinuteIndicators(request, { signal: controller.signal }),
+      fetchIndexDetailMinuteIndicators(request, { signal: controller.signal }, requests),
     );
-    fetchIndexDetailMinutes(request, { signal: controller.signal }).then((response) => {
+    fetchIndexDetailMinutes(request, { signal: controller.signal }, requests).then((response) => {
       if (controller.signal.aborted || requestIdRef.current !== requestId) return;
       if (response.bars.length === 0 || response.dataStatus.status === "EMPTY") {
         const empty: IndexMinuteSeriesState = {
@@ -122,7 +125,7 @@ export function useIndexMinuteSeries({
       setState({ data: null, errorMessage: resolveMinuteError(error), phase: "error" });
     });
     return () => controller.abort();
-  }, [activePeriod, enabled, endDate, retryToken, tsCode]);
+  }, [activePeriod, enabled, endDate, requests, retryToken, tsCode]);
 
   const retry = useCallback(() => setRetryToken((value) => value + 1), []);
   return { ...state, retry };
