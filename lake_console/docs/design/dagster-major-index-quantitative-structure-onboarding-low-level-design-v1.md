@@ -26,7 +26,7 @@
 
 DG 接入时在 `lake_console/orchestrator/pyproject.toml` 声明 `goldenshare-technical-indicators==0.1.0; python_version >= '3.13'`，`[tool.uv.sources]` 用 `../../packages/technical_indicators` 作为同仓解析来源，同步更新 DG 的 `uv.lock`。DG 项目原有的 `requires-python` 范围保留。共享包在执行本数据集计算时导入，正式 DG 使用现有 Python 3.13 环境。 [现有 DG 依赖](../../orchestrator/pyproject.toml) · [共享包版本与 Python 要求](../../../packages/technical_indicators/pyproject.toml)
 
-获准安装后，在 `lake_console/orchestrator` 核对共享包 LLD 记录的 wheel SHA-256，使用 `uv pip install --offline --no-deps --reinstall-package goldenshare-technical-indicators --python .venv/bin/python3 "$wheel"` 安装同一份已验收产物。`wheel` 为经核对的本地文件绝对路径。用该解释器以 `-I -B` 验证安装路径、包版本 `0.1.0` 和 `MAIN_SPEC.algorithm_version` 的值 `xxm-direction-v0.5-r4.1`，再用这个环境加载 DG 定义。重新准备环境时也按此核对。正式环境安装和加载安排在获批执行阶段。
+正式环境安装和加载按 [§2.2](#22-正式-dg-安装与加载) 执行。
 
 识别内核接收收盘价和已经算好的 DIF、DEA、MACD 柱值。DG 日线读取 `index_factor_pro`，分钟读取 `major_index_mins` 和 `major_index_mins_technical`。财势乾坤日线图使用现有通用技术指标计算，下一根预判使用现有 `projection.py` 根据假设收盘价推算指标。这两处计算继续由各自的现有入口调用。 [DG 分钟技术指标](../../orchestrator/src/orchestrator/defs/io/major_index_mins_technical_writer.py) · [财势乾坤日线图入口](../../../src/app/dependencies/index_daily_technical_indicators.py) · [下一根预判的 MACD 计算](../../../src/biz/services/wealth/market/index_detail_xxm/projection.py)
 
@@ -38,6 +38,41 @@ DG 接入时在 `lake_console/orchestrator/pyproject.toml` 声明 `goldenshare-t
 2. 投影日线 `ts_code, trade_date, close, macd_dif_bfq, macd_dea_bfq, macd_bfq`。四个分钟周期各自按 `(ts_code, freq, trade_date, trade_time)` 对齐价格和指标，复用 `expected_gold_minute_times("SSE", freq)` 取得应有的完成时刻。对同一批输入按日期、指数、周期统计有效键，每个应有键对应一条完整日线或一对完整分钟记录。应有键缺失或重复时报告日期、指数、周期和时间键。核对通过后直接用这批输入计算。 [DG 完成时刻](../../orchestrator/src/orchestrator/defs/run_contracts/cn_a_derived_minute_bars.py#L169)
 3. 各序列按完成时刻升序调用内核。日线使用日期。分钟使用上海时区 `+08:00`。创建内核时沿用 `period|首根完成时刻|指标口径` 的来源标识写法，日线口径为 `bfq`，分钟口径为 `major_index_mins_technical.INDICATOR_VERSION`。每次运行均从各序列有效起点的空状态开始。 [来源标识](../../../src/biz/queries/wealth/market/index_detail_xxm/query_service.py)
 4. 每个指数的每个周期各自使用一个计算器。算完一根 K 线，只用这一根产生的事件判断图上画哪些标记，结果填入 `display_on_chart`。随后按完成时刻、指数代码、周期汇总当天结果。日线按 15:00 排序，存储时仍为空。同一根 K 线保留内核发出的事件顺序。
+
+### 2.2 正式 DG 安装与加载
+
+本机正式 DG 使用 `/Users/congming/github/goldenshare/lake_console/orchestrator` 的 `.venv/bin/python3`，code location 为 `orchestrator`，定义从 `src/orchestrator/defs` 加载。目标实例目录为 `/Users/congming/.goldenshare/dagster_home`。接入前核对正式工作目录和获准代码版本。当前本需求验收的代码提交为 `a4bebf883`。以下两条检查的输出均应为空。若发现会被加载的其他改动，先确认正式部署的源码范围再继续。 [本机启动入口](../../bin/lake-dg-start) · [定义装配](../../orchestrator/src/orchestrator/definitions.py)
+
+```bash
+cd /Users/congming/github/goldenshare
+git diff --name-only a4bebf883 -- lake_console/orchestrator/src lake_console/orchestrator/pyproject.toml lake_console/orchestrator/uv.lock lake_console/bin/lake-dg-start packages/technical_indicators
+git ls-files --others --exclude-standard -- lake_console/orchestrator/src lake_console/bin/lake-dg-start packages/technical_indicators
+```
+
+获准安装后执行下列命令。当前找到的 wheel 位于 `/private/tmp`，使用前重新核对文件和哈希。此前隔离验收仅安装到临时副本，正式环境的安装与加载单独确认。 [共享包交付与哈希](../../../docs/architecture/calculation-operator-shared-package-low-level-design-v1.md#8-实现与验收记录)
+
+```bash
+cd /Users/congming/github/goldenshare/lake_console/orchestrator
+wheel=/private/tmp/goldenshare-operator.rodKJR/wheels/goldenshare_technical_indicators-0.1.0-py3-none-any.whl
+expected_sha256=5fc911ef9215847e1400d56ad95428c38d38e0af828b8dea568786b3b4730913
+test "$(shasum -a 256 "$wheel" | awk '{print $1}')" = "$expected_sha256" &&
+  uv pip install --offline --no-deps --reinstall-package goldenshare-technical-indicators --python .venv/bin/python3 "$wheel" &&
+  .venv/bin/python3 -IB - <<'PY'
+import sys
+from importlib.metadata import version
+from importlib.util import find_spec
+from pathlib import Path
+from goldenshare_technical_indicators import xxm
+
+assert version("goldenshare-technical-indicators") == "0.1.0"
+assert xxm.MAIN_SPEC.algorithm_version == "xxm-direction-v0.5-r4.1"
+assert Path(xxm.__file__).resolve().is_relative_to(Path(sys.prefix).resolve())
+assert Path(find_spec("orchestrator").origin).resolve().parent == Path.cwd() / "src/orchestrator"
+print(sys.executable, xxm.__file__, xxm.MAIN_SPEC.algorithm_version)
+PY
+```
+
+正式 DG 已运行时，在 [DG 控制台](http://127.0.0.1:3000) 打开 **Deployment → Code locations**，只对 `orchestrator` 点 **Reload**。DG 尚未运行时，获准后用现有入口启动 `bash /Users/congming/github/goldenshare/lake_console/bin/lake-dg-start`。在同一实例确认 code location 加载成功，能查到 §4 的 Asset、Job、两项检查和两个 Sensor，并确认两个 Sensor 都是停用。安装、重载或启动失败时停在此步，记录版本或加载错误，保留两个 Sensor 停用。 [Dagster 代码位置操作](https://docs.dagster.io/guides/operate/webserver#deployment) · [本机启动方案](dagster-local-startup-plan-v1.md)
 
 ## 3. 结果和日更写入
 
@@ -125,6 +160,88 @@ STRUCT(
 
 2026-11-06 是历史只读实测的截止日。该范围内 4,089 个开市日对应 36,801 份行情和指标文件，实际对齐得到 530,292 根输入。正式执行以当次获批计划为准。 [方案中的来源与预算](dagster-major-index-quantitative-structure-onboarding-plan-v1.md) · [全历史只读实测](#61-开发前全历史读取与识别计时)
 
+**只读确定本次截止日。** 先从 SSE 日历取得探查上限。按上海时间，18:00 起可纳入当天的开市日，之前只纳入更早开市日。再用现有 `plan --through` 检查从 2010-01-04 起的九路文件。此步只查询日历和文件路径、大小，报告写入 `/private/tmp`。 [日历查询](../../orchestrator/src/orchestrator/defs/io/major_index_quantitative_structure.py#L71) · [历史计划实现](../../orchestrator/src/orchestrator/defs/bootstrap/major_index_quantitative_structure_history_cli.py#L98)
+
+```bash
+cd /Users/congming/github/goldenshare/lake_console/orchestrator
+bootstrap_module=orchestrator.defs.bootstrap.major_index_quantitative_structure_history_cli
+report_dir=$(mktemp -d /private/tmp/major-index-quantitative-structure.XXXXXX)
+probe_plan="$report_dir/probe-plan.json"
+reviewed_plan="$report_dir/plan.json"
+reviewed_file_audit="$report_dir/file-audit.json"
+reviewed_event_plan="$report_dir/event-plan.json"
+
+read_structure_calendar() {
+  .venv/bin/python3 -IB - "$@" <<'PY'
+import json
+import sys
+from datetime import date, datetime, timedelta
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from orchestrator.defs.duckdb_connection import DuckDBConnectionSettings, connect_configured_duckdb
+from orchestrator.defs.io.major_index_quantitative_structure import structure_trade_dates
+from orchestrator.defs.paths import DEFAULT_LAKE_ROOT
+from orchestrator.defs.run_contracts.major_index_quantitative_structure import (
+    STRUCTURE_CHECK_START, STRUCTURE_SENSOR_LOOKBACK,
+)
+from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
+
+now = datetime.now(CN_A_SENSOR_TIMEZONE)
+through = now.date() if now.time() >= STRUCTURE_CHECK_START else now.date() - timedelta(days=1)
+recent = None if len(sys.argv) > 1 else 1
+with TemporaryDirectory(dir="/private/tmp") as temp:
+    settings = DuckDBConnectionSettings(temp_directory=Path(temp))
+    with connect_configured_duckdb(settings, temp_policy="existing_no_spill") as connection:
+        days = structure_trade_dates(connection, Path(DEFAULT_LAKE_ROOT), through, recent=recent)
+if not days:
+    raise SystemExit("SSE 日历没有可用交易日")
+if len(sys.argv) == 1:
+    print(days[-1])
+else:
+    completed_through = date.fromisoformat(sys.argv[1])
+    due = [day for day in days if day > completed_through]
+    recent_days = set(days[-STRUCTURE_SENSOR_LOOKBACK:])
+    print(json.dumps({
+        "eligible_through": str(days[-1]),
+        "due_dates": [str(day) for day in due],
+        "outside_sensor_window": [str(day) for day in due if day not in recent_days],
+    }))
+PY
+}
+
+probe_through=$(read_structure_calendar) &&
+  .venv/bin/python3 -IB -m "$bootstrap_module" plan --through "$probe_through" --output "$probe_plan"
+```
+
+查看探查报告的 `first_missing_input`。为空时，探查上限就是候选截止日，直接复用该计划。有值时，取报告中首个缺文件日的上一条 SSE 开市日作为截止日。首日就缺文件时停在计划阶段，由上游补齐后再探查。下列命令仅在探查报告已成功生成后执行。
+
+```bash
+history_through=$(.venv/bin/python3 -IB - "$probe_plan" <<'PY'
+import json
+import sys
+from pathlib import Path
+
+plan = json.loads(Path(sys.argv[1]).read_text())
+missing = plan["first_missing_input"]
+if not missing:
+    print(plan["through"])
+else:
+    days = [row["trade_date"] for row in plan["partitions"]]
+    index = days.index(missing["trade_date"])
+    if index == 0:
+        raise SystemExit(f"历史首日缺文件：{missing['path']}")
+    print(days[index - 1])
+PY
+) && if [ "$history_through" = "$probe_through" ]; then
+  cp "$probe_plan" "$reviewed_plan"
+else
+  .venv/bin/python3 -IB -m "$bootstrap_module" plan --through "$history_through" --output "$reviewed_plan"
+fi
+```
+
+审阅 `reviewed_plan` 中的 `through`、`plan_id`、文件数、预计 K 线根数、结果文件数和可用空间。首次初始化要求 `replace_all=false`、`first_missing_input=null`、`existing_targets=[]`。获准的截止日与计划 ID 供 §5.4 使用。此处确认到文件存在为止，实际 K 线时间键和根数在 `build` 读取同一批输入时核对。
+
 ### 5.2 文件阶段
 
 | 动作 | 执行和验收 |
@@ -145,35 +262,76 @@ STRUCT(
 
 获批后 `events-apply` 先写获批样本分区，读回确认该日产出、两项检查及关联正确，再用一次命令补录获批范围。每个成功分区至多补一条当前版本产出和两条检查。产出使用 `report_runless_asset_event(AssetMaterialization(...))`，检查按主要指数九转现行方式写入带日期和目标产出的 `AssetCheckEvaluation`。已有符合文件验收报告的当前产出则复用，检查只补缺少或尚未指向当前产出的项。获批换版追加新版产出，两项检查绑定该产出。`events-audit` 对账实际产出与两项检查的日期集合，抽查分区归属。 [主要指数九转事件写入](../../orchestrator/src/orchestrator/defs/bootstrap/major_index_nineturn_events.py) · [Dagster 事件接口](https://docs.dagster.io/api/dagster/external-assets-instance-api)
 
-文件和事件均验收后，从已验收的最后开市日的下一开市日接日更。先启用分区注册 sensor，再启用日更 sensor。启用是独立的正式操作。
+文件和事件均验收后，按 [§5.5](#55-启用并验收日更) 接到日更。
 
 ### 5.4 操作入口
 
-在 `/Users/congming/github/goldenshare/lake_console/orchestrator` 使用现有 `.venv/bin/python3 -B`。示例日期为实测截止日，正式执行时填已批准的截止日和计划标识。
+继续使用 §5.1 的工作目录及报告路径。根据当次批准结果填写两个计划 ID。以下各段按顺序单独执行。初始化的功能小样已有 §7.1 的读回记录。
 
 ```bash
-cd /Users/congming/github/goldenshare/lake_console/orchestrator
-bootstrap_module=orchestrator.defs.bootstrap.major_index_quantitative_structure_history_cli
-sample_dir=/private/tmp/major-index-quantitative-structure/sample
-reviewed_plan=/private/tmp/major-index-quantitative-structure/plan.json
-reviewed_file_audit=/private/tmp/major-index-quantitative-structure/file-audit.json
-reviewed_event_plan=/private/tmp/major-index-quantitative-structure/event-plan.json
-# approved_plan_id、approved_event_plan_id 在相应计划审阅批准后填入
-
-.venv/bin/python3 -B -m "$bootstrap_module" sample --output-dir "$sample_dir"
 export DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home
-.venv/bin/python3 -B -m "$bootstrap_module" plan --through 2026-11-06 --output "$reviewed_plan"
-# 算法换版时改用 plan --replace-all --through <获批截止日> --output "$reviewed_plan"
-.venv/bin/python3 -B -m "$bootstrap_module" register --plan "$reviewed_plan" --plan-id "$approved_plan_id" --apply
-.venv/bin/python3 -B -m "$bootstrap_module" build --plan "$reviewed_plan" --plan-id "$approved_plan_id" --apply
-.venv/bin/python3 -B -m "$bootstrap_module" post-audit --plan "$reviewed_plan" --output "$reviewed_file_audit"
+approved_plan_id='填入获批的历史计划 ID'
+# 算法换版时，按 §5.1 用 plan --replace-all 生成计划后再审批。
+.venv/bin/python3 -B -m "$bootstrap_module" register --plan "$reviewed_plan" --plan-id "$approved_plan_id" --apply &&
+  .venv/bin/python3 -B -m "$bootstrap_module" build --plan "$reviewed_plan" --plan-id "$approved_plan_id" --apply &&
+  .venv/bin/python3 -B -m "$bootstrap_module" post-audit --plan "$reviewed_plan" --output "$reviewed_file_audit"
+```
+
+文件验收通过后生成事件计划。
+
+```bash
 .venv/bin/python3 -B -m "$bootstrap_module" events-plan --plan "$reviewed_plan" --file-audit "$reviewed_file_audit" --output "$reviewed_event_plan"
-.venv/bin/python3 -B -m "$bootstrap_module" events-apply --plan "$reviewed_event_plan" --plan-id "$approved_event_plan_id" --trade-date 2010-01-04 --apply
-.venv/bin/python3 -B -m "$bootstrap_module" events-apply --plan "$reviewed_event_plan" --plan-id "$approved_event_plan_id" --apply
-.venv/bin/python3 -B -m "$bootstrap_module" events-audit --plan "$reviewed_event_plan"
+```
+
+获批后先补录一个分区。样本日期必须在当次计划内，首次初始化可选 2010-01-04。该命令会读回核对该日产出及两项检查。
+
+```bash
+approved_event_plan_id='填入获批的事件计划 ID'
+approved_event_sample_date='填入获批的样本交易日'
+.venv/bin/python3 -B -m "$bootstrap_module" events-apply --plan "$reviewed_event_plan" --plan-id "$approved_event_plan_id" --trade-date "$approved_event_sample_date" --apply
+```
+
+样本通过且全量补录获批后执行。
+
+```bash
+.venv/bin/python3 -B -m "$bootstrap_module" events-apply --plan "$reviewed_event_plan" --plan-id "$approved_event_plan_id" --apply &&
+  .venv/bin/python3 -B -m "$bootstrap_module" events-audit --plan "$reviewed_event_plan"
 ```
 
 `events-apply --trade-date` 只处理一个获批样本日期，省略该参数则处理计划内所有待补录日期。所有写入命令绑定冻结的计划标识。正式执行与审批步骤遵守 [DG 执行规则](../../orchestrator/AGENTS.md)。
+
+### 5.5 启用并验收日更
+
+1. **先核对历史和日更之间的日期。** 取文件验收及事件对账通过的截止日 `D`，执行 §5.1 定义的 `read_structure_calendar "$history_through"`，其中 `history_through` 填已验收的 `D`。命令列出 `D` 之后已到 18:00 检查范围的 SSE 开市日，以及其中超出最近 10 个开市日的日期。在 [DG 控制台](http://127.0.0.1:3000) 的 **Assets → gold_major_index_quantitative_structure → Partitions** 核对这些日期。超窗且尚未完成的分区，按日期顺序用 §3.2 的同一个日更 Job 补跑。窗口内的待完成日期交给两个 Sensor 按顺序推进。尚无应处理日期时，等待 `D` 后首个 SSE 开市日。
+2. **按顺序启用。** 在同一实例的 **Overview → Sensors** 找到 `orchestrator` 下的 `major_index_quantitative_structure_trade_day_sensor`，打开开关并确认是运行状态，再打开 `gold_major_index_quantitative_structure_update_job_sensor`。保持其他 Sensor 的当前状态。等待 daemon 自然检查，通过 Sensor 详情的 tick 记录查看分区登记、上游等待和提交结果。 [Dagster Sensor 操作](https://docs.dagster.io/guides/automate/sensors/monitoring-sensors-in-the-dagster-ui)
+3. **验收首个自动日更。** 在日更 Sensor 详情确认首次提交日期是当前最早待完成日，打开其关联 Run，核对为 `gold_major_index_quantitative_structure_update_job`、分区日期正确且 Run 成功。在 Asset 分区页核对该日最新产出、`goldenshare/formula_version` 和两项指向同次产出的通过检查。只读打开该日产出对应的 Parquet，核对日期、一行、`success=true` 和事件数与产出记录一致。没有触发时先看 tick 的等待原因。运行失败时按 §3.2 重跑该日后复核。
+
+将 `first_run_date` 设为首个自动 Run 的分区日期，按下列命令读回 Parquet。输出的第三项是事件数，应等于该日产出记录的 `goldenshare/event_count`。
+
+```bash
+first_run_date='填入首个自动 Run 的分区日期'
+.venv/bin/python3 -IB - "$first_run_date" <<'PY'
+import sys
+from datetime import date
+from pathlib import Path
+from tempfile import TemporaryDirectory
+
+from orchestrator.defs.duckdb_connection import DuckDBConnectionSettings, connect_configured_duckdb
+from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, gold_major_index_quantitative_structure_path
+
+day = date.fromisoformat(sys.argv[1])
+path = gold_major_index_quantitative_structure_path(Path(DEFAULT_LAKE_ROOT), day.isoformat())
+with TemporaryDirectory(dir="/private/tmp") as temp:
+    settings = DuckDBConnectionSettings(temp_directory=Path(temp))
+    with connect_configured_duckdb(settings, temp_policy="existing_no_spill") as connection:
+        rows = connection.execute(
+            "SELECT trade_date, success, len(results) FROM read_parquet(?, hive_partitioning=false)",
+            [str(path)],
+        ).fetchall()
+    assert len(rows) == 1 and rows[0][:2] == (day, True) and rows[0][2] is not None, rows
+print(rows[0])
+PY
+```
 
 ## 6. 可核算的执行量
 
