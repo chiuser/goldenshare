@@ -4,7 +4,7 @@
 
 ## 1. 实现边界
 
-本次只新增 `major_index_quantitative_structure` Gold 数据集。读取现有 DG 日线因子、四个分钟周期的 K 线与 MACD 以及 SSE 交易日历。使用现有 r4.1 规则生成量化结构事件，日线和分钟分别从 2010-01-04 或各自更晚的有效起点连续计算。字段、指数范围和有效日期按原方案第 1–3 节。财势乾坤读取本 Gold 的接入另行验收。
+DG 部分新增 `major_index_quantitative_structure` Gold 数据集。读取现有 DG 指数日线技术因子、四个分钟周期的 K 线与 MACD 以及 SSE 交易日历。使用现有 r4.1 规则生成量化结构事件，日线和分钟分别从 2010-01-04 或各自更晚的有效起点连续计算。字段、指数范围和有效日期按原方案第 1–3 节。财势乾坤的读取与验收见 [§8](#8-财势乾坤接入详细设计)。
 
 | 文件位置（相对 Orchestrator 的 `src/orchestrator/`） | 改动 |
 | --- | --- |
@@ -406,3 +406,118 @@ SQL 连接使用现行 DG 配置，每次计算复用同一连接。日更日志
 2026-11-09 上海时间 14:33，获批后依次启用分区登记 Sensor 和日更 Sensor，正式 DG 读回均为 `RUNNING`。两者首次自然检查均按 18:00 的约定跳过。
 
 **待验收**。首个自动日更触发后，按 [§5.5](#55-启用并验收日更) 核对交易日、Job 结果、r4.1 产出、两项检查与当日 Gold 文件。
+
+## 8. 财势乾坤接入详细设计
+
+依据 [接入技术方案 §9](dagster-major-index-quantitative-structure-onboarding-plan-v1.md#9-财势乾坤接入技术方案)。本节定义 Gold 读取、结果与状态。页面入口、独立 API、缓存和调用方迁移按[普通与核验请求拆分 LLD](../../../wealth/docs/pages/index-detail/index-detail-debug-separation-low-level-design-v1.md)实施。上文的正式执行记录对应 DG 数据集。
+
+### 8.1 修改位置和调用关系
+
+| 位置 | 本次职责 |
+| --- | --- |
+| [日线接口](../../../src/biz/api/wealth/market/index_detail_xxm.py)和[分钟接口](../../../src/biz/api/wealth/market/index_detail_minute_xxm.py) | 沿用普通 `xxm-signals`、`minute-xxm-signals`、鉴权、`tsCode`、`period` 或 `freq`、`startDate`、`endDate`、`limit` 及 `Cache-Control: no-store`。显式 `debug` 参数按无效参数处理。两种地址沿用 [App 装配](../../../src/app/api/v1/router.py) 的本机环境和分钟能力门禁 |
+| [识别查询服务](../../../src/biz/queries/wealth/market/index_detail_xxm/query_service.py) | 普通识别查询交易日历、主要指数量化结构文件和覆盖窗口的收盘价、MACD（12、26、9），返回事件、曲线点、覆盖范围及状态。核验地址和[预判入口](../../../src/biz/queries/wealth/market/index_detail_xxm/forecast_query_service.py)继续复用 `load_entry()` 及原计算 |
+| [本机 Lake 读取层](../../../src/foundation/clients/local_lake/) | 增加 `major_index_quantitative_structure_reader.py`，根据传入的交易日列表批量读取结果。根目录取现有 `IndexDailyLakeReader.root`，正式文件相对路径为 `gold/indicator/major_index_quantitative_structure/trade_date=YYYY-MM-DD/part-000.parquet`。字段、九指数和有效起点按[方案 §2–3](dagster-major-index-quantitative-structure-onboarding-plan-v1.md#2-上游与历史起点)维护财势乾坤本地读取合同，部署时对照 DG 合同核验 |
+| [API 响应类型](../../../src/biz/schemas/wealth/market/index_detail_xxm.py)及[前端响应校验](../../../wealth/src/features/index-detail/xxm/adapter.ts) | 普通与核验各自使用响应类型。普通页用识别回包的曲线点画量化结构副图，按 K 线完成时刻加事件。继续使用 `useIndexXxmLayer` 发出首批 K 线的请求 |
+| [指数详情网页路由](../../../wealth/src/app/routes/WealthRouter.tsx) | 本机开发版且网址带 `debug=1` 时按需加载核验页。核验页首笔识别直接请求相应的 `/debug/` 地址。等待或加载失败时使用页面已有提示及重试 |
+| [量化结构悬停](../../../wealth/src/features/index-detail/xxm/XxmLayerUi.tsx) | 普通页悬停展示当根时间及 Gold 事件。核验页使用原展示和详情组件 |
+
+应用装配继续提供现有 Lake 读取依赖。读取层只访问本机正式 Parquet，使用已有 DuckDB 依赖。Biz 负责图表响应和状态，浏览器只访问财势乾坤 API。DG 依旧按既有 Job 和 Sensor 写入，事件读取不查询 DG 状态库。
+
+### 8.2 单次请求怎么读取
+
+1. 沿用 `require_xxm_code()`、现有参数验证和本机市场业务日期解析。按[方案 §2](dagster-major-index-quantitative-structure-onboarding-plan-v1.md#2-上游与历史起点)取该指数和周期的有效起点。范围下限取有效起点与 `startDate` 较晚者，上限取 `endDate` 和市场业务日期较早者，省略参数时使用有效起点或市场业务日期。用 `XxmLakeCalendar.recent()` 取截至上限最近 `ceil(limit/n) + 1` 个开市日，`n` 是该周期每个开市日的完成端点数，日线为 1。额外一日供截掉当前尚未完成的端点。日线以收盘完成为准，分钟沿用 `ENDPOINTS`。选日期范围内且不晚于请求时点的最近 `limit` 根应有端点，再按升序返回。
+2. 以选中的端点日期生成分区文件清单。读取层用一次 DuckDB 查询读现有主要指数量化结构文件，使用 `hive_partitioning=false`，取物理 `trade_date`、`success` 和按 `ts_code`、`period` 筛选后的 `results`。用 `filename` 核对每份文件一行且物理日期与分区一致。按日升序处理，筛选后事件列表为空也保留该日，事件按列表原顺序。对缺文件按 §8.3 决定可用区间。
+3. 按本次选中的完成端点筛选事件和计算覆盖范围。日线用 `trade_date`，分钟用交易日与上海本地 `bar_end_time`。同一交易日文件可包含本次范围以外的分钟事件，只返回本次范围内的事件。
+4. 只为已覆盖的完成端点读取副图曲线。日线复用 `IndexDailyLakeReader.factor_rows()`，传覆盖日期清单和根数，从指数日线技术因子数据集（`silver/index/index_factor_pro`）读 `trade_date`、`close`、`macd_dif_bfq`、`macd_dea_bfq`、`macd_bfq`，上证日线同样走这一来源。分钟复用 [`read_minutes()`](../../../src/biz/queries/wealth/market/index_detail_xxm/source.py)，将 `MinuteSourceWindow.output_rows` 和 `read_rows` 都设为覆盖根数，首尾时间用覆盖区间的实际完成时刻。从主要指数分钟线数据集（`gold/quote/major_index_mins`）取 `close`，从主要指数分钟技术指标数据集（`gold/indicator/major_index_mins_technical`）取 `macd_dif`、`macd_dea` 和 `macd`，沿用按指数、频率、日期和完成时刻对齐及 `GOLD_PARAMS_KEY` 中的 MACD（12、26、9）合同。按升序返回覆盖窗口的曲线点。使用读到的时间与第 3 步选定的时间对齐，有缺口走 `XXM_SOURCE_CONTRACT_INVALID`。覆盖范围为空时跳过曲线读取。普通历史识别直接使用这批数据组装回包，无需读取用于计算的前序行情或调用识别内核。
+
+### 8.3 返回字段、缺数据和页面行为
+
+| 字段或情况 | 默认请求口径 |
+| --- | --- |
+| 标的、周期和版本 | `tsCode`、`period`、`algorithmVersion`、`specHash`。验收时核对 DG 已发布的 r4.1 版本，接口使用同版 `MAIN_SPEC` 的版本和规则摘要 |
+| `points` | 每个已覆盖端点一项，按时间升序。字段为 `time`、`close`、`dif`、`dea`、`hist`、`ordinaryState`、`ordinaryDirection`。数值使用 §8.2 读到的收盘价及识别所用 MACD（12、26、9），两项状态字段固定为 `null`，悬停信息从当根事件取。时间格式与事件一致 |
+| `events` | `event_type → type`、`direction → direction`、`display_on_chart → displayOnChart`。日线时间是 `YYYY-MM-DD`，分钟时间是 `YYYY-MM-DDTHH:MM:SS+08:00`。事件 ID 由指数、周期、完成时刻和同根事件在 Gold 中的顺序组成，顺序从 1 开始，包含不画标记的事件。同根 ID 在不同请求窗口中一致。图上只画 `displayOnChart=true` 的事件。默认悬停展示该根的事件列表，保持原顺序 |
+| `meta` 和 `dataStatus` | `meta.count` 等于 `points.length`，`meta.responseStart` 和 `meta.responseEnd` 取曲线点首尾。即使一根 K 线没有事件，所在交易日成功时也计入覆盖。沿用 `dataStatus.status/message/asOf`，其中 `asOf` 取最后一个已覆盖端点 |
+| 已成功，全部所选端点已覆盖 | `READY`。即使当根或整个窗口的事件列表为空，页面仍用 `points` 画曲线 |
+| 窗口末尾尚无 Gold 文件，之前有成功结果 | `DELAYED`，只返回本窗口已覆盖的连续部分，提示结果截至哪根 K 线。后续请求重新读文件，以便看到 DG 新产出 |
+| 窗口无可返回端点，或所选文件均未产出 | `EMPTY`，`points=[]`、`events=[]`、`meta.count=0`，`dataStatus.asOf` 及 `meta` 的首尾均为 `null`。后者的消息注明尚未生成结果 |
+| `success=false` | 用既有 `XXM_QUERY_FAILED` 错误返回失败日期。页面沿用量化结构的错误和重试入口 |
+| 窗口中间缺文件，或量化结构文件的物理日期与分区不符 | 用既有 `XXM_SOURCE_CONTRACT_INVALID` 错误返回缺口。中间缺文件指所选日期中缺文件的日期之后还有已产出日期 |
+
+普通响应的顶层字段为 `tsCode`、`period`、`algorithmVersion`、`specHash`、`points`、`events`、`meta` 和 `dataStatus`。原 `source` 只随核验响应返回。
+
+前端用 `points` 画量化结构副图的曲线和读数，按同一完成时刻加事件，标记高度用对应曲线点的 `dif`。按 `meta.responseStart` 到 `meta.responseEnd` 对齐已有 K 线和收盘价，区间外留空。普通 MACD 副图继续用 `/kline` 或 `/minute-indicators` 的结果，上证普通日线仍用 `/kline` 技术指标计算内核的结果。两副图的 MACD 数值各自取用，校验时只核对同根时间和收盘价。空结果使用接口消息区分尚未生成和暂无数据。研究核验继续使用原来的响应字段、前端检查和明细。
+
+真实样本的事件字段示例为 `{"id":"000905.SH|m30|2010-01-05T14:30:00+08:00|1","time":"2010-01-05T14:30:00+08:00","type":"DULL","direction":"TOP","displayOnChart":true}`。ID 的四段按上述顺序用 `|` 连接。
+
+首批 K 线和指标就绪后沿用 `useIndexXxmLayer` 的请求时机。开关只控制显示，向左续页只加载普通 K 线，量化结构复用首批窗口的响应。切回周期或页签沿用现有请求方式。晚间查看新结果时刷新页面，触发首批请求并重读 Gold。DG 从上海时间 18:00 起检查上游，财势乾坤默认业务日期按现有规则于 20:00 切换。若到 20:00 当日文件仍未生成，页面按本节的 `DELAYED` 或 `EMPTY` 显示。 [请求与复用](../../../wealth/src/features/index-detail/xxm/useIndexXxmLayer.ts) · [业务日期解析](../../../src/biz/queries/wealth/market/context/market_page_context_query.py)
+
+### 8.4 性能和验收
+
+普通识别每个选中的交易日最多读一份主要指数量化结构文件。覆盖成功的日期再读曲线数据，日线每天最多一份指数日线技术因子文件，分钟每天最多一份主要指数分钟线文件和一份主要指数分钟技术指标文件，只读所请求的频率。日线选 `limit` 根最多涉及 `limit` 个交易日。分钟每天有 `n` 根完成 K 线时，最多涉及 `ceil(limit/n) + 1` 个交易日，其中额外一天覆盖不足整日的分钟窗口。以 500 根为例，日线最多读 500 份量化结构文件和 500 份指数日线技术因子文件。90 分钟每天 3 根，三个数据集各最多 168 份，共 504 份。以上均另计 SSE 交易日历，属于文件数上限，实际耗时在本机验收。复用后端 2 个并发查询名额、4 秒请求和 1 MiB 响应预算，以及前端 5 秒请求超时。重试同一窗口使用相同读取上限。 [后端预算](../../../src/biz/services/wealth/market/index_detail_xxm/runtime.py) · [前端超时](../../../wealth/src/features/index-detail/xxm/apiClient.ts)
+
+默认识别分支沿用 `time.perf_counter()` 和 `BUDGET.request_deadline_seconds` 的单次请求计时口径。用剩余时间等待现有 `_REQUEST_SLOTS`，每次打开 DuckDB 查询前从同一截止时间取剩余秒数。主要指数量化结构读取和现有分钟读取接受剩余秒数。日历与指数日线技术因子读取经 `IndexDailyLakeReader` 的 `calendar_rows()`、`factor_rows()` 将可选超时参数交给原 `_read()`，`XxmLakeCalendar` 在需要补读日历时取当时的剩余时间。已有调用按原默认值运行。DuckDB 中断沿用[分钟读取的做法](../../../src/foundation/clients/local_lake/major_index_mins_reader.py#L197)，超时抛给查询服务并映射为 HTTP 503 `XXM_BUDGET_EXCEEDED`，沿用提示「研究指标查询超时」。读取结束时关闭连接，在 `finally` 释放读取名额。响应组装和序列化仍核对同一截止时间和体积。页面超时、现有请求耗时统计与研究计算的计时方式沿用现行逻辑。
+
+| 验收点 | 怎么验证 |
+| --- | --- |
+| 接口和范围 | 用独立样本覆盖日线和四个分钟周期、九指数范围、起点前、休市、分钟首尾截断和 `limit`。记录实际文件清单，验证普通识别只读交易日历、窗口内的主要指数量化结构文件及覆盖区间的曲线数据，识别内核调用次数为 0 |
+| 事件和曲线 | 用同根两事件的固定样本验证次序、稳定 ID、画图标志和悬停。用真实 Gold 核对 2010-01-04 成功无事件、2010-01-05 中证500 30 分钟 14:30 顶钝化。用上证日线、其他指数日线及 90 分钟对照 §8.2 的曲线来源。用普通 MACD 与识别值不同的样本核对两副图各用各的值。上证日线可用 [2024-09-24 的已验收样本](../../../wealth/docs/system/detail-chart-quantitative-structure-requirements-v1.md#1-目标与现状)对照回包和绘图输入的原始值，标记高度须取识别点的 DIF |
+| 请求与更新 | 验证首批就绪发请求，开关副图和历史续页不追加识别请求。覆盖 20:00 前后的默认业务日期，补齐文件后刷新页面可见新结果 |
+| 等待与失败 | 验证成功空事件、末尾尚未产出、全窗口无产出、明确失败、窗口中间缺文件。超时用例验证 503 和错误码，再发一笔能成功的请求确认名额已释放。错误提示限于量化结构 |
+| 研究核验与预判 | 延迟加载核验代码时，验证第一笔识别直接走 `/debug/xxm-signals` 或 `/debug/minute-xxm-signals`。核验请求沿用原计算、原字段和参照详情。普通识别与核验识别分别对照 Gold 固定样本和既有核验样本。下一根预判核对两种地址对同一输入的公开结论 |
+| 本机验收 | 跑识别接口、路由门禁、预判和前端响应与悬停回归。使用真实 API 打开指数详情页，核对日线和分钟图显示、普通 MACD 同屏及首批请求范围，记录冷、热请求实际耗时与打开的文件数 |
+
+现有[页面请求验收脚本](../../../scripts/research/index_market/xxm_page_request_audit.py)继续统计 HTTP、浏览器耗时和响应体积。默认识别从实际响应核对 `dataStatus`、`meta`、`points` 和 `events`，其中脚本的 `computedThrough` 取 `dataStatus.asOf`，`responseRows` 记录 `meta.count` 的覆盖端点数。所读文件和识别调用次数由真实路由测试记录。`prefixRows`、`sourceInputId` 对默认识别留空。默认识别分别对照 Gold 事件和识别使用的 MACD；核验和预判继续检查原计算、计算前缀与来源标识。
+
+先完成隔离测试，再用有限日期做正式 Lake 只读核验和本机页面验收。切换失败时按现有发布方式恢复前一版财势乾坤，修正后重验本节用例。
+
+### 8.5 编码门禁矩阵
+
+现有[量化结构页面需求](../../../wealth/docs/system/detail-chart-quantitative-structure-requirements-v1.md)是图表基线，新增读取和悬停口径以方案 §9 和本节为准。下表对照[财势乾坤通用清单](../../../wealth/docs/system/module-delivery-checklist-v1.md)。例外白名单为空。
+
+| 清单 | 适用性与落点 | 验证 |
+| --- | --- | --- |
+| §2.1 交付事实链 | 适用。既有页面需求、方案 §9 和 LLD §8 | 开工前评审默认响应及核验请求的范围 |
+| §2.2 后端事实归一 | 适用。§8.2–8.3 分别定义量化结构曲线和 Gold 事件的来源 | 对照真实 Gold 事件及日线、分钟识别所用的 MACD（12、26、9） |
+| §2.3 状态 | 适用。§8.3–8.4 定义加载、正常、空、滞后、失败、超时 | 覆盖等待后成功、超时后可重试及所显示的消息 |
+| §2.4 显示与语义 | 适用。§8.3 按事件类型、方向和画图标志展示 | 核对同根事件顺序、标记与悬停 |
+| §2.5 行为过程 | 适用。§8.3–8.4 规定首次请求、开关、续页和刷新 | 浏览器核对请求、等待和刷新。布局变体沿用已验收的副图 |
+| §2.6 文档同轮同步 | 适用。以两份原文档、响应示例和测试对账 | 检查最终接口和页面行为与设计一致 |
+| §2.7 替换范围与恢复 | 适用。§8.1、§8.4 记录接入和回滚。mock/real 开关项不适用，两侧均是真实数据 | 对照发布版本和默认识别读 Gold 的接口用例 |
+| §2.8 契约与消费者 | 适用。§8.3 定义字段、可空策略、状态和示例 | 路由响应、前端解析及真实展示用例 |
+| §2.9 坐标及文案 | 适用。图上时间与量化结构 DIF 对齐。计数型固定刻度不适用，DIF 可正可负 | 核对事件落在对应时间和 DIF，检查正负值及缺值 |
+| §2.10 计算与传输 | 适用。§8.2、§8.4 按窗口读取和筛选事件。聚合统计兼容项不适用，本次是已有事件读取 | 对账文件数、识别调用次数及端到端实测 |
+| §2.11 策略配置 | 不适用。使用现有本机 Lake 根和分钟能力 | 回归本机、生产环境路由门禁 |
+| §2.12 清单映射 | 适用。本表及下表 | 开工前评审 |
+| §2.13 例外与语义断言 | 适用。事件与坐标由 §8.3、§8.4 约束 | 用例验证零值、缺值及同根事件顺序 |
+| §2.14 显式坐标参数 | 不适用。本次换识别来源，沿用现有副图渲染参数 | 页面核对同一事件落在其 DIF 位置 |
+| §2.15 并排双图 | 不适用。普通 MACD 与量化结构为上下副图 | 真实页面核对同屏各自读数 |
+| §2.16 指标卡片文案 | 不适用。改动限于量化结构副图状态和悬停 | 真实页面检查悬停事件和状态文案 |
+| §2.17 真实 API 与展示 | 适用。§8.4 和下方核心用例 | 按下方命令和页面步骤记录结果 |
+| §2.18 八项原则 | 适用。逐项对应如下 | 核对落点和验收记录 |
+
+| §2.18 原则 | 落点与验收 |
+| --- | --- |
+| 单一事实源 | §8.2–8.3。页面用量化结构回包的 `points` 画曲线，用 Gold 事件画标记；普通 MACD 用现有图表接口 |
+| 契约先行 | §8.3。真实响应断言普通字段集合和核验原有字段 |
+| 配置一致 | §8.1。用现有本机 Lake 配置，回归环境和权限 |
+| 默认行为 | §8.1、§8.3。首批识别、刷新、缺结果和核验页首笔请求地址均有用例 |
+| 筛选和顺序 | §8.2–8.3。核对九指数、周期、完成端点和同根事件顺序 |
+| 性能预算 | §8.4。实际读文件数、后端 4 秒和前端 5 秒按真实请求验收 |
+| 可观测和异常 | §8.3–8.4。沿用耗时统计和错误码，分别核对 Gold 读取与原计算路径 |
+| 用户可见结果 | §8.4。真实 API 驱动页面，核对曲线、标记、悬停、等待和错误 |
+
+核心用例的普通识别字段为 `points`、`events.id/time/type/direction/displayOnChart`、`meta`、`dataStatus` 和错误响应的 `code/message`。量化结构的 DIF、DEA 和 MACD 按 §8.2 的来源核对。本机浏览器打开指数详情页，核对两副图各自的曲线和读数，以及量化结构标记和悬停，检查开关和刷新前后的网络请求，并按 §8.4 记录文件数和耗时。
+
+```bash
+python -m pytest -q tests/test_index_daily_lake_reader.py \
+  tests/web/test_wealth_index_detail_xxm_api.py \
+  tests/web/test_wealth_index_detail_xxm_local_routes.py \
+  tests/web/test_wealth_index_detail_xxm_forecast_api.py \
+  scripts/research/index_market/tests/test_xxm_p4_audit_tools.py
+npm --prefix wealth run test -- src/pages/index-detail/IndexDetailPage.test.tsx src/features/index-detail/xxm src/features/index-detail/debug
+npm --prefix wealth run typecheck
+npm --prefix wealth run test
+npm --prefix wealth run build
+```

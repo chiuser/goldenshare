@@ -157,6 +157,7 @@ docs/
 - [指数详情页技术实施方案 v1（原版本已验收；成分缺行情修订 11 月 4 日用户验收通过）](./pages/index-detail/index-detail-implementation-design-v1.md)
 - [指数详情页低层设计（LLD）v1（原版本已验收；成分缺行情修订见 §25，11 月 4 日用户验收通过）](./pages/index-detail/index-detail-low-level-design-v1.md)
 - [指数详情页正式 API / DTO 合同 v1（1.3.2 成分缺行情状态修订用户验收通过）](./pages/index-detail/index-detail-api-contract-v1.md)
+- [指数详情页普通请求与核验请求拆分 LLD v1（开发设计）](./pages/index-detail/index-detail-debug-separation-low-level-design-v1.md)
 - [上证指数详情页日线接入方案 v1（四组指标、500根分页和图层日期对齐，待评审）](./pages/index-detail/index-detail-daily-kline-integration-implementation-design-v1.md)
 - [指数详情本地分钟 API / DTO 合同 v1（P10 1.1.0 已冻结，Gold-only）](./pages/index-detail/index-detail-minutes-api-contract-v1.md)
 - [财势乾坤顶底识别产品文档 v1（唯一正式r4、仅本地；P5整体验收通过）](../../docs/product/wealth-top-bottom-recognition-product-v1.md)

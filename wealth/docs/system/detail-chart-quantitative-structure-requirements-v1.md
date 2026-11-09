@@ -1,12 +1,14 @@
 # 股票和指数详情页量化结构需求方案 v1
 
 > 2026-11-09。需求及三项展示决定已确认，量化结构与切周期首屏修复已通过管理员本机页面验收。
+>
+> 下文记录已验收的图表交付。接入主要指数量化结构数据集时，事件改读该数据集，日线和分钟的量化结构副图继续单独读取识别所用的 MACD（12、26、9）。上证普通日线副图继续用日线接口现算的 MACD。普通页的量化结构悬停只列当根时间和事件。读取、展示与验收以[财势乾坤接入方案](../../../lake_console/docs/design/dagster-major-index-quantitative-structure-onboarding-plan-v1.md#9-财势乾坤接入技术方案)和[接入 LLD](../../../lake_console/docs/design/dagster-major-index-quantitative-structure-onboarding-low-level-design-v1.md#8-财势乾坤接入详细设计)为准。
 
 ## 1. 目标与现状
 
 将徐小明顶底识别从普通 MACD 副图移到独立的「量化结构」副图，让两组指标可以各自显示，也可以在同一时间范围内同时查看。
 
-上证指数普通日线的 MACD 由技术指标计算内核生成。本机顶底识别日线使用 DG Silver `index_factor_pro` 的收盘价与不复权 MACD，分钟线使用现有 Gold 数据。识别接口已经返回实际使用的 DIF、DEA 和 MACD 柱值。旧前端要求这些值逐根等于普通 MACD，才能显示识别结果。已有上证日线验收记录中，2024-09-24 的旧因子柱值为 `20.645`，内核结果为 `20.64484765453068`，说明这个要求会拦住有效结果。 [上证日线验收记录](../pages/index-detail/index-detail-low-level-design-v1.md#sse-daily-kline-step-2-result) · [前端校验](../../src/features/index-detail/xxm/adapter.ts) · [识别来源](../../../src/biz/queries/wealth/market/index_detail_xxm/source.py)
+上证指数普通日线的 MACD 由技术指标计算内核生成。本机顶底识别日线使用 DG Silver 指数日线技术因子数据集 `index_factor_pro` 的收盘价与不复权 MACD，分钟线使用现有 Gold 数据。识别接口已经返回实际使用的 DIF、DEA 和 MACD 柱值。旧前端要求这些值逐根等于普通 MACD，才能显示识别结果。已有上证日线验收记录中，2024-09-24 的指数日线技术因子数据集 MACD 柱值为 `20.645`，内核结果为 `20.64484765453068`，说明这个要求会拦住有效结果。 [上证日线验收记录](../pages/index-detail/index-detail-low-level-design-v1.md#sse-daily-kline-step-2-result) · [前端校验](../../src/features/index-detail/xxm/adapter.ts) · [识别来源](../../../src/biz/queries/wealth/market/index_detail_xxm/source.py)
 
 ## 2. 本轮范围
 
