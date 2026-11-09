@@ -1,0 +1,169 @@
+# Prod 指数周线和月线低层设计 v1
+
+状态为业务口径已确认、实施前核验待完成。业务口径见[原方案](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)。§1–§7 区分业务规则、现行代码事实与待验证的实现设计，§8 单列待核验事项。本文按[数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)细化两个已有数据集。源端证据沿用前序已记录样本。
+
+## 1. 范围与执行顺序
+
+1. 核对财势乾坤 10 个指数的发布日期，从各自发布日期补到最近已结束的周、月，包含适用代码在 2020 年前的历史。人工按指数补齐相应 Raw，先完成源到 Raw 对账。其他指数的历史补齐暂缓。
+2. 验收 Raw 后，清空两张周、月线 Serving 表，并从已验收的正式 Raw 重建这 10 个指数。在切换窗口隔离原写入入口，准备回退数据。实际发现历史缺口后再逐项决定如何处理及是否影响切换。
+3. 正式历史重建验收后，周、月分别用可指定目标交易日的日更任务逐日接上当前周期。每个交易日只用这 10 个指数的 Raw 日线合成。期末正式源数据按日期全量取回并写 Raw，只发布池内代码。人工补入的迟到正式数据按同一规则发布。
+4. 指数日线现行请求池、Serving 池和同步、审计、补漏逻辑按原合同运行。DG、股票周月线、财势乾坤页面与指标接入属于其他阶段。
+
+| 数据集 | 源接口 | 正式 Raw | Serving |
+| --- | --- | --- | --- |
+| `index_weekly` | [Tushare doc 171](/Users/congming/github/goldenshare/docs/sources/tushare/指数专题/0171_指数周线行情.md) | `raw_tushare.index_weekly_bar` | `core_serving.index_weekly_serving` |
+| `index_monthly` | [Tushare doc 172](/Users/congming/github/goldenshare/docs/sources/tushare/指数专题/0172_指数月线行情.md) | `raw_tushare.index_monthly_bar` | `core_serving.index_monthly_serving` |
+
+合成只读 `raw_tushare.index_daily` 的行情，辅以交易日历、核实后的指数发布日期和周月线 Serving 当前记录。周、月线 Raw 只写源端正式记录。现行定义、两层写入和取数入口见 [index_series.py](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/index_series.py)、[writer.py](/Users/congming/github/goldenshare/src/foundation/ingestion/writer.py)、[request_builders.py](/Users/congming/github/goldenshare/src/foundation/ingestion/request_builders.py)。
+
+## 2. 源接口与数据合同
+
+### 2.1 源行为证据和待验项
+
+| 请求形态 | 设计用途与已有证据 | 开工前需要补齐的证据 |
+| --- | --- | --- |
+| 按 `trade_date` 取全范围 | 期末正式同步。前序指定日期探测取得 2026-08-07 周线 15,404 条及 2026-07-31 月线 15,277 条，均按 1,000 条分页、各 16 页。此处为单期样本。 | 使用生产相同 connector 验证短页、空尾页、重复页及超限诊断。包括节假日缩短周和月末休市样本。 |
+| `ts_code + trade_date` | 人工处理指定代码、指定期末。前序上证指数在 2026-08-07、2026-07-31 各返回对应正式记录。 | 用明确的源字段核对有值、未发布、正常空结果及异常失败。 |
+| `ts_code + start_date/end_date` | 10 个指数的历史补齐。前序沪深 300 从 2005-04-08 开始的短窗取得该期周线和 2005-04-29 月线。 | 核实两频率的区间包含端点、节假日、跨年及发布日期边界。用短窗逐期请求交叉核对按代码区间的键集合和字段值。 |
+| 无业务参数、仅传代码 | 分别验证源默认范围与对象过滤。正式回补使用有上界的代码和日期窗口。 | 在另行授权的最小范围内分别核验默认参数与分页行为。未经验证的返回上限不可当作全集。 |
+| 当前未结束周或月 | 前序在 2026-11-09 对上证指数查两接口均无当日记录，之前的正式周期可返回。 | 复核期末实际出数窗口，用于确定首次查询配置。源端的发布晚于期末时，仍按原期末业务日期补数。 |
+
+分页参数由 source client 注入，业务参数由请求构建器生成。现有两个请求构建器只发送 `trade_date` 和可选代码。按代码取历史区间是候选请求方式，须先证明它与有界的逐期点查覆盖一致，再定实现。保留正式单日取数入口，源接口的可选参数不直接变成运营输入。核验分别覆盖默认字段、Definition 显式 11 列，以及显式请求身份、日期等关键字段。记录样本参数、页数、行数和空结果。MCP 的单页返回不能证明分页完整。
+
+### 2.2 字段映射和合成计算
+
+正式取数沿用 Definition 的 11 列顺序。源的业务列与本地辅助列分开。
+
+| Tushare 字段 | Raw 字段 | Serving 正式写法 | Serving 合成写法 |
+| --- | --- | --- | --- |
+| `ts_code` | `ts_code` | 对应的池内标准代码 | 同一池内标准代码 |
+| `trade_date` | `trade_date` | 源返回的期末日期 | 本次计算实际截至的交易日 |
+| `close` | `close` | 按源值 | 末日日线收盘 |
+| `open` | `open` | 按源值 | 首日日线开盘 |
+| `high` | `high` | 按源值 | 窗口最高 |
+| `low` | `low` | 按源值 | 窗口最低 |
+| `pre_close` | `pre_close` | 按源值 | 拟取窗口首日日线前收盘，须与真实周、月线核对，包含新发布首期 |
+| `change` | `change` | 写入 `change_amount` | `close - pre_close`，精度按表与样本对账 |
+| `pct_chg` | `pct_chg` | 按源值 | 由收盘与前收盘计算，倍率与精度须通过真实样本定稿 |
+| `vol` | `vol` | 按源值 | 累加 Raw 日线成交量，按实测确认是否需转换单位 |
+| `amount` | `amount` | 按源值 | 累加 Raw 日线成交额，按实测确认是否需转换单位 |
+
+`period_start_date`、`source`、时间戳是本地字段。周月线 Raw 的 `api_name/fetched_at/raw_payload` 继续按现有表合同处理。Raw 按正式源返回核对业务键和值。Serving 用池内标准代码定位同一指数，正式值标记 `api`，日线合成值标记 `derived_daily`。若实际源出现代码大小写变体或同一指数周期的多条记录，先对账归因，不能产生第二根 K 线。两类值共享相同业务字段，不增加 `end_date`。
+
+日线输入参考[日线源字段 doc 95](/Users/congming/github/goldenshare/docs/sources/tushare/指数专题/0095_指数日线行情.md)和 [RawIndexDaily](/Users/congming/github/goldenshare/src/foundation/models/raw/raw_index_daily.py)。现行两条旧合成路径均从日线 Serving 取数。写入器将量、额分别乘 100、1,000，涨跌幅使用比例；独立维护动作直接使用量额汇总，涨跌幅乘 100。新流程从日线 Raw 取数，倍率以实测为准。验收按同指数、同一完整周和月分别比较 Raw 日线汇总与真实正式 K 线，包含量额、前收盘、涨跌、涨跌幅、非零和零值样本。字段缺值、前收盘为零或两源口径冲突的具体处理待样本核定，不默认补零。旧倍率和旧对账容差不作为新流程验收依据。
+
+### 2.3 日期和记录身份
+
+- 在对应周线或月线 Serving 表中，`(ts_code, period_start_date)` 唯一定位一根 K 线。该唯一约束已存在。Raw 使用 `(ts_code, trade_date)`；Serving 现有主键和周期唯一约束保留。[周线模型](/Users/congming/github/goldenshare/src/foundation/models/core_serving/index_weekly_serving.py) · [月线模型](/Users/congming/github/goldenshare/src/foundation/models/core_serving/index_monthly_serving.py)
+- 用配置的交易所日历在所属自然周或自然月内取第一个开市日作为 `period_start_date`。自然周从周一开始，自然月从 1 日开始。例为某周周一休市、周二开市，则周内每日合成和期末正式行都用周二作周期标识。指数发布日期只限制该代码的历史纳入与日线计算起点，不改变所属周期的标识。按日历确定上一交易日和期末最后交易日，日历未齐时不能推定休市。
+- `trade_date` 表示行情截至日，日更推进它，正式覆盖用源日期。写库时间使用现有时间戳字段。现行月线的期末校验留给正式写入，提取可在月中独立确定的周期起点计算供两条路径共用。现行周线输入范围截至周中可能给出截断周锚点，正式同步应依据完整周历验证已结束周期的真实期末。
+- **时间输入**。正式维护沿用 `point/range`，表达期末日或要维护的日期范围。日更一次接收一个明确的目标交易日，人工可分别选择周线或月线以及需要处理的池内代码。历史维护的 `start_date/end_date` 是请求范围，和 K 线存储字段无关。
+- **执行单元**。正式单日或常规区间由 Resolver 和 planner 按实际期末展开，最后交易日收盘后即可维护该期。专项历史补齐按频率、代码和有界窗口组织，实际请求形态待 §2.1 验证。日更按目标交易日和频率分别建立任务，每个指数独立检查和提交。
+- **完整性与时效**。正式完整性按每个代码自发布起已结束周期的期末日在 Raw 核对。Serving 时效看各代码实际算到的 `trade_date`。即使合成行的 `trade_date` 等于期末，Raw 缺口仍保留。日期模型的现行值和改动影响见[日期模型指南](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md#period-anchors)及 §5。
+
+## 3. 激活池与配置审计
+
+周、月共用独立于日线的激活池。首期只使用[原方案 §4](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)的 10 个代码。重建前历史补齐与切换初始化使用同一份经核对的名单，首期日常入口不开放增删。执行按该次已核对的范围读写和对账，运行时不依赖 Biz 页面配置。指数发布日期使用核实后的指数基础事实 `list_date`，与池的 `first_seen_date` 分开。
+
+| 配置或事实 | 存放与适用范围 | 读取者和生效 |
+| --- | --- | --- |
+| 周、月线池 | 候选为复用现有池表的独立资源值，切换时按批准的 10 个代码初始化。 | 合成、正式发布与 Raw 缺口核对读取同一名单。名单无法取得时不能判断发布或审计范围，正式期末 Raw 下载仍按源范围独立执行。日线 `index_daily_raw` 和 `index_daily` 按现行规则运行。 |
+| `DEFAULT_EXCHANGE` | 现有 Settings，源码默认 SSE。业务日期按上海时区。 | 周月期初、期末、上一交易日和预期日期集用同一份配置的交易日历。核对 Prod 配置值，以及名单内代码的交易日和源期末日期是否一致。 |
+| 自动任务 | 候选为复用现有 `ops.schedule` 和 worker。 | 每交易日处理已落 Raw 的日线，日更的自动等待和重试止于目标交易日的上海时间午夜。期末正式取数仍在最后交易日收盘后独立触发。配置前核实日线入库、源端出数和节假日。 |
+
+现有 `IndexSeriesActiveDAO.list_active_codes(resource)` 支持按资源读取。审查中心页面固定传 `index_daily`，后端新增和移除接口仍接受传入的 `resource`。若复用现有池表，首期后端要阻止现行通用增删入口改动周、月线池。[对象池 DAO](/Users/congming/github/goldenshare/src/foundation/dao/index_series_active_dao.py) · [审查中心页面](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-review-index-page.tsx) · [审查中心命令](/Users/congming/github/goldenshare/src/ops/services/review_center_service.py)
+
+**二期必须提供周、月线激活池的独立增删能力。** 新增代码时一并核对并处理从发布日期起的历史覆盖，移除代码时一并处理该代码在两张 Serving 表中的已有 K 线。具体管理入口和变更步骤由二期设计。
+
+## 4. 执行流程与失败处理
+
+### 4.1 人工历史补齐与正式数据发布
+
+1. 重建前由人工按核对后的 10 个代码、发布日期及已结束周期范围补正式 Raw。补数单元记录频率、代码和窗口，仅写相应正式 Raw。该阶段和日常补迟到数据的发布行为不同。入口必须能区分这两种意图，不能直接沿用会同时写 Serving 的现行写入器。
+2. 期末正式维护保留 `index_weekly.maintain` 和 `index_monthly.maintain` 的现行入口。最后交易日收盘后，以当日期末业务日分页取回源端有效正式记录，Raw 按源范围写入。请求失败、分页未完成或存在未解决的数据冲突，作为未完成单元记录。完整请求的空返回或部分代码未到，按应有周期列缺口。两种情况都不能用日线补正式 Raw，也不能触发原先按日清除 Raw 的写入逻辑。
+3. 校验完一个正式取数单元后按 Raw 主键写入或更新。若现存 Raw 行没有得到本轮历史源对账确认，例如同周期旧日期或只在库中出现的键，单列为差异。重建仅加载已对账的有效正式行。发现具体差异后再决定如何处理旧 Raw，空响应本身不能作为删除依据。
+4. 正式发布读取已提交并核对的 Raw，只发布在名单内且自已核实发布日期起的记录。正式行可直接补建缺行或覆盖同周期合成行，保留源日期并标记 `source=api`。无须检查日线是否齐、Serving 是否更新到上一交易日，也无须等下一个周期。未取得正式行时保留该指数最后一次合成或已发布正式值。Raw 成功而 Serving 发布失败时，保留已提交 Raw，记录失败阶段。
+5. 源延迟由运营根据 Raw 缺口人工补原期末，补入后按同一规则发布。Raw 已提交而 Serving 发布失败时，首期只允许按原任务记录恢复。读取原任务内已核对但未发布完成的代码和周期，继续发布，不重新下载或合成。原任务记录须能区分 Raw 已提交和 Serving 发布未完成。
+
+### 4.2 当前周期日更
+
+每个交易日日线入 Raw 后，按目标交易日合成当前周、月 K 线。运行时检查目标日及该指数计算窗口所需的 Raw 日线，不能只凭上游任务显示成功。Ops 提交业务意图，Foundation 读取日历与行情、计算并写入。周、月按各自频率和目标交易日分别记录 TaskRun。
+
+首期必须提供人工逐日补数。运营选择周线或月线、一个目标交易日及需要处理的池内代码，调用与自动日更相同的计算和写入流程。目标交易日必须已收盘，并且在执行时仍属于所选频率的当前周期。已收盘的上一个交易日可以在次日人工提交。遇到多个未完成交易日，从第一个未成功的交易日开始顺序执行，每次都通过同样的连续性检查。
+
+自动日更以目标交易日的上海时间次日 00:00 为截止。到截止时仍未完成的指数和频率保留原结果，记录未完成原因并转人工。自动任务不得跨过这个截止时间继续补跑该目标日。
+
+| 场景 | 读写与状态 |
+| --- | --- |
+| 目标日日线还没到 | 延迟该指数该周期的日更，保留上次合成及其 `trade_date`。当天还没有合成行时保持缺行。记录缺失日期，到午夜仍未完成则转人工。 |
+| 该指数在周期内第一个应有交易日且日线已到 | 允许用首日 Raw 创建当期合成记录。指数在期中发布时，从发布日期当日或其后的首个应有交易日计算，周期键仍取日历上的周期首个开市日。发布前不计算。 |
+| 当日日线已到，且已过该指数的周期首日 | 更新前核对该指数、该周期的 Serving 合成行，其 `trade_date` 必须等于上一交易日，并检查从该指数本周期首个应有日至目标日的 Raw 日线完整性。两项都通过才计算整个窗口、更新同一根 K 线。 |
+| 上一交易日连续性检查不通过 | 该指数保留原 K 线及截至日，记录代码、预期及实际截至日，对应频率的任务最终标为失败。同一任务中通过检查的其他指数继续提交，另一频率独立处理。例如 11-09 成功、11-10 缺、11-11 有日线，预期是 11-10、实际为 11-09。即使 10 日的 Raw 后来补齐，也要先人工补做 10 日，再处理 11 日。 |
+| 同日重跑或正式行已存在 | 同日同输入重跑要幂等，不能产生第二根 K 线或误报前日断档。正式行已存在时，合成不得覆盖。 |
+| 已进入下一个周期，上一期仍缺正式源 | 保留上一期最后一次合成，原来无行则保持缺行，Raw 核对继续列出缺口。即使缺失的日线后来补到，日更也不回算上一期。正式源已到或人工补入后直接按 §4.1 发布。新周期按自己的首日规则创建。 |
+
+连续性读取和更新必须在同一业务事务核对，按周期唯一键条件写入。并发或旧任务重跑不得使截至日倒退或覆盖 `api`。期末当日仍可按日更规则把合成值推进到期末，正式先到则直接发布正式值，正式晚到则覆盖同一根。所有日更合成只写池内 Serving。
+
+### 4.3 历史切换与回退
+
+清理清单仅为 `core_serving.index_weekly_serving` 和 `core_serving.index_monthly_serving`。切换前冻结池和已验收 Raw 的范围，核对正式记录的候选键、日期、字段及代码集合，记录范围与摘要。预先准备两张表的受控回退数据、池变更记录和现有入口的恢复清单。涉及现存两表全量复制或比对时按仓库全局读取门禁单独批准。
+
+切换前在候选数据对账中核对两频率各代码的起始日期、有效周期、缺口和字段值。切换窗口内暂停这两表的旧写入、待办重试和并发正式发布，确认在途任务已结束或安全停止。两张表均完整重建后再对外发布。候选为受控短事务内初始化并核对新池、清空两表并加载已对账的正式行，最低必要读回通过后一次提交。具体 SQL、锁范围和耗时要通过样本与演练确认。未提交失败时回滚切换。提交后验收失败时保持写入隔离，从已核验的回退数据恢复两表及本次池变更，复核后按授权恢复原入口。Raw 不随 Serving 回退。
+
+正式历史验收后，直接按 §4.2 的日更任务接上。对当前周期内尚未生成的 K 线，从该指数该周期的首个应有交易日创建，然后依次指定已收盘的后续交易日。周、月分别从自己的起点处理，无需等两者首日重合，也不跳过连续性检查。
+
+例如 11 月 10 日完成重建，当周首个交易日为 9 日。可以先人工指定 9 日生成周线，10 日收盘后再按 10 日更新同一根周线。若当月首个交易日为 2 日，且 2–6 日与 9 日均开市，则月线依次执行 2、3、4、5、6、9 日，10 日收盘后再推进到 10 日。每一步都按日历检查上一交易日，历史正式数据与当前周期合成分开验收。
+
+## 5. 拟修改位置与消费者
+
+| 消费范围 | 实现与核验位置 |
+| --- | --- |
+| Definition、动作目录、手动控件 | 保留现有两项数据集身份、字段和正式维护入口。首期提供日更人工提交，选择频率、一个目标交易日和所需池内代码。按代码的历史窗口只用于已审批的专项历史计划。若影响 `DatasetDefinition` 的 action、时间模型或对象过滤，先核对 [dataset_catalog_views.py](/Users/congming/github/goldenshare/src/ops/catalog/dataset_catalog_views.py)、[manual_action_service.py](/Users/congming/github/goldenshare/src/ops/services/manual_action_service.py) 及其前端时间控件和两个现行手动工作流。 |
+| Resolver、unit planner、request builder | [unit_planner.py](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py) 现行周线区间可能取到截断周的最后开市日。改造后先从完整周历判断真实期末，再与输入范围求交。月线已有整月校验。历史专项窗口由 Resolver/Planner 规划，[request_builders.py](/Users/congming/github/goldenshare/src/foundation/ingestion/request_builders.py) 只映射计划参数。Ops 只传意图。 |
+| connector、写入与发布 | [source_client.py](/Users/congming/github/goldenshare/src/foundation/ingestion/source_client.py) 的分页能力经验证后复用。现行 [writer.py](/Users/congming/github/goldenshare/src/foundation/ingestion/writer.py) 用日线池筛周、月线，周线还有按交易日替换的写入分支。须换成周月独立池与同周期发布。现行 [publish_service.py](/Users/congming/github/goldenshare/src/foundation/serving/publish_service.py) 注册的周、月 builder 按代码和 `trade_date` 定位。注册本身不等于有独立线上写入调用。实施前逐一核对实际调用，任何能写入两张表的路径都要遵守新池、周期键和正式优先规则。 |
+| 旧合成入口、手动与重试 | 移除 writer 在源为空、部分代码未到时触发的合成分支及专用代码。移除 [action_catalog.py](/Users/congming/github/goldenshare/src/ops/action_catalog.py) 的 `maintenance.rebuild_index_kline_serving`、`index_kline_maintenance_pipeline` 的 `rebuild_index_serving` 末步，以及 [task_run_dispatcher.py](/Users/congming/github/goldenshare/src/ops/runtime/task_run_dispatcher.py) 的对应 SQL。保留历史任务可读，旧重试不得触发已删除动作。清理工作流描述、动作目录和引用。整个工作流仍有手动入口，本次清理以旧合成步骤为限。 |
+| 调度与状态 | [operations_schedule_service.py](/Users/congming/github/goldenshare/src/ops/services/operations_schedule_service.py) 和 [dataset_schedule_time_policy_resolver.py](/Users/congming/github/goldenshare/src/ops/services/dataset_schedule_time_policy_resolver.py) 已支持月末交易日策略。周线正式任务须按本周最后开市日校验，固定周五或股票上一自然周策略不能代用。评审时核对排程绑定、实际入队、收盘和节假日、午夜截止、补跑和 Probe 配置。任务详情 [task_run_query_service.py](/Users/congming/github/goldenshare/src/ops/queries/task_run_query_service.py) 的来源概览查的是范围内当前记录。每个频率的任务结果要记录本次已写入、日线未到和断档的代码，以及正式发布可从原任务恢复的范围。 |
+| 完整性、freshness、数据卡与快照 | 现行 [date_completeness_run_service.py](/Users/congming/github/goldenshare/src/ops/services/date_completeness_run_service.py) 取 Definition 的目标表，因此两频率现行日期审计读 Serving，不能证明正式 Raw 齐全。[现有指数对象审计](/Users/congming/github/goldenshare/src/ops/services/date_completeness_audit_service.py) 也未按 `list_date` 排除发布前周期。正式缺口按周月池代码、已核实的发布日期和已结束周期的真实期末，从 Raw 做核对。复核 [freshness_query_service.py](/Users/congming/github/goldenshare/src/ops/queries/freshness_query_service.py)、[operations_dataset_status_snapshot_service.py](/Users/congming/github/goldenshare/src/ops/services/operations_dataset_status_snapshot_service.py) 与数据卡各自读取的表和字段。任务状态与 Serving 的实际截至日分别核验，Serving 合成行不能抵消 Raw 缺口。 |
+| 行情 API 与其他调用方 | [行情 K 线入口](/Users/congming/github/goldenshare/src/biz/api/quote.py) 经 [quote_query_service.py](/Users/congming/github/goldenshare/src/biz/queries/quote_query_service.py) 直接查询两张 Serving，按 `trade_date` 筛选、排序和判断更早历史。核对同周期日期推进和池外有效指数空结果对现有调用方的影响。审查中心 [review_center_query_service.py](/Users/congming/github/goldenshare/src/ops/queries/review_center_query_service.py) 的周、月覆盖仍用当前查询所选资源为分母，不能将默认日线池的覆盖率当新池验收。日线接口和日线池按现行合同回归。 |
+
+本节列的是已经定位的现行路径和拟改边界。若评审决定修改 Definition，开工前须按模板 §0.3.2 补全实际消费者审计，包括 Probe、自动与手动入口、前端表单、目录、数据卡、分层展示、完整性、freshness、快照及相关回归。当前工作流目录和日期指南继续记录现状，变更实际落地时同步更新。
+
+## 6. 长任务合同与预算
+
+以下按模板 §0.3.5 填写设计约束。具体性能数值未实测的项作为放行条件。
+
+| 项目 | 本设计的执行边界 |
+| --- | --- |
+| 单元和规模 | 历史补齐按频率、代码及有界日期窗口，按发布日期和截至期裁切。单元窗口大小和总单元数须以实测定稿。正式全范围取数按频率与一个期末日划分。日更按目标交易日和频率分任务，每个任务最多 10 个指数，每个指数独立提交，最多读取自然周 7 或自然月 31 个日期的日线，更新至多一根。 |
+| 分页、行数与内存 | 历史一次只保留一个有界单元。正式全范围一次处理一个频率的一个期末，逐页校验。1,000 是现行 Definition 的页大小。完整期的行数、页数、单元耗时、驻留内存和超限策略需用代表性日期实测后冻结。15,404 和 15,277 是前序样本行数。切换准备和对账应分段，进程只保留本批及摘要。 |
+| 请求量与中断成本 | 页大小为 1,000 且按短页结束时，一次分页请求序列返回 \(R\) 行，正常请求次数为 \(\lfloor R/1000\rfloor+1\)，满页后有空尾页。总请求量按实际执行的请求序列逐项求和，另计失败单元的重读、读回与最终对账。现有 Tushare 限速器和连接超时作为测算输入。 |
+| 持久化与续跑 | 已验收单元写入并提交后，按业务键可读回。历史续跑从冻结计划与已提交键、计数及摘要核验结果恢复。状态丢失时读回或幂等重放该单元。正式取数与 Serving 发布分别记录，首期发布失败只按原任务恢复。跨全历史一次性事务禁用。 |
+| 幂等与并发 | 正式 Raw 按代码、交易日写入，Serving 按代码、周期唯一键发布。同一输入重跑不产生重复行。日更使用同周期条件更新，正式值优先。切换与两表写入隔离。期末正式、人工补 Raw 与发布恢复遇到同键并发时，核验重放使用当前已核对的 Raw，避免迟到的旧任务覆盖较新的正式修订。具体锁和任务去重方式留待执行设计。 |
+| 取消与可见进度 | 每页及业务单元前后检查取消，停止领取新单元。任何步骤必须在仓库规定的 30 秒检查间隔内可取消或分段。普通同步的阻塞请求经验证无法满足时，评审复用已有可中断 connector 调用。现有 TaskRun 和活动节点显示阶段、代码或日期窗口、完成数、总数、百分比和最后更新时间。运行中最长 30 秒有可见更新，单元完成数只在读回确认提交后推进，ETA 无可靠样本时显示暂无法估算。 |
+| 终态与恢复 | 已提交单元留存。失败、取消和成功时 TaskRun 与活动节点终态一致，状态观测失败不回滚业务数据。最小真实验收须含中断后续跑、原键重放、状态写入失败和最终读回。 |
+| 切换成本 | 分别实测两表准备、全量清理、装载、最低读回、回退和最后对账的时间、锁、空间与 WAL。已知旧表行数用于核对读写规模，不能由样本推算停机承诺。超出已审批窗口、不可取消或恢复不可验证时停止切换。 |
+
+## 7. 需求追溯与验收计划
+
+| 需求 | 计划位置与直接消费者 | 必须通过的验收 |
+| --- | --- | --- |
+| R1 只补 10 个指数的正式历史，按发布日期开始 | §2、§4.1，Resolver、builder、Raw | 逐代码两频率核实发布日期、首末有效记录、2020 年前适用历史、期末覆盖和来源。未审计的旧键不进重建，越界、页不全和空响应不删旧数据。实际缺口逐项记录后决策。 |
+| R2 清空两张 Serving 并从 Raw 重建，独立池与日线隔离 | §3、§4.3，DAO、发布器、行情 API | 对账每个代码的起始日、周期覆盖、正式源字段，确认旧合成和池外行清除。验证日线原池及日线接口，核对池外指数周月读取的实际影响。 |
+| R3 当前周月只用 Raw 日线，每期一根 | §2.2–§2.3、§4.2，日更执行、Serving 与行情 API | 验证首日创建、月中合成、周一休市、月初休市、发布日在期中、日历缺失、同日重复执行。每期仅一行，周期键稳定，`trade_date` 按实际截至日推进，周月 Raw 无合成行。 |
+| R4 当日日线缺失先保留，后一交易日断档失败 | §4.2，日更执行、TaskRun | 11-09 成功、11-10 缺时原行保持 11-09。11-11 日线已到而合成截至仍为 11-09 时，该指数日期和价格均不变，所属频率任务失败并列出代码及日期。其他通过检查的指数继续提交，另一频率独立执行。 |
+| R5 期末取源，正式全量入 Raw，池内覆盖同周期 | §4.1，source client、发布器 | 截断周不能提前请求，休市周和月按真实最后开市日。非池有效源行能入 Raw 且不入 Serving；同周期正式值保留源日期并优先于合成。覆盖期末当天发布、正式与合成两种到达顺序。 |
+| R6 源迟到保留合成，Raw 列缺口，人工补正式 | §4.1–§4.2、§5，审计、正式发布 | 即使已有合成行且日期等于期末，Raw 仍可报缺。当前未到期和发布前的日期不报正式缺口。跨期后日线补到仍不回算；源有正式时直接补建或覆盖，源也缺时人工处理。 |
+| R7 两个旧合成入口退出 | §4.2、§5，writer、Ops、工作流和重试 | 源空和部分到达均不触发旧合成；旧动作和工作流末步不可达，旧任务可查看。旧任务重试不能绕回已移除逻辑，过期目标日不会触发自动历史合成。 |
+| R8 安全执行、取消、续跑和任务可见 | §4.3、§6，TaskRun 和事务 | 另行批准的代表性运行核对源、归一化、写入、拒绝和读回，演练中途取消、进程退出、续跑、幂等、进度、状态故障、节点终态和回退。核对 Raw 已提交而 Serving 失败的恢复，以及两张表一起对外发布。 |
+| R9 切换后及断档时，首期可人工逐日更新当前周期 | §4.2–§4.3，人工入口、日更执行 | 模拟 11-10 完成重建，分别从周、月当前周期首日按顺序接到 11-10。补到 11-10 的 Raw 后，先人工跑 11-10，再跑 11-11。跳日、未收盘日期、休市日及已结束周期不能通过该日更入口写入。 |
+| R10 日更过午夜转人工 | §3、§4.2，调度、日更执行 | 同日数据迟到后到齐可自动更新。模拟跨过目标交易日上海时间次日 00:00，未完成的代码转人工，旧自动任务和重试不得继续写入该目标日。符合当前周期和连续性规则时，人工可以指定原日补做。 |
+| R11 首期固定名单，二期必须提供独立增删 | §3，激活池、审查中心、行情 API | 首期后台现行增删不能改周、月线池，日线按原合同回归。二期验收覆盖新增代码的历史覆盖和移除代码的 Serving 处理。 |
+| R12 正式发布失败首期只按原任务恢复 | §4.1、§6，正式维护和 TaskRun | Raw 已提交且 Serving 失败时，按原任务指定未发布的代码与周期，从 Raw 继续发布。验证恢复不重复请求源、不会重发其他范围，且没有原任务依据时不能发起独立的 Raw 发布。 |
+
+测试入口以现有[周期线数据库测试](/Users/congming/github/goldenshare/tests/test_index_monthly_postgres.py)、[分层写入测试](/Users/congming/github/goldenshare/tests/test_dataset_writer_index_layer_alignment.py)、[日期规划测试](/Users/congming/github/goldenshare/tests/test_index_monthly_calendar.py)、[Ops 动作目录测试](/Users/congming/github/goldenshare/tests/test_ops_action_catalog.py)和[任务 API 测试](/Users/congming/github/goldenshare/tests/web/test_ops_task_run_api.py)为基础。旧合成行为的测试随入口变更更新，源格式夹具与聚合预期用独立、真实依据。方案审阅、开发、最小真实验收、正式切换分别放行。
+
+## 8. 开工前待核验的事实
+
+1. 逐代码核验 10 个指数的发布日期、两频率源覆盖、期末及现有 Raw 差异。发现实际缺口后再逐项决定如何补数、是否切换，当前没有预设。
+2. 验证源端区间、分页、字段和现行 connector，以真实 Raw 日线与正式周、月线确定前收盘、涨跌幅、成交量和成交额的算法、单位及精度。历史窗口、配额、内存、取消、重试和最终对账预算按实测确定。
+3. 核实池外行情 API 的实际调用范围。切换前验收锁、空间、恢复和首次日更的衔接，区分设计评审、开发、最小真实验收和正式执行的授权。
