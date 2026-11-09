@@ -705,6 +705,17 @@ GOLD_STOCK_DAILY_QFQ_NINETURN_SCHEMA = (
     ColumnContract("nine_down_turn", "VARCHAR", "下九转信号，-9 或空"),
 )
 
+GOLD_MAJOR_INDEX_QUANTITATIVE_STRUCTURE_SCHEMA = (
+    ColumnContract("trade_date", "DATE", "交易日"),
+    ColumnContract("success", "BOOLEAN", "当日是否成功完成识别"),
+    ColumnContract(
+        "results",
+        "STRUCT(ts_code VARCHAR, period VARCHAR, bar_end_time TIME, "
+        "event_type VARCHAR, direction VARCHAR, display_on_chart BOOLEAN)[]",
+        "按完成时刻排序的识别事件，日线事件的 bar_end_time 为空",
+    ),
+)
+
 GOLD_MAJOR_INDEX_DAILY_NINETURN_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "标准主要指数代码"),
     ColumnContract("trade_date", "DATE", "交易日"),

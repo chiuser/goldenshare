@@ -800,6 +800,18 @@ wheels = [
 ]
 
 [[package]]
+name = "goldenshare-technical-indicators"
+version = "0.1.0"
+source = { directory = "../../packages/technical_indicators" }
+
+[package.metadata]
+requires-dist = [
+    { name = "duckdb", marker = "extra == 'sql'", specifier = ">=1.3,<2" },
+    { name = "pyarrow", marker = "extra == 'sql'", specifier = "==23.0.1" },
+]
+provides-extras = ["sql"]
+
+[[package]]
 name = "gql"
 version = "4.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1683,6 +1695,7 @@ dependencies = [
     { name = "dagster-clickhouse" },
     { name = "dagster-postgres" },
     { name = "duckdb" },
+    { name = "goldenshare-technical-indicators", marker = "python_full_version >= '3.13'" },
     { name = "psycopg2-binary" },
     { name = "tushare" },
 ]
@@ -1701,6 +1714,7 @@ requires-dist = [
     { name = "dagster-clickhouse", specifier = "==0.29.26" },
     { name = "dagster-postgres", specifier = "==0.29.26" },
     { name = "duckdb", specifier = ">=1.5.2" },
+    { name = "goldenshare-technical-indicators", marker = "python_full_version >= '3.13'", directory = "../../packages/technical_indicators" },
     { name = "psycopg2-binary", specifier = ">=2.9.12" },
     { name = "tushare", specifier = ">=1.4.20" },
 ]

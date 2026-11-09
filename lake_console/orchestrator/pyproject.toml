@@ -7,6 +7,7 @@ dependencies = [
     "dagster-clickhouse==0.29.26",
     "dagster-postgres==0.29.26",
     "duckdb>=1.5.2",
+    "goldenshare-technical-indicators==0.1.0; python_version >= '3.13'",
     "psycopg2-binary>=2.9.12",
     "tushare>=1.4.20",
 ]
@@ -18,6 +19,9 @@ dev = [
     "pytest>=8.3.0",
     "ruff>=0.9.0",
 ]
+
+[tool.uv.sources]
+goldenshare-technical-indicators = { path = "../../packages/technical_indicators" }
 
 [build-system]
 requires = ["hatchling"]

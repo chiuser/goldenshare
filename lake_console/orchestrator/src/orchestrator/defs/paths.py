@@ -33,6 +33,9 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
 from orchestrator.defs.run_contracts.major_index_nineturn import (
     normalize_major_index_nineturn_minute_freq,
 )
+from orchestrator.defs.run_contracts.major_index_quantitative_structure import (
+    STRUCTURE_DATASET,
+)
 from orchestrator.defs.run_contracts.moneyflow import (
     MONEYFLOW_HISTORY_DATASETS,
     market_moneyflow_day,
@@ -1437,6 +1440,25 @@ def gold_market_major_indices_daily_path(root: Path, partition_key: str) -> Path
         f"trade_date={partition_key}",
         "part-000.parquet",
     )
+
+
+def gold_major_index_quantitative_structure_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root, GOLD, "indicator", STRUCTURE_DATASET,
+        f"trade_date={_major_index_mins_partition_component(partition_key)}",
+        "part-000.parquet",
+    )
+
+
+def gold_major_index_quantitative_structure_staging_dir(
+    staging_root: Path, operation_id: str,
+) -> Path:
+    operation = _safe_run_id_part(operation_id, asset_family=STRUCTURE_DATASET)
+    return staging_root / STRUCTURE_DATASET / operation.removeprefix("run_id=")
+
+
+def quantitative_structure_staging_root(lake_root: Path) -> Path:
+    return lake_root.parent / Path(DEFAULT_LAKE_STAGING_ROOT).name
 
 
 def gold_major_index_daily_nineturn_path(root: Path, partition_key: str) -> Path:

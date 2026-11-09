@@ -604,6 +604,13 @@
       readiness 只读同日物理文件并执行 blocking checks，不读 Dagster event history，也不自动覆盖或 repair 已存在的坏文件。
     </p>
     <p>
+      <code>major_index_quantitative_structure_trade_day_sensor</code> 使用
+      <code>index_topic / partition / partition_registration</code>，只登记交易日分区。
+      <code>gold_major_index_quantitative_structure_update_job_sensor</code> 使用
+      <code>index_topic / gold / asset_update</code>。两者默认 <code>STOPPED</code>，
+      上海时间 18:00 起检查。日更确认目标日九项上游产出及其阻断检查通过后，提交单日作业。
+    </p>
+    <p>
       ETF 日线与复权因子 P4 的四个生产 sensor 使用同一套低基数分类：
       <code>raw_fund_daily_update_job_sensor</code> 与 <code>raw_fund_adj_update_job_sensor</code>
       使用 <code>quote_data / raw / asset_update</code>；
@@ -1147,6 +1154,12 @@ ops:
         <td>发生源到目标转换时必填</td>
         <td>非负整数</td>
         <td>用于核对源端行数与目标行数，支撑 reject、dedupe 和质量排查。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/event_count</code></td>
+        <td>主要指数量化结构产出时必填</td>
+        <td>非负整数</td>
+        <td>本交易日结果列表中的事件数，日更和历史补录共用。</td>
       </tr>
       <tr>
         <td><code>goldenshare/duplicate_removed_count</code></td>

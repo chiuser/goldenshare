@@ -153,6 +153,7 @@ EXPECTED_SENSOR_DEFINITION_IDS = frozenset(
         "sensors/feishu_run_status_sensor.py:feishu_run_succeeded_sensor",
         "sensors/global_index_partition_sensor.py:global_index_trade_day_partition_sensor",
         "sensors/gold_major_index_mins_technical_daily_update_job_sensor.py:gold_major_index_mins_technical_daily_update_job_sensor",
+        "sensors/gold_major_index_quantitative_structure_update_job_sensor.py:gold_major_index_quantitative_structure_update_job_sensor",
         "sensors/gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py:gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor",
         "sensors/gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py:gold_stk_mins_qfq_macd_kdj_repair_job_sensor",
         "sensors/gold_stock_daily_qfq_factor_repair_job_sensor.py:gold_stock_daily_qfq_factor_repair_job_sensor",
@@ -176,6 +177,7 @@ EXPECTED_SENSOR_DEFINITION_IDS = frozenset(
         "sensors/major_index_mins_sensor.py:silver_major_index_mins_update_job_sensor",
         "sensors/major_index_nineturn_sensor.py:gold_major_index_daily_nineturn_update_job_sensor",
         "sensors/major_index_nineturn_sensor.py:gold_major_index_mins_nineturn_update_job_sensor",
+        "sensors/major_index_quantitative_structure_trade_day_sensor.py:major_index_quantitative_structure_trade_day_sensor",
         "sensors/market_breadth_continuity_sensor.py:market_breadth_continuity_sensor",
         "sensors/market_major_indices_daily_sensor.py:market_major_indices_daily_sensor",
         "sensors/prod_dc_daily_technical_sensor.py:prod_ch_dc_daily_technical_continuity_sensor",
@@ -3138,6 +3140,7 @@ def use_nested_resource(context):
                                 call_name == "RunsFilter"
                                 and path.name
                                 in {
+                                    "gold_major_index_quantitative_structure_update_job_sensor.py",
                                     "moneyflow_mkt_dc_sensor.py",
                                     "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py",
                                     "gold_wealth_market_turnover_sensor.py",

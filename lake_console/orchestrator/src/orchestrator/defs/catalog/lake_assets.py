@@ -26,6 +26,7 @@ from orchestrator.defs.paths import (
     gold_major_index_mins_path,
     gold_major_index_mins_technical_path,
     gold_major_index_mins_technical_state_path,
+    gold_major_index_quantitative_structure_path,
     gold_market_breadth_daily_path,
     gold_market_major_indices_daily_path,
     gold_stk_mins_qfq_macd_kdj_path,
@@ -103,6 +104,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_MAJOR_INDEX_MINS_SCHEMA,
     GOLD_MAJOR_INDEX_MINS_TECHNICAL_SCHEMA,
     GOLD_MAJOR_INDEX_MINS_TECHNICAL_STATE_SCHEMA,
+    GOLD_MAJOR_INDEX_QUANTITATIVE_STRUCTURE_SCHEMA,
     GOLD_MARKET_BREADTH_DAILY_SCHEMA,
     GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
     GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA,
@@ -243,6 +245,12 @@ from orchestrator.defs.run_contracts.major_index_mins_technical import (
     major_index_mins_technical_checks,
     major_index_mins_technical_state_asset_key,
     major_index_mins_technical_state_checks,
+)
+from orchestrator.defs.run_contracts.major_index_quantitative_structure import (
+    STRUCTURE_ASSET,
+    STRUCTURE_CHECKS,
+    STRUCTURE_CONTRACT,
+    STRUCTURE_DATASET,
 )
 from orchestrator.defs.run_contracts.metadata import SourceSystem
 from orchestrator.defs.run_contracts.moneyflow import (
@@ -412,6 +420,9 @@ class PartitionModel(str, Enum):
     )
     TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_DAILY_NINETURN = (
         "trade_date_partition_gold_major_index_daily_nineturn"
+    )
+    TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_QUANTITATIVE_STRUCTURE = (
+        "trade_date_partition_gold_major_index_quantitative_structure"
     )
     TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_MINS_NINETURN = (
         "trade_date_partition_gold_major_index_mins_nineturn"
@@ -1225,6 +1236,15 @@ PARTITION_MODEL_DEFINITIONS = (
         "trade_date",
         PartitionPhysicalLayout.PARTITION_FILE,
         notes="主要指数日线九转使用 11-code 物理 seed 和不复权 close。",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_QUANTITATIVE_STRUCTURE,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.GOLD,
+        STRUCTURE_DATASET,
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="主要指数量化结构专用 SSE 交易日分区，一天一份文件。",
     ),
     _model(
         PartitionModel.TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_MINS_NINETURN,
@@ -2911,6 +2931,38 @@ LAKE_ASSET_CATALOG += (
             notes="Canonical business bars; non-1m has no standalone 09:30 row.",
         )
         for freq in (1, 5, 15, 30, 60, 90, 120)
+    ),
+    _entry(
+        asset_key=STRUCTURE_ASSET,
+        dataset_id=STRUCTURE_DATASET,
+        layer=AssetLayer.GOLD,
+        data_domain=DataDomain.INDEX_TOPIC,
+        group_name="index",
+        source_system=SourceSystem.DERIVED,
+        data_contract=STRUCTURE_CONTRACT,
+        data_contract_source=DataContractSource.DERIVED_CONTRACT,
+        column_schema=GOLD_MAJOR_INDEX_QUANTITATIVE_STRUCTURE_SCHEMA,
+        path_template=lake_path_template(
+            gold_major_index_quantitative_structure_path(
+                PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_GOLD_MAJOR_INDEX_QUANTITATIVE_STRUCTURE,
+        source_api=None,
+        source_doc=None,
+        ingestion_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        default_daily_ingestion_source=IngestionSource.DERIVED_FROM_ASSETS,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        blocking_check_names=STRUCTURE_CHECKS,
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        performance_contract=_perf(
+            batch_grain="trade_date",
+            compute_engine=ComputeEngine.DUCKDB_SQL,
+            python_row_loop_allowed=True,
+            source_request_policy="read_upstream_assets_only",
+            notes="DuckDB 按月读写，已批准用 r4.1 内核逐根识别。",
+        ),
     ),
     _derived_entry(
         asset_key="gold_major_index_daily_nineturn",

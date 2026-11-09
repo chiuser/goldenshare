@@ -1,5 +1,8 @@
 import dagster as dg
 
+from orchestrator.defs.run_contracts.major_index_quantitative_structure import (
+    STRUCTURE_PARTITIONS,
+)
 from orchestrator.defs.run_contracts.stk_factor_pro import STK_FACTOR_PRO_PARTITIONS
 from orchestrator.defs.run_contracts.stock_monthly import STOCK_MONTHLY_PARTITIONS
 
@@ -47,6 +50,9 @@ cn_major_index_mins_trade_days = dg.DynamicPartitionsDefinition(
 )
 cn_major_index_factor_trade_days = dg.DynamicPartitionsDefinition(
     name="cn_major_index_factor_trade_days"
+)
+cn_major_index_quantitative_structure_trade_days = dg.DynamicPartitionsDefinition(
+    name=STRUCTURE_PARTITIONS,
 )
 
 # Dedicated board-data partition sets.  They intentionally do not reuse the
