@@ -2,6 +2,8 @@
 
 2026-11-09。已确认每日全量重算和上海时间 18:00 开始检查。依据 [DG 数据集资产接入综合模板](../templates/dagster-dataset-onboarding-template.html)。实现、正式 bootstrap 和验收步骤见[详细设计](dagster-major-index-quantitative-structure-onboarding-low-level-design-v1.md)。开工条件见第 8 节。
 
+**交付状态（2026-11-09）**。DG 数据集已部署，2010-01-04 至 2026-11-06 的 4,089 个交易日已通过 Gold 文件和 DG 事件验收，分区登记 Sensor 和日更 Sensor 均已启用。待首个自动日更触发后，按 LLD 核对运行、Gold 文件及两项检查。财势乾坤读取 Gold 作为后续接入事项。 [正式执行记录](dagster-major-index-quantitative-structure-onboarding-low-level-design-v1.md#72-正式执行记录)
+
 ## 1. 目标与范围
 
 在 DG 从历史起点连续计算并保存已完成 K 线上的量化结构事件。首次初始化写齐批准范围内每个交易日的结果。日更用同一计算方法从历史起点算到目标交易日，只写该日结果。两种运行的识别状态都只在本次运行的内存里使用。产出的 Gold 数据集作为财势乾坤加载历史量化结构的来源。
