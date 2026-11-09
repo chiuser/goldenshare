@@ -32,7 +32,7 @@
 
 配置了显式 filters.ts_code 时，按输入顺序转大写、去重，最多取前 **5** 个；该分支不检查默认请求池。即使正式维护对象超过五个，也只探测前五个，不能写成“所有维护对象都已就绪”。
 
-请求池与 Serving 池职责见 [指数 active 池机制](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)。本次不修改对象池、DAO 或同步主链，不以文档精简为由删除这些依赖。
+请求池与 Serving 池职责见[指数日线现行机制](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-daily)。本次不修改对象池、DAO 或同步主链，不以文档精简为由删除这些依赖。
 
 ## 3. 请求与命中
 

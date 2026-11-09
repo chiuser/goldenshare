@@ -448,24 +448,6 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
   }'
 ```
 
-月末交易日自动任务示例：
-
-```bash
-curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/json" \
-  "http://127.0.0.1:8000/api/v1/ops/schedules" \
-  -d '{
-    "target_type":"dataset_action",
-    "target_key":"index_monthly.maintain",
-    "display_name":"指数月线自动维护",
-    "schedule_type":"cron",
-    "trigger_mode":"schedule",
-    "cron_expr":"0 19 * * *",
-    "timezone":"Asia/Shanghai",
-    "calendar_policy":"monthly_last_trading_day",
-    "params_json":{"time_input":{"mode":"point"}}
-  }'
-```
-
 ### 3.4 GET /api/v1/ops/schedules/{schedule_id}
 
 - 功能：读取单个调度详情。

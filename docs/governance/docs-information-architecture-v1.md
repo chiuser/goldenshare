@@ -575,17 +575,9 @@ CodeGraph `codegraph_explore` 用于 worker 工厂、车道函数及调用路径
 
 #### 2026-09-10 指数分层与股票周期线说明整合
 
-本批按当前代码审计后合并，减少两个独立文档，不修改代码、对象池、数据库或生产任务。
+2026-09-10 的文档整合将指数分层说明归入指数专题，将股票周期线的接口映射、固定频率、日期字段和测试入口归入[日期指南 §4](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md#period-anchors)。
 
-| 原文档 | 处理与去向 |
-| --- | --- |
-| `docs/datasets/index-series-active-sync-mechanism.md` | 保留为[指数统一说明](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)：分层与两种池、请求/事务、周线差异、月线硬口径、来源统计、历史证据与测试 |
-| `docs/datasets/index-raw-serving-layer-alignment-plan-v1.md` | 删除；有效分层规则并入统一说明 §1–2，月线修复规则与验收矩阵并入 §4，事故与开发记录并入 §6；旧实施步骤和清表重建清单退出当前指引 |
-| `docs/datasets/equity-weekly-monthly-sync-logic.md` | 删除；接口映射、固定频率、日期字段区别、源文档和现有测试入口并入[日期指南 §4](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md#period-anchors)；不重复维护通用执行链 |
-
-纠偏：请求池与 Serving 池不混用；来源统计是日期范围内当前 Serving 全部指数构成，不是本次任务写入；周线保留截断周和分支差异，不能套用月线保护；Raw 不等于原始响应逐行存档。月线 2026-09-04 开发与生产验收状态分开，本次没有重新确认生产状态，也不新增部署/重跑授权。
-
-同步主索引、Datasets 必读链接、日期指南与源请求阅读指南。原全文可在提交 `bdc6522f` 中追溯；历史事故、251 项开发回归等原证据与本次 24 项离线定向回归明确分列，不把文档精简当作数据修复或代码问题结案。
+2026-11-09 更新指数专题，现由[指数日线现行机制](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-daily)和[Prod 周、月线重建及更新方案](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-period-rebuild)分别承接。旧周、月线方案及其执行指引已移出文档。
 
 <a id="dataset-field-repairs-consolidation-20260910"></a>
 

@@ -177,7 +177,7 @@
 - 支持自动调度：否
 - 支持手动执行：是
 - 支持参数：`start_date`、`end_date`
-- 适用场景：历史修复、指数扩展数据一次性维护。
+- 适用场景：现行指数扩展数据维护。周、月线历史重建按[专项方案](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-period-rebuild)推进。
 
 步骤（顺序执行）：
 
@@ -191,20 +191,7 @@
 
 ## 3.6 `index_kline_maintenance_pipeline`（指数K线全链路维护）
 
-- 描述：按日线→周线→月线→服务表补齐顺序执行。
-- 支持自动调度：否
-- 支持手动执行：是
-- 支持参数：`start_date`、`end_date`
-- 适用场景：指定区间重建指数 K 线链路。
-
-步骤（顺序执行）：
-
-| 序号 | step_key | 显示名 | action_key |
-|---:|---|---|---|
-| 1 | `index_daily` | 维护指数日线 | `index_daily.maintain` |
-| 2 | `index_weekly` | 维护指数周线 | `index_weekly.maintain` |
-| 3 | `index_monthly` | 维护指数月线 | `index_monthly.maintain` |
-| 4 | `rebuild_index_serving` | 补齐指数服务表 | `maintenance.rebuild_index_kline_serving` |
+现有代码仍注册此手动工作流。改造时移除其中按日线批量合成历史周、月线的步骤，范围见[旧合成入口清理](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-period-legacy-cleanup)。
 
 ---
 
@@ -233,7 +220,7 @@
    - 失败策略是 `continue_on_error` 并且后续步骤继续执行，或
    - fail-fast 之前已有部分步骤成功。
 3. 不要把“未执行”视为已完成依赖阻塞，也不要仅凭 catalog 的 `depends_on` 判断后续步骤受到保护；参照 §2 的实际边界。
-4. 带维护动作的 workflow（如 `index_kline_maintenance_pipeline`）失败时，区分“采集失败”与“重建失败”。
+4. 带维护动作的 workflow 失败时，分别核对数据采集和维护步骤的结果。
 5. 盘后工作流建议结合 `ops.task_run_node` 与 `ops.task_run_issue` 看步骤进度和问题诊断，不只看 rows 计数。
 
 ---

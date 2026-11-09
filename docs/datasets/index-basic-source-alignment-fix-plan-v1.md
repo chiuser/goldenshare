@@ -53,7 +53,7 @@ normalizer 的 `date_fields=()`，保留上述源日期字符串；[writer](/Use
 
 当前 ingestion 调用位于 [`_resolve_index_weight_universe_values`](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)：先取显式代码，再按 Definition 配置尝试对象池来源；走到基础信息回退来源时调用该 DAO。因此需要覆盖的是 **index_weight 的回退路径**，不是通过运行 index_daily 来间接证明。
 
-`index_daily` 的 Raw 请求池和 Serving 入库池另有机制，见[指数行情统一说明](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)。不要把基础信息中的“有效指数”与运营激活池混为一谈。
+`index_daily` 的 Raw 请求池和 Serving 入库池另有机制，见[指数日线现行机制](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-daily)。不要把基础信息中的“有效指数”与运营激活池混为一谈。
 
 ## 5. 历史修复与验证边界
 

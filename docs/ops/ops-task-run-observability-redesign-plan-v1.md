@@ -109,7 +109,7 @@ ETA 不改变 unit 提交边界，也不把预计完成时刻持久化成任务�
 
 必须保留的事故：2026-05-05 原记录确认，迁移 `alembic/versions/20260426_000074_task_run_observability_redesign.py` 的 RESET_TABLES 错将 `ops.index_series_active` 纳入清理，曾造成对象池误清空；后来依据审阅后的 2026-04-15 指数代码集重建 index_daily 池，当时为 1,130 个代码。该数字是历史重建证据，不是当前数量。
 
-对象池不是 TaskRun 观测数据，其后续执行用途见 [指数 active 池机制](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)。本轮不更改历史迁移。任何新的清理都须独立逐表确认用途、执行规划依赖、恢复依据与差异并取得批准；不得把旧“可重置”名单当成持续授权，也不得因本次文档合并清空状态投影、业务规则、配置或对象池。
+对象池不是 TaskRun 观测数据，其执行用途见[指数日线现行机制](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-daily)。本轮不更改历史迁移。任何新的清理都须独立逐表确认用途、执行规划依赖、恢复依据与差异并取得批准；不得把旧“可重置”名单当成持续授权，也不得因本次文档合并清空状态投影、业务规则、配置或对象池。
 
 ## 8. 回归入口与维护方式
 
