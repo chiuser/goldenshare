@@ -35,7 +35,7 @@
 | 专题 | 承接位置与需保留的边界 |
 | --- | --- |
 | 指数日线 | [指数日线现行机制](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-daily)区分日线请求池与日线服务池。 |
-| 指数周、月线 | [Prod 重建及更新方案](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-period-rebuild)记录 10 个指数的历史补齐范围、独立激活池，以及当前周期的合成和正式数据覆盖规则。 |
+| 指数周、月线 | [Prod 切换及更新方案](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-period-update)记录 10 个指数的 Serving 保留范围、独立激活池，以及当前周期的合成和正式数据覆盖规则。 |
 | 股票周/月线 | [日期指南 §4](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md#period-anchors)：自然周五/自然月末锚点，频率按对应数据集内部固定；不套用指数锚点 |
 | 股票分钟线 | [正式开发文档](/Users/congming/github/goldenshare/docs/datasets/stk-mins-dataset-development.md)：对象范围、频率、datetime 窗口及分页在该文档与当前 planner 维护；不要在本入口再次抄写 |
 | 指数权重、月度荐股 | [日期指南](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)、[对象池合同](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md#universe-contract)、[荐股开发文档](/Users/congming/github/goldenshare/docs/datasets/broker-recommend-dataset-development.md)：自然月窗口、月份键和代码池分别处理 |

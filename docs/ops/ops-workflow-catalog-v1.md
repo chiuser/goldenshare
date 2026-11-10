@@ -177,7 +177,7 @@
 - 支持自动调度：否
 - 支持手动执行：是
 - 支持参数：`start_date`、`end_date`
-- 适用场景：现行指数扩展数据维护。周、月线历史重建按[专项方案](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-period-rebuild)推进。
+- 适用场景：现行指数扩展数据维护。周、月线 Serving 保留范围和切换清理见[专项方案](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-period-cutover)。
 
 步骤（顺序执行）：
 

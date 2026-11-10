@@ -577,7 +577,7 @@ CodeGraph `codegraph_explore` 用于 worker 工厂、车道函数及调用路径
 
 2026-09-10 的文档整合将指数分层说明归入指数专题，将股票周期线的接口映射、固定频率、日期字段和测试入口归入[日期指南 §4](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md#period-anchors)。
 
-2026-11-09 更新指数专题，现由[指数日线现行机制](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-daily)和[Prod 周、月线重建及更新方案](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-period-rebuild)分别承接。旧周、月线方案及其执行指引已移出文档。
+2026-11-09 更新指数专题，现由[指数日线现行机制](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-daily)和[Prod 周、月线切换及更新方案](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-period-update)分别承接。旧周、月线方案及其执行指引已移出文档。
 
 <a id="dataset-field-repairs-consolidation-20260910"></a>
 
