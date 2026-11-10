@@ -1,6 +1,6 @@
 # 指数详情页普通请求与核验请求拆分 LLD v1
 
-状态为开发设计。业务口径见[财势乾坤接入方案 §9](../../../../lake_console/docs/design/dagster-major-index-quantitative-structure-onboarding-plan-v1.md#9-财势乾坤接入技术方案)，入口拆分流程见已评审的 [HTML 拆分方案](/Users/congming/.codex/visualizations/2026/11/08/01a1ba5a-b8e7-7960-8ac1-78dbadf6b3c4/wealth-index-detail-debug-separation.html)。事件、曲线的读取范围、结果字段和缺数据处理见[量化结构数据集 LLD §8](../../../../lake_console/docs/design/dagster-major-index-quantitative-structure-onboarding-low-level-design-v1.md#8-财势乾坤接入详细设计)。
+2026-11-10，财势乾坤本机接入已完成，管理员确认本机验收通过。实现提交为 `260d18907`，验收见 §6.1。业务口径见[财势乾坤接入方案 §9](../../../../lake_console/docs/design/dagster-major-index-quantitative-structure-onboarding-plan-v1.md#9-财势乾坤接入技术方案)，入口拆分流程见已评审的 [HTML 拆分方案](/Users/congming/.codex/visualizations/2026/11/08/01a1ba5a-b8e7-7960-8ac1-78dbadf6b3c4/wealth-index-detail-debug-separation.html)。事件、曲线的读取范围、结果字段和缺数据处理见[量化结构数据集 LLD §8](../../../../lake_console/docs/design/dagster-major-index-quantitative-structure-onboarding-low-level-design-v1.md#8-财势乾坤接入详细设计)。
 
 ## 1. 范围和验收条件
 
@@ -9,7 +9,7 @@
 - 两条链路各自选择页面入口、请求地址、回包解析和界面状态，缓存按入口区分。浏览器分别安排各自的请求，服务器沿用现有的同时处理数量。共用行情查询、算法和图表组件。普通页面及其请求不触发核验模块加载、核验接口请求或诊断组装。
 - 本轮只改财势乾坤指数详情页及直接调用方。DG 文件、Job、Sensor、九指数范围、五个周期、r4.1 规则、股票详情、市场总览的核验入口、环境配置和服务部署方式沿用现有定义。
 
-当前代码中，`IndexDetailPage`、图表、请求客户端和后端投影都接收 `debug`。核验页面代码未就绪时，`effectiveDebug` 会取普通值。基础接口会先构造部分诊断再丢弃。权重缓存只按指数和业务日期查找，来回切换时会复用另一种响应。本轮从入口拆开这三处依赖。
+拆分前，`IndexDetailPage`、图表、请求客户端和后端投影都接收 `debug`。核验页面代码未就绪时，`effectiveDebug` 会取普通值。基础接口会先构造部分诊断再丢弃。权重缓存只按指数和业务日期查找，来回切换时会复用另一种响应。本轮从入口拆开了这三处依赖。
 
 ## 2. 冻结请求和响应合同
 
@@ -141,7 +141,9 @@
 
 另核对上证 2024-09-24 日线识别的 MACD 柱值 20.645、中证500 2010-01-04 日线成功且无事件、2010-01-05 的 30 分钟 14:30 顶钝化，以及上证 60 和 120 分钟完成端点。
 
-隔离浏览器使用真实普通识别回包，页面初始化、日线和波段等其他响应使用测试样本。普通页的核验代码下载及核验 API 请求均为 0。核验页的初始化、日线和识别均直接请求各自的 `/debug/` 地址。打开波段只新增一次 `/debug/daily-waves`。开发版 React StrictMode 在两种页面各取消了一次初始化请求，构建版普通页只发一次初始化请求，按原环境门禁使用普通页面。已验收的范围为本机接口和隔离浏览器，正式服务发布与上线后验证另行执行。
+隔离浏览器使用真实普通识别回包，页面初始化、日线和波段等其他响应使用测试样本。普通页的核验代码下载及核验 API 请求均为 0。核验页的初始化、日线和识别均直接请求各自的 `/debug/` 地址。打开波段只新增一次 `/debug/daily-waves`。开发版 React StrictMode 在两种页面各取消了一次初始化请求，构建版普通页只发一次初始化请求，按原环境门禁使用普通页面。
+
+2026-11-10，管理员确认本机真实页面验收通过。财势乾坤本机接入以此收尾。普通识别仍按本机开发环境开放，生产接入与上线验收另行处理。
 
 ## 7. 财势乾坤编码门禁
 
