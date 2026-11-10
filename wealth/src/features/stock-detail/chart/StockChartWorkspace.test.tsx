@@ -91,6 +91,7 @@ const indicatorTabs: StockIndicatorTab[] = [
   { key: "MACD", label: "MACD", active: false, supported: true },
   { key: "KDJ", label: "KDJ", active: true, supported: true },
 ];
+const nineTurnControl = { available: true, visible: true, onToggle: vi.fn() };
 const defaultIndicatorControls = { hiddenIndicatorPanels: new Set<never>(), onToggleIndicatorPanel: vi.fn(), quantitativeStructureAvailable: false };
 
 describe("StockChartWorkspace shared adapter", () => {
@@ -105,6 +106,7 @@ describe("StockChartWorkspace shared adapter", () => {
         candles={candles}
         indicatorTabs={indicatorTabs}
         indicatorControls={{ ...defaultIndicatorControls, hiddenIndicatorPanels: new Set(["kdj"]), onToggleIndicatorPanel }}
+        nineTurnControl={nineTurnControl}
         nineTurnLayer={idleNineTurnLayer("day")}
         onNineTurnRetry={vi.fn()}
         onAction={onAction}
@@ -130,6 +132,7 @@ describe("StockChartWorkspace shared adapter", () => {
     const kdj = screen.getByRole("button", { name: "KDJ", pressed: false });
     const structure = screen.getByRole("button", { name: "量化结构", pressed: false });
     expect(kdj.nextElementSibling).toBe(structure);
+    expect(structure.nextElementSibling).toBe(screen.getByRole("button", { name: "九转序列", pressed: true }));
     expect(structure).toBeEnabled();
     fireEvent.click(structure);
     expect(screen.queryByLabelText("量化结构(12,26,9)")).not.toBeInTheDocument();
@@ -166,6 +169,7 @@ describe("StockChartWorkspace shared adapter", () => {
         candles={candles}
         indicatorTabs={indicatorTabs}
         indicatorControls={defaultIndicatorControls}
+        nineTurnControl={nineTurnControl}
         nineTurnLayer={idleNineTurnLayer("day")}
         onNineTurnRetry={vi.fn()}
         onAction={vi.fn()}
@@ -182,6 +186,7 @@ describe("StockChartWorkspace shared adapter", () => {
         candles={candles}
         indicatorTabs={indicatorTabs}
         indicatorControls={defaultIndicatorControls}
+        nineTurnControl={nineTurnControl}
         nineTurnLayer={readyNineTurnLayer(candles.at(-1)!.fullDate)}
         onNineTurnRetry={vi.fn()}
         onAction={vi.fn()}
@@ -193,6 +198,34 @@ describe("StockChartWorkspace shared adapter", () => {
     );
 
     expect(chartMock.createChart).toHaveBeenCalledTimes(4);
+  });
+
+  it("keeps chart hosts, series data and the adjusted viewport when nine-turn is toggled", () => {
+    const candles = makeCandles(300);
+    const props = {
+      candles, indicatorTabs, indicatorControls: defaultIndicatorControls,
+      nineTurnLayer: readyNineTurnLayer(candles.at(-1)!.fullDate), onNineTurnRetry: vi.fn(),
+      onAction: vi.fn(), onTrendSelect: vi.fn(), supportsTrendChannel: false, trend: null, tsCode: "000001.SZ",
+    };
+    const rendered = render(<StockChartWorkspace {...props} nineTurnControl={nineTurnControl} />);
+    const host = screen.getByLabelText("K线主图").querySelector(".detail-chart-host");
+    const charts = [...chartMock.charts];
+    const range = { from: 40, to: 159 };
+    act(() => charts[0].timeScale().setVisibleLogicalRange(range));
+    const series = charts.flatMap(chart => chart.series);
+    const dataWrites = series.map(item => item.setData.mock.calls.length);
+
+    for (const visible of [false, true]) {
+      rendered.rerender(<StockChartWorkspace {...props} nineTurnControl={{ ...nineTurnControl, visible }} />);
+      expect(screen.getByRole("button", { name: "九转序列", pressed: visible })).toBeEnabled();
+      expect(screen.getByLabelText("K线主图").querySelector(".detail-chart-host")).toBe(host);
+      expect(chartMock.createChart).toHaveBeenCalledTimes(charts.length);
+      expect(series.map(item => item.setData.mock.calls.length)).toEqual(dataWrites);
+      for (const chart of charts) {
+        expect(chart.remove).not.toHaveBeenCalled();
+        expect(chart.timeScale().getVisibleLogicalRange()).toEqual(range);
+      }
+    }
   });
 
   it("renders unavailable daily moving averages as whitespace and dash", () => {
@@ -207,6 +240,7 @@ describe("StockChartWorkspace shared adapter", () => {
         candles={candles}
         indicatorTabs={indicatorTabs}
         indicatorControls={defaultIndicatorControls}
+        nineTurnControl={nineTurnControl}
         nineTurnLayer={idleNineTurnLayer("day")}
         onNineTurnRetry={vi.fn()}
         onAction={vi.fn()}

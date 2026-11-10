@@ -1,7 +1,9 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 
 import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
+import type { NineTurnDisplayControl } from "../../nine-turn/controller/useNineTurnDisplayControl";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
+import { NineTurnIndicatorToggle } from "../../nine-turn/ui/NineTurnIndicatorToggle";
 import { NineTurnLayerStatus } from "../../nine-turn/ui/NineTurnLayerStatus";
 import { DetailChartIndicatorToggle } from "../../../shared/charts/detail-workspace/DetailChartIndicatorToggle";
 import { DetailChartWorkspace } from "../../../shared/charts/detail-workspace/DetailChartWorkspace";
@@ -29,6 +31,7 @@ interface StockChartWorkspaceProps {
   candles: StockCandlePoint[];
   indicatorControls: DetailChartIndicatorControls;
   indicatorTabs: StockIndicatorTab[];
+  nineTurnControl: NineTurnDisplayControl;
   nineTurnLayer: NineTurnLayerViewModel;
   onNineTurnRetry: () => void;
   onAction: (message: string) => void;
@@ -42,6 +45,7 @@ export function StockChartWorkspace({
   candles,
   indicatorControls,
   indicatorTabs,
+  nineTurnControl,
   nineTurnLayer,
   onNineTurnRetry,
   onAction,
@@ -68,6 +72,7 @@ export function StockChartWorkspace({
     layer: nineTurnLayer,
     points,
     timeMode: "daily",
+    visible: nineTurnControl.visible,
   });
   const trendByTime = useMemo(
     () => new Map((trend?.points ?? []).map((point) => [point.time, point])),
@@ -97,6 +102,7 @@ export function StockChartWorkspace({
         <StockIndicatorBar
           indicatorControls={indicatorControls}
           indicatorTabs={indicatorTabs}
+          nineTurnControl={nineTurnControl}
           onAction={onAction}
           onOverlayChange={changeOverlay}
           overlay={overlay}
@@ -344,6 +350,7 @@ const STOCK_INDICATOR_PANELS = new Map<string, DetailChartIndicatorPanelKey>([
 function StockIndicatorBar({
   indicatorControls,
   indicatorTabs,
+  nineTurnControl,
   onAction,
   onOverlayChange,
   overlay,
@@ -351,6 +358,7 @@ function StockIndicatorBar({
 }: {
   indicatorControls: DetailChartIndicatorControls;
   indicatorTabs: StockIndicatorTab[];
+  nineTurnControl: NineTurnDisplayControl;
   onAction: (message: string) => void;
   onOverlayChange: (overlay: StockMainOverlay) => void;
   overlay: StockMainOverlay;
@@ -364,7 +372,10 @@ function StockIndicatorBar({
           return (
             <Fragment key={tab.key}>
               <DetailChartIndicatorToggle panel={panel} indicatorControls={indicatorControls} />
-              {panel === "kdj" ? <DetailChartIndicatorToggle panel="quantitativeStructure" indicatorControls={indicatorControls} mode="placeholder" /> : null}
+              {panel === "kdj" ? <>
+                <DetailChartIndicatorToggle panel="quantitativeStructure" indicatorControls={indicatorControls} mode="placeholder" />
+                <NineTurnIndicatorToggle control={nineTurnControl} />
+              </> : null}
             </Fragment>
           );
         }

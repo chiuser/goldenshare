@@ -8,6 +8,7 @@ import { IndexMinuteChartWorkspace } from "./IndexMinuteChartWorkspace";
 import { fetchXxm } from "../xxm/apiClient";
 import { xxmFixture } from "../xxm/xxmFixtures.test-support";
 
+const nineTurnControl = { available: true, visible: true, onToggle: vi.fn() };
 const workspaceMock = vi.hoisted(() => ({
   props: [] as DetailChartWorkspaceProps[],
   reset() { this.props.splice(0, this.props.length); },
@@ -40,7 +41,7 @@ describe("IndexMinuteChartWorkspace adapter", () => {
 
   it("uses the index/frequency dataKey and keeps the partial message without a mock badge", () => {
     const onToggleIndicatorPanel = vi.fn();
-    render(<IndexMinuteChartWorkspace recognitionEnabled data={makeData()} errorMessage="指标部分缺失" indicatorControls={{ hiddenIndicatorPanels: new Set(["kdj"]), onToggleIndicatorPanel, quantitativeStructureAvailable: false }} nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="partial" />);
+    render(<IndexMinuteChartWorkspace recognitionEnabled data={makeData()} errorMessage="指标部分缺失" indicatorControls={{ hiddenIndicatorPanels: new Set(["kdj"]), onToggleIndicatorPanel, quantitativeStructureAvailable: false }} nineTurnControl={nineTurnControl} nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="partial" />);
 
     const props = latestProps();
     expect(props.dataKey).toBe("index:000001.SH:m5");
@@ -50,8 +51,9 @@ describe("IndexMinuteChartWorkspace adapter", () => {
     expect(screen.queryByText("模拟指标")).not.toBeInTheDocument();
     expect(screen.getByText("指标部分缺失")).toBeInTheDocument();
     expect(props.hiddenIndicatorPanels).toEqual(new Set(["kdj"]));
-    expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual(["VOL", "MACD", "KDJ", "量化结构", "均线", "BOLL"]);
+    expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual(["VOL", "MACD", "KDJ", "量化结构", "九转序列", "均线", "BOLL"]);
     expect(screen.getByRole("button", { name: "量化结构", pressed: false })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "九转序列", pressed: true })).toBeEnabled();
     expect(props.quantitativeStructure).toBeUndefined();
     expect(fetchXxm).not.toHaveBeenCalled();
     expect(screen.getByRole("button", { name: "VOL", pressed: true })).toHaveClass("active");
@@ -64,9 +66,10 @@ describe("IndexMinuteChartWorkspace adapter", () => {
   });
 
   it("keeps empty/error module states outside the loaded shared workspace", () => {
-    render(<IndexMinuteChartWorkspace recognitionEnabled data={null} errorMessage="分钟数据失败" indicatorControls={{ hiddenIndicatorPanels: new Set(), onToggleIndicatorPanel: vi.fn(), quantitativeStructureAvailable: false }} nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="error" />);
+    render(<IndexMinuteChartWorkspace recognitionEnabled data={null} errorMessage="分钟数据失败" indicatorControls={{ hiddenIndicatorPanels: new Set(), onToggleIndicatorPanel: vi.fn(), quantitativeStructureAvailable: false }} nineTurnControl={nineTurnControl} nineTurnLayer={idleNineTurnLayer("5")} onNineTurnRetry={vi.fn()} onRetry={vi.fn()} phase="error" />);
     expect(workspaceMock.props).toHaveLength(0);
     expect(screen.getByText("分钟数据失败")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "九转序列" })).not.toBeInTheDocument();
   });
 
   it("uses the 90-minute recognition values and keeps its status in the structure header", async () => {
@@ -82,7 +85,7 @@ describe("IndexMinuteChartWorkspace adapter", () => {
       .mockResolvedValueOnce({ response, deadline: performance.now() + 5000 });
     const props = {
       recognitionEnabled: true, data, errorMessage: "",
-      nineTurnLayer: idleNineTurnLayer("90"), onNineTurnRetry: vi.fn(), onRetry: vi.fn(), phase: "ready" as const,
+      nineTurnControl, nineTurnLayer: idleNineTurnLayer("90"), onNineTurnRetry: vi.fn(), onRetry: vi.fn(), phase: "ready" as const,
     };
     const controls = { hiddenIndicatorPanels: new Set<"kdj" | "quantitativeStructure">(["kdj"]), onToggleIndicatorPanel: vi.fn(), quantitativeStructureAvailable: true };
     const rendered = render(<IndexMinuteChartWorkspace {...props} indicatorControls={controls} />);

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "react";
 
 import { NineTurnMarkerPrimitive } from "../../../shared/charts/detail-workspace/NineTurnMarkerPrimitive";
 import type { DetailChartPoint, DetailChartTimeMode } from "../../../shared/charts/detail-workspace/detailChartTypes";
@@ -10,11 +10,13 @@ export function useNineTurnChartLayer({
   layer,
   points,
   timeMode,
+  visible,
 }: {
   dataKey: string;
   layer: NineTurnLayerViewModel;
   points: readonly DetailChartPoint[];
   timeMode: DetailChartTimeMode;
+  visible: boolean;
 }) {
   const adaptation = useMemo(
     () => buildNineTurnRenderMarkers(layer.markers, points, timeMode),
@@ -22,12 +24,14 @@ export function useNineTurnChartLayer({
   );
   const primitiveState = useRef<{ dataKey: string; primitive: NineTurnMarkerPrimitive } | null>(null);
   if (primitiveState.current === null || primitiveState.current.dataKey !== dataKey) {
-    primitiveState.current = {
-      dataKey,
-      primitive: new NineTurnMarkerPrimitive(adaptation.markers),
-    };
+    const primitive = new NineTurnMarkerPrimitive(adaptation.markers);
+    primitive.setVisible(visible);
+    primitiveState.current = { dataKey, primitive };
   }
   const primitive = primitiveState.current.primitive;
+  useLayoutEffect(() => {
+    primitive.setVisible(visible);
+  }, [primitive, visible]);
   useEffect(() => {
     primitive.setMarkers(adaptation.markers);
   }, [adaptation.markers, primitive]);

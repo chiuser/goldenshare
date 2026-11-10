@@ -570,7 +570,7 @@ describe("StockDetailPage", () => {
 
     expect(await screen.findByText("福斯特 603806.SH")).toBeInTheDocument();
     const expectAllOn = () => {
-      for (const name of ["VOL", "MACD", "KDJ"]) {
+      for (const name of ["VOL", "MACD", "KDJ", "九转序列"]) {
         expect(screen.getByRole("button", { name, pressed: true })).toHaveClass("active");
       }
     };
@@ -585,6 +585,11 @@ describe("StockDetailPage", () => {
       expect(fetchMock).toHaveBeenCalledTimes(count);
     };
     expectAllOn();
+    const nineTurn = () => screen.getByRole("button", { name: "九转序列" });
+    const dailyRequests = fetchMock.mock.calls.length;
+    fireEvent.click(nineTurn());
+    expect(nineTurn()).toHaveAttribute("aria-pressed", "false");
+    expect(fetchMock).toHaveBeenCalledTimes(dailyRequests);
     expectSilentStructure();
     fireEvent.click(screen.getByRole("button", { name: "KDJ", pressed: true }));
     expectSilentStructure();
@@ -611,6 +616,7 @@ describe("StockDetailPage", () => {
       .map(([input]) => String(input))
       .filter((url) => url.includes("/minute-nine-turn"));
     expect(nineTurnMinuteRequests).toHaveLength(0);
+    expect(nineTurn()).toBeDisabled();
     expect(screen.getByRole("button", { name: "KDJ", pressed: false })).not.toHaveClass("active");
     expectSilentStructure();
     fireEvent.click(screen.getByRole("button", { name: "KDJ", pressed: false }));
@@ -629,12 +635,22 @@ describe("StockDetailPage", () => {
     expect(within(otherMinuteBar).getByRole("button", { name: "MACD", pressed: true })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "日K" }));
     expect(screen.getByRole("button", { name: "KDJ", pressed: false })).toBeInTheDocument();
+    expect(nineTurn()).toBeEnabled();
+    expect(nineTurn()).toHaveAttribute("aria-pressed", "false");
     fireEvent.click(screen.getByRole("button", { name: "5分" }));
     expect(await screen.findByRole("button", { name: "VOL", pressed: false })).toBeInTheDocument();
     const fiveMinuteRequests = fetchMock.mock.calls
       .map(([input]) => String(input))
       .filter((url) => (url.includes("/stock-detail/minutes") || url.includes("/stock-detail/minute-indicators")) && url.includes("freq=5"));
     expect(fiveMinuteRequests).toHaveLength(2);
+    fireEvent.click(screen.getByRole("button", { name: "30分" }));
+    await waitFor(() => expect(nineTurn()).toBeEnabled());
+    expect(nineTurn()).toHaveAttribute("aria-pressed", "false");
+    const minuteRequestsBeforeToggle = fetchMock.mock.calls.length;
+    fireEvent.click(nineTurn());
+    expect(nineTurn()).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(nineTurn());
+    expect(fetchMock).toHaveBeenCalledTimes(minuteRequestsBeforeToggle);
     fireEvent.click(screen.getByRole("button", { name: "日K" }));
 
     rerender(<StockDetailPage tsCode="601878.SH" />);

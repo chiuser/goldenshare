@@ -23,6 +23,7 @@ const NEUTRAL_MARKER_COLOR_FALLBACK = "#94a3b8";
 export class NineTurnMarkerPrimitive implements ISeriesPrimitive<Time> {
   private attachedParameters: SeriesAttachedParameter<Time> | null = null;
   private markers: readonly NineTurnRenderMarker[] = [];
+  private visible = true;
   private readonly view = new NineTurnMarkerPaneView(this);
 
   constructor(markers: readonly NineTurnRenderMarker[] = []) {
@@ -50,9 +51,15 @@ export class NineTurnMarkerPrimitive implements ISeriesPrimitive<Time> {
     this.attachedParameters?.requestUpdate();
   }
 
+  setVisible(visible: boolean): void {
+    if (this.visible === visible) return;
+    this.visible = visible;
+    this.attachedParameters?.requestUpdate();
+  }
+
   draw(target: Parameters<IPrimitivePaneRenderer["draw"]>[0]): void {
     const attached = this.attachedParameters;
-    if (!attached || this.markers.length === 0) return;
+    if (!this.visible || !attached || this.markers.length === 0) return;
     const visibleRange = attached.chart.timeScale().getVisibleLogicalRange();
     if (!visibleRange) return;
     const firstBar = attached.series.dataByIndex(Math.ceil(visibleRange.from));

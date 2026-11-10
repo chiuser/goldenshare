@@ -5,6 +5,7 @@ import type { NineTurnPeriod } from "../../features/nine-turn/api/nineTurnApiTyp
 import { DAILY_CHART_PAGE_SIZE } from "../../shared/charts/dailyChartRequestLimits";
 import { useDetailChartIndicatorControls } from "../../shared/charts/detail-workspace/useDetailChartIndicatorControls";
 import type { NineTurnSeriesLoader } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
+import { useNineTurnDisplayControl } from "../../features/nine-turn/controller/useNineTurnDisplayControl";
 import { useNineTurnSeriesRegistry } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
 import { fetchStockDetailKline, fetchStockDetailPageInit } from "../../features/stock-detail/api/stockDetailApiClient";
 import { fetchStockMinuteBars, fetchStockMinuteIndicators } from "../../features/stock-detail/api/stockMinuteApiClient";
@@ -84,6 +85,11 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
     tsCode,
   });
   const activeNineTurnPeriod = nineTurnPeriodFromStockPeriod(activePeriod);
+  const nineTurnCapabilities = activePageInit?.capabilities;
+  const nineTurnControl = useNineTurnDisplayControl(tsCode,
+    activeNineTurnPeriod !== null && isStockNineTurnPeriod(activeNineTurnPeriod)
+      && nineTurnCapabilities?.supportsNineTurn === true
+      && nineTurnCapabilities.nineTurnPeriods.includes(activeNineTurnPeriod));
   const nineTurnLayer = activeNineTurnPeriod === null
     ? nineTurnRegistry.stateFor("day")
     : nineTurnRegistry.stateFor(activeNineTurnPeriod);
@@ -251,6 +257,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
             candles={viewModel.chart.candles}
             indicatorControls={indicatorControls}
             indicatorTabs={viewModel.indicatorTabs}
+            nineTurnControl={nineTurnControl}
             nineTurnLayer={nineTurnLayer}
             onNineTurnRetry={() => {
               if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
@@ -267,6 +274,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
             errorMessage={minuteError}
             indicatorControls={indicatorControls}
             loadState={minuteLoadState}
+            nineTurnControl={nineTurnControl}
             nineTurnLayer={nineTurnLayer}
             onNineTurnRetry={() => {
               if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);

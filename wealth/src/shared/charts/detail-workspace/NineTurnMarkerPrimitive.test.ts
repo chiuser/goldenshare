@@ -63,6 +63,7 @@ describe("NineTurnMarkerPrimitive", () => {
     const fillStyle = vi.fn();
     const stroke = vi.fn();
     const timeToCoordinate = vi.fn(() => 100);
+    const requestUpdate = vi.fn();
     const primitive = new NineTurnMarkerPrimitive([
       marker("2026-08-11", 8),
       marker("2026-08-12", 9),
@@ -75,7 +76,7 @@ describe("NineTurnMarkerPrimitive", () => {
           timeToCoordinate,
         }),
       },
-      requestUpdate: vi.fn(),
+      requestUpdate,
       series: {
         dataByIndex: () => ({ time: "2026-08-12" }),
         priceToCoordinate: () => 80,
@@ -94,17 +95,39 @@ describe("NineTurnMarkerPrimitive", () => {
     };
     Object.defineProperty(context, "fillStyle", { set: fillStyle });
 
-    primitive.draw({
+    const target = {
       useMediaCoordinateSpace: (draw: (scope: unknown) => void) => draw({
         context,
         mediaSize: { height: 200, width: 200 },
       }),
-    } as never);
+    } as never;
+    primitive.draw(target);
 
     expect(timeToCoordinate).toHaveBeenCalledTimes(1);
     expect(fillStyle).toHaveBeenCalledWith("#ff4d5a");
     expect(fillText).toHaveBeenCalledWith("9", 100, 63.5);
     expect(stroke).toHaveBeenCalledTimes(1);
+
+    primitive.setVisible(false);
+    primitive.setVisible(false);
+    primitive.draw(target);
+    expect(requestUpdate).toHaveBeenCalledTimes(1);
+    expect(timeToCoordinate).toHaveBeenCalledTimes(1);
+    expect(fillText).toHaveBeenCalledTimes(1);
+    expect(primitive.autoscaleInfo()).toBeNull();
+
+    primitive.setVisible(true);
+    primitive.draw(target);
+    expect(requestUpdate).toHaveBeenCalledTimes(2);
+    expect(fillText.mock.calls).toEqual([["9", 100, 63.5], ["9", 100, 63.5]]);
+
+    primitive.setVisible(false);
+    primitive.setMarkers([marker("2026-08-12", 4)]);
+    primitive.draw(target);
+    expect(fillText).toHaveBeenCalledTimes(2);
+    primitive.setVisible(true);
+    primitive.draw(target);
+    expect(fillText).toHaveBeenLastCalledWith("4", 100, 63.5);
   });
 
   it("uses a neutral text color for sequence one through eight", () => {

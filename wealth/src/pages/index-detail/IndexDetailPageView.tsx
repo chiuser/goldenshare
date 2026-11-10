@@ -27,6 +27,7 @@ import {
 } from "../../features/major-indices/api/marketMajorIndicesAdapter";
 import { fetchMarketMajorIndices } from "../../features/major-indices/api/marketMajorIndicesApi";
 import type { NineTurnPeriod } from "../../features/nine-turn/api/nineTurnApiTypes";
+import { useNineTurnDisplayControl } from "../../features/nine-turn/controller/useNineTurnDisplayControl";
 import { useNineTurnSeriesRegistry } from "../../features/nine-turn/controller/useNineTurnSeriesRegistry";
 import { resolveIndexRecognitionAvailability } from "../../features/index-detail/model/indexRecognitionAvailability";
 import { DAILY_CHART_PAGE_SIZE } from "../../shared/charts/dailyChartRequestLimits";
@@ -103,6 +104,10 @@ export function IndexDetailPageView({
     validatedTsCode: hasData && viewModel?.identity.tsCode === normalizedTsCode ? normalizedTsCode : null,
   });
   const activeNineTurnPeriod = nineTurnPeriodFromIndexPeriod(activePeriod);
+  const nineTurnCapabilities = viewModel?.capabilities;
+  const nineTurnControl = useNineTurnDisplayControl(normalizedTsCode,
+    activeNineTurnPeriod !== null && nineTurnCapabilities?.supportsNineTurn === true
+      && nineTurnCapabilities.nineTurnPeriods.includes(activeNineTurnPeriod));
   const nineTurnLayer = activeNineTurnPeriod === null
     ? unsupportedNineTurnLayer("1")
     : nineTurnRegistry.stateFor(activeNineTurnPeriod);
@@ -254,6 +259,7 @@ export function IndexDetailPageView({
               MainChartAddon={MainChartAddon}
               showAlignmentDiagnostics={showAlignmentDiagnostics}
               indicatorControls={indicatorControls}
+              nineTurnControl={nineTurnControl}
               nineTurnLayer={nineTurnLayer}
               onNineTurnRetry={() => {
                 if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);
@@ -271,6 +277,7 @@ export function IndexDetailPageView({
               data={minute.data}
               errorMessage={minute.errorMessage}
               indicatorControls={indicatorControls}
+              nineTurnControl={nineTurnControl}
               nineTurnLayer={nineTurnLayer}
               onNineTurnRetry={() => {
                 if (activeNineTurnPeriod !== null) void nineTurnRegistry.retry(activeNineTurnPeriod);

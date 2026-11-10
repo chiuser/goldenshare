@@ -5,7 +5,7 @@ import type { DetailChartWorkspaceProps } from "../../../shared/charts/detail-wo
 import type { StockMinuteChartViewModel } from "../api/stockMinuteViewModelAdapter";
 
 import { StockMinuteChartWorkspace } from "./StockMinuteChartWorkspace";
-import { idleNineTurnLayer } from "../../nine-turn/model/nineTurnAdapter";
+import { unsupportedNineTurnLayer } from "../../nine-turn/model/nineTurnAdapter";
 
 const workspaceMock = vi.hoisted(() => ({
   props: [] as DetailChartWorkspaceProps[],
@@ -13,6 +13,7 @@ const workspaceMock = vi.hoisted(() => ({
     this.props.splice(0, this.props.length);
   },
 }));
+const nineTurnControl = { available: false, visible: false, onToggle: vi.fn() };
 const defaultIndicatorControls = { hiddenIndicatorPanels: new Set<never>(), onToggleIndicatorPanel: vi.fn(), quantitativeStructureAvailable: false };
 
 vi.mock("../../../shared/charts/detail-workspace/DetailChartWorkspace", () => ({
@@ -45,7 +46,8 @@ describe("StockMinuteChartWorkspace", () => {
         data={data}
         indicatorControls={defaultIndicatorControls}
         loadState="ready"
-        nineTurnLayer={idleNineTurnLayer("30")}
+        nineTurnControl={nineTurnControl}
+        nineTurnLayer={unsupportedNineTurnLayer("5")}
         onNineTurnRetry={vi.fn()}
       />,
     );
@@ -92,7 +94,8 @@ describe("StockMinuteChartWorkspace", () => {
         data={data}
         indicatorControls={{ ...defaultIndicatorControls, hiddenIndicatorPanels: new Set(["macd"]), onToggleIndicatorPanel }}
         loadState="ready"
-        nineTurnLayer={idleNineTurnLayer("30")}
+        nineTurnControl={nineTurnControl}
+        nineTurnLayer={unsupportedNineTurnLayer("5")}
         onNineTurnRetry={vi.fn()}
       />,
     );
@@ -108,7 +111,12 @@ describe("StockMinuteChartWorkspace", () => {
     expect(props.timeAxisPlacement).toBeUndefined();
     expect(props.bottomBarAriaLabel).toBe("股票分钟指标栏");
     expect(props.hiddenIndicatorPanels).toEqual(new Set(["macd"]));
-    expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual(["VOL", "MACD", "KDJ", "量化结构"]);
+    expect(screen.getAllByRole("button").map((button) => button.textContent)).toEqual(["VOL", "MACD", "KDJ", "量化结构", "九转序列"]);
+    const nineTurn = screen.getByRole("button", { name: "九转序列", pressed: false });
+    expect(nineTurn).toBeDisabled();
+    expect(nineTurn).toHaveClass("unsupported");
+    fireEvent.click(nineTurn);
+    expect(nineTurnControl.onToggle).not.toHaveBeenCalled();
     const structure = screen.getByRole("button", { name: "量化结构", pressed: false });
     expect(structure).toBeEnabled();
     fireEvent.click(structure);
@@ -136,7 +144,8 @@ describe("StockMinuteChartWorkspace", () => {
         data={data}
         indicatorControls={defaultIndicatorControls}
         loadState="ready"
-        nineTurnLayer={idleNineTurnLayer("30")}
+        nineTurnControl={nineTurnControl}
+        nineTurnLayer={unsupportedNineTurnLayer("5")}
         onNineTurnRetry={vi.fn()}
       />,
     );
@@ -170,13 +179,15 @@ describe("StockMinuteChartWorkspace", () => {
         indicatorControls={defaultIndicatorControls}
         errorMessage={errorMessage}
         loadState={loadState}
-        nineTurnLayer={idleNineTurnLayer("30")}
+        nineTurnControl={nineTurnControl}
+        nineTurnLayer={unsupportedNineTurnLayer("5")}
         onNineTurnRetry={vi.fn()}
       />,
     );
 
     expect(screen.getByRole("status")).toHaveTextContent(expected);
     expect(screen.queryByTestId("shared-detail-workspace")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "九转序列" })).not.toBeInTheDocument();
     expect(workspaceMock.props).toHaveLength(0);
   });
 });

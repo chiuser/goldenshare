@@ -16,6 +16,7 @@ const workspaceMock = vi.hoisted(() => ({
   props: [] as DetailChartWorkspaceProps[],
   reset() { this.props.splice(0, this.props.length); },
 }));
+const nineTurnControl = { available: true, visible: true, onToggle: vi.fn() };
 const defaultIndicatorControls = { hiddenIndicatorPanels: new Set<never>(), onToggleIndicatorPanel: vi.fn(), quantitativeStructureAvailable: false };
 
 vi.mock("../xxm/apiClient", async (importOriginal) => ({
@@ -38,7 +39,7 @@ describe("IndexChartWorkspace adapter", () => {
 
   it("updates asynchronous ordinary trend content without replacing chart primitives or changing the selected overlay", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit(), makeKline());
-    const props = { indicatorControls: defaultIndicatorControls, nineTurnLayer: idleNineTurnLayer("day"), onNineTurnRetry: vi.fn(), viewModel };
+    const props = { indicatorControls: defaultIndicatorControls, nineTurnControl, nineTurnLayer: idleNineTurnLayer("day"), onNineTurnRetry: vi.fn(), viewModel };
     const { rerender } = render(<IndexChartWorkspace recognitionEnabled {...props} trend={null} trendPhase="loading" />);
     const first = latestProps();
     fireEvent.change(screen.getByLabelText("指数主图指标切换"), { target: { value: "BOLL" } });
@@ -58,7 +59,7 @@ describe("IndexChartWorkspace adapter", () => {
   it("uses the index daily dataKey and keeps it stable across MA/BOLL switches", () => {
     const viewModel = buildIndexDetailViewModel(makePageInit("399001.SZ"), makeKline("399001.SZ"));
     const onToggleIndicatorPanel = vi.fn();
-    render(<IndexChartWorkspace recognitionEnabled indicatorControls={{ ...defaultIndicatorControls, hiddenIndicatorPanels: new Set(["volume"]), onToggleIndicatorPanel }} nineTurnLayer={idleNineTurnLayer("day")} onNineTurnRetry={vi.fn()} trend={null} trendPhase="unavailable" viewModel={viewModel} />);
+    render(<IndexChartWorkspace recognitionEnabled indicatorControls={{ ...defaultIndicatorControls, hiddenIndicatorPanels: new Set(["volume"]), onToggleIndicatorPanel }} nineTurnControl={nineTurnControl} nineTurnLayer={idleNineTurnLayer("day")} onNineTurnRetry={vi.fn()} trend={null} trendPhase="unavailable" viewModel={viewModel} />);
 
     expect(latestProps().dataKey).toBe("index:399001.SZ:day");
     expect(latestProps().hiddenIndicatorPanels).toEqual(new Set(["volume"]));
@@ -68,6 +69,7 @@ describe("IndexChartWorkspace adapter", () => {
     const structure = screen.getByRole("button", { name: "量化结构", pressed: false });
     expect(structure).toBeDisabled();
     expect(screen.getByRole("button", { name: "KDJ" }).nextElementSibling).toBe(structure);
+    expect(structure.nextElementSibling).toBe(screen.getByRole("button", { name: "九转序列", pressed: true }));
     fireEvent.click(screen.getByRole("button", { name: "VOL", pressed: false }));
     expect(onToggleIndicatorPanel).toHaveBeenCalledWith("volume");
     fireEvent.change(screen.getByLabelText("指数主图指标切换"), { target: { value: "BOLL" } });
@@ -81,6 +83,7 @@ describe("IndexChartWorkspace adapter", () => {
     render(
       <IndexChartWorkspace recognitionEnabled
         indicatorControls={defaultIndicatorControls}
+        nineTurnControl={nineTurnControl}
         nineTurnLayer={idleNineTurnLayer("day")}
         onNineTurnRetry={vi.fn()}
         trend={{
@@ -119,7 +122,7 @@ describe("IndexChartWorkspace adapter", () => {
     const allCandles = buildIndexDetailViewModel(makePageInit(), { ...kline, bars: [previous, seed] }).chart.candles;
     const controls = { ...defaultIndicatorControls, quantitativeStructureAvailable: true };
     const base = {
-      nineTurnLayer: idleNineTurnLayer("day"), onNineTurnRetry: vi.fn(), viewModel,
+      nineTurnControl, nineTurnLayer: idleNineTurnLayer("day"), onNineTurnRetry: vi.fn(), viewModel,
       trend: null, trendPhase: "unavailable" as const,
       recognitionEnabled: true,
     };
@@ -155,6 +158,45 @@ describe("IndexChartWorkspace adapter", () => {
     expect(screen.queryByText("识别调试内容")).not.toBeInTheDocument();
     expect(fetchXxm).toHaveBeenCalledTimes(1);
     expect(fetchXxm).toHaveBeenCalledWith(expect.objectContaining({ startDate: tradeDate, endDate: tradeDate, limit: 1 }), expect.any(AbortSignal));
+  });
+
+  it("merges the first and historical nine-turn markers before changing their drawing visibility", () => {
+    const kline = makeKline();
+    const olderBar = { ...kline.bars[0]!, tradeDate: "2023-01-11" };
+    const firstBar = { ...kline.bars[1]!, tradeDate: "2023-01-12" };
+    const marker = (tradeDate: string, sequenceNumber: 2 | 3) =>
+      ({ tradeDate, tradeTime: null, sequenceNumber, direction: "UP" as const, completed: false });
+    const viewModel = buildIndexDetailViewModel(makePageInit(), { ...kline, bars: [firstBar] });
+    const candles = buildIndexDetailViewModel(makePageInit(), { ...kline, bars: [olderBar, firstBar] }).chart.candles;
+    const history = {
+      active: true, phase: "idle" as const, error: undefined, onViewport: vi.fn(), retryLayer: vi.fn(),
+      visible: { candles, failedLayers: [], trendPoints: [], nineTurnMarkers: [marker("2023-01-11", 2)] },
+    };
+    const props = {
+      viewModel, history, indicatorControls: defaultIndicatorControls, recognitionEnabled: false,
+      trend: null, trendPhase: "unavailable" as const, onNineTurnRetry: vi.fn(),
+      nineTurnLayer: { ...idleNineTurnLayer("day"), phase: "READY" as const, markers: [marker("2023-01-12", 3)] },
+    };
+    const setMarkers = vi.spyOn(NineTurnMarkerPrimitive.prototype, "setMarkers");
+    const setVisible = vi.spyOn(NineTurnMarkerPrimitive.prototype, "setVisible");
+    try {
+      const rendered = render(<IndexChartWorkspace {...props} nineTurnControl={nineTurnControl} />);
+      const original = latestProps();
+      expect(setMarkers.mock.lastCall?.[0].map(item => [item.time, item.sequenceNumber]))
+        .toEqual([["2023-01-11", 2], ["2023-01-12", 3]]);
+      setMarkers.mockClear();
+      setVisible.mockClear();
+      rendered.rerender(<IndexChartWorkspace {...props} nineTurnControl={{ ...nineTurnControl, visible: false }} />);
+      rendered.rerender(<IndexChartWorkspace {...props} nineTurnControl={nineTurnControl} />);
+      expect(setVisible.mock.calls).toEqual([[false], [true]]);
+      expect(setVisible.mock.contexts).toEqual([original.mainPrimitives?.[0], original.mainPrimitives?.[0]]);
+      expect(latestProps().mainPrimitives).toBe(original.mainPrimitives);
+      expect(setMarkers).not.toHaveBeenCalled();
+      expect(history.onViewport).not.toHaveBeenCalled();
+    } finally {
+      setVisible.mockRestore();
+      setMarkers.mockRestore();
+    }
   });
 });
 

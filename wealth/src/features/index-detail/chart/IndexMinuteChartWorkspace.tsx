@@ -4,6 +4,8 @@ import { QUANTITATIVE_STRUCTURE_TITLE, XxmLayerStatus } from "../xxm/XxmLayerUi"
 import type { UTCTimestamp } from "lightweight-charts";
 
 import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
+import type { NineTurnDisplayControl } from "../../nine-turn/controller/useNineTurnDisplayControl";
+import { NineTurnIndicatorToggle } from "../../nine-turn/ui/NineTurnIndicatorToggle";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import { NineTurnLayerStatus } from "../../nine-turn/ui/NineTurnLayerStatus";
 import { DetailChartIndicatorToggles } from "../../../shared/charts/detail-workspace/DetailChartIndicatorToggle";
@@ -31,16 +33,17 @@ interface IndexMinuteChartWorkspaceProps extends IndexMinuteSeriesState {
   recognitionEnabled: boolean;
   SignalLayer?: ComponentType<XxmLayerProps>;
   showAlignmentDiagnostics?: boolean;
+  nineTurnControl: NineTurnDisplayControl;
   nineTurnLayer: NineTurnLayerViewModel;
   onNineTurnRetry: () => void;
   onRetry: () => void;
 }
 
-export function IndexMinuteChartWorkspace({ data, errorMessage, indicatorControls, nineTurnLayer, onNineTurnRetry, onRetry, phase, recognitionEnabled, SignalLayer = IndexXxmLayer, showAlignmentDiagnostics = false }: IndexMinuteChartWorkspaceProps) {
+export function IndexMinuteChartWorkspace({ data, errorMessage, indicatorControls, nineTurnControl, nineTurnLayer, onNineTurnRetry, onRetry, phase, recognitionEnabled, SignalLayer = IndexXxmLayer, showAlignmentDiagnostics = false }: IndexMinuteChartWorkspaceProps) {
   if (!data || data.points.length === 0) {
     return <IndexMinuteModuleState errorMessage={errorMessage} onRetry={onRetry} phase={phase} />;
   }
-  return <LoadedIndexMinuteChart recognitionEnabled={recognitionEnabled} SignalLayer={SignalLayer} showAlignmentDiagnostics={showAlignmentDiagnostics} data={data} indicatorControls={indicatorControls} message={errorMessage} nineTurnLayer={nineTurnLayer} onNineTurnRetry={onNineTurnRetry} phase={phase} />;
+  return <LoadedIndexMinuteChart recognitionEnabled={recognitionEnabled} SignalLayer={SignalLayer} showAlignmentDiagnostics={showAlignmentDiagnostics} data={data} indicatorControls={indicatorControls} message={errorMessage} nineTurnControl={nineTurnControl} nineTurnLayer={nineTurnLayer} onNineTurnRetry={onNineTurnRetry} phase={phase} />;
 }
 
 function LoadedIndexMinuteChart({
@@ -50,6 +53,7 @@ function LoadedIndexMinuteChart({
   data,
   indicatorControls,
   message,
+  nineTurnControl,
   nineTurnLayer,
   onNineTurnRetry,
   phase,
@@ -60,6 +64,7 @@ function LoadedIndexMinuteChart({
   data: IndexMinuteChartViewModel;
   indicatorControls: DetailChartIndicatorControls;
   message: string;
+  nineTurnControl: NineTurnDisplayControl;
   nineTurnLayer: NineTurnLayerViewModel;
   onNineTurnRetry: () => void;
   phase: IndexMinuteSeriesState["phase"];
@@ -70,14 +75,16 @@ function LoadedIndexMinuteChart({
   const dataKey = `index:${data.tsCode}:m${data.freq}`;
   const structureVisible = indicatorControls.quantitativeStructureAvailable
     && !indicatorControls.hiddenIndicatorPanels.has("quantitativeStructure");
-  const nineTurnChartLayer = useNineTurnChartLayer({ dataKey, layer: nineTurnLayer, points, timeMode: "minute" });
+  const nineTurnChartLayer = useNineTurnChartLayer({
+    dataKey, layer: nineTurnLayer, points, timeMode: "minute", visible: nineTurnControl.visible,
+  });
 
   return (
     <SignalLayer tsCode={data.tsCode} period={`m${data.freq}`} points={points}
         indicatorVersion={data.indicatorVersion} indicatorsPending={phase === "loading"} enabled={recognitionEnabled}>
       {xxm => <DetailChartWorkspace
       ariaLabel="指数分钟图表区"
-      bottomBar={<IndexMinuteIndicatorBar indicatorControls={indicatorControls} message={message} overlay={overlay} phase={phase} setOverlay={setOverlay} />}
+      bottomBar={<IndexMinuteIndicatorBar indicatorControls={indicatorControls} message={message} nineTurnControl={nineTurnControl} overlay={overlay} phase={phase} setOverlay={setOverlay} />}
       bottomBarAriaLabel="指数分钟指标栏"
       dataKey={dataKey}
       hiddenIndicatorPanels={indicatorControls.hiddenIndicatorPanels}
@@ -193,18 +200,21 @@ function IndexMinutePanelHeader({
 function IndexMinuteIndicatorBar({
   indicatorControls,
   message,
+  nineTurnControl,
   overlay,
   phase,
   setOverlay,
 }: {
   indicatorControls: DetailChartIndicatorControls;
   message: string;
+  nineTurnControl: NineTurnDisplayControl;
   overlay: Exclude<IndexMainOverlay, "TREND_CHANNEL">;
   phase: IndexMinuteSeriesState["phase"];
   setOverlay: (overlay: Exclude<IndexMainOverlay, "TREND_CHANNEL">) => void;
 }) {
   return <div className="detail-chart-indicator-tabs">
     <DetailChartIndicatorToggles indicatorControls={indicatorControls} />
+    <NineTurnIndicatorToggle control={nineTurnControl} />
     <button className={`detail-chart-indicator-tab ${overlay === "MA" ? "active" : ""}`} type="button" onClick={() => setOverlay("MA")}>均线</button>
     <button className={`detail-chart-indicator-tab ${overlay === "BOLL" ? "active" : ""}`} type="button" onClick={() => setOverlay("BOLL")}>BOLL</button>
     {phase === "delayed" || phase === "partial" ? <span className="index-minute-status-message">{message}</span> : null}

@@ -2,7 +2,9 @@ import { useMemo } from "react";
 import type { UTCTimestamp } from "lightweight-charts";
 
 import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
+import type { NineTurnDisplayControl } from "../../nine-turn/controller/useNineTurnDisplayControl";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
+import { NineTurnIndicatorToggle } from "../../nine-turn/ui/NineTurnIndicatorToggle";
 import { NineTurnLayerStatus } from "../../nine-turn/ui/NineTurnLayerStatus";
 import { DetailChartIndicatorToggles } from "../../../shared/charts/detail-workspace/DetailChartIndicatorToggle";
 import { DetailChartWorkspace } from "../../../shared/charts/detail-workspace/DetailChartWorkspace";
@@ -22,6 +24,7 @@ interface StockMinuteChartWorkspaceProps {
   indicatorControls: DetailChartIndicatorControls;
   loadState: "idle" | "loading" | "ready" | "error";
   errorMessage?: string;
+  nineTurnControl: NineTurnDisplayControl;
   nineTurnLayer: NineTurnLayerViewModel;
   onNineTurnRetry: () => void;
 }
@@ -33,6 +36,7 @@ export function StockMinuteChartWorkspace({
   indicatorControls,
   loadState,
   errorMessage,
+  nineTurnControl,
   nineTurnLayer,
   onNineTurnRetry,
 }: StockMinuteChartWorkspaceProps) {
@@ -45,6 +49,7 @@ export function StockMinuteChartWorkspace({
     layer: nineTurnLayer,
     points,
     timeMode: "minute",
+    visible: nineTurnControl.visible,
   });
 
   if (!data || data.points.length === 0) {
@@ -64,6 +69,7 @@ export function StockMinuteChartWorkspace({
       bottomBar={(
         <div className="detail-chart-indicator-tabs">
           <DetailChartIndicatorToggles indicatorControls={indicatorControls} quantitativeStructureMode="placeholder" />
+          <NineTurnIndicatorToggle control={nineTurnControl} />
         </div>
       )}
       bottomBarAriaLabel="股票分钟指标栏"

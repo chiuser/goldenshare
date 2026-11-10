@@ -4,6 +4,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import type { IndexDetailWeightsResponseDto } from "../../features/index-detail/api/indexDetailApiTypes";
 import { makeOrdinaryKline, makePageInit, makeTrendPayload } from "../../features/index-detail/testing/indexDetailTestFixtures";
 import * as forecastHook from "../../features/index-detail/xxm-forecast/useXxmForecast";
+import type { NineTurnDisplayControl } from "../../features/nine-turn/controller/useNineTurnDisplayControl";
+import { NineTurnIndicatorToggle } from "../../features/nine-turn/ui/NineTurnIndicatorToggle";
 import { DetailChartIndicatorToggles } from "../../shared/charts/detail-workspace/DetailChartIndicatorToggle";
 import type { DetailChartIndicatorControls } from "../../shared/charts/detail-workspace/detailChartTypes";
 import { IndexDetailPage } from "./IndexDetailPage";
@@ -12,7 +14,8 @@ import { IndexDetailDebugPage } from "./IndexDetailDebugPage";
 const p4View = vi.hoisted(() => ({ recognitionEnabled: false }));
 
 vi.mock("../../features/index-detail/chart/IndexChartWorkspace", () => ({
-  IndexChartWorkspace: ({ nineTurnLayer, recognitionEnabled, indicatorControls }: {
+  IndexChartWorkspace: ({ nineTurnControl, nineTurnLayer, recognitionEnabled, indicatorControls }: {
+    nineTurnControl: NineTurnDisplayControl;
     nineTurnLayer: { phase: string };
     recognitionEnabled: boolean;
     indicatorControls: DetailChartIndicatorControls;
@@ -20,21 +23,26 @@ vi.mock("../../features/index-detail/chart/IndexChartWorkspace", () => ({
     p4View.recognitionEnabled = recognitionEnabled;
     return <div aria-label="指数日线图表区" data-nine-turn-phase={nineTurnLayer.phase}>
       <DetailChartIndicatorToggles indicatorControls={indicatorControls} />
+      <NineTurnIndicatorToggle control={nineTurnControl} />
     </div>;
   },
 }));
 
 vi.mock("../../features/index-detail/chart/IndexMinuteChartWorkspace", () => ({
-  IndexMinuteChartWorkspace: ({ data, errorMessage, indicatorControls, nineTurnLayer, phase }: {
+  IndexMinuteChartWorkspace: ({ data, errorMessage, indicatorControls, nineTurnControl, nineTurnLayer, phase }: {
     data: { freq: number } | null;
     errorMessage: string;
     indicatorControls: DetailChartIndicatorControls;
+    nineTurnControl: NineTurnDisplayControl;
     nineTurnLayer: { phase: string };
     phase: string;
   }) => (
     <div aria-label="指数分钟图表区" data-freq={data?.freq ?? ""} data-nine-turn-phase={nineTurnLayer.phase} data-phase={phase}>
       {errorMessage}
-      {data && <DetailChartIndicatorToggles indicatorControls={indicatorControls} />}
+      {data && <>
+        <DetailChartIndicatorToggles indicatorControls={indicatorControls} />
+        <NineTurnIndicatorToggle control={nineTurnControl} />
+      </>}
     </div>
   ),
 }));
@@ -170,6 +178,7 @@ describe("IndexDetailPage", () => {
     for (const name of ["VOL", "MACD", "KDJ"]) {
       expect(within(dailyChart).getByRole("button", { name, pressed: true })).toHaveClass("active");
     }
+    fireEvent.click(within(dailyChart).getByRole("button", { name: "九转序列", pressed: true }));
     fireEvent.click(within(dailyChart).getByRole("button", { name: "KDJ", pressed: true }));
     fireEvent.click(screen.getByRole("button", { name: "5分" }));
     const minuteChart = await screen.findByLabelText("指数分钟图表区");
@@ -178,6 +187,7 @@ describe("IndexDetailPage", () => {
     expect(minuteChart).toHaveAttribute("data-freq", "5");
     expect(screen.getByLabelText("IndexHeader")).toHaveTextContent("3940.04");
     expect(within(minuteChart).getByRole("button", { name: "KDJ", pressed: false })).not.toHaveClass("active");
+    expect(within(minuteChart).getByRole("button", { name: "九转序列", pressed: false })).toBeEnabled();
     const requestCount = fetchMock.mock.calls.length;
     fireEvent.click(within(minuteChart).getByRole("button", { name: "VOL", pressed: true }));
     fireEvent.click(within(minuteChart).getByRole("button", { name: "MACD", pressed: true }));
@@ -191,6 +201,7 @@ describe("IndexDetailPage", () => {
     expect(within(otherMinuteChart).getByRole("button", { name: "VOL", pressed: false })).toBeInTheDocument();
     expect(within(otherMinuteChart).getByRole("button", { name: "KDJ", pressed: false })).toBeInTheDocument();
     expect(within(otherMinuteChart).getByRole("button", { name: "MACD", pressed: true })).toBeInTheDocument();
+    expect(within(otherMinuteChart).getByRole("button", { name: "九转序列", pressed: false })).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: "日K" }));
     expect(within(screen.getByLabelText("指数日线图表区")).getByRole("button", { name: "KDJ", pressed: false })).toBeInTheDocument();
@@ -214,6 +225,7 @@ describe("IndexDetailPage", () => {
     const requestCount = fetchMock.mock.calls.length;
     const structure = chart.getByRole("button", { name: "量化结构", pressed: false });
     const kdj = chart.getByRole("button", { name: "KDJ", pressed: true });
+    const nineTurn = chart.getByRole("button", { name: "九转序列", pressed: true });
     const limitMessage = "最多展示3个技术指标，请取消一个后再打开";
     vi.useFakeTimers();
     try {
@@ -224,6 +236,16 @@ describe("IndexDetailPage", () => {
       fireEvent.click(kdj);
       fireEvent.click(structure);
       expect(structure).toHaveAttribute("aria-pressed", "true");
+      expect(nineTurn).toHaveAttribute("aria-pressed", "true");
+      fireEvent.click(nineTurn);
+      expect(nineTurn).toHaveAttribute("aria-pressed", "false");
+      expect(structure).toHaveAttribute("aria-pressed", "true");
+      fireEvent.click(structure);
+      expect(nineTurn).toHaveAttribute("aria-pressed", "false");
+      fireEvent.click(structure);
+      fireEvent.click(nineTurn);
+      expect(structure).toHaveAttribute("aria-pressed", "true");
+      expect(nineTurn).toHaveAttribute("aria-pressed", "true");
       act(() => vi.advanceTimersByTime(1000));
       fireEvent.click(kdj);
       expect(kdj).toHaveAttribute("aria-pressed", "false");
@@ -282,7 +304,7 @@ describe("IndexDetailPage", () => {
     const { rerender } = render(<IndexDetailPage search="" tsCode="000001.SH" />);
     const expectAllOn = () => {
       const chart = within(screen.getByLabelText("指数日线图表区"));
-      for (const name of ["VOL", "MACD", "KDJ"]) {
+      for (const name of ["VOL", "MACD", "KDJ", "九转序列"]) {
         expect(chart.getByRole("button", { name, pressed: true })).toHaveClass("active");
       }
     };
@@ -290,6 +312,7 @@ describe("IndexDetailPage", () => {
     expect(await screen.findByText("上证指数 000001.SH")).toBeInTheDocument();
     expectAllOn();
     fireEvent.click(screen.getByRole("button", { name: "KDJ", pressed: true }));
+    fireEvent.click(screen.getByRole("button", { name: "九转序列", pressed: true }));
     rerender(<IndexDetailPage search="" tsCode="399001.SZ" />);
     expect(await screen.findByText("深证成指 399001.SZ")).toBeInTheDocument();
     expectAllOn();
@@ -313,9 +336,11 @@ describe("IndexDetailPage", () => {
     render(<IndexDetailPage search="" tsCode="000001.SH" />);
 
     await screen.findByLabelText("指数日线图表区");
+    fireEvent.click(screen.getByRole("button", { name: "九转序列", pressed: true }));
     fireEvent.click(screen.getByRole("button", { name: "1分" }));
     await waitFor(() => expect(screen.getByLabelText("指数分钟图表区")).toHaveAttribute("data-phase", "ready"));
     expect(screen.getByLabelText("指数分钟图表区")).toHaveAttribute("data-nine-turn-phase", "UNSUPPORTED");
+    expect(screen.getByRole("button", { name: "九转序列", pressed: false })).toBeDisabled();
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/minute-nine-turn"))).toHaveLength(0);
 
     fireEvent.click(screen.getByRole("tab", { name: "技术面" }));
@@ -331,6 +356,27 @@ describe("IndexDetailPage", () => {
     const dailyNineTurn = fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/nine-turn"));
     expect(dailyNineTurn).toHaveLength(1);
     expect(new URL(String(dailyNineTurn[0]?.[0])).searchParams.get("limit")).toBe("500");
+    fireEvent.click(screen.getByRole("button", { name: "日K" }));
+    expect(screen.getByRole("button", { name: "九转序列", pressed: false })).toBeEnabled();
+  });
+
+  it("keeps a pending nine-turn result and restores it without a new request", async () => {
+    let resolveNineTurn!: (value: Response) => void;
+    const pending = new Promise<Response>(resolve => { resolveNineTurn = resolve; });
+    const fetchMock = mockFetch("000001.SH", { nineTurn: () => pending });
+    render(<IndexDetailPage search="" tsCode="000001.SH" />);
+    const chart = await screen.findByLabelText("指数日线图表区");
+    await waitFor(() => expect(chart).toHaveAttribute("data-nine-turn-phase", "LOADING"));
+    const nineTurn = within(chart).getByRole("button", { name: "九转序列", pressed: true });
+    fireEvent.click(nineTurn);
+    resolveNineTurn(response(makeIndexNineTurnResponse("000001.SH", "day")));
+    await waitFor(() => expect(chart).toHaveAttribute("data-nine-turn-phase", "READY"));
+    expect(nineTurn).toHaveAttribute("aria-pressed", "false");
+    const count = fetchMock.mock.calls.length;
+    fireEvent.click(nineTurn);
+    expect(nineTurn).toHaveAttribute("aria-pressed", "true");
+    expect(fetchMock).toHaveBeenCalledTimes(count);
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/index-detail/nine-turn"))).toHaveLength(1);
   });
 
   it("keeps the index chart when nine-turn fails and retries only the failed layer", async () => {
@@ -344,6 +390,10 @@ describe("IndexDetailPage", () => {
 
     const chart = await screen.findByLabelText("指数日线图表区");
     await waitFor(() => expect(chart).toHaveAttribute("data-nine-turn-phase", "ERROR"));
+    const count = fetchMock.mock.calls.length;
+    fireEvent.click(within(chart).getByRole("button", { name: "九转序列", pressed: true }));
+    expect(chart).toHaveAttribute("data-nine-turn-phase", "ERROR");
+    expect(fetchMock).toHaveBeenCalledTimes(count);
     expect(fetchMock.mock.calls.filter(([input]) => String(input).includes("/index-detail/kline"))).toHaveLength(1);
     fireEvent.click(screen.getByRole("tab", { name: "技术面" }));
     fireEvent.click(await screen.findByRole("button", { name: "重试日线九转" }));

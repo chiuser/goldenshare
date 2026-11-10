@@ -5,6 +5,8 @@ import { IndexXxmLayer, type XxmLayerProps } from "../xxm/IndexXxmLayer";
 import { QUANTITATIVE_STRUCTURE_TITLE, XxmLayerStatus } from "../xxm/XxmLayerUi";
 
 import { useNineTurnChartLayer } from "../../nine-turn/controller/useNineTurnChartLayer";
+import type { NineTurnDisplayControl } from "../../nine-turn/controller/useNineTurnDisplayControl";
+import { NineTurnIndicatorToggle } from "../../nine-turn/ui/NineTurnIndicatorToggle";
 import type { ISeriesPrimitive, Time } from "lightweight-charts";
 import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import { NineTurnLayerStatus } from "../../nine-turn/ui/NineTurnLayerStatus";
@@ -48,6 +50,7 @@ function EmptyChartAddon({ children }: IndexChartAddonProps) { return children({
 
 interface IndexChartWorkspaceProps {
   indicatorControls: DetailChartIndicatorControls;
+  nineTurnControl: NineTurnDisplayControl;
   nineTurnLayer: NineTurnLayerViewModel;
   onNineTurnRetry: () => void;
   trend: TrendChannelViewModel | null;
@@ -62,6 +65,7 @@ interface IndexChartWorkspaceProps {
 
 export function IndexChartWorkspace({
   indicatorControls,
+  nineTurnControl,
   nineTurnLayer: ordinaryNineTurn,
   onNineTurnRetry: ordinaryNineTurnRetry,
   trend: ordinaryTrend,
@@ -105,7 +109,9 @@ export function IndexChartWorkspace({
   const dataKey = activeHistory ? `index:${ownerKey}` : `index:${viewModel.identity.tsCode}:day`;
   const structureVisible = indicatorControls.quantitativeStructureAvailable
     && !indicatorControls.hiddenIndicatorPanels.has("quantitativeStructure");
-  const nineTurnChartLayer = useNineTurnChartLayer({ dataKey, layer: nineTurnLayer, points, timeMode: "daily" });
+  const nineTurnChartLayer = useNineTurnChartLayer({
+    dataKey, layer: nineTurnLayer, points, timeMode: "daily", visible: nineTurnControl.visible,
+  });
   const trendByTime = useMemo(() => new Map((trend?.points ?? []).map((point) => [point.time, point])), [trend]);
   const mainLines = useMemo(() => overlay === "MA" ? buildMaLines() : overlay === "BOLL" ? buildBollLines() : [], [overlay]);
   const ordinaryTrendPrimitive = useMemo(() => new TrendChannelPanePrimitive([]), [dataKey]);
@@ -124,7 +130,7 @@ export function IndexChartWorkspace({
     <DetailChartWorkspace
       ariaLabel="指数日线图表区"
       bottomBar={<div className={addon.controls ? "daily-wave-bottom-bar" : undefined}>
-        <IndexIndicatorBar indicatorControls={indicatorControls} overlay={overlay} setOverlay={setOverlay} supportsTrend={supportsTrend && (trendPhase === "ready")} />
+        <IndexIndicatorBar indicatorControls={indicatorControls} nineTurnControl={nineTurnControl} overlay={overlay} setOverlay={setOverlay} supportsTrend={supportsTrend && (trendPhase === "ready")} />
         {addon.controls}
       </div>}
       bottomBarAriaLabel="指数指标栏"
@@ -253,8 +259,9 @@ function IndexPanelHeader({ panel, point }: (
   })}<button className="detail-chart-gear" disabled title="指标设置暂未开通" type="button">⚙</button></>;
 }
 
-function IndexIndicatorBar({ indicatorControls, overlay, setOverlay, supportsTrend }: {
+function IndexIndicatorBar({ indicatorControls, nineTurnControl, overlay, setOverlay, supportsTrend }: {
   indicatorControls: DetailChartIndicatorControls;
+  nineTurnControl: NineTurnDisplayControl;
   overlay: IndexMainOverlay;
   setOverlay: (overlay: IndexMainOverlay) => void;
   supportsTrend: boolean;
@@ -266,6 +273,7 @@ function IndexIndicatorBar({ indicatorControls, overlay, setOverlay, supportsTre
     <DetailChartIndicatorToggle panel="kdj" indicatorControls={indicatorControls} />
     <DetailChartIndicatorToggle panel="quantitativeStructure" indicatorControls={indicatorControls}
       mode={indicatorControls.quantitativeStructureAvailable ? "available" : "disabled"} />
+    <NineTurnIndicatorToggle control={nineTurnControl} />
     <button className={`detail-chart-indicator-tab ${overlay === "MA" ? "active" : ""}`} type="button" onClick={() => setOverlay("MA")}>均线</button>
     <button className={`detail-chart-indicator-tab ${overlay === "BOLL" ? "active" : ""}`} type="button" onClick={() => setOverlay("BOLL")}>BOLL</button>
     {supportsTrend ? <button className={`detail-chart-indicator-tab ${overlay === "TREND_CHANNEL" ? "active" : ""}`} type="button" onClick={() => setOverlay("TREND_CHANNEL")}>趋势通道</button> : null}

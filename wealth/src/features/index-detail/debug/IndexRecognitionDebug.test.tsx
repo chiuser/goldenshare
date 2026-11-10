@@ -9,6 +9,8 @@ import { IndexRecognitionDebug } from "./IndexRecognitionDebug";
 import { IndexChartWorkspace } from "../chart/IndexChartWorkspace";
 import { useIndexDetailController } from "../controller/useIndexDetailController";
 import { idleNineTurnLayer } from "../../nine-turn/model/nineTurnAdapter";
+import { useNineTurnDisplayControl } from "../../nine-turn/controller/useNineTurnDisplayControl";
+import type { NineTurnLayerViewModel } from "../../nine-turn/model/nineTurnTypes";
 import { fetchDebugKline, fetchDebugPageInit } from "./apiClient";
 import { toCandlePoint } from "../api/indexDetailViewModelAdapter";
 
@@ -25,9 +27,17 @@ vi.mock("../../../shared/charts/detail-workspace/DetailChartWorkspace", () => ({
 }));
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); chart.props = null; });
 
+const debugTradeDate = makeOrdinaryKline().bars.at(-1)!.tradeDate;
+const debugNineTurnLayer: NineTurnLayerViewModel = {
+  ...idleNineTurnLayer("day"),
+  phase: "READY",
+  markers: [{ tradeDate: debugTradeDate, tradeTime: null, direction: "UP", sequenceNumber: 3, completed: false }],
+};
+
 function Harness({ withHistory = false }: { withHistory?: boolean }) {
   const controller = useIndexDetailController("000001.SH", undefined, true, fetchDebugPageInit, fetchDebugKline);
   const indicatorControls = useDetailChartIndicatorControls("000001.SH");
+  const nineTurnControl = useNineTurnDisplayControl("000001.SH", true);
   if (!controller.viewModel) return null;
   const history = withHistory ? {
     ...controller.history, active: true, visible: {
@@ -36,7 +46,7 @@ function Harness({ withHistory = false }: { withHistory?: boolean }) {
     },
   } : { ...controller.history, active: true };
   return <IndexChartWorkspace recognitionEnabled={false} MainChartAddon={IndexRecognitionDebug}
-    indicatorControls={indicatorControls} nineTurnLayer={idleNineTurnLayer("day")} onNineTurnRetry={() => {}}
+    indicatorControls={indicatorControls} nineTurnControl={nineTurnControl} nineTurnLayer={debugNineTurnLayer} onNineTurnRetry={() => {}}
     trend={controller.trend} trendPhase={controller.trendPhase} viewModel={controller.viewModel} history={history} />;
 }
 
@@ -64,6 +74,14 @@ it("opens the wave with one request and overlays only dates loaded in the existi
   expect(fetcher.mock.calls.slice(requestCount).map(([url]) => new URL(String(url)).pathname))
     .toEqual(["/api/v1/wealth/market/index-detail/debug/daily-waves"]);
   expect(drawing.mock.lastCall?.[0].markers).toEqual([]);
+  expect(drawing.mock.lastCall?.[0].nineTurnMarkers).toEqual([
+    expect.objectContaining({ time: debugTradeDate, sequenceNumber: 3 }),
+  ]);
+  const waveInput = drawing.mock.lastCall?.[0];
+  fireEvent.click(screen.getByRole("button", { name: "九转序列", pressed: true }));
+  expect(screen.getByRole("button", { name: "九转序列", pressed: false })).toBeEnabled();
+  expect(drawing.mock.lastCall?.[0]).toBe(waveInput);
+  expect(fetcher.mock.calls).toHaveLength(requestCount + 1);
 
   rerender(<Harness withHistory />);
   await waitFor(() => expect(drawing.mock.lastCall?.[0].markers.length).toBeGreaterThan(0));

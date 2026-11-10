@@ -16,6 +16,8 @@
 > 正式设计：[Goldenshare Web](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?m=dev)
 
 > 2026-10-30 补充状态：历史 M0～M6 验收保持。本次主要指数九转跨日日期判断修复已提交 `dc051b657` 并正式加载；2026-10-29 日线 Gold→Prod 已由原 sensor 自动补齐，各 11 行，原检查、Prod 内容读回及单日最终计数通过。开发 99 项隔离测试与正式执行分别见第 6.5.10、6.5.11 节；不重刷历史、不执行分钟补数。
+>
+> 2026-11-10 补充需求：[第 23 节](#nine-turn-display-toggle-lld)的图表「九转序列」开关已实现，开发验证见[第 23.8 节](#nine-turn-display-toggle-implementation)。
 
 ---
 
@@ -2033,3 +2035,137 @@ D6-2 与 D6-3 正式执行结果如下：
 | v1.44 | 2026-10-30 | 按原 LLD 完成共用 sensor 日期修正和测试，登记旧代码两例失败、修复后四文件 99 项隔离通过、真实日历/窗口/保护条件对账及测试隔离要求；未正式加载或补数 | Codex |
 | v1.45 | 2026-10-30 | 按明确批准提交、正式预检和reload，原sensor完成29日Gold→Prod自动链，两项11行、原绑定检查与内容读回、最终计数通过；记录只读验收入口、原writer候选清理事实及独立复核，保留其他日期和sensor状态 | Codex |
 | v1.46 | 2026-10-30 | 收尾完成：14份审计/测试证据原样归档并逐份校验，删除对应临时副本；同步证据引用，清除实现对账遗留待执行文字，保留正式结果及其他工作区改动 | Codex |
+| v1.47 | 2026-11-10 | 增加「九转序列」开关 LLD，明确页面状态、四处标签接线、已有图层的绘制开关及测试门禁 | Codex |
+| v1.48 | 2026-11-10 | 按第 23 节完成前端接线与绘制，记录 1,605 项前端测试、33 项接口回归和真实行情浏览器证据 | Codex |
+
+<a id="nine-turn-display-toggle-lld"></a>
+
+## 23. 图表「九转序列」开关
+
+### 23.1 依据与改动范围
+
+按[九转接入方案第 18 节](./detail-page-nine-turn-integration-implementation-design-v1.md#nine-turn-display-toggle)和 [Figma 交互评审](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2205-15697)，给股票与指数的日线、分钟线加入「九转序列」开关。量化结构标签已经在这四个入口实现，继续使用[现有副图规则](./detail-chart-indicator-panel-visibility-implementation-design-v1.md#quantitative-structure-plan)。指数原型预先收起 KDJ 用于演示，实际页面的三个默认副图仍是 VOL、MACD、KDJ。
+
+用 `codegraph_explore` 核对两个页面、四个图表、共享标签和九转绘制，再从源码核对图表的创建条件、历史标记合并和核验波段对标记的使用。当前已有九转取数、时间对应和绘制，缺的是显示选择。只修改 `wealth/src` 下的显示状态、按钮、绘制及相关测试。既有 API、权限、数据来源、参数、请求时机、缓存和错误处理沿用原链路。
+
+### 23.2 页面状态与能力
+
+源码路径均相对 `wealth/src/`。
+
+| 位置 | 编码说明 |
+| --- | --- |
+| `features/nine-turn/controller/useNineTurnDisplayControl.ts`（新增） | `useNineTurnDisplayControl(tsCode, available)` 返回必传给图表的 `NineTurnDisplayControl`。类型定义放在同文件，字段为 `available: boolean`、`visible: boolean`、`onToggle: () => void`。 |
+| `pages/stock-detail/StockDetailPage.tsx` | 用现有 `activeNineTurnPeriod`、`isStockNineTurnPeriod`、`activePageInit.capabilities.supportsNineTurn` 和 `nineTurnPeriods` 算可用性。条件是周期非空、通过现有股票周期判断、能力为真且周期在能力列表中。以现有 `tsCode` 调用 hook。 |
+| `pages/index-detail/IndexDetailPageView.tsx` | 用现有 `activeNineTurnPeriod` 和当前 `viewModel.capabilities`。周期非空、能力为真且周期在 `nineTurnPeriods` 中时可用。以 `normalizedTsCode` 调用 hook。普通页和核验页都经过这个图表页面，保持各自原有请求。 |
+
+1. 两个页面各调用一次 hook，放在日线和分钟分支、提前返回之外。向两种图表传同一个 `nineTurnControl`。能力尚未取得时按不可用处理。股票 5 分钟和指数 1 分钟为禁用例子，开通九转的指数 5 分钟仍可用，即使该周期量化结构不可用。
+2. hook 的 `useState` 只存 `{ tsCode, selected: true }`。参照 `useDetailChartIndicatorControls`，标的变化时在本组件内重置为新标的和 `true`。当次显示按新标的默认值派生，A → B → A 时 A 也恢复默认。刷新由初始状态恢复。只用标的判定重置，周期、日期、加载状态和暂时不可用均保留选择。
+3. `visible = available && selected`。可用按钮点击用函数式更新反转 `selected`。不可用按钮为原生禁用且无点击处理，切到不可用周期时只改变派生的 `visible`，回到可用周期恢复原选择。正在请求、无标记、权限提示或请求失败继续由原九转状态处理，可用性只读能力和周期。
+4. 九转的选择独立于 `DetailChartIndicatorControls`。保留 `DetailChartIndicatorPanelKey`、`hiddenIndicatorPanels` 和 `MAX_VISIBLE_INDICATORS` 原样。图表挂载与请求依赖沿用原来的标的、日期和周期。
+
+### 23.3 四个标签入口
+
+在 `features/nine-turn/ui/NineTurnIndicatorToggle.tsx` 增加唯一的九转按钮组件，接收 `control: NineTurnDisplayControl`。按钮固定写「九转序列」，使用 `type="button"`、`aria-pressed={control.visible}`、`disabled={!control.available}`。样式复用 `detail-chart-indicator-tab`，选中附加 `active`，禁用附加 `unsupported`。可用时 `onClick` 绑定 `control.onToggle`，禁用时省略。沿用浏览器对原生按钮的键盘操作。
+
+| 图表适配文件 | 加标签的位置 |
+| --- | --- |
+| `features/stock-detail/chart/StockChartWorkspace.tsx` | `StockIndicatorBar` 遍历到 KDJ 时，沿用当前量化结构占位，紧接它渲染九转按钮。沿用其余 `indicatorTabs` 和趋势通道顺序。 |
+| `features/stock-detail/chart/StockMinuteChartWorkspace.tsx` | 现有 `bottomBar` 的 `DetailChartIndicatorToggles` 之后追加九转按钮。量化结构继续用 `placeholder`。 |
+| `features/index-detail/chart/IndexChartWorkspace.tsx` | `IndexIndicatorBar` 内紧接量化结构，放在均线前。原成交额、BOLL、趋势通道、外层核验控件继续原样。 |
+| `features/index-detail/chart/IndexMinuteChartWorkspace.tsx` | 从入口将 `nineTurnControl` 传到 `LoadedIndexMinuteChart` 和 `IndexMinuteIndicatorBar`。在 `DetailChartIndicatorToggles` 之后、均线前追加。已有错误或滞后说明位置保持原样。 |
+
+保留现有空图分支和底部标签栏的名称，新增标签只在已加载的图表里出现。沿用现有 CSS、底轴和图表布局。直接渲染四个适配组件的测试同步传必填参数，包括 `IndexRecognitionDebug.test.tsx`。页面测试若替换了图表组件，要用同一个九转按钮接回实际传入的状态和回调。
+
+### 23.4 只切换现有九转数字的绘制
+
+1. 四个适配组件现有的 `useNineTurnChartLayer` 调用都加必传的 `visible: nineTurnControl.visible`。日线和分钟沿用原 `dataKey`、`points` 和 `timeMode`。`buildNineTurnRenderMarkers` 继续由原标记与行情决定，显示选择不进入它的依赖。
+2. `shared/charts/detail-workspace/NineTurnMarkerPrimitive.ts` 增加默认值为 `true` 的私有 `visible` 字段和 `setVisible(visible: boolean): void`。只有值改变时更新字段，并按现有 `setMarkers` 的方式调用已挂接图表的 `requestUpdate()`。在 `draw` 开头把隐藏并入现有提前返回条件，隐藏时直接跳过坐标计算和画数字。标记数组、排序、方向、锚点、图层顺序和 `autoscaleInfo() = null` 均沿用原行为。
+3. `features/nine-turn/controller/useNineTurnChartLayer.ts` 只在原有条件下创建绘制对象，创建时立即按传入的 `visible` 设置它。之后由 `useLayoutEffect` 按 `[primitive, visible]` 同步显示，原 `setMarkers` 仍只处理数据更新。返回的 `mainPrimitives` 按原来的 `[primitive]` 保持引用，`markers` 和 `droppedMarkerCount` 继续返回原适配结果。隐藏期间正常到达的首批或历史标记照常更新，重新点亮即绘制当前全部已对齐的数字。
+4. `DetailChartWorkspace` 在没有历史续页的图表上会把 `mainPrimitives` 的引用变化当作重新创建图表的条件。保留同一绘制对象和列表，就能走已有的重绘请求，避免图表重建和浏览范围重设。共享工作区、历史回调、`dataKey`、其它图层、底轴与坐标逻辑沿用原实现。
+5. 指数日线仍先合并首批与已加载历史标记，再交给同一个绘制对象。它传给 `MainChartAddon` 的 `nineTurnMarkers` 继续是未过滤的适配结果。核验页的 `DailyWavePrimitive` 用这些位置避让九转数字，保留这份输入可使波段标记位置不随九转开关变化。继续保留 `NineTurnLayerStatus`、手工重试、指数右栏摘要、量化结构和下一根预判各自的现有输入。
+
+### 23.5 请求、开销与中断
+
+| 操作 | 边界与验收 |
+| --- | --- |
+| 首次进入、切周期、自然收到数据 | 复用原图表、九转、识别、右栏和历史加载。首批九转参数仍使用页面 `DAILY_CHART_PAGE_SIZE` 与分钟注册表上限，现行均为 500 根。数据到达可触发原标记适配与重绘。 |
+| 单次点击九转标签 | 新增 HTTP 请求、九转标记适配、图表创建和销毁、序列 `setData`、视口重置各为零。已挂接的九转绘制对象在一次有效状态变化中发一次 `requestUpdate()`。依据是 §23.4 保留输入和对象，仅变更可见字段。 |
+| 失败与手工重试 | 原局部错误、状态和重试按钮保留。点九转标签不触发重试。点原重试只重发对应九转请求，返回后按当前选择决定是否画出。 |
+| 中断后继续验收 | 可在当前页面继续未完成的操作。需要重开时，用同一标的、日期和视口恢复默认，增量开销最多是这次重开及重走目标周期原有加载流程。仅需复核历史场景时才加载现有一段续页。记录实际请求和结果，以已有成功证据作为已完成部分。 |
+
+### 23.6 编码顺序与验证
+
+1. 按 §23.2 和 §23.3 增加状态和四处按钮，同步更新直接调用方。先核对默认、禁用、位置和两个标签的独立选择。
+2. 按 §23.4 接上原绘制对象，验收隐藏期间到达的标记、指数日线的首批及历史、原有图表实例和浏览位置。
+3. 通过下列测试与真实页面验证后再交付。发现额外请求、图表重建、图层串动或标签裁剪时，按同一窗口复现并修正后复验。需要撤回时整体撤回这次前端改动。
+
+| 用例 | 落到现有测试文件及预期 |
+| --- | --- |
+| 标签与能力 | 在四个适配组件各自的 `*.test.tsx` 核对 KDJ、量化结构、九转的相邻顺序及 `aria-pressed`。股票 5 分钟九转置灰、量化结构仍是静默占位。指数 5 分钟九转可用且量化结构置灰。图表无数据时保留原状态页。 |
+| 页面选择与请求 | 在 `StockDetailPage.test.tsx`、`IndexDetailPage.test.tsx` 覆盖默认点亮、关闭后切到可用和不可用周期、回到原周期以及 A → B → A 恢复默认。等待已有请求结束后点亮或点灭，记录两次点击前后的请求次数，确认各路均无增量。另覆盖请求中关闭后响应到达、失败后点击标签不重试，原重试按钮仍可用。 |
+| 绘制与历史 | 在 `NineTurnMarkerPrimitive.test.ts` 复用现有画布替身和时间样本，断言显示时的数字和坐标、隐藏时无 `fillText`、恢复时原样绘制，且不参与纵轴缩放。在 `useNineTurnChartLayer.test.tsx` 断言只切换开关时绘制对象、列表与适配结果引用均不变，隐藏期间传入新标记后点亮绘制新数据。在 `IndexChartWorkspace.test.tsx` 用两个可人工核对的不同交易日分别作为首批与历史标记，断言两者都传给同一个绘制对象，切换只调用该对象的 `setVisible`。 |
+| 原图与其他指标 | 在现有真实图表组件测试的图表替身上至少覆盖一条不带历史续页的接线。切换前先改浏览范围，再核对同一画布宿主、`createChart`、`remove`、`setData` 和可见范围。指数页面测试沿用三栏提示，关 KDJ 后打开量化结构，分别切换两个开关。核验页回归 `IndexRecognitionDebug.test.tsx`，确认波段仍接收原九转位置。 |
+
+代码完成后运行仓库已有命令 `npm --prefix wealth run typecheck`、`npm --prefix wealth run test`、`npm --prefix wealth run build`。相关 API 合同回归沿用 `tests/web/test_wealth_stock_nine_turn_api.py`、`test_wealth_stock_minute_nine_turn_api.py`、`test_wealth_index_nine_turn_api.py` 和 `test_wealth_index_minute_nine_turn_api.py`。其中分钟接口测试含服务替身，真实读取以浏览器连接本机实际后端的结果为准。
+
+真实页面验收用本机现有服务。浏览器打开 `/wealth/market/stock/601878.SH` 和 `/wealth/market/index/000001.SH`，选已返回九转标记的交易日期，检查两页日线、30 分钟和 5 分钟。样本代码与视口沿用[副图 LLD 的本机验收基线](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#indicator-visibility-acceptance)。视口使用已有的 1600×1200 与 1360×1200 CSS px，检查新标签及原有按钮无新增裁剪，底轴和浏览范围一致。在上证日线加载已有历史后复核首批与历史标记一起显隐，在技术面同时检查摘要与预判。可用指数按实际默认状态先检查三栏提示，再按 Figma 操作切换两个标签。临时验收记录按仓库约定放在 `/private/tmp` 的任务目录。
+
+真实 API 的核对对象是页面实际加载的 `page-init` 中 `capabilities.supportsNineTurn/nineTurnPeriods`，以及日线 `nine-turn`、分钟 `minute-nine-turn` 的 `period`、`markers[].tradeDate/tradeTime/direction/sequenceNumber/completed`、`latestMarker` 与 `dataStatus.status/code/message`。先在回包和 K 线窗口内找一枚可见标记，按对应日期时间核对数字和方向，再用浏览器 Network 比较关闭前、关闭后、重新打开后的请求，记录可见起止、数字结果和控制台情况。实际回包与页面记录为交付证据。
+
+### 23.7 编码门禁矩阵
+
+对应 [Wealth 模块交付通用清单](./module-delivery-checklist-v1.md)。本次例外白名单为空。
+
+| 清单 | 适用性、落点与验证 |
+| --- | --- |
+| §2.1 交付事实链 | 适用。方案 §18、Figma 原型、本节与测试表一起评审。 |
+| §2.2 后端事实 | 适用。使用既有回包标记和能力，按 §23.6 从真实 API 读回核对。 |
+| §2.3 状态机 | 适用。开关与数据状态分开，保持 §12.4 原状态与重试。测等待、空结果和失败。 |
+| §2.4 显示语义 | 适用。数字和方向沿用原绘制，测隐藏恢复以及原样对齐。 |
+| §2.5 行为过程 | 适用。测选中、关闭、恢复、切周期、来回换标的和在途回包。 |
+| §2.6 文档同步 | 适用。以方案 §18、Figma 和本节逐条对照实现及验收。 |
+| §2.7 渐进替换 | 数据源替换不适用，沿用现有真实接口。前端交付和撤回范围见 §23.6。 |
+| §2.8 契约及消费者 | 适用。HTTP 合同沿用，新增页面至四图表的参数见 §23.2–23.4。用类型检查和页面测试验证。 |
+| §2.9 坐标与文案 | 适用。绘制、横轴和纵轴沿用原规则。验证锚点、轴范围、标签与状态。 |
+| §2.10 计算与传输 | 适用。§23.5 约束点击和续验增量，验收记录实际请求。 |
+| §2.11 策略配置 | 不适用。显示选择只存在当前页面，读取现有能力。 |
+| §2.12 清单映射 | 适用。本矩阵逐项给出代码落点或不适用理由。 |
+| §2.13 例外及语义断言 | 适用。例外为空，数字位置和三栏独立性见 §23.6。 |
+| §2.14 显式坐标参数 | 不适用。无新增显式轴参数，回归原范围与缩放。 |
+| §2.15 并排双图 | 不适用。沿用现有上下排列和共享时间轴。 |
+| §2.16 指标卡文案 | 不适用。仅新增单行标签，按 §23.6 检查现有两档视口。 |
+| §2.17 真实 API 与展示 | 适用。§23.6 定义真实路由、字段、执行入口及通过标准。 |
+| §2.18 跨模块原则 | 适用。八项映射见下表。 |
+
+| §2.18 原则 | 设计与验证 |
+| --- | --- |
+| 1. 单一事实源 | §23.4、§23.6。直接核对原回包与主图数字，前端只对应 K 线位置。 |
+| 2. 契约先行 | §23.2–23.4。四个接入点使用同一控制类型，原 HTTP 契约回归。 |
+| 3. 配置一致 | §23.2。以原能力字段和周期判断为准，测试同为 5 分钟的不同标的类别。 |
+| 4. 默认明确 | §23.2。默认显示、切周期保留、换标的重置均有页面用例。 |
+| 5. 顺序确定 | §23.3–23.4。检查标签顺序与既有数字在同一时间位置恢复。 |
+| 6. 性能预算 | §23.5。检查网络次数、图表实例、序列及原窗口。 |
+| 7. 状态与异常 | §23.2、§23.4。复用现有局部提示、重试和普通页、核验页各自的请求。 |
+| 8. 用户可见结果 | §23.6。用真实页面检查标记显隐、其它图层和浏览位置。 |
+
+<a id="nine-turn-display-toggle-implementation"></a>
+
+### 23.8 实施与开发验证（2026-11-10）
+
+按 §23.2–23.4 完成。两个页面以现有能力字段驱动 `useNineTurnDisplayControl`，四个图表共用 `NineTurnIndicatorToggle`。绘制由 `NineTurnMarkerPrimitive.setVisible` 控制，原绘制对象、历史标记合并、核验波段避让输入和请求依赖保持原样。用 `codegraph_explore` 和源码对照了四个图表调用方、直接渲染图表的测试，以及上证普通页与核验页。改动限于 Wealth 前端和对应文档。
+
+类型检查、前端构建通过。9 个定向测试文件共 92 项通过，覆盖状态、四个入口、历史、图表对象与请求计数。首次全量有一条市场总览风格加载测试失败，单独复跑通过，限制并行数后全量 187 个文件、1,605 项通过。四组九转接口回归共 33 项通过。
+
+用隔离 Chrome 会话在本机前端挂载实际股票和指数详情组件，行情请求走已运行的本机后端，使用 `601878.SH`、`000001.SH` 和 `tradeDate=2026-11-06`。核对实返能力及九转日期时间、方向和序号，按画布实际绘制记录对比开关前后。下表为 1360×1200 CSS px 的一次切换，数字数量只计当时可见区间内实际画出的九转数字。
+
+| 图表 | 选中 → 未选中 → 再选中 | 点击新增 API 请求 |
+| --- | --- | --- |
+| 股票日线 | 100 → 0 → 100 | 0 |
+| 股票 30 分钟 | 76 → 0 → 76 | 0 |
+| 上证日线 | 73 → 0 → 73 | 0 |
+| 上证 30 分钟 | 84 → 0 → 84 | 0 |
+| 上证日线拖到 2024-10-09 至 2025-02-10 | 78 → 0 → 78 | 0 |
+
+四类图表在 1600×1200 也通过。两档视口均核对同一画布、可见范围与标记位置，标签无裁剪。股票 5 分钟九转置灰且无九转请求，上证 5 分钟九转可切换、量化结构置灰。上证日线验证了三栏提示、关闭 KDJ 后启用量化结构，以及两个标签独立切换。技术面九转摘要保持原值，五个预判请求均返回 HTTP 200。上证历史九转实返 438 条标记，旧页加载后切换开关无需重读。
+
+浏览器未使用用户登录会话，自选接口返回 401。上证趋势通道在首批和续页返回 503，因此趋势通道的图层接线以自动化回归验证。实测的九转和量化结构请求均返回 HTTP 200，浏览器无脚本异常。
