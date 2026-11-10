@@ -1,4 +1,4 @@
-"""Full-month calendar evidence shared by index monthly planning and writing."""
+"""Complete trading calendar windows used to determine index period ends."""
 
 from calendar import monthrange
 from datetime import date, timedelta
@@ -14,6 +14,12 @@ def load_index_month_open_dates(
 ) -> tuple[date, ...]:
     start = day.replace(day=1)
     end = day.replace(day=monthrange(day.year, day.month)[1])
+    return load_complete_open_dates(session, exchange=exchange, start=start, end=end) or ()
+
+
+def load_complete_open_dates(
+    session: Session, *, exchange: str, start: date, end: date,
+) -> tuple[date, ...] | None:
     rows = session.execute(
         select(TradeCalendar.trade_date, TradeCalendar.is_open)
         .where(
@@ -23,8 +29,8 @@ def load_index_month_open_dates(
         )
         .order_by(TradeCalendar.trade_date)
     ).all()
-    expected = [start + timedelta(days=i) for i in range(end.day)]
-    # Missing closed days matter too: a truncated calendar cannot prove month end.
+    expected = [start + timedelta(days=i) for i in range((end - start).days + 1)]
+    # Missing closed days matter too: a truncated calendar cannot prove the true period end.
     if [row[0] for row in rows] != expected or any(row[1] is None for row in rows):
-        return ()
+        return None
     return tuple(day for day, is_open in rows if is_open)

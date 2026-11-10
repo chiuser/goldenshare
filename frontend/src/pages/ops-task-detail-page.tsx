@@ -369,7 +369,8 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
         if (view?.run.status === "canceling") {
           return <Text size="sm">停止中</Text>;
         }
-        if (view?.progress.announcement_progress || view?.progress.weekly_adj_progress) {
+        if (view?.progress.announcement_progress || view?.progress.weekly_adj_progress
+          || view?.progress.paged_unit_progress?.active?.time.field === "trade_date") {
           return <Text size="sm">暂无法估算</Text>;
         }
         if (etaEstimate.status === "ready" && etaContextMatches) {

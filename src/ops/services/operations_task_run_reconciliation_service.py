@@ -119,6 +119,17 @@ class OperationsTaskRunReconciliationService:
             session.add(issue)
             session.flush()
             task_run.primary_issue_id = issue.id
+            if task_run.current_node_id is not None:
+                node = session.get(TaskRunNode, task_run.current_node_id)
+                if node is not None and node.task_run_id == task_run.id and node.status == "running" and (
+                    "index_period_raw" in (task_run.ingestion_diagnostics_json or {})
+                    or "index_period_raw" in (node.ingestion_diagnostics_json or {})
+                ):
+                    node.status = "failed"
+                    node.issue_id = issue.id
+                    node.ended_at = now
+                    started_at = self._normalize_datetime(node.started_at) if node.started_at else now
+                    node.duration_ms = max(int((now - started_at).total_seconds() * 1000), 0)
         return ReconciledTaskRun(id=task_run.id, previous_status=previous_status, new_status=new_status, reason=reason)
 
     @classmethod

@@ -29,7 +29,8 @@ def safe_diagnostics(details):
     if stage in ('request', 'response_body', 'decode', 'validate', 'ipc_wait', 'ipc_receive'):
         result['failure_stage'] = stage
     for key in ('http_status', 'elapsed_ms', 'connect_timeout_seconds', 'read_timeout_seconds',
-                'total_timeout_seconds', 'worker_exit_code', 'page_number', 'offset', 'attempt_number'):
+                'total_timeout_seconds', 'worker_exit_code', 'page_number', 'offset', 'attempt_number',
+                'actual_bytes', 'limit_bytes'):
         value = details.get(key)
         if value is None and key in details:
             result[key] = None
@@ -96,7 +97,7 @@ class BoundedTushareError(RuntimeError):
 
 
 def _attempt(send, base_url, payload, maximum, timeout, response_contract=None):
-    prefix = 'weekly_adj' if response_contract == 'stock_weekly_adj/v1' else 'anns_d'
+    prefix = {'stock_weekly_adj/v1': 'weekly_adj', 'index_period_raw/v1': 'index_period_raw'}.get(response_contract, 'anns_d')
     started, stage, status = time.monotonic(), 'request', None
     try:
         with requests.Session() as session:
@@ -115,12 +116,13 @@ def _attempt(send, base_url, payload, maximum, timeout, response_contract=None):
                 data = bytearray()
                 for block in response.iter_content(chunk_size=65536):
                     if len(data) + len(block) > maximum:
-                        raise BoundedTushareError(f'{prefix}.response_size_exceeded', '源响应超过字节预算')
+                        raise BoundedTushareError(f'{prefix}.response_size_exceeded', '源响应超过字节预算',
+                            {'actual_bytes': len(data) + len(block), 'limit_bytes': maximum})
                     data.extend(block)
                 try:
                     stage = 'decode'
                     # Weekly prices must reach normalization without a binary float round trip.
-                    original = json.loads(data, parse_float=Decimal) if response_contract == 'stock_weekly_adj/v1' else json.loads(data)
+                    original = json.loads(data, parse_float=Decimal) if response_contract is not None else json.loads(data)
                     stage = 'validate'
                     envelope = TushareEnvelope.model_validate(original)
                 except (ValueError, TypeError):
@@ -143,12 +145,12 @@ def _attempt(send, base_url, payload, maximum, timeout, response_contract=None):
                     if envelope.data is not None:
                         fields = envelope.data.fields
                         if len(fields) != len(set(fields)) or any(len(item) != len(fields) for item in envelope.data.items):
-                            raise BoundedTushareError('anns_d.source_payload_invalid', '公告源字段重复或字段值数量不匹配，不能丢弃源值')
+                            raise BoundedTushareError(f'{prefix}.source_payload_invalid', '源字段重复或字段值数量不匹配')
                         rows = [dict(zip(fields, item, strict=True)) for item in envelope.data.items]
                     send.send(('rows', rows))
     except BoundedTushareError as exc:
-        send.send(('bounded_error', exc.code, str(exc), _failure_details(
-            exc, stage=stage, started=started, timeout=timeout, status=status)))
+        details = _failure_details(exc, stage=stage, started=started, timeout=timeout, status=status)
+        send.send(('bounded_error', exc.code, str(exc), safe_diagnostics({**details, **exc.details})))
     except Exception as exc:
         # Do not serialize token, response body, query or session exceptions across the boundary.
         send.send(('transport_error', _failure_details(
@@ -157,10 +159,11 @@ def _attempt(send, base_url, payload, maximum, timeout, response_contract=None):
         send.close()
 
 
-def call_bounded(*, base_url, payload, maximum, timeout, check, tick, response_contract=None):
-    if response_contract not in (None, 'stock_weekly_adj/v1'):
+def call_bounded(*, base_url, payload, maximum, timeout, check, tick, response_contract=None,
+                 child_pid_changed=None):
+    if response_contract not in (None, 'stock_weekly_adj/v1', 'index_period_raw/v1'):
         raise BoundedTushareError('weekly_adj.delivery_contract_mismatch', '未知有界响应合同')
-    prefix = 'weekly_adj' if response_contract == 'stock_weekly_adj/v1' else 'anns_d'
+    prefix = {'stock_weekly_adj/v1': 'weekly_adj', 'index_period_raw/v1': 'index_period_raw'}.get(response_contract, 'anns_d')
     ctx = multiprocessing.get_context('spawn')
     receive, send = ctx.Pipe(duplex=False)
     worker = ctx.Process(target=_attempt, args=(send,base_url,payload,maximum,timeout,response_contract), daemon=True)
@@ -180,6 +183,8 @@ def call_bounded(*, base_url, payload, maximum, timeout, check, tick, response_c
     try:
         worker.start()
         started = True
+        if child_pid_changed is not None:
+            child_pid_changed(worker.pid)
         send.close()
         # Reading/unpickling a large result must not block cancellation/deadline checks.
         reader = threading.Thread(target=receive_result, daemon=True)
@@ -210,4 +215,6 @@ def call_bounded(*, base_url, payload, maximum, timeout, check, tick, response_c
             if worker.is_alive():
                 worker.kill()
                 worker.join(timeout=1)
+        if child_pid_changed is not None:
+            child_pid_changed(None)
         receive.close()

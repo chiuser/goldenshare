@@ -283,6 +283,7 @@ class TaskRunQueryService:
             unit_total=cls._nonnegative_int(value.get("unit_total")),
             time=cls._paged_unit_time(value.get("time")),
             phase=phase,
+            updated_at=cls._text(value.get("updated_at")),
             current_page_number=cls._optional_nonnegative_int(
                 value.get("current_page_number")
             ),
@@ -439,7 +440,12 @@ class TaskRunQueryService:
             "index_monthly": IndexMonthlyServing,
         }
         model = model_by_resource.get(str(task_run.resource_key or ""))
-        if model is None:
+        if (
+            model is None
+            or task_run.current_node_id is None
+            or "index_period_raw" in (task_run.ingestion_diagnostics_json or {})
+            or task_run.status in {"queued", "running", "canceling"}
+        ):
             return None
         start_date = TaskRunQueryService._parse_date_or_none(time_scope.start if time_scope else None)
         end_date = TaskRunQueryService._parse_date_or_none(time_scope.end if time_scope else None)

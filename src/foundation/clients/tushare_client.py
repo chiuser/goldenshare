@@ -117,11 +117,14 @@ class TushareHttpClient:
         return session
 
     def call_bounded(self, *, api_name, params, fields, maximum, timeout, check, tick, before_request,
-                     response_contract=None):
+                     response_contract=None, child_pid_changed=None):
         from src.foundation.clients.bounded_tushare_call import (
             call_bounded, BoundedTushareError, request_diagnostics, source_failure_message,
         )
-        if response_contract is not None:
+        if response_contract == 'index_period_raw/v1':
+            if api_name not in {'index_weekly', 'index_monthly'}:
+                raise ValueError('指数周期线响应合同只能用于指数周线和月线接口')
+        elif response_contract is not None:
             from src.foundation.datasets.stock_weekly_adj_contracts import SOURCE_FIELDS
             fields = tuple(fields)
             if (response_contract != 'stock_weekly_adj/v1' or api_name != 'stk_week_month_adj'
@@ -130,10 +133,13 @@ class TushareHttpClient:
         _get_rate_limiter(api_name).acquire(check=check, tick=tick)
         check()
         before_request()
+        if callable(timeout):
+            timeout = timeout()
+        child_observer = {"child_pid_changed": child_pid_changed} if child_pid_changed is not None else {}
         try:
             result = call_bounded(base_url=self.base_url, payload={"api_name": api_name, "token": self.token,
                 "params": params, "fields": ",".join(fields)}, maximum=maximum, timeout=timeout, check=check, tick=tick,
-                response_contract=response_contract)
+                response_contract=response_contract, **child_observer)
             if result[0] == 'rows':
                 return result[1]
             if result[0] in {'rate_limit', 'api_error'}:

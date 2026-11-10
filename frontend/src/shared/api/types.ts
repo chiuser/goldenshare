@@ -385,6 +385,7 @@ export interface TaskRunPagedUnitActive {
   unit_total: number;
   time: TaskRunPagedUnitTime;
   phase: TaskRunPagedUnitPhase;
+  updated_at?: string | null;
   current_page_number: number | null;
   completed_page_count: number;
   page_limit: number | null;

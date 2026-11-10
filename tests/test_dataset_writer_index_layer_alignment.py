@@ -204,7 +204,7 @@ def test_index_daily_writer_does_not_fallback_to_index_basic_for_serving_pool(mo
         ("index_weekly", RawIndexWeeklyBar, IndexWeeklyServing, "raw_index_weekly_bar", "index_weekly_serving", date(2026, 4, 20)),
     ),
 )
-def test_index_period_writer_writes_raw_full_and_serving_active_with_derived(
+def test_index_period_writer_upserts_all_source_codes_only_in_raw(
     mocker,
     dataset_key: str,
     raw_model,
@@ -229,7 +229,7 @@ def test_index_period_writer_writes_raw_full_and_serving_active_with_derived(
     writer = DatasetWriter(session=_StubSession())  # type: ignore[arg-type]
     definition = get_dataset_definition(dataset_key)
     trade_date = date(2026, 4, 24) if dataset_key == "index_weekly" else date(2026, 4, 30)
-    mocker.patch.object(
+    derived = mocker.patch.object(
         writer,
         "_build_index_period_derived_rows_for_codes",
         return_value=[
@@ -259,12 +259,11 @@ def test_index_period_writer_writes_raw_full_and_serving_active_with_derived(
     )
 
     assert [[row["ts_code"] for row in call] for call in raw_dao.bulk_upsert_calls] == [["000001.SH", "999999.SH"]]
-    assert raw_dao.deleted_ranges == [(trade_date, trade_date)]
-    assert len(serving_dao.bulk_insert_calls) == 1
-    assert [row["ts_code"] for row in serving_dao.bulk_insert_calls[0]] == ["000001.SH", "000002.SH"]
-    assert [row["source"] for row in serving_dao.bulk_insert_calls[0]] == ["api", "derived_daily"]
+    assert raw_dao.deleted_ranges == []
+    assert serving_dao.bulk_upsert_calls == []
+    assert serving_dao.bulk_insert_calls == []
     assert result.rows_written == 2
-    assert result.rejected_reason_counts == {}
+    derived.assert_not_called()
 
 
 def test_index_period_explicit_non_active_ts_code_writes_raw_only(mocker) -> None:
@@ -304,7 +303,7 @@ def test_index_period_explicit_non_active_ts_code_writes_raw_only(mocker) -> Non
 
     assert [[row["ts_code"] for row in call] for call in raw_dao.bulk_upsert_calls] == [["999999.SH"]]
     assert serving_dao.bulk_insert_calls == []
-    assert result.rows_written == 0
+    assert result.rows_written == 1
     assert result.rejected_reason_counts == {}
     derived_mock.assert_not_called()
 

@@ -28,6 +28,7 @@ from src.foundation.datasets.models import (
     DatasetTransactionDefinition,
     DatasetUniverseDefinition,
     DatasetUniverseSourceDefinition,
+    IndexPeriodRawPolicy,
 )
 
 
@@ -107,6 +108,8 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
     storage = DatasetStorageDefinition(**storage_row)
     if planning_row.get("announcement_policy") is not None:
         planning_row["announcement_policy"] = AnnouncementExecutionPolicy(**planning_row["announcement_policy"])
+    if planning_row.get("index_period_raw_policy") is not None:
+        planning_row["index_period_raw_policy"] = IndexPeriodRawPolicy(**planning_row["index_period_raw_policy"])
     if planning_row.get("weekly_adj_policy") is not None:
         planning_row["weekly_adj_policy"] = WeeklyAdjExecutionPolicy(**planning_row["weekly_adj_policy"])
     planning = DatasetPlanningDefinition(**planning_row)

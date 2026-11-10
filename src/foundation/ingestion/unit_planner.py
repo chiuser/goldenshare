@@ -20,7 +20,7 @@ from src.foundation.ingestion.etf_minute_windows import (
 )
 from src.foundation.ingestion.errors import IngestionPlanningError, StructuredError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot, ValidatedDatasetActionRequest
-from src.foundation.ingestion.index_month_calendar import load_index_month_open_dates
+from src.foundation.ingestion.index_month_calendar import load_complete_open_dates, load_index_month_open_dates
 from src.foundation.ingestion import request_builders
 from src.foundation.ingestion.plan_helpers import (
     build_plan_units,
@@ -226,6 +226,8 @@ class DatasetUnitPlanner:
             return [None]
         if date_model.bucket_rule == "month_last_open_day":
             return self._resolve_index_monthly_anchors(request)
+        if date_model.bucket_rule == "week_last_open_day" and definition.planning.index_period_raw_policy is not None:
+            return self._resolve_index_weekly_anchors(request)
         if request.run_profile == "point_incremental":
             if date_model.input_shape == "month_or_range":
                 return [request.trade_date]
@@ -271,6 +273,25 @@ class DatasetUnitPlanner:
         if date_model.bucket_rule == "week_last_open_day":
             return self._compress_to_week_end(open_dates)
         return [None]
+
+    def _resolve_index_weekly_anchors(self, request: ValidatedDatasetActionRequest) -> list[date]:
+        point = request.run_profile == "point_incremental"
+        start = request.trade_date if point else request.start_date
+        end = request.trade_date if point else request.end_date
+        if start is None or end is None:
+            raise self._planning_error("range_required", "指数周线维护必须填写日期或完整区间")
+        first_monday = start - timedelta(days=start.weekday())
+        last_sunday = end + timedelta(days=6 - end.weekday())
+        open_dates = load_complete_open_dates(
+            self.session, exchange=self.settings.default_exchange, start=first_monday, end=last_sunday,
+        )
+        if open_dates is None:
+            raise self._planning_error("invalid_anchor_date", f"{first_monday} 至 {last_sunday} 的交易日历不完整")
+        anchors = self._compress_to_week_end(list(open_dates))
+        if point and end not in anchors:
+            expected = anchors[0].isoformat() if anchors else "本周无开市日"
+            raise self._planning_error("invalid_anchor_date", f"指数周线必须选择本周最后一个交易日（{expected}）")
+        return [anchor for anchor in anchors if start <= anchor <= end]
 
     def _resolve_index_monthly_anchors(self, request: ValidatedDatasetActionRequest) -> list[date]:
         point = request.run_profile == "point_incremental"

@@ -124,14 +124,20 @@ class DatasetMaintainService:
                 progress_reporter=self._progress_reporter,
             )
             committed_rows = summary.rows_committed
-            self._finish_success(
-                run_handle=run_handle,
-                run_mode=run_mode,
-                rows_fetched=summary.rows_fetched,
-                rows_written=committed_rows,
-                result_date=summary.result_date,
-                message=summary.message,
-            )
+            if self.definition.planning.index_period_raw_policy is not None and summary.unit_failed:
+                self._finish_failure(
+                    run_handle=run_handle, status="PARTIAL_SUCCESS" if summary.unit_done else "FAILED",
+                    message=summary.message,
+                )
+            else:
+                self._finish_success(
+                    run_handle=run_handle,
+                    run_mode=run_mode,
+                    rows_fetched=summary.rows_fetched,
+                    rows_written=committed_rows,
+                    result_date=summary.result_date,
+                    message=summary.message,
+                )
             return DatasetMaintainResult(
                 dataset_key=self.dataset_key,
                 run_mode=run_mode,

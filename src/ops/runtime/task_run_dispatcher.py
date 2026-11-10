@@ -18,6 +18,7 @@ from src.foundation.config.settings import get_settings
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
 from src.foundation.ingestion.errors import IngestionError
+from src.foundation.ingestion.index_period_raw import MISSING_PERIOD_CODE
 from src.foundation.ingestion.run_errors import IngestionCanceledError
 from src.foundation.ingestion.service import DatasetMaintainService
 from src.foundation.ingestion.null_runtime import NullIngestionResultStore, NullRunRecorder
@@ -141,6 +142,8 @@ class TaskRunDispatcher:
         task_run.current_node_id = node.id
         task_run.unit_total = int(plan.planning.unit_count or len(plan.units))
         task_run.plan_snapshot_json = self._plan_snapshot(plan)
+        if get_dataset_definition(plan.dataset_key).planning.index_period_raw_policy is not None:
+            task_run.ingestion_diagnostics_json = {"index_period_raw": {}}
         session.commit()
         try:
             (
@@ -156,9 +159,10 @@ class TaskRunDispatcher:
                 action_request,
                 plan,
             )
+            status, issue = self._index_period_raw_result(session, task_run, node, task_run)
             self._finish_node(
                 node,
-                status="success",
+                status=status,
                 rows_fetched=rows_fetched,
                 rows_saved=rows_saved,
                 rows_rejected=rows_rejected,
@@ -167,12 +171,19 @@ class TaskRunDispatcher:
             )
             task_run.rejected_reason_counts_json = dict(rejected_reason_counts)
             task_run.rejected_reason_samples_json = dict(rejected_reason_samples)
-            task_run.unit_done = task_run.unit_total
-            task_run.unit_failed = 0
+            if "index_period_raw" in (task_run.ingestion_diagnostics_json or {}):
+                task_run.rows_fetched = rows_fetched
+                task_run.rows_saved = rows_saved
+                task_run.rows_rejected = rows_rejected
+            if issue is None:
+                task_run.unit_done = task_run.unit_total
+                task_run.unit_failed = 0
             task_run.progress_percent = 100
             session.commit()
             return TaskRunDispatchOutcome(
-                status="success",
+                status=status,
+                issue_id=issue.id if issue else None,
+                status_reason_code=issue.code if issue else None,
                 rows_fetched=rows_fetched,
                 rows_saved=rows_saved,
                 rows_rejected=rows_rejected,
@@ -182,6 +193,7 @@ class TaskRunDispatcher:
             )
         except IngestionCanceledError as exc:
             session.rollback()
+            self._restore_index_period_raw_progress(task_run, exc)
             issue = self._record_issue(
                 session,
                 task_run=task_run,
@@ -202,14 +214,17 @@ class TaskRunDispatcher:
             return TaskRunDispatchOutcome(status="canceled", summary_message=issue.operator_message, issue_id=issue.id)
         except Exception as exc:
             session.rollback()
+            self._restore_index_period_raw_progress(task_run, exc)
+            period_message = self._index_period_raw_error_message(exc)
             issue = self._record_issue(
                 session,
                 task_run=task_run,
                 node_id=node.id,
-                code="ingestion_failed",
+                code=exc.structured_error.error_code if period_message else "ingestion_failed",
                 title="任务处理失败",
-                operator_message="任务处理过程中发生异常，需要查看技术诊断后决定是否重提。",
-                suggested_action="先确认已保存数据和失败位置，再决定是否缩小范围重新提交。",
+                operator_message=period_message or "任务处理过程中发生异常，需要查看技术诊断后决定是否重提。",
+                suggested_action=("查看失败阶段后，按原范围重试。" if period_message else
+                                  "先确认已保存数据和失败位置，再决定是否缩小范围重新提交。"),
                 technical_message=str(exc),
                 source_phase="execute",
                 severity="error",
@@ -240,6 +255,7 @@ class TaskRunDispatcher:
         total_rejected_reason_samples: dict[str, list[dict[str, Any]]] = {}
         completed = 0
         failed = 0
+        had_partial_step = False
         last_issue_id: int | None = None
         last_message: str | None = None
         for sequence_no, workflow_step in enumerate(workflow.steps, start=1):
@@ -269,6 +285,7 @@ class TaskRunDispatcher:
             task_run.current_node_id = node.id
             session.commit()
             try:
+                step_status, step_issue = "success", None
                 if step_resource_key is not None:
                     step_run = self._step_task_run(task_run, step_action_key, step_resource_key, params)
                     request = self._prepare_dataset_action_request(session, self._build_dataset_action_request(step_run))
@@ -287,6 +304,7 @@ class TaskRunDispatcher:
                         request,
                         plan,
                     )
+                    step_status, step_issue = self._index_period_raw_result(session, task_run, node, step_run)
                 else:
                     action = get_maintenance_action(workflow_step.action_key)
                     if action is None:
@@ -297,7 +315,7 @@ class TaskRunDispatcher:
                     rejected_reason_samples = {}
                 self._finish_node(
                     node,
-                    status="success",
+                    status=step_status,
                     rows_fetched=rows_fetched,
                     rows_saved=rows_saved,
                     rows_rejected=rows_rejected,
@@ -309,19 +327,33 @@ class TaskRunDispatcher:
                 total_rejected += rows_rejected
                 self._merge_reason_counts(total_rejected_reason_counts, rejected_reason_counts)
                 self._merge_reason_samples(total_rejected_reason_samples, rejected_reason_samples)
-                completed += 1
+                if step_issue is None:
+                    completed += 1
+                else:
+                    failed += 1
+                    had_partial_step |= step_status == "partial_success"
+                    last_issue_id = step_issue.id
                 last_message = message
                 session.commit()
+                if step_issue is not None and (workflow_step.failure_policy_override or workflow.failure_policy_default) != "continue_on_error":
+                    break
             except Exception as exc:
                 session.rollback()
-                failed += 1
+                progress = getattr(exc, "index_period_raw_progress", None)
+                if progress:
+                    total_fetched += progress["rows_fetched"]
+                    total_saved += progress["rows_saved"]
+                    total_rejected += progress["rows_rejected"]
+                was_canceled = isinstance(exc, IngestionCanceledError) and progress is not None
+                failed += 0 if was_canceled else 1
                 issue = self._record_issue(
                     session,
                     task_run=task_run,
                     node_id=node.id,
-                    code="workflow_step_failed",
+                    code="ingestion_canceled" if was_canceled else "workflow_step_failed",
                     title="工作流步骤失败",
-                    operator_message=f"{workflow_step.display_name} 处理失败。",
+                    operator_message=(str(exc) if was_canceled else self._index_period_raw_error_message(exc))
+                    or f"{workflow_step.display_name} 处理失败。",
                     suggested_action="查看技术诊断，确认失败步骤后再决定是否重新提交。",
                     technical_message=str(exc),
                     source_phase="execute",
@@ -331,8 +363,19 @@ class TaskRunDispatcher:
                 node = session.get(TaskRunNode, node.id)
                 if node is not None:
                     node.issue_id = issue.id
-                    self._finish_node(node, status="failed")
+                    self._finish_node(
+                        node, status="canceled" if was_canceled else "failed",
+                        rows_fetched=progress["rows_fetched"] if progress else None,
+                        rows_saved=progress["rows_saved"] if progress else None,
+                        rows_rejected=progress["rows_rejected"] if progress else None,
+                        ingestion_diagnostics=progress["ingestion_diagnostics"] if progress else None,
+                    )
                 session.commit()
+                if was_canceled:
+                    return TaskRunDispatchOutcome(
+                        status="canceled", rows_fetched=total_fetched, rows_saved=total_saved,
+                        rows_rejected=total_rejected, summary_message=issue.operator_message, issue_id=issue.id,
+                    )
                 last_issue_id = issue.id
                 last_message = issue.operator_message
                 if (workflow_step.failure_policy_override or workflow.failure_policy_default) != "continue_on_error":
@@ -342,7 +385,7 @@ class TaskRunDispatcher:
         task_run.unit_done = completed
         task_run.unit_failed = failed
         task_run.progress_percent = int((completed + failed) / len(workflow.steps) * 100) if workflow.steps else 100
-        status = "partial_success" if completed and failed else ("failed" if failed else "success")
+        status = "partial_success" if (completed or had_partial_step) and failed else ("failed" if failed else "success")
         return TaskRunDispatchOutcome(
             status=status,
             rows_fetched=total_fetched,
@@ -925,11 +968,16 @@ class TaskRunDispatcher:
         action_request: DatasetActionRequest,
         plan,
     ) -> tuple[int, int, int, dict[str, int], dict[str, list[dict[str, Any]]], str | None]:  # type: ignore[no-untyped-def]
+        definition = get_dataset_definition(plan.dataset_key)
+        index_period_policy = definition.planning.index_period_raw_policy
         service = DatasetMaintainService(
             session,
             dataset_key=plan.dataset_key,
-            run_context=TaskRunIngestionContext(session, independent_cancel=plan.execution_context is not None,
-                timeout_seconds=execution_observation_timeout(plan.execution_context)),
+            run_context=TaskRunIngestionContext(
+                session, independent_cancel=plan.execution_context is not None or index_period_policy is not None,
+                timeout_seconds=index_period_policy.observation_timeout_seconds if index_period_policy else
+                execution_observation_timeout(plan.execution_context),
+            ),
             run_recorder=NullRunRecorder(),
             result_store=NullIngestionResultStore(),
         )
@@ -940,9 +988,9 @@ class TaskRunDispatcher:
             parsed_trade_date = time_input.trade_date or self._resolve_default_trade_date(session)
             if parsed_trade_date is None:
                 raise ValueError("未找到可用日期，请先同步日历或手动指定日期。")
-            definition = get_dataset_definition(plan.dataset_key)
             if (
-                not time_input.month
+                index_period_policy is None
+                and not time_input.month
                 and definition.date_model.date_axis == "trade_open_day"
                 and self._is_closed_trade_date(session, parsed_trade_date)
             ):
@@ -966,7 +1014,7 @@ class TaskRunDispatcher:
         )
 
         rows_fetched = int(result.rows_fetched or 0)
-        if plan.execution_context is not None:
+        if plan.execution_context is not None or index_period_policy is not None:
             # Observation writes may have failed; carry the committed business summary
             # through the normal Ops terminal transaction as well.
             task_run.ingestion_diagnostics_json = dict(result.ingestion_diagnostics)
@@ -975,7 +1023,7 @@ class TaskRunDispatcher:
         rows_rejected = int(result.rows_rejected or 0)
         rejected_reason_counts = self._normalize_reason_counts(result.rejected_reason_counts)
         rejected_reason_samples = self._normalize_reason_samples(getattr(result, "rejected_reason_samples", {}))
-        light_note = self._refresh_serving_light_if_needed(
+        light_note = None if index_period_policy is not None else self._refresh_serving_light_if_needed(
             session,
             task_run_id=task_run.id,
             resource=plan.dataset_key,
@@ -989,6 +1037,69 @@ class TaskRunDispatcher:
         if light_note:
             summary_message = f"{summary_message}；{light_note}"
         return rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, rejected_reason_samples, summary_message
+
+    def _index_period_raw_result(self, session, task_run, node, execution_run):
+        diagnostics = dict(execution_run.ingestion_diagnostics_json or {})
+        result = diagnostics.get("index_period_raw")
+        if not result:
+            return "success", None
+        result = dict(result)
+        missing = result.pop("missing_periods", [])
+        diagnostics["index_period_raw"] = result
+        execution_run.ingestion_diagnostics_json = diagnostics
+        node.ingestion_diagnostics_json = diagnostics
+        if execution_run is task_run:
+            task_run.unit_done = result["unit_done"]
+            task_run.unit_failed = result["unit_failed"]
+        if not missing:
+            return "success", None
+
+        item = missing[0]
+        display_name = get_dataset_definition(item["dataset_key"]).display_name
+        code_text = f' {item["ts_code"]}' if item["ts_code"] else ""
+        issue = self._record_issue(
+            session, task_run=task_run, node_id=node.id, code=MISSING_PERIOD_CODE,
+            title=f"{display_name}正式源缺期",
+            operator_message=f'{display_name}{code_text} 有 {len(missing)} 个期末无源数据，首个缺期为 {item["trade_date"]}。完整列表见任务诊断。',
+            suggested_action="等待源端发布后，按原范围重试。",
+            technical_message=f"{display_name}{code_text} 正式源无数据，缺 {len(missing)} 期。",
+            source_phase="source_client", severity="error", technical_payload={"missing_periods": missing},
+        )
+        node.issue_id = issue.id
+        return ("partial_success" if result["unit_done"] else "failed"), issue
+
+    @staticmethod
+    def _restore_index_period_raw_progress(task_run, exc):
+        progress = getattr(exc, "index_period_raw_progress", None)
+        if progress is None:
+            return
+        for name in ("rows_fetched", "rows_saved", "rows_rejected", "unit_done", "unit_failed", "unit_total"):
+            setattr(task_run, name, progress[name])
+        task_run.ingestion_diagnostics_json = progress["ingestion_diagnostics"]
+        if task_run.unit_total:
+            task_run.progress_percent = int(100 * (task_run.unit_done + task_run.unit_failed) / task_run.unit_total)
+
+    @staticmethod
+    def _index_period_raw_error_message(exc):
+        if not getattr(exc, "index_period_raw_progress", None) or not isinstance(exc, IngestionError):
+            return None
+        error = exc.structured_error
+        details = error.details
+        dataset = get_dataset_definition(details["dataset_key"]).display_name
+        code = details.get("row", {}).get("ts_code") or details.get("ts_code") or details.get("actual_ts_code")
+        scope = f'{dataset} {details["trade_date"]}' + (f" {code}" if code else "")
+        if error.error_code == "normalize.unit_date_mismatch":
+            return f'{scope} 源数据日期错误，预期 {details["expected"]}，实际 {details["actual"]}。'
+        if "limit_bytes" in details:
+            return f'{scope} {error.message}，采样 {details["actual_bytes"]} 字节，上限 {details["limit_bytes"]} 字节。'
+        if "limit_seconds" in details:
+            return f'{scope} {error.message}，已用 {details["actual_seconds"]} 秒，上限 {details["limit_seconds"]} 秒。'
+        if error.error_code == "index_period_raw.source_deadline_exceeded":
+            actual_ms = details.get("elapsed_ms")
+            limit = details.get("total_timeout_seconds")
+            if actual_ms is not None and limit is not None:
+                return f"{scope} {error.message}，已用 {actual_ms / 1000:.3f} 秒，上限 {limit:.3f} 秒。"
+        return f"{scope} {error.message}"
 
     def _build_dataset_action_request(self, task_run: TaskRun) -> DatasetActionRequest:
         time_payload = dict(task_run.time_input_json or {})

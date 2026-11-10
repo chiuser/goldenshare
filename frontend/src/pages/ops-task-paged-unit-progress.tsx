@@ -5,6 +5,7 @@ import type {
   TaskRunPagedUnitProgress,
   TaskRunPagedUnitResult,
 } from "../shared/api/types";
+import { formatDateTimeLabel } from "../shared/date-format";
 import { AlertBar } from "../shared/ui/alert-bar";
 
 function formatCount(value: number) {
@@ -25,14 +26,15 @@ function activeTone(phase: TaskRunPagedUnitActive["phase"]) {
   return "info" as const;
 }
 
-function activeTitle(phase: TaskRunPagedUnitActive["phase"]) {
+function activeTitle({ phase, time }: TaskRunPagedUnitActive) {
+  const period = time.field === "trade_date" ? "当前周期" : "当前季度";
   if (phase === "failed") {
-    return "当前季度处理失败";
+    return `${period}处理失败`;
   }
   if (phase === "canceled") {
-    return "当前季度已停止";
+    return `${period}已停止`;
   }
-  return "当前季度";
+  return period;
 }
 
 function activeDescription(active: TaskRunPagedUnitActive) {
@@ -76,8 +78,13 @@ export function OpsTaskPagedUnitProgress({ progress }: { progress: TaskRunPagedU
   return (
     <Stack gap="sm" style={{ fontVariantNumeric: "tabular-nums" }}>
       {progress.active ? (
-        <AlertBar tone={activeTone(progress.active.phase)} title={activeTitle(progress.active.phase)}>
-          {activeDescription(progress.active)}
+        <AlertBar tone={activeTone(progress.active.phase)} title={activeTitle(progress.active)}>
+          {progress.active.updated_at ? (
+            <Stack gap={4}>
+              <Text size="sm">{activeDescription(progress.active)}</Text>
+              <Text size="xs" c="dimmed">最近更新 {formatDateTimeLabel(progress.active.updated_at)}</Text>
+            </Stack>
+          ) : activeDescription(progress.active)}
         </AlertBar>
       ) : null}
       {completed.map((result) => (

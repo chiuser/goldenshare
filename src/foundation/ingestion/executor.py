@@ -111,6 +111,11 @@ class IngestionExecutor:
         cancel_checker=None,  # type: ignore[no-untyped-def]
         progress_reporter=None,  # type: ignore[no-untyped-def]
     ) -> IngestionRunSummary:
+        if definition.planning.index_period_raw_policy is not None:
+            from src.foundation.ingestion.index_period_raw import run_index_period_raw
+
+            return run_index_period_raw(self, request=request, definition=definition, units=units,
+                cancel_checker=cancel_checker, progress_reporter=progress_reporter)
         if definition.planning.weekly_adj_policy is not None:
             from src.foundation.ingestion.stock_weekly_adj_execution import run_weekly_adj
             return run_weekly_adj(self, request=request, definition=definition, units=units,

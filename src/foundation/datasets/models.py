@@ -195,6 +195,18 @@ class AnnouncementExecutionPolicy:
 
 
 @dataclass(frozen=True, slots=True)
+class IndexPeriodRawPolicy:
+    memory_limit_bytes: int = 3_000_000_000
+    unit_timeout_seconds: int = 163
+    source_timeout_seconds: int = 30
+    db_timeout_seconds: int = 20
+    max_response_bytes: int = 8 * 1024 * 1024
+    cancel_poll_seconds: int = 2
+    progress_interval_seconds: int = 5
+    observation_timeout_seconds: int = 2
+
+
+@dataclass(frozen=True, slots=True)
 class DatasetPlanningDefinition:
     universe_policy: str = "none"
     universe: DatasetUniverseDefinition | None = None
@@ -212,6 +224,7 @@ class DatasetPlanningDefinition:
     page_processing_mode: str = "buffer_all"
     announcement_policy: AnnouncementExecutionPolicy | None = None
     weekly_adj_policy: WeeklyAdjExecutionPolicy | None = None
+    index_period_raw_policy: IndexPeriodRawPolicy | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -192,7 +192,10 @@ class OperationsWorker:
             and isinstance(execution_context, dict)
             and execution_context.get('contract_kind') == 'stock_weekly_adj/v1'
         )
-        preserve_business_progress = announcement or weekly_adj
+        index_period_raw = task_run.task_type == "dataset_action" and (
+            "index_period_raw" in (task_run.ingestion_diagnostics_json or {})
+        )
+        preserve_business_progress = announcement or weekly_adj or index_period_raw
         if not preserve_business_progress or final_status == 'success':
             task_run.rows_fetched = int(outcome.rows_fetched)
             task_run.rows_saved = int(outcome.rows_saved)

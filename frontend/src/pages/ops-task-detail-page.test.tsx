@@ -455,6 +455,31 @@ describe("任务详情页", () => {
     expect(screen.queryByText("源端分页")).not.toBeInTheDocument();
   });
 
+  it("展示指数周线的期末和分页阶段", async () => {
+    const view = createTaskRunView("running");
+    view.run.resource_key = "index_weekly";
+    view.run.title = "指数周线";
+    view.progress.paged_unit_progress = {
+      active: createPagedUnitActive("reconciling", {
+        unit_id: "index_weekly:20260807",
+        time: { field: "trade_date", point: "2026-08-07" },
+        updated_at: "2026-08-07T11:00:00Z",
+        completed_page_count: 16,
+        unit_rows_fetched: 15_404,
+      }),
+      completed: [],
+      completed_truncated: false,
+    };
+    apiRequest.mockResolvedValue(view);
+
+    renderPage();
+
+    expect(await screen.findByText("当前周期")).toBeInTheDocument();
+    expect(await screen.findByText("截至 2026-08-07｜源端拉取完成：共 16 页、15,404 行｜正在核对")).toBeInTheDocument();
+    expect(screen.getByText(/最近更新/)).toBeInTheDocument();
+    expect(screen.queryByText("当前季度")).not.toBeInTheDocument();
+  });
+
   it.each([
     ["reconciling", "截至 2025-06-30｜源端拉取完成：共 70 页、138,730 行｜正在核对"],
     ["publishing", "截至 2025-06-30｜源端拉取完成：共 70 页、138,730 行｜正在正式写入"],

@@ -23,14 +23,17 @@ def _calendar_rows(start, end, *, holidays=()):
     ]
 
 
-def _resolver(mocker, *, missing=None, holidays=()):
+def _resolver(mocker, *, missing=None, holidays=(), weekly=False):
     session = mocker.Mock()
 
     def execute(statement):
         params = statement.compile().params
         start, end = params["trade_date_1"], params["trade_date_2"]
-        assert start.day == 1
-        assert end.day == monthrange(end.year, end.month)[1]
+        if weekly:
+            assert (start.weekday(), end.weekday()) == (0, 6)
+        else:
+            assert start.day == 1
+            assert end.day == monthrange(end.year, end.month)[1]
         rows = [
             row
             for row in _calendar_rows(start, end, holidays=holidays)
@@ -123,18 +126,34 @@ def test_monthly_missing_calendar_day_fails_instead_of_guessing(mocker):
         )
 
 
-def test_weekly_clipped_range_keeps_existing_behavior(mocker):
-    resolver = DatasetActionResolver(mocker.Mock())
-    resolver.unit_planner.dao.trade_calendar.get_open_dates = mocker.Mock(
-        return_value=[date(2026, 7, 29), date(2026, 7, 30)]
-    )
-    plan = resolver.build_plan(
+def test_weekly_range_ending_midweek_excludes_that_week(mocker):
+    plan = _resolver(mocker, weekly=True).build_plan(
         DatasetActionRequest(
             dataset_key="index_weekly",
             action="maintain",
             time_input=DatasetTimeInput(
-                mode="range", start_date=date(2026, 7, 29), end_date=date(2026, 7, 30)
+                mode="range", start_date=date(2026, 7, 24), end_date=date(2026, 7, 30)
             ),
         )
     )
-    assert [unit.trade_date for unit in plan.units] == [date(2026, 7, 30)]
+    assert [unit.request_params for unit in plan.units] == [{"trade_date": "20260724"}]
+
+
+@pytest.mark.parametrize("day", [date(2026, 9, 29), date(2026, 10, 2)])
+def test_weekly_short_week_rejects_non_period_end(mocker, day):
+    holidays = (date(2026, 10, 1), date(2026, 10, 2))
+    with pytest.raises(IngestionPlanningError, match="2026-09-30"):
+        _resolver(mocker, holidays=holidays, weekly=True).build_plan(
+            DatasetActionRequest("index_weekly", "maintain", DatasetTimeInput(mode="point", trade_date=day))
+        )
+
+
+def test_weekly_short_week_accepts_its_actual_period_end(mocker):
+    holidays = (date(2026, 10, 1), date(2026, 10, 2))
+    plan = _resolver(mocker, holidays=holidays, weekly=True).build_plan(
+        DatasetActionRequest(
+            dataset_key="index_weekly", action="maintain",
+            time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 9, 30)),
+        )
+    )
+    assert [unit.request_params for unit in plan.units] == [{"trade_date": "20260930"}]

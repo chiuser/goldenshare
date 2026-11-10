@@ -7,8 +7,9 @@ from time import perf_counter
 from src.foundation.connectors.factory import create_source_connector
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.ingestion.error_mapper import IngestionErrorMapper
-from src.foundation.ingestion.errors import IngestionSourceError, StructuredError
+from src.foundation.ingestion.errors import IngestionError, IngestionSourceError, StructuredError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot
+from src.foundation.ingestion.run_errors import IngestionCanceledError
 
 
 class SourceFetchResult:
@@ -281,7 +282,7 @@ class DatasetSourceClient:
             page_number += 1
             offset += unit.page_limit
 
-    def iter_pages(self, *, definition: DatasetDefinition, unit: PlanUnitSnapshot):  # type: ignore[no-untyped-def]
+    def iter_pages(self, *, definition: DatasetDefinition, unit: PlanUnitSnapshot, control=None):  # type: ignore[no-untyped-def]
         connector = create_source_connector(str(unit.source_key or definition.source.adapter_key))
         request_variants = unit.request_variants or ({},)
         for request_variant in request_variants:
@@ -293,6 +294,7 @@ class DatasetSourceClient:
                 connector=connector,
                 request_params=request_params,
                 request_variant=request_variant,
+                control=control,
             )
 
     def _iter_request_pages(
@@ -303,6 +305,7 @@ class DatasetSourceClient:
         connector,
         request_params: dict,
         request_variant: dict,
+        control=None,
     ):  # type: ignore[no-untyped-def]
         page_limit = unit.page_limit
         pagination_policy = unit.pagination_policy or definition.planning.pagination_policy
@@ -331,6 +334,8 @@ class DatasetSourceClient:
         offset = 0
         page_number = 1
         while True:
+            if control is not None:
+                control.fetching(page_number, offset)
             started_at = perf_counter()
             rows, retries = self._fetch_page(
                 definition=definition,
@@ -339,6 +344,7 @@ class DatasetSourceClient:
                 request_params=request_params,
                 offset=offset,
                 page_limit=page_limit,
+                control=control,
             )
             is_short_page = len(rows) < page_limit
             self.logger.info(
@@ -376,6 +382,7 @@ class DatasetSourceClient:
         request_params: dict,
         offset: int | None,
         page_limit: int | None,
+        control=None,
     ) -> tuple[list[dict], int]:
         params = dict(definition.source.base_params)
         params.update(request_params)
@@ -388,6 +395,7 @@ class DatasetSourceClient:
             unit=unit,
             connector=connector,
             params=params,
+            control=control,
         )
         self._validate_request_variant_rows(
             definition=definition,
@@ -496,21 +504,47 @@ class DatasetSourceClient:
             "terminal_page_rows": terminal_rows,
         }
 
-    def _execute_with_retry(self, *, definition: DatasetDefinition, unit: PlanUnitSnapshot, connector, params: dict) -> tuple[list[dict], int]:
+    def _execute_with_retry(
+        self, *, definition: DatasetDefinition, unit: PlanUnitSnapshot, connector, params: dict, control=None,
+    ) -> tuple[list[dict], int]:
+        if control is not None:
+            from src.foundation.clients.bounded_tushare_call import BoundedTushareError
+
         max_retries = 3
         backoff = 0.5
         retries = 0
         while True:
             try:
-                rows = connector.call(
-                    api_name=definition.source.api_name,
-                    params=params,
-                    fields=definition.source.source_fields,
-                )
+                source_params = {
+                    "api_name": definition.source.api_name,
+                    "params": params,
+                    "fields": definition.source.source_fields,
+                }
+                rows = (connector.call(**source_params) if control is None else
+                        connector.call_bounded(
+                            **source_params, maximum=control.policy.max_response_bytes,
+                            timeout=control.source_timeout, check=control.check,
+                            tick=control.report, before_request=control.check,
+                            response_contract="index_period_raw/v1",
+                            child_pid_changed=control.set_child_pid,
+                        ))
                 self._annotate_rows(definition=definition, rows=rows, params=params)
                 return rows, retries
             except Exception as exc:
-                structured = self.error_mapper.map_exception(exc=exc, phase="source_client", unit_id=unit.unit_id)
+                if control is not None:
+                    if isinstance(exc, (IngestionError, IngestionCanceledError)):
+                        raise
+                    control.check()
+                if control is not None and isinstance(exc, BoundedTushareError):
+                    structured = StructuredError(
+                        error_code=exc.code, error_type="source", phase="source_client",
+                        message=str(exc), retryable=exc.code in {
+                            "source_connection_failed", "index_period_raw.source_deadline_exceeded",
+                        },
+                        unit_id=unit.unit_id, details=exc.details,
+                    )
+                else:
+                    structured = self.error_mapper.map_exception(exc=exc, phase="source_client", unit_id=unit.unit_id)
                 if not structured.retryable or retries >= max_retries:
                     raise IngestionSourceError(structured) from exc
                 retries += 1
@@ -518,7 +552,10 @@ class DatasetSourceClient:
                     sleep_seconds = self.RATE_LIMIT_RETRY_SLEEP_SECONDS
                 else:
                     sleep_seconds = min(max(backoff * (2 ** (retries - 1)), 0.05), 5.0)
-                time.sleep(sleep_seconds)
+                if control is None:
+                    time.sleep(sleep_seconds)
+                else:
+                    control.wait(sleep_seconds)
 
     @staticmethod
     def _annotate_rows(*, definition: DatasetDefinition, rows: list[dict], params: dict) -> None:

@@ -93,6 +93,7 @@ class DatasetNormalizer:
         definition: DatasetDefinition,
         fetch_result: SourceFetchResult,
         expected_unit_date: date | None = None,
+        check_rows: Callable[[int], None] | None = None,
     ) -> NormalizedBatch:
         row_transform = None
         if definition.normalization.row_transform_name:
@@ -119,7 +120,9 @@ class DatasetNormalizer:
         rejected_samples: dict[str, list[dict[str, Any]]] = {}
         quality_counts: dict[str, int] = {}
         quality_samples: dict[str, list[dict]] = {}
-        for raw_row in fetch_result.rows_raw:
+        for row_index, raw_row in enumerate(fetch_result.rows_raw):
+            if check_rows is not None:
+                check_rows(row_index)
             try:
                 normalized = coerce_row(
                     raw_row,

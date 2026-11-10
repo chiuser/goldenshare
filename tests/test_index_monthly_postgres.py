@@ -1,6 +1,7 @@
-"""Monthly regression against disposable PostgreSQL, never a configured DB URL."""
+"""Regression for the legacy combined Raw/Serving writer before stage 3 removes it."""
 
 from calendar import monthrange
+from dataclasses import replace
 from datetime import date, datetime, timezone
 from decimal import Decimal
 import subprocess
@@ -30,7 +31,26 @@ from tests.wealth_watchlist_postgres_support import isolated_postgres
 
 JULY_END = date(2026, 7, 31)
 CODE = "000001.SH"
-DEFINITION = get_dataset_definition("index_monthly")
+
+
+def _legacy_period_definition(dataset_key):
+    definition = get_dataset_definition(dataset_key)
+    serving_dao = f"{dataset_key}_serving"
+    serving_table = f"core_serving.{serving_dao}"
+    return replace(
+        definition,
+        storage=replace(
+            definition.storage, core_dao_name=serving_dao, target_table=serving_table,
+            delivery_mode="single_source_serving", layer_plan="raw->serving",
+            serving_table=serving_table, write_path="raw_index_period_serving_upsert",
+            conflict_columns=None,
+        ),
+        planning=replace(definition.planning, index_period_raw_policy=None),
+        quality=replace(definition.quality, reject_policy="record_rejections", unit_date_field=None),
+    )
+
+
+DEFINITION = _legacy_period_definition("index_monthly")
 
 
 @pytest.fixture(scope="module")
@@ -625,7 +645,7 @@ def test_weekly_sql_derivation_keeps_existing_partial_week_behavior(session, moc
     writer = _writer(session, mocker, now=datetime(2026, 7, 30, tzinfo=timezone.utc))
     day = date(2026, 7, 30)
     result = writer.write(
-        definition=get_dataset_definition("index_weekly"),
+        definition=_legacy_period_definition("index_weekly"),
         batch=NormalizedBatch(
             unit_id="weekly", rows_normalized=[], rows_rejected=0, rejected_reasons={}
         ),

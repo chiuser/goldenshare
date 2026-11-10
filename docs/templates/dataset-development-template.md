@@ -788,6 +788,7 @@
 
 4. 在 DAO `bulk_upsert` 前检测同批冲突键：完全相同可按明确定义去重；内容不一致必须以结构化错误使 unit 失败，不能依赖 DAO 的最后一行覆盖。
 5. `buffer_all` 必须证明单 unit 全部分页合并后的内存和事务规模有硬上限；Prod 数据集任务触发 0.3.5 且无法证明时不得使用。
+   按业务期末取齐后整期写入的实例见指数周线、月线。其 `DatasetDefinition.planning.index_period_raw_policy` 声明内存、源调用、数据库写入和观测预算；分页按源返回结束，DAO 批次共用一个期末事务，任务重试按原范围重新请求。 [Prod 指数周线与月线 LLD §6.1](/Users/congming/github/goldenshare/docs/datasets/prod-index-period-low-level-design-v1.md#61-正式-raw-单期执行上限)
 6. `staged_stream` 必须逐页写入隔离的 stage 范围，完整 unit 校验通过后再发布；中途取消或失败不得让部分 stage 数据成为对上事实。
 
 ### 6.4 Normalizer

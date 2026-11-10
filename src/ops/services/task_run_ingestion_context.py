@@ -278,6 +278,7 @@ class TaskRunIngestionContext(IngestionRunContext):
             "unit_index": cls._nonnegative_int(value.get("unit_index")),
             "unit_total": cls._nonnegative_int(value.get("unit_total")),
             "time": cls._sanitize_paged_unit_time(value.get("time")),
+            "updated_at": cls._bounded_text(value.get("updated_at"), max_length=64),
             "phase": phase,
             "current_page_number": cls._optional_nonnegative_int(
                 value.get("current_page_number")

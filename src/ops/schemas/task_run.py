@@ -163,6 +163,7 @@ class TaskRunPagedUnitActive(BaseModel):
     unit_total: int
     time: TaskRunPagedUnitTime
     phase: Literal["processing_page", "reconciling", "publishing", "failed", "canceled"]
+    updated_at: str | None = None
     current_page_number: int | None = None
     completed_page_count: int
     page_limit: int | None = None
