@@ -205,6 +205,7 @@ EXPECTED_SENSOR_DEFINITION_IDS = frozenset(
         "sensors/stock_daily_sensor.py:raw_stock_daily_update_job_sensor",
         "sensors/stock_daily_sensor.py:silver_stock_daily_update_job_sensor",
         "sensors/stock_factor_pro_trade_day_sensor.py:stock_factor_pro_trade_day_sensor",
+        "sensors/raw_tushare_stk_factor_pro_update_job_sensor.py:raw_tushare_stk_factor_pro_update_job_sensor",
         "sensors/stock_identity_map_sensor.py:stock_identity_map_sensor",
         "sensors/stock_mins_qfq_daily_sensor.py:stock_mins_qfq_daily_sensor",
         "sensors/stock_mins_qfq_factor_repair_sensor.py:stock_mins_qfq_factor_repair_sensor",

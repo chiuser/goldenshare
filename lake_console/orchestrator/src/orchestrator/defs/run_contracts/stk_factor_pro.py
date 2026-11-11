@@ -54,6 +54,9 @@ STK_FACTOR_PRO_SLOT_MINUTES = 30
 STK_FACTOR_PRO_SLOT_COUNT = 10
 STK_FACTOR_PRO_UPDATE_SENSOR_INTERVAL_SECONDS = 60
 STK_FACTOR_PRO_PARTITION_SENSOR_INTERVAL_SECONDS = 600
+STK_FACTOR_PRO_EXECUTION_DAY_TAG = "goldenshare/stk_factor_pro_execution_day"
+STK_FACTOR_PRO_TARGET_DAY_TAG = "goldenshare/stk_factor_pro_target_trade_date"
+STK_FACTOR_PRO_SLOT_TAG = "goldenshare/stk_factor_pro_scheduled_slot"
 STK_FACTOR_PRO_HISTORY_MERGE_BATCH_TRADE_DAYS = 20
 STK_FACTOR_PRO_BOOTSTRAP_FETCH_ROWS = 5000
 STK_FACTOR_PRO_CANCEL_STATUS_POLL_SECONDS = 1
@@ -241,6 +244,44 @@ class StkFactorProRunInput:
             and self.target_trade_date >= self.execution_day
         ):
             raise ValueError("manual_date目标T必须早于提交日D")
+
+
+def build_stk_factor_pro_sensor_run_filter(*, run_key):
+    from dagster._core.storage.tags import RUN_KEY_TAG, SENSOR_NAME_TAG
+
+    return dg.RunsFilter(
+        job_name=STK_FACTOR_PRO_UPDATE_JOB_NAME,
+        tags={SENSOR_NAME_TAG: STK_FACTOR_PRO_UPDATE_SENSOR_NAME, RUN_KEY_TAG: run_key},
+    )
+
+
+def build_stk_factor_pro_sensor_run_request(
+    *, run_key, execution_day, target_trade_date, scheduled_slot
+):
+    return dg.RunRequest(
+        run_key=run_key,
+        partition_key=target_trade_date.isoformat(),
+        run_config={
+            "ops": {
+                "stk_factor_pro": {
+                    "config": {
+                        "execution_day": execution_day.isoformat(),
+                        "target_trade_date": target_trade_date.isoformat(),
+                        "purpose": "today",
+                        "scheduled_slot": scheduled_slot,
+                        "bootstrap_operation_id": None,
+                        "expected_bootstrap_approval_digest": None,
+                        "expected_bootstrap_date_result_digest": None,
+                    }
+                }
+            }
+        },
+        tags={
+            STK_FACTOR_PRO_EXECUTION_DAY_TAG: execution_day.isoformat(),
+            STK_FACTOR_PRO_TARGET_DAY_TAG: target_trade_date.isoformat(),
+            STK_FACTOR_PRO_SLOT_TAG: str(scheduled_slot),
+        },
+    )
 
 
 def stk_factor_pro_previous_trade_date(

@@ -56,4 +56,14 @@ class StkFactorProDefinitionsTests(unittest.TestCase):
             partition_sensor.default_status, dg.DefaultSensorStatus.STOPPED
         )
         self.assertEqual(partition_sensor.minimum_interval_seconds, 600)
-        self.assertNotIn("raw_tushare_stk_factor_pro_update_job_sensor", sensors)
+        update_sensor = sensors["raw_tushare_stk_factor_pro_update_job_sensor"]
+        self.assertEqual(update_sensor.default_status, dg.DefaultSensorStatus.STOPPED)
+        self.assertEqual(update_sensor.minimum_interval_seconds, 60)
+        self.assertEqual(
+            update_sensor.tags,
+            {
+                "goldenshare/sensor_domain": "quote_data",
+                "goldenshare/sensor_target_layer": "raw_silver",
+                "goldenshare/sensor_role": "asset_update",
+            },
+        )

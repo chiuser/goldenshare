@@ -742,6 +742,133 @@ def read_stk_factor_pro_upstream_status(
     return result
 
 
+def read_stk_factor_pro_day_publication(instance, *, prior, lake_root, known_pg):
+    """Confirm current day publication from native records, without file reads."""
+    import dagster as dg
+    from dagster._core.event_api import PartitionKeyFilter
+
+    from orchestrator.defs.paths import (
+        raw_stk_factor_pro_path,
+        silver_stock_factor_pro_path,
+    )
+    from orchestrator.defs.run_contracts.metadata import FILE_PATH_METADATA_KEY
+
+    day, reference = prior.target_trade_date, prior.day_result_ref
+    key = ("sensor_day_publication", day, reference)
+    if key in known_pg:
+        return known_pg[key]
+    if reference is None:
+        known_pg[key] = None
+        return None
+    values = _stk_factor_pro_exact_observation(
+        instance, reference, target=day, phase="day", known_pg=known_pg
+    )
+    raw, silver = values["raw_coverage"], values["target_silver"]
+    if (
+        values["result"] != "completed"
+        or raw is None
+        or raw.complete is not True
+        or silver is None
+        or not silver.ready
+        or read_stk_factor_pro_run(
+            instance, reference.run_id, known_pg=known_pg
+        ).job_name
+        != C.STK_FACTOR_PRO_UPDATE_JOB_NAME
+    ):
+        known_pg[key] = None
+        return None
+    layers = (
+        (
+            C.STK_FACTOR_PRO_RAW_ASSET_KEY,
+            C.STK_FACTOR_PRO_RAW_CHECK_NAME,
+            raw_stk_factor_pro_path,
+            raw.raw_file_sha256,
+            raw.raw_materialization_storage_id,
+        ),
+        (
+            C.STK_FACTOR_PRO_SILVER_ASSET_KEY,
+            C.STK_FACTOR_PRO_SILVER_CHECK_NAME,
+            silver_stock_factor_pro_path,
+            silver.silver_file_sha256,
+            silver.silver_materialization_storage_id,
+        ),
+    )
+    materials = {}
+    for asset, _, _, _, _ in layers:
+        cache_key = ("materialization", asset, day)
+        if cache_key not in known_pg:
+            rows = instance.fetch_materializations(
+                dg.AssetRecordsFilter(
+                    asset_key=dg.AssetKey(asset), asset_partitions=[str(day)]
+                ),
+                limit=1,
+            ).records
+            known_pg[cache_key] = rows[0] if rows else None
+        materials[asset] = known_pg[cache_key]
+    checks_key = ("sensor_day_checks", day)
+    if checks_key not in known_pg:
+        known_pg[checks_key] = (
+            instance.event_log_storage.get_latest_asset_check_execution_by_key(
+                tuple(
+                    dg.AssetCheckKey(dg.AssetKey(asset), check)
+                    for asset, check, *_ in layers
+                ),
+                partition_filter=PartitionKeyFilter(key=str(day)),
+            )
+        )
+    evaluations = {}
+    for asset, name, path, sha, storage_id in layers:
+        material = materials[asset]
+        check = known_pg[checks_key].get(dg.AssetCheckKey(dg.AssetKey(asset), name))
+        if (
+            material is None
+            or check is None
+            or check.status.value != "SUCCEEDED"
+            or check.event is None
+        ):
+            known_pg[key] = None
+            return None
+        evaluation = check.event.dagster_event.event_specific_data
+        bound = evaluation.target_materialization_data
+        if (
+            not evaluation.passed
+            or not evaluation.blocking
+            or evaluation.asset_key != dg.AssetKey(asset)
+            or evaluation.check_name != name
+            or evaluation.partition != str(day)
+            or bound is None
+            or (bound.storage_id, bound.run_id, bound.timestamp)
+            != (
+                material.storage_id,
+                material.event_log_entry.run_id,
+                material.timestamp,
+            )
+            or material.storage_id != storage_id
+            or bound.run_id != reference.run_id
+        ):
+            known_pg[key] = None
+            return None
+        expected = {
+            FILE_PATH_METADATA_KEY: str(path(lake_root, str(day))),
+            "goldenshare/file_sha256": sha,
+            "goldenshare/contract_content_digest": C.STK_FACTOR_PRO_CONTRACT_CONTENT_DIGEST,
+            "goldenshare/processing_version": C.STK_FACTOR_PRO_PROCESSING_VERSION,
+            "goldenshare/day_source_digest": values["day_source_digest"],
+        }
+        if asset == C.STK_FACTOR_PRO_SILVER_ASSET_KEY:
+            expected["goldenshare/raw_sha256"] = raw.raw_file_sha256
+        for metadata in (material.asset_materialization.metadata, evaluation.metadata):
+            if any(
+                getattr(metadata.get(name), "value", metadata.get(name)) != value
+                for name, value in expected.items()
+            ):
+                known_pg[key] = None
+                return None
+        evaluations[asset] = evaluation
+    known_pg[key] = values, evaluations
+    return known_pg[key]
+
+
 def read_stk_factor_pro_day_plan_factor_shas(
     *,
     day_observation,
