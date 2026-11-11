@@ -141,6 +141,8 @@ docs/
 
 ## 5. 数据集研发（S3）
 
+- [股票每日指标扩充需求：Prod/DG 收盘涨跌状态方案与 LLD（扩充待开发；维护进度与 DG 日期锁已隔离修复，未部署）](/Users/congming/github/goldenshare/docs/datasets/daily-basic-limit-status-expansion-plan-and-low-level-design-v1.md)
+
 - [申万 SW2021 行业分类 `index_classify` Prod 数据集 LLD v1（M0–M5 已完成，M6 历史事实与回补暂缓）](/Users/congming/github/goldenshare/docs/datasets/index-classify-sw2021-low-level-design-v1.md)
 - [申万 SW2021 行业成员 `index_member_all` Prod 数据集 LLD v1（M0–M5 已完成，M6 历史事实与回补暂缓）](/Users/congming/github/goldenshare/docs/datasets/index-member-all-sw2021-low-level-design-v1.md)
 - [申万 SW2021 行业日行情 `sw_daily` Prod 数据集 LLD v1（M0–M5 已完成，M6 历史事实与回补暂缓）](/Users/congming/github/goldenshare/docs/datasets/sw-daily-sw2021-low-level-design-v1.md)

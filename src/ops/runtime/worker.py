@@ -205,15 +205,21 @@ class OperationsWorker:
             announcement or weekly_adj or index_period_raw
             or (index_period_serving and outcome.ingestion_diagnostics is None)
         )
-        if not preserve_business_progress or final_status == 'success':
+        maintenance_incomplete = task_run.task_type == "maintenance_action" and final_status in {"failed", "canceled"}
+        if maintenance_incomplete:
+            task_run.rows_fetched = max(task_run.rows_fetched, int(outcome.rows_fetched))
+            task_run.rows_saved = max(task_run.rows_saved, int(outcome.rows_saved))
+            task_run.rows_rejected = max(task_run.rows_rejected, int(outcome.rows_rejected))
+            task_run.rows_deduplicated = max(task_run.rows_deduplicated, int(outcome.rows_deduplicated))
+        elif not preserve_business_progress or final_status == 'success':
             task_run.rows_fetched = int(outcome.rows_fetched)
             task_run.rows_saved = int(outcome.rows_saved)
             task_run.rows_rejected = int(outcome.rows_rejected)
-        if not preserve_business_progress:
+        if not preserve_business_progress and not maintenance_incomplete:
             task_run.rows_deduplicated = int(outcome.rows_deduplicated)
         if outcome.ingestion_diagnostics is not None:
             task_run.ingestion_diagnostics_json = dict(outcome.ingestion_diagnostics)
-        elif final_status != "canceled" and not preserve_business_progress:
+        elif final_status != "canceled" and not preserve_business_progress and not maintenance_incomplete:
             task_run.ingestion_diagnostics_json = {}
         task_run.rejected_reason_counts_json = dict(outcome.rejected_reason_counts or task_run.rejected_reason_counts_json or {})
         task_run.rejected_reason_samples_json = dict(outcome.rejected_reason_samples or task_run.rejected_reason_samples_json or {})
@@ -245,6 +251,10 @@ class OperationsWorker:
                 node.rows_fetched, node.rows_saved, node.rows_rejected = task_run.rows_fetched, task_run.rows_saved, task_run.rows_rejected
                 node.rows_deduplicated = task_run.rows_deduplicated
                 node.ingestion_diagnostics_json = dict(task_run.ingestion_diagnostics_json or {})
+        elif maintenance_incomplete and task_run.current_node_id is not None:
+            node = session.get(TaskRunNode, task_run.current_node_id)
+            if node is not None and node.task_run_id == task_run.id and node.status in {"pending", "running"}:
+                TaskRunDispatcher._finish_node(node, status=final_status)
         session.commit()
         session.refresh(task_run)
         return task_run

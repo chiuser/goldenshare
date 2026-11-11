@@ -1,5 +1,6 @@
 """Isolated history publication, real ephemeral event identities and failures."""
 
+import fcntl
 from datetime import date, timedelta
 from pathlib import Path
 from types import SimpleNamespace
@@ -416,3 +417,151 @@ def test_historical_file_change_invalidates_active_readiness(publication):
         assert not batch_daily_basic_readiness(
             instance, connection, Path(publication[0]["lake_root"]), [day]
         )[day].ready
+
+
+def test_events_refuse_busy_file_lock_then_resume(publication):
+    history_plan = publication[0]
+    day = history_plan["dates"][0]
+    path = Path(history_plan["staging_root"]) / "daily_basic" / "locks" / f"{day}.lock"
+    with dg.DagsterInstance.ephemeral() as instance, DB().connect() as connection:
+        instance.add_dynamic_partitions(DAILY_BASIC_PARTITIONS, history_plan["dates"])
+        approved = events.plan_daily_basic_events(instance, connection, *publication)
+        with path.open("a") as competitor:
+            fcntl.flock(competitor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            with (
+                patch.object(instance, "report_runless_asset_event", wraps=instance.report_runless_asset_event) as report,
+                pytest.raises(ValueError, match="partition_locked"),
+            ):
+                events.apply_daily_basic_events(
+                    instance, connection, *publication, approved,
+                    stage="report-events", apply=True,
+                )
+            report.assert_not_called()
+        approved = events.plan_daily_basic_events(instance, connection, *publication)
+        result = events.apply_daily_basic_events(
+            instance, connection, *publication, approved, stage="report-events", apply=True,
+        )
+        assert result["event_count"] == 61  # 21 materializations and two checks on 20 dates.
+        assert path.is_file()
+
+
+def test_every_event_holds_only_its_file_lock(publication):
+    history_plan = publication[0]
+    lock_root = Path(history_plan["staging_root"]) / "daily_basic" / "locks"
+    with dg.DagsterInstance.ephemeral() as instance, DB().connect() as connection:
+        instance.add_dynamic_partitions(DAILY_BASIC_PARTITIONS, history_plan["dates"])
+        approved = events.plan_daily_basic_events(instance, connection, *publication)
+        original = instance.report_runless_asset_event
+        seen = []
+
+        def assert_locked(event):
+            with (
+                (lock_root / f"{event.partition}.lock").open("a") as competitor,
+                pytest.raises(BlockingIOError),
+            ):
+                fcntl.flock(competitor, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            other = next(day for day in history_plan["dates"] if day != event.partition)
+            with (lock_root / f"{other}.lock").open("a") as independent:
+                fcntl.flock(independent, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            seen.append(event.partition)
+            return original(event)
+
+        with patch.object(instance, "report_runless_asset_event", side_effect=assert_locked):
+            result = events.apply_daily_basic_events(
+                instance, connection, *publication, approved, stage="report-events", apply=True,
+            )
+        assert result["event_count"] == len(seen) == 61
+        for day in history_plan["dates"]:
+            with (lock_root / f"{day}.lock").open("a") as released:
+                fcntl.flock(released, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+
+def test_partial_check_failure_releases_file_lock_and_resumes(publication):
+    history_plan = publication[0]
+    day = history_plan["dates"][-1]
+    path = Path(history_plan["staging_root"]) / "daily_basic" / "locks" / f"{day}.lock"
+    with dg.DagsterInstance.ephemeral() as instance, DB().connect() as connection:
+        instance.add_dynamic_partitions(DAILY_BASIC_PARTITIONS, history_plan["dates"])
+        approved = events.plan_daily_basic_events(instance, connection, *publication)
+        original = instance.report_runless_asset_event
+
+        def fail_second_check(event):
+            if isinstance(event, dg.AssetCheckEvaluation) and event.check_name == DAILY_BASIC_CHECKS[1]:
+                raise RuntimeError("fixture second check failure")
+            return original(event)
+
+        with (
+            patch.object(instance, "report_runless_asset_event", side_effect=fail_second_check),
+            pytest.raises(RuntimeError, match="second check failure"),
+        ):
+            events.apply_daily_basic_events(
+                instance, connection, *publication, approved,
+                stage="report-events", apply=True, sample_date=day,
+            )
+        with path.open("a") as released:
+            fcntl.flock(released, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        approved = events.plan_daily_basic_events(instance, connection, *publication)
+        result = events.apply_daily_basic_events(
+            instance, connection, *publication, approved,
+            stage="report-events", apply=True, sample_date=day,
+        )
+        assert result["event_count"] == 1
+        record = events._latest_materializations(instance, [day])[day]
+        checks = events.current_daily_basic_check_records(instance, day)
+        assert all(events._check_identity(check, record) for check in checks.values())
+
+
+def test_check_target_is_read_back_before_success(publication):
+    history_plan = publication[0]
+    day = history_plan["dates"][-1]
+    with dg.DagsterInstance.ephemeral() as instance, DB().connect() as connection:
+        instance.add_dynamic_partitions(DAILY_BASIC_PARTITIONS, history_plan["dates"])
+        approved = events.plan_daily_basic_events(instance, connection, *publication)
+        original = instance.report_runless_asset_event
+
+        def wrong_target(event):
+            if isinstance(event, dg.AssetCheckEvaluation) and event.check_name == DAILY_BASIC_CHECKS[1]:
+                target = event.target_materialization_data
+                event = dg.AssetCheckEvaluation(
+                    asset_key=event.asset_key, check_name=event.check_name, partition=event.partition,
+                    passed=True, blocking=True, severity=dg.AssetCheckSeverity.ERROR,
+                    target_materialization_data=events.AssetCheckEvaluationTargetMaterializationData(
+                        storage_id=target.storage_id + 1, run_id=target.run_id, timestamp=target.timestamp,
+                    ),
+                )
+            return original(event)
+
+        with (
+            patch.object(instance, "report_runless_asset_event", side_effect=wrong_target),
+            pytest.raises(ValueError, match="history_check_readback"),
+        ):
+            events.apply_daily_basic_events(
+                instance, connection, *publication, approved,
+                stage="report-events", apply=True, sample_date=day,
+            )
+
+
+def test_materialization_outside_check_window_is_read_back(publication):
+    history_plan = publication[0]
+    day = history_plan["dates"][0]  # This history date has no checks to expose a bad delivery.
+    with dg.DagsterInstance.ephemeral() as instance, DB().connect() as connection:
+        instance.add_dynamic_partitions(DAILY_BASIC_PARTITIONS, history_plan["dates"])
+        approved = events.plan_daily_basic_events(instance, connection, *publication)
+        assert day not in approved["recent_dates"]
+        original = instance.report_runless_asset_event
+
+        def wrong_file(event):
+            if isinstance(event, dg.AssetMaterialization) and event.partition == day:
+                event = dg.AssetMaterialization(
+                    asset_key=event.asset_key, partition=day,
+                    metadata={**event.metadata, "goldenshare/file_sha256": "0" * 64},
+                )
+            return original(event)
+
+        with (
+            patch.object(instance, "report_runless_asset_event", side_effect=wrong_file),
+            pytest.raises(ValueError, match="history_delivery_not_current"),
+        ):
+            events.apply_daily_basic_events(
+                instance, connection, *publication, approved, stage="report-events", apply=True,
+            )

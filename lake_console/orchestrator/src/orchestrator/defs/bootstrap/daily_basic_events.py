@@ -1,5 +1,7 @@
-"""Offline publication of audited history; no source or Lake writes."""
+"""Offline history events; shared file locks live in staging, not the Lake."""
 
+import fcntl
+from contextlib import contextmanager
 from datetime import UTC, datetime
 from pathlib import Path
 from time import monotonic
@@ -59,6 +61,22 @@ def _idle(instance):
         filters=dg.RunsFilter(job_name=DAILY_BASIC_JOB, statuses=_ACTIVE), limit=1
     ):
         raise DailyBasicValidationError("history_active_run")
+
+
+@contextmanager
+def _daily_basic_partition_lock(plan, day):
+    path = _safe_root(
+        Path(plan["staging_root"]) / "daily_basic" / "locks" / f"{day}.lock"
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a") as stream:
+        try:
+            fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise DailyBasicValidationError(
+                "partition_locked：该日期正在写入"
+            ) from error
+        yield
 
 
 def _latest_materializations(instance, dates):
@@ -286,84 +304,99 @@ def apply_daily_basic_events(
         records = _latest_materializations(instance, days)
         for item in batch:
             day, path = item["date"], Path(item["path"])
-            if file_sha256(path) != item["evidence"]["file_sha256"]:
-                raise DailyBasicValidationError("history_file_changed_before_event")
-            if getattr(records.get(day), "storage_id", None) != fresh[
-                "materialization_ids"
-            ].get(day):
-                raise DailyBasicValidationError("history_concurrent_materialization")
-            if day in fresh["pending_materializations"]:
-                instance.report_runless_asset_event(
-                    dg.AssetMaterialization(
-                        asset_key=DAILY_BASIC_ASSET,
-                        partition=day,
-                        metadata=build_materialization_metadata(
-                            uri=path,
-                            row_count=item["evidence"]["source_row_count"],
-                            extra_metadata={
-                                **item["evidence"],
-                                "summary": "历史每日指标文件已核实并登记。",
-                            },
-                        ),
+            with _daily_basic_partition_lock(plan, day):
+                if file_sha256(path) != item["evidence"]["file_sha256"]:
+                    raise DailyBasicValidationError("history_file_changed_before_event")
+                if getattr(records.get(day), "storage_id", None) != fresh[
+                    "materialization_ids"
+                ].get(day):
+                    raise DailyBasicValidationError("history_concurrent_materialization")
+                if day in fresh["pending_materializations"]:
+                    instance.report_runless_asset_event(
+                        dg.AssetMaterialization(
+                            asset_key=DAILY_BASIC_ASSET,
+                            partition=day,
+                            metadata=build_materialization_metadata(
+                                uri=path,
+                                row_count=item["evidence"]["source_row_count"],
+                                extra_metadata={
+                                    **item["evidence"],
+                                    "summary": "历史每日指标文件已核实并登记。",
+                                },
+                            ),
+                        )
                     )
-                )
-                written += 1
+                    written += 1
         records = _latest_materializations(instance, days)
         for item in batch:
             day = item["date"]
-            if day not in fresh["recent_dates"]:
-                continue
             record = records.get(day)
             if record is None or any(
                 delivery_metadata(record).get(k) != v
                 for k, v in item["evidence"].items()
             ):
                 raise DailyBasicValidationError("history_delivery_not_current")
-            path = Path(item["path"])
-            checked = audit_daily_basic_file(connection, path, day)
-            if audit_daily_basic_coverage(path, checked, (), item["evidence"]):
-                raise DailyBasicValidationError("history_file_changed_before_check")
-            target = AssetCheckEvaluationTargetMaterializationData(
-                storage_id=record.storage_id,
-                run_id=record.event_log_entry.run_id,
-                timestamp=record.event_log_entry.timestamp,
-            )
-            for name in DAILY_BASIC_CHECKS:
-                existing = current_daily_basic_check_records(instance, day).get(
-                    dg.AssetCheckKey(dg.AssetKey(DAILY_BASIC_ASSET), name)
-                )
-                if existing is not None:
-                    if not _check_identity(existing, record):
-                        raise DailyBasicValidationError("history_concurrent_check")
-                    continue
-                if (
-                    _latest_materializations(instance, [day])[day].storage_id
-                    != record.storage_id
+            if day not in fresh["recent_dates"]:
+                continue
+            with _daily_basic_partition_lock(plan, day):
+                record = _latest_materializations(instance, [day]).get(day)
+                if record is None or any(
+                    delivery_metadata(record).get(k) != v
+                    for k, v in item["evidence"].items()
                 ):
-                    raise DailyBasicValidationError(
-                        "history_concurrent_materialization"
-                    )
-                instance.report_runless_asset_event(
-                    dg.AssetCheckEvaluation(
-                        asset_key=dg.AssetKey(DAILY_BASIC_ASSET),
-                        check_name=name,
-                        partition=day,
-                        passed=True,
-                        blocking=True,
-                        severity=dg.AssetCheckSeverity.ERROR,
-                        target_materialization_data=target,
-                        metadata=build_check_metadata(
-                            check_scope="reconciliation",
-                            checked_row_count=checked.row_count,
-                            failed_row_count=0,
-                            extra_metadata={
-                                "summary": "历史交付文件核验通过。",
-                                "delivery_method": "prod_history",
-                            },
-                        ),
-                    )
+                    raise DailyBasicValidationError("history_delivery_not_current")
+                path = Path(item["path"])
+                checked = audit_daily_basic_file(connection, path, day)
+                if audit_daily_basic_coverage(path, checked, (), item["evidence"]):
+                    raise DailyBasicValidationError("history_file_changed_before_check")
+                target = AssetCheckEvaluationTargetMaterializationData(
+                    storage_id=record.storage_id,
+                    run_id=record.event_log_entry.run_id,
+                    timestamp=record.event_log_entry.timestamp,
                 )
-                written += 1
+                for name in DAILY_BASIC_CHECKS:
+                    existing = current_daily_basic_check_records(instance, day).get(
+                        dg.AssetCheckKey(dg.AssetKey(DAILY_BASIC_ASSET), name)
+                    )
+                    if existing is not None:
+                        if not _check_identity(existing, record):
+                            raise DailyBasicValidationError("history_concurrent_check")
+                        continue
+                    if (
+                        _latest_materializations(instance, [day])[day].storage_id
+                        != record.storage_id
+                    ):
+                        raise DailyBasicValidationError(
+                            "history_concurrent_materialization"
+                        )
+                    instance.report_runless_asset_event(
+                        dg.AssetCheckEvaluation(
+                            asset_key=dg.AssetKey(DAILY_BASIC_ASSET),
+                            check_name=name,
+                            partition=day,
+                            passed=True,
+                            blocking=True,
+                            severity=dg.AssetCheckSeverity.ERROR,
+                            target_materialization_data=target,
+                            metadata=build_check_metadata(
+                                check_scope="reconciliation",
+                                checked_row_count=checked.row_count,
+                                failed_row_count=0,
+                                extra_metadata={
+                                    "summary": "历史交付文件核验通过。",
+                                    "delivery_method": "prod_history",
+                                },
+                            ),
+                        )
+                    )
+                    written += 1
+                current = _latest_materializations(instance, [day]).get(day)
+                checks = current_daily_basic_check_records(instance, day)
+                if current is None or current.storage_id != record.storage_id or any(
+                    check is None or not _check_identity(check, record)
+                    for check in checks.values()
+                ) or len(checks) != len(DAILY_BASIC_CHECKS):
+                    raise DailyBasicValidationError("history_check_readback")
         print(
             f"daily_basic events completed_dates={min(offset + EVENT_DATE_BATCH, len(files))} total_dates={len(files)} written={written}",
             flush=True,

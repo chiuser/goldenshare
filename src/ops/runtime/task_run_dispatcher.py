@@ -570,6 +570,11 @@ class TaskRunDispatcher:
         params = self._maintenance_params(task_run)
         current_node_id: int | None = None
         unit_sequence_offset = 0
+        total_fetched = total_saved = total_rejected = total_deduplicated = 0
+        completed_units = 0
+        rejected_reason_counts: dict[str, int] = {}
+        ingestion_diagnostics: dict[str, Any] = {}
+        unit_result = None
         try:
             if action.execution_config.get("execution_style") == "audit_then_apply":
                 self._validate_audit_then_apply_params(params)
@@ -723,14 +728,10 @@ class TaskRunDispatcher:
             task_run.unit_failed = 0
             task_run.progress_percent = 0
             session.commit()
-            total_fetched = 0
-            total_saved = 0
-            total_rejected = 0
-            total_deduplicated = 0
-            rejected_reason_counts: dict[str, int] = {}
-            ingestion_diagnostics: dict[str, Any] = {}
             last_message: str | None = None
             for sequence_no, unit in enumerate(units, start=1):
+                current_node_id = None
+                unit_result = None
                 if action.execution_config.get("execution_style") == "audit_then_apply":
                     self._raise_if_task_cancel_requested(session, task_run.id)
                 node = self._create_node(
@@ -759,6 +760,16 @@ class TaskRunDispatcher:
                     )
                 else:
                     result = executor.execute_unit(unit)
+                # A returned result represents committed business work, even if
+                # the following observation transaction fails.
+                unit_result = result
+                completed_units += 1
+                total_fetched += result.rows_fetched
+                total_saved += result.rows_saved
+                total_rejected += result.rows_rejected
+                total_deduplicated += int(result.metadata.get("rows_deduplicated") or 0)
+                self._merge_reason_counts(rejected_reason_counts, dict(result.rejected_reason_counts))
+                self._merge_diagnostics(ingestion_diagnostics, result.metadata)
                 self._finish_node(
                     node,
                     status="success",
@@ -770,15 +781,15 @@ class TaskRunDispatcher:
                     rejected_reason_counts=dict(result.rejected_reason_counts),
                     rejected_reason_samples={},
                 )
-                total_fetched += result.rows_fetched
-                total_saved += result.rows_saved
-                total_rejected += result.rows_rejected
-                total_deduplicated += int(result.metadata.get("rows_deduplicated") or 0)
-                self._merge_reason_counts(rejected_reason_counts, dict(result.rejected_reason_counts))
-                self._merge_diagnostics(ingestion_diagnostics, result.metadata)
                 last_message = result.summary_message
                 task_run.unit_done = sequence_no
                 task_run.progress_percent = int(sequence_no / len(units) * 100) if units else 100
+                task_run.rows_fetched = total_fetched
+                task_run.rows_saved = total_saved
+                task_run.rows_rejected = total_rejected
+                task_run.rows_deduplicated = total_deduplicated
+                task_run.ingestion_diagnostics_json = dict(ingestion_diagnostics)
+                task_run.rejected_reason_counts_json = dict(rejected_reason_counts)
                 session.commit()
             return TaskRunDispatchOutcome(
                 status="success",
@@ -802,6 +813,11 @@ class TaskRunDispatcher:
             session.commit()
             return TaskRunDispatchOutcome(
                 status="canceled",
+                rows_fetched=total_fetched,
+                rows_saved=total_saved,
+                rows_rejected=total_rejected,
+                rows_deduplicated=total_deduplicated,
+                ingestion_diagnostics=dict(ingestion_diagnostics) if unit_result is not None else None,
                 summary_message="任务已收到停止请求，并在当前计划边界结束。",
                 status_reason_code="ingestion_canceled",
             )
@@ -830,13 +846,28 @@ class TaskRunDispatcher:
             )
             if current_node_id is not None:
                 node = session.get(TaskRunNode, current_node_id)
-                if node is not None:
+                if node is not None and node.status in {"pending", "running"}:
                     node.issue_id = issue.id
-                    self._finish_node(node, status="failed")
+                    self._finish_node(
+                        node, status="failed",
+                        rows_fetched=unit_result.rows_fetched if unit_result is not None else None,
+                        rows_saved=unit_result.rows_saved if unit_result is not None else None,
+                        rows_rejected=unit_result.rows_rejected if unit_result is not None else None,
+                        rows_deduplicated=int(unit_result.metadata.get("rows_deduplicated") or 0) if unit_result is not None else None,
+                        ingestion_diagnostics=dict(unit_result.metadata) if unit_result is not None else None,
+                    )
+            task_run.unit_done = max(task_run.unit_done, completed_units)
+            if task_run.unit_total:
+                task_run.progress_percent = int(task_run.unit_done / task_run.unit_total * 100)
             task_run.unit_failed = 1
             session.commit()
             return TaskRunDispatchOutcome(
                 status="failed",
+                rows_fetched=total_fetched,
+                rows_saved=total_saved,
+                rows_rejected=total_rejected,
+                rows_deduplicated=total_deduplicated,
+                ingestion_diagnostics=dict(ingestion_diagnostics) if unit_result is not None else None,
                 summary_message=issue.operator_message,
                 issue_id=issue.id,
                 status_reason_code=issue.code,
