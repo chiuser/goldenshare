@@ -1,6 +1,6 @@
 # DG 复权周线、月线Raw更新、完整性审计与Silver生成方案 v1
 
-**2026-11-11 日更改造已补入方案与LLD，待开发。** 新方案见[第10.19节](#stock-period-daily-then-history)。第1节至第10.18节及第10.20节记录切换前实现和历史结果。切换后日更、回刷、补齐及清退以第10.19节为准，旧删除重建、建库交接和续跑命令只用于追溯。
+**2026-11-11 第1至4阶段已完成设计、开发及相应隔离验收，尚未正式切换。** 新方案见[第10.19节](#stock-period-daily-then-history)。第1节至第10.18节及第10.20节记录切换前实现和历史结果。切换后日更、回刷、补齐及清退以第10.19节为准，旧删除重建、建库交接和续跑命令只用于追溯。
 
 **2026-10-31跨日日期修正已完成开发和隔离验收：** 原任务日期与逐文件实际源日期已分开，相关463个不重复用例通过（新增28项），源码与LLD对账无阻断遗漏。详见本方案§10.13、共享LLD§12.22.6及本轮实施报告；本轮修改随本次提交保存，未正式补数。以下28日各项结果保留为历史，不表示29/30日已经补齐。
 
@@ -525,7 +525,7 @@ pending=0，周/月last_refresh与factor_through均30日，completed_through周2
 4. 切换前逐笔办结或迁移未完成的旧任务，并核对实际文件与Dagster交付。常规回刷按已校验的源日期定位文件和更新对应记录。切换时同步移除旧混合日更、共享待办、`baseline.json`及其每股索引、建库交接标记、跨批文件版本目录，连同旧回执接续和相关运维入口一并清退。文件合并与替换时直接核对本次目标。历史回刷遇到缺失的全市场文件，按指定闭合周期单点补齐。指定闭合周期补建整份文件时，应有代码取周期内逐日应更新集合的并集，每个应有代码须覆盖该股在周期内最后应更新日，记录实际源计算截至日。保留独立首次建库、原文件校验及原子替换能力，保留历史记录供审计。删除位置、调用方迁移和验收见[周月线LLD第13.7节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-legacy-removal)。
 5. 确认退市清理由一个独立job执行。周Raw当日成功更新并通过检查后提交周清理，月Raw成功后提交月清理，分别只处理本频。采用现有repair的成功事件监听；按退市股票代码统计本频全部历史文件，只修改命中文件，覆盖正式上市前的Raw记录。同频Silver按本次完整交付范围接续。无待清理股票也记录本频结果，失败按本频原范围整批重跑。详见[周月线详细设计第13.8节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-retirement-cleanup)。
 
-本需求按六阶段实施。正式路径、四个资产、21列、源端复权值、北交所身份规则和已有历史文件均沿现有合同。实现位置、配置审计、整批重跑、性能预算和验收见[周月线LLD第13节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-daily-then-history-lld)。月线专属差异见[月线LLD第11节](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md#monthly-daily-point-readiness)。 开工审计和六阶段任务见[周月线LLD第13.9节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-development-stages)。第1阶段四项准备已完成，明确合同、两个新任务、全部消费者和真实验证见[第13.10节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-implementation-contracts)。第2阶段当期Raw/Silver源码、隔离验收及独立审计已完成，逐条结果见[第13.11节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-two-results)；第3阶段独立复权因子历史回刷亦已完成开发、隔离验收及独立审计，代码映射、资源和逐条结果见LLD第13.12节；第4至6阶段未实施，正式切换另行批准。
+本需求按六阶段实施。正式路径、四个资产、21列、源端复权值、北交所身份规则和已有历史文件均沿现有合同。实现位置、配置审计、整批重跑、性能预算和验收见[周月线LLD第13节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-daily-then-history-lld)。月线专属差异见[月线LLD第11节](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md#monthly-daily-point-readiness)。 开工审计和六阶段任务见[周月线LLD第13.9节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-development-stages)。第1阶段四项准备已完成，明确合同、两个新任务、全部消费者和真实验证见[第13.10节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-implementation-contracts)。第2阶段当期Raw/Silver源码、隔离验收及独立审计已完成，逐条结果见[第13.11节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-two-results)；第3阶段独立复权因子历史回刷亦已完成开发、隔离验收及独立审计，代码映射、资源和逐条结果见LLD第13.12节；第4阶段单频退市清理已完成开发、隔离验收及独立审计，实施映射、累计结果修正及逐项验收见[LLD第13.13节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-four-results)；第5、6阶段未实施，正式切换另行批准。
 
 ### 10.20 11月10日股票复权周线和月线恢复
 

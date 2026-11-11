@@ -672,6 +672,64 @@ def publish_period(item, *, policy=DEFAULT_POLICY, cancel=lambda: False):
     return result
 
 
+def count_retirement_rows(root, freq, codes, *, work, policy=DEFAULT_POLICY,
+                          cancel=lambda: False, progress=lambda _: None):
+    """One code-column aggregate across this frequency's canonical market files."""
+    if not codes:
+        return {}
+    pattern = "week_end=*/part-000.parquet" if freq == "week" else "month=*/data.parquet"
+    paths = {}
+    for path in sorted(dataset_root(root, freq).glob(pattern)):
+        period = path.parent.name.split("=", 1)[1]
+        try:
+            period_date(period, freq)
+        except ValueError:
+            continue  # Only canonical business partitions belong to this scan.
+        if path == target_path(root, freq, period):
+            paths[str(path)] = period
+    if not paths:
+        return {}
+    with connection(work, policy) as con:
+        counts = dict(execute(con, "SELECT filename,count(*) FILTER(WHERE list_contains(?,ts_code)) "
+            "FROM read_parquet(?,hive_partitioning=false,filename=true) GROUP BY filename",
+            [list(codes), list(paths)], cancel=cancel, progress=progress, policy=policy,
+            stage="retirement_code_counts").fetchall())
+    return {period: counts.get(path, 0) for path, period in paths.items()}
+
+
+def assemble_retirement_period(*, root, freq, period, codes, work, policy=DEFAULT_POLICY,
+                                cancel=lambda: False, progress=lambda _: None):
+    """Remove only approved physical codes; an inherited already-clean file is not replaced."""
+    work = durable_directory(work)
+    target = target_path(root, freq, period)
+    before = file_version(target)
+    with connection(work, policy) as con:
+        evidence = validate_file(con, target, freq, period, cancel=cancel, policy=policy)
+        execute(con, "CREATE TEMP TABLE retirement_prior AS SELECT * FROM read_parquet(?,hive_partitioning=false)",
+                [str(target)], cancel=cancel, progress=progress, policy=policy)
+        removed = execute(con, "SELECT count(*) FROM retirement_prior WHERE list_contains(?,ts_code)",
+                          [list(codes)], cancel=cancel, policy=policy).fetchone()[0]
+        if removed:
+            candidate = work / "candidate.parquet"
+            storage_reserve(before[2], spill=True)
+            execute(con, f"COPY (SELECT {COLUMNS} FROM retirement_prior WHERE NOT list_contains(?,ts_code) "
+                    "ORDER BY ts_code,trade_date,freq) TO ? (FORMAT PARQUET,COMPRESSION ZSTD)",
+                    [list(codes), str(candidate)], cancel=cancel, progress=progress, policy=policy,
+                    stage="retirement_candidate")
+            storage_record(candidate)
+            evidence = validate_file(con, candidate, freq, period, cancel=cancel, policy=policy)
+            maximum = execute(con, "SELECT max(end_date) FROM read_parquet(?,hive_partitioning=false)",
+                              [str(candidate)], cancel=cancel, policy=policy).fetchone()[0]
+        else:
+            maximum = execute(con, "SELECT max(end_date) FROM retirement_prior",
+                              cancel=cancel, policy=policy).fetchone()[0]
+    record = {"freq": freq, "period": period, "target": str(target), **evidence,
+              "rewritten": bool(removed), "source_asof": f"{maximum[:4]}-{maximum[4:6]}-{maximum[6:]}" if maximum else None}
+    if removed:
+        record.update(candidate=str(candidate), candidate_version=evidence["version"], target_preimage=before)
+    return record
+
+
 def range_index_valid(evidence):
     """Metadata integrity only; current files are checked for the selected scope."""
     return (

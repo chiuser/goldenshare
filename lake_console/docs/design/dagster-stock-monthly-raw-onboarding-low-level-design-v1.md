@@ -1,6 +1,6 @@
 # DG 复权月线Raw更新、完整性审计与Silver生成 LLD v1
 
-**2026-11-11 第2、3阶段月线当期Raw/Silver及独立复权因子历史回刷开发、隔离验收及独立审计完成，当前结果见[周月线LLD第13.12节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-three-results)。** 月线新流程见[第11节](#monthly-daily-point-readiness)；退市清理及剩余维护入口、旧实现清退仍按后续阶段实施，尚未正式切换。 第1至10节记录切换前实现和历史结果。切换后，当月预检、正式日更和指定闭合月补齐使用第11节口径，旧建库交接和续跑命令只用于追溯。
+**2026-11-11 第2至4阶段月线当期Raw/Silver、独立复权因子历史回刷及单频退市清理开发、隔离验收及独立审计完成，当前结果见[周月线LLD第13.13节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-four-results)。** 月线新流程见[第11节](#monthly-daily-point-readiness)；剩余人工维护、旧实现清退及整体验收仍按第5、6阶段实施，尚未正式切换。 第1至10节记录切换前实现和历史结果。切换后，当月预检、正式日更和指定闭合月补齐使用第11节口径，旧建库交接和续跑命令只用于追溯。
 
 **2026-10-31跨日日期修正已完成开发和隔离验收：** 月线与周线共用的逐文件来源日期修正见§9.8及共享LLD§12.22，相关463项不重复用例通过（新增28项）。本轮修改随本次提交保存，未正式补数；28日各项结果保留为历史，不表示29/30日已经补齐。
 
@@ -317,7 +317,7 @@ curl --max-time 25 --fail-with-body --silent --show-error \
 
 ## 11. 当月全市场单点预检与日更
 
-本节当期Raw/Silver已完成第2阶段实现：自然月末单点、三列预检、21列正式下载、当期单文件及Dagster原生交付均经隔离验证。旧Silver日更私有回执与续跑分支已移除；其余旧Raw离线入口和独立首次建库的清退边界仍按第5阶段处理，不把后续能力计为本阶段已完成。
+本节当期Raw/Silver已完成第2阶段实现：自然月末单点、三列预检、21列正式下载、当期单文件及Dagster原生交付均经隔离验证。第3阶段独立回刷和第4阶段单频退市清理亦已实现并独立审计，同频Silver可完整接续；新sensor均默认STOPPED。旧Silver日更私有回执与续跑分支已移除；其余旧Raw离线入口和独立首次建库的清退边界仍按第5阶段处理，不把第5、6阶段计为已完成。
 
 本节对应[原方案第10.19节](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#stock-period-daily-then-history)和[周月线LLD第13节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-daily-then-history-lld)。预检、日更交付、股票复权因子变化历史回刷、Dagster记录及切换沿共享规则，月线只补下列差异。 三列传输、原生交付字段、新任务及实测预算统一见[周月线LLD第13.10节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-implementation-contracts)。
 

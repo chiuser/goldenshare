@@ -21,6 +21,15 @@ KINDS = (
     "retirement_cleanup",
     "history_maintenance",
 )
+RAW_DAILY_JOBS = {f"raw_stk_period_bar_adj_{freq}_update_job": freq for freq in ("week", "month")}
+
+
+def raw_daily_run_intent(run):
+    freq = RAW_DAILY_JOBS[run.job_name]
+    config = run.run_config["ops"][f"raw_tushare_stk_period_bar_adj_{freq}"]["config"]
+    if config.get("intent", "daily") != "daily":
+        raise ValueError("period_requires_daily")
+    return freq, config["automatic_intent_date"]
 
 
 def iso_business_date(value):

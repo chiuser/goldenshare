@@ -3954,7 +3954,7 @@ LAKE_ASSET_CATALOG += tuple(
             batch_grain="stock/frequency; period",
             compute_engine=ComputeEngine.DUCKDB_SQL,
             source_request_policy="period_point_3_fields_probe_then_21_fields_download",
-            notes="20:00起按当日在市及最终停复牌事实做三列源预检；自然周五单点下载21列，只更新当期一文件。新股随全市场日更，复权因子变化通过独立job按单股两频完整历史回刷；日更和回刷失败整批重取。真实运行UUID、写前/完成范围、物化及原检查共同证明交付，日常不读私有JSON；独立首次建库保留runless能力。",
+            notes="20:00起按当日在市及最终停复牌事实做三列源预检；自然周五单点下载21列，只更新当期一文件。新股随全市场日更，复权因子变化通过独立job按单股两频完整历史回刷；日更和回刷失败整批重取。本频日更成功后由独立job清理确认退市股票的本频历史，完整范围交付同频Silver，结果每频累计。真实运行UUID、写前/完成范围、物化及原检查共同证明交付，日常不读私有JSON；独立首次建库保留runless能力。",
         ),
     )
     for source, model, schema, path in _WEEKLY_CATALOG_SPECS
@@ -3996,7 +3996,7 @@ LAKE_ASSET_CATALOG += tuple(
         event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
         performance_contract=_perf(batch_grain="stock/frequency; period", compute_engine=ComputeEngine.DUCKDB_SQL,
             source_request_policy="period_point_3_fields_probe_then_21_fields_download",
-            notes="20:00起按当日在市及最终停复牌事实做三列源预检；自然月末单点下载21列，只更新当期一文件。全日停牌有效返回可合并、缺席保留旧记录；不改既有历史标签；复权因子变化由独立job回刷两频完整历史。真实运行UUID、写前/完成范围、物化及原检查共同证明交付，日常不读私有JSON；独立首次建库保留runless能力。"),
+            notes="20:00起按当日在市及最终停复牌事实做三列源预检；自然月末单点下载21列，只更新当期一文件。全日停牌有效返回可合并、缺席保留旧记录；不改既有历史标签；复权因子变化由独立job回刷两频完整历史。本频日更成功后由独立job清理确认退市股票的本频历史，完整范围交付同频Silver，结果每频累计。真实运行UUID、写前/完成范围、物化及原检查共同证明交付，日常不读私有JSON；独立首次建库保留runless能力。"),
     ) for source, model, schema in _MONTHLY_CATALOG_SPECS
 )
 

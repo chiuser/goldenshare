@@ -42,11 +42,13 @@ from orchestrator.defs.run_contracts.stock_period_delivery import (
     COMPLETION_KEY,
     FILE_DELIVERY_KEY,
     KIND_TAG,
+    RAW_DAILY_JOBS,
     WORK_KEY,
     delivery_completion,
     delivery_ref,
     delivery_work,
     period_run_tags,
+    raw_daily_run_intent,
 )
 from orchestrator.defs.run_contracts.stock_period_history_repair import (
     FREQUENCIES,
@@ -59,8 +61,6 @@ from orchestrator.defs.stock_daily_qfq import (
     build_stock_daily_qfq_factor_changed_codes_sql,
     gold_stock_daily_qfq_factor_repair_codes_hash,
 )
-
-RAW_JOBS = {f"raw_stk_period_bar_adj_{freq}_update_job": freq for freq in FREQUENCIES}
 
 
 def load_factor_changed_codes(root, business_date):
@@ -101,20 +101,12 @@ def load_factor_changed_codes(root, business_date):
     return codes
 
 
-def _daily_config(run):
-    freq = RAW_JOBS[run.job_name]
-    config = run.run_config["ops"][f"raw_tushare_stk_period_bar_adj_{freq}"]["config"]
-    if config.get("intent", "daily") != "daily":
-        raise ValueError("period_repair_requires_daily")
-    return freq, config["automatic_intent_date"]
-
-
 def evaluate_history_repair_sensor(context, lake_root):
     run = context.dagster_run
-    if run.job_name not in RAW_JOBS:
+    if run.job_name not in RAW_DAILY_JOBS:
         return dg.SkipReason("period_repair_unmonitored_job")
     try:
-        freq, day = _daily_config(run)
+        freq, day = raw_daily_run_intent(run)
         other = "month" if freq == "week" else "week"
         others = context.instance.get_runs(
             filters=dg.RunsFilter(
@@ -126,7 +118,7 @@ def evaluate_history_repair_sensor(context, lake_root):
         )
         if not others:
             return dg.SkipReason("period_repair_waiting_other_frequency")
-        other_freq, other_day = _daily_config(others[0])
+        other_freq, other_day = raw_daily_run_intent(others[0])
         if other_freq != other or other_day != day:
             raise ValueError("period_repair_daily_date_mismatch")
         runs = {freq: run, other: others[0]}

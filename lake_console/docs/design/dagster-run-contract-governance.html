@@ -558,8 +558,8 @@
       当前实现要求所有 sensor definition 的 tags 均通过 <code>defs/run_contracts/sensor_tags.py</code> 的 <code>build_sensor_tags(...)</code> 构造。本文档是 sensor definition tags 的治理口径；<code>dagster-asset-job-topology.html</code> 记录当前 sensor 拓扑和分类现状。新增或修改 sensor 时，必须同步更新本文档、拓扑文档和静态门禁。
     </p>
     <p id="period-native-delivery-planned">
-      <strong>股票周月线原生交付（第2阶段已实现，未正式切换）。</strong>
-      当期Raw/Silver及第3阶段独立复权因子历史回刷已使用下述原生交付；退市清理仍待第4阶段。
+      <strong>股票周月线原生交付（第2至4阶段已实现，未正式切换）。</strong>
+      当期Raw/Silver、独立复权因子历史回刷和单频退市清理已使用下述原生交付。
       新历史修复job为<code>raw_stock_period_history_repair_job</code>，
       sensor为同名加<code>_sensor</code>；清理job为
       <code>raw_stock_period_retirement_cleanup_job</code>，sensor同样跟随job命名。
@@ -568,7 +568,7 @@
       运行tag <code>goldenshare/stock_period_business_date</code>、
       <code>goldenshare/stock_period_kind</code>及单频的<code>goldenshare/stock_period_freq</code>
       由入口验证后的日期、用途及频率配置唯一派生，命名和构造集中于本链delivery合同。
-      前两者用于查同日另一频的daily成功，频率tag用于跨业务日读取最新SUCCESS清理结果。
+      前两者用于查同日另一频的daily成功，频率tag用于跨业务日读取最后完成的SUCCESS清理结果；按完成时间倒序取一条运行，再从原生check索引定向读一条累计结果。
       Silver另由原输入派生<code>goldenshare/stock_period_source_batch</code>，
       按本job、该上游ID及SUCCESS定位手工整批重跑，再核对本次完整范围与原检查；
       tag不能替代完整交付及原检查，不改变sensor分类tag或日更准入。
@@ -586,12 +586,12 @@
       本步代码、预算与验收见周月线LLD第13.12节；未正式启用。
     </p>
     <p id="period-retirement-cleanup-planned">
-      <strong>周月线退市清理（待开发）。</strong>
+      <strong>周月线退市清理（第4阶段已实现，未正式启用）。</strong>
       新sensor按<code>quote_data / raw / asset_update</code>分类，
       监听周、月Raw当期日更完整交付、原检查通过后的成功事件，
       复用一个带频率参数的独立清理job，各频独立提交。
       运行参数明确业务日期、频率、上游运行及确认退市名单摘要，
-      去重键区分频率与上游运行。规则见
+      去重键区分频率与上游运行。默认STOPPED，零名单或非零名单无文件命中时只记录本频结果；非零命中完整交付同频Silver。失败按真实父链保留原范围后整批重跑，不读取私有进度文件。实现与验收见周月线LLD第13.13节；规则见
       <a href="dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-retirement-cleanup">周月线详细设计第13.8节</a>。
     </p>
     <p id="period-silver-sensor-classification">
@@ -602,7 +602,7 @@
       复用既有 <code>build_sensor_tags(...)</code> 及枚举，不新增标签或配置；分类只用于Automation页面筛选。
       开发时同步现有静态定义名单和统一tag门禁，并在本域测试中核对精确分类、目标job及默认停止状态。
       名称、触发和验收以<a href="dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-sensor-classification">共享LLD §11.6</a>为准。
-      当时的静态名单和直接测试已同步，正式接线结果见共享LLD第11.13节。待开发的日更、回刷、退市清理和旧入口清退见<a href="dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-daily-then-history-lld">共享LLD第13节</a>。实现时同步拓扑、运行契约和现有静态定义门禁。
+      当时的静态名单和直接测试已同步，正式接线结果见共享LLD第11.13节。新日更、回刷、退市清理及后续旧入口清退的分阶段结果见<a href="dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-daily-then-history-lld">共享LLD第13节</a>。实现时同步拓扑、运行契约和现有静态定义门禁。
     </p>
     <p>
       股票技术因子分区注册 <code>stock_factor_pro_trade_day_sensor</code> 使用

@@ -383,7 +383,7 @@
       每个tick最多提交一个本频率批次，覆盖通知中全部实际变化周期；周线Raw任务引起的历史月线变化也交给月线链处理。
       原Raw sensor的状态、水位和19:30窗口保留，不新增分区sensor或调度入口。
       完整合同及正反验收见<a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-sensor-classification">共享LLD §11.6—11.8</a>。
-      以上为旧接线的历史记录。2026-11-11第2阶段已将两频Raw改为20:00起按在市及最终停复牌事实进行三列源预检，分别更新本频当期文件；同频Silver消费Dagster原生完整交付及原检查。旧Silver日更私有回执及续跑分支已移除。独立回刷已在第3阶段接通，见下文；退市清理及剩余旧入口清退仍待后续阶段，尚未正式切换。实现、测试及独立审计见<a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-two-results">周月线LLD第13.11节</a>。
+      以上为旧接线的历史记录。2026-11-11第2阶段已将两频Raw改为20:00起按在市及最终停复牌事实进行三列源预检，分别更新本频当期文件；同频Silver消费Dagster原生完整交付及原检查。旧Silver日更私有回执及续跑分支已移除。独立回刷已在第3阶段接通，见下文；退市清理已在第4阶段接通，见下文；剩余旧入口清退仍待后续阶段，尚未正式切换。实现、测试及独立审计见<a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-two-results">周月线LLD第13.11节</a>。
     </div>
     <div class="note">
       <strong>2026-10-10 同花顺行业资金流调度：</strong>
@@ -1369,17 +1369,17 @@
       同业务日两频完整交付后提交<code>raw_stock_period_history_repair_job</code>；
       新股随当期同步，复权因子变化股票进入两频源历史回刷。
       本阶段只实现复权因子变化意图；显式指定历史和已确认身份维护留第5阶段接入。
-      本sensor默认STOPPED；清理sensor仍待第4阶段。完整参数、交付字段与实测见
+      本sensor与第4阶段清理sensor均默认STOPPED，尚未正式启用。完整参数、交付字段与实测见
       <a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-implementation-contracts">周月线LLD第13.10节</a>。
     </div>
 
     <div class="note" id="period-retirement-cleanup-planned">
-      <strong>周月线退市清理（待开发）。</strong>
+      <strong>周月线退市清理（第4阶段已实现，未正式启用）。</strong>
       成功事件sensor监听两个Raw日更job，分别向同一个
       <code>raw_stock_period_retirement_cleanup_job</code>传入周或月频率。
       每频以自身Raw当期日更完整交付、原检查通过及运行成功为条件；
       周清理只处理周Raw，月清理只处理月Raw，无需等待另一频。
-      业务日期取上游运行配置，同频Silver接续实际变化。
+      业务日期取上游运行配置，同频Silver接续完整交付范围；中断后按真实父链保留原选中文件，已删完文件仍重新验收和交付。无名单不读取历史；结果按频率累计，读取最后完成的一笔成功结果。sensor默认STOPPED，分类为quote_data/raw/asset_update。实现与验收见周月线LLD第13.13节。
       触发、配置及验收见
       <a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-retirement-cleanup">周月线详细设计第13.8节</a>。
     </div>
