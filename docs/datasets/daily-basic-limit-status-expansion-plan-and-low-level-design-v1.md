@@ -2,7 +2,7 @@
 
 更新时间：2026-11-11。
 
-状态：**扩充方案已按 2026-11-11 管理员审计意见修订；本轮只实施 §12 的维护进度与 DG 日期锁修复，19 字段、历史补录和 DG 替换能力尚未开发。** 管理员已认可“Prod 只补新增列，DG 从补齐后的 Prod 重新 bootstrap”的方向，并要求新增能力不得影响既有能力。本文不是生产执行批准。
+状态：**§12 的维护进度与 DG 日期锁修复已提交 `e393aba66`；本轮补齐 §6.6～6.8、§7.7 的具体设计，并按 §13 做有界源接口验证。19 字段、历史补录和 DG 替换能力尚未开发。** 管理员已认可“Prod 只补新增列，DG 从补齐后的 Prod 重新 bootstrap”的方向，并要求新增能力不得影响既有能力。本文不是生产执行批准。
 
 本文是本次扩充的唯一专项主文档，同时承接需求、方案、代码设计、性能依据和后续执行结果。原 [DG 接入方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-basic-onboarding-plan-v1.md)及 [DG 接入 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-basic-onboarding-low-level-design-v1.md)保留原 18 字段实现与历史验收；本专项获评审后，在原文增加本专项入口及适用边界，不复制本次方案或改写旧验收。
 
@@ -68,7 +68,7 @@ DG 仅有 `raw_tushare_daily_basic`，没有本数据集的 Silver。正式路�
 | 20261110，同样的三字段抽样 | 5,573 行，状态均为 0～6 整数，无缺失和重复键 | 该日源端代码集合与 DG 完全一致 |
 | `000001.SZ`，20151231、20200102 | 各 1 行，状态分别为 4、1 | 跨年代样本可获取；不等于所有日期已验证 |
 
-三字段请求只用于上述有界调研，不建立三字段的 Tushare 子契约。正式下载使用完整 19 字段。原方案已有对象、日期、区间、分页的历史验证；本次不改时间模型，不重做无日期全市场读取。MCP 没有暴露 limit/offset，本次 MCP 结果不作为项目 connector 分页验收。开发前补一次项目 connector 的完整 19 字段、分页合并及短页结束验证。
+三字段请求只用于上述有界调研，不建立三字段的 Tushare 子契约。正式下载使用完整 19 字段。原方案已有对象、日期、区间、分页的历史验证；本次不改时间模型，不重做无日期全市场读取。MCP 没有暴露 limit/offset，其结果不作为项目 connector 分页验收；本轮已另经项目真实下载器验证完整 19 字段、分页合并、短页及空末页，实际范围与结果见 §13.2。
 
 ## 3. 选择重新 bootstrap 的原因与影响面
 
@@ -114,7 +114,7 @@ DG 已追到原 CLI→导出→构建→审计→提升→事件发布，以及�
 
 | 模板内容 | 本文位置与当前状态 |
 |---|---|
-| 0.3.0 源端行为、默认/显式字段、分页 | §2.3；已有有界证据，新增完整字段的项目 connector 分页仍是 P0 门禁 |
+| 0.3.0 源端行为、默认/显式字段、分页 | §2.3、§13.2；完整字段的项目真实 connector 分页验证已通过，范围为单代码有界日期，不代表全历史验收 |
 | 0.3.1 时间、unit、freshness | §4.1，三层分别说明 |
 | 0.3.2 全部 Definition 消费者 | §3.3；实施前完成当前分支清单核验，不把“预计无影响”当已回归 |
 | 0.3.3 字段来源、存储与键 | §4.2、§5.1；新增列尚未迁移，原列维持现行类型 |
@@ -233,7 +233,7 @@ SQLAlchemy 的多行更新依据见 [UPDATE FROM 与 VALUES](https://docs.sqlalc
 
 错误在任务详情直接展示交易日、股票代码、股票名称、字段名称、原始值及类型、合法范围和具体原因，由管理员处理后重试。名称从现行股票服务表 `core_serving.security_serving` 按出错代码有界读取；源接口不提供名称，禁止补一个猜测名称。没有可用名称时明确显示“股票名称缺失”并保留代码，不让名称查询错误掩盖原始数值错误。名称是当前服务表名称，不宣称为历史交易日当时名称。例：`2010-01-04，000001.SZ（股票名称：当前服务表名称），收盘涨跌状态 limit_status 原始值 1.5（float），应为 0～6 的整数；该日期未提交，任务失败，等待管理员处理。`
 
-拟落点：本数据集校验生成 `StructuredError` 并在 normalizer 的逐行拒绝捕获范围之外上抛；executor 在 writer 前阻止该 unit 提交，Ops 错误展示按失败样本批量补名称。具体 reason code 和工作流停止传递在该阶段开工前补齐，不在本轮两个修复中提前改变通用执行合同。
+具体接线、reason code、已提交进度及工作流停止规则见 §6.6。它们是后续扩充设计，不属于 §12 已交付的两个修复。
 
 正常链路仍为 `DatasetDefinition → DatasetActionResolver → request builder → source client → normalizer → 原整行 writer`。本次历史动作不会被手动维护、workflow 或 schedule 默认调用。
 
@@ -253,6 +253,7 @@ SQLAlchemy 的多行更新依据见 [UPDATE FROM 与 VALUES](https://docs.sqlalc
 | SQL 批次 | Settings `sync_batch_size`，代码默认 1,000；运行值必须冻结 | 新方法复用，不能改动旧方法或静默放大运行配置 |
 | 分页 | Definition 现有每页 6,000 | 源请求、分页完整性；不是每日永远最多 6,000 行的保证 |
 | 源响应字节、传输时限、单日期行数/内存与总规模 | 无本次专项实测，按 §8.2 管理员免测决定记录实际参数及来源；不虚构新上限 | 不新增全局配置；保留已有必填执行限制；免测不代表无限制或已测通过 |
+| 本动作接收字节预算 | §6.8 `execution_config.max_response_bytes`，无默认值，执行准备时由管理员给定并冻结 | 只用于本动作 planner/接收器；缺值阻止冻结；不是其他数据集的限制或本轮实测值 |
 
 新参数不写入新 env 文件或配置表。配置仍由各自现行事实源拥有，TaskRun 只保存此次批准的快照与意图。运营可从计划和详情看到实际值及依据。
 
@@ -264,7 +265,7 @@ SQLAlchemy 的多行更新依据见 [UPDATE FROM 与 VALUES](https://docs.sqlalc
 4. 分页只保留单日期的有界输入，禁止积累全历史。按冻结范围和现有分页规则处理；若实施入口要求数值限制，应记录实际取值与代码来源或管理员决定，不能把未实测的数写成测量结论；超出已有限制停止，不临时抬高。
 5. 本次历史补录只使用新增列；源端返回的原 18 字段不用于覆盖已有值。正常同步继续使用其完整字段合同。
 
-`TushareSourceConnector.call_bounded` 已有可终止调用，但 `bounded_tushare_call.py` 目前只识别公告默认分支、`stock_weekly_adj/v1` 和 `index_period_raw/v1`。不能把新任务伪装为指数/公告合同。拟追加本数据集自己的响应合同分支，保留旧分支原行为；字节与时间参数按 §8.2 记录来源及实际执行值，不增加专项测量前置条件。实施前先跑旧三类合同基线，新增分支后连同旧三类合同一起回归；失败不得交付或进入正式执行。
+`TushareSourceConnector.call_bounded` 已有可终止调用，但 `TushareHttpClient.call_bounded` 和 `bounded_tushare_call.py` 各有一层合同检查，目前只识别公告默认分支、`stock_weekly_adj/v1` 和 `index_period_raw/v1`。两层均须增加 `daily_basic/v1`，绑定 `api_name=daily_basic` 与完整 19 字段，不能把新任务伪装为指数/公告合同。通用 source client 带 control 的现行分支会指定指数合同，新历史服务不能直接借该分支绕过检查；复用原 request builder、分页规则及底层有界调用，使用本数据集合同。旧三类合同、未知合同拒绝及其错误行为分别回归；失败不得交付或进入正式执行。执行参数见 §6.8，不增加专项测量前置条件。
 
 ### 6.4 Prod 长任务合同（对应模板 0.3.5）
 
@@ -291,11 +292,56 @@ SQLAlchemy 的多行更新依据见 [UPDATE FROM 与 VALUES](https://docs.sqlalc
 | `src/foundation/dao/base_dao.py` | 只新增 `bulk_update_columns`，旧方法原样保留 |
 | `src/foundation/datasets/definitions/market_equity.py` | 完整字段清单与本数据集状态检查声明 |
 | `src/foundation/ingestion/row_transforms.py`、`codebook.py` | 本数据集整数状态检查及明确错误原因；不改旧转换行为 |
+| `src/foundation/ingestion/executor.py` | 仅为严格拒绝且整行双表写入的组合，在 writer 前终止，并在本次致命校验错误中携带已提交进度 |
+| `src/ops/runtime/task_run_dispatcher.py`、`worker.py` | §6.6 的错误展示、正常维护进度保留及工作流整体失败；不能误用 §12 的维护任务修复代替 |
 | 拟新增 `src/foundation/ingestion/daily_basic_limit_status.py` | PLAN 所需事实与单日期补录业务服务；只依赖 Foundation，注入取消/进度接口 |
 | `src/foundation/clients/bounded_tushare_call.py` 及对应 client 传递 | 新响应合同分支，旧合同不改 |
 | 拟新增 `src/app/runtime/daily_basic_limit_status_task_executor.py` | 维护协议与 Foundation 服务的组合适配，独立业务 Session |
 | `src/ops/action_catalog.py`、`src/app/runtime/ops_worker_factory.py` | 注册新维护动作/执行器；复用现有 dispatcher，不新增 dataset-key 分支 |
 | `docs/templates/dataset-development-template.md` | Definition 修改时核对模板合同仍相符；若新事实必须由通用模板表达，实施中同步校准，不复制本专项参数到模板 |
+
+### 6.6 正常维护的校验、任务失败和进度传递
+
+本节依据当前 `DatasetNormalizer.normalize/raise_if_all_rejected`、`DatasetWriter.write`、`IngestionExecutor._process_fetched_unit/_record_unit_exception`、dispatcher 的 dataset action/workflow 分支与 worker 收尾逐项设计。当前 executor 遇到 `IngestionError` 已会回滚当前日期并重新抛出；缺口是“有坏行但仍有好行”没有形成致命错误，以及 Ops 没有保留这个错误对应的已提交进度，不能写成 executor 吞掉异常继续下一个日期。
+
+1. **复用既有策略，不增加全局开关。** 每日指标 Definition 将 `quality.reject_policy` 声明为已有的 `fail_unit_on_any_rejection`，登记专用 `row_transform_name=daily_basic_limit_status`。目前 writer 只对部分 raw-only 路径执行这个策略；仅改 Definition 不会保护每日指标。故在 executor 的 writer 之前增加 `write_path=raw_core_upsert` 且该策略生效的处理。2026-11-11 枚举当前全部 Definition，该组合目前为 0 个；本次只让每日指标进入，其他已有策略的处理位置、错误码和默认行为不改。
+2. **逐行样本与整日终止分开。** 转换检查全部 19 个业务字段存在；原数值字段允许现行 NULL/负值，状态必须是原生整数且在 0～6。缺字段使用 `normalize.required_field_missing:<字段>`；新增状态错误为 `normalize.daily_basic_limit_status_invalid:limit_status`，message 区分 NULL、bool、字符串、小数与越界，带原始类型和允许值。延用 `RowTransformReject` 和现有 `reason:field` 拆分；在 codebook 登记基础 reason。不改现有 Decimal、日期转换。
+3. **writer 前产生任务级错误。** 上述严格组合的归一化结果只要 `rows_rejected>0`，即在原 `raise_if_all_rejected` 之前抛 `IngestionNormalizeError`，错误码新增 `normalize.source_validation_failed`。details 含 `dataset_key/unit_id/trade_date`、源行数、拒绝数量、reason counts 和 samples；同一组合在 normalize 中直接抛出的日期/重复键等校验错误也统一成该码，保留原错误码和 cause。程序错误、连接错误不伪装成数值错误。当前日期的两表 writer 均不能被调用，后续日期不再领取。
+4. **保存真实已提交数量。** `_record_unit_exception` 在 rollback 后，仅为该新错误码向 details 增加 `committed_progress`，取自本次 `_RunState` 的已完成日期数 `unit_done`、累计 fetched/written/committed/rejected 及既有诊断；不假设 state 已保存全部成功 unit id。失败日期的代码、源/拒绝数量放在 `failed_unit`，不混入已提交行数。dispatcher 的 dataset action 分支识别该码，恢复计数并令 outcome 的 `status_reason_code` 为该码；worker 据此为 dataset action/workflow 保留已有进度与异常进度中的较大值。旧 dataset action 失败的收尾不在本次顺带修改。业务 commit 后所有观察写入仍独立，状态失败不能回滚业务数据。
+5. **工作流明确失败。** dispatcher 的 workflow 分支识别该新错误码，无论 `failure_policy` 为何都停止后续步骤，工作流及活动节点均为 `failed`；前面成功步骤保持成功。最终总数为前面步骤累计量加本步骤 `committed_progress` 一次，不再把同一份全任务快照重复相加。不能继续使用“已有成功步骤就返回 partial_success”的通用分支。其他错误和其他数据集的 workflow 行为不变。
+6. **错误直接可见。** 复用既有 `TaskRunIssue.operator_message/technical_payload` 及详情 API/UI，不新增接口字段。按现有每个 reason 最多 3 个样本、值文本最多 240 字符的规则展示；计数仍覆盖全部拒绝行。用样本代码一次有界查询当前股票名称；缺名称明确标注，名称查询失败也保留原错误。原始值类型写入错误 message，避免日期/Decimal 样本序列化后丢失类型。没有代码的错误显示“股票代码缺失”，不伪造名称。
+
+验收必须覆盖：先提交日期 A、日期 B 仅一行状态为 1.5、日期 C 未执行；B 两表零提交，A 与其节点数量保留，TaskRun/活动节点失败且详情可见代码、名称、B 日期和原始值。工作流在已有成功步骤、`continue_on_error` 两种条件下仍整体失败。另用其他数据集的部分拒绝及普通工作流失败证明旧策略没有变化。§12 的维护任务回归不能替代这些测试。
+
+上面的数量恢复须区分单位：dataset action 的 unit_done 是日期数；workflow 的 unit_done 是成功步骤数，不能用本步骤已提交的日期数覆盖工作流步骤进度。本步骤的日期进度存节点/诊断，行数才按步骤累计。
+
+### 6.7 新维护适配器如何进入既有 PLAN/APPLY
+
+`daily_basic_limit_status_task_executor.py` 同时实现现有 `TaskRunAwareMaintenancePlanner.plan_for_task_run` 与 `TaskRunAwareMaintenanceExecutor.execute_unit_for_task_run`；注册动作的 `execution_config.plan_apply_replay=True`，只允许人工 PLAN/APPLY。不能只实现普通 `plan/execute_unit`：那样 dispatcher 不会注入 TaskRun 的取消/进度上下文。新动作的普通无上下文方法明确拒绝执行，不提供绕过 PLAN 的入口；既有动作不改。
+
+| 阶段 | 输入、持久化及调用规则 |
+|---|---|
+| PLAN | 注入 `TaskRunMaintenancePlanContext`，调用现有 resolver 生成日期。按日期聚合核对两表数量，逐批保存日期描述草稿、阶段和进度；每批前后检查取消。描述不含全历史股票明细。只有完整校验后冻结既有 schema_version=1 的维护 snapshot、hash 和 apply_ready，取消/失败草稿不可 APPLY |
+| 冻结 metadata | `contract_kind=daily_basic_limit_status/v1`、dataset/action、显式起止、日期集合、每日期两表计数、Definition/代码摘要、固定两表/键/列、实际 `sync_batch_size`、§6.8 控制参数与来源。业务合同版本放 metadata，不升级共享 snapshot 格式或改变其他动作重放 |
+| APPLY | dispatcher 使用现有 `_load_replay_apply_units` 校验动作、hash、范围和成功冻结，直接重放原日期 unit；适配器再核对本数据集合同摘要与运行配置。不得重新解析出更多日期、静默换字段或采用当前新批次配置 |
+| 单日期 | 接受 `MaintenanceTaskRunContext.task_run_id/run_context`；适配器按下述方式接出取消/进度，Foundation 只接收接口，不 import Ops。业务使用独立 Session；源读取完成后才开始该日期双表事务，状态 Session 不参与业务事务 |
+| 返回 | unit 返回现有 `MaintenanceExecutionResult`，计数只表示已读回并确认提交的结果；恢复读回后判定已完成也报告覆盖量，同时区分本次实际变更量，不能用 UPDATE 返回 0 推断没有完成 |
+| 取消/失败 | replay 分支当前没有替 executor 自动覆盖 unit 内取消，新适配器必须在每日期和每页/SQL 子批次前后检查。已有 §12 修复负责保存已返回 unit 累计；当前 unit 内分批观察不等于已提交。进程退出、commit 回执不明时按 §6.8 读回 |
+
+适配器的观察线程不能直接使用注入上下文持有的原 Session。取消读取复用 `TaskRunIngestionContext(independent_cancel=True, timeout_seconds=2)` 的独立查询；2 秒沿用同一 TaskRun 策略的 observation_timeout_seconds，不借用业务耗时预算。进度在本动作适配器私有方法中用独立事务保存 TaskRun 合计、当前日期/阶段及活动日期节点的本日数量，并设置同样的局部观察超时。当前 `TaskRunIngestionContext.update_progress` 会把全任务合计复制给当前节点，不能直接用它给逐日期节点报累计行数；不修改其既有调用行为。未提交日期节点保存量为 0，已读回确认提交后才写本日量，避免失败时把先前日期行数算到本日。观察异常只影响状态显示，不抛进业务事务；已确认提交的 unit 应先返回结果，由 dispatcher 保留累计，再在下一日期开始前处理取消。
+
+### 6.8 正在请求和正在执行 SQL 时的取消
+
+根规则要求长任务不超过 30 秒没有可见更新，可能超过 30 秒的不可分割步骤须能中断；这是执行要求，不是本次测量结论。控制频率复用当前 TaskRun 周线复权策略中取消轮询 2 秒、进度更新 5 秒的现行交互频率（`stock_weekly_adj_contracts.py`），适用理由是同一任务页面与取消入口；不借用该数据集的行数、内存或性能预算，也不跨数据集 import 其 policy。
+
+- **源请求：** 新动作使用 §6.3 的 `daily_basic/v1` 有界子进程调用。每页前后取消检查；等待接收时沿用现有最多 0.2 秒轮询与 terminate/join/kill 清理，不把同步 requests 的重试等待当作可取消实现。重试前重新检查取消，取消后不再发请求。保持原每页 6,000，不把试验分页大小写回 Definition。
+- **内存和输入值：** 每日期允许保留的目标键/状态数取冻结的当日目标计数；源代码集合须与目标一致，超出或缺少均停止解释，不自动放宽。最多页数为 `floor(目标计数/6000)+1`（整页时包含空终止页）。响应 `max_response_bytes` 没有可直接复用的每日指标依据，不能抄其他数据集的 8 MiB。该值在正式执行准备时由管理员给定，作为新动作注册 `execution_config` 中的必需预算值，随 PLAN 冻结；无值不得冻结 APPLY。默认值为空、来源为动作代码配置、作用域仅此动作、消费者为 planner/有界接收器，修改后重启 worker 并重新 PLAN；不增加 env、数据库或前端任意参数。该值是执行决定，非性能保证；免测照常生效。
+- **请求和 SQL 截止：** 新动作每次源调用总截止、每条 SQL 的 `SET LOCAL statement_timeout` 均为 30 秒，依据上述不可分割步骤边界，不声称代表耗时测量。不能改全局连接参数；连接归还前清除当前操作状态。超时回滚未提交日期并失败，不自动扩大限制。statement_timeout 不能保证网络回执时限，COMMIT 结果按下述方式读回。
+- **执行中的 SQL：** 2026-11-11 本地驱动核实为 psycopg 3.3.4、libpq 18，支持跨线程 `Connection.cancel_safe(timeout=...)`。适配器在本任务内使用一个观察线程，独立 Ops Session 轮询取消和保存可见阶段；它不使用业务 SQLAlchemy Session 查询。主线程仅在当前 SELECT/UPDATE/COMMIT 操作期间登记该 psycopg 连接，并标明操作种类；观察线程对这次登记调用 cancel_safe，timeout 取同一进度更新间隔 5 秒，避免取消请求本身长时间阻塞观察。普通未提交 SQL 收到取消错误后 rollback 当前日期；COMMIT 则必须按下述独立读回处理，取消未确认不能报告已回滚。
+- **连接和线程生命周期：** 连接登记带当前操作序号。取连接/标记正在 cancel 用同一短锁；主线程撤销登记并等本次 cancel 返回后，才允许复用该连接执行下一 SQL。不得持这把锁等待线程退出、执行数据库请求或归还连接，防止等待环路；任务结束停止并回收观察线程。cancel 通信失败则关闭/失效该业务连接，不把可能被迟到 cancel 的连接放回池。状态写入失败只影响观察状态，不触发业务回滚或取消。
+- **COMMIT 与回执：** commit 前先检查取消；已经进入 commit 后若收到取消或超过上述截止，按同一操作序号发起取消，但取消返回不能证明事务没提交，也不能继续领取下一日期。commit 取消、回执丢失或连接断开时，以新独立只读事务按计划键分批读回两表：都与本次已校验源状态一致才记为已提交；仍为原状态则记未提交并停止；一表不同、键缺失或其他值则报结果未确认，停止管理员处理。读回各语句沿用上述超时，不等待未知连接回到池后再查；读回也失败则保留未知结果，重试仍先读回，不能算成功或贸然重写。取消后不把读回扩成下一个日期的源请求，§6.4 续跑复用同一判定。源/SQL 取消调用均不能保证网络故障时瞬时结束，观察线程须持续显示“取消处理中”或“确认提交结果”，不得报虚假的取消完成。
+
+依据：[Psycopg Connection.cancel_safe](https://www.psycopg.org/psycopg3/docs/api/connections.html#psycopg.Connection.cancel_safe)、[PostgreSQL statement_timeout](https://www.postgresql.org/docs/current/runtime-config-client.html#GUC-STATEMENT-TIMEOUT)。API 已查官方文档；本轮没有连接数据库试验取消，不能写成已验收。自动化须覆盖源挂起、SQL 锁等待时取消、cancel 与语句结束竞争、提交回执丢失、观察失败及连接池不受迟到取消影响。
 
 ## 7. DG 新结构与重新 bootstrap LLD
 
@@ -310,7 +356,7 @@ SQLAlchemy 的多行更新依据见 [UPDATE FROM 与 VALUES](https://docs.sqlalc
 Prod 新增列验收完成并确认冻结范围稳定后，沿用 `daily_basic_history_cli` 的 `plan/export/build/audit/promote` 及事件阶段。新增显式 `--replace-existing`，默认 false：
 
 - false：原导入路径的默认行为和异内容拒绝规则不变；旧 18 字段报表不能作为新结构执行输入。
-- true：只允许在新的完整计划中记录批准的 18→19 字段替换意图；它不是任意覆盖开关。计划冻结来源、旧字段投影、日期/键、旧文件校验值、旧物化/检查 id、候选和预算。
+- true：只允许在新的完整计划中记录批准的 18→19 字段替换意图；它不是任意覆盖开关。计划冻结来源、旧字段投影、日期/键、旧文件校验值、旧物化/检查 id 和预算；候选尚未生成，随后在不可变审计报告中冻结，不能回写已封存计划。
 
 来源只允许 `raw_tushare.daily_basic` 完整 19 业务字段，日期显式转为 YYYYMMDD。使用现有 `(ts_code, trade_date)` 主键分页，每批最多 10,000 行，每批独立只读事务，不按历史日期反复查询原始表，不使用 OFFSET 扫历史。必须复查 EXPLAIN，无排序或顺序扫描放大才放行。
 
@@ -367,7 +413,7 @@ Prod 新增列验收完成并确认冻结范围稳定后，沿用 `daily_basic_h
 
 续跑必须重新生成事件执行清单：原始替换批准的范围与旧身份保持不变；逐日期将实际文件和事件分类为批准旧状态、本批次新状态或计划外状态；前两类据上表计算剩余项，第三类停止。用本批次 plan/export/audit 身份和新文件校验值确认新物化归属；新检查还须绑定该物化三个身份字段并实际通过。部分写入使原 `state_fingerprint` 改变属于预期，不能直接拿原清单再次 APPLY，也不能删除 stale 检查。只写新物化、只写一项新检查时，重新规划后仅追加缺少项。当前原始导入已有重新规划续跑测试；18→19 替换的状态分类和清单仍是后续待开发能力。
 
-替换分支的小样至少覆盖三种已有事实：最早历史日（没有旧检查）、`C` 中但不在最近窗口的日期、最近窗口中的日期。按本次基线可分别选 2010-01-04、2026-08-18、2026-11-10，执行前重核。原 CLI 的 `--sample-date` 只允许最近窗口；仅在显式替换计划中放开到批准日期集合，按该日是否属于 `K` 决定是否登记检查。普通首次导入仍保留原限制。
+替换分支的小样至少覆盖三种已有事实：最早历史日（没有旧检查）、`C` 中但不在最近窗口的日期、最近窗口中的日期。按本次基线可分别选 2010-01-04、2026-08-18、2026-11-10，执行前重核。原 CLI 的事件阶段 `--sample-date` 只允许最近窗口；仅在显式替换计划中放开到批准日期集合，并让 promote 支持该选择，按该日是否属于 `K` 决定是否登记检查。必须先完成全候选审计，但不必先提升全部日期；具体见 §7.7。普通首次导入仍保留原限制。
 
 ### 7.6 DG 修改位置
 
@@ -381,6 +427,37 @@ Prod 新增列验收完成并确认冻结范围稳定后，沿用 `daily_basic_h
 | `defs/bootstrap/daily_basic_history.py` | numeric/integer 类型核验、状态规范化、现有目标审计与显式替换 |
 | `defs/bootstrap/daily_basic_history_cli.py` | 新替换意图参数、冻结计划及阶段传递，原参数默认行为不变 |
 | `defs/bootstrap/daily_basic_events.py` | 冻结旧/新身份、`K` 清单、追加物化和目标正确的新检查、部分成功续跑 |
+
+### 7.7 替换报告、旧新身份和小样执行的具体合同
+
+以下结构只用于新的显式替换计划。普通首次导入继续读取原 schema_version=1 的报告及原参数含义；替换使用 schema_version=2，并由 `_validate_plan` 显式分派。不能让旧报告缺少新字段时被默认值补成可替换计划。所有 fingerprint 沿用现有报告封存算法；封存后不增补字段、不改日期、不覆盖旧批准。
+
+| 文件/报告 | 必需字段及冻结时点 |
+|---|---|
+| `plan.json` | 保留现有来源、日期、限制、calendar SHA、source/cost evidence；新增 `replacement.mode=add_limit_status`、原 18 业务列顺序、完整 19 业务列、`dates=D/check_dates=K`、各日期旧文件 `path/sha256/rows/schema_hash` 和下述旧事件身份。首次 plan 完成即封存。尚无候选 SHA，不把候选填回 plan。旧 18 列清单只作迁移比较，不形成新的 Tushare 子契约 |
+| `export.json/build.json` | 继续绑定同一个 plan fingerprint；导出批次、前缀重核和候选路径沿用现有合同。仅在识别替换版本时允许旧目标存在；不取消来源限制或其他 stop_reasons |
+| `audit.json` | 全部 D 候选完成后封存，绑定 plan/export/build fingerprint；保留现有 `files[].date/path/sha256/rows`，每项增加完整 schema 摘要、计划旧文件 SHA、原 18 列双向比较结果和完整 19 列来源比较结果。任何日期不符则报告不可提升，不能只审小样后放行全部日期 |
+| `promote.json` | 绑定 plan/audit fingerprint；`selected_dates` 是本次选取，`completed_dates` 是累计实际确认的新目标日期；`files[]` 保留每个已完成日期的旧/新 SHA 与路径。现行入口每次把 files 初始化为空，替换分支必须改为读回旧进度并与实际文件重核后合并，不能在续跑时清掉累计列表。此报告可追加推进，不得被用作新物化归属的固定身份 |
+| 事件执行清单 | 绑定固定 plan/export/audit fingerprint、本次 promote fingerprint、`selected_dates`、该范围文件 SHA、当前物化/检查身份与 `state_fingerprint`，并列出待追加物化/两项检查。promote fingerprint 只证明本次清单生成时的进度；物化归属仍只用固定 plan/export/audit 与新文件 SHA。继续保留现有清单新鲜度、500 日期批次及事件返回上限 |
+
+**旧身份在首次计划读取，不在替换后倒推。** 每日期的 `old_materialization` 为 null 或 `{storage_id,run_id,timestamp}`；每项 `old_checks[check_name]` 为 null 或 `{event_storage_id,status,target_storage_id,target_run_id,target_timestamp}`，连同检查名称、partition 保存。计划前先按现行身份规则核对旧文件与这些记录。失败、运行中或目标本已不一致的检查先停止处理，不把它们批准为可以忽略的旧记录。检查范围 K 从这些旧记录与最近窗口推导；不能在后续阶段重新挑一个更小的 K。
+
+**具体允许状态：** 锁内分别读取当前文件 SHA、最新物化、两项检查。文件只能是计划旧 SHA 或审计新 SHA。当前物化只能等于批准旧身份，或 metadata 的 `delivery_method=prod_history/source_system=prod_raw_db/date/file_sha256/history_plan_fingerprint/history_export_fingerprint/history_audit_fingerprint` 全部等于本批新身份；检查只能等于批准旧记录，或实际成功且目标的三个身份字段对应本次新物化。任一其他新事件、失败/运行中检查、同名但不同来源物化均停止。无旧物化的日期允许 null→本次新物化；无旧检查的日期仅在 K 内新增检查。各项读取与写后确认均按 §7.4 的非阻塞日期锁规则，事件本身不能靠文件锁阻止的竞争仍由身份读回拒绝。
+
+**中断重做事件 PLAN，不改父计划。** apply 前将当前状态与这份新鲜执行清单匹配；物化/检查写出一部分后 state_fingerprint 改变，必须重新生成清单，只列剩余项。可以保留批准旧检查及已完成的本次新检查混合状态，不能因为另一项仍旧就重复物化。新检查绑定错误或失败均保留现场并停止。实际新文件已存在而 promote 进度未写成时，以审计 SHA 重建累计进度；未确认文件不纳入 completed_dates。
+
+现行 promote 内部会再调用 audit；替换分支必须区分首次审计与提升前重核。旧目标仍在时，重核旧 SHA 并比较原 18 列；目标已是审计新 SHA 时，原文件已不存在，复用已批准审计中的旧列比较证据，重新确认候选和当前目标 SHA，不能要求把新目标重新当 18 列旧文件读取。新旧之外停止。重核结果不替换批准 audit，不把每次重核的耗时/进度字段变成新的 history_audit_fingerprint，否则已经写出的物化会失去归属。
+
+**小样无需先替换全部文件：**
+
+1. 对全部 D 完成候选审计，批准固定 audit fingerprint。`--replace-existing` 只允许在 plan 阶段提供并写入不可变计划；后续阶段不能临时打开覆盖。替换 promote 的 `--fingerprint` 校验该 audit fingerprint（它已绑定父 plan 和全部候选/旧身份）；普通导入仍校验原 plan fingerprint，不改变原义。
+2. 替换 promote 支持既有 `--sample-date` 从 D 选一天；无 sample-date 时选择 D。事件阶段在替换版本中只要求 `selected_dates ⊆ completed_dates ⊆ D`，不用现行的“所有 D 已提升”前提；audit 仍必须覆盖全部 D。既有普通导入的前提和 sample-date 限制不变。
+3. 依次处理 §7.5 三类日期：该日期 promote→plan-events→report-events→audit-events。无旧检查且不在 K 的样本只新增物化；其他两个样本各实际运行两项检查。按现有基线推导为 3 个文件和 `1+3+3=7` 条事件，不是固定的样本上限，执行前核对各日期归属。小样以外旧文件和事件尚不改动。
+4. 小样通过后提升剩余日期，再为剩余日期生成事件清单；样本的新物化始终绑定同一个 plan/export/audit，后续 promote 追加进度不会令其变成外部记录。中断后同样按物理事实计算 remaining，不生成一个换了父 fingerprint 的小样子计划。
+
+CLI 当前只允许 report-events 携带 sample-date；替换版本须明确让 plan-events/report-events/audit-events 都传递同一选择，并写进事件清单；register 只登记清单所需分区。APPLY 的选择必须与批准清单相同，不能带另一个日期或省略选择后扩大范围。无 sample-date 的替换事件规划以当前累计 completed_dates 为所选范围，并识别其中已完成项；最后验收另外要求 completed_dates=D、K 的检查全部当前有效。
+
+额外读取成本如实累计：所有候选先完整审计；每次现行 promote 仍有候选重核；每次事件 PLAN/APPLY 只处理所选日期，但完整执行与最终验收仍覆盖全部 D/K。日期小样的目的为一致性验收，不追加性能测量。测试须证明小样在全量提升前可完成、后续提升不改变已写事件归属、promote 进度写失败能恢复、只写一项检查可续跑，以及非 K 日期没有伪造绿色检查。
 
 ## 8. 性能与读取预算
 
@@ -436,12 +513,15 @@ DG 沿用现有 DuckDB 16GB/4 线程资源配置，不把它解释为本次实�
 | Prod 源合同 | 默认 18 与显式 19 区别；真实 connector 分页合并；缺状态、NULL、1.5、字符串、bool、范围外值均导致任务失败；同日两表不提交，错误包含日期/代码/当前名称/字段/原始值与类型/原因；合法 0、负估值、原 NULL 数值不误拦；不改其他数据集策略 | 拟 `tests/test_daily_basic_limit_status.py`；Definition/resolver/fields 测试 |
 | Prod 两表事务 | 两表均匹配才提交；第二表失败回滚同日；另一日期已提交不受影响；已有合法正常变化可通过、不误拦新日期 | 同上及独立 PostgreSQL 集成 |
 | Prod 长任务 | 中途取消、进程退出、同 PLAN 重跑、业务已提交但状态失败、无状态时业务值恢复、进度单调、TaskRun/node 终态；调用挂起时可取消且 30 秒内有可见状态 | 拟 `tests/web/test_daily_basic_limit_status_maintenance_api.py`、维护 executor 集成 |
+| Prod 正常维护失败 | 一条错误阻止整日双表 writer；保留前日提交量；错误显示代码/当前名称/原值/类型；工作流已有成功步骤或允许继续时仍 failed；其他数据集旧行为不变 | §6.6 的 executor/dispatcher/worker 用例；不能以维护动作回归替代 |
+| Prod 协议与取消 | TaskRunAware PLAN/APPLY 两个协议均注入上下文；取消草稿不可 APPLY；源挂起/SQL 等锁可取消；连接归还不受迟到 cancel；COMMIT 回执不明读回；观察失败不影响业务提交 | §6.7/6.8；隔离 PostgreSQL、真实驱动取消验收，源采用可控挂起替身 |
 | Definition 消费者 | 现有维护/排程/工作流时间与过滤器不变；新维护动作不自动进入日常流程 | registry、resolver、catalog、manual actions、date completeness 既有测试 |
 | 有界传输 | 新合同不改变公告/周线复权/指数周期线的解析、错误和取消；未知合同仍拒绝 | 对应现有 bounded-call/stream 测试及新合同测试 |
 | DG schema/转换 | 完整 19 字段；状态严格整数；原 DECIMAL 精度、NULL、负值和顺序保持；18 列旧文件不能冒充新结构 | `test_daily_basic_contracts.py`、`test_daily_basic_raw_io.py`、`test_daily_basic_history.py` |
 | DG 显式替换 | 默认路径仍拒绝异内容；批准替换可通过正常 18→19；旧列变化、目标被并发改写、候选损坏、跨文件系统拒绝 | `test_daily_basic_history.py`；按年源对账与逐文件提升 |
 | DG 事件 | 同日期旧→新追加成功；检查目标三个身份字段均正确；旧绿色不跳过新检查；已有本次结果幂等跳过；计划外事件或失败检查拒绝 | `test_daily_basic_events.py`、`test_daily_basic_checks.py` |
 | DG 部分完成 | §7.5 各状态均覆盖；文件已换而事件未写、只写物化、只写一项检查均能正确续跑；恢复后没有重复记录 | 同上；不能只测全成功 |
+| DG 报告与小样 | schema_version=2 必填身份；旧版本默认行为不变；全部候选审计后可先提升样本并写事件；累计 promote 进度恢复；后续全量不改变样本归属；计划外身份拒绝 | §7.7 的 history/events/CLI 隔离测试 |
 | DG 范围/性能 | `K=C∪W`，55 日样本不能退回仅 20 日；无历史检查日期不造绿；索引批查询，不逐日深读全历史 | `test_daily_basic_performance.py`、`test_daily_basic_sensor.py`、catalog/static gates |
 | 业务读取回归 | 榜单、自选、Quote 旧字段/排序及相关查询保持 | 已有对应 Wealth/Quote API 测试；不新增前端功能 |
 
@@ -449,7 +529,7 @@ DG 沿用现有 DuckDB 16GB/4 线程资源配置，不把它解释为本次实�
 
 ## 10. 分阶段实施、读写边界与完成条件
 
-所有阶段在当前 `dev-interface` 工作区推进，保留其他未提交改动，不创建分支/worktree、不自行提交或发布。管理员本轮明确选择：先修订本文，并只修复 §12 的维护进度和 DG 日期锁两个现有问题；P1/P4 的扩充代码不在本轮范围。
+所有阶段在当前 `dev-interface` 工作区推进，保留其他未提交改动，不创建分支/worktree、不自行提交或发布。此前管理员只批准实现 §12 两个修复，随后已按要求提交；本轮仅补齐具体设计和源接口验证。P1/P4 的扩充代码仍不在本轮范围。
 
 | 阶段 | 目标、实现范围 | 读写/失败/恢复 | 放行与验收 |
 |---|---|---|---|
@@ -549,3 +629,46 @@ CodeGraph 已检查 `TaskRunDispatchOutcome` 的影响面、维护 dispatcher �
 最终回归命令显式把 pytest cache/basetemp、TMPDIR 及 DG 的隔离 DAGSTER_HOME 放到本任务 `/private/tmp` 目录；表中记录命令核心与范围，省略这些临时路径参数。前期首轮基线同样把 pytest cache/basetemp 放在本任务目录，只用于隔离夹具；未调用正式 Dagster instance、正式 Lake、Prod DB 或 Tushare。既有 dispatcher/worker 的指数周期调度未提交改动保持原样。CodeGraph 已按仓库根同步并确认索引状态，未改变架构边界或新增消费者。
 
 后续生产资源状态仍为：未迁移、未补数、未替换正式文件、未登记正式事件。管理员后半夜窗口决定不等同于本轮已批准或已执行这些操作。
+
+## 13. 本轮设计补齐与接口验证（2026-11-11）
+
+### 13.1 范围、步骤及检查条件
+
+管理员本轮只要求补齐上一轮具体设计，再验证源接口并汇报；不开发扩充代码。设计已补到 §6.6～6.8 与 §7.7：校验错误的具体传递、TaskRunAware 协议、请求/SQL 取消、提交结果不明时读回、DG 报告身份和先小样再全量。
+
+验证限于 `000001.SZ`：近期 2026-11-02～2026-11-10、历史起点 2010-01-04。先用 tushareMcp 核对默认字段、显式旧 18 字段及完整 19 字段；MCP 不暴露 limit/offset。再用本地项目现有 `TushareHttpClient → TushareSourceConnector → DatasetSourceClient` 对官方 HTTPS 做真实请求，不连接数据库、不调用 normalizer/writer、不读取正式 Lake/instance、不安装依赖。
+
+项目验证用进程内 Definition 副本追加 `limit_status`，不修改 registry。点日期参数经现行 `_daily_basic_params` 生成；区间仅作源接口/通用下载器试验，使用文档中的单代码 start_date/end_date，不能声称正式 resolver 把日期 unit 改成范围。临时 page_limit=1/3 只用于让极小样本产生整页、空末页与多个非空页，原 Definition 的 6,000 不变。
+
+| 项目验证 | 预计逻辑请求量（不含失败重试） | 断言 |
+|---|---:|---|
+| 20261110 默认、显式旧 18、显式完整 19 | 3 | 默认仍 18；显式 19 字段顺序完整；同日原 18 值完全相同 |
+| 20100104 完整 19 | 1 | 历史起点该股票可获取，状态原生整数 0～6 |
+| 近期单代码范围，一次完整响应 | 1 | 作为分页比较的独立基准，记录实际日期/键/值 |
+| 20261110，page_limit=3 | 1 | 一行短页即终止，不继续请求 |
+| 同点，page_limit=1 | 2 | 整页后探测空页，合并结果无重复 |
+| 近期范围，page_limit=3 | 3（若为 7 行） | 3+3+1，offset=0/3/6，合并后的完整 19 值与独立基准一致 |
+
+预计 MCP 3 次、项目 11 次；这些是此次有界验证请求的逐项推导，不是生产历史任务预算。发生错误先记录实际错误和已完成范围，不自动改为全市场、放大日期或绕过项目解析。审计记录只保留参数、字段、页数、数量、样本状态和对比结论，不保存 token 或完整请求载荷。临时输出位于 `/private/tmp/daily-basic-design-interface.*`，有效结果回填下节。
+
+### 13.2 实际验证结果
+
+验证时间为 2026-11-11 23:33（Asia/Shanghai，项目请求开始 15:33:23 UTC）。本轮只改本文；未开发扩充、未提交本轮文档、未部署、未访问 Prod DB 或正式 DG 数据/事件。
+
+| 核验项 | 实际请求与结果 | 结论 |
+|---|---|---|
+| MCP 字段 | 3 次：20261110 默认/显式旧 18 各 1 行，20261102～20261110 显式 19 共 7 行 | 默认不包含状态；完整 19 顺序、类型和单代码/日期范围符合预期；同日旧值一致 |
+| 项目默认与显式字段 | 真实 connector 各 1 次默认、显式旧 18、显式 19；均 HTTP 200、业务 code=0，各 1 行 | 原 18 字段逐值相同，且与本轮 MCP 同日样本完全相同；状态 4，原生 int |
+| 历史起点 | `000001.SZ,trade_date=20100104`，完整 19，1 行 | `limit_status=4`，原生 int；只证明该股票该日，不外推全部历史 |
+| 区间基准 | 单代码 `start_date=20261102,end_date=20261110`，完整 19，一次 7 行 | 与 MCP 的 7 行完整业务值一致；日期为 11-02、03、04、05、06、09、10，主键不重复 |
+| 短页结束 | 20261110，limit=3，offset=0，1 行后结束 | request_count=1，未多发请求；与独立点请求完全相同 |
+| 整页后空末页 | 同点，limit=1，offset=0/1，返回 1/0 | request_count=2，terminal_offset=1、terminal_page_rows=0；合并为 1 行，无重复/遗漏 |
+| 多个非空页 | 同一有界区间，limit=3，offset=0/3/6，返回 3/3/1 | request_count=3、合并 7 行、末页 offset=6；全部 19 字段逐值及返回顺序与独立区间请求相同 |
+| 字段与元数据分离 | 所有非空完整响应均有完整 19 业务列；SourceClient 另追加本地辅助字段 | 比较只投影业务列，未把 api_name/fetched_at 当源合同字段；状态全部为合法原生整数，无 NULL/字符串/bool |
+| 请求总量 | MCP 3 次；项目 11 次逻辑请求，项目累计返回 20 行，去重为 8 个股票/日期键 | 项目 11 次均 HTTP 200/code=0、传输重试 0、下载器重试 0；这些数量含重复比较，不能当 20 条独立历史数据 |
+
+项目链路实际经过现行 `TushareHttpClient.call`、`TushareSourceConnector.call`、`DatasetSourceClient.fetch/iter_pages` 与原 HTTP 解析。临时审计只在 `requests.Session.post` 外包一层记录参数/页数，内层仍调用原方法真实联网，未替换响应。进程显式设置 `GOLDENSHARE_ENV_FILE=/dev/null`，使用已有进程凭证及默认官方 `https://api.tushare.pro`，未加载仓库 `.env`；这证明本地项目客户端接官方接口的行为，不代表已验证部署中 Prod 的网络配置。
+
+本轮使用 `codegraph_explore` 核对严格拒绝策略到 normalizer/executor/dispatcher/workflow，以及 TaskRunAware planner/executor 到运行上下文的影响面；直接代码补核字符串注册、worker 收尾、原生 SQL 与 DG CLI。新补的 §6.6～6.8、§7.7 已与实际类名、协议字段、两层有界合同检查、CLI sample-date 限制、现行报告初始化和事件身份字段对照。源接口的完整字段/分页门禁通过；后续可以按本设计进入扩充代码的开发评审。仍需在相应实施阶段完成旧消费者回归、隔离 PostgreSQL 更新/取消测试、DG 小样/中断测试；正式执行前补齐动作接收字节上限的管理员取值及现行 DG 必需执行输入，取得各阶段读写批准。这里没有新增性能测量前置条件，也没有把小样或两个旧 bug 的测试当作完整扩充已验收。
+
+本轮文档完整性检查与本文件差异空白检查通过。源码未改，因此未重复执行 §12 的隔离回归；本轮真实证据仅覆盖上述源请求与下载器，不覆盖尚未实现的写入、失败提示和取消/恢复。临时审计脚本与响应记录在结果回填后清理，不作为第二份长期报告。
