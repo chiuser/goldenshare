@@ -1,6 +1,6 @@
 # 股票技术因子 DG 数据集接入 LLD v1
 
-日期：2026-11-11。状态：源端代码齐备、完整日发布和指定日期人工补跑的现行设计见§21。前五批及第六批前两步是已有代码基线；新规则第1小步的共享齐备算法与覆盖记录、第2小步的七字段配置及指定日期身份、第3小步的共用两列探测已完成开发、隔离验证及独立审计，见§21.16～21.18。第4小步及以后尚待实施。正式资源操作按阶段另行授权。
+日期：2026-11-11。状态：源端代码齐备、完整日发布和指定日期人工补跑的现行设计见§21。前五批及第六批前两步是已有代码基线；新规则第1～4小步已完成开发、隔离验证及独立审计，见§21.16～21.19。第4小步已接通人工入口和发布前完整日门槛，第5小步及以后尚待实施。正式资源操作按阶段另行授权。
 
 依据：[原技术方案](dagster-stock-technical-factor-onboarding-plan-v1.md)、[DG接入模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理规范](dagster-data-pipeline-performance-governance.md)、[Prod审计报告](../../reports/stock_factor_pro_prod_audit_20261021/README.md)。下载器依据[组件LLD](dagster-tushare-download-component-low-level-design-v1.html)与[业务使用文档](../architecture/tushare-download-component-usage-v1.html)，不在本数据集重做。
 
@@ -3203,7 +3203,7 @@ sensor以既有5秒性能目标核对本地读取、T/P摘要和源查询的总�
 | 原复权历史 | T/P修订、原同T待刷、旧历史源等待、后续整范围新下载、手动repair授权和d<T边界继续通过；不因去掉日缺股补采而删除历史恢复事实。 |
 | 中断与读回 | Raw已发Silver失败、发布后事件失败、取消及进程退出保留已提交文件，新run全新下载，验证当前两层及真实绑定；不使用失败候选。 |
 
-实际推进按方案§13.12分步，每步定向回归通过再继续。Definitions及静态治理使用既有受保护runner，两sensor默认STOPPED。当前缺少新探测函数和新日更发布门槛的工程集成证据，因此本文是已确认需求的待实现设计，不能据此宣称第3步或正式自动化验收完成。
+实际推进按本章§21.13分步，每步定向回归通过再继续。Definitions及静态治理使用既有受保护runner，两sensor默认STOPPED。共用两列探测和日更发布门槛的隔离验证分别见§21.18、§21.19；完整日更sensor与串联尚待实施，不能据此宣称正式自动化验收完成。
 
 ### 21.8 整体审计结论及工程验证缺口
 
@@ -3336,6 +3336,18 @@ sensor以既有5秒性能目标核对本地读取、T/P摘要和源查询的总�
 
 第4小步的人工入口须与第3小步已验证的源探测联通后验收；替身测试与真实合同验证分别说明，不能以替身验收声称接入已通过。
 
+第4小步实施范围是assets/stk_factor_pro.py、asset_guards/stk_factor_pro_readiness.py、io/stk_factor_pro_publication.py、bootstrap/stk_factor_pro_bootstrap_coverage.py及直接测试。job先核目标日股票基础信息及生命周期最新物化和已绑定检查，两份无分区物化各取1条、5项检查按既有spec一次读取，结果留在known_pg；按T核新鲜度，生命周期不得早于股票基础信息。只落实本步job必需的两项基础输入，不提前实现第5小步的全部上游批量入口或sensor摘要读取。
+
+覆盖模块从现有calculate中抽出prepare_stk_factor_pro_expected_coverage_keys，仅准备同一连接/日期的E/F及身份映射；calculate继续委托它，不复制上市/停牌谓词。job在保存历史计划前调用一次；人工两列预检、当前DAY_SOURCE及最终RAW_EXPECTED分别用各自实际数据调用原calculate，不能互相替代。publisher的必传回调位于Raw候选唯一audit后、_publish_file前，包括等价发布；保持原yield和on_publish_attempt含义，迁移所有真实调用及隔离测试。source不齐按可再次取源的day失败，候选不齐沿现有候选错误停止并报告，不新增删除旧行或兼容分支。
+
+_published_day显式接收已准备的coverage_inputs，candidate_calculated由回调交后续evaluate和初始化统计。_prepare_initialization_result增加显式calculated输入：目标日使用候选已有结果，历史日期收尾仍以None沿原日期复用/计算；仅复用本步新算结果，不用旧统计代替当前源或候选检查。bootstrap忠实导入及独立历史repair不套全市场日准入。零差集沿现有规则不写空附件；失败在metadata报告差集数量及至多20个样本，不保存日源副本。只有Raw/Silver和绑定检查、覆盖均有效才写day completed，删除部分日completed及其history waiting分支；真实逐文件失败和历史失败事实保留。
+
+manual_date/bootstrap_supplement在计划和正式开始记录前调用第3小步探测，ConfigurationLoader沿既有来源取得只读配置，不新增env或参数。today新自动任务仍不重复两列查询；原生today重执行保留原用途，不套本次自动时点限制。午夜复核只作用于没有source_run_id的新自动today，在计划完成、开始观察之前再次检查原D/时点；跨午夜等待且零正式下载，已经开始的任务沿原合同完成。人工补日和其原生重执行不套自动窗口。
+
+读写及性能沿§21.14：人工额外两列完整探测一次，自动零次；E/F首次准备一次，完整日源/候选各计算一次，publisher候选audit、Raw/Silver写入/物化/check次数不增加。新增两份基础物化及5项检查至多7条结果、3次API，按现有事实复用；这是本步job增量，不冒充第5小步完整上游预算。输入、候选、失败诊断及最终验收使用已有连接/临时关系，未知或缺/多在首次提升前停止。Raw已提交而Silver失败时保留已提交Raw和真实事件，下次重下完整T；中断/最终验收仍按原日下载和逐文件预算，不扫描正式全历史或重算相同覆盖。
+
+验收使用临时实例/目录、保存的一股五日261字段样本和可控本机HTTP，真实串联人工两列探测及完整字段下载/发布；其他单元测试可替代源与上游，但分别说明边界。正反例包括未齐零计划/下载/提升、源少/多及旧Raw不能补本轮缺、最终候选旧多码零提升、首日缺/有及NULL保留、等价发布仍过回调、Raw成功Silver失败、事件保存失败、跨午夜和跨日重执行、bootstrap原导入事实与当前统计分离、E/F及各实际侧计算次数，以及进程退出后完整重下。开发后再按原方案逐条独立对账，不进入第5小步或正式执行。
+
 **5. 有界上游读取和日摘要。**在本数据集readiness模块增加`read_stk_factor_pro_upstream_status`，固定接受T/P及任务局部known_pg；复用readiness.py已核spec、检查判定及_asset_readiness_status_from_check_results的纯状态构造，保持原日期新鲜度语义，不调整全工程helper。股票基础信息、生命周期各取最新1条无分区物化；Raw股票复权因子T/P、Raw和Silver最终停牌T各取对应分区最新1条。check按无分区、T、P三组调用已存在的`get_latest_asset_check_execution_by_key`，T/P使用PartitionKeyFilter精确过滤，当前spec的检查名按资产唯一。核status=SUCCEEDED、blocking/passed、资产/分区及target_materialization_data真实绑定；最新check缺失、等待、失败或绑定旧物化均等待，不深扫历史找旧绿灯。日期新鲜度沿原helper的T规则，生命周期物化不得早于本轮最新Raw股票基础信息物化。当前producer没有保存源文件SHA绑定，本设计不把时间先后声称为SHA证明，不为此修改共享上游资产或新设状态。
 
 从`read_stk_factor_pro_day_factor_shas`抽出`read_stk_factor_pro_day_plan_factor_shas`：必传已核的同T有效日观察和已有两层发布/检查结果，读取该观察自身明确引用的plan一次，只返回T/P摘要。job原入口完成原有物理验证后调用它；sensor通过最新日阶段覆盖、对应物化/check及其文件摘要metadata核有效日结果后调用它，不能调原helper重新计算技术因子Raw/Silver全文SHA。sensor按既有唯一writer和d<T写入合同读取已保存事实；真正job仍核本轮实际文件。repair的历史观察可解除它授权的失败，不能替代日观察。测试须抓住旧helper全文读取，断言sensor对两层261字段及全历史读取为0；job原真实性核验及第1步追修回归保留。
@@ -3445,3 +3457,29 @@ sensor以既有5秒性能目标核对本地读取、T/P摘要和源查询的总�
 **局部性能。**单线程临时DuckDB、已准备关系、真实本机HTTP及5,573个合成代码，三次新连接首次探测分别119.188、119.221、119.077毫秒，均1请求/1页，包含本次E/F、集合比较及关闭。不含真实Tushare网络延迟、上游文件SHA/准备或DG事件读取，不作为完整sensor五秒目标的证明。关闭错误、deadline、中断后的新调用从offset=0开始；无需保存源页或做额外历史扫描。
 
 本小步独立审计未发现遗漏。第4小步的发布前完整日门槛和人工入口接通、第5小步上游/摘要优化、第6小步sensor及第7小步串联均未提前实施。代码及本次实施记录尚未提交；临时脚本、错误副本、测试输出和日志收尾删除，必要证据保留本节。
+
+### 21.19 第4小步实现与独立审计（2026-11-11）
+
+本节仅验收§21.13第4小步。实施前在本章及方案§17.4补齐实际调用、配置来源、故障恢复及读取预算，再开始编码。生产修改限定assets/stk_factor_pro.py、asset_guards/stk_factor_pro_readiness.py、io/stk_factor_pro_publication.py；bootstrap覆盖模块和历史repair的生产实现未修改，没有新增配置、正式路径、返回包装类或兼容分支。
+
+| 硬口径 | 当前实现及验证 |
+| --- | --- |
+| 下载前准备应有代码和必要上游 | job先核股票基础信息、生命周期最新物化及绑定检查，生命周期不得早于基础信息；原T/P股票复权因子和T停牌就绪要求保留。两份无分区物化各取1条、5项检查一次批读，同known_pg再次调用零增量读取，真实临时事件已核2次物化API和1次检查API。原生失败、缺检查、错绑定、错分区、过旧日期、生命周期早于基础信息均拒绝，正常新物化通过；缺身份或停牌文件时零计划/下载/发布。 |
+| 人工入口先探测 | manual_date与bootstrap_supplement在保存计划、start观察和261字段下载前调用第3小步探测；未齐仅有precheck。实际人工job与初始化job均验证未齐零计划及正式下载；普通人工不进入bootstrap授权读取。today不重复探测，原生重执行保持原用途。配置沿ConfigurationLoader现有来源读取，未增参数或持久配置。 |
+| 本次完整日源不能由旧行补齐 | calculate对DAY_SOURCE计算一次，缺/多/空在候选前以day失败结束，数量和至多20个样本进入失败metadata。实际job先放完整旧Raw，再返回缺1只的当前源，确认旧Raw字节不变、无Silver及物化；额外有效身份代码和零行也拒绝。身份未知不伪造0。 |
+| 最终候选在任何Raw发布前检查 | publisher必传on_raw_candidate，唯一候选audit后、_publish_file前恰调用一次，包括等价发布。asset闭包对RAW_EXPECTED计算一次；旧Raw中的退市额外代码使候选失败，零提升/物化，不删旧行。publisher仍yield原(target,audit)，on_publish_attempt语义不变，IO没有引入readiness依赖。 |
+| 一份依据复用，各实际输入分别检查 | prepare_stk_factor_pro_expected_coverage_keys从原calculate原样提取上市、全天停牌、首日及身份准备。自动任务E/F一次、日源和候选各一次；真实HTTP人工回放也核E/F一次、两列/日源/候选三种实际输入各一次。候选calculated直接交evaluate与初始化统计，不重算或读取正式Raw/Silver来证明相同覆盖。 |
+| 日完成与统计 | 两层文件、实际物化/check、覆盖均有效才写day completed；删除usable返回标记、部分日completed、空源waiting及随后缺股等待分支。首日缺/有两种情况均完整发布，实际首日行及合法NULL保留。初始化补日的独立样本保留原导入source_rows=1，当前Raw/Silver各3行、missing=0，零差集无空名单附件；历史日期仍显式传calculated=None沿原算法处理。 |
+| 午夜、中断和失败 | 新自动today在计划后、start前复核原D/时点，跨午夜零正式下载；原生跨日重执行沿原身份。实际job的Silver失败或Raw物化未保存均报失败并保留Raw，下一run重新下载完整T并发布两层；原跨进程硬退出、新进程完整重下和历史失败整范围重下回归通过。历史源等待、名单授权和d<T边界未改。 |
+
+**旧测试清退。**早期dagster_events测试用自造generator模拟“部分日照常发布”和“空源先保存缺股诊断/统计再waiting”。这些分支及其5个旧用例已删除，保留原生事件顺序、绑定、失败、选择不完整及持久化API测试；新的业务准入由实际日更job测试验证。其他publisher机制测试显式提供no-op回调，只验证文件发布机制，不将其作为市场代码齐备证据。初始化repair原夹具只返回B、借旧Raw保留A才进入历史，这与新要求冲突；改为当日日源A/B齐全后再注入原历史失败，原repair范围、日期写入及统计断言保留。覆盖清理故障测试原先依赖“实际比较后才释放应有输入”的顺序；提取准备函数后改为分别在应有准备、实际比较发生主取消，再注入各自清理失败，仍验证原取消不被覆盖且全部自有关系尝试释放。没有为了测试恢复旧业务分支。
+
+**验收证据。**全量51文件回归首次1064项中1062通过、上述2项旧夹具假设失败，耗时355.93秒；修正后bootstrap coverage和history repair两个文件60项全部通过，57.48秒。最终版本的complete_day、dagster_events、jobs、batch5_job_integration、publication五文件76项全部通过，83.31秒。没有把首次全量称为全部通过。Definitions经原受保护runner 1项通过，运行合同静态治理113项通过；全部变更Python Ruff、全src/tests致命错误、文档完整性和git diff空白检查通过。
+
+另以21只必需股票、源0行补验失败诊断上限，1项通过、1.88秒：missing_count如实为21，缺失样本仅前20只、额外样本为空，Raw未发布且未写缺股Parquet附件。该用例直接运行实际job，不与待测函数共享预期计算。
+
+来源验证复用已保存真实000001.SZ的2026-10-16完整261字段行，在本机HTTP依次实际接收两列请求与完整字段请求，各返回1行；实际manual_date job完成Raw/Silver及各自绑定检查。核物理Raw的trade_date为VARCHAR、pe为DOUBLE及已知值5.2346，显式关闭DuckDB目录分区推断，避免目录日期遮住文件实际类型。单次job计时0.809秒，包含本机回放和临时实例的该次执行，不含创建上游夹具；不作为正式Tushare、全市场或sensor耗时保证。其他单元/任务测试明确替代上游状态或HTTP；真实临时事件另核基础输入绑定，真实源HTTP边界由上述回放覆盖。本轮无新的正式源/Prod查询，无正式数据或DG状态写入。
+
+**独立审计。**重新读取改动和实施前快照：_plan_history、_basis_for_day、_factor_file_refs、初始化结果持久化函数AST不变；_publish_history仅增加初始化统计calculated=None的显式交接。完整历史下载、历史IO、repair、bootstrap history/coverage、run_contracts、两列探测七个生产文件逐字节不变。当前生产publisher调用只有asset一处，必传回调已迁移；测试调用及跨进程代码一并核验。临时撤掉日源门槛时，缺1只的源借旧Raw发布，实际任务回归失败；临时撤掉候选门槛时，旧额外代码先发布才日失败，零发布断言失败。两项错误均被本轮回归捕获，审计变体只在临时进程生效。CodeGraph explore/impact核入口及依赖后，用当前rg和AST补齐图未列出的asset调用、动态generator和统计交接，结束sync/status正常。
+
+未发现本小步剩余遗漏。未实施第5小步完整上游/日摘要读取、第6小步日更sensor或第7小步串联；未执行正式资源操作。第4小步代码及验收记录随本轮提交。临时副本、脚本和测试输出收尾删除，必要结果保留本节。

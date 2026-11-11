@@ -28,6 +28,8 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.defs.sensors.readiness import (
     RAW_ADJ_FACTOR_READINESS_SPEC,
+    RAW_STOCK_BASIC_READINESS_SPEC,
+    SILVER_STOCK_LIFECYCLE_READINESS_SPEC,
     SUSPEND_D_READINESS_SPECS,
 )
 from orchestrator.tushare_download.configuration import ConfigurationSnapshot
@@ -64,12 +66,21 @@ def seed_upstream_events(instance):
             for specs, days in (
                 ((RAW_ADJ_FACTOR_READINESS_SPEC,), (PREVIOUS, DAY)),
                 (SUSPEND_D_READINESS_SPECS, (DAY,)),
+                (
+                    (
+                        RAW_STOCK_BASIC_READINESS_SPEC,
+                        SILVER_STOCK_LIFECYCLE_READINESS_SPEC,
+                    ),
+                    (None,),
+                ),
             )
             for spec in specs
             for day in days
         ]
         for spec, day in checks:
-            yield dg.AssetMaterialization(spec.asset_key, partition=str(day))
+            yield dg.AssetMaterialization(
+                spec.asset_key, partition=None if day is None else str(day)
+            )
         records = context.instance.get_records_for_run(
             context.run.run_id,
             of_type=dg.DagsterEventType.ASSET_MATERIALIZATION,
@@ -77,13 +88,15 @@ def seed_upstream_events(instance):
         materializations = {(r.asset_key, r.partition_key): r for r in records}
         for spec, day in checks:
             asset_key = spec.asset_key
-            materialization = materializations[(asset_key, str(day))]
+            materialization = materializations[
+                (asset_key, None if day is None else str(day))
+            ]
             for name in spec.blocking_check_names:
                 yield AssetCheckEvaluation(
                     asset_key=asset_key,
                     check_name=name,
                     passed=True,
-                    partition=str(day),
+                    partition=None if day is None else str(day),
                     blocking=True,
                     target_materialization_data=AssetCheckEvaluationTargetMaterializationData(
                         storage_id=materialization.storage_id,

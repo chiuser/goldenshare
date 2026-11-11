@@ -80,6 +80,7 @@ def definition(tmp_path, *, fail_silver=False, bad_callback=False):
                     check_cancel=lambda: None,
                     known_records=records,
                     on_publish_attempt=attempted,
+                    on_raw_candidate=lambda **_: None,
                 ):
                     yield from G.emit_stk_factor_pro_publications(
                         context,

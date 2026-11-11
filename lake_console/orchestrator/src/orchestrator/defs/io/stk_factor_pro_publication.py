@@ -328,6 +328,7 @@ def publish_stk_factor_pro_day(
     staging_root: Path,
     check_cancel,
     known_records: dict,
+    on_raw_candidate,
     on_publish_attempt=None,
 ):
     require_stk_factor_pro_current_day_source(connection, source)
@@ -363,6 +364,7 @@ def publish_stk_factor_pro_day(
         run_root=root,
         known_records=known_records,
     )
+    on_raw_candidate(raw_relation=RAW_EXPECTED, raw_audit=raw_audit)
     raw_target, raw_audit = _publish_file(
         connection,
         source=source,

@@ -18,6 +18,7 @@ from orchestrator.defs.paths import (
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts import stk_factor_pro as C
 from orchestrator.tushare_download import DownloadMode
+from orchestrator.tushare_download.configuration import ConfigurationSnapshot
 from tests.stk_factor_pro_history_test_support import (
     HistoryDownloader,
     roots,
@@ -141,9 +142,20 @@ def isolated_update_environment(
     monkeypatch.setattr(
         asset.initialization, "resolve_stk_factor_pro_bootstrap_context", initialization
     )
-    # Upstream readiness is substituted in this fixture only. It supplies the actual
-    # producer schemas and files and exercises native events for this dataset.
+    # These job tests substitute upstream status and the two-column HTTP probe.
+    # Files use producer schemas; native bindings and HTTP are tested separately.
+    monkeypatch.setattr(
+        asset.ConfigurationLoader,
+        "load_configuration",
+        lambda: ConfigurationSnapshot("isolated-token", "http://127.0.0.1:1"),
+    )
+    monkeypatch.setattr(
+        asset,
+        "probe_stk_factor_pro_source",
+        lambda *a, **k: SimpleNamespace(ready=True),
+    )
     if substitute_upstream:
+        monkeypatch.setattr(asset, "_reference_inputs_ready", lambda *a: (True, ""))
         monkeypatch.setattr(
             asset,
             "raw_tushare_adj_factor_ready_for_trade_date",
@@ -212,13 +224,28 @@ def input_files(tmp_path, lake, *, changed, codes=(A, B), seed_history=False):
             tuple((code, 2 if code in changed else 1) for code in codes),
         )
         if seed_history:
-            write_keys(conn, lake, FIRST, (A,))
-            write_keys(conn, lake, PREVIOUS, (A, B))
-            write_keys(conn, lake, UNMATERIALIZED, (B,))
+            # Complete Raw producer contract is needed now that complete days may
+            # proceed to historical publication, rather than stop at partial coverage.
+            for day, existing in (
+                (FIRST, (A,)),
+                (PREVIOUS, (A, B)),
+                (UNMATERIALIZED, (B,)),
+            ):
+                path = raw_stk_factor_pro_path(lake, str(day))
+                path.parent.mkdir(parents=True, exist_ok=True)
+                frame = candidates.build_stk_factor_pro_raw_batch(
+                    rows=tuple(row(code, day.strftime("%Y%m%d")) for code in existing),
+                    source="http",
+                    source_fields=NAMES,
+                    expected_dates=(day,),
+                )
+                conn.register("fixture_history", frame)
+                conn.execute("COPY fixture_history TO ? (FORMAT PARQUET)", [str(path)])
+                conn.unregister("fixture_history")
 
 
 def test_actual_job_queries_dates_and_two_keys_once_then_reuses_starts(
-    tmp_path, actual_job
+    tmp_path, monkeypatch, actual_job
 ):
     instance, job, set_source, lake, _, counts = actual_job
     input_files(tmp_path, lake, changed=(A, B), seed_history=True)
@@ -229,7 +256,26 @@ def test_actual_job_queries_dates_and_two_keys_once_then_reuses_starts(
     for expected_calls in ((1, 1, 1), (0, 0, 0)):
         for calls in counts.values():
             calls.clear()
-        downloader = set_source((row(A),))
+        downloader = set_source((row(A), row(B)))
+        remote = HistoryDownloader(
+            {
+                A: (row(A, day="20261013"), row(A, day="20261015"), row(A)),
+                B: (row(B, day="20261015"), row(B)),
+            }
+        )
+
+        class CombinedDownloader:
+            daily = downloader
+            history = remote
+
+            def download(self, task, **kwargs):
+                return (
+                    self.daily if task.mode is DownloadMode.BY_POINT else self.history
+                ).download(task, **kwargs)
+
+        monkeypatch.setattr(
+            asset.download.TushareDownloader, "load", CombinedDownloader
+        )
         completed = job.execute_in_process(
             instance=instance,
             partition_key=str(DAY),
@@ -249,7 +295,7 @@ def test_actual_job_queries_dates_and_two_keys_once_then_reuses_starts(
         facts = asset.readiness.read_stk_factor_pro_recorded_results(
             instance, target_trade_date=DAY, known_pg={}
         )
-        assert facts.raw_coverage.missing_sample_codes == (B,)
+        assert facts.raw_coverage.missing_sample_codes == ()
         with connection(tmp_path) as conn:
             _, load = asset.history.read_stk_factor_pro_prior_history(
                 conn,
@@ -301,7 +347,7 @@ def test_actual_job_no_start_lookup_without_changes(
     if not success:
         failure = completed.failure_data_for_node("stk_factor_pro").user_failure_data
         assert failure.metadata["goldenshare/retryable"].value is True
-        assert "尚无可用" in failure.metadata["goldenshare/summary"].value
+        assert "本次完整日源" in failure.metadata["goldenshare/summary"].value
 
 
 def seed_first_raw(tmp_path, instance, lake, first_row):
@@ -402,10 +448,10 @@ def test_same_night_revision_retries_the_whole_range_until_source_catches_up(
             index = NAMES.index("adj_factor")
             return (*values[:index], factor, *values[index + 1 :])
 
-        set_source((with_factor(replay[-1], 1),))
+        set_source((with_factor(replay[-1], 1), row(B, adj_factor=1)))
         first = run(0)
         assert first.success
-        assert recorded().raw_coverage.complete is False
+        assert recorded().raw_coverage.complete is True
         assert not recorded().pending_plan_refs
 
         with connection(tmp_path) as conn:
@@ -502,8 +548,9 @@ def test_same_night_revision_retries_the_whole_range_until_source_catches_up(
                 }
 
 
+@pytest.mark.parametrize("probe_ready", [False, True])
 def test_actual_initialization_first_start_uses_existing_import_dates(
-    tmp_path, monkeypatch, actual_job
+    tmp_path, monkeypatch, actual_job, probe_ready
 ):
     instance, job, set_source, lake, staging, counts = actual_job
     day = INITIAL_DAY
@@ -540,7 +587,34 @@ def test_actual_initialization_first_start_uses_existing_import_dates(
         expected_bootstrap_approval_digest=args["_approval_digest"],
         expected_bootstrap_date_result_digest=known[path][1],
     )
-    downloader = set_source((row(B, day.strftime("%Y%m%d")),), day)
+    downloader = set_source(
+        tuple(row(code, day.strftime("%Y%m%d")) for code in (A, B, EXTRA)), day
+    )
+    remote = HistoryDownloader({A: (row(A, day.strftime("%Y%m%d"), adj_factor=2),)})
+
+    class CombinedDownloader:
+        def download(self, task, **kwargs):
+            return (
+                downloader if task.mode is DownloadMode.BY_POINT else remote
+            ).download(task, **kwargs)
+
+    monkeypatch.setattr(asset.download.TushareDownloader, "load", CombinedDownloader)
+    if not probe_ready:
+        monkeypatch.setattr(
+            asset,
+            "probe_stk_factor_pro_source",
+            lambda *a, **k: SimpleNamespace(
+                ready=False, coverage_counts=None, reason="源端缺码"
+            ),
+        )
+    calculations = []
+    calculate = asset.readiness.calculate_stk_factor_pro_coverage
+
+    def counted(conn, **kwargs):
+        calculations.append(kwargs["raw_relation"])
+        return calculate(conn, **kwargs)
+
+    monkeypatch.setattr(asset.readiness, "calculate_stk_factor_pro_coverage", counted)
     executed = job.execute_in_process(
         instance=instance,
         partition_key=str(day),
@@ -550,6 +624,23 @@ def test_actual_initialization_first_start_uses_existing_import_dates(
     assert executed.success, executed.failure_data_for_node(
         "stk_factor_pro"
     ).error.to_string()
+    if not probe_ready:
+        assert not downloader.calls and not remote.calls
+        assert not executed.get_asset_materialization_events()
+        assert not calculations
+        assert tuple(len(counts[k]) for k in ("dates", "types", "aggregate")) == (
+            0,
+            0,
+            0,
+        )
+        assert (
+            asset.records.read_json(
+                path, C.StkFactorProBootstrapDateCoverage, known_records={}
+            )
+            == original
+        )
+        return
+    assert calculations == [candidates.DAY_SOURCE, candidates.RAW_EXPECTED]
     assert len(downloader.calls) == 1
     assert tuple(len(counts[k]) for k in ("dates", "types", "aggregate")) == (0, 1, 1)
     assert counts["initialization"] == ["bootstrap_supplement"]
@@ -561,15 +652,13 @@ def test_actual_initialization_first_start_uses_existing_import_dates(
         persisted.raw_rows,
         persisted.silver_rows,
         persisted.missing_count,
-    ) == (1, 2, 2, 1)
-    assert persisted.missing_codes_ref.creator_run_id == executed.run_id
+    ) == (1, 3, 3, 0)
+    assert persisted.missing_codes_ref is None
     recorded = asset.readiness.read_stk_factor_pro_recorded_results(
         instance, target_trade_date=day, known_pg={}
     )
-    assert (
-        recorded.raw_coverage.missing_codes_ref.file_sha256
-        == persisted.missing_codes_ref.file_sha256
-    )
+    assert recorded.raw_coverage.complete is True
+    assert recorded.raw_coverage.missing_codes_ref is None
 
 
 @pytest.mark.parametrize(

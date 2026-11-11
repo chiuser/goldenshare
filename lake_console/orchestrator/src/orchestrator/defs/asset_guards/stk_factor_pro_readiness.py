@@ -1476,10 +1476,64 @@ def require_stk_factor_pro_history_silver(result):
         )
 
 
-def calculate_stk_factor_pro_coverage(connection, *, coverage_inputs, raw_relation):
-    """Project existing verified relations and compute this input version once."""
+def prepare_stk_factor_pro_expected_coverage_keys(connection, *, coverage_inputs):
+    """Prepare the same-date E/F and identity map once, without an actual side."""
     from orchestrator.defs.duckdb_sql import BJ_MARKET_OPEN_DATE
 
+    if coverage_inputs["unknown_input_kinds"] or "coverage_keys" in coverage_inputs:
+        return
+    day, relations = coverage_inputs["trade_date"], coverage_inputs["relations"]
+    listed, suspended, optional = (
+        "stk_factor_pro_coverage_listed_input",
+        "stk_factor_pro_coverage_suspend_input",
+        "stk_factor_pro_coverage_optional_input",
+    )
+    primary = None
+    try:
+        connection.execute(
+            f"CREATE TEMP TABLE {listed} AS SELECT ?::DATE trade_date,ts_code FROM {relations['lifecycle']} "
+            "WHERE list_date<=? AND (delist_date IS NULL OR ?<delist_date) "
+            "AND (NOT ends_with(ts_code,'.BJ') OR ?>=CAST(? AS DATE))",
+            [day, day, day, day, BJ_MARKET_OPEN_DATE],
+        )
+        connection.execute(
+            f"CREATE TEMP TABLE {suspended} AS SELECT DISTINCT trade_date,ts_code FROM {relations['suspend']} "
+            "WHERE trade_date=? AND suspend_type='S' AND suspend_timing IS NULL",
+            [day],
+        )
+        connection.execute(
+            f"CREATE TEMP TABLE {optional} AS SELECT ?::DATE trade_date,ts_code "
+            f"FROM {relations['lifecycle']} WHERE list_date=?",
+            [day, day],
+        )
+        coverage_inputs["coverage_keys"] = _prepare_stk_factor_pro_expected_keys(
+            connection,
+            target_trade_date=day,
+            listed_relation=listed,
+            full_suspend_relation=suspended,
+            optional_relation=optional,
+            identity_relation=relations["identity"],
+        )
+    except BaseException as error:
+        primary = error
+        raise
+    finally:
+        failures = []
+        for name in (listed, suspended, optional):
+            try:
+                connection.execute(f"DROP TABLE IF EXISTS {name}")
+            except BaseException as error:  # noqa: BLE001 - retain errors while releasing all owned projections
+                failures.append(error)
+        if failures:
+            reported = primary if primary is not None else failures[0]
+            for error in failures:
+                reported.add_note(f"覆盖准备清理同时失败：{type(error).__name__}")
+            if primary is None:
+                raise reported
+
+
+def calculate_stk_factor_pro_coverage(connection, *, coverage_inputs, raw_relation):
+    """Project existing verified relations and compute this input version once."""
     counts = None
     if not coverage_inputs["unknown_input_kinds"]:
         day, relations = coverage_inputs["trade_date"], coverage_inputs["relations"]
@@ -1487,37 +1541,9 @@ def calculate_stk_factor_pro_coverage(connection, *, coverage_inputs, raw_relati
         names = [actual]
         primary = None
         try:
-            if "coverage_keys" not in coverage_inputs:
-                listed, suspended, optional = (
-                    "stk_factor_pro_coverage_listed_input",
-                    "stk_factor_pro_coverage_suspend_input",
-                    "stk_factor_pro_coverage_optional_input",
-                )
-                names.extend((listed, suspended, optional))
-                connection.execute(
-                    f"CREATE TEMP TABLE {listed} AS SELECT ?::DATE trade_date,ts_code FROM {relations['lifecycle']} "
-                    "WHERE list_date<=? AND (delist_date IS NULL OR ?<delist_date) "
-                    "AND (NOT ends_with(ts_code,'.BJ') OR ?>=CAST(? AS DATE))",
-                    [day, day, day, day, BJ_MARKET_OPEN_DATE],
-                )
-                connection.execute(
-                    f"CREATE TEMP TABLE {suspended} AS SELECT DISTINCT trade_date,ts_code FROM {relations['suspend']} "
-                    "WHERE trade_date=? AND suspend_type='S' AND suspend_timing IS NULL",
-                    [day],
-                )
-                connection.execute(
-                    f"CREATE TEMP TABLE {optional} AS SELECT ?::DATE trade_date,ts_code "
-                    f"FROM {relations['lifecycle']} WHERE list_date=?",
-                    [day, day],
-                )
-                coverage_inputs["coverage_keys"] = _prepare_stk_factor_pro_expected_keys(
-                    connection,
-                    target_trade_date=day,
-                    listed_relation=listed,
-                    full_suspend_relation=suspended,
-                    optional_relation=optional,
-                    identity_relation=relations["identity"],
-                )
+            prepare_stk_factor_pro_expected_coverage_keys(
+                connection, coverage_inputs=coverage_inputs
+            )
             if raw_relation is None:
                 connection.execute(
                     f"CREATE TEMP TABLE {actual}(trade_date DATE,ts_code VARCHAR)"

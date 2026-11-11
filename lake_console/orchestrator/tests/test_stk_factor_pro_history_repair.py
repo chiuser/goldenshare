@@ -333,7 +333,9 @@ def test_explicit_initialization_repair_updates_only_touched_import_record(
             result_path, known_records={}
         ),
     )
-    today = set_source((row(B, day.strftime("%Y%m%d")),), day)
+    # The day source itself must be complete before the historical failure under
+    # test; existing Raw no longer fills missing current-source stocks.
+    today = set_source(tuple(row(code, day.strftime("%Y%m%d")) for code in (A, B)), day)
     history = HistoryDownloader({A: (row(A, day.strftime("%Y%m%d")),)})
 
     class IncompleteHistory:

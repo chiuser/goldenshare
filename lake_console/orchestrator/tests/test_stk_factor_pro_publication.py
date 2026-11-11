@@ -47,6 +47,8 @@ def roots(tmp_path):
 def run_day(
     conn, lake, staging, rows, run="run-a", check=lambda: None, *, known_records
 ):
+    # Publisher mechanics are isolated here; job tests apply actual coverage
+    # admission. The explicit no-op does not claim market completeness.
     downloader = Downloader(result(rows))
     source = download_stk_factor_pro_day(
         conn,
@@ -64,11 +66,64 @@ def run_day(
                 staging_root=staging,
                 check_cancel=check,
                 known_records=known_records,
+                on_raw_candidate=lambda **_: None,
             )
         )
         return outputs, downloader
     finally:
         release_stk_factor_pro_day_source(conn)
+
+
+@pytest.mark.parametrize("existing", [False, True], ids=["new", "equivalent"])
+@pytest.mark.parametrize("reject", [False, True])
+def test_raw_candidate_callback_before_any_publication(
+    tmp_path, monkeypatch, existing, reject
+):
+    lake, staging = roots(tmp_path)
+    with connection(tmp_path) as conn:
+        if existing:
+            run_day(conn, lake, staging, (row(),), known_records={})
+        source = download_stk_factor_pro_day(
+            conn,
+            identity=identity("candidate-check"),
+            contract=contract(),
+            downloader=Downloader(result((row(),))),
+            check_cancel=lambda: None,
+        )
+        callbacks, attempts = [], []
+
+        def candidate(*, raw_relation, raw_audit):
+            callbacks.append((raw_relation, raw_audit.row_count))
+            assert not attempts
+            if reject:
+                raise ValueError("candidate coverage rejected")
+
+        try:
+            iterator = publication.publish_stk_factor_pro_day(
+                conn,
+                source=source,
+                lake_root=lake,
+                staging_root=staging,
+                known_records={},
+                check_cancel=lambda: None,
+                on_raw_candidate=candidate,
+                on_publish_attempt=lambda *args: attempts.append(args),
+            )
+            if reject:
+                monkeypatch.setattr(
+                    publication,
+                    "_publish_file",
+                    lambda *a, **k: pytest.fail("publisher entered before admission"),
+                )
+                with pytest.raises(ValueError, match="candidate coverage rejected"):
+                    list(iterator)
+                assert not attempts
+            else:
+                assert len(list(iterator)) == 2
+                assert len(attempts) == 2
+            assert callbacks == [(candidate_module.RAW_EXPECTED, 1)]
+        finally:
+            release_stk_factor_pro_day_source(conn)
 
 
 def test_raw_merge_silver_from_full_raw_and_nullable_negative_values(tmp_path):
@@ -170,6 +225,7 @@ def test_two_rounds_do_not_retain_delivered_unit_references(tmp_path):
                         staging_root=staging,
                         check_cancel=lambda: None,
                         known_records=known_records,
+                        on_raw_candidate=lambda **_: None,
                     )
                 )
                 assert len(outputs) == 2
@@ -364,6 +420,7 @@ def test_cancel_after_raw_complete_stops_silver_without_rollback(tmp_path):
             staging_root=staging,
             check_cancel=check,
             known_records=known_records,
+            on_raw_candidate=lambda **_: None,
         )
         next(iterator)
         cancel[0] = True
@@ -398,6 +455,7 @@ def test_symlink_roots_and_relative_roots_rejected(tmp_path):
                         staging_root=staging,
                         check_cancel=lambda: None,
                         known_records=known_records,
+                        on_raw_candidate=lambda **_: None,
                     )
                 )
         release_stk_factor_pro_day_source(conn)
@@ -445,6 +503,7 @@ def test_silver_symlink_after_raw_yield_rejected_before_write(tmp_path, dangling
             staging_root=staging,
             check_cancel=lambda: None,
             known_records=known_records,
+            on_raw_candidate=lambda **_: None,
         )
         try:
             target, _ = next(iterator)
@@ -532,6 +591,7 @@ def test_raw_yield_precedes_silver_and_failure_preserves_actual_raw(
             staging_root=staging,
             check_cancel=lambda: None,
             known_records=known_records,
+            on_raw_candidate=lambda **_: None,
         )
         target, audit = next(iterator)
         assert target.layer == "raw" and audit.passed
@@ -759,7 +819,7 @@ root,lake,staging,mode=map(Path,sys.argv[1:])
 with connection(root) as conn:
     loader=Downloader(result((row(close=Decimal('10' if str(mode)=='exit' else '12')),)))
     source=download_stk_factor_pro_day(conn,identity=identity('failed' if str(mode)=='exit' else 'fresh'),contract=contract(),downloader=loader,check_cancel=lambda:None)
-    iterator=publish_stk_factor_pro_day(conn,source=source,lake_root=lake,staging_root=staging,check_cancel=lambda:None,known_records={})
+    iterator=publish_stk_factor_pro_day(conn,source=source,lake_root=lake,staging_root=staging,check_cancel=lambda:None,known_records={},on_raw_candidate=lambda **_:None)
     next(iterator)
     if str(mode)=='exit':
         import os

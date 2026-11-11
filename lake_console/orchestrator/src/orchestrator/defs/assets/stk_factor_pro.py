@@ -21,6 +21,7 @@ from orchestrator.defs.io import stk_factor_pro_download as download
 from orchestrator.defs.io import stk_factor_pro_history as history
 from orchestrator.defs.io import stk_factor_pro_publication as publication
 from orchestrator.defs.io.stk_factor_pro_candidates import (
+    DAY_SOURCE,
     RAW_EXPECTED,
     release_stk_factor_pro_day_source,
     require_stk_factor_pro_safe_path,
@@ -32,7 +33,6 @@ from orchestrator.defs.paths import (
     raw_stk_factor_pro_path,
     silver_stock_factor_pro_path,
     silver_stock_identity_map_path,
-    silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
     stk_factor_pro_run_staging_root,
 )
@@ -40,11 +40,17 @@ from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts import stk_factor_pro as C
 from orchestrator.defs.run_contracts.asset_tags import build_asset_tags
 from orchestrator.defs.run_contracts.metadata import build_asset_definition_metadata
+from orchestrator.defs.sensors import readiness as upstream_readiness
 from orchestrator.defs.sensors.readiness import (
     raw_tushare_adj_factor_ready_for_trade_date,
     suspend_d_ready_for_trade_date,
 )
+from orchestrator.defs.source_readiness.stk_factor_pro import (
+    probe_stk_factor_pro_source,
+)
 from orchestrator.tushare_download import DownloadError, DownloadErrorCode
+from orchestrator.tushare_download.configuration import ConfigurationLoader
+from orchestrator.tushare_download.source_transport import SystemClock
 
 _RAW = dg.AssetKey(C.STK_FACTOR_PRO_RAW_ASSET_KEY)
 _SILVER = dg.AssetKey(C.STK_FACTOR_PRO_SILVER_ASSET_KEY)
@@ -88,7 +94,9 @@ def _now():
     return datetime.now(ZoneInfo(C.STK_FACTOR_PRO_TIMEZONE))
 
 
-def _failure(phase, day, summary, *, retryable=False, source_error_code=None):
+def _failure(
+    phase, day, summary, *, retryable=False, source_error_code=None, **details
+):
     return dg.Failure(
         summary,
         allow_retries=False,
@@ -103,6 +111,135 @@ def _failure(phase, day, summary, *, retryable=False, source_error_code=None):
                 if retryable
                 else "请管理员核对原因及本轮已发布文件。"
             ),
+            **details,
+        },
+    )
+
+
+def _automatic_window(execution_day, slot):
+    now = _now()
+    starts_at = datetime.combine(
+        execution_day, time(C.STK_FACTOR_PRO_FIRST_SLOT_HOUR), now.tzinfo
+    ) + timedelta(minutes=slot * C.STK_FACTOR_PRO_SLOT_MINUTES)
+    return now.date() == execution_day and now >= starts_at
+
+
+def _reference_inputs_ready(instance, day, known_pg):
+    specs = (
+        upstream_readiness.RAW_STOCK_BASIC_READINESS_SPEC,
+        upstream_readiness.SILVER_STOCK_LIFECYCLE_READINESS_SPEC,
+    )
+    materials = {}
+    for spec in specs:
+        key = ("reference_materialization", spec.asset_key)
+        if key not in known_pg:
+            known_pg[key] = upstream_readiness._latest_materialization_record(
+                instance, spec.asset_key, None
+            )
+        materials[spec.asset_key] = known_pg[key]
+        if known_pg[key] is None:
+            return False, f"{spec.asset_key.to_user_string()}尚无物化"
+    keys = tuple(
+        dg.AssetCheckKey(spec.asset_key, name)
+        for spec in specs
+        for name in spec.blocking_check_names
+    )
+    cache_key = ("reference_checks", keys)
+    if cache_key not in known_pg:
+        known_pg[cache_key] = (
+            instance.event_log_storage.get_latest_asset_check_execution_by_key(keys)
+        )
+    for spec in specs:
+        material = materials[spec.asset_key]
+        results = {}
+        for name in spec.blocking_check_names:
+            check = known_pg[cache_key].get(dg.AssetCheckKey(spec.asset_key, name))
+            evaluation = (
+                check.event.dagster_event.event_specific_data
+                if check is not None and check.event is not None
+                else None
+            )
+            target = (
+                evaluation.target_materialization_data
+                if evaluation is not None
+                else None
+            )
+            results[name] = (
+                check is not None
+                and check.status.value == "SUCCEEDED"
+                and evaluation is not None
+                and evaluation.passed
+                and evaluation.blocking
+                and evaluation.asset_key == spec.asset_key
+                and evaluation.check_name == name
+                and evaluation.partition is None
+                and target is not None
+                and (target.storage_id, target.run_id, target.timestamp)
+                == (
+                    material.storage_id,
+                    material.event_log_entry.run_id,
+                    material.timestamp,
+                )
+            )
+        status = upstream_readiness._asset_readiness_status_from_check_results(
+            spec=spec,
+            partition_key=None,
+            materialization=material,
+            check_results=results,
+            min_materialization_date=str(day),
+        )
+        if not status.ready:
+            return False, status.reason
+    if (
+        materials[specs[1].asset_key].timestamp
+        < materials[specs[0].asset_key].timestamp
+    ):
+        return False, "股票生命周期早于最新股票基础信息物化"
+    return True, ""
+
+
+def _require_day_coverage(connection, calculated, day, label, *, retryable):
+    counts = calculated["coverage_counts"]
+    if counts is not None and counts.missing_count == 0 and counts.extra_count == 0:
+        return
+    samples = {}
+    for kind in ("missing", "extra"):
+        samples[kind] = (
+            tuple(
+                row[0]
+                for row in connection.execute(
+                    f"SELECT ts_code FROM stk_factor_pro_coverage_{kind} ORDER BY ts_code LIMIT 20"
+                ).fetchall()
+            )
+            if counts is not None and counts.expected_count is not None
+            else ()
+        )
+    reason = (
+        f"缺失{counts.missing_count}，额外{counts.extra_count}"
+        if counts is not None and counts.expected_count is not None
+        else calculated["reason"]
+    )
+    raise _failure(
+        "day",
+        day,
+        f"{label}代码覆盖未通过：{reason}",
+        retryable=retryable,
+        **{
+            **{
+                f"goldenshare/{name}": getattr(counts, name)
+                if counts is not None
+                else None
+                for name in (
+                    "expected_count",
+                    "actual_count",
+                    "missing_count",
+                    "extra_count",
+                )
+            },
+            **{
+                f"goldenshare/{kind}_sample_codes": dg.MetadataValue.json(list(value))
+                for kind, value in samples.items()
+            },
         },
     )
 
@@ -399,6 +536,7 @@ def _prepare_initialization_result(
     audits,
     known_records,
     check_space,
+    calculated,
 ):
     day = inputs["trade_date"]
     entry = initialization.prepare_stk_factor_pro_bootstrap_supplement_entry(
@@ -442,7 +580,8 @@ def _prepare_initialization_result(
     )
     previous = entry["persisted_result"]
     if (
-        previous is not None
+        calculated is None
+        and previous is not None
         and entry["coverage_record_current"]
         and previous.input_digest == digest
         and (
@@ -452,7 +591,7 @@ def _prepare_initialization_result(
         )
     ):
         calculated = initialization._bootstrap_previous_calculation(previous)
-    else:
+    elif calculated is None:
         calculated = coverage_io.compute_stk_factor_pro_bootstrap_coverage_date(
             connection,
             lake_root=lake,
@@ -625,6 +764,7 @@ def _published_day(
     initialization_state,
     control,
     check_cancel,
+    coverage_inputs,
 ):
     day = identity.target_trade_date
     source = download.download_stk_factor_pro_day(
@@ -648,6 +788,23 @@ def _published_day(
     with records.resource_cleanup(
         lambda: release_stk_factor_pro_day_source(connection)
     ):
+        source_calculated = readiness.calculate_stk_factor_pro_coverage(
+            connection, coverage_inputs=coverage_inputs, raw_relation=DAY_SOURCE
+        )
+        _require_day_coverage(
+            connection, source_calculated, day, "本次完整日源", retryable=True
+        )
+        candidate_calculated = None
+
+        def candidate(*, raw_relation, raw_audit):
+            nonlocal candidate_calculated
+            candidate_calculated = readiness.calculate_stk_factor_pro_coverage(
+                connection, coverage_inputs=coverage_inputs, raw_relation=raw_relation
+            )
+            _require_day_coverage(
+                connection, candidate_calculated, day, "最终Raw候选", retryable=False
+            )
+
         try:
             with closing(
                 publication.publish_stk_factor_pro_day(
@@ -657,6 +814,7 @@ def _published_day(
                     staging_root=staging,
                     check_cancel=check_cancel,
                     known_records=known_records,
+                    on_raw_candidate=candidate,
                     on_publish_attempt=attempt,
                 )
             ) as output:
@@ -696,10 +854,10 @@ def _published_day(
                 except Exception as cleanup:  # noqa: BLE001 - retain the publication failure.
                     primary.add_note(f"初始化统计收尾同时失败：{cleanup}")
             raise
-        inputs = _basis_for_day(
-            connection, context.instance, lake, day, inherited, known_pg, known_records
-        )
-        raw, silver = (completed[0][1], completed[1][1]) if completed else (None, None)
+        if len(completed) != 2:
+            raise _failure("day", day, "目标日未形成完整Raw/Silver两层文件")
+        inputs = coverage_inputs
+        raw, silver = completed[0][1], completed[1][1]
         if raw is not None:
             _log_factor_differences(
                 connection, context, source_relation=RAW_EXPECTED, day=day
@@ -716,47 +874,11 @@ def _published_day(
                 audits=(raw, silver),
                 known_records=known_records,
                 check_space=check_space,
+                calculated=candidate_calculated,
             )
             calculated = pending[day][1]
         else:
-            previous = known_pg[("recorded_results", day)].raw_coverage
-            basis = tuple(
-                known_records.get(path, (None, None, None))[1]
-                for path in (
-                    silver_stock_lifecycle_path(lake),
-                    silver_stock_suspend_daily_path(lake, str(day)),
-                    silver_stock_identity_map_path(lake),
-                )
-            )
-            reusable = (
-                raw is not None
-                and previous is not None
-                and previous.coverage_rule_version == C.STK_FACTOR_PRO_COVERAGE_RULE_VERSION
-                and previous.expected_count is not None
-                and not inputs["unknown_input_kinds"]
-                and inputs["is_open"] is True
-                and (raw.file_sha256, *basis)
-                == (
-                    previous.raw_file_sha256,
-                    previous.lifecycle_file_sha256,
-                    previous.suspend_file_sha256,
-                    previous.identity_file_sha256,
-                )
-                and history.stk_factor_pro_missing_codes_reusable(
-                    previous,
-                    staging_root=staging,
-                    known_records=known_records,
-                )
-            )
-            calculated = (
-                None
-                if reusable
-                else readiness.calculate_stk_factor_pro_coverage(
-                    connection,
-                    coverage_inputs=inputs,
-                    raw_relation=RAW_EXPECTED if raw is not None else None,
-                )
-            )
+            calculated = candidate_calculated
         raw_coverage = readiness.evaluate_stk_factor_pro_raw_coverage(
             context.instance,
             connection,
@@ -806,7 +928,7 @@ def _published_day(
         readiness.release_stk_factor_pro_coverage_inputs(
             connection, inherited_facts=inherited, trade_date=day
         )
-    return raw_coverage, target_silver, source_digest, phase_stats, bool(completed)
+    return raw_coverage, target_silver, source_digest, phase_stats
 
 
 def _publish_history(
@@ -1064,6 +1186,7 @@ def _publish_history(
                             audits=(raw, audit),
                             known_records=known_records,
                             check_space=space,
+                            calculated=None,
                         )
                         readiness.release_stk_factor_pro_coverage_inputs(
                             connection,
@@ -1204,17 +1327,10 @@ def stk_factor_pro(
                 elif run_input.purpose == "manual_date":
                     if _now().date() != run_input.execution_day:
                         raise ValueError("首次指定日期补数的D必须是本次上海日期")
-                elif not blocked:
-                    now = _now()
-                    starts_at = datetime.combine(
-                        run_input.execution_day,
-                        time(C.STK_FACTOR_PRO_FIRST_SLOT_HOUR),
-                        now.tzinfo,
-                    ) + timedelta(
-                        minutes=run_input.scheduled_slot * C.STK_FACTOR_PRO_SLOT_MINUTES
-                    )
-                    if now.date() != run_input.execution_day or now < starts_at:
-                        blocked = "自动任务不在原执行日计划时点至午夜的窗口"
+                elif not blocked and not _automatic_window(
+                    run_input.execution_day, run_input.scheduled_slot
+                ):
+                    blocked = "自动任务不在原执行日计划时点至午夜的窗口"
             identity = C.RunIdentity(
                 run.run_id,
                 source_run_id,
@@ -1232,6 +1348,21 @@ def stk_factor_pro(
                     if not ready.ready:
                         blocked = f"权威复权因子未就绪：{factor_day}，{ready.reason}"
                         break
+            inputs = None
+            if not blocked:
+                _, blocked = _reference_inputs_ready(instance, target, known_pg)
+            if not blocked:
+                inputs = _basis_for_day(
+                    connection,
+                    instance,
+                    lake,
+                    target,
+                    inherited,
+                    known_pg,
+                    known_records,
+                )
+                if inputs["unknown_input_kinds"] or inputs["is_open"] is not True:
+                    blocked = inputs["reason"] or "目标交易日覆盖依据尚未就绪"
             if blocked:
                 yield _observation(
                     identity,
@@ -1245,6 +1376,34 @@ def stk_factor_pro(
             control, check_cancel = download.build_stk_factor_pro_run_control(
                 instance, identity=identity, phase="day"
             )
+            readiness.prepare_stk_factor_pro_expected_coverage_keys(
+                connection, coverage_inputs=inputs
+            )
+            if identity.purpose in ("manual_date", "bootstrap_supplement"):
+                source_probe = probe_stk_factor_pro_source(
+                    connection,
+                    target_trade_date=target,
+                    coverage_inputs=inputs,
+                    config=ConfigurationLoader.load_configuration(),
+                    clock=SystemClock(),
+                    control=control,
+                )
+                if not source_probe.ready:
+                    counts = source_probe.coverage_counts
+                    detail = (
+                        f"；应有{counts.expected_count}，实际{counts.actual_count}，缺失{counts.missing_count}，额外{counts.extra_count}"
+                        if counts is not None
+                        else ""
+                    )
+                    yield _observation(
+                        identity,
+                        prior,
+                        "precheck",
+                        bootstrap_context=init_context,
+                        summary=f"PRECHECK_NO_DOWNLOAD：{source_probe.reason}{detail}",
+                        next_action="待源端代码齐备后按原目标日期重新执行。",
+                    )
+                    return
             plan, ranges, plan_ref = _plan_history(
                 connection,
                 instance,
@@ -1264,6 +1423,22 @@ def stk_factor_pro(
                 history_ranges_ref=plan.ranges_ref,
                 pending_plan_refs=(plan_ref,) if ranges else (),
             )
+            if (
+                identity.purpose == "today"
+                and source_run_id is None
+                and not _automatic_window(
+                    identity.execution_day, identity.scheduled_slot
+                )
+            ):
+                yield _observation(
+                    identity,
+                    current,
+                    "precheck",
+                    bootstrap_context=init_context,
+                    summary="PRECHECK_NO_DOWNLOAD：计划完成后已离开原自动执行窗口。",
+                    next_action="保留已发布文件，未开始正式下载。",
+                )
+                return
             yield _observation(
                 identity,
                 current,
@@ -1280,7 +1455,7 @@ def stk_factor_pro(
             ) != (plan_ref, plan.ranges_ref, init_context):
                 raise ValueError("开始观察与本次计划或授权不一致")
             phase = "day"
-            raw, silver, day_digest, stats, usable = yield from _published_day(
+            raw, silver, day_digest, stats = yield from _published_day(
                 connection,
                 context,
                 lake=lake,
@@ -1293,24 +1468,25 @@ def stk_factor_pro(
                 initialization_state=init_state,
                 control=control,
                 check_cancel=check_cancel,
+                coverage_inputs=inputs,
             )
             complete = raw.complete is True and silver is not None and silver.ready
-            recovery = (
-                _recovered_failure(
-                    instance,
-                    run,
-                    prior.unresolved_day_failure_run_id,
-                    init_context,
-                    known_pg,
+            if not complete:
+                raise _failure(
+                    "day", target, "目标日Raw/Silver、绑定检查或覆盖未完整通过"
                 )
-                if usable
-                else None
+            recovery = _recovered_failure(
+                instance,
+                run,
+                prior.unresolved_day_failure_run_id,
+                init_context,
+                known_pg,
             )
             yield _observation(
                 identity,
                 current,
                 "day",
-                result="completed" if usable else "waiting",
+                result="completed",
                 raw_coverage=raw,
                 target_silver=silver,
                 day_source_digest=day_digest,
@@ -1319,18 +1495,9 @@ def stk_factor_pro(
                 **stats,
                 summary=(
                     f"{target} 日文件已发布，应有 {raw.expected_count}，参与核对 {raw.actual_count}，缺失 {raw.missing_count}，额外 {raw.extra_count}。"
-                    if usable
-                    else f"{target} 请求成功，源返回0行，当前无可用日文件。"
                 ),
                 next_action="原T两层就绪后处理必要历史。",
             )
-            if not usable and raw.expected_count:
-                raise _failure(
-                    "day",
-                    target,
-                    f"目标日尚无可用技术因子数据：{target}；应有{raw.expected_count}只，实际0只。",
-                    retryable=True,
-                )
             day_ref, _ = _saved_observation(instance, identity, "day", known_pg)
             current = replace(
                 current,
@@ -1346,36 +1513,6 @@ def stk_factor_pro(
                 "raw_coverage": raw,
                 "target_silver": silver,
             }
-            if not complete:
-                root = stk_factor_pro_run_staging_root(staging, run.run_id, str(target))
-                history._json_write(
-                    root,
-                    identity,
-                    "history-eligibility.json",
-                    C.HistoryEligibilityRecord(
-                        1,
-                        identity,
-                        plan.history_plan_digest,
-                        plan.history_ranges_digest,
-                        raw,
-                        silver,
-                        _now(),
-                    ),
-                    known_records=known_records,
-                    check_space=None,
-                )
-                yield _observation(
-                    identity,
-                    current,
-                    "history",
-                    result="waiting",
-                    **history_facts,
-                    summary="原日期Raw齐备或Silver检查条件尚未满足。",
-                    next_action="等待原日期两层就绪。",
-                )
-                if silver is not None:
-                    readiness.require_stk_factor_pro_history_silver(silver)
-                return
             if (
                 source_run_id is None
                 and init_context is None

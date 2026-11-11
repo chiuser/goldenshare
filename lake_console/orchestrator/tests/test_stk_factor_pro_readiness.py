@@ -356,6 +356,7 @@ def test_raw_only_publication_leaves_old_silver_ineligible(tmp_path):
             staging_root=staging,
             check_cancel=lambda: None,
             known_records=known,
+            on_raw_candidate=lambda **_: None,
         )
         try:
             raw_target, raw_audit = next(publisher)

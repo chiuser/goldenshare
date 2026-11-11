@@ -1758,7 +1758,8 @@ def test_summary_write_failure_keeps_result_and_business_files(tmp_path, monkeyp
         ).exists()
 
 
-def test_cleanup_all_tables_preserves_primary_failure(tmp_path, monkeypatch):
+@pytest.mark.parametrize("stage", ["expected", "actual"])
+def test_cleanup_all_tables_preserves_primary_failure(tmp_path, monkeypatch, stage):
     date_results = {}
     known_records = {}
     with connection(tmp_path) as conn:
@@ -1767,7 +1768,9 @@ def test_cleanup_all_tables_preserves_primary_failure(tmp_path, monkeypatch):
         )
         monkeypatch.setattr(
             R,
-            "compare_stk_factor_pro_coverage_keys",
+            "_prepare_stk_factor_pro_expected_keys"
+            if stage == "expected"
+            else "compare_stk_factor_pro_coverage_keys",
             lambda *_a, **_k: (_ for _ in ()).throw(
                 KeyboardInterrupt("primary cancel")
             ),
@@ -1777,19 +1780,30 @@ def test_cleanup_all_tables_preserves_primary_failure(tmp_path, monkeypatch):
         class WrappedConnection:
             def execute(self, query, *a, **k):
                 executed.append(query)
-                if query.startswith("DROP TABLE IF EXISTS ") and query.endswith(
+                # Expected inputs are now released before actual comparison.
+                # Inject each cleanup failure after its own primary cancellation.
+                first = (
                     "stk_factor_pro_coverage_listed_input"
-                ):
+                    if stage == "expected"
+                    else "stk_factor_pro_coverage_actual_input"
+                )
+                if query.startswith("DROP TABLE IF EXISTS ") and query.endswith(first):
                     raise OSError("cleanup one")
-                if query.startswith("DROP TABLE IF EXISTS ") and query.endswith(
-                    "stk_factor_pro_coverage_suspend_input"
+                if (
+                    stage == "expected"
+                    and query.startswith("DROP TABLE IF EXISTS ")
+                    and query.endswith("stk_factor_pro_coverage_suspend_input")
                 ):
                     raise RuntimeError("cleanup two")
                 return conn.execute(query, *a, **k)
 
         with pytest.raises(KeyboardInterrupt, match="primary cancel") as caught:
             save(WrappedConnection(), args, known_records=known_records)
-        assert "覆盖计算清理同时失败：OSError" in caught.value.__notes__
+        assert (
+            "覆盖准备清理同时失败：OSError"
+            if stage == "expected"
+            else "覆盖计算清理同时失败：OSError"
+        ) in caught.value.__notes__
         assert any(q.endswith(R.STK_FACTOR_PRO_COVERAGE_TABLES[-1]) for q in executed)
 
 

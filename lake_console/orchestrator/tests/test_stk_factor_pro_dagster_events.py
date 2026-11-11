@@ -3,17 +3,15 @@
 These test-only definitions stand in for file processing, not for Dagster.  No
 formal definitions, Lake resource, source credential or production instance is
 loaded.  File digests are deliberate literals: this verifies event APIs and
-binding, not the correctness of the future dataset writer/check implementations.
+binding. Actual complete-day admission is tested in test_stk_factor_pro_complete_day;
+the retired partial-day simulation has been removed.
 """
 
-import hashlib
-import json
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
 import dagster as dg
-import duckdb
 import pytest
 from dagster._core.definitions.asset_checks.asset_check_evaluation import (
     AssetCheckEvaluation,
@@ -141,66 +139,6 @@ def _event_test_definition(
             partition=TARGET_DAY,
             metadata={"goldenshare/download_started": True},
         )
-        if behavior in ("empty", "bootstrap_empty"):
-            # Literal source result and missing keys stand in for later business
-            # helpers. Only the Dagster sequencing/binding is under test here.
-            missing_path = tmp_path / "diagnostics" / "day-missing-codes.parquet"
-            missing_path.parent.mkdir()
-            with duckdb.connect() as connection:
-                connection.execute(
-                    "COPY (SELECT * FROM (VALUES "
-                    "('000001.SZ', DATE '2026-10-21'),"
-                    "('600000.SH', DATE '2026-10-21')) "
-                    "AS missing(ts_code, trade_date)) TO ? (FORMAT PARQUET)",
-                    [str(missing_path)],
-                )
-            calls.append("missing_saved")
-            if behavior == "bootstrap_empty":
-                statistics = {
-                    "expected_count": 2,
-                    "actual_count": 0,
-                    "missing_count": 2,
-                }
-                for name in ("result", "summary"):
-                    (tmp_path / f"bootstrap-{name}.json").write_text(
-                        json.dumps(statistics), encoding="utf-8"
-                    )
-                calls.append("statistics_saved")
-            yield dg.AssetObservation(
-                asset_key=RAW_KEY,
-                partition=TARGET_DAY,
-                metadata={
-                    "goldenshare/result": "waiting",
-                    "goldenshare/request_status": "SUCCEEDED",
-                    "goldenshare/source_row_count": 0,
-                    "goldenshare/raw_coverage": {
-                        "complete": False,
-                        "raw_check_passed": False,
-                        "expected_count": 2,
-                        "actual_count": 0,
-                        "missing_count": 2,
-                        "missing_codes_ref": {
-                            "relative_path": "diagnostics/day-missing-codes.parquet",
-                            "file_sha256": hashlib.sha256(
-                                missing_path.read_bytes()
-                            ).hexdigest(),
-                            "row_count": 2,
-                        },
-                    },
-                    "goldenshare/summary": "请求成功，源返回0行",
-                },
-            )
-            calls.append("waiting_persisted")
-            raise dg.Failure(
-                f"目标日尚无可用技术因子数据：{TARGET_DAY}；应有2只，实际0只。",
-                metadata={
-                    "goldenshare/failure_phase": "day",
-                    "goldenshare/retryable": True,
-                    "goldenshare/source_error_code": None,
-                },
-                allow_retries=False,
-            )
-
         for asset_key in ASSET_KEYS:
             calls.append("publish:" + asset_key.to_user_string())
             yield dg.MaterializeResult(
@@ -220,26 +158,6 @@ def _event_test_definition(
 
         if behavior == "history_failure":
             raise dg.Failure("历史下载失败，日事件保留", allow_retries=False)
-
-        if behavior in ("partial", "old_raw_empty_source", "unknown_basis"):
-            yield dg.AssetObservation(
-                asset_key=RAW_KEY,
-                partition=TARGET_DAY,
-                metadata={
-                    "goldenshare/result": "published",
-                    "goldenshare/source_row_count": 0
-                    if behavior == "old_raw_empty_source"
-                    else 1,
-                    "goldenshare/actual_codes": ["000001.SZ"],
-                    "goldenshare/raw_coverage": {
-                        "complete": None if behavior == "unknown_basis" else False,
-                        "expected_count": None if behavior == "unknown_basis" else 2,
-                        "actual_count": 1,
-                        "missing_count": None if behavior == "unknown_basis" else 1,
-                    },
-                },
-            )
-            return
 
         calls.append("history")
 
@@ -458,123 +376,6 @@ def test_failed_raw_check_explicitly_stops_silver_and_history(tmp_path):
             evaluation.target_materialization_data.storage_id
             == materializations[0].storage_id
         )
-
-
-@pytest.mark.parametrize("behavior", ["empty", "bootstrap_empty"])
-def test_successful_empty_source_is_explicit_day_failure_after_diagnostics(
-    tmp_path, behavior
-):
-    with _isolated_instance(tmp_path) as instance:
-        result, batch_reads, calls = _execute(instance, behavior, tmp_path)
-        assert result.success is False
-        assert batch_reads == []
-        assert calls == (
-            ["download", "missing_saved", "statistics_saved", "waiting_persisted"]
-            if behavior == "bootstrap_empty"
-            else ["download", "missing_saved", "waiting_persisted"]
-        )
-        assert (
-            _records(instance, result.run_id, dg.DagsterEventType.ASSET_MATERIALIZATION)
-            == []
-        )
-        assert (
-            _records(
-                instance, result.run_id, dg.DagsterEventType.ASSET_CHECK_EVALUATION
-            )
-            == []
-        )
-        observations = _records(
-            instance, result.run_id, dg.DagsterEventType.ASSET_OBSERVATION
-        )
-        assert len(observations) == 3
-        metadata = observations[-1].asset_observation.metadata
-        assert metadata["goldenshare/result"].value == "waiting"
-        assert metadata["goldenshare/request_status"].value == "SUCCEEDED"
-        assert metadata["goldenshare/source_row_count"].value == 0
-        coverage = metadata["goldenshare/raw_coverage"].value
-        assert coverage["complete"] is False
-        assert coverage["raw_check_passed"] is False
-        assert (
-            coverage["expected_count"],
-            coverage["actual_count"],
-            coverage["missing_count"],
-        ) == (2, 0, 2)
-        missing_path = tmp_path / coverage["missing_codes_ref"]["relative_path"]
-        assert (
-            hashlib.sha256(missing_path.read_bytes()).hexdigest()
-            == coverage["missing_codes_ref"]["file_sha256"]
-        )
-        with duckdb.connect() as connection:
-            assert connection.execute(
-                "SELECT ts_code, CAST(trade_date AS VARCHAR) FROM read_parquet(?) ORDER BY ts_code",
-                [str(missing_path)],
-            ).fetchall() == [("000001.SZ", TARGET_DAY), ("600000.SH", TARGET_DAY)]
-        if behavior == "bootstrap_empty":
-            for name in ("result", "summary"):
-                assert json.loads(
-                    (tmp_path / f"bootstrap-{name}.json").read_text()
-                ) == {
-                    "expected_count": 2,
-                    "actual_count": 0,
-                    "missing_count": 2,
-                }
-        failure = result.failure_data_for_node("stk_factor_pro")
-        assert failure.error.cls_name != "DagsterStepOutputNotFoundError"
-        assert failure.user_failure_data.label == "intentional-failure"
-        assert (
-            failure.user_failure_data.metadata["goldenshare/failure_phase"].value
-            == "day"
-        )
-        assert failure.user_failure_data.metadata["goldenshare/retryable"].value is True
-        assert (
-            failure.user_failure_data.metadata["goldenshare/source_error_code"].value
-            is None
-        )
-        # The test op has max_retries=1; allow_retries=False prevents reexecution.
-        assert not result.get_step_failure_events()[0].event_specific_data.error.cause
-        assert (
-            len(
-                _records(instance, result.run_id, dg.DagsterEventType.STEP_UP_FOR_RETRY)
-            )
-            == 0
-        )
-        run_id = result.run_id
-    with _isolated_instance(tmp_path) as reopened:
-        assert reopened.get_run_by_id(run_id).status == dg.DagsterRunStatus.FAILURE
-        assert (
-            len(_records(reopened, run_id, dg.DagsterEventType.ASSET_OBSERVATION)) == 3
-        )
-
-
-@pytest.mark.parametrize(
-    "behavior", ["partial", "old_raw_empty_source", "unknown_basis"]
-)
-def test_partial_day_or_valid_old_rows_keep_successful_publication(tmp_path, behavior):
-    with _isolated_instance(tmp_path) as instance:
-        result, batch_reads, calls = _execute(instance, behavior, tmp_path)
-        assert result.success is True
-        assert batch_reads == []
-        assert calls == [
-            "download",
-            "publish:raw_tushare_stk_factor_pro",
-            "publish:silver_stock_factor_pro",
-        ]
-        _assert_checks_bound(
-            instance,
-            result.run_id,
-            {(asset_key, TARGET_DAY) for asset_key in ASSET_KEYS},
-        )
-        metadata = _records(
-            instance, result.run_id, dg.DagsterEventType.ASSET_OBSERVATION
-        )[-1].asset_observation.metadata
-        assert metadata["goldenshare/actual_codes"].value == ["000001.SZ"]
-        assert metadata["goldenshare/source_row_count"].value == (
-            0 if behavior == "old_raw_empty_source" else 1
-        )
-        coverage = metadata["goldenshare/raw_coverage"].value
-        assert coverage["actual_count"] == 1
-        assert coverage["complete"] is (None if behavior == "unknown_basis" else False)
-        assert coverage["missing_count"] == (None if behavior == "unknown_basis" else 1)
 
 
 @pytest.mark.parametrize(
