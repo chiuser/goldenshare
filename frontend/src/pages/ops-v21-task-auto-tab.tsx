@@ -75,6 +75,7 @@ type ProbeRunSummary = {
   total: number;
   latest_probed_at: string | null;
   latest_triggered_at: string | null;
+  latest_result: ProbeRunLogListResponse["items"][number] | null;
 };
 type CalendarPolicy = "" | AutomationCapability["calendar_policy_rules"][number]["policy"];
 const INDEX_PERIOD_SCHEDULE_LABELS: Partial<Record<string, string>> = {
@@ -525,6 +526,17 @@ function formatParamValue(value: unknown): string {
   return String(value);
 }
 
+export function formatServingProbeFailures(payload: Record<string, unknown> | undefined): string[] {
+  if (!Array.isArray(payload?.failures)) return [];
+  return payload.failures.filter(isPlainRecord).map((failure) => {
+    const parts = [String(failure.ts_code || ""), String(failure.message || "")];
+    if (Array.isArray(failure.missing_dates)) parts.push(`缺失日期：${failure.missing_dates.join("、")}`);
+    if (failure.expected_trade_date) parts.push(`应截至：${failure.expected_trade_date}`);
+    if ("actual_trade_date" in failure) parts.push(`实际截至：${failure.actual_trade_date ?? "尚无本周期K线"}`);
+    return parts.filter(Boolean).join("；");
+  });
+}
+
 function isPlainRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
@@ -806,6 +818,7 @@ export function OpsAutomationPage() {
             {
               total: latestResponse.total,
               latest_probed_at: latestResponse.items[0]?.probed_at ?? null,
+              latest_result: latestResponse.items[0] ?? null,
               latest_triggered_at: latestHitResponse.items[0]?.probed_at ?? null,
             },
           ] as const;
@@ -1825,7 +1838,8 @@ export function OpsAutomationPage() {
                         probeRulesQuery.data.items.map((rule) => {
                           const runSummary = probeRunSummariesQuery.data?.[rule.id];
                           return (
-                            <Group key={rule.id} justify="space-between" align="center">
+                            <Stack key={rule.id} gap={4}>
+                            <Group justify="space-between" align="center">
                               <Text size="sm">{rule.dataset_display_name}</Text>
                               <Group gap={6}>
                                 <StatusBadge value={rule.status} />
@@ -1840,6 +1854,21 @@ export function OpsAutomationPage() {
                                 </Text>
                               </Group>
                             </Group>
+                            {detailQuery.data.probe_config?.condition_kind === "index_period_serving_ready" && runSummary?.latest_result ? (
+                              <Stack gap={4}>
+                                <Text size="sm">{runSummary.latest_result.message}</Text>
+                                {formatServingProbeFailures(runSummary.latest_result.payload_json).map((line) => (
+                                  <Text key={line} size="sm" c="dimmed" style={{ overflowWrap: "anywhere" }}>{line}</Text>
+                                ))}
+                                {runSummary.latest_result.triggered_task_run_id ? (
+                                  <Button component="a" size="xs" variant="subtle" style={{ alignSelf: "flex-start" }}
+                                    href={`/app/ops/tasks/${runSummary.latest_result.triggered_task_run_id}`}>
+                                    查看 Serving 更新任务
+                                  </Button>
+                                ) : null}
+                              </Stack>
+                            ) : null}
+                            </Stack>
                           );
                         })
                       ) : (

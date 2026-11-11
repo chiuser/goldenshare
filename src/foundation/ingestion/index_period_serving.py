@@ -11,7 +11,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, load_only
 
 from src.foundation.ingestion.errors import IngestionValidationError, StructuredError
 from src.foundation.ingestion.index_month_calendar import load_complete_open_dates
@@ -43,6 +43,13 @@ class IndexServingCodeResult:
     rows_fetched: int = 0
     rows_saved: int = 0
     failure: StructuredError | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class IndexServingInputs:
+    result: IndexServingCodeResult = IndexServingCodeResult()
+    formal: RawIndexWeeklyBar | RawIndexMonthlyBar | None = None
+    daily: tuple[RawIndexDaily, ...] = ()
 
 
 def _period_bounds(day: date, frequency: IndexPeriodFrequency) -> tuple[date, date]:
@@ -80,13 +87,14 @@ def resolve_index_serving_period(
     return IndexServingPeriod(frequency, trade_date, open_dates, is_current)
 
 
-def update_index_serving_bar(
+def load_index_serving_inputs(
     session: Session, *, period: IndexServingPeriod, ts_code: str, list_date: date | None,
-) -> IndexServingCodeResult:
+    for_update: bool = False,
+) -> IndexServingInputs:
     if list_date is None:
-        return _failure(period, ts_code, "list_date", "缺少指数发布日期。")
+        return IndexServingInputs(result=_failure(period, ts_code, "list_date", "缺少指数发布日期。"))
     if period.trade_date < list_date:
-        return IndexServingCodeResult()
+        return IndexServingInputs()
 
     raw_model, model = ((RawIndexWeeklyBar, IndexWeeklyServing) if period.frequency == "week"
                         else (RawIndexMonthlyBar, IndexMonthlyServing))
@@ -95,51 +103,72 @@ def update_index_serving_bar(
     if period.frequency == "month" and formal is not None and formal.api_name != "index_monthly":
         formal = None
 
-    current = session.scalar(select(model).where(
+    current_query = select(model).where(
         model.ts_code == ts_code, model.period_start_date == period_start,
-    ).with_for_update())
+    )
+    if for_update:
+        current_query = current_query.with_for_update()
+    current = session.scalar(current_query)
 
     if formal is not None:
+        return IndexServingInputs(result=IndexServingCodeResult(rows_fetched=1), formal=formal)
+
+    if current is not None and (current.source == "api" or current.trade_date > period.trade_date):
+        return IndexServingInputs()
+
+    expected = tuple(day for day in period.open_dates if list_date <= day <= period.trade_date)
+    if period.is_current and len(expected) > 1:
+        actual = current.trade_date if current is not None else None
+        if actual not in {expected[-2], period.trade_date}:
+            return IndexServingInputs(result=_failure(
+                period, ts_code, "continuity", "指数 Serving 截至日与上一交易日不一致。",
+                expected_trade_date=expected[-2].isoformat(),
+                actual_trade_date=actual.isoformat() if actual else None,
+            ))
+
+    daily = session.scalars(select(RawIndexDaily).where(
+        RawIndexDaily.ts_code == ts_code, RawIndexDaily.trade_date.in_(expected),
+    ).options(load_only(RawIndexDaily.trade_date, *(getattr(RawIndexDaily, field) for field in _DAILY_FIELDS)))
+      .order_by(RawIndexDaily.trade_date)).all()
+    present = {row.trade_date for row in daily}
+    missing = [day.isoformat() for day in expected if day not in present]
+    if missing:
+        return IndexServingInputs(result=_failure(
+            period, ts_code, "daily_missing", "指数 Raw 日线缺少应有交易日。",
+            rows_fetched=len(daily), missing_dates=missing,
+        ))
+    invalid = [
+        row.trade_date.isoformat() for row in daily
+        if any(value is None or not value.is_finite() for value in (getattr(row, field) for field in _DAILY_FIELDS))
+    ]
+    if invalid or daily[0].pre_close == 0:
+        return IndexServingInputs(result=_failure(
+            period, ts_code, "daily_invalid", "指数 Raw 日线含有无效的行情值或计算起始日前收盘为零。",
+            rows_fetched=len(daily), invalid_dates=invalid or [daily[0].trade_date.isoformat()],
+        ))
+
+    return IndexServingInputs(result=IndexServingCodeResult(rows_fetched=len(daily)), daily=tuple(daily))
+
+
+def update_index_serving_bar(
+    session: Session, *, period: IndexServingPeriod, ts_code: str, list_date: date | None,
+) -> IndexServingCodeResult:
+    inputs = load_index_serving_inputs(
+        session, period=period, ts_code=ts_code, list_date=list_date, for_update=True,
+    )
+    if inputs.result.failure is not None or (inputs.formal is None and not inputs.daily):
+        return inputs.result
+    model = IndexWeeklyServing if period.frequency == "week" else IndexMonthlyServing
+    period_start = period.open_dates[0]
+    if inputs.formal is not None:
+        formal = inputs.formal
         values = {field: getattr(formal, field) for field in _BAR_VALUES}
         rows_saved = _upsert_bar(
             session, model, ts_code=ts_code, period_start=period_start, trade_date=formal.trade_date,
             source="api", values={**values, "change_amount": formal.change},
         )
         return IndexServingCodeResult(rows_fetched=1, rows_saved=rows_saved)
-
-    if current is not None and (current.source == "api" or current.trade_date > period.trade_date):
-        return IndexServingCodeResult()
-
-    expected = tuple(day for day in period.open_dates if list_date <= day <= period.trade_date)
-    if period.is_current and len(expected) > 1:
-        actual = current.trade_date if current is not None else None
-        if actual not in {expected[-2], period.trade_date}:
-            return _failure(
-                period, ts_code, "continuity", "指数 Serving 截至日与上一交易日不一致。",
-                expected_trade_date=expected[-2].isoformat(),
-                actual_trade_date=actual.isoformat() if actual else None,
-            )
-
-    daily = session.scalars(select(RawIndexDaily).where(
-        RawIndexDaily.ts_code == ts_code, RawIndexDaily.trade_date.in_(expected),
-    ).order_by(RawIndexDaily.trade_date)).all()
-    present = {row.trade_date for row in daily}
-    missing = [day.isoformat() for day in expected if day not in present]
-    if missing:
-        return _failure(
-            period, ts_code, "daily_missing", "指数 Raw 日线缺少应有交易日。",
-            rows_fetched=len(daily), missing_dates=missing,
-        )
-    invalid = [
-        row.trade_date.isoformat() for row in daily
-        if any(value is None or not value.is_finite() for value in (getattr(row, field) for field in _DAILY_FIELDS))
-    ]
-    if invalid or daily[0].pre_close == 0:
-        return _failure(
-            period, ts_code, "daily_invalid", "指数 Raw 日线含有无效的行情值或计算起始日前收盘为零。",
-            rows_fetched=len(daily), invalid_dates=invalid or [daily[0].trade_date.isoformat()],
-        )
-
+    daily = inputs.daily
     first, last = daily[0], daily[-1]
     values = {
         "open": first.open, "high": max(row.high for row in daily),

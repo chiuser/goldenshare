@@ -7,6 +7,7 @@ from src.app.exceptions import WebAppError
 from src.foundation.config.settings import get_settings
 from src.foundation.ingestion.index_month_calendar import load_complete_open_dates
 from src.foundation.ingestion.index_period_serving import MARKET_CLOSE, SHANGHAI, _period_bounds
+from src.ops.action_catalog import INDEX_WEEKLY_SERVING_ACTION, INDEX_MONTHLY_SERVING_ACTION
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.schedule import OpsSchedule
 from sqlalchemy import select
@@ -22,12 +23,20 @@ INDEX_PERIOD_CALENDAR_POLICIES = frozenset({
 })
 
 
-def is_scheduled_index_monthly_raw_task(task: TaskRun) -> bool:
-    return (
-        task.task_type == "dataset_action" and task.resource_key == "index_monthly"
-        and task.action == "maintain" and task.schedule_id is not None
-        and task.trigger_source in {"scheduled", "schedule", "retry"}
-    )
+INDEX_PERIOD_SERVING_PROBE_CONDITION = "index_period_serving_ready"
+INDEX_PERIOD_SERVING_PROBE_WINDOW = ("19:00", "00:00")
+INDEX_PERIOD_SERVING_TARGETS = {
+    INDEX_WEEKLY_SERVING_ACTION: ("week", "index_weekly_serving"),
+    INDEX_MONTHLY_SERVING_ACTION: ("month", "index_monthly_serving"),
+}
+
+
+def scheduled_index_raw_serving_action(task: TaskRun) -> str | None:
+    if (task.task_type == "dataset_action" and task.action == "maintain"
+            and task.schedule_id is not None and task.trigger_source in {"scheduled", "schedule", "retry"}):
+        return {"index_weekly": INDEX_WEEKLY_SERVING_ACTION,
+                "index_monthly": INDEX_MONTHLY_SERVING_ACTION}.get(task.resource_key)
+    return None
 
 
 def index_period_schedule_time(
@@ -123,11 +132,15 @@ def index_period_release_target(
         with session.begin_nested():
             schedules = session.scalars(select(OpsSchedule).where(
                 OpsSchedule.target_type == target_type, OpsSchedule.target_key == target_key,
-                OpsSchedule.calendar_policy == policy, OpsSchedule.trigger_mode == "schedule",
+                OpsSchedule.calendar_policy == policy,
+                OpsSchedule.trigger_mode.in_(("schedule", "probe")) if target_key in INDEX_PERIOD_SERVING_TARGETS
+                else OpsSchedule.trigger_mode == "schedule",
             )).all()
             targets = []
             for schedule in schedules:
-                at = index_period_schedule_time(policy, schedule.schedule_type, schedule.cron_expr, schedule.timezone)
+                at = (time.fromisoformat(schedule.probe_config_json["window_start"])
+                      if schedule.trigger_mode == "probe" else
+                      index_period_schedule_time(policy, schedule.schedule_type, schedule.cron_expr, schedule.timezone))
                 occurrence = latest_index_period_occurrence(session, policy, at, now, calendar_cache=calendar_cache)
                 targets.append(index_period_target_date(session, policy, occurrence, calendar_cache=calendar_cache))
             target = max(targets, default=None)

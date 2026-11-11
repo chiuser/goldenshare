@@ -51,6 +51,60 @@ def config(action, **changes):
     }
 
 
+def serving_probe_config(action, **changes):
+    return config(action, trigger_mode="probe", cron_expr=None, probe_config={
+        "condition_kind": "index_period_serving_ready", "window_start": "19:00", "window_end": "00:00",
+        "probe_interval_seconds": 300, "max_triggers_per_day": 1, **changes,
+    })
+
+
+@pytest.mark.parametrize("action", [WEEKLY_SERVING, MONTHLY_SERVING])
+def test_serving_probe_api_save_read_pause_and_resume(schedule_context, db_session, action):
+    client, headers = schedule_context
+    created = client.post(URL, headers=headers, json=serving_probe_config(action))
+    assert created.status_code == 200, created.json()
+    body = created.json()
+    assert body["next_run_at"] is None and body["cron_expr"] is None
+    assert body["probe_config"]["source_label"] == "Prod Raw"
+    assert body["probe_config"]["probe_interval_seconds"] == 300
+    sid = body["id"]
+    response = client.get(f"/api/v1/ops/probes?schedule_id={sid}", headers=headers)
+    assert response.status_code == 200, response.json()
+    rule, = response.json()["items"]
+    assert rule["dataset_key"] == ("index_weekly_serving" if action == WEEKLY_SERVING else "index_monthly_serving")
+    assert rule["source_key"] is None and rule["source_display_name"] == "Prod Raw"
+    assert client.get(f"/api/v1/ops/probes/{rule['id']}", headers=headers).status_code == 200
+    assert client.post(f"{URL}/{sid}/pause", headers=headers).status_code == 200
+    assert client.get(f"/api/v1/ops/probes?schedule_id={sid}", headers=headers).json()["total"] == 0
+    resumed = client.post(f"{URL}/{sid}/resume", headers=headers)
+    assert resumed.status_code == 200, resumed.json()
+    assert resumed.json()["next_run_at"] is None
+    assert client.get(f"/api/v1/ops/probes?schedule_id={sid}", headers=headers).json()["total"] == 1
+
+
+@pytest.mark.parametrize("probe_changes", [
+    {"condition_kind": "freshness_latest_open"}, {"window_start": "18:00"},
+    {"window_end": "01:00"}, {"probe_interval_seconds": 29}, {"source_key": "tushare"},
+])
+def test_serving_probe_rejects_conflicting_probe_input(schedule_context, probe_changes):
+    client, headers = schedule_context
+    response = client.post(URL, headers=headers, json=serving_probe_config(WEEKLY_SERVING, **probe_changes))
+    assert response.status_code == 422, response.json()
+
+
+@pytest.mark.parametrize("changes", [
+    {"params_json": {"ts_code": "000001.SH"}},
+    {"params_json": {"time_input": {"mode": "point", "trade_date": "2026-04-29"}}},
+    {"timezone": "UTC"}, {"trigger_mode": "schedule_probe_fallback"},
+    {"target_type": "dataset_action", "target_key": "index_weekly.maintain", "calendar_policy": "weekly_last_trading_day"},
+    {"target_key": "maintenance.rebuild_dm", "calendar_policy": None},
+])
+def test_serving_probe_does_not_expand_to_other_targets_or_scopes(schedule_context, changes):
+    client, headers = schedule_context
+    response = client.post(URL, headers=headers, json={**serving_probe_config(WEEKLY_SERVING), **changes})
+    assert response.status_code == 422, response.json()
+
+
 @pytest.mark.parametrize(("action", "first", "second", "target"), [
     (WEEKLY_RAW, "2026-04-30", "2026-05-08", "2026-04-30"),
     (MONTHLY_RAW, "2026-05-06", "2026-06-01", "2026-04-30"),
@@ -73,7 +127,10 @@ def test_preview_enqueue_plan_and_retry_share_the_same_target(schedule_context, 
     catalog = client.get("/api/v1/ops/catalog", headers=headers).json()
     catalog_action = next(item for item in catalog["actions"] if item["key"] == action[1])
     capability = catalog_action["automation_capability"]
-    assert capability["trigger_options"] == [{"mode": "schedule", "allowed_schedule_types": ["cron"]}]
+    expected_options = [{"mode": "schedule", "allowed_schedule_types": ["cron"]}]
+    if action[0] == "maintenance_action":
+        expected_options.append({"mode": "probe", "allowed_schedule_types": ["cron"]})
+    assert capability["trigger_options"] == expected_options
     rule, = capability["calendar_policy_rules"]
     assert (rule["policy"], rule["generated_time_field"], rule["explicit_time_input"]) == (action[2], "trade_date", "forbidden")
     assert datetime.fromisoformat(created.json()["next_run_at"]).replace(tzinfo=timezone.utc) == first_time

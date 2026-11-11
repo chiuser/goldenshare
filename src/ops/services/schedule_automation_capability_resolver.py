@@ -40,7 +40,10 @@ from src.ops.services.dataset_schedule_time_policy_resolver import (
     DatasetScheduleTimePolicyCapability,
     DatasetScheduleTimePolicyResolver,
 )
-from src.ops.services.index_period_schedule import INDEX_PERIOD_CALENDAR_POLICIES
+from src.ops.services.index_period_schedule import (
+    INDEX_PERIOD_CALENDAR_POLICIES, INDEX_PERIOD_SERVING_TARGETS,
+    INDEX_PERIOD_SERVING_PROBE_CONDITION, INDEX_PERIOD_SERVING_PROBE_WINDOW,
+)
 
 if TYPE_CHECKING:
     from src.foundation.datasets.models import DatasetDefinition
@@ -62,7 +65,7 @@ REMOTE_SOURCE_PROBE_CONDITIONS = frozenset(
         MARGIN_DETAIL_REMOTE_READY_CONDITION,
     }
 )
-SUPPORTED_PROBE_CONDITIONS = frozenset({FRESHNESS_LATEST_OPEN_CONDITION, *REMOTE_SOURCE_PROBE_CONDITIONS})
+SUPPORTED_PROBE_CONDITIONS = frozenset({FRESHNESS_LATEST_OPEN_CONDITION, INDEX_PERIOD_SERVING_PROBE_CONDITION, *REMOTE_SOURCE_PROBE_CONDITIONS})
 DEFAULT_SCHEDULE_TYPES: tuple[ScheduleType, ...] = ("cron", "once")
 PURE_PROBE_SCHEDULE_TYPES: tuple[ScheduleType, ...] = ("cron",)
 TIME_PARAM_KEYS = {"trade_date", "ann_date", "month", "start_date", "end_date", "start_month", "end_month"}
@@ -218,6 +221,24 @@ class ScheduleAutomationCapabilityResolver:
                 return None
             if action.schedule_time_policy is not None:
                 rule = DatasetScheduleTimePolicyCapability.from_declaration(action.schedule_time_policy)
+                if target_key in INDEX_PERIOD_SERVING_TARGETS:
+                    return AutomationCapability(
+                        version=1, default_trigger_mode="schedule",
+                        trigger_options=(TriggerModeCapability("schedule", rule.schedule_types),
+                                         TriggerModeCapability("probe", PURE_PROBE_SCHEDULE_TYPES)),
+                        probe_conditions=(ProbeConditionCapability(
+                            kind=INDEX_PERIOD_SERVING_PROBE_CONDITION,
+                            label="指数 Serving 所需数据齐备", description="检查独立池内全部指数的 Prod Raw 和更新连续性。",
+                            allowed_trigger_modes=("probe",), calendar_policy="dataset_default", time_input="forbidden",
+                            filters=FilterCapability(mode="forbidden"),
+                            probe=ProbeConfigCapability(
+                                source="system_default", source_label="Prod Raw",
+                                window=ProbeWindowCapability("fixed", *INDEX_PERIOD_SERVING_PROBE_WINDOW),
+                                probe_interval_seconds=ProbeIntegerCapability("operator_default"),
+                                max_triggers_per_day=ProbeIntegerCapability("operator_default"),
+                            ),
+                        ),), calendar_policy_rules=(rule,),
+                    )
                 return self._schedule_only_capability(
                     allowed_schedule_types=rule.schedule_types, calendar_policy_rules=(rule,),
                 )
@@ -255,7 +276,9 @@ class ScheduleAutomationCapabilityResolver:
             return self._schedule_only_capability()
         return None
 
-    def system_source_for(self, *, condition_kind: str, dataset_key: str) -> str:
+    def system_source_for(self, *, condition_kind: str, dataset_key: str) -> str | None:
+        if condition_kind == INDEX_PERIOD_SERVING_PROBE_CONDITION:
+            return None
         definition = get_dataset_definition(dataset_key)
         if condition_kind not in SUPPORTED_PROBE_CONDITIONS:
             raise ValueError(f"不支持的探测条件：{condition_kind}")
@@ -321,7 +344,8 @@ class ScheduleAutomationCapabilityResolver:
                 filters={},
             )
 
-        if schedule.target_type != "dataset_action":
+        is_serving = schedule.target_type == "maintenance_action" and schedule.target_key in INDEX_PERIOD_SERVING_TARGETS
+        if schedule.target_type != "dataset_action" and not is_serving:
             raise WebAppError(status_code=422, code="probe_rule.target_forbidden", message="探测触发只能绑定数据集维护动作")
         if not config:
             raise WebAppError(status_code=422, code="probe_config.required", message="探测触发必须配置探测条件")
@@ -333,7 +357,10 @@ class ScheduleAutomationCapabilityResolver:
         if trigger_mode not in condition.allowed_trigger_modes:
             raise WebAppError(status_code=422, code="trigger_mode.forbidden", message="探测条件不支持所选触发方式")
 
-        dataset_key = self._dataset_key_for_action(schedule.target_key)
+        dataset_key = (INDEX_PERIOD_SERVING_TARGETS[schedule.target_key][1] if is_serving
+                       else self._dataset_key_for_action(schedule.target_key))
+        if is_serving:
+            self._validate_schedule_policy_contract(schedule=schedule, capability=capability)
         filters = self._extract_schedule_filters(dict(schedule.params_json or {}))
         self._validate_condition_scope(schedule=schedule, dataset_key=dataset_key, condition=condition, filters=filters)
         window_start, window_end = self._resolve_probe_window(config=config, condition=condition)

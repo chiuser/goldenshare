@@ -7,6 +7,8 @@ from sqlalchemy.orm import Session
 
 from src.foundation.datasets.registry import get_dataset_action_key, get_dataset_definition
 from src.ops.models.ops.probe_rule import ProbeRule
+from src.ops.catalog.biz_dataset_definitions import get_biz_dataset_definition
+from src.ops.services.index_period_schedule import INDEX_PERIOD_SERVING_TARGETS, INDEX_PERIOD_SERVING_PROBE_CONDITION
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.services.schedule_automation_capability_resolver import (
     REMOTE_SOURCE_PROBE_CONDITIONS,
@@ -18,7 +20,7 @@ from src.ops.services.schedule_automation_capability_resolver import (
 @dataclass(slots=True, frozen=True)
 class ProbeRuleTemplate:
     dataset_key: str
-    source_key: str
+    source_key: str | None
     window_start: str
     window_end: str
     probe_interval_seconds: int
@@ -47,7 +49,9 @@ class ScheduleProbeBindingService:
         if template is None:
             return
 
-        definition = get_dataset_definition(template.dataset_key)
+        is_serving = intent.condition.kind == INDEX_PERIOD_SERVING_PROBE_CONDITION
+        definition = (get_biz_dataset_definition(template.dataset_key) if is_serving
+                      else get_dataset_definition(template.dataset_key))
         session.add(
             ProbeRule(
                 schedule_id=schedule.id,
@@ -76,7 +80,8 @@ class ScheduleProbeBindingService:
         if intent.condition is None:
             return None
         assert intent.dataset_key is not None
-        assert intent.source_key is not None
+        if intent.condition.kind != INDEX_PERIOD_SERVING_PROBE_CONDITION:
+            assert intent.source_key is not None
         assert intent.window_start is not None
         assert intent.window_end is not None
         assert intent.probe_interval_seconds is not None
@@ -89,6 +94,8 @@ class ScheduleProbeBindingService:
             and intent.condition.filters.mode != "forbidden"
             else {}
         )
+        serving_action = next((key for key, (_, dataset) in INDEX_PERIOD_SERVING_TARGETS.items()
+                               if dataset == intent.dataset_key), None) if intent.condition.kind == INDEX_PERIOD_SERVING_PROBE_CONDITION else None
         return ProbeRuleTemplate(
             dataset_key=intent.dataset_key,
             source_key=intent.source_key,
@@ -99,8 +106,8 @@ class ScheduleProbeBindingService:
             timezone_name=intent.timezone_name,
             probe_condition_json={"type": intent.condition.kind},
             on_success_action_json={
-                "action_type": "dataset_action",
-                "action_key": get_dataset_action_key(intent.dataset_key, "maintain"),
+                "action_type": "maintenance_action" if serving_action else "dataset_action",
+                "action_key": serving_action or get_dataset_action_key(intent.dataset_key, "maintain"),
                 "request": {
                     "time_input": {"mode": "point"},
                     "filters": filters,

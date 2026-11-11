@@ -132,18 +132,27 @@ def counts(session, model=RawIndexWeeklyBar):
         ).all())
 
 
+@pytest.mark.parametrize("dataset", ["index_weekly", "index_monthly"])
 @pytest.mark.parametrize("fail_after_stage", [False, True])
-def test_monthly_raw_commit_queues_serving_with_parent_success_and_can_retry(session, mocker, fail_after_stage):
+def test_period_raw_commit_queues_serving_with_parent_success_and_can_retry(session, mocker, dataset, fail_after_stage):
     day = date(2026, 10, 30)
     # Tushare index_monthly, 000001.SH, 2026-10-30, exact source business fields.
     row = dict(ts_code=CODE, trade_date="20261030", open=3838.9774, high=3864.1181, low=3574.2712,
                close=3599.0166, pre_close=3842.1946, change=-243.178, pct_chg=-0.0633,
                vol=781191473400.0, amount=12647618608842.0)
+    if dataset == "index_weekly":
+        # Artificial weekly values use the documented shape; monthly keeps its real source sample.
+        row = source_row(CODE, day)
+    raw_model = RawIndexWeeklyBar if dataset == "index_weekly" else RawIndexMonthlyBar
+    serving_model = IndexWeeklyServing if dataset == "index_weekly" else IndexMonthlyServing
+    expected_close = Decimal("100.1234") if dataset == "index_weekly" else Decimal("3599.0166")
     calls = source_mock(mocker, lambda *_: [row])
-    due = datetime(2026, 11, 2, 11, tzinfo=timezone.utc)
+    due = (datetime(2026, 10, 30, 12, tzinfo=timezone.utc) if dataset == "index_weekly"
+           else datetime(2026, 11, 2, 11, tzinfo=timezone.utc))
     schedule = OpsSchedule(
-        target_type="dataset_action", target_key="index_monthly.maintain", display_name="指数月线 Raw",
-        schedule_type="cron", cron_expr="0 19 * * *", calendar_policy="monthly_first_trading_day",
+        target_type="dataset_action", target_key=f"{dataset}.maintain", display_name=dataset,
+        schedule_type="cron", cron_expr="0 20 * * *" if dataset == "index_weekly" else "0 19 * * *",
+        calendar_policy="weekly_last_trading_day" if dataset == "index_weekly" else "monthly_first_trading_day",
         next_run_at=due,
     )
     session.add(schedule)
@@ -157,9 +166,9 @@ def test_monthly_raw_commit_queues_serving_with_parent_success_and_can_retry(ses
         task = original(service, pending_session, context=context, **kwargs)
         if context.trigger_source == "system":
             with Session(session.get_bind()) as probe:
-                raw = probe.get(RawIndexMonthlyBar, (CODE, day))
+                raw = probe.get(raw_model, (CODE, day))
                 parent = probe.scalar(select(TaskRun).where(TaskRun.status == "running"))
-                assert raw.close == Decimal("3599.0166")
+                assert raw.close == expected_close
                 assert parent is not None
                 assert probe.get(TaskRunNode, parent.current_node_id).status == "running"
                 assert probe.get(TaskRun, task.id) is None
@@ -171,7 +180,7 @@ def test_monthly_raw_commit_queues_serving_with_parent_success_and_can_retry(ses
     result = execute(session, raw_id)
     if fail_after_stage:
         assert result.status == "failed" and result.status_reason_code == "worker_finalize_error"
-        assert result.rows_saved == 1 and counts(session, RawIndexMonthlyBar) == {day: 1}
+        assert result.rows_saved == 1 and counts(session, raw_model) == {day: 1}
         assert session.scalars(select(TaskRun).where(TaskRun.trigger_source == "system")).all() == []
         mocker.stop(stage_mock)
         retried = TaskRunCommandService().retry_task_run(session, task_run_id=raw_id, requested_by_user_id=1)
@@ -182,7 +191,7 @@ def test_monthly_raw_commit_queues_serving_with_parent_success_and_can_retry(ses
     assert child.schedule_id is None and child.status == "queued"
     assert child.time_input_json == {"mode": "point", "trade_date": "2026-10-30"}
     assert child.filters_json == {}
-    assert child.request_payload_json["target_key"] == "maintenance.update_index_monthly_serving"
+    assert child.request_payload_json["target_key"] == f"maintenance.update_{dataset}_serving"
 
     worker = build_operations_worker(session_factory=lambda: Session(session.get_bind()))
     mocker.patch("src.ops.runtime.index_period_serving_executor.datetime").now.return_value = datetime(
@@ -196,7 +205,7 @@ def test_monthly_raw_commit_queues_serving_with_parent_success_and_can_retry(ses
     session.commit()
 
     def fail_serving_insert(conn, cursor, statement, parameters, context, executemany):
-        if statement.startswith("INSERT INTO core_serving.index_monthly_serving"):
+        if statement.startswith(f"INSERT INTO core_serving.{serving_model.__tablename__}"):
             raise OperationalError(statement, parameters, RuntimeError("injected Serving write failure"))
 
     bind = session.get_bind()
@@ -206,14 +215,14 @@ def test_monthly_raw_commit_queues_serving_with_parent_success_and_can_retry(ses
     finally:
         event.remove(bind, "before_cursor_execute", fail_serving_insert)
     assert failed_serving.status_reason_code == "maintenance_executor_failed"
-    assert counts(session, RawIndexMonthlyBar) == {day: 1}
-    assert session.scalars(select(IndexMonthlyServing)).all() == []
+    assert counts(session, raw_model) == {day: 1}
+    assert session.scalars(select(serving_model)).all() == []
 
     retried_serving = TaskRunCommandService().retry_task_run(session, task_run_id=child.id, requested_by_user_id=1)
     published = worker.run_task_run(session, retried_serving.id)
     assert published.status == "success" and published.rows_saved == 1
-    serving = session.scalars(select(IndexMonthlyServing)).one()
-    assert (serving.trade_date, serving.close, serving.source) == (day, Decimal("3599.0166"), "api")
+    serving = session.scalars(select(serving_model)).one()
+    assert (serving.trade_date, serving.close, serving.source) == (day, expected_close, "api")
     assert len(calls) == (2 if fail_after_stage else 1)
 
 
@@ -221,12 +230,20 @@ def test_monthly_raw_commit_queues_serving_with_parent_success_and_can_retry(ses
     ("index_monthly", 1, True, "failed"),
     ("index_monthly", None, False, "success"),
     ("index_weekly", 1, False, "success"),
+    ("index_weekly", 1, True, "failed"),
+    ("index_weekly", None, False, "success"),
 ])
-def test_only_successful_scheduled_monthly_raw_can_queue_serving(session, mocker, dataset, schedule_id, empty, status):
+def test_only_successful_scheduled_period_raw_can_queue_serving(session, mocker, dataset, schedule_id, empty, status):
     source_mock(mocker, lambda day, _: [] if empty else [source_row(CODE, day)])
     run_id = enqueue(session, point=WEEK_2, dataset=dataset, schedule_id=schedule_id)
     assert execute(session, run_id).status == status
-    assert session.scalars(select(TaskRun).where(TaskRun.trigger_source == "system")).all() == []
+    children = session.scalars(select(TaskRun).where(TaskRun.trigger_source == "system")).all()
+    if dataset == "index_weekly" and schedule_id is not None and not empty:
+        assert len(children) == 1
+        assert children[0].request_payload_json["target_key"] == "maintenance.update_index_weekly_serving"
+        assert children[0].time_input_json == {"mode": "point", "trade_date": WEEK_2.isoformat()}
+    else:
+        assert children == []
 
 
 def test_workflow_runs_other_steps_when_range_has_no_period_end(session, mocker):

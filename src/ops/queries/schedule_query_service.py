@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, aliased
 from src.app.models.app_user import AppUser
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.schedule import OpsSchedule
+from src.ops.services.index_period_schedule import INDEX_PERIOD_SERVING_PROBE_CONDITION
 from src.ops.action_catalog import get_manual_action_key_for_target, get_target_display_name
 from src.app.exceptions import WebAppError
 from src.ops.schemas.schedule import (
@@ -164,7 +165,7 @@ class ScheduleQueryService:
         payload = dict(probe_config_json)
         return {
             "source": "system_default",
-            "source_label": "系统默认来源",
+            "source_label": "Prod Raw" if payload.get("condition_kind") == INDEX_PERIOD_SERVING_PROBE_CONDITION else "系统默认来源",
             "window_start": payload.get("window_start"),
             "window_end": payload.get("window_end"),
             "probe_interval_seconds": payload.get("probe_interval_seconds") or 300,

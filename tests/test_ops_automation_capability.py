@@ -30,7 +30,7 @@ def test_every_schedulable_target_has_a_capability() -> None:
     assert resolver.resolve(target_type="workflow", target_key="index_kline_maintenance_pipeline") is None
 
 
-def test_workflow_and_maintenance_capabilities_are_schedule_only() -> None:
+def test_only_index_period_maintenance_adds_probe_capability() -> None:
     resolver = ScheduleAutomationCapabilityResolver()
 
     for workflow in list_workflow_definitions():
@@ -48,8 +48,12 @@ def test_workflow_and_maintenance_capabilities_are_schedule_only() -> None:
             assert capability is None
             continue
         assert capability is not None
-        assert [option.mode for option in capability.trigger_options] == ["schedule"]
-        assert capability.probe_conditions == ()
+        if action.key in {"maintenance.update_index_weekly_serving", "maintenance.update_index_monthly_serving"}:
+            assert [option.mode for option in capability.trigger_options] == ["schedule", "probe"]
+            assert [condition.kind for condition in capability.probe_conditions] == ["index_period_serving_ready"]
+        else:
+            assert [option.mode for option in capability.trigger_options] == ["schedule"]
+            assert capability.probe_conditions == ()
         if action.readiness_condition is not None:
             hour, minute = map(int, action.readiness_policy["initial_check_local_time"].split(":"))
             assert capability.trigger_options[0].allowed_schedule_types == ("cron",)

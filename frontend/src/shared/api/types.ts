@@ -850,6 +850,7 @@ export interface ProbeRunLogListResponse {
     status: string;
     condition_matched: boolean;
     message: string | null;
+    payload_json: Record<string, unknown>;
     probed_at: string;
     triggered_task_run_id: number | null;
     duration_ms: number | null;

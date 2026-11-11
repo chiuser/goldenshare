@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, aliased
 from src.app.models.app_user import AppUser
 from src.foundation.datasets.source_registry import get_source_display_name
 from src.ops.dataset_labels import get_dataset_display_name
+from src.ops.services.index_period_schedule import INDEX_PERIOD_SERVING_TARGETS
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.probe_run_log import ProbeRunLog
 from src.ops.models.ops.task_run import TaskRun
@@ -152,7 +153,7 @@ class ProbeQueryService:
                     dataset_key=resolved_dataset_key,
                     dataset_display_name=_require_dataset_display_name(resolved_dataset_key),
                     source_key=resolved_source_key,
-                    source_display_name=_require_source_display_name(resolved_source_key),
+                    source_display_name=_require_source_display_name(resolved_source_key, resolved_dataset_key),
                     status=log.status,
                     condition_matched=log.condition_matched,
                     message=log.message,
@@ -182,7 +183,7 @@ class ProbeQueryService:
             step_key=rule.step_key,
             rule_version=rule.rule_version,
             source_key=rule.source_key,
-            source_display_name=_require_source_display_name(rule.source_key),
+            source_display_name=_require_source_display_name(rule.source_key, rule.dataset_key),
             status=rule.status,
             window_start=rule.window_start,
             window_end=rule.window_end,
@@ -205,7 +206,9 @@ def _require_dataset_display_name(dataset_key: str | None) -> str:
     return display_name
 
 
-def _require_source_display_name(source_key: str | None) -> str:
+def _require_source_display_name(source_key: str | None, dataset_key: str | None = None) -> str:
+    if source_key is None and dataset_key in {item[1] for item in INDEX_PERIOD_SERVING_TARGETS.values()}:
+        return "Prod Raw"
     display_name = get_source_display_name(source_key or "all")
     if display_name is None:
         raise WebAppError(status_code=422, code="validation_error", message="探测源缺少显示名称")

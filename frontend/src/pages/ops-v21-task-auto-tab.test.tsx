@@ -5,6 +5,7 @@ import {
   buildCronExpression,
   capabilitySupportsCalendarPolicy,
   formatProbeRunCount,
+  formatServingProbeFailures,
   formatScheduleRule,
   defaultProbeConditionForCapability,
   getProbeCondition,
@@ -21,6 +22,24 @@ import {
   resolveEffectiveCalendarPolicy,
   shouldShowScheduleTimingFields,
 } from "./ops-v21-task-auto-tab";
+
+describe("指数 Serving 探测诊断", () => {
+  it("shows missing dates and both continuity dates supplied by the backend", () => {
+    expect(formatServingProbeFailures({ failures: [
+      { ts_code: "899050.BJ", message: "指数 Raw 日线缺少应有交易日。", missing_dates: ["2026-11-10"] },
+      { ts_code: "000001.SH", message: "截至日不连续", expected_trade_date: "2026-11-09", actual_trade_date: "2026-11-06" },
+    ] })).toEqual([
+      "899050.BJ；指数 Raw 日线缺少应有交易日。；缺失日期：2026-11-10",
+      "000001.SH；截至日不连续；应截至：2026-11-09；实际截至：2026-11-06",
+    ]);
+    expect(formatServingProbeFailures({ failures: [{ ts_code: "899050.BJ", message: "截至日不连续",
+      expected_trade_date: "2026-11-09", actual_trade_date: null }] })).toEqual([
+      "899050.BJ；截至日不连续；应截至：2026-11-09；实际截至：尚无本周期K线",
+    ]);
+    expect(formatServingProbeFailures(undefined)).toEqual([]);
+    expect(formatServingProbeFailures({})).toEqual([]);
+  });
+});
 
 describe("自动任务日期策略", () => {
   it("shows the declared completed-week policy without calculating business dates", () => {

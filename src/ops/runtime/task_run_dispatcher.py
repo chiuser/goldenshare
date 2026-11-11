@@ -43,7 +43,7 @@ from src.ops.runtime.maintenance_executor import (
 )
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
 from src.ops.services.ingestion_error_presentation import present_ingestion_error, structured_error_payload
-from src.ops.services.index_period_schedule import is_scheduled_index_monthly_raw_task
+from src.ops.services.index_period_schedule import scheduled_index_raw_serving_action
 from src.ops.services.task_run_ingestion_context import TaskRunIngestionContext
 from src.ops.services.task_run_maintenance_plan_context import TaskRunMaintenancePlanContext
 from src.ops.action_catalog import MaintenanceActionDefinition, get_maintenance_action, get_workflow_definition
@@ -163,7 +163,7 @@ class TaskRunDispatcher:
                 plan,
             )
             status, issue = self._index_period_raw_result(session, task_run, node, task_run)
-            if not (status == "success" and rows_saved > 0 and is_scheduled_index_monthly_raw_task(task_run)):
+            if not (status == "success" and rows_saved > 0 and scheduled_index_raw_serving_action(task_run)):
                 self._finish_node(
                     node,
                     status=status,

@@ -51,7 +51,7 @@ from src.app.exceptions import WebAppError
 from src.foundation.datasets.registry import get_dataset_definition_by_action_key
 from src.ops.services.dataset_schedule_time_policy_resolver import DatasetScheduleTimePolicyResolver
 from src.ops.services.index_period_schedule import (
-    INDEX_PERIOD_CALENDAR_POLICIES,
+    INDEX_PERIOD_CALENDAR_POLICIES, INDEX_PERIOD_SERVING_TARGETS,
     index_period_schedule_time,
     next_index_period_occurrence,
 )
@@ -186,6 +186,7 @@ class OperationsScheduleService:
             next_run_at=next_run_at,
         )
         self._validate_calendar_policy(
+            trigger_mode=trigger_mode,
             target_type=target_type,
             target_key=target_key,
             schedule_type=schedule_type,
@@ -360,6 +361,7 @@ class OperationsScheduleService:
 
         schedule.calendar_policy = self._normalize_calendar_policy(schedule.calendar_policy)
         self._validate_calendar_policy(
+            trigger_mode=schedule.trigger_mode,
             target_type=schedule.target_type,
             target_key=schedule.target_key,
             schedule_type=schedule.schedule_type,
@@ -480,6 +482,7 @@ class OperationsScheduleService:
             schedule_type=schedule.schedule_type,
         )
         self._validate_calendar_policy(
+            trigger_mode=schedule.trigger_mode,
             target_type=schedule.target_type,
             target_key=schedule.target_key,
             schedule_type=schedule.schedule_type,
@@ -632,6 +635,7 @@ class OperationsScheduleService:
             if schedule.id is not None:
                 processed_schedule_ids.add(schedule.id)
             self._validate_calendar_policy(
+                trigger_mode=schedule.trigger_mode,
                 target_type=schedule.target_type,
                 target_key=schedule.target_key,
                 schedule_type=schedule.schedule_type,
@@ -1534,11 +1538,14 @@ class OperationsScheduleService:
     @staticmethod
     def _validate_index_period_policy(
         expected: str, actual: str | None, schedule_type: str, cron_expr: str | None,
-        timezone_name: str, params_json: dict,
+        timezone_name: str, params_json: dict, *, probe: bool = False,
     ) -> None:
         if actual != expected:
             raise WebAppError(status_code=422, code="validation_error", message="指数周、月线自动任务须使用动作规定的日期策略。")
-        index_period_schedule_time(expected, schedule_type, cron_expr, timezone_name)
+        if not probe:
+            index_period_schedule_time(expected, schedule_type, cron_expr, timezone_name)
+        elif schedule_type != "cron" or cron_expr is not None or timezone_name != "Asia/Shanghai":
+            raise WebAppError(status_code=422, code="validation_error", message="Serving 探测使用上海时区且不填写定时表达式。")
         filters = params_json.get("filters") or {}
         if (
             OperationsScheduleService._has_declared_time_input(params_json)
@@ -1551,6 +1558,7 @@ class OperationsScheduleService:
     @staticmethod
     def _validate_calendar_policy(
         *,
+        trigger_mode: str = "schedule",
         target_type: str,
         target_key: str,
         schedule_type: str,
@@ -1565,6 +1573,7 @@ class OperationsScheduleService:
                 OperationsScheduleService._validate_index_period_policy(
                     maintenance.schedule_time_policy.policy, calendar_policy, schedule_type,
                     cron_expr, timezone_name, params_json,
+                    probe=trigger_mode == "probe" and target_key in INDEX_PERIOD_SERVING_TARGETS,
                 )
                 return
             if calendar_policy is None and params_json.get("schedule_policy_params") in (None, {}):

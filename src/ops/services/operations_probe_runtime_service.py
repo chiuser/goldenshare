@@ -56,6 +56,8 @@ from src.ops.services.stk_mins_remote_probe_service import (
     StkMinsRemoteReadinessProbeService,
 )
 from src.ops.services.task_run_service import TaskRunCommandService, TaskRunCreateContext
+from src.ops.services.index_period_serving_probe_service import IndexPeriodServingProbeService
+from src.ops.services.index_period_schedule import INDEX_PERIOD_SERVING_PROBE_CONDITION, INDEX_PERIOD_SERVING_TARGETS
 
 
 @dataclass(slots=True, frozen=True)
@@ -68,6 +70,7 @@ class ProbeTickResult:
 class ProbeRuntimeService:
     def __init__(self) -> None:
         self.task_run_service = TaskRunCommandService()
+        self.index_serving_probe = IndexPeriodServingProbeService()
         self.snapshot_service = DatasetStatusSnapshotService()
         self.freshness_query = OpsFreshnessQueryService()
         self.stk_mins_remote_probe = StkMinsRemoteReadinessProbeService()
@@ -176,7 +179,14 @@ class ProbeRuntimeService:
         if rule.schedule_id is None:
             return False
         schedule = session.get(OpsSchedule, rule.schedule_id)
-        return schedule is not None and schedule.target_type != "dataset_action"
+        if schedule is None or schedule.target_type == "dataset_action":
+            return False
+        return not (schedule.target_type == "maintenance_action"
+                    and schedule.target_key in INDEX_PERIOD_SERVING_TARGETS
+                    and rule.probe_condition_json.get("type") == INDEX_PERIOD_SERVING_PROBE_CONDITION
+                    and rule.on_success_action_json.get("action_type") == "maintenance_action"
+                    and rule.on_success_action_json.get("action_key") == schedule.target_key
+                    and rule.dataset_key == INDEX_PERIOD_SERVING_TARGETS[schedule.target_key][1])
 
     def _evaluate_rule(
         self,
@@ -188,6 +198,8 @@ class ProbeRuntimeService:
         business_date = current.astimezone(ZoneInfo("Asia/Shanghai")).date()
         condition = dict(rule.probe_condition_json or {})
         condition_type = str(condition.get("type") or "freshness_latest_open")
+        if condition_type == INDEX_PERIOD_SERVING_PROBE_CONDITION:
+            return self.index_serving_probe.evaluate(session, rule, current=current)
         if condition_type == STK_MINS_REMOTE_READY_CONDITION:
             result = self.stk_mins_remote_probe.evaluate(session, rule, current=current)
             return result.matched, result.message, result.payload
@@ -242,6 +254,15 @@ class ProbeRuntimeService:
     def _enqueue_on_match(self, session: Session, rule: ProbeRule, *, probe_payload: dict | None = None) -> TaskRun:
         action = dict(rule.on_success_action_json or {})
         action_type = str(action.get("action_type") or "dataset_action")
+        if (action_type == "maintenance_action" and action.get("action_key") in INDEX_PERIOD_SERVING_TARGETS
+                and rule.probe_condition_json.get("type") == INDEX_PERIOD_SERVING_PROBE_CONDITION):
+            return self.task_run_service.create_task_run(session, context=TaskRunCreateContext(
+                task_type="maintenance_action", resource_key=None, action="maintain",
+                time_input={"mode": "point", "trade_date": probe_payload["target_trade_date"]}, filters={},
+                request_payload={"target_type": "maintenance_action", "target_key": action["action_key"]},
+                trigger_source="probe", requested_by_user_id=rule.updated_by_user_id or rule.created_by_user_id,
+                schedule_id=rule.schedule_id,
+            ))
         if action_type != "dataset_action":
             raise ValueError(f"不支持的探测触发动作类型：{action_type}")
         action_key = str(action.get("action_key") or "").strip()
@@ -290,6 +311,9 @@ class ProbeRuntimeService:
     def _should_probe(self, session: Session, rule: ProbeRule, *, current: datetime) -> tuple[bool, str | None]:
         tz = self._parse_timezone(rule.timezone_name)
         local_now = current.astimezone(tz)
+        if (rule.probe_condition_json.get("type") == INDEX_PERIOD_SERVING_PROBE_CONDITION
+                and local_now.time() < self._parse_time(rule.window_start)):
+            return False, "尚未进入当天 Serving 探测窗口"
         if not self._in_window(local_now.time(), rule.window_start, rule.window_end):
             return False, "当前不在探测时间窗口"
 
@@ -400,6 +424,15 @@ class ProbeRuntimeService:
 
     def _has_effective_target_task(self, session: Session, rule: ProbeRule, *, probe_payload: dict | None) -> bool:
         condition_type = str((rule.probe_condition_json or {}).get("type") or "freshness_latest_open")
+        if condition_type == INDEX_PERIOD_SERVING_PROBE_CONDITION and rule.schedule_id is not None:
+            existing = session.scalar(select(TaskRun.id).where(
+                TaskRun.schedule_id == rule.schedule_id, TaskRun.trigger_source == "probe",
+                TaskRun.task_type == "maintenance_action",
+                TaskRun.request_payload_json["target_key"].as_string() == rule.on_success_action_json["action_key"],
+                TaskRun.time_input_json["trade_date"].as_string() == probe_payload["target_trade_date"],
+                TaskRun.status.in_(("queued", "running", "canceling", "success", "partial_success")),
+            ).limit(1))
+            return existing is not None
         if condition_type not in {
             KPL_LIST_REMOTE_READY_CONDITION,
             IDX_FACTOR_PRO_REMOTE_READY_CONDITION,
