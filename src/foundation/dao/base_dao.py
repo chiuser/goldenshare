@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from typing import Any, Generic, TypeVar
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, select, text
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
@@ -56,6 +56,48 @@ class BaseDAO(Generic[ModelT]):
             statement = statement.on_conflict_do_update(index_elements=conflict_target, set_=update_mapping)
             result = self.session.execute(statement)
             written += result.rowcount if result.rowcount and result.rowcount > 0 else len(batch)
+        return written
+
+    def bulk_update_columns(self, rows: list[dict[str, Any]], update_columns: tuple[str, ...]) -> int:
+        """Update only named columns on existing keys; the caller owns the transaction."""
+        if not rows:
+            return 0
+        table = self.model.__table__
+        primary_keys = tuple(column.name for column in table.primary_key.columns)
+        if not update_columns or any(name not in table.c or name in primary_keys for name in update_columns):
+            raise ValueError("更新列必须是模型中真实的非主键列")
+        columns = tuple(table.c[name] for name in (*primary_keys, *update_columns))
+        dialect = self.session.get_bind().dialect
+        quote = dialect.identifier_preparer.quote
+        table_name = dialect.identifier_preparer.format_table(table)
+        column_names = ", ".join(quote(column.name) for column in columns)
+        assignments = ", ".join(f"{quote(name)} = incoming.{quote(name)}" for name in update_columns)
+        key_match = " AND ".join(f"target.{quote(name)} = incoming.{quote(name)}" for name in primary_keys)
+        changed = " OR ".join(
+            f"target.{quote(name)} IS DISTINCT FROM incoming.{quote(name)}" for name in update_columns
+        )
+        batch_size = self._compute_batch_size(
+            configured_batch_size=self.settings.sync_batch_size,
+            row_param_count=len(columns),
+        )
+        written = 0
+        for batch in chunked(rows, batch_size):
+            values = []
+            parameters = {}
+            for row_index, row in enumerate(batch):
+                bindings = []
+                for column_index, column in enumerate(columns):
+                    key = f"v_{row_index}_{column_index}"
+                    parameters[key] = row[column.name]
+                    bindings.append(f"CAST(:{key} AS {column.type.compile(dialect=dialect)})")
+                values.append(f"({', '.join(bindings)})")
+            statement = text(
+                f"UPDATE {table_name} AS target SET {assignments} "
+                f"FROM (VALUES {', '.join(values)}) AS incoming ({column_names}) "
+                f"WHERE {key_match} AND ({changed})"
+            )
+            result = self.session.execute(statement, parameters)
+            written += result.rowcount
         return written
 
     def bulk_insert(self, rows: list[dict[str, Any]]) -> int:

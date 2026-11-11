@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Date, Index, Numeric, String
+from sqlalchemy import Date, Index, Integer, Numeric, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.foundation.models.base import Base, TimestampMixin
@@ -36,3 +36,4 @@ class EquityDailyBasic(TimestampMixin, Base):
     free_share: Mapped[Decimal | None] = mapped_column(Numeric(20, 4))
     total_mv: Mapped[Decimal | None] = mapped_column(Numeric(20, 4))
     circ_mv: Mapped[Decimal | None] = mapped_column(Numeric(20, 4))
+    limit_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
