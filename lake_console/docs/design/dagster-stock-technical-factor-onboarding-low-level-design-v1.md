@@ -3362,7 +3362,9 @@ read_stk_factor_pro_day_plan_factor_shas(*, day_observation, publication_checks,
 
 测试模拟19:00/23:30/午夜、休市、本地晚就绪、源不齐后下一slot、探测跨slot、清cursor/实例重开、活动repair、前日缺口而今天齐备。固定一次评估最多一个RunRequest。预检/下载/历史失败沿现有retryable及同T当前结果判断，不引入旧补前日的机会状态。若本数据集源查询失败但结果未知，不能把空集合当成功。
 
-**7. 串联和治理。**使用临时实例、模拟时钟、已有261字段和两列有界样本，串联注册分区、源等待、完整日发布、午夜留下缺口、下一日更新及manual_date补旧日、复权历史源仍旧/随后成功。重新打开实例并清cursor核持久去重。同步`dagster-run-contract-governance.html`、`dagster-asset-job-topology.html`及直接Definitions/静态门禁；更新sensor原“未登记”断言，两个确切名称、60/600秒、定义tags和STOPPED均核。分区注册器不因旧自动前日逻辑清退而删掉上一交易日注册功能。受保护测试按既有`stock_suspend_confirmed_test_runner.py`，普通定向测试使用本项目现有.venv和工程外临时目录；不安装依赖、不写正式instance或Lake。每步回写实际证据，未完成项目明确列出。
+本步同步更新本日更sensor的Definitions断言和治理测试清单，不延后到第7小步。当前definitions.py通过load_from_defs_folder自动装载defs目录中的定义，新文件加入后即进入Definitions。因此，test_stk_factor_pro_definitions.py须将原“不存在日更sensor”的断言改为确认该确切名称存在，并核默认STOPPED、60秒最小评估间隔及定义tags；test_run_contract_static_gates.py的EXPECTED_SENSOR_DEFINITION_IDS须同步加入本日更sensor的文件及函数身份。两项均随本步实现使用既有受保护runner验证，不保留与新代码冲突的旧断言。此调整只改变本数据集测试和登记的完成步骤，不改变sensor业务规则或正式启用授权。
+
+**7. 串联和治理。**使用临时实例、模拟时钟、已有261字段和两列有界样本，串联注册分区、源等待、完整日发布、午夜留下缺口、下一日更新及manual_date补旧日、复权历史源仍旧/随后成功。重新打开实例并清cursor核持久去重。同步`dagster-run-contract-governance.html`、`dagster-asset-job-topology.html`，并复核第6小步已同步更新的Definitions断言和治理测试清单；两个确切名称、60/600秒、定义tags和STOPPED均核。分区注册器不因旧自动前日逻辑清退而删掉上一交易日注册功能。受保护测试按既有`stock_suspend_confirmed_test_runner.py`，普通定向测试使用本项目现有.venv和工程外临时目录；不安装依赖、不写正式instance或Lake。每步回写实际证据，未完成项目明确列出。
 
 ### 21.14 配置、读取量、恢复与验收成本
 
