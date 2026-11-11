@@ -951,3 +951,13 @@ subject 固定为 `raw_tushare_dc_index_update`、`raw_tushare_dc_member_update`
 请求数量固定1，partition_key=None，显式提供公告config以及范围起止tags；不得同时带单日dagster/partition或逐日priority。格式版本2区分此次执行方式，与六字段数据合同版本独立；window id依公告统一helper生成并由执行器校验。旧逐日key及失败记录保留，不反向改写。
 
 回归要求：固定2026-10-26得到字面key `anns_d:update:2:2026-10-26:2026-10-19:2026-10-27`；同tick相同、不同计划日不同；单RunRequest、零源/文件IO；检查恢复不消费新的schedule key；无事件id或实际运行时间进入key。其他运行合同与静态门禁保持。实现状态及实际测试结果集中记录在公告LLD。
+
+<a id="stock-period-native-delivery-20261111"></a>
+
+## 股票周月线原生交付身份（2026-11-11，待开发）
+
+本次只补齐DG周月线设计，现有M1-M9治理结果保持。完整字段及消费者见[周月线LLD第13.10节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-implementation-contracts)。两条Raw日更继续使用`build_asset_update_run_key(subject=原资产名,unit_id=业务日期)`，不改已用的日期身份。
+
+新交付引用改用真实`producer_run_id`、`freq`和`upstream_batch_id`，不以旧64位私有执行ID或回执文件摘要作为交付身份。交付ID仍由`build_batch_id`生成；两频自动历史修复按固定周/月引用顺序和代码摘要生成输入ID，生产者ID固定取周Raw引用，不能因哪个成功回调后到而变化。新`raw_stock_period_history_repair_job_sensor`及`raw_stock_period_retirement_cleanup_job_sensor`调用`build_upstream_triggered_run_key`，不解析run key生成参数，不把事件storage id带入配置或ID。
+
+`goldenshare/stock_period_business_date`和`goldenshare/stock_period_kind`由入口验证后的日期及用途配置生成，用于按job、同日及daily查询另一频成功；单频入口另写`goldenshare/stock_period_freq`，清理结果按job、频率及SUCCESS跨业务日读取。三个运行tag的唯一命名及构造位于本链delivery合同；它们不是sensor分类tag、环境变量或用户开关，也不能替代完整交付及原检查。整批重跑只使用原生运行关系和业务范围，不创建逐文件接续身份。新合同切换时全部消费者同迁，旧运行与事件保留供追溯，不增加旧格式兼容读取。

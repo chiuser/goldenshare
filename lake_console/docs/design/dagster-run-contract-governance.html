@@ -557,6 +557,21 @@
     <p>
       当前实现要求所有 sensor definition 的 tags 均通过 <code>defs/run_contracts/sensor_tags.py</code> 的 <code>build_sensor_tags(...)</code> 构造。本文档是 sensor definition tags 的治理口径；<code>dagster-asset-job-topology.html</code> 记录当前 sensor 拓扑和分类现状。新增或修改 sensor 时，必须同步更新本文档、拓扑文档和静态门禁。
     </p>
+    <p id="period-native-delivery-planned">
+      <strong>股票周月线原生交付（待开发）。</strong>
+      新历史修复job为<code>raw_stock_period_history_repair_job</code>，
+      sensor为同名加<code>_sensor</code>；清理job为
+      <code>raw_stock_period_retirement_cleanup_job</code>，sensor同样跟随job命名。
+      两者均为<code>quote_data / raw / asset_update</code>分类，定义默认STOPPED。
+      交付使用真实运行UUID、频率和上游ID；写前完整范围及结果存入Dagster原生记录。
+      运行tag <code>goldenshare/stock_period_business_date</code>、
+      <code>goldenshare/stock_period_kind</code>及单频的<code>goldenshare/stock_period_freq</code>
+      由入口验证后的日期、用途及频率配置唯一派生，命名和构造集中于本链delivery合同。
+      前两者用于查同日另一频的daily成功，频率tag用于跨业务日读取最新SUCCESS清理结果；
+      tag不能替代完整交付及原检查，不改变sensor分类tag或日更准入。
+      字段、配置、原检查绑定和全部迁移点见
+      <a href="dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-implementation-contracts">周月线LLD第13.10节</a>。
+    </p>
     <p id="period-retirement-cleanup-planned">
       <strong>周月线退市清理（待开发）。</strong>
       新sensor按<code>quote_data / raw / asset_update</code>分类，
@@ -575,6 +590,11 @@
       开发时同步现有静态定义名单和统一tag门禁，并在本域测试中核对精确分类、目标job及默认停止状态。
       名称、触发和验收以<a href="dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-sensor-classification">共享LLD §11.6</a>为准。
       当时的静态名单和直接测试已同步，正式接线结果见共享LLD第11.13节。待开发的日更、回刷、退市清理和旧入口清退见<a href="dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-daily-then-history-lld">共享LLD第13节</a>。实现时同步拓扑、运行契约和现有静态定义门禁。
+    </p>
+    <p>
+      股票技术因子分区注册 <code>stock_factor_pro_trade_day_sensor</code> 使用
+      <code>quote_data / partition / partition_registration</code>，定义默认 <code>STOPPED</code>。
+      每次只为 <code>cn_a_stock_factor_pro_trade_days</code> 提交今天（若开市）和上一交易日中缺失的分区登记请求。
     </p>
     <p>
       九转专属分区注册 sensor 的确定分类是：<code>stk_nineturn_trade_day_sensor</code> 使用

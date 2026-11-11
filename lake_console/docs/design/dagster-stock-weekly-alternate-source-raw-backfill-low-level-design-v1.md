@@ -2615,7 +2615,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python3 -B -m o
 | 源与Raw | `run_contracts/stock_period.request_params`、`stock_period_source`及`stock_period_update`区分当期单点与单股历史，复用现有HTTP限制、全字段校验、DuckDB和候选提升；删除`bootstrap/stock_period_history.require_pending_delivery_before_write`和共享待办，其他删除位置见§13.7 |
 | 独立回刷 | 参考`sensors/gold_stock_daily_qfq_factor_repair_job_sensor.py`的日期、摘要、上游批次及`ops/gold_stock_daily_qfq_factor_repair.py`的重算和结果登记；周月共用`stock_daily_qfq.build_stock_daily_qfq_factor_changed_codes_sql`识别复权因子变化，保持周月自己的源和候选逻辑 |
 | 独立退市清理 | 采用§13.8的成功事件监听，同一个清理job接收频率参数，周Raw成功后清周，月Raw成功后清月 |
-| Silver与运行观察 | `stock_period_silver.evaluate_update_sensor`、`read_completion`和`resolve_update_sources`核对实际Raw交付及合法后继，继续按原检查处理实际变化。源等待、日更成功、回刷失败使用Dagster已有的sensor、运行及检查记录 |
+| Silver与运行观察 | `stock_period_silver.evaluate_update_sensor`、`resolve_update_sources`及新`asset_guards/stock_period_delivery.read_completion`核对实际Raw交付及合法后继，继续按原检查处理实际变化。源等待、日更成功、回刷失败使用Dagster已有的sensor、运行及检查记录 |
 
 两个Raw、两个Silver的正式资产、job、物理路径、21列、精度、已确认代码身份、Silver历史下限及原文件检查均保持。历史文件中的既有源日期保留。确认退市沿原身份及准入合同，由§13.8独立job只清理配置指定的一频；换码保留指定范围维护入口。范围限本工程周月链，Prod、股票日线前复权和其他数据集的实现保持。
 
@@ -2674,7 +2674,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python3 -B -m o
 | [`bootstrap/stock_period_history.py`](../../orchestrator/src/orchestrator/defs/bootstrap/stock_period_history.py) | 删除`history_work_identity`、`ensure_history_pending`、`frozen_history_work`、`ordered_pending_work`、`require_pending_delivery_before_write`以及`verify_rss_resume`的旧交接续跑。移除`run_period`供混合日更和旧`history`/`upsert`调用的执行分支，以及按`awaiting_units`、`capture_rounds`、`files_complete`接着跑的分支。`_finish_files`、`completed_receipt`、`completed_files`、`replay_events`删除依赖旧执行目录登记和重放日常批次的部分 | 改接两个Raw资产和手工Raw CLI。独立回刷用新job从头请求整批。首次建库保留明确授权的单独入口，复用正式路径、设备与写锁检查、对象范围核对及删除确认；首次建库不能由当期日更或回刷触发。删除`_record_ranges`、`validate_registered_targets`、`recover_moved_candidate`及`run_period`传给`assemble`的旧目录校验回调。移除手工历史的`period_baseline_not_ready`分支，清掉`_finish_files`和旧事件接续里写`files_ready`、`run_id`、`listed`的语句。独立首次建库与指定历史维护分别核对已确认的执行范围和实际结果 |
 | [`stock_period_source.py`](../../orchestrator/src/orchestrator/defs/stock_period_source.py)、[`io/stock_period_raw.py`](../../orchestrator/src/orchestrator/defs/io/stock_period_raw.py) | 改写`capture_unit`，删除读取`active_chain.json`、`identity.json`、`complete.json`、分页`*.receipt.json`或空回包文件来跳过请求、接着读的分支。改写`assemble`、`publish`，删除从以前的`copy.json`、`validated/`证明和`committed/`记录复用候选或跳过文件的分支。删除`assemble`中旧混合当期与历史响应的合并、重叠比较及`period_history_coverage_conflict`分支；改写`history`和带`codes`的`upsert`合并SQL，删除先按股票代码移除整股旧记录的做法 | 当期与单股历史分别构造候选，复权因子回刷按返回业务键合并，旧键未返回则保留，确认退市删除只在独立清理job执行。保留HTTP超时、限流、分页、原字段校验与候选文件构造。删除`assemble`的旧范围索引输入、`validate_targets`回调及服务于它们的分支。保留`file_version`和`file_digest`在本次文件合并、替换前检查、实际交付校验中的用法，以及暂存区与同设备原子替换。本批仍要逐文件核对写入和检查结果。正常的HTTP JSON和独立审计报告属于数据及审计记录 |
 | [`stock_period_update.py`](../../orchestrator/src/orchestrator/defs/stock_period_update.py)的交付函数、[`run_contracts/stock_period.py`](../../orchestrator/src/orchestrator/defs/run_contracts/stock_period.py)、[`run_contracts/configs.py`](../../orchestrator/src/orchestrator/defs/run_contracts/configs.py) | 删除`confirm_period_delivery`、`acknowledge_period_delivery`中读取及回写旧`manifest.json`、`complete.json`、`events/`、`daily.json`的分支，以及`_period_delivery_json`、`_period_delivery_assert_controls`和`_period_delivery_successors`按旧回执找后继的实现。替换`completion_reference`、`completion_notice`及其校验里的`raw_execution_id`、`file_receipt_hash`旧格式。去掉`StockPeriodRawConfig`的`intent=history`、`validate_history_intent`及该分支使用的`stock_codes`和`request_id`。删除旧交付引用版本及仅为旧运行继承内存覆盖的`STOCK_PERIOD_RUNTIME_RSS_GIB_TAG` | `report_file_events`、`report_completion_events`改写为登记同一批Dagster物化及检查。继续复用实际版本、物化和检查绑定的校验。`build_stock_period_run_config`传明确的业务日期。现有Raw job的运行配置区分当期`daily`与人工`closed_period`，分区必须匹配日期和频率。原指定股票维护迁到独立入口，自动因子回刷由Dagster传因子日期和名单摘要。当期月线范围请求删掉，单股历史`ts_code + freq`及其分页保持 |
-| [`stock_period_silver.py`](../../orchestrator/src/orchestrator/defs/stock_period_silver.py)、[`run_contracts/stock_period_silver.py`](../../orchestrator/src/orchestrator/defs/run_contracts/stock_period_silver.py)、[`io/stock_period_silver.py`](../../orchestrator/src/orchestrator/defs/io/stock_period_silver.py) | 替换`read_completion`的旧Raw回执解析。删除`make_update_execution`、`recover_update_execution`、`update_delivery_progress`、`confirm_update_delivery`中依赖`execution.json`、`events_complete.json`、`covered_by_execution_id`的日更续跑和确认分支。去掉`reused_update_record`、`owned_update_records`、`update_recovery_message`的旧续跑链，清理`load_execution`和`build`中查父执行、继承已完成文件的日更分支，以及`recovery_run_id`、`resume_from_execution_id`、旧cursor待续跑执行和日更调用`recover_committed`的路径 | 两个Silver sensor、两个Silver job、`deliver_update_asset`和`stock_period_silver_cli.report_update_events`一起迁到实际Dagster交付。移除`validate_event_coverage`、`record_update_coverage`追溯旧执行父子的分支。`resolve_update_sources`保留较新合格Raw可合法接续的判断，继续检查实际文件、完整范围与绑定的原检查。首次建Silver的`make_execution`和审计报告校验保留其独立用途。保留Silver历史下限、文件校验、写锁和原子替换 |
+| [`stock_period_silver.py`](../../orchestrator/src/orchestrator/defs/stock_period_silver.py)、[`run_contracts/stock_period_silver.py`](../../orchestrator/src/orchestrator/defs/run_contracts/stock_period_silver.py)、[`io/stock_period_silver.py`](../../orchestrator/src/orchestrator/defs/io/stock_period_silver.py) | 删除`stock_period_silver.read_completion`的旧Raw回执解析，全部调用方改读新`asset_guards/stock_period_delivery.read_completion`。删除`make_update_execution`、`recover_update_execution`、`update_delivery_progress`、`confirm_update_delivery`中依赖`execution.json`、`events_complete.json`、`covered_by_execution_id`的日更续跑和确认分支。去掉`reused_update_record`、`owned_update_records`、`update_recovery_message`的旧续跑链，清理`load_execution`和`build`中查父执行、继承已完成文件的日更分支，以及`recovery_run_id`、`resume_from_execution_id`、旧cursor待续跑执行和日更调用`recover_committed`的路径 | 两个Silver sensor、两个Silver job、`deliver_update_asset`和`stock_period_silver_cli.report_update_events`一起迁到实际Dagster交付。移除`validate_event_coverage`、`record_update_coverage`追溯旧执行父子的分支。`resolve_update_sources`保留较新合格Raw可合法接续的判断，继续检查实际文件、完整范围与绑定的原检查。首次建Silver的`make_execution`和审计报告校验保留其独立用途。保留Silver历史下限、文件校验、写锁和原子替换 |
 | [`bootstrap/stock_period_history_cli.py`](../../orchestrator/src/orchestrator/defs/bootstrap/stock_period_history_cli.py)、[`bootstrap/stock_period_silver_cli.py`](../../orchestrator/src/orchestrator/defs/bootstrap/stock_period_silver_cli.py) | 删除Raw `handoff`及其重建共享水位的代码。Raw `resume`移除按旧64位执行ID恢复日更、历史混合批次的分支，`--rss-limit-gib`清掉旧交接和继承逻辑。清掉Silver `resume`读取`intent=update`旧执行的分支。两个CLI的`events`移除按旧日更执行目录补登记的分支 | Raw `prepare`/`apply`和Silver `build`保留首次建库用途，继续核对其原授权、范围和审计报告。独立首次建库的恢复与事件核对只接受该入口生成的建库执行和审计材料，沿用建库自身授权、实际文件和检查。日常入口和两个Silver sensor无读取该材料的路径，建库也不写`baseline.json`或创建建库交接标记。已部分写入时不能重新调用带删除确认的Raw `apply`来代替核对。正式日常批次用Dagster按业务范围整批重跑，登记前核对实际文件和检查 |
 | [`jobs/stock_weekly_event_backfill.py`](../../orchestrator/src/orchestrator/defs/jobs/stock_weekly_event_backfill.py)、[`ops/stock_weekly_bootstrap_checks.py`](../../orchestrator/src/orchestrator/defs/ops/stock_weekly_bootstrap_checks.py)及旧独立脚本 | 删除仅按旧执行清单补周线事件的`raw_stk_period_bar_adj_week_event_backfill_job`、`report_stock_weekly_bootstrap_checks`和`StockWeeklyBootstrapEventChecksConfig`。删除已只会报停用的`bootstrap/stock_weekly_history_cli.py`、`stock_monthly_history_cli.py`、`stock_weekly_events_cli.py`、`stock_monthly_events_cli.py` | 补齐旧批事件的工作在切换前完成。切换后由新批交付或重跑核实并登记文件及检查。同步更新Dagster资产与任务拓扑、运行契约和现行运维命令；历史记录保留 |
 
@@ -2696,23 +2696,243 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python3 -B -m o
 
 **现有方式与触发。** 复用[股票日线前复权回刷sensor](../../orchestrator/src/orchestrator/defs/sensors/gold_stock_daily_qfq_factor_repair_job_sensor.py)的`run_status_sensor(SUCCESS)`模式。该sensor只监听指定日更job，读取触发运行的业务日期，核对上游检查及所需范围后返回带去重键的`RunRequest`。周月线新增一个同样方式的sensor，监听`raw_stk_period_bar_adj_week_update_job`和`raw_stk_period_bar_adj_month_update_job`。只接受当期日更意图，频率由触发job确定，业务日期取Raw配置的`automatic_intent_date`。周五分区和月份用于核对对应文件坐标。延迟执行仍使用上游业务日期。同日指定周期补齐、因子回刷和清理自身成功均不递归触发清理。
 
-**一个job，两种执行范围。** 新增`stock_period_retirement_cleanup_job`，每次配置明确`freq=week`或`freq=month`、业务日期及上游运行引用。周清理只读取和改写周Raw，月清理只读取和改写月Raw。job从已验收的股票生命周期、股票基础数据及已确认证券身份确定退市候选，沿用`list_status=D`确认规则。用Dagster中本频已成功清理的股票结果排除重复工作，包含尚未处理的已确认退市股票，不依赖旧上市名单或`baseline.json`。提交时保存名单摘要，执行时重算核对。首次切换时，已有已完成清理结果按实际交付承接。
+**一个job，两种执行范围。** 新增`raw_stock_period_retirement_cleanup_job`，每次配置明确`freq=week`或`freq=month`、业务日期及上游运行引用。周清理只读取和改写周Raw，月清理只读取和改写月Raw。job从已验收的股票生命周期、股票基础数据及已确认证券身份确定退市候选，沿用`list_status=D`确认规则。用Dagster中本频已成功清理的股票结果排除重复工作，包含尚未处理的已确认退市股票，不依赖旧上市名单或`baseline.json`。提交时保存名单摘要，执行时重算核对。首次切换时，已有已完成清理结果按实际交付承接。
 
-**实际执行与结果。** sensor只核对上游和提交配置，历史文件处理在清理job中完成。没有待清理股票时，job记录本频零清理结果，不读取历史行情。非零时按下述上市周期至业务日期的范围确定本频目标文件，再按原业务键仅移除这些确认退市股票的行，保留其他股票。已无待删行的文件无需重写，但仍核验并纳入该名单的本次交付范围，保证整批重跑后Silver能处理此前已经改写的周期。复用候选校验、原子提升和原文件检查，同频Silver按该Raw交付接续。清理结果、股票名单和交付范围保存到Dagster运行及检查记录，另一频须有自身的完成结果。清理失败后用原频率、业务日期和范围整批重跑，本次仍处理该运行配置中的完整名单，直到整批验收才将其登记为本频已清理；当前日更保留自己的成功结果。后续成功日更仍可识别该频尚未处理的确认退市股票。
+**实际执行与结果。** sensor只核对上游和提交配置，历史文件处理在清理job中完成。没有待清理股票时，job记录本频零清理结果，不读取历史行情。非零时按退市股票代码筛选本频全部历史文件，只修改包含这些代码的文件，移除对应行并保留其他股票。首次写入前，在Dagster运行记录中保存本次股票名单和命中的完整周期范围。失败后仍按原完整范围从头重跑；原选中文件已无待删行时无需重写，但仍验收并纳入本次交付，使同频Silver能处理此前已经改写的周期。复用候选校验、原子提升和原文件检查，同频Silver按该Raw交付接续。清理结果、股票名单和交付范围保存到Dagster运行及检查记录，另一频须有自身的完成结果。清理失败后用原频率、业务日期和范围整批重跑，本次仍处理该运行配置中的完整名单，直到整批验收才将其登记为本频已清理；当前日更保留自己的成功结果。后续成功日更仍可识别该频尚未处理的确认退市股票。
 
 **代码落点与配置。** 以下是待开发位置，不表示当前已存在。
 
 | 文件 | 职责 |
 | --- | --- |
-| `defs/sensors/stock_period_retirement_cleanup_job_sensor.py` | 监听两个Raw日更job的成功事件，核对对应频率的完整交付，构造去重请求 |
-| `defs/jobs/stock_period_retirement_cleanup.py` | 定义一个独立清理job |
-| `defs/ops/stock_period_retirement_cleanup.py` | 重算确认名单，按配置频率处理实际历史文件，登记结果 |
+| `defs/sensors/raw_stock_period_retirement_cleanup_job_sensor.py` | 监听两个Raw日更job的成功事件，核对对应频率的完整交付，构造去重请求 |
+| `defs/jobs/raw_stock_period_retirement_cleanup.py` | 定义一个独立清理job |
+| `defs/ops/raw_stock_period_retirement_cleanup.py` | 重算确认名单，按股票代码统计本频全部历史文件，处理命中文件并登记结果 |
 | `defs/run_contracts/stock_period_retirement_cleanup.py` | 定义业务日期、频率、上游引用和名单摘要的运行参数 |
 
 执行频率、业务日期和名单摘要由本job合同统一定义，sensor、运行参数构建和op共用；取值来自上游运行配置及上述正式事实，不新增环境变量或本地配置文件。沿用`build_sensor_tags`与现有运行标签规则，日志显示本次频率、业务日期、名单数及实际文件范围。复用`build_upstream_triggered_run_key`生成去重键，键同时区分频率和对应上游运行，重复收到同一成功事件只提交一次。运行配置由sensor生成并保存在Dagster运行中。手动整批重跑使用同一业务配置。此job无单独固定执行时刻，沿对应Raw成功事件触发。定义分类、拓扑及静态门禁随实现一起登记。
 
-**历史文件定位。** 只为本次确认退市股票计算配置频率的范围。读取正式股票生命周期的`ts_code, list_date, delist_date, list_status`及已确认证券身份；沿用准入合同中的代码对应关系。复用`run_contracts/stock_period.py`的`period_for`、`next_period`，从该证券上市所在周期至本次业务日期所在周期生成目标坐标，再由`io/stock_period_raw.target_path`定位正式文件。只核对这些路径是否存在，不重建每股历史索引。已有文件用DuckDB投影`ts_code`统计本次退市代码行数；仅对包含待删行的文件读取原21列、过滤这些代码并生成候选。上市日期在现行`stock_lifecycle_checks.py`中已有必填检查。退市日期用于正式身份确认；文件定位取到业务日期所在周期，不把退市日期是否完整另加为新的触发条件。
+**历史文件定位。** 管理员确认按股票代码筛选需要修改的文件。确认退市名单及代码对应关系仍来自上述正式事实。通过`io/stock_period_raw.dataset_root`定位本频正式Raw目录，枚举该目录中所有规范周期文件；周线只查`week_end=*/part-000.parquet`，月线只查`month=*/data.parquet`。用DuckDB只投影`ts_code`，按本次退市代码统计各文件的匹配行数，匹配数大于0的文件进入本次修改范围。代码列统计覆盖本频全部历史，不用正式上市日期或退市日期截断。仅命中文件才读取原21列、删除指定退市代码并生成候选；另一频文件不读写。首次命中范围保存在本次Dagster运行记录中，供完整交付及整批重跑核对，不重建每股历史索引或私有JSON清单。
 
-**范围和性能。** 每次sensor只核对一条触发运行、对应频率的当期交付与原检查，再按确认退市候选核对该频Dagster完成结果；不查历史行情。非零任务令P为上述股票生命周期覆盖的去重周期数，E为实际存在的目标文件数，F为其中包含待删代码的文件数，则路径核对P次、`ts_code`列投影E份，21列读取和候选替换各F份。最后对E份本次交付文件投影代码、业务键和分区日期验收，核对配置名单已无残留，并登记对应物化及原检查；同频Silver的接续范围最多为其中满足其历史下限的E份。中断后整批重跑，重新核对完整P个路径及E份代码投影；第一次已删完的文件不再含该股，但本次完成结果仍登记全部配置名单。两次实际改写数分别为F₁、F₂，候选及替换合计F₁＋F₂。实际输入压缩字节、候选字节、spill、响应时间与峰值内存沿现有资源限制核算，不沿用旧索引预算，也不把文件数当成耗时保证。编码前用有界隔离样本测量上述步骤，正式非零执行前列明具体名单、周期、文件和字节范围；超出现有资源限制时停止，不自动扩大内存。候选和spill仍只放正式暂存区。零候选时E、F及历史行情读取均为0。
+2026-11-11只读定点样本确认：正式股票生命周期中的`920799.BJ`上市日期为2020-07-27、当时仍在市，股票复权月线Raw的`month=2020-01/data.parquet`已有该代码的`trade_date=20200131`记录。该样本说明Raw确实保留正式上市前行情，不能从正式上市月份开始定位退市清理文件。样本仅用于确定文件范围和隔离验收，不把该在市股票加入正式清理名单。
 
-**验收。** 周成功只提交`freq=week`，月成功只提交`freq=month`，两者都成功时分别提交两次同一job。失败或检查未通过不提交，同一成功事件重复处理不重复提交。验证清理自身不回触发、运行跨日仍保留业务日期、零清理不读历史、确认退市才删除、周清理不读写月文件、月清理不读写周文件、写完部分文件后失败、整批重跑仍完整登记原范围并让同频Silver接续，以及晚到的退市事实后续可处理。对真实`000016.SZ`旧案例构造有来源的隔离样本，分别验收两频Raw与同频Silver，禁止把一次成功当成两频均已完成。
+**范围和性能。** sensor只核对触发运行、对应频率的完整交付及原检查，再按确认退市候选核对该频Dagster完成结果，不查历史行情。没有待清理股票时不枚举和读取历史文件。非零任务令N为本频全部规范历史文件数，F为本次退市代码命中的文件数：初次定位枚举N个路径并统计N份文件的`ts_code`列，21列读取、候选构造和原子替换各限F份。最后重新统计N份文件的目标代码残留，并对本次完整交付范围核对业务键、分区日期、物化及原检查；同频Silver只接续本次交付范围中满足其历史下限的周期。首轮定位和最后残留核验合计最多2N份代码列统计，不等于读取2N份完整行情。
+
+一次中断加一次整批重跑，两次实际文件数为N₁、N₂时，代码列统计最多合计2N₁＋2N₂份；实际改写数为F₁、F₂时，21列读取、候选构造及替换分别按F₁＋F₂计。重跑从第一步重新统计目标代码，同时保留原运行已登记的完整周期范围，不能因部分文件此前已经删完而遗漏同频Silver接续；不按已完成文件位置跳过步骤。2026-11-11目录元数据计数为周Raw 1,823份、月Raw 432份，仅作为当时文件规模，不作为固定上限或耗时保证。本轮已完成两次代码列统计，以及四文件隔离候选、原检查和最后验收，实测耗时、压缩列大小和峰值内存见第13.10.5节；没有测得新任务完整链路或正式目标盘的写入耗时，不能把临时设备结果作为正式性能保证。正式非零执行前按实际名单、N、F和文件字节核定现有资源限制，不能套用旧上市日期范围或旧索引预算。候选和spill只放正式暂存区。清理任务不请求退市股票的Tushare历史。
+
+**验收。** 周成功只提交`freq=week`，月成功只提交`freq=month`，两者都成功时分别提交两次同一job。失败或检查未通过不提交，同一成功事件重复处理不重复提交。验证清理自身不回触发、运行跨日仍保留业务日期、零清理不读历史、确认退市才删除、周清理不读写月文件、月清理不读写周文件、写完部分文件后失败、整批重跑仍完整登记原范围并让同频Silver接续，以及晚到的退市事实后续可处理。对真实`000016.SZ`旧案例构造有来源的隔离样本，分别验收两频Raw与同频Silver，禁止把一次成功当成两频均已完成。另以`920799.BJ`的上市日期和2020年1月Raw记录构造隔离样本，将该样本明确设为确认退市对象，验证正式上市前记录也能被定位和清除，同文件其他股票保持；正式在市股票不进入清理名单。未命中文件不生成候选、不替换文件。
+
+<a id="stock-period-development-stages"></a>
+
+### 13.9 开工审计与开发阶段（2026-11-11，第1阶段完成）
+
+**审计结论。** 第13.2至13.8节的业务口径已经明确，包括按退市股票代码定位本频全部历史文件。本轮对照当前源码、测试及本地源文档做开工审计，没有新增需管理员重新拍板的业务规则。初次审计列出的传输入口、运行参数、交付记录及性能验证已按第13.10节补齐，第1阶段完成，具备进入第2阶段源码开发的条件；新流程代码和正式运行尚未实施。每阶段编码前先完成该阶段在原方案和本LLD中的详细设计，再按获准范围实施和验收。
+
+**本轮核验依据。** CodeGraph的`codegraph_explore`核到`deliver_asset → run_period → capture_unit`，`codegraph_impact(completion_reference)`覆盖Raw交付、Silver读取、首次建库入口及相关集成测试。直接读取确认`_http_attempt`固定请求完整21列，`HttpPage`沿`StockPeriodPolicy.retries=2`执行；`read_completion`仍读取旧`manifest.json`和`complete.json`。现有周、月Raw/Silver job均选择自身资产及原检查。日线应更新集合的SQL和股票日线前复权回刷触发方式可以复用，计算与选股规则保持。
+
+2026-11-11通过Tushare MCP各做一次单股单周期只读请求：`301393.SZ`，周线`freq=week, trade_date=20261113`，月线`freq=month, trade_date=20261130`，均指定`ts_code,trade_date,end_date`。两次各返回一条三列记录，周期标签分别命中上述坐标，`end_date`均为`20261110`。该样本用于证明三列投影和周期坐标，不作为11月11日全市场齐备或DG传输耗时的证据。随后已按第13.10.1节完成真实分页、代码列统计及隔离重做验证，完整范围和实测结果见第13.10.5节。
+
+| 初次审计事项 | 补齐前核对依据 | 已完成的编码前设计与验证 |
+| --- | --- | --- |
+| 预检传输入口 | `stock_period_source._http_attempt`固定21列，现有`HttpPage`有正式下载重试；现行sensor尚不请求源 | 写清三列投影及本次tick截止时间如何传入，sensor不沿用正式下载重试；预检与正式下载共用已确认的周期请求规则，正式下载仍为原21列。明确`source_readiness`、请求构造和HTTP调用的具体落点及全部调用方；已完成见第13.10.2、13.10.4和13.10.5节 |
+| 运行参数与交付记录 | `completion_reference`仍为旧64位执行ID和回执摘要；Silver按该引用读取私有文件 | 将新的运行参数、上游引用、完整周期集合、实际来源日期、文件结果和完成结果写成字段名、类型及用途明确的合同；列齐Raw生产者、Silver消费者、两个独立job和手工入口的迁移位置。退市首次命中文件范围和完整重跑的原生记录已定清，见第13.10.3及13.10.5节 |
+| 新任务定义 | 初次审计时，独立复权因子回刷未列齐job、sensor、op和参数文件；清理job拟名缺Raw前缀 | 按`CODING_STANDARDS.md`的job和sensor命名规则确定最终名称、配置、文件及Definitions登记，校准第13.8节拟名及全部文档引用；现有四个资产及日更job名称保持；两个新job的最终定义见第13.10.4节 |
+| 新路径性能 | 第13.5和13.8节已有规模公式及旧实测参考，新预检和代码列统计尚未完成本轮测量 | 明确有界验证的日期、对象、文件、字段及请求数，验证预检截止与分页边界，测量代码列统计、候选及原检查成本；同时计入一次中断后整批重跑和最后验收。实际值按现有资源限制核定，不能把旧6 GiB单次恢复授权或目录文件数当成新任务性能保证；实测及成本复算已完成，见第13.10.5节 |
+
+**开发阶段安排。** 第1阶段已按本次批准完成，后续阶段仍按各自开发和正式执行授权推进。各阶段只在当前`dev-interface`工作区推进，测试资源和过程材料均放工程外。新流程整体接通并清退旧入口后才正式切换；各阶段修改到的旧分支随对应替换删除，第5阶段复查清零，不增加兼容层或双轨实现。
+
+| 阶段 | 目标与任务 | 实现范围及阶段验收 |
+| --- | --- | --- |
+| 1. 完成编码前准备 | 完成上表四项；把业务硬口径逐条映射到代码、正反测试和有界验证；确定所有新job、sensor、op、运行参数及交付字段，补齐配置来源、消费者、生效方式与性能依据 | 原方案第10.19节、本节及相关运行契约、拓扑文档。本步只做文档、静态审计及已获准的有界验证；四项已完成，对账见第13.10.6节 |
+| 2. 实现当期日更与Silver接续 | 提取按生命周期及最终停复牌事实计算当天应更新代码的共用规则；两频20:00起做三列源预检；正式下载同一单点的21列并复核，只交付本频当期文件。同步实现新的Dagster交付记录及Silver读取 | `source_readiness/`、`stock_period_source.py`、`stock_period_update.py`、Raw/Silver运行参数、两个Raw/Silver入口及检查。验证新股必需、全日停牌可选、缺码及同数换码不触发、当天重复去重、无JSON前置、只写当期一文件，以及真实临时Raw生产者到同频Silver和原检查的隔离链路 |
+| 3. 实现独立复权因子历史回刷 | 同一业务日两频Raw日更完整成功后提交独立回刷；沿用相邻交易日Silver股票复权因子比较。仅对变化股票按`ts_code + freq`请求两频完整历史，按源日期定位文件，按业务键合并并保护较新记录；无变化记录零回刷 | 新回刷job、sensor、op和运行参数，复用源合同及候选IO。验证两频完成先后顺序、仅一频成功不提交、新股不混入回刷名单、无日期过滤、整股旧记录不会先被删除、零变化无历史请求，以及失败整批重跑后两频Silver接续 |
+| 4. 实现独立退市清理 | 周Raw日更成功仅提交周清理，月Raw成功仅提交月清理。同一个独立job按频率处理确认退市股票，用代码列统计定位本频历史文件，仅改命中文件，登记本次完整范围并让同频Silver接续 | 第13.8节定义的新入口和现有候选IO。验证零候选不读历史、另一频不读写、未命中文件不替换、正式上市前记录能够清除、同文件其他股票保留，以及部分写入失败后整批重跑仍交付完整范围 |
+| 5. 完成人工维护和旧实现清退 | 接通指定闭合周期全市场补齐、按原复权因子日期指定回刷及已确认身份维护；保留独立首次建库的有效能力。按第13.7节逐文件、函数、分支和调用方清零旧混合任务、共享待办、`baseline.json`、旧交接与日常续跑链及停用入口 | Raw/Silver CLI、旧bootstrap调用、旧事件补登记job、运行参数、目录定位及相关测试。保留原源合同、身份规则、文件校验和原子提升；以无旧JSON的隔离环境验证新入口，查清所有生产读写引用。历史运行、正式文件和旧业务回执不随源码删除 |
+| 6. 完成整体验收和交付 | 串联预检、当期Raw/Silver、复权因子回刷和单频退市清理；复核完整范围重跑、合法人工维护、旧入口清零及性能结果。同步catalog、Definitions、运行契约、拓扑、静态门禁和原文档，形成逐条计划对账 | 执行必要单元、契约、隔离集成及静态检查；测试输出留工程外。以已确认的真实源样本核对接入边界，正式写湖验收另行批准。本阶段交付代码、测试、审计结论、待切换清单及准确的未执行项 |
+
+**正式切换边界。** 六个阶段是开工准备、开发和隔离验收安排，不包含启停正式sensor、重载正式code location、提交正式job或写湖。上线前沿第13.7节核实旧任务交接，再按具体批准执行切换及有界正式验收。不能用隔离测试通过替代正式文件及原检查验收。
+
+<a id="stock-period-implementation-contracts"></a>
+
+### 13.10 四项实现准备补齐（2026-11-11）
+
+#### 13.10.1 本步范围及验证计划
+
+管理员已批准补齐第13.9节四项并重新审计开工条件。本步只修订原方案、LLD和直接引用文档；不修改正式Python源码、Definitions、配置、正式实例或Lake。验证程序和结果放本次`/private/tmp`目录，最终有效结论落回本节后删除临时材料。
+
+静态核对覆盖现有周/月Raw与Silver、`stock_period_source`、`run_contracts`、两个既有CLI和日线前复权回刷参考。既有资金流传输函数限定资金流字段，不用于本次股票周月线。`tushare_download`目前只注册`stk_factor_pro`合同及绑定，本步不扩大其接入范围；对本次已有周月线HTTP传输明确字段投影和截止参数，正式21列及原源合同保持。
+
+| 验证 | 明确范围与方式 | 输出及读写边界 |
+| --- | --- | --- |
+| 只读HTTP | 同一自然周五`20261113`和自然月末`20261130`，各请求全市场三列一次；每频额外请求`limit=2,offset=0`、`limit=2,offset=2`和`limit=4,offset=0`，核对分页相接。另请求`301393.SZ`两频完整21列历史各一次。合计最多10个请求，不自动重试 | 仅保存字段、计数、耗时、响应字节和必要有界样本。使用现行环境凭据及端点，不打印token或认证内容。每请求沿现有30秒截止和16 MiB响应上限；真实请求支持情况以结果为准 |
+| 历史代码列统计 | 枚举本频规范文件，对`301393.SZ`及已确认退市案例`000016.SZ`只做逐文件匹配行数统计和汇总，分别计时；不导出行情明细 | 这是本频全历史的统计计数，读取限`ts_code`列；不修改正式文件，不请求退市股票源。记录文件数、匹配文件数、行数及时间 |
+| 候选、原检查及完整重跑 | 仅取`week_end=2026-11-06`、`week_end=2026-11-13`、`month=2026-10`、`month=2026-11`四份正式文件作为有界输入，在`/private/tmp`副本中分别测按业务键合并和按代码移除 | 用既有DuckDB限制、`validate_file`及原三项文件检查所用函数核验；只在临时副本做`os.replace`。模拟写完一份后中断，再从第一份完整重做并做最后对账；正式文件只读，隔离样本中的股票移除不代表正式退市事实 |
+| Dagster记录能力 | 使用工程外临时instance和小型无业务数据任务，验证计划范围、文件物化、完成通知和结果检查能随真实运行ID保存并按运行读回 | 不连接正式DAGSTER_HOME或正式event storage，不创建新状态资产，不执行正式job。只验证本次选用的原生记录API，不能声称新流程已完成端到端实现 |
+
+源覆盖的定点核对使用2026-11-10的正式股票生命周期和最终停复牌字段，结合两份三列源响应只做要求集合、可选集合及差异计数；不读取股票日线，差异样本沿既有20条上限。
+
+上述验证总量由表中具体对象和文件确定。计数查询不扩大为正式历史21列全量读取；候选输入只限四份指定文件。一次中断后的重做及最后验收均在临时副本执行。新实现尚未编码，传输和SQL验证须如实区分现有能力、隔离样本结果与待开发集成。
+
+
+#### 13.10.2 预检入口、请求与配置定稿
+
+预检新增`defs/source_readiness/stock_period.py::probe_stock_period_source`，只接收频率、业务日期、当日要求代码、可选代码、已确认身份及截止时间，不依赖Dagster instance，不写文件。Raw sensor负责验证前置事实和决定提交；Raw正式下载使用同一代码集合计算及周期请求规则复核21列。
+
+上市日期及全日停牌集合计算从`checks/stock_daily_checks.py::_expected_tradable_universe_metadata`提取到`defs/stock_trading_universe.py`，共用其生命周期、全日停牌和盘中停牌判断。日线自己的历史起点、额外代码检查及北交所开市限制保持在日线调用方；周月线保留本链Raw准入规则，不把日线价格文件作为输入。周月预检的要求集合为在市集合减去全日停牌，可选集合为全日停牌。仅要求集合中每个代码恰有一条目标周期且`end_date=D`时通过；可选集合的有效记录允许较早日期或缺席。非准入记录按本链既有源准入规则处理。
+
+| 实现位置 | 定稿后的参数和职责 |
+| --- | --- |
+| `run_contracts/stock_period.py` | 保留完整21列`FIELDS`；增加三列投影常量`STOCK_PERIOD_READINESS_FIELDS=('ts_code','trade_date','end_date')`和管理员指定的20:00开始时刻常量。`request_params`对全市场周、月均生成`freq + trade_date`单点；单股完整历史只生成`ts_code + freq`及分页参数 |
+| `stock_period_source.py::HttpPage` | 构造时增加`fields`，默认完整21列，预检显式传三列；`__call__(params, *, deadline=None)`允许本次绝对单调时钟截止。`_http_attempt`接收并转发显式字段，不再把21列写死在请求体。正式下载与独立首次建库不传截止时沿原策略执行 |
+| `source_readiness/stock_period.py` | 使用`dataclasses.replace(DEFAULT_POLICY,retries=0)`和三列投影构造本次预检传输；按实际字段解析三列，不调用要求21列的`validate_rows`。核对字段、周期、代码、截至日及重复。返回`ready:bool`、`reason:str`、日期/周期/频率、计数和既有20条上限的差异样本 |
+| 预检截止及分页 | 从开始读取本次预检前置事实计时，以现有`DEFAULT_POLICY.timeout_seconds=30`秒作为本次预检共用截止；各页和限流等待共用该时间，不逐页重新取得30秒。每次HTTP实际可用时间取现有单请求上限与剩余时间的较小者；前置已耗尽截止时源请求为0。满6,000行才请求下一offset，短页结束；重复页、未能完成分页或截止耗尽均等待后续tick，不提交job |
+| worker及清理 | 沿原`HttpPage`独占子进程和0.2秒轮询，源截止后终止该子进程，沿既有两个最多1秒的等待完成清理；后续tick重新探测。预检不执行HTTP重试和退避；正式下载仍按`retries=2`、即每页最多3次尝试执行 |
+
+| 配置/固定输入 | 默认值与依据 | 来源、持久化、消费者及生效 |
+| --- | --- | --- |
+| 开始时刻与检查间隔 | 20:00由管理员指定；间隔沿现有60秒 | 周月时间规则与两个Raw sensor定义集中维护，代码位置重载生效；没有新增运营开关，skip和日志显示业务日期与原因 |
+| 三列与21列 | 分别为管理员确认的预检投影和既有完整源字段 | `run_contracts/stock_period.py`唯一维护；预检/HTTP与Raw下载共用；不是两个源字段合同，不暴露给用户选择 |
+| 超时、页长及容量 | 30秒、6,000行、16 MiB响应、128 MiB源单元，均沿`StockPeriodPolicy`现值 | 原策略为唯一来源；预检只在本次内缩短剩余时间、取消重试，不更改全局默认或其他数据集 |
+| 凭据、端点与限流 | `TUSHARE_TOKEN`必需；`TUSHARE_BASE_URL`沿`PeriodHttpConfig`默认；`TUSHARE_MAX_CALLS_PER_MINUTE`默认280 | 沿现有环境及`PeriodHttpConfig.from_environment`，不读取新增配置文件、不自动加载仓库.env；只记录脱敏端点信息和请求统计。正式下载同一运行共用一个传输实例，沿其限流，不能按股票重新创建实例绕开间隔 |
+| 列式执行与空间 | DuckDB 3 GiB/2线程、进程4 GiB、spill16 GiB、工作目录32 GiB、进度5秒，均为现有策略 | 沿原策略及资源检查；不继承旧原任务单次6/8 GiB标签。每个新Dagster运行使用自己的正式staging目录；32 GiB限制只针对本运行工作目录，16 GiB spill若在其中须计入、不能重复当成额外可用空间；旧运行剩余目录另计同设备已用空间。本次未更改这些默认值 |
+| 运行检索tag | 业务日期、用途和单频频率只从已验证运行配置派生，无独立默认值 | 由`stock_period_delivery.py`集中命名和构造，入口通过`instance.add_run_tags`保存于Dagster run storage；历史修复sensor按同日daily检索，清理sensor/op按频率读取累计成功结果。详见第13.10.3节；不改变共用请求builder、运行key或sensor分类tag |
+
+这些字段和截止参数是内部调用合同；只在本轮股票周月链的已审计调用方中迁移。资金流传输函数的API及字段被其合同限定；通用下载组件目前仅登记`stk_factor_pro`，不以本步为由迁移这两者。
+
+#### 13.10.3 运行参数及交付记录定稿
+
+新增`defs/run_contracts/stock_period_delivery.py`维护本节结构、序列化、引用及去重构造，旧`stock_period.py`中的私有回执引用实现删除而不留兼容解析。业务21列不增加以下运行字段。
+
+**运行参数。** 表中“必需”表示对应模式必须显式给出，不能从当前时钟、分区名或run key反推业务日期。Dagster原生`run_id/root_run_id/parent_run_id`不作为新的运营配置。
+
+| 配置及模式 | 字段、类型及规则 |
+| --- | --- |
+| `StockPeriodRawConfig` | `intent: Literal['daily','closed_period']='daily'`；`automatic_intent_date: str`必需，ISO业务日期。前者是当日，后者是所选闭合周期最后开市日；频率来自原job，分区须匹配。删除旧`history`、`stock_codes`和`request_id`；不再缺省为运行时钟 |
+| `StockPeriodSilverConfig`更新 | `intent='update'`，`source_completion: DeliveryRef`必需；更新模式不再使用`execution_id`、`audit_report`、`resume_from_execution_id`或私有执行目录。独立首次建库的`intent='bootstrap'`及其原`execution_id/audit_report`仍限建库入口，不能用于日常接续或证明日更就绪 |
+| `StockPeriodHistoryRepairConfig`复权因子变化 | `intent='factor_changed'`；`business_date: str`、`stock_codes: list[str]`、`codes_hash: str`、`frequencies: list[str]`（固定周、月）、`upstream_completions: list[DeliveryRef]`必需。两引用固定按周、月排序。自动sensor只提交同一业务日两频当期日更引用；op沿日历重算本次复权因子日期及前一开市日的Silver股票复权因子差异，核对完整名单及摘要；空名单合法并记录零回刷 |
+| 同一历史修复job的人工入口 | `intent='specified_history'`时显式给`business_date`、非空`stock_codes`、`codes_hash`及`frequencies`；只请求指定股票完整历史。已确认身份维护用`intent='identity_maintenance'`和`remove_keys: list[{ts_code:str,trade_date:str,freq:str}]`明确撤回键，可同时给需要刷新源历史的`stock_codes`。仅按批准范围及正式身份处理，不能从代码缺席推断删除。人工意图不要求伪造上游日更引用，不自动触发其他任务 |
+| `StockPeriodRetirementCleanupConfig` | `business_date: str`、`freq: Literal['week','month']`、`stock_codes: list[str]`、`codes_hash: str`及本频`source_completion: DeliveryRef`必需。sensor按已确认退市事实减去本频已完成结果产生名单；op核对配置中的完整名单仍为确认退市，不能在执行时再次减掉完成名单而缩小原范围。空名单合法 |
+
+第13.7节所述补做原日复权因子回刷，仍用`factor_changed`意图，`business_date`为原复权因子日期，名单及摘要仍按该日重算；不是不比较复权因子的`specified_history`。该人工提交可使用已核实覆盖原日的两频后续完整Raw引用，不要求伪造原日成功：逐频引用须包含原日所在周期，实际记录及原检查须符合第13.7节的覆盖条件；原生日志及结果同时保存原复权因子日期和真实采用的Raw引用。此例外仅用于已有的指定原日补做入口，自动sensor仍只认同日两频当期成功，不新增自动回补策略或配置开关。
+
+运行参数的集合缺省只用于其不适用的模式：`upstream_completions`仅在`specified_history/identity_maintenance`模式为空，`remove_keys`在非身份维护模式为空；身份维护允许源刷新名单为空，但必须有明确撤回键。`codes_hash`始终只对应源刷新名单，退市配置中对应待清理名单。身份维护另外将排序去重后的`remove_keys`及其`remove_keys_hash=stock_period.digest(remove_keys)`保存在写前范围，原生重跑须核对同一份明确撤回键，不能因源代码摘要为空而丢掉删除范围。
+
+代码列表按既有代码合同归一化，摘要直接复用`gold_stock_daily_qfq_factor_repair_codes_hash`，即排序去重后的代码以换行连接后取UTF-8 SHA-256。周期列表排序去重，范围摘要复用`stock_period.digest`的规范JSON SHA-256。代码摘要与周期摘要分别命名，不以文件哈希代替股票名单。
+
+日期字段统一为ISO `YYYY-MM-DD`；源请求及21列中的`trade_date/end_date`继续使用`YYYYMMDD`。`periods`在week频率为自然周五`YYYY-MM-DD`，在month频率为`YYYY-MM`；`file_count`等于该去重周期列表长度。`producer_run_id`只能是真实Dagster UUID，不能把64位旧执行ID放入同名字段。
+
+**Dagster原生记录。** `DeliveryRef`严格包含`producer_run_id: str`（真实Dagster UUID）、`freq: Literal['week','month']`、`upstream_batch_id: str`。引用的运行必须成功，文件范围和原检查须完整，才可被消费；引用本身和观察记录不能单独证明成功。
+
+| 记录位置 | 明确字段和用途 |
+| --- | --- |
+| 开始写文件前的`AssetObservation`，metadata键`goldenshare/period_work` | `version='stock-period-work@1'`、上述三项引用、`kind`、`business_date`、`periods:list[str]`、`stock_codes:list[str]`、`codes_hash:str`、`periods_hash:str`及`upstream_completions:list[DeliveryRef]`。`kind`只取`daily/closed_period/factor_repair/retirement_cleanup/history_maintenance`。身份维护另有`remove_keys`与`remove_keys_hash`；记录本次完整范围，不记录逐文件续跑位置 |
+| 每份实际交付的物化 | 沿现有`dagster/uri:str`、`dagster/row_count:int`、`goldenshare/observed_columns`和`goldenshare/period_file_version:list[int]`；最后一项仍为当前文件的`[st_dev,st_ino,st_size,st_mtime_ns,st_ctime_ns]`，只描述该次实际文件。增加`goldenshare/period_delivery:DeliveryRef`、`goldenshare/business_date:str`、`goldenshare/source_asof:str或None`、`goldenshare/rewritten:bool`。空文件的来源日期可为None，非空按原日期合同计算；不建跨运行版本目录 |
+| 文件范围观察，metadata键`goldenshare/period_completion` | `version='stock-period-delivery@1'`、三项引用、`kind`、`business_date`、`periods:list[str]`、`periods_hash:str`、`file_count:int`。该观察只声明完整文件范围；下游另要求原运行SUCCESS及这些文件绑定的原检查全部通过。无文件交付的零结果不发该观察，不启动Silver |
+| 历史修复结果检查 | 每频`raw_tushare_stk_period_bar_adj_{freq}_history_repair_result_check`，分区为业务日对应本频周期。metadata含`version='stock-period-result@1'`、`producer_run_id`、`kind`、`business_date`、`freq`、`stock_codes`、`codes_hash`、`periods`、`periods_hash`、`file_count`、`rewritten_file_count`、`rewritten_row_count`和`upstream_completions`；零回刷也保存完整空名单及零计数 |
+| 退市清理结果检查 | 每频`raw_tushare_stk_period_bar_adj_{freq}_retirement_cleanup_result_check`，沿上行字段，另有`cleared_codes:list[str]`及`cleared_codes_hash:str`。它是本频上一成功结果与本次完整验收名单的并集，用于低成本读取已完成事实，不保存每股历史范围、建库标记或文件版本目录 |
+
+原三项文件检查名称及语义保持，每份检查仍绑定本次真实物化。新增结果检查沿现有股票日线前复权op的`AssetCheckEvaluation`方式记录，不加入四个正式资产的原三项文件检查集合，不作为当期日更的历史回刷前置条件。
+
+**保证先保存范围再写文件。** Raw资产和独立op用生成器先`yield AssetObservation(period_work)`，由Dagster持久化后才进入候选和替换。普通`context.log_event`先在进程内排队，不能把调用完成当作计划已持久化。独立任务逐文件校验并原子提升，先产出所有实际物化，再批量取得本次运行的物化绑定，登记原三项文件检查，最后记录完整范围及任务结果；不得每份文件分别查询Dagster历史。原日更资产自身分区的三项检查仍由原asset job执行；范围观察可以先产生，但读取方只有在SUCCESS和原检查齐全后才承认完整交付。
+
+**完整重跑。** 日更按配置中的当期坐标重新取源，历史回刷按配置名单重新请求两频完整历史并核对摘要，Silver按输入Raw引用的完整范围重新处理，均从第一步执行。退市清理因部分代码已从Raw移除，需保留上次命中文件：只沿Dagster原生`parent_run_id`查询最近一份同业务日期、频率和代码摘要的`period_work`，与本次重新统计的命中范围取并集。跳过的是没有写前范围的祖先运行，不是已处理文件；若整条原生祖先链均没有范围，则此前未获准写文件，本次重新规划。保留全部原选中文件，不重写已无待删行文件，但重新验收并向同频Silver完整交付。查询只用于取得原业务范围，不读旧源页、候选、私有JSON或逐文件进度；不得将父运行已完成文件作为跳步依据。
+
+**运行检索字段。** Raw入口和两个独立op验证配置后、写业务文件前，通过`instance.add_run_tags`保存`goldenshare/stock_period_business_date=D`及`goldenshare/stock_period_kind=上述kind`；单频入口另存`goldenshare/stock_period_freq=week或month`，双频历史修复不伪造单频tag。三者均由`stock_period_delivery.py`统一命名和构造，只能从已验证的运行配置生成，不增加运营配置，不修改共用`build_run_request`。tag持久化在Dagster run storage，用于按业务意图检索；不能替代运行配置、成功事实和原检查。
+
+**查同日另一频日更。** 历史修复sensor从当前成功运行读取显式日期，再用`get_runs(RunsFilter(job_name=另一频Raw日更job,statuses=[SUCCESS],tags={goldenshare/stock_period_business_date:D,goldenshare/stock_period_kind:'daily'}),limit=1)`定位同日另一频日更。随后核对其原生完成范围与原检查；查不到就等待另一频成功回调。不按周/月分区最新成功、运行时钟或run key反推日期，避免把人工闭合周期或另一业务日当成本次日更；手工完整重跑即使没有自动run key，仍可按其明确业务日期被识别。
+
+**读取已完成退市结果。** 按清理job名、`goldenshare/stock_period_freq`及`status=SUCCESS`取最新一条运行，再按运行ID读取其结果检查，核对版本、频率、摘要及passed。这里累计跨业务日完成名单，不添加当天日期过滤；每频最多一次运行查询及一次按运行的检查读取，无须每天遍历历史运行。首次切换从已核准的旧成功结果承接完成事实；无可承接结果时确认退市名单照常统计，不能假定已经清理。
+
+**标识与查询。** 每频交付ID复用`build_batch_id(producer='stock_period_raw',scope=freq,payload={producer_run_id,kind,business_date,periods})`。日更run key保持原`build_asset_update_run_key(subject=原Raw资产名,unit_id=D)`。历史自动请求的上游ID由周、月引用和代码摘要按固定顺序生成，`producer_run_id`固定取周Raw引用，不能取“这次回调是哪一频”来改变ID。历史修复与清理sensor复用`build_upstream_triggered_run_key`；清理输入ID沿本频Raw引用，频率已经包含在交付身份内。所有ID和配置不含event storage id。
+
+新增`asset_guards/stock_period_delivery.py::read_completion(instance, reference, *, root)`，按`producer_run_id`调用`get_records_for_run(...,of_type=ASSET_OBSERVATION)`读取该运行的范围，并核验真实SUCCESS、业务日期、频率、版本及范围摘要。删除`stock_period_silver.read_completion`旧私有回执函数，全部调用方直接迁到新guard，不留兼容包装；`run_contracts/stock_period_delivery.py`只放纯结构和builder，不访问instance。物化/检查按本频完整周期集合走既有`batch_event_evidence`与绑定核验。数据库查询使用原生事件类型、运行、资产和分区集合过滤，不能逐文件查旧执行目录。Silver按实际采用的Raw文件及其原检查处理，合法后继仍沿原规则；自身更新也从头生成本次完整范围，首次建库仍走独立入口。
+
+#### 13.10.4 新任务、配置位置与全部迁移点
+
+只新增下列两个独立job；历史修复job同时承接被移出的指定股票历史及已确认身份维护，人工模式不挂自动sensor。现有两个Raw和两个Silver资产、job名及物理路径保持。
+
+| 定义 | 最终名称及位置 |
+| --- | --- |
+| 历史修复job/op | `raw_stock_period_history_repair_job`、`raw_stock_period_history_repair_op`；分别位于`defs/jobs/raw_stock_period_history_repair.py`、`defs/ops/raw_stock_period_history_repair.py`，采用与现有周月任务相同的in-process执行方式 |
+| 历史修复sensor | `raw_stock_period_history_repair_job_sensor`，`defs/sensors/raw_stock_period_history_repair_job_sensor.py`；只监听两个Raw当期日更job的SUCCESS，核实同业务日两频完整交付后提交`factor_changed`意图，不监听修复、清理或人工闭合周期事件 |
+| 清理job/op | `raw_stock_period_retirement_cleanup_job`、`raw_stock_period_retirement_cleanup_op`；分别位于`defs/jobs/raw_stock_period_retirement_cleanup.py`、`defs/ops/raw_stock_period_retirement_cleanup.py`；每次只处理配置的一频 |
+| 清理sensor | `raw_stock_period_retirement_cleanup_job_sensor`，`defs/sensors/raw_stock_period_retirement_cleanup_job_sensor.py`；周Raw当期SUCCESS只提交week，月Raw只提交month，两频分别去重 |
+| 两类运行参数 | `defs/run_contracts/stock_period_history_repair.py::StockPeriodHistoryRepairConfig`；`defs/run_contracts/stock_period_retirement_cleanup.py::StockPeriodRetirementCleanupConfig`；共用交付格式位于`stock_period_delivery.py` |
+| 定义登记 | 新job/sensor由现有`load_from_defs_folder`方式登记；sensor分类均为`quote_data/raw/asset_update`并调用`build_sensor_tags`，新sensor定义默认STOPPED，正式启用另行批准。不新增业务资产、动态分区类型或schedule |
+
+| 必须同次迁移的调用方/消费者 | 精确修改内容 |
+| --- | --- |
+| 两个Raw sensor、`stock_period_update.evaluate_daily_sensor` | 20:00、前置事实、三列预检、原按日run key及显式日期；删除旧ready/水位/待办门槛 |
+| `assets/stock_weekly.py`、`assets/stock_monthly.py`及`stock_period_update.deliver_asset` | 接收更新后的Raw配置，交付本频当期一文件和新原生记录；生成器保证写前范围持久化 |
+| `stock_period_source`、`run_contracts/stock_period`、`io/stock_period_raw` | 显式投影与截止、周月全市场单点、完整单股请求、按键合并、当前运行资源核算；删除本轮已列明的旧缓存接续、范围索引和整股先删分支 |
+| `stock_period_update.report_file_events/report_completion_events`、新op | 改为真实运行内的文件结果与范围事件；集中批量绑定原检查。删除旧回执确认与JSON回写入口 |
+| `stock_period_silver`、`run_contracts/stock_period_silver`、`asset_guards/stock_period_silver_readiness`、Silver两个sensor/job | 新引用、按运行读取范围、批量核原检查与实际输入、完整更新范围、从头重跑；日常不解析旧manifest或继承执行目录 |
+| `checks/stock_daily_checks.py`及新`stock_trading_universe.py` | 仅提取已核实的上市/停牌集合计算，不修改股票日线生产、过滤或检查口径，保留日线原测试并验证新共用结果一致 |
+| 原Raw/Silver文件checks、`stock_period_checks` | 保持原三项检查和真实物化绑定；本次结果检查由两个独立op登记，不能反过来挡日更 |
+| 两个旧CLI及首次建库函数 | 首次建库保留独立用途；Raw指定股票维护改提交新历史修复job；Raw指定闭合周期仍走对应原Raw job。迁移首次建库`replay_events`对旧`completion_reference`的调用，不再创建旧交接引用；日常补事件改为完整重跑登记，不再读旧日常执行目录；删除停用CLI及旧事件补登记job |
+| catalog、运行key治理、拓扑与静态门禁 | 维持四个资产、21列、原文件检查；更新本链触发、交付身份和性能说明，新任务定义、结果检查及日期/用途/频率tag纳入相应静态清单。限定DG，不修改Prod契约、Web/API或股票日线前复权计算 |
+
+以上字段是已批准模式的实现合同，不增加自动维护动作。指定历史与身份维护使用原CLI的独立维护意图提交到同一历史修复job，不能新增自由SQL、任意路径、旧源或未经确认的证券身份。
+
+
+#### 13.10.5 Silver、文件处理与性能预算
+
+**Silver字段迁移。** `source_completion`始终为本节Raw三字段引用，不是任意文件路径。Silver物化沿原`goldenshare/silver_source`、`silver_source_version`、`silver_reference_versions`、`silver_rule`、`silver_lower`、`silver_asof`，分别保存实际使用的Raw路径、文件身份、正式参考文件身份、规则及历史下限和截至日；`goldenshare/silver_source_completion`改为实际采用的Raw三字段引用，`goldenshare/silver_execution_id`改为本次真实Dagster运行UUID。它们只描述本次物化，不用于定位私有执行目录。
+
+Silver写前范围使用自身资产的`AssetObservation`，键`goldenshare/silver_update_scope`，字段为`version='stock-period-silver-update@1'`、`phase='planned'或'files_complete'`、`producer_run_id`（本次Silver UUID）、`freq`、`business_date`、原输入`source_completion`、适用`periods`和`periods_hash`。源范围按既有2014下限裁定；先保存完整范围再写。逐文件实际Raw引用可因合法较新交付而不同，记录在该文件物化，不能用整批最新日期替代每份输入。消费完成仍要求本次运行SUCCESS和适用范围原检查完整通过。
+
+`stock_period_silver.resolve_update_sources(lake, freq, reference, instance, *, cancel=...)`不再接收旧回执staging参数，从当前正式文件、最新对应物化、该物化绑定的原检查和真实成功运行核实实际输入，使用物化中的新Raw引用查其完整范围。旧私有回执的父子链和版本目录删除；不另建原始文件的跨运行索引。两次批量SQL读取物化与检查的现有办法保留，按运行读取观察记录，不恢复逐文件目录及事件历史查询。
+
+**文件处理实现约束。** `assemble`按本次验证通过的源记录一次列式归一化并按`freq/period`分组暂存；`period`只作为运行暂存目录坐标，不进入正式21列。逐个目标只读取对应源组和该份旧全市场文件，按`(ts_code,trade_date,freq)`合并；同一键源截至日不早于旧记录时采用源，较早时保留较新旧记录。源未返回的旧键保留，其他股票整行保留。不能把全部旧全市场文件合成常驻`old`表，也不能每处理一个文件都重新扫描全部源历史。候选按原21列顺序和类型写出，复用`execute`的COPY路径绑定、`validate_file`、同设备原子提升及原检查。源分组文件属于本运行的数据暂存，不是上市名单、历史范围索引或重跑状态。
+
+文件预算除上述F份旧文件读取及F份候选写入，还须计入既有`validate_file`的schema、业务键/周期扫描及整文件SHA-256读取。提升后的原检查若未命中本次准确文件版本缓存，还会执行一次相同核验；原三项检查共用该结果，不能写成重复三次读取21列。下表四文件耗时已包含候选和提升后核验函数，不能据此省略正式实现中的原检查、fsync及资源检查，或把文件数当成实际磁盘读取次数。
+
+指定闭合周期补齐按第13.7节完整周期覆盖规则生成全市场文件；单股回刷仍不新建缺失的整份全市场文件。独立首次建库可以从本次实际完整产出验收，但不写`baseline.json`或为日更保存建库完成标记。
+
+独立首次建库的`replay_events`保留实际文件及原检查的补登记能力，使用本次明确审计输入供Silver首次建库消费；不把runless建库事件包装成真实运行UUID，不生成本节日常`DeliveryRef`。Silver首次建库仍接收其专属`execution_id/audit_report`，新日更从真实Raw运行的原生记录开始。旧交接标记、`completion_reference`及其读写者随新日常链清退，不在首次建库入口保留旧日常合同。
+
+**本次实测。** 下表均在2026-11-11完成。只读正式输入，候选和原子替换只作用于`/private/tmp`副本；临时目录的写盘设备不是正式datasource设备，候选写入秒数不能替代正式目标盘吞吐。秒数为该次观测，不是截止保证；文件大小为字节。代码列统计的压缩列大小来自Parquet footer，不等于操作系统实际磁盘IO或缓存读取量。
+
+| 验证对象 | 实测数量、字节及时间 | 结论范围 |
+| --- | --- | --- |
+| 两频全市场三列HTTP | 各5,575行、200,877 B；周0.257561秒，月0.177809秒；均截至20261110 | 字段投影、请求坐标和响应量真实有效；不表示11日全市场已更新 |
+| 分页 | 每频`2行@offset0`加`2行@offset2`与`4行@offset0`逐项相同；6次分页样本均符合limit | 已验证当前HTTP端点的limit/offset行为；正式满页仍须遵守全链截止及短页结束规则 |
+| 单股完整历史 | `301393.SZ`周172行/26,074 B/0.117726秒，月41行/6,600 B/0.158442秒，原21列合同通过 | 明确不传日期过滤，源日期可定位213份文件；样本不替代所有股票历史验收 |
+| 当日集合与覆盖计数 | 按既有日期SQL，11月10日在市集合5,580、全日停牌7、要求5,573；两频各覆盖全部要求代码、返回2个可选代码，要求缺失、过旧和重复均0；本地读取及计数周0.265039秒、月0.014409秒 | 要求/可选集合按具体代码比较，不读取股票日线；这些计数是本次正式参考文件的观测，不作为固定股票数 |
+| 周Raw代码列统计 | 1,823份；全文件共302,385,873 B，其中`ts_code`压缩列合19,258,647 B。两轮SQL统计0.503990秒、0.580941秒；枚举加stat0.029189秒 | `301393.SZ`命中172份/172行；`000016.SZ`命中0。没有读取全历史价格明细 |
+| 月Raw代码列统计 | 432份；全文件共73,153,535 B，其中`ts_code`压缩列合4,049,429 B。两轮SQL统计0.071130秒、0.090114秒；枚举加stat0.005793秒 | `301393.SZ`命中41份/41行；`000016.SZ`命中0。统计进程峰值139,460,608 B |
+| 源一次分组 | 213源行生成213个运行暂存周期文件，合661,737 B，0.085497秒；逐组可按原顺序完整读取21列 | 证明列式分组及按目标读取可行；该进程峰值256,802,816 B |
+| 四份候选与原检查函数 | 输入为11月6日周、11月13日周、10月及11月：各5,574/5,575/5,576/5,575行，输入文件合1,811,682 B。完整重做的每文件合并、候选校验、替换及原检查共用核验函数耗时0.027619/0.029289/0.027486/0.026780秒；四份合并候选合1,243,837 B | 一份先处理后再从第一份重做四份；SQL层模拟中断重做，源响应作为固定真实样本复用。不是新job跨进程重跑端到端验收 |
+| 隔离按代码移除 | 四文件各移除模拟对象一行；完整重做时第一份已无该代码，不重写，但仍验证完整原范围。其余三份分别0.021014/0.020022/0.020374秒；最后四份残留与重复均0，单文件最后计数0.000832至0.000868秒 | 股票移除只作用于临时副本，不把在市`301393.SZ`当成正式退市。列式文件验证进程峰值210,059,264 B |
+| 独立价格金样本 | 取真实源当周`close_qfq=53.54`，临时旧值设54.54：截至日相同时合并得到53.5400；临时旧记录截至11日、源截至10日时保留54.5400。其他股票保持 | 值来自真实源，旧值变更为明确的隔离测试输入；验证按键更新和较新记录保护，不声称生产发生该变更 |
+| 隔离HTTP worker | 三列成功、503失败、延迟三例各只发1次；用时0.169233、0.137465、1.013828秒。延迟例人为注入1秒测试截止，不是生产配置；worker峰值64,618,496 B | 复用现有独占worker，在子进程内显式三列投影接缝验证，无正式源码修改；证明单次尝试及超时清理，不声称完整新sensor已经实现 |
+| 分页共用截止 | 用真实两行分页样本及人工逻辑时钟注入3秒总截止：正常三次调用分别只剩3/2.5/2秒；第二页耗尽时仅调用两次且返回未齐；预先过期时调用0次 | 验证分页共用剩余时间，不是每页重置；3秒及逻辑时钟仅为隔离测试输入，不是生产30秒配置或真实传输实测 |
+| 隔离Dagster记录 | Dagster 1.13.26，真实运行`43978ad6-8898-4d74-bb8c-12d4887b0fb9`：2观察、1物化、3绑定的原文件检查及1结果检查，共7条业务记录；0.741770秒。计划在下一生成器步骤前已可按该运行读回；日期/用途/频率tag、SUCCESS筛选和cleared_codes读回通过，错误用途过滤查不到该运行 | instance、run/event storage及DAGSTER_HOME均在临时目录、遥测关闭；不是正式PG吞吐或新流程完整集成测试 |
+
+本次有两项验证程序错误已纠正：第一次COPY未调用项目既有`execute`路径绑定，定点复制前失败；改用该函数后原字段与文件检查通过。第一次隔离Dagster启动漏覆盖DAGSTER_HOME，遥测尝试写正式`.telemetry`目录被权限拦住，未进入业务验证；明确临时DAGSTER_HOME并关闭遥测后重新验证成功，正式该目录未创建。失败事实保留在本节，原临时日志在本步收尾统一清理，不能把失败运行计作通过。
+
+**执行量和预算计算。** 预算以实际H（本次源行数）、K（本次股票数）、F（去重目标文件数）、N（本频规范历史文件数）、源页数P及实际字节复算，不新增无依据倍率。
+
+| 场景 | 请求、计算、存储及最后验收 |
+| --- | --- |
+| 当期单频 | 本样本1页三列预检，加job内1页21列正式下载；正式页的技术重试另沿原最多3次尝试。前置事实只读当天，合并1份Raw并接续1份Silver。预检各页共用30秒，末次worker清理沿现有最多两个1秒等待；到期不提交。60秒是现有sensor间隔，不能误当成每页新的请求时间 |
+| K股两频历史 | 源单元2K，HTTP次数为各单元页数及既有重试实际累计；H行一次列式分组，处理F份旧Raw、F份候选和F次逐文件替换。每次只保留一个旧全市场文件的处理范围，源暂存和spill沿32 GiB/16 GiB限制。Silver只处理本次适用周期，不重复全历史审计 |
+| 非零退市清理 | 本频N份代码列一次定位，再N份代码列残留核验；仅F命中文件读21列、候选和替换。当前两频各自执行的两轮代码列统计总次数为2×1,823及2×432，样本SQL累计分别1.084931秒和0.161244秒；两个频率不在同一次清理中混读。零名单N与F均不读取，仍登记结果 |
+| 业务记录与读取 | 独立任务R个频率、F个交付文件时，最多F物化+3F原文件检查+R写前范围+R文件范围+R结果检查，合4F+3R条业务记录，不包含引擎和日志事件。单股样本F=213、R=2，合858条；原正式11月10日恢复已经完成8,043项原检查，原生事件容量有既有事实依据。本轮不把临时SQLite的0.741770秒套作正式PG耗时；输入按运行和周期集合批量读取，不按F增加数据库往返 |
+| 一次中断再完整重跑 | 重新取所有源单元，K不变时逻辑源单元最多合4K，页/重试按实际累计；两次目标为F₁、F₂，则候选、校验和替换最多各F₁+F₂。代码列统计按2N₁+2N₂计。记录数量按两次各自完整范围计算；最后以完整本次范围核对原检查、实际文件和股票残留。退市重跑另按实际原生祖先数A计入A次运行/观察读取，找到最近写前范围即停止；这不是传感器日常历史扫描。当前源分组、单份候选及spill计入本运行32 GiB工作目录准入，旧运行剩余目录另计同设备已用空间，不能误称新旧两份执行共用一个32 GiB上限 |
+
+在本次单股213份目标、且每文件与四份样本规模相近的假设下，仅文件合并/校验/替换部分按样本最小0.026780至最大0.029289秒逐项乘213，推算5.704140至6.238557秒；这是样本推算，不含源请求、分组、正式事件写入、Silver或最后核验，不能作为任务总耗时或上界。其他规模只按实际文件大小与行数规划，不直接乘旧总耗时或擅自加余量。新代码完成后在第6阶段测量真正链路，正式源/写湖和PG写入验收按原授权边界另行执行。
+
+拒绝条件直接沿现有响应、源单元、内存、工作目录、spill及完整交付限制；预检过期或源不齐等待，job资源不足或原检查失败按原规则报错，后续从头重跑。不能自动抬升4 GiB默认进程额度，不能把本次样本或旧单次恢复额度推广成全规模性能保证。
+
+#### 13.10.6 四项对账与开工复核
+
+| 第13.9节事项 | 本步结果 | 编码及回归必须落实的位置 |
+| --- | --- | --- |
+| 预检入口 | 第13.10.2节已定稿；真实三列及分页、现有worker投影接缝/无重试/截止验证完成 | 新readiness、共用集合SQL、`HttpPage`和请求构造；正例含新股、全日停牌有/无/较早记录，反例含缺码、同数换码、旧日期、重复、字段不符、满页和到期 |
+| 交付及运行参数 | 第13.10.3及13.10.5节字段、版本、生成器写前边界、原范围重跑、原三项检查绑定和Silver读取已定稿；隔离原生记录读回通过 | 新delivery合同、Raw/Silver生产与读取、两个独立op、既有CLI；同步清零旧引用，不保留旧JSON兼容。验证生成器先保存范围、零结果、完整范围重跑及真实物化绑定 |
+| 新定义 | 第13.10.4节两个job、两个sensor、op、配置和消费者已明确；修正清理job Raw前缀 | Definitions、分类tag、运行key、catalog中的既有合同说明及静态清单。自动模式只监听两个当期Raw，人工维护不挂新sensor，周/月清理分别提交 |
+| 性能 | 第13.10.5节按真实响应、全历史代码计数、四文件处理、源一次分组及原生记录验证，写清正常、一次完整重跑和最后验收成本 | 资源核算必须分别覆盖本运行源与候选及spill、本设备已占用的旧运行目录，以及事件；回归限制按实际H/K/F/N和现有资源，不引入未批准的自动扩大或源请求 |
+
+**最终审计记录。** 已逐项复核第13.2至13.10节、原方案第10.19节、月线第11节及运行契约、运行key和拓扑引用。预检、当期Raw/Silver、两频复权因子回刷、单频退市清理、人工补做、首次建库及旧实现清退的输入、输出和消费位置均有对应；同日自动回刷和指定原日补做的参数区别已写明。10次真实HTTP及四份隔离文件结果已逐项核对，分页共用截止和原生记录能力验证通过；新增引用检查、`check_docs_integrity.py`及本次文档`git diff --check`通过。测试仍只证明本节明确的现有能力和隔离边界，不是新流程源码或正式任务验收。正式股票周月链源码未修改，未重载或提交正式任务。
+
+**复核结论。** 四项编码前准备已补齐；第1阶段完成，具备进入第2阶段源码开发的条件。新流程的正式实现、端到端集成及上线验收尚未执行，后续逐阶段按本方案实施并对账。这里的“可开工”只指相应源码开发，不等于允许重载正式code location、启停sensor、执行正式job或改写Lake。

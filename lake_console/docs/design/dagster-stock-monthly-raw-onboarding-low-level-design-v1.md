@@ -317,11 +317,11 @@ curl --max-time 25 --fail-with-body --silent --show-error \
 
 ## 11. 当月全市场单点预检与日更
 
-本节对应[原方案第10.19节](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#stock-period-daily-then-history)和[周月线LLD第13节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-daily-then-history-lld)。预检、日更交付、因子回刷、Dagster记录及切换沿共享规则，月线只补下列差异。
+本节对应[原方案第10.19节](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#stock-period-daily-then-history)和[周月线LLD第13节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-daily-then-history-lld)。预检、日更交付、因子回刷、Dagster记录及切换沿共享规则，月线只补下列差异。 三列传输、原生交付字段、新任务及实测预算统一见[周月线LLD第13.10节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-implementation-contracts)。
 
 - 上海时间交易日20:00起，月线sensor用同日已验收的在市名单减去当日全日停牌，得到应更新代码集合。输入`freq=month, trade_date=自然月末`，首请求带既有`limit=6000, offset=0`。例如11月10日请求`trade_date=20261130`，只取`ts_code, trade_date, end_date`，每个应更新代码都须有一条当月记录且`end_date=20261110`。全日停牌股票允许有有效记录，也允许缺席。未齐时按原检查间隔重查，通过才提交月Raw。
 - 月Raw正式下载沿相同单点请求并核原21列，只交付`month=2026-11/data.parquet`这一类当期文件。全日停牌股票有有效返回就合并，无返回则保留原记录。当天新上市股票由当月全市场日更写入首根月线。月Silver按通过检查的实际Raw交付接续。同日两频Raw日更均完成并通过检查后，复用现行Silver股票复权因子生产、验收及相邻日比较，独立回刷复权因子变化股票。
-- 月Raw当日成功并通过原检查后，成功事件sensor向独立清理job提交`freq=month`。只清月线Raw，实际变更再由月Silver接续。周线成功时独立提交周清理，两频分别记录结果。详见[周月线详细设计第13.8节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-retirement-cleanup)。
+- 月Raw当日成功并通过原检查后，成功事件sensor向独立清理job提交`freq=month`。只清月线Raw，按退市股票代码统计全部历史月文件，只改命中文件，包含正式上市前记录；月Silver按本次完整交付范围接续。周线成功时独立提交周清理，两频分别记录结果。详见[周月线详细设计第13.8节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-retirement-cleanup)。
 - 2026年11月全市场三列实测，`trade_date=20261130`与原月初至月末范围各5,575行，三列双向差集为0。2026年10月单股最后交易日`20261030`返回0行，自然月末`20261031`返回1行。2020年2月范围曾返回28日与29日两种标签，现存历史按原合同保留。全市场当月日更、预检和指定闭合月补齐使用自然月末单点，单股完整历史按`ts_code + freq=month`获取，不传`trade_date`、`start_date`或`end_date`，沿用既有分页。
 
 月线专项回归须证明自然月末非交易日仍按自然月末请求、输入`trade_date`与输出`end_date`分别核对、正式下载与预检使用同一坐标。新回刷任务失败后按原业务范围整批重跑，按源返回的历史日期定位月文件，验证重跑后月线无重复记录、较新的当期行情得到保留。按共享规则清退`baseline.json`、建库交接标记和跨批文件版本目录。历史回刷遇到整月文件缺失时走该月全市场补齐。补建整月文件时，逐日计算应更新代码并取并集。覆盖核对用每只股票在该月最后应更新日，允许源后来重算到更晚日期，Silver用实际交付日期。某日因当期交付不齐而未触发回刷时，沿共享规则核实Raw并按原复权因子日期提交。范围、耗时、重跑和补齐见周月线LLD第13.4至13.7节。

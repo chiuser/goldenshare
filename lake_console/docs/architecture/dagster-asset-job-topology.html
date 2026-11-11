@@ -1362,10 +1362,20 @@
       <a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-bootstrap-event-replacement-20261013">周线LLD A21</a>记录范围、执行参数和恢复口径。
     </div>
 
+    <div class="note" id="period-history-repair-planned">
+      <strong>股票周月线历史修复（待开发）。</strong>
+      <code>raw_stock_period_history_repair_job_sensor</code>监听两频当期Raw成功，
+      同业务日两频完整交付后提交<code>raw_stock_period_history_repair_job</code>；
+      新股随当期同步，复权因子变化股票进入两频源历史回刷。
+      同一job承接显式指定历史和已确认身份维护，人工模式不挂自动触发。
+      两个新sensor默认STOPPED；完整参数、交付字段与实测见
+      <a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-implementation-contracts">周月线LLD第13.10节</a>。
+    </div>
+
     <div class="note" id="period-retirement-cleanup-planned">
       <strong>周月线退市清理（待开发）。</strong>
       成功事件sensor监听两个Raw日更job，分别向同一个
-      <code>stock_period_retirement_cleanup_job</code>传入周或月频率。
+      <code>raw_stock_period_retirement_cleanup_job</code>传入周或月频率。
       每频以自身Raw当期日更完整交付、原检查通过及运行成功为条件；
       周清理只处理周Raw，月清理只处理月Raw，无需等待另一频。
       业务日期取上游运行配置，同频Silver接续实际变化。
