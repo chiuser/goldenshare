@@ -2,6 +2,8 @@
 
 正式取数、Serving 日更、历史补数和切换清理规则已确认。分页与发布首期的实测记录见 §2，实施前核验见 §8。业务范围和规则见[原方案](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md)。本文按[数据集开发说明模板](/Users/congming/github/goldenshare/docs/templates/dataset-development-template.md)细化两个已有数据集。
 
+2026-11-11 进度：前三阶段核心开发已提交，未使用工作流的移除已提交为 `7482c30df`。第四阶段的开工准备和代码依据见 §9.4；该阶段尚未编码，生产切换尚未执行。历史补数记录不代表新版本已部署。
+
 ## 1. 任务与数据范围
 
 | 任务 | 输入和触发 | 读写边界 |
@@ -236,14 +238,14 @@
 
 2026-11-10 19:30（上海时间）验收。Raw 新增一行、Serving 更新一行，均为 `2024-09-30`，两层的九个行情字段一致，来源均为 `derived_daily`。9 月 27 日 Raw 行数为零。原 Serving 行的回退备份为 `/private/tmp/goldenshare-a500-monthly.TfxBwSm8/serving-before.jsonl`。
 
-## 5. 拟改位置与现行消费者
+## 5. 实现位置与现行消费者
 
-| 位置 | 现行行为和拟改边界 |
+| 位置 | 现行实现和阶段边界 |
 | --- | --- |
-| DatasetDefinition、计划与请求 | 第一阶段已将[数据集定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/index_series.py)的周、月线正式维护改为 `raw_collection`、`raw-only`、`raw_only_upsert`，目标表和写入 DAO 指向各自的 Raw。保留两个数据集的身份、源字段和正式维护入口。[日期规划](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)已使用完整周历和月历校验单日期末，区间只取输入范围内的实际期末。Ops 提交意图，Resolver 和 planner 展开范围，request builder 映射源参数。第三阶段在现有动作声明中补上 §3.1 的排程规则。 |
-| 正式 Raw 和 Serving 写入 | 正式 Raw 已按 §4.1 写入，第二阶段的独立 Serving 执行器调用 Foundation 读取、计算并写入周期行情。第三阶段移除[写入器](/Users/congming/github/goldenshare/src/foundation/ingestion/writer.py)中仍保留的 `raw_index_period_serving_upsert` 分支及专用逻辑。现有[通用发布服务](/Users/congming/github/goldenshare/src/foundation/serving/publish_service.py)的两项指数周期线 builder 按 `(ts_code, trade_date)` 定位，第三阶段撤除其注册和相关引用，统一按 §4.2 的周期唯一键和独立池更新。 |
-| 旧合成入口 | 移除 [动作和工作流目录](/Users/congming/github/goldenshare/src/ops/action_catalog.py) 的 `maintenance.rebuild_index_kline_serving` 和 `index_kline_maintenance_pipeline` 的合成末步 `rebuild_index_serving`，以及 [dispatcher 执行代码](/Users/congming/github/goldenshare/src/ops/runtime/task_run_dispatcher.py)。核对调度、手动、工作流、发布和重试引用。历史任务仍可读，旧维护动作的重试在创建任务时按现有动作目录校验拒绝。「指数K线全链路维护」继续接受日期区间，周、月步骤各自按区间内的实际期末只写 Raw。区间内无对应期末时，该步骤零次取数，后续步骤继续。同步更新工作流的描述和目录说明。 |
-| 未使用的指数工作流 | 按管理员确认删除 `index_extension_maintenance`（指数扩展数据维护）的完整定义及现行目录说明。目录和手动入口继续从注册表生成，不另加前端过滤或兼容入口。保留五个数据集各自的维护动作及 `index_kline_maintenance_pipeline`。具体实施和验收见 §9.3。 |
+| DatasetDefinition、计划与请求 | 第一阶段已将[数据集定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/index_series.py)的周、月线正式维护改为 `raw_collection`、`raw-only`、`raw_only_upsert`，目标表和写入 DAO 指向各自的 Raw。保留两个数据集的身份、源字段和正式维护入口。[日期规划](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)已使用完整周历和月历校验单日期末，区间只取输入范围内的实际期末。Ops 提交意图，Resolver 和 planner 展开范围，request builder 映射源参数。第三阶段已在动作声明中补上 §3.1 的排程规则。第四阶段复用这些定义，不再修改源接口或执行计划合同。 |
+| 正式 Raw 和 Serving 写入 | 正式 Raw 已按 §4.1 写入，第二阶段的独立 Serving 执行器调用 Foundation 读取、计算并写入周期行情。第三阶段已从[写入器](/Users/congming/github/goldenshare/src/foundation/ingestion/writer.py)删除 `raw_index_period_serving_upsert` 分支及专用逻辑，并从[通用发布服务](/Users/congming/github/goldenshare/src/foundation/serving/publish_service.py)撤除指数周、月线 builder 及相关注册。现在统一按 §4.2 的周期唯一键和独立池更新。第四阶段不重写这些更新流程。 |
+| 旧合成入口 | 已从 [动作和工作流目录](/Users/congming/github/goldenshare/src/ops/action_catalog.py) 移除 `maintenance.rebuild_index_kline_serving` 和 `index_kline_maintenance_pipeline` 的合成末步 `rebuild_index_serving`，并删除 [dispatcher 执行代码](/Users/congming/github/goldenshare/src/ops/runtime/task_run_dispatcher.py)。调度、手动、工作流、发布和重试引用已核对。历史任务仍可读，旧维护动作的重试在创建任务时按现有动作目录校验拒绝。「指数K线全链路维护」继续接受日期区间，周、月步骤各自按区间内的实际期末只写 Raw。区间内无对应期末时，该步骤零次取数，后续步骤继续。 |
+| 未使用的指数工作流 | 已按管理员确认删除 `index_extension_maintenance`（指数扩展数据维护）的完整定义及现行目录说明。目录和手动入口继续从注册表生成，没有另加前端过滤或兼容入口。五个数据集各自的维护动作及 `index_kline_maintenance_pipeline` 保留。具体实施和验收见 §9.3。 |
 | 自动任务配置、预览和执行日期 | 正式 Raw 动作的策略由 [DatasetDefinition](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/index_series.py) 声明，[数据集排程策略解析器](/Users/congming/github/goldenshare/src/ops/services/dataset_schedule_time_policy_resolver.py) 负责读取。Serving 动作由 [维护动作目录](/Users/congming/github/goldenshare/src/ops/action_catalog.py) 声明日更排程。[自动任务能力解析器](/Users/congming/github/goldenshare/src/ops/services/schedule_automation_capability_resolver.py) 将四项动作的能力提供给目录接口与表单。[自动任务服务](/Users/congming/github/goldenshare/src/ops/services/operations_schedule_service.py) 校验配置、统一计算预览与下次运行时间，[排程转任务](/Users/congming/github/goldenshare/src/ops/services/task_run_service.py) 按计划触发时刻保存目标日。[自动任务页面](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-auto-tab.tsx) 和 [API 类型](/Users/congming/github/goldenshare/frontend/src/shared/api/types.ts) 消费同一动作声明，显示固定日期规则、执行时刻和预览。Raw 卡片在第 4 阶段使用 §3.1 的同一规则判断应到期末。 |
 | Serving 手动控件与盘后日更 | [手动任务](/Users/congming/github/goldenshare/src/ops/services/manual_action_service.py) 复用现有单日输入和代码筛选契约。盘后日更在 [dispatcher](/Users/congming/github/goldenshare/src/ops/runtime/task_run_dispatcher.py) 依据维护动作、`schedule_id` 与已保存的目标日执行 §4.2 的截止规则。手动补数和系统触发的上月期末更新沿用 §4.2 的日期校验。 |
 | 正式月线入库后触发 Serving | [Worker 任务收尾](/Users/congming/github/goldenshare/src/ops/runtime/worker.py) 按 §4.2 识别正式月线自动任务或其重试。只在最终状态为成功且本次实际保存了有效 Raw 行时调用 [`stage_task_run`](/Users/congming/github/goldenshare/src/ops/services/task_run_service.py)，为该 Raw 任务创建一条独立的月线 Serving 任务，目标日期取原 TaskRun，`trigger_source=system`，`schedule_id` 为空。入队和原任务及其当前节点的成功终态在同一 Ops 事务提交。入队或该事务失败时，在原任务详情记录收尾错误并保留已提交的 Raw。原任务可按 §4.1 重新请求，已入队的上月 Serving 任务可以单独重试。 |
@@ -259,7 +261,7 @@
 
 ### 5.1 数据后台的 Tushare 和 Biz 卡片
 
-现有 Tushare 列表按逻辑数据集建卡，周、月线各一张。页面优先显示 Raw 表名，但观测取自 Definition 的目标表，周、月线当前都指向 Serving。Biz 列表已有独立卡片查询，现有按日期观测的实现读取表内最新一条业务日期。 [Tushare 卡片查询](/Users/congming/github/goldenshare/src/ops/queries/dataset_card_query_service.py) · [状态观测](/Users/congming/github/goldenshare/src/ops/queries/freshness_query_service.py) · [Biz 卡片查询](/Users/congming/github/goldenshare/src/ops/queries/biz_table_card_query_service.py)
+现有 Tushare 列表按逻辑数据集建卡，周、月线各一张；第一阶段已将两项 Definition 的目标表改为 Raw，现有观测随之读取 Raw。尚需补上正式来源过滤和按 §3.1 配置时刻判断应到期末。现有 Biz 目录没有这两张 Serving 卡片，通用日期观测仅取最新业务日期，不能判断整个激活池是否更新齐全。 [Tushare 卡片查询](/Users/congming/github/goldenshare/src/ops/queries/dataset_card_query_service.py) · [状态观测](/Users/congming/github/goldenshare/src/ops/queries/freshness_query_service.py) · [Biz 卡片查询](/Users/congming/github/goldenshare/src/ops/queries/biz_table_card_query_service.py)
 
 | 列表和卡片 | 状态和日期依据 | 维护入口 |
 | --- | --- | --- |
@@ -267,6 +269,40 @@
 | Biz · 指数周线 Serving、指数月线 Serving | 通过 [Biz 卡片目录](/Users/congming/github/goldenshare/src/ops/catalog/biz_dataset_definitions.py) 分别关联 §1 的两张 Serving 表。展示日更目标交易日、池内已更新数／应更新数和最近 Serving 任务结果。按目标日所属的周期键查池内记录，`trade_date` 达到目标日的代码计为已更新。应更新数取整个周、月线激活池，首期为 10。 | 分别关联 §4.2 的 Serving 手动更新动作和已配置的自动任务。手动更新沿用 §4.2 的目标日与代码选择。失败详情沿用现有任务详情。 |
 
 复用 [卡片接口](/Users/congming/github/goldenshare/src/ops/api/dataset_cards.py)、[Tushare 页面](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-tushare-page.tsx)、[Biz 页面](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-biz-table-page.tsx) 和 [共用卡片页面](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-source-page.tsx)。后端提供目标日、覆盖数和对应任务结果，前端展示这些值。Serving 日更覆盖以该频率排程应处理的最新交易日为目标，仅查询该周期和池内代码。单条最大 `trade_date` 不能作为全池已更新的依据。人工补历史和自动更新上月期末的任务结果按其实际目标日显示，卡片的日更覆盖仍以当前应更新的交易日为准。
+
+### 5.2 第四阶段卡片字段与消费位置
+
+沿用 `GET /api/v1/ops/dataset-cards`。`source_key=tushare` 保留原两张 Raw 卡；`source_key=biz_tableset` 在 [Biz 目录](/Users/congming/github/goldenshare/src/ops/catalog/biz_dataset_definitions.py) 增加 `index_weekly_serving` 和 `index_monthly_serving`，名称分别为「指数周线 Serving」「指数月线 Serving」，生产者为 §4.2 对应维护动作，目标表为 §1 对应 Serving 表。其余列表的来源筛选保持现状。
+
+两张 Biz 卡复用已有 Tushare 展示目录的 `index_market_data`／「A股指数行情」名称，在 Biz 目录显式登记该组。Biz 当前四组的排序为 10、20、30、40，新增组按现有步长排在其后，`group_order=50`，周、月两项的 `item_order` 分别为 10、20；这些是展示顺序，不是运行配置。两项的 `observation_query_key` 与 `freshness_policy_key` 均登记为 `index_period_serving`，由 Biz 查询按本节及 §5.3 读取实际覆盖；`business_date_column=trade_date`、`observed_at_column=updated_at`、`ready_after_local_time=None`，时刻统一从 §3.1 的排程读取。相应 Literal、合法值集合和目录 lint 同步更新，不将展示分组写回 Foundation。
+
+在 [DatasetCardItem](/Users/congming/github/goldenshare/src/ops/schemas/dataset_card.py) 和 [前端接口类型](/Users/congming/github/goldenshare/frontend/src/shared/api/types.ts) 同步以下字段。前端不得从任务日期、保存量或表内最大日期自行计算覆盖。
+
+| 字段 | 类型和含义 | 适用范围 |
+| --- | --- | --- |
+| `expected_business_date` | 沿用现有可空日期字段。Raw 表示最近应到的正式期末；两张 Serving 卡表示当前日更覆盖目标交易日。 | 四张卡均由后端日期规则生成。 |
+| `updated_code_count` | 新增可空整数。当前周期内，池内 Serving 记录的 `trade_date` 达到目标日的不同代码数。 | 仅两张 Serving 卡填写，其他卡为空。 |
+| `expected_code_count` | 新增可空整数。读取 `index_period_serving` 后得到的完整池大小，不受某次手动任务的代码筛选影响。 | 仅两张 Serving 卡填写，首期已初始化时为 10。 |
+| `latest_task_run` | 新增可空的现有 `TaskRunListItem`，复用其任务 ID、状态、实际时间范围、保存量和问题摘要；无记录时为空。 | 两张 Raw 卡填写对应正式取数任务，两张 Serving 卡填写对应维护动作任务。其他卡沿用现有展示。 |
+
+两张 Serving 卡的 `latest_business_date` 继续表示已保存数据的实际最新日期，不能替代 `expected_business_date` 或覆盖数。任务结果保留任务自己的 `time_scope`，不能将历史任务的目标日期写进当前覆盖目标。两张 Raw 卡继续展示正式观测日期和正式取数结果，不增加 Serving 合成量。
+
+最近任务按 Raw 的 `task_type=dataset_action`、`resource_key`、`action=maintain`，或 Serving 的 `task_type=maintenance_action`、`request_payload_json.target_key` 筛选，再按 `requested_at`、`id` 倒序取一条，沿用任务查询现有的 `TaskRunListItem` 投影。现有 Biz 运行统计只有成功／失败时间和排程数量，不能提供任务 ID 与实际目标日，不能用这些时间拼装任务结果，也不应读出全部历史任务后在内存选取。
+
+[共用卡片页面](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-source-page.tsx) 增加覆盖数、最近任务的实际日期及状态展示。维护按钮继续使用后端的 `primary_action_type/primary_action_key` 和现有 `buildManualTaskHref`；任务详情链接使用 `latest_task_run.id` 进入现有 `/app/ops/tasks/{id}`，错误明细和重试沿用该页。Tushare 卡维持现有维护按钮的显示规则，Biz 卡维持手动维护入口。日期、任务结果和覆盖数由后端提供，页面只格式化和跳转。
+
+同一响应类型还被 [数据总览](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-overview-page.tsx) 和 [数据集详情](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-dataset-detail-page.tsx) 使用；新增字段为可空附加事实，回归其现有日期与状态展示，不扩大页面功能或新建卡片接口。编码时同步 [Ops API 参考](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md) 的卡片字段说明。
+
+### 5.3 第四阶段日期、覆盖与状态查询
+
+1. **排程和配置。** 消费 §3.1 已有的四项 `ops.schedule` 配置及其动作日期策略、`cron_expr` 和上海时区，复用 [指数周期线排程计算](/Users/congming/github/goldenshare/src/ops/services/index_period_schedule.py)。在该模块补充查询「截至当前时刻，最近已到执行时刻的触发点」的方法，并交给现有 `index_period_target_date` 得到目标日；不能直接把下次运行时间或最新任务日期作为应到日期。日期判断与排程启用／暂停状态分别展示；暂停不产生新的配置默认值。若同一动作已有多条合法配置，取这些配置算出的最新应到目标日，不新增排程数量限制。未配置时刻或缺少必要日历时，沿用未知／未配置状态和说明，不擅自按 22:00 或机器日期推定应到日期。
+2. **Raw 应到期末。** 周线用该周最后一个开市日及其配置时刻，时刻未到时仍以此前已到的期末判断；月线用次月首个交易日的配置时刻，时刻未到时不能提前要求上月正式数据。自然周、自然月和真实期末均用完整日历，短周及月初休市沿用第三阶段规则。日期方法按自然周期读取所需日历，不读取行情来推定日期，不扫描全部历史交易日来找触发点。
+3. **正式来源。** 在 [观测过滤注册表](/Users/congming/github/goldenshare/src/ops/dataset_observation_registry.py) 为两项 Raw 观测登记 `api_name=index_weekly` 或 `api_name=index_monthly`。实时观测、快照重建和任务完成后的定向刷新均使用该过滤。中证 A500 的人工 Raw 行不能计为正式到数。按相同来源过滤后取得实际最近正式期末，保留源返回的 `trade_date`。
+4. **Serving 覆盖。** 从 [指数池适配模块](/Users/congming/github/goldenshare/src/ops/index_series_active_store_adapter.py) 读取 `INDEX_PERIOD_SERVING_RESOURCE` 对应代码，复用 Foundation 的完整日历和周期键定义。每种频率仅按目标日所属的 `period_start_date` 与池内代码读取 `ts_code/trade_date`，以 `trade_date >= expected_business_date` 计数；正式值和合成值均按实际截至日计入。空池沿用「激活池未初始化」说明，不能显示为已完成。查询失败沿用现有未知状态，不写入或补算行情。
+5. **卡片状态与任务结果。** 当前覆盖由上一步真实记录判断。池非空且覆盖齐全时使用现有 `healthy/fresh`；有应到目标但覆盖未齐时不能显示正常，使用现有 `warning/lagging`。若该目标日最近任务已失败且覆盖未齐，卡片显示现有失败状态；没有目标、池未初始化或读取失败时显示未知及相应说明。运行中状态沿用现有任务运行状态；最近任务的成功、失败或历史补数结果按该任务自己的目标日独立显示。当前目标少一个代码时必须显示实际 `9/10`，不能因最新一次单代码任务成功或有一条最新 K 线就显示 `10/10`。人工补历史、上月正式覆盖以及两种频率之间均不互相改变当前覆盖目标。
+6. **快照和任务详情。** [快照服务](/Users/congming/github/goldenshare/src/ops/services/operations_dataset_status_snapshot_service.py) 继续负责 Tushare Raw 状态投影，[任务完成服务](/Users/congming/github/goldenshare/src/ops/services/task_run_completion_service.py) 已使用独立会话定向刷新。快照读取和实时读取都要按当前时刻重新判断应到期末；读取两项快照时核对其 `target_table` 与当前 Definition，来自旧 Serving 目标的观测不作为正式 Raw 事实，沿用未确认状态及既有重建入口，切换时定向重建两项 Raw 快照。Biz 覆盖直接查询两张 Serving 和独立池，不将它们塞进 Tushare Definition 或 Raw 快照。快照、卡片查询或任务诊断失败均不得回滚已提交的行情。
+
+第四阶段不新增 env、Settings、数据库配置项或默认时刻；已有配置的存放、默认值、消费者与生效方式继续以 §3、§3.1 为准。卡片所需变化只涉及 Ops 查询、展示目录、响应字段和前端消费者；不改变 DatasetDefinition、源接口合同、日线池或业务写入事务。正式取数详情已在前三阶段按 `index_period_raw` 诊断排除 Serving 来源统计，Serving 失败已按代码写入现有诊断，本阶段复用并验收，不再另造诊断或审计页面。
 
 ## 6. 长任务、事务与预算
 
@@ -309,6 +345,24 @@
 | 月线按原范围重试 | 230／10 | 8.524 | 5.537 | 1.285 | 15.725 | 0.512 |
 
 按表中样本估算，完整执行加一次原范围重试和一次最终读回，周线约 104 毫秒，月线约 33 毫秒。查询时间包括读取激活池、日历和基础信息。执行总计还包括校验、合成和会话开销。这组单次样本用于第二阶段开工前估算数据库链路，TaskRun 排队、运行状态写入及生产环境并发开销在实现后单独核验。
+
+### 6.3 第四阶段读取和联调预算
+
+- 卡片查询不请求 Tushare、不读取指数日线、不合成或写入 K 线。新增 Serving 覆盖查询每个频率只读取一个周期、池内至多 10 个代码的日期投影，两种频率合计至多 20 条 Serving 记录；一次重新查询再计同等读取量。该数量按首期池上限及现有 `(ts_code, period_start_date)` 唯一约束推导，不是全库扫描行数或耗时保证。两张卡共用本次读到的池及必要日历。
+- 日历仅取日期计算所需的完整自然周或月，每个自然周含 7 个自然日、自然月按实际天数读取；跨月目标另取所需上月，未到本月月线触发点时还需前一正式周期。复用单次请求中已读日历，不取全历史日历或行情。应到时刻按实际配置计算，不新增轮询、自动补拉或重试次数。
+- 同时验收四张卡时，最近任务读取每张至多一条，共至多 4 条任务投影；来源过滤在 SQL 中完成，不将全部任务载入内存。Raw 日期观测复用已有查询并加正式来源过滤，不导出全部 Raw 明细。其余卡片既有查询不因本次接入扩大范围。
+- 隔离联调的正常取数、Serving 更新、中断后按原范围重试和验收读回分别沿用 §6.1、§6.2。使用 §2、§9.2、§9.3 已有真实样本核对输入合同；补充源请求只限这些规则尚未覆盖的具体样本，不全量重跑历史。切换演练仅在隔离数据库，数据规模与行数由所构造的池内、池外样本逐项记录，不把样本耗时当成生产耗时。
+- 编码后的验收记录应分别列出新增卡片查询的 SQL 范围、返回行数、实际耗时，以及正常运行、一次原范围重试和最终读回的实际工作量。当前完整卡片接口尚未实现，下面的隔离 SQL 测量只作为其读取部分的开工估算依据，不从第二阶段写入样本推导毫秒上限。测试产物、构建输出、浏览器记录与临时 PostgreSQL 统一放本任务 `/private/tmp` 目录；只使用已有依赖，不安装或下载套件。验证结束清理临时资源。
+
+开工准备已完成一次隔离 SQL 测量：使用正式项目模型在临时 PostgreSQL 建表，构造首期 10 个代码、当期周线和月线各 10 条、正式 Raw 周线和月线各一条及对应四条任务。目标日使用 2026-11-10，其中一个代码保留 11-09，独立断言两频率均为 `9/10`。分别测量正常查询、同范围重新查询和最后读回；包括池读取、当前周／月完整日历、周期日期投影、正式来源查询和各卡最近任务。该样本只估算新增 SQL 的成本，不声称卡片接口、日期策略新增方法或整个第四阶段已经验收。构造日历只用于隔离查询测量，真实交易日语义继续以 §2、§9.3 已核实证据及本阶段测试为准。
+
+| 2026-11-11 隔离测量 | SELECT 次数 | SQL 返回投影行数 | 耗时（毫秒） |
+| --- | ---: | ---: | ---: |
+| 首次查询 | 11 | 73 | 77.280 |
+| 同范围重新查询 | 11 | 73 | 2.961 |
+| 最后读回 | 11 | 73 | 3.066 |
+
+每次的 11 次 SELECT 为池 1 次、周／月日历各 1 次、周／月 Serving 各 1 次、周／月正式 Raw 各 1 次、四项最近任务各 1 次。73 条 SQL 投影为池 10 条、周历 7 条、月历 30 条、Serving 20 条、Raw 2 条、任务 4 条；其中只有 20 条 Serving 周期记录，不能将 73 说成独立 K 线数或数据库实际扫描量。首次查询、一次重查与最后读回合计为 33 次 SELECT、219 条投影、`77.280 + 2.961 + 3.066 = 83.307` 毫秒。首次查询包含本进程首次执行这些语句的编译等开销，后两次复用同一进程和连接池；均为一次观测，不作为稳定延迟保证。样本没有执行卡片序列化、最近应到触发点的新方法、网络、并发或完整 TaskRun 展示投影的关联查询，第四阶段实现后按本节补记这些实际开销。
 
 ## 7. 已确认需求与验收
 
@@ -357,7 +411,7 @@
 现有调度器会在入队前重新校验已保存的日期策略。因此，旧周、月线配置的暂停要在新规则生效前完成。按以下顺序使用数据后台的现有排程和任务入口。
 
 1. 暂停旧的指数周、月线 Raw 排程。切换窗口内暂停提交可能写入两张 Serving 表的任务及重试，范围包括「指数K线全链路维护」工作流的旧写入。检查已入队和在途的相关任务，让它们结束，或通过现有入口取消。确认相关任务已进入终态，再切换到新规则。
-2. 在相关排程保持暂停时保存 §3.1 的新策略与时刻，将 `next_run_at` 一并保存为空。现有恢复入口有值时会沿用该字段，清空后才会按新策略重算。在数据后台预览下次触发时刻，并按 §4.3 完成激活池初始化、Serving 清理和读回验收。
+2. 在相关排程保持暂停时保存 §3.1 的新策略与时刻，将 `next_run_at` 一并保存为空。现有恢复入口有值时会沿用该字段，清空后才会按新策略重算。在数据后台预览下次触发时刻，并按 §4.3 完成激活池初始化、Serving 清理和读回验收，再通过既有快照刷新服务定向重建 `index_weekly`、`index_monthly` 两项 Raw 状态，核对目标表、正式来源及应到期末。两张 Biz 卡实时读取独立池和 Serving。
 3. 清理验收通过后恢复正式周、月线 Raw 排程，核对后台显示的下一次运行时间。上月 Serving 更新随新月线 Raw 排程生效，由 Raw 成功收尾自动触发。管理员单独配置并启用周、月线 Serving 日更。
 
 ## 9. 分阶段开发与验收
@@ -439,9 +493,43 @@
 
 ### 9.4 阶段 4 · 数据后台与联调验收
 
-- 按 §5.1 更新 Tushare 卡片、Biz Serving 卡片、任务详情和状态快照。正式 Raw 状态按应到期末和正式来源判断，Serving 覆盖按目标交易日查询对应周期和池内代码。任务状态和快照写入按 §6 与业务事务隔离。
-- 联调使用 §8.1 的代表性真实期末和隔离数据库。正常运行、取消后按原范围重试和提交后读回分别按 §6 核算。卡片核验聚焦对应频率、期末和池内代码，切换清理与回退演练按 §4.3 的范围在隔离环境进行。
-- 验收 R10 的完整链路、R11、R12 和 R13 的卡片表现。验证两组卡片的目标日期和状态、`9/10` 时的失败详情、历史补跑对当前覆盖的影响，以及状态写入失败、取消重试和切换回退。
+本阶段以 §5.1–§5.3 的卡片事实和显示为目标，完整链路与隔离切换演练按 R10、R11、R12、R13 验收。首期不增加管理员配置字段，不修改前三阶段取数、合成、写入或重试口径；不开发 DG、财势乾坤图表、激活池日常增删或新的审计页面，不执行生产切换。
+
+#### 开工前代码核对
+
+2026-11-11 对当前 `dev-interface` 核对并用本地 Python 读回正式定义：两项 Raw 的 `target_table` 分别为 `raw_tushare.index_weekly_bar`、`raw_tushare.index_monthly_bar`，写入方式均为 `raw_only_upsert`；Biz 目录现有 15 项，没有 `index_weekly_serving` 或 `index_monthly_serving`；`DatasetCardItem` 尚无本阶段的两项覆盖数和最近任务字段。两项 Serving 动作及其目标表均已注册。新增两张卡后 Biz 条目预期为 `15 + 2 = 17`，该数量只对应本次目录基线。
+
+CodeGraph `codegraph_explore` 已用于核对卡片模型、Biz 观测及数据时效查询，`codegraph_impact` 核对 `DatasetCardItem` 对两类卡片查询的影响；另逐项读取当前代码确认日期和状态语义。现有 `BizTableCardQueryService._load_business_observation` 不支持指数周期覆盖，`_date_freshness` 仅比较最新日期；现有 Raw 应到期末计算只按日期桶，尚未消费 §3.1 的配置时刻。现有任务列表按资源过滤，Serving 维护任务的 `resource_key` 为空，因此 Serving 最近任务必须按维护动作 `target_key` 查询，不能直接套用 Raw 的资源条件。现有 `TaskRunQueryService` 已排除新 Raw 任务的 Serving 来源统计，现有任务完成服务已隔离快照刷新事务，这两项继续复用。
+
+卡片接口的全部直接实现和消费者已经核对：`dataset_cards.py`、`dataset_card.py`、`DatasetCardQueryService`、`BizTableCardQueryService`、前端 `types.ts`、共用卡片页面、数据总览和数据集详情。第四阶段仅按 §5.2 扩展卡片返回事实，现有 TaskRun 返回模型及日线 API 不变。两项 Biz 目录不创建新的 Foundation 数据集或业务表；本阶段不需要业务表迁移。
+
+#### 开发顺序和实现位置
+
+| 顺序 | 具体工作和代码位置 | 完成条件 |
+| --- | --- | --- |
+| 1. 日期和正式 Raw 观测 | 在 [指数周期线排程模块](/Users/congming/github/goldenshare/src/ops/services/index_period_schedule.py) 补充最近应到触发点的读取；在 [Raw 观测过滤](/Users/congming/github/goldenshare/src/ops/dataset_observation_registry.py)、[时效查询](/Users/congming/github/goldenshare/src/ops/queries/freshness_query_service.py) 和 [快照服务](/Users/congming/github/goldenshare/src/ops/services/operations_dataset_status_snapshot_service.py) 接入同一日期和正式来源口径。 | 实时与快照读取对同一时刻返回相同应到期末，配置时刻前后判断正确，人工 Raw 不计为正式到数；保留其他数据集的日期规则。 |
+| 2. Serving 目录与覆盖查询 | 在 [Biz 目录](/Users/congming/github/goldenshare/src/ops/catalog/biz_dataset_definitions.py) 登记两项并同步 lint，在 [Biz 查询](/Users/congming/github/goldenshare/src/ops/queries/biz_table_card_query_service.py) 使用 §5.3 的日期、池及周期查询。 | 一次单代码成功、某行日期最新或历史任务成功，都不能替代全池覆盖；目标日和实际覆盖数可独立读回。两项维护入口和自动任务状态指向各自已有动作。 |
+| 3. 卡片响应与页面 | 同步 [卡片响应](/Users/congming/github/goldenshare/src/ops/schemas/dataset_card.py)、[Tushare 查询](/Users/congming/github/goldenshare/src/ops/queries/dataset_card_query_service.py)、[Biz 查询](/Users/congming/github/goldenshare/src/ops/queries/biz_table_card_query_service.py)、[前端类型](/Users/congming/github/goldenshare/frontend/src/shared/api/types.ts) 和 [共用页面](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-source-page.tsx)。 | 按 §5.2 展示覆盖和最近任务实际日期、状态，维护和任务详情链接可用；原有卡片、数据总览及数据集详情保持现有功能。 |
+| 4. 隔离联调与切换演练 | 使用临时 PostgreSQL 和已有真实源样本，走正式项目的入口、Worker、快照刷新与卡片 API。按 §4.3 构造池内和池外记录，演练初始化、备份、只删池外、中断接续与回退。 | 核对实际写入、任务结果、页面状态一致；池内历史及已确认合成值保留，回退只恢复本次删除的池外记录。取消和重试沿用原范围；观测失败不回滚业务数据。 |
+| 5. 独立审计及收尾 | 对照下表和 §7 核对代码、测试和实际读回，记录 §6.3 的读取范围及耗时。同步本文、原方案及 Ops API 字段说明。 | 只汇报本阶段实际验证的范围；第四阶段代码完成后先交付审计结果，再单独安排生产切换。 |
+
+#### 测试与验收对应
+
+| 要求 | 必须覆盖的样本及反例 | 现有入口及补测位置 |
+| --- | --- | --- |
+| R11、R13 正式 Raw 日期 | 普通周、周五休市的短周；11 月首个交易日配置时刻前后，10 月正式目标仍为 10-30；无配置或日历不全不能虚构目标。 | `tests/web/test_index_period_schedule.py`、`tests/web/test_ops_freshness_api.py`、`tests/test_ops_freshness_snapshot_query_service.py`。 |
+| R11 正式来源与快照 | 正式 Raw 与 Serving 分别停在上周五、周一时各自正确展示；只有人工合成 Raw 时不能显示正式到数；实时、重建、任务完成后刷新及旧目标快照均验证。 | `tests/web/test_ops_dataset_cards_api.py`、`tests/test_dataset_status_snapshot_service.py`、`tests/web/test_ops_task_completion_worker.py`。 |
+| R12 实际覆盖 | 池内同周期 `10/10`、一个代码仍停在上一交易日的 `9/10`、只有一条新日期记录、存在池外记录、空池，以及只更新一个代码的手动任务。 | `tests/web/test_ops_biz_table_cards_api.py`、`tests/architecture/test_ops_biz_dataset_definition_guardrails.py`，按真实表 schema 构造隔离输入。 |
+| R12、R13 任务日期分开显示 | 先更新当前周期，再补历史或由正式 Raw 触发上月 Serving，卡片当前目标及覆盖不倒退；周、月各自关联正确动作、最近任务和任务详情。 | 卡片 API、`tests/web/test_ops_task_run_api.py`、`frontend/src/pages/ops-v21-source-page.test.tsx`；回归总览和数据集详情测试。 |
+| R10、R13 端到端与观测失败 | 使用 §9.2、§9.3 已核实的上证指数、上证 50、北证 50、中证 A500 样本，核对 Raw 提交、独立 Serving 更新和卡片事实；模拟快照失败、处理中取消和原范围重试，读回已提交记录及 TaskRun／节点终态。 | `tests/test_index_period_raw.py`、`tests/test_index_period_serving.py` 及新增必要的隔离联调用例。真实源和 Mock 的边界分别说明。 |
+| R7、R10 切换演练 | 隔离创建独立池及池内、池外行；仅清理池外，中断后只处理剩余范围，回退恢复本次删除行；池内日期、数量和代表值不变。 | 复用项目模型和 DAO 在临时 PostgreSQL 验证 §4.3，不执行生产脚本，不新增日常池管理功能。 |
+| 页面与 API 消费 | 浏览器核对 Tushare、Biz 两个列表、`9/10`、任务结果日期、维护跳转和任务详情诊断；检查控制台、网络请求及卡片文字布局。新增字段为空时原有卡片照常展示。 | 前端定向测试、现有 typecheck、规则检查、build 和必要浏览器用例；产物按 §6.3 放临时目录，不更新无关截图基线。 |
+
+隔离联调不运行会向真实接收人发消息的任务完成循环；快照刷新直接调用现有服务或替换通知发送器，验证状态事务与行情事务的隔离。真实源样本优先复用来源明确且合同未变的 §2、§9.2、§9.3 证据，仅在缺少必要输入时补做有界只读核验。所有正式数据写入和切换继续遵守 §8.2 的独立执行授权。
+
+#### 第四阶段开工准备结论
+
+前三阶段的取数、Serving 更新和调度入口已具备；本阶段缺少的卡片事实、日期衔接和前端字段已在 §5.2、§5.3 明确，旧现状描述已校准。开发范围、禁止项、实现位置、配置来源、只读范围、失败与重试边界、预算和测试已对应到当前代码。没有新增待管理员拍板的业务规则；本轮只完成开工准备，隔离 SQL 读取测量已完成，第四阶段实现、完整接口及联调性能测量和独立验收仍待后续执行。
 
 ### 生产切换
 
