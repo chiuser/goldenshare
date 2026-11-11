@@ -29,7 +29,7 @@
 `probe` 是**自动任务目标的触发能力**，不是数据集在所有调用环境中的执行方式：
 
 - Workflow 不派生 ProbeRule，不等待 source-ready；其中的数据集按工作流下传日期与 filters 直接执行。
-- `index_daily` 仍是 `index_extension_maintenance` 和 `index_kline_maintenance_pipeline` 的步骤；独立 `index_daily.maintain` 的探测限制不能套到这两个工作流。
+- `index_daily` 仍是 `index_kline_maintenance_pipeline` 的步骤；独立 `index_daily.maintain` 的探测限制不能套到该工作流。
 - 手动动作/手动工作流仍是显式发起的直接执行，不改变其契约。
 - Workflow 的 probe、fallback、探测配置和 `workflow_dataset_keys` 输入必须被拒绝；不得展开 workflow 生成 dataset 探测规则。
 

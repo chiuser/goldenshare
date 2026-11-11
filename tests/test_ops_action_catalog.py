@@ -164,11 +164,16 @@ def test_ths_member_workflow_runs_after_ths_index() -> None:
         )
 
 
+def test_removed_index_extension_workflow_keeps_individual_dataset_actions() -> None:
+    assert get_catalog_target("workflow", "index_extension_maintenance") is None
+    for dataset_key in ("index_daily", "index_weekly", "index_monthly", "index_daily_basic", "index_weight"):
+        assert get_catalog_target("dataset_action", f"{dataset_key}.maintain") == get_dataset_definition(dataset_key)
+
+
 def test_workflow_time_contracts_match_step_requirements() -> None:
     reference_data = WORKFLOW_DEFINITION_REGISTRY["reference_data_refresh"]
     daily_market_close = WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"]
     daily_moneyflow = WORKFLOW_DEFINITION_REGISTRY["daily_moneyflow_maintenance"]
-    index_extension = WORKFLOW_DEFINITION_REGISTRY["index_extension_maintenance"]
     index_kline = WORKFLOW_DEFINITION_REGISTRY["index_kline_maintenance_pipeline"]
 
     assert [step.dataset_key for step in reference_data.steps] == [
@@ -221,9 +226,6 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
 
     assert [param.key for param in daily_moneyflow.parameters] == ["trade_date", "start_date", "end_date"]
     assert daily_moneyflow.workflow_profile == "point_incremental"
-
-    assert [param.key for param in index_extension.parameters] == ["start_date", "end_date"]
-    assert index_extension.workflow_profile == "range_rebuild"
 
     assert [param.key for param in index_kline.parameters] == ["start_date", "end_date"]
     assert index_kline.workflow_profile == "range_rebuild"

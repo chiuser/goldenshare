@@ -1,17 +1,16 @@
 # 运维工作流目录与实现清单（Workflow Catalog v1）
 
-> 更新时间：2026-09-11（承接基础数据三线关闭记录；非新增生产运行验收）
+> 更新时间：2026-11-11（移除管理员确认未使用的指数扩展数据维护；非新增生产运行验收）
 > 代码基线：`src/ops/action_catalog.py`、`src/ops/runtime/task_run_dispatcher.py`、`src/ops/queries/catalog_query_service.py`  
 > 目标：把当前所有复合型任务（workflow）做成可审计实现清单，避免“记忆驱动运维”。
 
-## 1. 当前工作流总览（共 6 个）
+## 1. 当前工作流总览（共 5 个）
 
 | 工作流 Key | 名称 | 支持自动调度 | 支持手动执行 | 默认调度策略 |
 |---|---|---:|---:|---|
 | `board_reference_refresh` | 板块主数据刷新 | 是 | 是 | 无 |
 | `daily_market_close_maintenance` | 每日收盘后维护 | 是 | 是 | `trading_day_close` |
 | `daily_moneyflow_maintenance` | 每日资金流向维护 | 是 | 是 | 无 |
-| `index_extension_maintenance` | 指数扩展数据维护 | 否 | 是 | 无 |
 | `index_kline_maintenance_pipeline` | 指数K线全链路维护 | 否 | 是 | 无 |
 | `reference_data_refresh` | 基础主数据刷新 | 是 | 是 | 无 |
 
@@ -171,26 +170,7 @@
 | 1 | `ths_index` | 同花顺概念和行业指数 | `ths_index.maintain` |
 | 2 | `ths_member` | 同花顺板块成分 | `ths_member.maintain` |
 
-## 3.5 `index_extension_maintenance`（指数扩展数据维护）
-
-- 描述：批量维护指数日线、周线、月线、日指标和成分权重。
-- 支持自动调度：否
-- 支持手动执行：是
-- 支持参数：`start_date`、`end_date`
-- 适用场景：现行指数扩展数据维护。周、月线 Serving 保留范围和切换清理见[专项方案](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-period-cutover)。
-- 指数周、月线步骤只维护正式 Raw。日期区间没有对应期末时，该步骤不取数，后续步骤继续执行。
-
-步骤（顺序执行）：
-
-| 序号 | step_key | 显示名 | action_key |
-|---:|---|---|---|
-| 1 | `index_daily` | 指数日线 | `index_daily.maintain` |
-| 2 | `index_weekly` | 指数周线 | `index_weekly.maintain` |
-| 3 | `index_monthly` | 指数月线 | `index_monthly.maintain` |
-| 4 | `index_daily_basic` | 指数日指标 | `index_daily_basic.maintain` |
-| 5 | `index_weight` | 指数权重 | `index_weight.maintain` |
-
-## 3.6 `index_kline_maintenance_pipeline`（指数K线全链路维护）
+## 3.5 `index_kline_maintenance_pipeline`（指数K线全链路维护）
 
 手动执行，输入 `start_date`、`end_date`。按顺序执行指数日线 `index_daily.maintain`、指数周线 Raw `index_weekly.maintain`、指数月线 Raw `index_monthly.maintain`。周、月线步骤仅请求区间内的实际期末。周、月线 Serving 使用[独立维护动作](/Users/congming/github/goldenshare/docs/datasets/prod-index-period-low-level-design-v1.md)。
 
@@ -255,4 +235,4 @@ catalog 字段、定义到接口的来源、绑定统计及未暴露字段统一
 2. workflow 可以包含支持源端 probe 的 dataset action；它在 workflow 中始终按工作流传入的日期和参数直接执行，不使用该数据集单独自动任务的 probe。
 3. `WorkflowDefinition.probe_trigger_enabled` 是未被运行链路消费的历史字段，已在该方案 P1 删除；不得重新引入 UI 或 API 能力。
 
-因此，`index_extension_maintenance` 与 `index_kline_maintenance_pipeline` 中的 `index_daily` 步骤保留，但不会获得 `remote_index_daily_ready` 的 workflow probe。
+因此，`index_kline_maintenance_pipeline` 中的 `index_daily` 步骤保留，但不会获得 `remote_index_daily_ready` 的 workflow probe。

@@ -1173,13 +1173,12 @@ def test_task_run_dispatcher_keeps_point_intent_and_persists_resolved_date_on_da
     assert node.time_input_json == {"mode": "point", "trade_date": resolved_trade_date.isoformat()}
 
 
-@pytest.mark.parametrize("workflow_key", ["index_extension_maintenance", "index_kline_maintenance_pipeline"])
 def test_task_run_dispatcher_runs_index_daily_inside_workflow_without_probe_rule(
     db_session,
     task_run_factory,
     monkeypatch,
-    workflow_key: str,
 ) -> None:
+    workflow_key = "index_kline_maintenance_pipeline"
     dispatched_dataset_keys: list[str] = []
 
     def fake_build_plan(self, request):  # type: ignore[no-untyped-def]

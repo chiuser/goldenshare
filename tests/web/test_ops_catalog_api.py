@@ -57,7 +57,8 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert "daily_market_close_maintenance" in workflow_keys
     assert "reference_data_refresh" in workflow_keys
     assert "reference_data_natural_day_maintenance" not in workflow_keys
-    assert "index_extension_maintenance" in workflow_keys
+    assert "index_extension_maintenance" not in workflow_keys
+    assert "index_kline_maintenance_pipeline" in workflow_keys
     assert "index_extension_" + "back" + "fill" not in workflow_keys
     assert {item["domain_display_name"] for item in payload["workflows"]} == {"工作流"}
     assert {item["group_label"] for item in payload["workflows"]} == {"工作流"}
@@ -72,7 +73,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
         "end_date",
     ]
     assert workflows["reference_data_refresh"]["parameters"] == []
-    assert [param["key"] for param in workflows["index_extension_maintenance"]["parameters"]] == [
+    assert [param["key"] for param in workflows["index_kline_maintenance_pipeline"]["parameters"]] == [
         "start_date",
         "end_date",
     ]

@@ -229,15 +229,13 @@ def test_only_successful_scheduled_monthly_raw_can_queue_serving(session, mocker
     assert session.scalars(select(TaskRun).where(TaskRun.trigger_source == "system")).all() == []
 
 
-@pytest.mark.parametrize(("workflow_key", "expected"), [
-    ("index_kline_maintenance_pipeline", ["index_daily", "index_weekly", "index_monthly"]),
-    ("index_extension_maintenance", ["index_daily", "index_weekly", "index_monthly", "index_daily_basic", "index_weight"]),
-])
-def test_workflows_run_other_steps_when_range_has_no_period_end(session, mocker, workflow_key, expected):
+def test_workflow_runs_other_steps_when_range_has_no_period_end(session, mocker):
+    workflow_key = "index_kline_maintenance_pipeline"
+    expected = ["index_daily", "index_weekly", "index_monthly"]
     session.execute(insert(IndexSeriesActive), [
         {"resource": resource, "ts_code": CODE, "first_seen_date": WEEK_1,
          "last_seen_date": WEEK_1, "last_checked_at": datetime.now(timezone.utc)}
-        for resource in ("index_daily_raw", "index_weight")
+        for resource in ("index_daily_raw",)
     ])
     session.commit()
     calls = source_mock(mocker, lambda *_: pytest.fail("a window without a period end must not request Tushare"))
@@ -265,15 +263,8 @@ def test_workflows_run_other_steps_when_range_has_no_period_end(session, mocker,
                             .order_by(TaskRunNode.sequence_no)).all()
     assert [node.resource_key for node in nodes] == expected
     assert calls == []
-    if workflow_key == "index_extension_maintenance":
-        # Reproduced before stage 3: the existing weight step requires month input.
-        assert result.status == "partial_success" and nodes[-1].status == "failed"
-        assert session.get(TaskRunIssue, result.primary_issue_id).technical_message == "自然月窗口必须使用 start_month/end_month"
-        assert ran == expected[:-1]
-        assert all(node.status == "success" for node in nodes[:-1])
-    else:
-        assert result.status == "success" and ran == expected
-        assert all(node.status == "success" for node in nodes)
+    assert result.status == "success" and ran == expected
+    assert all(node.status == "success" for node in nodes)
 
 
 @pytest.mark.parametrize(("empty_dates", "expected"), [

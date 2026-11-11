@@ -242,7 +242,8 @@
 | --- | --- |
 | DatasetDefinition、计划与请求 | 第一阶段已将[数据集定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/index_series.py)的周、月线正式维护改为 `raw_collection`、`raw-only`、`raw_only_upsert`，目标表和写入 DAO 指向各自的 Raw。保留两个数据集的身份、源字段和正式维护入口。[日期规划](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)已使用完整周历和月历校验单日期末，区间只取输入范围内的实际期末。Ops 提交意图，Resolver 和 planner 展开范围，request builder 映射源参数。第三阶段在现有动作声明中补上 §3.1 的排程规则。 |
 | 正式 Raw 和 Serving 写入 | 正式 Raw 已按 §4.1 写入，第二阶段的独立 Serving 执行器调用 Foundation 读取、计算并写入周期行情。第三阶段移除[写入器](/Users/congming/github/goldenshare/src/foundation/ingestion/writer.py)中仍保留的 `raw_index_period_serving_upsert` 分支及专用逻辑。现有[通用发布服务](/Users/congming/github/goldenshare/src/foundation/serving/publish_service.py)的两项指数周期线 builder 按 `(ts_code, trade_date)` 定位，第三阶段撤除其注册和相关引用，统一按 §4.2 的周期唯一键和独立池更新。 |
-| 旧合成入口 | 移除 [动作和工作流目录](/Users/congming/github/goldenshare/src/ops/action_catalog.py) 的 `maintenance.rebuild_index_kline_serving` 和 `index_kline_maintenance_pipeline` 的合成末步 `rebuild_index_serving`，以及 [dispatcher 执行代码](/Users/congming/github/goldenshare/src/ops/runtime/task_run_dispatcher.py)。核对调度、手动、工作流、发布和重试引用。历史任务仍可读，旧维护动作的重试在创建任务时按现有动作目录校验拒绝。两个现有工作流继续接受日期区间，周、月步骤各自按区间内的实际期末只写 Raw。区间内无对应期末时，该步骤零次取数，后续步骤继续。同步更新工作流的描述和目录说明。 |
+| 旧合成入口 | 移除 [动作和工作流目录](/Users/congming/github/goldenshare/src/ops/action_catalog.py) 的 `maintenance.rebuild_index_kline_serving` 和 `index_kline_maintenance_pipeline` 的合成末步 `rebuild_index_serving`，以及 [dispatcher 执行代码](/Users/congming/github/goldenshare/src/ops/runtime/task_run_dispatcher.py)。核对调度、手动、工作流、发布和重试引用。历史任务仍可读，旧维护动作的重试在创建任务时按现有动作目录校验拒绝。「指数K线全链路维护」继续接受日期区间，周、月步骤各自按区间内的实际期末只写 Raw。区间内无对应期末时，该步骤零次取数，后续步骤继续。同步更新工作流的描述和目录说明。 |
+| 未使用的指数工作流 | 按管理员确认删除 `index_extension_maintenance`（指数扩展数据维护）的完整定义及现行目录说明。目录和手动入口继续从注册表生成，不另加前端过滤或兼容入口。保留五个数据集各自的维护动作及 `index_kline_maintenance_pipeline`。具体实施和验收见 §9.3。 |
 | 自动任务配置、预览和执行日期 | 正式 Raw 动作的策略由 [DatasetDefinition](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/index_series.py) 声明，[数据集排程策略解析器](/Users/congming/github/goldenshare/src/ops/services/dataset_schedule_time_policy_resolver.py) 负责读取。Serving 动作由 [维护动作目录](/Users/congming/github/goldenshare/src/ops/action_catalog.py) 声明日更排程。[自动任务能力解析器](/Users/congming/github/goldenshare/src/ops/services/schedule_automation_capability_resolver.py) 将四项动作的能力提供给目录接口与表单。[自动任务服务](/Users/congming/github/goldenshare/src/ops/services/operations_schedule_service.py) 校验配置、统一计算预览与下次运行时间，[排程转任务](/Users/congming/github/goldenshare/src/ops/services/task_run_service.py) 按计划触发时刻保存目标日。[自动任务页面](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-auto-tab.tsx) 和 [API 类型](/Users/congming/github/goldenshare/frontend/src/shared/api/types.ts) 消费同一动作声明，显示固定日期规则、执行时刻和预览。Raw 卡片在第 4 阶段使用 §3.1 的同一规则判断应到期末。 |
 | Serving 手动控件与盘后日更 | [手动任务](/Users/congming/github/goldenshare/src/ops/services/manual_action_service.py) 复用现有单日输入和代码筛选契约。盘后日更在 [dispatcher](/Users/congming/github/goldenshare/src/ops/runtime/task_run_dispatcher.py) 依据维护动作、`schedule_id` 与已保存的目标日执行 §4.2 的截止规则。手动补数和系统触发的上月期末更新沿用 §4.2 的日期校验。 |
 | 正式月线入库后触发 Serving | [Worker 任务收尾](/Users/congming/github/goldenshare/src/ops/runtime/worker.py) 按 §4.2 识别正式月线自动任务或其重试。只在最终状态为成功且本次实际保存了有效 Raw 行时调用 [`stage_task_run`](/Users/congming/github/goldenshare/src/ops/services/task_run_service.py)，为该 Raw 任务创建一条独立的月线 Serving 任务，目标日期取原 TaskRun，`trigger_source=system`，`schedule_id` 为空。入队和原任务及其当前节点的成功终态在同一 Ops 事务提交。入队或该事务失败时，在原任务详情记录收尾错误并保留已提交的 Raw。原任务可按 §4.1 重新请求，已入队的上月 Serving 任务可以单独重试。 |
@@ -355,7 +356,7 @@
 
 现有调度器会在入队前重新校验已保存的日期策略。因此，旧周、月线配置的暂停要在新规则生效前完成。按以下顺序使用数据后台的现有排程和任务入口。
 
-1. 暂停旧的指数周、月线 Raw 排程。切换窗口内暂停提交可能写入两张 Serving 表的任务及重试，范围包括两个指数工作流中的旧写入。检查已入队和在途的相关任务，让它们结束，或通过现有入口取消。确认相关任务已进入终态，再切换到新规则。
+1. 暂停旧的指数周、月线 Raw 排程。切换窗口内暂停提交可能写入两张 Serving 表的任务及重试，范围包括「指数K线全链路维护」工作流的旧写入。检查已入队和在途的相关任务，让它们结束，或通过现有入口取消。确认相关任务已进入终态，再切换到新规则。
 2. 在相关排程保持暂停时保存 §3.1 的新策略与时刻，将 `next_run_at` 一并保存为空。现有恢复入口有值时会沿用该字段，清空后才会按新策略重算。在数据后台预览下次触发时刻，并按 §4.3 完成激活池初始化、Serving 清理和读回验收。
 3. 清理验收通过后恢复正式周、月线 Raw 排程，核对后台显示的下一次运行时间。上月 Serving 更新随新月线 Raw 排程生效，由 Raw 成功收尾自动触发。管理员单独配置并启用周、月线 Serving 日更。
 
@@ -413,8 +414,17 @@
 
 - 按 §3.1 和 §5 实现正式 Raw 排程与 Serving 盘后日更，复用现有自动任务配置、预览和 TaskRun 创建方式。正式月线提交 Raw 后，用原期末日创建独立的月线 Serving 任务。移除旧写入分支、维护动作、发布器及工作流引用。数据集卡片和生产切换分别按 §9.4 和 §8.2 执行。
 - 调度只读取计算下一次触发时间和目标日所需的交易日历窗口，预览不取源数据、不写行情。每次正式 Raw 自动取数只处理一个期末，按 §6.1 计入请求、写入、原期末重试和读回。正式月线自动取数成功后增加一条月线 Serving 任务，按 §6.2 单独计入最多 10 个代码的读取和写入、一次同范围重试及最多 10 行验收读回。当晚的月线 Serving 日更另计一次 §6.2 的预算。验收按对应自动任务及 TaskRun 主键读回配置、目标日、保存量和任务终态。
-- 验收 R1、R3、R9 和 R13。在隔离环境验证普通周和周五休市的短周，月初休市后首个交易日触发的月线使用上月期末，两项盘后日更跳过休市日。对照后台预览和实际生成的四项任务，核对日期、时区和执行时刻。验证合法时刻可保存，拒绝早于表中约定的时刻、错误时区、手填目标日或代码。验证旧排程暂停、清空旧下次运行时间、按新策略恢复，并回归其他排程和两个指数工作流。
+- 验收 R1、R3、R9 和 R13。在隔离环境验证普通周和周五休市的短周，月初休市后首个交易日触发的月线使用上月期末，两项盘后日更跳过休市日。对照后台预览和实际生成的四项任务，核对日期、时区和执行时刻。验证合法时刻可保存，拒绝早于表中约定的时刻、错误时区、手填目标日或代码。验证旧排程暂停、清空旧下次运行时间、按新策略恢复，并回归其他排程和保留的「指数K线全链路维护」工作流。
 - 用月线 Raw 正常提交、空返回、失败及重试验证上月 Serving 的触发条件。让 Serving 入队失败一次，确认 Raw 已提交、原任务显示收尾错误，按原任务重试后正常入队。再用 Serving 写入失败验证其可单独重试。用同日重试和跨午夜的出队、重试验证日更截止，以及手动按原目标日补数。
+
+#### 移除未使用的指数扩展数据维护工作流
+
+- 目标与范围：管理员确认该工作流未使用，删除 [动作目录](/Users/congming/github/goldenshare/src/ops/action_catalog.py) 中的完整定义。当前 [目录查询](/Users/congming/github/goldenshare/src/ops/queries/catalog_query_service.py) 和 [手动任务查询](/Users/congming/github/goldenshare/src/ops/queries/manual_action_query_service.py) 均遍历工作流注册表；[手动任务页面](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-manual-tab.tsx) 读取后者生成入口，因此无需另改前端、API 路由或执行器。
+- 保留与禁止项：保留五个数据集的单独维护动作、「指数K线全链路维护」及其日期区间语义。清理工作流目录和自动任务能力方案中将已移除工作流作为现行能力的引用。不删除业务表、对象池、排程或历史任务，不执行生产操作，不新增配置、兼容逻辑或替代工作流。
+- 失败、中断、重试与性能：删除注册后，现有服务按未知工作流拒绝手动新建和重试；若有历史任务，其详情仍能读取。复用现有目录校验，不修改任务执行或业务事务。此次修改不新增取数、计算和写入，正常执行、中断后重试及验收均不增加生产数据读取或源请求。验收使用本地定义和隔离测试会话。
+- 验收：注册表、目录接口和手动列表不再包含该工作流，直接提交旧入口失败；隔离构造的历史任务仍可查看，重试被拒绝且不新增任务。五个数据集的单独维护动作和保留工作流仍存在，日期区间无周、月期末时不请求源端、工作流正常完成。同步清理旧测试分支，运行对应目录、手动 API、任务查询重试和工作流回归，以及文档完整性检查。
+
+本次移除已完成。使用 CodeGraph 的 `codegraph_explore`、`codegraph_impact` 核对注册表、目录、手动入口和执行链路，并核对前端读取接口的代码，未改变子系统依赖。目录、自动任务能力、手动 API、任务详情及运行时回归共 156 项通过；独立临时 PostgreSQL 的无期末区间回归 1 项通过，其他数据集取数使用替身，不请求 Tushare。文档完整性检查通过。未执行生产操作。
 
 #### 阶段 3 开发与验收记录
 
@@ -423,7 +433,7 @@
 | R1、R3 排程与目标日期 | 数据后台读取动作声明。预览、下次运行时间和入队共同使用完整交易日历。隔离 API 验证四项配置、跨日入队仍使用原计划目标、手填日期或代码被拒绝、旧月线排程暂停后按新规则恢复。Tushare 的 SSE 日历显示 2026-05-01 休市，指数周线按 2026-04-30 查询返回上证指数正式记录，收盘为 4112.1593 点。 [排程计算](/Users/congming/github/goldenshare/src/ops/services/index_period_schedule.py) · [排程回归](/Users/congming/github/goldenshare/tests/web/test_index_period_schedule.py) |
 | R3 午夜截止 | 用临时 PostgreSQL 验证同晚重试能成功。跨午夜时已保存的指数保留，剩余指数停止写入，任务与当前节点均失败。已过期的出队和重试都保留原目标日，手动补数仍能更新该日。 [Serving 回归](/Users/congming/github/goldenshare/tests/test_index_period_serving.py) |
 | R13 上月正式月线覆盖 | 模拟 2026-11-02 19:00 触发，TaskRun 及源请求均指向 2026-10-30。用 Tushare 返回的上证指数正式月线样本，在临时 PostgreSQL 完成排程入队、Raw 写入和 Serving 读回。两层各有一行，Serving 保留期末日期及收盘 3599.0166 点。用另一会话确认 Raw 已提交时原任务和当前节点仍在运行，独立 Serving 任务尚不可见。注入 Serving 入队失败后原任务按原期末重新请求，注入 Serving 写入失败后单独重试且不再次请求 Tushare。空返回、人工月线和自动周线均不创建上月 Serving 任务。 [Worker 收尾](/Users/congming/github/goldenshare/src/ops/runtime/worker.py) · [隔离数据库回归](/Users/congming/github/goldenshare/tests/test_index_period_raw.py) |
-| R9 旧入口退出 | 已删除旧写入分支、维护动作、工作流合成末步，以及通用发布器的周、月线 builder 和目标映射。验证历史任务可查看，重试被拒绝。两个指数工作流的周、月线区间无期末时均零次取数，并继续后续步骤。指数扩展工作流的指数权重步骤仍要求起止月份，传入起止日期时会失败。该情况已在第三阶段前的版本复现。 [动作目录](/Users/congming/github/goldenshare/src/ops/action_catalog.py) · [工作流回归](/Users/congming/github/goldenshare/tests/test_index_period_raw.py) |
+| R9 旧入口退出 | 已删除旧写入分支、维护动作、工作流合成末步，以及通用发布器的周、月线 builder 和目标映射。验证历史任务可查看，重试被拒绝。「指数K线全链路维护」的周、月线区间无期末时均零次取数，并继续后续步骤。未使用的「指数扩展数据维护」按本节另行移除，不再保留其日期与月份输入冲突作为现行工作流问题。 [动作目录](/Users/congming/github/goldenshare/src/ops/action_catalog.py) · [工作流回归](/Users/congming/github/goldenshare/tests/test_index_period_raw.py) |
 
 用浏览器核对指数月线自动任务的固定日期规则、执行时刻、预览和保存请求。配置请求携带排程策略，目标交易日由后端生成。 [后台浏览器验收](/Users/congming/github/goldenshare/frontend/e2e/index-period-schedule.spec.ts)
 

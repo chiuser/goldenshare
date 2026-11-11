@@ -323,7 +323,8 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert _time_modes(actions["workflow:daily_market_close_maintenance"])["point"]["control"] == "trade_date"
     assert [item["mode"] for item in actions["workflow:daily_moneyflow_maintenance"]["time_form"]["modes"]] == ["point", "range"]
     assert [item["mode"] for item in actions["workflow:reference_data_refresh"]["time_form"]["modes"]] == ["none"]
-    assert [item["mode"] for item in actions["workflow:index_extension_maintenance"]["time_form"]["modes"]] == ["range"]
+    assert "workflow:index_extension_maintenance" not in actions
+    assert [item["mode"] for item in actions["workflow:index_kline_maintenance_pipeline"]["time_form"]["modes"]] == ["range"]
     assert "交易日历（按完整日历刷新）" in actions["workflow:reference_data_refresh"]["description"]
 
 
@@ -664,11 +665,12 @@ def test_ops_manual_action_task_run_routes_st_snapshot_mode(app_client, user_fac
     assert payload["run"]["filters"] == {"ts_code": "000001.SZ"}
 
 
-def test_ops_manual_action_task_run_returns_readable_not_found_message(app_client, user_factory) -> None:
+@pytest.mark.parametrize("action_key", ["not_exist", "workflow:index_extension_maintenance"])
+def test_ops_manual_action_task_run_returns_readable_not_found_message(app_client, user_factory, action_key) -> None:
     headers = _admin_headers(app_client, user_factory)
 
     response = app_client.post(
-        "/api/v1/ops/manual-actions/not_exist/task-runs",
+        f"/api/v1/ops/manual-actions/{action_key}/task-runs",
         headers=headers,
         json={"time_input": {"mode": "none"}, "filters": {}},
     )

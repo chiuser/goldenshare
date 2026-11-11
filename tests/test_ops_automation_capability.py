@@ -27,7 +27,7 @@ def test_every_schedulable_target_has_a_capability() -> None:
     assert ("maintenance_action", "maintenance.update_index_weekly_serving") in targets
     assert ("maintenance_action", "maintenance.update_index_monthly_serving") in targets
     assert all(resolver.resolve(target_type=target_type, target_key=target_key) is not None for target_type, target_key in targets)
-    assert resolver.resolve(target_type="workflow", target_key="index_extension_maintenance") is None
+    assert resolver.resolve(target_type="workflow", target_key="index_kline_maintenance_pipeline") is None
 
 
 def test_workflow_and_maintenance_capabilities_are_schedule_only() -> None:

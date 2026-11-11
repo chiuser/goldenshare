@@ -668,6 +668,28 @@ def test_ops_task_run_retry_recovers_scheduled_workflow_target(
     assert new_task_run.request_payload_json["target_key"] == "daily_moneyflow_maintenance"
 
 
+def test_removed_index_extension_workflow_history_is_readable_but_cannot_retry(
+    app_client, db_session, user_factory, task_run_factory,
+) -> None:
+    admin = user_factory(username="admin", password="secret", is_admin=True)
+    failed = task_run_factory(
+        task_type="workflow", resource_key=None, title="指数扩展数据维护", status="failed",
+        requested_by_user_id=admin.id,
+        time_input_json={"mode": "range", "start_date": "2026-07-27", "end_date": "2026-07-29"},
+        request_payload_json={"target_type": "workflow", "target_key": "index_extension_maintenance"},
+    )
+    headers = auth_headers(app_client)
+
+    view = app_client.get(f"/api/v1/ops/task-runs/{failed.id}/view", headers=headers)
+    retry = app_client.post(f"/api/v1/ops/task-runs/{failed.id}/retry", headers=headers)
+
+    assert view.status_code == 200
+    assert view.json()["run"]["title"] == "指数扩展数据维护"
+    assert retry.status_code == 422
+    assert retry.json()["message"] == "自动流程任务缺少流程定义"
+    assert [run.id for run in db_session.query(TaskRun).all()] == [failed.id]
+
+
 def test_removed_ops_executions_routes_do_not_exist(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     removed_path = "/api/v1/ops/" + "executions"

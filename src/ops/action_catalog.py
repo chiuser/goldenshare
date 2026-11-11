@@ -475,21 +475,6 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
         schedule_enabled=True,
         manual_enabled=True,
     ),
-    "index_extension_maintenance": WorkflowDefinition(
-        key="index_extension_maintenance",
-        display_name="指数扩展数据维护",
-        description="批量维护指数日线、周线、月线、日指标和成分权重。",
-        parameters=(START_DATE_PARAM, END_DATE_PARAM),
-        steps=(
-            _dataset_workflow_step("index_daily", "index_daily"),
-            _dataset_workflow_step("index_weekly", "index_weekly"),
-            _dataset_workflow_step("index_monthly", "index_monthly"),
-            _dataset_workflow_step("index_daily_basic", "index_daily_basic"),
-            _dataset_workflow_step("index_weight", "index_weight"),
-        ),
-        workflow_profile="range_rebuild",
-        manual_enabled=True,
-    ),
     "index_kline_maintenance_pipeline": WorkflowDefinition(
         key="index_kline_maintenance_pipeline",
         display_name="指数K线全链路维护",
