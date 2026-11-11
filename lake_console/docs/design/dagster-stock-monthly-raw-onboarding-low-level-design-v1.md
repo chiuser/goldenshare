@@ -1,5 +1,7 @@
 # DG 复权月线Raw更新、完整性审计与Silver生成 LLD v1
 
+**2026-11-11 待开发的月线日更改造见[第11节](#monthly-daily-point-readiness)。** 第1至10节记录切换前实现和历史结果。切换后，当月预检、正式日更和指定闭合月补齐使用第11节口径，旧建库交接和续跑命令只用于追溯。
+
 **2026-10-31跨日日期修正已完成开发和隔离验收：** 月线与周线共用的逐文件来源日期修正见§9.8及共享LLD§12.22，相关463项不重复用例通过（新增28项）。本轮修改随本次提交保存，未正式补数；28日各项结果保留为历史，不表示29/30日已经补齐。
 
 **本轮补修完成（2026-10-28，开发、隔离验收及独立审计完成，随本次提交保存）：** 已修正来源未变时原ID被旧FAILURE/CANCELED挡住、未完成误入recover的两项遗漏。最终305项普通case及另518个subtest通过，两名非作者分别核对代码/消费者与逐case证据，无阻断；完整对账见共享LLD§12.18.6。来源变化继续原恢复流程及其既有成本，不能将本轮等待分支的0预算扩展到全部tick。27日已完成补数保持原状，未部署、未操作正式资源。
@@ -21,6 +23,8 @@
 目标/阶段见[总方案](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)，完整字段、北交所请求、捕获/候选/恢复、性能与正反验收唯一引用[共享LLD](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)。本文只记录月线差异，旧逐月修补及Prod搬运步骤退出DG方案。
 
 ## 1. 数据卡、来源与字段
+
+本节的范围请求用于描述现行实现及旧批次。切换后的当月预检和正式日更见[第11节](#monthly-daily-point-readiness)。
 
 | 项目 | 合同 |
 | --- | --- |
@@ -58,7 +62,11 @@ bootstrap与单股复权刷新的业务参数为有效ts_code、freq=month，另
 
 第8步正式重建、收尾补更与登记已完成。已完成的5,577股月线bootstrap不重复下载；收尾按确认的45股统一重下月线完整历史，并补取当前月，共46个首次收尾单元/46页、12,952源行与准入行。397个月文件统一组装、校验及逐文件原子提交，月线最终仍431文件/868,690行。显式6GiB执行额度不改变原policy、父子run_id/hash或DuckDB3GiB；多片段归并保持21列、Decimal/NULL和20200228/29两个业务键。RSS及归并修正历史见共享LLD §5.11—5.14，完整正式对账唯一见[共享LLD §5.15](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#step8-complete)，不再复制旧停点或重复采样。
 
-## 4. 日常覆盖与历史刷新
+## 4. 日常覆盖与历史刷新（切换前实现）
+
+切换后的月线日更与历史回刷见[第11节](#monthly-daily-point-readiness)。
+
+以下描述现行合并任务。切换后，因子变化股票回刷按[共享LLD第13节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-daily-then-history-lld)独立触发。
 
 每个交易日先按已有完成记录补未完成月份，再更新当前月；月末失败次月仍须补原月，按月份去重，不逐日重放、不扫描历史行情找欠账。首次月初即写入月末坐标，不等next_month(frontier)变成已完成月。当天刷新、整月最终交付、历史刷新和事件待办分别观察；旧源未发布不能记当天成功，历史失败不能被当天刷新记录挡住续跑，月中成功不等于月末最终交付。停牌股的end_date不必等当天，历史end_date晚于trade_date也是合法源计算版本。
 
@@ -266,3 +274,56 @@ tests/test_stock_period_silver_original_recovery.py须显式覆盖月线×FAILUR
 管理员已批准先修正再审计条件，本轮开发唯一遵守[共享LLD§12.22](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-cross-day-source-asof-fix)及总方案§10.13。月Raw实际候选max(end_date)随每文件source_asof进入原回执；月Silver在原意图日期与该月实际源日中取较晚者，且源日不能晚于原文件完成日期。保留自然月坐标（本次20261031）、21列及原日期谓词；29日意图/30日源/31日完成应按30日选择、检查、物化及恢复，不借周线或整批最大日改写本月，也不把29日任务冒记为30日因子或日更完成。既有无该字段回执及bootstrap不重写、不重扫，原成功下载单元复用；本轮不正式补数。必须与周线一起覆盖真实小producer→两频Silver job/check及故障恢复，详细预算/失败规则与验收只维护在共享LLD，不另设月线实现。
 
 本轮共享开发已完成，实际463项通过及独立源码对账唯一见共享LLD§12.22.6；月线正常/中断、跨日原请求、逐文件日期、较新Raw承接、无来源证明及非法/未来日期均已覆盖。没有重跑28日批次或触发正式补数，待确认正式加载及本次历史范围预算后，继续原29日月Raw及两频Silver，再30日日更。
+
+## 10. 2026-11-06月线Raw恢复预核与待确认范围
+
+目标是让`raw_tushare_stk_period_bar_adj_month`的`2026-11`分区覆盖11月6日。原任务`38119344-2a2c-440f-894d-67a57524a691`及最新失败子任务`b612e5bb-99f2-4654-af77-6326b1ab45bd`都在形成日更待办前报`period_adjacent_factor_missing`。两个任务使用`intent=daily`、`automatic_intent_date=2026-11-06`和分区`2026-11`。11月6日的Silver因子文件在20:19:50（北京时间）落盘，11月5日及6日因子现均存在。预核时`factor_through`及月线`last_refresh`均为11月5日，`completed_through.month=2026-10`，共享待办为空，本次业务执行ID`107edccda1807032d6d2d6ebb2ded4f384dbe9c72f55d3a7818524ad41cd1a3f`尚无manifest。
+
+`stock_period_update._daily_work`先计算11月5日到6日相邻因子变化，并比较当前上市集合与已交付基线。一次计数和有界差集确认19只因子变化、1只新上市`920085.BJ`，合计20只，无移出。当前上市集合5,579只，基线5,578只。该分支会计划两频历史，`stock_period_history.run_period`在原月线任务内读取并合并两频选中分区。周、月Silver传感器均为RUNNING，会消费此次实际变化文件的原通知。
+
+| 范围 | 预核依据和规模 |
+| --- | --- |
+| 源请求 | 原请求构造器按20只各取周、月完整源历史，再按`20261101`至`20261130`取当月全市场。共`20×2+1=41`个逻辑源单元。每页最多6,000行、每页最多3次尝试，实际页数由源返回决定。 |
+| Raw现有目标 | 可信范围索引已定位1,737个周文件及412个月文件（含当月），共2,149份、374,550,315字节（约357.2 MiB）、4,504,820行。范围分别从1992-08-07周和1992-08月开始。两频登记上界共2,254份、375,005,366字节，源返回可能选中额外登记周期或新增周期，未知现有目标由原校验拒绝。 |
+| Silver自动接续 | 现有目标按原2014年起算规则涉及659个周和155个月，共814个周期。各周期是否重建及最终个数以实际Raw交付和版本为准。 |
+| 读写与恢复 | `stock_period_raw.assemble`将选中旧Raw的21列读入一次以保留同周期其他股票。候选按原规则校验，在`/Volumes/datasource/data_lake_staging`形成逐文件记录，向同设备正式Lake原子替换。续跑复用成功源页及完整候选，只重做未完成部分，验收复用交付和检查记录并定点核当月文件。 |
+
+以上文件字节数来自现有登记版本，只计输入文件压缩大小。正式设备IO、最终候选大小及运行时间待实际任务记录。10月28日同量级的恢复在4 GiB下因COPY期间超限停止，单次使用8 GiB后成功，实测RSS采样最高约5.79 GiB。11月6日现有预核未测正式进程内存。拟仅为此次原生续跑使用已存在的`goldenshare/stock_period_rss_limit_gib=8`标签，沿[共享LLD§12.12.4](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md)的准入与续跑规则，保留默认及冻结策略。
+
+批准历史读写范围及本次资源值后，先复核两频在途任务、共享待办、已绑定参考文件与范围证据，再沿共享LLD§12.8向本机正式Dagster（`/Users/congming/.goldenshare/dagster_home`）提交`launchRunReexecution`。`parentRunId=b612e5bb-99f2-4654-af77-6326b1ab45bd`，`strategy=FROM_FAILURE`，`useParentRunTags=true`，`extraTags`仅包含上述本次资源值。保持原分区和11月6日意图。原任务成功后核验当月`end_date`至少到11月6日、原三项检查和实际两频文件的交付。若输入范围变化、源截至日期未到或真实检查失败，保留现场并停止人工推进。本节记录的是只读预核，正式续跑仍待确认。
+
+### 10.1 已批准的执行方式
+
+2026-11-07管理员明确批准上述两频历史读写、原Silver自动接续和本次8 GiB运行值。提交前复核八份输入的大小和修改时间与预核一致，共享待办为空，写锁空闲，周/月Raw及Silver四个任务均无在途运行。原月任务配置、分区与最新失败子任务一致。工作目录为`/Users/congming/github/goldenshare/lake_console/orchestrator`，通过既有正式Dagster的GraphQL提交一次原生续跑，具体请求使用上节已审核的参数：
+
+```bash
+curl --max-time 25 --fail-with-body --silent --show-error \
+  http://127.0.0.1:3000/graphql -H 'Content-Type: application/json' \
+  --data-binary @/private/tmp/dg-raw-month-recovery-20261106.xL15cQ/raw-month-resume-request.json \
+  -o /private/tmp/dg-raw-month-recovery-20261106.xL15cQ/raw-month-resume-response.json
+```
+
+提交后核对父任务、原业务日期、月分区、标签及终态。若提交应答不明，先查现有运行。若原任务失败，核对已保存的源页、候选、正式文件及检查，按上节边界处理。成功后复用两条交付通知及原检查验收，只对当月目标做独立物理核验。
+
+### 10.2 正式结果（2026-11-07）
+
+原月线续跑`0520645a-b855-4eca-ba31-52fab8da05b0`于08:25:39开始、08:34:22成功（北京时间）。原父链、11月6日意图、`2026-11`分区及本次8 GiB标签读回一致。41个源单元全部完成，范围仍为20只两频历史及11月全市场月线，源单元记录的最大`end_date`均为11月6日。实际提交1,737份周Raw、412份月Raw，与预核数量一致，合计374,592,491字节为已提交文件的压缩大小。两条Raw通知引用同一文件交付摘要。
+
+月线Silver任务`b2b7dbf6-59fc-439e-879d-b4585fb3e976`于08:34:54成功，传感器08:37:30确认155份月文件及465项检查。周线Silver任务`acf956b2-5c2e-4d6f-897f-ad487f2dbd1e`于08:37:16成功，传感器08:38:15确认659份周文件及1,977项检查。
+
+独立计数确认`2026-11`的Raw、Silver文件各5,574行、各5,574个唯一键。两层均有5,573行的`end_date=20261106`，各保留1条较早源日期，最大日期为11月6日。Raw、Silver各三项原检查全部通过，分别绑定当月物化`7943539`和`7944809`。共享因子及月线日更水位已到11月6日，周线全市场日更水位仍为11月5日。收尾时Raw本批的`files_complete`待办仍留在共享状态，标记为已消费，待后续原Raw流程确认。两频Silver回执均已确认。
+
+<a id="monthly-daily-point-readiness"></a>
+
+## 11. 当月全市场单点预检与日更
+
+本节对应[原方案第10.19节](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#stock-period-daily-then-history)和[周月线LLD第13节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-daily-then-history-lld)。预检、日更交付、因子回刷、Dagster记录及切换沿共享规则，月线只补下列差异。
+
+- 上海时间交易日20:00起，月线sensor用同日已验收的在市名单减去当日全日停牌，得到应更新代码集合。输入`freq=month, trade_date=自然月末`，首请求带既有`limit=6000, offset=0`。例如11月10日请求`trade_date=20261130`，只取`ts_code, trade_date, end_date`，每个应更新代码都须有一条当月记录且`end_date=20261110`。全日停牌股票允许有有效记录，也允许缺席。未齐时按原检查间隔重查，通过才提交月Raw。
+- 月Raw正式下载沿相同单点请求并核原21列，只交付`month=2026-11/data.parquet`这一类当期文件。全日停牌股票有有效返回就合并，无返回则保留原记录。当天新上市股票由当月全市场日更写入首根月线。月Silver按通过检查的实际Raw交付接续。同日两频Raw日更均完成并通过检查后，复用现行Silver股票复权因子生产、验收及相邻日比较，独立回刷复权因子变化股票。
+- 月Raw当日成功并通过原检查后，成功事件sensor向独立清理job提交`freq=month`。只清月线Raw，实际变更再由月Silver接续。周线成功时独立提交周清理，两频分别记录结果。详见[周月线详细设计第13.8节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-retirement-cleanup)。
+- 2026年11月全市场三列实测，`trade_date=20261130`与原月初至月末范围各5,575行，三列双向差集为0。2026年10月单股最后交易日`20261030`返回0行，自然月末`20261031`返回1行。2020年2月范围曾返回28日与29日两种标签，现存历史按原合同保留。全市场当月日更、预检和指定闭合月补齐使用自然月末单点，单股完整历史按`ts_code + freq=month`获取，不传`trade_date`、`start_date`或`end_date`，沿用既有分页。
+
+月线专项回归须证明自然月末非交易日仍按自然月末请求、输入`trade_date`与输出`end_date`分别核对、正式下载与预检使用同一坐标。新回刷任务失败后按原业务范围整批重跑，按源返回的历史日期定位月文件，验证重跑后月线无重复记录、较新的当期行情得到保留。按共享规则清退`baseline.json`、建库交接标记和跨批文件版本目录。历史回刷遇到整月文件缺失时走该月全市场补齐。补建整月文件时，逐日计算应更新代码并取并集。覆盖核对用每只股票在该月最后应更新日，允许源后来重算到更晚日期，Silver用实际交付日期。某日因当期交付不齐而未触发回刷时，沿共享规则核实Raw并按原复权因子日期提交。范围、耗时、重跑和补齐见周月线LLD第13.4至13.7节。
+
+周月一起切换。月线须同步移除全市场按月初至月末取数、月Raw混合日更与回刷、月Silver解析旧日更回执及旧月线脚本入口。切换前对账并交接未完成旧批，保留月线历史文件、首次建库和已确认的校验。共用函数、调用方迁移与清退验收见[周月线LLD第13.7节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-legacy-removal)。

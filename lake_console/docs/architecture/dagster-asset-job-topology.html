@@ -373,7 +373,7 @@
 
 
     <div class="note" id="period-silver-planned-automation">
-      <strong>周/月Silver自动更新：代码及隔离验收已完成；尚未正式加载启用。</strong>
+      <strong>2026-10-17 周/月Silver自动更新接线记录</strong>
       周线计划链为 <code>raw_tushare_stk_period_bar_adj_week</code> 完成通知 →
       <code>silver_stock_weekly_update_job_sensor</code> → <code>silver_stock_weekly_update_job</code>；
       月线为 <code>raw_tushare_stk_period_bar_adj_month</code> 完成通知 →
@@ -382,7 +382,7 @@
       每个tick最多提交一个本频率批次，覆盖通知中全部实际变化周期；周线Raw任务引起的历史月线变化也交给月线链处理。
       原Raw sensor的状态、水位和19:30窗口保留，不新增分区sensor或调度入口。
       完整合同及正反验收见<a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-sensor-classification">共享LLD §11.6—11.8</a>。
-      本图记录已实现的代码接线；两个新sensor尚未进入正式运行拓扑，正式加载和启用仍按独立清单确认。原生检查完成后只汇总已有状态回执，不发事件或重算行情。
+      正式接线结果见共享LLD第11.13节。待开发的20:00预检、独立回刷及旧入口清退见<a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-daily-then-history-lld">共享LLD第13节</a>。
     </div>
     <div class="note">
       <strong>2026-10-10 同花顺行业资金流调度：</strong>
@@ -1354,12 +1354,23 @@
       <a href="../design/dagster-moneyflow-tushare-low-level-design-v1.md#moneyflow-automation">资金流LLD §60</a>记录本表4MiB文件预算、85次批量native读取及正式只读边界。
     </div>
     <div class="note">
-      <strong>2026-10-13 复权周线历史检查补录：</strong>
+      <strong>2026-10-13 复权周线历史检查补录（当时执行记录）：</strong>
       <code>raw_stk_period_bar_adj_week_event_backfill_job</code> 仅手动运行
       <code>report_stock_weekly_bootstrap_checks</code>，每批最多33周/99条检查。
       输入为已验收B0的冻结事件计划，检查绑定新物化，使用真实运行ID并保留旧记录；
-      不生成行情，不关联自动sensor或schedule。日常接收仍使用原更新job及19:30策略。
+      当时不生成行情，不关联自动sensor或schedule。该job现行代码读直接源旧回执，清退范围见<a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-legacy-removal">共享LLD第13.7节</a>。
       <a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-bootstrap-event-replacement-20261013">周线LLD A21</a>记录范围、执行参数和恢复口径。
+    </div>
+
+    <div class="note" id="period-retirement-cleanup-planned">
+      <strong>周月线退市清理（待开发）。</strong>
+      成功事件sensor监听两个Raw日更job，分别向同一个
+      <code>stock_period_retirement_cleanup_job</code>传入周或月频率。
+      每频以自身Raw当期日更完整交付、原检查通过及运行成功为条件；
+      周清理只处理周Raw，月清理只处理月Raw，无需等待另一频。
+      业务日期取上游运行配置，同频Silver接续实际变化。
+      触发、配置及验收见
+      <a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-retirement-cleanup">周月线详细设计第13.8节</a>。
     </div>
 </main>
 </body>
