@@ -14,7 +14,7 @@ SHA = "a" * 64
 
 
 def identity(run="run-a"):
-    return models.RunIdentity(run, None, T, T, P, "today", 0, None, None)
+    return models.RunIdentity(run, None, T, T, P, "today", 0)
 
 
 def contract():

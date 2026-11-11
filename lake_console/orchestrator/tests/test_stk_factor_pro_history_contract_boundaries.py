@@ -27,8 +27,6 @@ def identity_wire():
         "previous_trade_date": "2026-10-15",
         "purpose": "today",
         "scheduled_slot": 0,
-        "submission_no": None,
-        "business_attempt": None,
     }
 
 

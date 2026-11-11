@@ -1,6 +1,6 @@
 # 股票技术因子 DG 数据集接入 LLD v1
 
-日期：2026-11-11。状态：源端代码齐备、完整日发布和指定日期人工补跑的现行设计见§21。前五批及第六批前两步是已有代码基线；新规则第1小步的共享齐备算法与覆盖记录已完成开发、隔离验证及独立审计，见§21.16。其余小步尚待实施。正式资源操作按阶段另行授权。
+日期：2026-11-11。状态：源端代码齐备、完整日发布和指定日期人工补跑的现行设计见§21。前五批及第六批前两步是已有代码基线；新规则第1小步的共享齐备算法与覆盖记录、第2小步的七字段配置及指定日期身份已完成开发、隔离验证及独立审计，见§21.16～21.17。第3小步及以后尚待实施。正式资源操作按阶段另行授权。
 
 依据：[原技术方案](dagster-stock-technical-factor-onboarding-plan-v1.md)、[DG接入模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理规范](dagster-data-pipeline-performance-governance.md)、[Prod审计报告](../../reports/stock_factor_pro_prod_audit_20261021/README.md)。下载器依据[组件LLD](dagster-tushare-download-component-low-level-design-v1.html)与[业务使用文档](../architecture/tushare-download-component-usage-v1.html)，不在本数据集重做。
 
@@ -3312,6 +3312,12 @@ sensor以既有5秒性能目标核对本地读取、T/P摘要和源查询的总�
 
 **2. 七字段与指定日期入口。**同步§21.12的解析、身份、观察、parent/root、bootstrap授权和测试消费者，删除旧两字段。today新自动提交仍T=D；manual_date首次可以无parent，本小步先验证配置和身份合同，完整人工日更新在第4小步验收；按历史T取完整SSE记录和其pretrade_date所指P，不按有缺行的开市tuple下标选P。普通人工不读bootstrap目录；原生日更重执行保持原T及原用途，按原授权重新下载。11月11日补11月10日、休市D补旧开市T和无原run必须通过；旧字段/previous_day、未来T、错分区、缺严格P必须拒绝或预检等待。维护/队列按§4.2，不在job内自动启停sensor。
 
+本小步实施时，`_open_calendar`从本连接已核日历关系一次投影SSE开市日的`trade_date/pretrade_date`，按日期交接映射；parse和历史repair用目标T记录的P确认开市、存在及P<T。历史规划和bootstrap授权仍接收同一映射的升序开市日期tuple，不新增日历文件读取。manual_date首次提交核D为本次上海自然日期，不套自动时点；原生重执行沿原parent/root核七字段，不以实际开始日期替换原D/T。
+
+改动限本数据集run_contracts、assets、readiness、bootstrap授权、repair及直接测试，不改源请求、日发布门槛、历史算法、定义名称或正式路径。七字段默认值与持久位置沿§21.4；闭合观察和嵌入RunIdentity的记录同步收敛，不保留旧字段兼容。故障、取消和跨进程重下沿现行机制，本步不新增业务写入阶段。配置/身份检查源请求和额外文件写入均为0；原生重执行最多读取直接parent/root各一次，重复身份复用；日历沿既有一次准备及必要投影，内存随日历开市日期数线性增长。中断后重新解析同份输入，最后隔离读回该run的七字段与观察，不扫描历史业务文件；耗时以本步有界验证实测记录，不另设无依据阈值。
+
+测试按独立字面配置验证11月11日补11月10日、休市D和无parent，反向拒绝旧用途/两字段、T≥D、错分区及缺失/休市/不早于T的P；周一缺周五但有周四不得误选周四。原生重执行跨日保留原输入、改用途或日期拒绝；普通人工对bootstrap目录读取为0；既有bootstrap首次授权及重执行、repair原范围和历史回刷回归继续通过。正式旧记录计数沿§21.12，前次16:24核验为0，开工只复用同会话该证据，不据此授权正式执行。
+
 **3. 同一源端探测函数。**在`defs/source_readiness/stk_factor_pro.py`新增`probe_stk_factor_pro_source`，输入为目标T、已准备的覆盖输入/本连接、既有连接配置和时钟，返回§21.2小结果。只请求固定API、固定两列、固定目标日及源分页参数。使用既有完整STK_FACTOR_PRO_CONTRACT和transport binding，以PageRequest固定fields构造只读请求，复用HttpProTransport及parse_http；不能经会强制填完整字段的RequestBuilder生成投影请求，也不能把两列响应交给完整unit输出器。用既有内存/计数/取消接口，仅调用单次fetch_page，不走下载session的同页重试或文件输出。传输返回的字段形状、日期、原主键及页完整性由本函数核验，分页取得的实际集合直接交纯覆盖函数，全部额外代码保留参与比较。
 
 沿§21.14余时和现有资源关闭合同。不能直接复制`idx_factor_pro_source_probe.py`：该函数会丢弃非预期代码且只查一页，不满足本需求；不改这个指数消费者。先用安装环境的真实parse_http、PageRequest和可控HTTP响应做投影、空页/短页/满页、重复跨页、错日、额外字段、源错误、超时及关闭验证，再复用已获准的有界源样本核两列合同。正式源请求仍按只读授权与权限执行，不使用正式sensor evaluation做实验。
@@ -3388,3 +3394,23 @@ sensor以既有5秒性能目标核对本地读取、T/P摘要和源查询的总�
 **独立审计。**开发完成后重新读取实际改动，与实施前源码及独立字面样本比较，不用待测函数生成预期。两股票人工样本中，首日缺新股时旧计数(expected/actual/missing/extra)=(2,1,1,0)，新计数=(1,1,0,0)；首日有行时旧=(2,2,0,0)，新=(1,1,0,0)，两行仍在；下一交易日缺该股时两实现均为(2,1,1,0)。另验证旧RawCoverage类型允许缺0、多1时标齐备，新类型拒绝。新实现3次内存集合计算实测11.198、10.245、9.708毫秒，范围仅这3个人工样本，未含源请求、正式文件、Dagster读取或完整sensor开销。CodeGraph explore/impact后用rg补齐直接消费者，结束执行sync及status；图未覆盖的动态序列化边界由实际代码和JSON测试核对。
 
 独立审计未发现本小步未实现的业务要求。曾发现并修复日更/repair清理调用遗漏和JSON字面样本漏新增字段，受影响回归已重跑。运行配置的previous_day及两项次数字段仍按第2小步删除；本轮没有实现manual_date、源端两列探测、发布前门槛、日更sensor，或执行正式bootstrap/事件补录/自动化启用。临时审计脚本和日志收尾删除，保留本节必要结论。本轮代码尚未提交。
+
+### 21.17 第2小步实现与独立审计（2026-11-11）
+
+已按§21.13第2小步完成七字段配置与指定日期身份。实施前使用CodeGraph explore、impact核共享输入和身份，再以当前rg及源码补齐图未列出的日更、readiness、bootstrap、repair和测试消费者；_open_calendar的callers未完整列出repair，已按真实调用同步修改。开发后执行codegraph sync/status，索引状态正常。正式旧记录处理复用本会话16:24只读计数：两job运行和两资产物化/阶段观察均0，本数据集正式Raw/Silver和staging目录不存在；两项freshness状态事件没有本次业务记录。没有运行时兼容或正式旧记录迁移。
+
+| LLD硬口径 | 实现位置与实际行为 | 验证 |
+| --- | --- | --- |
+| 七字段，旧用途及两字段删除 | run_contracts的用途、配置schema、RunInput、RunIdentity、观察schema和builder同步删除旧项；readiness读原配置、观察和parent/root核七字段，bootstrap授权错误说明同步。 | foundations、recorded_results及manual_date测试核精确字段、原生配置默认值和序列化；旧字段即使为null，配置、观察、嵌入身份均拒绝。完整JSON字面样本同步迁移。 |
+| today只支持T=D；人工允许无parent、T<D、D休市 | RunInput核日期关系；manual_date不占slot、不带bootstrap三项授权。assets首次人工核D为上海本次日期，原生重执行沿原输入，不以新开始日期替换。 | 独立字面配置11月11日补11月10日、11月14日休市提交均通过；T=D/未来、错分区、旧用途、人工slot和越权bootstrap字段拒绝。临时真实job在开市/休市D均可无parent进入真实precheck，下载及物化为0。 |
+| T记录的pretrade_date决定严格P | _open_calendar一次投影已核日历关系的SSE开市日期及pretrade_date；parse和repair共用严格P判断。日更/repair给历史规划及bootstrap的仍是同一升序日期tuple。 | 使用Silver日历生产者schema构造有界Parquet：正常周一/周五通过；缺周五但有周四、周五休市、其他交易所同日、P为空/P=T/P>T及T休市均拒绝。真实job缺P在规划/下载前失败，没有本run staging记录或物化。 |
+| 普通补日不读初始化记录；重执行保持原授权 | 普通用途保留既有非bootstrap分支，source_run_id/parent/root和开始观察继续使用；人工首次日期检查不限制原生跨日重执行。 | 普通人工授权loader调用0、初始化resolver调用0；原生manual_date从10月16日提交到10月19日重执行仍下载原10月15日，没有写10月16日。改原用途或目标日期拒绝。bootstrap首次授权、错摘要、缺口变0后原授权复用及repair原范围回归通过。 |
+| 不调整股票复权因子历史算法及发布过程 | 生产只改run_contracts、assets、readiness、bootstrap授权和repair五文件；历史repair仅同步身份和严格P。 | 与实施前副本逐字比较io/stk_factor_pro_history.py、io/stk_factor_pro_download.py、io/stk_factor_pro_publication.py均相同；AST核其余contract函数及历史业务摘要函数未变，原完整范围重下、取消/硬退出和逐文件发布回归继续通过。 |
+
+**实际验证与成本。**普通隔离回归显式列出49个文件，排除受保护Definitions，997项一次完整执行全部通过，耗时345.70秒。受保护Definitions1项和运行合同静态门禁113项分别按既有runner通过；全部变更Python文件Ruff、全src/tests致命错误检查、文档完整性与空白检查通过。既有本地HTTP模拟用例仅连接回环测试服务，全部Lake/实例写入为工程外临时资源；没有新增正式源查询、正式资源执行、依赖安装或sensor操作。
+
+新增测试曾把解析后的date预期误写为字符串，并误用Dagster结果方法名；按既有date合同和已安装execution_result API纠正后，上述完整997项通过，没有为迎合测试改生产行为。前轮125项定向验证也是通过记录，不与997项重复累加。
+
+开发后另加载实施前源码作独立对照，不用待测函数生成预期：旧输入拒绝的两种manual_date字面日期现可通过；周一缺周五的旧开市tuple会接受并取周四，新映射拒绝，正常周五仍通过；旧身份带null次数字段原可接受，新封闭parser拒绝。五个开市日期的内存样本，三次配置解析实测0.010125、0.006000、0.004958毫秒，仅代表这三次解析；不是完整job或sensor性能。日期映射复用已读关系，没有额外日历文件读取；原生重执行的parent/root读取及复用边界不变。
+
+本步独立审计未发现遗漏。源端两列探测、发布前完整日门槛、完整manual_date日更新验收、日更sensor均未提前实施，分别留给第3小步以后。未提交本步代码；正式bootstrap、补日、事件补录和自动化启用均未执行。临时副本、脚本、测试输出和日志收尾删除，只保留原文档中的必要结果。

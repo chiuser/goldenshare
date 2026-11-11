@@ -47,7 +47,7 @@ SOURCE_DOC = (
 MONDAY = date(2026, 10, 26)
 FRIDAY = date(2026, 10, 23)
 THURSDAY = date(2026, 10, 22)
-CALENDAR = (THURSDAY, FRIDAY, MONDAY)
+CALENDAR = {THURSDAY: date(2026, 10, 21), FRIDAY: THURSDAY, MONDAY: FRIDAY}
 HASH_A = "a" * 64
 HASH_B = "b" * 64
 
@@ -126,8 +126,6 @@ def identity(**overrides):
             "previous_trade_date": FRIDAY,
             "purpose": "today",
             "scheduled_slot": 0,
-            "submission_no": None,
-            "business_attempt": None,
             **overrides,
         }
     )
@@ -270,14 +268,13 @@ def test_schema_digest_uses_independent_literal_mapping():
         contracts.stk_factor_pro_schema_digest("gold")
 
 
-def test_run_input_eight_fields_frozen_and_three_purposes():
+def test_run_input_seven_fields_frozen_and_three_purposes():
     value = parse(today_config())
     assert tuple(field.name for field in fields(value)) == (
         "execution_day",
         "target_trade_date",
         "purpose",
         "scheduled_slot",
-        "submission_no",
         "bootstrap_operation_id",
         "expected_bootstrap_approval_digest",
         "expected_bootstrap_date_result_digest",
@@ -285,14 +282,14 @@ def test_run_input_eight_fields_frozen_and_three_purposes():
     assert value.execution_day == MONDAY and value.target_trade_date == MONDAY
     with pytest.raises(FrozenInstanceError):
         value.scheduled_slot = 9
-    previous = parse(
+    manual = parse(
         today_config(
-            purpose="previous_day",
+            purpose="manual_date",
             target_trade_date="2026-10-23",
-            submission_no=1,
+            scheduled_slot=None,
         )
     )
-    assert previous.target_trade_date == FRIDAY
+    assert manual.target_trade_date == FRIDAY
     assert parse(bootstrap_config()).execution_day == date(2026, 10, 25)
     assert parse(today_config(scheduled_slot=9)).scheduled_slot == 9
 
@@ -346,7 +343,7 @@ def test_auto_input_rejects_unknown_fields_and_wrong_combinations(overrides):
 
 
 @pytest.mark.parametrize("submission", [None, False, 0, 11, "1", 1.0])
-def test_previous_day_requires_real_submission_integer(submission):
+def test_previous_day_and_submission_are_removed(submission):
     with pytest.raises(ValueError):
         parse(
             today_config(
@@ -381,11 +378,12 @@ def test_input_requires_explicit_slot_valid_calendar_and_partition():
         parse(config)
     assert contracts.STK_FACTOR_PRO_UPDATE_CONFIG_SCHEMA["scheduled_slot"].is_required
     for bad_calendar in (
-        (),
-        [THURSDAY, FRIDAY, MONDAY],
-        (MONDAY, FRIDAY),
-        (FRIDAY, FRIDAY),
-        (MONDAY,),
+        {},
+        (THURSDAY, FRIDAY, MONDAY),
+        {MONDAY: FRIDAY, FRIDAY: THURSDAY},
+        {FRIDAY: THURSDAY, MONDAY: THURSDAY},
+        {MONDAY: FRIDAY},
+        {FRIDAY: THURSDAY, MONDAY: "2026-10-23"},
     ):
         with pytest.raises(ValueError):
             parse(today_config(), calendar=bad_calendar)
@@ -420,21 +418,17 @@ def test_identity_and_finite_history_reasons():
         7,  # Existing SAME_NIGHT_FACTOR_REVISION, approved in LLD 20.2.
     )
     assert identity().previous_trade_date == FRIDAY
-    assert (
-        identity(
-            purpose="previous_day",
-            target_trade_date=FRIDAY,
-            previous_trade_date=THURSDAY,
-            submission_no=2,
-            business_attempt=1,
-        ).business_attempt
-        == 1
-    )
+    assert identity(
+        purpose="manual_date",
+        target_trade_date=FRIDAY,
+        previous_trade_date=THURSDAY,
+        scheduled_slot=None,
+    ).purpose == "manual_date"
     for overrides in (
         {"creator_run_id": "../bad"},
         {"previous_trade_date": MONDAY},
         {"execution_day": datetime(2026, 10, 26, tzinfo=timezone.utc)},
-        {"business_attempt": True},
+        {"purpose": "previous_day"},
         {"purpose": "manual_repair"},
         {"target_trade_date": FRIDAY},
     ):
@@ -444,6 +438,9 @@ def test_identity_and_finite_history_reasons():
         identity(purpose="manual_repair", scheduled_slot=None).purpose
         == "manual_repair"
     )
+    for removed in ("submission_no", "business_attempt"):
+        with pytest.raises(TypeError):
+            identity(**{removed: None})
 
 
 def test_day_source_is_current_call_carrier_without_serialized_download_cache():

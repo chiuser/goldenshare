@@ -1921,7 +1921,7 @@ def resolve_stk_factor_pro_bootstrap_context(
             auth.job_name != C.STK_FACTOR_PRO_UPDATE_JOB_NAME
             or _stk_factor_pro_update_input(auth) != run_input
         ):
-            raise ValueError("初始化授权run与八字段不符")
+            raise ValueError("初始化授权run与七字段不符")
         key = ("first_observation", auth.run_id)
         if key not in known_pg:
             known_pg[key] = tuple(

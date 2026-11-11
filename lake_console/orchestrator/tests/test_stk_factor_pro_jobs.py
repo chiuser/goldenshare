@@ -65,7 +65,6 @@ def config(day=DAY, *, execution_day=None, purpose="today", slot=0):
                     "target_trade_date": str(day),
                     "purpose": purpose,
                     "scheduled_slot": slot,
-                    **({"submission_no": 1} if purpose == "previous_day" else {}),
                 }
             }
         }
@@ -615,7 +614,7 @@ def test_actual_job_refuses_shortening_untrustworthy_approved_history(
     )
 
 
-def test_previous_day_precheck_then_native_reexecution_reads_original_date(
+def test_manual_date_precheck_then_native_reexecution_reads_original_date(
     tmp_path, monkeypatch, actual_job
 ):
     from dagster._core.definitions.job_base import InMemoryJob
@@ -625,7 +624,7 @@ def test_previous_day_precheck_then_native_reexecution_reads_original_date(
     input_files(tmp_path, lake, changed=())
     with connection(tmp_path) as conn:
         write_factor_file(conn, lake, UNMATERIALIZED, ((A, 1), (B, 1)))
-    run_config = config(PREVIOUS, execution_day=DAY, purpose="previous_day")
+    run_config = config(PREVIOUS, execution_day=DAY, purpose="manual_date", slot=None)
     downloader = set_source((row(A, "20261015"), row(B, "20261015")), PREVIOUS)
     monkeypatch.setattr(
         asset,

@@ -134,8 +134,6 @@ def test_history_first_bad_lifecycle_schema_is_not_read_again_by_coverage(
                     DAY - timedelta(days=1),
                     "today",
                     0,
-                    None,
-                    None,
                 ),
                 lake_root=lake,
                 factor_t=refs[0],

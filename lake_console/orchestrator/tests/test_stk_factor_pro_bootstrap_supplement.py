@@ -165,7 +165,6 @@ def test_initial_authorization_rejects_wrong_result_digest(
         DAY,
         "bootstrap_supplement",
         None,
-        None,
         args["approval"].operation_id,
         args["_approval_digest"],
         known[

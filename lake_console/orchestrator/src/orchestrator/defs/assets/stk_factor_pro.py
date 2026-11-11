@@ -119,10 +119,10 @@ def _open_calendar(connection, lake, inherited_facts, known_records):
     )
     if not fact["basis"].valid:
         raise ValueError(f"股票技术因子缺可用交易日历：{fact['reason']}")
-    return tuple(
-        row[0]
-        for row in connection.execute(
-            f"SELECT trade_date FROM {fact['relation']} WHERE exchange='SSE' AND is_open ORDER BY trade_date"
+    return dict(
+        connection.execute(
+            f"SELECT trade_date, pretrade_date FROM {fact['relation']} "
+            "WHERE exchange='SSE' AND is_open ORDER BY trade_date"
         ).fetchall()
     )
 
@@ -1156,16 +1156,17 @@ def stk_factor_pro(
                 ),
             ),
         ):
-            calendar = _open_calendar(connection, lake, inherited, known_records)
+            calendar_days = _open_calendar(connection, lake, inherited, known_records)
             run_input = C.parse_stk_factor_pro_run_input(
-                context.op_execution_context.op_config, day, calendar
+                context.op_execution_context.op_config, day, calendar_days
             )
+            calendar = tuple(calendar_days)
             target = run_input.target_trade_date
             if not instance.has_dynamic_partition(
                 C.STK_FACTOR_PRO_PARTITIONS, str(target)
             ):
                 raise ValueError("股票技术因子目标日尚未登记分区")
-            previous = calendar[calendar.index(target) - 1]
+            previous = calendar_days[target]
             prior = readiness.read_stk_factor_pro_recorded_results(
                 instance,
                 target_trade_date=target,
@@ -1200,6 +1201,9 @@ def stk_factor_pro(
                 )
                 if source_run is not None:
                     source_run_id = source_run.parent_run_id
+                elif run_input.purpose == "manual_date":
+                    if _now().date() != run_input.execution_day:
+                        raise ValueError("首次指定日期补数的D必须是本次上海日期")
                 elif not blocked:
                     now = _now()
                     starts_at = datetime.combine(
@@ -1219,8 +1223,6 @@ def stk_factor_pro(
                 previous,
                 run_input.purpose,
                 run_input.scheduled_slot,
-                run_input.submission_no,
-                1 if run_input.purpose == "previous_day" else None,
             )
             if not blocked:
                 for factor_day in (target, previous):

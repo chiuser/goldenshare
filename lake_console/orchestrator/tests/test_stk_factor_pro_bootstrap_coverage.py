@@ -529,8 +529,6 @@ def test_nonzero_diagnostic_saved_once_in_run_t_or_operation_history(
             target - timedelta(days=1),
             "bootstrap_supplement",
             None,
-            None,
-            None,
         )
         args["_diagnostic_run"] = run
         original_sha = checks.factor_file_sha
@@ -618,8 +616,6 @@ def test_run_diagnostic_first_reader_reuses_facts_and_rejects_symlink_parent(
             DAY,
             DAY - timedelta(days=1),
             "bootstrap_supplement",
-            None,
-            None,
             None,
         )
         args["_diagnostic_run"] = run

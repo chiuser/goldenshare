@@ -81,9 +81,9 @@ STK_FACTOR_PRO_SILVER_COLUMN_TYPES = MappingProxyType(
     }
 )
 
-StkFactorProUpdatePurpose = Literal["today", "previous_day", "bootstrap_supplement"]
+StkFactorProUpdatePurpose = Literal["today", "manual_date", "bootstrap_supplement"]
 StkFactorProPurpose = Literal[
-    "today", "previous_day", "bootstrap_supplement", "manual_repair"
+    "today", "manual_date", "bootstrap_supplement", "manual_repair"
 ]
 StkFactorProPhase = Literal["day", "history"]
 StkFactorProLayer = Literal["raw", "silver"]
@@ -177,26 +177,24 @@ def _sample(value: object, *, count: int | None = None) -> None:
         raise ValueError("stk_factor_pro 样本必须去重升序、至多20项且不超过实际计数")
 
 
-def _update_fields(purpose, slot, submission, operation, approval, result) -> None:
-    if purpose not in ("today", "previous_day", "bootstrap_supplement"):
+def _update_fields(purpose, slot, operation, approval, result) -> None:
+    if purpose not in ("today", "manual_date", "bootstrap_supplement"):
         raise ValueError("stk_factor_pro 更新用途错误")
     if purpose == "bootstrap_supplement":
-        if slot is not None or submission is not None:
-            raise ValueError("bootstrap补数不能占自动时点或提交序号")
+        if slot is not None:
+            raise ValueError("bootstrap补数不能占自动时点")
         validate_stk_factor_pro_identifier(operation)
         _digest(approval)
         _digest(result)
         return
     if any(v is not None for v in (operation, approval, result)):
-        raise ValueError("自动用途不得携带bootstrap授权字段")
+        raise ValueError("普通更新不得携带bootstrap授权字段")
+    if purpose == "manual_date":
+        if slot is not None:
+            raise ValueError("指定日期补数不能占自动时点")
+        return
     if type(slot) is not int or not 0 <= slot < STK_FACTOR_PRO_SLOT_COUNT:
         raise ValueError("stk_factor_pro scheduled_slot必须是0到9的整数")
-    if purpose == "today" and submission is not None:
-        raise ValueError("today不接受submission_no")
-    if purpose == "previous_day" and (
-        type(submission) is not int or not 1 <= submission <= STK_FACTOR_PRO_SLOT_COUNT
-    ):
-        raise ValueError("previous_day submission_no必须是1到10的整数")
 
 
 STK_FACTOR_PRO_UPDATE_CONFIG_SCHEMA = {
@@ -204,7 +202,6 @@ STK_FACTOR_PRO_UPDATE_CONFIG_SCHEMA = {
     "target_trade_date": dg.Field(str),
     "purpose": dg.Field(str),
     "scheduled_slot": dg.Field(dg.Noneable(int), is_required=True),
-    "submission_no": dg.Field(dg.Noneable(int), is_required=False, default_value=None),
     "bootstrap_operation_id": dg.Field(
         dg.Noneable(str), is_required=False, default_value=None
     ),
@@ -223,7 +220,6 @@ class StkFactorProRunInput:
     target_trade_date: date
     purpose: StkFactorProUpdatePurpose
     scheduled_slot: int | None
-    submission_no: int | None = None
     bootstrap_operation_id: str | None = None
     expected_bootstrap_approval_digest: str | None = None
     expected_bootstrap_date_result_digest: str | None = None
@@ -234,17 +230,32 @@ class StkFactorProRunInput:
         _update_fields(
             self.purpose,
             self.scheduled_slot,
-            self.submission_no,
             self.bootstrap_operation_id,
             self.expected_bootstrap_approval_digest,
             self.expected_bootstrap_date_result_digest,
         )
+        if self.purpose == "today" and self.target_trade_date != self.execution_day:
+            raise ValueError("today目标T必须等于执行日D")
+        if (
+            self.purpose == "manual_date"
+            and self.target_trade_date >= self.execution_day
+        ):
+            raise ValueError("manual_date目标T必须早于提交日D")
+
+
+def stk_factor_pro_previous_trade_date(
+    calendar: Mapping[date, date | None], target: date
+) -> date:
+    previous = calendar.get(target)
+    if previous is None or previous >= target or previous not in calendar:
+        raise ValueError("日历必须覆盖目标T及其pretrade_date所指的严格前交易日P")
+    return previous
 
 
 def parse_stk_factor_pro_run_input(
     config: Mapping[str, object],
     partition_key: str,
-    calendar: tuple[date, ...],
+    calendar: Mapping[date, date | None],
 ) -> StkFactorProRunInput:
     """Parse structure and supplied calendar only; never grant execution authority."""
     required = {"execution_day", "target_trade_date", "purpose", "scheduled_slot"}
@@ -255,12 +266,16 @@ def parse_stk_factor_pro_run_input(
     ):
         raise ValueError("stk_factor_pro配置缺字段或含未知字段")
     if (
-        type(calendar) is not tuple
+        not isinstance(calendar, Mapping)
         or not calendar
         or any(type(day) is not date for day in calendar)
-        or tuple(sorted(set(calendar))) != calendar
+        or any(
+            previous is not None and type(previous) is not date
+            for previous in calendar.values()
+        )
+        or tuple(sorted(calendar)) != tuple(calendar)
     ):
-        raise ValueError("必须提供已校验且升序唯一的SSE开市日历")
+        raise ValueError("必须提供已校验且升序唯一的SSE开市日及pretrade_date映射")
     parsed = StkFactorProRunInput(
         date.fromisoformat(
             normalize_stk_factor_pro_trade_date(config["execution_day"])
@@ -270,7 +285,6 @@ def parse_stk_factor_pro_run_input(
         ),
         config["purpose"],
         config["scheduled_slot"],
-        config.get("submission_no"),
         config.get("bootstrap_operation_id"),
         config.get("expected_bootstrap_approval_digest"),
         config.get("expected_bootstrap_date_result_digest"),
@@ -280,24 +294,7 @@ def parse_stk_factor_pro_run_input(
         != parsed.target_trade_date.isoformat()
     ):
         raise ValueError("目标日期与分区不符")
-    if (
-        parsed.target_trade_date not in calendar
-        or calendar.index(parsed.target_trade_date) == 0
-    ):
-        raise ValueError("日历必须覆盖目标T及严格前交易日P")
-    if parsed.purpose != "bootstrap_supplement":
-        if parsed.execution_day not in calendar:
-            raise ValueError("自动执行日D必须是开市日")
-        index = calendar.index(parsed.execution_day)
-        expected = (
-            parsed.execution_day
-            if parsed.purpose == "today"
-            else calendar[index - 1]
-            if index
-            else None
-        )
-        if parsed.target_trade_date != expected:
-            raise ValueError("目标T不符合today或previous_day日期关系")
+    stk_factor_pro_previous_trade_date(calendar, parsed.target_trade_date)
     return parsed
 
 
@@ -327,8 +324,6 @@ class RunIdentity:
     previous_trade_date: date
     purpose: StkFactorProPurpose
     scheduled_slot: int | None
-    submission_no: int | None
-    business_attempt: int | None
 
     def __post_init__(self) -> None:
         validate_stk_factor_pro_identifier(self.creator_run_id)
@@ -343,29 +338,17 @@ class RunIdentity:
         if self.previous_trade_date >= self.target_trade_date:
             raise ValueError("P必须严格早于T")
         if self.purpose in ("bootstrap_supplement", "manual_repair"):
-            if any(
-                v is not None
-                for v in (
-                    self.scheduled_slot,
-                    self.submission_no,
-                    self.business_attempt,
-                )
-            ):
-                raise ValueError("人工用途不能占自动时点或次数")
+            if self.scheduled_slot is not None:
+                raise ValueError("人工用途不能占自动时点")
         else:
             _update_fields(
-                self.purpose, self.scheduled_slot, self.submission_no, None, None, None
+                self.purpose, self.scheduled_slot, None, None, None
             )
-            if self.purpose == "previous_day":
-                if type(self.business_attempt) is not int or self.business_attempt != 1:
-                    raise ValueError("前日业务尝试固定为1")
+            if self.purpose == "manual_date":
                 if self.target_trade_date >= self.execution_day:
-                    raise ValueError("前日T必须早于D")
-            elif (
-                self.business_attempt is not None
-                or self.target_trade_date != self.execution_day
-            ):
-                raise ValueError("today日期或业务次数错误")
+                    raise ValueError("指定日期T必须早于D")
+            elif self.target_trade_date != self.execution_day:
+                raise ValueError("today目标T必须等于执行日D")
 
 
 @dataclass(frozen=True, slots=True)
@@ -3155,7 +3138,7 @@ class StkFactorProSourceRun:
         validate_stk_factor_pro_identifier(self.parent_run_id)
         validate_stk_factor_pro_identifier(self.root_run_id)
         if not isinstance(self.run_input, StkFactorProRunInput):
-            raise TypeError("重执行缺原八字段输入")
+            raise TypeError("重执行缺原七字段输入")
         if self.original_status not in ("SUCCESS", "FAILURE", "CANCELED"):
             raise ValueError("重执行原任务必须已经结束")
         for value, kind in (
@@ -3176,8 +3159,6 @@ _STK_FACTOR_OBSERVATION_TYPES = {
     "execution_day": date,
     "purpose": StkFactorProPurpose,
     "scheduled_slot": int | None,
-    "submission_no": int | None,
-    "business_attempt": int | None,
     "goldenshare/download_started": bool,
     "goldenshare/summary": str,
     "goldenshare/next_action": str,
@@ -3248,8 +3229,6 @@ def build_stk_factor_pro_observation_metadata(
         "execution_day": identity.execution_day,
         "purpose": identity.purpose,
         "scheduled_slot": identity.scheduled_slot,
-        "submission_no": identity.submission_no,
-        "business_attempt": identity.business_attempt,
         "goldenshare/download_started": observation_kind == "start",
         "goldenshare/summary": summary,
         "goldenshare/next_action": next_action,

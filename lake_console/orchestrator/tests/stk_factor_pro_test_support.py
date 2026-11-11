@@ -41,7 +41,7 @@ DAY = date(2026, 10, 16)
 
 
 def identity(run="run-a", day=DAY):
-    return RunIdentity(run, None, day, day, date(2026, 10, 15), "today", 0, None, None)
+    return RunIdentity(run, None, day, day, date(2026, 10, 15), "today", 0)
 
 
 def contract():

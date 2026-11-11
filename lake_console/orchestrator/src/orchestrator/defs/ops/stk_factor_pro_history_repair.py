@@ -355,16 +355,15 @@ def repair_stk_factor_pro_history(
                     prior=prior,
                 )
             )
-            calendar = daily._open_calendar(connection, lake, inherited, known_records)
-            if (
-                day not in calendar
-                or calendar.index(day) == 0
-                or not instance.has_dynamic_partition(
-                    C.STK_FACTOR_PRO_PARTITIONS, str(day)
-                )
+            calendar_days = daily._open_calendar(
+                connection, lake, inherited, known_records
+            )
+            previous = C.stk_factor_pro_previous_trade_date(calendar_days, day)
+            calendar = tuple(calendar_days)
+            if not instance.has_dynamic_partition(
+                C.STK_FACTOR_PRO_PARTITIONS, str(day)
             ):
                 raise ValueError("历史repair原日期不是已登记且有前交易日的开市日")
-            previous = calendar[calendar.index(day) - 1]
             if previous != source_plan.identity.previous_trade_date:
                 raise ValueError("历史repair的原前交易日已改变")
             identity = C.RunIdentity(
@@ -374,8 +373,6 @@ def repair_stk_factor_pro_history(
                 day,
                 previous,
                 "manual_repair",
-                None,
-                None,
                 None,
             )
             raw, silver = _read_original_daily_publication(

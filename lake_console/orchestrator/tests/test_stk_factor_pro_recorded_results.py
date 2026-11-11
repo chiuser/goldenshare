@@ -39,7 +39,7 @@ def run_observations(instance, kinds, *, previous=None, fail=None, options=None)
         out={},
     )
     def operation(context):
-        identity = C.RunIdentity(context.run_id, None, T, T, P, "today", 0, None, None)
+        identity = C.RunIdentity(context.run_id, None, T, T, P, "today", 0)
         for kind in kinds:
             metadata = C.build_stk_factor_pro_observation_metadata(
                 identity=identity,
@@ -226,7 +226,7 @@ def test_no_parent_has_no_reexecution_authority(tmp_path):
     with _isolated_instance(tmp_path) as instance:
         result, _ = run_observations(instance, ["precheck"])
         run = instance.get_run_by_id(result.run_id)
-        value = C.parse_stk_factor_pro_run_input(CONFIG, str(T), (P, T))
+        value = C.parse_stk_factor_pro_run_input(CONFIG, str(T), {P: None, T: P})
         assert (
             resolve_stk_factor_pro_source_run(
                 instance, run, value, known_pg={}, known_records={}
@@ -345,7 +345,7 @@ def test_actual_reexecution_parent_is_checked_once_and_config_must_match(tmp_pat
             parent_run_id=parent.run_id,
             root_run_id=parent.run_id,
         )
-        value = C.parse_stk_factor_pro_run_input(CONFIG, str(T), (P, T))
+        value = C.parse_stk_factor_pro_run_input(CONFIG, str(T), {P: None, T: P})
         known = {}
         with patch.object(
             instance, "get_run_by_id", wraps=instance.get_run_by_id
@@ -358,7 +358,7 @@ def test_actual_reexecution_parent_is_checked_once_and_config_must_match(tmp_pat
             assert source.original_status == "FAILURE"
             assert source.history_plan_ref.creator_run_id == parent.run_id
             assert read.call_count == 1
-        with pytest.raises(ValueError, match="八字段"):
+        with pytest.raises(ValueError, match="七字段"):
             resolve_stk_factor_pro_source_run(
                 instance,
                 child,

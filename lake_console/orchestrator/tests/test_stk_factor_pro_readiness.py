@@ -152,8 +152,6 @@ def test_single_day_preparation_and_missing_codes_are_reused(tmp_path):
             DAY - timedelta(days=1),
             "today",
             0,
-            None,
-            None,
         )
         saved = write_stk_factor_pro_missing_codes(
             conn,
@@ -308,7 +306,7 @@ def test_missing_upstream_is_unknown_and_zero_diagnostic_does_not_write(tmp_path
             None,
         )
         identity = C.RunIdentity(
-            "run-a", None, DAY, DAY, DAY - timedelta(days=1), "today", 0, None, None
+            "run-a", None, DAY, DAY, DAY - timedelta(days=1), "today", 0
         )
         assert (
             write_stk_factor_pro_missing_codes(

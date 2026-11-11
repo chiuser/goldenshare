@@ -403,9 +403,9 @@ def _stk_factor_pro_observation(instance, record, *, target, known_pg):
         if values["execution_day"].isoformat() != config["execution_day"] or any(
             values[name] != config.get(name)
             or type(values[name]) is not type(config.get(name))
-            for name in ("purpose", "scheduled_slot", "submission_no")
+            for name in ("purpose", "scheduled_slot")
         ):
-            raise ValueError("观察用途/轮次与原运行配置不符")
+            raise ValueError("观察用途/时点与原运行配置不符")
     elif values["purpose"] != "manual_repair":
         raise ValueError("repair观察用途错误")
     known_pg[("observation", record.storage_id)] = record
@@ -734,7 +734,7 @@ def _stk_factor_pro_update_input(run):
         set(config) - C.STK_FACTOR_PRO_UPDATE_CONFIG_SCHEMA.keys()
         or not required <= config.keys()
     ):
-        raise ValueError("原运行配置不符合八字段合同")
+        raise ValueError("原运行配置不符合七字段合同")
     return C.StkFactorProRunInput(
         date.fromisoformat(
             C.normalize_stk_factor_pro_trade_date(config["execution_day"])
@@ -744,7 +744,6 @@ def _stk_factor_pro_update_input(run):
         ),
         config["purpose"],
         config["scheduled_slot"],
-        config.get("submission_no"),
         config.get("bootstrap_operation_id"),
         config.get("expected_bootstrap_approval_digest"),
         config.get("expected_bootstrap_date_result_digest"),
@@ -780,7 +779,7 @@ def resolve_stk_factor_pro_source_run(
             or _stk_factor_pro_run_target(run) != run_input.target_trade_date
             or _stk_factor_pro_update_input(run) != run_input
         ):
-            raise ValueError("重执行原任务身份、终态或八字段不一致")
+            raise ValueError("重执行原任务身份、终态或七字段不一致")
     first_key = ("first_observation", parent_id)
     if first_key not in known_pg:
         known_pg[first_key] = tuple(

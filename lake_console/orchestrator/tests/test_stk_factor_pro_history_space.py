@@ -206,7 +206,7 @@ def space_inputs(tmp_path):
             conn,
             {
                 "identity": contracts.RunIdentity(
-                    "run-space", None, monday, monday, friday, "today", 0, None, None
+                    "run-space", None, monday, monday, friday, "today", 0
                 ),
                 "expected_units": (
                     contracts.UnitProjection(5, "000001.SZ", None, friday, monday),
