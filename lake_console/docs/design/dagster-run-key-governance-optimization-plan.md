@@ -552,10 +552,10 @@ key 不含评价日期、时间戳、UUID、源指纹或事件 id；跨日、重
 
 <a id="stock-period-native-delivery-20261111"></a>
 
-## 股票周月线原生交付身份（2026-11-11，第2阶段已实现）
+## 股票周月线原生交付身份（2026-11-11，第2、3阶段已实现）
 
-本次DG周月线当期Raw/Silver已完成第2阶段实现，现有M1-M9治理结果保持；下述独立历史修复和退市清理job、sensor仍待第3、4阶段实施。完整字段及消费者见[周月线LLD第13.10节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-implementation-contracts)。两条Raw日更继续使用`build_asset_update_run_key(subject=原资产名,unit_id=业务日期)`，不改已用的日期身份。
+本次DG周月线当期Raw/Silver和独立复权因子历史回刷已完成第2、3阶段实现，现有M1-M9治理结果保持；退市清理job、sensor仍待第4阶段。完整字段及消费者见[周月线LLD第13.10节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-implementation-contracts)。两条Raw日更继续使用`build_asset_update_run_key(subject=原资产名,unit_id=业务日期)`，不改已用的日期身份。
 
-新交付引用改用真实`producer_run_id`、`freq`和`upstream_batch_id`，不以旧64位私有执行ID或回执文件摘要作为交付身份。交付ID仍由`build_batch_id`生成；两频自动历史修复按固定周/月引用顺序和代码摘要生成输入ID，生产者ID固定取周Raw引用，不能因哪个成功回调后到而变化。新`raw_stock_period_history_repair_job_sensor`及`raw_stock_period_retirement_cleanup_job_sensor`调用`build_upstream_triggered_run_key`，不解析run key生成参数，不把事件storage id带入配置或ID。
+新交付引用改用真实`producer_run_id`、`freq`和`upstream_batch_id`，不以旧64位私有执行ID或回执文件摘要作为交付身份。交付ID仍由`build_batch_id`生成；两频自动历史修复按固定周/月引用顺序和代码摘要生成输入ID，生产者ID固定取周Raw引用，不能因哪个成功回调后到而变化。第3阶段已实现的`raw_stock_period_history_repair_job_sensor`及第4阶段计划的`raw_stock_period_retirement_cleanup_job_sensor`调用`build_upstream_triggered_run_key`，不解析run key生成参数，不把事件storage id带入配置或ID。
 
 `goldenshare/stock_period_business_date`和`goldenshare/stock_period_kind`由入口验证后的日期及用途配置生成，用于按job、同日及daily查询另一频成功；单频入口另写`goldenshare/stock_period_freq`，清理结果按job、频率及SUCCESS跨业务日读取。Silver另由原输入引用派生`goldenshare/stock_period_source_batch`，按本job、该上游ID及SUCCESS找到手工整批重跑结果，再核对完整交付及本次原检查；不依赖手工运行携带自动run key。四个运行tag的唯一命名及构造位于本链delivery合同；它们不是sensor分类tag、环境变量或用户开关，也不能替代完整交付及原检查。整批重跑只使用原生运行关系和业务范围，不创建逐文件接续身份。本阶段Raw/Silver入口、配置、guard及CLI更新分支已同步迁移，不增加旧格式兼容读取；旧运行与事件保留供追溯。阶段结果及后续范围见[第13.11节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-two-results)，尚未正式切换。

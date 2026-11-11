@@ -430,25 +430,177 @@ def validate_file(
     return {"rows": rows, "version": before, "sha256": file_digest(path)}
 
 
-def assemble_period(sources, *, work, root, freq, period, policy=DEFAULT_POLICY,
-                    cancel=lambda: False, progress=lambda _: None):
+def assemble_period(
+    sources,
+    *,
+    work,
+    root,
+    freq,
+    period,
+    policy=DEFAULT_POLICY,
+    cancel=lambda: False,
+    progress=lambda _: None,
+):
     """One current full-market file, key merge only; no private receipts or cached candidates."""
+    return _assemble_period(
+        sources,
+        work=work,
+        root=root,
+        freq=freq,
+        period=period,
+        policy=policy,
+        cancel=cancel,
+        progress=progress,
+        source_format="csv",
+    )
+
+
+def assemble_history_period(
+    sources,
+    *,
+    work,
+    root,
+    freq,
+    period,
+    policy=DEFAULT_POLICY,
+    cancel=lambda: False,
+    progress=lambda _: None,
+):
+    """Merge one approved historical source group into its existing market file."""
+    return _assemble_period(
+        sources,
+        work=work,
+        root=root,
+        freq=freq,
+        period=period,
+        policy=policy,
+        cancel=cancel,
+        progress=progress,
+        source_format="parquet",
+    )
+
+
+def group_history_sources(
+    sources,
+    *,
+    work,
+    root,
+    execution_date,
+    policy=DEFAULT_POLICY,
+    cancel=lambda: False,
+    progress=lambda _: None,
+):
+    """Import this run's source once; plan every target before any market write."""
+    work = durable_directory(work)
+    groups = work / "source_groups"
+    storage_reserve(sum(Path(path).stat().st_size for path in sources), spill=True)
+    with connection(work, policy) as con:
+        execute(
+            con,
+            "CREATE TEMP TABLE history_source AS SELECT * FROM read_csv(?,header=true,columns=?,nullstr='')",
+            [[str(path) for path in sources], dict(SPECS)],
+            cancel=cancel,
+            progress=progress,
+            policy=policy,
+        )
+        if execute(
+            con,
+            "SELECT count(*) FROM history_source WHERE end_date>?",
+            [execution_date.replace("-", "")],
+            cancel=cancel,
+            policy=policy,
+        ).fetchone()[0]:
+            raise ValueError("period_source_future_date")
+        scope = execute(
+            con,
+            f"SELECT freq,{PERIOD_SQL} period,count(*) FROM history_source GROUP BY 1,2 ORDER BY 1,2",
+            cancel=cancel,
+            progress=progress,
+            policy=policy,
+        ).fetchall()
+        missing = [
+            (freq, period)
+            for freq, period, _ in scope
+            if not target_path(root, freq, period).is_file()
+        ]
+        if missing:
+            raise ValueError(f"period_history_market_files_missing:{missing}")
+        execute(
+            con,
+            f"COPY (SELECT {COLUMNS},{PERIOD_SQL} AS period FROM history_source) TO ? "
+            "(FORMAT PARQUET,COMPRESSION ZSTD,PARTITION_BY(freq,period),WRITE_PARTITION_COLUMNS true)",
+            [str(groups)],
+            cancel=cancel,
+            progress=progress,
+            policy=policy,
+            stage="history_source_groups",
+        )
+    result = []
+    for freq, period, rows in scope:
+        paths = sorted((groups / f"freq={freq}" / f"period={period}").glob("*.parquet"))
+        for path in paths:
+            storage_record(path)
+        result.append(
+            {"freq": freq, "period": period, "sources": paths, "source_rows": rows}
+        )
+    return result
+
+
+def _assemble_period(
+    sources, *, work, root, freq, period, policy, cancel, progress, source_format
+):
     work = durable_directory(work)
     target = target_path(root, freq, period)
     before = file_version(target) if target.exists() else None
+    if source_format == "parquet" and before is None:
+        raise ValueError("period_history_market_file_missing")
     candidate = work / "candidate.parquet"
     with connection(work, policy) as con:
-        execute(con, "CREATE TEMP TABLE incoming AS SELECT * FROM read_csv(?,header=true,columns=?,nullstr='')",
-                [[str(path) for path in sources], dict(SPECS)], cancel=cancel, progress=progress, policy=policy)
+        if source_format == "csv":
+            execute(
+                con,
+                "CREATE TEMP TABLE incoming AS SELECT * FROM read_csv(?,header=true,columns=?,nullstr='')",
+                [[str(path) for path in sources], dict(SPECS)],
+                cancel=cancel,
+                progress=progress,
+                policy=policy,
+            )
+        else:
+            execute(
+                con,
+                f"CREATE TEMP TABLE incoming AS SELECT {COLUMNS} FROM read_parquet(?,hive_partitioning=false)",
+                [[str(path) for path in sources]],
+                cancel=cancel,
+                progress=progress,
+                policy=policy,
+            )
         if before is None:
-            execute(con, "CREATE TEMP TABLE prior (" + ",".join(f'\"{n}\" {t}' for n, t in SPECS) + ")",
-                    cancel=cancel, policy=policy)
+            execute(
+                con,
+                "CREATE TEMP TABLE prior ("
+                + ",".join(f'"{n}" {t}' for n, t in SPECS)
+                + ")",
+                cancel=cancel,
+                policy=policy,
+            )
         else:
             validate_file(con, target, freq, period, cancel=cancel, policy=policy)
-            execute(con, "CREATE TEMP TABLE prior AS SELECT * FROM read_parquet(?,hive_partitioning=false)",
-                    [str(target)], cancel=cancel, progress=progress, policy=policy)
-        storage_reserve(sum(Path(path).stat().st_size for path in sources) + (before[2] if before else 0), spill=True)
-        execute(con, f"""COPY (
+            execute(
+                con,
+                "CREATE TEMP TABLE prior AS SELECT * FROM read_parquet(?,hive_partitioning=false)",
+                [str(target)],
+                cancel=cancel,
+                progress=progress,
+                policy=policy,
+            )
+        storage_reserve(
+            sum(Path(path).stat().st_size for path in sources)
+            + (before[2] if before else 0),
+            spill=True,
+        )
+        execute(
+            con,
+            f"""COPY (
           SELECT {COLUMNS} FROM (
             SELECT p.* FROM prior p WHERE NOT EXISTS (
               SELECT 1 FROM incoming s WHERE s.ts_code=p.ts_code AND s.trade_date=p.trade_date
@@ -458,15 +610,36 @@ def assemble_period(sources, *, work, root, freq, period, policy=DEFAULT_POLICY,
               SELECT 1 FROM prior p WHERE s.ts_code=p.ts_code AND s.trade_date=p.trade_date
               AND s.freq=p.freq AND p.end_date>s.end_date)
           ) merged ORDER BY ts_code,trade_date,freq
-        ) TO ? (FORMAT PARQUET,COMPRESSION ZSTD)""", [str(candidate)],
-                cancel=cancel, progress=progress, policy=policy, stage="period_candidate")
+        ) TO ? (FORMAT PARQUET,COMPRESSION ZSTD)""",
+            [str(candidate)],
+            cancel=cancel,
+            progress=progress,
+            policy=policy,
+            stage="period_candidate",
+        )
         storage_record(candidate)
-        evidence = validate_file(con, candidate, freq, period, cancel=cancel, policy=policy)
-        maximum = execute(con, "SELECT max(end_date) FROM read_parquet(?,hive_partitioning=false)",
-                          [str(candidate)], cancel=cancel, policy=policy).fetchone()[0]
-    return {"freq": freq, "period": period, "target": str(target), "candidate": str(candidate),
-            "target_preimage": before, "candidate_version": evidence["version"], **evidence,
-            "source_asof": f"{maximum[:4]}-{maximum[4:6]}-{maximum[6:]}" if maximum else None}
+        evidence = validate_file(
+            con, candidate, freq, period, cancel=cancel, policy=policy
+        )
+        maximum = execute(
+            con,
+            "SELECT max(end_date) FROM read_parquet(?,hive_partitioning=false)",
+            [str(candidate)],
+            cancel=cancel,
+            policy=policy,
+        ).fetchone()[0]
+    return {
+        "freq": freq,
+        "period": period,
+        "target": str(target),
+        "candidate": str(candidate),
+        "target_preimage": before,
+        "candidate_version": evidence["version"],
+        **evidence,
+        "source_asof": f"{maximum[:4]}-{maximum[4:6]}-{maximum[6:]}"
+        if maximum
+        else None,
+    }
 
 
 def publish_period(item, *, policy=DEFAULT_POLICY, cancel=lambda: False):

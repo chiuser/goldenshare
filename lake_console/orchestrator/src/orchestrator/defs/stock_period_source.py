@@ -324,25 +324,97 @@ def _decode_page(body, *, freq, code, period, listed, aliases, seen, limit):
     return accepted, facts
 
 
-def capture_current_period(*, work, freq, period, listed, aliases, transport,
-                           policy=DEFAULT_POLICY, cancel=lambda: False, progress=lambda _: None):
+def capture_current_period(
+    *,
+    work,
+    freq,
+    period,
+    listed,
+    aliases,
+    transport,
+    policy=DEFAULT_POLICY,
+    cancel=lambda: False,
+    progress=lambda _: None,
+):
+    return _capture_fresh(
+        work=work,
+        freq=freq,
+        period=period,
+        code=None,
+        listed=listed,
+        aliases=aliases,
+        transport=transport,
+        policy=policy,
+        cancel=cancel,
+        progress=progress,
+    )
+
+
+def capture_stock_history(
+    *,
+    work,
+    freq,
+    code,
+    listed,
+    aliases,
+    transport,
+    policy=DEFAULT_POLICY,
+    cancel=lambda: False,
+    progress=lambda _: None,
+):
+    paths, _ = _capture_fresh(
+        work=work,
+        freq=freq,
+        period=None,
+        code=code,
+        listed=listed,
+        aliases=aliases,
+        transport=transport,
+        policy=policy,
+        cancel=cancel,
+        progress=progress,
+    )
+    return paths
+
+
+def _capture_fresh(
+    *, work, freq, period, code, listed, aliases, transport, policy, cancel, progress
+):
     """Download this run from offset zero. CSV/HTTP bodies are data, never resume state."""
     work = safe_path(Path(work))
     work.mkdir(parents=True, exist_ok=True)
     paths, projections, seen, total_bytes, offset = [], [], set(), 0, 0
     while True:
         check_cancel(cancel)
-        params = request_params(freq=freq, period=period, offset=offset, policy=policy)
+        params = request_params(
+            freq=freq,
+            period=period,
+            code=code,
+            listed=listed,
+            aliases=aliases,
+            offset=offset,
+            policy=policy,
+        )
         storage_reserve(policy.response_bytes)
         body = transport(params)
         total_bytes += len(body)
         if len(body) > policy.response_bytes or total_bytes > policy.unit_bytes:
             raise ValueError("period_source_unit_budget_exceeded")
-        _evidence, flags = _save_body(work, body, transport=transport, limit=policy.response_bytes)
+        _evidence, flags = _save_body(
+            work, body, transport=transport, limit=policy.response_bytes
+        )
         if flags["redacted"]:
             raise ValueError("period_source_response_contains_secret")
-        rows, facts = _decode_page(body, freq=freq, code=None, period=period,
-                                   listed=listed, aliases=aliases, seen=seen, limit=policy.page_limit)
+        rows, facts = _decode_page(
+            body,
+            freq=freq,
+            code=code,
+            period=period,
+            listed=listed,
+            aliases=aliases,
+            seen=seen,
+            limit=policy.page_limit,
+        )
         seen.update(map(tuple, facts["keys"]))
         path = work / f"page-{offset}.csv"
         with path.open("x", newline="") as handle:
@@ -353,13 +425,24 @@ def capture_current_period(*, work, freq, period, listed, aliases, transport,
             os.fsync(handle.fileno())
         storage_record(path)
         paths.append(path)
-        projections.extend(tuple(row[:3]) for row in rows)
-        progress({"stage": "source_page_complete", "freq": freq, "period": period,
-                  "pages": len(paths), "source_rows": len(seen), "response_bytes": total_bytes})
+        if code is None:
+            projections.extend(tuple(row[:3]) for row in rows)
+        progress(
+            {
+                "stage": "source_page_complete",
+                "freq": freq,
+                "period": period,
+                "pages": len(paths),
+                "source_rows": len(seen),
+                "response_bytes": total_bytes,
+            }
+        )
         check_cancel(cancel)
         if facts["rows"] < policy.page_limit:
             break
         offset += policy.page_limit
+    if code is not None and not seen:
+        raise ValueError("period_source_history_empty")
     return paths, projections
 
 

@@ -395,3 +395,14 @@ def test_owned_http_worker_transmits_three_field_probe_contract(http_server):
         "limit": 6000,
         "offset": 0,
     }
+
+
+def test_fresh_history_uses_real_http_worker_without_date_filter(tmp_path, http_server):
+    from orchestrator.defs.stock_period_source import HttpPage, capture_stock_history
+    url, observed = http_server
+    pages = capture_stock_history(work=tmp_path/'fresh_history',freq='week',code='000001.SZ',
+        listed={'000001.SZ'},aliases={},transport=HttpPage(token='offline',base_url=url,policy=StockPeriodPolicy(retries=0)))
+    assert pages and len(observed)==1
+    assert observed[0]['fields']==','.join(FIELDS)
+    assert observed[0]['params']=={'ts_code':'000001.SZ','freq':'week','limit':6000,'offset':0}
+    assert not list((tmp_path/'fresh_history').rglob('*.receipt.json'))

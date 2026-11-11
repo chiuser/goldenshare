@@ -1,0 +1,17 @@
+"""Independent stock period factor-change history job."""
+
+import dagster as dg
+
+from orchestrator.defs.ops.raw_stock_period_history_repair import (
+    raw_stock_period_history_repair_op,
+)
+from orchestrator.defs.run_contracts.stock_period_history_repair import JOB_NAME
+
+
+@dg.job(
+    name=JOB_NAME,
+    executor_def=dg.in_process_executor,
+    description="同日周月Raw完整成功后，仅回刷股票复权因子变化名单的两频历史；失败整批重跑。",
+)
+def raw_stock_period_history_repair_job():
+    raw_stock_period_history_repair_op()

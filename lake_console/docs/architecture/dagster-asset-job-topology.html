@@ -383,7 +383,7 @@
       每个tick最多提交一个本频率批次，覆盖通知中全部实际变化周期；周线Raw任务引起的历史月线变化也交给月线链处理。
       原Raw sensor的状态、水位和19:30窗口保留，不新增分区sensor或调度入口。
       完整合同及正反验收见<a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#period-silver-sensor-classification">共享LLD §11.6—11.8</a>。
-      以上为旧接线的历史记录。2026-11-11第2阶段已将两频Raw改为20:00起按在市及最终停复牌事实进行三列源预检，分别更新本频当期文件；同频Silver消费Dagster原生完整交付及原检查。旧Silver日更私有回执及续跑分支已移除。独立回刷、退市清理及剩余旧入口清退仍待后续阶段；尚未正式切换。实现、测试及独立审计见<a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-two-results">周月线LLD第13.11节</a>。
+      以上为旧接线的历史记录。2026-11-11第2阶段已将两频Raw改为20:00起按在市及最终停复牌事实进行三列源预检，分别更新本频当期文件；同频Silver消费Dagster原生完整交付及原检查。旧Silver日更私有回执及续跑分支已移除。独立回刷已在第3阶段接通，见下文；退市清理及剩余旧入口清退仍待后续阶段，尚未正式切换。实现、测试及独立审计见<a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-two-results">周月线LLD第13.11节</a>。
     </div>
     <div class="note">
       <strong>2026-10-10 同花顺行业资金流调度：</strong>
@@ -1364,12 +1364,12 @@
     </div>
 
     <div class="note" id="period-history-repair-planned">
-      <strong>股票周月线历史修复（待开发）。</strong>
+      <strong>股票周月线历史修复（第3阶段已实现，未正式启用）。</strong>
       <code>raw_stock_period_history_repair_job_sensor</code>监听两频当期Raw成功，
       同业务日两频完整交付后提交<code>raw_stock_period_history_repair_job</code>；
       新股随当期同步，复权因子变化股票进入两频源历史回刷。
-      同一job承接显式指定历史和已确认身份维护，人工模式不挂自动触发。
-      两个新sensor默认STOPPED；完整参数、交付字段与实测见
+      本阶段只实现复权因子变化意图；显式指定历史和已确认身份维护留第5阶段接入。
+      本sensor默认STOPPED；清理sensor仍待第4阶段。完整参数、交付字段与实测见
       <a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-implementation-contracts">周月线LLD第13.10节</a>。
     </div>
 

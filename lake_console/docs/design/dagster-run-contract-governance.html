@@ -559,7 +559,7 @@
     </p>
     <p id="period-native-delivery-planned">
       <strong>股票周月线原生交付（第2阶段已实现，未正式切换）。</strong>
-      当期Raw/Silver已使用下述原生交付；独立历史修复及退市清理仍待第3、4阶段实施。
+      当期Raw/Silver及第3阶段独立复权因子历史回刷已使用下述原生交付；退市清理仍待第4阶段。
       新历史修复job为<code>raw_stock_period_history_repair_job</code>，
       sensor为同名加<code>_sensor</code>；清理job为
       <code>raw_stock_period_retirement_cleanup_job</code>，sensor同样跟随job命名。
@@ -574,8 +574,16 @@
       tag不能替代完整交付及原检查，不改变sensor分类tag或日更准入。
       字段、配置及迁移点见
       <a href="dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-implementation-contracts">周月线LLD第13.10节</a>；
-      本阶段实现、原检查绑定及独立审计见
+      当期实现、原检查绑定及独立审计见
       <a href="dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-two-results">第13.11节</a>。
+    </p>
+    <p>
+      第3阶段独立回刷的sensor只监听两条当期Raw日更SUCCESS，按同一业务日两份完整交付及原检查提交。
+      零变化保存两频零结果，无源请求、文件改写或Silver通知；非零逐文件登记本次原检查，再登记两频完整范围。
+      结果检查名称为<code>raw_tushare_stk_period_bar_adj_{freq}_history_repair_result_check</code>，
+      不加入日更原三项文件检查集合。运行状态sensor通过带类型的<code>LakeRootResource</code>参数声明资源，
+      使用<code>build_sensor_tags</code>和已登记的枚举分类，默认STOPPED。
+      本步代码、预算与验收见周月线LLD第13.12节；未正式启用。
     </p>
     <p id="period-retirement-cleanup-planned">
       <strong>周月线退市清理（待开发）。</strong>
