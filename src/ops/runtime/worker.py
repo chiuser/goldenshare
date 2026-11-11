@@ -195,7 +195,14 @@ class OperationsWorker:
         index_period_raw = task_run.task_type == "dataset_action" and (
             "index_period_raw" in (task_run.ingestion_diagnostics_json or {})
         )
-        preserve_business_progress = announcement or weekly_adj or index_period_raw
+        index_period_serving = (
+            "index_period_serving" in (task_run.ingestion_diagnostics_json or {})
+            or "index_period_serving" in (outcome.ingestion_diagnostics or {})
+        )
+        preserve_business_progress = (
+            announcement or weekly_adj or index_period_raw
+            or (index_period_serving and outcome.ingestion_diagnostics is None)
+        )
         if not preserve_business_progress or final_status == 'success':
             task_run.rows_fetched = int(outcome.rows_fetched)
             task_run.rows_saved = int(outcome.rows_saved)
@@ -216,7 +223,7 @@ class OperationsWorker:
             task_run.progress_percent = 100
         if final_status == "canceled":
             task_run.canceled_at = task_run.canceled_at or now
-        if preserve_business_progress and task_run.current_node_id is not None:
+        if (preserve_business_progress or index_period_serving) and task_run.current_node_id is not None:
             node = session.get(TaskRunNode, task_run.current_node_id)
             if node is not None and node.task_run_id == task_run.id:
                 node.status = final_status

@@ -19,6 +19,7 @@ ScheduleRepeatMode = Literal["intraday_interval"]
 WORKFLOW_DOMAIN_KEY = "workflow"
 WORKFLOW_DOMAIN_DISPLAY_NAME = "工作流"
 WORKFLOW_GROUP_ORDER = 80
+INDEX_PERIOD_SERVING_EXECUTOR = "index_period_serving"
 
 
 @dataclass(slots=True, frozen=True)
@@ -141,6 +142,12 @@ TRADE_DATE_PARAM = ActionParameter(
     param_type="date",
     description="只处理一个交易日。",
 )
+INDEX_PERIOD_SERVING_CODE_PARAM = ActionParameter(
+    key="ts_code",
+    display_name="指数代码",
+    param_type="string",
+    description="指定周、月线 Serving 激活池内的一个指数。留空处理全池。",
+)
 EXECUTION_MODE_PARAM = ActionParameter(
     key="execution_mode",
     display_name="执行模式",
@@ -194,6 +201,26 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
         manual_enabled=True,
         schedule_enabled=False,
         retry_enabled=True,
+    ),
+    "maintenance.update_index_weekly_serving": MaintenanceActionDefinition(
+        key="maintenance.update_index_weekly_serving",
+        display_name="更新指数周线 Serving",
+        domain_key="maintenance",
+        domain_display_name="维护动作",
+        description="更新指定交易日的池内指数周线。",
+        executor_key=INDEX_PERIOD_SERVING_EXECUTOR,
+        execution_config={"frequency": "week", "target_tables": ("core_serving.index_weekly_serving",)},
+        parameters=(TRADE_DATE_PARAM, INDEX_PERIOD_SERVING_CODE_PARAM),
+    ),
+    "maintenance.update_index_monthly_serving": MaintenanceActionDefinition(
+        key="maintenance.update_index_monthly_serving",
+        display_name="更新指数月线 Serving",
+        domain_key="maintenance",
+        domain_display_name="维护动作",
+        description="更新指定交易日的池内指数月线。",
+        executor_key=INDEX_PERIOD_SERVING_EXECUTOR,
+        execution_config={"frequency": "month", "target_tables": ("core_serving.index_monthly_serving",)},
+        parameters=(TRADE_DATE_PARAM, INDEX_PERIOD_SERVING_CODE_PARAM),
     ),
     "maintenance.materialize_wealth_sector_heat_daily": MaintenanceActionDefinition(
         key="maintenance.materialize_wealth_sector_heat_daily",

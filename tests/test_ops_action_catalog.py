@@ -17,6 +17,8 @@ def test_maintenance_action_registry_keeps_only_explicit_actions() -> None:
     assert set(MAINTENANCE_ACTION_REGISTRY) == {
         "maintenance.rebuild_dm",
         "maintenance.rebuild_index_kline_serving",
+        "maintenance.update_index_weekly_serving",
+        "maintenance.update_index_monthly_serving",
         "maintenance.materialize_wealth_sector_heat_daily",
         "maintenance.replay_wealth_sector_heat_history",
         "maintenance.materialize_wealth_sector_analysis_daily",

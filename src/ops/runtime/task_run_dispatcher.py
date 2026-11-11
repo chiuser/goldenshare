@@ -10,6 +10,7 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from src.app.exceptions import WebAppError
@@ -28,6 +29,7 @@ from src.ops.services.dataset_action_request_adapter import dataset_action_trigg
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.contracts.external_task import ExternalTaskExecutor
+from src.ops.runtime.index_period_serving_executor import IndexPeriodServingExecutor
 from src.ops.runtime.maintenance_executor import (
     MaintenanceInputAuditBlockedError,
     MaintenanceExecutionPlan,
@@ -71,7 +73,7 @@ class TaskRunDispatcher:
         self,
         serving_light_refresh_service: ServingLightRefreshService | None = None,
         *,
-        maintenance_executors: Mapping[str, MaintenanceExecutor] | None = None,
+        maintenance_executors: Mapping[str, MaintenanceExecutor | IndexPeriodServingExecutor] | None = None,
         external_executors: Mapping[str, ExternalTaskExecutor] | None = None,
     ) -> None:
         self.serving_light_refresh_service = serving_light_refresh_service or ServingLightRefreshService()
@@ -404,6 +406,8 @@ class TaskRunDispatcher:
         if action is None:
             raise WebAppError(status_code=404, code="not_found", message="系统维护动作不存在")
         executor = self.maintenance_executors.get(action.executor_key)
+        if isinstance(executor, IndexPeriodServingExecutor):
+            return self._dispatch_index_period_serving(session, task_run, action, executor)
         if executor is not None:
             return self._dispatch_registered_maintenance_action(
                 session=session,
@@ -456,6 +460,90 @@ class TaskRunDispatcher:
                 self._finish_node(node, status="failed")
             session.commit()
             return TaskRunDispatchOutcome(status="failed", summary_message=issue.operator_message, issue_id=issue.id)
+
+    def _dispatch_index_period_serving(
+        self, session: Session, task_run: TaskRun, action: MaintenanceActionDefinition,
+        executor: IndexPeriodServingExecutor,
+    ) -> TaskRunDispatchOutcome:
+        params = self._maintenance_params(task_run)
+        frequency = action.execution_config["frequency"]
+        scope = {"frequency": frequency, "trade_date": params.get("trade_date")}
+        diagnostics = {"index_period_serving": scope}
+        run_id = task_run.id
+        node = self._create_node(
+            session, task_run_id=run_id, node_key=action.key, node_type="maintenance_action",
+            sequence_no=1, title=action.display_name, resource_key=task_run.resource_key,
+            time_input=dict(task_run.time_input_json or {}), context={"action_key": action.key},
+        )
+        task_run.current_node_id = node.id
+        task_run.ingestion_diagnostics_json = diagnostics
+        session.commit()
+
+        observer = TaskRunIngestionContext(session)
+        failures: list[dict[str, Any]] = []
+        total = done = fetched = saved = 0
+        status, issue_code, message = "success", None, action.display_name
+        active_code = None
+        try:
+            self._raise_if_task_cancel_requested(session, run_id)
+            period, codes, list_dates = executor.prepare(frequency, params)
+            total = len(codes)
+            for code in codes:
+                active_code = code
+                self._raise_if_task_cancel_requested(session, run_id)
+                observer.update_progress(
+                    run_id=run_id, unit_done=done, unit_failed=len(failures), total=total,
+                    message=action.display_name, rows_fetched=fetched, rows_saved=saved,
+                    ingestion_diagnostics=diagnostics,
+                    current_object={
+                        "entity": {"kind": "index", "code": code},
+                        "time": {"field": "trade_date", "point": period.trade_date.isoformat()},
+                        "attributes": {"freq": "周线" if frequency == "week" else "月线"},
+                    },
+                )
+                result = executor.execute_code(period, code, list_dates.get(code))
+                fetched += result.rows_fetched
+                saved += result.rows_saved
+                if result.failure is None:
+                    done += 1
+                else:
+                    failures.append({"message": result.failure.message, **structured_error_payload(result.failure)})
+            self._raise_if_task_cancel_requested(session, run_id)
+            if failures:
+                status, issue_code = "failed", "index_period_serving.code_failures"
+                message = f"{action.display_name}失败，{len(failures)} 个指数未更新，实际保存 {saved} 行。"
+        except IngestionCanceledError:
+            status, issue_code = "canceled", "ingestion_canceled"
+            message = "任务已在指数处理边界停止。"
+        except IngestionError as exc:
+            status, issue_code, message = "failed", exc.structured_error.error_code, str(exc)
+            failures.append({"message": message, **structured_error_payload(exc.structured_error)})
+        except SQLAlchemyError as exc:
+            status, issue_code = "failed", "maintenance_executor_failed"
+            message = f"{action.display_name}数据库执行失败。"
+            failures.append({"ts_code": active_code, "phase": "execute", "exception": type(exc).__name__})
+
+        session.rollback()
+        task_run.unit_total = total
+        task_run.unit_done = done
+        task_run.unit_failed = len(failures)
+        task_run.progress_percent = (done + len(failures)) * 100 // total if total else 0
+        issue = None
+        if issue_code is not None:
+            issue = self._record_issue(
+                session, task_run=task_run, node_id=node.id, code=issue_code, title=action.display_name,
+                operator_message=message, suggested_action="查看技术诊断，确认原目标日和代码后重试。",
+                technical_message=message, source_phase="execute",
+                severity="warning" if status == "canceled" else "error",
+                technical_payload={**scope, "rows_saved": saved, "failures": failures},
+            )
+            node.issue_id = issue.id
+        self._finish_node(node, status=status, rows_fetched=fetched, rows_saved=saved, ingestion_diagnostics=diagnostics)
+        session.commit()
+        return TaskRunDispatchOutcome(
+            status=status, rows_fetched=fetched, rows_saved=saved, summary_message=message,
+            ingestion_diagnostics=diagnostics, issue_id=issue.id if issue else None, status_reason_code=issue_code,
+        )
 
     def _dispatch_registered_maintenance_action(
         self,

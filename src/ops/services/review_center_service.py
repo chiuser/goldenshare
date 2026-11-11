@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from src.app.exceptions import WebAppError
 from src.foundation.models.core.index_basic import IndexBasic
 from src.ops.models.ops.index_series_active import IndexSeriesActive
+from src.ops.index_series_active_store_adapter import INDEX_PERIOD_SERVING_RESOURCE
 from src.ops.services.index_daily_source_serviceability_service import IndexDailySourceServiceabilityService
 
 
@@ -26,6 +27,7 @@ class ReviewCenterCommandService:
         ts_code: str,
     ) -> tuple[str, str]:
         normalized_resource = self._normalize_resource(resource)
+        self._ensure_editable_pool(normalized_resource)
         normalized_code = self._normalize_ts_code(ts_code)
         if not normalized_code:
             raise WebAppError(status_code=422, code="validation_error", message="指数代码不能为空")
@@ -76,6 +78,7 @@ class ReviewCenterCommandService:
         ts_code: str,
     ) -> tuple[str, str]:
         normalized_resource = self._normalize_resource(resource)
+        self._ensure_editable_pool(normalized_resource)
         normalized_code = self._normalize_ts_code(ts_code)
         if not normalized_code:
             raise WebAppError(status_code=422, code="validation_error", message="指数代码不能为空")
@@ -91,6 +94,11 @@ class ReviewCenterCommandService:
         session.delete(row)
         session.commit()
         return normalized_resource, normalized_code
+
+    @staticmethod
+    def _ensure_editable_pool(resource: str) -> None:
+        if resource == INDEX_PERIOD_SERVING_RESOURCE:
+            raise WebAppError(status_code=422, code="validation_error", message="指数周、月线 Serving 激活池首期禁止增删。")
 
     @staticmethod
     def _normalize_resource(resource: str) -> str:

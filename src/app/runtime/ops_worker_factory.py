@@ -5,6 +5,8 @@ import subprocess
 from pathlib import Path
 
 from src.db import get_session_factory
+from src.ops.action_catalog import INDEX_PERIOD_SERVING_EXECUTOR
+from src.ops.runtime.index_period_serving_executor import IndexPeriodServingExecutor
 from src.ops.runtime.task_run_dispatcher import TaskRunDispatcher
 from src.ops.runtime.worker import OperationsWorker
 from src.ops.runtime.worker_lane import WorkerLane
@@ -65,6 +67,9 @@ def _build_worker(
         "news_stock_linking": news_stock_linking_executor,
     }
     if lane is WorkerLane.GENERAL:
+        maintenance_executors[INDEX_PERIOD_SERVING_EXECUTOR] = IndexPeriodServingExecutor(
+            session_factory=resolved_session_factory,
+        )
         maintenance_executors["wealth_sector_analysis_daily"] = (
             SectorAnalysisDailyTaskExecutor(session_factory=resolved_session_factory)
         )

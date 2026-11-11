@@ -10,6 +10,9 @@ from src.foundation.kernel.contracts.index_series_active_store import IndexSerie
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 
 
+INDEX_PERIOD_SERVING_RESOURCE = "index_period_serving"
+
+
 class OpsIndexSeriesActiveStore(IndexSeriesActiveStore):
     """ops 侧适配：活动指数池落到 ops.index_series_active。"""
 
