@@ -20,6 +20,7 @@ from orchestrator.defs.checks.stk_factor_pro import (
     factor_file_identity,
     factor_file_sha,
     factor_known_file_sha,
+    relation_identifier,
     release_stk_factor_pro_audit_relations,
 )
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, duckdb_string
@@ -683,6 +684,7 @@ def publish_stk_factor_pro_history(
     recheck_inputs,
     check_cancel,
     on_publish_attempt=None,
+    factor_revision=None,
 ):
     """Keep all source ownership through final consumers and every exit path."""
     with _history_cleanup(connection, release_stk_factor_pro_history_source):
@@ -701,6 +703,46 @@ def publish_stk_factor_pro_history(
             recheck_inputs=recheck_inputs,
             check_cancel=check_cancel,
             on_publish_attempt=on_publish_attempt,
+            factor_revision=factor_revision,
+        )
+
+
+def _require_revised_history_factors(connection, source, factor_revision):
+    relations, codes = factor_revision
+    target, previous = map(relation_identifier, relations)
+    source_relation = relation_identifier(source.source_relation)
+    # Both verified raw inputs use the same YYYYMMDD trade_date representation.
+    mismatches = connection.execute(
+        f"""
+        SELECT count(*)
+        FROM {source_relation} AS src
+        JOIN (
+            SELECT ts_code, trade_date, adj_factor FROM {target}
+            UNION ALL
+            SELECT ts_code, trade_date, adj_factor FROM {previous}
+        ) AS authority USING (ts_code, trade_date)
+        WHERE src.ts_code = ANY(?)
+          AND src.adj_factor IS NOT NULL AND authority.adj_factor IS NOT NULL
+          AND src.adj_factor <> authority.adj_factor
+        """,
+        [list(codes)],
+    ).fetchone()[0]
+    if mismatches:
+        day = source.identity.target_trade_date.isoformat()
+        summary = (
+            f"历史源复权因子尚未跟上修订：{day}，有{mismatches}条可对照记录仍不同。"
+        )
+        raise dg.Failure(
+            description=summary,
+            allow_retries=False,
+            metadata={
+                "goldenshare/failure_phase": "history",
+                "goldenshare/retryable": True,
+                "goldenshare/source_error_code": None,
+                "goldenshare/target_trade_date": day,
+                "goldenshare/summary": summary,
+                "goldenshare/next_action": "保留已发布日数据，下一合法时点重新下载完整待刷历史。",
+            },
         )
 
 
@@ -720,6 +762,7 @@ def _publish_stk_factor_pro_history(
     recheck_inputs,
     check_cancel,
     on_publish_attempt=None,
+    factor_revision=None,
 ):
     """Publish actual history dates in bounded batches; yields each completed file."""
     if (
@@ -746,6 +789,8 @@ def _publish_stk_factor_pro_history(
         raise ValueError("历史发布的完整计划/范围不是当前run已保存结果")
     units = source.source_complete.expected_units
     check_cancel()
+    if factor_revision is not None:
+        _require_revised_history_factors(connection, source, factor_revision)
     dates, source_counts = _history_publication_dates(
         connection,
         source=source,

@@ -277,6 +277,8 @@ def eligibility(
         stock_count,
         stock_count,
         0,
+        0,
+        "1",
         (),
         "隔离夹具：上游已核原T股票齐备",
         1,

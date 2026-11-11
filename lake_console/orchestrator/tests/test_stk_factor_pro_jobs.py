@@ -24,7 +24,14 @@ from tests.stk_factor_pro_history_test_support import (
     saved_real_rows,
     write_factor_file,
 )
-from tests.stk_factor_pro_test_support import DAY, Downloader, connection, result, row
+from tests.stk_factor_pro_test_support import (
+    DAY,
+    NAMES,
+    Downloader,
+    connection,
+    result,
+    row,
+)
 from tests.test_stk_factor_pro_bootstrap_coverage import (
     DAY as INITIAL_DAY,
 )
@@ -298,6 +305,23 @@ def test_actual_job_no_start_lookup_without_changes(
         assert "尚无可用" in failure.metadata["goldenshare/summary"].value
 
 
+def seed_first_raw(tmp_path, instance, lake, first_row):
+    first_path = raw_stk_factor_pro_path(lake, str(FIRST))
+    first_path.parent.mkdir(parents=True)
+    with connection(tmp_path) as conn:
+        frame = candidates.build_stk_factor_pro_raw_batch(
+            rows=(first_row,),
+            source="http",
+            source_fields=NAMES,
+            expected_dates=(FIRST,),
+        )
+        conn.register("fixture_day", frame)
+        conn.execute("COPY fixture_day TO ? (FORMAT PARQUET)", [str(first_path)])
+    instance.report_runless_asset_event(
+        dg.AssetMaterialization(asset._RAW, partition=str(FIRST))
+    )
+
+
 def test_actual_daily_job_publishes_history_using_first_start_query(
     tmp_path, monkeypatch, actual_job
 ):
@@ -313,20 +337,7 @@ def test_actual_daily_job_publishes_history_using_first_start_query(
             return source.download(task, **kwargs)
 
     monkeypatch.setattr(asset.download.TushareDownloader, "load", ReplayedDownloader)
-    first_path = raw_stk_factor_pro_path(lake, str(FIRST))
-    first_path.parent.mkdir(parents=True)
-    with connection(tmp_path) as conn:
-        frame = candidates.build_stk_factor_pro_raw_batch(
-            rows=(replay[1],),
-            source="http",
-            source_fields=C.STK_FACTOR_PRO_SOURCE_COLUMNS,
-            expected_dates=(FIRST,),
-        )
-        conn.register("fixture_day", frame)
-        conn.execute("COPY fixture_day TO ? (FORMAT PARQUET)", [str(first_path)])
-    instance.report_runless_asset_event(
-        dg.AssetMaterialization(asset._RAW, partition=str(FIRST))
-    )
+    seed_first_raw(tmp_path, instance, lake, replay[1])
     executed = job.execute_in_process(
         instance=instance,
         partition_key=str(DAY),
@@ -353,6 +364,143 @@ def test_actual_daily_job_publishes_history_using_first_start_query(
         asset.stk_factor_pro_run_staging_root(staging, executed.run_id, str(DAY))
         / "source/day"
     ).exists()
+
+
+@pytest.mark.parametrize("revised_day", [DAY, PREVIOUS], ids=["T", "P"])
+def test_same_night_revision_retries_the_whole_range_until_source_catches_up(
+    tmp_path, monkeypatch, revised_day
+):
+    queries = []
+    with isolated_update_environment(
+        tmp_path, monkeypatch, observe_sql=queries.append
+    ) as environment:
+        instance, job, set_source, lake, staging, _ = environment
+        replay = saved_real_rows()[1:]
+        monkeypatch.setattr(
+            asset,
+            "_now",
+            lambda: datetime.combine(DAY, time(21), ZoneInfo("Asia/Shanghai")),
+        )
+        input_files(tmp_path, lake, changed=())
+        seed_first_raw(tmp_path, instance, lake, replay[0])
+
+        def run(slot):
+            return job.execute_in_process(
+                instance=instance,
+                partition_key=str(DAY),
+                run_config=config(slot=slot),
+                raise_on_error=False,
+            )
+
+        def recorded():
+            return asset.readiness.read_stk_factor_pro_recorded_results(
+                instance, target_trade_date=DAY, known_pg={}
+            )
+
+        def with_factor(values, factor):
+            # The column position comes from the source contract, the values below
+            # are independent literals for the authoritative T/P comparison.
+            index = NAMES.index("adj_factor")
+            return (*values[:index], factor, *values[index + 1 :])
+
+        set_source((with_factor(replay[-1], 1),))
+        first = run(0)
+        assert first.success
+        assert recorded().raw_coverage.complete is False
+        assert not recorded().pending_plan_refs
+
+        with connection(tmp_path) as conn:
+            write_factor_file(conn, lake, revised_day, ((A, 2), (B, 1)))
+        t_factor, p_factor = (2, 1) if revised_day == DAY else (1, 2)
+
+        class ReplayedDownloader:
+            def __init__(self, daily, history):
+                self.daily = daily
+                self.history = history
+
+            def download(self, task, **kwargs):
+                source = (
+                    self.daily if task.mode is DownloadMode.BY_POINT else self.history
+                )
+                return source.download(task, **kwargs)
+
+        stale_t = (with_factor(replay[-2], p_factor), with_factor(replay[-1], p_factor))
+        stale_p = (with_factor(replay[-2], t_factor), with_factor(replay[-1], t_factor))
+        updated_without_t = (with_factor(replay[-2], p_factor),)
+        for slot, tail in enumerate((stale_t, stale_p, updated_without_t), start=1):
+            queries.clear()
+            day_source = set_source(
+                (with_factor(replay[-1], t_factor), row(B, adj_factor=1))
+            )
+            remote = HistoryDownloader({A: (*replay[:2], *tail)})
+            replayed = ReplayedDownloader(day_source, remote)
+            monkeypatch.setattr(
+                asset.download.TushareDownloader,
+                "load",
+                lambda replayed=replayed: replayed,
+            )
+            executed = run(slot)
+            assert len(day_source.calls) == len(remote.calls) == 1
+            window = remote.calls[0][0].object_ranges[0].time_range
+            assert (window.start, window.end) == (str(FIRST), str(DAY))
+            assert (
+                sum("authority USING (ts_code, trade_date)" in q for q in queries) == 1
+            )
+            assert sum("IS DISTINCT FROM factor.adj_factor" in q for q in queries) == 1
+            assert any(
+                "DROP TABLE IF EXISTS stk_factor_pro_history_source" in q
+                for q in queries
+            )
+            root = asset.stk_factor_pro_run_staging_root(
+                staging, executed.run_id, str(DAY)
+            )
+            plan = asset.history.read_stk_factor_pro_history_plan(
+                root,
+                expected_target=DAY,
+                expected_run_id=executed.run_id,
+                known_records={},
+            )
+            with connection(tmp_path) as conn:
+                ranges = asset.history.read_stk_factor_pro_history_ranges(
+                    conn, root=root, plan=plan, known_records={}
+                )
+            assert [(r.ts_code, r.start_date, r.end_date) for r in ranges] == [
+                (A, FIRST, DAY)
+            ]
+            assert 7 in ranges[0].plan_reasons
+            facts = recorded()
+            assert facts.day_result_ref.run_id == executed.run_id
+            assert facts.raw_coverage.complete is True
+            published = executed.get_asset_materialization_events()
+            checked = executed.get_asset_check_evaluations()
+            if slot < 3:
+                assert not executed.success
+                failure = executed.failure_data_for_node(
+                    "stk_factor_pro"
+                ).user_failure_data
+                assert failure.metadata["goldenshare/failure_phase"].value == "history"
+                assert failure.metadata["goldenshare/retryable"].value is True
+                assert failure.metadata["goldenshare/source_error_code"].value is None
+                assert facts.pending_plan_refs == (facts.history_plan_ref,)
+                assert len(published) == 2 and {
+                    event.partition for event in published
+                } == {str(DAY)}
+                assert len(checked) == 2 and {check.partition for check in checked} == {
+                    str(DAY)
+                }
+                assert not (root / "candidates/history").exists()
+                assert not (root / "publication/history").exists()
+            else:
+                assert executed.success
+                assert not facts.pending_plan_refs
+                assert len(facts.successful_publication_refs) == 1
+                assert len(published) == len(checked) == 8
+                assert {event.partition for event in published} == {
+                    str(FIRST),
+                    str(UNMATERIALIZED),
+                    str(PREVIOUS),
+                    str(DAY),
+                }
 
 
 def test_actual_initialization_first_start_uses_existing_import_dates(

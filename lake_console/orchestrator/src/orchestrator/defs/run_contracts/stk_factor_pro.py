@@ -47,6 +47,7 @@ STK_FACTOR_PRO_PARTITIONS = "cn_a_stock_factor_pro_trade_days"
 STK_FACTOR_PRO_UPDATE_SENSOR_NAME = "raw_tushare_stk_factor_pro_update_job_sensor"
 STK_FACTOR_PRO_PARTITION_SENSOR_NAME = "stock_factor_pro_trade_day_sensor"
 STK_FACTOR_PRO_PROCESSING_VERSION = "1"
+STK_FACTOR_PRO_COVERAGE_RULE_VERSION = "1"
 STK_FACTOR_PRO_TIMEZONE = "Asia/Shanghai"
 STK_FACTOR_PRO_FIRST_SLOT_HOUR = 19
 STK_FACTOR_PRO_SLOT_MINUTES = 30
@@ -105,7 +106,7 @@ class BootstrapSpaceEstimate:
 
 
 class HistoryPlanReason(IntEnum):
-    """The six reviewed reasons; these are not downloader error codes."""
+    """Reasons for including a stock in the history plan."""
 
     FACTOR_CHANGED = 1
     PRIOR_UNFINISHED = 2
@@ -113,6 +114,7 @@ class HistoryPlanReason(IntEnum):
     TARGET_FACTOR_MISSING = 4
     BOTH_FACTORS_MISSING = 5
     NO_PRIOR_HISTORY = 6
+    SAME_NIGHT_FACTOR_REVISION = 7
 
 
 def normalize_stk_factor_pro_trade_date(value: object) -> str:
@@ -538,6 +540,8 @@ class StkFactorProRawCoverage:
     expected_count: int | None
     actual_count: int | None
     missing_count: int | None
+    extra_count: int | None
+    coverage_rule_version: str
     missing_sample_codes: tuple[str, ...]
     reason: str
     raw_materialization_storage_id: int | None
@@ -546,6 +550,8 @@ class StkFactorProRawCoverage:
 
     def __post_init__(self) -> None:
         _day(self.target_trade_date)
+        if self.coverage_rule_version != STK_FACTOR_PRO_COVERAGE_RULE_VERSION:
+            raise ValueError("股票技术因子覆盖规则版本不符")
         if self.complete is not None and type(self.complete) is not bool:
             raise ValueError("覆盖必须是bool或None")
         if type(self.raw_check_passed) is not bool or type(self.reason) is not str:
@@ -558,7 +564,9 @@ class StkFactorProRawCoverage:
         )
         for value in digests:
             _optional_digest(value)
-        for value in (self.expected_count, self.actual_count, self.missing_count):
+        for value in (
+            self.expected_count, self.actual_count, self.missing_count, self.extra_count
+        ):
             if value is not None:
                 _count(value)
         for value in (self.raw_materialization_storage_id, self.raw_check_storage_id):
@@ -574,9 +582,10 @@ class StkFactorProRawCoverage:
             not self.raw_check_passed
             or any(value is None for value in digests)
             or self.missing_count != 0
+            or self.extra_count != 0
             or self.expected_count is None
             or self.actual_count is None
-            or self.actual_count < self.expected_count
+            or self.actual_count != self.expected_count
         ):
             raise ValueError("不能将缺失/未知证据标为齐备")
         if self.missing_codes_ref is not None and not isinstance(
@@ -995,12 +1004,12 @@ class HistoryRange:
             or not self.plan_reasons
             or any(
                 type(value) not in (int, HistoryPlanReason)
-                or int(value) not in range(1, 7)
+                or int(value) not in range(1, 8)
                 for value in self.plan_reasons
             )
             or tuple(sorted(set(self.plan_reasons))) != self.plan_reasons
         ):
-            raise ValueError("历史原因必须为六项有限值的去重升序tuple")
+            raise ValueError("历史原因必须为已登记原因的去重升序tuple")
         _tuple(self.origin_target_dates, date)
         for value in self.origin_target_dates:
             _day(value)
@@ -2665,6 +2674,7 @@ class StkFactorProBootstrapPublicationBatch:
 @dataclass(frozen=True, slots=True)
 class StkFactorProBootstrapDateCoverage:
     record_version: int
+    coverage_rule_version: str
     operation_id: str
     approval_digest: str
     trade_date: date
@@ -2701,6 +2711,8 @@ class StkFactorProBootstrapDateCoverage:
 
     def __post_init__(self) -> None:
         _version(self.record_version)
+        if self.coverage_rule_version != STK_FACTOR_PRO_COVERAGE_RULE_VERSION:
+            raise ValueError("bootstrap股票技术因子覆盖规则版本不符")
         validate_stk_factor_pro_identifier(self.operation_id)
         _day(self.trade_date)
         for digest in (
@@ -2779,7 +2791,8 @@ class StkFactorProBootstrapDateCoverage:
             if (
                 self.expected_count != self.matched_count + self.missing_count
                 or self.actual_count != self.matched_count + self.extra_count
-                or self.coverage_complete != (self.missing_count == 0)
+                or self.coverage_complete
+                != (self.missing_count == 0 and self.extra_count == 0)
             ):
                 raise ValueError("bootstrap覆盖集合计数或齐备结论不符")
         for kind, count, ref, sample in (
@@ -3068,6 +3081,7 @@ def stk_factor_pro_bootstrap_month_basis_digest(
     return _business_digest(
         "stk_factor_pro.bootstrap_month_basis",
         {
+            "coverage_rule_version": STK_FACTOR_PRO_COVERAGE_RULE_VERSION,
             "operation_id": operation_id,
             "approval_digest": approval_digest,
             "month_start": month.month_start.isoformat(),
@@ -3110,6 +3124,7 @@ def stk_factor_pro_bootstrap_date_coverage_input_digest(
     return _business_digest(
         "stk_factor_pro.bootstrap_date_coverage",
         {
+            "coverage_rule_version": STK_FACTOR_PRO_COVERAGE_RULE_VERSION,
             "operation_id": operation_id,
             "approval_digest": approval_digest,
             "trade_date": trade_date.isoformat(),

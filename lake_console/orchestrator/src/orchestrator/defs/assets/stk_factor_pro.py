@@ -207,6 +207,18 @@ def _plan_history(
 ):
     dates = identity.target_trade_date, identity.previous_trade_date
     factor_t, factor_p = _factor_file_refs(connection, lake, dates, known_records)
+    prior_factor_shas = None
+    if identity.purpose == "today" and identity.source_run_id is None:
+        prior_factor_shas = readiness.read_stk_factor_pro_day_factor_shas(
+            instance,
+            prior=prior,
+            previous_trade_date=identity.previous_trade_date,
+            lake_root=lake,
+            staging_root=staging,
+            contract=_CONTRACT,
+            known_pg=known_pg,
+            known_records=known_records,
+        )
     relations, lifecycle = history.prepare_stk_factor_pro_history_inputs(
         connection,
         identity=identity,
@@ -273,6 +285,8 @@ def _plan_history(
         history_starts=starts,
         check_cancel=check_cancel,
         known_records=known_records,
+        factor_revised=prior_factor_shas is not None
+        and prior_factor_shas != (factor_t.file_sha256, factor_p.file_sha256),
     )
 
 
@@ -717,20 +731,7 @@ def _published_day(
             reusable = (
                 raw is not None
                 and previous is not None
-                and previous.expected_count is not None
-                and not inputs["unknown_input_kinds"]
-                and inputs["is_open"] is True
-                and (raw.file_sha256, *basis)
-                == (
-                    previous.raw_file_sha256,
-                    previous.lifecycle_file_sha256,
-                    previous.suspend_file_sha256,
-                    previous.identity_file_sha256,
-                )
-            )
-            reusable = (
-                raw is not None
-                and previous is not None
+                and previous.coverage_rule_version == C.STK_FACTOR_PRO_COVERAGE_RULE_VERSION
                 and previous.expected_count is not None
                 and not inputs["unknown_input_kinds"]
                 and inputs["is_open"] is True
@@ -805,8 +806,6 @@ def _published_day(
         readiness.release_stk_factor_pro_coverage_inputs(
             connection, inherited_facts=inherited, trade_date=day
         )
-        if initialization_state is None and calculated is not None:
-            coverage_io._drop(connection, coverage_io._PURE_TABLES)
     return raw_coverage, target_silver, source_digest, phase_stats, bool(completed)
 
 
@@ -897,6 +896,21 @@ def _publish_history(
                 raise ValueError(f"原日期覆盖依据在历史回刷期间改变：{path}")
         return plan.factor_t_ref, plan.factor_p_ref, raw_coverage, target_silver
 
+    planned_revision_codes = {
+        row.ts_code
+        for row in ranges
+        if C.HistoryPlanReason.SAME_NIGHT_FACTOR_REVISION in row.plan_reasons
+    }
+    revision_codes = tuple(
+        unit.object_code for unit in units if unit.object_code in planned_revision_codes
+    )
+    factor_revision = None
+    if revision_codes:
+        factor_relations = tuple(
+            known_records[raw_adj_factor_path(lake, str(ref.trade_date))][0][0]
+            for ref in (plan.factor_t_ref, plan.factor_p_ref)
+        )
+        factor_revision = factor_relations, revision_codes
     source = download.download_stk_factor_pro_history(
         connection,
         identity=identity,
@@ -1011,11 +1025,13 @@ def _publish_history(
             recheck_inputs=verified_inputs,
             check_cancel=check_cancel,
             on_publish_attempt=attempt,
+            factor_revision=factor_revision,
         )
     ) as output:
-        _log_factor_differences(
-            connection, context, source_relation=source.source_relation, day=day
-        )
+        if factor_revision is None:
+            _log_factor_differences(
+                connection, context, source_relation=source.source_relation, day=day
+            )
         while True:
             try:
                 item = next(output, None)
@@ -1300,7 +1316,7 @@ def stk_factor_pro(
                 bootstrap_context=init_context,
                 **stats,
                 summary=(
-                    f"{target} 日文件已发布，应有 {raw.expected_count}，实际 {raw.actual_count}，缺失 {raw.missing_count}。"
+                    f"{target} 日文件已发布，应有 {raw.expected_count}，参与核对 {raw.actual_count}，缺失 {raw.missing_count}，额外 {raw.extra_count}。"
                     if usable
                     else f"{target} 请求成功，源返回0行，当前无可用日文件。"
                 ),

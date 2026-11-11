@@ -65,6 +65,8 @@ def coverage_wire():
         "expected_count": 2,
         "actual_count": 2,
         "missing_count": 0,
+        "extra_count": 0,
+        "coverage_rule_version": "1",
         "missing_sample_codes": [],
         "reason": "literal: both expected stocks are present",
         "raw_materialization_storage_id": 11,
@@ -230,7 +232,8 @@ def test_waiting_eligibility_preserves_unknown_coverage_and_unchecked_silver():
     wire = eligibility_wire()
     wire["target_silver"] = None
     wire["raw_coverage"].update(
-        complete=None, expected_count=None, actual_count=None, missing_count=None
+        complete=None, expected_count=None, actual_count=None, missing_count=None,
+        extra_count=None,
     )
     record = models.parse_stk_factor_pro_record(models.HistoryEligibilityRecord, wire)
     assert record.raw_coverage.complete is None and record.target_silver is None

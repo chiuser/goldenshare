@@ -1356,7 +1356,7 @@ def test_result_save_failure_keeps_only_still_applicable_previous_coverage(
         original_bytes = result_path.read_bytes()
         original_digest = args["_date_results"][DAY]["persisted_result_digest"]
         calls, costs, reads = [], Counter(), Counter()
-        build_keys = R._build_stk_factor_pro_coverage_keys
+        build_keys = R.compare_stk_factor_pro_coverage_keys
 
         def counted_keys(*values, **kwargs):
             calls.append(True)
@@ -1434,7 +1434,7 @@ def test_result_save_failure_keeps_only_still_applicable_previous_coverage(
             scoped.setattr(Path, "read_bytes", read_once)
             scoped.setattr(checks, "factor_file_sha", sha)
             scoped.setattr(B, "write_json", fail_result)
-            scoped.setattr(R, "_build_stk_factor_pro_coverage_keys", counted_keys)
+            scoped.setattr(R, "compare_stk_factor_pro_coverage_keys", counted_keys)
             scoped.setattr(driver, "_classify_date", classify_once)
             scoped.setattr(
                 driver, "prepare_stk_factor_pro_bootstrap_coverage_month", prepare_once
@@ -1515,10 +1515,10 @@ def test_replay_zero_keys_zero_result_rewrites_and_global_hash_reuse(
             date_results=date_results,
         )
         calls = []
-        original_keys = R._build_stk_factor_pro_coverage_keys
+        original_keys = R.compare_stk_factor_pro_coverage_keys
         monkeypatch.setattr(
             R,
-            "_build_stk_factor_pro_coverage_keys",
+            "compare_stk_factor_pro_coverage_keys",
             lambda *a, **k: (calls.append(1), original_keys(*a, **k))[1],
         )
         except_count = []
@@ -1545,7 +1545,7 @@ def test_replay_zero_keys_zero_result_rewrites_and_global_hash_reuse(
         observed = ZeroDiagnostics()
         result = save(observed, args, known_records=known_records)
         assert len(calls) == 1
-        assert len(except_count) == 3  # Only expected/missing/extra construction.
+        assert len(except_count) == 5  # L-S, eligible-F, actual-F, missing, extra.
         assert result.missing_count == result.extra_count == 0
         assert result.missing_codes_ref is result.extra_codes_ref is None
         assert not operation_path(
@@ -1572,7 +1572,7 @@ def test_replay_zero_keys_zero_result_rewrites_and_global_hash_reuse(
         )
         assert save(observed, args, known_records=known_records) == result
         assert len(calls) == 1
-        assert len(except_count) == 3
+        assert len(except_count) == 5
         assert all(p not in hashes[before:] for p in global_paths)
         # Summary receives this task's totals and never reads known inputs again.
         monkeypatch.undo()
@@ -1716,7 +1716,7 @@ def test_bse_not_expected_before_market_open_and_listing_end_exclusive(tmp_path)
             result.matched_count,
             result.missing_count,
             result.extra_count,
-        ) == (1, 2, 1, 0, 1)
+        ) == (0, 1, 0, 0, 1)  # A is optional on its listing day; BJ is extra.
         assert result.extra_sample_codes == (bj,)
 
 
@@ -1771,7 +1771,7 @@ def test_cleanup_all_tables_preserves_primary_failure(tmp_path, monkeypatch):
         )
         monkeypatch.setattr(
             R,
-            "_build_stk_factor_pro_coverage_keys",
+            "compare_stk_factor_pro_coverage_keys",
             lambda *_a, **_k: (_ for _ in ()).throw(
                 KeyboardInterrupt("primary cancel")
             ),
@@ -1794,7 +1794,7 @@ def test_cleanup_all_tables_preserves_primary_failure(tmp_path, monkeypatch):
         with pytest.raises(KeyboardInterrupt, match="primary cancel") as caught:
             save(WrappedConnection(), args, known_records=known_records)
         assert "覆盖计算清理同时失败：OSError" in caught.value.__notes__
-        assert any(q.endswith(B._PURE_TABLES[-1]) for q in executed)
+        assert any(q.endswith(R.STK_FACTOR_PRO_COVERAGE_TABLES[-1]) for q in executed)
 
 
 def test_release_month_preserves_global_tables_and_bounded_identity_cache(
@@ -1918,7 +1918,7 @@ def test_real_control_failure_summarizes_registered_facts_without_reauditing(
         read_bytes = Path.read_bytes
         classify = driver._classify_date
         prepare_month = driver.prepare_stk_factor_pro_bootstrap_coverage_month
-        build_keys = R._build_stk_factor_pro_coverage_keys
+        build_keys = R.compare_stk_factor_pro_coverage_keys
         write_json = B.write_json
         fsync_directory = records.fsync_directory
         write_complete = P.write_stk_factor_pro_bootstrap_publication_complete
@@ -1983,7 +1983,7 @@ def test_real_control_failure_summarizes_registered_facts_without_reauditing(
         monkeypatch.setattr(
             driver, "prepare_stk_factor_pro_bootstrap_coverage_month", prepare_once
         )
-        monkeypatch.setattr(R, "_build_stk_factor_pro_coverage_keys", keys_once)
+        monkeypatch.setattr(R, "compare_stk_factor_pro_coverage_keys", keys_once)
         monkeypatch.setattr(B, "write_json", save_record)
         monkeypatch.setattr(records, "fsync_directory", sync)
         monkeypatch.setattr(
@@ -2057,3 +2057,100 @@ def test_month_coverage_uses_only_target_day_suspend(tmp_path):
             current.missing_count,
         ) == (3, 1, 2)
         assert current.unknown_input_kinds == ()
+
+
+@pytest.mark.parametrize("include_first_day", [False, True])
+def test_first_day_optional_counts_keep_original_and_physical_rows(
+    tmp_path, include_first_day
+):
+    # Producer-schema lifecycle facts are independent of the coverage algorithm.
+    life = [
+        (c, c[:6], c, "SZSE" if c.endswith("SZ") else "SSE", None,
+         "CNY", True, "L", DAY if c == C_CODE else date(2010, 1, 1), None)
+        for c in (A, B_CODE, C_CODE)
+    ]
+    codes = (A, B_CODE, C_CODE) if include_first_day else (A, B_CODE)
+    known, date_results = {}, {}
+    with connection(tmp_path) as conn:
+        args = setup(
+            conn, tmp_path, codes=codes, life=life,
+            known_records=known, date_results=date_results,
+        )
+        value = save(conn, args, known_records=known)
+        assert value.coverage_rule_version == "1" and value.coverage_complete is True
+        assert (
+            value.expected_count, value.actual_count, value.matched_count,
+            value.missing_count, value.extra_count,
+        ) == (2, 2, 2, 0, 0)
+        assert (value.source_rows, value.raw_rows, value.silver_rows, value.raw_physical_code_count) == (len(codes),) * 4
+        report = summary(args, known_records=known)
+        assert report.expected_count_known_dates == report.actual_count_known_dates == 2
+        assert report.verified_source_rows == report.current_raw_rows == report.current_silver_rows == len(codes)
+        assert report.total_missing_count == 0 and report.extra_count_known_dates == 0
+        assert conn.execute(
+            f"SELECT ts_code FROM {read_parquet(args['raw_audit'].path, hive_partitioning=False)} ORDER BY ts_code"
+        ).fetchall() == [(c,) for c in sorted(codes)]
+        B.release_stk_factor_pro_bootstrap_coverage_inputs(
+            conn, basis_inputs=args["_basis_inputs"]
+        )
+
+
+def test_bootstrap_extra_only_is_incomplete_without_deleting_source_rows(tmp_path):
+    known = {}
+    with connection(tmp_path) as conn:
+        args = setup(
+            conn, tmp_path, codes=(A, B_CODE, C_CODE),
+            suspensions={DAY: [(C_CODE, DAY, None, "S")]},
+            known_records=known, date_results={},
+        )
+        value = save(conn, args, known_records=known)
+        assert (value.expected_count, value.actual_count, value.missing_count, value.extra_count) == (2, 3, 0, 1)
+        assert value.coverage_complete is False
+        assert value.source_rows == value.raw_rows == value.silver_rows == 3
+        report = summary(args, known_records=known)
+        assert report.total_missing_count == 0 and report.extra_count_known_dates == 1
+        emitted = []
+        progress = driver._BootstrapProgress(args["approval"].operation_id)
+        progress.emit = lambda event, **fields: emitted.append((event, fields))
+        progress.finish(report)
+        assert emitted[-1][1]["coverage_state"] == "incomplete"
+        B.release_stk_factor_pro_bootstrap_coverage_inputs(
+            conn, basis_inputs=args["_basis_inputs"]
+        )
+
+
+def test_coverage_rule_change_cannot_reuse_cached_date_record(tmp_path, monkeypatch):
+    known = {}
+    with connection(tmp_path) as conn:
+        args = setup(
+            conn, tmp_path, codes=(A, B_CODE, C_CODE),
+            known_records=known, date_results={},
+        )
+        value = save(conn, args, known_records=known)
+        original_month_digest = args["inputs"].input_digest
+        with monkeypatch.context() as scoped:
+            scoped.setattr(C, "STK_FACTOR_PRO_COVERAGE_RULE_VERSION", "2")
+            with pytest.raises(ValueError, match="规则已变"):
+                B.read_stk_factor_pro_bootstrap_coverage_date(
+                    conn, staging_root=args["staging_root"], approval=args["approval"],
+                    approval_digest=args["_approval_digest"],
+                    source_complete=args["source_complete"], trade_date=DAY,
+                    known_records=known,
+                )
+            assert B._date_digest(
+                args["approval"], args["_approval_digest"], DAY,
+                args["source_complete"],
+                (value.raw_file_sha256, value.silver_file_sha256),
+                value.basis_files, value.is_open,
+            ) != value.input_digest
+            inputs = args["inputs"]
+            assert C.stk_factor_pro_bootstrap_month_basis_digest(
+                operation_id=inputs.operation_id, approval_digest=args["_approval_digest"],
+                month=inputs.month, natural_dates=inputs.natural_dates,
+                open_dates=inputs.open_dates, closed_dates=inputs.closed_dates,
+                calendar_unknown_dates=inputs.calendar_unknown_dates,
+                basis_files=inputs.basis_files,
+            ) != original_month_digest
+        B.release_stk_factor_pro_bootstrap_coverage_inputs(
+            conn, basis_inputs=args["_basis_inputs"]
+        )

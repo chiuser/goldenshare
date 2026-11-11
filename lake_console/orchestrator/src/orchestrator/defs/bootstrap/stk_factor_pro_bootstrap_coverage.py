@@ -13,6 +13,7 @@ from orchestrator.defs.asset_guards.stk_factor_pro_readiness import (
     _schema,
     _stat,
     calculate_stk_factor_pro_coverage,
+    release_stk_factor_pro_coverage_keys,
     stk_factor_pro_invalid_code_sql,
 )
 from orchestrator.defs.bootstrap.stk_factor_pro_bootstrap_records import (
@@ -44,18 +45,6 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 
 _PREFIX = "stk_factor_bootstrap_coverage_"
 _SUSPEND = _PREFIX + "suspend"
-_PURE_TABLES = tuple(
-    "stk_factor_pro_coverage_" + suffix
-    for suffix in (
-        "missing",
-        "extra",
-        "mapping",
-        "expected",
-        "listed",
-        "suspend",
-        "actual",
-    )
-)
 _CODE_SCHEMA = (("ts_code", "VARCHAR"), ("trade_date", "DATE"))
 
 
@@ -260,7 +249,11 @@ def read_stk_factor_pro_bootstrap_coverage_date(
     result = read_json(
         path, C.StkFactorProBootstrapDateCoverage, known_records=known_records
     )
-    if result is None or not first:
+    if result is None:
+        return result
+    if result.coverage_rule_version != C.STK_FACTOR_PRO_COVERAGE_RULE_VERSION:
+        raise ValueError("覆盖结果规则已变，不能复用旧计数")
+    if not first:
         return result
     try:
         if (
@@ -528,7 +521,11 @@ def compute_stk_factor_pro_bootstrap_coverage_date(
         and not prepared["unknown_input_kinds"]
     ):
         raise ValueError("非空当前Raw缺已有代码关系，禁止回盘补参")
-    with resource_cleanup(lambda: _drop(connection, _PURE_TABLES)):
+    with resource_cleanup(
+        lambda: release_stk_factor_pro_coverage_keys(
+            connection, coverage_inputs=prepared
+        )
+    ):
         calculated = calculate_stk_factor_pro_coverage(
             connection,
             coverage_inputs=prepared,
@@ -595,6 +592,7 @@ def evaluate_stk_factor_pro_bootstrap_coverage_date(
     }
     result = C.StkFactorProBootstrapDateCoverage(
         record_version=1,
+        coverage_rule_version=C.STK_FACTOR_PRO_COVERAGE_RULE_VERSION,
         operation_id=source.operation_id,
         approval_digest=approval_digest,
         trade_date=prepared["trade_date"],
@@ -619,7 +617,7 @@ def evaluate_stk_factor_pro_bootstrap_coverage_date(
         identity_ambiguous_sample_codes=counts.identity_ambiguous_sample_codes
         if counts
         else (),
-        coverage_complete=(counts.missing_count == 0)
+        coverage_complete=(counts.missing_count == 0 and counts.extra_count == 0)
         if counts and counts.missing_count is not None
         else None,
         reason=calculated["reason"] or "覆盖依据不足，无法判断",

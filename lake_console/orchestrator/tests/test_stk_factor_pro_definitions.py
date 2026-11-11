@@ -50,9 +50,10 @@ class StkFactorProDefinitionsTests(unittest.TestCase):
         jobs = {job.name for job in repository.get_all_jobs()}
         self.assertIn("raw_tushare_stk_factor_pro_update_job", jobs)
         self.assertIn("raw_tushare_stk_factor_pro_repair_job", jobs)
-        self.assertTrue(
-            {
-                "stock_factor_pro_trade_day_sensor",
-                "raw_tushare_stk_factor_pro_update_job_sensor",
-            }.isdisjoint(sensor.name for sensor in repository.sensor_defs)
+        sensors = {sensor.name: sensor for sensor in repository.sensor_defs}
+        partition_sensor = sensors["stock_factor_pro_trade_day_sensor"]
+        self.assertEqual(
+            partition_sensor.default_status, dg.DefaultSensorStatus.STOPPED
         )
+        self.assertEqual(partition_sensor.minimum_interval_seconds, 600)
+        self.assertNotIn("raw_tushare_stk_factor_pro_update_job_sensor", sensors)

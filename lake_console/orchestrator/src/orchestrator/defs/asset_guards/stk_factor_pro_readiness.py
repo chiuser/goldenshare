@@ -37,6 +37,15 @@ from orchestrator.defs.run_contracts.stk_factor_pro import (
 )
 from orchestrator.tushare_download.contract_registry import content_digest
 
+STK_FACTOR_PRO_COVERAGE_TABLES = tuple(
+    "stk_factor_pro_coverage_" + suffix
+    for suffix in (
+        "missing", "extra", "mapping", "expected", "optional", "eligible",
+        "listed", "suspend", "first_day", "actual", "actual_mapping",
+        "combined_mapping", "actual_compared",
+    )
+)
+
 
 def stk_factor_pro_invalid_code_sql(column: str) -> str:
     """The one existing stock-code rule shared by coverage and its inputs."""
@@ -53,6 +62,7 @@ def build_stk_factor_pro_coverage_keys(
     target_trade_date: date,
     listed_relation: str,
     full_suspend_relation: str,
+    optional_relation: str,
     actual_relation: str,
     identity_relation: str,
 ) -> StkFactorProCoverageCounts:
@@ -60,7 +70,9 @@ def build_stk_factor_pro_coverage_keys(
         raise ValueError("覆盖日期必须是DATE")
     relations = tuple(
         relation_identifier(value)
-        for value in (listed_relation, full_suspend_relation, actual_relation)
+        for value in (
+            listed_relation, full_suspend_relation, optional_relation, actual_relation
+        )
     )
     identity = relation_identifier(identity_relation)
     for relation in relations:
@@ -92,7 +104,8 @@ def build_stk_factor_pro_coverage_keys(
         target_trade_date=target_trade_date,
         listed_relation=relations[0],
         full_suspend_relation=relations[1],
-        actual_relation=relations[2],
+        optional_relation=relations[2],
+        actual_relation=relations[3],
         identity_relation=identity,
     )
 
@@ -103,45 +116,106 @@ def _build_stk_factor_pro_coverage_keys(
     target_trade_date: date,
     listed_relation: str,
     full_suspend_relation: str,
+    optional_relation: str,
     actual_relation: str,
     identity_relation: str,
 ) -> StkFactorProCoverageCounts:
-    """Compute once from the producer's already-verified fixed date/key projections."""
-    relations = (listed_relation, full_suspend_relation, actual_relation)
-    identity = identity_relation
-    outputs = ("stk_factor_pro_coverage_missing", "stk_factor_pro_coverage_extra")
-    internals = (
-        "stk_factor_pro_coverage_mapping",
-        "stk_factor_pro_coverage_expected",
-        "stk_factor_pro_coverage_listed",
-        "stk_factor_pro_coverage_suspend",
-        "stk_factor_pro_coverage_actual",
+    """Prepare the fixed-date expected keys, then compare the actual keys once."""
+    keys = _prepare_stk_factor_pro_expected_keys(
+        connection,
+        target_trade_date=target_trade_date,
+        listed_relation=listed_relation,
+        full_suspend_relation=full_suspend_relation,
+        optional_relation=optional_relation,
+        identity_relation=identity_relation,
     )
-    for name in (*outputs, *internals):
+    return compare_stk_factor_pro_coverage_keys(
+        connection,
+        target_trade_date=target_trade_date,
+        actual_relation=actual_relation,
+        identity_relation=identity_relation,
+        **keys,
+    )
+
+
+def _prepare_stk_factor_pro_expected_keys(
+    connection, *, target_trade_date, listed_relation, full_suspend_relation,
+    optional_relation, identity_relation,
+):
+    relations = (listed_relation, full_suspend_relation, optional_relation)
+    for name in STK_FACTOR_PRO_COVERAGE_TABLES:
         connection.execute(f"DROP TABLE IF EXISTS {name}")
     union = " UNION ".join(f"SELECT trade_date,ts_code FROM {r}" for r in relations)
     connection.execute(
         "CREATE TEMP TABLE stk_factor_pro_coverage_mapping AS "
         f"SELECT k.trade_date,k.ts_code,count(i.source_ts_code) AS mappings,min(i.latest_ts_code) AS latest "
-        f"FROM ({union}) k LEFT JOIN {identity} i ON i.source_ts_code=k.ts_code "
+        f"FROM ({union}) k LEFT JOIN {identity_relation} i ON i.source_ts_code=k.ts_code "
         "AND k.trade_date>=i.valid_from AND (i.valid_to IS NULL OR k.trade_date<i.valid_to) "
         "GROUP BY k.trade_date,k.ts_code"
     )
+    for relation, suffix in zip(
+        relations, ("listed", "suspend", "first_day"), strict=True
+    ):
+        connection.execute(
+            f"CREATE TEMP TABLE stk_factor_pro_coverage_{suffix} AS SELECT DISTINCT k.trade_date,m.latest AS ts_code "
+            f"FROM {relation} k JOIN stk_factor_pro_coverage_mapping m USING(trade_date,ts_code)"
+        )
+    connection.execute(
+        "CREATE TEMP TABLE stk_factor_pro_coverage_eligible AS SELECT * FROM stk_factor_pro_coverage_listed EXCEPT SELECT * FROM stk_factor_pro_coverage_suspend"
+    )
+    connection.execute(
+        "CREATE TEMP TABLE stk_factor_pro_coverage_optional AS SELECT * FROM stk_factor_pro_coverage_eligible INTERSECT SELECT * FROM stk_factor_pro_coverage_first_day"
+    )
+    connection.execute(
+        "CREATE TEMP TABLE stk_factor_pro_coverage_expected AS SELECT * FROM stk_factor_pro_coverage_eligible EXCEPT SELECT * FROM stk_factor_pro_coverage_optional"
+    )
+    return {
+        "expected_relation": "stk_factor_pro_coverage_expected",
+        "optional_relation": "stk_factor_pro_coverage_optional",
+        "basis_mapping_relation": "stk_factor_pro_coverage_mapping",
+    }
+
+
+def compare_stk_factor_pro_coverage_keys(
+    connection, *, target_trade_date, expected_relation, optional_relation,
+    actual_relation, identity_relation, basis_mapping_relation,
+) -> StkFactorProCoverageCounts:
+    """Reuse prepared E/F and basis identities; map only newly seen actual codes."""
+    for suffix in (
+        "missing", "extra", "actual_mapping", "combined_mapping", "actual",
+        "actual_compared",
+    ):
+        connection.execute(f"DROP TABLE IF EXISTS stk_factor_pro_coverage_{suffix}")
+    connection.execute(
+        "CREATE TEMP TABLE stk_factor_pro_coverage_actual_mapping AS "
+        "SELECT k.trade_date,k.ts_code,count(i.source_ts_code) AS mappings,min(i.latest_ts_code) AS latest "
+        f"FROM (SELECT DISTINCT trade_date,ts_code FROM {actual_relation}) k "
+        f"LEFT JOIN {identity_relation} i ON i.source_ts_code=k.ts_code "
+        "AND k.trade_date>=i.valid_from AND (i.valid_to IS NULL OR k.trade_date<i.valid_to) "
+        f"WHERE NOT EXISTS (SELECT 1 FROM {basis_mapping_relation} b "
+        "WHERE b.trade_date=k.trade_date AND b.ts_code=k.ts_code) "
+        "GROUP BY k.trade_date,k.ts_code"
+    )
+    connection.execute(
+        "CREATE TEMP TABLE stk_factor_pro_coverage_combined_mapping AS "
+        f"SELECT * FROM {basis_mapping_relation} UNION ALL "
+        "SELECT * FROM stk_factor_pro_coverage_actual_mapping"
+    )
     missing, ambiguous = connection.execute(
         "SELECT count(*) FILTER (WHERE mappings=0),count(*) FILTER (WHERE mappings>1 OR (mappings=1 AND "
-        f"{stk_factor_pro_invalid_code_sql('latest')})) FROM stk_factor_pro_coverage_mapping"
+        f"{stk_factor_pro_invalid_code_sql('latest')})) FROM stk_factor_pro_coverage_combined_mapping"
     ).fetchone()
     if missing or ambiguous:
         absent = tuple(
             r[0]
             for r in connection.execute(
-                "SELECT ts_code FROM stk_factor_pro_coverage_mapping WHERE mappings=0 ORDER BY ts_code LIMIT 20"
+                "SELECT ts_code FROM stk_factor_pro_coverage_combined_mapping WHERE mappings=0 ORDER BY ts_code LIMIT 20"
             ).fetchall()
         )
         conflict = tuple(
             r[0]
             for r in connection.execute(
-                "SELECT ts_code FROM stk_factor_pro_coverage_mapping WHERE mappings>1 OR "
+                "SELECT ts_code FROM stk_factor_pro_coverage_combined_mapping WHERE mappings>1 OR "
                 f"(mappings=1 AND {stk_factor_pro_invalid_code_sql('latest')}) "
                 "ORDER BY ts_code LIMIT 20"
             ).fetchall()
@@ -158,27 +232,28 @@ def _build_stk_factor_pro_coverage_keys(
             conflict,
             "身份映射缺失或不唯一，无法判断股票覆盖",
         )
-    for relation, suffix in zip(
-        relations, ("listed", "suspend", "actual"), strict=True
-    ):
-        connection.execute(
-            f"CREATE TEMP TABLE stk_factor_pro_coverage_{suffix} AS SELECT DISTINCT k.trade_date,m.latest AS ts_code "
-            f"FROM {relation} k JOIN stk_factor_pro_coverage_mapping m USING(trade_date,ts_code)"
-        )
     connection.execute(
-        "CREATE TEMP TABLE stk_factor_pro_coverage_expected AS SELECT * FROM stk_factor_pro_coverage_listed EXCEPT SELECT * FROM stk_factor_pro_coverage_suspend"
+        "CREATE TEMP TABLE stk_factor_pro_coverage_actual AS SELECT DISTINCT k.trade_date,m.latest AS ts_code "
+        f"FROM {actual_relation} k JOIN stk_factor_pro_coverage_combined_mapping m USING(trade_date,ts_code)"
     )
     connection.execute(
-        "CREATE TEMP TABLE stk_factor_pro_coverage_missing AS SELECT * FROM stk_factor_pro_coverage_expected EXCEPT SELECT * FROM stk_factor_pro_coverage_actual"
+        "CREATE TEMP TABLE stk_factor_pro_coverage_actual_compared AS SELECT * FROM stk_factor_pro_coverage_actual "
+        f"EXCEPT SELECT * FROM {optional_relation}"
     )
     connection.execute(
-        "CREATE TEMP TABLE stk_factor_pro_coverage_extra AS SELECT * FROM stk_factor_pro_coverage_actual EXCEPT SELECT * FROM stk_factor_pro_coverage_expected"
+        f"CREATE TEMP TABLE stk_factor_pro_coverage_missing AS SELECT * FROM {expected_relation} EXCEPT SELECT * FROM stk_factor_pro_coverage_actual_compared"
+    )
+    connection.execute(
+        f"CREATE TEMP TABLE stk_factor_pro_coverage_extra AS SELECT * FROM stk_factor_pro_coverage_actual_compared EXCEPT SELECT * FROM {expected_relation}"
     )
     expected, actual, missing, extra = (
         connection.execute(
-            f"SELECT count(*) FROM stk_factor_pro_coverage_{name}"
+            f"SELECT count(*) FROM {name}"
         ).fetchone()[0]
-        for name in ("expected", "actual", "missing", "extra")
+        for name in (
+            expected_relation, "stk_factor_pro_coverage_actual_compared",
+            "stk_factor_pro_coverage_missing", "stk_factor_pro_coverage_extra",
+        )
     )
     return StkFactorProCoverageCounts(
         expected,
@@ -190,7 +265,7 @@ def _build_stk_factor_pro_coverage_keys(
         0,
         (),
         (),
-        "已按上市、全天停牌和有效身份计算覆盖",
+        "已按上市首日可选、全天停牌和有效身份计算覆盖",
     )
 
 
@@ -536,6 +611,118 @@ def read_stk_factor_pro_recorded_results(
                 result = replace(result, unresolved_day_failure_run_id=latest.run_id)
     known_pg[key] = result
     return result
+
+
+def read_stk_factor_pro_day_factor_shas(
+    instance,
+    *,
+    prior,
+    previous_trade_date,
+    lake_root,
+    staging_root,
+    contract,
+    known_pg,
+    known_records,
+):
+    """Use only the plan of the still-valid daily publication."""
+    import dagster as dg
+
+    from orchestrator.defs.io.stk_factor_pro_candidates import (
+        require_stk_factor_pro_safe_path,
+    )
+    from orchestrator.defs.io.stk_factor_pro_history import (
+        read_stk_factor_pro_referenced_history_plan,
+    )
+    from orchestrator.defs.paths import (
+        raw_stk_factor_pro_path,
+        silver_stock_factor_pro_path,
+    )
+
+    day_ref = prior.day_result_ref
+    if day_ref is None:
+        return None
+    day = prior.target_trade_date
+    values = _stk_factor_pro_exact_observation(
+        instance, day_ref, target=day, phase="day", known_pg=known_pg
+    )
+    if (
+        values["result"] != "completed"
+        or read_stk_factor_pro_run(instance, day_ref.run_id, known_pg=known_pg).job_name
+        != C.STK_FACTOR_PRO_UPDATE_JOB_NAME
+    ):
+        return None
+    published = values["raw_coverage"]
+    source_digest = values["day_source_digest"]
+    if published is None or source_digest is None:
+        raise ValueError("有效日观察缺日发布依据")
+    checks_key = ("day_publication_checks", day_ref.run_id)
+    if checks_key not in known_pg:
+        records = instance.get_records_for_run(
+            day_ref.run_id,
+            of_type=dg.DagsterEventType.ASSET_CHECK_EVALUATION,
+            limit=2,
+            ascending=True,
+        ).records
+        checks = {}
+        for record in records:
+            event = record.event_log_entry.dagster_event.event_specific_data
+            checks[event.asset_key.to_user_string()] = event
+        known_pg[checks_key] = checks
+    for asset, check_name, path in (
+        (
+            C.STK_FACTOR_PRO_RAW_ASSET_KEY,
+            C.STK_FACTOR_PRO_RAW_CHECK_NAME,
+            raw_stk_factor_pro_path(lake_root, str(day)),
+        ),
+        (
+            C.STK_FACTOR_PRO_SILVER_ASSET_KEY,
+            C.STK_FACTOR_PRO_SILVER_CHECK_NAME,
+            silver_stock_factor_pro_path(lake_root, str(day)),
+        ),
+    ):
+        check = known_pg[checks_key].get(asset)
+        if check is None or not check.passed or not check.blocking:
+            return None
+        target = check.target_materialization_data
+        if (
+            check.check_name != check_name
+            or check.partition != str(day)
+            or target is None
+            or target.run_id != day_ref.run_id
+        ):
+            return None
+        require_stk_factor_pro_safe_path(path)
+        metadata = {
+            key: getattr(value, "value", value) for key, value in check.metadata.items()
+        }
+        sha = metadata.get("goldenshare/file_sha256")
+        if (
+            not sha
+            or metadata.get("goldenshare/day_source_digest") != source_digest
+            or factor_known_file_sha(path, known_records=known_records) != sha
+        ):
+            return None
+        if asset == C.STK_FACTOR_PRO_RAW_ASSET_KEY:
+            if (
+                target.storage_id != published.raw_materialization_storage_id
+                or sha != published.raw_file_sha256
+            ):
+                return None
+        elif metadata.get("goldenshare/raw_sha256") != published.raw_file_sha256:
+            return None
+    reference = values["history_plan_ref"]
+    if reference is None or reference.creator_run_id != day_ref.run_id:
+        raise ValueError("有效日观察缺本次日更的历史计划引用")
+    plan = read_stk_factor_pro_referenced_history_plan(
+        staging_root=staging_root,
+        target=day,
+        contract=contract,
+        reference=reference,
+        known_records=known_records,
+    )
+    if plan.identity.previous_trade_date != previous_trade_date:
+        raise ValueError("日更历史计划的前一交易日不符")
+    return plan.factor_t_ref.file_sha256, plan.factor_p_ref.file_sha256
 
 
 def _stk_factor_pro_update_input(run):
@@ -951,12 +1138,35 @@ def prepare_stk_factor_pro_coverage_inputs(
     return result
 
 
+def release_stk_factor_pro_coverage_keys(connection, *, coverage_inputs):
+    """Release the current date's prepared comparisons with its connection."""
+    coverage_inputs.pop("coverage_keys", None)
+    errors = []
+    for name in STK_FACTOR_PRO_COVERAGE_TABLES:
+        try:
+            connection.execute(f"DROP TABLE IF EXISTS {name}")
+        except BaseException as error:  # noqa: BLE001 - release all owned relations.
+            errors.append(error)
+    if errors:
+        for other in errors[1:]:
+            errors[0].add_note(f"覆盖关系清理同时失败：{type(other).__name__}")
+        raise errors[0]
+
+
 def release_stk_factor_pro_coverage_inputs(
     connection, *, inherited_facts, trade_date=None
 ):
     """Release only relations owned by this preparation, once per relation."""
     errors = []
     for fact in inherited_facts.values():
+        for day, prepared in fact.get("prepared_dates", {}).items():
+            if (trade_date is None or day == trade_date) and "coverage_keys" in prepared:
+                try:
+                    release_stk_factor_pro_coverage_keys(
+                        connection, coverage_inputs=prepared
+                    )
+                except BaseException as error:  # noqa: BLE001 - retain cleanup failures.
+                    errors.append(error)
         if fact["owned"] and (
             trade_date is None or fact["basis"].trade_date == trade_date
         ):
@@ -1127,6 +1337,7 @@ def evaluate_stk_factor_pro_raw_coverage(
         if (
             not passed
             or coverage is None
+            or coverage.coverage_rule_version != C.STK_FACTOR_PRO_COVERAGE_RULE_VERSION
             or (
                 coverage.raw_file_sha256,
                 coverage.lifecycle_file_sha256,
@@ -1148,7 +1359,11 @@ def evaluate_stk_factor_pro_raw_coverage(
     ref = calculated["missing_codes_ref"]
     if isinstance(ref, C.StkFactorProBootstrapCodesRef):
         ref = C.RecordRef(ref.creator_run_id, ref.relative_path, ref.file_sha256)
-    complete = (None if missing is None else missing == 0) if passed else False
+    extra = counts.extra_count if counts is not None else None
+    complete = (
+        (None if missing is None or extra is None else missing == 0 and extra == 0)
+        if passed else False
+    )
     return C.StkFactorProRawCoverage(
         day,
         complete,
@@ -1158,6 +1373,8 @@ def evaluate_stk_factor_pro_raw_coverage(
         counts.expected_count if counts is not None else None,
         counts.actual_count if counts is not None else None,
         missing,
+        extra,
+        C.STK_FACTOR_PRO_COVERAGE_RULE_VERSION,
         calculated["missing_sample_codes"],
         reason or calculated["reason"],
         material.storage_id if passed else None,
@@ -1183,6 +1400,8 @@ def require_stk_factor_pro_history_raw(coverage):
                 "goldenshare/expected_count": coverage.expected_count,
                 "goldenshare/actual_count": coverage.actual_count,
                 "goldenshare/missing_count": coverage.missing_count,
+                "goldenshare/extra_count": coverage.extra_count,
+                "goldenshare/coverage_rule_version": coverage.coverage_rule_version,
                 "goldenshare/missing_sample_codes": dg.MetadataValue.json(
                     list(coverage.missing_sample_codes)
                 ),
@@ -1265,39 +1484,55 @@ def calculate_stk_factor_pro_coverage(connection, *, coverage_inputs, raw_relati
     counts = None
     if not coverage_inputs["unknown_input_kinds"]:
         day, relations = coverage_inputs["trade_date"], coverage_inputs["relations"]
-        names = (
-            "stk_factor_pro_coverage_listed_input",
-            "stk_factor_pro_coverage_suspend_input",
-            "stk_factor_pro_coverage_actual_input",
-        )
+        actual = "stk_factor_pro_coverage_actual_input"
+        names = [actual]
         primary = None
         try:
-            connection.execute(
-                f"CREATE TEMP TABLE {names[0]} AS SELECT ?::DATE trade_date,ts_code FROM {relations['lifecycle']} "
-                "WHERE list_date<=? AND (delist_date IS NULL OR ?<delist_date) "
-                "AND (NOT ends_with(ts_code,'.BJ') OR ?>=CAST(? AS DATE))",
-                [day, day, day, day, BJ_MARKET_OPEN_DATE],
-            )
-            connection.execute(
-                f"CREATE TEMP TABLE {names[1]} AS SELECT DISTINCT trade_date,ts_code FROM {relations['suspend']} "
-                "WHERE trade_date=? AND suspend_type='S' AND suspend_timing IS NULL",
-                [day],
-            )
+            if "coverage_keys" not in coverage_inputs:
+                listed, suspended, optional = (
+                    "stk_factor_pro_coverage_listed_input",
+                    "stk_factor_pro_coverage_suspend_input",
+                    "stk_factor_pro_coverage_optional_input",
+                )
+                names.extend((listed, suspended, optional))
+                connection.execute(
+                    f"CREATE TEMP TABLE {listed} AS SELECT ?::DATE trade_date,ts_code FROM {relations['lifecycle']} "
+                    "WHERE list_date<=? AND (delist_date IS NULL OR ?<delist_date) "
+                    "AND (NOT ends_with(ts_code,'.BJ') OR ?>=CAST(? AS DATE))",
+                    [day, day, day, day, BJ_MARKET_OPEN_DATE],
+                )
+                connection.execute(
+                    f"CREATE TEMP TABLE {suspended} AS SELECT DISTINCT trade_date,ts_code FROM {relations['suspend']} "
+                    "WHERE trade_date=? AND suspend_type='S' AND suspend_timing IS NULL",
+                    [day],
+                )
+                connection.execute(
+                    f"CREATE TEMP TABLE {optional} AS SELECT ?::DATE trade_date,ts_code "
+                    f"FROM {relations['lifecycle']} WHERE list_date=?",
+                    [day, day],
+                )
+                coverage_inputs["coverage_keys"] = _prepare_stk_factor_pro_expected_keys(
+                    connection,
+                    target_trade_date=day,
+                    listed_relation=listed,
+                    full_suspend_relation=suspended,
+                    optional_relation=optional,
+                    identity_relation=relations["identity"],
+                )
             if raw_relation is None:
                 connection.execute(
-                    f"CREATE TEMP TABLE {names[2]}(trade_date DATE,ts_code VARCHAR)"
+                    f"CREATE TEMP TABLE {actual}(trade_date DATE,ts_code VARCHAR)"
                 )
             else:
                 connection.execute(
-                    f"CREATE TEMP TABLE {names[2]} AS SELECT strptime(trade_date,'%Y%m%d')::DATE trade_date,ts_code FROM {relation_identifier(raw_relation)}"
+                    f"CREATE TEMP TABLE {actual} AS SELECT strptime(trade_date,'%Y%m%d')::DATE trade_date,ts_code FROM {relation_identifier(raw_relation)}"
                 )
-            counts = _build_stk_factor_pro_coverage_keys(
+            counts = compare_stk_factor_pro_coverage_keys(
                 connection,
                 target_trade_date=day,
-                listed_relation=names[0],
-                full_suspend_relation=names[1],
-                actual_relation=names[2],
+                actual_relation=actual,
                 identity_relation=relations["identity"],
+                **coverage_inputs["coverage_keys"],
             )
         except BaseException as error:
             primary = error

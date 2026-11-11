@@ -17,7 +17,11 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.tushare_download import DownloadError, DownloadErrorCode, DownloadMode
 from tests import test_stk_factor_pro_jobs as update_tests
-from tests.stk_factor_pro_history_test_support import HistoryDownloader, saved_real_rows
+from tests.stk_factor_pro_history_test_support import (
+    HistoryDownloader,
+    saved_real_rows,
+    write_factor_file,
+)
 from tests.stk_factor_pro_test_support import DAY, connection
 from tests.test_stk_factor_pro_jobs import FIRST, A, config, input_files
 
@@ -132,6 +136,10 @@ def test_repair_uses_current_native_gate_and_only_fresh_original_history(
         run_config["ops"]["repair_stk_factor_pro_history"]["config"][
             "expected_history_ranges_digest"
         ] = "0" * 64
+    if failure_layer is None:
+        with connection(tmp_path) as conn:
+            revised = write_factor_file(conn, lake, DAY, ((A, 3),))
+        assert revised.file_sha256 != original.factor_t_ref.file_sha256
     remote = HistoryDownloader({A: replay[1:]})
     monkeypatch.setattr(asset.download.TushareDownloader, "load", lambda: remote)
     for calls in counts.values():
@@ -159,13 +167,34 @@ def test_repair_uses_current_native_gate_and_only_fresh_original_history(
                 e.partition != str(DAY)
                 for e in executed.get_asset_materialization_events()
             )
+            known_pg = {}
             facts = asset.readiness.read_stk_factor_pro_recorded_results(
-                instance, target_trade_date=DAY, known_pg={}
+                instance, target_trade_date=DAY, known_pg=known_pg
             )
             assert facts.unresolved_history_failure_run_id is None
             assert (
                 not facts.pending_plan_refs
                 and len(facts.successful_publication_refs) == 1
+            )
+            assert facts.day_result_ref.run_id == source_id
+            assert facts.history_plan_ref.creator_run_id == executed.run_id
+            with patch.object(
+                instance, "fetch_observations", wraps=instance.fetch_observations
+            ) as fetch:
+                baseline = asset.readiness.read_stk_factor_pro_day_factor_shas(
+                    instance,
+                    prior=facts,
+                    previous_trade_date=original.identity.previous_trade_date,
+                    lake_root=lake,
+                    staging_root=_staging,
+                    contract=original.contract,
+                    known_pg=known_pg,
+                    known_records={},
+                )
+                fetch.assert_not_called()
+            assert baseline == (
+                original.factor_t_ref.file_sha256,
+                original.factor_p_ref.file_sha256,
             )
             remote.calls.clear()
             next_run = repair.execute_in_process(

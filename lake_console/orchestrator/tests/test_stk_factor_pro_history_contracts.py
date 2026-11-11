@@ -277,7 +277,7 @@ def test_closed_codec_roundtrip_and_frozen_models(factory):
         {"t_value": True},
         {"p_value": float("nan")},
         {"plan_reasons": (True,)},
-        {"plan_reasons": (7,)},
+        {"plan_reasons": (8,)},
         {"plan_reasons": (2, 1)},
         {"end_date": START - timedelta(days=1)},
     ],

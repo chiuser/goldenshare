@@ -277,7 +277,11 @@ class _BootstrapProgress:
         state = (
             "unknown"
             if summary.all_expected_present is None
-            else ("complete" if summary.all_expected_present else "incomplete")
+            else (
+                "complete"
+                if summary.all_expected_present and summary.extra_count_known_dates == 0
+                else "incomplete"
+            )
         )
         self.emit(
             "operation_finished",
@@ -385,7 +389,9 @@ def _prepare_bootstrap_date_coverage(
     )
     old = entry["persisted_result"]
     entry["coverage_record_current"] = (
-        old is not None and old.input_digest == entry["coverage_input_digest"]
+        old is not None
+        and old.coverage_rule_version == C.STK_FACTOR_PRO_COVERAGE_RULE_VERSION
+        and old.input_digest == entry["coverage_input_digest"]
     )
     entry["unknown_reason"] = (
         None if entry["coverage_record_current"] else "本日覆盖统计尚未完成"
@@ -1626,6 +1632,7 @@ def load_stk_factor_pro_bootstrap_supplement_state(
                 or result.trade_date != day
                 or result.source_rows != approved_rows
                 or result.input_digest != digest
+                or result.coverage_rule_version != C.STK_FACTOR_PRO_COVERAGE_RULE_VERSION
                 or not result.import_complete
             ):
                 raise ValueError(f"初始化逐日小记录与批准或输入摘要不符：{day}")

@@ -232,6 +232,7 @@ def current_publication():
 def date_coverage():
     return m.StkFactorProBootstrapDateCoverage(
         1,
+        "1",
         "operation-a",
         SHA,
         D,
@@ -821,6 +822,7 @@ def test_month_and_date_basis_digests_use_separate_literal_projections():
         for kind in ("calendar", "identity", "lifecycle", "suspend")
     ]
     month_projection = {
+        "coverage_rule_version": "1",
         "operation_id": "operation-a",
         "approval_digest": SHA,
         "month_start": "2026-10-15",
@@ -849,6 +851,7 @@ def test_month_and_date_basis_digests_use_separate_literal_projections():
         }
     )
     date_projection = {
+        "coverage_rule_version": "1",
         "operation_id": "operation-a",
         "approval_digest": SHA,
         "trade_date": "2026-10-15",

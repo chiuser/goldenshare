@@ -249,6 +249,8 @@ def test_history_completion_requires_final_success_and_keeps_day_failure(tmp_pat
         1,
         1,
         0,
+        0,
+        "1",
         (),
         "完整",
         1,

@@ -394,6 +394,26 @@ def read_stk_factor_pro_history_plan(
     return result
 
 
+def read_stk_factor_pro_referenced_history_plan(
+    *, staging_root, target, contract, reference, known_records
+):
+    if reference.relative_path != "history-plan.json":
+        raise ValueError("原历史计划引用必须是固定history-plan.json")
+    root = stk_factor_pro_run_staging_root(
+        staging_root, reference.creator_run_id, target.isoformat()
+    )
+    record = read_stk_factor_pro_history_plan(
+        root,
+        expected_target=target,
+        expected_run_id=reference.creator_run_id,
+        known_records=known_records,
+    )
+    _ref_path(root, record.identity, reference, known_records=known_records)
+    if record.contract != contract:
+        raise ValueError("原历史计划不属于本次完整契约")
+    return record
+
+
 def _range_row(record: HistoryRange):
     return tuple(
         json.dumps(
@@ -988,23 +1008,18 @@ def read_stk_factor_pro_prior_history(
     plans = {}
 
     def load_plan(reference):
-        if reference.relative_path != "history-plan.json":
-            raise ValueError("原历史计划引用必须是固定history-plan.json")
         if reference in plans:
             return plans[reference]
+        record = read_stk_factor_pro_referenced_history_plan(
+            staging_root=staging_root,
+            target=target,
+            contract=contract,
+            reference=reference,
+            known_records=known_records,
+        )
         root = stk_factor_pro_run_staging_root(
             staging_root, reference.creator_run_id, target.isoformat()
         )
-        _run_root(root, run_id=reference.creator_run_id, target=target)
-        record = read_stk_factor_pro_history_plan(
-            root,
-            expected_target=target,
-            expected_run_id=reference.creator_run_id,
-            known_records=known_records,
-        )
-        _ref_path(root, record.identity, reference, known_records=known_records)
-        if record.contract != contract:
-            raise ValueError("原历史计划不属于本次完整契约")
         rows = read_stk_factor_pro_history_ranges(
             connection, root=root, plan=record, known_records=known_records
         )
@@ -1152,6 +1167,7 @@ def build_stk_factor_pro_history_plan(
     history_starts: tuple[StkFactorProHistoryStart, ...],
     check_cancel,
     known_records: dict,
+    factor_revised: bool = False,
 ) -> tuple[HistoryPlanRecord, tuple[HistoryRange, ...], RecordRef]:
     if not isinstance(identity, RunIdentity) or not isinstance(
         prior_results, StkFactorProRecordedResults
@@ -1207,9 +1223,14 @@ def build_stk_factor_pro_history_plan(
             source_plan.origin_history_ranges_digest,
         ) != (origin_plan.history_plan_digest, origin_plan.history_ranges_digest):
             raise ValueError("手动repair原完整授权摘要不符")
-    pending = {
-        r.ts_code for ref in prior_results.pending_plan_refs for r in plans[ref][1]
-    }
+    automatic_today = identity.purpose == "today" and identity.source_run_id is None
+    pending = set()
+    pending_revisions = set()
+    for ref in prior_results.pending_plan_refs:
+        for row in plans[ref][1]:
+            pending.add(row.ts_code)
+            if HistoryPlanReason.SAME_NIGHT_FACTOR_REVISION in row.plan_reasons:
+                pending_revisions.add(row.ts_code)
     old = {}
     for reference, (_, rows) in plans.items():
         for row in rows:
@@ -1313,6 +1334,12 @@ def build_stk_factor_pro_history_plan(
             and (life[1] is None or life[1] > identity.target_trade_date)
         ):
             reasons.add(int(HistoryPlanReason.NO_PRIOR_HISTORY))
+        if (
+            automatic_today
+            and (factor_revised or code in pending_revisions)
+            and HistoryPlanReason.NO_PRIOR_HISTORY not in reasons
+        ):
+            reasons.add(int(HistoryPlanReason.SAME_NIGHT_FACTOR_REVISION))
         origin_dates, origin_refs = {identity.target_trade_date}, set()
         for reference, r in previous:
             origin_dates.update(r.origin_target_dates)

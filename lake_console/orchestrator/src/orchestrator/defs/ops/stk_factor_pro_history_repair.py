@@ -8,7 +8,6 @@ import dagster as dg
 
 from orchestrator.defs.asset_guards import stk_factor_pro_readiness as readiness
 from orchestrator.defs.assets import stk_factor_pro as daily
-from orchestrator.defs.bootstrap import stk_factor_pro_bootstrap_coverage as coverage_io
 from orchestrator.defs.bootstrap import stk_factor_pro_bootstrap_records as records
 from orchestrator.defs.bootstrap import stk_factor_pro_history as initialization
 from orchestrator.defs.checks.stk_factor_pro import factor_known_file_sha
@@ -204,6 +203,8 @@ def _read_original_daily_publication(
             None,
             None,
             None,
+            None,
+            C.STK_FACTOR_PRO_COVERAGE_RULE_VERSION,
             (),
             str(error),
             None,
@@ -214,6 +215,7 @@ def _read_original_daily_publication(
     reusable = False
     if (
         previous is not None
+        and previous.coverage_rule_version == C.STK_FACTOR_PRO_COVERAGE_RULE_VERSION
         and previous.raw_check_passed
         and previous.expected_count is not None
         and previous.raw_file_sha256 == sha
@@ -284,7 +286,9 @@ def _read_original_daily_publication(
         )
     finally:
         if calculated is not None:
-            coverage_io._drop(connection, coverage_io._PURE_TABLES)
+            readiness.release_stk_factor_pro_coverage_keys(
+                connection, coverage_inputs=inputs
+            )
     if coverage.complete is not True or not coverage.raw_check_passed:
         return coverage, None
     silver = readiness.evaluate_stk_factor_pro_target_silver(

@@ -136,6 +136,8 @@ def test_single_day_preparation_and_missing_codes_are_reused(tmp_path):
             2,
             1,
             1,
+            0,
+            "1",
             (),
             "缺一股",
             None,
@@ -297,6 +299,8 @@ def test_missing_upstream_is_unknown_and_zero_diagnostic_does_not_write(tmp_path
             None,
             None,
             None,
+            None,
+            "1",
             (),
             "未知",
             None,
@@ -373,6 +377,8 @@ def test_raw_only_publication_leaves_old_silver_ineligible(tmp_path):
             1,
             1,
             0,
+            0,
+            "1",
             (),
             "已齐",
             1,
@@ -432,7 +438,7 @@ def test_same_files_new_native_checks_do_not_recalculate_coverage(tmp_path):
         pg = {("recorded_results", DAY): previous}
         with patch.object(
             R,
-            "_build_stk_factor_pro_coverage_keys",
+            "compare_stk_factor_pro_coverage_keys",
             side_effect=AssertionError("repeat coverage"),
         ):
             reused = R.evaluate_stk_factor_pro_raw_coverage(
@@ -452,4 +458,140 @@ def test_same_files_new_native_checks_do_not_recalculate_coverage(tmp_path):
         )
         assert reused.raw_check_storage_id != coverage.raw_check_storage_id
         assert reused.expected_count == reused.actual_count == 1
+        with (
+            patch.object(C, "STK_FACTOR_PRO_COVERAGE_RULE_VERSION", "2"),
+            pytest.raises(ValueError, match="禁止隐式重算"),
+        ):
+            R.evaluate_stk_factor_pro_raw_coverage(
+                instance, conn, lake_root=lake, target_trade_date=DAY,
+                known_pg=pg, known_records=known, calculated=None,
+                verified_raw_audit=audits[0][1],
+            )
+        R.release_stk_factor_pro_coverage_inputs(conn, inherited_facts=facts)
+
+
+@pytest.mark.parametrize("include_first_day", [False, True])
+def test_first_day_coverage_bound_to_real_files_and_history_eligibility(
+    tmp_path, include_first_day
+):
+    lake, staging = roots(tmp_path)
+    known, facts = {}, {}
+    life = [
+        (A, A[:6], A, "SZSE", None, "CNY", True, "L", DAY - timedelta(days=100), None),
+        (B, B[:6], B, "SSE", None, "CNY", True, "L", DAY, None),
+    ]
+    with connection(tmp_path) as conn, _isolated_instance(tmp_path) as instance:
+        upstream(conn, lake, days=(DAY,), codes=(A, B), life=life)
+        source_rows = (row(A), row(B)) if include_first_day else (row(A),)
+        audits, _ = run_day(conn, lake, staging, source_rows, known_records=known)
+        events(instance, audits, audits[0][1].file_sha256)
+        prepared = R.prepare_stk_factor_pro_coverage_inputs(
+            conn, lake_root=lake, trade_date=DAY, inherited_facts=facts,
+            known_records=known,
+        )
+        queries = []
+
+        class ObservedConnection:
+            def execute(self, query, *args, **kwargs):
+                queries.append(str(query))
+                return conn.execute(query, *args, **kwargs)
+
+        # run_day closes its SQL relations. Read the published test file's keys
+        # once, then reuse independent in-memory source/candidate projections.
+        from orchestrator.defs.duckdb_sql import read_parquet
+
+        conn.execute(
+            "CREATE TEMP TABLE published_keys AS SELECT ts_code,trade_date FROM "
+            + read_parquet(audits[0][1].path, hive_partitioning=False)
+        )
+        conn.execute("CREATE TEMP TABLE candidate_keys AS SELECT * FROM published_keys")
+
+        observed = ObservedConnection()
+        calculated = R.calculate_stk_factor_pro_coverage(
+            observed, coverage_inputs=prepared, raw_relation="published_keys"
+        )
+        repeated = R.calculate_stk_factor_pro_coverage(
+            observed, coverage_inputs=prepared, raw_relation="candidate_keys"
+        )
+        assert repeated["coverage_counts"] == calculated["coverage_counts"]
+        assert sum(q.startswith("CREATE TEMP TABLE stk_factor_pro_coverage_expected AS") for q in queries) == 1
+        assert sum(q.startswith("CREATE TEMP TABLE stk_factor_pro_coverage_mapping AS") for q in queries) == 1
+        coverage = R.evaluate_stk_factor_pro_raw_coverage(
+            instance, conn, lake_root=lake, target_trade_date=DAY,
+            known_pg={}, known_records=known, calculated=calculated,
+            verified_raw_audit=audits[0][1],
+        )
+        assert (coverage.expected_count, coverage.actual_count, coverage.missing_count, coverage.extra_count) == (1, 1, 0, 0)
+        assert coverage.complete is True and coverage.coverage_rule_version == "1"
+        assert audits[0][1].row_count == audits[1][1].row_count == len(source_rows)
+        R.require_stk_factor_pro_history_raw(coverage)
+        R.release_stk_factor_pro_coverage_inputs(conn, inherited_facts=facts)
+        assert "coverage_keys" not in prepared
+        assert not set(R.STK_FACTOR_PRO_COVERAGE_TABLES) & {
+            item[0] for item in conn.execute("SHOW TABLES").fetchall()
+        }
+
+
+def test_first_day_stock_required_on_following_real_trade_day(tmp_path):
+    lake, _ = roots(tmp_path)
+    target = DAY + timedelta(days=3)  # Friday 2026-10-16 -> Monday 2026-10-19.
+    facts, known = {}, {}
+    life = [
+        (A, A[:6], A, "SZSE", None, "CNY", True, "L", DAY - timedelta(days=100), None),
+        (B, B[:6], B, "SSE", None, "CNY", True, "L", DAY, None),
+    ]
+    with connection(tmp_path) as conn:
+        upstream(
+            conn, lake, days=(DAY, target), codes=(A, B), life=life,
+            calendar=[("SSE", DAY, True, DAY - timedelta(days=1)), ("SSE", target, True, DAY)],
+        )
+        prepared = R.prepare_stk_factor_pro_coverage_inputs(
+            conn, lake_root=lake, trade_date=target, inherited_facts=facts,
+            known_records=known,
+        )
+        conn.execute("CREATE TEMP TABLE actual_keys(trade_date VARCHAR,ts_code VARCHAR)")
+        conn.execute("INSERT INTO actual_keys VALUES ('20261019',?)", [A])
+        counts = R.calculate_stk_factor_pro_coverage(
+            conn, coverage_inputs=prepared, raw_relation="actual_keys"
+        )["coverage_counts"]
+        assert (counts.expected_count, counts.actual_count, counts.missing_count, counts.extra_count) == (2, 1, 1, 0)
+        assert conn.execute("SELECT ts_code FROM stk_factor_pro_coverage_missing").fetchall() == [(B,)]
+        R.release_stk_factor_pro_coverage_inputs(conn, inherited_facts=facts)
+
+
+def test_valid_files_with_only_extra_code_cannot_enter_history(tmp_path):
+    from orchestrator.defs.duckdb_sql import read_parquet
+
+    lake, staging = roots(tmp_path)
+    known, facts = {}, {}
+    with connection(tmp_path) as conn, _isolated_instance(tmp_path) as instance:
+        upstream(
+            conn, lake, days=(DAY,), codes=(A, B, D),
+            suspensions={DAY: [(D, DAY, None, "S")]},
+        )
+        audits, _ = run_day(conn, lake, staging, (row(A), row(B), row(D)), known_records=known)
+        events(instance, audits, audits[0][1].file_sha256)
+        prepared = R.prepare_stk_factor_pro_coverage_inputs(
+            conn, lake_root=lake, trade_date=DAY, inherited_facts=facts,
+            known_records=known,
+        )
+        conn.execute(
+            "CREATE TEMP TABLE published_keys AS SELECT ts_code,trade_date FROM "
+            + read_parquet(audits[0][1].path, hive_partitioning=False)
+        )
+        calculated = R.calculate_stk_factor_pro_coverage(
+            conn, coverage_inputs=prepared, raw_relation="published_keys"
+        )
+        coverage = R.evaluate_stk_factor_pro_raw_coverage(
+            instance, conn, lake_root=lake, target_trade_date=DAY,
+            known_pg={}, known_records=known, calculated=calculated,
+            verified_raw_audit=audits[0][1],
+        )
+        assert coverage.raw_check_passed is True
+        assert coverage.complete is False
+        assert (coverage.missing_count, coverage.extra_count) == (0, 1)
+        with pytest.raises(dg.Failure, match="原日期数据缺失") as caught:
+            R.require_stk_factor_pro_history_raw(coverage)
+        assert caught.value.metadata["goldenshare/extra_count"].value == 1
+        assert caught.value.metadata["goldenshare/coverage_rule_version"].value == "1"
         R.release_stk_factor_pro_coverage_inputs(conn, inherited_facts=facts)

@@ -1,6 +1,6 @@
 # 股票技术因子 DG 数据集接入 LLD v1
 
-日期：2026-11-11。状态：源端代码齐备、完整日发布和指定日期人工补跑的现行设计见§21。前五批及第六批前两步是已有代码基线，新规则尚待实现和隔离验收。正式资源操作按阶段另行授权。
+日期：2026-11-11。状态：源端代码齐备、完整日发布和指定日期人工补跑的现行设计见§21。前五批及第六批前两步是已有代码基线；新规则第1小步的共享齐备算法与覆盖记录已完成开发、隔离验证及独立审计，见§21.16。其余小步尚待实施。正式资源操作按阶段另行授权。
 
 依据：[原技术方案](dagster-stock-technical-factor-onboarding-plan-v1.md)、[DG接入模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理规范](dagster-data-pipeline-performance-governance.md)、[Prod审计报告](../../reports/stock_factor_pro_prod_audit_20261021/README.md)。下载器依据[组件LLD](dagster-tushare-download-component-low-level-design-v1.html)与[业务使用文档](../architecture/tushare-download-component-usage-v1.html)，不在本数据集重做。
 
@@ -3244,7 +3244,7 @@ sensor以既有5秒性能目标核对本地读取、T/P摘要和源查询的总�
 
 计数使用现有CoverageCounts字段，expected_count=|E|，actual_count=|C|，matched_count=|E与C交集|，missing_count和extra_count为上述差集数量。因此原有expected=matched+missing、actual=matched+extra仍成立。源返回总量、Raw/Silver行数及raw_physical_code_count继续记录包含可选首日行的真实数量，界面说明actual_count为参与比较代码数，不能再拿它等同整份Raw物理代码数。可选首日集合由本次已准备生命周期计算并复用，不形成新的业务状态或下载缓存。
 
-当前代码仍按list_date<=T计算全体应有，尚未实现本次调整。开发时同步build_stk_factor_pro_coverage_keys、calculate_stk_factor_pro_coverage、bootstrap纯覆盖/包装及RawCoverage资格消费者，不能只在sensor豁免首日而让后续历史资格继续报缺。纯集合函数增加必传optional_relation参数，输入为本次目标日首日代码的DATE/VARCHAR关系；与上市、停牌及实际三侧一起统一身份，首日没有代码时传同schema空关系，不加自动查询或兜底。全部调用方交接同一首日关系，新增临时结果按既有连接生命周期释放。输入摘要须包含覆盖规则版本，按本规则重新计算当前覆盖记录及汇总，原来源计数、原导入事实、原历史授权和完整成功记录保留各自事实；旧统计不能作为新口径齐备证明，不增加运行时双轨判断。
+2026-11-11第1小步已完成共享首日可选算法和覆盖记录，证据见§21.16；日更配置、源端探测、完整日发布前移和日更sensor仍按后续小步推进。build_stk_factor_pro_coverage_keys、calculate_stk_factor_pro_coverage、bootstrap纯覆盖/包装及RawCoverage资格消费者已同步，避免后续历史资格继续按旧规则报缺。纯集合函数新增必传optional_relation，输入为目标日首日代码的DATE/VARCHAR关系；与上市、停牌及实际三侧一起统一身份，无首日传同schema空关系。当前连接准备的E/F和已核身份映射显式交接、同日复用并随日期释放。输入摘要纳入覆盖规则版本；原来源计数、导入事实、历史授权和完整成功事实保留，不增加运行时双轨判断。
 
 覆盖结果复用须同时核本覆盖规则，具体字段及消费者见§21.12。不能只因Raw及生命周期/停牌/身份文件SHA未变而复用首日必需或只检查缺码的旧计数。该判断限定在覆盖统计，不改股票复权因子历史计划及整范围成功记录的业务摘要，避免规则变化无故触发历史整范围重下。
 
@@ -3281,7 +3281,7 @@ sensor以既有5秒性能目标核对本地读取、T/P摘要和源查询的总�
 
 ### 21.12 旧代码逐项清退及记录衔接
 
-以下以2026-11-11工作区代码为基线，是待实施清单。不得只新增sensor而留下旧日发布分支，或把旧字段填None后声称已经清退。此前文档保留这些空字段的建议撤回；源契约261字段和股票复权因子历史算法不因此改变。
+以下以2026-11-11第1小步实施前的工作区代码为基线，是需求变更的完整改造清单。第1小步完成的共享覆盖及记录部分见§21.16，其余部分仍待后续小步。不得只新增sensor而留下旧日发布分支，或把旧字段填None后声称已经清退。此前文档保留这些空字段的建议撤回；源契约261字段和股票复权因子历史算法不因此改变。
 
 | 当前落点和实际行为 | 本次删除或替换 | 继续保留的功能及直接消费者 |
 | --- | --- | --- |
@@ -3308,7 +3308,7 @@ sensor以既有5秒性能目标核对本地读取、T/P摘要和源查询的总�
 
 **1. 统一集合与记录。**先按§21.12核已有正式记录数量。修改§5.2.1公共及私有覆盖签名、calculate、bootstrap包装和所有直接调用。prepare继续交接已读生命周期/身份/停牌；在同一连接用`list_date=T`投影首日关系，纯算法内部与有效上市扣停牌集合相交。源、候选、repair、bootstrap分别按同一算法使用其实际侧；每个不同实际侧只计算一次，不能为了“复用”把源校验结果直接当作候选结果。无首日传空关系，无新可选参数、隐式文件读取或重复DESCRIBE。更新RawCoverage/DateCoverage、版本与摘要、复用和summary贡献。独立验证首日缺/有均通过且有行保留、次日缺拒绝、缺/多各一、全天停牌代码出现在源端仍拒绝，以及同文件SHA不同覆盖版本不能复用。
 
-应有E/F只在本任务当前T首次准备和统一身份时生成，作为coverage_inputs中的同连接内部关系复用。公共build函数仍负责外部五关系的首次合同核验；私有算法将“准备E/F”和“映射当前实际侧、比较E/F”分开。内部`compare_stk_factor_pro_coverage_keys(connection, *, target_trade_date, expected_relation, optional_relation, actual_relation, identity_relation)`只接当前已验证关系，映射当前实际代码后生成C/missing/extra及原Counts；不重新读取或重算生命周期/停牌。已有calculate、源探测和候选闭包按各自首次实际关系调用它，原公共build也委托同一比较实现；bootstrap每个日期只准备一次。不增加跳过校验开关、跨任务缓存或另一套集合算法。源/候选首次运行都没有旧覆盖复用必要；calculated=None仅用于版本/输入均匹配的已保存结果包装。
+应有E/F只在本任务当前T首次准备和统一身份时生成，作为coverage_inputs中的同连接内部关系复用。公共build函数仍负责外部五关系的首次合同核验；私有算法将“准备E/F”和“映射当前实际侧、比较E/F”分开。内部`compare_stk_factor_pro_coverage_keys(connection, *, target_trade_date, expected_relation, optional_relation, actual_relation, identity_relation, basis_mapping_relation)`显式接收已准备的上市/停牌/首日代码身份映射；已有映射不重复计算，仅为实际侧新增代码核映射，再按四侧参与代码的并集统计映射异常及C/missing/extra。不重新读取或重算生命周期/停牌。已有calculate、源探测和候选闭包按各自首次实际关系调用它，原公共build也委托同一比较实现；bootstrap每个日期只准备一次。准备结果与当前连接/日期一起释放，不增加跳过校验开关、跨任务缓存或另一套集合算法。源/候选首次运行都没有旧覆盖复用必要；calculated=None仅用于版本/输入均匹配的已保存结果包装。
 
 **2. 七字段与指定日期入口。**同步§21.12的解析、身份、观察、parent/root、bootstrap授权和测试消费者，删除旧两字段。today新自动提交仍T=D；manual_date首次可以无parent，本小步先验证配置和身份合同，完整人工日更新在第4小步验收；按历史T取完整SSE记录和其pretrade_date所指P，不按有缺行的开市tuple下标选P。普通人工不读bootstrap目录；原生日更重执行保持原T及原用途，按原授权重新下载。11月11日补11月10日、休市D补旧开市T和无原run必须通过；旧字段/previous_day、未来T、错分区、缺严格P必须拒绝或预检等待。维护/队列按§4.2，不在job内自动启停sensor。
 
@@ -3364,3 +3364,27 @@ sensor以既有5秒性能目标核对本地读取、T/P摘要和源查询的总�
 | 五秒目标被误作运行时限 | 恢复原目标含义；探测余时引用现有45秒配置，分别测全评估及gRPC约束，不声称既有MCP耗时就是工程验收。 |
 
 设计中的旧业务要求已从执行条款撤销，代码尚待按表清退；两者不得混称完成。开始正式编码前逐小步核本章和最新影响面，记录格式计数、投影HTTP及有界事件读取分别在对应步骤完成最小验证。定义装载、隔离串联和实测通过后才能报告该步实现通过。正式bootstrap、补日、历史事件补录、code location操作和sensor启用继续分别授权。本轮不执行这些操作，也不提交代码。
+
+### 21.16 第1小步实现与独立审计（2026-11-11）
+
+本节是§21.13第1小步“统一集合与记录”的实际结果，不代表第六批全部完成。前置条件复用本会话2026-11-11北京时间14:09的只读核验：正式两job运行数均0、两资产物化/阶段观察均0，Raw/Silver及本数据集staging根不存在；两资产各1条freshness状态事件不含本次业务记录。没有正式旧业务记录需要迁移。开发和验收仅使用工程外临时资源与已有一股五日261字段样本，没有新的源端或Prod查询。
+
+| LLD硬口径 | 实际实现 | 主要验证 |
+| --- | --- | --- |
+| 首日可缺、已有行保留、下一交易日起必需 | readiness的公共/私有build新增必传optional_relation；calculate从本次生命周期取list_date=T。prepare先统一上市/停牌/首日代码，F与有效上市扣停牌集合相交，再得E；compare将当前实际代码统一后减F，计算缺失和额外。 | coverage的首日缺/有、次日、全天停牌/未上市不能借可选关系通过、首日身份别名、必需缺失、身份未知与四侧样本升序；readiness使用临时Parquet及真实绑定物化/check核历史资格。 |
+| 只算本次必要数据、显式交接E/F及映射 | `_prepare_stk_factor_pro_expected_keys`将E/F及basis_mapping_relation交接，calculate在本日期coverage_inputs保存同连接关系；compare仅为实际新增原代码核身份，复用既有映射。release与日期/连接生命周期一起清除这些关系及引用。 | 同日不同实际输入应有集合和基础映射各创建1次；可信内部路径没有DESCRIBE/重复输入有效性审计。未知身份不遗留旧差集；中断保留原异常并尝试释放全部自有表。 |
+| 缺0且多0才齐备，未知不伪造0 | RawCoverage新增extra_count和coverage_rule_version，complete=True要求两项差集均0且参与比较数量相等；evaluator、require和repair资格同步；失败metadata含多码与版本。 | 完整文件/check通过但有1个额外全天停牌代码时，覆盖False且不能进入历史；首日缺/有两种情况下Raw实际1/2行，参与比较均1，历史资格均通过。 |
+| 本规则结果不能复用旧统计 | run_contracts固定COVERAGE_RULE_VERSION="1"；Raw及bootstrap日期记录保存它。日更、repair、结果包装及bootstrap日期复用核版本；bootstrap月/日覆盖输入摘要加入同一常量。 | 保持文件SHA不变而改变规则版本，Raw显式复用拒绝、bootstrap已缓存结果拒绝、月/日摘要均变化。新记录仍用封闭字段解析，未新增旧格式兼容分支。 |
+| 参与比较数量与原导入/物理行数分开 | bootstrap包装和汇总复用唯一calculated；expected/actual为E/C，source_rows、Raw/Silver行数和raw_physical_code_count保留全部实际行。日更摘要改称“参与核对”，多码另列。 | 首日缺行时源与两层均2行、E/C均2；首日有行时源与两层均3行、E/C仍2。原导入数量及current数量均如实，Raw首日代码仍存在。 |
+| 多码不能误报bootstrap整体齐备 | DateCoverage.coverage_complete也要求缺0且多0。summary.all_expected_present继续只说明必需代码都存在；结束摘要同时核extra_count_known_dates=0才显示complete。 | 忠实导入3行而仅2只必需、另1只是全天停牌时，不删源行，日期覆盖False、额外1，最终摘要incomplete。 |
+| 历史算法与下一小步边界 | 未改RunInput、RunIdentity、T/P规划、历史业务摘要、历史范围及下载/发布实现；仅同步历史资格所消费的覆盖结构和清理调用。 | 开发后按AST独立核9个运行/历史规划与摘要符号，另核history/download/publication三文件字节与实施前相同。既有完整历史、失败整范围重下、repair授权和硬退出回归保留。 |
+
+**消费者核对。**生产改动限定readiness、run_contracts、assets、history_repair及bootstrap history/coverage六个既有文件。RawCoverage全部构造处、bootstrap日期记录及原输入摘要、日更/repair的旧统计复用、JSON字面样本和异常清理调用已同步。删除旧重复的reusable赋值，保留唯一实际判断。测试中的同输入“计算一次”观察改为当前compare入口，同时保留SQL次数、文件SHA及零空附件断言，未把读取或计算错误吞掉。既有历史原因7由原第1步自动追修实现，旧基础测试遗漏该原因，本轮只按§20.2修正旧断言。
+
+**实际检查。**普通回归显式列出48个本数据集测试文件，排除必须受保护运行的Definitions。共969项，完整执行968项通过；唯一失败是本轮新增测试将身份异常代码样本顺序写反，预期应按既定升序为300001.SZ、600000.SH。修正该字面断言后，覆盖与完整JSON合同边界两个文件共52项重跑全部通过；未再改生产代码。受保护Definitions按原runner另外1项通过。所有变更Python文件Ruff、全src/tests致命错误检查、文档完整性及git diff空白检查通过。
+
+第一次普通回归误将Definitions文件也显式传给pytest，--ignore没有排除这个显式输入，测试在导入隔离支持模块时失败，未进入定义装载；随后改为生成排除该文件的明确清单。Definitions始终以原受保护runner的通过结果为准。该runner在工具沙箱内因sandbox-exec不允许嵌套未能启动，采用同一runner经工具授权后通过，没有绕过隔离。3个既有本地HTTP模拟用例也因工具沙箱不允许绑定127.0.0.1而未启动，最终普通回归在允许本地模拟服务的执行环境完成；不连接正式Tushare或其他外部来源。
+
+**独立审计。**开发完成后重新读取实际改动，与实施前源码及独立字面样本比较，不用待测函数生成预期。两股票人工样本中，首日缺新股时旧计数(expected/actual/missing/extra)=(2,1,1,0)，新计数=(1,1,0,0)；首日有行时旧=(2,2,0,0)，新=(1,1,0,0)，两行仍在；下一交易日缺该股时两实现均为(2,1,1,0)。另验证旧RawCoverage类型允许缺0、多1时标齐备，新类型拒绝。新实现3次内存集合计算实测11.198、10.245、9.708毫秒，范围仅这3个人工样本，未含源请求、正式文件、Dagster读取或完整sensor开销。CodeGraph explore/impact后用rg补齐直接消费者，结束执行sync及status；图未覆盖的动态序列化边界由实际代码和JSON测试核对。
+
+独立审计未发现本小步未实现的业务要求。曾发现并修复日更/repair清理调用遗漏和JSON字面样本漏新增字段，受影响回归已重跑。运行配置的previous_day及两项次数字段仍按第2小步删除；本轮没有实现manual_date、源端两列探测、发布前门槛、日更sensor，或执行正式bootstrap/事件补录/自动化启用。临时审计脚本和日志收尾删除，保留本节必要结论。本轮代码尚未提交。

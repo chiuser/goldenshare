@@ -181,6 +181,8 @@ def raw_coverage(**overrides):
             "expected_count": 2,
             "actual_count": 2,
             "missing_count": 0,
+            "extra_count": 0,
+            "coverage_rule_version": "1",
             "missing_sample_codes": (),
             "reason": "complete",
             "raw_materialization_storage_id": 17,
@@ -415,6 +417,7 @@ def test_identity_and_finite_history_reasons():
         4,
         5,
         6,
+        7,  # Existing SAME_NIGHT_FACTOR_REVISION, approved in LLD 20.2.
     )
     assert identity().previous_trade_date == FRIDAY
     assert (
@@ -565,6 +568,7 @@ def test_coverage_distinguishes_file_correctness_missing_and_unknown():
         expected_count=None,
         actual_count=None,
         missing_count=None,
+        extra_count=None,
         lifecycle_file_sha256=None,
         reason="upstream unavailable",
     )
@@ -588,6 +592,9 @@ def test_coverage_distinguishes_file_correctness_missing_and_unknown():
         {"raw_materialization_storage_id": None},
         {"raw_check_storage_id": True},
         {"missing_count": 1},
+        {"extra_count": 1, "actual_count": 3},
+        {"extra_count": None},
+        {"coverage_rule_version": "old"},
         {"complete": 1},
         {"missing_sample_codes": ("000002.SZ", "000001.SZ")},
     ):
