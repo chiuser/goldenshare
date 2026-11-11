@@ -9,7 +9,7 @@ from orchestrator.defs.assets.stock_weekly import (
 
 raw_stk_period_bar_adj_week_update_job = dg.define_asset_job(
     "raw_stk_period_bar_adj_week_update_job",
-    description="Tushare HTTP直接源：先补欠账，再更新当前周；因子变更合并两频历史刷新，按冻结意图恢复。",
+    description="预检齐备后以当日业务日期下载完整21列，仅更新当前周；历史维护独立执行。",
     selection=dg.AssetSelection.assets(raw_tushare_stk_period_bar_adj_week)
     | dg.AssetSelection.checks_for_assets(raw_tushare_stk_period_bar_adj_week),
     executor_def=dg.in_process_executor,

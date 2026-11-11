@@ -31,8 +31,7 @@ def test_month_preserves_both_source_dates_and_null():
     b = row(day="20200229", freq="month")
     a[9] = None
     assert len(validate_rows(FIELDS, [a, b], freq="month", period="2020-02")) == 2
-    assert request_params(freq="month", period="2020-02")["end_date"] == "20200229"
-    assert request_params(freq="month", period="2020-02")["start_date"] == "20200201"
+    assert request_params(freq="month", period="2020-02") == {"freq":"month", "trade_date":"20200229", "limit":6000, "offset":0}
     assert period_for(date(2026, 10, 12), "week") == "2026-10-16"
 
 

@@ -64,6 +64,7 @@ RESOURCE_SOURCE_FILES = (
     "defs/run_contracts/moneyflow.py",
     "defs/run_contracts/asset_column_schemas.py", "defs/run_contracts/column_schema.py",
     "defs/run_contracts/stock_monthly.py",
+    "defs/run_contracts/stock_period.py",  # Monthly policy uses the common period start time.
     "defs/anns_d_contract.py", "defs/run_contracts/dc_board.py",
     "defs/run_contracts/requests.py", "defs/run_contracts/run_keys.py",
 

@@ -27,7 +27,6 @@ from orchestrator.defs.io.stock_period_raw import (
 from orchestrator.defs.io.stock_period_silver import (
     publish,
     read_json,
-    recover_committed,
     run_directory,
     validate_roots,
     writer_lock,
@@ -46,7 +45,6 @@ from orchestrator.defs.run_contracts.stock_period_silver import (
     period_key,
     period_start,
     raw_path,
-    recovery_run_id,
     target_path,
 )
 
@@ -250,7 +248,7 @@ def make_execution(lake, staging, run_id, audit_report, *, only=None):
         for source in inputs["raw_files"][freq]:
             path = safe_path(Path(source))
             period = path.parent.name.split("=", 1)[1]
-            from datetime import date, timedelta
+            from datetime import timedelta
 
             def boundary(day, frequency=freq):
                 d = date.fromisoformat(day)
@@ -344,488 +342,14 @@ def load_execution(lake, staging, run_id, *, _seen=None):
     ):
         raise ValueError("silver_execution_identity_changed")
     if identity.get("intent") == "update":
-        units = identity["units"]
-        if (
-            not units
-            or identity["lower"] != "2014-01-01"
-            or len({u["freq"] for u in units}) != 1
-        ):
-            raise ValueError("silver_update_scope_invalid")
-        keys = [(u["freq"], u["period"]) for u in units]
-        if len(set(keys)) != len(keys) or any(
-            u["source"] != str(raw_path(lake, *key))
-            or u["target"] != str(target_path(lake, *key))
-            for key, u in zip(keys, units, strict=True)
-        ):
-            raise ValueError("silver_update_scope_invalid")
-        parent_id = identity.get("resume_from_execution_id")
-        if parent_id is not None:
-            parent = load_execution(
-                lake, staging, canonical_run_id(parent_id), _seen=seen
-            )
-            if (
-                parent["identity_hash"] != identity["resume_from_identity_hash"]
-                or parent["identity"].get("intent") != "update"
-                or [(u["freq"], u["period"]) for u in parent["identity"]["units"]]
-                != keys
-                or parent["identity"]["source_completion"]
-                != identity["source_completion"]
-            ):
-                raise ValueError("silver_recovery_parent_invalid")
+        raise ValueError("silver_bootstrap_execution_required")
     if cache is not None:
         cache[verified_key] = result
     return result
 
 
-def read_completion(lake, staging, reference, freq):
-    """Validate the immutable receipt, including stale notifications, without scanning files."""
-    from orchestrator.defs.bootstrap.stock_period_history import check_devices
-    from orchestrator.defs.run_contracts.stock_period import (
-        digest,
-        validate_completion_reference,
-        verify_execution,
-    )
-
-    reference = validate_completion_reference(reference, freq)
-    run_id = reference["raw_execution_id"]
-    run = safe_path(Path(staging) / "stock_period" / "runs" / run_id)
-    saved, complete = read_json(run / "manifest.json"), read_json(run / "complete.json")
-    identity = verify_execution(saved, run_id)
-    if (
-        identity["root"] != str(lake)
-        or saved["phase"] not in ("files_complete", "events_complete")
-        or complete["run_id"] != run_id
-        or saved.get("file_receipt_hash") != reference["file_receipt_hash"]
-        or digest(complete) != reference["file_receipt_hash"]
-    ):
-        raise ValueError("silver_raw_completion_changed")
-    check_devices(lake, staging, saved["devices"])
-    completed_at = datetime.fromisoformat(saved["files_completed_at"])
-    if completed_at.tzinfo is None:
-        raise ValueError("silver_raw_completion_time_invalid")
-    completed_day = completed_at.astimezone(ZoneInfo("Asia/Shanghai")).date()
-    asof = (
-        identity["intent"].get("asof")
-        or completed_day.isoformat()
-    )
-    if date.fromisoformat(asof).isoformat() != asof:
-        raise ValueError("silver_raw_completion_time_invalid")
-    items = {}
-    for item in complete["files"]:
-        f, period = item["freq"], item["period"]
-        if item["target"] != str(raw_path(lake, f, period)) or (f, period) in items:
-            raise ValueError("silver_raw_completion_scope_invalid")
-        # Keep the requested date frozen; only this verified file's source date
-        # can extend the Silver scope. Completion time is a bound, not a source.
-        source_asof = item.get("source_asof")
-        if source_asof is not None:
-            try:
-                source_day = date.fromisoformat(source_asof)
-            except (ValueError, TypeError) as error:
-                raise ValueError("silver_raw_completion_source_date_invalid") from error
-            if source_day.isoformat() != source_asof or source_day > completed_day:
-                raise ValueError("silver_raw_completion_source_date_invalid")
-        items[(f, period)] = {
-            **item,
-            "asof": max(asof, source_asof) if source_asof is not None else asof,
-        }
-    return {"reference": reference, "items": items, "asof": asof}
-
-
-def resolve_update_sources(
-    lake, staging, freq, reference, instance, *, cancel=lambda: False, origin=None
-):
-    """Resolve explicit Raw scope and current published versions in two set queries."""
-    from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
-        batch_event_evidence,
-        require_checks,
-    )
-    from orchestrator.defs.run_contracts.stock_period import (
-        COMPLETION_METADATA_KEY,
-        validate_completion_notice,
-    )
-    from orchestrator.defs.stock_period_checks import verify_period_materialization
-
-    origin = origin or read_completion(lake, staging, reference, freq)
-    minimum = "2014-01-03" if freq == "week" else "2014-01"
-    periods = sorted(p for f, p in origin["items"] if f == freq and p >= minimum)
-    evidence = batch_event_evidence(instance, freq, periods)
-    deliveries = {reference["upstream_batch_id"]: origin}
-    units = []
-    for period in periods:
-        check_cancel(cancel)
-        source, target = raw_path(lake, freq, period), target_path(lake, freq, period)
-        raw = require_checks(
-            evidence.get((f"raw_tushare_stk_period_bar_adj_{freq}", period)),
-            freq,
-            raw=True,
-        )
-        verify_period_materialization(raw, period, source)
-        raw_version = file_version(source)
-        delivery = origin
-        if origin["items"][(freq, period)]["version"] != raw_version:
-            metadata = raw.asset_materialization.metadata
-            value = getattr(metadata.get(COMPLETION_METADATA_KEY), "value", None)
-            if not isinstance(value, dict):
-                raise ValueError("silver_newer_raw_completion_missing")
-            latest_ref = validate_completion_notice(value, freq)
-            batch_id = latest_ref["upstream_batch_id"]
-            if batch_id not in deliveries:
-                deliveries[batch_id] = read_completion(lake, staging, latest_ref, freq)
-            delivery = deliveries[batch_id]
-        item = delivery["items"].get((freq, period))
-        if item is None or item["version"] != raw_version:
-            raise ValueError("silver_raw_file_not_in_completion")
-        units.append(
-            {
-                "freq": freq,
-                "period": period,
-                "source": str(source),
-                "target": str(target),
-                "source_version": raw_version,
-                "source_completion": delivery["reference"],
-                "asof": item["asof"],
-                "supersedes": reference if delivery is not origin else None,
-            }
-        )
-    return units, evidence
-
-
-def update_inputs(
-    lake,
-    staging,
-    freq,
-    reference,
-    instance,
-    *,
-    cancel=lambda: False,
-    known=None,
-    known_identity=None,
-    resolved=None,
-):
-    """Recognize registered targets or explicitly owned durable commits, never unknown files."""
-    from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
-        require_checks,
-        require_recoverable_checks,
-    )
-    from orchestrator.defs.run_contracts.stock_period_silver import asset_name
-    from orchestrator.defs.stock_period_checks import verify_period_materialization
-
-    units, evidence = (
-        resolved
-        if resolved is not None
-        else resolve_update_sources(
-            lake, staging, freq, reference, instance, cancel=cancel
-        )
-    )
-    for unit in units:
-        check_cancel(cancel)
-        period, target = unit["period"], safe_path(unit["target"])
-        current = evidence.get((asset_name(freq), period))
-        owned = (known or {}).get(period)
-        target_version, metadata = None, {}
-        if owned is not None and owned["state"] == "committed":
-            if file_version(target) != owned["version"]:
-                raise ValueError("silver_committed_target_changed")
-            require_recoverable_checks(current, freq, owned, known_identity)
-            target_version = owned["version"]
-            unit["event_preimage"] = owned.get(
-                "event_preimage", owned.get("target_preimage")
-            )
-        elif target.exists() or current is not None:
-            previous = require_checks(current, freq, raw=False)
-            verify_period_materialization(previous, period, target)
-            metadata = previous.asset_materialization.metadata
-            if (
-                getattr(metadata.get("goldenshare/silver_rule"), "value", None)
-                != VERSION
-                or getattr(metadata.get("goldenshare/silver_lower"), "value", None)
-                != "2014-01-01"
-            ):
-                raise ValueError("silver_target_rule_mismatch")
-            target_version = file_version(target)
-        unit.update(target_preimage=target_version, previous_metadata=metadata)
-    return units
-
-
-def make_update_execution(
-    lake,
-    staging,
-    run_id,
-    freq,
-    reference,
-    instance,
-    *,
-    cancel=lambda: False,
-    parent=None,
-    known=None,
-    resolved=None,
-):
-    canonical_run_id(run_id)
-    if instance is None:
-        raise ValueError("silver_update_instance_required")
-    units = update_inputs(
-        lake,
-        staging,
-        freq,
-        reference,
-        instance,
-        cancel=cancel,
-        known=known,
-        known_identity=parent["identity"] if parent is not None else None,
-        resolved=resolved,
-    )
-    if not units:
-        raise ValueError("silver_update_scope_empty")
-    references = {
-        "lifecycle": str(silver_stock_lifecycle_path(lake)),
-        "identity": str(silver_stock_identity_map_path(lake)),
-    }
-    versions = {k: file_version(p) for k, p in references.items()}
-    for unit in units:
-        metadata = unit.pop("previous_metadata")
-        unit["reuse"] = unit["target_preimage"] is not None and all(
-            getattr(metadata.get(key), "value", None) == value
-            for key, value in (
-                ("goldenshare/silver_source_version", unit["source_version"]),
-                ("goldenshare/silver_reference_versions", versions),
-                ("goldenshare/silver_asof", unit["asof"]),
-            )
-        )
-        if unit["reuse"]:
-            unit["reused_rows"] = metadata["dagster/row_count"].value
-        owned = (known or {}).get(unit["period"])
-        if parent is not None and owned is not None and owned["state"] == "committed":
-            origin = owned.get("inherited_from") or {
-                "execution_id": parent["identity"]["run_id"],
-                "identity_hash": parent["identity_hash"],
-                "record_hash": fingerprint(owned),
-            }
-            unit["preimage_from"] = origin
-            if (
-                owned["source_version"] == unit["source_version"]
-                and parent["identity"]["reference_versions"] == versions
-                and owned.get("asof", parent["identity"]["asof"]) == unit["asof"]
-            ):
-                unit.update(
-                    reuse=True, reused_rows=owned["rows"], inherited_from=origin
-                )
-    identity = {
-        "intent": "update",
-        "rule": VERSION,
-        "run_id": run_id,
-        "lake": str(lake),
-        "staging": str(staging),
-        "source_completion": reference,
-        "asof": max(u["asof"] for u in units),
-        "lower": "2014-01-01",
-        "references": references,
-        "reference_versions": versions,
-        "units": units,
-        "expected": None,
-    }
-    if parent is not None:
-        identity.update(
-            resume_from_execution_id=parent["identity"]["run_id"],
-            resume_from_identity_hash=parent["identity_hash"],
-        )
-    result = {"identity": identity, "identity_hash": fingerprint(identity)}
-    path = run_directory(staging, run_id) / "execution.json"
-    if path.exists():
-        if read_json(path) != result:
-            raise ValueError("silver_execution_identity_changed")
-    else:
-        atomic_json(path, result)
-    return result
-
-
-def reused_update_record(execution, unit):
-    record = {
-        **unit,
-        "rule": VERSION,
-        "identity_hash": execution["identity_hash"],
-        "version": unit["target_preimage"],
-        "state": "committed",
-        "rows": unit["reused_rows"],
-        "checks": {
-            k: True for k in ("file_contract", "key_partition", "source_projection")
-        },
-    }
-    record["validation_hash"] = checkpoint_validation_hash(record)
-    validate_record(
-        record, execution["identity"], unit, identity_hash=execution["identity_hash"]
-    )
-    if file_version(unit["target"]) != record["version"]:
-        raise ValueError("silver_target_preimage_changed")
-    return record
-
-
-def owned_update_records(lake, staging, execution, *, cancel=lambda: False):
-    """Validate each saved fact and normalize an already committed rename only."""
-    identity = execution["identity"]
-    work = run_directory(staging, identity["run_id"])
-    records = {}
-    for unit in identity["units"]:
-        check_cancel(cancel)
-        path = checkpoint_path(work, unit)
-        if not path.exists() and unit.get("reuse"):
-            atomic_json(path, reused_update_record(execution, unit))
-        if not path.exists():
-            continue
-        before = file_version(path)
-        record = read_json(path)
-        validate_record(
-            record, identity, unit, identity_hash=execution["identity_hash"]
-        )
-        committed = recover_committed(record, path)
-        if record["state"] == "committed" and file_version(path) != before:
-            raise ValueError("silver_recovery_evidence_changed")
-        records[unit["period"]] = committed if committed is not None else record
-        cache = _RECOVERY_EVIDENCE.get()
-        if cache is not None and committed is not None:
-            cache[str(path)] = (file_version(path), committed)
-    return records
-
-
-def recover_update_execution(
-    lake, staging, execution, instance, *, cancel=lambda: False, expected_run_id=None
-):
-    """Preserve immutable scope; only a published changed input requires a successor."""
-    identity = execution["identity"]
-    receipts = set()
-    for unit in identity["units"]:
-        check_cancel(cancel)
-        reference = unit["source_completion"]
-        if reference["upstream_batch_id"] not in receipts:
-            read_completion(lake, staging, reference, unit["freq"])
-            receipts.add(reference["upstream_batch_id"])
-    changed = any(
-        file_version(u["source"]) != u["source_version"] for u in identity["units"]
-    )
-    if any(
-        file_version(p) != identity["reference_versions"][k]
-        for k, p in identity["references"].items()
-    ):
-        raise ValueError("silver_reference_changed")
-    if not changed:
-        if expected_run_id is not None and expected_run_id != identity["run_id"]:
-            raise ValueError("silver_recovery_identity_invalid")
-        known = owned_update_records(lake, staging, execution, cancel=cancel)
-        if instance is not None:
-            from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
-                batch_event_evidence,
-                require_checks,
-                require_recoverable_checks,
-            )
-            from orchestrator.defs.run_contracts.stock_period_silver import asset_name
-            from orchestrator.defs.stock_period_checks import (
-                verify_period_materialization,
-            )
-
-            freq = identity["units"][0]["freq"]
-            evidence = batch_event_evidence(
-                instance, freq, [u["period"] for u in identity["units"]]
-            )
-            for unit in identity["units"]:
-                check_cancel(cancel)
-                raw = require_checks(
-                    evidence.get(
-                        (f"raw_tushare_stk_period_bar_adj_{freq}", unit["period"])
-                    ),
-                    freq,
-                    raw=True,
-                )
-                verify_period_materialization(raw, unit["period"], unit["source"])
-                record = known.get(unit["period"])
-                if record is not None and record["state"] == "committed":
-                    require_recoverable_checks(
-                        evidence.get((asset_name(freq), unit["period"])),
-                        freq,
-                        record,
-                        identity,
-                    )
-                else:
-                    target = safe_path(unit["target"])
-                    if (file_version(target) if target.exists() else None) != unit[
-                        "target_preimage"
-                    ]:
-                        raise ValueError("silver_target_preimage_changed")
-                    current = evidence.get((asset_name(freq), unit["period"]))
-                    if target.exists() or current is not None:
-                        previous = require_checks(current, freq, raw=False)
-                        verify_period_materialization(previous, unit["period"], target)
-        return execution
-    if instance is None:
-        owned_update_records(lake, staging, execution, cancel=cancel)
-        raise ValueError("silver_source_changed")
-    freq, reference = identity["units"][0]["freq"], identity["source_completion"]
-    resolved = resolve_update_sources(
-        lake, staging, freq, reference, instance, cancel=cancel
-    )
-    units, _ = resolved
-    if [(u["freq"], u["period"]) for u in units] != [
-        (u["freq"], u["period"]) for u in identity["units"]
-    ]:
-        raise ValueError("silver_recovery_scope_changed")
-    input_hash = fingerprint(
-        {
-            "parent_hash": execution["identity_hash"],
-            "rule": VERSION,
-            "lower": identity["lower"],
-            "references": identity["reference_versions"],
-            "units": [
-                {
-                    k: u[k]
-                    for k in (
-                        "freq",
-                        "period",
-                        "source_version",
-                        "source_completion",
-                        "asof",
-                    )
-                }
-                for u in units
-            ],
-        }
-    )
-    successor = recovery_run_id(identity["run_id"], input_hash)
-    if expected_run_id is not None and expected_run_id != successor:
-        raise ValueError("silver_recovery_identity_invalid")
-    if (run_directory(staging, successor) / "execution.json").exists():
-        return recover_update_execution(
-            lake,
-            staging,
-            load_execution(lake, staging, successor),
-            instance,
-            cancel=cancel,
-        )
-    known = owned_update_records(lake, staging, execution, cancel=cancel)
-    return make_update_execution(
-        lake,
-        staging,
-        successor,
-        freq,
-        reference,
-        instance,
-        cancel=cancel,
-        parent=execution,
-        known=known,
-        resolved=resolved,
-    )
-
-
 def checkpoint_path(work, unit):
     return safe_path(work / "files" / unit["freq"] / (unit["period"] + ".json"))
-
-
-def checkpoint_validation_hash(record):
-    return fingerprint(
-        {
-            k: v
-            for k, v in record.items()
-            if k not in {"state", "version", "publish_seconds", "validation_hash"}
-        }
-    )
 
 
 def validate_record(record, identity, unit, *, identity_hash, _seen=None):
@@ -846,71 +370,6 @@ def validate_record(record, identity, unit, *, identity_hash, _seen=None):
         or record["rows"] < 0
     ):
         raise ValueError("silver_checkpoint_state_invalid")
-    if identity.get("intent") == "update" and any(
-        record.get(k) != unit.get(k)
-        for k in (
-            "source_version",
-            "source_completion",
-            "asof",
-            "target_preimage",
-            "event_preimage",
-            "inherited_from",
-            "preimage_from",
-        )
-    ):
-        raise ValueError("silver_checkpoint_input_invalid")
-    if identity.get("intent") == "update" and record.get(
-        "validation_hash"
-    ) != checkpoint_validation_hash(record):
-        raise ValueError("silver_validation_record_changed")
-    origin = unit.get("inherited_from") or unit.get("preimage_from")
-    if origin is not None:
-        parent = load_execution(
-            Path(identity["lake"]), Path(identity["staging"]), origin["execution_id"]
-        )
-        if parent["identity_hash"] != origin["identity_hash"]:
-            raise ValueError("silver_inherited_identity_changed")
-        parent_unit = next(
-            (
-                u
-                for u in parent["identity"]["units"]
-                if (u["freq"], u["period"]) == (unit["freq"], unit["period"])
-            ),
-            None,
-        )
-        if parent_unit is None:
-            raise ValueError("silver_inherited_scope_invalid")
-        inherited_path = checkpoint_path(
-            run_directory(identity["staging"], origin["execution_id"]), parent_unit
-        )
-        inherited = read_recovery_evidence(inherited_path)
-        cache = _RECOVERY_EVIDENCE.get()
-        hash_key = ("record_hash", str(inherited_path))
-        record_hash = cache.get(hash_key) if cache is not None else None
-        if record_hash is None:
-            record_hash = fingerprint(inherited)
-            if cache is not None:
-                cache[hash_key] = record_hash
-        if (
-            record_hash != origin["record_hash"]
-            or inherited.get("state") != "committed"
-        ):
-            raise ValueError("silver_inherited_record_changed")
-        validate_record(
-            inherited,
-            parent["identity"],
-            parent_unit,
-            identity_hash=parent["identity_hash"],
-            _seen=seen,
-        )
-        if unit.get("inherited_from") is not None and (
-            inherited["version"] != record.get("version")
-            or inherited["rows"] != record["rows"]
-            or inherited["source_version"] != record["source_version"]
-            or parent["identity"]["reference_versions"]
-            != identity["reference_versions"]
-        ):
-            raise ValueError("silver_inherited_version_invalid")
     expected_candidate = (
         run_directory(identity["staging"], identity["run_id"])
         / "candidates"
@@ -918,14 +377,7 @@ def validate_record(record, identity, unit, *, identity_hash, _seen=None):
         / unit["period"]
         / "part-000.parquet"
     )
-    if unit.get("reuse"):
-        if (
-            record.get("state") != "committed"
-            or record.get("version") != unit["target_preimage"]
-            or record.get("candidate") is not None
-        ):
-            raise ValueError("silver_reused_record_invalid")
-    elif record.get("candidate") != str(expected_candidate):
+    if record.get("candidate") != str(expected_candidate):
         raise ValueError("silver_candidate_path_invalid")
     elif (
         record["state"] == "committed"
@@ -968,15 +420,6 @@ def materialization_metadata(record, identity):
                     )
                 }
                 if "source_completion" in record
-                else {}
-            ),
-            **(
-                {
-                    "goldenshare/silver_inherited_from": dg.MetadataValue.json(
-                        record["inherited_from"]
-                    )
-                }
-                if record.get("inherited_from")
                 else {}
             ),
         },
@@ -1048,7 +491,8 @@ def deliver_asset(context, config, lake_root, freq):
     lake, staging = lake_root.root(), Path(DEFAULT_LAKE_STAGING_ROOT)
     config.validate_intent(freq)
     if config.intent == "update":
-        return deliver_update_asset(context, config, lake, staging, freq)
+        yield from deliver_update_asset(context, config, lake, staging, freq)
+        return
     work = run_directory(staging, config.execution_id)
     only = (freq, context.partition_key)
     if (work / "execution.json").exists():
@@ -1071,482 +515,13 @@ def deliver_asset(context, config, lake_root, freq):
     unit = execution["identity"]["units"][0]
     record = read_json(checkpoint_path(work, unit))
     remember_validation(record, execution["identity"])
-    return dg.MaterializeResult(
+    yield dg.MaterializeResult(
         metadata=materialization_metadata(record, execution["identity"])
     )
 
 
-def deliver_update_asset(context, config, lake, staging, freq):
-    import dagster as dg
-
-    from orchestrator.defs.bootstrap.stock_period_silver_cli import report_update_events
-
-    last_checked, cancelled = float("-inf"), False
-
-    def cancel():
-        nonlocal last_checked, cancelled
-        if time.monotonic() - last_checked >= 2:
-            last_checked = time.monotonic()
-            run = context.instance.get_run_by_id(context.run_id)
-            cancelled = run is not None and run.status in (
-                dg.DagsterRunStatus.CANCELING,
-                dg.DagsterRunStatus.CANCELED,
-            )
-        return cancelled
-
-    result = build(
-        lake,
-        staging,
-        config.execution_id,
-        instance=context.instance,
-        freq=freq,
-        source_completion=config.source_completion,
-        resume_from_execution_id=config.resume_from_execution_id,
-        only=(freq, context.partition_key),
-        cancel=cancel,
-        emit=context.log.info,
-    )
-    actual_id = result["run_id"]
-    execution = load_execution(lake, staging, actual_id)
-    identity = execution["identity"]
-    # Native anchor materialization/checks run after the asset returns. Never pre-ack it.
-    report_update_events(
-        lake,
-        staging,
-        actual_id,
-        context.instance,
-        context.op_execution_context,
-        anchor=context.partition_key,
-        cancel=cancel,
-    )
-    unit = identity["units"][-1]
-    record = read_json(checkpoint_path(run_directory(staging, actual_id), unit))
-    remember_validation(record, identity)
-    return dg.MaterializeResult(metadata=materialization_metadata(record, identity))
-
-
 def emit_progress(value):
     print(value, flush=True)
-
-
-def update_delivery_progress(staging, execution):
-    """Read file-stage facts without creating checkpoints or recovering writes."""
-    identity = execution["identity"]
-    work = run_directory(staging, identity["run_id"])
-    for key, path in identity["references"].items():
-        if file_version(path) != identity["reference_versions"][key]:
-            raise ValueError("silver_event_reference_changed")
-    summary_path = work / "complete.json"
-    summary = None
-    if summary_path.exists():
-        try:
-            summary = read_recovery_evidence(summary_path)
-        except json.JSONDecodeError as error:
-            raise ValueError("silver_completion_invalid") from error
-        if not isinstance(summary, dict):
-            raise ValueError("silver_completion_invalid")
-        if summary.get("run_id") != identity["run_id"]:
-            raise ValueError("silver_completion_identity_changed")
-    totals = {freq: {"files": 0, "rows": 0} for freq in ("week", "month")}
-    for unit in identity["units"]:
-        path = checkpoint_path(work, unit)
-        if not path.exists():
-            if summary is not None:
-                raise ValueError(
-                    "silver_completion_checkpoint_missing:" + unit["period"]
-                )
-            continue
-        try:
-            record = read_recovery_evidence(path)
-        except json.JSONDecodeError as error:
-            raise ValueError("silver_checkpoint_invalid:" + unit["period"]) from error
-        if not isinstance(record, dict):
-            raise TypeError("silver_checkpoint_invalid:" + unit["period"])
-        validate_record(
-            record, identity, unit, identity_hash=execution["identity_hash"]
-        )
-        if record["state"] != "committed":
-            if summary is not None:
-                raise ValueError(
-                    "silver_completion_checkpoint_uncommitted:" + unit["period"]
-                )
-            continue
-        target = safe_path(unit["target"])
-        if not target.exists() or file_version(target) != record["version"]:
-            raise ValueError("silver_event_file_changed")
-        totals[unit["freq"]]["files"] += 1
-        totals[unit["freq"]]["rows"] += record["rows"]
-    if summary is not None:
-        saved = summary.get("totals")
-        if (
-            not isinstance(saved, dict)
-            or set(saved) != set(totals)
-            or any(
-                not isinstance(saved[freq], dict)
-                or set(saved[freq]) != {"files", "rows"}
-                or any(
-                    type(value) is not int or value < 0
-                    for value in saved[freq].values()
-                )
-                for freq in totals
-            )
-            or saved != totals
-        ):
-            raise ValueError("silver_completion_totals_invalid")
-    return {
-        "files": len(identity["units"]),
-        "committed": sum(value["files"] for value in totals.values()),
-        "files_complete": summary is not None,
-    }
-
-
-def update_recovery_message(execution, progress):
-    """Describe the existing job/config needed to finish this exact execution."""
-    from orchestrator.defs.run_contracts.stock_period_silver import asset_name
-
-    identity = execution["identity"]
-    anchor = identity["units"][-1]
-    asset = asset_name(anchor["freq"])
-    config = {
-        "intent": "update",
-        "execution_id": identity["run_id"],
-        "source_completion": identity["source_completion"],
-    }
-    if "resume_from_execution_id" in identity:
-        config["resume_from_execution_id"] = identity["resume_from_execution_id"]
-    run_config = json.dumps({"ops": {asset: {"config": config}}}, separators=(",", ":"))
-    return (
-        "silver_recovery_required:"
-        + identity["run_id"]
-        + f";files_committed={progress['committed']}/{progress['files']}"
-        + ";files_complete="
-        + str(progress["files_complete"]).lower()
-        + ";job="
-        + asset
-        + "_update_job;partition="
-        + anchor["period"]
-        + ";run_config="
-        + run_config
-    )
-
-
-def confirm_update_delivery(lake, staging, execution, evidence):
-    """Persist completion from actual bound events; never emit events or compute data."""
-    from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
-        require_checks,
-        require_silver_materialization,
-    )
-    from orchestrator.defs.bootstrap.stock_period_silver_cli import (
-        record_update_coverage,
-    )
-    from orchestrator.defs.run_contracts.stock_period_silver import (
-        asset_name,
-        check_names,
-    )
-    from orchestrator.defs.stock_period_checks import verify_period_materialization
-
-    if not update_delivery_progress(staging, execution)["files_complete"]:
-        raise ValueError("silver_update_files_incomplete")
-    identity, entries = execution["identity"], []
-    work = run_directory(staging, identity["run_id"])
-    for key, path in identity["references"].items():
-        if file_version(path) != identity["reference_versions"][key]:
-            raise ValueError("silver_event_reference_changed")
-    for unit in identity["units"]:
-        record = read_recovery_evidence(checkpoint_path(work, unit))
-        validate_record(
-            record, identity, unit, identity_hash=execution["identity_hash"]
-        )
-        if (
-            record["state"] != "committed"
-            or file_version(unit["source"]) != unit["source_version"]
-            or file_version(unit["target"]) != record["version"]
-        ):
-            raise ValueError("silver_event_file_changed")
-        freq, period = unit["freq"], unit["period"]
-        raw = require_checks(
-            evidence.get((f"raw_tushare_stk_period_bar_adj_{freq}", period)),
-            freq,
-            raw=True,
-        )
-        verify_period_materialization(raw, period, unit["source"])
-        current = evidence.get((asset_name(freq), period))
-        mat = require_checks(current, freq, raw=False)
-        verify_period_materialization(mat, period, unit["target"], rows=record["rows"])
-        require_silver_materialization(mat, freq, record, identity)
-        entries.append(
-            (
-                unit,
-                {
-                    "version": record["version"],
-                    "identity_hash": execution["identity_hash"],
-                    "materialization_id": mat.storage_id,
-                    "checks": list(check_names(freq)),
-                    "event_run_id": current["checks"][check_names(freq)[0]].run_id,
-                },
-            )
-        )
-    # All evidence must pass before any completion record can claim success.
-    for unit, receipt in entries:
-        atomic_json(
-            work / "events" / unit["freq"] / (unit["period"] + ".json"), receipt
-        )
-    for unit, receipt in entries:
-        if (
-            file_version(unit["source"]) != unit["source_version"]
-            or file_version(unit["target"]) != receipt["version"]
-        ):
-            raise ValueError("silver_event_file_changed")
-    if any(
-        file_version(path) != identity["reference_versions"][key]
-        for key, path in identity["references"].items()
-    ):
-        raise ValueError("silver_event_reference_changed")
-    result = {
-        "run_id": identity["run_id"],
-        "identity_hash": execution["identity_hash"],
-        "files": len(entries),
-        "checks": 3 * len(entries),
-        "status": "complete",
-    }
-    atomic_json(work / "events_complete.json", result)
-    record_update_coverage(lake, staging, execution, result)
-    return result
-
-
-def evaluate_update_sensor(context, *, freq, staging_root=None):
-    """One delivery and at most one request; only metadata/stat and two set queries."""
-    import dagster as dg
-    from dagster._core.storage.dagster_run import JobBucket
-
-    from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
-        batch_event_evidence,
-    )
-    from orchestrator.defs.paths import DEFAULT_LAKE_STAGING_ROOT
-    from orchestrator.defs.run_contracts.requests import build_run_request
-    from orchestrator.defs.run_contracts.run_keys import (
-        build_upstream_triggered_run_key,
-    )
-    from orchestrator.defs.run_contracts.stock_period import (
-        COMPLETION_METADATA_KEY,
-        validate_completion_notice,
-    )
-    from orchestrator.defs.run_contracts.stock_period_silver import (
-        SENSOR_CURSOR_VERSION,
-        asset_name,
-        update_run_id,
-    )
-
-    state = {"schema_version": SENSOR_CURSOR_VERSION, "after": 0}
-
-    def skip(reason):
-        state.update(
-            decision=reason,
-            evaluated_at=datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
-        )
-        context.update_cursor(json.dumps(state, separators=(",", ":")))
-        return dg.SensorResult(skip_reason=dg.SkipReason(reason))
-
-    try:
-        if context.cursor:
-            state = json.loads(context.cursor)
-            if not isinstance(state, dict):
-                return dg.SensorResult(
-                    skip_reason=dg.SkipReason("silver_sensor_cursor_invalid")
-                )
-            if (
-                state.get("schema_version") != SENSOR_CURSOR_VERSION
-                or type(state.get("after")) is not int
-                or state["after"] < 0
-            ):
-                raise ValueError("silver_sensor_cursor_invalid")
-        lake, staging = validate_roots(
-            context.resources.lake_root.root(),
-            Path(staging_root or DEFAULT_LAKE_STAGING_ROOT),
-        )
-        asset = asset_name(freq)
-        job = asset + "_update_job"
-        active = [
-            dg.DagsterRunStatus.NOT_STARTED,
-            dg.DagsterRunStatus.QUEUED,
-            dg.DagsterRunStatus.STARTING,
-            dg.DagsterRunStatus.STARTED,
-            dg.DagsterRunStatus.CANCELING,
-        ]
-        if context.instance.get_runs(
-            filters=dg.RunsFilter(statuses=active),
-            bucket_by=JobBucket(
-                job_names=[
-                    "silver_stock_weekly_update_job",
-                    "silver_stock_monthly_update_job",
-                ],
-                bucket_limit=1,
-            ),
-        ):
-            return skip("silver_run_active")
-        pending = state.get("pending")
-        if pending is None:
-            records = context.instance.fetch_observations(
-                dg.AssetRecordsFilter(
-                    asset_key=dg.AssetKey(f"raw_tushare_stk_period_bar_adj_{freq}"),
-                    after_storage_id=state["after"],
-                ),
-                limit=1,
-                ascending=True,
-            ).records
-            if not records:
-                return skip("silver_no_completion")
-            notice = records[0].asset_observation.metadata.get(COMPLETION_METADATA_KEY)
-            notice = getattr(notice, "value", None)
-            reference = validate_completion_notice(notice, freq)
-            pending = {
-                "observation_id": records[0].storage_id,
-                "completion": notice,
-                "execution_id": update_run_id(freq, reference),
-            }
-            state["pending"] = pending
-        reference = validate_completion_notice(pending["completion"], freq)
-        run_id = canonical_run_id(pending["execution_id"])
-        original_id = update_run_id(freq, reference)
-        original_work = run_directory(staging, original_id)
-
-        def ack(reason):
-            state["after"] = pending["observation_id"]
-            state.pop("pending", None)
-            return skip(reason)
-
-        # A previously closed batch is historical evidence, not a demand that
-        # its old output remain the current version after later valid updates.
-        if (original_work / "events_complete.json").exists():
-            original = load_execution(lake, staging, original_id)
-            closed = read_json(original_work / "events_complete.json")
-            if (
-                original["identity"].get("source_completion") != reference
-                or closed.get("run_id") != original_id
-                or closed.get("identity_hash") != original["identity_hash"]
-                or closed.get("status") != "complete"
-                or closed.get("files") != len(original["identity"]["units"])
-                or closed.get("checks") != 3 * len(original["identity"]["units"])
-            ):
-                raise ValueError("silver_completion_identity_changed")
-            if closed.get("covered_by_execution_id"):
-                child = load_execution(lake, staging, closed["covered_by_execution_id"])
-                child_complete = read_json(
-                    run_directory(staging, child["identity"]["run_id"])
-                    / "events_complete.json"
-                )
-                if (
-                    child["identity_hash"] != closed.get("covered_by_identity_hash")
-                    or child_complete.get("identity_hash") != child["identity_hash"]
-                    or child_complete.get("status") != "complete"
-                ):
-                    raise ValueError("silver_event_coverage_invalid")
-            return ack("silver_batch_already_complete")
-        run_key = build_upstream_triggered_run_key(
-            consumer=asset, upstream_batch_id=reference["upstream_batch_id"]
-        )
-        runs = context.instance.get_runs(
-            filters=dg.RunsFilter(job_name=job, tags={"dagster/run_key": run_key}),
-            limit=1,
-        )
-        work = run_directory(staging, run_id)
-        failed_original = bool(
-            run_id == original_id
-            and runs
-            and runs[0].status
-            in (
-                dg.DagsterRunStatus.FAILURE,
-                dg.DagsterRunStatus.CANCELED,
-            )
-        )
-
-        def recovery_reason(execution, progress):
-            message = update_recovery_message(execution, progress)
-            if not failed_original:
-                return message
-            return (
-                "silver_run_requires_review:"
-                + runs[0].run_id
-                + ";resume_execution_id="
-                + execution["identity"]["run_id"]
-                + ";"
-                + message
-            )
-
-        if (work / "execution.json").exists():
-            with writer_lock(staging), recovery_evidence():
-                execution = load_execution(lake, staging, run_id)
-                if execution["identity"].get("source_completion") != reference:
-                    raise ValueError("silver_completion_identity_changed")
-                if any(
-                    file_version(u["source"]) != u["source_version"]
-                    for u in execution["identity"]["units"]
-                ):
-                    execution = recover_update_execution(
-                        lake, staging, execution, context.instance
-                    )
-                    pending["execution_id"] = execution["identity"]["run_id"]
-                    return skip(
-                        recovery_reason(
-                            execution, update_delivery_progress(staging, execution)
-                        )
-                    )
-                progress = update_delivery_progress(staging, execution)
-                if not progress["files_complete"]:
-                    return skip(recovery_reason(execution, progress))
-                try:
-                    evidence = batch_event_evidence(
-                        context.instance,
-                        freq,
-                        [u["period"] for u in execution["identity"]["units"]],
-                    )
-                    confirm_update_delivery(lake, staging, execution, evidence)
-                except (ValueError, TypeError, OSError) as error:
-                    return skip(
-                        str(error) + ";" + update_recovery_message(execution, progress)
-                    )
-                return ack("silver_batch_complete")
-        if runs:
-            reason = "silver_run_requires_review:" + runs[0].run_id
-            if failed_original:
-                reason += ";resume_execution_id=" + pending["execution_id"]
-            return skip(reason)
-        receipt = read_completion(lake, staging, reference, freq)
-        if (
-            sum(f == freq for f, _ in receipt["items"])
-            != pending["completion"]["file_count"]
-        ):
-            raise ValueError("silver_completion_count_mismatch")
-        units, evidence = resolve_update_sources(
-            lake, staging, freq, reference, context.instance, origin=receipt
-        )
-        if not units:
-            return ack("silver_scope_before_2014")
-        update_inputs(
-            lake, staging, freq, reference, context.instance, resolved=(units, evidence)
-        )
-        config = {
-            "intent": "update",
-            "execution_id": run_id,
-            "source_completion": reference,
-        }
-        state.update(
-            decision="silver_requested",
-            evaluated_at=datetime.now(ZoneInfo("Asia/Shanghai")).isoformat(),
-        )
-        context.update_cursor(json.dumps(state, separators=(",", ":")))
-        return dg.SensorResult(
-            run_requests=[
-                build_run_request(
-                    run_key=run_key,
-                    job_name=job,
-                    partition_key=units[-1]["period"],
-                    run_config={"ops": {asset: {"config": config}}},
-                )
-            ]
-        )
-    except (ValueError, TypeError, OSError) as error:
-        return skip(str(error))
 
 
 def build(
@@ -1558,112 +533,19 @@ def build(
     only=None,
     cancel=lambda: False,
     emit=emit_progress,
-    source_completion=None,
-    freq=None,
-    instance=None,
-    resume_from_execution_id=None,
 ):
+    """Independent initial Silver build only; daily updates use native runs."""
     lake, staging = validate_roots(lake, staging)
-    if audit_report is not None and source_completion is not None:
-        raise ValueError("silver_execution_intent_mixed")
-    existing = (
-        load_execution(lake, staging, run_id)
-        if (run_directory(staging, run_id) / "execution.json").exists()
-        else None
-    )
-    update = source_completion is not None or (
-        existing and existing["identity"].get("intent") == "update"
-    )
     with ExitStack() as locks:
         locks.enter_context(recovery_evidence())
-        if update:
-            from orchestrator.defs.bootstrap.stock_period_history import writer
-
-            locks.enter_context(writer(staging))
         locks.enter_context(writer_lock(staging))
-        if resume_from_execution_id is not None:
-            if (
-                existing is not None
-                and existing["identity"].get("resume_from_execution_id")
-                != resume_from_execution_id
-            ):
-                raise ValueError("silver_recovery_parent_invalid")
-            parent = load_execution(
-                lake, staging, canonical_run_id(resume_from_execution_id)
-            )
-            if (
-                parent["identity"].get("intent") != "update"
-                or source_completion != parent["identity"]["source_completion"]
-                or any(u["freq"] != freq for u in parent["identity"]["units"])
-            ):
-                raise ValueError("silver_recovery_parent_invalid")
-            execution = recover_update_execution(
-                lake,
-                staging,
-                parent,
-                instance,
-                cancel=cancel,
-                expected_run_id=run_id if existing is None else None,
-            )
-            if execution["identity"]["run_id"] != run_id:
-                raise ValueError("silver_recovery_identity_invalid")
-            existing = execution
-        if source_completion is not None:
-            if existing:
-                execution = existing
-                if (
-                    execution["identity"].get("intent") != "update"
-                    or execution["identity"]["source_completion"] != source_completion
-                    or any(u["freq"] != freq for u in execution["identity"]["units"])
-                ):
-                    raise ValueError("silver_asset_execution_scope_mismatch")
-            else:
-                execution = make_update_execution(
-                    lake,
-                    staging,
-                    run_id,
-                    freq,
-                    source_completion,
-                    instance,
-                    cancel=cancel,
-                )
-        elif audit_report:
-            execution = make_execution(lake, staging, run_id, audit_report, only=only)
-        else:
-            execution = existing or load_execution(lake, staging, run_id)
+        execution = (
+            make_execution(lake, staging, run_id, audit_report, only=only)
+            if audit_report
+            else load_execution(lake, staging, run_id)
+        )
         identity = execution["identity"]
         work = run_directory(staging, run_id)
-        if (
-            update
-            and only is not None
-            and (identity["units"][-1]["freq"], identity["units"][-1]["period"]) != only
-        ):
-            raise ValueError("silver_update_anchor_mismatch")
-        if update and existing is not None and resume_from_execution_id is None:
-            execution = recover_update_execution(
-                lake, staging, execution, instance, cancel=cancel
-            )
-            identity = execution["identity"]
-            if identity["run_id"] != run_id:
-                emit(
-                    json.dumps(
-                        {
-                            "stage": "recovery",
-                            "requested_execution_id": run_id,
-                            "run_id": identity["run_id"],
-                            "reuse": [
-                                u["period"] for u in identity["units"] if u.get("reuse")
-                            ],
-                            "rebuild": [
-                                u["period"]
-                                for u in identity["units"]
-                                if not u.get("reuse")
-                            ],
-                        }
-                    )
-                )
-            run_id = identity["run_id"]
-            work = run_directory(staging, run_id)
         for key, path in identity["references"].items():
             if file_version(path) != identity["reference_versions"][key]:
                 raise ValueError("silver_reference_changed")
@@ -1671,7 +553,7 @@ def build(
         started = time.monotonic()
         records = []
         with ExitStack() as stack:
-            con, cancelled, references_loaded = None, cancel, False
+            con, cancelled, references_loaded = (None, cancel, False)
             check_cancel(cancelled)
             for unit in identity["units"]:
                 check_cancel(cancelled)
@@ -1689,9 +571,6 @@ def build(
                 )
                 cp = checkpoint_path(work, unit)
                 record = read_json(cp) if cp.exists() else None
-                if record is None and unit.get("reuse"):
-                    record = reused_update_record(execution, unit)
-                    atomic_json(cp, record)
                 if record:
                     validate_record(
                         record, identity, unit, identity_hash=execution["identity_hash"]
@@ -1702,7 +581,7 @@ def build(
                     if con is None:
                         con = stack.enter_context(connect_configured_duckdb(settings))
                         cancelled = stack.enter_context(cancellation(con, cancel))
-                    if record is None and not references_loaded:
+                    if record is None and (not references_loaded):
                         load_references(con, identity["references"])
                         for key, path in identity["references"].items():
                             if (
@@ -1713,23 +592,15 @@ def build(
                         references_loaded = True
                 if not record:
                     target = safe_path(unit["target"])
-                    if update:
-                        if (file_version(target) if target.exists() else None) != unit[
-                            "target_preimage"
-                        ]:
-                            raise ValueError("silver_target_preimage_changed")
-                    elif target.exists():
+                    if target.exists():
                         raise ValueError("silver_unknown_target")
                     source_version = file_version(unit["source"])
-                    if update and source_version != unit["source_version"]:
-                        raise ValueError("silver_source_changed")
                     candidate = safe_path(
                         durable_directory(
                             work / "candidates" / unit["freq"] / unit["period"]
                         )
                         / "part-000.parquet"
                     )
-                    # An interrupted COPY has no acceptance evidence and is rebuilt only here.
                     if candidate.exists():
                         candidate.unlink()
                     if shutil.disk_usage(work).free <= source_version[2]:
@@ -1815,8 +686,6 @@ def build(
                         "copy_seconds": copy_seconds,
                         "validation_seconds": time.monotonic() - validate_began,
                     }
-                    if update:
-                        record["validation_hash"] = checkpoint_validation_hash(record)
                     atomic_json(cp, record)
                 check_cancel(cancelled)
                 record = publish(record, cp, con=con, cancel=cancelled)
@@ -1853,3 +722,247 @@ def build(
         atomic_json(work / "complete.json", result)
         emit(json.dumps({"stage": "files_complete", **result}))
         return result
+
+
+def resolve_update_sources(lake, freq, reference, instance, *, cancel=lambda: False, origin=None):
+    """Resolve this original range and all actual successor Raw deliveries in sets."""
+    from orchestrator.defs.asset_guards.stock_period_delivery import (
+        read_completion,
+        read_completions,
+    )
+    from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
+        batch_event_evidence,
+        require_checks,
+    )
+    from orchestrator.defs.run_contracts.stock_period_delivery import (
+        FILE_DELIVERY_KEY,
+        validate_delivery_ref,
+    )
+    from orchestrator.defs.stock_period_checks import verify_period_materialization
+
+    origin = origin or read_completion(instance, reference, root=lake)
+    minimum = "2014-01-03" if freq == "week" else "2014-01"
+    periods = sorted(p for f, p in origin["items"] if f == freq and p >= minimum)
+    evidence = batch_event_evidence(instance, freq, periods)
+    latest, references = {}, {}
+    for period in periods:
+        check_cancel(cancel)
+        materialization = require_checks(evidence.get((f"raw_tushare_stk_period_bar_adj_{freq}", period)), freq, raw=True)
+        verify_period_materialization(materialization, period, raw_path(lake, freq, period))
+        metadata = materialization.asset_materialization.metadata
+        actual = validate_delivery_ref(getattr(metadata.get(FILE_DELIVERY_KEY), "value", None), freq)
+        references[actual["upstream_batch_id"]] = actual
+        latest[period] = (materialization, actual)
+    deliveries = {reference["upstream_batch_id"]: origin}
+    deliveries.update(read_completions(instance, [value for key, value in references.items() if key not in deliveries], root=lake))
+    units = []
+    for period, (materialization, actual) in latest.items():
+        item = deliveries[actual["upstream_batch_id"]]["items"].get((freq, period))
+        version = file_version(raw_path(lake, freq, period))
+        if item is None or item["version"] != version:
+            raise ValueError("silver_raw_file_not_in_completion")
+        if materialization.event_log_entry.run_id != actual["producer_run_id"]:
+            raise ValueError("silver_raw_producer_run_mismatch")
+        units.append({"freq": freq, "period": period, "source": str(raw_path(lake, freq, period)),
+                      "target": str(target_path(lake, freq, period)), "source_version": version,
+                      "source_completion": actual, "asof": max(origin["asof"], item["asof"])})
+    return units, evidence
+
+
+def deliver_update_asset(context, config, lake, staging, freq):
+    """Read the complete Raw range anew, rebuild every Silver file, record native facts."""
+    import dagster as dg
+    from dagster._core.definitions.asset_checks.asset_check_evaluation import (
+        AssetCheckEvaluation,
+        AssetCheckEvaluationTargetMaterializationData,
+    )
+
+    from orchestrator.defs.asset_guards.stock_period_delivery import (
+        native_run_records,
+        read_completion,
+    )
+    from orchestrator.defs.bootstrap.stock_period_history import writer
+    from orchestrator.defs.io.stock_period_raw import (
+        _BUDGET,
+        DEFAULT_POLICY,
+        StorageBudget,
+        connection,
+        execute,
+        file_digest,
+        process_memory_budget,
+        publish_period,
+        storage_record,
+        storage_reserve,
+    )
+    from orchestrator.defs.run_contracts.stock_period_delivery import (
+        SILVER_SCOPE_KEY,
+        silver_update_run_tags,
+        silver_update_scope,
+    )
+    from orchestrator.defs.run_contracts.stock_period_silver import check_names
+
+    lake, staging = validate_roots(lake, staging)
+    origin = read_completion(context.instance, config.source_completion, root=lake)
+    business_date = origin["asof"]
+    units, _ = resolve_update_sources(lake, freq, config.source_completion, context.instance, origin=origin)
+    if not units or units[-1]["period"] != context.partition_key:
+        raise ValueError("silver_update_anchor_mismatch")
+    context.instance.add_run_tags(context.run.run_id, silver_update_run_tags(
+        config.source_completion, business_date=business_date, kind=origin["completion"]["kind"]))
+    periods = [unit["period"] for unit in units]
+    references = {"lifecycle": str(silver_stock_lifecycle_path(lake)), "identity": str(silver_stock_identity_map_path(lake))}
+    versions = {key: file_version(path) for key, path in references.items()}
+    identity = {"intent": "update", "run_id": context.run.run_id, "asof": business_date,
+                "lower": "2014-01-01", "reference_versions": versions}
+    work = durable_directory(run_directory(staging, context.run.run_id))
+    last_checked, cancelled = float("-inf"), False
+
+    def cancel():
+        nonlocal last_checked, cancelled
+        if time.monotonic() - last_checked >= 2:
+            last_checked = time.monotonic()
+            run = context.instance.get_run_by_id(context.run.run_id)
+            cancelled = run is not None and run.status in (dg.DagsterRunStatus.CANCELING, dg.DagsterRunStatus.CANCELED)
+        return cancelled
+
+    def assert_inputs(unit):
+        if file_version(unit["source"]) != unit["source_version"]:
+            raise ValueError("silver_source_changed")
+        if any(file_version(path) != versions[key] for key, path in references.items()):
+            raise ValueError("silver_reference_changed")
+
+    progress = lambda value: context.log.info(str(value))
+    with writer(staging), writer_lock(staging), process_memory_budget(DEFAULT_POLICY):
+        budget = StorageBudget(work, DEFAULT_POLICY, cancel=cancel, progress=progress)
+        token = _BUDGET.set(budget)
+        try:
+            yield dg.AssetObservation(asset_key=context.asset_key, metadata={SILVER_SCOPE_KEY: dg.MetadataValue.json(
+                silver_update_scope(context.run.run_id, freq, business_date, config.source_completion, periods, phase="planned"))})
+            completed = []
+            with connection(work, DEFAULT_POLICY) as con, cancellation(con, cancel) as requested:
+                load_references(con, references)
+                for unit in units:
+                    check_cancel(requested)
+                    assert_inputs(unit)
+                    progress({"stage": "silver_period", "freq": freq, "period": unit["period"],
+                              "done": len(completed), "total": len(units)})
+                    target = safe_path(unit["target"])
+                    before = file_version(target) if target.exists() else None
+                    candidate = durable_directory(work / "candidates" / freq) / (unit["period"] + ".parquet")
+                    storage_reserve(unit["source_version"][2], spill=True)
+                    select_period(con, unit["source"], freq, unit["period"], asof=unit["asof"])
+                    execute(con, f"COPY (SELECT {COLUMNS} FROM silver_selected ORDER BY ts_code) TO ? (FORMAT PARQUET,COMPRESSION ZSTD)",
+                            [str(candidate)], cancel=requested, progress=progress, stage="silver_candidate")
+                    storage_record(candidate)
+                    rows = validate_projection(con, candidate, freq, unit["period"])
+                    assert_inputs(unit)
+                    record = {**unit, "candidate": str(candidate), "candidate_version": file_version(candidate),
+                              "target_preimage": before, "rows": rows, "sha256": file_digest(candidate)}
+                    record = publish_period(record, cancel=requested)
+                    remember_validation(record, identity)
+                    completed.append(record)
+                    metadata = materialization_metadata(record, identity)
+                    if unit["period"] == context.partition_key:
+                        yield dg.MaterializeResult(metadata=metadata)
+                    else:
+                        yield dg.AssetMaterialization(asset_key=context.asset_key, partition=unit["period"], metadata=metadata)
+            # Every materialization above is persisted before its check binding is read.
+            mats = {record.asset_materialization.partition: record for record in native_run_records(
+                context.instance, [context.run.run_id], ["ASSET_MATERIALIZATION"])
+                if record.asset_materialization.asset_key == context.asset_key}
+            for record in completed:
+                check_cancel(cancel)
+                assert_inputs(record)
+                if file_version(record["target"]) != record["version"]:
+                    raise ValueError("silver_event_file_changed")
+                if record["period"] == context.partition_key:
+                    continue  # The original asset job executes its three checks after this generator.
+                materialization = mats[record["period"]]
+                for name in check_names(freq):
+                    yield AssetCheckEvaluation(asset_key=context.asset_key, check_name=name, partition=record["period"],
+                        passed=True, blocking=True, target_materialization_data=AssetCheckEvaluationTargetMaterializationData(
+                            storage_id=materialization.storage_id, run_id=context.run.run_id,
+                            timestamp=materialization.event_log_entry.timestamp))
+            yield dg.AssetObservation(asset_key=context.asset_key, metadata={SILVER_SCOPE_KEY: dg.MetadataValue.json(
+                silver_update_scope(context.run.run_id, freq, business_date, config.source_completion, periods, phase="files_complete"))})
+        finally:
+            _BUDGET.reset(token)
+
+
+def evaluate_update_sensor(context, *, freq, staging_root=None):
+    """Consume one complete native Raw delivery; failed runs need a complete rerun."""
+    import dagster as dg
+
+    from orchestrator.defs.asset_guards.stock_period_delivery import (
+        read_completion,
+        silver_completion_consumed,
+    )
+    from orchestrator.defs.run_contracts.requests import build_run_request
+    from orchestrator.defs.run_contracts.run_keys import (
+        build_upstream_triggered_run_key,
+    )
+    from orchestrator.defs.run_contracts.stock_period_delivery import (
+        COMPLETION_KEY,
+        validate_delivery_completion,
+    )
+    from orchestrator.defs.run_contracts.stock_period_silver import asset_name
+
+    state = {"schema_version": 2, "after": 0}
+
+    def result(reason, requests=()):
+        state.update(decision=reason, evaluated_at=datetime.now(ZoneInfo("Asia/Shanghai")).isoformat())
+        context.update_cursor(json.dumps(state, separators=(",", ":")))
+        return dg.SensorResult(run_requests=list(requests), skip_reason=dg.SkipReason(reason) if not requests else None)
+
+    try:
+        if context.cursor:
+            state = json.loads(context.cursor)
+            if not isinstance(state, dict) or state.get("schema_version") != 2 or type(state.get("after")) is not int or state["after"] < 0:
+                raise ValueError("silver_sensor_cursor_requires_cutover")
+        from orchestrator.defs.paths import DEFAULT_LAKE_STAGING_ROOT
+
+        lake, _ = validate_roots(context.resources.lake_root.root(), Path(staging_root or DEFAULT_LAKE_STAGING_ROOT))
+        pending = state.get("pending")
+        if pending is None:
+            records = context.instance.fetch_observations(dg.AssetRecordsFilter(
+                asset_key=dg.AssetKey(f"raw_tushare_stk_period_bar_adj_{freq}"), after_storage_id=state["after"]),
+                limit=2, ascending=True).records
+            for record in records:
+                value = record.asset_observation.metadata.get(COMPLETION_KEY)
+                if value is None:
+                    state["after"] = record.storage_id
+                    continue
+                reference = validate_delivery_completion(value.value, freq)
+                pending = {"observation_id": record.storage_id, "source_completion": reference}
+                state["pending"] = pending
+                break
+            if pending is None:
+                return result("silver_no_completion")
+        reference = pending["source_completion"]
+        producer = context.instance.get_run_by_id(reference["producer_run_id"])
+        if producer is None:
+            raise ValueError("silver_raw_producer_missing")
+        if producer.status in (dg.DagsterRunStatus.FAILURE, dg.DagsterRunStatus.CANCELED):
+            state["after"] = pending["observation_id"]
+            state.pop("pending")
+            return result("silver_raw_run_failed")
+        if producer.status != dg.DagsterRunStatus.SUCCESS:
+            return result("silver_raw_checks_pending")
+        origin = read_completion(context.instance, reference, root=lake)
+        minimum = "2014-01-03" if freq == "week" else "2014-01"
+        periods = sorted(p for f, p in origin["items"] if f == freq and p >= minimum)
+        if not periods or silver_completion_consumed(context.instance, reference, periods, root=lake, business_date=origin["asof"]):
+            state["after"] = pending["observation_id"]
+            state.pop("pending")
+            return result("silver_batch_complete")
+        asset, job = asset_name(freq), asset_name(freq) + "_update_job"
+        run_key = build_upstream_triggered_run_key(consumer=asset, upstream_batch_id=reference["upstream_batch_id"])
+        previous = context.instance.get_runs(filters=dg.RunsFilter(job_name=job, tags={"dagster/run_key": run_key}), limit=1)
+        if previous:
+            return result("silver_run_requires_review:" + previous[0].run_id)
+        units, _ = resolve_update_sources(lake, freq, reference, context.instance, origin=origin)
+        config = {"intent": "update", "source_completion": reference}
+        return result("silver_requested", [build_run_request(run_key=run_key, job_name=job,
+            partition_key=units[-1]["period"], run_config={"ops": {asset: {"config": config}}})])
+    except (ValueError, TypeError, OSError) as error:
+        return result(str(error))

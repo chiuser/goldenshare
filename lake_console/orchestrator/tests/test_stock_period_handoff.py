@@ -102,10 +102,10 @@ def test_handoff_requests_only_elapsed_periods_and_changed_stock(tmp_path, monke
         p.get("trade_date") for p in calls if p["freq"] == "week" and "ts_code" not in p
     } == {"20261016"}
     assert {
-        p.get("start_date")
+        p.get("trade_date")
         for p in calls
         if p["freq"] == "month" and "ts_code" not in p
-    } == {"20261001"}
+    } == {"20261031"}
     assert state["factor_through"] == "2026-10-16" and state["completed_through"] == {
         "week": "2026-10-16",
         "month": "2026-09",

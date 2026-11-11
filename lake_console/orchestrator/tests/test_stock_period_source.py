@@ -106,7 +106,14 @@ def http_server():
             observed.append(request)
             if self.path == "/hang":
                 gate.wait(10)
-            payload = body(["20261016"])
+            envelope = json.loads(body(["20261016"]))
+            fields = request["fields"].split(",")
+            envelope["data"]["items"] = [
+                [row[FIELDS.index(name)] for name in fields]
+                for row in envelope["data"]["items"]
+            ]
+            envelope["data"]["fields"] = fields
+            payload = json.dumps(envelope).encode()
             try:
                 self.send_response(200)
                 self.send_header("Content-Length", str(len(payload)))
@@ -348,3 +355,43 @@ def test_process_http_oversize_retains_bounded_prefix(tmp_path, http_server):
     assert failure["truncated"] is True
     assert Path(failure["body"]).read_bytes() == body(["20261016"])[:64]
     assert not list(tmp_path.glob("*/complete.json"))
+
+
+def test_owned_http_worker_transmits_three_field_probe_contract(http_server):
+    import time
+    from dataclasses import replace
+
+    from orchestrator.defs.run_contracts.stock_period import (
+        DEFAULT_POLICY,
+        STOCK_PERIOD_READINESS_FIELDS,
+    )
+    from orchestrator.defs.source_readiness.stock_period import (
+        probe_stock_period_source,
+    )
+    from orchestrator.defs.stock_period_source import HttpPage
+
+    url, observed = http_server
+    client = HttpPage(
+        token="isolated-fixture-token",
+        base_url=url,
+        policy=replace(DEFAULT_POLICY, retries=0),
+        fields=STOCK_PERIOD_READINESS_FIELDS,
+    )
+    status = probe_stock_period_source(
+        freq="week",
+        business_date="2026-10-15",
+        required_codes={"000001.SZ"},
+        optional_codes=set(),
+        aliases={},
+        transport=client,
+        deadline=time.monotonic() + DEFAULT_POLICY.timeout_seconds,
+    )
+    assert status["ready"]
+    assert len(observed) == 1
+    assert observed[0]["fields"] == "ts_code,trade_date,end_date"
+    assert observed[0]["params"] == {
+        "freq": "week",
+        "trade_date": "20261016",
+        "limit": 6000,
+        "offset": 0,
+    }

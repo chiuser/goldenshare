@@ -67,7 +67,7 @@ def write_upstreams(root, work, *, newcomer=False):
             ).write_parquet(str(target))
 
 
-def test_cli_worker_cancel_events_handoff_and_actual_daily_jobs(tmp_path, monkeypatch):
+def test_cli_worker_cancel_events_and_independent_bootstrap_handoff(tmp_path, monkeypatch):
     root, staging = tmp_path / "lake", tmp_path / "staging"
     write_upstreams(root, tmp_path / "fixtures")
     kept = root / "raw/unrelated/keep.txt"
@@ -118,7 +118,7 @@ def test_cli_worker_cancel_events_handoff_and_actual_daily_jobs(tmp_path, monkey
             )
             if "ts_code" not in params:
                 dates = (
-                    [params["trade_date"]] if freq == "week" else [params["end_date"]]
+                    [params["trade_date"]]
                 )
             else:
                 assert not ({"start_date", "end_date", "trade_date"} & params.keys())
@@ -361,120 +361,8 @@ def test_cli_worker_cancel_events_handoff_and_actual_daily_jobs(tmp_path, monkey
         assert (len(sql), len(requests), len(events)) == before
         mark("handoff_repeat")
 
-        from orchestrator.defs.assets import stock_monthly, stock_weekly
-        from orchestrator.defs.checks import stock_monthly_checks, stock_weekly_checks
-        from orchestrator.defs.jobs import stock_monthly as monthly_jobs
-        from orchestrator.defs.jobs import stock_weekly as weekly_jobs
-        from orchestrator.defs.run_contracts.configs import (
-            build_stock_period_run_config,
-        )
-        from orchestrator.defs.run_contracts.stock_monthly import (
-            StockMonthlySource,
-            monthly_check_names,
-        )
-        from orchestrator.defs.run_contracts.stock_weekly import (
-            StockWeeklySource,
-            weekly_check_names,
-        )
-
-        assets = [
-            stock_weekly.raw_tushare_stk_period_bar_adj_week,
-            stock_monthly.raw_tushare_stk_period_bar_adj_month,
-        ]
-        checks = [
-            getattr(stock_weekly_checks, n)
-            for n in weekly_check_names(StockWeeklySource.PRIMARY_ADJUSTED)
-        ]
-        checks += [
-            getattr(stock_monthly_checks, n)
-            for n in monthly_check_names(StockMonthlySource.PRIMARY_ADJUSTED)
-        ]
-        defs = dg.Definitions(
-            assets=assets,
-            asset_checks=checks,
-            jobs=[
-                weekly_jobs.raw_stk_period_bar_adj_week_update_job,
-                monthly_jobs.raw_stk_period_bar_adj_month_update_job,
-            ],
-            resources={"lake_root": LakeRootResource(root_path=str(root))},
-        )
-        Clock.instant = datetime.fromisoformat("2026-11-03T20:00:00+08:00")
-        for index, (freq, period) in enumerate(
-            [
-                ("week", "2026-11-06"),
-                ("month", "2026-11"),
-                ("month", "2026-11"),
-            ]
-        ):
-            if index == 2:
-                repeated = {
-                    p: raw.file_version(p)
-                    for p in root.glob("raw/tushare/*/*/*.parquet")
-                }
-                before_repeat = len(requests), len(sql)
-            job = defs.resolve_job_def(f"raw_stk_period_bar_adj_{freq}_update_job")
-            result = job.execute_in_process(
-                instance=instance,
-                partition_key=period,
-                run_config=build_stock_period_run_config(freq, "2026-11-03"),
-            )
-            assert result.success
-            evaluated = result.get_asset_check_evaluations()
-            materialization = instance.fetch_materializations(
-                dg.AssetRecordsFilter(
-                    asset_key=dg.AssetKey("raw_tushare_stk_period_bar_adj_" + freq),
-                    asset_partitions=[period],
-                ),
-                limit=1,
-            ).records[0]
-            assert len(evaluated) == 3 and all(
-                e.passed
-                and e.blocking
-                and e.partition == period
-                and e.target_materialization_data is not None
-                and e.target_materialization_data.storage_id
-                == materialization.storage_id
-                for e in evaluated
-            )
-            if index == 2:
-                assert (len(requests), len(sql)) == before_repeat
-                assert repeated == {p: raw.file_version(p) for p in repeated}
-            mark(["daily_week", "daily_month", "anchor_ack_month"][index])
-        assert len(requests) == 14
-        assert not raw.read_json(staging / "stock_period/daily.json")["pending_work"]
-        assert len(instance.get_runs()) == 6
-        with raw.connection(tmp_path / "readback") as con:
-            output = con.execute(
-                "SELECT ts_code,trade_date,end_date,close,pct_chg FROM read_parquet(?,hive_partitioning=false) ORDER BY 1,2",
-                [[str(p) for p in root.glob("raw/tushare/*/*/*.parquet")]],
-            ).fetchall()
-        assert len(output) == 14
-        assert [(r[0], r[1]) for r in output if r[1] in ("20260925", "20260930")] == [
-            (B, "20260925"),
-            (B, "20260930"),
-        ]
-        assert all(r[-1] is None for r in output)
-        assert all(
-            r[2]
-            == {
-                "20260925": "20261030",
-                "20260930": "20261030",
-                "20261030": "20261102",
-                "20261031": "20261102",
-                "20261106": "20261103",
-                "20261130": "20261103",
-            }[r[1]]
-            for r in output
-        )
-        assert all(
-            r[3] == {A: 3, B: 9, C: 7}[r[0]]
-            for r in output
-            if r[1] not in ("20260925", "20260930")
-        )
-        counts = Counter(i["stage"] for i in sql)
-        assert counts["partition_copy"] == 6 and counts["import_source"] == 6
         assert not any(p.pid in workers for p in multiprocessing.active_children())
-        mark("final_readback")
+        mark("bootstrap_handoff_final")
         completed = True
     finally:
         # One bounded metadata inventory of this tiny fixture, never a formal root.

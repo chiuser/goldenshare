@@ -7,6 +7,8 @@ from dataclasses import dataclass
 from datetime import date
 from enum import Enum
 
+from orchestrator.defs.run_contracts.stock_period import STOCK_PERIOD_DAILY_START_TIME
+
 
 class StockMonthlySource(str, Enum):
     PRIMARY_ADJUSTED = "primary_adjusted"
@@ -99,11 +101,11 @@ def monthly_source_doc(source):
 @dataclass(frozen=True, slots=True)
 class MonthlyUpdatePolicy:
     timezone: str = "Asia/Shanghai"
-    daily_start_time: str = "19:30"
+    daily_start_time: str = STOCK_PERIOD_DAILY_START_TIME
     tick_min_seconds: int = 60
 
     def __post_init__(self):
-        if self.timezone != "Asia/Shanghai" or self.daily_start_time != "19:30":
+        if self.timezone != "Asia/Shanghai" or self.daily_start_time != STOCK_PERIOD_DAILY_START_TIME:
             raise ValueError("monthly_update_policy_invalid")
         if type(self.tick_min_seconds) is not int or self.tick_min_seconds <= 0:
             raise ValueError("monthly_update_budget_invalid:tick_min_seconds")

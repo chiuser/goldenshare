@@ -4,7 +4,6 @@ import json
 import time
 from datetime import date
 from pathlib import Path
-from types import SimpleNamespace as NS
 
 import pytest
 
@@ -468,45 +467,3 @@ def test_unfinished_page_chain_crossing_date_restarts_only_that_unit(tmp_path):
     assert calls == [0, 0, 1]
     assert all(Path(p).read_bytes() == payload for p, payload in preserved.items())
     assert list(tmp_path.glob("*/chains/*/complete.json"))
-
-
-def test_cancellation_observation_is_throttled_without_changing_local_checks(
-    tmp_path, monkeypatch
-):
-    import orchestrator.defs.bootstrap.stock_period_history as history
-    from orchestrator.defs.run_contracts.configs import StockPeriodRawConfig
-    from orchestrator.defs.stock_period_update import deliver_asset
-
-    observed = []
-    monkeypatch.setattr(history, "load_scope", lambda *a, **k: ({A}, {}))
-
-    def run(**kw):
-        for _ in range(1000):
-            assert not kw["cancel"]()
-        return {
-            "files": [
-                {
-                    "freq": "week",
-                    "period": "2026-10-16",
-                    "target": str(tmp_path / "fixture.parquet"),
-                    "rows": 1,
-                    "version": [1, 2, 3, 4, 5],
-                }
-            ]
-        }
-
-    monkeypatch.setattr(history, "run_period", run)
-    context = NS(
-        instance=NS(get_run_by_id=lambda rid: observed.append(rid) or None),
-        # DagsterRun.tags is an existing SDK field, empty for this untagged run.
-        run=NS(run_id="isolated-run", tags={}),
-        partition_key="2026-10-16",
-        log=NS(info=lambda _: None),
-    )
-    deliver_asset(
-        context,
-        StockPeriodRawConfig(intent="history", stock_codes=[A], request_id="cancel"),
-        NS(root=lambda: tmp_path / "lake", ensure_available_for_run=lambda: None),
-        "week",
-    )
-    assert len(observed) == 1

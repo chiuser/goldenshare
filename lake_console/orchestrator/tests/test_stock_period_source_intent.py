@@ -193,20 +193,18 @@ def test_new_refresh_and_resume_have_different_cache_rules(tmp_path, monkeypatch
     assert set(calls[0]) == {"freq", "ts_code", "limit", "offset"}
 
 
-def test_manual_history_requires_id_and_legacy_manifest_is_rejected():
+def test_sdk_requires_explicit_business_date_and_rejects_legacy_history_intent():
     from orchestrator.defs.run_contracts.configs import StockPeriodRawConfig
     from orchestrator.defs.run_contracts.stock_period import verify_execution
 
     for request in (
-        {"intent": "history", "stock_codes": ["000001.SZ"]},
-        {"intent": "history", "request_id": " "},
+        {"intent":"history", "stock_codes":["000001.SZ"], "automatic_intent_date":"2026-11-10"},
+        {"automatic_intent_date":None},
+        {},
     ):
-        with pytest.raises(ValueError, match="intent_id_required"):
+        with pytest.raises(ValueError):
             StockPeriodRawConfig(**request)
-    assert (
-        StockPeriodRawConfig(intent="history", request_id="new-action").request_id
-        == "new-action"
-    )
+    assert StockPeriodRawConfig(automatic_intent_date="2026-11-10").automatic_intent_date == "2026-11-10"
     assert execution_id("new-action") != execution_id("another-action")
     with pytest.raises(ValueError):
         verify_execution(

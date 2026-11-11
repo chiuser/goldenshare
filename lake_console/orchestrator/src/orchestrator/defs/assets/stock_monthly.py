@@ -62,8 +62,8 @@ def raw_tushare_stk_period_bar_adj_month(
     context: dg.AssetExecutionContext,
     config: StockPeriodRawConfig,
     lake_root: LakeRootResource,
-) -> dg.MaterializeResult:
-    return deliver_asset(context, config, lake_root, "month")
+):
+    yield from deliver_asset(context, config, lake_root, "month")
 
 
 @dg.asset(
@@ -91,6 +91,6 @@ def silver_stock_monthly(
     context: dg.AssetExecutionContext,
     config: StockPeriodSilverConfig,
     lake_root: LakeRootResource,
-) -> dg.MaterializeResult:
+):
     """Keep source rows and fields inside the explicitly approved audit scope."""
-    return deliver_silver_asset(context, config, lake_root, "month")
+    yield from deliver_silver_asset(context, config, lake_root, "month")

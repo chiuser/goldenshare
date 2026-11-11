@@ -1,8 +1,8 @@
 """Source-preserving period Silver contracts; no source requests or file writes."""
 
 from datetime import date, timedelta
-from typing import Literal
-from uuid import NAMESPACE_URL, UUID, uuid5
+from typing import ClassVar, Literal
+from uuid import UUID
 
 import dagster as dg
 
@@ -30,63 +30,31 @@ SENSOR_CURSOR_VERSION = 1
 
 
 class StockPeriodSilverConfig(dg.Config):
-    execution_id: str
+    model_config: ClassVar[dict[str, str]] = {"extra": "forbid"}
     intent: Literal["bootstrap", "update"] = "bootstrap"
+    execution_id: str | None = None
     audit_report: str | None = None
     source_completion: dict[str, str] | None = None
-    resume_from_execution_id: str | None = None
 
     def validate_intent(self, freq):
-        from orchestrator.defs.run_contracts.stock_period import (
-            validate_completion_reference,
+        from orchestrator.defs.run_contracts.stock_period_delivery import (
+            validate_delivery_ref,
         )
 
-        canonical_run_id(self.execution_id)
-        if self.resume_from_execution_id is not None:
-            canonical_run_id(self.resume_from_execution_id)
-            if self.resume_from_execution_id == self.execution_id:
-                raise ValueError("silver_recovery_self_reference")
         if self.intent == "bootstrap":
-            if (
-                not self.audit_report
-                or self.source_completion is not None
-                or self.resume_from_execution_id is not None
-            ):
+            if not self.execution_id or not self.audit_report or self.source_completion is not None:
                 raise ValueError("silver_bootstrap_config_invalid")
-        elif self.audit_report is not None or self.source_completion is None:
+            canonical_run_id(self.execution_id)
+        elif self.execution_id is not None or self.audit_report is not None or self.source_completion is None:
             raise ValueError("silver_update_config_invalid")
         else:
-            validate_completion_reference(self.source_completion, freq)
-
-
-def update_run_id(freq, reference):
-    from orchestrator.defs.run_contracts.stock_period import (
-        validate_completion_reference,
-    )
-
-    ref = validate_completion_reference(reference, freq)
-    return str(
-        uuid5(
-            NAMESPACE_URL,
-            f"goldenshare/stock-period-silver/{freq}/{ref['upstream_batch_id']}",
-        )
-    )
+            validate_delivery_ref(self.source_completion, freq)
 
 
 def canonical_run_id(value):
     if str(UUID(value)) != value:
         raise ValueError("silver_run_id_not_canonical")
     return value
-
-
-def recovery_run_id(parent_id, input_fingerprint):
-    canonical_run_id(parent_id)
-    return str(
-        uuid5(
-            NAMESPACE_URL,
-            f"goldenshare/stock-period-silver/recovery/{parent_id}/{input_fingerprint}",
-        )
-    )
 
 
 def frequency(value):

@@ -430,6 +430,75 @@ def validate_file(
     return {"rows": rows, "version": before, "sha256": file_digest(path)}
 
 
+def assemble_period(sources, *, work, root, freq, period, policy=DEFAULT_POLICY,
+                    cancel=lambda: False, progress=lambda _: None):
+    """One current full-market file, key merge only; no private receipts or cached candidates."""
+    work = durable_directory(work)
+    target = target_path(root, freq, period)
+    before = file_version(target) if target.exists() else None
+    candidate = work / "candidate.parquet"
+    with connection(work, policy) as con:
+        execute(con, "CREATE TEMP TABLE incoming AS SELECT * FROM read_csv(?,header=true,columns=?,nullstr='')",
+                [[str(path) for path in sources], dict(SPECS)], cancel=cancel, progress=progress, policy=policy)
+        if before is None:
+            execute(con, "CREATE TEMP TABLE prior (" + ",".join(f'\"{n}\" {t}' for n, t in SPECS) + ")",
+                    cancel=cancel, policy=policy)
+        else:
+            validate_file(con, target, freq, period, cancel=cancel, policy=policy)
+            execute(con, "CREATE TEMP TABLE prior AS SELECT * FROM read_parquet(?,hive_partitioning=false)",
+                    [str(target)], cancel=cancel, progress=progress, policy=policy)
+        storage_reserve(sum(Path(path).stat().st_size for path in sources) + (before[2] if before else 0), spill=True)
+        execute(con, f"""COPY (
+          SELECT {COLUMNS} FROM (
+            SELECT p.* FROM prior p WHERE NOT EXISTS (
+              SELECT 1 FROM incoming s WHERE s.ts_code=p.ts_code AND s.trade_date=p.trade_date
+              AND s.freq=p.freq AND (s.end_date>=p.end_date OR p.end_date IS NULL))
+            UNION ALL
+            SELECT s.* FROM incoming s WHERE NOT EXISTS (
+              SELECT 1 FROM prior p WHERE s.ts_code=p.ts_code AND s.trade_date=p.trade_date
+              AND s.freq=p.freq AND p.end_date>s.end_date)
+          ) merged ORDER BY ts_code,trade_date,freq
+        ) TO ? (FORMAT PARQUET,COMPRESSION ZSTD)""", [str(candidate)],
+                cancel=cancel, progress=progress, policy=policy, stage="period_candidate")
+        storage_record(candidate)
+        evidence = validate_file(con, candidate, freq, period, cancel=cancel, policy=policy)
+        maximum = execute(con, "SELECT max(end_date) FROM read_parquet(?,hive_partitioning=false)",
+                          [str(candidate)], cancel=cancel, policy=policy).fetchone()[0]
+    return {"freq": freq, "period": period, "target": str(target), "candidate": str(candidate),
+            "target_preimage": before, "candidate_version": evidence["version"], **evidence,
+            "source_asof": f"{maximum[:4]}-{maximum[4:6]}-{maximum[6:]}" if maximum else None}
+
+
+def publish_period(item, *, policy=DEFAULT_POLICY, cancel=lambda: False):
+    """Promote one validated candidate. A later run always rebuilds it from source."""
+    candidate, target = safe_path(item["candidate"]), safe_path(item["target"])
+    check_cancel(cancel)
+    check_memory(policy)
+    if file_version(candidate) != item["candidate_version"]:
+        raise ValueError("period_candidate_changed")
+    if (file_version(target) if target.exists() else None) != item["target_preimage"]:
+        raise ValueError("period_target_preimage_changed")
+    durable_directory(target.parent)
+    if candidate.stat().st_dev != target.parent.stat().st_dev:
+        raise ValueError("period_atomic_device_mismatch")
+    storage_reserve()
+    with candidate.open("rb") as handle:
+        os.fsync(handle.fileno())
+    check_cancel(cancel)
+    os.replace(candidate, target)
+    sync_directory(target.parent)
+    storage_record(candidate)
+    version = file_version(target)
+    if version[:4] != item["candidate_version"][:4]:
+        raise ValueError("period_promoted_file_identity_changed")
+    result = {**item, "version": version, "rewritten": True}
+    with _AUDIT_LOCK:
+        if len(_AUDITS) >= 4096:
+            _AUDITS.pop(next(iter(_AUDITS)))
+        _AUDITS[(str(target), tuple(version))] = {key: result[key] for key in ("rows", "version", "sha256")}
+    return result
+
+
 def range_index_valid(evidence):
     """Metadata integrity only; current files are checked for the selected scope."""
     return (

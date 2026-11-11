@@ -328,28 +328,6 @@ def test_history_scope_is_frozen_and_current_configuration_conflicts_reject(tmp_
         history.frozen_history_work(wrong_root, arguments["staging"], intent)
 
 
-def test_minimal_history_daily_is_not_a_handoff_and_sensor_skips(tmp_path, monkeypatch):
-    from datetime import datetime
-    from types import SimpleNamespace as NS
-
-    arguments = bootstrap(tmp_path)
-    history.run_period(**arguments, intent=manual_intent(), transport=combined_source)
-    monkeypatch.setattr(update, "calendar_days", forbidden)
-    monkeypatch.setattr(update, "_daily_work", forbidden)
-    with pytest.raises(ValueError, match="period_daily_handoff_required"):
-        update.execute_daily(
-            **arguments, today=date(2026, 10, 19), freq="week", transport=forbidden
-        )
-    context = NS(instance=NS(get_runs=lambda **kwargs: []))
-    result = update.evaluate_daily_sensor(
-        context,
-        datetime.fromisoformat("2026-10-19T20:00:00+08:00"),
-        freq="week",
-        staging_root=arguments["staging"],
-    )
-    assert result.skip_reason is not None and not result.run_requests
-
-
 def test_missing_history_range_evidence_refuses_before_old_read(tmp_path, monkeypatch):
     from tests.test_stock_period_raw import sample
 
@@ -443,94 +421,6 @@ def test_range_selection_never_stats_unselected_files(tmp_path, monkeypatch, cou
         (files[0]["target"], periods[0]),
         (files[1]["target"], periods[1]),
     ]
-
-
-def test_actual_sdk_history_asset_reuses_original_scope_and_finishes_native_checks(
-    tmp_path, monkeypatch
-):
-    from orchestrator.defs import paths
-    from orchestrator.defs.assets import stock_monthly, stock_weekly
-    from orchestrator.defs.checks import stock_weekly_checks
-    from orchestrator.defs.jobs import stock_weekly as weekly_jobs
-    from orchestrator.defs.resources import LakeRootResource
-    from orchestrator.defs.run_contracts.stock_weekly import (
-        StockWeeklySource,
-        weekly_check_names,
-    )
-    from tests.test_stock_period_recovery import daily_source
-
-    arguments = bootstrap(tmp_path)
-    intent = {**manual_intent("sdk-original-history"), "frequencies": ["week", "month"]}
-    first = history.run_period(**arguments, intent=intent, transport=daily_source)
-    original_versions = {item["target"]: item["version"] for item in first["files"]}
-    monkeypatch.setattr(paths, "DEFAULT_LAKE_STAGING_ROOT", str(arguments["staging"]))
-    monkeypatch.setattr(LakeRootResource, "ensure_available_for_run", lambda self: None)
-    monkeypatch.setattr(history, "load_scope", forbidden)
-    monkeypatch.setattr(history, "HttpPage", forbidden)
-    definitions = dg.Definitions(
-        assets=[
-            stock_weekly.raw_tushare_stk_period_bar_adj_week,
-            stock_monthly.raw_tushare_stk_period_bar_adj_month,
-        ],
-        asset_checks=[
-            getattr(stock_weekly_checks, name)
-            for name in weekly_check_names(StockWeeklySource.PRIMARY_ADJUSTED)
-        ],
-        jobs=[weekly_jobs.raw_stk_period_bar_adj_week_update_job],
-        resources={"lake_root": LakeRootResource(root_path=str(arguments["root"]))},
-    )
-    instance_path = tmp_path / "sdk-instance"
-    instance_path.mkdir()
-    (instance_path / "dagster.yaml").write_text("telemetry:\n  enabled: false\n")
-    configuration = {
-        "ops": {
-            "raw_tushare_stk_period_bar_adj_week": {
-                "config": {
-                    "intent": "history",
-                    "stock_codes": [A],
-                    "request_id": intent["request_id"],
-                }
-            }
-        }
-    }
-    with dg.DagsterInstance.local_temp(str(instance_path)) as instance:
-        instance.add_dynamic_partitions("cn_a_stock_week_ends", ["2026-10-16"])
-        job = definitions.resolve_job_def("raw_stk_period_bar_adj_week_update_job")
-        result = job.execute_in_process(
-            instance=instance, partition_key="2026-10-16", run_config=configuration
-        )
-        assert result.success
-        assert len(result.get_asset_check_evaluations()) == 3
-        # The next execution continues the same request; today's scope/source
-        # are forbidden, even though this is a new physical Dagster run.
-        repeated = job.execute_in_process(
-            instance=instance, partition_key="2026-10-16", run_config=configuration
-        )
-        assert repeated.success
-        assert not raw.read_json(arguments["staging"] / "stock_period/daily.json")[
-            "pending_work"
-        ]
-        bad_config = {
-            "ops": {
-                "raw_tushare_stk_period_bar_adj_week": {
-                    "config": {
-                        "intent": "history",
-                        "stock_codes": [B],
-                        "request_id": intent["request_id"],
-                    }
-                }
-            }
-        }
-        bad = job.execute_in_process(
-            instance=instance,
-            partition_key="2026-10-16",
-            run_config=bad_config,
-            raise_on_error=False,
-        )
-        assert not bad.success
-    assert all(
-        raw.file_version(path) == version for path, version in original_versions.items()
-    )
 
 
 @pytest.mark.parametrize("stage", ["phase", "pending"])

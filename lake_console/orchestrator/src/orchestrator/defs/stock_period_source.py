@@ -92,7 +92,7 @@ class PeriodResponseError(ValueError):
         self.body = body
 
 
-def _http_attempt(send, base_url, token, params, policy, parent_pid):
+def _http_attempt(send, base_url, token, params, policy, parent_pid, fields=FIELDS):
     """Same POST envelope/config as Prod. Decimal decoding is specific to these Raw assets."""
 
     def guard():
@@ -115,7 +115,7 @@ def _http_attempt(send, base_url, token, params, policy, parent_pid):
                     "api_name": "stk_week_month_adj",
                     "token": token,
                     "params": params,
-                    "fields": ",".join(FIELDS),
+                    "fields": ",".join(fields),
                 },
                 stream=True,
                 allow_redirects=False,
@@ -152,6 +152,7 @@ class HttpPage:
         policy=DEFAULT_POLICY,
         cancel=lambda: False,
         progress=lambda _: None,
+        fields=FIELDS,
     ):
         settings = PeriodHttpConfig.from_environment(token=token, base_url=base_url)
         self.token = settings.token
@@ -166,13 +167,22 @@ class HttpPage:
         self.policy = policy
         self.cancel = cancel
         self.progress = progress
+        self.fields = tuple(fields)
 
-    def __call__(self, params):
+    def __call__(self, params, *, deadline=None):
         for attempt in range(self.policy.retries + 1):
             while time.monotonic() < self.next_request:
                 check_cancel(self.cancel)
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise TimeoutError("period_source_deadline")
                 time.sleep(0.05)
             check_cancel(self.cancel)
+            started = time.monotonic()
+            available = self.policy.timeout_seconds
+            if deadline is not None:
+                available = min(available, deadline - started)
+            if available <= 0:
+                raise TimeoutError("period_source_deadline")
             ctx = multiprocessing.get_context("spawn")
             receive, send = ctx.Pipe(duplex=False)
             worker = ctx.Process(
@@ -184,10 +194,10 @@ class HttpPage:
                     params,
                     self.policy,
                     os.getpid(),
+                    self.fields,
                 ),
                 daemon=True,
             )
-            started = time.monotonic()
             emitted = started
             self.next_request = started + self.interval
             previous = signal.getsignal(signal.SIGTERM)
@@ -215,11 +225,13 @@ class HttpPage:
                             }
                         )
                         emitted = time.monotonic()
-                    if time.monotonic() - started >= self.policy.timeout_seconds:
+                    if time.monotonic() - started >= available:
                         raise TimeoutError("period_source_deadline")
                     if not worker.is_alive():
                         raise ConnectionError("period_source_worker_exited")
                 result = receive.recv()
+                if time.monotonic() - started >= available:
+                    raise TimeoutError("period_source_deadline")
                 check_cancel(self.cancel)
                 if result[0] == "ok":
                     return result[1]
@@ -246,6 +258,8 @@ class HttpPage:
             until = time.monotonic() + 2**attempt
             while time.monotonic() < until:
                 check_cancel(self.cancel)
+                if deadline is not None and time.monotonic() >= deadline:
+                    raise TimeoutError("period_source_deadline")
                 time.sleep(0.05)
         raise RuntimeError("period_source_unreachable")
 
@@ -308,6 +322,45 @@ def _decode_page(body, *, freq, code, period, listed, aliases, seen, limit):
         "null_asof": len(asofs) != len(accepted),
     }
     return accepted, facts
+
+
+def capture_current_period(*, work, freq, period, listed, aliases, transport,
+                           policy=DEFAULT_POLICY, cancel=lambda: False, progress=lambda _: None):
+    """Download this run from offset zero. CSV/HTTP bodies are data, never resume state."""
+    work = safe_path(Path(work))
+    work.mkdir(parents=True, exist_ok=True)
+    paths, projections, seen, total_bytes, offset = [], [], set(), 0, 0
+    while True:
+        check_cancel(cancel)
+        params = request_params(freq=freq, period=period, offset=offset, policy=policy)
+        storage_reserve(policy.response_bytes)
+        body = transport(params)
+        total_bytes += len(body)
+        if len(body) > policy.response_bytes or total_bytes > policy.unit_bytes:
+            raise ValueError("period_source_unit_budget_exceeded")
+        _evidence, flags = _save_body(work, body, transport=transport, limit=policy.response_bytes)
+        if flags["redacted"]:
+            raise ValueError("period_source_response_contains_secret")
+        rows, facts = _decode_page(body, freq=freq, code=None, period=period,
+                                   listed=listed, aliases=aliases, seen=seen, limit=policy.page_limit)
+        seen.update(map(tuple, facts["keys"]))
+        path = work / f"page-{offset}.csv"
+        with path.open("x", newline="") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(FIELDS)
+            writer.writerows(rows)
+            handle.flush()
+            os.fsync(handle.fileno())
+        storage_record(path)
+        paths.append(path)
+        projections.extend(tuple(row[:3]) for row in rows)
+        progress({"stage": "source_page_complete", "freq": freq, "period": period,
+                  "pages": len(paths), "source_rows": len(seen), "response_bytes": total_bytes})
+        check_cancel(cancel)
+        if facts["rows"] < policy.page_limit:
+            break
+        offset += policy.page_limit
+    return paths, projections
 
 
 def capture_unit(

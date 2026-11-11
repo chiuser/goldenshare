@@ -9,6 +9,7 @@ from orchestrator.defs.assets.stock_monthly import (
 
 raw_stk_period_bar_adj_month_update_job = dg.define_asset_job(
     "raw_stk_period_bar_adj_month_update_job",
+    description="预检齐备后按自然月末单点下载完整21列，仅更新当前月；历史维护独立执行。",
     selection=dg.AssetSelection.assets(raw_tushare_stk_period_bar_adj_month)
     | dg.AssetSelection.checks_for_assets(raw_tushare_stk_period_bar_adj_month),
     executor_def=dg.in_process_executor,

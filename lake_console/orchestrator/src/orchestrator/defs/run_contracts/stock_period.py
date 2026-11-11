@@ -13,6 +13,8 @@ from decimal import Decimal, InvalidOperation
 from orchestrator.defs.run_contracts.stock_weekly import ADJUSTED_WEEKLY_FIELDS
 
 FIELDS = ADJUSTED_WEEKLY_FIELDS
+STOCK_PERIOD_READINESS_FIELDS = ("ts_code", "trade_date", "end_date")
+STOCK_PERIOD_DAILY_START_TIME = "20:00"
 VERSION = "stock-period-source-v2"
 FREQUENCIES = ("week", "month")
 COMPLETION_VERSION = "stock-period-completion@1"
@@ -239,12 +241,7 @@ def request_params(
     if code is not None:
         params["ts_code"] = admitted_code(code, listed, aliases or {})
     else:
-        # A month can contain several source trade_date keys (e.g. 20200228 and 29).
-        anchor = period_date(period, freq)
-        if freq == "month":
-            params.update(start_date=anchor[:6] + "01", end_date=anchor)
-        else:
-            params["trade_date"] = anchor
+        params["trade_date"] = period_date(period, freq)
     return params
 
 

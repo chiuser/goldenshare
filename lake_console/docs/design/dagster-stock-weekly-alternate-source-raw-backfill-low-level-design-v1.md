@@ -1,6 +1,6 @@
 # DG 周/月Raw更新、完整性审计与Silver生成共享 LLD v1
 
-**2026-11-11 待开发的日更、回刷和清退以[第13节](#stock-period-daily-then-history-lld)为准。** 第1至12节记录切换前实现和执行结果。第13节继续引用其中有效的字段、日期和文件规则。旧删除重建、续跑、建库交接及补事件命令只用于追溯，切换后按第13节操作。
+**2026-11-11 第2阶段当期Raw/Silver开发、隔离验收和独立审计完成，结果见[第13.11节](#stock-period-stage-two-results)。** 新流程以[第13节](#stock-period-daily-then-history-lld)为准；独立历史回刷、退市清理及剩余旧实现清退按后续阶段实施，尚未正式切换。 第1至12节记录切换前实现和执行结果。第13节继续引用其中有效的字段、日期和文件规则。旧删除重建、续跑、建库交接及补事件命令只用于追溯，切换后按第13节操作。
 
 <a id="report-attachment-cleanup-20261103"></a>
 
@@ -2605,9 +2605,9 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python3 -B -m o
 
 ### 13.1 目标、现行依据与影响面
 
-对应[原方案第10.19节](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#stock-period-daily-then-history)和[月线差异](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md#monthly-daily-point-readiness)。本节是待开发设计，落实已确认的20:00起检查、周五与自然月末单点、当期全市场先日更、复权因子变化股票独立回刷、退市清理按频率独立触发、失败整批重跑。旧实现在切换时一并清退，详见§13.7。第12节用于核对切换前的实现和已冻结旧任务。
+对应[原方案第10.19节](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#stock-period-daily-then-history)和[月线差异](dagster-stock-monthly-raw-onboarding-low-level-design-v1.md#monthly-daily-point-readiness)。本节是新流程设计；当期Raw/Silver已按第13.11节完成第2阶段开发，其余阶段尚未实施。设计落实已确认的20:00起检查、周五与自然月末单点、当期全市场先日更、复权因子变化股票独立回刷、退市清理按频率独立触发、失败整批重跑。旧实现在切换时一并清退，详见§13.7。第12节用于核对切换前的实现和已冻结旧任务。
 
-代码对账经CodeGraph核到`evaluate_daily_sensor → _execute_daily_locked → _daily_work → run_period`及共用写入检查。当前先拿到写锁的Raw job比对相邻Silver复权因子，把复权因子变化与新增上市代码合并进`daily.json`的待办，再复制到本执行`manifest.json`。它处理两频历史和本频当期，失败会挡住另一频。11月10日19:30月线先跑，14只中13只复权因子变化，`688827.SH`当天上市。新股周线历史请求空回包，当月全市场请求尚未发出。Gold股票日线前复权已有成功后再触发回刷的实现，日期、名单摘要、批次随Dagster运行保存，检查记录保存完成事实。11月10日日线回刷`4a2b5574-54aa-46dc-b890-760872ac071a`通过，记录13个代码。周月线复用这个编排方式，源仍为Tushare复权周/月线，日线的本地复权计算不进入本链。
+改造前经CodeGraph核到`evaluate_daily_sensor → _execute_daily_locked → _daily_work → run_period`及共用写入检查。旧实现中，先拿到写锁的Raw job比对相邻Silver复权因子，把复权因子变化与新增上市代码合并进`daily.json`的待办，再复制到本执行`manifest.json`。它处理两频历史和本频当期，失败会挡住另一频。11月10日19:30月线先跑，14只中13只复权因子变化，`688827.SH`当天上市。新股周线历史请求空回包，当月全市场请求尚未发出。Gold股票日线前复权已有成功后再触发回刷的实现，日期、名单摘要、批次随Dagster运行保存，检查记录保存完成事实。11月10日日线回刷`4a2b5574-54aa-46dc-b890-760872ac071a`通过，记录13个代码。周月线复用这个编排方式，源仍为Tushare复权周/月线，日线的本地复权计算不进入本链。
 
 | 部位 | 现有入口与本轮设计影响 |
 | --- | --- |
@@ -2723,9 +2723,9 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python3 -B -m o
 
 <a id="stock-period-development-stages"></a>
 
-### 13.9 开工审计与开发阶段（2026-11-11，第1阶段完成）
+### 13.9 开工审计与开发阶段（2026-11-11，第1阶段记录）
 
-**审计结论。** 第13.2至13.8节的业务口径已经明确，包括按退市股票代码定位本频全部历史文件。本轮对照当前源码、测试及本地源文档做开工审计，没有新增需管理员重新拍板的业务规则。初次审计列出的传输入口、运行参数、交付记录及性能验证已按第13.10节补齐，第1阶段完成，具备进入第2阶段源码开发的条件；新流程代码和正式运行尚未实施。每阶段编码前先完成该阶段在原方案和本LLD中的详细设计，再按获准范围实施和验收。
+**审计结论。** 第13.2至13.8节的业务口径已经明确，包括按退市股票代码定位本频全部历史文件。本轮对照当前源码、测试及本地源文档做开工审计，没有新增需管理员重新拍板的业务规则。初次审计列出的传输入口、运行参数、交付记录及性能验证已按第13.10节补齐，第1阶段审计当时确认具备进入第2阶段源码开发的条件；当时尚未修改新流程代码或正式运行。第2阶段结果见第13.11节。每阶段编码前先完成该阶段在原方案和本LLD中的详细设计，再按获准范围实施和验收。
 
 **本轮核验依据。** CodeGraph的`codegraph_explore`核到`deliver_asset → run_period → capture_unit`，`codegraph_impact(completion_reference)`覆盖Raw交付、Silver读取、首次建库入口及相关集成测试。直接读取确认`_http_attempt`固定请求完整21列，`HttpPage`沿`StockPeriodPolicy.retries=2`执行；`read_completion`仍读取旧`manifest.json`和`complete.json`。现有周、月Raw/Silver job均选择自身资产及原检查。日线应更新集合的SQL和股票日线前复权回刷触发方式可以复用，计算与选股规则保持。
 
@@ -2738,7 +2738,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python3 -B -m o
 | 新任务定义 | 初次审计时，独立复权因子回刷未列齐job、sensor、op和参数文件；清理job拟名缺Raw前缀 | 按`CODING_STANDARDS.md`的job和sensor命名规则确定最终名称、配置、文件及Definitions登记，校准第13.8节拟名及全部文档引用；现有四个资产及日更job名称保持；两个新job的最终定义见第13.10.4节 |
 | 新路径性能 | 第13.5和13.8节已有规模公式及旧实测参考，新预检和代码列统计尚未完成本轮测量 | 明确有界验证的日期、对象、文件、字段及请求数，验证预检截止与分页边界，测量代码列统计、候选及原检查成本；同时计入一次中断后整批重跑和最后验收。实际值按现有资源限制核定，不能把旧6 GiB单次恢复授权或目录文件数当成新任务性能保证；实测及成本复算已完成，见第13.10.5节 |
 
-**开发阶段安排。** 第1阶段已按本次批准完成，后续阶段仍按各自开发和正式执行授权推进。各阶段只在当前`dev-interface`工作区推进，测试资源和过程材料均放工程外。新流程整体接通并清退旧入口后才正式切换；各阶段修改到的旧分支随对应替换删除，第5阶段复查清零，不增加兼容层或双轨实现。
+**开发阶段安排。** 第1阶段及第2阶段已完成，结果分别见第13.10、13.11节；第3至6阶段仍按各自开发和正式执行授权推进。各阶段只在当前`dev-interface`工作区推进，测试资源和过程材料均放工程外。新流程整体接通并清退旧入口后才正式切换；各阶段修改到的旧分支随对应替换删除，第5阶段复查清零，不增加兼容层或双轨实现。
 
 | 阶段 | 目标与任务 | 实现范围及阶段验收 |
 | --- | --- | --- |
@@ -2753,7 +2753,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home .venv/bin/python3 -B -m o
 
 <a id="stock-period-implementation-contracts"></a>
 
-### 13.10 四项实现准备补齐（2026-11-11）
+### 13.10 四项实现准备补齐（2026-11-11，第1阶段记录）
 
 #### 13.10.1 本步范围及验证计划
 
@@ -2936,3 +2936,61 @@ Silver写前范围使用自身资产的`AssetObservation`，键`goldenshare/silv
 **最终审计记录。** 已逐项复核第13.2至13.10节、原方案第10.19节、月线第11节及运行契约、运行key和拓扑引用。预检、当期Raw/Silver、两频复权因子回刷、单频退市清理、人工补做、首次建库及旧实现清退的输入、输出和消费位置均有对应；同日自动回刷和指定原日补做的参数区别已写明。10次真实HTTP及四份隔离文件结果已逐项核对，分页共用截止和原生记录能力验证通过；新增引用检查、`check_docs_integrity.py`及本次文档`git diff --check`通过。测试仍只证明本节明确的现有能力和隔离边界，不是新流程源码或正式任务验收。正式股票周月链源码未修改，未重载或提交正式任务。
 
 **复核结论。** 四项编码前准备已补齐；第1阶段完成，具备进入第2阶段源码开发的条件。新流程的正式实现、端到端集成及上线验收尚未执行，后续逐阶段按本方案实施并对账。这里的“可开工”只指相应源码开发，不等于允许重载正式code location、启停sensor、执行正式job或改写Lake。
+
+<a id="stock-period-stage-two-results"></a>
+
+### 13.11 第2阶段实施约束与验收
+
+2026-11-11管理员批准提交第1阶段文档，严格按LLD完成第2阶段，再独立审计。本阶段接通当期Raw和同频Silver，不实现第3、4阶段的独立历史回刷与退市清理job，不执行正式任务或重载。以下为第13.2、13.4及13.10节在本阶段的具体实现映射。
+
+| 硬口径 | 代码落点 | 正反验收 |
+| --- | --- | --- |
+| 20:00后、当日开市、本频未提交才请求源 | 两个Raw sensor、周月时间策略、`stock_period_update.evaluate_daily_sensor` | 时间前、休市、重复提交源请求为0；一频已提交不阻断另一频 |
+| 应更新代码来自已验收生命周期及最终停复牌；新股必需，全日停牌可选 | `stock_trading_universe.py`提取日线集合SQL；`source_readiness/stock_period.py`验证前置事实、准确文件版本并计算集合 | 当日上市、未来上市、退市边界、盘中停牌、全日停牌三种返回及空停复牌分区；日线原检查口径保持 |
+| 三列预检及21列正式下载使用同一周期单点；分页共享截止 | `run_contracts/stock_period.py`、`stock_period_source.HttpPage`及新readiness | 周五/自然月末、字段、分页、重复页、缺码、同数换码、旧日期、未来日期、预先过期及页间过期；正式下载原重试保持 |
+| 当期只写本频一文件，无共享待办与单股历史 | `stock_period_source.capture_current_period`从头取本次源页；`io/stock_period_raw.assemble_period/publish_period`按键合并与提升；Raw生成器保存写前范围 | 无旧JSON亦可运行；新建当期、可选缺席保留旧记录、较新旧记录保护；失败后新运行重新请求，不复用旧源页或候选；另一频和旧历史文件保持 |
+| 原生交付和原检查绑定，Silver完整消费 | 新delivery合同及guard、`stock_period_silver.resolve_update_sources/deliver_update_asset/evaluate_update_sensor` | 真实运行UUID、范围摘要、SUCCESS及全部原检查缺一不承认；来源更新按合法后继处理；完整范围Silver从头重做、不同业务日不伪造完成 |
+| 所有本阶段消费者同迁，不保留旧日更合同解析 | Raw/Silver配置、四个资产包装、四个job、原文件检查、catalog、静态门禁及Silver CLI更新分支 | 更新配置拒绝旧执行ID/续跑参数；旧`read_completion`删除。Silver CLI仅保留首次建库分支，日更改走原生job整批重跑；其余第13.7节旧Raw维护及首次建库清退仍在第5阶段完成 |
+
+单文件当期处理不能调用会读取`copy.json/committed/complete.json`跳步的旧组装及提升入口，故在原IO模块新增无续跑分支的单文件函数，复用原字段、文件校验、设备、资源及原子替换规则。新源页CSV及候选仅是本运行数据暂存，不写业务进度JSON。新运行使用真实UUID目录，从第一步重新取源。
+
+Raw入口先核对显式日期与分区，再保存由配置派生的日期/用途/频率tag，之后才读取上游与请求源。日更sensor用原自动run key识别尚未开始的自动提交；再按本job、显式业务日期和`kind=daily`识别已执行的手工运行，已有当天提交或完成时不再预检和重复提交。两种精确检索各最多一条，不扫描历史运行，不把人工闭合周期当成当日日更。
+
+原生交付guard按明确生产运行集合读取观察、物化及检查，并核对真实成功运行；一组引用用集合查询，不能逐文件查询。单引用仍可按运行API读取，多份实际Raw来源按运行集合批量读取并在本次调用内复用；不创建持久化索引。Silver沿两次`batch_event_evidence`集合查询核对实际最新物化及原检查；旧来源被较新合法Raw替换时，批量核实后者真实交付，不读取旧回执目录。Silver自身写前/完成范围存原生观察；只有本次SUCCESS且原检查全部通过，sensor才推进该Raw通知的消费位置。失败保留通知，手工以相同原业务配置完整重跑成功后销账。
+
+Silver为准确找到手工整批重跑后的消费结果，在验证后的入口写入派生运行tag`goldenshare/stock_period_source_batch`，值严格取原输入`source_completion.upstream_batch_id`；命名和构造仍集中于delivery合同，不新增运营输入或修改共用请求builder。sensor按原Silver job、该tag及SUCCESS检索一条，再核对真实范围、原输入引用及该次物化绑定的全部原检查。它不以运行key代替交付，不要求手工新运行携带自动run key，也不按业务日最新一笔猜测已经消费；不是另一套完成状态。读取范围为这一笔匹配运行的原生事件，旧成功输出被合法后继更新后仍保留已消费事实。Raw每频写前/完成观察各一条，Silver sensor每tick至多取这两条通知相关观察，忽略写前观察，不做全历史事件扫描。
+
+性能沿第13.10.5节：当期每频预检与正式下载按实际页数计、各一份Raw/Silver；历史交付的Silver只处理引用中满足2014下限的F份文件。原生记录只按明确运行及分区集合读取；输出物化F条、原检查3F条、范围观察2条，不将事件ID放入运行参数或去重身份。一次中断加一次重做按两次实际文件范围分别计入源、候选、原检查及最后验收，默认内存与磁盘限制保持。临时instance、测试Lake、staging、DuckDB spill、pytest输出和DAGSTER_HOME统一放本任务`/private/tmp`目录，关闭遥测；不使用正式资源跑测试。
+
+实现后运行本阶段单元/契约、真实生产者到Silver的隔离集成、日线集合原回归、源传输、四资产定义及相关静态门禁。源合同继续复用第13.10节真实三列分页与21列样本证据；仅补新实现尚未验证的有界只读边界，不重复全历史读取。独立审计只看已批准第2阶段，逐条检查本表和第13.10节对应合同，发现问题先修正再复验；不把第3至6阶段未实现项当成本阶段已完成。
+
+**旧测试迁移范围。** 本阶段已经替换的合同不再由旧行为断言约束。不是删除字段、价格或日期金样本；原21列字面夹具、Silver投影、首次建库、候选原子提升和检查绑定的有效测试继续保留。首次完整相关回归发现旧合同断言失败，按下表逐项迁移，不能用skip保留失败，也不能恢复旧实现迎合断言。
+
+| 旧测试位置 | 退出的断言及保留边界 | 新验收位置 |
+| --- | --- | --- |
+| `test_stock_period_silver_original_recovery.py`、`test_stock_period_silver_sensor_recovery.py` | 整个文件只测试旧私有执行ID、父子执行目录、完成回执及仅补事件的续跑，随实现退出 | `test_stock_period_native_daily.py`的多文件中断、完整手工重跑、原通知销账及原生检查完整性 |
+| `test_stock_period_silver_execution.py`、`test_stock_period_silver_events.py` | 删除日更复用旧候选、已完成文件、继承回执及只补事件部分；保留独立首次建库的执行、取消、恢复、字段及原检查用例 | 新Native日更测试覆盖全部文件重做及绑定；原首次建库用例保持 |
+| `test_stock_period_silver_sensors.py`、`test_stock_period_silver_daily_integration.py`、`test_stock_period_silver_jobs.py` | 退出依赖旧日更回执和旧cursor的编排断言，保留定义、job选择、批量检查读取和独立建库 | 新合同版本、原通知、稳定run key、原检查缺失/错绑拒绝、后继Raw及手工成功结果的测试 |
+| `test_stock_period_cross_day_asof.py`、`test_stock_period_followup_silver.py` | 退出按旧回执读取Silver日期及目录续跑的部分；保留Raw来源日期、正常首次建库及只读metadata检查 | 新Native测试验证原意图日不变、实际来源日期逐文件保存、较新合法Raw接续、缺失及未来来源日期拒绝 |
+| `test_stock_period_daily_delivery.py`、`test_stock_period_daily_memory.py`及两个Raw sensor测试 | 退出缺省使用当前时钟、旧当前文件目录证明、混合历史入口、继承8 GiB运行标签、19:30和旧共享待办提交；未替换的旧Raw离线实现用例不在本阶段整体清退 | 新配置拒绝旧参数、20:00、当前分区、原默认资源、无旧JSON、当期单文件、正式21列复核及整批重取源 |
+| 源请求、Raw手工历史和旧端到端fixture的相关用例 | 月线全市场断言及模拟HTTP改为自然月末`trade_date`；SDK旧`intent=history`退出，独立建库CLI仍保留其现行校验 | 原源合同测试按已验证参数校准；当期真实Raw到Silver的隔离链路使用新Native测试，不冒称第3阶段回刷已实现 |
+
+#### 13.11.1 实现结果、验证边界与独立审计
+
+**第2阶段完成。** 第1阶段文档先提交为`d971f60e5`，随后按本节完成当期Raw/Silver实现。新增`stock_trading_universe.py`、`source_readiness/stock_period.py`、`run_contracts/stock_period_delivery.py`及`asset_guards/stock_period_delivery.py`，分别承载共用股票集合、源齐备检查、原生交付合同及交付读取。原四个资产和job名称、21列及精度、文件路径、Silver历史下限和原检查保持。Raw/Silver生成器、配置、catalog说明及Silver CLI消费者已同步迁移；旧Silver日更私有回执、恢复分支和仅补事件的测试已按上表清退。旧Raw离线维护与独立首次建库的其余清退继续按第5阶段处理，没有将未完成项计为本阶段完成。
+
+| 核验 | 本轮结果与实际覆盖 |
+| --- | --- |
+| 周月链完整相关回归 | 最终当前版本的完整`test_stock_period*.py`及两份Raw sensor测试共529通过、2项原有PostgreSQL实验未启用，116.97秒。未启用项不能作为PostgreSQL验收。原21列字面样本、Silver价格投影、首次建库和仍有效的离线测试保留 |
+| 新流程隔离集成 | `test_stock_period_native_daily.py`和`test_stock_period_readiness.py`共37项，由独立审计者另行执行全部通过，7.02秒。运行真实临时Dagster Raw/Silver job、DuckDB及Parquet；HTTP与上游验收查询被替换，临时输入按已核实的生命周期、身份和最终停复牌投影合同构造，不能称为正式上游生产者或端到端生产验收 |
+| 三列HTTP传输 | 补充真实本机HTTP worker的三列投影测试后，整个`test_stock_period_source.py`为11通过，2.57秒。验证实际worker传参和响应字段；共享截止另由readiness测试验证。网络服务为临时本机fixture，Tushare真实字段与日期合同继续使用第13.10.5节的有界证据，不冒称本次重新核实全市场齐备 |
+| 原日线共用规则 | 通过受保护隔离runner执行`test_stock_daily_raw_checks.py`，22通过；仅提取集合SQL，原日线准入及检查保持 |
+| 运行合同门禁 | 同一隔离runner执行`test_run_contract_static_gates.py`，113项及5个subtest通过；未绕过runner。月线策略新增导入共用周期开始时间，runner仅增加该精确源码文件的读取许可 |
+| 静态检查 | 本阶段源码和测试的致命语法及未定义符号检查通过。以orchestrator目录现行Ruff配置检查全部本阶段文件，剩余11条均在`run_contracts/configs.py`未修改区域，与HEAD基线逐条相同；没有以修改其他配置检查来消除告警 |
+| 额外全局治理套件 | 资产治理在第1批出现1失败、4通过后停止；检查治理在第1批出现1失败、1通过后停止。两项均为`gold_major_index_quantitative_structure`已在目录登记，但旧测试资产清单及检查治理映射遗漏。不能记为两套件通过，也不能据此认定实际Dagster资产未注册 |
+
+额外治理失败已由独立审计补查：该数据集于`a4bebf883`引入，早于本次文档提交；`d971f60e5`与核验时HEAD的目录blob同为`817f61316eb905e460284b0db60f5c71c7ec1c4e`。按本任务开始时差异在内存重建的目录blob为`68804318c891ebf5688a71bce5de60abef9bc51f`，匹配原补丁目标；这三份目录与当前目录中的该资产登记语法一致，两份失败测试均与HEAD逐字节一致，且未在任务开始时的差异中。本阶段没有引入这两项清单遗漏，也未越界修复。全局治理尚未全部通过的事实保留。
+
+**独立审计结论。** 非实现者按第13.2、13.4、13.9至13.11节、原方案第10.19节和月线第11节逐项核对当前源码，使用CodeGraph的`codegraph_explore`、`codegraph_impact`及直接源码读取确认四个资产、源请求、配置、原检查、原生交付guard、Silver消费、CLI及测试消费者；未发现第2阶段需修正的实质问题。审计另行确认手工Raw成功后不再自动重复提交、无自动run key的手工Silver整批重跑能够按原输入销账、合法较新Raw逐文件接续且原意图日不变。CodeGraph索引已同步并核对状态；本次没有Prod、前端或API消费者变更，不存在待人工确认的跨工程调用边界。
+
+**交付边界。** 结果只代表第2阶段源码及隔离验证完成。第3阶段独立复权因子回刷、第4阶段单频退市清理、第5阶段剩余维护入口及旧实现清退、第6阶段整体接通和正式验收均未实施。未部署、重载正式code location、启停sensor、提交正式job或改写正式Lake、Prod、实例状态。测试和审计临时材料在工程外创建，有效结果写回本节后清理；不保留重复过程报告。

@@ -1,7 +1,6 @@
 """Independent date, pending-intent and native-anchor recovery boundaries."""
 
 from datetime import date, datetime
-from types import SimpleNamespace as NS
 from zoneinfo import ZoneInfo
 
 import dagster as dg
@@ -18,49 +17,6 @@ class FrozenDatetime(datetime):
     def now(cls, tz=None):
         value = datetime(2026, 10, 28, 12, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
         return value.astimezone(tz) if tz else value.replace(tzinfo=None)
-
-
-def test_explicit_intent_date_never_uses_execution_clock(monkeypatch):
-    monkeypatch.setattr(update, "datetime", FrozenDatetime)
-    assert update._daily_intent_date(
-        NS(), NS(automatic_intent_date="2026-10-27")
-    ) == date(2026, 10, 27)
-
-
-@pytest.mark.parametrize(
-    "created, expected",
-    [
-        (datetime.fromisoformat("2026-10-27T15:59:00+00:00"), None),
-        (datetime.fromisoformat("2026-10-27T16:01:00+00:00"), date(2026, 10, 28)),
-    ],
-)
-def test_manual_none_reexecution_cannot_silently_change_day(
-    monkeypatch, created, expected
-):
-    monkeypatch.setattr(update, "datetime", FrozenDatetime)
-    looked_up = []
-    context = NS(
-        run=NS(root_run_id="original", parent_run_id="child"),
-        instance=NS(
-            get_run_record_by_id=lambda run_id: looked_up.append(run_id)
-            or NS(create_timestamp=created)
-        ),
-    )
-    config = NS(automatic_intent_date=None)
-    if expected is None:
-        with pytest.raises(ValueError, match="period_daily_intent_date_required"):
-            update._daily_intent_date(context, config)
-    else:
-        assert update._daily_intent_date(context, config) == expected
-    assert looked_up == ["original"]
-
-
-def test_first_manual_none_keeps_existing_local_day_default(monkeypatch):
-    monkeypatch.setattr(update, "datetime", FrozenDatetime)
-    assert update._daily_intent_date(
-        NS(run=NS(root_run_id=None, parent_run_id=None)),
-        NS(automatic_intent_date=None),
-    ) == date(2026, 10, 28)
 
 
 def test_new_date_stops_before_planning_when_old_native_events_are_missing(
@@ -130,86 +86,6 @@ def test_historical_ack_precedes_new_date_planning_without_business_reads(monkey
         assert result[0]["current_files"] == []
         assert raw.file_version(target) == version
         assert case["requests"] == requests
-
-
-def test_unknown_current_anchor_is_rejected_before_file_audit(tmp_path, monkeypatch):
-    from orchestrator.defs.paths import raw_stk_period_bar_adj_week_path
-
-    root, staging = tmp_path / "lake", tmp_path / "staging"
-    # No real Parquet content is needed to prove an ownership rejection.
-    target = raw_stk_period_bar_adj_week_path(root, "2026-10-23")
-    target.parent.mkdir(parents=True)
-    target.write_bytes(b"unknown file")
-    version = raw.file_version(target)
-    raw.atomic_json(staging / "stock_period/baseline.json", {"files": []})
-    materialization = dg.AssetMaterialization(
-        asset_key=dg.AssetKey("raw_tushare_stk_period_bar_adj_week"),
-        partition="2026-10-23",
-        metadata={
-            "dagster/uri": str(target),
-            "goldenshare/period_file_version": dg.MetadataValue.json(version),
-        },
-    )
-    instance = NS(
-        fetch_materializations=lambda *a, **k: NS(
-            records=[NS(asset_materialization=materialization)]
-        )
-    )
-    monkeypatch.setattr(
-        raw, "audit_file", lambda *a, **k: pytest.fail("unknown file audited")
-    )
-    with pytest.raises(ValueError, match="period_anchor_current_delivery_unknown"):
-        update._current_period_anchor(instance, root, staging, "week", "2026-10-23")
-
-
-def test_historical_result_is_excluded_from_native_anchor(tmp_path, monkeypatch):
-    from orchestrator.defs import paths
-    from orchestrator.defs.bootstrap import stock_period_history as history
-
-    root, staging = tmp_path / "lake", tmp_path / "staging"
-    monkeypatch.setattr(paths, "DEFAULT_LAKE_STAGING_ROOT", str(staging))
-    monkeypatch.setattr(history, "load_scope", lambda *a, **k: ({"000001.SZ"}, {}))
-    old = {"freq": "week", "period": "2026-10-23", "version": [1] * 5}
-    current = {
-        "freq": "week",
-        "period": "2026-10-23",
-        "target": str(root / "current.parquet"),
-        "version": [2] * 5,
-        "rows": 2,
-    }
-    monkeypatch.setattr(
-        update,
-        "execute_daily",
-        lambda **kwargs: [
-            {"files": [old], "historical_only": True, "current_files": []}
-        ],
-    )
-    monkeypatch.setattr(
-        update, "_current_period_anchor", lambda *a, **k: (current, None)
-    )
-    context = NS(
-        partition_key="2026-10-23",
-        # Real AssetExecutionContext exposes the current DagsterRun and its tags.
-        run=NS(tags={}),
-        instance=object(),
-        log=NS(info=lambda _: None),
-    )
-    config = NS(intent="daily", automatic_intent_date="2026-10-22")
-    lake = NS(root=lambda: root, ensure_available_for_run=lambda: None)
-    result = update.deliver_asset(context, config, lake, "week")
-    assert result.metadata["goldenshare/period_file_version"].value == [2] * 5
-    assert result.metadata["dagster/row_count"] == 2
-
-
-def test_daily_partition_mismatch_stops_before_scope_or_source(tmp_path):
-    context = NS(partition_key="2026-10-30")
-    config = NS(intent="daily", automatic_intent_date="2026-10-20")
-    lake = NS(
-        root=lambda: tmp_path / "lake",
-        ensure_available_for_run=lambda: pytest.fail("mismatched run touched lake"),
-    )
-    with pytest.raises(ValueError, match="period_daily_partition_mismatch"):
-        update.deliver_asset(context, config, lake, "week")
 
 
 def test_ack_rejects_wrong_execution_directory_and_root():

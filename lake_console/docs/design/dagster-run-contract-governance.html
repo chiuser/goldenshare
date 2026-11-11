@@ -558,7 +558,8 @@
       当前实现要求所有 sensor definition 的 tags 均通过 <code>defs/run_contracts/sensor_tags.py</code> 的 <code>build_sensor_tags(...)</code> 构造。本文档是 sensor definition tags 的治理口径；<code>dagster-asset-job-topology.html</code> 记录当前 sensor 拓扑和分类现状。新增或修改 sensor 时，必须同步更新本文档、拓扑文档和静态门禁。
     </p>
     <p id="period-native-delivery-planned">
-      <strong>股票周月线原生交付（待开发）。</strong>
+      <strong>股票周月线原生交付（第2阶段已实现，未正式切换）。</strong>
+      当期Raw/Silver已使用下述原生交付；独立历史修复及退市清理仍待第3、4阶段实施。
       新历史修复job为<code>raw_stock_period_history_repair_job</code>，
       sensor为同名加<code>_sensor</code>；清理job为
       <code>raw_stock_period_retirement_cleanup_job</code>，sensor同样跟随job命名。
@@ -567,10 +568,14 @@
       运行tag <code>goldenshare/stock_period_business_date</code>、
       <code>goldenshare/stock_period_kind</code>及单频的<code>goldenshare/stock_period_freq</code>
       由入口验证后的日期、用途及频率配置唯一派生，命名和构造集中于本链delivery合同。
-      前两者用于查同日另一频的daily成功，频率tag用于跨业务日读取最新SUCCESS清理结果；
+      前两者用于查同日另一频的daily成功，频率tag用于跨业务日读取最新SUCCESS清理结果。
+      Silver另由原输入派生<code>goldenshare/stock_period_source_batch</code>，
+      按本job、该上游ID及SUCCESS定位手工整批重跑，再核对本次完整范围与原检查；
       tag不能替代完整交付及原检查，不改变sensor分类tag或日更准入。
-      字段、配置、原检查绑定和全部迁移点见
-      <a href="dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-implementation-contracts">周月线LLD第13.10节</a>。
+      字段、配置及迁移点见
+      <a href="dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-implementation-contracts">周月线LLD第13.10节</a>；
+      本阶段实现、原检查绑定及独立审计见
+      <a href="dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-two-results">第13.11节</a>。
     </p>
     <p id="period-retirement-cleanup-planned">
       <strong>周月线退市清理（待开发）。</strong>

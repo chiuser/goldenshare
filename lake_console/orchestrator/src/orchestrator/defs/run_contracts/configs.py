@@ -911,37 +911,20 @@ def _parse_hms_time(value: str) -> datetime_time:
 
 
 class StockPeriodRawConfig(dg.Config):
-    """Two retained Raw assets only; retired Prod-batch and overwrite parameters are rejected."""
+    """Explicit business date for one full-market period file."""
 
     model_config: ClassVar[dict[str, str]] = {"extra": "forbid"}
-    intent: Literal["daily", "history"] = "daily"
-    automatic_intent_date: str | None = None
-    stock_codes: list[str] = Field(default_factory=list)
-    request_id: str | None = None
-
-    @model_validator(mode="after")
-    def validate_history_intent(self):
-        from orchestrator.defs.run_contracts.stock_period import intent_id
-
-        if self.intent == "history":
-            intent_id(self.request_id)
-        return self
-
-    @field_validator("request_id")
-    @classmethod
-    def validate_request_id(cls, value):
-        from orchestrator.defs.run_contracts.stock_period import intent_id
-
-        return intent_id(value) if value is not None else None
+    intent: Literal["daily", "closed_period"] = "daily"
+    automatic_intent_date: str
 
     @field_validator("automatic_intent_date")
     @classmethod
     def validate_intent_date(cls, value):
-        from datetime import date
+        from orchestrator.defs.run_contracts.stock_period_delivery import (
+            iso_business_date,
+        )
 
-        if value is not None and date.fromisoformat(value).isoformat() != value:
-            raise ValueError("period_intent_date_invalid")
-        return value
+        return iso_business_date(value)
 
 
 class StockWeeklyBootstrapEventChecksConfig(dg.Config):

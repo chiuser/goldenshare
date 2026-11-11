@@ -281,42 +281,6 @@ def test_readonly_and_preimage_keep_the_original_lower_contract(lower):
                                        allow_preimage=True)
 
 
-@pytest.mark.parametrize("freq", ["week", "month"])
-def test_update_last_wrong_unit_date_prevents_all_new_events(update_fixture, freq):
-    from uuid import uuid4
-
-    from tests.test_stock_period_silver_contracts import A
-
-    f = update_fixture
-    for row in f["state"]["rows"]:
-        if row[0] == A and row[3] == freq:
-            row[9:13] = ["19.1000", "19.5000", "19.0000", "19.2500"]
-    reference = f["capture"](freq=freq, asof="2026-10-20")
-    result = silver.build(f["lake"], f["staging"], str(uuid4()), freq=freq,
-                          source_completion=reference, instance=f["instance"], emit=lambda _: None)
-    execution = silver.load_execution(f["lake"], f["staging"], result["run_id"])
-    identity = execution["identity"]
-    unit = identity["units"][-1]
-    work = run_directory(f["staging"], result["run_id"])
-    item = read_json(silver.checkpoint_path(work, unit))
-    metadata = silver.materialization_metadata(item, identity)
-    assert metadata["goldenshare/silver_asof"] == "2026-10-20"
-    metadata["goldenshare/silver_asof"] = "2026-10-19"
-    asset = dg.AssetKey(asset_name(freq))
-    instance = f["instance"]
-    instance.report_runless_asset_event(dg.AssetMaterialization(
-        asset_key=asset, partition=item["period"], metadata=metadata,
-    ))
-    before = instance.fetch_materializations(dg.AssetRecordsFilter(asset_key=asset), limit=20).records
-    with pytest.raises(ValueError, match="checks_not_ready"):
-        cli.run_reporting(instance, lambda ctx: cli.replay_events(
-            f["lake"], f["staging"], result["run_id"], instance, ctx
-        ))
-    assert instance.fetch_materializations(dg.AssetRecordsFilter(asset_key=asset), limit=20).records == before
-    assert not (work / "events").exists()
-    assert not (work / "events_complete.json").exists()
-
-
 @pytest.mark.parametrize("count", [2, 100])
 def test_metadata_capacity_has_two_reads_without_file_access(tmp_path, monkeypatch, count):
     """Capacity only: real SDK events, literal metadata and an explicit stat seam."""
@@ -412,37 +376,3 @@ def test_native_and_reporting_share_the_fixed_lower(period_fixture, freq, lower)
                             f["lake"], f["staging"], freq, "file_contract")
         with pytest.raises(ValueError, match="checks_not_ready"):
             cli.run_reporting(instance, lambda ctx: cli.report_file(instance, ctx, item, identity))
-
-
-def test_legacy_bootstrap_source_metadata_does_not_block_first_update(update_fixture, monkeypatch):
-    from uuid import uuid4
-
-    from orchestrator.defs.io.stock_period_raw import file_version
-
-    f = update_fixture
-    execution = silver.load_execution(f["lake"], f["staging"], f["run_id"])
-    identity = execution["identity"]
-    unit = next(u for u in identity["units"] if u["freq"] == "week")
-    item = read_json(silver.checkpoint_path(run_directory(f["staging"], f["run_id"]), unit))
-    metadata = silver.materialization_metadata(item, identity)
-    for key in ("goldenshare/silver_source_version", "goldenshare/silver_reference_versions"):
-        del metadata[key]
-    instance = f["instance"]
-    instance.report_runless_asset_event(dg.AssetMaterialization(
-        asset_key="silver_stock_weekly", partition=unit["period"], metadata=metadata,
-    ))
-    cli.run_reporting(instance, lambda ctx: cli.report_file(instance, ctx, item, identity))
-    selected = []
-    original = silver.select_period
-
-    def tracked(con, source, freq, period, **kwargs):
-        selected.append(period)
-        return original(con, source, freq, period, **kwargs)
-
-    monkeypatch.setattr(silver, "select_period", tracked)
-    previous = file_version(unit["target"])
-    result = silver.build(f["lake"], f["staging"], str(uuid4()), freq="week",
-                          source_completion=f["base_reference"], instance=instance, emit=lambda _: None)
-    assert result["totals"]["week"] == {"files": 3, "rows": 6}
-    assert selected == ["2014-01-03"]
-    assert file_version(unit["target"]) != previous

@@ -4,7 +4,6 @@ from typing import Any
 
 import dagster as dg
 
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.assets.stock_daily import (
     raw_tushare_stock_daily,
@@ -12,11 +11,12 @@ from orchestrator.defs.assets.stock_daily import (
 )
 from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.assets.suspend_d import silver_stock_suspend_daily
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     BJ_MARKET_OPEN_DATE,
+    STOCK_DAILY_MIN_TRADE_DATE,
     STOCK_DAILY_RAW_REQUIRED_COLUMNS,
     STOCK_DAILY_SILVER_REQUIRED_COLUMNS,
-    STOCK_DAILY_MIN_TRADE_DATE,
     count_parquet_query,
     current_cny_stock_basic_select,
     describe_parquet_query,
@@ -33,7 +33,7 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
-
+from orchestrator.defs.stock_trading_universe import stock_trading_universe_ctes
 
 STOCK_DAILY_COLUMNS = tuple(STOCK_DAILY_SILVER_REQUIRED_COLUMNS)
 
@@ -890,46 +890,13 @@ def _expected_tradable_universe_metadata(
     daily_code_set_sql: str,
 ) -> dict[str, Any]:
     universe_cte = f"""
-    WITH listed AS (
-      SELECT DISTINCT ts_code
-      FROM ({stock_lifecycle_sql}) stock_lifecycle
-      WHERE DATE '{partition_key}' >= DATE '{STOCK_DAILY_MIN_TRADE_DATE}'
-        AND list_date <= DATE '{partition_key}'
-        AND (
-          delist_date IS NULL
-          OR DATE '{partition_key}' < delist_date
-        )
-        AND (
-          NOT ends_with(ts_code, '.BJ')
-          OR DATE '{partition_key}' >= DATE '{BJ_MARKET_OPEN_DATE}'
-        )
-    ),
-    full_day_suspended AS (
-      SELECT DISTINCT suspend.ts_code
-      FROM {read_parquet(suspend_path, hive_partitioning=False)} suspend
-      INNER JOIN listed USING (ts_code)
-      WHERE suspend.trade_date = DATE '{partition_key}'
-        AND suspend.suspend_type = 'S'
-        AND suspend.suspend_timing IS NULL
-    ),
-    intraday_suspended AS (
-      SELECT DISTINCT
-        suspend.ts_code,
-        suspend.suspend_type,
-        suspend.suspend_timing
-      FROM {read_parquet(suspend_path, hive_partitioning=False)} suspend
-      INNER JOIN listed USING (ts_code)
-      WHERE suspend.trade_date = DATE '{partition_key}'
-        AND suspend.suspend_type = 'S'
-        AND suspend.suspend_timing IS NOT NULL
-    ),
-    expected AS (
-      SELECT ts_code
-      FROM listed
-      EXCEPT
-      SELECT ts_code
-      FROM full_day_suspended
-    ),
+    WITH {stock_trading_universe_ctes(
+        trade_date=partition_key,
+        lifecycle_sql=stock_lifecycle_sql,
+        suspend_path=suspend_path,
+        listed_filter=f"DATE '{partition_key}' >= DATE '{STOCK_DAILY_MIN_TRADE_DATE}' "
+        f"AND (NOT ends_with(ts_code, '.BJ') OR DATE '{partition_key}' >= DATE '{BJ_MARKET_OPEN_DATE}')",
+    )},
     daily AS (
       {daily_code_set_sql}
     ),

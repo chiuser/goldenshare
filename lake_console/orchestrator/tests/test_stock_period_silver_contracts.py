@@ -337,63 +337,34 @@ def update_fixture(period_fixture):
 
 
 def test_update_config_is_explicit_and_business_identity_has_no_event_ids():
-    from orchestrator.defs.run_contracts.stock_period import (
-        completion_reference,
-        validate_completion_reference,
+    from orchestrator.defs.run_contracts.configs import StockPeriodRawConfig
+    from orchestrator.defs.run_contracts.stock_period_delivery import (
+        delivery_ref,
+        validate_delivery_ref,
     )
     from orchestrator.defs.run_contracts.stock_period_silver import (
         StockPeriodSilverConfig,
-        update_run_id,
     )
 
-    reference = completion_reference("a" * 64, "b" * 64, "week")
-    assert set(reference) == {
-        "raw_execution_id",
-        "file_receipt_hash",
-        "upstream_batch_id",
-    }
-    assert update_run_id("week", reference) == update_run_id("week", dict(reference))
-    assert validate_completion_reference(reference, "week") == reference
-    StockPeriodSilverConfig(
-        execution_id=str(uuid4()), audit_report="audit"
-    ).validate_intent("week")
-    StockPeriodSilverConfig(
-        execution_id=str(uuid4()), intent="update", source_completion=reference
-    ).validate_intent("week")
-    self_id = str(uuid4())
-    for recovery in (
-        {
-            "execution_id": self_id,
-            "audit_report": "audit",
-            "resume_from_execution_id": str(uuid4()),
-        },
-        {
-            "execution_id": self_id,
-            "intent": "update",
-            "source_completion": reference,
-            "resume_from_execution_id": self_id,
-        },
-        {
-            "execution_id": self_id,
-            "intent": "update",
-            "source_completion": reference,
-            "resume_from_execution_id": "../latest",
-        },
+    reference = delivery_ref(str(uuid4()), "week", "daily", "2026-11-10", ["2026-11-13"])
+    assert set(reference) == {"producer_run_id", "freq", "upstream_batch_id"}
+    assert validate_delivery_ref(reference, "week") == reference
+    StockPeriodSilverConfig(execution_id=str(uuid4()), audit_report="audit").validate_intent("week")
+    StockPeriodSilverConfig(intent="update", source_completion=reference).validate_intent("week")
+    for invalid in (
+        {"intent":"update", "execution_id":str(uuid4()), "source_completion":reference},
+        {"intent":"update", "source_completion":reference, "resume_from_execution_id":str(uuid4())},
+        {"intent":"update", "source_completion":reference, "audit_report":"audit"},
+        {"intent":"update"}, {},
     ):
         with pytest.raises(ValueError):
-            StockPeriodSilverConfig(**recovery).validate_intent("week")
-    for extra in ("storage_id", "path"):
+            StockPeriodSilverConfig(**invalid).validate_intent("week")
+    for extra in ("storage_id", "path", "raw_execution_id", "file_receipt_hash"):
         with pytest.raises(ValueError, match="reference_invalid"):
-            validate_completion_reference({**reference, extra: "untrusted"}, "week")
-    for kwargs in (
-        {},
-        {"intent": "update"},
-        {"intent": "update", "source_completion": reference, "audit_report": "audit"},
-    ):
+            validate_delivery_ref({**reference, extra:"untrusted"}, "week")
+    for invalid in ({}, {"automatic_intent_date":None}, {"automatic_intent_date":"2026-11-10", "intent":"history"}):
         with pytest.raises(ValueError):
-            StockPeriodSilverConfig(
-                execution_id=str(uuid4()), **kwargs
-            ).validate_intent("week")
+            StockPeriodRawConfig(**invalid)
 
 
 def publish_completion_contract(f, reference, freq):

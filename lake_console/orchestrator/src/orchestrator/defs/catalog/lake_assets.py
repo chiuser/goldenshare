@@ -3953,8 +3953,8 @@ LAKE_ASSET_CATALOG += tuple(
         performance_contract=_perf(
             batch_grain="stock/frequency; period",
             compute_engine=ComputeEngine.DUCKDB_SQL,
-            source_request_policy="http_listed_new_code_full_history_or_period_21_fields",
-            notes="Tushare HTTP直接源；每日19:30先补欠账再更新当前周；单股历史无日期过滤、两频下载；21列原样保存，分区一次组装原子替换。每批每个受影响频率发一条files_complete observation，物化携带同一不可变receipt引用；通知不代替blocking检查。",
+            source_request_policy="period_point_3_fields_probe_then_21_fields_download",
+            notes="20:00起按当日在市及最终停复牌事实做三列源预检；自然周五单点下载21列，只更新当期一文件。新股随全市场日更，历史维护独立；日更失败整批重取。真实运行UUID、写前/完成范围、物化及原检查共同证明交付，日常不读私有JSON；独立首次建库保留runless能力。",
         ),
     )
     for source, model, schema, path in _WEEKLY_CATALOG_SPECS
@@ -3995,8 +3995,8 @@ LAKE_ASSET_CATALOG += tuple(
         blocking_check_names=monthly_check_names(source), write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
         event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
         performance_contract=_perf(batch_grain="stock/frequency; period", compute_engine=ComputeEngine.DUCKDB_SQL,
-            source_request_policy="http_listed_new_code_full_history_or_period_21_fields",
-            notes="Tushare HTTP直接源；每日19:30先补欠账再更新当前月；保留20200228和20200229源记录，不扫描整月日线；历史刷新完整替换目标股票。每批每个受影响频率发一条files_complete observation，物化携带同一不可变receipt引用；通知不代替blocking检查。"),
+            source_request_policy="period_point_3_fields_probe_then_21_fields_download",
+            notes="20:00起按当日在市及最终停复牌事实做三列源预检；自然月末单点下载21列，只更新当期一文件。全日停牌有效返回可合并、缺席保留旧记录；不改既有历史标签。真实运行UUID、写前/完成范围、物化及原检查共同证明交付，日常不读私有JSON；独立首次建库保留runless能力。"),
     ) for source, model, schema in _MONTHLY_CATALOG_SPECS
 )
 
@@ -4056,7 +4056,7 @@ for _freq, _label, _family, _dimension, _schema, _path, _model_id in (
             batch_grain=_dimension,
             write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
             event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
-            notes="首次生成或明确Raw批次update；2014起源整行投影，21列不变；按实际变化周期去重，每期一次COPY/完整校验，三check共用证据；已提交同版本0行情SQL/0 COPY。通知sensor两条集合readiness查询、0行情读取；真实原生检查后补原完成回执；无源请求。",
+            notes="独立首次建库或完整成功Raw交付更新；2014起源整行投影，21列不变。按原生范围逐文件重建，每期一次COPY及完整校验，三项原检查绑定真实物化；失败从头重做，不复用日更候选或文件进度。sensor按运行及周期集合读取原生证据，不读旧回执和行情；无源请求。",
         ),
     )
 
