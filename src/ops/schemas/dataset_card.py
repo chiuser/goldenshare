@@ -4,6 +4,7 @@ from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel
+from src.ops.schemas.task_run import TaskRunListItem
 
 
 class DatasetCardItem(BaseModel):
@@ -35,6 +36,9 @@ class DatasetCardItem(BaseModel):
     last_sync_date: date | None = None
     latest_success_at: datetime | None = None
     expected_business_date: date | None = None
+    updated_code_count: int | None = None
+    expected_code_count: int | None = None
+    latest_task_run: TaskRunListItem | None = None
     latest_observed_date: str | None = None
     latest_observed_date_label: str | None = None
     expected_observed_date: str | None = None

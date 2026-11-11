@@ -915,6 +915,9 @@ export interface DatasetCardListResponse {
     group_order: number;
     items: Array<{
       card_key: string;
+      updated_code_count: number | null;
+      expected_code_count: number | null;
+      latest_task_run: TaskRunListResponse["items"][number] | null;
       dataset_key: string;
       detail_dataset_key: string;
       resource_key: string;

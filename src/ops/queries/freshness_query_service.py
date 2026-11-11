@@ -8,6 +8,9 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import desc, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+from src.ops.services.index_period_schedule import (
+    index_period_release_target, WEEKLY_LAST_TRADING_DAY, MONTHLY_FIRST_TRADING_DAY,
+)
 
 from src.foundation.datasets.models import DatasetDateModel
 from src.foundation.datasets.source_release_policies import NEXT_CALENDAR_DAY_0830_RELEASE
@@ -126,9 +129,11 @@ class OpsFreshnessQueryService:
         )
 
         items: list[DatasetFreshnessItem] = []
+        period_calendar = {}
         for projection in projections:
             expected_target = self._expected_business_date_target_for_projection(
                 projection,
+                session=session, calendar_cache=period_calendar,
                 reference_date=reference_date,
                 reference_now=reference_now,
                 latest_open_date=latest_open_date,
@@ -143,7 +148,8 @@ class OpsFreshnessQueryService:
                     expected_business_date=expected_target.target_trade_date,
                     expected_business_date_resolved=expected_target.is_resolved,
                     recent_failure=failures_by_resource.get(projection.resource_key),
-                    quality_note=quality_notes_by_resource.get(projection.resource_key),
+                    quality_note=quality_notes_by_resource.get(projection.resource_key) or (
+                        expected_target.reason if projection.resource_key in {"index_weekly", "index_monthly"} else None),
                     observed_business_range=observed_business_ranges.get(projection.dataset_key),
                     observed_sync_date=observed_sync_dates.get(projection.dataset_key),
                     observed_at_range=observed_at_ranges.get(projection.dataset_key),
@@ -356,6 +362,7 @@ class OpsFreshnessQueryService:
         self,
         projection: DatasetFreshnessProjection,
         *,
+        session: Session,
         reference_date: date,
         latest_open_date: date,
         open_trade_dates: list[date],
@@ -363,6 +370,7 @@ class OpsFreshnessQueryService:
     ) -> date | None:
         return self._expected_business_date_target_for_projection(
             projection,
+            session=session,
             reference_date=reference_date,
             reference_now=now or datetime.combine(reference_date, time(12), tzinfo=BUSINESS_TIMEZONE),
             latest_open_date=latest_open_date,
@@ -373,11 +381,19 @@ class OpsFreshnessQueryService:
         self,
         projection: DatasetFreshnessProjection,
         *,
+        session: Session,
+        calendar_cache: dict | None = None,
         reference_date: date,
         reference_now: datetime,
         latest_open_date: date,
         open_trade_dates: list[date],
     ) -> DatasetReleaseTarget:
+        if projection.resource_key in {"index_weekly", "index_monthly"}:
+            policy = WEEKLY_LAST_TRADING_DAY if projection.resource_key == "index_weekly" else MONTHLY_FIRST_TRADING_DAY
+            return index_period_release_target(
+                session, target_type="dataset_action", target_key=f"{projection.resource_key}.maintain",
+                policy=policy, now=reference_now, calendar_cache=calendar_cache,
+            )
         if projection.freshness_policy in {EVENT_RUN_TRACE, SNAPSHOT_RUN_TRACE}:
             return DatasetReleaseTarget(None, True)
         date_model = self._date_model_for_projection(projection)
@@ -844,6 +860,7 @@ class OpsFreshnessQueryService:
                 latest_open_date = business_date
             open_trade_dates = self._open_trade_dates(session)
             items: list[DatasetFreshnessItem] = []
+            period_calendar = {}
             for row in rows:
                 projection = get_dataset_freshness_projection(row.resource_key)
                 if projection is None:
@@ -856,24 +873,27 @@ class OpsFreshnessQueryService:
                     )
                 expected_target = self._expected_business_date_target_for_projection(
                     projection,
+                    session=session, calendar_cache=period_calendar,
                     reference_date=business_date,
                     reference_now=business_now,
                     latest_open_date=latest_open_date,
                     open_trade_dates=open_trade_dates,
                 )
+                old_index_target = projection.resource_key in {"index_weekly", "index_monthly"} and row.target_table != projection.target_table
                 items.append(
                     self._build_item(
                         projection=projection,
-                        latest_success_at=row.latest_success_at,
+                        latest_success_at=None if old_index_target else row.latest_success_at,
                         latest_open_date=latest_open_date,
                         reference_date=business_date,
                         expected_business_date=expected_target.target_trade_date,
-                        expected_business_date_resolved=expected_target.is_resolved,
+                        expected_business_date_resolved=expected_target.is_resolved and not old_index_target,
                         recent_failure=recent_failure,
-                        quality_note=None,
-                        observed_business_range=(row.earliest_business_date, row.latest_business_date),
-                        observed_sync_date=row.last_sync_date,
-                        observed_at_range=(row.earliest_observed_at, row.latest_observed_at),
+                        quality_note="旧 Serving 状态快照，请重建正式 Raw 状态。" if old_index_target else (
+                            expected_target.reason if projection.resource_key in {"index_weekly", "index_monthly"} else None),
+                        observed_business_range=None if old_index_target else (row.earliest_business_date, row.latest_business_date),
+                        observed_sync_date=None if old_index_target else row.last_sync_date,
+                        observed_at_range=None if old_index_target else (row.earliest_observed_at, row.latest_observed_at),
                     )
                 )
             existing_dataset_keys = {item.dataset_key for item in items}
@@ -882,6 +902,7 @@ class OpsFreshnessQueryService:
                     continue
                 expected_target = self._expected_business_date_target_for_projection(
                     projection,
+                    session=session, calendar_cache=period_calendar,
                     reference_date=business_date,
                     reference_now=business_now,
                     latest_open_date=latest_open_date,
@@ -896,7 +917,7 @@ class OpsFreshnessQueryService:
                         expected_business_date=expected_target.target_trade_date,
                         expected_business_date_resolved=expected_target.is_resolved,
                         recent_failure=None,
-                        quality_note=None,
+                        quality_note=expected_target.reason if projection.resource_key in {"index_weekly", "index_monthly"} else None,
                         observed_business_range=(None, None),
                         observed_sync_date=None,
                         observed_at_range=(None, None),

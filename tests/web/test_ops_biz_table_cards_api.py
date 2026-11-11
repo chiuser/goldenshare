@@ -69,12 +69,13 @@ def test_ops_biz_table_cards_project_all_definitions_and_actions(
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["total"] == 15
+    assert payload["total"] == 17
     assert [(group["group_key"], group["group_label"]) for group in payload["groups"]] == [
         ("data_mart", "数据集市"),
         ("sector_analysis", "板块分析"),
         ("content_relation", "内容关联"),
         ("technical_indicators", "技术指标"),
+        ("index_market_data", "A股指数行情"),
     ]
     assert [item["card_key"] for item in payload["groups"][0]["items"]] == [
         "wealth_market_turnover_snapshot",
@@ -83,7 +84,7 @@ def test_ops_biz_table_cards_project_all_definitions_and_actions(
 
     cards = _card_map(payload)
     maintenance_cards = [item for item in cards.values() if item["primary_action_type"]]
-    assert len(maintenance_cards) == 11
+    assert len(maintenance_cards) == 13
     assert {item["primary_action_type"] for item in maintenance_cards} == {"maintenance_action"}
     assert cards["equity_daily_snapshot"]["primary_action_key"] == "maintenance.rebuild_dm"
     assert cards["wealth_sector_heat_daily"]["primary_action_key"] == (

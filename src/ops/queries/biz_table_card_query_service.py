@@ -6,7 +6,14 @@ from datetime import date, datetime, time
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
+from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
+from src.ops.index_series_active_store_adapter import OpsIndexSeriesActiveStore, INDEX_PERIOD_SERVING_RESOURCE
+from src.ops.queries.task_run_query_service import TaskRunQueryService
+from src.ops.schemas.task_run import TaskRunListItem
+from src.ops.services.index_period_schedule import index_period_release_target, index_period_open_dates, TRADING_DAY_POINT
 
 from src.foundation.config.settings import get_settings
 from src.foundation.models.core.trade_calendar import TradeCalendar
@@ -47,6 +54,12 @@ class BizDatasetObservation:
     latest_success_at: datetime | None = None
     latest_observed_at: datetime | None = None
     query_error: bool = False
+    expected_business_date: date | None = None
+    updated_code_count: int | None = None
+    expected_code_count: int | None = None
+    latest_task_run: TaskRunListItem | None = None
+    target_task_status: str | None = None
+    note: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -90,10 +103,16 @@ class BizTableCardQueryService:
         }
         runtime_by_action = self._load_action_runtime(session, maintenance_keys)
         observation_cache: dict[str, BizDatasetObservation] = {}
+        calendar_cache = {}
+        try:
+            with session.begin_nested():
+                pool = tuple(OpsIndexSeriesActiveStore(session).list_active_codes(INDEX_PERIOD_SERVING_RESOURCE))
+        except SQLAlchemyError:
+            pool = None
         cards: list[DatasetCardItem] = []
         for definition in definitions:
             runtime = runtime_by_action.get(definition.producer_key, BizActionRuntimeSnapshot())
-            observation = self._observation_for(
+            observation = self._index_period_observation(session, definition, pool, calendar_cache) if definition.observation_query_key == "index_period_serving" else self._observation_for(
                 session,
                 definition,
                 runtime=runtime,
@@ -149,17 +168,20 @@ class BizTableCardQueryService:
             latest_observed_at=observation.latest_observed_at,
             earliest_observed_at=None,
             last_sync_date=None,
-            latest_success_at=observation.latest_success_at,
+            latest_success_at=runtime.latest_success_at if definition.observation_query_key == "index_period_serving" else observation.latest_success_at,
             expected_business_date=freshness.expected_business_date,
+            updated_code_count=observation.updated_code_count,
+            expected_code_count=observation.expected_code_count,
+            latest_task_run=observation.latest_task_run,
             latest_observed_date=(
                 observation.latest_business_date.isoformat() if observation.latest_business_date else None
             ),
-            latest_observed_date_label="最新业务日期" if observation.latest_business_date else None,
+            latest_observed_date_label="数据截至日" if definition.observation_query_key == "index_period_serving" else "最新业务日期" if observation.latest_business_date else None,
             expected_observed_date=(
                 freshness.expected_business_date.isoformat() if freshness.expected_business_date else None
             ),
-            expected_observed_date_label="应完成业务日期" if freshness.expected_business_date else None,
-            last_success_label="最近构建成功时间" if observation.latest_success_at else None,
+            expected_observed_date_label="日更目标交易日" if definition.observation_query_key == "index_period_serving" else "应完成业务日期" if freshness.expected_business_date else None,
+            last_success_label="最近 Serving 任务成功时间" if definition.observation_query_key == "index_period_serving" and runtime.latest_success_at else "最近构建成功时间" if observation.latest_success_at else None,
             lag_days=freshness.lag_days,
             freshness_note=freshness.note,
             primary_action_type=primary_action_type,
@@ -220,6 +242,41 @@ class BizTableCardQueryService:
         if query_key == "sector_analysis_published_batch":
             return self._load_sector_analysis_observation(session)
         raise ValueError(f"unsupported Biz observation query: {query_key}")
+
+    def _index_period_observation(self, session: Session, definition: BizDatasetDefinition, pool: tuple[str, ...] | None, calendar_cache: dict) -> BizDatasetObservation:
+        if pool is None:
+            return BizDatasetObservation(query_error=True, note="指数周、月线 Serving 激活池读取失败。")
+        try:
+            with session.begin_nested():
+                release = index_period_release_target(
+                    session, target_type="maintenance_action", target_key=definition.producer_key,
+                    policy=TRADING_DAY_POINT, now=self._local_now(), calendar_cache=calendar_cache,
+                )
+                target = release.target_trade_date
+                latest_task, target_status = TaskRunQueryService().get_latest_index_period_task_run(
+                    session, action_key=definition.producer_key, target_date=target,
+                )
+                if not pool or target is None:
+                    return BizDatasetObservation(
+                        expected_business_date=target, expected_code_count=len(pool), latest_task_run=latest_task,
+                        note="指数周、月线 Serving 激活池未初始化。" if not pool else release.reason,
+                    )
+                frequency = "week" if definition.dataset_key == "index_weekly_serving" else "month"
+                model = IndexWeeklyServing if frequency == "week" else IndexMonthlyServing
+                dates = index_period_open_dates(session, frequency, target, calendar_cache=calendar_cache)
+                rows = session.execute(select(model.ts_code, model.trade_date).where(
+                    model.period_start_date == dates[0], model.ts_code.in_(pool),
+                )).all()
+                return BizDatasetObservation(
+                    earliest_business_date=min((row.trade_date for row in rows), default=None),
+                    latest_business_date=max((row.trade_date for row in rows), default=None),
+                    expected_business_date=target, expected_code_count=len(pool),
+                    updated_code_count=sum(row.trade_date >= target for row in rows),
+                    latest_task_run=latest_task, target_task_status=target_status,
+                )
+        except Exception:
+            logger.exception("Index period coverage query failed: %s", definition.dataset_key)
+            return BizDatasetObservation(query_error=True, note="指数周期线覆盖状态读取失败。")
 
     @staticmethod
     def _load_turnover_observation(session: Session) -> BizDatasetObservation:
@@ -337,7 +394,15 @@ class BizTableCardQueryService:
         runtime: BizActionRuntimeSnapshot,
     ) -> BizDatasetFreshness:
         if observation.query_error:
-            return BizDatasetFreshness("unknown", "unknown", None, None, "状态读取失败")
+            return BizDatasetFreshness("unknown", "unknown", None, None, observation.note or "状态读取失败")
+        if definition.freshness_policy_key == "index_period_serving":
+            target = observation.expected_business_date
+            if not observation.expected_code_count or target is None:
+                return BizDatasetFreshness("unknown", "unknown", target, None, observation.note or "无法确定覆盖范围。")
+            if observation.updated_code_count == observation.expected_code_count:
+                return BizDatasetFreshness("healthy", "fresh", target, 0, "池内指数均已更新至目标交易日。")
+            failed = observation.target_task_status == "failed"
+            return BizDatasetFreshness("failed" if failed else "warning", "failed" if failed else "lagging", target, None, "池内指数尚未全部更新至目标交易日。")
         if definition.freshness_policy_key == "maintenance_task_trace":
             return self._task_trace_freshness(runtime)
         if definition.freshness_policy_key == "static_snapshot_ready":

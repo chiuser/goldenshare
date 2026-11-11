@@ -2,7 +2,8 @@ from __future__ import annotations
 
 from datetime import date
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, func, select, literal
+from sqlalchemy.orm import aliased, load_only
 from sqlalchemy.orm import Session
 
 from src.app.exceptions import WebAppError
@@ -45,6 +46,37 @@ from src.ops.schemas.task_run import (
 class TaskRunQueryService:
     MAX_VIEW_NODES = 200
     MAX_PAGED_UNIT_RESULTS = 16
+
+    def get_latest_index_period_task_run(
+        self, session: Session, *, resource_key: str | None = None,
+        action_key: str | None = None, target_date: date | None = None,
+    ) -> tuple[TaskRunListItem | None, str | None]:
+        filters = [TaskRun.action == "maintain"]
+        if resource_key is not None:
+            filters += [TaskRun.task_type == "dataset_action", TaskRun.resource_key == resource_key]
+        else:
+            filters += [TaskRun.task_type == "maintenance_action", TaskRun.request_payload_json["target_key"].as_string() == action_key]
+        target_status = literal(None)
+        if target_date is not None:
+            current = aliased(TaskRun)
+            target_status = select(current.status).where(
+                current.task_type == "maintenance_action", current.action == "maintain",
+                current.request_payload_json["target_key"].as_string() == action_key,
+                current.time_input_json["trade_date"].as_string() == target_date.isoformat(),
+            ).order_by(current.requested_at.desc(), current.id.desc()).limit(1).scalar_subquery()
+        row = session.execute(select(TaskRun, AppUser.username, OpsSchedule.display_name, TaskRunIssue.title, target_status)
+            .options(load_only(
+                TaskRun.id, TaskRun.task_type, TaskRun.resource_key, TaskRun.action, TaskRun.title,
+                TaskRun.trigger_source, TaskRun.status, TaskRun.status_reason_code, TaskRun.request_payload_json,
+                TaskRun.time_input_json, TaskRun.requested_at, TaskRun.started_at, TaskRun.ended_at,
+                TaskRun.unit_total, TaskRun.unit_done, TaskRun.unit_failed, TaskRun.progress_percent,
+                TaskRun.rows_fetched, TaskRun.rows_saved, TaskRun.rows_rejected, TaskRun.rows_deduplicated, TaskRun.primary_issue_id,
+            ))
+            .outerjoin(AppUser, AppUser.id == TaskRun.requested_by_user_id)
+            .outerjoin(OpsSchedule, OpsSchedule.id == TaskRun.schedule_id)
+            .outerjoin(TaskRunIssue, TaskRunIssue.id == TaskRun.primary_issue_id)
+            .where(*filters).order_by(TaskRun.requested_at.desc(), TaskRun.id.desc()).limit(1)).one_or_none()
+        return (self._list_item(*row[:4]), row[4]) if row is not None else (None, None)
 
     def list_task_runs(
         self,

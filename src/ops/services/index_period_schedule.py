@@ -6,8 +6,12 @@ from sqlalchemy.orm import Session
 from src.app.exceptions import WebAppError
 from src.foundation.config.settings import get_settings
 from src.foundation.ingestion.index_month_calendar import load_complete_open_dates
-from src.foundation.ingestion.index_period_serving import MARKET_CLOSE, SHANGHAI
+from src.foundation.ingestion.index_period_serving import MARKET_CLOSE, SHANGHAI, _period_bounds
 from src.ops.models.ops.task_run import TaskRun
+from src.ops.models.ops.schedule import OpsSchedule
+from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
+from src.ops.services.dataset_release_target_service import DatasetReleaseTarget
 
 
 WEEKLY_LAST_TRADING_DAY = "weekly_last_trading_day"
@@ -44,13 +48,17 @@ def index_period_schedule_time(
     return configured
 
 
-def _open_dates(session: Session, start: date, end: date) -> tuple[date, ...]:
+def _open_dates(session: Session, start: date, end: date, cache: dict | None = None) -> tuple[date, ...]:
+    if cache is not None and (start, end) in cache:
+        return cache[start, end]
     dates = load_complete_open_dates(session, exchange=get_settings().default_exchange, start=start, end=end)
     if dates is None:
         raise WebAppError(
             status_code=422, code="validation_error",
             message=f"{start} 至 {end} 的交易日历不完整，请先更新交易日历。",
         )
+    if cache is not None:
+        cache[start, end] = dates
     return dates
 
 
@@ -75,12 +83,61 @@ def next_index_period_occurrence(session: Session, policy: str, at: time, after:
         day = end + timedelta(days=1)
 
 
-def index_period_target_date(session: Session, policy: str, scheduled_at: datetime) -> date:
+def index_period_target_date(session: Session, policy: str, scheduled_at: datetime, *, calendar_cache: dict | None = None) -> date:
     day = scheduled_at.astimezone(SHANGHAI).date()
     if policy != MONTHLY_FIRST_TRADING_DAY:
         return day
     previous_month_end = day.replace(day=1) - timedelta(days=1)
-    dates = _open_dates(session, previous_month_end.replace(day=1), previous_month_end)
+    dates = _open_dates(session, previous_month_end.replace(day=1), previous_month_end, calendar_cache)
     if not dates:
         raise WebAppError(status_code=422, code="validation_error", message="上月没有可取数的交易日。")
     return dates[-1]
+
+
+def latest_index_period_occurrence(
+    session: Session, policy: str, at: time, now: datetime, *, calendar_cache: dict | None = None,
+) -> datetime:
+    local_now = now.astimezone(SHANGHAI)
+    day = local_now.date()
+    while True:
+        if policy == MONTHLY_FIRST_TRADING_DAY:
+            start, end = day.replace(day=1), day.replace(day=monthrange(day.year, day.month)[1])
+            candidates = _open_dates(session, start, end, calendar_cache)[:1]
+        else:
+            start, end = day - timedelta(days=day.weekday()), day + timedelta(days=6 - day.weekday())
+            candidates = _open_dates(session, start, end, calendar_cache)
+            if policy == WEEKLY_LAST_TRADING_DAY:
+                candidates = candidates[-1:]
+        for candidate in reversed(candidates):
+            occurrence = datetime.combine(candidate, at, tzinfo=SHANGHAI)
+            if occurrence <= local_now:
+                return occurrence.astimezone(timezone.utc)
+        day = start - timedelta(days=1)
+
+
+def index_period_release_target(
+    session: Session, *, target_type: str, target_key: str, policy: str, now: datetime,
+    calendar_cache: dict | None = None,
+) -> DatasetReleaseTarget:
+    try:
+        with session.begin_nested():
+            schedules = session.scalars(select(OpsSchedule).where(
+                OpsSchedule.target_type == target_type, OpsSchedule.target_key == target_key,
+                OpsSchedule.calendar_policy == policy, OpsSchedule.trigger_mode == "schedule",
+            )).all()
+            targets = []
+            for schedule in schedules:
+                at = index_period_schedule_time(policy, schedule.schedule_type, schedule.cron_expr, schedule.timezone)
+                occurrence = latest_index_period_occurrence(session, policy, at, now, calendar_cache=calendar_cache)
+                targets.append(index_period_target_date(session, policy, occurrence, calendar_cache=calendar_cache))
+            target = max(targets, default=None)
+            return DatasetReleaseTarget(target, target is not None, None if target else "未配置指数周期线排程，无法确定应到日期。")
+    except WebAppError as exc:
+        return DatasetReleaseTarget(None, False, str(exc))
+    except SQLAlchemyError:
+        return DatasetReleaseTarget(None, False, "指数周期线排程或交易日历读取失败。")
+
+
+def index_period_open_dates(session: Session, frequency: str, day: date, *, calendar_cache: dict) -> tuple[date, ...]:
+    start, end = _period_bounds(day, frequency)
+    return _open_dates(session, start, end, calendar_cache)

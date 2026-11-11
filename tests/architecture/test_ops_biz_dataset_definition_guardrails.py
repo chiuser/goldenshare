@@ -17,6 +17,8 @@ DEFINITION_PATH = REPO_ROOT / "src/ops/catalog/biz_dataset_definitions.py"
 LEGACY_CATALOG_PATH = REPO_ROOT / "src/ops/catalog/biz_table_catalog.py"
 
 EXPECTED_KEYS = {
+    "index_weekly_serving",
+    "index_monthly_serving",
     "wealth_market_turnover_snapshot",
     "equity_daily_snapshot",
     "wealth_sector_hierarchy",
@@ -34,6 +36,7 @@ EXPECTED_KEYS = {
     "index_nineturn_daily",
 }
 EXPECTED_GROUPS = {
+    "index_market_data": "A股指数行情",
     "data_mart": "数据集市",
     "sector_analysis": "板块分析",
     "content_relation": "内容关联",
@@ -44,9 +47,9 @@ EXPECTED_GROUPS = {
 def test_biz_dataset_definitions_are_complete_and_valid() -> None:
     definitions = list_biz_dataset_definitions()
 
-    assert len(definitions) == 15
+    assert len(definitions) == 17
     assert {item.dataset_key for item in definitions} == EXPECTED_KEYS
-    assert len({item.table_name for item in definitions}) == 15
+    assert len({item.table_name for item in definitions}) == 17
     assert {item.group_key: item.group_label for item in definitions} == EXPECTED_GROUPS
     assert "core_serving.wealth_sector_analysis_publish_batch" not in {
         item.table_name for item in definitions
@@ -59,7 +62,7 @@ def test_biz_dataset_definitions_bind_maintenance_actions_to_target_tables() -> 
         item for item in list_biz_dataset_definitions() if item.producer_type == "maintenance_action"
     ]
 
-    assert len(maintenance_definitions) == 11
+    assert len(maintenance_definitions) == 13
     for definition in maintenance_definitions:
         action = get_maintenance_action(definition.producer_key)
         assert action is not None

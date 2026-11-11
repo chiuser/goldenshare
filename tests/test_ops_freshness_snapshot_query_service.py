@@ -83,7 +83,7 @@ def test_business_reference_date_uses_china_business_day_when_utc_is_previous_da
     assert reference_date == date(2026, 5, 15)
 
 
-def test_kpl_list_freshness_uses_source_release_target_date() -> None:
+def test_kpl_list_freshness_uses_source_release_target_date(db_session) -> None:
     service = OpsFreshnessQueryService()
     projection = get_dataset_freshness_projection("kpl_list")
     assert projection is not None
@@ -91,6 +91,7 @@ def test_kpl_list_freshness_uses_source_release_target_date() -> None:
 
     before_release = service._expected_business_date_target_for_projection(
         projection,
+        session=db_session,
         reference_date=date(2026, 7, 28),
         reference_now=datetime(2026, 7, 27, 23, 0, tzinfo=timezone.utc),
         latest_open_date=date(2026, 7, 27),
@@ -98,6 +99,7 @@ def test_kpl_list_freshness_uses_source_release_target_date() -> None:
     )
     after_release = service._expected_business_date_target_for_projection(
         projection,
+        session=db_session,
         reference_date=date(2026, 7, 28),
         reference_now=datetime(2026, 7, 28, 0, 35, tzinfo=timezone.utc),
         latest_open_date=date(2026, 7, 27),
@@ -110,12 +112,13 @@ def test_kpl_list_freshness_uses_source_release_target_date() -> None:
     assert after_release.is_resolved is True
 
 
-def test_kpl_list_freshness_is_unconfirmed_when_release_target_cannot_use_calendar() -> None:
+def test_kpl_list_freshness_is_unconfirmed_when_release_target_cannot_use_calendar(db_session) -> None:
     service = OpsFreshnessQueryService()
     projection = get_dataset_freshness_projection("kpl_list")
     assert projection is not None
     target = service._expected_business_date_target_for_projection(
         projection,
+        session=db_session,
         reference_date=date(2026, 7, 28),
         reference_now=datetime(2026, 7, 28, 1, 0, tzinfo=timezone.utc),
         latest_open_date=date(2026, 7, 28),
@@ -140,7 +143,7 @@ def test_kpl_list_freshness_is_unconfirmed_when_release_target_cannot_use_calend
     assert item.freshness_status == "unconfirmed"
 
 
-def test_margin_freshness_waits_for_next_open_day_release_deadline() -> None:
+def test_margin_freshness_waits_for_next_open_day_release_deadline(db_session) -> None:
     service = OpsFreshnessQueryService()
     projection = get_dataset_freshness_projection("margin")
     assert projection is not None
@@ -148,6 +151,7 @@ def test_margin_freshness_waits_for_next_open_day_release_deadline() -> None:
 
     before_deadline = service._expected_business_date_target_for_projection(
         projection,
+        session=db_session,
         reference_date=date(2026, 7, 31),
         reference_now=datetime(2026, 7, 31, 9, 0, tzinfo=SHANGHAI),
         latest_open_date=date(2026, 7, 31),
@@ -155,6 +159,7 @@ def test_margin_freshness_waits_for_next_open_day_release_deadline() -> None:
     )
     after_deadline = service._expected_business_date_target_for_projection(
         projection,
+        session=db_session,
         reference_date=date(2026, 7, 31),
         reference_now=datetime(2026, 7, 31, 9, 30, tzinfo=SHANGHAI),
         latest_open_date=date(2026, 7, 31),

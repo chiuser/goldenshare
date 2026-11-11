@@ -43,6 +43,9 @@ function renderPage(
 function card(overrides: Partial<Record<string, unknown>>) {
   return {
     card_key: "daily",
+    updated_code_count: null,
+    expected_code_count: null,
+    latest_task_run: null,
     dataset_key: "daily",
     detail_dataset_key: "daily",
     resource_key: "daily",
@@ -93,6 +96,40 @@ function card(overrides: Partial<Record<string, unknown>>) {
 }
 
 describe("V2.1 数据源详情页", () => {
+  it("展示后端覆盖和历史任务日期，并链接既有维护及任务详情", async () => {
+    apiRequest.mockResolvedValue({ total: 1, groups: [{ group_key: "index_market_data", group_label: "A股指数行情", group_order: 50, items: [card({
+      card_key: "index_monthly_serving", dataset_key: "index_monthly_serving", display_name: "指数月线 Serving",
+      delivery_mode: "biz_table_snapshot", target_table: "core_serving.index_monthly_serving",
+      primary_action_type: "maintenance_action", primary_action_key: "maintenance.update_index_monthly_serving",
+      status: "failed", freshness_status: "failed", expected_business_date: "2026-11-10",
+      expected_observed_date_label: "日更目标交易日", updated_code_count: 9, expected_code_count: 10,
+      latest_task_run: { id: 42, task_type: "maintenance_action", resource_key: null, action_key: "maintenance.update_index_monthly_serving",
+        action: "maintain", title: "指数月线 Serving", trigger_source: "manual", trigger_source_label: "手动",
+        status: "success", status_reason_code: null, requested_by_username: "admin", requested_at: "2026-11-10T22:00:00+08:00",
+        started_at: null, ended_at: null, time_scope: { kind: "point", start: "2026-10-30", end: "2026-10-30", label: "2026-10-30" },
+        time_scope_label: "2026-10-30", schedule_display_name: null, unit_total: 10, unit_done: 10, unit_failed: 0,
+        progress_percent: 100, rows_fetched: 10, rows_saved: 10, rows_rejected: 0, rows_deduplicated: 0,
+        primary_issue_id: null, primary_issue_title: null },
+    })] }] });
+    renderPage({ sourceKey: "biz_tableset", title: "Biz数据集" });
+    expect(await screen.findByText("已更新指数：9/10")).toBeInTheDocument();
+    expect(screen.getByText("日更目标交易日：2026/11/10")).toBeInTheDocument();
+    expect(screen.getByText("最近任务日期：2026-10-30")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "任务 #42" })).toHaveAttribute("href", "/app/ops/tasks/42");
+    expect(screen.getByRole("link", { name: "去操作" })).toHaveAttribute("href", "/app/ops/v21/datasets/tasks?tab=manual&action_key=maintenance.update_index_monthly_serving&action_type=maintenance_action");
+  });
+
+  it("Raw 卡片展示正式期末，覆盖字段为空时不显示覆盖", async () => {
+    apiRequest.mockResolvedValue({ total: 1, groups: [{ group_key: "index_market_data", group_label: "A股指数行情", group_order: 50,
+      items: [card({ card_key: "index_weekly", dataset_key: "index_weekly", display_name: "指数周线",
+        raw_table_label: "raw_tushare.index_weekly_bar", latest_observed_date: "2026-11-06", expected_business_date: "2026-11-06",
+        primary_action_key: "index_weekly.maintain" })] }] });
+    renderPage();
+    expect(await screen.findByText("指数周线")).toBeInTheDocument();
+    expect(screen.getByText("应完成业务日期：2026/11/06")).toBeInTheDocument();
+    expect(screen.queryByText(/已更新指数/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/最近任务日期/)).not.toBeInTheDocument();
+  });
   it("消费 dataset card view 展示数据集健康状态", async () => {
     apiRequest.mockImplementation(async (url: string) => {
       if (url === "/api/v1/ops/dataset-cards?source_key=tushare") {

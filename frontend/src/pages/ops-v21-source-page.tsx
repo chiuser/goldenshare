@@ -30,6 +30,10 @@ interface SourceCardItem {
   autoTooltipText: string;
   probeEnabled: boolean;
   probeTooltip: string;
+  coverageText: string | null;
+  expectedText: string | null;
+  task: DatasetCard["latest_task_run"];
+  note: string | null;
 }
 
 function toCardStatus(rawStatus: string | null | undefined, freshnessStatus?: string | null): CardStatus {
@@ -142,6 +146,7 @@ export function OpsV21SourcePage({
       const hasActiveTaskRun = activeTaskRunStatus === "queued" || activeTaskRunStatus === "running" || activeTaskRunStatus === "canceling";
       const status = toCardStatus(item.status, item.freshness_status);
       const isBizTable = isBizTableCard(item);
+      const isIndexPeriod = ["index_weekly", "index_monthly", "index_weekly_serving", "index_monthly_serving"].includes(item.dataset_key);
       return {
         datasetKey: item.card_key,
         displayName: item.display_name,
@@ -150,6 +155,12 @@ export function OpsV21SourcePage({
         lastSyncLabel: item.last_success_label || (isBizTable ? "最近构建成功时间" : "最近维护成功时间"),
         lastSyncText: buildLastSyncText(item, hasActiveTaskRun),
         observedText: buildObservedText(item),
+        coverageText: item.updated_code_count != null && item.expected_code_count != null
+          ? `已更新指数：${item.updated_code_count}/${item.expected_code_count}` : null,
+        expectedText: isIndexPeriod && item.expected_business_date
+          ? `${item.expected_observed_date_label || "目标交易日"}：${formatDateLabel(item.expected_business_date)}` : null,
+        task: item.latest_task_run,
+        note: isIndexPeriod ? item.freshness_note : null,
         primaryActionType: item.primary_action_type || null,
         primaryActionKey: item.primary_action_key || null,
         autoEnabled: item.auto_schedule_active > 0,
@@ -243,6 +254,22 @@ export function OpsV21SourcePage({
                         <StatusBadge value={item.status} label={statusLabel(item.status)} size="xs" />
                       </Group>
                       <Text size="sm">{item.observedText}</Text>
+                      {item.expectedText ? <Text size="sm">{item.expectedText}</Text> : null}
+                      {item.coverageText ? <Text size="sm">{item.coverageText}</Text> : null}
+                      {item.task ? (
+                        <Stack gap={4}>
+                          <Text size="sm">最近任务日期：{item.task.time_scope_label || "—"}</Text>
+                          <Group gap={6}>
+                            <Button component="a" href={`/app/ops/tasks/${item.task.id}`} size="compact-xs" variant="subtle">
+                              任务 #{item.task.id}
+                            </Button>
+                            <StatusBadge value={item.task.status} size="xs" />
+                          </Group>
+                        </Stack>
+                      ) : null}
+                      {item.note && (item.status === "unknown" || item.status === "unconfirmed") ? (
+                        <Text size="xs" c="dimmed" style={{ overflowWrap: "anywhere" }}>{item.note}</Text>
+                      ) : null}
                     </Stack>
 
                     <Group justify="space-between" mt="auto">

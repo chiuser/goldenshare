@@ -9,6 +9,7 @@ from src.ops.action_catalog import get_maintenance_action
 
 BizProducerType = Literal["maintenance_action", "dagster_asset"]
 BizObservationQueryKey = Literal[
+    "index_period_serving",
     "direct_trade_date",
     "static_snapshot",
     "maintenance_task_trace",
@@ -16,6 +17,7 @@ BizObservationQueryKey = Literal[
     "wealth_turnover_ready_snapshot",
 ]
 BizFreshnessPolicyKey = Literal[
+    "index_period_serving",
     "latest_completed_trade_day",
     "published_batch_trade_day",
     "static_snapshot_ready",
@@ -58,6 +60,7 @@ _TABLE_NAME_PATTERN = re.compile(r"^[a-z0-9_]+\.[a-z0-9_]+$")
 _LOCAL_TIME_PATTERN = re.compile(r"^(?:[01]\d|2[0-3]):[0-5]\d$")
 _CONTROL_TABLE = "core_serving.wealth_sector_analysis_publish_batch"
 _QUERY_KEYS = {
+    "index_period_serving",
     "direct_trade_date",
     "static_snapshot",
     "maintenance_task_trace",
@@ -65,6 +68,7 @@ _QUERY_KEYS = {
     "wealth_turnover_ready_snapshot",
 }
 _FRESHNESS_POLICIES = {
+    "index_period_serving",
     "latest_completed_trade_day",
     "published_batch_trade_day",
     "static_snapshot_ready",
@@ -113,6 +117,14 @@ def _definition(
 _SECTOR_ANALYSIS_PRODUCER = "maintenance.materialize_wealth_sector_analysis_daily"
 
 BIZ_DATASET_DEFINITIONS: tuple[BizDatasetDefinition, ...] = (
+    *(_definition(
+        dataset_key=f"index_{period}_serving", display_name=f"指数{label}线 Serving",
+        table_name=f"core_serving.index_{period}_serving", group_key="index_market_data",
+        group_label="A股指数行情", group_order=50, item_order=order,
+        observation_query_key="index_period_serving", freshness_policy_key="index_period_serving",
+        business_date_column="trade_date", observed_at_column="updated_at", ready_after_local_time=None,
+        producer_type="maintenance_action", producer_key=f"maintenance.update_index_{period}_serving",
+    ) for period, label, order in (("weekly", "周", 10), ("monthly", "月", 20))),
     _definition(
         dataset_key="wealth_market_turnover_snapshot",
         display_name="成交额分钟快照",

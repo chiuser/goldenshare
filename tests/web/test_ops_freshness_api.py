@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 
 import pytest
 
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
+from src.foundation.models.raw.raw_index_monthly_bar import RawIndexMonthlyBar
+from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.dataset_definition_projection import DatasetFreshnessProjection
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
@@ -54,7 +56,13 @@ def test_ops_freshness_returns_grouped_dataset_statuses(
     task_run_factory,
     task_run_node_factory,
     task_run_issue_factory,
+    ops_schedule_factory,
+    monkeypatch,
 ) -> None:
+    # The index-period Definition now observes formal Raw, and due dates use the configured schedule.
+    fixed_now = datetime(2026, 3, 30, 14, 30, tzinfo=timezone.utc)
+    monkeypatch.setattr(OpsFreshnessQueryService, '_business_reference_now', staticmethod(lambda today=None, now=None: now or fixed_now))
+    RawIndexMonthlyBar.__table__.create(db_session.get_bind(), checkfirst=True)
     user_factory(username="admin", password="secret", is_admin=True)
     trade_calendar_factory(exchange="SSE", trade_date=date(2025, 12, 31), is_open=True, pretrade_date=date(2025, 12, 30))
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 2, 27), is_open=True, pretrade_date=date(2026, 2, 26))
@@ -62,13 +70,17 @@ def test_ops_freshness_returns_grouped_dataset_statuses(
     equity_block_trade_factory(trade_date=date(2020, 1, 1))
     equity_block_trade_factory(trade_date=date(2026, 3, 26), ts_code="000002.SZ", buyer="buyer-2", seller="seller-2", price="11.00", vol="1200.00")
     db_session.add(
-        IndexMonthlyServing(
+        RawIndexMonthlyBar(
             ts_code="000001.SH",
-            period_start_date=date(2025, 12, 1),
             trade_date=date(2025, 12, 31),
-            source="api",
+            api_name="index_monthly", fetched_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         )
     )
+    for offset in range((date(2026,3,31)-date(2026,2,1)).days+1):
+        day=date(2026,2,1)+timedelta(days=offset)
+        db_session.merge(TradeCalendar(exchange='SSE',trade_date=day,is_open=day.weekday()<5))
+    ops_schedule_factory(target_type='dataset_action',target_key='index_monthly.maintain',
+        schedule_type='cron',cron_expr='0 19 * * *',calendar_policy='monthly_first_trading_day',timezone_name='Asia/Shanghai')
     _mark_resource_success(
         task_run_factory=task_run_factory,
         task_run_node_factory=task_run_node_factory,
@@ -376,7 +388,7 @@ def test_build_item_prefers_runtime_trace_note_for_not_applicable_dataset_with_o
     assert item.freshness_note == "最近刷新成功时间来自 TaskRun。"
 
 
-def test_ops_freshness_expected_date_uses_calendar_week_and_month_anchors() -> None:
+def test_ops_freshness_expected_date_uses_calendar_week_and_month_anchors(db_session) -> None:
     service = OpsFreshnessQueryService()
     weekly_projection = DatasetFreshnessProjection(
         dataset_key="stk_period_bar_week",
@@ -405,18 +417,21 @@ def test_ops_freshness_expected_date_uses_calendar_week_and_month_anchors() -> N
 
     assert service._expected_business_date_for_projection(
         weekly_projection,
+        session=db_session,
         reference_date=date(2026, 5, 2),
         latest_open_date=date(2026, 4, 30),
         open_trade_dates=[],
     ) == date(2026, 5, 1)
     assert service._expected_business_date_for_projection(
         monthly_projection,
+        session=db_session,
         reference_date=date(2026, 4, 29),
         latest_open_date=date(2026, 4, 29),
         open_trade_dates=[],
     ) == date(2026, 3, 31)
     assert service._expected_business_date_for_projection(
         monthly_projection,
+        session=db_session,
         reference_date=date(2026, 4, 30),
         latest_open_date=date(2026, 4, 30),
         open_trade_dates=[],

@@ -26,6 +26,7 @@ from src.ops.schemas.dataset_card import (
     DatasetCardListResponse,
 )
 from src.ops.schemas.freshness import DatasetFreshnessItem
+from src.ops.queries.task_run_query_service import TaskRunQueryService
 
 
 CardStatus = str
@@ -78,6 +79,7 @@ class DatasetCardQueryService:
         selected_facts = self._select_facts(facts, source_key=normalized_source)
         cards = self._build_cards(
             selected_facts,
+            session=session,
             freshness_by_dataset=freshness_by_dataset,
             probe_counts=probe_counts,
             source_key=normalized_source,
@@ -111,6 +113,7 @@ class DatasetCardQueryService:
         self,
         facts: list[DatasetCardFact],
         *,
+        session: Session,
         freshness_by_dataset: dict[str, DatasetFreshnessItem],
         probe_counts: dict[str, tuple[int, int]],
         source_key: str | None,
@@ -161,6 +164,8 @@ class DatasetCardQueryService:
                     last_sync_date=self._latest_date([item.last_sync_date for item in member_freshness]),
                     latest_success_at=self._latest_datetime([item.latest_success_at for item in member_freshness]),
                     expected_business_date=self._latest_date([item.expected_business_date for item in member_freshness]),
+                    latest_task_run=(TaskRunQueryService().get_latest_index_period_task_run(session, resource_key=primary.dataset_key)[0]
+                                     if primary.dataset_key in {"index_weekly", "index_monthly"} else None),
                     latest_observed_date=primary_freshness.latest_observed_date if primary_freshness else None,
                     latest_observed_date_label=primary_freshness.latest_observed_date_label if primary_freshness else None,
                     expected_observed_date=primary_freshness.expected_observed_date if primary_freshness else None,
