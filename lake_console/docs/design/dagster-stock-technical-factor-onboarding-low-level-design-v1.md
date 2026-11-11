@@ -1,6 +1,6 @@
 # 股票技术因子 DG 数据集接入 LLD v1
 
-日期：2026-11-11。状态：源端代码齐备、完整日发布和指定日期人工补跑的现行设计见§21。前五批及第六批前两步是已有代码基线；新规则第1小步的共享齐备算法与覆盖记录、第2小步的七字段配置及指定日期身份已完成开发、隔离验证及独立审计，见§21.16～21.17。第3小步及以后尚待实施。正式资源操作按阶段另行授权。
+日期：2026-11-11。状态：源端代码齐备、完整日发布和指定日期人工补跑的现行设计见§21。前五批及第六批前两步是已有代码基线；新规则第1小步的共享齐备算法与覆盖记录、第2小步的七字段配置及指定日期身份、第3小步的共用两列探测已完成开发、隔离验证及独立审计，见§21.16～21.18。第4小步及以后尚待实施。正式资源操作按阶段另行授权。
 
 依据：[原技术方案](dagster-stock-technical-factor-onboarding-plan-v1.md)、[DG接入模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理规范](dagster-data-pipeline-performance-governance.md)、[Prod审计报告](../../reports/stock_factor_pro_prod_audit_20261021/README.md)。下载器依据[组件LLD](dagster-tushare-download-component-low-level-design-v1.html)与[业务使用文档](../architecture/tushare-download-component-usage-v1.html)，不在本数据集重做。
 
@@ -3322,6 +3322,14 @@ sensor以既有5秒性能目标核对本地读取、T/P摘要和源查询的总�
 
 沿§21.14余时和现有资源关闭合同。不能直接复制`idx_factor_pro_source_probe.py`：该函数会丢弃非预期代码且只查一页，不满足本需求；不改这个指数消费者。先用安装环境的真实parse_http、PageRequest和可控HTTP响应做投影、空页/短页/满页、重复跨页、错日、额外字段、源错误、超时及关闭验证，再复用已获准的有界源样本核两列合同。正式源请求仍按只读授权与权限执行，不使用正式sensor evaluation做实验。
 
+第3小步具体输入为同T的connection/coverage_inputs/target_trade_date、既有ConfigurationSnapshot、Clock和DownloadControl；调用方交接同连接已准备的依据，本函数不加载配置或正式文件。结果StkFactorProSourceProbeResult保存目标日、ready、reason、source_row_count/source_code_count、既有StkFactorProCoverageCounts小记录、optional_count/optional_present_count/optional_sample_codes、request_count、page_count、elapsed_ms及既有DownloadErrorCode。计数摘要不返回完整代码；源分页未完成时source_code_count和coverage_counts为None，身份未知时仍保留完整源代码数，coverage_counts中应有/实际/差集值为None并保留身份诊断。可选首日样本沿现有代码样本合同至多20项。
+
+每页只调用一次HttpProTransport.fetch_page，复用完整契约及其binding；只接受两列，按列名对应值、允许两列顺序变化，代码必须为非空字符串，日期必须为目标日YYYYMMDD。按页将两列数组批量插入本连接临时表，以原主键拒绝页内及跨页重复，不用逐行入库。短页/空页后仅调用一次calculate_stk_factor_pro_coverage，直接交接当前关系；该函数不读取业务文件、不写诊断附件，并复用已有E/F和身份映射。未知依据或未确认开市时零HTTP；源失败或超时返回ready=False及明确失败，不能以已得部分页计算齐备。取消沿既有DownloadCancelled向上退出；本地SQL错误向上报告。
+
+关闭复用已有resource_cleanup，仅调用传入的transport.close、UnitMemory.clear、SessionControl.clear和本函数临时表释放；该helper导入及使用不读取bootstrap目录。源异常或取消也尝试全部清理并保留原异常，清理失败不能返回ready。coverage_inputs的E/F及覆盖关系由调用方沿现有日期/连接生命周期释放，不删除调用方准备结果。累计行数只计实际已解析行，完整代码数及覆盖计数在完整分页后才确定；页数计已接受页，含合法空终页。耗时包括关闭，结束时再核总deadline；不修改通用下载器、指数探测或既有日更入口。
+
+本步新增一个生产文件及直接测试，§21.14预算不变：单目标日、两列、零业务文件/正式事件/正式数据库写入，Python常驻单页，完整两列关系位于受控DuckDB连接，复用既有2GiB统计及连接自身限制。中断后不保存页进度，下次从offset=0重探测；最后验收只读临时关系及小结果，清理后不得遗留本函数临时表或HTTP句柄。测试使用固定10,000页容量核满页/终页，覆盖错误、首日缺/有、次日必需、停牌、多码、无效身份、近deadline与清理；有界来源复用已保存的一股五日样本，投影目标日两列通过真实localhost HTTP/parse_http，不新增正式源请求。
+
 **4. 将完整日门槛移到发布前。**assets入口取得本run唯一known_pg/known_records及同一主要连接，先准备T的覆盖依据和E/F，再按原算法保存完整历史计划。manual_date及bootstrap_supplement在保存名单、正式下载开始观察和261字段下载前，调用第3小步的同一两列探测；不齐只写真实precheck观察，不产生正式下载/物化/历史资格。today消费sensor已通过的准入，不重复两列请求。下载完整日unit、关闭session并核summary后，投影DAY_SOURCE的两列计算一次；不齐按日阶段失败出口报告真实差集。publisher新增必传on_raw_candidate(*, raw_relation, raw_audit)回调，由asset提供同连接闭包；Raw候选audit完成后、_publish_file之前恰调用一次，闭包对RAW_EXPECTED作本次候选比较，失败即抛原日阶段错误，通过才提升Raw，随后Silver沿原逻辑生成。闭包保留candidate_calculated供evaluate及初始化统计消费，publisher继续yield原(target,audit)，不新增返回包装类或IO→readiness反向依赖。evaluate仅绑定真实物化/check，不再重算或读取正式Raw。历史publisher和bootstrap忠实导入路径不调用这个全市场日发布回调。
 
 自动正式下载开始前复核原D和午夜截止；已经实际开始的完整日任务允许结束。完整日源在探测之后变化造成缺码/多码，属于本轮日失败，可在下一合法slot重新探测并全新下载，不保留缺股补采进度。旧Raw合并候选有多码则停止并报告，不自动删行。正反例覆盖零提升、合法NULL/首日有行完整保存、旧Raw不能填补本轮源缺码、Raw已发Silver失败、事件保存失败和新run完整重下。源检查和候选检查各一次是两个不同输入的必要计算，不是重复审计。
@@ -3414,3 +3422,26 @@ sensor以既有5秒性能目标核对本地读取、T/P摘要和源查询的总�
 开发后另加载实施前源码作独立对照，不用待测函数生成预期：旧输入拒绝的两种manual_date字面日期现可通过；周一缺周五的旧开市tuple会接受并取周四，新映射拒绝，正常周五仍通过；旧身份带null次数字段原可接受，新封闭parser拒绝。五个开市日期的内存样本，三次配置解析实测0.010125、0.006000、0.004958毫秒，仅代表这三次解析；不是完整job或sensor性能。日期映射复用已读关系，没有额外日历文件读取；原生重执行的parent/root读取及复用边界不变。
 
 本步独立审计未发现遗漏。源端两列探测、发布前完整日门槛、完整manual_date日更新验收、日更sensor均未提前实施，分别留给第3小步以后。未提交本步代码；正式bootstrap、补日、事件补录和自动化启用均未执行。临时副本、脚本、测试输出和日志收尾删除，只保留原文档中的必要结果。
+
+### 21.18 第3小步实现与独立审计（2026-11-11）
+
+文档修正先提交939f5a263，仅删除两列探测额外响应字节统计要求。其后完成本小步，生产只新增defs/source_readiness/stk_factor_pro.py，测试为test_stk_factor_pro_source_probe.py；原有生产文件、通用下载器及其他数据集均未修改。开工前复用本章并补齐同一节的函数输入、结果、失败及资源所有权，没有新增另一份方案。
+
+| 硬口径 | 实际代码与读取边界 | 验证 |
+| --- | --- | --- |
+| 同一接口、固定两列、单目标日、无股票过滤 | PageRequest固定stk_factor_pro、ts_code/trade_date和YYYYMMDD(T)，分页容量取完整源契约；ConfigurationSnapshot只由调用方传入，函数不加载配置。 | 真实localhost HTTP逐项核payload，额外字段/缺列拒绝，两列交换顺序正常通过；完整261字段契约本身未变。 |
+| 10,000行满页必须继续，短/空页才结束 | 每页一次fetch_page、attempt_number=1，不走DownloadSession/RequestBuilder/UnitOutput。原主键临时表按页批量插入，拒绝页内和跨页重复。 | 10,000+0及10,000+1均为2请求，offset分别0/10000；超长页、满第一页后第二页503/错日/字段变化/重复均不计算齐备；源错误不重试。 |
+| E/F及身份规则复用，多码保留 | 完整源关系直接交calculate一次，复用同连接coverage_keys；原始唯一代码数与排除可选首日后的actual_count分开。 | 首日缺/有均通过，周四上市到周五缺码拒绝；额外普通股及全天停牌股均多1而拒绝。身份别名正常通过，未映射/歧义为未知，不能过滤后放行。同T两次探测只准备一次E/F；Path.open替身证明探测不读文件。 |
+| 未知输入、源不齐及失败不能伪造成功 | 未知依据/未确认开市零HTTP；字段、日期、非空代码及主键错误为SOURCE_PROTOCOL。源结果不完整时不报完整代码数；身份未知时保留完整源代码数，但不报覆盖齐备。 | 空终页字段有效时正常计算缺失，缺响应及源失败保留未知；source_row_count只记录本轮已解析行，未知覆盖计数不冒充缺0。 |
+| 全探测共用原45秒预算，仍遵守现有容量 | 每页按剩余时限收紧三种超时；余时不足poll不再请求；计算及关闭后再核deadline。 | 模拟首满页用40秒后第二页三个超时均5秒；用44.95/45秒均零第二请求。真实等待响应发生超时/取消并关闭句柄；关闭用满预算也不放行。既有响应及UnitMemory容量不足均不齐备。 |
+| 关闭及取消保持真实失败，不额外写状态 | 复用既有resource_cleanup，尝试关闭传输、内存、控制器及本函数临时表；保留调用方E/F。取消原样向上，本地SQL错误原样向上。 | 关闭错误使成功源也不齐备；源失败/取消与关闭失败同时发生时保留原失败及清理说明，内存清空和临时表释放继续尝试。普通SQL错误不会被当作源等待。探测无文件、事件或任务提交入口。 |
+
+**真实合同与隔离链路。**读取本地Tushare doc328的参数/两列类型及限量，结合第一批真实分页证据（000001.SZ、2026-10-12至16、limit=2的三页及完整261字段样本）。本轮复用其中10月16日的真实代码/日期，独立断言为000001.SZ/20261016；按完整生产者schema准备临时生命周期/身份/停牌/日历Parquet，经过现有prepare、真实localhost HTTP、完整契约的parse_http、纯覆盖及小结果，源/应有/实际均1。网络响应由测试服务重放，不是新的Tushare实测或正式环境验收。没有新增源请求、Prod查询、正式instance或Lake操作、安装、sensor启停或分区注册。
+
+**实际检查。**最终直接回归145项一次完整通过（新探测45项），10.57秒；受保护Definitions1项及静态门禁113项分别按既有runner通过。变更Python文件Ruff及全src/tests致命错误检查通过。初轮31项通过、3项因测试误用FakeClock.now失败；读取既有夹具后改为seconds，截止时间及预期未放宽，生产代码未因此改变。临时独立审计首次直接执行时无法导入项目tests，改从项目目录以-c执行同一临时脚本后通过，没有改PYTHONPATH或安装环境。
+
+**独立审计。**使用CodeGraph explore/impact核传输、parse_http、共享覆盖及依赖，再以当前源码补齐图未列全的调用；开发后sync/status正常。开发前37份既有本数据集及通用下载组件文件逐字比较均未变，源码确认无job/sensor/事件/业务文件调用。另在临时内存副本故意改成满页即停止：满10,000行后实际源503的例子，错误副本1请求误放行，实际实现2请求拒绝。再故意移除extra=0，E={A}、F={B}、源={A,C}的例子错误副本误放行，实际实现拒绝并保留extra=1。两个对照独立于待测函数计算预期，证明能抓住本次真实禁止项。
+
+**局部性能。**单线程临时DuckDB、已准备关系、真实本机HTTP及5,573个合成代码，三次新连接首次探测分别119.188、119.221、119.077毫秒，均1请求/1页，包含本次E/F、集合比较及关闭。不含真实Tushare网络延迟、上游文件SHA/准备或DG事件读取，不作为完整sensor五秒目标的证明。关闭错误、deadline、中断后的新调用从offset=0开始；无需保存源页或做额外历史扫描。
+
+本小步独立审计未发现遗漏。第4小步的发布前完整日门槛和人工入口接通、第5小步上游/摘要优化、第6小步sensor及第7小步串联均未提前实施。代码及本次实施记录尚未提交；临时脚本、错误副本、测试输出和日志收尾删除，必要证据保留本节。
