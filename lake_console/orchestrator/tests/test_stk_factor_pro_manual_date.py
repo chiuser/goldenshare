@@ -161,9 +161,9 @@ def test_first_manual_precheck_has_no_parent_or_bootstrap_reads(
             asset, "_now", lambda: datetime.fromisoformat(execution + "T10:00:00+08:00")
         )
         monkeypatch.setattr(
-            asset,
-            "raw_tushare_adj_factor_ready_for_trade_date",
-            lambda *_: SimpleNamespace(ready=False, reason="test waiting"),
+            asset.readiness,
+            "read_stk_factor_pro_upstream_status",
+            lambda *a, **k: SimpleNamespace(ready=False, reason="test waiting"),
         )
         with patch.object(
             asset.initialization,

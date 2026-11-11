@@ -17,6 +17,7 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts import stk_factor_pro as C
+from orchestrator.defs.sensors import readiness as upstream_readiness
 from orchestrator.tushare_download import DownloadMode
 from orchestrator.tushare_download.configuration import ConfigurationSnapshot
 from tests.stk_factor_pro_history_test_support import (
@@ -155,11 +156,23 @@ def isolated_update_environment(
         lambda *a, **k: SimpleNamespace(ready=True),
     )
     if substitute_upstream:
-        monkeypatch.setattr(asset, "_reference_inputs_ready", lambda *a: (True, ""))
+        # Historical repair keeps the same upstream gate, now referenced directly.
         monkeypatch.setattr(
-            asset,
+            upstream_readiness,
             "raw_tushare_adj_factor_ready_for_trade_date",
             lambda *_: SimpleNamespace(ready=True),
+        )
+
+        def ready_upstream(
+            instance, *, target_trade_date, previous_trade_date, known_pg
+        ):
+            known_pg[("suspend_readiness", target_trade_date)] = SimpleNamespace(
+                ready=True
+            )
+            return SimpleNamespace(ready=True, reason="")
+
+        monkeypatch.setattr(
+            asset.readiness, "read_stk_factor_pro_upstream_status", ready_upstream
         )
         monkeypatch.setattr(
             asset,
@@ -326,9 +339,9 @@ def test_actual_job_no_start_lookup_without_changes(
     instance, job, set_source, lake, _, counts = actual_job
     input_files(tmp_path, lake, changed=())
     monkeypatch.setattr(
-        asset,
-        "raw_tushare_adj_factor_ready_for_trade_date",
-        lambda *_: SimpleNamespace(ready=ready, reason="测试未就绪"),
+        asset.readiness,
+        "read_stk_factor_pro_upstream_status",
+        lambda *a, **k: SimpleNamespace(ready=ready, reason="测试未就绪"),
     )
     downloader = set_source(rows)
     completed = job.execute_in_process(
@@ -716,9 +729,9 @@ def test_manual_date_precheck_then_native_reexecution_reads_original_date(
     run_config = config(PREVIOUS, execution_day=DAY, purpose="manual_date", slot=None)
     downloader = set_source((row(A, "20261015"), row(B, "20261015")), PREVIOUS)
     monkeypatch.setattr(
-        asset,
-        "raw_tushare_adj_factor_ready_for_trade_date",
-        lambda *_: SimpleNamespace(ready=False, reason="等待上游"),
+        asset.readiness,
+        "read_stk_factor_pro_upstream_status",
+        lambda *a, **k: SimpleNamespace(ready=False, reason="等待上游"),
     )
     parent = job.execute_in_process(
         instance=instance,
@@ -728,9 +741,9 @@ def test_manual_date_precheck_then_native_reexecution_reads_original_date(
     )
     assert parent.success and not downloader.calls
     monkeypatch.setattr(
-        asset,
-        "raw_tushare_adj_factor_ready_for_trade_date",
-        lambda *_: SimpleNamespace(ready=True),
+        asset.readiness,
+        "read_stk_factor_pro_upstream_status",
+        lambda *a, **k: SimpleNamespace(ready=True),
     )
     monkeypatch.setattr(
         asset,

@@ -613,6 +613,175 @@ def read_stk_factor_pro_recorded_results(
     return result
 
 
+def read_stk_factor_pro_upstream_status(
+    instance, *, target_trade_date, previous_trade_date, known_pg
+):
+    """Read only the latest checks for this task's two explicit partitions."""
+    from dataclasses import replace
+
+    import dagster as dg
+    from dagster._core.event_api import PartitionKeyFilter
+
+    from orchestrator.defs.sensors import readiness as upstream
+
+    key = ("stk_factor_pro_upstream_status", target_trade_date, previous_trade_date)
+    if key in known_pg:
+        return known_pg[key]
+    groups = (
+        (
+            None,
+            (
+                upstream.RAW_STOCK_BASIC_READINESS_SPEC,
+                upstream.SILVER_STOCK_LIFECYCLE_READINESS_SPEC,
+            ),
+        ),
+        (
+            str(target_trade_date),
+            (
+                upstream.RAW_ADJ_FACTOR_READINESS_SPEC,
+                *upstream.SUSPEND_D_READINESS_SPECS,
+            ),
+        ),
+        (str(previous_trade_date), (upstream.RAW_ADJ_FACTOR_READINESS_SPEC,)),
+    )
+    statuses, materials = [], {}
+    for partition, specs in groups:
+        for spec in specs:
+            material_key = ("upstream_materialization", spec.asset_key, partition)
+            if material_key not in known_pg:
+                known_pg[material_key] = upstream._latest_materialization_record(
+                    instance, spec.asset_key, partition
+                )
+            materials[(spec.asset_key, partition)] = known_pg[material_key]
+        keys = tuple(
+            dg.AssetCheckKey(spec.asset_key, name)
+            for spec in specs
+            for name in spec.blocking_check_names
+        )
+        checks_key = ("upstream_checks", partition, keys)
+        if checks_key not in known_pg:
+            known_pg[checks_key] = (
+                instance.event_log_storage.get_latest_asset_check_execution_by_key(
+                    keys, partition_filter=PartitionKeyFilter(key=partition)
+                )
+            )
+        for spec in specs:
+            material = materials[(spec.asset_key, partition)]
+            results = {}
+            for name in spec.blocking_check_names:
+                check = known_pg[checks_key].get(dg.AssetCheckKey(spec.asset_key, name))
+                evaluation = (
+                    check.event.dagster_event.event_specific_data
+                    if check is not None
+                    and check.status.value == "SUCCEEDED"
+                    and check.event is not None
+                    else None
+                )
+                target = (
+                    evaluation.target_materialization_data
+                    if evaluation is not None
+                    else None
+                )
+                results[name] = (
+                    material is not None
+                    and evaluation is not None
+                    and evaluation.passed
+                    and evaluation.blocking
+                    and evaluation.asset_key == spec.asset_key
+                    and evaluation.check_name == name
+                    and evaluation.partition == partition
+                    and target is not None
+                    and (target.storage_id, target.run_id, target.timestamp)
+                    == (
+                        material.storage_id,
+                        material.event_log_entry.run_id,
+                        material.timestamp,
+                    )
+                )
+            statuses.append(
+                upstream._asset_readiness_status_from_check_results(
+                    spec=spec,
+                    partition_key=partition,
+                    materialization=material,
+                    check_results=results,
+                    min_materialization_date=str(target_trade_date)
+                    if partition is None
+                    else None,
+                )
+            )
+    basic = materials[(upstream.RAW_STOCK_BASIC_READINESS_SPEC.asset_key, None)]
+    lifecycle = materials[
+        (upstream.SILVER_STOCK_LIFECYCLE_READINESS_SPEC.asset_key, None)
+    ]
+    if (
+        basic is not None
+        and lifecycle is not None
+        and lifecycle.timestamp < basic.timestamp
+    ):
+        statuses[1] = replace(
+            statuses[1], ready=False, reason="股票生命周期早于最新股票基础信息物化"
+        )
+    suspended = tuple(
+        status
+        for status in statuses
+        if status.asset_key
+        in {
+            spec.asset_key.to_user_string()
+            for spec in upstream.SUSPEND_D_READINESS_SPECS
+        }
+    )
+    known_pg[("suspend_readiness", target_trade_date)] = (
+        upstream.DatasetReadinessStatus(
+            ready=all(status.ready for status in suspended), statuses=suspended
+        )
+    )
+    result = upstream.DatasetReadinessStatus(
+        ready=all(status.ready for status in statuses), statuses=tuple(statuses)
+    )
+    known_pg[key] = result
+    return result
+
+
+def read_stk_factor_pro_day_plan_factor_shas(
+    *,
+    day_observation,
+    publication_checks,
+    previous_trade_date,
+    staging_root,
+    contract,
+    known_records,
+):
+    """Read the plan of the already verified day, without technical-factor files."""
+    from orchestrator.defs.io.stk_factor_pro_history import (
+        read_stk_factor_pro_referenced_history_plan,
+    )
+
+    reference = day_observation["history_plan_ref"]
+    producer = day_observation["producer_run_id"]
+    if (
+        reference is None
+        or reference.creator_run_id != producer
+        or any(
+            publication_checks[asset].target_materialization_data.run_id != producer
+            for asset in (
+                C.STK_FACTOR_PRO_RAW_ASSET_KEY,
+                C.STK_FACTOR_PRO_SILVER_ASSET_KEY,
+            )
+        )
+    ):
+        raise ValueError("有效日观察缺本次日更的历史计划引用")
+    plan = read_stk_factor_pro_referenced_history_plan(
+        staging_root=staging_root,
+        target=day_observation["target_trade_date"],
+        contract=contract,
+        reference=reference,
+        known_records=known_records,
+    )
+    if plan.identity.previous_trade_date != previous_trade_date:
+        raise ValueError("日更历史计划的前一交易日不符")
+    return plan.factor_t_ref.file_sha256, plan.factor_p_ref.file_sha256
+
+
 def read_stk_factor_pro_day_factor_shas(
     instance,
     *,
@@ -629,9 +798,6 @@ def read_stk_factor_pro_day_factor_shas(
 
     from orchestrator.defs.io.stk_factor_pro_candidates import (
         require_stk_factor_pro_safe_path,
-    )
-    from orchestrator.defs.io.stk_factor_pro_history import (
-        read_stk_factor_pro_referenced_history_plan,
     )
     from orchestrator.defs.paths import (
         raw_stk_factor_pro_path,
@@ -710,19 +876,14 @@ def read_stk_factor_pro_day_factor_shas(
                 return None
         elif metadata.get("goldenshare/raw_sha256") != published.raw_file_sha256:
             return None
-    reference = values["history_plan_ref"]
-    if reference is None or reference.creator_run_id != day_ref.run_id:
-        raise ValueError("有效日观察缺本次日更的历史计划引用")
-    plan = read_stk_factor_pro_referenced_history_plan(
+    return read_stk_factor_pro_day_plan_factor_shas(
+        day_observation=values,
+        publication_checks=known_pg[checks_key],
+        previous_trade_date=previous_trade_date,
         staging_root=staging_root,
-        target=day,
         contract=contract,
-        reference=reference,
         known_records=known_records,
     )
-    if plan.identity.previous_trade_date != previous_trade_date:
-        raise ValueError("日更历史计划的前一交易日不符")
-    return plan.factor_t_ref.file_sha256, plan.factor_p_ref.file_sha256
 
 
 def _stk_factor_pro_update_input(run):

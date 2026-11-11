@@ -25,6 +25,7 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts import stk_factor_pro as C
+from orchestrator.defs.sensors import readiness as upstream_readiness
 from orchestrator.tushare_download import DownloadError, DownloadErrorCode
 
 _CONFIG = {
@@ -434,7 +435,7 @@ def repair_stk_factor_pro_history(
                 instance, identity=identity, phase="history"
             )
             for factor_day in (day, previous):
-                ready = daily.raw_tushare_adj_factor_ready_for_trade_date(
+                ready = upstream_readiness.raw_tushare_adj_factor_ready_for_trade_date(
                     instance, str(factor_day)
                 )
                 if not ready.ready:

@@ -40,9 +40,7 @@ from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts import stk_factor_pro as C
 from orchestrator.defs.run_contracts.asset_tags import build_asset_tags
 from orchestrator.defs.run_contracts.metadata import build_asset_definition_metadata
-from orchestrator.defs.sensors import readiness as upstream_readiness
 from orchestrator.defs.sensors.readiness import (
-    raw_tushare_adj_factor_ready_for_trade_date,
     suspend_d_ready_for_trade_date,
 )
 from orchestrator.defs.source_readiness.stk_factor_pro import (
@@ -122,80 +120,6 @@ def _automatic_window(execution_day, slot):
         execution_day, time(C.STK_FACTOR_PRO_FIRST_SLOT_HOUR), now.tzinfo
     ) + timedelta(minutes=slot * C.STK_FACTOR_PRO_SLOT_MINUTES)
     return now.date() == execution_day and now >= starts_at
-
-
-def _reference_inputs_ready(instance, day, known_pg):
-    specs = (
-        upstream_readiness.RAW_STOCK_BASIC_READINESS_SPEC,
-        upstream_readiness.SILVER_STOCK_LIFECYCLE_READINESS_SPEC,
-    )
-    materials = {}
-    for spec in specs:
-        key = ("reference_materialization", spec.asset_key)
-        if key not in known_pg:
-            known_pg[key] = upstream_readiness._latest_materialization_record(
-                instance, spec.asset_key, None
-            )
-        materials[spec.asset_key] = known_pg[key]
-        if known_pg[key] is None:
-            return False, f"{spec.asset_key.to_user_string()}尚无物化"
-    keys = tuple(
-        dg.AssetCheckKey(spec.asset_key, name)
-        for spec in specs
-        for name in spec.blocking_check_names
-    )
-    cache_key = ("reference_checks", keys)
-    if cache_key not in known_pg:
-        known_pg[cache_key] = (
-            instance.event_log_storage.get_latest_asset_check_execution_by_key(keys)
-        )
-    for spec in specs:
-        material = materials[spec.asset_key]
-        results = {}
-        for name in spec.blocking_check_names:
-            check = known_pg[cache_key].get(dg.AssetCheckKey(spec.asset_key, name))
-            evaluation = (
-                check.event.dagster_event.event_specific_data
-                if check is not None and check.event is not None
-                else None
-            )
-            target = (
-                evaluation.target_materialization_data
-                if evaluation is not None
-                else None
-            )
-            results[name] = (
-                check is not None
-                and check.status.value == "SUCCEEDED"
-                and evaluation is not None
-                and evaluation.passed
-                and evaluation.blocking
-                and evaluation.asset_key == spec.asset_key
-                and evaluation.check_name == name
-                and evaluation.partition is None
-                and target is not None
-                and (target.storage_id, target.run_id, target.timestamp)
-                == (
-                    material.storage_id,
-                    material.event_log_entry.run_id,
-                    material.timestamp,
-                )
-            )
-        status = upstream_readiness._asset_readiness_status_from_check_results(
-            spec=spec,
-            partition_key=None,
-            materialization=material,
-            check_results=results,
-            min_materialization_date=str(day),
-        )
-        if not status.ready:
-            return False, status.reason
-    if (
-        materials[specs[1].asset_key].timestamp
-        < materials[specs[0].asset_key].timestamp
-    ):
-        return False, "股票生命周期早于最新股票基础信息物化"
-    return True, ""
 
 
 def _require_day_coverage(connection, calculated, day, label, *, retryable):
@@ -1340,17 +1264,16 @@ def stk_factor_pro(
                 run_input.purpose,
                 run_input.scheduled_slot,
             )
-            if not blocked:
-                for factor_day in (target, previous):
-                    ready = raw_tushare_adj_factor_ready_for_trade_date(
-                        instance, str(factor_day)
-                    )
-                    if not ready.ready:
-                        blocked = f"权威复权因子未就绪：{factor_day}，{ready.reason}"
-                        break
             inputs = None
             if not blocked:
-                _, blocked = _reference_inputs_ready(instance, target, known_pg)
+                upstream = readiness.read_stk_factor_pro_upstream_status(
+                    instance,
+                    target_trade_date=target,
+                    previous_trade_date=previous,
+                    known_pg=known_pg,
+                )
+                if not upstream.ready:
+                    blocked = upstream.reason
             if not blocked:
                 inputs = _basis_for_day(
                     connection,

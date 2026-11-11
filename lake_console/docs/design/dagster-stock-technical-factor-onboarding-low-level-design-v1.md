@@ -1,6 +1,6 @@
 # 股票技术因子 DG 数据集接入 LLD v1
 
-日期：2026-11-11。状态：源端代码齐备、完整日发布和指定日期人工补跑的现行设计见§21。前五批及第六批前两步是已有代码基线；新规则第1～4小步已完成开发、隔离验证及独立审计，见§21.16～21.19。第4小步已接通人工入口和发布前完整日门槛，第5小步及以后尚待实施。正式资源操作按阶段另行授权。
+日期：2026-11-11。状态：源端代码齐备、完整日发布和指定日期人工补跑的现行设计见§21。前五批及第六批前两步是已有代码基线；新规则第1～4小步已完成开发、隔离验证及独立审计，见§21.16～21.19。第5小步的上游/日摘要读取已实现，隔离验证及独立审计结果见§21.20；全仓治理因工作区其他新增sensor未登记而未通过，尚未全部验收收口。第6小步及以后未实施。正式资源操作按阶段另行授权。
 
 依据：[原技术方案](dagster-stock-technical-factor-onboarding-plan-v1.md)、[DG接入模板](../templates/dagster-dataset-onboarding-template.html)、[性能治理规范](dagster-data-pipeline-performance-governance.md)、[Prod审计报告](../../reports/stock_factor_pro_prod_audit_20261021/README.md)。下载器依据[组件LLD](dagster-tushare-download-component-low-level-design-v1.html)与[业务使用文档](../architecture/tushare-download-component-usage-v1.html)，不在本数据集重做。
 
@@ -3352,6 +3352,12 @@ manual_date/bootstrap_supplement在计划和正式开始记录前调用第3小�
 
 从`read_stk_factor_pro_day_factor_shas`抽出`read_stk_factor_pro_day_plan_factor_shas`：必传已核的同T有效日观察和已有两层发布/检查结果，读取该观察自身明确引用的plan一次，只返回T/P摘要。job原入口完成原有物理验证后调用它；sensor通过最新日阶段覆盖、对应物化/check及其文件摘要metadata核有效日结果后调用它，不能调原helper重新计算技术因子Raw/Silver全文SHA。sensor按既有唯一writer和d<T写入合同读取已保存事实；真正job仍核本轮实际文件。repair的历史观察可解除它授权的失败，不能替代日观察。测试须抓住旧helper全文读取，断言sensor对两层261字段及全历史读取为0；job原真实性核验及第1步追修回归保留。
 
+第5小步实现限asset_guards/stk_factor_pro_readiness.py、assets/stk_factor_pro.py、repair对原上游检查函数的直接引用迁移及直接测试；不改通用sensors/readiness.py、上游producer、源请求或日发布/历史算法。repair从daily.raw_tushare_adj_factor_ready_for_trade_date改为直接引用通用readiness同一函数，原T/P参数、检查语义、读取量及业务算法不变；不在日更模块保留无消费者用途的旧导出。新增read_stk_factor_pro_upstream_status(instance, *, target_trade_date, previous_trade_date, known_pg)，返回既有DatasetReadinessStatus。三个分区组的物化/check及最终结果保存在本任务known_pg；T停牌结果同时交接既有("suspend_readiness", T)，供_basis_for_day复用。删除asset的_reference_inputs_ready及T/P逐项旧检查调用，不用旧别名维持双轨；其他历史日期的停牌检查保持原入口。全局两项按T核新鲜度，分区资产沿原helper只核准确T/P分区，不另加物化自然日限制。正常完整输入最多6次limit=1物化API及3次最新check批读，取得6+16条记录，同份known_pg重复调用新增读取为0；不深扫旧check，不调用get_asset_check_execution_history。
+
+read_stk_factor_pro_day_plan_factor_shas(*, day_observation, publication_checks, previous_trade_date, staging_root, contract, known_records)接收调用方已核的同T有效日观察和两层check映射，不重做已完成的覆盖/check计算。它只核计划引用属于该日发布的producer及两层check绑定run，沿现有referenced_history_plan读取同T、同合同记录，核P后返回T/P摘要。旧job入口保留原日观察、两层绑定及物理SHA检查后调用它；repair不能以自身观察/计划替代原日计划。相同计划沿known_records复用；缺坏引用/错T/P按原ValueError出口，不增加兼容回退或异常吞掉。新函数不请求源、不读技术因子Raw/Silver、不读全历史、不写文件/事件；此步仅验证将供sensor使用的函数，第6小步再证明实际sensor调用边界。
+
+本步无配置或持久状态变更；中断后丢弃任务内缓存，下次重新读取本轮明确T/P记录，最后隔离读回的成本仍为上述9次API/22条结果及一份计划小记录，不扫描历史找旧结果。测试使用临时原生实例核无分区/T/P精确批读、同check跨日期、最新等待/失败/旧绑定均阻止、正常更新通过、生命周期先后和同任务零重复；实际job验证T停牌缓存交接。使用原日更/repair产出的有效观察及保存真实样本生成的小计划，核摘要无技术因子文件读取、错引用拒绝、repair不替代及job原物理校验保留；不以自造helper替代被验收函数。耗时按本轮隔离测量分别记录，不将上轮API探测或完整sensor目标当成本步实测。
+
 **6. 实现只处理当天的sensor。**新文件固定`defs/sensors/raw_tushare_stk_factor_pro_update_job_sensor.py`。按§21.3的轻量顺序，先时间/分区、已有当前slot提交、活动写入，再取得T/P就绪及当前日/历史结果；无需更新且权威摘要未变即结束。有必要才准备E/F并调用第3小步。源端不齐或源调用失败是本slot探测结果，cursor记已探测slot，后续合法slot重探测；仅本地依据尚未就绪时可在同slot等待，不保存未发生的源探测。跨slot返回不提交，也不把新slot标成已探测。ready且仍处同D/slot才提交一条today请求，使用`build_asset_update_run_key(subject=现有update job名, unit_id=由D/T/slot组成的明确业务单元)`；日期/slot来自本轮判断，不能反解析run_key。tags显式保存执行日、目标日和slot供持久过滤，不放DG事件编号。cursor只存D/slot/小摘要；清cursor后run_key及已保存run仍去重，不查旧tick。此行为依据[Dagster sensor的run key与cursor规则](https://dagster.io/docs/guides/automate/sensors)，同sensor同run_key不会因cursor重置再创建任务。
 
 测试模拟19:00/23:30/午夜、休市、本地晚就绪、源不齐后下一slot、探测跨slot、清cursor/实例重开、活动repair、前日缺口而今天齐备。固定一次评估最多一个RunRequest。预检/下载/历史失败沿现有retryable及同T当前结果判断，不引入旧补前日的机会状态。若本数据集源查询失败但结果未知，不能把空集合当成功。
@@ -3483,3 +3489,28 @@ manual_date/bootstrap_supplement在计划和正式开始记录前调用第3小�
 **独立审计。**重新读取改动和实施前快照：_plan_history、_basis_for_day、_factor_file_refs、初始化结果持久化函数AST不变；_publish_history仅增加初始化统计calculated=None的显式交接。完整历史下载、历史IO、repair、bootstrap history/coverage、run_contracts、两列探测七个生产文件逐字节不变。当前生产publisher调用只有asset一处，必传回调已迁移；测试调用及跨进程代码一并核验。临时撤掉日源门槛时，缺1只的源借旧Raw发布，实际任务回归失败；临时撤掉候选门槛时，旧额外代码先发布才日失败，零发布断言失败。两项错误均被本轮回归捕获，审计变体只在临时进程生效。CodeGraph explore/impact核入口及依赖后，用当前rg和AST补齐图未列出的asset调用、动态generator和统计交接，结束sync/status正常。
 
 未发现本小步剩余遗漏。未实施第5小步完整上游/日摘要读取、第6小步日更sensor或第7小步串联；未执行正式资源操作。第4小步代码及验收记录随本轮提交。临时副本、脚本和测试输出收尾删除，必要结果保留本节。
+
+### 21.20 第5小步实现、独立审计与治理待办（2026-11-11）
+
+本轮只实施§21.13第5小步。编码前已在原方案§17.3及本章写清两个入口、直接消费者、配置/读写边界、缓存交接、中断恢复和验证；复用既有9次API/22条结果预算，没有新增配置、状态文件、sensor或依赖安装。生产改动为本数据集readiness、assets和repair的引用迁移三个文件；通用sensors/readiness.py没有改动。
+
+| 硬口径 | 实现与验证 |
+| --- | --- |
+| 同一任务只读必要上游 | read_stk_factor_pro_upstream_status返回既有DatasetReadinessStatus。两份无分区物化、T的股票复权因子Raw和停牌Raw/Silver、P的股票复权因子Raw各取最新1条；check分无分区/T/P三组，以PartitionKeyFilter精确过滤。原生临时事件核6次limit=1物化API、3次check批读，返回5/8/3项check，合计22条记录；同known_pg再次调用是同结果对象，新增API和SQL均0。 |
+| 不深扫、不用旧成功掩盖当前状态 | 不调用get_asset_check_execution_history；只有最新SUCCEEDED且passed/blocking、资产/分区、storage_id/run_id/timestamp绑定正确才通过。原生PLANNED、失败、无绑定、错run/时间、旧物化绑定及空实例均未就绪。T/P任一失败不会污染另一分区的正常结果，正常新物化和对应新检查可通过。 |
+| 保持原日期和覆盖准备语义 | 全局输入仍按T核新鲜度，生命周期不得早于最新基础信息；分区资产沿原口径只核准确T/P，不增加自然日限制。删除asset的_reference_inputs_ready及日更T/P逐项旧调用；T停牌结果交既有suspend_readiness缓存，实际日更job在禁止通用深扫和二次T停牌读取的测试中正常发布。历史其他日期原停牌入口保留。 |
+| 日摘要只读明确计划 | read_stk_factor_pro_day_plan_factor_shas接收已核日观察及两层check，沿其自身history_plan_ref取同T、同producer、同合同计划，核P后只返回T/P摘要。原生实际日更产出的观察和保存真实261字段样本所生成的计划作为输入，连续两次调用共打开1份history-plan.json，技术因子Raw/Silver及全历史读取0，既有known_records复用有效。 |
+| 原真实性、repair与追修不变 | 旧job入口原日观察、绑定及物理SHA核验完整保留，再调用新摘要函数。Raw或Silver物理SHA不符时均停止，不调用新函数。缺引用、错producer/日期/P/digest及与任一层check的producer不符均拒绝；repair观察不能替代日观察。repair只把原股票复权因子检查的引用来源从daily改为通用readiness，参数与检查行为未改；原日摘要不被repair计划覆盖的既有回归保留。 |
+| 中断、恢复及边界 | 两个新读取函数无文件、事件或源请求写入。缓存仅本任务持有，重启按原明确日期及引用重新读取，不扫描过去tick/check/历史文件。第4小步完整日准入、原生重执行和跨进程完整重下回归通过。真正sensor及其调用边界留第6小步，本节不声称实际sensor已验收。 |
+
+**测试中的实际发现及修正。**原生PLANNED测试发现我在确认检查成功之前访问了只有完成记录才有的target_materialization_data，导致AttributeError。已将SUCCEEDED判断前移，再读取完成结果；该原生反例通过，没有以getattr兜底吞错。消费者审计起初漏掉repair经daily访问原上游函数，删除导出后两个repair用例报AttributeError。补核整个本数据集生产调用后，先补原方案/LLD范围，再将repair直接引用同一原函数，不恢复旧导出；测试替身同步到真实引用处。另有新增摘要夹具把观察缓存键写错，已按实际phase_result生产者修正，没有改业务预期。上述失败均在验收过程中发现，修正后的结果才用于本节结论。
+
+**实际验证。**首次相关回归64项通过，源HTTP回放项另随完整回归执行；新上游16项通过，新摘要与repair等33项定向回归通过。修复消费者之后重新启动最终完整回归，明确列出53个本数据集文件、排除须受保护运行的Definitions，1092项全部通过，435.88秒。较早已装载修复前代码的整套回归被主动停止，其部分输出不作通过证据；部分取消测试会捕获中断信号，最终只终止了已确认的本轮临时pytest进程，未操作任何正式服务。Definitions经原受保护runner 1项通过。所有本轮Python Ruff、全src/tests致命错误、文档完整性及本轮文件git diff空白检查通过。工作区其他股票周期测试的空白问题不属于本轮，未改动，也不将全工作区空白检查称为通过。
+
+**读取量与耗时。**独立临时SQLite实例使用真实6条上游物化和16项绑定检查，SQLAlchemy监听仅覆盖首次调用：9次API对应实际15条SQL、0.017857秒，第二次调用0条新增SQL。该数字不包括构造夹具、执行上游模拟job、source HTTP或完整sensor评估，也不作为正式PostgreSQL耗时保证。新日摘要真实文件访问测试仅打开一份计划JSON，故障输入不回退寻找别的历史计划。API数、结果数与SQL数分别记录，未把9次API称为9条SQL。
+
+**独立审计。**重新从实施前快照核对，_plan_history、_published_day、_publish_history、_basis_for_day、_suspend_ready、_automatic_window六个函数AST不变；旧日摘要入口在计划读取之前的实际验证AST不变。repair函数AST仅有原检查函数的引用来源变化。历史下载、历史IO、日/历史publisher、候选、bootstrap coverage/history、run_contracts及两列探测八个生产文件逐字节不变。临时进程撤掉分区过滤，正常T/P就绪用例失败；恢复“最新未成功时回查旧成功”，原生PLANNED用例失败，证明确实能抓住本次禁止行为。变体未写入仓库。CodeGraph explore/callers/impact用于入口和引用分析；图未列出asset及repair的全部动态访问，已用当前全范围rg和AST补核全部本数据集调用，再执行sync/status，索引正常。消费者遗漏的错误如上明确记录，不用图覆盖不足代替说明。
+
+**未通过的治理项。**原受保护运行合同治理runner在第7批停止，前6批通过，第7批为7通过/1失败，113项没有全部执行/通过。唯一已报告失败是test_sensor_definitions_use_registered_definition_tags：工作区其他新增sensors/moneyflow_ths_page_cleanup_sensor.py:raw_tushare_moneyflow_ths_page_cleanup_sensor未登记到EXPECTED_SENSOR_DEFINITION_IDS。该文件在本轮范围外，本轮没有新sensor，也未修改该文件、治理清单或过滤该失败。须由相应改动完成登记后重新运行原套件；本节只确认第5小步功能实现和隔离验证符合设计，不将全仓治理待办隐藏为通过。
+
+本轮未进入第6小步，未执行正式bootstrap、补日、事件补录、code location操作或自动化启用。第5小步代码及验收记录随本轮提交。临时副本、脚本、变体、隔离实例和测试日志收尾删除，必要证据保留本节。

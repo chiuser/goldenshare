@@ -25,6 +25,7 @@ from orchestrator.defs.paths import (
     silver_stock_identity_map_path,
     silver_stock_suspend_daily_path,
 )
+from orchestrator.defs.sensors import readiness as upstream_readiness
 from orchestrator.defs.source_readiness import stk_factor_pro as source_probe_module
 from orchestrator.defs.source_readiness.stk_factor_pro import (
     probe_stk_factor_pro_source,
@@ -60,7 +61,7 @@ from tests.tushare_download.test_tushare_download_http_integration import (
     localhost_source,
 )
 
-REFERENCE_READY = asset._reference_inputs_ready
+READ_UPSTREAM = asset.readiness.read_stk_factor_pro_upstream_status
 
 
 @pytest.fixture
@@ -326,9 +327,9 @@ def test_reference_checks_bind_native_latest_events_and_cache_bounded_reads(
         reads.append(kwargs["limit"])
         return fetch(*args, **kwargs)
 
-    def counted_checks(keys):
+    def counted_checks(keys, **kwargs):
         batches.append(len(keys))
-        return checks(keys)
+        return checks(keys, **kwargs)
 
     monkeypatch.setattr(instance, "fetch_materializations", counted_fetch)
     monkeypatch.setattr(
@@ -337,16 +338,23 @@ def test_reference_checks_bind_native_latest_events_and_cache_bounded_reads(
         counted_checks,
     )
     known = {}
-    assert REFERENCE_READY(instance, DAY, known) == (True, "")
-    assert REFERENCE_READY(instance, DAY, known) == (True, "")
-    assert reads == [1, 1] and batches == [5]
+    for _ in range(2):
+        assert READ_UPSTREAM(
+            instance,
+            target_trade_date=DAY,
+            previous_trade_date=PREVIOUS,
+            known_pg=known,
+        ).ready
+    assert reads == [1] * 6 and batches == [5, 8, 3]
     # A genuinely newer producer event must invalidate the older check binding.
     instance.report_runless_asset_event(
         dg.AssetMaterialization(
-            asset.upstream_readiness.RAW_STOCK_BASIC_READINESS_SPEC.asset_key
+            upstream_readiness.RAW_STOCK_BASIC_READINESS_SPEC.asset_key
         )
     )
-    assert REFERENCE_READY(instance, DAY, {})[0] is False
+    assert not READ_UPSTREAM(
+        instance, target_trade_date=DAY, previous_trade_date=PREVIOUS, known_pg={}
+    ).ready
 
 
 @pytest.mark.parametrize(
@@ -354,9 +362,10 @@ def test_reference_checks_bind_native_latest_events_and_cache_bounded_reads(
 )
 def test_reference_rejects_invalid_native_check_or_reference(problem, actual_job):
     instance = actual_job[0]
+    seed_upstream_events(instance)
     specs = (
-        asset.upstream_readiness.RAW_STOCK_BASIC_READINESS_SPEC,
-        asset.upstream_readiness.SILVER_STOCK_LIFECYCLE_READINESS_SPEC,
+        upstream_readiness.RAW_STOCK_BASIC_READINESS_SPEC,
+        upstream_readiness.SILVER_STOCK_LIFECYCLE_READINESS_SPEC,
     )
 
     @dg.op(out={})
@@ -393,8 +402,10 @@ def test_reference_rejects_invalid_native_check_or_reference(problem, actual_job
     executed = reference_job.execute_in_process(instance=instance, raise_on_error=False)
     assert executed.success is (problem != "failed")
     target = DAY.replace(year=2099) if problem == "stale" else DAY
-    ready, reason = REFERENCE_READY(instance, target, {})
-    assert ready is False and reason
+    result = READ_UPSTREAM(
+        instance, target_trade_date=target, previous_trade_date=PREVIOUS, known_pg={}
+    )
+    assert not result.ready and result.reason
 
 
 def test_job_reference_wait_stops_before_probe_plan_and_download(
@@ -404,7 +415,9 @@ def test_job_reference_wait_stops_before_probe_plan_and_download(
     input_files(tmp_path, lake, changed=())
     downloader = source((row(A), row(B)))
     monkeypatch.setattr(
-        asset, "_reference_inputs_ready", lambda *a: (False, "最新生命周期检查未绑定")
+        asset.readiness,
+        "read_stk_factor_pro_upstream_status",
+        lambda *a, **k: SimpleNamespace(ready=False, reason="最新生命周期检查未绑定"),
     )
     monkeypatch.setattr(
         asset,
