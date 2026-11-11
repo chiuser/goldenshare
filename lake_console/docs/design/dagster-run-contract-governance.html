@@ -558,8 +558,8 @@
       当前实现要求所有 sensor definition 的 tags 均通过 <code>defs/run_contracts/sensor_tags.py</code> 的 <code>build_sensor_tags(...)</code> 构造。本文档是 sensor definition tags 的治理口径；<code>dagster-asset-job-topology.html</code> 记录当前 sensor 拓扑和分类现状。新增或修改 sensor 时，必须同步更新本文档、拓扑文档和静态门禁。
     </p>
     <p id="period-native-delivery-planned">
-      <strong>股票周月线原生交付（第2至4阶段已实现，未正式切换）。</strong>
-      当期Raw/Silver、独立复权因子历史回刷和单频退市清理已使用下述原生交付。
+      <strong>股票周月线原生交付（开发和隔离验收完成，未正式切换）。</strong>
+      当期Raw/Silver、独立复权因子历史回刷和单频退市清理已使用下述原生交付。人工维护复用独立历史修复job；旧日常待办及交接已清退，独立首次建库自身恢复保留。完整串联、闭合周期及失败重跑验收与待切换清单见<a href="dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-results">周月线LLD第13.19节</a>。
       新历史修复job为<code>raw_stock_period_history_repair_job</code>，
       sensor为同名加<code>_sensor</code>；清理job为
       <code>raw_stock_period_retirement_cleanup_job</code>，sensor同样跟随job命名。

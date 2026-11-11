@@ -1,6 +1,6 @@
 # DG 复权月线Raw更新、完整性审计与Silver生成 LLD v1
 
-**2026-11-12 第1至5阶段已完成；第5阶段人工维护、旧实现清退及独立审计结果见[周月线LLD第13.17节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-five-results)，源码提交为`202739e60`。** 月线新流程见[第11节](#monthly-daily-point-readiness)；第6阶段实施细则已补齐到[周月线LLD第13.18节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-execution)，尚未开发、执行或正式切换。第1至10节记录切换前实现和历史结果。切换后，当月预检、正式日更和指定闭合月补齐使用第11节口径，旧建库交接和续跑命令只用于追溯。
+**2026-11-12 六阶段开发和隔离验收完成，尚未正式切换；月线和周线最终对账、独立审计及待切换清单见[周月线LLD第13.19节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-results)。** 第5阶段源码提交为`202739e60`，第6阶段设计提交为`982619968`。月线新流程见[第11节](#monthly-daily-point-readiness)，实施细则见[周月线LLD第13.18节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-execution)。第1至10节记录切换前实现和历史结果。切换后，当月预检、正式日更和指定闭合月补齐使用第11节口径，旧建库交接和续跑命令只用于追溯。
 
 **2026-10-31跨日日期修正已完成开发和隔离验收：** 月线与周线共用的逐文件来源日期修正见§9.8及共享LLD§12.22，相关463项不重复用例通过（新增28项）。本轮修改随本次提交保存，未正式补数；28日各项结果保留为历史，不表示29/30日已经补齐。
 
@@ -317,7 +317,7 @@ curl --max-time 25 --fail-with-body --silent --show-error \
 
 ## 11. 当月全市场单点预检与日更
 
-本节当期Raw/Silver已完成第2阶段实现：自然月末单点、三列预检、21列正式下载、当期单文件及Dagster原生交付均经隔离验证。第3阶段独立回刷和第4阶段单频退市清理亦已实现并独立审计，同频Silver可完整接续；新sensor均默认STOPPED。旧Silver日更私有回执与续跑分支已移除；第5阶段已接入人工维护并清零旧Raw离线入口、共享索引和日常交接，首次建库本次恢复及原Silver审计合同保留；实际测试、独立审计修正及当时全局门禁的历史失败见[周月线LLD第13.17节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-five-results)。该全局suite已在11月12日开工审计完整复核通过，当前状态及第6阶段执行细则见[第13.18节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-execution)。第6阶段整体验收和正式切换未执行。
+本节当期Raw/Silver已完成第2阶段实现：自然月末单点、三列预检、21列正式下载、当期单文件及Dagster原生交付均经隔离验证。第3阶段独立回刷和第4阶段单频退市清理亦已实现并独立审计，同频Silver可完整接续；新sensor均默认STOPPED。旧Silver日更私有回执与续跑分支已移除；第5阶段已接入人工维护并清零旧Raw离线入口、共享索引和日常交接，首次建库本次恢复及原Silver审计合同保留；实际测试、独立审计修正及当时全局门禁的历史失败见[周月线LLD第13.17节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-five-results)。该全局suite已在11月12日开工审计完整复核通过，当前状态及第6阶段执行细则见[第13.18节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-execution)。第6阶段开发和隔离验收已完成，最终结果见[第13.19节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-results)；正式切换未执行。
 
 本节对应[原方案第10.19节](dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md#stock-period-daily-then-history)和[周月线LLD第13节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-daily-then-history-lld)。预检、日更交付、股票复权因子变化历史回刷、Dagster记录及切换沿共享规则，月线只补下列差异。 三列传输、原生交付字段、新任务及实测预算统一见[周月线LLD第13.10节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-implementation-contracts)。
 
@@ -330,4 +330,4 @@ curl --max-time 25 --fail-with-body --silent --show-error \
 
 周月一起切换。月线须同步移除全市场按月初至月末取数、月Raw混合日更与回刷、月Silver解析旧日更回执及旧月线脚本入口。切换前对账并交接未完成旧批，保留月线历史文件、首次建库和已确认的校验。首次建库本次执行内的源/COPY/候选恢复保留，`baseline.json`、共享待办和日常交接清退；月线的替换后记录前中断、事件补齐及首次Silver审计报告合同须单独回归，不能用周线通过代替。函数处置及验收统一见[周月线LLD第13.14节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-bootstrap-preservation)。 月线人工指定历史、明确撤回键及混合处理的命令和代码实施统一见[第13.15节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-manual-maintenance-implementation)，仍按实际月标签定位、精确键删除，每月仅生成一份候选并让月Silver完整接续。共用函数、调用方迁移与清退验收见[周月线LLD第13.7节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-legacy-removal)。
 
-第6阶段月线随周线共同执行第13.18节两种Raw先后顺序，必须实际核对自然月末`20261130`、当天来源截至日`20261110`、当月新股入库、两个月文件的复权因子历史回刷、仅月线退市清理及完整月Silver接续。月份末为非交易日、闭合月补齐、月线精确键删除/混合处理、首次建库恢复与事件合同沿现有月线专项回归，不以周线用例替代。样本、正常及失败重跑预算、工程外执行入口、独立审计、最终对账和待切换清单统一引用第13.18节，月线不另设业务状态或性能上限。实际第6阶段结果待执行后写入原LLD第13.19节并同步本节；本轮只补文档，不操作正式资源。
+第6阶段已实际验收两种Raw先后顺序、自然月末`20261130`与来源截至日`20261110`、当月新股、两月历史回刷、本频退市和完整月Silver接续。闭合月新增缺代码/日期过旧/成功三例，使用自然月末`20261031`，按10月29/30日应有并集及逐股最后应更新日核对；允许后来重算到11月10日，原业务日仍10月30日。原“闭合补建由既有正向回归覆盖”的判断已纠正。月线精确键删除/混合处理、首次建库恢复与事件合同仍由实际月线专项回归证明，不用周线替代。最终数量、性能、独立审计及待切换清单见[第13.19节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-results)，月线不另设业务状态或上限；本轮没有操作正式资源。
