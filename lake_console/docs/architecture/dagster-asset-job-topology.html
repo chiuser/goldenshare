@@ -1359,7 +1359,7 @@
       <code>raw_stk_period_bar_adj_week_event_backfill_job</code> 仅手动运行
       <code>report_stock_weekly_bootstrap_checks</code>，每批最多33周/99条检查。
       输入为已验收B0的冻结事件计划，检查绑定新物化，使用真实运行ID并保留旧记录；
-      当时不生成行情，不关联自动sensor或schedule。该job现行代码读直接源旧回执，清退范围见<a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-legacy-removal">共享LLD第13.7节</a>。
+      当时不生成行情，不关联自动sensor或schedule。该job及其op/config已在第5阶段从源码清退；独立首次建库的events改按本次完整文件集合登记，不发送日常完成通知。清退依据见<a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-legacy-removal">共享LLD第13.7节</a>。
       <a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#adjusted-weekly-bootstrap-event-replacement-20261013">周线LLD A21</a>记录范围、执行参数和恢复口径。
     </div>
 
@@ -1368,7 +1368,7 @@
       <code>raw_stock_period_history_repair_job_sensor</code>监听两频当期Raw成功，
       同业务日两频完整交付后提交<code>raw_stock_period_history_repair_job</code>；
       新股随当期同步，复权因子变化股票进入两频源历史回刷。
-      本阶段只实现复权因子变化意图；显式指定历史和已确认身份维护留第5阶段接入。
+      第5阶段已接入人工maintain动作：显式指定历史、明确记录键撤回及可选源刷新均提交同一job，默认只预览；不会扩大自动sensor的触发范围。日更、回刷和人工维护失败均按原配置整批新跑；只有独立首次建库保留本次执行内恢复。旧混合任务、共享待办和全局索引已从源码清退，正式历史文件和运行记录保留。
       本sensor与第4阶段清理sensor均默认STOPPED，尚未正式启用。完整参数、交付字段与实测见
       <a href="../design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-implementation-contracts">周月线LLD第13.10节</a>。
     </div>

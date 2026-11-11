@@ -455,12 +455,12 @@ def capture_unit(
     aliases,
     transport,
     policy=DEFAULT_POLICY,
-    code=None,
-    period=None,
+    code,
     cancel=lambda: False,
     progress=lambda _: None,
 ):
     """Persist responses first. Only verified pages/units become reusable inputs."""
+    period = None
     if not listed:
         raise ValueError("period_listed_scope_empty")
     # Admission precedes any source call or evidence directory creation.

@@ -1,4 +1,4 @@
-"""Retained monthly schema and actual direct-source range/date contract."""
+"""Retained monthly schema and actual direct-source point/date contract."""
 
 import pytest
 
@@ -22,14 +22,13 @@ from orchestrator.defs.run_contracts.stock_period import period_date, request_pa
         ("0001-01", "00010131"),
     ],
 )
-def test_current_request_uses_whole_calendar_month(month, anchor):
+def test_current_request_uses_natural_month_end_point(month, anchor):
     assert period_date(month, "month") == anchor
     assert request_params(freq="month", period=month) == {
         "freq": "month",
         "limit": 6000,
         "offset": 0,
-        "start_date": anchor[:6] + "01",
-        "end_date": anchor,
+        "trade_date": anchor,
     }
 
 
@@ -91,7 +90,6 @@ def test_current_builder_does_not_retain_old_four_page_cap():
         "freq": "month",
         "limit": 6000,
         "offset": 24000,
-        "start_date": "20200201",
-        "end_date": "20200229",
+        "trade_date": "20200229",
     }
-    assert "trade_date" not in params
+    assert not {"start_date", "end_date"} & params.keys()

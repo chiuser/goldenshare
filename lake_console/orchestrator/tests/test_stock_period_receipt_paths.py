@@ -11,16 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from orchestrator.defs import stock_period_update as update
 from orchestrator.defs.bootstrap import stock_period_history as history
 from orchestrator.defs.io import stock_period_raw as raw
 from orchestrator.defs.run_contracts.stock_period import digest
-from tests.test_stock_period_delivery_confirmation import (
-    _ack,
-    _confirm,
-    _event_count,
-    _scenario,
-)
 from tests.test_stock_period_history import args
 
 
@@ -171,43 +164,3 @@ def test_historical_receipt_accepts_symlink_today_but_real_io_still_rejects(tmp_
         with pytest.raises(ValueError, match="period_symlink_forbidden"):
             operation()
     assert not (tmp_path / "must-not-write.json").exists()
-
-
-@pytest.mark.parametrize("closed", [False, True])
-def test_actual_two_frequency_replay_avoids_unselected_lstat_and_closed_targets(monkeypatch, closed):
-    with _scenario(frequencies=("week", "month"), successor_frequencies=("week", "month")) as case:
-        run = Path(case["old"]["path"])
-        if closed:
-            _ack(case, _confirm(case))
-        month = case["root"] / "raw/tushare/stk_period_bar_adj_month"
-        moved = case["root"].parent / "original-month-dataset"
-        month.rename(moved)
-        month.symlink_to(moved, target_is_directory=True)
-        events, requests = _event_count(case["instance"]), len(case["requests"])
-        daily = (case["staging"] / "stock_period/daily.json").read_bytes()
-        manifest = (run / "manifest.json").read_bytes()
-        successor = Path(case["new"]["path"])
-        reads = {successor / "manifest.json": 0, successor / "complete.json": 0}
-        original_read = update.read_json
-
-        def observed(path):
-            if Path(path) in reads:
-                reads[Path(path)] += 1
-            return original_read(path)
-
-        calls = []
-        with monkeypatch.context() as guard:
-            guard.setattr(update, "read_json", observed)
-            forbid_paths(guard, [case["root"] / "raw"] if closed else [month], calls)
-            result = history.replay_events(run, root=case["root"], staging=case["staging"],
-                allowed_frequencies={"week"},
-                confirm_delivery=lambda _: _confirm(case, allowed_frequencies={"week"}))
-        assert result["allowed_events_complete"] and not result["events_complete"]
-        assert calls == []
-        # One read in confirm and one cached proof read in ack; complete is
-        # decoded only by confirm. Closed history never opens successor JSON.
-        assert reads == {successor / "manifest.json": 0 if closed else 2,
-                         successor / "complete.json": 0 if closed else 1}
-        assert (run / "manifest.json").read_bytes() == manifest
-        assert (case["staging"] / "stock_period/daily.json").read_bytes() == daily
-        assert _event_count(case["instance"]) == events and len(case["requests"]) == requests

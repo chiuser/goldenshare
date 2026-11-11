@@ -22,10 +22,8 @@ from orchestrator.defs.duckdb_connection import (
 from orchestrator.defs.run_contracts.stock_period import (
     DEFAULT_POLICY,
     FIELDS,
-    VERSION,
     digest,
     frequency,
-    next_period,
     period_date,
 )
 from orchestrator.defs.run_contracts.stock_weekly import (
@@ -546,8 +544,88 @@ def group_history_sources(
     return result
 
 
+def assemble_history_maintenance_period(
+    sources,
+    *,
+    work,
+    root,
+    freq,
+    period,
+    remove_keys=(),
+    policy=DEFAULT_POLICY,
+    cancel=lambda: False,
+    progress=lambda _: None,
+):
+    return _assemble_period(
+        sources,
+        work=work,
+        root=root,
+        freq=freq,
+        period=period,
+        policy=policy,
+        cancel=cancel,
+        progress=progress,
+        source_format="parquet",
+        remove_keys=remove_keys,
+    )
+
+
+def count_maintenance_rows(
+    root,
+    keys,
+    *,
+    work,
+    policy=DEFAULT_POLICY,
+    cancel=lambda: False,
+    progress=lambda _: None,
+):
+    """One key-only set count per affected frequency; no historical discovery."""
+    total = 0
+    from orchestrator.defs.run_contracts.stock_period import source_period
+
+    with connection(durable_directory(work), policy) as con:
+        for freq in ("week", "month"):
+            selected = [k for k in keys if k["freq"] == freq]
+            if not selected:
+                continue
+            files = sorted(
+                {
+                    str(target_path(root, freq, source_period(k["trade_date"], freq)))
+                    for k in selected
+                }
+            )
+            total += execute(
+                con,
+                "SELECT count(*) FROM read_parquet(?,hive_partitioning=false) p "
+                "JOIN (SELECT unnest(?) ts_code,unnest(?) trade_date,unnest(?) freq) k "
+                "ON p.ts_code=k.ts_code AND p.trade_date=k.trade_date AND p.freq=k.freq",
+                [
+                    files,
+                    *[
+                        [k[n] for k in selected]
+                        for n in ("ts_code", "trade_date", "freq")
+                    ],
+                ],
+                cancel=cancel,
+                progress=progress,
+                policy=policy,
+                stage="maintenance_residual",
+            ).fetchone()[0]
+    return total
+
+
 def _assemble_period(
-    sources, *, work, root, freq, period, policy, cancel, progress, source_format
+    sources,
+    *,
+    work,
+    root,
+    freq,
+    period,
+    policy,
+    cancel,
+    progress,
+    source_format,
+    remove_keys=(),
 ):
     work = durable_directory(work)
     target = target_path(root, freq, period)
@@ -565,13 +643,22 @@ def _assemble_period(
                 progress=progress,
                 policy=policy,
             )
-        else:
+        elif sources:
             execute(
                 con,
                 f"CREATE TEMP TABLE incoming AS SELECT {COLUMNS} FROM read_parquet(?,hive_partitioning=false)",
                 [[str(path) for path in sources]],
                 cancel=cancel,
                 progress=progress,
+                policy=policy,
+            )
+        else:
+            execute(
+                con,
+                "CREATE TEMP TABLE incoming ("
+                + ",".join(f'"{n}" {t}' for n, t in SPECS)
+                + ")",
+                cancel=cancel,
                 policy=policy,
             )
         if before is None:
@@ -600,6 +687,23 @@ def _assemble_period(
         )
         execute(
             con,
+            "CREATE TEMP TABLE removal(ts_code VARCHAR,trade_date VARCHAR,freq VARCHAR)",
+            cancel=cancel,
+            policy=policy,
+        )
+        if remove_keys:
+            execute(
+                con,
+                "INSERT INTO removal SELECT unnest(?),unnest(?),unnest(?)",
+                [
+                    [k[n] for k in remove_keys]
+                    for n in ("ts_code", "trade_date", "freq")
+                ],
+                cancel=cancel,
+                policy=policy,
+            )
+        execute(
+            con,
             f"""COPY (
           SELECT {COLUMNS} FROM (
             SELECT p.* FROM prior p WHERE NOT EXISTS (
@@ -609,7 +713,8 @@ def _assemble_period(
             SELECT s.* FROM incoming s WHERE NOT EXISTS (
               SELECT 1 FROM prior p WHERE s.ts_code=p.ts_code AND s.trade_date=p.trade_date
               AND s.freq=p.freq AND p.end_date>s.end_date)
-          ) merged ORDER BY ts_code,trade_date,freq
+          ) merged WHERE NOT EXISTS (SELECT 1 FROM removal r WHERE r.ts_code=merged.ts_code AND r.trade_date=merged.trade_date AND r.freq=merged.freq)
+          ORDER BY ts_code,trade_date,freq
         ) TO ? (FORMAT PARQUET,COMPRESSION ZSTD)""",
             [str(candidate)],
             cancel=cancel,
@@ -621,6 +726,18 @@ def _assemble_period(
         evidence = validate_file(
             con, candidate, freq, period, cancel=cancel, policy=policy
         )
+        if (
+            remove_keys
+            and execute(
+                con,
+                "SELECT count(*) FROM read_parquet(?,hive_partitioning=false) p "
+                "JOIN removal r USING(ts_code,trade_date,freq)",
+                [str(candidate)],
+                cancel=cancel,
+                policy=policy,
+            ).fetchone()[0]
+        ):
+            raise ValueError("period_maintenance_remove_keys_remaining")
         maximum = execute(
             con,
             "SELECT max(end_date) FROM read_parquet(?,hive_partitioning=false)",
@@ -730,103 +847,12 @@ def assemble_retirement_period(*, root, freq, period, codes, work, policy=DEFAUL
     return record
 
 
-def range_index_valid(evidence):
-    """Metadata integrity only; current files are checked for the selected scope."""
-    return (
-        isinstance(evidence, dict)
-        and evidence.get("range_index_version") == VERSION
-        and isinstance(evidence.get("files"), list)
-        and isinstance(evidence.get("stock_ranges"), dict)
-        and evidence.get("range_index_hash")
-        == digest({k: evidence[k] for k in ("files", "stock_ranges")})
-    )
 
 
-def _old_range_paths(root, freq, codes, evidence):
-    """Resolve approved old periods without opening or enumerating lake files."""
-    if not range_index_valid(evidence):
-        raise ValueError("period_history_range_unverified")
-    registered, paths = {}, set()
-    for item in evidence["files"]:
-        if not isinstance(item, dict) or item.get("freq") not in ("week", "month"):
-            raise ValueError("period_range_registration_invalid")
-        period_date(item.get("period"), item["freq"])
-        key = (item["freq"], item["period"])
-        version = item.get("version")
-        if (
-            key in registered or not isinstance(item.get("target"), str)
-            or item["target"] in paths or not isinstance(version, list)
-            or len(version) != 5
-            or any(type(value) is not int or value < 0 for value in version)
-            or type(item.get("rows")) is not int or item["rows"] < 0
-        ):
-            raise ValueError("period_range_registration_invalid")
-        registered[key] = item
-        paths.add(item["target"])
-    ranges = evidence["stock_ranges"].get(freq)
-    if not isinstance(ranges, dict) or not isinstance(evidence.get("listed"), list):
-        raise TypeError("period_history_range_unverified")
-    selected = set()
-    for code in sorted(codes):
-        if code not in ranges:
-            if code in evidence["listed"]:
-                raise ValueError("period_history_range_unverified")
-            continue  # A new code has no rows in the complete approved index.
-        intervals = ranges[code]
-        if not isinstance(intervals, list) or not intervals:
-            raise ValueError("period_history_range_unverified")
-        for interval in intervals:
-            if not isinstance(interval, list) or len(interval) != 2:
-                raise ValueError("period_history_range_unverified")
-            first, last = interval
-            period_date(first, freq)
-            period_date(last, freq)
-            if first > last:
-                raise ValueError("period_history_range_unverified")
-            period = first
-            while period <= last:
-                item = registered.get((freq, period))
-                if item is None or item["target"] != str(target_path(root, freq, period)):
-                    raise ValueError("period_range_registration_invalid")
-                selected.add(period)
-                if period == last:
-                    break
-                period = next_period(period, freq)
-    return [(registered[(freq, period)]["target"], period) for period in sorted(selected)]
 
 
-def _source_ranges(con, freq, *, cancel, progress, policy):
-    coordinate = (
-        "date_diff('week',DATE '1970-01-02',period::DATE)"
-        if freq == "week"
-        else "CAST(substr(period,1,4) AS INTEGER)*12+CAST(substr(period,6,2) AS INTEGER)"
-    )
-    cursor = execute(
-        con,
-        f"WITH p AS (SELECT DISTINCT ts_code,period FROM source), n AS "
-        f"(SELECT ts_code,period,{coordinate}-row_number() OVER(PARTITION BY ts_code ORDER BY period) g FROM p) "
-        "SELECT ts_code,min(period),max(period) FROM n GROUP BY ts_code,g ORDER BY ts_code,min(period)",
-        cancel=cancel,
-        progress=progress,
-        policy=policy,
-        stage="source_range_facts",
-    )
-    result = {}
-    while rows := cursor.fetchmany(policy.page_limit):
-        check_cancel(cancel)
-        for code, first, last in rows:
-            result.setdefault(code, []).append([first, last])
-    return result
 
 
-def merge_ranges(prior, incoming, freq):
-    result = []
-    for first, last in sorted(prior + incoming):
-        if result and first <= next_period(result[-1][1], freq):
-            result[-1][1] = max(result[-1][1], last)
-        else:
-            result.append([first, last])
-    return result
 
 
 def assemble(
@@ -837,313 +863,93 @@ def assemble(
     mode,
     freq,
     codes=(),
-    retired_codes=(),
-    periods=(),
-    history_sources=(),
-    range_evidence=None,
     policy=DEFAULT_POLICY,
     cancel=lambda: False,
     progress=lambda _: None,
-    validate_targets=None,
 ):
-    """Import all successful pages once. Each affected partition is assembled once."""
-    if mode not in ("bootstrap", "upsert", "history"):
+    """Bootstrap COPY and candidate recovery within this single execution."""
+    if mode != "bootstrap":
         raise ValueError("period_write_mode_invalid")
     frequency(freq)
-    work = safe_path(work)
-    work.mkdir(parents=True, exist_ok=True)
-    if mode == "history" and not codes and not retired_codes:
-        raise ValueError("period_history_scope_empty")
+    work = durable_directory(work)
     identity = {
         "sources": [[str(p), file_version(p)] for p in sources],
         "root": str(root),
         "mode": mode,
         "freq": freq,
         "codes": sorted(codes),
-        "retired_codes": sorted(retired_codes),
-        "periods": sorted(periods),
-        "history_sources": sorted(str(p) for p in history_sources),
     }
     copy_receipt = work / "copy.json"
     if copy_receipt.exists():
         copied = read_json(copy_receipt)
         if copied["identity"] != identity:
             raise ValueError("period_assembly_input_changed")
-        if validate_targets is not None:
-            validate_targets(
-                [
-                    {
-                        "freq": freq,
-                        "period": period,
-                        "target": str(target_path(root, freq, period)),
-                        "version": file_version(target_path(root, freq, period))
-                        if target_path(root, freq, period).exists()
-                        else None,
-                        "target_preimage": copied["target_preimages"][period],
-                    }
-                    for period in copied["periods"]
-                ]
-            )
         with connection(work, policy) as con:
             return _candidate_receipts(
                 con, copied["periods"], work, root, freq, cancel, progress, policy
             )
-    schema = dict(SPECS)
     with connection(work, policy) as con:
-        if sources:
-            execute(
-                con,
-                "CREATE TEMP TABLE incoming AS SELECT * FROM read_csv(?,header=true,columns=?,nullstr='',filename=true)",
-                [[str(safe_path(p)) for p in sources], schema],
-                cancel=cancel,
-                progress=progress,
-                stage="import_source",
-                policy=policy,
-            )
-        else:
-            execute(
-                con,
-                "CREATE TEMP TABLE incoming ("
-                + ",".join((f'"{n}" {t}' for n, t in SPECS))
-                + ",filename VARCHAR)",
-                cancel=cancel,
-                policy=policy,
-                stage="source_integrity",
-                progress=progress,
-            )
+        execute(
+            con,
+            "CREATE TEMP TABLE incoming AS SELECT * FROM read_csv(?,header=true,columns=?,nullstr='')",
+            [[str(safe_path(p)) for p in sources], dict(SPECS)],
+            cancel=cancel,
+            progress=progress,
+            stage="import_source",
+            policy=policy,
+        )
         if execute(
             con,
             "SELECT count(*) FROM incoming WHERE freq<>?",
             [freq],
             cancel=cancel,
             policy=policy,
-            stage="source_integrity",
-            progress=progress,
         ).fetchone()[0]:
             raise ValueError("period_source_frequency_mixed")
-        if (
-            not execute(
-                con,
-                "SELECT count(*) FROM incoming",
-                cancel=cancel,
-                policy=policy,
-                stage="source_integrity",
-                progress=progress,
-            ).fetchone()[0]
-            and not retired_codes
-        ):
+        if not execute(
+            con, "SELECT count(*) FROM incoming", cancel=cancel, policy=policy
+        ).fetchone()[0]:
             raise ValueError("period_source_empty")
-        history_paths = [
-            str(p) for p in (sources if mode == "history" else history_sources)
-        ]
-        if history_paths and not set(history_paths).issubset(set(map(str, sources))):
-            raise ValueError("period_history_inputs_missing")
-        actual = {
-            r[0]
-            for r in execute(
-                con,
-                "SELECT DISTINCT ts_code FROM incoming WHERE list_contains(?,filename)",
-                [history_paths],
-                cancel=cancel,
-                policy=policy,
-                stage="source_integrity",
-                progress=progress,
-            ).fetchall()
-        }
-        if actual != set(codes) and mode != "bootstrap":
-            raise ValueError("period_history_codes_mismatch")
-        # Repeated keys across current/history snapshots may coalesce only as identical full rows.
-        conflict = execute(
+        if execute(
             con,
-            f"SELECT ts_code,trade_date,freq FROM incoming GROUP BY 1,2,3 HAVING count(DISTINCT ROW({COLUMNS}))>1 LIMIT 1",
+            "SELECT count(*)-count(DISTINCT(ts_code,trade_date,freq)) FROM incoming",
             cancel=cancel,
             policy=policy,
-            stage="source_integrity",
-            progress=progress,
-        ).fetchone()
-        if conflict:
-            atomic_json(
-                work / "conflict.json",
-                {
-                    "reason_code": "period_source_conflicting_key",
-                    "key": list(conflict),
-                    "sources": identity["sources"],
-                },
-            )
-            raise ValueError("period_source_conflicting_key")
-        if (
-            not (mode == "upsert" and codes)
-            and execute(
-                con,
-                "SELECT count(*)-count(DISTINCT(ts_code,trade_date,freq)) FROM incoming",
-                cancel=cancel,
-                policy=policy,
-                stage="source_integrity",
-                progress=progress,
-            ).fetchone()[0]
-        ):
+        ).fetchone()[0]:
             raise ValueError("period_source_duplicate_key")
-        if mode == "upsert" and codes:
-            absent = execute(
-                con,
-                "SELECT ts_code,trade_date,freq FROM incoming p WHERE list_contains(?,p.ts_code) AND NOT list_contains(?,p.filename) AND NOT EXISTS (SELECT 1 FROM incoming h WHERE list_contains(?,h.filename) AND h.ts_code=p.ts_code AND h.trade_date=p.trade_date AND h.freq=p.freq) LIMIT 1",
-                [list(codes), history_paths, history_paths],
-                cancel=cancel,
-                policy=policy,
-                stage="source_integrity",
-                progress=progress,
-            ).fetchone()
-            if absent:
-                atomic_json(
-                    work / "conflict.json",
-                    {
-                        "reason_code": "period_history_coverage_conflict",
-                        "key": list(absent),
-                    },
-                )
-                raise ValueError("period_history_coverage_conflict")
         execute(
             con,
-            f"CREATE TEMP TABLE source AS SELECT DISTINCT {COLUMNS},{PERIOD_SQL} AS period FROM incoming",
+            f"CREATE TEMP TABLE source AS SELECT {COLUMNS},{PERIOD_SQL} AS period FROM incoming",
             cancel=cancel,
             policy=policy,
-            stage="source_integrity",
-            progress=progress,
         )
-        selected = {
-            r[0]
-            for r in execute(
+        execute(
+            con,
+            "CREATE TEMP VIEW combined AS SELECT * FROM source",
+            cancel=cancel,
+            policy=policy,
+        )
+        expected_rows = dict(
+            execute(
                 con,
-                "SELECT DISTINCT period FROM source",
+                "SELECT period,count(*) FROM combined GROUP BY period",
                 cancel=cancel,
                 policy=policy,
-                stage="source_integrity",
-                progress=progress,
             ).fetchall()
-        }
-        if (
-            mode == "upsert"
-            and execute(
-                con,
-                f"SELECT count(*) FROM incoming WHERE NOT list_contains(?,filename) AND NOT list_contains(?,{PERIOD_SQL})",
-                [history_paths, list(periods)],
-                cancel=cancel,
-                policy=policy,
-                stage="source_integrity",
-                progress=progress,
-            ).fetchone()[0]
-        ):
-            raise ValueError("period_source_scope_mismatch")
-        oldpaths = []
-        index_valid = mode == "bootstrap" or range_index_valid(range_evidence)
-        if mode == "history" or (mode == "upsert" and (codes or retired_codes)):
-            affected = _old_range_paths(
-                root, freq, set(codes) | set(retired_codes), range_evidence
-            )
-            progress({"stage": "reuse_old_ranges", "files": len(affected)})
-            selected.update(r[1] for r in affected)
-            oldpaths.extend(r[0] for r in affected)
-        if mode != "bootstrap":
-            oldpaths.extend(
-                str(target_path(root, freq, p))
-                for p in selected
-                if target_path(root, freq, p).exists()
-            )
-            oldpaths = sorted(set(oldpaths))
+        )
+        selected = sorted(expected_rows)
         preimages = {
             p: file_version(target_path(root, freq, p))
             if target_path(root, freq, p).exists()
             else None
             for p in selected
         }
-        if mode == "bootstrap" and any(v is not None for v in preimages.values()):
+        if any(v is not None for v in preimages.values()):
             raise ValueError("period_bootstrap_root_not_empty")
-        if validate_targets is not None:
-            validate_targets(
-                [
-                    {
-                        "freq": freq,
-                        "period": period,
-                        "target": str(target_path(root, freq, period)),
-                        "version": version,
-                        "target_preimage": version,
-                    }
-                    for period, version in sorted(preimages.items())
-                ]
-            )
-        if oldpaths:
-            execute(
-                con,
-                f"CREATE TEMP TABLE old AS SELECT {COLUMNS},{PERIOD_SQL} AS period FROM read_parquet(?,hive_partitioning=false)",
-                [oldpaths],
-                cancel=cancel,
-                progress=progress,
-                stage="read_affected_once",
-                policy=policy,
-            )
-        else:
-            execute(
-                con,
-                "CREATE TEMP TABLE old AS SELECT * FROM source WHERE false",
-                cancel=cancel,
-                policy=policy,
-                stage="source_integrity",
-                progress=progress,
-            )
-        if mode == "history":
-            execute(
-                con,
-                "CREATE TEMP TABLE combined AS SELECT * FROM old WHERE NOT list_contains(?,ts_code) UNION ALL SELECT * FROM source",
-                [sorted(set(codes) | set(retired_codes))],
-                cancel=cancel,
-                progress=progress,
-                stage="replace_stock_history",
-                policy=policy,
-            )
-        elif mode == "upsert":
-            execute(
-                con,
-                "CREATE TEMP TABLE combined AS SELECT * FROM old o WHERE NOT list_contains(?,o.ts_code) AND NOT EXISTS (SELECT 1 FROM source s WHERE s.ts_code=o.ts_code AND s.trade_date=o.trade_date AND s.freq=o.freq) UNION ALL SELECT * FROM source",
-                [sorted(set(codes) | set(retired_codes))],
-                cancel=cancel,
-                progress=progress,
-                stage="upsert_source_keys",
-                policy=policy,
-            )
-        else:
-            for period in selected:
-                if target_path(root, freq, period).exists():
-                    raise ValueError("period_bootstrap_root_not_empty")
-            execute(
-                con,
-                "CREATE TEMP VIEW combined AS SELECT * FROM source",
-                cancel=cancel,
-                policy=policy,
-                stage="source_integrity",
-                progress=progress,
-            )
-        expected_rows = dict(
-            execute(
-                con,
-                "SELECT period,count(*) FROM combined GROUP BY period",
-                cancel=cancel,
-                progress=progress,
-                stage="combined_row_counts",
-                policy=policy,
-            ).fetchall()
-        )
-        for period, before in preimages.items():
-            target = target_path(root, freq, period)
-            if (file_version(target) if target.exists() else None) != before:
-                raise ValueError("period_target_preimage_changed")
-        # 512 bytes/validated fixed-width row plus 16KiB/file covers physical
-        # columns and sample-derived Parquet overhead; spill is a reservation.
         storage_reserve(
             sum(expected_rows.values()) * 512 + len(selected) * 16384, spill=True
         )
-        outputs = work / "outputs"
-        safe_path(outputs)
-        outputs.mkdir(exist_ok=True)
+        outputs = durable_directory(work / "outputs")
         execute(
             con,
             f"COPY (SELECT {COLUMNS},period FROM combined) TO ? (FORMAT PARQUET,PARTITION_BY(period))",
@@ -1153,33 +959,17 @@ def assemble(
             stage="partition_copy",
             policy=policy,
         )
-        for period in selected:
-            out = outputs / f"period={period}"
-            if not out.exists():
-                # Only a verified nonempty history download may legitimately remove all old rows here.
-                out.mkdir(parents=True)
-                execute(
-                    con,
-                    f"COPY (SELECT {COLUMNS} FROM source WHERE false) TO ? (FORMAT PARQUET)",
-                    [str(out / "data_0.parquet")],
-                    cancel=cancel,
-                    policy=policy,
-                )
         atomic_json(
             copy_receipt,
             {
                 "identity": identity,
-                "periods": sorted(selected),
+                "periods": selected,
                 "target_preimages": preimages,
-                "stock_ranges": _source_ranges(
-                    con, freq, cancel=cancel, progress=progress, policy=policy
-                ),
-                "range_index_valid": index_valid,
-                "expected_rows": {p: expected_rows.get(p, 0) for p in selected},
+                "expected_rows": expected_rows,
             },
         )
         return _candidate_receipts(
-            con, sorted(selected), work, root, freq, cancel, progress, policy
+            con, selected, work, root, freq, cancel, progress, policy
         )
 
 

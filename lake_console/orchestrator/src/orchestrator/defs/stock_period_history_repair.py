@@ -22,21 +22,29 @@ from orchestrator.defs.io.stock_period_raw import (
     DEFAULT_POLICY,
     FIELDS,
     StorageBudget,
+    assemble_history_maintenance_period,
     assemble_history_period,
+    count_maintenance_rows,
     durable_directory,
     file_version,
     group_history_sources,
     process_memory_budget,
     publish_period,
+    target_path,
 )
 from orchestrator.defs.paths import (
     silver_adj_factor_path,
+    silver_stock_basic_path,
     silver_stock_identity_map_path,
     silver_stock_lifecycle_path,
     silver_trade_calendar_path,
 )
 from orchestrator.defs.run_contracts.metadata import build_materialization_metadata
-from orchestrator.defs.run_contracts.stock_period import period_for
+from orchestrator.defs.run_contracts.stock_period import (
+    admitted_code,
+    period_for,
+    source_period,
+)
 from orchestrator.defs.run_contracts.stock_period_delivery import (
     BUSINESS_DATE_TAG,
     COMPLETION_KEY,
@@ -157,6 +165,38 @@ def evaluate_history_repair_sensor(context, lake_root):
         return dg.SkipReason(str(error))
 
 
+def load_history_maintenance_scope(root, config):
+    """Read only the requested identities and current source-refresh codes."""
+    wanted = sorted(
+        set(config.stock_codes) | {k["ts_code"] for k in config.remove_keys}
+    )
+    with connect_configured_duckdb(
+        DuckDBConnectionSettings(temp_directory=Path(tempfile.gettempdir()).resolve()),
+        temp_policy="existing_no_spill",
+    ) as con:
+        identities = con.execute(
+            "SELECT source_ts_code,latest_ts_code FROM read_parquet(?,hive_partitioning=false) "
+            "WHERE confidence='confirmed' AND (list_contains(?,source_ts_code) OR list_contains(?,latest_ts_code))",
+            [str(silver_stock_identity_map_path(root)), wanted, wanted],
+        ).fetchall()
+        aliases = dict(identities)
+        aliases.update({latest: latest for _, latest in identities})
+        if any(k["ts_code"] not in aliases for k in config.remove_keys):
+            raise ValueError("period_maintenance_identity_unconfirmed")
+        if config.stock_codes:
+            listed = {
+                r[0]
+                for r in con.execute(
+                    "SELECT ts_code FROM read_parquet(?,hive_partitioning=false) "
+                    "WHERE list_contains(?,ts_code) AND curr_type='CNY' AND list_status='L'",
+                    [str(silver_stock_basic_path(root)), config.stock_codes],
+                ).fetchall()
+            }
+            for code in config.stock_codes:
+                admitted_code(code, listed, aliases)
+    return aliases
+
+
 def _validate_upstreams(instance, root, config):
     origins = read_completions(instance, config.upstream_completions, root=root)
     today = datetime.now(ZoneInfo("Asia/Shanghai")).date().isoformat()
@@ -225,16 +265,34 @@ def execute_history_repair(context, config):
     root_resource = context.resources.lake_root
     root_resource.ensure_available_for_run()
     root, staging = roots(root_resource.root(), Path(paths.DEFAULT_LAKE_STAGING_ROOT))
-    _validate_upstreams(context.instance, root, config)
-    codes = load_factor_changed_codes(root, config.business_date)
-    if (
-        codes != config.stock_codes
-        or gold_stock_daily_qfq_factor_repair_codes_hash(codes) != config.codes_hash
-    ):
-        raise ValueError("period_repair_codes_changed")
+    frequencies = config.frequencies
+    kind = (
+        "factor_repair" if config.intent == "factor_changed" else "history_maintenance"
+    )
+    if config.intent == "factor_changed":
+        _validate_upstreams(context.instance, root, config)
+        codes = load_factor_changed_codes(root, config.business_date)
+        if (
+            codes != config.stock_codes
+            or gold_stock_daily_qfq_factor_repair_codes_hash(codes) != config.codes_hash
+        ):
+            raise ValueError("period_repair_codes_changed")
+        aliases = None
+    else:
+        codes = config.stock_codes
+        aliases = load_history_maintenance_scope(root, config)
+    removal_metadata = (
+        {"remove_keys": config.remove_keys, "remove_keys_hash": config.remove_keys_hash}
+        if config.intent == "identity_maintenance"
+        else {}
+    )
     context.instance.add_run_tags(
         context.run_id,
-        period_run_tags(business_date=config.business_date, kind="factor_repair"),
+        period_run_tags(
+            business_date=config.business_date,
+            kind=kind,
+            freq=frequencies[0] if len(frequencies) == 1 else None,
+        ),
     )
     progress = lambda value: context.log.info(str(value))
     cancelled, last_checked = False, float("-inf")
@@ -250,8 +308,8 @@ def execute_history_repair(context, config):
             )
         return cancelled
 
-    completed, references, periods_by_freq = [], {}, {freq: [] for freq in FREQUENCIES}
-    if codes:
+    completed, references, periods_by_freq = [], {}, {freq: [] for freq in frequencies}
+    if codes or config.remove_keys:
         work = durable_directory(staging / "stock_period" / "runs" / context.run_id)
         captured_devices = devices(root, staging)
         with writer(staging), process_memory_budget(DEFAULT_POLICY):
@@ -261,20 +319,24 @@ def execute_history_repair(context, config):
             budget.guard = lambda: check_devices(root, staging, captured_devices)
             token = _BUDGET.set(budget)
             try:
-                with connect_configured_duckdb(
-                    DuckDBConnectionSettings(
-                        temp_directory=Path(tempfile.gettempdir()).resolve()
-                    ),
-                    temp_policy="existing_no_spill",
-                ) as con:
-                    identities = con.execute(
-                        "SELECT source_ts_code,latest_ts_code FROM read_parquet(?,hive_partitioning=false) WHERE confidence='confirmed'",
-                        [str(silver_stock_identity_map_path(root))],
-                    ).fetchall()
-                aliases = dict(identities)
-                aliases.update({latest: latest for _, latest in identities})
-                transport, sources = HttpPage(cancel=cancel, progress=progress), []
-                for freq in FREQUENCIES:
+                if aliases is None:
+                    with connect_configured_duckdb(
+                        DuckDBConnectionSettings(
+                            temp_directory=Path(tempfile.gettempdir()).resolve()
+                        ),
+                        temp_policy="existing_no_spill",
+                    ) as con:
+                        identities = con.execute(
+                            "SELECT source_ts_code,latest_ts_code FROM read_parquet(?,hive_partitioning=false) WHERE confidence='confirmed'",
+                            [str(silver_stock_identity_map_path(root))],
+                        ).fetchall()
+                    aliases = dict(identities)
+                    aliases.update({latest: latest for _, latest in identities})
+                sources = []
+                transport = (
+                    HttpPage(cancel=cancel, progress=progress) if codes else None
+                )
+                for freq in frequencies:
                     for index, code in enumerate(codes):
                         progress(
                             {
@@ -297,25 +359,48 @@ def execute_history_repair(context, config):
                                 progress=progress,
                             )
                         )
-                groups = group_history_sources(
-                    sources,
-                    work=work / "groups",
-                    root=root,
-                    execution_date=datetime.now(ZoneInfo("Asia/Shanghai"))
-                    .date()
-                    .isoformat(),
-                    cancel=cancel,
-                    progress=progress,
+                groups = (
+                    group_history_sources(
+                        sources,
+                        work=work / "groups",
+                        root=root,
+                        execution_date=datetime.now(ZoneInfo("Asia/Shanghai"))
+                        .date()
+                        .isoformat(),
+                        cancel=cancel,
+                        progress=progress,
+                    )
+                    if sources
+                    else []
                 )
-                for freq in FREQUENCIES:
+                grouped = {(g["freq"], g["period"]): g for g in groups}
+                for key in config.remove_keys:
+                    freq, period = (
+                        key["freq"],
+                        source_period(key["trade_date"], key["freq"]),
+                    )
+                    grouped.setdefault(
+                        (freq, period), {"freq": freq, "period": period, "sources": []}
+                    )
+                groups = [grouped[k] for k in sorted(grouped)]
+                missing = [
+                    (g["freq"], g["period"])
+                    for g in groups
+                    if not target_path(root, g["freq"], g["period"]).is_file()
+                ]
+                if missing:
+                    raise ValueError(f"period_history_market_files_missing:{missing}")
+                for freq in frequencies:
                     periods = sorted(
                         group["period"] for group in groups if group["freq"] == freq
                     )
                     periods_by_freq[freq] = periods
+                    if not periods:
+                        continue
                     references[freq] = delivery_ref(
                         context.run_id,
                         freq,
-                        "factor_repair",
+                        kind,
                         config.business_date,
                         periods,
                     )
@@ -323,15 +408,18 @@ def execute_history_repair(context, config):
                         asset_key=f"raw_tushare_stk_period_bar_adj_{freq}",
                         metadata={
                             WORK_KEY: dg.MetadataValue.json(
-                                delivery_work(
-                                    references[freq],
-                                    kind="factor_repair",
-                                    business_date=config.business_date,
-                                    periods=periods,
-                                    stock_codes=codes,
-                                    codes_hash=config.codes_hash,
-                                    upstream_completions=config.upstream_completions,
-                                )
+                                {
+                                    **delivery_work(
+                                        references[freq],
+                                        kind=kind,
+                                        business_date=config.business_date,
+                                        periods=periods,
+                                        stock_codes=codes,
+                                        codes_hash=config.codes_hash,
+                                        upstream_completions=config.upstream_completions,
+                                    ),
+                                    **removal_metadata,
+                                }
                             )
                         },
                     )
@@ -346,8 +434,26 @@ def execute_history_repair(context, config):
                             "total": len(groups),
                         }
                     )
-                    item = assemble_history_period(
+                    assembler = (
+                        assemble_history_period
+                        if config.intent == "factor_changed"
+                        else assemble_history_maintenance_period
+                    )
+                    extra = (
+                        {}
+                        if config.intent == "factor_changed"
+                        else {
+                            "remove_keys": [
+                                key
+                                for key in config.remove_keys
+                                if key["freq"] == freq
+                                and source_period(key["trade_date"], freq) == period
+                            ]
+                        }
+                    )
+                    item = assembler(
                         group["sources"],
+                        **extra,
                         work=work / "candidates" / freq / period,
                         root=root,
                         freq=freq,
@@ -377,6 +483,14 @@ def execute_history_repair(context, config):
                             },
                         ),
                     )
+                if config.remove_keys and count_maintenance_rows(
+                    root,
+                    config.remove_keys,
+                    work=work / "residual",
+                    cancel=cancel,
+                    progress=progress,
+                ):
+                    raise ValueError("period_maintenance_remove_keys_remaining")
                 mats = {
                     (
                         r.asset_materialization.asset_key.to_user_string(),
@@ -404,14 +518,16 @@ def execute_history_repair(context, config):
                                 timestamp=mat.event_log_entry.timestamp,
                             ),
                         )
-                for freq in FREQUENCIES:
+                for freq in frequencies:
+                    if not periods_by_freq[freq]:
+                        continue
                     yield dg.AssetObservation(
                         asset_key=f"raw_tushare_stk_period_bar_adj_{freq}",
                         metadata={
                             COMPLETION_KEY: dg.MetadataValue.json(
                                 delivery_completion(
                                     references[freq],
-                                    kind="factor_repair",
+                                    kind=kind,
                                     business_date=config.business_date,
                                     periods=periods_by_freq[freq],
                                 )
@@ -420,7 +536,7 @@ def execute_history_repair(context, config):
                     )
             finally:
                 _BUDGET.reset(token)
-    for freq in FREQUENCIES:
+    for freq in frequencies:
         items = [item for item in completed if item["freq"] == freq]
         from orchestrator.defs.run_contracts.stock_period import digest
 
@@ -433,7 +549,7 @@ def execute_history_repair(context, config):
             metadata={
                 "version": "stock-period-result@1",
                 "producer_run_id": context.run_id,
-                "kind": "factor_repair",
+                "kind": kind,
                 "business_date": config.business_date,
                 "freq": freq,
                 "stock_codes": codes,
@@ -444,5 +560,6 @@ def execute_history_repair(context, config):
                 "rewritten_file_count": len(items),
                 "rewritten_row_count": sum(item["rows"] for item in items),
                 "upstream_completions": config.upstream_completions,
+                **removal_metadata,
             },
         )

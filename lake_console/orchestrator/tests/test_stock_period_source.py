@@ -1,9 +1,16 @@
 import json
+import time
+from pathlib import Path
 
 import pytest
 
+from orchestrator.defs.io import stock_period_raw as raw
 from orchestrator.defs.io.stock_period_raw import PeriodCancelled
-from orchestrator.defs.run_contracts.stock_period import FIELDS, StockPeriodPolicy
+from orchestrator.defs.run_contracts.stock_period import (
+    FIELDS,
+    StockPeriodPolicy,
+    digest,
+)
 from orchestrator.defs.stock_period_source import capture_unit
 
 
@@ -310,8 +317,9 @@ def test_current_response_excludes_delisted_and_rejects_retired_active_alias(tmp
             }
         ).encode()
 
-    result = capture_unit(
-        request_id="source-fixture",
+    from orchestrator.defs.stock_period_source import capture_current_period
+
+    sources, rows = capture_current_period(
         work=tmp_path / "a",
         freq="week",
         period="2026-10-16",
@@ -319,11 +327,10 @@ def test_current_response_excludes_delisted_and_rejects_retired_active_alias(tmp
         aliases={},
         transport=lambda _: envelope("000002.SZ"),
     )
-    assert result["rows"] == 1 and result["excluded_rows"] == 1
+    assert len(rows) == 1 and len(sources) == 1
     with pytest.raises(ValueError, match="retired_alias"):
-        capture_unit(
-            request_id="source-fixture",
-            work=tmp_path / "b",
+        capture_current_period(
+                work=tmp_path / "b",
             freq="week",
             period="2026-10-16",
             listed={"000001.SZ", "920000.BJ"},
@@ -406,3 +413,46 @@ def test_fresh_history_uses_real_http_worker_without_date_filter(tmp_path, http_
     assert observed[0]['fields']==','.join(FIELDS)
     assert observed[0]['params']=={'ts_code':'000001.SZ','freq':'week','limit':6000,'offset':0}
     assert not list((tmp_path/'fresh_history').rglob('*.receipt.json'))
+
+
+def test_unfinished_page_chain_crossing_date_restarts_only_that_unit(tmp_path):
+    from orchestrator.defs.io.stock_period_raw import PeriodCancelled
+    from orchestrator.defs.stock_period_source import capture_unit
+
+    calls = []
+    cancelled = False
+
+    def source(params):
+        calls.append(params["offset"])
+        return body(["20261016"]) if params["offset"] == 0 else body([])
+
+    def progress(_):
+        nonlocal cancelled
+        cancelled = True
+
+    kw = {
+        "work": tmp_path,
+        "request_id": "partial",
+        "freq": "week",
+        "code": "000001.SZ",
+        "listed": {"000001.SZ"},
+        "aliases": {},
+        "policy": StockPeriodPolicy(page_limit=1),
+        "transport": source,
+    }
+    with pytest.raises(PeriodCancelled):
+        capture_unit(**kw, cancel=lambda: cancelled, progress=progress)
+    receipt = next(tmp_path.glob("*/*.receipt.json"))
+    page = raw.read_json(receipt)
+    page["captured_at_ns"] = time.time_ns() - 2 * 86400 * 10**9
+    page["receipt_hash"] = digest(
+        {k: v for k, v in page.items() if k != "receipt_hash"}
+    )
+    raw.atomic_json(receipt, page)
+    preserved = {
+        str(p): p.read_bytes() for p in receipt.parent.glob("*") if p.is_file()
+    }
+    capture_unit(**kw)
+    assert calls == [0, 0, 1]
+    assert all(Path(p).read_bytes() == payload for p, payload in preserved.items())
+    assert list(tmp_path.glob("*/chains/*/complete.json"))

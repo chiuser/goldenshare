@@ -81,43 +81,12 @@ def test_delete_before_download_and_resume_does_not_clear(tmp_path):
         run_period(**kw, cancel=lambda: cancelled, progress=progress)
     new = target_path(kw["root"], "week", "2026-10-16")
     version = file_version(new)
-    run_period(
-        **kw, events=lambda _, completion=None: None, completion_events=lambda _: 1
-    )
+    run_period(**kw)
     assert file_version(new) == version and len(calls) == 2
-    assert (
-        json.loads((kw["staging"] / "stock_period/baseline.json").read_text())["status"]
-        == "files_ready"
-    )
+    assert not (kw["staging"] / "stock_period/baseline.json").exists()
 
 
-def test_event_failure_only_retries_event_and_preserves_file(tmp_path):
-    kw = args(tmp_path)
-    attempts = []
 
-    def events(item, *, completion=None):
-        attempts.append(item["freq"])
-        if item["freq"] == "month":
-            raise OSError("event_failure")
-        return True
-
-    with pytest.raises(OSError):
-        run_period(**kw, events=events, completion_events=lambda _: 1)
-    versions = [
-        file_version(target_path(kw["root"], f, p))
-        for f, p in [("week", "2026-10-16"), ("month", "2026-10")]
-    ]
-    kw["transport"] = lambda _: pytest.fail("source called on event-only resume")
-    run_period(
-        **kw,
-        events=lambda i, completion=None: attempts.append(i["freq"]) or True,
-        completion_events=lambda _: 1,
-    )
-    assert attempts == ["week", "month", "month"]
-    assert versions == [
-        file_version(target_path(kw["root"], f, p))
-        for f, p in [("week", "2026-10-16"), ("month", "2026-10")]
-    ]
 
 
 def test_lock_wrong_roots_and_symlink_refuse(tmp_path):
@@ -156,43 +125,6 @@ def test_old_intent_and_empty_source_never_replace(tmp_path):
     assert not target_path(kw["root"], "week", "2026-10-16").exists()
 
 
-def test_isolated_instance_events_bind_every_partition_and_resume(tmp_path):
-    import dagster as dg
-
-    from orchestrator.defs.bootstrap.stock_period_history_cli import _run_reporting
-    from orchestrator.defs.stock_period_update import (
-        report_completion_events,
-        report_file_events,
-    )
-
-    (tmp_path / "instance").mkdir()
-    (tmp_path / "instance/dagster.yaml").write_text("telemetry:\n  enabled: false\n")
-    with dg.DagsterInstance.local_temp(str(tmp_path / "instance")) as instance:
-        kw = args(tmp_path)
-        result = _run_reporting(
-            instance,
-            lambda context: run_period(
-                **kw,
-                events=lambda item, completion=None: report_file_events(
-                    instance, item, completion=completion, context=context
-                ),
-                completion_events=lambda notice: report_completion_events(
-                    instance, notice
-                ),
-            ),
-        )
-        for item in result["files"]:
-            key = dg.AssetKey("raw_tushare_stk_period_bar_adj_" + item["freq"])
-            first = instance.fetch_materializations(
-                dg.AssetRecordsFilter(asset_key=key, asset_partitions=[item["period"]]),
-                limit=1,
-            ).records[0]
-            report_file_events(instance, item)
-            latest = instance.fetch_materializations(
-                dg.AssetRecordsFilter(asset_key=key, asset_partitions=[item["period"]]),
-                limit=1,
-            ).records[0]
-            assert first.storage_id == latest.storage_id
 
 
 def test_cancel_during_assembly_preserves_sources_without_starting_publication(
@@ -235,7 +167,7 @@ def test_candidate_manifest_change_and_unconfirmed_retirement_refuse(tmp_path):
         "codes": [],
         "retired_codes": ["000001.SZ"],
     }
-    with pytest.raises(ValueError, match="retirement_not_confirmed"):
+    with pytest.raises(ValueError, match="version_or_mode_invalid"):
         run_period(**kw)
 
 
@@ -340,27 +272,3 @@ def test_multifragment_bootstrap_resume_preserves_source_and_copy(
             ).fetchall() == [
                 ("000001.SZ", "20261016" if freq == "week" else "20261031", 1.25)
             ]
-
-
-def test_confirmed_delisted_scope_makes_no_request_and_removes_rows(tmp_path):
-    kw = args(tmp_path)
-    run_period(**kw)
-    baseline = kw["staging"] / "stock_period/baseline.json"
-    facts = json.loads(baseline.read_text())
-    facts["status"] = "ready"  # Synthetic baseline for the independent retirement test.
-    baseline.write_text(json.dumps(facts))
-    kw.update(
-        listed=set(),
-        confirmed_retired={"000001.SZ"},
-        transport=lambda _: pytest.fail("delisted stock requested"),
-        intent={
-            "version": VERSION,
-            "mode": "history",
-            "frequencies": ["week", "month"],
-            "codes": [],
-            "retired_codes": ["000001.SZ"],
-            "request_id": "retirement-fixture",
-        },
-    )
-    result = run_period(**kw)
-    assert len(result["files"]) == 2 and all(i["rows"] == 0 for i in result["files"])

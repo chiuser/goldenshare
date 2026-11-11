@@ -52,6 +52,8 @@ Run 启动意图 -> App QtfTaskRunIntentStager -> Ops TaskRun
 2. `orchestrator/defs/paths.py` 决定正式 Lake 三层与独立 staging 根，不使用旧 config.local.toml 或 Kopia。
 3. reports 和两项 ClickHouse bin 工具保留；本机 ignored 环境不作为可用的旧产品入口。
 
+2026-11-11 股票复权周/月线第5阶段源码更新：当期Raw由`stock_period_update.deliver_asset`按自然周五/自然月末单点取全市场数据，Silver消费真实Dagster运行中的完整交付。`raw_stock_period_history_repair_job`保留自动复权因子变化两频回刷，并接入`stock_period_history_cli maintain`人工指定历史、明确记录键撤回及可选源刷新；三种意图共用现有运行参数和原生交付，自动sensor仍只生成复权因子变化意图。独立退市清理保持按频率执行。旧混合日更、共享待办、全局历史索引、建库交接和旧周线事件job/op/config及四个停用CLI已从源码清退；首次建库只使用其本次源/COPY/候选/写后记录恢复，Raw事件改按集合核对、补缺与精确绑定，Silver仍读取原审计报告。CodeGraph explore/impact/callers及直接源码搜索覆盖CLI、Config/builder、op、源/IO和Raw/Silver消费者；无Prod、前端或API迁移。此处记录源码入口变化，正式部署、切换和写湖未执行，阶段验证与独立审计见[周月线LLD第13.17节](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-five-results)。下段保留2026-10-16历史快照，不能作为当前链路。
+
 2026-10-16周/月Raw链路为asset→stock_period_update→stock_period_history→HTTP source/列式组装，保留原asset/job/check/分区身份。已完成确认步骤1、2：DG局部环境配置/HTTP，移除Prod Settings导入及误增依赖声明（不卸载环境包）；v2逻辑意图与CLI/event消费者统一校验，失败回包有界留证；当前/历史合并候选、范围版本复用及批量验证。相关隔离回归、localhost真实进程与缓存样本通过，均不等于Raw最终验收。2026-10-16第3—5步补齐目标前像、设备/挂载及fsync、运行内增量预算/当前RSS、文件与事件独立恢复、冻结待办及有界交接；CLI新增经批准的handoff，events仍只补事件。检查复用当前真实run或一次CLI真实补报run，不伪造run；外层anchor真实物化/check前不冒记完成。对应隔离回归通过，第6步旧合同收口及第7步Raw最终验收仍后置。两套Raw未正式删除/bootstrap或部署，Silver未开发，R3继续暂停。CodeGraph explore/impact/callers及sync/status与当前代码核对DG入口/直接消费者；不调整Prod业务子系统依赖矩阵。范围、14项原审计及当前交付见[总方案](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-plan-v1.md)和[共享LLD](../../lake_console/docs/design/dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#step12-delivery)。
 
 ## 关键调用链

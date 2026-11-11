@@ -26,14 +26,12 @@ def test_retired_source_rejected(source):
 
 
 def test_all_old_mutating_cli_parameters_reject_before_io(tmp_path):
-    from orchestrator.defs.bootstrap.stock_monthly_events_cli import main as monthevents
-    from orchestrator.defs.bootstrap.stock_monthly_history_cli import main as monthly
-    from orchestrator.defs.bootstrap.stock_weekly_events_cli import main as weekevents
-    from orchestrator.defs.bootstrap.stock_weekly_history_cli import main as weekly
-
-    for entry in (weekly, monthly, weekevents, monthevents):
-        with pytest.raises(ValueError, match="retired"):
-            entry(["apply", "--plan", str(tmp_path / "does-not-exist.json")])
+    import importlib.util
+    for name in ("stock_weekly_history_cli", "stock_monthly_history_cli", "stock_weekly_events_cli", "stock_monthly_events_cli"):
+        assert importlib.util.find_spec("orchestrator.defs.bootstrap." + name) is None
+    from orchestrator.defs.bootstrap.stock_period_history_cli import main
+    with pytest.raises(SystemExit):
+        main(["handoff"])
     assert list(tmp_path.iterdir()) == []
 
 

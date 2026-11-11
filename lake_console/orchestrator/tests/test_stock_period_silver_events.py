@@ -22,9 +22,6 @@ from orchestrator.defs.run_contracts.stock_period_silver import (
 from tests.test_stock_period_silver_contracts import (
     period_fixture as period_fixture,  # noqa: PLC0414 -- Explicit pytest fixture re-export.
 )
-from tests.test_stock_period_silver_contracts import (
-    update_fixture as update_fixture,  # noqa: PLC0414 -- Explicit pytest fixture re-export.
-)
 from tests.test_stock_period_silver_execution import execute
 
 

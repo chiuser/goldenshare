@@ -13,9 +13,7 @@ from orchestrator.defs.io.stock_period_raw import (
     target_path,
 )
 from orchestrator.defs.run_contracts.stock_period import (
-    VERSION,
     StockPeriodPolicy,
-    digest,
 )
 
 POLICY = StockPeriodPolicy(
@@ -53,99 +51,8 @@ def read(root, freq, period):
         ).fetchall()
 
 
-def test_history_replaces_old_keys_keeps_other_stocks_and_old_only_partition(tmp_path):
-    root = tmp_path / "lake"
-    old = [
-        row("000001.SZ", "20261002"),
-        row("000002.SZ", "20261002", "week", "9"),
-        row("000001.SZ", "20261009"),
-        row("000002.SZ", "20261009", "week", "8"),
-    ]
-    items = assemble(
-        [sample(tmp_path / "old", old)],
-        work=tmp_path / "b1",
-        root=root,
-        mode="bootstrap",
-        freq="week",
-        policy=POLICY,
-    )
-    committed = commit(items, tmp_path / "c1")
-    # Actual producer file identities; independent literal original source ranges.
-    evidence = {
-        "files": [{key: item[key] for key in ("freq", "period", "target", "version", "rows")} for item in committed],
-        "stock_ranges": {"week": {
-            "000001.SZ": [["2026-10-02", "2026-10-09"]],
-            "000002.SZ": [["2026-10-02", "2026-10-09"]],
-        }},
-        "listed": ["000001.SZ", "000002.SZ"],
-        "range_index_version": VERSION,
-    }
-    evidence["range_index_hash"] = digest({key: evidence[key] for key in ("files", "stock_ranges")})
-    untouched = target_path(root, "week", "2026-10-09").read_bytes()
-    new = [
-        row("000001.SZ", "20261009", "week", "2"),
-        row("000001.SZ", "20261016", "week", "3"),
-    ]
-    items = assemble(
-        [sample(tmp_path / "new", new)],
-        work=tmp_path / "b2",
-        root=root,
-        mode="history",
-        freq="week",
-        codes=["000001.SZ"],
-        range_evidence=evidence,
-        policy=POLICY,
-    )
-    assert {i["period"] for i in items} == {"2026-10-02", "2026-10-09", "2026-10-16"}
-    commit(items, tmp_path / "c2")
-    assert read(root, "week", "2026-10-02") == [("000002.SZ", "20261002", Decimal(9))]
-    assert read(root, "week", "2026-10-09") == [
-        ("000001.SZ", "20261009", Decimal(2)),
-        ("000002.SZ", "20261009", Decimal(8)),
-    ]
-    assert read(root, "week", "2026-10-16") == [("000001.SZ", "20261016", Decimal(3))]
-    assert untouched != target_path(root, "week", "2026-10-09").read_bytes()
 
 
-def test_upsert_full_row_and_unselected_partition_unchanged(tmp_path):
-    root = tmp_path / "lake"
-    old = [
-        row("000001.SZ", "20200228", "month"),
-        row("000001.SZ", "20200229", "month"),
-        row("000002.SZ", "20200229", "month", "7"),
-        row("000001.SZ", "20200131", "month"),
-    ]
-    commit(
-        assemble(
-            [sample(tmp_path / "old", old)],
-            work=tmp_path / "b1",
-            root=root,
-            mode="bootstrap",
-            freq="month",
-            policy=POLICY,
-        ),
-        tmp_path / "c1",
-    )
-    other = target_path(root, "month", "2020-01")
-    before = file_version(other)
-    new = row("000001.SZ", "20200229", "month", "3")
-    new[9] = None
-    items = assemble(
-        [sample(tmp_path / "new", [new])],
-        work=tmp_path / "b2",
-        root=root,
-        mode="upsert",
-        freq="month",
-        periods=["2020-02"],
-        policy=POLICY,
-    )
-    commit(items, tmp_path / "c2")
-    assert file_version(other) == before
-    assert read(root, "month", "2020-02") == [
-        ("000001.SZ", "20200228", Decimal("1.25")),
-        ("000001.SZ", "20200229", Decimal(3)),
-        ("000002.SZ", "20200229", Decimal(7)),
-    ]
 
 
 def test_publish_checkpoint_failure_readback_and_no_rewrite(tmp_path, monkeypatch):
@@ -196,48 +103,6 @@ def test_sql_cancel_interrupts_and_no_progress_is_invented(tmp_path):
     assert all(e.get("completed", 0) == 0 for e in events)
 
 
-def test_confirmed_retirement_prunes_without_any_download(tmp_path):
-    root = tmp_path / "lake"
-    committed = commit(
-        assemble(
-            [
-                sample(
-                    tmp_path / "initial",
-                    [
-                        row("000001.SZ", "20261009"),
-                        row("000002.SZ", "20261009", "week", "7"),
-                    ],
-                )
-            ],
-            work=tmp_path / "b1",
-            root=root,
-            mode="bootstrap",
-            freq="week",
-            policy=POLICY,
-        ),
-        tmp_path / "c1",
-    )
-    evidence = {
-        "files": [{key: item[key] for key in ("freq", "period", "target", "version", "rows")} for item in committed],
-        "stock_ranges": {"week": {
-            "000001.SZ": [["2026-10-09", "2026-10-09"]],
-            "000002.SZ": [["2026-10-09", "2026-10-09"]],
-        }},
-        "listed": ["000001.SZ", "000002.SZ"], "range_index_version": VERSION,
-    }
-    evidence["range_index_hash"] = digest({key: evidence[key] for key in ("files", "stock_ranges")})
-    items = assemble(
-        [],
-        work=tmp_path / "b2",
-        root=root,
-        mode="history",
-        freq="week",
-        retired_codes=["000001.SZ"],
-        range_evidence=evidence,
-        policy=POLICY,
-    )
-    commit(items, tmp_path / "c2")
-    assert read(root, "week", "2026-10-09") == [("000002.SZ", "20261009", Decimal(7))]
 
 
 def test_independent_literal_all_21_fields_and_null_survive(tmp_path):

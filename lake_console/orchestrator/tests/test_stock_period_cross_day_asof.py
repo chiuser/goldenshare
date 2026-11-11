@@ -27,9 +27,6 @@ from tests.test_stock_period_silver_contracts import (
 from tests.test_stock_period_silver_contracts import (
     period_fixture as period_fixture,  # noqa: PLC0414 -- Explicit isolated fixture.
 )
-from tests.test_stock_period_silver_contracts import (
-    update_fixture as update_fixture,  # noqa: PLC0414 -- Explicit isolated fixture.
-)
 
 
 @pytest.fixture(autouse=True)
@@ -212,33 +209,3 @@ def test_raw_source_date_does_not_hide_null_empty_or_invalid_dates(
             )
             assert facts[str(candidate)]["source_asof"] is None
             assert facts[str(candidate)]["rows"] == (0 if empty else 1)
-
-
-def test_later_source_does_not_advance_daily_factor_or_refresh_to_later_day(tmp_path):
-    from orchestrator.defs.stock_period_update import _consume_daily_files
-
-    staging = tmp_path / "staging"
-    raw.atomic_json(
-        staging / "stock_period/daily.json",
-        {
-            "completed_through": {"week": "2026-10-23", "month": "2026-09"},
-            "last_refresh": {"month": "2026-10-28"},
-            "factor_through": "2026-10-28",
-        },
-    )
-    raw.atomic_json(staging / "stock_period/baseline.json", {"listed": [A]})
-    work = {
-        "intent": {"asof": "2026-10-29", "request_id": "original-29"},
-        "frequency": "month",
-        "pending": [],
-        "holidays": [],
-        "listed": [A],
-    }
-    _consume_daily_files(
-        staging, work, {"unit_asofs": {"month": {"2026-10": "20261030"}}}, []
-    )
-    result = raw.read_json(staging / "stock_period/daily.json")
-    assert result["factor_through"] == "2026-10-29"
-    assert result["last_refresh"]["month"] == "2026-10-29"
-    assert result["last_source_asof"]["month"] == "20261030"
-    assert result["completed_through"]["month"] == "2026-09"

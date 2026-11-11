@@ -16,9 +16,6 @@ from orchestrator.defs.run_contracts.stock_period_silver import check_names
 from tests.test_stock_period_silver_contracts import (
     period_fixture as period_fixture,  # noqa: PLC0414 -- Explicit pytest fixture re-export.
 )
-from tests.test_stock_period_silver_contracts import (
-    update_fixture as update_fixture,  # noqa: PLC0414 -- Explicit pytest fixture re-export.
-)
 
 
 def definitions(root):
@@ -119,17 +116,29 @@ def test_catalog_entries_and_governance_are_complete():
 
 
 def test_event_readiness_uses_two_real_set_queries_instead_of_per_period_api(
-    update_fixture, monkeypatch
+    period_fixture, monkeypatch, request
 ):
     from contextlib import contextmanager
 
+    from orchestrator.defs import stock_period_silver as silver
     from orchestrator.defs.asset_guards.stock_period_silver_readiness import (
         batch_event_evidence,
         require_checks,
     )
-
-    f = update_fixture
-    storage = f["instance"].event_log_storage
+    from orchestrator.defs.bootstrap import stock_period_silver_cli as silver_cli
+    from orchestrator.defs.bootstrap.stock_period_history import report_bootstrap_events
+    from orchestrator.defs.bootstrap.stock_period_history_cli import _run_reporting
+    from orchestrator.defs.io.stock_period_raw import audit_file, target_path
+    f = period_fixture
+    instance = dg.DagsterInstance.ephemeral()
+    request.addfinalizer(instance.dispose)
+    f["instance"] = instance
+    files = [{"freq":freq,"period":period,"target":str(target_path(f["lake"],freq,period)),
+              **audit_file(f["lake"],freq,period)} for freq,period in f["data"]]
+    _run_reporting(instance, lambda ctx: report_bootstrap_events(instance,ctx,files))
+    silver.build(f["lake"],f["staging"],f["run_id"],audit_report=f["report"],emit=lambda _:None)
+    silver_cli.run_reporting(instance,lambda ctx:silver_cli.replay_events(f["lake"],f["staging"],f["run_id"],instance,ctx))
+    storage = instance.event_log_storage
     connect, statements = storage.index_connection, []
 
     @contextmanager

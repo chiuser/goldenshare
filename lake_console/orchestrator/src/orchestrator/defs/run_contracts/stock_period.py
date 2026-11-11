@@ -17,76 +17,14 @@ STOCK_PERIOD_READINESS_FIELDS = ("ts_code", "trade_date", "end_date")
 STOCK_PERIOD_DAILY_START_TIME = "20:00"
 VERSION = "stock-period-source-v2"
 FREQUENCIES = ("week", "month")
-COMPLETION_VERSION = "stock-period-completion@1"
-COMPLETION_METADATA_KEY = "goldenshare/period_completion"
-STOCK_PERIOD_RUNTIME_RSS_GIB_TAG = "goldenshare/stock_period_rss_limit_gib"
 
 
-def completion_reference(run_id, receipt_hash, freq):
-    """An existing immutable Raw receipt, never an arbitrary path or event id."""
-    from orchestrator.defs.run_contracts.run_keys import build_batch_id
-
-    frequency(freq)
-    if any(
-        not isinstance(v, str) or re.fullmatch(r"[0-9a-f]{64}", v) is None
-        for v in (run_id, receipt_hash)
-    ):
-        raise ValueError("period_completion_identity_invalid")
-    return {
-        "raw_execution_id": run_id,
-        "file_receipt_hash": receipt_hash,
-        "upstream_batch_id": build_batch_id(
-            producer="stock_period_raw",
-            scope=freq,
-            payload={"producer_run_id": run_id, "file_receipt_hash": receipt_hash},
-        ),
-    }
 
 
-def validate_completion_reference(value, freq):
-    if not isinstance(value, dict) or set(value) != {
-        "raw_execution_id",
-        "file_receipt_hash",
-        "upstream_batch_id",
-    }:
-        raise ValueError("period_completion_reference_invalid")
-    expected = completion_reference(
-        value["raw_execution_id"], value["file_receipt_hash"], freq
-    )
-    if value != expected:
-        raise ValueError("period_completion_reference_invalid")
-    return expected
 
 
-def completion_notice(reference, freq, file_count):
-    reference = validate_completion_reference(reference, freq)
-    if type(file_count) is not int or file_count <= 0:
-        raise ValueError("period_completion_count_invalid")
-    return {
-        "version": COMPLETION_VERSION,
-        "freq": freq,
-        "file_count": file_count,
-        **reference,
-    }
 
 
-def validate_completion_notice(value, freq):
-    if not isinstance(value, dict) or set(value) != {
-        "version",
-        "freq",
-        "file_count",
-        "raw_execution_id",
-        "file_receipt_hash",
-        "upstream_batch_id",
-    }:
-        raise ValueError("period_completion_notice_invalid")
-    reference = {
-        k: value[k]
-        for k in ("raw_execution_id", "file_receipt_hash", "upstream_batch_id")
-    }
-    if value != completion_notice(reference, freq, value["file_count"]):
-        raise ValueError("period_completion_notice_invalid")
-    return reference
 
 
 @dataclass(frozen=True)

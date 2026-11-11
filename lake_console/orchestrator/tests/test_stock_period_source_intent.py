@@ -220,7 +220,7 @@ def test_empty_scope_refuses_before_directory_or_request(tmp_path):
             work=work,
             request_id="empty-scope",
             freq="week",
-            period="2026-10-16",
+            code="000001.SZ",
             listed=set(),
             aliases={},
             transport=lambda _: pytest.fail("empty-scope request"),

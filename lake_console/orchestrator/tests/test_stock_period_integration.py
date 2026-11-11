@@ -1,4 +1,4 @@
-"""One real CLI/HTTP-worker/handoff/job path on a tiny, independent local source.
+"""One real CLI/HTTP-worker/bootstrap/event path on a tiny, independent local source.
 
 Only clocks, the upstream fixture, resource roots and event fault are substituted.
 All execution, checkpoints, COPY, checks and Dagster event storage remain real.
@@ -9,7 +9,6 @@ import multiprocessing
 import signal
 import threading
 import time
-from collections import Counter
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from types import SimpleNamespace
@@ -67,7 +66,7 @@ def write_upstreams(root, work, *, newcomer=False):
             ).write_parquet(str(target))
 
 
-def test_cli_worker_cancel_events_and_independent_bootstrap_handoff(tmp_path, monkeypatch):
+def test_cli_worker_cancel_and_independent_bootstrap_event_recovery(tmp_path, monkeypatch):
     root, staging = tmp_path / "lake", tmp_path / "staging"
     write_upstreams(root, tmp_path / "fixtures")
     kept = root / "raw/unrelated/keep.txt"
@@ -323,46 +322,25 @@ def test_cli_worker_cancel_events_and_independent_bootstrap_handoff(tmp_path, mo
         assert cli.main(["resume", *argv]) == 0
         assert len(requests) == 4 and complete.read_bytes() == captured
         assert raw.read_json(run / "manifest.json")["identity_hash"] == frozen
-        assert (
-            raw.read_json(staging / "stock_period/baseline.json")["status"]
-            == "files_ready"
-        )
+        assert not (staging / "stock_period/baseline.json").exists()
         mark("bootstrap_resume")
         versions = {
             p: raw.file_version(p) for p in root.glob("raw/tushare/*/*/*.parquet")
         }
         before = len(sql), len(requests)
-        with pytest.raises(OSError, match="isolated_event_failure"):
+        with pytest.raises(Exception, match="isolated_event_failure"):
             cli.main(["events", *argv])
         mark("events_failed")
         assert cli.main(["events", *argv]) == 0
-        assert (len(sql), len(requests)) == before
+        assert len(requests) == before[1]
+        assert not any(e["stage"] in ("partition_copy", "candidate_merged") for e in sql[before[0]:])
         assert versions == {p: raw.file_version(p) for p in versions}
         assert len(instance.get_runs()) == 2
         mark("events_resume")
 
-        Clock.instant = datetime.fromisoformat("2026-11-02T20:00:00+08:00")
-        write_upstreams(root, tmp_path / "fixtures2", newcomer=True)
-        assert cli.main(["handoff", *argv]) == 0
-        assert len(requests) == 12
-        assert (
-            raw.read_json(staging / "stock_period/baseline.json")["status"] == "ready"
-        )
-        state = raw.read_json(staging / "stock_period/daily.json")
-        assert state["completed_through"] == {"week": "2026-10-30", "month": "2026-10"}
-        assert state["factor_through"] == "2026-11-02"
-        assert Counter(p["ts_code"] for p in requests[4:] if "ts_code" in p) == {
-            A: 2,
-            C: 2,
-        }
-        mark("handoff")
-        before = len(sql), len(requests), len(events)
-        assert cli.main(["handoff", *argv]) == 0
-        assert (len(sql), len(requests), len(events)) == before
-        mark("handoff_repeat")
-
+        assert not (staging / "stock_period/daily.json").exists()
         assert not any(p.pid in workers for p in multiprocessing.active_children())
-        mark("bootstrap_handoff_final")
+        mark("bootstrap_final")
         completed = True
     finally:
         # One bounded metadata inventory of this tiny fixture, never a formal root.

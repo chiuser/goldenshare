@@ -5,7 +5,7 @@ import json
 import dagster as dg
 import pytest
 
-from orchestrator.defs.io.stock_period_raw import atomic_json, connection
+from orchestrator.defs.io.stock_period_raw import connection
 from orchestrator.defs.run_contracts.stock_period import FIELDS
 
 
@@ -31,9 +31,8 @@ from orchestrator.defs.run_contracts.stock_period import FIELDS
 def test_actual_job_check_events_and_partition(
     tmp_path, monkeypatch, freq, partition, today, prior, days
 ):
-    from orchestrator.defs import paths
+    from orchestrator.defs import paths, stock_period_source, stock_period_update
     from orchestrator.defs.assets import stock_monthly, stock_weekly
-    from orchestrator.defs.bootstrap import stock_period_history
     from orchestrator.defs.checks import stock_monthly_checks, stock_weekly_checks
     from orchestrator.defs.jobs import stock_monthly as monthly_jobs
     from orchestrator.defs.jobs import stock_weekly as weekly_jobs
@@ -69,28 +68,21 @@ def test_actual_job_check_events_and_partition(
         ]:
             p.parent.mkdir(parents=True, exist_ok=True)
             con.sql(sql, params=args).write_parquet(str(p))
-    atomic_json(
-        staging / "stock_period" / "baseline.json",
-        {"status": "ready", "listed": ["000001.SZ"]},
-    )
-    atomic_json(
-        staging / "stock_period" / "daily.json",
-        {
-            # Real handoff persists both frequencies, even when this job only
-            # exercises one. Independent prior closed-period fixture values.
-            "completed_through": {
-                "week": prior if freq == "week" else "2020-02-21",
-                "month": prior if freq == "month" else "2026-09",
-            },
-            "last_refresh": {},
-            "factor_through": today,
-        },
-    )
+    lifecycle=paths.silver_stock_lifecycle_path(root)
+    lifecycle.parent.mkdir(parents=True,exist_ok=True)
+    suspension=paths.silver_stock_suspend_daily_path(root,today)
+    suspension.parent.mkdir(parents=True,exist_ok=True)
+    with connection(tmp_path/"accepted_upstream") as con:
+        con.execute("COPY (SELECT '000001.SZ' ts_code,'L' list_status,DATE '1991-04-03' list_date,NULL::DATE delist_date,true is_cny_stock) TO ? (FORMAT PARQUET)",[str(lifecycle)])
+        con.execute("COPY (SELECT NULL::VARCHAR ts_code,NULL::DATE trade_date,NULL::VARCHAR suspend_type,NULL::VARCHAR suspend_timing WHERE false) TO ? (FORMAT PARQUET)",[str(suspension)])
+    # Replace acceptance only; the current producer schemas, universe, source
+    # admission, candidate, actual jobs and bound original checks remain real.
+    monkeypatch.setattr(stock_period_update,"_period_inputs_ready",lambda *a:None)
     calls = []
 
     def transport(params):
         calls.append(params)
-        dates = ["20200228", "20200229"] if freq == "month" else ["20261016"]
+        dates = ["20200229"] if freq == "month" else ["20261016"]
         return json.dumps(
             {
                 "code": 0,
@@ -104,7 +96,7 @@ def test_actual_job_check_events_and_partition(
             }
         ).encode()
 
-    monkeypatch.setattr(stock_period_history, "HttpPage", lambda **_: transport)
+    monkeypatch.setattr(stock_period_source, "HttpPage", lambda **_: transport)
     asset = getattr(
         stock_weekly if freq == "week" else stock_monthly,
         "raw_tushare_stk_period_bar_adj_" + freq,
@@ -148,3 +140,6 @@ def test_actual_job_check_events_and_partition(
             c.passed and c.blocking and c.partition == partition for c in checks
         )
     assert len(calls) == 1
+
+    assert not (staging/"stock_period/baseline.json").exists()
+    assert not (staging/"stock_period/daily.json").exists()

@@ -927,20 +927,6 @@ class StockPeriodRawConfig(dg.Config):
         return iso_business_date(value)
 
 
-class StockWeeklyBootstrapEventChecksConfig(dg.Config):
-    """Only the new direct-source execution receipt; retired B0 plans are rejected."""
-
-    model_config: ClassVar[dict[str, str]] = {"extra": "forbid"}
-    run_id: str
-
-    @field_validator("run_id")
-    @classmethod
-    def validate_run_id(cls, value):
-        import re
-
-        if not re.fullmatch(r"[0-9a-f]{64}", value):
-            raise ValueError("period_execution_id_invalid")
-        return value
 
 
 def build_stock_period_run_config(freq, intent_date):
