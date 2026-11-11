@@ -229,18 +229,6 @@ def test_index_period_writer_upserts_all_source_codes_only_in_raw(
     writer = DatasetWriter(session=_StubSession())  # type: ignore[arg-type]
     definition = get_dataset_definition(dataset_key)
     trade_date = date(2026, 4, 24) if dataset_key == "index_weekly" else date(2026, 4, 30)
-    derived = mocker.patch.object(
-        writer,
-        "_build_index_period_derived_rows_for_codes",
-        return_value=[
-            {
-                **_index_row("000002.SH", trade_date),
-                "period_start_date": anchor_start,
-                "change_amount": 1,
-                "source": "derived_daily",
-            }
-        ],
-    )
     batch = NormalizedBatch(
         unit_id=f"u-{dataset_key}",
         rows_normalized=[
@@ -263,7 +251,7 @@ def test_index_period_writer_upserts_all_source_codes_only_in_raw(
     assert serving_dao.bulk_upsert_calls == []
     assert serving_dao.bulk_insert_calls == []
     assert result.rows_written == 2
-    derived.assert_not_called()
+    dao.index_series_active.list_active_codes.assert_not_called()
 
 
 def test_index_period_explicit_non_active_ts_code_writes_raw_only(mocker) -> None:
@@ -281,7 +269,6 @@ def test_index_period_explicit_non_active_ts_code_writes_raw_only(mocker) -> Non
     )
     _patch_writer_dao(mocker, dao)
     writer = DatasetWriter(session=_StubSession())  # type: ignore[arg-type]
-    derived_mock = mocker.patch.object(writer, "_build_index_period_derived_rows", return_value=[])
     definition = get_dataset_definition("index_weekly")
     batch = NormalizedBatch(
         unit_id="u-index-weekly-explicit",
@@ -305,8 +292,8 @@ def test_index_period_explicit_non_active_ts_code_writes_raw_only(mocker) -> Non
     assert serving_dao.bulk_insert_calls == []
     assert result.rows_written == 1
     assert result.rejected_reason_counts == {}
-    derived_mock.assert_not_called()
+    dao.index_series_active.list_active_codes.assert_not_called()
 
 
 # Monthly source priority and replacement are exercised with real constraints in
-# test_index_monthly_postgres.py rather than mocked INSERT/delete behavior.
+# test_index_period_serving.py rather than mocked INSERT/delete behavior.

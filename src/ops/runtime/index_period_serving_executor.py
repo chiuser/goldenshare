@@ -22,6 +22,15 @@ class IndexPeriodServingExecutor:
     def __init__(self, *, session_factory) -> None:
         self._session_factory = session_factory
 
+    @staticmethod
+    def check_schedule_cutoff(frequency: IndexPeriodFrequency, target: date) -> None:
+        if datetime.now(SHANGHAI).date() > target:
+            raise invalid_serving_request(
+                "index_period_serving.schedule_expired",
+                f"{target} 的盘后日更已过上海时间午夜，请在手动更新入口指定原目标日补数。",
+                frequency=frequency, trade_date=target.isoformat(),
+            )
+
     def prepare(
         self, frequency: IndexPeriodFrequency, params: Mapping,
     ) -> tuple[IndexServingPeriod, tuple[str, ...], dict[str, date | None]]:

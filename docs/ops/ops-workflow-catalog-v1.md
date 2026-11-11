@@ -178,6 +178,7 @@
 - 支持手动执行：是
 - 支持参数：`start_date`、`end_date`
 - 适用场景：现行指数扩展数据维护。周、月线 Serving 保留范围和切换清理见[专项方案](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-period-cutover)。
+- 指数周、月线步骤只维护正式 Raw。日期区间没有对应期末时，该步骤不取数，后续步骤继续执行。
 
 步骤（顺序执行）：
 
@@ -191,7 +192,7 @@
 
 ## 3.6 `index_kline_maintenance_pipeline`（指数K线全链路维护）
 
-现有代码仍注册此手动工作流。改造时移除其中按日线批量合成历史周、月线的步骤，范围见[旧合成入口清理](/Users/congming/github/goldenshare/docs/datasets/index-series-active-sync-mechanism.md#index-period-legacy-cleanup)。
+手动执行，输入 `start_date`、`end_date`。按顺序执行指数日线 `index_daily.maintain`、指数周线 Raw `index_weekly.maintain`、指数月线 Raw `index_monthly.maintain`。周、月线步骤仅请求区间内的实际期末。周、月线 Serving 使用[独立维护动作](/Users/congming/github/goldenshare/docs/datasets/prod-index-period-low-level-design-v1.md)。
 
 ---
 

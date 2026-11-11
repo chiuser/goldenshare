@@ -36,8 +36,6 @@ def test_validate_serving_coverage_ok_when_all_required_present() -> None:
         "equity_daily_basic",
         "moneyflow",
         "index_daily",
-        "index_weekly",
-        "index_monthly",
         "stk_period_bar_week",
         "stk_period_bar_month",
         "stk_period_bar_adj_week",
@@ -52,8 +50,6 @@ def test_validate_serving_coverage_ok_when_all_required_present() -> None:
         equity_daily_basic=object(),
         equity_moneyflow=object(),
         index_daily_serving=object(),
-        index_weekly_serving=object(),
-        index_monthly_serving=object(),
         stk_period_bar=object(),
         stk_period_bar_adj=object(),
     )

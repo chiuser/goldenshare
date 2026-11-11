@@ -68,8 +68,6 @@ from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.dc_member import DcMember
 from src.foundation.models.core.index_factor_pro import IndexFactorPro
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
-from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
-from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
 from src.foundation.models.core_serving.mkt_idx_bmk_current import MktIdxBmkCurrent
 from src.foundation.models.core_serving.mkt_idx_bmk_observation import MktIdxBmkObservation
 from src.foundation.models.core_serving.sw_industry_classification import SwIndustryClassification
@@ -224,9 +222,7 @@ class DAOFactory:
         self.index_basic = IndexBasicDAO(session)
         self.index_daily_serving = GenericDAO(session, IndexDailyServing)
         self.index_weekly_bar = IndexWeeklyBarDAO(session)
-        self.index_weekly_serving = GenericDAO(session, IndexWeeklyServing)
         self.index_monthly_bar = IndexMonthlyBarDAO(session)
-        self.index_monthly_serving = GenericDAO(session, IndexMonthlyServing)
         self.index_weight = IndexWeightDAO(session)
         self.index_daily_basic = IndexDailyBasicDAO(session)
         self.index_factor_pro = GenericDAO(session, IndexFactorPro)

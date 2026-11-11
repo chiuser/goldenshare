@@ -45,6 +45,7 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("index_period_serving.target_date", "指数周期线 Serving 目标交易日无效", "plan", "核对目标日、收盘时间和周期末"),
     IngestionCodebookEntry("index_period_serving.calendar", "指数周期线交易日历不完整", "plan", "补齐目标周期交易日历"),
     IngestionCodebookEntry("index_period_serving.list_date", "缺少指数发布日期", "execute", "核对指数基础信息"),
+    IngestionCodebookEntry("index_period_serving.schedule_expired", "盘后日更已过午夜", "plan", "在手动更新入口指定原目标日补数"),
     IngestionCodebookEntry("index_period_serving.continuity", "指数 Serving 截至日不连续", "execute", "按交易日顺序补做"),
     IngestionCodebookEntry("index_period_serving.daily_missing", "指数 Raw 日线缺少应有交易日", "execute", "补齐诊断所列日线"),
     IngestionCodebookEntry("index_period_serving.daily_invalid", "指数 Raw 日线值无效", "execute", "核对诊断所列日线值"),

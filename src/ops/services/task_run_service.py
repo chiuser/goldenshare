@@ -28,6 +28,7 @@ from src.ops.models.ops.task_run import TaskRun
 from src.ops.services.dataset_action_request_adapter import dataset_action_trigger_source
 from src.ops.contracts.external_task import ExternalTaskDefinition
 from src.ops.services.dataset_schedule_time_policy_resolver import DatasetScheduleTimePolicyResolver
+from src.ops.services.index_period_schedule import INDEX_PERIOD_CALENDAR_POLICIES, index_period_target_date
 from src.ops.services.ingestion_error_presentation import present_ingestion_error
 from src.ops.services.news_stock_linking_service import NEWS_STOCK_LINKING_ACTION_KEY
 from src.ops.services.news_stock_linking_window_resolver import NewsStockLinkingWindowResolver
@@ -574,11 +575,16 @@ class TaskRunCommandService:
             action = get_maintenance_action(target_key)
             if action is None:
                 raise WebAppError(status_code=404, code="not_found", message="系统维护动作不存在")
+            time_input = self._extract_time_input(params_json)
+            if action.schedule_time_policy is not None and scheduled_at is not None:
+                time_input = {"mode": "point", "trade_date": self._local_scheduled_at(
+                    scheduled_at=scheduled_at, timezone_name=timezone_name,
+                ).date().isoformat()}
             return TaskRunCreateContext(
                 task_type="maintenance_action",
                 resource_key=None,
                 action="maintain",
-                time_input=self._extract_time_input(params_json),
+                time_input=time_input,
                 filters=self._extract_filters(params_json),
                 request_payload={**params_json, "target_type": target_type, "target_key": target_key},
                 trigger_source=trigger_source,
@@ -617,6 +623,7 @@ class TaskRunCommandService:
             LATEST_COMPLETED_CALENDAR_QUARTER_POLICY,
             LATEST_COMPLETED_CALENDAR_WEEK_POLICY,
             SINCE_LAST_SUCCESS_DAY_RANGE_POLICY,
+            *INDEX_PERIOD_CALENDAR_POLICIES,
         }:
             raise WebAppError(status_code=422, code="validation_error", message=f"不支持的日期策略：{normalized_policy}")
         policy_rule = DatasetScheduleTimePolicyResolver().rule_for_policy(
@@ -626,6 +633,11 @@ class TaskRunCommandService:
         )
         if policy_rule is None:
             raise WebAppError(status_code=422, code="validation_error", message="数据集 Definition 未声明该日期策略")
+        if normalized_policy in INDEX_PERIOD_CALENDAR_POLICIES:
+            if session is None or scheduled_at is None:
+                raise WebAppError(status_code=422, code="validation_error", message="指数周、月线自动任务缺少计划触发时间。")
+            target = index_period_target_date(session, normalized_policy, scheduled_at)
+            return {"mode": "point", "trade_date": target.isoformat()}
         if normalized_policy == MONTHLY_LAST_DAY_POLICY:
             if definition.date_model.bucket_rule != "month_last_calendar_day":
                 raise WebAppError(status_code=422, code="validation_error", message="每月最后一天策略只支持自然月末数据集")

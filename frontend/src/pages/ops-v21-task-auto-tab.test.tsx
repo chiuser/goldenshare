@@ -71,6 +71,20 @@ describe("自动任务日期策略", () => {
   };
   const noCalendarPolicyCapability = { calendar_policy_rules: [] };
 
+  it.each([
+    ["weekly_last_trading_day", "每周最后一个交易日 19:10，处理当日"],
+    ["monthly_first_trading_day", "每月首个交易日 19:10，取上月最后一个交易日"],
+    ["trading_day_point", "每个交易日 19:10，处理当日"],
+  ] as const)("uses the backend index-period schedule policy %s", (policy, label) => {
+    const declared = capability(policy, ["daily"]);
+    expect(getAllowedCronRepeatModes(declared as never)).toEqual(["daily"]);
+    expect(resolveEffectiveCalendarPolicy({
+      scheduleType: "cron", repeatMode: "daily", automationCapability: declared as never,
+    })).toBe(policy);
+    expect(buildCronExpression("daily", "19:10", [], "", policy)).toBe("10 19 * * *");
+    expect(formatScheduleRule("cron", "10 19 * * *", null, policy)).toBe(label);
+  });
+
   it("uses the declared announcement two-day policy only for daily automatic runs", () => {
     const announcements = capability("trigger_day_forward_range", ["daily"]);
     expect(getAllowedCronRepeatModes(announcements as never)).toEqual(["daily"]);

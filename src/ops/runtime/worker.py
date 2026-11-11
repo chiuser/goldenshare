@@ -6,11 +6,14 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from src.app.exceptions import WebAppError
+from src.ops.action_catalog import INDEX_MONTHLY_SERVING_ACTION
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.runtime.task_run_dispatcher import TaskRunDispatchOutcome, TaskRunDispatcher
 from src.ops.runtime.worker_lane import WorkerLane, lane_matches_values, lane_task_filter
+from src.ops.services.index_period_schedule import is_scheduled_index_monthly_raw_task
+from src.ops.services.task_run_service import TaskRunCommandService, TaskRunCreateContext
 from src.utils import truncate_text
 
 
@@ -223,6 +226,17 @@ class OperationsWorker:
             task_run.progress_percent = 100
         if final_status == "canceled":
             task_run.canceled_at = task_run.canceled_at or now
+        if final_status == "success" and outcome.rows_saved > 0 and is_scheduled_index_monthly_raw_task(task_run):
+            TaskRunCommandService().stage_task_run(
+                session,
+                context=TaskRunCreateContext(
+                    task_type="maintenance_action", resource_key=None, action="maintain",
+                    time_input={"mode": "point", "trade_date": task_run.time_input_json["trade_date"]},
+                    filters={},
+                    request_payload={"target_type": "maintenance_action", "target_key": INDEX_MONTHLY_SERVING_ACTION},
+                    trigger_source="system", requested_by_user_id=None,
+                ),
+            )
         if (preserve_business_progress or index_period_serving) and task_run.current_node_id is not None:
             node = session.get(TaskRunNode, task_run.current_node_id)
             if node is not None and node.task_run_id == task_run.id:

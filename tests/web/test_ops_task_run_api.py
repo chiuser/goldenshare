@@ -438,11 +438,12 @@ def test_ops_task_run_view_projects_paged_unit_progress_fail_soft(
     assert response.json()["progress"]["paged_unit_progress"]["active"] is None
 
 
-def test_ops_task_run_view_returns_index_period_source_summary(
+def test_ops_task_run_view_returns_legacy_index_period_source_summary(
     app_client,
     db_session,
     user_factory,
     task_run_factory,
+    task_run_node_factory,
 ) -> None:
     admin = user_factory(username="admin", password="secret", is_admin=True)
     task_run = task_run_factory(
@@ -453,6 +454,8 @@ def test_ops_task_run_view_returns_index_period_source_summary(
         time_input_json={"mode": "point", "trade_date": "2026-04-17"},
         rows_saved=3,
     )
+    node = task_run_node_factory(task_run_id=task_run.id, resource_key="index_weekly", status="success", rows_saved=3)
+    task_run.current_node_id = node.id
     db_session.add_all(
         [
             IndexWeeklyServing(

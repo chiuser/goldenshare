@@ -88,7 +88,7 @@ API/前端消费后端派生的字段与选择规则，不能看到 `trade_date`
 
 - 股票周五休市但周内有开市日时，自然周五仍是锚点；不能回退为周四。
 - 股票自然月末不是开市日时，仍保留自然月末；不能统一改成月末交易日。
-- 现行指数月线规划按完整月历校验月末交易日。指数周线声明 `week_last_open_day`，区间规划目前取输入范围内每周最后一个开市日，截断输入区间可能得到未结束周的日期。[现行执行规划](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)
+- 指数周、月线用完整交易日历确定实际期末，区间只选择落在输入范围内的期末。截断至周中或月中的范围不会产生该周期的请求。指数月线自动排程在次月首个交易日触发，任务目标日仍为上月期末。[现行执行规划](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py) · [指数周、月线 LLD](/Users/congming/github/goldenshare/docs/datasets/prod-index-period-low-level-design-v1.md)
 - 自然锚点应贯穿输入选择、planner、目标观测、审计和展示；不能只改 UI 文案。
 - 范围内无可执行锚点、计划为空与“预期数据缺失”不是同一结果；保留现行处理与反例测试，不为统一措辞强制报错。
 

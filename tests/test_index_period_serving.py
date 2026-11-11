@@ -35,7 +35,7 @@ from src.ops.schemas.manual_action import ManualActionTaskRunCreateRequest
 from src.ops.services.manual_action_service import ManualActionCommandService
 from src.ops.services.review_center_service import ReviewCenterCommandService
 from src.ops.services.operations_task_run_reconciliation_service import OperationsTaskRunReconciliationService
-from src.ops.services.task_run_service import TaskRunCommandService
+from src.ops.services.task_run_service import TaskRunCommandService, TaskRunCreateContext
 from tests.wealth_watchlist_postgres_support import isolated_postgres
 
 
@@ -157,7 +157,67 @@ def test_manual_action_has_one_trade_date_optional_code_and_one_target(action, t
     assert [(param.key, param.required) for param in route.filters] == [("ts_code", False)]
     definition = get_maintenance_action(action)
     assert definition.target_tables == (f"core_serving.{target}",)
-    assert definition.manual_enabled and definition.retry_enabled and not definition.schedule_enabled
+    assert definition.manual_enabled and definition.retry_enabled and definition.schedule_enabled
+
+
+def enqueue_scheduled(session, action, day):
+    return TaskRunCommandService().create_task_run(session, context=TaskRunCreateContext(
+        task_type="maintenance_action", resource_key=None, action="maintain",
+        time_input={"mode": "point", "trade_date": day.isoformat()}, filters={},
+        request_payload={"target_type": "maintenance_action", "target_key": action},
+        trigger_source="scheduled", schedule_id=1, requested_by_user_id=None,
+    ))
+
+
+def test_scheduled_retry_can_run_the_same_evening(env):
+    session, worker, clock = env
+    clock.now.return_value = datetime(2026, 11, 9, 22, tzinfo=SHANGHAI)
+    clock.now.side_effect = None
+    seed_pool(session, {SH: MON})
+    initial = worker.run_task_run(session, enqueue_scheduled(session, WEEK, MON).id)
+    assert initial.status == "failed" and initial.rows_saved == 0
+    seed_daily(session, SH, [MON])
+    retry = TaskRunCommandService().retry_task_run(session, task_run_id=initial.id, requested_by_user_id=1)
+    result = worker.run_task_run(session, retry.id)
+    assert result.status == "success" and result.rows_saved == 1
+    assert records(session, IndexWeeklyServing)[0].trade_date == MON
+
+
+def test_scheduled_serving_stops_after_midnight_and_only_manual_can_fill_original_day(env, mocker):
+    session, worker, clock = env
+    current = datetime(2026, 11, 9, 23, 59, tzinfo=SHANGHAI)
+    clock.now.side_effect = lambda zone: current.astimezone(zone)
+    seed_pool(session, {SH: MON, SZ: MON})
+    for code in (SH, SZ):
+        seed_daily(session, code, [MON])
+
+    executor = worker.dispatcher.maintenance_executors[INDEX_PERIOD_SERVING_EXECUTOR]
+    original = executor.execute_code
+
+    def finish_first_code(*args):
+        nonlocal current
+        result = original(*args)
+        current = datetime(2026, 11, 10, 0, tzinfo=SHANGHAI)
+        return result
+
+    run_code = mocker.patch.object(executor, "execute_code", side_effect=finish_first_code)
+    scheduled = worker.run_task_run(session, enqueue_scheduled(session, WEEK, MON).id)
+    assert scheduled.status == "failed" and scheduled.rows_saved == 1
+    assert scheduled.status_reason_code == "index_period_serving.schedule_expired"
+    assert diagnostic(session, scheduled)["trade_date"] == "2026-11-09"
+    assert run_code.call_count == 1
+    assert session.get(TaskRunNode, scheduled.current_node_id).status == "failed"
+
+    late_month = worker.run_task_run(session, enqueue_scheduled(session, MONTH, MON).id)
+    assert late_month.status_reason_code == "index_period_serving.schedule_expired"
+    retry = TaskRunCommandService().retry_task_run(session, task_run_id=scheduled.id, requested_by_user_id=1)
+    assert worker.run_task_run(session, retry.id).status_reason_code == "index_period_serving.schedule_expired"
+    assert run_code.call_count == 1
+    assert records(session, IndexMonthlyServing) == []
+    assert len(records(session, IndexWeeklyServing)) == 1
+    assert run(session, worker, WEEK, MON).status == "success"
+    assert {row.trade_date for row in records(session, IndexWeeklyServing)} == {MON}
+    assert len(records(session, IndexWeeklyServing)) == 2
 
 
 def test_two_frequencies_share_fixed_pool_and_reject_edits(env):

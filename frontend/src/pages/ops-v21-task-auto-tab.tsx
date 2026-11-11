@@ -76,17 +76,12 @@ type ProbeRunSummary = {
   latest_probed_at: string | null;
   latest_triggered_at: string | null;
 };
-type CalendarPolicy =
-  | ""
-  | "monthly_last_day"
-  | "monthly_last_trading_day"
-  | "monthly_window_current_month"
-  | "trigger_day_single_range"
-  | "trigger_day_forward_range"
-  | "trigger_day_point"
-  | "latest_completed_calendar_quarter"
-  | "latest_completed_calendar_week"
-  | "since_last_success_day_range";
+type CalendarPolicy = "" | AutomationCapability["calendar_policy_rules"][number]["policy"];
+const INDEX_PERIOD_SCHEDULE_LABELS: Partial<Record<string, string>> = {
+  weekly_last_trading_day: "每周最后一个交易日",
+  monthly_first_trading_day: "每月首个交易日",
+  trading_day_point: "每个交易日",
+};
 type ParsedCronExpression = {
   repeatMode: RepeatMode;
   repeatTime: string;
@@ -319,6 +314,11 @@ export function formatScheduleRule(
   );
   if (!parsed) {
     return cronExpr || "未设置";
+  }
+  const indexPeriodLabel = calendarPolicy ? INDEX_PERIOD_SCHEDULE_LABELS[calendarPolicy] : undefined;
+  if (indexPeriodLabel) {
+    const target = calendarPolicy === "monthly_first_trading_day" ? "，取上月最后一个交易日" : "，处理当日";
+    return `${indexPeriodLabel} ${parsed.repeatTime}${target}`;
   }
   if (calendarPolicy === "monthly_last_day") {
     return `每月最后一天 ${parsed.repeatTime}`;
@@ -939,6 +939,7 @@ export function OpsAutomationPage() {
     ) || null,
     [effectiveCalendarPolicy, selectedAutomationCapability],
   );
+  const indexPeriodScheduleLabel = INDEX_PERIOD_SCHEDULE_LABELS[effectiveCalendarPolicy];
   const selectedPolicyParameters = effectiveCalendarPolicyRule?.policy_parameters || [];
   const allowedCronRepeatModes = useMemo(
     () => getAllowedCronRepeatModes(selectedAutomationCapability),
@@ -1052,10 +1053,11 @@ export function OpsAutomationPage() {
         ? (selectedAction?.parameters || []).filter(
           (param) => !INTERNAL_PARAM_KEYS.has(param.key)
             && !DATE_PARAM_KEYS.has(param.key)
+            && !(indexPeriodScheduleLabel && param.key === "ts_code")
             && !selectedProbeForbidsFilters,
         )
         : [],
-    [form.action_type, selectedAction, selectedProbeForbidsFilters],
+    [form.action_type, indexPeriodScheduleLabel, selectedAction, selectedProbeForbidsFilters],
   );
   const selectedActionHasRequiredParameters = useMemo(
     () => hasRequiredVisibleParameters(selectedAction?.parameters),
@@ -1242,6 +1244,13 @@ export function OpsAutomationPage() {
         form.intraday_interval_minutes,
         selectedRepeatPolicy,
       );
+      if (indexPeriodScheduleLabel) {
+        return {
+          title: "按交易日历执行",
+          detail: formatScheduleRule("cron", cronExpr, null, effectiveCalendarPolicy),
+          cronExpr,
+        };
+      }
       const policySuffix =
         effectiveCalendarPolicy === "trigger_day_forward_range"
           ? "，维护触发当天至次日"
@@ -1284,7 +1293,7 @@ export function OpsAutomationPage() {
         cronExpr: null as string | null,
       };
     }
-  }, [effectiveCalendarPolicy, fixedSchedule, form.intraday_interval_minutes, form.once_date, form.once_time, form.repeat_mode, form.repeat_month_day, form.repeat_time, form.repeat_weekdays, form.schedule_type, selectedRepeatPolicy]);
+  }, [effectiveCalendarPolicy, fixedSchedule, form.intraday_interval_minutes, form.once_date, form.once_time, form.repeat_mode, form.repeat_month_day, form.repeat_time, form.repeat_weekdays, form.schedule_type, indexPeriodScheduleLabel, selectedRepeatPolicy]);
 
   const resolvedParameterRows = useMemo(() => {
     const labelMap = new Map([
@@ -2008,6 +2017,8 @@ export function OpsAutomationPage() {
               onChange={(value) => {
                 const [actionType, actionKey] = (value || "dataset_action:").split(":");
                 const selected = actionItems.find((item) => item.value === value);
+                const indexPeriod = findCatalogAction(catalogQuery.data, actionType, actionKey)
+                  ?.automation_capability?.calendar_policy_rules.some((rule) => INDEX_PERIOD_SCHEDULE_LABELS[rule.policy]);
                 if (selected) {
                   setSelectedActionDomain(selected.domain);
                 }
@@ -2015,6 +2026,7 @@ export function OpsAutomationPage() {
                   ...current,
                   action_type: actionType,
                   action_key: actionKey || "",
+                  repeat_time: indexPeriod ? "" : current.repeat_time,
                   date_mode: "single_day",
                   selected_date: "",
                   start_date: "",
@@ -2086,7 +2098,7 @@ export function OpsAutomationPage() {
                     data={allowedCronRepeatModes.map((repeatMode) => ({
                       value: repeatMode,
                       label: repeatMode === "daily"
-                        ? "每天"
+                        ? (indexPeriodScheduleLabel || "每天")
                         : repeatMode === "weekly"
                           ? "每周"
                           : repeatMode === "monthly"
@@ -2167,6 +2179,11 @@ export function OpsAutomationPage() {
                     <TextInput
                       label={scheduleTimeFieldLabel}
                       placeholder="HH:mm"
+                      description={indexPeriodScheduleLabel
+                        ? effectiveCalendarPolicy === "monthly_first_trading_day"
+                          ? "上海时间 19:00 起，取上月最后一个交易日的数据。"
+                          : "上海时间 15:00 起，处理当日数据。"
+                        : undefined}
                       type="time"
                       value={form.repeat_time}
                       disabled={Boolean(fixedSchedule)}
@@ -2181,7 +2198,7 @@ export function OpsAutomationPage() {
             label="时区"
             data={[{ value: "Asia/Shanghai", label: "北京时间（默认）" }]}
             value={form.timezone}
-            disabled={Boolean(fixedSchedule)}
+            disabled={Boolean(fixedSchedule || indexPeriodScheduleLabel)}
             onChange={(value) => setForm((current) => ({ ...current, timezone: value || "Asia/Shanghai" }))}
           />
           {selectedPolicyParameters.length ? (
@@ -2528,6 +2545,9 @@ export function OpsAutomationPage() {
                 ))}
               </Stack>
             </AlertBar>
+          ) : null}
+          {indexPeriodScheduleLabel && previewQuery.error instanceof Error ? (
+            <AlertBar title="无法预览运行时间">{previewQuery.error.message}</AlertBar>
           ) : null}
         </Stack>
       </DetailDrawer>

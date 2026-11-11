@@ -14,10 +14,10 @@ def test_serving_target_mapping_equity_core_datasets() -> None:
     assert get_target_dao_attr("moneyflow") == "equity_moneyflow"
 
 
-def test_serving_target_mapping_index_core_datasets() -> None:
+def test_generic_serving_target_mapping_only_includes_index_daily() -> None:
     assert get_target_dao_attr("index_daily") == "index_daily_serving"
-    assert get_target_dao_attr("index_weekly") == "index_weekly_serving"
-    assert get_target_dao_attr("index_monthly") == "index_monthly_serving"
+    assert get_target_dao_attr("index_weekly") is None
+    assert get_target_dao_attr("index_monthly") is None
 
 
 def test_serving_target_mapping_stk_period_datasets() -> None:

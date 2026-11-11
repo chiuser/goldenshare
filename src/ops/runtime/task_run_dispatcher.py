@@ -43,6 +43,7 @@ from src.ops.runtime.maintenance_executor import (
 )
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshService
 from src.ops.services.ingestion_error_presentation import present_ingestion_error, structured_error_payload
+from src.ops.services.index_period_schedule import is_scheduled_index_monthly_raw_task
 from src.ops.services.task_run_ingestion_context import TaskRunIngestionContext
 from src.ops.services.task_run_maintenance_plan_context import TaskRunMaintenancePlanContext
 from src.ops.action_catalog import MaintenanceActionDefinition, get_maintenance_action, get_workflow_definition
@@ -162,15 +163,16 @@ class TaskRunDispatcher:
                 plan,
             )
             status, issue = self._index_period_raw_result(session, task_run, node, task_run)
-            self._finish_node(
-                node,
-                status=status,
-                rows_fetched=rows_fetched,
-                rows_saved=rows_saved,
-                rows_rejected=rows_rejected,
-                rejected_reason_counts=rejected_reason_counts,
-                rejected_reason_samples=rejected_reason_samples,
-            )
+            if not (status == "success" and rows_saved > 0 and is_scheduled_index_monthly_raw_task(task_run)):
+                self._finish_node(
+                    node,
+                    status=status,
+                    rows_fetched=rows_fetched,
+                    rows_saved=rows_saved,
+                    rows_rejected=rows_rejected,
+                    rejected_reason_counts=rejected_reason_counts,
+                    rejected_reason_samples=rejected_reason_samples,
+                )
             task_run.rejected_reason_counts_json = dict(rejected_reason_counts)
             task_run.rejected_reason_samples_json = dict(rejected_reason_samples)
             if "index_period_raw" in (task_run.ingestion_diagnostics_json or {}):
@@ -486,6 +488,11 @@ class TaskRunDispatcher:
         active_code = None
         try:
             self._raise_if_task_cancel_requested(session, run_id)
+            scheduled_target = (
+                date.fromisoformat(task_run.time_input_json["trade_date"]) if task_run.schedule_id is not None else None
+            )
+            if scheduled_target is not None:
+                executor.check_schedule_cutoff(frequency, scheduled_target)
             period, codes, list_dates = executor.prepare(frequency, params)
             total = len(codes)
             for code in codes:
@@ -501,6 +508,8 @@ class TaskRunDispatcher:
                         "attributes": {"freq": "周线" if frequency == "week" else "月线"},
                     },
                 )
+                if scheduled_target is not None:
+                    executor.check_schedule_cutoff(frequency, scheduled_target)
                 result = executor.execute_code(period, code, list_dates.get(code))
                 fetched += result.rows_fetched
                 saved += result.rows_saved
@@ -532,7 +541,12 @@ class TaskRunDispatcher:
         if issue_code is not None:
             issue = self._record_issue(
                 session, task_run=task_run, node_id=node.id, code=issue_code, title=action.display_name,
-                operator_message=message, suggested_action="查看技术诊断，确认原目标日和代码后重试。",
+                operator_message=message,
+                suggested_action=(
+                    "在手动更新入口指定原目标日补数。"
+                    if issue_code == "index_period_serving.schedule_expired"
+                    else "查看技术诊断，确认原目标日和代码后重试。"
+                ),
                 technical_message=message, source_phase="execute",
                 severity="warning" if status == "canceled" else "error",
                 technical_payload={**scope, "rows_saved": saved, "failures": failures},
@@ -1274,192 +1288,7 @@ class TaskRunDispatcher:
             session.execute(text(f"REFRESH MATERIALIZED VIEW {self._sql_identifier(view_name)}"))
             session.commit()
             return 0, 0, "物化视图已刷新"
-        if action.executor_key == "rebuild_index_period_serving":
-            start_date = self._resolve_maintenance_start_date(params)
-            end_date = self._resolve_maintenance_end_date(params)
-            if start_date > end_date:
-                raise ValueError("开始日期不能晚于结束日期")
-            calendar_table = self._required_execution_text(action.execution_config, "calendar_table")
-            source_table = self._required_execution_text(action.execution_config, "source_table")
-            index_table = self._required_execution_text(action.execution_config, "index_table")
-            period_targets = self._required_period_targets(action.execution_config)
-            rows_by_granularity: dict[str, int] = {}
-            for period_target in period_targets:
-                target_table = self._required_execution_text(period_target, "target_table")
-                period_granularity = self._required_execution_text(period_target, "period_granularity")
-                rows_by_granularity[period_granularity] = self._rebuild_index_period_serving(
-                    session=session,
-                    target_table=target_table,
-                    source_table=source_table,
-                    index_table=index_table,
-                    calendar_table=calendar_table,
-                    start_date=start_date,
-                    end_date=end_date,
-                    period_granularity=period_granularity,
-                )
-            session.commit()
-            written = sum(rows_by_granularity.values())
-            detail = " ".join(f"{granularity}={rows}" for granularity, rows in rows_by_granularity.items())
-            return 0, written, f"指数周期服务层已重建 {detail}".strip()
         raise ValueError(f"不支持的系统维护执行器：{action.executor_key}")
-
-    def _rebuild_index_period_serving(
-        self,
-        *,
-        session: Session,
-        target_table: str,
-        source_table: str,
-        index_table: str,
-        calendar_table: str,
-        start_date: date,
-        end_date: date,
-        period_granularity: str,
-    ) -> int:
-        target_table_sql = self._sql_identifier(target_table)
-        source_table_sql = self._sql_identifier(source_table)
-        index_table_sql = self._sql_identifier(index_table)
-        calendar_table_sql = self._sql_identifier(calendar_table)
-        if period_granularity == "week":
-            calendar_period_expr = "date_trunc('week', trade_date)::date"
-            daily_period_expr = "date_trunc('week', d.trade_date)::date"
-        elif period_granularity == "month":
-            calendar_period_expr = "date_trunc('month', trade_date)::date"
-            daily_period_expr = "date_trunc('month', d.trade_date)::date"
-        else:
-            raise ValueError(f"不支持的周期粒度：{period_granularity}")
-        session.execute(
-            text(
-                f"""
-                delete from {target_table_sql}
-                where source <> 'api'
-                  and trade_date between :start_date and :end_date
-                """
-            ),
-            {"start_date": start_date, "end_date": end_date},
-        )
-        sql = text(
-            f"""
-            with calendar_periods as (
-                select
-                    {calendar_period_expr} as natural_period_start,
-                    min(trade_date) as period_start_date
-                from {calendar_table_sql}
-                where exchange = :exchange
-                  and is_open is true
-                  and trade_date between :start_date and :end_date
-                group by {calendar_period_expr}
-            ),
-            daily_scope as (
-                select
-                    d.ts_code,
-                    d.trade_date,
-                    d.open,
-                    d.high,
-                    d.low,
-                    d.close,
-                    d.pre_close,
-                    d.vol,
-                    d.amount,
-                    cp.period_start_date as period_start_date
-                from {source_table_sql} d
-                join {index_table_sql} b on b.ts_code = d.ts_code
-                join calendar_periods cp on cp.natural_period_start = {daily_period_expr}
-                where d.trade_date between :start_date and :end_date
-            ),
-            win as (
-                select
-                    ds.*,
-                    row_number() over (
-                        partition by ds.ts_code, ds.period_start_date
-                        order by ds.trade_date asc
-                    ) as rn_first,
-                    row_number() over (
-                        partition by ds.ts_code, ds.period_start_date
-                        order by ds.trade_date desc
-                    ) as rn_last
-                from daily_scope ds
-            ),
-            agg as (
-                select
-                    ts_code,
-                    period_start_date,
-                    max(trade_date) as trade_date,
-                    max(case when rn_first = 1 then open end) as open,
-                    max(high) as high,
-                    min(low) as low,
-                    max(case when rn_last = 1 then close end) as close,
-                    max(case when rn_first = 1 then pre_close end) as pre_close,
-                    sum(vol) as vol,
-                    sum(amount) as amount
-                from win
-                group by ts_code, period_start_date
-            )
-            insert into {target_table_sql} (
-                ts_code,
-                period_start_date,
-                trade_date,
-                open,
-                high,
-                low,
-                close,
-                pre_close,
-                change_amount,
-                pct_chg,
-                vol,
-                amount,
-                source
-            )
-            select
-                a.ts_code,
-                a.period_start_date,
-                a.trade_date,
-                a.open,
-                a.high,
-                a.low,
-                a.close,
-                a.pre_close,
-                case when a.pre_close is null or a.close is null then null else a.close - a.pre_close end as change_amount,
-                case
-                    when a.pre_close is null or a.pre_close = 0 or a.close is null then null
-                    else round(((a.close / a.pre_close) - 1) * 100, 4)
-                end as pct_chg,
-                a.vol,
-                a.amount,
-                'derived_daily'
-            from agg a
-            left join {target_table_sql} existing_trade
-              on existing_trade.ts_code = a.ts_code
-             and existing_trade.trade_date = a.trade_date
-             and existing_trade.period_start_date <> a.period_start_date
-             and existing_trade.source = 'api'
-            where existing_trade.ts_code is null
-            on conflict (ts_code, period_start_date) do update
-            set
-                period_start_date = excluded.period_start_date,
-                trade_date = excluded.trade_date,
-                open = excluded.open,
-                high = excluded.high,
-                low = excluded.low,
-                close = excluded.close,
-                pre_close = excluded.pre_close,
-                change_amount = excluded.change_amount,
-                pct_chg = excluded.pct_chg,
-                vol = excluded.vol,
-                amount = excluded.amount,
-                source = excluded.source,
-                updated_at = now()
-            where {target_table_sql}.source <> 'api'
-            """
-        )
-        result = session.execute(
-            sql,
-            {
-                "start_date": start_date,
-                "end_date": end_date,
-                "exchange": get_settings().default_exchange,
-            },
-        )
-        return result.rowcount or 0
 
     @classmethod
     def _sql_identifier(cls, value: str) -> str:
@@ -1473,16 +1302,6 @@ class TaskRunDispatcher:
         if not isinstance(value, str) or not value.strip():
             raise ValueError(f"系统维护动作执行配置缺少 {key}")
         return value.strip()
-
-    @staticmethod
-    def _required_period_targets(config: Mapping[str, Any]) -> tuple[Mapping[str, Any], ...]:
-        value = config.get("period_targets")
-        if not isinstance(value, Sequence) or isinstance(value, str):
-            raise ValueError("系统维护动作执行配置缺少周期目标")
-        targets = tuple(target for target in value if isinstance(target, Mapping))
-        if len(targets) != len(value) or not targets:
-            raise ValueError("系统维护动作执行配置中的周期目标无效")
-        return targets
 
     @staticmethod
     def _create_node(
@@ -1702,19 +1521,6 @@ class TaskRunDispatcher:
             request_payload_json=dict(params or {}),
         )
 
-    def _resolve_maintenance_start_date(params: dict[str, Any]) -> date:
-        value = params.get("start_date")
-        if value is not None:
-            return TaskRunDispatcher._parse_date(value)
-        return date.fromisoformat(get_settings().history_start_date)
-
-    @staticmethod
-    def _resolve_maintenance_end_date(params: dict[str, Any]) -> date:
-        value = params.get("end_date")
-        if value is not None:
-            return TaskRunDispatcher._parse_date(value)
-        return datetime.now(ZoneInfo("Asia/Shanghai")).date()
-
     @staticmethod
     def _resolve_default_trade_date(session: Session) -> date | None:
         today = datetime.now(ZoneInfo("Asia/Shanghai")).date()
@@ -1753,14 +1559,6 @@ class TaskRunDispatcher:
             return None
         text_value = str(value).strip()
         return text_value or None
-
-    @staticmethod
-    def _parse_date(value: Any) -> date:
-        if isinstance(value, date):
-            return value
-        if isinstance(value, str):
-            return date.fromisoformat(value)
-        raise ValueError(f"日期值无效：{value!r}")
 
     @staticmethod
     def _as_aware_utc(value: datetime) -> datetime:

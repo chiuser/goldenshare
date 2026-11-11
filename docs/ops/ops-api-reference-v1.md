@@ -552,6 +552,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 - Body：`SchedulePreviewRequest`
   - `calendar_policy=monthly_last_day` 时，`cron_expr` 只作为执行时分载体，返回时间落在自然月最后一天。
   - `calendar_policy=monthly_last_trading_day` 时，`cron_expr` 只作为执行时分载体，返回时间落在当月最后一个开市交易日（按 `core_serving.trade_calendar` 计算）。
+  - 指数周线 Raw 的 `weekly_last_trading_day` 返回每周最后一个交易日。指数月线 Raw 的 `monthly_first_trading_day` 返回每月首个交易日，实际任务取上月最后一个交易日。指数周、月线 Serving 的 `trading_day_point` 返回每个交易日。均使用上海时区的 `分 时 * * *`，执行时刻与目标日期见[指数周、月线 LLD §3.1](/Users/congming/github/goldenshare/docs/datasets/prod-index-period-low-level-design-v1.md)。
   - `calendar_policy=monthly_window_current_month` 时，`cron_expr` 同样只作为执行时分载体，返回时间落在自然月最后一天；真正维护窗口意图在调度到点创建 TaskRun 时按计划触发时间生成，日期展开由 `DatasetActionResolver` 完成。
   - `trigger_day_single_range / trigger_day_point / latest_completed_calendar_quarter / since_last_success_day_range` 的周期预览使用普通 cron；季末策略还支持 once。业务日期/窗口在创建 TaskRun 时按计划触发时间与时区生成，规则见[日期策略](/Users/congming/github/goldenshare/docs/ops/ops-schedule-calendar-policy-plan-v1.md)。
   - 纯 probe 不调用此接口。此请求不包含 target_type/target_key，不校验目标 capability；预览成功只代表可以计算时间，不代表该目标允许保存或源端已就绪。
@@ -1641,7 +1642,7 @@ Workflow 字段由 `catalog_query_service.py` 装配：名称、步骤、参数�
 - `TaskRunViewResponse`：`run, progress, primary_issue, nodes, node_total, nodes_truncated, actions`
 - `TaskRunIssueDetailResponse`：`id, task_run_id, node_id, severity, code, title, operator_message, suggested_action, object, technical_message, technical_payload, source_phase, occurred_at`
 
-拒绝样本只用于定位异常行，不是业务事实源；TaskRunRejectionSampleItem 没有 unit_id 字段。period_source_summary 仅为 index_weekly/index_monthly 日期范围内当前 Serving 数据来源统计，不证明本任务写入来源。
+拒绝样本用于定位异常行，TaskRunRejectionSampleItem 没有 unit_id 字段。旧指数周、月线任务的 `period_source_summary` 统计日期范围内当前 Serving 的来源分布。正式 Raw 任务使用本任务的取数、入库及诊断结果，该字段返回空值。
 
 paged_unit_progress 为可空强类型投影：active 最多一个，completed 最多 16 个并用 completed_truncated 标记截断；无分页诊断时为空。current_node_id 是内部模型字段，当前 view 不暴露它；页面从 nodes 的 running 状态定位当前节点。
 

@@ -16,7 +16,6 @@ from src.ops.catalog.dataset_catalog_view_resolver import resolve_default_datase
 def test_maintenance_action_registry_keeps_only_explicit_actions() -> None:
     assert set(MAINTENANCE_ACTION_REGISTRY) == {
         "maintenance.rebuild_dm",
-        "maintenance.rebuild_index_kline_serving",
         "maintenance.update_index_weekly_serving",
         "maintenance.update_index_monthly_serving",
         "maintenance.materialize_wealth_sector_heat_daily",
@@ -28,14 +27,10 @@ def test_maintenance_action_registry_keeps_only_explicit_actions() -> None:
     assert {action.domain_key for action in MAINTENANCE_ACTION_REGISTRY.values()} == {"maintenance"}
     assert MAINTENANCE_ACTION_REGISTRY["maintenance.rebuild_dm"].executor_key == "refresh_materialized_view"
     assert MAINTENANCE_ACTION_REGISTRY["maintenance.rebuild_dm"].target_tables == ("dm.equity_daily_snapshot",)
-    assert (
-        MAINTENANCE_ACTION_REGISTRY["maintenance.rebuild_index_kline_serving"].executor_key
-        == "rebuild_index_period_serving"
-    )
-    assert MAINTENANCE_ACTION_REGISTRY["maintenance.rebuild_index_kline_serving"].target_tables == (
-        "core_serving.index_weekly_serving",
-        "core_serving.index_monthly_serving",
-    )
+    for period in ("weekly", "monthly"):
+        action = MAINTENANCE_ACTION_REGISTRY[f"maintenance.update_index_{period}_serving"]
+        assert action.target_tables == (f"core_serving.index_{period}_serving",)
+        assert action.schedule_enabled and action.schedule_time_policy.policy == "trading_day_point"
     assert MAINTENANCE_ACTION_REGISTRY["maintenance.materialize_wealth_sector_heat_daily"].executor_key == (
         "wealth_sector_heat"
     )
@@ -232,6 +227,7 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
 
     assert [param.key for param in index_kline.parameters] == ["start_date", "end_date"]
     assert index_kline.workflow_profile == "range_rebuild"
+    assert [step.dataset_key for step in index_kline.steps] == ["index_daily", "index_weekly", "index_monthly"]
 
 
 def test_announcements_use_standalone_maintenance_instead_of_workflows() -> None:

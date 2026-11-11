@@ -108,6 +108,7 @@ def validate(
         target_key=f"{dataset}.maintain",
         schedule_type=schedule_type,
         cron_expr=cron,
+        timezone_name="Asia/Shanghai",
         calendar_policy=policy,
         params_json=params or {},
     )

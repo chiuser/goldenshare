@@ -614,6 +614,7 @@
 - `supported_time_modes`：`point` / `range` / `none`
 - `schedule_time_policy`：自动任务如何从排程生成时间意图；不适用时显式为 `None`，不得由 Ops 自行展开源接口日期参数。
 - 使用 `schedule_time_policy` 时必须逐项写清 `policy`、允许的 `schedule_types`、`cron_repeat_modes`、`explicit_time_input`、`generated_time_mode`、`generated_time_field` 和 `policy_parameters`；生成的时间模式必须属于本 action 的 `supported_time_modes`。
+- 触发日与目标交易日分开填写。需要交易日历时，列出预览、保存、恢复、实际入队使用的规则，以及重试从哪里读回原目标日。指数月线 Raw 的次月触发及上月目标日期示例见[指数周、月线 LLD §3.1](/Users/congming/github/goldenshare/docs/datasets/prod-index-period-low-level-design-v1.md)。
 
 ### 4.10 `observability`、`quality`、`transaction`
 

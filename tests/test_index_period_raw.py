@@ -13,20 +13,27 @@ from sqlalchemy import create_engine, event, func, insert, select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
+from src.app.runtime.ops_worker_factory import build_operations_worker
 from src.foundation.dao.base_dao import BaseDAO
 from src.foundation.ingestion import index_period_raw
 from src.foundation.ingestion.writer import DatasetWriter
+from src.foundation.models.core.index_basic import IndexBasic
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
 from src.foundation.models.raw.raw_index_monthly_bar import RawIndexMonthlyBar
 from src.foundation.models.raw.raw_index_weekly_bar import RawIndexWeeklyBar
+from src.ops.models.ops.index_series_active import IndexSeriesActive
+from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.queries.task_run_query_service import TaskRunQueryService
+from src.ops.runtime.task_run_dispatcher import TaskRunDispatcher
 from src.ops.runtime.worker import OperationsWorker
 from src.ops.schemas.task_run import TaskRunTimeScope
 from src.ops.services.operations_task_run_reconciliation_service import OperationsTaskRunReconciliationService
+from src.ops.services.operations_schedule_service import OperationsScheduleService
 from src.ops.services.task_run_ingestion_context import TaskRunIngestionContext
 from src.ops.services.task_run_service import TaskRunCommandService
 from tests.wealth_watchlist_postgres_support import isolated_postgres
@@ -46,7 +53,7 @@ def source_row(code, day):
 
 
 def seed_calendar(conn):
-    start, end = date(2026, 7, 1), date(2026, 8, 31)
+    start, end = date(2026, 7, 1), date(2026, 12, 31)
     days = [start + timedelta(days=i) for i in range((end - start).days + 1)]
     conn.execute(insert(TradeCalendar), [
         dict(exchange="SSE", trade_date=day, is_open=day.weekday() < 5) for day in days
@@ -69,8 +76,8 @@ def session(cluster):
         with engine.begin() as conn:
             for schema in ("core_serving", "raw_tushare", "ops"):
                 conn.exec_driver_sql(f"CREATE SCHEMA {schema}")
-            for model in (TradeCalendar, IndexWeeklyServing, RawIndexWeeklyBar, RawIndexMonthlyBar,
-                          TaskRun, TaskRunNode, TaskRunIssue):
+            for model in (TradeCalendar, IndexBasic, IndexSeriesActive, IndexWeeklyServing, IndexMonthlyServing,
+                          RawIndexWeeklyBar, RawIndexMonthlyBar, TaskRun, TaskRunNode, TaskRunIssue, OpsSchedule):
                 model.__table__.create(conn)
             seed_calendar(conn)
         with Session(engine) as current:
@@ -79,13 +86,14 @@ def session(cluster):
         engine.dispose()
 
 
-def enqueue(session, *, point=None, start=WEEK_1, end=WEEK_3, code=None, dataset="index_weekly"):
+def enqueue(session, *, point=None, start=WEEK_1, end=WEEK_3, code=None, dataset="index_weekly", schedule_id=None):
     time_input = (
         {"mode": "point", "trade_date": point.isoformat()} if point
         else {"mode": "range", "start_date": start.isoformat(), "end_date": end.isoformat()}
     )
     run = TaskRun(task_type="dataset_action", action="maintain", resource_key=dataset,
-                  title=dataset, requested_at=datetime.now(timezone.utc), trigger_source="manual",
+                  title=dataset, requested_at=datetime.now(timezone.utc),
+                  trigger_source="scheduled" if schedule_id is not None else "manual", schedule_id=schedule_id,
                   time_input_json=time_input, filters_json={"ts_code": code} if code else {})
     session.add(run)
     session.commit()
@@ -122,6 +130,150 @@ def counts(session, model=RawIndexWeeklyBar):
         return dict(probe.execute(
             select(model.trade_date, func.count()).group_by(model.trade_date)
         ).all())
+
+
+@pytest.mark.parametrize("fail_after_stage", [False, True])
+def test_monthly_raw_commit_queues_serving_with_parent_success_and_can_retry(session, mocker, fail_after_stage):
+    day = date(2026, 10, 30)
+    # Tushare index_monthly, 000001.SH, 2026-10-30, exact source business fields.
+    row = dict(ts_code=CODE, trade_date="20261030", open=3838.9774, high=3864.1181, low=3574.2712,
+               close=3599.0166, pre_close=3842.1946, change=-243.178, pct_chg=-0.0633,
+               vol=781191473400.0, amount=12647618608842.0)
+    calls = source_mock(mocker, lambda *_: [row])
+    due = datetime(2026, 11, 2, 11, tzinfo=timezone.utc)
+    schedule = OpsSchedule(
+        target_type="dataset_action", target_key="index_monthly.maintain", display_name="指数月线 Raw",
+        schedule_type="cron", cron_expr="0 19 * * *", calendar_policy="monthly_first_trading_day",
+        next_run_at=due,
+    )
+    session.add(schedule)
+    session.commit()
+    raw_task, = OperationsScheduleService().enqueue_due_schedules(session, now=due)
+    raw_id = raw_task.id
+    assert raw_task.time_input_json == {"mode": "point", "trade_date": "2026-10-30"}
+    original = TaskRunCommandService.stage_task_run
+
+    def stage(service, pending_session, *, context, **kwargs):
+        task = original(service, pending_session, context=context, **kwargs)
+        if context.trigger_source == "system":
+            with Session(session.get_bind()) as probe:
+                raw = probe.get(RawIndexMonthlyBar, (CODE, day))
+                parent = probe.scalar(select(TaskRun).where(TaskRun.status == "running"))
+                assert raw.close == Decimal("3599.0166")
+                assert parent is not None
+                assert probe.get(TaskRunNode, parent.current_node_id).status == "running"
+                assert probe.get(TaskRun, task.id) is None
+            if fail_after_stage and pending_session.get(TaskRun, raw_id).status == "success":
+                raise RuntimeError("injected after flushing the child")
+        return task
+
+    stage_mock = mocker.patch.object(TaskRunCommandService, "stage_task_run", autospec=True, side_effect=stage)
+    result = execute(session, raw_id)
+    if fail_after_stage:
+        assert result.status == "failed" and result.status_reason_code == "worker_finalize_error"
+        assert result.rows_saved == 1 and counts(session, RawIndexMonthlyBar) == {day: 1}
+        assert session.scalars(select(TaskRun).where(TaskRun.trigger_source == "system")).all() == []
+        mocker.stop(stage_mock)
+        retried = TaskRunCommandService().retry_task_run(session, task_run_id=raw_id, requested_by_user_id=1)
+        result = execute(session, retried.id)
+    assert result.status == "success"
+    assert [params["trade_date"] for _, params in calls] == ["20261030"] * (2 if fail_after_stage else 1)
+    child = session.scalars(select(TaskRun).where(TaskRun.trigger_source == "system")).one()
+    assert child.schedule_id is None and child.status == "queued"
+    assert child.time_input_json == {"mode": "point", "trade_date": "2026-10-30"}
+    assert child.filters_json == {}
+    assert child.request_payload_json["target_key"] == "maintenance.update_index_monthly_serving"
+
+    worker = build_operations_worker(session_factory=lambda: Session(session.get_bind()))
+    mocker.patch("src.ops.runtime.index_period_serving_executor.datetime").now.return_value = datetime(
+        2026, 11, 2, 16, 15, tzinfo=timezone.utc,
+    )
+    session.execute(insert(IndexBasic), {"ts_code": CODE, "list_date": date(1991, 7, 15)})
+    session.execute(insert(IndexSeriesActive), {
+        "resource": "index_period_serving", "ts_code": CODE, "first_seen_date": day,
+        "last_seen_date": day, "last_checked_at": datetime.now(timezone.utc),
+    })
+    session.commit()
+
+    def fail_serving_insert(conn, cursor, statement, parameters, context, executemany):
+        if statement.startswith("INSERT INTO core_serving.index_monthly_serving"):
+            raise OperationalError(statement, parameters, RuntimeError("injected Serving write failure"))
+
+    bind = session.get_bind()
+    event.listen(bind, "before_cursor_execute", fail_serving_insert)
+    try:
+        failed_serving = worker.run_task_run(session, child.id)
+    finally:
+        event.remove(bind, "before_cursor_execute", fail_serving_insert)
+    assert failed_serving.status_reason_code == "maintenance_executor_failed"
+    assert counts(session, RawIndexMonthlyBar) == {day: 1}
+    assert session.scalars(select(IndexMonthlyServing)).all() == []
+
+    retried_serving = TaskRunCommandService().retry_task_run(session, task_run_id=child.id, requested_by_user_id=1)
+    published = worker.run_task_run(session, retried_serving.id)
+    assert published.status == "success" and published.rows_saved == 1
+    serving = session.scalars(select(IndexMonthlyServing)).one()
+    assert (serving.trade_date, serving.close, serving.source) == (day, Decimal("3599.0166"), "api")
+    assert len(calls) == (2 if fail_after_stage else 1)
+
+
+@pytest.mark.parametrize(("dataset", "schedule_id", "empty", "status"), [
+    ("index_monthly", 1, True, "failed"),
+    ("index_monthly", None, False, "success"),
+    ("index_weekly", 1, False, "success"),
+])
+def test_only_successful_scheduled_monthly_raw_can_queue_serving(session, mocker, dataset, schedule_id, empty, status):
+    source_mock(mocker, lambda day, _: [] if empty else [source_row(CODE, day)])
+    run_id = enqueue(session, point=WEEK_2, dataset=dataset, schedule_id=schedule_id)
+    assert execute(session, run_id).status == status
+    assert session.scalars(select(TaskRun).where(TaskRun.trigger_source == "system")).all() == []
+
+
+@pytest.mark.parametrize(("workflow_key", "expected"), [
+    ("index_kline_maintenance_pipeline", ["index_daily", "index_weekly", "index_monthly"]),
+    ("index_extension_maintenance", ["index_daily", "index_weekly", "index_monthly", "index_daily_basic", "index_weight"]),
+])
+def test_workflows_run_other_steps_when_range_has_no_period_end(session, mocker, workflow_key, expected):
+    session.execute(insert(IndexSeriesActive), [
+        {"resource": resource, "ts_code": CODE, "first_seen_date": WEEK_1,
+         "last_seen_date": WEEK_1, "last_checked_at": datetime.now(timezone.utc)}
+        for resource in ("index_daily_raw", "index_weight")
+    ])
+    session.commit()
+    calls = source_mock(mocker, lambda *_: pytest.fail("a window without a period end must not request Tushare"))
+    original = TaskRunDispatcher._run_dataset_action_plan
+    ran = []
+
+    def run_step(dispatcher, task_session, step_task, request, plan):
+        ran.append(plan.dataset_key)
+        if plan.dataset_key in {"index_weekly", "index_monthly"}:
+            assert not plan.units
+            return original(dispatcher, task_session, step_task, request, plan)
+        return 0, 0, 0, {}, {}, "隔离了其他数据集的取数"
+
+    mocker.patch.object(TaskRunDispatcher, "_run_dataset_action_plan", autospec=True, side_effect=run_step)
+    run = TaskRun(
+        task_type="workflow", action="maintain", title=workflow_key,
+        trigger_source="manual", requested_at=datetime.now(timezone.utc),
+        time_input_json={"mode": "range", "start_date": "2026-07-27", "end_date": "2026-07-29"},
+        request_payload_json={"target_type": "workflow", "target_key": workflow_key},
+    )
+    session.add(run)
+    session.commit()
+    result = OperationsWorker().run_task_run(session, run.id)
+    nodes = session.scalars(select(TaskRunNode).where(TaskRunNode.task_run_id == run.id)
+                            .order_by(TaskRunNode.sequence_no)).all()
+    assert [node.resource_key for node in nodes] == expected
+    assert calls == []
+    if workflow_key == "index_extension_maintenance":
+        # Reproduced before stage 3: the existing weight step requires month input.
+        assert result.status == "partial_success" and nodes[-1].status == "failed"
+        assert session.get(TaskRunIssue, result.primary_issue_id).technical_message == "自然月窗口必须使用 start_month/end_month"
+        assert ran == expected[:-1]
+        assert all(node.status == "success" for node in nodes[:-1])
+    else:
+        assert result.status == "success" and ran == expected
+        assert all(node.status == "success" for node in nodes)
 
 
 @pytest.mark.parametrize(("empty_dates", "expected"), [

@@ -50,6 +50,11 @@ from src.ops.action_catalog import (
 from src.app.exceptions import WebAppError
 from src.foundation.datasets.registry import get_dataset_definition_by_action_key
 from src.ops.services.dataset_schedule_time_policy_resolver import DatasetScheduleTimePolicyResolver
+from src.ops.services.index_period_schedule import (
+    INDEX_PERIOD_CALENDAR_POLICIES,
+    index_period_schedule_time,
+    next_index_period_occurrence,
+)
 from src.ops.services.news_stock_linking_service import NEWS_STOCK_LINKING_ACTION_KEY
 from src.ops.services.news_stock_linking_window_resolver import (
     NewsStockLinkingWindowEmpty,
@@ -77,6 +82,7 @@ SUPPORTED_CALENDAR_POLICIES = {
     LATEST_COMPLETED_CALENDAR_QUARTER_POLICY,
     LATEST_COMPLETED_CALENDAR_WEEK_POLICY,
     SINCE_LAST_SUCCESS_DAY_RANGE_POLICY,
+    *INDEX_PERIOD_CALENDAR_POLICIES,
 }
 FALLBACK_PROBE_EFFECTIVE_TASK_STATUSES = ("queued", "running", "canceling", "success", "partial_success")
 logger = logging.getLogger(__name__)
@@ -184,9 +190,11 @@ class OperationsScheduleService:
             target_key=target_key,
             schedule_type=schedule_type,
             cron_expr=cron_expr,
+            timezone_name=timezone_name,
             calendar_policy=normalized_calendar_policy,
             params_json=normalized_params,
         )
+        self._validate_index_period_next_run(normalized_calendar_policy, next_run_at)
         normalized_next_run_at = (
             None
             if trigger_mode == "probe"
@@ -314,6 +322,7 @@ class OperationsScheduleService:
             schedule_type=schedule.schedule_type,
         )
 
+        self._validate_index_period_next_run(schedule.calendar_policy, changes.get("next_run_at"))
         if schedule.trigger_mode == "probe":
             self._normalize_pure_probe_update_timing(schedule=schedule, changes=changes)
         elif "next_run_at" in changed_fields:
@@ -355,6 +364,7 @@ class OperationsScheduleService:
             target_key=schedule.target_key,
             schedule_type=schedule.schedule_type,
             cron_expr=schedule.cron_expr,
+            timezone_name=schedule.timezone,
             calendar_policy=schedule.calendar_policy,
             params_json=dict(schedule.params_json or {}),
         )
@@ -474,6 +484,7 @@ class OperationsScheduleService:
             target_key=schedule.target_key,
             schedule_type=schedule.schedule_type,
             cron_expr=schedule.cron_expr,
+            timezone_name=schedule.timezone,
             calendar_policy=schedule.calendar_policy,
             params_json=dict(schedule.params_json or {}),
         )
@@ -625,6 +636,7 @@ class OperationsScheduleService:
                 target_key=schedule.target_key,
                 schedule_type=schedule.schedule_type,
                 cron_expr=schedule.cron_expr,
+                timezone_name=schedule.timezone,
                 calendar_policy=self._normalize_calendar_policy(schedule.calendar_policy),
                 params_json=dict(schedule.params_json or {}),
             )
@@ -1306,6 +1318,15 @@ class OperationsScheduleService:
         count: int,
     ) -> list[datetime]:
         normalized_policy = self._normalize_calendar_policy(calendar_policy)
+        if normalized_policy in INDEX_PERIOD_CALENDAR_POLICIES:
+            self._validate_index_period_next_run(normalized_policy, next_run_at)
+            at = index_period_schedule_time(normalized_policy, schedule_type, cron_expr, timezone_name)
+            runs = []
+            cursor = datetime.now(timezone.utc)
+            for _ in range(max(1, min(count, 10))):
+                cursor = next_index_period_occurrence(session, normalized_policy, at, cursor)
+                runs.append(cursor)
+            return runs
         if normalized_policy == MONTHLY_LAST_TRADING_DAY_POLICY:
             if schedule_type != "cron":
                 raise WebAppError(status_code=422, code="validation_error", message="每月最后交易日策略只支持周期执行")
@@ -1419,6 +1440,9 @@ class OperationsScheduleService:
         if schedule_type == "once":
             raise WebAppError(status_code=422, code="validation_error", message="单次排程必须填写下次运行时间")
         effective_after = after or datetime.now(timezone.utc)
+        if calendar_policy in INDEX_PERIOD_CALENDAR_POLICIES:
+            at = index_period_schedule_time(calendar_policy, schedule_type, cron_expr, timezone_name)
+            return next_index_period_occurrence(session, calendar_policy, at, effective_after)
         if calendar_policy == MONTHLY_LAST_TRADING_DAY_POLICY:
             return self._next_monthly_last_trading_day_occurrence(
                 session=session,
@@ -1503,16 +1527,46 @@ class OperationsScheduleService:
         return normalized
 
     @staticmethod
+    def _validate_index_period_next_run(calendar_policy: str | None, next_run_at: datetime | None) -> None:
+        if calendar_policy in INDEX_PERIOD_CALENDAR_POLICIES and next_run_at is not None:
+            raise WebAppError(status_code=422, code="validation_error", message="指数周、月线自动任务的下次运行时间由系统计算。")
+
+    @staticmethod
+    def _validate_index_period_policy(
+        expected: str, actual: str | None, schedule_type: str, cron_expr: str | None,
+        timezone_name: str, params_json: dict,
+    ) -> None:
+        if actual != expected:
+            raise WebAppError(status_code=422, code="validation_error", message="指数周、月线自动任务须使用动作规定的日期策略。")
+        index_period_schedule_time(expected, schedule_type, cron_expr, timezone_name)
+        filters = params_json.get("filters") or {}
+        if (
+            OperationsScheduleService._has_declared_time_input(params_json)
+            or params_json.get("ts_code") not in (None, "")
+            or (isinstance(filters, dict) and filters.get("ts_code") not in (None, ""))
+            or params_json.get("schedule_policy_params") not in (None, {})
+        ):
+            raise WebAppError(status_code=422, code="validation_error", message="指数周、月线自动任务不接受手填日期、指数代码或日期策略参数。")
+
+    @staticmethod
     def _validate_calendar_policy(
         *,
         target_type: str,
         target_key: str,
         schedule_type: str,
         cron_expr: str | None,
+        timezone_name: str,
         calendar_policy: str | None,
         params_json: dict,
     ) -> None:
         if target_type != "dataset_action":
+            maintenance = get_maintenance_action(target_key) if target_type == "maintenance_action" else None
+            if maintenance is not None and maintenance.schedule_time_policy is not None:
+                OperationsScheduleService._validate_index_period_policy(
+                    maintenance.schedule_time_policy.policy, calendar_policy, schedule_type,
+                    cron_expr, timezone_name, params_json,
+                )
+                return
             if calendar_policy is None and params_json.get("schedule_policy_params") in (None, {}):
                 return
             if calendar_policy is None:
@@ -1526,6 +1580,11 @@ class OperationsScheduleService:
         resolver = DatasetScheduleTimePolicyResolver()
         action_capability = definition.capabilities.get_action(action)
         declared_policy = action_capability.schedule_time_policy if action_capability is not None else None
+        if declared_policy is not None and declared_policy.policy in INDEX_PERIOD_CALENDAR_POLICIES:
+            OperationsScheduleService._validate_index_period_policy(
+                declared_policy.policy, calendar_policy, schedule_type, cron_expr, timezone_name, params_json,
+            )
+            return
         fixed_once = (
             declared_policy is not None
             and declared_policy.policy == TRIGGER_DAY_FORWARD_RANGE_POLICY
@@ -1733,7 +1792,7 @@ class OperationsScheduleService:
         return isinstance(time_input, dict) and time_input.get("trade_date") not in (None, "")
 
     @staticmethod
-    def _has_declared_time_input(params_json: dict, *, definition) -> bool:  # type: ignore[no-untyped-def]
+    def _has_declared_time_input(params_json: dict, *, definition=None) -> bool:  # type: ignore[no-untyped-def]
         time_keys = {
             "trade_date",
             "ann_date",
@@ -1742,8 +1801,9 @@ class OperationsScheduleService:
             "end_date",
             "start_month",
             "end_month",
-            *(field.name for field in definition.input_model.time_fields),
         }
+        if definition is not None:
+            time_keys.update(field.name for field in definition.input_model.time_fields)
         if any(params_json.get(key) not in (None, "") for key in time_keys):
             return True
         time_input = params_json.get("time_input")

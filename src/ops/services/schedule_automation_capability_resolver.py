@@ -40,6 +40,7 @@ from src.ops.services.dataset_schedule_time_policy_resolver import (
     DatasetScheduleTimePolicyCapability,
     DatasetScheduleTimePolicyResolver,
 )
+from src.ops.services.index_period_schedule import INDEX_PERIOD_CALENDAR_POLICIES
 
 if TYPE_CHECKING:
     from src.foundation.datasets.models import DatasetDefinition
@@ -215,6 +216,11 @@ class ScheduleAutomationCapabilityResolver:
             action = get_maintenance_action(target_key)
             if action is None or not action.schedule_enabled:
                 return None
+            if action.schedule_time_policy is not None:
+                rule = DatasetScheduleTimePolicyCapability.from_declaration(action.schedule_time_policy)
+                return self._schedule_only_capability(
+                    allowed_schedule_types=rule.schedule_types, calendar_policy_rules=(rule,),
+                )
             if action.schedule_repeat_policy is not None:
                 policy = action.schedule_repeat_policy
                 return self._schedule_only_capability(
@@ -579,6 +585,12 @@ class ScheduleAutomationCapabilityResolver:
             # The daily policy does not remove the existing fixed-date once entry.
             allowed_schedule_types = DEFAULT_SCHEDULE_TYPES
         time_input_contract = self._time_input_contract(definition=definition, action=action)
+        if any(rule.policy in INDEX_PERIOD_CALENDAR_POLICIES for rule in calendar_policy_rules):
+            return self._schedule_only_capability(
+                calendar_policy_rules=calendar_policy_rules,
+                time_input_contract=time_input_contract,
+                allowed_schedule_types=allowed_schedule_types,
+            )
 
         remote_condition = self._remote_condition_for_action(target_key)
         if remote_condition is not None:

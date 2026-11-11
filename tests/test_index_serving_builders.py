@@ -1,24 +1,17 @@
 from __future__ import annotations
 
-import pytest
+from sqlalchemy.orm import Session
 
+from src.foundation.dao.factory import DAOFactory
 from src.foundation.resolution.types import ResolutionPolicy
 from src.foundation.serving.builders.index_daily_serving_builder import IndexDailyServingBuilder
-from src.foundation.serving.builders.index_monthly_serving_builder import IndexMonthlyServingBuilder
-from src.foundation.serving.builders.index_weekly_serving_builder import IndexWeeklyServingBuilder
+from src.foundation.serving.publish_service import ServingPublishService
+from src.foundation.serving.validation import validate_serving_coverage
 
 
-@pytest.mark.parametrize(
-    ("builder_cls", "dataset_key"),
-    [
-        (IndexDailyServingBuilder, "index_daily"),
-        (IndexWeeklyServingBuilder, "index_weekly"),
-        (IndexMonthlyServingBuilder, "index_monthly"),
-    ],
-)
-def test_index_serving_builders_resolve_by_ts_code_and_trade_date(builder_cls, dataset_key: str) -> None:
-    builder = builder_cls()
-    policy = ResolutionPolicy(dataset_key=dataset_key, mode="primary", primary_source_key="tushare")
+def test_index_daily_still_resolves_by_code_and_date() -> None:
+    builder = IndexDailyServingBuilder()
+    policy = ResolutionPolicy(dataset_key="index_daily", mode="primary", primary_source_key="tushare")
     result = builder.build_rows(
         std_rows_by_source={
             "tushare": [{"source_key": "tushare", "ts_code": "000001.SH", "trade_date": "2026-04-10", "close": 3310.2}]
@@ -33,3 +26,12 @@ def test_index_serving_builders_resolve_by_ts_code_and_trade_date(builder_cls, d
     assert row["ts_code"] == "000001.SH"
     assert row["trade_date"] == "2026-04-10"
     assert row["source"] == "tushare"
+
+
+def test_default_publish_registry_only_retains_index_daily_builder() -> None:
+    dao = DAOFactory(Session())
+    registry = ServingPublishService(dao).builder_registry
+    assert isinstance(registry.get("index_daily"), IndexDailyServingBuilder)
+    assert registry.get("index_weekly") is None
+    assert registry.get("index_monthly") is None
+    assert validate_serving_coverage(dao=dao, builder_registry=registry) == []

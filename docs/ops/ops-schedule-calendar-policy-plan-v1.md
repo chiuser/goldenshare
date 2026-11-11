@@ -29,7 +29,7 @@ Catalog 的 `automation_capability.calendar_policy_rules` 是前端消费入口�
 
 <a id="calendar-policies"></a>
 
-## 3. 当前七种策略
+## 3. 当前日期策略
 
 下表的“触发日”均指**计划触发时间转为 schedule 时区后的自然日**，不是 worker 实际开始日期。
 
@@ -42,6 +42,9 @@ Catalog 的 `automation_capability.calendar_policy_rules` 是前端消费入口�
 | `trigger_day_point` | 普通 cron；重复方式受动作声明限制 | point；将触发日写入声明的 `trade_date` 或 `ann_date` | 动作显式声明 |
 | `latest_completed_calendar_quarter` | 按声明支持 cron/once | point，`trade_date=严格早于触发日的最近自然季末` | 动作显式声明 |
 | `since_last_success_day_range` | 普通 cron；重复方式受动作声明限制 | range，从初始起日/上次成功窗口之后到触发日前一天 | 动作显式声明；须配置初始起日 |
+| `weekly_last_trading_day` | 自然周最后开市日，cron 只取时分 | point，`trade_date=触发日` | 指数周线 Raw 动作声明 |
+| `monthly_first_trading_day` | 每月首个开市日，cron 只取时分 | point，`trade_date=上月最后开市日` | 指数月线 Raw 动作声明 |
+| `trading_day_point` | 每个开市日，cron 只取时分 | point，`trade_date=触发日` | 指数周、月线 Serving 动作声明 |
 
 前三类派生规则仅支持 cron/月度重复；第四类派生规则支持 cron 的每日、每周、每月重复。显式声明的策略不可沿用这组默认限制，须读取其自己的 `schedule_types/cron_repeat_modes`。
 
@@ -96,4 +99,4 @@ Catalog 的 `automation_capability.calendar_policy_rules` 是前端消费入口�
 
 原第一至第五期的实现步骤已收口为本文当前规则；不再把已支持的最后交易日、窗口或触发日策略列成待开发。原远程验证里程碑只是当时的记录，本次未重新核实生产配置。
 
-旧方案提到的 `fixed_day_of_month`、`weekly_friday`、`weekly_last_trading_day` 不在当前策略枚举中；固定日号和周五触发本身可由普通 cron 表达，不据此新增策略。月份键生成、每周最后交易日、“次月维护上月窗口”仍需有明确需求时另行评审，不是本轮待办，也不得偷换当前月窗口含义。
+固定日号和周五触发可由普通 cron 表达。指数周、月线使用上表对应的交易日策略，允许的时刻、输入及切换顺序见[指数周、月线 LLD §3.1、§8.2](/Users/congming/github/goldenshare/docs/datasets/prod-index-period-low-level-design-v1.md)。

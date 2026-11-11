@@ -24,7 +24,8 @@ def test_every_schedulable_target_has_a_capability() -> None:
     resolver = ScheduleAutomationCapabilityResolver()
     targets = _schedulable_targets()
 
-    assert len(targets) == 94
+    assert ("maintenance_action", "maintenance.update_index_weekly_serving") in targets
+    assert ("maintenance_action", "maintenance.update_index_monthly_serving") in targets
     assert all(resolver.resolve(target_type=target_type, target_key=target_key) is not None for target_type, target_key in targets)
     assert resolver.resolve(target_type="workflow", target_key="index_extension_maintenance") is None
 
@@ -49,13 +50,20 @@ def test_workflow_and_maintenance_capabilities_are_schedule_only() -> None:
         assert capability is not None
         assert [option.mode for option in capability.trigger_options] == ["schedule"]
         assert capability.probe_conditions == ()
-        if action.key == "maintenance.materialize_wealth_sector_heat_daily":
+        if action.readiness_condition is not None:
+            hour, minute = map(int, action.readiness_policy["initial_check_local_time"].split(":"))
             assert capability.trigger_options[0].allowed_schedule_types == ("cron",)
             assert capability.fixed_schedule is not None
-            assert capability.fixed_schedule.cron_expr == "15 21 * * 1-5"
+            assert capability.fixed_schedule.cron_expr == f"{minute} {hour} * * 1-5"
             assert capability.fixed_schedule.timezone == "Asia/Shanghai"
-            assert capability.fixed_schedule.display_text == "工作日 21:15（北京时间）"
+            assert capability.fixed_schedule.display_text == f"工作日 {hour:02d}:{minute:02d}（北京时间）"
             assert capability.repeat_policy is None
+        elif action.schedule_time_policy is not None:
+            assert capability.trigger_options[0].allowed_schedule_types == ("cron",)
+            assert capability.fixed_schedule is None
+            assert capability.repeat_policy is None
+            rule, = capability.calendar_policy_rules
+            assert (rule.policy, rule.cron_repeat_modes) == ("trading_day_point", ("daily",))
         elif action.key == "maintenance.materialize_news_stock_links":
             assert capability.trigger_options[0].allowed_schedule_types == ("cron",)
             assert capability.fixed_schedule is None

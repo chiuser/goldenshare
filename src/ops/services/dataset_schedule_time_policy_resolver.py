@@ -3,12 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
-from src.foundation.datasets.models import DatasetDefinition, DatasetInputField
+from src.foundation.datasets.models import DatasetDefinition, DatasetInputField, DatasetScheduleTimePolicy
 
 
 CalendarPolicy = Literal[
     "monthly_last_day",
     "monthly_last_trading_day",
+    "monthly_first_trading_day",
+    "weekly_last_trading_day",
+    "trading_day_point",
     "monthly_window_current_month",
     "trigger_day_single_range",
     "trigger_day_forward_range",
@@ -32,6 +35,19 @@ class DatasetScheduleTimePolicyCapability:
     policy_parameters: tuple[DatasetInputField, ...] = ()
     declared_by_action: bool = False
 
+    @classmethod
+    def from_declaration(cls, policy: DatasetScheduleTimePolicy) -> "DatasetScheduleTimePolicyCapability":
+        return cls(
+            policy=policy.policy,  # type: ignore[arg-type]
+            schedule_types=policy.schedule_types,  # type: ignore[arg-type]
+            cron_repeat_modes=policy.cron_repeat_modes,  # type: ignore[arg-type]
+            explicit_time_input=policy.explicit_time_input,  # type: ignore[arg-type]
+            generated_time_mode=policy.generated_time_mode,  # type: ignore[arg-type]
+            generated_time_field=policy.generated_time_field,  # type: ignore[arg-type]
+            policy_parameters=policy.policy_parameters,
+            declared_by_action=True,
+        )
+
 
 class DatasetScheduleTimePolicyResolver:
     """Resolve schedule date semantics from DatasetDefinition only."""
@@ -47,18 +63,7 @@ class DatasetScheduleTimePolicyResolver:
             return ()
         declared = action_capability.schedule_time_policy
         if declared is not None:
-            return (
-                DatasetScheduleTimePolicyCapability(
-                    policy=declared.policy,  # type: ignore[arg-type]
-                    schedule_types=declared.schedule_types,  # type: ignore[arg-type]
-                    cron_repeat_modes=declared.cron_repeat_modes,  # type: ignore[arg-type]
-                    explicit_time_input=declared.explicit_time_input,  # type: ignore[arg-type]
-                    generated_time_mode=declared.generated_time_mode,  # type: ignore[arg-type]
-                    generated_time_field=declared.generated_time_field,  # type: ignore[arg-type]
-                    policy_parameters=declared.policy_parameters,
-                    declared_by_action=True,
-                ),
-            )
+            return (DatasetScheduleTimePolicyCapability.from_declaration(declared),)
 
         date_model = definition.date_model
         if date_model.bucket_rule == "month_last_calendar_day":

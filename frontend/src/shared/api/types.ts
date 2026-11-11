@@ -546,6 +546,9 @@ export interface OpsAutomationCapability {
     policy:
       | "monthly_last_day"
       | "monthly_last_trading_day"
+      | "monthly_first_trading_day"
+      | "weekly_last_trading_day"
+      | "trading_day_point"
       | "monthly_window_current_month"
       | "trigger_day_single_range"
       | "trigger_day_forward_range"

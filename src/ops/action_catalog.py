@@ -4,7 +4,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
-from src.foundation.datasets.models import DatasetDefinition, DatasetInputField
+from src.foundation.datasets.models import DatasetDefinition, DatasetInputField, DatasetScheduleTimePolicy
 from src.foundation.datasets.registry import (
     get_dataset_definition,
     get_dataset_definition_by_action_key,
@@ -20,6 +20,12 @@ WORKFLOW_DOMAIN_KEY = "workflow"
 WORKFLOW_DOMAIN_DISPLAY_NAME = "工作流"
 WORKFLOW_GROUP_ORDER = 80
 INDEX_PERIOD_SERVING_EXECUTOR = "index_period_serving"
+INDEX_WEEKLY_SERVING_ACTION = "maintenance.update_index_weekly_serving"
+INDEX_MONTHLY_SERVING_ACTION = "maintenance.update_index_monthly_serving"
+INDEX_PERIOD_SERVING_SCHEDULE = DatasetScheduleTimePolicy(
+    policy="trading_day_point", schedule_types=("cron",), cron_repeat_modes=("daily",),
+    explicit_time_input="forbidden", generated_time_mode="point",
+)
 
 
 @dataclass(slots=True, frozen=True)
@@ -70,6 +76,7 @@ class MaintenanceActionDefinition:
     schedule_repeat_policy: ScheduleRepeatPolicy | None = None
     readiness_condition: str | None = None
     readiness_policy: Mapping[str, Any] = field(default_factory=dict)
+    schedule_time_policy: DatasetScheduleTimePolicy | None = None
 
     @property
     def target_tables(self) -> tuple[str, ...]:
@@ -79,16 +86,7 @@ class MaintenanceActionDefinition:
         configured_targets = self.execution_config.get("target_tables")
         if isinstance(configured_targets, Sequence) and not isinstance(configured_targets, str):
             return tuple(str(target).strip() for target in configured_targets if str(target).strip())
-        period_targets = self.execution_config.get("period_targets")
-        if not isinstance(period_targets, Sequence) or isinstance(period_targets, str):
-            return ()
-        targets: list[str] = []
-        for period_target in period_targets:
-            if isinstance(period_target, Mapping):
-                target_table = period_target.get("target_table")
-                if isinstance(target_table, str) and target_table.strip():
-                    targets.append(target_table.strip())
-        return tuple(targets)
+        return ()
 
 
 @dataclass(slots=True, frozen=True)
@@ -181,29 +179,8 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
         schedule_enabled=True,
         retry_enabled=True,
     ),
-    "maintenance.rebuild_index_kline_serving": MaintenanceActionDefinition(
-        key="maintenance.rebuild_index_kline_serving",
-        display_name="维护指数周线/月线服务表",
-        domain_key="maintenance",
-        domain_display_name="维护动作",
-        description="基于指数日线服务表补齐周线/月线服务表（API 优先，日线派生补缺）。",
-        executor_key="rebuild_index_period_serving",
-        execution_config={
-            "calendar_table": "core_serving.trade_calendar",
-            "source_table": "core_serving.index_daily_serving",
-            "index_table": "core_serving.index_basic",
-            "period_targets": (
-                {"period_granularity": "week", "target_table": "core_serving.index_weekly_serving"},
-                {"period_granularity": "month", "target_table": "core_serving.index_monthly_serving"},
-            ),
-        },
-        parameters=(START_DATE_PARAM, END_DATE_PARAM),
-        manual_enabled=True,
-        schedule_enabled=False,
-        retry_enabled=True,
-    ),
-    "maintenance.update_index_weekly_serving": MaintenanceActionDefinition(
-        key="maintenance.update_index_weekly_serving",
+    INDEX_WEEKLY_SERVING_ACTION: MaintenanceActionDefinition(
+        key=INDEX_WEEKLY_SERVING_ACTION,
         display_name="更新指数周线 Serving",
         domain_key="maintenance",
         domain_display_name="维护动作",
@@ -211,9 +188,11 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
         executor_key=INDEX_PERIOD_SERVING_EXECUTOR,
         execution_config={"frequency": "week", "target_tables": ("core_serving.index_weekly_serving",)},
         parameters=(TRADE_DATE_PARAM, INDEX_PERIOD_SERVING_CODE_PARAM),
+        schedule_enabled=True,
+        schedule_time_policy=INDEX_PERIOD_SERVING_SCHEDULE,
     ),
-    "maintenance.update_index_monthly_serving": MaintenanceActionDefinition(
-        key="maintenance.update_index_monthly_serving",
+    INDEX_MONTHLY_SERVING_ACTION: MaintenanceActionDefinition(
+        key=INDEX_MONTHLY_SERVING_ACTION,
         display_name="更新指数月线 Serving",
         domain_key="maintenance",
         domain_display_name="维护动作",
@@ -221,6 +200,8 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
         executor_key=INDEX_PERIOD_SERVING_EXECUTOR,
         execution_config={"frequency": "month", "target_tables": ("core_serving.index_monthly_serving",)},
         parameters=(TRADE_DATE_PARAM, INDEX_PERIOD_SERVING_CODE_PARAM),
+        schedule_enabled=True,
+        schedule_time_policy=INDEX_PERIOD_SERVING_SCHEDULE,
     ),
     "maintenance.materialize_wealth_sector_heat_daily": MaintenanceActionDefinition(
         key="maintenance.materialize_wealth_sector_heat_daily",
@@ -512,13 +493,12 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
     "index_kline_maintenance_pipeline": WorkflowDefinition(
         key="index_kline_maintenance_pipeline",
         display_name="指数K线全链路维护",
-        description="按日线→周线→月线→服务表补齐的顺序执行指数K线维护工作流。",
+        description="按日期区间维护指数日线、周线 Raw 和月线 Raw。",
         parameters=(START_DATE_PARAM, END_DATE_PARAM),
         steps=(
             _dataset_workflow_step("index_daily", "index_daily"),
             _dataset_workflow_step("index_weekly", "index_weekly"),
             _dataset_workflow_step("index_monthly", "index_monthly"),
-            WorkflowStepDefinition("rebuild_index_serving", "maintenance.rebuild_index_kline_serving", "补齐指数服务表"),
         ),
         workflow_profile="range_rebuild",
         manual_enabled=True,

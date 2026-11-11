@@ -330,7 +330,7 @@
 | R15 同一期取完并校验后提交 | §4.1、§6 | 验证多页的期末在末页取完和整批校验前均无 Raw 写入，校验通过后整期提交一次。让后页取数失败或返回错误日期，核对本期没有写入、前一期已提交的数据保留。另在分批写入时注入失败，核对当前期末所有写入一并回滚。 |
 | R16 单期超限退出 | §6.1、§8.1 | 用 §8.1 两个期末验收默认预算内的完整取数、提交和读回。构造超过样本 16 页的数据，验证预算内仍取至末页。用受控的内存采样、时钟和数据库延迟分别触发上限，覆盖分页等待、整批校验和已写入部分批次的情形。核对任务及当前节点进入失败终态、本期未提交、此前各期保留，重试沿用原范围。 |
 
-现有测试入口包括[周期线数据库测试](/Users/congming/github/goldenshare/tests/test_index_monthly_postgres.py)、[分层写入测试](/Users/congming/github/goldenshare/tests/test_dataset_writer_index_layer_alignment.py)、[日期规划测试](/Users/congming/github/goldenshare/tests/test_index_monthly_calendar.py)、[动作目录测试](/Users/congming/github/goldenshare/tests/test_ops_action_catalog.py)、[自动任务 API 测试](/Users/congming/github/goldenshare/tests/web/test_ops_schedule_api.py)和[任务 API 测试](/Users/congming/github/goldenshare/tests/web/test_ops_task_run_api.py)。卡片沿用[卡片 API 测试](/Users/congming/github/goldenshare/tests/web/test_ops_dataset_cards_api.py)和[数据源页面测试](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-source-page.test.tsx)，实施后在浏览器核对两个列表及维护入口。旧行为的用例随旧入口撤除而更新。源字段和计算预期须采用独立的真实依据。以上均为验收计划。
+现有测试入口包括[正式周期线 Raw 数据库测试](/Users/congming/github/goldenshare/tests/test_index_period_raw.py)、[Serving 数据库测试](/Users/congming/github/goldenshare/tests/test_index_period_serving.py)、[分层写入测试](/Users/congming/github/goldenshare/tests/test_dataset_writer_index_layer_alignment.py)、[日期规划测试](/Users/congming/github/goldenshare/tests/test_index_monthly_calendar.py)、[动作目录测试](/Users/congming/github/goldenshare/tests/test_ops_action_catalog.py)、[自动任务 API 测试](/Users/congming/github/goldenshare/tests/web/test_ops_schedule_api.py)和[任务 API 测试](/Users/congming/github/goldenshare/tests/web/test_ops_task_run_api.py)。卡片沿用[卡片 API 测试](/Users/congming/github/goldenshare/tests/web/test_ops_dataset_cards_api.py)和[数据源页面测试](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-source-page.test.tsx)，实施后在浏览器核对两个列表及维护入口。旧行为的用例随旧入口撤除而更新。源字段和计算预期须采用独立的真实依据。以上均为验收计划。
 
 ## 8. 开工与正式执行前的核验
 
@@ -415,6 +415,17 @@
 - 调度只读取计算下一次触发时间和目标日所需的交易日历窗口，预览不取源数据、不写行情。每次正式 Raw 自动取数只处理一个期末，按 §6.1 计入请求、写入、原期末重试和读回。正式月线自动取数成功后增加一条月线 Serving 任务，按 §6.2 单独计入最多 10 个代码的读取和写入、一次同范围重试及最多 10 行验收读回。当晚的月线 Serving 日更另计一次 §6.2 的预算。验收按对应自动任务及 TaskRun 主键读回配置、目标日、保存量和任务终态。
 - 验收 R1、R3、R9 和 R13。在隔离环境验证普通周和周五休市的短周，月初休市后首个交易日触发的月线使用上月期末，两项盘后日更跳过休市日。对照后台预览和实际生成的四项任务，核对日期、时区和执行时刻。验证合法时刻可保存，拒绝早于表中约定的时刻、错误时区、手填目标日或代码。验证旧排程暂停、清空旧下次运行时间、按新策略恢复，并回归其他排程和两个指数工作流。
 - 用月线 Raw 正常提交、空返回、失败及重试验证上月 Serving 的触发条件。让 Serving 入队失败一次，确认 Raw 已提交、原任务显示收尾错误，按原任务重试后正常入队。再用 Serving 写入失败验证其可单独重试。用同日重试和跨午夜的出队、重试验证日更截止，以及手动按原目标日补数。
+
+#### 阶段 3 开发与验收记录
+
+| 对照项 | 实现及验证 |
+| --- | --- |
+| R1、R3 排程与目标日期 | 数据后台读取动作声明。预览、下次运行时间和入队共同使用完整交易日历。隔离 API 验证四项配置、跨日入队仍使用原计划目标、手填日期或代码被拒绝、旧月线排程暂停后按新规则恢复。Tushare 的 SSE 日历显示 2026-05-01 休市，指数周线按 2026-04-30 查询返回上证指数正式记录，收盘为 4112.1593 点。 [排程计算](/Users/congming/github/goldenshare/src/ops/services/index_period_schedule.py) · [排程回归](/Users/congming/github/goldenshare/tests/web/test_index_period_schedule.py) |
+| R3 午夜截止 | 用临时 PostgreSQL 验证同晚重试能成功。跨午夜时已保存的指数保留，剩余指数停止写入，任务与当前节点均失败。已过期的出队和重试都保留原目标日，手动补数仍能更新该日。 [Serving 回归](/Users/congming/github/goldenshare/tests/test_index_period_serving.py) |
+| R13 上月正式月线覆盖 | 模拟 2026-11-02 19:00 触发，TaskRun 及源请求均指向 2026-10-30。用 Tushare 返回的上证指数正式月线样本，在临时 PostgreSQL 完成排程入队、Raw 写入和 Serving 读回。两层各有一行，Serving 保留期末日期及收盘 3599.0166 点。用另一会话确认 Raw 已提交时原任务和当前节点仍在运行，独立 Serving 任务尚不可见。注入 Serving 入队失败后原任务按原期末重新请求，注入 Serving 写入失败后单独重试且不再次请求 Tushare。空返回、人工月线和自动周线均不创建上月 Serving 任务。 [Worker 收尾](/Users/congming/github/goldenshare/src/ops/runtime/worker.py) · [隔离数据库回归](/Users/congming/github/goldenshare/tests/test_index_period_raw.py) |
+| R9 旧入口退出 | 已删除旧写入分支、维护动作、工作流合成末步，以及通用发布器的周、月线 builder 和目标映射。验证历史任务可查看，重试被拒绝。两个指数工作流的周、月线区间无期末时均零次取数，并继续后续步骤。指数扩展工作流的指数权重步骤仍要求起止月份，传入起止日期时会失败。该情况已在第三阶段前的版本复现。 [动作目录](/Users/congming/github/goldenshare/src/ops/action_catalog.py) · [工作流回归](/Users/congming/github/goldenshare/tests/test_index_period_raw.py) |
+
+用浏览器核对指数月线自动任务的固定日期规则、执行时刻、预览和保存请求。配置请求携带排程策略，目标交易日由后端生成。 [后台浏览器验收](/Users/congming/github/goldenshare/frontend/e2e/index-period-schedule.spec.ts)
 
 ### 9.4 阶段 4 · 数据后台与联调验收
 
