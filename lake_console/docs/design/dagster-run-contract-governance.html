@@ -608,6 +608,20 @@
       股票技术因子分区注册 <code>stock_factor_pro_trade_day_sensor</code> 使用
       <code>quote_data / partition / partition_registration</code>，定义默认 <code>STOPPED</code>。
       每次只为 <code>cn_a_stock_factor_pro_trade_days</code> 提交今天（若开市）和上一交易日中缺失的分区登记请求。
+      最小评估间隔为 600 秒，上一交易日沿 SSE 日历的 <code>pretrade_date</code> 确认。
+    </p>
+    <p>
+      股票日线技术因子 <code>raw_tushare_stk_factor_pro_update_job_sensor</code> 使用
+      <code>quote_data / raw_silver / asset_update</code>，定义默认 <code>STOPPED</code>，最小评估间隔 60 秒。
+      开市日上海时间 19:00 起每半小时评估，最后时点为 23:30，目标仅当天；相同 slot 的持久 run 及本轮探测决定负责去重。
+      分区、上游和活动任务检查通过后，使用 Tushare <code>stk_factor_pro</code> 的 <code>ts_code,trade_date</code>
+      完整分页结果核对必需和允许代码集合，上市首日代码可选，才提交唯一的
+      <code>raw_tushare_stk_factor_pro_update_job</code>。请求保留 <code>execution_day</code>、
+      <code>target_trade_date</code>、<code>scheduled_slot</code> 三项业务标签，并由原生 sensor 名称和 run_key 标签持久去重。
+      job 在完整日源和候选齐备后发布两层，再比较目标日及上一交易日的股票复权因子；历史源尚旧时保留日发布，之后重新下载完整待刷范围。
+      午夜不再创建新自动任务，旧日缺口由同一 job 的 <code>manual_date</code> 明确补跑，不恢复部分日发布或自动补前日。
+      两条 sensor 的正式启用另行授权，串联验收及读取边界见
+      <a href="dagster-stock-technical-factor-onboarding-low-level-design-v1.md#stock-factor-step7-integration">LLD §22.2</a>。
     </p>
     <p>
       九转专属分区注册 sensor 的确定分类是：<code>stk_nineturn_trade_day_sensor</code> 使用

@@ -360,6 +360,15 @@
       补充门禁：<code>stock_mins_raw_sensor</code> 提交 prod DB raw run 前，必须确认 <code>stock_basic_ready_for_trade_date(context.instance, target_trade_date)</code> ready，即 <code>raw_tushare_stock_basic</code> 与 <code>silver_stock_basic</code> 都满足目标交易日 freshness 与 blocking checks；不新增 stock basic 日内第二批次判断。
       最新实现口径是：<code>cn_a_trade_day_sensor</code> 只注册全量备份分区；<code>stock_trade_day_sensor</code> 在 17:00 后按交易日历补注册股票资产族分区，每 tick 最多 2 个，具体数据集更新由资产族 sensor 接管。
       <code>stock_factor_pro_trade_day_sensor</code> 读取 SSE 日历，只登记技术因子专属分区 <code>cn_a_stock_factor_pro_trade_days</code> 中缺少的今天（若开市）及上一交易日。分类为 <code>quote_data / partition / partition_registration</code>，最小评估间隔 600 秒，定义默认 <code>STOPPED</code>。
+      股票日线技术因子日更 <code>raw_tushare_stk_factor_pro_update_job_sensor</code> 使用
+      <code>quote_data / raw_silver / asset_update</code>，最小评估间隔 60 秒，定义默认 <code>STOPPED</code>。
+      上海时间开市日 19:00 至 23:30 的半小时时点，仅检查当日：确认分区、上游、活动任务和持久提交记录后，向 Tushare
+      <code>stk_factor_pro</code> 请求 <code>ts_code,trade_date</code>，必需代码无缺失、允许集合外无额外代码才提交
+      <code>raw_tushare_stk_factor_pro_update_job</code>。上市首日代码可有可无；相同 slot 已探测或已提交均不重复。
+      job 重核完整 261 字段日源，完整 Raw/Silver 发布后按目标日及其上一交易日的股票复权因子处理历史回刷；历史等待保留日发布，下一合法时点重下完整待刷范围。
+      午夜停止新自动任务，不自动追补旧日；缺口通过同一 job 的 <code>manual_date</code> 明确指定日期补跑。
+      第7小步仅在临时实例串联验收，正式 bootstrap、历史事件和 sensor 启用另行授权；详细口径见
+      <a href="../design/dagster-stock-technical-factor-onboarding-low-level-design-v1.md#stock-factor-step7-integration">股票日线技术因子 LLD §22.2</a>。
       主要指数量化结构 <code>gold_major_index_quantitative_structure</code> 使用专属
       <code>cn_major_index_quantitative_structure_trade_days</code>。<code>major_index_quantitative_structure_trade_day_sensor</code>
       只登记分区，<code>gold_major_index_quantitative_structure_update_job_sensor</code> 在上海时间 18:00 起等待同日上游齐备，再提交
