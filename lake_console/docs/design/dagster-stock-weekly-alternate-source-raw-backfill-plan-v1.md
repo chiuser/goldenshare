@@ -1,8 +1,10 @@
 # DG 复权周线、月线Raw更新、完整性审计与Silver生成方案 v1
 
+**结项状态：2026-11-12已完成并结项。** 六阶段开发、正式切换、补数及首次自然日更验收全部完成，结项依据见下述LLD第13.21.5节。
+
 **2026-11-12 六阶段开发、隔离验收和正式切换已完成，11月11日股票复权周/月线欠账已补齐。** 第5阶段源码提交为`202739e60`，第6阶段实施设计提交为`982619968`；第6阶段结果见[LLD第13.19节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-results)，正式执行结果见[第13.21节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-formal-cutover-results)。 新方案见[第10.19节](#stock-period-daily-then-history)。第1节至第10.18节及第10.20节记录切换前实现和历史结果。切换后日更、回刷、补齐及清退以第10.19节为准，旧删除重建、建库交接和续跑命令只用于追溯。
 
-正式切换依[LLD第13.20节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-formal-cutover)获准执行完成。第6阶段实际提交为`01b727255`；Silver游标、两个新sensor及11月11日欠账均已交接，六条sensor最终RUNNING。没有重启或重载DG，11月12日日更仍由正常20:00窗口检查，不提前提交。
+正式切换依[LLD第13.20节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-formal-cutover)获准执行完成。第6阶段实际提交为`01b727255`；Silver游标、两个新sensor及11月11日欠账均已交接，六条sensor最终RUNNING。切换执行未重启或重载DG；11月12日首轮20:00后自然日更已于20:28:02全部完成，21:07只读验收通过，见[LLD第13.21.5节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-first-natural-daily-acceptance)。
 
 **2026-10-31跨日日期修正已完成开发和隔离验收：** 原任务日期与逐文件实际源日期已分开，相关463个不重复用例通过（新增28项），源码与LLD对账无阻断遗漏。详见本方案§10.13、共享LLD§12.22.6及本轮实施报告；本轮修改随本次提交保存，未正式补数。以下28日各项结果保留为历史，不表示29/30日已经补齐。
 

@@ -1,5 +1,7 @@
 # DG 复权月线Raw更新、完整性审计与Silver生成 LLD v1
 
+**结项状态：2026-11-12已完成并结项。** 月线与周线的开发、正式切换、补数及首次自然日更验收全部完成，结项依据见下述周月线LLD第13.21.5节。
+
 **2026-11-12 六阶段开发、隔离验收及正式切换完成，11月11日股票复权月线与周线欠账已补齐。** 第6阶段独立审计见[周月线LLD第13.19节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-results)，正式运行及最后验收见[第13.21节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-formal-cutover-results)。第5阶段源码提交为`202739e60`，第6阶段设计提交为`982619968`。月线新流程见[第11节](#monthly-daily-point-readiness)，实施细则见[周月线LLD第13.18节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-execution)。第1至10节记录切换前实现和历史结果。切换后，当月预检、正式日更和指定闭合月补齐使用第11节口径，旧建库交接和续跑命令只用于追溯。
 
 **2026-10-31跨日日期修正已完成开发和隔离验收：** 月线与周线共用的逐文件来源日期修正见§9.8及共享LLD§12.22，相关463项不重复用例通过（新增28项）。本轮修改随本次提交保存，未正式补数；28日各项结果保留为历史，不表示29/30日已经补齐。
@@ -337,3 +339,5 @@ curl --max-time 25 --fail-with-body --silent --show-error \
 切换和补数统一按已获准的[周月线LLD第13.20节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-formal-cutover)，不另设月线方案：先转换Silver，启用两条新sensor并等待自然初始化tick，再探测原日两频源。月线仍用`freq=month,trade_date=20261130`及三列，原日仍齐备才以`intent=daily,automatic_intent_date=2026-11-11`提交现有月Raw job，由原月Silver完整接续；源已前移则沿该节已有分支处理，不用当前尚未闭合的11月补建绕过日期检查。读取范围、预算、失败完整新跑与验收沿该节，不改变21列、正式路径、既有资源上限或首次建库能力。切换前文档准备未操作DG，后续实际执行结果与该历史阶段分开记录。
 
 **正式切换及11月11日补数完成（2026-11-12，09:54最终状态读回）。** 月线三列源实际应有5,574只全部截至11日，另1条可选停牌记录截至9日；原月Raw新运行`12545136-b675-460d-ac35-286ef57e1870`及当期月Silver `09dbfefb-1b68-4601-b24c-b80a4c4bbeec`均SUCCESS。8只股票复权因子变化历史回刷交付232份月Raw，月Silver `6fa20aba-d565-4d0e-9ddf-a6ef5598e0db`按既有2014下限完整接续155份，465项原检查通过。月退市清理 `01a0305d-7596-4d75-9fe2-41f3ff18c9f8`真实登记343只确认名单、零命中文件，未改写历史或触发额外Silver。月Raw/Silver当期文件各5,575行/唯一键，应有代码覆盖完整、21列双向差异0；月Silver游标已推进至`schema_version=2,after=8035725`，无pending。本链六条sensor最终均RUNNING，未重启或重载DG，没有恢复旧代码或修改默认资源；11月12日任务继续等20:00正常窗口。本次九笔正式运行、全部6,112项检查、数量/耗时及清理边界统一见[第13.21节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-formal-cutover-results)。
+
+**首次自然日更验收通过（2026-11-12，21:07）。** 月线sensor在20:00:23自然提交当日Raw，20:00:28成功，月线Silver当期接续20:02:04成功。两频日更均成功后，6只股票复权因子变化历史回刷交付141份月Raw，月线Silver历史接续20:26:09成功，完整处理同一141份月文件；当日月线确认退市任务零新增候选、零命中文件，真实结果正常保存。当期月Raw/Silver各5,575行，应更新5,573只均截至11月12日，另2条可选停牌记录保留较早日期，21列双向差异0。月Silver游标`after=8050038`、无pending；六条sensor均RUNNING。九笔自然运行、全部4,438项检查及周/月完整只读验收见[第13.21.5节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-first-natural-daily-acceptance)，上午的待自然日更状态已办结，本轮没有补跑或修改DG。
