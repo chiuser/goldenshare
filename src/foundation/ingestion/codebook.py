@@ -24,6 +24,13 @@ INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-30.v2"
 INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-30T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
+    IngestionCodebookEntry("daily_basic.delivery_contract_mismatch", "每日指标响应合同不一致", "source", "核对接口与完整19字段"),
+    IngestionCodebookEntry("daily_basic.source_payload_invalid", "每日指标源响应结构错误", "source", "核对源端字段与JSON结构"),
+    IngestionCodebookEntry("daily_basic.source_deadline_exceeded", "每日指标源调用超过期限", "source", "核对源站后按原计划重试"),
+    IngestionCodebookEntry("daily_basic.response_size_exceeded", "每日指标响应超过字节限制", "source", "核对本次批准的字节限额"),
+    IngestionCodebookEntry("daily_basic_limit_status.target_mismatch", "每日指标目标记录或已有状态不一致", "plan/reconcile", "核对日期、主键、数量和已有值后重新计划或按原计划重试"),
+    IngestionCodebookEntry("daily_basic_limit_status.pagination_incomplete", "每日指标分页未完整结束", "source", "核对源数据与冻结目标范围"),
+    IngestionCodebookEntry("daily_basic_limit_status.commit_unconfirmed", "每日指标日期提交结果未确认", "commit", "确认原任务已结束后按原PLAN重试并读回"),
     IngestionCodebookEntry("normalize.source_validation_failed", "源数据校验失败，当前日期未写入", "normalize", "按错误样本核对源数据，由管理员处理后按原范围重试"),
     IngestionCodebookEntry(
         "normalize.financial_statement_listing_dates_failed",
@@ -218,6 +225,8 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
 )
 
 INGESTION_REASON_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
+    IngestionCodebookEntry("normalize.unit_date_mismatch", "源数据日期与执行日期不符", "normalize", "核对源日期与冻结日期，当前日期不提交"),
+    IngestionCodebookEntry("normalize.batch_unique_key_duplicate", "源数据主键重复", "normalize", "核对源分页是否重叠，当前日期不提交"),
     IngestionCodebookEntry("normalize.daily_basic_limit_status_invalid", "每日指标收盘涨跌状态不是 0～6 的原生整数", "normalize", "核对错误样本中的原始值和类型，不得补 0 或取整"),
     IngestionCodebookEntry("normalize.required_field_missing", "必填字段缺失", "normalize", "检查字段映射和空值处理"),
     IngestionCodebookEntry("normalize.invalid_date", "日期字段非法", "normalize", "检查日期格式与解析规则"),

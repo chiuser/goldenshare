@@ -2,7 +2,7 @@
 
 更新时间：2026-11-12。
 
-状态：**§12 两个现有修复已提交 `e393aba66`，§13 的接口验证及当时设计已提交 `adee47129`。简化取舍见 §14，开工前复核见 §15。第一阶段已提交 `9fa2d3d6f`，验收见 §16；第二阶段完整 19 字段日更、严格校验和错误提示已完成开发、隔离验证及开发后审计，结果见 §17。历史补录和 DG 替换能力尚未开发，未部署、执行正式迁移或正式数据写入。** 管理员已认可“Prod 只补新增列，DG 从补齐后的 Prod 重新 bootstrap”的方向，并要求新增能力不得影响既有能力。本文不是生产执行批准。
+状态：**§12 两个现有修复已提交 `e393aba66`，§13 的接口验证及当时设计已提交 `adee47129`。简化取舍见 §14，开工前复核见 §15。第一阶段已提交 `9fa2d3d6f`，验收见 §16；第二阶段完整 19 字段日更、严格校验和错误提示已提交 `634a2a1d2`，结果见 §17。第三阶段历史补录已完成开发、隔离验证及开发后审计，结果和存量检查问题见 §18。DG 替换能力尚未开发，未部署、执行正式迁移或正式数据写入。** 管理员已认可“Prod 只补新增列，DG 从补齐后的 Prod 重新 bootstrap”的方向，并要求新增能力不得影响既有能力。本文不是生产执行批准。
 
 本文是本次扩充的唯一专项主文档，同时承接需求、方案、代码设计、性能依据和后续执行结果。原 [DG 接入方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-basic-onboarding-plan-v1.md)及 [DG 接入 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-basic-onboarding-low-level-design-v1.md)保留原 18 字段实现与历史验收；本专项获评审后，在原文增加本专项入口及适用边界，不复制本次方案或改写旧验收。
 
@@ -241,13 +241,13 @@ SQLAlchemy 的多行更新依据见 [UPDATE FROM 与 VALUES](https://docs.sqlalc
 
 ### 6.2 独立维护入口与配置审计
 
-拟新增维护动作 `maintenance.fill_daily_basic_limit_status`，中文为“补齐每日指标收盘涨跌状态”。复用既有维护动作 PLAN/APPLY、general worker、TaskRun 详情、取消和重试入口；不改变 `daily_basic.maintain`。
+新增维护动作 `maintenance.fill_daily_basic_limit_status`，中文为“补齐每日指标收盘涨跌状态”。复用既有维护动作 PLAN/APPLY、general worker、TaskRun 详情、取消和重试入口；不改变 `daily_basic.maintain`。第三阶段实现及隔离验证见 §18。
 
 管理员接受该一次性补录占用串行 general worker，人工选择后半夜平峰窗口。保留显式日期范围输入，但不为让出 worker 新增自动分段、抢占调度、worker、队列或服务；不承诺此窗口内其他通用任务同时执行。
 
 | 配置/输入 | 默认、来源和保存位置 | 消费者、生效与限制 |
 |---|---|---|
-| 新维护动作及 executor key | 代码注册；`src/ops/action_catalog.py` 与 `ops_worker_factory.py`；尚未实现 | 既有维护目录、手动入口、dispatcher；人工可用，schedule 不可用，retry 可用 |
+| 新维护动作及 executor key | 代码注册；`src/ops/action_catalog.py` 与 `ops_worker_factory.py`；第三阶段已实现 | 既有维护目录、手动入口、dispatcher；人工可用，schedule 不可用，retry 可用 |
 | `execution_mode` | 复用现有 PLAN 默认；请求意图存 TaskRun | PLAN 只读并冻结，APPLY 必须引用原 PLAN id/hash |
 | `start_date/end_date` | 必须显式填写；没有自动扩展默认范围；存 PLAN/TaskRun | resolver 按 Definition 归一化，不能从源参数反推日期模型 |
 | `plan_task_run_id/plan_hash` | APPLY 必填，复用既有维护重放合同 | dispatcher 验证同一动作、成功冻结及范围；执行时不重新规划 |
@@ -268,7 +268,7 @@ SQLAlchemy 的多行更新依据见 [UPDATE FROM 与 VALUES](https://docs.sqlalc
 4. 分页只保留单日期的有界输入，禁止积累全历史。按冻结范围和现有分页规则处理；若实施入口要求数值限制，应记录实际取值与代码来源或管理员决定，不能把未实测的数写成测量结论；超出已有限制停止，不临时抬高。
 5. 本次历史补录只使用新增列；源端返回的原 18 字段不用于覆盖已有值。正常同步继续使用其完整字段合同。
 
-`TushareSourceConnector.call_bounded` 已有可终止调用，但 `TushareHttpClient.call_bounded` 和 `bounded_tushare_call.py` 各有一层合同检查，目前只识别公告默认分支、`stock_weekly_adj/v1` 和 `index_period_raw/v1`。两层均须增加 `daily_basic/v1`，绑定 `api_name=daily_basic` 与完整 19 字段，不能把新任务伪装为指数/公告合同。通用 source client 带 control 的现行分支会指定指数合同，新历史服务不能直接借该分支绕过检查；复用原 request builder、分页规则及底层有界调用，使用本数据集合同。旧三类合同、未知合同拒绝及其错误行为分别回归；失败不得交付或进入正式执行。执行参数见 §6.8，不增加专项测量前置条件。
+`TushareSourceConnector.call_bounded` 已有可终止调用；第三阶段在 `TushareHttpClient.call_bounded` 和 `bounded_tushare_call.py` 两层已有合同检查中增加 `daily_basic/v1`，绑定 `api_name=daily_basic` 与完整 19 字段，不能把新任务伪装为指数/公告合同。公告默认分支、`stock_weekly_adj/v1`、`index_period_raw/v1` 继续保持原行为。通用 source client 带 control 的现行分支会指定指数合同，新历史服务不能直接借该分支绕过检查；复用原 request builder、分页规则及底层有界调用，使用本数据集合同。旧三类合同、未知合同拒绝及其错误行为分别回归；失败不得交付或进入正式执行。执行参数见 §6.8，不增加专项测量前置条件。
 
 ### 6.4 Prod 长任务合同（对应模板 0.3.5）
 
@@ -297,9 +297,9 @@ SQLAlchemy 的多行更新依据见 [UPDATE FROM 与 VALUES](https://docs.sqlalc
 | `src/foundation/ingestion/row_transforms.py`、`codebook.py` | 本数据集整数状态检查及明确错误原因；不改旧转换行为 |
 | `src/foundation/ingestion/executor.py` | 仅为严格拒绝且整行双表写入的组合，在 writer 前终止，并在本次致命校验错误中携带已提交进度 |
 | `src/ops/runtime/task_run_dispatcher.py`、`worker.py` | §6.6 的错误展示、正常维护进度保留及工作流整体失败；不能误用 §12 的维护任务修复代替 |
-| 拟新增 `src/foundation/ingestion/daily_basic_limit_status.py` | PLAN 所需事实与单日期补录业务服务；只依赖 Foundation，注入取消/进度接口 |
+| 新增 `src/foundation/ingestion/daily_basic_limit_status.py` | PLAN 所需事实与单日期补录业务服务；只依赖 Foundation，注入取消/进度接口 |
 | `src/foundation/clients/bounded_tushare_call.py` 及对应 client 传递 | 新响应合同分支，旧合同不改 |
-| 拟新增 `src/app/runtime/daily_basic_limit_status_task_executor.py` | 维护协议与 Foundation 服务的组合适配，独立业务 Session |
+| 新增 `src/app/runtime/daily_basic_limit_status_task_executor.py` | 维护协议与 Foundation 服务的组合适配，独立业务 Session |
 | `src/ops/action_catalog.py`、`src/app/runtime/ops_worker_factory.py` | 注册新维护动作/执行器；复用现有 dispatcher，不新增 dataset-key 分支 |
 | `docs/templates/dataset-development-template.md` | Definition 修改时核对模板合同仍相符；若新事实必须由通用模板表达，实施中同步校准，不复制本专项参数到模板 |
 
@@ -522,7 +522,7 @@ DG 沿用现有 DuckDB 16GB/4 线程资源配置，不把它解释为本次实�
 
 ## 9. 测试与验收矩阵
 
-下列是完整扩充所需门禁；第一阶段及第二阶段的实际结果见 §16、§17，历史补录与 DG 门禁仍待实施，不预填其他项通过。此前两个修复的实际状态单独记录在 §12。真实样本、schema 与预期分别来自 §2/§4；预期值不得调用待测 helper 生成。测试覆盖本次实际业务路径和明确禁止项，不把绕过唯一入口、违反维护前提的任意故障注入作为新增开发要求。
+下列是完整扩充所需门禁；前三阶段的实际结果见 §16～18，DG 门禁仍待实施，不预填其他项通过。此前两个修复的实际状态单独记录在 §12。真实样本、schema 与预期分别来自 §2/§4；预期值不得调用待测 helper 生成。测试覆盖本次实际业务路径和明确禁止项，不把绕过唯一入口、违反维护前提的任意故障注入作为新增开发要求。
 
 | 测试组 | 正向与反向要求 | 拟落点/现有回归 |
 |---|---|---|
@@ -892,3 +892,69 @@ dispatcher 的名称展示方法只在三个异常分支 rollback 后调用、�
 - **S2-07 与影响面：** 源资料和通用模板同步，旧 18 字段夹具保留；原应用 98 项回归通过。CodeGraph explore/node/impact 覆盖本步 executor、继承调用链及 dispatcher/worker、原消费者；修改后 sync/status 正常，直接代码审计补足字符串注册和测试关系。没有新增反向依赖、配置、线程、锁、恢复表或其他数据集特例。
 
 本轮只完成第二阶段，未部署或批准正式迁移；第三阶段历史补录和 DG 两阶段继续按原设计和授权边界推进。正式发布仍必须先迁移数据库，再配套发布模型、19 字段请求与严格校验；本次通过不能代替 §10.2 的正式执行验收。
+
+## 18. 第三阶段实施与验收（2026-11-12）
+
+### 18.1 开工范围及代码依据
+
+管理员已批准严格按 §5.3、§6.2～6.8、§9、§10.1 第三阶段开发并在完成后独立审计。§6.7 两处配置与进度传递补充已提交 `07db15253`。本步只开发 Prod 历史补录及隔离验收，不部署、不执行正式迁移、正式 PLAN/APPLY 或全历史读取，不修改 DG、日常同步、Definition 日期模型或原业务 API。
+
+开工前 CodeGraph explore/impact 已覆盖维护协议、dispatcher 重放、有界 client/connector 和旧公告、股票周线、指数周期线消费者；另核对 resolver、日期 request builder、normalizer、两表模型、新 DAO、动作目录、worker factory 及现有隔离 PostgreSQL 测试。当前 resolver 已生成每日日期和源参数；两层有界合同尚无 `daily_basic/v1`；APPLY 只传日期 unit，冻结配置按 §6.7 读取。独立观察更新只写阶段和当前对象，数量仍由原 dispatcher 累计。未发现需要改变共享协议、旧转换或旧写入方法的前提。
+
+本轮再次经 MCP 查询 `000001.SZ/20261110` 完整 19 字段，返回一行、状态为原生整数 4，与 §17 的样本一致。新测试沿用该完整字面样本；其他代码、日期、错误值及目标旧值明确是人工小样，不作为额外源端事实。
+
+### 18.2 硬要求、实现位置与验收
+
+| 编号 | 必须落实的口径 | 代码位置及正反验收 |
+|---|---|---|
+| S3-01 | 人工 PLAN/APPLY、显式 PLAN 起止、原计划重放，不能绕开上下文或自动调度 | 新 app 适配器、action_catalog、worker factory；缺日期/字节限制不可冻结，草稿不可 APPLY，无上下文入口拒绝，旧动作注册保持 |
+| S3-02 | resolver 负责日期和源参数；两表各一次日期计数聚合，不持有历史业务明细 | Foundation 新服务；真实小样日历与两表计数、缺日/计数不符、取消草稿与完整冻结 |
+| S3-03 | 完整 19 字段、每页 6,000、最多 `floor(目标计数/6000)+1` 页，当前日期有界驻留 | 新服务、client 与底层有界合同；整页空末页、短页、额外源代码说明、缺目标、重复键、错日期、无效状态及旧三类合同回归 |
+| S3-04 | 日期索引读取服务表，按复合主键批量匹配原始表；已完整一致可跳过，冲突停止 | 新服务；真实 PostgreSQL 核对正常 NULL、部分已补、全补跳过及非空冲突；SQL 不对原始表逐日无主键扫描 |
+| S3-05 | 只改新增列；双表单日独立事务；成功无整日回读；提交未确认就停止 | 新服务与现有 bulk_update_columns；旧 18 列/系统列原值、第二表失败回滚、前日提交保留、实际变更量和覆盖量分开、提交异常不报成功 |
+| S3-06 | 使用原 PLAN 冻结配置，DAO 独立 Settings 副本；逐批一条 SQL、20 秒 SQL/2 秒观察超时 | 新适配器及服务；运行配置调高/调低、绑定参数批次、全局配置与旧方法不变；沿用原配置依据，不新增 env 或配置表 |
+| S3-07 | 现有请求等待循环检查取消/每 5 秒观察；SQL 前后检查；取消不领取新日期；原 PLAN 可续跑 | 新服务及适配器；请求中取消、SQL 等锁超时、日期提交后取消、退出后新实例续跑、幂等重放 |
+| S3-08 | 处理中不增加已保存量，完成只由 dispatcher 累计一次；状态失败不撤销业务；任务/节点终态一致 | 新适配器及原 dispatcher/worker；多次回调、连续日期、重试不带旧累计、观察失败、提交后状态失败与真实读回 |
+
+按已有配置来源注册 `source_timeout_seconds=30`、`statement_timeout_seconds=20`、`observation_timeout_seconds=2`、`progress_interval_seconds=5`；`max_response_bytes=None` 表示正式执行准备尚未给定，PLAN 必须拒绝冻结。消费者是新适配器及其注入的新服务/有界调用，生效方式、管理员取值与可见性沿用 §6.2。SQL 批次仍来自现行 Settings 并冻结；不增加任意列、代码池或源参数运营输入。包版本只记入计划追溯，不作为重试条件。
+
+新 Foundation 服务输出日期描述、计数与每日期结果；app 只适配维护协议、配置注入和 TaskRun 观察，不承载匹配、分页或写表规则。新服务复用 normalizer 的完整字段与状态检查，坏行使用已登记的 `normalize.source_validation_failed` 及样本结构，交给第二阶段已完成的名称查询/错误展示。错日期及重复主键复用 `normalize.unit_date_mismatch`、`normalize.batch_unique_key_duplicate`，同时登记为样本原因供详情展示。目标计数/键/状态冲突登记 `daily_basic_limit_status.target_mismatch`，分页未结束登记 `daily_basic_limit_status.pagination_incomplete`，提交未确认登记 `daily_basic_limit_status.commit_unconfirmed`；新传输合同登记 `daily_basic.delivery_contract_mismatch/source_payload_invalid/source_deadline_exceeded/response_size_exceeded`，既有错误行为不改。
+
+### 18.3 读写、恢复及验证边界
+
+覆盖量按本日逻辑记录数计一次，实际变更量分别记录两表 UPDATE 行数，已相同的 0 不是失败。读取时仅保留日期计数和当前日期键/状态；服务表读取后按主键匹配原始表，源读取结束才开启双表更新事务。正常路径不增加成功后回读；跳过、重试与最终测试验收读回依 §6.4。恢复使用同一冻结 PLAN，不设新 checkpoint 表或后台确认机制。
+
+正常、重试和最终验收开销沿用 §6.7、§8：PLAN 两表各一次计数聚合；执行每日期读取一次当前 APPLY 字段及原 PLAN 所需配置、两表当前键/状态，未完成日期按冻结页数读取源并逐批更新；重试最坏复核全部计划日期；隔离验收另读回样本完整旧列与新增列。没有本专项耗时、峰值内存或字节实测，不新增测量门禁或无依据上限。测试中的字节值由人工响应内容大小推导，只约束临时测试资源，不转为正式默认值。
+
+使用已有虚拟环境与临时 PostgreSQL，全部数据库、HTTP 替身、日志和 pytest 缓存置于 `/private/tmp`。先做本步正反与真实 PostgreSQL/loopback HTTP 链路，再跑旧有界合同、DAO、每日指标、维护任务、动作/API 消费者和架构门禁。完成后独立重读最终差异并按 S3-01～08 对账；正式运行—取消—续跑及页面生产验收仍须 §10.2 的后续授权，不用隔离通过替代。
+
+### 18.4 实现结果与实际验证
+
+本步新增 Foundation 补录服务和 app 维护适配器，在动作目录与 general worker 注册；两层有界传输增加每日指标合同，codebook 增加对应错误及原因说明。未修改 DAO、两表模型、迁移、Definition、resolver、request builder、normalizer、正常 executor/writer、dispatcher、worker 主循环、业务 API 或 DG。
+
+| 验证组 | 实际结果 | 证明范围及限制 |
+|---|---|---|
+| 补录业务与 PostgreSQL | `tests/test_daily_basic_limit_status_backfill.py`，24 项通过 | 两日期、每日期两股票的人工目标；完整 19 字段来源样本经 normalizer，只改新增列。独立读回全部旧列/系统列不变、0 合法、部分已补、全补跳过、额外源代码说明、缺字段/缺代码/重复/错日期/空源/坏状态拒绝、相同数量但不同主键拒绝、第二表失败回滚、提交回执丢失停止、SQL 等锁超时后取消。源 I/O 在本组用替身 |
+| 有界源传输与最小完整链路 | `tests/test_daily_basic_limit_status_transport.py`，8 项通过 | 真实 loopback HTTP/子进程/client/connector；完整字段及原生 int、错绑定拒绝、字节超限、坏 JSON、等待中取消/截止及清理、短页/整页空末页/冻结页数拒绝。另以观察来源的两行人工小样打通 HTTP→有界 connector→服务→normalizer→临时 PostgreSQL 双表更新，源/归一化/匹配/覆盖均为 2，拒绝 0，两表各实际变更 2。HTTP 服务是替身，不声称全历史真实联网验收 |
+| 维护运行与 HTTP 详情 | `tests/web/test_daily_basic_limit_status_maintenance_api.py`，10 项通过 | 真实 PLAN 草稿/冻结/hash/replay、dispatcher/worker、状态与 HTTP schema；提交首日后取消保留 2 行，未提交节点为 0；新 APPLY 跳过首日后覆盖量为 4，不加上旧任务的 2；多次回调显示 0/2 而非重复增加，日期节点分别为 2/2。观察失败不撤销业务；状态保存失败仍保留首日。实际子进程在提交前/后退出，分别回滚/保留，再由新进程对象按原计划完成。认证、源网络在本组隔离；HTTP 验收不是浏览器或生产页面验收 |
+| 相关能力与架构合跑 | 577 项通过，12 项旧集成用例跳过，1 项存量检查失败；上述 42 项包含在 577 中 | 覆盖旧公告/股票周线/指数周期线有界调用、DAO、日更、维护进度、Definition/resolver、目录/API 与分层/runtime/codebook。12 项要求其自身专用 PostgreSQL 环境，本轮未提供该环境；新动作的真实 PostgreSQL 用例均已执行。按管理员免测决定排除 1 项大响应性能测量，不修改或跳过失败断言 |
+| 既有业务使用方 | Quote、榜单、自选原 API 测试 98 项通过 | `test_quote_api.py`、`test_wealth_market_watchlist_api.py`、`test_wealth_market_leaderboards_api.py`；使用原隔离 fixture。与上述 577 项无重叠，合计 675 项通过，不是线上验收 |
+| 静态及文档 | 新增五个 Python 文件完整 Ruff、全部变更 Python 文件错误规则、Definition lint、文档完整性和差异检查通过 | 只证明对应静态/文档边界，不替代业务、部署或正式数据验证 |
+
+存量失败为 `test_active_code_does_not_reference_legacy_dataset_run_names`：命中 `src/ops/runtime/announcement_archive/supervisor.py` 中的 `archive_execution_failed`，以及 `src/ops/services/task_run_service.py` 中的 `_freeze_dataset_execution_payload`。两文件均逐字节与开工 HEAD 一致，用相同扫描函数读取 HEAD 也得到相同命中；本步没有引入这些名称，不修改无关实现或放宽检查。因此不能报告“全仓门禁全绿”。
+
+首次合跑还发现 Foundation 的日期回调命名为 checkpoint，错误带入 Ops 检查点概念；现改为 `on_batch`，Foundation 只报告日期批次，适配器调用既有 Ops 草稿保存能力，分层检查已通过。旧连续慢响应清理测试首次出现子进程尚未结束的断言，定向及最终完整复跑均通过；未修改共享清理代码、断言或时间限制。最终结果以上表为准。
+
+### 18.5 开发后的独立审计
+
+实现完成后重新按 §5.3、§6.2～6.8 和 S3-01～08 审查当前代码、SQL、数据库读回、调用方与最终测试，不以测试数量替代设计对账：
+
+- **S3-01/02：** 只为人工维护注册新动作；普通无上下文方法拒绝。实际 resolver 负责日期和请求参数，两表各一次聚合计数，日期描述按已有批次保存草稿，取消草稿不可 APPLY，完整计划才能冻结。共享重放协议、日期模型与调度入口未变。
+- **S3-03/04：** 两层均要求每日指标接口及完整 19 字段；业务验证后才匹配现有目标。服务表按日期查，原始表 SQL 带复合主键 IN；冻结计数及键匹配共同判断目标完整性。已完整一致的日期不请求源；NULL 继续，非法/冲突值停止，不自动纠错。
+- **S3-05/06：** 源读取期间没有保持双表更新事务；两表同日提交。指定列方法仍是第一阶段原实现，实际 SQL 只更新新增列，正常成功后无整日业务回读。当前批次调低或调高均仍用原计划冻结值，专用 Settings 副本未修改共享配置；SQL 子批次按同一绑定参数算法，每次一条更新语句。提交异常停止，恢复时才重新判定业务值。
+- **S3-07/08：** 使用已有等待循环取消/tick 和独立取消查询；SQL 前后观察，SQL 失败先结束本日事务，再辨认已请求的取消；普通数据库错误仍保留原因。进度写入仅改阶段/日期/页/更新时间，不改完成数量；确定提交后立即把本日结果交回原 dispatcher 累计一次。正常执行、取消、进程退出和观察失败后，均以实际两表状态续跑，不依赖上次任务计数。
+- **旧能力：** 独立 AST 对照排除新增每日指标分支后，两层 client 的原代码结构与 HEAD 完全一致；DAO、Definition、normalizer、executor、request builder、dispatcher、worker 和前端详情页面逐字节未改。旧三类有界合同、正常日更、原 API 及使用方回归均覆盖；没有 foundation 向 Ops/App 的反向依赖，也没有新线程、锁、恢复表、worker 或配置服务。
+
+结论：**第三阶段符合本 LLD 的开发范围与隔离验收目标，未发现本阶段尚未解决的实现问题；扩大检查中的一项存量扫描失败单独保留，不算本阶段引入的问题，也不隐去。** CodeGraph explore/impact 及开发后 sync/status 已覆盖新服务、维护组合与旧传输消费者；索引正常。
+
+本阶段开发及隔离验收已完成，尚未部署或执行正式迁移/正式数据操作。正式 PLAN 前仍须给定并冻结接收字节限额，并按 §10.2 批准 Prod 迁移、发布、小样运行—取消—续跑—读回及历史范围；DG 第四、第五阶段尚未实施。本轮只用现有套件，临时资源在结果回填后停止清理，不留下重复过程报告。

@@ -97,7 +97,7 @@ class BoundedTushareError(RuntimeError):
 
 
 def _attempt(send, base_url, payload, maximum, timeout, response_contract=None):
-    prefix = {'stock_weekly_adj/v1': 'weekly_adj', 'index_period_raw/v1': 'index_period_raw'}.get(response_contract, 'anns_d')
+    prefix = {'stock_weekly_adj/v1': 'weekly_adj', 'index_period_raw/v1': 'index_period_raw', 'daily_basic/v1': 'daily_basic'}.get(response_contract, 'anns_d')
     started, stage, status = time.monotonic(), 'request', None
     try:
         with requests.Session() as session:
@@ -128,6 +128,8 @@ def _attempt(send, base_url, payload, maximum, timeout, response_contract=None):
                 except (ValueError, TypeError):
                     if response_contract == 'stock_weekly_adj/v1':
                         raise BoundedTushareError('weekly_adj.source_payload_invalid', '周线响应JSON或数据结构无效') from None
+                    if response_contract == 'daily_basic/v1':
+                        raise BoundedTushareError('daily_basic.source_payload_invalid', '每日指标响应JSON或数据结构无效') from None
                     raise
                 if envelope.code != 0:
                     message = str(envelope.msg or '')
@@ -161,9 +163,13 @@ def _attempt(send, base_url, payload, maximum, timeout, response_contract=None):
 
 def call_bounded(*, base_url, payload, maximum, timeout, check, tick, response_contract=None,
                  child_pid_changed=None):
-    if response_contract not in (None, 'stock_weekly_adj/v1', 'index_period_raw/v1'):
+    if response_contract not in (None, 'stock_weekly_adj/v1', 'index_period_raw/v1', 'daily_basic/v1'):
         raise BoundedTushareError('weekly_adj.delivery_contract_mismatch', '未知有界响应合同')
-    prefix = {'stock_weekly_adj/v1': 'weekly_adj', 'index_period_raw/v1': 'index_period_raw'}.get(response_contract, 'anns_d')
+    if response_contract == 'daily_basic/v1':
+        from src.foundation.datasets.definitions.market_equity import DAILY_BASIC_SOURCE_FIELDS
+        if payload.get('api_name') != 'daily_basic' or payload.get('fields') != ','.join(DAILY_BASIC_SOURCE_FIELDS):
+            raise BoundedTushareError('daily_basic.delivery_contract_mismatch', '每日指标响应合同只能绑定对应接口与完整19字段')
+    prefix = {'stock_weekly_adj/v1': 'weekly_adj', 'index_period_raw/v1': 'index_period_raw', 'daily_basic/v1': 'daily_basic'}.get(response_contract, 'anns_d')
     ctx = multiprocessing.get_context('spawn')
     receive, send = ctx.Pipe(duplex=False)
     worker = ctx.Process(target=_attempt, args=(send,base_url,payload,maximum,timeout,response_contract), daemon=True)

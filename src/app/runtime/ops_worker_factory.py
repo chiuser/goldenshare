@@ -15,6 +15,7 @@ from .sector_heat_task_executor import SectorHeatTaskExecutor
 from .sector_analysis_daily_task_executor import SectorAnalysisDailyTaskExecutor
 from .news_stock_linking_task_executor import NewsStockLinkingTaskExecutor
 from .qtf_task_executor import QtfTaskExecutor
+from .daily_basic_limit_status_task_executor import DailyBasicLimitStatusTaskExecutor
 
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
@@ -67,6 +68,9 @@ def _build_worker(
         "news_stock_linking": news_stock_linking_executor,
     }
     if lane is WorkerLane.GENERAL:
+        maintenance_executors["daily_basic_limit_status"] = DailyBasicLimitStatusTaskExecutor(
+            session_factory=resolved_session_factory,
+        )
         maintenance_executors[INDEX_PERIOD_SERVING_EXECUTOR] = IndexPeriodServingExecutor(
             session_factory=resolved_session_factory,
         )

@@ -124,6 +124,11 @@ class TushareHttpClient:
         if response_contract == 'index_period_raw/v1':
             if api_name not in {'index_weekly', 'index_monthly'}:
                 raise ValueError('指数周期线响应合同只能用于指数周线和月线接口')
+        elif response_contract == 'daily_basic/v1':
+            from src.foundation.datasets.definitions.market_equity import DAILY_BASIC_SOURCE_FIELDS
+            fields = tuple(fields)
+            if api_name != 'daily_basic' or fields != DAILY_BASIC_SOURCE_FIELDS:
+                raise BoundedTushareError('daily_basic.delivery_contract_mismatch', '每日指标响应合同只能绑定对应接口与完整19字段')
         elif response_contract is not None:
             from src.foundation.datasets.stock_weekly_adj_contracts import SOURCE_FIELDS
             fields = tuple(fields)

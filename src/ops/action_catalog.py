@@ -167,6 +167,25 @@ PLAN_HASH_PARAM = ActionParameter(
     description="APPLY 必须提交被引用 PLAN 的不可变哈希。",
 )
 MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
+    "maintenance.fill_daily_basic_limit_status": MaintenanceActionDefinition(
+        key="maintenance.fill_daily_basic_limit_status",
+        display_name="补齐每日指标收盘涨跌状态",
+        domain_key="maintenance", domain_display_name="维护动作",
+        description="先冻结明确日期范围的计划，再只补齐两表新增的收盘涨跌状态。",
+        executor_key="daily_basic_limit_status",
+        execution_config={
+            "target_tables": ("raw_tushare.daily_basic", "core_serving.equity_daily_basic"),
+            "plan_apply_replay": True, "max_response_bytes": None,
+            "source_timeout_seconds": 30, "statement_timeout_seconds": 20,
+            "observation_timeout_seconds": 2, "progress_interval_seconds": 5,
+        },
+        parameters=(EXECUTION_MODE_PARAM,
+            ActionParameter(key="start_date", display_name="开始日期", param_type="date", description="PLAN 的开始日期。"),
+            ActionParameter(key="end_date", display_name="结束日期", param_type="date", description="PLAN 的结束日期。"),
+            PLAN_TASK_RUN_ID_PARAM, PLAN_HASH_PARAM),
+        default_params={"execution_mode": "PLAN"},
+        manual_enabled=True, schedule_enabled=False, retry_enabled=True,
+    ),
     "maintenance.rebuild_dm": MaintenanceActionDefinition(
         key="maintenance.rebuild_dm",
         display_name="刷新数据集市快照",
