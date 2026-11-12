@@ -108,9 +108,6 @@ class Settings(BaseSettings):
         default=_MAX_OUTPUT_ROWS, ge=1, le=_MAX_OUTPUT_ROWS,
         alias="TECHNICAL_INDICATOR_MAX_OUTPUT_ROWS",
     )
-    technical_indicator_max_output_bytes: int = Field(
-        default=5000000, alias="TECHNICAL_INDICATOR_MAX_OUTPUT_BYTES",
-    )
     technical_indicator_max_indicator_instances: int = Field(
         default=16, alias="TECHNICAL_INDICATOR_MAX_INDICATOR_INSTANCES",
     )

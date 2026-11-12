@@ -393,36 +393,83 @@ def test_cancel_and_cleanup_release_once(monkeypatch, record_property):
         anyio.run(scenario)
 
 
-def test_legacy_payload_encoding_boundaries(monkeypatch, record_property):
-    from goldenshare_technical_indicators.errors import ResourceLimitError
+def test_legacy_payload_encoding(monkeypatch, record_property):
     from tests.stock_daily_kline_helpers import controlled_controls, make_runtime
     payload = {"debugInfo": None, "bars": [], "label": "中文"}
-    expected = json.dumps(payload, ensure_ascii=False, allow_nan=False, separators=(",", ":")).encode()
+    expected = b'{"debugInfo":null,"bars":[],"label":"' + "中文".encode("utf-8") + b'"}'
     with controlled_controls(monkeypatch, record_property):
         async def scenario():
-            for maximum in (len(expected) + 1, len(expected), len(expected) - 1):
-                rt = make_runtime(max_output_bytes=maximum)
-                sent, never = [], anyio.Event()
-                async def receive():
-                    await never.wait()
-                async def send(message):
-                    sent.append(message)
-                try:
-                    if maximum < len(expected):
-                        with pytest.raises(ResourceLimitError):
-                            await execution._execute(rt, arrived_at=monotonic(),
-                                validate_before_wait=lambda: None, work=lambda request, control: payload,
-                                receive=receive, send=send)
-                        assert not sent
-                    else:
-                        await execution._execute(rt, arrived_at=monotonic(),
-                            validate_before_wait=lambda: None, work=lambda request, control: payload,
-                            receive=receive, send=send)
-                        assert sent[-1]["body"] == expected
-                    assert not rt.admission.active_leases
-                finally:
-                    await rt.aclose()
+            rt = make_runtime()
+            sent, never = [], anyio.Event()
+
+            async def receive():
+                await never.wait()
+
+            async def send(message):
+                sent.append(message)
+
+            try:
+                await execution._execute(rt, arrived_at=monotonic(),
+                    validate_before_wait=lambda: None, work=lambda request, control: payload,
+                    receive=receive, send=send)
+                assert sent[-1]["body"] == expected
+                assert not rt.admission.active_leases
+            finally:
+                await rt.aclose()
         anyio.run(scenario)
+
+
+def test_fixed_stock_definitions_checked_once_at_startup(monkeypatch):
+    from types import SimpleNamespace
+    from src.app.dependencies import stock_daily_technical_indicators as wiring
+    from src.app.exceptions import WebAppError
+    from src.biz.services.wealth.market.stock_detail.stock_daily_kline_contracts import StockDailyKlineRequest
+    from goldenshare_technical_indicators.calculation.calculation import CalculationDefinition
+    from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
+    from goldenshare_technical_indicators.errors import CalculationUnsupportedError
+    from goldenshare_technical_indicators.service import TechnicalIndicatorService
+
+    registry = create_builtin_registry()
+    rt = SimpleNamespace(registry=registry, source=object(), config=make_config())
+    resolved, validated = [], []
+    resolve = registry.resolve
+    validate = CalculationDefinition.validate_parameters
+
+    def resolve_once(calculation_id):
+        resolved.append(calculation_id)
+        return resolve(calculation_id)
+
+    def validate_once(definition, parameters):
+        if definition.public:
+            validated.append(definition.calculation_id)
+        return validate(definition, parameters)
+
+    monkeypatch.setattr(registry, "resolve", resolve_once)
+    monkeypatch.setattr(CalculationDefinition, "validate_parameters", validate_once)
+    backend = wiring.StockDailyKlineAppBackend(rt)
+    expected = ["ma"] * 7 + ["boll", "macd", "kdj"]
+    assert resolved == expected and validated == []
+    request = StockDailyKlineRequest("600000.SH", "day", "forward", None, None, None, 500, False)
+    assert backend.validate_before_wait(request) is request
+    assert backend.validate_before_wait(replace(request, limit=250)).limit == 250
+    with pytest.raises(WebAppError) as caught:
+        backend.validate_before_wait(replace(request, limit=0))
+    assert caught.value.code == "400001"
+    assert resolved == expected and validated == []
+
+    service = TechnicalIndicatorService(source=rt.source, registry=registry, config=rt.config)
+    prepared = service._prepare_calculation(CalculationRequest(
+        "stock", "600000.SH", "day", STOCK_DAILY_CALCULATIONS,
+    ))
+    assert len(prepared.instances) == 10
+    assert validated == expected
+
+    # Deliberately inconsistent definitions exercise the existing startup contract.
+    for changed in (replace(resolve("ma"), algorithm_version="unexpected"),
+                    replace(resolve("ma"), supported_periods=("week",))):
+        bad_registry = SimpleNamespace(resolve=lambda calculation_id: changed)
+        with pytest.raises(CalculationUnsupportedError, match="definition changed"):
+            wiring.StockDailyKlineAppBackend(SimpleNamespace(registry=bad_registry))
 
 
 def test_database_session_ownership_and_timeout(monkeypatch, record_property):
@@ -560,6 +607,10 @@ def test_lifespan_and_other_paths(monkeypatch, record_property):
         counts = {"runtime": 0, "close": 0}
         mode = "normal"
         class Runtime:
+            def __init__(self):
+                from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
+                self.registry = create_builtin_registry()
+
             async def aclose(self):
                 counts["close"] += 1
                 if mode in ("close", "body_close"):

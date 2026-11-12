@@ -1,4 +1,4 @@
-"""Count or produce strict JSON without retaining a second serialized result."""
+"""Produce complete strict JSON without retaining a second serialized result."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ from ..contracts import (
     CalculationResult, CalculationStatistics, CalculationValues, OutputRange,
     PriceAdjustmentResult, RequestedRange, SeriesDescription, SourceResult,
 )
-from ..errors import OutputEncodingError, ResourceLimitError
+from ..errors import OutputEncodingError
 from ..execution_control import ExecutionControl
 
 
@@ -46,11 +46,8 @@ class _ContractJSONEncoder(json.JSONEncoder):
         return super().default(value)
 
 
-def _iter_utf8(payload, *, control: ExecutionControl, max_bytes: int):
-    if type(max_bytes) is not int or max_bytes < 0:
-        raise OutputEncodingError("The UTF-8 output limit must be a nonnegative integer")
+def _iter_utf8(payload, *, control: ExecutionControl):
     encoder = _ContractJSONEncoder(allow_nan=False, ensure_ascii=False, separators=(",", ":"))
-    total = 0
     try:
         chunks = iter(encoder.iterencode(payload))
         while True:
@@ -60,36 +57,21 @@ def _iter_utf8(payload, *, control: ExecutionControl, max_bytes: int):
             except StopIteration:
                 break
             encoded = chunk.encode("utf-8")
-            total += len(encoded)
             control.check_active()
-            if total > max_bytes:
-                raise ResourceLimitError("The complete UTF-8 output exceeds max_output_bytes")
             yield encoded
         control.check_active()
     except (TypeError, ValueError, OverflowError, UnicodeError) as exc:
-        # Stops and resource-limit errors keep their original kernel classes.
+        # Stops keep their original kernel classes.
         control.check_active()
         raise OutputEncodingError("The complete result cannot be encoded as strict JSON") from exc
 
 
-def measure_result_utf8(
-    result: CalculationResult, *, control: ExecutionControl, max_bytes: int,
-) -> int:
-    """Discard each encoded chunk after counting its real UTF-8 bytes."""
-    if not isinstance(result, CalculationResult):
-        raise OutputEncodingError("Library output measurement requires CalculationResult")
-    total = 0
-    for chunk in _iter_utf8(result, control=control, max_bytes=max_bytes):
-        total += len(chunk)
-    return total
-
-
 def encode_response_utf8(
-    payload, *, control: ExecutionControl, max_bytes: int,
+    payload, *, control: ExecutionControl,
 ) -> bytes:
-    """Internal future-adapter helper; build one response body, never partial JSON."""
+    """Build one complete response body, never partial JSON."""
     with BytesIO() as body:
-        for chunk in _iter_utf8(payload, control=control, max_bytes=max_bytes):
+        for chunk in _iter_utf8(payload, control=control):
             body.write(chunk)
         control.check_active()
         return body.getvalue()

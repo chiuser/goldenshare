@@ -144,6 +144,12 @@ class StockDailyKlineAppBackend:
         self.runtime = runtime
         self.session_factory_provider = session_factory_provider
         self.service = StockDailyKlineService()
+        for item in STOCK_DAILY_CALCULATIONS:
+            definition = self.runtime.registry.resolve(item.calculation_id)
+            if (definition.algorithm_version !=
+                    STOCK_DAILY_ALGORITHM_VERSIONS[item.calculation_id]
+                    or "day" not in definition.supported_periods):
+                raise CalculationUnsupportedError("Stock daily definition changed")
 
     def response(self, request, *, arrived_at):
         return StockDailyKlineResponse(self, request, arrived_at)
@@ -154,13 +160,6 @@ class StockDailyKlineAppBackend:
         except ValueError as error:
             raise WebAppError(status_code=400, code="400001",
                               message=str(error)) from error
-        for item in STOCK_DAILY_CALCULATIONS:
-            definition = self.runtime.registry.resolve(item.calculation_id)
-            if (definition.algorithm_version !=
-                    STOCK_DAILY_ALGORITHM_VERSIONS[item.calculation_id]
-                    or "day" not in definition.supported_periods):
-                raise CalculationUnsupportedError("Stock daily definition changed")
-            definition.validate_parameters(item.parameters)
         return request
 
     def work(self, request, control):

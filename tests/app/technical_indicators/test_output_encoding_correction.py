@@ -2,7 +2,7 @@
 
 The literal fields and UTF-8 expectation are independent of the product
 encoder. The calculation boundary alone is substituted; preparation, library
-measurement, App admission, encoding, sending and error release stay real.
+return, App admission, encoding, sending and error release stay real.
 """
 
 from dataclasses import replace
@@ -25,7 +25,7 @@ from goldenshare_technical_indicators.contracts import (
 )
 from goldenshare_technical_indicators.errors import (
     CalculationCancelledError, CalculationDeadlineError, OutputEncodingError,
-    RequestInvalidError, ResourceCleanupError, ResourceLimitError,
+    RequestInvalidError, ResourceCleanupError,
 )
 from goldenshare_technical_indicators.output import encoding
 from goldenshare_technical_indicators.service import TechnicalIndicatorService
@@ -94,10 +94,10 @@ def test_library_and_http_encode_only_their_final_output(monkeypatch):
         CalculationInstance("ma", "ma", {"period": 20}),
     ), adjustment="none", limit=1)
     literal, expected = _result(), _expected_bytes()
-    counts = {"prepare": 0, "core": 0, "measure": 0, "encode": 0}
+    counts = {"prepare": 0, "core": 0, "json": 0, "encode": 0}
     mode = {"failure": None}
     prepare = TechnicalIndicatorService._prepare_calculation
-    measure, encode = encoding.measure_result_utf8, encoding.encode_response_utf8
+    iter_utf8, encode = encoding._iter_utf8, encoding.encode_response_utf8
 
     def prepare_once(self, request):
         counts["prepare"] += 1
@@ -115,9 +115,9 @@ def test_library_and_http_encode_only_their_final_output(monkeypatch):
             ),))
         return literal
 
-    def measure_once(*args, **kwargs):
-        counts["measure"] += 1
-        return measure(*args, **kwargs)
+    def iter_once(*args, **kwargs):
+        counts["json"] += 1
+        yield from iter_utf8(*args, **kwargs)
 
     def encode_once(*args, **kwargs):
         counts["encode"] += 1
@@ -125,37 +125,20 @@ def test_library_and_http_encode_only_their_final_output(monkeypatch):
 
     monkeypatch.setattr(TechnicalIndicatorService, "_prepare_calculation", prepare_once)
     monkeypatch.setattr(TechnicalIndicatorService, "_calculate_result", core)
-    monkeypatch.setattr(encoding, "measure_result_utf8", measure_once)
+    monkeypatch.setattr(encoding, "_iter_utf8", iter_once)
     monkeypatch.setattr(execution, "encode_response_utf8", encode_once)
     monkeypatch.setattr(execution, "ExecutionControl", _Control)
 
-    for limit in (len(expected)-1, len(expected), len(expected)+1):
-        for key in counts:
-            counts[key] = 0
-        local_config = replace(config, max_output_bytes=limit)
-        service = TechnicalIndicatorService(source=object(), registry=create_builtin_registry(),
-            config=local_config, control=_Control(config=local_config))
-        if limit < len(expected):
-            with pytest.raises(ResourceLimitError) as captured:
-                service.calculate(selected)
-            frames = []
-            tb = captured.value.__traceback__
-            while tb is not None:
-                if tb.tb_frame.f_code.co_name in ("measure_result_utf8", "_iter_utf8"):
-                    frames.append(tb.tb_frame)
-                tb = tb.tb_next
-            assert len(frames) == 2 and all(frame.f_locals == {} for frame in frames)
-            assert "max_output_bytes" in str(captured.value)
-        else:
-            assert service.calculate(selected) is literal
-        assert counts == {"prepare": 1, "core": 1, "measure": 1, "encode": 0}
+    service = TechnicalIndicatorService(source=object(), registry=create_builtin_registry(),
+        config=config, control=_Control(config=config))
+    assert service.calculate(selected) is literal
+    assert counts == {"prepare": 1, "core": 1, "json": 0, "encode": 0}
 
-    async def http_case(limit, error=None):
+    async def http_case(error=None):
         for key in counts:
             counts[key] = 0
-        local_config = replace(config, max_output_bytes=limit)
-        runtime = TechnicalIndicatorRuntime(local_config, create_builtin_registry(), object(),
-                                             AdmissionController(local_config))
+        runtime = TechnicalIndicatorRuntime(config, create_builtin_registry(), object(),
+                                             AdmissionController(config))
         messages = []
         never = anyio.Event()
 
@@ -174,18 +157,17 @@ def test_library_and_http_encode_only_their_final_output(monkeypatch):
                     await execution.execute_http(runtime, selected, arrived_at=monotonic(), receive=receive, send=send)
                 assert messages == []
             assert not runtime.admission.active_leases
-            assert counts == {"prepare": 1, "core": 1, "measure": 0,
-                              "encode": 0 if error is ResourceCleanupError else 1}
+            encoded = 0 if error is ResourceCleanupError else 1
+            assert counts == {"prepare": 1, "core": 1, "json": encoded, "encode": encoded}
         finally:
             await runtime.aclose()
 
     async def scenario():
-        for limit in (len(expected)-1, len(expected), len(expected)+1):
-            await http_case(limit, ResourceLimitError if limit < len(expected) else None)
+        await http_case()
         mode["failure"] = "cleanup"
-        await http_case(len(expected), ResourceCleanupError)
+        await http_case(ResourceCleanupError)
         mode["failure"] = "nan"
-        await http_case(config.max_output_bytes, OutputEncodingError)
+        await http_case(OutputEncodingError)
         mode["failure"] = None
         runtime = TechnicalIndicatorRuntime(config, create_builtin_registry(), object(), AdmissionController(config))
         calls = []

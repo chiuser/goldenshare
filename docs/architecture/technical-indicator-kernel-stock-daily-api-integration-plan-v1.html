@@ -25,34 +25,40 @@
 <header>
   <p class="meta">技术指标计算内核 · 第一个正式消费者</p>
   <h1>股票详情页日线技术指标<br>正式接入方案 v1</h1>
-  <p>页面继续调用原来的日线接口。后端把原来读取已保存指标的部分，替换成调用计算内核；所有现有指标仍在一次响应中返回。股票日线页面规则见第9.3节。首屏及历史页每页500根，距缓存最早端剩100根时预取，成功短页即到头。</p>
-  <p class="meta">2026-11-04 · 先完成内核独立开发与验收，再进入全部业务/产品阶段。股票A/B/C原18项普通验证证据保留，源码仅例外本次API数量对齐，其余冻结，不以新内核立即发布原产品；股票query/mapper/固定十项优化、数据库P01、PREP、R01～R05及前端全部后置并暂停。内核所有周期默认及输出硬上限500、动态预热另计；管理员本轮已确认股票日线API默认500、范围1～500，单独先对齐该数量合同；只修改原两处数量代码、直接测试与说明，不推进其余内核或产品开发、真实PG/Lake或Figma，不提交或部署。</p>
+  <p>后置股票接入继续使用原日线接口，所有现有指标在一次响应中返回。已确认的页面规则见第9.3节。每页500根，距缓存最早端剩100根时预取，成功短页即到头。</p>
+  <p class="meta">2026-11-05阶段记录。当前状态和2026-11-12审计以文首现状表为准。该阶段仅修正文档边界，不开发或运行计算验收。先完成内核独立开发与验收，再进入全部业务/产品阶段；股票A/B/C原18项普通验证证据及已完成的API默认500、范围1～500数量对齐保留，其余源码冻结。股票query/mapper/固定十项优化、P01、PREP、R01～R05、Figma及前端全部后置；不以数量单项完成代替内核或完整产品验收，不部署。</p>
 </header>
+<div class="note" id="output-byte-limit-removal-decision"><strong>2026-11-12修复已完成。</strong>计算内核与接入响应已取消输出字节上限；Settings/KernelConfig中的对应字段及纯库专门JSON计量已删除，技术指标配置现为17项。公开calculate只返回计算对象，HTTP最终响应正常编码一次。500根输出位置合同及其它资源限制保留。旧字节边界证据仅属历史，不再执行；具体实现和限定验证见<a href="technical-indicator-kernel-low-level-design-v1.html#repair-execution-20261112">内核LLD第25.2节</a>。</div><p>2026-11-12本轮已完成固定指标重复检查和取消输出字节上限，具体文件、函数、消费者迁移、正常/失败处理及限定验证见<a href="technical-indicator-kernel-low-level-design-v1.html#repair-execution-20261112">内核LLD第25.2节</a>。16个旧指标字段保留，其它股票产品修正不在本轮。</p>
+<section id="stock-current-audit-20261112"><h2>2026-11-12当前代码对账</h2>
+<p>通用计算已迁入独立共享包0.1.0，内核合同版本3.0.0。股票后台已接通，API默认及上限500，页面首屏也已显式500。页面历史分页、BOLL的NULL显示和合法空页仍未完成；本方案的这些产品要求继续有效。</p>
+<p>股票普通请求仍有固定参数重复检查、page-init读取未消费的16个旧技术指标列、内核结果计量后再编码页面DTO等重复工作。具体代码、上下文及原修正要求见<a href="technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html#stock-current-audit-20261112">股票LLD现状表</a>。BOLL的null被改成0及合法空行情显示失败已由管理员明确列为需修复。股票固定PostgreSQL加Lake的旧流程也未完整落实已确认的本地DG、Prod PostgreSQL选源规则，不能继续归为可选优化；对应旧读取描述在修正设计时一并替换。</p>
+<p>原2026-11-05先内核后产品决定是阶段顺序。内核已经完成，上证日线由后续专题单独接入并本地验收；不能把股票未完成的产品工作写成所有接入均未开始。P01、PREP、R01—R05仍无完成记录。下文未来步骤只适用于未完成的股票内容。</p>
+</section>
 <nav aria-label="文档目录">
   <a href="#scope">01 范围</a><a href="#current">02 当前链路</a><a href="#request">03 请求合同</a><a href="#fields">04 返回字段</a><a href="#calculation">05 计算及取数</a><a href="#layers">06 分层与位置</a><a href="#lifecycle">07 生命周期</a><a href="#consumers">08 消费者</a><a href="#acceptance">09 验收</a><a href="#lld">10 LLD要求</a><a href="#review">11 审计与推进</a>
 </nav>
 
 <section id="scope">
-  <h2>01 · 股票日线指标接入与每页500根加载</h2>
+  <h2>01 · 后置股票日线接入范围</h2>
   <div class="note"><strong>2026-10-31修订历史：</strong>管理员已将唯一来源文件上限改定为10000。数据库部分初始化/清理及旧入口迁移顺序已按要求补全到LLD；SQLite仅沿用现有隔离测试，PG业务读取与DuckDB计算的职责、独立预期及测试替换位置已写明。见<a href="../../reports/technical_indicator_kernel_stock_daily_lld_20261031/lld_revision_04.md">本轮修订记录</a>。三位价格对照标准保持；当时只完成A/B基础合同、既有配置默认值及D4共用执行，10个限定函数通过，未将股票API接入或P/R验收标为已完成。</div>
   <p>配套<a href="technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html">股票日线接入代码级LLD v1</a>已明确文件、对象、签名、查询与字段映射、D4执行/实际发送、关闭、错误、配置及固定验收。当前来源门禁与只读核验结果见其第02节，未通过前不进入股票后续开发；它不是内核独立开发前提。</p>
-  <div class="note"><strong>已确认的方向：</strong>股票详情页日线是内核独立验收后的业务任务；既有URL及DTO字段不扩，API数量按第03节已确认的默认500、范围1～500执行，成功空结果与前端处理按第03、9.3节保留目标，页面每页显式请求500根、距缓存最早端剩100根时预取，首屏第401根触发第501～1000根；无论某项指标是否正在显示，均一次返回七条MA、BOLL、MACD、KDJ。切换MA、BOLL继续只改变画图，不重新请求。</div>
+  <div class="note"><strong>已确认的边界：</strong>股票详情页日线是内核独立验收后的业务任务；既有URL及DTO字段不扩，API数量按第03节已确认的默认500、范围1～500执行。无论某项指标是否正在显示，均一次返回七条MA、BOLL、MACD、KDJ；切换MA、BOLL继续只改变画图，不重新请求。页面500/剩100提前加载、日期保持、空结果处理及相应Figma内容统一列为第9.3节的后置产品参考；其中已确定的空状态文案保留，具体交互在产品阶段集中review，不能据本文提前推进页面开发。</div>
   <ul>
     <li>唯一接入接口：<code>GET /api/v1/wealth/market/stock-detail/kline</code>。</li>
     <li>替换七条MA、BOLL三条线、MACD三项和KDJ三项，共16个数值字段。内核一次计算10项：七套MA参数及BOLL、MACD、KDJ各一项。</li>
-    <li>前端改为每页显式limit=500及提前加载历史，已载入部分按日期合并；API字段类型、指标路径、已有行情图的颜色和布局、MA/BOLL切换规则保持；首屏合法空结果按第9.3节先更新Figma设计，再实现“暂无行情信息”。首屏、历史页、失败重试及切换取消规则在本方案与LLD一并定义，不把500根留作另一个悬空阶段。</li>
+    <li>前端每页显式limit=500、提前加载历史及按日期合并按第9.3节实施。2026-11-05时页面显式300是改造前的代码状态。API字段类型、指标路径、已有行情图的颜色和布局、MA/BOLL切换规则保持。内核独立完成后，先集中review首屏、历史页、失败重试、切换取消和空状态设计，再更新并核对Figma，之后才开发页面；“暂无行情信息”文案保留。内核500根能力和已批准API数量不受这些后置交互影响。</li>
     <li>股票身份、页面日期、K线OHLC、成交量、成交额、涨跌、振幅、换手率、量比等继续来自原有查询；本阶段不更换这些字段的来源；历史页只向前合并K线，顶部页面日期和quote保持page-init/首屏值。</li>
     <li>本股票指标计算范围限日K。独立日线九转、趋势只同步第9.3节的页面请求根数，其余算法、接口和触发方式沿用原流程；内核独立阶段只按根LLD第24节修正通用读取、计算、输出及基础App运行；股票query/mapper、固定十项和页面分页均后置，见第9.1～9.3节。不启停DG，不清理指标文件或数据库字段，不安装或升级依赖。</li>
     <li>不新增API地址、版本、业务指标选择参数、任意指标参数、复权选项或新开关；不保留失败时自动改读旧指标的备用路径。</li>
   </ul>
-  <p>本文是<a href="technical-indicator-kernel-component-design-v1.html">内核组件方案</a>的后续股票产品专题。内核独立完成条件、SQL、动态预热及资源规则只引用<a href="technical-indicator-kernel-low-level-design-v1.html#s24">根LLD第24节</a>；本专项不作为内核开工或独立验收前提。A/B/C已实现源码和原证据冻结，当前股票后台对非空PG结果仍调用公开calculate，核心阶段不要求立即迁私有helper。<a href="technical-indicator-kernel-frontend-integration-requirements-v1.html">前端要求</a>与本文的500/剩100根预取、日期保持及回调均为后置产品设计，内核完成后再细化确认；当前页面仍取300且无该分页流程。内核所有周期默认limit=500、单次目标输出硬上限500，Settings及KernelConfig不得放宽，预热B另计。调整前API默认300、允许1～2000仅保留为历史；本轮已确认默认500、只接受1～500，超限在原队前步骤以HTTP400/400001拒绝。页面显式300仍合法，不因此改前端；API数量对齐不表示已具备切换新内核或发布完整产品的条件。P01、PREP、原21根四R及R05预案保留，不执行、不扩大样本。</p>
+  <p>本文是<a href="technical-indicator-kernel-component-design-v1.html">内核组件方案</a>的后续股票产品专题。内核独立完成条件、SQL、动态预热及资源规则只引用<a href="technical-indicator-kernel-low-level-design-v1.html#s24">根LLD第24节</a>；本专项不作为内核开工或独立验收前提。A/B/C已实现源码和原证据冻结，当前股票后台对非空PG结果仍调用公开calculate，核心阶段不要求立即迁私有helper。<a href="technical-indicator-kernel-frontend-integration-requirements-v1.html">前端要求</a>与本文的500/剩100根预取、日期保持及回调均为后置产品设计，内核完成后再细化确认；当前页面首屏已取500，尚无历史分页流程。内核所有周期默认limit=500、单次目标输出硬上限500，Settings及KernelConfig不得放宽，预热B另计。调整前API默认300、允许1～2000仅保留为历史；本轮已确认默认500、只接受1～500，超限在原队前步骤以HTTP400/400001拒绝。显式300仍合法，当前普通日线页面已在后续批次改为500；API数量对齐不表示已具备切换新内核或发布完整产品的条件。P01、PREP、原21根四R及R05预案保留，不执行、不扩大样本。</p>
 </section>
 
 <section id="current">
-  <h2>02 · 改造前基线：一次取齐，再在页面选择显示</h2>
+  <h2>02 · 原链路及当前已完成部分</h2>
   <p>本节保存本次替换前的数据库读取基线。步骤3现已将16个指标字段改由内核结果填入，普通API验证已通过；页面一次取齐再选择显示、非指标字段和其他接口行为保持。本节不作为改造后仍读取数据库指标的依据。</p>
   <div class="flow" aria-label="当前日线数据流">
-    <div class="box"><strong>股票详情页</strong>先请求page-init，再请求日线300根。</div><span class="arrow">→</span>
+    <div class="box"><strong>股票详情页</strong>改造前先请求page-init，再请求日线300根；当前首屏已改500。</div><span class="arrow">→</span>
     <div class="box"><strong>现有日线API</strong>按股票、日期和limit查询。</div><span class="arrow">→</span>
     <div class="box"><strong>数据库</strong>从equity_factor_pro同时读取K线、指标和其他行情字段。</div><span class="arrow">→</span>
     <div class="box"><strong>原响应及图表</strong>MA、BOLL、MACD、KDJ全部交给页面；切换MA/BOLL只选已有数据。</div>
@@ -61,7 +67,7 @@
   <p>“代码支持绘制”与“某次打开页面实际显示”分开：本轮核对的是当前源码，没有运行浏览器确认当前部署的展示。</p>
   <div class="table-wrap"><table>
     <thead><tr><th>当前代码</th><th>已核实行为</th></tr></thead><tbody>
-      <tr><td><a href="../../wealth/src/pages/stock-detail/StockDetailPage.tsx">StockDetailPage.tsx</a></td><td>日线请求显式传period=day、adjustment=forward、limit=300；在page-init取得交易日期后请求kline。</td></tr>
+      <tr><td><a href="../../wealth/src/pages/stock-detail/StockDetailPage.tsx">StockDetailPage.tsx</a></td><td>当前日线请求显式传period=day、adjustment=forward、limit=500；在page-init取得交易日期后请求kline。</td></tr>
       <tr><td><a href="../../src/biz/api/wealth/market/stock_detail.py">stock_detail.py</a></td><td>原GET路由、行情访问鉴权、数据库依赖及参数入口。</td></tr>
       <tr><td><a href="../../src/biz/queries/wealth/market/stock_detail/stock_detail_query.py">StockDetailQuery</a></td><td>证券信息来自security_serving；K线及指标来自模型映射的core_serving.equity_factor_pro；倒序取limit后转为正序。</td></tr>
       <tr><td><a href="../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">StockDetailQueryService</a></td><td>同类同时承担page-init和kline。只替换kline指标路径，不能连带更换page-init。</td></tr>
@@ -139,17 +145,17 @@
   <div class="table-wrap"><table>
     <thead><tr><th>位置</th><th>拟承担的职责及影响</th></tr></thead><tbody>
       <tr><td><a href="../../src/biz/api/wealth/market/stock_detail.py">原stock_detail路由</a></td><td>保留GET、参数名称、鉴权和DTO字段；数量范围按第03节产品决策后同次迁移，kline再接已验内核。page-init不换计算来源。</td></tr>
-      <tr><td><a href="../../src/biz/queries/wealth/market/stock_detail/stock_detail_query.py">原数据库查询</a></td><td>page-init与kline统一使用一份KLINE_COLUMNS：trade_date和11个价格、涨跌、量额及报价字段，共12列；身份仍来自security，WHERE中的ts_code不变，不再取已知身份列。删除旧FACTOR_COLUMNS和_FACTOR_FIELD_NAMES，去掉page-init未消费的16个旧指标列；报价、过滤、排序、limit及原DTO不变。</td></tr>
+      <tr><td><a href="../../src/biz/queries/wealth/market/stock_detail/stock_detail_query.py">原数据库查询</a></td><td>管理员本次决定保留page-init现有29列FACTOR_COLUMNS及其中16个旧技术指标字段，日K继续现有13列KLINE_COLUMNS。观察期间不合并两份列清单，不删除旧指标列或身份列；原过滤、排序、limit及DTO保持。</td></tr>
       <tr><td><a href="../../src/biz/queries/wealth/market/stock_detail/stock_detail_query_service.py">原query service</a></td><td>保留证券、日期、meta、状态规则；将日线指标来源替换为注入的计算能力，不从Biz新增导入App运行时。</td></tr>
       <tr><td><code>src/biz/services/wealth/market/stock_detail/</code></td><td>定义本业务使用的窄接口及日线响应组装：固定十项计算说明、按日期接回16个字段。文件和方法签名在本专项LLD中给全，不把通用内核计划交给页面理解。</td></tr>
       <tr><td><code>src/app/runtime/technical_indicators/</code>与App依赖目录</td><td>D4目录只修订通用执行入口并保持不依赖Biz；股票专用装配放src/app/dependencies/stock_daily_technical_indicators.py。复用同一runtime、Admission、ExecutionControl、工作线程和清理，由App注入Biz所需能力，不新增反向依赖。</td></tr>
       <tr><td><a href="../../src/app/web/lifespan.py">Web生命周期</a>、<a href="../../src/app/web/app.py">应用装配</a></td><td>安装该业务依赖，启动时创建每业务进程一个runtime，退出时拒绝新请求并停止、等待活动请求；不在导入时、每条指标或每次请求中创建runtime。</td></tr>
       <tr><td>既有RequestId、AccessLog中间件</td><td>仅本GET日线路径直接以ASGI转发，保留请求ID/日志，并记录同一到达时刻；其他路径沿原分支。当前BaseHTTP转接可能在实际send结束前让内层返回，具体最小修正和反例见配套LLD第09节。</td></tr>
       <tr><td><a href="../../src/biz/services/wealth/market/stock_detail/stock_detail_field_mapper.py">原field mapper</a>、<a href="../../src/biz/schemas/wealth/market/stock_detail.py">原schema</a></td><td>保留非指标映射及既有DTO；新的指标映射不回退读取旧指标。不能通过改schema、字段别名或前端兜底适配内部错误。</td></tr>
-      <tr><td><code>wealth/src/</code></td><td>新增本专项500根历史分页实现与有限mock验收；原URL/DTO和指标选择规则不变。具体页面、加载状态、客户端、图表回调及消费者迁移见配套LLD第16.5节。</td></tr>
+      <tr><td><code>wealth/src/</code></td><td>普通日线500根分页、图层请求量和有限mock验收按第9.3节及配套LLD第16.5节执行。原URL、DTO和指标选择规则继续适用。</td></tr>
     </tbody></table></div>
-  <p>通用App请求在等待名额前只调用一次_prepare_calculation，形成该请求独占的私有prepared；工作线程直接使用这份准备结果，不再重复校验或展开请求。库App调用私有库函数，沿唯一_calculate_result完成计算及清理后measure_result_utf8一次；公开calculate(request)签名不变，内部同样是prepare一次后调用该私有库函数。库App不绕回公开calculate重复准备。通用<a href="../../src/app/runtime/technical_indicators/execution.py">execute_http</a>则把同一prepared交给私有core，只在既有worker最终encode一次，不计量中间CalculationResult。</p>
-  <p><strong>以下仅为内核独立完成后的股票实现预案：</strong>当前公开calculate调用冻结保留，不在核心阶段迁移。产品数量合同与完整实现设计确认、Figma核对完成后再修改股票后台。股票后台装配时一次核对固定十项的算法版本及day支持；队前只核原股票请求形状。名额内原PG读取结束、Session关闭后，按实际返回日期构造calculation，再调用_prepare_calculation一次并交私有core；无K线时不准备、不计算。股票按原映射构造DTO后只做一次最终encode。两类HTTP都在已有名额和同一截止时间内完成最终编码及实际发送，不能在名额归还后无约束地组装、发送；公开库、库App、通用HTTP和股票路径不得复制准备、计算或清理实现，也不跨请求复用prepared。</p>
+  <p>通用App请求在等待名额前只调用一次_prepare_calculation，形成该请求独占的私有prepared；工作线程直接使用这份准备结果，不再重复校验或展开请求。库App调用私有库函数，沿唯一_calculate_result完成计算及清理后直接返回对象，不再JSON计量；公开calculate(request)签名不变，内部同样是prepare一次后调用该私有库函数。库App不绕回公开calculate重复准备。通用<a href="../../src/app/runtime/technical_indicators/execution.py">execute_http</a>则把同一prepared交给私有core，只在既有worker最终encode一次，不计量中间CalculationResult。</p>
+  <p><strong>以下仅为内核独立完成后的股票实现预案：</strong>当前公开calculate调用冻结保留，不在核心阶段迁移。产品数量合同与完整实现设计确认、Figma核对完成后再修改股票后台。股票后台装配时一次核对固定十项的算法版本及day支持；队前只核原股票请求形状。名额内原PG读取结束、Session关闭后，按实际返回日期构造calculation，仍调用公开calculate一次，由其内部准备和计算；统一取消字节上限后不再计量中间结果。无K线时不准备、不计算。股票按原映射构造DTO后只做一次最终encode。两类HTTP都在已有名额和同一截止时间内完成最终编码及实际发送，不能在名额归还后无约束地组装、发送；公开库、库App、通用HTTP和股票路径不得复制准备、计算或清理实现，也不跨请求复用prepared。</p>
 </section>
 
 <section id="lifecycle">
@@ -169,10 +175,10 @@
       <tr><td>同时处理2、等待2、最多等2000ms</td><td>复用现有Settings及进程内runtime，不建立按指标的等待队列，不另加配置。</td></tr>
       <tr><td>总目标8000ms、清理预留2000ms</td><td>第6000ms停止正常工作；发送已开始时按总目标控制。沿用现有中断和实际退出规则，不承诺底层阻塞必能硬性结束。</td></tr>
       <tr><td>SQL线程1、8192根合批、查询内存128MiB、临时落盘0</td><td>沿用原资源约束；来源读取不新增线程池、进程池、后台预取或落盘能力。页面提前发起下一页请求按第9.3节执行。</td></tr>
-      <tr><td>输出5000000个UTF-8字节</td><td>最终旧DTO的全部字段都计入；恰等允许，超限整次失败，禁止截断。不能仅测内核中间响应大小。</td></tr>
-      <tr><td>150万输入、10000来源文件、16项计算；新内核输出硬上限500</td><td>当前源码输出上限仍10000；目标由根内核合同统一改为所有周期默认500、输出硬上限500，Settings与KernelConfig不允许放宽，动态B另计。文件上限10000的既有管理员决定与步骤1历史不变。股票API本轮已明确只接受1～500，不以旧2000范围放宽新内核。</td></tr>
+      <tr><td>输出字节限制</td><td>已按管理员决定取消配置、纯库专门计量和HTTP字节拦截，正常最终响应编码保留。每次最多500根的数量合同不变。</td></tr>
+      <tr><td>150万输入、10000来源文件、16项计算；新内核输出硬上限500</td><td>当前内核合同3.0.0已落实所有周期默认500、输出硬上限500，Settings与KernelConfig不允许放宽，动态B另计。文件上限10000的既有管理员决定与步骤1历史不变。股票API本轮已明确只接受1～500，不以旧2000范围放宽新内核。</td></tr>
     </tbody></table></div>
-  <p>配置唯一来源为<a href="../../src/foundation/config/settings.py">Settings</a>及<a href="../../src/foundation/technical_indicators/configuration/settings.py">KernelConfig</a>。本方案不新增配置项。内存先按实际选中列、输入量、结果和并发估算，不恢复已暂停的系统RSS采样要求，不声称本阶段已有性能实测。</p>
+  <p>配置唯一来源为<a href="../../src/foundation/config/settings.py">Settings</a>及<a href="../../packages/technical_indicators/src/goldenshare_technical_indicators/configuration/settings.py">KernelConfig</a>。本方案不新增配置项。内存先按实际选中列、输入量、结果和并发估算，不恢复已暂停的系统RSS采样要求，不声称本阶段已有性能实测。</p>
   <p>文件数仍统一计入定位、价格、因子与基准的唯一物理文件，不把最新基准排除计数，也不通过减预热或拆成多次calculate规避限制。步骤1已将既有Settings和配置字面预期改为10000，并通过限定默认值检查；环境显式覆盖及重启生效规则不变。配置来源、消费者、依赖、最小检查与旧证据边界见专项LLD第13.1节。</p>
   <p>数据库资源采用一个contextmanager，完整定义尚未创建、仅有Session、已有Connection和已尝试登记监听器四种状态；移除/关闭失败仍继续清理，原错误优先，正常清理失败不能成功。具体代码级流程见LLD第10节，不另造资源框架或重试。生产业务读取继续使用既有PG；SQLite只是现有临时测试库，内核始终由DuckDB计算，详LLD第14.0节。</p>
 </section>
@@ -212,7 +218,7 @@
   <p>通用准备/计算/编码、来源和输出修正及纯库错误引用释放只由根LLD定义；唯一错误释放方法见<a href="technical-indicator-kernel-low-level-design-v1.html#library-error-reference-release">第24.4.2节</a>。本专项不复制实现，不把业务查询、映射、真实数据库或前端验收放入内核完成条件。公开calculate与CalculationResult结构保留，成功msg统一为空字符串；“暂无行情信息”和“已经加载全部数据了”由业务依据原DTO和本次请求用途决定，不依赖内核文案。</p>
   <div class="table-wrap"><table><thead><tr><th>移到业务阶段的原工作</th><th>保留的目标与边界</th></tr></thead><tbody>
     <tr><td>股票固定十项及App装配</td><td>当前后台在非空PG结果后调用公开calculate，核心阶段冻结不动。后续按最终产品设计核固定版本/day、PG实际R及日期，一次准备/计算、一次最终股票DTO编码；空K线不计算，不复制内核或额外算一遍。</td></tr>
-    <tr><td>股票query与mapper</td><td>page-init/kline唯一12列投影、删除未消费旧指标列，日期对应及MACD/KDJ必需非NULL检查融入原逐日映射；原身份、来源、NULL和10位格式化保留。这些不是内核独立验收前提。</td></tr>
+    <tr><td>股票query与mapper</td><td>page-init旧指标列和现有两份查询列清单暂时保留；日期对应及MACD/KDJ必需非NULL检查融入原逐日映射；原身份、来源、NULL和10位格式化保留。这些不是内核独立验收前提。</td></tr>
     <tr><td>原3个股票修正函数及编码测试股票HTTP分支</td><td>原函数和小字面场景转入专项LLD第16.0节后置业务清单；通用编码函数的股票HTTP/空股票断言也只在业务阶段验证。内核阶段只保留其通用库/直接HTTP范围，不让股票用例成为核心门槛，不新增函数、矩阵、样本或预算。</td></tr>
   </tbody></table></div>
   <p>进入业务步骤前先确认本专项设计与已验内核交接，固定清单逐项登记实际费用，不另造倍率、上限或余量。所有临时过程文件只放/private/tmp，长期结论回填原文档。首错停止，另获授权才取原冻结清单中失败及未运行的有序子集，已通过禁止入列，历史费用不清零。当前未进行上述开发或验收。</p>
@@ -223,7 +229,7 @@
     <tr><td>1．固定清单和验收工具</td><td>完善既定scripts/diagnostics/technical_indicator_stock_daily.py；R01～R04四个固定函数及专用fixture新增到tests/app/technical_indicators/test_stock_daily_real_api.py，不向tests/web/test_stock_daily_technical_indicator_api.py添加R函数或改其两个普通函数。核实当前tests下仅tests/web有conftest.py，新目录没有该祖先；正常pytest收集完整四R冻结清单；另获授权续做仅收集其中失败及未运行的有序子集，已通过项禁止入列，每次collection逐字核对本次选定清单，不加载tests/web/conftest.py、不导入tests.web helper，夹具闭包不得含db_session、web_engine或default_realtime_runtime_config。专用env只设测试所需值，专用fixture只建原三表；不改全局公共测试。冻结当前代码、nodeid、数据、预期、替身边界、费用和停止规则；先只读确认P01既有PG配置并在内存传递，不让pytest环境覆盖它。普通18项不重跑；所有过程文件只在/private/tmp本任务目录，长期结论写回原方案/LLD。</td></tr>
     <tr><td>2．P01数据库只读/语句超时</td><td>现有PG/psycopg和真实资源contextmanager；2条业务SELECT及2次监听器set_config，事务/驱动命令另计。控制替身冻结时钟，使第二条查询稳定设置10ms；预期SourceReadError及cause内QueryCanceled、57014。仅验数据库语句超时，不替代真实请求到期/取消。清理本节点连接、监听器和独有Engine，不改共享池、不写表。</td></tr>
     <tr><td>3．一次准备行情及独立预期</td><td>两股各21个DATE，正常42份价格/因子文件共84行，缺close的独立错误文件1行；独立测试模块的专用fixture自己创建TradeCalendar、Security、EquityFactorPro三张临时表，2＋21＋42＝65行，不能沿web自动夹具多建表。600000因子1，603806前10日1、后11日2、最新基准2；原始价与前复权字面分开，日线vol为lot、amount为thousand_CNY。独立21行HUGEINT参考仅计算一次，R02/R03复用，不调用旧长样本准备方法。footer独立复核仅正常价格、正常因子、故意缺close三类各1份，共3份；其余复用创建计数及真实R节点观察，不把43份文件再次全部打开。</td></tr>
-    <tr><td>4．顺序执行R01～R04</td><td>普通股、含复权变化、仅返回最后2日仍计算21日、缺close明确失败；每项一个fresh App，透明观察私有_calculate_result恰1次、公开calculate为0次，正常21份价格合为一批。真实中间件/runtime/Control/内核/Lake/发送保留，只替换鉴权与业务PG读取为限定SQLite。逐日检查16字段、日期/NULL、原非指标字段和唯一资源归还。R02仅借本次已登记批表，用现有scalar执行固定聚合：21行实际值与21行独立字面比较，total、distinct、matched均须为21；前复权高低收按ROUND(value,3)比较，NULL或日期/价格错误必须使匹配不足。实际21＋预期21＝42逻辑行及1条scalar单独登记实际费用；不使用未登记step的read_result、不用会忽略NULL的bool_and，不另读Lake或增加计算项。R04观察移到选中价格的schema校验，委托原方法并保留原SourceContractError、阶段和原500，不能让其他错误或空成功代替。</td></tr>
+    <tr><td>4．顺序执行R01～R04</td><td>普通股、含复权变化、仅返回最后2日仍计算21日、缺close明确失败；每项一个fresh App，透明观察公开calculate和其内部_calculate_result各1次，正常21份价格合为一批。真实中间件/runtime/Control/内核/Lake/发送保留，只替换鉴权与业务PG读取为限定SQLite。逐日检查16字段、日期/NULL、原非指标字段和唯一资源归还。R02仅借本次已登记批表，用现有scalar执行固定聚合：21行实际值与21行独立字面比较，total、distinct、matched均须为21；前复权高低收按ROUND(value,3)比较，NULL或日期/价格错误必须使匹配不足。实际21＋预期21＝42逻辑行及1条scalar单独登记实际费用；不使用未登记step的read_result、不用会忽略NULL的bool_and，不另读Lake或增加计算项。R04观察移到选中价格的schema校验，委托原方法并保留原SourceContractError、阶段和原500，不能让其他错误或空成功代替。</td></tr>
   </tbody></table></div>
   <p>R01～R04继续使用原21根样本和独立测试模块，正常4个真实Control；R05仅为一次500根真实首屏。整个专项的固定范围、实际费用与失败续做统一见<a href="technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html#budget">专项LLD第15节</a>；删除无依据的倍率、取整余量和测试专用拒绝阈值，不以其他数字替代，不改Settings。SQL逻辑量、定位、文件打开与耗时按实际固定步骤登记。全专项失败节点重试仅允许一次且须另获明确授权；前端三函数的执行范围见第9.3节及专项LLD第16.5节。</p>
   <p>数值口径不变：来源前复权价按ROUND(value,3)对照；同输入算法按1e-8＋1e-10×绝对参考值核验；API仍保留原10位小数格式。测试隔离改目录不增加节点、请求、表或数据，P01原PG探针、SQLite65行及全部原费用保持。只核必要的原场景，不重跑D2/D3/D4、A/B、已通过普通小例或参数矩阵。首错即停止并清理、保存累计事实、报告原因；续做须明确授权且不重跑已通过项。到R04通过且第9.3节前端分页mock验收通过后，才接续R05一次500根真实首屏及最终收尾。R05不滚动到预取点、不再请求真实历史页；分页交互用mock覆盖。原18项普通通过不能证明新500分页已验收，不能提前标记正式接入或部署完成。</p>
@@ -246,7 +252,7 @@
     <li><strong>代码组织：</strong>给全新旧文件清单、Biz使用的窄接口、App提供者和安装位置；迁移所有本次内部消费者，不新增反向依赖或双轨实现。</li>
     <li><strong>取数与对应：</strong>普通数据库数据交接方式、实际返回日期、内部start/end/limit、组合预热和日期结果一致性；0根的唯一成功路径。</li>
     <li><strong>固定指标：</strong>十项固定ID/参数、内核字段至原16字段映射、当前算法版本；不接受业务SQL、动态模板、表名或表达式。</li>
-    <li><strong>执行与发送：</strong>复用D4主链及一次_prepare_calculation形成的请求独占prepared；库App沿私有库函数、公开calculate保持原签名且内部prepare→同一私有库函数，core清理后measure一次；HTTP沿私有core、只在最终响应encode时计量一次。股票固定支持在装配核一次、实际请求在PG后准备一次，空K线不准备。原DTO构造、编码、5000000字节计量在名额覆盖范围内，名额直到实际发送、停止和清理结束才归还；不得改成执行库函数返回后不受控发送。</li>
+    <li><strong>执行与发送：</strong>复用D4主链及一次_prepare_calculation形成的请求独占prepared；库App沿私有库函数、公开calculate保持原签名且内部prepare→同一私有库函数，库路径清理后直接返回计算对象；HTTP最终编码一次，无字节拦截。股票固定支持在装配核一次、实际请求在PG后准备一次，空K线不准备。原DTO构造和最终编码在名额覆盖范围内；统一取消字节上限后不再专门计量，名额直到实际发送、停止和清理结束才归还；不得改成执行库函数返回后不受控发送。</li>
     <li><strong>数据库与线程：</strong>Session创建、使用、关闭所在位置；库查询与DuckDB连接不能跨任务共享；同一截止时间如何覆盖准备与排队，并说明数据库本身的取消边界。</li>
     <li><strong>异常：</strong>各具体内核异常到原HTTP失败结构的映射、取消/到期/清理主错误保留、有限日志；不新增未登记异常码，不让错误引用结果。</li>
     <li><strong>装配与配置：</strong>Web启动/退出及依赖注入、原Settings消费者、未配置Lake时的明确失败；不把应用导入变成读行情，不新增配置或启停DG。</li>
@@ -270,10 +276,10 @@
       <tr><td>配置与默认</td><td>第03、07节：API默认/最大500，页面显式300仍合法；既有Settings唯一来源，无新开关。</td></tr>
       <tr><td>排序、范围及复用</td><td>第05节：原日期决定输出、预热另取、同批只准备一次；不改变复权基准。</td></tr>
       <tr><td>性能、异常及验收</td><td>第07、09、10节：复用D4生命周期，最终旧DTO计量，有限执行和独立预期。</td></tr>
-      <tr><td>用户可见结果</td><td>第02、08、09节：原图表保留，新增500根分页及提前加载；mock验证交互，R05一次真实首屏验证接入，不新做视觉设计。</td></tr>
+      <tr><td>用户可见结果</td><td>第02、08、09节：原图表保留；500根分页、提前加载及相应mock/R05均为后置产品参考。内核完成、产品设计review和Figma核对后才可进入页面开发及获准验收，不作为当前内核完成条件。</td></tr>
     </tbody></table></div>
   <p><strong>2026-11-03获准续跑历史安排：</strong>上次XXM错误现已从调用、必填参数、单个预测端点及结果组装四处核对修正；不由本任务改XXM。仅续原失败函数及十个未执行函数，按<a href="technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html#step3-resume">LLD第16.4节</a>先Web后依赖，原7项及A/B不重跑。保持股票实现、测试预期、配置和依赖不变；原失败与验收文件完整保留，新增带20261103后缀的范围、进度、验收、审计及两组日志/XML。沿用剩余32个控制替身、约55.71秒pytest及原15000行临时查询上限；失败和清理同计，首错停止、不自动重试。原临时执行器的禁止覆盖检查保留，新执行器仅支持本次11项。全部通过后才关闭步骤3普通验证，不扩大为P/R通过，不提交或部署。</p>
   <p class="muted">步骤3普通验证历史结果：该次11项全部通过，连同原7项共18项；全局应用成功加载，原协议、错误/空结果、NULL和page-init保护及依赖检查通过。原9份报告与首次失败不覆盖，21份实现/测试及64份保护文件保持；累计费用未越界。详<a href="../../reports/technical_indicator_kernel_stock_daily_step3_20261031/resume_acceptance_20261103.json">新增验收记录</a>及<a href="../../reports/technical_indicator_kernel_stock_daily_step3_20261031/audit_resume_20261103.md">逐项对账</a>。前端、算法SQL及配置不变；该次代码已由16f1cc91e提交，未部署。该历史阶段的后续安排现已由第9.1节“先内核独立完成、全部业务后置”替代，不能据此继续开发或直接运行P/R。</p>
 </section>
-<footer>依据：管理员确认的股票日线优先范围、当前API/schema/query/mapper及前端消费者、内核与D4实现。历史接入代码和18项普通验证已完成，当前重复工作修正及500根分页仅完成设计，R05一次500根及固定清单、实际计量供review；尚未开发或验收，P01、PREP、R01～R05暂停，未部署。本轮仅对齐API数量、其直接测试和原设计，按配套LLD的小范围验证；不推进P/R、页面或内核改造，不提交或部署。</footer>
+<footer>依据：管理员确认的股票日线优先范围、当前API/schema/query/mapper及前端消费者、内核与D4实现。历史接入代码和18项普通验证已完成，固定定义重复检查和输出字节上限已按内核LLD25.2完成修复；其它重复工作及500根分页仍按各自现状记录，R05一次500根及固定清单、实际计量供review；尚未开发或验收，P01、PREP、R01～R05暂停，未部署。本轮仅对齐API数量、其直接测试和原设计，按配套LLD的小范围验证；本轮仅完成内核LLD25.2限定的两项修复及验证，未推进P/R或页面，未提交或部署。</footer>
 </main></body></html>

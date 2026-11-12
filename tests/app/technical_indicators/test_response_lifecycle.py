@@ -167,7 +167,7 @@ def test_response_lifecycle(monkeypatch):
             monkeypatch.setattr(execution.TechnicalIndicatorService, "_calculate_result",
                                 lambda service, prepared, *, control: literal_result())
 
-            def failing_encoder(payload, *, control, max_bytes):
+            def failing_encoder(payload, *, control):
                 result = payload
                 body = bytearray(b"partial")
                 try:

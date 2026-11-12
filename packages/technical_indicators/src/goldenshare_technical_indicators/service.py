@@ -102,12 +102,9 @@ class TechnicalIndicatorService:
         return _PreparedCalculation(normalized, plan, self._describe_output_instances(plan))
 
     def _calculate_library(self, prepared, *, control):
-        from .output.encoding import measure_result_utf8
-
         result = None
         try:
             result = self._calculate_result(prepared, control=control)
-            measure_result_utf8(result, control=control, max_bytes=self.config.max_output_bytes)
             control.check_active()
             return result
         except BaseException as error:

@@ -14,7 +14,7 @@ from src.db import get_session_factory
 from src.foundation.clients.local_lake.index_daily_reader import IndexDailyLakeReader, IndexDailyLakeSourceError
 from goldenshare_technical_indicators.contracts import CalculationRequest
 from goldenshare_technical_indicators.errors import (
-    OutputEncodingError, ResourceLimitError, SourceReadError, TechnicalIndicatorError,
+    OutputEncodingError, SourceReadError, TechnicalIndicatorError,
 )
 from goldenshare_technical_indicators.output.encoding import encode_response_utf8
 from goldenshare_technical_indicators.service import TechnicalIndicatorService
@@ -75,8 +75,8 @@ async def run_index_daily_kline(
 
         payload = response.model_dump(mode="json", by_alias=True, exclude_none=False, exclude_unset=False)
         try:
-            return encode_response_utf8(payload, control=control, max_bytes=runtime.config.max_output_bytes)
-        except (OutputEncodingError, ResourceLimitError) as exc:
+            return encode_response_utf8(payload, control=control)
+        except OutputEncodingError as exc:
             raise IndexDetailQueryError(f"{ts_code} 日线回包编码失败") from exc
 
     return await _execute(

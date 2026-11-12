@@ -25,7 +25,6 @@ class KernelConfig:
     max_input_rows: int
     max_source_files: int
     max_output_rows: int
-    max_output_bytes: int
     max_indicator_instances: int
     max_projected_row_group_bytes: int
     control_poll_ms: int

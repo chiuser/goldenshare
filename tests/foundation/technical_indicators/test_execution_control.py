@@ -26,7 +26,7 @@ def config(**changes):
         request_memory_bytes=268435456, deployment_reserve_bytes=1073741824,
         total_target_ms=8000, cleanup_reserve_ms=2000,
         max_input_rows=1500000, max_source_files=10000, max_output_rows=500,
-        max_output_bytes=5000000, max_indicator_instances=16,
+        max_indicator_instances=16,
         max_projected_row_group_bytes=33554432, control_poll_ms=20,
         monitor_join_target_ms=200,
     )

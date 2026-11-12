@@ -26,7 +26,6 @@ EXPECTED_DEFAULTS = {
     "max_input_rows": 1500000,
     "max_source_files": 10000,
     "max_output_rows": 500,
-    "max_output_bytes": 5000000,
     "max_indicator_instances": 16,
     "max_projected_row_group_bytes": 33554432,
     "control_poll_ms": 20,
@@ -53,7 +52,8 @@ def test_all_confirmed_defaults_and_existing_lake_root_are_copied():
     settings = Settings(_env_file=None, GOLDENSHARE_LAKE_ROOT="/not-opened/data_lake")
     config = technical_indicator_config_from_settings(settings)
 
-    assert len(EXPECTED_DEFAULTS) == 18
+    assert len(EXPECTED_DEFAULTS) == 17
+    assert "max_output_bytes" not in {field.name for field in fields(KernelConfig)}
     assert {
         name for name in Settings.model_fields if name.startswith("technical_indicator_")
     } == {f"technical_indicator_{name}" for name in EXPECTED_DEFAULTS}

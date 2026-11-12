@@ -119,23 +119,19 @@ def test_actual_input_limit_and_cleanup_failure_remain_errors(d3_data, monkeypat
         _clean_failed_call(state)
 
 
-def test_strict_utf8_exact_limit_and_nonfinite_errors(d3_data):
+def test_strict_utf8_and_nonfinite_errors():
+    from types import SimpleNamespace
     from goldenshare_technical_indicators.output.encoding import encode_response_utf8
 
-    state = d3_data
-    with state.case("strict_utf8_boundaries"):
-        payload = {"msg":"全部"}
-        expected = '{"msg":"全部"}'.encode("utf-8")
-        control = D3Control(state.config)
-        assert len(expected)>len('{"msg":"全部"}')
-        assert encode_response_utf8(payload,control=control,max_bytes=len(expected)+1) == expected
-        assert encode_response_utf8(payload,control=control,max_bytes=len(expected)) == expected
-        with pytest.raises(ResourceLimitError):
-            encode_response_utf8(payload,control=control,max_bytes=len(expected)-1)
-        with pytest.raises(OutputEncodingError):
-            encode_response_utf8({"bad":float("nan")},control=control,max_bytes=1000)
-        with pytest.raises(OutputEncodingError):
-            encode_response_utf8({"bad":object()},control=control,max_bytes=1000)
+    # Encoding alone needs no D3 source fixture or calculation state.
+    control = SimpleNamespace(check_active=lambda: None)
+    payload = {"msg":"全部"}
+    expected = '{"msg":"全部"}'.encode("utf-8")
+    assert encode_response_utf8(payload,control=control) == expected
+    with pytest.raises(OutputEncodingError):
+        encode_response_utf8({"bad":float("nan")},control=control)
+    with pytest.raises(OutputEncodingError):
+        encode_response_utf8({"bad":object()},control=control)
 
 
 def test_result_fetch_continues_after_short_batch_and_preserves_fetch_error(d3_data):

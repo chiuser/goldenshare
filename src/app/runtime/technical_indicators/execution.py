@@ -69,9 +69,7 @@ async def _execute(
             if send is None:
                 handoff["result"] = result
             else:
-                body = encode_response_utf8(
-                    result, control=control, max_bytes=runtime.config.max_output_bytes,
-                )
+                body = encode_response_utf8(result, control=control)
                 control.check_active()
                 handoff["body"] = body
         except BaseException as error:

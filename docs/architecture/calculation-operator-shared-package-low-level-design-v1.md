@@ -27,7 +27,7 @@ packages/technical_indicators/
 
 沿用现有 Setuptools 构建方式。新项目发现 `src/` 下的独立导入名，并为 `calculation`、`sources`、`output` 明确登记 `sql/*.sql`。迁移前的目录含 35 份 Python 文件和 14 份 SQL 文件。SQL 分别是 9 份计算、3 份输入、2 份输出，构建后核对名称和内容与原文件一致。根 `pyproject.toml` 删除原内核的三条资源登记，保留其他包和资源设置。 [现有主工程打包配置](../../pyproject.toml#L45) · [Setuptools 的包内文件规则](https://setuptools.pypa.io/en/latest/userguide/datafiles.html)
 
-基础包允许只运行 r4.1、导入配置和读取算子说明。DuckDB 计算仍在实际调用时加载 DuckDB，`IndexDailyPriceSource` 在组装批次时加载 PyArrow。对独立的通用指标调用方拟提供 `sql` 安装选项，使用主工程现有的 `duckdb>=1.3,<2`、`pyarrow==23.0.1`。财势乾坤现有 `local-lake` 依赖及运行版本沿用原口径，DG 的 r4.1 验收只安装基础包。首轮以两边已装版本为实测范围。 [DuckDB 连接](../../packages/technical_indicators/src/goldenshare_technical_indicators/service.py#L29) · [日线批次转换](../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/index_daily.py#L30) · [现有依赖](../../pyproject.toml#L30)
+基础包允许只运行 r4.1、导入配置和读取算子说明。DuckDB 计算仍在实际调用时加载 DuckDB，`IndexDailyPriceSource` 在组装批次时加载 PyArrow。对独立的通用指标调用方已提供 `sql` 安装选项，使用主工程现有的 `duckdb>=1.3,<2`、`pyarrow==23.0.1`。财势乾坤现有 `local-lake` 依赖及运行版本沿用原口径，DG 的 r4.1 验收只安装基础包。首轮以两边已装版本为实测范围。 [DuckDB 连接](../../packages/technical_indicators/src/goldenshare_technical_indicators/service.py#L29) · [日线批次转换](../../packages/technical_indicators/src/goldenshare_technical_indicators/sources/index_daily.py#L30) · [现有依赖](../../pyproject.toml#L30)
 
 ## 2. 技术指标代码迁移
 
@@ -103,7 +103,7 @@ uv pip install --offline --no-deps --python "$run_dir/dg-smoke/bin/python" "$whe
 | 验收项 | 对照内容及现有用例 |
 | --- | --- |
 | 通用指标数值和时间范围 | 运行 `test_price_adjustment.py`、`test_source_contracts.py`、`test_request_reuse_correction.py` 及指数日线集成用例。核对价格、MA、BOLL、MACD、KDJ 的参数、输出顺序、数值、空值、初始化与预热、日线和已有周期的时间合同。已结案的字面数值用例用作安装验收的输入和预期来源 |
-| 请求、配置和失败 | 运行 `test_contracts.py`、`test_configuration.py`、`test_errors_and_cleanup.py` 和 `test_request_reuse_correction.py`。指数日线集成用例覆盖空页。核对 500 根硬上限、现有 18 项配置、空结果、来源错误、取消和请求释放 |
+| 请求、配置和失败 | 运行 `test_contracts.py`、`test_configuration.py`、`test_errors_and_cleanup.py` 和 `test_request_reuse_correction.py`。指数日线集成用例覆盖空页。核对 500 根硬上限、现有 17 项配置（2026-11-12已移除输出字节上限）、空结果、来源错误、取消和请求释放 |
 | 股票与指数日线 API | 复用 `tests/app/technical_indicators/test_stock_daily_integration.py`、`test_index_daily_kline_integration.py`、`test_execution_cancellation.py`、`test_response_lifecycle.py`。使用已有合同夹具和现有入口，核对参数、HTTP 状态与响应字段、标记值、回读价格和清理。正式来源验证使用已有获准留样或另获准的最小只读范围 |
 | r4.1 结果 | 复用 `scripts/research/index_market/tests/test_xxm_r4_following.py`、`test_xxm_r4_restore.py`、`test_xxm_snapshot_validation.py`、`test_xxm_confirmed_cases.py`。核对已确认的上证 90 分钟案例、日线和各分钟周期、同根事件顺序、事件 ID、结构变化、同根图上标记、跨时段连续与恢复、错误输入和原状态保留。版本、哈希和快照字典逐项相同 |
 | r4.1 现有 Web 调用 | 复用 `tests/web/test_wealth_index_detail_xxm_api.py`、`test_wealth_index_detail_xxm_forecast_api.py`、`test_wealth_index_detail_xxm_forecast_validation.py`、`test_xxm_shared_loads.py` 和研究侧预判用例。对照普通与调试响应、现有来源标签、缓存复用、预测区间和失败结果 |
