@@ -6,7 +6,6 @@ No existing database or source endpoint is used by this module.
 """
 
 from datetime import date, datetime, timezone
-import json
 from unittest.mock import Mock
 
 import pytest
@@ -29,9 +28,7 @@ from tests.wealth_watchlist_postgres_support import isolated_postgres
 
 NEXT_DAY = date(2026, 11, 11)
 OLD_TIME = datetime(2020, 1, 1, tzinfo=timezone.utc)
-CONFIG = {"sync_batch_size": 2, "max_response_bytes": len(json.dumps({"code": 0, "msg": "", "data": {
-    "fields": list(SOURCE_FIELDS), "items": [[SOURCE_ROW[field] for field in SOURCE_FIELDS] for _ in range(2)]}}).encode()),
-          "source_timeout_seconds": 30, "statement_timeout_seconds": 20,
+CONFIG = {"sync_batch_size": 2, "source_timeout_seconds": 30, "statement_timeout_seconds": 20,
           "observation_timeout_seconds": 2, "progress_interval_seconds": 5}
 
 

@@ -4,7 +4,6 @@ Authentication and source I/O are replaced; resolver, snapshot, dispatcher,
 worker, business transactions, progress persistence and HTTP schemas are real.
 """
 
-from dataclasses import replace
 from datetime import datetime, timezone
 from pathlib import Path
 import subprocess
@@ -35,7 +34,7 @@ from src.ops.runtime.task_run_dispatcher import TaskRunDispatcher
 from src.ops.runtime.worker import OperationsWorker
 from src.ops.runtime.maintenance_executor import MaintenanceExecutionRequest
 from tests.test_daily_basic_limit_status_backfill import (
-    CONFIG, DAY, NEXT_DAY, read_rows, service, source_rows,
+    DAY, NEXT_DAY, read_rows, service, source_rows,
 )
 
 pytest_plugins = ("tests.test_daily_basic_limit_status_backfill",)
@@ -44,9 +43,6 @@ pytest_plugins = ("tests.test_daily_basic_limit_status_backfill",)
 @pytest.fixture
 def runtime(database, monkeypatch):
     engine, factory = database
-    action = action_catalog.get_maintenance_action(ACTION_KEY)
-    monkeypatch.setitem(action_catalog.MAINTENANCE_ACTION_REGISTRY, ACTION_KEY,
-                        replace(action, execution_config={**action.execution_config, "max_response_bytes": CONFIG["max_response_bytes"]}))
     monkeypatch.setattr(get_settings(), "sync_batch_size", 2)
     value = service(factory)
     value.connector.call_bounded.side_effect = lambda **kw: source_rows(
@@ -94,10 +90,8 @@ def test_freeze_cancel_after_commit_then_new_apply_uses_frozen_config_once(runti
         assert len(metadata["source_fields"]) == 19 and metadata["source_fields"][-1] == "limit_status"
         frozen = metadata["execution_config"]
         assert frozen["sync_batch_size"] == 2
+        assert "max_response_bytes" not in frozen
         monkeypatch.setattr(get_settings(), "sync_batch_size", 1)
-        action = action_catalog.get_maintenance_action(ACTION_KEY)
-        monkeypatch.setitem(action_catalog.MAINTENANCE_ACTION_REGISTRY, ACTION_KEY,
-                            replace(action, execution_config={**action.execution_config, "max_response_bytes": None}))
         pending = apply_task(session, plan)
         original = value.execute_day
 
@@ -228,18 +222,21 @@ def test_dispatcher_status_failure_retains_committed_date_and_retry_reads_back(r
         assert (retry.status, retry.rows_saved) == ("success", 4)
 
 
-def test_plan_without_bytes_or_dates_and_cancelled_draft_cannot_apply(runtime, monkeypatch):
+def test_plan_and_apply_need_no_response_byte_configuration(runtime):
     engine, factory, value, executor, worker = runtime
-    action = action_catalog.get_maintenance_action(ACTION_KEY)
+    with factory() as session:
+        plan = freeze(session, worker)
+        assert "max_response_bytes" not in plan.plan_snapshot_json["metadata"]["execution_config"]
+        result = worker.run_task_run(session, apply_task(session, plan).id)
+        assert (result.status, result.rows_saved) == ("success", 4)
+    assert all(call.kwargs["maximum"] is None for call in value.connector.call_bounded.call_args_list)
+
+
+def test_plan_requires_dates_and_cancelled_draft_cannot_apply(runtime, monkeypatch):
+    engine, factory, value, executor, worker = runtime
     with factory() as session:
         missing = task(session, execution_mode="PLAN")
         assert worker.run_task_run(session, missing.id).status == "failed"
-        monkeypatch.setitem(action_catalog.MAINTENANCE_ACTION_REGISTRY, ACTION_KEY,
-                            replace(action, execution_config={**action.execution_config, "max_response_bytes": None}))
-        pending = task(session, execution_mode="PLAN", start_date=str(DAY), end_date=str(NEXT_DAY))
-        result = worker.run_task_run(session, pending.id)
-        assert result.status == "failed" and not result.plan_snapshot_json.get("apply_ready")
-        monkeypatch.setitem(action_catalog.MAINTENANCE_ACTION_REGISTRY, ACTION_KEY, action)
 
         from src.ops.services.task_run_maintenance_plan_context import TaskRunMaintenancePlanContext
 

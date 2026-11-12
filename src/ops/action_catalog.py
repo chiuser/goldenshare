@@ -175,7 +175,7 @@ MAINTENANCE_ACTION_REGISTRY: dict[str, MaintenanceActionDefinition] = {
         executor_key="daily_basic_limit_status",
         execution_config={
             "target_tables": ("raw_tushare.daily_basic", "core_serving.equity_daily_basic"),
-            "plan_apply_replay": True, "max_response_bytes": None,
+            "plan_apply_replay": True,
             "source_timeout_seconds": 30, "statement_timeout_seconds": 20,
             "observation_timeout_seconds": 2, "progress_interval_seconds": 5,
         },

@@ -115,7 +115,7 @@ def _attempt(send, base_url, payload, maximum, timeout, response_contract=None):
                 stage = 'response_body'
                 data = bytearray()
                 for block in response.iter_content(chunk_size=65536):
-                    if len(data) + len(block) > maximum:
+                    if response_contract != 'daily_basic/v1' and len(data) + len(block) > maximum:
                         raise BoundedTushareError(f'{prefix}.response_size_exceeded', '源响应超过字节预算',
                             {'actual_bytes': len(data) + len(block), 'limit_bytes': maximum})
                     data.extend(block)

@@ -50,11 +50,9 @@ class DailyBasicLimitStatusTaskExecutor:
     def plan_for_task_run(self, request, *, context):
         # The catalog owns the operational limits. They are not source API inputs.
         config = {key: get_maintenance_action(ACTION_KEY).execution_config[key] for key in (
-            "max_response_bytes", "source_timeout_seconds", "statement_timeout_seconds",
+            "source_timeout_seconds", "statement_timeout_seconds",
             "observation_timeout_seconds", "progress_interval_seconds",
         )}
-        if type(config["max_response_bytes"]) is not int or config["max_response_bytes"] <= 0:
-            raise ValueError("正式 PLAN 前必须由管理员给定 max_response_bytes；当前没有默认字节限额")
         config["sync_batch_size"] = get_settings().sync_batch_size
         start = date.fromisoformat(str(request.params["start_date"]))
         end = date.fromisoformat(str(request.params["end_date"]))

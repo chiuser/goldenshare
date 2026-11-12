@@ -63,7 +63,7 @@ def server():
 def invoke(url, **overrides):
     return call_bounded(base_url=url, payload={"api_name": "daily_basic", "token": "test-placeholder",
         "fields": ",".join(SOURCE_FIELDS), "params": {"trade_date": "20261110", "limit": 6000, "offset": 0}},
-        maximum=overrides.pop("maximum", len(wire())), timeout=overrides.pop("timeout", 3),
+        maximum=overrides.pop("maximum", None), timeout=overrides.pop("timeout", 3),
         check=overrides.pop("check", lambda: None), tick=overrides.pop("tick", lambda: None),
         response_contract="daily_basic/v1", **overrides)
 
@@ -72,7 +72,7 @@ def test_real_client_returns_full_contract_without_coercing_status(server):
     url, requests = server
     client = TushareHttpClient(token="test-placeholder", base_url=url)
     result = client.call_bounded(api_name="daily_basic", params={"trade_date": "20261110", "limit": 6000, "offset": 0},
-        fields=SOURCE_FIELDS, maximum=len(wire()), timeout=3, check=lambda: None, tick=lambda: None,
+        fields=SOURCE_FIELDS, maximum=None, timeout=3, check=lambda: None, tick=lambda: None,
         before_request=lambda: None, response_contract="daily_basic/v1")
     assert len(result) == 1 and tuple(result[0]) == SOURCE_FIELDS
     assert result[0]["limit_status"] == 4 and type(result[0]["limit_status"]) is int
@@ -80,11 +80,27 @@ def test_real_client_returns_full_contract_without_coercing_status(server):
     assert requests[0]["params"] == {"trade_date": "20261110", "limit": 6000, "offset": 0}
 
 
-def test_daily_contract_uses_its_own_byte_and_decode_errors(server):
+def test_daily_contract_does_not_enforce_bytes_but_rejects_invalid_json(server):
     url, requests = server
-    assert invoke(url, maximum=len(wire()) - 1)[:2] == ("bounded_error", "daily_basic.response_size_exceeded")
+    result = invoke(url, maximum=len(wire()) - 1)
+    assert result[0] == "rows" and len(result[1]) == 1
     assert invoke(url + "/invalid")[:2] == ("bounded_error", "daily_basic.source_payload_invalid")
     assert len(requests) == 2  # No hidden retry.
+
+
+@pytest.mark.parametrize("contract,api,prefix", [
+    (None, "anns_d", "anns_d"),
+    ("stock_weekly_adj/v1", "stk_week_month_adj", "weekly_adj"),
+    ("index_period_raw/v1", "index_weekly", "index_period_raw"),
+])
+def test_other_contracts_still_stop_before_decoding_an_oversized_body(server, contract, api, prefix):
+    # The daily-shaped fixture is deliberately not a valid old-contract payload:
+    # its byte limit must stop delivery before any JSON/business validation.
+    url, requests = server
+    result = call_bounded(base_url=url, payload={"api_name": api, "params": {}, "fields": ""},
+        maximum=len(wire()) - 1, timeout=3, check=lambda: None, tick=lambda: None, response_contract=contract)
+    assert result[:2] == ("bounded_error", f"{prefix}.response_size_exceeded")
+    assert len(requests) == 1
 
 
 def test_request_cancellation_and_deadline_clean_up_the_existing_child(server):
@@ -154,7 +170,7 @@ def test_complete_bounded_connector_normalizer_and_two_table_transaction(databas
     monkeypatch.setitem(globals(), "wire", lambda: body)
     connector = TushareSourceConnector(TushareHttpClient(token="test-placeholder", base_url=url))
     value = DailyBasicLimitStatusService(session_factory=factory, connector=connector)
-    result = value.execute_day(payload(), config={**CONFIG, "max_response_bytes": len(body)},
+    result = value.execute_day(payload(), config=CONFIG,
                                check=lambda: None, observe=lambda *a, **k: None)
     assert (result["rows_fetched"], result["rows_saved"], result["raw_changed"], result["serving_changed"]) == (2, 2, 2, 2)
     assert len(requests) == 1

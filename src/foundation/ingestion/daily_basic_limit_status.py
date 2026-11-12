@@ -200,7 +200,7 @@ class DailyBasicLimitStatusService:
             try:
                 batch = self.connector.call_bounded(
                     api_name=self.definition.source.api_name, params=params, fields=self.definition.source.source_fields,
-                    maximum=config["max_response_bytes"], timeout=config["source_timeout_seconds"],
+                    maximum=None, timeout=config["source_timeout_seconds"],
                     check=check, tick=lambda: observe("读取源数据", page=page + 1, tick=True),
                     before_request=check, response_contract=RESPONSE_CONTRACT,
                 )
