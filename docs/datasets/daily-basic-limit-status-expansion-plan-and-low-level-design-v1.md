@@ -327,12 +327,20 @@ SQLAlchemy 的多行更新依据见 [UPDATE FROM 与 VALUES](https://docs.sqlalc
 |---|---|
 | PLAN | 注入 `TaskRunMaintenancePlanContext`，调用现有 resolver 生成日期。按日期聚合核对两表数量，逐批保存日期描述草稿、阶段和进度；每批前后检查取消。描述不含全历史股票明细。只有完整校验后冻结既有 schema_version=1 的维护 snapshot、hash 和 apply_ready，取消/失败草稿不可 APPLY |
 | 冻结 metadata | `contract_kind=daily_basic_limit_status/v1`、dataset/action、显式起止、日期集合、每日期两表计数、固定两表/键/列、实际 `sync_batch_size`、§6.8 控制参数与来源；代码版本作追溯。不升级共享 snapshot 格式或改变其他动作重放 |
-| APPLY | dispatcher 已用 `_load_replay_apply_units` 校验动作、hash、范围和成功冻结，适配器直接消费这些已验证 unit 与冻结批次，不再做一套相同校验或代码版本对比。不得重新解析出更多日期或静默换字段 |
+| APPLY | dispatcher 已用 `_load_replay_apply_units` 校验动作、hash、范围和成功冻结，适配器直接消费这些已验证 unit，按下文读取原 PLAN 的冻结配置，不再做一套相同校验或代码版本对比。不得重新解析出更多日期或静默换字段 |
 | 单日期 | 接受 `MaintenanceTaskRunContext.task_run_id/run_context`；适配器按下述方式接出取消/进度，Foundation 只接收接口，不 import Ops。业务使用独立 Session；源读取完成后才开始该日期双表事务，状态 Session 不参与业务事务 |
 | 返回 | unit 返回现有 `MaintenanceExecutionResult`：正常执行在 commit 成功后报告已核对的覆盖量与实际变更量，不增加整日回读；恢复时按两表实际状态判定已完成，再报告覆盖量。不能用 UPDATE 返回 0 推断没有完成 |
 | 取消/失败 | replay 分支当前没有替 executor 自动覆盖 unit 内取消，新适配器必须在每日期和每页/SQL 子批次前后检查。已有 §12 修复负责保存已返回 unit 累计；当前 unit 内分批观察不等于已提交。进程退出、commit 回执不明时按 §6.8 读回 |
 
-不新增观察线程。适配器在当前执行线程的请求等待回调和 SQL 批次前后报告进度。取消读取复用 `TaskRunIngestionContext(independent_cancel=True, timeout_seconds=2)` 的独立查询；2 秒沿用同一 TaskRun 策略的 observation_timeout_seconds。进度在本动作适配器私有方法中用独立事务保存 TaskRun 合计、当前日期/阶段及活动日期节点的本日数量，并设置同样的局部观察超时。当前 `TaskRunIngestionContext.update_progress` 会把全任务合计复制给当前节点，不能直接用它给逐日期节点报累计行数；不修改其既有调用行为。未提交日期节点保存量为 0，已确认提交后才写本日量。观察异常只影响状态显示，不抛进业务事务；已确认提交的 unit 先返回结果，由 dispatcher 保留累计，再在下一日期开始前处理取消。
+**冻结配置传递。** 当前 `_load_replay_apply_units` 只返回日期 unit，不会把 snapshot 的 `metadata` 注入 `MaintenanceTaskRunContext`；`bulk_update_columns` 则直接读取 DAO 的 `settings.sync_batch_size`。因此，在新适配器每个日期的入口，用注入的 Session factory 创建独立读取 Session，通过 `context.task_run_id` 取得当前 APPLY 的维护参数、累计量及活动节点 id，再按其中的 `plan_task_run_id` 读取原 PLAN 所需的冻结配置。只投影本日需要的 TaskRun 字段和冻结配置，不反复读取完整计划；不扩充共享上下文或重放协议，也不重复 dispatcher 已完成的校验。
+
+适配器把冻结的接收字节、源请求与 SQL 控制参数传给 Foundation 补录服务，观察超时由适配器自身使用。两表各创建本次补录专用 DAO，用独立 Settings 副本承接冻结的 `sync_batch_size`，不修改 `get_settings()` 返回的共享对象，不改变 DAO 构造器、旧方法或其他动作。服务和 DAO 使用同一冻结值及既有绑定参数上限计算批次，使 §6.8 的每次 DAO 调用最多执行一条更新 SQL；PLAN 后当前配置升高或降低，都不能改变本次 APPLY 或原 PLAN 重试的批次。
+
+**进度累计。** 每日期入口读到的本次 APPLY 已完成日期数及累计行数，是本日显示进度的固定起点，不在每次回调时读取更新后的累计值再相加。适配器在当前执行线程的请求等待回调和 SQL 批次前后报告进度，不新增观察线程。取消读取复用 `TaskRunIngestionContext(independent_cancel=True, timeout_seconds=2)` 的独立查询；2 秒沿用同一 TaskRun 策略的 observation_timeout_seconds。私有进度方法用独立事务更新阶段、当前日期/页和更新时间，设置同样的局部观察超时；处理中不改已完成日期数、累计已保存量或当前日期节点的保存量。当前 `TaskRunIngestionContext.update_progress` 会把全任务合计复制给当前节点，本动作不直接调用它，不改变其既有行为。
+
+未提交日期节点保存量保持为 0；业务 commit 确认成功后直接返回本日 `MaintenanceExecutionResult`，由现有 dispatcher 累加一次并保存 TaskRun 合计与节点本日数量，适配器不再另行累加。观察写入异常不抛进业务事务；已确认提交的 unit 先返回结果，由 dispatcher 保留累计，再在下一日期开始前处理取消。原 PLAN 重试创建新的 APPLY TaskRun，其累计量从新任务开始；逐日期按两表实际状态判断是否跳过，已完成日期按 §6.4 返回覆盖量，不把上次 APPLY 的累计量带入后再重复累计。
+
+上述当前 APPLY 字段与原 PLAN 冻结配置每日期各读取一次，正常执行和续跑均计入这一开销；回调复用本日已读值，不为计算累计进度增加业务数据回读。开发验收补充：PLAN 后调高、调低当前批次配置，新动作仍使用冻结批次且每次 DAO 调用只有一条更新 SQL，共享 Settings 和旧方法行为不变；同一日期多次回调、连续日期提交及原 PLAN 重试时，TaskRun 合计和日期节点数量均不重复累计，未提交日期不增加已保存量。既有取消、提交后状态写失败和业务读回验收继续适用。
 
 ### 6.8 复用现有取消、超时和日期续跑
 
