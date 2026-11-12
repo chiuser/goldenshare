@@ -1,6 +1,8 @@
 # DG 复权周线、月线Raw更新、完整性审计与Silver生成方案 v1
 
-**2026-11-12 六阶段开发和隔离验收完成，尚未正式切换。** 第5阶段源码提交为`202739e60`，第6阶段实施设计提交为`982619968`；最终结果见[LLD第13.19节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-results)。 新方案见[第10.19节](#stock-period-daily-then-history)。第1节至第10.18节及第10.20节记录切换前实现和历史结果。切换后日更、回刷、补齐及清退以第10.19节为准，旧删除重建、建库交接和续跑命令只用于追溯。
+**2026-11-12 六阶段开发、隔离验收和正式切换已完成，11月11日股票复权周/月线欠账已补齐。** 第5阶段源码提交为`202739e60`，第6阶段实施设计提交为`982619968`；第6阶段结果见[LLD第13.19节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-results)，正式执行结果见[第13.21节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-formal-cutover-results)。 新方案见[第10.19节](#stock-period-daily-then-history)。第1节至第10.18节及第10.20节记录切换前实现和历史结果。切换后日更、回刷、补齐及清退以第10.19节为准，旧删除重建、建库交接和续跑命令只用于追溯。
+
+正式切换依[LLD第13.20节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-formal-cutover)获准执行完成。第6阶段实际提交为`01b727255`；Silver游标、两个新sensor及11月11日欠账均已交接，六条sensor最终RUNNING。没有重启或重载DG，11月12日日更仍由正常20:00窗口检查，不提前提交。
 
 **2026-10-31跨日日期修正已完成开发和隔离验收：** 原任务日期与逐文件实际源日期已分开，相关463个不重复用例通过（新增28项），源码与LLD对账无阻断遗漏。详见本方案§10.13、共享LLD§12.22.6及本轮实施报告；本轮修改随本次提交保存，未正式补数。以下28日各项结果保留为历史，不表示29/30日已经补齐。
 
@@ -529,7 +531,13 @@ pending=0，周/月last_refresh与factor_through均30日，completed_through周2
 
 第6阶段的具体实施统一见[LLD第13.18节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-execution)：复用现有真实job和sensor，新增一份工程外临时实例/文件的串联测试，分别验收先周后月和先月后周；按预检、当期Raw/Silver、复权因子历史回刷、单频退市清理、人工指定历史及精确键删除依次接通，源传输和上游已验收事实采用明确替身。正常样本、三种跨步骤失败后整批重跑、源请求/文件/事件及最后验收成本、测试入口和独立审计要求已写清。第5阶段当时的资金流全局静态失败已在11月12日开工审计完整复核通过，历史记录保留，不再列作当前阻断。
 
-第6阶段已新增11例，接通两种Raw完成顺序、三种失败后整批新跑，以及闭合周期代码并集/逐股最后应更新日的正反验收。独立审计发现的故障末次读回、闭合正向覆盖遗漏均已补齐，完整回归和资源记录已核实。实际逐条对账、性能、独立结论与待切换清单统一见[LLD第13.19节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-results)。正式部署、启停、提交或写湖均未执行；源码默认STOPPED不等于正式状态，源码清退不等于旧任务已办结，后续按具体范围另行批准。
+第6阶段已新增11例，接通两种Raw完成顺序、三种失败后整批新跑，以及闭合周期代码并集/逐股最后应更新日的正反验收。独立审计发现的故障末次读回、闭合正向覆盖遗漏均已补齐，完整回归和资源记录已核实。实际逐条对账、性能、独立结论与当时待切换清单统一见[LLD第13.19节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-six-results)。第6阶段隔离验收时未操作正式资源；后来获准切换的结果见第13.21节，源码默认STOPPED不能替代正式状态。
+
+**切换前只读审计（2026-11-12，历史）。** 该次审计没有重启、重载或写DG。当时正式定义已包含新流程，四条原sensor为RUNNING，两条新sensor为STOPPED；两条Silver被旧格式游标拦住。11月11日晚两笔Raw失败发生在op开始前，原因是旧sensor提交`request_id/stock_codes`，新worker配置已不接收；不是源未更新。此前遗漏了源码修改对新worker的影响，现已明确纠正。当时四份当期文件仍只覆盖11月10日，11月11日应更新5,574只、实际更新至该日为0，另有8只股票复权因子变化历史回刷待处理。旧JSON唯一待办已消费，不重跑、不改写或删除旧物理材料。
+
+具体交接顺序、六条sensor精确动作、两份Silver游标转换位置、旧交付证据、原日源仍可取/已经前移的处理分支、8只回刷及首次退市结果、全局读取范围、失败后整批新跑与最后验收成本统一见[LLD第13.20节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-formal-cutover)。切换前未查询原日源，不预写成功；获准后的探测确认原日源仍齐备，按原日job补齐，未走源前移分支。退市候选343只在两频历史均零命中，已由正常独立job分别登记真实结果，删除历史文件0。
+
+**正式切换完成（2026-11-12，09:54最终状态读回）。** 本次新九笔正式运行全部SUCCESS，6,112项检查通过；11月11日两频当期Raw/Silver各5,575行，5,574只应有股票均截至11日，另1条可选停牌记录截至9日，21列双向差异0。8只股票复权因子变化历史回刷实际交付985份周Raw、232份月Raw，Silver按既有2014下限接续660份周文件、155份月文件，完整范围及实际文件身份已验收。两份Silver游标均转换并消费完毕、无pending，两个独立sensor自然初始化且已真实接通，最终六条sensor均RUNNING；没有重启或重载DG，没有新增代码/配置或执行runless补事件。真实运行ID、请求及规范化计数、一次额外传输尝试、性能与验收边界统一见[LLD第13.21节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-formal-cutover-results)。保留旧已完成材料及旧失败运行；临时操作材料收尾清理，11月12日日更继续由20:00正常窗口处理。
 
 ### 10.20 11月10日股票复权周线和月线恢复
 
