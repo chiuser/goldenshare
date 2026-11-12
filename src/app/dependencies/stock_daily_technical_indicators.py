@@ -16,18 +16,23 @@ from src.biz.api.wealth.market.stock_detail_dependencies import (
     StockDailyKlineBackend, get_stock_daily_kline_backend,
 )
 from src.biz.queries.wealth.market.stock_detail.stock_detail_query_service import StockDetailNotFoundError
+from src.biz.queries.wealth.market.stock_detail.stock_detail_query import StockDetailQuery
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_calculations import (
     STOCK_DAILY_ALGORITHM_VERSIONS, STOCK_DAILY_CALCULATIONS,
     build_calculation_request, validate_stock_daily_request,
 )
 from src.biz.services.wealth.market.stock_detail.stock_daily_kline_service import StockDailyKlineService
 from src.db import get_session_factory
-from src.foundation.config.settings import get_settings
+from src.foundation.clients.local_lake.stock_daily_reader import StockDailyLakeReader
+from src.foundation.config.settings import Settings, get_settings
 from goldenshare_technical_indicators.errors import (
     CalculationDeadlineError, CalculationUnsupportedError, ResourceCleanupError,
     SourceReadError, SourceUnsupportedError,
 )
-from goldenshare_technical_indicators.service import TechnicalIndicatorService
+from goldenshare_technical_indicators.service import (
+    TechnicalIndicatorService, raise_primary_or_cleanup_error_if_any,
+)
+from goldenshare_technical_indicators.sources.stock_daily import StockDailyPriceSource
 
 
 from contextlib import contextmanager
@@ -140,10 +145,18 @@ def open_stock_daily_read_session(session_factory, control):
 
 
 class StockDailyKlineAppBackend:
-    def __init__(self, runtime, session_factory_provider=get_session_factory):
+    def __init__(self, runtime, session_factory_provider=get_session_factory, *, settings: Settings):
         self.runtime = runtime
         self.session_factory_provider = session_factory_provider
         self.service = StockDailyKlineService()
+        self._price_query = StockDetailQuery()
+        self._use_dg = settings.app_env.strip().lower() in {"dev", "local"}
+        self._price_source_id = ("dg_silver_stock_factor_pro" if self._use_dg
+                                 else "prod_core_serving_equity_factor_pro")
+        self._source_tables = (
+            "core_serving.security_serving",
+            "dg.silver_stock_factor_pro" if self._use_dg else "core_serving.equity_factor_pro",
+        )
         for item in STOCK_DAILY_CALCULATIONS:
             definition = self.runtime.registry.resolve(item.calculation_id)
             if (definition.algorithm_version !=
@@ -163,30 +176,74 @@ class StockDailyKlineAppBackend:
         return request
 
     def work(self, request, control):
-        source = result = dto = payload = None
+        reader = snapshot = price_source = result = dto = payload = None
+        session = load_rows = read_previous = page_prices = calculation = None
+        primary_error = None
+        cleanup_errors = ()
         try:
             control.check_active()
+            if self._use_dg:
+                reader = StockDailyLakeReader(self.runtime.config)
             with open_stock_daily_read_session(
                 self.session_factory_provider(), control,
             ) as session:
-                source = self.service.prepare(session, request)
-            control.check_active()          # 数据库Session已关闭
-            calculation = build_calculation_request(source)
-            if calculation is not None:
-                result = TechnicalIndicatorService(
-                    source=self.runtime.source, registry=self.runtime.registry,
-                    config=self.runtime.config, control=control,
-                ).calculate(calculation)    # 一次，十项
+                def load_rows(code, end, start, count):
+                    if reader is not None:
+                        return reader.load_kline_rows(code, end, start, count, control.check_active)
+                    return self._price_query.load_kline_rows(
+                        session, ts_code=code, end_date=end, start_date=start, limit=count,
+                    )
+                snapshot = self.service.prepare(session, request, load_rows=load_rows)
+            session = load_rows = None
             control.check_active()
-            dto = self.service.assemble(source, result)
+            if snapshot.bars:
+                def read_previous(before, count):
+                    if reader is not None:
+                        values = reader.load_previous_kline_rows(
+                            snapshot.ts_code, before, count, control.check_active,
+                        )
+                    else:
+                        with open_stock_daily_read_session(self.session_factory_provider(), control) as prior:
+                            values = self._price_query.load_previous_kline_rows(
+                                prior, ts_code=snapshot.ts_code, before=before, limit=count,
+                            )
+                    return tuple({"trade_date": r["trade_date"], "high": r["high_qfq"],
+                                  "low": r["low_qfq"], "close": r["close_qfq"]} for r in values)
+                page_prices = tuple({"trade_date": r.trade_date, "high": r.high_qfq,
+                                     "low": r.low_qfq, "close": r.close_qfq} for r in snapshot.bars)
+                price_source = StockDailyPriceSource(
+                    page_prices, read_previous, source_id=self._price_source_id,
+                )
+                page_prices = None
+                calculation = build_calculation_request(snapshot)
+                result = TechnicalIndicatorService(
+                    source=price_source, registry=self.runtime.registry,
+                    config=self.runtime.config, control=control,
+                ).calculate(calculation)
+                calculation = read_previous = price_source = None
+            control.check_active()
+            dto = self.service.assemble(snapshot, result, source_tables=self._source_tables)
+            snapshot = result = None
             payload = dto.model_dump(
                 mode="json", by_alias=True,
                 exclude_none=False, exclude_unset=False,
             )
+            dto = None
             control.check_active()
             return payload
+        except BaseException as error:
+            primary_error = error
+            raise
         finally:
-            source = result = dto = payload = None
+            if reader is not None:
+                try:
+                    reader.close()
+                except BaseException as error:
+                    cleanup_errors = (error,)
+            reader = snapshot = price_source = result = dto = payload = None
+            session = load_rows = read_previous = page_prices = calculation = None
+            if cleanup_errors:
+                raise_primary_or_cleanup_error_if_any(primary_error, cleanup_errors)
 
 class StockDailyKlineResponse(Response):
     def __init__(self, backend, request, arrived_at):
@@ -221,8 +278,9 @@ async def stock_daily_technical_indicators_lifespan(
     runtime = backend = None
     primary_error = cleanup_error = None
     try:
-        runtime = create_runtime(settings_provider())    # 正在运行的事件循环
-        backend = StockDailyKlineAppBackend(runtime, session_factory_provider)
+        settings = settings_provider()
+        runtime = create_runtime(settings)    # 正在运行的事件循环
+        backend = StockDailyKlineAppBackend(runtime, session_factory_provider, settings=settings)
         app.state.technical_indicator_runtime = runtime
         app.state.stock_daily_kline_backend = backend
         yield

@@ -99,3 +99,17 @@ class StockDetailQuery:
         rows = [dict(row) for row in session.execute(statement).mappings().all()]
         rows.reverse()
         return rows
+
+    def load_previous_kline_rows(
+        self, session: Session, *, ts_code: str, before: date, limit: int,
+    ) -> list[dict[str, Any]]:
+        statement = (
+            select(EquityFactorPro.trade_date, EquityFactorPro.high_qfq,
+                   EquityFactorPro.low_qfq, EquityFactorPro.close_qfq)
+            .where(EquityFactorPro.ts_code == ts_code, EquityFactorPro.trade_date < before)
+            .order_by(desc(EquityFactorPro.trade_date))
+            .limit(limit)
+        )
+        rows = [dict(row) for row in session.execute(statement).mappings().all()]
+        rows.reverse()
+        return rows

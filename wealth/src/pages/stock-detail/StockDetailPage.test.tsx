@@ -49,6 +49,8 @@ describe("StockDetailPage", () => {
     supportsTrendChannel = false,
     isAdded = false,
     failWatchlist = false,
+    empty = false,
+    emptyQuote = false,
   }: {
     fail?: boolean;
     failTrend?: boolean;
@@ -56,6 +58,8 @@ describe("StockDetailPage", () => {
     supportsTrendChannel?: boolean;
     isAdded?: boolean;
     failWatchlist?: boolean;
+    empty?: boolean;
+    emptyQuote?: boolean;
   } = {}) {
     const pageInit = {
       pageContext: {
@@ -357,9 +361,13 @@ describe("StockDetailPage", () => {
         return new Response(JSON.stringify({ code: "STOCK_TREND_CHANNEL_READ_FAILED", message: "趋势通道失败" }), { status: 500 });
       }
       if (url.includes("/page-init")) {
+        if (emptyQuote) return Response.json({ ...pageInit, quote: null,
+          dataStatus: { ...pageInit.dataStatus, status: "EMPTY", observedTradeDate: null } });
         return Response.json(otherStock ? { ...pageInit, stock: { ...pageInit.stock, ...otherStock } } : pageInit);
       }
       if (url.includes("/kline")) {
+        if (empty) return Response.json({ ...kline, bars: [], meta: { ...kline.meta, count: 0 },
+          dataStatus: { ...kline.dataStatus, status: "EMPTY", observedTradeDate: null } });
         return Response.json(otherStock ? { ...kline, stockRef: { tsCode: otherStock.tsCode, name: otherStock.name } } : kline);
       }
       if (url.includes("/trend-channel")) return new Response(JSON.stringify(stockTrendChannel), { status: 200 });
@@ -401,6 +409,19 @@ describe("StockDetailPage", () => {
     vi.unstubAllGlobals();
     window.localStorage.clear();
     window.history.replaceState({}, "", "/wealth/market/overview");
+  });
+
+  it.each([false, true])("shows a successful empty page without charts or layers (empty quote: %s)", async (emptyQuote) => {
+    const fetchMock = mockStockDetailFetch({ empty: true, emptyQuote, supportsTrendChannel: true });
+    render(<StockDetailPage tsCode="603806.SH" />);
+    expect(await screen.findByLabelText("暂无行情信息")).toBeInTheDocument();
+    expect(screen.getByText("暂无行情信息")).toBeInTheDocument();
+    expect(screen.queryByText("股票详情加载失败")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("K线主图")).not.toBeInTheDocument();
+    const urls = fetchMock.mock.calls.map(([url]) => String(url));
+    expect(urls.filter(url => url.includes("/page-init"))).toHaveLength(1);
+    expect(urls.filter(url => url.includes("/kline"))).toHaveLength(1);
+    expect(urls.some(url => url.includes("/nine-turn") || url.includes("/trend-channel"))).toBe(false);
   });
 
   it("loads ticker data from the API independently after opening a stock from the default watchlist", async () => {

@@ -14,6 +14,7 @@ from src.app.dependencies import stock_daily_technical_indicators as wiring
 from src.app.runtime.technical_indicators import execution
 from src.app.runtime.technical_indicators.admission import AdmissionController
 from src.app.runtime.technical_indicators.composition import TechnicalIndicatorRuntime
+from src.foundation.config.settings import Settings
 from goldenshare_technical_indicators.calculation.indicators import create_builtin_registry
 from goldenshare_technical_indicators.contracts import (
     CalculationResult, CalculationStatistics, CalculationValues, OutputRange,
@@ -97,7 +98,9 @@ def backend_for_client(client, monkeypatch, engine, record_property, *, override
     with controlled_controls(monkeypatch, record_property) as (_, controls):
         rt = client.portal.call(start)
         factory = sessionmaker(bind=engine, autoflush=False)
-        backend = wiring.StockDailyKlineAppBackend(rt, lambda: factory)
+        backend = wiring.StockDailyKlineAppBackend(
+            rt, lambda: factory, settings=Settings(_env_file=None, APP_ENV="prod"),
+        )
         calls, reads, other_rows = [], [], []
         original_query = StockDetailQuery.load_kline_rows
         original_security = StockDetailQuery.load_security

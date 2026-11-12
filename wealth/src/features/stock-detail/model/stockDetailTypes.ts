@@ -74,9 +74,9 @@ export interface StockCandlePoint {
   ma60: number | null;
   ma90: number | null;
   ma250: number | null;
-  bollUpper: number;
-  bollMiddle: number;
-  bollLower: number;
+  bollUpper: number | null;
+  bollMiddle: number | null;
+  bollLower: number | null;
   macd: number | null;
   dif: number | null;
   dea: number | null;

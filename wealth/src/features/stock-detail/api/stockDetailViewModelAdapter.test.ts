@@ -17,6 +17,12 @@ describe("buildStockDetailViewModel", () => {
     expect(point.ma90).toBeNull();
     expect(point.ma250).toBeNull();
     expect(point.volumeDisplay).toBe("10.00万");
+    expect([point.bollUpper, point.bollMiddle, point.bollLower]).toEqual([null, null, null]);
+
+    const priced = makeKline();
+    priced.bars[0].factors.boll = { upper: 20, middle: 10, lower: 0 };
+    const boll = buildStockDetailViewModel(makePageInit(), priced).chart.candles[0]!;
+    expect([boll.bollUpper, boll.bollMiddle, boll.bollLower]).toEqual([20, 10, 0]);
   });
 
   it("preserves unavailable MACD and KDJ values as null and uses backend volume display", () => {

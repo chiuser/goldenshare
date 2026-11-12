@@ -1,6 +1,8 @@
 """Prepare detached business facts and map kernel results to the unchanged DTO."""
 
+from collections.abc import Callable, Mapping, Sequence
 from datetime import date
+from typing import Any
 
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
@@ -32,8 +34,11 @@ class StockDailyKlineService:
     def __init__(self) -> None:
         self._query = StockDetailQueryService()
 
-    def prepare(self, session: Session, request: StockDailyKlineRequest) -> StockDailyKlineInput:
-        return self._query.prepare_kline_input(session, request)
+    def prepare(
+        self, session: Session, request: StockDailyKlineRequest, *,
+        load_rows: Callable[[str, date, date | None, int], Sequence[Mapping[str, Any]]],
+    ) -> StockDailyKlineInput:
+        return self._query.prepare_kline_input(session, request, load_rows=load_rows)
 
     def _validate_result(self, source: StockDailyKlineInput, result: CalculationResult) -> None:
         if not isinstance(result, CalculationResult):
@@ -74,6 +79,7 @@ class StockDailyKlineService:
 
     def assemble(
         self, source: StockDailyKlineInput, result: CalculationResult | None,
+        *, source_tables: tuple[str, ...],
     ) -> StockDetailKlineResponseDto:
         if source.bars:
             self._validate_result(source, result)
@@ -105,9 +111,6 @@ class StockDailyKlineService:
                 bars.append(build_kline_bar(row, factors))
             request = source.request
             observed = source.bars[-1].trade_date if source.bars else None
-            tables = ["core_serving.security_serving", "core_serving.equity_factor_pro"]
-            if result is not None:
-                tables.extend(("lake.silver.quote.stock_daily", "lake.silver.quote.adj_factor"))
             return StockDetailKlineResponseDto(
                 pageContext=build_page_context(source.context),
                 stockRef=StockDetailStockRefDto(tsCode=source.ts_code, name=source.name),
@@ -116,7 +119,7 @@ class StockDailyKlineService:
                                       startDate=request.start_date, endDate=source.query_end_date),
                 dataStatus=build_data_status(expected_trade_date=source.query_end_date,
                                              observed_trade_date=observed),
-                debugInfo=StockDetailDebugInfoDto(sourceTables=tables, query={
+                debugInfo=StockDetailDebugInfoDto(sourceTables=list(source_tables), query={
                     "tsCode": source.ts_code, "expectedTradeDate": source.query_end_date.isoformat(),
                     "observedTradeDate": observed.isoformat() if observed is not None else None,
                     "limit": request.limit,

@@ -1031,7 +1031,7 @@ test_technical_indicator_dependencies.py::test_indicator_dependency_boundaries</
 </section>
 <section id="remaining-stock-repairs">
 <h2>19 · 股票剩余三项修复：可直接编码的合同</h2>
-<p><strong>状态：设计已补齐，尚未开发。</strong>本节仅覆盖已确认的BOLL空值、合法空行情显示和股票日线按环境取数。a74374cc3已完成固定定义重复检查及取消输出字节上限，不再重做。普通日线仍一次返回七条MA、BOLL、MACD、KDJ共16个数值字段；每次最多500根，预热另计。股票分页、预取、九转/趋势通道迁移、分钟线、指数及其它产品功能不在本轮。原14～16节中的完整股票接入预案不发放本轮执行额度；其中固定PG加Lake、重读当页及不适用的新旧来源夹具不能继续用于本节。
+<p><strong>状态：三项代码已实现，后端限定验证通过；前端测试取错图表对象，按规则暂停，尚未完成验收。</strong>本节仅覆盖已确认的BOLL空值、合法空行情显示和股票日线按环境取数。a74374cc3已完成固定定义重复检查及取消输出字节上限，不再重做。普通日线仍一次返回七条MA、BOLL、MACD、KDJ共16个数值字段；每次最多500根，预热另计。股票分页、预取、九转/趋势通道迁移、分钟线、指数及其它产品功能不在本轮。原14～16节中的完整股票接入预案不发放本轮执行额度；其中固定PG加Lake、重读当页及不适用的新旧来源夹具不能继续用于本节。
 </p>
 <h3 id="stock-repair-order">19.1 先后顺序与不变项</h3>
 <ol>
@@ -1091,7 +1091,7 @@ test_technical_indicator_dependencies.py::test_indicator_dependency_boundaries</
 <h4>19.4.3 StockDailyPriceSource的完整交接</h4>
 <p>create_locator(executor,requirement,*,read_context)仅使用已有rows确定target_start/target_end及R；读取requirement.history.warmup_rows得到B，B&gt;0才调用read_previous(target_start,B)一次。保留返回的W根前置数据，W不足B就使用实际数据，不补0；标准时间列为trade_date/period_start/period_end/source_as_of，均为该行真实DATE，价格列仅high/low/close，三列来自对应qfq字段。price_unit=CNY、volume_unit=lot、amount_unit=thousand_CNY、timezone=Asia/Shanghai。</p>
 <p>SourceDescription.source_id分别为dg_silver_stock_factor_pro或prod_core_serving_equity_factor_pro；contract_version为本适配的1.0.0，input_adjustment=qfq，basis_rule/basis_date/basis_value均为None，period_label_rule=trade_date，history_origin_rule=available_stock_factor_pro_rows，supports_partial_period=False，available_through为本次实际最后日期；不伪造整库历史起点。selection为实际R/W及首末日期，reached_source_origin在实际W&lt;B时为真，B=0时不额外探测起点。标准投影严格与内核需求相同，不带未请求的open/volume/amount。未由内核直接读取文件，price_paths/row_groups为空；read_context只登记实际R和W各一次，不冒充知道上游物理I/O。</p>
-<p>open只按时间正序拼接前置数据和当页数据并生成标准SourceBatch，next_batch遵守8192合批，selected_rows为本次新交付行数。prepare_basis/prepare_factors在此qfq同口径来源上不应调用；若调用，沿SourceUnsupportedError，不静默再读复权因子。来源/流关闭时清前置和当页投影引用，结果对象独立于Reader、Session及DuckDB连接。</p>
+<p>定位对象仅保存SourceDescription，close不释放来源价格；现有PriceInputSession.prepare会先关闭定位对象、再调用open，因此不能在定位关闭时清rows或预热。open按时间正序拼接前置数据和当页数据并生成标准SourceBatch，next_batch遵守8192合批，selected_rows为本次新交付行数。实际流关闭才清来源持有的价格与回调引用；未能打开流的失败路径由本请求工作函数及已有错误帧清理释放引用。prepare_basis/prepare_factors在此qfq同口径来源上不应调用；若调用，沿SourceUnsupportedError，不静默再读复权因子。来源/流关闭时清前置和当页投影引用，结果对象独立于Reader、Session及DuckDB连接。</p>
 <h3 id="stock-repair-work">19.5 一次请求的固定执行顺序与释放</h3>
 <pre>def work(self, request, control):
     reader = snapshot = price_source = result = dto = payload = None
@@ -1194,6 +1194,20 @@ test_technical_indicator_dependencies.py::test_indicator_dependency_boundaries</
 <p>本节只安排上述新增/受影响路径，不重跑已经通过的33项、D1—D4、第四批或旧P/R全套。临时来源每种环境仅准备一次并共享；不补500天真实行情或全市场数据。请求的逻辑价格量为实际R+W，其中W≤B；候选文件、物理解压量和耗时另按实际记录，未知就明确未知，不用“根数乘倍率加余量”。失败尝试、清理和获准续做不清零；只保留失败/未执行节点续做，已通过不重跑。</p>
 <p>正式DG当前目录不可访问，后续真实只读验证须等来源可用，不创建或修复DG数据来凑验收。Prod复用既有字段和只读查询依据，本轮不恢复已暂停的长延迟重试或全量比对。受控测试、真实来源、页面人工确认分别报告。出现源合同与本节不符、实现需要改公开字段或超范围时停止并说明完整上下文，不能偷偷换源、放宽断言、加配置或以空成功兜底。</p>
 <p><strong>2026-11-12 LLD补齐轮记录：</strong>已对照当前股票接口、查询、App后台、来源合同及前端消费者补齐上述三项设计，并同步原方案第12节及根LLD索引。已删除固定PG后重读Lake的work示例，修正取数、debug来源和BOLL与分页绑定的旧要求。仓库文档完整性、三份HTML结构/唯一ID/216个本地链接与锚点、work示例语法及差异格式检查通过。该轮仅修改文档，未编码、未运行业务测试、未操作Figma、未读取正式行情或安装套件；文档由ea77b475a提交。之后获准的Figma补稿结果单独记录在19.6，不把设计稿完成写成三项修复已落地。</p>
+<h3 id="stock-repair-execution-20261112">19.8 本次获准开发与固定验证范围</h3>
+<p>管理员已确认补稿并批准完成三项修复。开工已通过CodeGraph explore/impact核对原股票查询、后台、prepare/assemble和StockCandlePoint消费者；不改其它线程的脏文件、指标公式、配置或原page-init。先按19.4～19.5完成两项来源适配与全部内部签名迁移，再按19.2～19.3修前端；运行前读取具体函数及祖先fixture，首个非预期验证错误停止，不自动重跑。</p>
+<p>新增test_stock_daily_source_repair.py固定为：test_environment_source_and_target_reuse（DG/PG各一次，返回最后2日、19日实际预热）、test_full_short_history_preserves_nulls（DG返回21日）、test_dg_skips_unrelated_file（返回1日、20日实际预热）、test_empty_and_missing_source（合法空与目录缺失，不计算）。四次非空请求各21根，合计84根逻辑计算输入；临时DG来源22行、临时PG来源21行只准备一次。文件真实schema从生产者完整字段定义核对，不导入生产资产或修改DG。实际定位/文件/SQL处理量与耗时如实记录，不制造倍率上限；单请求沿原6秒工作、8秒含清理目标。失败及续做费用累加，已通过节点不重跑，不运行历史整组或Prod重试。</p>
+<p>前端只运行本次BOLL转换与空白线、合法空（quote有/无）、原正常和失败的指定用例，再做现有typecheck/build。所有输出及构建暂存放/private/tmp。正式DG不可访问的限制不以临时输入冒充通过；本轮不自动提交、部署或重启服务。</p>
+<h3 id="stock-repair-validation-20261112">19.9 本轮实现与首次验证记录（暂停）</h3>
+<p>已按19.2～19.5实现StockDailyLakeReader、StockDailyPriceSource、严格before的PG预热、原prepare/assemble必填参数及所有内部消费者；lifespan只取一次Settings，本请求复用当页并仅补预热。BOLL三个内部字段与转换保留NULL；页面加入合法empty并避免空行情发起图层请求。API、page-init的29列、公式SQL、分钟和指数均未修改。本次按管理员要求提交现有代码与暂停记录；前端结果未验完，不能写成三项修复全部完成。</p>
+<p>静态审查已明确定位对象的真实生命周期：PriceInputSession.prepare在打开输入流前就关闭定位对象，定位close必须无价格释放动作；价格及回调由实际流关闭时释放。StockDailyPriceSource已依此实现，本轮没有改变内核通用prepare顺序。</p>
+<p>本地共享包只新增sources/stock_daily.py。构建在/private/tmp的包副本中完成，使用本机已有缓存的setuptools，不下载或安装构建依赖。首次uv命令因默认缓存目录写权限被拒绝，尚未更新包；之后改用本任务/private/tmp缓存，离线、no-deps、仅重装goldenshare-technical-indicators0.1.0成功。安装后全部Python/SQL逐文件与源码一致，实际从项目.venv加载；DuckDB1.5.5、PyArrow23.0.1未变。</p>
+<table><thead><tr><th>节点</th><th>结果与实际费用</th><th>通过边界</th></tr></thead><tbody>
+<tr><td>19.8四个后台函数，环境参数展开为5项</td><td>5项通过，2.29秒。四次非空计算各21根，共84根；SQL逻辑处理量913＋913＋932＋912＝3670行，非独立K线数量。DG扫描21＋21＋22＝64文件次，每个请求内未重复打开当页文件；6个控制替身、0真实Control。临时股票日线技术因子准备DG22行、PG21行，日历22行、身份1行，只创建三张隔离SQLite表。</td><td>真实路由、DTO、查询和指标SQL；仅PG资源与停止控制用替身。DG/PG选源、当页复用、start边界之外的预热、BOLL前19NULL、空与缺目录区别均通过；不代表正式DG或Prod网络已验。</td></tr>
+<tr><td>前端转换的原指定用例（增加BOLL断言）</td><td>通过，约4毫秒；只用原字面输入，没有正式请求。</td><td>NULL保留、正常数值及真实0保持。</td></tr>
+<tr><td>StockChartWorkspace的空白线用例</td><td>失败，约48毫秒；前端程序2.16秒，以bail=1停止。切换BOLL后，新增断言仍取chartMock.charts[0]，即旧MA图表。当前共享组件在非分页模式会随mainLines变化移除旧图表再创建新图表；原正常测试已用charts.slice(-4)取当前图表。读到MA数值不能作为BOLL实现错误的证据。</td><td>这是新增测试的对象引用错误，尚未修改或重跑；不能删断言或改预期迎合它。页面空态两种quote、原正常与失败共4项未执行，类型检查和构建也未执行。</td></tr>
+</tbody></table>
+<p><strong>最小续做建议：</strong>只在失败测试中取得切换后当前BOLL主图，数值和十字线断言都使用它；保留空白日期、正常轨道值及“--”断言，不改产品图表。获准后仅执行该失败用例与4项未执行页面检查，然后现有typecheck与Vite构建（缓存、编译产物和报告均放/private/tmp）。已通过后台5项与转换用例不重跑，不安装依赖或恢复旧整组。失败证据保留在/private/tmp/goldenshare_stock_daily_repairs_nzewjb13/backend.xml与frontend.json；结论已写入本节。正式DG不可访问、Prod重试暂停仍维持；本次只提交，不部署或重启服务。</p>
 </section>
 <footer>股票详情页日线技术指标正式接入 · LLD v1 · 本文与原方案共同使用。源核验、代码实现、隔离验收、正式API/页面验收及部署分别记录，不互相代替。</footer>
 </main></body></html>

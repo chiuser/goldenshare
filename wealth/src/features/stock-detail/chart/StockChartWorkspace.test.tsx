@@ -233,6 +233,9 @@ describe("StockChartWorkspace shared adapter", () => {
     candles.forEach((candle, index) => {
       candle.ma5 = index < 4 ? null : 17 + index / 100;
       candle.ma250 = null;
+      candle.bollUpper = index < 8 ? null : 20;
+      candle.bollMiddle = index < 8 ? null : 18;
+      candle.bollLower = index < 8 ? null : 16;
     });
 
     render(
@@ -270,6 +273,17 @@ describe("StockChartWorkspace shared adapter", () => {
     const klinePanel = screen.getByLabelText("K线主图");
     expect(within(klinePanel).getByText("MA5:--")).toBeInTheDocument();
     expect(within(klinePanel).queryByText("MA5:0.00")).not.toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText("主图指标切换"), { target: { value: "BOLL" } });
+    const bollSeries = chartMock.charts[0].series.slice(-3);
+    for (const [index, value] of [20, 18, 16].entries()) {
+      const data = bollSeries[index].setData.mock.calls.at(-1)[0];
+      expect(data.slice(0, 8)).toEqual(candles.slice(0, 8).map(candle => ({ time: candle.time })));
+      expect(data.slice(8)).toEqual(candles.slice(8).map(candle => ({ time: candle.time, value })));
+    }
+    act(() => chartMock.charts[0].crosshairHandlers[0]({ point: { x: 100, y: 40 }, time: candles[0]!.time }));
+    expect(within(klinePanel).getByText("UPPER:--")).toBeInTheDocument();
+    expect(within(klinePanel).queryByText("UPPER:0.00")).not.toBeInTheDocument();
   });
 });
 

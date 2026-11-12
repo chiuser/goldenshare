@@ -62,7 +62,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
   const [minuteError, setMinuteError] = useState("");
   const minuteCacheRef = useRef(new Map<StockMinuteFrequency, StockMinuteChartViewModel>());
   const minuteControllerRef = useRef<AbortController | null>(null);
-  const [loadState, setLoadState] = useState<"loading" | "ready" | "error">("loading");
+  const [loadState, setLoadState] = useState<"loading" | "ready" | "empty" | "error">("loading");
   const [errorMessage, setErrorMessage] = useState("");
   const [toast, setToast] = useState("");
   const [ruleEntry, setRuleEntry] = useState<"PLAN" | "ALERT" | null>(null);
@@ -71,7 +71,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
   const watchlist = useStockWatchlistGroups(tsCode, activePageInit?.capabilities.userActions.watchlist === true);
   useEffect(() => { if (watchlist.error) setToast(watchlist.error); }, [watchlist.error]);
   const trendChannel = useStockTrendChannel({
-    enabled: activePageInit?.capabilities.supportsTrendChannel ?? false,
+    enabled: loadState === "ready" && viewModel !== null && (activePageInit?.capabilities.supportsTrendChannel ?? false),
     endDate: activePageInit?.pageContext.tradeDate ?? null,
     tsCode,
   });
@@ -81,7 +81,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
     load: loadStockNineTurnSeries,
     subjectType: "stock",
     supportedPeriods: activePageInit?.capabilities.nineTurnPeriods ?? EMPTY_NINE_TURN_PERIODS,
-    supportsNineTurn: activePageInit?.capabilities.supportsNineTurn ?? false,
+    supportsNineTurn: loadState === "ready" && viewModel !== null && (activePageInit?.capabilities.supportsNineTurn ?? false),
     tsCode,
   });
   const activeNineTurnPeriod = nineTurnPeriodFromStockPeriod(activePeriod);
@@ -118,6 +118,7 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
     async function loadStockDetail() {
       try {
         const pageInit = await fetchStockDetailPageInit({ tsCode, tradeDate, debug }, { signal: controller.signal });
+        if (controller.signal.aborted) return;
         const kline = await fetchStockDetailKline(
           {
             tsCode,
@@ -129,6 +130,14 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
           },
           { signal: controller.signal },
         );
+        if (controller.signal.aborted) return;
+        if (kline.bars.length === 0) {
+          setPageInit(pageInit);
+          setViewModel(null);
+          setActivePeriod("day");
+          setLoadState("empty");
+          return;
+        }
         const nextViewModel = buildStockDetailViewModel(pageInit, kline);
         setPageInit(pageInit);
         setViewModel(nextViewModel);
@@ -226,9 +235,9 @@ export function StockDetailPage({ tsCode }: StockDetailPageProps) {
           onTickerSelect={openIndexDetail}
           tickers={tickers}
         />
-        <section className="stock-detail-state-panel" aria-label={loadState === "loading" ? "股票详情加载中" : "股票详情加载失败"}>
-          <div className="state-title">{loadState === "loading" ? "正在加载股票详情" : "股票详情加载失败"}</div>
-          <div className="state-detail">{loadState === "loading" ? "正在读取真实行情数据，请稍候。" : errorMessage}</div>
+        <section className="stock-detail-state-panel" aria-label={loadState === "empty" ? "暂无行情信息" : loadState === "loading" ? "股票详情加载中" : "股票详情加载失败"}>
+          <div className="state-title">{loadState === "empty" ? "暂无行情信息" : loadState === "loading" ? "正在加载股票详情" : "股票详情加载失败"}</div>
+          {loadState !== "empty" && <div className="state-detail">{loadState === "loading" ? "正在读取真实行情数据，请稍候。" : errorMessage}</div>}
         </section>
         <StockDetailToast message={toast} />
       </div>

@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable, Mapping, Sequence
 from datetime import date
+from typing import Any
 
 from sqlalchemy.orm import Session
 
@@ -115,16 +117,14 @@ class StockDetailQueryService:
 
     def prepare_kline_input(
         self, session: Session, request: StockDailyKlineRequest,
+        *, load_rows: Callable[[str, date, date | None, int], Sequence[Mapping[str, Any]]],
     ) -> StockDailyKlineInput:
         context = self._context_query.resolve_context(
             session, market="CN_A", requested_trade_date=request.end_date or request.trade_date,
         )
         security = self._load_security_or_raise(session, ts_code=request.ts_code)
         query_end_date = request.end_date or context.trade_date
-        rows = self._query.load_kline_rows(
-            session, ts_code=request.ts_code, end_date=query_end_date,
-            start_date=request.start_date, limit=request.limit,
-        )
+        rows = load_rows(request.ts_code, query_end_date, request.start_date, request.limit)
         # Strict indexing distinguishes a missing column from a legitimate SQL NULL.
         bars = tuple(StockDailyKlineRow(
             trade_date=row["trade_date"],

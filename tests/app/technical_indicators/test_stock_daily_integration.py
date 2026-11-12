@@ -12,6 +12,7 @@ import json
 import threading
 from time import monotonic
 import weakref
+from src.foundation.config.settings import Settings
 
 import anyio
 import pytest
@@ -286,7 +287,9 @@ def test_cancel_and_cleanup_release_once(monkeypatch, record_property):
     with controlled_controls(monkeypatch, record_property) as (create, controls):
         async def scenario():
             rt = make_runtime()
-            backend = wiring.StockDailyKlineAppBackend(rt, lambda: object())
+            backend = wiring.StockDailyKlineAppBackend(
+                rt, lambda: object(), settings=Settings(_env_file=None, APP_ENV="prod"),
+            )
             source = _source((_row(date(2026, 1, 5)),))
             started, stopped = anyio.Event(), anyio.Event()
             gate = threading.Event()
@@ -318,7 +321,7 @@ def test_cancel_and_cleanup_release_once(monkeypatch, record_property):
                     if mode == "close_failure":
                         raise ResourceCleanupError("Controlled close failure")
 
-            def prepare(session, request):
+            def prepare(session, request, *, load_rows):
                 assert threading.get_ident() != threading.main_thread().ident
                 events.append(("prepare", threading.get_ident()))
                 return replace(source, request=request)
@@ -446,7 +449,7 @@ def test_fixed_stock_definitions_checked_once_at_startup(monkeypatch):
 
     monkeypatch.setattr(registry, "resolve", resolve_once)
     monkeypatch.setattr(CalculationDefinition, "validate_parameters", validate_once)
-    backend = wiring.StockDailyKlineAppBackend(rt)
+    backend = wiring.StockDailyKlineAppBackend(rt, settings=Settings(_env_file=None, APP_ENV="prod"))
     expected = ["ma"] * 7 + ["boll", "macd", "kdj"]
     assert resolved == expected and validated == []
     request = StockDailyKlineRequest("600000.SH", "day", "forward", None, None, None, 500, False)
@@ -469,7 +472,9 @@ def test_fixed_stock_definitions_checked_once_at_startup(monkeypatch):
                     replace(resolve("ma"), supported_periods=("week",))):
         bad_registry = SimpleNamespace(resolve=lambda calculation_id: changed)
         with pytest.raises(CalculationUnsupportedError, match="definition changed"):
-            wiring.StockDailyKlineAppBackend(SimpleNamespace(registry=bad_registry))
+            wiring.StockDailyKlineAppBackend(
+                SimpleNamespace(registry=bad_registry), settings=Settings(_env_file=None, APP_ENV="prod"),
+            )
 
 
 def test_database_session_ownership_and_timeout(monkeypatch, record_property):
@@ -620,10 +625,10 @@ def test_lifespan_and_other_paths(monkeypatch, record_property):
             counts["runtime"] += 1
             return Runtime()
         real_backend = wiring.StockDailyKlineAppBackend
-        def backend(*args):
+        def backend(*args, **kwargs):
             if mode == "backend":
                 raise ValueError("Controlled backend initialization failure")
-            return real_backend(*args)
+            return real_backend(*args, **kwargs)
         monkeypatch.setattr(wiring, "create_runtime", create)
         monkeypatch.setattr(wiring, "StockDailyKlineAppBackend", backend)
         wiring.install_stock_daily_technical_indicators(app)
@@ -632,7 +637,8 @@ def test_lifespan_and_other_paths(monkeypatch, record_property):
             primary = ValueError("Controlled lifespan body failure")
             try:
                 async with wiring.stock_daily_technical_indicators_lifespan(
-                    app, settings_provider=lambda: object(), session_factory_provider=lambda: object(),
+                    app, settings_provider=lambda: Settings(_env_file=None, APP_ENV="prod"),
+                    session_factory_provider=lambda: object(),
                 ):
                     assert app.state.technical_indicator_runtime is app.state.stock_daily_kline_backend.runtime
                     if mode == "body_close":

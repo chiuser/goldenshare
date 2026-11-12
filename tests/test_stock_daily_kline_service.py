@@ -134,6 +134,7 @@ def test_mapping_and_legal_nulls(monkeypatch):
     from tests.stock_daily_kline_helpers import result_for
 
     service = StockDailyKlineService()
+    source_tables = ("core_serving.security_serving", "core_serving.equity_factor_pro")
     source = _source((_row(date(2026, 1, 5)), _row(date(2026, 1, 6))), _request(debug=True))
     order = []
     query = service._query
@@ -145,7 +146,10 @@ def test_mapping_and_legal_nulls(monkeypatch):
     rows[0]["close_qfq"] = Decimal("10.00000000001")
     monkeypatch.setattr(query._query, "load_kline_rows", lambda session, **kw: (
         order.append(("bars", kw)) or rows))
-    prepared = service.prepare(object(), source.request)
+    load_rows = lambda code, end, start, count: query._query.load_kline_rows(
+        object(), ts_code=code, end_date=end, start_date=start, limit=count,
+    )
+    prepared = service.prepare(object(), source.request, load_rows=load_rows)
     assert [name for name, _ in order] == ["context", "security", "bars"]
     assert order[-1][1] == {"ts_code": "600000.SH", "end_date": date(2026, 1, 9),
                             "start_date": None, "limit": 300}
@@ -155,13 +159,13 @@ def test_mapping_and_legal_nulls(monkeypatch):
     assert prepared.bars[0].close_qfq == 10.00000000001
     del rows[0]["amount"]
     with pytest.raises(KeyError, match="amount"):
-        service.prepare(object(), source.request)
+        service.prepare(object(), source.request, load_rows=load_rows)
 
     result = result_for(source.ts_code, (date(2026, 1, 5), date(2026, 1, 6)), {
         ("ma250", "value"): None, ("boll", "middle"): None,
         ("macd", "hist"): 0.3333333333333, ("kdj", "j"): 77.7,
     })
-    payload = service.assemble(source, result).model_dump(mode="json")
+    payload = service.assemble(source, result, source_tables=source_tables).model_dump(mode="json")
     assert payload["meta"] == {"count": 2, "limit": 300, "startDate": None, "endDate": "2026-01-09"}
     assert payload["dataStatus"]["status"] == "DELAYED"
     bar = payload["bars"][0]
@@ -170,13 +174,12 @@ def test_mapping_and_legal_nulls(monkeypatch):
     assert bar["factors"]["ma"]["ma250"] is None and bar["factors"]["boll"]["middle"] is None
     assert bar["factors"]["macd"]["macd"] == 0.3333333333
     assert bar["factors"]["kdj"]["j"] == 77.7
-    assert payload["debugInfo"]["sourceTables"] == ["core_serving.security_serving", "core_serving.equity_factor_pro",
-                                                     "lake.silver.quote.stock_daily", "lake.silver.quote.adj_factor"]
+    assert payload["debugInfo"]["sourceTables"] == list(source_tables)
     assert "msg" not in payload
-    empty = service.assemble(replace(source, bars=()), None).model_dump(mode="json")
+    empty = service.assemble(replace(source, bars=()), None, source_tables=source_tables).model_dump(mode="json")
     assert empty["bars"] == [] and empty["meta"]["count"] == 0 and empty["dataStatus"]["status"] == "EMPTY"
     assert len(empty["debugInfo"]["sourceTables"]) == 2
-    assert service.assemble(replace(source, request=_request()), result).debugInfo is None
+    assert service.assemble(replace(source, request=_request()), result, source_tables=source_tables).debugInfo is None
 
 
 def test_result_contract_errors():
@@ -187,7 +190,8 @@ def test_result_contract_errors():
     source = _source((_row(date(2026, 1, 5)), _row(date(2026, 1, 6))))
     result = result_for(source.ts_code, (date(2026, 1, 5), date(2026, 1, 6)))
     service = StockDailyKlineService()
-    assert len(service.assemble(source, result).bars) == 2
+    source_tables = ("core_serving.security_serving", "core_serving.equity_factor_pro")
+    assert len(service.assemble(source, result, source_tables=source_tables).bars) == 2
     calculations = result.calculations
     missing_field = replace(calculations[-1], fields=calculations[-1].fields[:-1])
     wrong_version = replace(calculations[-1], algorithm_version="other")
@@ -199,6 +203,6 @@ def test_result_contract_errors():
         (replace(result, calculations=calculations[:-1] + (missing_value,)), "unexpected_null"),
     ):
         with pytest.raises(OutputContractError) as caught:
-            service.assemble(source, broken)
+            service.assemble(source, broken, source_tables=source_tables)
         assert caught.value.reason == reason and caught.value.stage == "stock_daily_assemble"
         assert not any(isinstance(value, type(result)) for value in caught.value.diagnostics.values())
