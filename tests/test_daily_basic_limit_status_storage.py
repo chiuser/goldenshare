@@ -105,7 +105,7 @@ def test_models_add_only_nullable_integer_status(model):
     assert column.nullable and not column.primary_key
     assert column.default is None and column.server_default is None
     assert tuple(c.name for c in model.__table__.primary_key) == ("ts_code", "trade_date")
-    assert get_dataset_definition("daily_basic").source.source_fields == LEGACY_FIELDS
+    assert get_dataset_definition("daily_basic").source.source_fields == (*LEGACY_FIELDS, "limit_status")
 
 
 def test_migration_attaches_to_verified_head():

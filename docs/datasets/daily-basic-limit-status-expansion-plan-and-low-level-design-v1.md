@@ -2,7 +2,7 @@
 
 更新时间：2026-11-12。
 
-状态：**§12 两个现有修复已提交 `e393aba66`，§13 的接口验证及当时设计已提交 `adee47129`。简化取舍见 §14，开工前复核见 §15。第一阶段的两表模型、新迁移文件和独立指定列更新方法已完成开发、隔离 PostgreSQL 验证及开发后审计，结果见 §16。完整 19 字段日更、历史补录和 DG 替换能力尚未开发，未执行正式迁移或数据写入。** 管理员已认可“Prod 只补新增列，DG 从补齐后的 Prod 重新 bootstrap”的方向，并要求新增能力不得影响既有能力。本文不是生产执行批准。
+状态：**§12 两个现有修复已提交 `e393aba66`，§13 的接口验证及当时设计已提交 `adee47129`。简化取舍见 §14，开工前复核见 §15。第一阶段已提交 `9fa2d3d6f`，验收见 §16；第二阶段完整 19 字段日更、严格校验和错误提示已完成开发、隔离验证及开发后审计，结果见 §17。历史补录和 DG 替换能力尚未开发，未部署、执行正式迁移或正式数据写入。** 管理员已认可“Prod 只补新增列，DG 从补齐后的 Prod 重新 bootstrap”的方向，并要求新增能力不得影响既有能力。本文不是生产执行批准。
 
 本文是本次扩充的唯一专项主文档，同时承接需求、方案、代码设计、性能依据和后续执行结果。原 [DG 接入方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-basic-onboarding-plan-v1.md)及 [DG 接入 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stock-daily-basic-onboarding-low-level-design-v1.md)保留原 18 字段实现与历史验收；本专项获评审后，在原文增加本专项入口及适用边界，不复制本次方案或改写旧验收。
 
@@ -60,7 +60,7 @@ DG 仅有 `raw_tushare_daily_basic`，没有本数据集的 Silver。正式路�
 
 ### 2.3 源端证据与覆盖局限
 
-官方接口为 [Tushare 每日指标，doc_id=32](https://tushare.pro/document/2?doc_id=32)。本地 [源资料](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/行情数据/0032_每日指标.md)是 2026-04-19 保存的旧版本，仍列 18 字段；实施阶段更新同一路径并保持 `docs_index.csv` 的 doc_id、路径不变。
+官方接口为 [Tushare 每日指标，doc_id=32](https://tushare.pro/document/2?doc_id=32)。本地 [源资料](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/行情数据/0032_每日指标.md)最初保存于 2026-04-19；第二阶段已在原路径补齐收盘涨跌状态、默认返回说明及更新的公式说明，核验日期为 2026-11-12，`docs_index.csv` 的 doc_id、路径不变。以下保留首次调研证据，本轮新增验证见 §17.4。
 
 | 请求 | 结果 | 能证明的范围 |
 |---|---|---|
@@ -514,7 +514,7 @@ DG 沿用现有 DuckDB 16GB/4 线程资源配置，不把它解释为本次实�
 
 ## 9. 测试与验收矩阵
 
-下列是完整扩充所需门禁，19 字段扩充均未实施；此前两个修复的实际状态单独记录在 §12，不预填其他项通过。真实样本、schema 与预期分别来自 §2/§4；预期值不得调用待测 helper 生成。测试覆盖本次实际业务路径和明确禁止项，不把绕过唯一入口、违反维护前提的任意故障注入作为新增开发要求。
+下列是完整扩充所需门禁；第一阶段及第二阶段的实际结果见 §16、§17，历史补录与 DG 门禁仍待实施，不预填其他项通过。此前两个修复的实际状态单独记录在 §12。真实样本、schema 与预期分别来自 §2/§4；预期值不得调用待测 helper 生成。测试覆盖本次实际业务路径和明确禁止项，不把绕过唯一入口、违反维护前提的任意故障注入作为新增开发要求。
 
 | 测试组 | 正向与反向要求 | 拟落点/现有回归 |
 |---|---|---|
@@ -540,7 +540,7 @@ DG 沿用现有 DuckDB 16GB/4 线程资源配置，不把它解释为本次实�
 
 ## 10. 分阶段实施、读写边界与完成条件
 
-所有阶段在当前 `dev-interface` 工作区推进，保留其他未提交改动，不创建分支/worktree、不自行提交或发布。此前两个修复及接口验证已提交；2026-11-12 经管理员批准完成第一阶段开发与隔离验证，结果见 §16，未进入后续阶段或执行正式写入。
+所有阶段在当前 `dev-interface` 工作区推进，保留其他未提交改动，不创建分支/worktree、不自行提交或发布。此前两个修复、接口验证及第一阶段已获准提交；2026-11-12 经管理员批准完成第二阶段开发与隔离验证，结果见 §17，未进入第三阶段或执行正式写入。
 
 ### 10.1 五个开发阶段
 
@@ -578,7 +578,7 @@ Prod 在 P3 完成后冻结历史窗口，随后 DG 才导出；其他日期正�
 |---|---|
 | 管理员确认的方向 | Prod 只补新增列；DG 从补齐后的 Prod 重新 bootstrap；新增能力不影响旧能力 |
 | 只读事实与源样本 | §2 已记录；统计、检查数和版本执行前刷新 |
-| 扩充代码、数据库、Lake、事件变更 | 第一阶段模型、迁移文件和指定列更新已开发并隔离验收，见 §16；完整日更、补录及 DG 尚未开发；未执行正式资源写入；两个现有修复见 §12 |
+| 扩充代码、数据库、Lake、事件变更 | 第一阶段见 §16；第二阶段完整日更、严格校验和错误提示已开发并隔离验收，见 §17；历史补录及 DG 尚未开发；未执行正式资源写入；两个现有修复见 §12 |
 | 性能决定 | 管理员决定不另做专项测量，后半夜平峰执行；未知耗时如实保留，现有执行限制不变 |
 | 已确认修订 | 校验错误任务失败并给代码/名称/数值原因；文本 SQL 保持旧列；DG 旧身份冻结、重新规划续跑及日期锁 |
 | 后续证据落点 | 本文对应阶段回填最终代码位置、命令/范围、测试、源/归一化/拒绝/写入/目标计数、性能与恢复验收；不另存第二份主方案 |
@@ -813,3 +813,74 @@ SQL 形态为 `UPDATE <表> AS target SET <指定列>=incoming.<指定列> FROM 
 开工前用到 CodeGraph 的 explore/impact，覆盖 BaseDAO、继承 DAO、旧 writer、调用方与跨层边界；审计时补充直接源码及消费者测试核对，并在修改后执行 `codegraph sync` 和 status，索引正常。没有需要人工补判的第一阶段调用边界。后续仍按 §5.1、§10.2 协调完整发布：正式数据库先迁移，模型、19 字段请求和状态校验一起部署，不能单独部署本阶段模型。
 
 第一阶段至此完成。本轮只修改 §16.2 限定文件并回填原文档，保留工作区其他改动，没有提交、部署或开展第二阶段开发。
+
+## 17. 第二阶段实施与验收（2026-11-12）
+
+### 17.1 本步目标、范围与开工依据
+
+第一阶段已提交 `9fa2d3d6f`。管理员现已批准按 §10.1 第二阶段完成 Prod 日更与错误提示，并在开发后重新审计。本步落实 §4、§6.1、§6.6；不实现第三阶段 PLAN/APPLY、历史补录服务、有界传输新合同或动作注册，不修改 DG，不运行正式迁移、部署或正式数据任务。
+
+开工前再次用 CodeGraph explore/node/impact 核对 normalizer→executor→writer、dispatcher 的普通维护/工作流/已注册维护三条异常路径及 worker。当前每日指标仍为 18 字段、无行转换、record_rejections、raw_core_upsert、逐 unit 提交；全部现行定义中 raw_core_upsert 与 fail_unit_on_any_rejection 的组合仍为空。已有转换只转换存在的日期/小数字段，不补缺列；状态不在 decimal_fields，因此能保留原生类型。源码中现有名称 DAO 没有批量名称查询，错误分支需要一次按样本代码限定的查询。
+
+此前消费者核验继续适用，并在本步回归：source_fields 由 resolver/source client 传到每页 connector；row_transform_name 经 row_transforms.__all__ 进入 normalizer；reject_policy 在本步新增的 executor 组合中生效。手动表单、catalog、工作流定义、freshness、数据卡片、snapshot、日期/对象完整性、自动日期策略及前端时间控件继续消费原 date_model、input_model 和存储事实，不改变其事实字段。榜单、自选、Quote 的旧读取投影与返回不改。
+
+| 编号 | 本步硬要求与实现位置 | 正向和反向验收 |
+|---|---|---|
+| S2-01 | market_equity.py 的完整字段清单追加状态；将同一清单提为本模块常量供 Definition 和行检查复用，不再维护第二份清单 | 独立字面 19 字段、所有分页 fields、原日期/过滤器/decimal_fields/表映射保持；缺任一业务列均拒绝，旧数值 NULL 仍允许 |
+| S2-02 | row_transforms.py 登记 daily_basic_limit_status 并加入 __all__；codebook.py 登记状态 reason 与源校验失败 error | 0～6 原生 int 通过；NULL、bool、字符串、小数、越界失败，message 有原值类型和具体原因；负估值及原 NULL 不误拦 |
+| S2-03 | executor.py 仅对严格策略与 raw_core_upsert 的组合，在 writer 前终止；只将源值校验错误统一为 normalize.source_validation_failed | 先提交 A，B 一条坏值时两表 writer 均不执行、C 不执行；已配置的日期/重复键错误保留原码和 cause；程序/连接异常不伪装成状态值错误；其他数据集部分拒绝保持原义 |
+| S2-04 | 新错误携带 failed_unit、全部拒绝计数/有界样本及 committed_progress；dispatcher/worker 只为该码保留真实已提交量 | A 提交后 B 失败、观察状态写失败、当前节点失败时数量不归零；失败日期的源/拒绝量不算已提交；普通旧错误及第一阶段旧维护回归不变 |
+| S2-05 | dispatcher 三种入口共用一个私有错误展示方法，复用现有 issue、详情 API/UI | 日期、股票代码/当前名称、字段、原值/类型/原因可读；无代码/名称缺失有明确提示；一次有界名称查询；错误 technical_payload 保存完整结构，不新增 API 字段 |
+| S2-06 | 工作流遇该码立即 failed，不服从 continue_on_error；当前节点失败、先前成功节点保持成功 | 已有成功步骤与允许继续均停止后续步骤；任务 unit_done 是成功步骤数，失败步骤的日期数量留在节点诊断；行数为前面步骤加本步骤已提交量一次 |
+| S2-07 | 源说明、通用模板与本专项同步；仅调整第一阶段“当前仍 18 字段”的阶段性断言 | 迁移夹具仍为真实旧 18 字段；新 19 字段正常写入用隔离 PostgreSQL 验收；原 DAO、业务读取和 Ops 入口回归保持 |
+
+### 17.2 具体实现与边界
+
+字段清单在现有 `market_equity.py` 中定义一次，Definition 和专用行检查共同引用；不新增跨工程 import、配置项或通用策略。行检查只判断完整列存在和状态值，不增加本数据集原来未启用的日期/重复键规则，不改变原日期、小数转换或主键。专用行检查抛现有 RowTransformReject；executor 在现有归一化后、raise_if_all_rejected/writer 前拒绝整个日期。正常日更仍使用原 bulk_upsert，第一阶段指定列方法不接入日更。
+
+新源校验异常的 details 保存 dataset_key、unit_id、trade_date、unit_total、rows_fetched、rows_rejected、rejected_reasons、rejected_samples、failed_unit；直接抛出的已知源校验错误另保存 original_error。_record_unit_exception 回滚当前未提交日期后，仅为新错误补充本次 _RunState 的 committed_progress：unit_done、rows_fetched/written/committed/rejected/deduplicated、原诊断及原因统计。未返回的失败日期不混入该累计。未知行转换、程序异常和连接错误继续使用既有错误路径。
+
+dispatcher 的名称展示方法只在三个异常分支 rollback 后调用、恢复进度和写 issue 之前执行。用现有 Session 的 begin_nested 包住一次 Security.ts_code/name 查询，以便名称查询失败时仅回滚该查询、保留原校验错误；不另建连接、线程、重试或名称缓存。SQLAlchemy 的 begin_nested 会先 flush，故调用顺序保证查询前没有待保存的进度/issue 变更。查询失败按 §6.6 显示名称未找到，不能盖掉源错误。三个分支只有该新增 error_code 改用详细提示，其余错误的代码、提示及收尾保持。
+
+普通维护恢复日期成功量；工作流分别累计成功步骤与本步骤已提交行数，失败步骤的日期数量放当前节点既有诊断，不把日期数写入工作流 unit_done。worker 对该码在 failed 终态保留旧观察值与异常返回数量的较大者，沿用既有当前节点收尾，不将全工作流数量复制给失败节点。
+
+本步文件清单：`src/foundation/datasets/definitions/market_equity.py`、`src/foundation/ingestion/row_transforms.py`、`codebook.py`、`executor.py`、`src/ops/runtime/task_run_dispatcher.py`、`worker.py`；新增 `tests/test_daily_basic_limit_status.py`、`tests/test_daily_basic_limit_status_postgres.py`、`tests/web/test_daily_basic_limit_status_runtime.py`，调整 `tests/test_daily_basic_limit_status_storage.py` 的阶段性字段断言；更新本文、`docs/templates/dataset-development-template.md` 和原 `0032_每日指标.md`。没有新的配置、动作、接口、表或迁移。
+
+### 17.3 验证资源、成本和独立审计方法
+
+沿用 §13 完整字段及分页证据；本轮已再次通过 MCP 获取 000001.SZ、20261110 的完整 19 字段一行，状态为原生 int 4、收盘价 11.86。该样本只是有界接入证据，不外推历史。正常请求数量、每页 6,000、原 SQL 批次和逐日期事务均不变；仅已有归一化循环追加列存在/状态检查。拒绝统计仍覆盖全部坏行，诊断仍复用每 reason 最多 3 个样本和单值文本 240 字符；错误展示仅查这批有限样本的名称一次。SAVEPOINT 的建立、释放或回滚不增加数据查询范围。没有专项耗时或峰值测量，不虚构新的预算、上限或性能保证。
+
+测试和临时审计只使用 `/private/tmp/daily-basic-stage2.*`；SQLite 使用独立内存资源，PostgreSQL 复用已安装套件和现有临时实例 helper，完成后停止清理，不连接已有数据库。按完整源样本经过真实 normalizer/writer 写入隔离两表，独立读回 19 字段；事务反例覆盖坏日期零写入及前日保留。再验证真实 dispatcher/worker/详情 API 的错误与进度，源网络层允许替身但不得把它称为真实联网验收。若复用现行项目 connector 做有界真实请求，只取上述一个代码和日期。
+
+先跑本步正反用例、第一阶段和原拒绝策略/Ops 回归，再跑 Definition/resolver、codebook、依赖边界和原应用消费者门禁。开发完成后另按 S2-01～07 审查最终差异、SQL/数据库结果、工作流计数和错误范围；实际结果回填本节，不因既有 295 项基线通过就宣称第二阶段完成。
+
+### 17.4 实现结果与实际验证
+
+本步已按 §17.2 清单落地。Definition 只改完整字段、行检查名称及拒绝策略三个事实；完整清单只在 market_equity.py 定义一次。normalizer、source client、request builder、writer、DAO、模型、迁移、动作目录和 API/schema 源码未改。普通维护、工作流及已注册维护动作共用 dispatcher 私有提示方法；后者只增加新错误的展示支持，没有提前注册第三阶段历史动作。
+
+| 验证 | 实际结果与范围 | 证据边界 |
+|---|---|---|
+| 新字段/归一化/执行单元 | `tests/test_daily_basic_limit_status.py`，47 项通过 | 独立源样本的完整 19 列、0～6、NULL/bool/字符串/小数/越界、全部缺列反例、负估值/旧 NULL、样本计数、全部分页 fields；前日已提交/次日坏行/后日停止；原日期/重复键错误保留 cause；程序及连接错误不改成状态值错误；其他数据集仍可按旧策略部分拒绝。网络与 writer 在该组中由替身隔离 |
+| 任务运行、工作流和详情 | `tests/web/test_daily_basic_limit_status_runtime.py`，13 项通过 | 真实 resolver/normalizer/writer/dispatcher/worker 与内存 SQLite；健康区间三日期四行成功，包含状态 0/6、数值变化和旧负值/NULL；坏日无双表写入、先前提交保留；观察失败仍保留数量；错误经原 view 和问题详情接口可读；名称缺失/查询失败及无代码提示。网络 fetch 是替身；工作流先前步骤用独立字面计数替代，不声称其他数据集的完整同步已验收 |
+| PostgreSQL 日更与名称查询 | `tests/test_daily_basic_limit_status_postgres.py`，2 项通过 | 原生 PostgreSQL 上使用真实 normalizer/writer：合法日保留，坏日和后日不写；人工约束使第二表失败时第一表同日回滚；不存在的名称表产生真实 SQL 错误后，SAVEPOINT 回滚、原错误和外层 Session 可用。约束与缺表仅存在于临时测试资源 |
+| 第一阶段回归 | 指定列/原 BaseDAO/分批 15 项；原存储验收 4 项，均通过 | 旧 18 字段迁移夹具、两表 upgrade/downgrade、原列/时间戳、主键/索引、指定列 0/幂等/事务仍通过；阶段性字段断言按已批准的新合同调整为完整 19 列 |
+| 原策略与 Ops 门禁 | Definition/resolver、normalizer/source client、进度、旧维护、依赖边界/runtime/codebook、TaskRun API 与手动入口，共 343 项通过 | 原消费者和运行语义的回归；普通工作流原 fail_fast/continue_on_error 的 partial_success 反例另在新任务链测试中直接验证 |
+| 业务读取 | 榜单、自选、Quote 原 API 测试 98 项通过 | 原字段、返回、排序和读取行为；使用既有隔离数据库 fixture，不是线上流量或浏览器验收 |
+| 静态检查 | 新增测试文件完整 Ruff 通过；变更 Python 文件错误规则通过；与开工前代码对照无新增 lint 提示；Definition lint、文档完整性及差异空白检查通过 | 存量样式提示不顺手清理；静态通过不代表生产操作验收 |
+
+去重共 522 项测试：47＋13＋2＋15＋4＋343＋98。综合合跑先通过 521 项，开发后审计补齐健康区间正例后，任务链测试文件 13 项通过；其中原有的 12 项不重复计数。没有跳过失败或修改旧业务预期来凑通过。
+
+真实接入另经现行项目 `DatasetSourceClient→TushareSourceConnector→TushareHttpClient` 完成一次逻辑请求：000001.SZ、20261110，完整 19 业务列，一行短页终止。与本轮 MCP 一行样本全部业务值一致。归一化一行、拒绝零行；将这份已下载响应交给真实 executor/writer，不再请求来源，隔离 PostgreSQL 原始表和服务表各新增一行，written/committed 均为 1，独立字面预期读回全部 19 值一致（状态 4、收盘价 11.8600）。这证明有界真实来源到隔离存储的接入，不证明 Prod 部署或全市场历史已执行。
+
+初次任务链测试错误地给股票基础信息使用日期区间，并假定 view 直接包含完整技术载荷；依据现行代码改用支持交易日期的其他工作流步骤，并从原问题详情接口验证完整结构，未修改产品接口。错误值长度反例说明见下节。正式数据库、正式 Lake、Dagster 事件均未读取或写入，没有安装依赖；临时 PostgreSQL 实例已停止，临时输入、缓存及日志在回填后清理。
+
+### 17.5 开发后的独立审计与阶段结论
+
+开发完成后重新审阅最终差异、当前调用链和测试证据，逐条对照 S2-01～07；不以用例数量代替实现审计。结论：**第二阶段符合本 LLD，未发现尚未解决、阻止本阶段验收的问题。**
+
+- **S2-01/02：** 对照开工前全部市场股票定义，除每日指标 source_fields、row_transform_name、reject_policy 三项外完全一致；同一清单供请求与行检查引用。状态不经 Decimal/int 强转或补值。审计发现原先将类型提示放在原值之后，长字符串会在已有 240 字符截断时丢掉类型；先用 300 字符错误输入证明失败，再仅调整提示顺序，反例通过，没有增加新限制。
+- **S2-03/04：** writer 调用前失败，已提交数量只取 _RunState；坏日数量留在 failed_unit/有界样本，不混入提交量。观察失败仍有业务提交与异常快照。原 DAO、writer、模型、迁移完全未改，旧方法没有迁移到指定列更新；已有行转换和不在本步范围的方法语法树保持一致。
+- **S2-05/06：** 三个异常分支均在 rollback 后、恢复观察状态/写 issue 前查名称；真实 PostgreSQL 错误证明不会污染外层事务。工作流测试的前两步骤合计读取 7、保存 5、拒绝 2，加本步骤已提交的 1 行后最终为 8/6/2；成功步骤数 2 与失败步骤已提交日期数 1 分别保存，没有重复加总或把全任务 6 行复制给失败节点。旧普通错误仍保留原 partial_success/继续策略。
+- **S2-07 与影响面：** 源资料和通用模板同步，旧 18 字段夹具保留；原应用 98 项回归通过。CodeGraph explore/node/impact 覆盖本步 executor、继承调用链及 dispatcher/worker、原消费者；修改后 sync/status 正常，直接代码审计补足字符串注册和测试关系。没有新增反向依赖、配置、线程、锁、恢复表或其他数据集特例。
+
+本轮只完成第二阶段，未部署或批准正式迁移；第三阶段历史补录和 DG 两阶段继续按原设计和授权边界推进。正式发布仍必须先迁移数据库，再配套发布模型、19 字段请求与严格校验；本次通过不能代替 §10.2 的正式执行验收。

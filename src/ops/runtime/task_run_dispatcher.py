@@ -24,6 +24,7 @@ from src.foundation.ingestion.run_errors import IngestionCanceledError
 from src.foundation.ingestion.service import DatasetMaintainService
 from src.foundation.ingestion.null_runtime import NullIngestionResultStore, NullRunRecorder
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.models.core_serving.security_serving import Security
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.services.dataset_action_request_adapter import dataset_action_trigger_source
 from src.ops.models.ops.task_run_issue import TaskRunIssue
@@ -218,15 +219,17 @@ class TaskRunDispatcher:
             return TaskRunDispatchOutcome(status="canceled", summary_message=issue.operator_message, issue_id=issue.id)
         except Exception as exc:
             session.rollback()
+            validation_message = self._source_validation_error_message(session, exc)
+            progress = exc.structured_error.details["committed_progress"] if validation_message else {}
             self._restore_index_period_raw_progress(task_run, exc)
             period_message = self._index_period_raw_error_message(exc)
             issue = self._record_issue(
                 session,
                 task_run=task_run,
                 node_id=node.id,
-                code=exc.structured_error.error_code if period_message else "ingestion_failed",
+                code=exc.structured_error.error_code if validation_message or period_message else "ingestion_failed",
                 title="任务处理失败",
-                operator_message=period_message or "任务处理过程中发生异常，需要查看技术诊断后决定是否重提。",
+                operator_message=validation_message or period_message or "任务处理过程中发生异常，需要查看技术诊断后决定是否重提。",
                 suggested_action=("查看失败阶段后，按原范围重试。" if period_message else
                                   "先确认已保存数据和失败位置，再决定是否缩小范围重新提交。"),
                 technical_message=str(exc),
@@ -237,13 +240,29 @@ class TaskRunDispatcher:
             node = session.get(TaskRunNode, node.id)
             if node is not None:
                 node.issue_id = issue.id
-                self._finish_node(node, status="failed")
+                self._finish_node(
+                    node, status="failed", rows_fetched=progress.get("rows_fetched"),
+                    rows_saved=progress.get("rows_committed"), rows_rejected=progress.get("rows_rejected"),
+                    rows_deduplicated=progress.get("rows_deduplicated"),
+                    ingestion_diagnostics=({**progress["ingestion_diagnostics"],
+                        "unit_done": progress["unit_done"], "unit_total": progress["unit_total"]} if progress else None),
+                )
+            if progress:
+                task_run.unit_done = max(task_run.unit_done, progress["unit_done"])
+                task_run.unit_failed = 1
+                task_run.progress_percent = max(task_run.progress_percent or 0,
+                    int((task_run.unit_done + 1) / task_run.unit_total * 100))
             session.commit()
             return TaskRunDispatchOutcome(
                 status="failed",
                 summary_message=issue.operator_message,
                 issue_id=issue.id,
                 status_reason_code=issue.code,
+                rows_fetched=progress.get("rows_fetched", 0), rows_saved=progress.get("rows_committed", 0),
+                rows_rejected=progress.get("rows_rejected", 0), rows_deduplicated=progress.get("rows_deduplicated", 0),
+                ingestion_diagnostics=progress.get("ingestion_diagnostics"),
+                rejected_reason_counts=progress.get("rejected_reason_counts"),
+                rejected_reason_samples=progress.get("rejected_reason_samples"),
             )
 
     def _dispatch_workflow(self, session: Session, task_run: TaskRun) -> TaskRunDispatchOutcome:
@@ -343,10 +362,12 @@ class TaskRunDispatcher:
                     break
             except Exception as exc:
                 session.rollback()
-                progress = getattr(exc, "index_period_raw_progress", None)
+                validation_message = self._source_validation_error_message(session, exc)
+                progress = (exc.structured_error.details["committed_progress"] if validation_message
+                            else getattr(exc, "index_period_raw_progress", None))
                 if progress:
                     total_fetched += progress["rows_fetched"]
-                    total_saved += progress["rows_saved"]
+                    total_saved += progress["rows_committed"] if validation_message else progress["rows_saved"]
                     total_rejected += progress["rows_rejected"]
                 was_canceled = isinstance(exc, IngestionCanceledError) and progress is not None
                 failed += 0 if was_canceled else 1
@@ -354,9 +375,10 @@ class TaskRunDispatcher:
                     session,
                     task_run=task_run,
                     node_id=node.id,
-                    code="ingestion_canceled" if was_canceled else "workflow_step_failed",
+                    code=("normalize.source_validation_failed" if validation_message else
+                          "ingestion_canceled" if was_canceled else "workflow_step_failed"),
                     title="工作流步骤失败",
-                    operator_message=(str(exc) if was_canceled else self._index_period_raw_error_message(exc))
+                    operator_message=validation_message or (str(exc) if was_canceled else self._index_period_raw_error_message(exc))
                     or f"{workflow_step.display_name} 处理失败。",
                     suggested_action="查看技术诊断，确认失败步骤后再决定是否重新提交。",
                     technical_message=str(exc),
@@ -370,9 +392,28 @@ class TaskRunDispatcher:
                     self._finish_node(
                         node, status="canceled" if was_canceled else "failed",
                         rows_fetched=progress["rows_fetched"] if progress else None,
-                        rows_saved=progress["rows_saved"] if progress else None,
+                        rows_saved=(progress["rows_committed"] if validation_message else progress["rows_saved"]) if progress else None,
                         rows_rejected=progress["rows_rejected"] if progress else None,
-                        ingestion_diagnostics=progress["ingestion_diagnostics"] if progress else None,
+                        ingestion_diagnostics=({**progress["ingestion_diagnostics"],
+                            "unit_done": progress["unit_done"], "unit_total": progress["unit_total"]}
+                            if validation_message else progress["ingestion_diagnostics"]) if progress else None,
+                    )
+                if validation_message:
+                    task_run.unit_total = len(workflow.steps)
+                    task_run.unit_done = completed
+                    task_run.unit_failed = failed
+                    task_run.progress_percent = int((completed + failed) / len(workflow.steps) * 100)
+                    self._merge_reason_counts(total_rejected_reason_counts, progress["rejected_reason_counts"])
+                    self._merge_reason_samples(total_rejected_reason_samples, progress["rejected_reason_samples"])
+                    session.commit()
+                    return TaskRunDispatchOutcome(
+                        status="failed", rows_fetched=total_fetched, rows_saved=total_saved,
+                        rows_rejected=total_rejected, rows_deduplicated=progress["rows_deduplicated"],
+                        ingestion_diagnostics=progress["ingestion_diagnostics"],
+                        rejected_reason_counts=total_rejected_reason_counts,
+                        rejected_reason_samples=total_rejected_reason_samples,
+                        summary_message=issue.operator_message, issue_id=issue.id,
+                        status_reason_code=issue.code,
                     )
                 session.commit()
                 if was_canceled:
@@ -823,7 +864,10 @@ class TaskRunDispatcher:
             )
         except Exception as exc:
             session.rollback()
+            validation_message = self._source_validation_error_message(session, exc)
             error_code = str(getattr(exc, "code", "") or "maintenance_executor_failed")
+            if validation_message:
+                error_code = exc.structured_error.error_code
             if action.execution_config.get("execution_style") == "audit_then_apply":
                 suggested_action = (
                     "查看输入审计问题；由上游修复来源后，重新提交同一日期范围。"
@@ -838,11 +882,12 @@ class TaskRunDispatcher:
                 node_id=current_node_id,
                 code=error_code,
                 title="系统维护执行失败",
-                operator_message="系统维护动作执行失败。",
+                operator_message=validation_message or "系统维护动作执行失败。",
                 suggested_action=suggested_action,
                 technical_message=str(exc),
                 source_phase="execute",
                 severity="error",
+                technical_payload=self._technical_payload_for_exception(exc) if validation_message else None,
             )
             if current_node_id is not None:
                 node = session.get(TaskRunNode, current_node_id)
@@ -1515,6 +1560,31 @@ class TaskRunDispatcher:
         session.flush()
         task_run.primary_issue_id = issue.id
         return issue
+
+    @staticmethod
+    def _source_validation_error_message(session: Session, exc: Exception) -> str | None:
+        if not isinstance(exc, IngestionError) or exc.structured_error.error_code != "normalize.source_validation_failed":
+            return None
+        details = exc.structured_error.details
+        samples = [sample for group in details.get("rejected_samples", {}).values() for sample in group]
+        codes = {sample.get("row", {}).get("ts_code") for sample in samples}
+        codes.discard(None)
+        codes.discard("")
+        names = {}
+        if codes:
+            try:
+                with session.begin_nested():
+                    names = dict(session.execute(select(Security.ts_code, Security.name).where(Security.ts_code.in_(codes))).all())
+            except SQLAlchemyError:
+                pass  # A name lookup must not replace the original source error.
+        messages = []
+        for sample in samples:
+            code = sample.get("row", {}).get("ts_code")
+            stock = f"{code}（{names.get(code) or '名称未找到'}）" if code else "股票代码缺失"
+            messages.append(f"{stock}；字段 {sample.get('field') or '见诊断'}；原值 {sample.get('value')!r}；{sample.get('message') or exc}")
+        return (f"每日指标 {details.get('trade_date')} 校验失败，当前日期未写入；"
+                f"读取 {details.get('rows_fetched')}，拒绝 {details.get('rows_rejected')}；"
+                + "；".join(messages))
 
     @staticmethod
     def _technical_payload_for_exception(exc: Exception) -> dict[str, Any] | None:

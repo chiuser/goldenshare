@@ -646,6 +646,8 @@
 - `observability.observed_field` 必须与 `date_model.observed_field` 保持一致。
 - `observability.freshness_policy` 由 definition builder 从 `src/foundation/datasets/freshness_policies.py` 注入，开发文档必须说明本数据集归属哪一种 policy，但不要在 `DATASET_ROWS` 中重复保存。
 - `quality.required_fields` 必须覆盖不能缺失的业务主键和日期字段。
+- 完整源字段的“列必须存在”与字段是否允许 NULL 分别设计；不能把允许 NULL 的全部源字段加入 required_fields。完整列检查与 Definition 复用同一源字段清单，不在下载组件中补缺列或补默认值。
+- 对 `raw_core_upsert` 声明 `fail_unit_on_any_rejection` 时，executor 必须在双表 writer 前因任一拒绝行终止该 unit，使用 `normalize.source_validation_failed` 携带失败样本及此前已提交进度；不能只依靠 writer 原有的 raw-only 检查。其他拒绝策略与原 raw-only 错误行为保持原义。Ops 必须区分工作流步骤数与该步骤的日期数，源值错误的提示、统计及当前节点终态同步验收。
 - `quality.unit_date_field`、重复键、必备枚举、批内唯一键、源端多重记录、空结果和写前校验策略必须按当前数据集真实风险填写，不能依赖 writer 临场猜测。
 - `transaction.commit_policy` 当前支持 `unit`、受专用 write path 约束的 `raw_then_serving` 和受公告具名策略约束的 `batch`；具体组合必须通过 Definition linter，不得自行创造提交策略。
 - `transaction.write_volume_assessment` 必须写人话，说明单事务写入量如何被控制。

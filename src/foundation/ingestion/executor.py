@@ -9,7 +9,7 @@ from zoneinfo import ZoneInfo
 from src.foundation.dao.security_dao import SecurityDAO
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.ingestion.error_mapper import IngestionErrorMapper
-from src.foundation.ingestion.errors import IngestionError, IngestionWriteError, StructuredError
+from src.foundation.ingestion.errors import IngestionError, IngestionNormalizeError, IngestionWriteError, StructuredError
 from src.foundation.ingestion.run_errors import IngestionCanceledError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot, ValidatedDatasetActionRequest
 from src.foundation.ingestion.normalizer import DatasetNormalizer
@@ -653,11 +653,61 @@ class IngestionExecutor:
         unit_rows_deduplicated = 0
         try:
             self._record_pagination_diagnostics(state, unit=unit, source_result=source_result)
-            normalized = self.normalizer.normalize(
-                definition=definition,
-                fetch_result=source_result,
-                expected_unit_date=unit.trade_date,
+            strict_validation = (
+                definition.storage.write_path == "raw_core_upsert"
+                and definition.quality.reject_policy == "fail_unit_on_any_rejection"
             )
+            try:
+                normalized = self.normalizer.normalize(
+                    definition=definition,
+                    fetch_result=source_result,
+                    expected_unit_date=unit.trade_date,
+                )
+            except IngestionNormalizeError as exc:
+                if not strict_validation or exc.structured_error.error_code in {
+                    "normalize.row_transform_failed", "normalize.unit_date_expected_missing",
+                }:
+                    raise
+                original = exc.structured_error
+                raise IngestionNormalizeError(replace(
+                    original, error_code="normalize.source_validation_failed",
+                    details={
+                        "dataset_key": definition.dataset_key, "unit_id": unit.unit_id,
+                        "trade_date": str(unit.trade_date), "unit_total": total_units,
+                        "rows_fetched": len(source_result.rows_raw), "rows_rejected": 1,
+                        "rejected_reasons": {original.error_code: 1},
+                        "rejected_samples": {original.error_code: [{
+                            "field": original.details.get("field"),
+                            "value": original.details.get("actual"),
+                            "row": original.details.get("row") or original.details.get("conflicting_row")
+                            or original.details.get("duplicate_row") or {},
+                            "message": original.message,
+                        }]},
+                        "original_error": {"error_code": original.error_code, "details": original.details},
+                        "failed_unit": {"unit_id": unit.unit_id, "rows_fetched": len(source_result.rows_raw)},
+                    },
+                )) from exc
+            if strict_validation and normalized.rows_rejected:
+                error_code = (
+                    "normalize.row_transform_failed"
+                    if "normalize.row_transform_failed" in normalized.rejected_reasons
+                    or "reason.unknown" in normalized.rejected_reasons
+                    else "normalize.source_validation_failed"
+                )
+                raise IngestionNormalizeError(StructuredError(
+                    error_code=error_code, error_type="normalize", phase="normalizer",
+                    message=("源数据未通过校验，当前日期未写入" if error_code == "normalize.source_validation_failed"
+                             else "行转换执行失败，当前日期未写入"), retryable=False, unit_id=unit.unit_id,
+                    details={
+                        "dataset_key": definition.dataset_key, "unit_id": unit.unit_id,
+                        "trade_date": str(unit.trade_date), "unit_total": total_units,
+                        "rows_fetched": len(source_result.rows_raw), "rows_rejected": normalized.rows_rejected,
+                        "rejected_reasons": dict(normalized.rejected_reasons),
+                        "rejected_samples": dict(normalized.rejected_samples),
+                        "failed_unit": {"unit_id": unit.unit_id, "rows_fetched": len(source_result.rows_raw),
+                                        "rows_rejected": normalized.rows_rejected},
+                    },
+                ))
             self.normalizer.raise_if_all_rejected(normalized)
             if definition.transaction.commit_policy == "raw_then_serving":
                 if eligibility_as_of is None:
@@ -908,6 +958,17 @@ class IngestionExecutor:
         if isinstance(exc, IngestionError):
             error_code = exc.structured_error.error_code
             state.error_counts[error_code] = state.error_counts.get(error_code, 0) + 1
+            if error_code == "normalize.source_validation_failed":
+                exc.structured_error.details["committed_progress"] = {
+                    "unit_done": state.unit_done,
+                    "unit_total": exc.structured_error.details["unit_total"],
+                    "rows_fetched": state.rows_fetched, "rows_written": state.rows_written,
+                    "rows_committed": state.rows_committed, "rows_rejected": state.rows_rejected,
+                    "rows_deduplicated": state.rows_deduplicated,
+                    "ingestion_diagnostics": self._build_ingestion_diagnostics(state),
+                    "rejected_reason_counts": dict(state.rejected_reason_counts),
+                    "rejected_reason_samples": dict(state.rejected_reason_samples),
+                }
             raise exc
         structured = self.error_mapper.map_exception(exc=exc, phase="executor", unit_id=unit.unit_id)
         state.error_counts[structured.error_code] = state.error_counts.get(structured.error_code, 0) + 1

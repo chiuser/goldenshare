@@ -15,6 +15,7 @@ from src.foundation.services.transform.top_list_payload import build_top_list_pa
 from src.foundation.services.transform.dividend_hash import build_dividend_event_key_hash, build_dividend_row_key_hash
 from src.foundation.services.transform.holdernumber_hash import build_holdernumber_event_key_hash, build_holdernumber_row_key_hash
 from src.foundation.ingestion.constants import MONEYFLOW_VOLUME_FIELDS
+from src.foundation.datasets.definitions.market_equity import DAILY_BASIC_SOURCE_FIELDS
 from src.foundation.datasets.anns_d_contracts import identity as announcement_identity
 from src.foundation.datasets.public_fund_contracts import (
     fund_basic_identity,
@@ -45,6 +46,32 @@ class RowTransformReject(ValueError):
     def __init__(self, reason_code: str, message: str) -> None:
         super().__init__(message)
         self.reason_code = reason_code
+
+
+def daily_basic_limit_status(row: dict[str, Any]) -> dict[str, Any]:
+    for field_name in DAILY_BASIC_SOURCE_FIELDS:
+        if field_name not in row:
+            raise RowTransformReject(
+                f"normalize.required_field_missing:{field_name}",
+                f"每日指标缺少业务字段 {field_name}",
+            )
+    value = row["limit_status"]
+    if type(value) is not int or value not in range(7):
+        if value is None:
+            reason = "不允许 NULL"
+        elif isinstance(value, bool):
+            reason = "不允许布尔值"
+        elif isinstance(value, str):
+            reason = "不允许字符串"
+        elif isinstance(value, (float, Decimal)):
+            reason = "不允许小数类型"
+        else:
+            reason = "超出范围" if type(value) is int else "类型错误"
+        raise RowTransformReject(
+            "normalize.daily_basic_limit_status_invalid:limit_status",
+            f"收盘涨跌状态 limit_status（类型 {type(value).__name__}）：{reason}；只允许原生整数 0～6；原值 {value!r}",
+        )
+    return row
 
 
 def _sw2021_code(value: Any, *, classification_industry_code: Any | None = None) -> str:
@@ -1192,6 +1219,7 @@ def _biying_moneyflow_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 __all__ = [
+    "daily_basic_limit_status",
     "FINANCIAL_STATEMENT_ROW_TRANSFORMS",
     "MONEYFLOW_VOLUME_FIELDS",
     "RowTransformReject",

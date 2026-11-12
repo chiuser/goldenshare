@@ -24,6 +24,7 @@ INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-30.v2"
 INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-30T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
+    IngestionCodebookEntry("normalize.source_validation_failed", "源数据校验失败，当前日期未写入", "normalize", "按错误样本核对源数据，由管理员处理后按原范围重试"),
     IngestionCodebookEntry(
         "normalize.financial_statement_listing_dates_failed",
         "读取财务报表相关股票的上市日期失败",
@@ -217,6 +218,7 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
 )
 
 INGESTION_REASON_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
+    IngestionCodebookEntry("normalize.daily_basic_limit_status_invalid", "每日指标收盘涨跌状态不是 0～6 的原生整数", "normalize", "核对错误样本中的原始值和类型，不得补 0 或取整"),
     IngestionCodebookEntry("normalize.required_field_missing", "必填字段缺失", "normalize", "检查字段映射和空值处理"),
     IngestionCodebookEntry("normalize.invalid_date", "日期字段非法", "normalize", "检查日期格式与解析规则"),
     IngestionCodebookEntry("normalize.invalid_decimal", "数值字段非法", "normalize", "检查数值格式与精度转换"),
