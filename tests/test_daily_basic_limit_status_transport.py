@@ -15,14 +15,14 @@ from src.foundation.ingestion.daily_basic_limit_status import DailyBasicLimitSta
 from src.foundation.ingestion.errors import IngestionSourceError
 from src.foundation.ingestion.run_errors import IngestionCanceledError
 from tests.test_daily_basic_limit_status import SOURCE_FIELDS, SOURCE_ROW
-from tests.test_daily_basic_limit_status_backfill import CONFIG, payload
+from tests.test_daily_basic_limit_status_backfill import CONFIG, DOWNLOAD_FIELDS, payload
 
 pytest_plugins = ("tests.test_daily_basic_limit_status_backfill",)
 
 
-def wire(row=SOURCE_ROW):
+def wire(row=SOURCE_ROW, fields=SOURCE_FIELDS):
     return json.dumps({"code": 0, "msg": "", "data": {
-        "fields": list(SOURCE_FIELDS), "items": [[row[field] for field in SOURCE_FIELDS]],
+        "fields": list(fields), "items": [[row[field] for field in fields]],
     }}).encode()
 
 
@@ -45,7 +45,10 @@ def server():
                         self.wfile.flush()
                         time.sleep(.05)
                 else:
-                    self.wfile.write(b"bad-json" if self.path == "/invalid" else wire())
+                    request = Handler.requests[-1]
+                    fields = (DOWNLOAD_FIELDS if request["api_name"] == "daily_basic"
+                              and request["fields"] == ",".join(DOWNLOAD_FIELDS) else SOURCE_FIELDS)
+                    self.wfile.write(b"bad-json" if self.path == "/invalid" else wire(fields=fields))
             except (BrokenPipeError, ConnectionResetError):
                 pass  # A deliberately canceled/expired client closes this fixture connection.
 
@@ -68,15 +71,16 @@ def invoke(url, **overrides):
         response_contract="daily_basic/v1", **overrides)
 
 
-def test_real_client_returns_full_contract_without_coercing_status(server):
+@pytest.mark.parametrize("fields", [SOURCE_FIELDS, DOWNLOAD_FIELDS])
+def test_real_client_returns_requested_fields_without_coercing_status(server, fields):
     url, requests = server
     client = TushareHttpClient(token="test-placeholder", base_url=url)
     result = client.call_bounded(api_name="daily_basic", params={"trade_date": "20261110", "limit": 6000, "offset": 0},
-        fields=SOURCE_FIELDS, maximum=None, timeout=3, check=lambda: None, tick=lambda: None,
+        fields=fields, maximum=None, timeout=3, check=lambda: None, tick=lambda: None,
         before_request=lambda: None, response_contract="daily_basic/v1")
-    assert len(result) == 1 and tuple(result[0]) == SOURCE_FIELDS
+    assert len(result) == 1 and tuple(result[0]) == fields
     assert result[0]["limit_status"] == 4 and type(result[0]["limit_status"]) is int
-    assert requests[0]["fields"] == ",".join(SOURCE_FIELDS)
+    assert requests[0]["fields"] == ",".join(fields)
     assert requests[0]["params"] == {"trade_date": "20261110", "limit": 6000, "offset": 0}
 
 
@@ -122,7 +126,11 @@ def test_request_cancellation_and_deadline_clean_up_the_existing_child(server):
     assert {child.pid for child in multiprocessing.active_children()} == baseline
 
 
-@pytest.mark.parametrize("api,fields", [("anns_d", SOURCE_FIELDS), ("daily_basic", SOURCE_FIELDS[:-1])])
+@pytest.mark.parametrize("api,fields", [
+    ("anns_d", SOURCE_FIELDS), ("daily_basic", SOURCE_FIELDS[:-1]),
+    ("daily_basic", ("ts_code", "trade_date", "close")),
+    ("daily_basic", tuple(reversed(DOWNLOAD_FIELDS))),
+])
 def test_both_contract_boundaries_reject_misbound_requests_before_network(api, fields):
     client = TushareHttpClient(token="test-placeholder", base_url="http://unused.invalid")
     with pytest.raises(BoundedTushareError) as outer:
@@ -136,21 +144,23 @@ def test_both_contract_boundaries_reject_misbound_requests_before_network(api, f
 
 def test_full_page_has_one_empty_terminator_and_short_page_stops_without_another_request():
     connector = Mock()
-    connector.call_bounded.side_effect = [[SOURCE_ROW] * 6000, []]
+    row = {field: SOURCE_ROW[field] for field in DOWNLOAD_FIELDS}
+    connector.call_bounded.side_effect = [[row] * 6000, []]
     value = DailyBasicLimitStatusService(session_factory=None, connector=connector)
     result = value._fetch(payload(serving_count=6000), config=CONFIG, check=lambda: None, observe=lambda *a, **k: None)
     assert len(result) == 6000
     assert [call.kwargs["params"]["offset"] for call in connector.call_bounded.call_args_list] == [0, 6000]
     assert all(call.kwargs["params"]["limit"] == 6000 for call in connector.call_bounded.call_args_list)
+    assert all(call.kwargs["fields"] == DOWNLOAD_FIELDS for call in connector.call_bounded.call_args_list)
     connector.call_bounded.reset_mock(side_effect=True)
-    connector.call_bounded.return_value = [SOURCE_ROW]
-    assert value._fetch(payload(), config=CONFIG, check=lambda: None, observe=lambda *a, **k: None) == [SOURCE_ROW]
+    connector.call_bounded.return_value = [row]
+    assert value._fetch(payload(), config=CONFIG, check=lambda: None, observe=lambda *a, **k: None) == [row]
     assert connector.call_bounded.call_count == 1
 
 
 def test_more_full_pages_than_frozen_target_allows_cannot_publish():
     connector = Mock()
-    connector.call_bounded.return_value = [SOURCE_ROW] * 6000
+    connector.call_bounded.return_value = [{field: SOURCE_ROW[field] for field in DOWNLOAD_FIELDS}] * 6000
     value = DailyBasicLimitStatusService(session_factory=None, connector=connector)
     with pytest.raises(IngestionSourceError) as caught:
         value._fetch(payload(), config=CONFIG, check=lambda: None, observe=lambda *a, **k: None)
@@ -158,22 +168,23 @@ def test_more_full_pages_than_frozen_target_allows_cannot_publish():
     assert connector.call_bounded.call_count == 1
 
 
-def test_complete_bounded_connector_normalizer_and_two_table_transaction(database, server, monkeypatch):
+def test_three_field_http_to_two_table_transaction(database, server, monkeypatch):
     from src.foundation.connectors.tushare_connector import TushareSourceConnector
     from tests.test_daily_basic_limit_status_backfill import read_rows, source_rows
 
     engine, factory = database
     url, requests = server
     rows = source_rows()
-    body = json.dumps({"code": 0, "msg": "", "data": {"fields": list(SOURCE_FIELDS),
-        "items": [[row[field] for field in SOURCE_FIELDS] for row in rows]}}).encode()
-    monkeypatch.setitem(globals(), "wire", lambda: body)
+    body = json.dumps({"code": 0, "msg": "", "data": {"fields": list(DOWNLOAD_FIELDS),
+        "items": [[row[field] for field in DOWNLOAD_FIELDS] for row in rows]}}).encode()
+    monkeypatch.setitem(globals(), "wire", lambda **kwargs: body)
     connector = TushareSourceConnector(TushareHttpClient(token="test-placeholder", base_url=url))
     value = DailyBasicLimitStatusService(session_factory=factory, connector=connector)
     result = value.execute_day(payload(), config=CONFIG,
                                check=lambda: None, observe=lambda *a, **k: None)
     assert (result["rows_fetched"], result["rows_saved"], result["raw_changed"], result["serving_changed"]) == (2, 2, 2, 2)
     assert len(requests) == 1
+    assert requests[0]["fields"] == "ts_code,trade_date,limit_status"
     for persisted in read_rows(engine):
         assert [row["limit_status"] for row in persisted] == [4, 0, None, None]
         assert all(row["pe"] == -17 and row["close"] is None for row in persisted)

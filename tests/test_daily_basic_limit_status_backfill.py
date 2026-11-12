@@ -23,18 +23,21 @@ from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
-from tests.test_daily_basic_limit_status import DAY, SOURCE_FIELDS, SOURCE_ROW
+from tests.test_daily_basic_limit_status import DAY, SOURCE_ROW
 from tests.wealth_watchlist_postgres_support import isolated_postgres
 
 NEXT_DAY = date(2026, 11, 11)
 OLD_TIME = datetime(2020, 1, 1, tzinfo=timezone.utc)
 CONFIG = {"sync_batch_size": 2, "source_timeout_seconds": 30, "statement_timeout_seconds": 20,
           "observation_timeout_seconds": 2, "progress_interval_seconds": 5}
+# Projection observed in the real three-field source requests recorded in LLD §2.3.
+DOWNLOAD_FIELDS = ("ts_code", "trade_date", "limit_status")
 
 
 def source_rows(day=DAY):
-    return [{**SOURCE_ROW, "trade_date": day.strftime("%Y%m%d")},
-            {**SOURCE_ROW, "trade_date": day.strftime("%Y%m%d"), "ts_code": "000002.SZ", "limit_status": 0}]
+    row = {field: SOURCE_ROW[field] for field in DOWNLOAD_FIELDS}
+    return [{**row, "trade_date": day.strftime("%Y%m%d")},
+            {**row, "trade_date": day.strftime("%Y%m%d"), "ts_code": "000002.SZ", "limit_status": 0}]
 
 
 def payload(day=DAY, **overrides):
@@ -108,7 +111,40 @@ def test_real_update_keeps_all_old_columns_and_zero_is_not_missing(database, mon
     assert execute(restarted) == {"rows_fetched": 0, "rows_saved": 2, "raw_changed": 0, "serving_changed": 0,
                                   "already_complete": True, "source_extra_codes": []}
     restarted.connector.call_bounded.assert_not_called()
-    assert value.connector.call_bounded.call_args.kwargs["fields"] == SOURCE_FIELDS
+    assert value.connector.call_bounded.call_args.kwargs["fields"] == DOWNLOAD_FIELDS
+
+
+def test_fill_ignores_unrequested_valuation_fields_and_does_not_create_payload():
+    value = DailyBasicLimitStatusService(session_factory=None, connector=Mock())
+    row = {**source_rows()[0], "pe": "not-a-number", "close": "unused"}
+    normalized = value._normalize([row], DAY)
+    assert normalized == [{"ts_code": "000001.SZ", "trade_date": DAY, "limit_status": 4}]
+
+
+@pytest.mark.parametrize("field,value,reason", [
+    ("ts_code", None, "normalize.required_field_missing:ts_code"),
+    ("ts_code", " ", "normalize.empty_not_allowed:ts_code"),
+    ("trade_date", None, "normalize.required_field_missing:trade_date"),
+    ("trade_date", "not-a-date", "normalize.invalid_date:trade_date"),
+])
+def test_projected_required_values_keep_existing_rejection_reasons(field, value, reason):
+    service_value = DailyBasicLimitStatusService(session_factory=None, connector=Mock())
+    row = {**source_rows()[0], field: value}
+    with pytest.raises(IngestionError) as caught:
+        service_value._normalize([row], DAY)
+    assert caught.value.structured_error.details["rejected_reasons"] == {reason: 1}
+
+
+@pytest.mark.parametrize("field", DOWNLOAD_FIELDS)
+def test_missing_projected_field_fails_the_whole_date(database, field):
+    engine, factory = database
+    rows = source_rows()
+    del rows[1][field]
+    with pytest.raises(IngestionError) as caught:
+        execute(service(factory, rows))
+    assert caught.value.structured_error.details["rejected_reasons"] == {
+        f"normalize.required_field_missing:{field}": 1}
+    assert all(row["limit_status"] is None for values in read_rows(engine) for row in values)
 
 
 @pytest.mark.parametrize("bad", [None, True, "4", 1.5, -1, 7])

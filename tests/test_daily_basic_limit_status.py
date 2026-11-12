@@ -143,6 +143,12 @@ def test_every_business_field_must_be_present_but_can_keep_its_existing_null_rul
     assert result.rejected_reasons == {f"normalize.required_field_missing:{missing}": 1}
 
 
+def test_normal_daily_sync_still_rejects_the_fill_only_projection():
+    result = normalize([{field: SOURCE_ROW[field] for field in ("ts_code", "trade_date", "limit_status")}])
+    assert result.rows_normalized == [] and result.rows_rejected == 1
+    assert result.rejected_reasons == {"normalize.required_field_missing:close": 1}
+
+
 def test_rejection_samples_are_bounded_while_counts_include_all_bad_rows():
     result = normalize([{**SOURCE_ROW, "limit_status": 1.5}] * 5)
     reason = "normalize.daily_basic_limit_status_invalid:limit_status"

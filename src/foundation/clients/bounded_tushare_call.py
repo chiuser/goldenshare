@@ -167,8 +167,10 @@ def call_bounded(*, base_url, payload, maximum, timeout, check, tick, response_c
         raise BoundedTushareError('weekly_adj.delivery_contract_mismatch', '未知有界响应合同')
     if response_contract == 'daily_basic/v1':
         from src.foundation.datasets.definitions.market_equity import DAILY_BASIC_SOURCE_FIELDS
-        if payload.get('api_name') != 'daily_basic' or payload.get('fields') != ','.join(DAILY_BASIC_SOURCE_FIELDS):
-            raise BoundedTushareError('daily_basic.delivery_contract_mismatch', '每日指标响应合同只能绑定对应接口与完整19字段')
+        from src.foundation.ingestion.daily_basic_limit_status_fields import DAILY_BASIC_LIMIT_STATUS_DOWNLOAD_FIELDS
+        if payload.get('api_name') != 'daily_basic' or payload.get('fields') not in (
+                ','.join(DAILY_BASIC_SOURCE_FIELDS), ','.join(DAILY_BASIC_LIMIT_STATUS_DOWNLOAD_FIELDS)):
+            raise BoundedTushareError('daily_basic.delivery_contract_mismatch', '每日指标只支持完整19字段或收盘涨跌状态补录三字段')
     prefix = {'stock_weekly_adj/v1': 'weekly_adj', 'index_period_raw/v1': 'index_period_raw', 'daily_basic/v1': 'daily_basic'}.get(response_contract, 'anns_d')
     ctx = multiprocessing.get_context('spawn')
     receive, send = ctx.Pipe(duplex=False)

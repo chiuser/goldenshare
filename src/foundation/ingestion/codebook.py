@@ -24,7 +24,7 @@ INGESTION_CODEBOOK_VERSION: Final[str] = "2026-08-30.v2"
 INGESTION_CODEBOOK_UPDATED_AT: Final[str] = "2026-08-30T00:00:00Z"
 
 INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
-    IngestionCodebookEntry("daily_basic.delivery_contract_mismatch", "每日指标响应合同不一致", "source", "核对接口与完整19字段"),
+    IngestionCodebookEntry("daily_basic.delivery_contract_mismatch", "每日指标响应合同不一致", "source", "核对接口及该动作支持的请求字段"),
     IngestionCodebookEntry("daily_basic.source_payload_invalid", "每日指标源响应结构错误", "source", "核对源端字段与JSON结构"),
     IngestionCodebookEntry("daily_basic.source_deadline_exceeded", "每日指标源调用超过期限", "source", "核对源站后按原计划重试"),
     IngestionCodebookEntry("daily_basic.response_size_exceeded", "每日指标响应超过字节限制", "source", "核对本次批准的字节限额"),

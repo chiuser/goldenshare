@@ -18,6 +18,7 @@ from src.foundation.ingestion.daily_basic_limit_status import (
     DailyBasicLimitStatusService,
     statement_timeout,
 )
+from src.foundation.ingestion.daily_basic_limit_status_fields import DAILY_BASIC_LIMIT_STATUS_DOWNLOAD_FIELDS
 from src.foundation.ingestion.run_errors import IngestionCanceledError
 from src.ops.action_catalog import get_maintenance_action
 from src.ops.models.ops.task_run import TaskRun
@@ -60,7 +61,7 @@ class DailyBasicLimitStatusTaskExecutor:
             "contract_kind": PLAN_CONTRACT, "dataset_key": "daily_basic", "action_key": ACTION_KEY,
             "start_date": str(start), "end_date": str(end), "target_tables": list(TARGET_TABLES),
             "key_fields": ["ts_code", "trade_date"], "update_columns": ["limit_status"],
-            "source_fields": list(self._service.definition.source.source_fields),
+            "source_fields": list(DAILY_BASIC_LIMIT_STATUS_DOWNLOAD_FIELDS),
             "storage_mappings": {table: {"ts_code": "VARCHAR(16)", "trade_date": "DATE", "limit_status": "INTEGER"}
                                  for table in TARGET_TABLES},
             "execution_config": config, "code_version": version("goldenshare"),
@@ -110,9 +111,14 @@ class DailyBasicLimitStatusTaskExecutor:
             ).where(TaskRun.id == context.task_run_id)).one()
             params = {**current.request_payload_json, **current.request_payload_json.get("filters", {}),
                       **current.filters_json}
-            config = session.scalar(select(TaskRun.plan_snapshot_json["metadata"]["execution_config"]).where(
+            config, contract = session.execute(select(
+                TaskRun.plan_snapshot_json["metadata"]["execution_config"],
+                TaskRun.plan_snapshot_json["metadata"]["contract_kind"],
+            ).where(
                 TaskRun.id == int(params["plan_task_run_id"]),
-            ))
+            )).one()
+        if contract != PLAN_CONTRACT:
+            raise ValueError("旧补录计划仍使用完整19字段，请重新生成三字段 PLAN 后执行")
         last_write = None
         day = unit.payload["trade_date"]
 

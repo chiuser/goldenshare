@@ -48,8 +48,10 @@ class RowTransformReject(ValueError):
         self.reason_code = reason_code
 
 
-def daily_basic_limit_status(row: dict[str, Any]) -> dict[str, Any]:
-    for field_name in DAILY_BASIC_SOURCE_FIELDS:
+def daily_basic_limit_status(
+    row: dict[str, Any], *, required_fields: tuple[str, ...] = DAILY_BASIC_SOURCE_FIELDS,
+) -> dict[str, Any]:
+    for field_name in required_fields:
         if field_name not in row:
             raise RowTransformReject(
                 f"normalize.required_field_missing:{field_name}",

@@ -781,7 +781,7 @@
 
 分页硬约束：
 
-1. 每一页都必须带同一份 `DatasetDefinition.source.source_fields`；不能只在第一页或 probe 中显式请求字段。
+1. 普通数据集下载每一页都必须带同一份 `DatasetDefinition.source.source_fields`；不能只在第一页或 probe 中显式请求字段。管理员明确批准的指定列维护动作可只请求所需字段，但必须在该动作原方案中固定并冻结下载投影，每页一致；数据集完整接口字段合同不变，不补造未请求字段，不把该例外扩大为任意字段选择器。
 2. 必须记录 `offset/limit` 序列、每页行数、终止 short page、页合并行数和唯一业务键数。
 3. 分开证明分页正确性和全量完整性：
 
@@ -922,7 +922,7 @@
   - 时间参数映射
   - filter / enum 参数映射
   - 不产生非法 ALL sentinel
-  - connector payload 中的 `fields` 等于 `definition.source.source_fields`
+  - 普通数据集 connector payload 中的 `fields` 等于 `definition.source.source_fields`；明确获批的指定列维护动作则等于其冻结的固定下载投影，并证明普通下载合同未变
   - 对分页接口，真实 connector 或等价测试替身覆盖第二页、short page、页合并业务键及内容对账；替身测试不能替代 0.3.0 的真实请求核验或 6.3 的全量覆盖验收
 - Normalizer：
   - date / decimal / required fields

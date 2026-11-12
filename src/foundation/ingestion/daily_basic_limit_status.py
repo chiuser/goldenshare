@@ -12,6 +12,7 @@ from src.foundation.config.settings import get_settings
 from src.foundation.connectors.tushare_connector import TushareSourceConnector
 from src.foundation.dao.base_dao import BaseDAO
 from src.foundation.datasets.registry import get_dataset_definition
+from src.foundation.ingestion.daily_basic_limit_status_fields import DAILY_BASIC_LIMIT_STATUS_DOWNLOAD_FIELDS
 from src.foundation.ingestion.errors import (
     IngestionNormalizeError,
     IngestionPlanningError,
@@ -22,14 +23,14 @@ from src.foundation.ingestion.errors import (
 from src.foundation.ingestion.execution_plan import DatasetActionRequest, DatasetTimeInput
 from src.foundation.ingestion.normalizer import DatasetNormalizer
 from src.foundation.ingestion.resolver import DatasetActionResolver
-from src.foundation.ingestion.source_client import SourceFetchResult
+from src.foundation.ingestion.row_transforms import RowTransformReject, daily_basic_limit_status
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
-from src.utils import chunked
+from src.utils import CoerceRowError, chunked, coerce_row
 
 
 RESPONSE_CONTRACT = "daily_basic/v1"
-PLAN_CONTRACT = "daily_basic_limit_status/v1"
+PLAN_CONTRACT = "daily_basic_limit_status/v2"
 TARGET_TABLES = ("raw_tushare.daily_basic", "core_serving.equity_daily_basic")
 
 
@@ -199,7 +200,7 @@ class DailyBasicLimitStatusService:
             params = {**payload["request_params"], "limit": limit, "offset": page * limit}
             try:
                 batch = self.connector.call_bounded(
-                    api_name=self.definition.source.api_name, params=params, fields=self.definition.source.source_fields,
+                    api_name=self.definition.source.api_name, params=params, fields=DAILY_BASIC_LIMIT_STATUS_DOWNLOAD_FIELDS,
                     maximum=None, timeout=config["source_timeout_seconds"],
                     check=check, tick=lambda: observe("读取源数据", page=page + 1, tick=True),
                     before_request=check, response_contract=RESPONSE_CONTRACT,
@@ -223,22 +224,30 @@ class DailyBasicLimitStatusService:
     def _normalize(self, source, day):
         normalizer = DatasetNormalizer()
         unit_id = f"daily_basic:{day}"
-        try:
-            batch = normalizer.normalize(definition=self.definition, expected_unit_date=day,
-                fetch_result=SourceFetchResult(unit_id=unit_id, rows_raw=source, request_count=0, retry_count=0, latency_ms=0))
-        except IngestionNormalizeError as exc:
-            original = exc.structured_error
-            if original.error_code == "normalize.row_transform_failed":
-                raise
-            raise self._source_invalid(day, len(source), {original.error_code: 1}, {original.error_code: [{
-                "row": original.details.get("row") or original.details.get("duplicate_row") or {},
-                "field": original.details.get("field"), "value": original.details.get("actual"),
-                "message": original.message,
-            }]}) from exc
-        if batch.rows_rejected:
-            raise self._source_invalid(day, len(source), batch.rejected_reasons, batch.rejected_samples)
+        rows, rejected, rejected_samples = [], {}, {}
+        for raw_row in source:
+            row = {field: raw_row[field] for field in DAILY_BASIC_LIMIT_STATUS_DOWNLOAD_FIELDS if field in raw_row}
+            try:
+                row = coerce_row(row, self.definition.normalization.date_fields, ())
+                daily_basic_limit_status(row, required_fields=DAILY_BASIC_LIMIT_STATUS_DOWNLOAD_FIELDS)
+            except (CoerceRowError, RowTransformReject) as exc:
+                reason = normalizer._map_coerce_error(exc) if isinstance(exc, CoerceRowError) else exc.reason_code
+                field = normalizer._field_from_reason_key(reason)
+                normalizer._record_rejection(rejected, rejected_samples, reason, row=raw_row,
+                    unit_id=unit_id, field=field, value=raw_row.get(field), message=str(exc))
+                continue
+            reason = normalizer._resolve_required_field_violation(
+                row=row, required_fields=self.definition.normalization.required_fields)
+            if reason:
+                field = normalizer._field_from_reason_key(reason)
+                normalizer._record_rejection(rejected, rejected_samples, reason, row=row,
+                    unit_id=unit_id, field=field, value=row.get(field))
+                continue
+            rows.append(row)
+        if rejected:
+            raise self._source_invalid(day, len(source), rejected, rejected_samples)
         reasons, samples, seen = {}, {}, set()
-        for row in batch.rows_normalized:
+        for row in rows:
             field = "trade_date" if row["trade_date"] != day else "ts_code"
             reason = ("normalize.unit_date_mismatch" if row["trade_date"] != day
                       else "normalize.batch_unique_key_duplicate" if row["ts_code"] in seen else None)
@@ -248,7 +257,7 @@ class DailyBasicLimitStatusService:
             seen.add(row["ts_code"])
         if reasons:
             raise self._source_invalid(day, len(source), reasons, samples)
-        return batch.rows_normalized
+        return rows
 
     @staticmethod
     def _source_invalid(day, fetched, reasons, samples):

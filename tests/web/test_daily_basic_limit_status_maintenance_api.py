@@ -5,6 +5,8 @@ worker, business transactions, progress persistence and HTTP schemas are real.
 """
 
 from datetime import datetime, timezone
+import hashlib
+import json
 from pathlib import Path
 import subprocess
 import sys
@@ -36,6 +38,7 @@ from src.ops.runtime.maintenance_executor import MaintenanceExecutionRequest
 from tests.test_daily_basic_limit_status_backfill import (
     DAY, NEXT_DAY, read_rows, service, source_rows,
 )
+from tests.test_daily_basic_limit_status import SOURCE_FIELDS
 
 pytest_plugins = ("tests.test_daily_basic_limit_status_backfill",)
 
@@ -87,7 +90,8 @@ def test_freeze_cancel_after_commit_then_new_apply_uses_frozen_config_once(runti
         }
         assert metadata["key_fields"] == ["ts_code", "trade_date"]
         assert metadata["update_columns"] == ["limit_status"]
-        assert len(metadata["source_fields"]) == 19 and metadata["source_fields"][-1] == "limit_status"
+        assert metadata["source_fields"] == ["ts_code", "trade_date", "limit_status"]
+        assert metadata["contract_kind"] == "daily_basic_limit_status/v2"
         frozen = metadata["execution_config"]
         assert frozen["sync_batch_size"] == 2
         assert "max_response_bytes" not in frozen
@@ -230,6 +234,34 @@ def test_plan_and_apply_need_no_response_byte_configuration(runtime):
         result = worker.run_task_run(session, apply_task(session, plan).id)
         assert (result.status, result.rows_saved) == ("success", 4)
     assert all(call.kwargs["maximum"] is None for call in value.connector.call_bounded.call_args_list)
+
+
+def test_old_full_field_plan_is_rejected_before_source_or_business_updates(runtime):
+    engine, factory, value, executor, worker = runtime
+    before = read_rows(engine)
+    with factory() as session:
+        plan = freeze(session, worker)
+        # The historical v1 producer froze all 19 fields and used this exact
+        # metadata/payload SHA256 recipe; the snapshot is internally consistent.
+        snapshot = dict(plan.plan_snapshot_json)
+        snapshot["metadata"] = {**snapshot["metadata"],
+            "contract_kind": "daily_basic_limit_status/v1", "source_fields": list(SOURCE_FIELDS)}
+        snapshot["plan_hash"] = hashlib.sha256(json.dumps({
+            "metadata": snapshot["metadata"], "units": [unit["payload"] for unit in snapshot["units"]],
+        }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        # The persisted snapshot also carries the independent integrity hash
+        # produced by _maintenance_plan_snapshot; keep that contract valid.
+        snapshot["snapshot_integrity_hash"] = hashlib.sha256(json.dumps({
+            key: item for key, item in snapshot.items() if key != "snapshot_integrity_hash"
+        }, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+        plan.plan_snapshot_json = snapshot
+        session.commit()
+        result = worker.run_task_run(session, apply_task(session, plan).id)
+        assert (result.status, result.rows_fetched, result.rows_saved) == ("failed", 0, 0)
+        issue = session.get(TaskRunIssue, result.primary_issue_id)
+        assert "重新生成三字段 PLAN" in issue.technical_message
+    value.connector.call_bounded.assert_not_called()
+    assert read_rows(engine) == before
 
 
 def test_plan_requires_dates_and_cancelled_draft_cannot_apply(runtime, monkeypatch):
