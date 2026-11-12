@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
+import sys
 from pathlib import Path
+
+import pytest
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -262,7 +266,7 @@ def test_qtf_sudo_permissions_are_checked_before_any_deploy_mutation() -> None:
     qtf_preflight = main_body.index("ensure_qtf_sudo_ready")
     lock = main_body.index("acquire_deploy_lock")
     git_fetch = main_body.index("git fetch --all --prune")
-    dependency_install = main_body.index('.venv/bin/pip install -e "${PIP_INSTALL_TARGET}"')
+    dependency_install = main_body.index('.venv/bin/pip install ./packages/technical_indicators -e "${PIP_INSTALL_TARGET}"')
     migration = main_body.index('.venv/bin/goldenshare init-db')
 
     assert qtf_preflight < lock < git_fetch < dependency_install < migration
@@ -317,3 +321,147 @@ def test_missing_qtf_sudo_permission_fails_before_git_or_lock(tmp_path: Path) ->
     assert "password is required" not in (result.stdout + result.stderr)
     assert not git_marker.exists()
     assert not lock_file.exists()
+
+
+@pytest.fixture
+def deployment(tmp_path: Path):
+    """Run both real scripts; replace deployment I/O, keep configuration Python real."""
+    scripts = tmp_path / "scripts"
+    scripts.mkdir()
+    for source in [ROOT / "scripts" / name for name in ("deploy-systemd.sh", "deploy-layered-systemd.sh")]:
+        shutil.copy2(source, scripts / source.name)
+        (scripts / source.name).chmod(0o755)
+    for source in (ROOT / "scripts").glob("goldenshare-*.service"):
+        shutil.copy2(source, scripts / source.name)
+    repo = tmp_path / "repo"
+    binaries = repo / ".venv" / "bin"
+    binaries.mkdir(parents=True)
+    for name in ("frontend", "wealth", "units"):
+        (repo / name).mkdir()
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    log = tmp_path / "commands.log"
+
+    def executable(path, body):
+        path.write_text("#!/usr/bin/env bash\nset -eu\n" + body, encoding="utf-8")
+        path.chmod(0o755)
+
+    executable(fake_bin / "git", 'echo "git $*" >> "$DEPLOY_TEST_LOG"\n')
+    executable(fake_bin / "flock", "exit 0\n")
+    executable(fake_bin / "curl", "exit 0\n")
+    executable(fake_bin / "npm", 'echo "npm $*" >> "$DEPLOY_TEST_LOG"\n')
+    executable(fake_bin / "systemctl", '''echo "systemctl $*" >> "$DEPLOY_TEST_LOG"
+if [[ "$1" == "cat" ]]; then echo 'ExecStart=python -m src.app.web.run'; fi
+''')
+    executable(fake_bin / "sudo", '''if [[ "$1" == "-n" ]]; then shift; fi
+if [[ "$1" == "-l" ]]; then exit 0; fi
+echo "sudo $*" >> "$DEPLOY_TEST_LOG"
+"$@"
+''')
+    executable(binaries / "pip", '''echo "pip $*" >> "$DEPLOY_TEST_LOG"
+exit "${DEPLOY_TEST_INSTALL_STATUS:-0}"
+''')
+    executable(binaries / "goldenshare", 'echo "cli $*" >> "$DEPLOY_TEST_LOG"\n')
+    # The shim runs the script's actual stdin, never substitutes a success result.
+    # The negative contract reproduces the real pre-a74374cc3 package field.
+    executable(binaries / "python", f'''echo "python config-check" >> "$DEPLOY_TEST_LOG"
+exec "{sys.executable}" -c '
+import os, sys
+if os.environ.get("DEPLOY_TEST_OLD_CONFIG") == "1":
+    from dataclasses import make_dataclass
+    import src.foundation.config.settings as settings
+    settings.KernelConfig = make_dataclass("KernelConfig", [
+        ("goldenshare_lake_root", str), ("max_output_bytes", int),
+    ])
+exec(compile(sys.stdin.read(), "<deploy-config-check>", "exec"))
+' "$@"
+''')
+    env_file = tmp_path / "runtime.env"
+    env_file.write_text("TECHNICAL_INDICATOR_MAX_OUTPUT_ROWS=5\n", encoding="utf-8")
+    inherited_env = tmp_path / "inherited.env"
+    inherited_env.write_text("TECHNICAL_INDICATOR_MAX_OUTPUT_ROWS=501\n", encoding="utf-8")
+    env = {
+        **os.environ,
+        "PATH": f"{fake_bin}:{os.environ['PATH']}",
+        "PYTHONPATH": str(ROOT),
+        "PYTHONDONTWRITEBYTECODE": "1",
+        "REPO_DIR": str(repo), "ENV_FILE": str(env_file),
+        "GOLDENSHARE_ENV_FILE": str(inherited_env),
+        "DEPLOY_TEST_LOG": str(log), "DEPLOY_LOCK_FILE": str(tmp_path / "deploy.lock"),
+        "SYSTEMCTL_BIN": str(fake_bin / "systemctl"), "SYSTEMD_UNIT_DIR": str(repo / "units"),
+        "DEPLOY_FOUNDATION": "1", "DEPLOY_OPS": "1", "DEPLOY_PLATFORM": "1",
+        "DEPLOY_REALTIME": "1", "DEPLOY_QTF": "1", "QTF_ONLY_MODE": "0",
+        "MAINTENANCE_MIGRATION_MODE": "0", "RUN_DB_MIGRATION": "1",
+        "RUN_FRONTEND_BUILD": "1", "RUN_WEALTH_BUILD": "1", "RUN_SYNC_UNITS": "0",
+        "RUN_DEFAULT_SINGLE_SOURCE_SEED": "0", "RUN_MONEYFLOW_MULTI_SOURCE_SEED": "0",
+        "PIP_INSTALL_TARGET": ".",
+    }
+
+    def run(*options, extra_env=None):
+        result = subprocess.run(
+            ["bash", str(scripts / "deploy-systemd.sh"), "dev-interface", *options],
+            capture_output=True, text=True, check=False, env={**env, **(extra_env or {})},
+        )
+        return result, log.read_text(encoding="utf-8").splitlines()
+
+    return run, env_file
+
+
+@pytest.mark.parametrize("mode,restarted", [
+    ((), {"web", "ops-worker", "ops-scheduler", "date-completeness-worker", "ops-task-completion-worker",
+          "ops-stk-mins-worker", "ops-index-mins-worker", "qtf-worker", "realtime-collector"}),
+    (("--platform-only",), {"web"}),
+    (("--ops-only",), {"ops-worker", "ops-scheduler", "date-completeness-worker",
+                       "ops-task-completion-worker", "ops-stk-mins-worker", "ops-index-mins-worker"}),
+    (("--foundation-only",), {"ops-worker", "ops-task-completion-worker", "ops-stk-mins-worker", "ops-index-mins-worker"}),
+    (("--qtf-only",), {"qtf-worker"}),
+    (("--maintenance-migration",), set()),
+])
+def test_one_command_installs_package_and_checks_before_mutations(deployment, mode, restarted):
+    run, _ = deployment
+    result, commands = run(*mode)
+    assert result.returncode == 0, result.stdout + result.stderr
+    install = commands.index("pip install ./packages/technical_indicators -e .")
+    check = commands.index("python config-check")
+    assert install < check < commands.index("cli init-db")
+    assert sum(line.startswith("pip ") for line in commands) == 1
+    for index, line in enumerate(commands):
+        if line.startswith(("npm ", "sudo install ", "systemctl daemon-reload", "systemctl restart ")):
+            assert check < index
+    assert "技术指标包版本=0.1.0，路径=" in result.stdout
+    assert "技术指标包与主工程配置校验通过" in result.stdout
+    assert {line.removeprefix("systemctl restart ") for line in commands if line.startswith("systemctl restart ")} == {
+        f"goldenshare-{name}.service" for name in restarted
+    }
+    if mode == ("--maintenance-migration",):
+        assert not any(line.startswith(("npm ", "sudo ", "systemctl ")) for line in commands)
+
+
+@pytest.mark.parametrize("options,target", [
+    (("--with-dev-deps",), ".[dev]"),
+    (("--pip-install-target", ".[local-lake]"), ".[local-lake]"),
+])
+def test_install_preserves_existing_target_options(deployment, options, target):
+    run, _ = deployment
+    result, commands = run("--platform-only", *options)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert f"pip install ./packages/technical_indicators -e {target}" in commands
+
+
+@pytest.mark.parametrize("failure,status,environment,message", [
+    ("install", 23, {"DEPLOY_TEST_INSTALL_STATUS": "23"}, ""),
+    ("old-package", 1, {"DEPLOY_TEST_OLD_CONFIG": "1"}, "technical_indicator_max_output_bytes"),
+    ("invalid-config", 1, {}, "TECHNICAL_INDICATOR_MAX_OUTPUT_ROWS"),
+])
+def test_install_or_real_config_failure_stops_before_mutations(deployment, failure, status, environment, message):
+    run, env_file = deployment
+    if failure == "invalid-config":
+        env_file.write_text("TECHNICAL_INDICATOR_MAX_OUTPUT_ROWS=501\n", encoding="utf-8")
+    result, commands = run(extra_env=environment)
+    assert result.returncode == status, result.stdout + result.stderr
+    assert message in result.stderr
+    assert not any(line.startswith(("npm ", "cli ", "sudo ", "systemctl ")) for line in commands)
+    assert ("python config-check" in commands) == (failure != "install")
+    assert "技术指标包与主工程配置校验通过" not in result.stdout
+    if failure == "old-package":
+        assert "AttributeError" in result.stderr

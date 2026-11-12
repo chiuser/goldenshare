@@ -246,6 +246,20 @@ load_runtime_env() {
   set +a
 }
 
+verify_technical_indicator_installation() {
+  log "校验技术指标包与主工程配置"
+  GOLDENSHARE_ENV_FILE="${ENV_FILE}" .venv/bin/python - <<'PY'
+from importlib.metadata import version
+
+import goldenshare_technical_indicators
+from src.foundation.config.settings import get_settings, technical_indicator_config_from_settings
+
+print(f"技术指标包版本={version('goldenshare-technical-indicators')}，路径={goldenshare_technical_indicators.__file__}", flush=True)
+technical_indicator_config_from_settings(get_settings())
+print("技术指标包与主工程配置校验通过")
+PY
+}
+
 restart_layer_services() {
   local layer="$1"
   case "${layer}" in
@@ -373,7 +387,8 @@ main() {
   git pull --ff-only origin "${BRANCH}"
 
   log "2/12 安装后端依赖（target=${PIP_INSTALL_TARGET}）"
-  .venv/bin/pip install -e "${PIP_INSTALL_TARGET}"
+  .venv/bin/pip install ./packages/technical_indicators -e "${PIP_INSTALL_TARGET}"
+  verify_technical_indicator_installation
 
   if [[ "${RUN_FRONTEND_BUILD}" == "1" ]]; then
     log "3/12 构建前端"
