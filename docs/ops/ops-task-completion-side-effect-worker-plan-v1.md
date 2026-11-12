@@ -1,6 +1,6 @@
 # Ops 任务完成后处理 Worker 运行契约
 
-- 校准日期：2026-09-09。
+- 校准日期：2026-11-12；当日首次指数日线审计移交现有 scheduler，方案与 LLD 见[指数日线说明 §8](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-completeness-reconciliation-plan-v2.md#8-2026-11-12-当日首次自动补漏推迟至-1900方案与-lld)。
 - 性质：当前代码、配置与部署入口说明；不是部署指令或生产验收报告。
 - 历史状态：2026-05-30 原方案记录本地实现完成、待部署验收。本轮确认实现仍在，未据此断言服务当前已运行或仍未部署。
 - 与 [TaskRun 主契约](/Users/congming/github/goldenshare/docs/ops/ops-task-run-observability-redesign-plan-v1.md) 分工：本文只描述任务终态后的后处理，不重复任务模型、API 或页面 ETA。
@@ -10,8 +10,9 @@
 主任务 Worker 负责业务执行与 TaskRun 终态提交，随后可以领取下一任务；完成 Worker 扫描已结束的 TaskRun，执行以下后处理：
 
 1. 刷新关联数据集状态投影。
-2. 符合条件时创建 index_daily 日期完整性审计。
-3. 尝试发送飞书完成通知。
+2. 尝试发送飞书完成通知。
+
+指数日线当日首次审计由现有 scheduler 在上海 19:00 后根据已持久化主任务事实创建，完成 Worker 不再负责该动作。
 
 主任务当前已经不再同步刷新 snapshot；旧文中的“主 Worker 仍被同步刷新阻塞”是拆分前背景。后处理不改变原任务成败，不为通知失败写 TaskRun issue，不应回滚已经提交的业务数据。
 
@@ -23,13 +24,13 @@
 - 第一次 run_cycle 只把内存游标初始化到当前最新终态 `(ended_at, id)`，返回 0，不执行后处理。没有历史终态时用空游标。
 - 后续按 `ended_at ASC, id ASC` 取游标后的有限批次；每个任务处理函数正常返回后推进游标。
 - 不新增 outbox、通知表或持久化确认，不回放启动前历史，不提供自动失败重试或 exactly-once 保证；重启后重新定位最新终态，停机期间的后处理可能被跳过。
-- 一个任务内三项操作串行，任务之间也串行。慢 snapshot 刷新不会占住主任务 Worker，但会延迟本 Worker 的审计创建、通知和后续任务；不能写成“只延迟 snapshot”。
-- snapshot、审计创建、发送通知各有异常捕获并记日志；审计创建异常还回滚其 Session。正常返回后即使其中某项失败，也推进游标，不自动补发。
+- 一个任务内两项操作串行，任务之间也串行。慢 snapshot 刷新不会占住主任务 Worker，但会延迟本 Worker 的通知和后续任务。
+- snapshot、发送通知各有异常捕获并记日志。正常返回后即使其中某项失败，也推进游标，不自动补发。
 - **摘要构建位于上述 try/catch 之外**；批次查询、摘要构建等异常可能逃出 run_cycle，游标尚未推进。CLI 外层没有统一捕获，进程可能退出。不能承诺“任何异常都继续处理后续任务”；systemd 重启也不等于补做遗漏后处理。
 
-因此“不补历史”的边界影响通知、状态投影刷新和审计创建三者。要求可靠重放或独立并发时需另立方案，本轮不改变已接受的轻量 Worker 设计。
+因此“不补历史”的边界影响通知和状态投影刷新。指数日线审计改由 scheduler 查询已持久化 TaskRun，不依赖本 Worker 游标。通知与投影的可靠重放或独立并发仍需另立方案。
 
-## 3. 三项后处理的实际范围
+## 3. 后处理的实际范围
 
 ### 3.1 状态投影
 
@@ -39,15 +40,7 @@ dataset_action 根据 resource_key/action 解析正式动作；workflow 根据 r
 
 ### 3.2 index_daily 完成审计
 
-须同时满足以下条件才创建审计，并非所有任务结束都触发：
-
-- task_type=dataset_action、resource_key=index_daily、action=maintain、status=success。
-- request_payload.run_scope 不是 `index_daily_gap_repair`，避免修复任务再次触发同一链路。
-- time_input.mode=point 且 trade_date 可解析；该日期等于**后处理时**上海时区的当天，不只是任务开始或完成的日期。
-- 配置的 default_exchange 在本地交易日历对应日期明确 is_open=True。
-- 同日不存在 queued/running 的 index_daily、date_subject_matrix 审计。
-
-满足条件后调用 DateCompletenessRunCommandService.create_system_run 写入系统审计请求；这里只创建，不在完成 Worker 内执行完整审计。不覆盖历史区间、Workflow 或补缺修复任务，也不承诺并发进程间的严格去重。
+2026-11-12 的本步变更删除完成 Worker 中的创建调用及专用方法。现有 scheduler 在上海时间 19:00 后确认当天开市、普通单日维护成功且已结束、没有同日处理中维护或审计、当天尚未创建晚间系统审计，再调用 `DateCompletenessRunCommandService.create_system_run`。主任务晚于 19:00 完成时由后续轮询接上。完整条件、配置审计、失败续跑、性能与测试要求统一见[指数日线说明 §8](/Users/congming/github/goldenshare/docs/ops/ops-index-daily-completeness-reconciliation-plan-v2.md#8-2026-11-12-当日首次自动补漏推迟至-1900方案与-lld)。
 
 ### 3.3 飞书通知
 
@@ -99,11 +92,11 @@ CLI：`goldenshare ops-task-completion-worker-serve`。
 
 既有测试入口：
 
-- `tests/web/test_ops_task_completion_worker.py`：首次启动不补历史、终态顺序、刷新/通知异常隔离、index_daily 审计触发及修复任务排除。
+- `tests/web/test_ops_task_completion_worker.py`：首次启动不补历史、终态顺序、刷新/通知异常隔离、普通指数日线和补漏任务完成均不直接创建审计。
 - `tests/test_feishu_task_notification_service.py`：签名、消息构造、缺 secret 跳过及业务失败。
 - `tests/test_cli_ops_runtime.py`：有限循环和参数传递；其中替身返回处理数量，不替代真实首次循环行为验证。
 - `tests/web/test_ops_runtime.py`：主任务不再同步刷新 snapshot 的防回退。
 
-正式运行验收仍需独立授权和证据：先确认服务/有效配置，再观察**初始化以后**新结束的任务，核对三项适用后处理、失败日志及主任务可继续执行；不得为验收回放历史、擅自触发真实通知或增加生产任务。历史“待部署”不自动关闭，也不作为今天必须重新部署的理由。
+正式运行验收仍需独立授权和证据：先确认服务/有效配置，再观察**初始化以后**新结束的任务，核对投影、通知、失败日志及主任务可继续执行；指数日线晚间审计另按其方案验收。不得为验收回放历史、擅自触发真实通知或增加生产任务。历史“待部署”不自动关闭，也不作为今天必须重新部署的理由。
 
-本轮仅核对源码、测试定义、CLI 和 unit 文件，未执行 Worker、数据库回归、部署或网络通知。已知局限保留在 §2–3；信息去向见 [本批治理记录](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#ops-taskrun-consolidation-20260909)。
+2026-09-09 文档治理仅核对源码、测试定义、CLI 和 unit 文件。2026-11-12 变更的实施和隔离验收结果统一记入指数日线原方案 §8.6，不执行部署或网络通知。已知局限保留在 §2–3；历史信息去向见 [本批治理记录](/Users/congming/github/goldenshare/docs/governance/docs-information-architecture-v1.md#ops-taskrun-consolidation-20260909)。

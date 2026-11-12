@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from src.foundation.config.settings import get_settings
@@ -13,6 +13,8 @@ from src.ops.services.date_completeness_run_service import DateCompletenessRunCo
 from src.ops.services.index_daily_reconciliation_policy import (
     INDEX_DAILY_GAP_REPAIR_RUN_SCOPE,
     INDEX_DAILY_RECONCILIATION_TIMEZONE,
+    INDEX_DAILY_REPAIR_SLOT_SAME_DAY_INITIAL,
+    INDEX_DAILY_SAME_DAY_INITIAL_REPAIR_START_TIME,
     previous_open_day_repair_slot_for_time,
 )
 from src.ops.services.index_daily_source_serviceability_service import IndexDailySourceServiceabilityService
@@ -71,6 +73,8 @@ class IndexDailyCompletenessReconciliationService:
         local_now: datetime,
     ) -> tuple[date, str] | None:
         local_time = local_now.time().replace(tzinfo=None)
+        if local_time >= INDEX_DAILY_SAME_DAY_INITIAL_REPAIR_START_TIME:
+            return local_now.date(), INDEX_DAILY_REPAIR_SLOT_SAME_DAY_INITIAL
         repair_slot = previous_open_day_repair_slot_for_time(local_time)
         if repair_slot is None:
             return None
@@ -93,6 +97,8 @@ class IndexDailyCompletenessReconciliationService:
         target_trade_date: date,
         repair_slot: str,
     ) -> bool:
+        if repair_slot == INDEX_DAILY_REPAIR_SLOT_SAME_DAY_INITIAL:
+            return self._is_due_for_same_day_initial_audit(session, trade_date=target_trade_date)
         latest_audit = session.scalar(
             select(DatasetDateCompletenessRun)
             .where(DatasetDateCompletenessRun.dataset_key == "index_daily")
@@ -117,6 +123,47 @@ class IndexDailyCompletenessReconciliationService:
                 target_trade_date=target_trade_date,
             )
         )
+
+    def _is_due_for_same_day_initial_audit(self, session: Session, *, trade_date: date) -> bool:
+        initial_at = datetime.combine(
+            trade_date, INDEX_DAILY_SAME_DAY_INITIAL_REPAIR_START_TIME,
+            tzinfo=INDEX_DAILY_RECONCILIATION_TIMEZONE,
+        ).astimezone(timezone.utc)
+        existing_audit = session.scalar(
+            select(DatasetDateCompletenessRun.id)
+            .where(DatasetDateCompletenessRun.dataset_key == "index_daily")
+            .where(DatasetDateCompletenessRun.audit_scope == "date_subject_matrix")
+            .where(DatasetDateCompletenessRun.start_date == trade_date)
+            .where(DatasetDateCompletenessRun.end_date == trade_date)
+            .where(DatasetDateCompletenessRun.run_mode == "scheduled")
+            .where(DatasetDateCompletenessRun.requested_by_user_id.is_(None))
+            .where(DatasetDateCompletenessRun.schedule_id.is_(None))
+            .where(DatasetDateCompletenessRun.requested_at >= initial_at)
+            .limit(1)
+        )
+        if existing_audit is not None:
+            return False
+
+        daily_tasks = (
+            select(TaskRun.id)
+            .where(TaskRun.task_type == "dataset_action")
+            .where(TaskRun.resource_key == "index_daily")
+            .where(TaskRun.action == "maintain")
+            .where(TaskRun.time_input_json["mode"].as_string() == "point")
+            .where(TaskRun.time_input_json["trade_date"].as_string() == trade_date.isoformat())
+        )
+        if session.scalar(daily_tasks.where(TaskRun.status.in_(INDEX_DAILY_REPAIR_OPEN_STATUSES)).limit(1)) is not None:
+            return False
+        run_scope = TaskRun.request_payload_json["run_scope"].as_string()
+        main_success = session.scalar(
+            daily_tasks.where(TaskRun.status == "success")
+            .where(TaskRun.ended_at.is_not(None))
+            .where(or_(run_scope.is_(None), run_scope != INDEX_DAILY_GAP_REPAIR_RUN_SCOPE))
+            .limit(1)
+        )
+        if main_success is None:
+            return False
+        return not self._has_open_audit(session, target_trade_date=trade_date)
 
     @staticmethod
     def _has_open_audit(session: Session, *, target_trade_date: date) -> bool:

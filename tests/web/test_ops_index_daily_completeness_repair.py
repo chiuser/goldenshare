@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
-from zoneinfo import ZoneInfo
-
+import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -120,6 +119,22 @@ def _codes(count: int) -> list[str]:
     return [f"{index:06d}.SH" for index in range(1, count + 1)]
 
 
+@pytest.mark.parametrize("now,expected_count", [
+    (datetime(2026, 4, 24, 10, 59, 59, tzinfo=timezone.utc), 0),
+    (datetime(2026, 4, 24, 11, 0, tzinfo=timezone.utc), 1),
+])
+def test_system_same_day_repair_waits_until_shanghai_1900(db_session, now, expected_count):
+    trade_date = date(2026, 4, 24)
+    _seed_open_day(db_session, trade_date)
+    _seed_active_indexes(db_session, ["000001.SH"], trade_date=trade_date)
+    _seed_raw_rows(db_session, ["000001.SH"], trade_date=trade_date)
+    source_run = _create_source_run(db_session, trade_date=trade_date)
+    task_runs = IndexDailyCompletenessRepairService().create_repair_task_runs(
+        db_session, source_run=source_run, now=now,
+    )
+    assert len(task_runs) == expected_count
+
+
 def test_index_daily_repair_creates_single_task_run_for_small_gap(db_session) -> None:
     trade_date = date(2026, 4, 24)
     active_codes = ["000001.SH", "399001.SZ", "399300.SZ"]
@@ -132,7 +147,7 @@ def test_index_daily_repair_creates_single_task_run_for_small_gap(db_session) ->
     task_runs = IndexDailyCompletenessRepairService().create_repair_task_runs(
         db_session,
         source_run=source_run,
-        now=datetime(2026, 4, 24, 10, 0, tzinfo=timezone.utc),
+        now=datetime(2026, 4, 24, 11, 0, tzinfo=timezone.utc),
     )
 
     assert len(task_runs) == 1
@@ -164,7 +179,7 @@ def test_index_daily_repair_batches_missing_codes_by_one_hundred(db_session) -> 
     task_runs = IndexDailyCompletenessRepairService().create_repair_task_runs(
         db_session,
         source_run=source_run,
-        now=datetime(2026, 4, 24, 10, 0, tzinfo=timezone.utc),
+        now=datetime(2026, 4, 24, 11, 0, tzinfo=timezone.utc),
     )
 
     assert len(task_runs) == 3
@@ -185,7 +200,7 @@ def test_index_daily_repair_caps_task_runs_per_round(db_session) -> None:
     task_runs = IndexDailyCompletenessRepairService().create_repair_task_runs(
         db_session,
         source_run=source_run,
-        now=datetime(2026, 4, 24, 10, 0, tzinfo=timezone.utc),
+        now=datetime(2026, 4, 24, 11, 0, tzinfo=timezone.utc),
     )
 
     assert len(task_runs) == INDEX_DAILY_REPAIR_MAX_TASK_RUNS_PER_ROUND
@@ -219,7 +234,7 @@ def test_index_daily_repair_skips_codes_already_pending(db_session) -> None:
     task_runs = IndexDailyCompletenessRepairService().create_repair_task_runs(
         db_session,
         source_run=source_run,
-        now=datetime(2026, 4, 24, 10, 0, tzinfo=timezone.utc),
+        now=datetime(2026, 4, 24, 11, 0, tzinfo=timezone.utc),
     )
 
     assert len(task_runs) == 1
@@ -237,15 +252,23 @@ def test_index_daily_repair_does_not_create_historical_tasks(db_session) -> None
     task_runs = IndexDailyCompletenessRepairService().create_repair_task_runs(
         db_session,
         source_run=source_run,
-        now=datetime(2026, 4, 24, 10, 0, tzinfo=timezone.utc),
+        now=datetime(2026, 4, 24, 11, 0, tzinfo=timezone.utc),
     )
 
     assert task_runs == []
     assert db_session.scalar(select(TaskRun).where(TaskRun.resource_key == "index_daily")) is None
 
 
-def test_date_completeness_worker_creates_index_daily_repair_after_today_gap(db_session) -> None:
-    trade_date = datetime.now(timezone.utc).astimezone(ZoneInfo("Asia/Shanghai")).date()
+def test_date_completeness_worker_creates_index_daily_repair_after_today_gap(db_session, monkeypatch) -> None:
+    # Freeze only the wall clock; audit, classification and TaskRun creation are real.
+    now = datetime(2026, 4, 24, 11, 0, tzinfo=timezone.utc)
+    class FixedDateTime(datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return now.astimezone(tz) if tz else now.replace(tzinfo=None)
+    monkeypatch.setattr("src.ops.services.index_daily_completeness_repair_service.datetime", FixedDateTime)
+    monkeypatch.setattr("src.ops.services.date_completeness_audit_service._utcnow", lambda: now)
+    trade_date = date(2026, 4, 24)
     _seed_open_day(db_session, trade_date)
     _seed_active_indexes(db_session, ["000001.SH", "399001.SZ"], trade_date=trade_date)
     _seed_serving_rows(db_session, ["000001.SH"], trade_date=trade_date)
@@ -255,6 +278,7 @@ def test_date_completeness_worker_creates_index_daily_repair_after_today_gap(db_
         dataset_key="index_daily",
         start_date=trade_date,
         end_date=trade_date,
+        now=now,
     )
 
     run = DateCompletenessAuditWorker().run_next(db_session)
@@ -292,6 +316,22 @@ def test_index_daily_repair_allows_the_previous_open_day(db_session) -> None:
     assert len(task_runs) == 1
     assert task_runs[0].time_input_json == {"mode": "point", "trade_date": "2026-04-23"}
     assert task_runs[0].request_payload_json["repair_slot"] == INDEX_DAILY_REPAIR_SLOT_PREVIOUS_OPEN_DAY_AFTERNOON
+
+
+def test_previous_day_initial_audit_is_not_blocked_by_todays_1900_gate(db_session):
+    trade_date = date(2026, 4, 23)
+    _seed_open_day(db_session, trade_date)
+    _seed_open_day(db_session, date(2026, 4, 24))
+    _seed_active_indexes(db_session, ["000001.SH"], trade_date=trade_date)
+    _seed_raw_rows(db_session, ["000001.SH"], trade_date=trade_date)
+    source_run = _create_source_run(
+        db_session, trade_date=trade_date, requested_at=datetime(2026, 4, 23, 11, 0, tzinfo=timezone.utc),
+    )
+    runs = IndexDailyCompletenessRepairService().create_repair_task_runs(
+        db_session, source_run=source_run, now=datetime(2026, 4, 24, 2, 0, tzinfo=timezone.utc),
+    )
+    assert len(runs) == 1
+    assert runs[0].request_payload_json["repair_slot"] == INDEX_DAILY_REPAIR_SLOT_SAME_DAY_INITIAL
 
 
 def test_index_daily_repair_uses_source_audit_time_for_previous_open_day_slot(db_session) -> None:

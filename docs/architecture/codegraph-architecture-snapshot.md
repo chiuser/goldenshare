@@ -109,6 +109,12 @@ CodeGraph 确认 `TaskRunDispatcher._dispatch_dataset_action` 会从 TaskRun 构
 
 2026-10-10复权周线P1增加 `ingestion.execution_scope` 作为具名冻结合同分派入口：resolver先冻结，再生成带稳定批次身份的unit；TaskRun受理/恢复保存原意图，dispatcher按合同提取独立观测timeout。P2已绑定注册Definition；resolver只读解析因子/欠账和原批恢复，unit_planner消费冻结business_plan，executor按具名策略进入stock_weekly_adj_execution，单发布锁后持久化plan；writer调用stock_weekly_adj_delivery，在短事务中提交Raw/Serving、输入键读回和receipt，全部unit完成才闭合。TaskRun查询投影typed weekly_adj_progress，由现有详情组件消费；独立观测失败不回滚业务。真实隔离PG已验证迁移、锁、取消/进程退出续跑与终态；本轮修复worker._finalize_task_run对具名周线合同保留已提交进度并同步活动node终态，公告及其他任务语义不变。CodeGraph explore/impact追到_run_started_task_run、run_next/run_task_run并核验实际独立观测/API消费者。正式迁移/部署未执行；2026-10-11日期误判纠偏及两历史周全市场隔离对账通过，日期纠偏已提交12f5ddde；内存优化隔离执行达到单进程256MiB目标，进程树总量另列，正式性能/环境及页面验收待完成，详见周线LLD §13.7。公告快照不纳入周线默认字段，既有合同及消费者保持。CodeGraph explore/query/impact覆盖共享模型、resolver/planner、TaskRun、排程及call_bounded调用链，动态注册/SQL/前端消费者另外读源码；P2增加explore/impact覆盖执行分派及进度API/前端链；实现与未验边界见[周线LLD §13](../datasets/stock-weekly-adj-refresh-low-level-design-v1.md#p2-implementation)。依赖矩阵不变。
 
+### 指数日线当日首次自动补漏（2026-11-12）
+
+当日首次审计由 `OperationsScheduler.run_once -> IndexDailyCompletenessReconciliationService.enqueue_due_audits -> DateCompletenessRunCommandService.create_system_run` 在上海时间 19:00 后创建；查询已持久化的当天成功普通维护任务，等待同日处理中维护和审计结束，并以既有晚间系统审计记录避免重复。随后由 `DateCompletenessAuditWorker -> IndexDailyCompletenessRepairService -> TaskRunCommandService` 重新查缺、分类并按原批次创建标准维护任务。repair service 同时阻止旧系统审计在当天 19:00 前派生首次补漏。
+
+`TaskRunCompletionWorker` 仅刷新状态投影和发送通知，删除了直接创建当日审计的调用及专用方法。CodeGraph explore/callers/callees/impact 与当前代码补核覆盖 scheduler、完成 Worker、审计/补漏、TaskRun 字段、API/前端只读消费者及相关回归；依赖方向、API/CLI、Foundation 执行链和下一交易日早晚阶段不变。方案、性能依据和未部署边界见[指数日线原方案 §8](../ops/ops-index-daily-completeness-reconciliation-plan-v2.md#8-2026-11-12-当日首次自动补漏推迟至-1900方案与-lld)。
+
 ### 公告一次性身份迁移入口（2026-10-02）
 
 2026-10-02 公告保存规则改为完整源记录相等才忽略重复。旧身份迁移维护动作及执行器、离线脚本清退；日常同步通过既有 DatasetExecutionPlan -> announcement_stream -> DatasetWriter -> AnnsDDAO 批量 INSERT ON CONFLICT DO NOTHING。App 不再注册迁移执行器，Foundation 依赖方向不变。CodeGraph query/impact 覆盖 transform、DAO、旧迁移调用方，源码补核 writer、stream、worker、catalog 与下载器，详见[公告LLD当前口径](/Users/congming/github/goldenshare/docs/datasets/anns-d-sync-low-level-design-v1.md)。

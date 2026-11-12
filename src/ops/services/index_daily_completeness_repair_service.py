@@ -16,6 +16,7 @@ from src.ops.services.index_daily_reconciliation_policy import (
     INDEX_DAILY_REPAIR_BATCH_SIZE,
     INDEX_DAILY_REPAIR_MAX_TASK_RUNS_PER_ROUND,
     INDEX_DAILY_REPAIR_SLOT_SAME_DAY_INITIAL,
+    INDEX_DAILY_SAME_DAY_INITIAL_REPAIR_START_TIME,
     is_allowed_index_daily_repair_target,
     previous_open_day_repair_slot_for_time,
 )
@@ -45,11 +46,19 @@ class IndexDailyCompletenessRepairService:
         source_run: DatasetDateCompletenessRun,
         now: datetime | None = None,
     ) -> list[TaskRun]:
-        trade_date = self._eligible_trade_date(session, source_run=source_run, now=now)
+        current_time = now or datetime.now(timezone.utc)
+        trade_date = self._eligible_trade_date(session, source_run=source_run, now=current_time)
         if trade_date is None:
             return []
 
         repair_slot = self._resolve_repair_slot(session, source_run=source_run)
+        local_now = current_time.astimezone(INDEX_DAILY_RECONCILIATION_TIMEZONE)
+        if (
+            repair_slot == INDEX_DAILY_REPAIR_SLOT_SAME_DAY_INITIAL
+            and trade_date == local_now.date()
+            and local_now.time().replace(tzinfo=None) < INDEX_DAILY_SAME_DAY_INITIAL_REPAIR_START_TIME
+        ):
+            return []
         classifications = self.source_service.classify_active_gaps(session, target_trade_date=trade_date)
         pending_codes = self._pending_repair_codes(session, trade_date=trade_date)
         repair_codes = [

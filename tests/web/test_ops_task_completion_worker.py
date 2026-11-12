@@ -36,10 +36,6 @@ class FakeCompletionService(TaskRunCompletionService):
             raise RuntimeError("snapshot boom")
         return 1
 
-    def create_index_daily_completion_audit_run(self, session, task_run, *, now=None):  # type: ignore[no-untyped-def]
-        return super().create_index_daily_completion_audit_run(session, task_run, now=now)
-
-
 def test_completion_worker_initializes_cursor_without_replaying_history(db_session, task_run_factory) -> None:
     now = datetime(2026, 5, 31, 10, 0, tzinfo=timezone.utc)
     history = task_run_factory(status="success", ended_at=now, started_at=now - timedelta(minutes=1))
@@ -101,7 +97,7 @@ def test_completion_worker_isolates_snapshot_and_notification_failures(db_sessio
     assert notification_service.sent_task_run_ids == [first.id, second.id]
 
 
-def test_completion_worker_creates_index_daily_audit_after_non_repair_success(db_session, task_run_factory) -> None:
+def test_completion_worker_does_not_create_index_daily_audit_after_main_success(db_session, task_run_factory) -> None:
     local_today = datetime.now(timezone.utc).astimezone(ZoneInfo("Asia/Shanghai")).date()
     base = datetime.now(timezone.utc).replace(microsecond=0)
     db_session.add(
@@ -132,13 +128,8 @@ def test_completion_worker_creates_index_daily_audit_after_non_repair_success(db
 
     assert processed == 1
     audit_run = db_session.scalar(select(DatasetDateCompletenessRun).where(DatasetDateCompletenessRun.dataset_key == "index_daily"))
-    assert audit_run is not None
-    assert audit_run.run_mode == "scheduled"
-    assert audit_run.run_status == "queued"
-    assert audit_run.schedule_id is None
-    assert audit_run.audit_scope == "date_subject_matrix"
-    assert audit_run.start_date == local_today
-    assert audit_run.end_date == local_today
+    assert audit_run is None
+    assert completion_service.refreshed_task_run_ids == [task_run.id]
     assert notification_service.sent_task_run_ids == [task_run.id]
 
 
