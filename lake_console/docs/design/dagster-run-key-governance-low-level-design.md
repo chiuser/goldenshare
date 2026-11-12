@@ -961,3 +961,15 @@ subject 固定为 `raw_tushare_dc_index_update`、`raw_tushare_dc_member_update`
 新交付引用改用真实`producer_run_id`、`freq`和`upstream_batch_id`，不以旧64位私有执行ID或回执文件摘要作为交付身份。交付ID仍由`build_batch_id`生成；两频自动历史修复按固定周/月引用顺序和代码摘要生成输入ID，生产者ID固定取周Raw引用，不能因哪个成功回调后到而变化。第3、4阶段已实现的`raw_stock_period_history_repair_job_sensor`及`raw_stock_period_retirement_cleanup_job_sensor`调用`build_upstream_triggered_run_key`，不解析run key生成参数，不把事件storage id带入配置或ID。
 
 `goldenshare/stock_period_business_date`和`goldenshare/stock_period_kind`由入口验证后的日期及用途配置生成，用于按job、同日及daily查询另一频成功；单频入口另写`goldenshare/stock_period_freq`，清理结果按job、频率及SUCCESS跨业务日读取最后完成的一笔，按`end_time`倒序取一条，再按run/check索引读取一条累计结果；不以创建顺序代替完成顺序。Silver另由原输入引用派生`goldenshare/stock_period_source_batch`，按本job、该上游ID及SUCCESS找到手工整批重跑结果，再核对完整交付及本次原检查；不依赖手工运行携带自动run key。四个运行tag的唯一命名及构造位于本链delivery合同；它们不是sensor分类tag、环境变量或用户开关，也不能替代完整交付及原检查。整批重跑只使用原生运行关系和业务范围，不创建逐文件接续身份。本阶段Raw/Silver入口、配置、guard及CLI更新分支已同步迁移，不增加旧格式兼容读取；旧运行与事件保留供追溯。阶段结果及后续范围见[第13.13节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-four-results)，尚未正式切换。
+
+<a id="moneyflow-ths-content-run-key-20261112"></a>
+
+## 同花顺个股资金流向Silver原标识保留（2026-11-12，待实现）
+
+范围仅为 `silver_moneyflow_ths_update_job_sensor` 改成Raw成功事件触发后的提交身份。它属于按日期和最终Raw内容更新的普通资产，继续调用 `build_asset_update_run_key(subject="silver_moneyflow_ths",unit_id=目标日+":"+最终Raw文件摘要)`，保留原 `silver_moneyflow_ths:<YYYY-MM-DD>:<64位摘要>`；partition_key仍显式传目标日，不从key反推参数。
+
+原资金流方案拟采用build_batch_id但不提供producer_run_id，与现行合同冲突；若填每次Raw运行ID又会改变同内容判重，该做法撤回。本次不修改build_batch_id、build_upstream_triggered_run_key、build_run_request或其它消费者，不新增批次元数据字段。成功事件仅决定何时检查本日资产更新，不等于以每次上游执行作为新的业务单位。现行前复权分钟线MACD/KDJ日更成功事件sensor已使用asset-update builder，真实批次修复及周月线交付继续按各自合同。
+
+切换保持原Sensor名、job、代码位置及仓库身份。Dagster的fetch_existing_runs按原run_key、Sensor名及仓库识别记录，_get_or_create_sensor_run对已启动或终止的记录跳过，对NOT_STARTED复用同一任务；不因普通Sensor改成功事件Sensor而隔离旧记录。不迁移、重写或全量核对历史运行，不保留额外兼容分支。手动Silver运行继续按原入口，不要求填run_key。
+
+核验采用本任务临时SQLite及原框架方法，覆盖6种状态和2条命名空间反例，具体结果、成本与替身边界见[资金流LLD第82.16节](dagster-moneyflow-tushare-low-level-design-v1.md)。主链实现仍须保留同内容失败不重投、不同内容首次提交、历史日期不受10日/22点限制等既有验收；本节不授权正式切换或写入。

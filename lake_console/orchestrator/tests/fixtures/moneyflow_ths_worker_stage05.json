@@ -1,0 +1,82 @@
+{
+  "fixture_kind": "artificial",
+  "purpose": "阶段0.5测试准备；不代表真实股票池、源端当前数据或HTTP接入已经通过",
+  "source_document": "docs/sources/tushare/股票数据/资金流向数据/0348_个股资金流向（THS）.md",
+  "raw_schema": "RAW_TUSHARE_MONEYFLOW_THS_SCHEMA",
+  "trade_date": "20261110",
+  "fields": [
+    "trade_date",
+    "ts_code",
+    "name",
+    "pct_change",
+    "latest",
+    "net_amount",
+    "net_d5_amount",
+    "buy_lg_amount",
+    "buy_lg_amount_rate",
+    "buy_md_amount",
+    "buy_md_amount_rate",
+    "buy_sm_amount",
+    "buy_sm_amount_rate"
+  ],
+  "projection_fields": ["ts_code", "trade_date"],
+  "row_count": 5218,
+  "code_rule": {"start": 1, "end": 5218, "digits": 6, "suffix": ".SZ"},
+  "pages": [
+    {"offset": 0, "row_count": 2000, "first_code": "000001.SZ", "last_code": "002000.SZ"},
+    {"offset": 2000, "row_count": 2000, "first_code": "002001.SZ", "last_code": "004000.SZ"},
+    {"offset": 4000, "row_count": 1218, "first_code": "004001.SZ", "last_code": "005218.SZ"}
+  ],
+  "default_business_values": {
+    "name": "人工样本",
+    "pct_change": -1.2345,
+    "latest": 10.2301,
+    "net_amount": -1234.5678,
+    "net_d5_amount": 9007199254740993.0001,
+    "buy_lg_amount": 0,
+    "buy_lg_amount_rate": 0,
+    "buy_md_amount": 12.3456,
+    "buy_md_amount_rate": 1.2501,
+    "buy_sm_amount": -12.3456,
+    "buy_sm_amount_rate": -1.2501
+  },
+  "golden_records": [
+    {
+      "trade_date": "20261110",
+      "ts_code": "000001.SZ",
+      "name": null,
+      "pct_change": null,
+      "latest": null,
+      "net_amount": null,
+      "net_d5_amount": null,
+      "buy_lg_amount": null,
+      "buy_lg_amount_rate": null,
+      "buy_md_amount": null,
+      "buy_md_amount_rate": null,
+      "buy_sm_amount": null,
+      "buy_sm_amount_rate": null
+    },
+    {
+      "trade_date": "20261110",
+      "ts_code": "000002.SZ",
+      "name": "人工样本",
+      "pct_change": -1.2345,
+      "latest": 10.2301,
+      "net_amount": -1234.5678,
+      "net_d5_amount": 9007199254740993.0001,
+      "buy_lg_amount": 0,
+      "buy_lg_amount_rate": 0,
+      "buy_md_amount": 12.3456,
+      "buy_md_amount_rate": 1.2501,
+      "buy_sm_amount": -12.3456,
+      "buy_sm_amount_rate": -1.2501
+    }
+  ],
+  "negative_cells": [
+    {"field": "net_amount", "raw_json_cell": "NaN", "expected": "reject_nonfinite_json"},
+    {"field": "net_amount", "raw_json_cell": "Infinity", "expected": "reject_nonfinite_json"},
+    {"field": "net_amount", "raw_json_cell": "-Infinity", "expected": "reject_nonfinite_json"},
+    {"field": "net_amount", "raw_json_cell": "1.00001", "expected": "reject_raw_scale"},
+    {"field": "net_amount", "raw_json_cell": "\"not-a-number\"", "expected": "reject_raw_numeric_type"}
+  ]
+}

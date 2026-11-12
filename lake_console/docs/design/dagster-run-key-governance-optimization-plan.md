@@ -559,3 +559,15 @@ key 不含评价日期、时间戳、UUID、源指纹或事件 id；跨日、重
 新交付引用改用真实`producer_run_id`、`freq`和`upstream_batch_id`，不以旧64位私有执行ID或回执文件摘要作为交付身份。交付ID仍由`build_batch_id`生成；两频自动历史修复按固定周/月引用顺序和代码摘要生成输入ID，生产者ID固定取周Raw引用，不能因哪个成功回调后到而变化。第3阶段已实现的`raw_stock_period_history_repair_job_sensor`及第4阶段计划的`raw_stock_period_retirement_cleanup_job_sensor`调用`build_upstream_triggered_run_key`，不解析run key生成参数，不把事件storage id带入配置或ID。
 
 `goldenshare/stock_period_business_date`和`goldenshare/stock_period_kind`由入口验证后的日期及用途配置生成，用于按job、同日及daily查询另一频成功；单频入口另写`goldenshare/stock_period_freq`，清理结果按job、频率及SUCCESS跨业务日读取。Silver另由原输入引用派生`goldenshare/stock_period_source_batch`，按本job、该上游ID及SUCCESS找到手工整批重跑结果，再核对完整交付及本次原检查；不依赖手工运行携带自动run key。四个运行tag的唯一命名及构造位于本链delivery合同；它们不是sensor分类tag、环境变量或用户开关，也不能替代完整交付及原检查。整批重跑只使用原生运行关系和业务范围，不创建逐文件接续身份。本阶段Raw/Silver入口、配置、guard及CLI更新分支已同步迁移，不增加旧格式兼容读取；旧运行与事件保留供追溯。阶段结果及后续范围见[第13.11节](dagster-stock-weekly-alternate-source-raw-backfill-low-level-design-v1.md#stock-period-stage-two-results)，尚未正式切换。
+
+<a id="moneyflow-ths-content-run-key-20261112"></a>
+
+## 同花顺个股资金流向Silver继续按内容更新（2026-11-12，待实现）
+
+本次纠正资金流方案对批次方法的误用，不改变共用builder、前复权修复或周月线真实批次交付。需求为同一交易日、同一份最终Raw内容只自动提交一次；相同内容的Raw再次成功不能自动重试已失败或取消的Silver。
+
+`silver_moneyflow_ths_update_job_sensor` 仍使用原名称和运行命名空间，只将轮询改为Raw成功事件触发。继续调用 `build_asset_update_run_key(subject="silver_moneyflow_ths",unit_id=目标日+":"+最终Raw文件摘要)`，输出字符串与当前实现完全相同；不使用build_batch_id、不加入producer_run_id、不新增upstream_batch_id。实际摘要取已有发布器的published_sha256及Raw物化file_sha256，不能改用源receipt或合并候选自己的摘要；内容相同时发布器复用原正式文件。
+
+普通资产更新可以由成功事件唤醒，不能以run_status_sensor装饰器决定改成按上游执行批次判重。当前股票分钟线前复权MACD/KDJ日更成功事件sensor即沿用asset-update builder；按真实上游批次消费的修复仍使用upstream-triggered规则。编码规范同步澄清该适用范围，不迁移其它消费者。
+
+保持原key、Sensor名称、代码位置及仓库身份后，已有任务记录继续用于防重复，不做旧提交迁移或新旧两套标识读取。只需按原部署流程切换事件cursor，切换前失败的Silver仍人工恢复。完整实施、单日边界、隔离核验及状态以[资金流LLD第82.16节](dagster-moneyflow-tushare-low-level-design-v1.md)为准，本节不代表主链已开发或正式切换。

@@ -31,7 +31,7 @@ Dagster `run_key` 只用于 sensor / schedule 提交 `RunRequest` 时的幂等�
 2. 禁止在 sensor 文件中手写 `run_key=f"..."`、字符串拼接模板或局部 run key helper。
 3. 禁止为单个数据集新增专属 run key 函数；只能复用通用类型，例如 asset update、repair attempt、upstream-triggered run key。
 4. 禁止解析 `run_key` 生成 `run_config`；执行参数只能来自显式 `run_config`、`partition_key`、上游 metadata/status，或正式定义的 `upstream_batch_id`。
-5. 上下游触发场景必须由上游提供 opaque `upstream_batch_id`，下游 run key 只使用 `consumer + upstream_batch_id`。
+5. 以真实上游批次为处理单位的场景，必须由上游提供 opaque `upstream_batch_id`，下游 run key 只使用 `consumer + upstream_batch_id`。普通资产更新继续按已确认的业务日期或日期与内容使用 `build_asset_update_run_key`；不能仅因改用 `run_status_sensor`，就把资产更新改成按上游执行轮次判重。现有股票分钟线前复权MACD/KDJ日更成功事件sensor已使用asset-update类型；同花顺个股资金流向Silver固定保留 `silver_moneyflow_ths:<目标日>:<最终Raw文件摘要>`，不增加Raw运行ID或更换旧标识。后者的实施边界见[资金流LLD第82.16节](../docs/design/dagster-moneyflow-tushare-low-level-design-v1.md)。本项澄清不改变真实批次修复及周月线原生交付规则。
 6. Dagster `event_storage_id`、`storage_id` 或其集合不得进入正式 run key、正式 run config、upstream batch id payload 或 completion identity。
 7. M7 后 legacy bridge 已退出；旧 event storage id 字段不得进入生产代码的 run key、run config、upstream batch id payload 或 completion identity，也不得恢复只读旧 completion metadata 防重复逻辑。测试只允许保留负向断言或静态门禁样本。
 8. 修改 run key 口径时，必须同步更新 `lake_console/docs/design/dagster-run-key-governance-optimization-plan.md` 和 `lake_console/docs/design/dagster-run-key-governance-low-level-design.md`。
