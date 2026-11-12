@@ -56,13 +56,6 @@ class IsolatedInstance:
         self.registered.update(keys)
 
 
-class ControlOnlyProd(FakeProd):
-    def cursor(self, name=None, **kwargs):
-        if name is not None:
-            raise AssertionError("saved complete day must not reread Prod detail rows")
-        return super().cursor(name, **kwargs)
-
-
 class NoProd:
     def __getattr__(self, name):
         raise AssertionError(f"local statistics unexpectedly accessed Prod: {name}")
@@ -145,7 +138,9 @@ def _process_worker(root, mode):
 
                 setattr(module, name, sha)
     instance = IsolatedInstance()
-    if mode == "local":
+    if mode == "recover":
+        remote = NoProd()
+    elif mode == "local":
         for key in tuple(os.environ):
             if key.startswith("PROD_POSTGRES_"):
                 del os.environ[key]
@@ -161,8 +156,7 @@ def _process_worker(root, mode):
                 approval=approval,
                 known_records=known_records,
             )
-        remote_type = FakeProd if mode == "crash" else ControlOnlyProd
-        remote = remote_type(
+        remote = FakeProd(
             approval, evidence.source_identity, ((DAY, 1),), [native_row()]
         )
     if mode == "crash":
@@ -280,7 +274,7 @@ def test_real_process_exit_raw_complete_new_process_restores_silver_then_local_s
         recovery["prod_control_queries"],
         recovery["prod_detail_queries"],
         recovery["prod_detail_fetches"],
-    ) == (1, 5, 0, 0)
+    ) == (0, 0, 0, 0)
     # Raw was already complete before the process exited. A new interpreter
     # restores Silver from that Raw, without opening old source fragments.
     assert recovery["source_parquet_sql"] == recovery.get("source_file_sha", 0) == 0
@@ -322,7 +316,7 @@ def test_new_task_restores_saved_complete_source_once_before_publication(
     # dictionary may be carried into the new execution below.
     with connection(tmp_path) as conn:
         known_records = {}
-        lake, staging, approval, identity = approval_fixture(
+        lake, staging, approval, _identity = approval_fixture(
             conn, tmp_path, known_records=known_records
         )
         source_fixture(
@@ -347,7 +341,7 @@ def test_new_task_restores_saved_complete_source_once_before_publication(
 
     monkeypatch.setattr(records, "load_complete_source", load_once)
     monkeypatch.setattr(checks, "factor_file_sha", source_sha)
-    remote = ControlOnlyProd(approval, identity, ((DAY, 1),), [native_row()])
+    remote = NoProd()
     with connection(tmp_path) as native:
         result = bootstrap._run_stk_factor_pro_bootstrap(
             CountingConnection(native, costs),
@@ -361,7 +355,6 @@ def test_new_task_restores_saved_complete_source_once_before_publication(
         assert result.current_silver_rows == 1 and result.all_expected_present
         assert costs["source_loads"] == 1
         assert costs["source_parquet_sql"] == costs["source_file_sha"] == 1
-        assert not any(named for named, _, _ in remote.queries)
         assert native.execute(
             "SELECT ts_code,trade_date,close FROM read_parquet(?)",
             [str(silver_stock_factor_pro_path(lake, DAY.isoformat()))],
@@ -443,7 +436,7 @@ def test_small_cross_batch_source_hands_each_complete_day_to_real_process(
         lake, staging, approval, identity = approval_fixture(
             native, tmp_path, counts=counts, known_records={}
         )
-        remote = FakeProd(approval, identity, counts, rows, sample_rows=[rows[0]])
+        remote = FakeProd(approval, identity, counts, rows)
         result = bootstrap._run_stk_factor_pro_bootstrap(
             CountingConnection(native, costs),
             lake_root=lake,

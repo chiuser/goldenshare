@@ -230,153 +230,22 @@ def _projection():
     )
 
 
-def _preflight_fixed(control, *, prod_postgres, approval, evidence, sample):
-    control.execute(
-        "SELECT column_name,data_type,is_nullable FROM information_schema.columns "
-        "WHERE table_schema=%s AND table_name=%s AND column_name=ANY(%s) ORDER BY ordinal_position",
-        ("raw_tushare", "stk_factor_pro", list(C.STK_FACTOR_PRO_SOURCE_COLUMNS)),
-    )
-    columns = control.fetchmany(len(C.STK_FACTOR_PRO_SOURCE_COLUMNS) + 1)
-    mapped = {}
-    for name, kind, nullable in columns:
-        if name in mapped or nullable not in ("YES", "NO"):
-            raise ValueError("bootstrap实际源schema重复或nullable非法")
-        mapped[name] = (name, kind, nullable == "YES")
-    if set(mapped) != set(C.STK_FACTOR_PRO_SOURCE_COLUMNS):
-        raise ValueError("bootstrap实际源缺完整261业务字段")
+def require_stk_factor_pro_bootstrap_resource_identity(
+    *, prod_postgres, approval, evidence
+):
+    """Compare local resource configuration with the previously audited source."""
     identity = C.StkFactorProSourceIdentity(
         prod_postgres._required_env(prod_postgres.host_env_var),
         int(prod_postgres._required_env(prod_postgres.port_env_var)),
         prod_postgres._required_env(prod_postgres.database_env_var),
         "raw_tushare",
         "stk_factor_pro",
-        tuple(mapped[name] for name in C.STK_FACTOR_PRO_SOURCE_COLUMNS),
-        approval.contract_content_digest,
+        evidence.source_identity.columns,
+        C.STK_FACTOR_PRO_CONTRACT_CONTENT_DIGEST,
     )
     validate_stk_factor_pro_bootstrap_approval(
         approval=approval, now=_now(), source_identity=identity
     )
-    if identity != evidence.source_identity:
-        raise ValueError("bootstrap实际来源schema或身份改变")
-    table = sql.Identifier("raw_tushare", "stk_factor_pro")
-    control.execute(
-        sql.SQL("SELECT MIN(trade_date),MAX(trade_date) FROM {}").format(table)
-    )
-    if tuple(control.fetchone()) != (
-        approval.start_trade_date,
-        approval.end_trade_date,
-    ):
-        raise ValueError("bootstrap源实际首尾或截止日期改变")
-    control.execute(
-        sql.SQL(
-            "SELECT {} FROM {} WHERE trade_date=%s AND ts_code=ANY(%s) ORDER BY trade_date,ts_code LIMIT %s"
-        ).format(_projection(), table),
-        (sample.sample_date, list(sample.sample_codes), sample.row_limit),
-    )
-    rows = control.fetchmany(sample.row_limit + 1)
-    if (
-        len(rows) != sample.returned_rows
-        or _description(control) != sample.request_columns
-    ):
-        raise ValueError("bootstrap固定样本字段或行数改变")
-    build_stk_factor_pro_raw_batch(
-        rows=rows,
-        source_fields=sample.request_columns,
-        source="prod_postgres",
-        expected_dates=(sample.sample_date,),
-    )
-    if any(row[0] not in sample.sample_codes for row in rows):
-        raise ValueError("bootstrap固定样本返回范围外股票")
-
-
-def _preflight(
-    control,
-    *,
-    prod_postgres,
-    approval,
-    month,
-    selected_dates,
-    source_inputs,
-    preflight_context,
-):
-    counts, evidence, sample = source_inputs
-    require_stk_factor_pro_bootstrap_source_window(approval=approval, now=_now())
-    control.execute(
-        "SELECT set_config('statement_timeout', %s, true)",
-        (str(approval.source_statement_timeout_ms),),
-    )
-    if not preflight_context["fixed_done"]:
-        _preflight_fixed(
-            control,
-            prod_postgres=prod_postgres,
-            approval=approval,
-            evidence=evidence,
-            sample=sample,
-        )
-        preflight_context["fixed_done"] = True
-    checked = preflight_context["checked_windows"].setdefault(month.month_start, {})
-    pending = tuple(day for day in selected_dates if day not in checked)
-    if pending:
-        control.execute(
-            sql.SQL(
-                "SELECT trade_date,COUNT(*) FROM {} WHERE trade_date>=%s AND trade_date<%s AND trade_date=ANY(%s::date[]) GROUP BY trade_date ORDER BY trade_date"
-            ).format(sql.Identifier("raw_tushare", "stk_factor_pro")),
-            (month.month_start, month.month_end_exclusive, list(pending)),
-        )
-        rows = control.fetchmany(32)
-        current = dict(rows)
-        if (
-            any(
-                type(day) is not date or type(number) is not int or number <= 0
-                for day, number in rows
-            )
-            or len(current) != len(rows)
-            or set(current) - set(pending)
-        ):
-            raise ValueError("bootstrap当前日计数结构非法")
-        observed = {day: current.get(day, 0) for day in pending}
-        if observed != {day: counts[day] for day in pending}:
-            raise ValueError("bootstrap当前源日计数与批准不符")
-        checked.update(observed)
-    require_stk_factor_pro_bootstrap_source_window(approval=approval, now=_now())
-
-
-def preflight_stk_factor_pro_bootstrap_source(
-    *,
-    prod_postgres,
-    connection,
-    staging_root,
-    approval,
-    month,
-    selected_dates,
-    source_inputs,
-    preflight_context,
-    known_records,
-):
-    """Check the existing approved source before restoring business publication."""
-    if (
-        month not in approval.month_limits
-        or tuple(sorted(set(selected_dates))) != selected_dates
-        or not selected_dates
-        or any(
-            day not in _natural_dates(month.month_start, month.month_end_exclusive)
-            for day in selected_dates
-        )
-    ):
-        raise ValueError("bootstrap来源预检日期不在批准月内")
-    require_stk_factor_pro_bootstrap_source_window(approval=approval, now=_now())
-    with _readonly_transaction(prod_postgres) as remote:
-        control = remote.cursor()
-        with records.resource_cleanup(control.close):
-            _preflight(
-                control,
-                prod_postgres=prod_postgres,
-                approval=approval,
-                month=month,
-                selected_dates=selected_dates,
-                source_inputs=source_inputs,
-                preflight_context=preflight_context,
-            )
 
 
 def _complete_day(
@@ -491,7 +360,6 @@ def export_stk_factor_pro_bootstrap_month(
     month,
     selected_dates,
     source_inputs,
-    preflight_context,
     on_complete_date,
     check_space,
     verification,
@@ -582,14 +450,9 @@ def export_stk_factor_pro_bootstrap_month(
     ):
         control = remote.cursor()
         with records.resource_cleanup(control.close):
-            _preflight(
-                control,
-                prod_postgres=prod_postgres,
-                approval=approval,
-                month=month,
-                selected_dates=selected_dates,
-                source_inputs=source_inputs,
-                preflight_context=preflight_context,
+            control.execute(
+                "SELECT set_config('statement_timeout', %s, true)",
+                (str(approval.source_statement_timeout_ms),),
             )
             cursor = remote.cursor(
                 name=f"stk_factor_bootstrap_{attempt_id}",

@@ -1139,7 +1139,6 @@ def _execute_stk_factor_pro_bootstrap(
         known_records=known_records,
     )
     counts = source_inputs[0]
-    preflight_context = {"fixed_done": False, "checked_windows": {}}
     trusted = _current_inputs(current_publications)
     days = tuple(
         approval.start_trade_date + timedelta(days=i)
@@ -1160,6 +1159,12 @@ def _execute_stk_factor_pro_bootstrap(
         )
         for day in days
     }
+    if any(entry["source_complete"] is None for entry in classified.values()):
+        S.require_stk_factor_pro_bootstrap_resource_identity(
+            prod_postgres=prod_postgres,
+            approval=approval,
+            evidence=source_inputs[1],
+        )
     approval_digest = known_records[root / "approval.json"][1]
     summary_path = root / "coverage/summary.json"
     previous_summary = R.read_json(
@@ -1253,7 +1258,6 @@ def _execute_stk_factor_pro_bootstrap(
                 progress=progress,
                 known_records=known_records,
                 source_inputs=source_inputs,
-                preflight_context=preflight_context,
                 check_space=check_space,
                 before_publish=before_publish,
                 basis_inputs=basis_inputs,
@@ -1280,7 +1284,6 @@ def _process_stk_factor_pro_bootstrap_months(
     progress,
     known_records,
     source_inputs,
-    preflight_context,
     check_space,
     before_publish,
     basis_inputs,
@@ -1352,18 +1355,8 @@ def _process_stk_factor_pro_bootstrap_months(
                 else "仅本地统计",
             )
             if recover:
-                # This branch may restore business files, so its source maintenance
-                # conditions remain mandatory even though complete fragments exist.
-                S.preflight_stk_factor_pro_bootstrap_source(
-                    prod_postgres=prod_postgres,
-                    connection=connection,
-                    staging_root=staging_root,
-                    approval=approval,
-                    month=month,
-                    selected_dates=tuple(sorted(set(pending + recover))),
-                    source_inputs=source_inputs,
-                    preflight_context=preflight_context,
-                    known_records=known_records,
+                require_stk_factor_pro_bootstrap_source_window(
+                    approval=approval, now=_now()
                 )
 
             def complete_date(
@@ -1509,7 +1502,6 @@ def _process_stk_factor_pro_bootstrap_months(
                     month=month,
                     selected_dates=pending,
                     source_inputs=source_inputs,
-                    preflight_context=preflight_context,
                     on_complete_date=complete_date,
                     check_space=check_space,
                     verification=verification,

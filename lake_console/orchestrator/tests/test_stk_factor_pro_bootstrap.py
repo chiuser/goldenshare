@@ -252,7 +252,6 @@ def test_real_temporary_instance_partition_registration_is_idempotent(tmp_path):
             identity,
             counts,
             [native_row(day=days[0]), native_row(day=days[2])],
-            sample_rows=[native_row(day=days[0])],
         )
         args = {
             "lake_root": lake,
@@ -275,3 +274,30 @@ def test_real_temporary_instance_partition_registration_is_idempotent(tmp_path):
             set(instance.get_dynamic_partitions(C.STK_FACTOR_PRO_PARTITIONS))
             == expected
         )
+
+
+def test_entry_rejects_changed_source_configuration_before_connecting(tmp_path):
+    from dataclasses import replace
+
+    known_records = {}
+    with connection(tmp_path) as conn:
+        lake, staging, approval, identity = approval_fixture(
+            conn, tmp_path, known_records=known_records
+        )
+        remote = FakeProd(
+            approval,
+            replace(identity, host="different.invalid"),
+            ((date(2019, 10, 16), 1),),
+            [native_row()],
+        )
+        with pytest.raises(ValueError, match="身份摘要"):
+            B._run_stk_factor_pro_bootstrap(
+                conn,
+                lake_root=lake,
+                staging_root=staging,
+                operation_id=approval.operation_id,
+                instance=Instance(),
+                prod_postgres=remote,
+            )
+        assert remote.connections == 0 and remote.queries == []
+        assert not list(lake.rglob("data.parquet"))

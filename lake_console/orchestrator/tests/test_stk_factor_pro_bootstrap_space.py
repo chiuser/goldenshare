@@ -204,7 +204,7 @@ def test_half_day_left_on_disk_is_not_reused_by_new_attempt(tmp_path, monkeypatc
             conn, tmp_path, counts, known_records=known_records
         )
         root = _root(args, approval)
-        first = FakeProd(approval, identity, counts, rows, sample_rows=[rows[0]])
+        first = FakeProd(approval, identity, counts, rows)
         monkeypatch.setattr(
             R.shutil,
             "disk_usage",
@@ -231,7 +231,7 @@ def test_half_day_left_on_disk_is_not_reused_by_new_attempt(tmp_path, monkeypatc
         monkeypatch.setattr(
             R.shutil, "disk_usage", lambda _: SimpleNamespace(free=10**12)
         )
-        second = FakeProd(approval, identity, counts, rows, sample_rows=[rows[0]])
+        second = FakeProd(approval, identity, counts, rows)
         summary = B._run_stk_factor_pro_bootstrap(conn, prod_postgres=second, **args)
         assert summary.verified_source_rows == summary.current_raw_rows == 3
         assert old_fragment.read_bytes() == old_bytes

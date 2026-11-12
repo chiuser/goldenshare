@@ -112,7 +112,6 @@ def _setup(
         identity,
         counts,
         [native_row()] if rows is None else rows,
-        sample_rows=[native_row(day=counts[0][0])],
     )
     return (
         {
