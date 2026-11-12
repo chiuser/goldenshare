@@ -281,13 +281,14 @@
   <p class="muted">步骤3普通验证历史结果：该次11项全部通过，连同原7项共18项；全局应用成功加载，原协议、错误/空结果、NULL和page-init保护及依赖检查通过。原9份报告与首次失败不覆盖，21份实现/测试及64份保护文件保持；累计费用未越界。详<a href="../../reports/technical_indicator_kernel_stock_daily_step3_20261031/resume_acceptance_20261103.json">新增验收记录</a>及<a href="../../reports/technical_indicator_kernel_stock_daily_step3_20261031/audit_resume_20261103.md">逐项对账</a>。前端、算法SQL及配置不变；该次代码已由16f1cc91e提交，未部署。该历史阶段的后续安排现已由第9.1节“先内核独立完成、全部业务后置”替代，不能据此继续开发或直接运行P/R。</p>
 </section>
 <section id="remaining-repair-plan"><h2>12 · 剩余三项修复的现行方案</h2>
-<p>已完成提交a74374cc3关闭重复指标检查和输出字节上限，本节只安排BOLL保留NULL、成功空行情显示、股票日线环境选源三项。全部可编码细节、文件/签名、读取边界、资源释放及核对清单统一在<a href="technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html#remaining-stock-repairs">股票LLD第19节</a>，其它股票分页/预取、分钟、指数、九转/趋势等不扩入。先review本文及LLD，先核对Figma空行情状态，再编码；本轮仅补文档。</p>
+<p>已完成提交a74374cc3关闭重复指标检查和输出字节上限，本节只安排BOLL保留NULL、成功空行情显示、股票日线环境选源三项。全部可编码细节、文件/签名、读取边界、资源释放及核对清单统一在<a href="technical-indicator-kernel-stock-daily-api-integration-low-level-design-v1.html#remaining-stock-repairs">股票LLD第19节</a>，其它股票分页/预取、分钟、指数、九转/趋势等不扩入。设计文档已由ea77b475a提交，随后获准先补Figma；本轮不编码。</p>
 <ul><li>BOLL：内部三个字段改为number|null，adapter沿已有finiteOrNull，公共图表已有空白日期记录及“--”标题能力直接复用，不补0或删日期。</li>
 <li>空行情：成功kline的bars为空时，在buildStockDetailViewModel前进入empty，保留pageInit、viewModel=null并显示“暂无行情信息”；不创建图表或发日线图层请求。真实失败保留错误，正常非空行为保持；不新增网络请求或数据可靠性审计。</li>
 <li>取数：kline价格/量额及预热在dev/local从DG的silver_stock_factor_pro读取，服务器环境从Prod的core_serving.equity_factor_pro读取；两者均使用来源已有qfq价格，不读取旧技术指标来回填，不再读取复权因子或重复复权。当页只读一次交给StockDailyPriceSource，预热只读严格早于当页首根的实际记录，不能被请求start_date截断。DG当页到start_date就结束，旧文件位置仅供预热继续；文件不含该股票时继续寻找，不能过早短页。</li>
 <li>边界：page-init及其29列/16个旧指标字段继续保留，身份/交易日上下文仍按现有PG流程。原13列日K及非指标业务语义不改，来源选择针对kline和预热；不复用内核price输出组包，不改内核的price能力或算法。</li>
 <li>实施顺序：Figma和接口先确认→只读来源与输入适配→同次迁移股票后台及所有内部调用方→BOLL/空态→限定相关验证及逐项对账。来源及计算失败不降级为空成功，不跨环境兜底，所有请求沿原控制、6秒工作/8秒含清理目标及唯一名额归还，不新建线程/进程或配置项。</li></ul>
-<p>普通500目标配默认500预热，逻辑价格输入最多1000根；短历史使用实际数量，不补足。只用已有21日常量字面场景验证新接入，额外一行其它证券数据验证候选文件为空仍继续读取；不重跑旧D1—D4、第四批、P/R整套或参数矩阵，不预设无依据的SQL倍率/预算。源文件字段依据DG生产者合同和PG模型；当前环境不可访问正式DG该目录，尚无本轮真实读取通过结论。Figma也尚未补空态，两项事实都不能用文档检查冒充完成。</p>
+<p>普通500目标配默认500预热，逻辑价格输入最多1000根；短历史使用实际数量，不补足。只用已有21日常量字面场景验证新接入，额外一行其它证券数据验证候选文件为空仍继续读取；不重跑旧D1—D4、第四批、P/R整套或参数矩阵，不预设无依据的SQL倍率/预算。源字段依据DG生产者合同和PG模型；当前环境不可访问正式DG该目录，尚无本轮真实读取通过结论。</p>
+<p><strong>Figma补稿已完成：</strong>在原股票状态页新增<a href="https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x?node-id=2218-133">空行情页2218:133</a>与<a href="https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x?node-id=2218-187">BOLL/空行情说明2218:187</a>。保留共享TopMarketBar和现有卡片样式，空态仅显示“暂无行情信息”；已核图及可编辑结构，无截图拼页。具体尺寸、字体与核图依据见LLD19.6。设计稿完成不代表页面已实现；管理员review、代码、真实来源和产品验收分开记录。</p>
 <p>当前旧章节中的固定PG加Lake及旧来源夹具仅反映旧流程；后续编码不得据其重读当页或复权因子，读取/回填/验收按第19节执行。原产品分页方案保留为独立后续任务，不借修复实现分页。</p></section>
 <footer>依据：管理员确认的股票日线优先范围、当前API/schema/query/mapper及前端消费者、内核与D4实现。历史接入代码和18项普通验证已完成，固定定义重复检查和输出字节上限已按内核LLD25.2完成修复；其它重复工作及500根分页仍按各自现状记录，R05一次500根及固定清单、实际计量供review；尚未开发或验收，P01、PREP、R01～R05暂停，未部署。本轮仅对齐API数量、其直接测试和原设计，按配套LLD的小范围验证；本轮仅完成内核LLD25.2限定的两项修复及验证，未推进P/R或页面，未提交或部署。</footer>
 </main></body></html>
