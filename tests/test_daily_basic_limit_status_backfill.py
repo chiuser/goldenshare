@@ -18,8 +18,10 @@ from src.foundation.ingestion.errors import IngestionError
 from src.foundation.ingestion.run_errors import IngestionCanceledError
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
+from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
+from src.foundation.models.raw.raw_suspend_d import RawSuspendD
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
@@ -57,7 +59,8 @@ def database(tmp_path):
         with engine.begin() as connection:
             for schema in ("core", "core_serving", "raw_tushare", "ops"):
                 connection.execute(text(f"CREATE SCHEMA {schema}"))
-            for model in (TradeCalendar, RawDailyBasic, EquityDailyBasic, Security, TaskRun, TaskRunNode, TaskRunIssue):
+            for model in (TradeCalendar, RawDailyBasic, EquityDailyBasic, EquityDailyBar, RawSuspendD,
+                          Security, TaskRun, TaskRunNode, TaskRunIssue):
                 model.__table__.create(connection)
             connection.execute(insert(TradeCalendar), [{"exchange": "SSE", "trade_date": day, "is_open": True}
                                                        for day in (DAY, NEXT_DAY)])
@@ -67,6 +70,9 @@ def database(tmp_path):
                         for row in source_rows(day)]
                 connection.execute(insert(RawDailyBasic), [{**row, "fetched_at": OLD_TIME, "raw_payload": "old payload"} for row in rows])
                 connection.execute(insert(EquityDailyBasic), [{**row, "created_at": OLD_TIME, "updated_at": OLD_TIME} for row in rows])
+                # Day/code keys follow the actual equity_daily_bar producer schema.
+                # These are synthetic trading facts, independent of the status normalizer.
+                connection.execute(insert(EquityDailyBar), [{"ts_code": row["ts_code"], "trade_date": day} for row in rows])
         yield engine, sessionmaker(engine, expire_on_commit=False)
 
 
@@ -82,7 +88,30 @@ def before_listing_database(database):
             "raw_payload": "old payload"} for row in rows])
         connection.execute(insert(EquityDailyBasic), [{**row, "created_at": OLD_TIME,
             "updated_at": OLD_TIME} for row in rows])
+        connection.execute(insert(EquityDailyBar), {"ts_code": "000001.SZ", "trade_date": PRE_LISTING_DAY})
     return engine, factory
+
+
+@pytest.fixture
+def suspended_database(database):
+    """2020-09-18 S/NULL and absent daily are observed facts for 000737.SZ.
+
+    Its presence in the fill target and the paired stock/status are deliberate
+    synthetic inputs: the bounded Prod check found no target for 000737.SZ.
+    """
+    engine, factory = database
+    day = date(2020, 9, 18)
+    with engine.begin() as connection:
+        rows = [{"ts_code": code, "trade_date": day, "limit_status": None, "pe": -17}
+                for code in ("000001.SZ", "000737.SZ")]
+        connection.execute(insert(RawDailyBasic), [{**row, "raw_payload": "old payload"} for row in rows])
+        connection.execute(insert(EquityDailyBasic), rows)
+        connection.execute(insert(EquityDailyBar), {"ts_code": "000001.SZ", "trade_date": day})
+        # Another date's bar must not make the suspended date an expected one.
+        connection.execute(insert(EquityDailyBar), {"ts_code": "000737.SZ", "trade_date": date(2020, 9, 21)})
+        connection.execute(insert(RawSuspendD), {"row_key_hash": "s" * 64, "ts_code": "000737.SZ",
+            "trade_date": day, "suspend_type": "S", "suspend_timing": None})
+    return engine, factory, day
 
 
 def service(factory, rows=None):
@@ -467,3 +496,163 @@ def test_sql_wait_timeout_honors_cancellation_after_rolling_back_date(database):
             transaction.rollback()
     assert canceled
     assert all(row["limit_status"] is None for rows in read_rows(engine) for row in rows)
+
+
+@pytest.mark.parametrize("missing", [False, True])
+def test_full_day_suspension_without_daily_allows_null_or_missing_source(suspended_database, missing):
+    engine, factory, day = suspended_database
+    before = read_rows(engine)
+    rows = [{"ts_code": "000001.SZ", "trade_date": "20200918", "limit_status": 0}]
+    if not missing:
+        rows.append({"ts_code": "000737.SZ", "trade_date": "20200918", "limit_status": None})
+    result = execute(service(factory, rows), day)
+    assert result == {"rows_fetched": len(rows), "rows_saved": 2, "raw_changed": 1, "serving_changed": 1,
+                      "already_complete": False, "source_extra_codes": [], "null_suspended_codes": ["000737.SZ"]}
+    for old, new in zip(before, read_rows(engine), strict=True):
+        assert [{key: val for key, val in row.items() if key != "limit_status"} for row in old] == [
+            {key: val for key, val in row.items() if key != "limit_status"} for row in new]
+        assert {(row["ts_code"], row["limit_status"]) for row in new if row["trade_date"] == day} == {
+            ("000001.SZ", 0), ("000737.SZ", None)}
+
+
+def test_extra_source_null_does_not_block_existing_trading_targets(database):
+    engine, factory = database
+    rows = [*source_rows(), {"ts_code": "000029.SZ", "trade_date": "20261110", "limit_status": None}]
+    result = execute(service(factory, rows))
+    assert result["source_extra_codes"] == ["000029.SZ"]
+    assert (result["rows_fetched"], result["rows_saved"], result["raw_changed"], result["serving_changed"]) == (3, 2, 2, 2)
+    assert all(len(values) == 4 for values in read_rows(engine))
+
+
+@pytest.mark.parametrize("variant", ["intraday", "resumption", "other_date", "absent"])
+def test_missing_daily_without_same_day_full_suspension_still_rejects_null(suspended_database, variant):
+    engine, factory, day = suspended_database
+    with engine.begin() as connection:
+        changes = {"intraday": "suspend_timing='09:30-10:00'", "resumption": "suspend_type='R'",
+                   "other_date": "trade_date='2020-09-17'", "absent": "ts_code='999999.SZ'"}
+        connection.execute(text(f"UPDATE raw_tushare.suspend_d SET {changes[variant]}"))
+    before = read_rows(engine)
+    rows = [{"ts_code": code, "trade_date": "20200918", "limit_status": value}
+            for code, value in (("000001.SZ", 0), ("000737.SZ", None))]
+    with pytest.raises(IngestionError) as caught:
+        execute(service(factory, rows), day)
+    assert caught.value.structured_error.error_code == "normalize.source_validation_failed"
+    assert caught.value.structured_error.details["rows_rejected"] == 1
+    assert read_rows(engine) == before
+
+
+def test_existing_daily_requires_status_even_when_a_suspension_record_exists(suspended_database):
+    engine, factory, day = suspended_database
+    with engine.begin() as connection:
+        connection.execute(insert(EquityDailyBar), {"ts_code": "000737.SZ", "trade_date": day})
+    before = read_rows(engine)
+    rows = [{"ts_code": code, "trade_date": "20200918", "limit_status": value}
+            for code, value in (("000001.SZ", 0), ("000737.SZ", None))]
+    with pytest.raises(IngestionError) as caught:
+        execute(service(factory, rows), day)
+    assert caught.value.structured_error.details["rows_rejected"] == 1
+    assert read_rows(engine) == before
+
+
+def test_pre_listing_missing_source_cannot_exempt_existing_daily(before_listing_database):
+    engine, factory = before_listing_database
+    with engine.begin() as connection:
+        connection.execute(insert(EquityDailyBar), {"ts_code": PRE_LISTING_CODE, "trade_date": PRE_LISTING_DAY})
+    before = read_rows(engine)
+    with pytest.raises(IngestionError) as caught:
+        execute(service(factory, [dict(PRE_LISTING_SOURCE_ROW)]), PRE_LISTING_DAY)
+    assert caught.value.structured_error.details["missing_codes"] == ["920964.BJ"]
+    assert read_rows(engine) == before
+
+
+@pytest.mark.parametrize("raw_status,serving_status", [(4, None), (None, 4), (0, 0)])
+def test_suspension_exception_never_clears_existing_nonnull_status(suspended_database, raw_status, serving_status):
+    engine, factory, day = suspended_database
+    with engine.begin() as connection:
+        for table, value in (("raw_tushare.daily_basic", raw_status), ("core_serving.equity_daily_basic", serving_status)):
+            connection.execute(text(f"UPDATE {table} SET limit_status=:value WHERE trade_date=:day AND ts_code='000737.SZ'"),
+                               {"value": value, "day": day})
+    before = read_rows(engine)
+    rows = [{"ts_code": code, "trade_date": "20200918", "limit_status": value}
+            for code, value in (("000001.SZ", 0), ("000737.SZ", None))]
+    with pytest.raises(IngestionError):
+        execute(service(factory, rows), day)
+    assert read_rows(engine) == before
+
+
+def test_suspended_null_is_rechecked_and_valid_source_zero_can_fill_it(suspended_database):
+    engine, factory, day = suspended_database
+    rows = [{"ts_code": code, "trade_date": "20200918", "limit_status": value}
+            for code, value in (("000001.SZ", 0), ("000737.SZ", None))]
+    value = service(factory, rows)
+    assert execute(value, day)["null_suspended_codes"] == ["000737.SZ"]
+    replay = execute(value, day)
+    assert (replay["raw_changed"], replay["serving_changed"], replay["already_complete"]) == (0, 0, False)
+    assert value.connector.call_bounded.call_count == 2
+    value.connector.call_bounded.return_value = [rows[0], {**rows[1], "limit_status": 0}]
+    result = execute(value, day)
+    assert (result["raw_changed"], result["serving_changed"]) == (1, 1)
+    assert "null_suspended_codes" not in result
+    assert execute(value, day)["already_complete"] is True
+
+
+@pytest.mark.parametrize("variant", ["missing_key", "wrong_date", "duplicate"])
+def test_nullable_extra_source_still_validates_keys_and_date(database, variant):
+    engine, factory = database
+    before = read_rows(engine)
+    extra = {"ts_code": "000029.SZ", "trade_date": "20261110", "limit_status": None}
+    if variant == "missing_key":
+        del extra["trade_date"]
+    elif variant == "wrong_date":
+        extra["trade_date"] = "20200918"
+    rows = [*source_rows(), extra]
+    if variant == "duplicate":
+        rows.append(dict(extra))
+    with pytest.raises(IngestionError):
+        execute(service(factory, rows))
+    assert read_rows(engine) == before
+
+
+def test_trading_evidence_reads_only_frozen_date_and_target_code_batches(suspended_database):
+    engine, factory, day = suspended_database
+    reads = []
+
+    def capture(connection, cursor, sql, params, context, many):
+        if sql.startswith("SELECT ") and ("FROM core_serving.equity_daily_bar" in sql or "FROM raw_tushare.suspend_d" in sql):
+            reads.append((sql, params))
+
+    event.listen(engine, "before_cursor_execute", capture)
+    rows = [{"ts_code": code, "trade_date": "20200918", "limit_status": status}
+            for code, status in (("000001.SZ", 0), ("000737.SZ", None))]
+    result = service(factory, rows).execute_day(payload(day), config={**CONFIG, "sync_batch_size": 1},
+        check=lambda: None, observe=lambda *args, **kwargs: None)
+    assert result["null_suspended_codes"] == ["000737.SZ"]
+    assert len(reads) == 3
+    for sql, params in reads:
+        assert "trade_date =" in sql and "ts_code IN" in sql
+        assert day in params.values()
+        codes = [val for name, val in params.items() if name.startswith("ts_code_")]
+        assert len(codes) == 1 and codes[0] in {"000001.SZ", "000737.SZ"}
+
+
+def test_cancel_during_trading_evidence_read_stops_before_source_and_updates(suspended_database):
+    engine, factory, day = suspended_database
+    before = read_rows(engine)
+    canceled = False
+
+    def capture(connection, cursor, sql, params, context, many):
+        nonlocal canceled
+        if sql.startswith("SELECT ") and "FROM core_serving.equity_daily_bar" in sql:
+            canceled = True
+
+    event.listen(engine, "before_cursor_execute", capture)
+    value = service(factory)
+
+    def check():
+        if canceled:
+            raise IngestionCanceledError("canceled while reading trading facts")
+
+    with pytest.raises(IngestionCanceledError):
+        execute(value, day, check=check)
+    value.connector.call_bounded.assert_not_called()
+    assert read_rows(engine) == before

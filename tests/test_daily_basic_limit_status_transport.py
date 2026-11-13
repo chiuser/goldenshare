@@ -214,3 +214,30 @@ def test_pre_listing_missing_row_over_real_http_keeps_null(before_listing_databa
     for rows in read_rows(engine):
         assert {(row["ts_code"], row["limit_status"]) for row in rows
                 if row["trade_date"] == PRE_LISTING_DAY} == {("000001.SZ", 0), ("920964.BJ", None)}
+
+
+def test_full_day_suspension_and_extra_null_over_real_http(suspended_database, server, monkeypatch):
+    from src.foundation.connectors.tushare_connector import TushareSourceConnector
+    from tests.test_daily_basic_limit_status_backfill import read_rows
+
+    engine, factory, day = suspended_database
+    url, requests = server
+    # Only 000737.SZ's S/NULL suspension and absent daily are real observations.
+    # Its target record and the paired normal-trading status are synthetic.
+    body = json.dumps({"code": 0, "msg": "", "data": {
+        "fields": ["ts_code", "trade_date", "limit_status"],
+        "items": [["000001.SZ", "20200918", 0], ["000737.SZ", "20200918", None],
+                  ["000029.SZ", "20200918", None]],
+    }}).encode()
+    monkeypatch.setitem(globals(), "wire", lambda **kwargs: body)
+    connector = TushareSourceConnector(TushareHttpClient(token="test-placeholder", base_url=url))
+    value = DailyBasicLimitStatusService(session_factory=factory, connector=connector)
+    result = value.execute_day(payload(day), config=CONFIG, check=lambda: None, observe=lambda *a, **k: None)
+    assert (result["rows_fetched"], result["rows_saved"], result["raw_changed"], result["serving_changed"]) == (3, 2, 1, 1)
+    assert result["null_suspended_codes"] == ["000737.SZ"]
+    assert result["source_extra_codes"] == ["000029.SZ"]
+    assert len(requests) == 1 and requests[0]["fields"] == "ts_code,trade_date,limit_status"
+    assert requests[0]["params"] == {"trade_date": "20200918", "limit": 6000, "offset": 0}
+    for rows in read_rows(engine):
+        assert {(row["ts_code"], row["limit_status"]) for row in rows if row["trade_date"] == day} == {
+            ("000001.SZ", 0), ("000737.SZ", None)}

@@ -62,7 +62,8 @@ class DailyBasicLimitStatusTaskExecutor:
             "start_date": str(start), "end_date": str(end), "target_tables": list(TARGET_TABLES),
             "key_fields": ["ts_code", "trade_date"], "update_columns": ["limit_status"],
             "source_fields": list(DAILY_BASIC_LIMIT_STATUS_DOWNLOAD_FIELDS),
-            "missing_source_policy": "keep_existing_null_before_list_date",
+            "missing_source_policy": "keep_existing_null_for_full_day_suspension_or_before_list_date",
+            "expected_stock_sources": ["core_serving.equity_daily_bar", "raw_tushare.suspend_d"],
             "listing_date_source": "core_serving.security_serving.list_date",
             "storage_mappings": {table: {"ts_code": "VARCHAR(16)", "trade_date": "DATE", "limit_status": "INTEGER"}
                                  for table in TARGET_TABLES},
@@ -120,7 +121,7 @@ class DailyBasicLimitStatusTaskExecutor:
                 TaskRun.id == int(params["plan_task_run_id"]),
             )).one()
         if contract != PLAN_CONTRACT:
-            raise ValueError("旧补录计划未包含上市前源缺记录留空规则，请重新生成 PLAN 后执行")
+            raise ValueError("旧补录计划未包含交易日应有股票及全天停牌规则，请重新生成 PLAN 后执行")
         last_write = None
         day = unit.payload["trade_date"]
 
@@ -165,9 +166,13 @@ class DailyBasicLimitStatusTaskExecutor:
         summary = f"{day} 每日指标收盘涨跌状态已覆盖 {result['rows_saved']} 行"
         phase = "已完成" if not result["already_complete"] else "已核对，跳过"
         null_codes = result.get("null_before_listing_codes", [])
+        suspended_codes = result.get("null_suspended_codes", [])
         if null_codes:
             summary += f"，其中 {len(null_codes)} 行为上市前源无记录，收盘涨跌状态留空"
-            phase += f"，其中 {len(null_codes)} 行收盘涨跌状态留空"
+        if suspended_codes:
+            summary += f"，其中 {len(suspended_codes)} 行为当天无日线且全天停牌，收盘涨跌状态留空"
+        if null_codes or suspended_codes:
+            phase += f"，其中 {len(null_codes) + len(suspended_codes)} 行收盘涨跌状态留空"
         return MaintenanceExecutionResult(rows_fetched=result["rows_fetched"], rows_saved=result["rows_saved"],
             summary_message=summary,
             metadata={"daily_basic_limit_status": {**result, "trade_date": day,

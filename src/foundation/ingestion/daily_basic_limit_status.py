@@ -25,13 +25,15 @@ from src.foundation.ingestion.normalizer import DatasetNormalizer
 from src.foundation.ingestion.resolver import DatasetActionResolver
 from src.foundation.ingestion.row_transforms import RowTransformReject, daily_basic_limit_status
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
+from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
+from src.foundation.models.raw.raw_suspend_d import RawSuspendD
 from src.utils import CoerceRowError, chunked, coerce_row
 
 
 RESPONSE_CONTRACT = "daily_basic/v1"
-PLAN_CONTRACT = "daily_basic_limit_status/v3"
+PLAN_CONTRACT = "daily_basic_limit_status/v4"
 TARGET_TABLES = ("raw_tushare.daily_basic", "core_serving.equity_daily_basic")
 
 
@@ -119,10 +121,19 @@ class DailyBasicLimitStatusService:
             return {"rows_fetched": 0, "rows_saved": len(serving), "raw_changed": 0,
                     "serving_changed": 0, "already_complete": True, "source_extra_codes": []}
 
+        with self.session_factory() as session:
+            statement_timeout(session, config["statement_timeout_seconds"])
+            trading_codes, suspended_codes = self._read_trading_day_codes(
+                session, day, serving, batch_size, check, observe)
+        nullable_suspended = {code for code in suspended_codes
+                              if raw[code] is None and serving[code] is None}
         source = self._fetch(payload, config=config, check=check, observe=observe)
-        normalized = self._normalize(source, day)
+        normalized = self._normalize(source, day, required_codes=set(serving) - nullable_suspended)
         source_by_code = {row["ts_code"]: row for row in normalized}
         missing = set(serving) - source_by_code.keys()
+        null_suspended = sorted(code for code in nullable_suspended
+                                if code in missing or source_by_code[code]["limit_status"] is None)
+        missing -= set(null_suspended)
         null_before_listing = []
         if missing:
             check()
@@ -130,11 +141,11 @@ class DailyBasicLimitStatusService:
             with self.session_factory() as session:
                 statement_timeout(session, config["statement_timeout_seconds"])
                 listing_dates = dict(session.execute(select(Security.ts_code, Security.list_date).where(
-                    Security.ts_code.in_(sorted(missing)),
+                    Security.ts_code.in_(sorted(missing - trading_codes)),
                 )).all())
             check()
             null_before_listing = sorted(code for code in missing
-                if listing_dates.get(code) is not None and day < listing_dates[code]
+                if code not in trading_codes and listing_dates.get(code) is not None and day < listing_dates[code]
                 and raw[code] is None and serving[code] is None)
             unresolved = missing - set(null_before_listing)
             if unresolved:
@@ -145,6 +156,8 @@ class DailyBasicLimitStatusService:
             if code not in source_by_code:
                 continue
             status = source_by_code[code]["limit_status"]
+            if status is None:
+                continue
             if any(value is not None and value != status for value in (raw[code], serving[code])):
                 raise _target_mismatch(f"{day} {code} 源状态与已有非空状态冲突", trade_date=str(day),
                                        ts_code=code, source_status=status, raw_status=raw[code], serving_status=serving[code])
@@ -184,7 +197,29 @@ class DailyBasicLimitStatusService:
                   "source_extra_codes": sorted(source_by_code.keys() - serving.keys())}
         if null_before_listing:
             result["null_before_listing_codes"] = null_before_listing
+        if null_suspended:
+            result["null_suspended_codes"] = null_suspended
         return result
+
+    @staticmethod
+    def _read_trading_day_codes(session, day, serving, batch_size, check, observe):
+        trading_codes, suspended_codes = set(), set()
+        for codes in chunked(list(serving), batch_size):
+            check()
+            observe("核对交易日股票日线")
+            trading_codes.update(session.scalars(select(EquityDailyBar.ts_code).where(
+                EquityDailyBar.trade_date == day, EquityDailyBar.ts_code.in_(codes),
+            )))
+            check()
+        for codes in chunked(sorted(set(serving) - trading_codes), batch_size):
+            check()
+            observe("核对交易日全天停牌股票")
+            suspended_codes.update(session.scalars(select(RawSuspendD.ts_code).where(
+                RawSuspendD.trade_date == day, RawSuspendD.ts_code.in_(codes),
+                RawSuspendD.suspend_type == "S", RawSuspendD.suspend_timing.is_(None),
+            ).distinct()))
+            check()
+        return trading_codes, suspended_codes
 
     @staticmethod
     def _read_targets(session, day, payload, batch_size, check, observe):
@@ -241,7 +276,7 @@ class DailyBasicLimitStatusService:
             details={"trade_date": payload["trade_date"], "rows_fetched": len(rows)},
         ))
 
-    def _normalize(self, source, day):
+    def _normalize(self, source, day, *, required_codes=None):
         normalizer = DatasetNormalizer()
         unit_id = f"daily_basic:{day}"
         rows, rejected, rejected_samples = [], {}, {}
@@ -249,7 +284,15 @@ class DailyBasicLimitStatusService:
             row = {field: raw_row[field] for field in DAILY_BASIC_LIMIT_STATUS_DOWNLOAD_FIELDS if field in raw_row}
             try:
                 row = coerce_row(row, self.definition.normalization.date_fields, ())
-                daily_basic_limit_status(row, required_fields=DAILY_BASIC_LIMIT_STATUS_DOWNLOAD_FIELDS)
+                nullable = ("limit_status" in row and row["limit_status"] is None
+                            and required_codes is not None and row.get("ts_code") not in required_codes)
+                if nullable:
+                    for field in DAILY_BASIC_LIMIT_STATUS_DOWNLOAD_FIELDS:
+                        if field not in row:
+                            raise RowTransformReject(f"normalize.required_field_missing:{field}",
+                                                     f"每日指标缺少业务字段 {field}")
+                else:
+                    daily_basic_limit_status(row, required_fields=DAILY_BASIC_LIMIT_STATUS_DOWNLOAD_FIELDS)
             except (CoerceRowError, RowTransformReject) as exc:
                 reason = normalizer._map_coerce_error(exc) if isinstance(exc, CoerceRowError) else exc.reason_code
                 field = normalizer._field_from_reason_key(reason)
