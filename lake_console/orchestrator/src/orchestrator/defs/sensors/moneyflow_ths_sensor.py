@@ -45,7 +45,7 @@ def evaluate_stock_moneyflow_ths(context, now, *, silver=False):
         target_layer=SensorTargetLayer.PARTITION,
         role=SensorRole.PARTITION_REGISTRATION,
     ),
-    description="上海22:00后优先登记同花顺个股资金流当日，最多补一个接续漏登记日，不提交job。",
+    description=f"上海{STOCK_THS_MONEYFLOW_AUTOMATION.register_start:%H:%M}后优先登记同花顺个股资金流当日，最多补一个接续漏登记日，不提交job。",
 )
 def cn_a_moneyflow_ths_trade_day_sensor(
     context: dg.SensorEvaluationContext,
@@ -61,13 +61,16 @@ def cn_a_moneyflow_ths_trade_day_sensor(
     job=raw_tushare_moneyflow_ths_update_job,
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=MONEYFLOW_SENSOR_INTERVAL,
-    required_resource_keys={"lake_root", "duckdb"},
+    required_resource_keys={"lake_root", "duckdb", "tushare"},
     tags=build_sensor_tags(
         sensor_domain=SensorDomain.QUOTE_DATA,
         target_layer=SensorTargetLayer.RAW,
         role=SensorRole.ASSET_UPDATE,
     ),
-    description="22:00后最近10日一次提交一日Raw，临时源错误有限重试，每日最多复核一次。",
+    description=(
+        f"{STOCK_THS_MONEYFLOW_AUTOMATION.register_start:%H:%M}后优先检查当日Raw源端覆盖，再查最近10日未完成日期；"
+        f"缺失少于{STOCK_THS_MONEYFLOW_AUTOMATION.missing_record_limit}只才提交，已就绪不重复下载。"
+    ),
 )
 def raw_tushare_moneyflow_ths_update_job_sensor(
     context: dg.SensorEvaluationContext,

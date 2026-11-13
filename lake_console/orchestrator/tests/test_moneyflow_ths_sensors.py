@@ -1,4 +1,4 @@
-"""Real partitioned jobs and isolated storage; sensors never contact the source."""
+"""Existing selection regressions isolate source precheck; its real chain has dedicated tests."""
 
 import logging
 from datetime import datetime
@@ -10,6 +10,7 @@ from dagster._core.storage.tags import RUN_KEY_TAG
 
 import orchestrator.defs.sensors.moneyflow_ths_sensor as sensors
 import orchestrator.defs.sensors.moneyflow_update_selection as selection
+import orchestrator.defs.source_readiness.moneyflow_ths as source_readiness
 from orchestrator.defs.asset_guards.moneyflow_ths_readiness import (
     batch_stock_moneyflow_ths_readiness,
 )
@@ -30,6 +31,13 @@ pytestmark = pytest.mark.usefixtures("isolated_moneyflow_transport")
 
 @pytest.fixture
 def env(tmp_path, monkeypatch):
+    # This suite tests existing run selection, checks and retry identities.
+    # Actual upstream/HTTP precheck is accepted by test_moneyflow_ths_source_readiness.
+    monkeypatch.setattr(
+        selection, "check_moneyflow_ths_source_ready",
+        lambda *args, **kwargs: source_readiness.MoneyflowThsSourceReadiness("ready"),
+    )
+    monkeypatch.setattr(source_readiness, "DEFAULT_DUCKDB_TEMP_DIRECTORY", tmp_path)
     factory = logging.getLogRecordFactory()
 
     def dated_record(*args, **kwargs):
@@ -89,7 +97,10 @@ def publish(env, *, amount="-123.4567", silver=True):
         assert run(env, sensors.SILVER_JOB, day=DAY).success
 
 
-def test_three_sensors_stopped_and_source_absent():
+def test_three_sensors_stopped_and_only_raw_requires_source():
+    assert "20:00" in sensors.cn_a_moneyflow_ths_trade_day_sensor.description
+    assert "20:00" in sensors.raw_tushare_moneyflow_ths_update_job_sensor.description
+    assert "少于25只" in sensors.raw_tushare_moneyflow_ths_update_job_sensor.description
     for name in (
         "cn_a_moneyflow_ths_trade_day_sensor",
         sensors.RAW_JOB + "_sensor",
@@ -98,14 +109,14 @@ def test_three_sensors_stopped_and_source_absent():
         sensor = getattr(sensors, name)
         assert sensor.default_status == dg.DefaultSensorStatus.STOPPED
         assert sensor.minimum_interval_seconds == 600
-        assert "tushare" not in sensor.required_resource_keys
+        assert ("tushare" in sensor.required_resource_keys) == (name == sensors.RAW_JOB + "_sensor")
 
 
-def test_before_22_reads_nothing():
+def test_before_each_layers_window_reads_nothing():
     ctx = SimpleNamespace(cursor=None)
     for silver in (False, True):
         result = sensors.evaluate_stock_moneyflow_ths(
-            ctx, NOW.replace(hour=21), silver=silver
+            ctx, NOW.replace(hour=21 if silver else 19), silver=silver
         )
         assert decision(result) == "before_window" and not result.run_requests
 
@@ -157,9 +168,10 @@ def test_real_delivery_current_check_file_and_safe_upstream_revision(env):
     assert decision(sensors.evaluate_stock_moneyflow_ths(ctx, NOW)) == "file_changed"
 
 
-def test_raw_ready_today_no_repeat_and_active_job_blocks(env):
+def test_raw_ready_today_no_repeat_and_active_job_blocks(env, monkeypatch):
     ctx = context(env)
     publish(env, silver=False)
+    monkeypatch.setattr(selection, "check_moneyflow_ths_source_ready", lambda *a, **kw: pytest.fail("ready/active must not probe"))
     record = batch_stock_moneyflow_ths_readiness(env.instance, env.lake, [DAY])["raw"][
         DAY
     ].record
@@ -174,7 +186,7 @@ def test_raw_ready_today_no_repeat_and_active_job_blocks(env):
     assert decision(sensors.evaluate_stock_moneyflow_ths(ctx, NOW)) == "active_run"
 
 
-def test_real_transient_failure_metadata_allows_retry_but_fatal_does_not(env):
+def test_real_transient_failure_metadata_allows_retry_but_fatal_does_not(env, monkeypatch):
     ctx = context(env)
     env.source.responses = iter([[], []])
     failed = run(env, sensors.RAW_JOB, day=DAY, raise_on_error=False)
@@ -188,6 +200,7 @@ def test_real_transient_failure_metadata_allows_retry_but_fatal_does_not(env):
     assert not selection.moneyflow_failure_retryable(
         env.instance, env.instance.get_run_by_id(failed.run_id)
     )
+    monkeypatch.setattr(selection, "check_moneyflow_ths_source_ready", lambda *a, **kw: pytest.fail("fatal failure must not probe"))
     assert (
         decision(sensors.evaluate_stock_moneyflow_ths(ctx, NOW))
         == "non_retryable_failure"
@@ -196,6 +209,8 @@ def test_real_transient_failure_metadata_allows_retry_but_fatal_does_not(env):
 
 def test_six_persistent_keys_limit_survives_cursor_loss(env, monkeypatch):
     ctx = context(env)
+    probes = []
+    monkeypatch.setattr(selection, "check_moneyflow_ths_source_ready", lambda *a, **kw: probes.append(a[1]) or source_readiness.MoneyflowThsSourceReadiness("ready"))
     monkeypatch.setattr(selection, "moneyflow_failure_retryable", lambda *_: True)
     for attempt in range(1, 7):
         result = sensors.evaluate_stock_moneyflow_ths(ctx, NOW)
@@ -210,6 +225,7 @@ def test_six_persistent_keys_limit_survives_cursor_loss(env, monkeypatch):
         attempt == 6
         and decision(sensors.evaluate_stock_moneyflow_ths(ctx, NOW)) == "attempt_limit"
     )
+    assert probes == [DAY] * 6
 
 
 @pytest.mark.parametrize("cursor", ["broken", "x" * 8193])
@@ -269,7 +285,7 @@ def test_registration_today_first_holiday_and_time_gate(env, monkeypatch):
         type(
             "Before",
             (FixedDateTime,),
-            {"now": classmethod(lambda cls, tz=None: NOW.replace(hour=21))},
+            {"now": classmethod(lambda cls, tz=None: NOW.replace(hour=19))},
         ),
     )
     before = sensors.cn_a_moneyflow_ths_trade_day_sensor.evaluate_tick(ctx)
@@ -671,3 +687,63 @@ def test_fixed_hash_budgets_preserve_other_datasets():
     assert MONEYFLOW_THS_READINESS_FILE_MAX_BYTES == 4 * 1024 * 1024
     assert MONEYFLOW_IND_DC_READINESS_FILE_MAX_BYTES == 4 * 1024 * 1024
     assert MONEYFLOW_READINESS_FILE_MAX_BYTES == 64 * 1024
+
+
+@pytest.mark.parametrize("future_day", [10, 12])
+@pytest.mark.parametrize("old_cursor", [False, True])
+def test_successful_raw_is_not_downloaded_again_after_date_changes(
+    env, future_day, old_cursor
+):
+    # The existing per-source native job/Parquet fixtures were published on Oct 9.
+    # Oct 10 is a weekend; Oct 12 is the next open day. Neither makes Oct 9 missing.
+    import json
+
+    ctx = context(env)
+    publish(env, silver=False)
+    initial = sensors.evaluate_stock_moneyflow_ths(ctx, NOW)
+    if old_cursor:
+        payload = load_sensor_cursor(initial.cursor)
+        payload["details"].setdefault("runtime_state", {})["dates"] = {
+            DAY: {"verified_on": "2026-10-09", "attempt": 1,
+                  "attempt_date": "2026-10-09"}
+        }
+        ctx.cursor = json.dumps(payload)
+    calls = list(env.source.calls)
+    result = sensors.evaluate_stock_moneyflow_ths(ctx, NOW.replace(day=future_day))
+    assert decision(result) == "all_ready"
+    assert not result.run_requests
+    assert env.source.calls == calls
+    ctx.cursor = None
+    replay = sensors.evaluate_stock_moneyflow_ths(ctx, NOW.replace(day=future_day))
+    assert decision(replay) == "all_ready" and not replay.run_requests
+    assert env.source.calls == calls
+
+
+def test_successful_raw_with_later_failed_recheck_still_skips(env):
+    ctx = context(env)
+    publish(env, silver=False)
+    failed = env.instance.create_run_for_job(
+        env.defs.resolve_job_def(sensors.RAW_JOB), tags={"dagster/partition": DAY}
+    )
+    env.instance.report_run_failed(failed)
+    calls = list(env.source.calls)
+    result = sensors.evaluate_stock_moneyflow_ths(ctx, NOW.replace(day=12))
+    assert decision(result) == "all_ready" and not result.run_requests
+    assert env.instance.get_run_by_id(failed.run_id).status == dg.DagsterRunStatus.FAILURE
+    assert env.source.calls == calls
+
+
+def test_missing_today_first_then_missing_older_day(env):
+    ctx = context(env, dates=("2026-10-08", DAY))
+    first = sensors.evaluate_stock_moneyflow_ths(ctx, NOW)
+    assert decision(first) == "request_run"
+    assert len(first.run_requests) == 1 and first.run_requests[0].partition_key == DAY
+    assert not env.source.calls
+    publish(env, silver=False)
+    calls = list(env.source.calls)
+    ctx.cursor = first.cursor
+    second = sensors.evaluate_stock_moneyflow_ths(ctx, NOW)
+    assert decision(second) == "request_run"
+    assert len(second.run_requests) == 1
+    assert second.run_requests[0].partition_key == "2026-10-08"
+    assert env.source.calls == calls

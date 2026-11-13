@@ -1,6 +1,7 @@
 """Fixed moneyflow automation identities; no configurable dataset selection."""
 
 from dataclasses import dataclass
+from datetime import time
 
 from orchestrator.defs.run_contracts.moneyflow import (
     MONEYFLOW_CNT_THS_RAW_CHECK,
@@ -15,6 +16,7 @@ from orchestrator.defs.run_contracts.moneyflow import (
     MONEYFLOW_MKT_DC_SILVER_CHECK,
     MONEYFLOW_MKT_HISTORY_START,
     MONEYFLOW_RAW_CHECK,
+    MONEYFLOW_REGISTER_START,
     MONEYFLOW_SILVER_CHECK,
     MONEYFLOW_THS_RAW_CHECK,
     MONEYFLOW_THS_SILVER_CHECK,
@@ -30,6 +32,8 @@ class MoneyflowAutomationContract:
     partition_set: str
     history_start: str
     label: str
+    register_start: time = MONEYFLOW_REGISTER_START
+    missing_record_limit: int | None = None
 
     @property
     def raw_asset(self):
@@ -114,6 +118,8 @@ STOCK_THS_MONEYFLOW_AUTOMATION = MoneyflowAutomationContract(
     "cn_a_moneyflow_ths_trade_days",
     "2024-12-19",
     "同花顺个股资金流向",
+    register_start=time(20, 0),
+    missing_record_limit=25,
 )
 
 

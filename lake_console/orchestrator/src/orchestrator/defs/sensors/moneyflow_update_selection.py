@@ -1,9 +1,12 @@
-"""Bounded moneyflow registration/update selection; source I/O stays in jobs."""
+"""Bounded moneyflow selection; only THS Raw probes one date before submission."""
 
 from datetime import datetime
+from time import perf_counter
 
 import dagster as dg
+import duckdb
 from dagster._core.storage.tags import RUN_KEY_TAG
+from dagster._grpc.utils import default_sensor_grpc_timeout
 
 from orchestrator.defs.asset_guards.moneyflow_delivery_readiness import (
     batch_moneyflow_readiness,
@@ -38,6 +41,10 @@ from orchestrator.defs.sensors.cn_a_trade_day_sensor import (
     build_trade_day_partition_registration_result,
 )
 from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
+from orchestrator.defs.source_readiness.moneyflow_ths import (
+    check_moneyflow_ths_source_ready,
+    moneyflow_ths_connection,
+)
 
 ACTIVE = [
     dg.DagsterRunStatus.QUEUED,
@@ -100,7 +107,10 @@ def moneyflow_failure_retryable(instance, run):
 
 
 def evaluate_moneyflow_update(context, now, *, contract, silver=False):
+    started = perf_counter()
     require_moneyflow_automation_contract(contract)
+    ths_raw = contract.dataset == "moneyflow_ths" and not silver
+    deadline = started + default_sensor_grpc_timeout() if ths_raw else None
     RAW_JOB, SILVER_JOB, PARTITIONS = (
         contract.raw_job,
         contract.silver_job,
@@ -141,8 +151,9 @@ def evaluate_moneyflow_update(context, now, *, contract, silver=False):
             skip_reason=None if request else dg.SkipReason(summary),
         )
 
-    if now.time().replace(tzinfo=None) < MONEYFLOW_REGISTER_START:
-        return result("before_window", "尚未到上海时间22:00。")
+    register_start = MONEYFLOW_REGISTER_START if silver else contract.register_start
+    if now.time().replace(tzinfo=None) < register_start:
+        return result("before_window", f"尚未到上海时间{register_start:%H:%M}。")
     for job in (RAW_JOB, SILVER_JOB):
         if context.instance.get_runs(
             filters=dg.RunsFilter(job_name=job, statuses=ACTIVE), limit=1
@@ -150,20 +161,25 @@ def evaluate_moneyflow_update(context, now, *, contract, silver=False):
             return result("active_run", "本表已有运行中任务。")
     root = context.resources.lake_root.root()
     context.resources.lake_root.ensure_available_for_run()
-    with context.resources.duckdb.connect() as connection:
-        rows = connection.execute(
-            "SELECT CAST(CAST(trade_date AS DATE) AS VARCHAR) FROM read_parquet(?) "
-            "WHERE exchange='SSE' AND is_open=true "
-            "AND CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE) "
-            "GROUP BY CAST(trade_date AS DATE) ORDER BY CAST(trade_date AS DATE) DESC LIMIT ?",
-            [
-                str(silver_trade_calendar_path(root)),
-                MONEYFLOW_SENSOR_START,
-                now.date().isoformat(),
-                MONEYFLOW_SENSOR_WINDOW,
-            ],
-        ).fetchall()
-        dates = tuple(str(row[0]) for row in reversed(rows))
+    try:
+        with (moneyflow_ths_connection(deadline) if ths_raw else context.resources.duckdb.connect()) as connection:
+            rows = connection.execute(
+                "SELECT CAST(CAST(trade_date AS DATE) AS VARCHAR) FROM read_parquet(?) "
+                "WHERE exchange='SSE' AND is_open=true "
+                "AND CAST(trade_date AS DATE) BETWEEN CAST(? AS DATE) AND CAST(? AS DATE) "
+                "GROUP BY CAST(trade_date AS DATE) ORDER BY CAST(trade_date AS DATE) DESC LIMIT ?",
+                [
+                    str(silver_trade_calendar_path(root)),
+                    MONEYFLOW_SENSOR_START,
+                    now.date().isoformat(),
+                    MONEYFLOW_SENSOR_WINDOW,
+                ],
+            ).fetchall()
+            dates = tuple(str(row[0]) for row in reversed(rows))
+    except (MoneyflowContractError, duckdb.Error):
+        if not ths_raw:
+            raise
+        return result("source_calendar_unavailable", "本次日历查询未在评估预算内完成。")
     if not dates:
         return result("empty_window", "当前没有历史截止日后的应更新交易日。")
     state = {day: state[day] for day in dates if day in state}
@@ -237,28 +253,9 @@ def evaluate_moneyflow_update(context, now, *, contract, silver=False):
             partition_key=selected,
         )
     else:
-        for day in dates:
-            status = current[day]
-            if (
-                status.ready
-                and datetime.fromtimestamp(
-                    status.record.timestamp, CN_A_SENSOR_TIMEZONE
-                ).date()
-                == now.date()
-            ):
-                state.setdefault(day, {})["verified_on"] = now.date().isoformat()
         selected = next((day for day in order if not current[day].ready), None)
         if selected is None:
-            selected = next(
-                (
-                    day
-                    for day in order
-                    if state.get(day, {}).get("verified_on") != now.date().isoformat()
-                ),
-                None,
-            )
-        if selected is None:
-            return result("all_ready", "窗口已齐备且今日已复核。")
+            return result("all_ready", "窗口内Raw已齐备，不重复下载。")
         item = state.setdefault(selected, {})
         records = context.instance.get_run_records(
             filters=dg.RunsFilter(
@@ -306,6 +303,18 @@ def evaluate_moneyflow_update(context, now, *, contract, silver=False):
                 "本交易日在今日已达到六次自动尝试，等待复核。",
                 day=selected,
             )
+        if ths_raw:
+            source = check_moneyflow_ths_source_ready(context, selected, deadline=deadline)
+            if not source.ready:
+                summary = f"{selected}源端预检未通过：{source.reason}。"
+                if source.missing_count is not None:
+                    summary += (
+                        f"预期{source.expected_count}只，返回{source.source_count}只，缺失{source.missing_count}只；"
+                        f"需缺失少于{contract.missing_record_limit}只且全部检查通过。"
+                    )
+                return result(
+                    source.reason, summary, day=selected,
+                )
         item.update(attempt=attempt, attempt_date=now.date().isoformat())
         request = build_run_request(
             run_key=build_repair_attempt_run_key(
@@ -333,7 +342,7 @@ def register_moneyflow_trade_days(context, *, contract, dynamic_partitions):
         dynamic_partitions=dynamic_partitions,
         min_trade_date=MONEYFLOW_SENSOR_START,
         partition_set_label=contract.label,
-        same_day_register_start=MONEYFLOW_REGISTER_START,
+        same_day_register_start=contract.register_start,
         sensor_name="cn_a_" + contract.dataset + "_trade_day_sensor",
         asset_family=contract.dataset,
         cursor_partition_set=contract.partition_set,

@@ -1,4 +1,4 @@
-"""All seven registrars exclude bootstrap source gaps and keep the 22:00 gate."""
+"""All seven registrars exclude bootstrap gaps; THS starts at 20:00, the others at 22:00."""
 
 import importlib
 from datetime import datetime
@@ -24,11 +24,12 @@ CONTRACTS = tuple(
 
 
 @pytest.mark.parametrize("contract", CONTRACTS, ids=lambda c: c.dataset)
-@pytest.mark.parametrize("hour", (21, 22))
+@pytest.mark.parametrize("hour", (19, 20, 21, 22))
 def test_registrar_boundary_holes_and_replay(tmp_path, monkeypatch, contract, hour):
     import orchestrator.defs.sensors.cn_a_trade_day_sensor as registration
 
     now = datetime(2026, 10, 13, hour, 1, tzinfo=CN_A_SENSOR_TIMEZONE)
+    today_allowed = hour >= (20 if contract.dataset == "moneyflow_ths" else 22)
     monkeypatch.setattr(
         registration,
         "datetime",
@@ -75,7 +76,7 @@ def test_registrar_boundary_holes_and_replay(tmp_path, monkeypatch, contract, ho
         first = sensor.evaluate_tick(ctx)
         keys = first.dynamic_partitions_requests[0].partition_keys
         assert keys == (
-            ["2026-10-08", "2026-10-09"] if hour == 21 else ["2026-10-13", "2026-10-08"]
+            ["2026-10-13", "2026-10-08"] if today_allowed else ["2026-10-08", "2026-10-09"]
         )
         assert (
             len(keys) <= 2
@@ -91,7 +92,7 @@ def test_registrar_boundary_holes_and_replay(tmp_path, monkeypatch, contract, ho
         registered = instance.get_dynamic_partitions(contract.partition_set)
         assert set(registered) == (
             {"2026-10-08", "2026-10-09", "2026-10-12"}
-            | ({"2026-10-13"} if hour == 22 else set())
+            | ({"2026-10-13"} if today_allowed else set())
         )
         assert not sensor.evaluate_tick(ctx).dynamic_partitions_requests
         assert sensor.default_status == dg.DefaultSensorStatus.STOPPED

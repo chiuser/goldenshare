@@ -1,6 +1,6 @@
 # 七个 Tushare 资金流向数据集实施细则与 P0 收尾
 
-> 本次同花顺个股资金流向的当前实施口径统一见[第82节](#moneyflow-ths-manual-gap-repair-decisions)及[原方案第86节](dagster-moneyflow-tushare-onboarding-plan-v1.md#moneyflow-ths-manual-gap-repair-decisions)。截至2026-11-13，阶段0.5准备及阶段1的HTTP接入、NULL保留、性能和停止行为隔离验收已完成，结果见[第82.19节](#moneyflow-ths-stage-1-complete)。阶段2～6及正式发布未执行，两个Raw名单、源端预检和Silver接续仍待实现。旧日期章节中的未实现描述保留当时范围，不能代替本条当前状态；分页清理的独立实现及历史证据保留。
+> 本次同花顺个股资金流向的当前实施口径统一见[第82节](#moneyflow-ths-manual-gap-repair-decisions)及[原方案第86节](dagster-moneyflow-tushare-onboarding-plan-v1.md#moneyflow-ths-manual-gap-repair-decisions)。截至2026-11-13，阶段0.5、阶段1及阶段2隔离验收已完成；最新结果见[第82.20节](#moneyflow-ths-stage-2)。阶段3～6及正式发布未执行，Raw合并与两个名单、Silver成功接续仍待实现。旧日期章节保留当时范围，不代替本条当前状态。
 
 <a id="report-attachment-cleanup-20261103"></a>
 
@@ -5585,7 +5585,7 @@ Raw和Silver当前共用 `cn_a_moneyflow_ths_trade_days`，登记一次目标日
 
 <a id="moneyflow-ths-manual-gap-repair-decisions"></a>
 
-## 82. 同花顺个股资金流向当前实施口径（2026-11-13，阶段1完成，后续待实现）
+## 82. 同花顺个股资金流向当前实施口径（2026-11-13，阶段2完成，后续待实现）
 
 ### 82.1 范围、状态与依据
 
@@ -5618,7 +5618,7 @@ Raw和Silver当前共用 `cn_a_moneyflow_ths_trade_days`，登记一次目标日
 
 正式Raw继续请求现行完整13个业务字段。源字段、源类型及单位沿用 `RAW_TUSHARE_MONEYFLOW_THS_SCHEMA` 和[同花顺个股资金流向源说明](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/资金流向数据/0348_个股资金流向（THS）.md)，不建立同一接口的两字段子合同，不新增本地辅助列到源合同中。两字段预检是请求投影，不能代替正式下载全部业务字段。
 
-源端JSON null须在读取入口保持为Python None，写入Raw和Silver仍为NULL；真正NaN和正负无穷按原规则拒绝。不能先经pandas失去null含义，再将所有NaN一概替换为None。当前 `TushareResource.call` 仍经过第三方tushare SDK的DataFrame转换，这一问题尚未修复。已有 `orchestrator/tushare_download/source_response.py` 能直接解析JSON并保留None，但其合同注册目前仅含 `stk_factor_pro`；`DownloadTask` 无投影输入，`RequestBuilder.build_page` 固定取完整合同字段，不能宣称它已直接支持本数据集和两字段预检。本次采用现有资金流worker内部复用单次HTTP传输/JSON解析、登记完整13字段合同、给RequestBuilder增加内部字段投影的方式，保持DownloadTask和运营输入不变，具体边界见第82.13.3节。
+源端JSON null在读取入口保持为Python None，Raw及后续Silver仍保留NULL；真正NaN和正负无穷继续拒绝。此前准备阶段发现的THS经SDK DataFrame及注册仅有股票技术因子专业版的问题，已由阶段1解决：THS worker复用单次HTTP/JSON解析，完整13字段合同已登记，RequestBuilder支持内部字段投影；DownloadTask和运营输入保持不变。TushareResource及其它六类资金流仍保留原SDK行为，没有将所有NaN一概替换为None。实现及验收见第82.19节；阶段2已在原sensor接入同一两字段预检，完整Raw下载继续使用13字段。
 
 原完整分页、两次独立读取、两轮内容稳定性、日期/唯一键/类型/精度及候选文件校验继续保留。缺失股票容忍只放宽明确的覆盖差集，不能吞掉请求失败、分页错误或字段错误，也不重算源端净额、不填零、不要求大中小净占比合计为100%。
 
@@ -6351,3 +6351,86 @@ HTTP配置显式使用原768MiB、输入64KiB、剩余绝对期限，连接期�
 完成后以独立只读进程核对源码AST、原基线、测试记录和计时；原SDK调用只处在THS以外分支，THS只有一次fetch_page且无循环重试；原父退出监测、Decimal序列化、父端结果解码/回收及资源环境过滤保持。通用HTTP/解析器、请求策略、原采集器和DownloadTask完整字段入口均无差异，人工夹具摘要未变；记录10个本轮Python文件摘要用于收尾核对，按相对orchestrator路径排序，将每项“路径、制表符、SHA256、换行”拼接后再取SHA256，清单摘要为 `af9892873438c99cbe3a41f177720a8605e33baab8c7b009ec8a58912832049c`。CodeGraph使用explore/impact追到原采集器、父子进程、RequestBuilder、page_download完整字段消费者、合同登记与对应测试；完成后sync/status通过。没有主系统API、前端或跨子系统依赖变化，也没有待人工确认的新增边界。
 
 首次独立审查脚本选错了main中的条件表达式（取到峰值单位换算，而非result赋值），修正为明确检查result赋值后复核通过；该失败不涉及生产实现或测试预期修改。收尾确认10个Python文件仍与验收摘要一致，两个原文档的既有内容除明确当前状态外均保留，本地链接目标共336处均存在；DG和本次测试取数进程均未运行。临时审查、基线、样本、计时及测试产物在有效结果落回本节后清理，正式小夹具和测试保留。本阶段没有新增asset、resource、check、partition、job或sensor定义，不改Lake路径，不写正式数据库/文件/事件，不启用DG。阶段1隔离交付完成；阶段2～6及正式发布继续按原顺序独立推进，不能据此宣布已能按缺失名单补数或自动接续Silver。
+
+
+<a id="moneyflow-ths-stage-2"></a>
+
+### 82.20 第二阶段执行约束、开发顺序与验收（2026-11-13，已完成隔离验收）
+
+本步已经管理员明确授权，严格复用第82.13.2、82.13.6、82.14.1和82.14.4节，不改业务口径。阶段1提交为1c850c524，当前dev-interface；开工再次只读确认DG及moneyflow worker均停止，当前安装版本sensor RPC默认60秒。不启动正式DG，不评估正式sensor、不提交任务、分区或事件，不写正式Lake。两个原文档及四个已有目标文件的当前内容在工程外记录摘要；共享选择器/THS sensor仍与第82.14.3节的更早修复一致，保留这些修复及其它线程差异。
+
+#### 82.20.1 硬口径、代码位置及消费者
+
+| 硬要求 | 本步实现位置 | 必须取得的验收 |
+| --- | --- | --- |
+| 只对THS从20点登记、Raw预检 | moneyflow_automation.py的MoneyflowAutomationContract增加typed register_start、missing_record_limit；THS为20:00/25，另外六类默认原22:00/无覆盖配置 | THS 19:59等待、20:00可登记及预检；另外六类仍22点；THS旧Silver轮询暂保留22点，不提前进入阶段4 |
+| 原选日/次数保持 | moneyflow_update_selection.py沿原窗口、活动任务、ready、失败和六次run key判断；仅可提交THS Raw的分支在item.update及RunRequest之前调用新预检 | 当日优先、只一个目标日；已成功、活动运行、不可重试、次数用尽、日期未登记时不请求源；源预检失败不增加attempt、不保存半批代码 |
+| 同接口完整两字段分页 | 新defs/source_readiness/moneyflow_ths.py；调用阶段1call_moneyflow_source，不调用完整Raw collector、不回退SDK | 字段固定ts_code/trade_date，目标日YYYYMMDD、2000/offset分页；短页/合法空末页结束；跨页重复、错日、NULL/非法键、缺列、超行数/页大小、未结束及源错误均不提交 |
+| 目标日应交易集合 | 同新文件调用silver_stock_lifecycle_ready_for_trade_date及最终停牌的AssetReadinessSpec；复用silver_cny_stock_lifecycle_select/stock_trading_universe_ctes | 真正读取临时生命周期和最终停牌文件：上市日含、退市日不含、盘中停牌保留、全日停牌扣除、B股及北交所不入应交易集合；缺上游/失败或错目标check、旧快照、空集合均等待 |
+| 严格差集及合法额外停牌 | 预期减本次唯一源代码；额外代码只允许本集合中合法全日停牌 | 0/24放行、25阻断；两边总数相同但缺1/多1不能判齐备；合法额外不能抵缺失，其它额外不能裁掉放行 |
+| 期限、SQL及清理 | 从THS Raw evaluator进入记录perf_counter和default_sensor_grpc_timeout所得同次deadline；THS日历和集合查询用moneyflow_candidate_connection及受控Timer.interrupt；源分页再共享min(评估deadline,源开始+30秒) | 消耗本地时间后不重置60秒；慢SQL真实中断且Timer cancel/join；三页共用30秒，失败不领后续页；worker仍阶段1原停止/取消能力；不得调高部署超时 |
+| 资源与框架结果 | 只给THS Raw sensor增加tushare required_resource_keys，沿已有resource token/base_url配置；原cursor/result builders | 用真正SensorDefinition.evaluate_tick及临时持久instance验收，返回原SensorResult/RunRequest且cursor保持小，不把完整名单写cursor；登记器/Silver/其它六类不新增源资源 |
+
+MoneyflowAutomationContract是既有固定代码合同，字段名、值及消费者已在第82.13.6节确认；不新增env、Settings、数据库或运营开关。register_start默认引用原MONEYFLOW_REGISTER_START；missing_record_limit默认None，仅THS为25；require_moneyflow_automation_contract仍拒绝修改过的未知合同，不放宽身份检查。完整引用审计覆盖七类sensor、交付readiness、历史事件/continuation及合同测试，Prod、API和前端没有消费者。
+
+#### 82.20.2 具体实现与失败处理
+
+新文件只放本数据集的预检。load_moneyflow_ths_universe读取一次目标日的上市及全日停牌集合，返回expected和full_day_suspended两个frozenset，供本步预检使用，并为阶段3任务内同一口径保留复用点；本步不接入Raw任务的覆盖/合并。MoneyflowThsSourceReadiness只返回reason和预期数/源行数/缺码数，不保存源记录或完整名单；ready只在完整结束、全部身份检查通过且missing_count<25时成立。源错误只输出现有分类或固定reason，不把响应原文、凭据和动态异常文本放入cursor。
+
+元数据按既有事件模式：生命周期要求物化日期不早于所选交易日并通过当前contract/key_integrity/domain三项；最终停牌要求目标分区准确物化及当前三项blocking check对应该物化。合法schema空停牌分区可用；不读raw suspend_d或自行叠加固定事实。上游读取沿既有有界API，在前后检查同一deadline，不新增外层进程或元数据库查询框架。两个资产最多2次limit=1物化查询、6次既有CHECK_HISTORY_LIMIT=5000的检查查询，即请求记录上限2+6×5000=30002；这是沿既有helper的上限，实测调用/返回记录数另记，不能说只读取8条事件。
+
+THS日历查询及集合SQL走同一现有512MB/1线程/no-spill连接策略，临时目录使用已有DEFAULT_DUCKDB_TEMP_DIRECTORY；不新建目录、扩展、文件或持久状态。每个连接在当前评估deadline之前用Timer调用interrupt，finally先cancel/join再关闭连接；不让Timer影响下一次查询。新预检把预期集合的文件/SQL错误、上游未就绪、源合同/分类错误转换为明确等待结果；未知编程错误、KeyboardInterrupt和本地MemoryError不吞掉。父端源请求仍按既有方式回收，源预检不重试。
+
+一次源预检最多N=20000行、floor(N/2000)+1=11次请求（20000整除需空末页），只保留当前页和最多20000个源键；本次分页达到上限但未结束不得成功。每次失败后下一个正常tick从该日offset=0重做，最多同样11次，不恢复半页，不改变原已提交Raw任务六次限制。预检在原可提交条件和run key选择后、attempt写入和RunRequest之前；失败时不写正式数据或伪造Raw成功。
+
+#### 82.20.3 证据、成本、步骤与验收
+
+已核对真实生产者代码及2026-11-13正式文件footer schema，未读取业务明细：生命周期10列、is_cny_stock为BOOLEAN、list_date/delist_date为DATE，文件131779字节；2026-11-10最终停牌4列、trade_date为DATE、suspend_timing可空，705字节。试图使用本机不存在的pyarrow读取footer后即改用项目既有DuckDB DESCRIBE，无安装操作。独立夹具按这两份真实合同构造完整列，关键预期用字面日期/代码，不从待测函数生成expected。源接口沿doc348、阶段1显式13字段的真实单代码样本及第82.14.1节真实两字段三页证据；本步不重复真实源请求、不全市场重读源或正式Lake。实际新预检到sensor返回用本地HTTP、假token、临时文件和临时SQLite完整验证，不能说正式日更已验收。
+
+正常容量沿阶段1人工5218代码，预检三页2000/2000/1218，增加3次本地HTTP/3次实际worker启动；其它边界用具名人工小样本和必要本地失败响应，分别记账。2026-11-13阶段1三页实测1.381109秒、父子RSS相加上界302170112字节，只作同方式已有样本，不保证新完整tick耗时。新完整tick须实际记录SQL/文件/元数据API/源页数、整体elapsed和cursor字节；上游两文件读取、最后比较和SensorResult序列化均计入60秒；源仍30秒，父子768MiB，结果32MiB、输入64KiB不放宽。恢复和最终核对复用相同临时样本及测试记录，不追加全历史/正式数据扫描。
+
+开发顺序：①本节与原方案落档，核对维护/当前源码/合同及影响面；②实现typed合同、THS连接与集合/分页预检；③接入原选择器和资源声明；④同步已有THS测试的20点/资源语义，原选择器回归明确隔离新源预检，不把替身算新链验收；⑤新增独立源/上游/期限反例及真实本地HTTP→worker→原sensor evaluate_tick三页链；⑥按影响面回归七类sensor、THS定义及自动化合同、第一阶段短链、受保护治理，Ruff/文档对账；⑦完成后另以只读审查和独立预期核对计划、源码、测试及版本，补足发现问题，再回填并清理临时文件。不重复已通过的阶段1两轮60秒性能组。
+
+本步必须覆盖0/24/25、同数量不同集合、合法全日及盘中停牌、历史上市/退市、北交所/B股、缺/错目标check和快照、合法空停牌、完整/错误分页、空源/缺列/错日/重复/非法键、请求异常、共享期限/慢SQL、cursor无名单、元数据和SQL调用数、成功Raw及六次尝试边界。不得用skip/xfail或放宽断言掩盖遗漏。中断测试只结束本任务自有进程/连接/Timer，失败保持原因，只重跑受影响用例；有效结果写回原方案/LLD后清理工程外产物。阶段2只交付登记与预检，不表示已具备Raw合并名单或Silver成功事件接续；正式服务仍停止，后续阶段另行推进。
+
+
+第二阶段补充的消费者核对：tests/test_moneyflow_registration_boundary.py独立遍历七类登记器，但把所有家族固定为22点。它必须同步改为THS在20点、其它六类在22点，并增加19/20/21/22点字面时刻反例；原历史日期排除、漏登记补齐和STOPPED断言保留。临时原生sensor验收使用当前安装版本的partition_loading_context绑定同一临时instance，每个tick另建context并以cursor参数传入上次结果，不混用context.update_cursor与SensorResult.cursor。这些是测试/框架接入细化，不新增业务口径。
+
+
+#### 82.20.4 实现结果和计划逐项对账
+
+本阶段已完成7个Python文件（4个生产文件、3个测试文件）及两份原方案/LLD。生产文件为moneyflow_automation.py、moneyflow_update_selection.py、moneyflow_ths_sensor.py、新source_readiness/moneyflow_ths.py；测试为原THS sensor测试、原七类登记边界测试、新test_moneyflow_ths_source_readiness.py。原先更早的成功Raw不重复重采修复保留，未顺带修改其它六类文件。没有新增asset、resource类、check、partition、job或sensor定义，仅THS Raw sensor新增既有tushare资源依赖。
+
+| 已确认硬口径 | 实际验收证据 |
+| --- | --- |
+| THS 20点、其它六类22点 | typed register_start/missing_record_limit只在THS为20:00/25；七登记器19/20/21/22点共28个用例，原历史缺口边界和STOPPED保持。THS旧Silver轮询仍22点，不在本步接入源 |
+| 目标日应交易集合 | 实际临时完整10列生命周期及4列最终停牌文件；上市日、退市日起排除、历史D状态仍有效、全日/盘中/复牌、B股及北交所、合法空停牌均有独立字面预期；不读取股票日线或raw停牌来缩小范围 |
+| 准确上游事件和文件 | 临时原生物化和check；缺事件、其它分区、失败/非blocking/错误目标、旧快照、缺文件及空预期集合均不调用源 |
+| 严格小于25及差集 | 缺0/24允许、25阻断；相同总数而少1/多1合法停牌仍认缺1；合法额外不抵缺，其它额外不能裁掉放行 |
+| 完整源及共享预算 | 真实本地HTTP→阶段1真实worker→实际原生sensor返回一个RunRequest；缺列、错日、非法键、跨页重复、空响应、超页/超行数、半批失败不放行；20000行加空末页11请求可完成，超过上限停止；普通源错误不在tick重试 |
+| 尝试、cursor及不重采 | 两次预检失败不增加attempt，已有attempt=2原样保留；请求未完成不打印未经计算的0缺失/0返回，不存半批代码；已成功、活动任务、不可重试失败及六次用尽均不会调用预检。原run key及历史手动入口未改 |
+| 期限和退出 | 60秒从THS Raw evaluator入口计，日历/集合SQL同deadline真实interrupt并join Timer；上游本地阶段耗尽不再请求源；所有源页共用源阶段开始后的30秒，取min整次截止点，未按页重置；本地取消/内存/未知编程错误未吞掉 |
+| 配置和消费者 | 既有固定合同、原tushare token/base_url、统一DuckDB受限连接；没有新env、运营开关或跨工程依赖。七类共同消费者、THS定义、登记、原HTTP短链和治理按影响面验收 |
+
+正常5218条人工容量组：2000/2000/1218共3次本地HTTP及3个实际worker，真正SensorDefinition.evaluate_tick总1.587847秒；包括日历、原选日/就绪判断、上游状态、集合SQL、源请求、最后校验及框架返回。业务SQL为2次（日历及集合），连接配置核验另有4次；集合读取生命周期/目标日最终停牌两份文件。上游有2次limit=1物化及6次limit=5000检查查询，样本实际返回8条记录；不是所有情况下只读取8条。源页共用同一deadline，cursor为666字节、不含完整名单，未实际运行Raw job。三页均通过原父子768MiB及32MiB结果检查，未另测连续峰值，不能将阶段1内存样本套为本次峰值。
+
+上述是127.0.0.1、假token及临时实例/文件的正常完整tick，不是正式源网络性能保证。本轮真实源请求0，正式业务明细读取0；正式只读仅两个具体Parquet文件的footer schema。未启动、重载DG或评估正式sensor，正式分区/运行/事件及Lake写入均为0。本地HTTP累计11次：正常完整tick3次、两个失败框架验收尝试各3次、阶段1短链2次；前述失败不额外请求真实源，不把11次混称正常源预检页数。
+
+#### 82.20.5 测试结果、失败修正和独立审计
+
+| 验收组 | 结果及实际成本 |
+| --- | --- |
+| 新THS源预检/上游/原生框架 | 去重49项全部最终通过；有界重跑按下述失败记录解释，不能只记录最后10项6.181秒便说完成了全部49项 |
+| 既有THS选择器 | 40项通过，24.993秒；增强“不请求预检”的3项另行定向3.421秒通过，属于原40项，不重复计数 |
+| 六类原sensor、THS定义、七登记器 | 205+39+28=272项通过，同次157.308秒；没有放宽其它六类口径 |
+| 第一阶段短链 | 2项通过，2.057秒；验证NULL到临时Raw及两字段剩余窗口，没有重跑已通过的60秒两轮性能组 |
+| 静态治理 | 原受保护入口15批、113个方法全部通过；批次子进程累计18.629秒，不含隔离准备；定义身份清单未新增或放宽 |
+| 独立复核发现后的定向验收 | 说明配置来源2项0.756秒、未知数量/attempt保留2项1.784秒，均为上面已有方法，不重复计数 |
+
+去重最终为49+40+272+2+113=476项通过，未增加skip/xfail。最初测试共有10次失败记录，均已保留并对应修正：无运行ID的分区检查重复写入导致3项临时SQLite唯一约束失败；测试context没有显式注入资源导致3项未进入业务；原生RunRequest解析缺少当前版本partition_loading_context、复用context.update_cursor与返回cursor冲突各1项；把30秒源窗口错误地从整个tick开始计、直接假设空runtime_state不会被既有builder删除各1项。修正均依据当前安装Dagster、cursor builder和原LLD既定窗口，未改业务阈值或放宽断言。源预检原38项首轮35过/3失败11.117秒；证据夹具6项重验3.425秒；原生首轮3项失败2.462秒；完整41项39过/2失败15.193秒；剩余2项再次发现上述断言问题3.603秒；受影响用例加新增反例10项6.181秒最终通过。各数字为对应pytest内部耗时，重复方法去重统计，不能当完整开发工时。一次带-k的组合命令未选中计划中的2个短链，已经另以明确节点补跑，不把未选中计为通过。
+
+独立审计使用工程外新进程，不导入本次测试模块/夹具/预期生成器。先按LLD复核源码AST、仅THS分支、七类固定合同、资源、请求顺序、attempt写入前预检、原成功跳过、共享截止点及Timer清理；再另造2026-10-08/不同代码的30条完整生命周期和合法空最终停牌，写临时原生事件，用独立字面6条/5条源返回验证缺24允许、缺25阻断。独立运行没有真实源请求、没有Raw job或正式操作；最后一次复核内部0.702842秒通过。初次复核通过后的一次复跑因审查脚本重复使用已存在目录中断，已改为每次独立临时目录再通过，不涉及生产变更。汇总各XML最新用例结果确认363个非治理方法无未解决失败，另113项受保护治理通过。
+
+独立复核同时收口两处说明问题：sensor描述中的20点/25只改为直接读取同一自动化合同；源预检未完成时不把未知数量显示成0，完整覆盖失败仍显示准确缺码数量。对应定向测试通过，源码复核再次完成。未发现本阶段剩余实现冲突或待拍板事项。CodeGraph explore/impact及当前引用核验覆盖共享选择器、七个包装/登记器、固定合同、原readiness、历史continuation与测试；没有Prod、前端/API或跨子系统变更。完成后sync/status复核，并以修改文件默认Ruff、全src/tests致命规则、文档及diff检查收尾。
+
+7个本轮Python文件按相对orchestrator路径排序，将“路径、制表符、SHA256、换行”拼接后取摘要为2d7f663cb040491524f8cde6e6e3f842182cb1d4a1e9b8eb841c675d171b2ccb。任务临时目录在一次收尾统计时逻辑文件合计452608593字节，含多轮临时SQLite/Parquet和输出，不是磁盘分配或上限；有效结果写回后清理本任务及15个受保护批次临时目录。阶段2隔离交付完成，当前未提交，正式DG继续停止；阶段3Raw真实候选覆盖/合并/两个名单和旧20%清退、阶段4Silver成功事件及后续整体/正式验收尚未进入。
