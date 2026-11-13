@@ -32,6 +32,12 @@ CONFIG = {"sync_batch_size": 2, "source_timeout_seconds": 30, "statement_timeout
           "observation_timeout_seconds": 2, "progress_interval_seconds": 5}
 # Projection observed in the real three-field source requests recorded in LLD §2.3.
 DOWNLOAD_FIELDS = ("ts_code", "trade_date", "limit_status")
+# Real missing target and list_date from the bounded Prod/source audit in LLD §22/§23.
+PRE_LISTING_DAY = date(2018, 12, 24)
+PRE_LISTING_CODE = "920964.BJ"
+PRE_LISTING_DATE = date(2020, 7, 27)
+# The other stock's status is a synthetic valid zero, not an observed historical value.
+PRE_LISTING_SOURCE_ROW = {"ts_code": "000001.SZ", "trade_date": "20181224", "limit_status": 0}
 
 
 def source_rows(day=DAY):
@@ -64,6 +70,21 @@ def database(tmp_path):
         yield engine, sessionmaker(engine, expire_on_commit=False)
 
 
+@pytest.fixture
+def before_listing_database(database):
+    engine, factory = database
+    with engine.begin() as connection:
+        connection.execute(insert(Security), {"ts_code": PRE_LISTING_CODE, "name": "润农节水",
+            "security_type": "EQUITY", "list_status": "L", "list_date": PRE_LISTING_DATE})
+        rows = [{"ts_code": code, "trade_date": PRE_LISTING_DAY, "limit_status": None,
+                 "pe": -17, "close": None} for code in ("000001.SZ", PRE_LISTING_CODE)]
+        connection.execute(insert(RawDailyBasic), [{**row, "fetched_at": OLD_TIME,
+            "raw_payload": "old payload"} for row in rows])
+        connection.execute(insert(EquityDailyBasic), [{**row, "created_at": OLD_TIME,
+            "updated_at": OLD_TIME} for row in rows])
+    return engine, factory
+
+
 def service(factory, rows=None):
     connector = Mock()
     connector.call_bounded.return_value = source_rows() if rows is None else rows
@@ -79,6 +100,137 @@ def read_rows(engine):
     with Session(engine) as session:
         return [list(session.execute(select(*model.__table__.c).order_by(model.trade_date, model.ts_code)).mappings())
                 for model in (RawDailyBasic, EquityDailyBasic)]
+
+
+def test_real_pre_listing_missing_target_stays_null_and_other_target_commits(before_listing_database):
+    engine, factory = before_listing_database
+    before = read_rows(engine)
+    value = service(factory, [dict(PRE_LISTING_SOURCE_ROW)])
+    result = execute(value, PRE_LISTING_DAY)
+    assert result == {"rows_fetched": 1, "rows_saved": 2, "raw_changed": 1, "serving_changed": 1,
+                      "already_complete": False, "source_extra_codes": [],
+                      "null_before_listing_codes": ["920964.BJ"]}
+    after = read_rows(engine)
+    for original, persisted in zip(before, after, strict=True):
+        assert [{key: val for key, val in row.items() if key != "limit_status"} for row in original] == [
+            {key: val for key, val in row.items() if key != "limit_status"} for row in persisted]
+        assert {(row["ts_code"], row["limit_status"]) for row in persisted
+                if row["trade_date"] == PRE_LISTING_DAY} == {("000001.SZ", 0), ("920964.BJ", None)}
+
+
+@pytest.mark.parametrize("listing_date", [
+    pytest.param(PRE_LISTING_DAY, id="on-listing-date"),
+    pytest.param(date(2018, 12, 21), id="after-listing-date"),
+    pytest.param(None, id="unknown-listing-date"),
+])
+def test_missing_target_without_later_listing_date_still_fails(before_listing_database, listing_date):
+    engine, factory = before_listing_database
+    with engine.begin() as connection:
+        connection.execute(text("UPDATE core_serving.security_serving SET list_date=:day WHERE ts_code=:code"),
+                           {"day": listing_date, "code": PRE_LISTING_CODE})
+    before = read_rows(engine)
+    with pytest.raises(IngestionError) as caught:
+        execute(service(factory, [dict(PRE_LISTING_SOURCE_ROW)]), PRE_LISTING_DAY)
+    assert caught.value.structured_error.error_code == "daily_basic_limit_status.target_mismatch"
+    assert caught.value.structured_error.details["missing_codes"] == ["920964.BJ"]
+    assert read_rows(engine) == before
+
+
+def test_missing_stock_basic_record_cannot_justify_leaving_null(before_listing_database):
+    engine, factory = before_listing_database
+    with engine.begin() as connection:
+        # Intentionally remove this key from the isolated stock-basic fixture,
+        # without deleting any stock or daily-basic row.
+        connection.execute(text("UPDATE core_serving.security_serving SET ts_code='999999.SZ' WHERE ts_code=:code"),
+                           {"code": PRE_LISTING_CODE})
+    before = read_rows(engine)
+    with pytest.raises(IngestionError) as caught:
+        execute(service(factory, [dict(PRE_LISTING_SOURCE_ROW)]), PRE_LISTING_DAY)
+    assert caught.value.structured_error.details["missing_codes"] == ["920964.BJ"]
+    assert read_rows(engine) == before
+
+
+@pytest.mark.parametrize("raw_status,serving_status", [(4, None), (None, 4), (4, 4), (0, 0)])
+def test_pre_listing_exception_never_clears_an_existing_status(before_listing_database, raw_status, serving_status):
+    engine, factory = before_listing_database
+    with engine.begin() as connection:
+        for table, status in (("raw_tushare.daily_basic", raw_status), ("core_serving.equity_daily_basic", serving_status)):
+            connection.execute(text(f"UPDATE {table} SET limit_status=:status WHERE trade_date=:day AND ts_code=:code"),
+                               {"status": status, "day": PRE_LISTING_DAY, "code": PRE_LISTING_CODE})
+    before = read_rows(engine)
+    with pytest.raises(IngestionError) as caught:
+        execute(service(factory, [dict(PRE_LISTING_SOURCE_ROW)]), PRE_LISTING_DAY)
+    assert caught.value.structured_error.details["missing_codes"] == ["920964.BJ"]
+    assert read_rows(engine) == before
+
+
+def test_pre_listing_source_row_with_null_status_is_still_invalid(before_listing_database):
+    engine, factory = before_listing_database
+    before = read_rows(engine)
+    rows = [dict(PRE_LISTING_SOURCE_ROW), {**PRE_LISTING_SOURCE_ROW,
+            "ts_code": PRE_LISTING_CODE, "limit_status": None}]
+    with pytest.raises(IngestionError) as caught:
+        execute(service(factory, rows), PRE_LISTING_DAY)
+    assert caught.value.structured_error.details["rejected_reasons"] == {
+        "normalize.daily_basic_limit_status_invalid:limit_status": 1}
+    assert read_rows(engine) == before
+
+
+def test_pre_listing_source_with_valid_zero_is_updated_without_listing_query(before_listing_database):
+    engine, factory = before_listing_database
+    statements = []
+    event.listen(engine, "before_cursor_execute", lambda c, u, sql, p, ctx, many: statements.append(sql))
+    rows = [dict(PRE_LISTING_SOURCE_ROW), {**PRE_LISTING_SOURCE_ROW, "ts_code": PRE_LISTING_CODE}]
+    result = execute(service(factory, rows), PRE_LISTING_DAY)
+    assert (result["rows_fetched"], result["rows_saved"], result["raw_changed"], result["serving_changed"]) == (2, 2, 2, 2)
+    assert "null_before_listing_codes" not in result
+    assert not any("security_serving" in sql for sql in statements)
+    assert all(row["limit_status"] == 0 for values in read_rows(engine) for row in values
+               if row["trade_date"] == PRE_LISTING_DAY)
+
+
+def test_pre_listing_replay_rechecks_source_and_fills_status_if_source_recovers(before_listing_database):
+    engine, factory = before_listing_database
+    listing_queries = []
+    event.listen(engine, "before_cursor_execute", lambda c, u, sql, p, ctx, many:
+                 listing_queries.append((sql, p)) if "security_serving" in sql else None)
+    value = service(factory, [dict(PRE_LISTING_SOURCE_ROW)])
+    execute(value, PRE_LISTING_DAY)
+    before = read_rows(engine)
+    replay = execute(value, PRE_LISTING_DAY)
+    assert (replay["rows_fetched"], replay["rows_saved"], replay["raw_changed"], replay["serving_changed"]) == (1, 2, 0, 0)
+    assert replay["null_before_listing_codes"] == ["920964.BJ"] and not replay["already_complete"]
+    assert value.connector.call_bounded.call_count == 2
+    assert len(listing_queries) == 2
+    assert all(list(params.values()) == ["920964.BJ"] for sql, params in listing_queries)
+    assert read_rows(engine) == before
+    value.connector.call_bounded.return_value = [dict(PRE_LISTING_SOURCE_ROW), {
+        **PRE_LISTING_SOURCE_ROW, "ts_code": PRE_LISTING_CODE, "limit_status": 3}]
+    recovered = execute(value, PRE_LISTING_DAY)
+    assert (recovered["rows_fetched"], recovered["rows_saved"], recovered["raw_changed"], recovered["serving_changed"]) == (2, 2, 1, 1)
+    assert "null_before_listing_codes" not in recovered
+    assert execute(value, PRE_LISTING_DAY)["already_complete"] is True
+    assert value.connector.call_bounded.call_count == 3
+
+
+def test_one_qualified_missing_target_does_not_hide_an_unqualified_missing_target(before_listing_database):
+    engine, factory = before_listing_database
+    before = read_rows(engine)
+    with pytest.raises(IngestionError) as caught:
+        execute(service(factory, []), PRE_LISTING_DAY)
+    assert caught.value.structured_error.details["missing_codes"] == ["000001.SZ"]
+    assert read_rows(engine) == before
+
+
+def test_pre_listing_exception_does_not_break_two_table_rollback(before_listing_database):
+    engine, factory = before_listing_database
+    before = read_rows(engine)
+    with engine.begin() as connection:
+        connection.execute(text("ALTER TABLE core_serving.equity_daily_basic ADD CONSTRAINT pre_listing_failure "
+                                "CHECK (trade_date <> '2018-12-24'::date OR limit_status IS NULL)"))
+    with pytest.raises(Exception, match="pre_listing_failure"):
+        execute(service(factory, [dict(PRE_LISTING_SOURCE_ROW)]), PRE_LISTING_DAY)
+    assert read_rows(engine) == before
 
 
 @pytest.mark.parametrize("live_batch_size", [1, 3])

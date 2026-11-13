@@ -62,6 +62,8 @@ class DailyBasicLimitStatusTaskExecutor:
             "start_date": str(start), "end_date": str(end), "target_tables": list(TARGET_TABLES),
             "key_fields": ["ts_code", "trade_date"], "update_columns": ["limit_status"],
             "source_fields": list(DAILY_BASIC_LIMIT_STATUS_DOWNLOAD_FIELDS),
+            "missing_source_policy": "keep_existing_null_before_list_date",
+            "listing_date_source": "core_serving.security_serving.list_date",
             "storage_mappings": {table: {"ts_code": "VARCHAR(16)", "trade_date": "DATE", "limit_status": "INTEGER"}
                                  for table in TARGET_TABLES},
             "execution_config": config, "code_version": version("goldenshare"),
@@ -118,7 +120,7 @@ class DailyBasicLimitStatusTaskExecutor:
                 TaskRun.id == int(params["plan_task_run_id"]),
             )).one()
         if contract != PLAN_CONTRACT:
-            raise ValueError("旧补录计划仍使用完整19字段，请重新生成三字段 PLAN 后执行")
+            raise ValueError("旧补录计划未包含上市前源缺记录留空规则，请重新生成 PLAN 后执行")
         last_write = None
         day = unit.payload["trade_date"]
 
@@ -160,7 +162,13 @@ class DailyBasicLimitStatusTaskExecutor:
 
             check()
             result = self._service.execute_day(unit.payload, config=config, check=check, observe=observe)
+        summary = f"{day} 每日指标收盘涨跌状态已覆盖 {result['rows_saved']} 行"
+        phase = "已完成" if not result["already_complete"] else "已核对，跳过"
+        null_codes = result.get("null_before_listing_codes", [])
+        if null_codes:
+            summary += f"，其中 {len(null_codes)} 行为上市前源无记录，收盘涨跌状态留空"
+            phase += f"，其中 {len(null_codes)} 行收盘涨跌状态留空"
         return MaintenanceExecutionResult(rows_fetched=result["rows_fetched"], rows_saved=result["rows_saved"],
-            summary_message=f"{day} 每日指标收盘涨跌状态已覆盖 {result['rows_saved']} 行",
+            summary_message=summary,
             metadata={"daily_basic_limit_status": {**result, "trade_date": day,
-                "phase": "已完成" if not result["already_complete"] else "已核对，跳过", "eta": "暂无法估算"}})
+                "phase": phase, "eta": "暂无法估算"}})

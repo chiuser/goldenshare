@@ -25,12 +25,13 @@ from src.foundation.ingestion.normalizer import DatasetNormalizer
 from src.foundation.ingestion.resolver import DatasetActionResolver
 from src.foundation.ingestion.row_transforms import RowTransformReject, daily_basic_limit_status
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
+from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
 from src.utils import CoerceRowError, chunked, coerce_row
 
 
 RESPONSE_CONTRACT = "daily_basic/v1"
-PLAN_CONTRACT = "daily_basic_limit_status/v2"
+PLAN_CONTRACT = "daily_basic_limit_status/v3"
 TARGET_TABLES = ("raw_tushare.daily_basic", "core_serving.equity_daily_basic")
 
 
@@ -122,11 +123,27 @@ class DailyBasicLimitStatusService:
         normalized = self._normalize(source, day)
         source_by_code = {row["ts_code"]: row for row in normalized}
         missing = set(serving) - source_by_code.keys()
+        null_before_listing = []
         if missing:
-            raise _target_mismatch(f"{day} 源数据缺少目标股票，当前日期未提交", trade_date=str(day),
-                                   missing_codes=sorted(missing))
+            check()
+            observe("核对缺失股票上市日期")
+            with self.session_factory() as session:
+                statement_timeout(session, config["statement_timeout_seconds"])
+                listing_dates = dict(session.execute(select(Security.ts_code, Security.list_date).where(
+                    Security.ts_code.in_(sorted(missing)),
+                )).all())
+            check()
+            null_before_listing = sorted(code for code in missing
+                if listing_dates.get(code) is not None and day < listing_dates[code]
+                and raw[code] is None and serving[code] is None)
+            unresolved = missing - set(null_before_listing)
+            if unresolved:
+                raise _target_mismatch(f"{day} 源数据缺少目标股票，当前日期未提交", trade_date=str(day),
+                                       missing_codes=sorted(unresolved))
         updates = []
         for code in serving:
+            if code not in source_by_code:
+                continue
             status = source_by_code[code]["limit_status"]
             if any(value is not None and value != status for value in (raw[code], serving[code])):
                 raise _target_mismatch(f"{day} {code} 源状态与已有非空状态冲突", trade_date=str(day),
@@ -162,9 +179,12 @@ class DailyBasicLimitStatusService:
                     retryable=False, details={"trade_date": str(day)},
                 )) from exc
         # Return confirmed work before honoring a cancellation received during COMMIT.
-        return {"rows_fetched": len(source), "rows_saved": len(updates), "raw_changed": changed[0],
-                "serving_changed": changed[1], "already_complete": False,
-                "source_extra_codes": sorted(source_by_code.keys() - serving.keys())}
+        result = {"rows_fetched": len(source), "rows_saved": len(serving), "raw_changed": changed[0],
+                  "serving_changed": changed[1], "already_complete": False,
+                  "source_extra_codes": sorted(source_by_code.keys() - serving.keys())}
+        if null_before_listing:
+            result["null_before_listing_codes"] = null_before_listing
+        return result
 
     @staticmethod
     def _read_targets(session, day, payload, batch_size, check, observe):

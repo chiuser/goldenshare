@@ -26,6 +26,7 @@ from src.app.models.app_user import AppUser
 from src.app.runtime.daily_basic_limit_status_task_executor import ACTION_KEY, DailyBasicLimitStatusTaskExecutor
 from src.app.runtime.ops_worker_factory import build_operations_worker, build_stk_mins_worker
 from src.foundation.config.settings import get_settings
+from src.foundation.models.core_serving.security_serving import Security
 from src.ops import action_catalog
 from src.ops.api.task_runs import router
 from src.ops.models.ops.schedule import OpsSchedule
@@ -91,7 +92,9 @@ def test_freeze_cancel_after_commit_then_new_apply_uses_frozen_config_once(runti
         assert metadata["key_fields"] == ["ts_code", "trade_date"]
         assert metadata["update_columns"] == ["limit_status"]
         assert metadata["source_fields"] == ["ts_code", "trade_date", "limit_status"]
-        assert metadata["contract_kind"] == "daily_basic_limit_status/v2"
+        assert metadata["contract_kind"] == "daily_basic_limit_status/v3"
+        assert metadata["missing_source_policy"] == "keep_existing_null_before_list_date"
+        assert metadata["listing_date_source"] == "core_serving.security_serving.list_date"
         frozen = metadata["execution_config"]
         assert frozen["sync_batch_size"] == 2
         assert "max_response_bytes" not in frozen
@@ -236,16 +239,42 @@ def test_plan_and_apply_need_no_response_byte_configuration(runtime):
     assert all(call.kwargs["maximum"] is None for call in value.connector.call_bounded.call_args_list)
 
 
-def test_old_full_field_plan_is_rejected_before_source_or_business_updates(runtime):
+def test_new_plan_starts_at_remaining_date_without_replaying_completed_prefix(runtime):
+    engine, factory, value, executor, worker = runtime
+    with engine.begin() as connection:
+        for table in ("raw_tushare.daily_basic", "core_serving.equity_daily_basic"):
+            connection.execute(text(f"UPDATE {table} SET limit_status=4 WHERE trade_date=:day"), {"day": DAY})
+    prefix = [[row for row in rows if row["trade_date"] == DAY] for rows in read_rows(engine)]
+    with factory() as session:
+        planned = task(session, execution_mode="PLAN", start_date=str(NEXT_DAY), end_date=str(NEXT_DAY))
+        plan = worker.run_task_run(session, planned.id)
+        assert plan.status == "success"
+        snapshot = plan.plan_snapshot_json
+        assert snapshot["metadata"]["contract_kind"] == "daily_basic_limit_status/v3"
+        assert snapshot["metadata"]["dates"] == ["2026-11-11"]
+        assert len(snapshot["units"]) == 1 and snapshot["expected_rows"] == 2
+        completed = worker.run_task_run(session, apply_task(session, plan).id)
+        assert (completed.status, completed.unit_done, completed.unit_total, completed.rows_saved) == ("success", 1, 1, 2)
+    assert value.connector.call_bounded.call_count == 1
+    assert value.connector.call_bounded.call_args.kwargs["params"]["trade_date"] == "20261111"
+    assert [[row for row in rows if row["trade_date"] == DAY] for rows in read_rows(engine)] == prefix
+
+
+@pytest.mark.parametrize("contract,fields", [
+    ("daily_basic_limit_status/v1", SOURCE_FIELDS),
+    ("daily_basic_limit_status/v2", ("ts_code", "trade_date", "limit_status")),
+])
+def test_old_plan_is_rejected_before_source_or_business_updates(runtime, contract, fields):
     engine, factory, value, executor, worker = runtime
     before = read_rows(engine)
     with factory() as session:
         plan = freeze(session, worker)
-        # The historical v1 producer froze all 19 fields and used this exact
-        # metadata/payload SHA256 recipe; the snapshot is internally consistent.
+        # Historical v1/v2 use this exact metadata/payload SHA256 recipe.
         snapshot = dict(plan.plan_snapshot_json)
         snapshot["metadata"] = {**snapshot["metadata"],
-            "contract_kind": "daily_basic_limit_status/v1", "source_fields": list(SOURCE_FIELDS)}
+            "contract_kind": contract, "source_fields": list(fields)}
+        snapshot["metadata"].pop("missing_source_policy")
+        snapshot["metadata"].pop("listing_date_source")
         snapshot["plan_hash"] = hashlib.sha256(json.dumps({
             "metadata": snapshot["metadata"], "units": [unit["payload"] for unit in snapshot["units"]],
         }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
@@ -259,9 +288,71 @@ def test_old_full_field_plan_is_rejected_before_source_or_business_updates(runti
         result = worker.run_task_run(session, apply_task(session, plan).id)
         assert (result.status, result.rows_fetched, result.rows_saved) == ("failed", 0, 0)
         issue = session.get(TaskRunIssue, result.primary_issue_id)
-        assert "重新生成三字段 PLAN" in issue.technical_message
+        assert "上市前源缺记录留空规则" in issue.technical_message
+        assert "重新生成 PLAN" in issue.technical_message
     value.connector.call_bounded.assert_not_called()
     assert read_rows(engine) == before
+
+
+def test_pre_listing_null_is_reported_and_rechecked_after_cancel_and_resume(runtime, monkeypatch):
+    engine, factory, value, executor, worker = runtime
+    results = []
+    original_execute_unit = executor.execute_unit_for_task_run
+
+    def capture_result(unit, **kwargs):
+        result = original_execute_unit(unit, **kwargs)
+        results.append(result)
+        return result
+
+    monkeypatch.setattr(executor, "execute_unit_for_task_run", capture_result)
+    with factory() as session:
+        # Synthetic future listing date for the second fixture stock; real
+        # 920964.BJ/date evidence is covered separately in the service regression.
+        session.add(Security(ts_code="000002.SZ", name="人工测试股票", security_type="EQUITY",
+                             list_status="L", list_date=datetime(2026, 11, 12).date()))
+        session.commit()
+        value.connector.call_bounded.side_effect = lambda **kw: source_rows(
+            datetime.strptime(kw["params"]["trade_date"], "%Y%m%d").date())[:1]
+        plan = freeze(session, worker)
+        pending = apply_task(session, plan)
+        original = value.execute_day
+
+        def cancel_after_date(payload, **kwargs):
+            result = original(payload, **kwargs)
+            if payload["trade_date"] == str(DAY):
+                with factory() as control:
+                    current = control.get(TaskRun, pending.id)
+                    current.cancel_requested_at = datetime.now(timezone.utc)
+                    control.commit()
+            return result
+
+        monkeypatch.setattr(value, "execute_day", cancel_after_date)
+        canceled = worker.run_task_run(session, pending.id)
+        assert (canceled.status, canceled.unit_done, canceled.rows_fetched, canceled.rows_saved) == ("canceled", 1, 1, 2)
+        first = session.scalar(select(TaskRunNode).where(TaskRunNode.task_run_id == pending.id,
+                                                       TaskRunNode.sequence_no == 1))
+        assert first.status == "success" and first.rows_saved == 2
+        assert first.ingestion_diagnostics_json["daily_basic_limit_status"]["null_before_listing_codes"] == ["000002.SZ"]
+        monkeypatch.setattr(value, "execute_day", original)
+        value.connector.call_bounded.reset_mock()
+        completed = worker.run_task_run(session, apply_task(session, plan).id)
+        assert (completed.status, completed.unit_done, completed.rows_fetched, completed.rows_saved,
+                completed.rows_rejected) == ("success", 2, 2, 4, 0)
+        assert value.connector.call_bounded.call_count == 2
+        nodes = session.scalars(select(TaskRunNode).where(TaskRunNode.task_run_id == completed.id).order_by(
+            TaskRunNode.sequence_no)).all()
+        assert [node.status for node in nodes] == ["success", "success"]
+        assert [node.rows_saved for node in nodes] == [2, 2]
+        assert [node.ingestion_diagnostics_json["daily_basic_limit_status"]["raw_changed"] for node in nodes] == [0, 1]
+        assert all(node.ingestion_diagnostics_json["daily_basic_limit_status"]["null_before_listing_codes"] == ["000002.SZ"]
+                   for node in nodes)
+        assert all("其中 1 行收盘涨跌状态留空" in node.ingestion_diagnostics_json["daily_basic_limit_status"]["phase"]
+                   for node in nodes)
+        assert "其中 1 行收盘涨跌状态留空" in completed.ingestion_diagnostics_json["daily_basic_limit_status"]["phase"]
+        assert len(results) == 3
+        assert all("其中 1 行为上市前源无记录，收盘涨跌状态留空" in result.summary_message for result in results)
+    for rows in read_rows(engine):
+        assert [row["limit_status"] for row in rows] == [4, None, 4, None]
 
 
 def test_plan_requires_dates_and_cancelled_draft_cannot_apply(runtime, monkeypatch):

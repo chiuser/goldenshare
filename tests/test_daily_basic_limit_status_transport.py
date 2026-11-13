@@ -188,3 +188,29 @@ def test_three_field_http_to_two_table_transaction(database, server, monkeypatch
     for persisted in read_rows(engine):
         assert [row["limit_status"] for row in persisted] == [4, 0, None, None]
         assert all(row["pe"] == -17 and row["close"] is None for row in persisted)
+
+
+def test_pre_listing_missing_row_over_real_http_keeps_null(before_listing_database, server, monkeypatch):
+    from src.foundation.connectors.tushare_connector import TushareSourceConnector
+    from tests.test_daily_basic_limit_status_backfill import PRE_LISTING_DAY, read_rows
+
+    engine, factory = before_listing_database
+    url, requests = server
+    # Actual Tushare wire shape; the returned stock/status is an artificial valid
+    # row. The missing target and its dates use the independent LLD §22 evidence.
+    body = json.dumps({"code": 0, "msg": "", "data": {
+        "fields": ["ts_code", "trade_date", "limit_status"],
+        "items": [["000001.SZ", "20181224", 0]],
+    }}).encode()
+    monkeypatch.setitem(globals(), "wire", lambda **kwargs: body)
+    connector = TushareSourceConnector(TushareHttpClient(token="test-placeholder", base_url=url))
+    value = DailyBasicLimitStatusService(session_factory=factory, connector=connector)
+    result = value.execute_day(payload(PRE_LISTING_DAY), config=CONFIG,
+                               check=lambda: None, observe=lambda *a, **k: None)
+    assert (result["rows_fetched"], result["rows_saved"], result["raw_changed"], result["serving_changed"]) == (1, 2, 1, 1)
+    assert result["null_before_listing_codes"] == ["920964.BJ"]
+    assert len(requests) == 1 and requests[0]["fields"] == "ts_code,trade_date,limit_status"
+    assert requests[0]["params"] == {"trade_date": "20181224", "limit": 6000, "offset": 0}
+    for rows in read_rows(engine):
+        assert {(row["ts_code"], row["limit_status"]) for row in rows
+                if row["trade_date"] == PRE_LISTING_DAY} == {("000001.SZ", 0), ("920964.BJ", None)}
