@@ -1,4 +1,4 @@
-"""Build full-field source requests exclusively from the resolved contract."""
+"""Build source requests from complete contracts with explicit internal projections."""
 
 from __future__ import annotations
 
@@ -86,7 +86,17 @@ class RequestBuilder:
                 params[name] = value
             yield self.validate_parameters(params, m)
 
-    def build_page(self, unit, request_input, position) -> PageRequest:
+    def build_page(
+        self, unit, request_input, position, *, request_fields=None
+    ) -> PageRequest:
+        fields = self.contract.field_names if request_fields is None else request_fields
+        if request_fields is not None:
+            require(type(fields) is tuple and bool(fields), DownloadErrorCode.INPUT)
+            require(
+                all(name in self.contract.field_names for name in fields)
+                and len(set(fields)) == len(fields),
+                DownloadErrorCode.INPUT,
+            )
         params = dict(request_input)
         m, p = self.contract.mode_rule(unit.mode), self.contract.pagination
         if position.time_range is not None:
@@ -106,7 +116,7 @@ class RequestBuilder:
             )
         return PageRequest(
             self.contract.source_api_name,
-            self.contract.field_names,
+            fields,
             tuple(ordered),
             position,
             p.effective_limit,

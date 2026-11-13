@@ -2,7 +2,7 @@ from dataclasses import replace
 
 import pytest
 
-from orchestrator.tushare_download import DownloadError, DownloadTask
+from orchestrator.tushare_download import DownloadError, DownloadTask, PagePosition
 from orchestrator.tushare_download import DownloadErrorCode as C
 from orchestrator.tushare_download import DownloadMode as M
 from orchestrator.tushare_download.request_builder import RequestBuilder
@@ -14,6 +14,43 @@ from orchestrator.tushare_download.task_input import validate_task
 from orchestrator.tushare_download.unit_planner import UnitPlanner
 
 from .fixtures import build, contract, rows
+
+
+def test_internal_projection_preserves_default_and_requested_order():
+    definition = contract()
+    frozen = validate_task(
+        DownloadTask(definition.contract_name, M.SNAPSHOT), definition, 1048576
+    )
+    unit = UnitPlanner(frozen, definition).next_unit()
+    builder = RequestBuilder(definition)
+    request_input = next(builder.iter_inputs(unit))
+    position = PagePosition(0, offset=0)
+    projected = builder.build_page(
+        unit, request_input, position, request_fields=("close", "ts_code")
+    )
+    assert projected.fields == ("close", "ts_code")
+    assert builder.build_page(unit, request_input, position).fields == definition.field_names
+    assert definition.field_names[:2] == ("ts_code", "trade_date")
+    with pytest.raises(TypeError):
+        DownloadTask(definition.contract_name, M.SNAPSHOT, request_fields=("close",))
+
+
+@pytest.mark.parametrize(
+    "projection", [(), ("close", "close"), ("unknown",), ["close"], ("ts_code", [])]
+)
+def test_invalid_internal_projection_rejected_before_source(projection):
+    definition = contract()
+    task = validate_task(
+        DownloadTask(definition.contract_name, M.SNAPSHOT), definition, 1048576
+    )
+    unit = UnitPlanner(task, definition).next_unit()
+    builder = RequestBuilder(definition)
+    with pytest.raises(DownloadError) as caught:
+        builder.build_page(
+            unit, next(builder.iter_inputs(unit)), PagePosition(0, offset=0),
+            request_fields=projection,
+        )
+    assert caught.value.code == C.INPUT
 
 
 @pytest.mark.parametrize("independent,expected_units", [(False, 1), (True, 2)])

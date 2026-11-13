@@ -28,6 +28,7 @@ from orchestrator.tushare_download.contract_registry import (
     content_digest,
 )
 from orchestrator.tushare_download.contracts import CONTRACTS
+from orchestrator.tushare_download.contracts.moneyflow_ths import MONEYFLOW_THS_CONTRACT
 from orchestrator.tushare_download.contracts.stk_factor_pro import (
     SOURCE_FIELDS,
     STK_FACTOR_PRO_CONTRACT,
@@ -101,9 +102,9 @@ def test_complete_source_fields_match_independent_document(document_fields):
         contract.version = "2"
 
 
-def test_formal_registry_and_http_mapping_have_one_current_contract():
+def test_formal_registry_and_http_mapping_match_registered_contracts():
     contract = STK_FACTOR_PRO_CONTRACT
-    assert CONTRACTS == (contract,)
+    assert CONTRACTS == (contract, MONEYFLOW_THS_CONTRACT)
     assert ContractRegistry(CONTRACTS).resolve("stk_factor_pro") is contract
     assert (contract.dataset_id, contract.source_api_name, contract.version) == (
         "stk_factor_pro",
@@ -113,7 +114,10 @@ def test_formal_registry_and_http_mapping_have_one_current_contract():
     with pytest.raises(DownloadError) as caught:
         ContractRegistry(CONTRACTS).resolve("stk_factor_pro@1")
     assert caught.value.code is DownloadErrorCode.CONTRACT
-    assert len(BINDINGS) == 1
+    assert BINDINGS == (
+        TransportBinding("stk_factor_pro", "stk_factor_pro", http_path_rule="base"),
+        TransportBinding("moneyflow_ths", "moneyflow_ths", http_path_rule="base"),
+    )
     assert DatasetTransportMapping(BINDINGS).resolve(contract) == TransportBinding(
         "stk_factor_pro",
         "stk_factor_pro",

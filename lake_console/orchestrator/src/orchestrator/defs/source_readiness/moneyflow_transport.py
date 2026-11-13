@@ -42,7 +42,10 @@ def validate_source_input(api_name, params, fields):
         if api_name == "moneyflow_mkt_dc"
         else daily_fields(api_name)
     )
-    if tuple(fields) != expected or not isinstance(params, dict):
+    projection = api_name == "moneyflow_ths" and tuple(fields) == (
+        "ts_code", "trade_date"
+    )
+    if (tuple(fields) != expected and not projection) or not isinstance(params, dict):
         raise MoneyflowContractError("source_worker_input")
     if set(params) - {"trade_date", "limit", "offset", "content_type"}:
         raise MoneyflowContractError("source_worker_input")
@@ -179,25 +182,37 @@ def call_moneyflow_source(
     ):
         raise MoneyflowContractError("source_worker_platform_or_deadline")
     started = perf_counter()
-    if deadline - started <= MONEYFLOW_REQUEST_TIMEOUT_SECONDS:
+    projection = api_name == "moneyflow_ths" and tuple(fields) == (
+        "ts_code", "trade_date"
+    )
+    reserve = (
+        MONEYFLOW_WORKER_CLEANUP_SECONDS + MONEYFLOW_WORKER_POLL_SECONDS
+        if projection else MONEYFLOW_REQUEST_TIMEOUT_SECONDS
+    )
+    if deadline - started <= reserve:
         raise MoneyflowContractError("request_budget_exceeded")
     work_deadline = min(
         started + MONEYFLOW_REQUEST_TIMEOUT_SECONDS - MONEYFLOW_WORKER_CLEANUP_SECONDS,
         deadline - MONEYFLOW_WORKER_CLEANUP_SECONDS,
     )
-    payload = (
-        json.dumps(
-            {
-                "token": token.strip(),
-                "api_name": api_name,
-                "params": params,
-                "fields": list(fields),
-                "deadline": work_deadline,
-            },
-            separators=(",", ":"),
-        ).encode()
-        + b"\n"
-    )
+    request = {
+        "token": token.strip(),
+        "api_name": api_name,
+        "params": params,
+        "fields": list(fields),
+        "deadline": work_deadline,
+    }
+    if api_name == "moneyflow_ths":
+        from orchestrator.tushare_download.configuration import read_tushare_connection
+        from orchestrator.tushare_download.download_errors import DownloadError
+
+        try:
+            _, request["base_url"] = read_tushare_connection(
+                {**os.environ, "TUSHARE_TOKEN": token.strip()}
+            )
+        except DownloadError:
+            raise MoneyflowContractError("source_worker_connection") from None
+    payload = json.dumps(request, separators=(",", ":")).encode() + b"\n"
     if len(payload) > MONEYFLOW_WORKER_INPUT_MAX_BYTES:
         raise MoneyflowContractError("source_worker_input_bytes")
     command = (_command(work_deadline) if callable(_command) else _command) or [

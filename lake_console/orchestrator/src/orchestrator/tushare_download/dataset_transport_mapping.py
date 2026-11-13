@@ -54,4 +54,9 @@ BINDINGS = (
         source_api_name="stk_factor_pro",
         http_path_rule="base",
     ),
+    TransportBinding(
+        dataset_id="moneyflow_ths",
+        source_api_name="moneyflow_ths",
+        http_path_rule="base",
+    ),
 )
