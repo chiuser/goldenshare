@@ -100,6 +100,7 @@ def test_definition_preserves_time_storage_and_decimal_contracts():
     definition = get_dataset_definition("daily_basic")
     assert definition.source.source_fields == SOURCE_FIELDS
     assert definition.normalization.row_transform_name == "daily_basic_limit_status"
+    assert definition.normalization.row_filter_name == "daily_basic_update_scope"
     assert definition.quality.reject_policy == "fail_unit_on_any_rejection"
     assert definition.normalization.decimal_fields == SOURCE_FIELDS[2:-1]
     assert definition.normalization.date_fields == ("trade_date",)
@@ -258,3 +259,56 @@ def test_other_dataset_partial_rejection_keeps_the_existing_write_behavior():
     assert summary.rows_committed == 1 and summary.rows_rejected == 1
     assert writer.write.call_count == session.commit.call_count == 1
     session.rollback.assert_not_called()
+
+
+@pytest.mark.parametrize("code", ["200011.SZ", "201872.SZ", "900901.SH"])
+def test_normal_update_excludes_b_shares_before_any_field_conversion(code):
+    # Codes and category from LLD §26.6; the invalid old value is intentional.
+    batch = normalize([SOURCE_ROW, {**SOURCE_ROW, "ts_code": code, "close": "bad", "limit_status": None}])
+    assert len(batch.rows_normalized) == 1 and batch.rows_normalized[0]["ts_code"] == "000001.SZ"
+    assert batch.rows_rejected == 0 and batch.rejected_reasons == {}
+    assert batch.quality_counts == {"quality.row_outside_scope": 1}
+    assert batch.quality_samples["quality.row_outside_scope"][0]["row"]["ts_code"] == code
+
+
+def test_scope_exclusions_and_real_rejections_are_separate():
+    rows = [SOURCE_ROW, {**SOURCE_ROW, "ts_code": "000002.SZ", "limit_status": None},
+            {"ts_code": "200011.SZ"}]
+    batch = normalize(rows)
+    assert len(batch.rows_normalized) == batch.rows_rejected == batch.quality_counts["quality.row_outside_scope"] == 1
+    assert len(rows) == len(batch.rows_normalized) + batch.rows_rejected + sum(batch.quality_counts.values())
+    assert batch.rejected_reasons == {"normalize.daily_basic_limit_status_invalid:limit_status": 1}
+
+
+def test_all_b_share_rows_are_out_of_scope_without_rejections():
+    batch = normalize([{"ts_code": "200011.SZ"}, {"ts_code": "900901.SH"}])
+    assert batch.rows_normalized == [] and batch.rows_rejected == 0
+    assert batch.quality_counts == {"quality.row_outside_scope": 2}
+    DatasetNormalizer().raise_if_all_rejected(batch)
+
+
+def test_other_dataset_does_not_inherit_daily_basic_scope():
+    definition = get_dataset_definition("stk_limit")
+    assert definition.normalization.row_filter_name is None
+    batch = normalize([{"ts_code": "200011.SZ", "trade_date": "20261110", "pre_close": 10,
+                        "up_limit": 11, "down_limit": 9}], definition)
+    assert batch.rows_rejected == 0 and batch.quality_counts == {}
+    assert batch.rows_normalized[0]["ts_code"] == "200011.SZ"
+
+
+def test_unknown_scope_function_is_a_configuration_error():
+    definition = get_dataset_definition("daily_basic")
+    definition = replace(definition, normalization=replace(definition.normalization, row_filter_name="missing_scope"))
+    with pytest.raises(IngestionNormalizeError) as caught:
+        normalize([SOURCE_ROW], definition)
+    assert caught.value.structured_error.error_code == "normalize.row_transform_failed"
+
+
+def test_normal_update_scope_diagnostics_explain_fetched_and_written_counts():
+    executor, _, writer = make_executor({DAY: [SOURCE_ROW, {"ts_code": "200011.SZ"}]})
+    summary = executor.run(request=request(), definition=get_dataset_definition("daily_basic"), units=(unit(),))
+    assert (summary.rows_fetched, summary.rows_committed, summary.rows_rejected) == (2, 1, 0)
+    assert [row["ts_code"] for row in writer.write.call_args.kwargs["batch"].rows_normalized] == ["000001.SZ"]
+    scope = summary.ingestion_diagnostics["persistence"]["normalization_scope"]
+    assert scope["unit_id"] == "daily_basic:2026-11-10"
+    assert scope["quality_counts"] == {"quality.row_outside_scope": 1}

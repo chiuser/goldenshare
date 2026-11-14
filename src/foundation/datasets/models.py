@@ -234,6 +234,7 @@ class DatasetNormalizationDefinition:
     decimal_fields: tuple[str, ...] = ()
     required_fields: tuple[str, ...] = ()
     row_transform_name: str | None = None
+    row_filter_name: str | None = None
 
 
 @dataclass(frozen=True, slots=True)

@@ -23,17 +23,16 @@ from src.foundation.ingestion.errors import (
 from src.foundation.ingestion.execution_plan import DatasetActionRequest, DatasetTimeInput
 from src.foundation.ingestion.normalizer import DatasetNormalizer
 from src.foundation.ingestion.resolver import DatasetActionResolver
-from src.foundation.ingestion.row_transforms import RowTransformReject, daily_basic_limit_status
+from src.foundation.ingestion.row_transforms import RowTransformReject, daily_basic_limit_status, daily_basic_update_scope
 from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
-from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
 from src.foundation.models.raw.raw_suspend_d import RawSuspendD
 from src.utils import CoerceRowError, chunked, coerce_row
 
 
 RESPONSE_CONTRACT = "daily_basic/v1"
-PLAN_CONTRACT = "daily_basic_limit_status/v4"
+PLAN_CONTRACT = "daily_basic_limit_status/v5"
 TARGET_TABLES = ("raw_tushare.daily_basic", "core_serving.equity_daily_basic")
 
 
@@ -107,7 +106,11 @@ class DailyBasicLimitStatusService:
         with self.session_factory() as session:
             statement_timeout(session, config["statement_timeout_seconds"])
             raw, serving = self._read_targets(session, day, payload, batch_size, check, observe)
-        for code, value in serving.items():
+        update_codes = sorted(code for code in serving if daily_basic_update_scope({"ts_code": code}))
+        excluded_b_shares = sorted(serving.keys() - set(update_codes))
+        exclusions = {"excluded_b_share_codes": excluded_b_shares} if excluded_b_shares else {}
+        for code in update_codes:
+            value = serving[code]
             original = raw[code]
             for status in (original, value):
                 if status is not None and (type(status) is not int or status not in range(7)):
@@ -116,43 +119,29 @@ class DailyBasicLimitStatusService:
             if original is not None and value is not None and original != value:
                 raise _target_mismatch(f"{day} {code} 两表已有状态冲突", trade_date=str(day),
                                        ts_code=code, raw_status=original, serving_status=value)
-        if all(raw[code] is not None and serving[code] is not None for code in serving):
+        if all(raw[code] is not None and serving[code] is not None for code in update_codes):
             check()
             return {"rows_fetched": 0, "rows_saved": len(serving), "raw_changed": 0,
-                    "serving_changed": 0, "already_complete": True, "source_extra_codes": []}
+                    "serving_changed": 0, "already_complete": True, "source_extra_codes": [], **exclusions}
 
         with self.session_factory() as session:
             statement_timeout(session, config["statement_timeout_seconds"])
             trading_codes, suspended_codes = self._read_trading_day_codes(
-                session, day, serving, batch_size, check, observe)
-        nullable_suspended = {code for code in suspended_codes
-                              if raw[code] is None and serving[code] is None}
+                session, day, update_codes, batch_size, check, observe)
         source = self._fetch(payload, config=config, check=check, observe=observe)
-        normalized = self._normalize(source, day, required_codes=set(serving) - nullable_suspended)
+        normalized = self._normalize(source, day, required_codes=trading_codes)
         source_by_code = {row["ts_code"]: row for row in normalized}
-        missing = set(serving) - source_by_code.keys()
-        null_suspended = sorted(code for code in nullable_suspended
-                                if code in missing or source_by_code[code]["limit_status"] is None)
-        missing -= set(null_suspended)
-        null_before_listing = []
+        missing = trading_codes - source_by_code.keys()
         if missing:
-            check()
-            observe("核对缺失股票上市日期")
-            with self.session_factory() as session:
-                statement_timeout(session, config["statement_timeout_seconds"])
-                listing_dates = dict(session.execute(select(Security.ts_code, Security.list_date).where(
-                    Security.ts_code.in_(sorted(missing - trading_codes)),
-                )).all())
-            check()
-            null_before_listing = sorted(code for code in missing
-                if code not in trading_codes and listing_dates.get(code) is not None and day < listing_dates[code]
-                and raw[code] is None and serving[code] is None)
-            unresolved = missing - set(null_before_listing)
-            if unresolved:
-                raise _target_mismatch(f"{day} 源数据缺少目标股票，当前日期未提交", trade_date=str(day),
-                                       missing_codes=sorted(unresolved))
+            raise _target_mismatch(f"{day} 源数据缺少交易日应有股票，当前日期未提交", trade_date=str(day),
+                                   missing_codes=sorted(missing))
+        unfilled = {code for code in set(update_codes) - trading_codes
+                    if (code not in source_by_code or source_by_code[code]["limit_status"] is None)
+                    and raw[code] is None and serving[code] is None}
+        null_suspended = sorted(unfilled & suspended_codes)
+        null_not_expected = sorted(unfilled - suspended_codes)
         updates = []
-        for code in serving:
+        for code in update_codes:
             if code not in source_by_code:
                 continue
             status = source_by_code[code]["limit_status"]
@@ -194,9 +183,9 @@ class DailyBasicLimitStatusService:
         # Return confirmed work before honoring a cancellation received during COMMIT.
         result = {"rows_fetched": len(source), "rows_saved": len(serving), "raw_changed": changed[0],
                   "serving_changed": changed[1], "already_complete": False,
-                  "source_extra_codes": sorted(source_by_code.keys() - serving.keys())}
-        if null_before_listing:
-            result["null_before_listing_codes"] = null_before_listing
+                  "source_extra_codes": sorted(source_by_code.keys() - serving.keys()), **exclusions}
+        if null_not_expected:
+            result["null_not_expected_codes"] = null_not_expected
         if null_suspended:
             result["null_suspended_codes"] = null_suspended
         return result
@@ -281,6 +270,8 @@ class DailyBasicLimitStatusService:
         unit_id = f"daily_basic:{day}"
         rows, rejected, rejected_samples = [], {}, {}
         for raw_row in source:
+            if not daily_basic_update_scope(raw_row):
+                continue
             row = {field: raw_row[field] for field in DAILY_BASIC_LIMIT_STATUS_DOWNLOAD_FIELDS if field in raw_row}
             try:
                 row = coerce_row(row, self.definition.normalization.date_fields, ())

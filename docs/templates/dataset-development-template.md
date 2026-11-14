@@ -574,6 +574,7 @@
     "decimal_fields": (),
     "required_fields": (),
     "row_transform_name": None,
+    "row_filter_name": None,
     "preserve_raw_payload": False,
 }
 ```
@@ -582,6 +583,7 @@
 - `decimal_fields`：
 - `required_fields`：
 - `row_transform_name`：
+- `row_filter_name`：默认 None；只有已确认的业务更新范围才配置具名谓词。在字段转换和校验前排除范围外记录，计入 quality_counts/quality_samples，不计为拒绝行、不进入 writer。函数维护在 row_transforms.py；需验证有效记录仍严格校验、其他数据集默认行为不变。
 - `preserve_raw_payload`：默认 False；若 True，normalizer 保存转换前源 payload，说明不可表示原值的诊断编码。quality_counts/quality_samples 与 reject 分开，有界样本不等于无限源历史归档。
 
 约束：

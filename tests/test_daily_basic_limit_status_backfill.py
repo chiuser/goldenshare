@@ -114,6 +114,24 @@ def suspended_database(database):
     return engine, factory, day
 
 
+@pytest.fixture
+def b_share_database(database):
+    """§26.6: old B targets absent from source/day bars/suspensions.
+
+    Three actual codes represent SZ20, SZ201 and SH900. The paired A shares,
+    date and old numeric values are synthetic, not a full copy of Prod.
+    """
+    engine, factory = database
+    with engine.begin() as connection:
+        rows = [{"ts_code": code, "trade_date": DAY, "limit_status": None, "pe": -17}
+                for code in ("200011.SZ", "201872.SZ", "900901.SH")]
+        connection.execute(insert(RawDailyBasic), [{**row, "fetched_at": OLD_TIME,
+                           "raw_payload": "old B payload"} for row in rows])
+        connection.execute(insert(EquityDailyBasic), [{**row, "created_at": OLD_TIME,
+                           "updated_at": OLD_TIME} for row in rows])
+    return engine, factory
+
+
 def service(factory, rows=None):
     connector = Mock()
     connector.call_bounded.return_value = source_rows() if rows is None else rows
@@ -131,6 +149,45 @@ def read_rows(engine):
                 for model in (RawDailyBasic, EquityDailyBasic)]
 
 
+@pytest.mark.parametrize("source_status", ["missing", None, 0, "invalid"])
+def test_old_b_targets_are_preserved_and_never_required_or_updated(b_share_database, source_status):
+    engine, factory = b_share_database
+    before = read_rows(engine)
+    rows = source_rows()
+    if source_status != "missing":
+        rows += [{"ts_code": code, "trade_date": "bad-date", "limit_status": source_status}
+                 for code in ("200011.SZ", "201872.SZ", "900901.SH")]
+    value = service(factory, rows)
+    result = value.execute_day(payload(raw_count=5, serving_count=5), config=CONFIG,
+                               check=lambda: None, observe=lambda *a, **k: None)
+    assert result["excluded_b_share_codes"] == ["200011.SZ", "201872.SZ", "900901.SH"]
+    assert (result["rows_saved"], result["raw_changed"], result["serving_changed"]) == (5, 2, 2)
+    for old, new in zip(before, read_rows(engine), strict=True):
+        assert [row for row in old if row["ts_code"] in result["excluded_b_share_codes"]] == [
+            row for row in new if row["ts_code"] in result["excluded_b_share_codes"]]
+    replay = value.execute_day(payload(raw_count=5, serving_count=5), config=CONFIG,
+                               check=lambda: None, observe=lambda *a, **k: None)
+    assert replay["already_complete"] and replay["excluded_b_share_codes"] == result["excluded_b_share_codes"]
+    assert (replay["raw_changed"], replay["serving_changed"]) == (0, 0)
+    assert value.connector.call_bounded.call_count == 1
+
+
+@pytest.mark.parametrize("missing", [True, False])
+def test_b_share_exclusion_does_not_exempt_expected_a_share(b_share_database, missing):
+    engine, factory = b_share_database
+    before = read_rows(engine)
+    rows = source_rows()[:1] if missing else [source_rows()[0], {**source_rows()[1], "limit_status": None}]
+    rows += [{"ts_code": "200011.SZ", "trade_date": "20261110", "limit_status": 0}]
+    with pytest.raises(IngestionError) as caught:
+        service(factory, rows).execute_day(payload(raw_count=5, serving_count=5), config=CONFIG,
+                                           check=lambda: None, observe=lambda *a, **k: None)
+    if missing:
+        assert caught.value.structured_error.details["missing_codes"] == ["000002.SZ"]
+    else:
+        assert caught.value.structured_error.details["rows_rejected"] == 1
+    assert read_rows(engine) == before
+
+
 def test_real_pre_listing_missing_target_stays_null_and_other_target_commits(before_listing_database):
     engine, factory = before_listing_database
     before = read_rows(engine)
@@ -138,7 +195,7 @@ def test_real_pre_listing_missing_target_stays_null_and_other_target_commits(bef
     result = execute(value, PRE_LISTING_DAY)
     assert result == {"rows_fetched": 1, "rows_saved": 2, "raw_changed": 1, "serving_changed": 1,
                       "already_complete": False, "source_extra_codes": [],
-                      "null_before_listing_codes": ["920964.BJ"]}
+                      "null_not_expected_codes": ["920964.BJ"]}
     after = read_rows(engine)
     for original, persisted in zip(before, after, strict=True):
         assert [{key: val for key, val in row.items() if key != "limit_status"} for row in original] == [
@@ -152,31 +209,27 @@ def test_real_pre_listing_missing_target_stays_null_and_other_target_commits(bef
     pytest.param(date(2018, 12, 21), id="after-listing-date"),
     pytest.param(None, id="unknown-listing-date"),
 ])
-def test_missing_target_without_later_listing_date_still_fails(before_listing_database, listing_date):
+def test_non_expected_missing_target_does_not_depend_on_listing_date(before_listing_database, listing_date):
     engine, factory = before_listing_database
     with engine.begin() as connection:
         connection.execute(text("UPDATE core_serving.security_serving SET list_date=:day WHERE ts_code=:code"),
                            {"day": listing_date, "code": PRE_LISTING_CODE})
-    before = read_rows(engine)
-    with pytest.raises(IngestionError) as caught:
-        execute(service(factory, [dict(PRE_LISTING_SOURCE_ROW)]), PRE_LISTING_DAY)
-    assert caught.value.structured_error.error_code == "daily_basic_limit_status.target_mismatch"
-    assert caught.value.structured_error.details["missing_codes"] == ["920964.BJ"]
-    assert read_rows(engine) == before
+    # §27 replaces list_date exceptions with the independent same-day bar set.
+    result = execute(service(factory, [dict(PRE_LISTING_SOURCE_ROW)]), PRE_LISTING_DAY)
+    assert result["null_not_expected_codes"] == ["920964.BJ"]
+    assert (result["raw_changed"], result["serving_changed"]) == (1, 1)
 
 
-def test_missing_stock_basic_record_cannot_justify_leaving_null(before_listing_database):
+def test_non_expected_missing_target_does_not_need_stock_basic_record(before_listing_database):
     engine, factory = before_listing_database
     with engine.begin() as connection:
         # Intentionally remove this key from the isolated stock-basic fixture,
         # without deleting any stock or daily-basic row.
         connection.execute(text("UPDATE core_serving.security_serving SET ts_code='999999.SZ' WHERE ts_code=:code"),
                            {"code": PRE_LISTING_CODE})
-    before = read_rows(engine)
-    with pytest.raises(IngestionError) as caught:
-        execute(service(factory, [dict(PRE_LISTING_SOURCE_ROW)]), PRE_LISTING_DAY)
-    assert caught.value.structured_error.details["missing_codes"] == ["920964.BJ"]
-    assert read_rows(engine) == before
+    result = execute(service(factory, [dict(PRE_LISTING_SOURCE_ROW)]), PRE_LISTING_DAY)
+    assert result["null_not_expected_codes"] == ["920964.BJ"]
+    assert (result["raw_changed"], result["serving_changed"]) == (1, 1)
 
 
 @pytest.mark.parametrize("raw_status,serving_status", [(4, None), (None, 4), (4, 4), (0, 0)])
@@ -187,22 +240,20 @@ def test_pre_listing_exception_never_clears_an_existing_status(before_listing_da
             connection.execute(text(f"UPDATE {table} SET limit_status=:status WHERE trade_date=:day AND ts_code=:code"),
                                {"status": status, "day": PRE_LISTING_DAY, "code": PRE_LISTING_CODE})
     before = read_rows(engine)
-    with pytest.raises(IngestionError) as caught:
-        execute(service(factory, [dict(PRE_LISTING_SOURCE_ROW)]), PRE_LISTING_DAY)
-    assert caught.value.structured_error.details["missing_codes"] == ["920964.BJ"]
-    assert read_rows(engine) == before
+    result = execute(service(factory, [dict(PRE_LISTING_SOURCE_ROW)]), PRE_LISTING_DAY)
+    assert "null_not_expected_codes" not in result
+    for old, new in zip(before, read_rows(engine), strict=True):
+        assert [row for row in old if row["ts_code"] == PRE_LISTING_CODE] == [
+            row for row in new if row["ts_code"] == PRE_LISTING_CODE]
 
 
-def test_pre_listing_source_row_with_null_status_is_still_invalid(before_listing_database):
+def test_non_expected_source_row_with_null_status_preserves_old_null(before_listing_database):
     engine, factory = before_listing_database
-    before = read_rows(engine)
     rows = [dict(PRE_LISTING_SOURCE_ROW), {**PRE_LISTING_SOURCE_ROW,
             "ts_code": PRE_LISTING_CODE, "limit_status": None}]
-    with pytest.raises(IngestionError) as caught:
-        execute(service(factory, rows), PRE_LISTING_DAY)
-    assert caught.value.structured_error.details["rejected_reasons"] == {
-        "normalize.daily_basic_limit_status_invalid:limit_status": 1}
-    assert read_rows(engine) == before
+    result = execute(service(factory, rows), PRE_LISTING_DAY)
+    assert result["null_not_expected_codes"] == ["920964.BJ"]
+    assert (result["raw_changed"], result["serving_changed"]) == (1, 1)
 
 
 def test_pre_listing_source_with_valid_zero_is_updated_without_listing_query(before_listing_database):
@@ -212,7 +263,7 @@ def test_pre_listing_source_with_valid_zero_is_updated_without_listing_query(bef
     rows = [dict(PRE_LISTING_SOURCE_ROW), {**PRE_LISTING_SOURCE_ROW, "ts_code": PRE_LISTING_CODE}]
     result = execute(service(factory, rows), PRE_LISTING_DAY)
     assert (result["rows_fetched"], result["rows_saved"], result["raw_changed"], result["serving_changed"]) == (2, 2, 2, 2)
-    assert "null_before_listing_codes" not in result
+    assert "null_not_expected_codes" not in result
     assert not any("security_serving" in sql for sql in statements)
     assert all(row["limit_status"] == 0 for values in read_rows(engine) for row in values
                if row["trade_date"] == PRE_LISTING_DAY)
@@ -228,16 +279,15 @@ def test_pre_listing_replay_rechecks_source_and_fills_status_if_source_recovers(
     before = read_rows(engine)
     replay = execute(value, PRE_LISTING_DAY)
     assert (replay["rows_fetched"], replay["rows_saved"], replay["raw_changed"], replay["serving_changed"]) == (1, 2, 0, 0)
-    assert replay["null_before_listing_codes"] == ["920964.BJ"] and not replay["already_complete"]
+    assert replay["null_not_expected_codes"] == ["920964.BJ"] and not replay["already_complete"]
     assert value.connector.call_bounded.call_count == 2
-    assert len(listing_queries) == 2
-    assert all(list(params.values()) == ["920964.BJ"] for sql, params in listing_queries)
+    assert listing_queries == []
     assert read_rows(engine) == before
     value.connector.call_bounded.return_value = [dict(PRE_LISTING_SOURCE_ROW), {
         **PRE_LISTING_SOURCE_ROW, "ts_code": PRE_LISTING_CODE, "limit_status": 3}]
     recovered = execute(value, PRE_LISTING_DAY)
     assert (recovered["rows_fetched"], recovered["rows_saved"], recovered["raw_changed"], recovered["serving_changed"]) == (2, 2, 1, 1)
-    assert "null_before_listing_codes" not in recovered
+    assert "null_not_expected_codes" not in recovered
     assert execute(value, PRE_LISTING_DAY)["already_complete"] is True
     assert value.connector.call_bounded.call_count == 3
 
@@ -525,20 +575,18 @@ def test_extra_source_null_does_not_block_existing_trading_targets(database):
 
 
 @pytest.mark.parametrize("variant", ["intraday", "resumption", "other_date", "absent"])
-def test_missing_daily_without_same_day_full_suspension_still_rejects_null(suspended_database, variant):
+def test_no_daily_remains_non_expected_without_full_day_suspension(suspended_database, variant):
     engine, factory, day = suspended_database
     with engine.begin() as connection:
         changes = {"intraday": "suspend_timing='09:30-10:00'", "resumption": "suspend_type='R'",
                    "other_date": "trade_date='2020-09-17'", "absent": "ts_code='999999.SZ'"}
         connection.execute(text(f"UPDATE raw_tushare.suspend_d SET {changes[variant]}"))
-    before = read_rows(engine)
     rows = [{"ts_code": code, "trade_date": "20200918", "limit_status": value}
             for code, value in (("000001.SZ", 0), ("000737.SZ", None))]
-    with pytest.raises(IngestionError) as caught:
-        execute(service(factory, rows), day)
-    assert caught.value.structured_error.error_code == "normalize.source_validation_failed"
-    assert caught.value.structured_error.details["rows_rejected"] == 1
-    assert read_rows(engine) == before
+    result = execute(service(factory, rows), day)
+    assert result["null_not_expected_codes"] == ["000737.SZ"]
+    assert "null_suspended_codes" not in result
+    assert (result["raw_changed"], result["serving_changed"]) == (1, 1)
 
 
 def test_existing_daily_requires_status_even_when_a_suspension_record_exists(suspended_database):
@@ -575,9 +623,10 @@ def test_suspension_exception_never_clears_existing_nonnull_status(suspended_dat
     before = read_rows(engine)
     rows = [{"ts_code": code, "trade_date": "20200918", "limit_status": value}
             for code, value in (("000001.SZ", 0), ("000737.SZ", None))]
-    with pytest.raises(IngestionError):
-        execute(service(factory, rows), day)
-    assert read_rows(engine) == before
+    execute(service(factory, rows), day)
+    for old, new in zip(before, read_rows(engine), strict=True):
+        assert [row for row in old if row["trade_date"] == day and row["ts_code"] == "000737.SZ"] == [
+            row for row in new if row["trade_date"] == day and row["ts_code"] == "000737.SZ"]
 
 
 def test_suspended_null_is_rechecked_and_valid_source_zero_can_fill_it(suspended_database):

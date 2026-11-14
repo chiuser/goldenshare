@@ -48,6 +48,14 @@ class RowTransformReject(ValueError):
         self.reason_code = reason_code
 
 
+def daily_basic_update_scope(row: dict[str, Any]) -> bool:
+    code = row.get("ts_code")
+    if not isinstance(code, str) or len(code) != 9 or not code[:6].isdigit():
+        return True
+    return not ((code.startswith("20") and code.endswith(".SZ"))
+                or (code.startswith("900") and code.endswith(".SH")))
+
+
 def daily_basic_limit_status(
     row: dict[str, Any], *, required_fields: tuple[str, ...] = DAILY_BASIC_SOURCE_FIELDS,
 ) -> dict[str, Any]:
@@ -1221,6 +1229,7 @@ def _biying_moneyflow_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 __all__ = [
+    "daily_basic_update_scope",
     "daily_basic_limit_status",
     "FINANCIAL_STATEMENT_ROW_TRANSFORMS",
     "MONEYFLOW_VOLUME_FIELDS",

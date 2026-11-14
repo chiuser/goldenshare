@@ -84,6 +84,7 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("anns_d.source_payload_invalid", "公告源记录无法无损序列化", "normalizer", "核验原始响应格式，禁止字符串化不同值或忽略该记录"),
     IngestionCodebookEntry("anns_d.storage_upgrade_required", "公告存储结构尚未切换", "writer", "按已批准的备份和重拉流程切换公告表结构"),
     IngestionCodebookEntry("anns_d.identity_collision", "公告完整源载荷与哈希不一致", "normalize/writer", "核验公告样本与保存规则"),
+    IngestionCodebookEntry("quality.row_outside_scope", "源记录不在数据集更新范围内，正常排除", "normalize", "按数据集定义核对更新范围及排除样本"),
     IngestionCodebookEntry("quality.invalid_rec_time", "公告可选时间格式异常，原值保留", "normalize/writer", "核验公告样本与保存规则"),
     IngestionCodebookEntry("quality.invalid_url", "公告URL格式异常，仍保存原值", "normalize", "下载时跳过非法链接，核验源样本"),
     IngestionCodebookEntry("quality.missing_url", "公告缺少URL，仍保存元数据", "normalize/writer", "核验公告样本与保存规则"),

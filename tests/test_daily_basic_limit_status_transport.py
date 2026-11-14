@@ -208,7 +208,7 @@ def test_pre_listing_missing_row_over_real_http_keeps_null(before_listing_databa
     result = value.execute_day(payload(PRE_LISTING_DAY), config=CONFIG,
                                check=lambda: None, observe=lambda *a, **k: None)
     assert (result["rows_fetched"], result["rows_saved"], result["raw_changed"], result["serving_changed"]) == (1, 2, 1, 1)
-    assert result["null_before_listing_codes"] == ["920964.BJ"]
+    assert result["null_not_expected_codes"] == ["920964.BJ"]
     assert len(requests) == 1 and requests[0]["fields"] == "ts_code,trade_date,limit_status"
     assert requests[0]["params"] == {"trade_date": "20181224", "limit": 6000, "offset": 0}
     for rows in read_rows(engine):
@@ -241,3 +241,80 @@ def test_full_day_suspension_and_extra_null_over_real_http(suspended_database, s
     for rows in read_rows(engine):
         assert {(row["ts_code"], row["limit_status"]) for row in rows if row["trade_date"] == day} == {
             ("000001.SZ", 0), ("000737.SZ", None)}
+
+
+def test_b_share_history_over_real_http_preserves_targets_not_returned_by_source(b_share_database, server, monkeypatch):
+    from src.foundation.connectors.tushare_connector import TushareSourceConnector
+    from tests.test_daily_basic_limit_status_backfill import read_rows, source_rows
+
+    engine, factory = b_share_database
+    before = read_rows(engine)
+    url, requests = server
+    rows = [*source_rows(), {"ts_code": "200011.SZ", "trade_date": "20261110", "limit_status": None}]
+    body = json.dumps({"code": 0, "msg": "", "data": {"fields": list(DOWNLOAD_FIELDS),
+        "items": [[row[field] for field in DOWNLOAD_FIELDS] for row in rows]}}).encode()
+    monkeypatch.setitem(globals(), "wire", lambda **kwargs: body)
+    connector = TushareSourceConnector(TushareHttpClient(token="test-placeholder", base_url=url))
+    value = DailyBasicLimitStatusService(session_factory=factory, connector=connector)
+    result = value.execute_day(payload(raw_count=5, serving_count=5), config=CONFIG,
+                               check=lambda: None, observe=lambda *a, **k: None)
+    assert (result["rows_fetched"], result["rows_saved"], result["raw_changed"], result["serving_changed"]) == (3, 5, 2, 2)
+    assert result["excluded_b_share_codes"] == ["200011.SZ", "201872.SZ", "900901.SH"]
+    assert len(requests) == 1 and requests[0]["fields"] == "ts_code,trade_date,limit_status"
+    for old, new in zip(before, read_rows(engine), strict=True):
+        assert [row for row in old if row["ts_code"] in result["excluded_b_share_codes"]] == [
+            row for row in new if row["ts_code"] in result["excluded_b_share_codes"]]
+
+
+def test_normal_http_pipeline_excludes_existing_and_new_b_shares_but_rejects_bad_a_share(database, server, monkeypatch):
+    from dataclasses import replace
+    from sqlalchemy import insert
+    from src.foundation.connectors.tushare_connector import TushareSourceConnector
+    from src.foundation.datasets.registry import get_dataset_definition
+    from src.foundation.ingestion import source_client as module
+    from src.foundation.ingestion.errors import IngestionNormalizeError
+    from src.foundation.ingestion.executor import IngestionExecutor
+    from src.foundation.models.core_serving.equity_daily_basic import EquityDailyBasic
+    from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
+    from tests.test_daily_basic_limit_status import DAY, request, unit
+    from tests.test_daily_basic_limit_status_backfill import read_rows
+
+    engine, factory = database
+    with engine.begin() as connection:
+        for model in (RawDailyBasic, EquityDailyBasic):
+            connection.execute(insert(model), {"ts_code": "200011.SZ", "trade_date": DAY,
+                                               "limit_status": 3, "close": 123, "pe": -17})
+    before = read_rows(engine)
+    url, requests = server
+    # Real 19-column wire contract; invalid B values deliberately prove filtering
+    # happens before old-field coercion and the limit_status validator.
+    rows = [SOURCE_ROW, *[{**SOURCE_ROW, "ts_code": code, "close": "bad", "limit_status": None}
+                         for code in ("200011.SZ", "201872.SZ", "900901.SH")]]
+
+    def response(**kwargs):
+        return json.dumps({"code": 0, "msg": "", "data": {"fields": list(SOURCE_FIELDS),
+            "items": [[row[field] for field in SOURCE_FIELDS] for row in rows]}}).encode()
+
+    monkeypatch.setitem(globals(), "wire", response)
+    connector = TushareSourceConnector(TushareHttpClient(token="test-placeholder", base_url=url))
+    monkeypatch.setattr(module, "create_source_connector", lambda _: connector)
+    plan_unit = replace(unit(), pagination_policy="offset_limit", page_limit=6000)
+    with factory() as session:
+        result = IngestionExecutor(session).run(request=request(), definition=get_dataset_definition("daily_basic"),
+                                                units=(plan_unit,))
+    assert (result.rows_fetched, result.rows_committed, result.rows_rejected) == (4, 1, 0)
+    assert result.ingestion_diagnostics["persistence"]["normalization_scope"]["quality_counts"] == {
+        "quality.row_outside_scope": 3}
+    after = read_rows(engine)
+    for old, new in zip(before, after, strict=True):
+        assert [row for row in old if row["ts_code"] == "200011.SZ"] == [
+            row for row in new if row["ts_code"] == "200011.SZ"]
+        assert not any(row["ts_code"] in {"201872.SZ", "900901.SH"} for row in new)
+        assert next(row["limit_status"] for row in new if row["ts_code"] == "000001.SZ" and row["trade_date"] == DAY) == 4
+    rows.append({**SOURCE_ROW, "ts_code": "000002.SZ", "limit_status": None})
+    with factory() as session, pytest.raises(IngestionNormalizeError) as caught:
+        IngestionExecutor(session).run(request=request(), definition=get_dataset_definition("daily_basic"),
+                                       units=(plan_unit,))
+    assert caught.value.structured_error.error_code == "normalize.source_validation_failed"
+    assert read_rows(engine) == after
+    assert len(requests) == 2 and all(item["fields"] == ",".join(SOURCE_FIELDS) for item in requests)

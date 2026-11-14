@@ -95,6 +95,15 @@ class DatasetNormalizer:
         expected_unit_date: date | None = None,
         check_rows: Callable[[int], None] | None = None,
     ) -> NormalizedBatch:
+        row_filter = None
+        if definition.normalization.row_filter_name:
+            row_filter = globals().get(definition.normalization.row_filter_name)
+            if not callable(row_filter):
+                raise IngestionNormalizeError(StructuredError(
+                    error_code="normalize.row_transform_failed", error_type="normalize", phase="normalizer",
+                    message=f"未知行范围过滤：{definition.normalization.row_filter_name}",
+                    retryable=False, unit_id=fetch_result.unit_id,
+                ))
         row_transform = None
         if definition.normalization.row_transform_name:
             row_transform = globals().get(definition.normalization.row_transform_name)
@@ -123,6 +132,13 @@ class DatasetNormalizer:
         for row_index, raw_row in enumerate(fetch_result.rows_raw):
             if check_rows is not None:
                 check_rows(row_index)
+            if row_filter is not None and not row_filter(raw_row):
+                self._record_rejection(
+                    quality_counts, quality_samples, "quality.row_outside_scope",
+                    row=raw_row, unit_id=fetch_result.unit_id,
+                    field="ts_code", value=raw_row.get("ts_code"), message="源记录不在本数据集更新范围内",
+                )
+                continue
             try:
                 normalized = coerce_row(
                     raw_row,

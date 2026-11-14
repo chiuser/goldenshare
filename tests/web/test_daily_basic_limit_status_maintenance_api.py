@@ -92,10 +92,12 @@ def test_freeze_cancel_after_commit_then_new_apply_uses_frozen_config_once(runti
         assert metadata["key_fields"] == ["ts_code", "trade_date"]
         assert metadata["update_columns"] == ["limit_status"]
         assert metadata["source_fields"] == ["ts_code", "trade_date", "limit_status"]
-        assert metadata["contract_kind"] == "daily_basic_limit_status/v4"
-        assert metadata["missing_source_policy"] == "keep_existing_null_for_full_day_suspension_or_before_list_date"
+        assert metadata["contract_kind"] == "daily_basic_limit_status/v5"
+        assert metadata["missing_source_policy"] == "keep_existing_status_for_non_expected_stocks"
+        assert metadata["required_codes_source"] == "core_serving.equity_daily_bar"
+        assert metadata["update_scope"] == "exclude_b_shares"
         assert metadata["expected_stock_sources"] == ["core_serving.equity_daily_bar", "raw_tushare.suspend_d"]
-        assert metadata["listing_date_source"] == "core_serving.security_serving.list_date"
+        assert "listing_date_source" not in metadata
         frozen = metadata["execution_config"]
         assert frozen["sync_batch_size"] == 2
         assert "max_response_bytes" not in frozen
@@ -251,7 +253,7 @@ def test_new_plan_starts_at_remaining_date_without_replaying_completed_prefix(ru
         plan = worker.run_task_run(session, planned.id)
         assert plan.status == "success"
         snapshot = plan.plan_snapshot_json
-        assert snapshot["metadata"]["contract_kind"] == "daily_basic_limit_status/v4"
+        assert snapshot["metadata"]["contract_kind"] == "daily_basic_limit_status/v5"
         assert snapshot["metadata"]["dates"] == ["2026-11-11"]
         assert len(snapshot["units"]) == 1 and snapshot["expected_rows"] == 2
         completed = worker.run_task_run(session, apply_task(session, plan).id)
@@ -265,6 +267,7 @@ def test_new_plan_starts_at_remaining_date_without_replaying_completed_prefix(ru
     ("daily_basic_limit_status/v1", SOURCE_FIELDS),
     ("daily_basic_limit_status/v2", ("ts_code", "trade_date", "limit_status")),
     ("daily_basic_limit_status/v3", ("ts_code", "trade_date", "limit_status")),
+    ("daily_basic_limit_status/v4", ("ts_code", "trade_date", "limit_status")),
 ])
 def test_old_plan_is_rejected_before_source_or_business_updates(runtime, contract, fields):
     engine, factory, value, executor, worker = runtime
@@ -275,12 +278,18 @@ def test_old_plan_is_rejected_before_source_or_business_updates(runtime, contrac
         snapshot = dict(plan.plan_snapshot_json)
         snapshot["metadata"] = {**snapshot["metadata"],
             "contract_kind": contract, "source_fields": list(fields)}
-        snapshot["metadata"].pop("expected_stock_sources")
-        if contract.endswith("/v3"):
-            snapshot["metadata"]["missing_source_policy"] = "keep_existing_null_before_list_date"
+        snapshot["metadata"].pop("required_codes_source")
+        snapshot["metadata"].pop("update_scope")
+        if contract.endswith("/v4"):
+            snapshot["metadata"]["missing_source_policy"] = "keep_existing_null_for_full_day_suspension_or_before_list_date"
+            snapshot["metadata"]["listing_date_source"] = "core_serving.security_serving.list_date"
         else:
-            snapshot["metadata"].pop("missing_source_policy")
-            snapshot["metadata"].pop("listing_date_source")
+            snapshot["metadata"].pop("expected_stock_sources")
+            if contract.endswith("/v3"):
+                snapshot["metadata"]["missing_source_policy"] = "keep_existing_null_before_list_date"
+                snapshot["metadata"]["listing_date_source"] = "core_serving.security_serving.list_date"
+            else:
+                snapshot["metadata"].pop("missing_source_policy")
         snapshot["plan_hash"] = hashlib.sha256(json.dumps({
             "metadata": snapshot["metadata"], "units": [unit["payload"] for unit in snapshot["units"]],
         }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
@@ -294,13 +303,50 @@ def test_old_plan_is_rejected_before_source_or_business_updates(runtime, contrac
         result = worker.run_task_run(session, apply_task(session, plan).id)
         assert (result.status, result.rows_fetched, result.rows_saved) == ("failed", 0, 0)
         issue = session.get(TaskRunIssue, result.primary_issue_id)
-        assert "交易日应有股票及全天停牌规则" in issue.technical_message
+        assert "交易日应有股票范围或 B 股更新范围" in issue.technical_message
         assert "重新生成 PLAN" in issue.technical_message
     value.connector.call_bounded.assert_not_called()
     assert read_rows(engine) == before
 
 
-def test_pre_listing_null_is_reported_and_rechecked_after_cancel_and_resume(runtime, monkeypatch):
+def test_b_share_nulls_do_not_refetch_completed_a_shares_after_worker_cancel(runtime, b_share_database, monkeypatch):
+    engine, factory, value, executor, worker = runtime
+    before = read_rows(engine)
+    with factory() as session:
+        plan = freeze(session, worker)
+        assert plan.plan_snapshot_json["expected_rows"] == 7
+        pending = apply_task(session, plan)
+        original = value.execute_day
+
+        def cancel_after_date(payload, **kwargs):
+            result = original(payload, **kwargs)
+            if payload["trade_date"] == str(DAY):
+                with factory() as control:
+                    control.get(TaskRun, pending.id).cancel_requested_at = datetime.now(timezone.utc)
+                    control.commit()
+            return result
+
+        monkeypatch.setattr(value, "execute_day", cancel_after_date)
+        canceled = worker.run_task_run(session, pending.id)
+        assert (canceled.status, canceled.unit_done, canceled.rows_saved) == ("canceled", 1, 5)
+        monkeypatch.setattr(value, "execute_day", original)
+        value.connector.call_bounded.reset_mock()
+        completed = worker.run_task_run(session, apply_task(session, plan).id)
+        assert (completed.status, completed.unit_done, completed.rows_saved, completed.rows_fetched) == ("success", 2, 7, 2)
+        assert value.connector.call_bounded.call_count == 1
+        assert value.connector.call_bounded.call_args.kwargs["params"]["trade_date"] == "20261111"
+        nodes = session.scalars(select(TaskRunNode).where(TaskRunNode.task_run_id == completed.id).order_by(
+            TaskRunNode.sequence_no)).all()
+        assert [(node.status, node.rows_saved) for node in nodes] == [("success", 5), ("success", 2)]
+        first = nodes[0].ingestion_diagnostics_json["daily_basic_limit_status"]
+        assert first["already_complete"] and first["excluded_b_share_codes"] == ["200011.SZ", "201872.SZ", "900901.SH"]
+        assert "3 行 B 股原样保留" in first["phase"]
+    for old, new in zip(before, read_rows(engine), strict=True):
+        assert [row for row in old if row["ts_code"] in first["excluded_b_share_codes"]] == [
+            row for row in new if row["ts_code"] in first["excluded_b_share_codes"]]
+
+
+def test_non_expected_null_is_reported_and_rechecked_after_cancel_and_resume(runtime, monkeypatch):
     engine, factory, value, executor, worker = runtime
     with engine.begin() as connection:
         # The future-listed synthetic stock has no daily bars on either date.
@@ -341,7 +387,7 @@ def test_pre_listing_null_is_reported_and_rechecked_after_cancel_and_resume(runt
         first = session.scalar(select(TaskRunNode).where(TaskRunNode.task_run_id == pending.id,
                                                        TaskRunNode.sequence_no == 1))
         assert first.status == "success" and first.rows_saved == 2
-        assert first.ingestion_diagnostics_json["daily_basic_limit_status"]["null_before_listing_codes"] == ["000002.SZ"]
+        assert first.ingestion_diagnostics_json["daily_basic_limit_status"]["null_not_expected_codes"] == ["000002.SZ"]
         monkeypatch.setattr(value, "execute_day", original)
         value.connector.call_bounded.reset_mock()
         completed = worker.run_task_run(session, apply_task(session, plan).id)
@@ -353,13 +399,13 @@ def test_pre_listing_null_is_reported_and_rechecked_after_cancel_and_resume(runt
         assert [node.status for node in nodes] == ["success", "success"]
         assert [node.rows_saved for node in nodes] == [2, 2]
         assert [node.ingestion_diagnostics_json["daily_basic_limit_status"]["raw_changed"] for node in nodes] == [0, 1]
-        assert all(node.ingestion_diagnostics_json["daily_basic_limit_status"]["null_before_listing_codes"] == ["000002.SZ"]
+        assert all(node.ingestion_diagnostics_json["daily_basic_limit_status"]["null_not_expected_codes"] == ["000002.SZ"]
                    for node in nodes)
         assert all("其中 1 行收盘涨跌状态留空" in node.ingestion_diagnostics_json["daily_basic_limit_status"]["phase"]
                    for node in nodes)
         assert "其中 1 行收盘涨跌状态留空" in completed.ingestion_diagnostics_json["daily_basic_limit_status"]["phase"]
         assert len(results) == 3
-        assert all("其中 1 行为上市前源无记录，收盘涨跌状态留空" in result.summary_message for result in results)
+        assert all("其中 1 行不属于交易日应有股票且源无有效状态，收盘涨跌状态留空" in result.summary_message for result in results)
     for rows in read_rows(engine):
         assert [row["limit_status"] for row in rows] == [4, None, 4, None]
 

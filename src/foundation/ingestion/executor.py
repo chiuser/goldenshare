@@ -746,6 +746,12 @@ class IngestionExecutor:
                 persistence_diagnostics=written.persistence_diagnostics,
                 pagination_diagnostics=getattr(source_result, "pagination_diagnostics", None),
             )
+            if definition.normalization.row_filter_name:
+                state.persistence_diagnostics["normalization_scope"] = {
+                    "unit_id": unit.unit_id,
+                    "quality_counts": dict(normalized.quality_counts),
+                    "quality_samples": dict(normalized.quality_samples),
+                }
             for reason_code, count in normalized.rejected_reasons.items():
                 state.rejected_reason_counts[reason_code] = state.rejected_reason_counts.get(reason_code, 0) + int(count or 0)
             self._merge_reason_samples(state.rejected_reason_samples, normalized.rejected_samples)
