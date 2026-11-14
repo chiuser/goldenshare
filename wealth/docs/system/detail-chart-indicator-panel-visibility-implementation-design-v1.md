@@ -3,7 +3,7 @@
 > 2026-11-09。原三项副图显隐已在 `ce3246ea5` 实现，管理员确认本机页面验收通过。第 1–6 节保留原交互与量测基线，[第 7 节](#quantitative-structure-plan)单独记录已验收的量化结构与切周期首屏修复。
 > 配套文档为[代码级 LLD](./detail-chart-indicator-panel-visibility-low-level-design-v1.md)。
 > [已审阅的 Figma 交互稿](https://www.figma.com/design/RADlZzREU4lPVviYfkLy6x/Goldenshare-Web?node-id=2191-419)使用原设计文件的可编辑图层。比较页展示指数分钟图的全亮、关 KDJ 和全关，四类图表均有可点击的原型入口。图稿用于审阅交互，尺寸依据见[当前页面实测](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#61-编码前量测记录)。
-> 2026-11-14 补充：[第 8 节](#main-overlay-interaction-plan)定义去掉主图左上角下拉菜单、由底部 MA 标签同步控制均线和读数。管理员已确认设计，方案文档已先行提交为 `07b336b7`。前端开发、自动化检查和真实接口响应的组件渲染核验已完成，真实页面验收待验证窗口登录；证据见 [LLD §9.9](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#main-overlay-implementation-results)。前述原副图验收不代表本步已经通过页面验收。
+> 2026-11-14 收尾：[第 8 节](#main-overlay-interaction-plan)的主图下拉菜单删除与 MA 线、读数同步显隐已完成。方案提交为 `07b336b78`，实现与验证记录提交为 `3161b1cd4`；管理员已确认本需求验收通过，需求关闭。开发证据见 [LLD §9.9](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#main-overlay-implementation-results)，本次验收与结案见 [LLD §9.10](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#main-overlay-acceptance-closeout)。
 
 ## 1. 交付范围
 
@@ -146,11 +146,11 @@
 | R13 | 同一工作区内，数据回包、历史续页和趋势数据迟到不能将用户明确关闭的 MA 重新打开。切换主图指标保持现有图表数据标识、横向首尾时间与缩放；悬停或数据更新不能让关闭的 MA 读数重新出现。换标的、周期或日期时仍按原生命周期处理。 |
 | R14 | 只调整前端显示与本地选择。继续读取现有接口及已取得的指标，不改后端字段、请求参数、指标算法、配置、权限、分钟启用范围或持久化，不新增请求和业务写入。 |
 
-### 8.3 当前代码与实现范围
+### 8.3 开发前代码审计与实现范围
 
 2026-11-14 用 `codegraph_explore` 核对四个图表适配入口，并核对当前源码、共享图表更新分支和下拉菜单的测试引用。
 
-| 当前实现 | 本步调整 |
+| 开发前实现 | 本步调整 |
 | --- | --- |
 | `StockChartWorkspace.tsx` 的 `StockMainOverlay` 状态与 `changeOverlay`；`StockMainChartHeader` 渲染下拉菜单，`StockKlineMetrics` 渲染读数。 | 局部选择允许为空，底部已点亮的 MA 再次点击时清空选择；去掉下拉菜单及专供它使用的标题参数，读数按明确选择渲染。 |
 | `IndexChartWorkspace.tsx` 按 `ownerKey` 区分初始默认和用户选择；`IndexMainHeader`、`MainMetrics` 与 `IndexIndicatorBar` 分别负责标题、数值和标签。 | 保留当前默认及归属判断，区分“没有操作过”与“明确关闭”；菜单删除后仍保留 `waveLegend`、设置及其它图层。 |
@@ -183,4 +183,10 @@
 
 ### 8.6 开发对账
 
-2026-11-14 已按本节完成三个有 MA 入口的适配组件及五个现有测试文件的修改，未修改共享图表生产代码、后端合同或配置。MA 高亮、七条线和顶部读数共用原主图选择；空选择明确保留。股票分钟维持现行能力。R7～R14 的自动化、真实响应渲染和未完成页面核验分别记录在 [LLD §9.9](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#main-overlay-implementation-results)。当前没有部署或管理员实页验收结论。
+2026-11-14 已按本节完成三个有 MA 入口的适配组件及五个现有测试文件的修改，未修改共享图表生产代码、后端合同或配置。MA 高亮、七条线和顶部读数共用原主图选择；空选择明确保留。股票分钟维持现行能力。R7～R14 的开发验证记录见 [LLD §9.9](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#main-overlay-implementation-results)，管理员验收与结案见 [LLD §9.10](./detail-chart-indicator-panel-visibility-low-level-design-v1.md#main-overlay-acceptance-closeout)。
+
+### 8.7 验收与收尾
+
+2026-11-14，管理员确认本需求验收通过，并要求收尾及整体提交。验收范围为股票和指数详情页左上角下拉菜单移除，以及底部 MA 标签同步控制均线和顶部读数。依据本轮管理员反馈，将本需求标记为完成并关闭，原开发、自动化和真实接口核验记录继续保留。
+
+本次不再等待验证窗口登录或重复执行自动浏览器验收；关闭本任务的临时验证进程并清理任务临时目录。收尾仅更新本方案、配套 LLD 和索引，不改产品代码、不部署。方案、实现和本次收尾按原提交顺序保留，本需求范围内的修改全部提交，其它任务的工作区修改保留。

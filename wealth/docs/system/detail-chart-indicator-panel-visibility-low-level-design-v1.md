@@ -1,7 +1,7 @@
 # 股票和指数详情页副图显示与隐藏 LLD v1
 
 > 2026-11-09。原三项副图显隐已在 `ce3246ea5` 实现，管理员确认本机页面验收通过，见[第 5.1 节](#indicator-visibility-acceptance)。第 1–7 节保留原交互、实测和实现基线，[第 8 节](#quantitative-structure-lld)单独记录已验收的量化结构与切周期首屏修复。原显隐规则见[实施方案 R1～R6](./detail-chart-indicator-panel-visibility-implementation-design-v1.md#1-交付范围)，底轴和浏览范围沿用[共享图表 LLD](./detail-chart-zoom-low-level-design-v1.md)。
-> 2026-11-14 补充：[第 9 节](#main-overlay-interaction-lld)定义主图下拉菜单删除与 MA 线、读数同步显隐。设计已确认并先行提交为 `07b336b7`，前端开发和自动化验证已完成。[§9.9](#main-overlay-implementation-results)分别记录本次测试、真实响应组件渲染和待登录的页面验收，不以原通过数量证明本步完成。
+> 2026-11-14 收尾：[第 9 节](#main-overlay-interaction-lld)的主图下拉菜单删除与 MA 线、读数同步显隐已完成。方案提交为 `07b336b78`，实现提交为 `3161b1cd4`；管理员已确认本需求验收通过并要求收尾，需求关闭。开发验证见 [§9.9](#main-overlay-implementation-results)，验收依据及结案见 [§9.10](#main-overlay-acceptance-closeout)。
 
 ## 1. 代码落点与参数
 
@@ -360,9 +360,9 @@ quantitativeStructure?: DetailChartQuantitativeStructure;
 
 ### 9.1 代码审计与修改位置
 
-2026-11-14 使用 `codegraph_explore` 核对 `StockChartWorkspace`、`StockMinuteChartWorkspace`、`IndexChartWorkspace`、`IndexMinuteChartWorkspace` 四个入口；再核对标题、标签、当前接口类型、数据适配、共享序列更新和测试引用。没有后端、配置或跨子系统依赖变更。以下路径相对 `wealth/src/`，列明的是拟改位置，不表示已经实施。
+2026-11-14 使用 `codegraph_explore` 核对 `StockChartWorkspace`、`StockMinuteChartWorkspace`、`IndexChartWorkspace`、`IndexMinuteChartWorkspace` 四个入口；再核对标题、标签、当前接口类型、数据适配、共享序列更新和测试引用。没有后端、配置或跨子系统依赖变更。以下路径相对 `wealth/src/`，本表保留开发前的审计事实与设计位置，最终落地记录见 §9.9。
 
-| 文件与符号 | 当前事实与拟改内容 |
+| 文件与符号 | 开发前事实与设计内容 |
 | --- | --- |
 | `features/stock-detail/chart/StockChartWorkspace.tsx`：`StockChartWorkspace`、`changeOverlay`、`StockMainChartHeader`、`StockKlineMetrics`、`StockIndicatorBar`、`buildIndicatorClass` | 当前局部状态只能取 MA/BOLL/趋势通道，默认 MA；再次点 MA 仍赋值 MA。局部状态和相关私有参数允许 `StockMainOverlay \| null`；MA 点击取反，其它项仍按原选择执行。标题删除 `<select>`，移除仅菜单使用的参数，保留设置按钮的 `onAction`。 |
 | `features/index-detail/chart/IndexChartWorkspace.tsx`：`selection`、`setOverlay`、`IndexMainHeader`、`MainMetrics`、`IndexIndicatorBar` | 当前 `selection=null` 表示还没有用户选择，默认取决于趋势能力和数据。保留外层 `null` 的含义，只把其内部 `overlay` 允许设为 `IndexMainOverlay \| null`。删除标题菜单及其专用参数，保留 `waveLegend`、设置和趋势读数。 |
@@ -442,7 +442,7 @@ quantitativeStructure?: DetailChartQuantitativeStructure;
 
 | 通用清单 | 本步适用性、落点与验证 |
 | --- | --- |
-| §2.1 交付事实链 | 适用。方案 §8.1 的原 Figma 删除证据和本节正文提供入口与交互依据；管理员已确认方案、LLD 并授权开发，代码与页面验收仍待执行。 |
+| §2.1 交付事实链 | 适用。方案 §8.1 的原 Figma 删除证据和本节正文提供入口与交互依据；管理员已确认方案并授权开发，开发与验收记录见 §9.9、§9.10。 |
 | §2.2 后端事实归一 | 适用。§9.3 直接消费现有七项 MA；§9.6 逐项核对真实回包。 |
 | §2.3 状态机 | 适用。§9.2、§9.6 明确空选择、默认、加载失败和重试，不新增超时或状态接口。 |
 | §2.4 显示语义 | 适用。§9.3、R8/R10 保证高亮、线与数值一致，缺值和合法零值分开。 |
@@ -482,7 +482,7 @@ quantitativeStructure?: DetailChartQuantitativeStructure;
 | R11 原功能 | 原副图、量化结构、九转、设置与研究场景随相关回归执行。股票分钟测试继续验证原标签和空主图线。 |
 | R12 默认与生命周期 | 原默认和按标的归属的判断未改；原页面周期、缓存、换标的及趋势默认回归继续执行。 |
 | R13 回包与范围 | 指数 MA 关闭后接入趋势及更早日期的历史点，选择仍为空。共享测试增加同一数据标识下的线 → 空 → 线，检查已调整的范围保留及新数据标识正常重置。 |
-| R14 请求边界 | 股票页面在完成初始加载后连续开关 MA，请求次数不增加；指数适配测试核对关闭不引起额外识别请求和历史回调。真实浏览器的网络及绘图开销仍待页面验收记录。 |
+| R14 请求边界 | 股票页面在完成初始加载后连续开关 MA，请求次数不增加；指数适配测试核对关闭不引起额外识别请求和历史回调。开发侧未取得本步真实浏览器网络及绘图开销记录；管理员验收反馈见 §9.10。 |
 
 验证在仓库外任务临时目录执行，复用已有依赖；按既有测试的真实相对路径复制 `tests/fixtures/wealth_watchlist_group_names.json` 与 `src/foundation/config/announcement_archive.py`，没有安装依赖或将测试产物写入仓库。
 
@@ -505,4 +505,20 @@ quantitativeStructure?: DetailChartQuantitativeStructure;
 
 上述显示预期使用实际响应取值后独立核算的两位小数字面值，没有调用待测 formatter 生成 expected。临时核验结果单独记录，不计入已提交测试文件的全量数量。
 
-**尚未完成：** §9.6 的真实浏览器核验窗口等待管理员正常登录。因此两档视口的实际布局、鼠标悬停、画布均线显隐、实际浏览范围及浏览器控制台和网络对照尚无本次通过结论。当前状态为开发及自动化验证完成、实页验收待继续；未部署，未获得管理员本步页面验收结论。
+**开发交接时的未完成项（历史记录）：** 当时 §9.6 的真实浏览器核验窗口等待管理员登录，开发侧没有取得两档视口的布局、鼠标悬停、画布均线显隐、实际浏览范围及浏览器控制台和网络对照记录。交接时状态为开发及自动化验证完成、实页验收待继续。后续管理员已确认需求验收通过，最新状态以 §9.10 为准。
+
+<a id="main-overlay-acceptance-closeout"></a>
+
+### 9.10 管理员验收与结案
+
+2026-11-14，管理员在本轮对话中确认本需求已验收通过，并要求收尾、整体提交。本次验收对应股票和指数详情页左上角下拉菜单删除，以及 MA 标签高亮与均线、顶部读数同步开关的需求。
+
+| 项目 | 收尾结论 |
+| --- | --- |
+| 方案与 LLD | 设计已确认并提交为 `07b336b78`；本次将验收与结案状态补回原文档。 |
+| 实现与回归 | `3161b1cd4` 已提交三个图表适配组件、五个现有测试文件及开发验证记录。全量 1610 项、相关 647 项、类型检查、构建和三类真实响应组件核验的证据继续按 §9.9 保留。 |
+| 页面验收 | 依据管理员本轮反馈记录为通过。反馈未附逐项截图、视口量测或网络与控制台记录，不将本次人工确认改写为 Codex 自动浏览器验收通过。 |
+| 剩余工作 | 本需求关闭，不再等待验证窗口登录，不追加自动浏览器验收。清理本任务临时验证资源；本次只提交收尾文档，不改产品代码或执行部署。 |
+| 提交范围 | 本需求的方案、实现与收尾提交全部保留。工作区其它任务的修改不进入本次提交。 |
+
+本次只修改文档，执行文档完整性、链接与差异检查；不重复运行已经通过的前端测试和构建，也不新增生产运行或部署结论。
